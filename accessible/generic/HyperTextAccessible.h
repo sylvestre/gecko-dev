@@ -29,9 +29,10 @@ namespace a11y {
 
 class TextRange;
 
-struct DOMPoint {
-  DOMPoint() : node(nullptr), idx(0) { }
-  DOMPoint(nsINode* aNode, int32_t aIdx) : node(aNode), idx(aIdx) { }
+struct DOMPoint
+{
+  DOMPoint() : node(nullptr), idx(0) {}
+  DOMPoint(nsINode* aNode, int32_t aIdx) : node(aNode), idx(aIdx) {}
 
   nsINode* node;
   int32_t idx;
@@ -48,7 +49,7 @@ const char16_t kForcedNewLineChar = '\n';
   */
 class HyperTextAccessible : public AccessibleWrap
 {
-public:
+ public:
   HyperTextAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -68,12 +69,14 @@ public:
   // HyperTextAccessible (static helper method)
 
   // Convert content offset to rendered text offset
-  nsresult ContentToRenderedOffset(nsIFrame *aFrame, int32_t aContentOffset,
-                                   uint32_t *aRenderedOffset) const;
+  nsresult ContentToRenderedOffset(nsIFrame* aFrame,
+                                   int32_t aContentOffset,
+                                   uint32_t* aRenderedOffset) const;
 
   // Convert rendered text offset to content offset
-  nsresult RenderedToContentOffset(nsIFrame *aFrame, uint32_t aRenderedOffset,
-                                   int32_t *aContentOffset) const;
+  nsresult RenderedToContentOffset(nsIFrame* aFrame,
+                                   uint32_t aRenderedOffset,
+                                   int32_t* aContentOffset) const;
 
   //////////////////////////////////////////////////////////////////////////////
   // HyperLinkAccessible
@@ -81,16 +84,12 @@ public:
   /**
    * Return link count within this hypertext accessible.
    */
-  uint32_t LinkCount()
-    { return EmbeddedChildCount(); }
+  uint32_t LinkCount() { return EmbeddedChildCount(); }
 
   /**
    * Return link accessible at the given index.
    */
-  Accessible* LinkAt(uint32_t aIndex)
-  {
-    return GetEmbeddedChildAt(aIndex);
-  }
+  Accessible* LinkAt(uint32_t aIndex) { return GetEmbeddedChildAt(aIndex); }
 
   /**
    * Return index for the given link accessible.
@@ -131,13 +130,15 @@ public:
    *                       by the offset returned is at [offset]. If the passed-in offset in inside a
    *                       descendant, then the returned offset will be on the relevant embedded object char.
    */
-  uint32_t DOMPointToOffset(nsINode* aNode, int32_t aNodeOffset,
+  uint32_t DOMPointToOffset(nsINode* aNode,
+                            int32_t aNodeOffset,
                             bool aIsEndOffset = false) const;
 
   /**
    * Transform the given a11y point into the offset relative this hypertext.
    */
-  uint32_t TransformOffset(Accessible* aDescendant, uint32_t aOffset,
+  uint32_t TransformOffset(Accessible* aDescendant,
+                           uint32_t aOffset,
                            bool aIsEndOffset) const;
 
   /**
@@ -151,7 +152,8 @@ public:
    * @param  aRange        [in, out] the range whose bounds to set
    * @return true   if conversion was successful
    */
-  bool OffsetsToDOMRange(int32_t aStartOffset, int32_t aEndOffset,
+  bool OffsetsToDOMRange(int32_t aStartOffset,
+                         int32_t aEndOffset,
                          nsRange* aRange);
 
   /**
@@ -175,21 +177,21 @@ public:
   /**
    * Return character count within the hypertext accessible.
    */
-  uint32_t CharacterCount() const
-    { return GetChildOffset(ChildCount()); }
+  uint32_t CharacterCount() const { return GetChildOffset(ChildCount()); }
 
   /**
    * Get a character at the given offset (don't support magic offsets).
    */
-  bool CharAt(int32_t aOffset, nsAString& aChar,
-              int32_t* aStartOffset = nullptr, int32_t* aEndOffset = nullptr)
+  bool CharAt(int32_t aOffset,
+              nsAString& aChar,
+              int32_t* aStartOffset = nullptr,
+              int32_t* aEndOffset = nullptr)
   {
     NS_ASSERTION(!aStartOffset == !aEndOffset,
                  "Offsets should be both defined or both undefined!");
 
     int32_t childIdx = GetChildIndexAtOffset(aOffset);
-    if (childIdx == -1)
-      return false;
+    if (childIdx == -1) return false;
 
     Accessible* child = GetChildAt(childIdx);
     child->AppendTextTo(aChar, aOffset - GetChildOffset(childIdx), 1);
@@ -212,39 +214,50 @@ public:
    * Return true if char at the given offset equals to given char.
    */
   bool IsCharAt(int32_t aOffset, char16_t aChar)
-    { return CharAt(aOffset) == aChar; }
+  {
+    return CharAt(aOffset) == aChar;
+  }
 
   /**
    * Return true if terminal char is at the given offset.
    */
-  bool IsLineEndCharAt(int32_t aOffset)
-    { return IsCharAt(aOffset, '\n'); }
+  bool IsLineEndCharAt(int32_t aOffset) { return IsCharAt(aOffset, '\n'); }
 
   /**
    * Return text between given offsets.
    */
-  void TextSubstring(int32_t aStartOffset, int32_t aEndOffset, nsAString& aText);
+  void TextSubstring(int32_t aStartOffset,
+                     int32_t aEndOffset,
+                     nsAString& aText);
 
   /**
    * Return text before/at/after the given offset corresponding to
    * the boundary type.
    */
-  void TextBeforeOffset(int32_t aOffset, AccessibleTextBoundary aBoundaryType,
-                       int32_t* aStartOffset, int32_t* aEndOffset,
-                       nsAString& aText);
-  void TextAtOffset(int32_t aOffset, AccessibleTextBoundary aBoundaryType,
-                    int32_t* aStartOffset, int32_t* aEndOffset,
+  void TextBeforeOffset(int32_t aOffset,
+                        AccessibleTextBoundary aBoundaryType,
+                        int32_t* aStartOffset,
+                        int32_t* aEndOffset,
+                        nsAString& aText);
+  void TextAtOffset(int32_t aOffset,
+                    AccessibleTextBoundary aBoundaryType,
+                    int32_t* aStartOffset,
+                    int32_t* aEndOffset,
                     nsAString& aText);
-  void TextAfterOffset(int32_t aOffset, AccessibleTextBoundary aBoundaryType,
-                       int32_t* aStartOffset, int32_t* aEndOffset,
+  void TextAfterOffset(int32_t aOffset,
+                       AccessibleTextBoundary aBoundaryType,
+                       int32_t* aStartOffset,
+                       int32_t* aEndOffset,
                        nsAString& aText);
 
   /**
    * Return text attributes for the given text range.
    */
-  already_AddRefed<nsIPersistentProperties>
-    TextAttributes(bool aIncludeDefAttrs, int32_t aOffset,
-                   int32_t* aStartOffset, int32_t* aEndOffset);
+  already_AddRefed<nsIPersistentProperties> TextAttributes(
+      bool aIncludeDefAttrs,
+      int32_t aOffset,
+      int32_t* aStartOffset,
+      int32_t* aEndOffset);
 
   /**
    * Return text attributes applied to the accessible.
@@ -303,8 +316,11 @@ public:
   /**
    * Return a rect of the given text range relative given coordinate system.
    */
-  nsIntRect TextBounds(int32_t aStartOffset, int32_t aEndOffset,
-                       uint32_t aCoordType = nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE);
+  nsIntRect TextBounds(
+      int32_t aStartOffset,
+      int32_t aEndOffset,
+      uint32_t aCoordType =
+          nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE);
 
   /**
    * Return a rect for character at given offset relative given coordinate
@@ -312,8 +328,9 @@ public:
    */
   nsIntRect CharBounds(int32_t aOffset, uint32_t aCoordType)
   {
-    int32_t endOffset = aOffset == static_cast<int32_t>(CharacterCount()) ?
-      aOffset : aOffset + 1;
+    int32_t endOffset = aOffset == static_cast<int32_t>(CharacterCount())
+                            ? aOffset
+                            : aOffset + 1;
     return TextBounds(aOffset, endOffset, aCoordType);
   }
 
@@ -347,14 +364,16 @@ public:
    * Return the start and end offset of the specified selection.
    */
   bool SelectionBoundsAt(int32_t aSelectionNum,
-                         int32_t* aStartOffset, int32_t* aEndOffset);
+                         int32_t* aStartOffset,
+                         int32_t* aEndOffset);
 
   /*
    * Changes the start and end offset of the specified selection.
    * @return true if succeeded
    */
   bool SetSelectionBoundsAt(int32_t aSelectionNum,
-                            int32_t aStartOffset, int32_t aEndOffset);
+                            int32_t aStartOffset,
+                            int32_t aEndOffset);
 
   /**
    * Adds a selection bounded by the specified offsets.
@@ -371,7 +390,8 @@ public:
   /**
    * Scroll the given text range into view.
    */
-  void ScrollSubstringTo(int32_t aStartOffset, int32_t aEndOffset,
+  void ScrollSubstringTo(int32_t aStartOffset,
+                         int32_t aEndOffset,
                          uint32_t aScrollType);
 
   /**
@@ -380,7 +400,8 @@ public:
   void ScrollSubstringToPoint(int32_t aStartOffset,
                               int32_t aEndOffset,
                               uint32_t aCoordinateType,
-                              int32_t aX, int32_t aY);
+                              int32_t aX,
+                              int32_t aY);
 
   /**
    * Return a range that encloses the text control or the document this
@@ -431,8 +452,8 @@ public:
    */
   dom::Selection* DOMSelection() const;
 
-protected:
-  virtual ~HyperTextAccessible() { }
+ protected:
+  virtual ~HyperTextAccessible() {}
 
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
@@ -460,14 +481,15 @@ protected:
   bool IsEmptyLastLineOffset(int32_t aOffset)
   {
     return aOffset == static_cast<int32_t>(CharacterCount()) &&
-      IsLineEndCharAt(aOffset - 1);
+           IsLineEndCharAt(aOffset - 1);
   }
 
   /**
    * Return an offset of the found word boundary.
    */
-  uint32_t FindWordBoundary(uint32_t aOffset, nsDirection aDirection,
-                           EWordMovementType aWordMovementType)
+  uint32_t FindWordBoundary(uint32_t aOffset,
+                            nsDirection aDirection,
+                            EWordMovementType aWordMovementType)
   {
     return FindOffset(aOffset, aDirection, eSelectWord, aWordMovementType);
   }
@@ -478,7 +500,8 @@ protected:
    * '\n' character is begin of line. In case of wrap word breaks these offsets
    * are equal.
    */
-  enum EWhichLineBoundary {
+  enum EWhichLineBoundary
+  {
     ePrevLineBegin,
     ePrevLineEnd,
     eThisLineBegin,
@@ -497,7 +520,8 @@ protected:
    * Return an offset corresponding to the given direction and selection amount
    * relative the given offset. A helper used to find word or line boundaries.
    */
-  uint32_t FindOffset(uint32_t aOffset, nsDirection aDirection,
+  uint32_t FindOffset(uint32_t aOffset,
+                      nsDirection aDirection,
                       nsSelectionAmount aAmount,
                       EWordMovementType aWordMovementType = eDefaultBehavior);
 
@@ -542,7 +566,8 @@ protected:
                                        nsIContent* aElementContent);
 
   // Helpers
-  nsresult GetDOMPointByFrameOffset(nsIFrame* aFrame, int32_t aOffset,
+  nsresult GetDOMPointByFrameOffset(nsIFrame* aFrame,
+                                    int32_t aOffset,
                                     Accessible* aAccessible,
                                     mozilla::a11y::DOMPoint* aPoint);
 
@@ -559,8 +584,10 @@ protected:
    * @param aEndOffset        [in, out] the end offset
    * @param aAttributes       [out, optional] result attributes
    */
-  void GetSpellTextAttr(nsINode* aNode, int32_t aNodeOffset,
-                        uint32_t* aStartOffset, uint32_t* aEndOffset,
+  void GetSpellTextAttr(nsINode* aNode,
+                        int32_t aNodeOffset,
+                        uint32_t* aStartOffset,
+                        uint32_t* aEndOffset,
                         nsIPersistentProperties* aAttributes);
 
   /**
@@ -569,13 +596,12 @@ protected:
    */
   void SetMathMLXMLRoles(nsIPersistentProperties* aAttributes);
 
-private:
+ private:
   /**
    * End text offsets array.
    */
   mutable nsTArray<uint32_t> mOffsets;
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Accessible downcasting method
@@ -586,8 +612,7 @@ Accessible::AsHyperText()
   return IsHyperText() ? static_cast<HyperTextAccessible*>(this) : nullptr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

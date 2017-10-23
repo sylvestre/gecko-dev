@@ -1,6 +1,6 @@
 #include "TestAsyncReturns.h"
 
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 
 #include "mozilla/AbstractThread.h"
 #include "mozilla/Unused.h"
@@ -27,19 +27,20 @@ TestAsyncReturnsParent::~TestAsyncReturnsParent()
 void
 TestAsyncReturnsParent::Main()
 {
-  SendNoReturn()->Then(MessageLoop::current()->SerialEventTarget(), __func__,
-                       [](bool unused) {
-                         fail("resolve handler should not be called");
-                       },
-                       [](PromiseRejectReason aReason) {
-                         // MozPromise asserts in debug build if the
-                         // handler is not called
-                         if (aReason != PromiseRejectReason::ChannelClosed) {
-                           fail("reject with wrong reason");
-                         }
-                         passed("reject handler called on channel close");
-                       });
-  SendPing()->Then(MessageLoop::current()->SerialEventTarget(), __func__,
+  SendNoReturn()->Then(
+      MessageLoop::current()->SerialEventTarget(),
+      __func__,
+      [](bool unused) { fail("resolve handler should not be called"); },
+      [](PromiseRejectReason aReason) {
+        // MozPromise asserts in debug build if the
+        // handler is not called
+        if (aReason != PromiseRejectReason::ChannelClosed) {
+          fail("reject with wrong reason");
+        }
+        passed("reject handler called on channel close");
+      });
+  SendPing()->Then(MessageLoop::current()->SerialEventTarget(),
+                   __func__,
                    [this](bool one) {
                      if (one) {
                        passed("take one argument");
@@ -48,11 +49,8 @@ TestAsyncReturnsParent::Main()
                      }
                      Close();
                    },
-                   [](PromiseRejectReason aReason) {
-                     fail("sending Ping");
-                   });
+                   [](PromiseRejectReason aReason) { fail("sending Ping"); });
 }
-
 
 mozilla::ipc::IPCResult
 TestAsyncReturnsParent::RecvPong(PongResolver&& aResolve)
@@ -60,7 +58,6 @@ TestAsyncReturnsParent::RecvPong(PongResolver&& aResolve)
   aResolve(Tuple<const uint32_t&, const uint32_t&>(sMagic1, sMagic2));
   return IPC_OK();
 }
-
 
 //-----------------------------------------------------------------------------
 // child
@@ -85,21 +82,20 @@ TestAsyncReturnsChild::RecvNoReturn(NoReturnResolver&& aResolve)
 mozilla::ipc::IPCResult
 TestAsyncReturnsChild::RecvPing(PingResolver&& aResolve)
 {
-  SendPong()->Then(MessageLoop::current()->SerialEventTarget(), __func__,
-                   [aResolve](const Tuple<uint32_t, uint32_t>& aParam) {
-                     if (Get<0>(aParam) == sMagic1 && Get<1>(aParam) == sMagic2) {
-                       passed("take two arguments");
-                     } else {
-                       fail("get two argument but has wrong value");
-                     }
-                     aResolve(true);
-                   },
-                   [](PromiseRejectReason aReason) {
-                     fail("sending Pong");
-                   });
+  SendPong()->Then(
+      MessageLoop::current()->SerialEventTarget(),
+      __func__,
+      [aResolve](const Tuple<uint32_t, uint32_t>& aParam) {
+        if (Get<0>(aParam) == sMagic1 && Get<1>(aParam) == sMagic2) {
+          passed("take two arguments");
+        } else {
+          fail("get two argument but has wrong value");
+        }
+        aResolve(true);
+      },
+      [](PromiseRejectReason aReason) { fail("sending Pong"); });
   return IPC_OK();
 }
 
-
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

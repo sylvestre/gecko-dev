@@ -15,11 +15,12 @@
 using namespace mozilla;
 using namespace mozilla::widget;
 
-const wchar_t WinPointerEvents::kPointerLibraryName[] =  L"user32.dll";
+const wchar_t WinPointerEvents::kPointerLibraryName[] = L"user32.dll";
 HMODULE WinPointerEvents::sLibraryHandle = nullptr;
 WinPointerEvents::GetPointerTypePtr WinPointerEvents::getPointerType = nullptr;
 WinPointerEvents::GetPointerInfoPtr WinPointerEvents::getPointerInfo = nullptr;
-WinPointerEvents::GetPointerPenInfoPtr WinPointerEvents::getPointerPenInfo = nullptr;
+WinPointerEvents::GetPointerPenInfoPtr WinPointerEvents::getPointerPenInfo =
+    nullptr;
 bool WinPointerEvents::sPointerEventEnabled = true;
 bool WinPointerEvents::sFirePointerEventsByWinPointerMessages = false;
 
@@ -28,11 +29,12 @@ WinPointerEvents::WinPointerEvents()
   InitLibrary();
   static bool addedPointerEventEnabled = false;
   if (!addedPointerEventEnabled) {
-    Preferences::AddBoolVarCache(&sPointerEventEnabled,
-                                 "dom.w3c_pointer_events.enabled", true);
     Preferences::AddBoolVarCache(
-      &sFirePointerEventsByWinPointerMessages,
-      "dom.w3c_pointer_events.dispatch_by_pointer_messages", false);
+        &sPointerEventEnabled, "dom.w3c_pointer_events.enabled", true);
+    Preferences::AddBoolVarCache(
+        &sFirePointerEventsByWinPointerMessages,
+        "dom.w3c_pointer_events.dispatch_by_pointer_messages",
+        false);
     addedPointerEventEnabled = true;
   }
 }
@@ -54,11 +56,11 @@ WinPointerEvents::InitLibrary()
   MOZ_ASSERT(sLibraryHandle, "cannot load pointer library");
   if (sLibraryHandle) {
     getPointerType =
-      (GetPointerTypePtr)GetProcAddress(sLibraryHandle, "GetPointerType");
+        (GetPointerTypePtr)GetProcAddress(sLibraryHandle, "GetPointerType");
     getPointerInfo =
-      (GetPointerInfoPtr)GetProcAddress(sLibraryHandle, "GetPointerInfo");
-    getPointerPenInfo =
-      (GetPointerPenInfoPtr)GetProcAddress(sLibraryHandle, "GetPointerPenInfo");
+        (GetPointerInfoPtr)GetProcAddress(sLibraryHandle, "GetPointerInfo");
+    getPointerPenInfo = (GetPointerPenInfoPtr)GetProcAddress(
+        sLibraryHandle, "GetPointerPenInfo");
   }
 
   if (!getPointerType || !getPointerInfo || !getPointerPenInfo) {
@@ -93,7 +95,7 @@ WinPointerEvents::ShouldHandleWinPointerMessages(UINT aMsg, WPARAM aWParam)
 
 bool
 WinPointerEvents::GetPointerType(uint32_t aPointerId,
-                                 POINTER_INPUT_TYPE *aPointerType)
+                                 POINTER_INPUT_TYPE* aPointerType)
 {
   if (!getPointerType) {
     return false;
@@ -111,7 +113,7 @@ WinPointerEvents::GetPointerType(uint32_t aPointerId)
 
 bool
 WinPointerEvents::GetPointerInfo(uint32_t aPointerId,
-                                 POINTER_INFO *aPointerInfo)
+                                 POINTER_INFO* aPointerInfo)
 {
   if (!getPointerInfo) {
     return false;
@@ -121,7 +123,7 @@ WinPointerEvents::GetPointerInfo(uint32_t aPointerId,
 
 bool
 WinPointerEvents::GetPointerPenInfo(uint32_t aPointerId,
-                                    POINTER_PEN_INFO *aPenInfo)
+                                    POINTER_PEN_INFO* aPenInfo)
 {
   if (!getPointerPenInfo) {
     return false;
@@ -163,18 +165,18 @@ WinPointerEvents::GetCachedPointerInfo(UINT aMsg, WPARAM aWParam)
     return nullptr;
   }
   switch (aMsg) {
-  case WM_LBUTTONDOWN:
-  case WM_MBUTTONDOWN:
-  case WM_RBUTTONDOWN:
-    return &mPenPointerDownInfo;
-  case WM_LBUTTONUP:
-  case WM_MBUTTONUP:
-  case WM_RBUTTONUP:
-    return &mPenPointerDownInfo;
-  case WM_MOUSEMOVE:
-    return &mPenPointerUpdateInfo;
-  default:
-    MOZ_ASSERT(false);
+    case WM_LBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+      return &mPenPointerDownInfo;
+    case WM_LBUTTONUP:
+    case WM_MBUTTONUP:
+    case WM_RBUTTONUP:
+      return &mPenPointerDownInfo;
+    case WM_MOUSEMOVE:
+      return &mPenPointerUpdateInfo;
+    default:
+      MOZ_ASSERT(false);
   }
   return nullptr;
 }
@@ -189,17 +191,17 @@ WinPointerEvents::ConvertAndCachePointerInfo(UINT aMsg, WPARAM aWParam)
   // pointerupdate, and pointerup because Windows doesn't always interleave
   // pointer messages and mouse messages.
   switch (aMsg) {
-  case WM_POINTERDOWN:
-    ConvertAndCachePointerInfo(aWParam, &mPenPointerDownInfo);
-    break;
-  case WM_POINTERUP:
-    ConvertAndCachePointerInfo(aWParam, &mPenPointerUpInfo);
-    break;
-  case WM_POINTERUPDATE:
-    ConvertAndCachePointerInfo(aWParam, &mPenPointerUpdateInfo);
-    break;
-  default:
-    break;
+    case WM_POINTERDOWN:
+      ConvertAndCachePointerInfo(aWParam, &mPenPointerDownInfo);
+      break;
+    case WM_POINTERUP:
+      ConvertAndCachePointerInfo(aWParam, &mPenPointerUpInfo);
+      break;
+    case WM_POINTERUPDATE:
+      ConvertAndCachePointerInfo(aWParam, &mPenPointerUpdateInfo);
+      break;
+    default:
+      break;
   }
 }
 

@@ -23,12 +23,14 @@ MOZ_DEFINE_MALLOC_SIZE_OF(RuleProcessorCacheMallocSizeOf)
 
 NS_IMETHODIMP
 RuleProcessorCache::CollectReports(nsIHandleReportCallback* aHandleReport,
-                                   nsISupports* aData, bool aAnonymize)
+                                   nsISupports* aData,
+                                   bool aAnonymize)
 {
-  MOZ_COLLECT_REPORT(
-    "explicit/layout/rule-processor-cache", KIND_HEAP, UNITS_BYTES,
-    SizeOfIncludingThis(RuleProcessorCacheMallocSizeOf),
-    "Memory used for cached rule processors.");
+  MOZ_COLLECT_REPORT("explicit/layout/rule-processor-cache",
+                     KIND_HEAP,
+                     UNITS_BYTES,
+                     SizeOfIncludingThis(RuleProcessorCacheMallocSizeOf),
+                     "Memory used for cached rule processors.");
 
   return NS_OK;
 }
@@ -118,8 +120,8 @@ RuleProcessorCache::PutRuleProcessor(
   if (!EnsureGlobal()) {
     return;
   }
-  gRuleProcessorCache->DoPutRuleProcessor(aSheets, Move(aDocumentRulesInSheets),
-                                          aCacheKey, aRuleProcessor);
+  gRuleProcessorCache->DoPutRuleProcessor(
+      aSheets, Move(aDocumentRulesInSheets), aCacheKey, aRuleProcessor);
 }
 
 /* static */ void
@@ -143,7 +145,8 @@ RuleProcessorCache::StopTracking(nsCSSRuleProcessor* aRuleProcessor)
 void
 RuleProcessorCache::DoRemoveSheet(CSSStyleSheet* aSheet)
 {
-  auto last = std::remove_if(mEntries.begin(), mEntries.end(),
+  auto last = std::remove_if(mEntries.begin(),
+                             mEntries.end(),
                              HasSheet_ThenRemoveRuleProcessors(this, aSheet));
   mEntries.TruncateLength(last - mEntries.begin());
 }
@@ -284,4 +287,5 @@ RuleProcessorCache::ExpirationTracker::RemoveObjectIfTracked(
 }
 
 bool RuleProcessorCache::gShutdown = false;
-mozilla::StaticRefPtr<RuleProcessorCache> RuleProcessorCache::gRuleProcessorCache;
+mozilla::StaticRefPtr<RuleProcessorCache>
+    RuleProcessorCache::gRuleProcessorCache;

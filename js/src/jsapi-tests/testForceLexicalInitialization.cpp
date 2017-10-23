@@ -9,8 +9,7 @@
 #include "jsapi-tests/tests.h"
 #include "vm/EnvironmentObject.h"
 
-BEGIN_TEST(testForceLexicalInitialization)
-{
+BEGIN_TEST(testForceLexicalInitialization) {
     // Attach an uninitialized lexical to a scope and ensure that it's
     // set to undefined
     js::RootedGlobalObject g(cx, cx->global());

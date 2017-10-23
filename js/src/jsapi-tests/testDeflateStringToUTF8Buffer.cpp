@@ -6,8 +6,7 @@
 
 using namespace JS;
 
-BEGIN_TEST(test_DeflateStringToUTF8Buffer)
-{
+BEGIN_TEST(test_DeflateStringToUTF8Buffer) {
     JSString* str;
     JSFlatString* flatStr;
 
@@ -23,12 +22,12 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     // to retrieve the characters from the string and generates UTF-8 output
     // that is identical to the ASCII input.
 
-    str = JS_NewStringCopyZ(cx, "Ohai"); // { 0x4F, 0x68, 0x61, 0x69 }
+    str = JS_NewStringCopyZ(cx, "Ohai");  // { 0x4F, 0x68, 0x61, 0x69 }
     MOZ_RELEASE_ASSERT(str);
     flatStr = JS_FlattenString(cx, str);
 
     {
-        const char expected[] = { 0x4F, 0x68, 0x61, 0x69, 0x1 };
+        const char expected[] = {0x4F, 0x68, 0x61, 0x69, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -36,7 +35,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
 
     {
         size_t dstlen = 4;
-        const char expected[] = { 0x4F, 0x68, 0x61, 0x69, 0x1 };
+        const char expected[] = {0x4F, 0x68, 0x61, 0x69, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -45,7 +44,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
 
     {
         size_t numchars = 0;
-        const char expected[] = { 0x4F, 0x68, 0x61, 0x69, 0x1 };
+        const char expected[] = {0x4F, 0x68, 0x61, 0x69, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, nullptr, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -55,7 +54,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 4;
         size_t numchars = 0;
-        const char expected[] = { 0x4F, 0x68, 0x61, 0x69, 0x1 };
+        const char expected[] = {0x4F, 0x68, 0x61, 0x69, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -66,7 +65,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 3;
         size_t numchars = 0;
-        const char expected[] = { 0x4F, 0x68, 0x61, 0x1 };
+        const char expected[] = {0x4F, 0x68, 0x61, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -77,7 +76,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 100;
         size_t numchars = 0;
-        const char expected[] = { 0x4F, 0x68, 0x61, 0x69, 0x1 };
+        const char expected[] = {0x4F, 0x68, 0x61, 0x69, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -88,7 +87,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 0;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0x1 };
+        const unsigned char expected[] = {0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -100,12 +99,12 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     // like with the ASCII string but generates UTF-8 output that is different
     // from the ASCII input.
 
-    str = JS_NewUCStringCopyZ(cx, u"\xD3\x68\xE3\xEF"); // u"Óhãï"
+    str = JS_NewUCStringCopyZ(cx, u"\xD3\x68\xE3\xEF");  // u"Óhãï"
     MOZ_RELEASE_ASSERT(str);
     flatStr = JS_FlattenString(cx, str);
 
     {
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -113,7 +112,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
 
     {
         size_t dstlen = 7;
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -122,7 +121,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
 
     {
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, nullptr, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -132,7 +131,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 7;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -145,7 +144,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
         // space to encode the first two characters, which takes three bytes.
         size_t dstlen = 3;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -159,7 +158,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
         // the third character would take another two bytes.
         size_t dstlen = 4;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -170,7 +169,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 100;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1 };
+        const unsigned char expected[] = {0xC3, 0x93, 0x68, 0xC3, 0xA3, 0xC3, 0xAF, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -181,7 +180,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 0;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0x1 };
+        const unsigned char expected[] = {0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -192,12 +191,12 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     // Test with a UTF-16 string, which calls JSFlatString::twoByteChars
     // to retrieve the characters from the string.
 
-    str = JS_NewUCStringCopyZ(cx, u"\x038C\x0068\x0203\x0457"); // u"Όhȃї"
+    str = JS_NewUCStringCopyZ(cx, u"\x038C\x0068\x0203\x0457");  // u"Όhȃї"
     MOZ_RELEASE_ASSERT(str);
     flatStr = JS_FlattenString(cx, str);
 
     {
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -205,7 +204,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
 
     {
         size_t dstlen = 7;
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -214,7 +213,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
 
     {
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, nullptr, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -224,7 +223,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 7;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -237,7 +236,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
         // space to encode the first two characters, which takes three bytes.
         size_t dstlen = 3;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -251,7 +250,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
         // the third character would take another two bytes.
         size_t dstlen = 4;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -262,7 +261,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 100;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1 };
+        const unsigned char expected[] = {0xCE, 0x8C, 0x68, 0xC8, 0x83, 0xD1, 0x97, 0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);
@@ -273,7 +272,7 @@ BEGIN_TEST(test_DeflateStringToUTF8Buffer)
     {
         size_t dstlen = 0;
         size_t numchars = 0;
-        const unsigned char expected[] = { 0x1 };
+        const unsigned char expected[] = {0x1};
         memset(actual, 0x1, 100);
         JS::DeflateStringToUTF8Buffer(flatStr, range, &dstlen, &numchars);
         CHECK_EQUAL(memcmp(actual, expected, sizeof(expected)), 0);

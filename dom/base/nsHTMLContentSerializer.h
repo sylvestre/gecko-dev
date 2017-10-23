@@ -20,7 +20,8 @@
 class nsIContent;
 class nsAtom;
 
-class nsHTMLContentSerializer final : public nsXHTMLContentSerializer {
+class nsHTMLContentSerializer final : public nsXHTMLContentSerializer
+{
  public:
   nsHTMLContentSerializer();
   virtual ~nsHTMLContentSerializer();
@@ -32,13 +33,13 @@ class nsHTMLContentSerializer final : public nsXHTMLContentSerializer {
   NS_IMETHOD AppendElementEnd(mozilla::dom::Element* aElement,
                               nsAString& aStr) override;
 
-  NS_IMETHOD AppendDocumentStart(nsIDocument *aDocument,
+  NS_IMETHOD AppendDocumentStart(nsIDocument* aDocument,
                                  nsAString& aStr) override;
- protected:
 
+ protected:
   MOZ_MUST_USE
   virtual bool SerializeHTMLAttributes(nsIContent* aContent,
-                                       nsIContent *aOriginalElement,
+                                       nsIContent* aOriginalElement,
                                        nsAString& aTagPrefix,
                                        const nsAString& aTagNamespaceURI,
                                        nsAtom* aTagName,
@@ -48,7 +49,6 @@ class nsHTMLContentSerializer final : public nsXHTMLContentSerializer {
   MOZ_MUST_USE
   virtual bool AppendAndTranslateEntities(const nsAString& aStr,
                                           nsAString& aOutputStr) override;
-
 };
 
 nsresult

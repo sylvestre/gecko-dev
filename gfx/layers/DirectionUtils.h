@@ -12,8 +12,10 @@
 namespace mozilla {
 namespace layers {
 
-template <typename PointOrRect>
-CoordOf<PointOrRect> GetAxisStart(ScrollDirection aDir, const PointOrRect& aValue) {
+template<typename PointOrRect>
+CoordOf<PointOrRect>
+GetAxisStart(ScrollDirection aDir, const PointOrRect& aValue)
+{
   if (aDir == ScrollDirection::HORIZONTAL) {
     return aValue.x;
   } else {
@@ -21,8 +23,10 @@ CoordOf<PointOrRect> GetAxisStart(ScrollDirection aDir, const PointOrRect& aValu
   }
 }
 
-template <typename Rect>
-CoordOf<Rect> GetAxisEnd(ScrollDirection aDir, const Rect& aValue) {
+template<typename Rect>
+CoordOf<Rect>
+GetAxisEnd(ScrollDirection aDir, const Rect& aValue)
+{
   if (aDir == ScrollDirection::HORIZONTAL) {
     return aValue.x + aValue.width;
   } else {
@@ -30,8 +34,10 @@ CoordOf<Rect> GetAxisEnd(ScrollDirection aDir, const Rect& aValue) {
   }
 }
 
-template <typename Rect>
-CoordOf<Rect> GetAxisLength(ScrollDirection aDir, const Rect& aValue) {
+template<typename Rect>
+CoordOf<Rect>
+GetAxisLength(ScrollDirection aDir, const Rect& aValue)
+{
   if (aDir == ScrollDirection::HORIZONTAL) {
     return aValue.width;
   } else {
@@ -39,8 +45,11 @@ CoordOf<Rect> GetAxisLength(ScrollDirection aDir, const Rect& aValue) {
   }
 }
 
-template <typename FromUnits, typename ToUnits>
-float GetAxisScale(ScrollDirection aDir, const gfx::ScaleFactors2D<FromUnits, ToUnits>& aValue) {
+template<typename FromUnits, typename ToUnits>
+float
+GetAxisScale(ScrollDirection aDir,
+             const gfx::ScaleFactors2D<FromUnits, ToUnits>& aValue)
+{
   if (aDir == ScrollDirection::HORIZONTAL) {
     return aValue.xScale;
   } else {
@@ -48,13 +57,14 @@ float GetAxisScale(ScrollDirection aDir, const gfx::ScaleFactors2D<FromUnits, To
   }
 }
 
-inline ScrollDirection GetPerpendicularDirection(ScrollDirection aDir) {
-  return aDir == ScrollDirection::HORIZONTAL
-       ? ScrollDirection::VERTICAL
-       : ScrollDirection::HORIZONTAL;
+inline ScrollDirection
+GetPerpendicularDirection(ScrollDirection aDir)
+{
+  return aDir == ScrollDirection::HORIZONTAL ? ScrollDirection::VERTICAL
+                                             : ScrollDirection::HORIZONTAL;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_DIRECTIONUTILS_H */

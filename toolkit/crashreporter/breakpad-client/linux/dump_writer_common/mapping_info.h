@@ -40,15 +40,17 @@ namespace google_breakpad {
 
 // One of these is produced for each mapping in the process (i.e. line in
 // /proc/$x/maps).
-struct MappingInfo {
+struct MappingInfo
+{
   uintptr_t start_addr;
   size_t size;
   size_t offset;  // offset into the backed file.
-  bool exec;  // true if the mapping has the execute bit set.
+  bool exec;      // true if the mapping has the execute bit set.
   char name[NAME_MAX];
 };
 
-struct MappingEntry {
+struct MappingEntry
+{
   MappingInfo first;
   uint8_t second[sizeof(MDGUID)];
 };

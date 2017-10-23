@@ -18,7 +18,8 @@
 namespace mozilla {
 
 // This must be called early, while the process is still single-threaded.
-MOZ_EXPORT void SandboxEarlyInit(GeckoProcessType aType);
+MOZ_EXPORT void
+SandboxEarlyInit(GeckoProcessType aType);
 
 #ifdef MOZ_CONTENT_SANDBOX
 // Call only if SandboxInfo::CanSandboxContent() returns true.
@@ -26,18 +27,20 @@ MOZ_EXPORT void SandboxEarlyInit(GeckoProcessType aType);
 // aBrokerFd is the filesystem broker client file descriptor,
 // or -1 to allow direct filesystem access.
 // isFileProcess determines whether we allow system wide file reads.
-MOZ_EXPORT bool SetContentProcessSandbox(int aBrokerFd,
-                                         bool aFileProcess,
-                                         std::vector<int>& aSyscallWhitelist);
+MOZ_EXPORT bool
+SetContentProcessSandbox(int aBrokerFd,
+                         bool aFileProcess,
+                         std::vector<int>& aSyscallWhitelist);
 #endif
 
 #ifdef MOZ_GMP_SANDBOX
 // Call only if SandboxInfo::CanSandboxMedia() returns true.
 // (No-op if MOZ_DISABLE_GMP_SANDBOX is set.)
 // aFilePath is the path to the plugin file.
-MOZ_EXPORT void SetMediaPluginSandbox(const char *aFilePath);
+MOZ_EXPORT void
+SetMediaPluginSandbox(const char* aFilePath);
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Sandbox_h
+#endif  // mozilla_Sandbox_h

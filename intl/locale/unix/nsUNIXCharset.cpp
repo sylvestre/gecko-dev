@@ -33,17 +33,15 @@ static constexpr nsUConvProp kUnixCharsets[] = {
 
 NS_IMPL_ISUPPORTS(nsPlatformCharset, nsIPlatformCharset)
 
-nsPlatformCharset::nsPlatformCharset()
-{
-}
+nsPlatformCharset::nsPlatformCharset() {}
 
 static nsresult
 ConvertLocaleToCharsetUsingDeprecatedConfig(const nsACString& locale,
                                             nsACString& oResult)
 {
   if (!(locale.IsEmpty())) {
-    if (NS_SUCCEEDED(nsUConvPropertySearch::SearchPropertyValue(kUnixCharsets,
-        ArrayLength(kUnixCharsets), locale, oResult))) {
+    if (NS_SUCCEEDED(nsUConvPropertySearch::SearchPropertyValue(
+            kUnixCharsets, ArrayLength(kUnixCharsets), locale, oResult))) {
       return NS_OK;
     }
   }
@@ -52,19 +50,18 @@ ConvertLocaleToCharsetUsingDeprecatedConfig(const nsACString& locale,
   return NS_SUCCESS_USING_FALLBACK_LOCALE;
 }
 
-nsPlatformCharset::~nsPlatformCharset()
-{
-}
+nsPlatformCharset::~nsPlatformCharset() {}
 
 NS_IMETHODIMP
-nsPlatformCharset::GetCharset(nsPlatformCharsetSel selector, nsACString& oResult)
+nsPlatformCharset::GetCharset(nsPlatformCharsetSel selector,
+                              nsACString& oResult)
 {
   oResult = mCharset;
   return NS_OK;
 }
 
 nsresult
-nsPlatformCharset::InitGetCharset(nsACString &oString)
+nsPlatformCharset::InitGetCharset(nsACString& oString)
 {
 #if HAVE_LANGINFO_CODESET
   char* nl_langinfo_codeset = nullptr;
@@ -118,7 +115,7 @@ nsPlatformCharset::Init()
 }
 
 nsresult
-nsPlatformCharset::VerifyCharset(nsCString &aCharset)
+nsPlatformCharset::VerifyCharset(nsCString& aCharset)
 {
   // fast path for UTF-8.  Most platform uses UTF-8 as charset now.
   if (aCharset.EqualsLiteral("UTF-8")) {

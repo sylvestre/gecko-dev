@@ -18,16 +18,11 @@ namespace dom {
 
 namespace {
 PermissionObserver* gInstance = nullptr;
-} // namespace
+}  // namespace
 
-NS_IMPL_ISUPPORTS(PermissionObserver,
-                  nsIObserver,
-                  nsISupportsWeakReference)
+NS_IMPL_ISUPPORTS(PermissionObserver, nsIObserver, nsISupportsWeakReference)
 
-PermissionObserver::PermissionObserver()
-{
-  MOZ_ASSERT(!gInstance);
-}
+PermissionObserver::PermissionObserver() { MOZ_ASSERT(!gInstance); }
 
 PermissionObserver::~PermissionObserver()
 {
@@ -127,5 +122,5 @@ PermissionObserver::Observe(nsISupports* aSubject,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

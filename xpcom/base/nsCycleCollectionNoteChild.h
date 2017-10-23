@@ -36,14 +36,12 @@ CycleCollectionNoteEdgeName(nsCycleCollectionTraversalCallback& aCallback,
   }
 }
 
-#define NS_CYCLE_COLLECTION_INNERCLASS                                         \
-        cycleCollection
+#define NS_CYCLE_COLLECTION_INNERCLASS cycleCollection
 
-#define NS_CYCLE_COLLECTION_INNERNAME                                          \
-        _cycleCollectorGlobal
+#define NS_CYCLE_COLLECTION_INNERNAME _cycleCollectorGlobal
 
-#define NS_CYCLE_COLLECTION_PARTICIPANT(_class)                                \
-        _class::NS_CYCLE_COLLECTION_INNERCLASS::GetParticipant()
+#define NS_CYCLE_COLLECTION_PARTICIPANT(_class) \
+  _class::NS_CYCLE_COLLECTION_INNERCLASS::GetParticipant()
 
 template<typename T>
 nsISupports*
@@ -54,8 +52,7 @@ ToSupports(T* aPtr, typename T::NS_CYCLE_COLLECTION_INNERCLASS* aDummy = 0)
 
 // The default implementation of this class template is empty, because it
 // should never be used: see the partial specializations below.
-template<typename T,
-         bool IsXPCOM = mozilla::IsBaseOf<nsISupports, T>::value>
+template<typename T, bool IsXPCOM = mozilla::IsBaseOf<nsISupports, T>::value>
 struct CycleCollectionNoteChildImpl
 {
 };
@@ -84,7 +81,9 @@ struct CycleCollectionNoteChildImpl<T, false>
 template<typename T>
 inline void
 CycleCollectionNoteChild(nsCycleCollectionTraversalCallback& aCallback,
-                         T* aChild, const char* aName, uint32_t aFlags)
+                         T* aChild,
+                         const char* aName,
+                         uint32_t aFlags)
 {
   CycleCollectionNoteEdgeName(aCallback, aName, aFlags);
   CycleCollectionNoteChildImpl<T>::Run(aCallback, aChild);
@@ -93,9 +92,10 @@ CycleCollectionNoteChild(nsCycleCollectionTraversalCallback& aCallback,
 template<typename T>
 inline void
 CycleCollectionNoteChild(nsCycleCollectionTraversalCallback& aCallback,
-                         T* aChild, const char* aName)
+                         T* aChild,
+                         const char* aName)
 {
   CycleCollectionNoteChild(aCallback, aChild, aName, 0);
 }
 
-#endif // nsCycleCollectionNoteChild_h__
+#endif  // nsCycleCollectionNoteChild_h__

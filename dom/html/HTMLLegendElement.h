@@ -16,9 +16,10 @@ namespace dom {
 
 class HTMLLegendElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLLegendElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLLegendElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -31,19 +32,21 @@ public:
                                 bool aIsTrustedEvent) override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
   virtual nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                               int32_t aModType) const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   Element* GetFormElement() const
@@ -59,10 +62,7 @@ public:
 
   already_AddRefed<HTMLFormElement> GetForm();
 
-  void GetAlign(DOMString& aAlign)
-  {
-    GetHTMLAttr(nsGkAtoms::align, aAlign);
-  }
+  void GetAlign(DOMString& aAlign) { GetHTMLAttr(nsGkAtoms::align, aAlign); }
 
   void SetAlign(const nsAString& aAlign, ErrorResult& aError)
   {
@@ -75,10 +75,11 @@ public:
     return form ? form : nsGenericHTMLElement::GetScopeChainParent();
   }
 
-protected:
+ protected:
   virtual ~HTMLLegendElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   /**
    * Get the fieldset content element that contains this legend.
@@ -87,7 +88,7 @@ protected:
   nsIContent* GetFieldSet() const;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLLegendElement_h */

@@ -20,11 +20,11 @@ namespace dom {
 //
 class HTMLDetailsElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   using NodeInfo = mozilla::dom::NodeInfo;
 
   explicit HTMLDetailsElement(already_AddRefed<NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -32,13 +32,15 @@ public:
 
   nsIContent* GetFirstSummary() const;
 
-  nsresult Clone(NodeInfo* aNodeInfo, nsINode** aResult,
+  nsresult Clone(NodeInfo* aNodeInfo,
+                 nsINode** aResult,
                  bool aPreallocateChildren) const override;
 
   nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                       int32_t aModType) const override;
 
-  nsresult BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  nsresult BeforeSetAttr(int32_t aNameSpaceID,
+                         nsAtom* aName,
                          const nsAttrValueOrString* aValue,
                          bool aNotify) override;
 
@@ -59,7 +61,7 @@ public:
 
   virtual void AsyncEventRunning(AsyncEventDispatcher* aEvent) override;
 
-protected:
+ protected:
   virtual ~HTMLDetailsElement();
 
   JSObject* WrapNode(JSContext* aCx,
@@ -68,7 +70,7 @@ protected:
   RefPtr<AsyncEventDispatcher> mToggleEventDispatcher;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLDetailsElement_h */

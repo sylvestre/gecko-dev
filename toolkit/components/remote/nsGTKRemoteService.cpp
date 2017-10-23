@@ -25,9 +25,7 @@
 
 #include "nsGTKToolkit.h"
 
-NS_IMPL_ISUPPORTS(nsGTKRemoteService,
-                  nsIRemoteService,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(nsGTKRemoteService, nsIRemoteService, nsIObserver)
 
 NS_IMETHODIMP
 nsGTKRemoteService::Startup(const char* aAppName, const char* aProfileName)
@@ -50,11 +48,11 @@ nsGTKRemoteService::Startup(const char* aAppName, const char* aProfileName)
   return NS_OK;
 }
 
-static nsIWidget* GetMainWidget(nsPIDOMWindowInner* aWindow)
+static nsIWidget*
+GetMainWidget(nsPIDOMWindowInner* aWindow)
 {
   // get the native window for this instance
-  nsCOMPtr<nsIBaseWindow> baseWindow
-    (do_QueryInterface(aWindow->GetDocShell()));
+  nsCOMPtr<nsIBaseWindow> baseWindow(do_QueryInterface(aWindow->GetDocShell()));
   NS_ENSURE_TRUE(baseWindow, nullptr);
 
   nsCOMPtr<nsIWidget> mainWidget;
@@ -69,7 +67,7 @@ nsGTKRemoteService::RegisterWindow(mozIDOMWindow* aWindow)
   NS_ENSURE_TRUE(mainWidget, NS_ERROR_FAILURE);
 
   GtkWidget* widget =
-    (GtkWidget*) mainWidget->GetNativeData(NS_NATIVE_SHELLWIDGET);
+      (GtkWidget*)mainWidget->GetNativeData(NS_NATIVE_SHELLWIDGET);
   NS_ENSURE_TRUE(widget, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIWeakReference> weak = do_GetWeakReference(aWindow);
@@ -88,8 +86,7 @@ nsGTKRemoteService::RegisterWindow(mozIDOMWindow* aWindow)
 NS_IMETHODIMP
 nsGTKRemoteService::Shutdown()
 {
-  if (!mServerWindow)
-    return NS_ERROR_NOT_INITIALIZED;
+  if (!mServerWindow) return NS_ERROR_NOT_INITIALIZED;
 
   gtk_widget_destroy(mServerWindow);
   mServerWindow = nullptr;
@@ -102,11 +99,11 @@ nsGTKRemoteService::Shutdown()
 // The timestamp will be used if there is no desktop startup ID, or if we're
 // raising an existing window rather than showing a new window for the first time.
 void
-nsGTKRemoteService::SetDesktopStartupIDOrTimestamp(const nsACString& aDesktopStartupID,
-                                                   uint32_t aTimestamp) {
+nsGTKRemoteService::SetDesktopStartupIDOrTimestamp(
+    const nsACString& aDesktopStartupID, uint32_t aTimestamp)
+{
   nsGTKToolkit* toolkit = nsGTKToolkit::GetToolkit();
-  if (!toolkit)
-    return;
+  if (!toolkit) return;
 
   if (!aDesktopStartupID.IsEmpty()) {
     toolkit->SetDesktopStartupID(aDesktopStartupID);
@@ -115,13 +112,14 @@ nsGTKRemoteService::SetDesktopStartupIDOrTimestamp(const nsACString& aDesktopSta
   toolkit->SetFocusTimestamp(aTimestamp);
 }
 
-
 void
 nsGTKRemoteService::HandleCommandsFor(GtkWidget* widget,
                                       nsIWeakReference* aWindow)
 {
-  g_signal_connect(G_OBJECT(widget), "property_notify_event",
-                   G_CALLBACK(HandlePropertyChange), aWindow);
+  g_signal_connect(G_OBJECT(widget),
+                   "property_notify_event",
+                   G_CALLBACK(HandlePropertyChange),
+                   aWindow);
 
   gtk_widget_add_events(widget, GDK_PROPERTY_CHANGE_MASK);
 
@@ -131,13 +129,12 @@ nsGTKRemoteService::HandleCommandsFor(GtkWidget* widget,
   Window window = gdk_x11_window_get_xid(gtk_widget_get_window(widget));
 #endif
   nsXRemoteService::HandleCommandsFor(window);
-
 }
 
 gboolean
-nsGTKRemoteService::HandlePropertyChange(GtkWidget *aWidget,
-                                         GdkEventProperty *pevent,
-                                         nsIWeakReference *aThis)
+nsGTKRemoteService::HandlePropertyChange(GtkWidget* aWidget,
+                                         GdkEventProperty* pevent,
+                                         nsIWeakReference* aThis)
 {
   if (pevent->state == GDK_PROPERTY_NEW_VALUE) {
     Atom changedAtom = gdk_x11_atom_to_xatom(pevent->atom);
@@ -149,33 +146,34 @@ nsGTKRemoteService::HandlePropertyChange(GtkWidget *aWidget,
 #endif
     return HandleNewProperty(window,
                              GDK_DISPLAY_XDISPLAY(gdk_display_get_default()),
-                             pevent->time, changedAtom, aThis);
+                             pevent->time,
+                             changedAtom,
+                             aThis);
   }
   return FALSE;
 }
 
-
 // {C0773E90-5799-4eff-AD03-3EBCD85624AC}
-#define NS_REMOTESERVICE_CID \
-  { 0xc0773e90, 0x5799, 0x4eff, { 0xad, 0x3, 0x3e, 0xbc, 0xd8, 0x56, 0x24, 0xac } }
+#define NS_REMOTESERVICE_CID                        \
+  {                                                 \
+    0xc0773e90, 0x5799, 0x4eff,                     \
+    {                                               \
+      0xad, 0x3, 0x3e, 0xbc, 0xd8, 0x56, 0x24, 0xac \
+    }                                               \
+  }
 
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsGTKRemoteService)
 NS_DEFINE_NAMED_CID(NS_REMOTESERVICE_CID);
 
 static const mozilla::Module::CIDEntry kRemoteCIDs[] = {
-  { &kNS_REMOTESERVICE_CID, false, nullptr, nsGTKRemoteServiceConstructor },
-  { nullptr }
-};
+    {&kNS_REMOTESERVICE_CID, false, nullptr, nsGTKRemoteServiceConstructor},
+    {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kRemoteContracts[] = {
-  { "@mozilla.org/toolkit/remote-service;1", &kNS_REMOTESERVICE_CID },
-  { nullptr }
-};
+    {"@mozilla.org/toolkit/remote-service;1", &kNS_REMOTESERVICE_CID},
+    {nullptr}};
 
 static const mozilla::Module kRemoteModule = {
-  mozilla::Module::kVersion,
-  kRemoteCIDs,
-  kRemoteContracts
-};
+    mozilla::Module::kVersion, kRemoteCIDs, kRemoteContracts};
 
 NSMODULE_DEFN(RemoteServiceModule) = &kRemoteModule;

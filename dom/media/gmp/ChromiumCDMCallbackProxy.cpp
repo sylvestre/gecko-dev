@@ -11,18 +11,16 @@
 namespace mozilla {
 
 template<class Func, class... Args>
-void ChromiumCDMCallbackProxy::DispatchToMainThread(const char* const aLabel,
-                                                    Func aFunc,
-                                                    Args&&... aArgs)
+void
+ChromiumCDMCallbackProxy::DispatchToMainThread(const char* const aLabel,
+                                               Func aFunc,
+                                               Args&&... aArgs)
 {
   mMainThread->Dispatch(
-    // Use Decay to ensure all the types are passed by value not by reference.
-    NewRunnableMethod<typename Decay<Args>::Type...>(
-      aLabel,
-      mProxy,
-      aFunc,
-      Forward<Args>(aArgs)...),
-    NS_DISPATCH_NORMAL);
+      // Use Decay to ensure all the types are passed by value not by reference.
+      NewRunnableMethod<typename Decay<Args>::Type...>(
+          aLabel, mProxy, aFunc, Forward<Args>(aArgs)...),
+      NS_DISPATCH_NORMAL);
 }
 
 void
@@ -64,7 +62,6 @@ ChromiumCDMCallbackProxy::RejectPromise(uint32_t aPromiseId,
                        aError,
                        aErrorMessage);
 }
-
 
 static dom::MediaKeyMessageType
 ToDOMMessageType(uint32_t aMessageType)
@@ -117,18 +114,19 @@ ToDOMMediaKeyStatus(uint32_t aStatus)
 }
 
 void
-ChromiumCDMCallbackProxy::SessionKeysChange(const nsCString& aSessionId,
-                                            nsTArray<mozilla::gmp::CDMKeyInformation> && aKeysInfo)
+ChromiumCDMCallbackProxy::SessionKeysChange(
+    const nsCString& aSessionId,
+    nsTArray<mozilla::gmp::CDMKeyInformation>&& aKeysInfo)
 {
   bool keyStatusesChange = false;
   {
     CDMCaps::AutoLock caps(mProxy->Capabilites());
     for (const auto& keyInfo : aKeysInfo) {
       keyStatusesChange |=
-        caps.SetKeyStatus(keyInfo.mKeyId(),
-                          NS_ConvertUTF8toUTF16(aSessionId),
-                          dom::Optional<dom::MediaKeyStatus>(
-                            ToDOMMediaKeyStatus(keyInfo.mStatus())));
+          caps.SetKeyStatus(keyInfo.mKeyId(),
+                            NS_ConvertUTF8toUTF16(aSessionId),
+                            dom::Optional<dom::MediaKeyStatus>(
+                                ToDOMMediaKeyStatus(keyInfo.mStatus())));
     }
   }
   if (keyStatusesChange) {
@@ -146,14 +144,13 @@ ChromiumCDMCallbackProxy::ExpirationChange(const nsCString& aSessionId,
                        &ChromiumCDMProxy::OnExpirationChange,
                        NS_ConvertUTF8toUTF16(aSessionId),
                        UnixTime(aSecondsSinceEpoch * 1000));
-
 }
 
 void
 ChromiumCDMCallbackProxy::SessionClosed(const nsCString& aSessionId)
 {
   DispatchToMainThread("ChromiumCDMProxy::OnSessionClosed",
-                       &ChromiumCDMProxy::OnSessionClosed ,
+                       &ChromiumCDMProxy::OnSessionClosed,
                        NS_ConvertUTF8toUTF16(aSessionId));
 }
 
@@ -164,7 +161,7 @@ ChromiumCDMCallbackProxy::LegacySessionError(const nsCString& aSessionId,
                                              const nsCString& aMessage)
 {
   DispatchToMainThread("ChromiumCDMProxy::OnSessionError",
-                       &ChromiumCDMProxy::OnSessionError ,
+                       &ChromiumCDMProxy::OnSessionError,
                        NS_ConvertUTF8toUTF16(aSessionId),
                        aError,
                        aSystemCode,
@@ -185,4 +182,4 @@ ChromiumCDMCallbackProxy::Shutdown()
                        &ChromiumCDMProxy::Shutdown);
 }
 
-} //namespace mozilla
+}  //namespace mozilla

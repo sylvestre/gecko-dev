@@ -35,10 +35,10 @@ class nsIThread;
 namespace mozilla {
 namespace storage {
 
-class Connection final : public mozIStorageConnection
-                       , public nsIInterfaceRequestor
+class Connection final : public mozIStorageConnection,
+                         public nsIInterfaceRequestor
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEASYNCCONNECTION
   NS_DECL_MOZISTORAGECONNECTION
@@ -47,8 +47,10 @@ public:
   /**
    * Structure used to describe user functions on the database connection.
    */
-  struct FunctionInfo {
-    enum FunctionType {
+  struct FunctionInfo
+  {
+    enum FunctionType
+    {
       SIMPLE,
       AGGREGATE
     };
@@ -77,7 +79,9 @@ public:
    *        corrupt) or produce wrong results without any indication that has
    *        happened.
    */
-  Connection(Service *aService, int aFlags, bool aAsyncOnly,
+  Connection(Service* aService,
+             int aFlags,
+             bool aAsyncOnly,
              bool aIgnoreLockingMode = false);
 
   /**
@@ -92,7 +96,7 @@ public:
    *        The nsIFile of the location of the database to open, or create if it
    *        does not exist.
    */
-  nsresult initialize(nsIFile *aDatabaseFile);
+  nsresult initialize(nsIFile* aDatabaseFile);
 
   /**
    * Creates the connection to the database.
@@ -101,7 +105,7 @@ public:
    *        The nsIFileURL of the location of the database to open, or create if it
    *        does not exist.
    */
-  nsresult initialize(nsIFileURL *aFileURL);
+  nsresult initialize(nsIFileURL* aFileURL);
 
   /**
    * Same as initialize, but to be used on the async thread.
@@ -118,7 +122,7 @@ public:
    * @return the current value for the specified option.
    */
   int32_t getSqliteRuntimeStatus(int32_t aStatusOption,
-                                 int32_t* aMaxValue=nullptr);
+                                 int32_t* aMaxValue = nullptr);
   /**
    * Registers/unregisters a commit hook callback.
    *
@@ -127,7 +131,8 @@ public:
    * @param [optional] aData if provided, will be passed to the callback.
    * @see http://sqlite.org/c3ref/commit_hook.html
    */
-  void setCommitHook(int (*aCallbackFn)(void *) , void *aData=nullptr) {
+  void setCommitHook(int (*aCallbackFn)(void*), void* aData = nullptr)
+  {
     MOZ_ASSERT(mDBConn, "A connection must exist at this point");
     ::sqlite3_commit_hook(mDBConn, aCallbackFn, aData);
   };
@@ -135,7 +140,8 @@ public:
   /**
    * Gets autocommit status.
    */
-  bool getAutocommit() {
+  bool getAutocommit()
+  {
     return mDBConn && static_cast<bool>(::sqlite3_get_autocommit(mDBConn));
   };
 
@@ -149,7 +155,7 @@ public:
    * @return an event target suitable for asynchronous statement execution.
    * @note This method will return null once AsyncClose() has been called.
    */
-  nsIEventTarget *getAsyncExecutionTarget();
+  nsIEventTarget* getAsyncExecutionTarget();
 
   /**
    * Mutex used by asynchronous statements to protect state.  The mutex is
@@ -179,7 +185,7 @@ public:
   /**
    * Closes the SQLite database, and warns about any non-finalized statements.
    */
-  nsresult internalClose(sqlite3 *aDBConn);
+  nsresult internalClose(sqlite3* aDBConn);
 
   /**
    * Shuts down the passed-in async thread.
@@ -203,7 +209,8 @@ public:
    * @return the result from sqlite3_prepare_v2.
    */
   int prepareStatement(sqlite3* aNativeConnection,
-                       const nsCString &aSQL, sqlite3_stmt **_stmt);
+                       const nsCString& aSQL,
+                       sqlite3_stmt** _stmt);
 
   /**
    * Performs a sqlite3_step on aStatement, while properly handling SQLITE_LOCKED
@@ -222,10 +229,11 @@ public:
    *
    * @see BeginTransactionAs, CommitTransaction, RollbackTransaction.
    */
-  nsresult beginTransactionInternal(sqlite3 *aNativeConnection,
-                                    int32_t aTransactionType=TRANSACTION_DEFERRED);
-  nsresult commitTransactionInternal(sqlite3 *aNativeConnection);
-  nsresult rollbackTransactionInternal(sqlite3 *aNativeConnection);
+  nsresult beginTransactionInternal(
+      sqlite3* aNativeConnection,
+      int32_t aTransactionType = TRANSACTION_DEFERRED);
+  nsresult commitTransactionInternal(sqlite3* aNativeConnection);
+  nsresult rollbackTransactionInternal(sqlite3* aNativeConnection);
 
   bool connectionReady();
 
@@ -272,9 +280,9 @@ public:
    */
   bool isAsyncExecutionThreadAvailable();
 
-  nsresult initializeClone(Connection *aClone, bool aReadOnly);
+  nsresult initializeClone(Connection* aClone, bool aReadOnly);
 
-private:
+ private:
   ~Connection();
   nsresult initializeInternal();
 
@@ -295,7 +303,7 @@ private:
    *        SQL string to execute
    * @return the result from sqlite3_exec.
    */
-  int executeSql(sqlite3 *aNativeConnection, const char *aSqlString);
+  int executeSql(sqlite3* aNativeConnection, const char* aSqlString);
 
   /**
    * Describes a certain primitive type in the database.
@@ -304,7 +312,8 @@ private:
    *  INDEX - To check for the existence of an index
    *  TABLE - To check for the existence of a table
    */
-  enum DatabaseElementType {
+  enum DatabaseElementType
+  {
     INDEX,
     TABLE
   };
@@ -320,17 +329,17 @@ private:
    */
   nsresult databaseElementExists(enum DatabaseElementType aElementType,
                                  const nsACString& aElementName,
-                                 bool *_exists);
+                                 bool* _exists);
 
-  bool findFunctionByInstance(nsISupports *aInstance);
+  bool findFunctionByInstance(nsISupports* aInstance);
 
-  static int sProgressHelper(void *aArg);
+  static int sProgressHelper(void* aArg);
   // Generic progress handler
   // Dispatch call to registered progress handler,
   // if there is one. Do nothing in other cases.
   int progressHandler();
 
-  sqlite3 *mDBConn;
+  sqlite3* mDBConn;
   nsCOMPtr<nsIFileURL> mFileURL;
   nsCOMPtr<nsIFile> mDatabaseFile;
 
@@ -413,14 +422,13 @@ private:
   const bool mAsyncOnly;
 };
 
-
 /**
  * A Runnable designed to call a mozIStorageCompletionCallback on
  * the appropriate thread.
  */
 class CallbackComplete final : public Runnable
 {
-public:
+ public:
   /**
    * @param aValue The result to pass to the callback. It must
    *               already be owned by the main thread.
@@ -430,14 +438,15 @@ public:
   CallbackComplete(nsresult aStatus,
                    nsISupports* aValue,
                    already_AddRefed<mozIStorageCompletionCallback> aCallback)
-    : Runnable("storage::CallbackComplete")
-    , mStatus(aStatus)
-    , mValue(aValue)
-    , mCallback(aCallback)
+      : Runnable("storage::CallbackComplete"),
+        mStatus(aStatus),
+        mValue(aValue),
+        mCallback(aCallback)
   {
   }
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     MOZ_ASSERT(NS_IsMainThread());
     nsresult rv = mCallback->Complete(mStatus, mValue);
 
@@ -447,7 +456,7 @@ public:
     return rv;
   }
 
-private:
+ private:
   nsresult mStatus;
   nsCOMPtr<nsISupports> mValue;
   // This is a RefPtr<T> and not a nsCOMPtr<T> because
@@ -456,8 +465,8 @@ private:
   RefPtr<mozIStorageCompletionCallback> mCallback;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
 /**
  * Casting Connection to nsISupports is ambiguous.
@@ -469,4 +478,4 @@ ToSupports(mozilla::storage::Connection* p)
   return NS_ISUPPORTS_CAST(mozIStorageAsyncConnection*, p);
 }
 
-#endif // mozilla_storage_Connection_h
+#endif  // mozilla_storage_Connection_h

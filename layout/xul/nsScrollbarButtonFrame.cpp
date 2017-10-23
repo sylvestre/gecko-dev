@@ -34,7 +34,7 @@ using mozilla::layers::ScrollInputMethod;
 // Creates a new Toolbar frame and returns it
 //
 nsIFrame*
-NS_NewScrollbarButtonFrame (nsIPresShell* aPresShell, nsStyleContext* aContext)
+NS_NewScrollbarButtonFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsScrollbarButtonFrame(aContext);
 }
@@ -71,7 +71,7 @@ nsScrollbarButtonFrame::HandleEvent(nsPresContext* aPresContext,
       break;
     case eMouseMove: {
       nsPoint cursor =
-        nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, this);
+          nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, this);
       nsRect frameRect(nsPoint(0, 0), GetSize());
       mCursorOnThis = frameRect.Contains(cursor);
       break;
@@ -111,15 +111,12 @@ nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
   nsIFrame* scrollbar;
   GetParentWithTag(nsGkAtoms::scrollbar, this, scrollbar);
 
-  if (scrollbar == nullptr)
-    return false;
+  if (scrollbar == nullptr) return false;
 
-  static nsIContent::AttrValuesArray strings[] = { &nsGkAtoms::increment,
-                                                   &nsGkAtoms::decrement,
-                                                   nullptr };
-  int32_t index = mContent->FindAttrValueIn(kNameSpaceID_None,
-                                            nsGkAtoms::type,
-                                            strings, eCaseMatters);
+  static nsIContent::AttrValuesArray strings[] = {
+      &nsGkAtoms::increment, &nsGkAtoms::decrement, nullptr};
+  int32_t index = mContent->FindAttrValueIn(
+      kNameSpaceID_None, nsGkAtoms::type, strings, eCaseMatters);
   int32_t direction;
   if (index == 0)
     direction = 1;
@@ -131,7 +128,8 @@ nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
   bool repeat = pressedButtonAction != 2;
   // set this attribute so we can style it later
   AutoWeakFrame weakFrame(this);
-  mContent->SetAttr(kNameSpaceID_None, nsGkAtoms::active, NS_LITERAL_STRING("true"), true);
+  mContent->SetAttr(
+      kNameSpaceID_None, nsGkAtoms::active, NS_LITERAL_STRING("true"), true);
 
   nsIPresShell::SetCapturingContent(mContent, CAPTURE_IGNOREALLOWED);
 
@@ -143,36 +141,37 @@ nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
   if (sb) {
     nsIScrollbarMediator* m = sb->GetScrollbarMediator();
     switch (pressedButtonAction) {
-    case 0:
-      sb->SetIncrementToLine(direction);
-      if (m) {
-        m->ScrollByLine(sb, direction, nsIScrollbarMediator::ENABLE_SNAP);
-      }
-      break;
-    case 1:
-      sb->SetIncrementToPage(direction);
-      if (m) {
-        m->ScrollByPage(sb, direction, nsIScrollbarMediator::ENABLE_SNAP);
-      }
-      break;
-    case 2:
-      sb->SetIncrementToWhole(direction);
-      if (m) {
-        m->ScrollByWhole(sb, direction, nsIScrollbarMediator::ENABLE_SNAP);
-      }
-      break;
-    case 3:
-    default:
-      // We were told to ignore this click, or someone assigned a non-standard
-      // value to the button's action.
-      return false;
+      case 0:
+        sb->SetIncrementToLine(direction);
+        if (m) {
+          m->ScrollByLine(sb, direction, nsIScrollbarMediator::ENABLE_SNAP);
+        }
+        break;
+      case 1:
+        sb->SetIncrementToPage(direction);
+        if (m) {
+          m->ScrollByPage(sb, direction, nsIScrollbarMediator::ENABLE_SNAP);
+        }
+        break;
+      case 2:
+        sb->SetIncrementToWhole(direction);
+        if (m) {
+          m->ScrollByWhole(sb, direction, nsIScrollbarMediator::ENABLE_SNAP);
+        }
+        break;
+      case 3:
+      default:
+        // We were told to ignore this click, or someone assigned a non-standard
+        // value to the button's action.
+        return false;
     }
     if (!weakFrame.IsAlive()) {
       return false;
     }
 
-    mozilla::Telemetry::Accumulate(mozilla::Telemetry::SCROLL_INPUT_METHODS,
-        (uint32_t) ScrollInputMethod::MainThreadScrollbarButtonClick);
+    mozilla::Telemetry::Accumulate(
+        mozilla::Telemetry::SCROLL_INPUT_METHODS,
+        (uint32_t)ScrollInputMethod::MainThreadScrollbarButtonClick);
 
     if (!m) {
       sb->MoveToNewPosition();
@@ -208,11 +207,12 @@ nsScrollbarButtonFrame::HandleRelease(nsPresContext* aPresContext,
   return NS_OK;
 }
 
-void nsScrollbarButtonFrame::Notify()
+void
+nsScrollbarButtonFrame::Notify()
 {
   if (mCursorOnThis ||
-      LookAndFeel::GetInt(
-        LookAndFeel::eIntID_ScrollbarButtonAutoRepeatBehavior, 0)) {
+      LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarButtonAutoRepeatBehavior,
+                          0)) {
     // get the scrollbar control
     nsIFrame* scrollbar;
     GetParentWithTag(nsGkAtoms::scrollbar, this, scrollbar);
@@ -236,29 +236,27 @@ nsScrollbarButtonFrame::MouseClicked(WidgetGUIEvent* aEvent)
 }
 
 nsresult
-nsScrollbarButtonFrame::GetChildWithTag(nsAtom* atom, nsIFrame* start,
+nsScrollbarButtonFrame::GetChildWithTag(nsAtom* atom,
+                                        nsIFrame* start,
                                         nsIFrame*& result)
 {
   // recursively search our children
-  for (nsIFrame* childFrame : start->PrincipalChildList())
-  {
+  for (nsIFrame* childFrame : start->PrincipalChildList()) {
     // get the content node
     nsIContent* child = childFrame->GetContent();
 
     if (child) {
       // see if it is the child
-       if (child->IsXULElement(atom))
-       {
-         result = childFrame;
+      if (child->IsXULElement(atom)) {
+        result = childFrame;
 
-         return NS_OK;
-       }
+        return NS_OK;
+      }
     }
 
-     // recursive search the child
-     GetChildWithTag(atom, childFrame, result);
-     if (result != nullptr)
-       return NS_OK;
+    // recursive search the child
+    GetChildWithTag(atom, childFrame, result);
+    if (result != nullptr) return NS_OK;
   }
 
   result = nullptr;
@@ -266,26 +264,26 @@ nsScrollbarButtonFrame::GetChildWithTag(nsAtom* atom, nsIFrame* start,
 }
 
 nsresult
-nsScrollbarButtonFrame::GetParentWithTag(nsAtom* toFind, nsIFrame* start,
+nsScrollbarButtonFrame::GetParentWithTag(nsAtom* toFind,
+                                         nsIFrame* start,
                                          nsIFrame*& result)
 {
-   while (start)
-   {
-      start = start->GetParent();
+  while (start) {
+    start = start->GetParent();
 
-      if (start) {
-        // get the content node
-        nsIContent* child = start->GetContent();
+    if (start) {
+      // get the content node
+      nsIContent* child = start->GetContent();
 
-        if (child && child->IsXULElement(toFind)) {
-          result = start;
-          return NS_OK;
-        }
+      if (child && child->IsXULElement(toFind)) {
+        result = start;
+        return NS_OK;
       }
-   }
+    }
+  }
 
-   result = nullptr;
-   return NS_OK;
+  result = nullptr;
+  return NS_OK;
 }
 
 void

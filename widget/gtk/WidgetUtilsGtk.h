@@ -13,7 +13,7 @@ namespace widget {
 
 class WidgetUtilsGTK
 {
-public:
+ public:
   /* See WidgetUtils::IsTouchDeviceSupportPresent(). */
   static int32_t IsTouchDeviceSupportPresent();
 };
@@ -22,4 +22,4 @@ public:
 
 }  // namespace mozilla
 
-#endif // WidgetUtilsGtk_h__
+#endif  // WidgetUtilsGtk_h__

@@ -13,19 +13,19 @@ class nsIDocument;
 
 class nsXMLPrettyPrinter : public nsStubDocumentObserver
 {
-public:
-    nsXMLPrettyPrinter();
+ public:
+  nsXMLPrettyPrinter();
 
-    NS_DECL_ISUPPORTS
+  NS_DECL_ISUPPORTS
 
-    // nsIMutationObserver
-    NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
-    NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED
+  // nsIMutationObserver
+  NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
+  NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED
 
-    /**
+  /**
      * This will prettyprint the document if the document is loaded in a
      * displayed window.
      *
@@ -33,27 +33,29 @@ public:
      * @param [out] aDidPrettyPrint if true, and error not returned, actually
      *              went ahead with prettyprinting the document.
      */
-    nsresult PrettyPrint(nsIDocument* aDocument, bool* aDidPrettyPrint);
+  nsresult PrettyPrint(nsIDocument* aDocument, bool* aDidPrettyPrint);
 
-    /**
+  /**
      * Unhook the prettyprinter
      */
-    void Unhook();
-private:
-    virtual ~nsXMLPrettyPrinter();
+  void Unhook();
 
-    /**
+ private:
+  virtual ~nsXMLPrettyPrinter();
+
+  /**
      * Signals for unhooking by setting mUnhookPending if the node changed is
      * non-anonymous content.
      *
      * @param aContent  content that has changed
      */
-    void MaybeUnhook(nsIContent* aContent);
+  void MaybeUnhook(nsIContent* aContent);
 
-    nsIDocument* mDocument; //weak. Set as long as we're observing the document
-    bool mUnhookPending;
+  nsIDocument* mDocument;  //weak. Set as long as we're observing the document
+  bool mUnhookPending;
 };
 
-nsresult NS_NewXMLPrettyPrinter(nsXMLPrettyPrinter** aPrinter);
+nsresult
+NS_NewXMLPrettyPrinter(nsXMLPrettyPrinter** aPrinter);
 
-#endif //nsXMLPrettyPrinter_h__
+#endif  //nsXMLPrettyPrinter_h__

@@ -25,105 +25,76 @@
 #include "vm/ArrayBufferObject.h"
 
 #if !defined(__clang__) && !defined(__GNUC__)
-# error "This file only for gcc-compatible compilers"
+#error "This file only for gcc-compatible compilers"
 #endif
 
-inline bool
-js::jit::AtomicOperations::hasAtomic8()
-{
-    return true;
-}
+inline bool js::jit::AtomicOperations::hasAtomic8() { return true; }
 
-inline bool
-js::jit::AtomicOperations::isLockfree8()
-{
+inline bool js::jit::AtomicOperations::isLockfree8() {
     MOZ_ASSERT(__atomic_always_lock_free(sizeof(int8_t), 0));
     MOZ_ASSERT(__atomic_always_lock_free(sizeof(int16_t), 0));
     MOZ_ASSERT(__atomic_always_lock_free(sizeof(int32_t), 0));
-# if _MIPS_SIM == _ABI64
+#if _MIPS_SIM == _ABI64
     MOZ_ASSERT(__atomic_always_lock_free(sizeof(int64_t), 0));
-# endif
+#endif
     return true;
 }
 
-inline void
-js::jit::AtomicOperations::fenceSeqCst()
-{
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-}
+inline void js::jit::AtomicOperations::fenceSeqCst() { __atomic_thread_fence(__ATOMIC_SEQ_CST); }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::loadSeqCst(T* addr)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::loadSeqCst(T* addr) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     T v;
     __atomic_load(addr, &v, __ATOMIC_SEQ_CST);
     return v;
 }
 
-template<typename T>
-inline void
-js::jit::AtomicOperations::storeSeqCst(T* addr, T val)
-{
+template <typename T>
+inline void js::jit::AtomicOperations::storeSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     __atomic_store(addr, &val, __ATOMIC_SEQ_CST);
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::compareExchangeSeqCst(T* addr, T oldval, T newval)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::compareExchangeSeqCst(T* addr, T oldval, T newval) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     __atomic_compare_exchange(addr, &oldval, &newval, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     return oldval;
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::fetchAddSeqCst(T* addr, T val)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::fetchAddSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     return __atomic_fetch_add(addr, val, __ATOMIC_SEQ_CST);
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::fetchSubSeqCst(T* addr, T val)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::fetchSubSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     return __atomic_fetch_sub(addr, val, __ATOMIC_SEQ_CST);
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::fetchAndSeqCst(T* addr, T val)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::fetchAndSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     return __atomic_fetch_and(addr, val, __ATOMIC_SEQ_CST);
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::fetchOrSeqCst(T* addr, T val)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::fetchOrSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     return __atomic_fetch_or(addr, val, __ATOMIC_SEQ_CST);
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::fetchXorSeqCst(T* addr, T val)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::fetchXorSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     return __atomic_fetch_xor(addr, val, __ATOMIC_SEQ_CST);
-
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::loadSafeWhenRacy(T* addr)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::loadSafeWhenRacy(T* addr) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     if (__atomic_always_lock_free(sizeof(T), 0)) {
         T v;
@@ -134,37 +105,31 @@ js::jit::AtomicOperations::loadSafeWhenRacy(T* addr)
     }
 }
 
-namespace js { namespace jit {
+namespace js {
+namespace jit {
 
-template<>
-inline uint8_clamped
-js::jit::AtomicOperations::loadSafeWhenRacy(uint8_clamped* addr)
-{
+template <>
+inline uint8_clamped js::jit::AtomicOperations::loadSafeWhenRacy(uint8_clamped* addr) {
     uint8_t v;
     __atomic_load(&addr->val, &v, __ATOMIC_RELAXED);
     return uint8_clamped(v);
 }
 
-template<>
-inline float
-js::jit::AtomicOperations::loadSafeWhenRacy(float* addr)
-{
+template <>
+inline float js::jit::AtomicOperations::loadSafeWhenRacy(float* addr) {
     return *addr;
 }
 
-template<>
-inline double
-js::jit::AtomicOperations::loadSafeWhenRacy(double* addr)
-{
+template <>
+inline double js::jit::AtomicOperations::loadSafeWhenRacy(double* addr) {
     return *addr;
 }
 
-} }
+}  // namespace jit
+}  // namespace js
 
-template<typename T>
-inline void
-js::jit::AtomicOperations::storeSafeWhenRacy(T* addr, T val)
-{
+template <typename T>
+inline void js::jit::AtomicOperations::storeSafeWhenRacy(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     if (__atomic_always_lock_free(sizeof(T), 0)) {
         __atomic_store(addr, &val, __ATOMIC_RELAXED);
@@ -173,75 +138,63 @@ js::jit::AtomicOperations::storeSafeWhenRacy(T* addr, T val)
     }
 }
 
-namespace js { namespace jit {
+namespace js {
+namespace jit {
 
-template<>
-inline void
-js::jit::AtomicOperations::storeSafeWhenRacy(uint8_clamped* addr, uint8_clamped val)
-{
+template <>
+inline void js::jit::AtomicOperations::storeSafeWhenRacy(uint8_clamped* addr, uint8_clamped val) {
     __atomic_store(&addr->val, &val.val, __ATOMIC_RELAXED);
 }
 
-template<>
-inline void
-js::jit::AtomicOperations::storeSafeWhenRacy(float* addr, float val)
-{
+template <>
+inline void js::jit::AtomicOperations::storeSafeWhenRacy(float* addr, float val) {
     *addr = val;
 }
 
-template<>
-inline void
-js::jit::AtomicOperations::storeSafeWhenRacy(double* addr, double val)
-{
+template <>
+inline void js::jit::AtomicOperations::storeSafeWhenRacy(double* addr, double val) {
     *addr = val;
 }
 
-} }
+}  // namespace jit
+}  // namespace js
 
-inline void
-js::jit::AtomicOperations::memcpySafeWhenRacy(void* dest, const void* src, size_t nbytes)
-{
-    MOZ_ASSERT(!((char*)dest <= (char*)src && (char*)src < (char*)dest+nbytes));
-    MOZ_ASSERT(!((char*)src <= (char*)dest && (char*)dest < (char*)src+nbytes));
+inline void js::jit::AtomicOperations::memcpySafeWhenRacy(void* dest, const void* src,
+                                                          size_t nbytes) {
+    MOZ_ASSERT(!((char*)dest <= (char*)src && (char*)src < (char*)dest + nbytes));
+    MOZ_ASSERT(!((char*)src <= (char*)dest && (char*)dest < (char*)src + nbytes));
     ::memcpy(dest, src, nbytes);
 }
 
-inline void
-js::jit::AtomicOperations::memmoveSafeWhenRacy(void* dest, const void* src, size_t nbytes)
-{
+inline void js::jit::AtomicOperations::memmoveSafeWhenRacy(void* dest, const void* src,
+                                                           size_t nbytes) {
     ::memmove(dest, src, nbytes);
 }
 
-template<typename T>
-inline T
-js::jit::AtomicOperations::exchangeSeqCst(T* addr, T val)
-{
+template <typename T>
+inline T js::jit::AtomicOperations::exchangeSeqCst(T* addr, T val) {
     static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
     T v;
     __atomic_exchange(addr, &val, &v, __ATOMIC_SEQ_CST);
     return v;
 }
 
-template<size_t nbytes>
-inline void
-js::jit::RegionLock::acquire(void* addr)
-{
+template <size_t nbytes>
+inline void js::jit::RegionLock::acquire(void* addr) {
     uint32_t zero = 0;
     uint32_t one = 1;
-    while (!__atomic_compare_exchange(&spinlock, &zero, &one, false, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE)) {
+    while (!__atomic_compare_exchange(&spinlock, &zero, &one, false, __ATOMIC_ACQUIRE,
+                                      __ATOMIC_ACQUIRE)) {
         zero = 0;
         continue;
     }
 }
 
-template<size_t nbytes>
-inline void
-js::jit::RegionLock::release(void* addr)
-{
+template <size_t nbytes>
+inline void js::jit::RegionLock::release(void* addr) {
     MOZ_ASSERT(AtomicOperations::loadSeqCst(&spinlock) == 1, "releasing unlocked region lock");
     uint32_t zero = 0;
     __atomic_store(&spinlock, &zero, __ATOMIC_SEQ_CST);
 }
 
-
-#endif // jit_mips_shared_AtomicOperations_mips_shared_h
+#endif  // jit_mips_shared_AtomicOperations_mips_shared_h

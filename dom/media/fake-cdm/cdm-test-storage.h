@@ -17,38 +17,45 @@
 #define IO_SUCCEEDED(x) ((x) == cdm::FileIOClient::Status::kSuccess)
 #define IO_FAILED(x) ((x) != cdm::FileIOClient::Status::kSuccess)
 
-class ReadContinuation {
-public:
+class ReadContinuation
+{
+ public:
   virtual ~ReadContinuation() {}
   virtual void operator()(bool aSuccess,
                           const uint8_t* aData,
                           uint32_t aDataSize) = 0;
 };
 
-void WriteRecord(cdm::Host_8* aHost,
-                 const std::string& aRecordName,
-                 const std::string& aData,
-                 std::function<void()>&& aOnSuccess,
-                 std::function<void()>&& aOnFailure);
+void
+WriteRecord(cdm::Host_8* aHost,
+            const std::string& aRecordName,
+            const std::string& aData,
+            std::function<void()>&& aOnSuccess,
+            std::function<void()>&& aOnFailure);
 
-void WriteRecord(cdm::Host_8* aHost,
-                 const std::string& aRecordName,
-                 const uint8_t* aData,
-                 uint32_t aNumBytes,
-                 std::function<void()>&& aOnSuccess,
-                 std::function<void()>&& aOnFailure);
+void
+WriteRecord(cdm::Host_8* aHost,
+            const std::string& aRecordName,
+            const uint8_t* aData,
+            uint32_t aNumBytes,
+            std::function<void()>&& aOnSuccess,
+            std::function<void()>&& aOnFailure);
 
-void ReadRecord(cdm::Host_8* aHost,
-                const std::string& aRecordName,
-                std::function<void(bool, const uint8_t*, uint32_t)>&& aOnReadComplete);
+void
+ReadRecord(
+    cdm::Host_8* aHost,
+    const std::string& aRecordName,
+    std::function<void(bool, const uint8_t*, uint32_t)>&& aOnReadComplete);
 
-class OpenContinuation {
-public:
+class OpenContinuation
+{
+ public:
   virtual ~OpenContinuation() {}
   virtual void operator()(bool aSuccess) = 0;
 };
 
-void OpenRecord(cdm::Host_8* aHost,
-                const std::string& aRecordName,
-                std::function<void(bool)>&& aOpenComplete);
-#endif // TEST_CDM_STORAGE_H__
+void
+OpenRecord(cdm::Host_8* aHost,
+           const std::string& aRecordName,
+           std::function<void(bool)>&& aOpenComplete);
+#endif  // TEST_CDM_STORAGE_H__

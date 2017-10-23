@@ -53,7 +53,7 @@
 
 #include "mtransport_test_utils.h"
 #include "gtest_ringbuffer_dumper.h"
-MtransportTestUtils *test_utils;
+MtransportTestUtils* test_utils;
 nsCOMPtr<nsIThread> gMainThread;
 nsCOMPtr<nsIThread> gGtestThread;
 bool gTestsComplete = false;
@@ -71,32 +71,36 @@ static std::string callerName = "caller";
 static std::string calleeName = "callee";
 
 #define ARRAY_TO_STL(container, type, array) \
-        (container<type>((array), (array) + PR_ARRAY_SIZE(array)))
+  (container<type>((array), (array) + PR_ARRAY_SIZE(array)))
 
 #define ARRAY_TO_SET(type, array) ARRAY_TO_STL(std::set, type, array)
 
-std::string g_stun_server_address((char *)"23.21.150.121");
+std::string g_stun_server_address((char*)"23.21.150.121");
 uint16_t g_stun_server_port(3478);
-std::string kBogusSrflxAddress((char *)"192.0.2.1");
+std::string kBogusSrflxAddress((char*)"192.0.2.1");
 uint16_t kBogusSrflxPort(1001);
 
 // We can't use webidl bindings here because it uses nsString,
 // so we pass options in using OfferOptions instead
-class OfferOptions : public mozilla::JsepOfferOptions {
-public:
-  void setInt32Option(const char *namePtr, size_t value) {
+class OfferOptions : public mozilla::JsepOfferOptions
+{
+ public:
+  void setInt32Option(const char* namePtr, size_t value)
+  {
     if (!strcmp(namePtr, "OfferToReceiveAudio")) {
       mOfferToReceiveAudio = mozilla::Some(value);
     } else if (!strcmp(namePtr, "OfferToReceiveVideo")) {
       mOfferToReceiveVideo = mozilla::Some(value);
     }
   }
-  void setBoolOption(const char* namePtr, bool value) {
+  void setBoolOption(const char* namePtr, bool value)
+  {
     if (!strcmp(namePtr, "IceRestart")) {
       mIceRestart = mozilla::Some(value);
     }
   }
-private:
+
+ private:
 };
 
 using namespace mozilla;
@@ -104,7 +108,8 @@ using namespace mozilla::dom;
 
 // XXX Workaround for bug 998092 to maintain the existing broken semantics
 template<>
-struct nsISupportsWeakReference::COMTypeInfo<nsSupportsWeakReference, void> {
+struct nsISupportsWeakReference::COMTypeInfo<nsSupportsWeakReference, void>
+{
   static const nsIID kIID;
 };
 //const nsIID nsISupportsWeakReference::COMTypeInfo<nsSupportsWeakReference, void>::kIID = NS_ISUPPORTSWEAKREFERENCE_IID;
@@ -113,7 +118,9 @@ namespace test {
 
 class SignalingAgent;
 
-std::string indent(const std::string &s, int width = 4) {
+std::string
+indent(const std::string& s, int width = 4)
+{
   std::string prefix;
   std::string out;
   char previous = '\n';
@@ -129,32 +136,32 @@ std::string indent(const std::string &s, int width = 4) {
 }
 
 static const std::string strSampleSdpAudioVideoNoIce =
-  "v=0\r\n"
-  "o=Mozilla-SIPUA 4949 0 IN IP4 10.86.255.143\r\n"
-  "s=SIP Call\r\n"
-  "t=0 0\r\n"
-  "a=ice-ufrag:qkEP\r\n"
-  "a=ice-pwd:ed6f9GuHjLcoCN6sC/Eh7fVl\r\n"
-  "m=audio 16384 RTP/AVP 0 8 9 101\r\n"
-  "c=IN IP4 10.86.255.143\r\n"
-  "a=rtpmap:0 PCMU/8000\r\n"
-  "a=rtpmap:8 PCMA/8000\r\n"
-  "a=rtpmap:9 G722/8000\r\n"
-  "a=rtpmap:101 telephone-event/8000\r\n"
-  "a=fmtp:101 0-15\r\n"
-  "a=sendrecv\r\n"
-  "a=candidate:1 1 UDP 2130706431 192.168.2.1 50005 typ host\r\n"
-  "a=candidate:2 2 UDP 2130706431 192.168.2.2 50006 typ host\r\n"
-  "m=video 1024 RTP/AVP 97\r\n"
-  "c=IN IP4 10.86.255.143\r\n"
-  "a=rtpmap:120 VP8/90000\r\n"
-  "a=fmtp:97 profile-level-id=42E00C\r\n"
-  "a=sendrecv\r\n"
-  "a=candidate:1 1 UDP 2130706431 192.168.2.3 50007 typ host\r\n"
-  "a=candidate:2 2 UDP 2130706431 192.168.2.4 50008 typ host\r\n";
+    "v=0\r\n"
+    "o=Mozilla-SIPUA 4949 0 IN IP4 10.86.255.143\r\n"
+    "s=SIP Call\r\n"
+    "t=0 0\r\n"
+    "a=ice-ufrag:qkEP\r\n"
+    "a=ice-pwd:ed6f9GuHjLcoCN6sC/Eh7fVl\r\n"
+    "m=audio 16384 RTP/AVP 0 8 9 101\r\n"
+    "c=IN IP4 10.86.255.143\r\n"
+    "a=rtpmap:0 PCMU/8000\r\n"
+    "a=rtpmap:8 PCMA/8000\r\n"
+    "a=rtpmap:9 G722/8000\r\n"
+    "a=rtpmap:101 telephone-event/8000\r\n"
+    "a=fmtp:101 0-15\r\n"
+    "a=sendrecv\r\n"
+    "a=candidate:1 1 UDP 2130706431 192.168.2.1 50005 typ host\r\n"
+    "a=candidate:2 2 UDP 2130706431 192.168.2.2 50006 typ host\r\n"
+    "m=video 1024 RTP/AVP 97\r\n"
+    "c=IN IP4 10.86.255.143\r\n"
+    "a=rtpmap:120 VP8/90000\r\n"
+    "a=fmtp:97 profile-level-id=42E00C\r\n"
+    "a=sendrecv\r\n"
+    "a=candidate:1 1 UDP 2130706431 192.168.2.3 50007 typ host\r\n"
+    "a=candidate:2 2 UDP 2130706431 192.168.2.4 50008 typ host\r\n";
 
 static const std::string strSampleCandidate =
-  "a=candidate:1 1 UDP 2130706431 192.168.2.1 50005 typ host\r\n";
+    "a=candidate:1 1 UDP 2130706431 192.168.2.1 50005 typ host\r\n";
 
 static const std::string strSampleMid = "sdparta";
 
@@ -167,7 +174,7 @@ static const std::string strG711SdpOffer =
     "b=AS:64\r\n"
     "t=0 0\r\n"
     "a=fingerprint:sha-256 F3:FA:20:C0:CD:48:C4:5F:02:5F:A5:D3:21:D0:2D:48:"
-      "7B:31:60:5C:5A:D8:0D:CD:78:78:6C:6D:CE:CC:0C:67\r\n"
+    "7B:31:60:5C:5A:D8:0D:CD:78:78:6C:6D:CE:CC:0C:67\r\n"
     "m=audio 9000 RTP/AVP 0 8 126\r\n"
     "c=IN IP4 148.147.200.251\r\n"
     "b=TIAS:64000\r\n"
@@ -181,53 +188,52 @@ static const std::string strG711SdpOffer =
     "a=setup:active\r\n"
     "a=sendrecv\r\n";
 
-
 enum sdpTestFlags
 {
-  HAS_ALL_CANDIDATES     = (1 << 0),
+  HAS_ALL_CANDIDATES = (1 << 0),
 };
 
 enum offerAnswerFlags
 {
-  OFFER_NONE  = 0, // Sugar to make function calls clearer.
-  OFFER_AUDIO = (1<<0),
-  OFFER_VIDEO = (1<<1),
+  OFFER_NONE = 0,  // Sugar to make function calls clearer.
+  OFFER_AUDIO = (1 << 0),
+  OFFER_VIDEO = (1 << 1),
   // Leaving some room here for other media types
-  ANSWER_NONE  = 0, // Sugar to make function calls clearer.
-  ANSWER_AUDIO = (1<<8),
-  ANSWER_VIDEO = (1<<9),
+  ANSWER_NONE = 0,  // Sugar to make function calls clearer.
+  ANSWER_AUDIO = (1 << 8),
+  ANSWER_VIDEO = (1 << 9),
 
   OFFER_AV = OFFER_AUDIO | OFFER_VIDEO,
   ANSWER_AV = ANSWER_AUDIO | ANSWER_VIDEO
 };
 
- typedef enum {
-   NO_TRICKLE = 0,
-   OFFERER_TRICKLES = 1,
-   ANSWERER_TRICKLES = 2,
-   BOTH_TRICKLE = OFFERER_TRICKLES | ANSWERER_TRICKLES
- } TrickleType;
+typedef enum {
+  NO_TRICKLE = 0,
+  OFFERER_TRICKLES = 1,
+  ANSWERER_TRICKLES = 2,
+  BOTH_TRICKLE = OFFERER_TRICKLES | ANSWERER_TRICKLES
+} TrickleType;
 
 class TestObserver : public AFakePCObserver
 {
-protected:
+ protected:
   ~TestObserver() {}
 
-public:
-  TestObserver(PeerConnectionImpl *peerConnection,
-               const std::string &aName) :
-    AFakePCObserver(peerConnection, aName),
-    lastAddIceStatusCode(PeerConnectionImpl::kNoError),
-    peerAgent(nullptr),
-    trickleCandidates(true)
-    {}
+ public:
+  TestObserver(PeerConnectionImpl* peerConnection, const std::string& aName)
+      : AFakePCObserver(peerConnection, aName),
+        lastAddIceStatusCode(PeerConnectionImpl::kNoError),
+        peerAgent(nullptr),
+        trickleCandidates(true)
+  {
+  }
 
-  size_t MatchingCandidates(const std::string& cand) {
+  size_t MatchingCandidates(const std::string& cand)
+  {
     size_t count = 0;
 
     for (auto& candidate : candidates) {
-      if (candidate.find(cand) != std::string::npos)
-        ++count;
+      if (candidate.find(cand) != std::string::npos) ++count;
     }
 
     return count;
@@ -235,24 +241,33 @@ public:
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_IMETHOD OnCreateOfferSuccess(const char* offer, ER&) override;
-  NS_IMETHOD OnCreateOfferError(uint32_t code, const char *msg, ER&) override;
+  NS_IMETHOD OnCreateOfferError(uint32_t code, const char* msg, ER&) override;
   NS_IMETHOD OnCreateAnswerSuccess(const char* answer, ER&) override;
-  NS_IMETHOD OnCreateAnswerError(uint32_t code, const char *msg, ER&) override;
+  NS_IMETHOD OnCreateAnswerError(uint32_t code, const char* msg, ER&) override;
   NS_IMETHOD OnSetLocalDescriptionSuccess(ER&) override;
   NS_IMETHOD OnSetRemoteDescriptionSuccess(ER&) override;
-  NS_IMETHOD OnSetLocalDescriptionError(uint32_t code, const char *msg, ER&) override;
-  NS_IMETHOD OnSetRemoteDescriptionError(uint32_t code, const char *msg, ER&) override;
-  NS_IMETHOD NotifyDataChannel(nsIDOMDataChannel *channel, ER&) override;
+  NS_IMETHOD OnSetLocalDescriptionError(uint32_t code,
+                                        const char* msg,
+                                        ER&) override;
+  NS_IMETHOD OnSetRemoteDescriptionError(uint32_t code,
+                                         const char* msg,
+                                         ER&) override;
+  NS_IMETHOD NotifyDataChannel(nsIDOMDataChannel* channel, ER&) override;
   NS_IMETHOD OnStateChange(PCObserverStateType state_type, ER&, void*) override;
-  NS_IMETHOD OnAddStream(DOMMediaStream &stream, ER&) override;
-  NS_IMETHOD OnRemoveStream(DOMMediaStream &stream, ER&) override;
-  NS_IMETHOD OnAddTrack(MediaStreamTrack &track, ER&) override;
-  NS_IMETHOD OnRemoveTrack(MediaStreamTrack &track, ER&) override;
+  NS_IMETHOD OnAddStream(DOMMediaStream& stream, ER&) override;
+  NS_IMETHOD OnRemoveStream(DOMMediaStream& stream, ER&) override;
+  NS_IMETHOD OnAddTrack(MediaStreamTrack& track, ER&) override;
+  NS_IMETHOD OnRemoveTrack(MediaStreamTrack& track, ER&) override;
   NS_IMETHOD OnReplaceTrackSuccess(ER&) override;
-  NS_IMETHOD OnReplaceTrackError(uint32_t code, const char *msg, ER&) override;
+  NS_IMETHOD OnReplaceTrackError(uint32_t code, const char* msg, ER&) override;
   NS_IMETHOD OnAddIceCandidateSuccess(ER&) override;
-  NS_IMETHOD OnAddIceCandidateError(uint32_t code, const char *msg, ER&) override;
-  NS_IMETHOD OnIceCandidate(uint16_t level, const char *mid, const char *cand, ER&) override;
+  NS_IMETHOD OnAddIceCandidateError(uint32_t code,
+                                    const char* msg,
+                                    ER&) override;
+  NS_IMETHOD OnIceCandidate(uint16_t level,
+                            const char* mid,
+                            const char* cand,
+                            ER&) override;
   NS_IMETHOD OnNegotiationNeeded(ER&) override;
 
   // Hack because add_ice_candidates can happen asynchronously with respect
@@ -271,18 +286,18 @@ TestObserver::OnCreateOfferSuccess(const char* offer, ER&)
 {
   lastString = offer;
   state = stateSuccess;
-  std::cout << name << ": onCreateOfferSuccess = " << std::endl << indent(offer)
-            << std::endl;
+  std::cout << name << ": onCreateOfferSuccess = " << std::endl
+            << indent(offer) << std::endl;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnCreateOfferError(uint32_t code, const char *message, ER&)
+TestObserver::OnCreateOfferError(uint32_t code, const char* message, ER&)
 {
   lastStatusCode = static_cast<PeerConnectionImpl::Error>(code);
   state = stateError;
-  std::cout << name << ": onCreateOfferError = " << code
-            << " (" << message << ")" << std::endl;
+  std::cout << name << ": onCreateOfferError = " << code << " (" << message
+            << ")" << std::endl;
   return NS_OK;
 }
 
@@ -297,11 +312,11 @@ TestObserver::OnCreateAnswerSuccess(const char* answer, ER&)
 }
 
 NS_IMETHODIMP
-TestObserver::OnCreateAnswerError(uint32_t code, const char *message, ER&)
+TestObserver::OnCreateAnswerError(uint32_t code, const char* message, ER&)
 {
   lastStatusCode = static_cast<PeerConnectionImpl::Error>(code);
-  std::cout << name << ": onCreateAnswerError = " << code
-            << " (" << message << ")" << std::endl;
+  std::cout << name << ": onCreateAnswerError = " << code << " (" << message
+            << ")" << std::endl;
   state = stateError;
   return NS_OK;
 }
@@ -325,69 +340,67 @@ TestObserver::OnSetRemoteDescriptionSuccess(ER&)
 }
 
 NS_IMETHODIMP
-TestObserver::OnSetLocalDescriptionError(uint32_t code, const char *message, ER&)
+TestObserver::OnSetLocalDescriptionError(uint32_t code,
+                                         const char* message,
+                                         ER&)
 {
   lastStatusCode = static_cast<PeerConnectionImpl::Error>(code);
   state = stateError;
-  std::cout << name << ": onSetLocalDescriptionError = " << code
-            << " (" << message << ")" << std::endl;
+  std::cout << name << ": onSetLocalDescriptionError = " << code << " ("
+            << message << ")" << std::endl;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnSetRemoteDescriptionError(uint32_t code, const char *message, ER&)
+TestObserver::OnSetRemoteDescriptionError(uint32_t code,
+                                          const char* message,
+                                          ER&)
 {
   lastStatusCode = static_cast<PeerConnectionImpl::Error>(code);
   state = stateError;
-  std::cout << name << ": onSetRemoteDescriptionError = " << code
-            << " (" << message << ")" << std::endl;
+  std::cout << name << ": onSetRemoteDescriptionError = " << code << " ("
+            << message << ")" << std::endl;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::NotifyDataChannel(nsIDOMDataChannel *channel, ER&)
+TestObserver::NotifyDataChannel(nsIDOMDataChannel* channel, ER&)
 {
   std::cout << name << ": NotifyDataChannel" << std::endl;
   return NS_OK;
 }
 
 static const char* PCImplSignalingStateStrings[] = {
-  "SignalingInvalid",
-  "SignalingStable",
-  "SignalingHaveLocalOffer",
-  "SignalingHaveRemoteOffer",
-  "SignalingHaveLocalPranswer",
-  "SignalingHaveRemotePranswer",
-  "SignalingClosed"
-};
+    "SignalingInvalid",
+    "SignalingStable",
+    "SignalingHaveLocalOffer",
+    "SignalingHaveRemoteOffer",
+    "SignalingHaveLocalPranswer",
+    "SignalingHaveRemotePranswer",
+    "SignalingClosed"};
 
-static const char* PCImplIceConnectionStateStrings[] = {
-  "new",
-  "checking",
-  "connected",
-  "completed",
-  "failed",
-  "disconnected",
-  "closed"
-};
+static const char* PCImplIceConnectionStateStrings[] = {"new",
+                                                        "checking",
+                                                        "connected",
+                                                        "completed",
+                                                        "failed",
+                                                        "disconnected",
+                                                        "closed"};
 
 static const char* PCImplIceGatheringStateStrings[] = {
-  "new",
-  "gathering",
-  "complete"
-};
+    "new", "gathering", "complete"};
 
 #ifdef SIGNALING_UNITTEST_STANDALONE
 static_assert(ArrayLength(PCImplSignalingStateStrings) ==
-	      size_t(PCImplSignalingState::EndGuard_),
-	      "Table sizes must match");
+                  size_t(PCImplSignalingState::EndGuard_),
+              "Table sizes must match");
 static_assert(ArrayLength(PCImplIceConnectionStateStrings) ==
-	      size_t(PCImplIceConnectionState::EndGuard_),
-	      "Table sizes must match");
+                  size_t(PCImplIceConnectionState::EndGuard_),
+              "Table sizes must match");
 static_assert(ArrayLength(PCImplIceGatheringStateStrings) ==
-	      size_t(PCImplIceGatheringState::EndGuard_),
-	      "Table sizes must match");
-#endif // SIGNALING_UNITTEST_STANDALONE
+                  size_t(PCImplIceGatheringState::EndGuard_),
+              "Table sizes must match");
+#endif  // SIGNALING_UNITTEST_STANDALONE
 
 NS_IMETHODIMP
 TestObserver::OnStateChange(PCObserverStateType state_type, ER&, void*)
@@ -399,53 +412,48 @@ TestObserver::OnStateChange(PCObserverStateType state_type, ER&, void*)
 
   std::cout << name << ": ";
 
-  switch (state_type)
-  {
-  case PCObserverStateType::IceConnectionState:
-    MOZ_ASSERT(NS_IsMainThread());
-    rv = pc->IceConnectionState(&gotice);
-    NS_ENSURE_SUCCESS(rv, rv);
-    std::cout << "ICE Connection State: "
-              << PCImplIceConnectionStateStrings[int(gotice)]
-              << std::endl;
-    break;
-  case PCObserverStateType::IceGatheringState:
-    MOZ_ASSERT(NS_IsMainThread());
-    rv = pc->IceGatheringState(&goticegathering);
-    NS_ENSURE_SUCCESS(rv, rv);
-    std::cout
-        << "ICE Gathering State: "
-        << PCImplIceGatheringStateStrings[int(goticegathering)]
-        << std::endl;
-    break;
-  case PCObserverStateType::SdpState:
-    std::cout << "SDP State: " << std::endl;
-    // NS_ENSURE_SUCCESS(rv, rv);
-    break;
-  case PCObserverStateType::SignalingState:
-    MOZ_ASSERT(NS_IsMainThread());
-    rv = pc->SignalingState(&gotsignaling);
-    NS_ENSURE_SUCCESS(rv, rv);
-    std::cout << "Signaling State: "
-              << PCImplSignalingStateStrings[int(gotsignaling)]
-              << std::endl;
-    break;
-  default:
-    // Unknown State
-    MOZ_CRASH("Unknown state change type.");
-    break;
+  switch (state_type) {
+    case PCObserverStateType::IceConnectionState:
+      MOZ_ASSERT(NS_IsMainThread());
+      rv = pc->IceConnectionState(&gotice);
+      NS_ENSURE_SUCCESS(rv, rv);
+      std::cout << "ICE Connection State: "
+                << PCImplIceConnectionStateStrings[int(gotice)] << std::endl;
+      break;
+    case PCObserverStateType::IceGatheringState:
+      MOZ_ASSERT(NS_IsMainThread());
+      rv = pc->IceGatheringState(&goticegathering);
+      NS_ENSURE_SUCCESS(rv, rv);
+      std::cout << "ICE Gathering State: "
+                << PCImplIceGatheringStateStrings[int(goticegathering)]
+                << std::endl;
+      break;
+    case PCObserverStateType::SdpState:
+      std::cout << "SDP State: " << std::endl;
+      // NS_ENSURE_SUCCESS(rv, rv);
+      break;
+    case PCObserverStateType::SignalingState:
+      MOZ_ASSERT(NS_IsMainThread());
+      rv = pc->SignalingState(&gotsignaling);
+      NS_ENSURE_SUCCESS(rv, rv);
+      std::cout << "Signaling State: "
+                << PCImplSignalingStateStrings[int(gotsignaling)] << std::endl;
+      break;
+    default:
+      // Unknown State
+      MOZ_CRASH("Unknown state change type.");
+      break;
   }
 
   lastStateType = state_type;
   return NS_OK;
 }
 
-
 NS_IMETHODIMP
-TestObserver::OnAddStream(DOMMediaStream &stream, ER&)
+TestObserver::OnAddStream(DOMMediaStream& stream, ER&)
 {
   std::cout << name << ": OnAddStream called hints=" << stream.GetHintContents()
-            << " thread=" << PR_GetCurrentThread() << std::endl ;
+            << " thread=" << PR_GetCurrentThread() << std::endl;
 
   onAddStreamCalled = true;
 
@@ -454,44 +462,40 @@ TestObserver::OnAddStream(DOMMediaStream &stream, ER&)
   // We know that the media stream is secretly a Fake_SourceMediaStream,
   // so now we can start it pulling from us
   RefPtr<Fake_SourceMediaStream> fs =
-    static_cast<Fake_SourceMediaStream *>(stream.GetStream());
+      static_cast<Fake_SourceMediaStream*>(stream.GetStream());
 
   test_utils->sts_target()->Dispatch(
-    WrapRunnable(fs, &Fake_SourceMediaStream::Start),
-    NS_DISPATCH_NORMAL);
+      WrapRunnable(fs, &Fake_SourceMediaStream::Start), NS_DISPATCH_NORMAL);
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnRemoveStream(DOMMediaStream &stream, ER&)
+TestObserver::OnRemoveStream(DOMMediaStream& stream, ER&)
 {
   state = stateSuccess;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnAddTrack(MediaStreamTrack &track, ER&)
+TestObserver::OnAddTrack(MediaStreamTrack& track, ER&)
 {
   state = stateSuccess;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnRemoveTrack(MediaStreamTrack &track, ER&)
+TestObserver::OnRemoveTrack(MediaStreamTrack& track, ER&)
 {
   state = stateSuccess;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnReplaceTrackSuccess(ER&)
-{
-  return NS_OK;
-}
+TestObserver::OnReplaceTrackSuccess(ER&) { return NS_OK; }
 
 NS_IMETHODIMP
-TestObserver::OnReplaceTrackError(uint32_t code, const char *message, ER&)
+TestObserver::OnReplaceTrackError(uint32_t code, const char* message, ER&)
 {
   return NS_OK;
 }
@@ -507,25 +511,21 @@ TestObserver::OnAddIceCandidateSuccess(ER&)
 }
 
 NS_IMETHODIMP
-TestObserver::OnAddIceCandidateError(uint32_t code, const char *message, ER&)
+TestObserver::OnAddIceCandidateError(uint32_t code, const char* message, ER&)
 {
   lastAddIceStatusCode = static_cast<PeerConnectionImpl::Error>(code);
   addIceCandidateState = TestObserver::stateError;
-  std::cout << name << ": onAddIceCandidateError = " << code
-            << " (" << message << ")" << std::endl;
+  std::cout << name << ": onAddIceCandidateError = " << code << " (" << message
+            << ")" << std::endl;
   return NS_OK;
 }
 
-class ParsedSDP {
+class ParsedSDP
+{
  public:
+  explicit ParsedSDP(const std::string& sdp) { Parse(sdp); }
 
-  explicit ParsedSDP(const std::string &sdp)
-  {
-    Parse(sdp);
-  }
-
-  void DeleteLines(const std::string &objType,
-                   uint32_t limit = UINT32_MAX)
+  void DeleteLines(const std::string& objType, uint32_t limit = UINT32_MAX)
   {
     for (auto it = sdp_lines_.begin(); it != sdp_lines_.end() && limit;) {
       auto temp = it;
@@ -537,20 +537,17 @@ class ParsedSDP {
     }
   }
 
-  void DeleteLine(const std::string &objType)
-  {
-    DeleteLines(objType, 1);
-  }
+  void DeleteLine(const std::string& objType) { DeleteLines(objType, 1); }
 
   // Replaces the index-th instance of objType in the SDP with
   // a new string.
   // If content is an empty string then the line will be removed
-  void ReplaceLine(const std::string &objType,
-                   const std::string &content,
+  void ReplaceLine(const std::string& objType,
+                   const std::string& content,
                    size_t index = 0)
   {
     auto it = FindLine(objType, index);
-    if(it != sdp_lines_.end()) {
+    if (it != sdp_lines_.end()) {
       if (content.empty()) {
         sdp_lines_.erase(it);
       } else {
@@ -559,13 +556,13 @@ class ParsedSDP {
     }
   }
 
-  void AddLine(const std::string &content)
+  void AddLine(const std::string& content)
   {
     sdp_lines_.push_back(MakeKeyValue(content));
   }
 
   static std::pair<std::string, std::string> MakeKeyValue(
-      const std::string &content)
+      const std::string& content)
   {
     size_t whiteSpace = content.find(' ');
     std::string key;
@@ -573,18 +570,17 @@ class ParsedSDP {
     if (whiteSpace == std::string::npos) {
       //this is the line with no extra contents
       //example, v=0, a=sendrecv
-      key = content.substr(0,  content.size() - 2);
-      value = "\r\n"; // Checking code assumes this is here.
+      key = content.substr(0, content.size() - 2);
+      value = "\r\n";  // Checking code assumes this is here.
     } else {
       key = content.substr(0, whiteSpace);
-      value = content.substr(whiteSpace+1);
+      value = content.substr(whiteSpace + 1);
     }
     return std::make_pair(key, value);
   }
 
   std::list<std::pair<std::string, std::string>>::iterator FindLine(
-      const std::string& objType,
-      size_t index = 0)
+      const std::string& objType, size_t index = 0)
   {
     for (auto it = sdp_lines_.begin(); it != sdp_lines_.end(); ++it) {
       if (it->first == objType) {
@@ -597,8 +593,8 @@ class ParsedSDP {
     return sdp_lines_.end();
   }
 
-  void InsertLineAfter(const std::string &objType,
-                       const std::string &content,
+  void InsertLineAfter(const std::string& objType,
+                       const std::string& content,
                        size_t index = 0)
   {
     auto it = FindLine(objType, index);
@@ -629,14 +625,13 @@ class ParsedSDP {
   //Parse SDP as std::string into map that looks like:
   // key: sdp content till first space
   // value: sdp content after the first space, _including_ \r\n
-  void Parse(const std::string &sdp)
+  void Parse(const std::string& sdp)
   {
     size_t prev = 0;
     size_t found = 0;
-    for(;;) {
+    for (;;) {
       found = sdp.find('\n', found + 1);
-      if (found == std::string::npos)
-        break;
+      if (found == std::string::npos) break;
       std::string line = sdp.substr(prev, (found - prev) + 1);
       sdp_lines_.push_back(MakeKeyValue(line));
 
@@ -660,7 +655,7 @@ class ParsedSDP {
     return sdp;
   }
 
-  void IncorporateCandidate(uint16_t level, const std::string &candidate)
+  void IncorporateCandidate(uint16_t level, const std::string& candidate)
   {
     std::string candidate_attribute("a=" + candidate + "\r\n");
     // InsertLineAfter is 0 indexed, but level is 1 indexed
@@ -671,7 +666,6 @@ class ParsedSDP {
   std::list<std::pair<std::string, std::string>> sdp_lines_;
 };
 
-
 // This class wraps the PeerConnection object and ensures that all calls
 // into it happen on the main thread.
 class PCDispatchWrapper : public nsSupportsWeakReference
@@ -681,22 +675,21 @@ class PCDispatchWrapper : public nsSupportsWeakReference
 
  public:
   explicit PCDispatchWrapper(const RefPtr<PeerConnectionImpl>& peerConnection)
-    : pc_(peerConnection) {}
+      : pc_(peerConnection)
+  {
+  }
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
-  PeerConnectionImpl *pcImpl() const {
-    return pc_;
-  }
+  PeerConnectionImpl* pcImpl() const { return pc_; }
 
-  const RefPtr<PeerConnectionMedia>& media() const {
-    return pc_->media();
-  }
+  const RefPtr<PeerConnectionMedia>& media() const { return pc_->media(); }
 
   NS_IMETHODIMP Initialize(TestObserver* aObserver,
                            nsGlobalWindow* aWindow,
                            const PeerConnectionConfiguration& aConfiguration,
-                           nsIThread* aThread) {
+                           nsIThread* aThread)
+  {
     nsresult rv;
 
     observer_ = aObserver;
@@ -710,98 +703,115 @@ class PCDispatchWrapper : public nsSupportsWeakReference
       // argument' error.
       // Instead we are dispatching back to the same method for
       // all of these.
-      gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::Initialize,
-          aObserver, aWindow, aConfiguration, aThread),
-        NS_DISPATCH_SYNC);
+      gMainThread->Dispatch(WrapRunnableRet(&rv,
+                                            this,
+                                            &PCDispatchWrapper::Initialize,
+                                            aObserver,
+                                            aWindow,
+                                            aConfiguration,
+                                            aThread),
+                            NS_DISPATCH_SYNC);
       rv = NS_OK;
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP CreateOffer(const mozilla::JsepOfferOptions& aOptions) {
+  NS_IMETHODIMP CreateOffer(const mozilla::JsepOfferOptions& aOptions)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->CreateOffer(aOptions);
       EXPECT_EQ(NS_OK, rv);
-      if (NS_FAILED(rv))
-        return rv;
+      if (NS_FAILED(rv)) return rv;
       EXPECT_EQ(TestObserver::stateSuccess, observer_->state);
       if (observer_->state != TestObserver::stateSuccess) {
         return NS_ERROR_FAILURE;
       }
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::CreateOffer, aOptions),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&rv, this, &PCDispatchWrapper::CreateOffer, aOptions),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP CreateAnswer() {
+  NS_IMETHODIMP CreateAnswer()
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->CreateAnswer();
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::CreateAnswer),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&rv, this, &PCDispatchWrapper::CreateAnswer),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP SetLocalDescription (int32_t aAction, const char* aSDP) {
+  NS_IMETHODIMP SetLocalDescription(int32_t aAction, const char* aSDP)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->SetLocalDescription(aAction, aSDP);
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::SetLocalDescription,
-          aAction, aSDP),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&rv,
+                          this,
+                          &PCDispatchWrapper::SetLocalDescription,
+                          aAction,
+                          aSDP),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP SetRemoteDescription (int32_t aAction, const char* aSDP) {
+  NS_IMETHODIMP SetRemoteDescription(int32_t aAction, const char* aSDP)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->SetRemoteDescription(aAction, aSDP);
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::SetRemoteDescription,
-          aAction, aSDP),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&rv,
+                          this,
+                          &PCDispatchWrapper::SetRemoteDescription,
+                          aAction,
+                          aSDP),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP AddIceCandidate(const char* aCandidate, const char* aMid,
-                                unsigned short aLevel) {
+  NS_IMETHODIMP AddIceCandidate(const char* aCandidate,
+                                const char* aMid,
+                                unsigned short aLevel)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->AddIceCandidate(aCandidate, aMid, aLevel);
     } else {
-      gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::AddIceCandidate,
-          aCandidate, aMid, aLevel),
-        NS_DISPATCH_SYNC);
+      gMainThread->Dispatch(WrapRunnableRet(&rv,
+                                            this,
+                                            &PCDispatchWrapper::AddIceCandidate,
+                                            aCandidate,
+                                            aMid,
+                                            aLevel),
+                            NS_DISPATCH_SYNC);
     }
     return rv;
   }
 
-  NS_IMETHODIMP AddTrack(MediaStreamTrack *aTrack,
-                         DOMMediaStream *aMediaStream)
+  NS_IMETHODIMP AddTrack(MediaStreamTrack* aTrack, DOMMediaStream* aMediaStream)
   {
     nsresult rv;
 
@@ -809,109 +819,117 @@ class PCDispatchWrapper : public nsSupportsWeakReference
       rv = pc_->AddTrack(*aTrack, *aMediaStream);
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::AddTrack, aTrack,
-                        aMediaStream),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(
+              &rv, this, &PCDispatchWrapper::AddTrack, aTrack, aMediaStream),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP RemoveTrack(MediaStreamTrack *aTrack) {
+  NS_IMETHODIMP RemoveTrack(MediaStreamTrack* aTrack)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->RemoveTrack(*aTrack);
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::RemoveTrack, aTrack),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&rv, this, &PCDispatchWrapper::RemoveTrack, aTrack),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP GetLocalDescription(char** aSDP) {
+  NS_IMETHODIMP GetLocalDescription(char** aSDP)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->GetLocalDescription(aSDP);
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::GetLocalDescription,
-          aSDP),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(
+              &rv, this, &PCDispatchWrapper::GetLocalDescription, aSDP),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  NS_IMETHODIMP GetRemoteDescription(char** aSDP) {
+  NS_IMETHODIMP GetRemoteDescription(char** aSDP)
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->GetRemoteDescription(aSDP);
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::GetRemoteDescription,
-          aSDP),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(
+              &rv, this, &PCDispatchWrapper::GetRemoteDescription, aSDP),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
   }
 
-  mozilla::dom::PCImplSignalingState SignalingState() {
+  mozilla::dom::PCImplSignalingState SignalingState()
+  {
     mozilla::dom::PCImplSignalingState result;
 
     if (NS_IsMainThread()) {
       result = pc_->SignalingState();
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&result, this, &PCDispatchWrapper::SignalingState),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&result, this, &PCDispatchWrapper::SignalingState),
+          NS_DISPATCH_SYNC);
     }
 
     return result;
   }
 
-  mozilla::dom::PCImplIceConnectionState IceConnectionState() {
+  mozilla::dom::PCImplIceConnectionState IceConnectionState()
+  {
     mozilla::dom::PCImplIceConnectionState result;
 
     if (NS_IsMainThread()) {
       result = pc_->IceConnectionState();
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&result, this, &PCDispatchWrapper::IceConnectionState),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(
+              &result, this, &PCDispatchWrapper::IceConnectionState),
+          NS_DISPATCH_SYNC);
     }
 
     return result;
   }
 
-  mozilla::dom::PCImplIceGatheringState IceGatheringState() {
+  mozilla::dom::PCImplIceGatheringState IceGatheringState()
+  {
     mozilla::dom::PCImplIceGatheringState result;
 
     if (NS_IsMainThread()) {
       result = pc_->IceGatheringState();
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&result, this, &PCDispatchWrapper::IceGatheringState),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&result, this, &PCDispatchWrapper::IceGatheringState),
+          NS_DISPATCH_SYNC);
     }
 
     return result;
   }
 
-  NS_IMETHODIMP Close() {
+  NS_IMETHODIMP Close()
+  {
     nsresult rv;
 
     if (NS_IsMainThread()) {
       rv = pc_->Close();
     } else {
       gMainThread->Dispatch(
-        WrapRunnableRet(&rv, this, &PCDispatchWrapper::Close),
-        NS_DISPATCH_SYNC);
+          WrapRunnableRet(&rv, this, &PCDispatchWrapper::Close),
+          NS_DISPATCH_SYNC);
     }
 
     return rv;
@@ -924,12 +942,12 @@ class PCDispatchWrapper : public nsSupportsWeakReference
 
 NS_IMPL_ISUPPORTS(PCDispatchWrapper, nsISupportsWeakReference)
 
-
 struct Msid
 {
   std::string streamId;
   std::string trackId;
-  bool operator<(const Msid& other) const {
+  bool operator<(const Msid& other) const
+  {
     if (streamId < other.streamId) {
       return true;
     }
@@ -942,34 +960,35 @@ struct Msid
   }
 };
 
-class SignalingAgent {
+class SignalingAgent
+{
  public:
-  explicit SignalingAgent(const std::string &aName,
-    const std::string stun_addr = g_stun_server_address,
-    uint16_t stun_port = g_stun_server_port) :
-    pc(nullptr),
-    name(aName),
-    mBundleEnabled(true),
-    mExpectedFrameRequestType(VideoSessionConduit::FrameRequestPli),
-    mExpectNack(true),
-    mExpectRtcpMuxAudio(true),
-    mExpectRtcpMuxVideo(true),
-    mRemoteDescriptionSet(false) {
+  explicit SignalingAgent(const std::string& aName,
+                          const std::string stun_addr = g_stun_server_address,
+                          uint16_t stun_port = g_stun_server_port)
+      : pc(nullptr),
+        name(aName),
+        mBundleEnabled(true),
+        mExpectedFrameRequestType(VideoSessionConduit::FrameRequestPli),
+        mExpectNack(true),
+        mExpectRtcpMuxAudio(true),
+        mExpectRtcpMuxVideo(true),
+        mRemoteDescriptionSet(false)
+  {
     cfg_.addStunServer(stun_addr, stun_port, kNrIceTransportUdp);
     cfg_.addStunServer(stun_addr, stun_port, kNrIceTransportTcp);
 
-    PeerConnectionImpl *pcImpl =
-      PeerConnectionImpl::CreatePeerConnection();
+    PeerConnectionImpl* pcImpl = PeerConnectionImpl::CreatePeerConnection();
     EXPECT_TRUE(pcImpl);
     pcImpl->SetAllowIceLoopback(true);
     pcImpl->SetAllowIceLinkLocal(true);
     pc = new PCDispatchWrapper(pcImpl);
   }
 
-
-  ~SignalingAgent() {
-    mozilla::SyncRunnable::DispatchToThread(gMainThread,
-      WrapRunnable(this, &SignalingAgent::Close));
+  ~SignalingAgent()
+  {
+    mozilla::SyncRunnable::DispatchToThread(
+        gMainThread, WrapRunnable(this, &SignalingAgent::Close));
   }
 
   void Init_m()
@@ -982,14 +1001,11 @@ class SignalingAgent {
 
   void Init()
   {
-    mozilla::SyncRunnable::DispatchToThread(gMainThread,
-      WrapRunnable(this, &SignalingAgent::Init_m));
+    mozilla::SyncRunnable::DispatchToThread(
+        gMainThread, WrapRunnable(this, &SignalingAgent::Init_m));
   }
 
-  void SetBundleEnabled(bool enabled)
-  {
-    mBundleEnabled = enabled;
-  }
+  void SetBundleEnabled(bool enabled) { mBundleEnabled = enabled; }
 
   void SetBundlePolicy(JsepBundlePolicy policy)
   {
@@ -1001,7 +1017,8 @@ class SignalingAgent {
     mExpectedFrameRequestType = type;
   }
 
-  void WaitForGather() {
+  void WaitForGather()
+  {
     ASSERT_TRUE_WAIT(ice_gathering_state() == PCImplIceGatheringState::Complete,
                      kDefaultTimeout);
 
@@ -1018,10 +1035,11 @@ class SignalingAgent {
     // TODO(bug 1098584): Check for end-of-candidates attr
   }
 
-  bool WaitForGatherAllowFail() {
+  bool WaitForGatherAllowFail()
+  {
     EXPECT_TRUE_WAIT(
         ice_gathering_state() == PCImplIceGatheringState::Complete ||
-        ice_connection_state() == PCImplIceConnectionState::Failed,
+            ice_connection_state() == PCImplIceConnectionState::Failed,
         kDefaultTimeout);
 
     if (ice_connection_state() == PCImplIceConnectionState::Failed) {
@@ -1033,9 +1051,7 @@ class SignalingAgent {
     return true;
   }
 
-  void DropOutgoingTrickleCandidates() {
-    pObserver->trickleCandidates = false;
-  }
+  void DropOutgoingTrickleCandidates() { pObserver->trickleCandidates = false; }
 
   PCImplIceConnectionState ice_connection_state()
   {
@@ -1047,10 +1063,7 @@ class SignalingAgent {
     return pc->IceGatheringState();
   }
 
-  PCImplSignalingState signaling_state()
-  {
-    return pc->SignalingState();
-  }
+  PCImplSignalingState signaling_state() { return pc->SignalingState(); }
 
   void Close()
   {
@@ -1061,23 +1074,27 @@ class SignalingAgent {
     pObserver = nullptr;
   }
 
-  bool OfferContains(const std::string& str) {
+  bool OfferContains(const std::string& str)
+  {
     return offer().find(str) != std::string::npos;
   }
 
-  bool AnswerContains(const std::string& str) {
+  bool AnswerContains(const std::string& str)
+  {
     return answer().find(str) != std::string::npos;
   }
 
-  size_t MatchingCandidates(const std::string& cand) {
+  size_t MatchingCandidates(const std::string& cand)
+  {
     return pObserver->MatchingCandidates(cand);
   }
 
   const std::string& offer() const { return offer_; }
   const std::string& answer() const { return answer_; }
 
-  std::string getLocalDescription() const {
-    char *sdp = nullptr;
+  std::string getLocalDescription() const
+  {
+    char* sdp = nullptr;
     pc->GetLocalDescription(&sdp);
     if (!sdp) {
       return "";
@@ -1087,8 +1104,9 @@ class SignalingAgent {
     return result;
   }
 
-  std::string getRemoteDescription() const {
-    char *sdp = 0;
+  std::string getRemoteDescription() const
+  {
+    char* sdp = 0;
     pc->GetRemoteDescription(&sdp);
     if (!sdp) {
       return "";
@@ -1098,28 +1116,27 @@ class SignalingAgent {
     return result;
   }
 
-  std::string RemoveBundle(const std::string& sdp) const {
+  std::string RemoveBundle(const std::string& sdp) const
+  {
     ParsedSDP parsed(sdp);
     parsed.DeleteLines("a=group:BUNDLE");
     return parsed.getSdp();
   }
 
   // Adds a stream to the PeerConnection.
-  void AddStream(uint32_t hint =
-         DOMMediaStream::HINT_CONTENTS_AUDIO |
-         DOMMediaStream::HINT_CONTENTS_VIDEO,
-       MediaStream *stream = nullptr) {
-
+  void AddStream(uint32_t hint = DOMMediaStream::HINT_CONTENTS_AUDIO |
+                                 DOMMediaStream::HINT_CONTENTS_VIDEO,
+                 MediaStream* stream = nullptr)
+  {
     if (!stream && (hint & DOMMediaStream::HINT_CONTENTS_AUDIO)) {
       // Useful default
       // Create a media stream as if it came from GUM
-      Fake_AudioStreamSource *audio_stream =
-        new Fake_AudioStreamSource();
+      Fake_AudioStreamSource* audio_stream = new Fake_AudioStreamSource();
 
       nsresult ret;
       mozilla::SyncRunnable::DispatchToThread(
-        test_utils->sts_target(),
-        WrapRunnableRet(&ret, audio_stream, &Fake_MediaStream::Start));
+          test_utils->sts_target(),
+          WrapRunnableRet(&ret, audio_stream, &Fake_MediaStream::Start));
 
       ASSERT_TRUE(NS_SUCCEEDED(ret));
       stream = audio_stream;
@@ -1134,11 +1151,11 @@ class SignalingAgent {
       Msid msid = {domMediaStream->GetId(), tracks[i]->GetId()};
 
       ASSERT_FALSE(mAddedTracks.count(msid))
-        << msid.streamId << "/" << msid.trackId << " already added";
+          << msid.streamId << "/" << msid.trackId << " already added";
 
-      mAddedTracks[msid] = (tracks[i]->AsVideoStreamTrack() ?
-                            SdpMediaSection::kVideo :
-                            SdpMediaSection::kAudio);
+      mAddedTracks[msid] =
+          (tracks[i]->AsVideoStreamTrack() ? SdpMediaSection::kVideo
+                                           : SdpMediaSection::kAudio);
 
       ASSERT_EQ(pc->AddTrack(tracks[i], domMediaStream), NS_OK);
     }
@@ -1152,8 +1169,8 @@ class SignalingAgent {
   {
     std::ostringstream oss;
     for (const auto& track : tracks) {
-      oss << track.first.streamId << "/" << track.first.trackId
-          << " (" << track.second << ")" << std::endl;
+      oss << track.first.streamId << "/" << track.first.trackId << " ("
+          << track.second << ")" << std::endl;
     }
 
     return oss.str();
@@ -1179,9 +1196,11 @@ class SignalingAgent {
   {
     LocalSourceStreamInfo* info;
     mozilla::SyncRunnable::DispatchToThread(
-      gMainThread, WrapRunnableRet(&info,
-        pc->media(), &PeerConnectionMedia::GetLocalStreamById,
-        streamId));
+        gMainThread,
+        WrapRunnableRet(&info,
+                        pc->media(),
+                        &PeerConnectionMedia::GetLocalStreamById,
+                        streamId));
 
     ASSERT_TRUE(info) << "No such local stream id: " << streamId;
 
@@ -1189,33 +1208,34 @@ class SignalingAgent {
 
     mozilla::SyncRunnable::DispatchToThread(
         gMainThread,
-        WrapRunnableRet(&pipeline, info,
+        WrapRunnableRet(&pipeline,
+                        info,
                         &SourceStreamInfo::GetPipelineByTrackId_m,
                         trackId));
 
     ASSERT_TRUE(pipeline) << "No such local track id: " << trackId;
 
     if (type == SdpMediaSection::kVideo) {
-      ASSERT_TRUE(pipeline->IsVideo()) << "Local track " << trackId
-                                       << " was not video";
+      ASSERT_TRUE(pipeline->IsVideo())
+          << "Local track " << trackId << " was not video";
       ASSERT_EQ(mExpectRtcpMuxVideo, pipeline->IsDoingRtcpMux())
-        << "Pipeline for remote track " << trackId
-        << " is" << (mExpectRtcpMuxVideo ? " not " : " ") << "using rtcp-mux";
+          << "Pipeline for remote track " << trackId << " is"
+          << (mExpectRtcpMuxVideo ? " not " : " ") << "using rtcp-mux";
       // No checking for video RTP yet, since we don't have support for fake
       // video here yet. (bug 1142320)
     } else {
-      ASSERT_FALSE(pipeline->IsVideo()) << "Local track " << trackId
-                                        << " was not audio";
+      ASSERT_FALSE(pipeline->IsVideo())
+          << "Local track " << trackId << " was not audio";
       WAIT(pipeline->rtp_packets_sent() >= 4 &&
-           pipeline->rtcp_packets_received() >= 1,
+               pipeline->rtcp_packets_received() >= 1,
            kDefaultTimeout);
       ASSERT_LE(4, pipeline->rtp_packets_sent())
-        << "Local track " << trackId << " isn't sending RTP";
+          << "Local track " << trackId << " isn't sending RTP";
       ASSERT_LE(1, pipeline->rtcp_packets_received())
-        << "Local track " << trackId << " isn't receiving RTCP";
+          << "Local track " << trackId << " isn't receiving RTCP";
       ASSERT_EQ(mExpectRtcpMuxAudio, pipeline->IsDoingRtcpMux())
-        << "Pipeline for remote track " << trackId
-        << " is" << (mExpectRtcpMuxAudio ? " not " : " ") << "using rtcp-mux";
+          << "Pipeline for remote track " << trackId << " is"
+          << (mExpectRtcpMuxAudio ? " not " : " ") << "using rtcp-mux";
     }
   }
 
@@ -1226,9 +1246,11 @@ class SignalingAgent {
   {
     RemoteSourceStreamInfo* info;
     mozilla::SyncRunnable::DispatchToThread(
-      gMainThread, WrapRunnableRet(&info,
-        pc->media(), &PeerConnectionMedia::GetRemoteStreamById,
-        streamId));
+        gMainThread,
+        WrapRunnableRet(&info,
+                        pc->media(),
+                        &PeerConnectionMedia::GetRemoteStreamById,
+                        streamId));
 
     ASSERT_TRUE(info) << "No such remote stream id: " << streamId;
 
@@ -1236,41 +1258,41 @@ class SignalingAgent {
 
     mozilla::SyncRunnable::DispatchToThread(
         gMainThread,
-        WrapRunnableRet(&pipeline, info,
+        WrapRunnableRet(&pipeline,
+                        info,
                         &SourceStreamInfo::GetPipelineByTrackId_m,
                         trackId));
 
     ASSERT_TRUE(pipeline) << "No such remote track id: " << trackId;
 
     if (type == SdpMediaSection::kVideo) {
-      ASSERT_TRUE(pipeline->IsVideo()) << "Remote track " << trackId
-                                       << " was not video";
-      mozilla::MediaSessionConduit *conduit = pipeline->Conduit();
+      ASSERT_TRUE(pipeline->IsVideo())
+          << "Remote track " << trackId << " was not video";
+      mozilla::MediaSessionConduit* conduit = pipeline->Conduit();
       ASSERT_TRUE(conduit);
       ASSERT_EQ(conduit->type(), mozilla::MediaSessionConduit::VIDEO);
-      mozilla::VideoSessionConduit *video_conduit =
-        static_cast<mozilla::VideoSessionConduit*>(conduit);
+      mozilla::VideoSessionConduit* video_conduit =
+          static_cast<mozilla::VideoSessionConduit*>(conduit);
       ASSERT_EQ(mExpectNack, video_conduit->UsingNackBasic());
-      ASSERT_EQ(mExpectedFrameRequestType,
-                video_conduit->FrameRequestMethod());
+      ASSERT_EQ(mExpectedFrameRequestType, video_conduit->FrameRequestMethod());
       ASSERT_EQ(mExpectRtcpMuxVideo, pipeline->IsDoingRtcpMux())
-        << "Pipeline for remote track " << trackId
-        << " is" << (mExpectRtcpMuxVideo ? " not " : " ") << "using rtcp-mux";
+          << "Pipeline for remote track " << trackId << " is"
+          << (mExpectRtcpMuxVideo ? " not " : " ") << "using rtcp-mux";
       // No checking for video RTP yet, since we don't have support for fake
       // video here yet. (bug 1142320)
     } else {
-      ASSERT_FALSE(pipeline->IsVideo()) << "Remote track " << trackId
-                                        << " was not audio";
+      ASSERT_FALSE(pipeline->IsVideo())
+          << "Remote track " << trackId << " was not audio";
       WAIT(pipeline->rtp_packets_received() >= 4 &&
-           pipeline->rtcp_packets_sent() >= 1,
+               pipeline->rtcp_packets_sent() >= 1,
            kDefaultTimeout);
       ASSERT_LE(4, pipeline->rtp_packets_received())
-        << "Remote track " << trackId << " isn't receiving RTP";
+          << "Remote track " << trackId << " isn't receiving RTP";
       ASSERT_LE(1, pipeline->rtcp_packets_sent())
-        << "Remote track " << trackId << " isn't sending RTCP";
+          << "Remote track " << trackId << " isn't sending RTCP";
       ASSERT_EQ(mExpectRtcpMuxAudio, pipeline->IsDoingRtcpMux())
-        << "Pipeline for remote track " << trackId
-        << " is" << (mExpectRtcpMuxAudio ? " not " : " ") << "using rtcp-mux";
+          << "Pipeline for remote track " << trackId << " is"
+          << (mExpectRtcpMuxAudio ? " not " : " ") << "using rtcp-mux";
     }
   }
 
@@ -1290,7 +1312,8 @@ class SignalingAgent {
     }
   }
 
-  void RemoveStream(size_t index) {
+  void RemoveStream(size_t index)
+  {
     nsTArray<RefPtr<MediaStreamTrack>> tracks;
     domMediaStreams_[index]->GetTracks(tracks);
     for (uint32_t i = 0; i < tracks.Length(); i++) {
@@ -1300,16 +1323,17 @@ class SignalingAgent {
   }
 
   // Removes the stream that was most recently added to the PeerConnection.
-  void RemoveLastStreamAdded() {
+  void RemoveLastStreamAdded()
+  {
     ASSERT_FALSE(domMediaStreams_.empty());
     RemoveStream(domMediaStreams_.size() - 1);
   }
 
-  void CreateOffer(OfferOptions& options,
-                   uint32_t offerFlags,
-                   PCImplSignalingState endState =
-                     PCImplSignalingState::SignalingStable) {
-
+  void CreateOffer(
+      OfferOptions& options,
+      uint32_t offerFlags,
+      PCImplSignalingState endState = PCImplSignalingState::SignalingStable)
+  {
     uint32_t aHintContents = 0;
     if (offerFlags & OFFER_AUDIO) {
       aHintContents |= DOMMediaStream::HINT_CONTENTS_AUDIO;
@@ -1333,7 +1357,8 @@ class SignalingAgent {
 
   // sets the offer to match the local description
   // which isn't good if you are the answerer
-  void UpdateOffer() {
+  void UpdateOffer()
+  {
     offer_ = getLocalDescription();
     if (!mBundleEnabled) {
       offer_ = RemoveBundle(offer_);
@@ -1342,15 +1367,15 @@ class SignalingAgent {
 
   void CreateAnswer(uint32_t offerAnswerFlags,
                     PCImplSignalingState endState =
-                    PCImplSignalingState::SignalingHaveRemoteOffer) {
+                        PCImplSignalingState::SignalingHaveRemoteOffer)
+  {
     // Create a media stream as if it came from GUM
-    Fake_AudioStreamSource *audio_stream =
-      new Fake_AudioStreamSource();
+    Fake_AudioStreamSource* audio_stream = new Fake_AudioStreamSource();
 
     nsresult ret;
     mozilla::SyncRunnable::DispatchToThread(
-      test_utils->sts_target(),
-      WrapRunnableRet(&ret, audio_stream, &Fake_MediaStream::Start));
+        test_utils->sts_target(),
+        WrapRunnableRet(&ret, audio_stream, &Fake_MediaStream::Start));
 
     ASSERT_TRUE(NS_SUCCEEDED(ret));
 
@@ -1378,15 +1403,16 @@ class SignalingAgent {
 
   // sets the answer to match the local description
   // which isn't good if you are the offerer
-  void UpdateAnswer() {
+  void UpdateAnswer()
+  {
     answer_ = getLocalDescription();
     if (!mBundleEnabled) {
       answer_ = RemoveBundle(answer_);
     }
   }
 
-  void CreateOfferRemoveTrack(OfferOptions& options, bool videoTrack) {
-
+  void CreateOfferRemoveTrack(OfferOptions& options, bool videoTrack)
+  {
     RemoveTrack(0, videoTrack);
 
     // Now call CreateOffer as JS would
@@ -1399,15 +1425,16 @@ class SignalingAgent {
     }
   }
 
-  void SetRemote(TestObserver::Action action, const std::string& remote,
-                 bool ignoreError = false,
-                 PCImplSignalingState endState =
-                 PCImplSignalingState::SignalingInvalid) {
-
+  void SetRemote(
+      TestObserver::Action action,
+      const std::string& remote,
+      bool ignoreError = false,
+      PCImplSignalingState endState = PCImplSignalingState::SignalingInvalid)
+  {
     if (endState == PCImplSignalingState::SignalingInvalid) {
-      endState = (action == TestObserver::OFFER ?
-                  PCImplSignalingState::SignalingHaveRemoteOffer :
-                  PCImplSignalingState::SignalingStable);
+      endState = (action == TestObserver::OFFER
+                      ? PCImplSignalingState::SignalingHaveRemoteOffer
+                      : PCImplSignalingState::SignalingStable);
     }
 
     pObserver->state = TestObserver::stateNoResponse;
@@ -1427,15 +1454,16 @@ class SignalingAgent {
     deferredCandidates_.clear();
   }
 
-  void SetLocal(TestObserver::Action action, const std::string& local,
-                bool ignoreError = false,
-                PCImplSignalingState endState =
-                PCImplSignalingState::SignalingInvalid) {
-
+  void SetLocal(
+      TestObserver::Action action,
+      const std::string& local,
+      bool ignoreError = false,
+      PCImplSignalingState endState = PCImplSignalingState::SignalingInvalid)
+  {
     if (endState == PCImplSignalingState::SignalingInvalid) {
-      endState = (action == TestObserver::OFFER ?
-                  PCImplSignalingState::SignalingHaveLocalOffer :
-                  PCImplSignalingState::SignalingStable);
+      endState = (action == TestObserver::OFFER
+                      ? PCImplSignalingState::SignalingHaveLocalOffer
+                      : PCImplSignalingState::SignalingStable);
     }
 
     pObserver->state = TestObserver::stateNoResponse;
@@ -1446,17 +1474,17 @@ class SignalingAgent {
     }
   }
 
-  typedef enum {
-    NORMAL_ENCODING,
-    CHROME_ENCODING
-  } TrickleEncoding;
+  typedef enum { NORMAL_ENCODING, CHROME_ENCODING } TrickleEncoding;
 
-  bool IceCompleted() {
+  bool IceCompleted()
+  {
     return pc->IceConnectionState() == PCImplIceConnectionState::Connected;
   }
 
-  void AddIceCandidateStr(const std::string& candidate, const std::string& mid,
-                          unsigned short level) {
+  void AddIceCandidateStr(const std::string& candidate,
+                          const std::string& mid,
+                          unsigned short level)
+  {
     if (!mRemoteDescriptionSet) {
       // Not time to add this, because the unit-test code hasn't set the
       // description yet.
@@ -1467,15 +1495,17 @@ class SignalingAgent {
     }
   }
 
-  void AddIceCandidate(const std::string& candidate, const std::string& mid, unsigned short level,
-                       bool expectSuccess) {
+  void AddIceCandidate(const std::string& candidate,
+                       const std::string& mid,
+                       unsigned short level,
+                       bool expectSuccess)
+  {
     PCImplSignalingState endState = signaling_state();
     pObserver->addIceCandidateState = TestObserver::stateNoResponse;
     pc->AddIceCandidate(candidate.c_str(), mid.c_str(), level);
     ASSERT_TRUE(pObserver->addIceCandidateState ==
-                (expectSuccess ? TestObserver::stateSuccess :
-                                TestObserver::stateError)
-               );
+                (expectSuccess ? TestObserver::stateSuccess
+                               : TestObserver::stateError));
 
     // Verify that adding ICE candidates does not change the signaling state
     ASSERT_EQ(signaling_state(), endState);
@@ -1484,7 +1514,7 @@ class SignalingAgent {
 
   int GetPacketsReceived(const std::string& streamId) const
   {
-    std::vector<DOMMediaStream *> streams = pObserver->GetStreams();
+    std::vector<DOMMediaStream*> streams = pObserver->GetStreams();
 
     for (size_t i = 0; i < streams.size(); ++i) {
       if (streams[i]->GetId() == streamId) {
@@ -1496,8 +1526,9 @@ class SignalingAgent {
     return 0;
   }
 
-  int GetPacketsReceived(size_t stream) const {
-    std::vector<DOMMediaStream *> streams = pObserver->GetStreams();
+  int GetPacketsReceived(size_t stream) const
+  {
+    std::vector<DOMMediaStream*> streams = pObserver->GetStreams();
 
     if (streams.size() <= stream) {
       EXPECT_TRUE(false);
@@ -1519,19 +1550,22 @@ class SignalingAgent {
     return 0;
   }
 
-  int GetPacketsSent(size_t stream) const {
+  int GetPacketsSent(size_t stream) const
+  {
     if (stream >= domMediaStreams_.size()) {
       EXPECT_TRUE(false);
       return 0;
     }
 
-    return static_cast<Fake_MediaStreamBase *>(
-        domMediaStreams_[stream]->GetStream())->GetSegmentsAdded();
+    return static_cast<Fake_MediaStreamBase*>(
+               domMediaStreams_[stream]->GetStream())
+        ->GetSegmentsAdded();
   }
 
   //Stops generating new audio data for transmission.
   //Should be called before Cleanup of the peer connection.
-  void CloseSendStreams() {
+  void CloseSendStreams()
+  {
     for (auto& domMediaStream : domMediaStreams_) {
       static_cast<Fake_MediaStream*>(domMediaStream->GetStream())->StopStream();
     }
@@ -1539,9 +1573,9 @@ class SignalingAgent {
 
   //Stops pulling audio data off the receivers.
   //Should be called before Cleanup of the peer connection.
-  void CloseReceiveStreams() {
-    std::vector<DOMMediaStream *> streams =
-                            pObserver->GetStreams();
+  void CloseReceiveStreams()
+  {
+    std::vector<DOMMediaStream*> streams = pObserver->GetStreams();
     for (auto& stream : streams) {
       stream->GetStream()->AsSourceStream()->StopStream();
     }
@@ -1553,26 +1587,32 @@ class SignalingAgent {
   // the SDP. For now, we just specify audio/video, since a given DOMMediaStream
   // can have only one of each anyway. Once this is fixed, we will need to
   // pass a real track id if we want to test that case.
-  RefPtr<mozilla::MediaPipeline> GetMediaPipeline(
-    bool local, size_t stream, bool video) {
+  RefPtr<mozilla::MediaPipeline> GetMediaPipeline(bool local,
+                                                  size_t stream,
+                                                  bool video)
+  {
     SourceStreamInfo* streamInfo;
     if (local) {
       mozilla::SyncRunnable::DispatchToThread(
-        gMainThread, WrapRunnableRet(&streamInfo,
-          pc->media(), &PeerConnectionMedia::GetLocalStreamByIndex,
-          stream));
+          gMainThread,
+          WrapRunnableRet(&streamInfo,
+                          pc->media(),
+                          &PeerConnectionMedia::GetLocalStreamByIndex,
+                          stream));
     } else {
       mozilla::SyncRunnable::DispatchToThread(
-        gMainThread, WrapRunnableRet(&streamInfo,
-          pc->media(), &PeerConnectionMedia::GetRemoteStreamByIndex,
-          stream));
+          gMainThread,
+          WrapRunnableRet(&streamInfo,
+                          pc->media(),
+                          &PeerConnectionMedia::GetRemoteStreamByIndex,
+                          stream));
     }
 
     if (!streamInfo) {
       return nullptr;
     }
 
-    const auto &pipelines = streamInfo->GetPipelines();
+    const auto& pipelines = streamInfo->GetPipelines();
 
     for (const auto& pipeline : pipelines) {
       if (pipeline.second->IsVideo() == video) {
@@ -1583,11 +1623,9 @@ class SignalingAgent {
     return nullptr;
   }
 
-  void SetPeer(SignalingAgent* peer) {
-    pObserver->peerAgent = peer;
-  }
+  void SetPeer(SignalingAgent* peer) { pObserver->peerAgent = peer; }
 
-public:
+ public:
   RefPtr<PCDispatchWrapper> pc;
   RefPtr<TestObserver> pObserver;
   std::string offer_;
@@ -1604,7 +1642,8 @@ public:
 
   std::map<Msid, SdpMediaSection::MediaType> mAddedTracks;
 
-  typedef struct {
+  typedef struct
+  {
     std::string candidate;
     std::string mid;
     uint16_t level;
@@ -1614,10 +1653,12 @@ public:
   std::list<DeferredCandidate> deferredCandidates_;
 };
 
-static void AddIceCandidateToPeer(nsWeakPtr weak_observer,
-                                  uint16_t level,
-                                  const std::string &mid,
-                                  const std::string &cand) {
+static void
+AddIceCandidateToPeer(nsWeakPtr weak_observer,
+                      uint16_t level,
+                      const std::string& mid,
+                      const std::string& cand)
+{
   nsCOMPtr<nsISupportsWeakReference> tmp = do_QueryReferent(weak_observer);
   if (!tmp) {
     return;
@@ -1639,58 +1680,58 @@ static void AddIceCandidateToPeer(nsWeakPtr weak_observer,
   observer->peerAgent->AddIceCandidateStr(cand, mid, level);
 }
 
-
 NS_IMETHODIMP
 TestObserver::OnIceCandidate(uint16_t level,
-                             const char * mid,
-                             const char * candidate, ER&)
+                             const char* mid,
+                             const char* candidate,
+                             ER&)
 {
   if (strlen(candidate) != 0) {
     std::cerr << name << ": got candidate: " << candidate << std::endl;
     // Forward back to myself to unwind stack.
     nsWeakPtr weak_this = do_GetWeakReference(this);
-    gMainThread->Dispatch(
-        WrapRunnableNM(
-            &AddIceCandidateToPeer,
-            weak_this,
-            level,
-            std::string(mid),
-            std::string(candidate)),
-        NS_DISPATCH_NORMAL);
+    gMainThread->Dispatch(WrapRunnableNM(&AddIceCandidateToPeer,
+                                         weak_this,
+                                         level,
+                                         std::string(mid),
+                                         std::string(candidate)),
+                          NS_DISPATCH_NORMAL);
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TestObserver::OnNegotiationNeeded(ER&)
-{
-  return NS_OK;
-}
+TestObserver::OnNegotiationNeeded(ER&) { return NS_OK; }
 
-class SignalingEnvironment : public ::testing::Environment {
+class SignalingEnvironment : public ::testing::Environment
+{
  public:
-  void TearDown() {
+  void TearDown()
+  {
     // Signaling is shut down in XPCOM shutdown
   }
 };
 
-class SignalingAgentTest : public ::testing::Test {
+class SignalingAgentTest : public ::testing::Test
+{
  public:
-  static void SetUpTestCase() {
-  }
+  static void SetUpTestCase() {}
 
-  void TearDown() {
+  void TearDown()
+  {
     // Delete all the agents.
     for (auto& agent : agents_) {
       delete agent;
     }
   }
 
-  bool CreateAgent() {
+  bool CreateAgent()
+  {
     return CreateAgent(g_stun_server_address, g_stun_server_port);
   }
 
-  bool CreateAgent(const std::string stun_addr, uint16_t stun_port) {
+  bool CreateAgent(const std::string stun_addr, uint16_t stun_port)
+  {
     UniquePtr<SignalingAgent> agent(
         new SignalingAgent("agent", stun_addr, stun_port));
 
@@ -1701,63 +1742,62 @@ class SignalingAgentTest : public ::testing::Test {
     return true;
   }
 
-  void CreateAgentNoInit() {
+  void CreateAgentNoInit()
+  {
     UniquePtr<SignalingAgent> agent(new SignalingAgent("agent"));
     agents_.push_back(agent.release());
   }
 
-  SignalingAgent *agent(size_t i) {
-    return agents_[i];
-  }
+  SignalingAgent* agent(size_t i) { return agents_[i]; }
 
  private:
-  std::vector<SignalingAgent *> agents_;
+  std::vector<SignalingAgent*> agents_;
 };
-
 
 class SignalingTest : public ::testing::Test,
                       public ::testing::WithParamInterface<std::string>
 {
-public:
+ public:
   SignalingTest()
       : init_(false),
         a1_(nullptr),
         a2_(nullptr),
         stun_addr_(g_stun_server_address),
-        stun_port_(g_stun_server_port) {}
+        stun_port_(g_stun_server_port)
+  {
+  }
 
   SignalingTest(const std::string& stun_addr, uint16_t stun_port)
-      : a1_(nullptr),
-        a2_(nullptr),
-        stun_addr_(stun_addr),
-        stun_port_(stun_port) {}
+      : a1_(nullptr), a2_(nullptr), stun_addr_(stun_addr), stun_port_(stun_port)
+  {
+  }
 
-  ~SignalingTest() {
+  ~SignalingTest()
+  {
     if (init_) {
-      mozilla::SyncRunnable::DispatchToThread(gMainThread,
-        WrapRunnable(this, &SignalingTest::Teardown_m));
+      mozilla::SyncRunnable::DispatchToThread(
+          gMainThread, WrapRunnable(this, &SignalingTest::Teardown_m));
     }
   }
 
-  void Teardown_m() {
+  void Teardown_m()
+  {
     a1_->SetPeer(nullptr);
     a2_->SetPeer(nullptr);
   }
 
-  static void SetUpTestCase() {
-  }
+  static void SetUpTestCase() {}
 
-  void EnsureInit() {
-
-    if (init_)
-      return;
+  void EnsureInit()
+  {
+    if (init_) return;
 
     a1_ = MakeUnique<SignalingAgent>(callerName, stun_addr_, stun_port_);
     a2_ = MakeUnique<SignalingAgent>(calleeName, stun_addr_, stun_port_);
 
     if (GetParam() == "no_bundle") {
       a1_->SetBundleEnabled(false);
-    } else if(GetParam() == "reject_bundle") {
+    } else if (GetParam() == "reject_bundle") {
       a2_->SetBundleEnabled(false);
     } else if (GetParam() == "max-bundle") {
       a1_->SetBundlePolicy(JsepBundlePolicy::kBundleMaxBundle);
@@ -1783,20 +1823,22 @@ public:
     return (GetParam() != "no_bundle") && (GetParam() != "reject_bundle");
   }
 
-  void WaitForGather() {
+  void WaitForGather()
+  {
     a1_->WaitForGather();
     a2_->WaitForGather();
   }
 
-  static void TearDownTestCase() {
-  }
+  static void TearDownTestCase() {}
 
-  void CreateOffer(OfferOptions& options, uint32_t offerFlags) {
+  void CreateOffer(OfferOptions& options, uint32_t offerFlags)
+  {
     EnsureInit();
     a1_->CreateOffer(options, offerFlags);
   }
 
-  void CreateSetOffer(OfferOptions& options) {
+  void CreateSetOffer(OfferOptions& options)
+  {
     EnsureInit();
     a1_->CreateOffer(options, OFFER_AV);
     a1_->SetLocal(TestObserver::OFFER, a1_->offer());
@@ -1808,16 +1850,14 @@ public:
   // jsep_session_unittest.
   void SDPSanityCheck(const std::string& sdp, uint32_t flags, bool offer)
   {
-    std::cout << "SDPSanityCheck flags for "
-              << (offer ? "offer" : "answer")
-              << " = " << std::hex << std::showbase
-              << flags << std::dec
-              << ((flags & HAS_ALL_CANDIDATES)?" HAS_ALL_CANDIDATES":"")
+    std::cout << "SDPSanityCheck flags for " << (offer ? "offer" : "answer")
+              << " = " << std::hex << std::showbase << flags << std::dec
+              << ((flags & HAS_ALL_CANDIDATES) ? " HAS_ALL_CANDIDATES" : "")
               << std::endl;
 
     if (flags & HAS_ALL_CANDIDATES) {
       ASSERT_NE(std::string::npos, sdp.find("a=candidate"))
-                << "should have at least one candidate";
+          << "should have at least one candidate";
       ASSERT_NE(std::string::npos, sdp.find("a=end-of-candidates"));
       ASSERT_EQ(std::string::npos, sdp.find("c=IN IP4 0.0.0.0"));
     }
@@ -1826,26 +1866,27 @@ public:
   void CheckPipelines()
   {
     std::cout << "Checking pipelines..." << std::endl;
-    for (auto it = a1_->mAddedTracks.begin();
-         it != a1_->mAddedTracks.end();
+    for (auto it = a1_->mAddedTracks.begin(); it != a1_->mAddedTracks.end();
          ++it) {
-      a1_->CheckLocalPipeline(it->first.streamId, it->first.trackId, it->second);
-      a2_->CheckRemotePipeline(it->first.streamId, it->first.trackId, it->second);
+      a1_->CheckLocalPipeline(
+          it->first.streamId, it->first.trackId, it->second);
+      a2_->CheckRemotePipeline(
+          it->first.streamId, it->first.trackId, it->second);
     }
 
-    for (auto it = a2_->mAddedTracks.begin();
-         it != a2_->mAddedTracks.end();
+    for (auto it = a2_->mAddedTracks.begin(); it != a2_->mAddedTracks.end();
          ++it) {
-      a2_->CheckLocalPipeline(it->first.streamId, it->first.trackId, it->second);
-      a1_->CheckRemotePipeline(it->first.streamId, it->first.trackId, it->second);
+      a2_->CheckLocalPipeline(
+          it->first.streamId, it->first.trackId, it->second);
+      a1_->CheckRemotePipeline(
+          it->first.streamId, it->first.trackId, it->second);
     }
     std::cout << "Done checking pipelines." << std::endl;
   }
 
   void CheckStreams(SignalingAgent& sender, SignalingAgent& receiver)
   {
-    for (auto it = sender.mAddedTracks.begin();
-         it != sender.mAddedTracks.end();
+    for (auto it = sender.mAddedTracks.begin(); it != sender.mAddedTracks.end();
          ++it) {
       // No checking for video yet, since we don't have support for fake video
       // here yet. (bug 1142320)
@@ -1856,14 +1897,16 @@ public:
         // TODO: Once we support more than one of each track type per stream,
         // this will need to be updated.
         WAIT(sender.GetPacketsSent(it->first.streamId) >= sendExpect &&
-             receiver.GetPacketsReceived(it->first.streamId) >= receiveExpect,
+                 receiver.GetPacketsReceived(it->first.streamId) >=
+                     receiveExpect,
              kDefaultTimeout);
         ASSERT_LE(sendExpect, sender.GetPacketsSent(it->first.streamId))
-          << "Local track " << it->first.streamId << "/" << it->first.trackId
-          << " is not sending audio segments.";
-        ASSERT_LE(receiveExpect, receiver.GetPacketsReceived(it->first.streamId))
-          << "Remote track " << it->first.streamId << "/" << it->first.trackId
-          << " is not receiving audio segments.";
+            << "Local track " << it->first.streamId << "/" << it->first.trackId
+            << " is not sending audio segments.";
+        ASSERT_LE(receiveExpect,
+                  receiver.GetPacketsReceived(it->first.streamId))
+            << "Remote track " << it->first.streamId << "/" << it->first.trackId
+            << " is not receiving audio segments.";
       }
     }
   }
@@ -1878,7 +1921,8 @@ public:
 
   void Offer(OfferOptions& options,
              uint32_t offerAnswerFlags,
-             TrickleType trickleType = BOTH_TRICKLE) {
+             TrickleType trickleType = BOTH_TRICKLE)
+  {
     EnsureInit();
     a1_->CreateOffer(options, offerAnswerFlags);
     bool trickle = !!(trickleType & OFFERER_TRICKLES);
@@ -1897,8 +1941,8 @@ public:
 
   void Answer(OfferOptions& options,
               uint32_t offerAnswerFlags,
-              TrickleType trickleType = BOTH_TRICKLE) {
-
+              TrickleType trickleType = BOTH_TRICKLE)
+  {
     a2_->CreateAnswer(offerAnswerFlags);
     bool trickle = !!(trickleType & ANSWERER_TRICKLES);
     if (!trickle) {
@@ -1914,14 +1958,16 @@ public:
     a1_->SetRemote(TestObserver::ANSWER, a2_->answer());
   }
 
-  void WaitForCompleted() {
+  void WaitForCompleted()
+  {
     ASSERT_TRUE_WAIT(a1_->IceCompleted() == true, kDefaultTimeout);
     ASSERT_TRUE_WAIT(a2_->IceCompleted() == true, kDefaultTimeout);
   }
 
   void OfferAnswer(OfferOptions& options,
                    uint32_t offerAnswerFlags,
-                   TrickleType trickleType = BOTH_TRICKLE) {
+                   TrickleType trickleType = BOTH_TRICKLE)
+  {
     EnsureInit();
     Offer(options, offerAnswerFlags, trickleType);
     Answer(options, offerAnswerFlags, trickleType);
@@ -1931,7 +1977,8 @@ public:
   }
 
   void OfferAnswerTrickleChrome(OfferOptions& options,
-                                uint32_t offerAnswerFlags) {
+                                uint32_t offerAnswerFlags)
+  {
     EnsureInit();
     Offer(options, offerAnswerFlags);
     Answer(options, offerAnswerFlags);
@@ -1940,7 +1987,8 @@ public:
     CheckStreams();
   }
 
-  void CreateOfferRemoveTrack(OfferOptions& options, bool videoTrack) {
+  void CreateOfferRemoveTrack(OfferOptions& options, bool videoTrack)
+  {
     EnsureInit();
     OfferOptions aoptions;
     aoptions.setInt32Option("OfferToReceiveAudio", 1);
@@ -1949,21 +1997,26 @@ public:
     a1_->CreateOfferRemoveTrack(options, videoTrack);
   }
 
-  void CreateOfferAudioOnly(OfferOptions& options) {
+  void CreateOfferAudioOnly(OfferOptions& options)
+  {
     EnsureInit();
     a1_->CreateOffer(options, OFFER_AUDIO);
   }
 
   void CreateOfferAddCandidate(OfferOptions& options,
-                               const std::string& candidate, const std::string& mid,
-                               unsigned short level) {
+                               const std::string& candidate,
+                               const std::string& mid,
+                               unsigned short level)
+  {
     EnsureInit();
     a1_->CreateOffer(options, OFFER_AV);
     a1_->AddIceCandidate(candidate, mid, level, true);
   }
 
-  void AddIceCandidateEarly(const std::string& candidate, const std::string& mid,
-                            unsigned short level) {
+  void AddIceCandidateEarly(const std::string& candidate,
+                            const std::string& mid,
+                            unsigned short level)
+  {
     EnsureInit();
     a1_->AddIceCandidate(candidate, mid, level, false);
   }
@@ -1980,12 +2033,10 @@ public:
       bool isVideo = currentMsection->GetMediaType() == SdpMediaSection::kVideo;
       if (swapVideo == isVideo) {
         if (previousMsection) {
-          UniquePtr<SdpMsidAttributeList> prevMsid(
-            new SdpMsidAttributeList(
-                previousMsection->GetAttributeList().GetMsid()));
-          UniquePtr<SdpMsidAttributeList> currMsid(
-            new SdpMsidAttributeList(
-                currentMsection->GetAttributeList().GetMsid()));
+          UniquePtr<SdpMsidAttributeList> prevMsid(new SdpMsidAttributeList(
+              previousMsection->GetAttributeList().GetMsid()));
+          UniquePtr<SdpMsidAttributeList> currMsid(new SdpMsidAttributeList(
+              currentMsection->GetAttributeList().GetMsid()));
           previousMsection->GetAttributeList().SetAttribute(currMsid.release());
           currentMsection->GetAttributeList().SetAttribute(prevMsid.release());
           swapped = true;
@@ -1999,9 +2050,9 @@ public:
     return parsed->ToString();
   }
 
-  void CheckRtcpFbSdp(const std::string &sdp,
-                      const std::set<std::string>& expected) {
-
+  void CheckRtcpFbSdp(const std::string& sdp,
+                      const std::set<std::string>& expected)
+  {
     std::set<std::string>::const_iterator it;
 
     // Iterate through the list of expected feedback types and ensure
@@ -2018,14 +2069,15 @@ public:
     std::vector<std::string> values = sdpWrapper.GetLines("a=rtcp-fb:120");
     std::vector<std::string>::iterator it2;
     for (it2 = values.begin(); it2 != values.end(); ++it2) {
-      std::cout << " - Verifying that rtcp-fb is okay: '" << *it2
-                << "'" << std::endl;
+      std::cout << " - Verifying that rtcp-fb is okay: '" << *it2 << "'"
+                << std::endl;
       ASSERT_NE(0U, expected.count(*it2));
     }
   }
 
   std::string HardcodeRtcpFb(const std::string& sdp,
-                             const std::set<std::string>& feedback) {
+                             const std::set<std::string>& feedback)
+  {
     ParsedSDP sdpWrapper(sdp);
 
     // Strip out any existing rtcp-fb lines
@@ -2053,8 +2105,9 @@ public:
   }
 
   void TestRtcpFbAnswer(const std::set<std::string>& feedback,
-      bool expectNack,
-      VideoSessionConduit::FrameRequestType frameRequestType) {
+                        bool expectNack,
+                        VideoSessionConduit::FrameRequestType frameRequestType)
+  {
     EnsureInit();
     OfferOptions options;
 
@@ -2081,10 +2134,10 @@ public:
     CloseStreams();
   }
 
-  void TestRtcpFbOffer(
-      const std::set<std::string>& feedback,
-      bool expectNack,
-      VideoSessionConduit::FrameRequestType frameRequestType) {
+  void TestRtcpFbOffer(const std::set<std::string>& feedback,
+                       bool expectNack,
+                       VideoSessionConduit::FrameRequestType frameRequestType)
+  {
     EnsureInit();
     OfferOptions options;
 
@@ -2110,20 +2163,22 @@ public:
     CloseStreams();
   }
 
-  void SetTestStunServer() {
+  void SetTestStunServer()
+  {
     stun_addr_ = TestStunServer::GetInstance()->addr();
     stun_port_ = TestStunServer::GetInstance()->port();
 
     TestStunServer::GetInstance()->SetActive(false);
-    TestStunServer::GetInstance()->SetResponseAddr(
-        kBogusSrflxAddress, kBogusSrflxPort);
+    TestStunServer::GetInstance()->SetResponseAddr(kBogusSrflxAddress,
+                                                   kBogusSrflxPort);
   }
 
   // Check max-fs and max-fr in SDP
   void CheckMaxFsFrSdp(const std::string sdp,
                        int format,
                        int max_fs,
-                       int max_fr) {
+                       int max_fr)
+  {
     ParsedSDP sdpWrapper(sdp);
     std::stringstream ss;
     ss << "a=fmtp:" << format;
@@ -2179,59 +2234,61 @@ public:
   uint16_t stun_port_;
 };
 
-static void SetIntPrefOnMainThread(nsCOMPtr<nsIPrefBranch> prefs,
-  const char *pref_name,
-  int new_value) {
+static void
+SetIntPrefOnMainThread(nsCOMPtr<nsIPrefBranch> prefs,
+                       const char* pref_name,
+                       int new_value)
+{
   MOZ_ASSERT(NS_IsMainThread());
   prefs->SetIntPref(pref_name, new_value);
 }
 
-static void SetMaxFsFr(nsCOMPtr<nsIPrefBranch> prefs,
-  int max_fs,
-  int max_fr) {
-  gMainThread->Dispatch(
-    WrapRunnableNM(SetIntPrefOnMainThread,
-      prefs,
-      "media.navigator.video.max_fs",
-      max_fs),
-    NS_DISPATCH_SYNC);
+static void
+SetMaxFsFr(nsCOMPtr<nsIPrefBranch> prefs, int max_fs, int max_fr)
+{
+  gMainThread->Dispatch(WrapRunnableNM(SetIntPrefOnMainThread,
+                                       prefs,
+                                       "media.navigator.video.max_fs",
+                                       max_fs),
+                        NS_DISPATCH_SYNC);
 
-  gMainThread->Dispatch(
-    WrapRunnableNM(SetIntPrefOnMainThread,
-      prefs,
-      "media.navigator.video.max_fr",
-      max_fr),
-    NS_DISPATCH_SYNC);
+  gMainThread->Dispatch(WrapRunnableNM(SetIntPrefOnMainThread,
+                                       prefs,
+                                       "media.navigator.video.max_fr",
+                                       max_fr),
+                        NS_DISPATCH_SYNC);
 }
 
-class FsFrPrefClearer {
-  public:
-    explicit FsFrPrefClearer(nsCOMPtr<nsIPrefBranch> prefs): mPrefs(prefs) {}
-    ~FsFrPrefClearer() {
-      gMainThread->Dispatch(
+class FsFrPrefClearer
+{
+ public:
+  explicit FsFrPrefClearer(nsCOMPtr<nsIPrefBranch> prefs) : mPrefs(prefs) {}
+  ~FsFrPrefClearer()
+  {
+    gMainThread->Dispatch(
         WrapRunnableNM(FsFrPrefClearer::ClearUserPrefOnMainThread,
-          mPrefs,
-          "media.navigator.video.max_fs"),
+                       mPrefs,
+                       "media.navigator.video.max_fs"),
         NS_DISPATCH_SYNC);
-      gMainThread->Dispatch(
+    gMainThread->Dispatch(
         WrapRunnableNM(FsFrPrefClearer::ClearUserPrefOnMainThread,
-          mPrefs,
-          "media.navigator.video.max_fr"),
+                       mPrefs,
+                       "media.navigator.video.max_fr"),
         NS_DISPATCH_SYNC);
-    }
+  }
 
-    static void ClearUserPrefOnMainThread(nsCOMPtr<nsIPrefBranch> prefs,
-      const char *pref_name) {
-      MOZ_ASSERT(NS_IsMainThread());
-      prefs->ClearUserPref(pref_name);
-    }
-  private:
-    nsCOMPtr<nsIPrefBranch> mPrefs;
+  static void ClearUserPrefOnMainThread(nsCOMPtr<nsIPrefBranch> prefs,
+                                        const char* pref_name)
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    prefs->ClearUserPref(pref_name);
+  }
+
+ private:
+  nsCOMPtr<nsIPrefBranch> mPrefs;
 };
 
-TEST_P(SignalingTest, JustInit)
-{
-}
+TEST_P(SignalingTest, JustInit) {}
 
 TEST_P(SignalingTest, CreateSetOffer)
 {
@@ -2280,7 +2337,6 @@ TEST_P(SignalingTest, OfferAnswerAudioBothTrickle)
   OfferOptions options;
   OfferAnswer(options, OFFER_AUDIO | ANSWER_AUDIO, BOTH_TRICKLE);
 }
-
 
 TEST_P(SignalingTest, OfferAnswerNothingDisabledFullCycle)
 {
@@ -2361,7 +2417,8 @@ TEST_P(SignalingTest, RenegotiationOffererSwapsMsids)
   a1_->SetLocal(TestObserver::OFFER, a1_->offer());
   std::string audioSwapped = SwapMsids(a1_->offer(), false);
   std::string audioAndVideoSwapped = SwapMsids(audioSwapped, true);
-  std::cout << "Msids swapped: " << std::endl << audioAndVideoSwapped << std::endl;
+  std::cout << "Msids swapped: " << std::endl
+            << audioAndVideoSwapped << std::endl;
   a2_->SetRemote(TestObserver::OFFER, audioAndVideoSwapped);
   Answer(options, OFFER_NONE, BOTH_TRICKLE);
   WaitForCompleted();
@@ -2491,26 +2548,26 @@ TEST_P(SignalingTest, IncomingOfferIceLite)
   EnsureInit();
 
   std::string offer =
-    "v=0\r\n"
-    "o=- 1936463 1936463 IN IP4 148.147.200.251\r\n"
-    "s=-\r\n"
-    "c=IN IP4 148.147.200.251\r\n"
-    "t=0 0\r\n"
-    "a=ice-lite\r\n"
-    "a=fingerprint:sha-1 "
+      "v=0\r\n"
+      "o=- 1936463 1936463 IN IP4 148.147.200.251\r\n"
+      "s=-\r\n"
+      "c=IN IP4 148.147.200.251\r\n"
+      "t=0 0\r\n"
+      "a=ice-lite\r\n"
+      "a=fingerprint:sha-1 "
       "E7:FA:17:DA:3F:3C:1E:D8:E4:9C:8C:4C:13:B9:2E:D5:C6:78:AB:B3\r\n"
-    "m=audio 40014 UDP/TLS/RTP/SAVPF 8 0 101\r\n"
-    "a=rtpmap:8 PCMA/8000\r\n"
-    "a=rtpmap:0 PCMU/8000\r\n"
-    "a=rtpmap:101 telephone-event/8000\r\n"
-    "a=fmtp:101 0-15\r\n"
-    "a=ptime:20\r\n"
-    "a=sendrecv\r\n"
-    "a=ice-ufrag:bf2LAgqBZdiWFR2r\r\n"
-    "a=ice-pwd:ScxgaNzdBOYScR0ORleAvt1x\r\n"
-    "a=candidate:1661181211 1 udp 10 148.147.200.251 40014 typ host\r\n"
-    "a=candidate:1661181211 2 udp 9 148.147.200.251 40015 typ host\r\n"
-    "a=setup:actpass\r\n";
+      "m=audio 40014 UDP/TLS/RTP/SAVPF 8 0 101\r\n"
+      "a=rtpmap:8 PCMA/8000\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n"
+      "a=rtpmap:101 telephone-event/8000\r\n"
+      "a=fmtp:101 0-15\r\n"
+      "a=ptime:20\r\n"
+      "a=sendrecv\r\n"
+      "a=ice-ufrag:bf2LAgqBZdiWFR2r\r\n"
+      "a=ice-pwd:ScxgaNzdBOYScR0ORleAvt1x\r\n"
+      "a=candidate:1661181211 1 udp 10 148.147.200.251 40014 typ host\r\n"
+      "a=candidate:1661181211 2 udp 9 148.147.200.251 40015 typ host\r\n"
+      "a=setup:actpass\r\n";
 
   std::cout << "Setting offer to:" << std::endl << indent(offer) << std::endl;
   a2_->SetRemote(TestObserver::OFFER, offer);
@@ -2530,70 +2587,69 @@ TEST_P(SignalingTest, ChromeOfferAnswer)
 
   // This is captured SDP from an early interop attempt with Chrome.
   std::string offer =
-    "v=0\r\n"
-    "o=- 1713781661 2 IN IP4 127.0.0.1\r\n"
-    "s=-\r\n"
-    "t=0 0\r\n"
-    "a=group:BUNDLE audio video\r\n"
+      "v=0\r\n"
+      "o=- 1713781661 2 IN IP4 127.0.0.1\r\n"
+      "s=-\r\n"
+      "t=0 0\r\n"
+      "a=group:BUNDLE audio video\r\n"
 
-    "m=audio 1 UDP/TLS/RTP/SAVPF 103 104 111 0 8 107 106 105 13 126\r\n"
-    "a=fingerprint:sha-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:"
+      "m=audio 1 UDP/TLS/RTP/SAVPF 103 104 111 0 8 107 106 105 13 126\r\n"
+      "a=fingerprint:sha-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:"
       "5D:49:6B:19:E5:7C:AB\r\n"
-    "a=setup:active\r\n"
-    "c=IN IP4 0.0.0.0\r\n"
-    "a=rtcp:1 IN IP4 0.0.0.0\r\n"
-    "a=ice-ufrag:lBrbdDfrVBH1cldN\r\n"
-    "a=ice-pwd:rzh23jet4QpCaEoj9Sl75pL3\r\n"
-    "a=ice-options:google-ice\r\n"
-    "a=sendrecv\r\n"
-    "a=mid:audio\r\n"
-    "a=rtcp-mux\r\n"
-    "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:"
+      "a=setup:active\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=rtcp:1 IN IP4 0.0.0.0\r\n"
+      "a=ice-ufrag:lBrbdDfrVBH1cldN\r\n"
+      "a=ice-pwd:rzh23jet4QpCaEoj9Sl75pL3\r\n"
+      "a=ice-options:google-ice\r\n"
+      "a=sendrecv\r\n"
+      "a=mid:audio\r\n"
+      "a=rtcp-mux\r\n"
+      "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:"
       "RzrYlzpkTsvgYFD1hQqNCzQ7y4emNLKI1tODsjim\r\n"
-    "a=rtpmap:103 ISAC/16000\r\n"
-    "a=rtpmap:104 ISAC/32000\r\n"
-    // NOTE: the actual SDP that Chrome sends at the moment
-    // doesn't indicate two channels. I've amended their SDP
-    // here, under the assumption that the constraints
-    // described in draft-spittka-payload-rtp-opus will
-    // eventually be implemented by Google.
-    "a=rtpmap:111 opus/48000/2\r\n"
-    "a=rtpmap:0 PCMU/8000\r\n"
-    "a=rtpmap:8 PCMA/8000\r\n"
-    "a=rtpmap:107 CN/48000\r\n"
-    "a=rtpmap:106 CN/32000\r\n"
-    "a=rtpmap:105 CN/16000\r\n"
-    "a=rtpmap:13 CN/8000\r\n"
-    "a=rtpmap:126 telephone-event/8000\r\n"
-    "a=ssrc:661333377 cname:KIXaNxUlU5DP3fVS\r\n"
-    "a=ssrc:661333377 msid:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5 a0\r\n"
-    "a=ssrc:661333377 mslabel:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5\r\n"
-    "a=ssrc:661333377 label:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5a0\r\n"
+      "a=rtpmap:103 ISAC/16000\r\n"
+      "a=rtpmap:104 ISAC/32000\r\n"
+      // NOTE: the actual SDP that Chrome sends at the moment
+      // doesn't indicate two channels. I've amended their SDP
+      // here, under the assumption that the constraints
+      // described in draft-spittka-payload-rtp-opus will
+      // eventually be implemented by Google.
+      "a=rtpmap:111 opus/48000/2\r\n"
+      "a=rtpmap:0 PCMU/8000\r\n"
+      "a=rtpmap:8 PCMA/8000\r\n"
+      "a=rtpmap:107 CN/48000\r\n"
+      "a=rtpmap:106 CN/32000\r\n"
+      "a=rtpmap:105 CN/16000\r\n"
+      "a=rtpmap:13 CN/8000\r\n"
+      "a=rtpmap:126 telephone-event/8000\r\n"
+      "a=ssrc:661333377 cname:KIXaNxUlU5DP3fVS\r\n"
+      "a=ssrc:661333377 msid:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5 a0\r\n"
+      "a=ssrc:661333377 mslabel:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5\r\n"
+      "a=ssrc:661333377 label:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5a0\r\n"
 
-    "m=video 1 UDP/TLS/RTP/SAVPF 100 101 102\r\n"
-    "a=fingerprint:sha-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:"
+      "m=video 1 UDP/TLS/RTP/SAVPF 100 101 102\r\n"
+      "a=fingerprint:sha-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:"
       "6B:19:E5:7C:AB\r\n"
-    "a=setup:active\r\n"
-    "c=IN IP4 0.0.0.0\r\n"
-    "a=rtcp:1 IN IP4 0.0.0.0\r\n"
-    "a=ice-ufrag:lBrbdDfrVBH1cldN\r\n"
-    "a=ice-pwd:rzh23jet4QpCaEoj9Sl75pL3\r\n"
-    "a=ice-options:google-ice\r\n"
-    "a=sendrecv\r\n"
-    "a=mid:video\r\n"
-    "a=rtcp-mux\r\n"
-    "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:"
+      "a=setup:active\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=rtcp:1 IN IP4 0.0.0.0\r\n"
+      "a=ice-ufrag:lBrbdDfrVBH1cldN\r\n"
+      "a=ice-pwd:rzh23jet4QpCaEoj9Sl75pL3\r\n"
+      "a=ice-options:google-ice\r\n"
+      "a=sendrecv\r\n"
+      "a=mid:video\r\n"
+      "a=rtcp-mux\r\n"
+      "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:"
       "RzrYlzpkTsvgYFD1hQqNCzQ7y4emNLKI1tODsjim\r\n"
-    "a=rtpmap:100 VP8/90000\r\n"
-    "a=rtpmap:101 red/90000\r\n"
-    "a=rtpmap:102 ulpfec/90000\r\n"
-    "a=rtcp-fb:100 nack\r\n"
-    "a=rtcp-fb:100 ccm fir\r\n"
-    "a=ssrc:3012607008 cname:KIXaNxUlU5DP3fVS\r\n"
-    "a=ssrc:3012607008 msid:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5 v0\r\n"
-    "a=ssrc:3012607008 mslabel:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5\r\n"
-    "a=ssrc:3012607008 label:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5v0\r\n";
-
+      "a=rtpmap:100 VP8/90000\r\n"
+      "a=rtpmap:101 red/90000\r\n"
+      "a=rtpmap:102 ulpfec/90000\r\n"
+      "a=rtcp-fb:100 nack\r\n"
+      "a=rtcp-fb:100 ccm fir\r\n"
+      "a=ssrc:3012607008 cname:KIXaNxUlU5DP3fVS\r\n"
+      "a=ssrc:3012607008 msid:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5 v0\r\n"
+      "a=ssrc:3012607008 mslabel:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5\r\n"
+      "a=ssrc:3012607008 label:A5UL339RyGxT7zwgyF12BFqesxkmbUsaycp5v0\r\n";
 
   std::cout << "Setting offer to:" << std::endl << indent(offer) << std::endl;
   a2_->SetRemote(TestObserver::OFFER, offer);
@@ -2604,12 +2660,12 @@ TEST_P(SignalingTest, ChromeOfferAnswer)
   std::string answer = a2_->answer();
 }
 
-
 TEST_P(SignalingTest, FullChromeHandshake)
 {
   EnsureInit();
 
-  std::string offer = "v=0\r\n"
+  std::string offer =
+      "v=0\r\n"
       "o=- 3835809413 2 IN IP4 127.0.0.1\r\n"
       "s=-\r\n"
       "t=0 0\r\n"
@@ -2622,13 +2678,13 @@ TEST_P(SignalingTest, FullChromeHandshake)
       "a=ice-pwd:iscXxsdU+0gracg0g5D45orx\r\n"
       "a=ice-options:google-ice\r\n"
       "a=fingerprint:sha-256 A8:76:8C:4C:FA:2E:67:D7:F8:1D:28:4E:90:24:04:"
-        "12:EB:B4:A6:69:3D:05:92:E4:91:C3:EA:F9:B7:54:D3:09\r\n"
+      "12:EB:B4:A6:69:3D:05:92:E4:91:C3:EA:F9:B7:54:D3:09\r\n"
       "a=setup:active\r\n"
       "a=sendrecv\r\n"
       "a=mid:audio\r\n"
       "a=rtcp-mux\r\n"
       "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:/he/v44FKu/QvEhex86zV0pdn2V"
-        "4Y7wB2xaZ8eUy\r\n"
+      "4Y7wB2xaZ8eUy\r\n"
       "a=rtpmap:103 ISAC/16000\r\n"
       "a=rtpmap:104 ISAC/32000\r\n"
       "a=rtpmap:111 opus/48000/2\r\n"
@@ -2650,13 +2706,13 @@ TEST_P(SignalingTest, FullChromeHandshake)
       "a=ice-pwd:iscXxsdU+0gracg0g5D45orx\r\n"
       "a=ice-options:google-ice\r\n"
       "a=fingerprint:sha-256 A8:76:8C:4C:FA:2E:67:D7:F8:1D:28:4E:90:24:04:"
-        "12:EB:B4:A6:69:3D:05:92:E4:91:C3:EA:F9:B7:54:D3:09\r\n"
+      "12:EB:B4:A6:69:3D:05:92:E4:91:C3:EA:F9:B7:54:D3:09\r\n"
       "a=setup:active\r\n"
       "a=sendrecv\r\n"
       "a=mid:video\r\n"
       "a=rtcp-mux\r\n"
       "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:/he/v44FKu/QvEhex86zV0pdn2V"
-        "4Y7wB2xaZ8eUy\r\n"
+      "4Y7wB2xaZ8eUy\r\n"
       "a=rtpmap:100 VP8/90000\r\n"
       "a=rtpmap:116 red/90000\r\n"
       "a=rtpmap:117 ulpfec/90000\r\n"
@@ -2680,45 +2736,44 @@ TEST_P(SignalingTest, FullChromeHandshake)
 
 // Disabled until the spec adds a failure callback to addStream
 // Actually, this is allowed I think, it just triggers a negotiationneeded
-TEST_P(SignalingTest, DISABLED_AddStreamInHaveLocalOffer) {
+TEST_P(SignalingTest, DISABLED_AddStreamInHaveLocalOffer)
+{
   OfferOptions options;
   CreateOffer(options, OFFER_AUDIO);
   a1_->SetLocal(TestObserver::OFFER, a1_->offer());
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
   a1_->AddStream();
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kInvalidState);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kInvalidState);
 }
 
 // Disabled until the spec adds a failure callback to removeStream
 // Actually, this is allowed I think, it just triggers a negotiationneeded
-TEST_P(SignalingTest, DISABLED_RemoveStreamInHaveLocalOffer) {
+TEST_P(SignalingTest, DISABLED_RemoveStreamInHaveLocalOffer)
+{
   OfferOptions options;
   CreateOffer(options, OFFER_AUDIO);
   a1_->SetLocal(TestObserver::OFFER, a1_->offer());
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
   a1_->RemoveLastStreamAdded();
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kInvalidState);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kInvalidState);
 }
 
-TEST_F(SignalingAgentTest, CreateOffer) {
+TEST_F(SignalingAgentTest, CreateOffer)
+{
   CreateAgent(TestStunServer::GetInstance()->addr(),
               TestStunServer::GetInstance()->port());
   OfferOptions options;
   agent(0)->CreateOffer(options, OFFER_AUDIO);
 }
 
-TEST_F(SignalingAgentTest, CreateOfferSetLocalTrickleTestServer) {
+TEST_F(SignalingAgentTest, CreateOfferSetLocalTrickleTestServer)
+{
   TestStunServer::GetInstance()->SetActive(false);
-  TestStunServer::GetInstance()->SetResponseAddr(
-      kBogusSrflxAddress, kBogusSrflxPort);
+  TestStunServer::GetInstance()->SetResponseAddr(kBogusSrflxAddress,
+                                                 kBogusSrflxPort);
 
-  CreateAgent(
-      TestStunServer::GetInstance()->addr(),
-      TestStunServer::GetInstance()->port());
+  CreateAgent(TestStunServer::GetInstance()->addr(),
+              TestStunServer::GetInstance()->port());
 
   OfferOptions options;
   agent(0)->CreateOffer(options, OFFER_AUDIO);
@@ -2741,20 +2796,21 @@ TEST_F(SignalingAgentTest, CreateOfferSetLocalTrickleTestServer) {
   ASSERT_LT(0U, match);
 }
 
-TEST_F(SignalingAgentTest, CreateAnswerSetLocalTrickleTestServer) {
+TEST_F(SignalingAgentTest, CreateAnswerSetLocalTrickleTestServer)
+{
   TestStunServer::GetInstance()->SetActive(false);
-  TestStunServer::GetInstance()->SetResponseAddr(
-      kBogusSrflxAddress, kBogusSrflxPort);
+  TestStunServer::GetInstance()->SetResponseAddr(kBogusSrflxAddress,
+                                                 kBogusSrflxPort);
 
-  CreateAgent(
-      TestStunServer::GetInstance()->addr(),
-      TestStunServer::GetInstance()->port());
+  CreateAgent(TestStunServer::GetInstance()->addr(),
+              TestStunServer::GetInstance()->port());
 
   std::string offer(strG711SdpOffer);
-  agent(0)->SetRemote(TestObserver::OFFER, offer, true,
-                 PCImplSignalingState::SignalingHaveRemoteOffer);
-  ASSERT_EQ(agent(0)->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  agent(0)->SetRemote(TestObserver::OFFER,
+                      offer,
+                      true,
+                      PCImplSignalingState::SignalingHaveRemoteOffer);
+  ASSERT_EQ(agent(0)->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   agent(0)->CreateAnswer(ANSWER_AUDIO);
 
@@ -2776,22 +2832,19 @@ TEST_F(SignalingAgentTest, CreateAnswerSetLocalTrickleTestServer) {
   ASSERT_LT(0U, match);
 }
 
-TEST_F(SignalingAgentTest, CreateLotsAndWait) {
+TEST_F(SignalingAgentTest, CreateLotsAndWait)
+{
   int i;
 
-  for (i=0; i < 100; i++) {
-    if (!CreateAgent())
-      break;
+  for (i = 0; i < 100; i++) {
+    if (!CreateAgent()) break;
     std::cerr << "Created agent " << i << std::endl;
   }
   PR_Sleep(1000);  // Wait to see if we crash
 }
 
 // Test for bug 856433.
-TEST_F(SignalingAgentTest, CreateNoInit) {
-  CreateAgentNoInit();
-}
-
+TEST_F(SignalingAgentTest, CreateNoInit) { CreateAgentNoInit(); }
 
 TEST_P(SignalingTest, AudioOnlyG722MostPreferred)
 {
@@ -2812,7 +2865,8 @@ TEST_P(SignalingTest, AudioOnlyG722MostPreferred)
   a1_->SetRemote(TestObserver::ANSWER, a2_->answer(), false);
   ASSERT_NE(a2_->getLocalDescription().find("UDP/TLS/RTP/SAVPF 9"),
             std::string::npos);
-  ASSERT_NE(a2_->getLocalDescription().find("a=rtpmap:9 G722/8000"), std::string::npos);
+  ASSERT_NE(a2_->getLocalDescription().find("a=rtpmap:9 G722/8000"),
+            std::string::npos);
 
   CheckPipelines();
   CheckStreams();
@@ -2831,11 +2885,9 @@ TEST_P(SignalingTest, RestartIce)
   CloseStreams();
 }
 
-
-
 TEST_P(SignalingTest, RtcpFbOfferAll)
 {
-  const char *feedbackTypes[] = { "nack", "nack pli", "ccm fir" };
+  const char* feedbackTypes[] = {"nack", "nack pli", "ccm fir"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   true,
                   VideoSessionConduit::FrameRequestPli);
@@ -2843,7 +2895,7 @@ TEST_P(SignalingTest, RtcpFbOfferAll)
 
 TEST_P(SignalingTest, RtcpFbOfferNoNackBasic)
 {
-  const char *feedbackTypes[] = { "nack pli", "ccm fir" };
+  const char* feedbackTypes[] = {"nack pli", "ccm fir"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   false,
                   VideoSessionConduit::FrameRequestPli);
@@ -2851,7 +2903,7 @@ TEST_P(SignalingTest, RtcpFbOfferNoNackBasic)
 
 TEST_P(SignalingTest, RtcpFbOfferNoNackPli)
 {
-  const char *feedbackTypes[] = { "nack", "ccm fir" };
+  const char* feedbackTypes[] = {"nack", "ccm fir"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   true,
                   VideoSessionConduit::FrameRequestFir);
@@ -2859,7 +2911,7 @@ TEST_P(SignalingTest, RtcpFbOfferNoNackPli)
 
 TEST_P(SignalingTest, RtcpFbOfferNoCcmFir)
 {
-  const char *feedbackTypes[] = { "nack", "nack pli" };
+  const char* feedbackTypes[] = {"nack", "nack pli"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   true,
                   VideoSessionConduit::FrameRequestPli);
@@ -2867,7 +2919,7 @@ TEST_P(SignalingTest, RtcpFbOfferNoCcmFir)
 
 TEST_P(SignalingTest, RtcpFbOfferNoNack)
 {
-  const char *feedbackTypes[] = { "ccm fir" };
+  const char* feedbackTypes[] = {"ccm fir"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   false,
                   VideoSessionConduit::FrameRequestFir);
@@ -2875,7 +2927,7 @@ TEST_P(SignalingTest, RtcpFbOfferNoNack)
 
 TEST_P(SignalingTest, RtcpFbOfferNoFrameRequest)
 {
-  const char *feedbackTypes[] = { "nack" };
+  const char* feedbackTypes[] = {"nack"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   true,
                   VideoSessionConduit::FrameRequestNone);
@@ -2883,7 +2935,7 @@ TEST_P(SignalingTest, RtcpFbOfferNoFrameRequest)
 
 TEST_P(SignalingTest, RtcpFbOfferPliOnly)
 {
-  const char *feedbackTypes[] = { "nack pli" };
+  const char* feedbackTypes[] = {"nack pli"};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   false,
                   VideoSessionConduit::FrameRequestPli);
@@ -2891,7 +2943,7 @@ TEST_P(SignalingTest, RtcpFbOfferPliOnly)
 
 TEST_P(SignalingTest, RtcpFbOfferNoFeedback)
 {
-  const char *feedbackTypes[] = { };
+  const char* feedbackTypes[] = {};
   TestRtcpFbOffer(ARRAY_TO_SET(std::string, feedbackTypes),
                   false,
                   VideoSessionConduit::FrameRequestNone);
@@ -2899,66 +2951,66 @@ TEST_P(SignalingTest, RtcpFbOfferNoFeedback)
 
 TEST_P(SignalingTest, RtcpFbAnswerAll)
 {
-  const char *feedbackTypes[] = { "nack", "nack pli", "ccm fir" };
+  const char* feedbackTypes[] = {"nack", "nack pli", "ccm fir"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  true,
-                  VideoSessionConduit::FrameRequestPli);
+                   true,
+                   VideoSessionConduit::FrameRequestPli);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerNoNackBasic)
 {
-  const char *feedbackTypes[] = { "nack pli", "ccm fir" };
+  const char* feedbackTypes[] = {"nack pli", "ccm fir"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  false,
-                  VideoSessionConduit::FrameRequestPli);
+                   false,
+                   VideoSessionConduit::FrameRequestPli);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerNoNackPli)
 {
-  const char *feedbackTypes[] = { "nack", "ccm fir" };
+  const char* feedbackTypes[] = {"nack", "ccm fir"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  true,
-                  VideoSessionConduit::FrameRequestFir);
+                   true,
+                   VideoSessionConduit::FrameRequestFir);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerNoCcmFir)
 {
-  const char *feedbackTypes[] = { "nack", "nack pli" };
+  const char* feedbackTypes[] = {"nack", "nack pli"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  true,
-                  VideoSessionConduit::FrameRequestPli);
+                   true,
+                   VideoSessionConduit::FrameRequestPli);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerNoNack)
 {
-  const char *feedbackTypes[] = { "ccm fir" };
+  const char* feedbackTypes[] = {"ccm fir"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  false,
-                  VideoSessionConduit::FrameRequestFir);
+                   false,
+                   VideoSessionConduit::FrameRequestFir);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerNoFrameRequest)
 {
-  const char *feedbackTypes[] = { "nack" };
+  const char* feedbackTypes[] = {"nack"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  true,
-                  VideoSessionConduit::FrameRequestNone);
+                   true,
+                   VideoSessionConduit::FrameRequestNone);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerPliOnly)
 {
-  const char *feedbackTypes[] = { "nack pli" };
+  const char* feedbackTypes[] = {"nack pli"};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  0,
-                  VideoSessionConduit::FrameRequestPli);
+                   0,
+                   VideoSessionConduit::FrameRequestPli);
 }
 
 TEST_P(SignalingTest, RtcpFbAnswerNoFeedback)
 {
-  const char *feedbackTypes[] = { };
+  const char* feedbackTypes[] = {};
   TestRtcpFbAnswer(ARRAY_TO_SET(std::string, feedbackTypes),
-                  0,
-                  VideoSessionConduit::FrameRequestNone);
+                   0,
+                   VideoSessionConduit::FrameRequestNone);
 }
 
 TEST_P(SignalingTest, FullCallRealTrickle)
@@ -3057,17 +3109,16 @@ TEST_P(SignalingTest, MaxFsFrCalleeCodec)
 
   // Checking callee's video sending configuration does respect max-fs and
   // max-fr in SDP offer.
-  RefPtr<mozilla::MediaPipeline> pipeline =
-    a2_->GetMediaPipeline(1, 0, 1);
+  RefPtr<mozilla::MediaPipeline> pipeline = a2_->GetMediaPipeline(1, 0, 1);
   ASSERT_TRUE(pipeline);
-  mozilla::MediaSessionConduit *conduit = pipeline->Conduit();
+  mozilla::MediaSessionConduit* conduit = pipeline->Conduit();
   ASSERT_TRUE(conduit);
   ASSERT_EQ(conduit->type(), mozilla::MediaSessionConduit::VIDEO);
-  mozilla::VideoSessionConduit *video_conduit =
-    static_cast<mozilla::VideoSessionConduit*>(conduit);
+  mozilla::VideoSessionConduit* video_conduit =
+      static_cast<mozilla::VideoSessionConduit*>(conduit);
 
-  ASSERT_EQ(video_conduit->SendingMaxFs(), (unsigned short) 300);
-  ASSERT_EQ(video_conduit->SendingMaxFr(), (unsigned short) 30);
+  ASSERT_EQ(video_conduit->SendingMaxFs(), (unsigned short)300);
+  ASSERT_EQ(video_conduit->SendingMaxFr(), (unsigned short)30);
 }
 
 // Test SDP answer has proper impact on caller's codec configuration
@@ -3102,17 +3153,16 @@ TEST_P(SignalingTest, MaxFsFrCallerCodec)
 
   // Checking caller's video sending configuration does respect max-fs and
   // max-fr in SDP answer.
-  RefPtr<mozilla::MediaPipeline> pipeline =
-    a1_->GetMediaPipeline(1, 0, 1);
+  RefPtr<mozilla::MediaPipeline> pipeline = a1_->GetMediaPipeline(1, 0, 1);
   ASSERT_TRUE(pipeline);
-  mozilla::MediaSessionConduit *conduit = pipeline->Conduit();
+  mozilla::MediaSessionConduit* conduit = pipeline->Conduit();
   ASSERT_TRUE(conduit);
   ASSERT_EQ(conduit->type(), mozilla::MediaSessionConduit::VIDEO);
-  mozilla::VideoSessionConduit *video_conduit =
-    static_cast<mozilla::VideoSessionConduit*>(conduit);
+  mozilla::VideoSessionConduit* video_conduit =
+      static_cast<mozilla::VideoSessionConduit*>(conduit);
 
-  ASSERT_EQ(video_conduit->SendingMaxFs(), (unsigned short) 600);
-  ASSERT_EQ(video_conduit->SendingMaxFr(), (unsigned short) 60);
+  ASSERT_EQ(video_conduit->SendingMaxFs(), (unsigned short)600);
+  ASSERT_EQ(video_conduit->SendingMaxFr(), (unsigned short)60);
 }
 
 // Validate offer with multiple video codecs
@@ -3126,10 +3176,12 @@ TEST_P(SignalingTest, ValidateMultipleVideoCodecsInOffer)
 
 #ifdef H264_P0_SUPPORTED
   ASSERT_NE(offer.find("UDP/TLS/RTP/SAVPF 120 126 97") ||
-            offer.find("UDP/TLS/RTP/SAVPF 120 121 126 97"), std::string::npos);
+                offer.find("UDP/TLS/RTP/SAVPF 120 121 126 97"),
+            std::string::npos);
 #else
   ASSERT_NE(offer.find("UDP/TLS/RTP/SAVPF 120 126") ||
-            offer.find("UDP/TLS/RTP/SAVPF 120 121 126"), std::string::npos);
+                offer.find("UDP/TLS/RTP/SAVPF 120 121 126"),
+            std::string::npos);
 #endif
   ASSERT_NE(offer.find("a=rtpmap:120 VP8/90000"), std::string::npos);
   ASSERT_NE(offer.find("a=rtpmap:126 H264/90000"), std::string::npos);
@@ -3174,9 +3226,8 @@ TEST_P(SignalingTest, RemoveVP8FromOfferWithP1First)
 
   match = offer.find("profile-level-id");
   ASSERT_NE(std::string::npos, match);
-  offer.replace(match,
-                strlen("profile-level-id"),
-                "max-foo=1234;profile-level-id");
+  offer.replace(
+      match, strlen("profile-level-id"), "max-foo=1234;profile-level-id");
 
   ParsedSDP sdpWrapper(offer);
   sdpWrapper.DeleteLines("a=rtcp-fb:120");
@@ -3190,7 +3241,7 @@ TEST_P(SignalingTest, RemoveVP8FromOfferWithP1First)
 
   a1_->SetLocal(TestObserver::OFFER, sdpWrapper.getSdp());
   a2_->SetRemote(TestObserver::OFFER, sdpWrapper.getSdp(), false);
-  a2_->CreateAnswer(OFFER_AV|ANSWER_AV);
+  a2_->CreateAnswer(OFFER_AV | ANSWER_AV);
 
   std::string answer(a2_->answer());
 
@@ -3226,25 +3277,21 @@ TEST_P(SignalingTest, OfferWithH264BeforeVP8)
 #else
   match = offer.find("UDP/TLS/RTP/SAVPF 120 126");
   ASSERT_NE(std::string::npos, match);
-  offer.replace(match,
-                strlen("UDP/TLS/RTP/SAVPF 126 120"),
-                "UDP/TLS/RTP/SAVPF 126 120");
+  offer.replace(
+      match, strlen("UDP/TLS/RTP/SAVPF 126 120"), "UDP/TLS/RTP/SAVPF 126 120");
 #endif
 
   match = offer.find("a=rtpmap:126 H264/90000");
   ASSERT_NE(std::string::npos, match);
-  offer.replace(match,
-                strlen("a=rtpmap:120 VP8/90000"),
-                "a=rtpmap:120 VP8/90000");
+  offer.replace(
+      match, strlen("a=rtpmap:120 VP8/90000"), "a=rtpmap:120 VP8/90000");
 
   match = offer.find("a=rtpmap:120 VP8/90000");
   ASSERT_NE(std::string::npos, match);
-  offer.replace(match,
-                strlen("a=rtpmap:126 H264/90000"),
-                "a=rtpmap:126 H264/90000");
+  offer.replace(
+      match, strlen("a=rtpmap:126 H264/90000"), "a=rtpmap:126 H264/90000");
 
-  std::cout << "Modified SDP " << std::endl
-            << indent(offer) << std::endl;
+  std::cout << "Modified SDP " << std::endl << indent(offer) << std::endl;
 
   // P1 should be offered first
 #ifdef H264_P0_SUPPORTED
@@ -3255,7 +3302,7 @@ TEST_P(SignalingTest, OfferWithH264BeforeVP8)
 
   a1_->SetLocal(TestObserver::OFFER, offer);
   a2_->SetRemote(TestObserver::OFFER, offer, false);
-  a2_->CreateAnswer(OFFER_AV|ANSWER_AV);
+  a2_->CreateAnswer(OFFER_AV | ANSWER_AV);
 
   std::string answer(a2_->answer());
 
@@ -3276,7 +3323,7 @@ TEST_P(SignalingTest, UseNonPrefferedPayloadTypeOnAnswer)
   a1_->CreateOffer(options, OFFER_AV);
   a1_->SetLocal(TestObserver::OFFER, a1_->offer());
   a2_->SetRemote(TestObserver::OFFER, a1_->offer(), false);
-  a2_->CreateAnswer(OFFER_AV|ANSWER_AV);
+  a2_->CreateAnswer(OFFER_AV | ANSWER_AV);
 
   std::string answer(a2_->answer());
 
@@ -3287,9 +3334,8 @@ TEST_P(SignalingTest, UseNonPrefferedPayloadTypeOnAnswer)
   size_t match;
   match = answer.find("UDP/TLS/RTP/SAVPF 120");
   ASSERT_NE(std::string::npos, match);
-  answer.replace(match,
-                 strlen("UDP/TLS/RTP/SAVPF 121"),
-                 "UDP/TLS/RTP/SAVPF 121");
+  answer.replace(
+      match, strlen("UDP/TLS/RTP/SAVPF 121"), "UDP/TLS/RTP/SAVPF 121");
 
   match = answer.find("\r\na=rtpmap:120 VP8/90000");
   ASSERT_NE(std::string::npos, match);
@@ -3299,9 +3345,8 @@ TEST_P(SignalingTest, UseNonPrefferedPayloadTypeOnAnswer)
 
   match = answer.find("\r\na=rtcp-fb:120 nack");
   ASSERT_NE(std::string::npos, match);
-  answer.replace(match,
-                 strlen("\r\na=rtcp-fb:121 nack"),
-                 "\r\na=rtcp-fb:121 nack");
+  answer.replace(
+      match, strlen("\r\na=rtcp-fb:121 nack"), "\r\na=rtcp-fb:121 nack");
 
   match = answer.find("\r\na=rtcp-fb:120 nack pli");
   ASSERT_NE(std::string::npos, match);
@@ -3311,22 +3356,18 @@ TEST_P(SignalingTest, UseNonPrefferedPayloadTypeOnAnswer)
 
   match = answer.find("\r\na=rtcp-fb:120 ccm fir");
   ASSERT_NE(std::string::npos, match);
-  answer.replace(match,
-                 strlen("\r\na=rtcp-fb:121 ccm fir"),
-                 "\r\na=rtcp-fb:121 ccm fir");
+  answer.replace(
+      match, strlen("\r\na=rtcp-fb:121 ccm fir"), "\r\na=rtcp-fb:121 ccm fir");
 
-  std::cout << "Modified SDP " << std::endl
-            << indent(answer) << std::endl;
+  std::cout << "Modified SDP " << std::endl << indent(answer) << std::endl;
 
   a2_->SetLocal(TestObserver::ANSWER, answer, false);
 
-  ASSERT_EQ(a2_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a2_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->SetRemote(TestObserver::ANSWER, answer, false);
 
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   WaitForCompleted();
 
@@ -3356,21 +3397,19 @@ TEST_P(SignalingTest, VideoNegotiationFails)
   parsedOffer.AddLine("a=rtpmap:126 VP10/90000\r\n");
   parsedOffer.AddLine("a=rtpmap:97 H265/90000\r\n");
 
-  std::cout << "Modified offer: " << std::endl << parsedOffer.getSdp()
-    << std::endl;
+  std::cout << "Modified offer: " << std::endl
+            << parsedOffer.getSdp() << std::endl;
 
   a2_->SetRemote(TestObserver::OFFER, parsedOffer.getSdp(), false);
-  a2_->CreateAnswer(OFFER_AV|ANSWER_AUDIO);
+  a2_->CreateAnswer(OFFER_AV | ANSWER_AUDIO);
 
   a2_->SetLocal(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a2_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a2_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->SetRemote(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->ExpectMissingTracks(SdpMediaSection::kVideo);
   a2_->ExpectMissingTracks(SdpMediaSection::kVideo);
@@ -3400,17 +3439,15 @@ TEST_P(SignalingTest, AudioNegotiationFails)
   parsedOffer.ReplaceLine("a=rtpmap:109", "a=rtpmap:109 LPC/8000");
 
   a2_->SetRemote(TestObserver::OFFER, parsedOffer.getSdp(), false);
-  a2_->CreateAnswer(OFFER_AV|ANSWER_VIDEO);
+  a2_->CreateAnswer(OFFER_AV | ANSWER_VIDEO);
 
   a2_->SetLocal(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a2_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a2_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->SetRemote(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->ExpectMissingTracks(SdpMediaSection::kAudio);
   a2_->ExpectMissingTracks(SdpMediaSection::kAudio);
@@ -3442,7 +3479,7 @@ TEST_P(SignalingTest, BundleStreamCorrelationBySsrc)
   // Sabotage mid-based matching
   std::string modifiedOffer = parsedOffer.getSdp();
   size_t midExtStart =
-    modifiedOffer.find("urn:ietf:params:rtp-hdrext:sdes:mid");
+      modifiedOffer.find("urn:ietf:params:rtp-hdrext:sdes:mid");
   if (midExtStart != std::string::npos) {
     // Just garble it a little
     modifiedOffer[midExtStart] = 'q';
@@ -3455,13 +3492,11 @@ TEST_P(SignalingTest, BundleStreamCorrelationBySsrc)
 
   a2_->SetLocal(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a2_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a2_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->SetRemote(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   WaitForCompleted();
 
@@ -3486,15 +3521,14 @@ TEST_P(SignalingTest, BundleStreamCorrelationByUniquePt)
 
   std::string modifiedOffer = parsedOffer.getSdp();
   // Sabotage ssrc matching
-  size_t ssrcStart =
-    modifiedOffer.find("a=ssrc:");
+  size_t ssrcStart = modifiedOffer.find("a=ssrc:");
   ASSERT_NE(std::string::npos, ssrcStart);
   // Garble
-  modifiedOffer[ssrcStart+2] = 'q';
+  modifiedOffer[ssrcStart + 2] = 'q';
 
   // Sabotage mid-based matching
   size_t midExtStart =
-    modifiedOffer.find("urn:ietf:params:rtp-hdrext:sdes:mid");
+      modifiedOffer.find("urn:ietf:params:rtp-hdrext:sdes:mid");
   if (midExtStart != std::string::npos) {
     // Just garble it a little
     modifiedOffer[midExtStart] = 'q';
@@ -3503,17 +3537,15 @@ TEST_P(SignalingTest, BundleStreamCorrelationByUniquePt)
   a1_->SetLocal(TestObserver::OFFER, modifiedOffer);
 
   a2_->SetRemote(TestObserver::OFFER, modifiedOffer, false);
-  a2_->CreateAnswer(OFFER_AV|ANSWER_AV);
+  a2_->CreateAnswer(OFFER_AV | ANSWER_AV);
 
   a2_->SetLocal(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a2_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a2_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   a1_->SetRemote(TestObserver::ANSWER, a2_->answer(), false);
 
-  ASSERT_EQ(a1_->pObserver->lastStatusCode,
-            PeerConnectionImpl::kNoError);
+  ASSERT_EQ(a1_->pObserver->lastStatusCode, PeerConnectionImpl::kNoError);
 
   WaitForCompleted();
 
@@ -3523,29 +3555,25 @@ TEST_P(SignalingTest, BundleStreamCorrelationByUniquePt)
   CloseStreams();
 }
 
-INSTANTIATE_TEST_CASE_P(Variants, SignalingTest,
+INSTANTIATE_TEST_CASE_P(Variants,
+                        SignalingTest,
                         ::testing::Values("max-bundle",
                                           "balanced",
                                           "max-compat",
                                           "no_bundle",
                                           "reject_bundle"));
 
-} // End namespace test.
+}  // End namespace test.
 
-bool is_color_terminal(const char *terminal) {
+bool
+is_color_terminal(const char* terminal)
+{
   if (!terminal) {
     return false;
   }
-  const char *color_terms[] = {
-    "xterm",
-    "xterm-color",
-    "xterm-256color",
-    "screen",
-    "linux",
-    "cygwin",
-    0
-  };
-  const char **p = color_terms;
+  const char* color_terms[] = {
+      "xterm", "xterm-color", "xterm-256color", "screen", "linux", "cygwin", 0};
+  const char** p = color_terms;
   while (*p) {
     if (!strcmp(terminal, *p)) {
       return true;
@@ -3555,38 +3583,43 @@ bool is_color_terminal(const char *terminal) {
   return false;
 }
 
-static std::string get_environment(const char *name) {
-  char *value = getenv(name);
+static std::string
+get_environment(const char* name)
+{
+  char* value = getenv(name);
 
-  if (!value)
-    return "";
+  if (!value) return "";
 
   return value;
 }
 
 // This exists to send as an event to trigger shutdown.
-static void tests_complete() {
+static void
+tests_complete()
+{
   gTestsComplete = true;
 }
 
 // The GTest thread runs this instead of the main thread so it can
 // do things like ASSERT_TRUE_WAIT which you could not do on the main thread.
-static int gtest_main(int argc, char **argv) {
+static int
+gtest_main(int argc, char** argv)
+{
   MOZ_ASSERT(!NS_IsMainThread());
 
   ::testing::InitGoogleTest(&argc, argv);
 
-  for(int i=0; i<argc; i++) {
-    if (!strcmp(argv[i],"-t")) {
+  for (int i = 0; i < argc; i++) {
+    if (!strcmp(argv[i], "-t")) {
       kDefaultTimeout = 20000;
     }
-   }
+  }
 
   ::testing::AddGlobalTestEnvironment(new test::SignalingEnvironment);
   int result = RUN_ALL_TESTS();
 
   test_utils->sts_target()->Dispatch(
-    WrapRunnableNM(&TestStunServer::ShutdownInstance), NS_DISPATCH_SYNC);
+      WrapRunnableNM(&TestStunServer::ShutdownInstance), NS_DISPATCH_SYNC);
 
   // Set the global shutdown flag and tickle the main thread
   // The main thread did not go through Init() so calling Shutdown()
@@ -3597,8 +3630,8 @@ static int gtest_main(int argc, char **argv) {
 }
 
 #ifdef SIGNALING_UNITTEST_STANDALONE
-static void verifyStringTable(const EnumEntry* bindingTable,
-			      const char** ourTable)
+static void
+verifyStringTable(const EnumEntry* bindingTable, const char** ourTable)
 {
   while (bindingTable->value) {
     if (strcmp(bindingTable->value, *ourTable)) {
@@ -3608,10 +3641,11 @@ static void verifyStringTable(const EnumEntry* bindingTable,
     ++ourTable;
   }
 }
-#endif // SIGNALING_UNITTEST_STANDALONE
+#endif  // SIGNALING_UNITTEST_STANDALONE
 
-int main(int argc, char **argv) {
-
+int
+main(int argc, char** argv)
+{
   // This test can cause intermittent oranges on the builders
   CHECK_ENVIRONMENT_FLAG("MOZ_WEBRTC_TESTS")
 
@@ -3626,34 +3660,32 @@ int main(int argc, char **argv) {
 #ifdef SIGNALING_UNITTEST_STANDALONE
   // Verify our string tables are correct.
   verifyStringTable(PCImplSignalingStateValues::strings,
-		    test::PCImplSignalingStateStrings);
+                    test::PCImplSignalingStateStrings);
   verifyStringTable(PCImplIceConnectionStateValues::strings,
-		    test::PCImplIceConnectionStateStrings);
+                    test::PCImplIceConnectionStateStrings);
   verifyStringTable(PCImplIceGatheringStateValues::strings,
-		    test::PCImplIceGatheringStateStrings);
-#endif // SIGNALING_UNITTEST_STANDALONE
+                    test::PCImplIceGatheringStateStrings);
+#endif  // SIGNALING_UNITTEST_STANDALONE
 
   std::string tmp = get_environment("STUN_SERVER_ADDRESS");
-  if (tmp != "")
-    g_stun_server_address = tmp;
+  if (tmp != "") g_stun_server_address = tmp;
 
   tmp = get_environment("STUN_SERVER_PORT");
-  if (tmp != "")
-      g_stun_server_port = atoi(tmp.c_str());
+  if (tmp != "") g_stun_server_port = atoi(tmp.c_str());
 
   test_utils = new MtransportTestUtils();
   NSS_NoDB_Init(nullptr);
   NSS_SetDomesticPolicy();
 
   ::testing::TestEventListeners& listeners =
-        ::testing::UnitTest::GetInstance()->listeners();
+      ::testing::UnitTest::GetInstance()->listeners();
   // Adds a listener to the end.  Google Test takes the ownership.
   listeners.Append(new test::RingbufferDumper(test_utils));
   test_utils->sts_target()->Dispatch(
-    WrapRunnableNM(&TestStunServer::GetInstance, AF_INET), NS_DISPATCH_SYNC);
+      WrapRunnableNM(&TestStunServer::GetInstance, AF_INET), NS_DISPATCH_SYNC);
 
   // Set the main thread global which is this thread.
-  nsIThread *thread;
+  nsIThread* thread;
   NS_GetMainThread(&thread);
   gMainThread = thread;
   MOZ_ASSERT(NS_IsMainThread());
@@ -3664,8 +3696,8 @@ int main(int argc, char **argv) {
   gGtestThread = thread;
 
   int result;
-  gGtestThread->Dispatch(
-    WrapRunnableNMRet(&result, gtest_main, argc, argv), NS_DISPATCH_NORMAL);
+  gGtestThread->Dispatch(WrapRunnableNMRet(&result, gtest_main, argc, argv),
+                         NS_DISPATCH_NORMAL);
 
   // Here we handle the event queue for dispatches to the main thread
   // When the GTest thread is complete it will send one more dispatch

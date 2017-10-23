@@ -14,11 +14,9 @@ namespace mozilla {
 
 class ConsoleTimelineMarker : public TimelineMarker
 {
-public:
-  ConsoleTimelineMarker(const nsAString& aCause,
-                        MarkerTracingType aTracingType)
-    : TimelineMarker("ConsoleTime", aTracingType)
-    , mCause(aCause)
+ public:
+  ConsoleTimelineMarker(const nsAString& aCause, MarkerTracingType aTracingType)
+      : TimelineMarker("ConsoleTime", aTracingType), mCause(aCause)
   {
     // Stack is captured by default on the "start" marker. Explicitly also
     // capture stack on the "end" marker.
@@ -38,7 +36,8 @@ public:
     return mCause == static_cast<const ConsoleTimelineMarker*>(&aOther)->mCause;
   }
 
-  virtual void AddDetails(JSContext* aCx, dom::ProfileTimelineMarker& aMarker) override
+  virtual void AddDetails(JSContext* aCx,
+                          dom::ProfileTimelineMarker& aMarker) override
   {
     TimelineMarker::AddDetails(aCx, aMarker);
 
@@ -49,10 +48,10 @@ public:
     }
   }
 
-private:
+ private:
   nsString mCause;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ConsoleTimelineMarker_h_
+#endif  // mozilla_ConsoleTimelineMarker_h_

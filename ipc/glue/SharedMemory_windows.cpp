@@ -35,5 +35,5 @@ SharedMemory::SystemPageSize()
   return si.dwPageSize;
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

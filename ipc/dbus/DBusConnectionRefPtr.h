@@ -25,16 +25,18 @@ namespace mozilla {
 template<>
 struct RefPtrTraits<DBusConnection>
 {
-  static void AddRef(DBusConnection* aConnection) {
+  static void AddRef(DBusConnection* aConnection)
+  {
     MOZ_ASSERT(aConnection);
     dbus_connection_ref(aConnection);
   }
-  static void Release(DBusConnection* aConnection) {
+  static void Release(DBusConnection* aConnection)
+  {
     MOZ_ASSERT(aConnection);
     dbus_connection_unref(aConnection);
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ipc_DBusConnectionRefPtr_h
+#endif  // mozilla_ipc_DBusConnectionRefPtr_h

@@ -17,7 +17,8 @@ namespace js {
 namespace jit {
 
 static const bool SupportsSimd = false;
-static const uint32_t SimdMemoryAlignment = 4; // Make it 4 to avoid a bunch of div-by-zero warnings
+static const uint32_t SimdMemoryAlignment =
+    4;  // Make it 4 to avoid a bunch of div-by-zero warnings
 static const uint32_t WasmStackAlignment = 8;
 
 // Does this architecture support SIMD conversions between Uint32x4 and Float32x4?
@@ -28,13 +29,9 @@ static constexpr bool SupportsUint8x16Compares = false;
 static constexpr bool SupportsUint16x8Compares = false;
 static constexpr bool SupportsUint32x4Compares = false;
 
-class Registers
-{
-  public:
-    enum RegisterID {
-        r0 = 0,
-        invalid_reg
-    };
+class Registers {
+   public:
+    enum RegisterID { r0 = 0, invalid_reg };
     typedef uint8_t Code;
     typedef RegisterID Encoding;
     union RegisterContent {
@@ -67,14 +64,10 @@ class Registers
 
 typedef uint8_t PackedRegisterMask;
 
-class FloatRegisters
-{
-  public:
-    enum FPRegisterID {
-        f0 = 0,
-        invalid_reg
-    };
-    typedef FPRegisterID  Code;
+class FloatRegisters {
+   public:
+    enum FPRegisterID { f0 = 0, invalid_reg };
+    typedef FPRegisterID Code;
     typedef FPRegisterID Encoding;
     union RegisterContent {
         double d;
@@ -101,8 +94,7 @@ class FloatRegisters
 template <typename T>
 class TypedRegisterSet;
 
-struct FloatRegister
-{
+struct FloatRegister {
     typedef FloatRegisters Codes;
     typedef Codes::Code Code;
     typedef Codes::Encoding Encoding;
@@ -123,8 +115,8 @@ struct FloatRegister
     Encoding encoding() const { MOZ_CRASH(); }
     const char* name() const { MOZ_CRASH(); }
     bool volatile_() const { MOZ_CRASH(); }
-    bool operator != (FloatRegister) const { MOZ_CRASH(); }
-    bool operator == (FloatRegister) const { MOZ_CRASH(); }
+    bool operator!=(FloatRegister) const { MOZ_CRASH(); }
+    bool operator==(FloatRegister) const { MOZ_CRASH(); }
     bool aliases(FloatRegister) const { MOZ_CRASH(); }
     uint32_t numAliased() const { MOZ_CRASH(); }
     void aliased(uint32_t, FloatRegister*) { MOZ_CRASH(); }
@@ -147,7 +139,10 @@ struct FloatRegister
         return SetType(0);
     }
 
-    template <typename T> static T ReduceSetForPush(T) { MOZ_CRASH(); }
+    template <typename T>
+    static T ReduceSetForPush(T) {
+        MOZ_CRASH();
+    }
     uint32_t getRegisterDumpOffsetInBytes() { MOZ_CRASH(); }
     static uint32_t SetSize(SetType x) { MOZ_CRASH(); }
     static Code FromName(const char* name) { MOZ_CRASH(); }
@@ -167,7 +162,7 @@ static const int32_t NUNBOX32_TYPE_OFFSET = 4;
 static const int32_t NUNBOX32_PAYLOAD_OFFSET = 0;
 #endif
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_none_Architecture_none_h */

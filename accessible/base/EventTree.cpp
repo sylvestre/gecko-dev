@@ -22,10 +22,11 @@ using namespace mozilla::a11y;
 
 EventTree* const TreeMutation::kNoEventTree = reinterpret_cast<EventTree*>(-1);
 
-TreeMutation::TreeMutation(Accessible* aParent, bool aNoEvents) :
-  mParent(aParent), mStartIdx(UINT32_MAX),
-  mStateFlagsCopy(mParent->mStateFlags),
-  mQueueEvents(!aNoEvents)
+TreeMutation::TreeMutation(Accessible* aParent, bool aNoEvents)
+    : mParent(aParent),
+      mStartIdx(UINT32_MAX),
+      mStateFlagsCopy(mParent->mStateFlags),
+      mQueueEvents(!aNoEvents)
 {
 #ifdef DEBUG
   mIsDone = false;
@@ -39,8 +40,11 @@ TreeMutation::TreeMutation(Accessible* aParent, bool aNoEvents) :
     logging::MsgEnd();
 
     if (logging::IsEnabled(logging::eVerbose)) {
-      logging::Tree("EVENTS_TREE", "Container tree", mParent->Document(),
-                    PrefixLog, static_cast<void*>(this));
+      logging::Tree("EVENTS_TREE",
+                    "Container tree",
+                    mParent->Document(),
+                    PrefixLog,
+                    static_cast<void*>(this));
     }
   }
 #endif
@@ -100,8 +104,9 @@ TreeMutation::Done()
   uint32_t length = mParent->mChildren.Length();
 #ifdef DEBUG
   for (uint32_t idx = 0; idx < mStartIdx && idx < length; idx++) {
-    MOZ_ASSERT(mParent->mChildren[idx]->mIndexInParent == static_cast<int32_t>(idx),
-               "Wrong index detected");
+    MOZ_ASSERT(
+        mParent->mChildren[idx]->mIndexInParent == static_cast<int32_t>(idx),
+        "Wrong index detected");
   }
 #endif
 
@@ -142,7 +147,6 @@ TreeMutation::PrefixLog(void* aData, Accessible* aAcc)
   return "";
 }
 #endif
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // EventTree
@@ -261,7 +265,8 @@ EventTree::FindOrInsert(Accessible* aContainer)
   do {
     MOZ_ASSERT(!node->mContainer->IsApplication(),
                "No event for application accessible is expected here");
-    MOZ_ASSERT(!node->mContainer->IsDefunct(), "An event target has to be alive");
+    MOZ_ASSERT(!node->mContainer->IsDefunct(),
+               "An event target has to be alive");
 
     // Case of same target.
     if (node->mContainer == aContainer) {
@@ -287,7 +292,7 @@ EventTree::FindOrInsert(Accessible* aContainer)
 #ifdef A11Y_LOG
             if (logging::IsEnabled(logging::eEventTree)) {
               logging::MsgBegin("EVENTS_TREE",
-                "Rejecting node contained by show/hide");
+                                "Rejecting node contained by show/hide");
               logging::AccessibleInfo("Node", aContainer);
               logging::MsgEnd();
             }
@@ -296,8 +301,8 @@ EventTree::FindOrInsert(Accessible* aContainer)
             // on stack, and if so, then connect it to the parent show event.
             if (ev->IsShow()) {
               AccShowEvent* showEv = downcast_accEvent(ev);
-              Controller(aContainer)->
-                WithdrawPrecedingEvents(&showEv->mPrecedingEvents);
+              Controller(aContainer)
+                  ->WithdrawPrecedingEvents(&showEv->mPrecedingEvents);
             }
             return nullptr;
           }
@@ -326,7 +331,8 @@ EventTree::FindOrInsert(Accessible* aContainer)
       // its parent.
       node->mFireReorder = false;
       UniquePtr<EventTree>& nodeOwnerRef = prevNode ? prevNode->mNext : mFirst;
-      UniquePtr<EventTree> newNode(new EventTree(aContainer, mDependentEvents.IsEmpty()));
+      UniquePtr<EventTree> newNode(
+          new EventTree(aContainer, mDependentEvents.IsEmpty()));
       newNode->mFirst = Move(nodeOwnerRef);
       nodeOwnerRef = Move(newNode);
       nodeOwnerRef->mNext = Move(node->mNext);
@@ -456,8 +462,7 @@ EventTree::Log(uint32_t aLevel) const
         logging::AccessibleInfo("preceding",
                                 showEv->mPrecedingEvents[i]->mAccessible);
       }
-    }
-    else {
+    } else {
       for (uint32_t i = 0; i < aLevel + 1; i++) {
         printf("  ");
       }
@@ -505,8 +510,9 @@ EventTree::Mutated(AccMutationEvent* aEv)
               if (childEv->IsShow()) {
                 AccShowEvent* childShowEv = downcast_accEvent(childEv);
                 if (childShowEv->mPrecedingEvents.Length() > 0) {
-                  Controller(mContainer)->StorePrecedingEvents(
-                    mozilla::Move(childShowEv->mPrecedingEvents));
+                  Controller(mContainer)
+                      ->StorePrecedingEvents(
+                          mozilla::Move(childShowEv->mPrecedingEvents));
                 }
               }
             }
@@ -525,14 +531,18 @@ EventTree::Mutated(AccMutationEvent* aEv)
                 if (logging::IsEnabled(logging::eEventTree)) {
                   logging::MsgBegin("EVENTS_TREE", "Adopt preceding events");
                   logging::AccessibleInfo("Parent", aEv->mAccessible);
-                  for (uint32_t j = 0; j < showChildEv->mPrecedingEvents.Length(); j++) {
-                    logging::AccessibleInfo("Adoptee",
-                      showChildEv->mPrecedingEvents[i]->mAccessible);
+                  for (uint32_t j = 0;
+                       j < showChildEv->mPrecedingEvents.Length();
+                       j++) {
+                    logging::AccessibleInfo(
+                        "Adoptee",
+                        showChildEv->mPrecedingEvents[i]->mAccessible);
                   }
                   logging::MsgEnd();
                 }
 #endif
-                showEv->mPrecedingEvents.AppendElements(showChildEv->mPrecedingEvents);
+                showEv->mPrecedingEvents.AppendElements(
+                    showChildEv->mPrecedingEvents);
               }
             }
           }
@@ -564,8 +574,7 @@ EventTree::Mutated(AccMutationEvent* aEv)
 
         if (prevHideEvent->mNextSibling == hideEvent->mAccessible) {
           hideEvent->mAccessible->AppendTextTo(prevTextEvent->mModifiedText);
-        }
-        else if (prevHideEvent->mPrevSibling == hideEvent->mAccessible) {
+        } else if (prevHideEvent->mPrevSibling == hideEvent->mAccessible) {
           uint32_t oldLen = prevTextEvent->GetLength();
           hideEvent->mAccessible->AppendTextTo(prevTextEvent->mModifiedText);
           prevTextEvent->mStart -= prevTextEvent->GetLength() - oldLen;
@@ -573,8 +582,7 @@ EventTree::Mutated(AccMutationEvent* aEv)
 
         hideEvent->mTextChangeEvent.swap(prevEvent->mTextChangeEvent);
       }
-    }
-    else {
+    } else {
       AccTextChangeEvent* prevTextEvent = prevEvent->mTextChangeEvent;
       if (prevTextEvent) {
         if (aEv->mAccessible->IndexInParent() ==
@@ -582,14 +590,14 @@ EventTree::Mutated(AccMutationEvent* aEv)
           // If tail target was inserted after this target, i.e. tail target is next
           // sibling of this target.
           aEv->mAccessible->AppendTextTo(prevTextEvent->mModifiedText);
-        }
-        else if (aEv->mAccessible->IndexInParent() ==
-                 prevEvent->mAccessible->IndexInParent() - 1) {
+        } else if (aEv->mAccessible->IndexInParent() ==
+                   prevEvent->mAccessible->IndexInParent() - 1) {
           // If tail target was inserted before this target, i.e. tail target is
           // previous sibling of this target.
           nsAutoString startText;
           aEv->mAccessible->AppendTextTo(startText);
-          prevTextEvent->mModifiedText = startText + prevTextEvent->mModifiedText;
+          prevTextEvent->mModifiedText =
+              startText + prevTextEvent->mModifiedText;
           prevTextEvent->mStart -= startText.Length();
         }
 
@@ -612,7 +620,10 @@ EventTree::Mutated(AccMutationEvent* aEv)
   }
 
   int32_t offset = mContainer->AsHyperText()->GetChildOffset(aEv->mAccessible);
-  aEv->mTextChangeEvent =
-    new AccTextChangeEvent(mContainer, offset, text, aEv->IsShow(),
-                           aEv->mIsFromUserInput ? eFromUserInput : eNoUserInput);
+  aEv->mTextChangeEvent = new AccTextChangeEvent(
+      mContainer,
+      offset,
+      text,
+      aEv->IsShow(),
+      aEv->mIsFromUserInput ? eFromUserInput : eNoUserInput);
 }

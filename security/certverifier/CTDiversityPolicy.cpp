@@ -6,7 +6,8 @@
 
 #include "CTDiversityPolicy.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 typedef mozilla::pkix::Result Result;
 
@@ -41,4 +42,5 @@ CTDiversityPolicy::GetDependentOperators(const UniqueCERTCertList& builtChain,
   return Success;
 }
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

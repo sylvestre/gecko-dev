@@ -13,20 +13,19 @@ namespace mozilla {
 
 ReaderProxy::ReaderProxy(AbstractThread* aOwnerThread,
                          MediaFormatReader* aReader)
-  : mOwnerThread(aOwnerThread)
-  , mReader(aReader)
-  , mWatchManager(this, aReader->OwnerThread())
-  , mDuration(aReader->OwnerThread(),
-              media::NullableTimeUnit(),
-              "ReaderProxy::mDuration (Mirror)")
+    : mOwnerThread(aOwnerThread),
+      mReader(aReader),
+      mWatchManager(this, aReader->OwnerThread()),
+      mDuration(aReader->OwnerThread(),
+                media::NullableTimeUnit(),
+                "ReaderProxy::mDuration (Mirror)")
 {
   // Must support either heuristic buffering or WaitForData().
   MOZ_ASSERT(mReader->UseBufferingHeuristics() ||
              mReader->IsWaitForDataSupported());
 }
 
-ReaderProxy::~ReaderProxy()
-{}
+ReaderProxy::~ReaderProxy() {}
 
 media::TimeUnit
 ReaderProxy::StartTime() const
@@ -45,11 +44,11 @@ ReaderProxy::ReadMetadata()
                      mReader.get(),
                      __func__,
                      &MediaFormatReader::AsyncReadMetadata)
-    ->Then(mOwnerThread,
-           __func__,
-           this,
-           &ReaderProxy::OnMetadataRead,
-           &ReaderProxy::OnMetadataNotRead);
+      ->Then(mOwnerThread,
+             __func__,
+             this,
+             &ReaderProxy::OnMetadataRead,
+             &ReaderProxy::OnMetadataNotRead);
 }
 
 RefPtr<ReaderProxy::AudioDataPromise>
@@ -63,15 +62,16 @@ ReaderProxy::RequestAudioData()
                      mReader.get(),
                      __func__,
                      &MediaFormatReader::RequestAudioData)
-    ->Then(mOwnerThread,
-           __func__,
-           [startTime](RefPtr<AudioData> aAudio) {
-             aAudio->AdjustForStartTime(startTime);
-             return AudioDataPromise::CreateAndResolve(aAudio.forget(), __func__);
-           },
-           [](const MediaResult& aError) {
-             return AudioDataPromise::CreateAndReject(aError, __func__);
-           });
+      ->Then(mOwnerThread,
+             __func__,
+             [startTime](RefPtr<AudioData> aAudio) {
+               aAudio->AdjustForStartTime(startTime);
+               return AudioDataPromise::CreateAndResolve(aAudio.forget(),
+                                                         __func__);
+             },
+             [](const MediaResult& aError) {
+               return AudioDataPromise::CreateAndReject(aError, __func__);
+             });
 }
 
 RefPtr<ReaderProxy::VideoDataPromise>
@@ -81,8 +81,8 @@ ReaderProxy::RequestVideoData(const media::TimeUnit& aTimeThreshold)
   MOZ_ASSERT(!mShutdown);
 
   const auto threshold = aTimeThreshold > media::TimeUnit::Zero()
-                         ? aTimeThreshold + StartTime()
-                         : aTimeThreshold;
+                             ? aTimeThreshold + StartTime()
+                             : aTimeThreshold;
 
   int64_t startTime = StartTime().ToMicroseconds();
   return InvokeAsync(mReader->OwnerThread(),
@@ -90,16 +90,16 @@ ReaderProxy::RequestVideoData(const media::TimeUnit& aTimeThreshold)
                      __func__,
                      &MediaFormatReader::RequestVideoData,
                      threshold)
-    ->Then(mOwnerThread,
-           __func__,
-           [startTime](RefPtr<VideoData> aVideo) {
-             aVideo->AdjustForStartTime(startTime);
-             return VideoDataPromise::CreateAndResolve(aVideo.forget(),
-                                                       __func__);
-           },
-           [](const MediaResult& aError) {
-             return VideoDataPromise::CreateAndReject(aError, __func__);
-           });
+      ->Then(mOwnerThread,
+             __func__,
+             [startTime](RefPtr<VideoData> aVideo) {
+               aVideo->AdjustForStartTime(startTime);
+               return VideoDataPromise::CreateAndResolve(aVideo.forget(),
+                                                         __func__);
+             },
+             [](const MediaResult& aError) {
+               return VideoDataPromise::CreateAndReject(aError, __func__);
+             });
 }
 
 RefPtr<ReaderProxy::SeekPromise>
@@ -132,9 +132,9 @@ ReaderProxy::ReleaseResources()
 {
   MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
   nsCOMPtr<nsIRunnable> r =
-    NewRunnableMethod("MediaFormatReader::ReleaseResources",
-                      mReader,
-                      &MediaFormatReader::ReleaseResources);
+      NewRunnableMethod("MediaFormatReader::ReleaseResources",
+                        mReader,
+                        &MediaFormatReader::ReleaseResources);
   mReader->OwnerThread()->Dispatch(r.forget());
 }
 
@@ -143,10 +143,10 @@ ReaderProxy::ResetDecode(TrackSet aTracks)
 {
   MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
   nsCOMPtr<nsIRunnable> r =
-    NewRunnableMethod<TrackSet>("MediaFormatReader::ResetDecode",
-                                mReader,
-                                &MediaFormatReader::ResetDecode,
-                                aTracks);
+      NewRunnableMethod<TrackSet>("MediaFormatReader::ResetDecode",
+                                  mReader,
+                                  &MediaFormatReader::ResetDecode,
+                                  aTracks);
   mReader->OwnerThread()->Dispatch(r.forget());
 }
 
@@ -168,8 +168,8 @@ ReaderProxy::OnMetadataRead(MetadataHolder&& aMetadata)
 {
   MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
   if (mShutdown) {
-    return MetadataPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_ABORT_ERR, __func__);
+    return MetadataPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_ABORT_ERR,
+                                            __func__);
   }
 
   if (mStartTime.isNothing()) {
@@ -189,10 +189,10 @@ ReaderProxy::SetVideoBlankDecode(bool aIsBlankDecode)
 {
   MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
   nsCOMPtr<nsIRunnable> r =
-    NewRunnableMethod<bool>("MediaFormatReader::SetVideoNullDecode",
-                            mReader,
-                            &MediaFormatReader::SetVideoNullDecode,
-                            aIsBlankDecode);
+      NewRunnableMethod<bool>("MediaFormatReader::SetVideoNullDecode",
+                              mReader,
+                              &MediaFormatReader::SetVideoNullDecode,
+                              aIsBlankDecode);
   mReader->OwnerThread()->Dispatch(r.forget());
 }
 
@@ -205,17 +205,17 @@ ReaderProxy::UpdateDuration()
 
 void
 ReaderProxy::SetCanonicalDuration(
-  AbstractCanonical<media::NullableTimeUnit>* aCanonical)
+    AbstractCanonical<media::NullableTimeUnit>* aCanonical)
 {
   using DurationT = AbstractCanonical<media::NullableTimeUnit>;
   RefPtr<ReaderProxy> self = this;
   RefPtr<DurationT> canonical = aCanonical;
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-    "ReaderProxy::SetCanonicalDuration", [this, self, canonical]() {
-      mDuration.Connect(canonical);
-      mWatchManager.Watch(mDuration, &ReaderProxy::UpdateDuration);
-    });
+      "ReaderProxy::SetCanonicalDuration", [this, self, canonical]() {
+        mDuration.Connect(canonical);
+        mWatchManager.Watch(mDuration, &ReaderProxy::UpdateDuration);
+      });
   mReader->OwnerThread()->Dispatch(r.forget());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

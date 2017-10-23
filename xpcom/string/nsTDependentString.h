@@ -20,11 +20,10 @@
  * nsTDependentString continues to reference valid memory for the
  * duration of its use.
  */
-template <typename T>
+template<typename T>
 class nsTDependentString : public nsTString<T>
 {
-public:
-
+ public:
   typedef nsTDependentString<T> self_type;
   typedef nsTString<T> base_string_type;
   typedef typename base_string_type::string_type string_type;
@@ -33,7 +32,8 @@ public:
 
   typedef typename base_string_type::char_type char_type;
   typedef typename base_string_type::char_traits char_traits;
-  typedef typename base_string_type::incompatible_char_type incompatible_char_type;
+  typedef
+      typename base_string_type::incompatible_char_type incompatible_char_type;
 
   typedef typename base_string_type::substring_tuple_type substring_tuple_type;
 
@@ -52,8 +52,7 @@ public:
   typedef typename base_string_type::DataFlags DataFlags;
   typedef typename base_string_type::ClassFlags ClassFlags;
 
-public:
-
+ public:
   /**
    * constructors
    */
@@ -61,55 +60,52 @@ public:
   nsTDependentString(const char_type* aStart, const char_type* aEnd);
 
   nsTDependentString(const char_type* aData, uint32_t aLength)
-    : string_type(const_cast<char_type*>(aData), aLength,
-                  DataFlags::TERMINATED, ClassFlags(0))
+      : string_type(const_cast<char_type*>(aData),
+                    aLength,
+                    DataFlags::TERMINATED,
+                    ClassFlags(0))
   {
     this->AssertValidDependentString();
   }
 
 #if defined(MOZ_USE_CHAR16_WRAPPER)
-  template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
+  template<typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
   nsTDependentString(char16ptr_t aData, uint32_t aLength)
-    : nsTDependentString(static_cast<const char16_t*>(aData), aLength)
+      : nsTDependentString(static_cast<const char16_t*>(aData), aLength)
   {
   }
 #endif
 
-  explicit
-  nsTDependentString(const char_type* aData)
-    : string_type(const_cast<char_type*>(aData),
-                  uint32_t(char_traits::length(aData)),
-                  DataFlags::TERMINATED, ClassFlags(0))
+  explicit nsTDependentString(const char_type* aData)
+      : string_type(const_cast<char_type*>(aData),
+                    uint32_t(char_traits::length(aData)),
+                    DataFlags::TERMINATED,
+                    ClassFlags(0))
   {
     string_type::AssertValidDependentString();
   }
 
 #if defined(MOZ_USE_CHAR16_WRAPPER)
-  template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
-  explicit
-  nsTDependentString(char16ptr_t aData)
-    : nsTDependentString(static_cast<const char16_t*>(aData))
+  template<typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
+  explicit nsTDependentString(char16ptr_t aData)
+      : nsTDependentString(static_cast<const char16_t*>(aData))
   {
   }
 #endif
 
   nsTDependentString(const string_type& aStr, uint32_t aStartPos)
-    : string_type()
+      : string_type()
   {
     Rebind(aStr, aStartPos);
   }
 
   // Create a nsTDependentSubstring to be bound later
-  nsTDependentString()
-    : string_type()
-  {
-  }
+  nsTDependentString() : string_type() {}
 
   // XXX are you sure??
   // auto-generated copy-constructor OK
   // auto-generated copy-assignment operator OK
   // auto-generated destructor OK
-
 
   /**
    * allow this class to be bound to a different string...
@@ -124,8 +120,7 @@ public:
   void Rebind(const char_type* aStart, const char_type* aEnd);
   void Rebind(const string_type&, uint32_t aStartPos);
 
-private:
-
+ private:
   // NOT USED
   nsTDependentString(const substring_tuple_type&) = delete;
 };

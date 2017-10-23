@@ -78,7 +78,8 @@ class ArrayBufferBuilder
   uint32_t mCapacity;
   uint32_t mLength;
   void* mMapPtr;
-public:
+
+ public:
   ArrayBufferBuilder();
   ~ArrayBufferBuilder();
 
@@ -94,10 +95,11 @@ public:
   //
   // The data parameter must not overlap with anything beyond the
   // builder's current valid contents [0..length)
-  bool append(const uint8_t* aNewData, uint32_t aDataLen,
+  bool append(const uint8_t* aNewData,
+              uint32_t aDataLen,
               uint32_t aMaxGrowth = 0);
 
-  uint32_t length()   { return mLength; }
+  uint32_t length() { return mLength; }
   uint32_t capacity() { return mCapacity; }
 
   JSObject* getArrayBuffer(JSContext* aCx);
@@ -110,9 +112,11 @@ public:
   // in JS engine.
   nsresult mapToFileInPackage(const nsCString& aFile, nsIFile* aJarFile);
 
-protected:
-  static bool areOverlappingRegions(const uint8_t* aStart1, uint32_t aLength1,
-                                    const uint8_t* aStart2, uint32_t aLength2);
+ protected:
+  static bool areOverlappingRegions(const uint8_t* aStart1,
+                                    uint32_t aLength1,
+                                    const uint8_t* aStart2,
+                                    uint32_t aLength2);
 };
 
 class nsXMLHttpRequestXPCOMifier;
@@ -127,16 +131,17 @@ class RequestHeaders
   nsTArray<RequestHeader> mHeaders;
   RequestHeader* Find(const nsACString& aName);
 
-public:
+ public:
   class CharsetIterator
   {
     bool mValid;
     int32_t mCurPos, mCurLen, mCutoff;
     nsACString& mSource;
 
-  public:
+   public:
     explicit CharsetIterator(nsACString& aSource);
-    bool Equals(const nsACString& aOther, const nsCStringComparator& aCmp) const;
+    bool Equals(const nsACString& aOther,
+                const nsCStringComparator& aCmp) const;
     void Replace(const nsACString& aReplacement);
     bool Next();
   };
@@ -171,8 +176,9 @@ class XMLHttpRequestMainThread final : public XMLHttpRequest,
   friend class nsXHRParseEndListener;
   friend class nsXMLHttpRequestXPCOMifier;
 
-public:
-  enum class ProgressEventType : uint8_t {
+ public:
+  enum class ProgressEventType : uint8_t
+  {
     loadstart,
     progress,
     error,
@@ -183,7 +189,8 @@ public:
     ENUM_MAX
   };
 
-  enum class ErrorType : uint16_t {
+  enum class ErrorType : uint16_t
+  {
     eOK,
     eRequest,
     eUnreachable,
@@ -251,8 +258,8 @@ public:
   NS_DECL_NSINAMED
 
   // nsISizeOfEventTarget
-  virtual size_t
-    SizeOfEventTargetIncludingThis(MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfEventTargetIncludingThis(
+      MallocSizeOf aMallocSizeOf) const override;
 
   NS_REALLY_FORWARD_NSIDOMEVENTTARGET(XMLHttpRequestEventTarget)
 
@@ -265,47 +272,42 @@ public:
                          int64_t aUploadLength,
                          nsACString& aUploadContentType);
 
-  virtual void
-  Open(const nsACString& aMethod, const nsAString& aUrl,
-       ErrorResult& aRv) override;
+  virtual void Open(const nsACString& aMethod,
+                    const nsAString& aUrl,
+                    ErrorResult& aRv) override;
 
-  virtual void
-  Open(const nsACString& aMethod, const nsAString& aUrl, bool aAsync,
-       const nsAString& aUsername, const nsAString& aPassword,
-       ErrorResult& aRv) override;
+  virtual void Open(const nsACString& aMethod,
+                    const nsAString& aUrl,
+                    bool aAsync,
+                    const nsAString& aUsername,
+                    const nsAString& aPassword,
+                    ErrorResult& aRv) override;
 
-  nsresult
-  Open(const nsACString& aMethod,
-       const nsACString& aUrl,
-       bool aAsync,
-       const nsAString& aUsername,
-       const nsAString& aPassword);
+  nsresult Open(const nsACString& aMethod,
+                const nsACString& aUrl,
+                bool aAsync,
+                const nsAString& aUsername,
+                const nsAString& aPassword);
 
-  virtual void
-  SetRequestHeader(const nsACString& aName, const nsACString& aValue,
-                   ErrorResult& aRv) override
+  virtual void SetRequestHeader(const nsACString& aName,
+                                const nsACString& aValue,
+                                ErrorResult& aRv) override
   {
     aRv = SetRequestHeader(aName, aValue);
   }
 
-  virtual uint32_t
-  Timeout() const override
-  {
-    return mTimeoutMilliseconds;
-  }
+  virtual uint32_t Timeout() const override { return mTimeoutMilliseconds; }
 
-  virtual void
-  SetTimeout(uint32_t aTimeout, ErrorResult& aRv) override;
+  virtual void SetTimeout(uint32_t aTimeout, ErrorResult& aRv) override;
 
   virtual bool WithCredentials() const override;
 
-  virtual void
-  SetWithCredentials(bool aWithCredentials, ErrorResult& aRv) override;
+  virtual void SetWithCredentials(bool aWithCredentials,
+                                  ErrorResult& aRv) override;
 
-  virtual XMLHttpRequestUpload*
-  GetUpload(ErrorResult& aRv) override;
+  virtual XMLHttpRequestUpload* GetUpload(ErrorResult& aRv) override;
 
-private:
+ private:
   virtual ~XMLHttpRequestMainThread();
 
   nsresult MaybeSilentSendFailure(nsresult aRv);
@@ -331,146 +333,128 @@ private:
 
   void MaybeLowerChannelPriority();
 
-public:
-  virtual void
-  Send(JSContext* aCx,
-       const Nullable<DocumentOrBlobOrArrayBufferViewOrArrayBufferOrFormDataOrURLSearchParamsOrUSVString>& aData,
-       ErrorResult& aRv) override;
+ public:
+  virtual void Send(
+      JSContext* aCx,
+      const Nullable<
+          DocumentOrBlobOrArrayBufferViewOrArrayBufferOrFormDataOrURLSearchParamsOrUSVString>&
+          aData,
+      ErrorResult& aRv) override;
 
-  virtual void
-  SendInputStream(nsIInputStream* aInputStream, ErrorResult& aRv) override
+  virtual void SendInputStream(nsIInputStream* aInputStream,
+                               ErrorResult& aRv) override
   {
     BodyExtractor<nsIInputStream> body(aInputStream);
     aRv = SendInternal(&body);
   }
 
-  void
-  RequestErrorSteps(const ProgressEventType aEventType,
-                    const nsresult aOptionalException,
-                    ErrorResult& aRv);
+  void RequestErrorSteps(const ProgressEventType aEventType,
+                         const nsresult aOptionalException,
+                         ErrorResult& aRv);
 
-  void
-  Abort()
+  void Abort()
   {
     ErrorResult rv;
     Abort(rv);
     MOZ_ASSERT(!rv.Failed());
   }
 
-  virtual void
-  Abort(ErrorResult& aRv) override;
+  virtual void Abort(ErrorResult& aRv) override;
 
   // response
-  virtual void
-  GetResponseURL(nsAString& aUrl) override;
+  virtual void GetResponseURL(nsAString& aUrl) override;
 
-  virtual uint32_t
-  GetStatus(ErrorResult& aRv) override;
+  virtual uint32_t GetStatus(ErrorResult& aRv) override;
 
-  virtual void
-  GetStatusText(nsACString& aStatusText, ErrorResult& aRv) override;
+  virtual void GetStatusText(nsACString& aStatusText,
+                             ErrorResult& aRv) override;
 
-  virtual void
-  GetResponseHeader(const nsACString& aHeader, nsACString& aResult,
-                    ErrorResult& aRv) override;
+  virtual void GetResponseHeader(const nsACString& aHeader,
+                                 nsACString& aResult,
+                                 ErrorResult& aRv) override;
 
-  void
-  GetResponseHeader(const nsAString& aHeader, nsAString& aResult,
-                    ErrorResult& aRv)
+  void GetResponseHeader(const nsAString& aHeader,
+                         nsAString& aResult,
+                         ErrorResult& aRv)
   {
     nsAutoCString result;
     GetResponseHeader(NS_ConvertUTF16toUTF8(aHeader), result, aRv);
     if (result.IsVoid()) {
       aResult.SetIsVoid(true);
-    }
-    else {
+    } else {
       // The result value should be inflated:
       CopyASCIItoUTF16(result, aResult);
     }
   }
 
-  virtual void
-  GetAllResponseHeaders(nsACString& aResponseHeaders,
-                        ErrorResult& aRv) override;
+  virtual void GetAllResponseHeaders(nsACString& aResponseHeaders,
+                                     ErrorResult& aRv) override;
 
   bool IsSafeHeader(const nsACString& aHeaderName,
                     NotNull<nsIHttpChannel*> aHttpChannel) const;
 
-  virtual void
-  OverrideMimeType(const nsAString& aMimeType, ErrorResult& aRv) override;
+  virtual void OverrideMimeType(const nsAString& aMimeType,
+                                ErrorResult& aRv) override;
 
-  virtual XMLHttpRequestResponseType
-  ResponseType() const override
+  virtual XMLHttpRequestResponseType ResponseType() const override
   {
     return XMLHttpRequestResponseType(mResponseType);
   }
 
-  virtual void
-  SetResponseType(XMLHttpRequestResponseType aType,
-                  ErrorResult& aRv) override;
+  virtual void SetResponseType(XMLHttpRequestResponseType aType,
+                               ErrorResult& aRv) override;
 
-  virtual void
-  GetResponse(JSContext* aCx, JS::MutableHandle<JS::Value> aResponse,
-              ErrorResult& aRv) override;
+  virtual void GetResponse(JSContext* aCx,
+                           JS::MutableHandle<JS::Value> aResponse,
+                           ErrorResult& aRv) override;
 
-  virtual void
-  GetResponseText(DOMString& aResponseText, ErrorResult& aRv) override;
+  virtual void GetResponseText(DOMString& aResponseText,
+                               ErrorResult& aRv) override;
 
-  void
-  GetResponseText(XMLHttpRequestStringSnapshot& aSnapshot,
-                  ErrorResult& aRv);
+  void GetResponseText(XMLHttpRequestStringSnapshot& aSnapshot,
+                       ErrorResult& aRv);
 
-  virtual nsIDocument*
-  GetResponseXML(ErrorResult& aRv) override;
+  virtual nsIDocument* GetResponseXML(ErrorResult& aRv) override;
 
-  virtual bool
-  MozBackgroundRequest() const override;
+  virtual bool MozBackgroundRequest() const override;
 
-  virtual void
-  SetMozBackgroundRequest(bool aMozBackgroundRequest, ErrorResult& aRv) override;
+  virtual void SetMozBackgroundRequest(bool aMozBackgroundRequest,
+                                       ErrorResult& aRv) override;
 
-  virtual uint16_t
-  ErrorCode() const override
+  virtual uint16_t ErrorCode() const override
   {
     return static_cast<uint16_t>(mErrorLoad);
   }
 
-  virtual bool
-  MozAnon() const override;
+  virtual bool MozAnon() const override;
 
-  virtual bool
-  MozSystem() const override;
+  virtual bool MozSystem() const override;
 
-  virtual nsIChannel*
-  GetChannel() const override
-  {
-    return mChannel;
-  }
+  virtual nsIChannel* GetChannel() const override { return mChannel; }
 
-  virtual void
-  GetNetworkInterfaceId(nsACString& aId) const override
+  virtual void GetNetworkInterfaceId(nsACString& aId) const override
   {
     aId = mNetworkInterfaceId;
   }
 
-  virtual void
-  SetNetworkInterfaceId(const nsACString& aId) override
+  virtual void SetNetworkInterfaceId(const nsACString& aId) override
   {
     mNetworkInterfaceId = aId;
   }
 
   // We need a GetInterface callable from JS for chrome JS
-  virtual void
-  GetInterface(JSContext* aCx, nsIJSID* aIID,
-               JS::MutableHandle<JS::Value> aRetval,
-               ErrorResult& aRv) override;
+  virtual void GetInterface(JSContext* aCx,
+                            nsIJSID* aIID,
+                            JS::MutableHandle<JS::Value> aRetval,
+                            ErrorResult& aRv) override;
 
   // This fires a trusted readystatechange event, which is not cancelable and
   // doesn't bubble.
   nsresult FireReadystatechangeEvent();
   void DispatchProgressEvent(DOMEventTargetHelper* aTarget,
                              const ProgressEventType aType,
-                             int64_t aLoaded, int64_t aTotal);
+                             int64_t aLoaded,
+                             int64_t aTotal);
 
   // This is called by the factory constructor.
   nsresult Init();
@@ -481,8 +465,8 @@ public:
 
   void SetRequestObserver(nsIRequestObserver* aObserver);
 
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(XMLHttpRequestMainThread,
-                                                         XMLHttpRequest)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
+      XMLHttpRequestMainThread, XMLHttpRequest)
   virtual bool IsCertainlyAliveForCC() const override;
 
   bool AllowUploadProgress();
@@ -493,46 +477,43 @@ public:
   {
     sDontWarnAboutSyncXHR = aVal;
   }
-  static bool DontWarnAboutSyncXHR()
-  {
-    return sDontWarnAboutSyncXHR;
-  }
+  static bool DontWarnAboutSyncXHR() { return sDontWarnAboutSyncXHR; }
 
-  virtual void
-  SetOriginAttributes(const mozilla::dom::OriginAttributesDictionary& aAttrs) override;
+  virtual void SetOriginAttributes(
+      const mozilla::dom::OriginAttributesDictionary& aAttrs) override;
 
   void BlobStoreCompleted(MutableBlobStorage* aBlobStorage,
                           Blob* aBlob,
                           nsresult aResult) override;
 
-  void
-  LocalFileToBlobCompleted(Blob* aBlob);
+  void LocalFileToBlobCompleted(Blob* aBlob);
 
-protected:
+ protected:
   // XHR states are meant to mirror the XHR2 spec:
   //   https://xhr.spec.whatwg.org/#states
-  enum class State : uint8_t {
-    unsent,           // object has been constructed.
-    opened,           // open() has been successfully invoked.
-    headers_received, // redirects followed and response headers received.
-    loading,          // response body is being received.
-    done,             // data transfer concluded, whether success or error.
+  enum class State : uint8_t
+  {
+    unsent,            // object has been constructed.
+    opened,            // open() has been successfully invoked.
+    headers_received,  // redirects followed and response headers received.
+    loading,           // response body is being received.
+    done,              // data transfer concluded, whether success or error.
   };
 
   nsresult DetectCharset();
-  nsresult AppendToResponseText(const char * aBuffer, uint32_t aBufferLen);
+  nsresult AppendToResponseText(const char* aBuffer, uint32_t aBufferLen);
   static nsresult StreamReaderFunc(nsIInputStream* in,
                                    void* closure,
                                    const char* fromRawSegment,
                                    uint32_t toOffset,
                                    uint32_t count,
-                                   uint32_t *writeCount);
+                                   uint32_t* writeCount);
   nsresult CreateResponseParsedJSON(JSContext* aCx);
   // Change the state of the object with this. The broadcast argument
   // determines if the onreadystatechange listener should be called.
   nsresult ChangeState(State aState, bool aBroadcast = true);
   already_AddRefed<nsILoadGroup> GetLoadGroup() const;
-  nsIURI *GetBaseURI();
+  nsIURI* GetBaseURI();
 
   already_AddRefed<nsIHttpChannel> GetCurrentHttpChannel();
   already_AddRefed<nsIJARChannel> GetCurrentJARChannel();
@@ -589,29 +570,30 @@ protected:
       nsCString mValue;
 
       HeaderEntry(const nsACString& aName, const nsACString& aValue)
-        : mName(aName), mValue(aValue)
-      {}
+          : mName(aName), mValue(aValue)
+      {
+      }
 
-      bool
-      operator==(const HeaderEntry& aOther) const
+      bool operator==(const HeaderEntry& aOther) const
       {
         return mName == aOther.mName;
       }
 
-      bool
-      operator<(const HeaderEntry& aOther) const
+      bool operator<(const HeaderEntry& aOther) const
       {
         return mName < aOther.mName;
       }
     };
 
-  public:
+   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSIHTTPHEADERVISITOR
     nsHeaderVisitor(const XMLHttpRequestMainThread& aXMLHttpRequest,
                     NotNull<nsIHttpChannel*> aHttpChannel)
-      : mXHR(aXMLHttpRequest), mHttpChannel(aHttpChannel) {}
-    const nsACString &Headers()
+        : mXHR(aXMLHttpRequest), mHttpChannel(aHttpChannel)
+    {
+    }
+    const nsACString& Headers()
     {
       for (uint32_t i = 0; i < mHeaderList.Length(); i++) {
         HeaderEntry& header = mHeaderList.ElementAt(i);
@@ -624,7 +606,7 @@ protected:
       return mHeaders;
     }
 
-  private:
+   private:
     virtual ~nsHeaderVisitor() {}
 
     nsTArray<HeaderEntry> mHeaderList;
@@ -726,7 +708,8 @@ protected:
 
   nsCOMPtr<nsITimer> mSyncTimeoutTimer;
 
-  enum SyncTimeoutType {
+  enum SyncTimeoutType
+  {
     eErrorOrExpired,
     eTimerStarted,
     eNoTimerNeeded
@@ -742,7 +725,7 @@ protected:
   bool mProgressTimerIsActive;
   bool mIsHtml;
   bool mWarnAboutSyncHtml;
-  int64_t mLoadTotal; // -1 if not known.
+  int64_t mLoadTotal;  // -1 if not known.
   // Number of HTTP message body bytes received so far. This quantity is
   // in the same units as Content-Length and mLoadTotal, and hence counts
   // compressed bytes when the channel has gzip Content-Encoding. If the
@@ -806,8 +789,9 @@ protected:
 
 class MOZ_STACK_CLASS AutoDontWarnAboutSyncXHR
 {
-public:
-  AutoDontWarnAboutSyncXHR() : mOldVal(XMLHttpRequestMainThread::DontWarnAboutSyncXHR())
+ public:
+  AutoDontWarnAboutSyncXHR()
+      : mOldVal(XMLHttpRequestMainThread::DontWarnAboutSyncXHR())
   {
     XMLHttpRequestMainThread::SetDontWarnAboutSyncXHR(true);
   }
@@ -817,7 +801,7 @@ public:
     XMLHttpRequestMainThread::SetDontWarnAboutSyncXHR(mOldVal);
   }
 
-private:
+ private:
   bool mOldVal;
 };
 
@@ -835,19 +819,20 @@ class nsXMLHttpRequestXPCOMifier final : public nsIStreamListener,
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsXMLHttpRequestXPCOMifier,
                                            nsIStreamListener)
 
-  explicit nsXMLHttpRequestXPCOMifier(XMLHttpRequestMainThread* aXHR) :
-    mXHR(aXHR)
+  explicit nsXMLHttpRequestXPCOMifier(XMLHttpRequestMainThread* aXHR)
+      : mXHR(aXHR)
   {
   }
 
-private:
-  ~nsXMLHttpRequestXPCOMifier() {
+ private:
+  ~nsXMLHttpRequestXPCOMifier()
+  {
     if (mXHR) {
       mXHR->mXPCOMifier = nullptr;
     }
   }
 
-public:
+ public:
   NS_FORWARD_NSISTREAMLISTENER(mXHR->)
   NS_FORWARD_NSIREQUESTOBSERVER(mXHR->)
   NS_FORWARD_NSICHANNELEVENTSINK(mXHR->)
@@ -858,15 +843,15 @@ public:
 
   NS_DECL_NSIINTERFACEREQUESTOR
 
-private:
+ private:
   RefPtr<XMLHttpRequestMainThread> mXHR;
 };
 
 class nsXHRParseEndListener : public nsIDOMEventListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
-  NS_IMETHOD HandleEvent(nsIDOMEvent *event) override
+  NS_IMETHOD HandleEvent(nsIDOMEvent* event) override
   {
     nsCOMPtr<nsIXMLHttpRequest> xhr = do_QueryReferent(mXHR);
     if (xhr) {
@@ -876,14 +861,17 @@ public:
     return NS_OK;
   }
   explicit nsXHRParseEndListener(nsIXMLHttpRequest* aXHR)
-    : mXHR(do_GetWeakReference(aXHR)) {}
-private:
+      : mXHR(do_GetWeakReference(aXHR))
+  {
+  }
+
+ private:
   virtual ~nsXHRParseEndListener() {}
 
   nsWeakPtr mXHR;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_XMLHttpRequestMainThread_h
+#endif  // mozilla_dom_XMLHttpRequestMainThread_h

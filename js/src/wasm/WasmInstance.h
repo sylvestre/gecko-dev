@@ -32,8 +32,7 @@ namespace wasm {
 // module may be compiled multiple times (at multiple tiers) but the compiled
 // representations share the same GlobalSegment.
 
-class GlobalSegment
-{
+class GlobalSegment {
     uint32_t globalDataLength_;
     TlsData* tlsData_;
 
@@ -42,7 +41,7 @@ class GlobalSegment
     void operator=(const GlobalSegment&) = delete;
     void operator=(GlobalSegment&&) = delete;
 
-  public:
+   public:
     static UniquePtr<GlobalSegment> create(uint32_t globalDataLength);
 
     GlobalSegment() { PodZero(this); }
@@ -68,17 +67,16 @@ typedef UniquePtr<GlobalSegment> UniqueGlobalSegment;
 // those instances are being debugged. Instances that are being debugged own
 // their code.
 
-class Instance
-{
-    JSCompartment* const            compartment_;
+class Instance {
+    JSCompartment* const compartment_;
     ReadBarrieredWasmInstanceObject object_;
-    GCPtrJitCode                    jsJitArgsRectifier_;
-    const SharedCode                code_;
-    const UniqueDebugState          debug_;
-    const UniqueGlobalSegment       globals_;
-    GCPtrWasmMemoryObject           memory_;
-    SharedTableVector               tables_;
-    bool                            enterFrameTrapsEnabled_;
+    GCPtrJitCode jsJitArgsRectifier_;
+    const SharedCode code_;
+    const UniqueDebugState debug_;
+    const UniqueGlobalSegment globals_;
+    GCPtrWasmMemoryObject memory_;
+    SharedTableVector tables_;
+    bool enterFrameTrapsEnabled_;
 
     // Internal helpers:
     const void** addressOfSigId(const SigIdDesc& sigId) const;
@@ -92,15 +90,10 @@ class Instance
     bool callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, const uint64_t* argv,
                     MutableHandleValue rval);
 
-  public:
-    Instance(JSContext* cx,
-             HandleWasmInstanceObject object,
-             SharedCode code,
-             UniqueDebugState debug,
-             UniqueGlobalSegment globals,
-             HandleWasmMemoryObject memory,
-             SharedTableVector&& tables,
-             Handle<FunctionVector> funcImports,
+   public:
+    Instance(JSContext* cx, HandleWasmInstanceObject object, SharedCode code,
+             UniqueDebugState debug, UniqueGlobalSegment globals, HandleWasmMemoryObject memory,
+             SharedTableVector&& tables, Handle<FunctionVector> funcImports,
              const ValVector& globalImports);
     ~Instance();
     bool init(JSContext* cx);
@@ -172,15 +165,11 @@ class Instance
 
     // about:memory reporting:
 
-    void addSizeOfMisc(MallocSizeOf mallocSizeOf,
-                       Metadata::SeenSet* seenMetadata,
-                       ShareableBytes::SeenSet* seenBytes,
-                       Code::SeenSet* seenCode,
-                       Table::SeenSet* seenTables,
-                       size_t* code,
-                       size_t* data) const;
+    void addSizeOfMisc(MallocSizeOf mallocSizeOf, Metadata::SeenSet* seenMetadata,
+                       ShareableBytes::SeenSet* seenBytes, Code::SeenSet* seenCode,
+                       Table::SeenSet* seenTables, size_t* code, size_t* data) const;
 
-  public:
+   public:
     // Functions to be called directly from wasm code.
     static int32_t callImport_void(Instance*, int32_t, int32_t, uint64_t*);
     static int32_t callImport_i32(Instance*, int32_t, int32_t, uint64_t*);
@@ -195,7 +184,7 @@ typedef UniquePtr<Instance> UniqueInstance;
 bool InitInstanceStaticData();
 void ShutDownInstanceStaticData();
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_instance_h
+#endif  // wasm_instance_h

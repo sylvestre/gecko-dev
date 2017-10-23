@@ -27,18 +27,16 @@ using namespace mozilla;
 using namespace mozilla::gfx;
 
 VRDisplayClient::VRDisplayClient(const VRDisplayInfo& aDisplayInfo)
-  : mDisplayInfo(aDisplayInfo)
-  , bLastEventWasMounted(false)
-  , bLastEventWasPresenting(false)
-  , mPresentationCount(0)
-  , mLastEventFrameId(0)
+    : mDisplayInfo(aDisplayInfo),
+      bLastEventWasMounted(false),
+      bLastEventWasPresenting(false),
+      mPresentationCount(0),
+      mLastEventFrameId(0)
 {
   MOZ_COUNT_CTOR(VRDisplayClient);
 }
 
-VRDisplayClient::~VRDisplayClient() {
-  MOZ_COUNT_DTOR(VRDisplayClient);
-}
+VRDisplayClient::~VRDisplayClient() { MOZ_COUNT_DTOR(VRDisplayClient); }
 
 void
 VRDisplayClient::UpdateDisplayInfo(const VRDisplayInfo& aDisplayInfo)
@@ -48,11 +46,12 @@ VRDisplayClient::UpdateDisplayInfo(const VRDisplayInfo& aDisplayInfo)
 }
 
 already_AddRefed<VRDisplayPresentation>
-VRDisplayClient::BeginPresentation(const nsTArray<mozilla::dom::VRLayer>& aLayers,
-                                   uint32_t aGroup)
+VRDisplayClient::BeginPresentation(
+    const nsTArray<mozilla::dom::VRLayer>& aLayers, uint32_t aGroup)
 {
   ++mPresentationCount;
-  RefPtr<VRDisplayPresentation> presentation = new VRDisplayPresentation(this, aLayers, aGroup);
+  RefPtr<VRDisplayPresentation> presentation =
+      new VRDisplayPresentation(this, aLayers, aGroup);
   return presentation.forget();
 }
 
@@ -65,21 +64,21 @@ VRDisplayClient::PresentationDestroyed()
 void
 VRDisplayClient::ZeroSensor()
 {
-  VRManagerChild *vm = VRManagerChild::Get();
+  VRManagerChild* vm = VRManagerChild::Get();
   vm->SendResetSensor(mDisplayInfo.mDisplayID);
 }
 
 void
 VRDisplayClient::SetGroupMask(uint32_t aGroupMask)
 {
-  VRManagerChild *vm = VRManagerChild::Get();
+  VRManagerChild* vm = VRManagerChild::Get();
   vm->SendSetGroupMask(mDisplayInfo.mDisplayID, aGroupMask);
 }
 
 void
 VRDisplayClient::FireEvents()
 {
-  VRManagerChild *vm = VRManagerChild::Get();
+  VRManagerChild* vm = VRManagerChild::Get();
   // Only fire these events for non-chrome VR sessions
   bool isPresenting = (mDisplayInfo.mPresentingGroups & kVRGroupContent) != 0;
 

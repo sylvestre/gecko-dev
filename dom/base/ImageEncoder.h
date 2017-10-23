@@ -23,7 +23,7 @@ namespace mozilla {
 namespace layers {
 class AsyncCanvasRenderer;
 class Image;
-} // namespace layers
+}  // namespace layers
 
 namespace dom {
 
@@ -32,7 +32,7 @@ class EncodingRunnable;
 
 class ImageEncoder
 {
-public:
+ public:
   // Extracts data synchronously and gives you a stream containing the image
   // represented by aContext. aType may change to "image/png" if we had to fall
   // back to a PNG encoder. A return value of NS_OK implies successful data
@@ -72,12 +72,13 @@ public:
   // will be called on main thread when encoding process is success.
   // Note: The callback has to set a valid parent for content for the generated
   // Blob object.
-  static nsresult ExtractDataFromLayersImageAsync(nsAString& aType,
-                                                  const nsAString& aOptions,
-                                                  bool aUsingCustomOptions,
-                                                  layers::Image* aImage,
-                                                  bool aUsePlaceholder,
-                                                  EncodeCompleteCallback* aEncodeCallback);
+  static nsresult ExtractDataFromLayersImageAsync(
+      nsAString& aType,
+      const nsAString& aOptions,
+      bool aUsingCustomOptions,
+      layers::Image* aImage,
+      bool aUsePlaceholder,
+      EncodeCompleteCallback* aEncodeCallback);
 
   // Gives you a stream containing the image represented by aImageBuffer.
   // The format is given in aFormat, for example
@@ -90,20 +91,20 @@ public:
                                  const char16_t* aEncoderOptions,
                                  nsIInputStream** aStream);
 
-private:
+ private:
   // When called asynchronously, aContext and aRenderer are null.
-  static nsresult
-  ExtractDataInternal(const nsAString& aType,
-                      const nsAString& aOptions,
-                      uint8_t* aImageBuffer,
-                      int32_t aFormat,
-                      const nsIntSize aSize,
-                      bool aUsePlaceholder,
-                      layers::Image* aImage,
-                      nsICanvasRenderingContextInternal* aContext,
-                      layers::AsyncCanvasRenderer* aRenderer,
-                      nsIInputStream** aStream,
-                      imgIEncoder* aEncoder);
+  static nsresult ExtractDataInternal(
+      const nsAString& aType,
+      const nsAString& aOptions,
+      uint8_t* aImageBuffer,
+      int32_t aFormat,
+      const nsIntSize aSize,
+      bool aUsePlaceholder,
+      layers::Image* aImage,
+      nsICanvasRenderingContextInternal* aContext,
+      layers::AsyncCanvasRenderer* aRenderer,
+      nsIInputStream** aStream,
+      imgIEncoder* aEncoder);
 
   // Creates and returns an encoder instance of the type specified in aType.
   // aType may change to "image/png" if no instance of the original type could
@@ -127,16 +128,16 @@ private:
  */
 class EncodeCompleteCallback
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(EncodeCompleteCallback)
 
   virtual nsresult ReceiveBlob(already_AddRefed<Blob> aBlob) = 0;
 
-protected:
+ protected:
   virtual ~EncodeCompleteCallback() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // ImageEncoder_h
+#endif  // ImageEncoder_h

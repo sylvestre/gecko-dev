@@ -24,10 +24,10 @@ struct nsRect;
  */
 class nsILineIterator
 {
-protected:
-  ~nsILineIterator() { }
+ protected:
+  ~nsILineIterator() {}
 
-public:
+ public:
   virtual void DisposeLineIterator() = 0;
 
   /**
@@ -86,38 +86,37 @@ public:
 
   // Check whether visual and logical order of frames within a line are identical.
   //  If not, return the first and last visual frames
-  NS_IMETHOD CheckLineOrder(int32_t                  aLine,
-                            bool                     *aIsReordered,
-                            nsIFrame                 **aFirstVisual,
-                            nsIFrame                 **aLastVisual) = 0;
+  NS_IMETHOD CheckLineOrder(int32_t aLine,
+                            bool* aIsReordered,
+                            nsIFrame** aFirstVisual,
+                            nsIFrame** aLastVisual) = 0;
 };
 
 class nsAutoLineIterator
 {
-public:
-  nsAutoLineIterator() : mRawPtr(nullptr) { }
-  MOZ_IMPLICIT nsAutoLineIterator(nsILineIterator *i) : mRawPtr(i) { }
+ public:
+  nsAutoLineIterator() : mRawPtr(nullptr) {}
+  MOZ_IMPLICIT nsAutoLineIterator(nsILineIterator* i) : mRawPtr(i) {}
 
-  ~nsAutoLineIterator() {
-    if (mRawPtr)
-      mRawPtr->DisposeLineIterator();
+  ~nsAutoLineIterator()
+  {
+    if (mRawPtr) mRawPtr->DisposeLineIterator();
   }
 
   operator nsILineIterator*() { return mRawPtr; }
   nsILineIterator* operator->() { return mRawPtr; }
 
-  nsILineIterator* operator=(nsILineIterator* i) {
-    if (i == mRawPtr)
-      return i;
+  nsILineIterator* operator=(nsILineIterator* i)
+  {
+    if (i == mRawPtr) return i;
 
-    if (mRawPtr)
-      mRawPtr->DisposeLineIterator();
+    if (mRawPtr) mRawPtr->DisposeLineIterator();
 
     mRawPtr = i;
     return i;
   }
 
-private:
+ private:
   nsILineIterator* mRawPtr;
 };
 

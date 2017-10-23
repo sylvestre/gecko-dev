@@ -13,9 +13,10 @@
 namespace base {
 namespace debug {
 
-class BASE_EXPORT StackTrace {
+class BASE_EXPORT StackTrace
+{
  public:
-  StackTrace() {};
+  StackTrace(){};
 };
 
 }  // namespace debug

@@ -17,7 +17,7 @@ namespace dom {
 
 class HTMLMenuElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLMenuElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   NS_IMPL_FROMCONTENT_HTML_WITH_TAG(HTMLMenuElement, menu)
@@ -25,45 +25,38 @@ public:
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
 
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   uint8_t GetType() const { return mType; }
 
   // WebIDL
 
-  void GetType(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aValue);
-  }
+  void GetType(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::type, aValue); }
   void SetType(const nsAString& aType, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::type, aType, aError);
   }
 
-  void GetLabel(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::label, aValue);
-  }
+  void GetLabel(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::label, aValue); }
   void SetLabel(const nsAString& aLabel, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::label, aLabel, aError);
   }
 
-  bool Compact() const
-  {
-    return GetBoolAttr(nsGkAtoms::compact);
-  }
+  bool Compact() const { return GetBoolAttr(nsGkAtoms::compact); }
   void SetCompact(bool aCompact, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::compact, aCompact, aError);
@@ -75,13 +68,13 @@ public:
 
   void Build(nsIMenuBuilder* aBuilder);
 
-protected:
+ protected:
   virtual ~HTMLMenuElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-
-protected:
+ protected:
   static bool CanLoadIcon(nsIContent* aContent, const nsAString& aIcon);
 
   void BuildSubmenu(const nsAString& aLabel,
@@ -97,7 +90,7 @@ protected:
   uint8_t mType;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLMenuElement_h
+#endif  // mozilla_dom_HTMLMenuElement_h

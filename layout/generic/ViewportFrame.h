@@ -25,39 +25,40 @@ class ServoRestyleState;
   * containing the doc root frame. ViewportFrame stores this child in its primary child
   * list.
   */
-class ViewportFrame : public nsContainerFrame {
-public:
+class ViewportFrame : public nsContainerFrame
+{
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(ViewportFrame)
 
   explicit ViewportFrame(nsStyleContext* aContext)
-    : ViewportFrame(aContext, kClassID)
-  {}
+      : ViewportFrame(aContext, kClassID)
+  {
+  }
 
-  virtual ~ViewportFrame() { } // useful for debugging
+  virtual ~ViewportFrame() {}  // useful for debugging
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
 #ifdef DEBUG
-  virtual void AppendFrames(ChildListID     aListID,
-                            nsFrameList&    aFrameList) override;
-  virtual void InsertFrames(ChildListID     aListID,
-                            nsIFrame*       aPrevFrame,
-                            nsFrameList&    aFrameList) override;
-  virtual void RemoveFrame(ChildListID     aListID,
-                           nsIFrame*       aOldFrame) override;
+  virtual void AppendFrames(ChildListID aListID,
+                            nsFrameList& aFrameList) override;
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aFrameList) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 #endif
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   void BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
                                    nsDisplayList* aList);
 
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  virtual nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
   virtual void Reflow(nsPresContext* aPresContext,
                       ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
@@ -88,11 +89,11 @@ public:
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-protected:
+ protected:
   ViewportFrame(nsStyleContext* aContext, ClassID aID)
-    : nsContainerFrame(aContext, aID)
-    , mView(nullptr)
-  {}
+      : nsContainerFrame(aContext, aID), mView(nullptr)
+  {
+  }
 
   /**
    * Calculate how much room is available for fixed frames. That means
@@ -106,12 +107,15 @@ protected:
   nsView* GetViewInternal() const override { return mView; }
   void SetViewInternal(nsView* aView) override { mView = aView; }
 
-private:
-  virtual mozilla::layout::FrameChildListID GetAbsoluteListID() const override { return kFixedList; }
+ private:
+  virtual mozilla::layout::FrameChildListID GetAbsoluteListID() const override
+  {
+    return kFixedList;
+  }
 
   nsView* mView;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ViewportFrame_h
+#endif  // mozilla_ViewportFrame_h

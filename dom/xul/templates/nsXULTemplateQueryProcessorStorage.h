@@ -22,48 +22,44 @@ class nsXULTemplateQueryProcessorStorage;
 
 class nsXULTemplateResultSetStorage final : public nsISimpleEnumerator
 {
-private:
+ private:
+  nsCOMPtr<mozIStorageStatement> mStatement;
 
-    nsCOMPtr<mozIStorageStatement> mStatement;
+  nsTArray<RefPtr<nsAtom>> mColumnNames;
 
-    nsTArray<RefPtr<nsAtom>> mColumnNames;
+  ~nsXULTemplateResultSetStorage() {}
 
-    ~nsXULTemplateResultSetStorage() {}
+ public:
+  // nsISupports interface
+  NS_DECL_ISUPPORTS
 
-public:
+  // nsISimpleEnumerator interface
+  NS_DECL_NSISIMPLEENUMERATOR
 
-    // nsISupports interface
-    NS_DECL_ISUPPORTS
+  explicit nsXULTemplateResultSetStorage(mozIStorageStatement* aStatement);
 
-    // nsISimpleEnumerator interface
-    NS_DECL_NSISIMPLEENUMERATOR
+  int32_t GetColumnIndex(nsAtom* aColumnName);
 
-    explicit nsXULTemplateResultSetStorage(mozIStorageStatement* aStatement);
-
-    int32_t GetColumnIndex(nsAtom* aColumnName);
-
-    void FillColumnValues(nsCOMArray<nsIVariant>& aArray);
-
+  void FillColumnValues(nsCOMArray<nsIVariant>& aArray);
 };
 
-class nsXULTemplateQueryProcessorStorage final : public nsIXULTemplateQueryProcessor
+class nsXULTemplateQueryProcessorStorage final
+    : public nsIXULTemplateQueryProcessor
 {
-public:
+ public:
+  nsXULTemplateQueryProcessorStorage();
 
-    nsXULTemplateQueryProcessorStorage();
+  // nsISupports interface
+  NS_DECL_ISUPPORTS
 
-    // nsISupports interface
-    NS_DECL_ISUPPORTS
+  // nsIXULTemplateQueryProcessor interface
+  NS_DECL_NSIXULTEMPLATEQUERYPROCESSOR
 
-    // nsIXULTemplateQueryProcessor interface
-    NS_DECL_NSIXULTEMPLATEQUERYPROCESSOR
+ private:
+  ~nsXULTemplateQueryProcessorStorage() {}
 
-private:
-
-    ~nsXULTemplateQueryProcessorStorage() {}
-
-    nsCOMPtr<mozIStorageConnection> mStorageConnection;
-    bool mGenerationStarted;
+  nsCOMPtr<mozIStorageConnection> mStorageConnection;
+  bool mGenerationStarted;
 };
 
-#endif // nsXULTemplateQueryProcessorStorage_h__
+#endif  // nsXULTemplateQueryProcessorStorage_h__

@@ -16,13 +16,12 @@
 
 namespace js {
 
-inline bool
-EmulatesUndefined(JSObject* obj)
-{
+inline bool EmulatesUndefined(JSObject* obj) {
     // This may be called off the main thread. It's OK not to expose the object
     // here as it doesn't escape.
     AutoUnsafeCallWithABI unsafe;
-    JSObject* actual = MOZ_LIKELY(!obj->is<WrapperObject>()) ? obj : UncheckedUnwrapWithoutExpose(obj);
+    JSObject* actual =
+        MOZ_LIKELY(!obj->is<WrapperObject>()) ? obj : UncheckedUnwrapWithoutExpose(obj);
     return actual->getClass()->emulatesUndefined();
 }
 

@@ -31,16 +31,18 @@ class VRDisplayPresentation;
 struct VRFieldOfView;
 enum class VRDisplayCapabilityFlags : uint16_t;
 struct VRHMDSensorState;
-}
+}  // namespace gfx
 namespace dom {
 class Navigator;
 
 class VRFieldOfView final : public nsWrapperCache
 {
-public:
+ public:
   VRFieldOfView(nsISupports* aParent,
-                double aUpDegrees, double aRightDegrees,
-                double aDownDegrees, double aLeftDegrees);
+                double aUpDegrees,
+                double aRightDegrees,
+                double aDownDegrees,
+                double aLeftDegrees);
   VRFieldOfView(nsISupports* aParent, const gfx::VRFieldOfView& aSrc);
 
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(VRFieldOfView)
@@ -52,9 +54,10 @@ public:
   double LeftDegrees() const { return mLeftDegrees; }
 
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   virtual ~VRFieldOfView() {}
 
   nsCOMPtr<nsISupports> mParent;
@@ -67,22 +70,20 @@ protected:
 
 class VRDisplayCapabilities final : public nsWrapperCache
 {
-public:
-  VRDisplayCapabilities(nsISupports* aParent, const gfx::VRDisplayCapabilityFlags& aFlags)
-    : mParent(aParent)
-    , mFlags(aFlags)
+ public:
+  VRDisplayCapabilities(nsISupports* aParent,
+                        const gfx::VRDisplayCapabilityFlags& aFlags)
+      : mParent(aParent), mFlags(aFlags)
   {
   }
 
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(VRDisplayCapabilities)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(VRDisplayCapabilities)
 
-  nsISupports* GetParentObject() const
-  {
-    return mParent;
-  }
+  nsISupports* GetParentObject() const { return mParent; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   bool HasPosition() const;
   bool HasOrientation() const;
@@ -90,7 +91,7 @@ public:
   bool CanPresent() const;
   uint32_t MaxLayers() const;
 
-protected:
+ protected:
   ~VRDisplayCapabilities() {}
   nsCOMPtr<nsISupports> mParent;
   gfx::VRDisplayCapabilityFlags mFlags;
@@ -98,8 +99,7 @@ protected:
 
 class VRPose final : public Pose
 {
-
-public:
+ public:
   VRPose(nsISupports* aParent, const gfx::VRHMDSensorState& aState);
   explicit VRPose(nsISupports* aParent);
 
@@ -124,9 +124,10 @@ public:
                                       JS::MutableHandle<JSObject*> aRetval,
                                       ErrorResult& aRv) override;
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   ~VRPose();
 
   uint64_t mFrameId;
@@ -162,7 +163,7 @@ struct VRFrameInfo
 
 class VRFrameData final : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(VRFrameData)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(VRFrameData)
 
@@ -181,8 +182,8 @@ public:
                          JS::MutableHandle<JSObject*> aRetval,
                          ErrorResult& aRv);
   void GetRightProjectionMatrix(JSContext* aCx,
-                               JS::MutableHandle<JSObject*> aRetval,
-                               ErrorResult& aRv);
+                                JS::MutableHandle<JSObject*> aRetval,
+                                ErrorResult& aRv);
   void GetRightViewMatrix(JSContext* aCx,
                           JS::MutableHandle<JSObject*> aRetval,
                           ErrorResult& aRv);
@@ -191,9 +192,10 @@ public:
 
   // WebIDL Boilerplate
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   ~VRFrameData();
   nsCOMPtr<nsISupports> mParent;
 
@@ -204,14 +206,16 @@ protected:
   JS::Heap<JSObject*> mRightProjectionMatrix;
   JS::Heap<JSObject*> mRightViewMatrix;
 
-  void LazyCreateMatrix(JS::Heap<JSObject*>& aArray, gfx::Matrix4x4& aMat,
-                        JSContext* aCx, JS::MutableHandle<JSObject*> aRetval,
+  void LazyCreateMatrix(JS::Heap<JSObject*>& aArray,
+                        gfx::Matrix4x4& aMat,
+                        JSContext* aCx,
+                        JS::MutableHandle<JSObject*> aRetval,
                         ErrorResult& aRv);
 };
 
 class VRStageParameters final : public nsWrapperCache
 {
-public:
+ public:
   VRStageParameters(nsISupports* aParent,
                     const gfx::Matrix4x4& aSittingToStandingTransform,
                     const gfx::Size& aSize);
@@ -226,9 +230,10 @@ public:
   float SizeZ() const { return mSize.height; }
 
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   ~VRStageParameters();
 
   nsCOMPtr<nsISupports> mParent;
@@ -240,7 +245,7 @@ protected:
 
 class VREyeParameters final : public nsWrapperCache
 {
-public:
+ public:
   VREyeParameters(nsISupports* aParent,
                   const gfx::Point3D& aEyeTranslation,
                   const gfx::VRFieldOfView& aFOV,
@@ -249,7 +254,8 @@ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(VREyeParameters)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(VREyeParameters)
 
-  void GetOffset(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal,
+  void GetOffset(JSContext* aCx,
+                 JS::MutableHandle<JSObject*> aRetVal,
                  ErrorResult& aRv);
 
   VRFieldOfView* FieldOfView();
@@ -258,12 +264,13 @@ public:
   uint32_t RenderHeight() const { return mRenderSize.height; }
 
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-protected:
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+ protected:
   ~VREyeParameters();
 
   nsCOMPtr<nsISupports> mParent;
-
 
   gfx::Point3D mEyeTranslation;
   gfx::IntSize mRenderSize;
@@ -273,13 +280,13 @@ protected:
 
 class VRSubmitFrameResult final : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(VRSubmitFrameResult)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(VRSubmitFrameResult)
 
   explicit VRSubmitFrameResult(nsISupports* aParent);
-  static already_AddRefed<VRSubmitFrameResult> Constructor(const GlobalObject& aGlobal,
-                                                           ErrorResult& aRv);
+  static already_AddRefed<VRSubmitFrameResult> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
 
   void Update(uint64_t aFrameNum, const nsACString& aBase64Image);
   // WebIDL Members
@@ -288,9 +295,10 @@ public:
 
   // WebIDL Boilerplate
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   ~VRSubmitFrameResult();
 
   nsCOMPtr<nsISupports> mParent;
@@ -298,15 +306,15 @@ protected:
   uint64_t mFrameNum;
 };
 
-class VRDisplay final : public DOMEventTargetHelper
-                      , public nsIObserver
+class VRDisplay final : public DOMEventTargetHelper, public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIOBSERVER
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(VRDisplay, DOMEventTargetHelper)
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   uint32_t PresentingGroups() const;
   uint32_t GroupMask() const;
@@ -319,15 +327,16 @@ public:
   VRStageParameters* GetStageParameters();
 
   uint32_t DisplayId() const { return mDisplayId; }
-  void GetDisplayName(nsAString& aDisplayName) const { aDisplayName = mDisplayName; }
+  void GetDisplayName(nsAString& aDisplayName) const
+  {
+    aDisplayName = mDisplayName;
+  }
 
   static bool RefreshVRDisplays(uint64_t aWindowId);
   static void UpdateVRDisplays(nsTArray<RefPtr<VRDisplay> >& aDisplays,
                                nsPIDOMWindowInner* aWindow);
 
-  gfx::VRDisplayClient *GetClient() {
-    return mClient;
-  }
+  gfx::VRDisplayClient* GetClient() { return mClient; }
 
   virtual already_AddRefed<VREyeParameters> GetEyeParameters(VREye aEye);
 
@@ -336,21 +345,19 @@ public:
   already_AddRefed<VRPose> GetPose();
   void ResetPose();
 
-  double DepthNear() {
-    return mDepthNear;
-  }
+  double DepthNear() { return mDepthNear; }
 
-  double DepthFar() {
-    return mDepthFar;
-  }
+  double DepthFar() { return mDepthFar; }
 
-  void SetDepthNear(double aDepthNear) {
+  void SetDepthNear(double aDepthNear)
+  {
     // XXX When we start sending depth buffers to VRLayer's we will want
     // to communicate this with the VRDisplayHost
     mDepthNear = aDepthNear;
   }
 
-  void SetDepthFar(double aDepthFar) {
+  void SetDepthFar(double aDepthFar)
+  {
     // XXX When we start sending depth buffers to VRLayer's we will want
     // to communicate this with the VRDisplayHost
     mDepthFar = aDepthFar;
@@ -370,7 +377,7 @@ public:
   void StopHandlingVRNavigationEvent();
   bool IsHandlingVRNavigationEvent();
 
-protected:
+ protected:
   VRDisplay(nsPIDOMWindowInner* aWindow, gfx::VRDisplayClient* aClient);
   virtual ~VRDisplay();
   virtual void LastRelease() override;
@@ -407,7 +414,7 @@ protected:
   bool mShutdown;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

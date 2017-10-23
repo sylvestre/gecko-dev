@@ -19,7 +19,7 @@
 using namespace mozilla;
 
 NS_IMETHODIMP
-nsUnicharStreamLoader::Init(nsIUnicharStreamLoaderObserver *aObserver)
+nsUnicharStreamLoader::Init(nsIUnicharStreamLoaderObserver* aObserver)
 {
   NS_ENSURE_ARG_POINTER(aObserver);
 
@@ -32,9 +32,9 @@ nsUnicharStreamLoader::Init(nsIUnicharStreamLoaderObserver *aObserver)
 }
 
 nsresult
-nsUnicharStreamLoader::Create(nsISupports *aOuter,
+nsUnicharStreamLoader::Create(nsISupports* aOuter,
                               REFNSIID aIID,
-                              void **aResult)
+                              void** aResult)
 {
   if (aOuter) return NS_ERROR_NO_AGGREGATION;
 
@@ -45,11 +45,13 @@ nsUnicharStreamLoader::Create(nsISupports *aOuter,
   return rv;
 }
 
-NS_IMPL_ISUPPORTS(nsUnicharStreamLoader, nsIUnicharStreamLoader,
-                  nsIRequestObserver, nsIStreamListener)
+NS_IMPL_ISUPPORTS(nsUnicharStreamLoader,
+                  nsIUnicharStreamLoader,
+                  nsIRequestObserver,
+                  nsIStreamListener)
 
 NS_IMETHODIMP
-nsUnicharStreamLoader::GetChannel(nsIChannel **aChannel)
+nsUnicharStreamLoader::GetChannel(nsIChannel** aChannel)
 {
   NS_IF_ADDREF(*aChannel = mChannel);
   return NS_OK;
@@ -70,8 +72,8 @@ nsUnicharStreamLoader::OnStartRequest(nsIRequest*, nsISupports*)
 }
 
 NS_IMETHODIMP
-nsUnicharStreamLoader::OnStopRequest(nsIRequest *aRequest,
-                                     nsISupports *aContext,
+nsUnicharStreamLoader::OnStopRequest(nsIRequest* aRequest,
+                                     nsISupports* aContext,
                                      nsresult aStatus)
 {
   if (!mObserver) {
@@ -116,9 +118,9 @@ nsUnicharStreamLoader::GetRawBuffer(nsACString& aRawBuffer)
 
 /* nsIStreamListener implementation */
 NS_IMETHODIMP
-nsUnicharStreamLoader::OnDataAvailable(nsIRequest *aRequest,
-                                       nsISupports *aContext,
-                                       nsIInputStream *aInputStream,
+nsUnicharStreamLoader::OnDataAvailable(nsIRequest* aRequest,
+                                       nsISupports* aContext,
+                                       nsIInputStream* aInputStream,
                                        uint64_t aSourceOffset,
                                        uint32_t aCount)
 {
@@ -145,7 +147,7 @@ nsUnicharStreamLoader::OnDataAvailable(nsIRequest *aRequest,
     uint32_t haveRead = mRawData.Length();
     uint32_t toRead = std::min(SNIFFING_BUFFER_SIZE - haveRead, aCount);
     uint32_t n;
-    char *here = mRawData.BeginWriting() + haveRead;
+    char* here = mRawData.BeginWriting() + haveRead;
 
     rv = aInputStream->Read(here, toRead, &n);
     if (NS_SUCCEEDED(rv)) {
@@ -171,8 +173,8 @@ nsUnicharStreamLoader::OnDataAvailable(nsIRequest *aRequest,
 nsresult
 nsUnicharStreamLoader::DetermineCharset()
 {
-  nsresult rv = mObserver->OnDetermineCharset(this, mContext,
-                                              mRawData, mCharset);
+  nsresult rv =
+      mObserver->OnDetermineCharset(this, mContext, mRawData, mCharset);
   if (NS_FAILED(rv) || mCharset.IsEmpty()) {
     // The observer told us nothing useful
     mCharset.AssignLiteral("UTF-8");
@@ -186,21 +188,19 @@ nsUnicharStreamLoader::DetermineCharset()
 
   // Process the data into mBuffer
   uint32_t dummy;
-  rv = WriteSegmentFun(nullptr, this,
-                       mRawData.BeginReading(),
-                       0, mRawData.Length(),
-                       &dummy);
+  rv = WriteSegmentFun(
+      nullptr, this, mRawData.BeginReading(), 0, mRawData.Length(), &dummy);
   mRawData.Truncate();
   return rv;
 }
 
 nsresult
-nsUnicharStreamLoader::WriteSegmentFun(nsIInputStream *,
-                                       void *aClosure,
-                                       const char *aSegment,
+nsUnicharStreamLoader::WriteSegmentFun(nsIInputStream*,
+                                       void* aClosure,
+                                       const char* aSegment,
                                        uint32_t,
                                        uint32_t aCount,
-                                       uint32_t *aWriteCount)
+                                       uint32_t* aWriteCount)
 {
   nsUnicharStreamLoader* self = static_cast<nsUnicharStreamLoader*>(aClosure);
 
@@ -231,9 +231,9 @@ nsUnicharStreamLoader::WriteSegmentFun(nsIInputStream *,
   bool hadErrors;
 
   Tie(result, read, written, hadErrors) = self->mDecoder->DecodeToUTF16(
-    AsBytes(MakeSpan(aSegment, aCount)),
-    MakeSpan(self->mBuffer.BeginWriting() + haveRead, needed.value()),
-    false);
+      AsBytes(MakeSpan(aSegment, aCount)),
+      MakeSpan(self->mBuffer.BeginWriting() + haveRead, needed.value()),
+      false);
   MOZ_ASSERT(result == kInputEmpty);
   MOZ_ASSERT(read == aCount);
   Unused << hadErrors;

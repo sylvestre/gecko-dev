@@ -63,8 +63,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(FileReader,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mError)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(FileReader,
-                                               DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(FileReader, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mResultArrayBuffer)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
@@ -81,15 +80,14 @@ NS_IMPL_RELEASE_INHERITED(FileReader, DOMEventTargetHelper)
 class MOZ_RAII FileReaderDecreaseBusyCounter
 {
   RefPtr<FileReader> mFileReader;
-public:
-  explicit FileReaderDecreaseBusyCounter(FileReader* aFileReader)
-    : mFileReader(aFileReader)
-  {}
 
-  ~FileReaderDecreaseBusyCounter()
+ public:
+  explicit FileReaderDecreaseBusyCounter(FileReader* aFileReader)
+      : mFileReader(aFileReader)
   {
-    mFileReader->DecreaseBusyCounter();
   }
+
+  ~FileReaderDecreaseBusyCounter() { mFileReader->DecreaseBusyCounter(); }
 };
 
 void
@@ -100,20 +98,19 @@ FileReader::RootResultArrayBuffer()
 
 //FileReader constructors/initializers
 
-FileReader::FileReader(nsIGlobalObject* aGlobal,
-                       WorkerPrivate* aWorkerPrivate)
-  : DOMEventTargetHelper(aGlobal)
-  , mFileData(nullptr)
-  , mDataLen(0)
-  , mDataFormat(FILE_AS_BINARY)
-  , mResultArrayBuffer(nullptr)
-  , mProgressEventWasDelayed(false)
-  , mTimerIsActive(false)
-  , mReadyState(EMPTY)
-  , mTotal(0)
-  , mTransferred(0)
-  , mBusyCount(0)
-  , mWorkerPrivate(aWorkerPrivate)
+FileReader::FileReader(nsIGlobalObject* aGlobal, WorkerPrivate* aWorkerPrivate)
+    : DOMEventTargetHelper(aGlobal),
+      mFileData(nullptr),
+      mDataLen(0),
+      mDataFormat(FILE_AS_BINARY),
+      mResultArrayBuffer(nullptr),
+      mProgressEventWasDelayed(false),
+      mTimerIsActive(false),
+      mReadyState(EMPTY),
+      mTotal(0),
+      mTransferred(0),
+      mBusyCount(0),
+      mWorkerPrivate(aWorkerPrivate)
 {
   MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(NS_IsMainThread() == !mWorkerPrivate);
@@ -153,7 +150,7 @@ FileReader::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 // nsIInterfaceRequestor
 
 NS_IMETHODIMP
-FileReader::GetInterface(const nsIID & aIID, void **aResult)
+FileReader::GetInterface(const nsIID& aIID, void** aResult)
 {
   return QueryInterface(aIID, aResult);
 }
@@ -203,7 +200,7 @@ FileReader::OnLoadEndArrayBuffer()
 
   mResultArrayBuffer = JS_NewArrayBufferWithContents(cx, mDataLen, mFileData);
   if (mResultArrayBuffer) {
-    mFileData = nullptr; // Transfer ownership
+    mFileData = nullptr;  // Transfer ownership
     FreeDataAndDispatchSuccess();
     return;
   }
@@ -237,9 +234,10 @@ FileReader::OnLoadEndArrayBuffer()
   nsAutoCString errorMsg(er->message().c_str());
   nsAutoCString errorNameC = NS_LossyConvertUTF16toASCII(errorName);
   // XXX Code selected arbitrarily
-  mError =
-    new DOMException(NS_ERROR_DOM_INVALID_STATE_ERR, errorMsg,
-                     errorNameC, DOMException::INVALID_STATE_ERR);
+  mError = new DOMException(NS_ERROR_DOM_INVALID_STATE_ERR,
+                            errorMsg,
+                            errorNameC,
+                            DOMException::INVALID_STATE_ERR);
 
   FreeDataAndDispatchError();
 }
@@ -267,7 +265,8 @@ FileReader::DoAsyncWait()
 namespace {
 
 void
-PopulateBufferForBinaryString(char16_t* aDest, const char* aSource,
+PopulateBufferForBinaryString(char16_t* aDest,
+                              const char* aSource,
                               uint32_t aCount)
 {
   const unsigned char* source = (const unsigned char*)aSource;
@@ -293,7 +292,7 @@ ReadFuncBinaryString(nsIInputStream* aInputStream,
   return NS_OK;
 }
 
-} // anonymous
+}  // namespace
 
 nsresult
 FileReader::DoReadData(uint64_t aCount)
@@ -307,9 +306,7 @@ FileReader::DoReadData(uint64_t aCount)
     CheckedInt<uint64_t> size = mResult.Length();
     size += aCount;
 
-    if (!size.isValid() ||
-        size.value() > UINT32_MAX ||
-        size.value() > mTotal) {
+    if (!size.isValid() || size.value() > UINT32_MAX || size.value() > mTotal) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
@@ -323,14 +320,14 @@ FileReader::DoReadData(uint64_t aCount)
     dest += oldLen;
 
     if (NS_InputStreamIsBuffered(mAsyncStream)) {
-      nsresult rv = mAsyncStream->ReadSegments(ReadFuncBinaryString, dest,
-                                               aCount, &bytesRead);
+      nsresult rv = mAsyncStream->ReadSegments(
+          ReadFuncBinaryString, dest, aCount, &bytesRead);
       NS_ENSURE_SUCCESS(rv, rv);
     } else {
       while (aCount > 0) {
         char tmpBuffer[4096];
         uint32_t minCount =
-          XPCOM_MIN(aCount, static_cast<uint64_t>(sizeof(tmpBuffer)));
+            XPCOM_MIN(aCount, static_cast<uint64_t>(sizeof(tmpBuffer)));
         uint32_t read;
 
         nsresult rv = mAsyncStream->Read(tmpBuffer, minCount, &read);
@@ -355,8 +352,7 @@ FileReader::DoReadData(uint64_t aCount)
 
     MOZ_ASSERT(size.value() == oldLen + bytesRead);
     mResult.Truncate(size.value());
-  }
-  else {
+  } else {
     CheckedInt<uint64_t> size = mDataLen;
     size += aCount;
 
@@ -365,8 +361,7 @@ FileReader::DoReadData(uint64_t aCount)
         // PR_Realloc doesn't support over 4GB memory size even if 64-bit OS
         // XXX: it's likely that this check is unnecessary and the comment is
         // wrong because we no longer use PR_Realloc outside of NSPR and NSS.
-        size.value() > UINT32_MAX ||
-        size.value() > mTotal) {
+        size.value() > UINT32_MAX || size.value() > mTotal) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
@@ -387,7 +382,7 @@ FileReader::DoReadData(uint64_t aCount)
 
 void
 FileReader::ReadFileContent(Blob& aBlob,
-                            const nsAString &aCharset,
+                            const nsAString& aCharset,
                             eDataFormat aDataFormat,
                             ErrorResult& aRv)
 {
@@ -430,7 +425,7 @@ FileReader::ReadFileContent(Blob& aBlob,
   if (!mAsyncStream || !nonBlocking) {
     nsresult rv;
     nsCOMPtr<nsIStreamTransportService> sts =
-      do_GetService(kStreamTransportServiceCID, &rv);
+        do_GetService(kStreamTransportServiceCID, &rv);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       aRv.Throw(rv);
       return;
@@ -469,7 +464,7 @@ FileReader::ReadFileContent(Blob& aBlob,
     if (mDataFormat == FILE_AS_ARRAYBUFFER) {
       mFileData = js_pod_malloc<char>(mTotal);
     } else {
-      mFileData = (char *) malloc(mTotal);
+      mFileData = (char*)malloc(mTotal);
     }
 
     if (!mFileData) {
@@ -491,9 +486,9 @@ FileReader::ReadFileContent(Blob& aBlob,
 }
 
 nsresult
-FileReader::GetAsText(Blob *aBlob,
-                      const nsACString &aCharset,
-                      const char *aFileData,
+FileReader::GetAsText(Blob* aBlob,
+                      const nsACString& aCharset,
+                      const char* aFileData,
                       uint32_t aDataLen,
                       nsAString& aResult)
 {
@@ -507,11 +502,8 @@ FileReader::GetAsText(Blob *aBlob,
     nsAutoCString specifiedCharset;
     bool haveCharset;
     int32_t charsetStart, charsetEnd;
-    NS_ExtractCharsetFromContentType(type,
-                                     specifiedCharset,
-                                     &haveCharset,
-                                     &charsetStart,
-                                     &charsetEnd);
+    NS_ExtractCharsetFromContentType(
+        type, specifiedCharset, &haveCharset, &charsetStart, &charsetEnd);
     encoding = Encoding::ForLabel(specifiedCharset);
     if (!encoding) {
       // Type property failed. Use UTF-8.
@@ -519,16 +511,15 @@ FileReader::GetAsText(Blob *aBlob,
     }
   }
 
-  auto data = MakeSpan(reinterpret_cast<const uint8_t*>(aFileData),
-                       aDataLen);
+  auto data = MakeSpan(reinterpret_cast<const uint8_t*>(aFileData), aDataLen);
   nsresult rv;
   Tie(rv, encoding) = encoding->Decode(data, aResult);
   return NS_FAILED(rv) ? rv : NS_OK;
 }
 
 nsresult
-FileReader::GetAsDataURL(Blob *aBlob,
-                         const char *aFileData,
+FileReader::GetAsDataURL(Blob* aBlob,
+                         const char* aFileData,
                          uint32_t aDataLen,
                          nsAString& aResult)
 {
@@ -572,8 +563,8 @@ FileReader::StartProgressEventTimer()
     mTimerIsActive = true;
     mProgressNotifier->Cancel();
     mProgressNotifier->SetTarget(mTarget);
-    mProgressNotifier->InitWithCallback(this, NS_PROGRESS_EVENT_INTERVAL,
-                                        nsITimer::TYPE_ONE_SHOT);
+    mProgressNotifier->InitWithCallback(
+        this, NS_PROGRESS_EVENT_INTERVAL, nsITimer::TYPE_ONE_SHOT);
   }
 }
 
@@ -620,15 +611,15 @@ FileReader::FreeDataAndDispatchError(nsresult aRv)
 {
   // Set the status attribute, and dispatch the error event
   switch (aRv) {
-  case NS_ERROR_FILE_NOT_FOUND:
-    mError = DOMException::Create(NS_ERROR_DOM_NOT_FOUND_ERR);
-    break;
-  case NS_ERROR_FILE_ACCESS_DENIED:
-    mError = DOMException::Create(NS_ERROR_DOM_SECURITY_ERR);
-    break;
-  default:
-    mError = DOMException::Create(NS_ERROR_DOM_FILE_NOT_READABLE_ERR);
-    break;
+    case NS_ERROR_FILE_NOT_FOUND:
+      mError = DOMException::Create(NS_ERROR_DOM_NOT_FOUND_ERR);
+      break;
+    case NS_ERROR_FILE_ACCESS_DENIED:
+      mError = DOMException::Create(NS_ERROR_DOM_SECURITY_ERR);
+      break;
+    default:
+      mError = DOMException::Create(NS_ERROR_DOM_FILE_NOT_READABLE_ERR);
+      break;
   }
 
   FreeDataAndDispatchError();
@@ -649,8 +640,7 @@ FileReader::DispatchProgressEvent(const nsAString& aType)
     init.mLengthComputable = false;
     init.mTotal = 0;
   }
-  RefPtr<ProgressEvent> event =
-    ProgressEvent::Constructor(this, aType, init);
+  RefPtr<ProgressEvent> event = ProgressEvent::Constructor(this, aType, init);
   event->SetTrusted(true);
 
   bool dummy;
@@ -865,5 +855,5 @@ FileReader::Shutdown()
   }
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

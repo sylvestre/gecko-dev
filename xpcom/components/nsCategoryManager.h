@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef NSCATEGORYMANAGER_H
 #define NSCATEGORYMANAGER_H
 
@@ -19,12 +18,16 @@
 
 class nsIMemoryReporter;
 
-typedef mozilla::ArenaAllocator<1024*8, 8> CategoryAllocator;
+typedef mozilla::ArenaAllocator<1024 * 8, 8> CategoryAllocator;
 
 /* 16d222a6-1dd2-11b2-b693-f38b02c021b2 */
-#define NS_CATEGORYMANAGER_CID \
-{ 0x16d222a6, 0x1dd2, 0x11b2, \
-  {0xb6, 0x93, 0xf3, 0x8b, 0x02, 0xc0, 0x21, 0xb2} }
+#define NS_CATEGORYMANAGER_CID                       \
+  {                                                  \
+    0x16d222a6, 0x1dd2, 0x11b2,                      \
+    {                                                \
+      0xb6, 0x93, 0xf3, 0x8b, 0x02, 0xc0, 0x21, 0xb2 \
+    }                                                \
+  }
 
 /**
  * a "leaf-node", managed by the nsCategoryNode hashtable.
@@ -36,11 +39,13 @@ typedef mozilla::ArenaAllocator<1024*8, 8> CategoryAllocator;
  */
 class CategoryLeaf : public nsDepCharHashKey
 {
-public:
-  explicit CategoryLeaf(const char* aKey) : nsDepCharHashKey(aKey), value(nullptr) {}
+ public:
+  explicit CategoryLeaf(const char* aKey)
+      : nsDepCharHashKey(aKey), value(nullptr)
+  {
+  }
   const char* value;
 };
-
 
 /**
  * CategoryNode keeps a hashtable of its entries.
@@ -49,9 +54,8 @@ public:
  */
 class CategoryNode
 {
-public:
-  nsresult GetLeaf(const char* aEntryName,
-                   char** aResult);
+ public:
+  nsresult GetLeaf(const char* aEntryName, char** aResult);
 
   nsresult AddLeaf(const char* aEntryName,
                    const char* aValue,
@@ -83,7 +87,7 @@ public:
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf);
 
-private:
+ private:
   CategoryNode() : mLock("CategoryLeaf") {}
 
   void* operator new(size_t aSize, CategoryAllocator* aArena);
@@ -92,17 +96,15 @@ private:
   mozilla::Mutex mLock;
 };
 
-
 /**
  * The main implementation of nsICategoryManager.
  *
  * This implementation is thread-safe.
  */
-class nsCategoryManager final
-  : public nsICategoryManager
-  , public nsIMemoryReporter
+class nsCategoryManager final : public nsICategoryManager,
+                                public nsIMemoryReporter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICATEGORYMANAGER
   NS_DECL_NSIMEMORYREPORTER
@@ -126,7 +128,7 @@ public:
   static nsCategoryManager* GetSingleton();
   static void Destroy();
 
-private:
+ private:
   static nsCategoryManager* gCategoryManager;
 
   nsCategoryManager();
@@ -136,7 +138,7 @@ private:
 
   CategoryNode* get_category(const char* aName);
   void NotifyObservers(const char* aTopic,
-                       const char* aCategoryName, // must be a static string
+                       const char* aCategoryName,  // must be a static string
                        const char* aEntryName);
 
   CategoryAllocator mArena;

@@ -10,12 +10,12 @@
 #include "jsfriendapi.h"
 #include "mozilla/UniquePtrExtensions.h"
 
-NS_IMPL_ISUPPORTS(ArrayBufferInputStream, nsIArrayBufferInputStream, nsIInputStream);
+NS_IMPL_ISUPPORTS(ArrayBufferInputStream,
+                  nsIArrayBufferInputStream,
+                  nsIInputStream);
 
 ArrayBufferInputStream::ArrayBufferInputStream()
-: mBufferLength(0)
-, mPos(0)
-, mClosed(false)
+    : mBufferLength(0), mPos(0), mClosed(false)
 {
 }
 
@@ -46,7 +46,8 @@ ArrayBufferInputStream::SetData(JS::Handle<JS::Value> aBuffer,
 
   JS::AutoCheckCannotGC nogc;
   bool isShared;
-  char* src = (char*) JS_GetArrayBufferData(arrayBuffer, &isShared, nogc) + offset;
+  char* src =
+      (char*)JS_GetArrayBufferData(arrayBuffer, &isShared, nogc) + offset;
   memcpy(&mArrayBuffer[0], src, mBufferLength);
   return NS_OK;
 }
@@ -73,14 +74,16 @@ ArrayBufferInputStream::Available(uint64_t* aCount)
 }
 
 NS_IMETHODIMP
-ArrayBufferInputStream::Read(char* aBuf, uint32_t aCount, uint32_t *aReadCount)
+ArrayBufferInputStream::Read(char* aBuf, uint32_t aCount, uint32_t* aReadCount)
 {
   return ReadSegments(NS_CopySegmentToBuffer, aBuf, aCount, aReadCount);
 }
 
 NS_IMETHODIMP
-ArrayBufferInputStream::ReadSegments(nsWriteSegmentFun writer, void *closure,
-                                     uint32_t aCount, uint32_t *result)
+ArrayBufferInputStream::ReadSegments(nsWriteSegmentFun writer,
+                                     void* closure,
+                                     uint32_t aCount,
+                                     uint32_t* result)
 {
   NS_ASSERTION(result, "null ptr");
   NS_ASSERTION(mBufferLength >= mPos, "bad stream state");
@@ -89,7 +92,8 @@ ArrayBufferInputStream::ReadSegments(nsWriteSegmentFun writer, void *closure,
     return NS_BASE_STREAM_CLOSED;
   }
 
-  MOZ_ASSERT(mArrayBuffer || (mPos == mBufferLength), "stream inited incorrectly");
+  MOZ_ASSERT(mArrayBuffer || (mPos == mBufferLength),
+             "stream inited incorrectly");
 
   *result = 0;
   while (mPos < mBufferLength) {
@@ -102,7 +106,8 @@ ArrayBufferInputStream::ReadSegments(nsWriteSegmentFun writer, void *closure,
     }
 
     uint32_t written;
-    nsresult rv = writer(this, closure, &mArrayBuffer[0] + mPos, *result, count, &written);
+    nsresult rv = writer(
+        this, closure, &mArrayBuffer[0] + mPos, *result, count, &written);
     if (NS_FAILED(rv)) {
       // InputStreams do not propagate errors to caller.
       return NS_OK;
@@ -119,7 +124,7 @@ ArrayBufferInputStream::ReadSegments(nsWriteSegmentFun writer, void *closure,
 }
 
 NS_IMETHODIMP
-ArrayBufferInputStream::IsNonBlocking(bool *aNonBlocking)
+ArrayBufferInputStream::IsNonBlocking(bool* aNonBlocking)
 {
   *aNonBlocking = true;
   return NS_OK;

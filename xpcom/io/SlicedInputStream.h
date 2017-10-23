@@ -15,13 +15,13 @@
 
 // A wrapper for a slice of an underlying input stream.
 
-class SlicedInputStream final : public nsIAsyncInputStream
-                              , public nsICloneableInputStream
-                              , public nsIIPCSerializableInputStream
-                              , public nsISeekableStream
-                              , public nsIInputStreamCallback
+class SlicedInputStream final : public nsIAsyncInputStream,
+                                public nsICloneableInputStream,
+                                public nsIIPCSerializableInputStream,
+                                public nsISeekableStream,
+                                public nsIInputStreamCallback
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINPUTSTREAM
   NS_DECL_NSIASYNCINPUTSTREAM
@@ -42,19 +42,18 @@ public:
   // SlicedInputStream wrapper around it.
 
   SlicedInputStream(already_AddRefed<nsIInputStream> aInputStream,
-                    uint64_t aStart, uint64_t aLength);
+                    uint64_t aStart,
+                    uint64_t aLength);
 
   // This CTOR is meant to be used just for IPC.
   SlicedInputStream();
 
-private:
+ private:
   ~SlicedInputStream();
 
-  void
-  SetSourceStream(already_AddRefed<nsIInputStream> aInputStream);
+  void SetSourceStream(already_AddRefed<nsIInputStream> aInputStream);
 
-  nsresult
-  RunAsyncWaitCallback();
+  nsresult RunAsyncWaitCallback();
 
   nsCOMPtr<nsIInputStream> mInputStream;
 
@@ -77,4 +76,4 @@ private:
   uint32_t mAsyncWaitRequestedCount;
 };
 
-#endif // SlicedInputStream_h
+#endif  // SlicedInputStream_h

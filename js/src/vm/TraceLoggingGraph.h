@@ -64,10 +64,9 @@
 namespace js {
 void DestroyTraceLoggerGraphState();
 size_t SizeOfTraceLogGraphState(mozilla::MallocSizeOf mallocSizeOf);
-} // namespace js
+}  // namespace js
 
-class TraceLoggerGraphState
-{
+class TraceLoggerGraphState {
     uint32_t numLoggers;
     uint32_t pid_;
 
@@ -78,19 +77,21 @@ class TraceLoggerGraphState
     bool initialized;
 #endif
 
-  public:
+   public:
     js::Mutex lock;
 
-  public:
+   public:
     TraceLoggerGraphState()
-      : numLoggers(0)
-      , pid_(0)
-      , out(nullptr)
+        : numLoggers(0),
+          pid_(0),
+          out(nullptr)
 #ifdef DEBUG
-      , initialized(false)
+          ,
+          initialized(false)
 #endif
-      , lock(js::mutexid::TraceLoggerGraphState)
-    {}
+          ,
+          lock(js::mutexid::TraceLoggerGraphState) {
+    }
 
     bool init();
     ~TraceLoggerGraphState();
@@ -104,8 +105,7 @@ class TraceLoggerGraphState
     }
 };
 
-class TraceLoggerGraph
-{
+class TraceLoggerGraph {
     // The layout of the tree in memory and in the log file. Readable by JS
     // using TypedArrays.
     struct TreeEntry {
@@ -113,55 +113,35 @@ class TraceLoggerGraph
         uint64_t stop_;
         union {
             struct {
-                uint32_t textId_: 31;
-                uint32_t hasChildren_: 1;
+                uint32_t textId_ : 31;
+                uint32_t hasChildren_ : 1;
             } s;
             uint32_t value_;
         } u;
         uint32_t nextId_;
 
         TreeEntry(uint64_t start, uint64_t stop, uint32_t textId, bool hasChildren,
-                  uint32_t nextId)
-        {
+                  uint32_t nextId) {
             start_ = start;
             stop_ = stop;
             u.s.textId_ = textId;
             u.s.hasChildren_ = hasChildren;
             nextId_ = nextId;
         }
-        TreeEntry()
-        { }
-        uint64_t start() {
-            return start_;
-        }
-        uint64_t stop() {
-            return stop_;
-        }
-        uint32_t textId() {
-            return u.s.textId_;
-        }
-        bool hasChildren() {
-            return u.s.hasChildren_;
-        }
-        uint32_t nextId() {
-            return nextId_;
-        }
-        void setStart(uint64_t start) {
-            start_ = start;
-        }
-        void setStop(uint64_t stop) {
-            stop_ = stop;
-        }
+        TreeEntry() {}
+        uint64_t start() { return start_; }
+        uint64_t stop() { return stop_; }
+        uint32_t textId() { return u.s.textId_; }
+        bool hasChildren() { return u.s.hasChildren_; }
+        uint32_t nextId() { return nextId_; }
+        void setStart(uint64_t start) { start_ = start; }
+        void setStop(uint64_t stop) { stop_ = stop; }
         void setTextId(uint32_t textId) {
             MOZ_ASSERT(textId < uint32_t(1 << 31));
             u.s.textId_ = textId;
         }
-        void setHasChildren(bool hasChildren) {
-            u.s.hasChildren_ = hasChildren;
-        }
-        void setNextId(uint32_t nextId) {
-            nextId_ = nextId;
-        }
+        void setHasChildren(bool hasChildren) { u.s.hasChildren_ = hasChildren; }
+        void setNextId(uint32_t nextId) { nextId_ = nextId; }
     };
 
     // Helper structure for keeping track of the current entries in
@@ -171,43 +151,28 @@ class TraceLoggerGraph
         uint32_t treeId_;
         uint32_t lastChildId_;
         struct {
-            uint32_t textId_: 31;
-            uint32_t active_: 1;
+            uint32_t textId_ : 31;
+            uint32_t active_ : 1;
         } s;
         StackEntry(uint32_t treeId, uint32_t lastChildId, bool active = true)
-          : treeId_(treeId), lastChildId_(lastChildId)
-        {
+            : treeId_(treeId), lastChildId_(lastChildId) {
             s.textId_ = 0;
             s.active_ = active;
         }
-        uint32_t treeId() {
-            return treeId_;
-        }
-        uint32_t lastChildId() {
-            return lastChildId_;
-        }
-        uint32_t textId() {
-            return s.textId_;
-        }
-        bool active() {
-            return s.active_;
-        }
-        void setTreeId(uint32_t treeId) {
-            treeId_ = treeId;
-        }
-        void setLastChildId(uint32_t lastChildId) {
-            lastChildId_ = lastChildId;
-        }
+        uint32_t treeId() { return treeId_; }
+        uint32_t lastChildId() { return lastChildId_; }
+        uint32_t textId() { return s.textId_; }
+        bool active() { return s.active_; }
+        void setTreeId(uint32_t treeId) { treeId_ = treeId; }
+        void setLastChildId(uint32_t lastChildId) { lastChildId_ = lastChildId; }
         void setTextId(uint32_t textId) {
-            MOZ_ASSERT(textId < uint32_t(1<<31));
+            MOZ_ASSERT(textId < uint32_t(1 << 31));
             s.textId_ = textId;
         }
-        void setActive(bool active) {
-            s.active_ = active;
-        }
+        void setActive(bool active) { s.active_ = active; }
     };
 
-  public:
+   public:
     TraceLoggerGraph() {}
     ~TraceLoggerGraph();
 
@@ -229,7 +194,7 @@ class TraceLoggerGraph
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
     size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-  private:
+   private:
     bool failed = false;
     bool enabled = false;
     uint32_t nextTextId_ = 0;

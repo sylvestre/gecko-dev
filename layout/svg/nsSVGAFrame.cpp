@@ -17,26 +17,28 @@ using namespace mozilla;
 
 class nsSVGAFrame : public nsSVGDisplayContainerFrame
 {
-  friend nsIFrame*
-  NS_NewSVGAFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
-protected:
-  explicit nsSVGAFrame(nsStyleContext* aContext)
-    : nsSVGDisplayContainerFrame(aContext, kClassID)
-  {}
+  friend nsIFrame* NS_NewSVGAFrame(nsIPresShell* aPresShell,
+                                   nsStyleContext* aContext);
 
-public:
+ protected:
+  explicit nsSVGAFrame(nsStyleContext* aContext)
+      : nsSVGDisplayContainerFrame(aContext, kClassID)
+  {
+  }
+
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSVGAFrame)
 
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
   // nsIFrame:
-  virtual nsresult  AttributeChanged(int32_t         aNameSpaceID,
-                                     nsAtom*        aAttribute,
-                                     int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
@@ -61,9 +63,9 @@ NS_IMPL_FRAMEARENA_HELPERS(nsSVGAFrame)
 // nsIFrame methods
 #ifdef DEBUG
 void
-nsSVGAFrame::Init(nsIContent*       aContent,
+nsSVGAFrame::Init(nsIContent* aContent,
                   nsContainerFrame* aParent,
-                  nsIFrame*         aPrevInFlow)
+                  nsIFrame* aPrevInFlow)
 {
   NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::a),
                "Trying to construct an SVGAFrame for a "
@@ -74,12 +76,11 @@ nsSVGAFrame::Init(nsIContent*       aContent,
 #endif /* DEBUG */
 
 nsresult
-nsSVGAFrame::AttributeChanged(int32_t         aNameSpaceID,
-                              nsAtom*        aAttribute,
-                              int32_t         aModType)
+nsSVGAFrame::AttributeChanged(int32_t aNameSpaceID,
+                              nsAtom* aAttribute,
+                              int32_t aModType)
 {
-  if (aNameSpaceID == kNameSpaceID_None &&
-      aAttribute == nsGkAtoms::transform) {
+  if (aNameSpaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::transform) {
     // We don't invalidate for transform changes (the layers code does that).
     // Also note that SVGTransformableElement::GetAttributeChangeHint will
     // return nsChangeHint_UpdateOverflow for "transform" attribute changes
@@ -90,11 +91,9 @@ nsSVGAFrame::AttributeChanged(int32_t         aNameSpaceID,
   // Currently our SMIL implementation does not modify the DOM attributes. Once
   // we implement the SVG 2 SMIL behaviour this can be removed
   // SVGAElement::SetAttr/UnsetAttr's ResetLinkState() call will be sufficient.
-  if (aModType == nsIDOMMutationEvent::SMIL &&
-      aAttribute == nsGkAtoms::href &&
+  if (aModType == nsIDOMMutationEvent::SMIL && aAttribute == nsGkAtoms::href &&
       (aNameSpaceID == kNameSpaceID_None ||
        aNameSpaceID == kNameSpaceID_XLink)) {
-
     dom::SVGAElement* content = static_cast<dom::SVGAElement*>(GetContent());
 
     // SMIL may change whether an <a> element is a link, in which case we will
@@ -102,5 +101,5 @@ nsSVGAFrame::AttributeChanged(int32_t         aNameSpaceID,
     content->ResetLinkState(true, content->ElementHasHref());
   }
 
- return NS_OK;
+  return NS_OK;
 }

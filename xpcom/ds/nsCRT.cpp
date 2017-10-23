@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 /**
  * MODULE NOTES:
  * @update  gess7/30/98
@@ -19,19 +18,17 @@
  * routines, we simply return 0.
  */
 
-
 #include "nsCRT.h"
 #include "nsDebug.h"
 
 //----------------------------------------------------------------------
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // My lovely strtok routine
 
-#define IS_DELIM(m, c)          ((m)[(c) >> 3] & (1 << ((c) & 7)))
-#define SET_DELIM(m, c)         ((m)[(c) >> 3] |= (1 << ((c) & 7)))
-#define DELIM_TABLE_SIZE        32
+#define IS_DELIM(m, c) ((m)[(c) >> 3] & (1 << ((c)&7)))
+#define SET_DELIM(m, c) ((m)[(c) >> 3] |= (1 << ((c)&7)))
+#define DELIM_TABLE_SIZE 32
 
 char*
 nsCRT::strtok(char* aString, const char* aDelims, char** aNewStr)
@@ -141,8 +138,10 @@ nsCRT::strncmp(const char16_t* aStr1, const char16_t* aStr2, uint32_t aNum)
 }
 
 const char*
-nsCRT::memmem(const char* aHaystack, uint32_t aHaystackLen,
-              const char* aNeedle, uint32_t aNeedleLen)
+nsCRT::memmem(const char* aHaystack,
+              uint32_t aHaystackLen,
+              const char* aNeedle,
+              uint32_t aNeedleLen)
 {
   // Sanity checking
   if (!(aHaystack && aNeedle && aHaystackLen && aNeedleLen &&
@@ -184,4 +183,3 @@ nsCRT::atoll(const char* aStr)
 
   return ll;
 }
-

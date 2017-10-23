@@ -15,30 +15,29 @@
 
 using namespace mozilla;
 
-#define COL_TYPE_BITS                 (NS_FRAME_STATE_BIT(28) | \
-                                       NS_FRAME_STATE_BIT(29) | \
-                                       NS_FRAME_STATE_BIT(30) | \
-                                       NS_FRAME_STATE_BIT(31))
-#define COL_TYPE_OFFSET               28
+#define COL_TYPE_BITS                                                         \
+  (NS_FRAME_STATE_BIT(28) | NS_FRAME_STATE_BIT(29) | NS_FRAME_STATE_BIT(30) | \
+   NS_FRAME_STATE_BIT(31))
+#define COL_TYPE_OFFSET 28
 
 using namespace mozilla;
 
 nsTableColFrame::nsTableColFrame(nsStyleContext* aContext)
-  : nsSplittableFrame(aContext, kClassID)
-  , mMinCoord(0)
-  , mPrefCoord(0)
-  , mSpanMinCoord(0)
-  , mSpanPrefCoord(0)
-  , mPrefPercent(0.0f)
-  , mSpanPrefPercent(0.0f)
-  , mFinalISize(0)
-  , mColIndex(0)
-  , mIStartBorderWidth(0)
-  , mIEndBorderWidth(0)
-  , mBStartContBorderWidth(0)
-  , mIEndContBorderWidth(0)
-  , mBEndContBorderWidth(0)
-  , mHasSpecifiedCoord(false)
+    : nsSplittableFrame(aContext, kClassID),
+      mMinCoord(0),
+      mPrefCoord(0),
+      mSpanMinCoord(0),
+      mSpanPrefCoord(0),
+      mPrefPercent(0.0f),
+      mSpanPrefPercent(0.0f),
+      mFinalISize(0),
+      mColIndex(0),
+      mIStartBorderWidth(0),
+      mIEndBorderWidth(0),
+      mBStartContBorderWidth(0),
+      mIEndContBorderWidth(0),
+      mBEndContBorderWidth(0),
+      mHasSpecifiedCoord(false)
 {
   SetColType(eColContent);
   ResetIntrinsics();
@@ -46,9 +45,7 @@ nsTableColFrame::nsTableColFrame(nsStyleContext* aContext)
   ResetFinalISize();
 }
 
-nsTableColFrame::~nsTableColFrame()
-{
-}
+nsTableColFrame::~nsTableColFrame() {}
 
 nsTableColType
 nsTableColFrame::GetColType() const
@@ -60,9 +57,9 @@ void
 nsTableColFrame::SetColType(nsTableColType aType)
 {
   NS_ASSERTION(aType != eColAnonymousCol ||
-               (GetPrevContinuation() &&
-                GetPrevContinuation()->GetNextContinuation() == this &&
-                GetPrevContinuation()->GetNextSibling() == this),
+                   (GetPrevContinuation() &&
+                    GetPrevContinuation()->GetNextContinuation() == this &&
+                    GetPrevContinuation()->GetNextSibling() == this),
                "spanned content cols must be continuations");
   uint32_t type = aType - eColContent;
   RemoveStateBits(COL_TYPE_BITS);
@@ -74,7 +71,7 @@ nsTableColFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
 {
   nsSplittableFrame::DidSetStyleContext(aOldStyleContext);
 
-  if (!aOldStyleContext) //avoid this on init
+  if (!aOldStyleContext)  //avoid this on init
     return;
 
   nsTableFrame* tableFrame = GetTableFrame();
@@ -85,8 +82,9 @@ nsTableColFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
   }
 }
 
-void nsTableColFrame::SetContinuousBCBorderWidth(LogicalSide aForSide,
-                                                 BCPixelSize aPixelValue)
+void
+nsTableColFrame::SetContinuousBCBorderWidth(LogicalSide aForSide,
+                                            BCPixelSize aPixelValue)
 {
   switch (aForSide) {
     case eLogicalSideBStart:
@@ -104,10 +102,10 @@ void nsTableColFrame::SetContinuousBCBorderWidth(LogicalSide aForSide,
 }
 
 void
-nsTableColFrame::Reflow(nsPresContext*          aPresContext,
-                                  ReflowOutput&     aDesiredSize,
-                                  const ReflowInput& aReflowInput,
-                                  nsReflowStatus&          aStatus)
+nsTableColFrame::Reflow(nsPresContext* aPresContext,
+                        ReflowOutput& aDesiredSize,
+                        const ReflowInput& aReflowInput,
+                        nsReflowStatus& aStatus)
 {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsTableColFrame");
@@ -123,19 +121,21 @@ nsTableColFrame::Reflow(nsPresContext*          aPresContext,
 }
 
 void
-nsTableColFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsTableColFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                   const nsDisplayListSet& aLists)
 {
   nsTableFrame::DisplayGenericTablePart(aBuilder, this, aLists);
 }
 
-int32_t nsTableColFrame::GetSpan()
+int32_t
+nsTableColFrame::GetSpan()
 {
   return StyleTable()->mSpan;
 }
 
 #ifdef DEBUG
-void nsTableColFrame::Dump(int32_t aIndent)
+void
+nsTableColFrame::Dump(int32_t aIndent)
 {
   char* indent = new char[aIndent + 1];
   if (!indent) return;
@@ -145,30 +145,35 @@ void nsTableColFrame::Dump(int32_t aIndent)
   indent[aIndent] = 0;
 
   printf("%s**START COL DUMP**\n%s colIndex=%d coltype=",
-    indent, indent, mColIndex);
+         indent,
+         indent,
+         mColIndex);
   nsTableColType colType = GetColType();
   switch (colType) {
-  case eColContent:
-    printf(" content ");
-    break;
-  case eColAnonymousCol:
-    printf(" anonymous-column ");
-    break;
-  case eColAnonymousColGroup:
-    printf(" anonymous-colgroup ");
-    break;
-  case eColAnonymousCell:
-    printf(" anonymous-cell ");
-    break;
+    case eColContent:
+      printf(" content ");
+      break;
+    case eColAnonymousCol:
+      printf(" anonymous-column ");
+      break;
+    case eColAnonymousColGroup:
+      printf(" anonymous-colgroup ");
+      break;
+    case eColAnonymousCell:
+      printf(" anonymous-cell ");
+      break;
   }
   printf("\nm:%d c:%d(%c) p:%f sm:%d sc:%d sp:%f f:%d",
-         int32_t(mMinCoord), int32_t(mPrefCoord),
-         mHasSpecifiedCoord ? 's' : 'u', mPrefPercent,
-         int32_t(mSpanMinCoord), int32_t(mSpanPrefCoord),
+         int32_t(mMinCoord),
+         int32_t(mPrefCoord),
+         mHasSpecifiedCoord ? 's' : 'u',
+         mPrefPercent,
+         int32_t(mSpanMinCoord),
+         int32_t(mSpanPrefCoord),
          mSpanPrefPercent,
          int32_t(GetFinalISize()));
   printf("\n%s**END COL DUMP** ", indent);
-  delete [] indent;
+  delete[] indent;
 }
 #endif
 /* ----- global methods ----- */
@@ -212,11 +217,13 @@ void
 nsTableColFrame::InvalidateFrame(uint32_t aDisplayItemKey)
 {
   nsIFrame::InvalidateFrame(aDisplayItemKey);
-  GetParent()->InvalidateFrameWithRect(GetVisualOverflowRect() + GetPosition(), aDisplayItemKey);
+  GetParent()->InvalidateFrameWithRect(GetVisualOverflowRect() + GetPosition(),
+                                       aDisplayItemKey);
 }
 
 void
-nsTableColFrame::InvalidateFrameWithRect(const nsRect& aRect, uint32_t aDisplayItemKey)
+nsTableColFrame::InvalidateFrameWithRect(const nsRect& aRect,
+                                         uint32_t aDisplayItemKey)
 {
   nsIFrame::InvalidateFrameWithRect(aRect, aDisplayItemKey);
 
@@ -225,4 +232,3 @@ nsTableColFrame::InvalidateFrameWithRect(const nsRect& aRect, uint32_t aDisplayI
   // within FrameLayerBuilder
   GetParent()->InvalidateFrameWithRect(aRect + GetPosition(), aDisplayItemKey);
 }
-

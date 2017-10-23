@@ -14,7 +14,8 @@
 namespace mozilla {
 namespace tasktracer {
 
-struct LogRecDispatch {
+struct LogRecDispatch
+{
   uint32_t mType;
   uint32_t mSourceEventType;
   uint64_t mTaskId;
@@ -23,7 +24,8 @@ struct LogRecDispatch {
   uint64_t mParentTaskId;
 };
 
-struct LogRecBegin {
+struct LogRecBegin
+{
   uint32_t mType;
   uint64_t mTaskId;
   uint64_t mTime;
@@ -31,19 +33,22 @@ struct LogRecBegin {
   uint32_t mTid;
 };
 
-struct LogRecEnd {
+struct LogRecEnd
+{
   uint32_t mType;
   uint64_t mTaskId;
   uint64_t mTime;
 };
 
-struct LogRecVPtr {
+struct LogRecVPtr
+{
   uint32_t mType;
   uint64_t mTaskId;
   uintptr_t mVPtr;
 };
 
-struct LogRecLabel {
+struct LogRecLabel
+{
   uint32_t mType;
   uint32_t mStrIdx;
   uint64_t mTaskId;
@@ -59,7 +64,8 @@ union TraceInfoLogType {
   LogRecLabel mLabel;
 };
 
-struct TraceInfoLogNode {
+struct TraceInfoLogNode
+{
   TraceInfoLogType mLog;
   TraceInfoLogNode* mNext;
 };
@@ -67,21 +73,22 @@ struct TraceInfoLogNode {
 struct TraceInfo
 {
   explicit TraceInfo(uint32_t aThreadId)
-    : mCurTraceSourceId(0)
-    , mCurTaskId(0)
-    , mCurTraceSourceType(Unknown)
-    , mThreadId(aThreadId)
-    , mLastUniqueTaskId(0)
-    , mObsolete(false)
-    , mLogsMutex("TraceInfoMutex")
-    , mLogsHead(nullptr)
-    , mLogsTail(nullptr)
-    , mLogsSize(0)
+      : mCurTraceSourceId(0),
+        mCurTaskId(0),
+        mCurTraceSourceType(Unknown),
+        mThreadId(aThreadId),
+        mLastUniqueTaskId(0),
+        mObsolete(false),
+        mLogsMutex("TraceInfoMutex"),
+        mLogsHead(nullptr),
+        mLogsTail(nullptr),
+        mLogsSize(0)
   {
     MOZ_COUNT_CTOR(TraceInfo);
   }
 
-  ~TraceInfo() {
+  ~TraceInfo()
+  {
     MOZ_COUNT_DTOR(TraceInfo);
     while (mLogsHead) {
       auto node = mLogsHead;
@@ -107,53 +114,64 @@ struct TraceInfo
   nsTArray<nsCString> mStrs;
 };
 
-class TraceInfoHolder {
-public:
+class TraceInfoHolder
+{
+ public:
   TraceInfoHolder() : mInfo(nullptr) {}
-  explicit TraceInfoHolder(TraceInfo* aInfo) : mInfo(aInfo) {
-    aInfo->mLogsMutex.AssertNotCurrentThreadOwns(); // in case of recursive
+  explicit TraceInfoHolder(TraceInfo* aInfo) : mInfo(aInfo)
+  {
+    aInfo->mLogsMutex.AssertNotCurrentThreadOwns();  // in case of recursive
     aInfo->mLogsMutex.Lock();
     MOZ_ASSERT(aInfo);
   }
   TraceInfoHolder(const TraceInfoHolder& aOther) = delete;
-  TraceInfoHolder(TraceInfoHolder&& aOther) : mInfo(aOther.mInfo) {
+  TraceInfoHolder(TraceInfoHolder&& aOther) : mInfo(aOther.mInfo)
+  {
     if (!!aOther) {
       aOther->mLogsMutex.AssertCurrentThreadOwns();
     }
     aOther.mInfo = nullptr;
   }
-  ~TraceInfoHolder() { if (mInfo) mInfo->mLogsMutex.Unlock(); }
-  explicit operator bool() const { return !!mInfo; }
-  TraceInfo* operator ->() { return mInfo; }
-  bool operator ==(TraceInfo* aOther) const {
-    return mInfo == aOther;
+  ~TraceInfoHolder()
+  {
+    if (mInfo) mInfo->mLogsMutex.Unlock();
   }
-  bool operator ==(const TraceInfoHolder& aOther) const {
+  explicit operator bool() const { return !!mInfo; }
+  TraceInfo* operator->() { return mInfo; }
+  bool operator==(TraceInfo* aOther) const { return mInfo == aOther; }
+  bool operator==(const TraceInfoHolder& aOther) const
+  {
     return mInfo == aOther.mInfo;
   }
-  void Reset() {
+  void Reset()
+  {
     if (mInfo) {
       mInfo->mLogsMutex.Unlock();
       mInfo = nullptr;
     }
   }
 
-private:
+ private:
   TraceInfo* mInfo;
 };
 
 // Return the TraceInfo of current thread, allocate a new one if not exit.
-TraceInfoHolder GetOrCreateTraceInfo();
+TraceInfoHolder
+GetOrCreateTraceInfo();
 
-uint64_t GenNewUniqueTaskId();
+uint64_t
+GenNewUniqueTaskId();
 
-void SetCurTraceInfo(uint64_t aSourceEventId, uint64_t aParentTaskId,
-                     SourceEventType aSourceEventType);
+void
+SetCurTraceInfo(uint64_t aSourceEventId,
+                uint64_t aParentTaskId,
+                SourceEventType aSourceEventType);
 
 /**
  * Logging functions of different trace actions.
  */
-enum ActionType {
+enum ActionType
+{
   ACTION_DISPATCH = 0,
   ACTION_BEGIN,
   ACTION_END,
@@ -161,20 +179,29 @@ enum ActionType {
   ACTION_GET_VTABLE
 };
 
-void LogDispatch(uint64_t aTaskId, uint64_t aParentTaskId,
-                 uint64_t aSourceEventId, SourceEventType aSourceEventType);
+void
+LogDispatch(uint64_t aTaskId,
+            uint64_t aParentTaskId,
+            uint64_t aSourceEventId,
+            SourceEventType aSourceEventType);
 
-void LogDispatch(uint64_t aTaskId, uint64_t aParentTaskId,
-                 uint64_t aSourceEventId, SourceEventType aSourceEventType,
-                 int aDelayTimeMs);
+void
+LogDispatch(uint64_t aTaskId,
+            uint64_t aParentTaskId,
+            uint64_t aSourceEventId,
+            SourceEventType aSourceEventType,
+            int aDelayTimeMs);
 
-void LogBegin(uint64_t aTaskId, uint64_t aSourceEventId);
+void
+LogBegin(uint64_t aTaskId, uint64_t aSourceEventId);
 
-void LogEnd(uint64_t aTaskId, uint64_t aSourceEventId);
+void
+LogEnd(uint64_t aTaskId, uint64_t aSourceEventId);
 
-void LogVirtualTablePtr(uint64_t aTaskId, uint64_t aSourceEventId, uintptr_t* aVptr);
+void
+LogVirtualTablePtr(uint64_t aTaskId, uint64_t aSourceEventId, uintptr_t* aVptr);
 
-} // namespace mozilla
-} // namespace tasktracer
+}  // namespace tasktracer
+}  // namespace mozilla
 
 #endif

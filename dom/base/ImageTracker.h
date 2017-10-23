@@ -32,7 +32,7 @@ namespace dom {
  */
 class ImageTracker
 {
-public:
+ public:
   ImageTracker();
   ImageTracker(const ImageTracker&) = delete;
   ImageTracker& operator=(const ImageTracker&) = delete;
@@ -41,7 +41,10 @@ public:
 
   nsresult Add(imgIRequest* aImage);
 
-  enum { REQUEST_DISCARD = 0x1 };
+  enum
+  {
+    REQUEST_DISCARD = 0x1
+  };
   nsresult Remove(imgIRequest* aImage, uint32_t aFlags = 0);
 
   // Makes the images on this document locked/unlocked. By default, the locking
@@ -55,7 +58,7 @@ public:
 
   void RequestDiscardAll();
 
-private:
+ private:
   ~ImageTracker();
 
   nsDataHashtable<nsPtrHashKey<imgIRequest>, uint32_t> mImages;
@@ -63,7 +66,7 @@ private:
   bool mAnimating;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ImageTracker
+#endif  // mozilla_dom_ImageTracker

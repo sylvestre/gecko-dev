@@ -24,7 +24,7 @@ class StackingContextHelper;
 
 class MOZ_RAII ScrollingLayersHelper
 {
-public:
+ public:
   ScrollingLayersHelper(nsDisplayItem* aItem,
                         wr::DisplayListBuilder& aBuilder,
                         const StackingContextHelper& aStackingContext,
@@ -32,7 +32,7 @@ public:
                         bool aApzEnabled);
   ~ScrollingLayersHelper();
 
-private:
+ private:
   void DefineAndPushScrollLayers(nsDisplayItem* aItem,
                                  const ActiveScrolledRoot* aAsr,
                                  const DisplayItemClipChain* aChain,
@@ -53,7 +53,7 @@ private:
   std::vector<wr::ScrollOrClipId> mPushedClips;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

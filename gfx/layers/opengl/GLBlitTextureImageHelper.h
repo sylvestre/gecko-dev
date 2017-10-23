@@ -14,29 +14,28 @@
 
 namespace mozilla {
 namespace gl {
-    class GLContext;
-    class TextureImage;
-} // namespace gl
+class GLContext;
+class TextureImage;
+}  // namespace gl
 namespace layers {
 
 class CompositorOGL;
 
 class GLBlitTextureImageHelper final
 {
-    // The GLContext is the sole owner of the GLBlitTextureImageHelper.
-    CompositorOGL* mCompositor;
+  // The GLContext is the sole owner of the GLBlitTextureImageHelper.
+  CompositorOGL* mCompositor;
 
-    // lazy-initialized things
-    GLuint mBlitProgram, mBlitFramebuffer;
-    void UseBlitProgram();
-    void SetBlitFramebufferForDestTexture(GLuint aTexture);
+  // lazy-initialized things
+  GLuint mBlitProgram, mBlitFramebuffer;
+  void UseBlitProgram();
+  void SetBlitFramebufferForDestTexture(GLuint aTexture);
 
-public:
+ public:
+  explicit GLBlitTextureImageHelper(CompositorOGL* gl);
+  ~GLBlitTextureImageHelper();
 
-    explicit GLBlitTextureImageHelper(CompositorOGL *gl);
-    ~GLBlitTextureImageHelper();
-
-    /**
+  /**
      * Copy a rectangle from one TextureImage into another.  The
      * source and destination are given in integer coordinates, and
      * will be converted to texture coordinates.
@@ -61,11 +60,13 @@ public:
      *   - active texture (will be 0)
      *   - texture 0 binding
      */
-    void BlitTextureImage(gl::TextureImage *aSrc, const gfx::IntRect& aSrcRect,
-                          gl::TextureImage *aDst, const gfx::IntRect& aDstRect);
+  void BlitTextureImage(gl::TextureImage* aSrc,
+                        const gfx::IntRect& aSrcRect,
+                        gl::TextureImage* aDst,
+                        const gfx::IntRect& aDstRect);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GLBLITTEXTUREIMAGEHELPER_H_
+#endif  // GLBLITTEXTUREIMAGEHELPER_H_

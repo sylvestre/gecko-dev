@@ -7,17 +7,16 @@
 #ifndef mozilla_layers_CompositorVsyncScheduler_h
 #define mozilla_layers_CompositorVsyncScheduler_h
 
-#include <stdint.h>                     // for uint64_t
+#include <stdint.h>  // for uint64_t
 
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/Monitor.h"            // for Monitor
-#include "mozilla/RefPtr.h"             // for RefPtr
-#include "mozilla/TimeStamp.h"          // for TimeStamp
-#include "mozilla/gfx/Point.h"          // for IntSize
+#include "mozilla/Attributes.h"  // for override
+#include "mozilla/Monitor.h"     // for Monitor
+#include "mozilla/RefPtr.h"      // for RefPtr
+#include "mozilla/TimeStamp.h"   // for TimeStamp
+#include "mozilla/gfx/Point.h"   // for IntSize
 #include "mozilla/VsyncDispatcher.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "nsISupportsImpl.h"
-
 
 class MessageLoop;
 class nsIWidget;
@@ -28,7 +27,7 @@ class CancelableRunnable;
 
 namespace gfx {
 class DrawTarget;
-} // namespace gfx
+}  // namespace gfx
 
 namespace layers {
 
@@ -43,9 +42,10 @@ class CompositorVsyncScheduler
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorVsyncScheduler)
 
-public:
-  explicit CompositorVsyncScheduler(CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
-                                    widget::CompositorWidget* aWidget);
+ public:
+  explicit CompositorVsyncScheduler(
+      CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
+      widget::CompositorWidget* aWidget);
 
   bool NotifyVsync(TimeStamp aVsyncTimestamp);
   void SetNeedsComposite();
@@ -53,19 +53,18 @@ public:
 
   void ScheduleTask(already_AddRefed<CancelableRunnable>, int);
   void ResumeComposition();
-  void ComposeToTarget(gfx::DrawTarget* aTarget, const gfx::IntRect* aRect = nullptr);
+  void ComposeToTarget(gfx::DrawTarget* aTarget,
+                       const gfx::IntRect* aRect = nullptr);
   void PostCompositeTask(TimeStamp aCompositeTimestamp);
   void Destroy();
   void ScheduleComposition();
   void CancelCurrentCompositeTask();
   bool NeedsComposite();
   void Composite(TimeStamp aVsyncTimestamp);
-  void ForceComposeToTarget(gfx::DrawTarget* aTarget, const gfx::IntRect* aRect);
+  void ForceComposeToTarget(gfx::DrawTarget* aTarget,
+                            const gfx::IntRect* aRect);
 
-  const TimeStamp& GetLastComposeTime()
-  {
-    return mLastCompose;
-  }
+  const TimeStamp& GetLastComposeTime() { return mLastCompose; }
 
 #ifdef COMPOSITOR_PERFORMANCE_WARNING
   const TimeStamp& GetExpectedComposeStartTime()
@@ -74,7 +73,7 @@ public:
   }
 #endif
 
-private:
+ private:
   virtual ~CompositorVsyncScheduler();
 
   void NotifyCompositeTaskExecuted();
@@ -86,11 +85,12 @@ private:
 
   class Observer final : public VsyncObserver
   {
-  public:
+   public:
     explicit Observer(CompositorVsyncScheduler* aOwner);
     virtual bool NotifyVsync(TimeStamp aVsyncTimestamp) override;
     void Destroy();
-  private:
+
+   private:
     virtual ~Observer();
 
     Mutex mMutex;
@@ -122,7 +122,7 @@ private:
   RefPtr<CancelableRunnable> mCurrentVRListenerTask;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_CompositorVsyncScheduler_h
+#endif  // mozilla_layers_CompositorVsyncScheduler_h

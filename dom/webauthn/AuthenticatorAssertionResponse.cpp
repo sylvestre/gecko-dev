@@ -24,8 +24,8 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(AuthenticatorAssertionResponse,
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mSignatureCachedObj)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(AuthenticatorAssertionResponse,
-                                                  AuthenticatorResponse)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(
+    AuthenticatorAssertionResponse, AuthenticatorResponse)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ADDREF_INHERITED(AuthenticatorAssertionResponse, AuthenticatorResponse)
@@ -34,10 +34,11 @@ NS_IMPL_RELEASE_INHERITED(AuthenticatorAssertionResponse, AuthenticatorResponse)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AuthenticatorAssertionResponse)
 NS_INTERFACE_MAP_END_INHERITING(AuthenticatorResponse)
 
-AuthenticatorAssertionResponse::AuthenticatorAssertionResponse(nsPIDOMWindowInner* aParent)
-  : AuthenticatorResponse(aParent)
-  , mAuthenticatorDataCachedObj(nullptr)
-  , mSignatureCachedObj(nullptr)
+AuthenticatorAssertionResponse::AuthenticatorAssertionResponse(
+    nsPIDOMWindowInner* aParent)
+    : AuthenticatorResponse(aParent),
+      mAuthenticatorDataCachedObj(nullptr),
+      mSignatureCachedObj(nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
@@ -55,8 +56,8 @@ AuthenticatorAssertionResponse::WrapObject(JSContext* aCx,
 }
 
 void
-AuthenticatorAssertionResponse::GetAuthenticatorData(JSContext* aCx,
-                                                     JS::MutableHandle<JSObject*> aRetVal)
+AuthenticatorAssertionResponse::GetAuthenticatorData(
+    JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal)
 {
   if (!mAuthenticatorDataCachedObj) {
     mAuthenticatorDataCachedObj = mAuthenticatorData.ToArrayBuffer(aCx);
@@ -74,8 +75,8 @@ AuthenticatorAssertionResponse::SetAuthenticatorData(CryptoBuffer& aBuffer)
 }
 
 void
-AuthenticatorAssertionResponse::GetSignature(JSContext* aCx,
-                                             JS::MutableHandle<JSObject*> aRetVal)
+AuthenticatorAssertionResponse::GetSignature(
+    JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal)
 {
   if (!mSignatureCachedObj) {
     mSignatureCachedObj = mSignature.ToArrayBuffer(aCx);
@@ -107,5 +108,5 @@ AuthenticatorAssertionResponse::SetUserId(const nsAString& aUserId)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

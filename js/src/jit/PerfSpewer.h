@@ -8,8 +8,8 @@
 #define jit_PerfSpewer_h
 
 #ifdef JS_ION_PERF
-# include <stdio.h>
-# include "jit/MacroAssembler.h"
+#include <stdio.h>
+#include "jit/MacroAssembler.h"
 #endif
 
 namespace js {
@@ -22,9 +22,7 @@ class MacroAssembler;
 void CheckPerf();
 bool PerfBlockEnabled();
 bool PerfFuncEnabled();
-static inline bool PerfEnabled() {
-    return PerfBlockEnabled() || PerfFuncEnabled();
-}
+static inline bool PerfEnabled() { return PerfBlockEnabled() || PerfFuncEnabled(); }
 #else
 static inline void CheckPerf() {}
 static inline bool PerfBlockEnabled() { return false; }
@@ -42,30 +40,28 @@ struct Record {
     Label start, end;
     size_t startOffset, endOffset;
 
-    Record(const char* filename,
-           unsigned lineNumber,
-           unsigned columnNumber,
-           uint32_t id)
-      : filename(filename), lineNumber(lineNumber),
-        columnNumber(columnNumber), id(id),
-        startOffset(0u), endOffset(0u)
-    {}
+    Record(const char* filename, unsigned lineNumber, unsigned columnNumber, uint32_t id)
+        : filename(filename),
+          lineNumber(lineNumber),
+          columnNumber(columnNumber),
+          id(id),
+          startOffset(0u),
+          endOffset(0u) {}
 };
 
 typedef Vector<Record, 1, SystemAllocPolicy> BasicBlocksVector;
 
-class PerfSpewer
-{
-  protected:
+class PerfSpewer {
+   protected:
     static uint32_t nextFunctionIndex;
 
-  public:
+   public:
     Label endInlineCode;
 
-  protected:
+   protected:
     BasicBlocksVector basicBlocks_;
 
-  public:
+   public:
     virtual MOZ_MUST_USE bool startBasicBlock(MBasicBlock* blk, MacroAssembler& masm);
     virtual MOZ_MUST_USE bool endBasicBlock(MacroAssembler& masm);
     MOZ_MUST_USE bool noteEndInlineCode(MacroAssembler& masm);
@@ -77,9 +73,8 @@ void writePerfSpewerBaselineProfile(JSScript* script, JitCode* code);
 void writePerfSpewerJitCodeProfile(JitCode* code, const char* msg);
 
 // wasm doesn't support block annotations.
-class WasmPerfSpewer : public PerfSpewer
-{
-  public:
+class WasmPerfSpewer : public PerfSpewer {
+   public:
     MOZ_MUST_USE bool startBasicBlock(MBasicBlock* blk, MacroAssembler& masm) { return true; }
     MOZ_MUST_USE bool endBasicBlock(MacroAssembler& masm) { return true; }
 };
@@ -87,9 +82,9 @@ class WasmPerfSpewer : public PerfSpewer
 void writePerfSpewerWasmFunctionMap(uintptr_t base, uintptr_t size, const char* filename,
                                     unsigned lineno, unsigned colIndex, const char* funcName);
 
-#endif // JS_ION_PERF
+#endif  // JS_ION_PERF
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_PerfSpewer_h */

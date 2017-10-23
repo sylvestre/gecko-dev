@@ -27,15 +27,14 @@ using namespace mozilla;
 static const char kIntlHyphenationAliasPrefix[] = "intl.hyphenation-alias.";
 static const char kMemoryPressureNotification[] = "memory-pressure";
 
-nsHyphenationManager *nsHyphenationManager::sInstance = nullptr;
+nsHyphenationManager* nsHyphenationManager::sInstance = nullptr;
 
-NS_IMPL_ISUPPORTS(nsHyphenationManager::MemoryPressureObserver,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(nsHyphenationManager::MemoryPressureObserver, nsIObserver)
 
 NS_IMETHODIMP
-nsHyphenationManager::MemoryPressureObserver::Observe(nsISupports *aSubject,
-                                                      const char *aTopic,
-                                                      const char16_t *aData)
+nsHyphenationManager::MemoryPressureObserver::Observe(nsISupports* aSubject,
+                                                      const char* aTopic,
+                                                      const char16_t* aData)
 {
   if (!nsCRT::strcmp(aTopic, kMemoryPressureNotification)) {
     // We don't call Instance() here, as we don't want to create a hyphenation
@@ -57,8 +56,8 @@ nsHyphenationManager::Instance()
 
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
     if (obs) {
-        obs->AddObserver(new MemoryPressureObserver,
-                         kMemoryPressureNotification, false);
+      obs->AddObserver(
+          new MemoryPressureObserver, kMemoryPressureNotification, false);
     }
   }
   return sInstance;
@@ -77,13 +76,10 @@ nsHyphenationManager::nsHyphenationManager()
   LoadAliases();
 }
 
-nsHyphenationManager::~nsHyphenationManager()
-{
-  sInstance = nullptr;
-}
+nsHyphenationManager::~nsHyphenationManager() { sInstance = nullptr; }
 
 already_AddRefed<nsHyphenator>
-nsHyphenationManager::GetHyphenator(nsAtom *aLocale)
+nsHyphenationManager::GetHyphenator(nsAtom* aLocale)
 {
   RefPtr<nsHyphenator> hyph;
   mHyphenators.Get(aLocale, getter_AddRefs(hyph));
@@ -145,15 +141,14 @@ nsHyphenationManager::LoadPatternList()
   LoadPatternListFromOmnijar(Omnijar::APP);
 
   nsCOMPtr<nsIProperties> dirSvc =
-    do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
   if (!dirSvc) {
     return;
   }
 
   nsresult rv;
   nsCOMPtr<nsIFile> greDir;
-  rv = dirSvc->Get(NS_GRE_DIR,
-                   NS_GET_IID(nsIFile), getter_AddRefs(greDir));
+  rv = dirSvc->Get(NS_GRE_DIR, NS_GET_IID(nsIFile), getter_AddRefs(greDir));
   if (NS_SUCCEEDED(rv)) {
     greDir->AppendNative(NS_LITERAL_CSTRING("hyphenation"));
     LoadPatternListFromDir(greDir);
@@ -161,7 +156,8 @@ nsHyphenationManager::LoadPatternList()
 
   nsCOMPtr<nsIFile> appDir;
   rv = dirSvc->Get(NS_XPCOM_CURRENT_PROCESS_DIR,
-                   NS_GET_IID(nsIFile), getter_AddRefs(appDir));
+                   NS_GET_IID(nsIFile),
+                   getter_AddRefs(appDir));
   if (NS_SUCCEEDED(rv)) {
     appDir->AppendNative(NS_LITERAL_CSTRING("hyphenation"));
     bool equals;
@@ -172,10 +168,10 @@ nsHyphenationManager::LoadPatternList()
 
   nsCOMPtr<nsIFile> profileDir;
   rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_LOCAL_50_DIR,
-                                       getter_AddRefs(profileDir));
+                              getter_AddRefs(profileDir));
   if (NS_SUCCEEDED(rv)) {
-      profileDir->AppendNative(NS_LITERAL_CSTRING("hyphenation"));
-      LoadPatternListFromDir(profileDir);
+    profileDir->AppendNative(NS_LITERAL_CSTRING("hyphenation"));
+    LoadPatternListFromDir(profileDir);
   }
 }
 
@@ -193,13 +189,13 @@ nsHyphenationManager::LoadPatternListFromOmnijar(Omnijar::Type aType)
     return;
   }
 
-  nsZipFind *find;
+  nsZipFind* find;
   zip->FindInit("hyphenation/hyph_*.dic", &find);
   if (!find) {
     return;
   }
 
-  const char *result;
+  const char* result;
   uint16_t len;
   while (NS_SUCCEEDED(find->FindNext(&result, &len))) {
     nsCString uriString(base);
@@ -215,8 +211,8 @@ nsHyphenationManager::LoadPatternListFromOmnijar(Omnijar::Type aType)
       continue;
     }
     ToLowerCase(locale);
-    locale.SetLength(locale.Length() - 4); // strip ".dic"
-    locale.Cut(0, locale.RFindChar('/') + 1); // strip directory
+    locale.SetLength(locale.Length() - 4);     // strip ".dic"
+    locale.Cut(0, locale.RFindChar('/') + 1);  // strip directory
     if (StringBeginsWith(locale, NS_LITERAL_CSTRING("hyph_"))) {
       locale.Cut(0, 5);
     }
@@ -235,7 +231,7 @@ nsHyphenationManager::LoadPatternListFromOmnijar(Omnijar::Type aType)
 }
 
 void
-nsHyphenationManager::LoadPatternListFromDir(nsIFile *aDir)
+nsHyphenationManager::LoadPatternListFromDir(nsIFile* aDir)
 {
   nsresult rv;
 
@@ -262,7 +258,7 @@ nsHyphenationManager::LoadPatternListFromDir(nsIFile *aDir)
   }
 
   nsCOMPtr<nsIFile> file;
-  while (NS_SUCCEEDED(files->GetNextFile(getter_AddRefs(file))) && file){
+  while (NS_SUCCEEDED(files->GetNextFile(getter_AddRefs(file))) && file) {
     nsAutoString dictName;
     file->GetLeafName(dictName);
     NS_ConvertUTF16toUTF8 locale(dictName);
@@ -273,14 +269,15 @@ nsHyphenationManager::LoadPatternListFromDir(nsIFile *aDir)
     if (StringBeginsWith(locale, NS_LITERAL_CSTRING("hyph_"))) {
       locale.Cut(0, 5);
     }
-    locale.SetLength(locale.Length() - 4); // strip ".dic"
+    locale.SetLength(locale.Length() - 4);  // strip ".dic"
     for (uint32_t i = 0; i < locale.Length(); ++i) {
       if (locale[i] == '_') {
         locale.Replace(i, 1, '-');
       }
     }
 #ifdef DEBUG_hyph
-    printf("adding hyphenation patterns for %s: %s\n", locale.get(),
+    printf("adding hyphenation patterns for %s: %s\n",
+           locale.get(),
            NS_ConvertUTF16toUTF8(dictName).get());
 #endif
     RefPtr<nsAtom> localeAtom = NS_Atomize(locale);
@@ -300,9 +297,9 @@ nsHyphenationManager::LoadAliases()
     return;
   }
   uint32_t prefCount;
-  char **prefNames;
-  nsresult rv = prefRootBranch->GetChildList(kIntlHyphenationAliasPrefix,
-                                             &prefCount, &prefNames);
+  char** prefNames;
+  nsresult rv = prefRootBranch->GetChildList(
+      kIntlHyphenationAliasPrefix, &prefCount, &prefNames);
   if (NS_SUCCEEDED(rv) && prefCount > 0) {
     for (uint32_t i = 0; i < prefCount; ++i) {
       nsAutoCString value;

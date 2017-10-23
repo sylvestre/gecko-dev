@@ -15,8 +15,8 @@
 namespace mozilla {
 namespace dom {
 class DOMRect;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * Implementation of a DOM Caret Position, which is a node and offset within
@@ -26,12 +26,11 @@ class DOMRect;
  *
  * @see Document::caretPositionFromPoint(float x, float y)
  */
-class nsDOMCaretPosition : public nsISupports,
-                           public nsWrapperCache
+class nsDOMCaretPosition : public nsISupports, public nsWrapperCache
 {
   typedef mozilla::dom::DOMRect DOMRect;
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsDOMCaretPosition)
 
@@ -82,15 +81,12 @@ public:
     mAnonymousContentNode = aNode;
   }
 
-  nsISupports* GetParentObject() const
-  {
-    return GetOffsetNode();
-  }
+  nsISupports* GetParentObject() const { return GetOffsetNode(); }
 
-  virtual JSObject* WrapObject(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
-    override final;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
 
-protected:
+ protected:
   virtual ~nsDOMCaretPosition();
 
   uint32_t mOffset;
@@ -98,4 +94,3 @@ protected:
   nsCOMPtr<nsINode> mAnonymousContentNode;
 };
 #endif
-

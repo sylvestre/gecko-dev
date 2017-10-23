@@ -32,5 +32,5 @@ XMLHttpRequestEventTarget::DisconnectFromOwner()
   DOMEventTargetHelper::DisconnectFromOwner();
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

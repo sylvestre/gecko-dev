@@ -23,48 +23,55 @@ class nsILoadContext;
 class nsCopySupport
 {
   // class of static helper functions for copy support
-  public:
-    static nsresult ClearSelectionCache();
-    static nsresult HTMLCopy(nsISelection *aSel, nsIDocument *aDoc,
-                             int16_t aClipboardID, bool aWithRubyAnnotation);
-    static nsresult DoHooks(nsIDocument *aDoc, nsITransferable *aTrans,
-                            bool *aDoPutOnClipboard);
+ public:
+  static nsresult ClearSelectionCache();
+  static nsresult HTMLCopy(nsISelection* aSel,
+                           nsIDocument* aDoc,
+                           int16_t aClipboardID,
+                           bool aWithRubyAnnotation);
+  static nsresult DoHooks(nsIDocument* aDoc,
+                          nsITransferable* aTrans,
+                          bool* aDoPutOnClipboard);
 
-    // Get the selection, or entire document, in the format specified by the mime type
-    // (text/html or text/plain). If aSel is non-null, use it, otherwise get the entire
-    // doc.
-    static nsresult GetContents(const nsACString& aMimeType, uint32_t aFlags, nsISelection *aSel, nsIDocument *aDoc, nsAString& outdata);
+  // Get the selection, or entire document, in the format specified by the mime type
+  // (text/html or text/plain). If aSel is non-null, use it, otherwise get the entire
+  // doc.
+  static nsresult GetContents(const nsACString& aMimeType,
+                              uint32_t aFlags,
+                              nsISelection* aSel,
+                              nsIDocument* aDoc,
+                              nsAString& outdata);
 
-    static nsresult ImageCopy(nsIImageLoadingContent* aImageElement,
-                              nsILoadContext* aLoadContext,
-                              int32_t aCopyFlags);
+  static nsresult ImageCopy(nsIImageLoadingContent* aImageElement,
+                            nsILoadContext* aLoadContext,
+                            int32_t aCopyFlags);
 
-    // Get the selection as a transferable. Similar to HTMLCopy except does
-    // not deal with the clipboard.
-    static nsresult GetTransferableForSelection(nsISelection* aSelection,
-                                                nsIDocument* aDocument,
-                                                nsITransferable** aTransferable);
+  // Get the selection as a transferable. Similar to HTMLCopy except does
+  // not deal with the clipboard.
+  static nsresult GetTransferableForSelection(nsISelection* aSelection,
+                                              nsIDocument* aDocument,
+                                              nsITransferable** aTransferable);
 
-    // Same as GetTransferableForSelection, but doesn't skip invisible content.
-    static nsresult GetTransferableForNode(nsINode* aNode,
-                                           nsIDocument* aDoc,
-                                           nsITransferable** aTransferable);
-    /**
+  // Same as GetTransferableForSelection, but doesn't skip invisible content.
+  static nsresult GetTransferableForNode(nsINode* aNode,
+                                         nsIDocument* aDoc,
+                                         nsITransferable** aTransferable);
+  /**
      * Retrieve the selection for the given document. If the current focus
      * within the document has its own selection, aSelection will be set to it
      * and this focused content node returned. Otherwise, aSelection will be
      * set to the document's selection and null will be returned.
      */
-    static nsIContent* GetSelectionForCopy(nsIDocument* aDocument,
-                                           nsISelection** aSelection);
+  static nsIContent* GetSelectionForCopy(nsIDocument* aDocument,
+                                         nsISelection** aSelection);
 
-    /**
+  /**
      * Returns true if a copy operation is currently permitted based on the
      * current focus and selection within the specified document.
      */
-    static bool CanCopy(nsIDocument* aDocument);
+  static bool CanCopy(nsIDocument* aDocument);
 
-    /**
+  /**
      * Fires a cut, copy or paste event, on the given presshell, depending
      * on the value of aEventMessage, which should be either eCut, eCopy or
      * ePaste, and perform the default copy action if the event was not
@@ -90,11 +97,11 @@ class nsCopySupport
      *
      * If the event is cancelled or an error occurs, false will be returned.
      */
-    static bool FireClipboardEvent(mozilla::EventMessage aEventMessage,
-                                   int32_t aClipboardType,
-                                   nsIPresShell* aPresShell,
-                                   nsISelection* aSelection,
-                                   bool* aActionTaken = nullptr);
+  static bool FireClipboardEvent(mozilla::EventMessage aEventMessage,
+                                 int32_t aClipboardType,
+                                 nsIPresShell* aPresShell,
+                                 nsISelection* aSelection,
+                                 bool* aActionTaken = nullptr);
 };
 
 #endif

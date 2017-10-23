@@ -15,14 +15,16 @@ namespace dom {
 
 class Text : public nsGenericDOMDataNode
 {
-public:
+ public:
   explicit Text(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericDOMDataNode(aNodeInfo)
-  {}
+      : nsGenericDOMDataNode(aNodeInfo)
+  {
+  }
 
   explicit Text(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
-    : nsGenericDOMDataNode(aNodeInfo)
-  {}
+      : nsGenericDOMDataNode(aNodeInfo)
+  {
+  }
 
   using nsGenericDOMDataNode::GetWholeText;
 
@@ -33,24 +35,25 @@ public:
     rv = GetWholeText(aWholeText);
   }
 
-  static already_AddRefed<Text>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aData, ErrorResult& aRv);
+  static already_AddRefed<Text> Constructor(const GlobalObject& aGlobal,
+                                            const nsAString& aData,
+                                            ErrorResult& aRv);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-inline mozilla::dom::Text* nsINode::GetAsText()
+inline mozilla::dom::Text*
+nsINode::GetAsText()
 {
-  return IsNodeOfType(eTEXT) ? static_cast<mozilla::dom::Text*>(this)
-                             : nullptr;
+  return IsNodeOfType(eTEXT) ? static_cast<mozilla::dom::Text*>(this) : nullptr;
 }
 
-inline const mozilla::dom::Text* nsINode::GetAsText() const
+inline const mozilla::dom::Text*
+nsINode::GetAsText() const
 {
   return IsNodeOfType(eTEXT) ? static_cast<const mozilla::dom::Text*>(this)
                              : nullptr;
 }
 
-#endif // mozilla_dom_Text_h
+#endif  // mozilla_dom_Text_h

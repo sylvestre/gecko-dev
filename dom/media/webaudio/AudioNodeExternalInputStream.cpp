@@ -15,9 +15,8 @@ using namespace mozilla::dom;
 namespace mozilla {
 
 AudioNodeExternalInputStream::AudioNodeExternalInputStream(
-  AudioNodeEngine* aEngine,
-  TrackRate aSampleRate)
-  : AudioNodeStream(aEngine, NO_STREAM_FLAGS, aSampleRate)
+    AudioNodeEngine* aEngine, TrackRate aSampleRate)
+    : AudioNodeStream(aEngine, NO_STREAM_FLAGS, aSampleRate)
 {
   MOZ_COUNT_CTOR(AudioNodeExternalInputStream);
 }
@@ -36,7 +35,7 @@ AudioNodeExternalInputStream::Create(MediaStreamGraph* aGraph,
   MOZ_ASSERT(aGraph->GraphRate() == ctx->SampleRate());
 
   RefPtr<AudioNodeExternalInputStream> stream =
-    new AudioNodeExternalInputStream(aEngine, aGraph->GraphRate());
+      new AudioNodeExternalInputStream(aEngine, aGraph->GraphRate());
   stream->mSuspendedCount += ctx->ShouldSuspendNewStream();
   aGraph->AddStream(stream);
   return stream.forget();
@@ -47,13 +46,14 @@ AudioNodeExternalInputStream::Create(MediaStreamGraph* aGraph,
  * aBlock must have been allocated with AllocateInputBlock and have a channel
  * count that's a superset of the channels in aInput.
  */
-template <typename T>
+template<typename T>
 static void
-CopyChunkToBlock(AudioChunk& aInput, AudioBlock *aBlock,
+CopyChunkToBlock(AudioChunk& aInput,
+                 AudioBlock* aBlock,
                  uint32_t aOffsetInBlock)
 {
   uint32_t blockChannels = aBlock->ChannelCount();
-  AutoTArray<const T*,2> channels;
+  AutoTArray<const T*, 2> channels;
   if (aInput.IsNull()) {
     channels.SetLength(blockChannels);
     PodZero(channels.Elements(), blockChannels);
@@ -71,7 +71,8 @@ CopyChunkToBlock(AudioChunk& aInput, AudioBlock *aBlock,
   for (uint32_t c = 0; c < blockChannels; ++c) {
     float* outputData = aBlock->ChannelFloatsForWrite(c) + aOffsetInBlock;
     if (channels[c]) {
-      ConvertAudioSamplesWithScale(channels[c], outputData, aInput.GetDuration(), aInput.mVolume);
+      ConvertAudioSamplesWithScale(
+          channels[c], outputData, aInput.GetDuration(), aInput.mVolume);
     } else {
       PodZero(outputData, aInput.GetDuration());
     }
@@ -83,23 +84,24 @@ CopyChunkToBlock(AudioChunk& aInput, AudioBlock *aBlock,
  * duration WEBAUDIO_BLOCK_SIZE. aFallbackChannelCount is a superset of the
  * channels in every chunk of aSegment. aBlock must be float format or null.
  */
-static void ConvertSegmentToAudioBlock(AudioSegment* aSegment,
-                                       AudioBlock* aBlock,
-                                       int32_t aFallbackChannelCount)
+static void
+ConvertSegmentToAudioBlock(AudioSegment* aSegment,
+                           AudioBlock* aBlock,
+                           int32_t aFallbackChannelCount)
 {
-  NS_ASSERTION(aSegment->GetDuration() == WEBAUDIO_BLOCK_SIZE, "Bad segment duration");
+  NS_ASSERTION(aSegment->GetDuration() == WEBAUDIO_BLOCK_SIZE,
+               "Bad segment duration");
 
   {
     AudioSegment::ChunkIterator ci(*aSegment);
     NS_ASSERTION(!ci.IsEnded(), "Should be at least one chunk!");
     if (ci->GetDuration() == WEBAUDIO_BLOCK_SIZE &&
         (ci->IsNull() || ci->mBufferFormat == AUDIO_FORMAT_FLOAT32)) {
-
       bool aligned = true;
       for (size_t i = 0; i < ci->mChannelData.Length(); ++i) {
         if (!IS_ALIGNED16(ci->mChannelData[i])) {
-            aligned = false;
-            break;
+          aligned = false;
+          break;
         }
       }
 
@@ -136,7 +138,8 @@ static void ConvertSegmentToAudioBlock(AudioSegment* aSegment,
 }
 
 void
-AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
+AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom,
+                                           GraphTime aTo,
                                            uint32_t aFlags)
 {
   // According to spec, number of outputs is always 1.
@@ -152,17 +155,18 @@ AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
   MOZ_ASSERT(mInputs.Length() == 1);
 
   MediaStream* source = mInputs[0]->GetSource();
-  AutoTArray<AudioSegment,1> audioSegments;
+  AutoTArray<AudioSegment, 1> audioSegments;
   uint32_t inputChannels = 0;
-  for (StreamTracks::TrackIter tracks(source->mTracks);
-       !tracks.IsEnded(); tracks.Next()) {
+  for (StreamTracks::TrackIter tracks(source->mTracks); !tracks.IsEnded();
+       tracks.Next()) {
     const StreamTracks::Track& inputTrack = *tracks;
     if (!mInputs[0]->PassTrackThrough(tracks->GetID())) {
       continue;
     }
 
     if (inputTrack.GetSegment()->GetType() == MediaSegment::VIDEO) {
-      MOZ_ASSERT(false, "AudioNodeExternalInputStream shouldn't have video tracks");
+      MOZ_ASSERT(false,
+                 "AudioNodeExternalInputStream shouldn't have video tracks");
       continue;
     }
 
@@ -175,10 +179,10 @@ AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
     AudioSegment& segment = *audioSegments.AppendElement();
     GraphTime next;
     for (GraphTime t = aFrom; t < aTo; t = next) {
-      MediaInputPort::InputInterval interval = mInputs[0]->GetNextInputInterval(t);
+      MediaInputPort::InputInterval interval =
+          mInputs[0]->GetNextInputInterval(t);
       interval.mEnd = std::min(interval.mEnd, aTo);
-      if (interval.mStart >= interval.mEnd)
-        break;
+      if (interval.mStart >= interval.mEnd) break;
       next = interval.mEnd;
 
       // We know this stream does not block during the processing interval ---
@@ -193,11 +197,11 @@ AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
         // The input stream is not blocked in this interval, so no need to call
         // GraphTimeToStreamTimeWithBlocking.
         StreamTime inputStart =
-          std::min(inputSegment.GetDuration(),
-                   source->GraphTimeToStreamTime(interval.mStart));
+            std::min(inputSegment.GetDuration(),
+                     source->GraphTimeToStreamTime(interval.mStart));
         StreamTime inputEnd =
-          std::min(inputSegment.GetDuration(),
-                   source->GraphTimeToStreamTime(interval.mEnd));
+            std::min(inputSegment.GetDuration(),
+                     source->GraphTimeToStreamTime(interval.mEnd));
 
         segment.AppendSlice(inputSegment, inputStart, inputEnd);
         // Pad if we're looking past the end of the track
@@ -205,8 +209,10 @@ AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
       }
     }
 
-    for (AudioSegment::ChunkIterator iter(segment); !iter.IsEnded(); iter.Next()) {
-      inputChannels = GetAudioChannelsSuperset(inputChannels, iter->ChannelCount());
+    for (AudioSegment::ChunkIterator iter(segment); !iter.IsEnded();
+         iter.Next()) {
+      inputChannels =
+          GetAudioChannelsSuperset(inputChannels, iter->ChannelCount());
     }
   }
 
@@ -221,7 +227,8 @@ AudioNodeExternalInputStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
         if (accumulateIndex == 0) {
           mLastChunks[0].AllocateChannels(inputChannels);
         }
-        AccumulateInputChunk(accumulateIndex, tmpChunk, &mLastChunks[0], &downmixBuffer);
+        AccumulateInputChunk(
+            accumulateIndex, tmpChunk, &mLastChunks[0], &downmixBuffer);
         accumulateIndex++;
       }
     }
@@ -237,4 +244,4 @@ AudioNodeExternalInputStream::IsEnabled()
   return ((MediaStreamAudioSourceNodeEngine*)Engine())->IsEnabled();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

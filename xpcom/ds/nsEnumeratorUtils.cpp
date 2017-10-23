@@ -14,23 +14,22 @@
 #include "nsCOMPtr.h"
 #include "mozilla/RefPtr.h"
 
-class EmptyEnumeratorImpl
-  : public nsISimpleEnumerator
-  , public nsIUTF8StringEnumerator
-  , public nsIStringEnumerator
+class EmptyEnumeratorImpl : public nsISimpleEnumerator,
+                            public nsIUTF8StringEnumerator,
+                            public nsIStringEnumerator
 {
-public:
+ public:
   EmptyEnumeratorImpl() {}
 
   // nsISupports interface
   NS_DECL_ISUPPORTS_INHERITED  // not really inherited, but no mRefCnt
 
-  // nsISimpleEnumerator
-  NS_DECL_NSISIMPLEENUMERATOR
-  NS_DECL_NSIUTF8STRINGENUMERATOR
-  // can't use NS_DECL_NSISTRINGENUMERATOR because they share the
-  // HasMore() signature
-  NS_IMETHOD GetNext(nsAString& aResult) override;
+      // nsISimpleEnumerator
+      NS_DECL_NSISIMPLEENUMERATOR NS_DECL_NSIUTF8STRINGENUMERATOR
+          // can't use NS_DECL_NSISTRINGENUMERATOR because they share the
+          // HasMore() signature
+          NS_IMETHOD
+          GetNext(nsAString& aResult) override;
 
   static EmptyEnumeratorImpl* GetInstance()
   {
@@ -41,19 +40,15 @@ public:
 
 // nsISupports interface
 NS_IMETHODIMP_(MozExternalRefCountType)
-EmptyEnumeratorImpl::AddRef(void)
-{
-  return 2;
-}
+EmptyEnumeratorImpl::AddRef(void) { return 2; }
 
 NS_IMETHODIMP_(MozExternalRefCountType)
-EmptyEnumeratorImpl::Release(void)
-{
-  return 1;
-}
+EmptyEnumeratorImpl::Release(void) { return 1; }
 
-NS_IMPL_QUERY_INTERFACE(EmptyEnumeratorImpl, nsISimpleEnumerator,
-                        nsIUTF8StringEnumerator, nsIStringEnumerator)
+NS_IMPL_QUERY_INTERFACE(EmptyEnumeratorImpl,
+                        nsISimpleEnumerator,
+                        nsIUTF8StringEnumerator,
+                        nsIStringEnumerator)
 
 // nsISimpleEnumerator interface
 NS_IMETHODIMP
@@ -83,10 +78,7 @@ EmptyEnumeratorImpl::GetNext(nsACString& aResult)
 }
 
 NS_IMETHODIMP
-EmptyEnumeratorImpl::GetNext(nsAString& aResult)
-{
-  return NS_ERROR_UNEXPECTED;
-}
+EmptyEnumeratorImpl::GetNext(nsAString& aResult) { return NS_ERROR_UNEXPECTED; }
 
 nsresult
 NS_NewEmptyEnumerator(nsISimpleEnumerator** aResult)
@@ -99,7 +91,7 @@ NS_NewEmptyEnumerator(nsISimpleEnumerator** aResult)
 
 class nsSingletonEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   // nsISimpleEnumerator methods
@@ -108,16 +100,16 @@ public:
 
   explicit nsSingletonEnumerator(nsISupports* aValue);
 
-private:
+ private:
   ~nsSingletonEnumerator();
 
-protected:
+ protected:
   nsCOMPtr<nsISupports> mValue;
   bool mConsumed;
 };
 
 nsSingletonEnumerator::nsSingletonEnumerator(nsISupports* aValue)
-  : mValue(aValue)
+    : mValue(aValue)
 {
   mConsumed = (mValue ? false : true);
 }
@@ -137,7 +129,6 @@ nsSingletonEnumerator::HasMoreElements(bool* aResult)
   *aResult = !mConsumed;
   return NS_OK;
 }
-
 
 NS_IMETHODIMP
 nsSingletonEnumerator::GetNext(nsISupports** aResult)
@@ -171,7 +162,7 @@ NS_NewSingletonEnumerator(nsISimpleEnumerator** aResult,
 
 class nsUnionEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   // nsISimpleEnumerator methods
@@ -181,10 +172,10 @@ public:
   nsUnionEnumerator(nsISimpleEnumerator* aFirstEnumerator,
                     nsISimpleEnumerator* aSecondEnumerator);
 
-private:
+ private:
   ~nsUnionEnumerator();
 
-protected:
+ protected:
   nsCOMPtr<nsISimpleEnumerator> mFirstEnumerator, mSecondEnumerator;
   bool mConsumed;
   bool mAtSecond;
@@ -192,10 +183,10 @@ protected:
 
 nsUnionEnumerator::nsUnionEnumerator(nsISimpleEnumerator* aFirstEnumerator,
                                      nsISimpleEnumerator* aSecondEnumerator)
-  : mFirstEnumerator(aFirstEnumerator)
-  , mSecondEnumerator(aSecondEnumerator)
-  , mConsumed(false)
-  , mAtSecond(false)
+    : mFirstEnumerator(aFirstEnumerator),
+      mSecondEnumerator(aSecondEnumerator),
+      mConsumed(false),
+      mAtSecond(false)
 {
 }
 
@@ -275,8 +266,7 @@ NS_NewUnionEnumerator(nsISimpleEnumerator** aResult,
   } else if (!aSecondEnumerator) {
     *aResult = aFirstEnumerator;
   } else {
-    auto* enumer = new nsUnionEnumerator(aFirstEnumerator,
-                                         aSecondEnumerator);
+    auto* enumer = new nsUnionEnumerator(aFirstEnumerator, aSecondEnumerator);
     if (!enumer) {
       return NS_ERROR_OUT_OF_MEMORY;
     }

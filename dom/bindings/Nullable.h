@@ -20,45 +20,29 @@ namespace mozilla {
 namespace dom {
 
 // Support for nullable types
-template <typename T>
+template<typename T>
 struct Nullable
 {
-private:
+ private:
   Maybe<T> mValue;
 
-public:
-  Nullable()
-    : mValue()
-  {}
+ public:
+  Nullable() : mValue() {}
 
-  MOZ_IMPLICIT Nullable(const decltype(nullptr)&)
-    : mValue()
-  {}
+  MOZ_IMPLICIT Nullable(const decltype(nullptr) &) : mValue() {}
 
-  explicit Nullable(const T& aValue)
-    : mValue()
-  {
-    mValue.emplace(aValue);
-  }
+  explicit Nullable(const T& aValue) : mValue() { mValue.emplace(aValue); }
 
-  MOZ_IMPLICIT Nullable(T&& aValue)
-    : mValue()
+  MOZ_IMPLICIT Nullable(T&& aValue) : mValue()
   {
     mValue.emplace(mozilla::Move(aValue));
   }
 
-  Nullable(Nullable<T>&& aOther)
-    : mValue(mozilla::Move(aOther.mValue))
-  {}
+  Nullable(Nullable<T>&& aOther) : mValue(mozilla::Move(aOther.mValue)) {}
 
-  Nullable(const Nullable<T>& aOther)
-    : mValue(aOther.mValue)
-  {}
+  Nullable(const Nullable<T>& aOther) : mValue(aOther.mValue) {}
 
-  void operator=(const Nullable<T>& aOther)
-  {
-    mValue = aOther.mValue;
-  }
+  void operator=(const Nullable<T>& aOther) { mValue = aOther.mValue; }
 
   void SetValue(const T& aArgs)
   {
@@ -75,28 +59,21 @@ public:
   // For cases when |T| is some type with nontrivial copy behavior, we may want
   // to get a reference to our internal copy of T and work with it directly
   // instead of relying on the copying version of SetValue().
-  T& SetValue() {
+  T& SetValue()
+  {
     if (mValue.isNothing()) {
       mValue.emplace();
     }
     return mValue.ref();
   }
 
-  void SetNull() {
-    mValue.reset();
-  }
+  void SetNull() { mValue.reset(); }
 
-  const T& Value() const {
-    return mValue.ref();
-  }
+  const T& Value() const { return mValue.ref(); }
 
-  T& Value() {
-    return mValue.ref();
-  }
+  T& Value() { return mValue.ref(); }
 
-  bool IsNull() const {
-    return mValue.isNothing();
-  }
+  bool IsNull() const { return mValue.isNothing(); }
 
   bool Equals(const Nullable<T>& aOtherNullable) const
   {
@@ -114,11 +91,11 @@ public:
   }
 
   friend std::ostream& operator<<(std::ostream& aStream,
-                                  const Nullable& aNullable) {
+                                  const Nullable& aNullable)
+  {
     return aStream << aNullable.mValue;
   }
 };
-
 
 template<typename T>
 void
@@ -141,7 +118,7 @@ ImplCycleCollectionUnlink(Nullable<T>& aNullable)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_Nullable_h */

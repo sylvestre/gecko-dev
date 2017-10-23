@@ -23,19 +23,20 @@
 //
 class nsSMILRepeatCount
 {
-public:
+ public:
   nsSMILRepeatCount() : mCount(kNotSet) {}
-  explicit nsSMILRepeatCount(double aCount)
-    : mCount(kNotSet) { SetCount(aCount); }
+  explicit nsSMILRepeatCount(double aCount) : mCount(kNotSet)
+  {
+    SetCount(aCount);
+  }
 
-  operator double() const {
+  operator double() const
+  {
     MOZ_ASSERT(IsDefinite(),
-      "Converting indefinite or unset repeat count to double");
+               "Converting indefinite or unset repeat count to double");
     return mCount;
   }
-  bool IsDefinite() const {
-    return mCount != kNotSet && mCount != kIndefinite;
-  }
+  bool IsDefinite() const { return mCount != kNotSet && mCount != kIndefinite; }
   bool IsIndefinite() const { return mCount == kIndefinite; }
   bool IsSet() const { return mCount != kNotSet; }
 
@@ -52,11 +53,11 @@ public:
   void SetIndefinite() { mCount = kIndefinite; }
   void Unset() { mCount = kNotSet; }
 
-private:
+ private:
   static const double kNotSet;
   static const double kIndefinite;
 
-  double  mCount;
+  double mCount;
 };
 
 #endif

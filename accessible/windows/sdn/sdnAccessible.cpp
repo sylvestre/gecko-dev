@@ -35,8 +35,7 @@ sdnAccessible::~sdnAccessible()
 STDMETHODIMP
 sdnAccessible::QueryInterface(REFIID aREFIID, void** aInstancePtr)
 {
-  if (!aInstancePtr)
-    return E_FAIL;
+  if (!aInstancePtr) return E_FAIL;
   *aInstancePtr = nullptr;
 
   if (aREFIID == IID_IClientSecurity) {
@@ -54,8 +53,7 @@ sdnAccessible::QueryInterface(REFIID aREFIID, void** aInstancePtr)
   }
 
   AccessibleWrap* accessible = GetAccessible();
-  if (accessible)
-    return accessible->QueryInterface(aREFIID, aInstancePtr);
+  if (accessible) return accessible->QueryInterface(aREFIID, aInstancePtr);
 
   // IUnknown* is the canonical one if and only if this accessible doesn't have
   // an accessible.
@@ -87,8 +85,7 @@ sdnAccessible::get_nodeInfo(BSTR __RPC_FAR* aNodeName,
   *aUniqueID = 0;
   *aNodeType = 0;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsCOMPtr<nsIDOMNode> DOMNode(do_QueryInterface(mNode));
 
@@ -96,7 +93,7 @@ sdnAccessible::get_nodeInfo(BSTR __RPC_FAR* aNodeName,
   DOMNode->GetNodeType(&nodeType);
   *aNodeType = static_cast<unsigned short>(nodeType);
 
-  if (*aNodeType !=  NODETYPE_TEXT) {
+  if (*aNodeType != NODETYPE_TEXT) {
     nsAutoString nodeName;
     DOMNode->GetNodeName(nodeName);
     *aNodeName = ::SysAllocString(nodeName.get());
@@ -106,8 +103,9 @@ sdnAccessible::get_nodeInfo(BSTR __RPC_FAR* aNodeName,
   DOMNode->GetNodeValue(nodeValue);
   *aNodeValue = ::SysAllocString(nodeValue.get());
 
-  *aNameSpaceID = mNode->IsNodeOfType(nsINode::eCONTENT) ?
-    static_cast<short>(mNode->AsContent()->GetNameSpaceID()) : 0;
+  *aNameSpaceID = mNode->IsNodeOfType(nsINode::eCONTENT)
+                      ? static_cast<short>(mNode->AsContent()->GetNameSpaceID())
+                      : 0;
 
   // This is a unique ID for every content node. The 3rd party accessibility
   // application can compare this to the childID we return for events such as
@@ -130,7 +128,7 @@ sdnAccessible::get_nodeInfo(BSTR __RPC_FAR* aNodeName,
 }
 
 STDMETHODIMP
-sdnAccessible::get_attributes(unsigned  short aMaxAttribs,
+sdnAccessible::get_attributes(unsigned short aMaxAttribs,
                               BSTR __RPC_FAR* aAttribNames,
                               short __RPC_FAR* aNameSpaceIDs,
                               BSTR __RPC_FAR* aAttribValues,
@@ -141,16 +139,13 @@ sdnAccessible::get_attributes(unsigned  short aMaxAttribs,
 
   *aNumAttribs = 0;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!mNode->IsElement())
-    return S_FALSE;
+  if (!mNode->IsElement()) return S_FALSE;
 
   dom::Element* elm = mNode->AsElement();
   uint32_t numAttribs = elm->GetAttrCount();
-  if (numAttribs > aMaxAttribs)
-    numAttribs = aMaxAttribs;
+  if (numAttribs > aMaxAttribs) numAttribs = aMaxAttribs;
 
   *aNumAttribs = static_cast<unsigned short>(numAttribs);
 
@@ -163,7 +158,8 @@ sdnAccessible::get_attributes(unsigned  short aMaxAttribs,
     attr.mValue->ToString(attributeValue);
 
     aNameSpaceIDs[index] = static_cast<short>(attr.mName->NamespaceID());
-    aAttribNames[index] = ::SysAllocString(attr.mName->LocalName()->GetUTF16String());
+    aAttribNames[index] =
+        ::SysAllocString(attr.mName->LocalName()->GetUTF16String());
     aAttribValues[index] = ::SysAllocString(attributeValue.get());
   }
 
@@ -176,14 +172,11 @@ sdnAccessible::get_attributesForNames(unsigned short aMaxAttribs,
                                       short __RPC_FAR* aNameSpaceID,
                                       BSTR __RPC_FAR* aAttribValues)
 {
-  if (!aAttribNames || !aNameSpaceID || !aAttribValues)
-    return E_INVALIDARG;
+  if (!aAttribNames || !aNameSpaceID || !aAttribValues) return E_INVALIDARG;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!mNode->IsElement())
-    return S_FALSE;
+  if (!mNode->IsElement()) return S_FALSE;
 
   dom::Element* domElement = mNode->AsElement();
   nsNameSpaceManager* nameSpaceManager = nsNameSpaceManager::GetInstance();
@@ -193,14 +186,13 @@ sdnAccessible::get_attributesForNames(unsigned short aMaxAttribs,
     aAttribValues[index] = nullptr;
     if (aAttribNames[index]) {
       nsAutoString attributeValue, nameSpaceURI;
-      nsAutoString attributeName(nsDependentString(
-        static_cast<const wchar_t*>(aAttribNames[index])));
+      nsAutoString attributeName(
+          nsDependentString(static_cast<const wchar_t*>(aAttribNames[index])));
 
-      if (aNameSpaceID[index]>0 &&
-        NS_SUCCEEDED(nameSpaceManager->GetNameSpaceURI(aNameSpaceID[index],
-                                                       nameSpaceURI))) {
-          domElement->GetAttributeNS(nameSpaceURI, attributeName,
-                                          attributeValue);
+      if (aNameSpaceID[index] > 0 &&
+          NS_SUCCEEDED(nameSpaceManager->GetNameSpaceURI(aNameSpaceID[index],
+                                                         nameSpaceURI))) {
+        domElement->GetAttributeNS(nameSpaceURI, attributeName, attributeValue);
       } else {
         domElement->GetAttribute(attributeName, attributeValue);
       }
@@ -222,16 +214,14 @@ sdnAccessible::get_computedStyle(unsigned short aMaxStyleProperties,
   if (!aStyleProperties || aStyleValues || !aNumStyleProperties)
     return E_INVALIDARG;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   *aNumStyleProperties = 0;
 
-  if (mNode->IsNodeOfType(nsINode::eDOCUMENT))
-    return S_FALSE;
+  if (mNode->IsNodeOfType(nsINode::eDOCUMENT)) return S_FALSE;
 
   nsCOMPtr<nsIDOMCSSStyleDeclaration> cssDecl =
-    nsWinUtils::GetComputedStyleDeclaration(mNode->AsContent());
+      nsWinUtils::GetComputedStyleDeclaration(mNode->AsContent());
   NS_ENSURE_TRUE(cssDecl, E_FAIL);
 
   uint32_t length = 0;
@@ -239,11 +229,12 @@ sdnAccessible::get_computedStyle(unsigned short aMaxStyleProperties,
 
   uint32_t index = 0, realIndex = 0;
   for (index = realIndex = 0; index < length && realIndex < aMaxStyleProperties;
-       index ++) {
+       index++) {
     nsAutoString property, value;
 
     // Ignore -moz-* properties.
-    if (NS_SUCCEEDED(cssDecl->Item(index, property)) && property.CharAt(0) != '-')
+    if (NS_SUCCEEDED(cssDecl->Item(index, property)) &&
+        property.CharAt(0) != '-')
       cssDecl->GetPropertyValue(property, value);  // Get property value
 
     if (!value.IsEmpty()) {
@@ -259,29 +250,28 @@ sdnAccessible::get_computedStyle(unsigned short aMaxStyleProperties,
 }
 
 STDMETHODIMP
-sdnAccessible::get_computedStyleForProperties(unsigned short aNumStyleProperties,
-                                              boolean aUseAlternateView,
-                                              BSTR __RPC_FAR* aStyleProperties,
-                                              BSTR __RPC_FAR* aStyleValues)
+sdnAccessible::get_computedStyleForProperties(
+    unsigned short aNumStyleProperties,
+    boolean aUseAlternateView,
+    BSTR __RPC_FAR* aStyleProperties,
+    BSTR __RPC_FAR* aStyleValues)
 {
-  if (!aStyleProperties || !aStyleValues)
-    return E_INVALIDARG;
+  if (!aStyleProperties || !aStyleValues) return E_INVALIDARG;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (mNode->IsNodeOfType(nsINode::eDOCUMENT))
-    return S_FALSE;
+  if (mNode->IsNodeOfType(nsINode::eDOCUMENT)) return S_FALSE;
 
   nsCOMPtr<nsIDOMCSSStyleDeclaration> cssDecl =
-    nsWinUtils::GetComputedStyleDeclaration(mNode->AsContent());
+      nsWinUtils::GetComputedStyleDeclaration(mNode->AsContent());
   NS_ENSURE_TRUE(cssDecl, E_FAIL);
 
   uint32_t index = 0;
   for (index = 0; index < aNumStyleProperties; index++) {
     nsAutoString value;
     if (aStyleProperties[index])
-      cssDecl->GetPropertyValue(nsDependentString(aStyleProperties[index]), value);  // Get property value
+      cssDecl->GetPropertyValue(nsDependentString(aStyleProperties[index]),
+                                value);  // Get property value
     aStyleValues[index] = ::SysAllocString(value.get());
   }
 
@@ -292,29 +282,26 @@ STDMETHODIMP
 sdnAccessible::scrollTo(boolean aScrollTopLeft)
 {
   DocAccessible* document = GetDocument();
-  if (!document) // that's IsDefunct check
+  if (!document)  // that's IsDefunct check
     return CO_E_OBJNOTCONNECTED;
 
-  if (!mNode->IsContent())
-    return S_FALSE;
+  if (!mNode->IsContent()) return S_FALSE;
 
-  uint32_t scrollType =
-    aScrollTopLeft ? nsIAccessibleScrollType::SCROLL_TYPE_TOP_LEFT :
-                     nsIAccessibleScrollType::SCROLL_TYPE_BOTTOM_RIGHT;
+  uint32_t scrollType = aScrollTopLeft
+                            ? nsIAccessibleScrollType::SCROLL_TYPE_TOP_LEFT
+                            : nsIAccessibleScrollType::SCROLL_TYPE_BOTTOM_RIGHT;
 
   nsCoreUtils::ScrollTo(document->PresShell(), mNode->AsContent(), scrollType);
   return S_OK;
 }
 
 STDMETHODIMP
-sdnAccessible::get_parentNode(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
+sdnAccessible::get_parentNode(ISimpleDOMNode __RPC_FAR* __RPC_FAR* aNode)
 {
-  if (!aNode)
-    return E_INVALIDARG;
+  if (!aNode) return E_INVALIDARG;
   *aNode = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsINode* resultNode = mNode->GetParentNode();
   if (resultNode) {
@@ -326,14 +313,12 @@ sdnAccessible::get_parentNode(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
 }
 
 STDMETHODIMP
-sdnAccessible::get_firstChild(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
+sdnAccessible::get_firstChild(ISimpleDOMNode __RPC_FAR* __RPC_FAR* aNode)
 {
-  if (!aNode)
-    return E_INVALIDARG;
+  if (!aNode) return E_INVALIDARG;
   *aNode = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsINode* resultNode = mNode->GetFirstChild();
   if (resultNode) {
@@ -345,14 +330,12 @@ sdnAccessible::get_firstChild(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
 }
 
 STDMETHODIMP
-sdnAccessible::get_lastChild(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
+sdnAccessible::get_lastChild(ISimpleDOMNode __RPC_FAR* __RPC_FAR* aNode)
 {
-  if (!aNode)
-    return E_INVALIDARG;
+  if (!aNode) return E_INVALIDARG;
   *aNode = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsINode* resultNode = mNode->GetLastChild();
   if (resultNode) {
@@ -364,14 +347,12 @@ sdnAccessible::get_lastChild(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
 }
 
 STDMETHODIMP
-sdnAccessible::get_previousSibling(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
+sdnAccessible::get_previousSibling(ISimpleDOMNode __RPC_FAR* __RPC_FAR* aNode)
 {
-  if (!aNode)
-    return E_INVALIDARG;
+  if (!aNode) return E_INVALIDARG;
   *aNode = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsINode* resultNode = mNode->GetPreviousSibling();
   if (resultNode) {
@@ -383,14 +364,12 @@ sdnAccessible::get_previousSibling(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
 }
 
 STDMETHODIMP
-sdnAccessible::get_nextSibling(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
+sdnAccessible::get_nextSibling(ISimpleDOMNode __RPC_FAR* __RPC_FAR* aNode)
 {
-  if (!aNode)
-    return E_INVALIDARG;
+  if (!aNode) return E_INVALIDARG;
   *aNode = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsINode* resultNode = mNode->GetNextSibling();
   if (resultNode) {
@@ -403,14 +382,12 @@ sdnAccessible::get_nextSibling(ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
 
 STDMETHODIMP
 sdnAccessible::get_childAt(unsigned aChildIndex,
-                           ISimpleDOMNode __RPC_FAR *__RPC_FAR* aNode)
+                           ISimpleDOMNode __RPC_FAR* __RPC_FAR* aNode)
 {
-  if (!aNode)
-    return E_INVALIDARG;
+  if (!aNode) return E_INVALIDARG;
   *aNode = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsINode* resultNode = mNode->GetChildAt(aChildIndex);
   if (resultNode) {
@@ -418,44 +395,36 @@ sdnAccessible::get_childAt(unsigned aChildIndex,
     (*aNode)->AddRef();
   }
 
-
   return S_OK;
 }
 
 STDMETHODIMP
 sdnAccessible::get_innerHTML(BSTR __RPC_FAR* aInnerHTML)
 {
-  if (!aInnerHTML)
-    return E_INVALIDARG;
+  if (!aInnerHTML) return E_INVALIDARG;
   *aInnerHTML = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!mNode->IsElement())
-    return S_FALSE;
+  if (!mNode->IsElement()) return S_FALSE;
 
   nsAutoString innerHTML;
   mNode->AsElement()->GetInnerHTML(innerHTML);
-  if (innerHTML.IsEmpty())
-    return S_FALSE;
+  if (innerHTML.IsEmpty()) return S_FALSE;
 
   *aInnerHTML = ::SysAllocStringLen(innerHTML.get(), innerHTML.Length());
-  if (!*aInnerHTML)
-    return E_OUTOFMEMORY;
+  if (!*aInnerHTML) return E_OUTOFMEMORY;
 
   return S_OK;
 }
 
 STDMETHODIMP
-sdnAccessible::get_localInterface(void __RPC_FAR *__RPC_FAR* aLocalInterface)
+sdnAccessible::get_localInterface(void __RPC_FAR* __RPC_FAR* aLocalInterface)
 {
-  if (!aLocalInterface)
-    return E_INVALIDARG;
+  if (!aLocalInterface) return E_INVALIDARG;
   *aLocalInterface = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   *aLocalInterface = this;
   AddRef();
@@ -466,27 +435,23 @@ sdnAccessible::get_localInterface(void __RPC_FAR *__RPC_FAR* aLocalInterface)
 STDMETHODIMP
 sdnAccessible::get_language(BSTR __RPC_FAR* aLanguage)
 {
-  if (!aLanguage)
-    return E_INVALIDARG;
+  if (!aLanguage) return E_INVALIDARG;
   *aLanguage = nullptr;
 
-  if (IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   nsAutoString language;
   if (mNode->IsContent())
     nsCoreUtils::GetLanguageFor(mNode->AsContent(), nullptr, language);
-  if (language.IsEmpty()) { // Nothing found, so use document's language
+  if (language.IsEmpty()) {  // Nothing found, so use document's language
     mNode->OwnerDoc()->GetHeaderData(nsGkAtoms::headerContentLanguage,
                                      language);
   }
 
-  if (language.IsEmpty())
-    return S_FALSE;
+  if (language.IsEmpty()) return S_FALSE;
 
   *aLanguage = ::SysAllocStringLen(language.get(), language.Length());
-  if (!*aLanguage)
-   return E_OUTOFMEMORY;
+  if (!*aLanguage) return E_OUTOFMEMORY;
 
   return S_OK;
 }

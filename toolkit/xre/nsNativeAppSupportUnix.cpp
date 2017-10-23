@@ -48,7 +48,8 @@
 
 #define MIN_GTK_MAJOR_VERSION 2
 #define MIN_GTK_MINOR_VERSION 10
-#define UNSUPPORTED_GTK_MSG "We're sorry, this application requires a version of the GTK+ library that is not installed on your computer.\n\n\
+#define UNSUPPORTED_GTK_MSG \
+  "We're sorry, this application requires a version of the GTK+ library that is not installed on your computer.\n\n\
 You have GTK+ %d.%d.\nThis application requires GTK+ %d.%d or newer.\n\n\
 Please upgrade your GTK+ library if you wish to use this application."
 
@@ -65,20 +66,29 @@ Please upgrade your GTK+ library if you wish to use this application."
 #undef SmcOpenConnection
 #undef SmcSetProperties
 
-typedef IceIOErrorHandler (*IceSetIOErrorHandlerFn) (IceIOErrorHandler);
-typedef int (*IceAddConnectionWatchFn) (IceWatchProc, IcePointer);
-typedef int (*IceConnectionNumberFn) (IceConn);
-typedef IceProcessMessagesStatus (*IceProcessMessagesFn) (IceConn, IceReplyWaitInfo*, Bool*);
-typedef IcePointer (*IceGetConnectionContextFn) (IceConn);
+typedef IceIOErrorHandler (*IceSetIOErrorHandlerFn)(IceIOErrorHandler);
+typedef int (*IceAddConnectionWatchFn)(IceWatchProc, IcePointer);
+typedef int (*IceConnectionNumberFn)(IceConn);
+typedef IceProcessMessagesStatus (*IceProcessMessagesFn)(IceConn,
+                                                         IceReplyWaitInfo*,
+                                                         Bool*);
+typedef IcePointer (*IceGetConnectionContextFn)(IceConn);
 
-typedef void (*SmcInteractDoneFn) (SmcConn, Bool);
-typedef void (*SmcSaveYourselfDoneFn) (SmcConn, Bool);
-typedef int (*SmcInteractRequestFn) (SmcConn, int, SmcInteractProc, SmPointer);
-typedef SmcCloseStatus (*SmcCloseConnectionFn) (SmcConn, int, char**);
-typedef SmcConn (*SmcOpenConnectionFn) (char*, SmPointer, int, int,
-                                        unsigned long, SmcCallbacks*,
-                                        const char*, char**, int, char*);
-typedef void (*SmcSetPropertiesFn) (SmcConn, int, SmProp**);
+typedef void (*SmcInteractDoneFn)(SmcConn, Bool);
+typedef void (*SmcSaveYourselfDoneFn)(SmcConn, Bool);
+typedef int (*SmcInteractRequestFn)(SmcConn, int, SmcInteractProc, SmPointer);
+typedef SmcCloseStatus (*SmcCloseConnectionFn)(SmcConn, int, char**);
+typedef SmcConn (*SmcOpenConnectionFn)(char*,
+                                       SmPointer,
+                                       int,
+                                       int,
+                                       unsigned long,
+                                       SmcCallbacks*,
+                                       const char*,
+                                       char**,
+                                       int,
+                                       char*);
+typedef void (*SmcSetPropertiesFn)(SmcConn, int, SmProp**);
 
 static IceSetIOErrorHandlerFn IceSetIOErrorHandlerPtr;
 static IceAddConnectionWatchFn IceAddConnectionWatchPtr;
@@ -104,7 +114,8 @@ static SmcSetPropertiesFn SmcSetPropertiesPtr;
 #define SmcOpenConnection SmcOpenConnectionPtr
 #define SmcSetProperties SmcSetPropertiesPtr
 
-enum ClientState {
+enum ClientState
+{
   STATE_DISCONNECTED,
   STATE_REGISTERING,
   STATE_IDLE,
@@ -112,23 +123,18 @@ enum ClientState {
   STATE_SHUTDOWN_CANCELLED
 };
 
-static const char *gClientStateTable[] = {
-  "DISCONNECTED",
-  "REGISTERING",
-  "IDLE",
-  "INTERACTING",
-  "SHUTDOWN_CANCELLED"
-};
+static const char* gClientStateTable[] = {
+    "DISCONNECTED", "REGISTERING", "IDLE", "INTERACTING", "SHUTDOWN_CANCELLED"};
 
 static LazyLogModule sMozSMLog("MozSM");
 #endif /* MOZ_X11 */
 
 class nsNativeAppSupportUnix : public nsNativeAppSupportBase
 {
-public:
+ public:
 #if MOZ_X11
-  nsNativeAppSupportUnix(): mSessionConnection(nullptr),
-                            mClientState(STATE_DISCONNECTED) {};
+  nsNativeAppSupportUnix()
+      : mSessionConnection(nullptr), mClientState(STATE_DISCONNECTED){};
   ~nsNativeAppSupportUnix()
   {
     // this goes out of scope after "web-workers-shutdown" async shutdown phase
@@ -139,23 +145,28 @@ public:
   void DisconnectFromSM();
 #endif
   NS_IMETHOD Start(bool* aRetVal);
-  NS_IMETHOD Stop(bool *aResult);
+  NS_IMETHOD Stop(bool* aResult);
   NS_IMETHOD Enable();
 
-private:
+ private:
 #if MOZ_X11
-  static void SaveYourselfCB(SmcConn smc_conn, SmPointer client_data,
-                             int save_style, Bool shutdown, int interact_style,
+  static void SaveYourselfCB(SmcConn smc_conn,
+                             SmPointer client_data,
+                             int save_style,
+                             Bool shutdown,
+                             int interact_style,
                              Bool fast);
   static void DieCB(SmcConn smc_conn, SmPointer client_data);
   static void InteractCB(SmcConn smc_conn, SmPointer client_data);
-  static void SaveCompleteCB(SmcConn smc_conn, SmPointer client_data) {};
+  static void SaveCompleteCB(SmcConn smc_conn, SmPointer client_data){};
   static void ShutdownCancelledCB(SmcConn smc_conn, SmPointer client_data);
   void DoInteract();
   void SetClientState(ClientState aState)
   {
     mClientState = aState;
-    MOZ_LOG(sMozSMLog, LogLevel::Debug, ("New state = %s\n", gClientStateTable[aState]));
+    MOZ_LOG(sMozSMLog,
+            LogLevel::Debug,
+            ("New state = %s\n", gClientStateTable[aState]));
   }
 
   SmcConn mSessionConnection;
@@ -172,46 +183,50 @@ process_ice_messages(IceConn connection)
   status = IceProcessMessages(connection, nullptr, nullptr);
 
   switch (status) {
-  case IceProcessMessagesSuccess:
-    return TRUE;
+    case IceProcessMessagesSuccess:
+      return TRUE;
 
-  case IceProcessMessagesIOError: {
-      nsNativeAppSupportUnix *native =
-        static_cast<nsNativeAppSupportUnix *>(IceGetConnectionContext(connection));
+    case IceProcessMessagesIOError: {
+      nsNativeAppSupportUnix* native = static_cast<nsNativeAppSupportUnix*>(
+          IceGetConnectionContext(connection));
       native->DisconnectFromSM();
     }
-    return FALSE;
+      return FALSE;
 
-  case IceProcessMessagesConnectionClosed:
-    return FALSE;
+    case IceProcessMessagesConnectionClosed:
+      return FALSE;
 
-  default:
-    g_assert_not_reached ();
+    default:
+      g_assert_not_reached();
   }
 }
 
 static gboolean
-ice_iochannel_watch(GIOChannel *channel, GIOCondition condition,
+ice_iochannel_watch(GIOChannel* channel,
+                    GIOCondition condition,
                     gpointer client_data)
 {
   return process_ice_messages(static_cast<IceConn>(client_data));
 }
 
 static void
-ice_connection_watch(IceConn connection, IcePointer  client_data,
-                     Bool opening, IcePointer *watch_data)
+ice_connection_watch(IceConn connection,
+                     IcePointer client_data,
+                     Bool opening,
+                     IcePointer* watch_data)
 {
   guint watch_id;
 
   if (opening) {
-    GIOChannel *channel;
+    GIOChannel* channel;
     int fd = IceConnectionNumber(connection);
 
     fcntl(fd, F_SETFD, fcntl(fd, F_GETFD, 0) | FD_CLOEXEC);
     channel = g_io_channel_unix_new(fd);
     watch_id = g_io_add_watch(channel,
                               static_cast<GIOCondition>(G_IO_IN | G_IO_ERR),
-                              ice_iochannel_watch, connection);
+                              ice_iochannel_watch,
+                              connection);
     g_io_channel_unref(channel);
 
     *watch_data = GUINT_TO_POINTER(watch_id);
@@ -243,8 +258,8 @@ ice_init(void)
 void
 nsNativeAppSupportUnix::InteractCB(SmcConn smc_conn, SmPointer client_data)
 {
-  nsNativeAppSupportUnix *self =
-    static_cast<nsNativeAppSupportUnix *>(client_data);
+  nsNativeAppSupportUnix* self =
+      static_cast<nsNativeAppSupportUnix*>(client_data);
 
   self->SetClientState(STATE_INTERACTING);
 
@@ -255,16 +270,16 @@ nsNativeAppSupportUnix::InteractCB(SmcConn smc_conn, SmPointer client_data)
   // with a pending ShutdownCancelled, and we would certainly like to handle Die
   // whilst a dialog is displayed
   NS_DispatchToCurrentThread(
-    NewRunnableMethod("nsNativeAppSupportUnix::DoInteract",
-                      self,
-                      &nsNativeAppSupportUnix::DoInteract));
+      NewRunnableMethod("nsNativeAppSupportUnix::DoInteract",
+                        self,
+                        &nsNativeAppSupportUnix::DoInteract));
 }
 
 void
 nsNativeAppSupportUnix::DoInteract()
 {
   nsCOMPtr<nsIObserverService> obsServ =
-    mozilla::services::GetObserverService();
+      mozilla::services::GetObserverService();
   if (!obsServ) {
     SmcInteractDone(mSessionConnection, False);
     SmcSaveYourselfDone(mSessionConnection, True);
@@ -273,7 +288,7 @@ nsNativeAppSupportUnix::DoInteract()
   }
 
   nsCOMPtr<nsISupportsPRBool> cancelQuit =
-    do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID);
+      do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID);
 
   bool abortQuit = false;
   if (cancelQuit) {
@@ -287,7 +302,7 @@ nsNativeAppSupportUnix::DoInteract()
     // The session manager disappeared, whilst we were interacting, so
     // quit now
     nsCOMPtr<nsIAppStartup> appService =
-      do_GetService("@mozilla.org/toolkit/app-startup;1");
+        do_GetService("@mozilla.org/toolkit/app-startup;1");
 
     if (appService) {
       appService->Quit(nsIAppStartup::eForceQuit);
@@ -304,12 +319,15 @@ nsNativeAppSupportUnix::DoInteract()
 }
 
 void
-nsNativeAppSupportUnix::SaveYourselfCB(SmcConn smc_conn, SmPointer client_data,
-                                       int save_style, Bool shutdown,
-                                       int interact_style, Bool fast)
+nsNativeAppSupportUnix::SaveYourselfCB(SmcConn smc_conn,
+                                       SmPointer client_data,
+                                       int save_style,
+                                       Bool shutdown,
+                                       int interact_style,
+                                       Bool fast)
 {
-  nsNativeAppSupportUnix *self =
-    static_cast<nsNativeAppSupportUnix *>(client_data);
+  nsNativeAppSupportUnix* self =
+      static_cast<nsNativeAppSupportUnix*>(client_data);
 
   // Expect a SaveYourselfCB if we're registering a new client.
   // All properties are already set in Start() so just reply with
@@ -339,7 +357,7 @@ nsNativeAppSupportUnix::SaveYourselfCB(SmcConn smc_conn, SmPointer client_data,
   }
 
   nsCOMPtr<nsIObserverService> obsServ =
-    mozilla::services::GetObserverService();
+      mozilla::services::GetObserverService();
   if (!obsServ) {
     SmcSaveYourselfDone(smc_conn, True);
     return;
@@ -348,7 +366,7 @@ nsNativeAppSupportUnix::SaveYourselfCB(SmcConn smc_conn, SmPointer client_data,
   bool status = false;
   if (save_style != SmSaveGlobal) {
     nsCOMPtr<nsISupportsPRBool> didSaveSession =
-      do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID);
+        do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID);
 
     if (!didSaveSession) {
       SmcSaveYourselfDone(smc_conn, True);
@@ -368,8 +386,10 @@ nsNativeAppSupportUnix::SaveYourselfCB(SmcConn smc_conn, SmPointer client_data,
   // doing so)
   if (!status && shutdown && interact_style != SmInteractStyleNone) {
     if (self->mClientState != STATE_INTERACTING) {
-      SmcInteractRequest(smc_conn, SmDialogNormal,
-                         nsNativeAppSupportUnix::InteractCB, client_data);
+      SmcInteractRequest(smc_conn,
+                         SmDialogNormal,
+                         nsNativeAppSupportUnix::InteractCB,
+                         client_data);
     }
   } else {
     SmcSaveYourselfDone(smc_conn, True);
@@ -380,7 +400,7 @@ void
 nsNativeAppSupportUnix::DieCB(SmcConn smc_conn, SmPointer client_data)
 {
   nsCOMPtr<nsIAppStartup> appService =
-    do_GetService("@mozilla.org/toolkit/app-startup;1");
+      do_GetService("@mozilla.org/toolkit/app-startup;1");
 
   if (appService) {
     appService->Quit(nsIAppStartup::eForceQuit);
@@ -393,8 +413,8 @@ void
 nsNativeAppSupportUnix::ShutdownCancelledCB(SmcConn smc_conn,
                                             SmPointer client_data)
 {
-  nsNativeAppSupportUnix *self =
-    static_cast<nsNativeAppSupportUnix *>(client_data);
+  nsNativeAppSupportUnix* self =
+      static_cast<nsNativeAppSupportUnix*>(client_data);
 
   // Interacting is the only time when we wouldn't already have called
   // SmcSaveYourselfDone. Do that now, then set the state to make sure we
@@ -428,7 +448,10 @@ SetSMValue(SmPropValue& val, const nsCString& data)
 }
 
 static void
-SetSMProperty(SmProp& prop, const char* name, const char* type, int numVals,
+SetSMProperty(SmProp& prop,
+              const char* name,
+              const char* type,
+              int numVals,
               SmPropValue vals[])
 {
   prop.name = const_cast<char*>(name);
@@ -438,7 +461,8 @@ SetSMProperty(SmProp& prop, const char* name, const char* type, int numVals,
 }
 #endif /* MOZ_X11 */
 
-static void RemoveArg(char **argv)
+static void
+RemoveArg(char** argv)
 {
   do {
     *argv = *(argv + 1);
@@ -449,7 +473,7 @@ static void RemoveArg(char **argv)
 }
 
 NS_IMETHODIMP
-nsNativeAppSupportUnix::Start(bool *aRetVal)
+nsNativeAppSupportUnix::Start(bool* aRetVal)
 {
   NS_ASSERTION(gAppData, "gAppData must not be null.");
 
@@ -462,17 +486,18 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
 
 #if (MOZ_WIDGET_GTK == 2)
   if (gtk_major_version < MIN_GTK_MAJOR_VERSION ||
-      (gtk_major_version == MIN_GTK_MAJOR_VERSION && gtk_minor_version < MIN_GTK_MINOR_VERSION)) {
-    GtkWidget* versionErrDialog = gtk_message_dialog_new(nullptr,
-                     GtkDialogFlags(GTK_DIALOG_MODAL |
-                                    GTK_DIALOG_DESTROY_WITH_PARENT),
-                     GTK_MESSAGE_ERROR,
-                     GTK_BUTTONS_OK,
-                     UNSUPPORTED_GTK_MSG,
-                     gtk_major_version,
-                     gtk_minor_version,
-                     MIN_GTK_MAJOR_VERSION,
-                     MIN_GTK_MINOR_VERSION);
+      (gtk_major_version == MIN_GTK_MAJOR_VERSION &&
+       gtk_minor_version < MIN_GTK_MINOR_VERSION)) {
+    GtkWidget* versionErrDialog = gtk_message_dialog_new(
+        nullptr,
+        GtkDialogFlags(GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT),
+        GTK_MESSAGE_ERROR,
+        GTK_BUTTONS_OK,
+        UNSUPPORTED_GTK_MSG,
+        gtk_major_version,
+        gtk_minor_version,
+        MIN_GTK_MAJOR_VERSION,
+        MIN_GTK_MINOR_VERSION);
     gtk_dialog_run(GTK_DIALOG(versionErrDialog));
     gtk_widget_destroy(versionErrDialog);
     MozExpectedExit();
@@ -490,9 +515,9 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
 
   nsAutoCString prev_client_id;
 
-  char **curarg = gArgv + 1;
+  char** curarg = gArgv + 1;
   while (*curarg) {
-    char *arg = *curarg;
+    char* arg = *curarg;
     if (arg[0] == '-' && arg[1] == '-') {
       arg += 2;
       if (!strcmp(arg, "sm-disable")) {
@@ -519,37 +544,49 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
   // We don't want child processes to use the same ID
   unsetenv("DESKTOP_AUTOSTART_ID");
 
-  char *client_id = nullptr;
+  char* client_id = nullptr;
   if (!sm_disable) {
-    PRLibrary *iceLib = PR_LoadLibrary("libICE.so.6");
+    PRLibrary* iceLib = PR_LoadLibrary("libICE.so.6");
     if (!iceLib) {
       return NS_OK;
     }
 
-    PRLibrary *smLib = PR_LoadLibrary("libSM.so.6");
+    PRLibrary* smLib = PR_LoadLibrary("libSM.so.6");
     if (!smLib) {
       PR_UnloadLibrary(iceLib);
       return NS_OK;
     }
 
-    IceSetIOErrorHandler = (IceSetIOErrorHandlerFn)PR_FindFunctionSymbol(iceLib, "IceSetIOErrorHandler");
-    IceAddConnectionWatch = (IceAddConnectionWatchFn)PR_FindFunctionSymbol(iceLib, "IceAddConnectionWatch");
-    IceConnectionNumber = (IceConnectionNumberFn)PR_FindFunctionSymbol(iceLib, "IceConnectionNumber");
-    IceProcessMessages = (IceProcessMessagesFn)PR_FindFunctionSymbol(iceLib, "IceProcessMessages");
-    IceGetConnectionContext = (IceGetConnectionContextFn)PR_FindFunctionSymbol(iceLib, "IceGetConnectionContext");
+    IceSetIOErrorHandler = (IceSetIOErrorHandlerFn)PR_FindFunctionSymbol(
+        iceLib, "IceSetIOErrorHandler");
+    IceAddConnectionWatch = (IceAddConnectionWatchFn)PR_FindFunctionSymbol(
+        iceLib, "IceAddConnectionWatch");
+    IceConnectionNumber = (IceConnectionNumberFn)PR_FindFunctionSymbol(
+        iceLib, "IceConnectionNumber");
+    IceProcessMessages = (IceProcessMessagesFn)PR_FindFunctionSymbol(
+        iceLib, "IceProcessMessages");
+    IceGetConnectionContext = (IceGetConnectionContextFn)PR_FindFunctionSymbol(
+        iceLib, "IceGetConnectionContext");
     if (!IceSetIOErrorHandler || !IceAddConnectionWatch ||
-	!IceConnectionNumber  || !IceProcessMessages || !IceGetConnectionContext) {
+        !IceConnectionNumber || !IceProcessMessages ||
+        !IceGetConnectionContext) {
       PR_UnloadLibrary(iceLib);
       PR_UnloadLibrary(smLib);
       return NS_OK;
     }
 
-    SmcInteractDone = (SmcInteractDoneFn)PR_FindFunctionSymbol(smLib, "SmcInteractDone");
-    SmcSaveYourselfDone = (SmcSaveYourselfDoneFn)PR_FindFunctionSymbol(smLib, "SmcSaveYourselfDone");
-    SmcInteractRequest = (SmcInteractRequestFn)PR_FindFunctionSymbol(smLib, "SmcInteractRequest");
-    SmcCloseConnection = (SmcCloseConnectionFn)PR_FindFunctionSymbol(smLib, "SmcCloseConnection");
-    SmcOpenConnection = (SmcOpenConnectionFn)PR_FindFunctionSymbol(smLib, "SmcOpenConnection");
-    SmcSetProperties = (SmcSetPropertiesFn)PR_FindFunctionSymbol(smLib, "SmcSetProperties");
+    SmcInteractDone =
+        (SmcInteractDoneFn)PR_FindFunctionSymbol(smLib, "SmcInteractDone");
+    SmcSaveYourselfDone = (SmcSaveYourselfDoneFn)PR_FindFunctionSymbol(
+        smLib, "SmcSaveYourselfDone");
+    SmcInteractRequest = (SmcInteractRequestFn)PR_FindFunctionSymbol(
+        smLib, "SmcInteractRequest");
+    SmcCloseConnection = (SmcCloseConnectionFn)PR_FindFunctionSymbol(
+        smLib, "SmcCloseConnection");
+    SmcOpenConnection =
+        (SmcOpenConnectionFn)PR_FindFunctionSymbol(smLib, "SmcOpenConnection");
+    SmcSetProperties =
+        (SmcSetPropertiesFn)PR_FindFunctionSymbol(smLib, "SmcSetProperties");
     if (!SmcInteractDone || !SmcSaveYourselfDone || !SmcInteractRequest ||
         !SmcCloseConnection || !SmcOpenConnection || !SmcSetProperties) {
       PR_UnloadLibrary(iceLib);
@@ -574,14 +611,20 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
     callbacks.save_complete.client_data = nullptr;
 
     callbacks.shutdown_cancelled.callback =
-      nsNativeAppSupportUnix::ShutdownCancelledCB;
+        nsNativeAppSupportUnix::ShutdownCancelledCB;
     callbacks.shutdown_cancelled.client_data = static_cast<SmPointer>(this);
 
     char errbuf[256];
-    mSessionConnection = SmcOpenConnection(nullptr, this, SmProtoMajor,
-                                           SmProtoMinor, mask, &callbacks,
-                                           prev_client_id.get(), &client_id,
-                                           sizeof(errbuf), errbuf);
+    mSessionConnection = SmcOpenConnection(nullptr,
+                                           this,
+                                           SmProtoMajor,
+                                           SmProtoMinor,
+                                           mask,
+                                           &callbacks,
+                                           prev_client_id.get(),
+                                           &client_id,
+                                           sizeof(errbuf),
+                                           errbuf);
   }
 
   if (!mSessionConnection) {
@@ -608,18 +651,21 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
   nsAutoCString path(getenv("MOZ_APP_LAUNCHER"));
 
   if (path.IsEmpty()) {
-    NS_ASSERTION(gDirServiceProvider, "gDirServiceProvider is NULL! This shouldn't happen!");
+    NS_ASSERTION(gDirServiceProvider,
+                 "gDirServiceProvider is NULL! This shouldn't happen!");
     nsCOMPtr<nsIFile> executablePath;
     nsresult rv;
 
     bool dummy;
-    rv = gDirServiceProvider->GetFile(XRE_EXECUTABLE_FILE, &dummy, getter_AddRefs(executablePath));
+    rv = gDirServiceProvider->GetFile(
+        XRE_EXECUTABLE_FILE, &dummy, getter_AddRefs(executablePath));
 
     if (NS_SUCCEEDED(rv)) {
       // Strip off the -bin suffix to get the shell script we should run; this is what Breakpad does
       nsAutoCString leafName;
       rv = executablePath->GetNativeLeafName(leafName);
-      if (NS_SUCCEEDED(rv) && StringEndsWith(leafName, NS_LITERAL_CSTRING("-bin"))) {
+      if (NS_SUCCEEDED(rv) &&
+          StringEndsWith(leafName, NS_LITERAL_CSTRING("-bin"))) {
         leafName.SetLength(leafName.Length() - strlen("-bin"));
         executablePath->SetNativeLeafName(leafName);
       }
@@ -634,8 +680,10 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
     // launch time.
     path = gAppData->name;  // will always be set
     ToLowerCase(path);
-    MOZ_LOG(sMozSMLog, LogLevel::Warning,
-        ("Could not determine executable path. Falling back to %s.", path.get()));
+    MOZ_LOG(sMozSMLog,
+            LogLevel::Warning,
+            ("Could not determine executable path. Falling back to %s.",
+             path.get()));
   }
 
   SmProp propRestart, propClone, propProgram, propUser, *props[4];
@@ -667,7 +715,9 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
     userName = pw->pw_name;
   } else {
     userName = NS_LITERAL_CSTRING("nobody");
-    MOZ_LOG(sMozSMLog, LogLevel::Warning,
+    MOZ_LOG(
+        sMozSMLog,
+        LogLevel::Warning,
         ("Could not determine user-name. Falling back to %s.", userName.get()));
   }
 
@@ -684,7 +734,7 @@ nsNativeAppSupportUnix::Start(bool *aRetVal)
 }
 
 NS_IMETHODIMP
-nsNativeAppSupportUnix::Stop(bool *aResult)
+nsNativeAppSupportUnix::Stop(bool* aResult)
 {
   NS_ENSURE_ARG(aResult);
   *aResult = true;
@@ -692,17 +742,13 @@ nsNativeAppSupportUnix::Stop(bool *aResult)
 }
 
 NS_IMETHODIMP
-nsNativeAppSupportUnix::Enable()
-{
-  return NS_OK;
-}
+nsNativeAppSupportUnix::Enable() { return NS_OK; }
 
 nsresult
-NS_CreateNativeAppSupport(nsINativeAppSupport **aResult)
+NS_CreateNativeAppSupport(nsINativeAppSupport** aResult)
 {
   nsNativeAppSupportBase* native = new nsNativeAppSupportUnix();
-  if (!native)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!native) return NS_ERROR_OUT_OF_MEMORY;
 
   *aResult = native;
   NS_ADDREF(*aResult);

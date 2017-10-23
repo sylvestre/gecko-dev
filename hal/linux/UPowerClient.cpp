@@ -19,10 +19,10 @@
  * We are specializing nsAutoRef class.
  */
 
-template <>
+template<>
 class nsAutoRefTraits<GHashTable> : public nsPointerRefTraits<GHashTable>
 {
-public:
+ public:
   static void Release(GHashTable* ptr) { g_hash_table_unref(ptr); }
 };
 
@@ -38,22 +38,23 @@ namespace hal_impl {
  */
 class UPowerClient
 {
-public:
+ public:
   static UPowerClient* GetInstance();
 
   void BeginListening();
   void StopListening();
 
   double GetLevel();
-  bool   IsCharging();
+  bool IsCharging();
   double GetRemainingTime();
 
   ~UPowerClient();
 
-private:
+ private:
   UPowerClient();
 
-  enum States {
+  enum States
+  {
     eState_Unknown = 0,
     eState_Charging,
     eState_Discharging,
@@ -88,7 +89,8 @@ private:
   /**
    * Callback used by 'DeviceChanged' signal.
    */
-  static void DeviceChanged(DBusGProxy* aProxy, const gchar* aObjectPath,
+  static void DeviceChanged(DBusGProxy* aProxy,
+                            const gchar* aObjectPath,
                             UPowerClient* aListener);
 
   /**
@@ -96,8 +98,10 @@ private:
    * This method is called when the the battery level changes.
    * (Only with upower >= 0.99)
    */
-  static void PropertiesChanged(DBusGProxy* aProxy, const gchar*,
-                                GHashTable*, char**,
+  static void PropertiesChanged(DBusGProxy* aProxy,
+                                const gchar*,
+                                GHashTable*,
+                                char**,
                                 UPowerClient* aListener);
 
   /**
@@ -174,19 +178,20 @@ UPowerClient::GetInstance()
 }
 
 UPowerClient::UPowerClient()
-  : mDBusConnection(nullptr)
-  , mUPowerProxy(nullptr)
-  , mTrackedDevice(nullptr)
-  , mTrackedDeviceProxy(nullptr)
-  , mLevel(kDefaultLevel)
-  , mCharging(kDefaultCharging)
-  , mRemainingTime(kDefaultRemainingTime)
+    : mDBusConnection(nullptr),
+      mUPowerProxy(nullptr),
+      mTrackedDevice(nullptr),
+      mTrackedDeviceProxy(nullptr),
+      mLevel(kDefaultLevel),
+      mCharging(kDefaultCharging),
+      mRemainingTime(kDefaultRemainingTime)
 {
 }
 
 UPowerClient::~UPowerClient()
 {
-  NS_ASSERTION(!mDBusConnection && !mUPowerProxy && !mTrackedDevice && !mTrackedDeviceProxy,
+  NS_ASSERTION(!mDBusConnection && !mUPowerProxy && !mTrackedDevice &&
+                   !mTrackedDeviceProxy,
                "The observers have not been correctly removed! "
                "(StopListening should have been called)");
 }
@@ -204,15 +209,15 @@ UPowerClient::BeginListening()
   }
 
   DBusConnection* dbusConnection =
-    dbus_g_connection_get_connection(mDBusConnection);
+      dbus_g_connection_get_connection(mDBusConnection);
 
   // Make sure we do not exit the entire program if DBus connection get lost.
   dbus_connection_set_exit_on_disconnect(dbusConnection, false);
 
   // Listening to signals the DBus connection is going to get so we will know
   // when it is lost and we will be able to disconnect cleanly.
-  dbus_connection_add_filter(dbusConnection, ConnectionSignalFilter, this,
-                             nullptr);
+  dbus_connection_add_filter(
+      dbusConnection, ConnectionSignalFilter, this, nullptr);
 
   mUPowerProxy = dbus_g_proxy_new_for_name(mDBusConnection,
                                            "org.freedesktop.UPower",
@@ -227,10 +232,10 @@ UPowerClient::BeginListening()
    * It's not yet implemented because it requires testing hot plugging and
    * removal of a battery.
    */
-  dbus_g_proxy_add_signal(mUPowerProxy, "DeviceChanged", G_TYPE_STRING,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_connect_signal(mUPowerProxy, "DeviceChanged",
-                              G_CALLBACK (DeviceChanged), this, nullptr);
+  dbus_g_proxy_add_signal(
+      mUPowerProxy, "DeviceChanged", G_TYPE_STRING, G_TYPE_INVALID);
+  dbus_g_proxy_connect_signal(
+      mUPowerProxy, "DeviceChanged", G_CALLBACK(DeviceChanged), this, nullptr);
 }
 
 void
@@ -243,17 +248,20 @@ UPowerClient::StopListening()
 
   dbus_connection_remove_filter(
       dbus_g_connection_get_connection(mDBusConnection),
-      ConnectionSignalFilter, this);
+      ConnectionSignalFilter,
+      this);
 
-  dbus_g_proxy_disconnect_signal(mUPowerProxy, "DeviceChanged",
-                                 G_CALLBACK (DeviceChanged), this);
+  dbus_g_proxy_disconnect_signal(
+      mUPowerProxy, "DeviceChanged", G_CALLBACK(DeviceChanged), this);
 
   g_free(mTrackedDevice);
   mTrackedDevice = nullptr;
 
   if (mTrackedDeviceProxy) {
-    dbus_g_proxy_disconnect_signal(mTrackedDeviceProxy, "PropertiesChanged",
-                                   G_CALLBACK (PropertiesChanged), this);
+    dbus_g_proxy_disconnect_signal(mTrackedDeviceProxy,
+                                   "PropertiesChanged",
+                                   G_CALLBACK(PropertiesChanged),
+                                   this);
 
     g_object_unref(mTrackedDeviceProxy);
     mTrackedDeviceProxy = nullptr;
@@ -274,8 +282,8 @@ UPowerClient::StopListening()
 void
 UPowerClient::UpdateTrackedDeviceSync()
 {
-  GType typeGPtrArray = dbus_g_type_get_collection("GPtrArray",
-                                                   DBUS_TYPE_G_OBJECT_PATH);
+  GType typeGPtrArray =
+      dbus_g_type_get_collection("GPtrArray", DBUS_TYPE_G_OBJECT_PATH);
   GPtrArray* devices = nullptr;
   GError* error = nullptr;
 
@@ -285,16 +293,23 @@ UPowerClient::UpdateTrackedDeviceSync()
 
   // Reset the current tracked device proxy:
   if (mTrackedDeviceProxy) {
-    dbus_g_proxy_disconnect_signal(mTrackedDeviceProxy, "PropertiesChanged",
-                                   G_CALLBACK (PropertiesChanged), this);
+    dbus_g_proxy_disconnect_signal(mTrackedDeviceProxy,
+                                   "PropertiesChanged",
+                                   G_CALLBACK(PropertiesChanged),
+                                   this);
 
     g_object_unref(mTrackedDeviceProxy);
     mTrackedDeviceProxy = nullptr;
   }
 
   // If that fails, that likely means upower isn't installed.
-  if (!dbus_g_proxy_call(mUPowerProxy, "EnumerateDevices", &error, G_TYPE_INVALID,
-                         typeGPtrArray, &devices, G_TYPE_INVALID)) {
+  if (!dbus_g_proxy_call(mUPowerProxy,
+                         "EnumerateDevices",
+                         &error,
+                         G_TYPE_INVALID,
+                         typeGPtrArray,
+                         &devices,
+                         G_TYPE_INVALID)) {
     HAL_LOG("Error: %s\n", error->message);
     g_error_free(error);
     return;
@@ -304,16 +319,16 @@ UPowerClient::UpdateTrackedDeviceSync()
    * We are looking for the first device that is a battery.
    * TODO: we could try to combine more than one battery.
    */
-  for (guint i=0; i<devices->len; ++i) {
+  for (guint i = 0; i < devices->len; ++i) {
     gchar* devicePath = static_cast<gchar*>(g_ptr_array_index(devices, i));
 
-    DBusGProxy* proxy = dbus_g_proxy_new_from_proxy(mUPowerProxy,
-                                                    "org.freedesktop.DBus.Properties",
-                                                    devicePath);
+    DBusGProxy* proxy = dbus_g_proxy_new_from_proxy(
+        mUPowerProxy, "org.freedesktop.DBus.Properties", devicePath);
 
     nsAutoRef<GHashTable> hashTable(GetDevicePropertiesSync(proxy));
 
-    if (g_value_get_uint(static_cast<const GValue*>(g_hash_table_lookup(hashTable, "Type"))) == sDeviceTypeBattery) {
+    if (g_value_get_uint(static_cast<const GValue*>(
+            g_hash_table_lookup(hashTable, "Type"))) == sDeviceTypeBattery) {
       UpdateSavedInfo(hashTable);
       mTrackedDevice = devicePath;
       mTrackedDeviceProxy = proxy;
@@ -325,20 +340,26 @@ UPowerClient::UpdateTrackedDeviceSync()
   }
 
   if (mTrackedDeviceProxy) {
-    dbus_g_proxy_add_signal(mTrackedDeviceProxy, "PropertiesChanged",
-                            G_TYPE_STRING,
-                            dbus_g_type_get_map("GHashTable", G_TYPE_STRING,
-                                                G_TYPE_VALUE),
-                            G_TYPE_STRV, G_TYPE_INVALID);
-    dbus_g_proxy_connect_signal(mTrackedDeviceProxy, "PropertiesChanged",
-                                G_CALLBACK (PropertiesChanged), this, nullptr);
+    dbus_g_proxy_add_signal(
+        mTrackedDeviceProxy,
+        "PropertiesChanged",
+        G_TYPE_STRING,
+        dbus_g_type_get_map("GHashTable", G_TYPE_STRING, G_TYPE_VALUE),
+        G_TYPE_STRV,
+        G_TYPE_INVALID);
+    dbus_g_proxy_connect_signal(mTrackedDeviceProxy,
+                                "PropertiesChanged",
+                                G_CALLBACK(PropertiesChanged),
+                                this,
+                                nullptr);
   }
 
   g_ptr_array_free(devices, true);
 }
 
 /* static */ void
-UPowerClient::DeviceChanged(DBusGProxy* aProxy, const gchar* aObjectPath,
+UPowerClient::DeviceChanged(DBusGProxy* aProxy,
+                            const gchar* aObjectPath,
                             UPowerClient* aListener)
 {
   if (!aListener->mTrackedDevice) {
@@ -357,15 +378,19 @@ UPowerClient::DeviceChanged(DBusGProxy* aProxy, const gchar* aObjectPath,
 }
 
 /* static */ void
-UPowerClient::PropertiesChanged(DBusGProxy* aProxy, const gchar*, GHashTable*,
-                                char**, UPowerClient* aListener)
+UPowerClient::PropertiesChanged(DBusGProxy* aProxy,
+                                const gchar*,
+                                GHashTable*,
+                                char**,
+                                UPowerClient* aListener)
 {
   aListener->GetDevicePropertiesAsync(aListener->mTrackedDeviceProxy);
 }
 
 /* static */ DBusHandlerResult
 UPowerClient::ConnectionSignalFilter(DBusConnection* aConnection,
-                                     DBusMessage* aMessage, void* aData)
+                                     DBusMessage* aMessage,
+                                     void* aData)
 {
   if (dbus_message_is_signal(aMessage, DBUS_INTERFACE_LOCAL, "Disconnected")) {
     static_cast<UPowerClient*>(aData)->StopListening();
@@ -381,11 +406,17 @@ UPowerClient::GetDevicePropertiesSync(DBusGProxy* aProxy)
 {
   GError* error = nullptr;
   GHashTable* hashTable = nullptr;
-  GType typeGHashTable = dbus_g_type_get_map("GHashTable", G_TYPE_STRING,
-                                            G_TYPE_VALUE);
-  if (!dbus_g_proxy_call(aProxy, "GetAll", &error, G_TYPE_STRING,
-                         "org.freedesktop.UPower.Device", G_TYPE_INVALID,
-                         typeGHashTable, &hashTable, G_TYPE_INVALID)) {
+  GType typeGHashTable =
+      dbus_g_type_get_map("GHashTable", G_TYPE_STRING, G_TYPE_VALUE);
+  if (!dbus_g_proxy_call(aProxy,
+                         "GetAll",
+                         &error,
+                         G_TYPE_STRING,
+                         "org.freedesktop.UPower.Device",
+                         G_TYPE_INVALID,
+                         typeGHashTable,
+                         &hashTable,
+                         G_TYPE_INVALID)) {
     HAL_LOG("Error: %s\n", error->message);
     g_error_free(error);
     return nullptr;
@@ -396,21 +427,21 @@ UPowerClient::GetDevicePropertiesSync(DBusGProxy* aProxy)
 
 /* static */ void
 UPowerClient::GetDevicePropertiesCallback(DBusGProxy* aProxy,
-                                          DBusGProxyCall* aCall, void* aData)
+                                          DBusGProxyCall* aCall,
+                                          void* aData)
 {
   GError* error = nullptr;
   GHashTable* hashTable = nullptr;
-  GType typeGHashTable = dbus_g_type_get_map("GHashTable", G_TYPE_STRING,
-                                             G_TYPE_VALUE);
-  if (!dbus_g_proxy_end_call(aProxy, aCall, &error, typeGHashTable,
-                             &hashTable, G_TYPE_INVALID)) {
+  GType typeGHashTable =
+      dbus_g_type_get_map("GHashTable", G_TYPE_STRING, G_TYPE_VALUE);
+  if (!dbus_g_proxy_end_call(
+          aProxy, aCall, &error, typeGHashTable, &hashTable, G_TYPE_INVALID)) {
     HAL_LOG("Error: %s\n", error->message);
     g_error_free(error);
   } else {
     sInstance->UpdateSavedInfo(hashTable);
-    hal::NotifyBatteryChange(hal::BatteryInformation(sInstance->mLevel,
-                                                     sInstance->mCharging,
-                                                     sInstance->mRemainingTime));
+    hal::NotifyBatteryChange(hal::BatteryInformation(
+        sInstance->mLevel, sInstance->mCharging, sInstance->mRemainingTime));
     g_hash_table_unref(hashTable);
   }
 }
@@ -418,9 +449,14 @@ UPowerClient::GetDevicePropertiesCallback(DBusGProxy* aProxy,
 void
 UPowerClient::GetDevicePropertiesAsync(DBusGProxy* aProxy)
 {
-  dbus_g_proxy_begin_call(aProxy, "GetAll", GetDevicePropertiesCallback, nullptr,
-                          nullptr, G_TYPE_STRING,
-                          "org.freedesktop.UPower.Device", G_TYPE_INVALID);
+  dbus_g_proxy_begin_call(aProxy,
+                          "GetAll",
+                          GetDevicePropertiesCallback,
+                          nullptr,
+                          nullptr,
+                          G_TYPE_STRING,
+                          "org.freedesktop.UPower.Device",
+                          G_TYPE_INVALID);
 }
 
 void
@@ -445,7 +481,8 @@ UPowerClient::UpdateSavedInfo(GHashTable* aHashTable)
    * given that plugging/unplugging the battery should have an impact on the
    * level.
    */
-  switch (g_value_get_uint(static_cast<const GValue*>(g_hash_table_lookup(aHashTable, "State")))) {
+  switch (g_value_get_uint(
+      static_cast<const GValue*>(g_hash_table_lookup(aHashTable, "State")))) {
     case eState_Unknown:
       mCharging = kDefaultCharging;
       break;
@@ -471,14 +508,19 @@ UPowerClient::UpdateSavedInfo(GHashTable* aHashTable)
   if (isFull) {
     mLevel = 1.0;
   } else {
-    mLevel = round(g_value_get_double(static_cast<const GValue*>(g_hash_table_lookup(aHashTable, "Percentage"))))*0.01;
+    mLevel = round(g_value_get_double(static_cast<const GValue*>(
+                 g_hash_table_lookup(aHashTable, "Percentage")))) *
+             0.01;
   }
 
   if (isFull) {
     mRemainingTime = 0;
   } else {
-    mRemainingTime = mCharging ? g_value_get_int64(static_cast<const GValue*>(g_hash_table_lookup(aHashTable, "TimeToFull")))
-                               : g_value_get_int64(static_cast<const GValue*>(g_hash_table_lookup(aHashTable, "TimeToEmpty")));
+    mRemainingTime = mCharging
+                         ? g_value_get_int64(static_cast<const GValue*>(
+                               g_hash_table_lookup(aHashTable, "TimeToFull")))
+                         : g_value_get_int64(static_cast<const GValue*>(
+                               g_hash_table_lookup(aHashTable, "TimeToEmpty")));
 
     if (mRemainingTime == kUPowerUnknownRemainingTime) {
       mRemainingTime = kUnknownRemainingTime;
@@ -504,5 +546,5 @@ UPowerClient::GetRemainingTime()
   return mRemainingTime;
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

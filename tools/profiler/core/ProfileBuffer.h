@@ -15,7 +15,7 @@
 
 class ProfileBuffer final
 {
-public:
+ public:
   explicit ProfileBuffer(int aEntrySize);
 
   ~ProfileBuffer();
@@ -23,11 +23,9 @@ public:
   // LastSample is used to record the buffer location of the most recent
   // sample for each thread. It is used for periodic samples stored in the
   // global ProfileBuffer, but *not* for synchronous samples.
-  struct LastSample {
-    LastSample()
-      : mGeneration(0)
-      , mPos(-1)
-    {}
+  struct LastSample
+  {
+    LastSample() : mGeneration(0), mPos(-1) {}
 
     // The profiler-buffer generation number at which the sample was created.
     uint32_t mGeneration;
@@ -43,17 +41,22 @@ public:
   void AddThreadIdEntry(int aThreadId, LastSample* aLS = nullptr);
 
   void CollectCodeLocation(
-    const char* aLabel, const char* aStr, int aLineNumber,
-    const mozilla::Maybe<js::ProfileEntry::Category>& aCategory);
+      const char* aLabel,
+      const char* aStr,
+      int aLineNumber,
+      const mozilla::Maybe<js::ProfileEntry::Category>& aCategory);
 
   // Maximum size of a frameKey string that we'll handle.
   static const size_t kMaxFrameKeyLength = 512;
 
-  void StreamSamplesToJSON(SpliceableJSONWriter& aWriter, int aThreadId,
-                           double aSinceTime, double* aOutFirstSampleTime,
+  void StreamSamplesToJSON(SpliceableJSONWriter& aWriter,
+                           int aThreadId,
+                           double aSinceTime,
+                           double* aOutFirstSampleTime,
                            JSContext* cx,
                            UniqueStacks& aUniqueStacks) const;
-  void StreamMarkersToJSON(SpliceableJSONWriter& aWriter, int aThreadId,
+  void StreamMarkersToJSON(SpliceableJSONWriter& aWriter,
+                           int aThreadId,
                            const mozilla::TimeStamp& aProcessStartTime,
                            double aSinceTime,
                            UniqueStacks& aUniqueStacks) const;
@@ -74,10 +77,10 @@ public:
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   int FindLastSampleOfThread(int aThreadId, const LastSample& aLS) const;
 
-public:
+ public:
   // Circular buffer 'Keep One Slot Open' implementation for simplicity
   mozilla::UniquePtr<ProfileBufferEntry[]> mEntries;
 
@@ -106,11 +109,11 @@ public:
  */
 class ProfileBufferCollector final : public ProfilerStackCollector
 {
-public:
+ public:
   ProfileBufferCollector(ProfileBuffer& aBuf, uint32_t aFeatures)
-    : mBuf(aBuf)
-    , mFeatures(aFeatures)
-  {}
+      : mBuf(aBuf), mFeatures(aFeatures)
+  {
+  }
 
   virtual mozilla::Maybe<uint32_t> Generation() override;
   virtual void CollectNativeLeafAddr(void* aAddr) override;
@@ -118,7 +121,7 @@ public:
   virtual void CollectWasmFrame(const char* aLabel) override;
   virtual void CollectPseudoEntry(const js::ProfileEntry& aEntry) override;
 
-private:
+ private:
   ProfileBuffer& mBuf;
   uint32_t mFeatures;
 };

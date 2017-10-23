@@ -11,7 +11,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/StaticMutex.h"
-#include "TimelineMarkerEnums.h" // for MarkerTracingType
+#include "TimelineMarkerEnums.h"  // for MarkerTracingType
 
 class nsDocShell;
 class nsIDocShell;
@@ -28,11 +28,11 @@ struct ProfileTimelineMarker;
 
 class TimelineConsumers : public nsIObserver
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
-private:
+ private:
   TimelineConsumers();
   TimelineConsumers(const TimelineConsumers& aOther) = delete;
   void operator=(const TimelineConsumers& aOther) = delete;
@@ -41,7 +41,7 @@ private:
   bool Init();
   bool RemoveObservers();
 
-public:
+ public:
   static already_AddRefed<TimelineConsumers> Get();
 
   // Methods for registering interested consumers (i.e. "devtools toolboxes").
@@ -69,25 +69,29 @@ public:
   // These methods create a basic TimelineMarker from a name and some metadata,
   // relevant for a specific docshell.
   // Main thread only.
-  void AddMarkerForDocShell(nsDocShell* aDocShell,
-                            const char* aName,
-                            MarkerTracingType aTracingType,
-                            MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
-  void AddMarkerForDocShell(nsIDocShell* aDocShell,
-                            const char* aName,
-                            MarkerTracingType aTracingType,
-                            MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
+  void AddMarkerForDocShell(
+      nsDocShell* aDocShell,
+      const char* aName,
+      MarkerTracingType aTracingType,
+      MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
+  void AddMarkerForDocShell(
+      nsIDocShell* aDocShell,
+      const char* aName,
+      MarkerTracingType aTracingType,
+      MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
 
-  void AddMarkerForDocShell(nsDocShell* aDocShell,
-                            const char* aName,
-                            const TimeStamp& aTime,
-                            MarkerTracingType aTracingType,
-                            MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
-  void AddMarkerForDocShell(nsIDocShell* aDocShell,
-                            const char* aName,
-                            const TimeStamp& aTime,
-                            MarkerTracingType aTracingType,
-                            MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
+  void AddMarkerForDocShell(
+      nsDocShell* aDocShell,
+      const char* aName,
+      const TimeStamp& aTime,
+      MarkerTracingType aTracingType,
+      MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
+  void AddMarkerForDocShell(
+      nsIDocShell* aDocShell,
+      const char* aName,
+      const TimeStamp& aTime,
+      MarkerTracingType aTracingType,
+      MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
 
   // These methods register and receive ownership of an already created marker,
   // relevant for a specific docshell.
@@ -100,24 +104,27 @@ public:
   // These methods create a basic marker from a name and some metadata,
   // which doesn't have to be relevant to a specific docshell.
   // May be called from any thread.
-  void AddMarkerForAllObservedDocShells(const char* aName,
-                                        MarkerTracingType aTracingType,
-                                        MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
-  void AddMarkerForAllObservedDocShells(const char* aName,
-                                        const TimeStamp& aTime,
-                                        MarkerTracingType aTracingType,
-                                        MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
+  void AddMarkerForAllObservedDocShells(
+      const char* aName,
+      MarkerTracingType aTracingType,
+      MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
+  void AddMarkerForAllObservedDocShells(
+      const char* aName,
+      const TimeStamp& aTime,
+      MarkerTracingType aTracingType,
+      MarkerStackRequest aStackRequest = MarkerStackRequest::STACK);
 
   // This method clones and registers an already instantiated marker,
   // which doesn't have to be relevant to a specific docshell.
   // May be called from any thread.
-  void AddMarkerForAllObservedDocShells(UniquePtr<AbstractTimelineMarker>& aMarker);
+  void AddMarkerForAllObservedDocShells(
+      UniquePtr<AbstractTimelineMarker>& aMarker);
 
   void PopMarkers(nsDocShell* aDocShell,
                   JSContext* aCx,
                   nsTArray<dom::ProfileTimelineMarker>& aStore);
 
-private:
+ private:
   static StaticRefPtr<TimelineConsumers> sInstance;
   static bool sInShutdown;
 
@@ -130,6 +137,6 @@ private:
   static StaticMutex sMutex;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_TimelineConsumers_h_ */

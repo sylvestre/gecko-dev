@@ -11,17 +11,19 @@
 
 class nsMIMEInfoUIKit final : public nsMIMEInfoImpl
 {
-public:
+ public:
   explicit nsMIMEInfoUIKit(const nsACString& aMIMEType)
-    : nsMIMEInfoImpl(aMIMEType)
-  {}
+      : nsMIMEInfoImpl(aMIMEType)
+  {
+  }
   nsMIMEInfoUIKit(const nsACString& aType, HandlerClass aClass)
-    : nsMIMEInfoImpl(aType, aClass)
-  {}
+      : nsMIMEInfoImpl(aType, aClass)
+  {
+  }
 
   NS_IMETHOD LaunchWithFile(nsIFile* aFile);
 
-protected:
+ protected:
   virtual nsresult LoadUriInternal(nsIURI* aURI);
 #ifdef DEBUG
   virtual nsresult LaunchDefaultWithFile(nsIFile* aFile)

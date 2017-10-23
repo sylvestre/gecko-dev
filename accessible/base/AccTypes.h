@@ -13,7 +13,8 @@ namespace a11y {
 /**
  * Accessible object types. Each accessible class can have own type.
  */
-enum AccType {
+enum AccType
+{
   /**
    * This set of types is used for accessible creation, keep them together in
    * alphabetical order since they are used in switch statement.
@@ -67,7 +68,8 @@ enum AccType {
  * Generic accessible type, different accessible classes can share the same
  * type, the same accessible class can have several types.
  */
-enum AccGenericType {
+enum AccGenericType
+{
   eAlert = 1 << 0,
   eAutoComplete = 1 << 1,
   eAutoCompletePopup = 1 << 2,
@@ -88,7 +90,7 @@ enum AccGenericType {
   eLastAccGenericType = eText
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_AccTypes_h
+#endif  // mozilla_a11y_AccTypes_h

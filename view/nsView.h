@@ -12,7 +12,7 @@
 #include "nsRegion.h"
 #include "nsCRT.h"
 #include "nsCOMPtr.h"
-#include "nsWidgetInitData.h" // for nsWindowType
+#include "nsWidgetInitData.h"  // for nsWindowType
 #include "nsIWidgetListener.h"
 #include "Units.h"
 #include "mozilla/EventForwards.h"
@@ -25,7 +25,8 @@ class nsIFrame;
 // hide - the layer is not shown.
 // show - the layer is shown irrespective of the visibility of
 //        the layer's parent.
-enum nsViewVisibility {
+enum nsViewVisibility
+{
   nsViewVisibility_kHide = 0,
   nsViewVisibility_kShow = 1
 };
@@ -33,10 +34,10 @@ enum nsViewVisibility {
 // Public view flags
 
 // Indicates that the view is using auto z-indexing
-#define NS_VIEW_FLAG_AUTO_ZINDEX          0x0004
+#define NS_VIEW_FLAG_AUTO_ZINDEX 0x0004
 
 // Indicates that the view is a floating view.
-#define NS_VIEW_FLAG_FLOATING             0x0008
+#define NS_VIEW_FLAG_FLOATING 0x0008
 
 //----------------------------------------------------------------------
 
@@ -55,15 +56,13 @@ enum nsViewVisibility {
 
 class nsView final : public nsIWidgetListener
 {
-public:
+ public:
   friend class nsViewManager;
 
   typedef mozilla::LayoutDeviceIntRect LayoutDeviceIntRect;
   typedef mozilla::LayoutDeviceIntRegion LayoutDeviceIntRegion;
 
-  void operator delete(void* ptr) {
-    ::operator delete(ptr);
-  }
+  void operator delete(void* ptr) { ::operator delete(ptr); }
 
   /**
    * Get the view manager which "owns" the view.
@@ -100,7 +99,8 @@ public:
    * @param x out parameter for x position
    * @param y out parameter for y position
    */
-  nsPoint GetPosition() const {
+  nsPoint GetPosition() const
+  {
     NS_ASSERTION(!IsRoot() || (mPosX == 0 && mPosY == 0),
                  "root views should always have explicit position of (0,0)");
     return nsPoint(mPosX, mPosY);
@@ -120,8 +120,11 @@ public:
    * The bounds of this view relative to this view. So this is the same as
    * GetBounds except this is relative to this view instead of the parent view.
    */
-  nsRect GetDimensions() const {
-    nsRect r = mDimBounds; r.MoveBy(-mPosX, -mPosY); return r;
+  nsRect GetDimensions() const
+  {
+    nsRect r = mDimBounds;
+    r.MoveBy(-mPosX, -mPosY);
+    return r;
   }
 
   /**
@@ -225,7 +228,7 @@ public:
    *        its create is called.
    * @return error status
    */
-  nsresult CreateWidget(nsWidgetInitData *aWidgetInitData = nullptr,
+  nsresult CreateWidget(nsWidgetInitData* aWidgetInitData = nullptr,
                         bool aEnableDragDrop = true,
                         bool aResetVisibility = true);
 
@@ -235,7 +238,7 @@ public:
    * as for |CreateWidget()|.
    */
   nsresult CreateWidgetForParent(nsIWidget* aParentWidget,
-                                 nsWidgetInitData *aWidgetInitData = nullptr,
+                                 nsWidgetInitData* aWidgetInitData = nullptr,
                                  bool aEnableDragDrop = true,
                                  bool aResetVisibility = true);
 
@@ -246,7 +249,7 @@ public:
    * other params are the same as for |CreateWidget()|, except that
    * |aWidgetInitData| must be nonnull.
    */
-  nsresult CreateWidgetForPopup(nsWidgetInitData *aWidgetInitData,
+  nsresult CreateWidgetForPopup(nsWidgetInitData* aWidgetInitData,
                                 nsIWidget* aParentWidget = nullptr,
                                 bool aEnableDragDrop = true,
                                 bool aResetVisibility = true);
@@ -300,9 +303,7 @@ public:
    */
   bool HasWidget() const { return mWindow != nullptr; }
 
-  void SetForcedRepaint(bool aForceRepaint) {
-    mForcedRepaint = aForceRepaint;
-  }
+  void SetForcedRepaint(bool aForceRepaint) { mForcedRepaint = aForceRepaint; }
 
   void SetNeedsWindowPropertiesSync();
 
@@ -325,7 +326,7 @@ public:
    * NOTE: virtual so that debugging tools not linked into gklayout can access it
    */
   virtual void List(FILE* out, int32_t aIndent = 0) const;
-#endif // DEBUG
+#endif  // DEBUG
 
   /**
    * @result true iff this is the root view for its view manager
@@ -358,17 +359,21 @@ public:
    * @param zindex new z depth
    */
   void SetZIndex(bool aAuto, int32_t aZIndex);
-  bool GetZIndexIsAuto() const { return (mVFlags & NS_VIEW_FLAG_AUTO_ZINDEX) != 0; }
+  bool GetZIndexIsAuto() const
+  {
+    return (mVFlags & NS_VIEW_FLAG_AUTO_ZINDEX) != 0;
+  }
   int32_t GetZIndex() const { return mZIndex; }
 
-  void SetParent(nsView *aParent) { mParent = aParent; }
-  void SetNextSibling(nsView *aSibling)
+  void SetParent(nsView* aParent) { mParent = aParent; }
+  void SetNextSibling(nsView* aSibling)
   {
     NS_ASSERTION(aSibling != this, "Can't be our own sibling!");
     mNextSibling = aSibling;
   }
 
-  nsRegion* GetDirtyRegion() {
+  nsRegion* GetDirtyRegion()
+  {
     if (!mDirtyRegion) {
       NS_ASSERTION(!mParent || GetFloating(),
                    "Only display roots should have dirty regions");
@@ -382,15 +387,18 @@ public:
   virtual nsIPresShell* GetPresShell() override;
   virtual nsView* GetView() override { return this; }
   virtual bool WindowMoved(nsIWidget* aWidget, int32_t x, int32_t y) override;
-  virtual bool WindowResized(nsIWidget* aWidget, int32_t aWidth, int32_t aHeight) override;
+  virtual bool WindowResized(nsIWidget* aWidget,
+                             int32_t aWidth,
+                             int32_t aHeight) override;
   virtual bool RequestWindowClose(nsIWidget* aWidget) override;
   virtual void WillPaintWindow(nsIWidget* aWidget) override;
   virtual bool PaintWindow(nsIWidget* aWidget,
                            LayoutDeviceIntRegion aRegion) override;
   virtual void DidPaintWindow() override;
-  virtual void DidCompositeWindow(uint64_t aTransactionId,
-                                  const mozilla::TimeStamp& aCompositeStart,
-                                  const mozilla::TimeStamp& aCompositeEnd) override;
+  virtual void DidCompositeWindow(
+      uint64_t aTransactionId,
+      const mozilla::TimeStamp& aCompositeStart,
+      const mozilla::TimeStamp& aCompositeEnd) override;
   virtual void RequestRepaint() override;
   virtual nsEventStatus HandleEvent(mozilla::WidgetGUIEvent* aEvent,
                                     bool aUseAttachedEvents) override;
@@ -402,7 +410,7 @@ public:
 
   bool IsPrimaryFramePaintSuppressed();
 
-private:
+ private:
   explicit nsView(nsViewManager* aViewManager = nullptr,
                   nsViewVisibility aVisibility = nsViewVisibility_kShow);
 
@@ -421,7 +429,8 @@ private:
    * or to the left of its origin position. The term 'dimensions' indicates it
    * is relative to this view.
    */
-  void SetDimensions(const nsRect &aRect, bool aPaint = true,
+  void SetDimensions(const nsRect& aRect,
+                     bool aPaint = true,
                      bool aResizeWidget = true);
 
   /**
@@ -448,12 +457,13 @@ private:
   // Same as GetBounds but converts to parent appunits if they are different.
   nsRect GetBoundsInParentUnits() const;
 
-  bool HasNonEmptyDirtyRegion() {
+  bool HasNonEmptyDirtyRegion()
+  {
     return mDirtyRegion && !mDirtyRegion->IsEmpty();
   }
 
-  void InsertChild(nsView *aChild, nsView *aSibling);
-  void RemoveChild(nsView *aChild);
+  void InsertChild(nsView* aChild, nsView* aSibling);
+  void RemoveChild(nsView* aChild);
 
   void ResetWidgetBounds(bool aRecurse, bool aForceSync);
   void AssertNoWindow();
@@ -463,26 +473,26 @@ private:
   // Update the cached RootViewManager for all view manager descendents.
   void InvalidateHierarchy();
 
-  nsViewManager    *mViewManager;
-  nsView           *mParent;
+  nsViewManager* mViewManager;
+  nsView* mParent;
   nsCOMPtr<nsIWidget> mWindow;
   nsCOMPtr<nsIWidget> mPreviousWindow;
-  nsView           *mNextSibling;
-  nsView           *mFirstChild;
-  nsIFrame         *mFrame;
-  nsRegion         *mDirtyRegion;
-  int32_t           mZIndex;
-  nsViewVisibility  mVis;
+  nsView* mNextSibling;
+  nsView* mFirstChild;
+  nsIFrame* mFrame;
+  nsRegion* mDirtyRegion;
+  int32_t mZIndex;
+  nsViewVisibility mVis;
   // position relative our parent view origin but in our appunits
-  nscoord           mPosX, mPosY;
+  nscoord mPosX, mPosY;
   // relative to parent, but in our appunits
-  nsRect            mDimBounds;
+  nsRect mDimBounds;
   // in our appunits
-  nsPoint           mViewToWidgetOffset;
-  uint32_t          mVFlags;
-  bool              mWidgetIsTopLevel;
-  bool              mForcedRepaint;
-  bool              mNeedsWindowPropertiesSync;
+  nsPoint mViewToWidgetOffset;
+  uint32_t mVFlags;
+  bool mWidgetIsTopLevel;
+  bool mForcedRepaint;
+  bool mNeedsWindowPropertiesSync;
 };
 
 #endif

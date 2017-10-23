@@ -14,14 +14,17 @@
 #include "APZTestCommon.h"
 #include "gfxPrefs.h"
 
-class APZCBasicTester : public APZCTesterBase {
-public:
-  explicit APZCBasicTester(AsyncPanZoomController::GestureBehavior aGestureBehavior = AsyncPanZoomController::DEFAULT_GESTURES)
-    : mGestureBehavior(aGestureBehavior)
+class APZCBasicTester : public APZCTesterBase
+{
+ public:
+  explicit APZCBasicTester(
+      AsyncPanZoomController::GestureBehavior aGestureBehavior =
+          AsyncPanZoomController::DEFAULT_GESTURES)
+      : mGestureBehavior(aGestureBehavior)
   {
   }
 
-protected:
+ protected:
   virtual void SetUp()
   {
     gfxPrefs::GetSingleton();
@@ -40,32 +43,34 @@ protected:
   CSSRect GetScrollRange() const
   {
     const FrameMetrics& metrics = apzc->GetFrameMetrics();
-    return CSSRect(
-        metrics.GetScrollableRect().TopLeft(),
-        metrics.GetScrollableRect().Size() - metrics.CalculateCompositedSizeInCssPixels());
+    return CSSRect(metrics.GetScrollableRect().TopLeft(),
+                   metrics.GetScrollableRect().Size() -
+                       metrics.CalculateCompositedSizeInCssPixels());
   }
 
   virtual void TearDown()
   {
-    while (mcc->RunThroughDelayedTasks());
+    while (mcc->RunThroughDelayedTasks())
+      ;
     apzc->Destroy();
     tm->ClearTree();
     tm->ClearContentController();
   }
 
-  void MakeApzcWaitForMainThread()
-  {
-    apzc->SetWaitForMainThread();
-  }
+  void MakeApzcWaitForMainThread() { apzc->SetWaitForMainThread(); }
 
   void MakeApzcZoomable()
   {
-    apzc->UpdateZoomConstraints(ZoomConstraints(true, true, CSSToParentLayerScale(0.25f), CSSToParentLayerScale(4.0f)));
+    apzc->UpdateZoomConstraints(ZoomConstraints(
+        true, true, CSSToParentLayerScale(0.25f), CSSToParentLayerScale(4.0f)));
   }
 
   void MakeApzcUnzoomable()
   {
-    apzc->UpdateZoomConstraints(ZoomConstraints(false, false, CSSToParentLayerScale(1.0f), CSSToParentLayerScale(1.0f)));
+    apzc->UpdateZoomConstraints(ZoomConstraints(false,
+                                                false,
+                                                CSSToParentLayerScale(1.0f),
+                                                CSSToParentLayerScale(1.0f)));
   }
 
   void PanIntoOverscroll();
@@ -87,7 +92,8 @@ protected:
    * @param aExpectedScrollOffset the expected reported scroll offset
    *                              throughout the animation
    */
-  void SampleAnimationUntilRecoveredFromOverscroll(const ParentLayerPoint& aExpectedScrollOffset)
+  void SampleAnimationUntilRecoveredFromOverscroll(
+      const ParentLayerPoint& aExpectedScrollOffset)
   {
     const TimeDuration increment = TimeDuration::FromMilliseconds(1);
     bool recoveredFromOverscroll = false;
@@ -118,4 +124,4 @@ protected:
   RefPtr<TestAsyncPanZoomController> apzc;
 };
 
-#endif // mozilla_layers_APZCBasicTester_h
+#endif  // mozilla_layers_APZCBasicTester_h

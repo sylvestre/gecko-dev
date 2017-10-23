@@ -32,9 +32,10 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-#define LOG(args) MOZ_LOG(gfxUserFontSet::GetUserFontsLog(), mozilla::LogLevel::Debug, args)
-#define LOG_ENABLED() MOZ_LOG_TEST(gfxUserFontSet::GetUserFontsLog(), \
-                                  LogLevel::Debug)
+#define LOG(args) \
+  MOZ_LOG(gfxUserFontSet::GetUserFontsLog(), mozilla::LogLevel::Debug, args)
+#define LOG_ENABLED() \
+  MOZ_LOG_TEST(gfxUserFontSet::GetUserFontsLog(), LogLevel::Debug)
 
 static uint32_t
 GetFallbackDelay()
@@ -45,17 +46,18 @@ GetFallbackDelay()
 static uint32_t
 GetShortFallbackDelay()
 {
-  return Preferences::GetInt("gfx.downloadable_fonts.fallback_delay_short", 100);
+  return Preferences::GetInt("gfx.downloadable_fonts.fallback_delay_short",
+                             100);
 }
 
 nsFontFaceLoader::nsFontFaceLoader(gfxUserFontEntry* aUserFontEntry,
                                    nsIURI* aFontURI,
                                    FontFaceSet* aFontFaceSet,
                                    nsIChannel* aChannel)
-  : mUserFontEntry(aUserFontEntry),
-    mFontURI(aFontURI),
-    mFontFaceSet(aFontFaceSet),
-    mChannel(aChannel)
+    : mUserFontEntry(aUserFontEntry),
+      mFontURI(aFontURI),
+      mFontFaceSet(aFontFaceSet),
+      mChannel(aChannel)
 {
   MOZ_ASSERT(mFontFaceSet,
              "We should get a valid FontFaceSet from the caller!");
@@ -89,13 +91,14 @@ nsFontFaceLoader::StartedLoading(nsIStreamLoader* aStreamLoader)
   }
 
   if (loadTimeout > 0) {
-    NS_NewTimerWithFuncCallback(getter_AddRefs(mLoadTimer),
-                                LoadTimerCallback,
-                                static_cast<void*>(this),
-                                loadTimeout,
-                                nsITimer::TYPE_ONE_SHOT,
-                                "LoadTimerCallback",
-                                mFontFaceSet->Document()->EventTargetFor(TaskCategory::Other));
+    NS_NewTimerWithFuncCallback(
+        getter_AddRefs(mLoadTimer),
+        LoadTimerCallback,
+        static_cast<void*>(this),
+        loadTimeout,
+        nsITimer::TYPE_ONE_SHOT,
+        "LoadTimerCallback",
+        mFontFaceSet->Document()->EventTargetFor(TaskCategory::Other));
   } else {
     mUserFontEntry->mFontDataLoadingState = gfxUserFontEntry::LOADING_SLOWLY;
   }
@@ -131,11 +134,10 @@ nsFontFaceLoader::LoadTimerCallback(nsITimer* aTimer, void* aClosure)
         int64_t contentLength;
         uint32_t numBytesRead;
         if (NS_SUCCEEDED(loader->mChannel->GetContentLength(&contentLength)) &&
-            contentLength > 0 &&
-            contentLength < UINT32_MAX &&
-            NS_SUCCEEDED(loader->mStreamLoader->GetNumBytesRead(&numBytesRead)) &&
-            numBytesRead > 3 * (uint32_t(contentLength) >> 2))
-        {
+            contentLength > 0 && contentLength < UINT32_MAX &&
+            NS_SUCCEEDED(
+                loader->mStreamLoader->GetNumBytesRead(&numBytesRead)) &&
+            numBytesRead > 3 * (uint32_t(contentLength) >> 2)) {
           // More than 3/4 the data has been downloaded, so allow 50% extra
           // time and hope the remainder will arrive before the additional
           // time expires.
@@ -143,11 +145,11 @@ nsFontFaceLoader::LoadTimerCallback(nsITimer* aTimer, void* aClosure)
           uint32_t delay;
           loader->mLoadTimer->GetDelay(&delay);
           loader->mLoadTimer->InitWithNamedFuncCallback(
-            LoadTimerCallback,
-            static_cast<void*>(loader),
-            delay >> 1,
-            nsITimer::TYPE_ONE_SHOT,
-            "nsFontFaceLoader::LoadTimerCallback");
+              LoadTimerCallback,
+              static_cast<void*>(loader),
+              delay >> 1,
+              nsITimer::TYPE_ONE_SHOT,
+              "nsFontFaceLoader::LoadTimerCallback");
           updateUserFontSet = false;
           LOG(("userfonts (%p) 75%% done, resetting timer\n", loader));
         }
@@ -189,15 +191,15 @@ nsFontFaceLoader::LoadTimerCallback(nsITimer* aTimer, void* aClosure)
         fontSet->IncrementGeneration();
         ctx->UserFontSetUpdated(ufe);
         LOG(("userfonts (%p) timeout reflow for pres context %p display %d\n",
-             loader, ctx, fontDisplay));
+             loader,
+             ctx,
+             fontDisplay));
       }
     }
   }
 }
 
-NS_IMPL_ISUPPORTS(nsFontFaceLoader,
-                  nsIStreamLoaderObserver,
-                  nsIRequestObserver)
+NS_IMPL_ISUPPORTS(nsFontFaceLoader, nsIStreamLoaderObserver, nsIRequestObserver)
 
 // nsIStreamLoaderObserver
 NS_IMETHODIMP
@@ -227,17 +229,22 @@ nsFontFaceLoader::OnStreamComplete(nsIStreamLoader* aLoader,
         (mUserFontEntry->mFontDataLoadingState ==
          gfxUserFontEntry::LOADING_SLOWLY)) {
       mUserFontEntry->mFontDataLoadingState =
-        gfxUserFontEntry::LOADING_TIMED_OUT;
+          gfxUserFontEntry::LOADING_TIMED_OUT;
     }
   }
 
   if (LOG_ENABLED()) {
     if (NS_SUCCEEDED(aStatus)) {
       LOG(("userfonts (%p) download completed - font uri: (%s) time: %d ms\n",
-           this, mFontURI->GetSpecOrDefault().get(), downloadTimeMS));
+           this,
+           mFontURI->GetSpecOrDefault().get(),
+           downloadTimeMS));
     } else {
-      LOG(("userfonts (%p) download failed - font uri: (%s) error: %8.8" PRIx32 "\n",
-           this, mFontURI->GetSpecOrDefault().get(), static_cast<uint32_t>(aStatus)));
+      LOG(("userfonts (%p) download failed - font uri: (%s) error: %8.8" PRIx32
+           "\n",
+           this,
+           mFontURI->GetSpecOrDefault().get(),
+           static_cast<uint32_t>(aStatus)));
     }
   }
 
@@ -267,7 +274,7 @@ nsFontFaceLoader::OnStreamComplete(nsIStreamLoader* aLoader,
   // as there may still be data to be freed (e.g. an error page),
   // and we need to load the next source.
   bool fontUpdate =
-    mUserFontEntry->FontDataDownloadComplete(aString, aStringLen, aStatus);
+      mUserFontEntry->FontDataDownloadComplete(aString, aStringLen, aStatus);
 
   mFontFaceSet->GetUserFontSet()->RecordFontLoadDone(aStringLen, doneTime);
 
@@ -298,15 +305,14 @@ nsFontFaceLoader::OnStreamComplete(nsIStreamLoader* aLoader,
 
 // nsIRequestObserver
 NS_IMETHODIMP
-nsFontFaceLoader::OnStartRequest(nsIRequest* aRequest,
-                                 nsISupports* aContext)
+nsFontFaceLoader::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIThreadRetargetableRequest> req = do_QueryInterface(aRequest);
   if (req) {
     nsCOMPtr<nsIEventTarget> sts =
-      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+        do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
     Unused << NS_WARN_IF(NS_FAILED(req->RetargetDeliveryTo(sts)));
   }
   return NS_OK;

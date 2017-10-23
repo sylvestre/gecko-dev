@@ -68,22 +68,23 @@ namespace {
 // Utility function: create a thread that is non-joinable,
 // does not prevent the process from terminating, is never
 // cooperatively scheduled, and uses a default stack size.
-PRThread* CreateSystemThread(void (*start)(void* arg),
-                             void* arg)
+PRThread*
+CreateSystemThread(void (*start)(void* arg), void* arg)
 {
   PRThread* thread = PR_CreateThread(
-    PR_SYSTEM_THREAD, /* This thread will not prevent the process from terminating */
-    start,
-    arg,
-    PR_PRIORITY_LOW,
-    PR_GLOBAL_THREAD /* Make sure that the thread is never cooperatively scheduled */,
-    PR_UNJOINABLE_THREAD,
-    0 /* Use default stack size */
+      PR_SYSTEM_THREAD, /* This thread will not prevent the process from terminating */
+      start,
+      arg,
+      PR_PRIORITY_LOW,
+      PR_GLOBAL_THREAD /* Make sure that the thread is never cooperatively scheduled */
+      ,
+      PR_UNJOINABLE_THREAD,
+      0 /* Use default stack size */
   );
-  MOZ_LSAN_INTENTIONALLY_LEAK_OBJECT(thread); // This pointer will never be deallocated.
+  MOZ_LSAN_INTENTIONALLY_LEAK_OBJECT(
+      thread);  // This pointer will never be deallocated.
   return thread;
 }
-
 
 ////////////////////////////////////////////
 //
@@ -113,7 +114,8 @@ PRThread* CreateSystemThread(void (*start)(void* arg),
 // extracted from gHeartbeat must be considered rounded up.
 Atomic<uint32_t> gHeartbeat(0);
 
-struct Options {
+struct Options
+{
   /**
    * How many ticks before we should crash the process.
    */
@@ -136,16 +138,16 @@ RunWatchdog(void* arg)
 
   const uint32_t timeToLive = crashAfterTicks;
   while (true) {
-    //
-    // We do not want to sleep for the entire duration,
-    // as putting the computer to sleep would suddenly
-    // cause us to timeout on wakeup.
-    //
-    // Rather, we prefer sleeping for at most 1 second
-    // at a time. If the computer sleeps then wakes up,
-    // we have lost at most one second, which is much
-    // more reasonable.
-    //
+  //
+  // We do not want to sleep for the entire duration,
+  // as putting the computer to sleep would suddenly
+  // cause us to timeout on wakeup.
+  //
+  // Rather, we prefer sleeping for at most 1 second
+  // at a time. If the computer sleeps then wakes up,
+  // we have lost at most one second, which is much
+  // more reasonable.
+  //
 #if defined(XP_WIN)
     Sleep(1000 /* ms */);
 #else
@@ -174,15 +176,12 @@ RunWatchdog(void* arg)
 // Utility class, used by UniquePtr<> to close nspr files.
 class PR_CloseDelete
 {
-public:
+ public:
   constexpr PR_CloseDelete() = default;
 
   PR_CloseDelete(const PR_CloseDelete& aOther) = default;
 
-  void operator()(PRFileDesc* aPtr) const
-  {
-    PR_Close(aPtr);
-  }
+  void operator()(PRFileDesc* aPtr) const { PR_Close(aPtr); }
 };
 
 //
@@ -214,7 +213,8 @@ public:
 Atomic<nsCString*> gWriteData(nullptr);
 PRMonitor* gWriteReady = nullptr;
 
-void RunWriter(void* arg)
+void
+RunWriter(void* arg)
 {
   AUTO_PROFILER_REGISTER_THREAD("Shutdown Statistics Writer");
   NS_SetCurrentThreadName("Shutdown Statistics Writer");
@@ -268,10 +268,8 @@ void RunWriter(void* arg)
     // hardly critical, we don't want to spend too much effort
     // salvaging it.
     //
-    UniquePtr<PRFileDesc, PR_CloseDelete>
-      tmpFileDesc(PR_Open(tmpFilePath.get(),
-                          PR_WRONLY | PR_TRUNCATE | PR_CREATE_FILE,
-                          00600));
+    UniquePtr<PRFileDesc, PR_CloseDelete> tmpFileDesc(PR_Open(
+        tmpFilePath.get(), PR_WRONLY | PR_TRUNCATE | PR_CREATE_FILE, 00600));
 
     // Shutdown may complete before we have a chance to close the file.
     // This is not a leak.
@@ -310,30 +308,25 @@ struct ShutdownStep
   char const* const mTopic;
   int mTicks;
 
-  constexpr explicit ShutdownStep(const char *const topic)
-    : mTopic(topic)
-    , mTicks(-1)
-  {}
-
+  constexpr explicit ShutdownStep(const char* const topic)
+      : mTopic(topic), mTicks(-1)
+  {
+  }
 };
 
 static ShutdownStep sShutdownSteps[] = {
-  ShutdownStep("quit-application"),
-  ShutdownStep("profile-change-teardown"),
-  ShutdownStep("profile-before-change"),
-  ShutdownStep("xpcom-will-shutdown"),
-  ShutdownStep("xpcom-shutdown"),
+    ShutdownStep("quit-application"),
+    ShutdownStep("profile-change-teardown"),
+    ShutdownStep("profile-before-change"),
+    ShutdownStep("xpcom-will-shutdown"),
+    ShutdownStep("xpcom-shutdown"),
 };
 
-} // namespace
+}  // namespace
 
 NS_IMPL_ISUPPORTS(nsTerminator, nsIObserver)
 
-nsTerminator::nsTerminator()
-  : mInitialized(false)
-  , mCurrentStep(-1)
-{
-}
+nsTerminator::nsTerminator() : mInitialized(false), mCurrentStep(-1) {}
 
 // During startup, register as an observer for all interesting topics.
 nsresult
@@ -363,7 +356,7 @@ nsTerminator::Start()
   // shutdown for intentional leaks (see bug 1242084). This will be enabled again by bug
   // 1255484 when 1255478 lands.
   StartWriter();
-#endif // !defined(DEBUG)
+#endif  // !defined(DEBUG)
   mInitialized = true;
 }
 
@@ -373,8 +366,8 @@ void
 nsTerminator::StartWatchdog()
 {
   int32_t crashAfterMS =
-    Preferences::GetInt("toolkit.asyncshutdown.crash_timeout",
-                        FALLBACK_ASYNCSHUTDOWN_CRASH_AFTER_MS);
+      Preferences::GetInt("toolkit.asyncshutdown.crash_timeout",
+                          FALLBACK_ASYNCSHUTDOWN_CRASH_AFTER_MS);
   // Ignore negative values
   if (crashAfterMS <= 0) {
     crashAfterMS = FALLBACK_ASYNCSHUTDOWN_CRASH_AFTER_MS;
@@ -393,8 +386,8 @@ nsTerminator::StartWatchdog()
   const PRIntervalTime ticksDuration = PR_MillisecondsToInterval(1000);
   options->crashAfterTicks = crashAfterMS / ticksDuration;
 
-  DebugOnly<PRThread*> watchdogThread = CreateSystemThread(RunWatchdog,
-                                                options.release());
+  DebugOnly<PRThread*> watchdogThread =
+      CreateSystemThread(RunWatchdog, options.release());
   MOZ_ASSERT(watchdogThread);
 }
 
@@ -426,9 +419,9 @@ nsTerminator::StartWriter()
   }
 
   gWriteReady = PR_NewMonitor();
-  MOZ_LSAN_INTENTIONALLY_LEAK_OBJECT(gWriteReady); // We will never deallocate this object
-  PRThread* writerThread = CreateSystemThread(RunWriter,
-                                              ToNewUTF8String(path));
+  MOZ_LSAN_INTENTIONALLY_LEAK_OBJECT(
+      gWriteReady);  // We will never deallocate this object
+  PRThread* writerThread = CreateSystemThread(RunWriter, ToNewUTF8String(path));
 
   if (!writerThread) {
     return;
@@ -436,7 +429,7 @@ nsTerminator::StartWriter()
 }
 
 NS_IMETHODIMP
-nsTerminator::Observe(nsISupports *, const char *aTopic, const char16_t *)
+nsTerminator::Observe(nsISupports*, const char* aTopic, const char16_t*)
 {
   if (strcmp(aTopic, "profile-after-change") == 0) {
     return SelfInit();
@@ -457,7 +450,7 @@ nsTerminator::Observe(nsISupports *, const char *aTopic, const char16_t *)
   // shutdown for intentional leaks (see bug 1242084). This will be enabled again by bug
   // 1255484 when 1255478 lands.
   UpdateTelemetry();
-#endif // !defined(DEBUG)
+#endif  // !defined(DEBUG)
   UpdateCrashReport(aTopic);
 
   // Perform a little cleanup
@@ -526,13 +519,14 @@ nsTerminator::UpdateTelemetry()
 
   if (fields == 0) {
     // Nothing to write
-      return;
+    return;
   }
 
   //
   // Send data to the worker thread.
   //
-  delete gWriteData.exchange(telemetryData.release()); // Clear any data that hasn't been written yet
+  delete gWriteData.exchange(
+      telemetryData.release());  // Clear any data that hasn't been written yet
 
   // In case the worker thread was sleeping, wake it up.
   PR_EnterMonitor(gWriteReady);
@@ -547,10 +541,9 @@ nsTerminator::UpdateCrashReport(const char* aTopic)
   // In case of crash, we wish to know where in shutdown we are
   nsAutoCString report(aTopic);
 
-  Unused << CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("ShutdownProgress"),
-                                               report);
-#endif // defined(MOZ_CRASHREPORTER)
+  Unused << CrashReporter::AnnotateCrashReport(
+      NS_LITERAL_CSTRING("ShutdownProgress"), report);
+#endif  // defined(MOZ_CRASHREPORTER)
 }
 
-
-} // namespace mozilla
+}  // namespace mozilla

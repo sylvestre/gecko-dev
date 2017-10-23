@@ -23,30 +23,33 @@ namespace net {
 
 class SimpleChannel : public nsBaseChannel
 {
-public:
+ public:
   explicit SimpleChannel(UniquePtr<SimpleChannelCallbacks>&& aCallbacks);
 
-protected:
+ protected:
   virtual ~SimpleChannel() {}
 
-  virtual nsresult OpenContentStream(bool async, nsIInputStream **streamOut,
+  virtual nsresult OpenContentStream(bool async,
+                                     nsIInputStream** streamOut,
                                      nsIChannel** channel) override;
 
   virtual nsresult BeginAsyncRead(nsIStreamListener* listener,
                                   nsIRequest** request) override;
 
-private:
+ private:
   UniquePtr<SimpleChannelCallbacks> mCallbacks;
 };
 
 SimpleChannel::SimpleChannel(UniquePtr<SimpleChannelCallbacks>&& aCallbacks)
-  : mCallbacks(Move(aCallbacks))
+    : mCallbacks(Move(aCallbacks))
 {
   EnableSynthesizedProgressEvents(true);
 }
 
 nsresult
-SimpleChannel::OpenContentStream(bool async, nsIInputStream **streamOut, nsIChannel** channel)
+SimpleChannel::OpenContentStream(bool async,
+                                 nsIInputStream** streamOut,
+                                 nsIChannel** channel)
 {
   NS_ENSURE_TRUE(mCallbacks, NS_ERROR_UNEXPECTED);
 
@@ -75,20 +78,20 @@ SimpleChannel::BeginAsyncRead(nsIStreamListener* listener, nsIRequest** request)
   return NS_OK;
 }
 
-class SimpleChannelChild final : public SimpleChannel
-                               , public nsIChildChannel
-                               , public PSimpleChannelChild
+class SimpleChannelChild final : public SimpleChannel,
+                                 public nsIChildChannel,
+                                 public PSimpleChannelChild
 {
-public:
+ public:
   explicit SimpleChannelChild(UniquePtr<SimpleChannelCallbacks>&& aCallbacks);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICHILDCHANNEL
 
-protected:
+ protected:
   virtual void ActorDestroy(ActorDestroyReason why) override;
 
-private:
+ private:
   virtual ~SimpleChannelChild() = default;
 
   void AddIPDLReference();
@@ -98,9 +101,9 @@ private:
 
 NS_IMPL_ISUPPORTS_INHERITED(SimpleChannelChild, SimpleChannel, nsIChildChannel)
 
-SimpleChannelChild::SimpleChannelChild(UniquePtr<SimpleChannelCallbacks>&& aCallbacks)
-  : SimpleChannel(Move(aCallbacks))
-  , mIPDLRef(nullptr)
+SimpleChannelChild::SimpleChannelChild(
+    UniquePtr<SimpleChannelCallbacks>&& aCallbacks)
+    : SimpleChannel(Move(aCallbacks)), mIPDLRef(nullptr)
 {
 }
 
@@ -109,7 +112,7 @@ SimpleChannelChild::ConnectParent(uint32_t aId)
 {
   MOZ_ASSERT(NS_IsMainThread());
   mozilla::dom::ContentChild* cc =
-    static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
+      static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
   if (cc->IsShuttingDown()) {
     return NS_ERROR_FAILURE;
   }
@@ -155,9 +158,10 @@ SimpleChannelChild::ActorDestroy(ActorDestroyReason why)
   mIPDLRef = nullptr;
 }
 
-
 already_AddRefed<nsIChannel>
-NS_NewSimpleChannelInternal(nsIURI* aURI, nsILoadInfo* aLoadInfo, UniquePtr<SimpleChannelCallbacks>&& aCallbacks)
+NS_NewSimpleChannelInternal(nsIURI* aURI,
+                            nsILoadInfo* aLoadInfo,
+                            UniquePtr<SimpleChannelCallbacks>&& aCallbacks)
 {
   RefPtr<SimpleChannel> chan;
   if (IsNeckoChild()) {
@@ -173,5 +177,5 @@ NS_NewSimpleChannelInternal(nsIURI* aURI, nsILoadInfo* aLoadInfo, UniquePtr<Simp
   return chan.forget();
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

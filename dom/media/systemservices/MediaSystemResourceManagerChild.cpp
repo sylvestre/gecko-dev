@@ -11,13 +11,11 @@ namespace mozilla {
 namespace media {
 
 MediaSystemResourceManagerChild::MediaSystemResourceManagerChild()
-  : mDestroyed(false)
+    : mDestroyed(false)
 {
 }
 
-MediaSystemResourceManagerChild::~MediaSystemResourceManagerChild()
-{
-}
+MediaSystemResourceManagerChild::~MediaSystemResourceManagerChild() {}
 
 mozilla::ipc::IPCResult
 MediaSystemResourceManagerChild::RecvResponse(const uint32_t& aId,
@@ -30,7 +28,8 @@ MediaSystemResourceManagerChild::RecvResponse(const uint32_t& aId,
 }
 
 void
-MediaSystemResourceManagerChild::ActorDestroy(ActorDestroyReason aActorDestroyReason)
+MediaSystemResourceManagerChild::ActorDestroy(
+    ActorDestroyReason aActorDestroyReason)
 {
   MOZ_ASSERT(!mDestroyed);
   if (mManager) {
@@ -49,5 +48,5 @@ MediaSystemResourceManagerChild::Destroy()
   // WARNING: |this| is dead, hands off
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla

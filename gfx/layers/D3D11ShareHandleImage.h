@@ -18,24 +18,23 @@ namespace layers {
 
 class D3D11RecycleAllocator : public TextureClientRecycleAllocator
 {
-public:
+ public:
   explicit D3D11RecycleAllocator(KnowsCompositor* aAllocator,
                                  ID3D11Device* aDevice)
-    : TextureClientRecycleAllocator(aAllocator)
-    , mDevice(aDevice)
-  {}
+      : TextureClientRecycleAllocator(aAllocator), mDevice(aDevice)
+  {
+  }
 
-  already_AddRefed<TextureClient>
-  CreateOrRecycleClient(gfx::SurfaceFormat aFormat,
-                        const gfx::IntSize& aSize);
+  already_AddRefed<TextureClient> CreateOrRecycleClient(
+      gfx::SurfaceFormat aFormat, const gfx::IntSize& aSize);
 
-protected:
-  virtual already_AddRefed<TextureClient>
-  Allocate(gfx::SurfaceFormat aFormat,
-           gfx::IntSize aSize,
-           BackendSelector aSelector,
-           TextureFlags aTextureFlags,
-           TextureAllocationFlags aAllocFlags) override;
+ protected:
+  virtual already_AddRefed<TextureClient> Allocate(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocFlags) override;
 
   RefPtr<ID3D11Device> mDevice;
 };
@@ -44,13 +43,14 @@ protected:
 // passed into SetData(), so that it can be accessed from other D3D devices.
 // This class also manages the synchronization of the copy, to ensure the
 // resource is ready to use.
-class D3D11ShareHandleImage final : public Image {
-public:
-  D3D11ShareHandleImage(const gfx::IntSize& aSize,
-                        const gfx::IntRect& aRect);
+class D3D11ShareHandleImage final : public Image
+{
+ public:
+  D3D11ShareHandleImage(const gfx::IntSize& aSize, const gfx::IntRect& aRect);
   ~D3D11ShareHandleImage() override {}
 
-  bool AllocateTexture(D3D11RecycleAllocator* aAllocator, ID3D11Device* aDevice);
+  bool AllocateTexture(D3D11RecycleAllocator* aAllocator,
+                       ID3D11Device* aDevice);
 
   gfx::IntSize GetSize() override;
   virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
@@ -59,14 +59,14 @@ public:
 
   ID3D11Texture2D* GetTexture() const;
 
-private:
+ private:
   gfx::IntSize mSize;
   gfx::IntRect mPictureRect;
   RefPtr<TextureClient> mTextureClient;
   RefPtr<ID3D11Texture2D> mTexture;
 };
 
-} // namepace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_D3DSURFACEIMAGE_H
+#endif  // GFX_D3DSURFACEIMAGE_H

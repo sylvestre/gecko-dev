@@ -50,11 +50,11 @@ ImageCacheKey::ImageCacheKey(nsIURI* aURI,
                              const OriginAttributes& aAttrs,
                              nsIDocument* aDocument,
                              nsresult& aRv)
-  : mURI(new ImageURL(aURI, aRv))
-  , mOriginAttributes(aAttrs)
-  , mControlledDocument(GetControlledDocumentToken(aDocument))
-  , mIsChrome(URISchemeIs(mURI, "chrome"))
-  , mIsStyloEnabled(nsLayoutUtils::StyloEnabled())
+    : mURI(new ImageURL(aURI, aRv)),
+      mOriginAttributes(aAttrs),
+      mControlledDocument(GetControlledDocumentToken(aDocument)),
+      mIsChrome(URISchemeIs(mURI, "chrome")),
+      mIsStyloEnabled(nsLayoutUtils::StyloEnabled())
 {
   NS_ENSURE_SUCCESS_VOID(aRv);
 
@@ -64,18 +64,21 @@ ImageCacheKey::ImageCacheKey(nsIURI* aURI,
     mBlobSerial = BlobSerial(mURI);
   }
 
-  mHash = ComputeHash(mURI, mBlobSerial, mOriginAttributes, mControlledDocument,
+  mHash = ComputeHash(mURI,
+                      mBlobSerial,
+                      mOriginAttributes,
+                      mControlledDocument,
                       mIsStyloEnabled);
 }
 
 ImageCacheKey::ImageCacheKey(ImageURL* aURI,
                              const OriginAttributes& aAttrs,
                              nsIDocument* aDocument)
-  : mURI(aURI)
-  , mOriginAttributes(aAttrs)
-  , mControlledDocument(GetControlledDocumentToken(aDocument))
-  , mIsChrome(URISchemeIs(mURI, "chrome"))
-  , mIsStyloEnabled(nsLayoutUtils::StyloEnabled())
+    : mURI(aURI),
+      mOriginAttributes(aAttrs),
+      mControlledDocument(GetControlledDocumentToken(aDocument)),
+      mIsChrome(URISchemeIs(mURI, "chrome")),
+      mIsStyloEnabled(nsLayoutUtils::StyloEnabled())
 {
   MOZ_ASSERT(aURI);
 
@@ -83,29 +86,34 @@ ImageCacheKey::ImageCacheKey(ImageURL* aURI,
     mBlobSerial = BlobSerial(mURI);
   }
 
-  mHash = ComputeHash(mURI, mBlobSerial, mOriginAttributes, mControlledDocument,
+  mHash = ComputeHash(mURI,
+                      mBlobSerial,
+                      mOriginAttributes,
+                      mControlledDocument,
                       mIsStyloEnabled);
 }
 
 ImageCacheKey::ImageCacheKey(const ImageCacheKey& aOther)
-  : mURI(aOther.mURI)
-  , mBlobSerial(aOther.mBlobSerial)
-  , mOriginAttributes(aOther.mOriginAttributes)
-  , mControlledDocument(aOther.mControlledDocument)
-  , mHash(aOther.mHash)
-  , mIsChrome(aOther.mIsChrome)
-  , mIsStyloEnabled(aOther.mIsStyloEnabled)
-{ }
+    : mURI(aOther.mURI),
+      mBlobSerial(aOther.mBlobSerial),
+      mOriginAttributes(aOther.mOriginAttributes),
+      mControlledDocument(aOther.mControlledDocument),
+      mHash(aOther.mHash),
+      mIsChrome(aOther.mIsChrome),
+      mIsStyloEnabled(aOther.mIsStyloEnabled)
+{
+}
 
 ImageCacheKey::ImageCacheKey(ImageCacheKey&& aOther)
-  : mURI(Move(aOther.mURI))
-  , mBlobSerial(Move(aOther.mBlobSerial))
-  , mOriginAttributes(aOther.mOriginAttributes)
-  , mControlledDocument(aOther.mControlledDocument)
-  , mHash(aOther.mHash)
-  , mIsChrome(aOther.mIsChrome)
-  , mIsStyloEnabled(aOther.mIsStyloEnabled)
-{ }
+    : mURI(Move(aOther.mURI)),
+      mBlobSerial(Move(aOther.mBlobSerial)),
+      mOriginAttributes(aOther.mOriginAttributes),
+      mControlledDocument(aOther.mControlledDocument),
+      mHash(aOther.mHash),
+      mIsChrome(aOther.mIsChrome),
+      mIsStyloEnabled(aOther.mIsStyloEnabled)
+{
+}
 
 bool
 ImageCacheKey::operator==(const ImageCacheKey& aOther) const
@@ -124,8 +132,7 @@ ImageCacheKey::operator==(const ImageCacheKey& aOther) const
   if (mBlobSerial || aOther.mBlobSerial) {
     // If at least one of us has a blob serial, just compare the blob serial and
     // the ref portion of the URIs.
-    return mBlobSerial == aOther.mBlobSerial &&
-           mURI->HasSameRef(*aOther.mURI);
+    return mBlobSerial == aOther.mBlobSerial && mURI->HasSameRef(*aOther.mURI);
   }
 
   // For non-blob URIs, compare the URIs.
@@ -152,8 +159,10 @@ ImageCacheKey::ComputeHash(ImageURL* aURI,
   nsAutoCString suffix;
   aAttrs.CreateSuffix(suffix);
 
-  return AddToHash(0, aURI->ComputeHash(aBlobSerial),
-                   HashString(suffix), HashString(ptr),
+  return AddToHash(0,
+                   aURI->ComputeHash(aBlobSerial),
+                   HashString(suffix),
+                   HashString(ptr),
                    aIsStyloEnabled);
 }
 
@@ -175,5 +184,5 @@ ImageCacheKey::GetControlledDocumentToken(nsIDocument* aDocument)
   return pointer;
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

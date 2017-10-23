@@ -17,7 +17,7 @@ namespace mozilla {
 
 struct unused_t;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * already_AddRefed cooperates with reference counting smart pointers to enable
@@ -100,8 +100,11 @@ struct MOZ_MUST_USE_TYPE MOZ_NON_AUTOABLE already_AddRefed
    *
    * Note that nsRefPtr is the XPCOM reference counting smart pointer class.
    */
-  template <typename U>
-  MOZ_IMPLICIT already_AddRefed(already_AddRefed<U>&& aOther) : mRawPtr(aOther.take()) {}
+  template<typename U>
+  MOZ_IMPLICIT already_AddRefed(already_AddRefed<U>&& aOther)
+      : mRawPtr(aOther.take())
+  {
+  }
 
   ~already_AddRefed() { MOZ_ASSERT(!mRawPtr); }
 
@@ -145,8 +148,8 @@ struct MOZ_MUST_USE_TYPE MOZ_NON_AUTOABLE already_AddRefed
     return already_AddRefed<U>(tmp);
   }
 
-private:
+ private:
   T* MOZ_OWNING_REF mRawPtr;
 };
 
-#endif // AlreadyAddRefed_h
+#endif  // AlreadyAddRefed_h

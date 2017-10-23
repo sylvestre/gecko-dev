@@ -13,7 +13,7 @@
 #include <inputscope.h>
 
 #define NS_WM_IMEFIRST WM_IME_SETCONTEXT
-#define NS_WM_IMELAST  WM_IME_KEYUP
+#define NS_WM_IMELAST WM_IME_KEYUP
 
 class nsWindow;
 
@@ -30,7 +30,7 @@ struct MSGResult;
  */
 class IMEHandler final
 {
-private:
+ private:
   /**
    * Initialize() initializes both TSF modules and IMM modules.  Some TIPs
    * may require a normal window (i.e., not message window) belonging to
@@ -39,7 +39,7 @@ private:
    */
   static void Initialize();
 
-public:
+ public:
   static void Terminate();
 
   /**
@@ -58,8 +58,10 @@ public:
    * When the message is not needed to handle anymore by the caller, this
    * returns true.  Otherwise, false.
    */
-  static bool ProcessMessage(nsWindow* aWindow, UINT aMessage,
-                             WPARAM& aWParam, LPARAM& aLParam,
+  static bool ProcessMessage(nsWindow* aWindow,
+                             UINT aMessage,
+                             WPARAM& aWParam,
+                             LPARAM& aLParam,
                              MSGResult& aResult);
 
   /**
@@ -133,16 +135,16 @@ public:
    * This is called by TSFStaticSink when active IME is changed.
    */
   static void OnKeyboardLayoutChanged();
-#endif // #ifdef NS_ENABLE_TSF
+#endif  // #ifdef NS_ENABLE_TSF
 
 #ifdef DEBUG
   /**
    * Returns true when current keyboard layout has IME.  Otherwise, false.
    */
   static bool CurrentKeyboardLayoutHasIME();
-#endif // #ifdef DEBUG
+#endif  // #ifdef DEBUG
 
-private:
+ private:
   static nsWindow* sFocusedWindow;
   static InputContextAction::Cause sLastContextActionCause;
 
@@ -189,10 +191,10 @@ private:
    * allowed for Windows 8 and higher.
    */
   static HWND GetOnScreenKeyboardWindow();
-#endif // #ifdef NS_ENABLE_TSF
+#endif  // #ifdef NS_ENABLE_TSF
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // #ifndef WinIMEHandler_h_
+#endif  // #ifndef WinIMEHandler_h_

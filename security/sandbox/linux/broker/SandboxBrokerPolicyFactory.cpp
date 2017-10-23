@@ -51,7 +51,7 @@ static const int rdonly = SandboxBroker::MAY_READ;
 static const int wronly = SandboxBroker::MAY_WRITE;
 static const int rdwr = rdonly | wronly;
 static const int rdwrcr = rdwr | SandboxBroker::MAY_CREATE;
-}
+}  // namespace
 #endif
 
 static void
@@ -69,7 +69,7 @@ AddMesaSysfsPaths(SandboxBroker::Policy* aPolicy)
         if (stat(devPath.get(), &sb) == 0 && S_ISCHR(sb.st_mode)) {
           // For both the DRI node and its parent (the physical
           // device), allow reading the "uevent" file.
-          static const Array<const char*, 2> kSuffixes = { "", "/device" };
+          static const Array<const char*, 2> kSuffixes = {"", "/device"};
           for (const auto suffix : kSuffixes) {
             nsPrintfCString sysPath("/sys/dev/char/%u:%u%s",
                                     major(sb.st_rdev),
@@ -105,7 +105,7 @@ AddPathsFromFile(SandboxBroker::Policy* aPolicy, nsACString& aPath)
     return;
   }
   nsCOMPtr<nsIFileInputStream> fileStream(
-    do_CreateInstance(NS_LOCALFILEINPUTSTREAM_CONTRACTID, &rv));
+      do_CreateInstance(NS_LOCALFILEINPUTSTREAM_CONTRACTID, &rv));
   if (NS_FAILED(rv)) {
     return;
   }
@@ -144,7 +144,10 @@ AddPathsFromFile(SandboxBroker::Policy* aPolicy, nsACString& aPath)
       nsAutoCString includes(Substring(token_end, end));
       for (const nsACString& includeGlob : includes.Split(' ')) {
         glob_t globbuf;
-        if (!glob(PromiseFlatCString(includeGlob).get(), GLOB_NOSORT, nullptr, &globbuf)) {
+        if (!glob(PromiseFlatCString(includeGlob).get(),
+                  GLOB_NOSORT,
+                  nullptr,
+                  &globbuf)) {
           for (size_t fileIdx = 0; fileIdx < globbuf.gl_pathc; fileIdx++) {
             nsAutoCString filePath(globbuf.gl_pathv[fileIdx]);
             AddPathsFromFile(aPolicy, filePath);
@@ -179,8 +182,8 @@ AddLdconfigPaths(SandboxBroker::Policy* aPolicy)
 
 SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory()
 {
-  // Policy entries that are the same in every process go here, and
-  // are cached over the lifetime of the factory.
+// Policy entries that are the same in every process go here, and
+// are cached over the lifetime of the factory.
 #if defined(MOZ_CONTENT_SANDBOX)
   SandboxBroker::Policy* policy = new SandboxBroker::Policy;
   policy->AddDir(rdwrcr, "/dev/shm");
@@ -190,8 +193,8 @@ SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory()
   // from various environment variables (TMPDIR,TMP,TEMP,...) so
   // make sure to use the full logic.
   nsCOMPtr<nsIFile> tmpDir;
-  nsresult rv = GetSpecialSystemDirectory(OS_TemporaryDirectory,
-                                          getter_AddRefs(tmpDir));
+  nsresult rv =
+      GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(tmpDir));
 
   if (NS_SUCCEEDED(rv)) {
     nsAutoCString tmpPath;
@@ -229,9 +232,9 @@ SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory()
     // case we know it already exists).  See bug 1335329.
     nsPrintfCString pulsePath("%s/pulse", userDir);
     policy->AddPath(rdonly, pulsePath.get());
-#endif // MOZ_PULSEAUDIO
+#endif  // MOZ_PULSEAUDIO
   }
-#endif // MOZ_WIDGET_GTK
+#endif  // MOZ_WIDGET_GTK
 
   // Read permissions
   policy->AddPath(rdonly, "/dev/urandom");
@@ -284,9 +287,9 @@ SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory()
   // Extra configuration dirs in the homedir that we want to allow read
   // access to.
   mozilla::Array<const char*, 3> extraConfDirs = {
-    ".config",   // Fallback if XDG_CONFIG_PATH isn't set
-    ".themes",
-    ".fonts",
+      ".config",  // Fallback if XDG_CONFIG_PATH isn't set
+      ".themes",
+      ".fonts",
   };
 
   nsCOMPtr<nsIFile> homeDir;
@@ -382,7 +385,7 @@ SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory()
     // If this is a developer build the resources are symlinks to outside the binary dir.
     // Therefore in non-release builds we allow reads from the whole repository.
     // MOZ_DEVELOPER_REPO_DIR is set by mach run.
-    const char *developer_repo_dir = PR_GetEnv("MOZ_DEVELOPER_REPO_DIR");
+    const char* developer_repo_dir = PR_GetEnv("MOZ_DEVELOPER_REPO_DIR");
     if (developer_repo_dir) {
       policy->AddDir(rdonly, developer_repo_dir);
     }
@@ -408,19 +411,17 @@ SandboxBrokerPolicyFactory::GetContentPolicy(int aPid, bool aFileProcess)
   }
 
   MOZ_ASSERT(mCommonContentPolicy);
-  UniquePtr<SandboxBroker::Policy>
-    policy(new SandboxBroker::Policy(*mCommonContentPolicy));
+  UniquePtr<SandboxBroker::Policy> policy(
+      new SandboxBroker::Policy(*mCommonContentPolicy));
 
   // Read any extra paths that will get write permissions,
   // configured by the user or distro
-  AddDynamicPathList(policy.get(),
-                     "security.sandbox.content.write_path_whitelist",
-                     rdwr);
+  AddDynamicPathList(
+      policy.get(), "security.sandbox.content.write_path_whitelist", rdwr);
 
   // Whitelisted for reading by the user/distro
-  AddDynamicPathList(policy.get(),
-                    "security.sandbox.content.read_path_whitelist",
-                    rdonly);
+  AddDynamicPathList(
+      policy.get(), "security.sandbox.content.read_path_whitelist", rdonly);
 
   // No read blocking at level 2 and below.
   // file:// processes also get global read permissions
@@ -452,32 +453,32 @@ SandboxBrokerPolicyFactory::GetContentPolicy(int aPid, bool aFileProcess)
   nsresult rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
                                        getter_AddRefs(profileDir));
   if (NS_SUCCEEDED(rv)) {
-      nsCOMPtr<nsIFile> workDir;
-      rv = profileDir->Clone(getter_AddRefs(workDir));
+    nsCOMPtr<nsIFile> workDir;
+    rv = profileDir->Clone(getter_AddRefs(workDir));
+    if (NS_SUCCEEDED(rv)) {
+      rv = workDir->AppendNative(NS_LITERAL_CSTRING("chrome"));
       if (NS_SUCCEEDED(rv)) {
-        rv = workDir->AppendNative(NS_LITERAL_CSTRING("chrome"));
-        if (NS_SUCCEEDED(rv)) {
-          rv = workDir->AppendNative(NS_LITERAL_CSTRING("userContent.css"));
-          if (NS_SUCCEEDED(rv)) {
-            nsAutoCString tmpPath;
-            rv = workDir->GetNativePath(tmpPath);
-            if (NS_SUCCEEDED(rv)) {
-              policy->AddPath(rdonly, tmpPath.get());
-            }
-          }
-        }
-      }
-      rv = profileDir->Clone(getter_AddRefs(workDir));
-      if (NS_SUCCEEDED(rv)) {
-        rv = workDir->AppendNative(NS_LITERAL_CSTRING("extensions"));
+        rv = workDir->AppendNative(NS_LITERAL_CSTRING("userContent.css"));
         if (NS_SUCCEEDED(rv)) {
           nsAutoCString tmpPath;
           rv = workDir->GetNativePath(tmpPath);
           if (NS_SUCCEEDED(rv)) {
-            policy->AddDir(rdonly, tmpPath.get());
+            policy->AddPath(rdonly, tmpPath.get());
           }
         }
       }
+    }
+    rv = profileDir->Clone(getter_AddRefs(workDir));
+    if (NS_SUCCEEDED(rv)) {
+      rv = workDir->AppendNative(NS_LITERAL_CSTRING("extensions"));
+      if (NS_SUCCEEDED(rv)) {
+        nsAutoCString tmpPath;
+        rv = workDir->GetNativePath(tmpPath);
+        if (NS_SUCCEEDED(rv)) {
+          policy->AddDir(rdonly, tmpPath.get());
+        }
+      }
+    }
   }
 
   // Return the common policy.
@@ -486,7 +487,7 @@ SandboxBrokerPolicyFactory::GetContentPolicy(int aPid, bool aFileProcess)
 }
 
 void
-SandboxBrokerPolicyFactory::AddDynamicPathList(SandboxBroker::Policy *policy,
+SandboxBrokerPolicyFactory::AddDynamicPathList(SandboxBroker::Policy* policy,
                                                const char* aPathListPref,
                                                int perms)
 {
@@ -501,5 +502,5 @@ SandboxBrokerPolicyFactory::AddDynamicPathList(SandboxBroker::Policy *policy,
   }
 }
 
-#endif // MOZ_CONTENT_SANDBOX
-} // namespace mozilla
+#endif  // MOZ_CONTENT_SANDBOX
+}  // namespace mozilla

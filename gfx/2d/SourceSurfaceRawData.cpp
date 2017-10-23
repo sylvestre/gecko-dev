@@ -7,18 +7,19 @@
 
 #include "DataSurfaceHelpers.h"
 #include "Logging.h"
-#include "mozilla/Types.h" // for decltype
+#include "mozilla/Types.h"  // for decltype
 
 namespace mozilla {
 namespace gfx {
 
 void
-SourceSurfaceRawData::InitWrappingData(uint8_t *aData,
-                                       const IntSize &aSize,
-                                       int32_t aStride,
-                                       SurfaceFormat aFormat,
-                                       Factory::SourceSurfaceDeallocator aDeallocator,
-                                       void* aClosure)
+SourceSurfaceRawData::InitWrappingData(
+    uint8_t* aData,
+    const IntSize& aSize,
+    int32_t aStride,
+    SurfaceFormat aFormat,
+    Factory::SourceSurfaceDeallocator aDeallocator,
+    void* aClosure)
 {
   mRawData = aData;
   mSize = aSize;
@@ -47,20 +48,22 @@ SourceSurfaceRawData::GuaranteePersistance()
 }
 
 bool
-SourceSurfaceAlignedRawData::Init(const IntSize &aSize,
+SourceSurfaceAlignedRawData::Init(const IntSize& aSize,
                                   SurfaceFormat aFormat,
                                   bool aClearMem,
                                   uint8_t aClearValue,
                                   int32_t aStride)
 {
   mFormat = aFormat;
-  mStride = aStride ? aStride : GetAlignedStride<16>(aSize.width, BytesPerPixel(aFormat));
+  mStride = aStride ? aStride
+                    : GetAlignedStride<16>(aSize.width, BytesPerPixel(aFormat));
 
   size_t bufLen = BufferSizeFromStrideAndHeight(mStride, aSize.height);
   if (bufLen > 0) {
     bool zeroMem = aClearMem && !aClearValue;
     static_assert(sizeof(decltype(mArray[0])) == 1,
-                  "mArray.Realloc() takes an object count, so its objects must be 1-byte sized if we use bufLen");
+                  "mArray.Realloc() takes an object count, so its objects must "
+                  "be 1-byte sized if we use bufLen");
 
     // AlignedArray uses cmalloc to zero mem for a fast path.
     mArray.Realloc(/* actually an object count */ bufLen, zeroMem);
@@ -77,5 +80,5 @@ SourceSurfaceAlignedRawData::Init(const IntSize &aSize,
   return mArray != nullptr;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

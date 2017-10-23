@@ -15,16 +15,15 @@ using namespace mozilla::dom;
 namespace mozilla {
 
 ServoSupportsRule::ServoSupportsRule(RefPtr<RawServoSupportsRule> aRawRule,
-                                     uint32_t aLine, uint32_t aColumn)
-  : CSSSupportsRule(Servo_SupportsRule_GetRules(aRawRule).Consume(),
-                    aLine, aColumn)
-  , mRawRule(Move(aRawRule))
+                                     uint32_t aLine,
+                                     uint32_t aColumn)
+    : CSSSupportsRule(
+          Servo_SupportsRule_GetRules(aRawRule).Consume(), aLine, aColumn),
+      mRawRule(Move(aRawRule))
 {
 }
 
-ServoSupportsRule::~ServoSupportsRule()
-{
-}
+ServoSupportsRule::~ServoSupportsRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoSupportsRule, CSSSupportsRule)
 NS_IMPL_RELEASE_INHERITED(ServoSupportsRule, CSSSupportsRule)
@@ -88,11 +87,11 @@ ServoSupportsRule::GetCssTextImpl(nsAString& aCssText) const
 }
 
 /* virtual */ size_t
-ServoSupportsRule::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-  const
+ServoSupportsRule::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   // TODO Implement this!
   return aMallocSizeOf(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

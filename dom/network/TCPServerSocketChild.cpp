@@ -26,14 +26,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TCPServerSocketChildBase)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-TCPServerSocketChildBase::TCPServerSocketChildBase()
-: mIPCOpen(false)
-{
-}
+TCPServerSocketChildBase::TCPServerSocketChildBase() : mIPCOpen(false) {}
 
-TCPServerSocketChildBase::~TCPServerSocketChildBase()
-{
-}
+TCPServerSocketChildBase::~TCPServerSocketChildBase() {}
 
 NS_IMETHODIMP_(MozExternalRefCountType) TCPServerSocketChild::Release(void)
 {
@@ -45,8 +40,10 @@ NS_IMETHODIMP_(MozExternalRefCountType) TCPServerSocketChild::Release(void)
   return refcnt;
 }
 
-TCPServerSocketChild::TCPServerSocketChild(TCPServerSocket* aServerSocket, uint16_t aLocalPort,
-                                           uint16_t aBacklog, bool aUseArrayBuffers,
+TCPServerSocketChild::TCPServerSocketChild(TCPServerSocket* aServerSocket,
+                                           uint16_t aLocalPort,
+                                           uint16_t aBacklog,
+                                           bool aUseArrayBuffers,
                                            nsIEventTarget* aIPCEventTarget)
 {
   mServerSocket = aServerSocket;
@@ -54,7 +51,8 @@ TCPServerSocketChild::TCPServerSocketChild(TCPServerSocket* aServerSocket, uint1
     gNeckoChild->SetEventTargetForActor(this, aIPCEventTarget);
   }
   AddIPDLReference();
-  gNeckoChild->SendPTCPServerSocketConstructor(this, aLocalPort, aBacklog, aUseArrayBuffers);
+  gNeckoChild->SendPTCPServerSocketConstructor(
+      this, aLocalPort, aBacklog, aUseArrayBuffers);
 }
 
 void
@@ -73,12 +71,10 @@ TCPServerSocketChildBase::AddIPDLReference()
   this->AddRef();
 }
 
-TCPServerSocketChild::~TCPServerSocketChild()
-{
-}
+TCPServerSocketChild::~TCPServerSocketChild() {}
 
 mozilla::ipc::IPCResult
-TCPServerSocketChild::RecvCallbackAccept(PTCPSocketChild *psocket)
+TCPServerSocketChild::RecvCallbackAccept(PTCPSocketChild* psocket)
 {
   RefPtr<TCPSocketChild> socket = static_cast<TCPSocketChild*>(psocket);
   nsresult rv = mServerSocket->AcceptChildSocket(socket);
@@ -92,5 +88,5 @@ TCPServerSocketChild::Close()
   SendClose();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

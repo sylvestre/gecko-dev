@@ -54,5 +54,5 @@ AnimationTimeline::RemoveAnimation(Animation* aAnimation)
   mAnimations.RemoveEntry(aAnimation);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

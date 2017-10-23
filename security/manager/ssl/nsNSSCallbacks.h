@@ -20,32 +20,33 @@
 #include "pk11func.h"
 #include "pkix/pkixtypes.h"
 
-#include "ocspt.h" // Must be included after pk11func.h.
+#include "ocspt.h"  // Must be included after pk11func.h.
 
 using mozilla::OriginAttributes;
 
 class nsILoadGroup;
 
 char*
-PK11PasswordPrompt(PK11SlotInfo *slot, PRBool retry, void* arg);
+PK11PasswordPrompt(PK11SlotInfo* slot, PRBool retry, void* arg);
 
-void HandshakeCallback(PRFileDesc *fd, void *client_data);
-SECStatus CanFalseStartCallback(PRFileDesc* fd, void* client_data,
-                                PRBool *canFalseStart);
+void
+HandshakeCallback(PRFileDesc* fd, void* client_data);
+SECStatus
+CanFalseStartCallback(PRFileDesc* fd, void* client_data, PRBool* canFalseStart);
 
 class nsHTTPListener final : public nsIStreamLoaderObserver
 {
-private:
+ private:
   // For XPCOM implementations that are not a base class for some other
   // class, it is good practice to make the destructor non-virtual and
   // private.  Then the only way to delete the object is via Release.
 #ifdef _MSC_VER
   // C4265: Class has virtual members but destructor is not virtual
-  __pragma(warning(disable:4265))
+  __pragma(warning(disable : 4265))
 #endif
-  ~nsHTTPListener();
+      ~nsHTTPListener();
 
-public:
+ public:
   nsHTTPListener();
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -58,7 +59,7 @@ public:
   bool mHttpRequestSucceeded;
   uint16_t mHttpResponseCode;
 
-  const uint8_t* mResultData; // allocated in loader, but owned by listener
+  const uint8_t* mResultData;  // allocated in loader, but owned by listener
   uint32_t mResultLen;
 
   mozilla::Mutex mLock;
@@ -72,14 +73,14 @@ public:
   //   loadgroup not being thread safe.
   // So, let's use a raw pointer and ensure we only create and destroy
   // it on the network thread ourselves.
-  nsILoadGroup *mLoadGroup;
-  PRThread *mLoadGroupOwnerThread;
+  nsILoadGroup* mLoadGroup;
+  PRThread* mLoadGroupOwnerThread;
   void FreeLoadGroup(bool aCancelLoad);
 };
 
 class nsNSSHttpServerSession
 {
-public:
+ public:
   typedef mozilla::pkix::Result Result;
 
   nsCString mHost;
@@ -87,15 +88,15 @@ public:
 
   static Result createSessionFcn(const char* host,
                                  uint16_t portnum,
-                         /*out*/ nsNSSHttpServerSession** pSession);
+                                 /*out*/ nsNSSHttpServerSession** pSession);
 };
 
 class nsNSSHttpRequestSession
 {
-protected:
+ protected:
   mozilla::ThreadSafeAutoRefCnt mRefCount;
 
-public:
+ public:
   typedef mozilla::pkix::Result Result;
 
   static Result createFcn(const nsNSSHttpServerSession* session,
@@ -104,7 +105,7 @@ public:
                           const char* httpRequestMethod,
                           const OriginAttributes& originAttributes,
                           const mozilla::TimeDuration timeout,
-                  /*out*/ nsNSSHttpRequestSession** pRequest);
+                          /*out*/ nsNSSHttpRequestSession** pRequest);
 
   Result setPostDataFcn(const char* httpData,
                         const uint32_t httpDataLen,
@@ -132,7 +133,7 @@ public:
 
   RefPtr<nsHTTPListener> mListener;
 
-protected:
+ protected:
   nsNSSHttpRequestSession();
   ~nsNSSHttpRequestSession();
 
@@ -146,12 +147,12 @@ protected:
 
 class nsNSSHttpInterface
 {
-public:
+ public:
   typedef mozilla::pkix::Result Result;
 
   static Result createSessionFcn(const char* host,
                                  uint16_t portnum,
-                         /*out*/ nsNSSHttpServerSession** pSession)
+                                 /*out*/ nsNSSHttpServerSession** pSession)
   {
     return nsNSSHttpServerSession::createSessionFcn(host, portnum, pSession);
   }
@@ -162,12 +163,15 @@ public:
                           const char* httpRequestMethod,
                           const OriginAttributes& originAttributes,
                           const mozilla::TimeDuration timeout,
-                  /*out*/ nsNSSHttpRequestSession** pRequest)
+                          /*out*/ nsNSSHttpRequestSession** pRequest)
   {
-    return nsNSSHttpRequestSession::createFcn(session, httpProtocolVariant,
+    return nsNSSHttpRequestSession::createFcn(session,
+                                              httpProtocolVariant,
                                               pathAndQueryString,
-                                              httpRequestMethod, originAttributes,
-                                              timeout, pRequest);
+                                              httpRequestMethod,
+                                              originAttributes,
+                                              timeout,
+                                              pRequest);
   }
 
   static Result setPostDataFcn(nsNSSHttpRequestSession* request,
@@ -185,10 +189,12 @@ public:
                                      const char** httpResponseData,
                                      uint32_t* httpResponseDataLen)
   {
-    return request->trySendAndReceiveFcn(pPollDesc, httpResponseCode,
+    return request->trySendAndReceiveFcn(pPollDesc,
+                                         httpResponseCode,
                                          httpResponseHeaders,
-                                         httpResponseData, httpResponseDataLen);
+                                         httpResponseData,
+                                         httpResponseDataLen);
   }
 };
 
-#endif // nsNSSCallbacks_h
+#endif  // nsNSSCallbacks_h

@@ -21,41 +21,33 @@ namespace mozilla {
 namespace dom {
 namespace indexedDB {
 
-inline
-StructuredCloneFile::StructuredCloneFile()
-  : mType(eBlob)
+inline StructuredCloneFile::StructuredCloneFile() : mType(eBlob)
 {
   MOZ_COUNT_CTOR(StructuredCloneFile);
 }
 
-inline
-StructuredCloneFile::~StructuredCloneFile()
+inline StructuredCloneFile::~StructuredCloneFile()
 {
   MOZ_COUNT_DTOR(StructuredCloneFile);
 }
 
-inline
-bool
+inline bool
 StructuredCloneFile::operator==(const StructuredCloneFile& aOther) const
 {
   return this->mBlob == aOther.mBlob &&
          this->mMutableFile == aOther.mMutableFile &&
-         this->mFileInfo == aOther.mFileInfo &&
-         this->mType == aOther.mType;
+         this->mFileInfo == aOther.mFileInfo && this->mType == aOther.mType;
 }
 
-inline
-StructuredCloneReadInfo::StructuredCloneReadInfo()
-  : mDatabase(nullptr)
-  , mHasPreprocessInfo(false)
+inline StructuredCloneReadInfo::StructuredCloneReadInfo()
+    : mDatabase(nullptr), mHasPreprocessInfo(false)
 {
   MOZ_COUNT_CTOR(StructuredCloneReadInfo);
 }
 
-inline
-StructuredCloneReadInfo::StructuredCloneReadInfo(
-                             StructuredCloneReadInfo&& aCloneReadInfo)
-  : mData(Move(aCloneReadInfo.mData))
+inline StructuredCloneReadInfo::StructuredCloneReadInfo(
+    StructuredCloneReadInfo&& aCloneReadInfo)
+    : mData(Move(aCloneReadInfo.mData))
 {
   MOZ_ASSERT(&aCloneReadInfo != this);
   MOZ_COUNT_CTOR(StructuredCloneReadInfo);
@@ -68,18 +60,16 @@ StructuredCloneReadInfo::StructuredCloneReadInfo(
   aCloneReadInfo.mHasPreprocessInfo = false;
 }
 
-inline
-StructuredCloneReadInfo::StructuredCloneReadInfo(
-                             SerializedStructuredCloneReadInfo&& aCloneReadInfo)
-  : mData(Move(aCloneReadInfo.data().data))
-  , mDatabase(nullptr)
-  , mHasPreprocessInfo(aCloneReadInfo.hasPreprocessInfo())
+inline StructuredCloneReadInfo::StructuredCloneReadInfo(
+    SerializedStructuredCloneReadInfo&& aCloneReadInfo)
+    : mData(Move(aCloneReadInfo.data().data)),
+      mDatabase(nullptr),
+      mHasPreprocessInfo(aCloneReadInfo.hasPreprocessInfo())
 {
   MOZ_COUNT_CTOR(StructuredCloneReadInfo);
 }
 
-inline
-StructuredCloneReadInfo::~StructuredCloneReadInfo()
+inline StructuredCloneReadInfo::~StructuredCloneReadInfo()
 {
   MOZ_COUNT_DTOR(StructuredCloneReadInfo);
 }
@@ -99,8 +89,8 @@ StructuredCloneReadInfo::operator=(StructuredCloneReadInfo&& aCloneReadInfo)
   return *this;
 }
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // IndexedDatabaseInlines_h
+#endif  // IndexedDatabaseInlines_h

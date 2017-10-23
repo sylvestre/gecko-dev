@@ -16,14 +16,14 @@
 
 class mock_Link : public mozilla::dom::Link
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit mock_Link(void (*aHandlerFunction)(nsLinkState),
                      bool aRunNextTest = true)
-  : mozilla::dom::Link()
-  , mHandler(aHandlerFunction)
-  , mRunNextTest(aRunNextTest)
+      : mozilla::dom::Link(),
+        mHandler(aHandlerFunction),
+        mRunNextTest(aRunNextTest)
   {
     // Create a cyclic ownership, so that the link will be released only
     // after its status has been updated.  This will ensure that, when it should
@@ -42,31 +42,29 @@ public:
     mDeathGrip = nullptr;
   }
 
-  virtual size_t SizeOfExcludingThis(mozilla::SizeOfState& aState)
-    const override
+  virtual size_t SizeOfExcludingThis(
+      mozilla::SizeOfState& aState) const override
   {
-    return 0;   // the value shouldn't matter
+    return 0;  // the value shouldn't matter
   }
 
   virtual void NodeInfoChanged(nsIDocument* aOldDoc) final override {}
 
-protected:
-  ~mock_Link() {
+ protected:
+  ~mock_Link()
+  {
     // Run the next test if we are supposed to.
     if (mRunNextTest) {
       run_next_test();
     }
   }
 
-private:
+ private:
   void (*mHandler)(nsLinkState);
   bool mRunNextTest;
   RefPtr<Link> mDeathGrip;
 };
 
-NS_IMPL_ISUPPORTS(
-  mock_Link,
-  mozilla::dom::Link
-)
+NS_IMPL_ISUPPORTS(mock_Link, mozilla::dom::Link)
 
-#endif // mock_Link_h__
+#endif  // mock_Link_h__

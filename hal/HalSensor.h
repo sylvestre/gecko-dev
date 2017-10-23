@@ -17,7 +17,8 @@ namespace hal {
  * register or unregister an observer for a sensor of given type.
  * If you add or change any here, do the same in GeckoHalDefines.java.
  */
-enum SensorType {
+enum SensorType
+{
   SENSOR_UNKNOWN = -1,
   SENSOR_ORIENTATION = 0,
   SENSOR_ACCELERATION = 1,
@@ -37,7 +38,8 @@ typedef Observer<SensorData> ISensorObserver;
 /**
  * Enumeration of sensor accuracy types.
  */
-enum SensorAccuracyType {
+enum SensorAccuracyType
+{
   SENSOR_ACCURACY_UNKNOWN = -1,
   SENSOR_ACCURACY_UNRELIABLE,
   SENSOR_ACCURACY_LOW,
@@ -50,31 +52,30 @@ class SensorAccuracy;
 
 typedef Observer<SensorAccuracy> ISensorAccuracyObserver;
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
 #include "ipc/IPCMessageUtils.h"
 
 namespace IPC {
-  /**
+/**
    * Serializer for SensorType
    */
-  template <>
-  struct ParamTraits<mozilla::hal::SensorType>:
-    public ContiguousEnumSerializer<
-             mozilla::hal::SensorType,
-             mozilla::hal::SENSOR_UNKNOWN,
-             mozilla::hal::NUM_SENSOR_TYPE> {
-  };
+template<>
+struct ParamTraits<mozilla::hal::SensorType>
+    : public ContiguousEnumSerializer<mozilla::hal::SensorType,
+                                      mozilla::hal::SENSOR_UNKNOWN,
+                                      mozilla::hal::NUM_SENSOR_TYPE>
+{
+};
 
-  template <>
-  struct ParamTraits<mozilla::hal::SensorAccuracyType>:
-    public ContiguousEnumSerializer<
-             mozilla::hal::SensorAccuracyType,
-             mozilla::hal::SENSOR_ACCURACY_UNKNOWN,
-             mozilla::hal::NUM_SENSOR_ACCURACY_TYPE> {
-
-  };
-} // namespace IPC
+template<>
+struct ParamTraits<mozilla::hal::SensorAccuracyType>
+    : public ContiguousEnumSerializer<mozilla::hal::SensorAccuracyType,
+                                      mozilla::hal::SENSOR_ACCURACY_UNKNOWN,
+                                      mozilla::hal::NUM_SENSOR_ACCURACY_TYPE>
+{
+};
+}  // namespace IPC
 
 #endif /* __HAL_SENSOR_H_ */

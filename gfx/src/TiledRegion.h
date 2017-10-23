@@ -17,15 +17,19 @@ namespace mozilla {
 namespace gfx {
 
 // See TiledRegion.cpp for documentation on TiledRegionImpl.
-class TiledRegionImpl {
-public:
+class TiledRegionImpl
+{
+ public:
   void Clear() { mRects.Clear(); }
   bool AddRect(const pixman_box32_t& aRect);
   bool Intersects(const pixman_box32_t& aRect) const;
   bool Contains(const pixman_box32_t& aRect) const;
-  operator ArrayView<pixman_box32_t>() const { return ArrayView<pixman_box32_t>(mRects); }
+  operator ArrayView<pixman_box32_t>() const
+  {
+    return ArrayView<pixman_box32_t>(mRects);
+  }
 
-private:
+ private:
   nsTArray<pixman_box32_t> mRects;
 };
 
@@ -41,25 +45,22 @@ private:
  * The only way to remove parts from a TiledRegion is by calling SetEmpty().
  */
 template<typename RegionT>
-class TiledRegion {
-public:
+class TiledRegion
+{
+ public:
   typedef typename RegionT::RectType RectT;
 
-  TiledRegion()
-    : mCoversBounds(false)
-  {}
+  TiledRegion() : mCoversBounds(false) {}
 
   TiledRegion(const TiledRegion& aOther)
-    : mBounds(aOther.mBounds)
-    , mImpl(aOther.mImpl)
-    , mCoversBounds(false)
-  {}
+      : mBounds(aOther.mBounds), mImpl(aOther.mImpl), mCoversBounds(false)
+  {
+  }
 
   TiledRegion(TiledRegion&& aOther)
-    : mBounds(aOther.mBounds)
-    , mImpl(Move(aOther.mImpl))
-    , mCoversBounds(false)
-  {}
+      : mBounds(aOther.mBounds), mImpl(Move(aOther.mImpl)), mCoversBounds(false)
+  {
+  }
 
   RegionT GetRegion() const
   {
@@ -174,8 +175,7 @@ public:
     return mImpl.Contains(RectToBox(aRect));
   }
 
-private:
-
+ private:
   void FallBackToBounds()
   {
     mCoversBounds = true;
@@ -186,7 +186,7 @@ private:
   {
     MOZ_ASSERT(!aRect.IsEmpty());
     MOZ_ASSERT(!aRect.Overflows());
-    return { aRect.x, aRect.y, aRect.XMost(), aRect.YMost() };
+    return {aRect.x, aRect.y, aRect.XMost(), aRect.YMost()};
   }
 
   RectT mBounds;
@@ -202,7 +202,7 @@ private:
 
 typedef TiledRegion<IntRegion> TiledIntRegion;
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_TILEDREGION_H_ */

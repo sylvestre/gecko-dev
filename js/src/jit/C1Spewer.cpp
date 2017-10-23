@@ -8,7 +8,6 @@
 
 #include "jit/C1Spewer.h"
 
-
 #include <time.h>
 
 #include "jit/BacktrackingAllocator.h"
@@ -20,10 +19,8 @@
 using namespace js;
 using namespace js::jit;
 
-void
-C1Spewer::beginFunction(MIRGraph* graph, JSScript* script)
-{
-    this->graph  = graph;
+void C1Spewer::beginFunction(MIRGraph* graph, JSScript* script) {
+    this->graph = graph;
 
     out_.printf("begin_compilation\n");
     if (script) {
@@ -37,9 +34,7 @@ C1Spewer::beginFunction(MIRGraph* graph, JSScript* script)
     out_.printf("end_compilation\n");
 }
 
-void
-C1Spewer::spewPass(const char* pass)
-{
+void C1Spewer::spewPass(const char* pass) {
     out_.printf("begin_cfg\n");
     out_.printf("  name \"%s\"\n", pass);
 
@@ -49,9 +44,7 @@ C1Spewer::spewPass(const char* pass)
     out_.printf("end_cfg\n");
 }
 
-void
-C1Spewer::spewRanges(const char* pass, BacktrackingAllocator* regalloc)
-{
+void C1Spewer::spewRanges(const char* pass, BacktrackingAllocator* regalloc) {
     out_.printf("begin_ranges\n");
     out_.printf(" name \"%s\"\n", pass);
 
@@ -61,14 +54,9 @@ C1Spewer::spewRanges(const char* pass, BacktrackingAllocator* regalloc)
     out_.printf("end_ranges\n");
 }
 
-void
-C1Spewer::endFunction()
-{
-}
+void C1Spewer::endFunction() {}
 
-static void
-DumpDefinition(GenericPrinter& out, MDefinition* def)
-{
+static void DumpDefinition(GenericPrinter& out, MDefinition* def) {
     out.printf("      ");
     out.printf("%u %u ", def->id(), unsigned(def->useCount()));
     def->printName(out);
@@ -77,18 +65,14 @@ DumpDefinition(GenericPrinter& out, MDefinition* def)
     out.printf(" <|@\n");
 }
 
-static void
-DumpLIR(GenericPrinter& out, LNode* ins)
-{
+static void DumpLIR(GenericPrinter& out, LNode* ins) {
     out.printf("      ");
     out.printf("%d ", ins->id());
     ins->dump(out);
     out.printf(" <|@\n");
 }
 
-void
-C1Spewer::spewRanges(GenericPrinter& out, BacktrackingAllocator* regalloc, LNode* ins)
-{
+void C1Spewer::spewRanges(GenericPrinter& out, BacktrackingAllocator* regalloc, LNode* ins) {
     for (size_t k = 0; k < ins->numDefs(); k++) {
         uint32_t id = ins->getDef(k)->virtualRegister();
         VirtualRegister* vreg = &regalloc->vregs[id];
@@ -106,23 +90,18 @@ C1Spewer::spewRanges(GenericPrinter& out, BacktrackingAllocator* regalloc, LNode
     }
 }
 
-void
-C1Spewer::spewRanges(GenericPrinter& out, MBasicBlock* block, BacktrackingAllocator* regalloc)
-{
+void C1Spewer::spewRanges(GenericPrinter& out, MBasicBlock* block,
+                          BacktrackingAllocator* regalloc) {
     LBlock* lir = block->lir();
-    if (!lir)
-        return;
+    if (!lir) return;
 
-    for (size_t i = 0; i < lir->numPhis(); i++)
-        spewRanges(out, regalloc, lir->getPhi(i));
+    for (size_t i = 0; i < lir->numPhis(); i++) spewRanges(out, regalloc, lir->getPhi(i));
 
     for (LInstructionIterator ins = lir->begin(); ins != lir->end(); ins++)
         spewRanges(out, regalloc, *ins);
 }
 
-void
-C1Spewer::spewPass(GenericPrinter& out, MBasicBlock* block)
-{
+void C1Spewer::spewPass(GenericPrinter& out, MBasicBlock* block) {
     out.printf("  begin_block\n");
     out.printf("    name \"B%d\"\n", block->id());
     out.printf("    from_bci -1\n");
@@ -175,14 +154,12 @@ C1Spewer::spewPass(GenericPrinter& out, MBasicBlock* block)
     out.printf("    begin_HIR\n");
     for (MPhiIterator phi(block->phisBegin()); phi != block->phisEnd(); phi++)
         DumpDefinition(out, *phi);
-    for (MInstructionIterator i(block->begin()); i != block->end(); i++)
-        DumpDefinition(out, *i);
+    for (MInstructionIterator i(block->begin()); i != block->end(); i++) DumpDefinition(out, *i);
     out.printf("    end_HIR\n");
 
     if (block->lir()) {
         out.printf("    begin_LIR\n");
-        for (size_t i = 0; i < block->lir()->numPhis(); i++)
-            DumpLIR(out, block->lir()->getPhi(i));
+        for (size_t i = 0; i < block->lir()->numPhis(); i++) DumpLIR(out, block->lir()->getPhi(i));
         for (LInstructionIterator i(block->lir()->begin()); i != block->lir()->end(); i++)
             DumpLIR(out, *i);
         out.printf("    end_LIR\n");
@@ -192,4 +169,3 @@ C1Spewer::spewPass(GenericPrinter& out, MBasicBlock* block)
 }
 
 #endif /* JS_JITSPEW */
-

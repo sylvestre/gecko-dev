@@ -41,6 +41,6 @@ enum class OnNonvisible : uint8_t
   DISCARD_IMAGES  // Discard images associated with the frame.
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_layout_generic_Visibility_h
+#endif  // mozilla_layout_generic_Visibility_h

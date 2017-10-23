@@ -16,26 +16,22 @@ class nsIContent;
 
 class nsTreeUtils
 {
-  public:
-    /**
+ public:
+  /**
      * Parse a whitespace separated list of properties into an array
      * of atoms.
      */
-    static nsresult
-    TokenizeProperties(const nsAString& aProperties,
-                       mozilla::AtomArray& aPropertiesArray);
+  static nsresult TokenizeProperties(const nsAString& aProperties,
+                                     mozilla::AtomArray& aPropertiesArray);
 
-    static nsIContent*
-    GetImmediateChild(nsIContent* aContainer, nsAtom* aTag);
+  static nsIContent* GetImmediateChild(nsIContent* aContainer, nsAtom* aTag);
 
-    static nsIContent*
-    GetDescendantChild(nsIContent* aContainer, nsAtom* aTag);
+  static nsIContent* GetDescendantChild(nsIContent* aContainer, nsAtom* aTag);
 
-    static nsresult
-    UpdateSortIndicators(nsIContent* aColumn, const nsAString& aDirection);
+  static nsresult UpdateSortIndicators(nsIContent* aColumn,
+                                       const nsAString& aDirection);
 
-    static nsresult
-    GetColumnIndex(nsIContent* aColumn, int32_t* aResult);
+  static nsresult GetColumnIndex(nsIContent* aColumn, int32_t* aResult);
 };
 
-#endif // nsTreeUtils_h__
+#endif  // nsTreeUtils_h__

@@ -22,27 +22,25 @@ namespace mozilla {
 namespace net {
 class TransportProviderParent;
 class TransportProviderChild;
-}
+}  // namespace net
 
 namespace dom {
 
 class FlyWebPublishedServerParent;
 
-class FlyWebPublishedServerImpl final : public FlyWebPublishedServer
-                                      , public HttpServerListener
+class FlyWebPublishedServerImpl final : public FlyWebPublishedServer,
+                                        public HttpServerListener
 {
-public:
+ public:
   FlyWebPublishedServerImpl(nsPIDOMWindowInner* aOwner,
                             const nsAString& aName,
                             const FlyWebPublishOptions& aOptions);
 
   NS_DECL_ISUPPORTS_INHERITED
 
-  int32_t Port()
+  int32_t Port() { return mHttpServer ? mHttpServer->GetPort() : 0; }
+  void GetCertKey(nsACString& aKey)
   {
-    return mHttpServer ? mHttpServer->GetPort() : 0;
-  }
-  void GetCertKey(nsACString& aKey) {
     if (mHttpServer) {
       mHttpServer->GetCertKey(aKey);
     } else {
@@ -55,10 +53,10 @@ public:
                                InternalResponse* aResponse) override;
   virtual void OnWebSocketResponse(InternalRequest* aConnectRequest,
                                    InternalResponse* aResponse) override;
-  virtual already_AddRefed<nsITransportProvider>
-    OnWebSocketAcceptInternal(InternalRequest* aConnectRequest,
-                              const Optional<nsAString>& aProtocol,
-                              ErrorResult& aRv) override;
+  virtual already_AddRefed<nsITransportProvider> OnWebSocketAcceptInternal(
+      InternalRequest* aConnectRequest,
+      const Optional<nsAString>& aProtocol,
+      ErrorResult& aRv) override;
 
   void SetCancelRegister(nsICancelable* aCancelRegister)
   {
@@ -83,7 +81,7 @@ public:
     Close();
   }
 
-private:
+ private:
   ~FlyWebPublishedServerImpl() {}
 
   RefPtr<HttpServer> mHttpServer;
@@ -91,70 +89,69 @@ private:
   RefPtr<FlyWebPublishedServerParent> mServerParent;
 };
 
-class FlyWebPublishedServerChild final : public FlyWebPublishedServer
-                                       , public PFlyWebPublishedServerChild
+class FlyWebPublishedServerChild final : public FlyWebPublishedServer,
+                                         public PFlyWebPublishedServerChild
 {
-public:
+ public:
   FlyWebPublishedServerChild(nsPIDOMWindowInner* aOwner,
                              const nsAString& aName,
                              const FlyWebPublishOptions& aOptions);
 
   virtual void PermissionGranted(bool aGranted) override;
-  virtual mozilla::ipc::IPCResult RecvServerReady(const nsresult& aStatus) override;
+  virtual mozilla::ipc::IPCResult RecvServerReady(
+      const nsresult& aStatus) override;
   virtual mozilla::ipc::IPCResult RecvServerClose() override;
-  virtual mozilla::ipc::IPCResult RecvFetchRequest(const IPCInternalRequest& aRequest,
-                                                   const uint64_t& aRequestId) override;
-  virtual mozilla::ipc::IPCResult RecvWebSocketRequest(const IPCInternalRequest& aRequest,
-                                                       const uint64_t& aRequestId,
-                                                       PTransportProviderChild* aProvider) override;
+  virtual mozilla::ipc::IPCResult RecvFetchRequest(
+      const IPCInternalRequest& aRequest, const uint64_t& aRequestId) override;
+  virtual mozilla::ipc::IPCResult RecvWebSocketRequest(
+      const IPCInternalRequest& aRequest,
+      const uint64_t& aRequestId,
+      PTransportProviderChild* aProvider) override;
 
   virtual void OnFetchResponse(InternalRequest* aRequest,
                                InternalResponse* aResponse) override;
   virtual void OnWebSocketResponse(InternalRequest* aConnectRequest,
                                    InternalResponse* aResponse) override;
-  virtual already_AddRefed<nsITransportProvider>
-    OnWebSocketAcceptInternal(InternalRequest* aConnectRequest,
-                              const Optional<nsAString>& aProtocol,
-                              ErrorResult& aRv) override;
+  virtual already_AddRefed<nsITransportProvider> OnWebSocketAcceptInternal(
+      InternalRequest* aConnectRequest,
+      const Optional<nsAString>& aProtocol,
+      ErrorResult& aRv) override;
 
   virtual void Close() override;
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   ~FlyWebPublishedServerChild() {}
 
   nsDataHashtable<nsRefPtrHashKey<InternalRequest>, uint64_t> mPendingRequests;
   nsRefPtrHashtable<nsUint64HashKey, TransportProviderChild>
-    mPendingTransportProviders;
+      mPendingTransportProviders;
   bool mActorExists;
 };
 
-class FlyWebPublishedServerParent final : public PFlyWebPublishedServerParent
-                                        , public nsIDOMEventListener
+class FlyWebPublishedServerParent final : public PFlyWebPublishedServerParent,
+                                          public nsIDOMEventListener
 {
-public:
+ public:
   FlyWebPublishedServerParent(const nsAString& aName,
                               const FlyWebPublishOptions& aOptions);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
 
-private:
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+ private:
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult
-  Recv__delete__() override;
-  virtual mozilla::ipc::IPCResult
-  RecvFetchResponse(const IPCInternalResponse& aResponse,
-                    const uint64_t& aRequestId) override;
-  virtual mozilla::ipc::IPCResult
-  RecvWebSocketResponse(const IPCInternalResponse& aResponse,
-                        const uint64_t& aRequestId) override;
-  virtual mozilla::ipc::IPCResult
-  RecvWebSocketAccept(const nsString& aProtocol,
-                      const uint64_t& aRequestId) override;
+  virtual mozilla::ipc::IPCResult Recv__delete__() override;
+  virtual mozilla::ipc::IPCResult RecvFetchResponse(
+      const IPCInternalResponse& aResponse,
+      const uint64_t& aRequestId) override;
+  virtual mozilla::ipc::IPCResult RecvWebSocketResponse(
+      const IPCInternalResponse& aResponse,
+      const uint64_t& aRequestId) override;
+  virtual mozilla::ipc::IPCResult RecvWebSocketAccept(
+      const nsString& aProtocol, const uint64_t& aRequestId) override;
 
   ~FlyWebPublishedServerParent() {}
 
@@ -162,11 +159,11 @@ private:
   uint64_t mNextRequestId;
   nsRefPtrHashtable<nsUint64HashKey, InternalRequest> mPendingRequests;
   nsRefPtrHashtable<nsUint64HashKey, TransportProviderParent>
-    mPendingTransportProviders;
+      mPendingTransportProviders;
   RefPtr<FlyWebPublishedServerImpl> mPublishedServer;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlyWebPublishedServerIPC_h
+#endif  // mozilla_dom_FlyWebPublishedServerIPC_h

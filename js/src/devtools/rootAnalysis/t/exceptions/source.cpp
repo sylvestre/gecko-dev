@@ -1,17 +1,18 @@
 #define ANNOTATE(property) __attribute__((tag(property)))
 
-struct Cell { int f; } ANNOTATE("GC Thing");
+struct Cell {
+    int f;
+} ANNOTATE("GC Thing");
 
 extern void GC() ANNOTATE("GC Call");
 
-void GC()
-{
+void GC() {
     // If the implementation is too trivial, the function body won't be emitted at all.
     asm("");
 }
 
 class RAII_GC {
-  public:
+   public:
     RAII_GC() {}
     ~RAII_GC() { GC(); }
 };
@@ -21,22 +22,21 @@ class RAII_GC {
 // possible when compiled with -fno-exceptions.
 class AutoSomething {
     RAII_GC gc;
-  public:
+
+   public:
     AutoSomething() : gc() {
-        asm(""); // Ooh, scary, this might throw an exception
+        asm("");  // Ooh, scary, this might throw an exception
     }
-    ~AutoSomething() {
-        asm("");
-    }
+    ~AutoSomething() { asm(""); }
 };
 
 extern void usevar(Cell* cell);
 
 void f() {
-    Cell* thing = nullptr; // Live range starts here
+    Cell* thing = nullptr;  // Live range starts here
 
     {
-        AutoSomething smth; // Constructor can GC only if exceptions are enabled
-        usevar(thing); // Live range ends here
-    } // In particular, 'thing' is dead at the destructor, so no hazard
+        AutoSomething smth;  // Constructor can GC only if exceptions are enabled
+        usevar(thing);       // Live range ends here
+    }                        // In particular, 'thing' is dead at the destructor, so no hazard
 }

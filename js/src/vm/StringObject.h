@@ -14,12 +14,11 @@
 
 namespace js {
 
-class StringObject : public NativeObject
-{
+class StringObject : public NativeObject {
     static const unsigned PRIMITIVE_VALUE_SLOT = 0;
     static const unsigned LENGTH_SLOT = 1;
 
-  public:
+   public:
     static const unsigned RESERVED_SLOTS = 2;
 
     static const Class class_;
@@ -37,25 +36,16 @@ class StringObject : public NativeObject
      * encodes the initial length property. Return the shape after changing
      * |obj|'s last property to it.
      */
-    static Shape*
-    assignInitialShape(JSContext* cx, Handle<StringObject*> obj);
+    static Shape* assignInitialShape(JSContext* cx, Handle<StringObject*> obj);
 
-    JSString* unbox() const {
-        return getFixedSlot(PRIMITIVE_VALUE_SLOT).toString();
-    }
+    JSString* unbox() const { return getFixedSlot(PRIMITIVE_VALUE_SLOT).toString(); }
 
-    inline size_t length() const {
-        return size_t(getFixedSlot(LENGTH_SLOT).toInt32());
-    }
+    inline size_t length() const { return size_t(getFixedSlot(LENGTH_SLOT).toInt32()); }
 
-    static size_t offsetOfPrimitiveValue() {
-        return getFixedSlotOffset(PRIMITIVE_VALUE_SLOT);
-    }
-    static size_t offsetOfLength() {
-        return getFixedSlotOffset(LENGTH_SLOT);
-    }
+    static size_t offsetOfPrimitiveValue() { return getFixedSlotOffset(PRIMITIVE_VALUE_SLOT); }
+    static size_t offsetOfLength() { return getFixedSlotOffset(LENGTH_SLOT); }
 
-  private:
+   private:
     static inline bool init(JSContext* cx, Handle<StringObject*> obj, HandleString str);
 
     void setStringThis(JSString* str) {
@@ -65,10 +55,9 @@ class StringObject : public NativeObject
     }
 
     /* For access to init, as String.prototype is special. */
-    friend JSObject*
-    js::InitStringClass(JSContext* cx, HandleObject global);
+    friend JSObject* js::InitStringClass(JSContext* cx, HandleObject global);
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_StringObject_h */

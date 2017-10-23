@@ -12,17 +12,17 @@
 namespace mozilla {
 
 class JavaCallbacksSupport
-  : public java::CodecProxy::NativeCallbacks::Natives<JavaCallbacksSupport>
+    : public java::CodecProxy::NativeCallbacks::Natives<JavaCallbacksSupport>
 {
-public:
+ public:
   typedef java::CodecProxy::NativeCallbacks::Natives<JavaCallbacksSupport> Base;
   using Base::AttachNative;
-  using Base::GetNative;
   using Base::DisposeNative;
+  using Base::GetNative;
 
-  JavaCallbacksSupport() : mCanceled(false) { }
+  JavaCallbacksSupport() : mCanceled(false) {}
 
-  virtual ~JavaCallbacksSupport() { }
+  virtual ~JavaCallbacksSupport() {}
 
   virtual void HandleInput(int64_t aTimestamp, bool aProcessed) = 0;
 
@@ -42,7 +42,8 @@ public:
     }
   }
 
-  virtual void HandleOutputFormatChanged(java::sdk::MediaFormat::Param aFormat) { };
+  virtual void HandleOutputFormatChanged(
+      java::sdk::MediaFormat::Param aFormat){};
 
   void OnOutputFormatChanged(jni::Object::Param aFormat)
   {
@@ -56,22 +57,18 @@ public:
   void OnError(bool aIsFatal)
   {
     if (!mCanceled) {
-      HandleError(
-        aIsFatal
-        ? MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__)
-        : MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
+      HandleError(aIsFatal
+                      ? MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__)
+                      : MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
     }
   }
 
-  void Cancel()
-  {
-    mCanceled = true;
-  }
+  void Cancel() { mCanceled = true; }
 
-private:
+ private:
   Atomic<bool> mCanceled;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

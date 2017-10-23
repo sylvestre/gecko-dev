@@ -36,28 +36,29 @@ using namespace mozilla::plugins::parent;
 
 class MOZ_STACK_CLASS StackIdentifier
 {
-public:
+ public:
   explicit StackIdentifier(const PluginIdentifier& aIdentifier,
                            bool aAtomizeAndPin = false);
 
   bool Failed() const { return mFailed; }
   NPIdentifier ToNPIdentifier() const { return mIdentifier; }
 
-private:
+ private:
   bool mFailed;
   NPIdentifier mIdentifier;
   AutoSafeJSContext mCx;
   JS::RootedId mId;
 };
 
-StackIdentifier::StackIdentifier(const PluginIdentifier& aIdentifier, bool aAtomizeAndPin)
-: mFailed(false),
-  mId(mCx)
+StackIdentifier::StackIdentifier(const PluginIdentifier& aIdentifier,
+                                 bool aAtomizeAndPin)
+    : mFailed(false), mId(mCx)
 {
   if (aIdentifier.type() == PluginIdentifier::TnsCString) {
     // We don't call _getstringidentifier because we may not want to intern the string.
     NS_ConvertUTF8toUTF16 utf16name(aIdentifier.get_nsCString());
-    JS::RootedString str(mCx, JS_NewUCStringCopyN(mCx, utf16name.get(), utf16name.Length()));
+    JS::RootedString str(
+        mCx, JS_NewUCStringCopyN(mCx, utf16name.get(), utf16name.Length()));
     if (!str) {
       NS_ERROR("Id can't be allocated");
       mFailed = true;
@@ -80,7 +81,8 @@ StackIdentifier::StackIdentifier(const PluginIdentifier& aIdentifier, bool aAtom
     return;
   }
 
-  mIdentifier = mozilla::plugins::parent::_getintidentifier(aIdentifier.get_int32_t());
+  mIdentifier =
+      mozilla::plugins::parent::_getintidentifier(aIdentifier.get_int32_t());
 }
 
 static bool
@@ -88,16 +90,14 @@ FromNPIdentifier(NPIdentifier aIdentifier, PluginIdentifier* aResult)
 {
   if (mozilla::plugins::parent::_identifierisstring(aIdentifier)) {
     nsCString string;
-    NPUTF8* chars =
-      mozilla::plugins::parent::_utf8fromidentifier(aIdentifier);
+    NPUTF8* chars = mozilla::plugins::parent::_utf8fromidentifier(aIdentifier);
     if (!chars) {
       return false;
     }
     string.Adopt(chars);
     *aResult = PluginIdentifier(string);
     return true;
-  }
-  else {
+  } else {
     int32_t intval = mozilla::plugins::parent::_intfromidentifier(aIdentifier);
     *aResult = PluginIdentifier(intval);
     return true;
@@ -107,8 +107,7 @@ FromNPIdentifier(NPIdentifier aIdentifier, PluginIdentifier* aResult)
 namespace {
 
 inline void
-ReleaseVariant(NPVariant& aVariant,
-               PluginInstanceParent* aInstance)
+ReleaseVariant(NPVariant& aVariant, PluginInstanceParent* aInstance)
 {
   const NPNetscapeFuncs* npn = GetNetscapeFuncs(aInstance);
   if (npn) {
@@ -116,12 +115,11 @@ ReleaseVariant(NPVariant& aVariant,
   }
 }
 
-} // namespace
+}  // namespace
 
 // static
 NPObject*
-PluginScriptableObjectParent::ScriptableAllocate(NPP aInstance,
-                                                 NPClass* aClass)
+PluginScriptableObjectParent::ScriptableAllocate(NPP aInstance, NPClass* aClass)
 {
   if (aClass != GetClass()) {
     NS_ERROR("Huh?! Wrong class!");
@@ -258,8 +256,7 @@ PluginScriptableObjectParent::ScriptableInvoke(NPObject* aObject,
 
   Variant remoteResult;
   bool success;
-  if (!actor->CallInvoke(identifier, args, &remoteResult,
-                         &success)) {
+  if (!actor->CallInvoke(identifier, args, &remoteResult, &success)) {
     NS_WARNING("Failed to send message!");
     return false;
   }
@@ -568,27 +565,23 @@ PluginScriptableObjectParent::ScriptableConstruct(NPObject* aObject,
 }
 
 const NPClass PluginScriptableObjectParent::sNPClass = {
-  NP_CLASS_STRUCT_VERSION,
-  PluginScriptableObjectParent::ScriptableAllocate,
-  PluginScriptableObjectParent::ScriptableDeallocate,
-  PluginScriptableObjectParent::ScriptableInvalidate,
-  PluginScriptableObjectParent::ScriptableHasMethod,
-  PluginScriptableObjectParent::ScriptableInvoke,
-  PluginScriptableObjectParent::ScriptableInvokeDefault,
-  PluginScriptableObjectParent::ScriptableHasProperty,
-  PluginScriptableObjectParent::ScriptableGetProperty,
-  PluginScriptableObjectParent::ScriptableSetProperty,
-  PluginScriptableObjectParent::ScriptableRemoveProperty,
-  PluginScriptableObjectParent::ScriptableEnumerate,
-  PluginScriptableObjectParent::ScriptableConstruct
-};
+    NP_CLASS_STRUCT_VERSION,
+    PluginScriptableObjectParent::ScriptableAllocate,
+    PluginScriptableObjectParent::ScriptableDeallocate,
+    PluginScriptableObjectParent::ScriptableInvalidate,
+    PluginScriptableObjectParent::ScriptableHasMethod,
+    PluginScriptableObjectParent::ScriptableInvoke,
+    PluginScriptableObjectParent::ScriptableInvokeDefault,
+    PluginScriptableObjectParent::ScriptableHasProperty,
+    PluginScriptableObjectParent::ScriptableGetProperty,
+    PluginScriptableObjectParent::ScriptableSetProperty,
+    PluginScriptableObjectParent::ScriptableRemoveProperty,
+    PluginScriptableObjectParent::ScriptableEnumerate,
+    PluginScriptableObjectParent::ScriptableConstruct};
 
 PluginScriptableObjectParent::PluginScriptableObjectParent(
-                                                     ScriptableObjectType aType)
-: mInstance(nullptr),
-  mObject(nullptr),
-  mProtectCount(0),
-  mType(aType)
+    ScriptableObjectType aType)
+    : mInstance(nullptr), mObject(nullptr), mProtectCount(0), mType(aType)
 {
 }
 
@@ -598,8 +591,7 @@ PluginScriptableObjectParent::~PluginScriptableObjectParent()
     if (mObject->_class == GetClass()) {
       NS_ASSERTION(mType == Proxy, "Wrong type!");
       static_cast<ParentNPObject*>(mObject)->parent = nullptr;
-    }
-    else {
+    } else {
       NS_ASSERTION(mType == LocalObject, "Wrong type!");
       GetInstance()->GetNPNIface()->releaseobject(mObject);
     }
@@ -654,8 +646,8 @@ PluginScriptableObjectParent::CreateProxyObject()
 
   const NPNetscapeFuncs* npn = GetNetscapeFuncs(mInstance);
 
-  NPObject* npobject = npn->createobject(mInstance->GetNPP(),
-                                         const_cast<NPClass*>(GetClass()));
+  NPObject* npobject =
+      npn->createobject(mInstance->GetNPP(), const_cast<NPClass*>(GetClass()));
   NS_ASSERTION(npobject, "Failed to create object?!");
   NS_ASSERTION(npobject->_class == GetClass(), "Wrong kind of object!");
   NS_ASSERTION(npobject->referenceCount == 1, "Some kind of live object!");
@@ -782,7 +774,8 @@ PluginScriptableObjectParent::AnswerHasMethod(const PluginIdentifier& aId,
     *aHasMethod = false;
     return IPC_OK();
   }
-  *aHasMethod = npn->hasmethod(instance->GetNPP(), mObject, stackID.ToNPIdentifier());
+  *aHasMethod =
+      npn->hasmethod(instance->GetNPP(), mObject, stackID.ToNPIdentifier());
   return IPC_OK();
 }
 
@@ -847,8 +840,12 @@ PluginScriptableObjectParent::AnswerInvoke(const PluginIdentifier& aId,
   }
 
   NPVariant result;
-  bool success = npn->invoke(instance->GetNPP(), mObject, stackID.ToNPIdentifier(),
-                             convertedArgs.Elements(), argCount, &result);
+  bool success = npn->invoke(instance->GetNPP(),
+                             mObject,
+                             stackID.ToNPIdentifier(),
+                             convertedArgs.Elements(),
+                             argCount,
+                             &result);
 
   for (uint32_t index = 0; index < argCount; index++) {
     ReleaseVariant(convertedArgs[index], instance);
@@ -877,9 +874,8 @@ PluginScriptableObjectParent::AnswerInvoke(const PluginIdentifier& aId,
 }
 
 mozilla::ipc::IPCResult
-PluginScriptableObjectParent::AnswerInvokeDefault(InfallibleTArray<Variant>&& aArgs,
-                                                  Variant* aResult,
-                                                  bool* aSuccess)
+PluginScriptableObjectParent::AnswerInvokeDefault(
+    InfallibleTArray<Variant>&& aArgs, Variant* aResult, bool* aSuccess)
 {
   if (!mObject) {
     NS_WARNING("Calling AnswerInvoke with an invalidated object!");
@@ -929,9 +925,8 @@ PluginScriptableObjectParent::AnswerInvokeDefault(InfallibleTArray<Variant>&& aA
   }
 
   NPVariant result;
-  bool success = npn->invokeDefault(instance->GetNPP(), mObject,
-                                    convertedArgs.Elements(), argCount,
-                                    &result);
+  bool success = npn->invokeDefault(
+      instance->GetNPP(), mObject, convertedArgs.Elements(), argCount, &result);
 
   for (uint32_t index = 0; index < argCount; index++) {
     ReleaseVariant(convertedArgs[index], instance);
@@ -992,16 +987,14 @@ PluginScriptableObjectParent::AnswerHasProperty(const PluginIdentifier& aId,
     return IPC_OK();
   }
 
-  *aHasProperty = npn->hasproperty(instance->GetNPP(), mObject,
-                                   stackID.ToNPIdentifier());
+  *aHasProperty =
+      npn->hasproperty(instance->GetNPP(), mObject, stackID.ToNPIdentifier());
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 PluginScriptableObjectParent::AnswerGetParentProperty(
-                                                   const PluginIdentifier& aId,
-                                                   Variant* aResult,
-                                                   bool* aSuccess)
+    const PluginIdentifier& aId, Variant* aResult, bool* aSuccess)
 {
   if (!mObject) {
     NS_WARNING("Calling AnswerGetProperty with an invalidated object!");
@@ -1037,8 +1030,8 @@ PluginScriptableObjectParent::AnswerGetParentProperty(
   }
 
   NPVariant result;
-  if (!npn->getproperty(instance->GetNPP(), mObject, stackID.ToNPIdentifier(),
-                        &result)) {
+  if (!npn->getproperty(
+          instance->GetNPP(), mObject, stackID.ToNPIdentifier(), &result)) {
     *aResult = void_t();
     *aSuccess = false;
     return IPC_OK();
@@ -1048,8 +1041,7 @@ PluginScriptableObjectParent::AnswerGetParentProperty(
   if ((*aSuccess = ConvertToRemoteVariant(result, converted, instance))) {
     DeferNPVariantLastRelease(npn, &result);
     *aResult = converted;
-  }
-  else {
+  } else {
     *aResult = void_t();
   }
 
@@ -1096,8 +1088,10 @@ PluginScriptableObjectParent::AnswerSetProperty(const PluginIdentifier& aId,
     return IPC_OK();
   }
 
-  if ((*aSuccess = npn->setproperty(instance->GetNPP(), mObject,
-                                    stackID.ToNPIdentifier(), &converted))) {
+  if ((*aSuccess = npn->setproperty(instance->GetNPP(),
+                                    mObject,
+                                    stackID.ToNPIdentifier(),
+                                    &converted))) {
     ReleaseVariant(converted, instance);
   }
   return IPC_OK();
@@ -1136,14 +1130,14 @@ PluginScriptableObjectParent::AnswerRemoveProperty(const PluginIdentifier& aId,
     return IPC_OK();
   }
 
-  *aSuccess = npn->removeproperty(instance->GetNPP(), mObject,
-                                  stackID.ToNPIdentifier());
+  *aSuccess = npn->removeproperty(
+      instance->GetNPP(), mObject, stackID.ToNPIdentifier());
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-PluginScriptableObjectParent::AnswerEnumerate(InfallibleTArray<PluginIdentifier>* aProperties,
-                                              bool* aSuccess)
+PluginScriptableObjectParent::AnswerEnumerate(
+    InfallibleTArray<PluginIdentifier>* aProperties, bool* aSuccess)
 {
   if (!mObject) {
     NS_WARNING("Calling AnswerEnumerate with an invalidated object!");
@@ -1243,8 +1237,8 @@ PluginScriptableObjectParent::AnswerConstruct(InfallibleTArray<Variant>&& aArgs,
   }
 
   NPVariant result;
-  bool success = npn->construct(instance->GetNPP(), mObject,
-                                convertedArgs.Elements(), argCount, &result);
+  bool success = npn->construct(
+      instance->GetNPP(), mObject, convertedArgs.Elements(), argCount, &result);
 
   for (uint32_t index = 0; index < argCount; index++) {
     ReleaseVariant(convertedArgs[index], instance);
@@ -1313,7 +1307,7 @@ PluginScriptableObjectParent::AnswerNPN_Evaluate(const nsCString& aScript,
     return IPC_OK();
   }
 
-  NPString script = { aScript.get(), aScript.Length() };
+  NPString script = {aScript.get(), aScript.Length()};
 
   NPVariant result;
   bool success = npn->evaluate(instance->GetNPP(), mObject, &script, &result);
@@ -1360,8 +1354,8 @@ PluginScriptableObjectParent::GetPropertyHelper(NPIdentifier aName,
 
   bool hasProperty, hasMethod, success;
   Variant result;
-  if (!CallGetChildProperty(identifier, &hasProperty, &hasMethod, &result,
-                            &success)) {
+  if (!CallGetChildProperty(
+          identifier, &hasProperty, &hasMethod, &result, &success)) {
     return false;
   }
 

@@ -17,7 +17,7 @@ namespace image {
  */
 class ImageWrapper : public Image
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_IMGICONTAINER
 
@@ -26,8 +26,8 @@ public:
   size_t GetNativeSizesLength() const override;
   virtual already_AddRefed<ProgressTracker> GetProgressTracker() override;
 
-  virtual size_t
-    SizeOfSourceWithComputedFallback(SizeOfState& aState) const override;
+  virtual size_t SizeOfSourceWithComputedFallback(
+      SizeOfState& aState) const override;
   virtual void CollectSizeOfSurfaces(nsTArray<SurfaceMemoryCounter>& aCounters,
                                      MallocSizeOf aMallocSizeOf) const override;
 
@@ -57,14 +57,13 @@ public:
 
   virtual ImageURL* GetURI() override;
 
-protected:
-  explicit ImageWrapper(Image* aInnerImage)
-    : mInnerImage(aInnerImage)
+ protected:
+  explicit ImageWrapper(Image* aInnerImage) : mInnerImage(aInnerImage)
   {
     MOZ_ASSERT(aInnerImage, "Need an image to wrap");
   }
 
-  virtual ~ImageWrapper() { }
+  virtual ~ImageWrapper() {}
 
   /**
    * Returns a weak reference to the inner image wrapped by this ImageWrapper.
@@ -77,11 +76,11 @@ protected:
     mInnerImage = aInnerImage;
   }
 
-private:
+ private:
   RefPtr<Image> mInnerImage;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ImageWrapper_h
+#endif  // mozilla_image_ImageWrapper_h

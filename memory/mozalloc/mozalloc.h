@@ -13,16 +13,16 @@
  */
 
 #if defined(__cplusplus)
-#  include <new>
+#include <new>
 // Since libstdc++ 6, including the C headers (e.g. stdlib.h) instead of the
 // corresponding C++ header (e.g. cstdlib) can cause confusion in C++ code
 // using things defined there. Specifically, with stdlib.h, the use of abs()
 // in gfx/graphite2/src/inc/UtfCodec.h somehow ends up picking the wrong abs()
-#  include <cstdlib>
-#  include <cstring>
+#include <cstdlib>
+#include <cstring>
 #else
-#  include <stdlib.h>
-#  include <string.h>
+#include <stdlib.h>
+#include <string.h>
 #endif
 
 #if defined(__cplusplus)
@@ -36,19 +36,19 @@
 #define MOZALLOC_HAVE_XMALLOC
 
 #if defined(MOZ_ALWAYS_INLINE_EVEN_DEBUG)
-#  define MOZALLOC_INLINE MOZ_ALWAYS_INLINE_EVEN_DEBUG
+#define MOZALLOC_INLINE MOZ_ALWAYS_INLINE_EVEN_DEBUG
 #elif defined(HAVE_FORCEINLINE)
-#  define MOZALLOC_INLINE __forceinline
+#define MOZALLOC_INLINE __forceinline
 #else
-#  define MOZALLOC_INLINE inline
+#define MOZALLOC_INLINE inline
 #endif
 
 /* Workaround build problem with Sun Studio 12 */
 #if defined(__SUNPRO_C) || defined(__SUNPRO_CC)
-#  undef MOZ_MUST_USE
-#  define MOZ_MUST_USE
-#  undef MOZ_ALLOCATOR
-#  define MOZ_ALLOCATOR
+#undef MOZ_MUST_USE
+#define MOZ_MUST_USE
+#undef MOZ_ALLOCATOR
+#define MOZ_ALLOCATOR
 #endif
 
 #if defined(__cplusplus)
@@ -82,59 +82,57 @@ extern "C" {
  * passing that pointer to |free()|.
  */
 
-MFBT_API void* moz_xmalloc(size_t size)
-    MOZ_ALLOCATOR;
+MFBT_API void*
+moz_xmalloc(size_t size) MOZ_ALLOCATOR;
 
-MFBT_API void* moz_xcalloc(size_t nmemb, size_t size)
-    MOZ_ALLOCATOR;
+MFBT_API void*
+moz_xcalloc(size_t nmemb, size_t size) MOZ_ALLOCATOR;
 
-MFBT_API void* moz_xrealloc(void* ptr, size_t size)
-    MOZ_ALLOCATOR;
+MFBT_API void*
+moz_xrealloc(void* ptr, size_t size) MOZ_ALLOCATOR;
 
-MFBT_API char* moz_xstrdup(const char* str)
-    MOZ_ALLOCATOR;
+MFBT_API char*
+moz_xstrdup(const char* str) MOZ_ALLOCATOR;
 
-MFBT_API size_t moz_malloc_usable_size(void *ptr);
+MFBT_API size_t
+moz_malloc_usable_size(void* ptr);
 
-MFBT_API size_t moz_malloc_size_of(const void *ptr);
+MFBT_API size_t
+moz_malloc_size_of(const void* ptr);
 
 /*
  * Like moz_malloc_size_of(), but works reliably with interior pointers, i.e.
  * pointers into the middle of a live allocation.
  */
-MFBT_API size_t moz_malloc_enclosing_size_of(const void *ptr);
+MFBT_API size_t
+moz_malloc_enclosing_size_of(const void* ptr);
 
 #if defined(HAVE_STRNDUP)
-MFBT_API char* moz_xstrndup(const char* str, size_t strsize)
-    MOZ_ALLOCATOR;
+MFBT_API char*
+moz_xstrndup(const char* str, size_t strsize) MOZ_ALLOCATOR;
 #endif /* if defined(HAVE_STRNDUP) */
 
-
 #if defined(HAVE_POSIX_MEMALIGN)
-MFBT_API MOZ_MUST_USE
-int moz_xposix_memalign(void **ptr, size_t alignment, size_t size);
+MFBT_API MOZ_MUST_USE int
+moz_xposix_memalign(void** ptr, size_t alignment, size_t size);
 
-MFBT_API MOZ_MUST_USE
-int moz_posix_memalign(void **ptr, size_t alignment, size_t size);
+MFBT_API MOZ_MUST_USE int
+moz_posix_memalign(void** ptr, size_t alignment, size_t size);
 #endif /* if defined(HAVE_POSIX_MEMALIGN) */
 
-
 #if defined(HAVE_MEMALIGN)
-MFBT_API void* moz_xmemalign(size_t boundary, size_t size)
-    MOZ_ALLOCATOR;
+MFBT_API void*
+moz_xmemalign(size_t boundary, size_t size) MOZ_ALLOCATOR;
 #endif /* if defined(HAVE_MEMALIGN) */
 
-
 #if defined(HAVE_VALLOC)
-MFBT_API void* moz_xvalloc(size_t size)
-    MOZ_ALLOCATOR;
+MFBT_API void*
+moz_xvalloc(size_t size) MOZ_ALLOCATOR;
 #endif /* if defined(HAVE_VALLOC) */
-
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* ifdef __cplusplus */
-
 
 #ifdef __cplusplus
 
@@ -161,9 +159,9 @@ MFBT_API void* moz_xvalloc(size_t size)
  * visibility on OS X/gcc. These symbols are force-inline and not
  * exported. */
 #if defined(XP_MACOSX)
-#  define MOZALLOC_EXPORT_NEW MFBT_API
+#define MOZALLOC_EXPORT_NEW MFBT_API
 #else
-#  define MOZALLOC_EXPORT_NEW
+#define MOZALLOC_EXPORT_NEW
 #endif
 
 #if defined(ANDROID)
@@ -201,69 +199,73 @@ __attribute__((gnu_inline)) inline
 #else
 MOZALLOC_INLINE
 #endif
-void* operator new(size_t size) MOZALLOC_THROW_BAD_ALLOC
+    void*
+    operator new(size_t size) MOZALLOC_THROW_BAD_ALLOC
 {
-    return moz_xmalloc(size);
+  return moz_xmalloc(size);
 }
 
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void* operator new(size_t size, const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void*
+operator new(size_t size,
+             const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return malloc_impl(size);
+  return malloc_impl(size);
 }
 
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void* operator new[](size_t size) MOZALLOC_THROW_BAD_ALLOC
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void*
+operator new[](size_t size) MOZALLOC_THROW_BAD_ALLOC
 {
-    return moz_xmalloc(size);
+  return moz_xmalloc(size);
 }
 
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void* operator new[](size_t size, const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void*
+operator new[](size_t size,
+               const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return malloc_impl(size);
+  return malloc_impl(size);
 }
 
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void operator delete(void* ptr) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void
+operator delete(void* ptr)MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return free_impl(ptr);
-}
-
-#if __cplusplus >= 201402L
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void operator delete(void* ptr, size_t size) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
-{
-    return free_impl(ptr);
-}
-#endif
-
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void operator delete(void* ptr, const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
-{
-    return free_impl(ptr);
-}
-
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void operator delete[](void* ptr) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
-{
-    return free_impl(ptr);
+  return free_impl(ptr);
 }
 
 #if __cplusplus >= 201402L
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void operator delete[](void* ptr, size_t size) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void
+operator delete(void* ptr, size_t size)MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return free_impl(ptr);
+  return free_impl(ptr);
 }
 #endif
 
-MOZALLOC_EXPORT_NEW MOZALLOC_INLINE
-void operator delete[](void* ptr, const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void
+operator delete(void* ptr,
+                const std::nothrow_t&)MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return free_impl(ptr);
+  return free_impl(ptr);
 }
 
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void
+operator delete[](void* ptr) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+{
+  return free_impl(ptr);
+}
+
+#if __cplusplus >= 201402L
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void
+operator delete[](void* ptr, size_t size) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+{
+  return free_impl(ptr);
+}
+#endif
+
+MOZALLOC_EXPORT_NEW MOZALLOC_INLINE void
+operator delete[](void* ptr,
+                  const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+{
+  return free_impl(ptr);
+}
 
 /*
  * We also add a new allocator variant: "fallible operator new."
@@ -285,29 +287,36 @@ void operator delete[](void* ptr, const std::nothrow_t&) MOZALLOC_THROW_IF_HAS_E
  */
 
 MOZALLOC_INLINE
-void* operator new(size_t size, const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+void*
+operator new(size_t size,
+             const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return malloc_impl(size);
+  return malloc_impl(size);
 }
 
 MOZALLOC_INLINE
-void* operator new[](size_t size, const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+void*
+operator new[](size_t size,
+               const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    return malloc_impl(size);
+  return malloc_impl(size);
 }
 
 MOZALLOC_INLINE
-void operator delete(void* ptr, const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+void
+operator delete(void* ptr,
+                const mozilla::fallible_t&)MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    free_impl(ptr);
+  free_impl(ptr);
 }
 
 MOZALLOC_INLINE
-void operator delete[](void* ptr, const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
+void
+operator delete[](void* ptr,
+                  const mozilla::fallible_t&) MOZALLOC_THROW_IF_HAS_EXCEPTIONS
 {
-    free_impl(ptr);
+  free_impl(ptr);
 }
-
 
 /*
  * This policy is identical to MallocAllocPolicy, except it uses
@@ -316,66 +325,57 @@ void operator delete[](void* ptr, const mozilla::fallible_t&) MOZALLOC_THROW_IF_
  */
 class InfallibleAllocPolicy
 {
-public:
-    template <typename T>
-    T* maybe_pod_malloc(size_t aNumElems)
-    {
-        return pod_malloc<T>(aNumElems);
-    }
+ public:
+  template<typename T>
+  T* maybe_pod_malloc(size_t aNumElems)
+  {
+    return pod_malloc<T>(aNumElems);
+  }
 
-    template <typename T>
-    T* maybe_pod_calloc(size_t aNumElems)
-    {
-        return pod_calloc<T>(aNumElems);
-    }
+  template<typename T>
+  T* maybe_pod_calloc(size_t aNumElems)
+  {
+    return pod_calloc<T>(aNumElems);
+  }
 
-    template <typename T>
-    T* maybe_pod_realloc(T* aPtr, size_t aOldSize, size_t aNewSize)
-    {
-        return pod_realloc<T>(aPtr, aOldSize, aNewSize);
-    }
+  template<typename T>
+  T* maybe_pod_realloc(T* aPtr, size_t aOldSize, size_t aNewSize)
+  {
+    return pod_realloc<T>(aPtr, aOldSize, aNewSize);
+  }
 
-    template <typename T>
-    T* pod_malloc(size_t aNumElems)
-    {
-        if (aNumElems & mozilla::tl::MulOverflowMask<sizeof(T)>::value) {
-            reportAllocOverflow();
-        }
-        return static_cast<T*>(moz_xmalloc(aNumElems * sizeof(T)));
+  template<typename T>
+  T* pod_malloc(size_t aNumElems)
+  {
+    if (aNumElems & mozilla::tl::MulOverflowMask<sizeof(T)>::value) {
+      reportAllocOverflow();
     }
+    return static_cast<T*>(moz_xmalloc(aNumElems * sizeof(T)));
+  }
 
-    template <typename T>
-    T* pod_calloc(size_t aNumElems)
-    {
-        return static_cast<T*>(moz_xcalloc(aNumElems, sizeof(T)));
-    }
+  template<typename T>
+  T* pod_calloc(size_t aNumElems)
+  {
+    return static_cast<T*>(moz_xcalloc(aNumElems, sizeof(T)));
+  }
 
-    template <typename T>
-    T* pod_realloc(T* aPtr, size_t aOldSize, size_t aNewSize)
-    {
-        if (aNewSize & mozilla::tl::MulOverflowMask<sizeof(T)>::value) {
-            reportAllocOverflow();
-        }
-        return static_cast<T*>(moz_xrealloc(aPtr, aNewSize * sizeof(T)));
+  template<typename T>
+  T* pod_realloc(T* aPtr, size_t aOldSize, size_t aNewSize)
+  {
+    if (aNewSize & mozilla::tl::MulOverflowMask<sizeof(T)>::value) {
+      reportAllocOverflow();
     }
+    return static_cast<T*>(moz_xrealloc(aPtr, aNewSize * sizeof(T)));
+  }
 
-    void free_(void* aPtr)
-    {
-        free_impl(aPtr);
-    }
+  void free_(void* aPtr) { free_impl(aPtr); }
 
-    void reportAllocOverflow() const
-    {
-        mozalloc_abort("alloc overflow");
-    }
+  void reportAllocOverflow() const { mozalloc_abort("alloc overflow"); }
 
-    bool checkSimulatedOOM() const
-    {
-        return true;
-    }
+  bool checkSimulatedOOM() const { return true; }
 };
 
-#endif  /* ifdef __cplusplus */
+#endif /* ifdef __cplusplus */
 
 #ifdef malloc_impl_
 #undef malloc_impl_

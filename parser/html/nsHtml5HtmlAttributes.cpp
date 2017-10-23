@@ -50,12 +50,10 @@
 
 nsHtml5HtmlAttributes* nsHtml5HtmlAttributes::EMPTY_ATTRIBUTES = nullptr;
 
-nsHtml5HtmlAttributes::nsHtml5HtmlAttributes(int32_t aMode)
-  : mMode(aMode)
+nsHtml5HtmlAttributes::nsHtml5HtmlAttributes(int32_t aMode) : mMode(aMode)
 {
   MOZ_COUNT_CTOR(nsHtml5HtmlAttributes);
 }
-
 
 nsHtml5HtmlAttributes::~nsHtml5HtmlAttributes()
 {
@@ -87,7 +85,7 @@ nsHtml5HtmlAttributes::getValue(nsHtml5AttributeName* aName)
   }
 }
 
-int32_t 
+int32_t
 nsHtml5HtmlAttributes::getLength()
 {
   return mStorage.Length();
@@ -170,7 +168,7 @@ nsHtml5HtmlAttributes::releaseValue(int32_t aIndex)
   mStorage[aIndex].ReleaseValue();
 }
 
-void 
+void
 nsHtml5HtmlAttributes::clearWithoutReleasingContents()
 {
   mStorage.TruncateLength(0);
@@ -188,13 +186,13 @@ nsHtml5HtmlAttributes::contains(nsHtml5AttributeName* aName)
   return false;
 }
 
-void 
+void
 nsHtml5HtmlAttributes::adjustForMath()
 {
   mMode = nsHtml5AttributeName::MATHML;
 }
 
-void 
+void
 nsHtml5HtmlAttributes::adjustForSvg()
 {
   mMode = nsHtml5AttributeName::SVG;
@@ -205,7 +203,7 @@ nsHtml5HtmlAttributes::cloneAttributes(nsHtml5AtomTable* aInterner)
 {
   MOZ_ASSERT(mStorage.IsEmpty() || !mMode);
   nsHtml5HtmlAttributes* clone =
-    new nsHtml5HtmlAttributes(nsHtml5AttributeName::HTML);
+      new nsHtml5HtmlAttributes(nsHtml5AttributeName::HTML);
   for (nsHtml5AttributeEntry& entry : mStorage) {
     clone->AddEntry(entry.Clone(aInterner));
   }
@@ -255,5 +253,3 @@ nsHtml5HtmlAttributes::releaseStatics()
 {
   delete EMPTY_ATTRIBUTES;
 }
-
-

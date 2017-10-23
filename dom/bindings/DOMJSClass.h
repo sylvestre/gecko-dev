@@ -12,7 +12,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/Likely.h"
 
-#include "mozilla/dom/PrototypeList.h" // auto-generated
+#include "mozilla/dom/PrototypeList.h"  // auto-generated
 
 #include "mozilla/dom/JSSlots.h"
 
@@ -60,29 +60,35 @@ namespace dom {
 inline bool
 IsSecureContextOrObjectIsFromSecureContext(JSContext* aCx, JSObject* aObj)
 {
-  return JS::CompartmentCreationOptionsRef(js::GetContextCompartment(aCx)).secureContext() ||
-         JS::CompartmentCreationOptionsRef(js::GetObjectCompartment(aObj)).secureContext();
+  return JS::CompartmentCreationOptionsRef(js::GetContextCompartment(aCx))
+             .secureContext() ||
+         JS::CompartmentCreationOptionsRef(js::GetObjectCompartment(aObj))
+             .secureContext();
 }
 
-typedef bool
-(* ResolveOwnProperty)(JSContext* cx, JS::Handle<JSObject*> wrapper,
-                       JS::Handle<JSObject*> obj, JS::Handle<jsid> id,
-                       JS::MutableHandle<JS::PropertyDescriptor> desc);
+typedef bool (*ResolveOwnProperty)(
+    JSContext* cx,
+    JS::Handle<JSObject*> wrapper,
+    JS::Handle<JSObject*> obj,
+    JS::Handle<jsid> id,
+    JS::MutableHandle<JS::PropertyDescriptor> desc);
 
-typedef bool
-(* EnumerateOwnProperties)(JSContext* cx, JS::Handle<JSObject*> wrapper,
-                           JS::Handle<JSObject*> obj,
-                           JS::AutoIdVector& props);
+typedef bool (*EnumerateOwnProperties)(JSContext* cx,
+                                       JS::Handle<JSObject*> wrapper,
+                                       JS::Handle<JSObject*> obj,
+                                       JS::AutoIdVector& props);
 
-typedef bool
-(* DeleteNamedProperty)(JSContext* cx, JS::Handle<JSObject*> wrapper,
-                        JS::Handle<JSObject*> obj, JS::Handle<jsid> id,
-                        JS::ObjectOpResult& opresult);
+typedef bool (*DeleteNamedProperty)(JSContext* cx,
+                                    JS::Handle<JSObject*> wrapper,
+                                    JS::Handle<JSObject*> obj,
+                                    JS::Handle<jsid> id,
+                                    JS::ObjectOpResult& opresult);
 
 // Returns true if the given global is of a type whose bit is set in
 // aNonExposedGlobals.
 bool
-IsNonExposedGlobal(JSContext* aCx, JSObject* aGlobal,
+IsNonExposedGlobal(JSContext* aCx,
+                   JSObject* aGlobal,
                    uint32_t aNonExposedGlobals);
 
 struct ConstantSpec
@@ -104,10 +110,12 @@ static const uint32_t SharedWorkerGlobalScope = 1u << 3;
 static const uint32_t ServiceWorkerGlobalScope = 1u << 4;
 static const uint32_t WorkerDebuggerGlobalScope = 1u << 5;
 static const uint32_t WorkletGlobalScope = 1u << 6;
-} // namespace GlobalNames
+}  // namespace GlobalNames
 
-struct PrefableDisablers {
-  inline bool isEnabled(JSContext* cx, JS::Handle<JSObject*> obj) const {
+struct PrefableDisablers
+{
+  inline bool isEnabled(JSContext* cx, JS::Handle<JSObject*> obj) const
+  {
     // Reading "enabled" on a worker thread is technically undefined behavior,
     // because it's written only on main threads, with no barriers of any sort.
     // So we want to avoid doing that.  But we don't particularly want to make
@@ -118,7 +126,8 @@ struct PrefableDisablers {
     // globals; our IDL parser enforces that.  So as long as we check our
     // exposure set before checking "enabled" we will be ok.
     if (nonExposedGlobals &&
-        IsNonExposedGlobal(cx, js::GetGlobalForObjectCrossCompartment(obj),
+        IsNonExposedGlobal(cx,
+                           js::GetGlobalForObjectCrossCompartment(obj),
                            nonExposedGlobals)) {
       return false;
     }
@@ -152,8 +161,10 @@ struct PrefableDisablers {
 };
 
 template<typename T>
-struct Prefable {
-  inline bool isEnabled(JSContext* cx, JS::Handle<JSObject*> obj) const {
+struct Prefable
+{
+  inline bool isEnabled(JSContext* cx, JS::Handle<JSObject*> obj) const
+  {
     if (MOZ_LIKELY(!disablers)) {
       return true;
     }
@@ -170,7 +181,8 @@ struct Prefable {
   const T* const specs;
 };
 
-enum PropertyType {
+enum PropertyType
+{
   eStaticMethod,
   eStaticAttribute,
   eMethod,
@@ -181,22 +193,24 @@ enum PropertyType {
   ePropertyTypeCount
 };
 
-#define NUM_BITS_PROPERTY_INFO_TYPE        3
+#define NUM_BITS_PROPERTY_INFO_TYPE 3
 #define NUM_BITS_PROPERTY_INFO_PREF_INDEX 13
 #define NUM_BITS_PROPERTY_INFO_SPEC_INDEX 16
 
-struct PropertyInfo {
+struct PropertyInfo
+{
   jsid id;
   // One of PropertyType, will be used for accessing the corresponding Duo in
   // NativePropertiesN.duos[].
-  uint32_t type: NUM_BITS_PROPERTY_INFO_TYPE;
+  uint32_t type : NUM_BITS_PROPERTY_INFO_TYPE;
   // The index to the corresponding Preable in Duo.mPrefables[].
-  uint32_t prefIndex: NUM_BITS_PROPERTY_INFO_PREF_INDEX;
+  uint32_t prefIndex : NUM_BITS_PROPERTY_INFO_PREF_INDEX;
   // The index to the corresponding spec in Duo.mPrefables[prefIndex].specs[].
-  uint32_t specIndex: NUM_BITS_PROPERTY_INFO_SPEC_INDEX;
+  uint32_t specIndex : NUM_BITS_PROPERTY_INFO_SPEC_INDEX;
 };
 
-static_assert(ePropertyTypeCount <= 1ull << NUM_BITS_PROPERTY_INFO_TYPE,
+static_assert(
+    ePropertyTypeCount <= 1ull << NUM_BITS_PROPERTY_INFO_TYPE,
     "We have property type count that is > (1 << NUM_BITS_PROPERTY_INFO_TYPE)");
 
 // Conceptually, NativeProperties has seven (Prefable<T>*, PropertyInfo*) duos
@@ -233,45 +247,49 @@ static_assert(ePropertyTypeCount <= 1ull << NUM_BITS_PROPERTY_INFO_TYPE,
 // aforementioned assertions in the getters. Upcast() is used to convert
 // specific instances to this "base" type.
 //
-template <int N>
-struct NativePropertiesN {
+template<int N>
+struct NativePropertiesN
+{
   // Duo structs are stored in the duos[] array, and each element in the array
   // could require a different T. Therefore, we can't use the correct type for
   // mPrefables. Instead we use void* and cast to the correct type in the
   // getters.
-  struct Duo {
+  struct Duo
+  {
     const /*Prefable<const T>*/ void* const mPrefables;
     PropertyInfo* const mPropertyInfos;
   };
 
-  constexpr const NativePropertiesN<7>* Upcast() const {
+  constexpr const NativePropertiesN<7>* Upcast() const
+  {
     return reinterpret_cast<const NativePropertiesN<7>*>(this);
   }
 
-  const PropertyInfo* PropertyInfos() const {
-    return duos[0].mPropertyInfos;
-  }
+  const PropertyInfo* PropertyInfos() const { return duos[0].mPropertyInfos; }
 
-#define DO(SpecT, FieldName) \
-public: \
+#define DO(SpecT, FieldName)                                                 \
+ public:                                                                     \
   /* The bitfields indicating the duo's presence and (if present) offset. */ \
-  const uint32_t mHas##FieldName##s:1; \
-  const uint32_t m##FieldName##sOffset:3; \
-private: \
-  const Duo* FieldName##sDuo() const { \
-    MOZ_ASSERT(Has##FieldName##s()); \
-    return &duos[m##FieldName##sOffset]; \
-  } \
-public: \
-  bool Has##FieldName##s() const { \
-    return mHas##FieldName##s; \
-  } \
-  const Prefable<const SpecT>* FieldName##s() const { \
-    return static_cast<const Prefable<const SpecT>*> \
-                      (FieldName##sDuo()->mPrefables); \
-  } \
-  PropertyInfo* FieldName##PropertyInfos() const { \
-    return FieldName##sDuo()->mPropertyInfos; \
+  const uint32_t mHas##FieldName##s : 1;                                     \
+  const uint32_t m##FieldName##sOffset : 3;                                  \
+                                                                             \
+ private:                                                                    \
+  const Duo* FieldName##sDuo() const                                         \
+  {                                                                          \
+    MOZ_ASSERT(Has##FieldName##s());                                         \
+    return &duos[m##FieldName##sOffset];                                     \
+  }                                                                          \
+                                                                             \
+ public:                                                                     \
+  bool Has##FieldName##s() const { return mHas##FieldName##s; }              \
+  const Prefable<const SpecT>* FieldName##s() const                          \
+  {                                                                          \
+    return static_cast<const Prefable<const SpecT>*>(                        \
+        FieldName##sDuo()->mPrefables);                                      \
+  }                                                                          \
+  PropertyInfo* FieldName##PropertyInfos() const                             \
+  {                                                                          \
+    return FieldName##sDuo()->mPropertyInfos;                                \
   }
 
   DO(JSFunctionSpec, StaticMethod)
@@ -280,7 +298,7 @@ public: \
   DO(JSPropertySpec, Attribute)
   DO(JSFunctionSpec, UnforgeableMethod)
   DO(JSPropertySpec, UnforgeableAttribute)
-  DO(ConstantSpec,   Constant)
+  DO(ConstantSpec, Constant)
 
 #undef DO
 
@@ -299,13 +317,13 @@ public: \
 // Ensure the struct has the expected size. The 8 is for the bitfields plus
 // iteratorAliasMethodIndex and idsLength; the rest is for the idsSortedIndex,
 // and duos[].
-static_assert(sizeof(NativePropertiesN<1>) == 8 +  3*sizeof(void*), "1 size");
-static_assert(sizeof(NativePropertiesN<2>) == 8 +  5*sizeof(void*), "2 size");
-static_assert(sizeof(NativePropertiesN<3>) == 8 +  7*sizeof(void*), "3 size");
-static_assert(sizeof(NativePropertiesN<4>) == 8 +  9*sizeof(void*), "4 size");
-static_assert(sizeof(NativePropertiesN<5>) == 8 + 11*sizeof(void*), "5 size");
-static_assert(sizeof(NativePropertiesN<6>) == 8 + 13*sizeof(void*), "6 size");
-static_assert(sizeof(NativePropertiesN<7>) == 8 + 15*sizeof(void*), "7 size");
+static_assert(sizeof(NativePropertiesN<1>) == 8 + 3 * sizeof(void*), "1 size");
+static_assert(sizeof(NativePropertiesN<2>) == 8 + 5 * sizeof(void*), "2 size");
+static_assert(sizeof(NativePropertiesN<3>) == 8 + 7 * sizeof(void*), "3 size");
+static_assert(sizeof(NativePropertiesN<4>) == 8 + 9 * sizeof(void*), "4 size");
+static_assert(sizeof(NativePropertiesN<5>) == 8 + 11 * sizeof(void*), "5 size");
+static_assert(sizeof(NativePropertiesN<6>) == 8 + 13 * sizeof(void*), "6 size");
+static_assert(sizeof(NativePropertiesN<7>) == 8 + 15 * sizeof(void*), "7 size");
 
 // The "base" type.
 typedef NativePropertiesN<7> NativeProperties;
@@ -359,7 +377,8 @@ struct NativePropertyHooks
   const JSClass* mXrayExpandoClass;
 };
 
-enum DOMObjectType : uint8_t {
+enum DOMObjectType : uint8_t
+{
   eInstance,
   eGlobalInstance,
   eInterface,
@@ -368,15 +387,13 @@ enum DOMObjectType : uint8_t {
   eNamedPropertiesObject
 };
 
-inline
-bool
+inline bool
 IsInstance(DOMObjectType type)
 {
   return type == eInstance || type == eGlobalInstance;
 }
 
-inline
-bool
+inline bool
 IsInterfacePrototype(DOMObjectType type)
 {
   return type == eInterfacePrototype || type == eGlobalInterfacePrototype;
@@ -427,12 +444,14 @@ struct DOMJSClass
   // the CC participant by QI'ing in that case).
   nsCycleCollectionParticipant* mParticipant;
 
-  static const DOMJSClass* FromJSClass(const JSClass* base) {
+  static const DOMJSClass* FromJSClass(const JSClass* base)
+  {
     MOZ_ASSERT(base->flags & JSCLASS_IS_DOMJSCLASS);
     return reinterpret_cast<const DOMJSClass*>(base);
   }
 
-  static const DOMJSClass* FromJSClass(const js::Class* base) {
+  static const DOMJSClass* FromJSClass(const js::Class* base)
+  {
     return FromJSClass(Jsvalify(base));
   }
 
@@ -450,14 +469,14 @@ struct DOMIfaceAndProtoJSClass
 
   // Either eInterface, eInterfacePrototype, eGlobalInterfacePrototype or
   // eNamedPropertiesObject.
-  DOMObjectType mType; // uint8_t
+  DOMObjectType mType;  // uint8_t
 
   // Boolean indicating whether this object wants a @@hasInstance property
   // pointing to InterfaceHasInstance defined on it.  Only ever true for the
   // eInterface case.
   bool wantsInterfaceHasInstance;
 
-  const prototypes::ID mPrototypeID; // uint16_t
+  const prototypes::ID mPrototypeID;  // uint16_t
   const uint32_t mDepth;
 
   const NativePropertyHooks* mNativeHooks;
@@ -468,11 +487,13 @@ struct DOMIfaceAndProtoJSClass
 
   ProtoGetter mGetParentProto;
 
-  static const DOMIfaceAndProtoJSClass* FromJSClass(const JSClass* base) {
+  static const DOMIfaceAndProtoJSClass* FromJSClass(const JSClass* base)
+  {
     MOZ_ASSERT(base->flags & JSCLASS_IS_DOMIFACEANDPROTOJSCLASS);
     return reinterpret_cast<const DOMIfaceAndProtoJSClass*>(base);
   }
-  static const DOMIfaceAndProtoJSClass* FromJSClass(const js::Class* base) {
+  static const DOMIfaceAndProtoJSClass* FromJSClass(const js::Class* base)
+  {
     return FromJSClass(Jsvalify(base));
   }
 
@@ -503,10 +524,10 @@ GetProtoAndIfaceCache(JSObject* global)
 {
   MOZ_ASSERT(js::GetObjectClass(global)->flags & JSCLASS_DOM_GLOBAL);
   return static_cast<ProtoAndIfaceCache*>(
-    js::GetReservedSlot(global, DOM_PROTOTYPE_SLOT).toPrivate());
+      js::GetReservedSlot(global, DOM_PROTOTYPE_SLOT).toPrivate());
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_DOMJSClass_h */

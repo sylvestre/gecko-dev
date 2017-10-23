@@ -16,7 +16,7 @@ namespace mozilla {
 
 class LinuxUtils
 {
-public:
+ public:
   // Obtain the name of a thread, omitting any numeric suffix added by a
   // thread pool library (as in, e.g., "Binder_2" or "mozStorage #1").
   // The empty string is returned on error.
@@ -27,8 +27,8 @@ public:
   static void GetThreadName(pid_t aTid, nsACString& aName);
 };
 
-}
+}  // namespace mozilla
 
-#endif // XP_LINUX
+#endif  // XP_LINUX
 
 #endif

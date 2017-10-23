@@ -31,10 +31,11 @@ CanvasRenderingContextHelper::ToBlob(JSContext* aCx,
   // Encoder callback when encoding is complete.
   class EncodeCallback : public EncodeCompleteCallback
   {
-  public:
+   public:
     EncodeCallback(nsIGlobalObject* aGlobal, BlobCallback* aCallback)
-      : mGlobal(aGlobal)
-      , mBlobCallback(aCallback) {}
+        : mGlobal(aGlobal), mBlobCallback(aCallback)
+    {
+    }
 
     // This is called on main thread.
     nsresult ReceiveBlob(already_AddRefed<Blob> aBlob)
@@ -57,7 +58,7 @@ CanvasRenderingContextHelper::ToBlob(JSContext* aCx,
   };
 
   RefPtr<EncodeCompleteCallback> callback =
-    new EncodeCallback(aGlobal, &aCallback);
+      new EncodeCallback(aGlobal, &aCallback);
 
   ToBlob(aCx, aGlobal, callback, aType, aParams, aUsePlaceholder, aRv);
 }
@@ -120,43 +121,41 @@ CanvasRenderingContextHelper::CreateContext(CanvasContextType aContextType)
 }
 
 already_AddRefed<nsICanvasRenderingContextInternal>
-CanvasRenderingContextHelper::CreateContextHelper(CanvasContextType aContextType,
-                                                  layers::LayersBackend aCompositorBackend)
+CanvasRenderingContextHelper::CreateContextHelper(
+    CanvasContextType aContextType, layers::LayersBackend aCompositorBackend)
 {
   MOZ_ASSERT(aContextType != CanvasContextType::NoContext);
   RefPtr<nsICanvasRenderingContextInternal> ret;
 
   switch (aContextType) {
-  case CanvasContextType::NoContext:
-    break;
+    case CanvasContextType::NoContext:
+      break;
 
-  case CanvasContextType::Canvas2D:
-    Telemetry::Accumulate(Telemetry::CANVAS_2D_USED, 1);
-    ret = new CanvasRenderingContext2D(aCompositorBackend);
-    break;
+    case CanvasContextType::Canvas2D:
+      Telemetry::Accumulate(Telemetry::CANVAS_2D_USED, 1);
+      ret = new CanvasRenderingContext2D(aCompositorBackend);
+      break;
 
-  case CanvasContextType::WebGL1:
-    Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
+    case CanvasContextType::WebGL1:
+      Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
 
-    ret = WebGL1Context::Create();
-    if (!ret)
-      return nullptr;
+      ret = WebGL1Context::Create();
+      if (!ret) return nullptr;
 
-    break;
+      break;
 
-  case CanvasContextType::WebGL2:
-    Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
+    case CanvasContextType::WebGL2:
+      Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
 
-    ret = WebGL2Context::Create();
-    if (!ret)
-      return nullptr;
+      ret = WebGL2Context::Create();
+      if (!ret) return nullptr;
 
-    break;
+      break;
 
-  case CanvasContextType::ImageBitmap:
-    ret = new ImageBitmapRenderingContext();
+    case CanvasContextType::ImageBitmap:
+      ret = new ImageBitmapRenderingContext();
 
-    break;
+      break;
   }
   MOZ_ASSERT(ret);
 
@@ -210,8 +209,7 @@ CanvasRenderingContextHelper::GetContext(JSContext* aCx,
       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL2_SUCCESS, 1);
   } else {
     // We already have a context of some type.
-    if (contextType != mCurrentContextType)
-      return nullptr;
+    if (contextType != mCurrentContextType) return nullptr;
   }
 
   nsCOMPtr<nsICanvasRenderingContextInternal> context = mCurrentContext;
@@ -219,12 +217,12 @@ CanvasRenderingContextHelper::GetContext(JSContext* aCx,
 }
 
 nsresult
-CanvasRenderingContextHelper::UpdateContext(JSContext* aCx,
-                                            JS::Handle<JS::Value> aNewContextOptions,
-                                            ErrorResult& aRvForDictionaryInit)
+CanvasRenderingContextHelper::UpdateContext(
+    JSContext* aCx,
+    JS::Handle<JS::Value> aNewContextOptions,
+    ErrorResult& aRvForDictionaryInit)
 {
-  if (!mCurrentContext)
-    return NS_OK;
+  if (!mCurrentContext) return NS_OK;
 
   nsIntSize sz = GetWidthHeight();
 
@@ -232,8 +230,8 @@ CanvasRenderingContextHelper::UpdateContext(JSContext* aCx,
 
   currentContext->SetIsOpaque(GetOpaqueAttr());
 
-  nsresult rv = currentContext->SetContextOptions(aCx, aNewContextOptions,
-                                         aRvForDictionaryInit);
+  nsresult rv = currentContext->SetContextOptions(
+      aCx, aNewContextOptions, aRvForDictionaryInit);
   if (NS_FAILED(rv)) {
     mCurrentContext = nullptr;
     return rv;
@@ -248,11 +246,12 @@ CanvasRenderingContextHelper::UpdateContext(JSContext* aCx,
 }
 
 nsresult
-CanvasRenderingContextHelper::ParseParams(JSContext* aCx,
-                                          const nsAString& aType,
-                                          const JS::Value& aEncoderOptions,
-                                          nsAString& outParams,
-                                          bool* const outUsingCustomParseOptions)
+CanvasRenderingContextHelper::ParseParams(
+    JSContext* aCx,
+    const nsAString& aType,
+    const JS::Value& aEncoderOptions,
+    nsAString& outParams,
+    bool* const outUsingCustomParseOptions)
 {
   // Quality parameter is only valid for the image/jpeg MIME type
   if (aType.EqualsLiteral("image/jpeg")) {
@@ -277,10 +276,10 @@ CanvasRenderingContextHelper::ParseParams(JSContext* aCx,
       return NS_ERROR_FAILURE;
     }
     if (StringBeginsWith(paramString, mozParseOptions)) {
-      nsDependentSubstring parseOptions = Substring(paramString,
-                                                    mozParseOptions.Length(),
-                                                    paramString.Length() -
-                                                    mozParseOptions.Length());
+      nsDependentSubstring parseOptions =
+          Substring(paramString,
+                    mozParseOptions.Length(),
+                    paramString.Length() - mozParseOptions.Length());
       outParams.Append(parseOptions);
       *outUsingCustomParseOptions = true;
     }
@@ -289,5 +288,5 @@ CanvasRenderingContextHelper::ParseParams(JSContext* aCx,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

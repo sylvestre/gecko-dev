@@ -19,23 +19,23 @@
 #if !defined(__linux__) || defined(ANDROID) || defined(JS_SIMULATOR_ARM)
 // The Android NDK and B2G do not include the hwcap.h kernel header, and it is not
 // defined when building the simulator, so inline the header defines we need.
-# define HWCAP_VFP        (1 << 6)
-# define HWCAP_NEON       (1 << 12)
-# define HWCAP_VFPv3      (1 << 13)
-# define HWCAP_VFPv3D16   (1 << 14) /* also set for VFPv4-D16 */
-# define HWCAP_VFPv4      (1 << 16)
-# define HWCAP_IDIVA      (1 << 17)
-# define HWCAP_IDIVT      (1 << 18)
-# define HWCAP_VFPD32     (1 << 19) /* set if VFP has 32 regs (not 16) */
-# define AT_HWCAP 16
+#define HWCAP_VFP (1 << 6)
+#define HWCAP_NEON (1 << 12)
+#define HWCAP_VFPv3 (1 << 13)
+#define HWCAP_VFPv3D16 (1 << 14) /* also set for VFPv4-D16 */
+#define HWCAP_VFPv4 (1 << 16)
+#define HWCAP_IDIVA (1 << 17)
+#define HWCAP_IDIVT (1 << 18)
+#define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
+#define AT_HWCAP 16
 #else
-# include <asm/hwcap.h>
-# if !defined(HWCAP_IDIVA)
-#  define HWCAP_IDIVA     (1 << 17)
-# endif
-# if !defined(HWCAP_VFPD32)
-#  define HWCAP_VFPD32    (1 << 19) /* set if VFP has 32 regs (not 16) */
-# endif
+#include <asm/hwcap.h>
+#if !defined(HWCAP_IDIVA)
+#define HWCAP_IDIVA (1 << 17)
+#endif
+#if !defined(HWCAP_VFPD32)
+#define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
+#endif
 #endif
 
 namespace js {
@@ -43,9 +43,7 @@ namespace jit {
 
 // Parse the Linux kernel cpuinfo features. This is also used to parse the
 // override features which has some extensions: 'armv7', 'align' and 'hardfp'.
-static uint32_t
-ParseARMCpuFeatures(const char* features, bool override = false)
-{
+static uint32_t ParseARMCpuFeatures(const char* features, bool override = false) {
     uint32_t flags = 0;
 
     // For ease of running tests we want it to be the default to fixup faults.
@@ -64,10 +62,9 @@ ParseARMCpuFeatures(const char* features, bool override = false)
         }
         // Find the end of the token.
         const char* end = features + 1;
-        for (; ; end++) {
+        for (;; end++) {
             ch = *end;
-            if (!ch || ch == ' ' || ch == ',')
-                break;
+            if (!ch || ch == ' ' || ch == ',') break;
         }
         size_t count = end - features;
         if (count == 3 && strncmp(features, "vfp", 3) == 0)
@@ -101,80 +98,66 @@ ParseARMCpuFeatures(const char* features, bool override = false)
         features = end;
     }
 
-    if (!fixupAlignmentFault)
-        flags &= ~HWCAP_FIXUP_FAULT;
+    if (!fixupAlignmentFault) flags &= ~HWCAP_FIXUP_FAULT;
 
     return flags;
 }
 
-static uint32_t
-CanonicalizeARMHwCapFlags(uint32_t flags)
-{
+static uint32_t CanonicalizeARMHwCapFlags(uint32_t flags) {
     // Canonicalize the flags. These rules are also applied to the features
     // supplied for simulation.
 
     // The VFPv3 feature is expected when the VFPv3D16 is reported, but add it
     // just in case of a kernel difference in feature reporting.
-    if (flags & HWCAP_VFPv3D16)
-        flags |= HWCAP_VFPv3;
+    if (flags & HWCAP_VFPv3D16) flags |= HWCAP_VFPv3;
 
     // If VFPv3 or Neon is supported then this must be an ARMv7.
-    if (flags & (HWCAP_VFPv3 | HWCAP_NEON))
-        flags |= HWCAP_ARMv7;
+    if (flags & (HWCAP_VFPv3 | HWCAP_NEON)) flags |= HWCAP_ARMv7;
 
     // Some old kernels report VFP and not VFPv3, but if ARMv7 then it must be
     // VFPv3.
-    if (flags & HWCAP_VFP && flags & HWCAP_ARMv7)
-        flags |= HWCAP_VFPv3;
+    if (flags & HWCAP_VFP && flags & HWCAP_ARMv7) flags |= HWCAP_VFPv3;
 
     // Older kernels do not implement the HWCAP_VFPD32 flag.
-    if ((flags & HWCAP_VFPv3) && !(flags & HWCAP_VFPv3D16))
-        flags |= HWCAP_VFPD32;
+    if ((flags & HWCAP_VFPv3) && !(flags & HWCAP_VFPv3D16)) flags |= HWCAP_VFPD32;
 
     return flags;
 }
 
 volatile bool forceDoubleCacheFlush = false;
 
-bool
-ForceDoubleCacheFlush() {
-    return forceDoubleCacheFlush;
-}
+bool ForceDoubleCacheFlush() { return forceDoubleCacheFlush; }
 
 // The override flags parsed from the ARMHWCAP environment variable or from the
 // --arm-hwcap js shell argument.
 volatile uint32_t armHwCapFlags = HWCAP_UNINITIALIZED;
 
-bool
-ParseARMHwCapFlags(const char* armHwCap)
-{
+bool ParseARMHwCapFlags(const char* armHwCap) {
     uint32_t flags = 0;
 
-    if (!armHwCap)
-        return false;
+    if (!armHwCap) return false;
 
     if (strstr(armHwCap, "help")) {
         fflush(NULL);
         printf(
-               "\n"
-               "usage: ARMHWCAP=option,option,option,... where options can be:\n"
-               "\n"
-               "  vfp      \n"
-               "  neon     \n"
-               "  vfpv3    \n"
-               "  vfpv3d16 \n"
-               "  vfpv4    \n"
-               "  idiva    \n"
-               "  idivt    \n"
-               "  vfpd32   \n"
-               "  armv7    \n"
-               "  align    - unaligned accesses will trap and be emulated\n"
+            "\n"
+            "usage: ARMHWCAP=option,option,option,... where options can be:\n"
+            "\n"
+            "  vfp      \n"
+            "  neon     \n"
+            "  vfpv3    \n"
+            "  vfpv3d16 \n"
+            "  vfpv4    \n"
+            "  idiva    \n"
+            "  idivt    \n"
+            "  vfpd32   \n"
+            "  armv7    \n"
+            "  align    - unaligned accesses will trap and be emulated\n"
 #ifdef JS_SIMULATOR_ARM
-               "  nofixup  - disable emulation of unaligned accesses\n"
-               "  hardfp   \n"
+            "  nofixup  - disable emulation of unaligned accesses\n"
+            "  hardfp   \n"
 #endif
-               "\n"
-               );
+            "\n");
         exit(0);
         /*NOTREACHED*/
     }
@@ -190,24 +173,20 @@ ParseARMHwCapFlags(const char* armHwCap)
     return true;
 }
 
-void
-InitARMFlags()
-{
+void InitARMFlags() {
     uint32_t flags = 0;
 
-    if (armHwCapFlags != HWCAP_UNINITIALIZED)
-        return;
+    if (armHwCapFlags != HWCAP_UNINITIALIZED) return;
 
     const char* env = getenv("ARMHWCAP");
-    if (ParseARMHwCapFlags(env))
-        return;
+    if (ParseARMHwCapFlags(env)) return;
 
 #ifdef JS_SIMULATOR_ARM
     // HWCAP_FIXUP_FAULT is on by default even if HWCAP_ALIGNMENT_FAULT is
     // not on by default, because some memory access instructions always fault.
     // Notably, this is true for floating point accesses.
-    flags = HWCAP_ARMv7 | HWCAP_VFP | HWCAP_VFPv3 | HWCAP_VFPv4 | HWCAP_NEON | HWCAP_IDIVA
-          | HWCAP_FIXUP_FAULT;
+    flags = HWCAP_ARMv7 | HWCAP_VFP | HWCAP_VFPv3 | HWCAP_VFPv4 | HWCAP_NEON | HWCAP_IDIVA |
+            HWCAP_FIXUP_FAULT;
 #else
 
 #if defined(__linux__) || defined(ANDROID)
@@ -215,7 +194,10 @@ InitARMFlags()
     bool readAuxv = false;
     int fd = open("/proc/self/auxv", O_RDONLY);
     if (fd > 0) {
-        struct { uint32_t a_type; uint32_t a_val; } aux;
+        struct {
+            uint32_t a_type;
+            uint32_t a_val;
+        } aux;
         while (read(fd, &aux, sizeof(aux))) {
             if (aux.a_type == AT_HWCAP) {
                 flags = aux.a_val;
@@ -238,25 +220,22 @@ InitARMFlags()
         if (!readAuxv) {
             char* featureList = strstr(buf, "Features");
             if (featureList) {
-                if (char* featuresEnd = strstr(featureList, "\n"))
-                    *featuresEnd = '\0';
+                if (char* featuresEnd = strstr(featureList, "\n")) *featuresEnd = '\0';
                 flags = ParseARMCpuFeatures(featureList + 8);
             }
-            if (strstr(buf, "ARMv7"))
-                flags |= HWCAP_ARMv7;
+            if (strstr(buf, "ARMv7")) flags |= HWCAP_ARMv7;
         }
 
         // The exynos7420 cpu (EU galaxy S6 (Note)) has a bug where sometimes
         // flushing doesn't invalidate the instruction cache. As a result we force
         // it by calling the cacheFlush twice on different start addresses.
         char* exynos7420 = strstr(buf, "Exynos7420");
-        if (exynos7420)
-            forceDoubleCacheFlush = true;
+        if (exynos7420) forceDoubleCacheFlush = true;
     }
 #endif
 
-    // If compiled to use specialized features then these features can be
-    // assumed to be present otherwise the compiler would fail to run.
+        // If compiled to use specialized features then these features can be
+        // assumed to be present otherwise the compiler would fail to run.
 
 #ifdef JS_CODEGEN_ARM_HARDFP
     // Compiled to use the hardfp ABI.
@@ -268,21 +247,21 @@ InitARMFlags()
     flags |= HWCAP_VFP;
 #endif
 
-#if defined(__ARM_ARCH_7__) || defined (__ARM_ARCH_7A__)
+#if defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__)
     // Compiled to use ARMv7 instructions so assume the ARMv7 arch.
     flags |= HWCAP_ARMv7;
 #endif
 
 #if defined(__APPLE__)
-    #if defined(__ARM_NEON__)
-        flags |= HWCAP_NEON;
-    #endif
-    #if defined(__ARMVFPV3__)
-        flags |= HWCAP_VFPv3 | HWCAP_VFPD32
-    #endif
+#if defined(__ARM_NEON__)
+    flags |= HWCAP_NEON;
+#endif
+#if defined(__ARMVFPV3__)
+    flags |= HWCAP_VFPv3 | HWCAP_VFPD32
+#endif
 #endif
 
-#endif // JS_SIMULATOR_ARM
+#endif  // JS_SIMULATOR_ARM
 
     armHwCapFlags = CanonicalizeARMHwCapFlags(flags);
 
@@ -290,95 +269,75 @@ InitARMFlags()
     return;
 }
 
-uint32_t
-GetARMFlags()
-{
+uint32_t GetARMFlags() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags;
 }
 
-bool HasARMv7()
-{
+bool HasARMv7() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_ARMv7;
 }
 
-bool HasMOVWT()
-{
+bool HasMOVWT() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_ARMv7;
 }
 
-bool HasLDSTREXBHD()
-{
+bool HasLDSTREXBHD() {
     // These are really available from ARMv6K and later, but why bother?
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_ARMv7;
 }
 
-bool HasDMBDSBISB()
-{
+bool HasDMBDSBISB() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_ARMv7;
 }
 
-bool HasVFPv3()
-{
+bool HasVFPv3() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_VFPv3;
 }
 
-bool HasVFP()
-{
+bool HasVFP() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_VFP;
 }
 
-bool Has32DP()
-{
+bool Has32DP() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_VFPD32;
 }
 
-bool HasIDIV()
-{
+bool HasIDIV() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_IDIVA;
 }
 
 // This is defined in the header and inlined when not using the simulator.
 #ifdef JS_SIMULATOR_ARM
-bool UseHardFpABI()
-{
+bool UseHardFpABI() {
     MOZ_ASSERT(armHwCapFlags != HWCAP_UNINITIALIZED);
     return armHwCapFlags & HWCAP_USE_HARDFP_ABI;
 }
 #endif
 
-Registers::Code
-Registers::FromName(const char* name)
-{
+Registers::Code Registers::FromName(const char* name) {
     // Check for some register aliases first.
-    if (strcmp(name, "ip") == 0)
-        return ip;
-    if (strcmp(name, "r13") == 0)
-        return r13;
-    if (strcmp(name, "lr") == 0)
-        return lr;
-    if (strcmp(name, "r15") == 0)
-        return r15;
+    if (strcmp(name, "ip") == 0) return ip;
+    if (strcmp(name, "r13") == 0) return r13;
+    if (strcmp(name, "lr") == 0) return lr;
+    if (strcmp(name, "r15") == 0) return r15;
 
     for (size_t i = 0; i < Total; i++) {
-        if (strcmp(GetName(i), name) == 0)
-            return Code(i);
+        if (strcmp(GetName(i), name) == 0) return Code(i);
     }
 
     return Invalid;
 }
 
-FloatRegisters::Code
-FloatRegisters::FromName(const char* name)
-{
+FloatRegisters::Code FloatRegisters::FromName(const char* name) {
     for (size_t i = 0; i < TotalSingle; ++i) {
         if (strcmp(GetSingleName(Encoding(i)), name) == 0)
             return VFPRegister(i, VFPRegister::Single).code();
@@ -391,9 +350,7 @@ FloatRegisters::FromName(const char* name)
     return Invalid;
 }
 
-FloatRegisterSet
-VFPRegister::ReduceSetForPush(const FloatRegisterSet& s)
-{
+FloatRegisterSet VFPRegister::ReduceSetForPush(const FloatRegisterSet& s) {
     LiveFloatRegisterSet mod;
     for (FloatRegisterIterator iter(s); iter.more(); ++iter) {
         if ((*iter).isSingle()) {
@@ -411,34 +368,23 @@ VFPRegister::ReduceSetForPush(const FloatRegisterSet& s)
     return mod.set();
 }
 
-uint32_t
-VFPRegister::GetPushSizeInBytes(const FloatRegisterSet& s)
-{
+uint32_t VFPRegister::GetPushSizeInBytes(const FloatRegisterSet& s) {
     FloatRegisterSet ss = s.reduceSetForPush();
     uint64_t bits = ss.bits();
-    uint32_t ret = mozilla::CountPopulation32(bits&0xffffffff) * sizeof(float);
-    ret +=  mozilla::CountPopulation32(bits >> 32) * sizeof(double);
+    uint32_t ret = mozilla::CountPopulation32(bits & 0xffffffff) * sizeof(float);
+    ret += mozilla::CountPopulation32(bits >> 32) * sizeof(double);
     return ret;
 }
-uint32_t
-VFPRegister::getRegisterDumpOffsetInBytes()
-{
-    if (isSingle())
-        return id() * sizeof(float);
-    if (isDouble())
-        return id() * sizeof(double);
+uint32_t VFPRegister::getRegisterDumpOffsetInBytes() {
+    if (isSingle()) return id() * sizeof(float);
+    if (isDouble()) return id() * sizeof(double);
     MOZ_CRASH("not Single or Double");
 }
 
-uint32_t
-FloatRegisters::ActualTotalPhys()
-{
-    if (Has32DP())
-        return 32;
+uint32_t FloatRegisters::ActualTotalPhys() {
+    if (Has32DP()) return 32;
     return 16;
 }
 
-
-} // namespace jit
-} // namespace js
-
+}  // namespace jit
+}  // namespace js

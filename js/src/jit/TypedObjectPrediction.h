@@ -36,7 +36,7 @@ namespace jit {
 // |kind()| of the data (struct, array, etc) and from there make more
 // specific queries.
 class TypedObjectPrediction {
-  public:
+   public:
     enum PredictionKind {
         // No data.
         Empty,
@@ -65,17 +65,13 @@ class TypedObjectPrediction {
         PrefixData prefix;
     };
 
-  private:
+   private:
     PredictionKind kind_;
     Data data_;
 
-    PredictionKind predictionKind() const {
-        return kind_;
-    }
+    PredictionKind predictionKind() const { return kind_; }
 
-    void markInconsistent() {
-        kind_ = Inconsistent;
-    }
+    void markInconsistent() { kind_ = Inconsistent; }
 
     const TypeDescr& descr() const {
         MOZ_ASSERT(predictionKind() == Descr);
@@ -98,33 +94,23 @@ class TypedObjectPrediction {
         data_.prefix.fields = fields;
     }
 
-    void markAsCommonPrefix(const StructTypeDescr& descrA,
-                            const StructTypeDescr& descrB,
+    void markAsCommonPrefix(const StructTypeDescr& descrA, const StructTypeDescr& descrB,
                             size_t max);
 
-    template<typename T>
+    template <typename T>
     typename T::Type extractType() const;
 
-    bool hasFieldNamedPrefix(const StructTypeDescr& descr,
-                             size_t fieldCount,
-                             jsid id,
-                             size_t* fieldOffset,
-                             TypedObjectPrediction* out,
-                             size_t* index) const;
+    bool hasFieldNamedPrefix(const StructTypeDescr& descr, size_t fieldCount, jsid id,
+                             size_t* fieldOffset, TypedObjectPrediction* out, size_t* index) const;
 
-  public:
-
+   public:
     ///////////////////////////////////////////////////////////////////////////
     // Constructing a prediction. Generally, you start with an empty
     // prediction and invoke addDescr() repeatedly.
 
-    TypedObjectPrediction() {
-        kind_ = Empty;
-    }
+    TypedObjectPrediction() { kind_ = Empty; }
 
-    explicit TypedObjectPrediction(const TypeDescr& descr) {
-        setDescr(descr);
-    }
+    explicit TypedObjectPrediction(const TypeDescr& descr) { setDescr(descr); }
 
     TypedObjectPrediction(const StructTypeDescr& descr, size_t fields) {
         setPrefix(descr, fields);
@@ -189,13 +175,11 @@ class TypedObjectPrediction {
     // and sets |*fieldOffset|, |*fieldType|, and |*fieldIndex| with
     // the offset (in bytes), type, and index of the field
     // respectively.  Otherwise returns false.
-    bool hasFieldNamed(jsid id,
-                       size_t* fieldOffset,
-                       TypedObjectPrediction* fieldType,
+    bool hasFieldNamed(jsid id, size_t* fieldOffset, TypedObjectPrediction* fieldType,
                        size_t* fieldIndex) const;
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif

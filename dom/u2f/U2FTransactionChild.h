@@ -20,19 +20,21 @@ namespace dom {
 
 class U2FTransactionChild final : public PWebAuthnTransactionChild
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(U2FTransactionChild);
   U2FTransactionChild();
-  mozilla::ipc::IPCResult RecvConfirmRegister(nsTArray<uint8_t>&& aRegBuffer) override;
+  mozilla::ipc::IPCResult RecvConfirmRegister(
+      nsTArray<uint8_t>&& aRegBuffer) override;
   mozilla::ipc::IPCResult RecvConfirmSign(nsTArray<uint8_t>&& aCredentialId,
                                           nsTArray<uint8_t>&& aBuffer) override;
   mozilla::ipc::IPCResult RecvAbort(const nsresult& aError) override;
   void ActorDestroy(ActorDestroyReason why) override;
-private:
+
+ private:
   ~U2FTransactionChild() = default;
 };
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_U2FTransactionChild_h
+#endif  //mozilla_dom_U2FTransactionChild_h

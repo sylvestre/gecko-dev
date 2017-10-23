@@ -23,12 +23,12 @@ class AsyncStatementParams;
  */
 class AsyncStatementJSHelper : public nsIXPCScriptable
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIXPCSCRIPTABLE
 
-private:
-  nsresult getParams(AsyncStatement *, JSContext *, JSObject *, JS::Value *);
+ private:
+  nsresult getParams(AsyncStatement*, JSContext*, JSObject*, JS::Value*);
 };
 
 /**
@@ -36,27 +36,29 @@ private:
  * For cycle-avoidance reasons they do not hold reference-counted references,
  * so it is important we do this.
  */
-class AsyncStatementParamsHolder final : public nsISupports {
-public:
+class AsyncStatementParamsHolder final : public nsISupports
+{
+ public:
   NS_DECL_ISUPPORTS
 
   explicit AsyncStatementParamsHolder(AsyncStatementParams* aParams)
-    : mParams(aParams)
+      : mParams(aParams)
   {
   }
 
-  AsyncStatementParams* Get() const {
+  AsyncStatementParams* Get() const
+  {
     MOZ_ASSERT(mParams);
     return mParams;
   }
 
-private:
+ private:
   virtual ~AsyncStatementParamsHolder();
 
   RefPtr<AsyncStatementParams> mParams;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozilla_storage_mozStorageAsyncStatementJSHelper_h_
+#endif  // mozilla_storage_mozStorageAsyncStatementJSHelper_h_

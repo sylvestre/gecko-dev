@@ -8,7 +8,7 @@
 #include "mozilla/EventStates.h"
 #include "mozilla/dom/HTMLOptGroupElement.h"
 #include "mozilla/dom/HTMLOptGroupElementBinding.h"
-#include "mozilla/dom/HTMLSelectElement.h" // SafeOptionListMutation
+#include "mozilla/dom/HTMLSelectElement.h"  // SafeOptionListMutation
 #include "nsGkAtoms.h"
 #include "nsStyleConsts.h"
 #include "nsIFrame.h"
@@ -23,24 +23,19 @@ namespace dom {
  * The implementation of &lt;optgroup&gt;
  */
 
-
-
-HTMLOptGroupElement::HTMLOptGroupElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLOptGroupElement::HTMLOptGroupElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
   // We start off enabled
   AddStatesSilently(NS_EVENT_STATE_ENABLED);
 }
 
-HTMLOptGroupElement::~HTMLOptGroupElement()
-{
-}
-
+HTMLOptGroupElement::~HTMLOptGroupElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLOptGroupElement, nsGenericHTMLElement)
 
 NS_IMPL_ELEMENT_CLONE(HTMLOptGroupElement)
-
 
 nsresult
 HTMLOptGroupElement::GetEventTargetParent(EventChainPreVisitor& aVisitor)
@@ -90,20 +85,20 @@ HTMLOptGroupElement::InsertChildAt(nsIContent* aKid,
 void
 HTMLOptGroupElement::RemoveChildAt(uint32_t aIndex, bool aNotify)
 {
-  SafeOptionListMutation safeMutation(GetSelect(), this, nullptr, aIndex,
-                                      aNotify);
+  SafeOptionListMutation safeMutation(
+      GetSelect(), this, nullptr, aIndex, aNotify);
   nsGenericHTMLElement::RemoveChildAt(aIndex, aNotify);
 }
 
 nsresult
-HTMLOptGroupElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLOptGroupElement::AfterSetAttr(int32_t aNameSpaceID,
+                                  nsAtom* aName,
                                   const nsAttrValue* aValue,
                                   const nsAttrValue* aOldValue,
                                   nsIPrincipal* aSubjectPrincipal,
                                   bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None && aName == nsGkAtoms::disabled) {
-
     EventStates disabledStates;
     if (aValue) {
       disabledStates |= NS_EVENT_STATE_DISABLED;
@@ -128,8 +123,8 @@ HTMLOptGroupElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 JSObject*
@@ -138,5 +133,5 @@ HTMLOptGroupElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLOptGroupElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

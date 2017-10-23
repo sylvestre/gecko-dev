@@ -23,7 +23,7 @@ class DocAccessibleParent;
 
 class OuterDocAccessible final : public AccessibleWrap
 {
-public:
+ public:
   OuterDocAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -33,7 +33,8 @@ public:
   // Accessible
   virtual void Shutdown() override;
   virtual mozilla::a11y::role NativeRole() override;
-  virtual Accessible* ChildAtPoint(int32_t aX, int32_t aY,
+  virtual Accessible* ChildAtPoint(int32_t aX,
+                                   int32_t aY,
                                    EWhichChildAtPoint aWhichChild) override;
 
   virtual bool InsertChildAt(uint32_t aIdx, Accessible* aChild) override;
@@ -43,9 +44,9 @@ public:
 #if defined(XP_WIN)
   virtual uint32_t ChildCount() const override;
   virtual Accessible* GetChildAt(uint32_t aIndex) const override;
-#endif // defined(XP_WIN)
+#endif  // defined(XP_WIN)
 
-protected:
+ protected:
   virtual ~OuterDocAccessible() override;
 };
 
@@ -55,7 +56,7 @@ Accessible::AsOuterDoc()
   return IsOuterDoc() ? static_cast<OuterDocAccessible*>(this) : nullptr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

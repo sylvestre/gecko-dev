@@ -9,26 +9,33 @@
 
 namespace mozilla {
 
-LogModule* GetEMELog() {
+LogModule*
+GetEMELog()
+{
   static LazyLogModule log("EME");
   return log;
 }
 
-LogModule* GetEMEVerboseLog() {
+LogModule*
+GetEMEVerboseLog()
+{
   static LazyLogModule log("EMEV");
   return log;
 }
 
 ArrayData
-GetArrayBufferViewOrArrayBufferData(const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView)
+GetArrayBufferViewOrArrayBufferData(
+    const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView)
 {
-  MOZ_ASSERT(aBufferOrView.IsArrayBuffer() || aBufferOrView.IsArrayBufferView());
+  MOZ_ASSERT(aBufferOrView.IsArrayBuffer() ||
+             aBufferOrView.IsArrayBufferView());
   if (aBufferOrView.IsArrayBuffer()) {
     const dom::ArrayBuffer& buffer = aBufferOrView.GetAsArrayBuffer();
     buffer.ComputeLengthAndData();
     return ArrayData(buffer.Data(), buffer.Length());
   } else if (aBufferOrView.IsArrayBufferView()) {
-    const dom::ArrayBufferView& bufferview = aBufferOrView.GetAsArrayBufferView();
+    const dom::ArrayBufferView& bufferview =
+        aBufferOrView.GetAsArrayBufferView();
     bufferview.ComputeLengthAndData();
     return ArrayData(bufferview.Data(), bufferview.Length());
   }
@@ -36,8 +43,9 @@ GetArrayBufferViewOrArrayBufferData(const dom::ArrayBufferViewOrArrayBuffer& aBu
 }
 
 void
-CopyArrayBufferViewOrArrayBufferData(const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView,
-                                     nsTArray<uint8_t>& aOutData)
+CopyArrayBufferViewOrArrayBufferData(
+    const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView,
+    nsTArray<uint8_t>& aOutData)
 {
   ArrayData data = GetArrayBufferViewOrArrayBufferData(aBufferOrView);
   aOutData.Clear();
@@ -72,4 +80,4 @@ KeySystemToGMPName(const nsAString& aKeySystem)
   return EmptyString();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

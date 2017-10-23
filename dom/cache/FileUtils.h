@@ -38,9 +38,12 @@ nsresult
 BodyGetCacheDir(nsIFile* aBaseDir, const nsID& aId, nsIFile** aCacheDirOut);
 
 nsresult
-BodyStartWriteStream(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
-                     nsIInputStream* aSource, void* aClosure,
-                     nsAsyncCopyCallbackFun aCallback, nsID* aIdOut,
+BodyStartWriteStream(const QuotaInfo& aQuotaInfo,
+                     nsIFile* aBaseDir,
+                     nsIInputStream* aSource,
+                     void* aClosure,
+                     nsAsyncCopyCallbackFun aCallback,
+                     nsID* aIdOut,
                      nsISupports** aCopyContextOut);
 
 void
@@ -50,19 +53,25 @@ nsresult
 BodyFinalizeWrite(nsIFile* aBaseDir, const nsID& aId);
 
 nsresult
-BodyOpen(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir, const nsID& aId,
+BodyOpen(const QuotaInfo& aQuotaInfo,
+         nsIFile* aBaseDir,
+         const nsID& aId,
          nsIInputStream** aStreamOut);
 
 nsresult
-BodyMaybeUpdatePaddingSize(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
-                           const nsID& aId, int64_t* aPaddingSizeOut);
+BodyMaybeUpdatePaddingSize(const QuotaInfo& aQuotaInfo,
+                           nsIFile* aBaseDir,
+                           const nsID& aId,
+                           int64_t* aPaddingSizeOut);
 
 nsresult
-BodyDeleteFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
+BodyDeleteFiles(const QuotaInfo& aQuotaInfo,
+                nsIFile* aBaseDir,
                 const nsTArray<nsID>& aIdList);
 
 nsresult
-BodyDeleteOrphanedFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
+BodyDeleteOrphanedFiles(const QuotaInfo& aQuotaInfo,
+                        nsIFile* aBaseDir,
                         nsTArray<nsID>& aKnownBodyIdList);
 
 nsresult
@@ -121,14 +130,16 @@ nsresult
 LockedDirectoryPaddingFinalizeWrite(nsIFile* aBaseDir);
 
 nsresult
-LockedDirectoryPaddingRestore(nsIFile* aBaseDir, mozIStorageConnection* aConn,
-                              bool aMustRestore, int64_t* aPaddingSizeOut);
+LockedDirectoryPaddingRestore(nsIFile* aBaseDir,
+                              mozIStorageConnection* aConn,
+                              bool aMustRestore,
+                              int64_t* aPaddingSizeOut);
 
 nsresult
 LockedDirectoryPaddingDeleteFile(nsIFile* aBaseDir,
                                  DirPaddingFile aPaddingFileType);
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_FileUtils_h
+#endif  // mozilla_dom_cache_FileUtils_h

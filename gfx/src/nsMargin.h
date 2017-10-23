@@ -11,14 +11,17 @@
 #include "mozilla/gfx/BaseMargin.h"
 #include "mozilla/gfx/Rect.h"
 
-struct nsMargin : public mozilla::gfx::BaseMargin<nscoord, nsMargin> {
+struct nsMargin : public mozilla::gfx::BaseMargin<nscoord, nsMargin>
+{
   typedef mozilla::gfx::BaseMargin<nscoord, nsMargin> Super;
 
   // Constructors
   nsMargin() : Super() {}
   nsMargin(const nsMargin& aMargin) : Super(aMargin) {}
   nsMargin(nscoord aTop, nscoord aRight, nscoord aBottom, nscoord aLeft)
-    : Super(aTop, aRight, aBottom, aLeft) {}
+      : Super(aTop, aRight, aBottom, aLeft)
+  {
+  }
 };
 
 typedef mozilla::gfx::IntMargin nsIntMargin;

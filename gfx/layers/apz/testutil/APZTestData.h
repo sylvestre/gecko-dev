@@ -37,12 +37,15 @@ typedef uint32_t SequenceNumber;
 //  - Improve warnings/asserts.
 //  - Add ability to associate a repaint request triggered during a layers update
 //    with the sequence number of the paint that caused the layers update.
-class APZTestData {
+class APZTestData
+{
   typedef FrameMetrics::ViewID ViewID;
   friend struct IPC::ParamTraits<APZTestData>;
   friend struct APZTestDataToJSConverter;
-public:
-  void StartNewPaint(SequenceNumber aSequenceNumber) {
+
+ public:
+  void StartNewPaint(SequenceNumber aSequenceNumber)
+  {
     // We should never get more than one paint with the same sequence number.
     MOZ_ASSERT(mPaints.find(aSequenceNumber) == mPaints.end());
     mPaints.insert(DataStore::value_type(aSequenceNumber, Bucket()));
@@ -50,19 +53,24 @@ public:
   void LogTestDataForPaint(SequenceNumber aSequenceNumber,
                            ViewID aScrollId,
                            const std::string& aKey,
-                           const std::string& aValue) {
+                           const std::string& aValue)
+  {
     LogTestDataImpl(mPaints, aSequenceNumber, aScrollId, aKey, aValue);
   }
 
-  void StartNewRepaintRequest(SequenceNumber aSequenceNumber) {
+  void StartNewRepaintRequest(SequenceNumber aSequenceNumber)
+  {
     typedef std::pair<DataStore::iterator, bool> InsertResultT;
-    DebugOnly<InsertResultT> insertResult = mRepaintRequests.insert(DataStore::value_type(aSequenceNumber, Bucket()));
-    MOZ_ASSERT(((InsertResultT&)insertResult).second, "Already have a repaint request with this sequence number");
+    DebugOnly<InsertResultT> insertResult = mRepaintRequests.insert(
+        DataStore::value_type(aSequenceNumber, Bucket()));
+    MOZ_ASSERT(((InsertResultT&)insertResult).second,
+               "Already have a repaint request with this sequence number");
   }
   void LogTestDataForRepaintRequest(SequenceNumber aSequenceNumber,
                                     ViewID aScrollId,
                                     const std::string& aKey,
-                                    const std::string& aValue) {
+                                    const std::string& aValue)
+  {
     LogTestDataImpl(mRepaintRequests, aSequenceNumber, aScrollId, aKey, aValue);
   }
 
@@ -72,12 +80,19 @@ public:
   // Use dummy derived structures wrapping the tyepdefs to work around a type
   // name length limit in MSVC.
   typedef std::map<std::string, std::string> ScrollFrameDataBase;
-  struct ScrollFrameData : ScrollFrameDataBase {};
+  struct ScrollFrameData : ScrollFrameDataBase
+  {
+  };
   typedef std::map<ViewID, ScrollFrameData> BucketBase;
-  struct Bucket : BucketBase {};
+  struct Bucket : BucketBase
+  {
+  };
   typedef std::map<SequenceNumber, Bucket> DataStoreBase;
-  struct DataStore : DataStoreBase {};
-private:
+  struct DataStore : DataStoreBase
+  {
+  };
+
+ private:
   DataStore mPaints;
   DataStore mRepaintRequests;
 
@@ -85,33 +100,39 @@ private:
                        SequenceNumber aSequenceNumber,
                        ViewID aScrollId,
                        const std::string& aKey,
-                       const std::string& aValue) {
+                       const std::string& aValue)
+  {
     auto bucketIterator = aDataStore.find(aSequenceNumber);
     if (bucketIterator == aDataStore.end()) {
-      MOZ_ASSERT(false, "LogTestDataImpl called with nonexistent sequence number");
+      MOZ_ASSERT(false,
+                 "LogTestDataImpl called with nonexistent sequence number");
       return;
     }
     Bucket& bucket = bucketIterator->second;
-    ScrollFrameData& scrollFrameData = bucket[aScrollId];  // create if doesn't exist
-    MOZ_ASSERT(scrollFrameData.find(aKey) == scrollFrameData.end()
-            || scrollFrameData[aKey] == aValue);
+    ScrollFrameData& scrollFrameData =
+        bucket[aScrollId];  // create if doesn't exist
+    MOZ_ASSERT(scrollFrameData.find(aKey) == scrollFrameData.end() ||
+               scrollFrameData[aKey] == aValue);
     scrollFrameData.insert(ScrollFrameData::value_type(aKey, aValue));
   }
 };
 
 // A helper class for logging data for a paint.
-class APZPaintLogHelper {
-public:
+class APZPaintLogHelper
+{
+ public:
   APZPaintLogHelper(APZTestData* aTestData, SequenceNumber aPaintSequenceNumber)
-    : mTestData(aTestData),
-      mPaintSequenceNumber(aPaintSequenceNumber) {
-    MOZ_ASSERT(!aTestData || gfxPrefs::APZTestLoggingEnabled(), "don't call me");
+      : mTestData(aTestData), mPaintSequenceNumber(aPaintSequenceNumber)
+  {
+    MOZ_ASSERT(!aTestData || gfxPrefs::APZTestLoggingEnabled(),
+               "don't call me");
   }
 
-  template <typename Value>
+  template<typename Value>
   void LogTestData(FrameMetrics::ViewID aScrollId,
                    const std::string& aKey,
-                   const Value& aValue) const {
+                   const Value& aValue) const
+  {
     if (mTestData) {  // avoid stringifying if mTestData == nullptr
       LogTestData(aScrollId, aKey, ToString(aValue));
     }
@@ -119,22 +140,25 @@ public:
 
   void LogTestData(FrameMetrics::ViewID aScrollId,
                    const std::string& aKey,
-                   const std::string& aValue) const {
+                   const std::string& aValue) const
+  {
     if (mTestData) {
-      mTestData->LogTestDataForPaint(mPaintSequenceNumber, aScrollId, aKey, aValue);
+      mTestData->LogTestDataForPaint(
+          mPaintSequenceNumber, aScrollId, aKey, aValue);
     }
   }
-private:
+
+ private:
   APZTestData* mTestData;
   SequenceNumber mPaintSequenceNumber;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 namespace IPC {
 
-template <>
+template<>
 struct ParamTraits<mozilla::layers::APZTestData>
 {
   typedef mozilla::layers::APZTestData paramType;
@@ -145,26 +169,33 @@ struct ParamTraits<mozilla::layers::APZTestData>
     WriteParam(aMsg, aParam.mRepaintRequests);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return (ReadParam(aMsg, aIter, &aResult->mPaints) &&
             ReadParam(aMsg, aIter, &aResult->mRepaintRequests));
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::layers::APZTestData::ScrollFrameData>
-  : ParamTraits<mozilla::layers::APZTestData::ScrollFrameDataBase> {};
+    : ParamTraits<mozilla::layers::APZTestData::ScrollFrameDataBase>
+{
+};
 
-template <>
+template<>
 struct ParamTraits<mozilla::layers::APZTestData::Bucket>
-  : ParamTraits<mozilla::layers::APZTestData::BucketBase> {};
+    : ParamTraits<mozilla::layers::APZTestData::BucketBase>
+{
+};
 
-template <>
+template<>
 struct ParamTraits<mozilla::layers::APZTestData::DataStore>
-  : ParamTraits<mozilla::layers::APZTestData::DataStoreBase> {};
+    : ParamTraits<mozilla::layers::APZTestData::DataStoreBase>
+{
+};
 
-} // namespace IPC
-
+}  // namespace IPC
 
 #endif /* mozilla_layers_APZTestData_h */

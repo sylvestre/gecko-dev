@@ -15,7 +15,8 @@
 #include "unicode/uchar.h"
 #include "unicode/uscript.h"
 
-const nsCharProps2& GetCharProps2(uint32_t aCh);
+const nsCharProps2&
+GetCharProps2(uint32_t aCh);
 
 namespace mozilla {
 
@@ -24,15 +25,17 @@ namespace unicode {
 extern const nsUGenCategory sDetailedToGeneralCategory[];
 
 /* This MUST match the values assigned by genUnicodePropertyData.pl! */
-enum VerticalOrientation {
-  VERTICAL_ORIENTATION_U  = 0,
-  VERTICAL_ORIENTATION_R  = 1,
+enum VerticalOrientation
+{
+  VERTICAL_ORIENTATION_U = 0,
+  VERTICAL_ORIENTATION_R = 1,
   VERTICAL_ORIENTATION_Tu = 2,
   VERTICAL_ORIENTATION_Tr = 3
 };
 
 /* This MUST match the values assigned by genUnicodePropertyData.pl! */
-enum PairedBracketType {
+enum PairedBracketType
+{
   PAIRED_BRACKET_TYPE_NONE = 0,
   PAIRED_BRACKET_TYPE_OPEN = 1,
   PAIRED_BRACKET_TYPE_CLOSE = 2
@@ -41,7 +44,8 @@ enum PairedBracketType {
 /* Flags for Unicode security IdentifierType.txt attributes. Only a subset
    of these are currently checked by Gecko, so we only define flags for the
    ones we need. */
-enum IdentifierType {
+enum IdentifierType
+{
   IDTYPE_RESTRICTED = 0,
   IDTYPE_ALLOWED = 1,
 };
@@ -82,9 +86,10 @@ inline int8_t
 GetNumericValue(uint32_t aCh)
 {
   UNumericType type =
-    UNumericType(u_getIntPropertyValue(aCh, UCHAR_NUMERIC_TYPE));
+      UNumericType(u_getIntPropertyValue(aCh, UCHAR_NUMERIC_TYPE));
   return type == U_NT_DECIMAL || type == U_NT_DIGIT
-         ? int8_t(u_getNumericValue(aCh)) : -1;
+             ? int8_t(u_getNumericValue(aCh))
+             : -1;
 }
 
 inline uint8_t
@@ -116,8 +121,8 @@ GetScriptTagForCode(Script aScriptCode)
 inline PairedBracketType
 GetPairedBracketType(uint32_t aCh)
 {
-  return PairedBracketType
-           (u_getIntPropertyValue(aCh, UCHAR_BIDI_PAIRED_BRACKET_TYPE));
+  return PairedBracketType(
+      u_getIntPropertyValue(aCh, UCHAR_BIDI_PAIRED_BRACKET_TYPE));
 }
 
 inline uint32_t
@@ -139,13 +144,13 @@ GetLowercase(uint32_t aCh)
 }
 
 inline uint32_t
-GetTitlecaseForLower(uint32_t aCh) // maps LC to titlecase, UC unchanged
+GetTitlecaseForLower(uint32_t aCh)  // maps LC to titlecase, UC unchanged
 {
   return u_isULowercase(aCh) ? u_totitle(aCh) : aCh;
 }
 
 inline uint32_t
-GetTitlecaseForAll(uint32_t aCh) // maps both UC and LC to titlecase
+GetTitlecaseForAll(uint32_t aCh)  // maps both UC and LC to titlecase
 {
   return u_totitle(aCh);
 }
@@ -173,28 +178,39 @@ IsDefaultIgnorable(uint32_t aCh)
 }
 
 // returns the simplified Gen Category as defined in nsUGenCategory
-inline nsUGenCategory GetGenCategory(uint32_t aCh) {
+inline nsUGenCategory
+GetGenCategory(uint32_t aCh)
+{
   return sDetailedToGeneralCategory[GetGeneralCategory(aCh)];
 }
 
-inline VerticalOrientation GetVerticalOrientation(uint32_t aCh) {
+inline VerticalOrientation
+GetVerticalOrientation(uint32_t aCh)
+{
   return VerticalOrientation(GetCharProps2(aCh).mVertOrient);
 }
 
-inline IdentifierType GetIdentifierType(uint32_t aCh) {
+inline IdentifierType
+GetIdentifierType(uint32_t aCh)
+{
   return IdentifierType(GetCharProps2(aCh).mIdType);
 }
 
-uint32_t GetFullWidth(uint32_t aCh);
+uint32_t
+GetFullWidth(uint32_t aCh);
 // This is the reverse function of GetFullWidth which guarantees that
 // for every codepoint c, GetFullWidthInverse(GetFullWidth(c)) == c.
 // Note that, this function does not guarantee to convert all wide
 // form characters to their possible narrow form.
-uint32_t GetFullWidthInverse(uint32_t aCh);
+uint32_t
+GetFullWidthInverse(uint32_t aCh);
 
-bool IsClusterExtender(uint32_t aCh, uint8_t aCategory);
+bool
+IsClusterExtender(uint32_t aCh, uint8_t aCategory);
 
-inline bool IsClusterExtender(uint32_t aCh) {
+inline bool
+IsClusterExtender(uint32_t aCh)
+{
   return IsClusterExtender(aCh, GetGeneralCategory(aCh));
 }
 
@@ -202,61 +218,58 @@ inline bool IsClusterExtender(uint32_t aCh) {
 // by Unicode grapheme clusters
 class ClusterIterator
 {
-public:
-    ClusterIterator(const char16_t* aText, uint32_t aLength)
-        : mPos(aText), mLimit(aText + aLength)
+ public:
+  ClusterIterator(const char16_t* aText, uint32_t aLength)
+      : mPos(aText),
+        mLimit(aText + aLength)
 #ifdef DEBUG
-        , mText(aText)
+        ,
+        mText(aText)
 #endif
-    { }
+  {
+  }
 
-    operator const char16_t* () const {
-        return mPos;
-    }
+  operator const char16_t*() const { return mPos; }
 
-    bool AtEnd() const {
-        return mPos >= mLimit;
-    }
+  bool AtEnd() const { return mPos >= mLimit; }
 
-    void Next();
+  void Next();
 
-private:
-    const char16_t* mPos;
-    const char16_t* mLimit;
+ private:
+  const char16_t* mPos;
+  const char16_t* mLimit;
 #ifdef DEBUG
-    const char16_t* mText;
+  const char16_t* mText;
 #endif
 };
 
 // Count the number of grapheme clusters in the given string
-uint32_t CountGraphemeClusters(const char16_t* aText, uint32_t aLength);
+uint32_t
+CountGraphemeClusters(const char16_t* aText, uint32_t aLength);
 
 // A simple reverse iterator for a string of char16_t codepoints that
 // advances by Unicode grapheme clusters
 class ClusterReverseIterator
 {
-public:
-    ClusterReverseIterator(const char16_t* aText, uint32_t aLength)
-        : mPos(aText + aLength), mLimit(aText)
-    { }
+ public:
+  ClusterReverseIterator(const char16_t* aText, uint32_t aLength)
+      : mPos(aText + aLength), mLimit(aText)
+  {
+  }
 
-    operator const char16_t* () const {
-        return mPos;
-    }
+  operator const char16_t*() const { return mPos; }
 
-    bool AtEnd() const {
-        return mPos <= mLimit;
-    }
+  bool AtEnd() const { return mPos <= mLimit; }
 
-    void Next();
+  void Next();
 
-private:
-    const char16_t* mPos;
-    const char16_t* mLimit;
+ private:
+  const char16_t* mPos;
+  const char16_t* mLimit;
 };
 
-} // end namespace unicode
+}  // end namespace unicode
 
-} // end namespace mozilla
+}  // end namespace mozilla
 
 #endif /* NS_UNICODEPROPERTIES_H */

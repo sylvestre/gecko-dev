@@ -34,7 +34,9 @@ MOZ_MUST_USE nsresult
 Base64Encode(const nsAString& aBinary, nsAString& aBase64);
 
 MOZ_MUST_USE nsresult
-Base64Decode(const char* aBase64, uint32_t aBase64Len, char** aBinary,
+Base64Decode(const char* aBase64,
+             uint32_t aBase64Len,
+             char** aBinary,
              uint32_t* aBinaryLen);
 MOZ_MUST_USE nsresult
 Base64Decode(const nsACString& aBase64, nsACString& aBinary);
@@ -43,7 +45,8 @@ Base64Decode(const nsACString& aBase64, nsACString& aBinary);
 MOZ_MUST_USE nsresult
 Base64Decode(const nsAString& aBase64, nsAString& aBinary);
 
-enum class Base64URLEncodePaddingPolicy {
+enum class Base64URLEncodePaddingPolicy
+{
   Include,
   Omit,
 };
@@ -54,11 +57,13 @@ enum class Base64URLEncodePaddingPolicy {
  * of |aBinary|.
  */
 MOZ_MUST_USE nsresult
-Base64URLEncode(uint32_t aBinaryLen, const uint8_t* aBinary,
+Base64URLEncode(uint32_t aBinaryLen,
+                const uint8_t* aBinary,
                 Base64URLEncodePaddingPolicy aPaddingPolicy,
                 nsACString& aBase64);
 
-enum class Base64URLDecodePaddingPolicy {
+enum class Base64URLDecodePaddingPolicy
+{
   Require,
   Ignore,
   Reject,
@@ -72,6 +77,6 @@ Base64URLDecode(const nsACString& aBase64,
                 Base64URLDecodePaddingPolicy aPaddingPolicy,
                 FallibleTArray<uint8_t>& aBinary);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

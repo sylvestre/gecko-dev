@@ -12,15 +12,12 @@ namespace mozilla {
 namespace dom {
 
 MediaKeyError::MediaKeyError(EventTarget* aOwner, uint32_t aSystemCode)
-  : Event(aOwner, nullptr, nullptr)
-  , mSystemCode(aSystemCode)
+    : Event(aOwner, nullptr, nullptr), mSystemCode(aSystemCode)
 {
   InitEvent(NS_LITERAL_STRING("error"), false, false);
 }
 
-MediaKeyError::~MediaKeyError()
-{
-}
+MediaKeyError::~MediaKeyError() {}
 
 uint32_t
 MediaKeyError::SystemCode() const
@@ -29,11 +26,11 @@ MediaKeyError::SystemCode() const
 }
 
 JSObject*
-MediaKeyError::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+MediaKeyError::WrapObjectInternal(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return MediaKeyErrorBinding::Wrap(aCx, this, aGivenProto);
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -23,7 +23,7 @@ class ClonedMessageData;
 
 class BroadcastChannelService final
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(BroadcastChannelService)
 
   static already_AddRefed<BroadcastChannelService> GetOrCreate();
@@ -37,16 +37,15 @@ public:
                    const ClonedMessageData& aData,
                    const nsAString& aOriginChannelKey);
 
-private:
+ private:
   BroadcastChannelService();
   ~BroadcastChannelService();
 
   // Raw Pointers because the actors keep alive this service.
-  nsClassHashtable<nsStringHashKey,
-                  nsTArray<BroadcastChannelParent*>> mAgents;
+  nsClassHashtable<nsStringHashKey, nsTArray<BroadcastChannelParent*>> mAgents;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_BroadcastChannelService_h
+#endif  // mozilla_dom_BroadcastChannelService_h

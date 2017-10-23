@@ -28,32 +28,34 @@ GenerateCacheName(nsAString& aName);
 
 class CompareCallback
 {
-public:
+ public:
   /*
    * If there is an error, ignore aInCacheAndEqual and aNewCacheName.
    * On success, if the cached result and network result matched,
    * aInCacheAndEqual will be true and no new cache name is passed, otherwise
    * use the new cache name to load the ServiceWorker.
    */
-  virtual void
-  ComparisonResult(nsresult aStatus,
-                   bool aInCacheAndEqual,
-                   const nsAString& aNewCacheName,
-                   const nsACString& aMaxScope,
-                   nsLoadFlags aLoadFlags) = 0;
+  virtual void ComparisonResult(nsresult aStatus,
+                                bool aInCacheAndEqual,
+                                const nsAString& aNewCacheName,
+                                const nsACString& aMaxScope,
+                                nsLoadFlags aLoadFlags) = 0;
 
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 };
 
 nsresult
 Compare(ServiceWorkerRegistrationInfo* aRegistration,
-        nsIPrincipal* aPrincipal, const nsAString& aCacheName,
-        const nsAString& aURL, CompareCallback* aCallback, nsILoadGroup* aLoadGroup);
+        nsIPrincipal* aPrincipal,
+        const nsAString& aCacheName,
+        const nsAString& aURL,
+        CompareCallback* aCallback,
+        nsILoadGroup* aLoadGroup);
 
-} // namespace serviceWorkerScriptCache
+}  // namespace serviceWorkerScriptCache
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_ServiceWorkerScriptCache_h
+#endif  // mozilla_dom_workers_ServiceWorkerScriptCache_h

@@ -52,15 +52,15 @@ class BenchmarkPlayback : public QueueObject
 // main thread.
 class Benchmark : public QueueObject
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Benchmark)
 
   struct Parameters
   {
     Parameters()
-      : mFramesToMeasure(-1)
-      , mStartupFrame(1)
-      , mTimeout(TimeDuration::Forever())
+        : mFramesToMeasure(-1),
+          mStartupFrame(1),
+          mTimeout(TimeDuration::Forever())
     {
     }
 
@@ -68,10 +68,10 @@ public:
                uint32_t aStartupFrame,
                int32_t aStopAtFrame,
                const TimeDuration& aTimeout)
-      : mFramesToMeasure(aFramesToMeasure)
-      , mStartupFrame(aStartupFrame)
-      , mStopAtFrame(Some(aStopAtFrame))
-      , mTimeout(aTimeout)
+        : mFramesToMeasure(aFramesToMeasure),
+          mStartupFrame(aStartupFrame),
+          mStopAtFrame(Some(aStopAtFrame)),
+          mTimeout(aTimeout)
     {
     }
 
@@ -89,7 +89,7 @@ public:
 
   static void Init();
 
-private:
+ private:
   friend class BenchmarkPlayback;
   virtual ~Benchmark();
   void ReturnResult(uint32_t aDecodeFps);
@@ -102,13 +102,13 @@ private:
 
 class VP9Benchmark
 {
-public:
+ public:
   static bool IsVP9DecodeFast();
   static const char* sBenchmarkFpsPref;
   static const char* sBenchmarkFpsVersionCheck;
   static const uint32_t sBenchmarkVersionID;
   static bool sHasRunTest;
 };
-}
+}  // namespace mozilla
 
 #endif

@@ -17,12 +17,12 @@
 #include "mozilla/dom/HTMLInputElement.h"
 #include "nsIDocument.h"
 
+using mozilla::dom::CallerType;
 using mozilla::dom::Element;
 using mozilla::dom::HTMLInputElement;
-using mozilla::dom::CallerType;
 
 nsColorControlFrame::nsColorControlFrame(nsStyleContext* aContext)
-  : nsHTMLButtonControlFrame(aContext, kClassID)
+    : nsHTMLButtonControlFrame(aContext, kClassID)
 {
 }
 
@@ -35,12 +35,12 @@ NS_NewColorControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsColorControlFrame)
 
 NS_QUERYFRAME_HEAD(nsColorControlFrame)
-  NS_QUERYFRAME_ENTRY(nsColorControlFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(nsColorControlFrame)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsHTMLButtonControlFrame)
 
-
-void nsColorControlFrame::DestroyFrom(nsIFrame* aDestructRoot)
+void
+nsColorControlFrame::DestroyFrom(nsIFrame* aDestructRoot)
 {
   nsCheckboxRadioFrame::RegUnRegAccessKey(static_cast<nsIFrame*>(this), false);
   DestroyAnonymousContent(mColorContent.forget());
@@ -112,15 +112,16 @@ nsColorControlFrame::UpdateColor()
   }
 
   // Set the background-color CSS property of the swatch element to this color.
-  return mColorContent->SetAttr(kNameSpaceID_None, nsGkAtoms::style,
+  return mColorContent->SetAttr(kNameSpaceID_None,
+                                nsGkAtoms::style,
                                 NS_LITERAL_STRING("background-color:") + color,
                                 /* aNotify */ true);
 }
 
 nsresult
-nsColorControlFrame::AttributeChanged(int32_t  aNameSpaceID,
+nsColorControlFrame::AttributeChanged(int32_t aNameSpaceID,
                                       nsAtom* aAttribute,
-                                      int32_t  aModType)
+                                      int32_t aModType)
 {
   NS_ASSERTION(mColorContent, "The color div must exist");
 
@@ -132,8 +133,8 @@ nsColorControlFrame::AttributeChanged(int32_t  aNameSpaceID,
       aNameSpaceID == kNameSpaceID_None && nsGkAtoms::value == aAttribute) {
     UpdateColor();
   }
-  return nsHTMLButtonControlFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                                    aModType);
+  return nsHTMLButtonControlFrame::AttributeChanged(
+      aNameSpaceID, aAttribute, aModType);
 }
 
 nsContainerFrame*

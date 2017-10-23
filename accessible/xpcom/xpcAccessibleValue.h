@@ -20,24 +20,24 @@ class Accessible;
  */
 class xpcAccessibleValue : public nsIAccessibleValue
 {
-public:
+ public:
   NS_IMETHOD GetMaximumValue(double* aValue) final override;
   NS_IMETHOD GetMinimumValue(double* aValue) final override;
   NS_IMETHOD GetCurrentValue(double* aValue) final override;
   NS_IMETHOD SetCurrentValue(double aValue) final override;
   NS_IMETHOD GetMinimumIncrement(double* aMinIncrement) final override;
 
-protected:
-  xpcAccessibleValue() { }
+ protected:
+  xpcAccessibleValue() {}
   virtual ~xpcAccessibleValue() {}
 
-private:
+ private:
   AccessibleOrProxy Intl();
 
   xpcAccessibleValue(const xpcAccessibleValue&) = delete;
-  xpcAccessibleValue& operator =(const xpcAccessibleValue&) = delete;
+  xpcAccessibleValue& operator=(const xpcAccessibleValue&) = delete;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 #endif

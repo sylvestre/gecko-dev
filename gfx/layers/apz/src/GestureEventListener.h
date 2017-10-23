@@ -7,12 +7,12 @@
 #ifndef mozilla_layers_GestureEventListener_h
 #define mozilla_layers_GestureEventListener_h
 
-#include "InputData.h"                  // for MultiTouchInput, etc
+#include "InputData.h"  // for MultiTouchInput, etc
 #include "Units.h"
-#include "mozilla/EventForwards.h"      // for nsEventStatus
-#include "mozilla/RefPtr.h"             // for RefPtr
+#include "mozilla/EventForwards.h"  // for nsEventStatus
+#include "mozilla/RefPtr.h"         // for RefPtr
 #include "nsISupportsImpl.h"
-#include "nsTArray.h"                   // for nsTArray
+#include "nsTArray.h"  // for nsTArray
 
 namespace mozilla {
 
@@ -34,11 +34,13 @@ class AsyncPanZoomController;
  * touch event is not part of a gesture, we just return nsEventStatus_eIgnore
  * and AsyncPanZoomController is expected to handle it.
  */
-class GestureEventListener final {
-public:
+class GestureEventListener final
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GestureEventListener)
 
-  explicit GestureEventListener(AsyncPanZoomController* aAsyncPanZoomController);
+  explicit GestureEventListener(
+      AsyncPanZoomController* aAsyncPanZoomController);
 
   // --------------------------------------------------------------------------
   // These methods must only be called on the controller/UI thread.
@@ -66,14 +68,15 @@ public:
    */
   static void SetLongTapEnabled(bool aLongTapEnabled);
 
-private:
+ private:
   // Private destructor, to discourage deletion outside of Release():
   ~GestureEventListener();
 
   /**
    * States of GEL finite-state machine.
    */
-  enum GestureState {
+  enum GestureState
+  {
     // This is the initial and final state of any gesture.
     // In this state there's no gesture going on, and we don't think we're
     // about to enter one.
@@ -257,7 +260,7 @@ private:
   Maybe<bool> mSingleTapSent;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

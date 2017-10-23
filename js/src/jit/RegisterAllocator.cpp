@@ -9,29 +9,23 @@
 using namespace js;
 using namespace js::jit;
 
-bool
-AllocationIntegrityState::record()
-{
+bool AllocationIntegrityState::record() {
     // Ignore repeated record() calls.
-    if (!instructions.empty())
-        return true;
+    if (!instructions.empty()) return true;
 
-    if (!instructions.appendN(InstructionInfo(), graph.numInstructions()))
-        return false;
+    if (!instructions.appendN(InstructionInfo(), graph.numInstructions())) return false;
 
     if (!virtualRegisters.appendN((LDefinition*)nullptr, graph.numVirtualRegisters()))
         return false;
 
-    if (!blocks.reserve(graph.numBlocks()))
-        return false;
+    if (!blocks.reserve(graph.numBlocks())) return false;
     for (size_t i = 0; i < graph.numBlocks(); i++) {
         blocks.infallibleAppend(BlockInfo());
         LBlock* block = graph.getBlock(i);
         MOZ_ASSERT(block->mir()->id() == i);
 
         BlockInfo& blockInfo = blocks[i];
-        if (!blockInfo.phis.reserve(block->numPhis()))
-            return false;
+        if (!blockInfo.phis.reserve(block->numPhis())) return false;
 
         for (size_t j = 0; j < block->numPhis(); j++) {
             blockInfo.phis.infallibleAppend(InstructionInfo());
@@ -40,11 +34,9 @@ AllocationIntegrityState::record()
             MOZ_ASSERT(phi->numDefs() == 1);
             uint32_t vreg = phi->getDef(0)->virtualRegister();
             virtualRegisters[vreg] = phi->getDef(0);
-            if (!info.outputs.append(*phi->getDef(0)))
-                return false;
+            if (!info.outputs.append(*phi->getDef(0))) return false;
             for (size_t k = 0, kend = phi->numOperands(); k < kend; k++) {
-                if (!info.inputs.append(*phi->getOperand(k)))
-                    return false;
+                if (!info.inputs.append(*phi->getOperand(k))) return false;
             }
         }
 
@@ -57,20 +49,17 @@ AllocationIntegrityState::record()
                     uint32_t vreg = ins->getTemp(k)->virtualRegister();
                     virtualRegisters[vreg] = ins->getTemp(k);
                 }
-                if (!info.temps.append(*ins->getTemp(k)))
-                    return false;
+                if (!info.temps.append(*ins->getTemp(k))) return false;
             }
             for (size_t k = 0; k < ins->numDefs(); k++) {
                 if (!ins->getDef(k)->isBogusTemp()) {
                     uint32_t vreg = ins->getDef(k)->virtualRegister();
                     virtualRegisters[vreg] = ins->getDef(k);
                 }
-                if (!info.outputs.append(*ins->getDef(k)))
-                    return false;
+                if (!info.outputs.append(*ins->getDef(k))) return false;
             }
             for (LInstruction::InputIterator alloc(*ins); alloc.more(); alloc.next()) {
-                if (!info.inputs.append(**alloc))
-                    return false;
+                if (!info.inputs.append(**alloc)) return false;
             }
         }
     }
@@ -78,14 +67,11 @@ AllocationIntegrityState::record()
     return seen.init();
 }
 
-bool
-AllocationIntegrityState::check(bool populateSafepoints)
-{
+bool AllocationIntegrityState::check(bool populateSafepoints) {
     MOZ_ASSERT(!instructions.empty());
 
 #ifdef JS_JITSPEW
-    if (JitSpewEnabled(JitSpew_RegAlloc))
-        dump();
+    if (JitSpewEnabled(JitSpew_RegAlloc)) dump();
 #endif
 #ifdef DEBUG
     for (size_t blockIndex = 0; blockIndex < graph.numBlocks(); blockIndex++) {
@@ -137,23 +123,21 @@ AllocationIntegrityState::check(bool populateSafepoints)
             LSafepoint* safepoint = ins->safepoint();
             if (safepoint) {
                 for (size_t i = 0; i < ins->numTemps(); i++) {
-                    if (ins->getTemp(i)->isBogusTemp())
-                        continue;
+                    if (ins->getTemp(i)->isBogusTemp()) continue;
                     uint32_t vreg = info.temps[i].virtualRegister();
                     LAllocation* alloc = ins->getTemp(i)->output();
                     if (!checkSafepointAllocation(ins, vreg, *alloc, populateSafepoints))
                         return false;
                 }
-                MOZ_ASSERT_IF(ins->isCall() && !populateSafepoints,
-                              safepoint->liveRegs().emptyFloat() &&
-                              safepoint->liveRegs().emptyGeneral());
+                MOZ_ASSERT_IF(
+                    ins->isCall() && !populateSafepoints,
+                    safepoint->liveRegs().emptyFloat() && safepoint->liveRegs().emptyGeneral());
             }
 
             size_t inputIndex = 0;
             for (LInstruction::InputIterator alloc(*ins); alloc.more(); alloc.next()) {
                 LAllocation oldInput = info.inputs[inputIndex++];
-                if (!oldInput.isUse())
-                    continue;
+                if (!oldInput.isUse()) continue;
 
                 uint32_t vreg = oldInput.toUse()->virtualRegister();
 
@@ -183,10 +167,8 @@ AllocationIntegrityState::check(bool populateSafepoints)
     return true;
 }
 
-bool
-AllocationIntegrityState::checkIntegrity(LBlock* block, LInstruction* ins,
-                                         uint32_t vreg, LAllocation alloc, bool populateSafepoints)
-{
+bool AllocationIntegrityState::checkIntegrity(LBlock* block, LInstruction* ins, uint32_t vreg,
+                                              LAllocation alloc, bool populateSafepoints) {
     for (LInstructionReverseIterator iter(block->rbegin(ins)); iter != block->rend(); iter++) {
         ins = *iter;
 
@@ -211,8 +193,7 @@ AllocationIntegrityState::checkIntegrity(LBlock* block, LInstruction* ins,
 
         for (size_t i = 0; i < ins->numDefs(); i++) {
             LDefinition* def = ins->getDef(i);
-            if (def->isBogusTemp())
-                continue;
+            if (def->isBogusTemp()) continue;
             if (info.outputs[i].virtualRegister() == vreg) {
                 MOZ_ASSERT(*def->output() == alloc);
 
@@ -225,13 +206,11 @@ AllocationIntegrityState::checkIntegrity(LBlock* block, LInstruction* ins,
 
         for (size_t i = 0; i < ins->numTemps(); i++) {
             LDefinition* temp = ins->getTemp(i);
-            if (!temp->isBogusTemp())
-                MOZ_ASSERT(*temp->output() != alloc);
+            if (!temp->isBogusTemp()) MOZ_ASSERT(*temp->output() != alloc);
         }
 
         if (ins->safepoint()) {
-            if (!checkSafepointAllocation(ins, vreg, alloc, populateSafepoints))
-                return false;
+            if (!checkSafepointAllocation(ins, vreg, alloc, populateSafepoints)) return false;
         }
     }
 
@@ -246,8 +225,7 @@ AllocationIntegrityState::checkIntegrity(LBlock* block, LInstruction* ins,
             for (size_t j = 0, jend = phi->numOperands(); j < jend; j++) {
                 uint32_t newvreg = info.inputs[j].toUse()->virtualRegister();
                 LBlock* predecessor = block->mir()->getPredecessor(j)->lir();
-                if (!addPredecessor(predecessor, newvreg, alloc))
-                    return false;
+                if (!addPredecessor(predecessor, newvreg, alloc)) return false;
             }
             return true;
         }
@@ -257,28 +235,23 @@ AllocationIntegrityState::checkIntegrity(LBlock* block, LInstruction* ins,
     // predecessors with the existing vreg.
     for (size_t i = 0, iend = block->mir()->numPredecessors(); i < iend; i++) {
         LBlock* predecessor = block->mir()->getPredecessor(i)->lir();
-        if (!addPredecessor(predecessor, vreg, alloc))
-            return false;
+        if (!addPredecessor(predecessor, vreg, alloc)) return false;
     }
 
     return true;
 }
 
-bool
-AllocationIntegrityState::checkSafepointAllocation(LInstruction* ins,
-                                                   uint32_t vreg, LAllocation alloc,
-                                                   bool populateSafepoints)
-{
+bool AllocationIntegrityState::checkSafepointAllocation(LInstruction* ins, uint32_t vreg,
+                                                        LAllocation alloc,
+                                                        bool populateSafepoints) {
     LSafepoint* safepoint = ins->safepoint();
     MOZ_ASSERT(safepoint);
 
-    if (ins->isCall() && alloc.isRegister())
-        return true;
+    if (ins->isCall() && alloc.isRegister()) return true;
 
     if (alloc.isRegister()) {
         AnyRegister reg = alloc.toRegister();
-        if (populateSafepoints)
-            safepoint->addLiveRegister(reg);
+        if (populateSafepoints) safepoint->addLiveRegister(reg);
 
         MOZ_ASSERT(safepoint->liveRegs().has(reg));
     }
@@ -287,72 +260,64 @@ AllocationIntegrityState::checkSafepointAllocation(LInstruction* ins,
     if (alloc.isArgument() && alloc.toArgument()->index() < THIS_FRAME_ARGSLOT + sizeof(Value))
         return true;
 
-    LDefinition::Type type = virtualRegisters[vreg]
-                             ? virtualRegisters[vreg]->type()
-                             : LDefinition::GENERAL;
+    LDefinition::Type type =
+        virtualRegisters[vreg] ? virtualRegisters[vreg]->type() : LDefinition::GENERAL;
 
     switch (type) {
-      case LDefinition::OBJECT:
-        if (populateSafepoints) {
-            JitSpew(JitSpew_RegAlloc, "Safepoint object v%u i%u %s",
-                    vreg, ins->id(), alloc.toString().get());
-            if (!safepoint->addGcPointer(alloc))
-                return false;
-        }
-        MOZ_ASSERT(safepoint->hasGcPointer(alloc));
-        break;
-      case LDefinition::SLOTS:
-        if (populateSafepoints) {
-            JitSpew(JitSpew_RegAlloc, "Safepoint slots v%u i%u %s",
-                    vreg, ins->id(), alloc.toString().get());
-            if (!safepoint->addSlotsOrElementsPointer(alloc))
-                return false;
-        }
-        MOZ_ASSERT(safepoint->hasSlotsOrElementsPointer(alloc));
-        break;
+        case LDefinition::OBJECT:
+            if (populateSafepoints) {
+                JitSpew(JitSpew_RegAlloc, "Safepoint object v%u i%u %s", vreg, ins->id(),
+                        alloc.toString().get());
+                if (!safepoint->addGcPointer(alloc)) return false;
+            }
+            MOZ_ASSERT(safepoint->hasGcPointer(alloc));
+            break;
+        case LDefinition::SLOTS:
+            if (populateSafepoints) {
+                JitSpew(JitSpew_RegAlloc, "Safepoint slots v%u i%u %s", vreg, ins->id(),
+                        alloc.toString().get());
+                if (!safepoint->addSlotsOrElementsPointer(alloc)) return false;
+            }
+            MOZ_ASSERT(safepoint->hasSlotsOrElementsPointer(alloc));
+            break;
 #ifdef JS_NUNBOX32
-      // Do not assert that safepoint information for nunbox types is complete,
-      // as if a vreg for a value's components are copied in multiple places
-      // then the safepoint information may not reflect all copies. All copies
-      // of payloads must be reflected, however, for generational GC.
-      case LDefinition::TYPE:
-        if (populateSafepoints) {
-            JitSpew(JitSpew_RegAlloc, "Safepoint type v%u i%u %s",
-                    vreg, ins->id(), alloc.toString().get());
-            if (!safepoint->addNunboxType(vreg, alloc))
-                return false;
-        }
-        break;
-      case LDefinition::PAYLOAD:
-        if (populateSafepoints) {
-            JitSpew(JitSpew_RegAlloc, "Safepoint payload v%u i%u %s",
-                    vreg, ins->id(), alloc.toString().get());
-            if (!safepoint->addNunboxPayload(vreg, alloc))
-                return false;
-        }
-        MOZ_ASSERT(safepoint->hasNunboxPayload(alloc));
-        break;
+        // Do not assert that safepoint information for nunbox types is complete,
+        // as if a vreg for a value's components are copied in multiple places
+        // then the safepoint information may not reflect all copies. All copies
+        // of payloads must be reflected, however, for generational GC.
+        case LDefinition::TYPE:
+            if (populateSafepoints) {
+                JitSpew(JitSpew_RegAlloc, "Safepoint type v%u i%u %s", vreg, ins->id(),
+                        alloc.toString().get());
+                if (!safepoint->addNunboxType(vreg, alloc)) return false;
+            }
+            break;
+        case LDefinition::PAYLOAD:
+            if (populateSafepoints) {
+                JitSpew(JitSpew_RegAlloc, "Safepoint payload v%u i%u %s", vreg, ins->id(),
+                        alloc.toString().get());
+                if (!safepoint->addNunboxPayload(vreg, alloc)) return false;
+            }
+            MOZ_ASSERT(safepoint->hasNunboxPayload(alloc));
+            break;
 #else
-      case LDefinition::BOX:
-        if (populateSafepoints) {
-            JitSpew(JitSpew_RegAlloc, "Safepoint boxed value v%u i%u %s",
-                    vreg, ins->id(), alloc.toString().get());
-            if (!safepoint->addBoxedValue(alloc))
-                return false;
-        }
-        MOZ_ASSERT(safepoint->hasBoxedValue(alloc));
-        break;
+        case LDefinition::BOX:
+            if (populateSafepoints) {
+                JitSpew(JitSpew_RegAlloc, "Safepoint boxed value v%u i%u %s", vreg, ins->id(),
+                        alloc.toString().get());
+                if (!safepoint->addBoxedValue(alloc)) return false;
+            }
+            MOZ_ASSERT(safepoint->hasBoxedValue(alloc));
+            break;
 #endif
-      default:
-        break;
+        default:
+            break;
     }
 
     return true;
 }
 
-bool
-AllocationIntegrityState::addPredecessor(LBlock* block, uint32_t vreg, LAllocation alloc)
-{
+bool AllocationIntegrityState::addPredecessor(LBlock* block, uint32_t vreg, LAllocation alloc) {
     // There is no need to reanalyze if we have already seen this predecessor.
     // We share the seen allocations across analysis of each use, as there will
     // likely be common ground between different uses of the same vreg.
@@ -363,17 +328,13 @@ AllocationIntegrityState::addPredecessor(LBlock* block, uint32_t vreg, LAllocati
     item.index = seen.count();
 
     IntegrityItemSet::AddPtr p = seen.lookupForAdd(item);
-    if (p)
-        return true;
-    if (!seen.add(p, item))
-        return false;
+    if (p) return true;
+    if (!seen.add(p, item)) return false;
 
     return worklist.append(item);
 }
 
-void
-AllocationIntegrityState::dump()
-{
+void AllocationIntegrityState::dump() {
 #ifdef DEBUG
     fprintf(stderr, "Register Allocation Integrity State:\n");
 
@@ -392,9 +353,7 @@ AllocationIntegrityState::dump()
             CodePosition input(block->getPhi(0)->id(), CodePosition::INPUT);
             CodePosition output(block->getPhi(block->numPhis() - 1)->id(), CodePosition::OUTPUT);
 
-            fprintf(stderr, "[%u,%u Phi] [def %s] ",
-                    input.bits(),
-                    output.bits(),
+            fprintf(stderr, "[%u,%u Phi] [def %s] ", input.bits(), output.bits(),
                     phi->getDef(0)->toString().get());
             for (size_t j = 0; j < phi->numOperands(); j++)
                 fprintf(stderr, " [use %s]", info.inputs[j].toString().get());
@@ -409,15 +368,13 @@ AllocationIntegrityState::dump()
             CodePosition output(ins->id(), CodePosition::OUTPUT);
 
             fprintf(stderr, "[");
-            if (input != CodePosition::MIN)
-                fprintf(stderr, "%u,%u ", input.bits(), output.bits());
+            if (input != CodePosition::MIN) fprintf(stderr, "%u,%u ", input.bits(), output.bits());
             fprintf(stderr, "%s]", ins->opName());
 
             if (ins->isMoveGroup()) {
                 LMoveGroup* group = ins->toMoveGroup();
                 for (int i = group->numMoves() - 1; i >= 0; i--) {
-                    fprintf(stderr, " [%s -> %s]",
-                            group->getMove(i).from().toString().get(),
+                    fprintf(stderr, " [%s -> %s]", group->getMove(i).from().toString().get(),
                             group->getMove(i).to().toString().get());
                 }
                 fprintf(stderr, "\n");
@@ -437,8 +394,7 @@ AllocationIntegrityState::dump()
             size_t index = 0;
             for (LInstruction::InputIterator alloc(*ins); alloc.more(); alloc.next()) {
                 fprintf(stderr, " [use %s", info.inputs[index++].toString().get());
-                if (!alloc->isConstant())
-                    fprintf(stderr, " %s", alloc->toString().get());
+                if (!alloc->isConstant()) fprintf(stderr, " %s", alloc->toString().get());
                 fprintf(stderr, "]");
             }
 
@@ -465,8 +421,8 @@ AllocationIntegrityState::dump()
 
         for (size_t i = 0; i < seenOrdered.length(); i++) {
             IntegrityItem item = seenOrdered[i];
-            fprintf(stderr, "  block %u reg v%u alloc %s\n",
-                    item.block->mir()->id(), item.vreg, item.alloc.toString().get());
+            fprintf(stderr, "  block %u reg v%u alloc %s\n", item.block->mir()->id(), item.vreg,
+                    item.alloc.toString().get());
         }
     }
 
@@ -477,11 +433,8 @@ AllocationIntegrityState::dump()
 const CodePosition CodePosition::MAX(UINT_MAX);
 const CodePosition CodePosition::MIN(0);
 
-bool
-RegisterAllocator::init()
-{
-    if (!insData.init(mir, graph.numInstructions()))
-        return false;
+bool RegisterAllocator::init() {
+    if (!insData.init(mir, graph.numInstructions())) return false;
 
     if (!entryPositions.reserve(graph.numBlocks()) || !exitPositions.reserve(graph.numBlocks()))
         return false;
@@ -496,8 +449,8 @@ RegisterAllocator::init()
         }
 
         CodePosition entry = block->numPhis() != 0
-                             ? CodePosition(block->getPhi(0)->id(), CodePosition::INPUT)
-                             : inputOf(block->firstInstructionWithId());
+                                 ? CodePosition(block->getPhi(0)->id(), CodePosition::INPUT)
+                                 : inputOf(block->firstInstructionWithId());
         CodePosition exit = outputOf(block->lastInstructionWithId());
 
         MOZ_ASSERT(block->mir()->id() == i);
@@ -508,12 +461,9 @@ RegisterAllocator::init()
     return true;
 }
 
-LMoveGroup*
-RegisterAllocator::getInputMoveGroup(LInstruction* ins)
-{
+LMoveGroup* RegisterAllocator::getInputMoveGroup(LInstruction* ins) {
     MOZ_ASSERT(!ins->fixReuseMoves());
-    if (ins->inputMoves())
-        return ins->inputMoves();
+    if (ins->inputMoves()) return ins->inputMoves();
 
     LMoveGroup* moves = LMoveGroup::New(alloc());
     ins->setInputMoves(moves);
@@ -521,11 +471,8 @@ RegisterAllocator::getInputMoveGroup(LInstruction* ins)
     return moves;
 }
 
-LMoveGroup*
-RegisterAllocator::getFixReuseMoveGroup(LInstruction* ins)
-{
-    if (ins->fixReuseMoves())
-        return ins->fixReuseMoves();
+LMoveGroup* RegisterAllocator::getFixReuseMoveGroup(LInstruction* ins) {
+    if (ins->fixReuseMoves()) return ins->fixReuseMoves();
 
     LMoveGroup* moves = LMoveGroup::New(alloc());
     ins->setFixReuseMoves(moves);
@@ -533,11 +480,8 @@ RegisterAllocator::getFixReuseMoveGroup(LInstruction* ins)
     return moves;
 }
 
-LMoveGroup*
-RegisterAllocator::getMoveGroupAfter(LInstruction* ins)
-{
-    if (ins->movesAfter())
-        return ins->movesAfter();
+LMoveGroup* RegisterAllocator::getMoveGroupAfter(LInstruction* ins) {
+    if (ins->movesAfter()) return ins->movesAfter();
 
     LMoveGroup* moves = LMoveGroup::New(alloc());
     ins->setMovesAfter(moves);
@@ -546,9 +490,7 @@ RegisterAllocator::getMoveGroupAfter(LInstruction* ins)
     return moves;
 }
 
-void
-RegisterAllocator::dumpInstructions()
-{
+void RegisterAllocator::dumpInstructions() {
 #ifdef JS_JITSPEW
     fprintf(stderr, "Instructions:\n");
 
@@ -564,9 +506,7 @@ RegisterAllocator::dumpInstructions()
         for (size_t i = 0; i < block->numPhis(); i++) {
             LPhi* phi = block->getPhi(i);
 
-            fprintf(stderr, "[%u,%u Phi] [def %s]",
-                    inputOf(phi).bits(),
-                    outputOf(phi).bits(),
+            fprintf(stderr, "[%u,%u Phi] [def %s]", inputOf(phi).bits(), outputOf(phi).bits(),
                     phi->getDef(0)->toString().get());
             for (size_t j = 0; j < phi->numOperands(); j++)
                 fprintf(stderr, " [use %s]", phi->getOperand(j)->toString().get());
@@ -597,18 +537,16 @@ RegisterAllocator::dumpInstructions()
 
             for (size_t i = 0; i < ins->numTemps(); i++) {
                 LDefinition* temp = ins->getTemp(i);
-                if (!temp->isBogusTemp())
-                    fprintf(stderr, " [temp %s]", temp->toString().get());
+                if (!temp->isBogusTemp()) fprintf(stderr, " [temp %s]", temp->toString().get());
             }
 
             for (LInstruction::InputIterator alloc(*ins); alloc.more(); alloc.next()) {
-                if (!alloc->isBogus())
-                    fprintf(stderr, " [use %s]", alloc->toString().get());
+                if (!alloc->isBogus()) fprintf(stderr, " [use %s]", alloc->toString().get());
             }
 
             fprintf(stderr, "\n");
         }
     }
     fprintf(stderr, "\n");
-#endif // JS_JITSPEW
+#endif  // JS_JITSPEW
 }

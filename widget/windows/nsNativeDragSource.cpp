@@ -15,27 +15,22 @@
 /*
  * class nsNativeDragSource
  */
-nsNativeDragSource::nsNativeDragSource(nsIDOMDataTransfer* aDataTransfer) :
-  m_cRef(0),
-  m_hCursor(nullptr),
-  mUserCancelled(false)
+nsNativeDragSource::nsNativeDragSource(nsIDOMDataTransfer* aDataTransfer)
+    : m_cRef(0), m_hCursor(nullptr), mUserCancelled(false)
 {
   mDataTransfer = do_QueryInterface(aDataTransfer);
 }
 
-nsNativeDragSource::~nsNativeDragSource()
-{
-}
+nsNativeDragSource::~nsNativeDragSource() {}
 
 STDMETHODIMP
 nsNativeDragSource::QueryInterface(REFIID riid, void** ppv)
 {
-  *ppv=nullptr;
+  *ppv = nullptr;
 
-  if (IID_IUnknown==riid || IID_IDropSource==riid)
-    *ppv=this;
+  if (IID_IUnknown == riid || IID_IDropSource == riid) *ppv = this;
 
-  if (nullptr!=*ppv) {
+  if (nullptr != *ppv) {
     ((LPUNKNOWN)*ppv)->AddRef();
     return S_OK;
   }
@@ -56,8 +51,7 @@ nsNativeDragSource::Release(void)
 {
   --m_cRef;
   NS_LOG_RELEASE(this, m_cRef, "nsNativeDragSource");
-  if (0 != m_cRef)
-    return m_cRef;
+  if (0 != m_cRef) return m_cRef;
 
   delete this;
   return 0;
@@ -66,7 +60,7 @@ nsNativeDragSource::Release(void)
 STDMETHODIMP
 nsNativeDragSource::QueryContinueDrag(BOOL fEsc, DWORD grfKeyState)
 {
-  static NS_DEFINE_IID(kCDragServiceCID,  NS_DRAGSERVICE_CID);
+  static NS_DEFINE_IID(kCDragServiceCID, NS_DRAGSERVICE_CID);
 
   nsCOMPtr<nsIDragService> dragService = do_GetService(kCDragServiceCID);
   if (dragService) {
@@ -88,14 +82,14 @@ nsNativeDragSource::QueryContinueDrag(BOOL fEsc, DWORD grfKeyState)
 STDMETHODIMP
 nsNativeDragSource::GiveFeedback(DWORD dwEffect)
 {
-  // For drags involving tabs, we do some custom work with cursors. 
+  // For drags involving tabs, we do some custom work with cursors.
   if (mDataTransfer) {
     nsAutoString cursor;
     mDataTransfer->GetMozCursor(cursor);
     if (cursor.EqualsLiteral("default")) {
       m_hCursor = ::LoadCursor(0, IDC_ARROW);
     } else {
-      m_hCursor =  nullptr;
+      m_hCursor = nullptr;
     }
   }
 
@@ -103,7 +97,7 @@ nsNativeDragSource::GiveFeedback(DWORD dwEffect)
     ::SetCursor(m_hCursor);
     return S_OK;
   }
-  
+
   // Let the system choose which cursor to apply.
   return DRAGDROP_S_USEDEFAULTCURSORS;
 }

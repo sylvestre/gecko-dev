@@ -24,20 +24,19 @@ NS_IMPL_ISUPPORTS(nsSimpleStreamListener,
 //----------------------------------------------------------------------------
 //
 NS_IMETHODIMP
-nsSimpleStreamListener::OnStartRequest(nsIRequest *aRequest,
-                                       nsISupports *aContext)
+nsSimpleStreamListener::OnStartRequest(nsIRequest* aRequest,
+                                       nsISupports* aContext)
 {
-    return mObserver ?
-        mObserver->OnStartRequest(aRequest, aContext) : NS_OK;
+  return mObserver ? mObserver->OnStartRequest(aRequest, aContext) : NS_OK;
 }
 
 NS_IMETHODIMP
 nsSimpleStreamListener::OnStopRequest(nsIRequest* request,
-                                      nsISupports *aContext,
+                                      nsISupports* aContext,
                                       nsresult aStatus)
 {
-    return mObserver ?
-        mObserver->OnStopRequest(request, aContext, aStatus) : NS_OK;
+  return mObserver ? mObserver->OnStopRequest(request, aContext, aStatus)
+                   : NS_OK;
 }
 
 //
@@ -47,19 +46,18 @@ nsSimpleStreamListener::OnStopRequest(nsIRequest* request,
 //
 NS_IMETHODIMP
 nsSimpleStreamListener::OnDataAvailable(nsIRequest* request,
-                                        nsISupports *aContext,
-                                        nsIInputStream *aSource,
+                                        nsISupports* aContext,
+                                        nsIInputStream* aSource,
                                         uint64_t aOffset,
                                         uint32_t aCount)
 {
-    uint32_t writeCount;
-    nsresult rv = mSink->WriteFrom(aSource, aCount, &writeCount);
-    //
-    // Equate zero bytes read and NS_SUCCEEDED to stopping the read.
-    //
-    if (NS_SUCCEEDED(rv) && (writeCount == 0))
-        return NS_BASE_STREAM_CLOSED;
-    return rv;
+  uint32_t writeCount;
+  nsresult rv = mSink->WriteFrom(aSource, aCount, &writeCount);
+  //
+  // Equate zero bytes read and NS_SUCCEEDED to stopping the read.
+  //
+  if (NS_SUCCEEDED(rv) && (writeCount == 0)) return NS_BASE_STREAM_CLOSED;
+  return rv;
 }
 
 //
@@ -68,16 +66,16 @@ nsSimpleStreamListener::OnDataAvailable(nsIRequest* request,
 //----------------------------------------------------------------------------
 //
 NS_IMETHODIMP
-nsSimpleStreamListener::Init(nsIOutputStream *aSink,
-                             nsIRequestObserver *aObserver)
+nsSimpleStreamListener::Init(nsIOutputStream* aSink,
+                             nsIRequestObserver* aObserver)
 {
-    NS_PRECONDITION(aSink, "null output stream");
+  NS_PRECONDITION(aSink, "null output stream");
 
-    mSink = aSink;
-    mObserver = aObserver;
+  mSink = aSink;
+  mObserver = aObserver;
 
-    return NS_OK;
+  return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

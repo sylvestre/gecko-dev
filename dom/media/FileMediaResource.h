@@ -13,48 +13,50 @@ namespace mozilla {
 
 class FileMediaResource : public BaseMediaResource
 {
-public:
+ public:
   FileMediaResource(MediaResourceCallback* aCallback,
                     nsIChannel* aChannel,
                     nsIURI* aURI,
                     int64_t aSize = -1 /* unknown size */)
-    : BaseMediaResource(aCallback, aChannel, aURI)
-    , mSize(aSize)
-    , mLock("FileMediaResource.mLock")
-    , mSizeInitialized(aSize != -1)
+      : BaseMediaResource(aCallback, aChannel, aURI),
+        mSize(aSize),
+        mLock("FileMediaResource.mLock"),
+        mSizeInitialized(aSize != -1)
   {
   }
-  ~FileMediaResource()
-  {
-  }
+  ~FileMediaResource() {}
 
   // Main thread
   nsresult Open(nsIStreamListener** aStreamListener) override;
   nsresult Close() override;
-  void     Suspend(bool aCloseImmediately) override {}
-  void     Resume() override {}
+  void Suspend(bool aCloseImmediately) override {}
+  void Resume() override {}
   already_AddRefed<nsIPrincipal> GetCurrentPrincipal() override;
-  nsresult ReadFromCache(char* aBuffer, int64_t aOffset, uint32_t aCount) override;
+  nsresult ReadFromCache(char* aBuffer,
+                         int64_t aOffset,
+                         uint32_t aCount) override;
 
   // These methods are called off the main thread.
 
   // Other thread
-  void     SetReadMode(MediaCacheStream::ReadMode aMode) override {}
-  void     SetPlaybackRate(uint32_t aBytesPerSecond) override {}
-  nsresult ReadAt(int64_t aOffset, char* aBuffer,
-                  uint32_t aCount, uint32_t* aBytes) override;
+  void SetReadMode(MediaCacheStream::ReadMode aMode) override {}
+  void SetPlaybackRate(uint32_t aBytesPerSecond) override {}
+  nsresult ReadAt(int64_t aOffset,
+                  char* aBuffer,
+                  uint32_t aCount,
+                  uint32_t* aBytes) override;
   // (Probably) file-based, caching recommended.
   bool ShouldCacheReads() override { return true; }
-  int64_t  Tell() override;
+  int64_t Tell() override;
 
   // Any thread
-  void    Pin() override {}
-  void    Unpin() override {}
-  double  GetDownloadRate(bool* aIsReliable) override
+  void Pin() override {}
+  void Unpin() override {}
+  double GetDownloadRate(bool* aIsReliable) override
   {
     // The data's all already here
     *aIsReliable = true;
-    return 100*1024*1024; // arbitray, use 100MB/s
+    return 100 * 1024 * 1024;  // arbitray, use 100MB/s
   }
 
   int64_t GetLength() override
@@ -80,8 +82,8 @@ public:
     EnsureSizeInitialized();
     return std::max(aOffset, mSize);
   }
-  bool    IsDataCachedToEndOfResource(int64_t aOffset) override { return true; }
-  bool    IsTransportSeekable() override { return true; }
+  bool IsDataCachedToEndOfResource(int64_t aOffset) override { return true; }
+  bool IsTransportSeekable() override { return true; }
 
   nsresult GetCachedRanges(MediaByteRangeSet& aRanges) override;
 
@@ -97,19 +99,20 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-protected:
+ protected:
   // These Unsafe variants of Read and Seek perform their operations
   // without acquiring mLock. The caller must obtain the lock before
   // calling. The implmentation of Read, Seek and ReadAt obtains the
   // lock before calling these Unsafe variants to read or seek.
   nsresult UnsafeRead(char* aBuffer, uint32_t aCount, uint32_t* aBytes);
   nsresult UnsafeSeek(int32_t aWhence, int64_t aOffset);
-private:
+
+ private:
   // Ensures mSize is initialized, if it can be.
   // mLock must be held when this is called, and mInput must be non-null.
   void EnsureSizeInitialized();
-  already_AddRefed<MediaByteBuffer> UnsafeMediaReadAt(
-                        int64_t aOffset, uint32_t aCount);
+  already_AddRefed<MediaByteBuffer> UnsafeMediaReadAt(int64_t aOffset,
+                                                      uint32_t aCount);
 
   // The file size, or -1 if not known. Immutable after Open().
   // Can be used from any thread.
@@ -128,7 +131,7 @@ private:
 
   // Input stream for the media data. This can be used from any
   // thread.
-  nsCOMPtr<nsIInputStream>  mInput;
+  nsCOMPtr<nsIInputStream> mInput;
 
   // Whether we've attempted to initialize mSize. Note that mSize can be -1
   // when mSizeInitialized is true if we tried and failed to get the size
@@ -136,6 +139,6 @@ private:
   bool mSizeInitialized;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_dom_media_FileMediaResource_h
+#endif  // mozilla_dom_media_FileMediaResource_h

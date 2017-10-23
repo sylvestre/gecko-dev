@@ -15,19 +15,24 @@
 #include "VideoUtils.h"
 #include <algorithm>
 
-extern mozilla::LogModule* GetMediaSourceLog();
+extern mozilla::LogModule*
+GetMediaSourceLog();
 
-#define MSE_DEBUG(arg, ...) MOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Debug, ("MediaSourceDecoder(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
-#define MSE_DEBUGV(arg, ...) MOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Verbose, ("MediaSourceDecoder(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define MSE_DEBUG(arg, ...)         \
+  MOZ_LOG(GetMediaSourceLog(),      \
+          mozilla::LogLevel::Debug, \
+          ("MediaSourceDecoder(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define MSE_DEBUGV(arg, ...)          \
+  MOZ_LOG(GetMediaSourceLog(),        \
+          mozilla::LogLevel::Verbose, \
+          ("MediaSourceDecoder(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 using namespace mozilla::media;
 
 namespace mozilla {
 
 MediaSourceDecoder::MediaSourceDecoder(MediaDecoderInit& aInit)
-  : MediaDecoder(aInit)
-  , mMediaSource(nullptr)
-  , mEnded(false)
+    : MediaDecoder(aInit), mMediaSource(nullptr), mEnded(false)
 {
   mExplicitDuration.emplace(UnspecifiedNaN<double>());
 }
@@ -96,12 +101,12 @@ MediaSourceDecoder::GetSeekable()
       // 1. Let union ranges be the union of live seekable range and the
       // HTMLMediaElement.buffered attribute.
       media::TimeIntervals unionRanges =
-        buffered + mMediaSource->LiveSeekableRange();
+          buffered + mMediaSource->LiveSeekableRange();
       // 2. Return a single range with a start time equal to the earliest start
       // time in union ranges and an end time equal to the highest end time in
       // union ranges and abort these steps.
       seekable +=
-        media::TimeInterval(unionRanges.GetStart(), unionRanges.GetEnd());
+          media::TimeInterval(unionRanges.GetStart(), unionRanges.GetEnd());
       return seekable;
     }
 
@@ -109,8 +114,8 @@ MediaSourceDecoder::GetSeekable()
       seekable += media::TimeInterval(TimeUnit::Zero(), buffered.GetEnd());
     }
   } else {
-    seekable += media::TimeInterval(TimeUnit::Zero(),
-                                    TimeUnit::FromSeconds(duration));
+    seekable +=
+        media::TimeInterval(TimeUnit::Zero(), TimeUnit::FromSeconds(duration));
   }
   MSE_DEBUG("ranges=%s", DumpTimeRanges(seekable).get());
   return seekable;
@@ -142,7 +147,7 @@ MediaSourceDecoder::GetBuffered()
 
     activeRanges.AppendElement(sb->GetTimeIntervals());
     highestEndTime =
-      std::max(highestEndTime, activeRanges.LastElement().GetEnd());
+        std::max(highestEndTime, activeRanges.LastElement().GetEnd());
   }
 
   buffered += media::TimeInterval(TimeUnit::Zero(), highestEndTime);
@@ -152,8 +157,7 @@ MediaSourceDecoder::GetBuffered()
       // Set the end time on the last range to highestEndTime by adding a
       // new range spanning the current end time to highestEndTime, which
       // Normalize() will then merge with the old last range.
-      range +=
-        media::TimeInterval(range.GetEnd(), highestEndTime);
+      range += media::TimeInterval(range.GetEnd(), highestEndTime);
     }
     buffered.Intersection(range);
   }
@@ -287,11 +291,10 @@ MediaSourceDecoder::NextFrameBufferedStatus()
   TimeIntervals buffered = GetBuffered();
   buffered.SetFuzz(MediaSourceDemuxer::EOS_FUZZ / 2);
   TimeInterval interval(
-    currentPosition,
-    currentPosition + DEFAULT_NEXT_FRAME_AVAILABLE_BUFFERED);
+      currentPosition, currentPosition + DEFAULT_NEXT_FRAME_AVAILABLE_BUFFERED);
   return buffered.ContainsWithStrictEnd(ClampIntervalToEnd(interval))
-         ? MediaDecoderOwner::NEXT_FRAME_AVAILABLE
-         : MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE;
+             ? MediaDecoderOwner::NEXT_FRAME_AVAILABLE
+             : MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE;
 }
 
 bool
@@ -318,7 +321,7 @@ MediaSourceDecoder::CanPlayThroughImpl()
   TimeIntervals buffered = GetBuffered();
   buffered.SetFuzz(MediaSourceDemuxer::EOS_FUZZ / 2);
   TimeUnit timeAhead =
-    std::min(duration, currentPosition + TimeUnit::FromSeconds(10));
+      std::min(duration, currentPosition + TimeUnit::FromSeconds(10));
   TimeInterval interval(currentPosition, timeAhead);
   return buffered.ContainsWithStrictEnd(ClampIntervalToEnd(interval));
 }
@@ -336,9 +339,8 @@ MediaSourceDecoder::ClampIntervalToEnd(const TimeInterval& aInterval)
   if (duration < aInterval.mStart) {
     return aInterval;
   }
-  return TimeInterval(aInterval.mStart,
-                      std::min(aInterval.mEnd, duration),
-                      aInterval.mFuzz);
+  return TimeInterval(
+      aInterval.mStart, std::min(aInterval.mEnd, duration), aInterval.mFuzz);
 }
 
 void
@@ -362,4 +364,4 @@ MediaSourceDecoder::GetCurrentPrincipal()
 #undef MSE_DEBUG
 #undef MSE_DEBUGV
 
-} // namespace mozilla
+}  // namespace mozilla

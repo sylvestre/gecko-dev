@@ -5,18 +5,18 @@
 
 #include "mozilla/SelectionState.h"
 
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc.
-#include "mozilla/EditorUtils.h"        // for EditorUtils
-#include "mozilla/dom/Selection.h"      // for Selection
-#include "nsAString.h"                  // for nsAString::Length
+#include "mozilla/Assertions.h"     // for MOZ_ASSERT, etc.
+#include "mozilla/EditorUtils.h"    // for EditorUtils
+#include "mozilla/dom/Selection.h"  // for Selection
+#include "nsAString.h"              // for nsAString::Length
 #include "nsCycleCollectionParticipant.h"
-#include "nsDebug.h"                    // for NS_ENSURE_TRUE, etc.
-#include "nsError.h"                    // for NS_OK, etc.
-#include "nsIContent.h"                 // for nsIContent
-#include "nsIDOMCharacterData.h"        // for nsIDOMCharacterData
-#include "nsIDOMNode.h"                 // for nsIDOMNode
-#include "nsISupportsImpl.h"            // for nsRange::Release
-#include "nsRange.h"                    // for nsRange
+#include "nsDebug.h"              // for NS_ENSURE_TRUE, etc.
+#include "nsError.h"              // for NS_OK, etc.
+#include "nsIContent.h"           // for nsIContent
+#include "nsIDOMCharacterData.h"  // for nsIDOMCharacterData
+#include "nsIDOMNode.h"           // for nsIDOMNode
+#include "nsISupportsImpl.h"      // for nsRange::Release
+#include "nsRange.h"              // for nsRange
 
 namespace mozilla {
 
@@ -29,14 +29,9 @@ using namespace dom;
  * { {startnode, startoffset} , {endnode, endoffset} } tuples.  Can't store
  * ranges since dom gravity will possibly change the ranges.
  ******************************************************************************/
-SelectionState::SelectionState()
-{
-}
+SelectionState::SelectionState() {}
 
-SelectionState::~SelectionState()
-{
-  MakeEmpty();
-}
+SelectionState::~SelectionState() { MakeEmpty(); }
 
 void
 SelectionState::SaveSelection(Selection* aSel)
@@ -116,11 +111,13 @@ SelectionState::IsEqual(SelectionState* aSelState)
 
     int16_t compResult;
     nsresult rv;
-    rv = myRange->CompareBoundaryPoints(nsIDOMRange::START_TO_START, itsRange, &compResult);
+    rv = myRange->CompareBoundaryPoints(
+        nsIDOMRange::START_TO_START, itsRange, &compResult);
     if (NS_FAILED(rv) || compResult) {
       return false;
     }
-    rv = myRange->CompareBoundaryPoints(nsIDOMRange::END_TO_END, itsRange, &compResult);
+    rv = myRange->CompareBoundaryPoints(
+        nsIDOMRange::END_TO_END, itsRange, &compResult);
     if (NS_FAILED(rv) || compResult) {
       return false;
     }
@@ -148,10 +145,7 @@ SelectionState::IsEmpty()
  * Class for updating nsRanges in response to editor actions.
  ******************************************************************************/
 
-RangeUpdater::RangeUpdater()
-  : mLock(false)
-{
-}
+RangeUpdater::RangeUpdater() : mLock(false) {}
 
 RangeUpdater::~RangeUpdater()
 {
@@ -213,8 +207,7 @@ RangeUpdater::DropSelectionState(SelectionState& aSelState)
 // gravity methods:
 
 nsresult
-RangeUpdater::SelAdjCreateNode(nsINode* aParent,
-                               int32_t aPosition)
+RangeUpdater::SelAdjCreateNode(nsINode* aParent, int32_t aPosition)
 {
   if (mLock) {
     // lock set by Will/DidReplaceParent, etc...
@@ -241,8 +234,7 @@ RangeUpdater::SelAdjCreateNode(nsINode* aParent,
 }
 
 nsresult
-RangeUpdater::SelAdjInsertNode(nsINode* aParent,
-                               int32_t aPosition)
+RangeUpdater::SelAdjInsertNode(nsINode* aParent, int32_t aPosition)
 {
   return SelAdjCreateNode(aParent, aPosition);
 }
@@ -395,7 +387,7 @@ RangeUpdater::SelAdjJoinNodes(nsINode& aLeftNode,
       }
     } else if (item->mEndContainer == &aRightNode) {
       // adjust end point in aRightNode
-       item->mEndOffset += aOldLeftNodeLength;
+      item->mEndOffset += aOldLeftNodeLength;
     } else if (item->mEndContainer == &aLeftNode) {
       // adjust end point in aLeftNode
       item->mEndContainer = &aRightNode;
@@ -490,8 +482,7 @@ RangeUpdater::WillReplaceContainer()
 }
 
 nsresult
-RangeUpdater::DidReplaceContainer(Element* aOriginalNode,
-                                  Element* aNewNode)
+RangeUpdater::DidReplaceContainer(Element* aOriginalNode, Element* aNewNode)
 {
   NS_ENSURE_TRUE(mLock, NS_ERROR_UNEXPECTED);
   mLock = false;
@@ -599,8 +590,10 @@ RangeUpdater::WillMoveNode()
 }
 
 void
-RangeUpdater::DidMoveNode(nsINode* aOldParent, int32_t aOldOffset,
-                            nsINode* aNewParent, int32_t aNewOffset)
+RangeUpdater::DidMoveNode(nsINode* aOldParent,
+                          int32_t aOldOffset,
+                          nsINode* aNewParent,
+                          int32_t aNewOffset)
 {
   MOZ_ASSERT(aOldParent);
   MOZ_ASSERT(aNewParent);
@@ -637,13 +630,9 @@ RangeUpdater::DidMoveNode(nsINode* aOldParent, int32_t aOldOffset,
  * Helper struct for SelectionState.  This stores range endpoints.
  ******************************************************************************/
 
-RangeItem::RangeItem()
-{
-}
+RangeItem::RangeItem() {}
 
-RangeItem::~RangeItem()
-{
-}
+RangeItem::~RangeItem() {}
 
 NS_IMPL_CYCLE_COLLECTION(RangeItem, mStartContainer, mEndContainer)
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(RangeItem, AddRef)
@@ -663,11 +652,11 @@ already_AddRefed<nsRange>
 RangeItem::GetRange()
 {
   RefPtr<nsRange> range = new nsRange(mStartContainer);
-  if (NS_FAILED(range->SetStartAndEnd(mStartContainer, mStartOffset,
-                                      mEndContainer, mEndOffset))) {
+  if (NS_FAILED(range->SetStartAndEnd(
+          mStartContainer, mStartOffset, mEndContainer, mEndOffset))) {
     return nullptr;
   }
   return range.forget();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

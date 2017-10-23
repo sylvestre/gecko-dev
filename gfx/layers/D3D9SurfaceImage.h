@@ -18,24 +18,23 @@ class TextureClient;
 
 class D3D9RecycleAllocator : public TextureClientRecycleAllocator
 {
-public:
+ public:
   explicit D3D9RecycleAllocator(KnowsCompositor* aAllocator,
                                 IDirect3DDevice9* aDevice)
-    : TextureClientRecycleAllocator(aAllocator)
-    , mDevice(aDevice)
-  {}
+      : TextureClientRecycleAllocator(aAllocator), mDevice(aDevice)
+  {
+  }
 
-  already_AddRefed<TextureClient>
-  CreateOrRecycleClient(gfx::SurfaceFormat aFormat,
-                        const gfx::IntSize& aSize);
+  already_AddRefed<TextureClient> CreateOrRecycleClient(
+      gfx::SurfaceFormat aFormat, const gfx::IntSize& aSize);
 
-protected:
-  virtual already_AddRefed<TextureClient>
-  Allocate(gfx::SurfaceFormat aFormat,
-           gfx::IntSize aSize,
-           BackendSelector aSelector,
-           TextureFlags aTextureFlags,
-           TextureAllocationFlags aAllocFlags) override;
+ protected:
+  virtual already_AddRefed<TextureClient> Allocate(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocFlags) override;
 
   RefPtr<IDirect3DDevice9> mDevice;
 };
@@ -47,9 +46,11 @@ protected:
  */
 class DXGID3D9TextureData : public TextureData
 {
-public:
-  static DXGID3D9TextureData*
-  Create(gfx::IntSize aSize, gfx::SurfaceFormat aFormat, TextureFlags aFlags, IDirect3DDevice9* aDevice);
+ public:
+  static DXGID3D9TextureData* Create(gfx::IntSize aSize,
+                                     gfx::SurfaceFormat aFormat,
+                                     TextureFlags aFlags,
+                                     IDirect3DDevice9* aDevice);
 
   ~DXGID3D9TextureData();
 
@@ -68,16 +69,17 @@ public:
   HANDLE GetShareHandle() const { return mHandle; }
   already_AddRefed<IDirect3DSurface9> GetD3D9Surface() const;
 
-  const D3DSURFACE_DESC& GetDesc() const
+  const D3DSURFACE_DESC& GetDesc() const { return mDesc; }
+
+  gfx::IntSize GetSize() const
   {
-    return mDesc;
+    return gfx::IntSize(mDesc.Width, mDesc.Height);
   }
 
-  gfx::IntSize GetSize() const { return gfx::IntSize(mDesc.Width, mDesc.Height); }
-
-protected:
+ protected:
   DXGID3D9TextureData(gfx::SurfaceFormat aFormat,
-                      IDirect3DTexture9* aTexture, HANDLE aHandle,
+                      IDirect3DTexture9* aTexture,
+                      HANDLE aHandle,
                       IDirect3DDevice9* aDevice);
 
   RefPtr<IDirect3DDevice9> mDevice;
@@ -87,13 +89,13 @@ protected:
   D3DSURFACE_DESC mDesc;
 };
 
-
 // Image class that wraps a IDirect3DSurface9. This class copies the image
 // passed into SetData(), so that it can be accessed from other D3D devices.
 // This class also manages the synchronization of the copy, to ensure the
 // resource is ready to use.
-class D3D9SurfaceImage : public Image {
-public:
+class D3D9SurfaceImage : public Image
+{
+ public:
   explicit D3D9SurfaceImage();
   virtual ~D3D9SurfaceImage();
 
@@ -118,8 +120,7 @@ public:
 
   void Invalidate() { mValid = false; }
 
-private:
-
+ private:
   gfx::IntSize mSize;
   RefPtr<TextureClient> mTextureClient;
   RefPtr<IDirect3DTexture9> mTexture;
@@ -128,7 +129,7 @@ private:
   bool mValid;
 };
 
-} // namepace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_D3DSURFACEIMAGE_H
+#endif  // GFX_D3DSURFACEIMAGE_H

@@ -12,7 +12,7 @@
 #include "nsIDocument.h"
 #include "nsGlobalWindow.h"
 #include "nsString.h"
-#include "xpcpublic.h" // For xpc::NativeGlobal
+#include "xpcpublic.h"  // For xpc::NativeGlobal
 #include "mozilla/EffectSet.h"
 #include "mozilla/dom/KeyframeEffectReadOnly.h"
 #include "mozilla/Preferences.h"
@@ -98,4 +98,4 @@ AnimationUtils::EffectSetContainsAnimatedScale(EffectSet& aEffects,
   return false;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

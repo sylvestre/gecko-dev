@@ -16,22 +16,24 @@
 
 namespace mozilla {
 
-static inline
-nsSVGAttrTearoffTable<SVGAnimatedLengthList, DOMSVGAnimatedLengthList>&
+static inline nsSVGAttrTearoffTable<SVGAnimatedLengthList,
+                                    DOMSVGAnimatedLengthList>&
 SVGAnimatedLengthListTearoffTable()
 {
   static nsSVGAttrTearoffTable<SVGAnimatedLengthList, DOMSVGAnimatedLengthList>
-    sSVGAnimatedLengthListTearoffTable;
+      sSVGAnimatedLengthListTearoffTable;
   return sSVGAnimatedLengthListTearoffTable;
 }
 
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGAnimatedLengthList, mElement)
+NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGAnimatedLengthList,
+                                               mElement)
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMSVGAnimatedLengthList, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMSVGAnimatedLengthList, Release)
 
 JSObject*
-DOMSVGAnimatedLengthList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DOMSVGAnimatedLengthList::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto)
 {
   return dom::SVGAnimatedLengthListBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -57,13 +59,13 @@ DOMSVGAnimatedLengthList::AnimVal()
 }
 
 /* static */ already_AddRefed<DOMSVGAnimatedLengthList>
-DOMSVGAnimatedLengthList::GetDOMWrapper(SVGAnimatedLengthList *aList,
-                                        nsSVGElement *aElement,
+DOMSVGAnimatedLengthList::GetDOMWrapper(SVGAnimatedLengthList* aList,
+                                        nsSVGElement* aElement,
                                         uint8_t aAttrEnum,
                                         uint8_t aAxis)
 {
   RefPtr<DOMSVGAnimatedLengthList> wrapper =
-    SVGAnimatedLengthListTearoffTable().GetTearoff(aList);
+      SVGAnimatedLengthListTearoffTable().GetTearoff(aList);
   if (!wrapper) {
     wrapper = new DOMSVGAnimatedLengthList(aElement, aAttrEnum, aAxis);
     SVGAnimatedLengthListTearoffTable().AddTearoff(aList, wrapper);
@@ -72,7 +74,7 @@ DOMSVGAnimatedLengthList::GetDOMWrapper(SVGAnimatedLengthList *aList,
 }
 
 /* static */ DOMSVGAnimatedLengthList*
-DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(SVGAnimatedLengthList *aList)
+DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(SVGAnimatedLengthList* aList)
 {
   return SVGAnimatedLengthListTearoffTable().GetTearoff(aList);
 }
@@ -85,7 +87,8 @@ DOMSVGAnimatedLengthList::~DOMSVGAnimatedLengthList()
 }
 
 void
-DOMSVGAnimatedLengthList::InternalBaseValListWillChangeTo(const SVGLengthList& aNewValue)
+DOMSVGAnimatedLengthList::InternalBaseValListWillChangeTo(
+    const SVGLengthList& aNewValue)
 {
   // When the number of items in our internal counterpart's baseVal changes,
   // we MUST keep our baseVal in sync. If we don't, script will either see a
@@ -115,7 +118,8 @@ DOMSVGAnimatedLengthList::InternalBaseValListWillChangeTo(const SVGLengthList& a
 }
 
 void
-DOMSVGAnimatedLengthList::InternalAnimValListWillChangeTo(const SVGLengthList& aNewValue)
+DOMSVGAnimatedLengthList::InternalAnimValListWillChangeTo(
+    const SVGLengthList& aNewValue)
 {
   if (mAnimVal) {
     mAnimVal->InternalListLengthWillChange(aNewValue.Length());
@@ -140,4 +144,4 @@ DOMSVGAnimatedLengthList::InternalAList() const
   return *mElement->GetAnimatedLengthList(mAttrEnum);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

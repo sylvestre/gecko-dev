@@ -12,12 +12,13 @@
 namespace mozilla {
 namespace layers {
 
-template <typename T>
-class DirectedGraph {
-public:
-
-  class Edge {
-    public:
+template<typename T>
+class DirectedGraph
+{
+ public:
+  class Edge
+  {
+   public:
     Edge(T aFrom, T aTo) : mFrom(aFrom), mTo(aTo) {}
 
     bool operator==(const Edge& aOther) const
@@ -29,9 +30,9 @@ public:
     T mTo;
   };
 
-  class RemoveEdgesToComparator 
+  class RemoveEdgesToComparator
   {
-  public:
+   public:
     bool Equals(const Edge& a, T const& b) const { return a.mTo == b; }
   };
 
@@ -44,26 +45,17 @@ public:
     mEdges.AppendElement(aEdge);
   }
 
-  void AddEdge(T aFrom, T aTo)
-  {
-    AddEdge(Edge(aFrom, aTo));
-  }
+  void AddEdge(T aFrom, T aTo) { AddEdge(Edge(aFrom, aTo)); }
 
   /**
    * Get the list of edges.
    */
-  const nsTArray<Edge>& GetEdgeList() const
-  {
-    return mEdges; 
-  }
+  const nsTArray<Edge>& GetEdgeList() const { return mEdges; }
 
   /**
    * Remove the given edge from the graph.
    */
-  void RemoveEdge(Edge aEdge)
-  {
-    mEdges.RemoveElement(aEdge);
-  }
+  void RemoveEdge(Edge aEdge) { mEdges.RemoveElement(aEdge); }
 
   /**
    * Remove all edges going into aNode.
@@ -71,9 +63,10 @@ public:
   void RemoveEdgesTo(T aNode)
   {
     RemoveEdgesToComparator c;
-    while (mEdges.RemoveElement(aNode, c)) {}
+    while (mEdges.RemoveElement(aNode, c)) {
+    }
   }
-  
+
   /**
    * Get the number of edges going into aNode.
    */
@@ -105,12 +98,11 @@ public:
    */
   unsigned int GetEdgeCount() { return mEdges.Length(); }
 
-private:
-
+ private:
   nsTArray<Edge> mEdges;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_DIRECTEDGRAPH_H
+#endif  // GFX_DIRECTEDGRAPH_H

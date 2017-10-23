@@ -7,19 +7,19 @@
 #ifndef mozilla_layers_CompositorBridgeChild_h
 #define mozilla_layers_CompositorBridgeChild_h
 
-#include "base/basictypes.h"            // for DISALLOW_EVIL_CONSTRUCTORS
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT_HELPER2
-#include "mozilla/Attributes.h"         // for override
+#include "base/basictypes.h"     // for DISALLOW_EVIL_CONSTRUCTORS
+#include "mozilla/Assertions.h"  // for MOZ_ASSERT_HELPER2
+#include "mozilla/Attributes.h"  // for override
 #include "mozilla/Monitor.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/layers/PCompositorBridgeChild.h"
-#include "mozilla/layers/TextureForwarder.h" // for TextureForwarder
+#include "mozilla/layers/TextureForwarder.h"  // for TextureForwarder
 #include "mozilla/webrender/WebRenderTypes.h"
-#include "nsClassHashtable.h"           // for nsClassHashtable
+#include "nsClassHashtable.h"  // for nsClassHashtable
 #include "nsRefPtrHashtable.h"
-#include "nsCOMPtr.h"                   // for nsCOMPtr
-#include "nsHashKeys.h"                 // for nsUint64HashKey
-#include "nsISupportsImpl.h"            // for NS_INLINE_DECL_REFCOUNTING
+#include "nsCOMPtr.h"         // for nsCOMPtr
+#include "nsHashKeys.h"       // for nsUint64HashKey
+#include "nsISupportsImpl.h"  // for NS_INLINE_DECL_REFCOUNTING
 #include "ThreadSafeRefcountingWithMainThreadDestruction.h"
 #include "nsWeakReference.h"
 
@@ -27,11 +27,11 @@ namespace mozilla {
 
 namespace dom {
 class TabChild;
-} // namespace dom
+}  // namespace dom
 
 namespace widget {
 class CompositorWidget;
-} // namespace widget
+}  // namespace widget
 
 namespace layers {
 
@@ -53,7 +53,7 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
 {
   typedef InfallibleTArray<AsyncParentMessageData> AsyncParentMessageArray;
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorBridgeChild, override);
 
   explicit CompositorBridgeChild(CompositorManagerChild* aManager);
@@ -74,7 +74,8 @@ public:
    * associated FrameMetrics::ViewID. The returned FrameMetrics is used
    * in progressive paint calculations.
    */
-  bool LookupCompositorFrameMetrics(const FrameMetrics::ViewID aId, FrameMetrics&);
+  bool LookupCompositorFrameMetrics(const FrameMetrics::ViewID aId,
+                                    FrameMetrics&);
 
   static CompositorBridgeChild* Get();
 
@@ -84,42 +85,45 @@ public:
   // process). This may only be called on the main thread.
   static bool CompositorIsInGPUProcess();
 
-  virtual mozilla::ipc::IPCResult
-  RecvDidComposite(const uint64_t& aId, const uint64_t& aTransactionId,
-                   const TimeStamp& aCompositeStart,
-                   const TimeStamp& aCompositeEnd) override;
+  virtual mozilla::ipc::IPCResult RecvDidComposite(
+      const uint64_t& aId,
+      const uint64_t& aTransactionId,
+      const TimeStamp& aCompositeStart,
+      const TimeStamp& aCompositeEnd) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvInvalidateLayers(const uint64_t& aLayersId) override;
+  virtual mozilla::ipc::IPCResult RecvInvalidateLayers(
+      const uint64_t& aLayersId) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint& aContentOffset,
-                                 const LayoutDeviceIntRegion& aVisibleRegion,
-                                 nsTArray<PluginWindowData>&& aPlugins) override;
+  virtual mozilla::ipc::IPCResult RecvUpdatePluginConfigurations(
+      const LayoutDeviceIntPoint& aContentOffset,
+      const LayoutDeviceIntRegion& aVisibleRegion,
+      nsTArray<PluginWindowData>&& aPlugins) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvCaptureAllPlugins(const uintptr_t& aParentWidget) override;
+  virtual mozilla::ipc::IPCResult RecvCaptureAllPlugins(
+      const uintptr_t& aParentWidget) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvHideAllPlugins(const uintptr_t& aParentWidget) override;
+  virtual mozilla::ipc::IPCResult RecvHideAllPlugins(
+      const uintptr_t& aParentWidget) override;
 
-  virtual PTextureChild* AllocPTextureChild(const SurfaceDescriptor& aSharedData,
-                                            const LayersBackend& aLayersBackend,
-                                            const TextureFlags& aFlags,
-                                            const uint64_t& aId,
-                                            const uint64_t& aSerial,
-                                            const wr::MaybeExternalImageId& aExternalImageId) override;
+  virtual PTextureChild* AllocPTextureChild(
+      const SurfaceDescriptor& aSharedData,
+      const LayersBackend& aLayersBackend,
+      const TextureFlags& aFlags,
+      const uint64_t& aId,
+      const uint64_t& aSerial,
+      const wr::MaybeExternalImageId& aExternalImageId) override;
 
   virtual bool DeallocPTextureChild(PTextureChild* actor) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvParentAsyncMessages(InfallibleTArray<AsyncParentMessageData>&& aMessages) override;
-  virtual PTextureChild* CreateTexture(const SurfaceDescriptor& aSharedData,
-                                       LayersBackend aLayersBackend,
-                                       TextureFlags aFlags,
-                                       uint64_t aSerial,
-                                       wr::MaybeExternalImageId& aExternalImageId,
-                                       nsIEventTarget* aTarget) override;
+  virtual mozilla::ipc::IPCResult RecvParentAsyncMessages(
+      InfallibleTArray<AsyncParentMessageData>&& aMessages) override;
+  virtual PTextureChild* CreateTexture(
+      const SurfaceDescriptor& aSharedData,
+      LayersBackend aLayersBackend,
+      TextureFlags aFlags,
+      uint64_t aSerial,
+      wr::MaybeExternalImageId& aExternalImageId,
+      nsIEventTarget* aTarget) override;
 
   /**
    * Request that the parent tell us when graphics are ready on GPU.
@@ -142,16 +146,20 @@ public:
   bool SendResume();
   bool SendNotifyChildCreated(const uint64_t& id, CompositorOptions* aOptions);
   bool SendAdoptChild(const uint64_t& id);
-  bool SendMakeSnapshot(const SurfaceDescriptor& inSnapshot, const gfx::IntRect& dirtyRect);
+  bool SendMakeSnapshot(const SurfaceDescriptor& inSnapshot,
+                        const gfx::IntRect& dirtyRect);
   bool SendFlushRendering();
   bool SendGetTileSize(int32_t* tileWidth, int32_t* tileHeight);
-  bool SendStartFrameTimeRecording(const int32_t& bufferSize, uint32_t* startIndex);
-  bool SendStopFrameTimeRecording(const uint32_t& startIndex, nsTArray<float>* intervals);
+  bool SendStartFrameTimeRecording(const int32_t& bufferSize,
+                                   uint32_t* startIndex);
+  bool SendStopFrameTimeRecording(const uint32_t& startIndex,
+                                  nsTArray<float>* intervals);
   bool SendNotifyRegionInvalidated(const nsIntRegion& region);
   bool SendRequestNotifyAfterRemotePaint();
-  bool SendClearApproximatelyVisibleRegions(uint64_t aLayersId, uint32_t aPresShellId);
-  bool SendNotifyApproximatelyVisibleRegion(const ScrollableLayerGuid& aGuid,
-                                            const mozilla::CSSIntRegion& aRegion);
+  bool SendClearApproximatelyVisibleRegions(uint64_t aLayersId,
+                                            uint32_t aPresShellId);
+  bool SendNotifyApproximatelyVisibleRegion(
+      const ScrollableLayerGuid& aGuid, const mozilla::CSSIntRegion& aRegion);
   bool SendAllPluginsCaptured();
   bool IsSameProcess() const override;
 
@@ -189,18 +197,21 @@ public:
 
   virtual base::ProcessId GetParentPid() const override { return OtherPid(); }
 
-  virtual bool AllocUnsafeShmem(size_t aSize,
-                                mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
-                                mozilla::ipc::Shmem* aShmem) override;
+  virtual bool AllocUnsafeShmem(
+      size_t aSize,
+      mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
+      mozilla::ipc::Shmem* aShmem) override;
   virtual bool AllocShmem(size_t aSize,
                           mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
                           mozilla::ipc::Shmem* aShmem) override;
   virtual bool DeallocShmem(mozilla::ipc::Shmem& aShmem) override;
 
-  PCompositorWidgetChild* AllocPCompositorWidgetChild(const CompositorWidgetInitData& aInitData) override;
+  PCompositorWidgetChild* AllocPCompositorWidgetChild(
+      const CompositorWidgetInitData& aInitData) override;
   bool DeallocPCompositorWidgetChild(PCompositorWidgetChild* aActor) override;
 
-  PAPZCTreeManagerChild* AllocPAPZCTreeManagerChild(const uint64_t& aLayersId) override;
+  PAPZCTreeManagerChild* AllocPAPZCTreeManagerChild(
+      const uint64_t& aLayersId) override;
   bool DeallocPAPZCTreeManagerChild(PAPZCTreeManagerChild* aActor) override;
 
   PAPZChild* AllocPAPZChild(const uint64_t& aLayersId) override;
@@ -208,13 +219,15 @@ public:
 
   void WillEndTransaction();
 
-  PWebRenderBridgeChild* AllocPWebRenderBridgeChild(const wr::PipelineId& aPipelineId,
-                                                    const LayoutDeviceIntSize&,
-                                                    TextureFactoryIdentifier*,
-                                                    wr::IdNamespace*) override;
+  PWebRenderBridgeChild* AllocPWebRenderBridgeChild(
+      const wr::PipelineId& aPipelineId,
+      const LayoutDeviceIntSize&,
+      TextureFactoryIdentifier*,
+      wr::IdNamespace*) override;
   bool DeallocPWebRenderBridgeChild(PWebRenderBridgeChild* aActor) override;
 
-  uint64_t DeviceResetSequenceNumber() const {
+  uint64_t DeviceResetSequenceNumber() const
+  {
     return mDeviceResetSequenceNumber;
   }
 
@@ -251,7 +264,7 @@ public:
   // currently painting, to begin delaying IPC messages.
   void PostponeMessagesIfAsyncPainting();
 
-private:
+ private:
   // Private destructor, to discourage deletion outside of Release():
   virtual ~CompositorBridgeChild();
 
@@ -262,37 +275,39 @@ private:
 
   void AfterDestroy();
 
-  virtual PLayerTransactionChild*
-    AllocPLayerTransactionChild(const nsTArray<LayersBackend>& aBackendHints,
-                                const uint64_t& aId) override;
+  virtual PLayerTransactionChild* AllocPLayerTransactionChild(
+      const nsTArray<LayersBackend>& aBackendHints,
+      const uint64_t& aId) override;
 
-  virtual bool DeallocPLayerTransactionChild(PLayerTransactionChild *aChild) override;
+  virtual bool DeallocPLayerTransactionChild(
+      PLayerTransactionChild* aChild) override;
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult RecvSharedCompositorFrameMetrics(const mozilla::ipc::SharedMemoryBasic::Handle& metrics,
-                                                                   const CrossProcessMutexHandle& handle,
-                                                                   const uint64_t& aLayersId,
-                                                                   const uint32_t& aAPZCId) override;
+  virtual mozilla::ipc::IPCResult RecvSharedCompositorFrameMetrics(
+      const mozilla::ipc::SharedMemoryBasic::Handle& metrics,
+      const CrossProcessMutexHandle& handle,
+      const uint64_t& aLayersId,
+      const uint32_t& aAPZCId) override;
 
-  virtual mozilla::ipc::IPCResult RecvReleaseSharedCompositorFrameMetrics(const ViewID& aId,
-                                                                          const uint32_t& aAPZCId) override;
+  virtual mozilla::ipc::IPCResult RecvReleaseSharedCompositorFrameMetrics(
+      const ViewID& aId, const uint32_t& aAPZCId) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvRemotePaintIsReady() override;
+  virtual mozilla::ipc::IPCResult RecvRemotePaintIsReady() override;
 
   mozilla::ipc::IPCResult RecvObserveLayerUpdate(const uint64_t& aLayersId,
                                                  const uint64_t& aEpoch,
                                                  const bool& aActive) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifyWebRenderError(const WebRenderError& aError) override;
+  virtual mozilla::ipc::IPCResult RecvNotifyWebRenderError(
+      const WebRenderError& aError) override;
 
   uint64_t GetNextResourceId();
 
   // Class used to store the shared FrameMetrics, mutex, and APZCId  in a hash table
-  class SharedFrameMetricsData {
-  public:
+  class SharedFrameMetricsData
+  {
+   public:
     SharedFrameMetricsData(
         const mozilla::ipc::SharedMemoryBasic::Handle& metrics,
         const CrossProcessMutexHandle& handle,
@@ -306,7 +321,7 @@ private:
     uint64_t GetLayersId() const;
     uint32_t GetAPZCId();
 
-  private:
+   private:
     // Pointer to the class that allows access to the shared memory that contains
     // the shared FrameMetrics
     RefPtr<mozilla::ipc::SharedMemoryBasic> mBuffer;
@@ -333,7 +348,7 @@ private:
 
   // Weakly hold the TabChild that made a request to be alerted when
   // the transaction has been received.
-  nsWeakPtr mWeakTabChild;      // type is TabChild
+  nsWeakPtr mWeakTabChild;  // type is TabChild
 
   DISALLOW_EVIL_CONSTRUCTORS(CompositorBridgeChild);
 
@@ -362,7 +377,7 @@ private:
 
   MessageLoop* mMessageLoop;
 
-  AutoTArray<RefPtr<TextureClientPool>,2> mTexturePools;
+  AutoTArray<RefPtr<TextureClientPool>, 2> mTexturePools;
 
   uint64_t mProcessToken;
 
@@ -393,7 +408,7 @@ private:
   uintptr_t mTotalFlushCount;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_CompositorBrigedChild_h
+#endif  // mozilla_layers_CompositorBrigedChild_h

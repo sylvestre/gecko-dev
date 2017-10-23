@@ -15,9 +15,9 @@
 namespace mozilla {
 
 ObservedDocShell::ObservedDocShell(nsIDocShell* aDocShell)
-  : MarkersStorage("ObservedDocShellMutex")
-  , mDocShell(aDocShell)
-  , mPopping(false)
+    : MarkersStorage("ObservedDocShellMutex"),
+      mDocShell(aDocShell),
+      mPopping(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
@@ -44,7 +44,7 @@ ObservedDocShell::AddOTMTMarker(UniquePtr<AbstractTimelineMarker>&& aMarker)
   // avoid dealing with multithreading scenarios until all the markers are
   // actually cleared or popped in `ClearMarkers` or `PopMarkers`.
   MOZ_ASSERT(!NS_IsMainThread());
-  MutexAutoLock lock(GetLock()); // for `mOffTheMainThreadTimelineMarkers`.
+  MutexAutoLock lock(GetLock());  // for `mOffTheMainThreadTimelineMarkers`.
   mOffTheMainThreadTimelineMarkers.AppendElement(Move(aMarker));
 }
 
@@ -52,7 +52,7 @@ void
 ObservedDocShell::ClearMarkers()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  MutexAutoLock lock(GetLock()); // for `mOffTheMainThreadTimelineMarkers`.
+  MutexAutoLock lock(GetLock());  // for `mOffTheMainThreadTimelineMarkers`.
   mTimelineMarkers.Clear();
   mOffTheMainThreadTimelineMarkers.Clear();
 }
@@ -62,7 +62,7 @@ ObservedDocShell::PopMarkers(JSContext* aCx,
                              nsTArray<dom::ProfileTimelineMarker>& aStore)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  MutexAutoLock lock(GetLock()); // for `mOffTheMainThreadTimelineMarkers`.
+  MutexAutoLock lock(GetLock());  // for `mOffTheMainThreadTimelineMarkers`.
 
   MOZ_RELEASE_ASSERT(!mPopping);
   AutoRestore<bool> resetPopping(mPopping);
@@ -78,7 +78,8 @@ ObservedDocShell::PopMarkers(JSContext* aCx,
   nsTArray<UniquePtr<AbstractTimelineMarker>> keptStartMarkers;
 
   for (uint32_t i = 0; i < mTimelineMarkers.Length(); ++i) {
-    UniquePtr<AbstractTimelineMarker>& startPayload = mTimelineMarkers.ElementAt(i);
+    UniquePtr<AbstractTimelineMarker>& startPayload =
+        mTimelineMarkers.ElementAt(i);
 
     // If this is a TIMESTAMP marker, there's no corresponding END,
     // as it's a single unit of time, not a duration.
@@ -117,13 +118,15 @@ ObservedDocShell::PopMarkers(JSContext* aCx,
       // enough for the amount of markers to always be small enough that the
       // nested for loop isn't going to be a performance problem.
       for (uint32_t j = i + 1; j < mTimelineMarkers.Length(); ++j) {
-        UniquePtr<AbstractTimelineMarker>& endPayload = mTimelineMarkers.ElementAt(j);
+        UniquePtr<AbstractTimelineMarker>& endPayload =
+            mTimelineMarkers.ElementAt(j);
         bool endIsLayerType = strcmp(endPayload->GetName(), "Layer") == 0;
 
         // Look for "Layer" markers to stream out "Paint" markers.
         if (startIsPaintType && endIsLayerType) {
           AbstractTimelineMarker* raw = endPayload.get();
-          LayerTimelineMarker* layerPayload = static_cast<LayerTimelineMarker*>(raw);
+          LayerTimelineMarker* layerPayload =
+              static_cast<LayerTimelineMarker*>(raw);
           layerPayload->AddLayerRectangles(layerRectangles);
           hasSeenLayerType = true;
         }
@@ -168,4 +171,4 @@ ObservedDocShell::PopMarkers(JSContext* aCx,
   mTimelineMarkers.SwapElements(keptStartMarkers);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

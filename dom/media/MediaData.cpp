@@ -25,8 +25,8 @@ namespace mozilla {
 
 using namespace mozilla::gfx;
 using layers::ImageContainer;
-using layers::PlanarYCbCrImage;
 using layers::PlanarYCbCrData;
+using layers::PlanarYCbCrImage;
 using media::TimeUnit;
 
 const char* AudioData::sTypeName = "audio";
@@ -45,14 +45,14 @@ IsDataLoudnessHearable(const AudioDataValue aData)
 void
 AudioData::EnsureAudioBuffer()
 {
-  if (mAudioBuffer)
-    return;
-  mAudioBuffer = SharedBuffer::Create(mFrames*mChannels*sizeof(AudioDataValue));
+  if (mAudioBuffer) return;
+  mAudioBuffer =
+      SharedBuffer::Create(mFrames * mChannels * sizeof(AudioDataValue));
 
   AudioDataValue* data = static_cast<AudioDataValue*>(mAudioBuffer->Data());
   for (uint32_t i = 0; i < mFrames; ++i) {
     for (uint32_t j = 0; j < mChannels; ++j) {
-      data[j*mFrames + i] = mAudioData[i*mChannels + j];
+      data[j * mFrames + i] = mAudioData[i * mChannels + j];
     }
   }
 }
@@ -61,7 +61,7 @@ size_t
 AudioData::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
 {
   size_t size =
-    aMallocSizeOf(this) + mAudioData.SizeOfExcludingThis(aMallocSizeOf);
+      aMallocSizeOf(this) + mAudioData.SizeOfExcludingThis(aMallocSizeOf);
   if (mAudioBuffer) {
     size += mAudioBuffer->SizeOfIncludingThis(aMallocSizeOf);
   }
@@ -111,8 +111,9 @@ ValidatePlane(const VideoData::YCbCrBuffer::Plane& aPlane)
          aPlane.mStride > 0;
 }
 
-static bool ValidateBufferAndPicture(const VideoData::YCbCrBuffer& aBuffer,
-                                     const IntRect& aPicture)
+static bool
+ValidateBufferAndPicture(const VideoData::YCbCrBuffer& aBuffer,
+                         const IntRect& aPicture)
 {
   // The following situation should never happen unless there is a bug
   // in the decoder
@@ -156,20 +157,18 @@ VideoData::VideoData(int64_t aOffset,
                      const TimeUnit& aTimecode,
                      IntSize aDisplay,
                      layers::ImageContainer::FrameID aFrameID)
-  : MediaData(VIDEO_DATA, aOffset, aTime, aDuration, 1)
-  , mDisplay(aDisplay)
-  , mFrameID(aFrameID)
-  , mSentToCompositor(false)
-  , mNextKeyFrameTime(TimeUnit::Invalid())
+    : MediaData(VIDEO_DATA, aOffset, aTime, aDuration, 1),
+      mDisplay(aDisplay),
+      mFrameID(aFrameID),
+      mSentToCompositor(false),
+      mNextKeyFrameTime(TimeUnit::Invalid())
 {
   MOZ_ASSERT(!mDuration.IsNegative(), "Frame must have non-negative duration.");
   mKeyframe = aKeyframe;
   mTimecode = aTimecode;
 }
 
-VideoData::~VideoData()
-{
-}
+VideoData::~VideoData() {}
 
 void
 VideoData::SetListener(UniquePtr<Listener> aListener)
@@ -261,7 +260,7 @@ ConstructPlanarYCbCrData(const VideoInfo& aInfo,
 /* static */ bool
 VideoData::SetVideoDataToImage(PlanarYCbCrImage* aVideoImage,
                                const VideoInfo& aInfo,
-                               const YCbCrBuffer &aBuffer,
+                               const YCbCrBuffer& aBuffer,
                                const IntRect& aPicture,
                                bool aCopyData)
 {
@@ -295,13 +294,8 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
   if (!aContainer) {
     // Create a dummy VideoData with no image. This gives us something to
     // send to media streams if necessary.
-    RefPtr<VideoData> v(new VideoData(aOffset,
-                                      aTime,
-                                      aDuration,
-                                      aKeyframe,
-                                      aTimecode,
-                                      aInfo.mDisplay,
-                                      0));
+    RefPtr<VideoData> v(new VideoData(
+        aOffset, aTime, aDuration, aKeyframe, aTimecode, aInfo.mDisplay, 0));
     return v.forget();
   }
 
@@ -309,28 +303,24 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
     return nullptr;
   }
 
-  RefPtr<VideoData> v(new VideoData(aOffset,
-                                    aTime,
-                                    aDuration,
-                                    aKeyframe,
-                                    aTimecode,
-                                    aInfo.mDisplay,
-                                    0));
+  RefPtr<VideoData> v(new VideoData(
+      aOffset, aTime, aDuration, aKeyframe, aTimecode, aInfo.mDisplay, 0));
 
   // Currently our decoder only knows how to output to ImageFormat::PLANAR_YCBCR
   // format.
 #if XP_WIN
   // We disable this code path on Windows version earlier of Windows 8 due to
   // intermittent crashes with old drivers. See bug 1405110.
-  if (IsWin8OrLater() && !XRE_IsParentProcess() &&
-      aAllocator && aAllocator->GetCompositorBackendType()
-                    == layers::LayersBackend::LAYERS_D3D11) {
+  if (IsWin8OrLater() && !XRE_IsParentProcess() && aAllocator &&
+      aAllocator->GetCompositorBackendType() ==
+          layers::LayersBackend::LAYERS_D3D11) {
     RefPtr<layers::D3D11YCbCrImage> d3d11Image = new layers::D3D11YCbCrImage();
     PlanarYCbCrData data = ConstructPlanarYCbCrData(aInfo, aBuffer, aPicture);
     if (d3d11Image->SetData(layers::ImageBridgeChild::GetSingleton()
-                            ? layers::ImageBridgeChild::GetSingleton().get()
-                            : aAllocator,
-                            aContainer, data)) {
+                                ? layers::ImageBridgeChild::GetSingleton().get()
+                                : aAllocator,
+                            aContainer,
+                            data)) {
       v->mImage = d3d11Image;
       return v.forget();
     }
@@ -348,14 +338,13 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
   PlanarYCbCrImage* videoImage = v->mImage->AsPlanarYCbCrImage();
   MOZ_ASSERT(videoImage);
 
-  if (!VideoData::SetVideoDataToImage(videoImage, aInfo, aBuffer, aPicture,
-                                      true /* aCopyData */)) {
+  if (!VideoData::SetVideoDataToImage(
+          videoImage, aInfo, aBuffer, aPicture, true /* aCopyData */)) {
     return nullptr;
   }
 
   return v.forget();
 }
-
 
 /* static */
 already_AddRefed<VideoData>
@@ -365,7 +354,7 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
                              const TimeUnit& aTime,
                              const TimeUnit& aDuration,
                              const YCbCrBuffer& aBuffer,
-                             const YCbCrBuffer::Plane &aAlphaPlane,
+                             const YCbCrBuffer::Plane& aAlphaPlane,
                              bool aKeyframe,
                              const TimeUnit& aTimecode,
                              const IntRect& aPicture)
@@ -373,13 +362,8 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
   if (!aContainer) {
     // Create a dummy VideoData with no image. This gives us something to
     // send to media streams if necessary.
-    RefPtr<VideoData> v(new VideoData(aOffset,
-                                      aTime,
-                                      aDuration,
-                                      aKeyframe,
-                                      aTimecode,
-                                      aInfo.mDisplay,
-                                      0));
+    RefPtr<VideoData> v(new VideoData(
+        aOffset, aTime, aDuration, aKeyframe, aTimecode, aInfo.mDisplay, 0));
     return v.forget();
   }
 
@@ -387,25 +371,20 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
     return nullptr;
   }
 
-  RefPtr<VideoData> v(new VideoData(aOffset,
-                                    aTime,
-                                    aDuration,
-                                    aKeyframe,
-                                    aTimecode,
-                                    aInfo.mDisplay,
-                                    0));
+  RefPtr<VideoData> v(new VideoData(
+      aOffset, aTime, aDuration, aKeyframe, aTimecode, aInfo.mDisplay, 0));
 
   // Convert from YUVA to BGRA format on the software side.
   RefPtr<layers::SharedRGBImage> videoImage =
-    aContainer->CreateSharedRGBImage();
+      aContainer->CreateSharedRGBImage();
   v->mImage = videoImage;
 
   if (!v->mImage) {
     return nullptr;
   }
-  if (!videoImage->Allocate(IntSize(aBuffer.mPlanes[0].mWidth,
-                                    aBuffer.mPlanes[0].mHeight),
-                            SurfaceFormat::B8G8R8A8)) {
+  if (!videoImage->Allocate(
+          IntSize(aBuffer.mPlanes[0].mWidth, aBuffer.mPlanes[0].mHeight),
+          SurfaceFormat::B8G8R8A8)) {
     return nullptr;
   }
   uint8_t* argb_buffer = videoImage->GetBuffer();
@@ -417,9 +396,12 @@ VideoData::CreateAndCopyData(const VideoInfo& aInfo,
                       aBuffer.mPlanes[1].mData,
                       aBuffer.mPlanes[2].mData,
                       aAlphaPlane.mData,
-                      aBuffer.mPlanes[0].mStride, aBuffer.mPlanes[1].mStride,
-                      argb_buffer, size.width * 4,
-                      size.width, size.height);
+                      aBuffer.mPlanes[0].mStride,
+                      aBuffer.mPlanes[1].mStride,
+                      argb_buffer,
+                      size.width * 4,
+                      size.width,
+                      size.height);
 
   return v.forget();
 }
@@ -434,36 +416,29 @@ VideoData::CreateFromImage(const IntSize& aDisplay,
                            bool aKeyframe,
                            const TimeUnit& aTimecode)
 {
-  RefPtr<VideoData> v(new VideoData(aOffset,
-                                    aTime,
-                                    aDuration,
-                                    aKeyframe,
-                                    aTimecode,
-                                    aDisplay,
-                                    0));
+  RefPtr<VideoData> v(new VideoData(
+      aOffset, aTime, aDuration, aKeyframe, aTimecode, aDisplay, 0));
   v->mImage = aImage;
   return v.forget();
 }
 
-MediaRawData::MediaRawData()
-  : MediaData(RAW_DATA, 0)
-  , mCrypto(mCryptoInternal)
+MediaRawData::MediaRawData() : MediaData(RAW_DATA, 0), mCrypto(mCryptoInternal)
 {
 }
 
 MediaRawData::MediaRawData(const uint8_t* aData, size_t aSize)
-  : MediaData(RAW_DATA, 0)
-  , mCrypto(mCryptoInternal)
-  , mBuffer(aData, aSize)
+    : MediaData(RAW_DATA, 0), mCrypto(mCryptoInternal), mBuffer(aData, aSize)
 {
 }
 
-MediaRawData::MediaRawData(const uint8_t* aData, size_t aSize,
-                           const uint8_t* aAlphaData, size_t aAlphaSize)
-  : MediaData(RAW_DATA, 0)
-  , mCrypto(mCryptoInternal)
-  , mBuffer(aData, aSize)
-  , mAlphaBuffer(aAlphaData, aAlphaSize)
+MediaRawData::MediaRawData(const uint8_t* aData,
+                           size_t aSize,
+                           const uint8_t* aAlphaData,
+                           size_t aAlphaSize)
+    : MediaData(RAW_DATA, 0),
+      mCrypto(mCryptoInternal),
+      mBuffer(aData, aSize),
+      mAlphaBuffer(aAlphaData, aAlphaSize)
 {
 }
 
@@ -489,9 +464,7 @@ MediaRawData::Clone() const
   return s.forget();
 }
 
-MediaRawData::~MediaRawData()
-{
-}
+MediaRawData::~MediaRawData() {}
 
 size_t
 MediaRawData::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
@@ -508,8 +481,7 @@ MediaRawData::CreateWriter()
 }
 
 MediaRawDataWriter::MediaRawDataWriter(MediaRawData* aMediaRawData)
-  : mCrypto(aMediaRawData->mCryptoInternal)
-  , mTarget(aMediaRawData)
+    : mCrypto(aMediaRawData->mCryptoInternal), mTarget(aMediaRawData)
 {
 }
 
@@ -549,4 +521,4 @@ MediaRawDataWriter::Size()
   return mTarget->Size();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

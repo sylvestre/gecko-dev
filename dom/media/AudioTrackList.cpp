@@ -16,8 +16,7 @@ AudioTrackList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return AudioTrackListBinding::Wrap(aCx, this, aGivenProto);
 }
 
-AudioTrack*
-AudioTrackList::operator[](uint32_t aIndex)
+AudioTrack* AudioTrackList::operator[](uint32_t aIndex)
 {
   MediaTrack* track = MediaTrackList::operator[](aIndex);
   return track->AsAudioTrack();
@@ -37,5 +36,5 @@ AudioTrackList::GetTrackById(const nsAString& aId)
   return track ? track->AsAudioTrack() : nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

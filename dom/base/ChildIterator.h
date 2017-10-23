@@ -34,28 +34,34 @@ namespace dom {
 // in order to start iterating in reverse from the last child.
 class ExplicitChildIterator
 {
-public:
+ public:
   explicit ExplicitChildIterator(const nsIContent* aParent,
                                  bool aStartAtBeginning = true)
-    : mParent(aParent),
-      mChild(nullptr),
-      mDefaultChild(nullptr),
-      mIsFirst(aStartAtBeginning),
-      mIndexInInserted(0)
+      : mParent(aParent),
+        mChild(nullptr),
+        mDefaultChild(nullptr),
+        mIsFirst(aStartAtBeginning),
+        mIndexInInserted(0)
   {
   }
 
   ExplicitChildIterator(const ExplicitChildIterator& aOther)
-    : mParent(aOther.mParent), mChild(aOther.mChild),
-      mDefaultChild(aOther.mDefaultChild),
-      mIsFirst(aOther.mIsFirst),
-      mIndexInInserted(aOther.mIndexInInserted) {}
+      : mParent(aOther.mParent),
+        mChild(aOther.mChild),
+        mDefaultChild(aOther.mDefaultChild),
+        mIsFirst(aOther.mIsFirst),
+        mIndexInInserted(aOther.mIndexInInserted)
+  {
+  }
 
   ExplicitChildIterator(ExplicitChildIterator&& aOther)
-    : mParent(aOther.mParent), mChild(aOther.mChild),
-      mDefaultChild(aOther.mDefaultChild),
-      mIsFirst(aOther.mIsFirst),
-      mIndexInInserted(aOther.mIndexInInserted) {}
+      : mParent(aOther.mParent),
+        mChild(aOther.mChild),
+        mDefaultChild(aOther.mDefaultChild),
+        mIsFirst(aOther.mIsFirst),
+        mIndexInInserted(aOther.mIndexInInserted)
+  {
+  }
 
   nsIContent* GetNextChild();
 
@@ -94,7 +100,7 @@ public:
   // points.
   nsIContent* GetPreviousChild();
 
-protected:
+ protected:
   // The parent of the children being iterated. For the FlattenedChildIterator,
   // if there is a binding attached to the original parent, mParent points to
   // the <xbl:content> element for the binding.
@@ -129,30 +135,35 @@ protected:
 // iterating in reverse from the last child.
 class FlattenedChildIterator : public ExplicitChildIterator
 {
-public:
+ public:
   explicit FlattenedChildIterator(const nsIContent* aParent,
                                   bool aStartAtBeginning = true)
-    : ExplicitChildIterator(aParent, aStartAtBeginning), mXBLInvolved(false)
+      : ExplicitChildIterator(aParent, aStartAtBeginning), mXBLInvolved(false)
   {
     Init(false);
   }
 
   FlattenedChildIterator(FlattenedChildIterator&& aOther)
-    : ExplicitChildIterator(Move(aOther)), mXBLInvolved(aOther.mXBLInvolved) {}
+      : ExplicitChildIterator(Move(aOther)), mXBLInvolved(aOther.mXBLInvolved)
+  {
+  }
 
   FlattenedChildIterator(const FlattenedChildIterator& aOther)
-    : ExplicitChildIterator(aOther), mXBLInvolved(aOther.mXBLInvolved) {}
+      : ExplicitChildIterator(aOther), mXBLInvolved(aOther.mXBLInvolved)
+  {
+  }
 
   bool XBLInvolved() { return mXBLInvolved; }
 
-protected:
+ protected:
   /**
    * This constructor is a hack to help AllChildrenIterator which sometimes
    * doesn't want to consider XBL.
    */
-  FlattenedChildIterator(const nsIContent* aParent, uint32_t aFlags,
+  FlattenedChildIterator(const nsIContent* aParent,
+                         uint32_t aFlags,
                          bool aStartAtBeginning = true)
-    : ExplicitChildIterator(aParent, aStartAtBeginning), mXBLInvolved(false)
+      : ExplicitChildIterator(aParent, aStartAtBeginning), mXBLInvolved(false)
   {
     bool ignoreXBL = aFlags & nsIContent::eAllButXBL;
     Init(ignoreXBL);
@@ -176,22 +187,31 @@ protected:
  */
 class AllChildrenIterator : private FlattenedChildIterator
 {
-public:
-  AllChildrenIterator(const nsIContent* aNode, uint32_t aFlags,
-                      bool aStartAtBeginning = true) :
-    FlattenedChildIterator(aNode, aFlags, aStartAtBeginning),
-    mOriginalContent(aNode), mAnonKidsIdx(aStartAtBeginning ? UINT32_MAX : 0),
-    mFlags(aFlags), mPhase(aStartAtBeginning ? eAtBegin : eAtEnd) { }
+ public:
+  AllChildrenIterator(const nsIContent* aNode,
+                      uint32_t aFlags,
+                      bool aStartAtBeginning = true)
+      : FlattenedChildIterator(aNode, aFlags, aStartAtBeginning),
+        mOriginalContent(aNode),
+        mAnonKidsIdx(aStartAtBeginning ? UINT32_MAX : 0),
+        mFlags(aFlags),
+        mPhase(aStartAtBeginning ? eAtBegin : eAtEnd)
+  {
+  }
 
   AllChildrenIterator(AllChildrenIterator&& aOther)
-    : FlattenedChildIterator(Move(aOther)),
-      mOriginalContent(aOther.mOriginalContent),
-      mAnonKids(Move(aOther.mAnonKids)), mAnonKidsIdx(aOther.mAnonKidsIdx),
-      mFlags(aOther.mFlags), mPhase(aOther.mPhase)
+      : FlattenedChildIterator(Move(aOther)),
+        mOriginalContent(aOther.mOriginalContent),
+        mAnonKids(Move(aOther.mAnonKids)),
+        mAnonKidsIdx(aOther.mAnonKidsIdx),
+        mFlags(aOther.mFlags),
+        mPhase(aOther.mPhase)
 #ifdef DEBUG
-      , mMutationGuard(aOther.mMutationGuard)
+        ,
+        mMutationGuard(aOther.mMutationGuard)
 #endif
-      {}
+  {
+  }
 
 #ifdef DEBUG
   ~AllChildrenIterator() { MOZ_ASSERT(!mMutationGuard.Mutated(0)); }
@@ -221,7 +241,7 @@ public:
   };
   IteratorPhase Phase() const { return mPhase; }
 
-private:
+ private:
   // Helpers.
   void AppendNativeAnonymousChildren();
   const nsIContent* mOriginalContent;
@@ -261,13 +281,15 @@ private:
  * We require this to be memmovable since Rust code can create and move
  * StyleChildrenIterators.
  */
-class MOZ_NEEDS_MEMMOVABLE_MEMBERS StyleChildrenIterator : private AllChildrenIterator
+class MOZ_NEEDS_MEMMOVABLE_MEMBERS StyleChildrenIterator
+    : private AllChildrenIterator
 {
-public:
+ public:
   explicit StyleChildrenIterator(const nsIContent* aContent)
-    : AllChildrenIterator(aContent,
-                          nsIContent::eAllChildren |
-                          nsIContent::eSkipDocumentLevelNativeAnonymousContent)
+      : AllChildrenIterator(
+            aContent,
+            nsIContent::eAllChildren |
+                nsIContent::eSkipDocumentLevelNativeAnonymousContent)
   {
     MOZ_COUNT_CTOR(StyleChildrenIterator);
   }
@@ -276,7 +298,7 @@ public:
   nsIContent* GetNextChild();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

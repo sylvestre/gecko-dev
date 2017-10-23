@@ -27,7 +27,7 @@ class WebAuthnTransactionParent;
 
 class U2FTokenManager final
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(U2FTokenManager)
   static U2FTokenManager* Get();
   void Register(PWebAuthnTransactionParent* aTransactionParent,
@@ -37,7 +37,8 @@ public:
   void Cancel(PWebAuthnTransactionParent* aTransactionParent);
   void MaybeClearTransaction(PWebAuthnTransactionParent* aParent);
   static void Initialize();
-private:
+
+ private:
   U2FTokenManager();
   ~U2FTokenManager();
   RefPtr<U2FTokenTransport> GetTokenManagerImpl();
@@ -61,7 +62,7 @@ private:
   uint64_t mTransactionId;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2FTokenManager_h
+#endif  // mozilla_dom_U2FTokenManager_h

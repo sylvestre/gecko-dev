@@ -13,39 +13,32 @@
 
 static const unsigned MaxVertices = 10;
 
-using js::gc::GraphNodeBase;
 using js::gc::ComponentFinder;
+using js::gc::GraphNodeBase;
 
 struct TestComponentFinder;
 
-struct TestNode : public GraphNodeBase<TestNode>
-{
-    unsigned   index;
-    bool       hasEdge[MaxVertices];
+struct TestNode : public GraphNodeBase<TestNode> {
+    unsigned index;
+    bool hasEdge[MaxVertices];
 
     void findOutgoingEdges(TestComponentFinder& finder);
 };
 
-struct TestComponentFinder : public ComponentFinder<TestNode, TestComponentFinder>
-{
+struct TestComponentFinder : public ComponentFinder<TestNode, TestComponentFinder> {
     explicit TestComponentFinder(uintptr_t sl)
-      : ComponentFinder<TestNode, TestComponentFinder>(sl)
-    {}
+        : ComponentFinder<TestNode, TestComponentFinder>(sl) {}
 };
 
 static TestNode Vertex[MaxVertices];
 
-void
-TestNode::findOutgoingEdges(TestComponentFinder& finder)
-{
+void TestNode::findOutgoingEdges(TestComponentFinder& finder) {
     for (unsigned i = 0; i < MaxVertices; ++i) {
-        if (hasEdge[i])
-            finder.addEdgeTo(&Vertex[i]);
+        if (hasEdge[i]) finder.addEdgeTo(&Vertex[i]);
     }
 }
 
-BEGIN_TEST(testFindSCCs)
-{
+BEGIN_TEST(testFindSCCs) {
     // no vertices
 
     setup(0);
@@ -139,8 +132,7 @@ unsigned vertex_count;
 TestComponentFinder* finder;
 TestNode* resultsList;
 
-void setup(unsigned count)
-{
+void setup(unsigned count) {
     vertex_count = count;
     for (unsigned i = 0; i < MaxVertices; ++i) {
         TestNode& v = Vertex[i];
@@ -150,21 +142,17 @@ void setup(unsigned count)
     }
 }
 
-void edge(unsigned src_index, unsigned dest_index)
-{
+void edge(unsigned src_index, unsigned dest_index) {
     Vertex[src_index].hasEdge[dest_index] = true;
 }
 
-void run()
-{
+void run() {
     finder = new TestComponentFinder(cx->nativeStackLimit[JS::StackForSystemCode]);
-    for (unsigned i = 0; i < vertex_count; ++i)
-        finder->addNode(&Vertex[i]);
+    for (unsigned i = 0; i < vertex_count; ++i) finder->addNode(&Vertex[i]);
     resultsList = finder->getResultsList();
 }
 
-bool group(int vertex, ...)
-{
+bool group(int vertex, ...) {
     TestNode* v = resultsList;
 
     va_list ap;
@@ -182,8 +170,7 @@ bool group(int vertex, ...)
     return true;
 }
 
-bool remaining(int vertex, ...)
-{
+bool remaining(int vertex, ...) {
     TestNode* v = resultsList;
 
     va_list ap;
@@ -201,8 +188,7 @@ bool remaining(int vertex, ...)
     return true;
 }
 
-bool end()
-{
+bool end() {
     CHECK(resultsList == nullptr);
 
     delete finder;
@@ -213,30 +199,23 @@ END_TEST(testFindSCCs)
 
 struct TestComponentFinder2;
 
-struct TestNode2 : public GraphNodeBase<TestNode2>
-{
+struct TestNode2 : public GraphNodeBase<TestNode2> {
     TestNode2* edge;
 
     TestNode2() : edge(nullptr) {}
     void findOutgoingEdges(TestComponentFinder2& finder);
 };
 
-struct TestComponentFinder2 : public ComponentFinder<TestNode2, TestComponentFinder2>
-{
+struct TestComponentFinder2 : public ComponentFinder<TestNode2, TestComponentFinder2> {
     explicit TestComponentFinder2(uintptr_t sl)
-      : ComponentFinder<TestNode2, TestComponentFinder2>(sl)
-    {}
+        : ComponentFinder<TestNode2, TestComponentFinder2>(sl) {}
 };
 
-void
-TestNode2::findOutgoingEdges(TestComponentFinder2& finder)
-{
-    if (edge)
-        finder.addEdgeTo(edge);
+void TestNode2::findOutgoingEdges(TestComponentFinder2& finder) {
+    if (edge) finder.addEdgeTo(edge);
 }
 
-BEGIN_TEST(testFindSCCsStackLimit)
-{
+BEGIN_TEST(testFindSCCsStackLimit) {
     /*
      * Test what happens if recusion causes the stack to become full while
      * traversing the graph.
@@ -253,12 +232,10 @@ BEGIN_TEST(testFindSCCsStackLimit)
     const unsigned initial = 10;
 
     TestNode2* vertices = new TestNode2[max]();
-    for (unsigned i = initial; i < (max - 10); ++i)
-        vertices[i].edge = &vertices[i + 1];
+    for (unsigned i = initial; i < (max - 10); ++i) vertices[i].edge = &vertices[i + 1];
 
     TestComponentFinder2 finder(cx->nativeStackLimit[JS::StackForSystemCode]);
-    for (unsigned i = 0; i < max; ++i)
-        finder.addNode(&vertices[i]);
+    for (unsigned i = 0; i < max; ++i) finder.addNode(&vertices[i]);
 
     TestNode2* r = finder.getResultsList();
     CHECK(r);
@@ -279,7 +256,7 @@ BEGIN_TEST(testFindSCCsStackLimit)
         v = v->nextGroup();
     }
 
-    delete [] vertices;
+    delete[] vertices;
     return true;
 }
 END_TEST(testFindSCCsStackLimit)

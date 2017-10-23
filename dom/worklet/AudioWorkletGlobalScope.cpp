@@ -12,24 +12,26 @@ namespace mozilla {
 namespace dom {
 
 AudioWorkletGlobalScope::AudioWorkletGlobalScope(nsPIDOMWindowInner* aWindow)
-  : WorkletGlobalScope(aWindow)
+    : WorkletGlobalScope(aWindow)
 {
 }
 
-AudioWorkletGlobalScope::~AudioWorkletGlobalScope()
-{
-}
+AudioWorkletGlobalScope::~AudioWorkletGlobalScope() {}
 
 bool
-AudioWorkletGlobalScope::WrapGlobalObject(JSContext* aCx,
-                                          nsIPrincipal* aPrincipal,
-                                          JS::MutableHandle<JSObject*> aReflector)
+AudioWorkletGlobalScope::WrapGlobalObject(
+    JSContext* aCx,
+    nsIPrincipal* aPrincipal,
+    JS::MutableHandle<JSObject*> aReflector)
 {
   JS::CompartmentOptions options;
-  return AudioWorkletGlobalScopeBinding::Wrap(aCx, this, this,
+  return AudioWorkletGlobalScopeBinding::Wrap(aCx,
+                                              this,
+                                              this,
                                               options,
                                               nsJSPrincipals::get(aPrincipal),
-                                              true, aReflector);
+                                              true,
+                                              aReflector);
 }
 
 void
@@ -39,5 +41,5 @@ AudioWorkletGlobalScope::RegisterProcessor(const nsAString& aType,
   // Nothing to do here.
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

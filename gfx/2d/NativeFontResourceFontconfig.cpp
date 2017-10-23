@@ -12,9 +12,9 @@
 namespace mozilla {
 namespace gfx {
 
-NativeFontResourceFontconfig::NativeFontResourceFontconfig(UniquePtr<uint8_t[]>&& aFontData, FT_Face aFace)
-  : mFontData(Move(aFontData)),
-    mFace(aFace)
+NativeFontResourceFontconfig::NativeFontResourceFontconfig(
+    UniquePtr<uint8_t[]>&& aFontData, FT_Face aFace)
+    : mFontData(Move(aFontData)), mFace(aFace)
 {
 }
 
@@ -27,7 +27,9 @@ NativeFontResourceFontconfig::~NativeFontResourceFontconfig()
 }
 
 already_AddRefed<NativeFontResourceFontconfig>
-NativeFontResourceFontconfig::Create(uint8_t *aFontData, uint32_t aDataLength, FT_Library aFTLibrary)
+NativeFontResourceFontconfig::Create(uint8_t* aFontData,
+                                     uint32_t aDataLength,
+                                     FT_Library aFTLibrary)
 {
   if (!aFontData || !aDataLength) {
     return nullptr;
@@ -35,7 +37,8 @@ NativeFontResourceFontconfig::Create(uint8_t *aFontData, uint32_t aDataLength, F
   UniquePtr<uint8_t[]> fontData(new uint8_t[aDataLength]);
   memcpy(fontData.get(), aFontData, aDataLength);
 
-  FT_Face face = Factory::NewFTFaceFromData(aFTLibrary, fontData.get(), aDataLength, 0);
+  FT_Face face =
+      Factory::NewFTFaceFromData(aFTLibrary, fontData.get(), aDataLength, 0);
   if (!face) {
     return nullptr;
   }
@@ -45,17 +48,18 @@ NativeFontResourceFontconfig::Create(uint8_t *aFontData, uint32_t aDataLength, F
   }
 
   RefPtr<NativeFontResourceFontconfig> resource =
-    new NativeFontResourceFontconfig(Move(fontData), face);
+      new NativeFontResourceFontconfig(Move(fontData), face);
   return resource.forget();
 }
 
 already_AddRefed<UnscaledFont>
 NativeFontResourceFontconfig::CreateUnscaledFont(uint32_t aIndex,
-                                                 const uint8_t* aInstanceData, uint32_t aInstanceDataLength)
+                                                 const uint8_t* aInstanceData,
+                                                 uint32_t aInstanceDataLength)
 {
   RefPtr<UnscaledFont> unscaledFont = new UnscaledFontFontconfig(mFace, this);
   return unscaledFont.forget();
 }
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla

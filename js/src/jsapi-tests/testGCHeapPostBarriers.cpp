@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -17,50 +17,41 @@
 // A heap-allocated structure containing one of our barriered pointer wrappers
 // to test.
 template <typename W>
-struct TestStruct
-{
+struct TestStruct {
     W wrapper;
 };
 
 // A specialized version for GCPtr that adds a zone() method.
 template <typename T>
-struct TestStruct<js::GCPtr<T>>
-{
+struct TestStruct<js::GCPtr<T>> {
     js::GCPtr<T> wrapper;
 
-    void trace(JSTracer* trc) {
-        TraceNullableEdge(trc, &wrapper, "TestStruct::wrapper");
-    }
+    void trace(JSTracer* trc) { TraceNullableEdge(trc, &wrapper, "TestStruct::wrapper"); }
 };
 
 // Give the GCPtr version GCManagedDeletePolicy as required.
 namespace JS {
 template <typename T>
 struct DeletePolicy<TestStruct<js::GCPtr<T>>>
-    : public js::GCManagedDeletePolicy<TestStruct<js::GCPtr<T>>>
-{};
-} // namespace JS
+    : public js::GCManagedDeletePolicy<TestStruct<js::GCPtr<T>>> {};
+}  // namespace JS
 
 template <typename T>
-static T* CreateGCThing(JSContext* cx)
-{
+static T* CreateGCThing(JSContext* cx) {
     MOZ_CRASH();
     return nullptr;
 }
 
 template <>
-JSObject* CreateGCThing(JSContext* cx)
-{
+JSObject* CreateGCThing(JSContext* cx) {
     JS::RootedObject obj(cx, JS_NewPlainObject(cx));
-    if (!obj)
-        return nullptr;
+    if (!obj) return nullptr;
     JS_DefineProperty(cx, obj, "x", 42, 0);
     return obj;
 }
 
 template <>
-JSFunction* CreateGCThing(JSContext* cx)
-{
+JSFunction* CreateGCThing(JSContext* cx) {
     /*
      * We don't actually use the function as a function, so here we cheat and
      * cast a JSObject.
@@ -68,8 +59,7 @@ JSFunction* CreateGCThing(JSContext* cx)
     return static_cast<JSFunction*>(CreateGCThing<JSObject>(cx));
 }
 
-BEGIN_TEST(testGCHeapPostBarriers)
-{
+BEGIN_TEST(testGCHeapPostBarriers) {
 #ifdef JS_GC_ZEAL
     AutoLeaveZeal nozeal(cx);
 #endif /* JS_GC_ZEAL */
@@ -89,9 +79,7 @@ BEGIN_TEST(testGCHeapPostBarriers)
     return true;
 }
 
-bool
-CanAccessObject(JSObject* obj)
-{
+bool CanAccessObject(JSObject* obj) {
     JS::RootedObject rootedObj(cx, obj);
     JS::RootedValue value(cx);
     CHECK(JS_GetProperty(cx, rootedObj, "x", &value));
@@ -101,9 +89,7 @@ CanAccessObject(JSObject* obj)
 }
 
 template <typename T>
-bool
-TestHeapPostBarriersForType()
-{
+bool TestHeapPostBarriersForType() {
     CHECK((TestHeapPostBarriersForWrapper<T, JS::Heap<T*>>()));
     CHECK((TestHeapPostBarriersForWrapper<T, js::GCPtr<T*>>()));
     CHECK((TestHeapPostBarriersForWrapper<T, js::HeapPtr<T*>>()));
@@ -111,18 +97,14 @@ TestHeapPostBarriersForType()
 }
 
 template <typename T, typename W>
-bool
-TestHeapPostBarriersForWrapper()
-{
+bool TestHeapPostBarriersForWrapper() {
     CHECK((TestHeapPostBarrierUpdate<T, W>()));
     CHECK((TestHeapPostBarrierInitFailure<T, W>()));
     return true;
 }
 
 template <typename T, typename W>
-bool
-TestHeapPostBarrierUpdate()
-{
+bool TestHeapPostBarrierUpdate() {
     // Normal case - allocate a heap object, write a nursery pointer into it and
     // check that it gets updated on minor GC.
 
@@ -160,9 +142,7 @@ TestHeapPostBarrierUpdate()
 }
 
 template <typename T, typename W>
-bool
-TestHeapPostBarrierInitFailure()
-{
+bool TestHeapPostBarrierInitFailure() {
     // Failure case - allocate a heap object, write a nursery pointer into it
     // and fail to complete initialization.
 
@@ -189,8 +169,7 @@ TestHeapPostBarrierInitFailure()
 
 END_TEST(testGCHeapPostBarriers)
 
-BEGIN_TEST(testUnbarrieredEquality)
-{
+BEGIN_TEST(testUnbarrieredEquality) {
 #ifdef JS_GC_ZEAL
     AutoLeaveZeal nozeal(cx);
 #endif /* JS_GC_ZEAL */
@@ -199,7 +178,7 @@ BEGIN_TEST(testUnbarrieredEquality)
     // in ObjectPtr without awkward conversations about nursery allocatability.
     JS::RootedObject robj(cx, JS_NewArrayBuffer(cx, 20));
     JS::RootedObject robj2(cx, JS_NewArrayBuffer(cx, 30));
-    cx->runtime()->gc.evictNursery(); // Need tenured objects
+    cx->runtime()->gc.evictNursery();  // Need tenured objects
 
     // Need some bare pointers to compare against.
     JSObject* obj = robj;
@@ -254,9 +233,7 @@ BEGIN_TEST(testUnbarrieredEquality)
 }
 
 template <typename ObjectT, typename WrapperT>
-bool
-TestWrapper(ObjectT obj, ObjectT obj2, WrapperT& wrapper, WrapperT& wrapper2)
-{
+bool TestWrapper(ObjectT obj, ObjectT obj2, WrapperT& wrapper, WrapperT& wrapper2) {
     using namespace js::gc;
 
     const TenuredCell& cell = obj->asTenured();

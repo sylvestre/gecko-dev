@@ -13,7 +13,8 @@ namespace dom {
 /**
  * Constants for passing as aFromParser
  */
-enum FromParser {
+enum FromParser
+{
   NOT_FROM_PARSER = 0,
   FROM_PARSER_NETWORK = 1,
   FROM_PARSER_DOCUMENT_WRITE = 1 << 1,
@@ -21,7 +22,7 @@ enum FromParser {
   FROM_PARSER_XSLT = 1 << 3
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FromParser_h
+#endif  // mozilla_dom_FromParser_h

@@ -21,16 +21,16 @@
  */
 template<class KeyClass, class Interface>
 class nsInterfaceHashtable
-  : public nsBaseHashtable<KeyClass, nsCOMPtr<Interface>, Interface*>
+    : public nsBaseHashtable<KeyClass, nsCOMPtr<Interface>, Interface*>
 {
-public:
+ public:
   typedef typename KeyClass::KeyType KeyType;
   typedef Interface* UserDataType;
   typedef nsBaseHashtable<KeyClass, nsCOMPtr<Interface>, Interface*> base_type;
 
   nsInterfaceHashtable() {}
   explicit nsInterfaceHashtable(uint32_t aInitLength)
-    : nsBaseHashtable<KeyClass, nsCOMPtr<Interface>, Interface*>(aInitLength)
+      : nsBaseHashtable<KeyClass, nsCOMPtr<Interface>, Interface*>(aInitLength)
   {
   }
 
@@ -171,4 +171,4 @@ nsInterfaceHashtable<KeyClass, Interface>::Remove(KeyType aKey,
   return false;
 }
 
-#endif // nsInterfaceHashtable_h__
+#endif  // nsInterfaceHashtable_h__

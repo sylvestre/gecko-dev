@@ -13,18 +13,20 @@ namespace mozilla {
 namespace dom {
 class Element;
 class HTMLCanvasElement;
-} // namespace dom
+}  // namespace dom
 namespace gfx {
 class SourceSurface;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 class imgIContainer;
 
 namespace mozilla {
 
-class CanvasImageCache {
+class CanvasImageCache
+{
   typedef mozilla::gfx::SourceSurface SourceSurface;
-public:
+
+ public:
   /**
    * Notify that image element aImage was drawn to aCanvas element
    * using the first frame of aRequest's image. The data for the surface is
@@ -53,6 +55,6 @@ public:
                                      bool aIsAccelerated);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* CANVASIMAGECACHE_H_ */

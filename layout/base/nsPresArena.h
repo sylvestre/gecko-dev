@@ -14,7 +14,7 @@
 #include "mozilla/ArenaObjectID.h"
 #include "mozilla/ArenaRefPtr.h"
 #include "mozilla/Assertions.h"
-#include "mozilla/MemoryChecking.h" // Note: Do not remove this, needed for MOZ_HAVE_MEM_CHECKS below
+#include "mozilla/MemoryChecking.h"  // Note: Do not remove this, needed for MOZ_HAVE_MEM_CHECKS below
 #include "mozilla/MemoryReporting.h"
 #include <stdint.h>
 #include "nscore.h"
@@ -25,8 +25,9 @@
 
 class nsWindowSizes;
 
-class nsPresArena {
-public:
+class nsPresArena
+{
+ public:
   nsPresArena();
   ~nsPresArena();
 
@@ -60,10 +61,7 @@ public:
   {
     return Allocate(aID, aSize);
   }
-  void FreeByCustomID(uint32_t aID, void* ptr)
-  {
-    Free(aID, ptr);
-  }
+  void FreeByCustomID(uint32_t aID, void* ptr) { Free(aID, ptr); }
 
   /**
    * Register an ArenaRefPtr to be cleared when this arena is about to
@@ -111,33 +109,29 @@ public:
   void AddSizeOfExcludingThis(nsWindowSizes& aWindowSizes) const;
 
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  bool DebugContains(void* aPtr) {
-    return mPool.DebugContains(aPtr);
-  }
+  bool DebugContains(void* aPtr) { return mPool.DebugContains(aPtr); }
 #endif
 
-private:
+ private:
   void* Allocate(uint32_t aCode, size_t aSize);
   void Free(uint32_t aCode, void* aPtr);
 
   inline void ClearArenaRefPtrWithoutDeregistering(
-      void* aPtr,
-      mozilla::ArenaObjectID aObjectID);
+      void* aPtr, mozilla::ArenaObjectID aObjectID);
 
   class FreeList
   {
-  public:
-    nsTArray<void *> mEntries;
+   public:
+    nsTArray<void*> mEntries;
     size_t mEntrySize;
     size_t mEntriesEverAllocated;
 
-    FreeList()
-      : mEntrySize(0)
-      , mEntriesEverAllocated(0)
-    {}
+    FreeList() : mEntrySize(0), mEntriesEverAllocated(0) {}
 
     size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
-    { return mEntries.ShallowSizeOfExcludingThis(aMallocSizeOf); }
+    {
+      return mEntries.ShallowSizeOfExcludingThis(aMallocSizeOf);
+    }
   };
 
   FreeList mFreeLists[mozilla::eArenaObjectID_COUNT];

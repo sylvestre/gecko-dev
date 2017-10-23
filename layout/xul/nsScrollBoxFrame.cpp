@@ -16,7 +16,7 @@ using namespace mozilla;
 
 class nsAutoRepeatBoxFrame final : public nsButtonBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsAutoRepeatBoxFrame)
 
   friend nsIFrame* NS_NewAutoRepeatBoxFrame(nsIPresShell* aPresShell,
@@ -40,28 +40,32 @@ public:
                            WidgetGUIEvent* aEvent,
                            nsEventStatus* aEventStatus) override;
 
-protected:
-  explicit nsAutoRepeatBoxFrame(nsStyleContext* aContext):
-    nsButtonBoxFrame(aContext, kClassID) {}
+ protected:
+  explicit nsAutoRepeatBoxFrame(nsStyleContext* aContext)
+      : nsButtonBoxFrame(aContext, kClassID)
+  {
+  }
 
-  void StartRepeat() {
+  void StartRepeat()
+  {
     if (IsActivatedOnHover()) {
       // No initial delay on hover.
-      nsRepeatService::GetInstance()->Start(Notify, this,
+      nsRepeatService::GetInstance()->Start(Notify,
+                                            this,
                                             mContent->OwnerDoc(),
                                             NS_LITERAL_CSTRING("DoMouseClick"),
                                             0);
     } else {
-      nsRepeatService::GetInstance()->Start(Notify, this,
+      nsRepeatService::GetInstance()->Start(Notify,
+                                            this,
                                             mContent->OwnerDoc(),
                                             NS_LITERAL_CSTRING("DoMouseClick"));
     }
   }
-  void StopRepeat() {
-    nsRepeatService::GetInstance()->Stop(Notify, this);
-  }
+  void StopRepeat() { nsRepeatService::GetInstance()->Stop(Notify, this); }
   void Notify();
-  static void Notify(void* aData) {
+  static void Notify(void* aData)
+  {
     static_cast<nsAutoRepeatBoxFrame*>(aData)->Notify();
   }
 
@@ -71,7 +75,7 @@ protected:
 };
 
 nsIFrame*
-NS_NewAutoRepeatBoxFrame (nsIPresShell* aPresShell, nsStyleContext* aContext)
+NS_NewAutoRepeatBoxFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsAutoRepeatBoxFrame(aContext);
 }
@@ -88,7 +92,7 @@ nsAutoRepeatBoxFrame::HandleEvent(nsPresContext* aPresContext,
     return NS_OK;
   }
 
-  switch(aEvent->mMessage) {
+  switch (aEvent->mMessage) {
     // repeat mode may be "hover" for repeating while the mouse is hovering
     // over the element, otherwise repetition is done while the element is
     // active (pressed).
@@ -178,6 +182,6 @@ nsAutoRepeatBoxFrame::DestroyFrom(nsIFrame* aDestructRoot)
 bool
 nsAutoRepeatBoxFrame::IsActivatedOnHover()
 {
-  return mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::repeat,
-                               nsGkAtoms::hover, eCaseMatters);
+  return mContent->AttrValueIs(
+      kNameSpaceID_None, nsGkAtoms::repeat, nsGkAtoms::hover, eCaseMatters);
 }

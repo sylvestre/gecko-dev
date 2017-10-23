@@ -12,9 +12,7 @@
 namespace mozilla {
 namespace dom {
 
-XBLChildrenElement::~XBLChildrenElement()
-{
-}
+XBLChildrenElement::~XBLChildrenElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED(XBLChildrenElement,
                             Element,
@@ -24,7 +22,8 @@ NS_IMPL_ISUPPORTS_INHERITED(XBLChildrenElement,
 NS_IMPL_ELEMENT_CLONE(XBLChildrenElement)
 
 nsresult
-XBLChildrenElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+XBLChildrenElement::BeforeSetAttr(int32_t aNamespaceID,
+                                  nsAtom* aName,
                                   const nsAttrValueOrString* aValue,
                                   bool aNotify)
 {
@@ -32,8 +31,10 @@ XBLChildrenElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
     if (aName == nsGkAtoms::includes) {
       mIncludes.Clear();
       if (aValue) {
-        nsCharSeparatedTokenizer tok(aValue->String(), '|',
-                                     nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
+        nsCharSeparatedTokenizer tok(
+            aValue->String(),
+            '|',
+            nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
         while (tok.hasMoreTokens()) {
           mIncludes.AppendElement(NS_Atomize(tok.nextToken()));
         }
@@ -44,8 +45,8 @@ XBLChildrenElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
   return nsXMLElement::BeforeSetAttr(aNamespaceID, aName, aValue, aNotify);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla::dom;
 
@@ -69,19 +70,16 @@ nsAnonymousContentList::GetLength(uint32_t* aLength)
   }
 
   uint32_t count = 0;
-  for (nsIContent* child = mParent->GetFirstChild();
-       child;
+  for (nsIContent* child = mParent->GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (child->NodeInfo()->Equals(nsGkAtoms::children, kNameSpaceID_XBL)) {
       XBLChildrenElement* point = static_cast<XBLChildrenElement*>(child);
       if (point->HasInsertedChildren()) {
         count += point->InsertedChildrenLength();
-      }
-      else {
+      } else {
         count += point->GetChildCount();
       }
-    }
-    else {
+    } else {
       ++count;
     }
   }
@@ -110,8 +108,7 @@ nsAnonymousContentList::Item(uint32_t aIndex)
   }
 
   uint32_t remIndex = aIndex;
-  for (nsIContent* child = mParent->GetFirstChild();
-       child;
+  for (nsIContent* child = mParent->GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (child->NodeInfo()->Equals(nsGkAtoms::children, kNameSpaceID_XBL)) {
       XBLChildrenElement* point = static_cast<XBLChildrenElement*>(child);
@@ -120,15 +117,13 @@ nsAnonymousContentList::Item(uint32_t aIndex)
           return point->InsertedChild(remIndex);
         }
         remIndex -= point->InsertedChildrenLength();
-      }
-      else {
+      } else {
         if (remIndex < point->GetChildCount()) {
           return point->GetChildAt(remIndex);
         }
         remIndex -= point->GetChildCount();
       }
-    }
-    else {
+    } else {
       if (remIndex == 0) {
         return child;
       }
@@ -142,17 +137,16 @@ nsAnonymousContentList::Item(uint32_t aIndex)
 int32_t
 nsAnonymousContentList::IndexOf(nsIContent* aContent)
 {
-  NS_ASSERTION(!aContent->NodeInfo()->Equals(nsGkAtoms::children,
-                                             kNameSpaceID_XBL),
-               "Looking for insertion point");
+  NS_ASSERTION(
+      !aContent->NodeInfo()->Equals(nsGkAtoms::children, kNameSpaceID_XBL),
+      "Looking for insertion point");
 
   if (!mParent) {
     return -1;
   }
 
   int32_t index = 0;
-  for (nsIContent* child = mParent->GetFirstChild();
-       child;
+  for (nsIContent* child = mParent->GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (child->NodeInfo()->Equals(nsGkAtoms::children, kNameSpaceID_XBL)) {
       XBLChildrenElement* point = static_cast<XBLChildrenElement*>(child);
@@ -162,16 +156,14 @@ nsAnonymousContentList::IndexOf(nsIContent* aContent)
           return index + insIndex;
         }
         index += point->InsertedChildrenLength();
-      }
-      else {
+      } else {
         int32_t insIndex = point->IndexOf(aContent);
         if (insIndex != -1) {
           return index + insIndex;
         }
         index += point->GetChildCount();
       }
-    }
-    else {
+    } else {
       if (child == aContent) {
         return index;
       }
@@ -183,7 +175,8 @@ nsAnonymousContentList::IndexOf(nsIContent* aContent)
 }
 
 JSObject*
-nsAnonymousContentList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+nsAnonymousContentList::WrapObject(JSContext* cx,
+                                   JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::NodeListBinding::Wrap(cx, this, aGivenProto);
 }

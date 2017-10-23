@@ -18,14 +18,11 @@ namespace base {
 struct HModuleFreePolicy
 {
   typedef HMODULE pointer;
-  void operator()(pointer hModule)
-  {
-    ::FreeLibrary(hModule);
-  }
+  void operator()(pointer hModule) { ::FreeLibrary(hModule); }
 };
 
 typedef mozilla::UniquePtr<HMODULE, HModuleFreePolicy> ScopedNativeLibrary;
 
-} // namespace base
+}  // namespace base
 
 #endif  // BASE_SCOPED_NATIVE_LIBRARY_H_

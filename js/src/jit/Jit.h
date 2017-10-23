@@ -15,8 +15,7 @@ class RunState;
 
 namespace jit {
 
-enum class EnterJitStatus
-{
+enum class EnterJitStatus {
     // An error occurred, either before we entered JIT code or the script threw
     // an exception. Usually the context will have a pending exception, except
     // for uncatchable exceptions (interrupts).
@@ -30,10 +29,9 @@ enum class EnterJitStatus
     NotEntered,
 };
 
-extern EnterJitStatus
-MaybeEnterJit(JSContext* cx, RunState& state);
+extern EnterJitStatus MaybeEnterJit(JSContext* cx, RunState& state);
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_Jit_h */

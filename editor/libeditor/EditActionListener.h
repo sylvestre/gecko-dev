@@ -8,10 +8,8 @@
 
 class EditActionListener
 {
-public:
-
+ public:
   virtual void EditAction() = 0;
-
 };
 
 #endif /* __editActionListener_h__ */

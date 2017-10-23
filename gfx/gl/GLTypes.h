@@ -9,14 +9,14 @@
 #include <stdint.h>
 
 #ifndef GLAPIENTRY
-# ifdef WIN32
-#  include <windef.h>
-#  define GLAPIENTRY APIENTRY
-#  define GLAPI
-# else
-#  define GLAPIENTRY
-#  define GLAPI
-# endif
+#ifdef WIN32
+#include <windef.h>
+#define GLAPIENTRY APIENTRY
+#define GLAPI
+#else
+#define GLAPIENTRY
+#define GLAPI
+#endif
 #endif
 
 typedef int8_t realGLboolean;
@@ -61,13 +61,13 @@ typedef uint64_t GLuint64;
 typedef void* GLeglImage;
 
 // KHR_debug
-typedef void (GLAPIENTRY *GLDEBUGPROC)(GLenum source,
-                                       GLenum type,
-                                       GLuint id,
-                                       GLenum severity,
-                                       GLsizei length,
-                                       const GLchar* message,
-                                       const GLvoid* userParam);
+typedef void(GLAPIENTRY* GLDEBUGPROC)(GLenum source,
+                                      GLenum type,
+                                      GLuint id,
+                                      GLenum severity,
+                                      GLsizei length,
+                                      const GLchar* message,
+                                      const GLvoid* userParam);
 
 // EGL types
 typedef void* EGLImage;
@@ -87,11 +87,11 @@ typedef void* EGLSync;
 typedef void* EGLStreamKHR;
 typedef uint64_t EGLTime;
 
-#define EGL_NO_CONTEXT       ((EGLContext)0)
-#define EGL_NO_DISPLAY       ((EGLDisplay)0)
-#define EGL_NO_SURFACE       ((EGLSurface)0)
-#define EGL_NO_CONFIG        ((EGLConfig)nullptr)
-#define EGL_NO_SYNC          ((EGLSync)0)
-#define EGL_NO_IMAGE         ((EGLImage)0)
+#define EGL_NO_CONTEXT ((EGLContext)0)
+#define EGL_NO_DISPLAY ((EGLDisplay)0)
+#define EGL_NO_SURFACE ((EGLSurface)0)
+#define EGL_NO_CONFIG ((EGLConfig) nullptr)
+#define EGL_NO_SYNC ((EGLSync)0)
+#define EGL_NO_IMAGE ((EGLImage)0)
 
 #endif

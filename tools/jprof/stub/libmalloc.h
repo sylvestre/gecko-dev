@@ -23,7 +23,8 @@ typedef unsigned long u_long;
 // "jprof-log" file.
 // It's called malloc_log_entry because the history of jprof is that
 // it's a modified version of tracemalloc.
-struct malloc_log_entry {
+struct malloc_log_entry
+{
   u_long delTime;
   u_long numpcs;
   unsigned int flags;
@@ -33,9 +34,10 @@ struct malloc_log_entry {
 
 // Format of a malloc map entry; after this struct is nameLen+1 bytes of
 // name data.
-struct malloc_map_entry {
+struct malloc_map_entry
+{
   u_long nameLen;
-  u_long address;		// base address
+  u_long address;  // base address
 };
 
 #ifdef __cplusplus

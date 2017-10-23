@@ -20,9 +20,10 @@ namespace quota {
  ******************************************************************************/
 
 QuotaChild::QuotaChild(QuotaManagerService* aService)
-  : mService(aService)
+    : mService(aService)
 #ifdef DEBUG
-  , mOwningThread(GetCurrentThreadEventTarget())
+      ,
+      mOwningThread(GetCurrentThreadEventTarget())
 #endif
 {
   AssertIsOnOwningThread();
@@ -50,7 +51,7 @@ QuotaChild::AssertIsOnOwningThread() const
   MOZ_ASSERT(current);
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 void
 QuotaChild::ActorDestroy(ActorDestroyReason aWhy)
@@ -106,7 +107,7 @@ QuotaChild::DeallocPQuotaRequestChild(PQuotaRequestChild* aActor)
  ******************************************************************************/
 
 QuotaUsageRequestChild::QuotaUsageRequestChild(UsageRequest* aRequest)
-  : mRequest(aRequest)
+    : mRequest(aRequest)
 {
   AssertIsOnOwningThread();
 
@@ -129,7 +130,7 @@ QuotaUsageRequestChild::AssertIsOnOwningThread() const
   mRequest->AssertIsOnOwningThread();
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 void
 QuotaUsageRequestChild::HandleResponse(nsresult aResponse)
@@ -161,9 +162,8 @@ QuotaUsageRequestChild::HandleResponse(const nsTArray<OriginUsage>& aResponse)
     for (uint32_t index = 0; index < count; index++) {
       auto& originUsage = aResponse[index];
 
-      RefPtr<UsageResult> usageResult = new UsageResult(originUsage.origin(),
-                                                        originUsage.persisted(),
-                                                        originUsage.usage());
+      RefPtr<UsageResult> usageResult = new UsageResult(
+          originUsage.origin(), originUsage.persisted(), originUsage.usage());
 
       usageResults.AppendElement(usageResult.forget());
     }
@@ -183,10 +183,8 @@ QuotaUsageRequestChild::HandleResponse(const OriginUsageResponse& aResponse)
   AssertIsOnOwningThread();
   MOZ_ASSERT(mRequest);
 
-  RefPtr<OriginUsageResult> result =
-    new OriginUsageResult(aResponse.usage(),
-                          aResponse.fileUsage(),
-                          aResponse.limit());
+  RefPtr<OriginUsageResult> result = new OriginUsageResult(
+      aResponse.usage(), aResponse.fileUsage(), aResponse.limit());
 
   RefPtr<nsVariant> variant = new nsVariant();
   variant->SetAsInterface(NS_GET_IID(nsIQuotaOriginUsageResult), result);
@@ -237,8 +235,7 @@ QuotaUsageRequestChild::Recv__delete__(const UsageRequestResponse& aResponse)
  * QuotaRequestChild
  ******************************************************************************/
 
-QuotaRequestChild::QuotaRequestChild(Request* aRequest)
-  : mRequest(aRequest)
+QuotaRequestChild::QuotaRequestChild(Request* aRequest) : mRequest(aRequest)
 {
   AssertIsOnOwningThread();
 
@@ -261,7 +258,7 @@ QuotaRequestChild::AssertIsOnOwningThread() const
   mRequest->AssertIsOnOwningThread();
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 void
 QuotaRequestChild::HandleResponse(nsresult aResponse)
@@ -338,6 +335,6 @@ QuotaRequestChild::Recv__delete__(const RequestResponse& aResponse)
   return IPC_OK();
 }
 
-} // namespace quota
-} // namespace dom
-} // namespace mozilla
+}  // namespace quota
+}  // namespace dom
+}  // namespace mozilla

@@ -34,6 +34,6 @@ enum class CSSEnabledState
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(CSSEnabledState)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_CSSEnabledState_h
+#endif  // mozilla_CSSEnabledState_h

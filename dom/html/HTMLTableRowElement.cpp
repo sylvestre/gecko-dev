@@ -19,12 +19,10 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(TableRow)
 namespace mozilla {
 namespace dom {
 
-HTMLTableRowElement::~HTMLTableRowElement()
-{
-}
+HTMLTableRowElement::~HTMLTableRowElement() {}
 
 JSObject*
-HTMLTableRowElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLTableRowElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLTableRowElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -41,16 +39,13 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(HTMLTableRowElement,
 
 NS_IMPL_ELEMENT_CLONE(HTMLTableRowElement)
 
-
 // protected method
 HTMLTableSectionElement*
 HTMLTableRowElement::GetSection() const
 {
   nsIContent* parent = GetParent();
-  if (parent &&
-      parent->IsAnyOfHTMLElements(nsGkAtoms::thead,
-                                  nsGkAtoms::tbody,
-                                  nsGkAtoms::tfoot)) {
+  if (parent && parent->IsAnyOfHTMLElements(
+                    nsGkAtoms::thead, nsGkAtoms::tbody, nsGkAtoms::tfoot)) {
     return static_cast<HTMLTableSectionElement*>(parent);
   }
   return nullptr;
@@ -115,8 +110,7 @@ HTMLTableRowElement::SectionRowIndex() const
 }
 
 static bool
-IsCell(Element *aElement, int32_t aNamespaceID,
-       nsAtom* aAtom, void *aData)
+IsCell(Element* aElement, int32_t aNamespaceID, nsAtom* aAtom, void* aData)
 {
   return aElement->IsAnyOfHTMLElements(nsGkAtoms::td, nsGkAtoms::th);
 }
@@ -127,8 +121,8 @@ HTMLTableRowElement::Cells()
   if (!mCells) {
     mCells = new nsContentList(this,
                                IsCell,
-                               nullptr, // destroy func
-                               nullptr, // closure data
+                               nullptr,  // destroy func
+                               nullptr,  // closure data
                                false,
                                nullptr,
                                kNameSpaceID_XHTML,
@@ -139,8 +133,7 @@ HTMLTableRowElement::Cells()
 }
 
 already_AddRefed<nsGenericHTMLElement>
-HTMLTableRowElement::InsertCell(int32_t aIndex,
-                                ErrorResult& aError)
+HTMLTableRowElement::InsertCell(int32_t aIndex, ErrorResult& aError)
 {
   if (aIndex < -1) {
     aError.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
@@ -170,11 +163,11 @@ HTMLTableRowElement::InsertCell(int32_t aIndex,
 
   // create the cell
   RefPtr<mozilla::dom::NodeInfo> nodeInfo;
-  nsContentUtils::QNameChanged(mNodeInfo, nsGkAtoms::td,
-                               getter_AddRefs(nodeInfo));
+  nsContentUtils::QNameChanged(
+      mNodeInfo, nsGkAtoms::td, getter_AddRefs(nodeInfo));
 
   RefPtr<nsGenericHTMLElement> cell =
-    NS_NewHTMLTableCellElement(nodeInfo.forget());
+      NS_NewHTMLTableCellElement(nodeInfo.forget());
   if (!cell) {
     aError.Throw(NS_ERROR_OUT_OF_MEMORY);
     return nullptr;
@@ -203,8 +196,7 @@ HTMLTableRowElement::DeleteCell(int32_t aValue, ErrorResult& aError)
     }
 
     --refIndex;
-  }
-  else {
+  } else {
     refIndex = (uint32_t)aValue;
   }
 
@@ -250,16 +242,15 @@ HTMLTableRowElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseBackgroundAttribute(aNamespaceID,
-                                                        aAttribute, aValue,
-                                                        aResult) ||
-         nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseBackgroundAttribute(
+             aNamespaceID, aAttribute, aValue, aResult) ||
+         nsGenericHTMLElement::ParseAttribute(
+             aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
-HTMLTableRowElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
-                                           GenericSpecifiedValues* aData)
+HTMLTableRowElement::MapAttributesIntoRule(
+    const nsMappedAttributes* aAttributes, GenericSpecifiedValues* aData)
 {
   nsGenericHTMLElement::MapHeightAttributeInto(aAttributes, aData);
   nsGenericHTMLElement::MapDivAlignAttributeInto(aAttributes, aData);
@@ -271,17 +262,15 @@ HTMLTableRowElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes
 NS_IMETHODIMP_(bool)
 HTMLTableRowElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
-  static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::align },
-    { &nsGkAtoms::valign },
-    { &nsGkAtoms::height },
-    { nullptr }
-  };
+  static const MappedAttributeEntry attributes[] = {{&nsGkAtoms::align},
+                                                    {&nsGkAtoms::valign},
+                                                    {&nsGkAtoms::height},
+                                                    {nullptr}};
 
   static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sCommonAttributeMap,
-    sBackgroundAttributeMap,
+      attributes,
+      sCommonAttributeMap,
+      sBackgroundAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
@@ -293,5 +282,5 @@ HTMLTableRowElement::GetAttributeMappingFunction() const
   return &MapAttributesIntoRule;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

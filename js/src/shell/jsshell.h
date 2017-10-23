@@ -23,55 +23,45 @@
 
 // Some platform hooks must be implemented for single-step profiling.
 #if defined(JS_SIMULATOR_ARM) || defined(JS_SIMULATOR_MIPS64)
-# define SINGLESTEP_PROFILING
+#define SINGLESTEP_PROFILING
 #endif
 
 namespace js {
 namespace shell {
 
 enum JSShellErrNum {
-#define MSG_DEF(name, count, exception, format) \
-    name,
+#define MSG_DEF(name, count, exception, format) name,
 #include "jsshell.msg"
 #undef MSG_DEF
     JSShellErr_Limit
 };
 
-const JSErrorFormatString*
-my_GetErrorMessage(void* userRef, const unsigned errorNumber);
+const JSErrorFormatString* my_GetErrorMessage(void* userRef, const unsigned errorNumber);
 
-void
-WarningReporter(JSContext* cx, JSErrorReport* report);
+void WarningReporter(JSContext* cx, JSErrorReport* report);
 
-class MOZ_STACK_CLASS AutoReportException
-{
+class MOZ_STACK_CLASS AutoReportException {
     JSContext* cx;
-  public:
-    explicit AutoReportException(JSContext* cx)
-      : cx(cx)
-    {}
+
+   public:
+    explicit AutoReportException(JSContext* cx) : cx(cx) {}
     ~AutoReportException();
 };
 
-bool
-GenerateInterfaceHelp(JSContext* cx, JS::HandleObject obj, const char* name);
+bool GenerateInterfaceHelp(JSContext* cx, JS::HandleObject obj, const char* name);
 
-JSString*
-FileAsString(JSContext* cx, JS::HandleString pathnameStr);
+JSString* FileAsString(JSContext* cx, JS::HandleString pathnameStr);
 
-class AutoCloseFile
-{
-  private:
+class AutoCloseFile {
+   private:
     FILE* f_;
-  public:
+
+   public:
     explicit AutoCloseFile(FILE* f) : f_(f) {}
-    ~AutoCloseFile() {
-        (void) release();
-    }
+    ~AutoCloseFile() { (void)release(); }
     bool release() {
         bool success = true;
-        if (f_ && f_ != stdin && f_ != stdout && f_ != stderr)
-            success = !fclose(f_);
+        if (f_ && f_ != stdin && f_ != stdout && f_ != stderr) success = !fclose(f_);
         f_ = nullptr;
         return success;
     }
@@ -104,30 +94,21 @@ struct RCFile {
 // This provides a mechanism for namespacing the various JS shell helper
 // functions without breaking backwards compatibility with things that use the
 // global names.
-bool
-CreateAlias(JSContext* cx, const char* dstName, JS::HandleObject namespaceObj, const char* srcName);
+bool CreateAlias(JSContext* cx, const char* dstName, JS::HandleObject namespaceObj,
+                 const char* srcName);
 
-enum class ScriptKind
-{
-    Script,
-    DecodeScript,
-    Module
-};
+enum class ScriptKind { Script, DecodeScript, Module };
 
 class OffThreadState {
     enum State {
-        IDLE,           /* ready to work; no token, no source */
-        COMPILING,      /* working; no token, have source */
-        DONE            /* compilation done: have token and source */
+        IDLE,      /* ready to work; no token, no source */
+        COMPILING, /* working; no token, have source */
+        DONE       /* compilation done: have token and source */
     };
 
-  public:
+   public:
     OffThreadState()
-      : monitor(mutexid::ShellOffThreadState),
-        state(IDLE),
-        token(),
-        source(nullptr)
-    { }
+        : monitor(mutexid::ShellOffThreadState), state(IDLE), token(), source(nullptr) {}
 
     bool startIfIdle(JSContext* cx, ScriptKind kind, ScopedJSFreePtr<char16_t>& newSource);
 
@@ -141,7 +122,7 @@ class OffThreadState {
 
     JS::TranscodeBuffer& xdrBuffer() { return xdr; }
 
-  private:
+   private:
     js::Monitor monitor;
     ScriptKind scriptKind;
     State state;
@@ -150,13 +131,11 @@ class OffThreadState {
     JS::TranscodeBuffer xdr;
 };
 
-class NonshrinkingGCObjectVector : public GCVector<JSObject*, 0, SystemAllocPolicy>
-{
-  public:
+class NonshrinkingGCObjectVector : public GCVector<JSObject*, 0, SystemAllocPolicy> {
+   public:
     void sweep() {
         for (uint32_t i = 0; i < this->length(); i++) {
-            if (JS::GCPolicy<JSObject*>::needsSweep(&(*this)[i]))
-                (*this)[i] = nullptr;
+            if (JS::GCPolicy<JSObject*>::needsSweep(&(*this)[i])) (*this)[i] = nullptr;
         }
     }
 };
@@ -168,8 +147,7 @@ using StackChars = Vector<char16_t, 0, SystemAllocPolicy>;
 #endif
 
 // Per-context shell state.
-struct ShellContext
-{
+struct ShellContext {
     explicit ShellContext(JSContext* cx);
 
     bool isWorker;
@@ -212,8 +190,7 @@ struct ShellContext
     UniquePtr<MarkBitObservers> markObservers;
 };
 
-extern ShellContext*
-GetShellContext(JSContext* cx);
+extern ShellContext* GetShellContext(JSContext* cx);
 
 } /* namespace shell */
 } /* namespace js */

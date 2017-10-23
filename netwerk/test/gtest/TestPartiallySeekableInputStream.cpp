@@ -13,7 +13,7 @@ class NonSeekableStream final : public nsIInputStream
 {
   nsCOMPtr<nsIInputStream> mStream;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   explicit NonSeekableStream(const nsACString& aBuffer)
@@ -22,10 +22,7 @@ public:
   }
 
   NS_IMETHOD
-  Available(uint64_t* aLength) override
-  {
-    return mStream->Available(aLength);
-  }
+  Available(uint64_t* aLength) override { return mStream->Available(aLength); }
 
   NS_IMETHOD
   Read(char* aBuffer, uint32_t aCount, uint32_t* aReadCount) override
@@ -34,17 +31,16 @@ public:
   }
 
   NS_IMETHOD
-  ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-               uint32_t aCount, uint32_t *aResult) override
+  ReadSegments(nsWriteSegmentFun aWriter,
+               void* aClosure,
+               uint32_t aCount,
+               uint32_t* aResult) override
   {
     return mStream->ReadSegments(aWriter, aClosure, aCount, aResult);
   }
 
   NS_IMETHOD
-  Close() override
-  {
-    return mStream->Close();
-  }
+  Close() override { return mStream->Close(); }
 
   NS_IMETHOD
   IsNonBlocking(bool* aNonBlocking) override
@@ -52,7 +48,7 @@ public:
     return mStream->IsNonBlocking(aNonBlocking);
   }
 
-private:
+ private:
   ~NonSeekableStream() {}
 };
 
@@ -73,7 +69,8 @@ CreateStream(uint32_t aSize, uint64_t aStreamSize, nsCString& aBuffer)
 }
 
 // Simple reading.
-TEST(TestPartiallySeekableInputStream, SimpleRead) {
+TEST(TestPartiallySeekableInputStream, SimpleRead)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -107,7 +104,8 @@ TEST(TestPartiallySeekableInputStream, SimpleRead) {
 }
 
 // Simple seek
-TEST(TestPartiallySeekableInputStream, SimpleSeek) {
+TEST(TestPartiallySeekableInputStream, SimpleSeek)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -123,7 +121,8 @@ TEST(TestPartiallySeekableInputStream, SimpleSeek) {
     char buf2[3];
     ASSERT_EQ(NS_OK, psi->Read(buf2, sizeof(buf2), &count));
     ASSERT_EQ(count, sizeof(buf2));
-    ASSERT_TRUE(nsCString(buf.get(), sizeof(buf2)).Equals(nsCString(buf2, sizeof(buf2))));
+    ASSERT_TRUE(nsCString(buf.get(), sizeof(buf2))
+                    .Equals(nsCString(buf2, sizeof(buf2))));
 
     int64_t pos;
     ASSERT_EQ(NS_OK, psi->Tell(&pos));
@@ -145,7 +144,8 @@ TEST(TestPartiallySeekableInputStream, SimpleSeek) {
     char buf2[3];
     ASSERT_EQ(NS_OK, psi->Read(buf2, sizeof(buf2), &count));
     ASSERT_EQ(count, sizeof(buf2));
-    ASSERT_TRUE(nsCString(buf.get(), sizeof(buf2)).Equals(nsCString(buf2, sizeof(buf2))));
+    ASSERT_TRUE(nsCString(buf.get(), sizeof(buf2))
+                    .Equals(nsCString(buf2, sizeof(buf2))));
 
     int64_t pos;
     ASSERT_EQ(NS_OK, psi->Tell(&pos));
@@ -166,7 +166,8 @@ TEST(TestPartiallySeekableInputStream, SimpleSeek) {
     char buf2[3];
     ASSERT_EQ(NS_OK, psi->Read(buf2, sizeof(buf2), &count));
     ASSERT_EQ(count, sizeof(buf2));
-    ASSERT_TRUE(nsCString(buf.get() + 1, sizeof(buf2)).Equals(nsCString(buf2, sizeof(buf2))));
+    ASSERT_TRUE(nsCString(buf.get() + 1, sizeof(buf2))
+                    .Equals(nsCString(buf2, sizeof(buf2))));
 
     int64_t pos;
     ASSERT_EQ(NS_OK, psi->Tell(&pos));
@@ -192,7 +193,8 @@ TEST(TestPartiallySeekableInputStream, SimpleSeek) {
 }
 
 // Full in cache
-TEST(TestPartiallySeekableInputStream, FullCachedSeek) {
+TEST(TestPartiallySeekableInputStream, FullCachedSeek)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;

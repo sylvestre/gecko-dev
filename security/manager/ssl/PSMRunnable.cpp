@@ -4,11 +4,11 @@
 
 #include "PSMRunnable.h"
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 SyncRunnableBase::SyncRunnableBase()
-  : Runnable("psm::SyncRunnableBase")
-  , monitor("SyncRunnableBase::monitor")
+    : Runnable("psm::SyncRunnableBase"), monitor("SyncRunnableBase::monitor")
 {
 }
 
@@ -45,4 +45,5 @@ NotifyObserverRunnable::Run()
   return NS_OK;
 }
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla

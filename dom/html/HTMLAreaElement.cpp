@@ -18,15 +18,13 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Area)
 namespace mozilla {
 namespace dom {
 
-HTMLAreaElement::HTMLAreaElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
-  , Link(this)
+HTMLAreaElement::HTMLAreaElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo), Link(this)
 {
 }
 
-HTMLAreaElement::~HTMLAreaElement()
-{
-}
+HTMLAreaElement::~HTMLAreaElement() {}
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLAreaElement,
                                              nsGenericHTMLElement,
@@ -83,21 +81,21 @@ nsDOMTokenList*
 HTMLAreaElement::RelList()
 {
   if (!mRelList) {
-    mRelList = new nsDOMTokenList(this, nsGkAtoms::rel,
-                                  HTMLAnchorElement::sSupportedRelValues);
+    mRelList = new nsDOMTokenList(
+        this, nsGkAtoms::rel, HTMLAnchorElement::sSupportedRelValues);
   }
   return mRelList;
 }
 
 nsresult
-HTMLAreaElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLAreaElement::BindToTree(nsIDocument* aDocument,
+                            nsIContent* aParent,
                             nsIContent* aBindingParent,
                             bool aCompileEventHandlers)
 {
   Link::ResetLinkState(false, Link::ElementHasHref());
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsIDocument* doc = GetComposedDoc();
@@ -118,7 +116,8 @@ HTMLAreaElement::UnbindFromTree(bool aDeep, bool aNullParent)
 }
 
 nsresult
-HTMLAreaElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLAreaElement::AfterSetAttr(int32_t aNamespaceID,
+                              nsAtom* aName,
                               const nsAttrValue* aValue,
                               const nsAttrValue* aOldValue,
                               nsIPrincipal* aSubjectPrincipal,
@@ -134,8 +133,8 @@ HTMLAreaElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNamespaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 void
@@ -170,5 +169,5 @@ HTMLAreaElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLAreaElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

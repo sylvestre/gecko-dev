@@ -15,11 +15,10 @@
 namespace mozilla {
 namespace dom {
 
-nsAtom** SVGTests::sStringListNames[3] =
-{
-  &nsGkAtoms::requiredFeatures,
-  &nsGkAtoms::requiredExtensions,
-  &nsGkAtoms::systemLanguage,
+nsAtom** SVGTests::sStringListNames[3] = {
+    &nsGkAtoms::requiredFeatures,
+    &nsGkAtoms::requiredExtensions,
+    &nsGkAtoms::systemLanguage,
 };
 
 SVGTests::SVGTests()
@@ -33,7 +32,7 @@ SVGTests::RequiredFeatures()
   nsCOMPtr<nsIDOMSVGElement> elem = do_QueryInterface(this);
   nsSVGElement* element = static_cast<nsSVGElement*>(elem.get());
   return DOMSVGStringList::GetDOMWrapper(
-           &mStringListAttributes[FEATURES], element, true, FEATURES);
+      &mStringListAttributes[FEATURES], element, true, FEATURES);
 }
 
 already_AddRefed<DOMSVGStringList>
@@ -42,7 +41,7 @@ SVGTests::RequiredExtensions()
   nsCOMPtr<nsIDOMSVGElement> elem = do_QueryInterface(this);
   nsSVGElement* element = static_cast<nsSVGElement*>(elem.get());
   return DOMSVGStringList::GetDOMWrapper(
-           &mStringListAttributes[EXTENSIONS], element, true, EXTENSIONS);
+      &mStringListAttributes[EXTENSIONS], element, true, EXTENSIONS);
 }
 
 already_AddRefed<DOMSVGStringList>
@@ -51,7 +50,7 @@ SVGTests::SystemLanguage()
   nsCOMPtr<nsIDOMSVGElement> elem = do_QueryInterface(this);
   nsSVGElement* element = static_cast<nsSVGElement*>(elem.get());
   return DOMSVGStringList::GetDOMWrapper(
-           &mStringListAttributes[LANGUAGE], element, true, LANGUAGE);
+      &mStringListAttributes[LANGUAGE], element, true, LANGUAGE);
 }
 
 bool
@@ -89,10 +88,10 @@ SVGTests::GetBestLanguagePreferenceRank(const nsAString& aAcceptLangs) const
       const nsAString& languageToken = languageTokenizer.nextToken();
       bool exactMatch = (languageToken == mStringListAttributes[LANGUAGE][i]);
       bool prefixOnlyMatch =
-        !exactMatch &&
-        nsStyleUtil::DashMatchCompare(mStringListAttributes[LANGUAGE][i],
-                                      languageTokenizer.nextToken(),
-                                      defaultComparator);
+          !exactMatch &&
+          nsStyleUtil::DashMatchCompare(mStringListAttributes[LANGUAGE][i],
+                                        languageTokenizer.nextToken(),
+                                        defaultComparator);
       if (index == 0 && exactMatch) {
         // best possible match
         return 0;
@@ -107,10 +106,10 @@ SVGTests::GetBestLanguagePreferenceRank(const nsAString& aAcceptLangs) const
   return lowestRank;
 }
 
-const nsString * const SVGTests::kIgnoreSystemLanguage = (nsString *) 0x01;
+const nsString* const SVGTests::kIgnoreSystemLanguage = (nsString*)0x01;
 
 bool
-SVGTests::PassesConditionalProcessingTests(const nsString *aAcceptLangs) const
+SVGTests::PassesConditionalProcessingTests(const nsString* aAcceptLangs) const
 {
   // Required Extensions
   //
@@ -124,7 +123,8 @@ SVGTests::PassesConditionalProcessingTests(const nsString *aAcceptLangs) const
       return false;
     }
     for (uint32_t i = 0; i < mStringListAttributes[EXTENSIONS].Length(); i++) {
-      if (!nsSVGFeatures::HasExtension(mStringListAttributes[EXTENSIONS][i], IsInChromeDoc())) {
+      if (!nsSVGFeatures::HasExtension(mStringListAttributes[EXTENSIONS][i],
+                                       IsInChromeDoc())) {
         return false;
       }
     }
@@ -155,7 +155,8 @@ SVGTests::PassesConditionalProcessingTests(const nsString *aAcceptLangs) const
     }
 
     if (acceptLangs.IsEmpty()) {
-      NS_WARNING("no default language specified for systemLanguage conditional test");
+      NS_WARNING(
+          "no default language specified for systemLanguage conditional test");
       return false;
     }
 
@@ -235,5 +236,5 @@ SVGTests::MaybeInvalidate()
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

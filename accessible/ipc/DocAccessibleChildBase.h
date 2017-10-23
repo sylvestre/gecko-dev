@@ -20,9 +20,8 @@ class AccShowEvent;
 
 class DocAccessibleChildBase : public PDocAccessibleChild
 {
-public:
-  explicit DocAccessibleChildBase(DocAccessible* aDoc)
-    : mDoc(aDoc)
+ public:
+  explicit DocAccessibleChildBase(DocAccessible* aDoc) : mDoc(aDoc)
   {
     MOZ_COUNT_CTOR(DocAccessibleChildBase);
   }
@@ -49,7 +48,8 @@ public:
    * Serializes a shown tree and sends it to the chrome process.
    */
   void InsertIntoIpcTree(Accessible* aParent,
-                         Accessible* aChild, uint32_t aIdxInParent);
+                         Accessible* aChild,
+                         uint32_t aIdxInParent);
   void ShowEvent(AccShowEvent* aShowEvent);
 
   virtual void ActorDestroy(ActorDestroyReason) override
@@ -62,12 +62,14 @@ public:
     mDoc = nullptr;
   }
 
-protected:
+ protected:
   static uint32_t InterfacesFor(Accessible* aAcc);
   static void SerializeTree(Accessible* aRoot, nsTArray<AccessibleData>& aTree);
 
   virtual void MaybeSendShowEvent(ShowEventData& aData, bool aFromUser)
-  { Unused << SendShowEvent(aData, aFromUser); }
+  {
+    Unused << SendShowEvent(aData, aFromUser);
+  }
 
   void DetachDocument()
   {
@@ -77,10 +79,10 @@ protected:
     }
   }
 
-  DocAccessible*  mDoc;
+  DocAccessible* mDoc;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_DocAccessibleChildBase_h
+#endif  // mozilla_a11y_DocAccessibleChildBase_h

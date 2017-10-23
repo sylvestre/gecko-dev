@@ -41,9 +41,7 @@
 
 using namespace mozilla::dom;
 
-NS_IMPL_ISUPPORTS(nsParserUtils,
-                  nsIScriptableUnescapeHTML,
-                  nsIParserUtils)
+NS_IMPL_ISUPPORTS(nsParserUtils, nsIScriptableUnescapeHTML, nsIParserUtils)
 
 NS_IMETHODIMP
 nsParserUtils::ConvertToPlainText(const nsAString& aFromStr,
@@ -51,21 +49,18 @@ nsParserUtils::ConvertToPlainText(const nsAString& aFromStr,
                                   uint32_t aWrapCol,
                                   nsAString& aToStr)
 {
-  return nsContentUtils::ConvertToPlainText(aFromStr,
-    aToStr,
-    aFlags,
-    aWrapCol);
+  return nsContentUtils::ConvertToPlainText(aFromStr, aToStr, aFlags, aWrapCol);
 }
 
 NS_IMETHODIMP
-nsParserUtils::Unescape(const nsAString& aFromStr,
-                        nsAString& aToStr)
+nsParserUtils::Unescape(const nsAString& aFromStr, nsAString& aToStr)
 {
-  return nsContentUtils::ConvertToPlainText(aFromStr,
-    aToStr,
-    nsIDocumentEncoder::OutputSelectionOnly |
-    nsIDocumentEncoder::OutputAbsoluteLinks,
-    0);
+  return nsContentUtils::ConvertToPlainText(
+      aFromStr,
+      aToStr,
+      nsIDocumentEncoder::OutputSelectionOnly |
+          nsIDocumentEncoder::OutputAbsoluteLinks,
+      0);
 }
 
 NS_IMETHODIMP
@@ -98,15 +93,15 @@ nsParserUtils::Sanitize(const nsAString& aFromStr,
   sanitizer.Sanitize(document);
 
   nsCOMPtr<nsIDocumentEncoder> encoder =
-    do_CreateInstance(NS_DOC_ENCODER_CONTRACTID_BASE "text/html");
+      do_CreateInstance(NS_DOC_ENCODER_CONTRACTID_BASE "text/html");
 
   encoder->NativeInit(document,
                       NS_LITERAL_STRING("text/html"),
                       nsIDocumentEncoder::OutputDontRewriteEncodingDeclaration |
-                      nsIDocumentEncoder::OutputNoScriptContent |
-                      nsIDocumentEncoder::OutputEncodeBasicEntities |
-                      nsIDocumentEncoder::OutputLFLineBreak |
-                      nsIDocumentEncoder::OutputRaw);
+                          nsIDocumentEncoder::OutputNoScriptContent |
+                          nsIDocumentEncoder::OutputEncodeBasicEntities |
+                          nsIDocumentEncoder::OutputLFLineBreak |
+                          nsIDocumentEncoder::OutputRaw);
 
   return encoder->EncodeToString(aToStr);
 }
@@ -118,12 +113,8 @@ nsParserUtils::ParseFragment(const nsAString& aFragment,
                              nsIDOMElement* aContextElement,
                              nsIDOMDocumentFragment** aReturn)
 {
-  return nsParserUtils::ParseFragment(aFragment,
-                                      0,
-                                      aIsXML,
-                                      aBaseURI,
-                                      aContextElement,
-                                      aReturn);
+  return nsParserUtils::ParseFragment(
+      aFragment, 0, aIsXML, aBaseURI, aContextElement, aReturn);
 }
 
 NS_IMETHODIMP
@@ -166,21 +157,14 @@ nsParserUtils::ParseFragment(const nsAString& aFragment,
   if (aIsXML) {
     // XHTML
     tagStack.AppendElement(NS_LITERAL_STRING(XHTML_DIV_TAG));
-    rv = nsContentUtils::ParseFragmentXML(aFragment,
-                                          document,
-                                          tagStack,
-                                          true,
-                                          aReturn);
+    rv = nsContentUtils::ParseFragmentXML(
+        aFragment, document, tagStack, true, aReturn);
     fragment = do_QueryInterface(*aReturn);
   } else {
     NS_ADDREF(*aReturn = new DocumentFragment(document->NodeInfoManager()));
     fragment = do_QueryInterface(*aReturn);
-    rv = nsContentUtils::ParseFragmentHTML(aFragment,
-                                           fragment,
-                                           nsGkAtoms::body,
-                                           kNameSpaceID_XHTML,
-                                           false,
-                                           true);
+    rv = nsContentUtils::ParseFragmentHTML(
+        aFragment, fragment, nsGkAtoms::body, kNameSpaceID_XHTML, false, true);
   }
   if (fragment) {
     nsTreeSanitizer sanitizer(aFlags);

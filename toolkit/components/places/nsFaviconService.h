@@ -26,22 +26,17 @@
 #include "FaviconHelpers.h"
 
 // The target dimension in pixels for favicons we store, in reverse order.
-static uint16_t sFaviconSizes[8] = {
-  256, 192, 144, 96, 64, 48, 32, 16
-};
+static uint16_t sFaviconSizes[8] = {256, 192, 144, 96, 64, 48, 32, 16};
 
 // forward class definitions
 class mozIStorageStatementCallback;
 
 class UnassociatedIconHashKey : public nsURIHashKey
 {
-public:
-  explicit UnassociatedIconHashKey(const nsIURI* aURI)
-  : nsURIHashKey(aURI)
-  {
-  }
+ public:
+  explicit UnassociatedIconHashKey(const nsIURI* aURI) : nsURIHashKey(aURI) {}
   UnassociatedIconHashKey(const UnassociatedIconHashKey& aOther)
-  : nsURIHashKey(aOther)
+      : nsURIHashKey(aOther)
   {
     NS_NOTREACHED("Do not call me!");
   }
@@ -49,12 +44,12 @@ public:
   PRTime created;
 };
 
-class nsFaviconService final : public nsIFaviconService
-                             , public mozIAsyncFavicons
-                             , public nsITimerCallback
-                             , public nsINamed
+class nsFaviconService final : public nsIFaviconService,
+                               public mozIAsyncFavicons,
+                               public nsITimerCallback,
+                               public nsINamed
 {
-public:
+ public:
   nsFaviconService();
 
   /**
@@ -75,7 +70,7 @@ public:
   {
     if (!gFaviconService) {
       nsCOMPtr<nsIFaviconService> serv =
-        do_GetService(NS_FAVICONSERVICE_CONTRACTID);
+          do_GetService(NS_FAVICONSERVICE_CONTRACTID);
       NS_ENSURE_TRUE(serv, nullptr);
       NS_ASSERTION(gFaviconService, "Should have static instance pointer now");
     }
@@ -88,7 +83,8 @@ public:
   static void ConvertUnsupportedPayloads(mozIStorageConnection* aDBConn);
 
   // addition to API for strings to prevent excessive parsing of URIs
-  nsresult GetFaviconLinkForIconString(const nsCString& aIcon, nsIURI** aOutput);
+  nsresult GetFaviconLinkForIconString(const nsCString& aIcon,
+                                       nsIURI** aOutput);
 
   nsresult OptimizeIconSizes(mozilla::places::IconData& aIcon);
 
@@ -115,7 +111,8 @@ public:
    * @param aGUID
    *        The unique ID associated with the page.
    */
-  void SendFaviconNotifications(nsIURI* aPageURI, nsIURI* aFaviconURI,
+  void SendFaviconNotifications(nsIURI* aPageURI,
+                                nsIURI* aFaviconURI,
                                 const nsACString& aGUID);
 
   static mozilla::Atomic<int64_t> sLastInsertedIconId;
@@ -128,8 +125,9 @@ public:
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
 
-private:
-  imgITools* GetImgTools() {
+ private:
+  imgITools* GetImgTools()
+  {
     if (!mImgTools) {
       mImgTools = do_CreateInstance("@mozilla.org/image/tools;1");
     }
@@ -165,4 +163,4 @@ private:
 
 #define FAVICON_ANNOTATION_NAME "favicon"
 
-#endif // nsFaviconService_h_
+#endif  // nsFaviconService_h_

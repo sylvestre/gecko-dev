@@ -12,13 +12,9 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/NodeInfoInlines.h"
 
-nsNthIndexCache::nsNthIndexCache()
-{
-}
+nsNthIndexCache::nsNthIndexCache() {}
 
-nsNthIndexCache::~nsNthIndexCache()
-{
-}
+nsNthIndexCache::~nsNthIndexCache() {}
 
 void
 nsNthIndexCache::Reset()
@@ -30,12 +26,13 @@ nsNthIndexCache::Reset()
 }
 
 inline bool
-nsNthIndexCache::SiblingMatchesElement(nsIContent* aSibling, Element* aElement,
+nsNthIndexCache::SiblingMatchesElement(nsIContent* aSibling,
+                                       Element* aElement,
                                        bool aIsOfType)
 {
   return aSibling->IsElement() &&
-    (!aIsOfType ||
-     aSibling->NodeInfo()->NameAndNamespaceEquals(aElement->NodeInfo()));
+         (!aIsOfType ||
+          aSibling->NodeInfo()->NameAndNamespaceEquals(aElement->NodeInfo()));
 }
 
 inline bool
@@ -70,8 +67,10 @@ nsNthIndexCache::IndexDeterminedFromPreviousSibling(nsIContent* aSibling,
 }
 
 int32_t
-nsNthIndexCache::GetNthIndex(Element* aChild, bool aIsOfType,
-                             bool aIsFromEnd, bool aCheckEdgeOnly)
+nsNthIndexCache::GetNthIndex(Element* aChild,
+                             bool aIsOfType,
+                             bool aIsFromEnd,
+                             bool aCheckEdgeOnly)
 {
   if (aChild->IsRootOfAnonymousSubtree()) {
     return 0;
@@ -102,8 +101,7 @@ nsNthIndexCache::GetNthIndex(Element* aChild, bool aIsOfType,
     // The caller only cares whether or not the result is 1, so we can
     // stop as soon as we see any other elements that match us.
     if (aIsFromEnd) {
-      for (nsIContent *cur = aChild->GetNextSibling();
-           cur;
+      for (nsIContent* cur = aChild->GetNextSibling(); cur;
            cur = cur->GetNextSibling()) {
         if (SiblingMatchesElement(cur, aChild, aIsOfType)) {
           result = -1;
@@ -111,8 +109,7 @@ nsNthIndexCache::GetNthIndex(Element* aChild, bool aIsOfType,
         }
       }
     } else {
-      for (nsIContent *cur = aChild->GetPreviousSibling();
-           cur;
+      for (nsIContent* cur = aChild->GetPreviousSibling(); cur;
            cur = cur->GetPreviousSibling()) {
         if (SiblingMatchesElement(cur, aChild, aIsOfType)) {
           result = -1;
@@ -123,11 +120,10 @@ nsNthIndexCache::GetNthIndex(Element* aChild, bool aIsOfType,
   } else {
     // In the common case, we already have a cached index for one of
     // our previous siblings, so check that first.
-    for (nsIContent *cur = aChild->GetPreviousSibling();
-         cur;
+    for (nsIContent* cur = aChild->GetPreviousSibling(); cur;
          cur = cur->GetPreviousSibling()) {
-      if (IndexDeterminedFromPreviousSibling(cur, aChild, aIsOfType,
-                                             aIsFromEnd, cache, result)) {
+      if (IndexDeterminedFromPreviousSibling(
+              cur, aChild, aIsOfType, aIsFromEnd, cache, result)) {
         slot = result;
         return result;
       }
@@ -140,8 +136,7 @@ nsNthIndexCache::GetNthIndex(Element* aChild, bool aIsOfType,
     // is not primed for them.
     if (aIsFromEnd) {
       result = 1;
-      for (nsIContent *cur = aChild->GetNextSibling();
-           cur;
+      for (nsIContent* cur = aChild->GetNextSibling(); cur;
            cur = cur->GetNextSibling()) {
         if (SiblingMatchesElement(cur, aChild, aIsOfType)) {
           ++result;

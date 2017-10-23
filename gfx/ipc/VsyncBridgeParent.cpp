@@ -15,26 +15,22 @@ VsyncBridgeParent::Start(Endpoint<PVsyncBridgeParent>&& aEndpoint)
   RefPtr<VsyncBridgeParent> parent = new VsyncBridgeParent();
 
   RefPtr<Runnable> task = NewRunnableMethod<Endpoint<PVsyncBridgeParent>&&>(
-    "gfx::VsyncBridgeParent::Open",
-    parent,
-    &VsyncBridgeParent::Open,
-    Move(aEndpoint));
+      "gfx::VsyncBridgeParent::Open",
+      parent,
+      &VsyncBridgeParent::Open,
+      Move(aEndpoint));
   CompositorThreadHolder::Loop()->PostTask(task.forget());
 
   return parent;
 }
 
-VsyncBridgeParent::VsyncBridgeParent()
- : mOpen(false)
+VsyncBridgeParent::VsyncBridgeParent() : mOpen(false)
 {
   MOZ_COUNT_CTOR(VsyncBridgeParent);
   mCompositorThreadRef = CompositorThreadHolder::GetSingleton();
 }
 
-VsyncBridgeParent::~VsyncBridgeParent()
-{
-  MOZ_COUNT_DTOR(VsyncBridgeParent);
-}
+VsyncBridgeParent::~VsyncBridgeParent() { MOZ_COUNT_DTOR(VsyncBridgeParent); }
 
 void
 VsyncBridgeParent::Open(Endpoint<PVsyncBridgeParent>&& aEndpoint)
@@ -48,7 +44,8 @@ VsyncBridgeParent::Open(Endpoint<PVsyncBridgeParent>&& aEndpoint)
 }
 
 mozilla::ipc::IPCResult
-VsyncBridgeParent::RecvNotifyVsync(const TimeStamp& aTimeStamp, const uint64_t& aLayersId)
+VsyncBridgeParent::RecvNotifyVsync(const TimeStamp& aTimeStamp,
+                                   const uint64_t& aLayersId)
 {
   CompositorBridgeParent::NotifyVsync(aTimeStamp, aLayersId);
   return IPC_OK();
@@ -90,5 +87,5 @@ VsyncBridgeParent::DeallocPVsyncBridgeParent()
   Release();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

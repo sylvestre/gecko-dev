@@ -17,32 +17,34 @@ class nsIStringBundleOverride;
 
 class nsStringBundle : public nsIStringBundle
 {
-public:
-    // init version
-    nsStringBundle(const char* aURLSpec, nsIStringBundleOverride*);
-    nsresult LoadProperties();
+ public:
+  // init version
+  nsStringBundle(const char* aURLSpec, nsIStringBundleOverride*);
+  nsresult LoadProperties();
 
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSISTRINGBUNDLE
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSISTRINGBUNDLE
 
-    nsCOMPtr<nsIPersistentProperties> mProps;
+  nsCOMPtr<nsIPersistentProperties> mProps;
 
-protected:
-    virtual ~nsStringBundle();
+ protected:
+  virtual ~nsStringBundle();
 
-    nsresult GetCombinedEnumeration(nsIStringBundleOverride* aOverrideString,
-                                    nsISimpleEnumerator** aResult);
-private:
-    nsCString              mPropertiesURL;
-    nsCOMPtr<nsIStringBundleOverride> mOverrideStrings;
-    mozilla::ReentrantMonitor    mReentrantMonitor;
-    bool                         mAttemptedLoad;
-    bool                         mLoaded;
+  nsresult GetCombinedEnumeration(nsIStringBundleOverride* aOverrideString,
+                                  nsISimpleEnumerator** aResult);
 
-public:
-    static nsresult FormatString(const char16_t *formatStr,
-                                 const char16_t **aParams, uint32_t aLength,
-                                 nsAString& aResult);
+ private:
+  nsCString mPropertiesURL;
+  nsCOMPtr<nsIStringBundleOverride> mOverrideStrings;
+  mozilla::ReentrantMonitor mReentrantMonitor;
+  bool mAttemptedLoad;
+  bool mLoaded;
+
+ public:
+  static nsresult FormatString(const char16_t* formatStr,
+                               const char16_t** aParams,
+                               uint32_t aLength,
+                               nsAString& aResult);
 };
 
 class nsExtensibleStringBundle;
@@ -58,18 +60,16 @@ class nsExtensibleStringBundle final : public nsIStringBundle
   NS_DECL_ISUPPORTS
   NS_DECL_NSISTRINGBUNDLE
 
-  nsresult Init(const char * aCategory, nsIStringBundleService *);
+  nsresult Init(const char* aCategory, nsIStringBundleService*);
 
-public:
+ public:
   nsExtensibleStringBundle();
 
-private:
+ private:
   virtual ~nsExtensibleStringBundle();
 
   nsCOMArray<nsIStringBundle> mBundles;
   bool mLoaded;
 };
-
-
 
 #endif

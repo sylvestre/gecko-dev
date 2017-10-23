@@ -26,51 +26,41 @@ struct FlyWebPublishOptions;
 class FlyWebPublishedServer;
 
 typedef MozPromise<RefPtr<FlyWebPublishedServer>, nsresult, false>
-  FlyWebPublishPromise;
+    FlyWebPublishPromise;
 
 class FlyWebPublishedServer : public mozilla::DOMEventTargetHelper
 {
-public:
+ public:
   FlyWebPublishedServer(nsPIDOMWindowInner* aOwner,
                         const nsAString& aName,
                         const FlyWebPublishOptions& aOptions);
 
   virtual void LastRelease() override;
 
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  uint64_t OwnerWindowID() const {
-    return mOwnerWindowID;
-  }
+  uint64_t OwnerWindowID() const { return mOwnerWindowID; }
 
-  void GetName(nsAString& aName)
-  {
-    aName = mName;
-  }
-  nsAString& Name()
-  {
-    return mName;
-  }
+  void GetName(nsAString& aName) { aName = mName; }
+  nsAString& Name() { return mName; }
 
-  void GetUiUrl(nsAString& aUiUrl)
-  {
-    aUiUrl = mUiUrl;
-  }
+  void GetUiUrl(nsAString& aUiUrl) { aUiUrl = mUiUrl; }
 
   virtual void PermissionGranted(bool aGranted) = 0;
 
   virtual void OnFetchResponse(InternalRequest* aRequest,
                                InternalResponse* aResponse) = 0;
-  already_AddRefed<WebSocket>
-    OnWebSocketAccept(InternalRequest* aConnectRequest,
-                      const Optional<nsAString>& aProtocol,
-                      ErrorResult& aRv);
+  already_AddRefed<WebSocket> OnWebSocketAccept(
+      InternalRequest* aConnectRequest,
+      const Optional<nsAString>& aProtocol,
+      ErrorResult& aRv);
   virtual void OnWebSocketResponse(InternalRequest* aConnectRequest,
                                    InternalResponse* aResponse) = 0;
-  virtual already_AddRefed<nsITransportProvider>
-    OnWebSocketAcceptInternal(InternalRequest* aConnectRequest,
-                              const Optional<nsAString>& aProtocol,
-                              ErrorResult& aRv) = 0;
+  virtual already_AddRefed<nsITransportProvider> OnWebSocketAcceptInternal(
+      InternalRequest* aConnectRequest,
+      const Optional<nsAString>& aProtocol,
+      ErrorResult& aRv) = 0;
 
   virtual void Close();
 
@@ -82,13 +72,12 @@ public:
   IMPL_EVENT_HANDLER(websocket)
   IMPL_EVENT_HANDLER(close)
 
-  already_AddRefed<FlyWebPublishPromise>
-  GetPublishPromise()
+  already_AddRefed<FlyWebPublishPromise> GetPublishPromise()
   {
     return mPublishPromise.Ensure(__func__);
   }
 
-protected:
+ protected:
   virtual ~FlyWebPublishedServer()
   {
     MOZ_ASSERT(!mIsRegistered, "Subclass dtor forgot to call Close()");
@@ -103,7 +92,7 @@ protected:
   bool mIsRegistered;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlyWebPublishedServer_h
+#endif  // mozilla_dom_FlyWebPublishedServer_h

@@ -41,8 +41,7 @@ class MainThreadChannelEvent : public ChannelEvent
   MainThreadChannelEvent() { MOZ_COUNT_CTOR(MainThreadChannelEvent); }
   virtual ~MainThreadChannelEvent() { MOZ_COUNT_DTOR(MainThreadChannelEvent); }
 
-  already_AddRefed<nsIEventTarget>
-  GetEventTarget() override
+  already_AddRefed<nsIEventTarget> GetEventTarget() override
   {
     MOZ_ASSERT(XRE_IsParentProcess());
 
@@ -57,9 +56,8 @@ class MainThreadChannelEvent : public ChannelEvent
 template<typename T>
 class NeckoTargetChannelEvent : public ChannelEvent
 {
-public:
-  explicit NeckoTargetChannelEvent(T *aChild)
-    : mChild(aChild)
+ public:
+  explicit NeckoTargetChannelEvent(T* aChild) : mChild(aChild)
   {
     MOZ_COUNT_CTOR(NeckoTargetChannelEvent);
   }
@@ -68,16 +66,15 @@ public:
     MOZ_COUNT_DTOR(NeckoTargetChannelEvent);
   }
 
-  already_AddRefed<nsIEventTarget>
-  GetEventTarget() override
+  already_AddRefed<nsIEventTarget> GetEventTarget() override
   {
     MOZ_ASSERT(mChild);
 
     return mChild->GetNeckoTarget();
   }
 
-protected:
-  T *mChild;
+ protected:
+  T* mChild;
 };
 
 // Workaround for Necko re-entrancy dangers. We buffer IPDL messages in a
@@ -92,15 +89,16 @@ class ChannelEventQueue final
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ChannelEventQueue)
 
  public:
-  explicit ChannelEventQueue(nsISupports *owner)
-    : mSuspendCount(0)
-    , mSuspended(false)
-    , mForcedCount(0)
-    , mFlushing(false)
-    , mOwner(owner)
-    , mMutex("ChannelEventQueue::mMutex")
-    , mRunningMutex("ChannelEventQueue::mRunningMutex")
-  {}
+  explicit ChannelEventQueue(nsISupports* owner)
+      : mSuspendCount(0),
+        mSuspended(false),
+        mForcedCount(0),
+        mFlushing(false),
+        mOwner(owner),
+        mMutex("ChannelEventQueue::mMutex"),
+        mRunningMutex("ChannelEventQueue::mRunningMutex")
+  {
+  }
 
   // Puts IPDL-generated channel event into queue, to be run later
   // automatically when EndForcedQueueing and/or Resume is called.
@@ -133,9 +131,7 @@ class ChannelEventQueue final
 
  private:
   // Private destructor, to discourage deletion outside of Release():
-  ~ChannelEventQueue()
-  {
-  }
+  ~ChannelEventQueue() {}
 
   void SuspendInternal();
   void ResumeInternal();
@@ -150,11 +146,11 @@ class ChannelEventQueue final
 
   uint32_t mSuspendCount;
   bool mSuspended;
-  uint32_t mForcedCount; // Support ForcedQueueing on multiple thread.
+  uint32_t mForcedCount;  // Support ForcedQueueing on multiple thread.
   bool mFlushing;
 
   // Keep ptr to avoid refcount cycle: only grab ref during flushing.
-  nsISupports *mOwner;
+  nsISupports* mOwner;
 
   // For atomic mEventQueue operation and state update
   Mutex mMutex;
@@ -175,7 +171,7 @@ ChannelEventQueue::RunOrEnqueue(ChannelEvent* aCallback,
   // destructor) unless we make sure its refcount doesn't drop to 0 while this
   // method is running.
   nsCOMPtr<nsISupports> kungFuDeathGrip(mOwner);
-  Unused << kungFuDeathGrip; // Not used in this function
+  Unused << kungFuDeathGrip;  // Not used in this function
 
   // To avoid leaks.
   UniquePtr<ChannelEvent> event(aCallback);
@@ -187,7 +183,8 @@ ChannelEventQueue::RunOrEnqueue(ChannelEvent* aCallback,
   {
     MutexAutoLock lock(mMutex);
 
-    bool enqueue =  !!mForcedCount || mSuspended || mFlushing || !mEventQueue.IsEmpty();
+    bool enqueue =
+        !!mForcedCount || mSuspended || mFlushing || !mEventQueue.IsEmpty();
 
     if (enqueue) {
       mEventQueue.AppendElement(Move(event));
@@ -229,7 +226,7 @@ ChannelEventQueue::EndForcedQueueing()
   {
     MutexAutoLock lock(mMutex);
     MOZ_ASSERT(mForcedCount > 0);
-    if(!--mForcedCount) {
+    if (!--mForcedCount) {
       tryFlush = true;
     }
   }
@@ -251,7 +248,7 @@ ChannelEventQueue::PrependEvent(UniquePtr<ChannelEvent>& aEvent)
   MOZ_ASSERT(mSuspended || !!mForcedCount);
 
   UniquePtr<ChannelEvent>* newEvent =
-    mEventQueue.InsertElementAt(0, Move(aEvent));
+      mEventQueue.InsertElementAt(0, Move(aEvent));
 
   if (!newEvent) {
     return NS_ERROR_OUT_OF_MEMORY;
@@ -272,7 +269,7 @@ ChannelEventQueue::PrependEvents(nsTArray<UniquePtr<ChannelEvent>>& aEvents)
   MOZ_ASSERT(mSuspended || !!mForcedCount);
 
   UniquePtr<ChannelEvent>* newEvents =
-    mEventQueue.InsertElementsAt(0, aEvents.Length());
+      mEventQueue.InsertElementsAt(0, aEvents.Length());
   if (!newEvents) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -316,8 +313,8 @@ ChannelEventQueue::MaybeFlushQueue()
 
   {
     MutexAutoLock lock(mMutex);
-    flushQueue = !mForcedCount && !mFlushing && !mSuspended &&
-                 !mEventQueue.IsEmpty();
+    flushQueue =
+        !mForcedCount && !mFlushing && !mSuspended && !mEventQueue.IsEmpty();
   }
 
   if (flushQueue) {
@@ -331,22 +328,20 @@ ChannelEventQueue::MaybeFlushQueue()
 class MOZ_STACK_CLASS AutoEventEnqueuer
 {
  public:
-  explicit AutoEventEnqueuer(ChannelEventQueue *queue)
-    : mEventQueue(queue)
-    , mOwner(queue->mOwner)
+  explicit AutoEventEnqueuer(ChannelEventQueue* queue)
+      : mEventQueue(queue), mOwner(queue->mOwner)
   {
     mEventQueue->StartForcedQueueing();
   }
-  ~AutoEventEnqueuer() {
-    mEventQueue->EndForcedQueueing();
-  }
+  ~AutoEventEnqueuer() { mEventQueue->EndForcedQueueing(); }
+
  private:
   RefPtr<ChannelEventQueue> mEventQueue;
   // Ensure channel object lives longer than ChannelEventQueue.
   nsCOMPtr<nsISupports> mOwner;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

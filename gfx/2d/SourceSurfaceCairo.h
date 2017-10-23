@@ -15,14 +15,15 @@ class DrawTargetCairo;
 
 class SourceSurfaceCairo : public SourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SourceSurfaceCairo)
   // Create a SourceSurfaceCairo. The surface will not be copied, but simply
   // referenced.
   // If aDrawTarget is non-nullptr, it is assumed that this is a snapshot source
   // surface, and we'll call DrawTargetCairo::RemoveSnapshot(this) on it when
   // we're destroyed.
-  SourceSurfaceCairo(cairo_surface_t* aSurface, const IntSize& aSize,
+  SourceSurfaceCairo(cairo_surface_t* aSurface,
+                     const IntSize& aSize,
                      const SurfaceFormat& aFormat,
                      DrawTargetCairo* aDrawTarget = nullptr);
   virtual ~SourceSurfaceCairo();
@@ -34,11 +35,11 @@ public:
 
   cairo_surface_t* GetSurface() const;
 
-private: // methods
+ private:  // methods
   friend class DrawTargetCairo;
   void DrawTargetWillChange();
 
-private: // data
+ private:  // data
   IntSize mSize;
   SurfaceFormat mFormat;
   cairo_surface_t* mSurface;
@@ -47,11 +48,11 @@ private: // data
 
 class DataSourceSurfaceCairo : public DataSourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceCairo)
   explicit DataSourceSurfaceCairo(cairo_surface_t* imageSurf);
   virtual ~DataSourceSurfaceCairo();
-  virtual unsigned char *GetData();
+  virtual unsigned char* GetData();
   virtual int32_t Stride();
 
   virtual SurfaceType GetType() const { return SurfaceType::CAIRO_IMAGE; }
@@ -60,11 +61,11 @@ public:
 
   cairo_surface_t* GetSurface() const;
 
-private:
+ private:
   cairo_surface_t* mImageSurface;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // _MOZILLA_GFX_OP_SOURCESURFACE_CAIRO_H
+#endif  // _MOZILLA_GFX_OP_SOURCESURFACE_CAIRO_H

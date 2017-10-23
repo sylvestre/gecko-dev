@@ -6,28 +6,28 @@
 #include "mozilla/Attributes.h"
 #include "nsGridRowLeafFrame.h"
 
-nsIFrame* NS_NewListItemFrame(nsIPresShell* aPresShell,
-                              nsStyleContext *aContext);
+nsIFrame*
+NS_NewListItemFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsListItemFrame final : public nsGridRowLeafFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsListItemFrame)
 
   friend nsIFrame* NS_NewListItemFrame(nsIPresShell* aPresShell,
-                                       nsStyleContext *aContext);
+                                       nsStyleContext* aContext);
 
   // overridden so that children of listitems don't handle mouse events,
   // unless allowevents="true" is specified on the listitem
-  virtual void BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
-                                           const nsDisplayListSet& aLists) override;
+  virtual void BuildDisplayListForChildren(
+      nsDisplayListBuilder* aBuilder, const nsDisplayListSet& aLists) override;
 
   virtual nsSize GetXULPrefSize(nsBoxLayoutState& aState) override;
 
-protected:
-  explicit nsListItemFrame(nsStyleContext *aContext,
+ protected:
+  explicit nsListItemFrame(nsStyleContext* aContext,
                            bool aIsRoot = false,
                            nsBoxLayout* aLayoutManager = nullptr);
   virtual ~nsListItemFrame();
 
-}; // class nsListItemFrame
+};  // class nsListItemFrame

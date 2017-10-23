@@ -8,16 +8,10 @@
 #include "nsString.h"
 
 NS_IMETHODIMP_(MozExternalRefCountType)
-GenericClassInfo::AddRef()
-{
-  return 2;
-}
+GenericClassInfo::AddRef() { return 2; }
 
 NS_IMETHODIMP_(MozExternalRefCountType)
-GenericClassInfo::Release()
-{
-  return 1;
-}
+GenericClassInfo::Release() { return 1; }
 
 NS_IMPL_QUERY_INTERFACE(GenericClassInfo, nsIClassInfo)
 

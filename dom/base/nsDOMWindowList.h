@@ -16,7 +16,7 @@ class nsIDOMWindow;
 
 class nsDOMWindowList : public nsIDOMWindowCollection
 {
-public:
+ public:
   explicit nsDOMWindowList(nsIDocShell* aDocShell);
 
   NS_DECL_ISUPPORTS
@@ -37,13 +37,13 @@ public:
     return item.forget();
   }
 
-protected:
+ protected:
   virtual ~nsDOMWindowList();
 
   // Note: this function may flush and cause mDocShellNode to become null.
   void EnsureFresh();
 
-  nsIDocShell* mDocShellNode; //Weak Reference
+  nsIDocShell* mDocShellNode;  //Weak Reference
 };
 
-#endif // nsDOMWindowList_h___
+#endif  // nsDOMWindowList_h___

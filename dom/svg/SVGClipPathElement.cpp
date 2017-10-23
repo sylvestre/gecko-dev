@@ -16,24 +16,22 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGClipPathElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGClipPathElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGClipPathElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::EnumInfo SVGClipPathElement::sEnumInfo[1] =
-{
-  { &nsGkAtoms::clipPathUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_USERSPACEONUSE
-  }
-};
+nsSVGElement::EnumInfo SVGClipPathElement::sEnumInfo[1] = {
+    {&nsGkAtoms::clipPathUnits,
+     sSVGUnitTypesMap,
+     SVG_UNIT_TYPE_USERSPACEONUSE}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGClipPathElement::SVGClipPathElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGClipPathElementBase(aNodeInfo)
+SVGClipPathElement::SVGClipPathElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGClipPathElementBase(aNodeInfo)
 {
 }
 
@@ -46,8 +44,7 @@ SVGClipPathElement::ClipPathUnits()
 nsSVGElement::EnumAttributesInfo
 SVGClipPathElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 //----------------------------------------------------------------------
@@ -55,5 +52,5 @@ SVGClipPathElement::GetEnumInfo()
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGClipPathElement)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

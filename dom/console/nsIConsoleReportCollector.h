@@ -14,14 +14,19 @@
 
 class nsIDocument;
 
-#define NS_NSICONSOLEREPORTCOLLECTOR_IID \
-  {0xdd98a481, 0xd2c4, 0x4203, {0x8d, 0xfa, 0x85, 0xbf, 0xd7, 0xdc, 0xd7, 0x05}}
+#define NS_NSICONSOLEREPORTCOLLECTOR_IID             \
+  {                                                  \
+    0xdd98a481, 0xd2c4, 0x4203,                      \
+    {                                                \
+      0x8d, 0xfa, 0x85, 0xbf, 0xd7, 0xdc, 0xd7, 0x05 \
+    }                                                \
+  }
 
 // An interface for saving reports until we can flush them to the correct
 // window at a later time.
 class NS_NO_VTABLE nsIConsoleReportCollector : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_NSICONSOLEREPORTCOLLECTOR_IID)
 
   // Add a pending report to be later displayed on the console.  This may be
@@ -40,35 +45,46 @@ public:
   //                  properties file.
   // aStringParams    An array of nsString parameters to use when localizing the
   //                  message.
-  virtual void
-  AddConsoleReport(uint32_t aErrorFlags, const nsACString& aCategory,
-                   nsContentUtils::PropertiesFile aPropertiesFile,
-                   const nsACString& aSourceFileURI, uint32_t aLineNumber,
-                   uint32_t aColumnNumber, const nsACString& aMessageName,
-                   const nsTArray<nsString>& aStringParams) = 0;
+  virtual void AddConsoleReport(uint32_t aErrorFlags,
+                                const nsACString& aCategory,
+                                nsContentUtils::PropertiesFile aPropertiesFile,
+                                const nsACString& aSourceFileURI,
+                                uint32_t aLineNumber,
+                                uint32_t aColumnNumber,
+                                const nsACString& aMessageName,
+                                const nsTArray<nsString>& aStringParams) = 0;
 
   // A version of AddConsoleReport() that accepts the message parameters
   // as variable nsString arguments (or really, any sort of const nsAString).
   // All other args the same as AddConsoleReport().
   template<typename... Params>
-  void
-  AddConsoleReport(uint32_t aErrorFlags, const nsACString& aCategory,
-                   nsContentUtils::PropertiesFile aPropertiesFile,
-                   const nsACString& aSourceFileURI, uint32_t aLineNumber,
-                   uint32_t aColumnNumber, const nsACString& aMessageName,
-                   Params&&... aParams)
+  void AddConsoleReport(uint32_t aErrorFlags,
+                        const nsACString& aCategory,
+                        nsContentUtils::PropertiesFile aPropertiesFile,
+                        const nsACString& aSourceFileURI,
+                        uint32_t aLineNumber,
+                        uint32_t aColumnNumber,
+                        const nsACString& aMessageName,
+                        Params&&... aParams)
   {
     nsTArray<nsString> params;
-    mozilla::dom::StringArrayAppender::Append(params, sizeof...(Params),
-                                              mozilla::Forward<Params>(aParams)...);
-    AddConsoleReport(aErrorFlags, aCategory, aPropertiesFile, aSourceFileURI,
-                     aLineNumber, aColumnNumber, aMessageName, params);
+    mozilla::dom::StringArrayAppender::Append(
+        params, sizeof...(Params), mozilla::Forward<Params>(aParams)...);
+    AddConsoleReport(aErrorFlags,
+                     aCategory,
+                     aPropertiesFile,
+                     aSourceFileURI,
+                     aLineNumber,
+                     aColumnNumber,
+                     aMessageName,
+                     params);
   }
 
   // An enum calss to indicate whether should free the pending reports or not.
   // Forget        Free the pending reports.
   // Save          Keep the pending reports.
-  enum class ReportAction {
+  enum class ReportAction
+  {
     Forget,
     Save
   };
@@ -78,9 +94,8 @@ public:
   // aInnerWindowID A inner window ID representing where to flush the reports.
   // aAction        An action to determine whether to reserve the pending
   //                reports. Defalut action is to forget the report.
-  virtual void
-  FlushReportsToConsole(uint64_t aInnerWindowID,
-                        ReportAction aAction = ReportAction::Forget) = 0;
+  virtual void FlushReportsToConsole(
+      uint64_t aInnerWindowID, ReportAction aAction = ReportAction::Forget) = 0;
 
   // Flush all pending reports to the console.  Main thread only.
   //
@@ -90,9 +105,8 @@ public:
   //                go to the browser console.
   // aAction        An action to determine whether to reserve the pending
   //                reports. Defalut action is to forget the report.
-  virtual void
-  FlushConsoleReports(nsIDocument* aDocument,
-                      ReportAction aAction = ReportAction::Forget) = 0;
+  virtual void FlushConsoleReports(
+      nsIDocument* aDocument, ReportAction aAction = ReportAction::Forget) = 0;
 
   // Flush all pending reports to the console.  May be called from any thread.
   //
@@ -102,24 +116,22 @@ public:
   //                go to the browser console.
   // aAction        An action to determine whether to reserve the pending
   //                reports. Defalut action is to forget the report.
-  virtual void
-  FlushConsoleReports(nsILoadGroup* aLoadGroup,
-                      ReportAction aAction = ReportAction::Forget) = 0;
-
+  virtual void FlushConsoleReports(
+      nsILoadGroup* aLoadGroup,
+      ReportAction aAction = ReportAction::Forget) = 0;
 
   // Flush all pending reports to another collector.  May be called from any
   // thread.
   //
   // aCollector     A required collector object that will effectively take
   //                ownership of our currently console reports.
-  virtual void
-  FlushConsoleReports(nsIConsoleReportCollector* aCollector) = 0;
+  virtual void FlushConsoleReports(nsIConsoleReportCollector* aCollector) = 0;
 
   // Clear all pending reports.
-  virtual void
-  ClearConsoleReports() = 0;
+  virtual void ClearConsoleReports() = 0;
 };
 
-NS_DEFINE_STATIC_IID_ACCESSOR(nsIConsoleReportCollector, NS_NSICONSOLEREPORTCOLLECTOR_IID)
+NS_DEFINE_STATIC_IID_ACCESSOR(nsIConsoleReportCollector,
+                              NS_NSICONSOLEREPORTCOLLECTOR_IID)
 
-#endif // nsIConsoleReportCollector_h
+#endif  // nsIConsoleReportCollector_h

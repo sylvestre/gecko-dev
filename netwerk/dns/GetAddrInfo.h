@@ -39,8 +39,12 @@ class AddrInfo;
  *     retrieved if DNS provides the answers..
  */
 nsresult
-GetAddrInfo(const char* aHost, uint16_t aAddressFamily, uint16_t aFlags,
-            const char* aNetworkInterface, AddrInfo** aAddrInfo, bool aGetTtl);
+GetAddrInfo(const char* aHost,
+            uint16_t aAddressFamily,
+            uint16_t aFlags,
+            const char* aNetworkInterface,
+            AddrInfo** aAddrInfo,
+            bool aGetTtl);
 
 /**
  * Initialize the GetAddrInfo module.
@@ -61,7 +65,7 @@ GetAddrInfoInit();
 nsresult
 GetAddrInfoShutdown();
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // netwerk_dns_GetAddrInfo_h
+#endif  // netwerk_dns_GetAddrInfo_h

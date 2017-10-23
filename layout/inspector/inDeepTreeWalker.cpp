@@ -26,25 +26,22 @@
 ////////////////////////////////////////////////////
 
 inDeepTreeWalker::inDeepTreeWalker()
-  : mShowAnonymousContent(false),
-    mShowSubDocuments(false),
-    mShowDocumentsAsNodes(false),
-    mWhatToShow(nsIDOMNodeFilter::SHOW_ALL)
+    : mShowAnonymousContent(false),
+      mShowSubDocuments(false),
+      mShowDocumentsAsNodes(false),
+      mWhatToShow(nsIDOMNodeFilter::SHOW_ALL)
 {
 }
 
-inDeepTreeWalker::~inDeepTreeWalker()
-{
-}
+inDeepTreeWalker::~inDeepTreeWalker() {}
 
-NS_IMPL_ISUPPORTS(inDeepTreeWalker,
-                  inIDeepTreeWalker)
+NS_IMPL_ISUPPORTS(inDeepTreeWalker, inIDeepTreeWalker)
 
 ////////////////////////////////////////////////////
 // inIDeepTreeWalker
 
 NS_IMETHODIMP
-inDeepTreeWalker::GetShowAnonymousContent(bool *aShowAnonymousContent)
+inDeepTreeWalker::GetShowAnonymousContent(bool* aShowAnonymousContent)
 {
   *aShowAnonymousContent = mShowAnonymousContent;
   return NS_OK;
@@ -58,7 +55,7 @@ inDeepTreeWalker::SetShowAnonymousContent(bool aShowAnonymousContent)
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::GetShowSubDocuments(bool *aShowSubDocuments)
+inDeepTreeWalker::GetShowSubDocuments(bool* aShowSubDocuments)
 {
   *aShowSubDocuments = mShowSubDocuments;
   return NS_OK;
@@ -72,7 +69,7 @@ inDeepTreeWalker::SetShowSubDocuments(bool aShowSubDocuments)
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::GetShowDocumentsAsNodes(bool *aShowDocumentsAsNodes)
+inDeepTreeWalker::GetShowDocumentsAsNodes(bool* aShowDocumentsAsNodes)
 {
   *aShowDocumentsAsNodes = mShowDocumentsAsNodes;
   return NS_OK;
@@ -141,8 +138,8 @@ inDeepTreeWalker::GetParent()
 
   nsCOMPtr<nsIDOMNode> parent;
   MOZ_ASSERT(mDOMUtils, "mDOMUtils should have been initiated already in Init");
-  mDOMUtils->GetParentForNode(mCurrentNode, mShowAnonymousContent,
-                              getter_AddRefs(parent));
+  mDOMUtils->GetParentForNode(
+      mCurrentNode, mShowAnonymousContent, getter_AddRefs(parent));
 
   uint16_t nodeType = 0;
   if (parent) {
@@ -150,11 +147,10 @@ inDeepTreeWalker::GetParent()
   }
   // For compatibility reasons by default we skip the document nodes
   // from the walk.
-  if (!mShowDocumentsAsNodes &&
-      nodeType == nsIDOMNode::DOCUMENT_NODE &&
+  if (!mShowDocumentsAsNodes && nodeType == nsIDOMNode::DOCUMENT_NODE &&
       parent != mRoot) {
-    mDOMUtils->GetParentForNode(parent, mShowAnonymousContent,
-                                getter_AddRefs(parent));
+    mDOMUtils->GetParentForNode(
+        parent, mShowAnonymousContent, getter_AddRefs(parent));
   }
 
   return parent.forget();
@@ -177,7 +173,7 @@ GetChildren(nsIDOMNode* aParent,
 
   nsCOMPtr<nsIContent> parentAsContent = do_QueryInterface(aParent);
   if (parentAsContent && aShowAnonymousContent) {
-      ret = parentAsContent->GetChildren(nsIContent::eAllChildren);
+    ret = parentAsContent->GetChildren(nsIContent::eAllChildren);
   } else {
     // If it's not a content, then it's a document (or an attribute but we can ignore that
     // case here). If aShowAnonymousContent is false we also want to fall back to ChildNodes
@@ -209,7 +205,6 @@ inDeepTreeWalker::SetCurrentNode(nsIDOMNode* aCurrentNode)
   return SetCurrentNode(aCurrentNode, nullptr);
 }
 
-
 nsresult
 inDeepTreeWalker::SetCurrentNode(nsIDOMNode* aCurrentNode,
                                  nsINodeList* aSiblings)
@@ -234,9 +229,7 @@ inDeepTreeWalker::SetCurrentNode(nsIDOMNode* aCurrentNode,
   if (!mSiblings && nodeType != nsIDOMNode::DOCUMENT_NODE) {
     nsCOMPtr<nsIDOMNode> parent = GetParent();
     if (parent) {
-      mSiblings = GetChildren(parent,
-                              mShowAnonymousContent,
-                              mShowSubDocuments);
+      mSiblings = GetChildren(parent, mShowAnonymousContent, mShowSubDocuments);
     }
   }
 
@@ -278,7 +271,7 @@ inDeepTreeWalker::ParentNode(nsIDOMNode** _retval)
   }
 
   nsresult rv = SetCurrentNode(parent);
-  NS_ENSURE_SUCCESS(rv,rv);
+  NS_ENSURE_SUCCESS(rv, rv);
 
   parent.forget(_retval);
   return NS_OK;
@@ -305,9 +298,8 @@ inDeepTreeWalker::EdgeChild(nsIDOMNode** _retval, bool aFront)
 
   nsCOMPtr<nsINodeList> children;
   if (!echild) {
-    children = GetChildren(mCurrentNode,
-                           mShowAnonymousContent,
-                           mShowSubDocuments);
+    children =
+        GetChildren(mCurrentNode, mShowAnonymousContent, mShowSubDocuments);
     if (children && children->Length() > 0) {
       nsINode* childNode = children->Item(aFront ? 0 : children->Length() - 1);
       echild = childNode ? childNode->AsDOMNode() : nullptr;
@@ -330,13 +322,13 @@ inDeepTreeWalker::FirstChild(nsIDOMNode** _retval)
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::LastChild(nsIDOMNode **_retval)
+inDeepTreeWalker::LastChild(nsIDOMNode** _retval)
 {
   return EdgeChild(_retval, /* aFront = */ false);
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::PreviousSibling(nsIDOMNode **_retval)
+inDeepTreeWalker::PreviousSibling(nsIDOMNode** _retval)
 {
   *_retval = nullptr;
   if (!mCurrentNode || !mSiblings || mCurrentIndex < 1) {
@@ -350,11 +342,11 @@ inDeepTreeWalker::PreviousSibling(nsIDOMNode **_retval)
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::NextSibling(nsIDOMNode **_retval)
+inDeepTreeWalker::NextSibling(nsIDOMNode** _retval)
 {
   *_retval = nullptr;
   if (!mCurrentNode || !mSiblings ||
-      mCurrentIndex + 1 >= (int32_t) mSiblings->Length()) {
+      mCurrentIndex + 1 >= (int32_t)mSiblings->Length()) {
     return NS_OK;
   }
 
@@ -365,7 +357,7 @@ inDeepTreeWalker::NextSibling(nsIDOMNode **_retval)
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::PreviousNode(nsIDOMNode **_retval)
+inDeepTreeWalker::PreviousNode(nsIDOMNode** _retval)
 {
   if (!mCurrentNode || mCurrentNode == mRoot) {
     // Nowhere to go from here
@@ -394,7 +386,7 @@ inDeepTreeWalker::PreviousNode(nsIDOMNode **_retval)
 }
 
 NS_IMETHODIMP
-inDeepTreeWalker::NextNode(nsIDOMNode **_retval)
+inDeepTreeWalker::NextNode(nsIDOMNode** _retval)
 {
   if (!mCurrentNode) {
     return NS_OK;
@@ -407,8 +399,8 @@ inDeepTreeWalker::NextNode(nsIDOMNode **_retval)
     return NS_OK;
   }
 
-  // Now keep trying next siblings up the parent chain, but if we
-  // discover there's nothing else restore our state.
+    // Now keep trying next siblings up the parent chain, but if we
+    // discover there's nothing else restore our state.
 #ifdef DEBUG
   nsIDOMNode* origCurrentNode = mCurrentNode;
 #endif

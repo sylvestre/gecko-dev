@@ -13,156 +13,170 @@
 
 typedef struct _D3DKMTQS_COUNTER
 {
-    ULONG Count;
-    ULONGLONG Bytes;
+  ULONG Count;
+  ULONGLONG Bytes;
 } D3DKMTQS_COUNTER;
 
 typedef struct _D3DKMTQS_ADAPTER_INFO
 {
-    ULONG NbSegments;
+  ULONG NbSegments;
 
+  ULONG Filler[4];
+  ULONGLONG Filler2[2];  // Assumed sizeof(LONGLONG) = sizeof(ULONGLONG)
+  struct
+  {
+    ULONG Filler[14];
+  } Filler_RDMAB;
+  struct
+  {
+    ULONG Filler[9];
+  } Filler_R;
+  struct
+  {
     ULONG Filler[4];
-    ULONGLONG Filler2[2]; // Assumed sizeof(LONGLONG) = sizeof(ULONGLONG)
-    struct {
-        ULONG Filler[14];
-    } Filler_RDMAB;
-    struct {
-        ULONG Filler[9];
-    } Filler_R;
-    struct {
-        ULONG Filler[4];
-        D3DKMTQS_COUNTER Filler2;
-    } Filler_P;
-    struct {
-        D3DKMTQS_COUNTER Filler[16];
-        ULONG Filler2[2];
-    } Filler_PF;
-    struct {
-        ULONGLONG Filler[8];
-    } Filler_PT;
-    struct {
-        ULONG Filler[2];
-    } Filler_SR;
-    struct {
-        ULONG Filler[7];
-    } Filler_L;
-    struct {
-        D3DKMTQS_COUNTER Filler[7];
-    } Filler_A;
-    struct {
-        D3DKMTQS_COUNTER Filler[4];
-    } Filler_T;
-    ULONG64 Reserved[8];
+    D3DKMTQS_COUNTER Filler2;
+  } Filler_P;
+  struct
+  {
+    D3DKMTQS_COUNTER Filler[16];
+    ULONG Filler2[2];
+  } Filler_PF;
+  struct
+  {
+    ULONGLONG Filler[8];
+  } Filler_PT;
+  struct
+  {
+    ULONG Filler[2];
+  } Filler_SR;
+  struct
+  {
+    ULONG Filler[7];
+  } Filler_L;
+  struct
+  {
+    D3DKMTQS_COUNTER Filler[7];
+  } Filler_A;
+  struct
+  {
+    D3DKMTQS_COUNTER Filler[4];
+  } Filler_T;
+  ULONG64 Reserved[8];
 } D3DKMTQS_ADAPTER_INFO;
 
 typedef struct _D3DKMTQS_SEGMENT_INFO_WIN7
 {
-    ULONG Filler[3];
-    struct {
-        ULONGLONG Filler;
-        ULONG Filler2[2];
-    } Filler_M;
+  ULONG Filler[3];
+  struct
+  {
+    ULONGLONG Filler;
+    ULONG Filler2[2];
+  } Filler_M;
 
-    ULONG Aperture;
+  ULONG Aperture;
 
-    ULONGLONG Filler3[5];
-    ULONG64 Filler4[8];
+  ULONGLONG Filler3[5];
+  ULONG64 Filler4[8];
 } D3DKMTQS_SEGMENT_INFO_WIN7;
 
 typedef struct _D3DKMTQS_SEGMENT_INFO_WIN8
 {
-    ULONGLONG Filler[3];
-    struct {
-        ULONGLONG Filler;
-        ULONG Filler2[2];
-    } Filler_M;
+  ULONGLONG Filler[3];
+  struct
+  {
+    ULONGLONG Filler;
+    ULONG Filler2[2];
+  } Filler_M;
 
-    ULONG Aperture;
+  ULONG Aperture;
 
-    ULONGLONG Filler3[5];
-    ULONG64 Filler4[8];
+  ULONGLONG Filler3[5];
+  ULONG64 Filler4[8];
 } D3DKMTQS_SEGMENT_INFO_WIN8;
 
 typedef struct _D3DKMTQS_SYSTEM_MEMORY
 {
-    ULONGLONG BytesAllocated;
-    ULONG Filler[2];
-    ULONGLONG Filler2[7];
+  ULONGLONG BytesAllocated;
+  ULONG Filler[2];
+  ULONGLONG Filler2[7];
 } D3DKMTQS_SYSTEM_MEMORY;
 
 typedef struct _D3DKMTQS_PROCESS_INFO
 {
-    ULONG Filler[2];
-    struct {
-        ULONGLONG BytesAllocated;
+  ULONG Filler[2];
+  struct
+  {
+    ULONGLONG BytesAllocated;
 
-        ULONG Filler[2];
-        ULONGLONG Filler2[7];
-    } SystemMemory;
-    ULONG64 Reserved[8];
+    ULONG Filler[2];
+    ULONGLONG Filler2[7];
+  } SystemMemory;
+  ULONG64 Reserved[8];
 } D3DKMTQS_PROCESS_INFO;
 
 typedef struct _D3DKMTQS_PROCESS_SEGMENT_INFO
 {
-    union {
-        struct {
-            ULONGLONG BytesCommitted;
-        } Win8;
-        struct {
-            ULONG BytesCommitted;
-            ULONG UnknownRandomness;
-        } Win7;
-    };
+  union {
+    struct
+    {
+      ULONGLONG BytesCommitted;
+    } Win8;
+    struct
+    {
+      ULONG BytesCommitted;
+      ULONG UnknownRandomness;
+    } Win7;
+  };
 
-    ULONGLONG Filler[2];
-    ULONG Filler2;
-    struct {
-        ULONG Filler;
-        D3DKMTQS_COUNTER Filler2[6];
-        ULONGLONG Filler3;
-    } Filler3;
-    struct {
-        ULONGLONG Filler;
-    } Filler4;
-    ULONG64 Reserved[8];
+  ULONGLONG Filler[2];
+  ULONG Filler2;
+  struct
+  {
+    ULONG Filler;
+    D3DKMTQS_COUNTER Filler2[6];
+    ULONGLONG Filler3;
+  } Filler3;
+  struct
+  {
+    ULONGLONG Filler;
+  } Filler4;
+  ULONG64 Reserved[8];
 } D3DKMTQS_PROCESS_SEGMENT_INFO;
 
-typedef enum _D3DKMTQS_TYPE
-{
-    D3DKMTQS_ADAPTER = 0,
-    D3DKMTQS_PROCESS = 1,
-    D3DKMTQS_SEGMENT = 3,
-    D3DKMTQS_PROCESS_SEGMENT = 4,
+typedef enum _D3DKMTQS_TYPE {
+  D3DKMTQS_ADAPTER = 0,
+  D3DKMTQS_PROCESS = 1,
+  D3DKMTQS_SEGMENT = 3,
+  D3DKMTQS_PROCESS_SEGMENT = 4,
 } D3DKMTQS_TYPE;
 
-typedef union _D3DKMTQS_RESULT
-{
-    D3DKMTQS_ADAPTER_INFO AdapterInfo;
-    D3DKMTQS_SEGMENT_INFO_WIN7 SegmentInfoWin7;
-    D3DKMTQS_SEGMENT_INFO_WIN8 SegmentInfoWin8;
-    D3DKMTQS_PROCESS_INFO ProcessInfo;
-    D3DKMTQS_PROCESS_SEGMENT_INFO ProcessSegmentInfo;
+typedef union _D3DKMTQS_RESULT {
+  D3DKMTQS_ADAPTER_INFO AdapterInfo;
+  D3DKMTQS_SEGMENT_INFO_WIN7 SegmentInfoWin7;
+  D3DKMTQS_SEGMENT_INFO_WIN8 SegmentInfoWin8;
+  D3DKMTQS_PROCESS_INFO ProcessInfo;
+  D3DKMTQS_PROCESS_SEGMENT_INFO ProcessSegmentInfo;
 } D3DKMTQS_RESULT;
 
 typedef struct _D3DKMTQS_QUERY_SEGMENT
 {
-    ULONG SegmentId;
+  ULONG SegmentId;
 } D3DKMTQS_QUERY_SEGMENT;
 
 typedef struct _D3DKMTQS
 {
-    D3DKMTQS_TYPE Type;
-    LUID AdapterLuid;
-    HANDLE hProcess;
-    D3DKMTQS_RESULT QueryResult;
+  D3DKMTQS_TYPE Type;
+  LUID AdapterLuid;
+  HANDLE hProcess;
+  D3DKMTQS_RESULT QueryResult;
 
-    union
-    {
-        D3DKMTQS_QUERY_SEGMENT QuerySegment;
-        D3DKMTQS_QUERY_SEGMENT QueryProcessSegment;
-    };
+  union {
+    D3DKMTQS_QUERY_SEGMENT QuerySegment;
+    D3DKMTQS_QUERY_SEGMENT QueryProcessSegment;
+  };
 } D3DKMTQS;
 
 extern "C" {
-typedef __checkReturn NTSTATUS (APIENTRY *PFND3DKMTQS)(const D3DKMTQS *);
+typedef __checkReturn
+NTSTATUS(APIENTRY* PFND3DKMTQS)(const D3DKMTQS*);
 }

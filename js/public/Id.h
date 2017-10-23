@@ -29,17 +29,17 @@
 
 struct jsid
 {
-    size_t asBits;
-    bool operator==(const jsid& rhs) const { return asBits == rhs.asBits; }
-    bool operator!=(const jsid& rhs) const { return asBits != rhs.asBits; }
+  size_t asBits;
+  bool operator==(const jsid& rhs) const { return asBits == rhs.asBits; }
+  bool operator!=(const jsid& rhs) const { return asBits != rhs.asBits; }
 } JS_HAZ_GC_POINTER;
 #define JSID_BITS(id) (id.asBits)
 
-#define JSID_TYPE_STRING                 0x0
-#define JSID_TYPE_INT                    0x1
-#define JSID_TYPE_VOID                   0x2
-#define JSID_TYPE_SYMBOL                 0x4
-#define JSID_TYPE_MASK                   0x7
+#define JSID_TYPE_STRING 0x0
+#define JSID_TYPE_INT 0x1
+#define JSID_TYPE_VOID 0x2
+#define JSID_TYPE_SYMBOL 0x4
+#define JSID_TYPE_MASK 0x7
 
 // Avoid using canonical 'id' for jsid parameters since this is a magic word in
 // Objective-C++ which, apparently, wants to be able to #include jsapi.h.
@@ -48,14 +48,14 @@ struct jsid
 static MOZ_ALWAYS_INLINE bool
 JSID_IS_STRING(jsid id)
 {
-    return (JSID_BITS(id) & JSID_TYPE_MASK) == 0;
+  return (JSID_BITS(id) & JSID_TYPE_MASK) == 0;
 }
 
 static MOZ_ALWAYS_INLINE JSString*
 JSID_TO_STRING(jsid id)
 {
-    MOZ_ASSERT(JSID_IS_STRING(id));
-    return (JSString*)JSID_BITS(id);
+  MOZ_ASSERT(JSID_IS_STRING(id));
+  return (JSString*)JSID_BITS(id);
 }
 
 /**
@@ -71,89 +71,88 @@ INTERNED_STRING_TO_JSID(JSContext* cx, JSString* str);
 static MOZ_ALWAYS_INLINE bool
 JSID_IS_INT(jsid id)
 {
-    return !!(JSID_BITS(id) & JSID_TYPE_INT);
+  return !!(JSID_BITS(id) & JSID_TYPE_INT);
 }
 
 static MOZ_ALWAYS_INLINE int32_t
 JSID_TO_INT(jsid id)
 {
-    MOZ_ASSERT(JSID_IS_INT(id));
-    uint32_t bits = static_cast<uint32_t>(JSID_BITS(id)) >> 1;
-    return static_cast<int32_t>(bits);
+  MOZ_ASSERT(JSID_IS_INT(id));
+  uint32_t bits = static_cast<uint32_t>(JSID_BITS(id)) >> 1;
+  return static_cast<int32_t>(bits);
 }
 
-#define JSID_INT_MIN  0
-#define JSID_INT_MAX  INT32_MAX
+#define JSID_INT_MIN 0
+#define JSID_INT_MAX INT32_MAX
 
 static MOZ_ALWAYS_INLINE bool
 INT_FITS_IN_JSID(int32_t i)
 {
-    return i >= 0;
+  return i >= 0;
 }
 
 static MOZ_ALWAYS_INLINE jsid
 INT_TO_JSID(int32_t i)
 {
-    jsid id;
-    MOZ_ASSERT(INT_FITS_IN_JSID(i));
-    uint32_t bits = (static_cast<uint32_t>(i) << 1) | JSID_TYPE_INT;
-    JSID_BITS(id) = static_cast<size_t>(bits);
-    return id;
+  jsid id;
+  MOZ_ASSERT(INT_FITS_IN_JSID(i));
+  uint32_t bits = (static_cast<uint32_t>(i) << 1) | JSID_TYPE_INT;
+  JSID_BITS(id) = static_cast<size_t>(bits);
+  return id;
 }
 
 static MOZ_ALWAYS_INLINE bool
 JSID_IS_SYMBOL(jsid id)
 {
-    return (JSID_BITS(id) & JSID_TYPE_MASK) == JSID_TYPE_SYMBOL &&
-           JSID_BITS(id) != JSID_TYPE_SYMBOL;
+  return (JSID_BITS(id) & JSID_TYPE_MASK) == JSID_TYPE_SYMBOL &&
+         JSID_BITS(id) != JSID_TYPE_SYMBOL;
 }
 
 static MOZ_ALWAYS_INLINE JS::Symbol*
 JSID_TO_SYMBOL(jsid id)
 {
-    MOZ_ASSERT(JSID_IS_SYMBOL(id));
-    return (JS::Symbol*)(JSID_BITS(id) & ~(size_t)JSID_TYPE_MASK);
+  MOZ_ASSERT(JSID_IS_SYMBOL(id));
+  return (JS::Symbol*)(JSID_BITS(id) & ~(size_t)JSID_TYPE_MASK);
 }
 
 static MOZ_ALWAYS_INLINE jsid
 SYMBOL_TO_JSID(JS::Symbol* sym)
 {
-    jsid id;
-    MOZ_ASSERT(sym != nullptr);
-    MOZ_ASSERT((size_t(sym) & JSID_TYPE_MASK) == 0);
-    MOZ_ASSERT(!js::gc::IsInsideNursery(reinterpret_cast<js::gc::Cell*>(sym)));
-    JSID_BITS(id) = (size_t(sym) | JSID_TYPE_SYMBOL);
-    return id;
+  jsid id;
+  MOZ_ASSERT(sym != nullptr);
+  MOZ_ASSERT((size_t(sym) & JSID_TYPE_MASK) == 0);
+  MOZ_ASSERT(!js::gc::IsInsideNursery(reinterpret_cast<js::gc::Cell*>(sym)));
+  JSID_BITS(id) = (size_t(sym) | JSID_TYPE_SYMBOL);
+  return id;
 }
 
 static MOZ_ALWAYS_INLINE bool
 JSID_IS_GCTHING(jsid id)
 {
-    return JSID_IS_STRING(id) || JSID_IS_SYMBOL(id);
+  return JSID_IS_STRING(id) || JSID_IS_SYMBOL(id);
 }
 
 static MOZ_ALWAYS_INLINE JS::GCCellPtr
 JSID_TO_GCTHING(jsid id)
 {
-    void* thing = (void*)(JSID_BITS(id) & ~(size_t)JSID_TYPE_MASK);
-    if (JSID_IS_STRING(id))
-        return JS::GCCellPtr(thing, JS::TraceKind::String);
-    MOZ_ASSERT(JSID_IS_SYMBOL(id));
-    return JS::GCCellPtr(thing, JS::TraceKind::Symbol);
+  void* thing = (void*)(JSID_BITS(id) & ~(size_t)JSID_TYPE_MASK);
+  if (JSID_IS_STRING(id)) return JS::GCCellPtr(thing, JS::TraceKind::String);
+  MOZ_ASSERT(JSID_IS_SYMBOL(id));
+  return JS::GCCellPtr(thing, JS::TraceKind::Symbol);
 }
 
 static MOZ_ALWAYS_INLINE bool
 JSID_IS_VOID(const jsid id)
 {
-    MOZ_ASSERT_IF(((size_t)JSID_BITS(id) & JSID_TYPE_MASK) == JSID_TYPE_VOID,
-                 JSID_BITS(id) == JSID_TYPE_VOID);
-    return (size_t)JSID_BITS(id) == JSID_TYPE_VOID;
+  MOZ_ASSERT_IF(((size_t)JSID_BITS(id) & JSID_TYPE_MASK) == JSID_TYPE_VOID,
+                JSID_BITS(id) == JSID_TYPE_VOID);
+  return (size_t)JSID_BITS(id) == JSID_TYPE_VOID;
 }
 
 static MOZ_ALWAYS_INLINE bool
 JSID_IS_EMPTY(const jsid id)
 {
-    return (size_t)JSID_BITS(id) == JSID_TYPE_SYMBOL;
+  return (size_t)JSID_BITS(id) == JSID_TYPE_SYMBOL;
 }
 
 extern JS_PUBLIC_DATA(const jsid) JSID_VOID;
@@ -164,56 +163,62 @@ extern JS_PUBLIC_DATA(const JS::HandleId) JSID_EMPTYHANDLE;
 
 namespace JS {
 
-template <>
+template<>
 struct GCPolicy<jsid>
 {
-    static jsid initial() { return JSID_VOID; }
-    static void trace(JSTracer* trc, jsid* idp, const char* name) {
-        js::UnsafeTraceManuallyBarrieredEdge(trc, idp, name);
-    }
-    static bool isValid(jsid id) {
-        return !JSID_IS_GCTHING(id) || js::gc::IsCellPointerValid(JSID_TO_GCTHING(id).asCell());
-    }
+  static jsid initial() { return JSID_VOID; }
+  static void trace(JSTracer* trc, jsid* idp, const char* name)
+  {
+    js::UnsafeTraceManuallyBarrieredEdge(trc, idp, name);
+  }
+  static bool isValid(jsid id)
+  {
+    return !JSID_IS_GCTHING(id) ||
+           js::gc::IsCellPointerValid(JSID_TO_GCTHING(id).asCell());
+  }
 };
 
-} // namespace JS
+}  // namespace JS
 
 namespace js {
 
-template <>
+template<>
 struct BarrierMethods<jsid>
 {
-    static gc::Cell* asGCThingOrNull(jsid id) {
-        if (JSID_IS_STRING(id))
-            return reinterpret_cast<gc::Cell*>(JSID_TO_STRING(id));
-        if (JSID_IS_SYMBOL(id))
-            return reinterpret_cast<gc::Cell*>(JSID_TO_SYMBOL(id));
-        return nullptr;
-    }
-    static void postBarrier(jsid* idp, jsid prev, jsid next) {}
-    static void exposeToJS(jsid id) {
-        if (JSID_IS_GCTHING(id))
-            js::gc::ExposeGCThingToActiveJS(JSID_TO_GCTHING(id));
-    }
+  static gc::Cell* asGCThingOrNull(jsid id)
+  {
+    if (JSID_IS_STRING(id))
+      return reinterpret_cast<gc::Cell*>(JSID_TO_STRING(id));
+    if (JSID_IS_SYMBOL(id))
+      return reinterpret_cast<gc::Cell*>(JSID_TO_SYMBOL(id));
+    return nullptr;
+  }
+  static void postBarrier(jsid* idp, jsid prev, jsid next) {}
+  static void exposeToJS(jsid id)
+  {
+    if (JSID_IS_GCTHING(id))
+      js::gc::ExposeGCThingToActiveJS(JSID_TO_GCTHING(id));
+  }
 };
 
 // If the jsid is a GC pointer type, convert to that type and call |f| with
 // the pointer. If the jsid is not a GC type, calls F::defaultValue.
-template <typename F, typename... Args>
+template<typename F, typename... Args>
 auto
 DispatchTyped(F f, const jsid& id, Args&&... args)
-  -> decltype(f(static_cast<JSString*>(nullptr), mozilla::Forward<Args>(args)...))
+    -> decltype(f(static_cast<JSString*>(nullptr),
+                  mozilla::Forward<Args>(args)...))
 {
-    if (JSID_IS_STRING(id))
-        return f(JSID_TO_STRING(id), mozilla::Forward<Args>(args)...);
-    if (JSID_IS_SYMBOL(id))
-        return f(JSID_TO_SYMBOL(id), mozilla::Forward<Args>(args)...);
-    MOZ_ASSERT(!JSID_IS_GCTHING(id));
-    return F::defaultValue(id);
+  if (JSID_IS_STRING(id))
+    return f(JSID_TO_STRING(id), mozilla::Forward<Args>(args)...);
+  if (JSID_IS_SYMBOL(id))
+    return f(JSID_TO_SYMBOL(id), mozilla::Forward<Args>(args)...);
+  MOZ_ASSERT(!JSID_IS_GCTHING(id));
+  return F::defaultValue(id);
 }
 
 #undef id
 
-} // namespace js
+}  // namespace js
 
 #endif /* js_Id_h */

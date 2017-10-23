@@ -16,13 +16,17 @@ namespace mozilla {
  * Example to convert the MOZ log file into a PCAP file:
  *   egrep '(RTP_PACKET|RTCP_PACKET)' moz.log | text2pcap -D -n -l 1 -i 17 -u 1234,1235 -t '%H:%M:%S.' - rtp.pcap
  */
-class RtpLogger {
-public:
+class RtpLogger
+{
+ public:
   static bool IsPacketLoggingOn();
-  static void LogPacket(const unsigned char *data, int len, bool input,
-                        bool isRtp, int headerLength, std::string desc);
+  static void LogPacket(const unsigned char* data,
+                        int len,
+                        bool input,
+                        bool isRtp,
+                        int headerLength,
+                        std::string desc);
 };
 
-}  // End of namespace
+}  // namespace mozilla
 #endif
-

@@ -55,5 +55,5 @@ U2FTransactionChild::ActorDestroy(ActorDestroyReason why)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

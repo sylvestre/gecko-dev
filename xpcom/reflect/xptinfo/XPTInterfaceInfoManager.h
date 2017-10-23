@@ -15,7 +15,8 @@
 #include "mozilla/ReentrantMonitor.h"
 #include "nsDataHashtable.h"
 
-template<typename T> class nsCOMArray;
+template<typename T>
+class nsCOMArray;
 class nsIMemoryReporter;
 struct XPTHeader;
 struct XPTInterfaceDirectoryEntry;
@@ -25,95 +26,93 @@ class xptiTypelibGuts;
 
 namespace mozilla {
 
-class XPTInterfaceInfoManager final
-    : public nsIInterfaceInfoManager
-    , public nsIMemoryReporter
+class XPTInterfaceInfoManager final : public nsIInterfaceInfoManager,
+                                      public nsIMemoryReporter
 {
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSIINTERFACEINFOMANAGER
-    NS_DECL_NSIMEMORYREPORTER
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIINTERFACEINFOMANAGER
+  NS_DECL_NSIMEMORYREPORTER
 
-public:
-    // GetSingleton() is infallible
-    static XPTInterfaceInfoManager* GetSingleton();
-    static void FreeInterfaceInfoManager();
+ public:
+  // GetSingleton() is infallible
+  static XPTInterfaceInfoManager* GetSingleton();
+  static void FreeInterfaceInfoManager();
 
-    void GetScriptableInterfaces(nsCOMArray<nsIInterfaceInfo>& aInterfaces);
+  void GetScriptableInterfaces(nsCOMArray<nsIInterfaceInfo>& aInterfaces);
 
-    void RegisterBuffer(char *buf, uint32_t length);
+  void RegisterBuffer(char* buf, uint32_t length);
 
-    static Mutex& GetResolveLock()
+  static Mutex& GetResolveLock() { return GetSingleton()->mResolveLock; }
+
+  xptiInterfaceEntry* GetInterfaceEntryForIID(const nsIID* iid);
+
+  size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
+
+ private:
+  XPTInterfaceInfoManager();
+  ~XPTInterfaceInfoManager();
+
+  void InitMemoryReporter();
+
+  void RegisterXPTHeader(XPTHeader* aHeader);
+
+  // idx is the index of this interface in the XPTHeader
+  void VerifyAndAddEntryIfNew(XPTInterfaceDirectoryEntry* iface,
+                              uint16_t idx,
+                              xptiTypelibGuts* typelib);
+
+ private:
+  class xptiWorkingSet
+  {
+   public:
+    xptiWorkingSet();
+    ~xptiWorkingSet();
+
+    bool IsValid() const;
+
+    void InvalidateInterfaceInfos();
+    void ClearHashTables();
+
+    // utility methods...
+
+    enum
     {
-        return GetSingleton()->mResolveLock;
-    }
-
-    xptiInterfaceEntry* GetInterfaceEntryForIID(const nsIID *iid);
-
-    size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
-
-private:
-    XPTInterfaceInfoManager();
-    ~XPTInterfaceInfoManager();
-
-    void InitMemoryReporter();
-
-    void RegisterXPTHeader(XPTHeader* aHeader);
-
-    // idx is the index of this interface in the XPTHeader
-    void VerifyAndAddEntryIfNew(XPTInterfaceDirectoryEntry* iface,
-                                uint16_t idx,
-                                xptiTypelibGuts* typelib);
-
-private:
-
-    class xptiWorkingSet
-    {
-    public:
-        xptiWorkingSet();
-        ~xptiWorkingSet();
-
-        bool IsValid() const;
-
-        void InvalidateInterfaceInfos();
-        void ClearHashTables();
-
-        // utility methods...
-
-        enum {NOT_FOUND = 0xffffffff};
-
-        // Directory stuff...
-
-        uint32_t GetDirectoryCount();
-        nsresult GetCloneOfDirectoryAt(uint32_t i, nsIFile** dir);
-        nsresult GetDirectoryAt(uint32_t i, nsIFile** dir);
-        bool     FindDirectory(nsIFile* dir, uint32_t* index);
-        bool     FindDirectoryOfFile(nsIFile* file, uint32_t* index);
-        bool     DirectoryAtMatchesPersistentDescriptor(uint32_t i, const char* desc);
-
-    private:
-        uint32_t        mFileCount;
-        uint32_t        mMaxFileCount;
-
-    public:
-        // XXX make these private with accessors
-        // mTableMonitor must be held across:
-        //  * any read from or write to mIIDTable or mNameTable
-        //  * any writing to the links between an xptiInterfaceEntry
-        //    and its xptiInterfaceInfo (mEntry/mInfo)
-        mozilla::ReentrantMonitor mTableReentrantMonitor;
-        nsDataHashtable<nsIDHashKey, xptiInterfaceEntry*> mIIDTable;
-        nsDataHashtable<nsDepCharHashKey, xptiInterfaceEntry*> mNameTable;
+      NOT_FOUND = 0xffffffff
     };
 
-    // XXX xptiInterfaceInfo want's to poke at the working set itself
-    friend class ::xptiInterfaceInfo;
-    friend class ::xptiInterfaceEntry;
-    friend class ::xptiTypelibGuts;
+    // Directory stuff...
 
-    xptiWorkingSet               mWorkingSet;
-    Mutex                        mResolveLock;
+    uint32_t GetDirectoryCount();
+    nsresult GetCloneOfDirectoryAt(uint32_t i, nsIFile** dir);
+    nsresult GetDirectoryAt(uint32_t i, nsIFile** dir);
+    bool FindDirectory(nsIFile* dir, uint32_t* index);
+    bool FindDirectoryOfFile(nsIFile* file, uint32_t* index);
+    bool DirectoryAtMatchesPersistentDescriptor(uint32_t i, const char* desc);
+
+   private:
+    uint32_t mFileCount;
+    uint32_t mMaxFileCount;
+
+   public:
+    // XXX make these private with accessors
+    // mTableMonitor must be held across:
+    //  * any read from or write to mIIDTable or mNameTable
+    //  * any writing to the links between an xptiInterfaceEntry
+    //    and its xptiInterfaceInfo (mEntry/mInfo)
+    mozilla::ReentrantMonitor mTableReentrantMonitor;
+    nsDataHashtable<nsIDHashKey, xptiInterfaceEntry*> mIIDTable;
+    nsDataHashtable<nsDepCharHashKey, xptiInterfaceEntry*> mNameTable;
+  };
+
+  // XXX xptiInterfaceInfo want's to poke at the working set itself
+  friend class ::xptiInterfaceInfo;
+  friend class ::xptiInterfaceEntry;
+  friend class ::xptiTypelibGuts;
+
+  xptiWorkingSet mWorkingSet;
+  Mutex mResolveLock;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

@@ -14,9 +14,9 @@
 namespace mozilla {
 
 ServoImportRule::ServoImportRule(RefPtr<RawServoImportRule> aRawRule,
-                                 uint32_t aLine, uint32_t aColumn)
-  : CSSImportRule(aLine, aColumn)
-  , mRawRule(Move(aRawRule))
+                                 uint32_t aLine,
+                                 uint32_t aColumn)
+    : CSSImportRule(aLine, aColumn), mRawRule(Move(aRawRule))
 {
   const auto* sheet = Servo_ImportRule_GetSheet(mRawRule.get());
   MOZ_ASSERT(sheet);
@@ -116,4 +116,4 @@ ServoImportRule::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
   return aMallocSizeOf(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

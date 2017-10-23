@@ -47,14 +47,15 @@ namespace net {
 //    FetchEvent.respondWith(), then CancelInterception() is called.  This is
 //    handled the same as a normal nsIChannel::Cancel() call.  We abort the
 //    channel and end up calling OnStopRequest() with an error code.
-class InterceptedHttpChannel final : public HttpBaseChannel
-                                   , public HttpAsyncAborter<InterceptedHttpChannel>
-                                   , public nsIInterceptedChannel
-                                   , public nsIAsyncVerifyRedirectCallback
-                                   , public nsIStreamListener
-                                   , public nsIChannelWithDivertableParentListener
-                                   , public nsIThreadRetargetableRequest
-                                   , public nsIThreadRetargetableStreamListener
+class InterceptedHttpChannel final
+    : public HttpBaseChannel,
+      public HttpAsyncAborter<InterceptedHttpChannel>,
+      public nsIInterceptedChannel,
+      public nsIAsyncVerifyRedirectCallback,
+      public nsIStreamListener,
+      public nsIChannelWithDivertableParentListener,
+      public nsIThreadRetargetableRequest,
+      public nsIThreadRetargetableStreamListener
 {
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIINTERCEPTEDCHANNEL
@@ -65,7 +66,7 @@ class InterceptedHttpChannel final : public HttpBaseChannel
   NS_DECL_NSITHREADRETARGETABLEREQUEST
   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
 
-private:
+ private:
   friend class HttpAsyncAborter<InterceptedHttpChannel>;
 
   UniquePtr<nsHttpResponseHead> mSynthesizedResponseHead;
@@ -84,7 +85,8 @@ private:
   uint64_t mResumeStartPos;
   nsCString mResumeEntityId;
   nsString mStatusHost;
-  enum {
+  enum
+  {
     Invalid = 0,
     Synthesized,
     Reset
@@ -96,49 +98,43 @@ private:
                          const TimeStamp& aAsyncOpenTimestamp);
   ~InterceptedHttpChannel() = default;
 
-  virtual void
-  ReleaseListeners() override;
+  virtual void ReleaseListeners() override;
 
   virtual MOZ_MUST_USE nsresult
-  SetupReplacementChannel(nsIURI *aURI, nsIChannel *aChannel,
+  SetupReplacementChannel(nsIURI* aURI,
+                          nsIChannel* aChannel,
                           bool aPreserveMethod,
                           uint32_t aRedirectFlags) override;
 
-  void
-  AsyncOpenInternal();
+  void AsyncOpenInternal();
 
-  bool
-  ShouldRedirect() const;
+  bool ShouldRedirect() const;
 
-  nsresult
-  FollowSyntheticRedirect();
+  nsresult FollowSyntheticRedirect();
 
-  nsresult
-  RedirectForOpaqueResponse(nsIURI* aResponseURI);
+  nsresult RedirectForOpaqueResponse(nsIURI* aResponseURI);
 
-  nsresult
-  StartPump();
+  nsresult StartPump();
 
-  nsresult
-  OpenRedirectChannel();
+  nsresult OpenRedirectChannel();
 
-  void
-  MaybeCallStatusAndProgress();
+  void MaybeCallStatusAndProgress();
 
-  void
-  MaybeCallBodyCallback();
+  void MaybeCallBodyCallback();
 
-public:
-  static already_AddRefed<InterceptedHttpChannel>
-  CreateForInterception(PRTime aCreationTime, const TimeStamp& aCreationTimestamp,
-                        const TimeStamp& aAsyncOpenTimestamp);
+ public:
+  static already_AddRefed<InterceptedHttpChannel> CreateForInterception(
+      PRTime aCreationTime,
+      const TimeStamp& aCreationTimestamp,
+      const TimeStamp& aAsyncOpenTimestamp);
 
-  static already_AddRefed<InterceptedHttpChannel>
-  CreateForSynthesis(const nsHttpResponseHead* aHead, nsIInputStream* aBody,
-                     nsIInterceptedBodyCallback* aBodyCallback,
-                     PRTime aCreationTime,
-                     const TimeStamp& aCreationTimestamp,
-                     const TimeStamp& aAsyncOpenTimestamp);
+  static already_AddRefed<InterceptedHttpChannel> CreateForSynthesis(
+      const nsHttpResponseHead* aHead,
+      nsIInputStream* aBody,
+      nsIInterceptedBodyCallback* aBodyCallback,
+      PRTime aCreationTime,
+      const TimeStamp& aCreationTimestamp,
+      const TimeStamp& aAsyncOpenTimestamp);
 
   NS_IMETHOD
   Cancel(nsresult aStatus) override;
@@ -150,22 +146,22 @@ public:
   Resume(void) override;
 
   NS_IMETHOD
-  GetSecurityInfo(nsISupports * *aSecurityInfo) override;
+  GetSecurityInfo(nsISupports** aSecurityInfo) override;
 
   NS_IMETHOD
-  AsyncOpen(nsIStreamListener *aListener, nsISupports *aContext) override;
+  AsyncOpen(nsIStreamListener* aListener, nsISupports* aContext) override;
 
   NS_IMETHOD
-  AsyncOpen2(nsIStreamListener *aListener) override;
+  AsyncOpen2(nsIStreamListener* aListener) override;
 
   NS_IMETHOD
-  LogBlockedCORSRequest(const nsAString & aMessage) override;
+  LogBlockedCORSRequest(const nsAString& aMessage) override;
 
   NS_IMETHOD
-  SetupFallbackChannel(const char * aFallbackKey) override;
+  SetupFallbackChannel(const char* aFallbackKey) override;
 
   NS_IMETHOD
-  GetResponseSynthesized(bool *aResponseSynthesized) override;
+  GetResponseSynthesized(bool* aResponseSynthesized) override;
 
   NS_IMETHOD
   SetPriority(int32_t aPriority) override;
@@ -180,13 +176,12 @@ public:
   AddClassFlags(uint32_t flags) override;
 
   NS_IMETHOD
-  ResumeAt(uint64_t startPos, const nsACString & entityID) override;
+  ResumeAt(uint64_t startPos, const nsACString& entityID) override;
 
-  void
-  DoNotifyListenerCleanup() override;
+  void DoNotifyListenerCleanup() override;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_InterceptedHttpChannel_h
+#endif  // mozilla_net_InterceptedHttpChannel_h

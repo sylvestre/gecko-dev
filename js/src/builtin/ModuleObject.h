@@ -31,11 +31,9 @@ typedef Handle<ModuleObject*> HandleModuleObject;
 typedef Rooted<ModuleEnvironmentObject*> RootedModuleEnvironmentObject;
 typedef Handle<ModuleEnvironmentObject*> HandleModuleEnvironmentObject;
 
-class ImportEntryObject : public NativeObject
-{
-  public:
-    enum
-    {
+class ImportEntryObject : public NativeObject {
+   public:
+    enum {
         ModuleRequestSlot = 0,
         ImportNameSlot,
         LocalNameSlot,
@@ -47,12 +45,9 @@ class ImportEntryObject : public NativeObject
     static const Class class_;
     static JSObject* initClass(JSContext* cx, HandleObject obj);
     static bool isInstance(HandleValue value);
-    static ImportEntryObject* create(JSContext* cx,
-                                     HandleAtom moduleRequest,
-                                     HandleAtom importName,
-                                     HandleAtom localName,
-                                     uint32_t lineNumber,
-                                     uint32_t columnNumber);
+    static ImportEntryObject* create(JSContext* cx, HandleAtom moduleRequest,
+                                     HandleAtom importName, HandleAtom localName,
+                                     uint32_t lineNumber, uint32_t columnNumber);
     JSAtom* moduleRequest() const;
     JSAtom* importName() const;
     JSAtom* localName() const;
@@ -63,11 +58,9 @@ class ImportEntryObject : public NativeObject
 typedef Rooted<ImportEntryObject*> RootedImportEntryObject;
 typedef Handle<ImportEntryObject*> HandleImportEntryObject;
 
-class ExportEntryObject : public NativeObject
-{
-  public:
-    enum
-    {
+class ExportEntryObject : public NativeObject {
+   public:
+    enum {
         ExportNameSlot = 0,
         ModuleRequestSlot,
         ImportNameSlot,
@@ -80,12 +73,9 @@ class ExportEntryObject : public NativeObject
     static const Class class_;
     static JSObject* initClass(JSContext* cx, HandleObject obj);
     static bool isInstance(HandleValue value);
-    static ExportEntryObject* create(JSContext* cx,
-                                     HandleAtom maybeExportName,
-                                     HandleAtom maybeModuleRequest,
-                                     HandleAtom maybeImportName,
-                                     HandleAtom maybeLocalName,
-                                     uint32_t lineNumber,
+    static ExportEntryObject* create(JSContext* cx, HandleAtom maybeExportName,
+                                     HandleAtom maybeModuleRequest, HandleAtom maybeImportName,
+                                     HandleAtom maybeLocalName, uint32_t lineNumber,
                                      uint32_t columnNumber);
     JSAtom* exportName() const;
     JSAtom* moduleRequest() const;
@@ -98,24 +88,15 @@ class ExportEntryObject : public NativeObject
 typedef Rooted<ExportEntryObject*> RootedExportEntryObject;
 typedef Handle<ExportEntryObject*> HandleExportEntryObject;
 
-class RequestedModuleObject : public NativeObject
-{
-  public:
-    enum
-    {
-        ModuleSpecifierSlot = 0,
-        LineNumberSlot,
-        ColumnNumberSlot,
-        SlotCount
-    };
+class RequestedModuleObject : public NativeObject {
+   public:
+    enum { ModuleSpecifierSlot = 0, LineNumberSlot, ColumnNumberSlot, SlotCount };
 
     static const Class class_;
     static JSObject* initClass(JSContext* cx, HandleObject obj);
     static bool isInstance(HandleValue value);
-    static RequestedModuleObject* create(JSContext* cx,
-                                         HandleAtom moduleSpecifier,
-                                         uint32_t lineNumber,
-                                         uint32_t columnNumber);
+    static RequestedModuleObject* create(JSContext* cx, HandleAtom moduleSpecifier,
+                                         uint32_t lineNumber, uint32_t columnNumber);
     JSAtom* moduleSpecifier() const;
     uint32_t lineNumber() const;
     uint32_t columnNumber() const;
@@ -124,36 +105,29 @@ class RequestedModuleObject : public NativeObject
 typedef Rooted<RequestedModuleObject*> RootedRequestedModuleObject;
 typedef Handle<RequestedModuleObject*> HandleRequestedModuleObject;
 
-class IndirectBindingMap
-{
-  public:
+class IndirectBindingMap {
+   public:
     explicit IndirectBindingMap(Zone* zone);
     bool init();
 
     void trace(JSTracer* trc);
 
-    bool putNew(JSContext* cx, HandleId name,
-                HandleModuleEnvironmentObject environment, HandleId localName);
+    bool putNew(JSContext* cx, HandleId name, HandleModuleEnvironmentObject environment,
+                HandleId localName);
 
-    size_t count() const {
-        return map_.count();
-    }
+    size_t count() const { return map_.count(); }
 
-    bool has(jsid name) const {
-        return map_.has(name);
-    }
+    bool has(jsid name) const { return map_.has(name); }
 
     bool lookup(jsid name, ModuleEnvironmentObject** envOut, Shape** shapeOut) const;
 
     template <typename Func>
     void forEachExportedName(Func func) const {
-        for (auto r = map_.all(); !r.empty(); r.popFront())
-            func(r.front().key());
+        for (auto r = map_.all(); !r.empty(); r.popFront()) func(r.front().key());
     }
 
-  private:
-    struct Binding
-    {
+   private:
+    struct Binding {
         Binding(ModuleEnvironmentObject* environment, Shape* shape);
         HeapPtr<ModuleEnvironmentObject*> environment;
         HeapPtr<Shape*> shape;
@@ -164,9 +138,8 @@ class IndirectBindingMap
     Map map_;
 };
 
-class ModuleNamespaceObject : public ProxyObject
-{
-  public:
+class ModuleNamespaceObject : public ProxyObject {
+   public:
     static bool isInstance(HandleValue value);
     static ModuleNamespaceObject* create(JSContext* cx, HandleModuleObject module);
 
@@ -177,9 +150,8 @@ class ModuleNamespaceObject : public ProxyObject
     bool addBinding(JSContext* cx, HandleAtom exportedName, HandleModuleObject targetModule,
                     HandleAtom localName);
 
-  private:
-    struct ProxyHandler : public BaseProxyHandler
-    {
+   private:
+    struct ProxyHandler : public BaseProxyHandler {
         ProxyHandler();
 
         bool getOwnPropertyDescriptor(JSContext* cx, HandleObject proxy, HandleId id,
@@ -204,23 +176,22 @@ class ModuleNamespaceObject : public ProxyObject
                                ObjectOpResult& result) const override;
         bool isExtensible(JSContext* cx, HandleObject proxy, bool* extensible) const override;
         bool has(JSContext* cx, HandleObject proxy, HandleId id, bool* bp) const override;
-        bool get(JSContext* cx, HandleObject proxy, HandleValue receiver,
-                 HandleId id, MutableHandleValue vp) const override;
+        bool get(JSContext* cx, HandleObject proxy, HandleValue receiver, HandleId id,
+                 MutableHandleValue vp) const override;
         bool set(JSContext* cx, HandleObject proxy, HandleId id, HandleValue v,
                  HandleValue receiver, ObjectOpResult& result) const override;
 
         static const char family;
     };
 
-  public:
+   public:
     static const ProxyHandler proxyHandler;
 };
 
 typedef Rooted<ModuleNamespaceObject*> RootedModuleNamespaceObject;
 typedef Handle<ModuleNamespaceObject*> HandleModuleNamespaceObject;
 
-struct FunctionDeclaration
-{
+struct FunctionDeclaration {
     FunctionDeclaration(HandleAtom name, HandleFunction fun);
     void trace(JSTracer* trc);
 
@@ -233,11 +204,9 @@ using FunctionDeclarationVector = GCVector<FunctionDeclaration, 0, ZoneAllocPoli
 // Possible values for ModuleStatus are defined in SelfHostingDefines.h.
 using ModuleStatus = int32_t;
 
-class ModuleObject : public NativeObject
-{
-  public:
-    enum ModuleSlot
-    {
+class ModuleObject : public NativeObject {
+   public:
+    enum ModuleSlot {
         ScriptSlot = 0,
         InitialEnvironmentSlot,
         EnvironmentSlot,
@@ -277,8 +246,7 @@ class ModuleObject : public NativeObject
     static ModuleObject* create(JSContext* cx);
     void init(HandleScript script);
     void setInitialEnvironment(Handle<ModuleEnvironmentObject*> initialEnvironment);
-    void initImportExportData(HandleArrayObject requestedModules,
-                              HandleArrayObject importEntries,
+    void initImportExportData(HandleArrayObject requestedModules, HandleArrayObject importEntries,
                               HandleArrayObject localExportEntries,
                               HandleArrayObject indiretExportEntries,
                               HandleArrayObject starExportEntries);
@@ -326,7 +294,7 @@ class ModuleObject : public NativeObject
     static ModuleNamespaceObject* createNamespace(JSContext* cx, HandleModuleObject self,
                                                   HandleObject exports);
 
-  private:
+   private:
     static const ClassOps classOps_;
 
     static void trace(JSTracer* trc, JSObject* obj);
@@ -339,9 +307,8 @@ class ModuleObject : public NativeObject
 
 // Process a module's parse tree to collate the import and export data used when
 // creating a ModuleObject.
-class MOZ_STACK_CLASS ModuleBuilder
-{
-  public:
+class MOZ_STACK_CLASS ModuleBuilder {
+   public:
     explicit ModuleBuilder(JSContext* cx, HandleModuleObject module,
                            const frontend::TokenStream& tokenStream);
     bool init();
@@ -353,14 +320,12 @@ class MOZ_STACK_CLASS ModuleBuilder
     bool hasExportedName(JSAtom* name) const;
 
     using ExportEntryVector = GCVector<ExportEntryObject*>;
-    const ExportEntryVector& localExportEntries() const {
-        return localExportEntries_;
-    }
+    const ExportEntryVector& localExportEntries() const { return localExportEntries_; }
 
     bool buildTables();
     bool initModule();
 
-  private:
+   private:
     using AtomVector = GCVector<JSAtom*>;
     using ImportEntryVector = GCVector<ImportEntryObject*>;
     using RequestedModuleVector = GCVector<RequestedModuleObject*>;
@@ -396,12 +361,10 @@ class MOZ_STACK_CLASS ModuleBuilder
     ArrayObject* createArray(const JS::Rooted<GCVector<T>>& vector);
 };
 
-} // namespace js
+}  // namespace js
 
-template<>
-inline bool
-JSObject::is<js::ModuleNamespaceObject>() const
-{
+template <>
+inline bool JSObject::is<js::ModuleNamespaceObject>() const {
     return js::IsDerivedProxyObject(this, &js::ModuleNamespaceObject::proxyHandler);
 }
 

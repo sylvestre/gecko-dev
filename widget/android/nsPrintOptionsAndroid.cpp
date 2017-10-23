@@ -6,8 +6,9 @@
 
 #include "nsPrintSettingsImpl.h"
 
-class nsPrintSettingsAndroid : public nsPrintSettings {
-public:
+class nsPrintSettingsAndroid : public nsPrintSettings
+{
+ public:
   nsPrintSettingsAndroid()
   {
     // The aim here is to set up the objects enough that silent printing works
@@ -16,21 +17,17 @@ public:
   }
 };
 
-nsPrintOptionsAndroid::nsPrintOptionsAndroid()
-{
-}
+nsPrintOptionsAndroid::nsPrintOptionsAndroid() {}
 
-nsPrintOptionsAndroid::~nsPrintOptionsAndroid()
-{
-}
+nsPrintOptionsAndroid::~nsPrintOptionsAndroid() {}
 
 nsresult
 nsPrintOptionsAndroid::_CreatePrintSettings(nsIPrintSettings** _retval)
 {
-  nsPrintSettings * printSettings = new nsPrintSettingsAndroid();
+  nsPrintSettings* printSettings = new nsPrintSettingsAndroid();
   NS_ENSURE_TRUE(printSettings, NS_ERROR_OUT_OF_MEMORY);
   NS_ADDREF(*_retval = printSettings);
-  (void)InitPrintSettingsFromPrefs(*_retval, false,
-                                   nsIPrintSettings::kInitSaveAll);
+  (void)InitPrintSettingsFromPrefs(
+      *_retval, false, nsIPrintSettings::kInitSaveAll);
   return NS_OK;
 }

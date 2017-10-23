@@ -11,18 +11,21 @@
 
 // We map x -> x, except for upper-case letters,
 // which we map to their lower-case equivalents.
-static const uint8_t gASCIIToLower [128] = {
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-    0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
-    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
-    0x40, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
-    0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
-    0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
-    0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
+static const uint8_t gASCIIToLower[128] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+    0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23,
+    0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b,
+    0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+    0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73,
+    0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+    0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b,
+    0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+    0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
 };
 
-#define IS_ASCII(u)       ((u) < 0x80)
+#define IS_ASCII(u) ((u) < 0x80)
 #define IS_ASCII_UPPER(u) (('A' <= (u)) && ((u) <= 'Z'))
 #define IS_ASCII_LOWER(u) (('a' <= (u)) && ((u) <= 'z'))
 #define IS_ASCII_ALPHA(u) (IS_ASCII_UPPER(u) || IS_ASCII_LOWER(u))
@@ -54,19 +57,18 @@ ToLowerCaseASCII_inline(const uint32_t aChar)
 void
 ToLowerCase(nsAString& aString)
 {
-  char16_t *buf = aString.BeginWriting();
+  char16_t* buf = aString.BeginWriting();
   ToLowerCase(buf, buf, aString.Length());
 }
 
 void
-ToLowerCase(const nsAString& aSource,
-            nsAString& aDest)
+ToLowerCase(const nsAString& aSource, nsAString& aDest)
 {
-  const char16_t *in = aSource.BeginReading();
+  const char16_t* in = aSource.BeginReading();
   uint32_t len = aSource.Length();
 
   aDest.SetLength(len);
-  char16_t *out = aDest.BeginWriting();
+  char16_t* out = aDest.BeginWriting();
 
   ToLowerCase(in, out, len);
 }
@@ -80,19 +82,18 @@ ToLowerCaseASCII(const uint32_t aChar)
 void
 ToUpperCase(nsAString& aString)
 {
-  char16_t *buf = aString.BeginWriting();
+  char16_t* buf = aString.BeginWriting();
   ToUpperCase(buf, buf, aString.Length());
 }
 
 void
-ToUpperCase(const nsAString& aSource,
-            nsAString& aDest)
+ToUpperCase(const nsAString& aSource, nsAString& aDest)
 {
-  const char16_t *in = aSource.BeginReading();
+  const char16_t* in = aSource.BeginReading();
   uint32_t len = aSource.Length();
 
   aDest.SetLength(len);
-  char16_t *out = aDest.BeginWriting();
+  char16_t* out = aDest.BeginWriting();
 
   ToUpperCase(in, out, len);
 }
@@ -105,8 +106,8 @@ nsCaseInsensitiveStringComparator::operator()(const char16_t* lhs,
                                               uint32_t lLength,
                                               uint32_t rLength) const
 {
-  return (lLength == rLength) ? CaseInsensitiveCompare(lhs, rhs, lLength) :
-         (lLength > rLength) ? 1 : -1;
+  return (lLength == rLength) ? CaseInsensitiveCompare(lhs, rhs, lLength)
+                              : (lLength > rLength) ? 1 : -1;
 }
 
 int32_t
@@ -125,8 +126,7 @@ nsASCIICaseInsensitiveStringComparator::operator()(const char16_t* lhs,
                                                    uint32_t rLength) const
 {
   if (lLength != rLength) {
-    if (lLength > rLength)
-      return 1;
+    if (lLength > rLength) return 1;
     return -1;
   }
 
@@ -150,7 +150,7 @@ nsASCIICaseInsensitiveStringComparator::operator()(const char16_t* lhs,
   return 0;
 }
 
-#endif // MOZILLA_INTERNAL_API
+#endif  // MOZILLA_INTERNAL_API
 
 uint32_t
 ToLowerCase(uint32_t aChar)
@@ -159,7 +159,7 @@ ToLowerCase(uint32_t aChar)
 }
 
 void
-ToLowerCase(const char16_t *aIn, char16_t *aOut, uint32_t aLen)
+ToLowerCase(const char16_t* aIn, char16_t* aOut, uint32_t aLen)
 {
   for (uint32_t i = 0; i < aLen; i++) {
     uint32_t ch = aIn[i];
@@ -189,7 +189,7 @@ ToUpperCase(uint32_t aChar)
 }
 
 void
-ToUpperCase(const char16_t *aIn, char16_t *aOut, uint32_t aLen)
+ToUpperCase(const char16_t* aIn, char16_t* aOut, uint32_t aLen)
 {
   for (uint32_t i = 0; i < aLen; i++) {
     uint32_t ch = aIn[i];
@@ -216,9 +216,7 @@ ToTitleCase(uint32_t aChar)
 }
 
 int32_t
-CaseInsensitiveCompare(const char16_t *a,
-                       const char16_t *b,
-                       uint32_t len)
+CaseInsensitiveCompare(const char16_t* a, const char16_t* b, uint32_t len)
 {
   NS_ASSERTION(a && b, "Do not pass in invalid pointers!");
 
@@ -266,11 +264,11 @@ CaseInsensitiveCompare(const char16_t *a,
 static MOZ_ALWAYS_INLINE uint32_t
 GetLowerUTF8Codepoint_inline(const char* aStr,
                              const char* aEnd,
-                             const char **aNext)
+                             const char** aNext)
 {
   // Convert to unsigned char so that stuffing chars into PRUint32s doesn't
   // sign extend.
-  const unsigned char *str = (unsigned char*)aStr;
+  const unsigned char* str = (unsigned char*)aStr;
 
   if (UTF8traits::isASCII(str[0])) {
     // It's ASCII; just convert to lower-case and return it.
@@ -284,7 +282,7 @@ GetLowerUTF8Codepoint_inline(const char* aStr,
     // uint16_t.
 
     uint16_t c;
-    c  = (str[0] & 0x1F) << 6;
+    c = (str[0] & 0x1F) << 6;
     c += (str[1] & 0x3F);
 
     // we don't go through ToLowerCase here, because we know this isn't
@@ -300,7 +298,7 @@ GetLowerUTF8Codepoint_inline(const char* aStr,
     // This will just barely fit into 16-bits, so store into a uint16_t.
 
     uint16_t c;
-    c  = (str[0] & 0x0F) << 12;
+    c = (str[0] & 0x0F) << 12;
     c += (str[1] & 0x3F) << 6;
     c += (str[2] & 0x3F);
 
@@ -314,7 +312,7 @@ GetLowerUTF8Codepoint_inline(const char* aStr,
     //   11110XXX 10XXXXXX 10XXXXXX 10XXXXXX.
 
     uint32_t c;
-    c  = (str[0] & 0x07) << 18;
+    c = (str[0] & 0x07) << 18;
     c += (str[1] & 0x3F) << 12;
     c += (str[2] & 0x3F) << 6;
     c += (str[3] & 0x3F);
@@ -330,49 +328,50 @@ GetLowerUTF8Codepoint_inline(const char* aStr,
 }
 
 uint32_t
-GetLowerUTF8Codepoint(const char* aStr, const char* aEnd, const char **aNext) {
+GetLowerUTF8Codepoint(const char* aStr, const char* aEnd, const char** aNext)
+{
   return GetLowerUTF8Codepoint_inline(aStr, aEnd, aNext);
 }
 
-int32_t CaseInsensitiveCompare(const char *aLeft,
-                               const char *aRight,
-                               uint32_t aLeftBytes,
-                               uint32_t aRightBytes)
+int32_t
+CaseInsensitiveCompare(const char* aLeft,
+                       const char* aRight,
+                       uint32_t aLeftBytes,
+                       uint32_t aRightBytes)
 {
-  const char *leftEnd = aLeft + aLeftBytes;
-  const char *rightEnd = aRight + aRightBytes;
+  const char* leftEnd = aLeft + aLeftBytes;
+  const char* rightEnd = aRight + aRightBytes;
 
   while (aLeft < leftEnd && aRight < rightEnd) {
     uint32_t leftChar = GetLowerUTF8Codepoint_inline(aLeft, leftEnd, &aLeft);
-    if (MOZ_UNLIKELY(leftChar == uint32_t(-1)))
-      return -1;
+    if (MOZ_UNLIKELY(leftChar == uint32_t(-1))) return -1;
 
-    uint32_t rightChar = GetLowerUTF8Codepoint_inline(aRight, rightEnd, &aRight);
-    if (MOZ_UNLIKELY(rightChar == uint32_t(-1)))
-      return -1;
+    uint32_t rightChar =
+        GetLowerUTF8Codepoint_inline(aRight, rightEnd, &aRight);
+    if (MOZ_UNLIKELY(rightChar == uint32_t(-1))) return -1;
 
     // Now leftChar and rightChar are lower-case, so we can compare them.
     if (leftChar != rightChar) {
-      if (leftChar > rightChar)
-        return 1;
+      if (leftChar > rightChar) return 1;
       return -1;
     }
   }
 
   // Make sure that if one string is longer than the other we return the
   // correct result.
-  if (aLeft < leftEnd)
-    return 1;
-  if (aRight < rightEnd)
-    return -1;
+  if (aLeft < leftEnd) return 1;
+  if (aRight < rightEnd) return -1;
 
   return 0;
 }
 
 bool
-CaseInsensitiveUTF8CharsEqual(const char* aLeft, const char* aRight,
-                              const char* aLeftEnd, const char* aRightEnd,
-                              const char** aLeftNext, const char** aRightNext,
+CaseInsensitiveUTF8CharsEqual(const char* aLeft,
+                              const char* aRight,
+                              const char* aLeftEnd,
+                              const char* aRightEnd,
+                              const char** aLeftNext,
+                              const char** aRightNext,
                               bool* aErr)
 {
   NS_ASSERTION(aLeftNext, "Out pointer shouldn't be null.");
@@ -387,7 +386,8 @@ CaseInsensitiveUTF8CharsEqual(const char* aLeft, const char* aRight,
     return false;
   }
 
-  uint32_t rightChar = GetLowerUTF8Codepoint_inline(aRight, aRightEnd, aRightNext);
+  uint32_t rightChar =
+      GetLowerUTF8Codepoint_inline(aRight, aRightEnd, aRightNext);
   if (MOZ_UNLIKELY(rightChar == uint32_t(-1))) {
     *aErr = true;
     return false;
@@ -410,8 +410,7 @@ HashUTF8AsUTF16(const char* aUTF8, uint32_t aLength, bool* aErr)
 
   *aErr = false;
 
-  while (s < end)
-  {
+  while (s < end) {
     uint32_t ucs4 = UTF8CharEnumerator::NextChar(&s, end, aErr);
     if (*aErr) {
       return 0;
@@ -419,8 +418,7 @@ HashUTF8AsUTF16(const char* aUTF8, uint32_t aLength, bool* aErr)
 
     if (ucs4 < PLANE1_BASE) {
       hash = AddToHash(hash, ucs4);
-    }
-    else {
+    } else {
       hash = AddToHash(hash, H_SURROGATE(ucs4), L_SURROGATE(ucs4));
     }
   }
@@ -435,4 +433,4 @@ IsSegmentBreakSkipChar(uint32_t u)
          unicode::GetScriptCode(u) != unicode::Script::HANGUL;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

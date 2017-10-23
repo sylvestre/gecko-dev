@@ -27,26 +27,23 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TextTrackList)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 TextTrackList::TextTrackList(nsPIDOMWindowInner* aOwnerWindow)
-  : DOMEventTargetHelper(aOwnerWindow)
+    : DOMEventTargetHelper(aOwnerWindow)
 {
 }
 
 TextTrackList::TextTrackList(nsPIDOMWindowInner* aOwnerWindow,
                              TextTrackManager* aTextTrackManager)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mTextTrackManager(aTextTrackManager)
+    : DOMEventTargetHelper(aOwnerWindow), mTextTrackManager(aTextTrackManager)
 {
 }
 
-TextTrackList::~TextTrackList()
-{
-}
+TextTrackList::~TextTrackList() {}
 
 void
-TextTrackList::GetShowingCues(nsTArray<RefPtr<TextTrackCue> >& aCues)
+TextTrackList::GetShowingCues(nsTArray<RefPtr<TextTrackCue>>& aCues)
 {
   // Only Subtitles and Captions can show on the screen.
-  nsTArray< RefPtr<TextTrackCue> > cues;
+  nsTArray<RefPtr<TextTrackCue>> cues;
   for (uint32_t i = 0; i < Length(); i++) {
     if (mTextTracks[i]->Mode() == TextTrackMode::Showing &&
         (mTextTracks[i]->Kind() == TextTrackKind::Subtitles ||
@@ -73,8 +70,7 @@ TextTrackList::IndexedGetter(uint32_t aIndex, bool& aFound)
   return mTextTracks[aIndex];
 }
 
-TextTrack*
-TextTrackList::operator[](uint32_t aIndex)
+TextTrack* TextTrackList::operator[](uint32_t aIndex)
 {
   return mTextTracks.SafeElementAt(aIndex, nullptr);
 }
@@ -88,9 +84,14 @@ TextTrackList::AddTextTrack(TextTrackKind aKind,
                             TextTrackSource aTextTrackSource,
                             const CompareTextTracks& aCompareTT)
 {
-  RefPtr<TextTrack> track = new TextTrack(GetOwner(), this, aKind, aLabel,
-                                            aLanguage, aMode, aReadyState,
-                                            aTextTrackSource);
+  RefPtr<TextTrack> track = new TextTrack(GetOwner(),
+                                          this,
+                                          aKind,
+                                          aLabel,
+                                          aLanguage,
+                                          aMode,
+                                          aReadyState,
+                                          aTextTrackSource);
   AddTextTrack(track, aCompareTT);
   return track.forget();
 }
@@ -104,7 +105,8 @@ TextTrackList::AddTextTrack(TextTrack* aTextTrack,
   }
   if (mTextTracks.InsertElementSorted(aTextTrack, aCompareTT)) {
     aTextTrack->SetTextTrackList(this);
-    CreateAndDispatchTrackEventRunner(aTextTrack, NS_LITERAL_STRING("addtrack"));
+    CreateAndDispatchTrackEventRunner(aTextTrack,
+                                      NS_LITERAL_STRING("addtrack"));
   }
 }
 
@@ -139,29 +141,27 @@ TextTrackList::DidSeek()
 
 class TrackEventRunner : public Runnable
 {
-public:
+ public:
   TrackEventRunner(TextTrackList* aList, nsIDOMEvent* aEvent)
-    : Runnable("dom::TrackEventRunner")
-    , mList(aList)
-    , mEvent(aEvent)
-  {}
-
-  NS_IMETHOD Run() override
+      : Runnable("dom::TrackEventRunner"), mList(aList), mEvent(aEvent)
   {
-    return mList->DispatchTrackEvent(mEvent);
   }
 
+  NS_IMETHOD Run() override { return mList->DispatchTrackEvent(mEvent); }
+
   RefPtr<TextTrackList> mList;
-private:
+
+ private:
   RefPtr<nsIDOMEvent> mEvent;
 };
 
 class ChangeEventRunner final : public TrackEventRunner
 {
-public:
+ public:
   ChangeEventRunner(TextTrackList* aList, nsIDOMEvent* aEvent)
-    : TrackEventRunner(aList, aEvent)
-  {}
+      : TrackEventRunner(aList, aEvent)
+  {
+  }
 
   NS_IMETHOD Run() override
   {
@@ -193,7 +193,8 @@ TextTrackList::CreateAndDispatchChangeEvent()
     event->SetTrusted(true);
 
     nsCOMPtr<nsIRunnable> eventRunner = new ChangeEventRunner(this, event);
-    nsGlobalWindow::Cast(win)->Dispatch(TaskCategory::Other, eventRunner.forget());
+    nsGlobalWindow::Cast(win)->Dispatch(TaskCategory::Other,
+                                        eventRunner.forget());
   }
 }
 
@@ -211,7 +212,7 @@ TextTrackList::CreateAndDispatchTrackEventRunner(TextTrack* aTrack,
   TrackEventInit eventInit;
   eventInit.mTrack.SetValue().SetAsTextTrack() = aTrack;
   RefPtr<TrackEvent> event =
-    TrackEvent::Constructor(this, aEventName, eventInit);
+      TrackEvent::Constructor(this, aEventName, eventInit);
 
   // Dispatch the TrackEvent asynchronously.
   rv = target->Dispatch(do_AddRef(new TrackEventRunner(this, event)),
@@ -244,8 +245,8 @@ TextTrackList::SetCuesInactive()
   }
 }
 
-
-bool TextTrackList::AreTextTracksLoaded()
+bool
+TextTrackList::AreTextTracksLoaded()
 {
   // Return false if any texttrack is not loaded.
   for (uint32_t i = 0; i < Length(); i++) {
@@ -262,5 +263,5 @@ TextTrackList::GetTextTrackArray()
   return mTextTracks;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

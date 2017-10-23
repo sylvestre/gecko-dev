@@ -38,15 +38,12 @@ CID_to_GUID(const nsCID& aCID)
   return result;
 }
 
-
 // Implementation of Probe
 
 Probe::Probe(const nsCID& aGUID,
              const nsACString& aName,
              ProbeManager* aManager)
-  : mGUID(CID_to_GUID(aGUID))
-  , mName(aName)
-  , mManager(aManager)
+    : mGUID(CID_to_GUID(aGUID)), mName(aName), mManager(aManager)
 {
 }
 
@@ -61,13 +58,13 @@ Probe::Trigger()
   _EVENT_TRACE_HEADER event;
   ZeroMemory(&event, sizeof(event));
   event.Size = sizeof(event);
-  event.Flags = WNODE_FLAG_TRACED_GUID ;
+  event.Flags = WNODE_FLAG_TRACED_GUID;
   event.Guid = (const GUID)mGUID;
-  event.Class.Type    = 1;
+  event.Class.Type = 1;
   event.Class.Version = 0;
-  event.Class.Level   = TRACE_LEVEL_INFORMATION;
+  event.Class.Level = TRACE_LEVEL_INFORMATION;
 
-  ULONG result        = TraceEvent(mManager->mSessionHandle, &event);
+  ULONG result = TraceEvent(mManager->mSessionHandle, &event);
 
   LOG(("Probes: Triggered %s, %s, %ld",
        mName.Data(),
@@ -97,7 +94,6 @@ Probe::Trigger()
   return rv;
 }
 
-
 // Implementation of ProbeManager
 
 ProbeManager::~ProbeManager()
@@ -110,18 +106,19 @@ ProbeManager::~ProbeManager()
 
 ProbeManager::ProbeManager(const nsCID& aApplicationUID,
                            const nsACString& aApplicationName)
-  : mIsActive(false)
-  , mApplicationUID(aApplicationUID)
-  , mApplicationName(aApplicationName)
-  , mSessionHandle(0)
-  , mRegistrationHandle(0)
-  , mInitialized(false)
+    : mIsActive(false),
+      mApplicationUID(aApplicationUID),
+      mApplicationName(aApplicationName),
+      mSessionHandle(0),
+      mRegistrationHandle(0),
+      mInitialized(false)
 {
 #if defined(MOZ_LOGGING)
   char cidStr[NSID_LENGTH];
   aApplicationUID.ToProvidedString(cidStr);
   LOG(("ProbeManager::Init for application %s, %s",
-       aApplicationName.Data(), cidStr));
+       aApplicationName.Data(),
+       cidStr));
 #endif
 }
 
@@ -150,7 +147,8 @@ ControlCallback(WMIDPREQUESTCODE aRequestCode,
         return result;
       } else if (context->mIsActive && context->mSessionHandle &&
                  context->mSessionHandle != sessionHandle) {
-        LOG(("Probes: Can only handle one context at a time, "
+        LOG(
+            ("Probes: Can only handle one context at a time, "
              "ignoring activation"));
         return ERROR_SUCCESS;
       } else {
@@ -161,7 +159,7 @@ ControlCallback(WMIDPREQUESTCODE aRequestCode,
     }
 
     case WMI_DISABLE_EVENTS:
-      context->mIsActive      = false;
+      context->mIsActive = false;
       context->mSessionHandle = 0;
       LOG(("Probes: ControlCallback deactivated"));
       return ERROR_SUCCESS;
@@ -198,25 +196,25 @@ ProbeManager::StartSession(nsTArray<RefPtr<Probe>>& aProbes)
     probes[i].Guid = (LPCGUID)&probeX->mGUID;
   }
   ULONG result =
-    RegisterTraceGuids(&ControlCallback
-                       /*RequestAddress: Sets mSessions appropriately.*/,
-                       this
-                       /*RequestContext: Passed to ControlCallback*/,
-                       (LPGUID)&mApplicationUID
-                       /*ControlGuid:    Tracing GUID
+      RegisterTraceGuids(&ControlCallback
+                         /*RequestAddress: Sets mSessions appropriately.*/,
+                         this
+                         /*RequestContext: Passed to ControlCallback*/,
+                         (LPGUID)&mApplicationUID
+                         /*ControlGuid:    Tracing GUID
                         the cast comes from MSDN examples*/,
-                       probesCount
-                       /*GuidCount:      Number of probes*/,
-                       probes
-                       /*TraceGuidReg:   Probes registration*/,
-                       nullptr
-                       /*MofImagePath:   Must be nullptr, says MSDN*/,
-                       nullptr
-                       /*MofResourceName:Must be nullptr, says MSDN*/,
-                       &mRegistrationHandle
-                       /*RegistrationHandle: Handler.
+                         probesCount
+                         /*GuidCount:      Number of probes*/,
+                         probes
+                         /*TraceGuidReg:   Probes registration*/,
+                         nullptr
+                         /*MofImagePath:   Must be nullptr, says MSDN*/,
+                         nullptr
+                         /*MofResourceName:Must be nullptr, says MSDN*/,
+                         &mRegistrationHandle
+                         /*RegistrationHandle: Handler.
                         used only for unregistration*/
-                      );
+      );
   delete[] probes;
   if (NS_WARN_IF(result != ERROR_SUCCESS)) {
     return NS_ERROR_UNEXPECTED;
@@ -238,5 +236,5 @@ ProbeManager::StopSession()
   return NS_OK;
 }
 
-} // namespace probes
-} // namespace mozilla
+}  // namespace probes
+}  // namespace mozilla

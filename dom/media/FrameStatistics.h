@@ -40,13 +40,13 @@ struct FrameStatisticsData
 
   FrameStatisticsData() = default;
   FrameStatisticsData(uint64_t aParsed, uint64_t aDecoded, uint64_t aDropped)
-    : mParsedFrames(aParsed)
-    , mDecodedFrames(aDecoded)
-    , mDroppedFrames(aDropped)
-  {}
+      : mParsedFrames(aParsed),
+        mDecodedFrames(aDecoded),
+        mDroppedFrames(aDropped)
+  {
+  }
 
-  void
-  Accumulate(const FrameStatisticsData& aStats)
+  void Accumulate(const FrameStatisticsData& aStats)
   {
     mParsedFrames += aStats.mParsedFrames;
     mDecodedFrames += aStats.mDecodedFrames;
@@ -65,12 +65,10 @@ struct FrameStatisticsData
 // Threadsafe.
 class FrameStatistics
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FrameStatistics);
 
-  FrameStatistics()
-    : mReentrantMonitor("FrameStats")
-  {}
+  FrameStatistics() : mReentrantMonitor("FrameStats") {}
 
   // Returns a copy of all frame statistics data.
   // Can be called on any thread.
@@ -134,9 +132,9 @@ public:
   // to ensure all parsed and decoded frames are reported on all return paths.
   class AutoNotifyDecoded
   {
-  public:
+   public:
     explicit AutoNotifyDecoded(FrameStatistics* aFrameStats)
-      : mFrameStats(aFrameStats)
+        : mFrameStats(aFrameStats)
     {
     }
     ~AutoNotifyDecoded()
@@ -148,11 +146,11 @@ public:
 
     FrameStatisticsData mStats;
 
-  private:
+   private:
     FrameStatistics* mFrameStats;
   };
 
-private:
+ private:
   ~FrameStatistics() {}
 
   // ReentrantMonitor to protect access of playback statistics.
@@ -161,6 +159,6 @@ private:
   FrameStatisticsData mFrameStatisticsData;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // FrameStatistics_h_
+#endif  // FrameStatistics_h_

@@ -16,16 +16,15 @@
 #include "nsPISocketTransportService.h"
 #include "nsServiceManagerUtils.h"
 
-class MtransportTestUtils {
+class MtransportTestUtils
+{
  public:
-  MtransportTestUtils() {
-      InitServices();
-  }
+  MtransportTestUtils() { InitServices(); }
 
-  ~MtransportTestUtils() {
-  }
+  ~MtransportTestUtils() {}
 
-  void InitServices() {
+  void InitServices()
+  {
     nsresult rv;
     sts_target_ = do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &rv);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
@@ -40,13 +39,11 @@ class MtransportTestUtils {
   nsCOMPtr<nsPISocketTransportService> sts_;
 };
 
-
-#define CHECK_ENVIRONMENT_FLAG(envname) \
-  char *test_flag = getenv(envname); \
-  if (!test_flag || strcmp(test_flag, "1")) { \
+#define CHECK_ENVIRONMENT_FLAG(envname)                                 \
+  char* test_flag = getenv(envname);                                    \
+  if (!test_flag || strcmp(test_flag, "1")) {                           \
     printf("To run this test set %s=1 in your environment\n", envname); \
-    exit(0); \
-  } \
-
+    exit(0);                                                            \
+  }
 
 #endif

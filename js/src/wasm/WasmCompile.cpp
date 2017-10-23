@@ -34,54 +34,42 @@ using namespace js;
 using namespace js::jit;
 using namespace js::wasm;
 
-static bool
-DecodeFunctionBody(Decoder& d, ModuleGenerator& mg, uint32_t funcIndex)
-{
+static bool DecodeFunctionBody(Decoder& d, ModuleGenerator& mg, uint32_t funcIndex) {
     uint32_t bodySize;
-    if (!d.readVarU32(&bodySize))
-        return d.fail("expected number of function body bytes");
+    if (!d.readVarU32(&bodySize)) return d.fail("expected number of function body bytes");
 
     const size_t offsetInModule = d.currentOffset();
 
     // Skip over the function body; it will be validated by the compilation thread.
     const uint8_t* bodyBegin;
-    if (!d.readBytes(bodySize, &bodyBegin))
-        return d.fail("function body length too big");
+    if (!d.readBytes(bodySize, &bodyBegin)) return d.fail("function body length too big");
 
     return mg.compileFuncDef(funcIndex, offsetInModule, bodyBegin, bodyBegin + bodySize);
 }
 
-static bool
-DecodeCodeSection(Decoder& d, ModuleGenerator& mg, ModuleEnvironment* env)
-{
+static bool DecodeCodeSection(Decoder& d, ModuleGenerator& mg, ModuleEnvironment* env) {
     if (!env->codeSection) {
-        if (env->numFuncDefs() != 0)
-            return d.fail("expected function bodies");
+        if (env->numFuncDefs() != 0) return d.fail("expected function bodies");
 
         return mg.finishFuncDefs();
     }
 
     uint32_t numFuncDefs;
-    if (!d.readVarU32(&numFuncDefs))
-        return d.fail("expected function body count");
+    if (!d.readVarU32(&numFuncDefs)) return d.fail("expected function body count");
 
     if (numFuncDefs != env->numFuncDefs())
         return d.fail("function body count does not match function signature count");
 
     for (uint32_t funcDefIndex = 0; funcDefIndex < numFuncDefs; funcDefIndex++) {
-        if (!DecodeFunctionBody(d, mg, env->numFuncImports() + funcDefIndex))
-            return false;
+        if (!DecodeFunctionBody(d, mg, env->numFuncImports() + funcDefIndex)) return false;
     }
 
-    if (!d.finishSection(*env->codeSection, "code"))
-        return false;
+    if (!d.finishSection(*env->codeSection, "code")) return false;
 
     return mg.finishFuncDefs();
 }
 
-bool
-CompileArgs::initFromContext(JSContext* cx, ScriptedCaller&& scriptedCaller)
-{
+bool CompileArgs::initFromContext(JSContext* cx, ScriptedCaller&& scriptedCaller) {
     baselineEnabled = cx->options().wasmBaseline();
     ionEnabled = cx->options().wasmIon();
     testTiering = cx->options().testWasmAwaitTier2();
@@ -112,8 +100,7 @@ CompileArgs::initFromContext(JSContext* cx, ScriptedCaller&& scriptedCaller)
 // physical memory, core configuration, OS details, CPU class and family, and
 // CPU manufacturer to disambiguate.
 
-enum class SystemClass
-{
+enum class SystemClass {
     DesktopX86,
     DesktopX64,
     DesktopUnknown32,
@@ -125,9 +112,7 @@ enum class SystemClass
     MobileUnknown64
 };
 
-static SystemClass
-ClassifySystem()
-{
+static SystemClass ClassifySystem() {
     bool isDesktop;
 
 #if defined(ANDROID) || defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64)
@@ -169,66 +154,60 @@ static const double x64Tox86Inflation = 1.25;
 static const double x64IonBytesPerBytecode = 2.45;
 static const double x86IonBytesPerBytecode = x64IonBytesPerBytecode * x64Tox86Inflation;
 static const double arm32IonBytesPerBytecode = 3.3;
-static const double arm64IonBytesPerBytecode = 3.0; // Guess
+static const double arm64IonBytesPerBytecode = 3.0;  // Guess
 
 static const double x64BaselineBytesPerBytecode = x64IonBytesPerBytecode * 1.43;
 static const double x86BaselineBytesPerBytecode = x64BaselineBytesPerBytecode * x64Tox86Inflation;
 static const double arm32BaselineBytesPerBytecode = arm32IonBytesPerBytecode * 1.39;
-static const double arm64BaselineBytesPerBytecode = arm64IonBytesPerBytecode * 1.39; // Guess
+static const double arm64BaselineBytesPerBytecode = arm64IonBytesPerBytecode * 1.39;  // Guess
 
-static double
-IonBytesPerBytecode(SystemClass cls)
-{
+static double IonBytesPerBytecode(SystemClass cls) {
     switch (cls) {
-      case SystemClass::DesktopX86:
-      case SystemClass::MobileX86:
-      case SystemClass::DesktopUnknown32:
-        return x86IonBytesPerBytecode;
-      case SystemClass::DesktopX64:
-      case SystemClass::DesktopUnknown64:
-        return x64IonBytesPerBytecode;
-      case SystemClass::MobileArm32:
-      case SystemClass::MobileUnknown32:
-        return arm32IonBytesPerBytecode;
-      case SystemClass::MobileArm64:
-      case SystemClass::MobileUnknown64:
-        return arm64IonBytesPerBytecode;
-      default:
-        MOZ_CRASH();
+        case SystemClass::DesktopX86:
+        case SystemClass::MobileX86:
+        case SystemClass::DesktopUnknown32:
+            return x86IonBytesPerBytecode;
+        case SystemClass::DesktopX64:
+        case SystemClass::DesktopUnknown64:
+            return x64IonBytesPerBytecode;
+        case SystemClass::MobileArm32:
+        case SystemClass::MobileUnknown32:
+            return arm32IonBytesPerBytecode;
+        case SystemClass::MobileArm64:
+        case SystemClass::MobileUnknown64:
+            return arm64IonBytesPerBytecode;
+        default:
+            MOZ_CRASH();
     }
 }
 
-static double
-BaselineBytesPerBytecode(SystemClass cls)
-{
+static double BaselineBytesPerBytecode(SystemClass cls) {
     switch (cls) {
-      case SystemClass::DesktopX86:
-      case SystemClass::MobileX86:
-      case SystemClass::DesktopUnknown32:
-        return x86BaselineBytesPerBytecode;
-      case SystemClass::DesktopX64:
-      case SystemClass::DesktopUnknown64:
-        return x64BaselineBytesPerBytecode;
-      case SystemClass::MobileArm32:
-      case SystemClass::MobileUnknown32:
-        return arm32BaselineBytesPerBytecode;
-      case SystemClass::MobileArm64:
-      case SystemClass::MobileUnknown64:
-        return arm64BaselineBytesPerBytecode;
-      default:
-        MOZ_CRASH();
+        case SystemClass::DesktopX86:
+        case SystemClass::MobileX86:
+        case SystemClass::DesktopUnknown32:
+            return x86BaselineBytesPerBytecode;
+        case SystemClass::DesktopX64:
+        case SystemClass::DesktopUnknown64:
+            return x64BaselineBytesPerBytecode;
+        case SystemClass::MobileArm32:
+        case SystemClass::MobileUnknown32:
+            return arm32BaselineBytesPerBytecode;
+        case SystemClass::MobileArm64:
+        case SystemClass::MobileUnknown64:
+            return arm64BaselineBytesPerBytecode;
+        default:
+            MOZ_CRASH();
     }
 }
 
-double
-wasm::EstimateCompiledCodeSize(Tier tier, size_t bytecodeSize)
-{
+double wasm::EstimateCompiledCodeSize(Tier tier, size_t bytecodeSize) {
     SystemClass cls = ClassifySystem();
     switch (tier) {
-      case Tier::Baseline:
-        return double(bytecodeSize) * BaselineBytesPerBytecode(cls);
-      case Tier::Ion:
-        return double(bytecodeSize) * IonBytesPerBytecode(cls);
+        case Tier::Baseline:
+            return double(bytecodeSize) * BaselineBytesPerBytecode(cls);
+        case Tier::Ion:
+            return double(bytecodeSize) * IonBytesPerBytecode(cls);
     }
     MOZ_CRASH("bad tier");
 }
@@ -246,7 +225,7 @@ static const double tierCutoffMs = 250;
 static const double x64BytecodesPerMs = 2100;
 static const double x86BytecodesPerMs = 1500;
 static const double arm32BytecodesPerMs = 450;
-static const double arm64BytecodesPerMs = 650; // Guess
+static const double arm64BytecodesPerMs = 650;  // Guess
 
 // Tiering cutoff values: if code section sizes are below these values (when
 // divided by the effective number of cores) we do not tier, because we guess
@@ -254,30 +233,28 @@ static const double arm64BytecodesPerMs = 650; // Guess
 
 static const double x64DesktopTierCutoff = x64BytecodesPerMs * tierCutoffMs;
 static const double x86DesktopTierCutoff = x86BytecodesPerMs * tierCutoffMs;
-static const double x86MobileTierCutoff = x86DesktopTierCutoff / 2; // Guess
+static const double x86MobileTierCutoff = x86DesktopTierCutoff / 2;  // Guess
 static const double arm32MobileTierCutoff = arm32BytecodesPerMs * tierCutoffMs;
 static const double arm64MobileTierCutoff = arm64BytecodesPerMs * tierCutoffMs;
 
-static double
-CodesizeCutoff(SystemClass cls, uint32_t codeSize)
-{
+static double CodesizeCutoff(SystemClass cls, uint32_t codeSize) {
     switch (cls) {
-      case SystemClass::DesktopX86:
-      case SystemClass::DesktopUnknown32:
-        return x86DesktopTierCutoff;
-      case SystemClass::DesktopX64:
-      case SystemClass::DesktopUnknown64:
-        return x64DesktopTierCutoff;
-      case SystemClass::MobileX86:
-        return x86MobileTierCutoff;
-      case SystemClass::MobileArm32:
-      case SystemClass::MobileUnknown32:
-        return arm32MobileTierCutoff;
-      case SystemClass::MobileArm64:
-      case SystemClass::MobileUnknown64:
-        return arm64MobileTierCutoff;
-      default:
-        MOZ_CRASH();
+        case SystemClass::DesktopX86:
+        case SystemClass::DesktopUnknown32:
+            return x86DesktopTierCutoff;
+        case SystemClass::DesktopX64:
+        case SystemClass::DesktopUnknown64:
+            return x64DesktopTierCutoff;
+        case SystemClass::MobileX86:
+            return x86MobileTierCutoff;
+        case SystemClass::MobileArm32:
+        case SystemClass::MobileUnknown32:
+            return arm32MobileTierCutoff;
+        case SystemClass::MobileArm64:
+        case SystemClass::MobileUnknown64:
+            return arm64MobileTierCutoff;
+        default:
+            MOZ_CRASH();
     }
 }
 
@@ -291,11 +268,8 @@ CodesizeCutoff(SystemClass cls, uint32_t codeSize)
 // performance increase is nil or negative once the program moves beyond one
 // socket.  However, few browser users have such systems.
 
-static double
-EffectiveCores(SystemClass cls, uint32_t cores)
-{
-    if (cores <= 3)
-        return pow(cores, 0.9);
+static double EffectiveCores(SystemClass cls, uint32_t cores) {
+    if (cores <= 3) return pow(cores, 0.9);
     return pow(cores, 0.75);
 }
 
@@ -307,11 +281,8 @@ static const double spaceCutoffPct = 0.9;
 #endif
 
 // Figure out whether we should use tiered compilation or not.
-static bool
-TieringBeneficial(uint32_t codeSize)
-{
-    if (!CanUseExtraThreads())
-        return false;
+static bool TieringBeneficial(uint32_t codeSize) {
+    if (!CanUseExtraThreads()) return false;
 
     uint32_t cpuCount = HelperThreadState().cpuCount;
     MOZ_ASSERT(cpuCount > 0);
@@ -323,8 +294,7 @@ TieringBeneficial(uint32_t codeSize)
     // some kind of sense.  That said, this is a non-issue: as of September 2017
     // 1-core was down to 3.5% of our population and falling.
 
-    if (cpuCount == 1)
-        return false;
+    if (cpuCount == 1) return false;
 
     MOZ_ASSERT(HelperThreadState().threadCount >= cpuCount);
 
@@ -346,12 +316,11 @@ TieringBeneficial(uint32_t codeSize)
     double cutoffSize = CodesizeCutoff(cls, codeSize);
     double effectiveCores = EffectiveCores(cls, cores);
 
-    if ((codeSize / effectiveCores) < cutoffSize)
-        return false;
+    if ((codeSize / effectiveCores) < cutoffSize) return false;
 
-    // Do not implement a size cutoff for 64-bit systems since the code size
-    // budget for 64 bit is so large that it will hardly ever be an issue.
-    // (Also the cutoff percentage might be different on 64-bit.)
+        // Do not implement a size cutoff for 64-bit systems since the code size
+        // budget for 64 bit is so large that it will hardly ever be an issue.
+        // (Also the cutoff percentage might be different on 64-bit.)
 
 #ifndef JS_64BIT
     // If the amount of executable code for baseline compilation jeopardizes the
@@ -371,30 +340,25 @@ TieringBeneficial(uint32_t codeSize)
     // If the sum of baseline and ion code makes us exceeds some set percentage
     // of the executable memory then disable tiering.
 
-    if ((MaxCodeBytesPerProcess - availMemory) + needMemory > cutoff)
-        return false;
+    if ((MaxCodeBytesPerProcess - availMemory) + needMemory > cutoff) return false;
 #endif
 
     return true;
 }
 
-static void
-InitialCompileFlags(const CompileArgs& args, Decoder& d, CompileMode* mode, Tier* tier,
-                    DebugEnabled* debug)
-{
+static void InitialCompileFlags(const CompileArgs& args, Decoder& d, CompileMode* mode, Tier* tier,
+                                DebugEnabled* debug) {
     uint32_t codeSectionSize = 0;
 
     SectionRange range;
-    if (StartsCodeSection(d.begin(), d.end(), &range))
-        codeSectionSize = range.size;
+    if (StartsCodeSection(d.begin(), d.end(), &range)) codeSectionSize = range.size;
 
     bool baselineEnabled = BaselineCanCompile() && (args.baselineEnabled || args.testTiering);
     bool debugEnabled = BaselineCanCompile() && args.debugEnabled;
     bool ionEnabled = args.ionEnabled || !baselineEnabled || args.testTiering;
 
     if (baselineEnabled && ionEnabled && !debugEnabled &&
-        (TieringBeneficial(codeSectionSize) || args.testTiering))
-    {
+        (TieringBeneficial(codeSectionSize) || args.testTiering)) {
         *mode = CompileMode::Tier1;
         *tier = Tier::Baseline;
     } else {
@@ -405,9 +369,8 @@ InitialCompileFlags(const CompileArgs& args, Decoder& d, CompileMode* mode, Tier
     *debug = debugEnabled ? DebugEnabled::True : DebugEnabled::False;
 }
 
-SharedModule
-wasm::CompileInitialTier(const ShareableBytes& bytecode, const CompileArgs& args, UniqueChars* error)
-{
+SharedModule wasm::CompileInitialTier(const ShareableBytes& bytecode, const CompileArgs& args,
+                                      UniqueChars* error) {
     MOZ_RELEASE_ASSERT(wasm::HaveSignalHandlers());
 
     Decoder d(bytecode.bytes, error);
@@ -418,43 +381,33 @@ wasm::CompileInitialTier(const ShareableBytes& bytecode, const CompileArgs& args
     InitialCompileFlags(args, d, &mode, &tier, &debug);
 
     ModuleEnvironment env(mode, tier, debug);
-    if (!DecodeModuleEnvironment(d, &env))
-        return nullptr;
+    if (!DecodeModuleEnvironment(d, &env)) return nullptr;
 
     ModuleGenerator mg(args, &env, nullptr, error);
-    if (!mg.init())
-        return nullptr;
+    if (!mg.init()) return nullptr;
 
-    if (!DecodeCodeSection(d, mg, &env))
-        return nullptr;
+    if (!DecodeCodeSection(d, mg, &env)) return nullptr;
 
-    if (!DecodeModuleTail(d, &env))
-        return nullptr;
+    if (!DecodeModuleTail(d, &env)) return nullptr;
 
     return mg.finishModule(bytecode);
 }
 
-bool
-wasm::CompileTier2(Module& module, const CompileArgs& args, Atomic<bool>* cancelled)
-{
+bool wasm::CompileTier2(Module& module, const CompileArgs& args, Atomic<bool>* cancelled) {
     MOZ_RELEASE_ASSERT(wasm::HaveSignalHandlers());
 
     UniqueChars error;
     Decoder d(module.bytecode().bytes, &error);
 
     ModuleEnvironment env(CompileMode::Tier2, Tier::Ion, DebugEnabled::False);
-    if (!DecodeModuleEnvironment(d, &env))
-        return false;
+    if (!DecodeModuleEnvironment(d, &env)) return false;
 
     ModuleGenerator mg(args, &env, cancelled, &error);
-    if (!mg.init())
-        return false;
+    if (!mg.init()) return false;
 
-    if (!DecodeCodeSection(d, mg, &env))
-        return false;
+    if (!DecodeCodeSection(d, mg, &env)) return false;
 
-    if (!DecodeModuleTail(d, &env))
-        return false;
+    if (!DecodeModuleTail(d, &env)) return false;
 
     return mg.finishTier2(module);
 }

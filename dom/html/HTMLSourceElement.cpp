@@ -23,16 +23,16 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Source)
 namespace mozilla {
 namespace dom {
 
-HTMLSourceElement::HTMLSourceElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLSourceElement::HTMLSourceElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
-HTMLSourceElement::~HTMLSourceElement()
-{
-}
+HTMLSourceElement::~HTMLSourceElement() {}
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLSourceElement, nsGenericHTMLElement,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLSourceElement,
+                                   nsGenericHTMLElement,
                                    mSrcMediaSource)
 
 NS_IMPL_ADDREF_INHERITED(HTMLSourceElement, nsGenericHTMLElement)
@@ -65,7 +65,7 @@ HTMLSourceElement::MatchesCurrentMedia()
 
 /* static */ bool
 HTMLSourceElement::WouldMatchMediaForDocument(const nsAString& aMedia,
-                                              const nsIDocument *aDocument)
+                                              const nsIDocument* aDocument)
 {
   if (aMedia.IsEmpty()) {
     return true;
@@ -75,7 +75,7 @@ HTMLSourceElement::WouldMatchMediaForDocument(const nsAString& aMedia,
   nsPresContext* pctx = presShell ? presShell->GetPresContext() : nullptr;
 
   RefPtr<MediaList> mediaList =
-    MediaList::Create(aDocument->GetStyleBackendType(), aMedia);
+      MediaList::Create(aDocument->GetStyleBackendType(), aMedia);
   return pctx && mediaList->Matches(pctx);
 }
 
@@ -92,7 +92,8 @@ HTMLSourceElement::UpdateMediaList(const nsAttrValue* aValue)
 }
 
 nsresult
-HTMLSourceElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLSourceElement::AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
@@ -100,24 +101,23 @@ HTMLSourceElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
 {
   if (aNameSpaceID == kNameSpaceID_None && aName == nsGkAtoms::srcset) {
     mSrcsetTriggeringPrincipal = nsContentUtils::GetAttrTriggeringPrincipal(
-        this, aValue ? aValue->GetStringValue() : EmptyString(),
+        this,
+        aValue ? aValue->GetStringValue() : EmptyString(),
         aMaybeScriptedPrincipal);
   }
   // If we are associated with a <picture> with a valid <img>, notify it of
   // responsive parameter changes
-  Element *parent = nsINode::GetParentElement();
+  Element* parent = nsINode::GetParentElement();
   if (aNameSpaceID == kNameSpaceID_None &&
-      (aName == nsGkAtoms::srcset ||
-       aName == nsGkAtoms::sizes ||
-       aName == nsGkAtoms::media ||
-       aName == nsGkAtoms::type) &&
+      (aName == nsGkAtoms::srcset || aName == nsGkAtoms::sizes ||
+       aName == nsGkAtoms::media || aName == nsGkAtoms::type) &&
       parent && parent->IsHTMLElement(nsGkAtoms::picture)) {
     nsString strVal = aValue ? aValue->GetStringValue() : EmptyString();
     // Find all img siblings after this <source> and notify them of the change
     nsCOMPtr<nsIContent> sibling = AsContent();
-    while ( (sibling = sibling->GetNextSibling()) ) {
+    while ((sibling = sibling->GetNextSibling())) {
       if (sibling->IsHTMLElement(nsGkAtoms::img)) {
-        HTMLImageElement *img = static_cast<HTMLImageElement*>(sibling.get());
+        HTMLImageElement* img = static_cast<HTMLImageElement*>(sibling.get());
         if (aName == nsGkAtoms::srcset) {
           img->PictureSourceSrcsetChanged(AsContent(), strVal, aNotify);
         } else if (aName == nsGkAtoms::sizes) {
@@ -135,7 +135,8 @@ HTMLSourceElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     UpdateMediaList(aValue);
   } else if (aNameSpaceID == kNameSpaceID_None && aName == nsGkAtoms::src) {
     mSrcTriggeringPrincipal = nsContentUtils::GetAttrTriggeringPrincipal(
-        this, aValue ? aValue->GetStringValue() : EmptyString(),
+        this,
+        aValue ? aValue->GetStringValue() : EmptyString(),
         aMaybeScriptedPrincipal);
     mSrcMediaSource = nullptr;
     if (aValue) {
@@ -148,22 +149,18 @@ HTMLSourceElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName,
-                                            aValue, aOldValue,
-                                            aMaybeScriptedPrincipal,
-                                            aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aMaybeScriptedPrincipal, aNotify);
 }
 
 nsresult
-HTMLSourceElement::BindToTree(nsIDocument *aDocument,
-                              nsIContent *aParent,
-                              nsIContent *aBindingParent,
+HTMLSourceElement::BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
+                              nsIContent* aBindingParent,
                               bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument,
-                                                 aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (aParent && aParent->IsNodeOfType(nsINode::eMEDIA)) {
@@ -180,5 +177,5 @@ HTMLSourceElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLSourceElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

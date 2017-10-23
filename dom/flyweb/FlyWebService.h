@@ -36,12 +36,13 @@ class FlyWebDiscoveryManager;
 class FlyWebMDNSService;
 
 typedef MozPromise<RefPtr<FlyWebPublishedServer>, nsresult, false>
-  FlyWebPublishPromise;
+    FlyWebPublishPromise;
 
 class FlyWebService final : public nsIObserver
 {
   friend class FlyWebMDNSService;
-public:
+
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -52,28 +53,29 @@ public:
     return do_AddRef(GetOrCreate());
   }
 
-  already_AddRefed<FlyWebPublishPromise>
-    PublishServer(const nsAString& aName,
-                  const FlyWebPublishOptions& aOptions,
-                  nsPIDOMWindowInner* aWindow);
+  already_AddRefed<FlyWebPublishPromise> PublishServer(
+      const nsAString& aName,
+      const FlyWebPublishOptions& aOptions,
+      nsPIDOMWindowInner* aWindow);
 
   void UnregisterServer(FlyWebPublishedServer* aServer);
 
   bool HasConnectionOrServer(uint64_t aWindowID);
 
   void ListDiscoveredServices(nsTArray<FlyWebDiscoveredService>& aServices);
-  void PairWithService(const nsAString& aServiceId, FlyWebPairingCallback& aCallback);
-  nsresult CreateTransportForHost(const char **types,
+  void PairWithService(const nsAString& aServiceId,
+                       FlyWebPairingCallback& aCallback);
+  nsresult CreateTransportForHost(const char** types,
                                   uint32_t typeCount,
-                                  const nsACString &host,
+                                  const nsACString& host,
                                   int32_t port,
-                                  const nsACString &hostRoute,
+                                  const nsACString& hostRoute,
                                   int32_t portRoute,
-                                  nsIProxyInfo *proxyInfo,
-                                  nsISocketTransport **result);
+                                  nsIProxyInfo* proxyInfo,
+                                  nsISocketTransport** result);
 
   already_AddRefed<FlyWebPublishedServer> FindPublishedServerByName(
-            const nsAString& aName);
+      const nsAString& aName);
 
   void RegisterDiscoveryManager(FlyWebDiscoveryManager* aDiscoveryManager);
   void UnregisterDiscoveryManager(FlyWebDiscoveryManager* aDiscoveryManager);
@@ -81,7 +83,7 @@ public:
   // Should only be called by FlyWebPublishedServerImpl
   void StartDiscoveryOf(FlyWebPublishedServerImpl* aServer);
 
-private:
+ private:
   FlyWebService();
   ~FlyWebService();
 
@@ -100,14 +102,13 @@ private:
     FlyWebPairedService mService;
     nsCOMPtr<nsIDNSServiceInfo> mDNSServiceInfo;
   };
-  nsClassHashtable<nsCStringHashKey, PairedInfo>
-    mPairedServiceTable;
-  ReentrantMonitor mMonitor; // Protecting mPairedServiceTable
+  nsClassHashtable<nsCStringHashKey, PairedInfo> mPairedServiceTable;
+  ReentrantMonitor mMonitor;  // Protecting mPairedServiceTable
 
   nsTHashtable<nsPtrHashKey<FlyWebDiscoveryManager>> mDiscoveryManagerTable;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlyWebService_h
+#endif  // mozilla_dom_FlyWebService_h

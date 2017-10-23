@@ -10,43 +10,40 @@ using mozilla::OriginAttributes;
 
 NS_IMPL_ISUPPORTS(nsUDPSocketProvider, nsISocketProvider)
 
-nsUDPSocketProvider::~nsUDPSocketProvider()
-{
-}
+nsUDPSocketProvider::~nsUDPSocketProvider() {}
 
 NS_IMETHODIMP
 nsUDPSocketProvider::NewSocket(int32_t aFamily,
-                               const char *aHost,
+                               const char* aHost,
                                int32_t aPort,
-                               nsIProxyInfo *aProxy,
-                               const OriginAttributes &originAttributes,
+                               nsIProxyInfo* aProxy,
+                               const OriginAttributes& originAttributes,
                                uint32_t aFlags,
                                uint32_t aTlsFlags,
-                               PRFileDesc * *aFileDesc,
-                               nsISupports **aSecurityInfo)
+                               PRFileDesc** aFileDesc,
+                               nsISupports** aSecurityInfo)
 {
-    NS_ENSURE_ARG_POINTER(aFileDesc);
+  NS_ENSURE_ARG_POINTER(aFileDesc);
 
-    PRFileDesc* udpFD = PR_OpenUDPSocket(aFamily);
-    if (!udpFD)
-        return NS_ERROR_FAILURE;
+  PRFileDesc* udpFD = PR_OpenUDPSocket(aFamily);
+  if (!udpFD) return NS_ERROR_FAILURE;
 
-    *aFileDesc = udpFD;
-    return NS_OK;
+  *aFileDesc = udpFD;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsUDPSocketProvider::AddToSocket(int32_t aFamily,
-                                 const char *aHost,
+                                 const char* aHost,
                                  int32_t aPort,
-                                 nsIProxyInfo *aProxy,
-                                 const OriginAttributes &originAttributes,
+                                 nsIProxyInfo* aProxy,
+                                 const OriginAttributes& originAttributes,
                                  uint32_t aFlags,
                                  uint32_t aTlsFlags,
-                                 struct PRFileDesc * aFileDesc,
-                                 nsISupports **aSecurityInfo)
+                                 struct PRFileDesc* aFileDesc,
+                                 nsISupports** aSecurityInfo)
 {
-    // does not make sense to strap a UDP socket onto an existing socket
-    NS_NOTREACHED("Cannot layer UDP socket on an existing socket");
-    return NS_ERROR_UNEXPECTED;
+  // does not make sense to strap a UDP socket onto an existing socket
+  NS_NOTREACHED("Cannot layer UDP socket on an existing socket");
+  return NS_ERROR_UNEXPECTED;
 }

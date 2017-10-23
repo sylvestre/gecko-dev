@@ -8,8 +8,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testGCOutOfMemory)
-{
+BEGIN_TEST(testGCOutOfMemory) {
     JS::RootedValue root(cx);
 
     // Count the number of allocations until we hit OOM, and store it in 'max'.
@@ -36,13 +35,15 @@ BEGIN_TEST(testGCOutOfMemory)
 
     // The above GC should have discarded everything. Verify that we can now
     // allocate half as many objects without OOMing.
-    EVAL("(function() {"
-         "    var array = [];"
-         "    for (var i = max >> 2; i != 0;) {"
-         "        --i;"
-         "        array.push({});"
-         "    }"
-         "})();", &root);
+    EVAL(
+        "(function() {"
+        "    var array = [];"
+        "    for (var i = max >> 2; i != 0;) {"
+        "        --i;"
+        "        array.push({});"
+        "    }"
+        "})();",
+        &root);
     CHECK(!JS_IsExceptionPending(cx));
     return true;
 }
@@ -56,14 +57,11 @@ virtual JSContext* createContext() override {
     // the nursery will start out with only a single chunk before triggering a
     // major GC.)
     JSContext* cx = JS_NewContext(1024 * 1024, 128 * 1024);
-    if (!cx)
-        return nullptr;
+    if (!cx) return nullptr;
     setNativeStackQuota(cx);
     return cx;
 }
 
-virtual void destroyContext() override {
-    JS_DestroyContext(cx);
-}
+virtual void destroyContext() override { JS_DestroyContext(cx); }
 
 END_TEST(testGCOutOfMemory)

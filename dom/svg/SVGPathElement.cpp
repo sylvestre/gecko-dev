@@ -29,7 +29,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGPathElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGPathElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGPathElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -37,8 +37,9 @@ SVGPathElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGPathElement::SVGPathElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGPathElementBase(aNodeInfo)
+SVGPathElement::SVGPathElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGPathElementBase(aNodeInfo)
 {
 }
 
@@ -100,58 +101,78 @@ SVGPathElement::CreateSVGPathSegLinetoRel(float x, float y)
 }
 
 already_AddRefed<DOMSVGPathSegCurvetoCubicAbs>
-SVGPathElement::CreateSVGPathSegCurvetoCubicAbs(float x, float y, float x1, float y1, float x2, float y2)
+SVGPathElement::CreateSVGPathSegCurvetoCubicAbs(
+    float x, float y, float x1, float y1, float x2, float y2)
 {
   // Note that we swap from DOM API argument order to the argument order used
   // in the <path> element's 'd' attribute (i.e. we put the arguments for the
   // end point of the segment last instead of first).
   RefPtr<DOMSVGPathSegCurvetoCubicAbs> pathSeg =
-    new DOMSVGPathSegCurvetoCubicAbs(x1, y1, x2, y2, x, y);
+      new DOMSVGPathSegCurvetoCubicAbs(x1, y1, x2, y2, x, y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegCurvetoCubicRel>
-SVGPathElement::CreateSVGPathSegCurvetoCubicRel(float x, float y, float x1, float y1, float x2, float y2)
+SVGPathElement::CreateSVGPathSegCurvetoCubicRel(
+    float x, float y, float x1, float y1, float x2, float y2)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegCurvetoCubicRel> pathSeg =
-    new DOMSVGPathSegCurvetoCubicRel(x1, y1, x2, y2, x, y);
+      new DOMSVGPathSegCurvetoCubicRel(x1, y1, x2, y2, x, y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegCurvetoQuadraticAbs>
-SVGPathElement::CreateSVGPathSegCurvetoQuadraticAbs(float x, float y, float x1, float y1)
+SVGPathElement::CreateSVGPathSegCurvetoQuadraticAbs(float x,
+                                                    float y,
+                                                    float x1,
+                                                    float y1)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegCurvetoQuadraticAbs> pathSeg =
-    new DOMSVGPathSegCurvetoQuadraticAbs(x1, y1, x, y);
+      new DOMSVGPathSegCurvetoQuadraticAbs(x1, y1, x, y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegCurvetoQuadraticRel>
-SVGPathElement::CreateSVGPathSegCurvetoQuadraticRel(float x, float y, float x1, float y1)
+SVGPathElement::CreateSVGPathSegCurvetoQuadraticRel(float x,
+                                                    float y,
+                                                    float x1,
+                                                    float y1)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegCurvetoQuadraticRel> pathSeg =
-    new DOMSVGPathSegCurvetoQuadraticRel(x1, y1, x, y);
+      new DOMSVGPathSegCurvetoQuadraticRel(x1, y1, x, y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegArcAbs>
-SVGPathElement::CreateSVGPathSegArcAbs(float x, float y, float r1, float r2, float angle, bool largeArcFlag, bool sweepFlag)
+SVGPathElement::CreateSVGPathSegArcAbs(float x,
+                                       float y,
+                                       float r1,
+                                       float r2,
+                                       float angle,
+                                       bool largeArcFlag,
+                                       bool sweepFlag)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegArcAbs> pathSeg =
-    new DOMSVGPathSegArcAbs(r1, r2, angle, largeArcFlag, sweepFlag, x, y);
+      new DOMSVGPathSegArcAbs(r1, r2, angle, largeArcFlag, sweepFlag, x, y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegArcRel>
-SVGPathElement::CreateSVGPathSegArcRel(float x, float y, float r1, float r2, float angle, bool largeArcFlag, bool sweepFlag)
+SVGPathElement::CreateSVGPathSegArcRel(float x,
+                                       float y,
+                                       float r1,
+                                       float r2,
+                                       float angle,
+                                       bool largeArcFlag,
+                                       bool sweepFlag)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegArcRel> pathSeg =
-    new DOMSVGPathSegArcRel(r1, r2, angle, largeArcFlag, sweepFlag, x, y);
+      new DOMSVGPathSegArcRel(r1, r2, angle, largeArcFlag, sweepFlag, x, y);
   return pathSeg.forget();
 }
 
@@ -159,7 +180,7 @@ already_AddRefed<DOMSVGPathSegLinetoHorizontalAbs>
 SVGPathElement::CreateSVGPathSegLinetoHorizontalAbs(float x)
 {
   RefPtr<DOMSVGPathSegLinetoHorizontalAbs> pathSeg =
-    new DOMSVGPathSegLinetoHorizontalAbs(x);
+      new DOMSVGPathSegLinetoHorizontalAbs(x);
   return pathSeg.forget();
 }
 
@@ -167,7 +188,7 @@ already_AddRefed<DOMSVGPathSegLinetoHorizontalRel>
 SVGPathElement::CreateSVGPathSegLinetoHorizontalRel(float x)
 {
   RefPtr<DOMSVGPathSegLinetoHorizontalRel> pathSeg =
-    new DOMSVGPathSegLinetoHorizontalRel(x);
+      new DOMSVGPathSegLinetoHorizontalRel(x);
   return pathSeg.forget();
 }
 
@@ -175,7 +196,7 @@ already_AddRefed<DOMSVGPathSegLinetoVerticalAbs>
 SVGPathElement::CreateSVGPathSegLinetoVerticalAbs(float y)
 {
   RefPtr<DOMSVGPathSegLinetoVerticalAbs> pathSeg =
-    new DOMSVGPathSegLinetoVerticalAbs(y);
+      new DOMSVGPathSegLinetoVerticalAbs(y);
   return pathSeg.forget();
 }
 
@@ -183,25 +204,31 @@ already_AddRefed<DOMSVGPathSegLinetoVerticalRel>
 SVGPathElement::CreateSVGPathSegLinetoVerticalRel(float y)
 {
   RefPtr<DOMSVGPathSegLinetoVerticalRel> pathSeg =
-    new DOMSVGPathSegLinetoVerticalRel(y);
+      new DOMSVGPathSegLinetoVerticalRel(y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegCurvetoCubicSmoothAbs>
-SVGPathElement::CreateSVGPathSegCurvetoCubicSmoothAbs(float x, float y, float x2, float y2)
+SVGPathElement::CreateSVGPathSegCurvetoCubicSmoothAbs(float x,
+                                                      float y,
+                                                      float x2,
+                                                      float y2)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegCurvetoCubicSmoothAbs> pathSeg =
-    new DOMSVGPathSegCurvetoCubicSmoothAbs(x2, y2, x, y);
+      new DOMSVGPathSegCurvetoCubicSmoothAbs(x2, y2, x, y);
   return pathSeg.forget();
 }
 
 already_AddRefed<DOMSVGPathSegCurvetoCubicSmoothRel>
-SVGPathElement::CreateSVGPathSegCurvetoCubicSmoothRel(float x, float y, float x2, float y2)
+SVGPathElement::CreateSVGPathSegCurvetoCubicSmoothRel(float x,
+                                                      float y,
+                                                      float x2,
+                                                      float y2)
 {
   // See comment in CreateSVGPathSegCurvetoCubicAbs
   RefPtr<DOMSVGPathSegCurvetoCubicSmoothRel> pathSeg =
-    new DOMSVGPathSegCurvetoCubicSmoothRel(x2, y2, x, y);
+      new DOMSVGPathSegCurvetoCubicSmoothRel(x2, y2, x, y);
   return pathSeg.forget();
 }
 
@@ -209,7 +236,7 @@ already_AddRefed<DOMSVGPathSegCurvetoQuadraticSmoothAbs>
 SVGPathElement::CreateSVGPathSegCurvetoQuadraticSmoothAbs(float x, float y)
 {
   RefPtr<DOMSVGPathSegCurvetoQuadraticSmoothAbs> pathSeg =
-    new DOMSVGPathSegCurvetoQuadraticSmoothAbs(x, y);
+      new DOMSVGPathSegCurvetoQuadraticSmoothAbs(x, y);
   return pathSeg.forget();
 }
 
@@ -217,7 +244,7 @@ already_AddRefed<DOMSVGPathSegCurvetoQuadraticSmoothRel>
 SVGPathElement::CreateSVGPathSegCurvetoQuadraticSmoothRel(float x, float y)
 {
   RefPtr<DOMSVGPathSegCurvetoQuadraticSmoothRel> pathSeg =
-    new DOMSVGPathSegCurvetoQuadraticSmoothRel(x, y);
+      new DOMSVGPathSegCurvetoQuadraticSmoothRel(x, y);
   return pathSeg.forget();
 }
 
@@ -248,12 +275,10 @@ SVGPathElement::HasValidDimensions() const
 NS_IMETHODIMP_(bool)
 SVGPathElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sMarkersMap
-  };
+  static const MappedAttributeEntry* const map[] = {sMarkersMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGPathElementBase::IsAttributeMapped(name);
+         SVGPathElementBase::IsAttributeMapped(name);
 }
 
 already_AddRefed<Path>
@@ -266,10 +291,9 @@ SVGPathElement::GetOrBuildPathForMeasuring()
 // SVGGeometryElement methods
 
 bool
-SVGPathElement::AttributeDefinesGeometry(const nsAtom *aName)
+SVGPathElement::AttributeDefinesGeometry(const nsAtom* aName)
 {
-  return aName == nsGkAtoms::d ||
-         aName == nsGkAtoms::pathLength;
+  return aName == nsGkAtoms::d || aName == nsGkAtoms::pathLength;
 }
 
 bool
@@ -279,7 +303,7 @@ SVGPathElement::IsMarkable()
 }
 
 void
-SVGPathElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
+SVGPathElement::GetMarkPoints(nsTArray<nsSVGMark>* aMarks)
 {
   mD.GetAnimValue().GetMarkerPositioningData(aMarks);
 }
@@ -287,8 +311,7 @@ SVGPathElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
 float
 SVGPathElement::GetPathLengthScale(PathLengthScaleForType aFor)
 {
-  MOZ_ASSERT(aFor == eForTextPath || aFor == eForStroking,
-             "Unknown enum");
+  MOZ_ASSERT(aFor == eForTextPath || aFor == eForStroking, "Unknown enum");
   if (mPathLength.IsExplicitlySet()) {
     float authorsPathLengthEstimate = mPathLength.GetAnimValue();
     if (authorsPathLengthEstimate > 0) {
@@ -305,7 +328,7 @@ SVGPathElement::GetPathLengthScale(PathLengthScaleForType aFor)
         gfxMatrix matrix = PrependLocalTransformsTo(gfxMatrix());
         if (!matrix.IsIdentity()) {
           RefPtr<PathBuilder> builder =
-            path->TransformedCopyToBuilder(ToMatrix(matrix));
+              path->TransformedCopyToBuilder(ToMatrix(matrix));
           path = builder->Finish();
         }
       }
@@ -329,7 +352,7 @@ SVGPathElement::BuildPath(PathBuilder* aBuilder)
   Float strokeWidth = 0;
 
   RefPtr<nsStyleContext> styleContext =
-    nsComputedDOMStyle::GetStyleContextNoFlush(this, nullptr, nullptr);
+      nsComputedDOMStyle::GetStyleContextNoFlush(this, nullptr, nullptr);
   if (styleContext) {
     const nsStyleSVG* style = styleContext->StyleSVG();
     // Note: the path that we return may be used for hit-testing, and SVG
@@ -338,12 +361,13 @@ SVGPathElement::BuildPath(PathBuilder* aBuilder)
     // opacity here.
     if (style->mStrokeLinecap != NS_STYLE_STROKE_LINECAP_BUTT) {
       strokeLineCap = style->mStrokeLinecap;
-      strokeWidth = SVGContentUtils::GetStrokeWidth(this, styleContext, nullptr);
+      strokeWidth =
+          SVGContentUtils::GetStrokeWidth(this, styleContext, nullptr);
     }
   }
 
   return mD.GetAnimValue().BuildPath(aBuilder, strokeLineCap, strokeWidth);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

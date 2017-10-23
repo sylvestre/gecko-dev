@@ -9,4 +9,4 @@
 
 #include "nsAString.h"
 
-#endif // !defined(nsSubstring_h___)
+#endif  // !defined(nsSubstring_h___)

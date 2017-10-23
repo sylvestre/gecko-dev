@@ -32,14 +32,12 @@
 
 //-----------------------------------------------------------------------------
 
-nsFileProtocolHandler::nsFileProtocolHandler()
-{
-}
+nsFileProtocolHandler::nsFileProtocolHandler() {}
 
 nsresult
 nsFileProtocolHandler::Init()
 {
-    return NS_OK;
+  return NS_OK;
 }
 
 NS_IMPL_ISUPPORTS(nsFileProtocolHandler,
@@ -54,135 +52,131 @@ NS_IMPL_ISUPPORTS(nsFileProtocolHandler,
 NS_IMETHODIMP
 nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
 {
-    nsAutoString path;
-    nsresult rv = aFile->GetPath(path);
-    if (NS_FAILED(rv))
-        return rv;
+  nsAutoString path;
+  nsresult rv = aFile->GetPath(path);
+  if (NS_FAILED(rv)) return rv;
 
-    if (path.Length() < 4)
-        return NS_ERROR_NOT_AVAILABLE;
-    if (!StringTail(path, 4).LowerCaseEqualsLiteral(".url"))
-        return NS_ERROR_NOT_AVAILABLE;
+  if (path.Length() < 4) return NS_ERROR_NOT_AVAILABLE;
+  if (!StringTail(path, 4).LowerCaseEqualsLiteral(".url"))
+    return NS_ERROR_NOT_AVAILABLE;
 
-    HRESULT result;
+  HRESULT result;
 
-    rv = NS_ERROR_NOT_AVAILABLE;
+  rv = NS_ERROR_NOT_AVAILABLE;
 
-    IUniformResourceLocatorW* urlLink = nullptr;
-    result = ::CoCreateInstance(CLSID_InternetShortcut, nullptr, CLSCTX_INPROC_SERVER,
-                                IID_IUniformResourceLocatorW, (void**)&urlLink);
-    if (SUCCEEDED(result) && urlLink) {
-        IPersistFile* urlFile = nullptr;
-        result = urlLink->QueryInterface(IID_IPersistFile, (void**)&urlFile);
-        if (SUCCEEDED(result) && urlFile) {
-            result = urlFile->Load(path.get(), STGM_READ);
-            if (SUCCEEDED(result) ) {
-                LPWSTR lpTemp = nullptr;
+  IUniformResourceLocatorW* urlLink = nullptr;
+  result = ::CoCreateInstance(CLSID_InternetShortcut,
+                              nullptr,
+                              CLSCTX_INPROC_SERVER,
+                              IID_IUniformResourceLocatorW,
+                              (void**)&urlLink);
+  if (SUCCEEDED(result) && urlLink) {
+    IPersistFile* urlFile = nullptr;
+    result = urlLink->QueryInterface(IID_IPersistFile, (void**)&urlFile);
+    if (SUCCEEDED(result) && urlFile) {
+      result = urlFile->Load(path.get(), STGM_READ);
+      if (SUCCEEDED(result)) {
+        LPWSTR lpTemp = nullptr;
 
-                // The URL this method will give us back seems to be already
-                // escaped. Hence, do not do escaping of our own.
-                result = urlLink->GetURL(&lpTemp);
-                if (SUCCEEDED(result) && lpTemp) {
-                    rv = NS_NewURI(aURI, nsDependentString(lpTemp));
-                    // free the string that GetURL alloc'd
-                    CoTaskMemFree(lpTemp);
-                }
-            }
-            urlFile->Release();
+        // The URL this method will give us back seems to be already
+        // escaped. Hence, do not do escaping of our own.
+        result = urlLink->GetURL(&lpTemp);
+        if (SUCCEEDED(result) && lpTemp) {
+          rv = NS_NewURI(aURI, nsDependentString(lpTemp));
+          // free the string that GetURL alloc'd
+          CoTaskMemFree(lpTemp);
         }
-        urlLink->Release();
+      }
+      urlFile->Release();
     }
-    return rv;
+    urlLink->Release();
+  }
+  return rv;
 }
 
 #elif defined(XP_UNIX)
 NS_IMETHODIMP
 nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
 {
-    // We only support desktop files that end in ".desktop" like the spec says:
-    // http://standards.freedesktop.org/desktop-entry-spec/latest/ar01s02.html
-    nsAutoCString leafName;
-    nsresult rv = aFile->GetNativeLeafName(leafName);
-    if (NS_FAILED(rv) ||
-	!StringEndsWith(leafName, NS_LITERAL_CSTRING(".desktop")))
-        return NS_ERROR_NOT_AVAILABLE;
+  // We only support desktop files that end in ".desktop" like the spec says:
+  // http://standards.freedesktop.org/desktop-entry-spec/latest/ar01s02.html
+  nsAutoCString leafName;
+  nsresult rv = aFile->GetNativeLeafName(leafName);
+  if (NS_FAILED(rv) ||
+      !StringEndsWith(leafName, NS_LITERAL_CSTRING(".desktop")))
+    return NS_ERROR_NOT_AVAILABLE;
 
-    bool isFile = false;
-    rv = aFile->IsFile(&isFile);
-    if (NS_FAILED(rv) || !isFile) {
-        return NS_ERROR_NOT_AVAILABLE;
-    }
+  bool isFile = false;
+  rv = aFile->IsFile(&isFile);
+  if (NS_FAILED(rv) || !isFile) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
 
-    nsINIParser parser;
-    rv = parser.Init(aFile);
-    if (NS_FAILED(rv))
-        return rv;
+  nsINIParser parser;
+  rv = parser.Init(aFile);
+  if (NS_FAILED(rv)) return rv;
 
-    nsAutoCString type;
-    parser.GetString(DESKTOP_ENTRY_SECTION, "Type", type);
-    if (!type.EqualsLiteral("Link"))
-        return NS_ERROR_NOT_AVAILABLE;
+  nsAutoCString type;
+  parser.GetString(DESKTOP_ENTRY_SECTION, "Type", type);
+  if (!type.EqualsLiteral("Link")) return NS_ERROR_NOT_AVAILABLE;
 
-    nsAutoCString url;
-    rv = parser.GetString(DESKTOP_ENTRY_SECTION, "URL", url);
-    if (NS_FAILED(rv) || url.IsEmpty())
-        return NS_ERROR_NOT_AVAILABLE;
+  nsAutoCString url;
+  rv = parser.GetString(DESKTOP_ENTRY_SECTION, "URL", url);
+  if (NS_FAILED(rv) || url.IsEmpty()) return NS_ERROR_NOT_AVAILABLE;
 
-    return NS_NewURI(aURI, url);
+  return NS_NewURI(aURI, url);
 }
 
-#else // other platforms
+#else   // other platforms
 NS_IMETHODIMP
 nsFileProtocolHandler::ReadURLFile(nsIFile* aFile, nsIURI** aURI)
 {
-    return NS_ERROR_NOT_AVAILABLE;
+  return NS_ERROR_NOT_AVAILABLE;
 }
-#endif // ReadURLFile()
+#endif  // ReadURLFile()
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetScheme(nsACString &result)
+nsFileProtocolHandler::GetScheme(nsACString& result)
 {
-    result.AssignLiteral("file");
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-nsFileProtocolHandler::GetDefaultPort(int32_t *result)
-{
-    *result = -1;        // no port for file: URLs
-    return NS_OK;
+  result.AssignLiteral("file");
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetProtocolFlags(uint32_t *result)
+nsFileProtocolHandler::GetDefaultPort(int32_t* result)
 {
-    *result = URI_NOAUTH | URI_IS_LOCAL_FILE | URI_IS_LOCAL_RESOURCE;
-    return NS_OK;
+  *result = -1;  // no port for file: URLs
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::NewURI(const nsACString &spec,
-                              const char *charset,
-                              nsIURI *baseURI,
-                              nsIURI **result)
+nsFileProtocolHandler::GetProtocolFlags(uint32_t* result)
 {
-    nsCOMPtr<nsIStandardURL> url = new nsStandardURL(true);
-    if (!url)
-        return NS_ERROR_OUT_OF_MEMORY;
+  *result = URI_NOAUTH | URI_IS_LOCAL_FILE | URI_IS_LOCAL_RESOURCE;
+  return NS_OK;
+}
 
-    const nsACString *specPtr = &spec;
+NS_IMETHODIMP
+nsFileProtocolHandler::NewURI(const nsACString& spec,
+                              const char* charset,
+                              nsIURI* baseURI,
+                              nsIURI** result)
+{
+  nsCOMPtr<nsIStandardURL> url = new nsStandardURL(true);
+  if (!url) return NS_ERROR_OUT_OF_MEMORY;
+
+  const nsACString* specPtr = &spec;
 
 #if defined(XP_WIN)
-    nsAutoCString buf;
-    if (net_NormalizeFileURL(spec, buf))
-        specPtr = &buf;
+  nsAutoCString buf;
+  if (net_NormalizeFileURL(spec, buf)) specPtr = &buf;
 #endif
 
-    nsresult rv = url->Init(nsIStandardURL::URLTYPE_NO_AUTHORITY, -1,
-                            *specPtr, charset, baseURI);
-    if (NS_FAILED(rv)) return rv;
+  nsresult rv = url->Init(
+      nsIStandardURL::URLTYPE_NO_AUTHORITY, -1, *specPtr, charset, baseURI);
+  if (NS_FAILED(rv)) return rv;
 
-    return CallQueryInterface(url, result);
+  return CallQueryInterface(url, result);
 }
 
 NS_IMETHODIMP
@@ -190,96 +184,95 @@ nsFileProtocolHandler::NewChannel2(nsIURI* uri,
                                    nsILoadInfo* aLoadInfo,
                                    nsIChannel** result)
 {
-    nsresult rv;
+  nsresult rv;
 
-    nsFileChannel *chan;
-    if (IsNeckoChild()) {
-        chan = new mozilla::net::FileChannelChild(uri);
-    } else {
-        chan = new nsFileChannel(uri);
-    }
-    if (!chan)
-        return NS_ERROR_OUT_OF_MEMORY;
-    NS_ADDREF(chan);
+  nsFileChannel* chan;
+  if (IsNeckoChild()) {
+    chan = new mozilla::net::FileChannelChild(uri);
+  } else {
+    chan = new nsFileChannel(uri);
+  }
+  if (!chan) return NS_ERROR_OUT_OF_MEMORY;
+  NS_ADDREF(chan);
 
-    // set the loadInfo on the new channel ; must do this
-    // before calling Init() on it, since it needs the load
-    // info be already set.
-    rv = chan->SetLoadInfo(aLoadInfo);
-    if (NS_FAILED(rv)) {
-        NS_RELEASE(chan);
-        return rv;
-    }
+  // set the loadInfo on the new channel ; must do this
+  // before calling Init() on it, since it needs the load
+  // info be already set.
+  rv = chan->SetLoadInfo(aLoadInfo);
+  if (NS_FAILED(rv)) {
+    NS_RELEASE(chan);
+    return rv;
+  }
 
-    rv = chan->Init();
-    if (NS_FAILED(rv)) {
-        NS_RELEASE(chan);
-        return rv;
-    }
+  rv = chan->Init();
+  if (NS_FAILED(rv)) {
+    NS_RELEASE(chan);
+    return rv;
+  }
 
-    *result = chan;
-    return NS_OK;
+  *result = chan;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::NewChannel(nsIURI *uri, nsIChannel **result)
+nsFileProtocolHandler::NewChannel(nsIURI* uri, nsIChannel** result)
 {
-    return NewChannel2(uri, nullptr, result);
+  return NewChannel2(uri, nullptr, result);
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::AllowPort(int32_t port, const char *scheme, bool *result)
+nsFileProtocolHandler::AllowPort(int32_t port, const char* scheme, bool* result)
 {
-    // don't override anything.
-    *result = false;
-    return NS_OK;
+  // don't override anything.
+  *result = false;
+  return NS_OK;
 }
 
 //-----------------------------------------------------------------------------
 // nsIFileProtocolHandler methods:
 
 NS_IMETHODIMP
-nsFileProtocolHandler::NewFileURI(nsIFile *file, nsIURI **result)
+nsFileProtocolHandler::NewFileURI(nsIFile* file, nsIURI** result)
 {
-    NS_ENSURE_ARG_POINTER(file);
-    nsresult rv;
+  NS_ENSURE_ARG_POINTER(file);
+  nsresult rv;
 
-    nsCOMPtr<nsIFileURL> url = new nsStandardURL(true);
-    if (!url)
-        return NS_ERROR_OUT_OF_MEMORY;
+  nsCOMPtr<nsIFileURL> url = new nsStandardURL(true);
+  if (!url) return NS_ERROR_OUT_OF_MEMORY;
 
-    // NOTE: the origin charset is assigned the value of the platform
-    // charset by the SetFile method.
-    rv = url->SetFile(file);
-    if (NS_FAILED(rv)) return rv;
+  // NOTE: the origin charset is assigned the value of the platform
+  // charset by the SetFile method.
+  rv = url->SetFile(file);
+  if (NS_FAILED(rv)) return rv;
 
-    return CallQueryInterface(url, result);
+  return CallQueryInterface(url, result);
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetURLSpecFromFile(nsIFile *file, nsACString &result)
+nsFileProtocolHandler::GetURLSpecFromFile(nsIFile* file, nsACString& result)
 {
-    NS_ENSURE_ARG_POINTER(file);
-    return net_GetURLSpecFromFile(file, result);
+  NS_ENSURE_ARG_POINTER(file);
+  return net_GetURLSpecFromFile(file, result);
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetURLSpecFromActualFile(nsIFile *file,
-                                                nsACString &result)
+nsFileProtocolHandler::GetURLSpecFromActualFile(nsIFile* file,
+                                                nsACString& result)
 {
-    NS_ENSURE_ARG_POINTER(file);
-    return net_GetURLSpecFromActualFile(file, result);
+  NS_ENSURE_ARG_POINTER(file);
+  return net_GetURLSpecFromActualFile(file, result);
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetURLSpecFromDir(nsIFile *file, nsACString &result)
+nsFileProtocolHandler::GetURLSpecFromDir(nsIFile* file, nsACString& result)
 {
-    NS_ENSURE_ARG_POINTER(file);
-    return net_GetURLSpecFromDir(file, result);
+  NS_ENSURE_ARG_POINTER(file);
+  return net_GetURLSpecFromDir(file, result);
 }
 
 NS_IMETHODIMP
-nsFileProtocolHandler::GetFileFromURLSpec(const nsACString &spec, nsIFile **result)
+nsFileProtocolHandler::GetFileFromURLSpec(const nsACString& spec,
+                                          nsIFile** result)
 {
-    return net_GetFileFromURLSpec(spec, result);
+  return net_GetFileFromURLSpec(spec, result);
 }

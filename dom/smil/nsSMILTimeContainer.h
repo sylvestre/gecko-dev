@@ -22,19 +22,20 @@ class nsSMILTimeValue;
 //
 class nsSMILTimeContainer
 {
-public:
+ public:
   nsSMILTimeContainer();
   virtual ~nsSMILTimeContainer();
 
   /*
    * Pause request types.
    */
-  enum {
-    PAUSE_BEGIN    =  1, // Paused because timeline has yet to begin.
-    PAUSE_SCRIPT   =  2, // Paused by script.
-    PAUSE_PAGEHIDE =  4, // Paused because our doc is hidden.
-    PAUSE_USERPREF =  8, // Paused because animations are disabled in prefs.
-    PAUSE_IMAGE    = 16  // Paused becuase we're in an image that's suspended.
+  enum
+  {
+    PAUSE_BEGIN = 1,     // Paused because timeline has yet to begin.
+    PAUSE_SCRIPT = 2,    // Paused by script.
+    PAUSE_PAGEHIDE = 4,  // Paused because our doc is hidden.
+    PAUSE_USERPREF = 8,  // Paused because animations are disabled in prefs.
+    PAUSE_IMAGE = 16     // Paused becuase we're in an image that's suspended.
   };
 
   /*
@@ -201,18 +202,18 @@ public:
    * @return true if one or more elements match, false otherwise.
    */
   bool PopMilestoneElementsAtMilestone(const nsSMILMilestone& aMilestone,
-                                         AnimElemArray& aMatchedElements);
+                                       AnimElemArray& aMatchedElements);
 
   // Cycle-collection support
   void Traverse(nsCycleCollectionTraversalCallback* aCallback);
   void Unlink();
 
-protected:
+ protected:
   /*
    * Per-sample operations to be performed whenever Sample() is called and
    * NeedsSample() is true. Called after updating mCurrentTime;
    */
-  virtual void DoSample() { }
+  virtual void DoSample() {}
 
   /*
    * Adding and removing child containers is not implemented in the base class
@@ -230,7 +231,7 @@ protected:
   /*
    * Removes a child time container.
    */
-  virtual void RemoveChild(nsSMILTimeContainer& aChild) { }
+  virtual void RemoveChild(nsSMILTimeContainer& aChild) {}
 
   /*
    * Implementation helper to update the current time.
@@ -263,12 +264,12 @@ protected:
   // Whether or not a pause sample is required
   bool mNeedsPauseSample;
 
-  bool mNeedsRewind; // Backwards seek performed
-  bool mIsSeeking; // Currently in the middle of a seek operation
+  bool mNeedsRewind;  // Backwards seek performed
+  bool mIsSeeking;    // Currently in the middle of a seek operation
 
 #ifdef DEBUG
-  bool mHoldingEntries; // True if there's a raw pointer to mMilestoneEntries
-                        // on the stack.
+  bool mHoldingEntries;  // True if there's a raw pointer to mMilestoneEntries
+                         // on the stack.
 #endif
 
   // A bitfield of the pause state for all pause requests
@@ -278,15 +279,16 @@ protected:
   {
     MilestoneEntry(nsSMILMilestone aMilestone,
                    mozilla::dom::SVGAnimationElement& aElement)
-      : mMilestone(aMilestone), mTimebase(&aElement)
-    { }
+        : mMilestone(aMilestone), mTimebase(&aElement)
+    {
+    }
 
     bool operator<(const MilestoneEntry& aOther) const
     {
       return mMilestone < aOther.mMilestone;
     }
 
-    nsSMILMilestone mMilestone; // In container time.
+    nsSMILMilestone mMilestone;  // In container time.
     RefPtr<mozilla::dom::SVGAnimationElement> mTimebase;
   };
 
@@ -298,4 +300,4 @@ protected:
   nsTPriorityQueue<MilestoneEntry> mMilestoneEntries;
 };
 
-#endif // NS_SMILTIMECONTAINER_H_
+#endif  // NS_SMILTIMECONTAINER_H_

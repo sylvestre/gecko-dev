@@ -8,18 +8,14 @@
 
 NS_IMPL_ISUPPORTS(nsExternalURLHandlerService, nsIExternalURLHandlerService)
 
-nsExternalURLHandlerService::nsExternalURLHandlerService()
-{
-}
+nsExternalURLHandlerService::nsExternalURLHandlerService() {}
 
-nsExternalURLHandlerService::~nsExternalURLHandlerService()
-{
-}
+nsExternalURLHandlerService::~nsExternalURLHandlerService() {}
 
 NS_IMETHODIMP
-nsExternalURLHandlerService::GetURLHandlerInfoFromOS(nsIURI *aURL,
-                                                     bool *found,
-                                                     nsIHandlerInfo **info)
+nsExternalURLHandlerService::GetURLHandlerInfoFromOS(nsIURI* aURL,
+                                                     bool* found,
+                                                     nsIHandlerInfo** info)
 {
   nsCString uriSpec;
   aURL->GetSpec(uriSpec);

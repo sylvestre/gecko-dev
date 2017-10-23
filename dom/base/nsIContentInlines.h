@@ -42,7 +42,8 @@ nsIContent::SetPrimaryFrame(nsIFrame* aFrame)
   mPrimaryFrame = aFrame;
 }
 
-inline mozilla::dom::ShadowRoot* nsIContent::GetShadowRoot() const
+inline mozilla::dom::ShadowRoot*
+nsIContent::GetShadowRoot() const
 {
   if (!IsElement()) {
     return nullptr;
@@ -52,7 +53,8 @@ inline mozilla::dom::ShadowRoot* nsIContent::GetShadowRoot() const
 }
 
 template<nsIContent::FlattenedParentType Type>
-static inline bool FlattenedTreeParentIsParent(const nsINode* aNode)
+static inline bool
+FlattenedTreeParentIsParent(const nsINode* aNode)
 {
   // Try to short-circuit past the complicated and not-exactly-fast logic for
   // computing the flattened parent.
@@ -70,9 +72,9 @@ static inline bool FlattenedTreeParentIsParent(const nsINode* aNode)
 
   // Check if we want the flattened parent for style, and the node is the root
   // of a native anonymous content subtree parented to the document's root element.
-  if (Type == nsIContent::eForStyle && aNode->HasFlag(NODE_IS_NATIVE_ANONYMOUS_ROOT) &&
-      aNode->OwnerDoc()->GetRootElement() == aNode->GetParentNode())
-  {
+  if (Type == nsIContent::eForStyle &&
+      aNode->HasFlag(NODE_IS_NATIVE_ANONYMOUS_ROOT) &&
+      aNode->OwnerDoc()->GetRootElement() == aNode->GetParentNode()) {
     return false;
   }
 
@@ -135,4 +137,4 @@ nsINode::NodeOrAncestorHasDirAuto() const
   return AncestorHasDirAuto() || (IsElement() && AsElement()->HasDirAuto());
 }
 
-#endif // nsIContentInlines_h
+#endif  // nsIContentInlines_h

@@ -24,10 +24,8 @@ using namespace js;
 // If this code runs on a kernel that does not implement the
 // system call (2.6.30 or older) nothing unpredictable will
 // happen - it will just always fail and return -1.
-static int
-sys_perf_event_open(struct perf_event_attr* attr, pid_t pid, int cpu,
-                    int group_fd, unsigned long flags)
-{
+static int sys_perf_event_open(struct perf_event_attr* attr, pid_t pid, int cpu, int group_fd,
+                               unsigned long flags) {
     return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
@@ -37,8 +35,7 @@ using JS::PerfMeasurement;
 typedef PerfMeasurement::EventMask EventMask;
 
 // Additional state required by this implementation.
-struct Impl
-{
+struct Impl {
     // Each active counter corresponds to an open file descriptor.
     int f_cpu_cycles;
     int f_instructions;
@@ -68,81 +65,75 @@ struct Impl
 
 // Mapping from our event bitmask to codes passed into the kernel, and
 // to fields in the PerfMeasurement and PerfMeasurement::impl structures.
-static const struct
-{
+static const struct {
     EventMask bit;
     uint32_t type;
     uint32_t config;
-    uint64_t PerfMeasurement::* counter;
-    int Impl::* fd;
+    uint64_t PerfMeasurement::*counter;
+    int Impl::*fd;
 } kSlots[PerfMeasurement::NUM_MEASURABLE_EVENTS] = {
-#define HW(mask, constant, fieldname)                                   \
-    { PerfMeasurement::mask, PERF_TYPE_HARDWARE, PERF_COUNT_HW_##constant, \
-      &PerfMeasurement::fieldname, &Impl::f_##fieldname }
-#define SW(mask, constant, fieldname)                                   \
-    { PerfMeasurement::mask, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_##constant, \
-      &PerfMeasurement::fieldname, &Impl::f_##fieldname }
+#define HW(mask, constant, fieldname)                                        \
+    {                                                                        \
+        PerfMeasurement::mask, PERF_TYPE_HARDWARE, PERF_COUNT_HW_##constant, \
+            &PerfMeasurement::fieldname, &Impl::f_##fieldname                \
+    }
+#define SW(mask, constant, fieldname)                                        \
+    {                                                                        \
+        PerfMeasurement::mask, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_##constant, \
+            &PerfMeasurement::fieldname, &Impl::f_##fieldname                \
+    }
 
-    HW(CPU_CYCLES,          CPU_CYCLES,          cpu_cycles),
-    HW(INSTRUCTIONS,        INSTRUCTIONS,        instructions),
-    HW(CACHE_REFERENCES,    CACHE_REFERENCES,    cache_references),
-    HW(CACHE_MISSES,        CACHE_MISSES,        cache_misses),
+    HW(CPU_CYCLES, CPU_CYCLES, cpu_cycles),
+    HW(INSTRUCTIONS, INSTRUCTIONS, instructions),
+    HW(CACHE_REFERENCES, CACHE_REFERENCES, cache_references),
+    HW(CACHE_MISSES, CACHE_MISSES, cache_misses),
     HW(BRANCH_INSTRUCTIONS, BRANCH_INSTRUCTIONS, branch_instructions),
-    HW(BRANCH_MISSES,       BRANCH_MISSES,       branch_misses),
-    HW(BUS_CYCLES,          BUS_CYCLES,          bus_cycles),
-    SW(PAGE_FAULTS,         PAGE_FAULTS,         page_faults),
-    SW(MAJOR_PAGE_FAULTS,   PAGE_FAULTS_MAJ,     major_page_faults),
-    SW(CONTEXT_SWITCHES,    CONTEXT_SWITCHES,    context_switches),
-    SW(CPU_MIGRATIONS,      CPU_MIGRATIONS,      cpu_migrations),
+    HW(BRANCH_MISSES, BRANCH_MISSES, branch_misses),
+    HW(BUS_CYCLES, BUS_CYCLES, bus_cycles),
+    SW(PAGE_FAULTS, PAGE_FAULTS, page_faults),
+    SW(MAJOR_PAGE_FAULTS, PAGE_FAULTS_MAJ, major_page_faults),
+    SW(CONTEXT_SWITCHES, CONTEXT_SWITCHES, context_switches),
+    SW(CPU_MIGRATIONS, CPU_MIGRATIONS, cpu_migrations),
 
 #undef HW
 #undef SW
 };
 
 Impl::Impl()
-  : f_cpu_cycles(-1),
-    f_instructions(-1),
-    f_cache_references(-1),
-    f_cache_misses(-1),
-    f_branch_instructions(-1),
-    f_branch_misses(-1),
-    f_bus_cycles(-1),
-    f_page_faults(-1),
-    f_major_page_faults(-1),
-    f_context_switches(-1),
-    f_cpu_migrations(-1),
-    group_leader(-1),
-    running(false)
-{
-}
+    : f_cpu_cycles(-1),
+      f_instructions(-1),
+      f_cache_references(-1),
+      f_cache_misses(-1),
+      f_branch_instructions(-1),
+      f_branch_misses(-1),
+      f_bus_cycles(-1),
+      f_page_faults(-1),
+      f_major_page_faults(-1),
+      f_context_switches(-1),
+      f_cpu_migrations(-1),
+      group_leader(-1),
+      running(false) {}
 
-Impl::~Impl()
-{
+Impl::~Impl() {
     // Close all active counter descriptors.  Take care to do the group
     // leader last (this may not be necessary, but it's unclear what
     // happens if you close the group leader out from under a group).
     for (const auto& slot : kSlots) {
         int fd = this->*(slot.fd);
-        if (fd != -1 && fd != group_leader)
-            close(fd);
+        if (fd != -1 && fd != group_leader) close(fd);
     }
 
-    if (group_leader != -1)
-        close(group_leader);
+    if (group_leader != -1) close(group_leader);
 }
 
-EventMask
-Impl::init(EventMask toMeasure)
-{
+EventMask Impl::init(EventMask toMeasure) {
     MOZ_ASSERT(group_leader == -1);
-    if (!toMeasure)
-        return EventMask(0);
+    if (!toMeasure) return EventMask(0);
 
     EventMask measured = EventMask(0);
     struct perf_event_attr attr;
     for (const auto& slot : kSlots) {
-        if (!(toMeasure & slot.bit))
-            continue;
+        if (!(toMeasure & slot.bit)) continue;
 
         memset(&attr, 0, sizeof(attr));
         attr.size = sizeof(attr);
@@ -156,8 +147,7 @@ Impl::init(EventMask toMeasure)
         // If this will be the group leader it should start off
         // disabled.  Otherwise it should start off enabled (but blocked
         // on the group leader).
-        if (group_leader == -1)
-            attr.disabled = 1;
+        if (group_leader == -1) attr.disabled = 1;
 
         // The rest of the bit fields are really poorly documented.
         // For instance, I have *no idea* whether we should be setting
@@ -167,41 +157,30 @@ Impl::init(EventMask toMeasure)
         attr.mmap = 1;
         attr.comm = 1;
 
-        int fd = sys_perf_event_open(&attr,
-                                     0 /* trace self */,
-                                     -1 /* on any cpu */,
-                                     group_leader,
+        int fd = sys_perf_event_open(&attr, 0 /* trace self */, -1 /* on any cpu */, group_leader,
                                      0 /* no flags presently defined */);
-        if (fd == -1)
-            continue;
+        if (fd == -1) continue;
 
         measured = EventMask(measured | slot.bit);
         this->*(slot.fd) = fd;
-        if (group_leader == -1)
-            group_leader = fd;
+        if (group_leader == -1) group_leader = fd;
     }
     return measured;
 }
 
-void
-Impl::start()
-{
-    if (running || group_leader == -1)
-        return;
+void Impl::start() {
+    if (running || group_leader == -1) return;
 
     running = true;
     ioctl(group_leader, PERF_EVENT_IOC_ENABLE, 0);
 }
 
-void
-Impl::stop(PerfMeasurement* counters)
-{
+void Impl::stop(PerfMeasurement* counters) {
     // This scratch buffer is to ensure that we have read all the
     // available data, even if that's more than we expect.
     unsigned char buf[1024];
 
-    if (!running || group_leader == -1)
-        return;
+    if (!running || group_leader == -1) return;
 
     ioctl(group_leader, PERF_EVENT_IOC_DISABLE, 0);
     running = false;
@@ -209,8 +188,7 @@ Impl::stop(PerfMeasurement* counters)
     // read out and reset all the counter values
     for (const auto& slot : kSlots) {
         int fd = this->*(slot.fd);
-        if (fd == -1)
-            continue;
+        if (fd == -1) continue;
 
         if (read(fd, buf, sizeof(buf)) == sizeof(uint64_t)) {
             uint64_t cur;
@@ -224,55 +202,40 @@ Impl::stop(PerfMeasurement* counters)
     }
 }
 
-} // namespace
-
+}  // namespace
 
 namespace JS {
 
 #define initCtr(flag) ((eventsMeasured & flag) ? 0 : -1)
 
 PerfMeasurement::PerfMeasurement(PerfMeasurement::EventMask toMeasure)
-  : impl(js_new<Impl>()),
-    eventsMeasured(impl ? static_cast<Impl*>(impl)->init(toMeasure)
-                   : EventMask(0)),
-    cpu_cycles(initCtr(CPU_CYCLES)),
-    instructions(initCtr(INSTRUCTIONS)),
-    cache_references(initCtr(CACHE_REFERENCES)),
-    cache_misses(initCtr(CACHE_MISSES)),
-    branch_instructions(initCtr(BRANCH_INSTRUCTIONS)),
-    branch_misses(initCtr(BRANCH_MISSES)),
-    bus_cycles(initCtr(BUS_CYCLES)),
-    page_faults(initCtr(PAGE_FAULTS)),
-    major_page_faults(initCtr(MAJOR_PAGE_FAULTS)),
-    context_switches(initCtr(CONTEXT_SWITCHES)),
-    cpu_migrations(initCtr(CPU_MIGRATIONS))
-{
-}
+    : impl(js_new<Impl>()),
+      eventsMeasured(impl ? static_cast<Impl*>(impl)->init(toMeasure) : EventMask(0)),
+      cpu_cycles(initCtr(CPU_CYCLES)),
+      instructions(initCtr(INSTRUCTIONS)),
+      cache_references(initCtr(CACHE_REFERENCES)),
+      cache_misses(initCtr(CACHE_MISSES)),
+      branch_instructions(initCtr(BRANCH_INSTRUCTIONS)),
+      branch_misses(initCtr(BRANCH_MISSES)),
+      bus_cycles(initCtr(BUS_CYCLES)),
+      page_faults(initCtr(PAGE_FAULTS)),
+      major_page_faults(initCtr(MAJOR_PAGE_FAULTS)),
+      context_switches(initCtr(CONTEXT_SWITCHES)),
+      cpu_migrations(initCtr(CPU_MIGRATIONS)) {}
 
 #undef initCtr
 
-PerfMeasurement::~PerfMeasurement()
-{
-    js_delete(static_cast<Impl*>(impl));
+PerfMeasurement::~PerfMeasurement() { js_delete(static_cast<Impl*>(impl)); }
+
+void PerfMeasurement::start() {
+    if (impl) static_cast<Impl*>(impl)->start();
 }
 
-void
-PerfMeasurement::start()
-{
-    if (impl)
-        static_cast<Impl*>(impl)->start();
+void PerfMeasurement::stop() {
+    if (impl) static_cast<Impl*>(impl)->stop(this);
 }
 
-void
-PerfMeasurement::stop()
-{
-    if (impl)
-        static_cast<Impl*>(impl)->stop(this);
-}
-
-void
-PerfMeasurement::reset()
-{
+void PerfMeasurement::reset() {
     for (const auto& slot : kSlots) {
         if (eventsMeasured & slot.bit)
             this->*(slot.counter) = 0;
@@ -281,9 +244,7 @@ PerfMeasurement::reset()
     }
 }
 
-bool
-PerfMeasurement::canMeasureSomething()
-{
+bool PerfMeasurement::canMeasureSomething() {
     // Find out if the kernel implements the performance measurement
     // API.  If it doesn't, syscall(__NR_perf_event_open, ...) is
     // guaranteed to return -1 and set errno to ENOSYS.
@@ -306,4 +267,4 @@ PerfMeasurement::canMeasureSomething()
     return errno != ENOSYS;
 }
 
-} // namespace JS
+}  // namespace JS

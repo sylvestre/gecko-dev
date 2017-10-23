@@ -11,14 +11,15 @@
 // nsPresContext.h just because nsLayoutPhase is passed to the ctor.
 #include "nsPresContext.h"
 
-struct nsAutoLayoutPhase {
+struct nsAutoLayoutPhase
+{
   nsAutoLayoutPhase(nsPresContext* aPresContext, nsLayoutPhase aPhase);
   ~nsAutoLayoutPhase();
 
   void Enter();
   void Exit();
 
-private:
+ private:
   nsPresContext* mPresContext;
   nsLayoutPhase mPhase;
   uint32_t mCount;
@@ -27,23 +28,20 @@ private:
 #define AUTO_LAYOUT_PHASE_ENTRY_POINT(pc_, phase_) \
   nsAutoLayoutPhase autoLayoutPhase((pc_), (eLayoutPhase_##phase_))
 #define LAYOUT_PHASE_TEMP_EXIT() \
-  PR_BEGIN_MACRO \
-    autoLayoutPhase.Exit(); \
+  PR_BEGIN_MACRO                 \
+  autoLayoutPhase.Exit();        \
   PR_END_MACRO
 #define LAYOUT_PHASE_TEMP_REENTER() \
-  PR_BEGIN_MACRO \
-    autoLayoutPhase.Enter(); \
+  PR_BEGIN_MACRO                    \
+  autoLayoutPhase.Enter();          \
   PR_END_MACRO
 
-#else // DEBUG
+#else  // DEBUG
 
-#define AUTO_LAYOUT_PHASE_ENTRY_POINT(pc_, phase_) \
-  PR_BEGIN_MACRO PR_END_MACRO
-#define LAYOUT_PHASE_TEMP_EXIT() \
-  PR_BEGIN_MACRO PR_END_MACRO
-#define LAYOUT_PHASE_TEMP_REENTER() \
-  PR_BEGIN_MACRO PR_END_MACRO
+#define AUTO_LAYOUT_PHASE_ENTRY_POINT(pc_, phase_) PR_BEGIN_MACRO PR_END_MACRO
+#define LAYOUT_PHASE_TEMP_EXIT() PR_BEGIN_MACRO PR_END_MACRO
+#define LAYOUT_PHASE_TEMP_REENTER() PR_BEGIN_MACRO PR_END_MACRO
 
-#endif // DEBUG
+#endif  // DEBUG
 
-#endif // nsAutoLayoutPhase_h
+#endif  // nsAutoLayoutPhase_h

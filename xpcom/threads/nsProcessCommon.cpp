@@ -55,44 +55,41 @@ using namespace mozilla;
 #ifdef XP_MACOSX
 cpu_type_t pref_cpu_types[2] = {
 #if defined(__i386__)
-  CPU_TYPE_X86,
+    CPU_TYPE_X86,
 #elif defined(__x86_64__)
-  CPU_TYPE_X86_64,
+    CPU_TYPE_X86_64,
 #elif defined(__ppc__)
-  CPU_TYPE_POWERPC,
+    CPU_TYPE_POWERPC,
 #endif
-  CPU_TYPE_ANY
-};
+    CPU_TYPE_ANY};
 #endif
 
 //-------------------------------------------------------------------//
 // nsIProcess implementation
 //-------------------------------------------------------------------//
-NS_IMPL_ISUPPORTS(nsProcess, nsIProcess,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(nsProcess, nsIProcess, nsIObserver)
 
 //Constructor
 nsProcess::nsProcess()
-  : mThread(nullptr)
-  , mLock("nsProcess.mLock")
-  , mShutdown(false)
-  , mBlocking(false)
-  , mStartHidden(false)
-  , mNoShell(false)
-  , mPid(-1)
-  , mObserver(nullptr)
-  , mWeakObserver(nullptr)
-  , mExitValue(-1)
+    : mThread(nullptr),
+      mLock("nsProcess.mLock"),
+      mShutdown(false),
+      mBlocking(false),
+      mStartHidden(false),
+      mNoShell(false),
+      mPid(-1),
+      mObserver(nullptr),
+      mWeakObserver(nullptr),
+      mExitValue(-1)
 #if !defined(XP_UNIX)
-  , mProcess(nullptr)
+      ,
+      mProcess(nullptr)
 #endif
 {
 }
 
 //Destructor
-nsProcess::~nsProcess()
-{
-}
+nsProcess::~nsProcess() {}
 
 NS_IMETHODIMP
 nsProcess::Init(nsIFile* aExecutable)
@@ -127,7 +124,6 @@ nsProcess::Init(nsIFile* aExecutable)
   return rv;
 }
 
-
 #if defined(XP_WIN)
 // Out param `aWideCmdLine` must be free()d by the caller.
 static int
@@ -154,11 +150,11 @@ assembleCmdLine(char* const* aArgv, wchar_t** aWideCmdLine, UINT aCodePage)
      * Finally, we need a space between arguments, and
      * a null byte at the end of command line.
      */
-    cmdLineSize += 2 * strlen(*arg)  /* \ and " need to be escaped */
-                   + 2               /* we quote every argument */
-                   + 1;              /* space in between, or final null */
+    cmdLineSize += 2 * strlen(*arg) /* \ and " need to be escaped */
+                   + 2              /* we quote every argument */
+                   + 1;             /* space in between, or final null */
   }
-  p = cmdLine = (char*) malloc(cmdLineSize * sizeof(char));
+  p = cmdLine = (char*)malloc(cmdLineSize * sizeof(char));
   if (!p) {
     return -1;
   }
@@ -233,7 +229,7 @@ assembleCmdLine(char* const* aArgv, wchar_t** aWideCmdLine, UINT aCodePage)
 
   *p = '\0';
   int32_t numChars = MultiByteToWideChar(aCodePage, 0, cmdLine, -1, nullptr, 0);
-  *aWideCmdLine = (wchar_t*) malloc(numChars * sizeof(wchar_t));
+  *aWideCmdLine = (wchar_t*)malloc(numChars * sizeof(wchar_t));
   MultiByteToWideChar(aCodePage, 0, cmdLine, -1, *aWideCmdLine, numChars);
   free(cmdLine);
   return 0;
@@ -288,7 +284,7 @@ nsProcess::Monitor(void* aArg)
     if (WIFEXITED(status)) {
       exitCode = WEXITSTATUS(status);
     } else if (WIFSIGNALED(status)) {
-      exitCode = 256; // match NSPR's signal exit status
+      exitCode = 256;  // match NSPR's signal exit status
     }
   }
 #else
@@ -317,7 +313,7 @@ nsProcess::Monitor(void* aArg)
     process->ProcessComplete();
   } else {
     NS_DispatchToMainThread(NewRunnableMethod(
-      "nsProcess::ProcessComplete", process, &nsProcess::ProcessComplete));
+        "nsProcess::ProcessComplete", process, &nsProcess::ProcessComplete));
   }
 }
 
@@ -325,8 +321,7 @@ void
 nsProcess::ProcessComplete()
 {
   if (mThread) {
-    nsCOMPtr<nsIObserverService> os =
-      mozilla::services::GetObserverService();
+    nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
     if (os) {
       os->RemoveObserver(this, "xpcom-shutdown");
     }
@@ -365,15 +360,19 @@ nsProcess::Run(bool aBlocking, const char** aArgs, uint32_t aCount)
 
 // XXXldb |aArgs| has the wrong const-ness
 NS_IMETHODIMP
-nsProcess::RunAsync(const char** aArgs, uint32_t aCount,
-                    nsIObserver* aObserver, bool aHoldWeak)
+nsProcess::RunAsync(const char** aArgs,
+                    uint32_t aCount,
+                    nsIObserver* aObserver,
+                    bool aHoldWeak)
 {
   return CopyArgsAndRunProcess(false, aArgs, aCount, aObserver, aHoldWeak);
 }
 
 nsresult
-nsProcess::CopyArgsAndRunProcess(bool aBlocking, const char** aArgs,
-                                 uint32_t aCount, nsIObserver* aObserver,
+nsProcess::CopyArgsAndRunProcess(bool aBlocking,
+                                 const char** aArgs,
+                                 uint32_t aCount,
+                                 nsIObserver* aObserver,
                                  bool aHoldWeak)
 {
   // Add one to the aCount for the program name and one for null termination.
@@ -407,15 +406,19 @@ nsProcess::Runw(bool aBlocking, const char16_t** aArgs, uint32_t aCount)
 
 // XXXldb |aArgs| has the wrong const-ness
 NS_IMETHODIMP
-nsProcess::RunwAsync(const char16_t** aArgs, uint32_t aCount,
-                     nsIObserver* aObserver, bool aHoldWeak)
+nsProcess::RunwAsync(const char16_t** aArgs,
+                     uint32_t aCount,
+                     nsIObserver* aObserver,
+                     bool aHoldWeak)
 {
   return CopyArgsAndRunProcessw(false, aArgs, aCount, aObserver, aHoldWeak);
 }
 
 nsresult
-nsProcess::CopyArgsAndRunProcessw(bool aBlocking, const char16_t** aArgs,
-                                  uint32_t aCount, nsIObserver* aObserver,
+nsProcess::CopyArgsAndRunProcessw(bool aBlocking,
+                                  const char16_t** aArgs,
+                                  uint32_t aCount,
+                                  nsIObserver* aObserver,
                                   bool aHoldWeak)
 {
   // Add one to the aCount for the program name and one for null termination.
@@ -443,8 +446,11 @@ nsProcess::CopyArgsAndRunProcessw(bool aBlocking, const char16_t** aArgs,
 }
 
 nsresult
-nsProcess::RunProcess(bool aBlocking, char** aMyArgv, nsIObserver* aObserver,
-                      bool aHoldWeak, bool aArgsUTF8)
+nsProcess::RunProcess(bool aBlocking,
+                      char** aMyArgv,
+                      nsIObserver* aObserver,
+                      bool aHoldWeak,
+                      bool aArgsUTF8)
 {
   NS_WARNING_ASSERTION(!XRE_IsContentProcess(),
                        "No launching of new processes in the content process");
@@ -482,8 +488,8 @@ nsProcess::RunProcess(bool aBlocking, char** aMyArgv, nsIObserver* aObserver,
     char** argv = mNoShell ? aMyArgv : aMyArgv + 1;
 
     wchar_t* assembledCmdLine = nullptr;
-    if (assembleCmdLine(argv, &assembledCmdLine,
-                        aArgsUTF8 ? CP_UTF8 : CP_ACP) == -1) {
+    if (assembleCmdLine(
+            argv, &assembledCmdLine, aArgsUTF8 ? CP_UTF8 : CP_ACP) == -1) {
       return NS_ERROR_FILE_EXECUTION_FAILED;
     }
     cmdLine.reset(assembledCmdLine);
@@ -522,17 +528,16 @@ nsProcess::RunProcess(bool aBlocking, char** aMyArgv, nsIObserver* aObserver,
     SHELLEXECUTEINFOW sinfo;
     memset(&sinfo, 0, sizeof(SHELLEXECUTEINFOW));
     sinfo.cbSize = sizeof(SHELLEXECUTEINFOW);
-    sinfo.hwnd   = nullptr;
+    sinfo.hwnd = nullptr;
     sinfo.lpFile = wideFile.get();
-    sinfo.nShow  = mStartHidden ? SW_HIDE : SW_SHOWNORMAL;
+    sinfo.nShow = mStartHidden ? SW_HIDE : SW_SHOWNORMAL;
 
     /* The SEE_MASK_NO_CONSOLE flag is important to prevent console windows
      * from appearing. This makes behavior the same on all platforms. The flag
      * will not have any effect on non-console applications.
      */
-    sinfo.fMask  = SEE_MASK_FLAG_DDEWAIT |
-                   SEE_MASK_NO_CONSOLE |
-                   SEE_MASK_NOCLOSEPROCESS;
+    sinfo.fMask =
+        SEE_MASK_FLAG_DDEWAIT | SEE_MASK_NO_CONSOLE | SEE_MASK_NOCLOSEPROCESS;
 
     if (cmdLine) {
       sinfo.lpParameters = cmdLine.get();
@@ -557,8 +562,8 @@ nsProcess::RunProcess(bool aBlocking, char** aMyArgv, nsIObserver* aObserver,
   // Set spawn attributes.
   size_t attr_count = ArrayLength(pref_cpu_types);
   size_t attr_ocount = 0;
-  if (posix_spawnattr_setbinpref_np(&spawnattr, attr_count, pref_cpu_types,
-                                    &attr_ocount) != 0 ||
+  if (posix_spawnattr_setbinpref_np(
+          &spawnattr, attr_count, pref_cpu_types, &attr_ocount) != 0 ||
       attr_ocount != attr_count) {
     posix_spawnattr_destroy(&spawnattr);
     return NS_ERROR_FAILURE;
@@ -566,8 +571,8 @@ nsProcess::RunProcess(bool aBlocking, char** aMyArgv, nsIObserver* aObserver,
 
   // Note: |aMyArgv| is already null-terminated as required by posix_spawnp.
   pid_t newPid = 0;
-  int result = posix_spawnp(&newPid, aMyArgv[0], nullptr, &spawnattr, aMyArgv,
-                            *_NSGetEnviron());
+  int result = posix_spawnp(
+      &newPid, aMyArgv[0], nullptr, &spawnattr, aMyArgv, *_NSGetEnviron());
   mPid = static_cast<int32_t>(newPid);
 
   posix_spawnattr_destroy(&spawnattr);
@@ -610,17 +615,20 @@ nsProcess::RunProcess(bool aBlocking, char** aMyArgv, nsIObserver* aObserver,
       return NS_ERROR_FILE_EXECUTION_FAILED;
     }
   } else {
-    mThread = PR_CreateThread(PR_SYSTEM_THREAD, Monitor, this,
-                              PR_PRIORITY_NORMAL, PR_GLOBAL_THREAD,
-                              PR_JOINABLE_THREAD, 0);
+    mThread = PR_CreateThread(PR_SYSTEM_THREAD,
+                              Monitor,
+                              this,
+                              PR_PRIORITY_NORMAL,
+                              PR_GLOBAL_THREAD,
+                              PR_JOINABLE_THREAD,
+                              0);
     if (!mThread) {
       NS_RELEASE_THIS();
       return NS_ERROR_FAILURE;
     }
 
     // It isn't a failure if we just can't watch for shutdown
-    nsCOMPtr<nsIObserverService> os =
-      mozilla::services::GetObserverService();
+    nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
     if (os) {
       os->AddObserver(this, "xpcom-shutdown", false);
     }
@@ -729,13 +737,13 @@ nsProcess::GetExitValue(int32_t* aExitValue)
 }
 
 NS_IMETHODIMP
-nsProcess::Observe(nsISupports* aSubject, const char* aTopic,
+nsProcess::Observe(nsISupports* aSubject,
+                   const char* aTopic,
                    const char16_t* aData)
 {
   // Shutting down, drop all references
   if (mThread) {
-    nsCOMPtr<nsIObserverService> os =
-      mozilla::services::GetObserverService();
+    nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
     if (os) {
       os->RemoveObserver(this, "xpcom-shutdown");
     }

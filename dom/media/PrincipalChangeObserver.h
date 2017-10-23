@@ -20,11 +20,11 @@ namespace dom {
 template<typename T>
 class PrincipalChangeObserver
 {
-public:
+ public:
   virtual void PrincipalChanged(T* aArg) = 0;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* MOZILLA_PRINCIPALCHANGEOBSERVER_H_ */

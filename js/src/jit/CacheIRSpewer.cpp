@@ -31,14 +31,10 @@ using namespace js::jit;
 
 CacheIRSpewer CacheIRSpewer::cacheIRspewer;
 
-CacheIRSpewer::CacheIRSpewer()
-  : outputLock(mutexid::CacheIRSpewer)
-{ }
+CacheIRSpewer::CacheIRSpewer() : outputLock(mutexid::CacheIRSpewer) {}
 
-CacheIRSpewer::~CacheIRSpewer()
-{
-    if (!enabled())
-        return;
+CacheIRSpewer::~CacheIRSpewer() {
+    if (!enabled()) return;
 
     json.ref().endList();
     output.flush();
@@ -46,36 +42,30 @@ CacheIRSpewer::~CacheIRSpewer()
 }
 
 #ifndef JIT_SPEW_DIR
-# if defined(_WIN32)
-#  define JIT_SPEW_DIR "."
-# elif defined(__ANDROID__)
-#  define JIT_SPEW_DIR "/data/local/tmp"
-# else
-#  define JIT_SPEW_DIR "/tmp"
-# endif
+#if defined(_WIN32)
+#define JIT_SPEW_DIR "."
+#elif defined(__ANDROID__)
+#define JIT_SPEW_DIR "/data/local/tmp"
+#else
+#define JIT_SPEW_DIR "/tmp"
+#endif
 #endif
 
-bool
-CacheIRSpewer::init()
-{
-    if (enabled())
-        return true;
+bool CacheIRSpewer::init() {
+    if (enabled()) return true;
 
     char name[256];
     uint32_t pid = getpid();
     SprintfLiteral(name, JIT_SPEW_DIR "/cacheir%" PRIu32 ".json", pid);
 
-    if (!output.init(name))
-        return false;
+    if (!output.init(name)) return false;
     output.put("[");
 
     json.emplace(output);
     return true;
 }
 
-void
-CacheIRSpewer::beginCache(LockGuard<Mutex>&, const IRGenerator& gen)
-{
+void CacheIRSpewer::beginCache(LockGuard<Mutex>&, const IRGenerator& gen) {
     MOZ_ASSERT(enabled());
     JSONPrinter& j = json.ref();
 
@@ -92,9 +82,7 @@ CacheIRSpewer::beginCache(LockGuard<Mutex>&, const IRGenerator& gen)
 }
 
 template <typename CharT>
-static void
-QuoteString(GenericPrinter& out, const CharT* s, size_t length)
-{
+static void QuoteString(GenericPrinter& out, const CharT* s, size_t length) {
     const CharT* end = s + length;
     for (const CharT* t = s; t < end; s = ++t) {
         // This quote implementation is probably correct,
@@ -111,9 +99,7 @@ QuoteString(GenericPrinter& out, const CharT* s, size_t length)
     }
 }
 
-static void
-QuoteString(GenericPrinter& out, JSLinearString* str)
-{
+static void QuoteString(GenericPrinter& out, JSLinearString* str) {
     JS::AutoCheckCannotGC nogc;
     if (str->hasLatin1Chars())
         QuoteString(out, str->latin1Chars(nogc), str->length());
@@ -121,17 +107,14 @@ QuoteString(GenericPrinter& out, JSLinearString* str)
         QuoteString(out, str->twoByteChars(nogc), str->length());
 }
 
-void
-CacheIRSpewer::valueProperty(LockGuard<Mutex>&, const char* name, const Value& v)
-{
+void CacheIRSpewer::valueProperty(LockGuard<Mutex>&, const char* name, const Value& v) {
     MOZ_ASSERT(enabled());
     JSONPrinter& j = json.ref();
 
     j.beginObjectProperty(name);
 
     const char* type = InformalValueTypeName(v);
-    if (v.isInt32())
-        type = "int32";
+    if (v.isInt32()) type = "int32";
     j.property("type", type);
 
     if (v.isInt32()) {
@@ -146,23 +129,18 @@ CacheIRSpewer::valueProperty(LockGuard<Mutex>&, const char* name, const Value& v
             j.endStringProperty();
         }
     } else if (v.isObject()) {
-        j.formatProperty("value", "%p (shape: %p)", &v.toObject(),
-                         v.toObject().maybeShape());
+        j.formatProperty("value", "%p (shape: %p)", &v.toObject(), v.toObject().maybeShape());
     }
 
     j.endObject();
 }
 
-void
-CacheIRSpewer::attached(LockGuard<Mutex>&, const char* name)
-{
+void CacheIRSpewer::attached(LockGuard<Mutex>&, const char* name) {
     MOZ_ASSERT(enabled());
     json.ref().property("attached", name);
 }
 
-void
-CacheIRSpewer::endCache(LockGuard<Mutex>&)
-{
+void CacheIRSpewer::endCache(LockGuard<Mutex>&) {
     MOZ_ASSERT(enabled());
     json.ref().endObject();
 }

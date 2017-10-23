@@ -25,11 +25,9 @@
 
 #include <sys/stat.h>
 
-class nsLocalFile final
-  : public nsILocalFileWin
-  , public nsIHashable
+class nsLocalFile final : public nsILocalFileWin, public nsIHashable
 {
-public:
+ public:
   NS_DEFINE_STATIC_CID_ACCESSOR(NS_LOCAL_FILE_CID)
 
   nsLocalFile();
@@ -50,30 +48,29 @@ public:
   // nsIHashable interface
   NS_DECL_NSIHASHABLE
 
-public:
+ public:
   static void GlobalInit();
   static void GlobalShutdown();
 
   // Removes registry command handler parameters, quotes, and expands environment strings.
   static bool CleanupCmdHandlerPath(nsAString& aCommandHandler);
 
-private:
+ private:
   // CopyMove and CopySingleFile constants for |options| parameter:
-  enum CopyFileOption {
-    FollowSymlinks          = 1u << 0,
-    Move                    = 1u << 1,
-    SkipNtfsAclReset        = 1u << 2,
-    Rename                  = 1u << 3
+  enum CopyFileOption
+  {
+    FollowSymlinks = 1u << 0,
+    Move = 1u << 1,
+    SkipNtfsAclReset = 1u << 2,
+    Rename = 1u << 3
   };
 
   nsLocalFile(const nsLocalFile& aOther);
-  ~nsLocalFile()
-  {
-  }
+  ~nsLocalFile() {}
 
-  bool mDirty;            // cached information can only be used when this is false
+  bool mDirty;  // cached information can only be used when this is false
   bool mResolveDirty;
-  bool mFollowSymlinks;   // should we follow symlinks when working on this file
+  bool mFollowSymlinks;  // should we follow symlinks when working on this file
 
   // this string will always be in native format!
   nsString mWorkingPath;
@@ -101,10 +98,13 @@ private:
 
   void EnsureShortPath();
 
-  nsresult CopyMove(nsIFile* aNewParentDir, const nsAString& aNewName,
+  nsresult CopyMove(nsIFile* aNewParentDir,
+                    const nsAString& aNewName,
                     uint32_t aOptions);
-  nsresult CopySingleFile(nsIFile* aSource, nsIFile* aDest,
-                          const nsAString& aNewName, uint32_t aOptions);
+  nsresult CopySingleFile(nsIFile* aSource,
+                          nsIFile* aDest,
+                          const nsAString& aNewName,
+                          uint32_t aOptions);
 
   nsresult SetModDate(int64_t aLastModifiedTime, const wchar_t* aFilePath);
   nsresult HasFileAttribute(DWORD aFileAttrib, bool* aResult);

@@ -60,7 +60,6 @@ const intptr_t kPointerAlignmentMask = kPointerAlignment - 1;
 const intptr_t kDoubleAlignment = 8;
 const intptr_t kDoubleAlignmentMask = kDoubleAlignment - 1;
 
-
 // Number of general purpose registers.
 const int kNumRegisters = 32;
 
@@ -88,12 +87,9 @@ const uint32_t kFCSROverflowFlagMask = 1 << kFCSROverflowFlagBit;
 const uint32_t kFCSRDivideByZeroFlagMask = 1 << kFCSRDivideByZeroFlagBit;
 const uint32_t kFCSRInvalidOpFlagMask = 1 << kFCSRInvalidOpFlagBit;
 
-const uint32_t kFCSRFlagMask =
-    kFCSRInexactFlagMask |
-    kFCSRUnderflowFlagMask |
-    kFCSROverflowFlagMask |
-    kFCSRDivideByZeroFlagMask |
-    kFCSRInvalidOpFlagMask;
+const uint32_t kFCSRFlagMask = kFCSRInexactFlagMask | kFCSRUnderflowFlagMask |
+                               kFCSROverflowFlagMask | kFCSRDivideByZeroFlagMask |
+                               kFCSRInvalidOpFlagMask;
 
 const uint32_t kFCSRExceptionFlagMask = kFCSRFlagMask ^ kFCSRInexactFlagMask;
 
@@ -116,19 +112,39 @@ class SimInstruction;
 // Per thread simulator state.
 class Simulator {
     friend class MipsDebugger;
-  public:
 
+   public:
     // Registers are declared in order. See "See MIPS Run Linux" chapter 2.
     enum Register {
         no_reg = -1,
         zero_reg = 0,
         at,
-        v0, v1,
-        a0, a1, a2, a3, a4, a5, a6, a7,
-        t0, t1, t2, t3,
-        s0, s1, s2, s3, s4, s5, s6, s7,
-        t8, t9,
-        k0, k1,
+        v0,
+        v1,
+        a0,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        t0,
+        t1,
+        t2,
+        t3,
+        s0,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        t8,
+        t9,
+        k0,
+        k1,
         gp,
         sp,
         s8,
@@ -136,7 +152,7 @@ class Simulator {
         // LO, HI, and pc.
         LO,
         HI,
-        pc,   // pc must be the last register.
+        pc,  // pc must be the last register.
         kNumSimuRegisters,
         // aliases
         fp = s8
@@ -144,9 +160,38 @@ class Simulator {
 
     // Coprocessor registers.
     enum FPURegister {
-        f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11,
-        f12, f13, f14, f15, f16, f17, f18, f19, f20, f21,
-        f22, f23, f24, f25, f26, f27, f28, f29, f30, f31,
+        f0,
+        f1,
+        f2,
+        f3,
+        f4,
+        f5,
+        f6,
+        f7,
+        f8,
+        f9,
+        f10,
+        f11,
+        f12,
+        f13,
+        f14,
+        f15,
+        f16,
+        f17,
+        f18,
+        f19,
+        f20,
+        f21,
+        f22,
+        f23,
+        f24,
+        f25,
+        f26,
+        f27,
+        f28,
+        f29,
+        f30,
+        f31,
         kNumFPURegisters
     };
 
@@ -163,9 +208,7 @@ class Simulator {
     // for each native thread.
     static Simulator* Current();
 
-    static inline uintptr_t StackLimit() {
-        return Simulator::Current()->stackLimit();
-    }
+    static inline uintptr_t StackLimit() { return Simulator::Current()->stackLimit(); }
 
     uintptr_t* addressOfStackLimit();
 
@@ -194,7 +237,9 @@ class Simulator {
     int64_t get_pc() const;
 
     template <typename T>
-    T get_pc_as() const { return reinterpret_cast<T>(get_pc()); }
+    T get_pc_as() const {
+        return reinterpret_cast<T>(get_pc());
+    }
 
     void trigger_wasm_interrupt() {
         // This can be called several times if a single interrupt isn't caught
@@ -212,7 +257,7 @@ class Simulator {
     bool overRecursedWithExtra(uint32_t extra) const;
 
     // Executes MIPS instructions until the PC reaches end_sim_pc.
-    template<bool enableStopSimAt>
+    template <bool enableStopSimAt>
     void execute();
 
     // Sets up the simulator state and grabs the result on return.
@@ -232,7 +277,7 @@ class Simulator {
     // below (bad_ra, end_sim_pc).
     bool has_bad_pc() const;
 
-  private:
+   private:
     enum SpecialValues {
         // Known bad pc value to ensure that the simulator does not execute
         // without being properly setup.
@@ -276,13 +321,9 @@ class Simulator {
     inline void writeD(uint64_t addr, double value, SimInstruction* instr);
 
     // Helper function for decodeTypeRegister.
-    void configureTypeRegister(SimInstruction* instr,
-                               int64_t& alu_out,
-                               __int128& i128hilo,
-                               unsigned __int128& u128hilo,
-                               int64_t& next_pc,
-                               int32_t& return_addr_reg,
-                               bool& do_interrupt);
+    void configureTypeRegister(SimInstruction* instr, int64_t& alu_out, __int128& i128hilo,
+                               unsigned __int128& u128hilo, int64_t& next_pc,
+                               int32_t& return_addr_reg, bool& do_interrupt);
 
     // Executing is handled based on the instruction type.
     void decodeTypeRegister(SimInstruction* instr);
@@ -312,20 +353,14 @@ class Simulator {
     // Execute one instruction placed in a branch delay slot.
     void branchDelayInstructionDecode(SimInstruction* instr);
 
-  public:
+   public:
     static int64_t StopSimAt;
 
     // Runtime call support.
     static void* RedirectNativeFunction(void* nativeFunction, ABIFunctionType type);
 
-  private:
-    enum Exception {
-        kNone,
-        kIntegerOverflow,
-        kIntegerUnderflow,
-        kDivideByZero,
-        kNumExceptions
-    };
+   private:
+    enum Exception { kNone, kIntegerOverflow, kIntegerUnderflow, kDivideByZero, kNumExceptions };
     int16_t exceptions[kNumExceptions];
 
     // Exceptions.
@@ -373,7 +408,6 @@ class Simulator {
     // Only watched stops support enabling/disabling and the counter feature.
     static const uint32_t kNumOfWatchedStops = 256;
 
-
     // Stop is disabled if bit 31 is set.
     static const uint32_t kStopDisabledBit = 1U << 31;
 
@@ -389,12 +423,11 @@ class Simulator {
 };
 
 // Process wide simulator state.
-class SimulatorProcess
-{
+class SimulatorProcess {
     friend class Redirection;
     friend class AutoLockSimulatorCache;
 
-  private:
+   private:
     // ICache checking.
     struct ICacheHasher {
         typedef void* Key;
@@ -403,7 +436,7 @@ class SimulatorProcess
         static bool match(const Key& k, const Lookup& l);
     };
 
-  public:
+   public:
     typedef HashMap<void*, CachePage*, ICacheHasher, SystemAllocPolicy> ICacheMap;
 
     static mozilla::Atomic<size_t, mozilla::ReleaseAcquire> ICacheCheckingDisableCount;
@@ -429,7 +462,7 @@ class SimulatorProcess
     SimulatorProcess();
     ~SimulatorProcess();
 
-  private:
+   private:
     bool init();
 
     static SimulatorProcess* singleton_;
@@ -442,7 +475,7 @@ class SimulatorProcess
     Redirection* redirection_;
     ICacheMap icache_;
 
-  public:
+   public:
     static ICacheMap& icache() {
         // Technically we need the lock to access the innards of the
         // icache, not to take its address, but the latter condition
@@ -462,8 +495,8 @@ class SimulatorProcess
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* JS_SIMULATOR_MIPS64 */
 

@@ -18,7 +18,8 @@ namespace gfx {
 std::ostream&
 operator<<(std::ostream& aStream, const Quaternion& aQuat)
 {
-  return aStream << "< " << aQuat.x << " "  << aQuat.y << " " << aQuat.z << " " << aQuat.w << ">";
+  return aStream << "< " << aQuat.x << " " << aQuat.y << " " << aQuat.z << " "
+                 << aQuat.w << ">";
 }
 
 void
@@ -53,5 +54,5 @@ Quaternion::SetFromRotationMatrix(const Matrix4x4& m)
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -20,15 +20,15 @@ namespace mozilla {
 // PopAll calls won't overlap.
 class MultiWriterQueueReaderLocking_Mutex
 {
-public:
+ public:
   MultiWriterQueueReaderLocking_Mutex()
-    : mMutex("MultiWriterQueueReaderLocking_Mutex")
+      : mMutex("MultiWriterQueueReaderLocking_Mutex")
   {
   }
   void Lock() { mMutex.Lock(); };
   void Unlock() { mMutex.Unlock(); };
 
-private:
+ private:
   Mutex mMutex;
 };
 
@@ -36,7 +36,7 @@ private:
 // concurrently (e.g., by only calling it from a specific thread).
 class MultiWriterQueueReaderLocking_None
 {
-public:
+ public:
 #ifndef DEBUG
   void Lock(){};
   void Unlock(){};
@@ -45,8 +45,8 @@ public:
   void Lock() { MOZ_ASSERT(mLocked.compareExchange(false, true)); };
   void Unlock() { MOZ_ASSERT(mLocked.compareExchange(true, false)); };
 
-private:
-  Atomic<bool> mLocked{ false };
+ private:
+  Atomic<bool> mLocked{false};
 #endif
 };
 
@@ -73,7 +73,7 @@ class MultiWriterQueue
 {
   static_assert(BufferSize > 0, "0-sized MultiWriterQueue buffer");
 
-public:
+ public:
   // Constructor.
   // Allocates the initial buffer that will receive the first `BufferSize`
   // elements. Also allocates one reusable buffer, which will definitely be
@@ -81,20 +81,19 @@ public:
   // Ideally (if the reader can process each buffer quickly enough), there
   // won't be a need for more buffer allocations.
   MultiWriterQueue()
-    : mBuffersCoverAtLeastUpTo(BufferSize - 1)
-    , mMostRecentBuffer(new Buffer{})
-    , mReusableBuffers(new Buffer{})
-    , mOldestBuffer(static_cast<Buffer*>(mMostRecentBuffer))
-    , mLiveBuffersStats(1)
-    , mReusableBuffersStats(1)
-    , mAllocatedBuffersStats(2)
+      : mBuffersCoverAtLeastUpTo(BufferSize - 1),
+        mMostRecentBuffer(new Buffer{}),
+        mReusableBuffers(new Buffer{}),
+        mOldestBuffer(static_cast<Buffer*>(mMostRecentBuffer)),
+        mLiveBuffersStats(1),
+        mReusableBuffersStats(1),
+        mAllocatedBuffersStats(2)
   {
   }
 
   ~MultiWriterQueue()
   {
-    auto DestroyList = [](Buffer* aBuffer)
-    {
+    auto DestroyList = [](Buffer* aBuffer) {
       while (aBuffer) {
         Buffer* older = aBuffer->Older();
         delete aBuffer;
@@ -125,10 +124,10 @@ public:
   DidReachEndOfBuffer PushF(F&& aF)
   {
     // Atomically claim ownership of the next available element.
-    const Index index{ mNextElementToWrite++ };
+    const Index index{mNextElementToWrite++};
     // And now go and set that element.
     for (;;) {
-      Index lastIndex{ mBuffersCoverAtLeastUpTo };
+      Index lastIndex{mBuffersCoverAtLeastUpTo};
 
       if (MOZ_UNLIKELY(index == lastIndex)) {
         // We have claimed the last element in the current head -> Allocate a
@@ -160,7 +159,7 @@ public:
         // We have claimed an element in a yet-unavailable buffer, wait for our
         // target buffer to be created (see above).
         while (Index(mBuffersCoverAtLeastUpTo) < index) {
-          PR_Sleep(PR_INTERVAL_NO_WAIT); // Yield
+          PR_Sleep(PR_INTERVAL_NO_WAIT);  // Yield
         }
         // Then loop to examine the new situation.
         continue;
@@ -269,11 +268,11 @@ public:
     return mAllocatedBuffersStats.Get();
   }
 
-private:
+ private:
   // Structure containing the element to be stored, and a validity-marker.
   class BufferedElement
   {
-  public:
+   public:
     // Run aF on an invalid element, and mark it as valid.
     template<typename F>
     void SetAndValidate(F&& aF, Index aIndex)
@@ -296,31 +295,24 @@ private:
       return true;
     }
 
-  private:
+   private:
     T mT;
     // mValid should be atomically changed to true *after* mT has been written,
     // so that the reader can only see valid data.
-    Atomic<bool> mValid{ false };
+    Atomic<bool> mValid{false};
   };
 
   // Buffer contains a sequence of BufferedElements starting at a specific
   // index, and it points to the next-older buffer (if any).
   class Buffer
   {
-  public:
+   public:
     // Constructor of the very first buffer.
-    Buffer()
-      : mOlder(nullptr)
-      , mNewer(nullptr)
-      , mOrigin(0)
-    {
-    }
+    Buffer() : mOlder(nullptr), mNewer(nullptr), mOrigin(0) {}
 
     // Constructor of later buffers.
     Buffer(Buffer* aOlder, Index aOrigin)
-      : mOlder(aOlder)
-      , mNewer(nullptr)
-      , mOrigin(aOrigin)
+        : mOlder(aOlder), mNewer(nullptr), mOrigin(aOrigin)
     {
       MOZ_ASSERT(aOlder);
       aOlder->mNewer = this;
@@ -369,7 +361,7 @@ private:
       return true;
     }
 
-  private:
+   private:
     Buffer* mOlder;
     Buffer* mNewer;
     Index mOrigin;
@@ -447,7 +439,7 @@ private:
   // Index of the next element to write. Modified when an element index is
   // claimed for a push. If the last element of a buffer is claimed, that push
   // will be responsible for adding a new head buffer.
-  Atomic<Index::ValueType> mNextElementToWrite{ 0 };
+  Atomic<Index::ValueType> mNextElementToWrite{0};
 
   // Index that a live recent buffer reaches. If a push claims a lesser-or-
   // equal number, the corresponding buffer is guaranteed to still be alive:
@@ -475,21 +467,20 @@ private:
   Buffer* mOldestBuffer;
 
   // Index of the next element to be popped.
-  Index mNextElementToPop{ 0 };
+  Index mNextElementToPop{0};
 
   // Stats.
   class AtomicCountAndWatermark
   {
-  public:
+   public:
     explicit AtomicCountAndWatermark(int aCount)
-      : mCount(aCount)
-      , mWatermark(aCount)
+        : mCount(aCount), mWatermark(aCount)
     {
     }
 
     CountAndWatermark Get() const
     {
-      return CountAndWatermark{ int(mCount), int(mWatermark) };
+      return CountAndWatermark{int(mCount), int(mWatermark)};
     }
 
     int operator++()
@@ -517,7 +508,7 @@ private:
       return count;
     }
 
-  private:
+   private:
     Atomic<int> mCount;
     Atomic<int> mWatermark;
   };
@@ -529,6 +520,6 @@ private:
   AtomicCountAndWatermark mAllocatedBuffersStats;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_MultiWriterQueue_h_
+#endif  // mozilla_MultiWriterQueue_h_

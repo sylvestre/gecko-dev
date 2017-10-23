@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,18 +11,14 @@
 
 #include "jsapi-tests/tests.h"
 
-struct MyHeap
-{
+struct MyHeap {
     explicit MyHeap(JSObject* obj) : weak(obj) {}
     js::WeakRef<JSObject*> weak;
 
-    void trace(JSTracer* trc) {
-        js::TraceWeakEdge(trc, &weak, "weak");
-    }
+    void trace(JSTracer* trc) { js::TraceWeakEdge(trc, &weak, "weak"); }
 };
 
-BEGIN_TEST(testGCWeakRef)
-{
+BEGIN_TEST(testGCWeakRef) {
     // Create an object and add a property to it so that we can read the
     // property back later to verify that object internals are not garbage.
     JS::RootedObject obj(cx, JS_NewPlainObject(cx));
@@ -63,4 +59,3 @@ BEGIN_TEST(testGCWeakRef)
     return true;
 }
 END_TEST(testGCWeakRef)
-

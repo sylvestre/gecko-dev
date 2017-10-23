@@ -21,11 +21,16 @@ ProvideLogFunction(LogFunction aLogFunction)
 }
 
 void
-LogBlocked(const char* aFunctionName, const char* aContext, uint32_t aFramesToSkip)
+LogBlocked(const char* aFunctionName,
+           const char* aContext,
+           uint32_t aFramesToSkip)
 {
   if (sLogFunction) {
-    sLogFunction("BLOCKED", aFunctionName, aContext,
-                 /* aShouldLogStackTrace */ true, aFramesToSkip);
+    sLogFunction("BLOCKED",
+                 aFunctionName,
+                 aContext,
+                 /* aShouldLogStackTrace */ true,
+                 aFramesToSkip);
   }
 }
 
@@ -34,19 +39,23 @@ LogBlocked(const char* aFunctionName, const wchar_t* aContext)
 {
   if (sLogFunction) {
     // Skip an extra frame to allow for this function.
-    LogBlocked(aFunctionName, base::WideToUTF8(aContext).c_str(),
+    LogBlocked(aFunctionName,
+               base::WideToUTF8(aContext).c_str(),
                /* aFramesToSkip */ 3);
   }
 }
 
 void
-LogBlocked(const char* aFunctionName, const wchar_t* aContext,
+LogBlocked(const char* aFunctionName,
+           const wchar_t* aContext,
            uint16_t aLengthInBytes)
 {
   if (sLogFunction) {
     // Skip an extra frame to allow for this function.
     LogBlocked(aFunctionName,
-               base::WideToUTF8(std::wstring(aContext, aLengthInBytes / sizeof(wchar_t))).c_str(),
+               base::WideToUTF8(
+                   std::wstring(aContext, aLengthInBytes / sizeof(wchar_t)))
+                   .c_str(),
                /* aFramesToSkip */ 3);
   }
 }
@@ -55,8 +64,11 @@ void
 LogAllowed(const char* aFunctionName, const char* aContext)
 {
   if (sLogFunction) {
-    sLogFunction("Broker ALLOWED", aFunctionName, aContext,
-                 /* aShouldLogStackTrace */ false, /* aFramesToSkip */ 0);
+    sLogFunction("Broker ALLOWED",
+                 aFunctionName,
+                 aContext,
+                 /* aShouldLogStackTrace */ false,
+                 /* aFramesToSkip */ 0);
   }
 }
 
@@ -69,14 +81,17 @@ LogAllowed(const char* aFunctionName, const wchar_t* aContext)
 }
 
 void
-LogAllowed(const char* aFunctionName, const wchar_t* aContext,
+LogAllowed(const char* aFunctionName,
+           const wchar_t* aContext,
            uint16_t aLengthInBytes)
 {
   if (sLogFunction) {
     LogAllowed(aFunctionName,
-               base::WideToUTF8(std::wstring(aContext, aLengthInBytes / sizeof(wchar_t))).c_str());
+               base::WideToUTF8(
+                   std::wstring(aContext, aLengthInBytes / sizeof(wchar_t)))
+                   .c_str());
   }
 }
 
-} // sandboxing
-} // mozilla
+}  // namespace sandboxing
+}  // namespace mozilla

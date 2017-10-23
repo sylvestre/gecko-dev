@@ -22,19 +22,18 @@ namespace dom {
 
 class Element;
 
-class DocumentFragment : public FragmentOrElement,
-                         public nsIDOMDocumentFragment
+class DocumentFragment : public FragmentOrElement, public nsIDOMDocumentFragment
 {
-private:
+ private:
   void Init()
   {
     MOZ_ASSERT(mNodeInfo->NodeType() == nsIDOMNode::DOCUMENT_FRAGMENT_NODE &&
-               mNodeInfo->Equals(nsGkAtoms::documentFragmentNodeName,
-                                 kNameSpaceID_None),
+                   mNodeInfo->Equals(nsGkAtoms::documentFragmentNodeName,
+                                     kNameSpaceID_None),
                "Bad NodeType in aNodeInfo");
   }
 
-public:
+ public:
   using FragmentOrElement::GetFirstChild;
   using nsINode::QuerySelector;
   using nsINode::QuerySelectorAll;
@@ -52,33 +51,38 @@ public:
   NS_DECL_NSIDOMDOCUMENTFRAGMENT
 
   explicit DocumentFragment(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : FragmentOrElement(aNodeInfo), mHost(nullptr)
+      : FragmentOrElement(aNodeInfo), mHost(nullptr)
   {
     Init();
   }
 
   explicit DocumentFragment(nsNodeInfoManager* aNodeInfoManager)
-    : FragmentOrElement(aNodeInfoManager->GetNodeInfo(
-                                            nsGkAtoms::documentFragmentNodeName,
-                                            nullptr, kNameSpaceID_None,
-                                            nsIDOMNode::DOCUMENT_FRAGMENT_NODE)),
-      mHost(nullptr)
+      : FragmentOrElement(
+            aNodeInfoManager->GetNodeInfo(nsGkAtoms::documentFragmentNodeName,
+                                          nullptr,
+                                          kNameSpaceID_None,
+                                          nsIDOMNode::DOCUMENT_FRAGMENT_NODE)),
+        mHost(nullptr)
   {
     Init();
   }
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   // nsIContent
   using nsIContent::SetAttr;
-  virtual nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                           nsAtom* aPrefix, const nsAString& aValue,
+  virtual nsresult SetAttr(int32_t aNameSpaceID,
+                           nsAtom* aName,
+                           nsAtom* aPrefix,
+                           const nsAString& aValue,
                            nsIPrincipal* aSubjectPrincipal,
                            bool aNotify) override
   {
     return NS_OK;
   }
-  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID,
+                             nsAtom* aAttribute,
                              bool aNotify) override
   {
     return NS_OK;
@@ -91,16 +95,14 @@ public:
   {
     return BorrowedAttrInfo(nullptr, nullptr);
   }
-  virtual uint32_t GetAttrCount() const override
-  {
-    return 0;
-  }
+  virtual uint32_t GetAttrCount() const override { return 0; }
 
   virtual bool IsNodeOfType(uint32_t aFlags) const override;
 
   virtual nsIDOMNode* AsDOMNode() override { return this; }
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override
   {
@@ -113,35 +115,32 @@ public:
     NS_ASSERTION(false, "Trying to unbind a fragment from a tree");
   }
 
-  virtual Element* GetNameSpaceElement() override
-  {
-    return nullptr;
-  }
+  virtual Element* GetNameSpaceElement() override { return nullptr; }
 
   Element* GetHost() const { return mHost; }
 
   void SetHost(Element* aHost) { mHost = aHost; }
 
-  static already_AddRefed<DocumentFragment>
-  Constructor(const GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<DocumentFragment> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
 
 #ifdef DEBUG
   virtual void List(FILE* out, int32_t aIndent) const override;
-  virtual void DumpContent(FILE* out, int32_t aIndent, bool aDumpAll) const override;
+  virtual void DumpContent(FILE* out,
+                           int32_t aIndent,
+                           bool aDumpAll) const override;
 #endif
 
-protected:
-  virtual ~DocumentFragment()
-  {
-  }
+ protected:
+  virtual ~DocumentFragment() {}
 
-  nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                 nsINode** aResult,
                  bool aPreallocateChildren) const override;
   nsCOMPtr<Element> mHost;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-
-#endif // mozilla_dom_DocumentFragment_h__
+#endif  // mozilla_dom_DocumentFragment_h__

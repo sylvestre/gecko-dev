@@ -11,8 +11,8 @@ namespace mozilla {
 namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(AuthenticatorAttestationResponse)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(AuthenticatorAttestationResponse,
-                                                AuthenticatorResponse)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(
+    AuthenticatorAttestationResponse, AuthenticatorResponse)
   tmp->mAttestationObjectCachedObj = nullptr;
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -22,19 +22,21 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(AuthenticatorAttestationResponse,
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mAttestationObjectCachedObj)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(AuthenticatorAttestationResponse,
-                                                  AuthenticatorResponse)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(
+    AuthenticatorAttestationResponse, AuthenticatorResponse)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_ADDREF_INHERITED(AuthenticatorAttestationResponse, AuthenticatorResponse)
-NS_IMPL_RELEASE_INHERITED(AuthenticatorAttestationResponse, AuthenticatorResponse)
+NS_IMPL_ADDREF_INHERITED(AuthenticatorAttestationResponse,
+                         AuthenticatorResponse)
+NS_IMPL_RELEASE_INHERITED(AuthenticatorAttestationResponse,
+                          AuthenticatorResponse)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AuthenticatorAttestationResponse)
 NS_INTERFACE_MAP_END_INHERITING(AuthenticatorResponse)
 
-AuthenticatorAttestationResponse::AuthenticatorAttestationResponse(nsPIDOMWindowInner* aParent)
-  : AuthenticatorResponse(aParent)
-  , mAttestationObjectCachedObj(nullptr)
+AuthenticatorAttestationResponse::AuthenticatorAttestationResponse(
+    nsPIDOMWindowInner* aParent)
+    : AuthenticatorResponse(aParent), mAttestationObjectCachedObj(nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
@@ -52,8 +54,8 @@ AuthenticatorAttestationResponse::WrapObject(JSContext* aCx,
 }
 
 void
-AuthenticatorAttestationResponse::GetAttestationObject(JSContext* aCx,
-                                                       JS::MutableHandle<JSObject*> aRetVal)
+AuthenticatorAttestationResponse::GetAttestationObject(
+    JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal)
 {
   if (!mAttestationObjectCachedObj) {
     mAttestationObjectCachedObj = mAttestationObject.ToArrayBuffer(aCx);
@@ -70,5 +72,5 @@ AuthenticatorAttestationResponse::SetAttestationObject(CryptoBuffer& aBuffer)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

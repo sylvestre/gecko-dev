@@ -16,19 +16,14 @@
 
 extern "C" {
 
-extern bool
-C_ValueToObject(JSContext* cx, jsval v, JSObject** obj);
+extern bool C_ValueToObject(JSContext* cx, jsval v, JSObject** obj);
 
-extern jsval
-C_GetEmptyStringValue(JSContext* cx);
+extern jsval C_GetEmptyStringValue(JSContext* cx);
 
-extern size_t
-C_jsvalAlignmentTest();
-
+extern size_t C_jsvalAlignmentTest();
 }
 
-BEGIN_TEST(testValueABI_retparam)
-{
+BEGIN_TEST(testValueABI_retparam) {
     JS::RootedObject obj(cx, JS::CurrentGlobalOrNull(cx));
     RootedValue v(cx, ObjectValue(*obj));
     obj = nullptr;
@@ -45,9 +40,11 @@ BEGIN_TEST(testValueABI_retparam)
 }
 END_TEST(testValueABI_retparam)
 
-BEGIN_TEST(testValueABI_alignment)
-{
-    typedef struct { char c; jsval v; } AlignTest;
+BEGIN_TEST(testValueABI_alignment) {
+    typedef struct {
+        char c;
+        jsval v;
+    } AlignTest;
     CHECK(C_jsvalAlignmentTest() == sizeof(AlignTest));
 
     return true;

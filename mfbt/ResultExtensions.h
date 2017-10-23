@@ -17,14 +17,15 @@ namespace mozilla {
 
 // Allow nsresult errors to automatically convert to nsresult values, so MOZ_TRY
 // can be used in XPCOM methods with Result<T, nserror> results.
-template <>
+template<>
 class MOZ_MUST_USE_TYPE GenericErrorResult<nsresult>
 {
   nsresult mErrorValue;
 
-  template<typename V, typename E2> friend class Result;
+  template<typename V, typename E2>
+  friend class Result;
 
-public:
+ public:
   explicit GenericErrorResult(nsresult aErrorValue) : mErrorValue(aErrorValue)
   {
     MOZ_ASSERT(NS_FAILED(aErrorValue));
@@ -34,9 +35,10 @@ public:
 };
 
 // Allow MOZ_TRY to handle `PRStatus` values.
-inline Result<Ok, nsresult> ToResult(PRStatus aValue);
+inline Result<Ok, nsresult>
+ToResult(PRStatus aValue);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #include "mozilla/Result.h"
 
@@ -60,6 +62,6 @@ ToResult(PRStatus aValue)
   return Err(NS_ERROR_FAILURE);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ResultExtensions_h
+#endif  // mozilla_ResultExtensions_h

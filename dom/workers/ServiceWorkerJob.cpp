@@ -43,8 +43,7 @@ ServiceWorkerJob::IsEquivalentTo(ServiceWorkerJob* aJob) const
 {
   AssertIsOnMainThread();
   MOZ_ASSERT(aJob);
-  return mType == aJob->mType &&
-         mScope.Equals(aJob->mScope) &&
+  return mType == aJob->mType && mScope.Equals(aJob->mScope) &&
          mScriptSpec.Equals(aJob->mScriptSpec) &&
          mPrincipal->Equals(aJob->mPrincipal);
 }
@@ -94,9 +93,8 @@ ServiceWorkerJob::Start(Callback* aFinalCallback)
   MOZ_DIAGNOSTIC_ASSERT(mState == State::Initial);
   mState = State::Started;
 
-  nsCOMPtr<nsIRunnable> runnable =
-    NewRunnableMethod("ServiceWorkerJob::AsyncExecute",
-                      this, &ServiceWorkerJob::AsyncExecute);
+  nsCOMPtr<nsIRunnable> runnable = NewRunnableMethod(
+      "ServiceWorkerJob::AsyncExecute", this, &ServiceWorkerJob::AsyncExecute);
 
   // We may have to wait for the PBackground actor to be initialized
   // before proceeding.  We should always be able to get a ServiceWorkerManager,
@@ -113,8 +111,7 @@ ServiceWorkerJob::Start(Callback* aFinalCallback)
   }
 
   // Otherwise start asynchronously.  We should never run a job synchronously.
-  MOZ_ALWAYS_TRUE(NS_SUCCEEDED(
-    NS_DispatchToMainThread(runnable.forget())));
+  MOZ_ALWAYS_TRUE(NS_SUCCEEDED(NS_DispatchToMainThread(runnable.forget())));
 }
 
 void
@@ -129,13 +126,13 @@ ServiceWorkerJob::ServiceWorkerJob(Type aType,
                                    nsIPrincipal* aPrincipal,
                                    const nsACString& aScope,
                                    const nsACString& aScriptSpec)
-  : mType(aType)
-  , mPrincipal(aPrincipal)
-  , mScope(aScope)
-  , mScriptSpec(aScriptSpec)
-  , mState(State::Initial)
-  , mCanceled(false)
-  , mResultCallbacksInvoked(false)
+    : mType(aType),
+      mPrincipal(aPrincipal),
+      mScope(aScope),
+      mScriptSpec(aScriptSpec),
+      mState(State::Initial),
+      mCanceled(false),
+      mResultCallbacksInvoked(false)
 {
   AssertIsOnMainThread();
   MOZ_ASSERT(mPrincipal);
@@ -199,9 +196,8 @@ ServiceWorkerJob::Finish(ErrorResult& aRv)
 
   // Ensure that we only surface SecurityErr, TypeErr or InvalidStateErr to script.
   if (aRv.Failed() && !aRv.ErrorCodeIs(NS_ERROR_DOM_SECURITY_ERR) &&
-                      !aRv.ErrorCodeIs(NS_ERROR_DOM_TYPE_ERR) &&
-                      !aRv.ErrorCodeIs(NS_ERROR_DOM_INVALID_STATE_ERR)) {
-
+      !aRv.ErrorCodeIs(NS_ERROR_DOM_TYPE_ERR) &&
+      !aRv.ErrorCodeIs(NS_ERROR_DOM_INVALID_STATE_ERR)) {
     // Remove the old error code so we can replace it with a TypeError.
     aRv.SuppressException();
 
@@ -232,8 +228,8 @@ ServiceWorkerJob::Finish(ErrorResult& aRv)
 
   // Async release this object to ensure that our caller methods complete
   // as well.
-  NS_ReleaseOnMainThreadSystemGroup("ServiceWorkerJob",
-    kungFuDeathGrip.forget(), true /* always proxy */);
+  NS_ReleaseOnMainThreadSystemGroup(
+      "ServiceWorkerJob", kungFuDeathGrip.forget(), true /* always proxy */);
 }
 
 void
@@ -243,6 +239,6 @@ ServiceWorkerJob::Finish(nsresult aRv)
   Finish(converted);
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

@@ -17,14 +17,11 @@ namespace gfx {
 
 using namespace ipc;
 
-GPUProcessImpl::GPUProcessImpl(ProcessId aParentPid)
- : ProcessChild(aParentPid)
+GPUProcessImpl::GPUProcessImpl(ProcessId aParentPid) : ProcessChild(aParentPid)
 {
 }
 
-GPUProcessImpl::~GPUProcessImpl()
-{
-}
+GPUProcessImpl::~GPUProcessImpl() {}
 
 bool
 GPUProcessImpl::Init(int aArgc, char* aArgv[])
@@ -33,9 +30,8 @@ GPUProcessImpl::Init(int aArgc, char* aArgv[])
   mozilla::SandboxTarget::Instance()->StartSandbox();
 #endif
 
-  return mGPU.Init(ParentPid(),
-                   IOThreadChild::message_loop(),
-                   IOThreadChild::channel());
+  return mGPU.Init(
+      ParentPid(), IOThreadChild::message_loop(), IOThreadChild::channel());
 }
 
 void
@@ -44,5 +40,5 @@ GPUProcessImpl::CleanUp()
   NS_ShutdownXPCOM(nullptr);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -10,35 +10,35 @@
 
 using namespace mozilla;
 
-class nsDestroyThreadEvent : public Runnable {
-public:
+class nsDestroyThreadEvent : public Runnable
+{
+ public:
   explicit nsDestroyThreadEvent(nsIThread* thread)
-    : mozilla::Runnable("nsDestroyThreadEvent")
-    , mThread(thread)
-  {}
+      : mozilla::Runnable("nsDestroyThreadEvent"), mThread(thread)
+  {
+  }
   NS_IMETHOD Run() override
   {
     mThread->Shutdown();
     return NS_OK;
   }
-private:
+
+ private:
   nsCOMPtr<nsIThread> mThread;
 };
 
 nsShutdownThread::nsShutdownThread(nsIThread* aThread)
-  : mozilla::Runnable("nsShutdownThread")
-  , mMonitor("nsShutdownThread.mMonitor")
-  , mShuttingDown(false)
-  , mThread(aThread)
+    : mozilla::Runnable("nsShutdownThread"),
+      mMonitor("nsShutdownThread.mMonitor"),
+      mShuttingDown(false),
+      mThread(aThread)
 {
 }
 
-nsShutdownThread::~nsShutdownThread()
-{
-}
+nsShutdownThread::~nsShutdownThread() {}
 
 nsresult
-nsShutdownThread::Shutdown(nsIThread *aThread)
+nsShutdownThread::Shutdown(nsIThread* aThread)
 {
   nsresult rv;
   RefPtr<nsDestroyThreadEvent> ev = new nsDestroyThreadEvent(aThread);
@@ -50,7 +50,7 @@ nsShutdownThread::Shutdown(nsIThread *aThread)
 }
 
 nsresult
-nsShutdownThread::BlockingShutdown(nsIThread *aThread)
+nsShutdownThread::BlockingShutdown(nsIThread* aThread)
 {
   nsresult rv;
 
@@ -68,7 +68,7 @@ nsShutdownThread::BlockingShutdown(nsIThread *aThread)
     rv = workerThread->Dispatch(st, NS_DISPATCH_NORMAL);
     if (NS_FAILED(rv)) {
       NS_WARNING(
-        "Dispatching event in nsShutdownThread::BlockingShutdown failed!");
+          "Dispatching event in nsShutdownThread::BlockingShutdown failed!");
     } else {
       st->mShuttingDown = true;
       while (st->mShuttingDown) {

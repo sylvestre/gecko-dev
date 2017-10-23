@@ -54,15 +54,15 @@ WidevineBuffer::Size() const
 }
 
 nsTArray<uint8_t>
-WidevineBuffer::ExtractBuffer() {
+WidevineBuffer::ExtractBuffer()
+{
   nsTArray<uint8_t> out;
   out.SwapElements(mBuffer);
   return out;
 }
 
 WidevineDecryptedBlock::WidevineDecryptedBlock()
-  : mBuffer(nullptr)
-  , mTimestamp(0)
+    : mBuffer(nullptr), mTimestamp(0)
 {
 }
 
@@ -98,4 +98,4 @@ WidevineDecryptedBlock::Timestamp() const
   return mTimestamp;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

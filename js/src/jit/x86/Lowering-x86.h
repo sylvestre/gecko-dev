@@ -12,14 +12,12 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorX86 : public LIRGeneratorX86Shared
-{
-  public:
+class LIRGeneratorX86 : public LIRGeneratorX86Shared {
+   public:
     LIRGeneratorX86(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorX86Shared(gen, graph, lirGraph)
-    { }
+        : LIRGeneratorX86Shared(gen, graph, lirGraph) {}
 
-  protected:
+   protected:
     // Returns a box allocation with type set to reg1 and payload set to reg2.
     LBoxAllocation useBoxFixed(MDefinition* mir, Register reg1, Register reg2,
                                bool useAtStart = false);
@@ -34,9 +32,7 @@ class LIRGeneratorX86 : public LIRGeneratorX86Shared
     LAllocation useByteOpRegisterOrNonDoubleConstant(MDefinition* mir);
     LDefinition tempByteOpRegister();
 
-    inline LDefinition tempToUnbox() {
-        return LDefinition::BogusTemp();
-    }
+    inline LDefinition tempToUnbox() { return LDefinition::BogusTemp(); }
 
     bool needTempForPostBarrier() { return true; }
 
@@ -55,7 +51,7 @@ class LIRGeneratorX86 : public LIRGeneratorX86Shared
     void lowerUDivI64(MDiv* div);
     void lowerUModI64(MMod* mod);
 
-  public:
+   public:
     void visitBox(MBox* box);
     void visitUnbox(MUnbox* unbox);
     void visitReturn(MReturn* ret);
@@ -80,18 +76,14 @@ class LIRGeneratorX86 : public LIRGeneratorX86Shared
     void visitSignExtendInt64(MSignExtendInt64* ins);
     void lowerPhi(MPhi* phi);
 
-    static bool allowTypedElementHoleCheck() {
-        return true;
-    }
+    static bool allowTypedElementHoleCheck() { return true; }
 
-    static bool allowStaticTypedArrayAccesses() {
-        return true;
-    }
+    static bool allowStaticTypedArrayAccesses() { return true; }
 };
 
 typedef LIRGeneratorX86 LIRGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x86_Lowering_x86_h */

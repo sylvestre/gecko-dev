@@ -14,17 +14,15 @@
 
 class nsConsoleMessage final : public nsIConsoleMessage
 {
-public:
+ public:
   nsConsoleMessage();
   explicit nsConsoleMessage(const char16_t* aMessage);
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICONSOLEMESSAGE
 
-private:
-  ~nsConsoleMessage()
-  {
-  }
+ private:
+  ~nsConsoleMessage() {}
 
   int64_t mTimeStamp;
   nsString mMessage;

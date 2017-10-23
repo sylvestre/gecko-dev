@@ -12,8 +12,9 @@ using mozilla::AudioData;
 using mozilla::AudioDataValue;
 using mozilla::MediaQueue;
 
-class MemoryFunctor : public nsDequeFunctor {
-public:
+class MemoryFunctor : public nsDequeFunctor
+{
+ public:
   MemoryFunctor() : mSize(0) {}
   MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf);
 
@@ -28,16 +29,19 @@ public:
 
 class TestCopy
 {
-public:
-  TestCopy(uint32_t aFrames, uint32_t aChannels,
-           uint32_t &aCallCount, uint32_t &aFrameCount)
-    : mFrames(aFrames)
-    , mChannels(aChannels)
-    , mCallCount(aCallCount)
-    , mFrameCount(aFrameCount)
-  { }
+ public:
+  TestCopy(uint32_t aFrames,
+           uint32_t aChannels,
+           uint32_t& aCallCount,
+           uint32_t& aFrameCount)
+      : mFrames(aFrames),
+        mChannels(aChannels),
+        mCallCount(aCallCount),
+        mFrameCount(aFrameCount)
+  {
+  }
 
-  uint32_t operator()(AudioDataValue *aBuffer, uint32_t aSamples)
+  uint32_t operator()(AudioDataValue* aBuffer, uint32_t aSamples)
   {
     mCallCount += 1;
     uint32_t frames = std::min(mFrames - mFrameCount, aSamples / mChannels);
@@ -45,14 +49,15 @@ public:
     return frames;
   }
 
-private:
+ private:
   const uint32_t mFrames;
   const uint32_t mChannels;
-  uint32_t &mCallCount;
-  uint32_t &mFrameCount;
+  uint32_t& mCallCount;
+  uint32_t& mFrameCount;
 };
 
-static void TestAudioCompactor(size_t aBytes)
+static void
+TestAudioCompactor(size_t aBytes)
 {
   MediaQueue<AudioData> queue;
   AudioCompactor compactor(queue);
@@ -67,7 +72,11 @@ static void TestAudioCompactor(size_t aBytes)
   uint32_t callCount = 0;
   uint32_t frameCount = 0;
 
-  compactor.Push(offset, time, sampleRate, frames, channels,
+  compactor.Push(offset,
+                 time,
+                 sampleRate,
+                 frames,
+                 channels,
                  TestCopy(frames, channels, callCount, frameCount));
 
   EXPECT_GT(callCount, 0U) << "copy functor never called";
@@ -80,25 +89,13 @@ static void TestAudioCompactor(size_t aBytes)
   EXPECT_LE(slop, maxSlop) << "allowed too much allocation slop";
 }
 
-TEST(Media, AudioCompactor_4000)
-{
-  TestAudioCompactor(4000);
-}
+TEST(Media, AudioCompactor_4000) { TestAudioCompactor(4000); }
 
-TEST(Media, AudioCompactor_4096)
-{
-  TestAudioCompactor(4096);
-}
+TEST(Media, AudioCompactor_4096) { TestAudioCompactor(4096); }
 
-TEST(Media, AudioCompactor_5000)
-{
-  TestAudioCompactor(5000);
-}
+TEST(Media, AudioCompactor_5000) { TestAudioCompactor(5000); }
 
-TEST(Media, AudioCompactor_5256)
-{
-  TestAudioCompactor(5256);
-}
+TEST(Media, AudioCompactor_5256) { TestAudioCompactor(5256); }
 
 TEST(Media, AudioCompactor_NativeCopy)
 {

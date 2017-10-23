@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testInformalValueTypeName)
-{
+BEGIN_TEST(testInformalValueTypeName) {
     JS::RootedValue v1(cx, JS::ObjectOrNullValue(JS_NewPlainObject(cx)));
     CHECK(strcmp(JS::InformalValueTypeName(v1), "Object") == 0);
 

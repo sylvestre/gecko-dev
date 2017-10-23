@@ -17,8 +17,9 @@
  * - There is no support for unloading a library once it has been loaded.
  * - The symbol must be a named symbol and not an ordinal.
  */
-void* LoadRemoteLibraryAndGetAddress(HANDLE hRemoteProcess,
-                                     const WCHAR* library,
-                                     const char* symbol);
+void*
+LoadRemoteLibraryAndGetAddress(HANDLE hRemoteProcess,
+                               const WCHAR* library,
+                               const char* symbol);
 
 #endif  // LoadLibraryRemote_h

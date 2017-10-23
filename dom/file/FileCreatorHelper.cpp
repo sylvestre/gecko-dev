@@ -45,7 +45,7 @@ FileCreatorHelper::CreateFile(nsIGlobalObject* aGlobalObject,
 
   if (XRE_IsParentProcess()) {
     RefPtr<File> file =
-      CreateFileInternal(window, aFile, aBag, aIsFromNsIFile, aRv);
+        CreateFileInternal(window, aFile, aBag, aIsFromNsIFile, aRv);
     if (aRv.Failed()) {
       return nullptr;
     }
@@ -96,11 +96,16 @@ FileCreatorHelper::CreateFileInternal(nsPIDOMWindowInner* aWindow,
   }
 
   RefPtr<BlobImpl> blobImpl;
-  aRv = CreateBlobImpl(aFile, aBag.mType, aBag.mName, lastModifiedPassed,
-                       lastModified, aBag.mExistenceCheck, aIsFromNsIFile,
+  aRv = CreateBlobImpl(aFile,
+                       aBag.mType,
+                       aBag.mName,
+                       lastModifiedPassed,
+                       lastModified,
+                       aBag.mExistenceCheck,
+                       aIsFromNsIFile,
                        getter_AddRefs(blobImpl));
   if (aRv.Failed()) {
-     return nullptr;
+    return nullptr;
   }
 
   RefPtr<File> file = File::Create(aWindow, blobImpl);
@@ -109,15 +114,12 @@ FileCreatorHelper::CreateFileInternal(nsPIDOMWindowInner* aWindow,
 
 FileCreatorHelper::FileCreatorHelper(Promise* aPromise,
                                      nsPIDOMWindowInner* aWindow)
-  : mPromise(aPromise)
-  , mWindow(aWindow)
+    : mPromise(aPromise), mWindow(aWindow)
 {
   MOZ_ASSERT(aPromise);
 }
 
-FileCreatorHelper::~FileCreatorHelper()
-{
-}
+FileCreatorHelper::~FileCreatorHelper() {}
 
 void
 FileCreatorHelper::SendRequest(nsIFile* aFile,
@@ -145,8 +147,13 @@ FileCreatorHelper::SendRequest(nsIFile* aFile,
     return;
   }
 
-  cc->FileCreationRequest(uuid, this, path, aBag.mType, aBag.mName,
-                          aBag.mLastModified, aBag.mExistenceCheck,
+  cc->FileCreationRequest(uuid,
+                          this,
+                          path,
+                          aBag.mType,
+                          aBag.mName,
+                          aBag.mLastModified,
+                          aBag.mExistenceCheck,
                           aIsFromNsIFile);
 }
 
@@ -178,8 +185,14 @@ FileCreatorHelper::CreateBlobImplForIPC(const nsAString& aPath,
     return rv;
   }
 
-  return CreateBlobImpl(file, aType, aName, aLastModifiedPassed, aLastModified,
-                        aExistenceCheck, aIsFromNsIFile, aBlobImpl);
+  return CreateBlobImpl(file,
+                        aType,
+                        aName,
+                        aLastModifiedPassed,
+                        aLastModified,
+                        aExistenceCheck,
+                        aIsFromNsIFile,
+                        aBlobImpl);
 }
 
 /* static */ nsresult
@@ -212,9 +225,8 @@ FileCreatorHelper::CreateBlobImpl(nsIFile* aFile,
   }
 
   RefPtr<MultipartBlobImpl> impl = new MultipartBlobImpl(EmptyString());
-  nsresult rv =
-    impl->InitializeChromeFile(aFile, aType, aName, aLastModifiedPassed,
-                               aLastModified, aIsFromNsIFile);
+  nsresult rv = impl->InitializeChromeFile(
+      aFile, aType, aName, aLastModifiedPassed, aLastModified, aIsFromNsIFile);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -225,5 +237,5 @@ FileCreatorHelper::CreateBlobImpl(nsIFile* aFile,
   return NS_OK;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

@@ -11,16 +11,16 @@
 
 class txTextHandler : public txAXMLEventHandler
 {
-public:
-    explicit txTextHandler(bool aOnlyText);
+ public:
+  explicit txTextHandler(bool aOnlyText);
 
-    TX_DECL_TXAXMLEVENTHANDLER
+  TX_DECL_TXAXMLEVENTHANDLER
 
-    nsString mValue;
+  nsString mValue;
 
-private:
-    uint32_t mLevel;
-    bool mOnlyText;
+ private:
+  uint32_t mLevel;
+  bool mOnlyText;
 };
 
 #endif

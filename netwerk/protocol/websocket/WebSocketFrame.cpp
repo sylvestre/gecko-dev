@@ -8,7 +8,7 @@
 
 #include "WebSocketChannel.h"
 #include "nsSocketTransportService2.h"
-#include "nsThreadUtils.h" // for NS_IsMainThread
+#include "nsThreadUtils.h"  // for NS_IsMainThread
 #include "ipc/IPCMessageUtils.h"
 
 namespace mozilla {
@@ -22,34 +22,45 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(WebSocketFrame)
 NS_IMPL_RELEASE(WebSocketFrame)
 
-WebSocketFrame::WebSocketFrame(const WebSocketFrameData& aData)
-  : mData(aData)
-{}
+WebSocketFrame::WebSocketFrame(const WebSocketFrameData& aData) : mData(aData)
+{
+}
 
-WebSocketFrame::WebSocketFrame(bool aFinBit, bool aRsvBit1, bool aRsvBit2,
-                               bool aRsvBit3, uint8_t aOpCode, bool aMaskBit,
-                               uint32_t aMask, const nsCString& aPayload)
-  : mData(PR_Now(), aFinBit, aRsvBit1, aRsvBit2, aRsvBit3, aOpCode, aMaskBit,
-          aMask, aPayload)
+WebSocketFrame::WebSocketFrame(bool aFinBit,
+                               bool aRsvBit1,
+                               bool aRsvBit2,
+                               bool aRsvBit3,
+                               uint8_t aOpCode,
+                               bool aMaskBit,
+                               uint32_t aMask,
+                               const nsCString& aPayload)
+    : mData(PR_Now(),
+            aFinBit,
+            aRsvBit1,
+            aRsvBit2,
+            aRsvBit3,
+            aOpCode,
+            aMaskBit,
+            aMask,
+            aPayload)
 {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   mData.mTimeStamp = PR_Now();
 }
 
-WebSocketFrame::~WebSocketFrame()
-{}
+WebSocketFrame::~WebSocketFrame() {}
 
-#define WSF_GETTER( method, value , type )     \
-NS_IMETHODIMP                                  \
-WebSocketFrame::method(type* aValue)           \
-{                                              \
-  MOZ_ASSERT(NS_IsMainThread());               \
-  if (!aValue) {                               \
-    return NS_ERROR_FAILURE;                   \
-  }                                            \
-  *aValue = value;                             \
-  return NS_OK;                                \
-}
+#define WSF_GETTER(method, value, type) \
+  NS_IMETHODIMP                         \
+  WebSocketFrame::method(type* aValue)  \
+  {                                     \
+    MOZ_ASSERT(NS_IsMainThread());      \
+    if (!aValue) {                      \
+      return NS_ERROR_FAILURE;          \
+    }                                   \
+    *aValue = value;                    \
+    return NS_OK;                       \
+  }
 
 WSF_GETTER(GetTimeStamp, mData.mTimeStamp, DOMHighResTimeStamp);
 WSF_GETTER(GetFinBit, mData.mFinBit, bool);
@@ -71,47 +82,50 @@ WebSocketFrame::GetPayload(nsACString& aValue)
 }
 
 WebSocketFrameData::WebSocketFrameData()
-  : mTimeStamp(0)
-  , mFinBit(false)
-  , mRsvBit1(false)
-  , mRsvBit2(false)
-  , mRsvBit3(false)
-  , mMaskBit(false)
-  , mOpCode(0)
-  , mMask(0)
+    : mTimeStamp(0),
+      mFinBit(false),
+      mRsvBit1(false),
+      mRsvBit2(false),
+      mRsvBit3(false),
+      mMaskBit(false),
+      mOpCode(0),
+      mMask(0)
 {
   MOZ_COUNT_CTOR(WebSocketFrameData);
 }
 
 WebSocketFrameData::WebSocketFrameData(DOMHighResTimeStamp aTimeStamp,
-                                       bool aFinBit, bool aRsvBit1,
-                                       bool aRsvBit2, bool aRsvBit3,
-                                       uint8_t aOpCode, bool aMaskBit,
+                                       bool aFinBit,
+                                       bool aRsvBit1,
+                                       bool aRsvBit2,
+                                       bool aRsvBit3,
+                                       uint8_t aOpCode,
+                                       bool aMaskBit,
                                        uint32_t aMask,
                                        const nsCString& aPayload)
-  : mTimeStamp(aTimeStamp)
-  , mFinBit(aFinBit)
-  , mRsvBit1(aRsvBit1)
-  , mRsvBit2(aRsvBit2)
-  , mRsvBit3(aRsvBit3)
-  , mMaskBit(aMaskBit)
-  , mOpCode(aOpCode)
-  , mMask(aMask)
-  , mPayload(aPayload)
+    : mTimeStamp(aTimeStamp),
+      mFinBit(aFinBit),
+      mRsvBit1(aRsvBit1),
+      mRsvBit2(aRsvBit2),
+      mRsvBit3(aRsvBit3),
+      mMaskBit(aMaskBit),
+      mOpCode(aOpCode),
+      mMask(aMask),
+      mPayload(aPayload)
 {
   MOZ_COUNT_CTOR(WebSocketFrameData);
 }
 
 WebSocketFrameData::WebSocketFrameData(const WebSocketFrameData& aData)
-  : mTimeStamp(aData.mTimeStamp)
-  , mFinBit(aData.mFinBit)
-  , mRsvBit1(aData.mRsvBit1)
-  , mRsvBit2(aData.mRsvBit2)
-  , mRsvBit3(aData.mRsvBit3)
-  , mMaskBit(aData.mMaskBit)
-  , mOpCode(aData.mOpCode)
-  , mMask(aData.mMask)
-  , mPayload(aData.mPayload)
+    : mTimeStamp(aData.mTimeStamp),
+      mFinBit(aData.mFinBit),
+      mRsvBit1(aData.mRsvBit1),
+      mRsvBit2(aData.mRsvBit2),
+      mRsvBit3(aData.mRsvBit3),
+      mMaskBit(aData.mMaskBit),
+      mOpCode(aData.mOpCode),
+      mMask(aData.mMask),
+      mPayload(aData.mPayload)
 {
   MOZ_COUNT_CTOR(WebSocketFrameData);
 }
@@ -143,13 +157,13 @@ WebSocketFrameData::ReadIPCParams(const IPC::Message* aMessage,
     return false;
   }
 
-#define ReadParamHelper(x)                     \
-  {                                            \
-    bool bit;                                  \
-    if (!ReadParam(aMessage, aIter, &bit)) {   \
-      return false;                            \
-    }                                          \
-    x = bit;                                   \
+#define ReadParamHelper(x)                   \
+  {                                          \
+    bool bit;                                \
+    if (!ReadParam(aMessage, aIter, &bit)) { \
+      return false;                          \
+    }                                        \
+    x = bit;                                 \
   }
 
   ReadParamHelper(mFinBit);
@@ -165,5 +179,5 @@ WebSocketFrameData::ReadIPCParams(const IPC::Message* aMessage,
          ReadParam(aMessage, aIter, &mPayload);
 }
 
-} // net namespace
-} // mozilla namespace
+}  // namespace net
+}  // namespace mozilla

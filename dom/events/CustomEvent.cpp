@@ -17,16 +17,12 @@ using namespace mozilla::dom;
 CustomEvent::CustomEvent(mozilla::dom::EventTarget* aOwner,
                          nsPresContext* aPresContext,
                          mozilla::WidgetEvent* aEvent)
-  : Event(aOwner, aPresContext, aEvent)
-  , mDetail(JS::NullValue())
+    : Event(aOwner, aPresContext, aEvent), mDetail(JS::NullValue())
 {
   mozilla::HoldJSObjects(this);
 }
 
-CustomEvent::~CustomEvent()
-{
-  mozilla::DropJSObjects(this);
-}
+CustomEvent::~CustomEvent() { mozilla::DropJSObjects(this); }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(CustomEvent)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(CustomEvent, Event)
@@ -54,18 +50,25 @@ CustomEvent::Constructor(const GlobalObject& aGlobal,
                          const CustomEventInit& aParam,
                          ErrorResult& aRv)
 {
-  nsCOMPtr<mozilla::dom::EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<mozilla::dom::EventTarget> t =
+      do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<CustomEvent> e = new CustomEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
   JS::Rooted<JS::Value> detail(aGlobal.Context(), aParam.mDetail);
-  e->InitCustomEvent(aGlobal.Context(), aType, aParam.mBubbles, aParam.mCancelable, detail, aRv);
+  e->InitCustomEvent(aGlobal.Context(),
+                     aType,
+                     aParam.mBubbles,
+                     aParam.mCancelable,
+                     detail,
+                     aRv);
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
 }
 
 JSObject*
-CustomEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+CustomEvent::WrapObjectInternal(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::CustomEventBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -132,8 +135,7 @@ CustomEvent::GetDetail(nsIVariant** aDetail)
 }
 
 void
-CustomEvent::GetDetail(JSContext* aCx,
-                       JS::MutableHandle<JS::Value> aRetval)
+CustomEvent::GetDetail(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval)
 {
   aRetval.set(mDetail);
 }
@@ -143,7 +145,6 @@ NS_NewDOMCustomEvent(EventTarget* aOwner,
                      nsPresContext* aPresContext,
                      mozilla::WidgetEvent* aEvent)
 {
-  RefPtr<CustomEvent> it =
-    new CustomEvent(aOwner, aPresContext, aEvent);
+  RefPtr<CustomEvent> it = new CustomEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

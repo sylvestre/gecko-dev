@@ -12,14 +12,12 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorARM64 : public LIRGeneratorShared
-{
-  public:
+class LIRGeneratorARM64 : public LIRGeneratorShared {
+   public:
     LIRGeneratorARM64(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorShared(gen, graph, lirGraph)
-    { }
+        : LIRGeneratorShared(gen, graph, lirGraph) {}
 
-  protected:
+   protected:
     // Returns a box allocation. reg2 is ignored on 64-bit platforms.
     LBoxAllocation useBoxFixed(MDefinition* mir, Register reg1, Register reg2,
                                bool useAtStart = false);
@@ -28,9 +26,7 @@ class LIRGeneratorARM64 : public LIRGeneratorShared
     LAllocation useByteOpRegisterAtStart(MDefinition* mir);
     LAllocation useByteOpRegisterOrNonDoubleConstant(MDefinition* mir);
 
-    inline LDefinition tempToUnbox() {
-        return temp();
-    }
+    inline LDefinition tempToUnbox() { return temp(); }
 
     bool needTempForPostBarrier() { return true; }
 
@@ -48,36 +44,34 @@ class LIRGeneratorARM64 : public LIRGeneratorShared
     void lowerUrshD(MUrsh* mir);
 
     void lowerForALU(LInstructionHelper<1, 1, 0>* ins, MDefinition* mir, MDefinition* input);
-    void lowerForALU(LInstructionHelper<1, 2, 0>* ins, MDefinition* mir,
-                     MDefinition* lhs, MDefinition* rhs);
+    void lowerForALU(LInstructionHelper<1, 2, 0>* ins, MDefinition* mir, MDefinition* lhs,
+                     MDefinition* rhs);
 
     void lowerForALUInt64(LInstructionHelper<INT64_PIECES, 2 * INT64_PIECES, 0>* ins,
                           MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
     void lowerForMulInt64(LMulI64* ins, MMul* mir, MDefinition* lhs, MDefinition* rhs);
-    template<size_t Temps>
+    template <size_t Temps>
     void lowerForShiftInt64(LInstructionHelper<INT64_PIECES, INT64_PIECES + 1, Temps>* ins,
                             MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
 
     void lowerForFPU(LInstructionHelper<1, 1, 0>* ins, MDefinition* mir, MDefinition* input);
 
     template <size_t Temps>
-    void lowerForFPU(LInstructionHelper<1, 2, Temps>* ins, MDefinition* mir,
-                     MDefinition* lhs, MDefinition* rhs);
+    void lowerForFPU(LInstructionHelper<1, 2, Temps>* ins, MDefinition* mir, MDefinition* lhs,
+                     MDefinition* rhs);
 
-    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs)
-    {
+    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs) {
         return lowerForFPU(ins, mir, lhs, rhs);
     }
 
-    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs)
-    {
+    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs) {
         return lowerForFPU(ins, mir, lhs, rhs);
     }
 
-    void lowerForBitAndAndBranch(LBitAndAndBranch* baab, MInstruction* mir,
-                                 MDefinition* lhs, MDefinition* rhs);
+    void lowerForBitAndAndBranch(LBitAndAndBranch* baab, MInstruction* mir, MDefinition* lhs,
+                                 MDefinition* rhs);
     void lowerTruncateDToInt32(MTruncateToInt32* ins);
     void lowerTruncateFToInt32(MTruncateToInt32* ins);
     void lowerDivI(MDiv* div);
@@ -92,11 +86,10 @@ class LIRGeneratorARM64 : public LIRGeneratorShared
     void visitWasmSelect(MWasmSelect* ins);
 
     LTableSwitchV* newLTableSwitchV(MTableSwitch* ins);
-    LTableSwitch* newLTableSwitch(const LAllocation& in,
-                                  const LDefinition& inputCopy,
+    LTableSwitch* newLTableSwitch(const LAllocation& in, const LDefinition& inputCopy,
                                   MTableSwitch* ins);
 
-  public:
+   public:
     void visitBox(MBox* box);
     void visitUnbox(MUnbox* unbox);
     void visitReturn(MReturn* ret);
@@ -127,7 +120,7 @@ class LIRGeneratorARM64 : public LIRGeneratorShared
 
 typedef LIRGeneratorARM64 LIRGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm64_Lowering_arm64_h */

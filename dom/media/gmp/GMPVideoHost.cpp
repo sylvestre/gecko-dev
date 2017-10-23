@@ -12,16 +12,15 @@ namespace mozilla {
 namespace gmp {
 
 GMPVideoHostImpl::GMPVideoHostImpl(GMPSharedMemManager* aSharedMemMgr)
-: mSharedMemMgr(aSharedMemMgr)
+    : mSharedMemMgr(aSharedMemMgr)
 {
 }
 
-GMPVideoHostImpl::~GMPVideoHostImpl()
-{
-}
+GMPVideoHostImpl::~GMPVideoHostImpl() {}
 
 GMPErr
-GMPVideoHostImpl::CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFrame)
+GMPVideoHostImpl::CreateFrame(GMPVideoFrameFormat aFormat,
+                              GMPVideoFrame** aFrame)
 {
   if (!mSharedMemMgr) {
     return GMPGenericErr;
@@ -116,5 +115,5 @@ GMPVideoHostImpl::EncodedFrameDestroyed(GMPVideoEncodedFrameImpl* aFrame)
   MOZ_ALWAYS_TRUE(mEncodedFrames.RemoveElement(aFrame));
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

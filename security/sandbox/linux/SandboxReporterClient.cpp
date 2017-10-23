@@ -26,9 +26,8 @@
 namespace mozilla {
 
 SandboxReporterClient::SandboxReporterClient(SandboxReport::ProcType aProcType,
-					     int aFd)
-  : mProcType(aProcType)
-  , mFd(aFd)
+                                             int aFd)
+    : mProcType(aProcType), mFd(aFd)
 {
   // Unfortunately, there isn't a good way to check that the fd is a
   // socket connected to the right thing without attempting some kind
@@ -81,9 +80,8 @@ SandboxReporterClient::SendReport(const SandboxReport& aReport)
 
   if (sent != sizeof(SandboxReport)) {
     MOZ_DIAGNOSTIC_ASSERT(sent == -1);
-    SANDBOX_LOG_ERROR("Failed to report rejected syscall: %s",
-		      strerror(errno));
+    SANDBOX_LOG_ERROR("Failed to report rejected syscall: %s", strerror(errno));
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

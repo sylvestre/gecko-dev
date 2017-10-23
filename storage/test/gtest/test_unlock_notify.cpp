@@ -18,7 +18,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Helpers
 
-enum State {
+enum State
+{
   STARTING,
   WRITE_LOCK,
   READ_LOCK,
@@ -27,12 +28,12 @@ enum State {
 
 class DatabaseLocker : public mozilla::Runnable
 {
-public:
+ public:
   explicit DatabaseLocker(const char* aSQL)
-    : mozilla::Runnable("DatabaseLocker")
-    , monitor("DatabaseLocker::monitor")
-    , mSQL(aSQL)
-    , mState(STARTING)
+      : mozilla::Runnable("DatabaseLocker"),
+        monitor("DatabaseLocker::monitor"),
+        mSQL(aSQL),
+        mState(STARTING)
   {
   }
 
@@ -87,19 +88,17 @@ public:
 
   mozilla::ReentrantMonitor monitor;
 
-protected:
+ protected:
   nsCOMPtr<nsIThread> mThread;
-  const char *const mSQL;
+  const char* const mSQL;
   State mState;
 };
 
 class DatabaseTester : public DatabaseLocker
 {
-public:
-  DatabaseTester(mozIStorageConnection *aConnection,
-                 const char* aSQL)
-  : DatabaseLocker(aSQL)
-  , mConnection(aConnection)
+ public:
+  DatabaseTester(mozIStorageConnection* aConnection, const char* aSQL)
+      : DatabaseLocker(aSQL), mConnection(aConnection)
   {
   }
 
@@ -127,7 +126,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   nsCOMPtr<mozIStorageConnection> mConnection;
 };
 
@@ -141,20 +140,16 @@ setup()
 
   // Create and populate a dummy table.
   nsresult rv = db->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
-    "CREATE TABLE test (id INTEGER PRIMARY KEY, data STRING)"
-  ));
+      "CREATE TABLE test (id INTEGER PRIMARY KEY, data STRING)"));
   do_check_success(rv);
-  rv = db->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
-    "INSERT INTO test (data) VALUES ('foo')"
-  ));
+  rv = db->ExecuteSimpleSQL(
+      NS_LITERAL_CSTRING("INSERT INTO test (data) VALUES ('foo')"));
   do_check_success(rv);
-  rv = db->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
-    "INSERT INTO test (data) VALUES ('bar')"
-  ));
+  rv = db->ExecuteSimpleSQL(
+      NS_LITERAL_CSTRING("INSERT INTO test (data) VALUES ('bar')"));
   do_check_success(rv);
-  rv = db->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
-    "CREATE UNIQUE INDEX unique_data ON test (data)"
-  ));
+  rv = db->ExecuteSimpleSQL(
+      NS_LITERAL_CSTRING("CREATE UNIQUE INDEX unique_data ON test (data)"));
   do_check_success(rv);
 }
 
@@ -166,9 +161,9 @@ test_step_locked_does_not_block_main_thread()
   // Need to prepare our statement ahead of time so we make sure to only test
   // step and not prepare.
   nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING(
-    "INSERT INTO test (data) VALUES ('test1')"
-  ), getter_AddRefs(stmt));
+  nsresult rv = db->CreateStatement(
+      NS_LITERAL_CSTRING("INSERT INTO test (data) VALUES ('test1')"),
+      getter_AddRefs(stmt));
   do_check_success(rv);
 
   RefPtr<DatabaseLocker> locker(new DatabaseLocker("SELECT * FROM test"));
@@ -197,13 +192,12 @@ test_drop_index_does_not_loop()
   // Need to prepare our statement ahead of time so we make sure to only test
   // step and not prepare.
   nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING(
-    "SELECT * FROM test"
-  ), getter_AddRefs(stmt));
+  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING("SELECT * FROM test"),
+                                    getter_AddRefs(stmt));
   do_check_success(rv);
 
   RefPtr<DatabaseTester> tester =
-    new DatabaseTester(db, "DROP INDEX unique_data");
+      new DatabaseTester(db, "DROP INDEX unique_data");
   do_check_true(tester);
   {
     mozilla::ReentrantMonitorAutoEnter lock(tester->monitor);
@@ -230,9 +224,8 @@ test_drop_table_does_not_loop()
   // Need to prepare our statement ahead of time so we make sure to only test
   // step and not prepare.
   nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING(
-    "SELECT * FROM test"
-  ), getter_AddRefs(stmt));
+  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING("SELECT * FROM test"),
+                                    getter_AddRefs(stmt));
   do_check_success(rv);
 
   RefPtr<DatabaseTester> tester(new DatabaseTester(db, "DROP TABLE test"));

@@ -24,10 +24,10 @@
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/Telemetry.h"
 
-static NS_DEFINE_CID(kStreamTransportServiceCID,
-                     NS_STREAMTRANSPORTSERVICE_CID);
+static NS_DEFINE_CID(kStreamTransportServiceCID, NS_STREAMTRANSPORTSERVICE_CID);
 
-static uint32_t const CHECK_MULTITHREADED = nsICacheStorage::CHECK_MULTITHREADED;
+static uint32_t const CHECK_MULTITHREADED =
+    nsICacheStorage::CHECK_MULTITHREADED;
 
 namespace mozilla {
 namespace net {
@@ -39,24 +39,22 @@ namespace {
 
 class DoomCallbackSynchronizer : public Runnable
 {
-public:
+ public:
   explicit DoomCallbackSynchronizer(nsICacheEntryDoomCallback* cb)
-    : Runnable("net::DoomCallbackSynchronizer")
-    , mCB(cb)
+      : Runnable("net::DoomCallbackSynchronizer"), mCB(cb)
   {
   }
   nsresult Dispatch();
 
-private:
-  virtual ~DoomCallbackSynchronizer()
-  {
-  }
+ private:
+  virtual ~DoomCallbackSynchronizer() {}
 
   NS_DECL_NSIRUNNABLE
   nsCOMPtr<nsICacheEntryDoomCallback> mCB;
 };
 
-nsresult DoomCallbackSynchronizer::Dispatch()
+nsresult
+DoomCallbackSynchronizer::Dispatch()
 {
   nsresult rv;
 
@@ -74,14 +72,13 @@ nsresult DoomCallbackSynchronizer::Dispatch()
   return NS_OK;
 }
 
-NS_IMETHODIMP DoomCallbackSynchronizer::Run()
+NS_IMETHODIMP
+DoomCallbackSynchronizer::Run()
 {
   if (!NS_IsMainThread()) {
     NS_DispatchToMainThread(this);
-  }
-  else {
-    if (mCB)
-      mCB->OnCacheEntryDoomed(NS_OK);
+  } else {
+    if (mCB) mCB->OnCacheEntryDoomed(NS_OK);
   }
   return NS_OK;
 }
@@ -93,38 +90,35 @@ class DoomCallbackWrapper : public nsICacheListener
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICACHELISTENER
 
-  explicit DoomCallbackWrapper(nsICacheEntryDoomCallback* cb) : mCB(cb)
-  {
-  }
+  explicit DoomCallbackWrapper(nsICacheEntryDoomCallback* cb) : mCB(cb) {}
 
-private:
-  virtual ~DoomCallbackWrapper()
-  {
-  }
+ private:
+  virtual ~DoomCallbackWrapper() {}
 
   nsCOMPtr<nsICacheEntryDoomCallback> mCB;
 };
 
 NS_IMPL_ISUPPORTS(DoomCallbackWrapper, nsICacheListener);
 
-NS_IMETHODIMP DoomCallbackWrapper::OnCacheEntryAvailable(nsICacheEntryDescriptor *descriptor,
-                                                         nsCacheAccessMode accessGranted,
-                                                         nsresult status)
+NS_IMETHODIMP
+DoomCallbackWrapper::OnCacheEntryAvailable(nsICacheEntryDescriptor* descriptor,
+                                           nsCacheAccessMode accessGranted,
+                                           nsresult status)
 {
   return NS_OK;
 }
 
-NS_IMETHODIMP DoomCallbackWrapper::OnCacheEntryDoomed(nsresult status)
+NS_IMETHODIMP
+DoomCallbackWrapper::OnCacheEntryDoomed(nsresult status)
 {
-  if (!mCB)
-    return NS_ERROR_NULL_POINTER;
+  if (!mCB) return NS_ERROR_NULL_POINTER;
 
   mCB->OnCacheEntryDoomed(status);
   mCB = nullptr;
   return NS_OK;
 }
 
-} // namespace
+}  // namespace
 
 // _OldVisitCallbackWrapper
 // Receives visit callbacks from the old API and forwards it to the new API
@@ -144,12 +138,12 @@ _OldVisitCallbackWrapper::~_OldVisitCallbackWrapper()
   }
 }
 
-NS_IMETHODIMP _OldVisitCallbackWrapper::VisitDevice(const char * deviceID,
-                                                    nsICacheDeviceInfo *deviceInfo,
-                                                    bool *_retval)
+NS_IMETHODIMP
+_OldVisitCallbackWrapper::VisitDevice(const char* deviceID,
+                                      nsICacheDeviceInfo* deviceInfo,
+                                      bool* _retval)
 {
-  if (!mCB)
-    return NS_ERROR_NULL_POINTER;
+  if (!mCB) return NS_ERROR_NULL_POINTER;
 
   *_retval = false;
   if (strcmp(deviceID, mDeviceID)) {
@@ -196,9 +190,10 @@ NS_IMETHODIMP _OldVisitCallbackWrapper::VisitDevice(const char * deviceID,
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldVisitCallbackWrapper::VisitEntry(const char * deviceID,
-                                                   nsICacheEntryInfo *entryInfo,
-                                                   bool *_retval)
+NS_IMETHODIMP
+_OldVisitCallbackWrapper::VisitEntry(const char* deviceID,
+                                     nsICacheEntryInfo* entryInfo,
+                                     bool* _retval)
 {
   MOZ_ASSERT(!strcmp(deviceID, mDeviceID));
 
@@ -209,8 +204,7 @@ NS_IMETHODIMP _OldVisitCallbackWrapper::VisitEntry(const char * deviceID,
   // Read all informative properties from the entry.
   nsCString clientId;
   rv = entryInfo->GetClientID(getter_Copies(clientId));
-  if (NS_FAILED(rv))
-    return NS_OK;
+  if (NS_FAILED(rv)) return NS_OK;
 
   if (mLoadInfo->IsPrivate() !=
       StringBeginsWith(clientId, NS_LITERAL_CSTRING("HTTP-memory-only-PB"))) {
@@ -219,12 +213,10 @@ NS_IMETHODIMP _OldVisitCallbackWrapper::VisitEntry(const char * deviceID,
 
   nsAutoCString cacheKey, enhanceId;
   rv = entryInfo->GetKey(cacheKey);
-  if (NS_FAILED(rv))
-    return NS_OK;
+  if (NS_FAILED(rv)) return NS_OK;
 
   if (StringBeginsWith(cacheKey, NS_LITERAL_CSTRING("anon&"))) {
-    if (!mLoadInfo->IsAnonymous())
-      return NS_OK;
+    if (!mLoadInfo->IsAnonymous()) return NS_OK;
 
     cacheKey = Substring(cacheKey, 5, cacheKey.Length());
   } else if (mLoadInfo->IsAnonymous()) {
@@ -233,7 +225,7 @@ NS_IMETHODIMP _OldVisitCallbackWrapper::VisitEntry(const char * deviceID,
 
   if (StringBeginsWith(cacheKey, NS_LITERAL_CSTRING("id="))) {
     int32_t uriSpecEnd = cacheKey.Find("&uri=");
-    if (uriSpecEnd == kNotFound) // Corrupted, ignore
+    if (uriSpecEnd == kNotFound)  // Corrupted, ignore
       return NS_OK;
 
     enhanceId = Substring(cacheKey, 3, uriSpecEnd - 3);
@@ -247,26 +239,27 @@ NS_IMETHODIMP _OldVisitCallbackWrapper::VisitEntry(const char * deviceID,
   nsCOMPtr<nsIURI> uri;
   // cacheKey is strip of any prefixes
   rv = NS_NewURI(getter_AddRefs(uri), cacheKey);
-  if (NS_FAILED(rv))
-    return NS_OK;
+  if (NS_FAILED(rv)) return NS_OK;
 
   uint32_t dataSize;
-  if (NS_FAILED(entryInfo->GetDataSize(&dataSize)))
-    dataSize = 0;
+  if (NS_FAILED(entryInfo->GetDataSize(&dataSize))) dataSize = 0;
   int32_t fetchCount;
-  if (NS_FAILED(entryInfo->GetFetchCount(&fetchCount)))
-    fetchCount = 0;
+  if (NS_FAILED(entryInfo->GetFetchCount(&fetchCount))) fetchCount = 0;
   uint32_t expirationTime;
   if (NS_FAILED(entryInfo->GetExpirationTime(&expirationTime)))
     expirationTime = 0;
   uint32_t lastModified;
-  if (NS_FAILED(entryInfo->GetLastModified(&lastModified)))
-    lastModified = 0;
+  if (NS_FAILED(entryInfo->GetLastModified(&lastModified))) lastModified = 0;
 
   // Send them to the consumer.
-  rv = mCB->OnCacheEntryInfo(
-    uri, enhanceId, (int64_t)dataSize, fetchCount, lastModified,
-    expirationTime, false, mLoadInfo);
+  rv = mCB->OnCacheEntryInfo(uri,
+                             enhanceId,
+                             (int64_t)dataSize,
+                             fetchCount,
+                             lastModified,
+                             expirationTime,
+                             false,
+                             mLoadInfo);
 
   *_retval = NS_SUCCEEDED(rv);
   return NS_OK;
@@ -275,7 +268,8 @@ NS_IMETHODIMP _OldVisitCallbackWrapper::VisitEntry(const char * deviceID,
 // _OldGetDiskConsumption
 
 //static
-nsresult _OldGetDiskConsumption::Get(nsICacheStorageConsumptionObserver* aCallback)
+nsresult
+_OldGetDiskConsumption::Get(nsICacheStorageConsumptionObserver* aCallback)
 {
   nsresult rv;
 
@@ -298,15 +292,11 @@ nsresult _OldGetDiskConsumption::Get(nsICacheStorageConsumptionObserver* aCallba
   return NS_DispatchToMainThread(cb);
 }
 
-NS_IMPL_ISUPPORTS_INHERITED(_OldGetDiskConsumption,
-                            Runnable,
-                            nsICacheVisitor)
+NS_IMPL_ISUPPORTS_INHERITED(_OldGetDiskConsumption, Runnable, nsICacheVisitor)
 
 _OldGetDiskConsumption::_OldGetDiskConsumption(
-  nsICacheStorageConsumptionObserver* aCallback)
-  : Runnable("net::_OldGetDiskConsumption")
-  , mCallback(aCallback)
-  , mSize(0)
+    nsICacheStorageConsumptionObserver* aCallback)
+    : Runnable("net::_OldGetDiskConsumption"), mCallback(aCallback), mSize(0)
 {
 }
 
@@ -318,15 +308,14 @@ _OldGetDiskConsumption::Run()
 }
 
 NS_IMETHODIMP
-_OldGetDiskConsumption::VisitDevice(const char * deviceID,
-                                    nsICacheDeviceInfo *deviceInfo,
-                                    bool *_retval)
+_OldGetDiskConsumption::VisitDevice(const char* deviceID,
+                                    nsICacheDeviceInfo* deviceInfo,
+                                    bool* _retval)
 {
   if (!strcmp(deviceID, "disk")) {
     uint32_t size;
     nsresult rv = deviceInfo->GetTotalSize(&size);
-    if (NS_SUCCEEDED(rv))
-      mSize = (int64_t)size;
+    if (NS_SUCCEEDED(rv)) mSize = (int64_t)size;
   }
 
   *_retval = false;
@@ -334,41 +323,44 @@ _OldGetDiskConsumption::VisitDevice(const char * deviceID,
 }
 
 NS_IMETHODIMP
-_OldGetDiskConsumption::VisitEntry(const char * deviceID,
-                                   nsICacheEntryInfo *entryInfo,
-                                   bool *_retval)
+_OldGetDiskConsumption::VisitEntry(const char* deviceID,
+                                   nsICacheEntryInfo* entryInfo,
+                                   bool* _retval)
 {
   MOZ_CRASH("Unexpected");
   return NS_OK;
 }
 
-
 // _OldCacheEntryWrapper
 
 _OldCacheEntryWrapper::_OldCacheEntryWrapper(nsICacheEntryDescriptor* desc)
-: mOldDesc(desc), mOldInfo(desc), mCacheEntryId(CacheEntry::GetNextId())
+    : mOldDesc(desc), mOldInfo(desc), mCacheEntryId(CacheEntry::GetNextId())
 {
   LOG(("Creating _OldCacheEntryWrapper %p for descriptor %p", this, desc));
 }
 
 _OldCacheEntryWrapper::_OldCacheEntryWrapper(nsICacheEntryInfo* info)
-: mOldDesc(nullptr), mOldInfo(info), mCacheEntryId(CacheEntry::GetNextId())
+    : mOldDesc(nullptr), mOldInfo(info), mCacheEntryId(CacheEntry::GetNextId())
 {
   LOG(("Creating _OldCacheEntryWrapper %p for info %p", this, info));
 }
 
 _OldCacheEntryWrapper::~_OldCacheEntryWrapper()
 {
-  LOG(("Destroying _OldCacheEntryWrapper %p for descriptor %p", this, mOldInfo.get()));
+  LOG(("Destroying _OldCacheEntryWrapper %p for descriptor %p",
+       this,
+       mOldInfo.get()));
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::GetIsForcedValid(bool *aIsForcedValid)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::GetIsForcedValid(bool* aIsForcedValid)
 {
   // Unused stub
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::ForceValidFor(uint32_t aSecondsToTheFuture)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::ForceValidFor(uint32_t aSecondsToTheFuture)
 {
   // Unused stub
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -376,31 +368,33 @@ NS_IMETHODIMP _OldCacheEntryWrapper::ForceValidFor(uint32_t aSecondsToTheFuture)
 
 NS_IMPL_ISUPPORTS(_OldCacheEntryWrapper, nsICacheEntry)
 
-NS_IMETHODIMP _OldCacheEntryWrapper::AsyncDoom(nsICacheEntryDoomCallback* listener)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::AsyncDoom(nsICacheEntryDoomCallback* listener)
 {
-  RefPtr<DoomCallbackWrapper> cb = listener
-    ? new DoomCallbackWrapper(listener)
-    : nullptr;
+  RefPtr<DoomCallbackWrapper> cb =
+      listener ? new DoomCallbackWrapper(listener) : nullptr;
   return AsyncDoom(cb);
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::GetDataSize(int64_t *aSize)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::GetDataSize(int64_t* aSize)
 {
   uint32_t size;
   nsresult rv = GetDataSize(&size);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   *aSize = size;
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::GetAltDataSize(int64_t *aSize)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::GetAltDataSize(int64_t* aSize)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::GetPersistent(bool *aPersistToDisk)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::GetPersistent(bool* aPersistToDisk)
 {
   if (!mOldDesc) {
     return NS_ERROR_NULL_POINTER;
@@ -417,8 +411,8 @@ NS_IMETHODIMP _OldCacheEntryWrapper::GetPersistent(bool *aPersistToDisk)
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::Recreate(bool aMemoryOnly,
-                                              nsICacheEntry** aResult)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::Recreate(bool aMemoryOnly, nsICacheEntry** aResult)
 {
   NS_ENSURE_TRUE(mOldDesc, NS_ERROR_NOT_AVAILABLE);
 
@@ -426,37 +420,35 @@ NS_IMETHODIMP _OldCacheEntryWrapper::Recreate(bool aMemoryOnly,
   nsresult rv = mOldDesc->GetAccessGranted(&mode);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!(mode & nsICache::ACCESS_WRITE))
-    return NS_ERROR_NOT_AVAILABLE;
+  if (!(mode & nsICache::ACCESS_WRITE)) return NS_ERROR_NOT_AVAILABLE;
 
   LOG(("_OldCacheEntryWrapper::Recreate [this=%p]", this));
 
-  if (aMemoryOnly)
-    mOldDesc->SetStoragePolicy(nsICache::STORE_IN_MEMORY);
+  if (aMemoryOnly) mOldDesc->SetStoragePolicy(nsICache::STORE_IN_MEMORY);
 
   nsCOMPtr<nsICacheEntry> self(this);
   self.forget(aResult);
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::OpenInputStream(int64_t offset,
-                                                     nsIInputStream * *_retval)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::OpenInputStream(int64_t offset, nsIInputStream** _retval)
 {
-  if (offset > PR_UINT32_MAX)
-    return NS_ERROR_INVALID_ARG;
+  if (offset > PR_UINT32_MAX) return NS_ERROR_INVALID_ARG;
 
   return OpenInputStream(uint32_t(offset), _retval);
 }
-NS_IMETHODIMP _OldCacheEntryWrapper::OpenOutputStream(int64_t offset,
-                                                      nsIOutputStream * *_retval)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::OpenOutputStream(int64_t offset,
+                                        nsIOutputStream** _retval)
 {
-  if (offset > PR_UINT32_MAX)
-    return NS_ERROR_INVALID_ARG;
+  if (offset > PR_UINT32_MAX) return NS_ERROR_INVALID_ARG;
 
   return OpenOutputStream(uint32_t(offset), _retval);
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::MaybeMarkValid()
+NS_IMETHODIMP
+_OldCacheEntryWrapper::MaybeMarkValid()
 {
   LOG(("_OldCacheEntryWrapper::MaybeMarkValid [this=%p]", this));
 
@@ -471,11 +463,15 @@ NS_IMETHODIMP _OldCacheEntryWrapper::MaybeMarkValid()
     return mOldDesc->MarkValid();
   }
 
-  LOG(("Not marking read-only cache entry valid [entry=%p, descr=%p]", this, mOldDesc));
+  LOG(("Not marking read-only cache entry valid [entry=%p, descr=%p]",
+       this,
+       mOldDesc));
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldCacheEntryWrapper::HasWriteAccess(bool aWriteAllowed_unused, bool *aWriteAccess)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::HasWriteAccess(bool aWriteAllowed_unused,
+                                      bool* aWriteAccess)
 {
   NS_ENSURE_TRUE(mOldDesc, NS_ERROR_NULL_POINTER);
   NS_ENSURE_ARG(aWriteAccess);
@@ -486,7 +482,9 @@ NS_IMETHODIMP _OldCacheEntryWrapper::HasWriteAccess(bool aWriteAllowed_unused, b
 
   *aWriteAccess = !!(mode & nsICache::ACCESS_WRITE);
 
-  LOG(("_OldCacheEntryWrapper::HasWriteAccess [this=%p, write-access=%d]", this, *aWriteAccess));
+  LOG(("_OldCacheEntryWrapper::HasWriteAccess [this=%p, write-access=%d]",
+       this,
+       *aWriteAccess));
 
   return NS_OK;
 }
@@ -506,17 +504,18 @@ class MetaDataVisitorWrapper : public nsICacheMetaDataVisitor
 NS_IMPL_ISUPPORTS(MetaDataVisitorWrapper, nsICacheMetaDataVisitor)
 
 NS_IMETHODIMP
-MetaDataVisitorWrapper::VisitMetaDataElement(char const * key,
-                                             char const * value,
-                                             bool *goon)
+MetaDataVisitorWrapper::VisitMetaDataElement(char const* key,
+                                             char const* value,
+                                             bool* goon)
 {
   *goon = true;
   return mCB->OnMetaDataElement(key, value);
 }
 
-} // namespace
+}  // namespace
 
-NS_IMETHODIMP _OldCacheEntryWrapper::VisitMetaData(nsICacheEntryMetaDataVisitor* cb)
+NS_IMETHODIMP
+_OldCacheEntryWrapper::VisitMetaData(nsICacheEntryMetaDataVisitor* cb)
 {
   RefPtr<MetaDataVisitorWrapper> w = new MetaDataVisitorWrapper(cb);
   return mOldDesc->VisitMetaData(w);
@@ -525,33 +524,31 @@ NS_IMETHODIMP _OldCacheEntryWrapper::VisitMetaData(nsICacheEntryMetaDataVisitor*
 namespace {
 
 nsresult
-GetCacheSessionNameForStoragePolicy(
-        const nsACString& scheme,
-        nsCacheStoragePolicy storagePolicy,
-        bool isPrivate,
-        OriginAttributes const *originAttribs,
-        nsACString& sessionName)
+GetCacheSessionNameForStoragePolicy(const nsACString& scheme,
+                                    nsCacheStoragePolicy storagePolicy,
+                                    bool isPrivate,
+                                    OriginAttributes const* originAttribs,
+                                    nsACString& sessionName)
 {
   MOZ_ASSERT(!isPrivate || storagePolicy == nsICache::STORE_IN_MEMORY);
 
   // HTTP
-  if (scheme.EqualsLiteral("http") ||
-      scheme.EqualsLiteral("https")) {
+  if (scheme.EqualsLiteral("http") || scheme.EqualsLiteral("https")) {
     switch (storagePolicy) {
-    case nsICache::STORE_IN_MEMORY:
-      if (isPrivate)
-        sessionName.AssignLiteral("HTTP-memory-only-PB");
-      else
-        sessionName.AssignLiteral("HTTP-memory-only");
-      break;
-    case nsICache::STORE_OFFLINE:
-      // XXX This is actually never used, only added to prevent
-      // any compatibility damage.
-      sessionName.AssignLiteral("HTTP-offline");
-      break;
-    default:
-      sessionName.AssignLiteral("HTTP");
-      break;
+      case nsICache::STORE_IN_MEMORY:
+        if (isPrivate)
+          sessionName.AssignLiteral("HTTP-memory-only-PB");
+        else
+          sessionName.AssignLiteral("HTTP-memory-only");
+        break;
+      case nsICache::STORE_OFFLINE:
+        // XXX This is actually never used, only added to prevent
+        // any compatibility damage.
+        sessionName.AssignLiteral("HTTP-offline");
+        break;
+      default:
+        sessionName.AssignLiteral("HTTP");
+        break;
     }
   }
   // WYCIWYG
@@ -578,8 +575,7 @@ GetCacheSessionNameForStoragePolicy(
     // Deliberately omitting |anonymous| since other session types don't
     // recognize it too.
     sessionName.AssignLiteral("other");
-    if (isPrivate)
-      sessionName.AppendLiteral("-private");
+    if (isPrivate) sessionName.AppendLiteral("-private");
   }
 
   nsAutoCString suffix;
@@ -609,28 +605,29 @@ GetCacheSession(const nsACString& aScheme,
   nsAutoCString clientId;
   if (aAppCache) {
     aAppCache->GetClientID(clientId);
-  }
-  else {
-    rv = GetCacheSessionNameForStoragePolicy(
-      aScheme,
-      storagePolicy,
-      aLoadInfo->IsPrivate(),
-      aLoadInfo->OriginAttributesPtr(),
-      clientId);
+  } else {
+    rv = GetCacheSessionNameForStoragePolicy(aScheme,
+                                             storagePolicy,
+                                             aLoadInfo->IsPrivate(),
+                                             aLoadInfo->OriginAttributesPtr(),
+                                             clientId);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  LOG(("  GetCacheSession for client=%s, policy=%d", clientId.get(), storagePolicy));
+  LOG(("  GetCacheSession for client=%s, policy=%d",
+       clientId.get(),
+       storagePolicy));
 
   nsCOMPtr<nsICacheService> serv =
       do_GetService(NS_CACHESERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsICacheSession> session;
-  rv = nsCacheService::GlobalInstance()->CreateSessionInternal(clientId.get(),
-                                                               storagePolicy,
-                                                               nsICache::STREAM_BASED,
-                                                               getter_AddRefs(session));
+  rv = nsCacheService::GlobalInstance()->CreateSessionInternal(
+      clientId.get(),
+      storagePolicy,
+      nsICache::STREAM_BASED,
+      getter_AddRefs(session));
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = session->SetIsPrivate(aLoadInfo->IsPrivate());
@@ -642,8 +639,7 @@ GetCacheSession(const nsACString& aScheme,
   if (aAppCache) {
     nsCOMPtr<nsIFile> profileDirectory;
     aAppCache->GetProfileDirectory(getter_AddRefs(profileDirectory));
-    if (profileDirectory)
-      rv = session->SetProfileDirectory(profileDirectory);
+    if (profileDirectory) rv = session->SetProfileDirectory(profileDirectory);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -651,8 +647,7 @@ GetCacheSession(const nsACString& aScheme,
   return NS_OK;
 }
 
-} // namespace
-
+}  // namespace
 
 NS_IMPL_ISUPPORTS_INHERITED(_OldCacheLoad, Runnable, nsICacheListener)
 
@@ -663,29 +658,29 @@ _OldCacheLoad::_OldCacheLoad(const nsACString& aScheme,
                              nsILoadContextInfo* aLoadInfo,
                              bool aWriteToDisk,
                              uint32_t aFlags)
-  : Runnable("net::_OldCacheLoad")
-  , mScheme(aScheme)
-  , mCacheKey(aCacheKey)
-  , mCallback(aCallback)
-  , mLoadInfo(GetLoadContextInfo(aLoadInfo))
-  , mFlags(aFlags)
-  , mWriteToDisk(aWriteToDisk)
-  , mNew(true)
-  , mOpening(true)
-  , mSync(false)
-  , mStatus(NS_ERROR_UNEXPECTED)
-  , mRunCount(0)
-  , mAppCache(aAppCache)
+    : Runnable("net::_OldCacheLoad"),
+      mScheme(aScheme),
+      mCacheKey(aCacheKey),
+      mCallback(aCallback),
+      mLoadInfo(GetLoadContextInfo(aLoadInfo)),
+      mFlags(aFlags),
+      mWriteToDisk(aWriteToDisk),
+      mNew(true),
+      mOpening(true),
+      mSync(false),
+      mStatus(NS_ERROR_UNEXPECTED),
+      mRunCount(0),
+      mAppCache(aAppCache)
 {
 }
 
 _OldCacheLoad::~_OldCacheLoad()
 {
-  ProxyReleaseMainThread(
-    "_OldCacheLoad::mAppCache", mAppCache);
+  ProxyReleaseMainThread("_OldCacheLoad::mAppCache", mAppCache);
 }
 
-nsresult _OldCacheLoad::Start()
+nsresult
+_OldCacheLoad::Start()
 {
   LOG(("_OldCacheLoad::Start [this=%p, key=%s]", this, mCacheKey.get()));
 
@@ -700,12 +695,12 @@ nsresult _OldCacheLoad::Start()
   // XXX: Start the cache service; otherwise DispatchToCacheIOThread will
   // fail.
   nsCOMPtr<nsICacheService> service =
-    do_GetService(NS_CACHESERVICE_CONTRACTID, &rv);
+      do_GetService(NS_CACHESERVICE_CONTRACTID, &rv);
 
   // Ensure the stream transport service gets initialized on the main thread
   if (NS_SUCCEEDED(rv) && NS_IsMainThread()) {
     nsCOMPtr<nsIStreamTransportService> sts =
-      do_GetService(kStreamTransportServiceCID, &rv);
+        do_GetService(kStreamTransportServiceCID, &rv);
   }
 
   if (NS_SUCCEEDED(rv)) {
@@ -723,8 +718,7 @@ nsresult _OldCacheLoad::Start()
   if (NS_SUCCEEDED(rv)) {
     if (mSync) {
       rv = Run();
-    }
-    else {
+    } else {
       rv = mCacheThread->Dispatch(this, NS_DISPATCH_NORMAL);
     }
   }
@@ -735,15 +729,18 @@ nsresult _OldCacheLoad::Start()
 NS_IMETHODIMP
 _OldCacheLoad::Run()
 {
-  LOG(("_OldCacheLoad::Run [this=%p, key=%s, cb=%p]", this, mCacheKey.get(), mCallback.get()));
+  LOG(("_OldCacheLoad::Run [this=%p, key=%s, cb=%p]",
+       this,
+       mCacheKey.get(),
+       mCallback.get()));
 
   nsresult rv;
 
   if (mOpening) {
     mOpening = false;
     nsCOMPtr<nsICacheSession> session;
-    rv = GetCacheSession(mScheme, mWriteToDisk, mLoadInfo, mAppCache,
-                         getter_AddRefs(session));
+    rv = GetCacheSession(
+        mScheme, mWriteToDisk, mLoadInfo, mAppCache, getter_AddRefs(session));
     if (NS_SUCCEEDED(rv)) {
       // AsyncOpenCacheEntry isn't really async when its called on the
       // cache service thread.
@@ -762,8 +759,8 @@ _OldCacheLoad::Run()
 
       if (mSync && cacheAccess == nsICache::ACCESS_WRITE) {
         nsCOMPtr<nsICacheEntryDescriptor> entry;
-        rv = session->OpenCacheEntry(mCacheKey, cacheAccess, bypassBusy,
-          getter_AddRefs(entry));
+        rv = session->OpenCacheEntry(
+            mCacheKey, cacheAccess, bypassBusy, getter_AddRefs(entry));
 
         nsCacheAccessMode grantedAccess = 0;
         if (NS_SUCCEEDED(rv)) {
@@ -773,13 +770,14 @@ _OldCacheLoad::Run()
         return OnCacheEntryAvailable(entry, grantedAccess, rv);
       }
 
-      rv = session->AsyncOpenCacheEntry(mCacheKey, cacheAccess, this, bypassBusy);
-      if (NS_SUCCEEDED(rv))
-        return NS_OK;
+      rv = session->AsyncOpenCacheEntry(
+          mCacheKey, cacheAccess, this, bypassBusy);
+      if (NS_SUCCEEDED(rv)) return NS_OK;
     }
 
     // Opening failed, propagate the error to the consumer
-    LOG(("  Opening cache entry failed with rv=0x%08" PRIx32, static_cast<uint32_t>(rv)));
+    LOG(("  Opening cache entry failed with rv=0x%08" PRIx32,
+         static_cast<uint32_t>(rv)));
     mStatus = rv;
     mNew = false;
     NS_DispatchToMainThread(this);
@@ -792,23 +790,17 @@ _OldCacheLoad::Run()
     if (NS_SUCCEEDED(mStatus)) {
       if (mFlags & nsICacheStorage::OPEN_TRUNCATE) {
         mozilla::Telemetry::AccumulateTimeDelta(
-          mozilla::Telemetry::NETWORK_CACHE_V1_TRUNCATE_TIME_MS,
-          mLoadStart);
-      }
-      else if (mNew) {
+            mozilla::Telemetry::NETWORK_CACHE_V1_TRUNCATE_TIME_MS, mLoadStart);
+      } else if (mNew) {
         mozilla::Telemetry::AccumulateTimeDelta(
-          mozilla::Telemetry::NETWORK_CACHE_V1_MISS_TIME_MS,
-          mLoadStart);
-      }
-      else {
+            mozilla::Telemetry::NETWORK_CACHE_V1_MISS_TIME_MS, mLoadStart);
+      } else {
         mozilla::Telemetry::AccumulateTimeDelta(
-          mozilla::Telemetry::NETWORK_CACHE_V1_HIT_TIME_MS,
-          mLoadStart);
+            mozilla::Telemetry::NETWORK_CACHE_V1_HIT_TIME_MS, mLoadStart);
       }
     }
 
-    if (!(mFlags & CHECK_MULTITHREADED))
-      Check();
+    if (!(mFlags & CHECK_MULTITHREADED)) Check();
 
     // break cycles
     nsCOMPtr<nsICacheEntryOpenCallback> cb = mCallback.forget();
@@ -831,12 +823,18 @@ _OldCacheLoad::Run()
 }
 
 NS_IMETHODIMP
-_OldCacheLoad::OnCacheEntryAvailable(nsICacheEntryDescriptor *entry,
+_OldCacheLoad::OnCacheEntryAvailable(nsICacheEntryDescriptor* entry,
                                      nsCacheAccessMode access,
                                      nsresult status)
 {
-  LOG(("_OldCacheLoad::OnCacheEntryAvailable [this=%p, ent=%p, cb=%p, appcache=%p, access=%x]",
-    this, entry, mCallback.get(), mAppCache.get(), access));
+  LOG(
+      ("_OldCacheLoad::OnCacheEntryAvailable [this=%p, ent=%p, cb=%p, "
+       "appcache=%p, access=%x]",
+       this,
+       entry,
+       mCallback.get(),
+       mAppCache.get(),
+       access));
 
   // XXX Bug 759805: Sometimes we will call this method directly from
   // HttpCacheQuery::Run when AsyncOpenCacheEntry fails, but
@@ -849,11 +847,9 @@ _OldCacheLoad::OnCacheEntryAvailable(nsICacheEntryDescriptor *entry,
   mStatus = status;
   mNew = access == nsICache::ACCESS_WRITE;
 
-  if (mFlags & CHECK_MULTITHREADED)
-    Check();
+  if (mFlags & CHECK_MULTITHREADED) Check();
 
-  if (mSync)
-    return Run();
+  if (mSync) return Run();
 
   return NS_DispatchToMainThread(this);
 }
@@ -861,18 +857,19 @@ _OldCacheLoad::OnCacheEntryAvailable(nsICacheEntryDescriptor *entry,
 void
 _OldCacheLoad::Check()
 {
-  if (!mCacheEntry)
-    return;
+  if (!mCacheEntry) return;
 
-  if (mNew)
-    return;
+  if (mNew) return;
 
   uint32_t result;
   nsresult rv = mCallback->OnCacheEntryCheck(mCacheEntry, mAppCache, &result);
-  LOG(("  OnCacheEntryCheck result ent=%p, cb=%p, appcache=%p, rv=0x%08"
-       PRIx32 ", result=%d",
-      mCacheEntry.get(), mCallback.get(), mAppCache.get(), static_cast<uint32_t>(rv),
-      result));
+  LOG(("  OnCacheEntryCheck result ent=%p, cb=%p, appcache=%p, rv=0x%08" PRIx32
+       ", result=%d",
+       mCacheEntry.get(),
+       mCallback.get(),
+       mAppCache.get(),
+       static_cast<uint32_t>(rv),
+       result));
 
   if (NS_FAILED(rv)) {
     NS_WARNING("cache check failed");
@@ -886,10 +883,7 @@ _OldCacheLoad::Check()
 }
 
 NS_IMETHODIMP
-_OldCacheLoad::OnCacheEntryDoomed(nsresult)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+_OldCacheLoad::OnCacheEntryDoomed(nsresult) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 // nsICacheStorage old cache wrapper
 
@@ -900,22 +894,21 @@ _OldStorage::_OldStorage(nsILoadContextInfo* aInfo,
                          bool aLookupAppCache,
                          bool aOfflineStorage,
                          nsIApplicationCache* aAppCache)
-: mLoadInfo(GetLoadContextInfo(aInfo))
-, mAppCache(aAppCache)
-, mWriteToDisk(aAllowDisk)
-, mLookupAppCache(aLookupAppCache)
-, mOfflineStorage(aOfflineStorage)
+    : mLoadInfo(GetLoadContextInfo(aInfo)),
+      mAppCache(aAppCache),
+      mWriteToDisk(aAllowDisk),
+      mLookupAppCache(aLookupAppCache),
+      mOfflineStorage(aOfflineStorage)
 {
 }
 
-_OldStorage::~_OldStorage()
-{
-}
+_OldStorage::~_OldStorage() {}
 
-NS_IMETHODIMP _OldStorage::AsyncOpenURI(nsIURI *aURI,
-                                        const nsACString & aIdExtension,
-                                        uint32_t aFlags,
-                                        nsICacheEntryOpenCallback *aCallback)
+NS_IMETHODIMP
+_OldStorage::AsyncOpenURI(nsIURI* aURI,
+                          const nsACString& aIdExtension,
+                          uint32_t aFlags,
+                          nsICacheEntryOpenCallback* aCallback)
 {
   NS_ENSURE_ARG(aURI);
   NS_ENSURE_ARG(aCallback);
@@ -924,7 +917,10 @@ NS_IMETHODIMP _OldStorage::AsyncOpenURI(nsIURI *aURI,
   nsAutoCString uriSpec;
   aURI->GetAsciiSpec(uriSpec);
   LOG(("_OldStorage::AsyncOpenURI [this=%p, uri=%s, ide=%s, flags=%x]",
-    this, uriSpec.get(), aIdExtension.BeginReading(), aFlags));
+       this,
+       uriSpec.get(),
+       aIdExtension.BeginReading(),
+       aFlags));
 #endif
 
   nsresult rv;
@@ -943,9 +939,8 @@ NS_IMETHODIMP _OldStorage::AsyncOpenURI(nsIURI *aURI,
     }
   }
 
-  RefPtr<_OldCacheLoad> cacheLoad =
-    new _OldCacheLoad(scheme, cacheKey, aCallback, mAppCache,
-                      mLoadInfo, mWriteToDisk, aFlags);
+  RefPtr<_OldCacheLoad> cacheLoad = new _OldCacheLoad(
+      scheme, cacheKey, aCallback, mAppCache, mLoadInfo, mWriteToDisk, aFlags);
 
   rv = cacheLoad->Start();
   NS_ENSURE_SUCCESS(rv, rv);
@@ -953,20 +948,24 @@ NS_IMETHODIMP _OldStorage::AsyncOpenURI(nsIURI *aURI,
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldStorage::OpenTruncate(nsIURI *aURI, const nsACString & aIdExtension,
-                                        nsICacheEntry **aCacheEntry)
+NS_IMETHODIMP
+_OldStorage::OpenTruncate(nsIURI* aURI,
+                          const nsACString& aIdExtension,
+                          nsICacheEntry** aCacheEntry)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP _OldStorage::Exists(nsIURI *aURI, const nsACString & aIdExtension,
-                                   bool *aResult)
+NS_IMETHODIMP
+_OldStorage::Exists(nsIURI* aURI, const nsACString& aIdExtension, bool* aResult)
 {
   return NS_ERROR_NOT_AVAILABLE;
 }
 
-NS_IMETHODIMP _OldStorage::AsyncDoomURI(nsIURI *aURI, const nsACString & aIdExtension,
-                                        nsICacheEntryDoomCallback* aCallback)
+NS_IMETHODIMP
+_OldStorage::AsyncDoomURI(nsIURI* aURI,
+                          const nsACString& aIdExtension,
+                          nsICacheEntryDoomCallback* aCallback)
 {
   LOG(("_OldStorage::AsyncDoomURI"));
 
@@ -977,20 +976,20 @@ NS_IMETHODIMP _OldStorage::AsyncDoomURI(nsIURI *aURI, const nsACString & aIdExte
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsICacheSession> session;
-  rv = GetCacheSession(scheme, mWriteToDisk, mLoadInfo, mAppCache,
-                       getter_AddRefs(session));
+  rv = GetCacheSession(
+      scheme, mWriteToDisk, mLoadInfo, mAppCache, getter_AddRefs(session));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  RefPtr<DoomCallbackWrapper> cb = aCallback
-    ? new DoomCallbackWrapper(aCallback)
-    : nullptr;
+  RefPtr<DoomCallbackWrapper> cb =
+      aCallback ? new DoomCallbackWrapper(aCallback) : nullptr;
   rv = session->DoomEntry(cacheKey, cb);
   NS_ENSURE_SUCCESS(rv, rv);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallback)
+NS_IMETHODIMP
+_OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallback)
 {
   LOG(("_OldStorage::AsyncEvictStorage"));
 
@@ -998,7 +997,7 @@ NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallbac
 
   if (!mAppCache && mOfflineStorage) {
     nsCOMPtr<nsIApplicationCacheService> appCacheService =
-      do_GetService(NS_APPLICATIONCACHESERVICE_CONTRACTID, &rv);
+        do_GetService(NS_APPLICATIONCACHESERVICE_CONTRACTID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = appCacheService->Evict(mLoadInfo);
@@ -1006,8 +1005,10 @@ NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallbac
   } else if (mAppCache) {
     nsCOMPtr<nsICacheSession> session;
     rv = GetCacheSession(EmptyCString(),
-                          mWriteToDisk, mLoadInfo, mAppCache,
-                          getter_AddRefs(session));
+                         mWriteToDisk,
+                         mLoadInfo,
+                         mAppCache,
+                         getter_AddRefs(session));
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = session->EvictEntries();
@@ -1016,16 +1017,20 @@ NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallbac
     // Oh, I'll be so happy when session names are gone...
     nsCOMPtr<nsICacheSession> session;
     rv = GetCacheSession(NS_LITERAL_CSTRING("http"),
-                          mWriteToDisk, mLoadInfo, mAppCache,
-                          getter_AddRefs(session));
+                         mWriteToDisk,
+                         mLoadInfo,
+                         mAppCache,
+                         getter_AddRefs(session));
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = session->EvictEntries();
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = GetCacheSession(NS_LITERAL_CSTRING("wyciwyg"),
-                          mWriteToDisk, mLoadInfo, mAppCache,
-                          getter_AddRefs(session));
+                         mWriteToDisk,
+                         mLoadInfo,
+                         mAppCache,
+                         getter_AddRefs(session));
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = session->EvictEntries();
@@ -1033,8 +1038,10 @@ NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallbac
 
     // This clears any data from scheme other then http, wyciwyg or ftp
     rv = GetCacheSession(EmptyCString(),
-                          mWriteToDisk, mLoadInfo, mAppCache,
-                          getter_AddRefs(session));
+                         mWriteToDisk,
+                         mLoadInfo,
+                         mAppCache,
+                         getter_AddRefs(session));
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = session->EvictEntries();
@@ -1043,7 +1050,7 @@ NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallbac
 
   if (aCallback) {
     RefPtr<DoomCallbackSynchronizer> sync =
-      new DoomCallbackSynchronizer(aCallback);
+        new DoomCallbackSynchronizer(aCallback);
     rv = sync->Dispatch();
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1051,8 +1058,9 @@ NS_IMETHODIMP _OldStorage::AsyncEvictStorage(nsICacheEntryDoomCallback* aCallbac
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldStorage::AsyncVisitStorage(nsICacheStorageVisitor* aVisitor,
-                                             bool aVisitEntries)
+NS_IMETHODIMP
+_OldStorage::AsyncVisitStorage(nsICacheStorageVisitor* aVisitor,
+                               bool aVisitEntries)
 {
   LOG(("_OldStorage::AsyncVisitStorage"));
 
@@ -1061,7 +1069,7 @@ NS_IMETHODIMP _OldStorage::AsyncVisitStorage(nsICacheStorageVisitor* aVisitor,
   nsresult rv;
 
   nsCOMPtr<nsICacheService> serv =
-    do_GetService(NS_CACHESERVICE_CONTRACTID, &rv);
+      do_GetService(NS_CACHESERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   char* deviceID;
@@ -1074,27 +1082,29 @@ NS_IMETHODIMP _OldStorage::AsyncVisitStorage(nsICacheStorageVisitor* aVisitor,
   }
 
   RefPtr<_OldVisitCallbackWrapper> cb = new _OldVisitCallbackWrapper(
-    deviceID, aVisitor, aVisitEntries, mLoadInfo);
+      deviceID, aVisitor, aVisitEntries, mLoadInfo);
   rv = nsCacheService::GlobalInstance()->VisitEntriesInternal(cb);
   NS_ENSURE_SUCCESS(rv, rv);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP _OldStorage::GetCacheIndexEntryAttrs(nsIURI *aURI,
-                                                   const nsACString &aIdExtension,
-                                                   bool *aHasAltData,
-                                                   uint32_t *aSizeInKB)
+NS_IMETHODIMP
+_OldStorage::GetCacheIndexEntryAttrs(nsIURI* aURI,
+                                     const nsACString& aIdExtension,
+                                     bool* aHasAltData,
+                                     uint32_t* aSizeInKB)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 // Internal
 
-nsresult _OldStorage::AssembleCacheKey(nsIURI *aURI,
-                                       nsACString const & aIdExtension,
-                                       nsACString & aCacheKey,
-                                       nsACString & aScheme)
+nsresult
+_OldStorage::AssembleCacheKey(nsIURI* aURI,
+                              nsACString const& aIdExtension,
+                              nsACString& aCacheKey,
+                              nsACString& aScheme)
 {
   // Copied from nsHttpChannel::AssembleCacheKey
 
@@ -1106,8 +1116,7 @@ nsresult _OldStorage::AssembleCacheKey(nsIURI *aURI,
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString uriSpec;
-  if (aScheme.EqualsLiteral("http") ||
-      aScheme.EqualsLiteral("https")) {
+  if (aScheme.EqualsLiteral("http") || aScheme.EqualsLiteral("https")) {
     if (mLoadInfo->IsAnonymous()) {
       aCacheKey.AssignLiteral("anon&");
     }
@@ -1126,12 +1135,10 @@ nsresult _OldStorage::AssembleCacheKey(nsIURI *aURI,
     if (!aCacheKey.IsEmpty()) {
       aCacheKey.AppendLiteral("uri=");
     }
-  }
-  else if (aScheme.EqualsLiteral("wyciwyg")) {
+  } else if (aScheme.EqualsLiteral("wyciwyg")) {
     rv = aURI->GetSpec(uriSpec);
     NS_ENSURE_SUCCESS(rv, rv);
-  }
-  else {
+  } else {
     rv = aURI->GetAsciiSpec(uriSpec);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1141,13 +1148,14 @@ nsresult _OldStorage::AssembleCacheKey(nsIURI *aURI,
   return NS_OK;
 }
 
-nsresult _OldStorage::ChooseApplicationCache(const nsACString& cacheKey,
-                                             nsIApplicationCache** aCache)
+nsresult
+_OldStorage::ChooseApplicationCache(const nsACString& cacheKey,
+                                    nsIApplicationCache** aCache)
 {
   nsresult rv;
 
   nsCOMPtr<nsIApplicationCacheService> appCacheService =
-    do_GetService(NS_APPLICATIONCACHESERVICE_CONTRACTID, &rv);
+      do_GetService(NS_APPLICATIONCACHESERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = appCacheService->ChooseApplicationCache(cacheKey, mLoadInfo, aCache);
@@ -1156,5 +1164,5 @@ nsresult _OldStorage::ChooseApplicationCache(const nsACString& cacheKey,
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

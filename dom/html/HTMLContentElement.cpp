@@ -43,14 +43,15 @@ NS_NewHTMLContentElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
 
 using namespace mozilla::dom;
 
-HTMLContentElement::HTMLContentElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo), mValidSelector(true), mIsInsertionPoint(false)
+HTMLContentElement::HTMLContentElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo),
+      mValidSelector(true),
+      mIsInsertionPoint(false)
 {
 }
 
-HTMLContentElement::~HTMLContentElement()
-{
-}
+HTMLContentElement::~HTMLContentElement() {}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLContentElement,
                                    nsGenericHTMLElement,
@@ -62,7 +63,7 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(HTMLContentElement,
 NS_IMPL_ELEMENT_CLONE(HTMLContentElement)
 
 JSObject*
-HTMLContentElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLContentElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLContentElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -75,9 +76,8 @@ HTMLContentElement::BindToTree(nsIDocument* aDocument,
 {
   RefPtr<ShadowRoot> oldContainingShadow = GetContainingShadow();
 
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   ShadowRoot* containingShadow = GetContainingShadow();
@@ -137,8 +137,7 @@ HTMLContentElement::AppendMatchedNode(nsIContent* aContent)
 void
 HTMLContentElement::UpdateFallbackDistribution()
 {
-  for (nsIContent* child = nsINode::GetFirstChild();
-       child;
+  for (nsIContent* child = nsINode::GetFirstChild(); child;
        child = child->GetNextSibling()) {
     nsTArray<nsIContent*>& destInsertionPoint = child->DestInsertionPoints();
     destInsertionPoint.Clear();
@@ -179,7 +178,8 @@ void
 HTMLContentElement::ClearMatchedNodes()
 {
   for (uint32_t i = 0; i < mMatchedNodes.Length(); i++) {
-    ShadowRoot::RemoveDestInsertionPoint(this, mMatchedNodes[i]->DestInsertionPoints());
+    ShadowRoot::RemoveDestInsertionPoint(
+        this, mMatchedNodes[i]->DestInsertionPoints());
   }
 
   mMatchedNodes.Clear();
@@ -194,8 +194,7 @@ IsValidContentSelectors(nsCSSSelector* aSelector)
   while (currentSelector) {
     // Blacklist invalid selector fragments.
     if (currentSelector->IsPseudoElement() ||
-        currentSelector->mPseudoClassList ||
-        currentSelector->mNegations ||
+        currentSelector->mPseudoClassList || currentSelector->mNegations ||
         currentSelector->mOperator) {
       return false;
     }
@@ -207,7 +206,8 @@ IsValidContentSelectors(nsCSSSelector* aSelector)
 }
 
 nsresult
-HTMLContentElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLContentElement::AfterSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValue* aValue,
                                  const nsAttrValue* aOldValue,
                                  nsIPrincipal* aSubjectPrincipal,
@@ -228,7 +228,7 @@ HTMLContentElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       nsresult rv = parser.ParseSelectorString(valueStr,
                                                doc->GetDocumentURI(),
                                                // Bug 11240
-                                               0, // XXX get the line number!
+                                               0,  // XXX get the line number!
                                                getter_Transfers(mSelectorList));
 
       // We don't want to return an exception if parsing failed because
@@ -262,8 +262,8 @@ HTMLContentElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNamespaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 bool
@@ -278,8 +278,10 @@ HTMLContentElement::Match(nsIContent* aContent)
     ShadowRoot* containingShadow = GetContainingShadow();
     nsIContent* host = containingShadow->GetHost();
 
-    TreeMatchContext matchingContext(false, nsRuleWalker::eRelevantLinkUnvisited,
-                                     doc, TreeMatchContext::eNeverMatchVisited);
+    TreeMatchContext matchingContext(false,
+                                     nsRuleWalker::eRelevantLinkUnvisited,
+                                     doc,
+                                     TreeMatchContext::eNeverMatchVisited);
     matchingContext.SetHasSpecifiedScope();
     matchingContext.AddScopeElement(host->AsElement());
 
@@ -287,9 +289,8 @@ HTMLContentElement::Match(nsIContent* aContent)
       return false;
     }
 
-    return nsCSSRuleProcessor::SelectorListMatches(aContent->AsElement(),
-                                                   matchingContext,
-                                                   mSelectorList);
+    return nsCSSRuleProcessor::SelectorListMatches(
+        aContent->AsElement(), matchingContext, mSelectorList);
   }
 
   return true;
@@ -302,7 +303,8 @@ HTMLContentElement::GetDistributedNodes()
   return list.forget();
 }
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DistributedContentList, mParent,
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DistributedContentList,
+                                      mParent,
                                       mDistributedNodes)
 
 NS_INTERFACE_TABLE_HEAD(DistributedContentList)
@@ -315,14 +317,13 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(DistributedContentList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(DistributedContentList)
 
 DistributedContentList::DistributedContentList(HTMLContentElement* aHostElement)
-  : mParent(aHostElement)
+    : mParent(aHostElement)
 {
   if (aHostElement->IsInsertionPoint()) {
     if (aHostElement->MatchedNodes().IsEmpty()) {
       // Fallback content.
       nsINode* contentNode = aHostElement;
-      for (nsIContent* content = contentNode->GetFirstChild();
-           content;
+      for (nsIContent* content = contentNode->GetFirstChild(); content;
            content = content->GetNextSibling()) {
         mDistributedNodes.AppendElement(content);
       }
@@ -332,9 +333,7 @@ DistributedContentList::DistributedContentList(HTMLContentElement* aHostElement)
   }
 }
 
-DistributedContentList::~DistributedContentList()
-{
-}
+DistributedContentList::~DistributedContentList() {}
 
 nsIContent*
 DistributedContentList::Item(uint32_t aIndex)
@@ -367,8 +366,8 @@ DistributedContentList::IndexOf(nsIContent* aContent)
 }
 
 JSObject*
-DistributedContentList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DistributedContentList::WrapObject(JSContext* aCx,
+                                   JS::Handle<JSObject*> aGivenProto)
 {
   return NodeListBinding::Wrap(aCx, this, aGivenProto);
 }
-

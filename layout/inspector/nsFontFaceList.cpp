@@ -11,13 +11,9 @@
 #include "gfxTextRun.h"
 #include "mozilla/gfx/2D.h"
 
-nsFontFaceList::nsFontFaceList()
-{
-}
+nsFontFaceList::nsFontFaceList() {}
 
-nsFontFaceList::~nsFontFaceList()
-{
-}
+nsFontFaceList::~nsFontFaceList() {}
 
 ////////////////////////////////////////////////////////////////////////
 // nsISupports
@@ -28,7 +24,7 @@ NS_IMPL_ISUPPORTS(nsFontFaceList, nsIDOMFontFaceList)
 // nsIDOMFontFaceList
 
 NS_IMETHODIMP
-nsFontFaceList::Item(uint32_t index, nsIDOMFontFace **_retval)
+nsFontFaceList::Item(uint32_t index, nsIDOMFontFace** _retval)
 {
   NS_ENSURE_TRUE(index < mFontFaces.Count(), NS_ERROR_INVALID_ARG);
 
@@ -47,7 +43,7 @@ nsFontFaceList::Item(uint32_t index, nsIDOMFontFace **_retval)
 }
 
 NS_IMETHODIMP
-nsFontFaceList::GetLength(uint32_t *aLength)
+nsFontFaceList::GetLength(uint32_t* aLength)
 {
   *aLength = mFontFaces.Count();
   return NS_OK;
@@ -58,23 +54,22 @@ nsFontFaceList::GetLength(uint32_t *aLength)
 
 nsresult
 nsFontFaceList::AddFontsFromTextRun(gfxTextRun* aTextRun,
-                                    uint32_t aOffset, uint32_t aLength)
+                                    uint32_t aOffset,
+                                    uint32_t aLength)
 {
   gfxTextRun::Range range(aOffset, aOffset + aLength);
   gfxTextRun::GlyphRunIterator iter(aTextRun, range);
   while (iter.NextRun()) {
-    gfxFontEntry *fe = iter.GetGlyphRun()->mFont->GetFontEntry();
+    gfxFontEntry* fe = iter.GetGlyphRun()->mFont->GetFontEntry();
     // if we have already listed this face, just make sure the match type is
     // recorded
-    nsFontFace* existingFace =
-      static_cast<nsFontFace*>(mFontFaces.GetWeak(fe));
+    nsFontFace* existingFace = static_cast<nsFontFace*>(mFontFaces.GetWeak(fe));
     if (existingFace) {
       existingFace->AddMatchType(iter.GetGlyphRun()->mMatchType);
     } else {
       // A new font entry we haven't seen before
-      RefPtr<nsFontFace> ff =
-        new nsFontFace(fe, aTextRun->GetFontGroup(),
-                       iter.GetGlyphRun()->mMatchType);
+      RefPtr<nsFontFace> ff = new nsFontFace(
+          fe, aTextRun->GetFontGroup(), iter.GetGlyphRun()->mMatchType);
       mFontFaces.Put(fe, ff);
     }
   }

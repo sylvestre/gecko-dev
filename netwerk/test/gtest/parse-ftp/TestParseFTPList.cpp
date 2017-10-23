@@ -10,7 +10,6 @@
 
 #include "ParseFTPList.h"
 
-
 PRTime gTestTime = 0;
 
 // Pretend this is the current time for the purpose of running the
@@ -26,9 +25,7 @@ TestTime()
 }
 
 static void
-ParseFTPLine(char* inputLine,
-             FILE* resultFile,
-             list_state* state)
+ParseFTPLine(char* inputLine, FILE* resultFile, list_state* state)
 {
   struct list_result result;
   int rc = ParseFTPList(inputLine, state, &result, PR_GMTParameters, TestTime);
@@ -46,19 +43,21 @@ ParseFTPLine(char* inputLine,
   char resultLine[512];
   ASSERT_NE(fgets(resultLine, sizeof(resultLine), resultFile), nullptr);
 
-  nsPrintfCString parsed("%02u-%02u-%04u  %02u:%02u:%02u %20s %.*s%s%.*s\n",
-                         (result.fe_time.tm_mday ? (result.fe_time.tm_month + 1) : 0),
-                         result.fe_time.tm_mday,
-                         (result.fe_time.tm_mday ? result.fe_time.tm_year : 0),
-                         result.fe_time.tm_hour,
-                         result.fe_time.tm_min,
-                         result.fe_time.tm_sec,
-                         (rc == 'd' ? "<DIR>         " :
-                          (rc == 'l' ? "<JUNCTION>    " : result.fe_size)),
-                         (int)result.fe_fnlen, result.fe_fname,
-                         ((rc == 'l' && result.fe_lnlen) ? " -> " : ""),
-                         (int)((rc == 'l' && result.fe_lnlen) ? result.fe_lnlen : 0),
-                         ((rc == 'l' && result.fe_lnlen) ? result.fe_lname : ""));
+  nsPrintfCString parsed(
+      "%02u-%02u-%04u  %02u:%02u:%02u %20s %.*s%s%.*s\n",
+      (result.fe_time.tm_mday ? (result.fe_time.tm_month + 1) : 0),
+      result.fe_time.tm_mday,
+      (result.fe_time.tm_mday ? result.fe_time.tm_year : 0),
+      result.fe_time.tm_hour,
+      result.fe_time.tm_min,
+      result.fe_time.tm_sec,
+      (rc == 'd' ? "<DIR>         "
+                 : (rc == 'l' ? "<JUNCTION>    " : result.fe_size)),
+      (int)result.fe_fnlen,
+      result.fe_fname,
+      ((rc == 'l' && result.fe_lnlen) ? " -> " : ""),
+      (int)((rc == 'l' && result.fe_lnlen) ? result.fe_lnlen : 0),
+      ((rc == 'l' && result.fe_lnlen) ? result.fe_lname : ""));
 
   ASSERT_STREQ(parsed.get(), resultLine);
 }
@@ -93,8 +92,7 @@ OpenResultFile(const char* resultFileName)
 }
 
 void
-ParseFTPFile(const char* inputFileName,
-             const char* resultFileName)
+ParseFTPFile(const char* inputFileName, const char* resultFileName)
 {
   printf("Checking %s\n", inputFileName);
   FILE* inFile = fopen(inputFileName, "r");
@@ -118,8 +116,9 @@ ParseFTPFile(const char* inputFileName,
   // Make sure there are no extra lines in the result file.
   if (resultFile) {
     char resultLine[512];
-    EXPECT_EQ(fgets(resultLine, sizeof(resultLine), resultFile), nullptr) <<
-      "There should not be more lines in the expected results file than in the parser output.";
+    EXPECT_EQ(fgets(resultLine, sizeof(resultLine), resultFile), nullptr)
+        << "There should not be more lines in the expected results file than "
+           "in the parser output.";
     fclose(resultFile);
   }
 
@@ -127,30 +126,11 @@ ParseFTPFile(const char* inputFileName,
 }
 
 static const char* testFiles[] = {
-  "3-guess",
-  "C-VMold",
-  "C-zVM",
-  "D-WinNT",
-  "E-EPLF",
-  "O-guess",
-  "R-dls",
-  "U-HellSoft",
-  "U-hethmon",
-  "U-murksw",
-  "U-ncFTPd",
-  "U-NetPresenz",
-  "U-NetWare",
-  "U-nogid",
-  "U-no_ug",
-  "U-Novonyx",
-  "U-proftpd",
-  "U-Surge",
-  "U-WarFTPd",
-  "U-WebStar",
-  "U-WinNT",
-  "U-wu",
-  "V-MultiNet",
-  "V-VMS-mix",
+    "3-guess",   "C-VMold",      "C-zVM",      "D-WinNT",   "E-EPLF",
+    "O-guess",   "R-dls",        "U-HellSoft", "U-hethmon", "U-murksw",
+    "U-ncFTPd",  "U-NetPresenz", "U-NetWare",  "U-nogid",   "U-no_ug",
+    "U-Novonyx", "U-proftpd",    "U-Surge",    "U-WarFTPd", "U-WebStar",
+    "U-WinNT",   "U-wu",         "V-MultiNet", "V-VMS-mix",
 };
 
 TEST(ParseFTPTest, Check)
@@ -161,9 +141,14 @@ TEST(ParseFTPTest, Check)
   char inputFileName[200];
   char resultFileName[200];
   for (size_t test = 0; test < mozilla::ArrayLength(testFiles); ++test) {
-    snprintf(inputFileName, mozilla::ArrayLength(inputFileName), "%s.in", testFiles[test]);
-    snprintf(resultFileName, mozilla::ArrayLength(inputFileName), "%s.out", testFiles[test]);
+    snprintf(inputFileName,
+             mozilla::ArrayLength(inputFileName),
+             "%s.in",
+             testFiles[test]);
+    snprintf(resultFileName,
+             mozilla::ArrayLength(inputFileName),
+             "%s.out",
+             testFiles[test]);
     ParseFTPFile(inputFileName, resultFileName);
   }
 }
-

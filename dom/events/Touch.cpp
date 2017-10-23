@@ -90,25 +90,23 @@ Touch::Touch(int32_t aIdentifier,
 }
 
 Touch::Touch(const Touch& aOther)
-  : mTarget(aOther.mTarget)
-  , mRefPoint(aOther.mRefPoint)
-  , mChanged(aOther.mChanged)
-  , mMessage(aOther.mMessage)
-  , mIdentifier(aOther.mIdentifier)
-  , mPagePoint(aOther.mPagePoint)
-  , mClientPoint(aOther.mClientPoint)
-  , mScreenPoint(aOther.mScreenPoint)
-  , mRadius(aOther.mRadius)
-  , mRotationAngle(aOther.mRotationAngle)
-  , mForce(aOther.mForce)
-  , mPointsInitialized(aOther.mPointsInitialized)
+    : mTarget(aOther.mTarget),
+      mRefPoint(aOther.mRefPoint),
+      mChanged(aOther.mChanged),
+      mMessage(aOther.mMessage),
+      mIdentifier(aOther.mIdentifier),
+      mPagePoint(aOther.mPagePoint),
+      mClientPoint(aOther.mClientPoint),
+      mScreenPoint(aOther.mScreenPoint),
+      mRadius(aOther.mRadius),
+      mRotationAngle(aOther.mRotationAngle),
+      mForce(aOther.mForce),
+      mPointsInitialized(aOther.mPointsInitialized)
 {
   nsJSContext::LikelyShortLivingObjectCreated();
 }
 
-Touch::~Touch()
-{
-}
+Touch::~Touch() {}
 
 // static
 bool
@@ -206,10 +204,10 @@ Touch::InitializePoints(nsPresContext* aPresContext, WidgetEvent* aEvent)
   if (mPointsInitialized) {
     return;
   }
-  mClientPoint = Event::GetClientCoords(
-    aPresContext, aEvent, mRefPoint, mClientPoint);
-  mPagePoint = Event::GetPageCoords(
-    aPresContext, aEvent, mRefPoint, mClientPoint);
+  mClientPoint =
+      Event::GetClientCoords(aPresContext, aEvent, mRefPoint, mClientPoint);
+  mPagePoint =
+      Event::GetPageCoords(aPresContext, aEvent, mRefPoint, mClientPoint);
   mScreenPoint = Event::GetScreenCoords(aPresContext, aEvent, mRefPoint);
   mPointsInitialized = true;
 }
@@ -223,11 +221,9 @@ Touch::SetTarget(EventTarget* aTarget)
 bool
 Touch::Equals(Touch* aTouch)
 {
-  return mRefPoint == aTouch->mRefPoint &&
-         mForce == aTouch->mForce &&
+  return mRefPoint == aTouch->mRefPoint && mForce == aTouch->mForce &&
          mRotationAngle == aTouch->mRotationAngle &&
-         mRadius.x == aTouch->mRadius.x &&
-         mRadius.y == aTouch->mRadius.y;
+         mRadius.x == aTouch->mRadius.x && mRadius.y == aTouch->mRadius.y;
 }
 
 JSObject*
@@ -248,5 +244,5 @@ Touch::GetParentObject()
   return mTarget->GetOwnerGlobal();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

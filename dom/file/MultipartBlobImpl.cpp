@@ -32,7 +32,7 @@ MultipartBlobImpl::Create(nsTArray<RefPtr<BlobImpl>>&& aBlobImpls,
                           ErrorResult& aRv)
 {
   RefPtr<MultipartBlobImpl> blobImpl =
-    new MultipartBlobImpl(Move(aBlobImpls), aName, aContentType);
+      new MultipartBlobImpl(Move(aBlobImpls), aName, aContentType);
   blobImpl->SetLengthAndModifiedDate(aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
@@ -47,7 +47,7 @@ MultipartBlobImpl::Create(nsTArray<RefPtr<BlobImpl>>&& aBlobImpls,
                           ErrorResult& aRv)
 {
   RefPtr<MultipartBlobImpl> blobImpl =
-    new MultipartBlobImpl(Move(aBlobImpls), aContentType);
+      new MultipartBlobImpl(Move(aBlobImpls), aContentType);
   blobImpl->SetLengthAndModifiedDate(aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
@@ -57,13 +57,12 @@ MultipartBlobImpl::Create(nsTArray<RefPtr<BlobImpl>>&& aBlobImpls,
 }
 
 void
-MultipartBlobImpl::CreateInputStream(nsIInputStream** aStream,
-                                     ErrorResult& aRv)
+MultipartBlobImpl::CreateInputStream(nsIInputStream** aStream, ErrorResult& aRv)
 {
   *aStream = nullptr;
 
   nsCOMPtr<nsIMultiplexInputStream> stream =
-    do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
+      do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
   if (NS_WARN_IF(!stream)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -89,7 +88,8 @@ MultipartBlobImpl::CreateInputStream(nsIInputStream** aStream,
 }
 
 already_AddRefed<BlobImpl>
-MultipartBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
+MultipartBlobImpl::CreateSlice(uint64_t aStart,
+                               uint64_t aLength,
                                const nsAString& aContentType,
                                ErrorResult& aRv)
 {
@@ -113,8 +113,7 @@ MultipartBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
       uint64_t upperBound = std::min<uint64_t>(l - skipStart, length);
 
       RefPtr<BlobImpl> firstBlobImpl =
-        blobImpl->CreateSlice(skipStart, upperBound,
-                              aContentType, aRv);
+          blobImpl->CreateSlice(skipStart, upperBound, aContentType, aRv);
       if (NS_WARN_IF(aRv.Failed())) {
         return nullptr;
       }
@@ -143,7 +142,7 @@ MultipartBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
 
     if (length < l) {
       RefPtr<BlobImpl> lastBlobImpl =
-        blobImpl->CreateSlice(0, length, aContentType, aRv);
+          blobImpl->CreateSlice(0, length, aContentType, aRv);
       if (NS_WARN_IF(aRv.Failed())) {
         return nullptr;
       }
@@ -218,7 +217,6 @@ MultipartBlobImpl::InitializeBlob(const Sequence<Blob::BlobPart>& aData,
     }
   }
 
-
   mBlobImpls = blobSet.GetBlobImpls();
   SetLengthAndModifiedDate(aRv);
   NS_WARNING_ASSERTION(!aRv.Failed(), "SetLengthAndModifiedDate failed");
@@ -234,7 +232,8 @@ MultipartBlobImpl::SetLengthAndModifiedDate(ErrorResult& aRv)
   int64_t lastModified = 0;
   bool lastModifiedSet = false;
 
-  for (uint32_t index = 0, count = mBlobImpls.Length(); index < count; index++) {
+  for (uint32_t index = 0, count = mBlobImpls.Length(); index < count;
+       index++) {
     RefPtr<BlobImpl>& blob = mBlobImpls[index];
 
 #ifdef DEBUG
@@ -271,7 +270,7 @@ MultipartBlobImpl::SetLengthAndModifiedDate(ErrorResult& aRv)
     //   x.getTime() < f.dateModified.getTime()
     // could fail.
     mLastModificationDate = nsRFPService::ReduceTimePrecisionAsUSecs(
-      lastModifiedSet ? lastModified * PR_USEC_PER_MSEC : JS_Now());
+        lastModifiedSet ? lastModified * PR_USEC_PER_MSEC : JS_Now());
   }
 }
 
@@ -303,8 +302,7 @@ MultipartBlobImpl::SetMutable(bool aMutable)
   // set to immutable *before* being passed to another thread, so this should
   // be safe.
   if (!aMutable && !mImmutable && !mBlobImpls.IsEmpty()) {
-    for (uint32_t index = 0, count = mBlobImpls.Length();
-         index < count;
+    for (uint32_t index = 0, count = mBlobImpls.Length(); index < count;
          index++) {
       rv = mBlobImpls[index]->SetMutable(aMutable);
       if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -341,7 +339,7 @@ MultipartBlobImpl::InitializeChromeFile(nsIFile* aFile,
   mIsFromNsIFile = aIsFromNsIFile;
 
   bool exists;
-  nsresult rv= aFile->Exists(&exists);
+  nsresult rv = aFile->Exists(&exists);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -412,7 +410,8 @@ MultipartBlobImpl::MayBeClonedToOtherThreads() const
   return true;
 }
 
-size_t MultipartBlobImpl::GetAllocationSize() const
+size_t
+MultipartBlobImpl::GetAllocationSize() const
 {
   size_t total = 0;
   for (uint32_t i = 0; i < mBlobImpls.Length(); ++i) {

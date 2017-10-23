@@ -15,28 +15,27 @@ namespace dom {
 class PaymentRequestChild final : public PPaymentRequestChild
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(PaymentRequestChild);
-public:
+
+ public:
   PaymentRequestChild();
 
   void MaybeDelete();
 
   nsresult RequestPayment(const IPCPaymentActionRequest& aAction);
 
-protected:
-  mozilla::ipc::IPCResult
-  RecvRespondPayment(const IPCPaymentActionResponse& aResponse) override;
+ protected:
+  mozilla::ipc::IPCResult RecvRespondPayment(
+      const IPCPaymentActionResponse& aResponse) override;
 
-  mozilla::ipc::IPCResult
-  RecvChangeShippingAddress(const nsString& aRequestId,
-                            const IPCPaymentAddress& aAddress) override;
+  mozilla::ipc::IPCResult RecvChangeShippingAddress(
+      const nsString& aRequestId, const IPCPaymentAddress& aAddress) override;
 
-  mozilla::ipc::IPCResult
-  RecvChangeShippingOption(const nsString& aRequestId,
-                           const nsString& aOption) override;
+  mozilla::ipc::IPCResult RecvChangeShippingOption(
+      const nsString& aRequestId, const nsString& aOption) override;
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   ~PaymentRequestChild() = default;
 
   bool SendRequestPayment(const IPCPaymentActionRequest& aAction);
@@ -44,7 +43,7 @@ private:
   bool mActorAlive;
 };
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla
 
 #endif

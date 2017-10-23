@@ -15,12 +15,10 @@ namespace mozilla {
 namespace ipc {
 
 void
-SerializeURI(nsIURI* aURI,
-             URIParams& aParams);
+SerializeURI(nsIURI* aURI, URIParams& aParams);
 
 void
-SerializeURI(nsIURI* aURI,
-             OptionalURIParams& aParams);
+SerializeURI(nsIURI* aURI, OptionalURIParams& aParams);
 
 already_AddRefed<nsIURI>
 DeserializeURI(const URIParams& aParams);
@@ -28,7 +26,7 @@ DeserializeURI(const URIParams& aParams);
 already_AddRefed<nsIURI>
 DeserializeURI(const OptionalURIParams& aParams);
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_URIUtils_h
+#endif  // mozilla_ipc_URIUtils_h

@@ -25,28 +25,26 @@ using namespace mozilla::a11y;
 // DocAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-DocAccessibleWrap::
-  DocAccessibleWrap(nsIDocument* aDocument, nsIPresShell* aPresShell) :
-  DocAccessible(aDocument, aPresShell), mHWND(nullptr)
+DocAccessibleWrap::DocAccessibleWrap(nsIDocument* aDocument,
+                                     nsIPresShell* aPresShell)
+    : DocAccessible(aDocument, aPresShell), mHWND(nullptr)
 {
 }
 
-DocAccessibleWrap::~DocAccessibleWrap()
-{
-}
+DocAccessibleWrap::~DocAccessibleWrap() {}
 
 IMPL_IUNKNOWN_QUERY_HEAD(DocAccessibleWrap)
-  if (aIID == IID_ISimpleDOMDocument) {
-    statistics::ISimpleDOMUsed();
-    *aInstancePtr = static_cast<ISimpleDOMDocument*>(new sdnDocAccessible(this));
-    static_cast<IUnknown*>(*aInstancePtr)->AddRef();
-    return S_OK;
-  }
+if (aIID == IID_ISimpleDOMDocument) {
+  statistics::ISimpleDOMUsed();
+  *aInstancePtr = static_cast<ISimpleDOMDocument*>(new sdnDocAccessible(this));
+  static_cast<IUnknown*>(*aInstancePtr)->AddRef();
+  return S_OK;
+}
 IMPL_IUNKNOWN_QUERY_TAIL_INHERITED(HyperTextAccessibleWrap)
 
 STDMETHODIMP
 DocAccessibleWrap::get_accParent(
-      /* [retval][out] */ IDispatch __RPC_FAR *__RPC_FAR *ppdispParent)
+    /* [retval][out] */ IDispatch __RPC_FAR* __RPC_FAR* ppdispParent)
 {
   // We might be a top-level document in a content process.
   DocAccessibleChild* ipcDoc = IPCDoc();
@@ -72,15 +70,13 @@ DocAccessibleWrap::get_accParent(
 STDMETHODIMP
 DocAccessibleWrap::get_accValue(VARIANT aVarChild, BSTR __RPC_FAR* aValue)
 {
-  if (!aValue)
-    return E_INVALIDARG;
+  if (!aValue) return E_INVALIDARG;
   *aValue = nullptr;
 
   // For backwards-compat, we still support old MSAA hack to provide URL in accValue
   // Check for real value first
   HRESULT hr = AccessibleWrap::get_accValue(aVarChild, aValue);
-  if (FAILED(hr) || *aValue || aVarChild.lVal != CHILDID_SELF)
-    return hr;
+  if (FAILED(hr) || *aValue || aVarChild.lVal != CHILDID_SELF) return hr;
 
   // If document is being used to create a widget, don't use the URL hack
   roles::Role role = Role();
@@ -90,8 +86,7 @@ DocAccessibleWrap::get_accValue(VARIANT aVarChild, BSTR __RPC_FAR* aValue)
 
   nsAutoString url;
   URL(url);
-  if (url.IsEmpty())
-    return S_FALSE;
+  if (url.IsEmpty()) return S_FALSE;
 
   *aValue = ::SysAllocStringLen(url.get(), url.Length());
   return *aValue ? S_OK : E_OUTOFMEMORY;
@@ -164,18 +159,22 @@ DocAccessibleWrap::DoInitialUpdate()
 
       RefPtr<DocAccessibleWrap> self(this);
       nsWinUtils::NativeWindowCreateProc onCreate([self](HWND aHwnd) -> void {
-        ::SetPropW(aHwnd, kPropNameDocAcc, reinterpret_cast<HANDLE>(self.get()));
+        ::SetPropW(
+            aHwnd, kPropNameDocAcc, reinterpret_cast<HANDLE>(self.get()));
       });
 
       HWND parentWnd = reinterpret_cast<HWND>(rootDocument->GetNativeWindow());
-      mHWND = nsWinUtils::CreateNativeWindow(kClassNameTabContent, parentWnd,
-                                             rect.x, rect.y,
-                                             rect.width, rect.height, isActive,
+      mHWND = nsWinUtils::CreateNativeWindow(kClassNameTabContent,
+                                             parentWnd,
+                                             rect.x,
+                                             rect.y,
+                                             rect.width,
+                                             rect.height,
+                                             isActive,
                                              &onCreate);
     } else {
       DocAccessible* parentDocument = ParentDocument();
-      if (parentDocument)
-        mHWND = parentDocument->GetNativeWindow();
+      if (parentDocument) mHWND = parentDocument->GetNativeWindow();
     }
   }
 }

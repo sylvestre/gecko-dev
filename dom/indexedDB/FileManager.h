@@ -45,23 +45,21 @@ class FileManager final
   const bool mEnforcingQuota;
   bool mInvalidated;
 
-public:
-  static already_AddRefed<nsIFile>
-  GetFileForId(nsIFile* aDirectory, int64_t aId);
+ public:
+  static already_AddRefed<nsIFile> GetFileForId(nsIFile* aDirectory,
+                                                int64_t aId);
 
-  static already_AddRefed<nsIFile>
-  GetCheckedFileForId(nsIFile* aDirectory, int64_t aId);
+  static already_AddRefed<nsIFile> GetCheckedFileForId(nsIFile* aDirectory,
+                                                       int64_t aId);
 
-  static nsresult
-  InitDirectory(nsIFile* aDirectory,
-                nsIFile* aDatabaseFile,
-                PersistenceType aPersistenceType,
-                const nsACString& aGroup,
-                const nsACString& aOrigin,
-                uint32_t aTelemetryId);
+  static nsresult InitDirectory(nsIFile* aDirectory,
+                                nsIFile* aDatabaseFile,
+                                PersistenceType aPersistenceType,
+                                const nsACString& aGroup,
+                                const nsACString& aOrigin,
+                                uint32_t aTelemetryId);
 
-  static nsresult
-  GetUsage(nsIFile* aDirectory, uint64_t* aUsage);
+  static nsresult GetUsage(nsIFile* aDirectory, uint64_t* aUsage);
 
   FileManager(PersistenceType aPersistenceType,
               const nsACString& aGroup,
@@ -69,74 +67,42 @@ public:
               const nsAString& aDatabaseName,
               bool aEnforcingQuota);
 
-  PersistenceType
-  Type() const
-  {
-    return mPersistenceType;
-  }
+  PersistenceType Type() const { return mPersistenceType; }
 
-  const nsACString&
-  Group() const
-  {
-    return mGroup;
-  }
+  const nsACString& Group() const { return mGroup; }
 
-  const nsACString&
-  Origin() const
-  {
-    return mOrigin;
-  }
+  const nsACString& Origin() const { return mOrigin; }
 
-  const nsAString&
-  DatabaseName() const
-  {
-    return mDatabaseName;
-  }
+  const nsAString& DatabaseName() const { return mDatabaseName; }
 
-  bool
-  EnforcingQuota() const
-  {
-    return mEnforcingQuota;
-  }
+  bool EnforcingQuota() const { return mEnforcingQuota; }
 
-  bool
-  Invalidated() const
-  {
-    return mInvalidated;
-  }
+  bool Invalidated() const { return mInvalidated; }
 
-  nsresult
-  Init(nsIFile* aDirectory, mozIStorageConnection* aConnection);
+  nsresult Init(nsIFile* aDirectory, mozIStorageConnection* aConnection);
 
-  nsresult
-  Invalidate();
+  nsresult Invalidate();
 
-  already_AddRefed<nsIFile>
-  GetDirectory();
+  already_AddRefed<nsIFile> GetDirectory();
 
-  already_AddRefed<nsIFile>
-  GetCheckedDirectory();
+  already_AddRefed<nsIFile> GetCheckedDirectory();
 
-  already_AddRefed<nsIFile>
-  GetJournalDirectory();
+  already_AddRefed<nsIFile> GetJournalDirectory();
 
-  already_AddRefed<nsIFile>
-  EnsureJournalDirectory();
+  already_AddRefed<nsIFile> EnsureJournalDirectory();
 
-  already_AddRefed<FileInfo>
-  GetFileInfo(int64_t aId);
+  already_AddRefed<FileInfo> GetFileInfo(int64_t aId);
 
-  already_AddRefed<FileInfo>
-  GetNewFileInfo();
+  already_AddRefed<FileInfo> GetNewFileInfo();
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FileManager)
 
-private:
+ private:
   ~FileManager() = default;
 };
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_indexeddb_filemanager_h__
+#endif  // mozilla_dom_indexeddb_filemanager_h__

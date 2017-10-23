@@ -23,7 +23,8 @@ CrossProcessSemaphore::Create(const char*, uint32_t aInitialValue)
   // We explicitly share this using DuplicateHandle, we do -not- want this to
   // be inherited by child processes by default! So no security attributes are
   // given.
-  HANDLE semaphore = ::CreateSemaphoreA(nullptr, aInitialValue, 0x7fffffff, nullptr);
+  HANDLE semaphore =
+      ::CreateSemaphoreA(nullptr, aInitialValue, 0x7fffffff, nullptr);
   if (!semaphore) {
     return nullptr;
   }
@@ -42,7 +43,7 @@ CrossProcessSemaphore::Create(CrossProcessSemaphoreHandle aHandle)
 }
 
 CrossProcessSemaphore::CrossProcessSemaphore(HANDLE aSemaphore)
-  : mSemaphore(aSemaphore)
+    : mSemaphore(aSemaphore)
 {
   MOZ_COUNT_CTOR(CrossProcessSemaphore);
 }
@@ -58,9 +59,8 @@ bool
 CrossProcessSemaphore::Wait(const Maybe<TimeDuration>& aWaitTime)
 {
   MOZ_ASSERT(mSemaphore, "Improper construction of semaphore.");
-  HRESULT hr = ::WaitForSingleObject(mSemaphore, aWaitTime.isSome() ?
-                                                 aWaitTime->ToMilliseconds() :
-                                                 INFINITE);
+  HRESULT hr = ::WaitForSingleObject(
+      mSemaphore, aWaitTime.isSome() ? aWaitTime->ToMilliseconds() : INFINITE);
   return hr == WAIT_OBJECT_0;
 }
 
@@ -75,8 +75,8 @@ CrossProcessSemaphoreHandle
 CrossProcessSemaphore::ShareToProcess(base::ProcessId aTargetPid)
 {
   HANDLE newHandle;
-  bool succeeded = ipc::DuplicateHandle(mSemaphore, aTargetPid, &newHandle,
-                                        0, DUPLICATE_SAME_ACCESS);
+  bool succeeded = ipc::DuplicateHandle(
+      mSemaphore, aTargetPid, &newHandle, 0, DUPLICATE_SAME_ACCESS);
 
   if (!succeeded) {
     return nullptr;
@@ -85,4 +85,4 @@ CrossProcessSemaphore::ShareToProcess(base::ProcessId aTargetPid)
   return newHandle;
 }
 
-}
+}  // namespace mozilla

@@ -33,7 +33,7 @@ DeserializeToJSValue(const nsAString& aSerializedObject,
                      JSContext* aCx,
                      JS::MutableHandleValue aValue);
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla
 
 #endif

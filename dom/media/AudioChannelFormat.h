@@ -31,7 +31,8 @@ namespace mozilla {
  * Only 1, 2, 4 and 6 are currently defined in Web Audio.
  */
 
-enum {
+enum
+{
   SURROUND_L,
   SURROUND_R,
   SURROUND_C,
@@ -48,8 +49,8 @@ const uint32_t CUSTOM_CHANNEL_LAYOUTS = 6;
 const int IGNORE = CUSTOM_CHANNEL_LAYOUTS;
 const float IGNORE_F = 0.0f;
 
-const int gMixingMatrixIndexByChannels[CUSTOM_CHANNEL_LAYOUTS - 1] =
-  { 0, 5, 9, 12, 14 };
+const int gMixingMatrixIndexByChannels[CUSTOM_CHANNEL_LAYOUTS - 1] = {
+    0, 5, 9, 12, 14};
 
 /**
  * Return a channel count whose channel layout includes all the channels from
@@ -67,7 +68,8 @@ GetAudioChannelsSuperset(uint32_t aChannels1, uint32_t aChannels2);
  */
 const float SQRT_ONE_HALF = 0.7071067811865476f;
 
-struct DownMixMatrix {
+struct DownMixMatrix
+{
   // Every input channel c is copied to output channel mInputDestination[c]
   // after multiplying by mInputCoefficient[c].
   uint8_t mInputDestination[CUSTOM_CHANNEL_LAYOUTS];
@@ -77,30 +79,43 @@ struct DownMixMatrix {
   float mInputCoefficient[CUSTOM_CHANNEL_LAYOUTS];
 };
 
-static const DownMixMatrix
-gDownMixMatrices[CUSTOM_CHANNEL_LAYOUTS*(CUSTOM_CHANNEL_LAYOUTS - 1)/2] =
-{
-  // Downmixes to mono
-  { { 0, 0 }, IGNORE, { 0.5f, 0.5f } },
-  { { 0, IGNORE, IGNORE }, IGNORE, { 1.0f, IGNORE_F, IGNORE_F } },
-  { { 0, 0, 0, 0 }, IGNORE, { 0.25f, 0.25f, 0.25f, 0.25f } },
-  { { 0, IGNORE, IGNORE, IGNORE, IGNORE }, IGNORE, { 1.0f, IGNORE_F, IGNORE_F, IGNORE_F, IGNORE_F } },
-  { { 0, 0, 0, IGNORE, 0, 0 }, IGNORE, { SQRT_ONE_HALF, SQRT_ONE_HALF, 1.0f, IGNORE_F, 0.5f, 0.5f } },
-  // Downmixes to stereo
-  { { 0, 1, IGNORE }, IGNORE, { 1.0f, 1.0f, IGNORE_F } },
-  { { 0, 1, 0, 1 }, IGNORE, { 0.5f, 0.5f, 0.5f, 0.5f } },
-  { { 0, 1, IGNORE, IGNORE, IGNORE }, IGNORE, { 1.0f, 1.0f, IGNORE_F, IGNORE_F, IGNORE_F } },
-  { { 0, 1, 0, IGNORE, 0, 1 }, 1, { 1.0f, 1.0f, SQRT_ONE_HALF, IGNORE_F, SQRT_ONE_HALF, SQRT_ONE_HALF } },
-  // Downmixes to 3-channel
-  { { 0, 1, 2, IGNORE }, IGNORE, { 1.0f, 1.0f, 1.0f, IGNORE_F } },
-  { { 0, 1, 2, IGNORE, IGNORE }, IGNORE, { 1.0f, 1.0f, 1.0f, IGNORE_F, IGNORE_F } },
-  { { 0, 1, 2, IGNORE, IGNORE, IGNORE }, IGNORE, { 1.0f, 1.0f, 1.0f, IGNORE_F, IGNORE_F, IGNORE_F } },
-  // Downmixes to quad
-  { { 0, 1, 2, 3, IGNORE }, IGNORE, { 1.0f, 1.0f, 1.0f, 1.0f, IGNORE_F } },
-  { { 0, 1, 0, IGNORE, 2, 3 }, 1, { 1.0f, 1.0f, SQRT_ONE_HALF, IGNORE_F, 1.0f, 1.0f } },
-  // Downmixes to 5-channel
-  { { 0, 1, 2, 3, 4, IGNORE }, IGNORE, { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, IGNORE_F } }
-};
+static const DownMixMatrix gDownMixMatrices[CUSTOM_CHANNEL_LAYOUTS *
+                                            (CUSTOM_CHANNEL_LAYOUTS - 1) /
+                                            2] = {
+    // Downmixes to mono
+    {{0, 0}, IGNORE, {0.5f, 0.5f}},
+    {{0, IGNORE, IGNORE}, IGNORE, {1.0f, IGNORE_F, IGNORE_F}},
+    {{0, 0, 0, 0}, IGNORE, {0.25f, 0.25f, 0.25f, 0.25f}},
+    {{0, IGNORE, IGNORE, IGNORE, IGNORE},
+     IGNORE,
+     {1.0f, IGNORE_F, IGNORE_F, IGNORE_F, IGNORE_F}},
+    {{0, 0, 0, IGNORE, 0, 0},
+     IGNORE,
+     {SQRT_ONE_HALF, SQRT_ONE_HALF, 1.0f, IGNORE_F, 0.5f, 0.5f}},
+    // Downmixes to stereo
+    {{0, 1, IGNORE}, IGNORE, {1.0f, 1.0f, IGNORE_F}},
+    {{0, 1, 0, 1}, IGNORE, {0.5f, 0.5f, 0.5f, 0.5f}},
+    {{0, 1, IGNORE, IGNORE, IGNORE},
+     IGNORE,
+     {1.0f, 1.0f, IGNORE_F, IGNORE_F, IGNORE_F}},
+    {{0, 1, 0, IGNORE, 0, 1},
+     1,
+     {1.0f, 1.0f, SQRT_ONE_HALF, IGNORE_F, SQRT_ONE_HALF, SQRT_ONE_HALF}},
+    // Downmixes to 3-channel
+    {{0, 1, 2, IGNORE}, IGNORE, {1.0f, 1.0f, 1.0f, IGNORE_F}},
+    {{0, 1, 2, IGNORE, IGNORE}, IGNORE, {1.0f, 1.0f, 1.0f, IGNORE_F, IGNORE_F}},
+    {{0, 1, 2, IGNORE, IGNORE, IGNORE},
+     IGNORE,
+     {1.0f, 1.0f, 1.0f, IGNORE_F, IGNORE_F, IGNORE_F}},
+    // Downmixes to quad
+    {{0, 1, 2, 3, IGNORE}, IGNORE, {1.0f, 1.0f, 1.0f, 1.0f, IGNORE_F}},
+    {{0, 1, 0, IGNORE, 2, 3},
+     1,
+     {1.0f, 1.0f, SQRT_ONE_HALF, IGNORE_F, 1.0f, 1.0f}},
+    // Downmixes to 5-channel
+    {{0, 1, 2, 3, 4, IGNORE},
+     IGNORE,
+     {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, IGNORE_F}}};
 
 /**
  * Given an array of input channels, downmix to aOutputChannelCount, and copy
@@ -108,10 +123,11 @@ gDownMixMatrices[CUSTOM_CHANNEL_LAYOUTS*(CUSTOM_CHANNEL_LAYOUTS - 1)/2] =
  * input count <= output count.
  */
 template<typename T>
-void AudioChannelsDownMix(const nsTArray<const T*>& aChannelArray,
-                          T** aOutputChannels,
-                          uint32_t aOutputChannelCount,
-                          uint32_t aDuration)
+void
+AudioChannelsDownMix(const nsTArray<const T*>& aChannelArray,
+                     T** aOutputChannels,
+                     uint32_t aOutputChannelCount,
+                     uint32_t aDuration)
 {
   uint32_t inputChannelCount = aChannelArray.Length();
   const T* const* inputChannels = aChannelArray.Elements();
@@ -128,9 +144,9 @@ void AudioChannelsDownMix(const nsTArray<const T*>& aChannelArray,
   // Ignore unknown channels, they're just dropped.
   inputChannelCount = std::min<uint32_t>(6, inputChannelCount);
 
-  const DownMixMatrix& m = gDownMixMatrices[
-    gMixingMatrixIndexByChannels[aOutputChannelCount - 1] +
-    inputChannelCount - aOutputChannelCount - 1];
+  const DownMixMatrix& m =
+      gDownMixMatrices[gMixingMatrixIndexByChannels[aOutputChannelCount - 1] +
+                       inputChannelCount - aOutputChannelCount - 1];
 
   // This is slow, but general. We can define custom code for special
   // cases later.
@@ -140,12 +156,13 @@ void AudioChannelsDownMix(const nsTArray<const T*>& aChannelArray,
     T outputChannels[CUSTOM_CHANNEL_LAYOUTS + 1] = {0};
     for (uint32_t c = 0; c < inputChannelCount; ++c) {
       outputChannels[m.mInputDestination[c]] +=
-        m.mInputCoefficient[c]*(static_cast<const T*>(inputChannels[c]))[s];
+          m.mInputCoefficient[c] * (static_cast<const T*>(inputChannels[c]))[s];
     }
     // Utilize the fact that in every layout, C is the third channel.
     if (m.mCExtraDestination != IGNORE) {
       outputChannels[m.mCExtraDestination] +=
-        m.mInputCoefficient[SURROUND_C]*(static_cast<const T*>(inputChannels[SURROUND_C]))[s];
+          m.mInputCoefficient[SURROUND_C] *
+          (static_cast<const T*>(inputChannels[SURROUND_C]))[s];
     }
 
     for (uint32_t c = 0; c < aOutputChannelCount; ++c) {
@@ -158,35 +175,33 @@ void AudioChannelsDownMix(const nsTArray<const T*>& aChannelArray,
  * UpMixMatrix represents a conversion matrix by exploiting the fact that
  * each output channel comes from at most one input channel.
  */
-struct UpMixMatrix {
+struct UpMixMatrix
+{
   uint8_t mInputDestination[CUSTOM_CHANNEL_LAYOUTS];
 };
 
-static const UpMixMatrix
-gUpMixMatrices[CUSTOM_CHANNEL_LAYOUTS*(CUSTOM_CHANNEL_LAYOUTS - 1)/2] =
-{
-  // Upmixes from mono
-  { { 0, 0 } },
-  { { 0, IGNORE, IGNORE } },
-  { { 0, 0, IGNORE, IGNORE } },
-  { { 0, IGNORE, IGNORE, IGNORE, IGNORE } },
-  { { IGNORE, IGNORE, 0, IGNORE, IGNORE, IGNORE } },
-  // Upmixes from stereo
-  { { 0, 1, IGNORE } },
-  { { 0, 1, IGNORE, IGNORE } },
-  { { 0, 1, IGNORE, IGNORE, IGNORE } },
-  { { 0, 1, IGNORE, IGNORE, IGNORE, IGNORE } },
-  // Upmixes from 3-channel
-  { { 0, 1, 2, IGNORE } },
-  { { 0, 1, 2, IGNORE, IGNORE } },
-  { { 0, 1, 2, IGNORE, IGNORE, IGNORE } },
-  // Upmixes from quad
-  { { 0, 1, 2, 3, IGNORE } },
-  { { 0, 1, IGNORE, IGNORE, 2, 3 } },
-  // Upmixes from 5-channel
-  { { 0, 1, 2, 3, 4, IGNORE } }
-};
-
+static const UpMixMatrix gUpMixMatrices[CUSTOM_CHANNEL_LAYOUTS *
+                                        (CUSTOM_CHANNEL_LAYOUTS - 1) / 2] = {
+    // Upmixes from mono
+    {{0, 0}},
+    {{0, IGNORE, IGNORE}},
+    {{0, 0, IGNORE, IGNORE}},
+    {{0, IGNORE, IGNORE, IGNORE, IGNORE}},
+    {{IGNORE, IGNORE, 0, IGNORE, IGNORE, IGNORE}},
+    // Upmixes from stereo
+    {{0, 1, IGNORE}},
+    {{0, 1, IGNORE, IGNORE}},
+    {{0, 1, IGNORE, IGNORE, IGNORE}},
+    {{0, 1, IGNORE, IGNORE, IGNORE, IGNORE}},
+    // Upmixes from 3-channel
+    {{0, 1, 2, IGNORE}},
+    {{0, 1, 2, IGNORE, IGNORE}},
+    {{0, 1, 2, IGNORE, IGNORE, IGNORE}},
+    // Upmixes from quad
+    {{0, 1, 2, 3, IGNORE}},
+    {{0, 1, IGNORE, IGNORE, 2, 3}},
+    // Upmixes from 5-channel
+    {{0, 1, 2, 3, 4, IGNORE}}};
 
 /**
  * Given an array of input channel data, and an output channel count,
@@ -208,9 +223,8 @@ AudioChannelsUpMix(nsTArray<const T*>* aChannelArray,
 {
   uint32_t inputChannelCount = aChannelArray->Length();
   uint32_t outputChannelCount =
-    GetAudioChannelsSuperset(aOutputChannelCount, inputChannelCount);
-  NS_ASSERTION(outputChannelCount > inputChannelCount,
-               "No up-mix needed");
+      GetAudioChannelsSuperset(aOutputChannelCount, inputChannelCount);
+  NS_ASSERTION(outputChannelCount > inputChannelCount, "No up-mix needed");
   MOZ_ASSERT(inputChannelCount > 0, "Bad number of channels");
   MOZ_ASSERT(outputChannelCount > 0, "Bad number of channels");
 
@@ -218,9 +232,9 @@ AudioChannelsUpMix(nsTArray<const T*>* aChannelArray,
 
   if (inputChannelCount < CUSTOM_CHANNEL_LAYOUTS &&
       outputChannelCount <= CUSTOM_CHANNEL_LAYOUTS) {
-    const UpMixMatrix& m = gUpMixMatrices[
-      gMixingMatrixIndexByChannels[inputChannelCount - 1] +
-      outputChannelCount - inputChannelCount - 1];
+    const UpMixMatrix& m =
+        gUpMixMatrices[gMixingMatrixIndexByChannels[inputChannelCount - 1] +
+                       outputChannelCount - inputChannelCount - 1];
 
     const T* outputChannels[CUSTOM_CHANNEL_LAYOUTS];
 
@@ -243,6 +257,6 @@ AudioChannelsUpMix(nsTArray<const T*>* aChannelArray,
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_AUDIOCHANNELFORMAT_H_ */

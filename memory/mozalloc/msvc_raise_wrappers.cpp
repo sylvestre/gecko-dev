@@ -8,14 +8,12 @@
 #include <exception>
 #include "mozalloc_abort.h"
 
-static void __cdecl
-RaiseHandler(const std::exception& e)
+static void __cdecl RaiseHandler(const std::exception& e)
 {
-    mozalloc_abort(e.what());
+  mozalloc_abort(e.what());
 }
 
-static struct StaticScopeStruct final {
-    StaticScopeStruct() {
-        std::exception::_Set_raise_handler(RaiseHandler);
-    }
+static struct StaticScopeStruct final
+{
+  StaticScopeStruct() { std::exception::_Set_raise_handler(RaiseHandler); }
 } StaticScopeInvoke;

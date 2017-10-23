@@ -23,7 +23,7 @@ namespace mozilla {
 // to the image's internal SVG document when it's drawn.
 class SVGImageContext
 {
-public:
+ public:
   SVGImageContext() {}
 
   /**
@@ -42,11 +42,12 @@ public:
    * point we need to clean this code up, make our abstractions clear, create
    * that utility and stop using Maybe for this parameter.
    */
-  explicit SVGImageContext(const Maybe<CSSIntSize>& aViewportSize,
-                           const Maybe<SVGPreserveAspectRatio>& aPreserveAspectRatio  = Nothing())
-    : mViewportSize(aViewportSize)
-    , mPreserveAspectRatio(aPreserveAspectRatio)
-  { }
+  explicit SVGImageContext(
+      const Maybe<CSSIntSize>& aViewportSize,
+      const Maybe<SVGPreserveAspectRatio>& aPreserveAspectRatio = Nothing())
+      : mViewportSize(aViewportSize), mPreserveAspectRatio(aPreserveAspectRatio)
+  {
+  }
 
   static void MaybeStoreContextPaint(Maybe<SVGImageContext>& aContext,
                                      nsIFrame* aFromFrame,
@@ -56,48 +57,50 @@ public:
                                      nsStyleContext* aFromStyleContext,
                                      imgIContainer* aImgContainer);
 
-  const Maybe<CSSIntSize>& GetViewportSize() const {
-    return mViewportSize;
-  }
+  const Maybe<CSSIntSize>& GetViewportSize() const { return mViewportSize; }
 
-  void SetViewportSize(const Maybe<CSSIntSize>& aSize) {
+  void SetViewportSize(const Maybe<CSSIntSize>& aSize)
+  {
     mViewportSize = aSize;
   }
 
-  const Maybe<SVGPreserveAspectRatio>& GetPreserveAspectRatio() const {
+  const Maybe<SVGPreserveAspectRatio>& GetPreserveAspectRatio() const
+  {
     return mPreserveAspectRatio;
   }
 
-  void SetPreserveAspectRatio(const Maybe<SVGPreserveAspectRatio>& aPAR) {
+  void SetPreserveAspectRatio(const Maybe<SVGPreserveAspectRatio>& aPAR)
+  {
     mPreserveAspectRatio = aPAR;
   }
 
-  const SVGEmbeddingContextPaint* GetContextPaint() const {
+  const SVGEmbeddingContextPaint* GetContextPaint() const
+  {
     return mContextPaint.get();
   }
 
-  void ClearContextPaint() {
-    mContextPaint = nullptr;
-  }
+  void ClearContextPaint() { mContextPaint = nullptr; }
 
-  bool operator==(const SVGImageContext& aOther) const {
+  bool operator==(const SVGImageContext& aOther) const
+  {
     bool contextPaintIsEqual =
-      // neither have context paint, or they have the same object:
-      (mContextPaint == aOther.mContextPaint) ||
-      // or both have context paint that are different but equivalent objects:
-      (mContextPaint && aOther.mContextPaint &&
-       *mContextPaint == *aOther.mContextPaint);
+        // neither have context paint, or they have the same object:
+        (mContextPaint == aOther.mContextPaint) ||
+        // or both have context paint that are different but equivalent objects:
+        (mContextPaint && aOther.mContextPaint &&
+         *mContextPaint == *aOther.mContextPaint);
 
-    return contextPaintIsEqual &&
-           mViewportSize == aOther.mViewportSize &&
+    return contextPaintIsEqual && mViewportSize == aOther.mViewportSize &&
            mPreserveAspectRatio == aOther.mPreserveAspectRatio;
   }
 
-  bool operator!=(const SVGImageContext& aOther) const {
+  bool operator!=(const SVGImageContext& aOther) const
+  {
     return !(*this == aOther);
   }
 
-  PLDHashNumber Hash() const {
+  PLDHashNumber Hash() const
+  {
     PLDHashNumber hash = 0;
     if (mContextPaint) {
       hash = HashGeneric(hash, mContextPaint->Hash());
@@ -107,20 +110,22 @@ public:
                        mPreserveAspectRatio.map(HashPAR).valueOr(0));
   }
 
-private:
-  static PLDHashNumber HashSize(const CSSIntSize& aSize) {
+ private:
+  static PLDHashNumber HashSize(const CSSIntSize& aSize)
+  {
     return HashGeneric(aSize.width, aSize.height);
   }
-  static PLDHashNumber HashPAR(const SVGPreserveAspectRatio& aPAR) {
+  static PLDHashNumber HashPAR(const SVGPreserveAspectRatio& aPAR)
+  {
     return aPAR.Hash();
   }
 
   // NOTE: When adding new member-vars, remember to update Hash() & operator==.
   RefPtr<SVGEmbeddingContextPaint> mContextPaint;
-  Maybe<CSSIntSize>             mViewportSize;
+  Maybe<CSSIntSize> mViewportSize;
   Maybe<SVGPreserveAspectRatio> mPreserveAspectRatio;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGCONTEXT_H_
+#endif  // MOZILLA_SVGCONTEXT_H_

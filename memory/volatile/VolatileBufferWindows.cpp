@@ -11,7 +11,8 @@
 #include <windows.h>
 
 #ifdef MOZ_MEMORY
-extern "C" int posix_memalign(void** memptr, size_t alignment, size_t size);
+extern "C" int
+posix_memalign(void** memptr, size_t alignment, size_t size);
 #endif
 
 #ifndef MEM_RESET_UNDO
@@ -23,12 +24,12 @@ extern "C" int posix_memalign(void** memptr, size_t alignment, size_t size);
 namespace mozilla {
 
 VolatileBuffer::VolatileBuffer()
-  : mMutex("VolatileBuffer")
-  , mBuf(nullptr)
-  , mSize(0)
-  , mLockCount(0)
-  , mHeap(false)
-  , mFirstLock(true)
+    : mMutex("VolatileBuffer"),
+      mBuf(nullptr),
+      mSize(0),
+      mLockCount(0),
+      mHeap(false),
+      mFirstLock(true)
 {
 }
 
@@ -36,7 +37,7 @@ bool
 VolatileBuffer::Init(size_t aSize, size_t aAlignment)
 {
   MOZ_ASSERT(!mSize && !mBuf, "Init called twice");
-  MOZ_ASSERT(!(aAlignment % sizeof(void *)),
+  MOZ_ASSERT(!(aAlignment % sizeof(void*)),
              "Alignment must be multiple of pointer size");
 
   mSize = aSize;
@@ -102,11 +103,8 @@ VolatileBuffer::Lock(void** aBuf)
     return true;
   }
 
-  void* addr = VirtualAllocEx(GetCurrentProcess(),
-                              mBuf,
-                              mSize,
-                              MEM_RESET_UNDO,
-                              PAGE_READWRITE);
+  void* addr = VirtualAllocEx(
+      GetCurrentProcess(), mBuf, mSize, MEM_RESET_UNDO, PAGE_READWRITE);
   return !!addr;
 }
 
@@ -120,11 +118,8 @@ VolatileBuffer::Unlock()
     return;
   }
 
-  DebugOnly<void*> addr = VirtualAllocEx(GetCurrentProcess(),
-                                         mBuf,
-                                         mSize,
-                                         MEM_RESET,
-                                         PAGE_READWRITE);
+  DebugOnly<void*> addr = VirtualAllocEx(
+      GetCurrentProcess(), mBuf, mSize, MEM_RESET, PAGE_READWRITE);
   MOZ_ASSERT(addr, "Failed to MEM_RESET");
 }
 
@@ -158,4 +153,4 @@ VolatileBuffer::NonHeapSizeOfExcludingThis() const
   return (mSize + 4095) & ~4095;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -4,16 +4,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef WidgetStyleCache_h
 #define WidgetStyleCache_h
 
 #include <gtk/gtk.h>
 #include "gtkdrawing.h"
 
-
 typedef unsigned StyleFlags;
-enum : StyleFlags {
+enum : StyleFlags
+{
   NO_STYLE_FLAGS,
   WHATEVER_MIGHT_BE_NEEDED = 1U << 0,
 };
@@ -29,9 +28,9 @@ GtkStyleContext*
 CreateStyleForWidget(GtkWidget* aWidget, GtkStyleContext* aParentStyle);
 
 GtkStyleContext*
-CreateCSSNode(const char*      aName,
+CreateCSSNode(const char* aName,
               GtkStyleContext* aParentStyle,
-              GType            aType = G_TYPE_NONE);
+              GType aType = G_TYPE_NONE);
 
 /*
  * Returns a pointer to a style context for the specified node and state.
@@ -46,4 +45,4 @@ GetStyleContext(WidgetNodeType aNodeType,
 void
 ResetWidgetCache(void);
 
-#endif // WidgetStyleCache_h
+#endif  // WidgetStyleCache_h

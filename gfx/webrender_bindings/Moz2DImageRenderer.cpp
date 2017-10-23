@@ -25,12 +25,13 @@ namespace wr {
 static MOZ_THREAD_LOCAL(FT_Library) sFTLibrary;
 #endif
 
-static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
-                                gfx::IntSize aSize,
-                                gfx::SurfaceFormat aFormat,
-                                const uint16_t *aTileSize,
-                                const mozilla::wr::TileOffset *aTileOffset,
-                                Range<uint8_t> aOutput)
+static bool
+Moz2DRenderCallback(const Range<const uint8_t> aBlob,
+                    gfx::IntSize aSize,
+                    gfx::SurfaceFormat aFormat,
+                    const uint16_t* aTileSize,
+                    const mozilla::wr::TileOffset* aTileOffset,
+                    Range<uint8_t> aOutput)
 {
   MOZ_ASSERT(aSize.width > 0 && aSize.height > 0);
   if (aSize.width <= 0 || aSize.height <= 0) {
@@ -61,14 +62,13 @@ static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
   // In bindings.rs we allocate a buffer filled with opaque white.
   bool uninitialized = false;
 
-  RefPtr<gfx::DrawTarget> dt = gfx::Factory::CreateDrawTargetForData(
-    gfx::BackendType::SKIA,
-    aOutput.begin().get(),
-    aSize,
-    stride,
-    aFormat,
-    uninitialized
-  );
+  RefPtr<gfx::DrawTarget> dt =
+      gfx::Factory::CreateDrawTargetForData(gfx::BackendType::SKIA,
+                                            aOutput.begin().get(),
+                                            aSize,
+                                            stride,
+                                            aFormat,
+                                            uninitialized);
 
   if (!dt) {
     return false;
@@ -80,7 +80,8 @@ static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
     gfx::TileSet tileset;
     gfx::Tile tile;
     tile.mDrawTarget = dt;
-    tile.mTileOrigin = gfx::IntPoint(aTileOffset->x * *aTileSize, aTileOffset->y * *aTileSize);
+    tile.mTileOrigin =
+        gfx::IntPoint(aTileOffset->x * *aTileSize, aTileOffset->y * *aTileSize);
     tileset.mTiles = &tile;
     tileset.mTileCount = 1;
     dt = gfx::Factory::CreateTiledDrawTarget(tileset);
@@ -88,7 +89,8 @@ static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
 
   gfx::InlineTranslator translator(dt, fontContext);
 
-  auto ret = translator.TranslateRecording((char*)aBlob.begin().get(), aBlob.length());
+  auto ret =
+      translator.TranslateRecording((char*)aBlob.begin().get(), aBlob.length());
 
 #if 0
   static int i = 0;
@@ -100,26 +102,27 @@ static bool Moz2DRenderCallback(const Range<const uint8_t> aBlob,
   return ret;
 }
 
-} // namespace
-} // namespace
+}  // namespace
+}  // namespace mozilla
 
 extern "C" {
 
-bool wr_moz2d_render_cb(const mozilla::wr::ByteSlice blob,
-                        uint32_t width, uint32_t height,
-                        mozilla::wr::ImageFormat aFormat,
-                        const uint16_t *aTileSize,
-                        const mozilla::wr::TileOffset *aTileOffset,
-                        mozilla::wr::MutByteSlice output)
+bool
+wr_moz2d_render_cb(const mozilla::wr::ByteSlice blob,
+                   uint32_t width,
+                   uint32_t height,
+                   mozilla::wr::ImageFormat aFormat,
+                   const uint16_t* aTileSize,
+                   const mozilla::wr::TileOffset* aTileOffset,
+                   mozilla::wr::MutByteSlice output)
 {
-  return mozilla::wr::Moz2DRenderCallback(mozilla::wr::ByteSliceToRange(blob),
-                                          mozilla::gfx::IntSize(width, height),
-                                          mozilla::wr::ImageFormatToSurfaceFormat(aFormat),
-                                          aTileSize,
-                                          aTileOffset,
-                                          mozilla::wr::MutByteSliceToRange(output));
+  return mozilla::wr::Moz2DRenderCallback(
+      mozilla::wr::ByteSliceToRange(blob),
+      mozilla::gfx::IntSize(width, height),
+      mozilla::wr::ImageFormatToSurfaceFormat(aFormat),
+      aTileSize,
+      aTileOffset,
+      mozilla::wr::MutByteSliceToRange(output));
 }
 
-} // extern
-
-
+}  // extern

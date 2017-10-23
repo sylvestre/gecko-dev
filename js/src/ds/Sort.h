@@ -13,10 +13,8 @@ namespace js {
 
 namespace detail {
 
-template<typename T>
-MOZ_ALWAYS_INLINE void
-CopyNonEmptyArray(T* dst, const T* src, size_t nelems)
-{
+template <typename T>
+MOZ_ALWAYS_INLINE void CopyNonEmptyArray(T* dst, const T* src, size_t nelems) {
     MOZ_ASSERT(nelems != 0);
     const T* end = src + nelems;
     do {
@@ -25,24 +23,21 @@ CopyNonEmptyArray(T* dst, const T* src, size_t nelems)
 }
 
 /* Helper function for MergeSort. */
-template<typename T, typename Comparator>
-MOZ_ALWAYS_INLINE bool
-MergeArrayRuns(T* dst, const T* src, size_t run1, size_t run2, Comparator c)
-{
+template <typename T, typename Comparator>
+MOZ_ALWAYS_INLINE bool MergeArrayRuns(T* dst, const T* src, size_t run1, size_t run2,
+                                      Comparator c) {
     MOZ_ASSERT(run1 >= 1);
     MOZ_ASSERT(run2 >= 1);
 
     /* Copy runs already in sorted order. */
     const T* b = src + run1;
     bool lessOrEqual;
-    if (!c(b[-1],  b[0], &lessOrEqual))
-        return false;
+    if (!c(b[-1], b[0], &lessOrEqual)) return false;
 
     if (!lessOrEqual) {
         /* Runs are not already sorted, merge them. */
         for (const T* a = src;;) {
-            if (!c(*a, *b, &lessOrEqual))
-                return false;
+            if (!c(*a, *b, &lessOrEqual)) return false;
             if (lessOrEqual) {
                 *dst++ = *a++;
                 if (!--run1) {
@@ -77,14 +72,11 @@ MergeArrayRuns(T* dst, const T* src, size_t run1, size_t run2, Comparator c)
  * the false result. In this case the content of the array and scratch is
  * arbitrary.
  */
-template<typename T, typename Comparator>
-MOZ_MUST_USE bool
-MergeSort(T* array, size_t nelems, T* scratch, Comparator c)
-{
+template <typename T, typename Comparator>
+MOZ_MUST_USE bool MergeSort(T* array, size_t nelems, T* scratch, Comparator c) {
     const size_t INS_SORT_LIMIT = 3;
 
-    if (nelems <= 1)
-        return true;
+    if (nelems <= 1) return true;
 
     /*
      * Apply insertion sort to small chunks to reduce the number of merge
@@ -92,20 +84,16 @@ MergeSort(T* array, size_t nelems, T* scratch, Comparator c)
      */
     for (size_t lo = 0; lo < nelems; lo += INS_SORT_LIMIT) {
         size_t hi = lo + INS_SORT_LIMIT;
-        if (hi >= nelems)
-            hi = nelems;
+        if (hi >= nelems) hi = nelems;
         for (size_t i = lo + 1; i != hi; i++) {
-            for (size_t j = i; ;) {
+            for (size_t j = i;;) {
                 bool lessOrEqual;
-                if (!c(array[j - 1], array[j], &lessOrEqual))
-                    return false;
-                if (lessOrEqual)
-                    break;
+                if (!c(array[j - 1], array[j], &lessOrEqual)) return false;
+                if (lessOrEqual) break;
                 T tmp = array[j - 1];
                 array[j - 1] = array[j];
                 array[j] = tmp;
-                if (--j == lo)
-                    break;
+                if (--j == lo) break;
             }
         }
     }
@@ -120,15 +108,13 @@ MergeSort(T* array, size_t nelems, T* scratch, Comparator c)
                 break;
             }
             size_t run2 = (run <= nelems - hi) ? run : nelems - hi;
-            if (!detail::MergeArrayRuns(vec2 + lo, vec1 + lo, run, run2, c))
-                return false;
+            if (!detail::MergeArrayRuns(vec2 + lo, vec1 + lo, run, run2, c)) return false;
         }
         T* swap = vec1;
         vec1 = vec2;
         vec2 = swap;
     }
-    if (vec1 == scratch)
-        detail::CopyNonEmptyArray(array, scratch, nelems);
+    if (vec1 == scratch) detail::CopyNonEmptyArray(array, scratch, nelems);
     return true;
 }
 

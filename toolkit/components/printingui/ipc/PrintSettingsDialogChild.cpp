@@ -9,8 +9,7 @@ using mozilla::Unused;
 namespace mozilla {
 namespace embedding {
 
-PrintSettingsDialogChild::PrintSettingsDialogChild()
-: mReturned(false)
+PrintSettingsDialogChild::PrintSettingsDialogChild() : mReturned(false)
 {
   MOZ_COUNT_CTOR(PrintSettingsDialogChild);
 }
@@ -34,5 +33,5 @@ PrintSettingsDialogChild::Recv__delete__(const PrintDataOrNSResult& aData)
   return IPC_OK();
 }
 
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla

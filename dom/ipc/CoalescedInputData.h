@@ -16,18 +16,15 @@ namespace dom {
 template<class InputEventType>
 class CoalescedInputData
 {
-protected:
+ protected:
   typedef mozilla::layers::ScrollableLayerGuid ScrollableLayerGuid;
 
   UniquePtr<InputEventType> mCoalescedInputEvent;
   ScrollableLayerGuid mGuid;
   uint64_t mInputBlockId;
 
-public:
-  CoalescedInputData()
-    : mInputBlockId(0)
-  {
-  }
+ public:
+  CoalescedInputData() : mInputBlockId(0) {}
 
   void RetrieveDataFrom(CoalescedInputData& aSource)
   {
@@ -36,10 +33,7 @@ public:
     mInputBlockId = aSource.mInputBlockId;
   }
 
-  bool IsEmpty()
-  {
-    return !mCoalescedInputEvent;
-  }
+  bool IsEmpty() { return !mCoalescedInputEvent; }
 
   bool CanCoalesce(const InputEventType& aEvent,
                    const ScrollableLayerGuid& aGuid,
@@ -50,18 +44,12 @@ public:
     return Move(mCoalescedInputEvent);
   }
 
-  ScrollableLayerGuid GetScrollableLayerGuid()
-  {
-    return mGuid;
-  }
+  ScrollableLayerGuid GetScrollableLayerGuid() { return mGuid; }
 
-  uint64_t GetInputBlockId()
-  {
-    return mInputBlockId;
-  }
+  uint64_t GetInputBlockId() { return mInputBlockId; }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CoalescedInputData_h
+#endif  // mozilla_dom_CoalescedInputData_h

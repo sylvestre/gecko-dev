@@ -29,11 +29,8 @@ class LIRGenerator;
 //
 // - Populate safepoints with live registers, GC thing and value data, to
 //   streamline the process of prototyping new allocators.
-struct AllocationIntegrityState
-{
-    explicit AllocationIntegrityState(LIRGraph& graph)
-      : graph(graph)
-    {}
+struct AllocationIntegrityState {
+    explicit AllocationIntegrityState(LIRGraph& graph) : graph(graph) {}
 
     // Record all virtual registers in the graph. This must be called before
     // register allocation, to pick up the original LUses.
@@ -45,8 +42,7 @@ struct AllocationIntegrityState
     // safepoints will be filled in with liveness information.
     MOZ_MUST_USE bool check(bool populateSafepoints);
 
-  private:
-
+   private:
     LIRGraph& graph;
 
     // For all instructions and phis in the graph, keep track of the virtual
@@ -60,16 +56,12 @@ struct AllocationIntegrityState
         Vector<LDefinition, 0, SystemAllocPolicy> temps;
         Vector<LDefinition, 1, SystemAllocPolicy> outputs;
 
-        InstructionInfo()
-        { }
+        InstructionInfo() {}
 
-        InstructionInfo(const InstructionInfo& o)
-        {
+        InstructionInfo(const InstructionInfo& o) {
             AutoEnterOOMUnsafeRegion oomUnsafe;
-            if (!inputs.appendAll(o.inputs) ||
-                !temps.appendAll(o.temps) ||
-                !outputs.appendAll(o.outputs))
-            {
+            if (!inputs.appendAll(o.inputs) || !temps.appendAll(o.temps) ||
+                !outputs.appendAll(o.outputs)) {
                 oomUnsafe.crash("InstructionInfo::InstructionInfo");
             }
         }
@@ -81,8 +73,7 @@ struct AllocationIntegrityState
         BlockInfo() {}
         BlockInfo(const BlockInfo& o) {
             AutoEnterOOMUnsafeRegion oomUnsafe;
-            if (!phis.appendAll(o.phis))
-                oomUnsafe.crash("BlockInfo::BlockInfo");
+            if (!phis.appendAll(o.phis)) oomUnsafe.crash("BlockInfo::BlockInfo");
         }
     };
     Vector<BlockInfo, 0, SystemAllocPolicy> blocks;
@@ -92,8 +83,7 @@ struct AllocationIntegrityState
     // Describes a correspondence that should hold at the end of a block.
     // The value which was written to vreg in the original LIR should be
     // physically stored in alloc after the register allocation.
-    struct IntegrityItem
-    {
+    struct IntegrityItem {
         LBlock* block;
         uint32_t vreg;
         LAllocation alloc;
@@ -109,9 +99,7 @@ struct AllocationIntegrityState
             return hash;
         }
         static bool match(const IntegrityItem& one, const IntegrityItem& two) {
-            return one.block == two.block
-                && one.vreg == two.vreg
-                && one.alloc == two.alloc;
+            return one.block == two.block && one.vreg == two.vreg && one.alloc == two.alloc;
         }
     };
 
@@ -141,30 +129,23 @@ struct AllocationIntegrityState
 // This class solves this issue by associating an extra bit with the instruction
 // ID which indicates whether the position is the input half or output half of
 // an instruction.
-class CodePosition
-{
-  private:
-    constexpr explicit CodePosition(uint32_t bits)
-      : bits_(bits)
-    { }
+class CodePosition {
+   private:
+    constexpr explicit CodePosition(uint32_t bits) : bits_(bits) {}
 
     static const unsigned int INSTRUCTION_SHIFT = 1;
     static const unsigned int SUBPOSITION_MASK = 1;
     uint32_t bits_;
 
-  public:
+   public:
     static const CodePosition MAX;
     static const CodePosition MIN;
 
     // This is the half of the instruction this code position represents, as
     // described in the huge comment above.
-    enum SubPosition {
-        INPUT,
-        OUTPUT
-    };
+    enum SubPosition { INPUT, OUTPUT };
 
-    constexpr CodePosition() : bits_(0)
-    { }
+    constexpr CodePosition() : bits_(0) {}
 
     CodePosition(uint32_t instruction, SubPosition where) {
         MOZ_ASSERT(instruction < 0x80000000u);
@@ -172,43 +153,25 @@ class CodePosition
         bits_ = (instruction << INSTRUCTION_SHIFT) | (uint32_t)where;
     }
 
-    uint32_t ins() const {
-        return bits_ >> INSTRUCTION_SHIFT;
-    }
+    uint32_t ins() const { return bits_ >> INSTRUCTION_SHIFT; }
 
-    uint32_t bits() const {
-        return bits_;
-    }
+    uint32_t bits() const { return bits_; }
 
-    SubPosition subpos() const {
-        return (SubPosition)(bits_ & SUBPOSITION_MASK);
-    }
+    SubPosition subpos() const { return (SubPosition)(bits_ & SUBPOSITION_MASK); }
 
-    bool operator <(CodePosition other) const {
-        return bits_ < other.bits_;
-    }
+    bool operator<(CodePosition other) const { return bits_ < other.bits_; }
 
-    bool operator <=(CodePosition other) const {
-        return bits_ <= other.bits_;
-    }
+    bool operator<=(CodePosition other) const { return bits_ <= other.bits_; }
 
-    bool operator !=(CodePosition other) const {
-        return bits_ != other.bits_;
-    }
+    bool operator!=(CodePosition other) const { return bits_ != other.bits_; }
 
-    bool operator ==(CodePosition other) const {
-        return bits_ == other.bits_;
-    }
+    bool operator==(CodePosition other) const { return bits_ == other.bits_; }
 
-    bool operator >(CodePosition other) const {
-        return bits_ > other.bits_;
-    }
+    bool operator>(CodePosition other) const { return bits_ > other.bits_; }
 
-    bool operator >=(CodePosition other) const {
-        return bits_ >= other.bits_;
-    }
+    bool operator>=(CodePosition other) const { return bits_ >= other.bits_; }
 
-    uint32_t operator -(CodePosition other) const {
+    uint32_t operator-(CodePosition other) const {
         MOZ_ASSERT(bits_ >= other.bits_);
         return bits_ - other.bits_;
     }
@@ -224,43 +187,30 @@ class CodePosition
 };
 
 // Structure to track all moves inserted next to instructions in a graph.
-class InstructionDataMap
-{
+class InstructionDataMap {
     FixedList<LNode*> insData_;
 
-  public:
-    InstructionDataMap()
-      : insData_()
-    { }
+   public:
+    InstructionDataMap() : insData_() {}
 
     MOZ_MUST_USE bool init(MIRGenerator* gen, uint32_t numInstructions) {
-        if (!insData_.init(gen->alloc(), numInstructions))
-            return false;
+        if (!insData_.init(gen->alloc(), numInstructions)) return false;
         memset(&insData_[0], 0, sizeof(LNode*) * numInstructions);
         return true;
     }
 
-    LNode*& operator[](CodePosition pos) {
-        return operator[](pos.ins());
-    }
-    LNode* const& operator[](CodePosition pos) const {
-        return operator[](pos.ins());
-    }
-    LNode*& operator[](uint32_t ins) {
-        return insData_[ins];
-    }
-    LNode* const& operator[](uint32_t ins) const {
-        return insData_[ins];
-    }
+    LNode*& operator[](CodePosition pos) { return operator[](pos.ins()); }
+    LNode* const& operator[](CodePosition pos) const { return operator[](pos.ins()); }
+    LNode*& operator[](uint32_t ins) { return insData_[ins]; }
+    LNode* const& operator[](uint32_t ins) const { return insData_[ins]; }
 };
 
 // Common superclass for register allocators.
-class RegisterAllocator
-{
+class RegisterAllocator {
     void operator=(const RegisterAllocator&) = delete;
     RegisterAllocator(const RegisterAllocator&) = delete;
 
-  protected:
+   protected:
     // Context
     MIRGenerator* mir;
     LIRGenerator* lir;
@@ -275,14 +225,10 @@ class RegisterAllocator
     Vector<CodePosition, 12, SystemAllocPolicy> exitPositions;
 
     RegisterAllocator(MIRGenerator* mir, LIRGenerator* lir, LIRGraph& graph)
-      : mir(mir),
-        lir(lir),
-        graph(graph),
-        allRegisters_(RegisterSet::All())
-    {
+        : mir(mir), lir(lir), graph(graph), allRegisters_(RegisterSet::All()) {
         if (mir->compilingWasm()) {
-#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_ARM) || \
-    defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_MIPS32) || \
+    defined(JS_CODEGEN_MIPS64)
             allRegisters_.take(AnyRegister(HeapReg));
 #elif defined(JS_CODEGEN_ARM64)
             allRegisters_.take(AnyRegister(HeapReg));
@@ -291,22 +237,17 @@ class RegisterAllocator
             allRegisters_.take(FramePointer);
         } else {
 #if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_ARM64)
-            if (mir->instrumentedProfiling())
-                allRegisters_.take(AnyRegister(FramePointer));
+            if (mir->instrumentedProfiling()) allRegisters_.take(AnyRegister(FramePointer));
 #endif
         }
     }
 
     MOZ_MUST_USE bool init();
 
-    TempAllocator& alloc() const {
-        return mir->alloc();
-    }
+    TempAllocator& alloc() const { return mir->alloc(); }
 
     CodePosition outputOf(const LNode* ins) const {
-        return ins->isPhi()
-               ? outputOf(ins->toPhi())
-               : outputOf(ins->toInstruction());
+        return ins->isPhi() ? outputOf(ins->toPhi()) : outputOf(ins->toInstruction());
     }
     CodePosition outputOf(const LPhi* ins) const {
         // All phis in a block write their outputs after all of them have
@@ -319,9 +260,7 @@ class RegisterAllocator
         return CodePosition(ins->id(), CodePosition::OUTPUT);
     }
     CodePosition inputOf(const LNode* ins) const {
-        return ins->isPhi()
-               ? inputOf(ins->toPhi())
-               : inputOf(ins->toInstruction());
+        return ins->isPhi() ? inputOf(ins->toPhi()) : inputOf(ins->toInstruction());
     }
     CodePosition inputOf(const LPhi* ins) const {
         // All phis in a block read their inputs before any of them write their
@@ -332,12 +271,8 @@ class RegisterAllocator
     CodePosition inputOf(const LInstruction* ins) const {
         return CodePosition(ins->id(), CodePosition::INPUT);
     }
-    CodePosition entryOf(const LBlock* block) {
-        return entryPositions[block->mir()->id()];
-    }
-    CodePosition exitOf(const LBlock* block) {
-        return exitPositions[block->mir()->id()];
-    }
+    CodePosition entryOf(const LBlock* block) { return entryPositions[block->mir()->id()]; }
+    CodePosition exitOf(const LBlock* block) { return exitPositions[block->mir()->id()]; }
 
     LMoveGroup* getInputMoveGroup(LInstruction* ins);
     LMoveGroup* getFixReuseMoveGroup(LInstruction* ins);
@@ -350,8 +285,7 @@ class RegisterAllocator
         // safepoint information for the instruction may be incorrect.
         while (true) {
             LNode* next = insData[ins->id() + 1];
-            if (!next->isOsiPoint())
-                break;
+            if (!next->isOsiPoint()) break;
             ins = next;
         }
 
@@ -361,15 +295,12 @@ class RegisterAllocator
     void dumpInstructions();
 };
 
-static inline AnyRegister
-GetFixedRegister(const LDefinition* def, const LUse* use)
-{
-    return def->isFloatReg()
-           ? AnyRegister(FloatRegister::FromCode(use->registerCode()))
-           : AnyRegister(Register::FromCode(use->registerCode()));
+static inline AnyRegister GetFixedRegister(const LDefinition* def, const LUse* use) {
+    return def->isFloatReg() ? AnyRegister(FloatRegister::FromCode(use->registerCode()))
+                             : AnyRegister(Register::FromCode(use->registerCode()));
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_RegisterAllocator_h */

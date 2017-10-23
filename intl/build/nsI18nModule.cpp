@@ -42,41 +42,52 @@ NS_DEFINE_NAMED_CID(NS_PLATFORMCHARSET_CID);
 NS_DEFINE_NAMED_CID(NS_COLLATION_CID);
 
 static const mozilla::Module::CIDEntry kIntlCIDs[] = {
-    { &kMOZ_LOCALESERVICE_CID, false, nullptr, mozilla::intl::LocaleServiceConstructor },
-    { &kMOZ_OSPREFERENCES_CID, false, nullptr, mozilla::intl::OSPreferencesConstructor },
-    { &kNS_LBRK_CID, false, nullptr, nsJISx4051LineBreakerConstructor },
-    { &kNS_WBRK_CID, false, nullptr, nsSampleWordBreakerConstructor },
-    { &kNS_UNICODE_NORMALIZER_CID, false, nullptr, nsUnicodeNormalizerConstructor },
-    { &kNS_STRINGBUNDLESERVICE_CID, false, nullptr, nsStringBundleServiceConstructor },
-    { &kNS_STRINGBUNDLETEXTOVERRIDE_CID, false, nullptr, nsStringBundleTextOverrideConstructor },
-    { &kNS_COLLATIONFACTORY_CID, false, nullptr, nsCollationFactoryConstructor },
-    { &kNS_PLATFORMCHARSET_CID, false, nullptr, nsPlatformCharsetConstructor },
-    { &kNS_COLLATION_CID, false, nullptr, nsCollationConstructor },
-    { nullptr }
-};
+    {&kMOZ_LOCALESERVICE_CID,
+     false,
+     nullptr,
+     mozilla::intl::LocaleServiceConstructor},
+    {&kMOZ_OSPREFERENCES_CID,
+     false,
+     nullptr,
+     mozilla::intl::OSPreferencesConstructor},
+    {&kNS_LBRK_CID, false, nullptr, nsJISx4051LineBreakerConstructor},
+    {&kNS_WBRK_CID, false, nullptr, nsSampleWordBreakerConstructor},
+    {&kNS_UNICODE_NORMALIZER_CID,
+     false,
+     nullptr,
+     nsUnicodeNormalizerConstructor},
+    {&kNS_STRINGBUNDLESERVICE_CID,
+     false,
+     nullptr,
+     nsStringBundleServiceConstructor},
+    {&kNS_STRINGBUNDLETEXTOVERRIDE_CID,
+     false,
+     nullptr,
+     nsStringBundleTextOverrideConstructor},
+    {&kNS_COLLATIONFACTORY_CID, false, nullptr, nsCollationFactoryConstructor},
+    {&kNS_PLATFORMCHARSET_CID, false, nullptr, nsPlatformCharsetConstructor},
+    {&kNS_COLLATION_CID, false, nullptr, nsCollationConstructor},
+    {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kIntlContracts[] = {
-    { MOZ_LOCALESERVICE_CONTRACTID, &kMOZ_LOCALESERVICE_CID },
-    { MOZ_OSPREFERENCES_CONTRACTID, &kMOZ_OSPREFERENCES_CID },
-    { NS_LBRK_CONTRACTID, &kNS_LBRK_CID },
-    { NS_WBRK_CONTRACTID, &kNS_WBRK_CID },
-    { NS_UNICODE_NORMALIZER_CONTRACTID, &kNS_UNICODE_NORMALIZER_CID },
-    { NS_STRINGBUNDLE_CONTRACTID, &kNS_STRINGBUNDLESERVICE_CID },
-    { NS_STRINGBUNDLETEXTOVERRIDE_CONTRACTID, &kNS_STRINGBUNDLETEXTOVERRIDE_CID },
-    { NS_COLLATIONFACTORY_CONTRACTID, &kNS_COLLATIONFACTORY_CID },
-    { NS_PLATFORMCHARSET_CONTRACTID, &kNS_PLATFORMCHARSET_CID },
-    { NS_COLLATION_CONTRACTID, &kNS_COLLATION_CID },
-    { nullptr }
-};
+    {MOZ_LOCALESERVICE_CONTRACTID, &kMOZ_LOCALESERVICE_CID},
+    {MOZ_OSPREFERENCES_CONTRACTID, &kMOZ_OSPREFERENCES_CID},
+    {NS_LBRK_CONTRACTID, &kNS_LBRK_CID},
+    {NS_WBRK_CONTRACTID, &kNS_WBRK_CID},
+    {NS_UNICODE_NORMALIZER_CONTRACTID, &kNS_UNICODE_NORMALIZER_CID},
+    {NS_STRINGBUNDLE_CONTRACTID, &kNS_STRINGBUNDLESERVICE_CID},
+    {NS_STRINGBUNDLETEXTOVERRIDE_CONTRACTID, &kNS_STRINGBUNDLETEXTOVERRIDE_CID},
+    {NS_COLLATIONFACTORY_CONTRACTID, &kNS_COLLATIONFACTORY_CID},
+    {NS_PLATFORMCHARSET_CONTRACTID, &kNS_PLATFORMCHARSET_CID},
+    {NS_COLLATION_CONTRACTID, &kNS_COLLATION_CID},
+    {nullptr}};
 
-static const mozilla::Module kIntlModule = {
-    mozilla::Module::kVersion,
-    kIntlCIDs,
-    kIntlContracts,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr
-};
+static const mozilla::Module kIntlModule = {mozilla::Module::kVersion,
+                                            kIntlCIDs,
+                                            kIntlContracts,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr};
 
 NSMODULE_DEFN(nsI18nModule) = &kIntlModule;

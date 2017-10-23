@@ -36,40 +36,40 @@ do_GetService(const char* aContractID, nsresult* aError)
 
 class MOZ_STACK_CLASS nsGetServiceFromCategory final : public nsCOMPtr_helper
 {
-public:
-  nsGetServiceFromCategory(const char* aCategory, const char* aEntry,
+ public:
+  nsGetServiceFromCategory(const char* aCategory,
+                           const char* aEntry,
                            nsresult* aErrorPtr)
-    : mCategory(aCategory)
-    , mEntry(aEntry)
-    , mErrorPtr(aErrorPtr)
+      : mCategory(aCategory), mEntry(aEntry), mErrorPtr(aErrorPtr)
   {
   }
 
-  virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const
-    override;
-protected:
-  const char*                 mCategory;
-  const char*                 mEntry;
-  nsresult*                   mErrorPtr;
+  virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
+
+ protected:
+  const char* mCategory;
+  const char* mEntry;
+  nsresult* mErrorPtr;
 };
 
 inline const nsGetServiceFromCategory
-do_GetServiceFromCategory(const char* aCategory, const char* aEntry,
+do_GetServiceFromCategory(const char* aCategory,
+                          const char* aEntry,
                           nsresult* aError = 0)
 {
   return nsGetServiceFromCategory(aCategory, aEntry, aError);
 }
 
-nsresult CallGetService(const nsCID& aClass, const nsIID& aIID, void** aResult);
+nsresult
+CallGetService(const nsCID& aClass, const nsIID& aIID, void** aResult);
 
-nsresult CallGetService(const char* aContractID, const nsIID& aIID,
-                        void** aResult);
+nsresult
+CallGetService(const char* aContractID, const nsIID& aIID, void** aResult);
 
 // type-safe shortcuts for calling |GetService|
 template<class DestinationType>
 inline nsresult
-CallGetService(const nsCID& aClass,
-               DestinationType** aDestination)
+CallGetService(const nsCID& aClass, DestinationType** aDestination)
 {
   NS_PRECONDITION(aDestination, "null parameter");
 
@@ -80,8 +80,7 @@ CallGetService(const nsCID& aClass,
 
 template<class DestinationType>
 inline nsresult
-CallGetService(const char* aContractID,
-               DestinationType** aDestination)
+CallGetService(const char* aContractID, DestinationType** aDestination)
 {
   NS_PRECONDITION(aContractID, "null parameter");
   NS_PRECONDITION(aDestination, "null parameter");

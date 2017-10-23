@@ -22,7 +22,9 @@
 
 namespace mozilla {
 
-struct Nothing { };
+struct Nothing
+{
+};
 
 /*
  * Maybe is a container class which contains either zero or one elements. It
@@ -86,23 +88,22 @@ template<class T>
 class MOZ_NON_PARAM MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS Maybe
 {
   MOZ_ALIGNAS_IN_STRUCT(T) unsigned char mStorage[sizeof(T)];
-  char mIsSome; // not bool -- guarantees minimal space consumption
+  char mIsSome;  // not bool -- guarantees minimal space consumption
 
   // GCC fails due to -Werror=strict-aliasing if |mStorage| is directly cast to
   // T*.  Indirecting through these functions addresses the problem.
   void* data() { return mStorage; }
   const void* data() const { return mStorage; }
 
-public:
+ public:
   using ValueType = T;
 
-  Maybe() : mIsSome(false) { }
+  Maybe() : mIsSome(false) {}
   ~Maybe() { reset(); }
 
-  MOZ_IMPLICIT Maybe(Nothing) : mIsSome(false) { }
+  MOZ_IMPLICIT Maybe(Nothing) : mIsSome(false) {}
 
-  Maybe(const Maybe& aOther)
-    : mIsSome(false)
+  Maybe(const Maybe& aOther) : mIsSome(false)
   {
     if (aOther.mIsSome) {
       emplace(*aOther);
@@ -114,18 +115,15 @@ public:
    */
   template<typename U,
            typename =
-             typename std::enable_if<std::is_convertible<U, T>::value>::type>
-  MOZ_IMPLICIT
-  Maybe(const Maybe<U>& aOther)
-    : mIsSome(false)
+               typename std::enable_if<std::is_convertible<U, T>::value>::type>
+  MOZ_IMPLICIT Maybe(const Maybe<U>& aOther) : mIsSome(false)
   {
     if (aOther.isSome()) {
       emplace(*aOther);
     }
   }
 
-  Maybe(Maybe&& aOther)
-    : mIsSome(false)
+  Maybe(Maybe&& aOther) : mIsSome(false)
   {
     if (aOther.mIsSome) {
       emplace(Move(*aOther));
@@ -138,10 +136,8 @@ public:
    */
   template<typename U,
            typename =
-             typename std::enable_if<std::is_convertible<U, T>::value>::type>
-  MOZ_IMPLICIT
-  Maybe(Maybe<U>&& aOther)
-    : mIsSome(false)
+               typename std::enable_if<std::is_convertible<U, T>::value>::type>
+  MOZ_IMPLICIT Maybe(Maybe<U>&& aOther) : mIsSome(false)
   {
     if (aOther.isSome()) {
       emplace(Move(*aOther));
@@ -167,7 +163,7 @@ public:
 
   template<typename U,
            typename =
-             typename std::enable_if<std::is_convertible<U, T>::value>::type>
+               typename std::enable_if<std::is_convertible<U, T>::value>::type>
   Maybe& operator=(const Maybe<U>& aOther)
   {
     if (aOther.isSome()) {
@@ -202,7 +198,7 @@ public:
 
   template<typename U,
            typename =
-             typename std::enable_if<std::is_convertible<U, T>::value>::type>
+               typename std::enable_if<std::is_convertible<U, T>::value>::type>
   Maybe& operator=(Maybe<U>&& aOther)
   {
     if (aOther.isSome()) {
@@ -428,7 +424,8 @@ public:
   }
 
   template<typename Func>
-  auto map(Func aFunc) const -> Maybe<decltype(aFunc(DeclVal<Maybe<T>>().ref()))>
+  auto map(Func aFunc) const
+      -> Maybe<decltype(aFunc(DeclVal<Maybe<T>>().ref()))>
   {
     using ReturnType = decltype(aFunc(ref()));
     if (isSome()) {
@@ -460,8 +457,7 @@ public:
     mIsSome = true;
   }
 
-  friend std::ostream&
-  operator<<(std::ostream& aStream, const Maybe<T>& aMaybe)
+  friend std::ostream& operator<<(std::ostream& aStream, const Maybe<T>& aMaybe)
   {
     if (aMaybe) {
       aStream << aMaybe.ref();
@@ -484,7 +480,7 @@ public:
  */
 template<typename T,
          typename U = typename std::remove_cv<
-           typename std::remove_reference<T>::type>::type>
+             typename std::remove_reference<T>::type>::type>
 Maybe<U>
 Some(T&& aValue)
 {
@@ -508,7 +504,8 @@ ToMaybe(T* aPtr)
  * - both are Nothing, or
  * - both are Some, and the values they contain are equal.
  */
-template<typename T> bool
+template<typename T>
+bool
 operator==(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
 {
   if (aLHS.isNothing() != aRHS.isNothing()) {
@@ -517,7 +514,8 @@ operator==(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
   return aLHS.isNothing() || *aLHS == *aRHS;
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator!=(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
 {
   return !(aLHS == aRHS);
@@ -527,25 +525,29 @@ operator!=(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
  * We support comparison to Nothing to allow reasonable expressions like:
  *   if (maybeValue == Nothing()) { ... }
  */
-template<typename T> bool
+template<typename T>
+bool
 operator==(const Maybe<T>& aLHS, const Nothing& aRHS)
 {
   return aLHS.isNothing();
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator!=(const Maybe<T>& aLHS, const Nothing& aRHS)
 {
   return !(aLHS == aRHS);
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator==(const Nothing& aLHS, const Maybe<T>& aRHS)
 {
   return aRHS.isNothing();
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator!=(const Nothing& aLHS, const Maybe<T>& aRHS)
 {
   return !(aLHS == aRHS);
@@ -555,7 +557,8 @@ operator!=(const Nothing& aLHS, const Maybe<T>& aRHS)
  * Maybe<T> values are ordered in the same way T values are ordered, except that
  * Nothing comes before anything else.
  */
-template<typename T> bool
+template<typename T>
+bool
 operator<(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
 {
   if (aLHS.isNothing()) {
@@ -567,24 +570,27 @@ operator<(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
   return *aLHS < *aRHS;
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator>(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
 {
   return !(aLHS < aRHS || aLHS == aRHS);
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator<=(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
 {
   return aLHS < aRHS || aLHS == aRHS;
 }
 
-template<typename T> bool
+template<typename T>
+bool
 operator>=(const Maybe<T>& aLHS, const Maybe<T>& aRHS)
 {
   return !(aLHS < aRHS);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_Maybe_h */

@@ -15,22 +15,22 @@
 #include "nsReadableUtils.h"
 #include "nsIInputStream.h"
 #include "nsIFile.h"
-#include "nsUTF8Utils.h" // for LossyConvertEncoding
+#include "nsUTF8Utils.h"  // for LossyConvertEncoding
 #include "nsCRT.h"
 #include "nsParser.h"
 #include "nsCharsetSource.h"
 
-nsReadEndCondition::nsReadEndCondition(const char16_t* aTerminateChars) :
-  mChars(aTerminateChars), mFilter(char16_t(~0)) // All bits set
+nsReadEndCondition::nsReadEndCondition(const char16_t* aTerminateChars)
+    : mChars(aTerminateChars), mFilter(char16_t(~0))  // All bits set
 {
   // Build filter that will be used to filter out characters with
   // bits that none of the terminal chars have. This works very well
   // because terminal chars often have only the last 4-6 bits set and
   // normal ascii letters have bit 7 set. Other letters have even higher
   // bits set.
-  
+
   // Calculate filter
-  const char16_t *current = aTerminateChars;
+  const char16_t* current = aTerminateChars;
   char16_t terminalChar = *current;
   while (terminalChar) {
     mFilter &= ~terminalChar;
@@ -72,7 +72,7 @@ nsScanner::nsScanner(const nsAString& anHTMLString)
  *  can still provide data to the scanner via append.
  */
 nsScanner::nsScanner(nsString& aFilename, bool aCreateStream)
-  : mFilename(aFilename)
+    : mFilename(aFilename)
 {
   MOZ_COUNT_CTOR(nsScanner);
   NS_ASSERTION(!aCreateStream, "This is always true.");
@@ -96,17 +96,18 @@ nsScanner::nsScanner(nsString& aFilename, bool aCreateStream)
   SetDocumentCharset(UTF_8_ENCODING, kCharsetFromDocTypeDefault);
 }
 
-nsresult nsScanner::SetDocumentCharset(NotNull<const Encoding*> aEncoding,
-                                       int32_t aSource)
+nsresult
+nsScanner::SetDocumentCharset(NotNull<const Encoding*> aEncoding,
+                              int32_t aSource)
 {
-  if (aSource < mCharsetSource) // priority is lower than the current one
+  if (aSource < mCharsetSource)  // priority is lower than the current one
     return NS_OK;
 
   mCharsetSource = aSource;
   nsCString charsetName;
   aEncoding->Name(charsetName);
   if (!mCharset.IsEmpty() && charsetName.Equals(mCharset)) {
-    return NS_OK; // no difference, don't change it
+    return NS_OK;  // no difference, don't change it
   }
 
   // different, need to change it
@@ -118,7 +119,6 @@ nsresult nsScanner::SetDocumentCharset(NotNull<const Encoding*> aEncoding,
   return NS_OK;
 }
 
-
 /**
  *  default destructor
  *  
@@ -126,8 +126,8 @@ nsresult nsScanner::SetDocumentCharset(NotNull<const Encoding*> aEncoding,
  *  @param   
  *  @return  
  */
-nsScanner::~nsScanner() {
-
+nsScanner::~nsScanner()
+{
   delete mSlidingBuffer;
 
   MOZ_COUNT_DTOR(nsScanner);
@@ -143,12 +143,13 @@ nsScanner::~nsScanner() {
  *  @param   
  *  @return  
  */
-void nsScanner::RewindToMark(void){
+void
+nsScanner::RewindToMark(void)
+{
   if (mSlidingBuffer) {
     mCurrentPosition = mMarkPosition;
   }
 }
-
 
 /**
  *  Records current offset position in input stream. This allows us
@@ -159,7 +160,9 @@ void nsScanner::RewindToMark(void){
  *  @param   
  *  @return  
  */
-int32_t nsScanner::Mark() {
+int32_t
+nsScanner::Mark()
+{
   int32_t distance = 0;
   if (mSlidingBuffer) {
     nsScannerIterator oldStart;
@@ -182,15 +185,18 @@ int32_t nsScanner::Mark() {
  * @update  harishd 01/12/99
  * @return  error code 
  */
-bool nsScanner::UngetReadable(const nsAString& aBuffer) {
+bool
+nsScanner::UngetReadable(const nsAString& aBuffer)
+{
   if (!mSlidingBuffer) {
     return false;
   }
 
-  mSlidingBuffer->UngetReadable(aBuffer,mCurrentPosition);
-  mSlidingBuffer->BeginReading(mCurrentPosition); // Insertion invalidated our iterators
+  mSlidingBuffer->UngetReadable(aBuffer, mCurrentPosition);
+  mSlidingBuffer->BeginReading(
+      mCurrentPosition);  // Insertion invalidated our iterators
   mSlidingBuffer->EndReading(mEndPosition);
- 
+
   return true;
 }
 
@@ -201,9 +207,10 @@ bool nsScanner::UngetReadable(const nsAString& aBuffer) {
  * @update  gess4/3/98
  * @return  error code 
  */
-nsresult nsScanner::Append(const nsAString& aBuffer) {
-  if (!AppendToBuffer(aBuffer))
-    return NS_ERROR_OUT_OF_MEMORY;
+nsresult
+nsScanner::Append(const nsAString& aBuffer)
+{
+  if (!AppendToBuffer(aBuffer)) return NS_ERROR_OUT_OF_MEMORY;
   return NS_OK;
 }
 
@@ -214,7 +221,8 @@ nsresult nsScanner::Append(const nsAString& aBuffer) {
  *  @param   
  *  @return  
  */
-nsresult nsScanner::Append(const char* aBuffer, uint32_t aLen)
+nsresult
+nsScanner::Append(const char* aBuffer, uint32_t aLen)
 {
   nsresult res = NS_OK;
   if (mUnicodeDecoder) {
@@ -222,24 +230,24 @@ nsresult nsScanner::Append(const char* aBuffer, uint32_t aLen)
     if (!needed.isValid()) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
-    CheckedInt<uint32_t> allocLen(1); // null terminator due to legacy sadness
+    CheckedInt<uint32_t> allocLen(1);  // null terminator due to legacy sadness
     allocLen += needed.value();
     if (!allocLen.isValid()) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
     nsScannerString::Buffer* buffer =
-      nsScannerString::AllocBuffer(allocLen.value());
-    NS_ENSURE_TRUE(buffer,NS_ERROR_OUT_OF_MEMORY);
-    char16_t *unichars = buffer->DataStart();
+        nsScannerString::AllocBuffer(allocLen.value());
+    NS_ENSURE_TRUE(buffer, NS_ERROR_OUT_OF_MEMORY);
+    char16_t* unichars = buffer->DataStart();
 
     uint32_t result;
     size_t read;
     size_t written;
     Tie(result, read, written) =
-      mUnicodeDecoder->DecodeToUTF16WithoutReplacement(
-        AsBytes(MakeSpan(aBuffer, aLen)),
-        MakeSpan(unichars, needed.value()),
-        false); // Retain bug about failure to handle EOF
+        mUnicodeDecoder->DecodeToUTF16WithoutReplacement(
+            AsBytes(MakeSpan(aBuffer, aLen)),
+            MakeSpan(unichars, needed.value()),
+            false);  // Retain bug about failure to handle EOF
     MOZ_ASSERT(result != kOutputFull);
     MOZ_ASSERT(read <= aLen);
     MOZ_ASSERT(written <= needed.value());
@@ -254,11 +262,9 @@ nsresult nsScanner::Append(const char* aBuffer, uint32_t aLen)
     // Don't propagate return code of unicode decoder
     // since it doesn't reflect on our success or failure
     // - Ref. bug 87110
-    res = NS_OK; 
-    if (!AppendToBuffer(buffer))
-      res = NS_ERROR_OUT_OF_MEMORY;
-  }
-  else {
+    res = NS_OK;
+    if (!AppendToBuffer(buffer)) res = NS_ERROR_OUT_OF_MEMORY;
+  } else {
     NS_WARNING("No decoder found.");
     res = NS_ERROR_FAILURE;
   }
@@ -273,7 +279,9 @@ nsresult nsScanner::Append(const char* aBuffer, uint32_t aLen)
  *  @param   
  *  @return  error code reflecting read status
  */
-nsresult nsScanner::GetChar(char16_t& aChar) {
+nsresult
+nsScanner::GetChar(char16_t& aChar)
+{
   if (!mSlidingBuffer || mCurrentPosition == mEndPosition) {
     aChar = 0;
     return NS_ERROR_HTMLPARSER_EOF;
@@ -284,22 +292,28 @@ nsresult nsScanner::GetChar(char16_t& aChar) {
   return NS_OK;
 }
 
-void nsScanner::BindSubstring(nsScannerSubstring& aSubstring, const nsScannerIterator& aStart, const nsScannerIterator& aEnd)
+void
+nsScanner::BindSubstring(nsScannerSubstring& aSubstring,
+                         const nsScannerIterator& aStart,
+                         const nsScannerIterator& aEnd)
 {
   aSubstring.Rebind(*mSlidingBuffer, aStart, aEnd);
 }
 
-void nsScanner::CurrentPosition(nsScannerIterator& aPosition)
+void
+nsScanner::CurrentPosition(nsScannerIterator& aPosition)
 {
   aPosition = mCurrentPosition;
 }
 
-void nsScanner::EndReading(nsScannerIterator& aPosition)
+void
+nsScanner::EndReading(nsScannerIterator& aPosition)
 {
   aPosition = mEndPosition;
 }
- 
-void nsScanner::SetPosition(nsScannerIterator& aPosition, bool aTerminate)
+
+void
+nsScanner::SetPosition(nsScannerIterator& aPosition, bool aTerminate)
 {
   if (mSlidingBuffer) {
     mCurrentPosition = aPosition;
@@ -310,17 +324,16 @@ void nsScanner::SetPosition(nsScannerIterator& aPosition, bool aTerminate)
   }
 }
 
-bool nsScanner::AppendToBuffer(nsScannerString::Buffer* aBuf)
+bool
+nsScanner::AppendToBuffer(nsScannerString::Buffer* aBuf)
 {
   if (!mSlidingBuffer) {
     mSlidingBuffer = new nsScannerString(aBuf);
-    if (!mSlidingBuffer)
-      return false;
+    if (!mSlidingBuffer) return false;
     mSlidingBuffer->BeginReading(mCurrentPosition);
     mMarkPosition = mCurrentPosition;
     mSlidingBuffer->EndReading(mEndPosition);
-  }
-  else {
+  } else {
     mSlidingBuffer->AppendBuffer(aBuf);
     if (mCurrentPosition == mEndPosition) {
       mSlidingBuffer->BeginReading(mCurrentPosition);
@@ -339,7 +352,9 @@ bool nsScanner::AppendToBuffer(nsScannerString::Buffer* aBuf)
  *  @param   aCopyBuffer is where the scanner buffer will be copied to
  *  @return  true if OK or false on OOM
  */
-bool nsScanner::CopyUnusedData(nsString& aCopyBuffer) {
+bool
+nsScanner::CopyUnusedData(nsString& aCopyBuffer)
+{
   if (!mSlidingBuffer) {
     aCopyBuffer.Truncate();
     return true;
@@ -360,7 +375,9 @@ bool nsScanner::CopyUnusedData(nsString& aCopyBuffer) {
  *  @update  gess 5/12/98
  *  @return  
  */
-nsString& nsScanner::GetFilename(void) {
+nsString&
+nsScanner::GetFilename(void)
+{
   return mFilename;
 }
 
@@ -373,7 +390,9 @@ nsString& nsScanner::GetFilename(void) {
  *  @return  
  */
 
-void nsScanner::SelfTest(void) {
+void
+nsScanner::SelfTest(void)
+{
 #ifdef _DEBUG
 #endif
 }

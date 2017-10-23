@@ -35,11 +35,10 @@
 
 class ClearKeySessionManager final : public RefCounted
 {
-public:
+ public:
   explicit ClearKeySessionManager(cdm::Host_8* aHost);
 
-  void Init(bool aDistinctiveIdentifierAllowed,
-            bool aPersistentStateAllowed);
+  void Init(bool aDistinctiveIdentifierAllowed, bool aPersistentStateAllowed);
 
   void CreateSession(uint32_t aPromiseId,
                      cdm::InitDataType aInitDataType,
@@ -69,9 +68,8 @@ public:
                             const uint8_t* aServerCert,
                             uint32_t aServerCertSize);
 
-  cdm::Status
-  Decrypt(const cdm::InputBuffer& aBuffer,
-          cdm::DecryptedBlock* aDecryptedBlock);
+  cdm::Status Decrypt(const cdm::InputBuffer& aBuffer,
+                      cdm::DecryptedBlock* aDecryptedBlock);
 
   void DecryptingComplete();
 
@@ -80,7 +78,7 @@ public:
                                    const uint8_t* aKeyData,
                                    uint32_t aKeyDataSize);
 
-private:
+ private:
   ~ClearKeySessionManager();
 
   void ClearInMemorySessionData(ClearKeySession* aSession);
@@ -99,4 +97,4 @@ private:
   std::queue<std::function<void()>> mDeferredInitialize;
 };
 
-#endif // __ClearKeyDecryptor_h__
+#endif  // __ClearKeyDecryptor_h__

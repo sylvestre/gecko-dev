@@ -12,7 +12,9 @@
 
 using namespace mozilla;
 
-NS_IMPL_ISUPPORTS_INHERITED(nsPagePrintTimer, mozilla::Runnable, nsITimerCallback)
+NS_IMPL_ISUPPORTS_INHERITED(nsPagePrintTimer,
+                            mozilla::Runnable,
+                            nsITimerCallback)
 
 nsPagePrintTimer::~nsPagePrintTimer()
 {
@@ -38,9 +40,12 @@ nsPagePrintTimer::StartTimer(bool aUseDelay)
       delay = mDelay;
     }
   }
-  return NS_NewTimerWithCallback(getter_AddRefs(mTimer),
-                                 this, delay, nsITimer::TYPE_ONE_SHOT,
-                                 mDocument->EventTargetFor(TaskCategory::Other));
+  return NS_NewTimerWithCallback(
+      getter_AddRefs(mTimer),
+      this,
+      delay,
+      nsITimer::TYPE_ONE_SHOT,
+      mDocument->EventTargetFor(TaskCategory::Other));
 }
 
 nsresult
@@ -51,10 +56,12 @@ nsPagePrintTimer::StartWatchDogTimer()
   }
   // Instead of just doing one timer for a long period do multiple so we
   // can check if the user cancelled the printing.
-  return NS_NewTimerWithCallback(getter_AddRefs(mWatchDogTimer),
-                                 this, WATCH_DOG_INTERVAL,
-                                 nsITimer::TYPE_ONE_SHOT,
-                                 mDocument->EventTargetFor(TaskCategory::Other));
+  return NS_NewTimerWithCallback(
+      getter_AddRefs(mWatchDogTimer),
+      this,
+      WATCH_DOG_INTERVAL,
+      nsITimer::TYPE_ONE_SHOT,
+      mDocument->EventTargetFor(TaskCategory::Other));
 }
 
 void
@@ -95,7 +102,7 @@ nsPagePrintTimer::Run()
     ++mFiringCount;
     nsresult result = StartTimer(inRange);
     if (NS_FAILED(result)) {
-      mDone = true;     // had a failure.. we are finished..
+      mDone = true;  // had a failure.. we are finished..
       if (mPrintEngine) {
         mPrintEngine->SetIsPrinting(false);
       }
@@ -106,7 +113,7 @@ nsPagePrintTimer::Run()
 
 // nsITimerCallback
 NS_IMETHODIMP
-nsPagePrintTimer::Notify(nsITimer *timer)
+nsPagePrintTimer::Notify(nsITimer* timer)
 {
   // When finished there may be still pending notifications, which we can just
   // ignore.
@@ -158,11 +165,9 @@ nsPagePrintTimer::Notify(nsITimer *timer)
       // mozPrintCallbacks take to long we error out.
       StartWatchDogTimer();
     }
-
   }
   return NS_OK;
 }
-
 
 void
 nsPagePrintTimer::WaitForRemotePrint()
@@ -181,9 +186,9 @@ nsPagePrintTimer::RemotePrintFinished()
   }
 
   mWaitingForRemotePrint->SetTarget(
-    mDocument->EventTargetFor(mozilla::TaskCategory::Other));
-  mozilla::Unused <<
-    mWaitingForRemotePrint->InitWithCallback(this, 0, nsITimer::TYPE_ONE_SHOT);
+      mDocument->EventTargetFor(mozilla::TaskCategory::Other));
+  mozilla::Unused << mWaitingForRemotePrint->InitWithCallback(
+      this, 0, nsITimer::TYPE_ONE_SHOT);
 }
 
 nsresult
@@ -193,7 +198,6 @@ nsPagePrintTimer::Start(nsPrintObject* aPO)
   mDone = false;
   return StartTimer(false);
 }
-
 
 void
 nsPagePrintTimer::Stop()

@@ -19,7 +19,8 @@ namespace trace_event {
 // the tracker provides a snapshot of its context in the form of an
 // |AllocationContext| that is to be stored together with the allocation
 // details.
-class BASE_EXPORT AllocationContextTracker {
+class BASE_EXPORT AllocationContextTracker
+{
  public:
   static void SetCurrentThreadName(const char* name) {}
 

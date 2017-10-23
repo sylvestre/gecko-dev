@@ -10,7 +10,7 @@ namespace mozilla {
 namespace ipc {
 
 FileDescriptorSetChild::FileDescriptorSetChild(
-                                         const FileDescriptor& aFileDescriptor)
+    const FileDescriptor& aFileDescriptor)
 {
   mFileDescriptors.AppendElement(aFileDescriptor);
 }
@@ -22,7 +22,7 @@ FileDescriptorSetChild::~FileDescriptorSetChild()
 
 void
 FileDescriptorSetChild::ForgetFileDescriptors(
-                                    nsTArray<FileDescriptor>& aFileDescriptors)
+    nsTArray<FileDescriptor>& aFileDescriptors)
 {
   aFileDescriptors.Clear();
   mFileDescriptors.SwapElements(aFileDescriptors);
@@ -30,11 +30,11 @@ FileDescriptorSetChild::ForgetFileDescriptors(
 
 mozilla::ipc::IPCResult
 FileDescriptorSetChild::RecvAddFileDescriptor(
-                                         const FileDescriptor& aFileDescriptor)
+    const FileDescriptor& aFileDescriptor)
 {
   mFileDescriptors.AppendElement(aFileDescriptor);
   return IPC_OK();
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

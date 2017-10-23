@@ -28,7 +28,7 @@ class AlignmentFinder
     T mT;
   };
 
-public:
+ public:
   static const size_t alignment = sizeof(Aligner) - sizeof(T);
 };
 
@@ -40,7 +40,7 @@ struct AlignasHelper
 {
   T mT;
 };
-} // namespace detail
+}  // namespace detail
 
 /*
  * Use this instead of alignof to align struct field as if it is inside
@@ -65,14 +65,12 @@ struct AlignasHelper
  */
 
 #if defined(__GNUC__)
-#  define MOZ_ALIGNED_DECL(_type, _align) \
-     _type __attribute__((aligned(_align)))
+#define MOZ_ALIGNED_DECL(_type, _align) _type __attribute__((aligned(_align)))
 #elif defined(_MSC_VER)
-#  define MOZ_ALIGNED_DECL(_type, _align) \
-     __declspec(align(_align)) _type
+#define MOZ_ALIGNED_DECL(_type, _align) __declspec(align(_align)) _type
 #else
-#  warning "We don't know how to align variables on this compiler."
-#  define MOZ_ALIGNED_DECL(_type, _align) _type
+#warning "We don't know how to align variables on this compiler."
+#define MOZ_ALIGNED_DECL(_type, _align) _type
 #endif
 
 /*
@@ -122,8 +120,7 @@ struct AlignedElem<16>
 template<typename T>
 struct MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS AlignedStorage2
 {
-  union U
-  {
+  union U {
     char mBytes[sizeof(T)];
     uint64_t mDummy;
   } u;

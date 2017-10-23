@@ -17,14 +17,15 @@ class GamepadTestChannelChild final : public PGamepadTestChannelChild
   GamepadTestChannelChild() {}
   ~GamepadTestChannelChild() {}
   void AddPromise(const uint32_t& aID, Promise* aPromise);
+
  private:
-  virtual mozilla::ipc::IPCResult RecvReplyGamepadIndex(const uint32_t& aID,
-                                                        const uint32_t& aIndex) override;
+  virtual mozilla::ipc::IPCResult RecvReplyGamepadIndex(
+      const uint32_t& aID, const uint32_t& aIndex) override;
 
   nsRefPtrHashtable<nsUint32HashKey, dom::Promise> mPromiseList;
 };
 
-}// namespace dom
-}// namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

@@ -9,31 +9,33 @@
 #include "VTableBuilder.h"
 
 // {96EF5801-CE6D-416E-A50A-0C2959AEAE1C}
-static const GUID CLSID_PassthruProxy =
-{ 0x96ef5801, 0xce6d, 0x416e, { 0xa5, 0xa, 0xc, 0x29, 0x59, 0xae, 0xae, 0x1c } };
+static const GUID CLSID_PassthruProxy = {
+    0x96ef5801, 0xce6d, 0x416e, {0xa5, 0xa, 0xc, 0x29, 0x59, 0xae, 0xae, 0x1c}};
 
 namespace mozilla {
 namespace mscom {
 
 PassthruProxy::PassthruProxy()
-  : mRefCnt(0)
-  , mWrappedIid()
-  , mVTableSize(0)
-  , mVTable(nullptr)
-  , mForgetPreservedStream(false)
+    : mRefCnt(0),
+      mWrappedIid(),
+      mVTableSize(0),
+      mVTable(nullptr),
+      mForgetPreservedStream(false)
 {
 }
 
-PassthruProxy::PassthruProxy(ProxyStream::Environment* aEnv, REFIID aIidToWrap,
-                             uint32_t aVTableSize, NotNull<IUnknown*> aObjToWrap)
-  : mRefCnt(0)
-  , mWrappedIid(aIidToWrap)
-  , mVTableSize(aVTableSize)
-  , mVTable(nullptr)
-  , mForgetPreservedStream(false)
+PassthruProxy::PassthruProxy(ProxyStream::Environment* aEnv,
+                             REFIID aIidToWrap,
+                             uint32_t aVTableSize,
+                             NotNull<IUnknown*> aObjToWrap)
+    : mRefCnt(0),
+      mWrappedIid(aIidToWrap),
+      mVTableSize(aVTableSize),
+      mVTable(nullptr),
+      mForgetPreservedStream(false)
 {
-  ProxyStream proxyStream(aIidToWrap, aObjToWrap, aEnv,
-                          ProxyStreamFlags::ePreservable);
+  ProxyStream proxyStream(
+      aIidToWrap, aObjToWrap, aEnv, ProxyStreamFlags::ePreservable);
   mPreservedStream = Move(proxyStream.GetPreservedStream());
   MOZ_ASSERT(mPreservedStream);
 }
@@ -103,10 +105,7 @@ PassthruProxy::QueryInterface(REFIID aIid, void** aOutInterface)
 }
 
 ULONG
-PassthruProxy::AddRef()
-{
-  return ++mRefCnt;
-}
+PassthruProxy::AddRef() { return ++mRefCnt; }
 
 ULONG
 PassthruProxy::Release()
@@ -120,8 +119,11 @@ PassthruProxy::Release()
 }
 
 HRESULT
-PassthruProxy::GetUnmarshalClass(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+PassthruProxy::GetUnmarshalClass(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  CLSID* pCid)
 {
   if (!pCid) {
@@ -144,8 +146,11 @@ PassthruProxy::GetUnmarshalClass(REFIID riid, void* pv, DWORD dwDestContext,
 }
 
 HRESULT
-PassthruProxy::GetMarshalSizeMax(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+PassthruProxy::GetMarshalSizeMax(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  DWORD* pSize)
 {
   STATSTG statstg;
@@ -181,8 +186,11 @@ PassthruProxy::GetMarshalSizeMax(REFIID riid, void* pv, DWORD dwDestContext,
 }
 
 HRESULT
-PassthruProxy::MarshalInterface(IStream* pStm, REFIID riid, void* pv,
-                                DWORD dwDestContext, void* pvDestContext,
+PassthruProxy::MarshalInterface(IStream* pStm,
+                                REFIID riid,
+                                void* pv,
+                                DWORD dwDestContext,
+                                void* pvDestContext,
                                 DWORD mshlflags)
 {
   MOZ_ASSERT(riid == mWrappedIid);
@@ -315,17 +323,14 @@ PassthruProxy::ReleaseMarshalData(IStream* pStm)
 }
 
 HRESULT
-PassthruProxy::DisconnectObject(DWORD dwReserved)
-{
-  return S_OK;
-}
+PassthruProxy::DisconnectObject(DWORD dwReserved) { return S_OK; }
 
 // The remainder of this code is just boilerplate COM stuff that provides the
 // association between CLSID_PassthruProxy and the PassthruProxy class itself.
 
 class PassthruProxyClassObject final : public IClassFactory
 {
-public:
+ public:
   PassthruProxyClassObject();
 
   // IUnknown
@@ -334,19 +339,18 @@ public:
   STDMETHODIMP_(ULONG) Release() override;
 
   // IClassFactory
-  STDMETHODIMP CreateInstance(IUnknown* aOuter, REFIID aIid, void** aOutObject) override;
+  STDMETHODIMP CreateInstance(IUnknown* aOuter,
+                              REFIID aIid,
+                              void** aOutObject) override;
   STDMETHODIMP LockServer(BOOL aLock) override;
 
-private:
+ private:
   ~PassthruProxyClassObject() = default;
 
   Atomic<ULONG> mRefCnt;
 };
 
-PassthruProxyClassObject::PassthruProxyClassObject()
-  : mRefCnt(0)
-{
-}
+PassthruProxyClassObject::PassthruProxyClassObject() : mRefCnt(0) {}
 
 HRESULT
 PassthruProxyClassObject::QueryInterface(REFIID aIid, void** aOutInterface)
@@ -367,10 +371,7 @@ PassthruProxyClassObject::QueryInterface(REFIID aIid, void** aOutInterface)
 }
 
 ULONG
-PassthruProxyClassObject::AddRef()
-{
-  return ++mRefCnt;
-}
+PassthruProxyClassObject::AddRef() { return ++mRefCnt; }
 
 ULONG
 PassthruProxyClassObject::Release()
@@ -384,7 +385,8 @@ PassthruProxyClassObject::Release()
 }
 
 HRESULT
-PassthruProxyClassObject::CreateInstance(IUnknown* aOuter, REFIID aIid,
+PassthruProxyClassObject::CreateInstance(IUnknown* aOuter,
+                                         REFIID aIid,
                                          void** aOutObject)
 {
   // We don't expect to aggregate
@@ -409,16 +411,15 @@ PassthruProxy::Register()
 {
   DWORD cookie;
   RefPtr<IClassFactory> classObj(new PassthruProxyClassObject());
-  return ::CoRegisterClassObject(CLSID_PassthruProxy, classObj,
-                                 CLSCTX_INPROC_SERVER, REGCLS_MULTIPLEUSE,
+  return ::CoRegisterClassObject(CLSID_PassthruProxy,
+                                 classObj,
+                                 CLSCTX_INPROC_SERVER,
+                                 REGCLS_MULTIPLEUSE,
                                  &cookie);
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
 HRESULT
-RegisterPassthruProxy()
-{
-  return mozilla::mscom::PassthruProxy::Register();
-}
+RegisterPassthruProxy() { return mozilla::mscom::PassthruProxy::Register(); }

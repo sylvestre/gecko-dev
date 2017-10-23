@@ -28,7 +28,7 @@ namespace {
 
 uint64_t gSHEntrySharedID = 0;
 
-} // namespace
+}  // namespace
 
 void
 nsSHEntryShared::Shutdown()
@@ -36,15 +36,15 @@ nsSHEntryShared::Shutdown()
 }
 
 nsSHEntryShared::nsSHEntryShared()
-  : mDocShellID({0})
-  , mLastTouched(0)
-  , mID(gSHEntrySharedID++)
-  , mViewerBounds(0, 0, 0, 0)
-  , mIsFrameNavigation(false)
-  , mSaveLayoutState(true)
-  , mSticky(true)
-  , mDynamicallyCreated(false)
-  , mExpired(false)
+    : mDocShellID({0}),
+      mLastTouched(0),
+      mID(gSHEntrySharedID++),
+      mViewerBounds(0, 0, 0, 0),
+      mIsFrameNavigation(false),
+      mSaveLayoutState(true),
+      mSticky(true),
+      mDynamicallyCreated(false),
+      mExpired(false)
 {
 }
 
@@ -217,18 +217,21 @@ nsSHEntryShared::RemoveFromBFCacheAsync()
   nsCOMPtr<nsIContentViewer> viewer = mContentViewer;
   nsCOMPtr<nsIDocument> document = mDocument;
   RefPtr<nsSHEntryShared> self = this;
-  nsresult rv = mDocument->Dispatch(mozilla::TaskCategory::Other,
-    NS_NewRunnableFunction("nsSHEntryShared::RemoveFromBFCacheAsync",
-    [self, viewer, document]() {
-      if (viewer) {
-        viewer->Destroy();
-      }
+  nsresult rv = mDocument->Dispatch(
+      mozilla::TaskCategory::Other,
+      NS_NewRunnableFunction("nsSHEntryShared::RemoveFromBFCacheAsync",
+                             [self, viewer, document]() {
+                               if (viewer) {
+                                 viewer->Destroy();
+                               }
 
-      nsCOMPtr<nsISHistoryInternal> shistory = do_QueryReferent(self->mSHistory);
-      if (shistory) {
-        shistory->RemoveDynEntriesForBFCacheEntry(self);
-      }
-    }));
+                               nsCOMPtr<nsISHistoryInternal> shistory =
+                                   do_QueryReferent(self->mSHistory);
+                               if (shistory) {
+                                 shistory->RemoveDynEntriesForBFCacheEntry(
+                                     self);
+                               }
+                             }));
 
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch RemoveFromBFCacheAsync runnable.");

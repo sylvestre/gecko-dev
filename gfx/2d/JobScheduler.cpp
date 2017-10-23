@@ -11,7 +11,8 @@ namespace gfx {
 
 JobScheduler* JobScheduler::sSingleton = nullptr;
 
-bool JobScheduler::Init(uint32_t aNumThreads, uint32_t aNumQueues)
+bool
+JobScheduler::Init(uint32_t aNumThreads, uint32_t aNumQueues)
 {
   MOZ_ASSERT(!sSingleton);
   MOZ_ASSERT(aNumThreads >= aNumQueues);
@@ -24,12 +25,14 @@ bool JobScheduler::Init(uint32_t aNumThreads, uint32_t aNumQueues)
   }
 
   for (uint32_t i = 0; i < aNumThreads; ++i) {
-    sSingleton->mWorkerThreads.push_back(WorkerThread::Create(sSingleton->mDrawingQueues[i%aNumQueues]));
+    sSingleton->mWorkerThreads.push_back(
+        WorkerThread::Create(sSingleton->mDrawingQueues[i % aNumQueues]));
   }
   return true;
 }
 
-void JobScheduler::ShutDown()
+void
+JobScheduler::ShutDown()
 {
   MOZ_ASSERT(IsEnabled());
   if (!IsEnabled()) {
@@ -89,14 +92,14 @@ MultiThreadedJobQueue*
 JobScheduler::GetQueueForJob(Job* aJob)
 {
   return aJob->IsPinnedToAThread() ? aJob->GetWorkerThread()->GetJobQueue()
-                                    : GetDrawingQueue();
+                                   : GetDrawingQueue();
 }
 
 Job::Job(SyncObject* aStart, SyncObject* aCompletion, WorkerThread* aThread)
-: mNextWaitingJob(nullptr)
-, mStartSync(aStart)
-, mCompletionSync(aCompletion)
-, mPinToThread(aThread)
+    : mNextWaitingJob(nullptr),
+      mStartSync(aStart),
+      mCompletionSync(aCompletion),
+      mPinToThread(aThread)
 {
   if (mStartSync) {
     mStartSync->AddSubsequent(this);
@@ -123,28 +126,27 @@ SetEventJob::Run()
 }
 
 SetEventJob::SetEventJob(EventObject* aEvent,
-                           SyncObject* aStart, SyncObject* aCompletion,
-                           WorkerThread* aWorker)
-: Job(aStart, aCompletion, aWorker)
-, mEvent(aEvent)
-{}
+                         SyncObject* aStart,
+                         SyncObject* aCompletion,
+                         WorkerThread* aWorker)
+    : Job(aStart, aCompletion, aWorker), mEvent(aEvent)
+{
+}
 
-SetEventJob::~SetEventJob()
-{}
+SetEventJob::~SetEventJob() {}
 
 SyncObject::SyncObject(uint32_t aNumPrerequisites)
-: mSignals(aNumPrerequisites)
-, mFirstWaitingJob(nullptr)
+    : mSignals(aNumPrerequisites),
+      mFirstWaitingJob(nullptr)
 #ifdef DEBUG
-, mNumPrerequisites(aNumPrerequisites)
-, mAddedPrerequisites(0)
+      ,
+      mNumPrerequisites(aNumPrerequisites),
+      mAddedPrerequisites(0)
 #endif
-{}
-
-SyncObject::~SyncObject()
 {
-  MOZ_ASSERT(mFirstWaitingJob == nullptr);
 }
+
+SyncObject::~SyncObject() { MOZ_ASSERT(mFirstWaitingJob == nullptr); }
 
 bool
 SyncObject::Register(Job* aJob)
@@ -205,7 +207,8 @@ SyncObject::AddWaitingJob(Job* aJob)
   }
 }
 
-void SyncObject::SubmitWaitingJobs()
+void
+SyncObject::SubmitWaitingJobs()
 {
   // Scheduling the tasks can cause code that modifies <this>'s reference
   // count to run concurrently, and cause the caller of this function to
@@ -256,8 +259,7 @@ SyncObject::AddSubsequent(Job* aJob)
 {
 }
 
-WorkerThread::WorkerThread(MultiThreadedJobQueue* aJobQueue)
-: mQueue(aJobQueue)
+WorkerThread::WorkerThread(MultiThreadedJobQueue* aJobQueue) : mQueue(aJobQueue)
 {
   aJobQueue->RegisterThread();
 }
@@ -279,10 +281,11 @@ WorkerThread::Run()
     if (status == JobStatus::Error) {
       // Don't try to handle errors for now, but that's open to discussions.
       // I expect errors to be mostly OOM issues.
-      gfxDevCrash(LogReason::JobStatusError) << "Invalid job status " << (int)status;
+      gfxDevCrash(LogReason::JobStatusError)
+          << "Invalid job status " << (int)status;
     }
   }
 }
 
-} //namespace
-} //namespace
+}  // namespace gfx
+}  // namespace mozilla

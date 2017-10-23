@@ -15,7 +15,7 @@ namespace widget {
 
 class InProcessX11CompositorWidget final : public X11CompositorWidget
 {
-public:
+ public:
   InProcessX11CompositorWidget(const X11CompositorWidgetInitData& aInitData,
                                const layers::CompositorOptions& aOptions,
                                nsWindow* aWindow);
@@ -25,7 +25,7 @@ public:
   void ObserveVsync(VsyncObserver* aObserver) override;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // widget_gtk_InProcessX11CompositorWidgetParent_h
+#endif  // widget_gtk_InProcessX11CompositorWidgetParent_h

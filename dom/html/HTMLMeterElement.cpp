@@ -13,19 +13,17 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Meter)
 namespace mozilla {
 namespace dom {
 
-const double HTMLMeterElement::kDefaultValue =  0.0;
-const double HTMLMeterElement::kDefaultMin   =  0.0;
-const double HTMLMeterElement::kDefaultMax   =  1.0;
+const double HTMLMeterElement::kDefaultValue = 0.0;
+const double HTMLMeterElement::kDefaultMin = 0.0;
+const double HTMLMeterElement::kDefaultMax = 1.0;
 
-
-HTMLMeterElement::HTMLMeterElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLMeterElement::HTMLMeterElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
-HTMLMeterElement::~HTMLMeterElement()
-{
-}
+HTMLMeterElement::~HTMLMeterElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLMeterElement)
 
@@ -40,19 +38,21 @@ HTMLMeterElement::IntrinsicState() const
 }
 
 bool
-HTMLMeterElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
-                                 const nsAString& aValue, nsAttrValue& aResult)
+HTMLMeterElement::ParseAttribute(int32_t aNamespaceID,
+                                 nsAtom* aAttribute,
+                                 const nsAString& aValue,
+                                 nsAttrValue& aResult)
 {
   if (aNamespaceID == kNameSpaceID_None) {
     if (aAttribute == nsGkAtoms::value || aAttribute == nsGkAtoms::max ||
-        aAttribute == nsGkAtoms::min   || aAttribute == nsGkAtoms::low ||
-        aAttribute == nsGkAtoms::high  || aAttribute == nsGkAtoms::optimum) {
+        aAttribute == nsGkAtoms::min || aAttribute == nsGkAtoms::low ||
+        aAttribute == nsGkAtoms::high || aAttribute == nsGkAtoms::optimum) {
       return aResult.ParseDoubleValue(aValue);
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute,
-                                                  aValue, aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 /*
@@ -199,7 +199,7 @@ HTMLMeterElement::Optimum() const
   double min = Min();
 
   const nsAttrValue* attrOptimum =
-              mAttrsAndChildren.GetAttr(nsGkAtoms::optimum);
+      mAttrsAndChildren.GetAttr(nsGkAtoms::optimum);
   if (!attrOptimum || attrOptimum->Type() != nsAttrValue::eDoubleValue) {
     return (min + max) / 2.0;
   }
@@ -262,5 +262,5 @@ HTMLMeterElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLMeterElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

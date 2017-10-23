@@ -23,46 +23,37 @@ using namespace mozilla::dom::quota;
 
 namespace {
 
-template <typename IdType>
-class FileInfoImpl final
-  : public FileInfo
+template<typename IdType>
+class FileInfoImpl final : public FileInfo
 {
   IdType mFileId;
 
-public:
+ public:
   FileInfoImpl(FileManager* aFileManager, IdType aFileId)
-    : FileInfo(aFileManager)
-    , mFileId(aFileId)
+      : FileInfo(aFileManager), mFileId(aFileId)
   {
     MOZ_ASSERT(aFileManager);
     MOZ_ASSERT(aFileId > 0);
   }
 
-private:
-  ~FileInfoImpl()
-  { }
+ private:
+  ~FileInfoImpl() {}
 
-  virtual int64_t
-  Id() const override
-  {
-    return int64_t(mFileId);
-  }
+  virtual int64_t Id() const override { return int64_t(mFileId); }
 };
 
-class CleanupFileRunnable final
-  : public Runnable
+class CleanupFileRunnable final : public Runnable
 {
   RefPtr<FileManager> mFileManager;
   int64_t mFileId;
 
-public:
-  static void
-  DoCleanup(FileManager* aFileManager, int64_t aFileId);
+ public:
+  static void DoCleanup(FileManager* aFileManager, int64_t aFileId);
 
   CleanupFileRunnable(FileManager* aFileManager, int64_t aFileId)
-    : Runnable("dom::indexedDB::CleanupFileRunnable")
-    , mFileManager(aFileManager)
-    , mFileId(aFileId)
+      : Runnable("dom::indexedDB::CleanupFileRunnable"),
+        mFileManager(aFileManager),
+        mFileId(aFileId)
   {
     MOZ_ASSERT(aFileManager);
     MOZ_ASSERT(aFileId > 0);
@@ -70,24 +61,20 @@ public:
 
   NS_DECL_ISUPPORTS_INHERITED
 
-private:
-  ~CleanupFileRunnable()
-  { }
+ private:
+  ~CleanupFileRunnable() {}
 
   NS_DECL_NSIRUNNABLE
 };
 
-} // namespace
+}  // namespace
 
-FileInfo::FileInfo(FileManager* aFileManager)
-  : mFileManager(aFileManager)
+FileInfo::FileInfo(FileManager* aFileManager) : mFileManager(aFileManager)
 {
   MOZ_ASSERT(aFileManager);
 }
 
-FileInfo::~FileInfo()
-{
-}
+FileInfo::~FileInfo() {}
 
 // static
 FileInfo*
@@ -215,7 +202,7 @@ FileInfo::Cleanup()
   // IndexedDatabaseManager is main-thread only.
   if (!NS_IsMainThread()) {
     RefPtr<CleanupFileRunnable> cleaner =
-      new CleanupFileRunnable(mFileManager, id);
+        new CleanupFileRunnable(mFileManager, id);
 
     MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(cleaner));
     return;
@@ -256,6 +243,6 @@ CleanupFileRunnable::Run()
   return NS_OK;
 }
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla

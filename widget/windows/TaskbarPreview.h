@@ -10,7 +10,7 @@
 
 #include <windows.h>
 #include <shobjidl.h>
-#undef LogSeverity // SetupAPI.h #defines this as DWORD
+#undef LogSeverity  // SetupAPI.h #defines this as DWORD
 
 #include "mozilla/RefPtr.h"
 #include <nsITaskbarPreview.h>
@@ -27,14 +27,17 @@ class TaskbarPreviewCallback;
 
 class TaskbarPreview : public nsITaskbarPreview
 {
-public:
-  TaskbarPreview(ITaskbarList4 *aTaskbar, nsITaskbarPreviewController *aController, HWND aHWND, nsIDocShell *aShell);
+ public:
+  TaskbarPreview(ITaskbarList4* aTaskbar,
+                 nsITaskbarPreviewController* aController,
+                 HWND aHWND,
+                 nsIDocShell* aShell);
 
   friend class TaskbarPreviewCallback;
 
   NS_DECL_NSITASKBARPREVIEW
 
-protected:
+ protected:
   virtual ~TaskbarPreview();
 
   // Called to update ITaskbarList4 dependent properties
@@ -65,7 +68,7 @@ protected:
   bool CanMakeTaskbarCalls();
 
   // Gets the WindowHook for the nsWindow
-  WindowHook &GetWindowHook();
+  WindowHook& GetWindowHook();
 
   // Enables/disables custom drawing for the given window
   static void EnableCustomDrawing(HWND aHWND, bool aEnable);
@@ -75,11 +78,11 @@ protected:
   // Controller for this preview
   nsCOMPtr<nsITaskbarPreviewController> mController;
   // The HWND to the nsWindow that this object previews
-  HWND                    mWnd;
+  HWND mWnd;
   // Whether or not this preview is visible
-  bool                    mVisible;
+  bool mVisible;
 
-private:
+ private:
   // Called when the tooltip should be updated
   nsresult UpdateTooltip();
 
@@ -88,18 +91,20 @@ private:
   void DrawBitmap(uint32_t width, uint32_t height, bool isPreview);
 
   // WindowHook procedure for hooking mWnd
-  static bool MainWindowHook(void *aContext,
-                               HWND hWnd, UINT nMsg,
-                               WPARAM wParam, LPARAM lParam,
-                               LRESULT *aResult);
+  static bool MainWindowHook(void* aContext,
+                             HWND hWnd,
+                             UINT nMsg,
+                             WPARAM wParam,
+                             LPARAM lParam,
+                             LRESULT* aResult);
 
   // Docshell corresponding to the <window> the nsWindow contains
-  nsWeakPtr               mDocShell;
-  nsString                mTooltip;
+  nsWeakPtr mDocShell;
+  nsString mTooltip;
 
   // The preview currently marked as active in the taskbar. nullptr if no
   // preview is active (some other window is).
-  static TaskbarPreview  *sActivePreview;
+  static TaskbarPreview* sActivePreview;
 };
 
 /*
@@ -109,32 +114,25 @@ private:
  */
 class TaskbarPreviewCallback : public nsITaskbarPreviewCallback
 {
-public:
-  TaskbarPreviewCallback() :
-    mIsThumbnail(true) {
-  }
+ public:
+  TaskbarPreviewCallback() : mIsThumbnail(true) {}
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSITASKBARPREVIEWCALLBACK
 
-  void SetPreview(TaskbarPreview* aPreview) {
-    mPreview = aPreview;
-  }
+  void SetPreview(TaskbarPreview* aPreview) { mPreview = aPreview; }
 
-  void SetIsPreview() {
-    mIsThumbnail = false;
-  }
+  void SetIsPreview() { mIsThumbnail = false; }
 
-protected:
+ protected:
   virtual ~TaskbarPreviewCallback() {}
 
-private:
+ private:
   RefPtr<TaskbarPreview> mPreview;
   bool mIsThumbnail;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif /* __mozilla_widget_TaskbarPreview_h__ */
-

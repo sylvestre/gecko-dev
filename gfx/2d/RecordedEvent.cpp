@@ -18,13 +18,15 @@ namespace gfx {
 
 using namespace std;
 
-RecordedEvent *
-RecordedEvent::LoadEventFromStream(std::istream &aStream, EventType aType) {
+RecordedEvent*
+RecordedEvent::LoadEventFromStream(std::istream& aStream, EventType aType)
+{
   return LoadEvent(aStream, aType);
 }
 
-RecordedEvent *
-RecordedEvent::LoadEventFromStream(EventStream& aStream, EventType aType) {
+RecordedEvent*
+RecordedEvent::LoadEventFromStream(EventStream& aStream, EventType aType)
+{
   return LoadEvent(aStream, aType);
 }
 
@@ -32,98 +34,99 @@ string
 RecordedEvent::GetEventName(EventType aType)
 {
   switch (aType) {
-  case DRAWTARGETCREATION:
-    return "DrawTarget Creation";
-  case DRAWTARGETDESTRUCTION:
-    return "DrawTarget Destruction";
-  case FILLRECT:
-    return "FillRect";
-  case STROKERECT:
-    return "StrokeRect";
-  case STROKELINE:
-    return "StrokeLine";
-  case CLEARRECT:
-    return "ClearRect";
-  case COPYSURFACE:
-    return "CopySurface";
-  case SETTRANSFORM:
-    return "SetTransform";
-  case PUSHCLIP:
-    return "PushClip";
-  case PUSHCLIPRECT:
-    return "PushClipRect";
-  case POPCLIP:
-    return "PopClip";
-  case FILL:
-    return "Fill";
-  case FILLGLYPHS:
-    return "FillGlyphs";
-  case MASK:
-    return "Mask";
-  case STROKE:
-    return "Stroke";
-  case DRAWSURFACE:
-    return "DrawSurface";
-  case DRAWSURFACEWITHSHADOW:
-    return "DrawSurfaceWithShadow";
-  case DRAWFILTER:
-    return "DrawFilter";
-  case PATHCREATION:
-    return "PathCreation";
-  case PATHDESTRUCTION:
-    return "PathDestruction";
-  case SOURCESURFACECREATION:
-    return "SourceSurfaceCreation";
-  case SOURCESURFACEDESTRUCTION:
-    return "SourceSurfaceDestruction";
-  case FILTERNODECREATION:
-    return "FilterNodeCreation";
-  case FILTERNODEDESTRUCTION:
-    return "FilterNodeDestruction";
-  case GRADIENTSTOPSCREATION:
-    return "GradientStopsCreation";
-  case GRADIENTSTOPSDESTRUCTION:
-    return "GradientStopsDestruction";
-  case SNAPSHOT:
-    return "Snapshot";
-  case SCALEDFONTCREATION:
-    return "ScaledFontCreation";
-  case SCALEDFONTDESTRUCTION:
-    return "ScaledFontDestruction";
-  case MASKSURFACE:
-    return "MaskSurface";
-  case FILTERNODESETATTRIBUTE:
-    return "SetAttribute";
-  case FILTERNODESETINPUT:
-    return "SetInput";
-  case CREATESIMILARDRAWTARGET:
-    return "CreateSimilarDrawTarget";
-  case FONTDATA:
-    return "FontData";
-  case FONTDESC:
-    return "FontDescriptor";
-  case PUSHLAYER:
-    return "PushLayer";
-  case POPLAYER:
-    return "PopLayer";
-  case UNSCALEDFONTCREATION:
-    return "UnscaledFontCreation";
-  case UNSCALEDFONTDESTRUCTION:
-    return "UnscaledFontDestruction";
-  default:
-    return "Unknown";
+    case DRAWTARGETCREATION:
+      return "DrawTarget Creation";
+    case DRAWTARGETDESTRUCTION:
+      return "DrawTarget Destruction";
+    case FILLRECT:
+      return "FillRect";
+    case STROKERECT:
+      return "StrokeRect";
+    case STROKELINE:
+      return "StrokeLine";
+    case CLEARRECT:
+      return "ClearRect";
+    case COPYSURFACE:
+      return "CopySurface";
+    case SETTRANSFORM:
+      return "SetTransform";
+    case PUSHCLIP:
+      return "PushClip";
+    case PUSHCLIPRECT:
+      return "PushClipRect";
+    case POPCLIP:
+      return "PopClip";
+    case FILL:
+      return "Fill";
+    case FILLGLYPHS:
+      return "FillGlyphs";
+    case MASK:
+      return "Mask";
+    case STROKE:
+      return "Stroke";
+    case DRAWSURFACE:
+      return "DrawSurface";
+    case DRAWSURFACEWITHSHADOW:
+      return "DrawSurfaceWithShadow";
+    case DRAWFILTER:
+      return "DrawFilter";
+    case PATHCREATION:
+      return "PathCreation";
+    case PATHDESTRUCTION:
+      return "PathDestruction";
+    case SOURCESURFACECREATION:
+      return "SourceSurfaceCreation";
+    case SOURCESURFACEDESTRUCTION:
+      return "SourceSurfaceDestruction";
+    case FILTERNODECREATION:
+      return "FilterNodeCreation";
+    case FILTERNODEDESTRUCTION:
+      return "FilterNodeDestruction";
+    case GRADIENTSTOPSCREATION:
+      return "GradientStopsCreation";
+    case GRADIENTSTOPSDESTRUCTION:
+      return "GradientStopsDestruction";
+    case SNAPSHOT:
+      return "Snapshot";
+    case SCALEDFONTCREATION:
+      return "ScaledFontCreation";
+    case SCALEDFONTDESTRUCTION:
+      return "ScaledFontDestruction";
+    case MASKSURFACE:
+      return "MaskSurface";
+    case FILTERNODESETATTRIBUTE:
+      return "SetAttribute";
+    case FILTERNODESETINPUT:
+      return "SetInput";
+    case CREATESIMILARDRAWTARGET:
+      return "CreateSimilarDrawTarget";
+    case FONTDATA:
+      return "FontData";
+    case FONTDESC:
+      return "FontDescriptor";
+    case PUSHLAYER:
+      return "PushLayer";
+    case POPLAYER:
+      return "PopLayer";
+    case UNSCALEDFONTCREATION:
+      return "UnscaledFontCreation";
+    case UNSCALEDFONTDESTRUCTION:
+      return "UnscaledFontDestruction";
+    default:
+      return "Unknown";
   }
 }
 
 already_AddRefed<DrawTarget>
-Translator::CreateDrawTarget(ReferencePtr aRefPtr, const IntSize &aSize,
+Translator::CreateDrawTarget(ReferencePtr aRefPtr,
+                             const IntSize& aSize,
                              SurfaceFormat aFormat)
 {
   RefPtr<DrawTarget> newDT =
-    GetReferenceDrawTarget()->CreateSimilarDrawTarget(aSize, aFormat);
+      GetReferenceDrawTarget()->CreateSimilarDrawTarget(aSize, aFormat);
   AddDrawTarget(aRefPtr, newDT);
   return newDT.forget();
 }
 
-}
-}
+}  // namespace gfx
+}  // namespace mozilla

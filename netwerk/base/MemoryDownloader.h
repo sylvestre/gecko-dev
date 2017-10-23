@@ -25,15 +25,16 @@ namespace net {
 
 class MemoryDownloader final : public nsIStreamListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
   NS_DECL_NSISTREAMLISTENER
 
   typedef mozilla::UniquePtr<FallibleTArray<uint8_t>> Data;
 
-  class IObserver : public nsISupports {
-  public:
+  class IObserver : public nsISupports
+  {
+   public:
     // Note: aData may be null if (and only if) aStatus indicates failure.
     virtual void OnDownloadComplete(MemoryDownloader* aDownloader,
                                     nsIRequest* aRequest,
@@ -44,22 +45,22 @@ public:
 
   explicit MemoryDownloader(IObserver* aObserver);
 
-private:
+ private:
   virtual ~MemoryDownloader();
 
-  static nsresult ConsumeData(nsIInputStream *in,
-                              void           *closure,
-                              const char     *fromRawSegment,
-                              uint32_t        toOffset,
-                              uint32_t        count,
-                              uint32_t       *writeCount);
+  static nsresult ConsumeData(nsIInputStream* in,
+                              void* closure,
+                              const char* fromRawSegment,
+                              uint32_t toOffset,
+                              uint32_t count,
+                              uint32_t* writeCount);
 
   RefPtr<IObserver> mObserver;
   Data mData;
   nsresult mStatus;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_MemoryDownloader_h__
+#endif  // mozilla_net_MemoryDownloader_h__

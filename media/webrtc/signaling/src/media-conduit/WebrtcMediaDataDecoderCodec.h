@@ -13,30 +13,30 @@
 #include "webrtc/modules/video_coding/include/video_codec_interface.h"
 
 namespace webrtc {
-  class DecodedImageCallback;
+class DecodedImageCallback;
 }
 namespace mozilla {
 namespace layers {
-  class Image;
-  class ImageContainer;
-}
+class Image;
+class ImageContainer;
+}  // namespace layers
 
 class PDMFactory;
 class TaskQueue;
 
 class ImageBuffer : public webrtc::NativeHandleBuffer
 {
-public:
+ public:
   explicit ImageBuffer(RefPtr<layers::Image>&& aImage);
   rtc::scoped_refptr<VideoFrameBuffer> NativeToI420Buffer() override;
 
-private:
+ private:
   RefPtr<layers::Image> mImage;
 };
 
 class WebrtcMediaDataDecoder : public WebrtcVideoDecoder
 {
-public:
+ public:
   WebrtcMediaDataDecoder();
 
   // Implement VideoDecoder interface.
@@ -52,11 +52,11 @@ public:
                  int64_t renderTimeMs = -1) override;
 
   int32_t RegisterDecodeCompleteCallback(
-    webrtc::DecodedImageCallback* callback) override;
+      webrtc::DecodedImageCallback* callback) override;
 
   int32_t Release() override;
 
-private:
+ private:
   ~WebrtcMediaDataDecoder();
   void QueueFrame(MediaRawData* aFrame);
   AbstractThread* OwnerThread() const { return mTaskQueue; }
@@ -78,6 +78,6 @@ private:
   MediaDataDecoder::DecodedData mResults;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // WebrtcMediaDataDecoderCodec_h__
+#endif  // WebrtcMediaDataDecoderCodec_h__

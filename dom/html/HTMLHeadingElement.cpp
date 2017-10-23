@@ -18,14 +18,12 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Heading)
 namespace mozilla {
 namespace dom {
 
-HTMLHeadingElement::~HTMLHeadingElement()
-{
-}
+HTMLHeadingElement::~HTMLHeadingElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLHeadingElement)
 
 JSObject*
-HTMLHeadingElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLHeadingElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLHeadingElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -40,8 +38,8 @@ HTMLHeadingElement::ParseAttribute(int32_t aNamespaceID,
     return ParseDivAlignValue(aValue, aResult);
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
@@ -55,14 +53,11 @@ HTMLHeadingElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
 NS_IMETHODIMP_(bool)
 HTMLHeadingElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sDivAlignAttributeMap,
-    sCommonAttributeMap
-  };
+  static const MappedAttributeEntry* const map[] = {sDivAlignAttributeMap,
+                                                    sCommonAttributeMap};
 
   return FindAttributeDependence(aAttribute, map);
 }
-
 
 nsMapRuleToAttributesFunc
 HTMLHeadingElement::GetAttributeMappingFunction() const
@@ -70,5 +65,5 @@ HTMLHeadingElement::GetAttributeMappingFunction() const
   return &MapAttributesIntoRule;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

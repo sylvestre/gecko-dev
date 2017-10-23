@@ -18,8 +18,7 @@ class nsCOMArray_base;
 // Create an enumerator for an existing nsIArray implementation
 // The enumerator holds an owning reference to the array.
 nsresult
-NS_NewArrayEnumerator(nsISimpleEnumerator** aResult,
-                      nsIArray* aArray);
+NS_NewArrayEnumerator(nsISimpleEnumerator** aResult, nsIArray* aArray);
 
 // create an enumerator for an existing nsCOMArray<T> implementation
 // The enumerator will hold an owning reference to each ELEMENT in

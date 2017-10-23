@@ -27,16 +27,14 @@ class TabChildGlobal;
  */
 class TelemetryScrollProbe final : public nsIDOMEventListener
 {
-public:
+ public:
   static void Create(TabChildGlobal* aWebFrame);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
 
-private:
-  explicit TelemetryScrollProbe(nsWeakPtr aWebNav)
-      : mWebNav(aWebNav)
-  { }
+ private:
+  explicit TelemetryScrollProbe(nsWeakPtr aWebNav) : mWebNav(aWebNav) {}
   ~TelemetryScrollProbe() {}
 
   already_AddRefed<nsIWebNavigation> GetWebNavigation() const;
@@ -48,7 +46,7 @@ private:
   nsWeakPtr mWebNav;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TelemetryScrollProbe_h
+#endif  // mozilla_dom_TelemetryScrollProbe_h

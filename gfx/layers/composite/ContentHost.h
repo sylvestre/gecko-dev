@@ -6,34 +6,34 @@
 #ifndef GFX_CONTENTHOST_H
 #define GFX_CONTENTHOST_H
 
-#include <stdint.h>                     // for uint32_t
-#include <stdio.h>                      // for FILE
-#include "mozilla-config.h"             // for MOZ_DUMP_PAINTING
-#include "CompositableHost.h"           // for CompositableHost, etc
-#include "RotatedBuffer.h"              // for RotatedContentBuffer, etc
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for RefPtr
-#include "mozilla/gfx/BasePoint.h"      // for BasePoint
-#include "mozilla/gfx/MatrixFwd.h"      // for Matrix4x4
-#include "mozilla/gfx/Point.h"          // for Point
-#include "mozilla/gfx/Polygon.h"        // for Polygon
-#include "mozilla/gfx/Rect.h"           // for Rect
-#include "mozilla/gfx/Types.h"          // for SamplingFilter
-#include "mozilla/layers/CompositorTypes.h"  // for TextureInfo, etc
+#include <stdint.h>                            // for uint32_t
+#include <stdio.h>                             // for FILE
+#include "mozilla-config.h"                    // for MOZ_DUMP_PAINTING
+#include "CompositableHost.h"                  // for CompositableHost, etc
+#include "RotatedBuffer.h"                     // for RotatedContentBuffer, etc
+#include "mozilla/Attributes.h"                // for override
+#include "mozilla/RefPtr.h"                    // for RefPtr
+#include "mozilla/gfx/BasePoint.h"             // for BasePoint
+#include "mozilla/gfx/MatrixFwd.h"             // for Matrix4x4
+#include "mozilla/gfx/Point.h"                 // for Point
+#include "mozilla/gfx/Polygon.h"               // for Polygon
+#include "mozilla/gfx/Rect.h"                  // for Rect
+#include "mozilla/gfx/Types.h"                 // for SamplingFilter
+#include "mozilla/layers/CompositorTypes.h"    // for TextureInfo, etc
 #include "mozilla/layers/ISurfaceAllocator.h"  // for ISurfaceAllocator
-#include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor
-#include "mozilla/layers/LayersTypes.h"  // for etc
-#include "mozilla/layers/TextureHost.h"  // for TextureHost
-#include "mozilla/mozalloc.h"           // for operator delete
-#include "mozilla/UniquePtr.h"          // for UniquePtr
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsDebug.h"                    // for NS_RUNTIMEABORT
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsPoint.h"                    // for nsIntPoint
-#include "nsRect.h"                     // for mozilla::gfx::IntRect
-#include "nsRegion.h"                   // for nsIntRegion
-#include "nsTArray.h"                   // for nsTArray
-#include "nscore.h"                     // for nsACString
+#include "mozilla/layers/LayersSurfaces.h"     // for SurfaceDescriptor
+#include "mozilla/layers/LayersTypes.h"        // for etc
+#include "mozilla/layers/TextureHost.h"        // for TextureHost
+#include "mozilla/mozalloc.h"                  // for operator delete
+#include "mozilla/UniquePtr.h"                 // for UniquePtr
+#include "nsCOMPtr.h"                          // for already_AddRefed
+#include "nsDebug.h"                           // for NS_RUNTIMEABORT
+#include "nsISupportsImpl.h"                   // for MOZ_COUNT_CTOR, etc
+#include "nsPoint.h"                           // for nsIntPoint
+#include "nsRect.h"                            // for mozilla::gfx::IntRect
+#include "nsRegion.h"                          // for nsIntRegion
+#include "nsTArray.h"                          // for nsTArray
+#include "nscore.h"                            // for nsACString
 
 namespace mozilla {
 namespace layers {
@@ -51,28 +51,32 @@ struct TexturedEffect;
  */
 class ContentHost : public CompositableHost
 {
-public:
+ public:
   virtual bool UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack) = 0;
 
-  virtual void SetPaintWillResample(bool aResample) { mPaintWillResample = aResample; }
+  virtual void SetPaintWillResample(bool aResample)
+  {
+    mPaintWillResample = aResample;
+  }
   bool PaintWillResample() { return mPaintWillResample; }
 
   // We use this to allow TiledContentHost to invalidate regions where
   // tiles are fading in.
-  virtual void AddAnimationInvalidation(nsIntRegion& aRegion) { }
+  virtual void AddAnimationInvalidation(nsIntRegion& aRegion) {}
 
-  virtual gfx::IntRect GetBufferRect() {
+  virtual gfx::IntRect GetBufferRect()
+  {
     MOZ_ASSERT_UNREACHABLE("Must be implemented in derived class");
     return gfx::IntRect();
   }
 
-protected:
+ protected:
   explicit ContentHost(const TextureInfo& aTextureInfo)
-    : CompositableHost(aTextureInfo)
-    , mPaintWillResample(false)
-  {}
+      : CompositableHost(aTextureInfo), mPaintWillResample(false)
+  {
+  }
 
   bool mPaintWillResample;
 };
@@ -90,7 +94,7 @@ protected:
  */
 class ContentHostBase : public ContentHost
 {
-public:
+ public:
   typedef RotatedContentBuffer::ContentType ContentType;
   typedef RotatedContentBuffer::PaintState PaintState;
 
@@ -104,12 +108,9 @@ public:
     return mBufferRect.TopLeft() - mBufferRotation;
   }
 
-  gfx::IntPoint GetBufferRotation()
-  {
-    return mBufferRotation.ToUnknownPoint();
-  }
+  gfx::IntPoint GetBufferRotation() { return mBufferRotation.ToUnknownPoint(); }
 
-protected:
+ protected:
   gfx::IntRect mBufferRect;
   nsIntPoint mBufferRotation;
   bool mInitialised;
@@ -121,38 +122,41 @@ protected:
  */
 class ContentHostTexture : public ContentHostBase
 {
-public:
+ public:
   explicit ContentHostTexture(const TextureInfo& aTextureInfo)
-    : ContentHostBase(aTextureInfo)
-    , mLocked(false)
-    , mReceivedNewHost(false)
-  { }
+      : ContentHostBase(aTextureInfo), mLocked(false), mReceivedNewHost(false)
+  {
+  }
 
-  virtual void Composite(Compositor* aCompositor,
-                         LayerComposite* aLayer,
-                         EffectChain& aEffectChain,
-                         float aOpacity,
-                         const gfx::Matrix4x4& aTransform,
-                         const gfx::SamplingFilter aSamplingFilter,
-                         const gfx::IntRect& aClipRect,
-                         const nsIntRegion* aVisibleRegion = nullptr,
-                         const Maybe<gfx::Polygon>& aGeometry = Nothing()) override;
+  virtual void Composite(
+      Compositor* aCompositor,
+      LayerComposite* aLayer,
+      EffectChain& aEffectChain,
+      float aOpacity,
+      const gfx::Matrix4x4& aTransform,
+      const gfx::SamplingFilter aSamplingFilter,
+      const gfx::IntRect& aClipRect,
+      const nsIntRegion* aVisibleRegion = nullptr,
+      const Maybe<gfx::Polygon>& aGeometry = Nothing()) override;
 
-  virtual void SetTextureSourceProvider(TextureSourceProvider* aProvider) override;
+  virtual void SetTextureSourceProvider(
+      TextureSourceProvider* aProvider) override;
 
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
 
   virtual void Dump(std::stringstream& aStream,
-                    const char* aPrefix="",
-                    bool aDumpHtml=false) override;
+                    const char* aPrefix = "",
+                    bool aDumpHtml = false) override;
 
-  virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix) override;
+  virtual void PrintInfo(std::stringstream& aStream,
+                         const char* aPrefix) override;
 
   virtual void UseTextureHost(const nsTArray<TimedTexture>& aTextures) override;
   virtual void UseComponentAlphaTextures(TextureHost* aTextureOnBlack,
                                          TextureHost* aTextureOnWhite) override;
 
-  virtual bool Lock() override {
+  virtual bool Lock() override
+  {
     MOZ_ASSERT(!mLocked);
     if (!mTextureHost) {
       return false;
@@ -168,7 +172,8 @@ public:
     mLocked = true;
     return true;
   }
-  virtual void Unlock() override {
+  virtual void Unlock() override
+  {
     MOZ_ASSERT(mLocked);
     mTextureHost->Unlock();
     if (mTextureHostOnWhite) {
@@ -177,18 +182,17 @@ public:
     mLocked = false;
   }
 
-  bool HasComponentAlpha() const {
-    return !!mTextureHostOnWhite;
-  }
+  bool HasComponentAlpha() const { return !!mTextureHostOnWhite; }
 
   RefPtr<TextureSource> AcquireTextureSource();
   RefPtr<TextureSource> AcquireTextureSourceOnWhite();
 
   ContentHostTexture* AsContentHostTexture() override { return this; }
 
-  virtual already_AddRefed<TexturedEffect> GenEffect(const gfx::SamplingFilter aSamplingFilter) override;
+  virtual already_AddRefed<TexturedEffect> GenEffect(
+      const gfx::SamplingFilter aSamplingFilter) override;
 
-protected:
+ protected:
   CompositableTextureHostRef mTextureHost;
   CompositableTextureHostRef mTextureHostOnWhite;
   CompositableTextureSourceRef mTextureSource;
@@ -204,20 +208,24 @@ protected:
  */
 class ContentHostDoubleBuffered : public ContentHostTexture
 {
-public:
+ public:
   explicit ContentHostDoubleBuffered(const TextureInfo& aTextureInfo)
-    : ContentHostTexture(aTextureInfo)
-  {}
+      : ContentHostTexture(aTextureInfo)
+  {
+  }
 
   virtual ~ContentHostDoubleBuffered() {}
 
-  virtual CompositableType GetType() { return CompositableType::CONTENT_DOUBLE; }
+  virtual CompositableType GetType()
+  {
+    return CompositableType::CONTENT_DOUBLE;
+  }
 
   virtual bool UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack);
 
-protected:
+ protected:
   nsIntRegion mValidRegionForNextBackBuffer;
 };
 
@@ -227,20 +235,24 @@ protected:
  */
 class ContentHostSingleBuffered : public ContentHostTexture
 {
-public:
+ public:
   explicit ContentHostSingleBuffered(const TextureInfo& aTextureInfo)
-    : ContentHostTexture(aTextureInfo)
-  {}
+      : ContentHostTexture(aTextureInfo)
+  {
+  }
   virtual ~ContentHostSingleBuffered() {}
 
-  virtual CompositableType GetType() { return CompositableType::CONTENT_SINGLE; }
+  virtual CompositableType GetType()
+  {
+    return CompositableType::CONTENT_SINGLE;
+  }
 
   virtual bool UpdateThebes(const ThebesBufferData& aData,
                             const nsIntRegion& aUpdated,
                             const nsIntRegion& aOldValidRegionBack);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

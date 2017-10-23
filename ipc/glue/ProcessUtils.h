@@ -12,10 +12,10 @@ namespace ipc {
 
 // You probably should call ContentChild::SetProcessName instead of calling
 // this directly.
-void SetThisProcessName(const char *aName);
+void
+SetThisProcessName(const char* aName);
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // ifndef mozilla_ipc_ProcessUtils_h
-
+#endif  // ifndef mozilla_ipc_ProcessUtils_h

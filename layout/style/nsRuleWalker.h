@@ -16,46 +16,51 @@
 #include "Declaration.h"
 #include "nsQueryObject.h"
 
-class nsRuleWalker {
-public:
+class nsRuleWalker
+{
+ public:
   nsRuleNode* CurrentNode() { return mCurrent; }
-  void SetCurrentNode(nsRuleNode* aNode) {
+  void SetCurrentNode(nsRuleNode* aNode)
+  {
     NS_ASSERTION(aNode, "Must have node here!");
     mCurrent = aNode;
   }
 
   nsPresContext* PresContext() const { return mRoot->PresContext(); }
 
-protected:
-  void DoForward(nsIStyleRule* aRule) {
+ protected:
+  void DoForward(nsIStyleRule* aRule)
+  {
     mCurrent = mCurrent->Transition(aRule, mLevel, mImportance);
     NS_POSTCONDITION(mCurrent, "Transition messed up");
   }
 
-public:
-  void Forward(nsIStyleRule* aRule) {
+ public:
+  void Forward(nsIStyleRule* aRule)
+  {
     NS_PRECONDITION(!RefPtr<mozilla::css::Declaration>(do_QueryObject(aRule)),
                     "Calling the wrong Forward() overload");
     DoForward(aRule);
   }
-  void Forward(mozilla::css::Declaration* aRule) {
+  void Forward(mozilla::css::Declaration* aRule)
+  {
     DoForward(aRule);
     mCheckForImportantRules =
-      mCheckForImportantRules && !aRule->HasImportantData();
+        mCheckForImportantRules && !aRule->HasImportantData();
   }
   // ForwardOnPossiblyCSSRule should only be used by callers that have
   // an explicit list of rules they need to walk, with the list
   // already containing any important rules they care about.
-  void ForwardOnPossiblyCSSRule(nsIStyleRule* aRule) {
-    DoForward(aRule);
-  }
+  void ForwardOnPossiblyCSSRule(nsIStyleRule* aRule) { DoForward(aRule); }
 
   void Reset() { mCurrent = mRoot; }
 
   bool AtRoot() { return mCurrent == mRoot; }
 
-  void SetLevel(mozilla::SheetType aLevel, bool aImportance,
-                bool aCheckForImportantRules) {
+  void SetLevel(mozilla::SheetType aLevel,
+                bool aImportance,
+                bool aCheckForImportantRules)
+  {
     NS_ASSERTION(!aCheckForImportantRules || !aImportance,
                  "Shouldn't be checking for important rules while walking "
                  "important rules");
@@ -71,7 +76,8 @@ public:
 
   // We define the visited-relevant link to be the link that is the
   // nearest self-or-ancestor to the node being matched.
-  enum VisitedHandlingType {
+  enum VisitedHandlingType
+  {
     // Do rule matching as though all links are unvisited.
     eRelevantLinkUnvisited,
     // Do rule matching as though the relevant link is visited and all
@@ -83,21 +89,21 @@ public:
     eLinksVisitedOrUnvisited
   };
 
-private:
-  nsRuleNode* mCurrent; // Our current position.  Never null.
-  nsRuleNode* mRoot; // The root of the tree we're walking.
+ private:
+  nsRuleNode* mCurrent;  // Our current position.  Never null.
+  nsRuleNode* mRoot;     // The root of the tree we're walking.
   mozilla::SheetType mLevel;
   bool mImportance;
-  bool mCheckForImportantRules; // If true, check for important rules as
-                                // we walk and set to false if we find
-                                // one.
+  bool mCheckForImportantRules;  // If true, check for important rules as
+                                 // we walk and set to false if we find
+                                 // one.
   bool mAuthorStyleDisabled;
 
-public:
+ public:
   nsRuleWalker(nsRuleNode* aRoot, bool aAuthorStyleDisabled)
-    : mCurrent(aRoot)
-    , mRoot(aRoot)
-    , mAuthorStyleDisabled(aAuthorStyleDisabled)
+      : mCurrent(aRoot),
+        mRoot(aRoot),
+        mAuthorStyleDisabled(aAuthorStyleDisabled)
   {
     NS_ASSERTION(mCurrent, "Caller screwed up and gave us null node");
     MOZ_COUNT_CTOR(nsRuleWalker);

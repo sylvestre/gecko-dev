@@ -14,7 +14,7 @@ namespace jit {
 
 // Must be a callee-saved register for preservation around generateEnterJIT().
 static constexpr Register BaselineFrameReg = r23;
-static constexpr ARMRegister BaselineFrameReg64 = { BaselineFrameReg, 64 };
+static constexpr ARMRegister BaselineFrameReg64 = {BaselineFrameReg, 64};
 
 // BaselineStackReg is intentionally undefined on ARM64.
 // Refer to the comment next to the definition of RealStackPointer.
@@ -49,10 +49,10 @@ static constexpr Register ExtractTemp1 = r25;
 // register.  In ARM code emission, we do not clobber BaselineTailCallReg
 // since we keep the return address for calls there.
 
-static constexpr FloatRegister FloatReg0 = { FloatRegisters::d0, FloatRegisters::Double };
-static constexpr FloatRegister FloatReg1 = { FloatRegisters::d1, FloatRegisters::Double };
+static constexpr FloatRegister FloatReg0 = {FloatRegisters::d0, FloatRegisters::Double};
+static constexpr FloatRegister FloatReg1 = {FloatRegisters::d1, FloatRegisters::Double};
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
-#endif // jit_arm64_SharedICRegisters_arm64_h
+#endif  // jit_arm64_SharedICRegisters_arm64_h

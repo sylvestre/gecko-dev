@@ -16,17 +16,15 @@ MediaTrack::MediaTrack(const nsAString& aId,
                        const nsAString& aKind,
                        const nsAString& aLabel,
                        const nsAString& aLanguage)
-  : DOMEventTargetHelper()
-  , mId(aId)
-  , mKind(aKind)
-  , mLabel(aLabel)
-  , mLanguage(aLanguage)
+    : DOMEventTargetHelper(),
+      mId(aId),
+      mKind(aKind),
+      mLabel(aLabel),
+      mLanguage(aLanguage)
 {
 }
 
-MediaTrack::~MediaTrack()
-{
-}
+MediaTrack::~MediaTrack() {}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaTrack, DOMEventTargetHelper, mList)
 
@@ -47,5 +45,5 @@ MediaTrack::Init(nsPIDOMWindowInner* aOwnerWindow)
   BindToOwner(aOwnerWindow);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

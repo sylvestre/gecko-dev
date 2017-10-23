@@ -28,7 +28,7 @@ class FeatureChange;
 // Each state change for a feature is recorded in this class.
 class gfxConfig
 {
-public:
+ public:
   // Return the full state history of a feature.
   static FeatureState& GetFeature(Feature aFeature);
 
@@ -135,12 +135,12 @@ public:
                              const char* aDisableMessage,
                              const nsACString& aFailureId = EmptyCString())
   {
-    return MaybeSetFailed(
-      aFeature,
-      (aStatus != FeatureStatus::Available &&
-       aStatus != FeatureStatus::ForceEnabled),
-      aStatus,
-      aDisableMessage, aFailureId);
+    return MaybeSetFailed(aFeature,
+                          (aStatus != FeatureStatus::Available &&
+                           aStatus != FeatureStatus::ForceEnabled),
+                          aStatus,
+                          aDisableMessage,
+                          aFailureId);
   }
 
   // Re-enables a feature that was previously disabled, by attaching it to a
@@ -162,7 +162,9 @@ public:
   // of a parameter.
   static void UserEnable(Feature aFeature, const char* aMessage);
   static void UserForceEnable(Feature aFeature, const char* aMessage);
-  static void UserDisable(Feature aFeature, const char* aMessage, const nsACString& aFailureId = EmptyCString());
+  static void UserDisable(Feature aFeature,
+                          const char* aMessage,
+                          const nsACString& aFailureId = EmptyCString());
 
   // Query whether a fallback has been toggled.
   static bool UseFallback(Fallback aFallback);
@@ -172,14 +174,14 @@ public:
   static void EnableFallback(Fallback aFallback, const char* aMessage);
 
   // Run a callback for each initialized FeatureState.
-  typedef std::function<void(const char* aName,
-                             const char* aDescription,
-                             FeatureState& aFeature)> FeatureIterCallback;
+  typedef std::function<void(
+      const char* aName, const char* aDescription, FeatureState& aFeature)>
+      FeatureIterCallback;
   static void ForEachFeature(const FeatureIterCallback& aCallback);
 
   // Run a callback for each enabled fallback.
-  typedef std::function<void(const char* aName, const char* aMsg)> 
-    FallbackIterCallback;
+  typedef std::function<void(const char* aName, const char* aMsg)>
+      FallbackIterCallback;
   static void ForEachFallback(const FallbackIterCallback& aCallback);
 
   // Get the most descriptive failure id message for this feature.
@@ -190,15 +192,17 @@ public:
   static void Init();
   static void Shutdown();
 
-private:
+ private:
   void ForEachFallbackImpl(const FallbackIterCallback& aCallback);
 
-private:
-  FeatureState& GetState(Feature aFeature) {
+ private:
+  FeatureState& GetState(Feature aFeature)
+  {
     MOZ_ASSERT(size_t(aFeature) < kNumFeatures);
     return mFeatures[size_t(aFeature)];
   }
-  const FeatureState& GetState(Feature aFeature) const {
+  const FeatureState& GetState(Feature aFeature) const
+  {
     MOZ_ASSERT(size_t(aFeature) < kNumFeatures);
     return mFeatures[size_t(aFeature)];
   }
@@ -206,16 +210,17 @@ private:
   bool UseFallbackImpl(Fallback aFallback) const;
   void EnableFallbackImpl(Fallback aFallback, const char* aMessage);
 
-private:
+ private:
   static const size_t kNumFeatures = size_t(Feature::NumValues);
   static const size_t kNumFallbacks = size_t(Fallback::NumValues);
 
-private:
+ private:
   FeatureState mFeatures[kNumFeatures];
   uint64_t mFallbackBits;
 
-private:
-  struct FallbackLogEntry {
+ private:
+  struct FallbackLogEntry
+  {
     Fallback mFallback;
     char mMessage[80];
   };
@@ -224,7 +229,7 @@ private:
   size_t mNumFallbackLogEntries;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_config_gfxConfig_h
+#endif  // mozilla_gfx_config_gfxConfig_h

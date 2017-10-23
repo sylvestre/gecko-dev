@@ -12,12 +12,14 @@ namespace mozilla {
 // if the thread was created successfully.
 //   aLog If the tracing results should be printed to
 //        the console.
-bool InitEventTracing(bool aLog);
+bool
+InitEventTracing(bool aLog);
 
 // Signal the background thread to stop, and join it.
 // Must be called from the same thread that called InitEventTracing.
-void ShutdownEventTracing();
+void
+ShutdownEventTracing();
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* XRE_EVENTTRACER_H_ */

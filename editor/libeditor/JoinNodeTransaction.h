@@ -6,11 +6,11 @@
 #ifndef JoinNodeTransaction_h
 #define JoinNodeTransaction_h
 
-#include "mozilla/EditTransactionBase.h" // for EditTransactionBase, etc.
-#include "nsCOMPtr.h"                   // for nsCOMPtr
+#include "mozilla/EditTransactionBase.h"  // for EditTransactionBase, etc.
+#include "nsCOMPtr.h"                     // for nsCOMPtr
 #include "nsCycleCollectionParticipant.h"
-#include "nsID.h"                       // for REFNSIID
-#include "nscore.h"                     // for NS_IMETHOD
+#include "nsID.h"    // for REFNSIID
+#include "nscore.h"  // for NS_IMETHOD
 
 class nsINode;
 
@@ -26,14 +26,15 @@ class EditorBase;
  */
 class JoinNodeTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * @param aEditorBase     The provider of core editing operations.
    * @param aLeftNode       The first of two nodes to join.
    * @param aRightNode      The second of two nodes to join.
    */
   JoinNodeTransaction(EditorBase& aEditorBase,
-                      nsINode& aLeftNode, nsINode& aRightNode);
+                      nsINode& aLeftNode,
+                      nsINode& aRightNode);
 
   /**
    * CanDoIt() returns true if there are enough members and can join or
@@ -47,7 +48,7 @@ public:
 
   NS_DECL_EDITTRANSACTIONBASE
 
-protected:
+ protected:
   RefPtr<EditorBase> mEditorBase;
 
   // The nodes to operate upon.  After the merge, mRightNode remains and
@@ -58,12 +59,12 @@ protected:
   // The offset into mNode where the children of mElement are split (for
   // undo). mOffset is the index of the first child in the right node.  -1
   // means the left node had no children.
-  uint32_t  mOffset;
+  uint32_t mOffset;
 
   // The parent node containing mLeftNode and mRightNode.
   nsCOMPtr<nsINode> mParent;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef JoinNodeTransaction_h
+#endif  // #ifndef JoinNodeTransaction_h

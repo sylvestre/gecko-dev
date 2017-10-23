@@ -21,11 +21,12 @@ struct ParamTraits<LookAndFeelInt>
     WriteParam(aMsg, aParam.value);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     int32_t id, value;
-    if (ReadParam(aMsg, aIter, &id) &&
-        ReadParam(aMsg, aIter, &value)) {
+    if (ReadParam(aMsg, aIter, &id) && ReadParam(aMsg, aIter, &value)) {
       aResult->id = id;
       aResult->value = value;
       return true;
@@ -34,6 +35,6 @@ struct ParamTraits<LookAndFeelInt>
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // WidgetMessageUtils_h
+#endif  // WidgetMessageUtils_h

@@ -17,7 +17,7 @@ class TextEditor;
 
 class TextEditUtils final
 {
-public:
+ public:
   // from TextEditRules:
   static bool IsBody(nsIDOMNode* aNode);
   static bool IsBreak(nsIDOMNode* aNode);
@@ -33,15 +33,15 @@ public:
  */
 class AutoEditInitRulesTrigger final
 {
-private:
+ private:
   TextEditor* mTextEditor;
   nsresult& mResult;
 
-public:
+ public:
   AutoEditInitRulesTrigger(TextEditor* aTextEditor, nsresult& aResult);
   ~AutoEditInitRulesTrigger();
 };
 
-} // naemspace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef TextEditUtils_h
+#endif  // #ifndef TextEditUtils_h

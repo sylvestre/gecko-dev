@@ -19,50 +19,59 @@ using namespace mozilla;
 // the size of 16 tokens on cnn.com.
 #define NS_HTML5_HIGHLIGHTER_PRE_BREAK_THRESHOLD 1300
 
-char16_t nsHtml5Highlighter::sComment[] =
-  { 'c', 'o', 'm', 'm', 'e', 'n', 't', 0 };
+char16_t nsHtml5Highlighter::sComment[] = {
+    'c', 'o', 'm', 'm', 'e', 'n', 't', 0};
 
-char16_t nsHtml5Highlighter::sCdata[] =
-  { 'c', 'd', 'a', 't', 'a', 0 };
+char16_t nsHtml5Highlighter::sCdata[] = {'c', 'd', 'a', 't', 'a', 0};
 
-char16_t nsHtml5Highlighter::sEntity[] =
-  { 'e', 'n', 't', 'i', 't', 'y', 0 };
+char16_t nsHtml5Highlighter::sEntity[] = {'e', 'n', 't', 'i', 't', 'y', 0};
 
-char16_t nsHtml5Highlighter::sEndTag[] =
-  { 'e', 'n', 'd', '-', 't', 'a', 'g', 0 };
+char16_t nsHtml5Highlighter::sEndTag[] = {'e', 'n', 'd', '-', 't', 'a', 'g', 0};
 
-char16_t nsHtml5Highlighter::sStartTag[] =
-  { 's', 't', 'a', 'r', 't', '-', 't', 'a', 'g', 0 };
+char16_t nsHtml5Highlighter::sStartTag[] = {
+    's', 't', 'a', 'r', 't', '-', 't', 'a', 'g', 0};
 
-char16_t nsHtml5Highlighter::sAttributeName[] =
-  { 'a', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', '-', 'n', 'a', 'm', 'e', 0 };
+char16_t nsHtml5Highlighter::sAttributeName[] = {
+    'a', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', '-', 'n', 'a', 'm', 'e', 0};
 
-char16_t nsHtml5Highlighter::sAttributeValue[] =
-  { 'a', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', '-',
-    'v', 'a', 'l', 'u', 'e', 0 };
+char16_t nsHtml5Highlighter::sAttributeValue[] = {'a',
+                                                  't',
+                                                  't',
+                                                  'r',
+                                                  'i',
+                                                  'b',
+                                                  'u',
+                                                  't',
+                                                  'e',
+                                                  '-',
+                                                  'v',
+                                                  'a',
+                                                  'l',
+                                                  'u',
+                                                  'e',
+                                                  0};
 
-char16_t nsHtml5Highlighter::sDoctype[] =
-  { 'd', 'o', 'c', 't', 'y', 'p', 'e', 0 };
+char16_t nsHtml5Highlighter::sDoctype[] = {
+    'd', 'o', 'c', 't', 'y', 'p', 'e', 0};
 
-char16_t nsHtml5Highlighter::sPi[] =
-  { 'p', 'i', 0 };
+char16_t nsHtml5Highlighter::sPi[] = {'p', 'i', 0};
 
 nsHtml5Highlighter::nsHtml5Highlighter(nsAHtml5TreeOpSink* aOpSink)
-  : mState(nsHtml5Tokenizer::DATA)
-  , mCStart(INT32_MAX)
-  , mPos(0)
-  , mLineNumber(1)
-  , mInlinesOpen(0)
-  , mInCharacters(false)
-  , mBuffer(nullptr)
-  , mOpSink(aOpSink)
-  , mCurrentRun(nullptr)
-  , mAmpersand(nullptr)
-  , mSlash(nullptr)
-  , mHandles(
-      MakeUnique<nsIContent* []>(NS_HTML5_HIGHLIGHTER_HANDLE_ARRAY_LENGTH))
-  , mHandlesUsed(0)
-  , mSeenBase(false)
+    : mState(nsHtml5Tokenizer::DATA),
+      mCStart(INT32_MAX),
+      mPos(0),
+      mLineNumber(1),
+      mInlinesOpen(0),
+      mInCharacters(false),
+      mBuffer(nullptr),
+      mOpSink(aOpSink),
+      mCurrentRun(nullptr),
+      mAmpersand(nullptr),
+      mSlash(nullptr),
+      mHandles(
+          MakeUnique<nsIContent* []>(NS_HTML5_HIGHLIGHTER_HANDLE_ARRAY_LENGTH)),
+      mHandlesUsed(0),
+      mSeenBase(false)
 {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 }
@@ -82,7 +91,7 @@ nsHtml5Highlighter::Start(const nsAutoString& aTitle)
 
   // <html> uses NS_NewHTMLSharedElement creator
   nsIContent** root =
-    CreateElement(nsGkAtoms::html, nullptr, nullptr, NS_NewHTMLSharedElement);
+      CreateElement(nsGkAtoms::html, nullptr, nullptr, NS_NewHTMLSharedElement);
   mOpQueue.AppendElement()->Init(eTreeOpAppendToDocument, root);
   mStack.AppendElement(root);
 
@@ -96,7 +105,7 @@ nsHtml5Highlighter::Start(const nsAutoString& aTitle)
     length = INT32_MAX;
   }
   AppendCharacters(aTitle.BeginReading(), 0, (int32_t)length);
-  Pop(); // title
+  Pop();  // title
 
   Push(nsGkAtoms::link,
        nsHtml5ViewSourceUtils::NewLinkAttributes(),
@@ -104,9 +113,9 @@ nsHtml5Highlighter::Start(const nsAutoString& aTitle)
 
   mOpQueue.AppendElement()->Init(eTreeOpUpdateStyleSheet, CurrentNode());
 
-  Pop(); // link
+  Pop();  // link
 
-  Pop(); // head
+  Pop();  // head
 
   Push(nsGkAtoms::body,
        nsHtml5ViewSourceUtils::NewBodyAttributes(),
@@ -148,7 +157,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
           StartSpan(sStartTag);
           break;
         case nsHtml5Tokenizer::DATA:
-          FinishTag(); // DATA
+          FinishTag();  // DATA
           break;
         case nsHtml5Tokenizer::PROCESSING_INSTRUCTION:
           AddClass(sPi);
@@ -158,11 +167,11 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
     case nsHtml5Tokenizer::TAG_NAME:
       switch (aState) {
         case nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME:
-          EndSpanOrA(); // nsHtml5Tokenizer::TAG_NAME
+          EndSpanOrA();  // nsHtml5Tokenizer::TAG_NAME
           break;
         case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
-          EndSpanOrA(); // nsHtml5Tokenizer::TAG_NAME
-          StartSpan(); // for highlighting the slash
+          EndSpanOrA();  // nsHtml5Tokenizer::TAG_NAME
+          StartSpan();   // for highlighting the slash
           mSlash = CurrentNode();
           break;
         default:
@@ -176,7 +185,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
           StartSpan(sAttributeName);
           break;
         case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
-          StartSpan(); // for highlighting the slash
+          StartSpan();  // for highlighting the slash
           mSlash = CurrentNode();
           break;
         default:
@@ -188,11 +197,11 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
       switch (aState) {
         case nsHtml5Tokenizer::AFTER_ATTRIBUTE_NAME:
         case nsHtml5Tokenizer::BEFORE_ATTRIBUTE_VALUE:
-          EndSpanOrA(); // nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME
+          EndSpanOrA();  // nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME
           break;
         case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
-          EndSpanOrA(); // nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME
-          StartSpan(); // for highlighting the slash
+          EndSpanOrA();  // nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME
+          StartSpan();   // for highlighting the slash
           mSlash = CurrentNode();
           break;
         default:
@@ -223,7 +232,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
           break;
         case nsHtml5Tokenizer::CONSUME_CHARACTER_REFERENCE:
           StartSpan();
-          StartSpan(); // for ampersand itself
+          StartSpan();  // for ampersand itself
           mAmpersand = CurrentNode();
           break;
         default:
@@ -236,7 +245,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
         case nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME:
           break;
         case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
-          StartSpan(); // for highlighting the slash
+          StartSpan();  // for highlighting the slash
           mSlash = CurrentNode();
           break;
         default:
@@ -245,7 +254,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
       }
       break;
     case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
-      EndSpanOrA(); // end the slash highlight
+      EndSpanOrA();  // end the slash highlight
       switch (aState) {
         case nsHtml5Tokenizer::BEFORE_ATTRIBUTE_NAME:
           break;
@@ -261,7 +270,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
           break;
         case nsHtml5Tokenizer::CONSUME_CHARACTER_REFERENCE:
           StartSpan();
-          StartSpan(); // for ampersand itself
+          StartSpan();  // for ampersand itself
           mAmpersand = CurrentNode();
           break;
         default:
@@ -272,7 +281,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
     case nsHtml5Tokenizer::AFTER_ATTRIBUTE_NAME:
       switch (aState) {
         case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
-          StartSpan(); // for highlighting the slash
+          StartSpan();  // for highlighting the slash
           mSlash = CurrentNode();
           break;
         case nsHtml5Tokenizer::BEFORE_ATTRIBUTE_VALUE:
@@ -307,7 +316,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
       }
       break;
     case nsHtml5Tokenizer::CONSUME_CHARACTER_REFERENCE:
-      EndSpanOrA(); // the span for the ampersand
+      EndSpanOrA();  // the span for the ampersand
       switch (aState) {
         case nsHtml5Tokenizer::CONSUME_NCR:
         case nsHtml5Tokenizer::CHARACTER_REFERENCE_HILO_LOOKUP:
@@ -357,7 +366,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
     case nsHtml5Tokenizer::RAWTEXT_RCDATA_LESS_THAN_SIGN:
       if (aState == nsHtml5Tokenizer::NON_DATA_END_TAG_NAME) {
         FlushCurrent();
-        StartSpan(); // don't know if it is "end-tag" yet :-(
+        StartSpan();  // don't know if it is "end-tag" yet :-(
         break;
       }
       EndSpanOrA();
@@ -372,10 +381,10 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
         case nsHtml5Tokenizer::SELF_CLOSING_START_TAG:
           AddClass(sEndTag);
           EndSpanOrA();
-          StartSpan(); // for highlighting the slash
+          StartSpan();  // for highlighting the slash
           mSlash = CurrentNode();
           break;
-        case nsHtml5Tokenizer::DATA: // yes, as a result of emitting the token
+        case nsHtml5Tokenizer::DATA:  // yes, as a result of emitting the token
           AddClass(sEndTag);
           FinishTag();
           break;
@@ -388,7 +397,7 @@ nsHtml5Highlighter::Transition(int32_t aState, bool aReconsume, int32_t aPos)
     case nsHtml5Tokenizer::SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN:
       if (aState == nsHtml5Tokenizer::NON_DATA_END_TAG_NAME) {
         FlushCurrent();
-        StartSpan(); // don't know if it is "end-tag" yet :-(
+        StartSpan();  // don't know if it is "end-tag" yet :-(
         break;
       }
       FinishTag();
@@ -556,8 +565,8 @@ nsHtml5Highlighter::FinishTag()
   while (mInlinesOpen > 1) {
     EndSpanOrA();
   }
-  FlushCurrent(); // >
-  EndSpanOrA(); // DATA
+  FlushCurrent();  // >
+  EndSpanOrA();    // DATA
   NS_ASSERTION(!mInlinesOpen, "mInlinesOpen got out of sync!");
   StartCharacters();
 }
@@ -652,7 +661,8 @@ nsHtml5Highlighter::AllocateContentHandle()
 {
   if (mHandlesUsed == NS_HTML5_HIGHLIGHTER_HANDLE_ARRAY_LENGTH) {
     mOldHandles.AppendElement(Move(mHandles));
-    mHandles = MakeUnique<nsIContent*[]>(NS_HTML5_HIGHLIGHTER_HANDLE_ARRAY_LENGTH);
+    mHandles =
+        MakeUnique<nsIContent* []>(NS_HTML5_HIGHLIGHTER_HANDLE_ARRAY_LENGTH);
     mHandlesUsed = 0;
   }
 #ifdef DEBUG
@@ -663,10 +673,10 @@ nsHtml5Highlighter::AllocateContentHandle()
 
 nsIContent**
 nsHtml5Highlighter::CreateElement(
-  nsAtom* aName,
-  nsHtml5HtmlAttributes* aAttributes,
-  nsIContent** aIntendedParent,
-  mozilla::dom::HTMLContentCreatorFunction aCreator)
+    nsAtom* aName,
+    nsHtml5HtmlAttributes* aAttributes,
+    nsIContent** aIntendedParent,
+    mozilla::dom::HTMLContentCreatorFunction aCreator)
 {
   NS_PRECONDITION(aName, "Got null name.");
   nsHtml5ContentCreatorFunction creator;
@@ -696,7 +706,7 @@ nsHtml5Highlighter::Push(nsAtom* aName,
 {
   NS_PRECONDITION(mStack.Length() >= 1, "Pushing without root.");
   nsIContent** elt = CreateElement(
-    aName, aAttributes, CurrentNode(), aCreator); // Don't inline below!
+      aName, aAttributes, CurrentNode(), aCreator);  // Don't inline below!
   mOpQueue.AppendElement()->Init(eTreeOpAppend, elt, CurrentNode());
   mStack.AppendElement(elt);
 }
@@ -718,12 +728,9 @@ nsHtml5Highlighter::AppendCharacters(const char16_t* aBuffer,
   char16_t* bufferCopy = new char16_t[aLength];
   memcpy(bufferCopy, aBuffer + aStart, aLength * sizeof(char16_t));
 
-  mOpQueue.AppendElement()->Init(eTreeOpAppendText,
-                                 bufferCopy,
-                                 aLength,
-                                 CurrentNode());
+  mOpQueue.AppendElement()->Init(
+      eTreeOpAppendText, bufferCopy, aLength, CurrentNode());
 }
-
 
 void
 nsHtml5Highlighter::AddClass(const char16_t* aClass)
@@ -738,16 +745,14 @@ nsHtml5Highlighter::AddViewSourceHref(nsHtml5String aValue)
   aValue.CopyToBuffer(bufferCopy);
   bufferCopy[aValue.Length()] = 0;
 
-  mOpQueue.AppendElement()->Init(eTreeOpAddViewSourceHref,
-                                 bufferCopy,
-                                 aValue.Length(),
-                                 CurrentNode());
+  mOpQueue.AppendElement()->Init(
+      eTreeOpAddViewSourceHref, bufferCopy, aValue.Length(), CurrentNode());
 }
 
 void
 nsHtml5Highlighter::AddBase(nsHtml5String aValue)
 {
-  if(mSeenBase) {
+  if (mSeenBase) {
     return;
   }
   mSeenBase = true;
@@ -755,9 +760,8 @@ nsHtml5Highlighter::AddBase(nsHtml5String aValue)
   aValue.CopyToBuffer(bufferCopy);
   bufferCopy[aValue.Length()] = 0;
 
-  mOpQueue.AppendElement()->Init(eTreeOpAddViewSourceBase,
-                                 bufferCopy,
-                                 aValue.Length());
+  mOpQueue.AppendElement()->Init(
+      eTreeOpAddViewSourceBase, bufferCopy, aValue.Length());
 }
 
 void
@@ -778,8 +782,7 @@ nsHtml5Highlighter::AddErrorToCurrentRun(const char* aMsgId)
 }
 
 void
-nsHtml5Highlighter::AddErrorToCurrentRun(const char* aMsgId,
-                                         nsAtom* aName)
+nsHtml5Highlighter::AddErrorToCurrentRun(const char* aMsgId, nsAtom* aName)
 {
   NS_PRECONDITION(mCurrentRun, "Adding error to run without one!");
   nsHtml5TreeOperation* treeOp = mOpQueue.AppendElement();

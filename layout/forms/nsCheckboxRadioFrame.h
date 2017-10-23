@@ -19,7 +19,7 @@
 class nsCheckboxRadioFrame final : public nsAtomicContainerFrame,
                                    public nsIFormControlFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsCheckboxRadioFrame)
 
@@ -28,12 +28,13 @@ public:
   // nsIFrame replacements
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsAtomicContainerFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
+    return nsAtomicContainerFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
   }
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
-                                const nsDisplayListSet& aLists) override {
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
+                                const nsDisplayListSet& aLists) override
+  {
     DO_GLOBAL_REFLOW_COUNT_DSP("nsCheckboxRadioFrame");
     DisplayBorderBackgroundOutline(aBuilder, aLists);
   }
@@ -42,21 +43,21 @@ public:
    * Both GetMinISize and GetPrefISize will return whatever GetIntrinsicISize
    * returns.
    */
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  virtual nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
 
   /**
    * Our auto size is just intrinsic width and intrinsic height.
    */
-  virtual mozilla::LogicalSize
-  ComputeAutoSize(gfxContext*                 aRenderingContext,
-                  mozilla::WritingMode        aWM,
-                  const mozilla::LogicalSize& aCBSize,
-                  nscoord                     aAvailableISize,
-                  const mozilla::LogicalSize& aMargin,
-                  const mozilla::LogicalSize& aBorder,
-                  const mozilla::LogicalSize& aPadding,
-                  ComputeSizeFlags            aFlags) override;
+  virtual mozilla::LogicalSize ComputeAutoSize(
+      gfxContext* aRenderingContext,
+      mozilla::WritingMode aWM,
+      const mozilla::LogicalSize& aCBSize,
+      nscoord aAvailableISize,
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorder,
+      const mozilla::LogicalSize& aPadding,
+      ComputeSizeFlags aFlags) override;
 
   /**
     * Respond to a gui event
@@ -66,17 +67,17 @@ public:
                                mozilla::WidgetGUIEvent* aEvent,
                                nsEventStatus* aEventStatus) override;
 
-  virtual nscoord GetLogicalBaseline(mozilla::WritingMode aWritingMode)
-    const override;
+  virtual nscoord GetLogicalBaseline(
+      mozilla::WritingMode aWritingMode) const override;
 
   /**
     * Respond to the request to resize and/or reflow
     * @see nsIFrame::Reflow
     */
-  virtual void Reflow(nsPresContext*      aCX,
+  virtual void Reflow(nsPresContext* aCX,
                       ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&      aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
@@ -85,10 +86,11 @@ public:
   virtual void SetFocus(bool aOn = true, bool aRepaint = false) override;
 
   // nsIFormControlFrame
-  virtual nsresult SetFormProperty(nsAtom* aName, const nsAString& aValue) override;
+  virtual nsresult SetFormProperty(nsAtom* aName,
+                                   const nsAString& aValue) override;
 
   // AccessKey Helper function
-  static nsresult RegUnRegAccessKey(nsIFrame * aFrame, bool aDoReg);
+  static nsresult RegUnRegAccessKey(nsIFrame* aFrame, bool aDoReg);
 
   /**
    * Returns the usable screen rect in app units, eg the rect where we can
@@ -96,8 +98,7 @@ public:
    */
   static nsRect GetUsableScreenRect(nsPresContext* aPresContext);
 
-protected:
-
+ protected:
   virtual ~nsCheckboxRadioFrame();
 
   static nscoord DefaultSize()
@@ -117,4 +118,3 @@ protected:
 };
 
 #endif
-

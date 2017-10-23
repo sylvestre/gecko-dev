@@ -26,9 +26,10 @@ struct ScrollAnimationBezierPhysicsSettings
 // adapts the animation duration based on the scrolling rate.
 class ScrollAnimationBezierPhysics : public ScrollAnimationPhysics
 {
-public:
-  explicit ScrollAnimationBezierPhysics(const nsPoint& aStartPos,
-                                        const ScrollAnimationBezierPhysicsSettings& aSettings);
+ public:
+  explicit ScrollAnimationBezierPhysics(
+      const nsPoint& aStartPos,
+      const ScrollAnimationBezierPhysicsSettings& aSettings);
 
   void Update(const TimeStamp& aTime,
               const nsPoint& aDestination,
@@ -41,18 +42,21 @@ public:
   // units, relative to the scroll frame.
   nsPoint PositionAt(const TimeStamp& aTime) override;
 
-  bool IsFinished(const TimeStamp& aTime) override {
+  bool IsFinished(const TimeStamp& aTime) override
+  {
     return aTime > mStartTime + mDuration;
   }
 
-protected:
-  double ProgressAt(const TimeStamp& aTime) const {
+ protected:
+  double ProgressAt(const TimeStamp& aTime) const
+  {
     return clamped((aTime - mStartTime) / mDuration, 0.0, 1.0);
   }
 
   nscoord VelocityComponent(double aTimeProgress,
                             const nsSMILKeySpline& aTimingFunction,
-                            nscoord aStart, nscoord aDestination) const;
+                            nscoord aStart,
+                            nscoord aDestination) const;
 
   // Calculate duration, possibly dynamically according to events rate and
   // event origin. (also maintain previous timestamps - which are only used
@@ -62,7 +66,8 @@ protected:
   // Initializes the timing function in such a way that the current velocity is
   // preserved.
   void InitTimingFunction(nsSMILKeySpline& aTimingFunction,
-                          nscoord aCurrentPos, nscoord aCurrentVelocity,
+                          nscoord aCurrentPos,
+                          nscoord aCurrentVelocity,
                           nscoord aDestination);
 
   // Initialize event history.
@@ -88,6 +93,6 @@ protected:
   bool mIsFirstIteration;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_layout_ScrollAnimationBezierPhysics_h_
+#endif  // mozilla_layout_ScrollAnimationBezierPhysics_h_

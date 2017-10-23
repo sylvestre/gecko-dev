@@ -25,74 +25,53 @@ using mozilla::Array;
 namespace js {
 namespace jit {
 
-class LoopAliasInfo : public TempObject
-{
-  private:
+class LoopAliasInfo : public TempObject {
+   private:
     LoopAliasInfo* outer_;
     MBasicBlock* loopHeader_;
     MInstructionVector invariantLoads_;
 
-  public:
+   public:
     LoopAliasInfo(TempAllocator& alloc, LoopAliasInfo* outer, MBasicBlock* loopHeader)
-      : outer_(outer), loopHeader_(loopHeader), invariantLoads_(alloc)
-    { }
+        : outer_(outer), loopHeader_(loopHeader), invariantLoads_(alloc) {}
 
-    MBasicBlock* loopHeader() const {
-        return loopHeader_;
-    }
-    LoopAliasInfo* outer() const {
-        return outer_;
-    }
-    bool addInvariantLoad(MInstruction* ins) {
-        return invariantLoads_.append(ins);
-    }
-    const MInstructionVector& invariantLoads() const {
-        return invariantLoads_;
-    }
-    MInstruction* firstInstruction() const {
-        return *loopHeader_->begin();
-    }
+    MBasicBlock* loopHeader() const { return loopHeader_; }
+    LoopAliasInfo* outer() const { return outer_; }
+    bool addInvariantLoad(MInstruction* ins) { return invariantLoads_.append(ins); }
+    const MInstructionVector& invariantLoads() const { return invariantLoads_; }
+    MInstruction* firstInstruction() const { return *loopHeader_->begin(); }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 AliasAnalysis::AliasAnalysis(MIRGenerator* mir, MIRGraph& graph)
-  : AliasAnalysisShared(mir, graph),
-    loop_(nullptr)
-{
-}
+    : AliasAnalysisShared(mir, graph), loop_(nullptr) {}
 
 // Whether there might be a path from src to dest, excluding loop backedges. This is
 // approximate and really ought to depend on precomputed reachability information.
-static inline bool
-BlockMightReach(MBasicBlock* src, MBasicBlock* dest)
-{
+static inline bool BlockMightReach(MBasicBlock* src, MBasicBlock* dest) {
     while (src->id() <= dest->id()) {
-        if (src == dest)
-            return true;
+        if (src == dest) return true;
         switch (src->numSuccessors()) {
-          case 0:
-            return false;
-          case 1: {
-            MBasicBlock* successor = src->getSuccessor(0);
-            if (successor->id() <= src->id())
-                return true; // Don't iloop.
-            src = successor;
-            break;
-          }
-          default:
-            return true;
+            case 0:
+                return false;
+            case 1: {
+                MBasicBlock* successor = src->getSuccessor(0);
+                if (successor->id() <= src->id()) return true;  // Don't iloop.
+                src = successor;
+                break;
+            }
+            default:
+                return true;
         }
     }
     return false;
 }
 
-static void
-IonSpewDependency(MInstruction* load, MInstruction* store, const char* verb, const char* reason)
-{
-    if (!JitSpewEnabled(JitSpew_Alias))
-        return;
+static void IonSpewDependency(MInstruction* load, MInstruction* store, const char* verb,
+                              const char* reason) {
+    if (!JitSpewEnabled(JitSpew_Alias)) return;
 
     Fprinter& out = JitSpewPrinter();
     out.printf("Load ");
@@ -102,11 +81,8 @@ IonSpewDependency(MInstruction* load, MInstruction* store, const char* verb, con
     out.printf(" (%s)\n", reason);
 }
 
-static void
-IonSpewAliasInfo(const char* pre, MInstruction* ins, const char* post)
-{
-    if (!JitSpewEnabled(JitSpew_Alias))
-        return;
+static void IonSpewAliasInfo(const char* pre, MInstruction* ins, const char* post) {
+    if (!JitSpewEnabled(JitSpew_Alias)) return;
 
     Fprinter& out = JitSpewPrinter();
     out.printf("%s ", pre);
@@ -128,19 +104,15 @@ IonSpewAliasInfo(const char* pre, MInstruction* ins, const char* post)
 //
 // The algorithm depends on the invariant that both control instructions and effectful
 // instructions (stores) are never hoisted.
-bool
-AliasAnalysis::analyze()
-{
+bool AliasAnalysis::analyze() {
     Vector<MInstructionVector, AliasSet::NumCategories, JitAllocPolicy> stores(alloc());
 
     // Initialize to the first instruction.
     MInstruction* firstIns = *graph_.entryBlock()->begin();
     for (unsigned i = 0; i < AliasSet::NumCategories; i++) {
         MInstructionVector defs(alloc());
-        if (!defs.append(firstIns))
-            return false;
-        if (!stores.append(Move(defs)))
-            return false;
+        if (!defs.append(firstIns)) return false;
+        if (!stores.append(Move(defs))) return false;
     }
 
     // Type analysis may have inserted new instructions. Since this pass depends
@@ -148,39 +120,32 @@ AliasAnalysis::analyze()
     uint32_t newId = 0;
 
     for (ReversePostorderIterator block(graph_.rpoBegin()); block != graph_.rpoEnd(); block++) {
-        if (mir->shouldCancel("Alias Analysis (main loop)"))
-            return false;
+        if (mir->shouldCancel("Alias Analysis (main loop)")) return false;
 
         if (block->isLoopHeader()) {
             JitSpew(JitSpew_Alias, "Processing loop header %d", block->id());
-            loop_ = new(alloc().fallible()) LoopAliasInfo(alloc(), loop_, *block);
-            if (!loop_)
-                return false;
+            loop_ = new (alloc().fallible()) LoopAliasInfo(alloc(), loop_, *block);
+            if (!loop_) return false;
         }
 
         for (MPhiIterator def(block->phisBegin()), end(block->phisEnd()); def != end; ++def)
             def->setId(newId++);
 
         for (MInstructionIterator def(block->begin()), end(block->begin(block->lastIns()));
-             def != end;
-             ++def)
-        {
+             def != end; ++def) {
             def->setId(newId++);
 
             AliasSet set = def->getAliasSet();
-            if (set.isNone())
-                continue;
+            if (set.isNone()) continue;
 
             // For the purposes of alias analysis, all recoverable operations
             // are treated as effect free as the memory represented by these
             // operations cannot be aliased by others.
-            if (def->canRecoverOnBailout())
-                continue;
+            if (def->canRecoverOnBailout()) continue;
 
             if (set.isStore()) {
                 for (AliasSetIterator iter(set); iter; iter++) {
-                    if (!stores[*iter].append(*def))
-                        return false;
+                    if (!stores[*iter].append(*def)) return false;
                 }
 
                 if (JitSpewEnabled(JitSpew_Alias)) {
@@ -199,10 +164,8 @@ AliasAnalysis::analyze()
                         MInstruction* store = aliasedStores[i];
                         if (genericMightAlias(*def, store) != MDefinition::AliasType::NoAlias &&
                             def->mightAlias(store) != MDefinition::AliasType::NoAlias &&
-                            BlockMightReach(store->block(), *block))
-                        {
-                            if (lastStore->id() < store->id())
-                                lastStore = store;
+                            BlockMightReach(store->block(), *block)) {
+                            if (lastStore->id() < store->id()) lastStore = store;
                             break;
                         }
                     }
@@ -215,8 +178,7 @@ AliasAnalysis::analyze()
                 // is loop invariant. If a later instruction writes to the same location,
                 // we will fix this at the end of the loop.
                 if (loop_ && lastStore->id() < loop_->firstInstruction()->id()) {
-                    if (!loop_->addInvariantLoad(*def))
-                        return false;
+                    if (!loop_->addInvariantLoad(*def)) return false;
                 }
             }
         }
@@ -243,18 +205,15 @@ AliasAnalysis::analyze()
                     MInstructionVector& aliasedStores = stores[*iter];
                     for (int i = aliasedStores.length() - 1;; i--) {
                         MInstruction* store = aliasedStores[i];
-                        if (store->id() < firstLoopIns->id())
-                            break;
+                        if (store->id() < firstLoopIns->id()) break;
                         if (genericMightAlias(ins, store) != MDefinition::AliasType::NoAlias &&
-                            ins->mightAlias(store) != MDefinition::AliasType::NoAlias)
-                        {
+                            ins->mightAlias(store) != MDefinition::AliasType::NoAlias) {
                             hasAlias = true;
                             IonSpewDependency(ins, store, "aliases", "store in loop body");
                             break;
                         }
                     }
-                    if (hasAlias)
-                        break;
+                    if (hasAlias) break;
                 }
 
                 if (hasAlias) {
@@ -267,10 +226,10 @@ AliasAnalysis::analyze()
                 } else {
                     IonSpewAliasInfo("Load", ins, "does not depend on any stores in this loop");
 
-                    if (outerLoop && ins->dependency()->id() < outerLoop->firstInstruction()->id()) {
+                    if (outerLoop &&
+                        ins->dependency()->id() < outerLoop->firstInstruction()->id()) {
                         IonSpewAliasInfo("Load", ins, "may be invariant in outer loop");
-                        if (!outerLoop->addInvariantLoad(ins))
-                            return false;
+                        if (!outerLoop->addInvariantLoad(ins)) return false;
                     }
                 }
             }

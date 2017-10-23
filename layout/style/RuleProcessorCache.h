@@ -24,8 +24,8 @@ namespace mozilla {
 class CSSStyleSheet;
 namespace css {
 class DocumentRule;
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 namespace mozilla {
 
@@ -44,10 +44,9 @@ class RuleProcessorCache final : public nsIMemoryReporter
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMEMORYREPORTER
 
-public:
+ public:
   static nsCSSRuleProcessor* GetRuleProcessor(
-      const nsTArray<CSSStyleSheet*>& aSheets,
-      nsPresContext* aPresContext);
+      const nsTArray<CSSStyleSheet*>& aSheets, nsPresContext* aPresContext);
   static void PutRuleProcessor(
       const nsTArray<CSSStyleSheet*>& aSheets,
       nsTArray<css::DocumentRule*>&& aDocumentRulesInSheets,
@@ -62,27 +61,35 @@ public:
   static void RemoveRuleProcessor(nsCSSRuleProcessor* aRuleProcessor);
   static void RemoveSheet(CSSStyleSheet* aSheet);
 
-  static void Shutdown() { gShutdown = true; gRuleProcessorCache = nullptr; }
+  static void Shutdown()
+  {
+    gShutdown = true;
+    gRuleProcessorCache = nullptr;
+  }
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
 
-private:
-  class ExpirationTracker : public nsExpirationTracker<nsCSSRuleProcessor,3>
+ private:
+  class ExpirationTracker : public nsExpirationTracker<nsCSSRuleProcessor, 3>
   {
-  public:
+   public:
     explicit ExpirationTracker(RuleProcessorCache* aCache)
-      : nsExpirationTracker<nsCSSRuleProcessor,3>(
-          10000, "RuleProcessorCache::ExpirationTracker",
-          SystemGroup::EventTargetFor(TaskCategory::Other))
-      , mCache(aCache) {}
+        : nsExpirationTracker<nsCSSRuleProcessor, 3>(
+              10000,
+              "RuleProcessorCache::ExpirationTracker",
+              SystemGroup::EventTargetFor(TaskCategory::Other)),
+          mCache(aCache)
+    {
+    }
 
     void RemoveObjectIfTracked(nsCSSRuleProcessor* aRuleProcessor);
 
-    virtual void NotifyExpired(nsCSSRuleProcessor* aRuleProcessor) override {
+    virtual void NotifyExpired(nsCSSRuleProcessor* aRuleProcessor) override
+    {
       mCache->RemoveRuleProcessor(aRuleProcessor);
     }
 
-  private:
+   private:
     RuleProcessorCache* mCache;
   };
 
@@ -97,8 +104,7 @@ private:
 
   void DoRemoveSheet(CSSStyleSheet* aSheet);
   nsCSSRuleProcessor* DoGetRuleProcessor(
-      const nsTArray<CSSStyleSheet*>& aSheets,
-      nsPresContext* aPresContext);
+      const nsTArray<CSSStyleSheet*>& aSheets, nsPresContext* aPresContext);
   void DoPutRuleProcessor(const nsTArray<CSSStyleSheet*>& aSheets,
                           nsTArray<css::DocumentRule*>&& aDocumentRulesInSheets,
                           const nsDocumentRuleResultCacheKey& aCacheKey,
@@ -110,25 +116,31 @@ private:
   void DoStartTracking(nsCSSRuleProcessor* aRuleProcessor);
   void DoStopTracking(nsCSSRuleProcessor* aRuleProcessor);
 
-  struct DocumentEntry {
+  struct DocumentEntry
+  {
     nsDocumentRuleResultCacheKey mCacheKey;
     RefPtr<nsCSSRuleProcessor> mRuleProcessor;
   };
 
-  struct Entry {
-    nsTArray<CSSStyleSheet*>     mSheets;
+  struct Entry
+  {
+    nsTArray<CSSStyleSheet*> mSheets;
     nsTArray<css::DocumentRule*> mDocumentRulesInSheets;
-    nsTArray<DocumentEntry>      mDocumentEntries;
+    nsTArray<DocumentEntry> mDocumentEntries;
   };
 
   // Function object to test whether an Entry object has a given sheet
   // in its mSheets array.  If it does, removes all of its rule processors
   // before returning true.
-  struct HasSheet_ThenRemoveRuleProcessors {
+  struct HasSheet_ThenRemoveRuleProcessors
+  {
     HasSheet_ThenRemoveRuleProcessors(RuleProcessorCache* aCache,
                                       CSSStyleSheet* aSheet)
-      : mCache(aCache), mSheet(aSheet) {}
-    bool operator()(Entry& aEntry) {
+        : mCache(aCache), mSheet(aSheet)
+    {
+    }
+    bool operator()(Entry& aEntry)
+    {
       if (aEntry.mSheets.Contains(mSheet)) {
         for (DocumentEntry& de : aEntry.mDocumentEntries) {
           de.mRuleProcessor->SetInRuleProcessorCache(false);
@@ -146,6 +158,6 @@ private:
   nsTArray<Entry> mEntries;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_RuleProcessorCache_h
+#endif  // mozilla_RuleProcessorCache_h

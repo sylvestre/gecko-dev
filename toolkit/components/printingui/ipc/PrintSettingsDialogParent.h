@@ -13,17 +13,16 @@ namespace embedding {
 
 class PrintSettingsDialogParent final : public PPrintSettingsDialogParent
 {
-public:
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+ public:
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
   MOZ_IMPLICIT PrintSettingsDialogParent();
 
-private:
+ private:
   virtual ~PrintSettingsDialogParent();
 };
 
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla
 
 #endif

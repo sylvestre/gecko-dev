@@ -19,14 +19,11 @@ namespace dom {
 
 MediaTrackList::MediaTrackList(nsPIDOMWindowInner* aOwnerWindow,
                                HTMLMediaElement* aMediaElement)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mMediaElement(aMediaElement)
+    : DOMEventTargetHelper(aOwnerWindow), mMediaElement(aMediaElement)
 {
 }
 
-MediaTrackList::~MediaTrackList()
-{
-}
+MediaTrackList::~MediaTrackList() {}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaTrackList,
                                    DOMEventTargetHelper,
@@ -38,8 +35,7 @@ NS_IMPL_RELEASE_INHERITED(MediaTrackList, DOMEventTargetHelper)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaTrackList)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-MediaTrack*
-MediaTrackList::operator[](uint32_t aIndex)
+MediaTrack* MediaTrackList::operator[](uint32_t aIndex)
 {
   return mTracks.ElementAt(aIndex);
 }
@@ -109,8 +105,8 @@ MediaTrackList::CreateAudioTrack(const nsAString& aId,
                                  const nsAString& aLanguage,
                                  bool aEnabled)
 {
-  RefPtr<AudioTrack> track = new AudioTrack(aId, aKind, aLabel, aLanguage,
-                                              aEnabled);
+  RefPtr<AudioTrack> track =
+      new AudioTrack(aId, aKind, aLabel, aLanguage, aEnabled);
   return track.forget();
 }
 
@@ -121,7 +117,8 @@ MediaTrackList::CreateVideoTrack(const nsAString& aId,
                                  const nsAString& aLanguage,
                                  VideoStreamTrack* aVideoTrack)
 {
-  RefPtr<VideoTrack> track = new VideoTrack(aId, aKind, aLabel, aLanguage, aVideoTrack);
+  RefPtr<VideoTrack> track =
+      new VideoTrack(aId, aKind, aLabel, aLanguage, aVideoTrack);
   return track.forget();
 }
 
@@ -139,7 +136,7 @@ void
 MediaTrackList::CreateAndDispatchChangeEvent()
 {
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, NS_LITERAL_STRING("change"), false);
+      new AsyncEventDispatcher(this, NS_LITERAL_STRING("change"), false);
   asyncDispatcher->PostDOMEvent();
 }
 
@@ -156,12 +153,12 @@ MediaTrackList::CreateAndDispatchTrackEventRunner(MediaTrack* aTrack,
   }
 
   RefPtr<TrackEvent> event =
-    TrackEvent::Constructor(this, aEventName, eventInit);
+      TrackEvent::Constructor(this, aEventName, eventInit);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event);
   asyncDispatcher->PostDOMEvent();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

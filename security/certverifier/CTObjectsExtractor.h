@@ -11,7 +11,8 @@
 #include "pkix/Result.h"
 #include "SignedCertificateTimestamp.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Obtains a PrecertChain log entry for |leafCertificate|, a DER-encoded
 // X.509v3 certificate that contains an X.509v3 extension with the
@@ -24,9 +25,10 @@ namespace mozilla { namespace ct {
 // The returned |output| is intended to be verified by CTLogVerifier::Verify.
 // Note that |leafCertificate| is not checked for validity or well-formedness.
 // You might want to validate it first using pkix::BuildCertChain or similar.
-pkix::Result GetPrecertLogEntry(pkix::Input leafCertificate,
-                                pkix::Input issuerSubjectPublicKeyInfo,
-                                LogEntry& output);
+pkix::Result
+GetPrecertLogEntry(pkix::Input leafCertificate,
+                   pkix::Input issuerSubjectPublicKeyInfo,
+                   LogEntry& output);
 
 // Obtains an X509Chain log entry for |leafCertificate|, a DER-encoded
 // X.509v3 certificate that is not expected to contain an X.509v3 extension
@@ -36,8 +38,10 @@ pkix::Result GetPrecertLogEntry(pkix::Input leafCertificate,
 // The returned |output| is intended to be verified by CTLogVerifier::Verify.
 // Note that |leafCertificate| is not checked for validity or well-formedness.
 // You might want to validate it first using pkix::BuildCertChain or similar.
-pkix::Result GetX509LogEntry(pkix::Input leafCertificate, LogEntry& output);
+pkix::Result
+GetX509LogEntry(pkix::Input leafCertificate, LogEntry& output);
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
 #endif  // CTObjectsExtractor_h

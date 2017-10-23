@@ -30,10 +30,10 @@ DeallocPCacheChild(PCacheChild* aActor)
 }
 
 CacheChild::CacheChild()
-  : mListener(nullptr)
-  , mNumChildActors(0)
-  , mDelayedDestroy(false)
-  , mLocked(false)
+    : mListener(nullptr),
+      mNumChildActors(0),
+      mDelayedDestroy(false),
+      mLocked(false)
 {
   MOZ_COUNT_CTOR(cache::CacheChild);
 }
@@ -65,12 +65,14 @@ CacheChild::ClearListener()
 }
 
 void
-CacheChild::ExecuteOp(nsIGlobalObject* aGlobal, Promise* aPromise,
-                      nsISupports* aParent, const CacheOpArgs& aArgs)
+CacheChild::ExecuteOp(nsIGlobalObject* aGlobal,
+                      Promise* aPromise,
+                      nsISupports* aParent,
+                      const CacheOpArgs& aArgs)
 {
   mNumChildActors += 1;
   MOZ_ALWAYS_TRUE(SendPCacheOpConstructor(
-    new CacheOpChild(GetWorkerHolder(), aGlobal, aParent, aPromise), aArgs));
+      new CacheOpChild(GetWorkerHolder(), aGlobal, aParent, aPromise), aArgs));
 }
 
 void
@@ -180,6 +182,6 @@ CacheChild::Unlock()
   MaybeFlushDelayedDestroy();
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

@@ -26,9 +26,7 @@ namespace dom {
 
 EntryCallbackRunnable::EntryCallbackRunnable(FileSystemEntryCallback* aCallback,
                                              FileSystemEntry* aEntry)
-  : Runnable("EntryCallbackRunnable")
-  , mCallback(aCallback)
-  , mEntry(aEntry)
+    : Runnable("EntryCallbackRunnable"), mCallback(aCallback), mEntry(aEntry)
 {
   MOZ_ASSERT(aCallback);
   MOZ_ASSERT(aEntry);
@@ -44,10 +42,10 @@ EntryCallbackRunnable::Run()
 ErrorCallbackRunnable::ErrorCallbackRunnable(nsIGlobalObject* aGlobalObject,
                                              ErrorCallback* aCallback,
                                              nsresult aError)
-  : Runnable("ErrorCallbackRunnable")
-  , mGlobal(aGlobalObject)
-  , mCallback(aCallback)
-  , mError(aError)
+    : Runnable("ErrorCallbackRunnable"),
+      mGlobal(aGlobalObject),
+      mCallback(aCallback),
+      mError(aError)
 {
   MOZ_ASSERT(aGlobalObject);
   MOZ_ASSERT(aCallback);
@@ -62,9 +60,9 @@ ErrorCallbackRunnable::Run()
   return NS_OK;
 }
 
-EmptyEntriesCallbackRunnable::EmptyEntriesCallbackRunnable(FileSystemEntriesCallback* aCallback)
-  : Runnable("EmptyEntriesCallbackRunnable")
-  , mCallback(aCallback)
+EmptyEntriesCallbackRunnable::EmptyEntriesCallbackRunnable(
+    FileSystemEntriesCallback* aCallback)
+    : Runnable("EmptyEntriesCallbackRunnable"), mCallback(aCallback)
 {
   MOZ_ASSERT(aCallback);
 }
@@ -84,13 +82,13 @@ GetEntryHelper::GetEntryHelper(FileSystemDirectoryEntry* aParentEntry,
                                FileSystemEntryCallback* aSuccessCallback,
                                ErrorCallback* aErrorCallback,
                                FileSystemDirectoryEntry::GetInternalType aType)
-  : mParentEntry(aParentEntry)
-  , mDirectory(aDirectory)
-  , mParts(aParts)
-  , mFileSystem(aFileSystem)
-  , mSuccessCallback(aSuccessCallback)
-  , mErrorCallback(aErrorCallback)
-  , mType(aType)
+    : mParentEntry(aParentEntry),
+      mDirectory(aDirectory),
+      mParts(aParts),
+      mFileSystem(aFileSystem),
+      mSuccessCallback(aSuccessCallback),
+      mErrorCallback(aErrorCallback),
+      mType(aType)
 {
   MOZ_ASSERT(aParentEntry);
   MOZ_ASSERT(aDirectory);
@@ -99,13 +97,13 @@ GetEntryHelper::GetEntryHelper(FileSystemDirectoryEntry* aParentEntry,
   MOZ_ASSERT(aSuccessCallback || aErrorCallback);
 }
 
-GetEntryHelper::~GetEntryHelper()
-{}
+GetEntryHelper::~GetEntryHelper() {}
 
 namespace {
 
 nsresult
-DOMPathToRealPath(Directory* aDirectory, const nsAString& aPath,
+DOMPathToRealPath(Directory* aDirectory,
+                  const nsAString& aPath,
                   nsIFile** aFile)
 {
   nsString relativePath;
@@ -137,7 +135,7 @@ DOMPathToRealPath(Directory* aDirectory, const nsAString& aPath,
   return NS_OK;
 }
 
-} // anonymous
+}  // namespace
 
 void
 GetEntryHelper::Run()
@@ -145,8 +143,8 @@ GetEntryHelper::Run()
   MOZ_ASSERT(!mParts.IsEmpty());
 
   nsCOMPtr<nsIFile> realPath;
-  nsresult error = DOMPathToRealPath(mDirectory, mParts[0],
-                                     getter_AddRefs(realPath));
+  nsresult error =
+      DOMPathToRealPath(mDirectory, mParts[0], getter_AddRefs(realPath));
 
   ErrorResult rv;
   RefPtr<FileSystemBase> fs = mDirectory->GetFileSystem(rv);
@@ -157,7 +155,7 @@ GetEntryHelper::Run()
   }
 
   RefPtr<GetFileOrDirectoryTaskChild> task =
-    GetFileOrDirectoryTaskChild::Create(fs, realPath, rv);
+      GetFileOrDirectoryTaskChild::Create(fs, realPath, rv);
   if (NS_WARN_IF(rv.Failed())) {
     rv.SuppressException();
     Error(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -176,7 +174,7 @@ GetEntryHelper::Run()
 void
 GetEntryHelper::ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue)
 {
-  if(NS_WARN_IF(!aValue.isObject())) {
+  if (NS_WARN_IF(!aValue.isObject())) {
     return;
   }
 
@@ -203,9 +201,8 @@ GetEntryHelper::CompleteOperation(JSObject* aObj)
       return;
     }
 
-    RefPtr<FileSystemFileEntry> entry =
-      new FileSystemFileEntry(mParentEntry->GetParentObject(), file,
-                              mParentEntry, mFileSystem);
+    RefPtr<FileSystemFileEntry> entry = new FileSystemFileEntry(
+        mParentEntry->GetParentObject(), file, mParentEntry, mFileSystem);
     mSuccessCallback->HandleEvent(*entry);
     return;
   }
@@ -218,9 +215,8 @@ GetEntryHelper::CompleteOperation(JSObject* aObj)
     return;
   }
 
-  RefPtr<FileSystemDirectoryEntry> entry =
-    new FileSystemDirectoryEntry(mParentEntry->GetParentObject(), directory,
-                                 mParentEntry, mFileSystem);
+  RefPtr<FileSystemDirectoryEntry> entry = new FileSystemDirectoryEntry(
+      mParentEntry->GetParentObject(), directory, mParentEntry, mFileSystem);
   mSuccessCallback->HandleEvent(*entry);
 }
 
@@ -235,9 +231,8 @@ GetEntryHelper::ContinueRunning(JSObject* aObj)
     return;
   }
 
-  RefPtr<FileSystemDirectoryEntry> entry =
-    new FileSystemDirectoryEntry(mParentEntry->GetParentObject(), directory,
-                                 mParentEntry, mFileSystem);
+  RefPtr<FileSystemDirectoryEntry> entry = new FileSystemDirectoryEntry(
+      mParentEntry->GetParentObject(), directory, mParentEntry, mFileSystem);
 
   // Update the internal values.
   mParentEntry = entry;
@@ -258,9 +253,8 @@ GetEntryHelper::Error(nsresult aError)
   MOZ_ASSERT(NS_FAILED(aError));
 
   if (mErrorCallback) {
-    RefPtr<ErrorCallbackRunnable> runnable =
-      new ErrorCallbackRunnable(mParentEntry->GetParentObject(),
-                                mErrorCallback, aError);
+    RefPtr<ErrorCallbackRunnable> runnable = new ErrorCallbackRunnable(
+        mParentEntry->GetParentObject(), mErrorCallback, aError);
 
     FileSystemUtils::DispatchRunnable(mParentEntry->GetParentObject(),
                                       runnable.forget());
@@ -270,37 +264,38 @@ GetEntryHelper::Error(nsresult aError)
 NS_IMPL_ISUPPORTS0(GetEntryHelper);
 
 /* static */ void
-FileSystemEntryCallbackHelper::Call(nsIGlobalObject* aGlobalObject,
-                                    const Optional<OwningNonNull<FileSystemEntryCallback>>& aEntryCallback,
-                                    FileSystemEntry* aEntry)
+FileSystemEntryCallbackHelper::Call(
+    nsIGlobalObject* aGlobalObject,
+    const Optional<OwningNonNull<FileSystemEntryCallback>>& aEntryCallback,
+    FileSystemEntry* aEntry)
 {
   MOZ_ASSERT(aGlobalObject);
   MOZ_ASSERT(aEntry);
 
   if (aEntryCallback.WasPassed()) {
     RefPtr<EntryCallbackRunnable> runnable =
-      new EntryCallbackRunnable(&aEntryCallback.Value(), aEntry);
+        new EntryCallbackRunnable(&aEntryCallback.Value(), aEntry);
 
     FileSystemUtils::DispatchRunnable(aGlobalObject, runnable.forget());
   }
 }
 
 /* static */ void
-ErrorCallbackHelper::Call(nsIGlobalObject* aGlobal,
-                          const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
-                          nsresult aError)
+ErrorCallbackHelper::Call(
+    nsIGlobalObject* aGlobal,
+    const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
+    nsresult aError)
 {
   MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(NS_FAILED(aError));
 
   if (aErrorCallback.WasPassed()) {
     RefPtr<ErrorCallbackRunnable> runnable =
-      new ErrorCallbackRunnable(aGlobal, &aErrorCallback.Value(), aError);
+        new ErrorCallbackRunnable(aGlobal, &aErrorCallback.Value(), aError);
 
     FileSystemUtils::DispatchRunnable(aGlobal, runnable.forget());
   }
 }
 
-} // dom namespace
-} // mozilla namespace
-
+}  // namespace dom
+}  // namespace mozilla

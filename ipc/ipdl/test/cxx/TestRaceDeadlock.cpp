@@ -1,6 +1,6 @@
 #include "TestRaceDeadlock.h"
 
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 
 // #define TEST_TIMEOUT 5000
 
@@ -14,8 +14,8 @@ namespace _ipdltest {
 static RacyInterruptPolicy
 MediateRace(const MessageInfo& parent, const MessageInfo& child)
 {
-    return (PTestRaceDeadlock::Msg_Win__ID == parent.type()) ?
-        RIPParentWins : RIPChildWins;
+  return (PTestRaceDeadlock::Msg_Win__ID == parent.type()) ? RIPParentWins
+                                                           : RIPChildWins;
 }
 
 //-----------------------------------------------------------------------------
@@ -23,55 +23,55 @@ MediateRace(const MessageInfo& parent, const MessageInfo& child)
 
 TestRaceDeadlockParent::TestRaceDeadlockParent()
 {
-    MOZ_COUNT_CTOR(TestRaceDeadlockParent);
+  MOZ_COUNT_CTOR(TestRaceDeadlockParent);
 }
 
 TestRaceDeadlockParent::~TestRaceDeadlockParent()
 {
-    MOZ_COUNT_DTOR(TestRaceDeadlockParent);
+  MOZ_COUNT_DTOR(TestRaceDeadlockParent);
 }
 
 void
 TestRaceDeadlockParent::Main()
 {
-    Test1();
+  Test1();
 
-    Close();
+  Close();
 }
 
 bool
 TestRaceDeadlockParent::ShouldContinueFromReplyTimeout()
 {
-    fail("This test should not hang");
-    GetIPCChannel()->CloseWithTimeout();
-    return false;
+  fail("This test should not hang");
+  GetIPCChannel()->CloseWithTimeout();
+  return false;
 }
 
 void
 TestRaceDeadlockParent::Test1()
 {
 #if defined(TEST_TIMEOUT)
-    SetReplyTimeoutMs(TEST_TIMEOUT);
+  SetReplyTimeoutMs(TEST_TIMEOUT);
 #endif
-    if (!SendStartRace()) {
-        fail("sending StartRace");
-    }
-    if (!CallRpc()) {
-        fail("calling Rpc");
-    }
+  if (!SendStartRace()) {
+    fail("sending StartRace");
+  }
+  if (!CallRpc()) {
+    fail("calling Rpc");
+  }
 }
 
 mozilla::ipc::IPCResult
 TestRaceDeadlockParent::AnswerLose()
 {
-    return IPC_OK();
+  return IPC_OK();
 }
 
 RacyInterruptPolicy
 TestRaceDeadlockParent::MediateInterruptRace(const MessageInfo& parent,
                                              const MessageInfo& child)
 {
-    return MediateRace(parent, child);
+  return MediateRace(parent, child);
 }
 
 //-----------------------------------------------------------------------------
@@ -79,53 +79,53 @@ TestRaceDeadlockParent::MediateInterruptRace(const MessageInfo& parent,
 
 TestRaceDeadlockChild::TestRaceDeadlockChild()
 {
-    MOZ_COUNT_CTOR(TestRaceDeadlockChild);
+  MOZ_COUNT_CTOR(TestRaceDeadlockChild);
 }
 
 TestRaceDeadlockChild::~TestRaceDeadlockChild()
 {
-    MOZ_COUNT_DTOR(TestRaceDeadlockChild);
+  MOZ_COUNT_DTOR(TestRaceDeadlockChild);
 }
 
 mozilla::ipc::IPCResult
 TestRaceDeadlockParent::RecvStartRace()
 {
-    if (!CallWin()) {
-        fail("calling Win");
-    }
-    return IPC_OK();
+  if (!CallWin()) {
+    fail("calling Win");
+  }
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestRaceDeadlockChild::RecvStartRace()
 {
-    if (!SendStartRace()) {
-        fail("calling SendStartRace");
-    }
-    if (!CallLose()) {
-        fail("calling Lose");
-    }
-    return IPC_OK();
+  if (!SendStartRace()) {
+    fail("calling SendStartRace");
+  }
+  if (!CallLose()) {
+    fail("calling Lose");
+  }
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestRaceDeadlockChild::AnswerWin()
 {
-    return IPC_OK();
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestRaceDeadlockChild::AnswerRpc()
 {
-    return IPC_OK();
+  return IPC_OK();
 }
 
 RacyInterruptPolicy
 TestRaceDeadlockChild::MediateInterruptRace(const MessageInfo& parent,
                                             const MessageInfo& child)
 {
-    return MediateRace(parent, child);
+  return MediateRace(parent, child);
 }
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

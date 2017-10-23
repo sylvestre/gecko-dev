@@ -18,8 +18,9 @@ namespace gfx {
 
 #ifdef WIN32
 
-class CriticalSection {
-public:
+class CriticalSection
+{
+ public:
   CriticalSection() { ::InitializeCriticalSection(&mCriticalSection); }
 
   ~CriticalSection() { ::DeleteCriticalSection(&mCriticalSection); }
@@ -28,7 +29,7 @@ public:
 
   void Leave() { ::LeaveCriticalSection(&mCriticalSection); }
 
-protected:
+ protected:
   CRITICAL_SECTION mCriticalSection;
 };
 
@@ -36,29 +37,34 @@ protected:
 // posix
 
 class PosixCondvar;
-class CriticalSection {
-public:
-  CriticalSection() {
+class CriticalSection
+{
+ public:
+  CriticalSection()
+  {
     DebugOnly<int> err = pthread_mutex_init(&mMutex, nullptr);
     MOZ_ASSERT(!err);
   }
 
-  ~CriticalSection() {
+  ~CriticalSection()
+  {
     DebugOnly<int> err = pthread_mutex_destroy(&mMutex);
     MOZ_ASSERT(!err);
   }
 
-  void Enter() {
+  void Enter()
+  {
     DebugOnly<int> err = pthread_mutex_lock(&mMutex);
     MOZ_ASSERT(!err);
   }
 
-  void Leave() {
+  void Leave()
+  {
     DebugOnly<int> err = pthread_mutex_unlock(&mMutex);
     MOZ_ASSERT(!err);
   }
 
-protected:
+ protected:
   pthread_mutex_t mMutex;
   friend class PosixCondVar;
 };
@@ -66,15 +72,20 @@ protected:
 #endif
 
 /// RAII helper.
-struct CriticalSectionAutoEnter {
-    explicit CriticalSectionAutoEnter(CriticalSection* aSection) : mSection(aSection) { mSection->Enter(); }
-    ~CriticalSectionAutoEnter() { mSection->Leave(); }
-protected:
-    CriticalSection* mSection;
+struct CriticalSectionAutoEnter
+{
+  explicit CriticalSectionAutoEnter(CriticalSection* aSection)
+      : mSection(aSection)
+  {
+    mSection->Enter();
+  }
+  ~CriticalSectionAutoEnter() { mSection->Leave(); }
+
+ protected:
+  CriticalSection* mSection;
 };
 
-
-} // namespace
-} // namespace
+}  // namespace
+}  // namespace mozilla
 
 #endif

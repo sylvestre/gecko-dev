@@ -11,19 +11,20 @@ namespace {
 #define STYLE_STRUCT(name, checkdata_cb) | NS_STYLE_INHERIT_BIT(name)
 const uint64_t ALL_SIDS = 0
 #include "nsStyleStructList.h"
-  ;
+    ;
 #undef STYLE_STRUCT
 
-} // anonymous namespace
+}  // anonymous namespace
 
 using namespace mozilla;
 
 ServoSpecifiedValues::ServoSpecifiedValues(nsPresContext* aContext,
                                            RawServoDeclarationBlock* aDecl)
 
-  : GenericSpecifiedValues(StyleBackendType::Servo, aContext, ALL_SIDS)
-  , mDecl(aDecl)
-{}
+    : GenericSpecifiedValues(StyleBackendType::Servo, aContext, ALL_SIDS),
+      mDecl(aDecl)
+{
+}
 
 bool
 ServoSpecifiedValues::PropertyIsSet(nsCSSPropertyID aId)
@@ -73,7 +74,7 @@ ServoSpecifiedValues::SetLengthValue(nsCSSPropertyID aId, nsCSSValue aValue)
 {
   MOZ_ASSERT(aValue.IsLengthUnit());
   Servo_DeclarationBlock_SetLengthValue(
-    mDecl, aId, aValue.GetFloatValue(), aValue.GetUnit());
+      mDecl, aId, aValue.GetFloatValue(), aValue.GetUnit());
 }
 
 void
@@ -128,5 +129,5 @@ ServoSpecifiedValues::SetBackgroundImage(nsAttrValue& aValue)
   nsAutoString str;
   aValue.ToString(str);
   Servo_DeclarationBlock_SetBackgroundImage(
-    mDecl, str, mPresContext->Document()->DefaultStyleAttrURLData());
+      mDecl, str, mPresContext->Document()->DefaultStyleAttrURLData());
 }

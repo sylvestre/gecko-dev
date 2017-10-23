@@ -12,7 +12,7 @@
 #include "mozilla/TimeStamp.h"
 #include "AnimationTimeline.h"
 #include "nsIDocument.h"
-#include "nsDOMNavigationTiming.h" // for DOMHighResTimeStamp
+#include "nsDOMNavigationTiming.h"  // for DOMHighResTimeStamp
 #include "nsRefreshDriver.h"
 
 struct JSContext;
@@ -26,34 +26,34 @@ struct JSContext;
 namespace mozilla {
 namespace dom {
 
-class DocumentTimeline final
-  : public AnimationTimeline
-  , public nsARefreshObserver
-  , public LinkedListElement<DocumentTimeline>
+class DocumentTimeline final : public AnimationTimeline,
+                               public nsARefreshObserver,
+                               public LinkedListElement<DocumentTimeline>
 {
-public:
+ public:
   DocumentTimeline(nsIDocument* aDocument, const TimeDuration& aOriginTime)
-    : AnimationTimeline(aDocument->GetParentObject())
-    , mDocument(aDocument)
-    , mIsObservingRefreshDriver(false)
-    , mOriginTime(aOriginTime)
+      : AnimationTimeline(aDocument->GetParentObject()),
+        mDocument(aDocument),
+        mIsObservingRefreshDriver(false),
+        mOriginTime(aOriginTime)
   {
     if (mDocument) {
       mDocument->Timelines().insertBack(this);
     }
   }
 
-protected:
+ protected:
   virtual ~DocumentTimeline()
   {
-    MOZ_ASSERT(!mIsObservingRefreshDriver, "Timeline should have disassociated"
+    MOZ_ASSERT(!mIsObservingRefreshDriver,
+               "Timeline should have disassociated"
                " from the refresh driver before being destroyed");
     if (isInList()) {
       remove();
     }
   }
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(DocumentTimeline,
                                                          AnimationTimeline)
@@ -61,10 +61,10 @@ public:
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<DocumentTimeline>
-  Constructor(const GlobalObject& aGlobal,
-              const DocumentTimelineOptions& aOptions,
-              ErrorResult& aRv);
+  static already_AddRefed<DocumentTimeline> Constructor(
+      const GlobalObject& aGlobal,
+      const DocumentTimelineOptions& aOptions,
+      ErrorResult& aRv);
 
   // AnimationTimeline methods
   virtual Nullable<TimeDuration> GetCurrentTime() const override;
@@ -75,8 +75,8 @@ public:
     return !refreshDriver ||
            !refreshDriver->IsTestControllingRefreshesEnabled();
   }
-  Nullable<TimeDuration> ToTimelineTime(const TimeStamp& aTimeStamp) const
-                                                                     override;
+  Nullable<TimeDuration> ToTimelineTime(
+      const TimeStamp& aTimeStamp) const override;
   TimeStamp ToTimeStamp(const TimeDuration& aTimelineTime) const override;
 
   void NotifyAnimationUpdated(Animation& aAnimation) override;
@@ -89,7 +89,7 @@ public:
   void NotifyRefreshDriverCreated(nsRefreshDriver* aDriver);
   void NotifyRefreshDriverDestroying(nsRefreshDriver* aDriver);
 
-protected:
+ protected:
   TimeStamp GetCurrentTimeStamp() const;
   nsRefreshDriver* GetRefreshDriver() const;
   void UnregisterFromRefreshDriver();
@@ -105,7 +105,7 @@ protected:
   TimeDuration mOriginTime;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_DocumentTimeline_h
+#endif  // mozilla_dom_DocumentTimeline_h

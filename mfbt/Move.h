@@ -233,6 +233,6 @@ Swap(T& aX, T& aY)
   aY = Move(tmp);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_Move_h */

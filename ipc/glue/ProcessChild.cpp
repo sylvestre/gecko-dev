@@ -7,9 +7,9 @@
 #include "nsDebug.h"
 
 #ifdef XP_WIN
-#include <stdlib.h> // for _exit()
+#include <stdlib.h>  // for _exit()
 #else
-#include <unistd.h> // for _exit()
+#include <unistd.h>  // for _exit()
 #endif
 
 #include "mozilla/ipc/IOThreadChild.h"
@@ -21,19 +21,16 @@ namespace ipc {
 ProcessChild* ProcessChild::gProcessChild;
 
 ProcessChild::ProcessChild(ProcessId aParentPid)
-  : ChildProcess(new IOThreadChild())
-  , mUILoop(MessageLoop::current())
-  , mParentPid(aParentPid)
+    : ChildProcess(new IOThreadChild()),
+      mUILoop(MessageLoop::current()),
+      mParentPid(aParentPid)
 {
   MOZ_ASSERT(mUILoop, "UILoop should be created by now");
   MOZ_ASSERT(!gProcessChild, "should only be one ProcessChild");
   gProcessChild = this;
 }
 
-ProcessChild::~ProcessChild()
-{
-  gProcessChild = nullptr;
-}
+ProcessChild::~ProcessChild() { gProcessChild = nullptr; }
 
 /* static */ void
 ProcessChild::QuickExit()
@@ -48,5 +45,5 @@ ProcessChild::QuickExit()
 #endif
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

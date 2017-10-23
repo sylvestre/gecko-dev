@@ -27,7 +27,8 @@ namespace frontend {
 
 class CGConstList {
     Vector<Value> list;
-  public:
+
+   public:
     explicit CGConstList(JSContext* cx) : list(cx) {}
     MOZ_MUST_USE bool append(const Value& v) {
         MOZ_ASSERT_IF(v.isString(), v.toString()->isAtom());
@@ -38,8 +39,8 @@ class CGConstList {
 };
 
 struct CGObjectList {
-    uint32_t            length;     /* number of emitted so far objects */
-    ObjectBox*          lastbox;   /* last emitted object */
+    uint32_t length;    /* number of emitted so far objects */
+    ObjectBox* lastbox; /* last emitted object */
 
     CGObjectList() : length(0), lastbox(nullptr) {}
 
@@ -52,9 +53,7 @@ struct CGObjectList {
 struct MOZ_STACK_CLASS CGScopeList {
     Rooted<GCVector<Scope*>> vector;
 
-    explicit CGScopeList(JSContext* cx)
-      : vector(cx, GCVector<Scope*>(cx))
-    { }
+    explicit CGScopeList(JSContext* cx) : vector(cx, GCVector<Scope*>(cx)) {}
 
     bool append(Scope* scope) { return vector.append(scope); }
     uint32_t length() const { return vector.length(); }
@@ -70,8 +69,7 @@ struct CGTryNoteList {
     void finish(TryNoteArray* array);
 };
 
-struct CGScopeNote : public ScopeNote
-{
+struct CGScopeNote : public ScopeNote {
     // The end offset. Used to compute the length; may need adjusting first if
     // in the prologue.
     uint32_t end;
@@ -165,81 +163,80 @@ struct JumpList {
     void patchAll(jsbytecode* code, JumpTarget target);
 };
 
-enum class ValueUsage {
-    WantValue,
-    IgnoreValue
-};
+enum class ValueUsage { WantValue, IgnoreValue };
 
-struct MOZ_STACK_CLASS BytecodeEmitter
-{
+struct MOZ_STACK_CLASS BytecodeEmitter {
     class TDZCheckCache;
     class NestableControl;
     class EmitterScope;
 
-    SharedContext* const sc;      /* context shared between parsing and bytecode generation */
+    SharedContext* const sc; /* context shared between parsing and bytecode generation */
 
     JSContext* const cx;
 
-    BytecodeEmitter* const parent;  /* enclosing function or global context */
+    BytecodeEmitter* const parent; /* enclosing function or global context */
 
-    Rooted<JSScript*> script;       /* the JSScript we're ultimately producing */
+    Rooted<JSScript*> script; /* the JSScript we're ultimately producing */
 
     Rooted<LazyScript*> lazyScript; /* the lazy script if mode is LazyFunction,
                                         nullptr otherwise. */
 
     struct EmitSection {
-        BytecodeVector code;        /* bytecode */
-        SrcNotesVector notes;       /* source notes, see below */
-        ptrdiff_t   lastNoteOffset; /* code offset for last source note */
+        BytecodeVector code;      /* bytecode */
+        SrcNotesVector notes;     /* source notes, see below */
+        ptrdiff_t lastNoteOffset; /* code offset for last source note */
 
         // Line number for srcnotes.
         //
         // WARNING: If this becomes out of sync with already-emitted srcnotes,
         // we can get undefined behavior.
-        uint32_t    currentLine;
+        uint32_t currentLine;
 
         // Zero-based column index on currentLine of last SRC_COLSPAN-annotated
         // opcode.
         //
         // WARNING: If this becomes out of sync with already-emitted srcnotes,
         // we can get undefined behavior.
-        uint32_t    lastColumn;
+        uint32_t lastColumn;
 
-        JumpTarget lastTarget;      // Last jump target emitted.
+        JumpTarget lastTarget;  // Last jump target emitted.
 
         EmitSection(JSContext* cx, uint32_t lineNum)
-          : code(cx), notes(cx), lastNoteOffset(0), currentLine(lineNum), lastColumn(0),
-            lastTarget{ -1 - ptrdiff_t(JSOP_JUMPTARGET_LENGTH) }
-        {}
+            : code(cx),
+              notes(cx),
+              lastNoteOffset(0),
+              currentLine(lineNum),
+              lastColumn(0),
+              lastTarget{-1 - ptrdiff_t(JSOP_JUMPTARGET_LENGTH)} {}
     };
     EmitSection prologue, main, *current;
 
     EitherParser<FullParseHandler> parser;
 
     PooledMapPtr<AtomIndexMap> atomIndices; /* literals indexed for mapping */
-    unsigned        firstLine;      /* first line, for JSScript::initFromEmitter */
+    unsigned firstLine;                     /* first line, for JSScript::initFromEmitter */
 
-    uint32_t        maxFixedSlots;  /* maximum number of fixed frame slots so far */
-    uint32_t        maxStackDepth;  /* maximum number of expression stack slots so far */
+    uint32_t maxFixedSlots; /* maximum number of fixed frame slots so far */
+    uint32_t maxStackDepth; /* maximum number of expression stack slots so far */
 
-    int32_t         stackDepth;     /* current stack depth in script frame */
+    int32_t stackDepth; /* current stack depth in script frame */
 
-    uint32_t        arrayCompDepth; /* stack depth of array in comprehension */
+    uint32_t arrayCompDepth; /* stack depth of array in comprehension */
 
-    unsigned        emitLevel;      /* emitTree recursion level */
+    unsigned emitLevel; /* emitTree recursion level */
 
-    uint32_t        bodyScopeIndex; /* index into scopeList of the body scope */
+    uint32_t bodyScopeIndex; /* index into scopeList of the body scope */
 
-    EmitterScope*    varEmitterScope;
+    EmitterScope* varEmitterScope;
     NestableControl* innermostNestableControl;
-    EmitterScope*    innermostEmitterScope;
-    TDZCheckCache*   innermostTDZCheckCache;
+    EmitterScope* innermostEmitterScope;
+    TDZCheckCache* innermostTDZCheckCache;
 
-    CGConstList      constList;      /* constants to be included with the script */
-    CGObjectList     objectList;     /* list of emitted objects */
-    CGScopeList      scopeList;      /* list of emitted scopes */
-    CGTryNoteList    tryNoteList;    /* list of emitted try notes */
-    CGScopeNoteList  scopeNoteList;  /* list of emitted block scope notes */
+    CGConstList constList;         /* constants to be included with the script */
+    CGObjectList objectList;       /* list of emitted objects */
+    CGScopeList scopeList;         /* list of emitted scopes */
+    CGTryNoteList tryNoteList;     /* list of emitted try notes */
+    CGScopeNoteList scopeNoteList; /* list of emitted block scope notes */
 
     /*
      * For each yield or await op, map the yield and await index (stored as
@@ -247,14 +244,14 @@ struct MOZ_STACK_CLASS BytecodeEmitter
      */
     CGYieldAndAwaitOffsetList yieldAndAwaitOffsetList;
 
-    uint16_t        typesetCount;   /* Number of JOF_TYPESET opcodes generated */
+    uint16_t typesetCount; /* Number of JOF_TYPESET opcodes generated */
 
-    bool            hasSingletons:1;    /* script contains singleton initializer JSOP_OBJECT */
+    bool hasSingletons : 1; /* script contains singleton initializer JSOP_OBJECT */
 
-    bool            hasTryFinally:1;    /* script contains finally block */
+    bool hasTryFinally : 1; /* script contains finally block */
 
-    bool            emittingRunOnceLambda:1; /* true while emitting a lambda which is only
-                                                expected to run once. */
+    bool emittingRunOnceLambda : 1; /* true while emitting a lambda which is only
+                                       expected to run once. */
 
     bool isRunOnceLambda();
 
@@ -292,13 +289,12 @@ struct MOZ_STACK_CLASS BytecodeEmitter
                     SharedContext* sc, HandleScript script, Handle<LazyScript*> lazyScript,
                     uint32_t lineNum, EmitterMode emitterMode = Normal);
 
-    template<typename CharT>
+    template <typename CharT>
     BytecodeEmitter(BytecodeEmitter* parent, Parser<FullParseHandler, CharT>* parser,
                     SharedContext* sc, HandleScript script, Handle<LazyScript*> lazyScript,
                     uint32_t lineNum, EmitterMode emitterMode = Normal)
-      : BytecodeEmitter(parent, EitherParser<FullParseHandler>(parser), sc, script, lazyScript,
-                        lineNum, emitterMode)
-    {}
+        : BytecodeEmitter(parent, EitherParser<FullParseHandler>(parser), sc, script, lazyScript,
+                          lineNum, emitterMode) {}
 
     // An alternate constructor that uses a TokenPos for the starting
     // line and that sets functionBodyEndPos as well.
@@ -306,13 +302,12 @@ struct MOZ_STACK_CLASS BytecodeEmitter
                     SharedContext* sc, HandleScript script, Handle<LazyScript*> lazyScript,
                     TokenPos bodyPosition, EmitterMode emitterMode = Normal);
 
-    template<typename CharT>
+    template <typename CharT>
     BytecodeEmitter(BytecodeEmitter* parent, Parser<FullParseHandler, CharT>* parser,
                     SharedContext* sc, HandleScript script, Handle<LazyScript*> lazyScript,
                     TokenPos bodyPosition, EmitterMode emitterMode = Normal)
-      : BytecodeEmitter(parent, EitherParser<FullParseHandler>(parser), sc, script, lazyScript,
-                        bodyPosition, emitterMode)
-    {}
+        : BytecodeEmitter(parent, EitherParser<FullParseHandler>(parser), sc, script, lazyScript,
+                          bodyPosition, emitterMode) {}
 
     MOZ_MUST_USE bool init();
 
@@ -362,8 +357,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter
         }
 
         uint32_t index = atomIndices->count();
-        if (!atomIndices->add(p, atom, index))
-            return false;
+        if (!atomIndices->add(p, atom, index)) return false;
 
         *indexp = index;
         return true;
@@ -453,10 +447,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter
     MOZ_MUST_USE bool finishTakingSrcNotes(uint32_t* out);
 
     // Control whether emitTree emits a line number note.
-    enum EmitLineNumberNote {
-        EMIT_LINENOTE,
-        SUPPRESS_LINENOTE
-    };
+    enum EmitLineNumberNote { EMIT_LINENOTE, SUPPRESS_LINENOTE };
 
     // Emit code for the tree rooted at pn.
     MOZ_MUST_USE bool emitTree(ParseNode* pn, ValueUsage valueUsage = ValueUsage::WantValue,
@@ -597,8 +588,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter
                                                         RHSEmitter emitRhs, bool initialize);
     template <typename RHSEmitter>
     MOZ_MUST_USE bool emitSetOrInitializeName(HandleAtom name, RHSEmitter emitRhs,
-                                              bool initialize)
-    {
+                                              bool initialize) {
         return emitSetOrInitializeNameAtLocation(name, lookupName(name), emitRhs, initialize);
     }
     template <typename RHSEmitter>
@@ -701,7 +691,8 @@ struct MOZ_STACK_CLASS BytecodeEmitter
     // and the to-be-destructured value has been pushed on the stack.  It emits
     // code to destructure a single lhs expression (either a name or a compound
     // []/{} expression).
-    MOZ_MUST_USE bool emitSetOrInitializeDestructuring(ParseNode* target, DestructuringFlavor flav);
+    MOZ_MUST_USE bool emitSetOrInitializeDestructuring(ParseNode* target,
+                                                       DestructuringFlavor flav);
 
     // emitDestructuringObjRestExclusionSet emits the property exclusion set
     // for the rest-property in an object pattern.
@@ -714,15 +705,12 @@ struct MOZ_STACK_CLASS BytecodeEmitter
     MOZ_MUST_USE bool emitDestructuringOpsArray(ParseNode* pattern, DestructuringFlavor flav);
     MOZ_MUST_USE bool emitDestructuringOpsObject(ParseNode* pattern, DestructuringFlavor flav);
 
-    typedef bool
-    (*DestructuringDeclEmitter)(BytecodeEmitter* bce, ParseNode* pn);
+    typedef bool (*DestructuringDeclEmitter)(BytecodeEmitter* bce, ParseNode* pn);
 
     template <typename NameEmitter>
     MOZ_MUST_USE bool emitDestructuringDeclsWithEmitter(ParseNode* pattern, NameEmitter emitName);
 
-    enum class CopyOption {
-        Filtered, Unfiltered
-    };
+    enum class CopyOption { Filtered, Unfiltered };
 
     // Calls either the |CopyDataProperties| or the
     // |CopyDataPropertiesUnfiltered| intrinsic function, consumes three (or

@@ -13,24 +13,24 @@
  */
 class nsNSSCertTrust
 {
-public:
+ public:
   nsNSSCertTrust();
   nsNSSCertTrust(unsigned int ssl, unsigned int email, unsigned int objsign);
-  explicit nsNSSCertTrust(CERTCertTrust *t);
+  explicit nsNSSCertTrust(CERTCertTrust* t);
   virtual ~nsNSSCertTrust();
 
   /* query */
   bool HasAnyCA();
   bool HasAnyUser();
   bool HasPeer(bool checkSSL = true,
-                 bool checkEmail = true,
-                 bool checkObjSign = true);
+               bool checkEmail = true,
+               bool checkObjSign = true);
   bool HasTrustedCA(bool checkSSL = true,
+                    bool checkEmail = true,
+                    bool checkObjSign = true);
+  bool HasTrustedPeer(bool checkSSL = true,
                       bool checkEmail = true,
                       bool checkObjSign = true);
-  bool HasTrustedPeer(bool checkSSL = true,
-                        bool checkEmail = true,
-                        bool checkObjSign = true);
 
   /* common defaults */
   /* equivalent to "c,c,c" */
@@ -40,17 +40,29 @@ public:
 
   /* general setters */
   /* read: "p, P, c, C, T, u, w" */
-  void SetSSLTrust(bool peer, bool tPeer,
-                   bool ca,   bool tCA, bool tClientCA,
-                   bool user, bool warn);
+  void SetSSLTrust(bool peer,
+                   bool tPeer,
+                   bool ca,
+                   bool tCA,
+                   bool tClientCA,
+                   bool user,
+                   bool warn);
 
-  void SetEmailTrust(bool peer, bool tPeer,
-                     bool ca,   bool tCA, bool tClientCA,
-                     bool user, bool warn);
+  void SetEmailTrust(bool peer,
+                     bool tPeer,
+                     bool ca,
+                     bool tCA,
+                     bool tClientCA,
+                     bool user,
+                     bool warn);
 
-  void SetObjSignTrust(bool peer, bool tPeer,
-                       bool ca,   bool tCA, bool tClientCA,
-                       bool user, bool warn);
+  void SetObjSignTrust(bool peer,
+                       bool tPeer,
+                       bool ca,
+                       bool tCA,
+                       bool tClientCA,
+                       bool user,
+                       bool warn);
 
   /* set c <--> CT */
   void AddCATrust(bool ssl, bool email, bool objSign);
@@ -59,11 +71,11 @@ public:
 
   CERTCertTrust& GetTrust() { return mTrust; }
 
-private:
-  void addTrust(unsigned int *t, unsigned int v);
-  void removeTrust(unsigned int *t, unsigned int v);
+ private:
+  void addTrust(unsigned int* t, unsigned int v);
+  void removeTrust(unsigned int* t, unsigned int v);
   bool hasTrust(unsigned int t, unsigned int v);
   CERTCertTrust mTrust;
 };
 
-#endif // nsNSSCertTrust_h
+#endif  // nsNSSCertTrust_h

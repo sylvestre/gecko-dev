@@ -10,10 +10,9 @@
 #include "PlatformDecoderModule.h"
 #include "prlink.h"
 
-#define AV_LOG_DEBUG    48
+#define AV_LOG_DEBUG 48
 
-namespace mozilla
-{
+namespace mozilla {
 
 FFmpegLibWrapper::LinkResult
 FFmpegLibWrapper::Link()
@@ -24,7 +23,7 @@ FFmpegLibWrapper::Link()
   }
 
   avcodec_version =
-    (decltype(avcodec_version))PR_FindSymbol(mAVCodecLib, "avcodec_version");
+      (decltype(avcodec_version))PR_FindSymbol(mAVCodecLib, "avcodec_version");
   if (!avcodec_version) {
     Unlink();
     return LinkResult::NoAVCodecVersion;
@@ -53,7 +52,8 @@ FFmpegLibWrapper::Link()
 #endif
   }
 
-  enum {
+  enum
+  {
     AV_FUNC_AVUTIL_MASK = 1 << 8,
     AV_FUNC_53 = 1 << 0,
     AV_FUNC_54 = 1 << 1,
@@ -65,7 +65,8 @@ FFmpegLibWrapper::Link()
     AV_FUNC_AVUTIL_55 = AV_FUNC_55 | AV_FUNC_AVUTIL_MASK,
     AV_FUNC_AVUTIL_56 = AV_FUNC_56 | AV_FUNC_AVUTIL_MASK,
     AV_FUNC_AVUTIL_57 = AV_FUNC_57 | AV_FUNC_AVUTIL_MASK,
-    AV_FUNC_AVCODEC_ALL = AV_FUNC_53 | AV_FUNC_54 | AV_FUNC_55 | AV_FUNC_56 | AV_FUNC_57,
+    AV_FUNC_AVCODEC_ALL =
+        AV_FUNC_53 | AV_FUNC_54 | AV_FUNC_55 | AV_FUNC_56 | AV_FUNC_57,
     AV_FUNC_AVUTIL_ALL = AV_FUNC_AVCODEC_ALL | AV_FUNC_AVUTIL_MASK
   };
 
@@ -89,29 +90,30 @@ FFmpegLibWrapper::Link()
       FFMPEG_LOG("Unknown avcodec version");
       Unlink();
       return isFFMpeg
-             ? ((macro > 57)
-                ? LinkResult::UnknownFutureFFMpegVersion
-                : LinkResult::UnknownOlderFFMpegVersion)
-             // All LibAV versions<54.35.1 are blocked, therefore we must be
-             // dealing with a later one.
-             : LinkResult::UnknownFutureLibAVVersion;
+                 ? ((macro > 57) ? LinkResult::UnknownFutureFFMpegVersion
+                                 : LinkResult::UnknownOlderFFMpegVersion)
+                 // All LibAV versions<54.35.1 are blocked, therefore we must be
+                 // dealing with a later one.
+                 : LinkResult::UnknownFutureLibAVVersion;
   }
 
-#define AV_FUNC_OPTION(func, ver)                                              \
-  if ((ver) & version) {                                                       \
-    if (!(func = (decltype(func))PR_FindSymbol(((ver) & AV_FUNC_AVUTIL_MASK) ? mAVUtilLib : mAVCodecLib, #func))) { \
-      FFMPEG_LOG("Couldn't load function " # func);                            \
-    }                                                                          \
-  } else {                                                                     \
-    func = (decltype(func))nullptr;                                            \
+#define AV_FUNC_OPTION(func, ver)                                     \
+  if ((ver)&version) {                                                \
+    if (!(func = (decltype(func))PR_FindSymbol(                       \
+              ((ver)&AV_FUNC_AVUTIL_MASK) ? mAVUtilLib : mAVCodecLib, \
+              #func))) {                                              \
+      FFMPEG_LOG("Couldn't load function " #func);                    \
+    }                                                                 \
+  } else {                                                            \
+    func = (decltype(func)) nullptr;                                  \
   }
 
-#define AV_FUNC(func, ver)                                                     \
-  AV_FUNC_OPTION(func, ver)                                                    \
-  if ((ver) & version && !func) {                                              \
-    Unlink();                                                                  \
-    return isFFMpeg ? LinkResult::MissingFFMpegFunction                        \
-                    : LinkResult::MissingLibAVFunction;                        \
+#define AV_FUNC(func, ver)                              \
+  AV_FUNC_OPTION(func, ver)                             \
+  if ((ver)&version && !func) {                         \
+    Unlink();                                           \
+    return isFFMpeg ? LinkResult::MissingFFMpegFunction \
+                    : LinkResult::MissingLibAVFunction; \
   }
 
   AV_FUNC(av_lockmgr_register, AV_FUNC_AVCODEC_ALL)
@@ -133,9 +135,12 @@ FFmpegLibWrapper::Link()
   AV_FUNC(av_log_set_level, AV_FUNC_AVUTIL_ALL)
   AV_FUNC(av_malloc, AV_FUNC_AVUTIL_ALL)
   AV_FUNC(av_freep, AV_FUNC_AVUTIL_ALL)
-  AV_FUNC(av_frame_alloc, (AV_FUNC_AVUTIL_55 | AV_FUNC_AVUTIL_56 | AV_FUNC_AVUTIL_57))
-  AV_FUNC(av_frame_free, (AV_FUNC_AVUTIL_55 | AV_FUNC_AVUTIL_56 | AV_FUNC_AVUTIL_57))
-  AV_FUNC(av_frame_unref, (AV_FUNC_AVUTIL_55 | AV_FUNC_AVUTIL_56 | AV_FUNC_AVUTIL_57))
+  AV_FUNC(av_frame_alloc,
+          (AV_FUNC_AVUTIL_55 | AV_FUNC_AVUTIL_56 | AV_FUNC_AVUTIL_57))
+  AV_FUNC(av_frame_free,
+          (AV_FUNC_AVUTIL_55 | AV_FUNC_AVUTIL_56 | AV_FUNC_AVUTIL_57))
+  AV_FUNC(av_frame_unref,
+          (AV_FUNC_AVUTIL_55 | AV_FUNC_AVUTIL_56 | AV_FUNC_AVUTIL_57))
   AV_FUNC_OPTION(av_frame_get_colorspace, AV_FUNC_AVUTIL_ALL)
 #undef AV_FUNC
 #undef AV_FUNC_OPTION
@@ -166,4 +171,4 @@ FFmpegLibWrapper::Unlink()
   PodZero(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

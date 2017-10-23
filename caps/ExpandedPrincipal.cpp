@@ -9,7 +9,9 @@
 
 using namespace mozilla;
 
-NS_IMPL_CLASSINFO(ExpandedPrincipal, nullptr, nsIClassInfo::MAIN_THREAD_ONLY,
+NS_IMPL_CLASSINFO(ExpandedPrincipal,
+                  nullptr,
+                  nsIClassInfo::MAIN_THREAD_ONLY,
                   NS_EXPANDEDPRINCIPAL_CID)
 NS_IMPL_QUERY_INTERFACE_CI(ExpandedPrincipal,
                            nsIPrincipal,
@@ -43,8 +45,9 @@ struct OriginComparator
   }
 };
 
-ExpandedPrincipal::ExpandedPrincipal(nsTArray<nsCOMPtr<nsIPrincipal>> &aWhiteList)
-  : BasePrincipal(eExpandedPrincipal)
+ExpandedPrincipal::ExpandedPrincipal(
+    nsTArray<nsCOMPtr<nsIPrincipal>>& aWhiteList)
+    : BasePrincipal(eExpandedPrincipal)
 {
   // We force the principals to be sorted by origin so that ExpandedPrincipal
   // origins can have a canonical form.
@@ -54,8 +57,7 @@ ExpandedPrincipal::ExpandedPrincipal(nsTArray<nsCOMPtr<nsIPrincipal>> &aWhiteLis
   }
 }
 
-ExpandedPrincipal::~ExpandedPrincipal()
-{ }
+ExpandedPrincipal::~ExpandedPrincipal() {}
 
 already_AddRefed<ExpandedPrincipal>
 ExpandedPrincipal::Create(nsTArray<nsCOMPtr<nsIPrincipal>>& aWhiteList,
@@ -89,14 +91,12 @@ ExpandedPrincipal::GetDomain(nsIURI** aDomain)
 }
 
 NS_IMETHODIMP
-ExpandedPrincipal::SetDomain(nsIURI* aDomain)
-{
-  return NS_OK;
-}
+ExpandedPrincipal::SetDomain(nsIURI* aDomain) { return NS_OK; }
 
 bool
-ExpandedPrincipal::SubsumesInternal(nsIPrincipal* aOther,
-                                    BasePrincipal::DocumentDomainConsideration aConsideration)
+ExpandedPrincipal::SubsumesInternal(
+    nsIPrincipal* aOther,
+    BasePrincipal::DocumentDomainConsideration aConsideration)
 {
   // If aOther is an ExpandedPrincipal too, we break it down into its component
   // nsIPrincipals, and check subsumes on each one.
@@ -128,7 +128,7 @@ ExpandedPrincipal::SubsumesInternal(nsIPrincipal* aOther,
 bool
 ExpandedPrincipal::MayLoadInternal(nsIURI* uri)
 {
-  for (uint32_t i = 0; i < mPrincipals.Length(); ++i){
+  for (uint32_t i = 0; i < mPrincipals.Length(); ++i) {
     if (BasePrincipal::Cast(mPrincipals[i])->MayLoadInternal(uri)) {
       return true;
     }
@@ -191,7 +191,7 @@ ExpandedPrincipal::GetScriptLocation(nsACString& aStr)
 
     nsAutoCString spec;
     nsresult rv =
-      nsJSPrincipals::get(mPrincipals.ElementAt(i))->GetScriptLocation(spec);
+        nsJSPrincipals::get(mPrincipals.ElementAt(i))->GetScriptLocation(spec);
     NS_ENSURE_SUCCESS(rv, rv);
 
     aStr.Append(spec);

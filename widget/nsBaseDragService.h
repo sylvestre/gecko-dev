@@ -31,18 +31,16 @@ class nsIImageLoadingContent;
 namespace mozilla {
 namespace gfx {
 class SourceSurface;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 /**
  * XP DragService wrapper base class
  */
 
-class nsBaseDragService : public nsIDragService,
-                          public nsIDragSession
+class nsBaseDragService : public nsIDragService, public nsIDragSession
 {
-
-public:
+ public:
   typedef mozilla::gfx::SourceSurface SourceSurface;
 
   nsBaseDragService();
@@ -56,7 +54,8 @@ public:
 
   void SetDragEndPoint(nsIntPoint aEndDragPoint)
   {
-    mEndDragPoint = mozilla::LayoutDeviceIntPoint::FromUnknownPoint(aEndDragPoint);
+    mEndDragPoint =
+        mozilla::LayoutDeviceIntPoint::FromUnknownPoint(aEndDragPoint);
   }
   void SetDragEndPoint(mozilla::LayoutDeviceIntPoint aEndDragPoint)
   {
@@ -67,7 +66,7 @@ public:
 
   int32_t TakeChildProcessDragAction();
 
-protected:
+ protected:
   virtual ~nsBaseDragService();
 
   /**
@@ -106,13 +105,13 @@ protected:
                     mozilla::CSSIntPoint aScreenPosition,
                     mozilla::LayoutDeviceIntRect* aScreenDragRect,
                     RefPtr<SourceSurface>* aSurface,
-                    nsPresContext **aPresContext);
+                    nsPresContext** aPresContext);
 
   /**
    * Draw a drag image for an image node specified by aImageLoader or aCanvas.
    * This is called by DrawDrag.
    */
-  nsresult DrawDragForImage(nsPresContext *aPresContext,
+  nsresult DrawDragForImage(nsPresContext* aPresContext,
                             nsIImageLoadingContent* aImageLoader,
                             mozilla::dom::HTMLCanvasElement* aCanvas,
                             mozilla::LayoutDeviceIntRect* aScreenDragRect,
@@ -121,9 +120,8 @@ protected:
   /**
    * Convert aScreenPosition from CSS pixels into unscaled device pixels.
    */
-  mozilla::LayoutDeviceIntPoint
-  ConvertToUnscaledDevPixels(nsPresContext* aPresContext,
-                             mozilla::CSSIntPoint aScreenPosition);
+  mozilla::LayoutDeviceIntPoint ConvertToUnscaledDevPixels(
+      nsPresContext* aPresContext, mozilla::CSSIntPoint aScreenPosition);
 
   /**
    * If the drag image is a popup, open the popup when the drag begins.
@@ -159,10 +157,12 @@ protected:
 
   nsSize mTargetSize;
   nsCOMPtr<nsIDOMNode> mSourceNode;
-  nsCOMPtr<nsIDOMDocument> mSourceDocument;       // the document at the drag source. will be null
-                                                  //  if it came from outside the app.
-  nsContentPolicyType mContentPolicyType;         // the contentpolicy type passed to the channel
-                                                  // when initiating the drag session
+  nsCOMPtr<nsIDOMDocument>
+      mSourceDocument;  // the document at the drag source. will be null
+                        //  if it came from outside the app.
+  nsContentPolicyType
+      mContentPolicyType;  // the contentpolicy type passed to the channel
+                           // when initiating the drag session
   nsCOMPtr<nsIDOMDataTransfer> mDataTransfer;
 
   // used to determine the image to appear on the cursor while dragging
@@ -192,4 +192,4 @@ protected:
   nsTArray<RefPtr<mozilla::dom::ContentParent>> mChildProcesses;
 };
 
-#endif // nsBaseDragService_h__
+#endif  // nsBaseDragService_h__

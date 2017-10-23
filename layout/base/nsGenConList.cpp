@@ -56,9 +56,10 @@ nsGenConList::DestroyNodesFor(nsIFrame* aFrame)
  * content), the frame's own element
  * @return -1 for ::before, +1 for ::after, and 0 otherwise.
  */
-inline int32_t PseudoCompareType(nsIFrame* aFrame, nsIContent** aContent)
+inline int32_t
+PseudoCompareType(nsIFrame* aFrame, nsIContent** aContent)
 {
-  nsAtom *pseudo = aFrame->StyleContext()->GetPseudo();
+  nsAtom* pseudo = aFrame->StyleContext()->GetPseudo();
   if (pseudo == nsCSSPseudoElements::before) {
     *aContent = aFrame->GetContent()->GetParent();
     return -1;
@@ -74,14 +75,14 @@ inline int32_t PseudoCompareType(nsIFrame* aFrame, nsIContent** aContent)
 /* static */ bool
 nsGenConList::NodeAfter(const nsGenConNode* aNode1, const nsGenConNode* aNode2)
 {
-  nsIFrame *frame1 = aNode1->mPseudoFrame;
-  nsIFrame *frame2 = aNode2->mPseudoFrame;
+  nsIFrame* frame1 = aNode1->mPseudoFrame;
+  nsIFrame* frame2 = aNode2->mPseudoFrame;
   if (frame1 == frame2) {
     NS_ASSERTION(aNode2->mContentIndex != aNode1->mContentIndex, "identical");
     return aNode1->mContentIndex > aNode2->mContentIndex;
   }
-  nsIContent *content1;
-  nsIContent *content2;
+  nsIContent* content1;
+  nsIContent* content2;
   int32_t pseudoType1 = PseudoCompareType(frame1, &content1);
   int32_t pseudoType2 = PseudoCompareType(frame2, &content2);
   if (pseudoType1 == 0 || pseudoType2 == 0) {
@@ -100,8 +101,8 @@ nsGenConList::NodeAfter(const nsGenConNode* aNode1, const nsGenConNode* aNode2)
     }
   }
   // XXX Switch to the frame version of DoCompareTreePosition?
-  int32_t cmp = nsLayoutUtils::DoCompareTreePosition(content1, content2,
-                                                     pseudoType1, -pseudoType2);
+  int32_t cmp = nsLayoutUtils::DoCompareTreePosition(
+      content1, content2, pseudoType1, -pseudoType2);
   MOZ_ASSERT(cmp != 0, "same content, different frames");
   return cmp > 0;
 }
@@ -131,11 +132,9 @@ nsGenConList::Insert(nsGenConNode* aNode)
     while (first != last) {
       uint32_t test = (first + last) / 2;
       if (last == curIndex) {
-        for ( ; curIndex != test; --curIndex)
-          curNode = Prev(curNode);
+        for (; curIndex != test; --curIndex) curNode = Prev(curNode);
       } else {
-        for ( ; curIndex != test; ++curIndex)
-          curNode = Next(curNode);
+        for (; curIndex != test; ++curIndex) curNode = Next(curNode);
       }
 
       if (NodeAfter(aNode, curNode)) {
@@ -156,8 +155,7 @@ nsGenConList::Insert(nsGenConNode* aNode)
   // Set the mapping only if it is the first node of the frame.
   // The DEBUG blocks below are for ensuring the invariant required by
   // nsGenConList::DestroyNodesFor. See comment there.
-  if (IsFirst(aNode) ||
-      Prev(aNode)->mPseudoFrame != aNode->mPseudoFrame) {
+  if (IsFirst(aNode) || Prev(aNode)->mPseudoFrame != aNode->mPseudoFrame) {
 #ifdef DEBUG
     if (nsGenConNode* oldFrameFirstNode = mNodes.Get(aNode->mPseudoFrame)) {
       MOZ_ASSERT(Next(aNode) == oldFrameFirstNode,
@@ -183,8 +181,8 @@ nsGenConList::Insert(nsGenConNode* aNode)
 #ifdef DEBUG
     nsGenConNode* frameFirstNode = mNodes.Get(aNode->mPseudoFrame);
     MOZ_ASSERT(frameFirstNode, "There should exist node map for the frame.");
-    for (nsGenConNode* curNode = Prev(aNode);
-         curNode != frameFirstNode; curNode = Prev(curNode)) {
+    for (nsGenConNode* curNode = Prev(aNode); curNode != frameFirstNode;
+         curNode = Prev(curNode)) {
       MOZ_ASSERT(curNode->mPseudoFrame == aNode->mPseudoFrame,
                  "Every node between frameFirstNode and the new node inserted "
                  "should refer to the same frame.");
@@ -198,6 +196,5 @@ nsGenConList::Insert(nsGenConNode* aNode)
 
   NS_ASSERTION(IsFirst(aNode) || NodeAfter(aNode, Prev(aNode)),
                "sorting error");
-  NS_ASSERTION(IsLast(aNode) || NodeAfter(Next(aNode), aNode),
-               "sorting error");
+  NS_ASSERTION(IsLast(aNode) || NodeAfter(Next(aNode), aNode), "sorting error");
 }

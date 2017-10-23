@@ -103,17 +103,18 @@ class BackgroundHangManager;
  */
 class BackgroundHangMonitor
 {
-private:
+ private:
   friend BackgroundHangManager;
 
   RefPtr<BackgroundHangThread> mThread;
 
-  static bool ShouldDisableOnBeta(const nsCString &);
+  static bool ShouldDisableOnBeta(const nsCString&);
   static bool DisableOnBeta();
 
-public:
+ public:
   static const uint32_t kNoTimeout = 0;
-  enum ThreadType {
+  enum ThreadType
+  {
     // For a new BackgroundHangMonitor for thread T, only create a new
     // monitoring thread for T if one doesn't already exist. If one does,
     // share that pre-existing monitoring thread.
@@ -200,6 +201,6 @@ public:
   static bool UnregisterAnnotator(HangMonitor::Annotator& aAnnotator);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_BackgroundHangMonitor_h
+#endif  // mozilla_BackgroundHangMonitor_h

@@ -6,29 +6,31 @@
 #ifndef GFX_BASICCONTAINERLAYER_H
 #define GFX_BASICCONTAINERLAYER_H
 
-#include "BasicImplData.h"              // for BasicImplData
-#include "BasicLayers.h"                // for BasicLayerManager
-#include "Layers.h"                     // for Layer, ContainerLayer
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR
-#include "nsISupportsUtils.h"           // for NS_ADDREF, NS_RELEASE
+#include "BasicImplData.h"     // for BasicImplData
+#include "BasicLayers.h"       // for BasicLayerManager
+#include "Layers.h"            // for Layer, ContainerLayer
+#include "nsDebug.h"           // for NS_ASSERTION
+#include "nsISupportsImpl.h"   // for MOZ_COUNT_CTOR
+#include "nsISupportsUtils.h"  // for NS_ADDREF, NS_RELEASE
 #include "mozilla/gfx/Rect.h"
 
 namespace mozilla {
 namespace layers {
 
-class BasicContainerLayer : public ContainerLayer, public BasicImplData {
-public:
-  explicit BasicContainerLayer(BasicLayerManager* aManager) :
-    ContainerLayer(aManager, static_cast<BasicImplData*>(this))
+class BasicContainerLayer : public ContainerLayer, public BasicImplData
+{
+ public:
+  explicit BasicContainerLayer(BasicLayerManager* aManager)
+      : ContainerLayer(aManager, static_cast<BasicImplData*>(this))
   {
     MOZ_COUNT_CTOR(BasicContainerLayer);
     mSupportsComponentAlphaChildren = true;
   }
-protected:
+
+ protected:
   virtual ~BasicContainerLayer();
 
-public:
+ public:
   virtual void SetVisibleRegion(const LayerIntRegion& aRegion) override
   {
     NS_ASSERTION(BasicManager()->InConstruction(),
@@ -45,7 +47,7 @@ public:
   }
 
   virtual bool RemoveChild(Layer* aChild) override
-  { 
+  {
     if (!BasicManager()->InConstruction()) {
       NS_ERROR("Can only set properties in construction phase");
       return false;
@@ -62,7 +64,8 @@ public:
     return ContainerLayer::RepositionChild(aChild, aAfter);
   }
 
-  virtual void ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSurface) override;
+  virtual void ComputeEffectiveTransforms(
+      const gfx::Matrix4x4& aTransformToSurface) override;
 
   /**
    * Returns true when:
@@ -81,7 +84,10 @@ public:
 
   void ForceIntermediateSurface() { mUseIntermediateSurface = true; }
 
-  void SetSupportsComponentAlphaChildren(bool aSupports) { mSupportsComponentAlphaChildren = aSupports; }
+  void SetSupportsComponentAlphaChildren(bool aSupports)
+  {
+    mSupportsComponentAlphaChildren = aSupports;
+  }
 
   virtual void Validate(LayerManager::DrawPaintedLayerCallback aCallback,
                         void* aCallbackData,
@@ -93,14 +99,14 @@ public:
    */
   virtual int32_t GetMaxLayerSize() override { return 4096; }
 
-protected:
+ protected:
   BasicLayerManager* BasicManager()
   {
     return static_cast<BasicLayerManager*>(mManager);
   }
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

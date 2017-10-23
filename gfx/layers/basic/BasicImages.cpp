@@ -3,39 +3,41 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <stdint.h>                     // for uint8_t, uint32_t
-#include "BasicLayers.h"                // for BasicLayerManager
-#include "ImageContainer.h"             // for PlanarYCbCrImage, etc
-#include "ImageTypes.h"                 // for ImageFormat, etc
-#include "cairo.h"                      // for cairo_user_data_key_t
-#include "gfxASurface.h"                // for gfxASurface, etc
-#include "gfxPlatform.h"                // for gfxPlatform, gfxImageFormat
-#include "gfxUtils.h"                   // for gfxUtils
+#include <stdint.h>          // for uint8_t, uint32_t
+#include "BasicLayers.h"     // for BasicLayerManager
+#include "ImageContainer.h"  // for PlanarYCbCrImage, etc
+#include "ImageTypes.h"      // for ImageFormat, etc
+#include "cairo.h"           // for cairo_user_data_key_t
+#include "gfxASurface.h"     // for gfxASurface, etc
+#include "gfxPlatform.h"     // for gfxPlatform, gfxImageFormat
+#include "gfxUtils.h"        // for gfxUtils
 #include "mozilla/CheckedInt.h"
-#include "mozilla/mozalloc.h"           // for operator delete[], etc
+#include "mozilla/mozalloc.h"  // for operator delete[], etc
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
-#include "nsAutoRef.h"                  // for nsCountedRef
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsDebug.h"                    // for NS_ERROR, NS_ASSERTION
-#include "nsISupportsImpl.h"            // for Image::Release, etc
-#include "nsThreadUtils.h"              // for NS_IsMainThread
-#include "mozilla/gfx/Point.h"          // for IntSize
+#include "nsAutoRef.h"          // for nsCountedRef
+#include "nsCOMPtr.h"           // for already_AddRefed
+#include "nsDebug.h"            // for NS_ERROR, NS_ASSERTION
+#include "nsISupportsImpl.h"    // for Image::Release, etc
+#include "nsThreadUtils.h"      // for NS_IsMainThread
+#include "mozilla/gfx/Point.h"  // for IntSize
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "gfx2DGlue.h"
-#include "YCbCrUtils.h"                 // for YCbCr conversions
+#include "YCbCrUtils.h"  // for YCbCr conversions
 
 namespace mozilla {
 namespace layers {
 
 class BasicPlanarYCbCrImage : public RecyclingPlanarYCbCrImage
 {
-public:
-  BasicPlanarYCbCrImage(const gfx::IntSize& aScaleHint, gfxImageFormat aOffscreenFormat, BufferRecycleBin *aRecycleBin)
-    : RecyclingPlanarYCbCrImage(aRecycleBin)
-    , mScaleHint(aScaleHint)
-    , mStride(0)
-    , mDelayedConversion(false)
+ public:
+  BasicPlanarYCbCrImage(const gfx::IntSize& aScaleHint,
+                        gfxImageFormat aOffscreenFormat,
+                        BufferRecycleBin* aRecycleBin)
+      : RecyclingPlanarYCbCrImage(aRecycleBin),
+        mScaleHint(aScaleHint),
+        mStride(0),
+        mDelayedConversion(false)
   {
     SetOffscreenFormat(aOffscreenFormat);
   }
@@ -50,7 +52,10 @@ public:
   }
 
   virtual bool CopyData(const Data& aData) override;
-  virtual void SetDelayedConversion(bool aDelayed) override { mDelayedConversion = aDelayed; }
+  virtual void SetDelayedConversion(bool aDelayed) override
+  {
+    mDelayedConversion = aDelayed;
+  }
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
 
@@ -66,7 +71,7 @@ public:
     return size;
   }
 
-private:
+ private:
   UniquePtr<uint8_t[]> mDecodedBuffer;
   gfx::IntSize mScaleHint;
   int mStride;
@@ -75,13 +80,16 @@ private:
 
 class BasicImageFactory : public ImageFactory
 {
-public:
+ public:
   BasicImageFactory() {}
 
-  virtual RefPtr<PlanarYCbCrImage>
-  CreatePlanarYCbCrImage(const gfx::IntSize& aScaleHint, BufferRecycleBin* aRecycleBin)
+  virtual RefPtr<PlanarYCbCrImage> CreatePlanarYCbCrImage(
+      const gfx::IntSize& aScaleHint, BufferRecycleBin* aRecycleBin)
   {
-    return new BasicPlanarYCbCrImage(aScaleHint, gfxPlatform::GetPlatform()->GetOffscreenFormat(), aRecycleBin);
+    return new BasicPlanarYCbCrImage(
+        aScaleHint,
+        gfxPlatform::GetPlatform()->GetOffscreenFormat(),
+        aRecycleBin);
   }
 };
 
@@ -101,7 +109,8 @@ BasicPlanarYCbCrImage::CopyData(const Data& aData)
     return false;
   }
 
-  gfx::SurfaceFormat format = gfx::ImageFormatToSurfaceFormat(GetOffscreenFormat());
+  gfx::SurfaceFormat format =
+      gfx::ImageFormatToSurfaceFormat(GetOffscreenFormat());
 
   gfx::IntSize size(mScaleHint);
   gfx::GetYCbCrToRGBDestFormatAndSize(aData, format, size);
@@ -113,7 +122,7 @@ BasicPlanarYCbCrImage::CopyData(const Data& aData)
 
   mStride = gfx::StrideForFormatAndWidth(format, size.width);
   mozilla::CheckedInt32 requiredBytes =
-    mozilla::CheckedInt32(size.height) * mozilla::CheckedInt32(mStride);
+      mozilla::CheckedInt32(size.height) * mozilla::CheckedInt32(mStride);
   if (!requiredBytes.isValid()) {
     // invalid size
     return false;
@@ -152,11 +161,11 @@ BasicPlanarYCbCrImage::GetAsSourceSurface()
     // Create a DrawTarget so that we can own the data inside mDecodeBuffer.
     // We create the target out of mDecodedBuffer, and get a snapshot from it.
     // The draw target is destroyed on scope exit and the surface owns the data.
-    RefPtr<gfx::DrawTarget> drawTarget
-      = gfxPlatform::CreateDrawTargetForData(mDecodedBuffer.get(),
-                                             mSize,
-                                             mStride,
-                                             gfx::ImageFormatToSurfaceFormat(format));
+    RefPtr<gfx::DrawTarget> drawTarget = gfxPlatform::CreateDrawTargetForData(
+        mDecodedBuffer.get(),
+        mSize,
+        mStride,
+        gfx::ImageFormatToSurfaceFormat(format));
     if (!drawTarget) {
       return nullptr;
     }
@@ -170,7 +179,6 @@ BasicPlanarYCbCrImage::GetAsSourceSurface()
   return surface.forget();
 }
 
-
 ImageFactory*
 BasicLayerManager::GetImageFactory()
 {
@@ -181,5 +189,5 @@ BasicLayerManager::GetImageFactory()
   return mFactory.get();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

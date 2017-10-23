@@ -61,24 +61,26 @@ namespace mozilla {
 
 static unsigned int kDefaultTimeout = 7000;
 
-class IcePeer {
-
-public:
-  IcePeer(const char* name, TestNat* nat, UINT4 flags,
+class IcePeer
+{
+ public:
+  IcePeer(const char* name,
+          TestNat* nat,
+          UINT4 flags,
           MtransportTestUtils* test_utils)
-    : name_(name)
-    , ice_checking_(false)
-    , ice_connected_(false)
-    , ice_disconnected_(false)
-    , gather_cb_(false)
-    , stream_ready_(false)
-    , stream_failed_(false)
-    , ice_ctx_(nullptr)
-    , peer_ctx_(nullptr)
-    , nat_(nat)
-    , test_utils_(test_utils)
+      : name_(name),
+        ice_checking_(false),
+        ice_connected_(false),
+        ice_disconnected_(false),
+        gather_cb_(false),
+        stream_ready_(false),
+        stream_failed_(false),
+        ice_ctx_(nullptr),
+        peer_ctx_(nullptr),
+        nat_(nat),
+        test_utils_(test_utils)
   {
-    nr_ice_ctx_create(const_cast<char *>(name_.c_str()), flags, &ice_ctx_);
+    nr_ice_ctx_create(const_cast<char*>(name_.c_str()), flags, &ice_ctx_);
 
     if (nat_) {
       nr_socket_factory* factory;
@@ -100,28 +102,21 @@ public:
     ice_handler_->vtbl = ice_handler_vtbl_;
     ice_handler_->obj = this;
 
-    nr_ice_peer_ctx_create(ice_ctx_, ice_handler_,
-                           const_cast<char *>(name_.c_str()),
-                           &peer_ctx_);
+    nr_ice_peer_ctx_create(
+        ice_ctx_, ice_handler_, const_cast<char*>(name_.c_str()), &peer_ctx_);
 
-    nr_ice_add_media_stream(ice_ctx_,
-                            const_cast<char *>(name_.c_str()),
-                            2, &ice_media_stream_);
+    nr_ice_add_media_stream(
+        ice_ctx_, const_cast<char*>(name_.c_str()), 2, &ice_media_stream_);
 
     nr_ice_media_stream_initialize(ice_ctx_, ice_media_stream_);
   }
 
-  virtual ~IcePeer()
-  {
-    Destroy();
-  }
+  virtual ~IcePeer() { Destroy(); }
 
   void Destroy()
   {
-    test_utils_->sts_target()->Dispatch(
-        WrapRunnable(this,
-                     &IcePeer::Destroy_s),
-        NS_DISPATCH_SYNC);
+    test_utils_->sts_target()->Dispatch(WrapRunnable(this, &IcePeer::Destroy_s),
+                                        NS_DISPATCH_SYNC);
   }
 
   void Destroy_s()
@@ -132,28 +127,28 @@ public:
     nr_ice_ctx_destroy(&ice_ctx_);
   }
 
-  void Gather(bool default_route_only=false)
+  void Gather(bool default_route_only = false)
   {
     test_utils_->sts_target()->Dispatch(
-        WrapRunnable(this,
-                     &IcePeer::Gather_s, default_route_only),
+        WrapRunnable(this, &IcePeer::Gather_s, default_route_only),
         NS_DISPATCH_SYNC);
   }
 
-  void Gather_s(bool default_route_only=false)
+  void Gather_s(bool default_route_only = false)
   {
     int r = nr_ice_gather(ice_ctx_, &IcePeer::gather_cb, this);
     ASSERT_TRUE(r == 0 || r == R_WOULDBLOCK);
   }
 
-  std::vector<std::string> GetLocalCandidates() const {
+  std::vector<std::string> GetLocalCandidates() const
+  {
     char attr[256];
     std::vector<std::string> candidates;
     nr_ice_component* comp = STAILQ_FIRST(&ice_media_stream_->components);
-    while(comp){
+    while (comp) {
       if (comp->state != NR_ICE_COMPONENT_DISABLED) {
-        nr_ice_candidate *cand = TAILQ_FIRST(&comp->candidates);
-        while(cand){
+        nr_ice_candidate* cand = TAILQ_FIRST(&comp->candidates);
+        while (cand) {
           int r = nr_ice_format_candidate_attribute(cand, attr, 255);
           if (r == 0) {
             candidates.push_back(attr);
@@ -169,15 +164,15 @@ public:
     return candidates;
   }
 
-  std::vector<std::string> GetGlobalAttributes() {
-
-    char **attrs = nullptr;
+  std::vector<std::string> GetGlobalAttributes()
+  {
+    char** attrs = nullptr;
     int attrct;
     std::vector<std::string> ret;
 
     nr_ice_get_global_attributes(ice_ctx_, &attrs, &attrct);
 
-    for (int i=0; i<attrct; i++) {
+    for (int i = 0; i < attrct; i++) {
       ret.push_back(std::string(attrs[i]));
       RFREE(attrs[i]);
     }
@@ -186,46 +181,48 @@ public:
     return ret;
   }
 
-  void ParseGlobalAttributes(std::vector<std::string> attrs) {
-    std::vector<char *> attrs_in;
+  void ParseGlobalAttributes(std::vector<std::string> attrs)
+  {
+    std::vector<char*> attrs_in;
 
     for (auto& attr : attrs) {
-      attrs_in.push_back(const_cast<char *>(attr.c_str()));
+      attrs_in.push_back(const_cast<char*>(attr.c_str()));
     }
 
-    int r = nr_ice_peer_ctx_parse_global_attributes(peer_ctx_,
-                                                    attrs_in.empty() ?
-                                                    nullptr : &attrs_in[0],
-                                                    attrs_in.size());
+    int r = nr_ice_peer_ctx_parse_global_attributes(
+        peer_ctx_, attrs_in.empty() ? nullptr : &attrs_in[0], attrs_in.size());
     ASSERT_EQ(0, r);
   }
 
-  void SetControlling(bool controlling) {
+  void SetControlling(bool controlling)
+  {
     peer_ctx_->controlling = controlling ? 1 : 0;
   }
 
-  void SetRemoteAttributes(std::vector<std::string> attributes) {
+  void SetRemoteAttributes(std::vector<std::string> attributes)
+  {
     int r;
 
     std::vector<char*> attrs;
-    for (auto& attr: attributes) {
+    for (auto& attr : attributes) {
       attrs.push_back(const_cast<char*>(attr.c_str()));
     }
 
     if (!attrs.empty()) {
-      r = nr_ice_peer_ctx_parse_stream_attributes(peer_ctx_, ice_media_stream_, &attrs[0], attrs.size());
+      r = nr_ice_peer_ctx_parse_stream_attributes(
+          peer_ctx_, ice_media_stream_, &attrs[0], attrs.size());
       ASSERT_EQ(0, r);
     }
   }
 
-  void StartChecks() {
+  void StartChecks()
+  {
     test_utils_->sts_target()->Dispatch(
-        WrapRunnable(this,
-                     &IcePeer::StartChecks_s),
-        NS_DISPATCH_SYNC);
+        WrapRunnable(this, &IcePeer::StartChecks_s), NS_DISPATCH_SYNC);
   }
 
-  void StartChecks_s() {
+  void StartChecks_s()
+  {
     int r = nr_ice_peer_ctx_pair_candidates(peer_ctx_);
     ASSERT_EQ(0, r);
 
@@ -234,49 +231,62 @@ public:
   }
 
   // Handler callbacks
-  static int select_pair(void *obj, nr_ice_media_stream *stream,
-                         int component_id, nr_ice_cand_pair **potentials,
-                         int potential_ct) {
+  static int select_pair(void* obj,
+                         nr_ice_media_stream* stream,
+                         int component_id,
+                         nr_ice_cand_pair** potentials,
+                         int potential_ct)
+  {
     return 0;
   }
 
-  static int stream_ready(void *obj, nr_ice_media_stream *stream) {
+  static int stream_ready(void* obj, nr_ice_media_stream* stream)
+  {
     IcePeer* peer = static_cast<IcePeer*>(obj);
     peer->stream_ready_ = true;
     return 0;
   }
 
-  static int stream_failed(void *obj, nr_ice_media_stream *stream) {
+  static int stream_failed(void* obj, nr_ice_media_stream* stream)
+  {
     IcePeer* peer = static_cast<IcePeer*>(obj);
     peer->stream_failed_ = true;
     return 0;
   }
 
-  static int ice_checking(void *obj, nr_ice_peer_ctx *pctx) {
+  static int ice_checking(void* obj, nr_ice_peer_ctx* pctx)
+  {
     IcePeer* peer = static_cast<IcePeer*>(obj);
     peer->ice_checking_ = true;
     return 0;
   }
 
-  static int ice_connected(void *obj, nr_ice_peer_ctx *pctx) {
+  static int ice_connected(void* obj, nr_ice_peer_ctx* pctx)
+  {
     IcePeer* peer = static_cast<IcePeer*>(obj);
     peer->ice_connected_ = true;
     return 0;
   }
 
-  static int ice_disconnected(void *obj, nr_ice_peer_ctx *pctx) {
+  static int ice_disconnected(void* obj, nr_ice_peer_ctx* pctx)
+  {
     IcePeer* peer = static_cast<IcePeer*>(obj);
     peer->ice_disconnected_ = true;
     return 0;
   }
 
-  static int msg_recvd(void *obj, nr_ice_peer_ctx *pctx,
-                       nr_ice_media_stream *stream, int component_id,
-                       UCHAR *msg, int len) {
+  static int msg_recvd(void* obj,
+                       nr_ice_peer_ctx* pctx,
+                       nr_ice_media_stream* stream,
+                       int component_id,
+                       UCHAR* msg,
+                       int len)
+  {
     return 0;
   }
 
-  static void gather_cb(NR_SOCKET s, int h, void *arg) {
+  static void gather_cb(NR_SOCKET s, int h, void* arg)
+  {
     IcePeer* peer = static_cast<IcePeer*>(arg);
     peer->gather_cb_ = true;
   }
@@ -299,9 +309,9 @@ public:
   MtransportTestUtils* test_utils_;
 };
 
-class TestNrSocketIceUnitTest : public ::testing::Test {
-
-public:
+class TestNrSocketIceUnitTest : public ::testing::Test
+{
+ public:
   void SetUp() override
   {
     NSS_NoDB_Init(nullptr);
@@ -321,12 +331,12 @@ public:
 
   MtransportTestUtils* test_utils_;
   MtransportTestUtils* test_utils2_;
-
 };
 
-TEST_F(TestNrSocketIceUnitTest, TestIcePeer) {
-  IcePeer peer("IcePeer", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION,
-               test_utils_);
+TEST_F(TestNrSocketIceUnitTest, TestIcePeer)
+{
+  IcePeer peer(
+      "IcePeer", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION, test_utils_);
   ASSERT_NE(peer.ice_ctx_, nullptr);
   ASSERT_NE(peer.peer_ctx_, nullptr);
   ASSERT_NE(peer.ice_media_stream_, nullptr);
@@ -337,11 +347,14 @@ TEST_F(TestNrSocketIceUnitTest, TestIcePeer) {
   ASSERT_NE(candidates.size(), 0UL);
 }
 
-TEST_F(TestNrSocketIceUnitTest, TestIcePeersNoNAT) {
-  IcePeer peer("IcePeer", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION,
-               test_utils_);
-  IcePeer peer2("IcePeer2", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION,
-               test_utils2_);
+TEST_F(TestNrSocketIceUnitTest, TestIcePeersNoNAT)
+{
+  IcePeer peer(
+      "IcePeer", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION, test_utils_);
+  IcePeer peer2("IcePeer2",
+                nullptr,
+                NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION,
+                test_utils2_);
   peer.SetControlling(true);
   peer2.SetControlling(false);
 
@@ -363,23 +376,27 @@ TEST_F(TestNrSocketIceUnitTest, TestIcePeersNoNAT) {
   ASSERT_TRUE_WAIT(peer2.ice_connected_, kDefaultTimeout);
 }
 
-TEST_F(TestNrSocketIceUnitTest, TestIcePeersPacketLoss) {
-  IcePeer peer("IcePeer", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION,
-               test_utils_);
+TEST_F(TestNrSocketIceUnitTest, TestIcePeersPacketLoss)
+{
+  IcePeer peer(
+      "IcePeer", nullptr, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION, test_utils_);
 
   RefPtr<TestNat> nat(new TestNat);
-  class NatDelegate : public TestNat::NatDelegate {
-  public:
-    NatDelegate()
-      : messages(0) {}
+  class NatDelegate : public TestNat::NatDelegate
+  {
+   public:
+    NatDelegate() : messages(0) {}
 
-    int on_read(TestNat *nat, void *buf, size_t maxlen, size_t *len) override
+    int on_read(TestNat* nat, void* buf, size_t maxlen, size_t* len) override
     {
       return 0;
     }
 
-    int on_sendto(TestNat *nat, const void *msg, size_t len,
-                          int flags, nr_transport_addr *to) override
+    int on_sendto(TestNat* nat,
+                  const void* msg,
+                  size_t len,
+                  int flags,
+                  nr_transport_addr* to) override
     {
       ++messages;
       // 25% packet loss
@@ -389,7 +406,10 @@ TEST_F(TestNrSocketIceUnitTest, TestIcePeersPacketLoss) {
       return 0;
     }
 
-    int on_write(TestNat *nat, const void *msg, size_t len, size_t *written) override
+    int on_write(TestNat* nat,
+                 const void* msg,
+                 size_t len,
+                 size_t* written) override
     {
       return 0;
     }
@@ -398,8 +418,8 @@ TEST_F(TestNrSocketIceUnitTest, TestIcePeersPacketLoss) {
   } delegate;
   nat->nat_delegate_ = &delegate;
 
-  IcePeer peer2("IcePeer2", nat, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION,
-               test_utils2_);
+  IcePeer peer2(
+      "IcePeer2", nat, NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION, test_utils2_);
   peer.SetControlling(true);
   peer2.SetControlling(false);
 
@@ -421,5 +441,4 @@ TEST_F(TestNrSocketIceUnitTest, TestIcePeersPacketLoss) {
   ASSERT_TRUE_WAIT(peer2.ice_connected_, kDefaultTimeout);
 }
 
-
-}
+}  // namespace mozilla

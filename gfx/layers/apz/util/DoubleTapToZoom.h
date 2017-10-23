@@ -9,7 +9,8 @@
 #include "Units.h"
 
 class nsIDocument;
-template<class T> class nsCOMPtr;
+template<class T>
+class nsCOMPtr;
 
 namespace mozilla {
 namespace layers {
@@ -20,10 +21,11 @@ namespace layers {
  * |aDocument| should be the root content document for the content that was
  * tapped.
  */
-CSSRect CalculateRectToZoomTo(const nsCOMPtr<nsIDocument>& aRootContentDocument,
-                              const CSSPoint& aPoint);
+CSSRect
+CalculateRectToZoomTo(const nsCOMPtr<nsIDocument>& aRootContentDocument,
+                      const CSSPoint& aPoint);
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_DoubleTapToZoom_h */

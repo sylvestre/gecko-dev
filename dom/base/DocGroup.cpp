@@ -39,7 +39,7 @@ DocGroup::RemoveDocument(nsIDocument* aDocument)
 }
 
 DocGroup::DocGroup(TabGroup* aTabGroup, const nsACString& aKey)
-  : mKey(aKey), mTabGroup(aTabGroup)
+    : mKey(aKey), mTabGroup(aTabGroup)
 {
   // This method does not add itself to mTabGroup->mDocGroups as the caller does it for us.
 }
@@ -49,7 +49,8 @@ DocGroup::~DocGroup()
   MOZ_ASSERT(mDocuments.IsEmpty());
   if (!NS_IsMainThread()) {
     nsIEventTarget* target = EventTargetFor(TaskCategory::Other);
-    NS_ProxyRelease("DocGroup::mReactionsStack", target, mReactionsStack.forget());
+    NS_ProxyRelease(
+        "DocGroup::mReactionsStack", target, mReactionsStack.forget());
   }
 
   mTabGroup->mDocGroups.RemoveEntry(mKey);
@@ -81,5 +82,5 @@ DocGroup::GetValidAccessPtr()
   return mTabGroup->GetValidAccessPtr();
 }
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla

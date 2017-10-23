@@ -19,8 +19,7 @@ Accessible*
 EmbeddedObjCollector::GetAccessibleAt(uint32_t aIndex)
 {
   Accessible* accessible = mObjects.SafeElementAt(aIndex, nullptr);
-  if (accessible)
-    return accessible;
+  if (accessible) return accessible;
 
   return EnsureNGetObject(aIndex);
 }
@@ -31,12 +30,10 @@ EmbeddedObjCollector::EnsureNGetObject(uint32_t aIndex)
   uint32_t childCount = mRoot->ChildCount();
   while (mRootChildIdx < childCount) {
     Accessible* child = mRoot->GetChildAt(mRootChildIdx++);
-    if (child->IsText())
-      continue;
+    if (child->IsText()) continue;
 
     AppendObject(child);
-    if (mObjects.Length() - 1 == aIndex)
-      return mObjects[aIndex];
+    if (mObjects.Length() - 1 == aIndex) return mObjects[aIndex];
   }
 
   return nullptr;
@@ -48,12 +45,10 @@ EmbeddedObjCollector::EnsureNGetIndex(Accessible* aAccessible)
   uint32_t childCount = mRoot->ChildCount();
   while (mRootChildIdx < childCount) {
     Accessible* child = mRoot->GetChildAt(mRootChildIdx++);
-    if (child->IsText())
-      continue;
+    if (child->IsText()) continue;
 
     AppendObject(child);
-    if (child == aAccessible)
-      return mObjects.Length() - 1;
+    if (child == aAccessible) return mObjects.Length() - 1;
   }
 
   return -1;
@@ -62,14 +57,13 @@ EmbeddedObjCollector::EnsureNGetIndex(Accessible* aAccessible)
 int32_t
 EmbeddedObjCollector::GetIndexAt(Accessible* aAccessible)
 {
-  if (aAccessible->mParent != mRoot)
-    return -1;
+  if (aAccessible->mParent != mRoot) return -1;
 
   MOZ_ASSERT(!aAccessible->IsProxy());
   if (aAccessible->mInt.mIndexOfEmbeddedChild != -1)
     return aAccessible->mInt.mIndexOfEmbeddedChild;
 
-  return !aAccessible->IsText() ?  EnsureNGetIndex(aAccessible) : -1;
+  return !aAccessible->IsText() ? EnsureNGetIndex(aAccessible) : -1;
 }
 
 void

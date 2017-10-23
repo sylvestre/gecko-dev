@@ -20,26 +20,20 @@ namespace places {
 ////////////////////////////////////////////////////////////////////////////////
 //// AsyncStatementCallback
 
-NS_IMPL_ISUPPORTS(
-  AsyncStatementCallback
-, mozIStorageStatementCallback
-)
+NS_IMPL_ISUPPORTS(AsyncStatementCallback, mozIStorageStatementCallback)
 
 NS_IMETHODIMP
-WeakAsyncStatementCallback::HandleResult(mozIStorageResultSet *aResultSet)
+WeakAsyncStatementCallback::HandleResult(mozIStorageResultSet* aResultSet)
 {
   MOZ_ASSERT(false, "Was not expecting a resultset, but got it.");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-WeakAsyncStatementCallback::HandleCompletion(uint16_t aReason)
-{
-  return NS_OK;
-}
+WeakAsyncStatementCallback::HandleCompletion(uint16_t aReason) { return NS_OK; }
 
 NS_IMETHODIMP
-WeakAsyncStatementCallback::HandleError(mozIStorageError *aError)
+WeakAsyncStatementCallback::HandleError(mozIStorageError* aError)
 {
 #ifdef DEBUG
   int32_t result;
@@ -50,7 +44,8 @@ WeakAsyncStatementCallback::HandleError(mozIStorageError *aError)
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString warnMsg;
-  warnMsg.AppendLiteral("An error occurred while executing an async statement: ");
+  warnMsg.AppendLiteral(
+      "An error occurred while executing an async statement: ");
   warnMsg.AppendInt(result);
   warnMsg.Append(' ');
   warnMsg.Append(message);
@@ -60,17 +55,15 @@ WeakAsyncStatementCallback::HandleError(mozIStorageError *aError)
   return NS_OK;
 }
 
-#define URI_TO_URLCSTRING(uri, spec) \
-  nsAutoCString spec; \
+#define URI_TO_URLCSTRING(uri, spec)    \
+  nsAutoCString spec;                   \
   if (NS_FAILED(aURI->GetSpec(spec))) { \
-    return NS_ERROR_UNEXPECTED; \
+    return NS_ERROR_UNEXPECTED;         \
   }
 
 // Bind URI to statement by index.
-nsresult // static
-URIBinder::Bind(mozIStorageStatement* aStatement,
-                int32_t aIndex,
-                nsIURI* aURI)
+nsresult  // static
+URIBinder::Bind(mozIStorageStatement* aStatement, int32_t aIndex, nsIURI* aURI)
 {
   NS_ASSERTION(aStatement, "Must have non-null statement");
   NS_ASSERTION(aURI, "Must have non-null uri");
@@ -80,19 +73,18 @@ URIBinder::Bind(mozIStorageStatement* aStatement,
 }
 
 // Statement URLCString to statement by index.
-nsresult // static
+nsresult  // static
 URIBinder::Bind(mozIStorageStatement* aStatement,
                 int32_t index,
                 const nsACString& aURLString)
 {
   NS_ASSERTION(aStatement, "Must have non-null statement");
   return aStatement->BindUTF8StringByIndex(
-    index, StringHead(aURLString, URI_LENGTH_MAX)
-  );
+      index, StringHead(aURLString, URI_LENGTH_MAX));
 }
 
 // Bind URI to statement by name.
-nsresult // static
+nsresult  // static
 URIBinder::Bind(mozIStorageStatement* aStatement,
                 const nsACString& aName,
                 nsIURI* aURI)
@@ -105,22 +97,19 @@ URIBinder::Bind(mozIStorageStatement* aStatement,
 }
 
 // Bind URLCString to statement by name.
-nsresult // static
+nsresult  // static
 URIBinder::Bind(mozIStorageStatement* aStatement,
                 const nsACString& aName,
                 const nsACString& aURLString)
 {
   NS_ASSERTION(aStatement, "Must have non-null statement");
   return aStatement->BindUTF8StringByName(
-    aName, StringHead(aURLString, URI_LENGTH_MAX)
-  );
+      aName, StringHead(aURLString, URI_LENGTH_MAX));
 }
 
 // Bind URI to params by index.
-nsresult // static
-URIBinder::Bind(mozIStorageBindingParams* aParams,
-                int32_t aIndex,
-                nsIURI* aURI)
+nsresult  // static
+URIBinder::Bind(mozIStorageBindingParams* aParams, int32_t aIndex, nsIURI* aURI)
 {
   NS_ASSERTION(aParams, "Must have non-null statement");
   NS_ASSERTION(aURI, "Must have non-null uri");
@@ -130,19 +119,18 @@ URIBinder::Bind(mozIStorageBindingParams* aParams,
 }
 
 // Bind URLCString to params by index.
-nsresult // static
+nsresult  // static
 URIBinder::Bind(mozIStorageBindingParams* aParams,
                 int32_t index,
                 const nsACString& aURLString)
 {
   NS_ASSERTION(aParams, "Must have non-null statement");
-  return aParams->BindUTF8StringByIndex(
-    index, StringHead(aURLString, URI_LENGTH_MAX)
-  );
+  return aParams->BindUTF8StringByIndex(index,
+                                        StringHead(aURLString, URI_LENGTH_MAX));
 }
 
 // Bind URI to params by name.
-nsresult // static
+nsresult  // static
 URIBinder::Bind(mozIStorageBindingParams* aParams,
                 const nsACString& aName,
                 nsIURI* aURI)
@@ -155,7 +143,7 @@ URIBinder::Bind(mozIStorageBindingParams* aParams,
 }
 
 // Bind URLCString to params by name.
-nsresult // static
+nsresult  // static
 URIBinder::Bind(mozIStorageBindingParams* aParams,
                 const nsACString& aName,
                 const nsACString& aURLString)
@@ -163,8 +151,7 @@ URIBinder::Bind(mozIStorageBindingParams* aParams,
   NS_ASSERTION(aParams, "Must have non-null params array");
 
   nsresult rv = aParams->BindUTF8StringByName(
-    aName, StringHead(aURLString, URI_LENGTH_MAX)
-  );
+      aName, StringHead(aURLString, URI_LENGTH_MAX));
   NS_ENSURE_SUCCESS(rv, rv);
   return NS_OK;
 }
@@ -177,8 +164,7 @@ GetReversedHostname(nsIURI* aURI, nsString& aRevHost)
   nsAutoCString forward8;
   nsresult rv = aURI->GetHost(forward8);
   // Not all URIs have a host.
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // can't do reversing in UTF8, better use 16-bit chars
   GetReversedHostname(NS_ConvertUTF8toUTF16(forward8), aRevHost);
@@ -202,8 +188,8 @@ ReverseString(const nsString& aInput, nsString& aReversed)
 }
 
 #ifdef XP_WIN
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla
 
 // Included here because windows.h conflicts with the use of mozIStorageError
 // above, but make sure that these are not included inside mozilla::places.
@@ -214,16 +200,14 @@ namespace mozilla {
 namespace places {
 #endif
 
-static
-nsresult
-GenerateRandomBytes(uint32_t aSize,
-                    uint8_t* _buffer)
+static nsresult
+GenerateRandomBytes(uint32_t aSize, uint8_t* _buffer)
 {
-  // On Windows, we'll use its built-in cryptographic API.
+// On Windows, we'll use its built-in cryptographic API.
 #if defined(XP_WIN)
   HCRYPTPROV cryptoProvider;
-  BOOL rc = CryptAcquireContext(&cryptoProvider, 0, 0, PROV_RSA_FULL,
-                                CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
+  BOOL rc = CryptAcquireContext(
+      &cryptoProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
   if (rc) {
     rc = CryptGenRandom(cryptoProvider, aSize, _buffer);
     (void)CryptReleaseContext(cryptoProvider, 0);
@@ -254,14 +238,14 @@ GenerateGUID(nsACString& _guid)
   // Request raw random bytes and base64url encode them.  For each set of three
   // bytes, we get one character.
   const uint32_t kRequiredBytesLength =
-    static_cast<uint32_t>(GUID_LENGTH / 4 * 3);
+      static_cast<uint32_t>(GUID_LENGTH / 4 * 3);
 
   uint8_t buffer[kRequiredBytesLength];
   nsresult rv = GenerateRandomBytes(kRequiredBytesLength, buffer);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = Base64URLEncode(kRequiredBytesLength, buffer,
-                       Base64URLEncodePaddingPolicy::Omit, _guid);
+  rv = Base64URLEncode(
+      kRequiredBytesLength, buffer, Base64URLEncodePaddingPolicy::Omit, _guid);
   NS_ENSURE_SUCCESS(rv, rv);
 
   NS_ASSERTION(_guid.Length() == GUID_LENGTH, "GUID is not the right size!");
@@ -276,12 +260,12 @@ IsValidGUID(const nsACString& aGUID)
     return false;
   }
 
-  for (nsCString::size_type i = 0; i < len; i++ ) {
+  for (nsCString::size_type i = 0; i < len; i++) {
     char c = aGUID[i];
-    if ((c >= 'a' && c <= 'z') || // a-z
-        (c >= 'A' && c <= 'Z') || // A-Z
-        (c >= '0' && c <= '9') || // 0-9
-        c == '-' || c == '_') { // - or _
+    if ((c >= 'a' && c <= 'z') ||  // a-z
+        (c >= 'A' && c <= 'Z') ||  // A-Z
+        (c >= '0' && c <= '9') ||  // 0-9
+        c == '-' || c == '_') {    // - or _
       continue;
     }
     return false;
@@ -302,18 +286,19 @@ TruncateTitle(const nsACString& aTitle, nsACString& aTrimmed)
 }
 
 PRTime
-RoundToMilliseconds(PRTime aTime) {
+RoundToMilliseconds(PRTime aTime)
+{
   return aTime - (aTime % PR_USEC_PER_MSEC);
 }
 
 PRTime
-RoundedPRNow() {
+RoundedPRNow()
+{
   return RoundToMilliseconds(PR_Now());
 }
 
 bool
-GetHiddenState(bool aIsRedirect,
-               uint32_t aTransitionType)
+GetHiddenState(bool aIsRedirect, uint32_t aTransitionType)
 {
   return aTransitionType == nsINavHistoryService::TRANSITION_FRAMED_LINK ||
          aTransitionType == nsINavHistoryService::TRANSITION_EMBED ||
@@ -349,5 +334,5 @@ AsyncStatementTelemetryTimer::HandleCompletion(uint16_t aReason)
   return NS_OK;
 }
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla

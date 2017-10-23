@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testException_bug860435)
-{
+BEGIN_TEST(testException_bug860435) {
     JS::RootedValue fun(cx);
 
     EVAL("ReferenceError", &fun);

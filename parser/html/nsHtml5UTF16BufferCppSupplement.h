@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 nsHtml5UTF16Buffer::nsHtml5UTF16Buffer(char16_t* aBuffer, int32_t aEnd)
-  : buffer(aBuffer)
-  , start(0)
-  , end(aEnd)
+    : buffer(aBuffer), start(0), end(aEnd)
 {
   MOZ_COUNT_CTOR(nsHtml5UTF16Buffer);
 }

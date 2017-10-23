@@ -11,18 +11,19 @@
 NS_IMPL_ISUPPORTS(nsCollation, nsICollation)
 
 nsCollation::nsCollation()
-  : mInit(false)
-  , mHasCollator(false)
-  , mLastStrength(-1)
-  , mCollatorICU(nullptr)
-{ }
+    : mInit(false),
+      mHasCollator(false),
+      mLastStrength(-1),
+      mCollatorICU(nullptr)
+{
+}
 
 nsCollation::~nsCollation()
 {
 #ifdef DEBUG
   nsresult res =
 #endif
-    CleanUpCollator();
+      CleanUpCollator();
   NS_ASSERTION(NS_SUCCEEDED(res), "CleanUpCollator failed");
 }
 
@@ -65,8 +66,7 @@ nsresult
 nsCollation::EnsureCollator(const int32_t newStrength)
 {
   NS_ENSURE_TRUE(mInit, NS_ERROR_NOT_INITIALIZED);
-  if (mHasCollator && (mLastStrength == newStrength))
-    return NS_OK;
+  if (mHasCollator && (mLastStrength == newStrength)) return NS_OK;
 
   nsresult res;
   res = CleanUpCollator();
@@ -87,7 +87,8 @@ nsCollation::EnsureCollator(const int32_t newStrength)
   NS_ENSURE_TRUE(U_SUCCESS(status), NS_ERROR_FAILURE);
   ucol_setAttribute(mCollatorICU, UCOL_CASE_LEVEL, caseLevel, &status);
   NS_ENSURE_TRUE(U_SUCCESS(status), NS_ERROR_FAILURE);
-  ucol_setAttribute(mCollatorICU, UCOL_ALTERNATE_HANDLING, UCOL_DEFAULT, &status);
+  ucol_setAttribute(
+      mCollatorICU, UCOL_ALTERNATE_HANDLING, UCOL_DEFAULT, &status);
   NS_ENSURE_TRUE(U_SUCCESS(status), NS_ERROR_FAILURE);
   ucol_setAttribute(mCollatorICU, UCOL_NUMERIC_COLLATION, UCOL_OFF, &status);
   NS_ENSURE_TRUE(U_SUCCESS(status), NS_ERROR_FAILURE);
@@ -138,8 +139,10 @@ nsCollation::Initialize(const nsACString& locale)
 }
 
 NS_IMETHODIMP
-nsCollation::AllocateRawSortKey(int32_t strength, const nsAString& stringIn,
-                                uint8_t** key, uint32_t* outLen)
+nsCollation::AllocateRawSortKey(int32_t strength,
+                                const nsAString& stringIn,
+                                uint8_t** key,
+                                uint32_t* outLen)
 {
   NS_ENSURE_TRUE(mInit, NS_ERROR_NOT_INITIALIZED);
   NS_ENSURE_ARG_POINTER(key);
@@ -152,16 +155,18 @@ nsCollation::AllocateRawSortKey(int32_t strength, const nsAString& stringIn,
 
   const UChar* str = (const UChar*)stringIn.BeginReading();
 
-  int32_t keyLength = ucol_getSortKey(mCollatorICU, str, stringInLen, nullptr, 0);
+  int32_t keyLength =
+      ucol_getSortKey(mCollatorICU, str, stringInLen, nullptr, 0);
   NS_ENSURE_TRUE((stringInLen == 0 || keyLength > 0), NS_ERROR_FAILURE);
 
   // Since key is freed elsewhere with free, allocate with malloc.
   uint8_t* newKey = (uint8_t*)malloc(keyLength + 1);
   if (!newKey) {
-      return NS_ERROR_OUT_OF_MEMORY;
+    return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  keyLength = ucol_getSortKey(mCollatorICU, str, stringInLen, newKey, keyLength + 1);
+  keyLength =
+      ucol_getSortKey(mCollatorICU, str, stringInLen, newKey, keyLength + 1);
   NS_ENSURE_TRUE((stringInLen == 0 || keyLength > 0), NS_ERROR_FAILURE);
 
   *key = newKey;
@@ -171,8 +176,10 @@ nsCollation::AllocateRawSortKey(int32_t strength, const nsAString& stringIn,
 }
 
 NS_IMETHODIMP
-nsCollation::CompareString(int32_t strength, const nsAString& string1,
-                           const nsAString& string2, int32_t* result)
+nsCollation::CompareString(int32_t strength,
+                           const nsAString& string1,
+                           const nsAString& string2,
+                           int32_t* result)
 {
   NS_ENSURE_TRUE(mInit, NS_ERROR_NOT_INITIALIZED);
   NS_ENSURE_ARG_POINTER(result);
@@ -206,8 +213,10 @@ nsCollation::CompareString(int32_t strength, const nsAString& string1,
 }
 
 NS_IMETHODIMP
-nsCollation::CompareRawSortKey(const uint8_t* key1, uint32_t len1,
-                               const uint8_t* key2, uint32_t len2,
+nsCollation::CompareRawSortKey(const uint8_t* key1,
+                               uint32_t len1,
+                               const uint8_t* key2,
+                               uint32_t len2,
                                int32_t* result)
 {
   NS_ENSURE_TRUE(mInit, NS_ERROR_NOT_INITIALIZED);
@@ -219,11 +228,11 @@ nsCollation::CompareRawSortKey(const uint8_t* key1, uint32_t len1,
   int32_t tmpResult = strcmp((const char*)key1, (const char*)key2);
   int32_t res;
   if (tmpResult < 0) {
-      res = -1;
+    res = -1;
   } else if (tmpResult > 0) {
-      res = 1;
+    res = 1;
   } else {
-      res = 0;
+    res = 0;
   }
   *result = res;
   return NS_OK;

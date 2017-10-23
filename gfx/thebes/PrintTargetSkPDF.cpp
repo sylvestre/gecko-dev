@@ -14,15 +14,15 @@ namespace gfx {
 
 PrintTargetSkPDF::PrintTargetSkPDF(const IntSize& aSize,
                                    UniquePtr<SkWStream> aStream)
-  : PrintTarget(/* not using cairo_surface_t */ nullptr, aSize)
-  , mOStream(Move(aStream))
-  , mPageCanvas(nullptr)
+    : PrintTarget(/* not using cairo_surface_t */ nullptr, aSize),
+      mOStream(Move(aStream)),
+      mPageCanvas(nullptr)
 {
 }
 
 PrintTargetSkPDF::~PrintTargetSkPDF()
 {
-  Finish(); // ensure stream is flushed
+  Finish();  // ensure stream is flushed
 
   // Make sure mPDFDoc and mRefPDFDoc are destroyed before our member streams
   // (which they wrap) are destroyed:
@@ -58,8 +58,11 @@ PrintTargetSkPDF::BeginPrinting(const nsAString& aTitle,
   metadata.fModified.fDateTime = now;
 
   // SkDocument stores a non-owning raw pointer to aStream
-  mPDFDoc = SkDocument::MakePDF(mOStream.get(), SK_ScalarDefaultRasterDPI,
-                                metadata, /*jpegEncoder*/ nullptr, true);
+  mPDFDoc = SkDocument::MakePDF(mOStream.get(),
+                                SK_ScalarDefaultRasterDPI,
+                                metadata,
+                                /*jpegEncoder*/ nullptr,
+                                true);
 
   return mPDFDoc ? NS_OK : NS_ERROR_FAILURE;
 }
@@ -127,9 +130,8 @@ PrintTargetSkPDF::GetReferenceDrawTarget(DrawEventRecorder* aRecorder)
   if (!mRefDT) {
     SkDocument::PDFMetadata metadata;
     // SkDocument stores a non-owning raw pointer to aStream
-    mRefPDFDoc = SkDocument::MakePDF(&mRefOStream,
-                                     SK_ScalarDefaultRasterDPI,
-                                     metadata, nullptr, true);
+    mRefPDFDoc = SkDocument::MakePDF(
+        &mRefOStream, SK_ScalarDefaultRasterDPI, metadata, nullptr, true);
     if (!mRefPDFDoc) {
       return nullptr;
     }
@@ -137,8 +139,7 @@ PrintTargetSkPDF::GetReferenceDrawTarget(DrawEventRecorder* aRecorder)
     if (!mRefCanvas) {
       return nullptr;
     }
-    RefPtr<DrawTarget> dt =
-      Factory::CreateDrawTargetWithSkCanvas(mRefCanvas);
+    RefPtr<DrawTarget> dt = Factory::CreateDrawTargetWithSkCanvas(mRefCanvas);
     if (!dt) {
       return nullptr;
     }
@@ -158,8 +159,9 @@ PrintTargetSkPDF::GetReferenceDrawTarget(DrawEventRecorder* aRecorder)
     }
 #ifdef DEBUG
     else {
-      MOZ_ASSERT(aRecorder == mRecorder,
-                 "Caching mRecordingRefDT assumes the aRecorder is an invariant");
+      MOZ_ASSERT(
+          aRecorder == mRecorder,
+          "Caching mRecordingRefDT assumes the aRecorder is an invariant");
     }
 #endif
 
@@ -169,5 +171,5 @@ PrintTargetSkPDF::GetReferenceDrawTarget(DrawEventRecorder* aRecorder)
   return do_AddRef(mRefDT);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

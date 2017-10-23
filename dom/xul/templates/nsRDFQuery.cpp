@@ -22,26 +22,26 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(nsRDFQuery)
 void
 nsRDFQuery::Finish()
 {
-    // the template builder is going away and the query processor likely as
-    // well. Clear the reference to avoid calling it.
-    mProcessor = nullptr;
-    mCachedResults = nullptr;
+  // the template builder is going away and the query processor likely as
+  // well. Clear the reference to avoid calling it.
+  mProcessor = nullptr;
+  mCachedResults = nullptr;
 }
 
 nsresult
 nsRDFQuery::SetCachedResults(nsXULTemplateQueryProcessorRDF* aProcessor,
                              const InstantiationSet& aInstantiations)
 {
-    mCachedResults = new nsXULTemplateResultSetRDF(aProcessor, this, &aInstantiations);
-    return NS_OK;
+  mCachedResults =
+      new nsXULTemplateResultSetRDF(aProcessor, this, &aInstantiations);
+  return NS_OK;
 }
-
 
 void
 nsRDFQuery::UseCachedResults(nsISimpleEnumerator** aResults)
 {
-    *aResults = mCachedResults;
-    NS_IF_ADDREF(*aResults);
+  *aResults = mCachedResults;
+  NS_IF_ADDREF(*aResults);
 
-    mCachedResults = nullptr;
+  mCachedResults = nullptr;
 }

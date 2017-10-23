@@ -15,27 +15,22 @@ namespace JS {
 namespace ubi {
 
 JS_PUBLIC_API(BackEdge::Ptr)
-BackEdge::clone() const
-{
+BackEdge::clone() const {
     BackEdge::Ptr clone(js_new<BackEdge>());
-    if (!clone)
-        return nullptr;
+    if (!clone) return nullptr;
 
     clone->predecessor_ = predecessor();
     if (name()) {
         clone->name_ = js::DuplicateString(name().get());
-        if (!clone->name_)
-            return nullptr;
+        if (!clone->name_) return nullptr;
     }
     return mozilla::Move(clone);
 }
 
 #ifdef DEBUG
 
-static void
-dumpNode(const JS::ubi::Node& node)
-{
-    fprintf(stderr, "    %p ", (void*) node.identifier());
+static void dumpNode(const JS::ubi::Node& node) {
+    fprintf(stderr, "    %p ", (void*)node.identifier());
     js_fputs(node.typeName(), stderr);
     if (node.coarseType() == JS::ubi::CoarseType::Object) {
         if (const char* clsName = node.jsObjectClassName())
@@ -45,8 +40,7 @@ dumpNode(const JS::ubi::Node& node)
 }
 
 JS_PUBLIC_API(void)
-dumpPaths(JSContext* cx, Node node, uint32_t maxNumPaths /* = 10 */)
-{
+dumpPaths(JSContext* cx, Node node, uint32_t maxNumPaths /* = 10 */) {
     mozilla::Maybe<AutoCheckCannotGC> nogc;
 
     JS::ubi::RootList rootList(cx, nogc, true);
@@ -56,7 +50,8 @@ dumpPaths(JSContext* cx, Node node, uint32_t maxNumPaths /* = 10 */)
     bool ok = targets.init() && targets.putNew(node);
     MOZ_ASSERT(ok);
 
-    auto paths = ShortestPaths::Create(cx, nogc.ref(), maxNumPaths, &rootList, mozilla::Move(targets));
+    auto paths =
+        ShortestPaths::Create(cx, nogc.ref(), maxNumPaths, &rootList, mozilla::Move(targets));
     MOZ_ASSERT(paths.isSome());
 
     int i = 0;
@@ -69,8 +64,7 @@ dumpPaths(JSContext* cx, Node node, uint32_t maxNumPaths /* = 10 */)
             fprintf(stderr, "        '");
 
             const char16_t* name = backEdge->name().get();
-            if (!name)
-                name = u"<no edge name>";
+            if (!name) name = u"<no edge name>";
             js_fputs(name, stderr);
             fprintf(stderr, "'\n");
 
@@ -84,10 +78,9 @@ dumpPaths(JSContext* cx, Node node, uint32_t maxNumPaths /* = 10 */)
     });
     MOZ_ASSERT(ok);
 
-    if (i == 0)
-        fprintf(stderr, "No retaining paths found.\n");
+    if (i == 0) fprintf(stderr, "No retaining paths found.\n");
 }
 #endif
 
-} // namespace ubi
-} // namespace JS
+}  // namespace ubi
+}  // namespace JS

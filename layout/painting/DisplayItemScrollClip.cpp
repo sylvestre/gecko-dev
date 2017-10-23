@@ -30,8 +30,8 @@ DisplayItemScrollClip::IsAncestor(const DisplayItemScrollClip* aAncestor,
 bool
 DisplayItemScrollClip::HasRoundedCorners() const
 {
-  for (const DisplayItemScrollClip* scrollClip = this;
-       scrollClip; scrollClip = scrollClip->mParent) {
+  for (const DisplayItemScrollClip* scrollClip = this; scrollClip;
+       scrollClip = scrollClip->mParent) {
     if (scrollClip->mClip->GetRoundedRectCount() > 0) {
       return true;
     }
@@ -43,10 +43,12 @@ DisplayItemScrollClip::HasRoundedCorners() const
 DisplayItemScrollClip::ToString(const DisplayItemScrollClip* aScrollClip)
 {
   nsAutoCString str;
-  for (const DisplayItemScrollClip* scrollClip = aScrollClip;
-       scrollClip; scrollClip = scrollClip->mParent) {
-    str.AppendPrintf("<%s>%s", scrollClip->mClip ? scrollClip->mClip->ToString().get() : "null",
-                     scrollClip->mIsAsyncScrollable ? " [async-scrollable]" : "");
+  for (const DisplayItemScrollClip* scrollClip = aScrollClip; scrollClip;
+       scrollClip = scrollClip->mParent) {
+    str.AppendPrintf(
+        "<%s>%s",
+        scrollClip->mClip ? scrollClip->mClip->ToString().get() : "null",
+        scrollClip->mIsAsyncScrollable ? " [async-scrollable]" : "");
     if (scrollClip->mParent) {
       str.AppendLiteral(", ");
     }
@@ -54,4 +56,4 @@ DisplayItemScrollClip::ToString(const DisplayItemScrollClip* aScrollClip)
   return str;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

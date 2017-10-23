@@ -18,7 +18,7 @@ namespace layers {
 
 class APZThreadUtils
 {
-public:
+ public:
   /**
    * In the gtest environment everything runs on one thread, so we
    * shouldn't assert that we're on a particular thread. This enables
@@ -62,26 +62,24 @@ public:
 // A base class for GenericNamedTimerCallback<Function>.
 // This is necessary because NS_IMPL_ISUPPORTS doesn't work for a class
 // template.
-class GenericNamedTimerCallbackBase : public nsITimerCallback,
-                                      public nsINamed
+class GenericNamedTimerCallbackBase : public nsITimerCallback, public nsINamed
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-protected:
+ protected:
   virtual ~GenericNamedTimerCallbackBase() {}
 };
 
 // An nsITimerCallback implementation with nsINamed that can be used with any
 // function object that's callable with no arguments.
-template <typename Function>
+template<typename Function>
 class GenericNamedTimerCallback final : public GenericNamedTimerCallbackBase
 {
-public:
+ public:
   explicit GenericNamedTimerCallback(const Function& aFunction,
                                      const char* aName)
-    : mFunction(aFunction)
-    , mName(aName)
+      : mFunction(aFunction), mName(aName)
   {
   }
 
@@ -97,7 +95,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   Function mFunction;
   nsCString mName;
 };
@@ -107,15 +105,14 @@ private:
 // nsITimer::InitWithCallback(). The intention is to enable the following
 // terse inline usage:
 //    timer->InitWithCallback(NewNamedTimerCallback([](){ ... }, name), delay);
-template <typename Function>
+template<typename Function>
 GenericNamedTimerCallback<Function>*
-  NewNamedTimerCallback(const Function& aFunction,
-                        const char* aName)
+NewNamedTimerCallback(const Function& aFunction, const char* aName)
 {
   return new GenericNamedTimerCallback<Function>(aFunction, aName);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_APZThreadUtils_h */

@@ -47,7 +47,7 @@ void ProtectPages(void* p, size_t size);
 void MakePagesReadOnly(void* p, size_t size);
 void UnprotectPages(void* p, size_t size);
 
-} // namespace gc
-} // namespace js
+}  // namespace gc
+}  // namespace js
 
 #endif /* gc_Memory_h */

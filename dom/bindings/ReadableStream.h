@@ -22,7 +22,7 @@ struct ReadableStream : public SpiderMonkeyInterfaceObjectStorage
   }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_ReadableStream_h */

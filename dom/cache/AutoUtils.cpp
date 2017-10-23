@@ -51,7 +51,7 @@ CleanupChild(CacheReadStreamOrVoid& aReadStreamOrVoid, CleanupAction aAction)
   CleanupChild(aReadStreamOrVoid.get_CacheReadStream(), aAction);
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace dom {
@@ -62,9 +62,7 @@ namespace cache {
 AutoChildOpArgs::AutoChildOpArgs(TypeUtils* aTypeUtils,
                                  const CacheOpArgs& aOpArgs,
                                  uint32_t aEntryCount)
-  : mTypeUtils(aTypeUtils)
-  , mOpArgs(aOpArgs)
-  , mSent(false)
+    : mTypeUtils(aTypeUtils), mOpArgs(aOpArgs), mSent(false)
 {
   MOZ_DIAGNOSTIC_ASSERT(mTypeUtils);
   MOZ_RELEASE_ASSERT(aEntryCount != 0);
@@ -86,15 +84,13 @@ AutoChildOpArgs::~AutoChildOpArgs()
 {
   CleanupAction action = mSent ? Forget : Delete;
 
-  switch(mOpArgs.type()) {
-    case CacheOpArgs::TCacheMatchArgs:
-    {
+  switch (mOpArgs.type()) {
+    case CacheOpArgs::TCacheMatchArgs: {
       CacheMatchArgs& args = mOpArgs.get_CacheMatchArgs();
       CleanupChild(args.request().body(), action);
       break;
     }
-    case CacheOpArgs::TCacheMatchAllArgs:
-    {
+    case CacheOpArgs::TCacheMatchAllArgs: {
       CacheMatchAllArgs& args = mOpArgs.get_CacheMatchAllArgs();
       if (args.requestOrVoid().type() == CacheRequestOrVoid::Tvoid_t) {
         break;
@@ -102,8 +98,7 @@ AutoChildOpArgs::~AutoChildOpArgs()
       CleanupChild(args.requestOrVoid().get_CacheRequest().body(), action);
       break;
     }
-    case CacheOpArgs::TCachePutAllArgs:
-    {
+    case CacheOpArgs::TCachePutAllArgs: {
       CachePutAllArgs& args = mOpArgs.get_CachePutAllArgs();
       auto& list = args.requestResponseList();
       for (uint32_t i = 0; i < list.Length(); ++i) {
@@ -112,14 +107,12 @@ AutoChildOpArgs::~AutoChildOpArgs()
       }
       break;
     }
-    case CacheOpArgs::TCacheDeleteArgs:
-    {
+    case CacheOpArgs::TCacheDeleteArgs: {
       CacheDeleteArgs& args = mOpArgs.get_CacheDeleteArgs();
       CleanupChild(args.request().body(), action);
       break;
     }
-    case CacheOpArgs::TCacheKeysArgs:
-    {
+    case CacheOpArgs::TCacheKeysArgs: {
       CacheKeysArgs& args = mOpArgs.get_CacheKeysArgs();
       if (args.requestOrVoid().type() == CacheRequestOrVoid::Tvoid_t) {
         break;
@@ -127,8 +120,7 @@ AutoChildOpArgs::~AutoChildOpArgs()
       CleanupChild(args.requestOrVoid().get_CacheRequest().body(), action);
       break;
     }
-    case CacheOpArgs::TStorageMatchArgs:
-    {
+    case CacheOpArgs::TStorageMatchArgs: {
       StorageMatchArgs& args = mOpArgs.get_StorageMatchArgs();
       CleanupChild(args.request().body(), action);
       break;
@@ -142,51 +134,68 @@ AutoChildOpArgs::~AutoChildOpArgs()
 }
 
 void
-AutoChildOpArgs::Add(InternalRequest* aRequest, BodyAction aBodyAction,
-                     SchemeAction aSchemeAction, ErrorResult& aRv)
+AutoChildOpArgs::Add(InternalRequest* aRequest,
+                     BodyAction aBodyAction,
+                     SchemeAction aSchemeAction,
+                     ErrorResult& aRv)
 {
   MOZ_DIAGNOSTIC_ASSERT(!mSent);
 
-  switch(mOpArgs.type()) {
-    case CacheOpArgs::TCacheMatchArgs:
-    {
+  switch (mOpArgs.type()) {
+    case CacheOpArgs::TCacheMatchArgs: {
       CacheMatchArgs& args = mOpArgs.get_CacheMatchArgs();
-      mTypeUtils->ToCacheRequest(args.request(), aRequest, aBodyAction,
-                                 aSchemeAction, mStreamCleanupList, aRv);
+      mTypeUtils->ToCacheRequest(args.request(),
+                                 aRequest,
+                                 aBodyAction,
+                                 aSchemeAction,
+                                 mStreamCleanupList,
+                                 aRv);
       break;
     }
-    case CacheOpArgs::TCacheMatchAllArgs:
-    {
+    case CacheOpArgs::TCacheMatchAllArgs: {
       CacheMatchAllArgs& args = mOpArgs.get_CacheMatchAllArgs();
-      MOZ_DIAGNOSTIC_ASSERT(args.requestOrVoid().type() == CacheRequestOrVoid::Tvoid_t);
+      MOZ_DIAGNOSTIC_ASSERT(args.requestOrVoid().type() ==
+                            CacheRequestOrVoid::Tvoid_t);
       args.requestOrVoid() = CacheRequest();
       mTypeUtils->ToCacheRequest(args.requestOrVoid().get_CacheRequest(),
-                                 aRequest, aBodyAction, aSchemeAction,
-                                 mStreamCleanupList, aRv);
+                                 aRequest,
+                                 aBodyAction,
+                                 aSchemeAction,
+                                 mStreamCleanupList,
+                                 aRv);
       break;
     }
-    case CacheOpArgs::TCacheDeleteArgs:
-    {
+    case CacheOpArgs::TCacheDeleteArgs: {
       CacheDeleteArgs& args = mOpArgs.get_CacheDeleteArgs();
-      mTypeUtils->ToCacheRequest(args.request(), aRequest, aBodyAction,
-                                 aSchemeAction, mStreamCleanupList, aRv);
+      mTypeUtils->ToCacheRequest(args.request(),
+                                 aRequest,
+                                 aBodyAction,
+                                 aSchemeAction,
+                                 mStreamCleanupList,
+                                 aRv);
       break;
     }
-    case CacheOpArgs::TCacheKeysArgs:
-    {
+    case CacheOpArgs::TCacheKeysArgs: {
       CacheKeysArgs& args = mOpArgs.get_CacheKeysArgs();
-      MOZ_DIAGNOSTIC_ASSERT(args.requestOrVoid().type() == CacheRequestOrVoid::Tvoid_t);
+      MOZ_DIAGNOSTIC_ASSERT(args.requestOrVoid().type() ==
+                            CacheRequestOrVoid::Tvoid_t);
       args.requestOrVoid() = CacheRequest();
       mTypeUtils->ToCacheRequest(args.requestOrVoid().get_CacheRequest(),
-                                  aRequest, aBodyAction, aSchemeAction,
-                                  mStreamCleanupList, aRv);
+                                 aRequest,
+                                 aBodyAction,
+                                 aSchemeAction,
+                                 mStreamCleanupList,
+                                 aRv);
       break;
     }
-    case CacheOpArgs::TStorageMatchArgs:
-    {
+    case CacheOpArgs::TStorageMatchArgs: {
       StorageMatchArgs& args = mOpArgs.get_StorageMatchArgs();
-      mTypeUtils->ToCacheRequest(args.request(), aRequest, aBodyAction,
-                                 aSchemeAction, mStreamCleanupList, aRv);
+      mTypeUtils->ToCacheRequest(args.request(),
+                                 aRequest,
+                                 aBodyAction,
+                                 aSchemeAction,
+                                 mStreamCleanupList,
+                                 aRv);
       break;
     }
     default:
@@ -235,10 +244,10 @@ MatchInPutList(InternalRequest* aRequest,
     }
 
     RefPtr<InternalHeaders> cachedRequestHeaders =
-      TypeUtils::ToInternalHeaders(cachedRequest.headers());
+        TypeUtils::ToInternalHeaders(cachedRequest.headers());
 
     RefPtr<InternalHeaders> cachedResponseHeaders =
-      TypeUtils::ToInternalHeaders(cachedResponse.headers());
+        TypeUtils::ToInternalHeaders(cachedResponse.headers());
 
     nsCString varyHeaders;
     ErrorResult rv;
@@ -287,18 +296,20 @@ MatchInPutList(InternalRequest* aRequest,
   return false;
 }
 
-} // namespace
+}  // namespace
 
 void
-AutoChildOpArgs::Add(JSContext* aCx, InternalRequest* aRequest,
-                     BodyAction aBodyAction, SchemeAction aSchemeAction,
-                     Response& aResponse, ErrorResult& aRv)
+AutoChildOpArgs::Add(JSContext* aCx,
+                     InternalRequest* aRequest,
+                     BodyAction aBodyAction,
+                     SchemeAction aSchemeAction,
+                     Response& aResponse,
+                     ErrorResult& aRv)
 {
   MOZ_DIAGNOSTIC_ASSERT(!mSent);
 
-  switch(mOpArgs.type()) {
-    case CacheOpArgs::TCachePutAllArgs:
-    {
+  switch (mOpArgs.type()) {
+    case CacheOpArgs::TCachePutAllArgs: {
       CachePutAllArgs& args = mOpArgs.get_CachePutAllArgs();
 
       // Throw an error if a request/response pair would mask another
@@ -327,17 +338,21 @@ AutoChildOpArgs::Add(JSContext* aCx, InternalRequest* aRequest,
       pair.request().body() = void_t();
       pair.response().body() = void_t();
 
-      mTypeUtils->ToCacheRequest(pair.request(), aRequest, aBodyAction,
-                                 aSchemeAction, mStreamCleanupList, aRv);
+      mTypeUtils->ToCacheRequest(pair.request(),
+                                 aRequest,
+                                 aBodyAction,
+                                 aSchemeAction,
+                                 mStreamCleanupList,
+                                 aRv);
       if (!aRv.Failed()) {
-        mTypeUtils->ToCacheResponse(aCx, pair.response(), aResponse,
-                                    mStreamCleanupList, aRv);
+        mTypeUtils->ToCacheResponse(
+            aCx, pair.response(), aResponse, mStreamCleanupList, aRv);
       }
 
       if (aRv.Failed()) {
         CleanupChild(pair.request().body(), Delete);
         args.requestResponseList().RemoveElementAt(
-          args.requestResponseList().Length() - 1);
+            args.requestResponseList().Length() - 1);
       }
 
       break;
@@ -360,13 +375,14 @@ AutoChildOpArgs::SendAsOpArgs()
 
 // --------------------------------------------
 
-AutoParentOpResult::AutoParentOpResult(mozilla::ipc::PBackgroundParent* aManager,
-                                       const CacheOpResult& aOpResult,
-                                       uint32_t aEntryCount)
-  : mManager(aManager)
-  , mOpResult(aOpResult)
-  , mStreamControl(nullptr)
-  , mSent(false)
+AutoParentOpResult::AutoParentOpResult(
+    mozilla::ipc::PBackgroundParent* aManager,
+    const CacheOpResult& aOpResult,
+    uint32_t aEntryCount)
+    : mManager(aManager),
+      mOpResult(aOpResult),
+      mStreamControl(nullptr),
+      mSent(false)
 {
   MOZ_DIAGNOSTIC_ASSERT(mManager);
   MOZ_RELEASE_ASSERT(aEntryCount != 0);
@@ -392,8 +408,7 @@ AutoParentOpResult::~AutoParentOpResult()
   CleanupAction action = mSent ? Forget : Delete;
 
   switch (mOpResult.type()) {
-    case CacheOpResult::TStorageOpenResult:
-    {
+    case CacheOpResult::TStorageOpenResult: {
       StorageOpenResult& result = mOpResult.get_StorageOpenResult();
       if (action == Forget || result.actorParent() == nullptr) {
         break;
@@ -417,9 +432,11 @@ void
 AutoParentOpResult::Add(CacheId aOpenedCacheId, Manager* aManager)
 {
   MOZ_DIAGNOSTIC_ASSERT(mOpResult.type() == CacheOpResult::TStorageOpenResult);
-  MOZ_DIAGNOSTIC_ASSERT(mOpResult.get_StorageOpenResult().actorParent() == nullptr);
+  MOZ_DIAGNOSTIC_ASSERT(mOpResult.get_StorageOpenResult().actorParent() ==
+                        nullptr);
   mOpResult.get_StorageOpenResult().actorParent() =
-    mManager->SendPCacheConstructor(new CacheParent(aManager, aOpenedCacheId));
+      mManager->SendPCacheConstructor(
+          new CacheParent(aManager, aOpenedCacheId));
 }
 
 void
@@ -429,17 +446,17 @@ AutoParentOpResult::Add(const SavedResponse& aSavedResponse,
   MOZ_DIAGNOSTIC_ASSERT(!mSent);
 
   switch (mOpResult.type()) {
-    case CacheOpResult::TCacheMatchResult:
-    {
+    case CacheOpResult::TCacheMatchResult: {
       CacheMatchResult& result = mOpResult.get_CacheMatchResult();
-      MOZ_DIAGNOSTIC_ASSERT(result.responseOrVoid().type() == CacheResponseOrVoid::Tvoid_t);
+      MOZ_DIAGNOSTIC_ASSERT(result.responseOrVoid().type() ==
+                            CacheResponseOrVoid::Tvoid_t);
       result.responseOrVoid() = aSavedResponse.mValue;
-      SerializeResponseBody(aSavedResponse, aStreamList,
+      SerializeResponseBody(aSavedResponse,
+                            aStreamList,
                             &result.responseOrVoid().get_CacheResponse());
       break;
     }
-    case CacheOpResult::TCacheMatchAllResult:
-    {
+    case CacheOpResult::TCacheMatchAllResult: {
       CacheMatchAllResult& result = mOpResult.get_CacheMatchAllResult();
       // Ensure that we don't realloc the array since this can result
       // in our AutoIPCStream objects to reference the wrong memory
@@ -448,16 +465,17 @@ AutoParentOpResult::Add(const SavedResponse& aSavedResponse,
       MOZ_RELEASE_ASSERT(result.responseList().Length() <
                          result.responseList().Capacity());
       result.responseList().AppendElement(aSavedResponse.mValue);
-      SerializeResponseBody(aSavedResponse, aStreamList,
-                            &result.responseList().LastElement());
+      SerializeResponseBody(
+          aSavedResponse, aStreamList, &result.responseList().LastElement());
       break;
     }
-    case CacheOpResult::TStorageMatchResult:
-    {
+    case CacheOpResult::TStorageMatchResult: {
       StorageMatchResult& result = mOpResult.get_StorageMatchResult();
-      MOZ_DIAGNOSTIC_ASSERT(result.responseOrVoid().type() == CacheResponseOrVoid::Tvoid_t);
+      MOZ_DIAGNOSTIC_ASSERT(result.responseOrVoid().type() ==
+                            CacheResponseOrVoid::Tvoid_t);
       result.responseOrVoid() = aSavedResponse.mValue;
-      SerializeResponseBody(aSavedResponse, aStreamList,
+      SerializeResponseBody(aSavedResponse,
+                            aStreamList,
                             &result.responseOrVoid().get_CacheResponse());
       break;
     }
@@ -473,8 +491,7 @@ AutoParentOpResult::Add(const SavedRequest& aSavedRequest,
   MOZ_DIAGNOSTIC_ASSERT(!mSent);
 
   switch (mOpResult.type()) {
-    case CacheOpResult::TCacheKeysResult:
-    {
+    case CacheOpResult::TCacheKeysResult: {
       CacheKeysResult& result = mOpResult.get_CacheKeysResult();
       // Ensure that we don't realloc the array since this can result
       // in our AutoIPCStream objects to reference the wrong memory
@@ -491,7 +508,8 @@ AutoParentOpResult::Add(const SavedRequest& aSavedRequest,
       }
 
       request.body() = CacheReadStream();
-      SerializeReadStream(aSavedRequest.mBodyId, aStreamList,
+      SerializeReadStream(aSavedRequest.mBodyId,
+                          aStreamList,
                           &request.body().get_CacheReadStream());
       break;
     }
@@ -524,12 +542,14 @@ AutoParentOpResult::SerializeResponseBody(const SavedResponse& aSavedResponse,
   }
 
   aResponseOut->body() = CacheReadStream();
-  SerializeReadStream(aSavedResponse.mBodyId, aStreamList,
+  SerializeReadStream(aSavedResponse.mBodyId,
+                      aStreamList,
                       &aResponseOut->body().get_CacheReadStream());
 }
 
 void
-AutoParentOpResult::SerializeReadStream(const nsID& aId, StreamList* aStreamList,
+AutoParentOpResult::SerializeReadStream(const nsID& aId,
+                                        StreamList* aStreamList,
                                         CacheReadStream* aReadStreamOut)
 {
   MOZ_DIAGNOSTIC_ASSERT(aStreamList);
@@ -540,7 +560,8 @@ AutoParentOpResult::SerializeReadStream(const nsID& aId, StreamList* aStreamList
 
   if (!mStreamControl) {
     mStreamControl = static_cast<CacheStreamControlParent*>(
-      mManager->SendPCacheStreamControlConstructor(new CacheStreamControlParent()));
+        mManager->SendPCacheStreamControlConstructor(
+            new CacheStreamControlParent()));
 
     // If this failed, then the child process is gone.  Warn and allow actor
     // cleanup to proceed as normal.
@@ -552,13 +573,13 @@ AutoParentOpResult::SerializeReadStream(const nsID& aId, StreamList* aStreamList
 
   aStreamList->SetStreamControl(mStreamControl);
 
-  RefPtr<ReadStream> readStream = ReadStream::Create(mStreamControl,
-                                                     aId, stream);
+  RefPtr<ReadStream> readStream =
+      ReadStream::Create(mStreamControl, aId, stream);
   ErrorResult rv;
   readStream->Serialize(aReadStreamOut, mStreamCleanupList, rv);
   MOZ_DIAGNOSTIC_ASSERT(!rv.Failed());
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

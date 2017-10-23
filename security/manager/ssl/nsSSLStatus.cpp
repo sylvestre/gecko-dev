@@ -32,8 +32,8 @@ nsSSLStatus::GetKeyLength(uint32_t* aKeyLength)
   }
 
   SSLCipherSuiteInfo cipherInfo;
-  if (SSL_GetCipherSuiteInfo(mCipherSuite, &cipherInfo,
-                             sizeof(cipherInfo)) != SECSuccess) {
+  if (SSL_GetCipherSuiteInfo(mCipherSuite, &cipherInfo, sizeof(cipherInfo)) !=
+      SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 
@@ -50,8 +50,8 @@ nsSSLStatus::GetSecretKeyLength(uint32_t* aSecretKeyLength)
   }
 
   SSLCipherSuiteInfo cipherInfo;
-  if (SSL_GetCipherSuiteInfo(mCipherSuite, &cipherInfo,
-                             sizeof(cipherInfo)) != SECSuccess) {
+  if (SSL_GetCipherSuiteInfo(mCipherSuite, &cipherInfo, sizeof(cipherInfo)) !=
+      SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 
@@ -67,8 +67,8 @@ nsSSLStatus::GetCipherName(nsACString& aCipherName)
   }
 
   SSLCipherSuiteInfo cipherInfo;
-  if (SSL_GetCipherSuiteInfo(mCipherSuite, &cipherInfo,
-                             sizeof(cipherInfo)) != SECSuccess) {
+  if (SSL_GetCipherSuiteInfo(mCipherSuite, &cipherInfo, sizeof(cipherInfo)) !=
+      SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 
@@ -112,7 +112,7 @@ nsSSLStatus::GetProtocolVersion(uint16_t* aProtocolVersion)
 
 NS_IMETHODIMP
 nsSSLStatus::GetCertificateTransparencyStatus(
-  uint16_t* aCertificateTransparencyStatus)
+    uint16_t* aCertificateTransparencyStatus)
 {
   NS_ENSURE_ARG_POINTER(aCertificateTransparencyStatus);
 
@@ -192,7 +192,7 @@ nsSSLStatus::Read(nsIObjectInputStream* aStream)
   NS_ENSURE_SUCCESS(rv, rv);
   mProtocolVersion = protocolVersionAndStreamFormatVersion & 0xFF;
   const uint8_t streamFormatVersion =
-    (protocolVersionAndStreamFormatVersion >> 8) & 0xFF;
+      (protocolVersionAndStreamFormatVersion >> 8) & 0xFF;
 
   rv = aStream->ReadBoolean(&mIsDomainMismatch);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -234,17 +234,16 @@ nsSSLStatus::Write(nsIObjectOutputStream* aStream)
   // The current version of the binary stream format.
   const uint8_t STREAM_FORMAT_VERSION = 2;
 
-  nsresult rv = aStream->WriteCompoundObject(mServerCert,
-                                             NS_GET_IID(nsIX509Cert),
-                                             true);
+  nsresult rv =
+      aStream->WriteCompoundObject(mServerCert, NS_GET_IID(nsIX509Cert), true);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = aStream->Write16(mCipherSuite);
   NS_ENSURE_SUCCESS(rv, rv);
 
   uint16_t protocolVersionAndStreamFormatVersion =
-    mozilla::AssertedCast<uint8_t>(mProtocolVersion) |
-    (STREAM_FORMAT_VERSION << 8);
+      mozilla::AssertedCast<uint8_t>(mProtocolVersion) |
+      (STREAM_FORMAT_VERSION << 8);
   rv = aStream->Write16(protocolVersionAndStreamFormatVersion);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -310,7 +309,7 @@ nsSSLStatus::GetClassDescription(nsACString& aClassDescription)
 NS_IMETHODIMP
 nsSSLStatus::GetClassID(nsCID** aClassID)
 {
-  *aClassID = (nsCID*) moz_xmalloc(sizeof(nsCID));
+  *aClassID = (nsCID*)moz_xmalloc(sizeof(nsCID));
   if (!*aClassID) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -334,27 +333,25 @@ nsSSLStatus::GetClassIDNoAlloc(nsCID* aClassIDNoAlloc)
 }
 
 nsSSLStatus::nsSSLStatus()
-: mCipherSuite(0)
-, mProtocolVersion(0)
-, mCertificateTransparencyStatus(nsISSLStatus::
-    CERTIFICATE_TRANSPARENCY_NOT_APPLICABLE)
-, mKeaGroup()
-, mSignatureSchemeName()
-, mIsDomainMismatch(false)
-, mIsNotValidAtThisTime(false)
-, mIsUntrusted(false)
-, mIsEV(false)
-, mHasIsEVStatus(false)
-, mHaveCipherSuiteAndProtocol(false)
-, mHaveCertErrorBits(false)
+    : mCipherSuite(0),
+      mProtocolVersion(0),
+      mCertificateTransparencyStatus(
+          nsISSLStatus::CERTIFICATE_TRANSPARENCY_NOT_APPLICABLE),
+      mKeaGroup(),
+      mSignatureSchemeName(),
+      mIsDomainMismatch(false),
+      mIsNotValidAtThisTime(false),
+      mIsUntrusted(false),
+      mIsEV(false),
+      mHasIsEVStatus(false),
+      mHaveCipherSuiteAndProtocol(false),
+      mHaveCertErrorBits(false)
 {
 }
 
 NS_IMPL_ISUPPORTS(nsSSLStatus, nsISSLStatus, nsISerializable, nsIClassInfo)
 
-nsSSLStatus::~nsSSLStatus()
-{
-}
+nsSSLStatus::~nsSSLStatus() {}
 
 void
 nsSSLStatus::SetServerCert(nsNSSCertificate* aServerCert, EVStatus aEVStatus)
@@ -368,12 +365,12 @@ nsSSLStatus::SetServerCert(nsNSSCertificate* aServerCert, EVStatus aEVStatus)
 
 void
 nsSSLStatus::SetCertificateTransparencyInfo(
-  const mozilla::psm::CertificateTransparencyInfo& info)
+    const mozilla::psm::CertificateTransparencyInfo& info)
 {
   using mozilla::ct::CTPolicyCompliance;
 
   mCertificateTransparencyStatus =
-    nsISSLStatus::CERTIFICATE_TRANSPARENCY_NOT_APPLICABLE;
+      nsISSLStatus::CERTIFICATE_TRANSPARENCY_NOT_APPLICABLE;
 
   if (!info.enabled) {
     // CT disabled.
@@ -383,15 +380,15 @@ nsSSLStatus::SetCertificateTransparencyInfo(
   switch (info.policyCompliance) {
     case CTPolicyCompliance::Compliant:
       mCertificateTransparencyStatus =
-        nsISSLStatus::CERTIFICATE_TRANSPARENCY_POLICY_COMPLIANT;
+          nsISSLStatus::CERTIFICATE_TRANSPARENCY_POLICY_COMPLIANT;
       break;
     case CTPolicyCompliance::NotEnoughScts:
       mCertificateTransparencyStatus =
-        nsISSLStatus::CERTIFICATE_TRANSPARENCY_POLICY_NOT_ENOUGH_SCTS;
+          nsISSLStatus::CERTIFICATE_TRANSPARENCY_POLICY_NOT_ENOUGH_SCTS;
       break;
     case CTPolicyCompliance::NotDiverseScts:
       mCertificateTransparencyStatus =
-        nsISSLStatus::CERTIFICATE_TRANSPARENCY_POLICY_NOT_DIVERSE_SCTS;
+          nsISSLStatus::CERTIFICATE_TRANSPARENCY_POLICY_NOT_DIVERSE_SCTS;
       break;
     case CTPolicyCompliance::Unknown:
     default:

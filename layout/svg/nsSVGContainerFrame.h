@@ -39,21 +39,20 @@ class nsSVGContainerFrame : public nsContainerFrame
 {
   friend nsIFrame* NS_NewSVGContainerFrame(nsIPresShell* aPresShell,
                                            nsStyleContext* aContext);
-protected:
+
+ protected:
   nsSVGContainerFrame(nsStyleContext* aContext, ClassID aID)
-    : nsContainerFrame(aContext, aID)
+      : nsContainerFrame(aContext, aID)
   {
     AddStateBits(NS_FRAME_SVG_LAYOUT);
   }
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsSVGContainerFrame)
 
   // Returns the transform to our gfxContext (to device pixels, not CSS px)
-  virtual gfxMatrix GetCanvasTM() {
-    return gfxMatrix();
-  }
+  virtual gfxMatrix GetCanvasTM() { return gfxMatrix(); }
 
   /**
    * Returns true if the frame's content has a transform that applies only to
@@ -62,31 +61,33 @@ public:
    * due to a root-<svg> having its currentScale/currentTransform properties
    * set. If aTransform is non-null, then it will be set to the transform.
    */
-  virtual bool HasChildrenOnlyTransform(Matrix *aTransform) const {
+  virtual bool HasChildrenOnlyTransform(Matrix* aTransform) const
+  {
     return false;
   }
 
   // nsIFrame:
-  virtual void AppendFrames(ChildListID     aListID,
-                            nsFrameList&    aFrameList) override;
-  virtual void InsertFrames(ChildListID     aListID,
-                            nsIFrame*       aPrevFrame,
-                            nsFrameList&    aFrameList) override;
-  virtual void RemoveFrame(ChildListID     aListID,
-                           nsIFrame*       aOldFrame) override;
+  virtual void AppendFrames(ChildListID aListID,
+                            nsFrameList& aFrameList) override;
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aFrameList) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
     return nsContainerFrame::IsFrameOfType(
-            aFlags & ~(nsIFrame::eSVG | nsIFrame::eSVGContainer));
+        aFlags & ~(nsIFrame::eSVG | nsIFrame::eSVGContainer));
   }
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
-                                const nsDisplayListSet& aLists) override {}
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
+                                const nsDisplayListSet& aLists) override
+  {
+  }
 
   virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override;
 
-protected:
+ protected:
   /**
    * Traverses a frame tree, marking any SVGTextFrame frames as dirty
    * and calling InvalidateRenderingObservers() on it.
@@ -108,33 +109,33 @@ protected:
 class nsSVGDisplayContainerFrame : public nsSVGContainerFrame,
                                    public nsSVGDisplayableFrame
 {
-protected:
+ protected:
   nsSVGDisplayContainerFrame(nsStyleContext* aContext, nsIFrame::ClassID aID)
-    : nsSVGContainerFrame(aContext, aID)
+      : nsSVGContainerFrame(aContext, aID)
   {
-     AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
+    AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
   }
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_QUERYFRAME_TARGET(nsSVGDisplayContainerFrame)
   NS_DECL_ABSTRACT_FRAME(nsSVGDisplayContainerFrame)
 
   // nsIFrame:
-  virtual void InsertFrames(ChildListID     aListID,
-                                nsIFrame*       aPrevFrame,
-                                nsFrameList&    aFrameList) override;
-  virtual void RemoveFrame(ChildListID     aListID,
-                               nsIFrame*       aOldFrame) override;
- virtual void Init(nsIContent*       aContent,
-                   nsContainerFrame* aParent,
-                   nsIFrame*         aPrevInFlow) override;
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aFrameList) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
+  virtual void Init(nsIContent* aContent,
+                    nsContainerFrame* aParent,
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
-  virtual bool IsSVGTransformed(Matrix *aOwnTransform = nullptr,
-                                Matrix *aFromParentTransform = nullptr) const override;
+  virtual bool IsSVGTransformed(
+      Matrix* aOwnTransform = nullptr,
+      Matrix* aFromParentTransform = nullptr) const override;
 
   // nsSVGDisplayableFrame interface:
   virtual void PaintSVG(gfxContext& aContext,
@@ -144,12 +145,12 @@ public:
   virtual nsIFrame* GetFrameForPoint(const gfxPoint& aPoint) override;
   virtual void ReflowSVG() override;
   virtual void NotifySVGChanged(uint32_t aFlags) override;
-  virtual SVGBBox GetBBoxContribution(const Matrix &aToBBoxUserspace,
+  virtual SVGBBox GetBBoxContribution(const Matrix& aToBBoxUserspace,
                                       uint32_t aFlags) override;
   virtual bool IsDisplayContainer() override { return true; }
   virtual gfxMatrix GetCanvasTM() override;
 
-protected:
+ protected:
   /**
    * Cached canvasTM value.
    */

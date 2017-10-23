@@ -48,7 +48,8 @@ NS_NewOutputStreamReadyEvent(nsIOutputStreamCallback* aNotify,
 
 /* ------------------------------------------------------------------------- */
 
-enum nsAsyncCopyMode {
+enum nsAsyncCopyMode
+{
   NS_ASYNCCOPY_VIA_READSEGMENTS,
   NS_ASYNCCOPY_VIA_WRITESEGMENTS
 };
@@ -57,13 +58,13 @@ enum nsAsyncCopyMode {
  * This function is called when a new chunk of data has been copied.  The
  * reported count is the size of the current chunk.
  */
-typedef void (* nsAsyncCopyProgressFun)(void* closure, uint32_t count);
+typedef void (*nsAsyncCopyProgressFun)(void* closure, uint32_t count);
 
 /**
  * This function is called when the async copy process completes.  The reported
  * status is NS_OK on success and some error code on failure.
  */
-typedef void (* nsAsyncCopyCallbackFun)(void* closure, nsresult status);
+typedef void (*nsAsyncCopyCallbackFun)(void* closure, nsresult status);
 
 /**
  * This function asynchronously copies data from the source to the sink. All
@@ -130,7 +131,8 @@ NS_CancelAsyncCopy(nsISupports* aCopierCtx, nsresult aReason);
  *        contain non-ASCII values.
  */
 extern nsresult
-NS_ConsumeStream(nsIInputStream* aSource, uint32_t aMaxCount,
+NS_ConsumeStream(nsIInputStream* aSource,
+                 uint32_t aMaxCount,
                  nsACString& aBuffer);
 
 /**
@@ -184,9 +186,12 @@ NS_OutputStreamIsBuffered(nsIOutputStream* aOutputStream);
  * @see nsIInputStream.idl for a description of this function's parameters.
  */
 extern nsresult
-NS_CopySegmentToStream(nsIInputStream* aInputStream, void* aClosure,
-                       const char* aFromSegment, uint32_t aToOffset,
-                       uint32_t aCount, uint32_t* aWriteCount);
+NS_CopySegmentToStream(nsIInputStream* aInputStream,
+                       void* aClosure,
+                       const char* aFromSegment,
+                       uint32_t aToOffset,
+                       uint32_t aCount,
+                       uint32_t* aWriteCount);
 
 /**
  * This function is intended to be passed to nsIInputStream::ReadSegments to
@@ -197,9 +202,12 @@ NS_CopySegmentToStream(nsIInputStream* aInputStream, void* aClosure,
  * @see nsIInputStream.idl for a description of this function's parameters.
  */
 extern nsresult
-NS_CopySegmentToBuffer(nsIInputStream* aInputStream, void* aClosure,
-                       const char* aFromSegment, uint32_t aToOffset,
-                       uint32_t aCount, uint32_t* aWriteCount);
+NS_CopySegmentToBuffer(nsIInputStream* aInputStream,
+                       void* aClosure,
+                       const char* aFromSegment,
+                       uint32_t aToOffset,
+                       uint32_t aCount,
+                       uint32_t* aWriteCount);
 
 /**
  * This function is intended to be passed to nsIOutputStream::WriteSegments to
@@ -209,9 +217,12 @@ NS_CopySegmentToBuffer(nsIInputStream* aInputStream, void* aClosure,
  * @see nsIOutputStream.idl for a description of this function's parameters.
  */
 extern nsresult
-NS_CopySegmentToBuffer(nsIOutputStream* aOutputStream, void* aClosure,
-                       char* aToSegment, uint32_t aFromOffset,
-                       uint32_t aCount, uint32_t* aReadCount);
+NS_CopySegmentToBuffer(nsIOutputStream* aOutputStream,
+                       void* aClosure,
+                       char* aToSegment,
+                       uint32_t aFromOffset,
+                       uint32_t aCount,
+                       uint32_t* aReadCount);
 
 /**
  * This function is intended to be passed to nsIInputStream::ReadSegments to
@@ -221,9 +232,12 @@ NS_CopySegmentToBuffer(nsIOutputStream* aOutputStream, void* aClosure,
  * @see nsIInputStream.idl for a description of this function's parameters.
  */
 extern nsresult
-NS_DiscardSegment(nsIInputStream* aInputStream, void* aClosure,
-                  const char* aFromSegment, uint32_t aToOffset,
-                  uint32_t aCount, uint32_t* aWriteCount);
+NS_DiscardSegment(nsIInputStream* aInputStream,
+                  void* aClosure,
+                  const char* aFromSegment,
+                  uint32_t aToOffset,
+                  uint32_t aCount,
+                  uint32_t* aWriteCount);
 
 /**
  * This function is intended to be passed to nsIInputStream::ReadSegments to
@@ -237,9 +251,12 @@ NS_DiscardSegment(nsIInputStream* aInputStream, void* aClosure,
  * inner stream's ReadSegments.
  */
 extern nsresult
-NS_WriteSegmentThunk(nsIInputStream* aInputStream, void* aClosure,
-                     const char* aFromSegment, uint32_t aToOffset,
-                     uint32_t aCount, uint32_t* aWriteCount);
+NS_WriteSegmentThunk(nsIInputStream* aInputStream,
+                     void* aClosure,
+                     const char* aFromSegment,
+                     uint32_t aToOffset,
+                     uint32_t aCount,
+                     uint32_t* aWriteCount);
 
 struct MOZ_STACK_CLASS nsWriteSegmentThunk
 {
@@ -262,8 +279,10 @@ struct MOZ_STACK_CLASS nsWriteSegmentThunk
  * @return the result from aInput->Read(...)
  */
 extern nsresult
-NS_FillArray(FallibleTArray<char>& aDest, nsIInputStream* aInput,
-             uint32_t aKeep, uint32_t* aNewBytes);
+NS_FillArray(FallibleTArray<char>& aDest,
+             nsIInputStream* aInput,
+             uint32_t aKeep,
+             uint32_t* aNewBytes);
 
 /**
  * Return true if the given stream can be directly cloned.
@@ -290,7 +309,8 @@ NS_InputStreamIsCloneable(nsIInputStream* aSource);
  * @return NS_OK on successful clone.  Error otherwise.
  */
 extern nsresult
-NS_CloneInputStream(nsIInputStream* aSource, nsIInputStream** aCloneOut,
+NS_CloneInputStream(nsIInputStream* aSource,
+                    nsIInputStream** aCloneOut,
                     nsIInputStream** aReplacementOut = nullptr);
 
-#endif // !nsStreamUtils_h__
+#endif  // !nsStreamUtils_h__

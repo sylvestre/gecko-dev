@@ -28,7 +28,7 @@ class nsImageMap final : public nsStubMutationObserver,
   typedef mozilla::gfx::ColorPattern ColorPattern;
   typedef mozilla::gfx::StrokeOptions StrokeOptions;
 
-public:
+ public:
   nsImageMap();
 
   void Init(nsImageFrame* aImageFrame, nsIContent* aMap);
@@ -49,7 +49,8 @@ public:
    */
   nsIContent* GetAreaAt(uint32_t aIndex) const;
 
-  void Draw(nsIFrame* aFrame, DrawTarget& aDrawTarget,
+  void Draw(nsIFrame* aFrame,
+            DrawTarget& aDrawTarget,
             const ColorPattern& aColor,
             const StrokeOptions& aStrokeOptions = StrokeOptions());
 
@@ -72,10 +73,9 @@ public:
   //nsIDOMEventListener
   NS_DECL_NSIDOMEVENTLISTENER
 
-  nsresult GetBoundsForAreaContent(nsIContent *aContent,
-                                   nsRect& aBounds);
+  nsresult GetBoundsForAreaContent(nsIContent* aContent, nsRect& aBounds);
 
-protected:
+ protected:
   virtual ~nsImageMap();
 
   void FreeAreas();
@@ -87,11 +87,11 @@ protected:
 
   void AddArea(nsIContent* aArea);
 
-  void MaybeUpdateAreas(nsIContent *aContent);
+  void MaybeUpdateAreas(nsIContent* aContent);
 
   nsImageFrame* mImageFrame;  // the frame that owns us
   nsCOMPtr<nsIContent> mMap;
-  AutoTArray<Area*, 8> mAreas; // almost always has some entries
+  AutoTArray<Area*, 8> mAreas;  // almost always has some entries
   bool mContainsBlockContents;
 };
 

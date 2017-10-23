@@ -44,7 +44,8 @@ namespace mozilla {
 //    but only when the type id is unique to this media section.
 //    This too allows us to learn about SSRCs (mostly useful for filtering
 //    sender reports later).
-class MediaPipelineFilter {
+class MediaPipelineFilter
+{
  public:
   MediaPipelineFilter();
 
@@ -83,7 +84,6 @@ class MediaPipelineFilter {
   std::set<std::string> remote_rid_set_;
 };
 
-} // end namespace mozilla
+}  // end namespace mozilla
 
-#endif // mediapipelinefilter_h__
-
+#endif  // mediapipelinefilter_h__

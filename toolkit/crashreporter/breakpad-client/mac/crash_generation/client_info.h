@@ -32,7 +32,8 @@
 
 namespace google_breakpad {
 
-class ClientInfo {
+class ClientInfo
+{
  public:
   explicit ClientInfo(pid_t pid) : pid_(pid) {}
 

@@ -31,49 +31,48 @@ MediaPrefs::SingletonExists()
   return sInstance != nullptr;
 }
 
-MediaPrefs::MediaPrefs()
-{
-  MediaPrefs::AssertMainThread();
-}
+MediaPrefs::MediaPrefs() { MediaPrefs::AssertMainThread(); }
 
-void MediaPrefs::AssertMainThread()
+void
+MediaPrefs::AssertMainThread()
 {
   MOZ_ASSERT(NS_IsMainThread(), "this code must be run on the main thread");
 }
 
-void MediaPrefs::PrefAddVarCache(bool* aVariable,
-                                 const char* aPref,
-                                 bool aDefault)
+void
+MediaPrefs::PrefAddVarCache(bool* aVariable, const char* aPref, bool aDefault)
 {
   Preferences::AddBoolVarCache(aVariable, aPref, aDefault);
 }
 
-void MediaPrefs::PrefAddVarCache(int32_t* aVariable,
-                                 const char* aPref,
-                                 int32_t aDefault)
+void
+MediaPrefs::PrefAddVarCache(int32_t* aVariable,
+                            const char* aPref,
+                            int32_t aDefault)
 {
   Preferences::AddIntVarCache(aVariable, aPref, aDefault);
 }
 
-void MediaPrefs::PrefAddVarCache(uint32_t* aVariable,
-                                 const char* aPref,
-                                 uint32_t aDefault)
+void
+MediaPrefs::PrefAddVarCache(uint32_t* aVariable,
+                            const char* aPref,
+                            uint32_t aDefault)
 {
   Preferences::AddUintVarCache(aVariable, aPref, aDefault);
 }
 
-void MediaPrefs::PrefAddVarCache(float* aVariable,
-                                 const char* aPref,
-                                 float aDefault)
+void
+MediaPrefs::PrefAddVarCache(float* aVariable, const char* aPref, float aDefault)
 {
   Preferences::AddFloatVarCache(aVariable, aPref, aDefault);
 }
 
-void MediaPrefs::PrefAddVarCache(AtomicUint32* aVariable,
-                                 const char* aPref,
-                                 uint32_t aDefault)
+void
+MediaPrefs::PrefAddVarCache(AtomicUint32* aVariable,
+                            const char* aPref,
+                            uint32_t aDefault)
 {
   Preferences::AddAtomicUintVarCache(aVariable, aPref, aDefault);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

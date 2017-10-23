@@ -12,26 +12,22 @@
 namespace js {
 namespace jit {
 
-class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared
-{
-  protected:
+class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared {
+   protected:
     void testNullEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                            MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         MOZ_ASSERT(value.valueReg() != SecondScratchReg);
         masm.splitTag(value.valueReg(), SecondScratchReg);
         emitBranch(SecondScratchReg, ImmTag(JSVAL_TAG_NULL), cond, ifTrue, ifFalse);
     }
     void testUndefinedEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         MOZ_ASSERT(value.valueReg() != SecondScratchReg);
         masm.splitTag(value.valueReg(), SecondScratchReg);
         emitBranch(SecondScratchReg, ImmTag(JSVAL_TAG_UNDEFINED), cond, ifTrue, ifFalse);
     }
     void testObjectEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                              MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                              MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         MOZ_ASSERT(value.valueReg() != SecondScratchReg);
         masm.splitTag(value.valueReg(), SecondScratchReg);
         emitBranch(SecondScratchReg, ImmTag(JSVAL_TAG_OBJECT), cond, ifTrue, ifFalse);
@@ -44,7 +40,7 @@ class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared
     template <typename T>
     void emitWasmStoreI64(T* ins);
 
-  public:
+   public:
     void visitCompareB(LCompareB* lir);
     void visitCompareBAndBranch(LCompareBAndBranch* lir);
     void visitCompareBitwise(LCompareBitwise* lir);
@@ -73,7 +69,8 @@ class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared
     // Out of line visitors.
     void visitOutOfLineBailout(OutOfLineBailout* ool);
     void visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool);
-  protected:
+
+   protected:
     ValueOperand ToValue(LInstruction* ins, size_t pos);
     ValueOperand ToOutValue(LInstruction* ins);
     ValueOperand ToTempValue(LInstruction* ins, size_t pos);
@@ -81,12 +78,11 @@ class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared
     // Functions for LTestVAndBranch.
     Register splitTagForTest(const ValueOperand& value);
 
-  public:
+   public:
     CodeGeneratorMIPS64(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm)
-      : CodeGeneratorMIPSShared(gen, graph, masm)
-    { }
+        : CodeGeneratorMIPSShared(gen, graph, masm) {}
 
-  public:
+   public:
     void visitBox(LBox* box);
     void visitUnbox(LUnbox* unbox);
 
@@ -95,7 +91,7 @@ class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared
 
 typedef CodeGeneratorMIPS64 CodeGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips64_CodeGenerator_mips64_h */

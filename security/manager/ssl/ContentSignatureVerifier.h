@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef ContentSignatureVerifier_h
 #define ContentSignatureVerifier_h
 
@@ -17,18 +16,22 @@
 #include "ScopedNSSTypes.h"
 
 // 45a5fe2f-c350-4b86-962d-02d5aaaa955a
-#define NS_CONTENTSIGNATUREVERIFIER_CID \
-  { 0x45a5fe2f, 0xc350, 0x4b86, \
-    { 0x96, 0x2d, 0x02, 0xd5, 0xaa, 0xaa, 0x95, 0x5a } }
+#define NS_CONTENTSIGNATUREVERIFIER_CID              \
+  {                                                  \
+    0x45a5fe2f, 0xc350, 0x4b86,                      \
+    {                                                \
+      0x96, 0x2d, 0x02, 0xd5, 0xaa, 0xaa, 0x95, 0x5a \
+    }                                                \
+  }
 #define NS_CONTENTSIGNATUREVERIFIER_CONTRACTID \
-    "@mozilla.org/security/contentsignatureverifier;1"
+  "@mozilla.org/security/contentsignatureverifier;1"
 
-class ContentSignatureVerifier final : public nsIContentSignatureVerifier
-                                     , public nsIStreamListener
-                                     , public nsNSSShutDownObject
-                                     , public nsIInterfaceRequestor
+class ContentSignatureVerifier final : public nsIContentSignatureVerifier,
+                                       public nsIStreamListener,
+                                       public nsNSSShutDownObject,
+                                       public nsIInterfaceRequestor
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICONTENTSIGNATUREVERIFIER
   NS_DECL_NSIINTERFACEREQUESTOR
@@ -36,9 +39,7 @@ public:
   NS_DECL_NSIREQUESTOBSERVER
 
   ContentSignatureVerifier()
-    : mCx(nullptr)
-    , mInitialised(false)
-    , mHasCertChain(false)
+      : mCx(nullptr), mInitialised(false), mHasCertChain(false)
   {
   }
 
@@ -48,7 +49,7 @@ public:
     destructorSafeDestroyNSSReference();
   }
 
-private:
+ private:
   ~ContentSignatureVerifier();
 
   nsresult UpdateInternal(const nsACString& aData,
@@ -64,7 +65,8 @@ private:
     mKey = nullptr;
   }
 
-  nsresult ParseContentSignatureHeader(const nsACString& aContentSignatureHeader);
+  nsresult ParseContentSignatureHeader(
+      const nsACString& aContentSignatureHeader);
 
   // verifier context for incremental verifications
   mozilla::UniqueVFYContext mCx;
@@ -90,4 +92,4 @@ private:
   nsCOMPtr<nsIChannel> mChannel;
 };
 
-#endif // ContentSignatureVerifier_h
+#endif  // ContentSignatureVerifier_h

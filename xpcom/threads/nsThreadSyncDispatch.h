@@ -15,12 +15,13 @@
 
 class nsThreadSyncDispatch : public mozilla::Runnable
 {
-public:
-  nsThreadSyncDispatch(already_AddRefed<nsIEventTarget> aOrigin, already_AddRefed<nsIRunnable>&& aTask)
-    : Runnable("nsThreadSyncDispatch")
-    , mOrigin(aOrigin)
-    , mSyncTask(mozilla::Move(aTask))
-    , mIsPending(true)
+ public:
+  nsThreadSyncDispatch(already_AddRefed<nsIEventTarget> aOrigin,
+                       already_AddRefed<nsIRunnable>&& aTask)
+      : Runnable("nsThreadSyncDispatch"),
+        mOrigin(aOrigin),
+        mSyncTask(mozilla::Move(aTask)),
+        mIsPending(true)
   {
   }
 
@@ -30,15 +31,14 @@ public:
     return mIsPending;
   }
 
-private:
+ private:
   NS_IMETHOD Run() override
   {
     if (nsCOMPtr<nsIRunnable> task = mSyncTask.take()) {
       MOZ_ASSERT(!mSyncTask);
 
       mozilla::DebugOnly<nsresult> result = task->Run();
-      MOZ_ASSERT(NS_SUCCEEDED(result),
-                 "task in sync dispatch should not fail");
+      MOZ_ASSERT(NS_SUCCEEDED(result), "task in sync dispatch should not fail");
 
       // We must release the task here to ensure that when the original
       // thread is unblocked, this task has been released.
@@ -61,4 +61,4 @@ private:
   mozilla::Atomic<bool, mozilla::ReleaseAcquire> mIsPending;
 };
 
-#endif // nsThreadSyncDispatch_h_
+#endif  // nsThreadSyncDispatch_h_

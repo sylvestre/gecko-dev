@@ -17,144 +17,136 @@ namespace mozilla {
 already_AddRefed<WebGLTransformFeedback>
 WebGL2Context::CreateTransformFeedback()
 {
-    if (IsContextLost())
-        return nullptr;
+  if (IsContextLost()) return nullptr;
 
-    MakeContextCurrent();
-    GLuint tf = 0;
-    gl->fGenTransformFeedbacks(1, &tf);
+  MakeContextCurrent();
+  GLuint tf = 0;
+  gl->fGenTransformFeedbacks(1, &tf);
 
-    RefPtr<WebGLTransformFeedback> ret = new WebGLTransformFeedback(this, tf);
-    return ret.forget();
+  RefPtr<WebGLTransformFeedback> ret = new WebGLTransformFeedback(this, tf);
+  return ret.forget();
 }
 
 void
 WebGL2Context::DeleteTransformFeedback(WebGLTransformFeedback* tf)
 {
-    const char funcName[] = "deleteTransformFeedback";
-    if (!ValidateDeleteObject(funcName, tf))
-        return;
+  const char funcName[] = "deleteTransformFeedback";
+  if (!ValidateDeleteObject(funcName, tf)) return;
 
-    if (tf->mIsActive) {
-        ErrorInvalidOperation("%s: Cannot delete active transform feedbacks.", funcName);
-        return;
-    }
+  if (tf->mIsActive) {
+    ErrorInvalidOperation("%s: Cannot delete active transform feedbacks.",
+                          funcName);
+    return;
+  }
 
-    if (mBoundTransformFeedback == tf) {
-        BindTransformFeedback(LOCAL_GL_TRANSFORM_FEEDBACK, nullptr);
-    }
+  if (mBoundTransformFeedback == tf) {
+    BindTransformFeedback(LOCAL_GL_TRANSFORM_FEEDBACK, nullptr);
+  }
 
-    tf->RequestDelete();
+  tf->RequestDelete();
 }
 
 bool
 WebGL2Context::IsTransformFeedback(const WebGLTransformFeedback* tf)
 {
-    if (!ValidateIsObject("isTransformFeedback", tf))
-        return false;
+  if (!ValidateIsObject("isTransformFeedback", tf)) return false;
 
-    MakeContextCurrent();
-    return gl->fIsTransformFeedback(tf->mGLName);
+  MakeContextCurrent();
+  return gl->fIsTransformFeedback(tf->mGLName);
 }
 
 void
 WebGL2Context::BindTransformFeedback(GLenum target, WebGLTransformFeedback* tf)
 {
-    const char funcName[] = "bindTransformFeedback";
-    if (IsContextLost())
-        return;
+  const char funcName[] = "bindTransformFeedback";
+  if (IsContextLost()) return;
 
-    if (target != LOCAL_GL_TRANSFORM_FEEDBACK)
-        return ErrorInvalidEnum("%s: `target` must be TRANSFORM_FEEDBACK.", funcName);
+  if (target != LOCAL_GL_TRANSFORM_FEEDBACK)
+    return ErrorInvalidEnum("%s: `target` must be TRANSFORM_FEEDBACK.",
+                            funcName);
 
-    if (tf && !ValidateObject(funcName, *tf))
-        return;
+  if (tf && !ValidateObject(funcName, *tf)) return;
 
-    if (mBoundTransformFeedback->mIsActive &&
-        !mBoundTransformFeedback->mIsPaused)
-    {
-        ErrorInvalidOperation("%s: Currently bound transform feedback is active and not"
-                              " paused.",
-                              funcName);
-        return;
-    }
+  if (mBoundTransformFeedback->mIsActive &&
+      !mBoundTransformFeedback->mIsPaused) {
+    ErrorInvalidOperation(
+        "%s: Currently bound transform feedback is active and not"
+        " paused.",
+        funcName);
+    return;
+  }
 
-    ////
+  ////
 
-    if (mBoundTransformFeedback) {
-        mBoundTransformFeedback->AddBufferBindCounts(-1);
-    }
+  if (mBoundTransformFeedback) {
+    mBoundTransformFeedback->AddBufferBindCounts(-1);
+  }
 
-    mBoundTransformFeedback = (tf ? tf : mDefaultTransformFeedback);
+  mBoundTransformFeedback = (tf ? tf : mDefaultTransformFeedback);
 
-    MakeContextCurrent();
-    gl->fBindTransformFeedback(target, mBoundTransformFeedback->mGLName);
+  MakeContextCurrent();
+  gl->fBindTransformFeedback(target, mBoundTransformFeedback->mGLName);
 
-    if (mBoundTransformFeedback) {
-        mBoundTransformFeedback->AddBufferBindCounts(+1);
-    }
+  if (mBoundTransformFeedback) {
+    mBoundTransformFeedback->AddBufferBindCounts(+1);
+  }
 }
 
 void
 WebGL2Context::BeginTransformFeedback(GLenum primMode)
 {
-    if (IsContextLost())
-        return;
+  if (IsContextLost()) return;
 
-    mBoundTransformFeedback->BeginTransformFeedback(primMode);
+  mBoundTransformFeedback->BeginTransformFeedback(primMode);
 }
 
 void
 WebGL2Context::EndTransformFeedback()
 {
-    if (IsContextLost())
-        return;
+  if (IsContextLost()) return;
 
-    mBoundTransformFeedback->EndTransformFeedback();
+  mBoundTransformFeedback->EndTransformFeedback();
 }
 
 void
 WebGL2Context::PauseTransformFeedback()
 {
-    if (IsContextLost())
-        return;
+  if (IsContextLost()) return;
 
-    mBoundTransformFeedback->PauseTransformFeedback();
+  mBoundTransformFeedback->PauseTransformFeedback();
 }
 
 void
 WebGL2Context::ResumeTransformFeedback()
 {
-    if (IsContextLost())
-        return;
+  if (IsContextLost()) return;
 
-    mBoundTransformFeedback->ResumeTransformFeedback();
+  mBoundTransformFeedback->ResumeTransformFeedback();
 }
 
 void
-WebGL2Context::TransformFeedbackVaryings(WebGLProgram& program,
-                                         const dom::Sequence<nsString>& varyings,
-                                         GLenum bufferMode)
+WebGL2Context::TransformFeedbackVaryings(
+    WebGLProgram& program,
+    const dom::Sequence<nsString>& varyings,
+    GLenum bufferMode)
 {
-    if (IsContextLost())
-        return;
+  if (IsContextLost()) return;
 
-    if (!ValidateObject("transformFeedbackVaryings: program", program))
-        return;
+  if (!ValidateObject("transformFeedbackVaryings: program", program)) return;
 
-    program.TransformFeedbackVaryings(varyings, bufferMode);
+  program.TransformFeedbackVaryings(varyings, bufferMode);
 }
 
 already_AddRefed<WebGLActiveInfo>
-WebGL2Context::GetTransformFeedbackVarying(const WebGLProgram& program, GLuint index)
+WebGL2Context::GetTransformFeedbackVarying(const WebGLProgram& program,
+                                           GLuint index)
 {
-    if (IsContextLost())
-        return nullptr;
+  if (IsContextLost()) return nullptr;
 
-    if (!ValidateObject("getTransformFeedbackVarying: program", program))
-        return nullptr;
+  if (!ValidateObject("getTransformFeedbackVarying: program", program))
+    return nullptr;
 
-    return program.GetTransformFeedbackVarying(index);
+  return program.GetTransformFeedbackVarying(index);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

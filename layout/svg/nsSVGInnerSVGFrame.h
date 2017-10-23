@@ -8,25 +8,25 @@
 
 #include "nsSVGViewportFrame.h"
 
-class nsSVGInnerSVGFrame final
-  : public nsSVGViewportFrame
+class nsSVGInnerSVGFrame final : public nsSVGViewportFrame
 {
-  friend nsIFrame*
-  NS_NewSVGInnerSVGFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
-protected:
+  friend nsIFrame* NS_NewSVGInnerSVGFrame(nsIPresShell* aPresShell,
+                                          nsStyleContext* aContext);
+
+ protected:
   explicit nsSVGInnerSVGFrame(nsStyleContext* aContext)
-    : nsSVGViewportFrame(aContext, kClassID)
+      : nsSVGViewportFrame(aContext, kClassID)
   {
   }
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsSVGInnerSVGFrame)
 
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
 #ifdef DEBUG_FRAME_DUMP
@@ -38,4 +38,3 @@ public:
 };
 
 #endif
-

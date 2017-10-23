@@ -14,18 +14,17 @@
 using namespace mozilla;
 
 nsSMILTimeContainer::nsSMILTimeContainer()
-:
-  mParent(nullptr),
-  mCurrentTime(0L),
-  mParentOffset(0L),
-  mPauseStart(0L),
-  mNeedsPauseSample(false),
-  mNeedsRewind(false),
-  mIsSeeking(false),
+    : mParent(nullptr),
+      mCurrentTime(0L),
+      mParentOffset(0L),
+      mPauseStart(0L),
+      mNeedsPauseSample(false),
+      mNeedsRewind(false),
+      mIsSeeking(false),
 #ifdef DEBUG
-  mHoldingEntries(false),
+      mHoldingEntries(false),
 #endif
-  mPauseState(PAUSE_BEGIN)
+      mPauseState(PAUSE_BEGIN)
 {
 }
 
@@ -95,8 +94,7 @@ nsSMILTimeContainer::Pause(uint32_t aType)
 void
 nsSMILTimeContainer::Resume(uint32_t aType)
 {
-  if (!mPauseState)
-    return;
+  if (!mPauseState) return;
 
   mPauseState &= ~aType;
 
@@ -115,8 +113,7 @@ nsSMILTimeContainer::GetCurrentTime() const
   //  #getCurrentTime_setCurrentTime_undefined_before_document_timeline_begin
   // which says that if GetCurrentTime is called before the document timeline
   // has begun we should just return 0.
-  if (IsPausedByType(PAUSE_BEGIN))
-    return 0L;
+  if (IsPausedByType(PAUSE_BEGIN)) return 0L;
 
   return mCurrentTime;
 }
@@ -158,8 +155,7 @@ nsSMILTimeContainer::SetCurrentTime(nsSMILTime aSeekTo)
 nsSMILTime
 nsSMILTimeContainer::GetParentTime() const
 {
-  if (mParent)
-    return mParent->GetCurrentTime();
+  if (mParent) return mParent->GetCurrentTime();
 
   return 0L;
 }
@@ -178,8 +174,7 @@ nsSMILTimeContainer::SyncPauseTime()
 void
 nsSMILTimeContainer::Sample()
 {
-  if (!NeedsSample())
-    return;
+  if (!NeedsSample()) return;
 
   UpdateCurrentTime();
   DoSample();
@@ -235,13 +230,11 @@ bool
 nsSMILTimeContainer::GetNextMilestoneInParentTime(
     nsSMILMilestone& aNextMilestone) const
 {
-  if (mMilestoneEntries.IsEmpty())
-    return false;
+  if (mMilestoneEntries.IsEmpty()) return false;
 
   nsSMILTimeValue parentTime =
-    ContainerToParentTime(mMilestoneEntries.Top().mMilestone.mTime);
-  if (!parentTime.IsDefinite())
-    return false;
+      ContainerToParentTime(mMilestoneEntries.Top().mMilestone.mTime);
+  if (!parentTime.IsDefinite()) return false;
 
   aNextMilestone = nsSMILMilestone(parentTime.GetMillis(),
                                    mMilestoneEntries.Top().mMilestone.mIsEnd);
@@ -251,15 +244,12 @@ nsSMILTimeContainer::GetNextMilestoneInParentTime(
 
 bool
 nsSMILTimeContainer::PopMilestoneElementsAtMilestone(
-      const nsSMILMilestone& aMilestone,
-      AnimElemArray& aMatchedElements)
+    const nsSMILMilestone& aMilestone, AnimElemArray& aMatchedElements)
 {
-  if (mMilestoneEntries.IsEmpty())
-    return false;
+  if (mMilestoneEntries.IsEmpty()) return false;
 
   nsSMILTimeValue containerTime = ParentToContainerTime(aMilestone.mTime);
-  if (!containerTime.IsDefinite())
-    return false;
+  if (!containerTime.IsDefinite()) return false;
 
   nsSMILMilestone containerMilestone(containerTime.GetMillis(),
                                      aMilestone.mIsEnd);
@@ -272,8 +262,7 @@ nsSMILTimeContainer::PopMilestoneElementsAtMilestone(
 
   bool gotOne = false;
   while (!mMilestoneEntries.IsEmpty() &&
-      mMilestoneEntries.Top().mMilestone == containerMilestone)
-  {
+         mMilestoneEntries.Top().mMilestone == containerMilestone) {
     aMatchedElements.AppendElement(mMilestoneEntries.Pop().mTimebase);
     gotOne = true;
   }
@@ -335,8 +324,8 @@ nsSMILTimeContainer::NotifyTimeChange()
     mHoldingEntries = true;
 #endif
     for (const MilestoneEntry* p = mMilestoneEntries.Elements();
-        p < mMilestoneEntries.Elements() + mMilestoneEntries.Length();
-        ++p) {
+         p < mMilestoneEntries.Elements() + mMilestoneEntries.Length();
+         ++p) {
       elems.AppendElement(p->mTimebase.get());
     }
   }

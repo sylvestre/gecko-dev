@@ -16,19 +16,17 @@
 
 namespace js {
 
-struct CompressedDataHeader
-{
+struct CompressedDataHeader {
     uint32_t compressedBytes;
 };
 
-class Compressor
-{
-  public:
+class Compressor {
+   public:
     // After compressing CHUNK_SIZE bytes, we will do a full flush so we can
     // start decompression at that point.
     static const size_t CHUNK_SIZE = 64 * 1024;
 
-  private:
+   private:
     // Number of bytes we should hand to zlib each compressMore() call.
     static const size_t MAX_INPUT_SIZE = 2 * 1024;
 
@@ -47,13 +45,8 @@ class Compressor
     // not a chunk boundary), we record the offset in the compressed data.
     js::Vector<uint32_t, 8, SystemAllocPolicy> chunkOffsets;
 
-  public:
-    enum Status {
-        MOREOUTPUT,
-        DONE,
-        CONTINUE,
-        OOM
-    };
+   public:
+    enum Status { MOREOUTPUT, DONE, CONTINUE, OOM };
 
     Compressor(const unsigned char* inp, size_t inplen);
     ~Compressor();
@@ -78,8 +71,7 @@ class Compressor
         MOZ_ASSERT(uncompressedBytes > 0);
         size_t lastChunk = (uncompressedBytes - 1) / CHUNK_SIZE;
         MOZ_ASSERT(chunk <= lastChunk);
-        if (chunk < lastChunk || uncompressedBytes % CHUNK_SIZE == 0)
-            return CHUNK_SIZE;
+        if (chunk < lastChunk || uncompressedBytes % CHUNK_SIZE == 0) return CHUNK_SIZE;
         return uncompressedBytes % CHUNK_SIZE;
     }
 };
@@ -88,16 +80,15 @@ class Compressor
  * Decompress a string. The caller must know the length of the output and
  * allocate |out| to a string of that length.
  */
-bool DecompressString(const unsigned char* inp, size_t inplen,
-                      unsigned char* out, size_t outlen);
+bool DecompressString(const unsigned char* inp, size_t inplen, unsigned char* out, size_t outlen);
 
 /*
  * Decompress a single chunk of at most Compressor::CHUNK_SIZE bytes.
  * |chunk| is the chunk index. The caller must know the length of the output
  * (the uncompressed chunk) and allocate |out| to a string of that length.
  */
-bool DecompressStringChunk(const unsigned char* inp, size_t chunk,
-                           unsigned char* out, size_t outlen);
+bool DecompressStringChunk(const unsigned char* inp, size_t chunk, unsigned char* out,
+                           size_t outlen);
 
 } /* namespace js */
 

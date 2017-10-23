@@ -24,7 +24,8 @@ class ResponsiveImageCandidate;
 class ResponsiveImageSelector
 {
   friend class ResponsiveImageCandidate;
-public:
+
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(ResponsiveImageSelector)
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(ResponsiveImageSelector)
 
@@ -42,15 +43,14 @@ public:
   // viewport size and device pixel ratio, the time at which image
   // selection occurs can affect the result.
 
-
   // Given a srcset string, parse and replace current candidates (does not
   // replace default source)
-  bool SetCandidatesFromSourceSet(const nsAString & aSrcSet,
+  bool SetCandidatesFromSourceSet(const nsAString& aSrcSet,
                                   nsIPrincipal* aTriggeringPrincipal = nullptr);
 
   // Fill the source sizes from a valid sizes descriptor. Returns false if
   // descriptor is invalid.
-  bool SetSizesFromDescriptor(const nsAString & aSizesDescriptor);
+  bool SetSizesFromDescriptor(const nsAString& aSizesDescriptor);
 
   // Set the default source, treated as the least-precedence 1.0 density source.
   void SetDefaultSource(const nsAString& aURLString,
@@ -60,11 +60,11 @@ public:
 
   // If this was created for a specific content. May be null if we were only
   // created for a document.
-  nsIContent *Content();
+  nsIContent* Content();
 
   // The document we were created for, or the owner document of the content if
   // we were created for a specific nsIContent.
-  nsIDocument *Document();
+  nsIDocument* Document();
 
   // Get the url and density for the selected best candidate. These
   // implicitly cause an image to be selected if necessary.
@@ -82,13 +82,13 @@ public:
   // return - true if the selected image result changed.
   bool SelectImage(bool aReselect = false);
 
-protected:
+ protected:
   virtual ~ResponsiveImageSelector();
 
-private:
+ private:
   // Append a candidate unless its selector is duplicated by a higher priority
   // candidate
-  void AppendCandidateIfUnique(const ResponsiveImageCandidate &aCandidate);
+  void AppendCandidateIfUnique(const ResponsiveImageCandidate& aCandidate);
 
   // Append a default candidate with this URL if necessary. Does not check if
   // the array already contains one, use SetDefaultSource instead.
@@ -120,14 +120,16 @@ private:
   // resolve the absolute URL at selection time
   nsCOMPtr<nsIURI> mSelectedCandidateURL;
 
-  nsTArray< nsAutoPtr<nsMediaQuery> > mSizeQueries;
+  nsTArray<nsAutoPtr<nsMediaQuery> > mSizeQueries;
   nsTArray<nsCSSValue> mSizeValues;
 };
 
-class ResponsiveImageCandidate {
-public:
+class ResponsiveImageCandidate
+{
+ public:
   ResponsiveImageCandidate();
-  ResponsiveImageCandidate(const nsAString& aURLString, double aDensity,
+  ResponsiveImageCandidate(const nsAString& aURLString,
+                           double aDensity,
                            nsIPrincipal* aTriggeringPrincipal = nullptr);
 
   void SetURLSpec(const nsAString& aURLString);
@@ -151,13 +153,13 @@ public:
                           const nsAString::const_iterator& aIterEnd);
 
   // Check if our parameter (which does not include the url) is identical
-  bool HasSameParameter(const ResponsiveImageCandidate & aOther) const;
+  bool HasSameParameter(const ResponsiveImageCandidate& aOther) const;
 
   const nsAString& URLString() const;
   nsIPrincipal* TriggeringPrincipal() const;
 
   // Compute and return the density relative to a selector.
-  double Density(ResponsiveImageSelector *aSelector) const;
+  double Density(ResponsiveImageSelector* aSelector) const;
   // If the width is already known. Useful when iterating over candidates to
   // avoid having each call re-compute the width.
   double Density(double aMatchingWidth) const;
@@ -165,7 +167,8 @@ public:
   // If this selector is computed from the selector's matching width.
   bool IsComputedFromWidth() const;
 
-  enum eCandidateType {
+  enum eCandidateType
+  {
     eCandidateType_Invalid,
     eCandidateType_Density,
     // Treated as 1.0 density, but a separate type so we can update the
@@ -176,8 +179,7 @@ public:
 
   eCandidateType Type() const { return mType; }
 
-private:
-
+ private:
   nsString mURLString;
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   eCandidateType mType;
@@ -187,7 +189,7 @@ private:
   } mValue;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_responsiveimageselector_h__
+#endif  // mozilla_dom_responsiveimageselector_h__

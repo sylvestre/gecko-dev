@@ -23,14 +23,12 @@ SanitizeEnvironmentVariables()
   DWORD bufferSize = GetEnvironmentVariableW(L"PATH", nullptr, 0);
   if (bufferSize) {
     wchar_t* originalPath = new wchar_t[bufferSize];
-    if (bufferSize - 1 == GetEnvironmentVariableW(L"PATH", originalPath,
-                                                  bufferSize)) {
+    if (bufferSize - 1 ==
+        GetEnvironmentVariableW(L"PATH", originalPath, bufferSize)) {
       bufferSize = ExpandEnvironmentStringsW(originalPath, nullptr, 0);
       if (bufferSize) {
         wchar_t* newPath = new wchar_t[bufferSize];
-        if (ExpandEnvironmentStringsW(originalPath,
-                                      newPath,
-                                      bufferSize)) {
+        if (ExpandEnvironmentStringsW(originalPath, newPath, bufferSize)) {
           SetEnvironmentVariableW(L"PATH", newPath);
         }
         delete[] newPath;
@@ -40,6 +38,6 @@ SanitizeEnvironmentVariables()
   }
 }
 
-}
+}  // namespace mozilla
 
 #endif

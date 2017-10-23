@@ -13,11 +13,13 @@ namespace hal_impl {
 
 void
 EnableNetworkNotifications()
-{}
+{
+}
 
 void
 DisableNetworkNotifications()
-{}
+{
+}
 
 void
 GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo)
@@ -27,5 +29,5 @@ GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo)
   aNetworkInfo->dhcpGateway() = dom::network::kDefaultDHCPGateway;
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

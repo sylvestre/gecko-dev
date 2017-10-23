@@ -16,7 +16,7 @@ class nsIInputStream;
 
 class nsUnicharStreamLoader : public nsIUnicharStreamLoader
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIUNICHARSTREAMLOADER
   NS_DECL_NSIREQUESTOBSERVER
@@ -24,9 +24,9 @@ public:
 
   nsUnicharStreamLoader() {}
 
-  static nsresult Create(nsISupports *aOuter, REFNSIID aIID, void **aResult);
+  static nsresult Create(nsISupports* aOuter, REFNSIID aIID, void** aResult);
 
-protected:
+ protected:
   virtual ~nsUnicharStreamLoader() {}
 
   nsresult DetermineCharset();
@@ -34,27 +34,27 @@ protected:
   /**
    * callback method used for ReadSegments
    */
-  static nsresult WriteSegmentFun(nsIInputStream *, void *, const char *,
-                                  uint32_t, uint32_t, uint32_t *);
+  static nsresult WriteSegmentFun(
+      nsIInputStream*, void*, const char*, uint32_t, uint32_t, uint32_t*);
 
   nsCOMPtr<nsIUnicharStreamLoaderObserver> mObserver;
   mozilla::UniquePtr<mozilla::Decoder> mDecoder;
-  nsCOMPtr<nsISupports>                    mContext;
-  nsCOMPtr<nsIChannel>                     mChannel;
-  nsCString                                mCharset;
+  nsCOMPtr<nsISupports> mContext;
+  nsCOMPtr<nsIChannel> mChannel;
+  nsCString mCharset;
 
   // This holds the first up-to-512 bytes of the raw stream.
   // It will be passed to the OnDetermineCharset callback.
-  nsCString                                mRawData;
+  nsCString mRawData;
 
   // Holds complete raw bytes as received so that SRI checks can be
   // calculated on the raw data prior to character conversion.
-  nsCString                                mRawBuffer;
+  nsCString mRawBuffer;
 
   // This holds the complete contents of the stream so far, after
   // decoding to UTF-16.  It will be passed to the OnStreamComplete
   // callback.
-  nsString                                 mBuffer;
+  nsString mBuffer;
 };
 
-#endif // nsUnicharStreamLoader_h__
+#endif  // nsUnicharStreamLoader_h__

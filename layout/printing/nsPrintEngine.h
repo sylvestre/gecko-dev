@@ -39,7 +39,7 @@ class nsPrintEngine final : public nsIObserver,
                             public nsIWebProgressListener,
                             public nsSupportsWeakReference
 {
-public:
+ public:
   // nsISupports interface...
   NS_DECL_ISUPPORTS
 
@@ -49,26 +49,26 @@ public:
   NS_DECL_NSIWEBPROGRESSLISTENER
 
   // Old nsIWebBrowserPrint methods; not cleaned up yet
-  NS_IMETHOD Print(nsIPrintSettings*       aPrintSettings,
+  NS_IMETHOD Print(nsIPrintSettings* aPrintSettings,
                    nsIWebProgressListener* aWebProgressListener);
   NS_IMETHOD PrintPreview(nsIPrintSettings* aPrintSettings,
                           mozIDOMWindowProxy* aChildDOMWin,
                           nsIWebProgressListener* aWebProgressListener);
-  NS_IMETHOD GetIsFramesetDocument(bool *aIsFramesetDocument);
-  NS_IMETHOD GetIsIFrameSelected(bool *aIsIFrameSelected);
-  NS_IMETHOD GetIsRangeSelection(bool *aIsRangeSelection);
-  NS_IMETHOD GetIsFramesetFrameSelected(bool *aIsFramesetFrameSelected);
-  NS_IMETHOD GetPrintPreviewNumPages(int32_t *aPrintPreviewNumPages);
+  NS_IMETHOD GetIsFramesetDocument(bool* aIsFramesetDocument);
+  NS_IMETHOD GetIsIFrameSelected(bool* aIsIFrameSelected);
+  NS_IMETHOD GetIsRangeSelection(bool* aIsRangeSelection);
+  NS_IMETHOD GetIsFramesetFrameSelected(bool* aIsFramesetFrameSelected);
+  NS_IMETHOD GetPrintPreviewNumPages(int32_t* aPrintPreviewNumPages);
   NS_IMETHOD EnumerateDocumentNames(uint32_t* aCount, char16_t*** aResult);
   static nsresult GetGlobalPrintSettings(nsIPrintSettings** aPrintSettings);
-  NS_IMETHOD GetDoingPrint(bool *aDoingPrint);
-  NS_IMETHOD GetDoingPrintPreview(bool *aDoingPrintPreview);
-  NS_IMETHOD GetCurrentPrintSettings(nsIPrintSettings **aCurrentPrintSettings);
-
+  NS_IMETHOD GetDoingPrint(bool* aDoingPrint);
+  NS_IMETHOD GetDoingPrintPreview(bool* aDoingPrintPreview);
+  NS_IMETHOD GetCurrentPrintSettings(nsIPrintSettings** aCurrentPrintSettings);
 
   // This enum tells indicates what the default should be for the title
   // if the title from the document is null
-  enum eDocTitleDefault {
+  enum eDocTitleDefault
+  {
     eDocTitleDefBlank,
     eDocTitleDefURLDoc
   };
@@ -79,9 +79,9 @@ public:
   void DestroyPrintingData();
 
   nsresult Initialize(nsIDocumentViewerPrint* aDocViewerPrint,
-                      nsIDocShell*            aContainer,
-                      nsIDocument*            aDocument,
-                      float                   aScreenDPI);
+                      nsIDocShell* aContainer,
+                      nsIDocument* aDocument,
+                      float aScreenDPI);
 
   nsresult GetSeqFrameAndCountPages(nsIFrame*& aSeqFrame, int32_t& aCount);
 
@@ -89,8 +89,8 @@ public:
   // The following three methods are used for printing...
   //
   nsresult DocumentReadyForPrinting();
-  nsresult GetSelectionDocument(nsIDeviceContextSpec * aDevSpec,
-                                nsIDocument ** aNewDoc);
+  nsresult GetSelectionDocument(nsIDeviceContextSpec* aDevSpec,
+                                nsIDocument** aNewDoc);
 
   nsresult SetupToPrintContent();
   nsresult EnablePOsForPrinting();
@@ -107,14 +107,14 @@ public:
   void InstallPrintPreviewListener();
 
   // nsIDocumentViewerPrint Printing Methods
-  bool     HasPrintCallbackCanvas();
-  bool     PrePrintPage();
-  bool     PrintPage(nsPrintObject* aPOect, bool& aInRange);
-  bool     DonePrintingPages(nsPrintObject* aPO, nsresult aResult);
+  bool HasPrintCallbackCanvas();
+  bool PrePrintPage();
+  bool PrintPage(nsPrintObject* aPOect, bool& aInRange);
+  bool DonePrintingPages(nsPrintObject* aPO, nsresult aResult);
 
   //---------------------------------------------------------------------
-  void BuildDocTree(nsIDocShell *      aParentNode,
-                    nsTArray<nsPrintObject*> * aDocList,
+  void BuildDocTree(nsIDocShell* aParentNode,
+                    nsTArray<nsPrintObject*>* aDocList,
                     const mozilla::UniquePtr<nsPrintObject>& aPO);
   nsresult ReflowDocList(const mozilla::UniquePtr<nsPrintObject>& aPO,
                          bool aSetPixelScale);
@@ -141,12 +141,11 @@ public:
   void FirePrintingErrorEvent(nsresult aPrintError);
   //---------------------------------------------------------------------
 
-
   // Timer Methods
   nsresult StartPagePrintTimer(const mozilla::UniquePtr<nsPrintObject>& aPO);
 
   bool IsWindowsInOurSubTree(nsPIDOMWindowOuter* aDOMWindow);
-  static bool IsParentAFrameSet(nsIDocShell * aParent);
+  static bool IsParentAFrameSet(nsIDocShell* aParent);
   bool IsThereAnIFrameSelected(nsIDocShell* aDocShell,
                                nsPIDOMWindowOuter* aDOMWin,
                                bool& aIsParentFrameSet);
@@ -161,94 +160,95 @@ public:
   // Static Methods
   //---------------------------------------------------------------------
   static void GetDocumentTitleAndURL(nsIDocument* aDoc,
-                                     nsAString&   aTitle,
-                                     nsAString&   aURLStr);
+                                     nsAString& aTitle,
+                                     nsAString& aURLStr);
   void GetDisplayTitleAndURL(const mozilla::UniquePtr<nsPrintObject>& aPO,
-                             nsAString&       aTitle,
-                             nsAString&       aURLStr,
+                             nsAString& aTitle,
+                             nsAString& aURLStr,
                              eDocTitleDefault aDefType);
 
   static bool HasFramesetChild(nsIContent* aContent);
 
-  bool     CheckBeforeDestroy();
+  bool CheckBeforeDestroy();
   nsresult Cancelled();
 
-  nsIPresShell* GetPrintPreviewPresShell() {return mPrtPreview->mPrintObject->mPresShell;}
+  nsIPresShell* GetPrintPreviewPresShell()
+  {
+    return mPrtPreview->mPrintObject->mPresShell;
+  }
 
-  float GetPrintPreviewScale() { return mPrtPreview->mPrintObject->
-                                        mPresContext->GetPrintPreviewScale(); }
+  float GetPrintPreviewScale()
+  {
+    return mPrtPreview->mPrintObject->mPresContext->GetPrintPreviewScale();
+  }
 
   static nsIPresShell* GetPresShellFor(nsIDocShell* aDocShell);
 
   // These calls also update the DocViewer
   void SetIsPrinting(bool aIsPrinting);
-  bool GetIsPrinting()
-  {
-    return mIsDoingPrinting;
-  }
+  bool GetIsPrinting() { return mIsDoingPrinting; }
   void SetIsPrintPreview(bool aIsPrintPreview);
-  bool GetIsPrintPreview()
-  {
-    return mIsDoingPrintPreview;
-  }
+  bool GetIsPrintPreview() { return mIsDoingPrintPreview; }
   void SetIsCreatingPrintPreview(bool aIsCreatingPrintPreview)
   {
     mIsCreatingPrintPreview = aIsCreatingPrintPreview;
   }
-  bool GetIsCreatingPrintPreview()
-  {
-    return mIsCreatingPrintPreview;
-  }
+  bool GetIsCreatingPrintPreview() { return mIsCreatingPrintPreview; }
 
   void SetDisallowSelectionPrint(bool aDisallowSelectionPrint)
   {
     mDisallowSelectionPrint = aDisallowSelectionPrint;
   }
 
-protected:
+ protected:
   ~nsPrintEngine();
 
-  nsresult CommonPrint(bool aIsPrintPreview, nsIPrintSettings* aPrintSettings,
+  nsresult CommonPrint(bool aIsPrintPreview,
+                       nsIPrintSettings* aPrintSettings,
                        nsIWebProgressListener* aWebProgressListener,
                        nsIDOMDocument* aDoc);
 
-  nsresult DoCommonPrint(bool aIsPrintPreview, nsIPrintSettings* aPrintSettings,
+  nsresult DoCommonPrint(bool aIsPrintPreview,
+                         nsIPrintSettings* aPrintSettings,
                          nsIWebProgressListener* aWebProgressListener,
                          nsIDOMDocument* aDoc);
 
   void FirePrintCompletionEvent();
-  static nsresult GetSeqFrameAndCountPagesInternal(const mozilla::UniquePtr<nsPrintObject>& aPO,
-                                                   nsIFrame*&      aSeqFrame,
-                                                   int32_t&        aCount);
+  static nsresult GetSeqFrameAndCountPagesInternal(
+      const mozilla::UniquePtr<nsPrintObject>& aPO,
+      nsIFrame*& aSeqFrame,
+      int32_t& aCount);
 
-  static nsresult FindSelectionBoundsWithList(nsFrameList::Enumerator& aChildFrames,
-                                              nsIFrame *      aParentFrame,
-                                              nsRect&         aRect,
-                                              nsIFrame *&     aStartFrame,
-                                              nsRect&         aStartRect,
-                                              nsIFrame *&     aEndFrame,
-                                              nsRect&         aEndRect);
+  static nsresult FindSelectionBoundsWithList(
+      nsFrameList::Enumerator& aChildFrames,
+      nsIFrame* aParentFrame,
+      nsRect& aRect,
+      nsIFrame*& aStartFrame,
+      nsRect& aStartRect,
+      nsIFrame*& aEndFrame,
+      nsRect& aEndRect);
 
-  static nsresult FindSelectionBounds(nsIFrame *      aParentFrame,
-                                      nsRect&         aRect,
-                                      nsIFrame *&     aStartFrame,
-                                      nsRect&         aStartRect,
-                                      nsIFrame *&     aEndFrame,
-                                      nsRect&         aEndRect);
+  static nsresult FindSelectionBounds(nsIFrame* aParentFrame,
+                                      nsRect& aRect,
+                                      nsIFrame*& aStartFrame,
+                                      nsRect& aStartRect,
+                                      nsIFrame*& aEndFrame,
+                                      nsRect& aEndRect);
 
   static nsresult GetPageRangeForSelection(nsIPageSequenceFrame* aPageSeqFrame,
-                                           nsIFrame**            aStartFrame,
-                                           int32_t&              aStartPageNum,
-                                           nsRect&               aStartRect,
-                                           nsIFrame**            aEndFrame,
-                                           int32_t&              aEndPageNum,
-                                           nsRect&               aEndRect);
+                                           nsIFrame** aStartFrame,
+                                           int32_t& aStartPageNum,
+                                           nsRect& aStartRect,
+                                           nsIFrame** aEndFrame,
+                                           int32_t& aEndPageNum,
+                                           nsRect& aEndRect);
 
   static void MapContentForPO(const mozilla::UniquePtr<nsPrintObject>& aPO,
                               nsIContent* aContent);
 
-  static void MapContentToWebShells(const mozilla::UniquePtr<nsPrintObject>& aRootPO,
-                                    const mozilla::UniquePtr<nsPrintObject>& aPO);
+  static void MapContentToWebShells(
+      const mozilla::UniquePtr<nsPrintObject>& aRootPO,
+      const mozilla::UniquePtr<nsPrintObject>& aPO);
 
   static void SetPrintAsIs(nsPrintObject* aPO, bool aAsIs = true);
 
@@ -257,12 +257,12 @@ protected:
   // Static member variables
   bool mIsCreatingPrintPreview;
   bool mIsDoingPrinting;
-  bool mIsDoingPrintPreview; // per DocumentViewer
+  bool mIsDoingPrintPreview;  // per DocumentViewer
   bool mProgressDialogIsShown;
 
   nsCOMPtr<nsIDocumentViewerPrint> mDocViewerPrint;
-  nsWeakPtr               mContainer;
-  float                   mScreenDPI;
+  nsWeakPtr mContainer;
+  float mScreenDPI;
 
   // We are the primary owner of our nsPrintData member vars.  These vars
   // are refcounted so that functions (e.g. nsPrintData methods) can create
@@ -271,14 +271,14 @@ protected:
   // member-data.
   RefPtr<nsPrintData> mPrt;
 
-  nsPagePrintTimer*       mPagePrintTimer;
-  WeakFrame               mPageSeqFrame;
+  nsPagePrintTimer* mPagePrintTimer;
+  WeakFrame mPageSeqFrame;
 
   // Print Preview
   RefPtr<nsPrintData> mPrtPreview;
   RefPtr<nsPrintData> mOldPrtPreview;
 
-  nsCOMPtr<nsIDocument>   mDocument;
+  nsCOMPtr<nsIDocument> mDocument;
 
   int32_t mLoadCounter;
   bool mDidLoadDataForPrinting;
@@ -299,7 +299,8 @@ protected:
                                                bool aDocumentIsTopLevel);
   nsresult InitPrintDocConstruction(bool aHandleError);
   void FirePrintPreviewUpdateEvent();
-private:
+
+ private:
   nsPrintEngine& operator=(const nsPrintEngine& aOther) = delete;
 };
 

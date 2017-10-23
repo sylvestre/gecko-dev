@@ -19,10 +19,11 @@ namespace utils {
  * Get a localized string from the string bundle.
  * Return nil if not found.
  */
-NSString* LocalizedString(const nsString& aString);
+NSString*
+LocalizedString(const nsString& aString);
 
-}
-}
-}
+}  // namespace utils
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

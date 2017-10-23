@@ -48,7 +48,6 @@ void
 RadioNodeList::SetValue(const nsAString& value, CallerType aCallerType)
 {
   for (uint32_t i = 0; i < Length(); i++) {
-
     HTMLInputElement* maybeRadio = GetAsRadio(Item(i));
     if (!maybeRadio) {
       continue;
@@ -60,11 +59,10 @@ RadioNodeList::SetValue(const nsAString& value, CallerType aCallerType)
       maybeRadio->SetChecked(true);
       return;
     }
-
   }
 }
 
 NS_IMPL_ISUPPORTS_INHERITED(RadioNodeList, nsSimpleContentList, RadioNodeList)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

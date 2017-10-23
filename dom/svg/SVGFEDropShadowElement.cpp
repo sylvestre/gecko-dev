@@ -17,27 +17,21 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEDropShadowElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEDropShadowElement::WrapNode(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEDropShadowElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFEDropShadowElement::sNumberInfo[2] =
-{
-  { &nsGkAtoms::dx, 2, false },
-  { &nsGkAtoms::dy, 2, false }
-};
+nsSVGElement::NumberInfo SVGFEDropShadowElement::sNumberInfo[2] = {
+    {&nsGkAtoms::dx, 2, false}, {&nsGkAtoms::dy, 2, false}};
 
-nsSVGElement::NumberPairInfo SVGFEDropShadowElement::sNumberPairInfo[1] =
-{
-  { &nsGkAtoms::stdDeviation, 2, 2 }
-};
+nsSVGElement::NumberPairInfo SVGFEDropShadowElement::sNumberPairInfo[1] = {
+    {&nsGkAtoms::stdDeviation, 2, 2}};
 
-nsSVGElement::StringInfo SVGFEDropShadowElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEDropShadowElement::sStringInfo[2] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -67,26 +61,31 @@ SVGFEDropShadowElement::Dy()
 already_AddRefed<SVGAnimatedNumber>
 SVGFEDropShadowElement::StdDeviationX()
 {
-  return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(nsSVGNumberPair::eFirst, this);
+  return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
+      nsSVGNumberPair::eFirst, this);
 }
 
 already_AddRefed<SVGAnimatedNumber>
 SVGFEDropShadowElement::StdDeviationY()
 {
-  return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(nsSVGNumberPair::eSecond, this);
+  return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
+      nsSVGNumberPair::eSecond, this);
 }
 
 void
-SVGFEDropShadowElement::SetStdDeviation(float stdDeviationX, float stdDeviationY)
+SVGFEDropShadowElement::SetStdDeviation(float stdDeviationX,
+                                        float stdDeviationY)
 {
-  mNumberPairAttributes[STD_DEV].SetBaseValues(stdDeviationX, stdDeviationY, this);
+  mNumberPairAttributes[STD_DEV].SetBaseValues(
+      stdDeviationX, stdDeviationY, this);
 }
 
 FilterPrimitiveDescription
-SVGFEDropShadowElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                                const IntRect& aFilterSubregion,
-                                                const nsTArray<bool>& aInputsAreTainted,
-                                                nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFEDropShadowElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   float stdX = aInstance->GetPrimitiveNumber(SVGContentUtils::X,
                                              &mNumberPairAttributes[STD_DEV],
@@ -99,9 +98,9 @@ SVGFEDropShadowElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
   }
 
   IntPoint offset(int32_t(aInstance->GetPrimitiveNumber(
-                            SVGContentUtils::X, &mNumberAttributes[DX])),
+                      SVGContentUtils::X, &mNumberAttributes[DX])),
                   int32_t(aInstance->GetPrimitiveNumber(
-                            SVGContentUtils::Y, &mNumberAttributes[DY])));
+                      SVGContentUtils::Y, &mNumberAttributes[DY])));
 
   FilterPrimitiveDescription descr(PrimitiveType::DropShadow);
   descr.Attributes().Set(eDropShadowStdDeviation, Size(stdX, stdY));
@@ -123,12 +122,12 @@ bool
 SVGFEDropShadowElement::AttributeAffectsRendering(int32_t aNameSpaceID,
                                                   nsAtom* aAttribute) const
 {
-  return SVGFEDropShadowElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
+  return SVGFEDropShadowElementBase::AttributeAffectsRendering(aNameSpaceID,
+                                                               aAttribute) ||
          (aNameSpaceID == kNameSpaceID_None &&
           (aAttribute == nsGkAtoms::in ||
            aAttribute == nsGkAtoms::stdDeviation ||
-           aAttribute == nsGkAtoms::dx ||
-           aAttribute == nsGkAtoms::dy));
+           aAttribute == nsGkAtoms::dx || aAttribute == nsGkAtoms::dy));
 }
 
 void
@@ -143,12 +142,10 @@ SVGFEDropShadowElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 NS_IMETHODIMP_(bool)
 SVGFEDropShadowElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sFEFloodMap
-  };
+  static const MappedAttributeEntry* const map[] = {sFEFloodMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGFEDropShadowElementBase::IsAttributeMapped(name);
+         SVGFEDropShadowElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -157,23 +154,23 @@ SVGFEDropShadowElement::IsAttributeMapped(const nsAtom* name) const
 nsSVGElement::NumberAttributesInfo
 SVGFEDropShadowElement::GetNumberInfo()
 {
-  return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
-                              ArrayLength(sNumberInfo));
+  return NumberAttributesInfo(
+      mNumberAttributes, sNumberInfo, ArrayLength(sNumberInfo));
 }
 
 nsSVGElement::NumberPairAttributesInfo
 SVGFEDropShadowElement::GetNumberPairInfo()
 {
-  return NumberPairAttributesInfo(mNumberPairAttributes, sNumberPairInfo,
-                                  ArrayLength(sNumberPairInfo));
+  return NumberPairAttributesInfo(
+      mNumberPairAttributes, sNumberPairInfo, ArrayLength(sNumberPairInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGFEDropShadowElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

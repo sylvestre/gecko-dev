@@ -16,8 +16,8 @@ using gfx::DataSourceSurface;
 using gfx::IntSize;
 using gfx::SamplingFilter;
 using gfx::SourceSurface;
-using layers::LayerManager;
 using layers::ImageContainer;
+using layers::LayerManager;
 
 namespace image {
 
@@ -45,16 +45,18 @@ ImageWrapper::CollectSizeOfSurfaces(nsTArray<SurfaceMemoryCounter>& aCounters,
 void
 ImageWrapper::IncrementAnimationConsumers()
 {
-  MOZ_ASSERT(NS_IsMainThread(), "Main thread only to encourage serialization "
-                                "with DecrementAnimationConsumers");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "Main thread only to encourage serialization "
+             "with DecrementAnimationConsumers");
   mInnerImage->IncrementAnimationConsumers();
 }
 
 void
 ImageWrapper::DecrementAnimationConsumers()
 {
-  MOZ_ASSERT(NS_IsMainThread(), "Main thread only to encourage serialization "
-                                "with IncrementAnimationConsumers");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "Main thread only to encourage serialization "
+             "with IncrementAnimationConsumers");
   mInnerImage->DecrementAnimationConsumers();
 }
 
@@ -73,8 +75,8 @@ ImageWrapper::OnImageDataAvailable(nsIRequest* aRequest,
                                    uint64_t aSourceOffset,
                                    uint32_t aCount)
 {
-  return mInnerImage->OnImageDataAvailable(aRequest, aContext, aInStr,
-                                           aSourceOffset, aCount);
+  return mInnerImage->OnImageDataAvailable(
+      aRequest, aContext, aInStr, aSourceOffset, aCount);
 }
 
 nsresult
@@ -83,8 +85,8 @@ ImageWrapper::OnImageDataComplete(nsIRequest* aRequest,
                                   nsresult aStatus,
                                   bool aLastPart)
 {
-  return mInnerImage->OnImageDataComplete(aRequest, aContext, aStatus,
-                                          aLastPart);
+  return mInnerImage->OnImageDataComplete(
+      aRequest, aContext, aStatus, aLastPart);
 }
 
 void
@@ -164,16 +166,10 @@ ImageWrapper::GetIntrinsicRatio(nsSize* aSize)
 }
 
 NS_IMETHODIMP_(Orientation)
-ImageWrapper::GetOrientation()
-{
-  return mInnerImage->GetOrientation();
-}
+ImageWrapper::GetOrientation() { return mInnerImage->GetOrientation(); }
 
 NS_IMETHODIMP
-ImageWrapper::GetType(uint16_t* aType)
-{
-  return mInnerImage->GetType(aType);
-}
+ImageWrapper::GetType(uint16_t* aType) { return mInnerImage->GetType(aType); }
 
 NS_IMETHODIMP
 ImageWrapper::GetAnimated(bool* aAnimated)
@@ -182,8 +178,7 @@ ImageWrapper::GetAnimated(bool* aAnimated)
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
-ImageWrapper::GetFrame(uint32_t aWhichFrame,
-                       uint32_t aFlags)
+ImageWrapper::GetFrame(uint32_t aWhichFrame, uint32_t aFlags)
 {
   return mInnerImage->GetFrame(aWhichFrame, aFlags);
 }
@@ -197,10 +192,7 @@ ImageWrapper::GetFrameAtSize(const IntSize& aSize,
 }
 
 NS_IMETHODIMP_(bool)
-ImageWrapper::WillDrawOpaqueNow()
-{
-  return mInnerImage->WillDrawOpaqueNow();
-}
+ImageWrapper::WillDrawOpaqueNow() { return mInnerImage->WillDrawOpaqueNow(); }
 
 NS_IMETHODIMP_(bool)
 ImageWrapper::IsImageContainerAvailable(LayerManager* aManager, uint32_t aFlags)
@@ -224,8 +216,14 @@ ImageWrapper::Draw(gfxContext* aContext,
                    uint32_t aFlags,
                    float aOpacity)
 {
-  return mInnerImage->Draw(aContext, aSize, aRegion, aWhichFrame,
-                           aSamplingFilter, aSVGContext, aFlags, aOpacity);
+  return mInnerImage->Draw(aContext,
+                           aSize,
+                           aRegion,
+                           aWhichFrame,
+                           aSamplingFilter,
+                           aSVGContext,
+                           aFlags,
+                           aOpacity);
 }
 
 NS_IMETHODIMP
@@ -263,10 +261,7 @@ ImageWrapper::UnlockImage()
 }
 
 NS_IMETHODIMP
-ImageWrapper::RequestDiscard()
-{
-  return mInnerImage->RequestDiscard();
-}
+ImageWrapper::RequestDiscard() { return mInnerImage->RequestDiscard(); }
 
 NS_IMETHODIMP_(void)
 ImageWrapper::RequestRefresh(const TimeStamp& aTime)
@@ -287,10 +282,7 @@ ImageWrapper::SetAnimationMode(uint16_t aAnimationMode)
 }
 
 NS_IMETHODIMP
-ImageWrapper::ResetAnimation()
-{
-  return mInnerImage->ResetAnimation();
-}
+ImageWrapper::ResetAnimation() { return mInnerImage->ResetAnimation(); }
 
 NS_IMETHODIMP_(float)
 ImageWrapper::GetFrameIndex(uint32_t aWhichFrame)
@@ -299,10 +291,7 @@ ImageWrapper::GetFrameIndex(uint32_t aWhichFrame)
 }
 
 NS_IMETHODIMP_(int32_t)
-ImageWrapper::GetFirstFrameDelay()
-{
-  return mInnerImage->GetFirstFrameDelay();
-}
+ImageWrapper::GetFirstFrameDelay() { return mInnerImage->GetFirstFrameDelay(); }
 
 NS_IMETHODIMP_(void)
 ImageWrapper::SetAnimationStartTime(const TimeStamp& aTime)
@@ -322,8 +311,8 @@ ImageWrapper::OptimalImageSizeForDest(const gfxSize& aDest,
                                       SamplingFilter aSamplingFilter,
                                       uint32_t aFlags)
 {
-  return mInnerImage->OptimalImageSizeForDest(aDest, aWhichFrame,
-                                              aSamplingFilter, aFlags);
+  return mInnerImage->OptimalImageSizeForDest(
+      aDest, aWhichFrame, aSamplingFilter, aFlags);
 }
 
 NS_IMETHODIMP_(nsIntRect)
@@ -338,5 +327,5 @@ ImageWrapper::Unwrap()
   return mInnerImage->Unwrap();
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

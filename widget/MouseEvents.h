@@ -20,7 +20,7 @@
  ******************************************************************************/
 
 enum nsDragDropEventStatus
-{  
+{
   // The event is a enter
   nsDragDropEventStatus_eDragEntered,
   // The event is exit
@@ -32,9 +32,9 @@ enum nsDragDropEventStatus
 namespace mozilla {
 
 namespace dom {
-  class PBrowserParent;
-  class PBrowserChild;
-} // namespace dom
+class PBrowserParent;
+class PBrowserChild;
+}  // namespace dom
 
 /******************************************************************************
  * mozilla::WidgetPointerHelper
@@ -42,7 +42,7 @@ namespace dom {
 
 class WidgetPointerHelper
 {
-public:
+ public:
   uint32_t pointerId;
   uint32_t tiltX;
   uint32_t tiltY;
@@ -51,23 +51,26 @@ public:
   bool convertToPointer;
 
   WidgetPointerHelper()
-    : pointerId(0)
-    , tiltX(0)
-    , tiltY(0)
-    , twist(0)
-    , tangentialPressure(0)
-    , convertToPointer(true)
+      : pointerId(0),
+        tiltX(0),
+        tiltY(0),
+        twist(0),
+        tangentialPressure(0),
+        convertToPointer(true)
   {
   }
 
-  WidgetPointerHelper(uint32_t aPointerId, uint32_t aTiltX, uint32_t aTiltY,
-                      uint32_t aTwist = 0, float aTangentialPressure = 0)
-    : pointerId(aPointerId)
-    , tiltX(aTiltX)
-    , tiltY(aTiltY)
-    , twist(aTwist)
-    , tangentialPressure(aTangentialPressure)
-    , convertToPointer(true)
+  WidgetPointerHelper(uint32_t aPointerId,
+                      uint32_t aTiltX,
+                      uint32_t aTiltY,
+                      uint32_t aTwist = 0,
+                      float aTangentialPressure = 0)
+      : pointerId(aPointerId),
+        tiltX(aTiltX),
+        tiltY(aTiltY),
+        twist(aTwist),
+        tangentialPressure(aTangentialPressure),
+        convertToPointer(true)
   {
   }
 
@@ -88,32 +91,34 @@ public:
 
 class WidgetMouseEventBase : public WidgetInputEvent
 {
-private:
+ private:
   friend class dom::PBrowserParent;
   friend class dom::PBrowserChild;
 
-protected:
+ protected:
   WidgetMouseEventBase()
-    : button(0)
-    , buttons(0)
-    , pressure(0)
-    , hitCluster(false)
-    , inputSource(nsIDOMMouseEvent::MOZ_SOURCE_MOUSE)
+      : button(0),
+        buttons(0),
+        pressure(0),
+        hitCluster(false),
+        inputSource(nsIDOMMouseEvent::MOZ_SOURCE_MOUSE)
   {
   }
 
-  WidgetMouseEventBase(bool aIsTrusted, EventMessage aMessage,
-                       nsIWidget* aWidget, EventClassID aEventClassID)
-    : WidgetInputEvent(aIsTrusted, aMessage, aWidget, aEventClassID)
-    , button(0)
-    , buttons(0)
-    , pressure(0)
-    , hitCluster(false)
-    , inputSource(nsIDOMMouseEvent::MOZ_SOURCE_MOUSE)
- {
- }
+  WidgetMouseEventBase(bool aIsTrusted,
+                       EventMessage aMessage,
+                       nsIWidget* aWidget,
+                       EventClassID aEventClassID)
+      : WidgetInputEvent(aIsTrusted, aMessage, aWidget, aEventClassID),
+        button(0),
+        buttons(0),
+        pressure(0),
+        hitCluster(false),
+        inputSource(nsIDOMMouseEvent::MOZ_SOURCE_MOUSE)
+  {
+  }
 
-public:
+ public:
   virtual WidgetMouseEventBase* AsMouseEventBase() override { return this; }
 
   virtual WidgetEvent* Duplicate() const override
@@ -126,26 +131,27 @@ public:
 
   enum buttonType
   {
-    eNoButton     = -1,
-    eLeftButton   = 0,
+    eNoButton = -1,
+    eLeftButton = 0,
     eMiddleButton = 1,
-    eRightButton  = 2
+    eRightButton = 2
   };
   // Pressed button ID of mousedown or mouseup event.
   // This is set only when pressing a button causes the event.
   int16_t button;
 
-  enum buttonsFlag {
-    eNoButtonFlag     = 0x00,
-    eLeftButtonFlag   = 0x01,
-    eRightButtonFlag  = 0x02,
+  enum buttonsFlag
+  {
+    eNoButtonFlag = 0x00,
+    eLeftButtonFlag = 0x01,
+    eRightButtonFlag = 0x02,
     eMiddleButtonFlag = 0x04,
     // typicall, "back" button being left side of 5-button
     // mice, see "buttons" attribute document of DOM3 Events.
-    e4thButtonFlag    = 0x08,
+    e4thButtonFlag = 0x08,
     // typicall, "forward" button being right side of 5-button
     // mice, see "buttons" attribute document of DOM3 Events.
-    e5thButtonFlag    = 0x10
+    e5thButtonFlag = 0x10
   };
 
   // Flags of all pressed buttons at the event fired.
@@ -195,14 +201,13 @@ public:
  * mozilla::WidgetMouseEvent
  ******************************************************************************/
 
-class WidgetMouseEvent : public WidgetMouseEventBase
-                       , public WidgetPointerHelper
+class WidgetMouseEvent : public WidgetMouseEventBase, public WidgetPointerHelper
 {
-private:
+ private:
   friend class dom::PBrowserParent;
   friend class dom::PBrowserChild;
 
-public:
+ public:
   typedef bool ReasonType;
   enum Reason : ReasonType
   {
@@ -224,13 +229,13 @@ public:
     eTopLevel
   };
 
-protected:
+ protected:
   WidgetMouseEvent()
-    : mReason(eReal)
-    , mContextMenuTrigger(eNormal)
-    , mExitFrom(eChild)
-    , mIgnoreRootScrollFrame(false)
-    , mClickCount(0)
+      : mReason(eReal),
+        mContextMenuTrigger(eNormal),
+        mExitFrom(eChild),
+        mIgnoreRootScrollFrame(false),
+        mClickCount(0)
   {
   }
 
@@ -239,16 +244,16 @@ protected:
                    nsIWidget* aWidget,
                    EventClassID aEventClassID,
                    Reason aReason)
-    : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, aEventClassID)
-    , mReason(aReason)
-    , mContextMenuTrigger(eNormal)
-    , mExitFrom(eChild)
-    , mIgnoreRootScrollFrame(false)
-    , mClickCount(0)
+      : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, aEventClassID),
+        mReason(aReason),
+        mContextMenuTrigger(eNormal),
+        mExitFrom(eChild),
+        mIgnoreRootScrollFrame(false),
+        mClickCount(0)
   {
   }
 
-public:
+ public:
   virtual WidgetMouseEvent* AsMouseEvent() override { return this; }
 
   WidgetMouseEvent(bool aIsTrusted,
@@ -256,12 +261,12 @@ public:
                    nsIWidget* aWidget,
                    Reason aReason,
                    ContextMenuTrigger aContextMenuTrigger = eNormal)
-    : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, eMouseEventClass)
-    , mReason(aReason)
-    , mContextMenuTrigger(aContextMenuTrigger)
-    , mExitFrom(eChild)
-    , mIgnoreRootScrollFrame(false)
-    , mClickCount(0)
+      : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, eMouseEventClass),
+        mReason(aReason),
+        mContextMenuTrigger(aContextMenuTrigger),
+        mExitFrom(eChild),
+        mIgnoreRootScrollFrame(false),
+        mClickCount(0)
   {
     if (aMessage == eContextMenu) {
       button = (mContextMenuTrigger == eNormal) ? eRightButton : eLeftButton;
@@ -272,9 +277,10 @@ public:
   virtual ~WidgetMouseEvent()
   {
     NS_WARNING_ASSERTION(
-      mMessage != eContextMenu ||
-      button == ((mContextMenuTrigger == eNormal) ? eRightButton : eLeftButton),
-      "Wrong button set to eContextMenu event?");
+        mMessage != eContextMenu ||
+            button ==
+                ((mContextMenuTrigger == eNormal) ? eRightButton : eLeftButton),
+        "Wrong button set to eContextMenu event?");
   }
 #endif
 
@@ -283,9 +289,8 @@ public:
     MOZ_ASSERT(mClass == eMouseEventClass,
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
-    WidgetMouseEvent* result =
-      new WidgetMouseEvent(false, mMessage, nullptr,
-                           mReason, mContextMenuTrigger);
+    WidgetMouseEvent* result = new WidgetMouseEvent(
+        false, mMessage, nullptr, mReason, mContextMenuTrigger);
     result->AssignMouseEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -336,10 +341,7 @@ public:
    * Returns true if the event is a real mouse event.  Otherwise, i.e., it's
    * a synthesized event by scroll or something, returns false.
    */
-  bool IsReal() const
-  {
-    return mReason == eReal;
-  }
+  bool IsReal() const { return mReason == eReal; }
 };
 
 /******************************************************************************
@@ -348,22 +350,22 @@ public:
 
 class WidgetDragEvent : public WidgetMouseEvent
 {
-private:
+ private:
   friend class mozilla::dom::PBrowserParent;
   friend class mozilla::dom::PBrowserChild;
-protected:
-  WidgetDragEvent()
-    : mUserCancelled(false)
-    , mDefaultPreventedOnContent(false)
+
+ protected:
+  WidgetDragEvent() : mUserCancelled(false), mDefaultPreventedOnContent(false)
   {
   }
-public:
+
+ public:
   virtual WidgetDragEvent* AsDragEvent() override { return this; }
 
   WidgetDragEvent(bool aIsTrusted, EventMessage aMessage, nsIWidget* aWidget)
-    : WidgetMouseEvent(aIsTrusted, aMessage, aWidget, eDragEventClass, eReal)
-    , mUserCancelled(false)
-    , mDefaultPreventedOnContent(false)
+      : WidgetMouseEvent(aIsTrusted, aMessage, aWidget, eDragEventClass, eReal),
+        mUserCancelled(false),
+        mDefaultPreventedOnContent(false)
   {
   }
 
@@ -408,25 +410,19 @@ public:
 
 class WidgetMouseScrollEvent : public WidgetMouseEventBase
 {
-private:
-  WidgetMouseScrollEvent()
-    : mDelta(0)
-    , mIsHorizontal(false)
-  {
-  }
+ private:
+  WidgetMouseScrollEvent() : mDelta(0), mIsHorizontal(false) {}
 
-public:
-  virtual WidgetMouseScrollEvent* AsMouseScrollEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual WidgetMouseScrollEvent* AsMouseScrollEvent() override { return this; }
 
-  WidgetMouseScrollEvent(bool aIsTrusted, EventMessage aMessage,
+  WidgetMouseScrollEvent(bool aIsTrusted,
+                         EventMessage aMessage,
                          nsIWidget* aWidget)
-    : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget,
-                           eMouseScrollEventClass)
-    , mDelta(0)
-    , mIsHorizontal(false)
+      : WidgetMouseEventBase(
+            aIsTrusted, aMessage, aWidget, eMouseScrollEventClass),
+        mDelta(0),
+        mIsHorizontal(false)
   {
   }
 
@@ -436,7 +432,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     WidgetMouseScrollEvent* result =
-      new WidgetMouseScrollEvent(false, mMessage, nullptr);
+        new WidgetMouseScrollEvent(false, mMessage, nullptr);
     result->AssignMouseScrollEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -470,52 +466,52 @@ public:
 
 class WidgetWheelEvent : public WidgetMouseEventBase
 {
-private:
+ private:
   friend class mozilla::dom::PBrowserParent;
   friend class mozilla::dom::PBrowserChild;
 
   WidgetWheelEvent()
-    : mDeltaX(0.0)
-    , mDeltaY(0.0)
-    , mDeltaZ(0.0)
-    , mOverflowDeltaX(0.0)
-    , mOverflowDeltaY(0.0)
-    , mDeltaMode(nsIDOMWheelEvent::DOM_DELTA_PIXEL)
-    , mLineOrPageDeltaX(0)
-    , mLineOrPageDeltaY(0)
-    , mScrollType(SCROLL_DEFAULT)
-    , mCustomizedByUserPrefs(false)
-    , mIsMomentum(false)
-    , mIsNoLineOrPageDelta(false)
-    , mViewPortIsOverscrolled(false)
-    , mCanTriggerSwipe(false)
-    , mAllowToOverrideSystemScrollSpeed(false)
-    , mDeltaValuesAdjustedForDefaultHandler(false)
+      : mDeltaX(0.0),
+        mDeltaY(0.0),
+        mDeltaZ(0.0),
+        mOverflowDeltaX(0.0),
+        mOverflowDeltaY(0.0),
+        mDeltaMode(nsIDOMWheelEvent::DOM_DELTA_PIXEL),
+        mLineOrPageDeltaX(0),
+        mLineOrPageDeltaY(0),
+        mScrollType(SCROLL_DEFAULT),
+        mCustomizedByUserPrefs(false),
+        mIsMomentum(false),
+        mIsNoLineOrPageDelta(false),
+        mViewPortIsOverscrolled(false),
+        mCanTriggerSwipe(false),
+        mAllowToOverrideSystemScrollSpeed(false),
+        mDeltaValuesAdjustedForDefaultHandler(false)
   {
   }
 
-public:
+ public:
   virtual WidgetWheelEvent* AsWheelEvent() override { return this; }
 
   WidgetWheelEvent(bool aIsTrusted, EventMessage aMessage, nsIWidget* aWidget)
-    : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, eWheelEventClass)
-    , mDeltaX(0.0)
-    , mDeltaY(0.0)
-    , mDeltaZ(0.0)
-    , mOverflowDeltaX(0.0)
-    , mOverflowDeltaY(0.0)
-    , mDeltaMode(nsIDOMWheelEvent::DOM_DELTA_PIXEL)
-    , mLineOrPageDeltaX(0)
-    , mLineOrPageDeltaY(0)
-    , mScrollType(SCROLL_DEFAULT)
-    , mCustomizedByUserPrefs(false)
-    , mMayHaveMomentum(false)
-    , mIsMomentum(false)
-    , mIsNoLineOrPageDelta(false)
-    , mViewPortIsOverscrolled(false)
-    , mCanTriggerSwipe(false)
-    , mAllowToOverrideSystemScrollSpeed(true)
-    , mDeltaValuesAdjustedForDefaultHandler(false)
+      : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, eWheelEventClass),
+        mDeltaX(0.0),
+        mDeltaY(0.0),
+        mDeltaZ(0.0),
+        mOverflowDeltaX(0.0),
+        mOverflowDeltaY(0.0),
+        mDeltaMode(nsIDOMWheelEvent::DOM_DELTA_PIXEL),
+        mLineOrPageDeltaX(0),
+        mLineOrPageDeltaY(0),
+        mScrollType(SCROLL_DEFAULT),
+        mCustomizedByUserPrefs(false),
+        mMayHaveMomentum(false),
+        mIsMomentum(false),
+        mIsNoLineOrPageDelta(false),
+        mViewPortIsOverscrolled(false),
+        mCanTriggerSwipe(false),
+        mAllowToOverrideSystemScrollSpeed(true),
+        mDeltaValuesAdjustedForDefaultHandler(false)
   {
   }
 
@@ -584,10 +580,11 @@ public:
     }
     if ((mLineOrPageDeltaX < 0 && mLineOrPageDeltaY > 0) ||
         (mLineOrPageDeltaX > 0 && mLineOrPageDeltaY < 0)) {
-      return 0; // We cannot guess the answer in this case.
+      return 0;  // We cannot guess the answer in this case.
     }
-    return (Abs(mLineOrPageDeltaX) > Abs(mLineOrPageDeltaY)) ?
-             mLineOrPageDeltaX : mLineOrPageDeltaY;
+    return (Abs(mLineOrPageDeltaX) > Abs(mLineOrPageDeltaY))
+               ? mLineOrPageDeltaX
+               : mLineOrPageDeltaY;
   }
 
   // Scroll type
@@ -657,9 +654,9 @@ public:
     mViewPortIsOverscrolled = aEvent.mViewPortIsOverscrolled;
     mCanTriggerSwipe = aEvent.mCanTriggerSwipe;
     mAllowToOverrideSystemScrollSpeed =
-      aEvent.mAllowToOverrideSystemScrollSpeed;
+        aEvent.mAllowToOverrideSystemScrollSpeed;
     mDeltaValuesAdjustedForDefaultHandler =
-      aEvent.mDeltaValuesAdjustedForDefaultHandler;
+        aEvent.mDeltaValuesAdjustedForDefaultHandler;
   }
 
   // System scroll speed settings may be too slow at using Gecko.  In such
@@ -676,7 +673,7 @@ public:
   // mAllowToOverrideSystemScrollSpeed.
   static double ComputeOverriddenDelta(double aDelta, bool aIsForVertical);
 
-private:
+ private:
   static bool sInitialized;
   static bool sIsSystemScrollSpeedOverrideEnabled;
   static int32_t sOverrideFactorX;
@@ -693,29 +690,21 @@ class WidgetPointerEvent : public WidgetMouseEvent
   friend class mozilla::dom::PBrowserParent;
   friend class mozilla::dom::PBrowserChild;
 
-  WidgetPointerEvent()
-    : mWidth(1)
-    , mHeight(1)
-    , mIsPrimary(true)
-  {
-  }
+  WidgetPointerEvent() : mWidth(1), mHeight(1), mIsPrimary(true) {}
 
-public:
+ public:
   virtual WidgetPointerEvent* AsPointerEvent() override { return this; }
 
   WidgetPointerEvent(bool aIsTrusted, EventMessage aMsg, nsIWidget* w)
-    : WidgetMouseEvent(aIsTrusted, aMsg, w, ePointerEventClass, eReal)
-    , mWidth(1)
-    , mHeight(1)
-    , mIsPrimary(true)
+      : WidgetMouseEvent(aIsTrusted, aMsg, w, ePointerEventClass, eReal),
+        mWidth(1),
+        mHeight(1),
+        mIsPrimary(true)
   {
   }
 
   explicit WidgetPointerEvent(const WidgetMouseEvent& aEvent)
-    : WidgetMouseEvent(aEvent)
-    , mWidth(1)
-    , mHeight(1)
-    , mIsPrimary(true)
+      : WidgetMouseEvent(aEvent), mWidth(1), mHeight(1), mIsPrimary(true)
   {
     mClass = ePointerEventClass;
   }
@@ -726,7 +715,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     WidgetPointerEvent* result =
-      new WidgetPointerEvent(false, mMessage, nullptr);
+        new WidgetPointerEvent(false, mMessage, nullptr);
     result->AssignPointerEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -748,6 +737,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_MouseEvents_h__
+#endif  // mozilla_MouseEvents_h__

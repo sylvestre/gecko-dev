@@ -15,10 +15,10 @@
 
 // Option flags for ReflowChild() and FinishReflowChild()
 // member functions
-#define NS_FRAME_NO_MOVE_VIEW         0x0001
-#define NS_FRAME_NO_MOVE_FRAME        (0x0002 | NS_FRAME_NO_MOVE_VIEW)
-#define NS_FRAME_NO_SIZE_VIEW         0x0004
-#define NS_FRAME_NO_VISIBILITY        0x0008
+#define NS_FRAME_NO_MOVE_VIEW 0x0001
+#define NS_FRAME_NO_MOVE_FRAME (0x0002 | NS_FRAME_NO_MOVE_VIEW)
+#define NS_FRAME_NO_SIZE_VIEW 0x0004
+#define NS_FRAME_NO_VISIBILITY 0x0008
 // Only applies to ReflowChild; if true, don't delete the next-in-flow, even
 // if the reflow is fully complete.
 #define NS_FRAME_NO_DELETE_NEXT_IN_FLOW_CHILD 0x0010
@@ -34,7 +34,7 @@ class nsOverflowContinuationTracker;
 // 10 million pixels, converted to app units. Note that this a bit larger
 // than 1/4 of nscoord_MAX. So, if any content gets to be this large, we're
 // definitely in danger of grazing up against nscoord_MAX; hence, it's CRAZY.
-#define CRAZY_COORD (10000000*60)
+#define CRAZY_COORD (10000000 * 60)
 #define CRAZY_SIZE(_x) (((_x) < -CRAZY_COORD) || ((_x) > CRAZY_COORD))
 #endif
 
@@ -43,37 +43,38 @@ class nsOverflowContinuationTracker;
  */
 class nsContainerFrame : public nsSplittableFrame
 {
-public:
+ public:
   NS_DECL_ABSTRACT_FRAME(nsContainerFrame)
   NS_DECL_QUERYFRAME_TARGET(nsContainerFrame)
   NS_DECL_QUERYFRAME
 
   // nsIFrame overrides
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
-  virtual nsContainerFrame* GetContentInsertionFrame() override
-  {
-    return this;
-  }
+                    nsIFrame* aPrevInFlow) override;
+  virtual nsContainerFrame* GetContentInsertionFrame() override { return this; }
 
   virtual const nsFrameList& GetChildList(ChildListID aList) const override;
   virtual void GetChildLists(nsTArray<ChildList>* aLists) const override;
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
   virtual void ChildIsDirty(nsIFrame* aChild) override;
 
-  virtual FrameSearchResult PeekOffsetNoAmount(bool aForward, int32_t* aOffset) override;
-  virtual FrameSearchResult
-  PeekOffsetCharacter(bool aForward, int32_t* aOffset,
-                      PeekOffsetCharacterOptions aOptions =
-                        PeekOffsetCharacterOptions()) override;
+  virtual FrameSearchResult PeekOffsetNoAmount(bool aForward,
+                                               int32_t* aOffset) override;
+  virtual FrameSearchResult PeekOffsetCharacter(
+      bool aForward,
+      int32_t* aOffset,
+      PeekOffsetCharacterOptions aOptions =
+          PeekOffsetCharacterOptions()) override;
 
-  virtual nsresult AttributeChanged(int32_t         aNameSpaceID,
-                                    nsAtom*        aAttribute,
-                                    int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
 #ifdef DEBUG_FRAME_DUMP
-  void List(FILE* out = stderr, const char* aPrefix = "", uint32_t aFlags = 0) const override;
+  void List(FILE* out = stderr,
+            const char* aPrefix = "",
+            uint32_t aFlags = 0) const override;
 #endif
 
   // nsContainerFrame methods
@@ -116,8 +117,8 @@ public:
    * @param   aFrameList list of child frames to insert <b>after</b> aPrevFrame.
    *            Each of the frames has its NS_FRAME_IS_DIRTY bit set
    */
-  virtual void InsertFrames(ChildListID  aListID,
-                            nsIFrame*    aPrevFrame,
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
                             nsFrameList& aFrameList);
 
   /**
@@ -151,7 +152,7 @@ public:
    * next-in-flows no longer map any real content.
    */
   virtual void DeleteNextInFlowChild(nsIFrame* aNextInFlow,
-                                     bool      aDeletingEmptyFrames);
+                                     bool aDeletingEmptyFrames);
 
   // Positions the frame's view based on the frame's origin
   static void PositionFrameView(nsIFrame* aKidFrame);
@@ -161,8 +162,8 @@ public:
                                     nsIFrame* aNewParentFrame);
 
   static nsresult ReparentFrameViewList(const nsFrameList& aChildFrameList,
-                                        nsIFrame*          aOldParentFrame,
-                                        nsIFrame*          aNewParentFrame);
+                                        nsIFrame* aOldParentFrame,
+                                        nsIFrame* aNewParentFrame);
 
   // Set the view's size and position after its frame has been reflowed.
   //
@@ -171,23 +172,24 @@ public:
   //    don't want to automatically sync the frame and view
   // NS_FRAME_NO_SIZE_VIEW - don't size the view
   static void SyncFrameViewAfterReflow(nsPresContext* aPresContext,
-                                       nsIFrame*       aFrame,
-                                       nsView*        aView,
-                                       const nsRect&   aVisualOverflowArea,
-                                       uint32_t        aFlags = 0);
+                                       nsIFrame* aFrame,
+                                       nsView* aView,
+                                       const nsRect& aVisualOverflowArea,
+                                       uint32_t aFlags = 0);
 
   // Syncs properties to the top level view and window, like transparency and
   // shadow.
   // The SET_ASYNC indicates that the actual nsIWidget calls to sync the window
   // properties should be done async.
-  enum {
+  enum
+  {
     SET_ASYNC = 0x01,
   };
-  static void SyncWindowProperties(nsPresContext*       aPresContext,
-                                   nsIFrame*            aFrame,
-                                   nsView*              aView,
-                                   gfxContext*          aRC,
-                                   uint32_t             aFlags);
+  static void SyncWindowProperties(nsPresContext* aPresContext,
+                                   nsIFrame* aFrame,
+                                   nsView* aView,
+                                   gfxContext* aRC,
+                                   uint32_t aFlags);
 
   /**
    * Converts the minimum and maximum sizes given in inner window app units to
@@ -204,23 +206,23 @@ public:
                                  const nsSize& aMaxSize);
 
   // Used by both nsInlineFrame and nsFirstLetterFrame.
-  void DoInlineIntrinsicISize(gfxContext *aRenderingContext,
-                              InlineIntrinsicISizeData *aData,
+  void DoInlineIntrinsicISize(gfxContext* aRenderingContext,
+                              InlineIntrinsicISizeData* aData,
                               nsLayoutUtils::IntrinsicISizeType aType);
 
   /**
    * This is the CSS block concept of computing 'auto' widths, which most
    * classes derived from nsContainerFrame want.
    */
-  virtual mozilla::LogicalSize
-  ComputeAutoSize(gfxContext*                 aRenderingContext,
-                  mozilla::WritingMode        aWM,
-                  const mozilla::LogicalSize& aCBSize,
-                  nscoord                     aAvailableISize,
-                  const mozilla::LogicalSize& aMargin,
-                  const mozilla::LogicalSize& aBorder,
-                  const mozilla::LogicalSize& aPadding,
-                  ComputeSizeFlags            aFlags) override;
+  virtual mozilla::LogicalSize ComputeAutoSize(
+      gfxContext* aRenderingContext,
+      mozilla::WritingMode aWM,
+      const mozilla::LogicalSize& aCBSize,
+      nscoord aAvailableISize,
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorder,
+      const mozilla::LogicalSize& aPadding,
+      ComputeSizeFlags aFlags) override;
 
   /**
    * Positions aChildFrame and its view (if requested), and then calls Reflow().
@@ -235,15 +237,15 @@ public:
    * NS_FRAME_NO_MOVE_FRAME - don't move the frame. aPos is ignored in this
    *    case. Also implies NS_FRAME_NO_MOVE_VIEW
    */
-  void ReflowChild(nsIFrame*                      aChildFrame,
-                   nsPresContext*                 aPresContext,
-                   ReflowOutput&           aDesiredSize,
-                   const ReflowInput&       aReflowInput,
-                   const mozilla::WritingMode&    aWM,
-                   const mozilla::LogicalPoint&   aPos,
-                   const nsSize&                  aContainerSize,
-                   uint32_t                       aFlags,
-                   nsReflowStatus&                aStatus,
+  void ReflowChild(nsIFrame* aChildFrame,
+                   nsPresContext* aPresContext,
+                   ReflowOutput& aDesiredSize,
+                   const ReflowInput& aReflowInput,
+                   const mozilla::WritingMode& aWM,
+                   const mozilla::LogicalPoint& aPos,
+                   const nsSize& aContainerSize,
+                   uint32_t aFlags,
+                   nsReflowStatus& aStatus,
                    nsOverflowContinuationTracker* aTracker = nullptr);
 
   /**
@@ -265,35 +267,35 @@ public:
    *    don't want to automatically sync the frame and view
    * NS_FRAME_NO_SIZE_VIEW - don't size the frame's view
    */
-  static void FinishReflowChild(nsIFrame*                    aKidFrame,
-                                nsPresContext*               aPresContext,
-                                const ReflowOutput&   aDesiredSize,
-                                const ReflowInput*     aReflowInput,
-                                const mozilla::WritingMode&  aWM,
+  static void FinishReflowChild(nsIFrame* aKidFrame,
+                                nsPresContext* aPresContext,
+                                const ReflowOutput& aDesiredSize,
+                                const ReflowInput* aReflowInput,
+                                const mozilla::WritingMode& aWM,
                                 const mozilla::LogicalPoint& aPos,
-                                const nsSize&                aContainerSize,
-                                uint32_t                     aFlags);
+                                const nsSize& aContainerSize,
+                                uint32_t aFlags);
 
   //XXX temporary: hold on to a copy of the old physical versions of
   //    ReflowChild and FinishReflowChild so that we can convert callers
   //    incrementally.
-  void ReflowChild(nsIFrame*                      aKidFrame,
-                   nsPresContext*                 aPresContext,
-                   ReflowOutput&           aDesiredSize,
-                   const ReflowInput&       aReflowInput,
-                   nscoord                        aX,
-                   nscoord                        aY,
-                   uint32_t                       aFlags,
-                   nsReflowStatus&                aStatus,
+  void ReflowChild(nsIFrame* aKidFrame,
+                   nsPresContext* aPresContext,
+                   ReflowOutput& aDesiredSize,
+                   const ReflowInput& aReflowInput,
+                   nscoord aX,
+                   nscoord aY,
+                   uint32_t aFlags,
+                   nsReflowStatus& aStatus,
                    nsOverflowContinuationTracker* aTracker = nullptr);
 
-  static void FinishReflowChild(nsIFrame*                  aKidFrame,
-                                nsPresContext*             aPresContext,
+  static void FinishReflowChild(nsIFrame* aKidFrame,
+                                nsPresContext* aPresContext,
                                 const ReflowOutput& aDesiredSize,
-                                const ReflowInput*   aReflowInput,
-                                nscoord                    aX,
-                                nscoord                    aY,
-                                uint32_t                   aFlags);
+                                const ReflowInput* aReflowInput,
+                                nscoord aX,
+                                nscoord aY,
+                                uint32_t aFlags);
 
   static void PositionChildViews(nsIFrame* aFrame);
 
@@ -336,7 +338,8 @@ public:
 
   friend class nsOverflowContinuationTracker;
 
-  typedef void (*ChildFrameMerger)(nsFrameList& aDest, nsFrameList& aSrc,
+  typedef void (*ChildFrameMerger)(nsFrameList& aDest,
+                                   nsFrameList& aSrc,
                                    nsContainerFrame* aParent);
   static inline void DefaultChildFrameMerge(nsFrameList& aDest,
                                             nsFrameList& aSrc,
@@ -370,13 +373,13 @@ public:
    * @param aFlags is passed through to ReflowChild
    * @param aMergeFunc is passed to DrainExcessOverflowContainersList
    */
-  void ReflowOverflowContainerChildren(nsPresContext*           aPresContext,
-                                       const ReflowInput& aReflowInput,
-                                       nsOverflowAreas&         aOverflowRects,
-                                       uint32_t                 aFlags,
-                                       nsReflowStatus&          aStatus,
-                                       ChildFrameMerger aMergeFunc =
-                                         DefaultChildFrameMerge);
+  void ReflowOverflowContainerChildren(
+      nsPresContext* aPresContext,
+      const ReflowInput& aReflowInput,
+      nsOverflowAreas& aOverflowRects,
+      uint32_t aFlags,
+      nsReflowStatus& aStatus,
+      ChildFrameMerger aMergeFunc = DefaultChildFrameMerge);
 
   /**
    * Move any frames on our overflow list to the end of our principal list.
@@ -384,15 +387,14 @@ public:
    */
   virtual bool DrainSelfOverflowList() override;
 
-
   /**
    * Move all frames on our prev-in-flow's and our own ExcessOverflowContainers
    * lists to our OverflowContainers list.  If there are frames on multiple
    * lists they are merged using aMergeFunc.
    * @return a pointer to our OverflowContainers list, if any
    */
-  nsFrameList* DrainExcessOverflowContainersList(ChildFrameMerger aMergeFunc =
-                                                   DefaultChildFrameMerge);
+  nsFrameList* DrainExcessOverflowContainersList(
+      ChildFrameMerger aMergeFunc = DefaultChildFrameMerge);
 
   /**
    * Removes aChild without destroying it and without requesting reflow.
@@ -418,7 +420,7 @@ public:
   /**
    * Add overflow containers to the display list
    */
-  void DisplayOverflowContainers(nsDisplayListBuilder*   aBuilder,
+  void DisplayOverflowContainers(nsDisplayListBuilder* aBuilder,
                                  const nsDisplayListSet& aLists);
 
   /**
@@ -430,7 +432,7 @@ public:
    * probably be avoided and eventually removed. It's currently here
    * to emulate what nsContainerFrame::Paint did.
    */
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   static void PlaceFrameView(nsIFrame* aFrame)
@@ -508,8 +510,7 @@ public:
    *                     would like to align the child frame.
    */
   virtual uint16_t CSSAlignmentForAbsPosChild(
-                     const ReflowInput& aChildRI,
-                     mozilla::LogicalAxis aLogicalAxis) const;
+      const ReflowInput& aChildRI, mozilla::LogicalAxis aLogicalAxis) const;
 
 #define NS_DECLARE_FRAME_PROPERTY_FRAMELIST(prop) \
   NS_DECLARE_FRAME_PROPERTY_WITH_DTOR_NEVER_CALLED(prop, nsFrameList)
@@ -525,28 +526,24 @@ public:
   // have arbitrary nsContainerFrames.
   NS_DECLARE_FRAME_PROPERTY_WITHOUT_DTOR(FirstLetterProperty, nsIFrame)
 
-  void SetHasFirstLetterChild()
-  {
-    mHasFirstLetterChild = true;
-  }
+  void SetHasFirstLetterChild() { mHasFirstLetterChild = true; }
 
-  void ClearHasFirstLetterChild()
-  {
-    mHasFirstLetterChild = false;
-  }
+  void ClearHasFirstLetterChild() { mHasFirstLetterChild = false; }
 
 #ifdef DEBUG
   // Use this to suppress the CRAZY_SIZE assertions.
   NS_DECLARE_FRAME_PROPERTY_SMALL_VALUE(DebugReflowingWithInfiniteISize, bool)
-  bool IsCrazySizeAssertSuppressed() const {
+  bool IsCrazySizeAssertSuppressed() const
+  {
     return GetProperty(DebugReflowingWithInfiniteISize());
   }
 #endif
 
-protected:
+ protected:
   nsContainerFrame(nsStyleContext* aContext, ClassID aID)
-    : nsSplittableFrame(aContext, aID)
-  {}
+      : nsSplittableFrame(aContext, aID)
+  {
+  }
 
   ~nsContainerFrame();
 
@@ -572,20 +569,20 @@ protected:
    * so its background and all other display items (except for positioned
    * display items) go into the Content() list.
    */
-  void BuildDisplayListForNonBlockChildren(nsDisplayListBuilder*   aBuilder,
+  void BuildDisplayListForNonBlockChildren(nsDisplayListBuilder* aBuilder,
                                            const nsDisplayListSet& aLists,
-                                           uint32_t                aFlags = 0);
+                                           uint32_t aFlags = 0);
 
   /**
    * A version of BuildDisplayList that use DISPLAY_CHILD_INLINE.
    * Intended as a convenience for derived classes.
    */
-  void BuildDisplayListForInline(nsDisplayListBuilder*   aBuilder,
-                                 const nsDisplayListSet& aLists) {
+  void BuildDisplayListForInline(nsDisplayListBuilder* aBuilder,
+                                 const nsDisplayListSet& aLists)
+  {
     DisplayBorderBackgroundOutline(aBuilder, aLists);
     BuildDisplayListForNonBlockChildren(aBuilder, aLists, DISPLAY_CHILD_INLINE);
   }
-
 
   // ==========================================================================
   /* Overflow Frames are frames that did not fit and must be pulled by
@@ -683,8 +680,9 @@ protected:
   {
     nsContainerFrame* mNextInFlow;
     explicit ContinuationTraversingState(nsContainerFrame* aFrame)
-      : mNextInFlow(static_cast<nsContainerFrame*>(aFrame->GetNextInFlow()))
-    { }
+        : mNextInFlow(static_cast<nsContainerFrame*>(aFrame->GetNextInFlow()))
+    {
+    }
   };
 
   /**
@@ -754,9 +752,9 @@ protected:
  */
 
 #define IS_TRUE_OVERFLOW_CONTAINER(frame)                      \
-  (  (frame->GetStateBits() & NS_FRAME_IS_OVERFLOW_CONTAINER)  \
-  && !( (frame->GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&      \
-        frame->IsAbsolutelyPositioned()  )  )
+  ((frame->GetStateBits() & NS_FRAME_IS_OVERFLOW_CONTAINER) && \
+   !((frame->GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&         \
+     frame->IsAbsolutelyPositioned()))
 //XXXfr This check isn't quite correct, because it doesn't handle cases
 //      where the out-of-flow has overflow.. but that's rare.
 //      We'll need to revisit the way abspos continuations are handled later
@@ -785,8 +783,9 @@ protected:
  *     be skipped if the child did not previously have an overflow
  *     continuation.
  */
-class nsOverflowContinuationTracker {
-public:
+class nsOverflowContinuationTracker
+{
+ public:
   /**
    * Initializes an nsOverflowContinuationTracker to help track overflow
    * continuations of aFrame's children. Typically invoked on 'this'.
@@ -800,8 +799,8 @@ public:
    * if aSkipOverflowContainerChildren is false.
    */
   nsOverflowContinuationTracker(nsContainerFrame* aFrame,
-                                bool              aWalkOOFFrames,
-                                bool              aSkipOverflowContainerChildren = true);
+                                bool aWalkOOFFrames,
+                                bool aSkipOverflowContainerChildren = true);
   /**
    * This function adds an overflow continuation to our running list and
    * sets its NS_FRAME_IS_OVERFLOW_CONTAINER flag.
@@ -821,8 +820,7 @@ public:
    * child list if it is already an NS_FRAME_IS_OVERFLOW_CONTAINER.
    * (In this case we will disconnect and reconnect it ourselves.)
    */
-  nsresult Insert(nsIFrame*       aOverflowCont,
-                  nsReflowStatus& aReflowStatus);
+  nsresult Insert(nsIFrame* aOverflowCont, nsReflowStatus& aReflowStatus);
   /**
    * Begin/EndFinish() must be called for each child that is reflowed
    * but no longer has an overflow continuation. (It may be called for
@@ -836,10 +834,11 @@ public:
    *   ... DeleteNextInFlowChild/StealFrame(kidNextInFlow) here ...
    * }
    */
-  class MOZ_RAII AutoFinish {
-  public:
+  class MOZ_RAII AutoFinish
+  {
+   public:
     AutoFinish(nsOverflowContinuationTracker* aTracker, nsIFrame* aChild)
-      : mTracker(aTracker), mChild(aChild)
+        : mTracker(aTracker), mChild(aChild)
     {
       if (mTracker) mTracker->BeginFinish(mChild);
     }
@@ -847,7 +846,8 @@ public:
     {
       if (mTracker) mTracker->EndFinish(mChild);
     }
-  private:
+
+   private:
     nsOverflowContinuationTracker* mTracker;
     nsIFrame* mChild;
   };
@@ -872,8 +872,7 @@ public:
     }
   }
 
-private:
-
+ private:
   /**
    * @see class AutoFinish
    */
@@ -911,8 +910,7 @@ private:
   bool mWalkOOFFrames;
 };
 
-inline
-nsFrameList*
+inline nsFrameList*
 nsContainerFrame::GetOverflowFrames() const
 {
   nsFrameList* list = GetProperty(OverflowProperty());
@@ -920,8 +918,7 @@ nsContainerFrame::GetOverflowFrames() const
   return list;
 }
 
-inline
-nsFrameList*
+inline nsFrameList*
 nsContainerFrame::StealOverflowFrames()
 {
   nsFrameList* list = RemoveProperty(OverflowProperty());

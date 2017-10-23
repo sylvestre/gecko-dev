@@ -9,7 +9,8 @@
 namespace mozilla {
 
 // A block of memory that the stack will chop up and hand out.
-struct StackBlock {
+struct StackBlock
+{
   // Subtract sizeof(StackBlock*) to give space for the |mNext| field.
   static const size_t MAX_USABLE_SIZE = 4096 - sizeof(StackBlock*);
 
@@ -20,15 +21,16 @@ struct StackBlock {
   // overflowed.
   StackBlock* mNext;
 
-  StackBlock() : mNext(nullptr) { }
-  ~StackBlock() { }
+  StackBlock() : mNext(nullptr) {}
+  ~StackBlock() {}
 };
 
 static_assert(sizeof(StackBlock) == 4096, "StackBlock must be 4096 bytes");
 
 // We hold an array of marks. A push pushes a mark on the stack.
 // A pop pops it off.
-struct StackMark {
+struct StackMark
+{
   // The block of memory from which we are currently handing out chunks.
   StackBlock* mBlock;
 
@@ -54,7 +56,7 @@ StackArena::StackArena()
 StackArena::~StackArena()
 {
   // Free up our data.
-  delete [] mMarks;
+  delete[] mMarks;
   while (mBlocks) {
     StackBlock* toDelete = mBlocks;
     mBlocks = mBlocks->mNext;
@@ -66,7 +68,7 @@ size_t
 StackArena::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
 {
   size_t n = 0;
-  StackBlock *block = mBlocks;
+  StackBlock* block = mBlocks;
   while (block) {
     n += aMallocSizeOf(block);
     block = block->mNext;
@@ -88,7 +90,7 @@ StackArena::Push()
     StackMark* newMarks = new StackMark[newLength];
     if (newMarks) {
       if (mMarkLength) {
-        memcpy(newMarks, mMarks, sizeof(StackMark)*mMarkLength);
+        memcpy(newMarks, mMarks, sizeof(StackMark) * mMarkLength);
       }
       // Fill in any marks that we couldn't allocate during a prior call
       // to Push().
@@ -97,7 +99,7 @@ StackArena::Push()
         newMarks[mMarkLength].mBlock = mCurBlock;
         newMarks[mMarkLength].mPos = mPos;
       }
-      delete [] mMarks;
+      delete[] mMarks;
       mMarks = newMarks;
       mMarkLength = newLength;
     }
@@ -134,7 +136,7 @@ StackArena::Allocate(size_t aSize)
   }
 
   // Return the chunk they need.
-  void *result = mCurBlock->mBlock + mPos;
+  void* result = mCurBlock->mBlock + mPos;
   mPos += aSize;
 
   return result;
@@ -173,7 +175,7 @@ StackArena::Pop()
 #endif
 
   mCurBlock = mMarks[mStackTop].mBlock;
-  mPos      = mMarks[mStackTop].mPos;
+  mPos = mMarks[mStackTop].mPos;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

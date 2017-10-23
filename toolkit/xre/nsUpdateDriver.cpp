@@ -35,15 +35,15 @@
 #endif
 
 #if defined(XP_WIN)
-# include <direct.h>
-# include <process.h>
-# include <windows.h>
-# include <shlwapi.h>
-# define getcwd(path, size) _getcwd(path, size)
-# define getpid() GetCurrentProcessId()
+#include <direct.h>
+#include <process.h>
+#include <windows.h>
+#include <shlwapi.h>
+#define getcwd(path, size) _getcwd(path, size)
+#define getpid() GetCurrentProcessId()
 #elif defined(XP_UNIX)
-# include <unistd.h>
-# include <sys/wait.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #endif
 
 using namespace mozilla;
@@ -82,16 +82,18 @@ UpdateDriverSetupMacCommandLine(int& argc, char**& argv, bool restart)
   // monitor to signal us when that happens, and block until then.
   Monitor monitor("nsUpdateDriver SetupMacCommandLine");
 
-  nsresult rv = NS_DispatchToMainThread(
-    NS_NewRunnableFunction("UpdateDriverSetupMacCommandLine",
-                           [&argc, &argv, restart, &monitor]() -> void
-    {
-      CommandLineServiceMac::SetupMacCommandLine(argc, argv, restart);
-      MonitorAutoLock(monitor).Notify();
-    }));
+  nsresult rv = NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "UpdateDriverSetupMacCommandLine",
+      [&argc, &argv, restart, &monitor]() -> void {
+        CommandLineServiceMac::SetupMacCommandLine(argc, argv, restart);
+        MonitorAutoLock(monitor).Notify();
+      }));
 
   if (NS_FAILED(rv)) {
-    LOG(("Update driver error dispatching SetupMacCommandLine to main thread: %d\n", rv));
+    LOG(
+        ("Update driver error dispatching SetupMacCommandLine to main thread: "
+         "%d\n",
+         rv));
     return;
   }
 
@@ -105,20 +107,18 @@ UpdateDriverSetupMacCommandLine(int& argc, char**& argv, bool restart)
 #endif
 
 static nsresult
-GetCurrentWorkingDir(char *buf, size_t size)
+GetCurrentWorkingDir(char* buf, size_t size)
 {
-  // Cannot use NS_GetSpecialDirectory because XPCOM is not yet initialized.
-  // This code is duplicated from xpcom/io/SpecialSystemDirectory.cpp:
+// Cannot use NS_GetSpecialDirectory because XPCOM is not yet initialized.
+// This code is duplicated from xpcom/io/SpecialSystemDirectory.cpp:
 
 #if defined(XP_WIN)
   wchar_t wpath[MAX_PATH];
-  if (!_wgetcwd(wpath, size))
-    return NS_ERROR_FAILURE;
+  if (!_wgetcwd(wpath, size)) return NS_ERROR_FAILURE;
   NS_ConvertUTF16toUTF8 path(wpath);
   strncpy(buf, path.get(), size);
 #else
-  if(!getcwd(buf, size))
-    return NS_ERROR_FAILURE;
+  if (!getcwd(buf, size)) return NS_ERROR_FAILURE;
 #endif
   return NS_OK;
 }
@@ -131,7 +131,7 @@ GetCurrentWorkingDir(char *buf, size_t size)
  * @param installDirPath the path to the installation directory
  */
 static nsresult
-GetInstallDirPath(nsIFile *appDir, nsACString& installDirPath)
+GetInstallDirPath(nsIFile* appDir, nsACString& installDirPath)
 {
   nsresult rv;
 #ifdef XP_MACOSX
@@ -168,19 +168,17 @@ GetFile(nsIFile* dir, const nsACString& name, nsCOMPtr<nsIFile>& result)
 
   nsCOMPtr<nsIFile> file;
   rv = dir->Clone(getter_AddRefs(file));
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
 
   rv = file->AppendNative(name);
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
 
   result = do_QueryInterface(file, &rv);
   return NS_SUCCEEDED(rv);
 }
 
 static bool
-GetStatusFile(nsIFile *dir, nsCOMPtr<nsIFile> &result)
+GetStatusFile(nsIFile* dir, nsCOMPtr<nsIFile>& result)
 {
   return GetFile(dir, NS_LITERAL_CSTRING("update.status"), result);
 }
@@ -193,16 +191,17 @@ GetStatusFile(nsIFile *dir, nsCOMPtr<nsIFile> &result)
  *
  * @return true if successful, false otherwise.
  */
-template <size_t Size>
+template<size_t Size>
 static bool
-GetStatusFileContents(nsIFile *statusFile, char (&buf)[Size])
+GetStatusFileContents(nsIFile* statusFile, char (&buf)[Size])
 {
-  static_assert(Size > 16, "Buffer needs to be large enough to hold the known status codes");
+  static_assert(
+      Size > 16,
+      "Buffer needs to be large enough to hold the known status codes");
 
-  PRFileDesc *fd = nullptr;
+  PRFileDesc* fd = nullptr;
   nsresult rv = statusFile->OpenNSPRFileDesc(PR_RDONLY, 0660, &fd);
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
 
   const int32_t n = PR_Read(fd, buf, Size);
   PR_Close(fd);
@@ -228,7 +227,7 @@ typedef enum {
  * @return the update action to be performed.
  */
 static UpdateStatus
-GetUpdateStatus(nsIFile* dir, nsCOMPtr<nsIFile> &statusFile)
+GetUpdateStatus(nsIFile* dir, nsCOMPtr<nsIFile>& statusFile)
 {
   if (GetStatusFile(dir, statusFile)) {
     char buf[32];
@@ -259,7 +258,7 @@ GetUpdateStatus(nsIFile* dir, nsCOMPtr<nsIFile> &statusFile)
 }
 
 static bool
-GetVersionFile(nsIFile *dir, nsCOMPtr<nsIFile> &result)
+GetVersionFile(nsIFile* dir, nsCOMPtr<nsIFile>& result)
 {
   return GetFile(dir, NS_LITERAL_CSTRING("update.version"), result);
 }
@@ -267,75 +266,71 @@ GetVersionFile(nsIFile *dir, nsCOMPtr<nsIFile> &result)
 // Compares the current application version with the update's application
 // version.
 static bool
-IsOlderVersion(nsIFile *versionFile, const char *appVersion)
+IsOlderVersion(nsIFile* versionFile, const char* appVersion)
 {
-  PRFileDesc *fd = nullptr;
+  PRFileDesc* fd = nullptr;
   nsresult rv = versionFile->OpenNSPRFileDesc(PR_RDONLY, 0660, &fd);
-  if (NS_FAILED(rv))
-    return true;
+  if (NS_FAILED(rv)) return true;
 
   char buf[32];
   const int32_t n = PR_Read(fd, buf, sizeof(buf));
   PR_Close(fd);
 
-  if (n < 0)
-    return false;
+  if (n < 0) return false;
 
   // Trim off the trailing newline
-  if (buf[n - 1] == '\n')
-    buf[n - 1] = '\0';
+  if (buf[n - 1] == '\n') buf[n - 1] = '\0';
 
   // If the update xml doesn't provide the application version the file will
   // contain the string "null" and it is assumed that the update is not older.
   const char kNull[] = "null";
-  if (strncmp(buf, kNull, sizeof(kNull) - 1) == 0)
-    return false;
+  if (strncmp(buf, kNull, sizeof(kNull) - 1) == 0) return false;
 
-  if (mozilla::Version(appVersion) > buf)
-    return true;
+  if (mozilla::Version(appVersion) > buf) return true;
 
   return false;
 }
 
 static bool
-CopyFileIntoUpdateDir(nsIFile *parentDir, const nsACString& leaf, nsIFile *updateDir)
+CopyFileIntoUpdateDir(nsIFile* parentDir,
+                      const nsACString& leaf,
+                      nsIFile* updateDir)
 {
   nsCOMPtr<nsIFile> file;
 
   // Make sure there is not an existing file in the target location.
   nsresult rv = updateDir->Clone(getter_AddRefs(file));
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
   rv = file->AppendNative(leaf);
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
   file->Remove(true);
 
   // Now, copy into the target location.
   rv = parentDir->Clone(getter_AddRefs(file));
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
   rv = file->AppendNative(leaf);
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
   rv = file->CopyToNative(updateDir, EmptyCString());
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
 
   return true;
 }
 
 static bool
-CopyUpdaterIntoUpdateDir(nsIFile *greDir, nsIFile *appDir, nsIFile *updateDir,
-                         nsCOMPtr<nsIFile> &updater)
+CopyUpdaterIntoUpdateDir(nsIFile* greDir,
+                         nsIFile* appDir,
+                         nsIFile* updateDir,
+                         nsCOMPtr<nsIFile>& updater)
 {
-  // Copy the updater application from the GRE and the updater ini from the app.
+// Copy the updater application from the GRE and the updater ini from the app.
 #if defined(XP_MACOSX)
-  if (!CopyFileIntoUpdateDir(appDir, NS_LITERAL_CSTRING(UPDATER_APP), updateDir))
+  if (!CopyFileIntoUpdateDir(
+          appDir, NS_LITERAL_CSTRING(UPDATER_APP), updateDir))
     return false;
   CopyFileIntoUpdateDir(greDir, NS_LITERAL_CSTRING(UPDATER_INI), updateDir);
 #else
-  if (!CopyFileIntoUpdateDir(greDir, NS_LITERAL_CSTRING(UPDATER_BIN), updateDir))
+  if (!CopyFileIntoUpdateDir(
+          greDir, NS_LITERAL_CSTRING(UPDATER_BIN), updateDir))
     return false;
   CopyFileIntoUpdateDir(appDir, NS_LITERAL_CSTRING(UPDATER_INI), updateDir);
 #endif
@@ -343,22 +338,21 @@ CopyUpdaterIntoUpdateDir(nsIFile *greDir, nsIFile *appDir, nsIFile *updateDir,
   nsCOMPtr<nsIFile> iconDir;
   appDir->Clone(getter_AddRefs(iconDir));
   iconDir->AppendNative(NS_LITERAL_CSTRING("icons"));
-  if (!CopyFileIntoUpdateDir(iconDir, NS_LITERAL_CSTRING(UPDATER_PNG), updateDir))
+  if (!CopyFileIntoUpdateDir(
+          iconDir, NS_LITERAL_CSTRING(UPDATER_PNG), updateDir))
     return false;
 #endif
   // Finally, return the location of the updater binary.
   nsresult rv = updateDir->Clone(getter_AddRefs(updater));
-  if (NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(rv)) return false;
 #if defined(XP_MACOSX)
-  rv  = updater->AppendNative(NS_LITERAL_CSTRING(UPDATER_APP));
+  rv = updater->AppendNative(NS_LITERAL_CSTRING(UPDATER_APP));
   nsresult tmp = updater->AppendNative(NS_LITERAL_CSTRING("Contents"));
   if (NS_FAILED(tmp)) {
     rv = tmp;
   }
   tmp = updater->AppendNative(NS_LITERAL_CSTRING("MacOS"));
-  if (NS_FAILED(tmp) || NS_FAILED(rv))
-    return false;
+  if (NS_FAILED(tmp) || NS_FAILED(rv)) return false;
 #endif
   rv = updater->AppendNative(NS_LITERAL_CSTRING(UPDATER_BIN));
   return NS_SUCCEEDED(rv);
@@ -375,17 +369,21 @@ CopyUpdaterIntoUpdateDir(nsIFile *greDir, nsIFile *appDir, nsIFile *updateDir,
 #define PATH_SEPARATOR ":"
 #define LD_LIBRARY_PATH_ENVVAR_NAME "LD_LIBRARY_PATH"
 static void
-AppendToLibPath(const char *pathToAppend)
+AppendToLibPath(const char* pathToAppend)
 {
-  char *pathValue = getenv(LD_LIBRARY_PATH_ENVVAR_NAME);
+  char* pathValue = getenv(LD_LIBRARY_PATH_ENVVAR_NAME);
   if (nullptr == pathValue || '\0' == *pathValue) {
     // Leak the string because that is required by PR_SetEnv.
-    char *s = Smprintf("%s=%s", LD_LIBRARY_PATH_ENVVAR_NAME, pathToAppend).release();
+    char* s =
+        Smprintf("%s=%s", LD_LIBRARY_PATH_ENVVAR_NAME, pathToAppend).release();
     PR_SetEnv(s);
   } else if (!strstr(pathValue, pathToAppend)) {
     // Leak the string because that is required by PR_SetEnv.
-    char *s = Smprintf("%s=%s" PATH_SEPARATOR "%s",
-                       LD_LIBRARY_PATH_ENVVAR_NAME, pathToAppend, pathValue).release();
+    char* s = Smprintf("%s=%s" PATH_SEPARATOR "%s",
+                       LD_LIBRARY_PATH_ENVVAR_NAME,
+                       pathToAppend,
+                       pathValue)
+                  .release();
     PR_SetEnv(s);
   }
 }
@@ -406,8 +404,14 @@ AppendToLibPath(const char *pathToAppend)
  *                     when staging updates
  */
 static void
-ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
-            char **appArgv, bool restart, bool isStaged, ProcessType *outpid)
+ApplyUpdate(nsIFile* greDir,
+            nsIFile* updateDir,
+            nsIFile* appDir,
+            int appArgc,
+            char** appArgv,
+            bool restart,
+            bool isStaged,
+            ProcessType* outpid)
 {
   // The following determines the update operation to perform.
   // 1. When restart is false the update will be staged.
@@ -490,7 +494,7 @@ ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
   // Get the path to the update dir.
   rv = updateDir->GetNativePath(updateDirPath);
   if (NS_FAILED(rv)) {
-     return;
+    return;
   }
 #endif
 
@@ -541,7 +545,7 @@ ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
     // The install directory is the same as the apply to directory.
     applyToDirPath.Assign(installDirPath);
   } else {
-    // Get the directory where the update is staged or will be staged.
+  // Get the directory where the update is staged or will be staged.
 #if defined(XP_MACOSX)
     if (!GetFile(updateDir, NS_LITERAL_CSTRING("Updated.app"), updatedDir)) {
 #else
@@ -561,7 +565,7 @@ ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
 #endif
   }
   if (NS_FAILED(rv)) {
-     return;
+    return;
   }
 
   if (restart && isStaged) {
@@ -591,7 +595,7 @@ ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
     // which is ignored by the updater.
     pid.AssignASCII("0");
 #else
-    pid.AppendInt((int32_t) getpid());
+    pid.AppendInt((int32_t)getpid());
 #endif
     if (isStaged) {
       // Append a special token to the PID in order to inform the updater that
@@ -607,18 +611,18 @@ ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
   if (restart) {
     argc = appArgc + 6;
   }
-  char **argv = new char*[argc + 1];
+  char** argv = new char*[argc + 1];
   if (!argv) {
     return;
   }
-  argv[0] = (char*) updaterPath.get();
-  argv[1] = (char*) updateDirPath.get();
-  argv[2] = (char*) installDirPath.get();
-  argv[3] = (char*) applyToDirPath.get();
-  argv[4] = (char*) pid.get();
+  argv[0] = (char*)updaterPath.get();
+  argv[1] = (char*)updateDirPath.get();
+  argv[2] = (char*)installDirPath.get();
+  argv[3] = (char*)applyToDirPath.get();
+  argv[4] = (char*)pid.get();
   if (restart && appArgc) {
     argv[5] = workingDirPath;
-    argv[6] = (char*) appFilePath.get();
+    argv[6] = (char*)appFilePath.get();
     for (int i = 1; i < appArgc; ++i) {
       argv[6 + i] = appArgv[i];
     }
@@ -665,36 +669,36 @@ ApplyUpdate(nsIFile *greDir, nsIFile *updateDir, nsIFile *appDir, int appArgc,
     }
   }
 #elif defined(XP_MACOSX)
-  UpdateDriverSetupMacCommandLine(argc, argv, restart);
-  // We need to detect whether elevation is required for this update. This can
-  // occur when an admin user installs the application, but another admin
-  // user attempts to update (see bug 394984).
-  if (restart && !IsRecursivelyWritable(installDirPath.get())) {
-    if (!LaunchElevatedUpdate(argc, argv, outpid)) {
-      LOG(("Failed to launch elevated update!"));
-      exit(1);
-    }
-    exit(0);
+UpdateDriverSetupMacCommandLine(argc, argv, restart);
+// We need to detect whether elevation is required for this update. This can
+// occur when an admin user installs the application, but another admin
+// user attempts to update (see bug 394984).
+if (restart && !IsRecursivelyWritable(installDirPath.get())) {
+  if (!LaunchElevatedUpdate(argc, argv, outpid)) {
+    LOG(("Failed to launch elevated update!"));
+    exit(1);
   }
+  exit(0);
+}
 
-  if (isStaged) {
-    // Launch the updater to replace the installation with the staged updated.
-    LaunchChildMac(argc, argv);
-  } else {
-    // Launch the updater to either stage or apply an update.
-    LaunchChildMac(argc, argv, outpid);
-  }
-  if (restart) {
-    exit(0);
-  }
+if (isStaged) {
+  // Launch the updater to replace the installation with the staged updated.
+  LaunchChildMac(argc, argv);
+} else {
+  // Launch the updater to either stage or apply an update.
+  LaunchChildMac(argc, argv, outpid);
+}
+if (restart) {
+  exit(0);
+}
 #else
-  if (isStaged) {
-    // Launch the updater to replace the installation with the staged updated.
-    PR_CreateProcessDetached(updaterPath.get(), argv, nullptr, nullptr);
-  } else {
-    // Launch the updater to either stage or apply an update.
-    *outpid = PR_CreateProcess(updaterPath.get(), argv, nullptr, nullptr);
-  }
+if (isStaged) {
+  // Launch the updater to replace the installation with the staged updated.
+  PR_CreateProcessDetached(updaterPath.get(), argv, nullptr, nullptr);
+} else {
+  // Launch the updater to either stage or apply an update.
+  *outpid = PR_CreateProcess(updaterPath.get(), argv, nullptr, nullptr);
+}
 #endif
 #if !defined(USE_EXECV)
   if (restart) {
@@ -750,9 +754,14 @@ ProcessHasTerminated(ProcessType pt)
 }
 
 nsresult
-ProcessUpdates(nsIFile *greDir, nsIFile *appDir, nsIFile *updRootDir,
-               int argc, char **argv, const char *appVersion,
-               bool restart, ProcessType *pid)
+ProcessUpdates(nsIFile* greDir,
+               nsIFile* appDir,
+               nsIFile* updRootDir,
+               int argc,
+               char** argv,
+               const char* appVersion,
+               bool restart,
+               ProcessType* pid)
 {
   nsresult rv;
 
@@ -785,51 +794,44 @@ ProcessUpdates(nsIFile *greDir, nsIFile *appDir, nsIFile *updRootDir,
   nsCOMPtr<nsIFile> statusFile;
   UpdateStatus status = GetUpdateStatus(updatesDir, statusFile);
   switch (status) {
-  case ePendingElevate: {
-    if (NS_IsMainThread()) {
-      // Only do this if we're called from the main thread.
-      nsCOMPtr<nsIUpdatePrompt> up =
-        do_GetService("@mozilla.org/updates/update-prompt;1");
-      if (up) {
-        up->ShowUpdateElevationRequired();
+    case ePendingElevate: {
+      if (NS_IsMainThread()) {
+        // Only do this if we're called from the main thread.
+        nsCOMPtr<nsIUpdatePrompt> up =
+            do_GetService("@mozilla.org/updates/update-prompt;1");
+        if (up) {
+          up->ShowUpdateElevationRequired();
+        }
+        break;
       }
+      // Intentional fallthrough to ePendingUpdate and ePendingService.
+      MOZ_FALLTHROUGH;
+    }
+    case ePendingUpdate:
+    case ePendingService: {
+      ApplyUpdate(greDir, updatesDir, appDir, argc, argv, restart, false, pid);
       break;
     }
-    // Intentional fallthrough to ePendingUpdate and ePendingService.
-    MOZ_FALLTHROUGH;
-  }
-  case ePendingUpdate:
-  case ePendingService: {
-    ApplyUpdate(greDir, updatesDir, appDir, argc, argv, restart, false, pid);
-    break;
-  }
-  case eAppliedUpdate:
-  case eAppliedService:
-    // An update was staged and needs to be switched so the updated application
-    // is used.
-    ApplyUpdate(greDir, updatesDir, appDir, argc, argv, restart, true, pid);
-    break;
-  case eNoUpdateAction:
-    // We don't need to do any special processing here, we'll just continue to
-    // startup the application.
-    break;
+    case eAppliedUpdate:
+    case eAppliedService:
+      // An update was staged and needs to be switched so the updated application
+      // is used.
+      ApplyUpdate(greDir, updatesDir, appDir, argc, argv, restart, true, pid);
+      break;
+    case eNoUpdateAction:
+      // We don't need to do any special processing here, we'll just continue to
+      // startup the application.
+      break;
   }
 
   return NS_OK;
 }
 
-
-
 NS_IMPL_ISUPPORTS(nsUpdateProcessor, nsIUpdateProcessor)
 
-nsUpdateProcessor::nsUpdateProcessor()
-  : mUpdaterPID(0)
-{
-}
+nsUpdateProcessor::nsUpdateProcessor() : mUpdaterPID(0) {}
 
-nsUpdateProcessor::~nsUpdateProcessor()
-{
-}
+nsUpdateProcessor::~nsUpdateProcessor() {}
 
 NS_IMETHODIMP
 nsUpdateProcessor::ProcessUpdate(nsIUpdate* aUpdate)
@@ -837,12 +839,12 @@ nsUpdateProcessor::ProcessUpdate(nsIUpdate* aUpdate)
   nsresult rv;
 
   nsCOMPtr<nsIProperties> ds =
-    do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> exeFile;
-  rv = ds->Get(XRE_EXECUTABLE_FILE, NS_GET_IID(nsIFile),
-               getter_AddRefs(exeFile));
+  rv = ds->Get(
+      XRE_EXECUTABLE_FILE, NS_GET_IID(nsIFile), getter_AddRefs(exeFile));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> appDir;
@@ -854,8 +856,8 @@ nsUpdateProcessor::ProcessUpdate(nsIUpdate* aUpdate)
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> updRoot;
-  rv = ds->Get(XRE_UPDATE_ROOT_DIR, NS_GET_IID(nsIFile),
-               getter_AddRefs(updRoot));
+  rv = ds->Get(
+      XRE_UPDATE_ROOT_DIR, NS_GET_IID(nsIFile), getter_AddRefs(updRoot));
   NS_ASSERTION(NS_SUCCEEDED(rv), "Can't get the UpdRootD dir");
 
   // XRE_UPDATE_ROOT_DIR should not fail but if it does fallback to the
@@ -866,7 +868,7 @@ nsUpdateProcessor::ProcessUpdate(nsIUpdate* aUpdate)
   }
 
   nsCOMPtr<nsIXULAppInfo> appInfo =
-    do_GetService("@mozilla.org/xre/app-info;1", &rv);
+      do_GetService("@mozilla.org/xre/app-info;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString appVersion;
@@ -884,14 +886,12 @@ nsUpdateProcessor::ProcessUpdate(nsIUpdate* aUpdate)
 
   MOZ_ASSERT(NS_IsMainThread(), "not main thread");
   nsCOMPtr<nsIRunnable> r =
-    NewRunnableMethod("nsUpdateProcessor::StartStagedUpdate",
-                      this,
-                      &nsUpdateProcessor::StartStagedUpdate);
-  return NS_NewNamedThread("Update Watcher", getter_AddRefs(mProcessWatcher),
-                           r);
+      NewRunnableMethod("nsUpdateProcessor::StartStagedUpdate",
+                        this,
+                        &nsUpdateProcessor::StartStagedUpdate);
+  return NS_NewNamedThread(
+      "Update Watcher", getter_AddRefs(mProcessWatcher), r);
 }
-
-
 
 void
 nsUpdateProcessor::StartStagedUpdate()
@@ -911,18 +911,18 @@ nsUpdateProcessor::StartStagedUpdate()
   if (mUpdaterPID) {
     // Track the state of the updater process while it is staging an update.
     rv = NS_DispatchToCurrentThread(
-      NewRunnableMethod("nsUpdateProcessor::WaitForProcess",
-                        this,
-                        &nsUpdateProcessor::WaitForProcess));
+        NewRunnableMethod("nsUpdateProcessor::WaitForProcess",
+                          this,
+                          &nsUpdateProcessor::WaitForProcess));
     NS_ENSURE_SUCCESS_VOID(rv);
   } else {
     // Failed to launch the updater process for some reason.
     // We need to shutdown the current thread as there isn't anything more for
     // us to do...
     rv = NS_DispatchToMainThread(
-      NewRunnableMethod("nsUpdateProcessor::ShutdownWatcherThread",
-                        this,
-                        &nsUpdateProcessor::ShutdownWatcherThread));
+        NewRunnableMethod("nsUpdateProcessor::ShutdownWatcherThread",
+                          this,
+                          &nsUpdateProcessor::ShutdownWatcherThread));
     NS_ENSURE_SUCCESS_VOID(rv);
   }
 }
@@ -941,12 +941,12 @@ nsUpdateProcessor::WaitForProcess()
   MOZ_ASSERT(!NS_IsMainThread(), "main thread");
   if (ProcessHasTerminated(mUpdaterPID)) {
     NS_DispatchToMainThread(NewRunnableMethod(
-      "nsUpdateProcessor::UpdateDone", this, &nsUpdateProcessor::UpdateDone));
+        "nsUpdateProcessor::UpdateDone", this, &nsUpdateProcessor::UpdateDone));
   } else {
     NS_DispatchToCurrentThread(
-      NewRunnableMethod("nsUpdateProcessor::WaitForProcess",
-                        this,
-                        &nsUpdateProcessor::WaitForProcess));
+        NewRunnableMethod("nsUpdateProcessor::WaitForProcess",
+                          this,
+                          &nsUpdateProcessor::WaitForProcess));
   }
 }
 
@@ -956,7 +956,7 @@ nsUpdateProcessor::UpdateDone()
   MOZ_ASSERT(NS_IsMainThread(), "not main thread");
 
   nsCOMPtr<nsIUpdateManager> um =
-    do_GetService("@mozilla.org/updates/update-manager;1");
+      do_GetService("@mozilla.org/updates/update-manager;1");
   if (um) {
     um->RefreshUpdateStatus();
   }

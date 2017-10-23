@@ -38,7 +38,7 @@ namespace hal {
  */
 class WindowIdentifier
 {
-public:
+ public:
   /**
    * Create an empty WindowIdentifier.  Calls to any of this object's
    * public methods will assert -- an empty WindowIdentifier may be
@@ -94,7 +94,7 @@ public:
    */
   nsPIDOMWindowInner* GetWindow() const;
 
-private:
+ private:
   /**
    * Get the ID of the window object we wrap.
    */
@@ -105,7 +105,7 @@ private:
   bool mIsEmpty;
 };
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
-#endif // mozilla_hal_WindowIdentifier_h
+#endif  // mozilla_hal_WindowIdentifier_h

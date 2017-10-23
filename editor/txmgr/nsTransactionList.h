@@ -20,19 +20,19 @@ class nsTransactionStack;
  */
 class nsTransactionList : public nsITransactionList
 {
-private:
-
-  nsWeakPtr                   mTxnMgr;
-  nsTransactionStack         *mTxnStack;
+ private:
+  nsWeakPtr mTxnMgr;
+  nsTransactionStack* mTxnStack;
   RefPtr<nsTransactionItem> mTxnItem;
 
-protected:
+ protected:
   virtual ~nsTransactionList();
 
-public:
-
-  nsTransactionList(nsITransactionManager *aTxnMgr, nsTransactionStack *aTxnStack);
-  nsTransactionList(nsITransactionManager *aTxnMgr, nsTransactionItem *aTxnItem);
+ public:
+  nsTransactionList(nsITransactionManager* aTxnMgr,
+                    nsTransactionStack* aTxnStack);
+  nsTransactionList(nsITransactionManager* aTxnMgr,
+                    nsTransactionItem* aTxnItem);
 
   /* Macro for AddRef(), Release(), and QueryInterface() */
   NS_DECL_ISUPPORTS
@@ -43,4 +43,4 @@ public:
   /* nsTransactionList specific methods. */
 };
 
-#endif // nsTransactionList_h__
+#endif  // nsTransactionList_h__

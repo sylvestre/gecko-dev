@@ -16,25 +16,20 @@ ChildTimer::ChildTimer(PluginInstanceChild* instance,
                        uint32_t interval,
                        bool repeat,
                        TimerFunc func)
-  : mInstance(instance)
-  , mFunc(func)
-  , mRepeating(repeat)
-  , mID(gNextTimerID++)
+    : mInstance(instance), mFunc(func), mRepeating(repeat), mID(gNextTimerID++)
 {
-  mTimer.Start(base::TimeDelta::FromMilliseconds(interval),
-               this, &ChildTimer::Run);
+  mTimer.Start(
+      base::TimeDelta::FromMilliseconds(interval), this, &ChildTimer::Run);
 }
 
-uint32_t
-ChildTimer::gNextTimerID = 1;
+uint32_t ChildTimer::gNextTimerID = 1;
 
 void
 ChildTimer::Run()
 {
-  if (!mRepeating)
-    mTimer.Stop();
+  if (!mRepeating) mTimer.Stop();
   mFunc(mInstance->GetNPP(), mID);
 }
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla

@@ -11,14 +11,9 @@
 #include "nsMemory.h"
 #include "nsPIDOMWindow.h"
 
-nsCommandHandler::nsCommandHandler()
-  : mWindow(nullptr)
-{
-}
+nsCommandHandler::nsCommandHandler() : mWindow(nullptr) {}
 
-nsCommandHandler::~nsCommandHandler()
-{
-}
+nsCommandHandler::~nsCommandHandler() {}
 
 nsresult
 nsCommandHandler::GetCommandHandler(nsICommandHandler** aCommandHandler)
@@ -33,7 +28,7 @@ nsCommandHandler::GetCommandHandler(nsICommandHandler** aCommandHandler)
   // Get the document tree owner
 
   nsCOMPtr<nsIDocShellTreeItem> docShellAsTreeItem =
-    do_QueryInterface(mWindow->GetDocShell());
+      do_QueryInterface(mWindow->GetDocShell());
   nsIDocShellTreeOwner* treeOwner = nullptr;
   docShellAsTreeItem->GetTreeOwner(&treeOwner);
 
@@ -93,7 +88,8 @@ nsCommandHandler::SetWindow(mozIDOMWindowProxy* aWindow)
 // nsICommandHandler implementation
 
 NS_IMETHODIMP
-nsCommandHandler::Exec(const char* aCommand, const char* aStatus,
+nsCommandHandler::Exec(const char* aCommand,
+                       const char* aStatus,
                        char** aResult)
 {
   NS_ENSURE_ARG_POINTER(aCommand);
@@ -115,7 +111,8 @@ nsCommandHandler::Exec(const char* aCommand, const char* aStatus,
 }
 
 NS_IMETHODIMP
-nsCommandHandler::Query(const char* aCommand, const char* aStatus,
+nsCommandHandler::Query(const char* aCommand,
+                        const char* aStatus,
                         char** aResult)
 {
   NS_ENSURE_ARG_POINTER(aCommand);

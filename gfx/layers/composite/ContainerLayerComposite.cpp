@@ -4,49 +4,54 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ContainerLayerComposite.h"
-#include <algorithm>                    // for min
+#include <algorithm>                         // for min
 #include "apz/src/AsyncPanZoomController.h"  // for AsyncPanZoomController
-#include "FrameMetrics.h"               // for FrameMetrics
-#include "Units.h"                      // for LayerRect, LayerPixel, etc
-#include "CompositableHost.h"           // for CompositableHost
-#include "gfxEnv.h"                     // for gfxEnv
-#include "gfxPrefs.h"                   // for gfxPrefs
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/RefPtr.h"             // for RefPtr
-#include "mozilla/UniquePtr.h"          // for UniquePtr
-#include "mozilla/gfx/BaseRect.h"       // for BaseRect
-#include "mozilla/gfx/Matrix.h"         // for Matrix4x4
-#include "mozilla/gfx/Point.h"          // for Point, IntPoint
-#include "mozilla/gfx/Rect.h"           // for IntRect, Rect
-#include "mozilla/layers/Compositor.h"  // for Compositor, etc
+#include "FrameMetrics.h"                    // for FrameMetrics
+#include "Units.h"                           // for LayerRect, LayerPixel, etc
+#include "CompositableHost.h"                // for CompositableHost
+#include "gfxEnv.h"                          // for gfxEnv
+#include "gfxPrefs.h"                        // for gfxPrefs
+#include "mozilla/Assertions.h"              // for MOZ_ASSERT, etc
+#include "mozilla/RefPtr.h"                  // for RefPtr
+#include "mozilla/UniquePtr.h"               // for UniquePtr
+#include "mozilla/gfx/BaseRect.h"            // for BaseRect
+#include "mozilla/gfx/Matrix.h"              // for Matrix4x4
+#include "mozilla/gfx/Point.h"               // for Point, IntPoint
+#include "mozilla/gfx/Rect.h"                // for IntRect, Rect
+#include "mozilla/layers/Compositor.h"       // for Compositor, etc
 #include "mozilla/layers/CompositorTypes.h"  // for DiagnosticFlags::CONTAINER
-#include "mozilla/layers/Effects.h"     // for Effect, EffectChain, etc
-#include "mozilla/layers/TextureHost.h"  // for CompositingRenderTarget
-#include "mozilla/layers/AsyncCompositionManager.h" // for ViewTransform
-#include "mozilla/layers/LayerMetricsWrapper.h" // for LayerMetricsWrapper
-#include "mozilla/mozalloc.h"           // for operator delete, etc
-#include "mozilla/RefPtr.h"                   // for nsRefPtr
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsISupportsUtils.h"           // for NS_ADDREF, NS_RELEASE
-#include "nsRegion.h"                   // for nsIntRegion
-#include "nsTArray.h"                   // for AutoTArray
+#include "mozilla/layers/Effects.h"          // for Effect, EffectChain, etc
+#include "mozilla/layers/TextureHost.h"      // for CompositingRenderTarget
+#include "mozilla/layers/AsyncCompositionManager.h"  // for ViewTransform
+#include "mozilla/layers/LayerMetricsWrapper.h"      // for LayerMetricsWrapper
+#include "mozilla/mozalloc.h"                        // for operator delete, etc
+#include "mozilla/RefPtr.h"                          // for nsRefPtr
+#include "nsDebug.h"                                 // for NS_ASSERTION
+#include "nsISupportsImpl.h"                         // for MOZ_COUNT_CTOR, etc
+#include "nsISupportsUtils.h"  // for NS_ADDREF, NS_RELEASE
+#include "nsRegion.h"          // for nsIntRegion
+#include "nsTArray.h"          // for AutoTArray
 #include <stack>
-#include "TextRenderer.h"               // for TextRenderer
+#include "TextRenderer.h"  // for TextRenderer
 #include <vector>
-#include "GeckoProfiler.h"              // for GeckoProfiler
+#include "GeckoProfiler.h"  // for GeckoProfiler
 
 #ifdef MOZ_GECKO_PROFILER
-#include "ProfilerMarkerPayload.h"      // for LayerTranslationMarkerPayload
+#include "ProfilerMarkerPayload.h"  // for LayerTranslationMarkerPayload
 #endif
 
 #define CULLING_LOG(...)
 // #define CULLING_LOG(...) printf_stderr("CULLING: " __VA_ARGS__)
 
-#define DUMP(...) do { if (gfxEnv::DumpDebug()) { printf_stderr(__VA_ARGS__); } } while(0)
-#define XYWH(k)  (k).x, (k).y, (k).Width(), (k).Height()
-#define XY(k)    (k).x, (k).y
-#define WH(k)    (k).Width(), (k).Height()
+#define DUMP(...)                 \
+  do {                            \
+    if (gfxEnv::DumpDebug()) {    \
+      printf_stderr(__VA_ARGS__); \
+    }                             \
+  } while (0)
+#define XYWH(k) (k).x, (k).y, (k).Width(), (k).Height()
+#define XY(k) (k).x, (k).y
+#define WH(k) (k).Width(), (k).Height()
 
 namespace mozilla {
 namespace layers {
@@ -70,15 +75,16 @@ DrawLayerInfo(const RenderTargetIntRect& aClipRect,
 
   LayerIntRegion visibleRegion = aLayer->GetVisibleRegion();
 
-  uint32_t maxWidth = std::min<uint32_t>(visibleRegion.GetBounds().Width(), 500);
+  uint32_t maxWidth =
+      std::min<uint32_t>(visibleRegion.GetBounds().Width(), 500);
 
   IntPoint topLeft = visibleRegion.ToUnknownRegion().GetBounds().TopLeft();
-  aManager->GetTextRenderer()->RenderText(
-    aManager->GetCompositor(),
-    ss.str().c_str(),
-    topLeft,
-    aLayer->GetEffectiveTransform(), 16,
-    maxWidth);
+  aManager->GetTextRenderer()->RenderText(aManager->GetCompositor(),
+                                          ss.str().c_str(),
+                                          topLeft,
+                                          aLayer->GetEffectiveTransform(),
+                                          16,
+                                          maxWidth);
 }
 
 static void
@@ -101,10 +107,9 @@ PrintUniformityInfo(Layer* aLayer)
   }
 
   Point translation = transform.As2D().GetTranslation();
-  profiler_add_marker(
-    "LayerTranslation",
-    MakeUnique<LayerTranslationMarkerPayload>(aLayer, translation,
-                                              TimeStamp::Now()));
+  profiler_add_marker("LayerTranslation",
+                      MakeUnique<LayerTranslationMarkerPayload>(
+                          aLayer, translation, TimeStamp::Now()));
 #endif
 }
 
@@ -123,7 +128,7 @@ SelectLayerGeometry(const Maybe<gfx::Polygon>& aParentGeometry,
   }
 
   // The child layer was split.
-  if(aChildGeometry) {
+  if (aChildGeometry) {
     return aChildGeometry;
   }
 
@@ -154,22 +159,24 @@ TransformLayerGeometry(Layer* aLayer, Maybe<gfx::Polygon>& aGeometry)
   }
 }
 
-
 template<class ContainerT>
-static gfx::IntRect ContainerVisibleRect(ContainerT* aContainer)
+static gfx::IntRect
+ContainerVisibleRect(ContainerT* aContainer)
 {
-  gfx::IntRect surfaceRect = aContainer->GetLocalVisibleRegion().ToUnknownRegion().GetBounds();
+  gfx::IntRect surfaceRect =
+      aContainer->GetLocalVisibleRegion().ToUnknownRegion().GetBounds();
   return surfaceRect;
 }
-
 
 /* all of the per-layer prepared data we need to maintain */
 struct PreparedLayer
 {
-  PreparedLayer(Layer *aLayer,
+  PreparedLayer(Layer* aLayer,
                 RenderTargetIntRect aClipRect,
                 Maybe<gfx::Polygon>&& aGeometry)
-  : mLayer(aLayer), mClipRect(aClipRect), mGeometry(Move(aGeometry)) {}
+      : mLayer(aLayer), mClipRect(aClipRect), mGeometry(Move(aGeometry))
+  {
+  }
 
   RefPtr<Layer> mLayer;
   RenderTargetIntRect mClipRect;
@@ -185,7 +192,8 @@ struct PreparedData
 };
 
 // ContainerPrepare is shared between RefLayer and ContainerLayer
-template<class ContainerT> void
+template<class ContainerT>
+void
 ContainerPrepare(ContainerT* aContainer,
                  LayerManagerComposite* aManager,
                  const RenderTargetIntRect& aClipRect)
@@ -200,19 +208,19 @@ ContainerPrepare(ContainerT* aContainer,
   aContainer->mPrepared->mNeedsSurfaceCopy = false;
 
   const ContainerLayerComposite::SortMode sortMode =
-    aManager->GetCompositor()->SupportsLayerGeometry()
-    ? ContainerLayerComposite::SortMode::WITH_GEOMETRY
-    : ContainerLayerComposite::SortMode::WITHOUT_GEOMETRY;
+      aManager->GetCompositor()->SupportsLayerGeometry()
+          ? ContainerLayerComposite::SortMode::WITH_GEOMETRY
+          : ContainerLayerComposite::SortMode::WITHOUT_GEOMETRY;
 
   nsTArray<LayerPolygon> polygons =
-    aContainer->SortChildrenBy3DZOrder(sortMode);
+      aContainer->SortChildrenBy3DZOrder(sortMode);
 
   for (LayerPolygon& layer : polygons) {
     LayerComposite* layerToRender =
-      static_cast<LayerComposite*>(layer.layer->ImplData());
+        static_cast<LayerComposite*>(layer.layer->ImplData());
 
     RenderTargetIntRect clipRect =
-      layerToRender->GetLayer()->CalculateScissorRect(aClipRect);
+        layerToRender->GetLayer()->CalculateScissorRect(aClipRect);
 
     if (layerToRender->GetLayer()->IsBackfaceHidden()) {
       continue;
@@ -222,12 +230,14 @@ ContainerPrepare(ContainerT* aContainer,
     // may be null which is not allowed.
     if (!layerToRender->GetLayer()->AsContainerLayer()) {
       if (!layerToRender->GetLayer()->IsVisible()) {
-        CULLING_LOG("Sublayer %p has no effective visible region\n", layerToRender->GetLayer());
+        CULLING_LOG("Sublayer %p has no effective visible region\n",
+                    layerToRender->GetLayer());
         continue;
       }
 
       if (clipRect.IsEmpty()) {
-        CULLING_LOG("Sublayer %p has an empty world clip rect\n", layerToRender->GetLayer());
+        CULLING_LOG("Sublayer %p has an empty world clip rect\n",
+                    layerToRender->GetLayer());
         continue;
       }
     }
@@ -235,9 +245,8 @@ ContainerPrepare(ContainerT* aContainer,
     CULLING_LOG("Preparing sublayer %p\n", layerToRender->GetLayer());
 
     layerToRender->Prepare(clipRect);
-    aContainer->mPrepared->mLayers.AppendElement(PreparedLayer(layerToRender->GetLayer(),
-                                                               clipRect,
-                                                               Move(layer.geometry)));
+    aContainer->mPrepared->mLayers.AppendElement(PreparedLayer(
+        layerToRender->GetLayer(), clipRect, Move(layer.geometry)));
   }
 
   CULLING_LOG("Preparing container layer %p\n", aContainer->GetLayer());
@@ -258,8 +267,10 @@ ContainerPrepare(ContainerT* aContainer,
     if (!surfaceCopyNeeded) {
       RefPtr<CompositingRenderTarget> surface = nullptr;
 
-      RefPtr<CompositingRenderTarget>& lastSurf = aContainer->mLastIntermediateSurface;
-      if (lastSurf && !aContainer->mChildrenChanged && lastSurf->GetRect().IsEqualEdges(surfaceRect)) {
+      RefPtr<CompositingRenderTarget>& lastSurf =
+          aContainer->mLastIntermediateSurface;
+      if (lastSurf && !aContainer->mChildrenChanged &&
+          lastSurf->GetRect().IsEqualEdges(surfaceRect)) {
         surface = lastSurf;
       }
 
@@ -268,14 +279,21 @@ ContainerPrepare(ContainerT* aContainer,
         // unecessary render target switching. This brings a big perf boost on mobile gpus.
         surface = CreateOrRecycleTarget(aContainer, aManager);
 
-        MOZ_PERFORMANCE_WARNING("gfx", "[%p] Container layer requires intermediate surface rendering\n", aContainer);
-        RenderIntermediate(aContainer, aManager, aClipRect.ToUnknownRect(), surface);
+        MOZ_PERFORMANCE_WARNING(
+            "gfx",
+            "[%p] Container layer requires intermediate surface rendering\n",
+            aContainer);
+        RenderIntermediate(
+            aContainer, aManager, aClipRect.ToUnknownRect(), surface);
         aContainer->SetChildrenChanged(false);
       }
 
       aContainer->mPrepared->mTmpTarget = surface;
     } else {
-      MOZ_PERFORMANCE_WARNING("gfx", "[%p] Container layer requires intermediate surface copy\n", aContainer);
+      MOZ_PERFORMANCE_WARNING(
+          "gfx",
+          "[%p] Container layer requires intermediate surface copy\n",
+          aContainer);
       aContainer->mPrepared->mNeedsSurfaceCopy = true;
       aContainer->mLastIntermediateSurface = nullptr;
     }
@@ -284,9 +302,12 @@ ContainerPrepare(ContainerT* aContainer,
   }
 }
 
-template<class ContainerT> void
-RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
-                   const RenderTargetIntRect& aClipRect, Layer* aLayer)
+template<class ContainerT>
+void
+RenderMinimap(ContainerT* aContainer,
+              LayerManagerComposite* aManager,
+              const RenderTargetIntRect& aClipRect,
+              Layer* aLayer)
 {
   Compositor* compositor = aManager->GetCompositor();
 
@@ -299,7 +320,8 @@ RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
     return;
   }
 
-  ParentLayerPoint scrollOffset = controller->GetCurrentAsyncScrollOffset(AsyncPanZoomController::eForCompositing);
+  ParentLayerPoint scrollOffset = controller->GetCurrentAsyncScrollOffset(
+      AsyncPanZoomController::eForCompositing);
 
   // Options
   const int verticalPadding = 10;
@@ -317,11 +339,14 @@ RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
   const FrameMetrics& fm = aLayer->GetFrameMetrics(0);
   ParentLayerRect compositionBounds = fm.GetCompositionBounds();
   LayerRect scrollRect = fm.GetScrollableRect() * fm.LayersPixelsPerCSSPixel();
-  LayerRect viewRect = ParentLayerRect(scrollOffset, compositionBounds.Size()) / LayerToParentLayerScale(1);
-  LayerRect dp = (fm.GetDisplayPort() + fm.GetScrollOffset()) * fm.LayersPixelsPerCSSPixel();
+  LayerRect viewRect = ParentLayerRect(scrollOffset, compositionBounds.Size()) /
+                       LayerToParentLayerScale(1);
+  LayerRect dp = (fm.GetDisplayPort() + fm.GetScrollOffset()) *
+                 fm.LayersPixelsPerCSSPixel();
   Maybe<LayerRect> cdp;
   if (!fm.GetCriticalDisplayPort().IsEmpty()) {
-    cdp = Some((fm.GetCriticalDisplayPort() + fm.GetScrollOffset()) * fm.LayersPixelsPerCSSPixel());
+    cdp = Some((fm.GetCriticalDisplayPort() + fm.GetScrollOffset()) *
+               fm.LayersPixelsPerCSSPixel());
   }
 
   // Don't render trivial minimap. They can show up from textboxes and other tiny frames.
@@ -341,7 +366,8 @@ RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
     dest = aContainer->GetEffectiveTransform().Inverse().TransformBounds(dest);
   }
   dest = dest.Intersect(compositionBounds.ToUnknownRect());
-  scaleFactorX = std::min(100.f, dest.width - (2 * horizontalPadding)) / scrollRect.width;
+  scaleFactorX =
+      std::min(100.f, dest.width - (2 * horizontalPadding)) / scrollRect.width;
   scaleFactorY = (dest.height - (2 * verticalPadding)) / scrollRect.height;
   scaleFactor = std::min(scaleFactorX, scaleFactorY);
   if (scaleFactor <= 0) {
@@ -349,15 +375,25 @@ RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
   }
 
   Matrix4x4 transform = Matrix4x4::Scaling(scaleFactor, scaleFactor, 1);
-  transform.PostTranslate(horizontalPadding + dest.x, verticalPadding + dest.y, 0);
+  transform.PostTranslate(
+      horizontalPadding + dest.x, verticalPadding + dest.y, 0);
 
-  Rect transformedScrollRect = transform.TransformBounds(scrollRect.ToUnknownRect());
+  Rect transformedScrollRect =
+      transform.TransformBounds(scrollRect.ToUnknownRect());
 
-  IntRect clipRect = RoundedOut(aContainer->GetEffectiveTransform().TransformBounds(transformedScrollRect));
+  IntRect clipRect =
+      RoundedOut(aContainer->GetEffectiveTransform().TransformBounds(
+          transformedScrollRect));
 
   // Render the scrollable area.
-  compositor->FillRect(transformedScrollRect, backgroundColor, clipRect, aContainer->GetEffectiveTransform());
-  compositor->SlowDrawRect(transformedScrollRect, pageBorderColor, clipRect, aContainer->GetEffectiveTransform());
+  compositor->FillRect(transformedScrollRect,
+                       backgroundColor,
+                       clipRect,
+                       aContainer->GetEffectiveTransform());
+  compositor->SlowDrawRect(transformedScrollRect,
+                           pageBorderColor,
+                           clipRect,
+                           aContainer->GetEffectiveTransform());
 
   // If enabled, render information about visibility.
   if (gfxPrefs::APZMinimapVisibilityEnabled()) {
@@ -378,33 +414,41 @@ RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
     // Iterate through and draw the rects in the region.
     for (CSSIntRegion::RectIterator iterator = visibleRegion->RectIter();
          !iterator.Done();
-         iterator.Next())
-    {
+         iterator.Next()) {
       CSSIntRect rect = iterator.Get();
       LayerRect scaledRect = rect * fm.LayersPixelsPerCSSPixel();
       Rect r = transform.TransformBounds(scaledRect.ToUnknownRect());
-      compositor->FillRect(r, visibilityColor, clipRect, aContainer->GetEffectiveTransform());
+      compositor->FillRect(
+          r, visibilityColor, clipRect, aContainer->GetEffectiveTransform());
     }
   }
 
   // Render the displayport.
   Rect r = transform.TransformBounds(dp.ToUnknownRect());
-  compositor->FillRect(r, tileActiveColor, clipRect, aContainer->GetEffectiveTransform());
-  compositor->SlowDrawRect(r, displayPortColor, clipRect, aContainer->GetEffectiveTransform());
+  compositor->FillRect(
+      r, tileActiveColor, clipRect, aContainer->GetEffectiveTransform());
+  compositor->SlowDrawRect(
+      r, displayPortColor, clipRect, aContainer->GetEffectiveTransform());
 
   // Render the critical displayport if there is one
   if (cdp) {
     r = transform.TransformBounds(cdp->ToUnknownRect());
-    compositor->SlowDrawRect(r, criticalDisplayPortColor, clipRect, aContainer->GetEffectiveTransform());
+    compositor->SlowDrawRect(r,
+                             criticalDisplayPortColor,
+                             clipRect,
+                             aContainer->GetEffectiveTransform());
   }
 
   // Render the viewport.
   r = transform.TransformBounds(viewRect.ToUnknownRect());
-  compositor->SlowDrawRect(r, viewPortColor, clipRect, aContainer->GetEffectiveTransform(), 2);
+  compositor->SlowDrawRect(
+      r, viewPortColor, clipRect, aContainer->GetEffectiveTransform(), 2);
 }
 
-template<class ContainerT> void
-RenderLayers(ContainerT* aContainer, LayerManagerComposite* aManager,
+template<class ContainerT>
+void
+RenderLayers(ContainerT* aContainer,
+             LayerManagerComposite* aManager,
              const RenderTargetIntRect& aClipRect,
              const Maybe<gfx::Polygon>& aGeometry)
 {
@@ -414,7 +458,8 @@ RenderLayers(ContainerT* aContainer, LayerManagerComposite* aManager,
     PreparedLayer& preparedData = aContainer->mPrepared->mLayers[i];
 
     const gfx::IntRect clipRect = preparedData.mClipRect.ToUnknownRect();
-    LayerComposite* layerToRender = static_cast<LayerComposite*>(preparedData.mLayer->ImplData());
+    LayerComposite* layerToRender =
+        static_cast<LayerComposite*>(preparedData.mLayer->ImplData());
     const Maybe<gfx::Polygon>& childGeometry = preparedData.mGeometry;
 
     Layer* layer = layerToRender->GetLayer();
@@ -439,7 +484,8 @@ RenderLayers(ContainerT* aContainer, LayerManagerComposite* aManager,
       gfx::IntRect clearRect = layerToRender->GetClearRect();
       if (!clearRect.IsEmpty()) {
         // Clear layer's visible rect on FrameBuffer with transparent pixels
-        gfx::Rect fbRect(clearRect.x, clearRect.y, clearRect.Width(), clearRect.Height());
+        gfx::Rect fbRect(
+            clearRect.x, clearRect.y, clearRect.Width(), clearRect.Height());
         compositor->ClearRect(fbRect);
         layerToRender->SetClearRect(gfx::IntRect(0, 0, 0, 0));
       }
@@ -447,13 +493,14 @@ RenderLayers(ContainerT* aContainer, LayerManagerComposite* aManager,
       // Since we force an intermediate surface for nested 3D contexts,
       // aGeometry and childGeometry are both in the same coordinate space.
       Maybe<gfx::Polygon> geometry =
-        SelectLayerGeometry(aGeometry, childGeometry);
+          SelectLayerGeometry(aGeometry, childGeometry);
 
       // If we are dealing with a nested 3D context, we might need to transform
       // the geometry back to the coordinate space of the current layer before
       // rendering the layer.
       ContainerLayer* container = layer->AsContainerLayer();
-      const bool isLeafLayer = !container || container->UseIntermediateSurface();
+      const bool isLeafLayer =
+          !container || container->UseIntermediateSurface();
 
       if (geometry && isLeafLayer) {
         TransformLayerGeometry(layer, geometry);
@@ -482,15 +529,19 @@ RenderLayers(ContainerT* aContainer, LayerManagerComposite* aManager,
       if (layer->GetFrameMetrics(i - 1).IsScrollable()) {
         // Since the composition bounds are in the parent layer's coordinates,
         // use the parent's effective transform rather than the layer's own.
-        ParentLayerRect compositionBounds = layer->GetFrameMetrics(i - 1).GetCompositionBounds();
-        aManager->GetCompositor()->DrawDiagnostics(DiagnosticFlags::CONTAINER,
-                                                   compositionBounds.ToUnknownRect(),
-                                                   aClipRect.ToUnknownRect(),
-                                                   asyncTransform * aContainer->GetEffectiveTransform());
-        if (AsyncPanZoomController* apzc = layer->GetAsyncPanZoomController(i - 1)) {
-          asyncTransform =
-              apzc->GetCurrentAsyncTransformWithOverscroll(AsyncPanZoomController::eForCompositing).ToUnknownMatrix()
-            * asyncTransform;
+        ParentLayerRect compositionBounds =
+            layer->GetFrameMetrics(i - 1).GetCompositionBounds();
+        aManager->GetCompositor()->DrawDiagnostics(
+            DiagnosticFlags::CONTAINER,
+            compositionBounds.ToUnknownRect(),
+            aClipRect.ToUnknownRect(),
+            asyncTransform * aContainer->GetEffectiveTransform());
+        if (AsyncPanZoomController* apzc =
+                layer->GetAsyncPanZoomController(i - 1)) {
+          asyncTransform = apzc->GetCurrentAsyncTransformWithOverscroll(
+                                   AsyncPanZoomController::eForCompositing)
+                               .ToUnknownMatrix() *
+                           asyncTransform;
         }
       }
     }
@@ -504,20 +555,20 @@ RenderLayers(ContainerT* aContainer, LayerManagerComposite* aManager,
   }
 }
 
-template<class ContainerT> RefPtr<CompositingRenderTarget>
-CreateOrRecycleTarget(ContainerT* aContainer,
-                      LayerManagerComposite* aManager)
+template<class ContainerT>
+RefPtr<CompositingRenderTarget>
+CreateOrRecycleTarget(ContainerT* aContainer, LayerManagerComposite* aManager)
 {
   Compositor* compositor = aManager->GetCompositor();
   SurfaceInitMode mode = INIT_MODE_CLEAR;
   gfx::IntRect surfaceRect = ContainerVisibleRect(aContainer);
   if (aContainer->GetLocalVisibleRegion().GetNumRects() == 1 &&
-      (aContainer->GetContentFlags() & Layer::CONTENT_OPAQUE))
-  {
+      (aContainer->GetContentFlags() & Layer::CONTENT_OPAQUE)) {
     mode = INIT_MODE_NONE;
   }
 
-  RefPtr<CompositingRenderTarget>& lastSurf = aContainer->mLastIntermediateSurface;
+  RefPtr<CompositingRenderTarget>& lastSurf =
+      aContainer->mLastIntermediateSurface;
   if (lastSurf && lastSurf->GetRect().IsEqualEdges(surfaceRect)) {
     if (mode == INIT_MODE_CLEAR) {
       lastSurf->ClearOnBind();
@@ -531,36 +582,43 @@ CreateOrRecycleTarget(ContainerT* aContainer,
   }
 }
 
-template<class ContainerT> RefPtr<CompositingRenderTarget>
+template<class ContainerT>
+RefPtr<CompositingRenderTarget>
 CreateTemporaryTargetAndCopyFromBackground(ContainerT* aContainer,
                                            LayerManagerComposite* aManager)
 {
   Compositor* compositor = aManager->GetCompositor();
-  gfx::IntRect visibleRect = aContainer->GetLocalVisibleRegion().ToUnknownRegion().GetBounds();
-  RefPtr<CompositingRenderTarget> previousTarget = compositor->GetCurrentRenderTarget();
-  gfx::IntRect surfaceRect = gfx::IntRect(visibleRect.x, visibleRect.y,
-                                          visibleRect.Width(), visibleRect.Height());
+  gfx::IntRect visibleRect =
+      aContainer->GetLocalVisibleRegion().ToUnknownRegion().GetBounds();
+  RefPtr<CompositingRenderTarget> previousTarget =
+      compositor->GetCurrentRenderTarget();
+  gfx::IntRect surfaceRect = gfx::IntRect(
+      visibleRect.x, visibleRect.y, visibleRect.Width(), visibleRect.Height());
 
   gfx::IntPoint sourcePoint = gfx::IntPoint(visibleRect.x, visibleRect.y);
 
   gfx::Matrix4x4 transform = aContainer->GetEffectiveTransform();
   DebugOnly<gfx::Matrix> transform2d;
-  MOZ_ASSERT(transform.Is2D(&transform2d) && !gfx::ThebesMatrix(transform2d).HasNonIntegerTranslation());
+  MOZ_ASSERT(transform.Is2D(&transform2d) &&
+             !gfx::ThebesMatrix(transform2d).HasNonIntegerTranslation());
   sourcePoint += gfx::IntPoint::Truncate(transform._41, transform._42);
 
   sourcePoint -= compositor->GetCurrentRenderTarget()->GetOrigin();
 
-  return compositor->CreateRenderTargetFromSource(surfaceRect, previousTarget, sourcePoint);
+  return compositor->CreateRenderTargetFromSource(
+      surfaceRect, previousTarget, sourcePoint);
 }
 
-template<class ContainerT> void
+template<class ContainerT>
+void
 RenderIntermediate(ContainerT* aContainer,
                    LayerManagerComposite* aManager,
                    const gfx::IntRect& aClipRect,
                    RefPtr<CompositingRenderTarget> surface)
 {
   Compositor* compositor = aManager->GetCompositor();
-  RefPtr<CompositingRenderTarget> previousTarget = compositor->GetCurrentRenderTarget();
+  RefPtr<CompositingRenderTarget> previousTarget =
+      compositor->GetCurrentRenderTarget();
 
   if (!surface) {
     return;
@@ -568,7 +626,8 @@ RenderIntermediate(ContainerT* aContainer,
 
   compositor->SetRenderTarget(surface);
   // pre-render all of the layers into our temporary
-  RenderLayers(aContainer, aManager,
+  RenderLayers(aContainer,
+               aManager,
                RenderTargetIntRect::FromUnknownRect(aClipRect),
                Nothing());
 
@@ -576,11 +635,12 @@ RenderIntermediate(ContainerT* aContainer,
   compositor->SetRenderTarget(previousTarget);
 }
 
-template<class ContainerT> void
+template<class ContainerT>
+void
 ContainerRender(ContainerT* aContainer,
-                 LayerManagerComposite* aManager,
-                 const gfx::IntRect& aClipRect,
-                 const Maybe<gfx::Polygon>& aGeometry)
+                LayerManagerComposite* aManager,
+                const gfx::IntRect& aClipRect,
+                const Maybe<gfx::Polygon>& aGeometry)
 {
   MOZ_ASSERT(aContainer->mPrepared);
 
@@ -589,9 +649,9 @@ ContainerRender(ContainerT* aContainer,
 
     if (aContainer->mPrepared->mNeedsSurfaceCopy) {
       // we needed to copy the background so we waited until now to render the intermediate
-      surface = CreateTemporaryTargetAndCopyFromBackground(aContainer, aManager);
-      RenderIntermediate(aContainer, aManager,
-                         aClipRect, surface);
+      surface =
+          CreateTemporaryTargetAndCopyFromBackground(aContainer, aManager);
+      RenderIntermediate(aContainer, aManager, aClipRect, surface);
     } else {
       surface = aContainer->mPrepared->mTmpTarget;
     }
@@ -600,7 +660,8 @@ ContainerRender(ContainerT* aContainer,
       return;
     }
 
-    gfx::Rect visibleRect(aContainer->GetLocalVisibleRegion().ToUnknownRegion().GetBounds());
+    gfx::Rect visibleRect(
+        aContainer->GetLocalVisibleRegion().ToUnknownRegion().GetBounds());
 
     RefPtr<Compositor> compositor = aManager->GetCompositor();
 #ifdef MOZ_DUMP_PAINTING
@@ -613,17 +674,25 @@ ContainerRender(ContainerT* aContainer,
 #endif
 
     RefPtr<ContainerT> container = aContainer;
-    RenderWithAllMasks(aContainer, compositor, aClipRect,
-                       [&, surface, compositor, container](EffectChain& effectChain, const IntRect& clipRect) {
-      effectChain.mPrimaryEffect = new EffectRenderTarget(surface);
+    RenderWithAllMasks(
+        aContainer,
+        compositor,
+        aClipRect,
+        [&, surface, compositor, container](EffectChain& effectChain,
+                                            const IntRect& clipRect) {
+          effectChain.mPrimaryEffect = new EffectRenderTarget(surface);
 
-      compositor->DrawGeometry(visibleRect, clipRect, effectChain,
-                               container->GetEffectiveOpacity(),
-                               container->GetEffectiveTransform(), aGeometry);
-    });
+          compositor->DrawGeometry(visibleRect,
+                                   clipRect,
+                                   effectChain,
+                                   container->GetEffectiveOpacity(),
+                                   container->GetEffectiveTransform(),
+                                   aGeometry);
+        });
 
   } else {
-    RenderLayers(aContainer, aManager,
+    RenderLayers(aContainer,
+                 aManager,
                  RenderTargetIntRect::FromUnknownRect(aClipRect),
                  aGeometry);
   }
@@ -638,8 +707,11 @@ ContainerRender(ContainerT* aContainer,
     // underlying layer.
     for (LayerMetricsWrapper i(aContainer); i; i = i.GetFirstChild()) {
       if (AsyncPanZoomController* apzc = i.GetApzc()) {
-        if (!apzc->GetAsyncTransformAppliedToContent()
-            && !AsyncTransformComponentMatrix(apzc->GetCurrentAsyncTransform(AsyncPanZoomController::eForHitTesting)).IsIdentity()) {
+        if (!apzc->GetAsyncTransformAppliedToContent() &&
+            !AsyncTransformComponentMatrix(
+                 apzc->GetCurrentAsyncTransform(
+                     AsyncPanZoomController::eForHitTesting))
+                 .IsIdentity()) {
           aManager->UnusedApzTransformWarning();
           break;
         }
@@ -648,9 +720,9 @@ ContainerRender(ContainerT* aContainer,
   }
 }
 
-ContainerLayerComposite::ContainerLayerComposite(LayerManagerComposite *aManager)
-  : ContainerLayer(aManager, nullptr)
-  , LayerComposite(aManager)
+ContainerLayerComposite::ContainerLayerComposite(
+    LayerManagerComposite* aManager)
+    : ContainerLayer(aManager, nullptr), LayerComposite(aManager)
 {
   MOZ_COUNT_CTOR(ContainerLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
@@ -691,7 +763,7 @@ ContainerLayerComposite::GetFirstChildComposite()
 {
   if (!mFirstChild) {
     return nullptr;
-   }
+  }
   return static_cast<LayerComposite*>(mFirstChild->AsHostLayer());
 }
 
@@ -749,7 +821,9 @@ TransformRect(const LayerIntRect& aRect, const Matrix4x4& aTransform)
 }
 
 static void
-AddTransformedRegion(LayerIntRegion& aDest, const LayerIntRegion& aSource, const Matrix4x4& aTransform)
+AddTransformedRegion(LayerIntRegion& aDest,
+                     const LayerIntRegion& aSource,
+                     const Matrix4x4& aTransform)
 {
   for (auto iter = aSource.RectIter(); !iter.Done(); iter.Next()) {
     aDest.Or(aDest, TransformRect(iter.Get(), aTransform));
@@ -761,7 +835,8 @@ AddTransformedRegion(LayerIntRegion& aDest, const LayerIntRegion& aSource, const
 // PostProcessLayers will recompute visible regions for layers with an intermediate
 // surface, but otherwise we need to do it now.
 void
-ComputeVisibleRegionForChildren(ContainerLayer* aContainer, LayerIntRegion& aResult)
+ComputeVisibleRegionForChildren(ContainerLayer* aContainer,
+                                LayerIntRegion& aResult)
 {
   for (Layer* l = aContainer->GetFirstChild(); l; l = l->GetNextSibling()) {
     if (l->Extend3DContext()) {
@@ -798,16 +873,12 @@ RefLayerComposite::GetShadowVisibleRegion()
 }
 
 RefLayerComposite::RefLayerComposite(LayerManagerComposite* aManager)
-  : RefLayer(aManager, nullptr)
-  , LayerComposite(aManager)
+    : RefLayer(aManager, nullptr), LayerComposite(aManager)
 {
   mImplData = static_cast<LayerComposite*>(this);
 }
 
-RefLayerComposite::~RefLayerComposite()
-{
-  Destroy();
-}
+RefLayerComposite::~RefLayerComposite() { Destroy(); }
 
 void
 RefLayerComposite::Destroy()
@@ -821,7 +892,7 @@ RefLayerComposite::GetFirstChildComposite()
 {
   if (!mFirstChild) {
     return nullptr;
-   }
+  }
   return static_cast<LayerComposite*>(mFirstChild->AsHostLayer());
 }
 
@@ -855,5 +926,5 @@ RefLayerComposite::CleanupResources()
   mPrepared = nullptr;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

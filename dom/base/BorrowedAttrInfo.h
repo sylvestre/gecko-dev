@@ -25,11 +25,7 @@ namespace dom {
  */
 struct BorrowedAttrInfo
 {
-  BorrowedAttrInfo()
-    : mName(nullptr)
-    , mValue(nullptr)
-  {
-  }
+  BorrowedAttrInfo() : mName(nullptr), mValue(nullptr) {}
 
   BorrowedAttrInfo(const nsAttrName* aName, const nsAttrValue* aValue);
 
@@ -41,6 +37,6 @@ struct BorrowedAttrInfo
   explicit operator bool() const { return mName != nullptr; }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 #endif

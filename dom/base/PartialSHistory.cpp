@@ -24,10 +24,10 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PartialSHistory)
 NS_INTERFACE_MAP_END
 
 PartialSHistory::PartialSHistory(nsIFrameLoader* aOwnerFrameLoader)
-  : mCount(0),
-    mGlobalIndexOffset(0),
-    mActive(nsIPartialSHistory::STATE_ACTIVE),
-    mOwnerFrameLoader(aOwnerFrameLoader)
+    : mCount(0),
+      mGlobalIndexOffset(0),
+      mActive(nsIPartialSHistory::STATE_ACTIVE),
+      mOwnerFrameLoader(aOwnerFrameLoader)
 {
   MOZ_ASSERT(aOwnerFrameLoader);
 }
@@ -145,7 +145,8 @@ PartialSHistory::GetOwnerFrameLoader(nsIFrameLoader** aResult)
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnAttachGroupedSHistory(nsIGroupedSHistory* aGroup, uint32_t aOffset)
+PartialSHistory::OnAttachGroupedSHistory(nsIGroupedSHistory* aGroup,
+                                         uint32_t aOffset)
 {
   MOZ_ASSERT(!mGroupedSHistory, "Only may join a single GroupedSHistory");
 
@@ -176,7 +177,9 @@ PartialSHistory::OnAttachGroupedSHistory(nsIGroupedSHistory* aGroup, uint32_t aO
 }
 
 NS_IMETHODIMP
-PartialSHistory::HandleSHistoryUpdate(uint32_t aCount, uint32_t aIndex, bool aTruncate)
+PartialSHistory::HandleSHistoryUpdate(uint32_t aCount,
+                                      uint32_t aIndex,
+                                      bool aTruncate)
 {
   // Update our local cache of mCount and mIndex
   mCount = aCount;
@@ -294,7 +297,8 @@ PartialSHistory::OnRequestCrossBrowserNavigation(uint32_t aIndex)
   }
 
   nsCOMPtr<nsISupports> promise;
-  return mOwnerFrameLoader->RequestGroupedHistoryNavigation(aIndex, getter_AddRefs(promise));
+  return mOwnerFrameLoader->RequestGroupedHistoryNavigation(
+      aIndex, getter_AddRefs(promise));
 }
 
 /*******************************************************************************
@@ -314,37 +318,41 @@ PartialSHistory::OnIndexChanged(int32_t aIndex)
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnHistoryNewEntry(nsIURI *aNewURI, int32_t aOldIndex)
+PartialSHistory::OnHistoryNewEntry(nsIURI* aNewURI, int32_t aOldIndex)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnHistoryGoBack(nsIURI *aBackURI, bool *_retval)
+PartialSHistory::OnHistoryGoBack(nsIURI* aBackURI, bool* _retval)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnHistoryGoForward(nsIURI *aForwardURI, bool *_retval)
+PartialSHistory::OnHistoryGoForward(nsIURI* aForwardURI, bool* _retval)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnHistoryReload(nsIURI *aReloadURI, uint32_t aReloadFlags, bool *_retval)
+PartialSHistory::OnHistoryReload(nsIURI* aReloadURI,
+                                 uint32_t aReloadFlags,
+                                 bool* _retval)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnHistoryGotoIndex(int32_t aIndex, nsIURI *aGotoURI, bool *_retval)
+PartialSHistory::OnHistoryGotoIndex(int32_t aIndex,
+                                    nsIURI* aGotoURI,
+                                    bool* _retval)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-PartialSHistory::OnHistoryPurge(int32_t aNumEntries, bool *_retval)
+PartialSHistory::OnHistoryPurge(int32_t aNumEntries, bool* _retval)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -355,5 +363,5 @@ PartialSHistory::OnHistoryReplaceEntry(int32_t aIndex)
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

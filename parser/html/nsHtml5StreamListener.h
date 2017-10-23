@@ -31,7 +31,7 @@
 class nsHtml5StreamListener : public nsIStreamListener,
                               public nsIThreadRetargetableStreamListener
 {
-public:
+ public:
   explicit nsHtml5StreamListener(nsHtml5StreamParser* aDelegate);
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -39,17 +39,14 @@ public:
   NS_DECL_NSISTREAMLISTENER
   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
 
-  inline nsHtml5StreamParser* GetDelegate()
-  {
-    return mDelegate;
-  }
+  inline nsHtml5StreamParser* GetDelegate() { return mDelegate; }
 
   void DropDelegate();
 
-private:
+ private:
   virtual ~nsHtml5StreamListener();
 
   nsHtml5StreamParserPtr mDelegate;
 };
 
-#endif // nsHtml5StreamListener_h
+#endif  // nsHtml5StreamListener_h

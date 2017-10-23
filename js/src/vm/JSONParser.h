@@ -20,25 +20,34 @@ namespace js {
 // JSONParser base class. JSONParser is templatized to work on either Latin1
 // or TwoByte input strings, JSONParserBase holds all state and methods that
 // can be shared between the two encodings.
-class MOZ_STACK_CLASS JSONParserBase
-{
-  public:
+class MOZ_STACK_CLASS JSONParserBase {
+   public:
     enum ErrorHandling { RaiseError, NoError };
 
-  private:
+   private:
     /* Data members */
     Value v;
 
-  protected:
-    JSContext * const cx;
+   protected:
+    JSContext* const cx;
 
     const ErrorHandling errorHandling;
 
-    enum Token { String, Number, True, False, Null,
-                 ArrayOpen, ArrayClose,
-                 ObjectOpen, ObjectClose,
-                 Colon, Comma,
-                 OOM, Error };
+    enum Token {
+        String,
+        Number,
+        True,
+        False,
+        Null,
+        ArrayOpen,
+        ArrayClose,
+        ObjectOpen,
+        ObjectClose,
+        Colon,
+        Comma,
+        OOM,
+        Error
+    };
 
     // State related to the parser's current position. At all points in the
     // parse this keeps track of the stack of arrays and objects which have
@@ -71,25 +80,23 @@ class MOZ_STACK_CLASS JSONParserBase
     struct StackEntry {
         ElementVector& elements() {
             MOZ_ASSERT(state == FinishArrayElement);
-            return * static_cast<ElementVector*>(vector);
+            return *static_cast<ElementVector*>(vector);
         }
 
         PropertyVector& properties() {
             MOZ_ASSERT(state == FinishObjectMember);
-            return * static_cast<PropertyVector*>(vector);
+            return *static_cast<PropertyVector*>(vector);
         }
 
         explicit StackEntry(ElementVector* elements)
-          : state(FinishArrayElement), vector(elements)
-        {}
+            : state(FinishArrayElement), vector(elements) {}
 
         explicit StackEntry(PropertyVector* properties)
-          : state(FinishObjectMember), vector(properties)
-        {}
+            : state(FinishObjectMember), vector(properties) {}
 
         ParserState state;
 
-      private:
+       private:
         void* vector;
     };
 
@@ -108,30 +115,33 @@ class MOZ_STACK_CLASS JSONParserBase
 #endif
 
     JSONParserBase(JSContext* cx, ErrorHandling errorHandling)
-      : cx(cx),
-        errorHandling(errorHandling),
-        stack(cx),
-        freeElements(cx),
-        freeProperties(cx)
+        : cx(cx),
+          errorHandling(errorHandling),
+          stack(cx),
+          freeElements(cx),
+          freeProperties(cx)
 #ifdef DEBUG
-      , lastToken(Error)
+          ,
+          lastToken(Error)
 #endif
-    {}
+    {
+    }
     ~JSONParserBase();
 
     // Allow move construction for use with Rooted.
     JSONParserBase(JSONParserBase&& other)
-      : v(other.v),
-        cx(other.cx),
-        errorHandling(other.errorHandling),
-        stack(mozilla::Move(other.stack)),
-        freeElements(mozilla::Move(other.freeElements)),
-        freeProperties(mozilla::Move(other.freeProperties))
+        : v(other.v),
+          cx(other.cx),
+          errorHandling(other.errorHandling),
+          stack(mozilla::Move(other.stack)),
+          freeElements(mozilla::Move(other.freeElements)),
+          freeProperties(mozilla::Move(other.freeProperties))
 #ifdef DEBUG
-      , lastToken(mozilla::Move(other.lastToken))
+          ,
+          lastToken(mozilla::Move(other.lastToken))
 #endif
-    {}
-
+    {
+    }
 
     Value numberValue() const {
         MOZ_ASSERT(lastToken == Number);
@@ -184,41 +194,38 @@ class MOZ_STACK_CLASS JSONParserBase
 
     void trace(JSTracer* trc);
 
-  private:
+   private:
     JSONParserBase(const JSONParserBase& other) = delete;
     void operator=(const JSONParserBase& other) = delete;
 };
 
 template <typename CharT>
-class MOZ_STACK_CLASS JSONParser : public JSONParserBase
-{
-  private:
+class MOZ_STACK_CLASS JSONParser : public JSONParserBase {
+   private:
     typedef mozilla::RangedPtr<const CharT> CharPtr;
 
     CharPtr current;
     const CharPtr begin, end;
 
-  public:
+   public:
     /* Public API */
 
     /* Create a parser for the provided JSON data. */
     JSONParser(JSContext* cx, mozilla::Range<const CharT> data,
                ErrorHandling errorHandling = RaiseError)
-      : JSONParserBase(cx, errorHandling),
-        current(data.begin()),
-        begin(current),
-        end(data.end())
-    {
+        : JSONParserBase(cx, errorHandling),
+          current(data.begin()),
+          begin(current),
+          end(data.end()) {
         MOZ_ASSERT(current <= end);
     }
 
     /* Allow move construction for use with Rooted. */
     JSONParser(JSONParser&& other)
-      : JSONParserBase(mozilla::Move(other)),
-        current(other.current),
-        begin(other.begin),
-        end(other.end)
-    {}
+        : JSONParserBase(mozilla::Move(other)),
+          current(other.current),
+          begin(other.begin),
+          end(other.end) {}
 
     /*
      * Parse the JSON data specified at construction time.  If it parses
@@ -235,8 +242,9 @@ class MOZ_STACK_CLASS JSONParser : public JSONParserBase
     static void trace(JSONParser<CharT>* parser, JSTracer* trc) { parser->trace(trc); }
     void trace(JSTracer* trc) { JSONParserBase::trace(trc); }
 
-  private:
-    template<StringType ST> Token readString();
+   private:
+    template <StringType ST>
+    Token readString();
 
     Token readNumber();
 
@@ -251,19 +259,16 @@ class MOZ_STACK_CLASS JSONParser : public JSONParserBase
 
     void getTextPosition(uint32_t* column, uint32_t* line);
 
-  private:
+   private:
     JSONParser(const JSONParser& other) = delete;
     void operator=(const JSONParser& other) = delete;
 };
 
 template <typename CharT, typename Wrapper>
 class MutableWrappedPtrOperations<JSONParser<CharT>, Wrapper>
-  : public WrappedPtrOperations<JSONParser<CharT>, Wrapper>
-{
-  public:
-    bool parse(MutableHandleValue vp) {
-        return static_cast<Wrapper*>(this)->get().parse(vp);
-    }
+    : public WrappedPtrOperations<JSONParser<CharT>, Wrapper> {
+   public:
+    bool parse(MutableHandleValue vp) { return static_cast<Wrapper*>(this)->get().parse(vp); }
 };
 
 } /* namespace js */

@@ -16,12 +16,10 @@
 #include <memory>
 #include <queue>
 
-
 #include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsINamed.h"
 #include "nsITimer.h"
-
 
 #include "m_cpp_utils.h"
 #include "transportflow.h"
@@ -30,19 +28,23 @@
 // A simple loopback transport layer that is used for testing.
 namespace mozilla {
 
-class TransportLayerLoopback : public TransportLayer {
+class TransportLayerLoopback : public TransportLayer
+{
  public:
-  TransportLayerLoopback() :
-      peer_(nullptr),
-      timer_(nullptr),
-      packets_(),
-      packets_lock_(nullptr),
-      deliverer_(nullptr),
-      combinePackets_(false) {}
+  TransportLayerLoopback()
+      : peer_(nullptr),
+        timer_(nullptr),
+        packets_(),
+        packets_lock_(nullptr),
+        deliverer_(nullptr),
+        combinePackets_(false)
+  {
+  }
 
-  ~TransportLayerLoopback() {
+  ~TransportLayerLoopback()
+  {
     while (!packets_.empty()) {
-      QueuedPacket *packet = packets_.front();
+      QueuedPacket* packet = packets_.front();
       packets_.pop();
       delete packet;
     }
@@ -60,8 +62,9 @@ class TransportLayerLoopback : public TransportLayer {
   void Connect(TransportLayerLoopback* peer);
 
   // Disconnect
-  void Disconnect() {
-    TransportLayerLoopback *peer = peer_;
+  void Disconnect()
+  {
+    TransportLayerLoopback* peer = peer_;
 
     peer_ = nullptr;
     if (peer) {
@@ -72,7 +75,7 @@ class TransportLayerLoopback : public TransportLayer {
   void CombinePackets(bool combine) { combinePackets_ = combine; }
 
   // Overrides for TransportLayer
-  TransportResult SendPacket(const unsigned char *data, size_t len) override;
+  TransportResult SendPacket(const unsigned char* data, size_t len) override;
 
   // Deliver queued packets
   void DeliverPackets();
@@ -83,74 +86,72 @@ class TransportLayerLoopback : public TransportLayer {
   DISALLOW_COPY_ASSIGN(TransportLayerLoopback);
 
   // A queued packet
-  class QueuedPacket {
+  class QueuedPacket
+  {
    public:
     QueuedPacket() : data_(nullptr), len_(0) {}
-    ~QueuedPacket() {
-      delete [] data_;
-    }
+    ~QueuedPacket() { delete[] data_; }
 
-    void Assign(const unsigned char *data, size_t len) {
+    void Assign(const unsigned char* data, size_t len)
+    {
       data_ = new unsigned char[len];
-      memcpy(static_cast<void *>(data_),
-             static_cast<const void *>(data), len);
+      memcpy(static_cast<void*>(data_), static_cast<const void*>(data), len);
       len_ = len;
     }
 
-    void Assign(const unsigned char *data1, size_t len1,
-                const unsigned char *data2, size_t len2) {
+    void Assign(const unsigned char* data1,
+                size_t len1,
+                const unsigned char* data2,
+                size_t len2)
+    {
       data_ = new unsigned char[len1 + len2];
-      memcpy(static_cast<void *>(data_),
-             static_cast<const void *>(data1), len1);
-      memcpy(static_cast<void *>(data_ + len1),
-             static_cast<const void *>(data2), len2);
+      memcpy(static_cast<void*>(data_), static_cast<const void*>(data1), len1);
+      memcpy(static_cast<void*>(data_ + len1),
+             static_cast<const void*>(data2),
+             len2);
       len_ = len1 + len2;
     }
 
-    const unsigned char *data() const { return data_; }
+    const unsigned char* data() const { return data_; }
     size_t len() const { return len_; }
 
    private:
     DISALLOW_COPY_ASSIGN(QueuedPacket);
 
-    unsigned char *data_;
+    unsigned char* data_;
     size_t len_;
   };
 
   // A timer to deliver packets if some are available
   // Fires every 100 ms
-  class Deliverer : public nsITimerCallback
-                  , public nsINamed {
+  class Deliverer : public nsITimerCallback, public nsINamed
+  {
    public:
-    explicit Deliverer(TransportLayerLoopback *layer) :
-        layer_(layer) {}
-    void Detach() {
-      layer_ = nullptr;
-    }
+    explicit Deliverer(TransportLayerLoopback* layer) : layer_(layer) {}
+    void Detach() { layer_ = nullptr; }
 
     NS_DECL_THREADSAFE_ISUPPORTS
     NS_DECL_NSITIMERCALLBACK
     NS_DECL_NSINAMED
 
- private:
-    virtual ~Deliverer() {
-    }
+   private:
+    virtual ~Deliverer() {}
 
     DISALLOW_COPY_ASSIGN(Deliverer);
 
-    TransportLayerLoopback *layer_;
+    TransportLayerLoopback* layer_;
   };
 
   // Queue a packet for delivery
-  nsresult QueuePacket(const unsigned char *data, size_t len);
+  nsresult QueuePacket(const unsigned char* data, size_t len);
 
   TransportLayerLoopback* peer_;
   nsCOMPtr<nsITimer> timer_;
-  std::queue<QueuedPacket *> packets_;
-  PRLock *packets_lock_;
+  std::queue<QueuedPacket*> packets_;
+  PRLock* packets_lock_;
   RefPtr<Deliverer> deliverer_;
   bool combinePackets_;
 };
 
-}  // close namespace
+}  // namespace mozilla
 #endif

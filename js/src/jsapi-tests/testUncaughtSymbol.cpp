@@ -5,8 +5,8 @@
 #include "jsapi-tests/tests.h"
 
 using JS::CreateError;
-using JS::Rooted;
 using JS::ObjectValue;
+using JS::Rooted;
 using JS::Value;
 
 enum SymbolExceptionType {
@@ -16,8 +16,7 @@ enum SymbolExceptionType {
     SYMBOL_EMPTY,
 };
 
-BEGIN_TEST(testUncaughtSymbol)
-{
+BEGIN_TEST(testUncaughtSymbol) {
     CHECK(!execDontReport("throw Symbol.iterator;", __FILE__, __LINE__));
     CHECK(GetSymbolExceptionType(cx) == SYMBOL_ITERATOR);
 
@@ -30,9 +29,7 @@ BEGIN_TEST(testUncaughtSymbol)
     return true;
 }
 
-static SymbolExceptionType
-GetSymbolExceptionType(JSContext* cx)
-{
+static SymbolExceptionType GetSymbolExceptionType(JSContext* cx) {
     JS::RootedValue exn(cx);
     MOZ_RELEASE_ASSERT(JS_GetPendingException(cx, &exn));
     MOZ_RELEASE_ASSERT(exn.isSymbol());
@@ -41,7 +38,8 @@ GetSymbolExceptionType(JSContext* cx)
     js::ErrorReport report(cx);
     MOZ_RELEASE_ASSERT(report.init(cx, exn, js::ErrorReport::WithSideEffects));
 
-    if (strcmp(report.toStringResult().c_str(), "uncaught exception: Symbol(Symbol.iterator)") == 0)
+    if (strcmp(report.toStringResult().c_str(), "uncaught exception: Symbol(Symbol.iterator)") ==
+        0)
         return SYMBOL_ITERATOR;
     if (strcmp(report.toStringResult().c_str(), "uncaught exception: Symbol(foo)") == 0)
         return SYMBOL_FOO;

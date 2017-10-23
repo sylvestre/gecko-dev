@@ -26,26 +26,25 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PerformanceObserverEntryList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-PerformanceObserverEntryList::~PerformanceObserverEntryList()
-{
-}
+PerformanceObserverEntryList::~PerformanceObserverEntryList() {}
 
 JSObject*
-PerformanceObserverEntryList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+PerformanceObserverEntryList::WrapObject(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto)
 {
   return PerformanceObserverEntryListBinding::Wrap(aCx, this, aGivenProto);
 }
 
 void
 PerformanceObserverEntryList::GetEntries(
-  const PerformanceEntryFilterOptions& aFilter,
-  nsTArray<RefPtr<PerformanceEntry>>& aRetval)
+    const PerformanceEntryFilterOptions& aFilter,
+    nsTArray<RefPtr<PerformanceEntry>>& aRetval)
 {
   aRetval.Clear();
   for (const RefPtr<PerformanceEntry>& entry : mEntries) {
     if (aFilter.mInitiatorType.WasPassed()) {
       const PerformanceResourceTiming* resourceEntry =
-        entry->ToResourceTiming();
+          entry->ToResourceTiming();
       if (!resourceEntry) {
         continue;
       }
@@ -71,8 +70,7 @@ PerformanceObserverEntryList::GetEntries(
 
 void
 PerformanceObserverEntryList::GetEntriesByType(
-  const nsAString& aEntryType,
-  nsTArray<RefPtr<PerformanceEntry>>& aRetval)
+    const nsAString& aEntryType, nsTArray<RefPtr<PerformanceEntry>>& aRetval)
 {
   aRetval.Clear();
   for (const RefPtr<PerformanceEntry>& entry : mEntries) {
@@ -85,9 +83,9 @@ PerformanceObserverEntryList::GetEntriesByType(
 
 void
 PerformanceObserverEntryList::GetEntriesByName(
-  const nsAString& aName,
-  const Optional<nsAString>& aEntryType,
-  nsTArray<RefPtr<PerformanceEntry>>& aRetval)
+    const nsAString& aName,
+    const Optional<nsAString>& aEntryType,
+    nsTArray<RefPtr<PerformanceEntry>>& aRetval)
 {
   aRetval.Clear();
   const bool typePassed = aEntryType.WasPassed();
@@ -96,8 +94,7 @@ PerformanceObserverEntryList::GetEntriesByName(
       continue;
     }
 
-    if (typePassed &&
-        !entry->GetEntryType().Equals(aEntryType.Value())) {
+    if (typePassed && !entry->GetEntryType().Equals(aEntryType.Value())) {
       continue;
     }
 

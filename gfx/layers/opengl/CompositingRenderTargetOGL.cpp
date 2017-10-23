@@ -24,7 +24,8 @@ CompositingRenderTargetOGL::~CompositingRenderTargetOGL()
 }
 
 void
-CompositingRenderTargetOGL::BindTexture(GLenum aTextureUnit, GLenum aTextureTarget)
+CompositingRenderTargetOGL::BindTexture(GLenum aTextureUnit,
+                                        GLenum aTextureTarget)
 {
   MOZ_ASSERT(mInitParams.mStatus == InitParams::INITIALIZED);
   MOZ_ASSERT(mTextureHandle != 0);
@@ -57,11 +58,17 @@ CompositingRenderTargetOGL::BindRenderTarget()
       }
       if (result != LOCAL_GL_FRAMEBUFFER_COMPLETE) {
         nsAutoCString msg;
-        msg.AppendPrintf("Framebuffer not complete -- CheckFramebufferStatus returned 0x%x, "
-                         "GLContext=%p, IsOffscreen()=%d, mFBO=%d, aFBOTextureTarget=0x%x, "
-                         "aRect.width=%d, aRect.height=%d",
-                         result, mGL, mGL->IsOffscreen(), mFBO, mInitParams.mFBOTextureTarget,
-                         mInitParams.mSize.width, mInitParams.mSize.height);
+        msg.AppendPrintf(
+            "Framebuffer not complete -- CheckFramebufferStatus returned 0x%x, "
+            "GLContext=%p, IsOffscreen()=%d, mFBO=%d, aFBOTextureTarget=0x%x, "
+            "aRect.width=%d, aRect.height=%d",
+            result,
+            mGL,
+            mGL->IsOffscreen(),
+            mFBO,
+            mInitParams.mFBOTextureTarget,
+            mInitParams.mSize.width,
+            mInitParams.mSize.height);
         NS_WARNING(msg.get());
       }
     }
@@ -71,8 +78,8 @@ CompositingRenderTargetOGL::BindRenderTarget()
 
   if (needsClear) {
     ScopedGLState scopedScissorTestState(mGL, LOCAL_GL_SCISSOR_TEST, true);
-    ScopedScissorRect autoScissorRect(mGL, 0, 0, mInitParams.mSize.width,
-                                      mInitParams.mSize.height);
+    ScopedScissorRect autoScissorRect(
+        mGL, 0, 0, mInitParams.mSize.width, mInitParams.mSize.height);
     mGL->fClearColor(0.0, 0.0, 0.0, 0.0);
     mGL->fClearDepth(0.0);
     mGL->fClear(LOCAL_GL_COLOR_BUFFER_BIT | LOCAL_GL_DEPTH_BUFFER_BIT);
@@ -85,7 +92,8 @@ CompositingRenderTargetOGL::Dump(Compositor* aCompositor)
 {
   MOZ_ASSERT(mInitParams.mStatus == InitParams::INITIALIZED);
   CompositorOGL* compositorOGL = aCompositor->AsCompositorOGL();
-  return ReadBackSurface(mGL, mTextureHandle, true, compositorOGL->GetFBOFormat());
+  return ReadBackSurface(
+      mGL, mTextureHandle, true, compositorOGL->GetFBOFormat());
 }
 #endif
 
@@ -98,23 +106,30 @@ CompositingRenderTargetOGL::InitializeImpl()
   GLuint fbo = mFBO == 0 ? mGL->GetDefaultFramebuffer() : mFBO;
   mGL->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, fbo);
   mGL->fFramebufferTexture2D(LOCAL_GL_FRAMEBUFFER,
-                              LOCAL_GL_COLOR_ATTACHMENT0,
-                              mInitParams.mFBOTextureTarget,
-                              mTextureHandle,
-                              0);
+                             LOCAL_GL_COLOR_ATTACHMENT0,
+                             mInitParams.mFBOTextureTarget,
+                             mTextureHandle,
+                             0);
 
   // Making this call to fCheckFramebufferStatus prevents a crash on
   // PowerVR. See bug 695246.
   GLenum result = mGL->fCheckFramebufferStatus(LOCAL_GL_FRAMEBUFFER);
   if (result != LOCAL_GL_FRAMEBUFFER_COMPLETE) {
     nsAutoCString msg;
-    msg.AppendPrintf("Framebuffer not complete -- error 0x%x, aFBOTextureTarget 0x%x, mFBO %d, mTextureHandle %d, aRect.width %d, aRect.height %d",
-                      result, mInitParams.mFBOTextureTarget, mFBO, mTextureHandle, mInitParams.mSize.width, mInitParams.mSize.height);
+    msg.AppendPrintf(
+        "Framebuffer not complete -- error 0x%x, aFBOTextureTarget 0x%x, mFBO "
+        "%d, mTextureHandle %d, aRect.width %d, aRect.height %d",
+        result,
+        mInitParams.mFBOTextureTarget,
+        mFBO,
+        mTextureHandle,
+        mInitParams.mSize.width,
+        mInitParams.mSize.height);
     NS_ERROR(msg.get());
   }
 
   mInitParams.mStatus = InitParams::INITIALIZED;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

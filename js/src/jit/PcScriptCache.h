@@ -15,15 +15,13 @@ struct JSRuntime;
 namespace js {
 namespace jit {
 
-struct PcScriptCacheEntry
-{
-    uint8_t* returnAddress; // Key into the hash table.
-    jsbytecode* pc;         // Cached PC.
-    JSScript* script;       // Cached script.
+struct PcScriptCacheEntry {
+    uint8_t* returnAddress;  // Key into the hash table.
+    jsbytecode* pc;          // Cached PC.
+    JSScript* script;        // Cached script.
 };
 
-struct PcScriptCache
-{
+struct PcScriptCache {
     static const uint32_t Length = 73;
 
     // GC number at the time the cache was filled or created.
@@ -35,27 +33,23 @@ struct PcScriptCache
     mozilla::Array<PcScriptCacheEntry, Length> entries;
 
     void clear(uint64_t gcNumber) {
-        for (uint32_t i = 0; i < Length; i++)
-            entries[i].returnAddress = nullptr;
+        for (uint32_t i = 0; i < Length; i++) entries[i].returnAddress = nullptr;
         this->gcNumber = gcNumber;
     }
 
     // Get a value from the cache. May perform lazy allocation.
-    MOZ_MUST_USE bool get(JSRuntime* rt, uint32_t hash, uint8_t* addr,
-                          JSScript** scriptRes, jsbytecode** pcRes)
-    {
+    MOZ_MUST_USE bool get(JSRuntime* rt, uint32_t hash, uint8_t* addr, JSScript** scriptRes,
+                          jsbytecode** pcRes) {
         // If a GC occurred, lazily clear the cache now.
         if (gcNumber != rt->gc.gcNumber()) {
             clear(rt->gc.gcNumber());
             return false;
         }
 
-        if (entries[hash].returnAddress != addr)
-            return false;
+        if (entries[hash].returnAddress != addr) return false;
 
         *scriptRes = entries[hash].script;
-        if (pcRes)
-            *pcRes = entries[hash].pc;
+        if (pcRes) *pcRes = entries[hash].pc;
 
         return true;
     }
@@ -75,7 +69,7 @@ struct PcScriptCache
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_PcScriptCache_h */

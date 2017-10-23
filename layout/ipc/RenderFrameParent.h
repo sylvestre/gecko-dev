@@ -29,7 +29,7 @@ class AsyncDragMetrics;
 class TargetConfig;
 struct TextureFactoryIdentifier;
 struct ScrollableLayerGuid;
-} // namespace layers
+}  // namespace layers
 
 namespace layout {
 
@@ -49,9 +49,7 @@ class RenderFrameParent : public PRenderFrameParent
   typedef mozilla::layers::ZoomConstraints ZoomConstraints;
   typedef FrameMetrics::ViewID ViewID;
 
-public:
-
-
+ public:
   /**
    * Select the desired scrolling behavior.  If ASYNC_PAN_ZOOM is
    * chosen, then RenderFrameParent will watch input events and use
@@ -68,21 +66,26 @@ public:
                         nsSubDocumentFrame* aFrame,
                         const nsDisplayListSet& aLists);
 
-  already_AddRefed<Layer> BuildLayer(nsDisplayListBuilder* aBuilder,
-                                     nsIFrame* aFrame,
-                                     LayerManager* aManager,
-                                     nsDisplayItem* aItem,
-                                     const ContainerLayerParameters& aContainerParameters);
+  already_AddRefed<Layer> BuildLayer(
+      nsDisplayListBuilder* aBuilder,
+      nsIFrame* aFrame,
+      LayerManager* aManager,
+      nsDisplayItem* aItem,
+      const ContainerLayerParameters& aContainerParameters);
 
   void OwnerContentChanged(nsIContent* aContent);
 
   bool HitTest(const nsRect& aRect);
 
-  void GetTextureFactoryIdentifier(TextureFactoryIdentifier* aTextureFactoryIdentifier);
+  void GetTextureFactoryIdentifier(
+      TextureFactoryIdentifier* aTextureFactoryIdentifier);
 
   inline uint64_t GetLayersId() const { return mLayersId; }
   inline bool IsLayersConnected() const { return mLayersConnected; }
-  inline CompositorOptions GetCompositorOptions() const { return mCompositorOptions; }
+  inline CompositorOptions GetCompositorOptions() const
+  {
+    return mCompositorOptions;
+  }
 
   void TakeFocusForClickFromTap();
 
@@ -90,12 +93,12 @@ public:
 
   LayerManager* AttachLayerManager();
 
-protected:
+ protected:
   void ActorDestroy(ActorDestroyReason why) override;
 
   virtual mozilla::ipc::IPCResult RecvNotifyCompositorTransaction() override;
 
-private:
+ private:
   void TriggerRepaint();
   void DispatchEventForPanZoomController(const InputEvent& aEvent);
 
@@ -136,8 +139,8 @@ private:
   bool mInitted;
 };
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
 /**
  * A DisplayRemote exists solely to graft a child process's shadow
@@ -148,36 +151,42 @@ class nsDisplayRemote : public nsDisplayItem
 {
   typedef mozilla::layout::RenderFrameParent RenderFrameParent;
 
-public:
-  nsDisplayRemote(nsDisplayListBuilder* aBuilder, nsSubDocumentFrame* aFrame,
+ public:
+  nsDisplayRemote(nsDisplayListBuilder* aBuilder,
+                  nsSubDocumentFrame* aFrame,
                   RenderFrameParent* aRemoteFrame);
 
-  virtual LayerState GetLayerState(nsDisplayListBuilder* aBuilder,
-                                   LayerManager* aManager,
-                                   const ContainerLayerParameters& aParameters) override
-  { return mozilla::LAYER_ACTIVE_FORCE; }
+  virtual LayerState GetLayerState(
+      nsDisplayListBuilder* aBuilder,
+      LayerManager* aManager,
+      const ContainerLayerParameters& aParameters) override
+  {
+    return mozilla::LAYER_ACTIVE_FORCE;
+  }
 
-  virtual already_AddRefed<Layer>
-  BuildLayer(nsDisplayListBuilder* aBuilder, LayerManager* aManager,
-             const ContainerLayerParameters& aContainerParameters) override;
+  virtual already_AddRefed<Layer> BuildLayer(
+      nsDisplayListBuilder* aBuilder,
+      LayerManager* aManager,
+      const ContainerLayerParameters& aContainerParameters) override;
 
-  virtual bool CreateWebRenderCommands(mozilla::wr::DisplayListBuilder& aBuilder,
-                                       mozilla::wr::IpcResourceUpdateQueue& aResources,
-                                       const StackingContextHelper& aSc,
-                                       mozilla::layers::WebRenderLayerManager* aManager,
-                                       nsDisplayListBuilder* aDisplayListBuilder) override;
-  virtual bool UpdateScrollData(mozilla::layers::WebRenderScrollData* aData,
-                                mozilla::layers::WebRenderLayerScrollData* aLayerData) override;
+  virtual bool CreateWebRenderCommands(
+      mozilla::wr::DisplayListBuilder& aBuilder,
+      mozilla::wr::IpcResourceUpdateQueue& aResources,
+      const StackingContextHelper& aSc,
+      mozilla::layers::WebRenderLayerManager* aManager,
+      nsDisplayListBuilder* aDisplayListBuilder) override;
+  virtual bool UpdateScrollData(
+      mozilla::layers::WebRenderScrollData* aData,
+      mozilla::layers::WebRenderLayerScrollData* aLayerData) override;
 
   uint64_t GetRemoteLayersId() const;
 
   NS_DISPLAY_DECL_NAME("Remote", TYPE_REMOTE)
 
-private:
+ private:
   RenderFrameParent* mRemoteFrame;
   mozilla::LayoutDeviceIntPoint mOffset;
   mozilla::layers::EventRegionsOverride mEventRegionsOverride;
 };
-
 
 #endif  // mozilla_layout_RenderFrameParent_h

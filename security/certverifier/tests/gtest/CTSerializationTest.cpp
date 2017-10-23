@@ -9,20 +9,21 @@
 #include "gtest/gtest.h"
 #include "mozilla/Move.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 using namespace pkix;
 
 class CTSerializationTest : public ::testing::Test
 {
-public:
+ public:
   void SetUp() override
   {
     mTestDigitallySigned = GetTestDigitallySigned();
     mTestSignatureData = GetTestDigitallySignedData();
   }
 
-protected:
+ protected:
   Buffer mTestDigitallySigned;
   Buffer mTestSignatureData;
 };
@@ -33,12 +34,10 @@ TEST_F(CTSerializationTest, DecodesDigitallySigned)
   Reader digitallySignedReader(digitallySigned);
 
   DigitallySigned parsed;
-  ASSERT_EQ(Success,
-    DecodeDigitallySigned(digitallySignedReader, parsed));
+  ASSERT_EQ(Success, DecodeDigitallySigned(digitallySignedReader, parsed));
   EXPECT_TRUE(digitallySignedReader.AtEnd());
 
-  EXPECT_EQ(DigitallySigned::HashAlgorithm::SHA256,
-            parsed.hashAlgorithm);
+  EXPECT_EQ(DigitallySigned::HashAlgorithm::SHA256, parsed.hashAlgorithm);
   EXPECT_EQ(DigitallySigned::SignatureAlgorithm::ECDSA,
             parsed.signatureAlgorithm);
   EXPECT_EQ(mTestSignatureData, parsed.signatureData);
@@ -48,8 +47,8 @@ TEST_F(CTSerializationTest, FailsToDecodePartialDigitallySigned)
 {
   Input partial;
   ASSERT_EQ(Success,
-    partial.Init(mTestDigitallySigned.begin(),
-      mTestDigitallySigned.length() - 5));
+            partial.Init(mTestDigitallySigned.begin(),
+                         mTestDigitallySigned.length() - 5));
   Reader partialReader(partial);
 
   DigitallySigned parsed;
@@ -60,10 +59,9 @@ TEST_F(CTSerializationTest, FailsToDecodePartialDigitallySigned)
 TEST_F(CTSerializationTest, EncodesDigitallySigned)
 {
   DigitallySigned digitallySigned;
-  digitallySigned.hashAlgorithm =
-    DigitallySigned::HashAlgorithm::SHA256;
+  digitallySigned.hashAlgorithm = DigitallySigned::HashAlgorithm::SHA256;
   digitallySigned.signatureAlgorithm =
-    DigitallySigned::SignatureAlgorithm::ECDSA;
+      DigitallySigned::SignatureAlgorithm::ECDSA;
   digitallySigned.signatureData = cloneBuffer(mTestSignatureData);
 
   Buffer encoded;
@@ -85,8 +83,8 @@ TEST_F(CTSerializationTest, EncodesLogEntryForX509Cert)
   Buffer expectedPrefix;
   MOZ_RELEASE_ASSERT(expectedPrefix.append("\0\0\0\x2\xCE", 5));
   Buffer encodedPrefix;
-  MOZ_RELEASE_ASSERT(encodedPrefix.
-    append(encoded.begin(), encoded.begin() + 5));
+  MOZ_RELEASE_ASSERT(
+      encodedPrefix.append(encoded.begin(), encoded.begin() + 5));
   EXPECT_EQ(expectedPrefix, encodedPrefix);
 }
 
@@ -104,38 +102,49 @@ TEST_F(CTSerializationTest, EncodesLogEntryForPrecert)
   Buffer expectedPrefix;
   MOZ_RELEASE_ASSERT(expectedPrefix.append("\0\x1", 2));
   Buffer encodedPrefix;
-  MOZ_RELEASE_ASSERT(encodedPrefix.
-    append(encoded.begin(), encoded.begin() + 2));
+  MOZ_RELEASE_ASSERT(
+      encodedPrefix.append(encoded.begin(), encoded.begin() + 2));
   EXPECT_EQ(expectedPrefix, encodedPrefix);
 
   // Next is the issuer key (32 bytes).
   Buffer encodedKeyHash;
-  MOZ_RELEASE_ASSERT(encodedKeyHash.
-    append(encoded.begin() + 2, encoded.begin() + 2 + 32));
+  MOZ_RELEASE_ASSERT(
+      encodedKeyHash.append(encoded.begin() + 2, encoded.begin() + 2 + 32));
   EXPECT_EQ(GetDefaultIssuerKeyHash(), encodedKeyHash);
 }
 
 TEST_F(CTSerializationTest, EncodesV1SCTSignedData)
 {
   uint64_t timestamp = UINT64_C(0x139fe353cf5);
-  const uint8_t DUMMY_BYTES[] = { 0x61, 0x62, 0x63 }; // abc
+  const uint8_t DUMMY_BYTES[] = {0x61, 0x62, 0x63};  // abc
   Input dummyEntry(DUMMY_BYTES);
   Input emptyExtensions;
   Buffer encoded;
-  ASSERT_EQ(Success, EncodeV1SCTSignedData(
-    timestamp, dummyEntry, emptyExtensions, encoded));
-  EXPECT_EQ((size_t) 15, encoded.length());
+  ASSERT_EQ(
+      Success,
+      EncodeV1SCTSignedData(timestamp, dummyEntry, emptyExtensions, encoded));
+  EXPECT_EQ((size_t)15, encoded.length());
 
   const uint8_t EXPECTED_BYTES[] = {
-    0x00, // version
-    0x00, // signature type
-    0x00, 0x00, 0x01, 0x39, 0xFE, 0x35, 0x3C, 0xF5, // timestamp
-    0x61, 0x62, 0x63, // log signature
-    0x00, 0x00 // extensions (empty)
+      0x00,  // version
+      0x00,  // signature type
+      0x00,
+      0x00,
+      0x01,
+      0x39,
+      0xFE,
+      0x35,
+      0x3C,
+      0xF5,  // timestamp
+      0x61,
+      0x62,
+      0x63,  // log signature
+      0x00,
+      0x00  // extensions (empty)
   };
   Buffer expectedBuffer;
   MOZ_RELEASE_ASSERT(
-    expectedBuffer.append(EXPECTED_BYTES, sizeof(EXPECTED_BYTES)));
+      expectedBuffer.append(EXPECTED_BYTES, sizeof(EXPECTED_BYTES)));
   EXPECT_EQ(expectedBuffer, encoded);
 }
 
@@ -143,10 +152,9 @@ TEST_F(CTSerializationTest, DecodesSCTList)
 {
   // Two items in the list: "abc", "def"
   const uint8_t ENCODED[] = {
-    0x00, 0x0a, 0x00, 0x03, 0x61, 0x62, 0x63, 0x00, 0x03, 0x64, 0x65, 0x66
-  };
-  const uint8_t DECODED_1[] = { 0x61, 0x62, 0x63 };
-  const uint8_t DECODED_2[] = { 0x64, 0x65, 0x66 };
+      0x00, 0x0a, 0x00, 0x03, 0x61, 0x62, 0x63, 0x00, 0x03, 0x64, 0x65, 0x66};
+  const uint8_t DECODED_1[] = {0x61, 0x62, 0x63};
+  const uint8_t DECODED_2[] = {0x64, 0x65, 0x66};
 
   Reader listReader;
   ASSERT_EQ(Success, DecodeSCTList(Input(ENCODED), listReader));
@@ -166,8 +174,7 @@ TEST_F(CTSerializationTest, FailsDecodingInvalidSCTList)
 {
   // A list with one item that's too short (the second one)
   const uint8_t ENCODED[] = {
-    0x00, 0x0a, 0x00, 0x03, 0x61, 0x62, 0x63, 0x00, 0x05, 0x64, 0x65, 0x66
-  };
+      0x00, 0x0a, 0x00, 0x03, 0x61, 0x62, 0x63, 0x00, 0x05, 0x64, 0x65, 0x66};
 
   Reader listReader;
   ASSERT_EQ(Success, DecodeSCTList(Input(ENCODED), listReader));
@@ -179,8 +186,8 @@ TEST_F(CTSerializationTest, FailsDecodingInvalidSCTList)
 
 TEST_F(CTSerializationTest, EncodesSCTList)
 {
-  const uint8_t SCT_1[] = { 0x61, 0x62, 0x63 };
-  const uint8_t SCT_2[] = { 0x64, 0x65, 0x66 };
+  const uint8_t SCT_1[] = {0x61, 0x62, 0x63};
+  const uint8_t SCT_2[] = {0x64, 0x65, 0x66};
 
   Vector<Input> list;
   ASSERT_TRUE(list.append(Move(Input(SCT_1))));
@@ -210,8 +217,7 @@ TEST_F(CTSerializationTest, DecodesSignedCertificateTimestamp)
   Reader encodedSctReader(encodedSctInput);
 
   SignedCertificateTimestamp sct;
-  ASSERT_EQ(Success,
-    DecodeSignedCertificateTimestamp(encodedSctReader, sct));
+  ASSERT_EQ(Success, DecodeSignedCertificateTimestamp(encodedSctReader, sct));
   EXPECT_EQ(SignedCertificateTimestamp::Version::V1, sct.version);
   EXPECT_EQ(GetTestPublicKeyId(), sct.logId);
   const uint64_t expectedTime = 1365181456089;
@@ -226,18 +232,18 @@ TEST_F(CTSerializationTest, FailsDecodingInvalidSignedCertificateTimestamp)
   SignedCertificateTimestamp sct;
 
   // Invalid version
-  const uint8_t INVALID_VERSION_BYTES[] = { 0x02, 0x00 };
+  const uint8_t INVALID_VERSION_BYTES[] = {0x02, 0x00};
   Input invalidVersionSctInput(INVALID_VERSION_BYTES);
   Reader invalidVersionSctReader(invalidVersionSctInput);
   EXPECT_EQ(pkix::Result::ERROR_BAD_DER,
-    DecodeSignedCertificateTimestamp(invalidVersionSctReader, sct));
+            DecodeSignedCertificateTimestamp(invalidVersionSctReader, sct));
 
   // Valid version, invalid length (missing data)
-  const uint8_t INVALID_LENGTH_BYTES[] = { 0x00, 0x0a, 0x0b, 0x0c };
+  const uint8_t INVALID_LENGTH_BYTES[] = {0x00, 0x0a, 0x0b, 0x0c};
   Input invalidLengthSctInput(INVALID_LENGTH_BYTES);
   Reader invalidLengthSctReader(invalidLengthSctInput);
   EXPECT_EQ(pkix::Result::ERROR_BAD_DER,
-    DecodeSignedCertificateTimestamp(invalidLengthSctReader, sct));
+            DecodeSignedCertificateTimestamp(invalidLengthSctReader, sct));
 }
 
 TEST_F(CTSerializationTest, EncodesValidSignedTreeHead)
@@ -246,8 +252,7 @@ TEST_F(CTSerializationTest, EncodesValidSignedTreeHead)
   GetSampleSignedTreeHead(signedTreeHead);
 
   Buffer encoded;
-  ASSERT_EQ(Success,
-    EncodeTreeHeadSignature(signedTreeHead, encoded));
+  ASSERT_EQ(Success, EncodeTreeHeadSignature(signedTreeHead, encoded));
   // Expected size is 50 bytes:
   // Byte 0 is version, byte 1 is signature type
   // Bytes 2-9 are timestamp
@@ -255,11 +260,25 @@ TEST_F(CTSerializationTest, EncodesValidSignedTreeHead)
   // Bytes 18-49 are sha256 root hash
   ASSERT_EQ(50u, encoded.length());
   const uint8_t EXPECTED_BYTES_PREFIX[] = {
-    0x00, // version
-    0x01, // signature type
-    0x00, 0x00, 0x01, 0x45, 0x3c, 0x5f, 0xb8, 0x35, // timestamp
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15  // tree size
-    // sha256 root hash should follow
+      0x00,  // version
+      0x01,  // signature type
+      0x00,
+      0x00,
+      0x01,
+      0x45,
+      0x3c,
+      0x5f,
+      0xb8,
+      0x35,  // timestamp
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x15  // tree size
+      // sha256 root hash should follow
   };
   Buffer expectedBuffer;
   MOZ_RELEASE_ASSERT(expectedBuffer.append(EXPECTED_BYTES_PREFIX, 18));
@@ -267,4 +286,5 @@ TEST_F(CTSerializationTest, EncodesValidSignedTreeHead)
   MOZ_RELEASE_ASSERT(expectedBuffer.append(hash.begin(), hash.length()));
   EXPECT_EQ(expectedBuffer, encoded);
 }
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

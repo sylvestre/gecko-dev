@@ -17,51 +17,41 @@
 
 using namespace js;
 
-
 /*** Reflect methods *****************************************************************************/
 
 /* ES6 26.1.4 Reflect.deleteProperty (target, propertyKey) */
-static bool
-Reflect_deleteProperty(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool Reflect_deleteProperty(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
-    RootedObject target(cx, NonNullObjectArg(cx, "`target`", "Reflect.deleteProperty",
-                                             args.get(0)));
-    if (!target)
-        return false;
+    RootedObject target(cx,
+                        NonNullObjectArg(cx, "`target`", "Reflect.deleteProperty", args.get(0)));
+    if (!target) return false;
 
     // Steps 2-3.
     RootedValue propertyKey(cx, args.get(1));
     RootedId key(cx);
-    if (!ToPropertyKey(cx, propertyKey, &key))
-        return false;
+    if (!ToPropertyKey(cx, propertyKey, &key)) return false;
 
     // Step 4.
     ObjectOpResult result;
-    if (!DeleteProperty(cx, target, key, result))
-        return false;
+    if (!DeleteProperty(cx, target, key, result)) return false;
     args.rval().setBoolean(bool(result));
     return true;
 }
 
 /* ES6 26.1.6 Reflect.get(target, propertyKey [, receiver]) */
-static bool
-Reflect_get(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool Reflect_get(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
     RootedObject obj(cx, NonNullObjectArg(cx, "`target`", "Reflect.get", args.get(0)));
-    if (!obj)
-        return false;
+    if (!obj) return false;
 
     // Steps 2-3.
     RootedValue propertyKey(cx, args.get(1));
     RootedId key(cx);
-    if (!ToPropertyKey(cx, propertyKey, &key))
-        return false;
+    if (!ToPropertyKey(cx, propertyKey, &key)) return false;
 
     // Step 4.
     RootedValue receiver(cx, args.length() > 2 ? args[2] : args.get(0));
@@ -71,94 +61,75 @@ Reflect_get(JSContext* cx, unsigned argc, Value* vp)
 }
 
 /* ES6 26.1.8 Reflect.getPrototypeOf(target) */
-bool
-js::Reflect_getPrototypeOf(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::Reflect_getPrototypeOf(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
-    RootedObject target(cx, NonNullObjectArg(cx, "`target`", "Reflect.getPrototypeOf",
-                                             args.get(0)));
-    if (!target)
-        return false;
+    RootedObject target(cx,
+                        NonNullObjectArg(cx, "`target`", "Reflect.getPrototypeOf", args.get(0)));
+    if (!target) return false;
 
     // Step 2.
     RootedObject proto(cx);
-    if (!GetPrototype(cx, target, &proto))
-        return false;
+    if (!GetPrototype(cx, target, &proto)) return false;
     args.rval().setObjectOrNull(proto);
     return true;
 }
 
 /* ES6 draft 26.1.10 Reflect.isExtensible(target) */
-bool
-js::Reflect_isExtensible(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::Reflect_isExtensible(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
     RootedObject target(cx, NonNullObjectArg(cx, "`target`", "Reflect.isExtensible", args.get(0)));
-    if (!target)
-        return false;
+    if (!target) return false;
 
     // Step 2.
     bool extensible;
-    if (!IsExtensible(cx, target, &extensible))
-        return false;
+    if (!IsExtensible(cx, target, &extensible)) return false;
     args.rval().setBoolean(extensible);
     return true;
 }
 
 /* ES6 26.1.11 Reflect.ownKeys(target) */
-static bool
-Reflect_ownKeys(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool Reflect_ownKeys(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
-    if (!NonNullObjectArg(cx, "`target`", "Reflect.ownKeys", args.get(0)))
-        return false;
+    if (!NonNullObjectArg(cx, "`target`", "Reflect.ownKeys", args.get(0))) return false;
 
     // Steps 2-4.
     return GetOwnPropertyKeys(cx, args, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS);
 }
 
 /* ES6 26.1.12 Reflect.preventExtensions(target) */
-static bool
-Reflect_preventExtensions(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool Reflect_preventExtensions(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
-    RootedObject target(cx, NonNullObjectArg(cx, "`target`", "Reflect.preventExtensions",
-                                             args.get(0)));
-    if (!target)
-        return false;
+    RootedObject target(
+        cx, NonNullObjectArg(cx, "`target`", "Reflect.preventExtensions", args.get(0)));
+    if (!target) return false;
 
     // Step 2.
     ObjectOpResult result;
-    if (!PreventExtensions(cx, target, result))
-        return false;
+    if (!PreventExtensions(cx, target, result)) return false;
     args.rval().setBoolean(bool(result));
     return true;
 }
 
 /* ES6 26.1.13 Reflect.set(target, propertyKey, V [, receiver]) */
-static bool
-Reflect_set(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool Reflect_set(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
     RootedObject target(cx, NonNullObjectArg(cx, "`target`", "Reflect.set", args.get(0)));
-    if (!target)
-        return false;
+    if (!target) return false;
 
     // Steps 2-3.
     RootedValue propertyKey(cx, args.get(1));
     RootedId key(cx);
-    if (!ToPropertyKey(cx, propertyKey, &key))
-        return false;
+    if (!ToPropertyKey(cx, propertyKey, &key)) return false;
 
     // Step 4.
     RootedValue receiver(cx, args.length() > 3 ? args[3] : args.get(0));
@@ -166,8 +137,7 @@ Reflect_set(JSContext* cx, unsigned argc, Value* vp)
     // Step 5.
     ObjectOpResult result;
     RootedValue value(cx, args.get(2));
-    if (!SetProperty(cx, target, key, value, receiver, result))
-        return false;
+    if (!SetProperty(cx, target, key, value, receiver, result)) return false;
     args.rval().setBoolean(bool(result));
     return true;
 }
@@ -178,15 +148,12 @@ Reflect_set(JSContext* cx, unsigned argc, Value* vp)
  * The specification is not quite similar enough to Object.setPrototypeOf to
  * share code.
  */
-static bool
-Reflect_setPrototypeOf(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool Reflect_setPrototypeOf(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 1.
     RootedObject obj(cx, NonNullObjectArg(cx, "`target`", "Reflect.setPrototypeOf", args.get(0)));
-    if (!obj)
-        return false;
+    if (!obj) return false;
 
     // Step 2.
     if (!args.get(1).isObjectOrNull()) {
@@ -199,8 +166,7 @@ Reflect_setPrototypeOf(JSContext* cx, unsigned argc, Value* vp)
 
     // Step 4.
     ObjectOpResult result;
-    if (!SetPrototype(cx, obj, proto, result))
-        return false;
+    if (!SetPrototype(cx, obj, proto, result)) return false;
     args.rval().setBoolean(bool(result));
     return true;
 }
@@ -219,29 +185,21 @@ static const JSFunctionSpec methods[] = {
     JS_FN("preventExtensions", Reflect_preventExtensions, 1, 0),
     JS_FN("set", Reflect_set, 3, 0),
     JS_FN("setPrototypeOf", Reflect_setPrototypeOf, 2, 0),
-    JS_FS_END
-};
-
+    JS_FS_END};
 
 /*** Setup **************************************************************************************/
 
-JSObject*
-js::InitReflect(JSContext* cx, HandleObject obj)
-{
+JSObject* js::InitReflect(JSContext* cx, HandleObject obj) {
     Handle<GlobalObject*> global = obj.as<GlobalObject>();
     RootedObject proto(cx, GlobalObject::getOrCreateObjectPrototype(cx, global));
-    if (!proto)
-        return nullptr;
+    if (!proto) return nullptr;
 
     RootedObject reflect(cx, NewObjectWithGivenProto<PlainObject>(cx, proto, SingletonObject));
-    if (!reflect)
-        return nullptr;
-    if (!JS_DefineFunctions(cx, reflect, methods))
-        return nullptr;
+    if (!reflect) return nullptr;
+    if (!JS_DefineFunctions(cx, reflect, methods)) return nullptr;
 
     RootedValue value(cx, ObjectValue(*reflect));
-    if (!DefineDataProperty(cx, obj, cx->names().Reflect, value, JSPROP_RESOLVING))
-        return nullptr;
+    if (!DefineDataProperty(cx, obj, cx->names().Reflect, value, JSPROP_RESOLVING)) return nullptr;
 
     obj->as<GlobalObject>().setConstructor(JSProto_Reflect, value);
 

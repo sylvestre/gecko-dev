@@ -19,20 +19,20 @@ namespace time {
  */
 class TimeService : public nsITimeService
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMESERVICE
 
   static already_AddRefed<TimeService> GetInstance();
 
-private:
-  virtual ~TimeService() {};
+ private:
+  virtual ~TimeService(){};
 
   static StaticRefPtr<TimeService> sSingleton;
 };
 
-} // namespace time
-} // namespace dom
-} // namespace mozilla
+}  // namespace time
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_time_TimeService_h
+#endif  //mozilla_dom_time_TimeService_h

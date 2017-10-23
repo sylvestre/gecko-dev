@@ -20,18 +20,18 @@ class nsIURI;
 
 class MOZ_STACK_CLASS nsJSONWriter
 {
-public:
+ public:
   nsJSONWriter();
   explicit nsJSONWriter(nsIOutputStream* aStream);
   virtual ~nsJSONWriter();
   nsCOMPtr<nsIOutputStream> mStream;
-  nsresult Write(const char16_t *aBuffer, uint32_t aLength);
+  nsresult Write(const char16_t* aBuffer, uint32_t aLength);
   nsString mOutputString;
   bool DidWrite();
   void FlushBuffer();
 
-protected:
-  char16_t *mBuffer;
+ protected:
+  char16_t* mBuffer;
   uint32_t mBufferCount;
   bool mDidWrite;
   nsresult WriteToStream(nsIOutputStream* aStream,
@@ -44,13 +44,13 @@ protected:
 
 class nsJSON final : public nsIJSON
 {
-public:
+ public:
   nsJSON();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIJSON
 
-protected:
+ protected:
   virtual ~nsJSON();
 
   nsresult DecodeInternal(JSContext* cx,
@@ -66,24 +66,24 @@ NS_NewJSON(nsISupports* aOuter, REFNSIID aIID, void** aResult);
 
 class nsJSONListener : public nsIStreamListener
 {
-public:
-  nsJSONListener(JSContext *cx, JS::Value *rootVal, bool needsConverter);
+ public:
+  nsJSONListener(JSContext* cx, JS::Value* rootVal, bool needsConverter);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
   NS_DECL_NSISTREAMLISTENER
 
-protected:
+ protected:
   virtual ~nsJSONListener();
 
   bool mNeedsConverter;
-  JSContext *mCx;
-  JS::Value *mRootVal;
+  JSContext* mCx;
+  JS::Value* mRootVal;
   mozilla::UniquePtr<mozilla::Decoder> mDecoder;
   nsTArray<char16_t> mBufferedChars;
   nsresult ProcessBytes(const char* aBuffer, uint32_t aByteLength);
   nsresult ConsumeConverted(const char* aBuffer, uint32_t aByteLength);
-  nsresult Consume(const char16_t *data, uint32_t len);
+  nsresult Consume(const char16_t* data, uint32_t len);
 };
 
 #endif

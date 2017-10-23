@@ -6,8 +6,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testDifferentNewTargetInvokeConstructor)
-{
+BEGIN_TEST(testDifferentNewTargetInvokeConstructor) {
     JS::RootedValue func(cx);
     JS::RootedValue otherFunc(cx);
 

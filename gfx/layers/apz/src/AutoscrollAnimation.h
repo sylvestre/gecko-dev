@@ -16,19 +16,21 @@ class AsyncPanZoomController;
 
 class AutoscrollAnimation : public AsyncPanZoomAnimation
 {
-public:
+ public:
   AutoscrollAnimation(AsyncPanZoomController& aApzc,
                       const ScreenPoint& aAnchorLocation);
 
-  bool DoSample(FrameMetrics& aFrameMetrics, const TimeDuration& aDelta) override;
+  bool DoSample(FrameMetrics& aFrameMetrics,
+                const TimeDuration& aDelta) override;
 
   void Cancel(CancelAnimationFlags aFlags) override;
-private:
+
+ private:
   AsyncPanZoomController& mApzc;
   ScreenPoint mAnchorLocation;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_AutoscrollAnimation_h_
+#endif  // mozilla_layers_AutoscrollAnimation_h_

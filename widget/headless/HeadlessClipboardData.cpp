@@ -8,7 +8,7 @@ namespace mozilla {
 namespace widget {
 
 void
-HeadlessClipboardData::SetText(const nsAString &aText)
+HeadlessClipboardData::SetText(const nsAString& aText)
 {
   mPlain = aText;
 }
@@ -31,5 +31,5 @@ HeadlessClipboardData::Clear()
   mPlain.Truncate(0);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

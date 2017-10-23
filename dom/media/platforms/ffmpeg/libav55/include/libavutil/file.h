@@ -40,8 +40,12 @@
  * @return a non negative number in case of success, a negative value
  * corresponding to an AVERROR error code in case of failure
  */
-int av_file_map(const char *filename, uint8_t **bufptr, size_t *size,
-                int log_offset, void *log_ctx);
+int
+av_file_map(const char* filename,
+            uint8_t** bufptr,
+            size_t* size,
+            int log_offset,
+            void* log_ctx);
 
 /**
  * Unmap or free the buffer bufptr created by av_file_map().
@@ -49,6 +53,7 @@ int av_file_map(const char *filename, uint8_t **bufptr, size_t *size,
  * @param size size in bytes of bufptr, must be the same as returned
  * by av_file_map()
  */
-void av_file_unmap(uint8_t *bufptr, size_t size);
+void
+av_file_unmap(uint8_t* bufptr, size_t size);
 
 #endif /* AVUTIL_FILE_H */

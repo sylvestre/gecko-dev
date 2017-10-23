@@ -90,8 +90,8 @@ TEST(CloneInputStream, NonCloneableInput_Fallback)
 
   nsCOMPtr<nsIInputStream> clone;
   nsCOMPtr<nsIInputStream> replacement;
-  rv = NS_CloneInputStream(stream, getter_AddRefs(clone),
-                           getter_AddRefs(replacement));
+  rv = NS_CloneInputStream(
+      stream, getter_AddRefs(clone), getter_AddRefs(replacement));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
   ASSERT_TRUE(clone != nullptr);
   ASSERT_TRUE(replacement != nullptr);
@@ -108,7 +108,7 @@ TEST(CloneInputStream, NonCloneableInput_Fallback)
     mozilla::Unused << PR_Sleep(PR_INTERVAL_NO_WAIT);
     rv = stream->Available(&available);
     ASSERT_TRUE(NS_SUCCEEDED(rv));
-  } while(available < inputString.Length());
+  } while (available < inputString.Length());
 
   testing::ConsumeAndValidateStream(stream, inputString);
   testing::ConsumeAndValidateStream(clone, inputString);
@@ -117,7 +117,7 @@ TEST(CloneInputStream, NonCloneableInput_Fallback)
 TEST(CloneInputStream, CloneMultiplexStream)
 {
   nsCOMPtr<nsIMultiplexInputStream> multiplexStream =
-    do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
+      do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
   ASSERT_TRUE(multiplexStream);
   nsCOMPtr<nsIInputStream> stream(do_QueryInterface(multiplexStream));
   ASSERT_TRUE(stream);
@@ -159,7 +159,7 @@ TEST(CloneInputStream, CloneMultiplexStream)
 TEST(CloneInputStream, CloneMultiplexStreamPartial)
 {
   nsCOMPtr<nsIMultiplexInputStream> multiplexStream =
-    do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
+      do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
   ASSERT_TRUE(multiplexStream);
   nsCOMPtr<nsIInputStream> stream(do_QueryInterface(multiplexStream));
   ASSERT_TRUE(stream);

@@ -75,8 +75,8 @@ nsresult
 nsGenericHTMLFrameElement::GetContentDocument(nsIDOMDocument** aContentDocument)
 {
   NS_PRECONDITION(aContentDocument, "Null out param");
-  nsCOMPtr<nsIDOMDocument> document =
-    do_QueryInterface(GetContentDocument(*nsContentUtils::SubjectPrincipal()));
+  nsCOMPtr<nsIDOMDocument> document = do_QueryInterface(
+      GetContentDocument(*nsContentUtils::SubjectPrincipal()));
   document.forget(aContentDocument);
   return NS_OK;
 }
@@ -89,7 +89,7 @@ nsGenericHTMLFrameElement::GetContentDocument(nsIPrincipal& aSubjectPrincipal)
     return nullptr;
   }
 
-  nsIDocument *doc = win->GetDoc();
+  nsIDocument* doc = win->GetDoc();
   if (!doc) {
     return nullptr;
   }
@@ -145,9 +145,8 @@ nsGenericHTMLFrameElement::EnsureFrameLoader()
 
   // Strangely enough, this method doesn't actually ensure that the
   // frameloader exists.  It's more of a best-effort kind of thing.
-  mFrameLoader = nsFrameLoader::Create(this,
-                                       nsPIDOMWindowOuter::From(mOpenerWindow),
-                                       mNetworkCreated);
+  mFrameLoader = nsFrameLoader::Create(
+      this, nsPIDOMWindowOuter::From(mOpenerWindow), mNetworkCreated);
   if (mIsPrerendered) {
     mFrameLoader->SetIsPrerendered();
   }
@@ -172,7 +171,7 @@ nsGenericHTMLFrameElement::CreateRemoteFrameLoader(nsITabParent* aTabParent)
 }
 
 NS_IMETHODIMP
-nsGenericHTMLFrameElement::GetFrameLoaderXPCOM(nsIFrameLoader **aFrameLoader)
+nsGenericHTMLFrameElement::GetFrameLoaderXPCOM(nsIFrameLoader** aFrameLoader)
 {
   NS_IF_ADDREF(*aFrameLoader = mFrameLoader);
   return NS_OK;
@@ -186,21 +185,23 @@ nsGenericHTMLFrameElement::GetFrameLoader()
 }
 
 void
-nsGenericHTMLFrameElement::PresetOpenerWindow(mozIDOMWindowProxy* aWindow, ErrorResult& aRv)
+nsGenericHTMLFrameElement::PresetOpenerWindow(mozIDOMWindowProxy* aWindow,
+                                              ErrorResult& aRv)
 {
   MOZ_ASSERT(!mFrameLoader);
   mOpenerWindow = nsPIDOMWindowOuter::From(aWindow);
 }
 
 void
-nsGenericHTMLFrameElement::InternalSetFrameLoader(nsIFrameLoader* aNewFrameLoader)
+nsGenericHTMLFrameElement::InternalSetFrameLoader(
+    nsIFrameLoader* aNewFrameLoader)
 {
   mFrameLoader = static_cast<nsFrameLoader*>(aNewFrameLoader);
 }
 
 void
-nsGenericHTMLFrameElement::SwapFrameLoaders(HTMLIFrameElement& aOtherLoaderOwner,
-                                            ErrorResult& rv)
+nsGenericHTMLFrameElement::SwapFrameLoaders(
+    HTMLIFrameElement& aOtherLoaderOwner, ErrorResult& rv)
 {
   if (&aOtherLoaderOwner == this) {
     // nothing to do
@@ -218,8 +219,8 @@ nsGenericHTMLFrameElement::SwapFrameLoaders(nsXULElement& aOtherLoaderOwner,
 }
 
 void
-nsGenericHTMLFrameElement::SwapFrameLoaders(nsIFrameLoaderOwner* aOtherLoaderOwner,
-                                            mozilla::ErrorResult& rv)
+nsGenericHTMLFrameElement::SwapFrameLoaders(
+    nsIFrameLoaderOwner* aOtherLoaderOwner, mozilla::ErrorResult& rv)
 {
   RefPtr<nsFrameLoader> loader = GetFrameLoader();
   RefPtr<nsFrameLoader> otherLoader = aOtherLoaderOwner->GetFrameLoader();
@@ -234,7 +235,8 @@ nsGenericHTMLFrameElement::SwapFrameLoaders(nsIFrameLoaderOwner* aOtherLoaderOwn
 NS_IMETHODIMP
 nsGenericHTMLFrameElement::SetIsPrerendered()
 {
-  MOZ_ASSERT(!mFrameLoader, "Please call SetIsPrerendered before frameLoader is created");
+  MOZ_ASSERT(!mFrameLoader,
+             "Please call SetIsPrerendered before frameLoader is created");
   mIsPrerendered = true;
   return NS_OK;
 }
@@ -264,9 +266,8 @@ nsGenericHTMLFrameElement::BindToTree(nsIDocument* aDocument,
                                       nsIContent* aBindingParent,
                                       bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (IsInComposedDoc()) {
@@ -321,16 +322,19 @@ nsGenericHTMLFrameElement::MapScrollingAttribute(const nsAttrValue* aValue)
 static bool
 PrincipalAllowsBrowserFrame(nsIPrincipal* aPrincipal)
 {
-  nsCOMPtr<nsIPermissionManager> permMgr = mozilla::services::GetPermissionManager();
+  nsCOMPtr<nsIPermissionManager> permMgr =
+      mozilla::services::GetPermissionManager();
   NS_ENSURE_TRUE(permMgr, false);
   uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  nsresult rv = permMgr->TestPermissionFromPrincipal(aPrincipal, "browser", &permission);
+  nsresult rv =
+      permMgr->TestPermissionFromPrincipal(aPrincipal, "browser", &permission);
   NS_ENSURE_SUCCESS(rv, false);
   return permission == nsIPermissionManager::ALLOW_ACTION;
 }
 
 /* virtual */ nsresult
-nsGenericHTMLFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+nsGenericHTMLFrameElement::AfterSetAttr(int32_t aNameSpaceID,
+                                        nsAtom* aName,
                                         const nsAttrValue* aValue,
                                         const nsAttrValue* aOldValue,
                                         nsIPrincipal* aMaybeScriptedPrincipal,
@@ -338,9 +342,11 @@ nsGenericHTMLFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
 {
   if (aValue) {
     nsAttrValueOrString value(aValue);
-    AfterMaybeChangeAttr(aNameSpaceID, aName, &value, aMaybeScriptedPrincipal, aNotify);
+    AfterMaybeChangeAttr(
+        aNameSpaceID, aName, &value, aMaybeScriptedPrincipal, aNotify);
   } else {
-    AfterMaybeChangeAttr(aNameSpaceID, aName, nullptr, aMaybeScriptedPrincipal, aNotify);
+    AfterMaybeChangeAttr(
+        aNameSpaceID, aName, nullptr, aMaybeScriptedPrincipal, aNotify);
   }
 
   if (aNameSpaceID == kNameSpaceID_None) {
@@ -350,18 +356,23 @@ nsGenericHTMLFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
         nsCOMPtr<nsIScrollable> scrollable = do_QueryInterface(docshell);
         if (scrollable) {
           int32_t cur;
-          scrollable->GetDefaultScrollbarPreferences(nsIScrollable::ScrollOrientation_X, &cur);
+          scrollable->GetDefaultScrollbarPreferences(
+              nsIScrollable::ScrollOrientation_X, &cur);
           int32_t val = MapScrollingAttribute(aValue);
           if (cur != val) {
-            scrollable->SetDefaultScrollbarPreferences(nsIScrollable::ScrollOrientation_X, val);
-            scrollable->SetDefaultScrollbarPreferences(nsIScrollable::ScrollOrientation_Y, val);
+            scrollable->SetDefaultScrollbarPreferences(
+                nsIScrollable::ScrollOrientation_X, val);
+            scrollable->SetDefaultScrollbarPreferences(
+                nsIScrollable::ScrollOrientation_Y, val);
             RefPtr<nsPresContext> presContext;
             docshell->GetPresContext(getter_AddRefs(presContext));
-            nsIPresShell* shell = presContext ? presContext->GetPresShell() : nullptr;
-            nsIFrame* rootScroll = shell ? shell->GetRootScrollFrame() : nullptr;
+            nsIPresShell* shell =
+                presContext ? presContext->GetPresShell() : nullptr;
+            nsIFrame* rootScroll =
+                shell ? shell->GetRootScrollFrame() : nullptr;
             if (rootScroll) {
-              shell->FrameNeedsReflow(rootScroll, nsIPresShell::eStyleChange,
-                                      NS_FRAME_IS_DIRTY);
+              shell->FrameNeedsReflow(
+                  rootScroll, nsIPresShell::eStyleChange, NS_FRAME_IS_DIRTY);
             }
           }
         }
@@ -372,35 +383,39 @@ nsGenericHTMLFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aMaybeScriptedPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aMaybeScriptedPrincipal, aNotify);
 }
 
 nsresult
-nsGenericHTMLFrameElement::OnAttrSetButNotChanged(int32_t aNamespaceID,
-                                                  nsAtom* aName,
-                                                  const nsAttrValueOrString& aValue,
-                                                  bool aNotify)
+nsGenericHTMLFrameElement::OnAttrSetButNotChanged(
+    int32_t aNamespaceID,
+    nsAtom* aName,
+    const nsAttrValueOrString& aValue,
+    bool aNotify)
 {
   AfterMaybeChangeAttr(aNamespaceID, aName, &aValue, nullptr, aNotify);
 
-  return nsGenericHTMLElement::OnAttrSetButNotChanged(aNamespaceID, aName,
-                                                      aValue, aNotify);
+  return nsGenericHTMLElement::OnAttrSetButNotChanged(
+      aNamespaceID, aName, aValue, aNotify);
 }
 
 void
-nsGenericHTMLFrameElement::AfterMaybeChangeAttr(int32_t aNamespaceID,
-                                                nsAtom* aName,
-                                                const nsAttrValueOrString* aValue,
-                                                nsIPrincipal* aMaybeScriptedPrincipal,
-                                                bool aNotify)
+nsGenericHTMLFrameElement::AfterMaybeChangeAttr(
+    int32_t aNamespaceID,
+    nsAtom* aName,
+    const nsAttrValueOrString* aValue,
+    nsIPrincipal* aMaybeScriptedPrincipal,
+    bool aNotify)
 {
   if (aNamespaceID == kNameSpaceID_None) {
     if (aName == nsGkAtoms::src) {
       mSrcTriggeringPrincipal = nsContentUtils::GetAttrTriggeringPrincipal(
-          this, aValue ? aValue->String() : EmptyString(), aMaybeScriptedPrincipal);
+          this,
+          aValue ? aValue->String() : EmptyString(),
+          aMaybeScriptedPrincipal);
       if (aValue && (!IsHTMLElement(nsGkAtoms::iframe) ||
-          !HasAttr(kNameSpaceID_None, nsGkAtoms::srcdoc))) {
+                     !HasAttr(kNameSpaceID_None, nsGkAtoms::srcdoc))) {
         // Don't propagate error here. The attribute was successfully set,
         // that's what we should reflect.
         LoadSrc();
@@ -408,8 +423,8 @@ nsGenericHTMLFrameElement::AfterMaybeChangeAttr(int32_t aNamespaceID,
     } else if (aName == nsGkAtoms::name) {
       // Propagate "name" to the docshell to make browsing context names live,
       // per HTML5.
-      nsIDocShell* docShell = mFrameLoader ? mFrameLoader->GetExistingDocShell()
-                                           : nullptr;
+      nsIDocShell* docShell =
+          mFrameLoader ? mFrameLoader->GetExistingDocShell() : nullptr;
       if (docShell) {
         if (aValue) {
           docShell->SetName(aValue->String());
@@ -442,7 +457,7 @@ nsGenericHTMLFrameElement::CopyInnerTo(Element* aDest,
   nsIDocument* doc = aDest->OwnerDoc();
   if (doc->IsStaticDocument() && mFrameLoader) {
     nsGenericHTMLFrameElement* dest =
-      static_cast<nsGenericHTMLFrameElement*>(aDest);
+        static_cast<nsGenericHTMLFrameElement*>(aDest);
     nsFrameLoader* fl = nsFrameLoader::Create(dest, nullptr, false);
     NS_ENSURE_STATE(fl);
     dest->mFrameLoader = fl;
@@ -454,10 +469,11 @@ nsGenericHTMLFrameElement::CopyInnerTo(Element* aDest,
 
 bool
 nsGenericHTMLFrameElement::IsHTMLFocusable(bool aWithMouse,
-                                           bool *aIsFocusable,
-                                           int32_t *aTabIndex)
+                                           bool* aIsFocusable,
+                                           int32_t* aTabIndex)
 {
-  if (nsGenericHTMLElement::IsHTMLFocusable(aWithMouse, aIsFocusable, aTabIndex)) {
+  if (nsGenericHTMLElement::IsHTMLFocusable(
+          aWithMouse, aIsFocusable, aTabIndex)) {
     return true;
   }
 
@@ -487,7 +503,6 @@ nsGenericHTMLFrameElement::InitStatics()
 #endif
 }
 
-
 bool
 nsGenericHTMLFrameElement::BrowserFramesEnabled()
 {
@@ -501,14 +516,14 @@ nsGenericHTMLFrameElement::BrowserFramesEnabled()
  * permissions.)
  */
 /* [infallible] */ nsresult
-nsGenericHTMLFrameElement::GetReallyIsBrowser(bool *aOut)
+nsGenericHTMLFrameElement::GetReallyIsBrowser(bool* aOut)
 {
   *aOut = mReallyIsBrowser;
   return NS_OK;
 }
 
 /* [infallible] */ NS_IMETHODIMP
-nsGenericHTMLFrameElement::GetIsolated(bool *aOut)
+nsGenericHTMLFrameElement::GetIsolated(bool* aOut)
 {
   *aOut = true;
 

@@ -4,8 +4,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testIteratorObject)
-{
+BEGIN_TEST(testIteratorObject) {
     using namespace js;
     JS::RootedValue result(cx);
 
@@ -28,4 +27,3 @@ BEGIN_TEST(testIteratorObject)
     return true;
 }
 END_TEST(testIteratorObject)
-

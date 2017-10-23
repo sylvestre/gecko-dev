@@ -8,16 +8,12 @@
 #include "MediaDecoderOwner.h"
 #include "mozilla/AbstractThread.h"
 
-namespace mozilla
-{
+namespace mozilla {
 
 class MockMediaDecoderOwner : public MediaDecoderOwner
 {
-public:
-  nsresult DispatchAsyncEvent(const nsAString& aName) override
-  {
-    return NS_OK;
-  }
+ public:
+  nsresult DispatchAsyncEvent(const nsAString& aName) override { return NS_OK; }
   void FireTimeUpdate(bool aPeriodic) override {}
   bool GetPaused() override { return false; }
   void MetadataLoaded(const MediaInfo* aInfo,
@@ -35,7 +31,9 @@ public:
   void UpdateReadyState() override {}
   void FirstFrameLoaded() override {}
   void DispatchEncrypted(const nsTArray<uint8_t>& aInitData,
-                         const nsAString& aInitDataType) override {}
+                         const nsAString& aInitDataType) override
+  {
+  }
   bool IsActive() const override { return true; }
   bool IsHidden() const override { return false; }
   void DownloadSuspended() override {}
@@ -54,6 +52,6 @@ public:
   void AsyncResolveSeekDOMPromiseIfExists() override {}
   void AsyncRejectSeekDOMPromiseIfExists() override {}
 };
-}
+}  // namespace mozilla
 
 #endif

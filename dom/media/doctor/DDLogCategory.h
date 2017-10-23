@@ -46,6 +46,6 @@ ToLongString(DDLogCategory aCategory)
   return kDDLogCategoryLongStrings[static_cast<size_t>(aCategory)];
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDLogCategory_h_
+#endif  // DDLogCategory_h_

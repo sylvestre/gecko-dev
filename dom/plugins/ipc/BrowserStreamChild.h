@@ -19,7 +19,7 @@ class StreamNotifyChild;
 
 class BrowserStreamChild : public PBrowserStreamChild, public AStream
 {
-public:
+ public:
   BrowserStreamChild(PluginInstanceChild* instance,
                      const nsCString& url,
                      const uint32_t& length,
@@ -30,29 +30,28 @@ public:
 
   virtual bool IsBrowserStream() override { return true; }
 
-  NPError StreamConstructed(
-            const nsCString& mimeType,
-            const bool& seekable,
-            uint16_t* stype);
+  NPError StreamConstructed(const nsCString& mimeType,
+                            const bool& seekable,
+                            uint16_t* stype);
 
   virtual mozilla::ipc::IPCResult RecvWrite(const int32_t& offset,
                                             const uint32_t& newsize,
                                             const Buffer& data) override;
-  virtual mozilla::ipc::IPCResult RecvNPP_DestroyStream(const NPReason& reason) override;
+  virtual mozilla::ipc::IPCResult RecvNPP_DestroyStream(
+      const NPReason& reason) override;
   virtual mozilla::ipc::IPCResult Recv__delete__() override;
 
   void EnsureCorrectInstance(PluginInstanceChild* i)
   {
-    if (i != mInstance)
-      MOZ_CRASH("Incorrect stream instance");
+    if (i != mInstance) MOZ_CRASH("Incorrect stream instance");
   }
   void EnsureCorrectStream(NPStream* s)
   {
-    if (s != &mStream)
-      MOZ_CRASH("Incorrect stream data");
+    if (s != &mStream) MOZ_CRASH("Incorrect stream data");
   }
 
-  void NotifyPending() {
+  void NotifyPending()
+  {
     NS_ASSERTION(!mNotifyPending, "Pending twice?");
     mNotifyPending = true;
     EnsureDeliveryPending();
@@ -63,15 +62,16 @@ public:
    *
    * @return false if we are already in the DELETING state.
    */
-  bool InstanceDying() {
-    if (DELETING == mState)
-      return false;
+  bool InstanceDying()
+  {
+    if (DELETING == mState) return false;
 
     mInstanceDying = true;
     return true;
   }
 
-  void FinishDelivery() {
+  void FinishDelivery()
+  {
     NS_ASSERTION(mInstanceDying, "Should only be called after InstanceDying");
     NS_ASSERTION(DELETING != mState, "InstanceDying didn't work?");
     mStreamStatus = NPRES_USER_BREAK;
@@ -79,7 +79,7 @@ public:
     NS_ASSERTION(!mStreamNotify, "Didn't deliver NPN_URLNotify?");
   }
 
-private:
+ private:
   friend class StreamNotifyChild;
 
   /**
@@ -121,10 +121,11 @@ private:
    * Delivery of NPP_DestroyStream and NPP_URLNotify must be postponed until
    * all data has been delivered.
    */
-  enum {
-    NOT_DESTROYED, // NPP_DestroyStream not yet received
-    DESTROY_PENDING, // NPP_DestroyStream received, not yet delivered
-    DESTROYED // NPP_DestroyStream delivered, NPP_URLNotify may still be pending
+  enum
+  {
+    NOT_DESTROYED,    // NPP_DestroyStream not yet received
+    DESTROY_PENDING,  // NPP_DestroyStream received, not yet delivered
+    DESTROYED  // NPP_DestroyStream delivered, NPP_URLNotify may still be pending
   } mDestroyPending;
   bool mNotifyPending;
 
@@ -132,7 +133,8 @@ private:
   // cancels the stream and avoids sending StreamDestroyed.
   bool mInstanceDying;
 
-  enum {
+  enum
+  {
     CONSTRUCTING,
     ALIVE,
     DYING,
@@ -160,7 +162,7 @@ private:
   base::RepeatingTimer<BrowserStreamChild> mSuspendedTimer;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
 #endif /* mozilla_plugins_BrowserStreamChild_h */

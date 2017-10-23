@@ -46,17 +46,22 @@ LogMessageHandlerFunction log_message_handler = nullptr;
 
 }  // namespace
 
-void SetMinLogLevel(int level) {
+void
+SetMinLogLevel(int level)
+{
   g_min_log_level = std::min(LOG_FATAL, level);
 }
 
-int GetMinLogLevel() {
+int
+GetMinLogLevel()
+{
   return g_min_log_level;
 }
 
-bool ShouldCreateLogMessage(int severity) {
-  if (severity < g_min_log_level)
-    return false;
+bool
+ShouldCreateLogMessage(int severity)
+{
+  if (severity < g_min_log_level) return false;
 
   // Return true here unless we know ~LogMessage won't do anything. Note that
   // ~LogMessage writes to stderr if severity_ >= kAlwaysPrintErrorLevel, even
@@ -65,54 +70,68 @@ bool ShouldCreateLogMessage(int severity) {
          severity >= kAlwaysPrintErrorLevel;
 }
 
-int GetVlogLevelHelper(const char* file, size_t N) {
+int
+GetVlogLevelHelper(const char* file, size_t N)
+{
   return 0;
 }
 
 // Explicit instantiations for commonly used comparisons.
-template std::string* MakeCheckOpString<int, int>(
-    const int&, const int&, const char* names);
-template std::string* MakeCheckOpString<unsigned long, unsigned long>(
-    const unsigned long&, const unsigned long&, const char* names);
-template std::string* MakeCheckOpString<unsigned long, unsigned int>(
-    const unsigned long&, const unsigned int&, const char* names);
-template std::string* MakeCheckOpString<unsigned int, unsigned long>(
-    const unsigned int&, const unsigned long&, const char* names);
-template std::string* MakeCheckOpString<std::string, std::string>(
-    const std::string&, const std::string&, const char* name);
+template std::string*
+MakeCheckOpString<int, int>(const int&, const int&, const char* names);
+template std::string*
+MakeCheckOpString<unsigned long, unsigned long>(const unsigned long&,
+                                                const unsigned long&,
+                                                const char* names);
+template std::string*
+MakeCheckOpString<unsigned long, unsigned int>(const unsigned long&,
+                                               const unsigned int&,
+                                               const char* names);
+template std::string*
+MakeCheckOpString<unsigned int, unsigned long>(const unsigned int&,
+                                               const unsigned long&,
+                                               const char* names);
+template std::string*
+MakeCheckOpString<std::string, std::string>(const std::string&,
+                                            const std::string&,
+                                            const char* name);
 
 #if defined(OS_WIN)
-LogMessage::SaveLastError::SaveLastError() : last_error_(::GetLastError()) {
-}
+LogMessage::SaveLastError::SaveLastError() : last_error_(::GetLastError()) {}
 
-LogMessage::SaveLastError::~SaveLastError() {
-  ::SetLastError(last_error_);
-}
+LogMessage::SaveLastError::~SaveLastError() { ::SetLastError(last_error_); }
 #endif  // defined(OS_WIN)
 
 LogMessage::LogMessage(const char* file, int line, LogSeverity severity)
-    : severity_(severity), file_(file), line_(line) {
+    : severity_(severity), file_(file), line_(line)
+{
 }
 
 LogMessage::LogMessage(const char* file, int line, const char* condition)
-    : severity_(LOG_FATAL), file_(file), line_(line) {
+    : severity_(LOG_FATAL), file_(file), line_(line)
+{
 }
 
 LogMessage::LogMessage(const char* file, int line, std::string* result)
-    : severity_(LOG_FATAL), file_(file), line_(line) {
+    : severity_(LOG_FATAL), file_(file), line_(line)
+{
   delete result;
 }
 
-LogMessage::LogMessage(const char* file, int line, LogSeverity severity,
+LogMessage::LogMessage(const char* file,
+                       int line,
+                       LogSeverity severity,
                        std::string* result)
-    : severity_(severity), file_(file), line_(line) {
+    : severity_(severity), file_(file), line_(line)
+{
   delete result;
 }
 
-LogMessage::~LogMessage() {
-}
+LogMessage::~LogMessage() {}
 
-SystemErrorCode GetLastSystemErrorCode() {
+SystemErrorCode
+GetLastSystemErrorCode()
+{
 #if defined(OS_WIN)
   return ::GetLastError();
 #elif defined(OS_POSIX)
@@ -127,34 +146,36 @@ Win32ErrorLogMessage::Win32ErrorLogMessage(const char* file,
                                            int line,
                                            LogSeverity severity,
                                            SystemErrorCode err)
-    : err_(err),
-      log_message_(file, line, severity) {
+    : err_(err), log_message_(file, line, severity)
+{
   mozilla::Unused << err_;
 }
 
-Win32ErrorLogMessage::~Win32ErrorLogMessage() {
-}
+Win32ErrorLogMessage::~Win32ErrorLogMessage() {}
 #elif defined(OS_POSIX)
 ErrnoLogMessage::ErrnoLogMessage(const char* file,
                                  int line,
                                  LogSeverity severity,
                                  SystemErrorCode err)
-    : err_(err),
-      log_message_(file, line, severity) {
+    : err_(err), log_message_(file, line, severity)
+{
   mozilla::Unused << err_;
 }
 
-ErrnoLogMessage::~ErrnoLogMessage() {
-}
+ErrnoLogMessage::~ErrnoLogMessage() {}
 #endif  // OS_WIN
 
-void RawLog(int level, const char* message) {
+void
+RawLog(int level, const char* message)
+{
 }
 
-} // namespace logging
+}  // namespace logging
 
 #if defined(OS_WIN)
-std::ostream& std::operator<<(std::ostream& out, const wchar_t* wstr) {
+std::ostream&
+std::operator<<(std::ostream& out, const wchar_t* wstr)
+{
   return out << base::WideToUTF8(std::wstring(wstr));
 }
 #endif

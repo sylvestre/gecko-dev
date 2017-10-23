@@ -17,24 +17,17 @@ class LocalStorageCache;
 class LocalStorageManager;
 class StorageEvent;
 
-class LocalStorage final : public Storage
-                         , public nsSupportsWeakReference
+class LocalStorage final : public Storage, public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(LocalStorage, Storage)
 
   StorageType Type() const override { return eLocalStorage; }
 
-  LocalStorageManager* GetManager() const
-  {
-    return mManager;
-  }
+  LocalStorageManager* GetManager() const { return mManager; }
 
-  LocalStorageCache const* GetCache() const
-  {
-    return mCache;
-  }
+  LocalStorageCache const* GetCache() const { return mCache; }
 
   bool PrincipalEquals(nsIPrincipal* aPrincipal);
 
@@ -54,17 +47,20 @@ public:
   uint32_t GetLength(nsIPrincipal& aSubjectPrincipal,
                      ErrorResult& aRv) override;
 
-  void Key(uint32_t aIndex, nsAString& aResult,
+  void Key(uint32_t aIndex,
+           nsAString& aResult,
            nsIPrincipal& aSubjectPrincipal,
            ErrorResult& aRv) override;
 
-  void GetItem(const nsAString& aKey, nsAString& aResult,
+  void GetItem(const nsAString& aKey,
+               nsAString& aResult,
                nsIPrincipal& aSubjectPrincipal,
                ErrorResult& aRv) override;
 
   void GetSupportedNames(nsTArray<nsString>& aKeys) override;
 
-  void SetItem(const nsAString& aKey, const nsAString& aValue,
+  void SetItem(const nsAString& aKey,
+               const nsAString& aValue,
                nsIPrincipal& aSubjectPrincipal,
                ErrorResult& aRv) override;
 
@@ -72,8 +68,7 @@ public:
                   nsIPrincipal& aSubjectPrincipal,
                   ErrorResult& aRv) override;
 
-  void Clear(nsIPrincipal& aSubjectPrincipal,
-             ErrorResult& aRv) override;
+  void Clear(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) override;
 
   bool IsPrivate() const { return mIsPrivate; }
 
@@ -85,20 +80,18 @@ public:
   // Recv* methods to trigger script that wants to assume our localstorage
   // changes have already been applied.  This is the case for message manager
   // messages which are used by ContentTask testing logic and webextensions.
-  static void
-  DispatchStorageEvent(const nsAString& aDocumentURI,
-                       const nsAString& aKey,
-                       const nsAString& aOldValue,
-                       const nsAString& aNewValue,
-                       nsIPrincipal* aPrincipal,
-                       bool aIsPrivate,
-                       Storage* aStorage,
-                       bool aImmediateDispatch);
+  static void DispatchStorageEvent(const nsAString& aDocumentURI,
+                                   const nsAString& aKey,
+                                   const nsAString& aOldValue,
+                                   const nsAString& aNewValue,
+                                   nsIPrincipal* aPrincipal,
+                                   bool aIsPrivate,
+                                   Storage* aStorage,
+                                   bool aImmediateDispatch);
 
-  void
-  ApplyEvent(StorageEvent* aStorageEvent);
+  void ApplyEvent(StorageEvent* aStorageEvent);
 
-private:
+ private:
   ~LocalStorage();
 
   friend class LocalStorageManager;
@@ -120,7 +113,7 @@ private:
                                    const nsAString& aNewValue);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_LocalStorage_h
+#endif  // mozilla_dom_LocalStorage_h

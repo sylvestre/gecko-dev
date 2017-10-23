@@ -27,9 +27,7 @@ namespace dom {
 
 extern nsAttrValue::EnumTable kListTypeTable[];
 
-HTMLSharedElement::~HTMLSharedElement()
-{
-}
+HTMLSharedElement::~HTMLSharedElement() {}
 
 NS_IMPL_ADDREF_INHERITED(HTMLSharedElement, nsGenericHTMLElement)
 NS_IMPL_RELEASE_INHERITED(HTMLSharedElement, nsGenericHTMLElement)
@@ -39,7 +37,6 @@ NS_INTERFACE_MAP_BEGIN(HTMLSharedElement)
   NS_INTERFACE_MAP_ENTRY_IF_TAG(nsIDOMHTMLBaseElement, base)
   NS_INTERFACE_MAP_ENTRY_IF_TAG(nsIDOMHTMLHtmlElement, html)
 NS_INTERFACE_MAP_END_INHERITING(nsGenericHTMLElement)
-
 
 NS_IMPL_ELEMENT_CLONE(HTMLSharedElement)
 
@@ -66,7 +63,7 @@ HTMLSharedElement::GetHref(nsAString& aValue)
   nsCOMPtr<nsIURI> uri;
   nsIDocument* doc = OwnerDoc();
   nsContentUtils::NewURIWithDocumentCharset(
-    getter_AddRefs(uri), href, doc, doc->GetFallbackBaseURI());
+      getter_AddRefs(uri), href, doc, doc->GetFallbackBaseURI());
 
   if (!uri) {
     aValue = href;
@@ -86,25 +83,24 @@ HTMLSharedElement::SetHref(const nsAString& aValue)
   return SetAttrHelper(nsGkAtoms::href, aValue);
 }
 
-
 bool
 HTMLSharedElement::ParseAttribute(int32_t aNamespaceID,
                                   nsAtom* aAttribute,
                                   const nsAString& aValue,
                                   nsAttrValue& aResult)
 {
-  if (aNamespaceID == kNameSpaceID_None &&
-      mNodeInfo->Equals(nsGkAtoms::dir)) {
+  if (aNamespaceID == kNameSpaceID_None && mNodeInfo->Equals(nsGkAtoms::dir)) {
     if (aAttribute == nsGkAtoms::type) {
-      return aResult.ParseEnumValue(aValue, mozilla::dom::kListTypeTable, false);
+      return aResult.ParseEnumValue(
+          aValue, mozilla::dom::kListTypeTable, false);
     }
     if (aAttribute == nsGkAtoms::start) {
       return aResult.ParseIntWithBounds(aValue, 1);
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 static void
@@ -117,9 +113,11 @@ DirectoryMapAttributesIntoRule(const nsMappedAttributes* aAttributes,
       const nsAttrValue* value = aAttributes->GetAttr(nsGkAtoms::type);
       if (value) {
         if (value->Type() == nsAttrValue::eEnum) {
-          aData->SetKeywordValue(eCSSProperty_list_style_type, value->GetEnumValue());
+          aData->SetKeywordValue(eCSSProperty_list_style_type,
+                                 value->GetEnumValue());
         } else {
-          aData->SetKeywordValue(eCSSProperty_list_style_type, NS_STYLE_LIST_STYLE_DISC);
+          aData->SetKeywordValue(eCSSProperty_list_style_type,
+                                 NS_STYLE_LIST_STYLE_DISC);
         }
       }
     }
@@ -133,14 +131,13 @@ HTMLSharedElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   if (mNodeInfo->Equals(nsGkAtoms::dir)) {
     static const MappedAttributeEntry attributes[] = {
-      { &nsGkAtoms::type },
-      // { &nsGkAtoms::compact }, // XXX
-      { nullptr}
-    };
+        {&nsGkAtoms::type},
+        // { &nsGkAtoms::compact }, // XXX
+        {nullptr}};
 
     static const MappedAttributeEntry* const map[] = {
-      attributes,
-      sCommonAttributeMap,
+        attributes,
+        sCommonAttributeMap,
     };
 
     return FindAttributeDependence(aAttribute, map);
@@ -169,8 +166,10 @@ SetBaseURIUsingFirstBaseWithHref(nsIDocument* aDocument, nsIContent* aMustMatch)
 
       nsCOMPtr<nsIURI> newBaseURI;
       nsContentUtils::NewURIWithDocumentCharset(
-        getter_AddRefs(newBaseURI), href, aDocument,
-        aDocument->GetFallbackBaseURI());
+          getter_AddRefs(newBaseURI),
+          href,
+          aDocument,
+          aDocument->GetFallbackBaseURI());
 
       // Check if CSP allows this base-uri
       nsCOMPtr<nsIContentSecurityPolicy> csp;
@@ -186,8 +185,10 @@ SetBaseURIUsingFirstBaseWithHref(nsIDocument* aDocument, nsIContent* aMustMatch)
         // policy - do *not* consult default-src, see:
         // http://www.w3.org/TR/CSP2/#directive-default-src
         bool cspPermitsBaseURI = true;
-        rv = csp->Permits(newBaseURI, nsIContentSecurityPolicy::BASE_URI_DIRECTIVE,
-                          true, &cspPermitsBaseURI);
+        rv = csp->Permits(newBaseURI,
+                          nsIContentSecurityPolicy::BASE_URI_DIRECTIVE,
+                          true,
+                          &cspPermitsBaseURI);
         if (NS_FAILED(rv) || !cspPermitsBaseURI) {
           newBaseURI = nullptr;
         }
@@ -226,7 +227,8 @@ SetBaseTargetUsingFirstBaseWithTarget(nsIDocument* aDocument,
 }
 
 nsresult
-HTMLSharedElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLSharedElement::AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -253,24 +255,23 @@ HTMLSharedElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNamespaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 nsresult
-HTMLSharedElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLSharedElement::BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // The document stores a pointer to its base URI and base target, which we may
   // need to update here.
-  if (mNodeInfo->Equals(nsGkAtoms::base) &&
-      aDocument) {
+  if (mNodeInfo->Equals(nsGkAtoms::base) && aDocument) {
     if (HasAttr(kNameSpaceID_None, nsGkAtoms::href)) {
       SetBaseURIUsingFirstBaseWithHref(aDocument, this);
     }
@@ -312,7 +313,7 @@ HTMLSharedElement::GetAttributeMappingFunction() const
 }
 
 JSObject*
-HTMLSharedElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLSharedElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   if (mNodeInfo->Equals(nsGkAtoms::param)) {
     return HTMLParamElementBinding::Wrap(aCx, this, aGivenProto);
@@ -334,5 +335,5 @@ HTMLSharedElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLHtmlElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

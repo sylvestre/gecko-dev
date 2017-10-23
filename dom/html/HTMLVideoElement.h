@@ -22,7 +22,7 @@ class VideoPlaybackQuality;
 
 class HTMLVideoElement final : public HTMLMediaElement
 {
-public:
+ public:
   typedef mozilla::dom::NodeInfo NodeInfo;
 
   explicit HTMLVideoElement(already_AddRefed<NodeInfo>& aNodeInfo);
@@ -31,9 +31,7 @@ public:
 
   using HTMLMediaElement::GetPaused;
 
-  NS_IMETHOD_(bool) IsVideo() override {
-    return true;
-  }
+  NS_IMETHOD_(bool) IsVideo() override { return true; }
 
   virtual bool ParseAttribute(int32_t aNamespaceID,
                               nsAtom* aAttribute,
@@ -43,9 +41,11 @@ public:
 
   static void Init();
 
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
 
-  virtual nsresult Clone(NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // Set size with the current video frame's height and width.
@@ -59,20 +59,14 @@ public:
 
   // WebIDL
 
-  uint32_t Width() const
-  {
-    return GetIntAttr(nsGkAtoms::width, 0);
-  }
+  uint32_t Width() const { return GetIntAttr(nsGkAtoms::width, 0); }
 
   void SetWidth(uint32_t aValue, ErrorResult& aRv)
   {
     SetUnsignedIntAttr(nsGkAtoms::width, aValue, 0, aRv);
   }
 
-  uint32_t Height() const
-  {
-    return GetIntAttr(nsGkAtoms::height, 0);
-  }
+  uint32_t Height() const { return GetIntAttr(nsGkAtoms::height, 0); }
 
   void SetHeight(uint32_t aValue, ErrorResult& aRv)
   {
@@ -134,26 +128,20 @@ public:
 
   already_AddRefed<VideoPlaybackQuality> GetVideoPlaybackQuality();
 
-
   bool MozOrientationLockEnabled() const
   {
     return MediaPrefs::VideoOrientationLockEnabled();
   }
 
-  bool MozIsOrientationLocked() const
-  {
-    return mIsOrientationLocked;
-  }
+  bool MozIsOrientationLocked() const { return mIsOrientationLocked; }
 
-  void SetMozIsOrientationLocked(bool aLock)
-  {
-    mIsOrientationLocked = aLock;
-  }
+  void SetMozIsOrientationLocked(bool aLock) { mIsOrientationLocked = aLock; }
 
-protected:
+ protected:
   virtual ~HTMLVideoElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   virtual void WakeLockCreate() override;
   virtual void WakeLockRelease() override;
@@ -163,7 +151,7 @@ protected:
 
   bool mIsOrientationLocked;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 
@@ -171,7 +159,7 @@ private:
   double TotalPlayTime() const;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLVideoElement_h
+#endif  // mozilla_dom_HTMLVideoElement_h

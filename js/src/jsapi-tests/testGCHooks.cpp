@@ -11,12 +11,10 @@
 
 static unsigned gSliceCallbackCount = 0;
 
-static void
-NonIncrementalGCSliceCallback(JSContext* cx, JS::GCProgress progress, const JS::GCDescription& desc)
-{
+static void NonIncrementalGCSliceCallback(JSContext* cx, JS::GCProgress progress,
+                                          const JS::GCDescription& desc) {
     using namespace JS;
-    static GCProgress expect[] =
-        { GC_CYCLE_BEGIN, GC_SLICE_BEGIN, GC_SLICE_END, GC_CYCLE_END };
+    static GCProgress expect[] = {GC_CYCLE_BEGIN, GC_SLICE_BEGIN, GC_SLICE_END, GC_CYCLE_END};
 
     MOZ_RELEASE_ASSERT(gSliceCallbackCount < mozilla::ArrayLength(expect));
     MOZ_RELEASE_ASSERT(progress == expect[gSliceCallbackCount++]);
@@ -30,8 +28,7 @@ NonIncrementalGCSliceCallback(JSContext* cx, JS::GCProgress progress, const JS::
     }
 }
 
-BEGIN_TEST(testGCSliceCallback)
-{
+BEGIN_TEST(testGCSliceCallback) {
     gSliceCallbackCount = 0;
     JS::SetGCSliceCallback(cx, NonIncrementalGCSliceCallback);
     JS_GC(cx);
@@ -41,21 +38,18 @@ BEGIN_TEST(testGCSliceCallback)
 }
 END_TEST(testGCSliceCallback)
 
-static void
-RootsRemovedGCSliceCallback(JSContext* cx, JS::GCProgress progress, const JS::GCDescription& desc)
-{
+static void RootsRemovedGCSliceCallback(JSContext* cx, JS::GCProgress progress,
+                                        const JS::GCDescription& desc) {
     using namespace JS;
     using namespace JS::gcreason;
 
     static GCProgress expectProgress[] = {
-        GC_CYCLE_BEGIN, GC_SLICE_BEGIN, GC_SLICE_END, GC_SLICE_BEGIN, GC_SLICE_END, GC_CYCLE_END,
-        GC_CYCLE_BEGIN, GC_SLICE_BEGIN, GC_SLICE_END, GC_CYCLE_END
-    };
+        GC_CYCLE_BEGIN, GC_SLICE_BEGIN, GC_SLICE_END,   GC_SLICE_BEGIN, GC_SLICE_END,
+        GC_CYCLE_END,   GC_CYCLE_BEGIN, GC_SLICE_BEGIN, GC_SLICE_END,   GC_CYCLE_END};
 
-    static Reason expectReasons[] = {
-        DEBUG_GC, DEBUG_GC, DEBUG_GC, DEBUG_GC, DEBUG_GC, DEBUG_GC,
-        ROOTS_REMOVED, ROOTS_REMOVED, ROOTS_REMOVED, ROOTS_REMOVED
-    };
+    static Reason expectReasons[] = {DEBUG_GC,      DEBUG_GC,     DEBUG_GC,      DEBUG_GC,
+                                     DEBUG_GC,      DEBUG_GC,     ROOTS_REMOVED, ROOTS_REMOVED,
+                                     ROOTS_REMOVED, ROOTS_REMOVED};
 
     static_assert(mozilla::ArrayLength(expectProgress) == mozilla::ArrayLength(expectReasons),
                   "expectProgress and expectReasons arrays should be the same length");
@@ -68,8 +62,7 @@ RootsRemovedGCSliceCallback(JSContext* cx, JS::GCProgress progress, const JS::GC
     gSliceCallbackCount++;
 }
 
-BEGIN_TEST(testGCRootsRemoved)
-{
+BEGIN_TEST(testGCRootsRemoved) {
     JS_SetGCParameter(cx, JSGC_MODE, JSGC_MODE_INCREMENTAL);
 
     gSliceCallbackCount = 0;
@@ -96,4 +89,3 @@ BEGIN_TEST(testGCRootsRemoved)
     return true;
 }
 END_TEST(testGCRootsRemoved)
-

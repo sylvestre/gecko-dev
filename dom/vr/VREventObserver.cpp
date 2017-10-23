@@ -23,8 +23,7 @@ using namespace gfx;
  * window.onvrdisplaydisconnected, and window.onvrdisplaypresentchange.
  */
 VREventObserver::VREventObserver(nsGlobalWindow* aGlobalWindow)
-  : mWindow(aGlobalWindow)
-  , mIs2DView(true)
+    : mWindow(aGlobalWindow), mIs2DView(true)
 {
   MOZ_ASSERT(aGlobalWindow && aGlobalWindow->IsInnerWindow());
 
@@ -35,10 +34,7 @@ VREventObserver::VREventObserver(nsGlobalWindow* aGlobalWindow)
   }
 }
 
-VREventObserver::~VREventObserver()
-{
-  DisconnectFromOwner();
-}
+VREventObserver::~VREventObserver() { DisconnectFromOwner(); }
 
 void
 VREventObserver::DisconnectFromOwner()
@@ -140,5 +136,5 @@ VREventObserver::NotifyVRDisplayPresentChange(uint32_t aDisplayID)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

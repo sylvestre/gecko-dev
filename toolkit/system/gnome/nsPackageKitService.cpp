@@ -23,39 +23,62 @@ typedef struct _GAsyncResult GAsyncResult;
 typedef enum {
   G_BUS_TYPE_STARTER = -1,
   G_BUS_TYPE_NONE = 0,
-  G_BUS_TYPE_SYSTEM  = 1,
+  G_BUS_TYPE_SYSTEM = 1,
   G_BUS_TYPE_SESSION = 2
 } GBusType;
 typedef struct _GCancellable GCancellable;
 typedef enum {
   G_DBUS_CALL_FLAGS_NONE = 0,
-  G_DBUS_CALL_FLAGS_NO_AUTO_START = (1<<0)
+  G_DBUS_CALL_FLAGS_NO_AUTO_START = (1 << 0)
 } GDBusCallFlags;
 typedef struct _GDBusInterfaceInfo GDBusInterfaceInfo;
 typedef struct _GDBusProxy GDBusProxy;
 typedef enum {
   G_DBUS_PROXY_FLAGS_NONE = 0,
-  G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES = (1<<0),
-  G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS = (1<<1),
-  G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START = (1<<2),
-  G_DBUS_PROXY_FLAGS_GET_INVALIDATED_PROPERTIES = (1<<3)
+  G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES = (1 << 0),
+  G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS = (1 << 1),
+  G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START = (1 << 2),
+  G_DBUS_PROXY_FLAGS_GET_INVALIDATED_PROPERTIES = (1 << 3)
 } GDBusProxyFlags;
 typedef struct _GVariant GVariant;
-typedef void (*GAsyncReadyCallback) (GObject *source_object,
-                                     GAsyncResult *res,
-                                     gpointer user_data);
+typedef void (*GAsyncReadyCallback)(GObject* source_object,
+                                    GAsyncResult* res,
+                                    gpointer user_data);
 
-#define GDBUS_FUNCTIONS \
-  FUNC(g_dbus_proxy_call, void, (GDBusProxy *proxy, const gchar *method_name, GVariant *parameters, GDBusCallFlags flags, gint timeout_msec, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)) \
-  FUNC(g_dbus_proxy_call_finish, GVariant*, (GDBusProxy *proxy, GAsyncResult *res, GError **error)) \
-  FUNC(g_dbus_proxy_new_finish, GDBusProxy*, (GAsyncResult *res, GError **error)) \
-  FUNC(g_dbus_proxy_new_for_bus, void, (GBusType bus_type, GDBusProxyFlags flags, GDBusInterfaceInfo *info, const gchar *name, const gchar *object_path, const gchar *interface_name,  GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)) \
-  FUNC(g_variant_is_floating, gboolean, (GVariant *value)) \
-  FUNC(g_variant_new, GVariant*, (const gchar *format_string, ...)) \
-  FUNC(g_variant_unref, void, (GVariant* value))
+#define GDBUS_FUNCTIONS                                             \
+  FUNC(g_dbus_proxy_call,                                           \
+       void,                                                        \
+       (GDBusProxy * proxy,                                         \
+        const gchar* method_name,                                   \
+        GVariant* parameters,                                       \
+        GDBusCallFlags flags,                                       \
+        gint timeout_msec,                                          \
+        GCancellable* cancellable,                                  \
+        GAsyncReadyCallback callback,                               \
+        gpointer user_data))                                        \
+  FUNC(g_dbus_proxy_call_finish,                                    \
+       GVariant*,                                                   \
+       (GDBusProxy * proxy, GAsyncResult * res, GError * *error))   \
+  FUNC(g_dbus_proxy_new_finish,                                     \
+       GDBusProxy*,                                                 \
+       (GAsyncResult * res, GError * *error))                       \
+  FUNC(g_dbus_proxy_new_for_bus,                                    \
+       void,                                                        \
+       (GBusType bus_type,                                          \
+        GDBusProxyFlags flags,                                      \
+        GDBusInterfaceInfo * info,                                  \
+        const gchar* name,                                          \
+        const gchar* object_path,                                   \
+        const gchar* interface_name,                                \
+        GCancellable* cancellable,                                  \
+        GAsyncReadyCallback callback,                               \
+        gpointer user_data))                                        \
+  FUNC(g_variant_is_floating, gboolean, (GVariant * value))         \
+  FUNC(g_variant_new, GVariant*, (const gchar* format_string, ...)) \
+  FUNC(g_variant_unref, void, (GVariant * value))
 
-#define FUNC(name, type, params) \
-  typedef type (*_##name##_fn) params; \
+#define FUNC(name, type, params)      \
+  typedef type(*_##name##_fn) params; \
   static _##name##_fn _##name;
 
 GDBUS_FUNCTIONS
@@ -70,32 +93,30 @@ GDBUS_FUNCTIONS
 #define g_variant_new _g_variant_new
 #define g_variant_unref _g_variant_unref
 
-static PRLibrary *gioLib = nullptr;
+static PRLibrary* gioLib = nullptr;
 
 typedef void (*nsGDBusFunc)();
-struct nsGDBusDynamicFunction {
-  const char *functionName;
-  nsGDBusFunc *function;
+struct nsGDBusDynamicFunction
+{
+  const char* functionName;
+  nsGDBusFunc* function;
 };
 
 nsresult
 nsPackageKitService::Init()
 {
-#define FUNC(name, type, params) { #name, (nsGDBusFunc *)&_##name },
-  const nsGDBusDynamicFunction kGDBusSymbols[] = {
-    GDBUS_FUNCTIONS
-  };
+#define FUNC(name, type, params) {#name, (nsGDBusFunc*)&_##name},
+  const nsGDBusDynamicFunction kGDBusSymbols[] = {GDBUS_FUNCTIONS};
 #undef FUNC
 
   if (!gioLib) {
     gioLib = PR_LoadLibrary("libgio-2.0.so.0");
-    if (!gioLib)
-      return NS_ERROR_FAILURE;
+    if (!gioLib) return NS_ERROR_FAILURE;
   }
 
   for (auto GDBusSymbol : kGDBusSymbols) {
     *GDBusSymbol.function =
-      PR_FindFunctionSymbol(gioLib, GDBusSymbol.functionName);
+        PR_FindFunctionSymbol(gioLib, GDBusSymbol.functionName);
     if (!*GDBusSymbol.function) {
       return NS_ERROR_FAILURE;
     }
@@ -114,34 +135,32 @@ nsPackageKitService::~nsPackageKitService()
   }
 }
 
-static const char* InstallPackagesMethods[] = {
-  "InstallPackageNames",
-  "InstallMimeTypes",
-  "InstallFontconfigResources",
-  "InstallGStreamerResources"
-};
+static const char* InstallPackagesMethods[] = {"InstallPackageNames",
+                                               "InstallMimeTypes",
+                                               "InstallFontconfigResources",
+                                               "InstallGStreamerResources"};
 
-struct InstallPackagesProxyNewData {
+struct InstallPackagesProxyNewData
+{
   nsCOMPtr<nsIObserver> observer;
   uint32_t method;
   GVariant* parameters;
 };
 
 static void
-InstallPackagesNotifyObserver(nsIObserver* aObserver,
-                              gchar* aErrorMessage)
+InstallPackagesNotifyObserver(nsIObserver* aObserver, gchar* aErrorMessage)
 {
   if (aObserver) {
-    aObserver->Observe(nullptr, "packagekit-install",
-                       aErrorMessage ?
-                       NS_ConvertUTF8toUTF16(aErrorMessage).get() :
-                       nullptr);
+    aObserver->Observe(
+        nullptr,
+        "packagekit-install",
+        aErrorMessage ? NS_ConvertUTF8toUTF16(aErrorMessage).get() : nullptr);
   }
 }
 
 static void
-InstallPackagesProxyCallCallback(GObject *aSourceObject,
-                                 GAsyncResult *aResult,
+InstallPackagesProxyCallCallback(GObject* aSourceObject,
+                                 GAsyncResult* aResult,
                                  gpointer aUserData)
 {
   nsCOMPtr<nsIObserver> observer = static_cast<nsIObserver*>(aUserData);
@@ -153,7 +172,9 @@ InstallPackagesProxyCallCallback(GObject *aSourceObject,
     InstallPackagesNotifyObserver(observer, nullptr);
     g_variant_unref(result);
   } else {
-    NS_ASSERTION(error, "g_dbus_proxy_call_finish should set error when it returns NULL");
+    NS_ASSERTION(
+        error,
+        "g_dbus_proxy_call_finish should set error when it returns NULL");
     InstallPackagesNotifyObserver(observer, error->message);
     g_error_free(error);
   }
@@ -163,12 +184,12 @@ InstallPackagesProxyCallCallback(GObject *aSourceObject,
 }
 
 static void
-InstallPackagesProxyNewCallback(GObject *aSourceObject,
-                                GAsyncResult *aResult,
+InstallPackagesProxyNewCallback(GObject* aSourceObject,
+                                GAsyncResult* aResult,
                                 gpointer aUserData)
 {
   InstallPackagesProxyNewData* userData =
-    static_cast<InstallPackagesProxyNewData*>(aUserData);
+      static_cast<InstallPackagesProxyNewData*>(aUserData);
 
   NS_ASSERTION(g_variant_is_floating(userData->parameters),
                "userData->parameters should be a floating reference.");
@@ -191,7 +212,8 @@ InstallPackagesProxyNewCallback(GObject *aSourceObject,
                       &InstallPackagesProxyCallCallback,
                       static_cast<gpointer>(observer));
   } else {
-    NS_ASSERTION(error, "g_dbus_proxy_new_finish should set error when it returns NULL");
+    NS_ASSERTION(
+        error, "g_dbus_proxy_new_finish should set error when it returns NULL");
     InstallPackagesNotifyObserver(userData->observer, error->message);
     g_error_free(error);
     g_variant_unref(userData->parameters);
@@ -208,20 +230,18 @@ nsPackageKitService::InstallPackages(uint32_t aInstallMethod,
 
   uint32_t arrayLength;
   aPackageArray->GetLength(&arrayLength);
-  if (arrayLength == 0 ||
-      arrayLength == std::numeric_limits<uint32_t>::max() ||
+  if (arrayLength == 0 || arrayLength == std::numeric_limits<uint32_t>::max() ||
       aInstallMethod >= PK_INSTALL_METHOD_COUNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
   // Create the GVariant* parameter from the list of packages.
   GVariant* parameters = nullptr;
-  auto packages = MakeUnique<gchar*[]>(arrayLength + 1);
+  auto packages = MakeUnique<gchar* []>(arrayLength + 1);
 
   nsresult rv = NS_OK;
   for (uint32_t i = 0; i < arrayLength; i++) {
-    nsCOMPtr<nsISupportsString> package =
-      do_QueryElementAt(aPackageArray, i);
+    nsCOMPtr<nsISupportsString> package = do_QueryElementAt(aPackageArray, i);
     if (!package) {
       rv = NS_ERROR_FAILURE;
       break;
@@ -238,8 +258,8 @@ nsPackageKitService::InstallPackages(uint32_t aInstallMethod,
 
   if (NS_SUCCEEDED(rv)) {
     // We create a new GVariant object to send parameters to PackageKit.
-    parameters = g_variant_new("(u^ass)", static_cast<guint32>(0),
-                               packages.get(), "hide-finished");
+    parameters = g_variant_new(
+        "(u^ass)", static_cast<guint32>(0), packages.get(), "hide-finished");
     if (!parameters) {
       rv = NS_ERROR_OUT_OF_MEMORY;
     }

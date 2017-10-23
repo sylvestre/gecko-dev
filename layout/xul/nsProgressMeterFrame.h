@@ -22,10 +22,11 @@
 
 class nsProgressMeterFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsProgressMeterFrame)
 
-  friend nsIFrame* NS_NewProgressMeterFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewProgressMeterFrame(nsIPresShell* aPresShell,
+                                            nsStyleContext* aContext);
 
   NS_IMETHOD DoXULLayout(nsBoxLayoutState& aBoxLayoutState) override;
 
@@ -37,10 +38,12 @@ public:
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-protected:
-  explicit nsProgressMeterFrame(nsStyleContext* aContext) :
-    nsBoxFrame(aContext, kClassID), mNeedsReflowCallback(true) {}
+ protected:
+  explicit nsProgressMeterFrame(nsStyleContext* aContext)
+      : nsBoxFrame(aContext, kClassID), mNeedsReflowCallback(true)
+  {
+  }
   virtual ~nsProgressMeterFrame();
 
   bool mNeedsReflowCallback;
-}; // class nsProgressMeterFrame
+};  // class nsProgressMeterFrame

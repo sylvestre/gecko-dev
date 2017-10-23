@@ -14,19 +14,20 @@ namespace net {
 
 class CacheIndexContextIterator : public CacheIndexIterator
 {
-public:
-  CacheIndexContextIterator(CacheIndex *aIndex, bool aAddNew,
-                            nsILoadContextInfo *aInfo);
+ public:
+  CacheIndexContextIterator(CacheIndex* aIndex,
+                            bool aAddNew,
+                            nsILoadContextInfo* aInfo);
   virtual ~CacheIndexContextIterator();
 
-private:
-  virtual void AddRecord(CacheIndexRecord *aRecord);
-  virtual void AddRecords(const nsTArray<CacheIndexRecord *> &aRecords);
+ private:
+  virtual void AddRecord(CacheIndexRecord* aRecord);
+  virtual void AddRecords(const nsTArray<CacheIndexRecord*>& aRecords);
 
   nsCOMPtr<nsILoadContextInfo> mInfo;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

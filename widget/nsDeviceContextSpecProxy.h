@@ -20,28 +20,30 @@ namespace mozilla {
 namespace layout {
 class RemotePrintJobChild;
 }
-}
+}  // namespace mozilla
 
 class nsDeviceContextSpecProxy final : public nsIDeviceContextSpec
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  NS_IMETHOD Init(nsIWidget* aWidget, nsIPrintSettings* aPrintSettings,
-                 bool aIsPrintPreview) final;
+  NS_IMETHOD Init(nsIWidget* aWidget,
+                  nsIPrintSettings* aPrintSettings,
+                  bool aIsPrintPreview) final;
 
   virtual already_AddRefed<PrintTarget> MakePrintTarget() final;
 
-  NS_IMETHOD GetDrawEventRecorder(mozilla::gfx::DrawEventRecorder** aDrawEventRecorder) final;
+  NS_IMETHOD GetDrawEventRecorder(
+      mozilla::gfx::DrawEventRecorder** aDrawEventRecorder) final;
 
   float GetDPI() final;
 
   float GetPrintingScale() final;
 
-
   NS_IMETHOD BeginDocument(const nsAString& aTitle,
                            const nsAString& aPrintToFileName,
-                           int32_t aStartPage, int32_t aEndPage) final;
+                           int32_t aStartPage,
+                           int32_t aEndPage) final;
 
   NS_IMETHOD EndDocument() final;
 
@@ -51,7 +53,7 @@ public:
 
   NS_IMETHOD EndPage() final;
 
-private:
+ private:
   ~nsDeviceContextSpecProxy() {}
 
   nsresult CreateUniqueTempPath(nsACString& aFilePath);
@@ -66,4 +68,4 @@ private:
   nsCString mRecordingFileName;
 };
 
-#endif // nsDeviceContextSpecProxy_h
+#endif  // nsDeviceContextSpecProxy_h

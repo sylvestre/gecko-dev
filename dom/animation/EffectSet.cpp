@@ -5,19 +5,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "EffectSet.h"
-#include "mozilla/dom/Element.h" // For Element
+#include "mozilla/dom/Element.h"  // For Element
 #include "mozilla/RestyleManager.h"
 #include "mozilla/RestyleManagerInlines.h"
-#include "nsCSSPseudoElements.h" // For CSSPseudoElementType
-#include "nsCycleCollectionNoteChild.h" // For CycleCollectionNoteChild
+#include "nsCSSPseudoElements.h"         // For CSSPseudoElementType
+#include "nsCycleCollectionNoteChild.h"  // For CycleCollectionNoteChild
 #include "nsPresContext.h"
 #include "nsLayoutUtils.h"
 
 namespace mozilla {
 
 /* static */ void
-EffectSet::PropertyDtor(void* aObject, nsAtom* aPropertyName,
-                        void* aPropertyValue, void* aData)
+EffectSet::PropertyDtor(void* aObject,
+                        nsAtom* aPropertyName,
+                        void* aPropertyValue,
+                        void* aData)
 {
   EffectSet* effectSet = static_cast<EffectSet*>(aPropertyValue);
 
@@ -33,8 +35,10 @@ void
 EffectSet::Traverse(nsCycleCollectionTraversalCallback& aCallback)
 {
   for (auto iter = mEffects.Iter(); !iter.Done(); iter.Next()) {
-    CycleCollectionNoteChild(aCallback, iter.Get()->GetKey(),
-                             "EffectSet::mEffects[]", aCallback.Flags());
+    CycleCollectionNoteChild(aCallback,
+                             iter.Get()->GetKey(),
+                             "EffectSet::mEffects[]",
+                             aCallback.Flags());
   }
 }
 
@@ -54,7 +58,7 @@ EffectSet::GetEffectSet(const dom::Element* aElement,
 EffectSet::GetEffectSet(const nsIFrame* aFrame)
 {
   Maybe<NonOwningAnimationTarget> target =
-    EffectCompositor::GetAnimationElementAndPseudoForFrame(aFrame);
+      EffectCompositor::GetAnimationElementAndPseudoForFrame(aFrame);
 
   if (!target) {
     return nullptr;
@@ -75,8 +79,8 @@ EffectSet::GetOrCreateEffectSet(dom::Element* aElement,
   nsAtom* propName = GetEffectSetPropertyAtom(aPseudoType);
   effectSet = new EffectSet();
 
-  nsresult rv = aElement->SetProperty(propName, effectSet,
-                                      &EffectSet::PropertyDtor, true);
+  nsresult rv = aElement->SetProperty(
+      propName, effectSet, &EffectSet::PropertyDtor, true);
   if (NS_FAILED(rv)) {
     NS_WARNING("SetProperty failed");
     // The set must be destroyed via PropertyDtor, otherwise
@@ -96,7 +100,7 @@ EffectSet::DestroyEffectSet(dom::Element* aElement,
 {
   nsAtom* propName = GetEffectSetPropertyAtom(aPseudoType);
   EffectSet* effectSet =
-    static_cast<EffectSet*>(aElement->GetProperty(propName));
+      static_cast<EffectSet*>(aElement->GetProperty(propName));
   if (!effectSet) {
     return;
   }
@@ -112,19 +116,17 @@ void
 EffectSet::UpdateAnimationGeneration(nsPresContext* aPresContext)
 {
   mAnimationGeneration =
-    aPresContext->RestyleManager()->GetAnimationGeneration();
+      aPresContext->RestyleManager()->GetAnimationGeneration();
 }
 
 /* static */ nsAtom**
 EffectSet::GetEffectSetPropertyAtoms()
 {
-  static nsAtom* effectSetPropertyAtoms[] =
-    {
+  static nsAtom* effectSetPropertyAtoms[] = {
       nsGkAtoms::animationEffectsProperty,
       nsGkAtoms::animationEffectsForBeforeProperty,
       nsGkAtoms::animationEffectsForAfterProperty,
-      nullptr
-    };
+      nullptr};
 
   return effectSetPropertyAtoms;
 }
@@ -143,8 +145,9 @@ EffectSet::GetEffectSetPropertyAtom(CSSPseudoElementType aPseudoType)
       return nsGkAtoms::animationEffectsForAfterProperty;
 
     default:
-      NS_NOTREACHED("Should not try to get animation effects for a pseudo "
-                    "other that :before or :after");
+      NS_NOTREACHED(
+          "Should not try to get animation effects for a pseudo "
+          "other that :before or :after");
       return nullptr;
   }
 }
@@ -171,4 +174,4 @@ EffectSet::RemoveEffect(dom::KeyframeEffectReadOnly& aEffect)
   MarkCascadeNeedsUpdate();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -8,35 +8,29 @@
 
 NS_IMPL_ISUPPORTS(nsPlatformCharset, nsIPlatformCharset)
 
-nsPlatformCharset::nsPlatformCharset()
-{
-}
+nsPlatformCharset::nsPlatformCharset() {}
 
-nsPlatformCharset::~nsPlatformCharset()
-{
-}
+nsPlatformCharset::~nsPlatformCharset() {}
 
 NS_IMETHODIMP
-nsPlatformCharset::Init()
-{
-  return NS_OK;
-}
+nsPlatformCharset::Init() { return NS_OK; }
 
 NS_IMETHODIMP
-nsPlatformCharset::GetCharset(nsPlatformCharsetSel selector, nsACString& oResult)
+nsPlatformCharset::GetCharset(nsPlatformCharsetSel selector,
+                              nsACString& oResult)
 {
   oResult.AssignLiteral("UTF-8");
   return NS_OK;
 }
 
 nsresult
-nsPlatformCharset::InitGetCharset(nsACString &oString)
+nsPlatformCharset::InitGetCharset(nsACString& oString)
 {
   return NS_OK;
 }
 
 nsresult
-nsPlatformCharset::VerifyCharset(nsCString &aCharset)
+nsPlatformCharset::VerifyCharset(nsCString& aCharset)
 {
   return NS_OK;
 }

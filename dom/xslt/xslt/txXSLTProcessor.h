@@ -10,19 +10,18 @@
 
 class txXSLTProcessor
 {
-public:
-    /**
+ public:
+  /**
      * Initialisation and shutdown routines. Initilizes and cleansup all
      * dependant classes
      */
-    static bool init();
-    static void shutdown();
+  static bool init();
+  static void shutdown();
 
+  static nsresult execute(txExecutionState& aEs);
 
-    static nsresult execute(txExecutionState& aEs);
-
-    // once we want to have interuption we should probably have functions for
-    // running X number of steps or running until a condition is true.
+  // once we want to have interuption we should probably have functions for
+  // running X number of steps or running until a condition is true.
 };
 
 #endif

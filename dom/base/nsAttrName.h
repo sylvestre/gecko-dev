@@ -20,15 +20,13 @@
 #define NS_ATTRNAME_NODEINFO_BIT 1
 class nsAttrName
 {
-public:
-  nsAttrName(const nsAttrName& aOther)
-    : mBits(aOther.mBits)
+ public:
+  nsAttrName(const nsAttrName& aOther) : mBits(aOther.mBits)
   {
     AddRefInternalName();
   }
 
-  explicit nsAttrName(nsAtom* aAtom)
-    : mBits(reinterpret_cast<uintptr_t>(aAtom))
+  explicit nsAttrName(nsAtom* aAtom) : mBits(reinterpret_cast<uintptr_t>(aAtom))
   {
     NS_ASSERTION(aAtom, "null atom-name in nsAttrName");
     NS_ADDREF(aAtom);
@@ -40,18 +38,13 @@ public:
     if (aNodeInfo->NamespaceEquals(kNameSpaceID_None)) {
       mBits = reinterpret_cast<uintptr_t>(aNodeInfo->NameAtom());
       NS_ADDREF(aNodeInfo->NameAtom());
-    }
-    else {
-      mBits = reinterpret_cast<uintptr_t>(aNodeInfo) |
-              NS_ATTRNAME_NODEINFO_BIT;
+    } else {
+      mBits = reinterpret_cast<uintptr_t>(aNodeInfo) | NS_ATTRNAME_NODEINFO_BIT;
       NS_ADDREF(aNodeInfo);
     }
   }
 
-  ~nsAttrName()
-  {
-    ReleaseInternalName();
-  }
+  ~nsAttrName() { ReleaseInternalName(); }
 
   void SetTo(mozilla::dom::NodeInfo* aNodeInfo)
   {
@@ -61,10 +54,8 @@ public:
     if (aNodeInfo->NamespaceEquals(kNameSpaceID_None)) {
       mBits = reinterpret_cast<uintptr_t>(aNodeInfo->NameAtom());
       NS_ADDREF(aNodeInfo->NameAtom());
-    }
-    else {
-      mBits = reinterpret_cast<uintptr_t>(aNodeInfo) |
-              NS_ATTRNAME_NODEINFO_BIT;
+    } else {
+      mBits = reinterpret_cast<uintptr_t>(aNodeInfo) | NS_ATTRNAME_NODEINFO_BIT;
       NS_ADDREF(aNodeInfo);
     }
   }
@@ -78,15 +69,13 @@ public:
     NS_ADDREF(aAtom);
   }
 
-  bool IsAtom() const
-  {
-    return !(mBits & NS_ATTRNAME_NODEINFO_BIT);
-  }
+  bool IsAtom() const { return !(mBits & NS_ATTRNAME_NODEINFO_BIT); }
 
   mozilla::dom::NodeInfo* NodeInfo() const
   {
     NS_ASSERTION(!IsAtom(), "getting nodeinfo-value of atom-name");
-    return reinterpret_cast<mozilla::dom::NodeInfo*>(mBits & ~NS_ATTRNAME_NODEINFO_BIT);
+    return reinterpret_cast<mozilla::dom::NodeInfo*>(mBits &
+                                                     ~NS_ATTRNAME_NODEINFO_BIT);
   }
 
   nsAtom* Atom() const
@@ -95,10 +84,7 @@ public:
     return reinterpret_cast<nsAtom*>(mBits);
   }
 
-  bool Equals(const nsAttrName& aOther) const
-  {
-    return mBits == aOther.mBits;
-  }
+  bool Equals(const nsAttrName& aOther) const { return mBits == aOther.mBits; }
 
   // Faster comparison in the case we know the namespace is null
   // Note that some callers such as nsAttrAndChildArray::IndexOfAttr() will
@@ -136,9 +122,9 @@ public:
 
   int32_t NamespaceEquals(int32_t aNamespaceID) const
   {
-    return aNamespaceID == kNameSpaceID_None ?
-           IsAtom() :
-           (!IsAtom() && NodeInfo()->NamespaceEquals(aNamespaceID));
+    return aNamespaceID == kNameSpaceID_None
+               ? IsAtom()
+               : (!IsAtom() && NodeInfo()->NamespaceEquals(aNamespaceID));
   }
 
   nsAtom* LocalName() const
@@ -153,16 +139,15 @@ public:
 
   bool QualifiedNameEquals(const nsAString& aName) const
   {
-    return IsAtom() ? Atom()->Equals(aName) :
-                      NodeInfo()->QualifiedNameEquals(aName);
+    return IsAtom() ? Atom()->Equals(aName)
+                    : NodeInfo()->QualifiedNameEquals(aName);
   }
 
   void GetQualifiedName(nsAString& aStr) const
   {
     if (IsAtom()) {
       Atom()->ToString(aStr);
-    }
-    else {
+    } else {
       aStr = NodeInfo()->QualifiedName();
     }
   }
@@ -172,8 +157,7 @@ public:
   {
     if (IsAtom()) {
       SetDOMStringToNull(aStr);
-    }
-    else {
+    } else {
       NodeInfo()->GetPrefix(aStr);
     }
   }
@@ -192,8 +176,7 @@ public:
     return mBits < reinterpret_cast<uintptr_t>(aOther);
   }
 
-private:
-
+ private:
   void AddRefInternalName()
   {
     if (IsAtom()) {

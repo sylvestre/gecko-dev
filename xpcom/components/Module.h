@@ -10,7 +10,7 @@
 #include "nscore.h"
 #include "nsID.h"
 #include "nsIFactory.h"
-#include "nsCOMPtr.h" // for already_AddRefed
+#include "nsCOMPtr.h"  // for already_AddRefed
 
 namespace mozilla {
 
@@ -27,7 +27,7 @@ struct Module
   struct CIDEntry;
 
   typedef already_AddRefed<nsIFactory> (*GetFactoryProcPtr)(
-    const Module& module, const CIDEntry& entry);
+      const Module& module, const CIDEntry& entry);
 
   typedef nsresult (*ConstructorProcPtr)(nsISupports* aOuter,
                                          const nsIID& aIID,
@@ -42,8 +42,8 @@ struct Module
    */
   enum ProcessSelector
   {
-    ANY_PROCESS          = 0x0,
-    MAIN_PROCESS_ONLY    = 0x1,
+    ANY_PROCESS = 0x0,
+    MAIN_PROCESS_ONLY = 0x1,
     CONTENT_PROCESS_ONLY = 0x2,
 
     /**
@@ -128,30 +128,34 @@ struct Module
   ProcessSelector selector;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #if defined(MOZILLA_INTERNAL_API)
-#  define NSMODULE_NAME(_name) _name##_NSModule
-#  if defined(_MSC_VER)
-#    pragma section(".kPStaticModules$M", read)
-#    pragma comment(linker, "/merge:.kPStaticModules=.rdata")
-#    define NSMODULE_SECTION __declspec(allocate(".kPStaticModules$M"), dllexport)
-#  elif defined(__GNUC__)
-#    if defined(__ELF__)
-#      define NSMODULE_SECTION __attribute__((section(".kPStaticModules"), visibility("default")))
-#    elif defined(__MACH__)
-#      define NSMODULE_SECTION __attribute__((section("__DATA, .kPStaticModules"), visibility("default")))
-#    elif defined (_WIN32)
-#      define NSMODULE_SECTION __attribute__((section(".kPStaticModules"), dllexport))
-#    endif
-#  endif
-#  if !defined(NSMODULE_SECTION)
-#    error Do not know how to define sections.
-#  endif
-#  define NSMODULE_DEFN(_name) extern NSMODULE_SECTION mozilla::Module const *const NSMODULE_NAME(_name)
+#define NSMODULE_NAME(_name) _name##_NSModule
+#if defined(_MSC_VER)
+#pragma section(".kPStaticModules$M", read)
+#pragma comment(linker, "/merge:.kPStaticModules=.rdata")
+#define NSMODULE_SECTION __declspec(allocate(".kPStaticModules$M"), dllexport)
+#elif defined(__GNUC__)
+#if defined(__ELF__)
+#define NSMODULE_SECTION \
+  __attribute__((section(".kPStaticModules"), visibility("default")))
+#elif defined(__MACH__)
+#define NSMODULE_SECTION \
+  __attribute__((section("__DATA, .kPStaticModules"), visibility("default")))
+#elif defined(_WIN32)
+#define NSMODULE_SECTION __attribute__((section(".kPStaticModules"), dllexport))
+#endif
+#endif
+#if !defined(NSMODULE_SECTION)
+#error Do not know how to define sections.
+#endif
+#define NSMODULE_DEFN(_name) \
+  extern NSMODULE_SECTION mozilla::Module const* const NSMODULE_NAME(_name)
 #else
-#  define NSMODULE_NAME(_name) NSModule
-#  define NSMODULE_DEFN(_name) extern "C" NS_EXPORT mozilla::Module const *const NSModule
+#define NSMODULE_NAME(_name) NSModule
+#define NSMODULE_DEFN(_name) \
+  extern "C" NS_EXPORT mozilla::Module const* const NSModule
 #endif
 
-#endif // mozilla_Module_h
+#endif  // mozilla_Module_h

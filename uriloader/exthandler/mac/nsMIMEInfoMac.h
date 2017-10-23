@@ -7,28 +7,36 @@
 
 #include "nsMIMEInfoImpl.h"
 
-class nsMIMEInfoMac : public nsMIMEInfoImpl {
-  public:
-    explicit nsMIMEInfoMac(const char* aMIMEType = "") : nsMIMEInfoImpl(aMIMEType) {}
-    explicit nsMIMEInfoMac(const nsACString& aMIMEType) : nsMIMEInfoImpl(aMIMEType) {}
-    nsMIMEInfoMac(const nsACString& aType, HandlerClass aClass) :
-      nsMIMEInfoImpl(aType, aClass) {}
+class nsMIMEInfoMac : public nsMIMEInfoImpl
+{
+ public:
+  explicit nsMIMEInfoMac(const char* aMIMEType = "") : nsMIMEInfoImpl(aMIMEType)
+  {
+  }
+  explicit nsMIMEInfoMac(const nsACString& aMIMEType)
+      : nsMIMEInfoImpl(aMIMEType)
+  {
+  }
+  nsMIMEInfoMac(const nsACString& aType, HandlerClass aClass)
+      : nsMIMEInfoImpl(aType, aClass)
+  {
+  }
 
-    NS_IMETHOD LaunchWithFile(nsIFile* aFile);
-  protected:
-    virtual MOZ_MUST_USE nsresult LoadUriInternal(nsIURI *aURI);
+  NS_IMETHOD LaunchWithFile(nsIFile* aFile);
+
+ protected:
+  virtual MOZ_MUST_USE nsresult LoadUriInternal(nsIURI* aURI);
 #ifdef DEBUG
-    virtual MOZ_MUST_USE nsresult LaunchDefaultWithFile(nsIFile* aFile) {
-      NS_NOTREACHED("do not call this method, use LaunchWithFile");
-      return NS_ERROR_UNEXPECTED;
-    }
+  virtual MOZ_MUST_USE nsresult LaunchDefaultWithFile(nsIFile* aFile)
+  {
+    NS_NOTREACHED("do not call this method, use LaunchWithFile");
+    return NS_ERROR_UNEXPECTED;
+  }
 #endif
-    static MOZ_MUST_USE nsresult OpenApplicationWithURI(nsIFile *aApplication,
-                                                        const nsCString& aURI);
-                                                       
-    NS_IMETHOD GetDefaultDescription(nsAString& aDefaultDescription);
-    
-};
+  static MOZ_MUST_USE nsresult OpenApplicationWithURI(nsIFile* aApplication,
+                                                      const nsCString& aURI);
 
+  NS_IMETHOD GetDefaultDescription(nsAString& aDefaultDescription);
+};
 
 #endif

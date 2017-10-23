@@ -15,24 +15,29 @@ namespace dom {
 
 class HTMLPictureElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLPictureElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLPictureElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
   virtual void RemoveChildAt(uint32_t aIndex, bool aNotify) override;
-  virtual nsresult InsertChildAt(nsIContent* aKid, uint32_t aIndex, bool aNotify) override;
+  virtual nsresult InsertChildAt(nsIContent* aKid,
+                                 uint32_t aIndex,
+                                 bool aNotify) override;
 
-protected:
+ protected:
   virtual ~HTMLPictureElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLPictureElement_h
+#endif  // mozilla_dom_HTMLPictureElement_h

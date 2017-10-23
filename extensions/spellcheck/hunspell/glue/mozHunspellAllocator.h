@@ -9,7 +9,8 @@
 
 #include "mozilla/CountingAllocatorBase.h"
 
-class HunspellAllocator : public mozilla::CountingAllocatorBase<HunspellAllocator>
+class HunspellAllocator
+    : public mozilla::CountingAllocatorBase<HunspellAllocator>
 {
 };
 

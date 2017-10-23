@@ -6,34 +6,34 @@
 #ifndef MOZILLA_GFX_BUFFERHOST_H
 #define MOZILLA_GFX_BUFFERHOST_H
 
-#include <stdint.h>                     // for uint64_t
-#include <stdio.h>                      // for FILE
-#include "gfxRect.h"                    // for gfxRect
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for RefPtr, RefCounted, etc
-#include "mozilla/gfx/MatrixFwd.h"      // for Matrix4x4
-#include "mozilla/gfx/Point.h"          // for Point
-#include "mozilla/gfx/Polygon.h"        // for Polygon
-#include "mozilla/gfx/Rect.h"           // for Rect
-#include "mozilla/gfx/Types.h"          // for SamplingFilter
+#include <stdint.h>                 // for uint64_t
+#include <stdio.h>                  // for FILE
+#include "gfxRect.h"                // for gfxRect
+#include "mozilla/Assertions.h"     // for MOZ_ASSERT, etc
+#include "mozilla/Attributes.h"     // for override
+#include "mozilla/RefPtr.h"         // for RefPtr, RefCounted, etc
+#include "mozilla/gfx/MatrixFwd.h"  // for Matrix4x4
+#include "mozilla/gfx/Point.h"      // for Point
+#include "mozilla/gfx/Polygon.h"    // for Polygon
+#include "mozilla/gfx/Rect.h"       // for Rect
+#include "mozilla/gfx/Types.h"      // for SamplingFilter
 #include "mozilla/ipc/ProtocolUtils.h"
-#include "mozilla/layers/Compositor.h"  // for Compositor
+#include "mozilla/layers/Compositor.h"       // for Compositor
 #include "mozilla/layers/CompositorTypes.h"  // for TextureInfo, etc
-#include "mozilla/layers/Effects.h"     // for Texture Effect
-#include "mozilla/layers/LayersTypes.h"  // for LayerRenderState, etc
+#include "mozilla/layers/Effects.h"          // for Texture Effect
+#include "mozilla/layers/LayersTypes.h"      // for LayerRenderState, etc
 #include "mozilla/layers/LayersMessages.h"
-#include "mozilla/layers/TextureHost.h" // for TextureHost
-#include "mozilla/mozalloc.h"           // for operator delete
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsRegion.h"                   // for nsIntRegion
-#include "nscore.h"                     // for nsACString
-#include "Units.h"                      // for CSSToScreenScale
+#include "mozilla/layers/TextureHost.h"  // for TextureHost
+#include "mozilla/mozalloc.h"            // for operator delete
+#include "nsCOMPtr.h"                    // for already_AddRefed
+#include "nsRegion.h"                    // for nsIntRegion
+#include "nscore.h"                      // for nsACString
+#include "Units.h"                       // for CSSToScreenScale
 
 namespace mozilla {
 namespace gfx {
 class DataSourceSurface;
-} // namespace gfx
+}  // namespace gfx
 
 namespace layers {
 
@@ -48,19 +48,20 @@ class WebRenderImageHost;
 class ContentHostTexture;
 struct EffectChain;
 
-struct ImageCompositeNotificationInfo {
+struct ImageCompositeNotificationInfo
+{
   base::ProcessId mImageBridgeProcessId;
   ImageCompositeNotification mNotification;
 };
 
 struct AsyncCompositableRef
 {
-  AsyncCompositableRef()
-   : mProcessId(mozilla::ipc::kInvalidProcessId)
-  {}
-  AsyncCompositableRef(base::ProcessId aProcessId, const CompositableHandle& aHandle)
-   : mProcessId(aProcessId), mHandle(aHandle)
-  {}
+  AsyncCompositableRef() : mProcessId(mozilla::ipc::kInvalidProcessId) {}
+  AsyncCompositableRef(base::ProcessId aProcessId,
+                       const CompositableHandle& aHandle)
+      : mProcessId(aProcessId), mHandle(aHandle)
+  {
+  }
   explicit operator bool() const { return !!mHandle; }
   base::ProcessId mProcessId;
   CompositableHandle mHandle;
@@ -82,14 +83,15 @@ struct AsyncCompositableRef
  */
 class CompositableHost
 {
-protected:
+ protected:
   virtual ~CompositableHost();
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositableHost)
   explicit CompositableHost(const TextureInfo& aTextureInfo);
 
-  static already_AddRefed<CompositableHost> Create(const TextureInfo& aTextureInfo, bool aUseWebRender);
+  static already_AddRefed<CompositableHost> Create(
+      const TextureInfo& aTextureInfo, bool aUseWebRender);
 
   virtual CompositableType GetType() = 0;
 
@@ -124,7 +126,8 @@ public:
    * *aPictureRect (if non-null, and the returned TextureHost is non-null)
    * is set to the picture rect.
    */
-  virtual TextureHost* GetAsTextureHost(gfx::IntRect* aPictureRect = nullptr) {
+  virtual TextureHost* GetAsTextureHost(gfx::IntRect* aPictureRect = nullptr)
+  {
     return nullptr;
   }
 
@@ -138,8 +141,7 @@ public:
    * Adds a mask effect using this texture as the mask, if possible.
    * @return true if the effect was added, false otherwise.
    */
-  bool AddMaskEffect(EffectChain& aEffects,
-                     const gfx::Matrix4x4& aTransform);
+  bool AddMaskEffect(EffectChain& aEffects, const gfx::Matrix4x4& aTransform);
 
   void RemoveMaskEffect();
 
@@ -181,9 +183,7 @@ public:
   // Only force detach if the IPDL tree is being shutdown.
   virtual void Detach(Layer* aLayer = nullptr, AttachFlags aFlags = NO_FLAGS)
   {
-    if (!mKeepAttached ||
-        aLayer == mLayer ||
-        aFlags & FORCE_DETACH) {
+    if (!mKeepAttached || aLayer == mLayer || aFlags & FORCE_DETACH) {
       SetLayer(nullptr);
       mAttached = false;
       mKeepAttached = false;
@@ -192,15 +192,22 @@ public:
   bool IsAttached() { return mAttached; }
 
   virtual void Dump(std::stringstream& aStream,
-                    const char* aPrefix="",
-                    bool aDumpHtml=false) { }
-  static void DumpTextureHost(std::stringstream& aStream, TextureHost* aTexture);
+                    const char* aPrefix = "",
+                    bool aDumpHtml = false)
+  {
+  }
+  static void DumpTextureHost(std::stringstream& aStream,
+                              TextureHost* aTexture);
 
-  virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() { return nullptr; }
+  virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface()
+  {
+    return nullptr;
+  }
 
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix) = 0;
 
-  struct TimedTexture {
+  struct TimedTexture
+  {
     CompositableTextureHostRef mTexture;
     TimeStamp mTimeStamp;
     gfx::IntRect mPictureRect;
@@ -213,9 +220,11 @@ public:
   virtual void RemoveTextureHost(TextureHost* aTexture);
 
   // Called every time this is composited
-  void BumpFlashCounter() {
+  void BumpFlashCounter()
+  {
     mFlashCounter = mFlashCounter >= DIAGNOSTIC_FLASH_COUNTER_MAX
-                  ? DIAGNOSTIC_FLASH_COUNTER_MAX : mFlashCounter + 1;
+                        ? DIAGNOSTIC_FLASH_COUNTER_MAX
+                        : mFlashCounter + 1;
   }
 
   uint64_t GetCompositorBridgeID() const { return mCompositorBridgeID; }
@@ -227,9 +236,11 @@ public:
 
   virtual bool Lock() { return false; }
 
-  virtual void Unlock() { }
+  virtual void Unlock() {}
 
-  virtual already_AddRefed<TexturedEffect> GenEffect(const gfx::SamplingFilter aSamplingFilter) {
+  virtual already_AddRefed<TexturedEffect> GenEffect(
+      const gfx::SamplingFilter aSamplingFilter)
+  {
     return nullptr;
   }
 
@@ -240,25 +251,24 @@ public:
 
   virtual void BindTextureSource() {}
 
-protected:
+ protected:
   HostLayerManager* GetLayerManager() const;
 
-protected:
+ protected:
   TextureInfo mTextureInfo;
   AsyncCompositableRef mAsyncRef;
   uint64_t mCompositorBridgeID;
   RefPtr<TextureSourceProvider> mTextureSourceProvider;
   Layer* mLayer;
-  uint32_t mFlashCounter; // used when the pref "layers.flash-borders" is true.
+  uint32_t mFlashCounter;  // used when the pref "layers.flash-borders" is true.
   bool mAttached;
   bool mKeepAttached;
 };
 
 class AutoLockCompositableHost final
 {
-public:
-  explicit AutoLockCompositableHost(CompositableHost* aHost)
-    : mHost(aHost)
+ public:
+  explicit AutoLockCompositableHost(CompositableHost* aHost) : mHost(aHost)
   {
     mSucceeded = (mHost && mHost->Lock());
   }
@@ -272,12 +282,12 @@ public:
 
   bool Failed() const { return !mSucceeded; }
 
-private:
+ private:
   RefPtr<CompositableHost> mHost;
   bool mSucceeded;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

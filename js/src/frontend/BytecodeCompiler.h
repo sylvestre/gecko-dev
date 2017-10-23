@@ -30,30 +30,24 @@ class ErrorReporter;
 class FunctionBox;
 class ParseNode;
 
-JSScript*
-CompileGlobalScript(JSContext* cx, LifoAlloc& alloc, ScopeKind scopeKind,
-                    const ReadOnlyCompileOptions& options,
-                    SourceBufferHolder& srcBuf,
-                    ScriptSourceObject** sourceObjectOut = nullptr);
+JSScript* CompileGlobalScript(JSContext* cx, LifoAlloc& alloc, ScopeKind scopeKind,
+                              const ReadOnlyCompileOptions& options, SourceBufferHolder& srcBuf,
+                              ScriptSourceObject** sourceObjectOut = nullptr);
 
-JSScript*
-CompileEvalScript(JSContext* cx, LifoAlloc& alloc,
-                  HandleObject scopeChain, HandleScope enclosingScope,
-                  const ReadOnlyCompileOptions& options,
-                  SourceBufferHolder& srcBuf,
-                  ScriptSourceObject** sourceObjectOut = nullptr);
+JSScript* CompileEvalScript(JSContext* cx, LifoAlloc& alloc, HandleObject scopeChain,
+                            HandleScope enclosingScope, const ReadOnlyCompileOptions& options,
+                            SourceBufferHolder& srcBuf,
+                            ScriptSourceObject** sourceObjectOut = nullptr);
 
-ModuleObject*
-CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
-              SourceBufferHolder& srcBuf);
+ModuleObject* CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
+                            SourceBufferHolder& srcBuf);
 
-ModuleObject*
-CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
-              SourceBufferHolder& srcBuf, LifoAlloc& alloc,
-              ScriptSourceObject** sourceObjectOut = nullptr);
+ModuleObject* CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
+                            SourceBufferHolder& srcBuf, LifoAlloc& alloc,
+                            ScriptSourceObject** sourceObjectOut = nullptr);
 
-MOZ_MUST_USE bool
-CompileLazyFunction(JSContext* cx, Handle<LazyScript*> lazy, const char16_t* chars, size_t length);
+MOZ_MUST_USE bool CompileLazyFunction(JSContext* cx, Handle<LazyScript*> lazy,
+                                      const char16_t* chars, size_t length);
 
 //
 // Compile a single function. The source in srcBuf must match the ECMA-262
@@ -67,34 +61,29 @@ CompileLazyFunction(JSContext* cx, Handle<LazyScript*> lazy, const char16_t* cha
 //     Function("/*", "*/x) {")
 //     Function("x){ if (3", "return x;}")
 //
-MOZ_MUST_USE bool
-CompileStandaloneFunction(JSContext* cx, MutableHandleFunction fun,
-                          const ReadOnlyCompileOptions& options,
-                          JS::SourceBufferHolder& srcBuf,
-                          const mozilla::Maybe<uint32_t>& parameterListEnd,
-                          HandleScope enclosingScope = nullptr);
+MOZ_MUST_USE bool CompileStandaloneFunction(JSContext* cx, MutableHandleFunction fun,
+                                            const ReadOnlyCompileOptions& options,
+                                            JS::SourceBufferHolder& srcBuf,
+                                            const mozilla::Maybe<uint32_t>& parameterListEnd,
+                                            HandleScope enclosingScope = nullptr);
 
-MOZ_MUST_USE bool
-CompileStandaloneGenerator(JSContext* cx, MutableHandleFunction fun,
-                           const ReadOnlyCompileOptions& options,
-                           JS::SourceBufferHolder& srcBuf,
-                           const mozilla::Maybe<uint32_t>& parameterListEnd);
+MOZ_MUST_USE bool CompileStandaloneGenerator(JSContext* cx, MutableHandleFunction fun,
+                                             const ReadOnlyCompileOptions& options,
+                                             JS::SourceBufferHolder& srcBuf,
+                                             const mozilla::Maybe<uint32_t>& parameterListEnd);
 
-MOZ_MUST_USE bool
-CompileStandaloneAsyncFunction(JSContext* cx, MutableHandleFunction fun,
-                               const ReadOnlyCompileOptions& options,
-                               JS::SourceBufferHolder& srcBuf,
-                               const mozilla::Maybe<uint32_t>& parameterListEnd);
+MOZ_MUST_USE bool CompileStandaloneAsyncFunction(JSContext* cx, MutableHandleFunction fun,
+                                                 const ReadOnlyCompileOptions& options,
+                                                 JS::SourceBufferHolder& srcBuf,
+                                                 const mozilla::Maybe<uint32_t>& parameterListEnd);
 
-MOZ_MUST_USE bool
-CompileStandaloneAsyncGenerator(JSContext* cx, MutableHandleFunction fun,
-                                const ReadOnlyCompileOptions& options,
-                                JS::SourceBufferHolder& srcBuf,
-                                const mozilla::Maybe<uint32_t>& parameterListEnd);
+MOZ_MUST_USE bool CompileStandaloneAsyncGenerator(
+    JSContext* cx, MutableHandleFunction fun, const ReadOnlyCompileOptions& options,
+    JS::SourceBufferHolder& srcBuf, const mozilla::Maybe<uint32_t>& parameterListEnd);
 
-ScriptSourceObject*
-CreateScriptSourceObject(JSContext* cx, const ReadOnlyCompileOptions& options,
-                         const mozilla::Maybe<uint32_t>& parameterListEnd = mozilla::Nothing());
+ScriptSourceObject* CreateScriptSourceObject(
+    JSContext* cx, const ReadOnlyCompileOptions& options,
+    const mozilla::Maybe<uint32_t>& parameterListEnd = mozilla::Nothing());
 
 /*
  * True if str consists of an IdentifierStart character, followed by one or
@@ -105,27 +94,21 @@ CreateScriptSourceObject(JSContext* cx, const ReadOnlyCompileOptions& options,
  *
  * Defined in TokenStream.cpp.
  */
-bool
-IsIdentifier(JSLinearString* str);
+bool IsIdentifier(JSLinearString* str);
 
 /*
  * As above, but taking chars + length.
  */
-bool
-IsIdentifier(const char* chars, size_t length);
-bool
-IsIdentifier(const char16_t* chars, size_t length);
+bool IsIdentifier(const char* chars, size_t length);
+bool IsIdentifier(const char16_t* chars, size_t length);
 
 /* True if str is a keyword. Defined in TokenStream.cpp. */
-bool
-IsKeyword(JSLinearString* str);
+bool IsKeyword(JSLinearString* str);
 
 /* Trace all GC things reachable from parser. Defined in Parser.cpp. */
-void
-TraceParser(JSTracer* trc, JS::AutoGCRooter* parser);
+void TraceParser(JSTracer* trc, JS::AutoGCRooter* parser);
 
-class MOZ_STACK_CLASS AutoFrontendTraceLog
-{
+class MOZ_STACK_CLASS AutoFrontendTraceLog {
 #ifdef JS_TRACE_LOGGING
     TraceLoggerThread* logger_;
     mozilla::Maybe<TraceLoggerEvent> frontendEvent_;
@@ -133,18 +116,17 @@ class MOZ_STACK_CLASS AutoFrontendTraceLog
     mozilla::Maybe<AutoTraceLog> typeLog_;
 #endif
 
-  public:
-    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id,
-                         const char* filename, size_t line, size_t column);
+   public:
+    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id, const char* filename,
+                         size_t line, size_t column);
 
-    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id,
-                         const ErrorReporter& reporter);
+    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id, const ErrorReporter& reporter);
 
-    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id,
-                         const ErrorReporter& reporter, FunctionBox* funbox);
+    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id, const ErrorReporter& reporter,
+                         FunctionBox* funbox);
 
-    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id,
-                         const ErrorReporter& reporter, ParseNode* pn);
+    AutoFrontendTraceLog(JSContext* cx, const TraceLoggerTextId id, const ErrorReporter& reporter,
+                         ParseNode* pn);
 };
 
 } /* namespace frontend */

@@ -23,13 +23,14 @@ struct TriangleTyped
 {
   PointTyped<Units, F> p1, p2, p3;
 
-  TriangleTyped()
-    : p1(), p2(), p3() {}
+  TriangleTyped() : p1(), p2(), p3() {}
 
   TriangleTyped(PointTyped<Units, F> aP1,
                 PointTyped<Units, F> aP2,
                 PointTyped<Units, F> aP3)
-    : p1(aP1), p2(aP2), p3(aP3) {}
+      : p1(aP1), p2(aP2), p3(aP3)
+  {
+  }
 
   RectTyped<Units, F> BoundingBox() const
   {
@@ -49,17 +50,21 @@ template<class Units, class F = Float>
 struct TexturedTriangleTyped : public TriangleTyped<Units, F>
 {
   explicit TexturedTriangleTyped(const TriangleTyped<Units, F>& aTriangle)
-    : TriangleTyped<Units, F>(aTriangle) {}
+      : TriangleTyped<Units, F>(aTriangle)
+  {
+  }
 
   explicit TexturedTriangleTyped(TriangleTyped<Units, F>&& aTriangle)
-    : TriangleTyped<Units, F>(Move(aTriangle)) {}
+      : TriangleTyped<Units, F>(Move(aTriangle))
+  {
+  }
 
   TriangleTyped<Units, F> textureCoords;
 };
 
 typedef TexturedTriangleTyped<UnknownUnits, Float> TexturedTriangle;
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_TRIANGLE_H */

@@ -17,9 +17,7 @@
 using namespace js;
 using namespace js::jit;
 
-static void
-TraceLocals(BaselineFrame* frame, JSTracer* trc, unsigned start, unsigned end)
-{
+static void TraceLocals(BaselineFrame* frame, JSTracer* trc, unsigned start, unsigned end) {
     if (start < end) {
         // Stack grows down.
         Value* last = frame->valueSlot(end - 1);
@@ -27,9 +25,7 @@ TraceLocals(BaselineFrame* frame, JSTracer* trc, unsigned start, unsigned end)
     }
 }
 
-void
-BaselineFrame::trace(JSTracer* trc, const JSJitFrameIter& frameIterator)
-{
+void BaselineFrame::trace(JSTracer* trc, const JSJitFrameIter& frameIterator) {
     replaceCalleeToken(TraceCalleeToken(trc, calleeToken()));
 
     // Trace |this|, actual and formal args.
@@ -41,18 +37,15 @@ BaselineFrame::trace(JSTracer* trc, const JSJitFrameIter& frameIterator)
     }
 
     // Trace environment chain, if it exists.
-    if (envChain_)
-        TraceRoot(trc, &envChain_, "baseline-envchain");
+    if (envChain_) TraceRoot(trc, &envChain_, "baseline-envchain");
 
     // Trace return value.
-    if (hasReturnValue())
-        TraceRoot(trc, returnValue().address(), "baseline-rval");
+    if (hasReturnValue()) TraceRoot(trc, returnValue().address(), "baseline-rval");
 
     if (isEvalFrame() && script()->isDirectEvalInFunction())
         TraceRoot(trc, evalNewTargetAddress(), "baseline-evalNewTarget");
 
-    if (hasArgsObj())
-        TraceRoot(trc, &argsObj_, "baseline-args-obj");
+    if (hasArgsObj()) TraceRoot(trc, &argsObj_, "baseline-args-obj");
 
     // Trace locals and stack values.
     JSScript* script = this->script();
@@ -63,8 +56,7 @@ BaselineFrame::trace(JSTracer* trc, const JSJitFrameIter& frameIterator)
 
     // NB: It is possible that numValueSlots() could be zero, even if nfixed is
     // nonzero.  This is the case if the function has an early stack check.
-    if (numValueSlots() == 0)
-        return;
+    if (numValueSlots() == 0) return;
 
     MOZ_ASSERT(nfixed <= numValueSlots());
 
@@ -76,8 +68,7 @@ BaselineFrame::trace(JSTracer* trc, const JSJitFrameIter& frameIterator)
         TraceLocals(this, trc, nfixed, numValueSlots());
 
         // Clear dead block-scoped locals.
-        while (nfixed > nlivefixed)
-            unaliasedLocal(--nfixed).setUndefined();
+        while (nfixed > nlivefixed) unaliasedLocal(--nfixed).setUndefined();
 
         // Trace live locals.
         TraceLocals(this, trc, 0, nlivefixed);
@@ -87,50 +78,38 @@ BaselineFrame::trace(JSTracer* trc, const JSJitFrameIter& frameIterator)
         script->compartment()->debugEnvs->traceLiveFrame(trc, this);
 }
 
-bool
-BaselineFrame::isNonGlobalEvalFrame() const
-{
+bool BaselineFrame::isNonGlobalEvalFrame() const {
     return isEvalFrame() && script()->enclosingScope()->as<EvalScope>().isNonGlobal();
 }
 
-bool
-BaselineFrame::initFunctionEnvironmentObjects(JSContext* cx)
-{
+bool BaselineFrame::initFunctionEnvironmentObjects(JSContext* cx) {
     return js::InitFunctionEnvironmentObjects(cx, this);
 }
 
-bool
-BaselineFrame::pushVarEnvironment(JSContext* cx, HandleScope scope)
-{
+bool BaselineFrame::pushVarEnvironment(JSContext* cx, HandleScope scope) {
     return js::PushVarEnvironmentObject(cx, scope, this);
 }
 
-bool
-BaselineFrame::initForOsr(InterpreterFrame* fp, uint32_t numStackValues)
-{
+bool BaselineFrame::initForOsr(InterpreterFrame* fp, uint32_t numStackValues) {
     mozilla::PodZero(this);
 
     envChain_ = fp->environmentChain();
 
-    if (fp->hasInitialEnvironmentUnchecked())
-        flags_ |= BaselineFrame::HAS_INITIAL_ENV;
+    if (fp->hasInitialEnvironmentUnchecked()) flags_ |= BaselineFrame::HAS_INITIAL_ENV;
 
     if (fp->script()->needsArgsObj() && fp->hasArgsObj()) {
         flags_ |= BaselineFrame::HAS_ARGS_OBJ;
         argsObj_ = &fp->argsObj();
     }
 
-    if (fp->hasReturnValue())
-        setReturnValue(fp->returnValue());
+    if (fp->hasReturnValue()) setReturnValue(fp->returnValue());
 
-    frameSize_ = BaselineFrame::FramePointerOffset +
-        BaselineFrame::Size() +
-        numStackValues * sizeof(Value);
+    frameSize_ =
+        BaselineFrame::FramePointerOffset + BaselineFrame::Size() + numStackValues * sizeof(Value);
 
     MOZ_ASSERT(numValueSlots() == numStackValues);
 
-    for (uint32_t i = 0; i < numStackValues; i++)
-        *valueSlot(i) = fp->slots()[i];
+    for (uint32_t i = 0; i < numStackValues; i++) *valueSlot(i) = fp->slots()[i];
 
     if (fp->isDebuggee()) {
         JSContext* cx = TlsContext.get();
@@ -147,8 +126,7 @@ BaselineFrame::initForOsr(InterpreterFrame* fp, uint32_t numStackValues)
         BaselineScript* baseline = fp->script()->baselineScript();
         frame.current()->setReturnAddress(baseline->returnAddressForIC(baseline->icEntry(0)));
 
-        if (!Debugger::handleBaselineOsr(cx, fp, this))
-            return false;
+        if (!Debugger::handleBaselineOsr(cx, fp, this)) return false;
 
         setIsDebuggee();
     }

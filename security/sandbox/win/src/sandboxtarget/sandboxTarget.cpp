@@ -38,10 +38,9 @@ SandboxTarget::BrokerDuplicateHandle(HANDLE aSourceHandle,
     return false;
   }
 
-  sandbox::ResultCode result =
-    mTargetServices->DuplicateHandle(aSourceHandle, aTargetProcessId,
-                                     aTargetHandle, aDesiredAccess, aOptions);
+  sandbox::ResultCode result = mTargetServices->DuplicateHandle(
+      aSourceHandle, aTargetProcessId, aTargetHandle, aDesiredAccess, aOptions);
   return (sandbox::SBOX_ALL_OK == result);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -28,16 +28,13 @@
 #endif
 
 /* Consistency wrapper for platform deviations in fmod() */
-static inline double
-js_fmod(double d, double d2)
-{
+static inline double js_fmod(double d, double d2) {
 #ifdef XP_WIN
     /*
      * Workaround MS fmod bug where 42 % (1/0) => NaN, not 42.
      * Workaround MS fmod bug where -0 % -N => 0, not -0.
      */
-    if ((mozilla::IsFinite(d) && mozilla::IsInfinite(d2)) ||
-        (d == 0 && mozilla::IsFinite(d2))) {
+    if ((mozilla::IsFinite(d) && mozilla::IsInfinite(d2)) || (d == 0 && mozilla::IsFinite(d2))) {
         return d;
     }
 #endif
@@ -46,9 +43,7 @@ js_fmod(double d, double d2)
 
 namespace js {
 
-inline double
-NumberDiv(double a, double b)
-{
+inline double NumberDiv(double a, double b) {
     AutoUnsafeCallWithABI unsafe;
     if (b == 0) {
         if (a == 0 || mozilla::IsNaN(a)
@@ -66,15 +61,12 @@ NumberDiv(double a, double b)
     return a / b;
 }
 
-inline double
-NumberMod(double a, double b)
-{
+inline double NumberMod(double a, double b) {
     AutoUnsafeCallWithABI unsafe;
-    if (b == 0)
-        return JS::GenericNaN();
+    if (b == 0) return JS::GenericNaN();
     return js_fmod(a, b);
 }
 
-} // namespace js
+}  // namespace js
 
 #endif /* jslibmath_h */

@@ -10,11 +10,11 @@ using namespace mozilla;
 
 /* Feature check for EnumTypeFitsWithin. */
 
-#define MAKE_FIXED_EMUM_FOR_TYPE(IntType)                               \
-  enum FixedEnumFor_##IntType : IntType {                               \
-    A_##IntType,                                                        \
-    B_##IntType,                                                        \
-    C_##IntType,                                                        \
+#define MAKE_FIXED_EMUM_FOR_TYPE(IntType) \
+  enum FixedEnumFor_##IntType : IntType{  \
+      A_##IntType,                        \
+      B_##IntType,                        \
+      C_##IntType,                        \
   };
 
 template<typename EnumType, typename IntType>

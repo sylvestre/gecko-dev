@@ -38,20 +38,17 @@ AudioParam::AudioParam(AudioNode* aNode,
                        float aDefaultValue,
                        float aMinValue,
                        float aMaxValue)
-  : AudioParamTimeline(aDefaultValue)
-  , mNode(aNode)
-  , mName(aName)
-  , mIndex(aIndex)
-  , mDefaultValue(aDefaultValue)
-  , mMinValue(aMinValue)
-  , mMaxValue(aMaxValue)
+    : AudioParamTimeline(aDefaultValue),
+      mNode(aNode),
+      mName(aName),
+      mIndex(aIndex),
+      mDefaultValue(aDefaultValue),
+      mMinValue(aMinValue),
+      mMaxValue(aMaxValue)
 {
 }
 
-AudioParam::~AudioParam()
-{
-  DisconnectFromGraphAndDestroyStream();
-}
+AudioParam::~AudioParam() { DisconnectFromGraphAndDestroyStream(); }
 
 JSObject*
 AudioParam::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -93,13 +90,15 @@ AudioParam::Stream()
 
   AudioNodeEngine* engine = new AudioNodeEngine(nullptr);
   RefPtr<AudioNodeStream> stream =
-    AudioNodeStream::Create(mNode->Context(), engine,
-                            AudioNodeStream::NO_STREAM_FLAGS,
-                            mNode->Context()->Graph());
+      AudioNodeStream::Create(mNode->Context(),
+                              engine,
+                              AudioNodeStream::NO_STREAM_FLAGS,
+                              mNode->Context()->Graph());
 
   // Force the input to have only one channel, and make it down-mix using
   // the speaker rules if needed.
-  stream->SetChannelMixingParametersImpl(1, ChannelCountMode::Explicit, ChannelInterpretation::Speakers);
+  stream->SetChannelMixingParametersImpl(
+      1, ChannelCountMode::Explicit, ChannelInterpretation::Speakers);
   // Mark as an AudioParam helper stream
   stream->SetAudioParamHelperStream();
 
@@ -109,7 +108,7 @@ AudioParam::Stream()
   AudioNodeStream* nodeStream = mNode->GetStream();
   if (nodeStream) {
     mNodeStreamPort =
-      nodeStream->AllocateInputPort(mStream, AudioNodeStream::AUDIO_TRACK);
+        nodeStream->AllocateInputPort(mStream, AudioNodeStream::AUDIO_TRACK);
   }
 
   // Send the stream to the timeline on the MSG side.
@@ -147,19 +146,21 @@ ToString(AudioTimelineEvent::Type aType)
 void
 AudioParam::SendEventToEngine(const AudioTimelineEvent& aEvent)
 {
-  WEB_AUDIO_API_LOG("%f: %s for %u %s %s=%g time=%f %s=%g",
-                    GetParentObject()->CurrentTime(),
-                    mName, ParentNodeId(), ToString(aEvent.mType),
-                    aEvent.mType == AudioTimelineEvent::SetValueCurve ?
-                      "length" : "value",
-                    aEvent.mType == AudioTimelineEvent::SetValueCurve ?
-                      static_cast<double>(aEvent.mCurveLength) :
-                      static_cast<double>(aEvent.mValue),
-                    aEvent.Time<double>(),
-                    aEvent.mType == AudioTimelineEvent::SetValueCurve ?
-                      "duration" : "constant",
-                    aEvent.mType == AudioTimelineEvent::SetValueCurve ?
-                      aEvent.mDuration : aEvent.mTimeConstant);
+  WEB_AUDIO_API_LOG(
+      "%f: %s for %u %s %s=%g time=%f %s=%g",
+      GetParentObject()->CurrentTime(),
+      mName,
+      ParentNodeId(),
+      ToString(aEvent.mType),
+      aEvent.mType == AudioTimelineEvent::SetValueCurve ? "length" : "value",
+      aEvent.mType == AudioTimelineEvent::SetValueCurve
+          ? static_cast<double>(aEvent.mCurveLength)
+          : static_cast<double>(aEvent.mValue),
+      aEvent.Time<double>(),
+      aEvent.mType == AudioTimelineEvent::SetValueCurve ? "duration"
+                                                        : "constant",
+      aEvent.mType == AudioTimelineEvent::SetValueCurve ? aEvent.mDuration
+                                                        : aEvent.mTimeConstant);
 
   AudioNodeStream* stream = mNode->GetStream();
   if (stream) {
@@ -186,17 +187,16 @@ AudioParamTimeline::AudioNodeInputValue(size_t aCounter) const
   // AudioChunk to look at.
   float audioNodeInputValue = 0.0f;
   const AudioBlock& lastAudioNodeChunk =
-    static_cast<AudioNodeStream*>(mStream.get())->LastChunks()[0];
+      static_cast<AudioNodeStream*>(mStream.get())->LastChunks()[0];
   if (!lastAudioNodeChunk.IsNull()) {
     MOZ_ASSERT(lastAudioNodeChunk.GetDuration() == WEBAUDIO_BLOCK_SIZE);
     audioNodeInputValue =
-      static_cast<const float*>(lastAudioNodeChunk.mChannelData[0])[aCounter];
+        static_cast<const float*>(lastAudioNodeChunk.mChannelData[0])[aCounter];
     audioNodeInputValue *= lastAudioNodeChunk.mVolume;
   }
 
   return audioNodeInputValue;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

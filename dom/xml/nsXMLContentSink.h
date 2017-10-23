@@ -27,8 +27,8 @@ class nsIParser;
 namespace mozilla {
 namespace dom {
 class NodeInfo;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 typedef enum {
   eXMLContentSinkState_InProlog,
@@ -36,7 +36,8 @@ typedef enum {
   eXMLContentSinkState_InEpilog
 } XMLContentSinkState;
 
-struct StackNode {
+struct StackNode
+{
   nsCOMPtr<nsIContent> mContent;
   uint32_t mNumFlushed;
 };
@@ -46,7 +47,7 @@ class nsXMLContentSink : public nsContentSink,
                          public nsITransformObserver,
                          public nsIExpatSink
 {
-public:
+ public:
   nsXMLContentSink();
 
   nsresult Init(nsIDocument* aDoc,
@@ -71,23 +72,26 @@ public:
   NS_IMETHOD SetParser(nsParserBase* aParser) override;
   virtual void FlushPendingNotifications(mozilla::FlushType aType) override;
   virtual void SetDocumentCharset(NotNull<const Encoding*> aEncoding) override;
-  virtual nsISupports *GetTarget() override;
+  virtual nsISupports* GetTarget() override;
   virtual bool IsScriptExecuting() override;
   virtual void ContinueInterruptedParsingAsync() override;
 
   // nsITransformObserver
-  NS_IMETHOD OnDocumentCreated(nsIDocument *aResultDocument) override;
-  NS_IMETHOD OnTransformDone(nsresult aResult, nsIDocument *aResultDocument) override;
+  NS_IMETHOD OnDocumentCreated(nsIDocument* aResultDocument) override;
+  NS_IMETHOD OnTransformDone(nsresult aResult,
+                             nsIDocument* aResultDocument) override;
 
   // nsICSSLoaderObserver
   NS_IMETHOD StyleSheetLoaded(mozilla::StyleSheet* aSheet,
                               bool aWasAlternate,
                               nsresult aStatus) override;
-  static bool ParsePIData(const nsString &aData, nsString &aHref,
-                          nsString &aTitle, nsString &aMedia,
-                          bool &aIsAlternate);
+  static bool ParsePIData(const nsString& aData,
+                          nsString& aHref,
+                          nsString& aTitle,
+                          nsString& aMedia,
+                          bool& aIsAlternate);
 
-protected:
+ protected:
   virtual ~nsXMLContentSink();
 
   nsIParser* GetParser();
@@ -102,21 +106,27 @@ protected:
   virtual nsresult AddAttributes(const char16_t** aNode, nsIContent* aContent);
   nsresult AddText(const char16_t* aString, int32_t aLength);
 
-  virtual bool OnOpenContainer(const char16_t **aAtts,
-                                 uint32_t aAttsCount,
-                                 int32_t aNameSpaceID,
-                                 nsAtom* aTagName,
-                                 uint32_t aLineNumber) { return true; }
+  virtual bool OnOpenContainer(const char16_t** aAtts,
+                               uint32_t aAttsCount,
+                               int32_t aNameSpaceID,
+                               nsAtom* aTagName,
+                               uint32_t aLineNumber)
+  {
+    return true;
+  }
   // Set the given content as the root element for the created document
   //  don't set if root element was already set.
   //  return TRUE if this call set the root element
   virtual bool SetDocElement(int32_t aNameSpaceID,
-                               nsAtom *aTagName,
-                               nsIContent *aContent);
+                             nsAtom* aTagName,
+                             nsIContent* aContent);
   virtual bool NotifyForDocElement() { return true; }
-  virtual nsresult CreateElement(const char16_t** aAtts, uint32_t aAttsCount,
-                                 mozilla::dom::NodeInfo* aNodeInfo, uint32_t aLineNumber,
-                                 nsIContent** aResult, bool* aAppendContent,
+  virtual nsresult CreateElement(const char16_t** aAtts,
+                                 uint32_t aAttsCount,
+                                 mozilla::dom::NodeInfo* aNodeInfo,
+                                 uint32_t aLineNumber,
+                                 nsIContent** aResult,
+                                 bool* aAppendContent,
                                  mozilla::dom::FromParser aFromParser);
 
   // aParent is allowed to be null here if this is the root content
@@ -125,11 +135,11 @@ protected:
 
   virtual nsresult FlushText(bool aReleaseTextNode = true);
 
-  nsresult AddContentAsLeaf(nsIContent *aContent);
+  nsresult AddContentAsLeaf(nsIContent* aContent);
 
   nsIContent* GetCurrentContent();
   StackNode* GetCurrentStackNode();
-  nsresult PushContent(nsIContent *aContent);
+  nsresult PushContent(nsIContent* aContent);
   void PopContent();
   bool HaveNotifiedForCurrentContent() const;
 
@@ -161,11 +171,14 @@ protected:
 
   bool IsMonolithicContainer(mozilla::dom::NodeInfo* aNodeInfo);
 
-  nsresult HandleStartElement(const char16_t *aName, const char16_t **aAtts,
-                              uint32_t aAttsCount, uint32_t aLineNumber,
+  nsresult HandleStartElement(const char16_t* aName,
+                              const char16_t** aAtts,
+                              uint32_t aAttsCount,
+                              uint32_t aLineNumber,
                               bool aInterruptable);
-  nsresult HandleEndElement(const char16_t *aName, bool aInterruptable);
-  nsresult HandleCharacterData(const char16_t *aData, uint32_t aLength,
+  nsresult HandleEndElement(const char16_t* aName, bool aInterruptable);
+  nsresult HandleCharacterData(const char16_t* aData,
+                               uint32_t aLength,
                                bool aInterruptable);
 
   nsCOMPtr<nsIContent> mDocElement;
@@ -187,7 +200,7 @@ protected:
   // True to call prevent script execution in the fragment mode.
   uint8_t mPreventScriptExecution : 1;
 
-  nsTArray<StackNode>              mContentStack;
+  nsTArray<StackNode> mContentStack;
 
   nsCOMPtr<nsIDocumentTransformer> mXSLTProcessor;
 
@@ -196,4 +209,4 @@ protected:
   char16_t mText[NS_ACCUMULATION_BUFFER_SIZE];
 };
 
-#endif // nsXMLContentSink_h__
+#endif  // nsXMLContentSink_h__

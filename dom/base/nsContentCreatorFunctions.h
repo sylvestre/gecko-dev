@@ -24,8 +24,8 @@ namespace mozilla {
 namespace dom {
 class Element;
 class NodeInfo;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 nsresult
 NS_NewElement(mozilla::dom::Element** aResult,
@@ -74,4 +74,4 @@ NS_NewGenConImageContent(nsIContent** aResult,
                          already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
                          imgRequestProxy* aImageRequest);
 
-#endif // nsContentCreatorFunctions_h__
+#endif  // nsContentCreatorFunctions_h__

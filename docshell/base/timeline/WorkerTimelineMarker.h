@@ -14,21 +14,24 @@ namespace mozilla {
 
 class WorkerTimelineMarker : public TimelineMarker
 {
-public:
+ public:
   WorkerTimelineMarker(dom::ProfileTimelineWorkerOperationType aOperationType,
                        MarkerTracingType aTracingType)
-    : TimelineMarker("Worker", aTracingType, MarkerStackRequest::NO_STACK)
-    , mOperationType(aOperationType)
-  {}
+      : TimelineMarker("Worker", aTracingType, MarkerStackRequest::NO_STACK),
+        mOperationType(aOperationType)
+  {
+  }
 
   virtual UniquePtr<AbstractTimelineMarker> Clone() override
   {
-    WorkerTimelineMarker* clone = new WorkerTimelineMarker(mOperationType, GetTracingType());
+    WorkerTimelineMarker* clone =
+        new WorkerTimelineMarker(mOperationType, GetTracingType());
     clone->SetCustomTime(GetTime());
     return UniquePtr<AbstractTimelineMarker>(clone);
   }
 
-  virtual void AddDetails(JSContext* aCx, dom::ProfileTimelineMarker& aMarker) override
+  virtual void AddDetails(JSContext* aCx,
+                          dom::ProfileTimelineMarker& aMarker) override
   {
     TimelineMarker::AddDetails(aCx, aMarker);
 
@@ -37,10 +40,10 @@ public:
     }
   }
 
-private:
+ private:
   dom::ProfileTimelineWorkerOperationType mOperationType;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_WorkerTimelineMarker_h_ */

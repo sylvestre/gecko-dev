@@ -27,14 +27,11 @@ class KeyPath
   friend class IndexMetadata;
   friend class ObjectStoreMetadata;
 
-  KeyPath()
-  : mType(NONEXISTENT)
-  {
-    MOZ_COUNT_CTOR(KeyPath);
-  }
+  KeyPath() : mType(NONEXISTENT) { MOZ_COUNT_CTOR(KeyPath); }
 
-public:
-  enum KeyPathType {
+ public:
+  enum KeyPathType
+  {
     NONEXISTENT,
     STRING,
     ARRAY,
@@ -45,11 +42,7 @@ public:
 
   bool AppendStringWithValidation(const nsAString& aString);
 
-  explicit KeyPath(int aDummy)
-  : mType(NONEXISTENT)
-  {
-    MOZ_COUNT_CTOR(KeyPath);
-  }
+  explicit KeyPath(int aDummy) : mType(NONEXISTENT) { MOZ_COUNT_CTOR(KeyPath); }
 
   KeyPath(const KeyPath& aOther)
   {
@@ -57,48 +50,38 @@ public:
     *this = aOther;
   }
 
-  ~KeyPath()
+  ~KeyPath() { MOZ_COUNT_DTOR(KeyPath); }
+
+  static nsresult Parse(const nsAString& aString, KeyPath* aKeyPath);
+
+  static nsresult Parse(const Sequence<nsString>& aStrings, KeyPath* aKeyPath);
+
+  static nsresult Parse(const Nullable<OwningStringOrStringSequence>& aValue,
+                        KeyPath* aKeyPath);
+
+  nsresult ExtractKey(JSContext* aCx, const JS::Value& aValue, Key& aKey) const;
+
+  nsresult ExtractKeyAsJSVal(JSContext* aCx,
+                             const JS::Value& aValue,
+                             JS::Value* aOutVal) const;
+
+  typedef nsresult (*ExtractOrCreateKeyCallback)(JSContext* aCx,
+                                                 void* aClosure);
+
+  nsresult ExtractOrCreateKey(JSContext* aCx,
+                              const JS::Value& aValue,
+                              Key& aKey,
+                              ExtractOrCreateKeyCallback aCallback,
+                              void* aClosure) const;
+
+  inline bool IsValid() const { return mType != NONEXISTENT; }
+
+  inline bool IsArray() const { return mType == ARRAY; }
+
+  inline bool IsString() const { return mType == STRING; }
+
+  inline bool IsEmpty() const
   {
-    MOZ_COUNT_DTOR(KeyPath);
-  }
-
-  static nsresult
-  Parse(const nsAString& aString, KeyPath* aKeyPath);
-
-  static nsresult
-  Parse(const Sequence<nsString>& aStrings, KeyPath* aKeyPath);
-
-  static nsresult
-  Parse(const Nullable<OwningStringOrStringSequence>& aValue, KeyPath* aKeyPath);
-
-  nsresult
-  ExtractKey(JSContext* aCx, const JS::Value& aValue, Key& aKey) const;
-
-  nsresult
-  ExtractKeyAsJSVal(JSContext* aCx, const JS::Value& aValue,
-                    JS::Value* aOutVal) const;
-
-  typedef nsresult
-  (*ExtractOrCreateKeyCallback)(JSContext* aCx, void* aClosure);
-
-  nsresult
-  ExtractOrCreateKey(JSContext* aCx, const JS::Value& aValue, Key& aKey,
-                     ExtractOrCreateKeyCallback aCallback,
-                     void* aClosure) const;
-
-  inline bool IsValid() const {
-    return mType != NONEXISTENT;
-  }
-
-  inline bool IsArray() const {
-    return mType == ARRAY;
-  }
-
-  inline bool IsString() const {
-    return mType == STRING;
-  }
-
-  inline bool IsEmpty() const {
     return mType == STRING && mStrings[0].IsEmpty();
   }
 
@@ -120,8 +103,8 @@ public:
   nsTArray<nsString> mStrings;
 };
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_indexeddb_keypath_h__
+#endif  // mozilla_dom_indexeddb_keypath_h__

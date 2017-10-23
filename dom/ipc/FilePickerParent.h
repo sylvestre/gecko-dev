@@ -22,11 +22,10 @@ namespace dom {
 class FilePickerParent : public PFilePickerParent
 {
  public:
-  FilePickerParent(const nsString& aTitle,
-                   const int16_t& aMode)
-  : mTitle(aTitle)
-  , mMode(aMode)
-  {}
+  FilePickerParent(const nsString& aTitle, const int16_t& aMode)
+      : mTitle(aTitle), mMode(aMode)
+  {
+  }
 
   virtual ~FilePickerParent();
 
@@ -37,7 +36,8 @@ class FilePickerParent : public PFilePickerParent
     RefPtr<BlobImpl> mBlobImpl;
     nsString mDirectoryPath;
 
-    enum {
+    enum
+    {
       eBlobImpl,
       eDirectoryPath
     } mType;
@@ -45,31 +45,33 @@ class FilePickerParent : public PFilePickerParent
 
   void SendFilesOrDirectories(const nsTArray<BlobImplOrString>& aData);
 
-  virtual mozilla::ipc::IPCResult RecvOpen(const int16_t& aSelectedType,
-                                           const bool& aAddToRecentDocs,
-                                           const nsString& aDefaultFile,
-                                           const nsString& aDefaultExtension,
-                                           InfallibleTArray<nsString>&& aFilters,
-                                           InfallibleTArray<nsString>&& aFilterNames,
-                                           const nsString& aDisplayDirectory,
-                                           const nsString& aDisplaySpecialDirectory,
-                                           const nsString& aOkButtonLabel) override;
+  virtual mozilla::ipc::IPCResult RecvOpen(
+      const int16_t& aSelectedType,
+      const bool& aAddToRecentDocs,
+      const nsString& aDefaultFile,
+      const nsString& aDefaultExtension,
+      InfallibleTArray<nsString>&& aFilters,
+      InfallibleTArray<nsString>&& aFilterNames,
+      const nsString& aDisplayDirectory,
+      const nsString& aDisplaySpecialDirectory,
+      const nsString& aOkButtonLabel) override;
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
   class FilePickerShownCallback : public nsIFilePickerShownCallback
   {
-  public:
+   public:
     explicit FilePickerShownCallback(FilePickerParent* aFilePickerParent)
-      : mFilePickerParent(aFilePickerParent)
-    { }
+        : mFilePickerParent(aFilePickerParent)
+    {
+    }
 
     NS_DECL_ISUPPORTS
     NS_DECL_NSIFILEPICKERSHOWNCALLBACK
 
     void Destroy();
 
-  private:
+   private:
     virtual ~FilePickerShownCallback() {}
     FilePickerParent* mFilePickerParent;
   };
@@ -86,8 +88,8 @@ class FilePickerParent : public PFilePickerParent
     nsCOMPtr<nsIEventTarget> mEventTarget;
     bool mIsDirectory;
 
-  public:
-    IORunnable(FilePickerParent *aFPParent,
+   public:
+    IORunnable(FilePickerParent* aFPParent,
                nsTArray<nsCOMPtr<nsIFile>>& aFiles,
                bool aIsDirectory);
 
@@ -105,7 +107,7 @@ class FilePickerParent : public PFilePickerParent
   int16_t mResult;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FilePickerParent_h
+#endif  // mozilla_dom_FilePickerParent_h

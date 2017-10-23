@@ -28,16 +28,12 @@ namespace mscom {
 
 namespace detail {
 
-SharedRef::SharedRef(WeakReferenceSupport* aSupport)
-  : mSupport(aSupport)
+SharedRef::SharedRef(WeakReferenceSupport* aSupport) : mSupport(aSupport)
 {
   ::InitializeCS(mCS);
 }
 
-SharedRef::~SharedRef()
-{
-  ::DeleteCriticalSection(&mCS);
-}
+SharedRef::~SharedRef() { ::DeleteCriticalSection(&mCS); }
 
 void
 SharedRef::Lock()
@@ -56,7 +52,7 @@ SharedRef::ToStrongRef(IWeakReferenceSource** aOutStrongReference)
 {
   RefPtr<IWeakReferenceSource> strongRef;
 
-  { // Scope for lock
+  {  // Scope for lock
     AutoCriticalSection lock(&mCS);
     if (!mSupport) {
       return E_POINTER;
@@ -73,7 +69,7 @@ SharedRef::Resolve(REFIID aIid, void** aOutStrongReference)
 {
   RefPtr<WeakReferenceSupport> strongRef;
 
-  { // Scope for lock
+  {  // Scope for lock
     AutoCriticalSection lock(&mCS);
     if (!mSupport) {
       return E_POINTER;
@@ -91,14 +87,13 @@ SharedRef::Clear()
   mSupport = nullptr;
 }
 
-} // namespace detail
+}  // namespace detail
 
 typedef BaseAutoLock<detail::SharedRef> SharedRefAutoLock;
 typedef BaseAutoUnlock<detail::SharedRef> SharedRefAutoUnlock;
 
 WeakReferenceSupport::WeakReferenceSupport(Flags aFlags)
-  : mRefCnt(0)
-  , mFlags(aFlags)
+    : mRefCnt(0), mFlags(aFlags)
 {
   mSharedRef = new detail::SharedRef(this);
   ::InitializeCS(mCSForQI);
@@ -164,7 +159,7 @@ ULONG
 WeakReferenceSupport::Release()
 {
   ULONG newRefCnt;
-  { // Scope for lock
+  {  // Scope for lock
     SharedRefAutoLock lock(*mSharedRef);
     newRefCnt = --mRefCnt;
     if (newRefCnt == 0) {
@@ -180,8 +175,7 @@ WeakReferenceSupport::Release()
       // main thread right now, so we send a reference to ourselves to the main
       // thread to be re-released there.
       RefPtr<WeakReferenceSupport> self = this;
-      NS_ReleaseOnMainThreadSystemGroup(
-        "WeakReferenceSupport", self.forget());
+      NS_ReleaseOnMainThreadSystemGroup("WeakReferenceSupport", self.forget());
     }
   }
   return newRefCnt;
@@ -199,8 +193,7 @@ WeakReferenceSupport::GetWeakReference(IWeakReference** aOutWeakRef)
 }
 
 WeakRef::WeakRef(RefPtr<detail::SharedRef>& aSharedRef)
-  : mRefCnt(0)
-  , mSharedRef(aSharedRef)
+    : mRefCnt(0), mSharedRef(aSharedRef)
 {
   MOZ_ASSERT(aSharedRef);
 }
@@ -257,6 +250,5 @@ WeakRef::Resolve(REFIID aIid, void** aOutStrongReference)
   return mSharedRef->Resolve(aIid, aOutStrongReference);
 }
 
-} // namespace mscom
-} // namespace mozilla
-
+}  // namespace mscom
+}  // namespace mozilla

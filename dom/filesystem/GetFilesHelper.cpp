@@ -22,12 +22,12 @@ namespace {
 // correct thread.
 class ReleaseRunnable final : public Runnable
 {
-public:
-  static void
-  MaybeReleaseOnMainThread(nsTArray<RefPtr<Promise>>& aPromises,
-                           nsTArray<RefPtr<GetFilesCallback>>& aCallbacks,
-                           Sequence<RefPtr<File>>& aFiles,
-                           already_AddRefed<nsIGlobalObject> aGlobal)
+ public:
+  static void MaybeReleaseOnMainThread(
+      nsTArray<RefPtr<Promise>>& aPromises,
+      nsTArray<RefPtr<GetFilesCallback>>& aCallbacks,
+      Sequence<RefPtr<File>>& aFiles,
+      already_AddRefed<nsIGlobalObject> aGlobal)
   {
     nsCOMPtr<nsIGlobalObject> global(aGlobal);
     if (NS_IsMainThread()) {
@@ -35,7 +35,7 @@ public:
     }
 
     RefPtr<ReleaseRunnable> runnable =
-      new ReleaseRunnable(aPromises, aCallbacks, aFiles, global.forget());
+        new ReleaseRunnable(aPromises, aCallbacks, aFiles, global.forget());
     FileSystemUtils::DispatchRunnable(nullptr, runnable.forget());
   }
 
@@ -52,12 +52,12 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   ReleaseRunnable(nsTArray<RefPtr<Promise>>& aPromises,
                   nsTArray<RefPtr<GetFilesCallback>>& aCallbacks,
                   Sequence<RefPtr<File>>& aFiles,
                   already_AddRefed<nsIGlobalObject> aGlobal)
-    : Runnable("dom::ReleaseRunnable")
+      : Runnable("dom::ReleaseRunnable")
   {
     mPromises.SwapElements(aPromises);
     mCallbacks.SwapElements(aCallbacks);
@@ -71,7 +71,7 @@ private:
   nsCOMPtr<nsIGlobalObject> mGlobal;
 };
 
-} // anonymous
+}  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
 // GetFilesHelper Base class
@@ -79,7 +79,8 @@ private:
 already_AddRefed<GetFilesHelper>
 GetFilesHelper::Create(nsIGlobalObject* aGlobal,
                        const nsTArray<OwningFileOrDirectory>& aFilesOrDirectory,
-                       bool aRecursiveFlag, ErrorResult& aRv)
+                       bool aRecursiveFlag,
+                       ErrorResult& aRv)
 {
   RefPtr<GetFilesHelper> helper;
 
@@ -134,20 +135,20 @@ GetFilesHelper::Create(nsIGlobalObject* aGlobal,
 }
 
 GetFilesHelper::GetFilesHelper(nsIGlobalObject* aGlobal, bool aRecursiveFlag)
-  : Runnable("GetFilesHelper")
-  , GetFilesHelperBase(aRecursiveFlag)
-  , mGlobal(aGlobal)
-  , mListingCompleted(false)
-  , mErrorResult(NS_OK)
-  , mMutex("GetFilesHelper::mMutex")
-  , mCanceled(false)
+    : Runnable("GetFilesHelper"),
+      GetFilesHelperBase(aRecursiveFlag),
+      mGlobal(aGlobal),
+      mListingCompleted(false),
+      mErrorResult(NS_OK),
+      mMutex("GetFilesHelper::mMutex"),
+      mCanceled(false)
 {
 }
 
 GetFilesHelper::~GetFilesHelper()
 {
-  ReleaseRunnable::MaybeReleaseOnMainThread(mPromises, mCallbacks, mFiles,
-                                            mGlobal.forget());
+  ReleaseRunnable::MaybeReleaseOnMainThread(
+      mPromises, mCallbacks, mFiles, mGlobal.forget());
 }
 
 void
@@ -197,7 +198,7 @@ GetFilesHelper::Unlink()
 }
 
 void
-GetFilesHelper::Traverse(nsCycleCollectionTraversalCallback &cb)
+GetFilesHelper::Traverse(nsCycleCollectionTraversalCallback& cb)
 {
   GetFilesHelper* tmp = this;
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGlobal);
@@ -209,7 +210,7 @@ void
 GetFilesHelper::Work(ErrorResult& aRv)
 {
   nsCOMPtr<nsIEventTarget> target =
-    do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   MOZ_ASSERT(target);
 
   aRv = target->Dispatch(this, NS_DISPATCH_NORMAL);
@@ -567,19 +568,18 @@ GetFilesHelperChild::Finished(nsresult aError)
 
 class GetFilesHelperParentCallback final : public GetFilesCallback
 {
-public:
+ public:
   explicit GetFilesHelperParentCallback(GetFilesHelperParent* aParent)
-    : mParent(aParent)
+      : mParent(aParent)
   {
     MOZ_ASSERT(aParent);
   }
 
-  void
-  Callback(nsresult aStatus, const Sequence<RefPtr<File>>& aFiles) override
+  void Callback(nsresult aStatus, const Sequence<RefPtr<File>>& aFiles) override
   {
     if (NS_FAILED(aStatus)) {
-      mParent->mContentParent->SendGetFilesResponseAndForget(mParent->mUUID,
-                                                             GetFilesResponseFailure(aStatus));
+      mParent->mContentParent->SendGetFilesResponseAndForget(
+          mParent->mUUID, GetFilesResponseFailure(aStatus));
       return;
     }
 
@@ -589,12 +589,11 @@ public:
     ipcBlobs.SetLength(aFiles.Length());
 
     for (uint32_t i = 0; i < aFiles.Length(); ++i) {
-      nsresult rv = IPCBlobUtils::Serialize(aFiles[i]->Impl(),
-                                            mParent->mContentParent,
-                                            ipcBlobs[i]);
+      nsresult rv = IPCBlobUtils::Serialize(
+          aFiles[i]->Impl(), mParent->mContentParent, ipcBlobs[i]);
       if (NS_WARN_IF(NS_FAILED(rv))) {
-        mParent->mContentParent->SendGetFilesResponseAndForget(mParent->mUUID,
-                                                               GetFilesResponseFailure(NS_ERROR_OUT_OF_MEMORY));
+        mParent->mContentParent->SendGetFilesResponseAndForget(
+            mParent->mUUID, GetFilesResponseFailure(NS_ERROR_OUT_OF_MEMORY));
         return;
       }
     }
@@ -603,7 +602,7 @@ public:
                                                            success);
   }
 
-private:
+ private:
   // Raw pointer because this callback is kept alive by this parent object.
   GetFilesHelperParent* mParent;
 };
@@ -611,26 +610,29 @@ private:
 GetFilesHelperParent::GetFilesHelperParent(const nsID& aUUID,
                                            ContentParent* aContentParent,
                                            bool aRecursiveFlag)
-  : GetFilesHelper(nullptr, aRecursiveFlag)
-  , mContentParent(aContentParent)
-  , mUUID(aUUID)
-{}
+    : GetFilesHelper(nullptr, aRecursiveFlag),
+      mContentParent(aContentParent),
+      mUUID(aUUID)
+{
+}
 
 GetFilesHelperParent::~GetFilesHelperParent()
 {
-  NS_ReleaseOnMainThreadSystemGroup(
-    "GetFilesHelperParent::mContentParent", mContentParent.forget());
+  NS_ReleaseOnMainThreadSystemGroup("GetFilesHelperParent::mContentParent",
+                                    mContentParent.forget());
 }
 
 /* static */ already_AddRefed<GetFilesHelperParent>
-GetFilesHelperParent::Create(const nsID& aUUID, const nsAString& aDirectoryPath,
-                             bool aRecursiveFlag, ContentParent* aContentParent,
+GetFilesHelperParent::Create(const nsID& aUUID,
+                             const nsAString& aDirectoryPath,
+                             bool aRecursiveFlag,
+                             ContentParent* aContentParent,
                              ErrorResult& aRv)
 {
   MOZ_ASSERT(aContentParent);
 
   RefPtr<GetFilesHelperParent> helper =
-    new GetFilesHelperParent(aUUID, aContentParent, aRecursiveFlag);
+      new GetFilesHelperParent(aUUID, aContentParent, aRecursiveFlag);
   helper->SetDirectoryPath(aDirectoryPath);
 
   helper->Work(aRv);
@@ -639,11 +641,11 @@ GetFilesHelperParent::Create(const nsID& aUUID, const nsAString& aDirectoryPath,
   }
 
   RefPtr<GetFilesHelperParentCallback> callback =
-    new GetFilesHelperParentCallback(helper);
+      new GetFilesHelperParentCallback(helper);
   helper->AddCallback(callback);
 
   return helper.forget();
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

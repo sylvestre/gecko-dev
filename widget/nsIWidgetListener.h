@@ -35,15 +35,14 @@ enum nsSizeMode
  */
 enum nsWindowZ
 {
-  nsWindowZTop = 0,   // on top
-  nsWindowZBottom,    // on bottom
-  nsWindowZRelative   // just below some specified widget
+  nsWindowZTop = 0,  // on top
+  nsWindowZBottom,   // on bottom
+  nsWindowZRelative  // just below some specified widget
 };
 
 class nsIWidgetListener
 {
-public:
-
+ public:
   /**
    * If this listener is for an nsIXULWindow, return it. If this is null, then
    * this is likely a listener for a view, which can be determined using
@@ -72,7 +71,8 @@ public:
    * notification was handled. Coordinates are outer window screen coordinates.
    */
   virtual bool WindowResized(nsIWidget* aWidget,
-                             int32_t aWidth, int32_t aHeight);
+                             int32_t aWidth,
+                             int32_t aHeight);
 
   /**
    * Called when the size mode (minimized, maximized, fullscreen) is changed.
@@ -92,7 +92,8 @@ public:
    * window to place below. On return, aActualBelow will be set to the
    * window actually behind. This generally only applies to Windows.
    */
-  virtual bool ZLevelChanged(bool aImmediate, nsWindowZ* aPlacement,
+  virtual bool ZLevelChanged(bool aImmediate,
+                             nsWindowZ* aPlacement,
                              nsIWidget* aRequestBelow,
                              nsIWidget** aActualBelow);
 

@@ -20,14 +20,14 @@ int gTestsIndex = 0;
 
 class RunNextTest : public mozilla::Runnable
 {
-public:
+ public:
   RunNextTest() : mozilla::Runnable("RunNextTest") {}
   NS_IMETHOD Run() override
   {
     NS_ASSERTION(NS_IsMainThread(), "Not running on the main thread?");
     if (gTestsIndex < int(mozilla::ArrayLength(gTests))) {
       do_test_pending();
-      Test &test = gTests[gTestsIndex++];
+      Test& test = gTests[gTestsIndex++];
       (void)fprintf(stderr, TEST_INFO_STR "Running %s.\n", test.name);
       test.func();
     }
@@ -64,7 +64,7 @@ do_test_finished()
 void
 disable_idle_service()
 {
-  (void)fprintf(stderr, TEST_INFO_STR  "Disabling Idle Service.\n");
+  (void)fprintf(stderr, TEST_INFO_STR "Disabling Idle Service.\n");
   static NS_DEFINE_IID(kIdleCID, NS_IDLE_SERVICE_CID);
   nsresult rv;
   nsCOMPtr<nsIFactory> idleFactory = do_GetClassObject(kIdleCID, &rv);

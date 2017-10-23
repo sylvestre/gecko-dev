@@ -23,8 +23,7 @@ namespace indexedDB {
 
 namespace {
 
-inline
-bool
+inline bool
 IgnoreWhitespace(char16_t c)
 {
   return false;
@@ -53,15 +52,15 @@ IsValidKeyPathString(const nsAString& aKeyPath)
 
   // If the very last character was a '.', the tokenizer won't give us an empty
   // token, but the keyPath is still invalid.
-  if (!aKeyPath.IsEmpty() &&
-      aKeyPath.CharAt(aKeyPath.Length() - 1) == '.') {
+  if (!aKeyPath.IsEmpty() && aKeyPath.CharAt(aKeyPath.Length() - 1) == '.') {
     return false;
   }
 
   return true;
 }
 
-enum KeyExtractionOptions {
+enum KeyExtractionOptions
+{
   DoNotCreateProperties,
   CreateProperties
 };
@@ -76,8 +75,7 @@ GetJSValFromKeyPathString(JSContext* aCx,
                           void* aClosure)
 {
   NS_ASSERTION(aCx, "Null pointer!");
-  NS_ASSERTION(IsValidKeyPathString(aKeyPathString),
-               "This will explode!");
+  NS_ASSERTION(IsValidKeyPathString(aKeyPathString), "This will explode!");
   NS_ASSERTION(!(aCallback || aClosure) || aOptions == CreateProperties,
                "This is not allowed!");
   NS_ASSERTION(aOptions != CreateProperties || aCallback,
@@ -117,14 +115,14 @@ GetJSValFromKeyPathString(JSContext* aCx,
       }
       obj = &currentVal.toObject();
 
-      bool ok = JS_HasUCProperty(aCx, obj, keyPathChars, keyPathLen,
-                                 &hasProp);
+      bool ok = JS_HasUCProperty(aCx, obj, keyPathChars, keyPathLen, &hasProp);
       IDB_ENSURE_TRUE(ok, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 
       if (hasProp) {
         // Get if the property exists...
         JS::Rooted<JS::Value> intermediate(aCx);
-        bool ok = JS_GetUCProperty(aCx, obj, keyPathChars, keyPathLen, &intermediate);
+        bool ok =
+            JS_GetUCProperty(aCx, obj, keyPathChars, keyPathLen, &intermediate);
         IDB_ENSURE_TRUE(ok, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 
         // Treat explicitly undefined as an error.
@@ -134,13 +132,11 @@ GetJSValFromKeyPathString(JSContext* aCx,
         if (tokenizer.hasMoreTokens()) {
           // ...and walk to it if there are more steps...
           currentVal = intermediate;
-        }
-        else {
+        } else {
           // ...otherwise use it as key
           *aKeyJSVal = intermediate;
         }
-      }
-      else {
+      } else {
         // If the property doesn't exist, fall into below path of starting
         // to define properties, if allowed.
         if (aOptions == DoNotCreateProperties) {
@@ -168,26 +164,33 @@ GetJSValFromKeyPathString(JSContext* aCx,
           break;
         }
 
-        if (!JS_DefineUCProperty(aCx, obj, token.BeginReading(),
-                                 token.Length(), dummy, JSPROP_ENUMERATE)) {
+        if (!JS_DefineUCProperty(aCx,
+                                 obj,
+                                 token.BeginReading(),
+                                 token.Length(),
+                                 dummy,
+                                 JSPROP_ENUMERATE)) {
           IDB_REPORT_INTERNAL_ERR();
           rv = NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
           break;
         }
 
         obj = dummy;
-      }
-      else {
-        JS::Rooted<JSObject*> dummy(aCx,
-          JS_NewObject(aCx, IDBObjectStore::DummyPropClass()));
+      } else {
+        JS::Rooted<JSObject*> dummy(
+            aCx, JS_NewObject(aCx, IDBObjectStore::DummyPropClass()));
         if (!dummy) {
           IDB_REPORT_INTERNAL_ERR();
           rv = NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
           break;
         }
 
-        if (!JS_DefineUCProperty(aCx, obj, token.BeginReading(),
-                                 token.Length(), dummy, JSPROP_ENUMERATE)) {
+        if (!JS_DefineUCProperty(aCx,
+                                 obj,
+                                 token.BeginReading(),
+                                 token.Length(),
+                                 dummy,
+                                 JSPROP_ENUMERATE)) {
           IDB_REPORT_INTERNAL_ERR();
           rv = NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
           break;
@@ -208,7 +211,8 @@ GetJSValFromKeyPathString(JSContext* aCx,
     // If this fails, we lose, and the web page sees a magical property
     // appear on the object :-(
     JS::ObjectOpResult succeeded;
-    if (!JS_DeleteUCProperty(aCx, targetObject,
+    if (!JS_DeleteUCProperty(aCx,
+                             targetObject,
                              targetObjectPropName.get(),
                              targetObjectPropName.Length(),
                              succeeded)) {
@@ -222,7 +226,7 @@ GetJSValFromKeyPathString(JSContext* aCx,
   return rv;
 }
 
-} // namespace
+}  // namespace
 
 // static
 nsresult
@@ -258,7 +262,8 @@ KeyPath::Parse(const Sequence<nsString>& aStrings, KeyPath* aKeyPath)
 
 // static
 nsresult
-KeyPath::Parse(const Nullable<OwningStringOrStringSequence>& aValue, KeyPath* aKeyPath)
+KeyPath::Parse(const Nullable<OwningStringOrStringSequence>& aValue,
+               KeyPath* aKeyPath)
 {
   KeyPath keyPath(0);
 
@@ -320,9 +325,12 @@ KeyPath::ExtractKey(JSContext* aCx, const JS::Value& aValue, Key& aKey) const
   aKey.Unset();
 
   for (uint32_t i = 0; i < len; ++i) {
-    nsresult rv = GetJSValFromKeyPathString(aCx, aValue, mStrings[i],
+    nsresult rv = GetJSValFromKeyPathString(aCx,
+                                            aValue,
+                                            mStrings[i],
                                             value.address(),
-                                            DoNotCreateProperties, nullptr,
+                                            DoNotCreateProperties,
+                                            nullptr,
                                             nullptr);
     if (NS_FAILED(rv)) {
       return rv;
@@ -340,14 +348,20 @@ KeyPath::ExtractKey(JSContext* aCx, const JS::Value& aValue, Key& aKey) const
 }
 
 nsresult
-KeyPath::ExtractKeyAsJSVal(JSContext* aCx, const JS::Value& aValue,
+KeyPath::ExtractKeyAsJSVal(JSContext* aCx,
+                           const JS::Value& aValue,
                            JS::Value* aOutVal) const
 {
   NS_ASSERTION(IsValid(), "This doesn't make sense!");
 
   if (IsString()) {
-    return GetJSValFromKeyPathString(aCx, aValue, mStrings[0], aOutVal,
-                                     DoNotCreateProperties, nullptr, nullptr);
+    return GetJSValFromKeyPathString(aCx,
+                                     aValue,
+                                     mStrings[0],
+                                     aOutVal,
+                                     DoNotCreateProperties,
+                                     nullptr,
+                                     nullptr);
   }
 
   const uint32_t len = mStrings.Length();
@@ -358,9 +372,12 @@ KeyPath::ExtractKeyAsJSVal(JSContext* aCx, const JS::Value& aValue,
 
   JS::Rooted<JS::Value> value(aCx);
   for (uint32_t i = 0; i < len; ++i) {
-    nsresult rv = GetJSValFromKeyPathString(aCx, aValue, mStrings[i],
+    nsresult rv = GetJSValFromKeyPathString(aCx,
+                                            aValue,
+                                            mStrings[i],
                                             value.address(),
-                                            DoNotCreateProperties, nullptr,
+                                            DoNotCreateProperties,
+                                            nullptr,
                                             nullptr);
     if (NS_FAILED(rv)) {
       return rv;
@@ -377,8 +394,10 @@ KeyPath::ExtractKeyAsJSVal(JSContext* aCx, const JS::Value& aValue,
 }
 
 nsresult
-KeyPath::ExtractOrCreateKey(JSContext* aCx, const JS::Value& aValue,
-                            Key& aKey, ExtractOrCreateKeyCallback aCallback,
+KeyPath::ExtractOrCreateKey(JSContext* aCx,
+                            const JS::Value& aValue,
+                            Key& aKey,
+                            ExtractOrCreateKeyCallback aCallback,
                             void* aClosure) const
 {
   NS_ASSERTION(IsString(), "This doesn't make sense!");
@@ -387,9 +406,12 @@ KeyPath::ExtractOrCreateKey(JSContext* aCx, const JS::Value& aValue,
 
   aKey.Unset();
 
-  nsresult rv = GetJSValFromKeyPathString(aCx, aValue, mStrings[0],
+  nsresult rv = GetJSValFromKeyPathString(aCx,
+                                          aValue,
+                                          mStrings[0],
                                           value.address(),
-                                          CreateProperties, aCallback,
+                                          CreateProperties,
+                                          aCallback,
                                           aClosure);
   if (NS_FAILED(rv)) {
     return rv;
@@ -535,6 +557,6 @@ KeyPath::IsAllowedForObjectStore(bool aAutoIncrement) const
   return true;
 }
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla

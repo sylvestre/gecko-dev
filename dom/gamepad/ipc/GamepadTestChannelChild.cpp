@@ -28,5 +28,5 @@ GamepadTestChannelChild::RecvReplyGamepadIndex(const uint32_t& aID,
   return IPC_OK();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

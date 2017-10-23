@@ -15,28 +15,33 @@ class WebRenderLayerManager;
 
 class WebRenderCanvasRenderer : public ShareableCanvasRenderer
 {
-public:
+ public:
   explicit WebRenderCanvasRenderer(WebRenderLayerManager* aManager)
-    : mManager(aManager)
-  { }
+      : mManager(aManager)
+  {
+  }
 
   void Initialize(const CanvasInitializeData& aData) override;
 
   CompositableForwarder* GetForwarder() override;
 
-protected:
+ protected:
   WebRenderLayerManager* mManager;
 };
 
 class WebRenderCanvasRendererSync : public WebRenderCanvasRenderer
 {
-public:
+ public:
   explicit WebRenderCanvasRendererSync(WebRenderLayerManager* aManager)
-    : WebRenderCanvasRenderer(aManager)
-  { }
+      : WebRenderCanvasRenderer(aManager)
+  {
+  }
   virtual ~WebRenderCanvasRendererSync();
 
-  WebRenderCanvasRendererSync* AsWebRenderCanvasRendererSync() override { return this; }
+  WebRenderCanvasRendererSync* AsWebRenderCanvasRendererSync() override
+  {
+    return this;
+  }
 
   void Initialize(const CanvasInitializeData& aData) override;
   bool CreateCompositable() override;
@@ -45,19 +50,24 @@ public:
   void Destroy() override;
 
   wr::MaybeExternalImageId GetExternalImageId() { return mExternalImageId; }
-protected:
+
+ protected:
   wr::MaybeExternalImageId mExternalImageId;
 };
 
 class WebRenderCanvasRendererAsync : public WebRenderCanvasRenderer
 {
-public:
+ public:
   explicit WebRenderCanvasRendererAsync(WebRenderLayerManager* aManager)
-    : WebRenderCanvasRenderer(aManager)
-  { }
+      : WebRenderCanvasRenderer(aManager)
+  {
+  }
   virtual ~WebRenderCanvasRendererAsync();
 
-  WebRenderCanvasRendererAsync* AsWebRenderCanvasRendererAsync() override { return this; }
+  WebRenderCanvasRendererAsync* AsWebRenderCanvasRendererAsync() override
+  {
+    return this;
+  }
 
   void Initialize(const CanvasInitializeData& aData) override;
   bool CreateCompositable() override;
@@ -66,11 +76,12 @@ public:
   void Destroy() override;
 
   Maybe<wr::PipelineId> GetPipelineId() { return mPipelineId; }
-protected:
+
+ protected:
   Maybe<wr::PipelineId> mPipelineId;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

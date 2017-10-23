@@ -29,7 +29,9 @@ static uint32_t sStackTraceDepth = 0;
 
 // NS_WalkStackCallback to write a formatted stack frame to an ostringstream.
 static void
-StackFrameToOStringStream(uint32_t aFrameNumber, void* aPC, void* aSP,
+StackFrameToOStringStream(uint32_t aFrameNumber,
+                          void* aPC,
+                          void* aSP,
                           void* aClosure)
 {
   std::ostringstream* stream = static_cast<std::ostringstream*>(aClosure);
@@ -58,7 +60,9 @@ Log(const char* aMessageType,
   if (aShouldLogStackTrace) {
     if (sStackTraceDepth) {
       msgStream << std::endl << "Stack Trace:";
-      MozStackWalk(StackFrameToOStringStream, aFramesToSkip, sStackTraceDepth,
+      MozStackWalk(StackFrameToOStringStream,
+                   aFramesToSkip,
+                   sStackTraceDepth,
                    &msgStream);
     }
   }
@@ -94,14 +98,14 @@ InitLoggingIfRequired(ProvideLogFunctionCb aProvideLogFunctionCb)
     // We can only log the stack trace on process types where we know that the
     // sandbox won't prevent it.
     if (XRE_IsContentProcess()) {
-      Preferences::AddUintVarCache(&sStackTraceDepth,
-        "security.sandbox.windows.log.stackTraceDepth");
+      Preferences::AddUintVarCache(
+          &sStackTraceDepth, "security.sandbox.windows.log.stackTraceDepth");
     }
 #endif
   }
 }
 
-} // sandboxing
-} // mozilla
+}  // namespace sandboxing
+}  // namespace mozilla
 
-#endif // security_sandbox_loggingCallbacks_h__
+#endif  // security_sandbox_loggingCallbacks_h__

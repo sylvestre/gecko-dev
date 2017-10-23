@@ -11,7 +11,8 @@ namespace mozilla {
 namespace dom {
 
 nsresult
-ReadToCryptoBuffer(pkix::Reader& aSrc, /* out */ CryptoBuffer& aDest,
+ReadToCryptoBuffer(pkix::Reader& aSrc,
+                   /* out */ CryptoBuffer& aDest,
                    uint32_t aLen)
 {
   if (aSrc.EnsureLength(aLen) != pkix::Success) {
@@ -48,8 +49,8 @@ AssembleAuthenticatorData(const CryptoBuffer& rpIdHashBuf,
                           const CryptoBuffer& attestationDataBuf,
                           /* out */ CryptoBuffer& authDataBuf)
 {
-  if (NS_WARN_IF(!authDataBuf.SetCapacity(32 + 1 + 4 + attestationDataBuf.Length(),
-                                          mozilla::fallible))) {
+  if (NS_WARN_IF(!authDataBuf.SetCapacity(
+          32 + 1 + 4 + attestationDataBuf.Length(), mozilla::fallible))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
   if (rpIdHashBuf.Length() != 32 || counterBuf.Length() != 4) {
@@ -79,10 +80,9 @@ AssembleAttestationData(const CryptoBuffer& aaguidBuf,
                         const CryptoBuffer& pubKeyObj,
                         /* out */ CryptoBuffer& attestationDataBuf)
 {
-  if (NS_WARN_IF(!attestationDataBuf.SetCapacity(aaguidBuf.Length() + 2 +
-                                                 keyHandleBuf.Length() +
-                                                 pubKeyObj.Length(),
-                                                 mozilla::fallible))) {
+  if (NS_WARN_IF(!attestationDataBuf.SetCapacity(
+          aaguidBuf.Length() + 2 + keyHandleBuf.Length() + pubKeyObj.Length(),
+          mozilla::fallible))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
   if (keyHandleBuf.Length() > 0xFFFF) {
@@ -117,8 +117,8 @@ U2FDecomposeSignResponse(const CryptoBuffer& aResponse,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  if (NS_WARN_IF(!aSignatureBuf.AppendElements(rspView.From(5),
-                                               mozilla::fallible))) {
+  if (NS_WARN_IF(
+          !aSignatureBuf.AppendElements(rspView.From(5), mozilla::fallible))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
@@ -174,8 +174,8 @@ U2FDecomposeRegistrationResponse(const CryptoBuffer& aResponse,
   // We have to parse the ASN.1 SEQUENCE on the outside to determine the cert's
   // length.
   pkix::Input cert;
-  if (pkix::der::ExpectTagAndGetTLV(input, pkix::der::SEQUENCE, cert)
-      != pkix::Success) {
+  if (pkix::der::ExpectTagAndGetTLV(input, pkix::der::SEQUENCE, cert) !=
+      pkix::Success) {
     return NS_ERROR_DOM_UNKNOWN_ERR;
   }
 
@@ -229,5 +229,5 @@ U2FDecomposeECKey(const CryptoBuffer& aPubKeyBuf,
   return NS_OK;
 }
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla

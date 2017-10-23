@@ -14,7 +14,7 @@ namespace mozilla {
 
 namespace gl {
 class GLContext;
-} // namespace gl
+}  // namespace gl
 
 namespace widget {
 
@@ -24,16 +24,16 @@ namespace widget {
 // compatibility with older Mac hardware which we block GL layers on.
 // RectTextureImages are used both for accelerated GL layers drawing and for
 // OMTC BasicLayers drawing.
-class RectTextureImage {
-public:
+class RectTextureImage
+{
+ public:
   RectTextureImage();
 
   virtual ~RectTextureImage();
 
-  already_AddRefed<gfx::DrawTarget>
-    BeginUpdate(const LayoutDeviceIntSize& aNewSize,
-                const LayoutDeviceIntRegion& aDirtyRegion =
-                  LayoutDeviceIntRegion());
+  already_AddRefed<gfx::DrawTarget> BeginUpdate(
+      const LayoutDeviceIntSize& aNewSize,
+      const LayoutDeviceIntRegion& aDirtyRegion = LayoutDeviceIntRegion());
   void EndUpdate();
 
   void UpdateIfNeeded(const LayoutDeviceIntSize& aNewSize,
@@ -52,7 +52,8 @@ public:
                            const LayoutDeviceIntRegion& aDirtyRegion,
                            CGContextRef aCGContext);
 
-  LayoutDeviceIntRegion GetUpdateRegion() {
+  LayoutDeviceIntRegion GetUpdateRegion()
+  {
     MOZ_ASSERT(mInUpdate, "update region only valid during update");
     return mUpdateRegion;
   }
@@ -61,8 +62,7 @@ public:
             const LayoutDeviceIntPoint& aLocation,
             const gfx::Matrix4x4& aTransform = gfx::Matrix4x4());
 
-
-protected:
+ protected:
   void DeleteTexture();
   void BindIOSurfaceToTexture(gl::GLContext* aGL);
 
@@ -74,7 +74,7 @@ protected:
   bool mInUpdate;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // RectTextureImage_h_
+#endif  // RectTextureImage_h_

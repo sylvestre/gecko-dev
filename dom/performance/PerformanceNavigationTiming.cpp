@@ -13,10 +13,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PerformanceNavigationTiming)
 NS_INTERFACE_MAP_END_INHERITING(PerformanceResourceTiming)
 
 NS_IMPL_ADDREF_INHERITED(PerformanceNavigationTiming, PerformanceResourceTiming)
-NS_IMPL_RELEASE_INHERITED(PerformanceNavigationTiming, PerformanceResourceTiming)
+NS_IMPL_RELEASE_INHERITED(PerformanceNavigationTiming,
+                          PerformanceResourceTiming)
 
 JSObject*
-PerformanceNavigationTiming::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+PerformanceNavigationTiming::WrapObject(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto)
 {
   return PerformanceNavigationTimingBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -72,7 +74,7 @@ PerformanceNavigationTiming::LoadEventEnd() const
 NavigationType
 PerformanceNavigationTiming::Type() const
 {
-  switch(mTiming->GetDOMTiming()->GetType()) {
+  switch (mTiming->GetDOMTiming()->GetType()) {
     case nsDOMNavigationTiming::TYPE_NAVIGATE:
       return NavigationType::Navigate;
       break;

@@ -16,14 +16,11 @@ using namespace mozilla::a11y;
 
 RootAccessibleWrap::RootAccessibleWrap(nsIDocument* aDocument,
                                        nsIPresShell* aPresShell)
-  : RootAccessible(aDocument, aPresShell)
-  , mOuter(&mInternalUnknown)
+    : RootAccessible(aDocument, aPresShell), mOuter(&mInternalUnknown)
 {
 }
 
-RootAccessibleWrap::~RootAccessibleWrap()
-{
-}
+RootAccessibleWrap::~RootAccessibleWrap() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Aggregated IUnknown
@@ -48,21 +45,16 @@ RootAccessibleWrap::InternalQueryInterface(REFIID aIid, void** aOutInterface)
 }
 
 ULONG
-RootAccessibleWrap::InternalAddRef()
-{
-  return DocAccessible::AddRef();
-}
+RootAccessibleWrap::InternalAddRef() { return DocAccessible::AddRef(); }
 
 ULONG
-RootAccessibleWrap::InternalRelease()
-{
-  return DocAccessible::Release();
-}
+RootAccessibleWrap::InternalRelease() { return DocAccessible::Release(); }
 
 already_AddRefed<IUnknown>
 RootAccessibleWrap::Aggregate(IUnknown* aOuter)
 {
-  MOZ_ASSERT(mOuter && (mOuter == &mInternalUnknown || mOuter == aOuter || !aOuter));
+  MOZ_ASSERT(mOuter &&
+             (mOuter == &mInternalUnknown || mOuter == aOuter || !aOuter));
   if (!aOuter) {
     // If there is no aOuter then we should always set mOuter to
     // mInternalUnknown. This is standard COM aggregation stuff.
@@ -105,17 +97,17 @@ RootAccessibleWrap::DocumentActivated(DocAccessible* aDocument)
 
 STDMETHODIMP
 RootAccessibleWrap::accNavigate(
-      /* [in] */ long navDir,
-      /* [optional][in] */ VARIANT varStart,
-      /* [retval][out] */ VARIANT __RPC_FAR *pvarEndUpAt)
+    /* [in] */ long navDir,
+    /* [optional][in] */ VARIANT varStart,
+    /* [retval][out] */ VARIANT __RPC_FAR* pvarEndUpAt)
 {
   // Special handling for NAVRELATION_EMBEDS.
   // When we only have a single process, this can be handled the same way as
   // any other relation.
   // However, for multi process, the normal relation mechanism doesn't work
   // because it can't handle remote objects.
-  if (navDir != NAVRELATION_EMBEDS ||
-      varStart.vt != VT_I4  || varStart.lVal != CHILDID_SELF) {
+  if (navDir != NAVRELATION_EMBEDS || varStart.vt != VT_I4 ||
+      varStart.lVal != CHILDID_SELF) {
     // We only handle EMBEDS on the root here.
     // Forward to the base implementation.
     return DocAccessibleWrap::accNavigate(navDir, varStart, pvarEndUpAt);

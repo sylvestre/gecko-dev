@@ -20,7 +20,8 @@ namespace storage {
  *        The database we'll be registering the functions with.
  * @return the SQLite status code indicating success or failure.
  */
-int registerFunctions(sqlite3 *aDB);
+int
+registerFunctions(sqlite3* aDB);
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Predefined Functions
@@ -36,9 +37,8 @@ int registerFunctions(sqlite3 *aDB);
  * @param aArgv
  *        An array of the arguments the functions is being called with.
  */
-void caseFunction(sqlite3_context *aCtx,
-                              int aArgc,
-                              sqlite3_value **aArgv);
+void
+caseFunction(sqlite3_context* aCtx, int aArgc, sqlite3_value** aArgv);
 
 /**
  * Overridden function to perform the SQL function LIKE.  This supports unicode,
@@ -51,9 +51,8 @@ void caseFunction(sqlite3_context *aCtx,
  * @param aArgv
  *        An array of the arguments the functions is being called with.
  */
-void likeFunction(sqlite3_context *aCtx,
-                              int aArgc,
-                              sqlite3_value **aArgv);
+void
+likeFunction(sqlite3_context* aCtx, int aArgc, sqlite3_value** aArgv);
 
 /**
  * An implementation of the Levenshtein Edit Distance algorithm for use in
@@ -66,11 +65,12 @@ void likeFunction(sqlite3_context *aCtx,
  * @param aArgv
  *        An array of the arguments the functions is being called with.
  */
-void levenshteinDistanceFunction(sqlite3_context *aCtx,
-                                             int aArgc,
-                                             sqlite3_value **aArgv);
+void
+levenshteinDistanceFunction(sqlite3_context* aCtx,
+                            int aArgc,
+                            sqlite3_value** aArgv);
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozStorageSQLFunctions_h
+#endif  // mozStorageSQLFunctions_h

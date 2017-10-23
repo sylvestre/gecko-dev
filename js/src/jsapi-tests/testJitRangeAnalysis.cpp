@@ -18,34 +18,23 @@
 using namespace js;
 using namespace js::jit;
 
-static bool
-EquivalentRanges(const Range* a, const Range* b) {
-    if (a->hasInt32UpperBound() != b->hasInt32UpperBound())
-        return false;
-    if (a->hasInt32LowerBound() != b->hasInt32LowerBound())
-        return false;
-    if (a->hasInt32UpperBound() && (a->upper() != b->upper()))
-        return false;
-    if (a->hasInt32LowerBound() && (a->lower() != b->lower()))
-        return false;
-    if (a->canHaveFractionalPart() != b->canHaveFractionalPart())
-        return false;
-    if (a->canBeNegativeZero() != b->canBeNegativeZero())
-        return false;
-    if (a->canBeNaN() != b->canBeNaN())
-        return false;
-    if (a->canBeInfiniteOrNaN() != b->canBeInfiniteOrNaN())
-        return false;
-    if (!a->canBeInfiniteOrNaN() && (a->exponent() != b->exponent()))
-        return false;
+static bool EquivalentRanges(const Range* a, const Range* b) {
+    if (a->hasInt32UpperBound() != b->hasInt32UpperBound()) return false;
+    if (a->hasInt32LowerBound() != b->hasInt32LowerBound()) return false;
+    if (a->hasInt32UpperBound() && (a->upper() != b->upper())) return false;
+    if (a->hasInt32LowerBound() && (a->lower() != b->lower())) return false;
+    if (a->canHaveFractionalPart() != b->canHaveFractionalPart()) return false;
+    if (a->canBeNegativeZero() != b->canBeNegativeZero()) return false;
+    if (a->canBeNaN() != b->canBeNaN()) return false;
+    if (a->canBeInfiniteOrNaN() != b->canBeInfiniteOrNaN()) return false;
+    if (!a->canBeInfiniteOrNaN() && (a->exponent() != b->exponent())) return false;
     return true;
 }
 
-BEGIN_TEST(testJitRangeAnalysis_MathSign)
-{
+BEGIN_TEST(testJitRangeAnalysis_MathSign) {
     MinimalAlloc func;
 
-    Range* xnan = new(func.alloc) Range();
+    Range* xnan = new (func.alloc) Range();
 
     Range* ninf = Range::NewDoubleSingletonRange(func.alloc, mozilla::NegativeInfinity<double>());
     Range* n1_5 = Range::NewDoubleSingletonRange(func.alloc, -1.5);
@@ -108,8 +97,7 @@ BEGIN_TEST(testJitRangeAnalysis_MathSign)
 }
 END_TEST(testJitRangeAnalysis_MathSign)
 
-BEGIN_TEST(testJitRangeAnalysis_MathSignBeta)
-{
+BEGIN_TEST(testJitRangeAnalysis_MathSignBeta) {
     MinimalFunc func;
     MathCache cache;
 
@@ -154,7 +142,8 @@ BEGIN_TEST(testJitRangeAnalysis_MathSignBeta)
     //   }
     MAdd* elseThenAdd = MAdd::New(func.alloc, p, cm0, MIRType::Double);
     elseThenBlock->add(elseThenAdd);
-    MMathFunction* elseThenSign = MMathFunction::New(func.alloc, elseThenAdd, MMathFunction::Sign, &cache);
+    MMathFunction* elseThenSign =
+        MMathFunction::New(func.alloc, elseThenAdd, MMathFunction::Sign, &cache);
     elseThenBlock->add(elseThenSign);
     MReturn* elseThenRet = MReturn::New(func.alloc, elseThenSign);
     elseThenBlock->end(elseThenRet);
@@ -166,13 +155,13 @@ BEGIN_TEST(testJitRangeAnalysis_MathSignBeta)
     // }
     MAdd* elseElseAdd = MAdd::New(func.alloc, p, cm0, MIRType::Double);
     elseElseBlock->add(elseElseAdd);
-    MMathFunction* elseElseSign = MMathFunction::New(func.alloc, elseElseAdd, MMathFunction::Sign, &cache);
+    MMathFunction* elseElseSign =
+        MMathFunction::New(func.alloc, elseElseAdd, MMathFunction::Sign, &cache);
     elseElseBlock->add(elseElseSign);
     MReturn* elseElseRet = MReturn::New(func.alloc, elseElseSign);
     elseElseBlock->end(elseElseRet);
 
-    if (!func.runRangeAnalysis())
-        return false;
+    if (!func.runRangeAnalysis()) return false;
 
     CHECK(!p->range());
     CHECK(EquivalentRanges(c0->range(), Range::NewDoubleSingletonRange(func.alloc, 0.0)));
@@ -180,31 +169,25 @@ BEGIN_TEST(testJitRangeAnalysis_MathSignBeta)
 
     // On the (p < 0) side, p is negative and not -0 (surprise!)
     CHECK(EquivalentRanges(thenAdd->range(),
-                           new(func.alloc) Range(Range::NoInt32LowerBound, 0,
-                                                 Range::IncludesFractionalParts,
-                                                 Range::ExcludesNegativeZero,
-                                                 Range::IncludesInfinity)));
+                           new (func.alloc)
+                               Range(Range::NoInt32LowerBound, 0, Range::IncludesFractionalParts,
+                                     Range::ExcludesNegativeZero, Range::IncludesInfinity)));
 
     // Consequently, its Math.sign value is not -0 either.
     CHECK(EquivalentRanges(thenSign->range(),
-                           new(func.alloc) Range(-1, 0,
-                                                 Range::ExcludesFractionalParts,
-                                                 Range::ExcludesNegativeZero,
-                                                 0)));
+                           new (func.alloc) Range(-1, 0, Range::ExcludesFractionalParts,
+                                                  Range::ExcludesNegativeZero, 0)));
 
     // On the (p >= 0) side, p is not negative and may be -0 (surprise!)
     CHECK(EquivalentRanges(elseThenAdd->range(),
-                           new(func.alloc) Range(0, Range::NoInt32UpperBound,
-                                                 Range::IncludesFractionalParts,
-                                                 Range::IncludesNegativeZero,
-                                                 Range::IncludesInfinity)));
+                           new (func.alloc)
+                               Range(0, Range::NoInt32UpperBound, Range::IncludesFractionalParts,
+                                     Range::IncludesNegativeZero, Range::IncludesInfinity)));
 
     // Consequently, its Math.sign value may be -0 too.
     CHECK(EquivalentRanges(elseThenSign->range(),
-                           new(func.alloc) Range(0, 1,
-                                                 Range::ExcludesFractionalParts,
-                                                 Range::IncludesNegativeZero,
-                                                 0)));
+                           new (func.alloc) Range(0, 1, Range::ExcludesFractionalParts,
+                                                  Range::IncludesNegativeZero, 0)));
 
     // Otherwise, p may be NaN.
     CHECK(elseElseAdd->range()->isUnknown());
@@ -214,8 +197,7 @@ BEGIN_TEST(testJitRangeAnalysis_MathSignBeta)
 }
 END_TEST(testJitRangeAnalysis_MathSignBeta)
 
-BEGIN_TEST(testJitRangeAnalysis_StrictCompareBeta)
-{
+BEGIN_TEST(testJitRangeAnalysis_StrictCompareBeta) {
     MinimalFunc func;
 
     MBasicBlock* entry = func.createEntryBlock();
@@ -253,40 +235,30 @@ BEGIN_TEST(testJitRangeAnalysis_StrictCompareBeta)
 
     // We can't do beta node insertion with STRICTEQ and a non-numeric
     // comparison though.
-    MCompare::CompareType nonNumerics[] = {
-        MCompare::Compare_Unknown,
-        MCompare::Compare_Object,
-        MCompare::Compare_Bitwise,
-        MCompare::Compare_String
-    };
+    MCompare::CompareType nonNumerics[] = {MCompare::Compare_Unknown, MCompare::Compare_Object,
+                                           MCompare::Compare_Bitwise, MCompare::Compare_String};
     for (size_t i = 0; i < mozilla::ArrayLength(nonNumerics); ++i) {
         cmp->setCompareType(nonNumerics[i]);
-        if (!func.runRangeAnalysis())
-            return false;
+        if (!func.runRangeAnalysis()) return false;
         CHECK(!thenAdd->range() || thenAdd->range()->isUnknown());
         ClearDominatorTree(func.graph);
     }
 
     // We can do it with a numeric comparison.
     cmp->setCompareType(MCompare::Compare_Double);
-    if (!func.runRangeAnalysis())
-        return false;
-    CHECK(EquivalentRanges(thenAdd->range(),
-                           Range::NewDoubleRange(func.alloc, 0.0, 0.0)));
+    if (!func.runRangeAnalysis()) return false;
+    CHECK(EquivalentRanges(thenAdd->range(), Range::NewDoubleRange(func.alloc, 0.0, 0.0)));
 
     return true;
 }
 END_TEST(testJitRangeAnalysis_StrictCompareBeta)
 
-
-static void
-deriveShiftRightRange(int32_t lhsLower, int32_t lhsUpper,
-                      int32_t rhsLower, int32_t rhsUpper,
-                      int32_t* min, int32_t* max)
-{
+static void deriveShiftRightRange(int32_t lhsLower, int32_t lhsUpper, int32_t rhsLower,
+                                  int32_t rhsUpper, int32_t* min, int32_t* max) {
     // This is the reference algorithm and should be verifiable by inspection.
     int64_t i, j;
-    *min = INT32_MAX; *max = INT32_MIN;
+    *min = INT32_MAX;
+    *max = INT32_MIN;
     for (i = lhsLower; i <= lhsUpper; i++) {
         for (j = rhsLower; j <= rhsUpper; j++) {
             int32_t r = int32_t(i) >> (int32_t(j) & 0x1f);
@@ -296,10 +268,8 @@ deriveShiftRightRange(int32_t lhsLower, int32_t lhsUpper,
     }
 }
 
-static bool
-checkShiftRightRange(int32_t lhsLow, int32_t lhsHigh, int32_t lhsInc,
-                     int32_t rhsLow, int32_t rhsHigh, int32_t rhsInc)
-{
+static bool checkShiftRightRange(int32_t lhsLow, int32_t lhsHigh, int32_t lhsInc, int32_t rhsLow,
+                                 int32_t rhsHigh, int32_t rhsInc) {
     MinimalAlloc func;
     int64_t lhsLower, lhsUpper, rhsLower, rhsUpper;
 
@@ -308,18 +278,13 @@ checkShiftRightRange(int32_t lhsLow, int32_t lhsHigh, int32_t lhsInc,
             Range* lhsRange = Range::NewInt32Range(func.alloc, lhsLower, lhsUpper);
             for (rhsLower = rhsLow; rhsLower <= rhsHigh; rhsLower += rhsInc) {
                 for (rhsUpper = rhsLower; rhsUpper <= rhsHigh; rhsUpper += rhsInc) {
-                    if (!func.alloc.ensureBallast())
-                        return false;
+                    if (!func.alloc.ensureBallast()) return false;
 
                     Range* rhsRange = Range::NewInt32Range(func.alloc, rhsLower, rhsUpper);
                     Range* result = Range::rsh(func.alloc, lhsRange, rhsRange);
                     int32_t min, max;
-                    deriveShiftRightRange(lhsLower, lhsUpper,
-                                          rhsLower, rhsUpper,
-                                          &min, &max);
-                    if (!result->isInt32() ||
-                        result->lower() != min ||
-                        result->upper() != max) {
+                    deriveShiftRightRange(lhsLower, lhsUpper, rhsLower, rhsUpper, &min, &max);
+                    if (!result->isInt32() || result->lower() != min || result->upper() != max) {
                         return false;
                     }
                 }
@@ -329,10 +294,9 @@ checkShiftRightRange(int32_t lhsLow, int32_t lhsHigh, int32_t lhsInc,
     return true;
 }
 
-BEGIN_TEST(testJitRangeAnalysis_shiftRight)
-{
-    CHECK(checkShiftRightRange(-16, 15, 1,   0, 31, 1));
-    CHECK(checkShiftRightRange( -8,  7, 1, -64, 63, 1));
+BEGIN_TEST(testJitRangeAnalysis_shiftRight) {
+    CHECK(checkShiftRightRange(-16, 15, 1, 0, 31, 1));
+    CHECK(checkShiftRightRange(-8, 7, 1, -64, 63, 1));
     return true;
 }
 END_TEST(testJitRangeAnalysis_shiftRight)

@@ -22,7 +22,7 @@ namespace mozilla {
 namespace widget {
 class PDFViaEMFPrintHelper;
 }
-}
+}  // namespace mozilla
 #endif
 
 class nsDeviceContextSpecWin : public nsIDeviceContextSpec
@@ -31,7 +31,7 @@ class nsDeviceContextSpecWin : public nsIDeviceContextSpec
   typedef mozilla::widget::PDFViaEMFPrintHelper PDFViaEMFPrintHelper;
 #endif
 
-public:
+ public:
   nsDeviceContextSpecWin();
 
   NS_DECL_ISUPPORTS
@@ -39,33 +39,40 @@ public:
   virtual already_AddRefed<PrintTarget> MakePrintTarget() final;
   NS_IMETHOD BeginDocument(const nsAString& aTitle,
                            const nsAString& aPrintToFileName,
-                           int32_t          aStartPage,
-                           int32_t          aEndPage) override;
+                           int32_t aStartPage,
+                           int32_t aEndPage) override;
   NS_IMETHOD EndDocument() override;
   NS_IMETHOD BeginPage() override { return NS_OK; }
   NS_IMETHOD EndPage() override { return NS_OK; }
 
-  NS_IMETHOD Init(nsIWidget* aWidget, nsIPrintSettings* aPS, bool aIsPrintPreview) override;
+  NS_IMETHOD Init(nsIWidget* aWidget,
+                  nsIPrintSettings* aPS,
+                  bool aIsPrintPreview) override;
 
   float GetDPI() final;
 
   float GetPrintingScale() final;
 
-  void GetDriverName(nsAString& aDriverName) const { aDriverName = mDriverName; }
-  void GetDeviceName(nsAString& aDeviceName) const { aDeviceName = mDeviceName; }
+  void GetDriverName(nsAString& aDriverName) const
+  {
+    aDriverName = mDriverName;
+  }
+  void GetDeviceName(nsAString& aDeviceName) const
+  {
+    aDeviceName = mDeviceName;
+  }
 
   // The GetDevMode will return a pointer to a DevMode
   // whether it is from the Global memory handle or just the DevMode
-  // To get the DevMode from the Global memory Handle it must lock it 
+  // To get the DevMode from the Global memory Handle it must lock it
   // So this call must be paired with a call to UnlockGlobalHandle
-  void GetDevMode(LPDEVMODEW &aDevMode);
+  void GetDevMode(LPDEVMODEW& aDevMode);
 
   // helper functions
   nsresult GetDataFromPrinter(const nsAString& aName,
                               nsIPrintSettings* aPS = nullptr);
 
-protected:
-
+ protected:
   void SetDeviceName(const nsAString& aDeviceName);
   void SetDriverName(const nsAString& aDriverName);
   void SetDevMode(LPDEVMODEW aDevMode);
@@ -80,8 +87,8 @@ protected:
   int16_t mOutputFormat = nsIPrintSettings::kOutputFormatNative;
 
 #ifdef MOZ_ENABLE_SKIA_PDF
-  void  FinishPrintViaPDF();
-  void  CleanupPrintViaPDF();
+  void FinishPrintViaPDF();
+  void CleanupPrintViaPDF();
 
   // This variable is independant of nsIPrintSettings::kOutputFormatPDF.
   // It controls both whether normal printing is done via PDF using Skia and
@@ -96,7 +103,6 @@ protected:
 #endif
 };
 
-
 //-------------------------------------------------------------------------
 // Printer Enumerator
 //-------------------------------------------------------------------------
@@ -104,7 +110,7 @@ class nsPrinterEnumeratorWin final : public nsIPrinterEnumerator
 {
   ~nsPrinterEnumeratorWin();
 
-public:
+ public:
   nsPrinterEnumeratorWin();
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRINTERENUMERATOR

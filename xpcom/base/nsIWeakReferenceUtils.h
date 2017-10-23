@@ -29,21 +29,19 @@ CallQueryReferent(T* aSource, DestinationType** aDestination)
                                 reinterpret_cast<void**>(aDestination));
 }
 
-
 inline const nsQueryReferent
 do_QueryReferent(nsIWeakReference* aRawPtr, nsresult* aError = 0)
 {
   return nsQueryReferent(aRawPtr, aError);
 }
 
-
 /**
  * Deprecated, use |do_GetWeakReference| instead.
  */
-extern nsIWeakReference* NS_GetWeakReference(nsISupports*,
-                                             nsresult* aResult = 0);
-extern nsIWeakReference* NS_GetWeakReference(nsISupportsWeakReference*,
-                                             nsresult* aResult = 0);
+extern nsIWeakReference*
+NS_GetWeakReference(nsISupports*, nsresult* aResult = 0);
+extern nsIWeakReference*
+NS_GetWeakReference(nsISupportsWeakReference*, nsresult* aResult = 0);
 
 /**
  * |do_GetWeakReference| is a convenience function that bundles up all the work needed

@@ -26,8 +26,7 @@ namespace wasm {
 
 // Describes the JS scripted caller of a request to compile a wasm module.
 
-struct ScriptedCaller
-{
+struct ScriptedCaller {
     UniqueChars filename;
     unsigned line;
     unsigned column;
@@ -35,8 +34,7 @@ struct ScriptedCaller
 
 // Describes all the parameters that control wasm compilation.
 
-struct CompileArgs : ShareableBase<CompileArgs>
-{
+struct CompileArgs : ShareableBase<CompileArgs> {
     Assumptions assumptions;
     ScriptedCaller scriptedCaller;
     bool baselineEnabled;
@@ -45,13 +43,12 @@ struct CompileArgs : ShareableBase<CompileArgs>
     bool testTiering;
 
     CompileArgs(Assumptions&& assumptions, ScriptedCaller&& scriptedCaller)
-      : assumptions(Move(assumptions)),
-        scriptedCaller(Move(scriptedCaller)),
-        baselineEnabled(false),
-        debugEnabled(false),
-        ionEnabled(false),
-        testTiering(false)
-    {}
+        : assumptions(Move(assumptions)),
+          scriptedCaller(Move(scriptedCaller)),
+          baselineEnabled(false),
+          debugEnabled(false),
+          ionEnabled(false),
+          testTiering(false) {}
 
     // If CompileArgs is constructed without arguments, initFromContext() must
     // be called to complete initialization.
@@ -65,8 +62,7 @@ typedef RefPtr<const CompileArgs> SharedCompileArgs;
 // Return the estimated compiled (machine) code size for the given bytecode size
 // compiled at the given tier.
 
-double
-EstimateCompiledCodeSize(Tier tier, size_t bytecodeSize);
+double EstimateCompiledCodeSize(Tier tier, size_t bytecodeSize);
 
 // Compile the given WebAssembly bytecode with the given arguments into a
 // wasm::Module. On success, the Module is returned. On failure, the returned
@@ -74,16 +70,15 @@ EstimateCompiledCodeSize(Tier tier, size_t bytecodeSize);
 //  - *error points to a string description of the error
 //  - *error is null and the caller should report out-of-memory.
 
-SharedModule
-CompileInitialTier(const ShareableBytes& bytecode, const CompileArgs& args, UniqueChars* error);
+SharedModule CompileInitialTier(const ShareableBytes& bytecode, const CompileArgs& args,
+                                UniqueChars* error);
 
 // Attempt to compile the second tier of the given wasm::Module, returning whether
 // tier-2 compilation succeeded and Module::finishTier2 was called.
 
-bool
-CompileTier2(Module& module, const CompileArgs& args, Atomic<bool>* cancelled);
+bool CompileTier2(Module& module, const CompileArgs& args, Atomic<bool>* cancelled);
 
 }  // namespace wasm
 }  // namespace js
 
-#endif // namespace wasm_compile_h
+#endif  // namespace wasm_compile_h

@@ -28,10 +28,9 @@ class nsIGeolocationProvider;
  Telemetry is recommended to monitor that the primary provider is responding
  first when expected to do so.
 */
-class MLSFallback : public nsITimerCallback
-                  , public nsINamed
+class MLSFallback : public nsITimerCallback, public nsINamed
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
@@ -40,7 +39,7 @@ public:
   nsresult Startup(nsIGeolocationUpdate* aWatcher);
   nsresult Shutdown();
 
-private:
+ private:
   nsresult CreateMLSFallbackProvider();
   virtual ~MLSFallback();
   nsCOMPtr<nsITimer> mHandoffTimer;
@@ -48,4 +47,3 @@ private:
   nsCOMPtr<nsIGeolocationUpdate> mUpdateWatcher;
   const uint32_t mDelayMs;
 };
-

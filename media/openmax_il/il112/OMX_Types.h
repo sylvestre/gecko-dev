@@ -39,29 +39,29 @@ extern "C" {
  *  to declare OMX function prototypes.  They are modified to meet the
  *  requirements for a particular platform */
 #ifdef __SYMBIAN32__
-#   ifdef __OMX_EXPORTS
-#       define OMX_API __declspec(dllexport)
-#   else
-#       ifdef _WIN32
-#           define OMX_API __declspec(dllexport)
-#       else
-#           define OMX_API __declspec(dllimport)
-#       endif
-#   endif
+#ifdef __OMX_EXPORTS
+#define OMX_API __declspec(dllexport)
 #else
-#   ifdef _WIN32
-#      ifdef __OMX_EXPORTS
-#          define OMX_API __declspec(dllexport)
-#      else
-#          define OMX_API __declspec(dllimport)
-#      endif
-#   else
-#      ifdef __OMX_EXPORTS
-#          define OMX_API
-#      else
-#          define OMX_API extern
-#      endif
-#   endif
+#ifdef _WIN32
+#define OMX_API __declspec(dllexport)
+#else
+#define OMX_API __declspec(dllimport)
+#endif
+#endif
+#else
+#ifdef _WIN32
+#ifdef __OMX_EXPORTS
+#define OMX_API __declspec(dllexport)
+#else
+#define OMX_API __declspec(dllimport)
+#endif
+#else
+#ifdef __OMX_EXPORTS
+#define OMX_API
+#else
+#define OMX_API extern
+#endif
+#endif
 #endif
 
 #ifndef OMX_APIENTRY
@@ -81,7 +81,6 @@ extern "C" {
 #ifndef OMX_OUT
 #define OMX_OUT
 #endif
-
 
 /** OMX_INOUT is used to identify parameters that may be either inputs or
     outputs from an OMX function at the same time.  This designation will
@@ -104,7 +103,7 @@ extern "C" {
  * Functions and structure related to the OMX IL core
  */
 
- /** @defgroup comp OpenMAX IL component
+/** @defgroup comp OpenMAX IL component
  * Functions and structure related to the OMX IL component
  */
 
@@ -125,7 +124,7 @@ extern "C" {
  *  @ingroup core
  */
 
- /** @defgroup metadata Metadata handling
+/** @defgroup metadata Metadata handling
   *
   */
 
@@ -147,7 +146,6 @@ typedef unsigned long OMX_U32;
 /** OMX_S32 is a 32 bit signed quantity that is 32 bit word aligned */
 typedef signed long OMX_S32;
 
-
 /* Users with compilers that cannot accept the "long long" designation should
    define the OMX_SKIP64BIT macro.  It should be noted that this may cause
    some components to fail to compile if the component was written to require
@@ -165,10 +163,10 @@ typedef signed long long OMX_S64;
 #elif defined(WIN32)
 
 /** OMX_U64 is a 64 bit unsigned quantity that is 64 bit word aligned */
-typedef unsigned __int64  OMX_U64;
+typedef unsigned __int64 OMX_U64;
 
 /** OMX_S64 is a 64 bit signed quantity that is 64 bit word aligned */
-typedef signed   __int64  OMX_S64;
+typedef signed __int64 OMX_S64;
 
 #else /* WIN32 */
 
@@ -181,15 +179,14 @@ typedef signed long long OMX_S64;
 #endif /* WIN32 */
 #endif
 
-
 /** The OMX_BOOL type is intended to be used to represent a true or a false
     value when passing parameters to and from the OMX core and components.  The
     OMX_BOOL is a 32 bit quantity and is aligned on a 32 bit word boundary.
  */
 typedef enum OMX_BOOL {
-    OMX_FALSE = 0,
-    OMX_TRUE = !OMX_FALSE,
-    OMX_BOOL_MAX = 0x7FFFFFFF
+  OMX_FALSE = 0,
+  OMX_TRUE = !OMX_FALSE,
+  OMX_BOOL_MAX = 0x7FFFFFFF
 } OMX_BOOL;
 
 /** The OMX_PTR type is intended to be used to pass pointers between the OMX
@@ -221,50 +218,45 @@ typedef unsigned char OMX_UUIDTYPE[128];
 /** The OMX_DIRTYPE enumeration is used to indicate if a port is an input or
     an output port.  This enumeration is common across all component types.
  */
-typedef enum OMX_DIRTYPE
-{
-    OMX_DirInput,              /**< Port is an input port */
-    OMX_DirOutput,             /**< Port is an output port */
-    OMX_DirMax = 0x7FFFFFFF
+typedef enum OMX_DIRTYPE {
+  OMX_DirInput,  /**< Port is an input port */
+  OMX_DirOutput, /**< Port is an output port */
+  OMX_DirMax = 0x7FFFFFFF
 } OMX_DIRTYPE;
 
 /** The OMX_ENDIANTYPE enumeration is used to indicate the bit ordering
     for numerical data (i.e. big endian, or little endian).
  */
-typedef enum OMX_ENDIANTYPE
-{
-    OMX_EndianBig, /**< big endian */
-    OMX_EndianLittle, /**< little endian */
-    OMX_EndianMax = 0x7FFFFFFF
+typedef enum OMX_ENDIANTYPE {
+  OMX_EndianBig,    /**< big endian */
+  OMX_EndianLittle, /**< little endian */
+  OMX_EndianMax = 0x7FFFFFFF
 } OMX_ENDIANTYPE;
-
 
 /** The OMX_NUMERICALDATATYPE enumeration is used to indicate if data
     is signed or unsigned
  */
-typedef enum OMX_NUMERICALDATATYPE
-{
-    OMX_NumericalDataSigned, /**< signed data */
-    OMX_NumericalDataUnsigned, /**< unsigned data */
-    OMX_NumercialDataMax = 0x7FFFFFFF
+typedef enum OMX_NUMERICALDATATYPE {
+  OMX_NumericalDataSigned,   /**< signed data */
+  OMX_NumericalDataUnsigned, /**< unsigned data */
+  OMX_NumercialDataMax = 0x7FFFFFFF
 } OMX_NUMERICALDATATYPE;
 
-
 /** Unsigned bounded value type */
-typedef struct OMX_BU32 {
-    OMX_U32 nValue; /**< actual value */
-    OMX_U32 nMin;   /**< minimum for value (i.e. nValue >= nMin) */
-    OMX_U32 nMax;   /**< maximum for value (i.e. nValue <= nMax) */
+typedef struct OMX_BU32
+{
+  OMX_U32 nValue; /**< actual value */
+  OMX_U32 nMin;   /**< minimum for value (i.e. nValue >= nMin) */
+  OMX_U32 nMax;   /**< maximum for value (i.e. nValue <= nMax) */
 } OMX_BU32;
 
-
 /** Signed bounded value type */
-typedef struct OMX_BS32 {
-    OMX_S32 nValue; /**< actual value */
-    OMX_S32 nMin;   /**< minimum for value (i.e. nValue >= nMin) */
-    OMX_S32 nMax;   /**< maximum for value (i.e. nValue <= nMax) */
+typedef struct OMX_BS32
+{
+  OMX_S32 nValue; /**< actual value */
+  OMX_S32 nMin;   /**< minimum for value (i.e. nValue >= nMin) */
+  OMX_S32 nMax;   /**< maximum for value (i.e. nValue <= nMax) */
 } OMX_BS32;
-
 
 /** Structure representing some time or duration in microseconds. This structure
   *  must be interpreted as a signed 64 bit value. The quantity is signed to accommodate
@@ -283,8 +275,8 @@ typedef OMX_S64 OMX_TICKS;
 #else
 typedef struct OMX_TICKS
 {
-    OMX_U32 nLowPart;    /** low bits of the signed 64 bit tick value */
-    OMX_U32 nHighPart;   /** high bits of the signed 64 bit tick value */
+  OMX_U32 nLowPart;  /** low bits of the signed 64 bit tick value */
+  OMX_U32 nHighPart; /** high bits of the signed 64 bit tick value */
 } OMX_TICKS;
 #endif
 #define OMX_TICKS_PER_SECOND 1000000
@@ -296,14 +288,13 @@ typedef void* OMX_HANDLETYPE;
 
 typedef struct OMX_MARKTYPE
 {
-    OMX_HANDLETYPE hMarkTargetComponent;   /**< The component that will
+  OMX_HANDLETYPE hMarkTargetComponent; /**< The component that will
                                                 generate a mark event upon
                                                 processing the mark. */
-    OMX_PTR pMarkData;   /**< Application specific data associated with
+  OMX_PTR pMarkData; /**< Application specific data associated with
                               the mark sent on a mark event to disambiguate
                               this mark from others. */
 } OMX_MARKTYPE;
-
 
 /** OMX_NATIVE_DEVICETYPE is used to map a OMX video port to the
  *  platform & operating specific object used to reference the display
@@ -314,7 +305,6 @@ typedef void* OMX_NATIVE_DEVICETYPE;
  *  platform & operating specific object used to reference the window */
 typedef void* OMX_NATIVE_WINDOWTYPE;
 
-
 /** Define the OMX IL version that corresponds to this set of header files.
  *  We also define a combined version that can be used to write or compare
  *  values of the 32bit nVersion field, assuming a little endian architecture */
@@ -323,8 +313,9 @@ typedef void* OMX_NATIVE_WINDOWTYPE;
 #define OMX_VERSION_REVISION 2
 #define OMX_VERSION_STEP 0
 
-#define OMX_VERSION ((OMX_VERSION_STEP<<24) | (OMX_VERSION_REVISION<<16) | (OMX_VERSION_MINOR<<8) | OMX_VERSION_MAJOR)
-
+#define OMX_VERSION                                          \
+  ((OMX_VERSION_STEP << 24) | (OMX_VERSION_REVISION << 16) | \
+   (OMX_VERSION_MINOR << 8) | OMX_VERSION_MAJOR)
 
 /** The OMX_VERSIONTYPE union is used to specify the version for
     a structure or component.  For a component, the version is entirely
@@ -337,16 +328,15 @@ typedef void* OMX_NATIVE_WINDOWTYPE;
     by accessing one of the structure elements to, for example, check only
     the Major revision.
  */
-typedef union OMX_VERSIONTYPE
-{
-    struct
-    {
-        OMX_U8 nVersionMajor;   /**< Major version accessor element */
-        OMX_U8 nVersionMinor;   /**< Minor version accessor element */
-        OMX_U8 nRevision;       /**< Revision version accessor element */
-        OMX_U8 nStep;           /**< Step version accessor element */
-    } s;
-    OMX_U32 nVersion;           /**< 32 bit value to make accessing the
+typedef union OMX_VERSIONTYPE {
+  struct
+  {
+    OMX_U8 nVersionMajor; /**< Major version accessor element */
+    OMX_U8 nVersionMinor; /**< Minor version accessor element */
+    OMX_U8 nRevision;     /**< Revision version accessor element */
+    OMX_U8 nStep;         /**< Step version accessor element */
+  } s;
+  OMX_U32 nVersion; /**< 32 bit value to make accessing the
                                     version easily done in a single word
                                     size copy/compare operation */
 } OMX_VERSIONTYPE;

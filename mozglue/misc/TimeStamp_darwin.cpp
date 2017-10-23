@@ -28,10 +28,10 @@
 static uint64_t sResolution;
 static uint64_t sResolutionSigDigs;
 
-static const uint64_t kNsPerMs   =    1000000;
-static const uint64_t kUsPerSec  =    1000000;
-static const double kNsPerMsd    =    1000000.0;
-static const double kNsPerSecd   = 1000000000.0;
+static const uint64_t kNsPerMs = 1000000;
+static const uint64_t kUsPerSec = 1000000;
+static const double kNsPerMsd = 1000000.0;
+static const double kNsPerSecd = 1000000000.0;
 
 static bool gInitialized = false;
 static double sNsPerTick;
@@ -141,10 +141,10 @@ TimeStamp::Startup()
 
   // find the number of significant digits in sResolution, for the
   // sake of ToSecondsSigDigits()
-  for (sResolutionSigDigs = 1;
-       !(sResolutionSigDigs == sResolution ||
-         10 * sResolutionSigDigs > sResolution);
-       sResolutionSigDigs *= 10);
+  for (sResolutionSigDigs = 1; !(sResolutionSigDigs == sResolution ||
+                                 10 * sResolutionSigDigs > sResolution);
+       sResolutionSigDigs *= 10)
+    ;
 
   gInitialized = true;
 
@@ -176,10 +176,10 @@ TimeStamp::ComputeProcessUptime()
   }
 
   int mib[] = {
-    CTL_KERN,
-    KERN_PROC,
-    KERN_PROC_PID,
-    getpid(),
+      CTL_KERN,
+      KERN_PROC,
+      KERN_PROC_PID,
+      getpid(),
   };
   u_int mibLen = sizeof(mib) / sizeof(mib[0]);
 
@@ -192,8 +192,8 @@ TimeStamp::ComputeProcessUptime()
   }
 
   uint64_t startTime =
-    ((uint64_t)proc.kp_proc.p_un.__p_starttime.tv_sec * kUsPerSec) +
-    proc.kp_proc.p_un.__p_starttime.tv_usec;
+      ((uint64_t)proc.kp_proc.p_un.__p_starttime.tv_sec * kUsPerSec) +
+      proc.kp_proc.p_un.__p_starttime.tv_usec;
   uint64_t now = (tv.tv_sec * kUsPerSec) + tv.tv_usec;
 
   if (startTime > now) {
@@ -203,4 +203,4 @@ TimeStamp::ComputeProcessUptime()
   return now - startTime;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

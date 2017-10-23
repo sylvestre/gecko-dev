@@ -26,15 +26,13 @@ using namespace js::jit;
 
 using mozilla::IsInRange;
 
-uint32_t
-jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo)
-{
+uint32_t jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo) {
     JSContext* cx = TlsContext.get();
     MOZ_ASSERT(bailoutInfo);
 
     // We don't have an exit frame.
     MOZ_ASSERT(IsInRange(FAKE_EXITFP_FOR_BAILOUT, 0, 0x1000) &&
-               IsInRange(FAKE_EXITFP_FOR_BAILOUT + sizeof(CommonFrameLayout), 0, 0x1000),
+                   IsInRange(FAKE_EXITFP_FOR_BAILOUT + sizeof(CommonFrameLayout), 0, 0x1000),
                "Fake exitfp pointer should be within the first page.");
 
     cx->activation()->asJit()->setJSExitFP(FAKE_EXITFP_FOR_BAILOUT);
@@ -55,8 +53,7 @@ jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo)
     *bailoutInfo = nullptr;
     uint32_t retval = BailoutIonToBaseline(cx, bailoutData.activation(), frame, false, bailoutInfo,
                                            /* excInfo = */ nullptr);
-    MOZ_ASSERT(retval == BAILOUT_RETURN_OK ||
-               retval == BAILOUT_RETURN_FATAL_ERROR ||
+    MOZ_ASSERT(retval == BAILOUT_RETURN_OK || retval == BAILOUT_RETURN_FATAL_ERROR ||
                retval == BAILOUT_RETURN_OVERRECURSED);
     MOZ_ASSERT_IF(retval == BAILOUT_RETURN_OK, *bailoutInfo != nullptr);
 
@@ -100,10 +97,8 @@ jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo)
     return retval;
 }
 
-uint32_t
-jit::InvalidationBailout(InvalidationBailoutStack* sp, size_t* frameSizeOut,
-                         BaselineBailoutInfo** bailoutInfo)
-{
+uint32_t jit::InvalidationBailout(InvalidationBailoutStack* sp, size_t* frameSizeOut,
+                                  BaselineBailoutInfo** bailoutInfo) {
     sp->checkInvariants();
 
     JSContext* cx = TlsContext.get();
@@ -130,8 +125,7 @@ jit::InvalidationBailout(InvalidationBailoutStack* sp, size_t* frameSizeOut,
     *bailoutInfo = nullptr;
     uint32_t retval = BailoutIonToBaseline(cx, bailoutData.activation(), frame, true, bailoutInfo,
                                            /* excInfo = */ nullptr);
-    MOZ_ASSERT(retval == BAILOUT_RETURN_OK ||
-               retval == BAILOUT_RETURN_FATAL_ERROR ||
+    MOZ_ASSERT(retval == BAILOUT_RETURN_OK || retval == BAILOUT_RETURN_FATAL_ERROR ||
                retval == BAILOUT_RETURN_OVERRECURSED);
     MOZ_ASSERT_IF(retval == BAILOUT_RETURN_OK, *bailoutInfo != nullptr);
 
@@ -155,9 +149,9 @@ jit::InvalidationBailout(InvalidationBailoutStack* sp, size_t* frameSizeOut,
         JitFrameLayout* layout = frame.jsFrame();
         JitSpew(JitSpew_IonInvalidate, "Bailout failed (%s)",
                 (retval == BAILOUT_RETURN_FATAL_ERROR) ? "Fatal Error" : "Over Recursion");
-        JitSpew(JitSpew_IonInvalidate, "   calleeToken %p", (void*) layout->calleeToken());
+        JitSpew(JitSpew_IonInvalidate, "   calleeToken %p", (void*)layout->calleeToken());
         JitSpew(JitSpew_IonInvalidate, "   frameSize %u", unsigned(layout->prevFrameLocalSize()));
-        JitSpew(JitSpew_IonInvalidate, "   ra %p", (void*) layout->returnAddress());
+        JitSpew(JitSpew_IonInvalidate, "   ra %p", (void*)layout->returnAddress());
 #endif
     }
 
@@ -172,9 +166,8 @@ jit::InvalidationBailout(InvalidationBailoutStack* sp, size_t* frameSizeOut,
 
 BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
                                    const JSJitFrameIter& frame)
-  : machine_(frame.machineState())
-{
-    framePointer_ = (uint8_t*) frame.fp();
+    : machine_(frame.machineState()) {
+    framePointer_ = (uint8_t*)frame.fp();
     topFrameSize_ = frame.frameSize();
     topIonScript_ = frame.ionScript();
     attachOnJitActivation(activations);
@@ -183,12 +176,9 @@ BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
     snapshotOffset_ = osiIndex->snapshotOffset();
 }
 
-uint32_t
-jit::ExceptionHandlerBailout(JSContext* cx, const InlineFrameIterator& frame,
-                             ResumeFromException* rfe,
-                             const ExceptionBailoutInfo& excInfo,
-                             bool* overrecursed)
-{
+uint32_t jit::ExceptionHandlerBailout(JSContext* cx, const InlineFrameIterator& frame,
+                                      ResumeFromException* rfe,
+                                      const ExceptionBailoutInfo& excInfo, bool* overrecursed) {
     // We can be propagating debug mode exceptions without there being an
     // actual exception pending. For instance, when we return false from an
     // operation callback like a timeout handler.
@@ -214,8 +204,8 @@ jit::ExceptionHandlerBailout(JSContext* cx, const InlineFrameIterator& frame,
         // exception handling code further.
         AutoEnterOOMUnsafeRegion oomUnsafe;
 
-        retval = BailoutIonToBaseline(cx, bailoutData.activation(), frameView, true,
-                                      &bailoutInfo, &excInfo);
+        retval = BailoutIonToBaseline(cx, bailoutData.activation(), frameView, true, &bailoutInfo,
+                                      &excInfo);
         if (retval == BAILOUT_RETURN_FATAL_ERROR && cx->isThrowingOutOfMemory())
             oomUnsafe.crash("ExceptionHandlerBailout");
     }
@@ -239,8 +229,7 @@ jit::ExceptionHandlerBailout(JSContext* cx, const InlineFrameIterator& frame,
 
         if (retval == BAILOUT_RETURN_OVERRECURSED) {
             *overrecursed = true;
-            if (!excInfo.propagatingIonExceptionForDebugMode())
-                cx->clearPendingException();
+            if (!excInfo.propagatingIonExceptionForDebugMode()) cx->clearPendingException();
         } else {
             MOZ_ASSERT(retval == BAILOUT_RETURN_FATAL_ERROR);
 
@@ -259,9 +248,7 @@ jit::ExceptionHandlerBailout(JSContext* cx, const InlineFrameIterator& frame,
 
 // Initialize the decl env Object, call object, and any arguments obj of the
 // current frame.
-bool
-jit::EnsureHasEnvironmentObjects(JSContext* cx, AbstractFramePtr fp)
-{
+bool jit::EnsureHasEnvironmentObjects(JSContext* cx, AbstractFramePtr fp) {
     // Ion does not compile eval scripts.
     MOZ_ASSERT(!fp.isEvalFrame());
 
@@ -271,17 +258,14 @@ jit::EnsureHasEnvironmentObjects(JSContext* cx, AbstractFramePtr fp)
         MOZ_ASSERT(!fp.callee()->needsExtraBodyVarEnvironment());
 
         if (!fp.hasInitialEnvironment() && fp.callee()->needsFunctionEnvironmentObjects()) {
-            if (!fp.initFunctionEnvironmentObjects(cx))
-                return false;
+            if (!fp.initFunctionEnvironmentObjects(cx)) return false;
         }
     }
 
     return true;
 }
 
-void
-jit::CheckFrequentBailouts(JSContext* cx, JSScript* script, BailoutKind bailoutKind)
-{
+void jit::CheckFrequentBailouts(JSContext* cx, JSScript* script, BailoutKind bailoutKind) {
     if (script->hasIonScript()) {
         // Invalidate if this script keeps bailing out without invalidation. Next time
         // we compile this script LICM will be disabled.
@@ -303,15 +287,10 @@ jit::CheckFrequentBailouts(JSContext* cx, JSScript* script, BailoutKind bailoutK
     }
 }
 
-void
-BailoutFrameInfo::attachOnJitActivation(const JitActivationIterator& jitActivations)
-{
+void BailoutFrameInfo::attachOnJitActivation(const JitActivationIterator& jitActivations) {
     MOZ_ASSERT(jitActivations->asJit()->jsExitFP() == FAKE_EXITFP_FOR_BAILOUT);
     activation_ = jitActivations->asJit();
     activation_->setBailoutData(this);
 }
 
-BailoutFrameInfo::~BailoutFrameInfo()
-{
-    activation_->cleanBailoutData();
-}
+BailoutFrameInfo::~BailoutFrameInfo() { activation_->cleanBailoutData(); }

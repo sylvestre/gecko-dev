@@ -21,10 +21,9 @@ MacIOSurfaceImage::GetTextureClient(KnowsCompositor* aForwarder)
   if (!mTextureClient) {
     BackendType backend = BackendType::NONE;
     mTextureClient = TextureClient::CreateWithData(
-      MacIOSurfaceTextureData::Create(mSurface, backend),
-      TextureFlags::DEFAULT,
-      aForwarder->GetTextureForwarder()
-    );
+        MacIOSurfaceTextureData::Create(mSurface, backend),
+        TextureFlags::DEFAULT,
+        aForwarder->GetTextureForwarder());
   }
   return mTextureClient;
 }

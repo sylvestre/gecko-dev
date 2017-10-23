@@ -16,13 +16,13 @@ namespace mozilla {
 
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 MOZ_DEFINE_MALLOC_ENCLOSING_SIZE_OF(ServoComputedValuesMallocEnclosingSizeOf)
 
 class ServoStyleContext final : public nsStyleContext
 {
-public:
+ public:
   ServoStyleContext(nsPresContext* aPresContext,
                     nsAtom* aPseudoTag,
                     CSSPseudoElementType aPseudoType,
@@ -67,14 +67,16 @@ public:
     mNextInheritingAnonBoxStyle = aStyle;
   }
 
-  ServoStyleContext* GetCachedLazyPseudoStyle(CSSPseudoElementType aPseudo) const;
+  ServoStyleContext* GetCachedLazyPseudoStyle(
+      CSSPseudoElementType aPseudo) const;
 
   void SetCachedLazyPseudoStyle(ServoStyleContext* aStyle)
   {
     MOZ_ASSERT(aStyle->GetPseudo() && !aStyle->IsAnonBox());
     MOZ_ASSERT(!GetCachedLazyPseudoStyle(aStyle->GetPseudoType()));
     MOZ_ASSERT(!aStyle->mNextLazyPseudoStyle);
-    MOZ_ASSERT(!IsLazilyCascadedPseudoElement(), "lazy pseudos can't inherit lazy pseudos");
+    MOZ_ASSERT(!IsLazilyCascadedPseudoElement(),
+               "lazy pseudos can't inherit lazy pseudos");
     MOZ_ASSERT(aStyle->IsLazilyCascadedPseudoElement());
 
     // Since we're caching lazy pseudo styles on the ComputedValues of the
@@ -86,7 +88,8 @@ public:
     //
     // The one place this optimization breaks is with pseudo-elements that
     // support state (like :hover). So we just avoid sharing in those cases.
-    if (nsCSSPseudoElements::PseudoElementSupportsUserActionState(aStyle->GetPseudoType())) {
+    if (nsCSSPseudoElements::PseudoElementSupportsUserActionState(
+            aStyle->GetPseudoType())) {
       return;
     }
 
@@ -123,7 +126,7 @@ public:
     }
   }
 
-private:
+ private:
   nsPresContext* mPresContext;
   ServoComputedData mSource;
 
@@ -146,6 +149,6 @@ private:
   RefPtr<ServoStyleContext> mNextLazyPseudoStyle;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoStyleContext_h
+#endif  // mozilla_ServoStyleContext_h

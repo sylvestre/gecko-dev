@@ -18,30 +18,38 @@ namespace layout {
 // enum FrameChildListID lives in nsFrameList.h to solve circular dependencies.
 
 #ifdef DEBUG_FRAME_DUMP
-extern const char* ChildListName(FrameChildListID aListID);
+extern const char*
+ChildListName(FrameChildListID aListID);
 #endif
 
-class FrameChildListIDs {
-friend class FrameChildListIterator;
+class FrameChildListIDs
+{
+  friend class FrameChildListIterator;
+
  public:
   FrameChildListIDs() : mIDs(0) {}
   FrameChildListIDs(const FrameChildListIDs& aOther) : mIDs(aOther.mIDs) {}
   MOZ_IMPLICIT FrameChildListIDs(FrameChildListID aListID) : mIDs(aListID) {}
 
-  FrameChildListIDs operator|(FrameChildListIDs aOther) const {
+  FrameChildListIDs operator|(FrameChildListIDs aOther) const
+  {
     return FrameChildListIDs(mIDs | aOther.mIDs);
   }
-  FrameChildListIDs& operator|=(FrameChildListIDs aOther) {
+  FrameChildListIDs& operator|=(FrameChildListIDs aOther)
+  {
     mIDs |= aOther.mIDs;
     return *this;
   }
-  bool operator==(FrameChildListIDs aOther) const {
+  bool operator==(FrameChildListIDs aOther) const
+  {
     return mIDs == aOther.mIDs;
   }
-  bool operator!=(const FrameChildListIDs& aOther) const {
+  bool operator!=(const FrameChildListIDs& aOther) const
+  {
     return !(*this == aOther);
   }
-  bool Contains(FrameChildListIDs aOther) const {
+  bool Contains(FrameChildListIDs aOther) const
+  {
     return (mIDs & aOther.mIDs) == aOther.mIDs;
   }
 
@@ -50,10 +58,13 @@ friend class FrameChildListIterator;
   uint32_t mIDs;
 };
 
-class FrameChildList {
+class FrameChildList
+{
  public:
   FrameChildList(const nsFrameList& aList, FrameChildListID aID)
-    : mList(aList), mID(aID) {}
+      : mList(aList), mID(aID)
+  {
+  }
   nsFrameList mList;
   FrameChildListID mID;
 };
@@ -61,25 +72,31 @@ class FrameChildList {
 /**
  * A class to iterate frame child lists.
  */
-class MOZ_STACK_CLASS FrameChildListArrayIterator {
+class MOZ_STACK_CLASS FrameChildListArrayIterator
+{
  public:
   explicit FrameChildListArrayIterator(const nsTArray<FrameChildList>& aLists)
-    : mLists(aLists), mCurrentIndex(0) {}
+      : mLists(aLists), mCurrentIndex(0)
+  {
+  }
   bool IsDone() const { return mCurrentIndex >= mLists.Length(); }
-  FrameChildListID CurrentID() const {
+  FrameChildListID CurrentID() const
+  {
     NS_ASSERTION(!IsDone(), "CurrentID(): iterator at end");
     return mLists[mCurrentIndex].mID;
   }
-  const nsFrameList& CurrentList() const {
+  const nsFrameList& CurrentList() const
+  {
     NS_ASSERTION(!IsDone(), "CurrentList(): iterator at end");
     return mLists[mCurrentIndex].mList;
   }
-  void Next() {
+  void Next()
+  {
     NS_ASSERTION(!IsDone(), "Next(): iterator at end");
     ++mCurrentIndex;
   }
 
-protected:
+ protected:
   const nsTArray<FrameChildList>& mLists;
   uint32_t mCurrentIndex;
 };
@@ -88,12 +105,13 @@ protected:
  * A class for retrieving a frame's child lists and iterate them.
  */
 class MOZ_STACK_CLASS FrameChildListIterator
-  : public FrameChildListArrayIterator {
+    : public FrameChildListArrayIterator
+{
  public:
   explicit FrameChildListIterator(const nsIFrame* aFrame);
 
-protected:
-  AutoTArray<FrameChildList,4> mLists;
+ protected:
+  AutoTArray<FrameChildList, 4> mLists;
 };
 
 inline mozilla::layout::FrameChildListIDs
@@ -111,12 +129,12 @@ operator|(mozilla::layout::FrameChildListID aLeftOp,
   return mozilla::layout::FrameChildListIDs(aLeftOp) | aRightOp;
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
-inline void nsFrameList::AppendIfNonempty(
-         nsTArray<mozilla::layout::FrameChildList>* aLists,
-         mozilla::layout::FrameChildListID aListID) const
+inline void
+nsFrameList::AppendIfNonempty(nsTArray<mozilla::layout::FrameChildList>* aLists,
+                              mozilla::layout::FrameChildListID aListID) const
 {
   if (NotEmpty()) {
     aLists->AppendElement(mozilla::layout::FrameChildList(*this, aListID));

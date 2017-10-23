@@ -12,15 +12,17 @@
 
 namespace mozilla {
 
-template <int V> class FFmpegAudioDecoder
+template<int V>
+class FFmpegAudioDecoder
 {
 };
 
-template <>
+template<>
 class FFmpegAudioDecoder<LIBAV_VER> : public FFmpegDataDecoder<LIBAV_VER>
 {
-public:
-  FFmpegAudioDecoder(FFmpegLibWrapper* aLib, TaskQueue* aTaskQueue,
+ public:
+  FFmpegAudioDecoder(FFmpegLibWrapper* aLib,
+                     TaskQueue* aTaskQueue,
                      const AudioInfo& aConfig);
   virtual ~FFmpegAudioDecoder();
 
@@ -32,11 +34,11 @@ public:
     return NS_LITERAL_CSTRING("ffmpeg audio decoder");
   }
 
-private:
+ private:
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample) override;
   RefPtr<DecodePromise> ProcessDrain() override;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // __FFmpegAACDecoder_h__
+#endif  // __FFmpegAACDecoder_h__

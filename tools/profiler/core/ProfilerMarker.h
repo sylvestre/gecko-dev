@@ -20,15 +20,14 @@ class ProfilerMarker
 {
   friend class ProfilerLinkedList<ProfilerMarker>;
 
-public:
-  explicit ProfilerMarker(const char* aMarkerName,
-                          mozilla::UniquePtr<ProfilerMarkerPayload>
-                            aPayload = nullptr,
-                          double aTime = 0)
-    : mMarkerName(strdup(aMarkerName))
-    , mPayload(Move(aPayload))
-    , mTime(aTime)
-  {}
+ public:
+  explicit ProfilerMarker(
+      const char* aMarkerName,
+      mozilla::UniquePtr<ProfilerMarkerPayload> aPayload = nullptr,
+      double aTime = 0)
+      : mMarkerName(strdup(aMarkerName)), mPayload(Move(aPayload)), mTime(aTime)
+  {
+  }
 
   void SetGeneration(uint32_t aGenID) { mGenID = aGenID; }
 
@@ -61,7 +60,7 @@ public:
     aWriter.EndArray();
   }
 
-private:
+ private:
   mozilla::UniqueFreePtr<char> mMarkerName;
   mozilla::UniquePtr<ProfilerMarkerPayload> mPayload;
   ProfilerMarker* mNext;
@@ -72,11 +71,8 @@ private:
 template<typename T>
 class ProfilerLinkedList
 {
-public:
-  ProfilerLinkedList()
-    : mHead(nullptr)
-    , mTail(nullptr)
-  {}
+ public:
+  ProfilerLinkedList() : mHead(nullptr), mTail(nullptr) {}
 
   void insert(T* aElem)
   {
@@ -107,11 +103,9 @@ public:
     return head;
   }
 
-  const T* peek() {
-    return mHead;
-  }
+  const T* peek() { return mHead; }
 
-private:
+ private:
   T* mHead;
   T* mTail;
 };
@@ -121,10 +115,8 @@ typedef ProfilerLinkedList<ProfilerMarker> ProfilerMarkerLinkedList;
 template<typename T>
 class ProfilerSignalSafeLinkedList
 {
-public:
-  ProfilerSignalSafeLinkedList()
-    : mSignalLock(false)
-  {}
+ public:
+  ProfilerSignalSafeLinkedList() : mSignalLock(false) {}
 
   ~ProfilerSignalSafeLinkedList()
   {
@@ -159,12 +151,9 @@ public:
   // middle of modifying the list (on the owning thread). Will return null if
   // that is the case.
   // Function must be reentrant.
-  ProfilerLinkedList<T>* accessList()
-  {
-    return mSignalLock ? nullptr : &mList;
-  }
+  ProfilerLinkedList<T>* accessList() { return mSignalLock ? nullptr : &mList; }
 
-private:
+ private:
   ProfilerLinkedList<T> mList;
 
   // If this is set, then it's not safe to read the list because its contents

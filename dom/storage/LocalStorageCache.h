@@ -29,7 +29,7 @@ class StorageDBBridge;
 // Used to populate the cache with DB data.
 class LocalStorageCacheBridge
 {
-public:
+ public:
   NS_IMETHOD_(MozExternalRefCountType) AddRef(void);
   NS_IMETHOD_(void) Release(void);
 
@@ -62,7 +62,7 @@ public:
   // this method exits after LoadDone has been called
   virtual void LoadWait() = 0;
 
-protected:
+ protected:
   virtual ~LocalStorageCacheBridge() {}
 
   ThreadSafeAutoRefCnt mRefCnt;
@@ -75,10 +75,11 @@ protected:
 // persisting data changes using the database, works as a write-back cache.
 class LocalStorageCache : public LocalStorageCacheBridge
 {
-public:
+ public:
   NS_IMETHOD_(void) Release(void);
 
-  enum MutationSource {
+  enum MutationSource
+  {
     // The mutation is a result of an explicit JS mutation in this process.
     // The mutation should be sent to the sDatabase. Quota will be checked and
     // QuotaExceededError may be returned without the mutation being applied.
@@ -99,12 +100,14 @@ public:
   // accepts reversed-origin-no-suffix as an argument - the hashing key.
   explicit LocalStorageCache(const nsACString* aOriginNoSuffix);
 
-protected:
+ protected:
   virtual ~LocalStorageCache();
 
-public:
-  void Init(LocalStorageManager* aManager, bool aPersistent,
-            nsIPrincipal* aPrincipal, const nsACString& aQuotaOriginScope);
+ public:
+  void Init(LocalStorageManager* aManager,
+            bool aPersistent,
+            nsIPrincipal* aPrincipal,
+            const nsACString& aQuotaOriginScope);
 
   // Get size of per-origin data.
   int64_t GetOriginQuotaUsage(const LocalStorage* aStorage) const;
@@ -117,17 +120,23 @@ public:
   // read properties like mPrivate and mSessionOnly.
   // Get* methods return error when load from the database has failed.
   nsresult GetLength(const LocalStorage* aStorage, uint32_t* aRetval);
-  nsresult GetKey(const LocalStorage* aStorage, uint32_t index, nsAString& aRetval);
-  nsresult GetItem(const LocalStorage* aStorage, const nsAString& aKey,
+  nsresult GetKey(const LocalStorage* aStorage,
+                  uint32_t index,
+                  nsAString& aRetval);
+  nsresult GetItem(const LocalStorage* aStorage,
+                   const nsAString& aKey,
                    nsAString& aRetval);
-  nsresult SetItem(const LocalStorage* aStorage, const nsAString& aKey,
-                   const nsString& aValue, nsString& aOld,
-                   const MutationSource aSource=ContentMutation);
-  nsresult RemoveItem(const LocalStorage* aStorage, const nsAString& aKey,
+  nsresult SetItem(const LocalStorage* aStorage,
+                   const nsAString& aKey,
+                   const nsString& aValue,
+                   nsString& aOld,
+                   const MutationSource aSource = ContentMutation);
+  nsresult RemoveItem(const LocalStorage* aStorage,
+                      const nsAString& aKey,
                       nsString& aOld,
-                      const MutationSource aSource=ContentMutation);
+                      const MutationSource aSource = ContentMutation);
   nsresult Clear(const LocalStorage* aStorage,
-                 const MutationSource aSource=ContentMutation);
+                 const MutationSource aSource = ContentMutation);
 
   void GetKeys(const LocalStorage* aStorage, nsTArray<nsString>& aKeys);
 
@@ -147,17 +156,17 @@ public:
   // size of the data for quick per-origin quota checking.
   class Data
   {
-  public:
+   public:
     Data() : mOriginQuotaUsage(0) {}
     int64_t mOriginQuotaUsage;
     nsDataHashtable<nsStringHashKey, nsString> mKeys;
   };
 
-public:
+ public:
   // Number of data sets we keep: default, private, session
   static const uint32_t kDataSetCount = 3;
 
-private:
+ private:
   // API to clear the cache data, this is invoked by chrome operations
   // like cookie deletion.
   friend class LocalStorageManager;
@@ -166,15 +175,15 @@ private:
   static const uint32_t kUnloadPrivate = 1 << 1;
   static const uint32_t kUnloadSession = 1 << 2;
   static const uint32_t kUnloadComplete =
-    kUnloadDefault | kUnloadPrivate | kUnloadSession;
+      kUnloadDefault | kUnloadPrivate | kUnloadSession;
 
 #ifdef DOM_STORAGE_TESTS
-  static const uint32_t kTestReload    = 1 << 15;
+  static const uint32_t kTestReload = 1 << 15;
 #endif
 
   void UnloadItems(uint32_t aUnloadFlags);
 
-private:
+ private:
   // Synchronously blocks until the cache is fully loaded from the database
   void WaitForPreload(mozilla::Telemetry::HistogramID aTelemetryID);
 
@@ -194,12 +203,14 @@ private:
   // not considered a particularly concerning threat model because it's already
   // very possible for a rogue page to attempt to intentionally fill up the
   // user's storage through the use of multiple domains.
-  bool ProcessUsageDelta(uint32_t aGetDataSetIndex, const int64_t aDelta,
-                         const MutationSource aSource=ContentMutation);
-  bool ProcessUsageDelta(const LocalStorage* aStorage, const int64_t aDelta,
-                         const MutationSource aSource=ContentMutation);
+  bool ProcessUsageDelta(uint32_t aGetDataSetIndex,
+                         const int64_t aDelta,
+                         const MutationSource aSource = ContentMutation);
+  bool ProcessUsageDelta(const LocalStorage* aStorage,
+                         const int64_t aDelta,
+                         const MutationSource aSource = ContentMutation);
 
-private:
+ private:
   // When a cache is reponsible for its life time (in case of localStorage data
   // cache) we need to refer our manager since removal of the cache from the
   // hash table is handled in the destructor by call to the manager.  Cache
@@ -259,26 +270,28 @@ private:
 // Infrastructure to manage and check eTLD+1 quota
 class StorageUsageBridge
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_VIRTUAL_REFCOUNTING(StorageUsageBridge)
 
   virtual const nsCString& OriginScope() = 0;
   virtual void LoadUsage(const int64_t aUsage) = 0;
 
-protected:
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~StorageUsageBridge() {}
 };
 
 class StorageUsage : public StorageUsageBridge
 {
-public:
+ public:
   explicit StorageUsage(const nsACString& aOriginScope);
 
-  bool CheckAndSetETLD1UsageDelta(uint32_t aDataSetIndex, int64_t aUsageDelta,
-                                  const LocalStorageCache::MutationSource aSource);
+  bool CheckAndSetETLD1UsageDelta(
+      uint32_t aDataSetIndex,
+      int64_t aUsageDelta,
+      const LocalStorageCache::MutationSource aSource);
 
-private:
+ private:
   virtual const nsCString& OriginScope() { return mOriginScope; }
   virtual void LoadUsage(const int64_t aUsage);
 
@@ -286,7 +299,7 @@ private:
   int64_t mUsage[LocalStorageCache::kDataSetCount];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_LocalStorageCache_h
+#endif  // mozilla_dom_LocalStorageCache_h

@@ -13,17 +13,17 @@
 
 class xpcJSWeakReference final : public xpcIJSWeakReference
 {
-    ~xpcJSWeakReference() {}
+  ~xpcJSWeakReference() {}
 
-public:
-    xpcJSWeakReference();
-    nsresult Init(JSContext* cx, const JS::Value& object);
+ public:
+  xpcJSWeakReference();
+  nsresult Init(JSContext* cx, const JS::Value& object);
 
-    NS_DECL_ISUPPORTS
-    NS_DECL_XPCIJSWEAKREFERENCE
+  NS_DECL_ISUPPORTS
+  NS_DECL_XPCIJSWEAKREFERENCE
 
-private:
-    nsCOMPtr<nsIWeakReference> mReferent;
+ private:
+  nsCOMPtr<nsIWeakReference> mReferent;
 };
 
-#endif // xpcjsweakreference_h___
+#endif  // xpcjsweakreference_h___

@@ -10,7 +10,7 @@
 
 namespace mozilla {
 struct ReflowInput;
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * This interface is supported by frames that need to provide computed bsize
@@ -19,7 +19,7 @@ struct ReflowInput;
  */
 class nsIPercentBSizeObserver
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIPercentBSizeObserver)
 
   // Notify the observer that aReflowInput has no computed bsize,
@@ -30,4 +30,4 @@ public:
   virtual bool NeedsToObserve(const mozilla::ReflowInput& aReflowInput) = 0;
 };
 
-#endif // nsIPercentBSizeObserver_h___
+#endif  // nsIPercentBSizeObserver_h___

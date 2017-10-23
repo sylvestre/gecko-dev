@@ -21,8 +21,8 @@
 namespace mozilla {
 namespace dom {
 class SVGAnimationElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 //----------------------------------------------------------------------
 // nsSMILAnimationFunction
@@ -38,14 +38,15 @@ class SVGAnimationElement;
 //
 class nsSMILAnimationFunction
 {
-public:
+ public:
   nsSMILAnimationFunction();
 
   /*
    * Sets the owning animation element which this class uses to query attribute
    * values and compare document positions.
    */
-  void SetAnimationElement(mozilla::dom::SVGAnimationElement* aAnimationElement);
+  void SetAnimationElement(
+      mozilla::dom::SVGAnimationElement* aAnimationElement);
 
   /*
    * Sets animation-specific attributes (or marks them dirty, in the case
@@ -60,8 +61,10 @@ public:
    * @return  true if aAttribute is a recognized animation-related
    *          attribute; false otherwise.
    */
-  virtual bool SetAttr(nsAtom* aAttribute, const nsAString& aValue,
-                         nsAttrValue& aResult, nsresult* aParseResult = nullptr);
+  virtual bool SetAttr(nsAtom* aAttribute,
+                       const nsAString& aValue,
+                       nsAttrValue& aResult,
+                       nsresult* aParseResult = nullptr);
 
   /*
    * Unsets the given attribute.
@@ -169,9 +172,7 @@ public:
    *
    * @return  true if the animation is active, false otherwise.
    */
-  bool IsActive() const {
-    return mIsActive;
-  }
+  bool IsActive() const { return mIsActive; }
 
   /**
    * Indicates if this animation will replace the passed in result rather than
@@ -232,41 +233,41 @@ public:
    * there was a higher-priority non-additive animation). If a skipped animation
    * function is later used, then the animation sandwich must be recomposited.
    */
-  bool WasSkippedInPrevSample() const {
-    return mWasSkippedInPrevSample;
-  }
+  bool WasSkippedInPrevSample() const { return mWasSkippedInPrevSample; }
 
   /**
    * Mark this animation function as having been skipped. By marking the
    * function as skipped, if it is used in a subsequent sample we'll know to
    * recomposite the sandwich.
    */
-  void SetWasSkipped() {
-    mWasSkippedInPrevSample = true;
-  }
+  void SetWasSkipped() { mWasSkippedInPrevSample = true; }
 
   /**
    * Returns true if we need to recalculate the animation value on every sample.
    * (e.g. because it depends on context like the font-size)
    */
-  bool ValueNeedsReparsingEverySample() const {
+  bool ValueNeedsReparsingEverySample() const
+  {
     return mValueNeedsReparsingEverySample;
   }
 
   // Comparator utility class, used for sorting nsSMILAnimationFunctions
-  class Comparator {
-    public:
-      bool Equals(const nsSMILAnimationFunction* aElem1,
-                    const nsSMILAnimationFunction* aElem2) const {
-        return (aElem1->CompareTo(aElem2) == 0);
-      }
-      bool LessThan(const nsSMILAnimationFunction* aElem1,
-                      const nsSMILAnimationFunction* aElem2) const {
-        return (aElem1->CompareTo(aElem2) < 0);
-      }
+  class Comparator
+  {
+   public:
+    bool Equals(const nsSMILAnimationFunction* aElem1,
+                const nsSMILAnimationFunction* aElem2) const
+    {
+      return (aElem1->CompareTo(aElem2) == 0);
+    }
+    bool LessThan(const nsSMILAnimationFunction* aElem1,
+                  const nsSMILAnimationFunction* aElem2) const
+    {
+      return (aElem1->CompareTo(aElem2) < 0);
+    }
   };
 
-protected:
+ protected:
   // Typedefs
   typedef FallibleTArray<nsSMILValue> nsSMILValueArray;
 
@@ -283,8 +284,8 @@ protected:
   nsSMILTime GetBeginTime() const { return mBeginTime; }
 
   // Property getters
-  bool                   GetAccumulate() const;
-  bool                   GetAdditive() const;
+  bool GetAccumulate() const;
+  bool GetAdditive() const;
   virtual nsSMILCalcMode GetCalcMode() const;
 
   // Property setters
@@ -295,11 +296,11 @@ protected:
   nsresult SetKeySplines(const nsAString& aKeySplines, nsAttrValue& aResult);
 
   // Property un-setters
-  void     UnsetAccumulate();
-  void     UnsetAdditive();
-  void     UnsetCalcMode();
-  void     UnsetKeyTimes();
-  void     UnsetKeySplines();
+  void UnsetAccumulate();
+  void UnsetAdditive();
+  void UnsetCalcMode();
+  void UnsetKeyTimes();
+  void UnsetKeySplines();
 
   // Helpers
   virtual nsresult InterpolateResult(const nsSMILValueArray& aValues,
@@ -313,40 +314,40 @@ protected:
                                 double& aIntervalProgress,
                                 const nsSMILValue*& aFrom,
                                 const nsSMILValue*& aTo);
-  double   ComputePacedTotalDistance(const nsSMILValueArray& aValues) const;
+  double ComputePacedTotalDistance(const nsSMILValueArray& aValues) const;
 
   /**
    * Adjust the simple progress, that is, the point within the simple duration,
    * by applying any keyTimes.
    */
-  double   ScaleSimpleProgress(double aProgress, nsSMILCalcMode aCalcMode);
+  double ScaleSimpleProgress(double aProgress, nsSMILCalcMode aCalcMode);
   /**
    * Adjust the progress within an interval, that is, between two animation
    * values, by applying any keySplines.
    */
-  double   ScaleIntervalProgress(double aProgress, uint32_t aIntervalIndex);
+  double ScaleIntervalProgress(double aProgress, uint32_t aIntervalIndex);
 
   // Convenience attribute getters -- use these instead of querying
   // mAnimationElement as these may need to be overridden by subclasses
-  virtual bool               HasAttr(nsAtom* aAttName) const;
+  virtual bool HasAttr(nsAtom* aAttName) const;
   virtual const nsAttrValue* GetAttr(nsAtom* aAttName) const;
-  virtual bool               GetAttr(nsAtom* aAttName,
-                                     nsAString& aResult) const;
+  virtual bool GetAttr(nsAtom* aAttName, nsAString& aResult) const;
 
-  bool     ParseAttr(nsAtom* aAttName, const nsISMILAttr& aSMILAttr,
-                     nsSMILValue& aResult,
-                     bool& aPreventCachingOfSandwich) const;
+  bool ParseAttr(nsAtom* aAttName,
+                 const nsISMILAttr& aSMILAttr,
+                 nsSMILValue& aResult,
+                 bool& aPreventCachingOfSandwich) const;
 
   virtual nsresult GetValues(const nsISMILAttr& aSMILAttr,
                              nsSMILValueArray& aResult);
 
   virtual void CheckValueListDependentAttrs(uint32_t aNumValues);
-  void         CheckKeyTimes(uint32_t aNumValues);
-  void         CheckKeySplines(uint32_t aNumValues);
+  void CheckKeyTimes(uint32_t aNumValues);
+  void CheckKeySplines(uint32_t aNumValues);
 
-  virtual bool IsToAnimation() const {
-    return !HasAttr(nsGkAtoms::values) &&
-            HasAttr(nsGkAtoms::to) &&
+  virtual bool IsToAnimation() const
+  {
+    return !HasAttr(nsGkAtoms::values) && HasAttr(nsGkAtoms::to) &&
            !HasAttr(nsGkAtoms::from);
   }
 
@@ -354,7 +355,8 @@ protected:
   // simple duration of this animation (for a fixed base value).
   virtual bool IsValueFixedForSimpleDuration() const;
 
-  inline bool IsAdditive() const {
+  inline bool IsAdditive() const
+  {
     /*
      * Animation is additive if:
      *
@@ -364,8 +366,7 @@ protected:
      * Although animation is not additive if it is 'to animation'
      */
     bool isByAnimation = (!HasAttr(nsGkAtoms::values) &&
-                             HasAttr(nsGkAtoms::by) &&
-                            !HasAttr(nsGkAtoms::from));
+                          HasAttr(nsGkAtoms::by) && !HasAttr(nsGkAtoms::from));
     return !IsToAnimation() && (GetAdditive() || isByAnimation);
   }
 
@@ -373,36 +374,44 @@ protected:
   // These correspond to bit-indices in mErrorFlags, for tracking parse errors
   // in these attributes, when those parse errors should block us from doing
   // animation.
-  enum AnimationAttributeIdx {
-    BF_ACCUMULATE  = 0,
-    BF_ADDITIVE    = 1,
-    BF_CALC_MODE   = 2,
-    BF_KEY_TIMES   = 3,
+  enum AnimationAttributeIdx
+  {
+    BF_ACCUMULATE = 0,
+    BF_ADDITIVE = 1,
+    BF_CALC_MODE = 2,
+    BF_KEY_TIMES = 3,
     BF_KEY_SPLINES = 4,
-    BF_KEY_POINTS  = 5 // <animateMotion> only
+    BF_KEY_POINTS = 5  // <animateMotion> only
   };
 
-  inline void SetAccumulateErrorFlag(bool aNewValue) {
+  inline void SetAccumulateErrorFlag(bool aNewValue)
+  {
     SetErrorFlag(BF_ACCUMULATE, aNewValue);
   }
-  inline void SetAdditiveErrorFlag(bool aNewValue) {
+  inline void SetAdditiveErrorFlag(bool aNewValue)
+  {
     SetErrorFlag(BF_ADDITIVE, aNewValue);
   }
-  inline void SetCalcModeErrorFlag(bool aNewValue) {
+  inline void SetCalcModeErrorFlag(bool aNewValue)
+  {
     SetErrorFlag(BF_CALC_MODE, aNewValue);
   }
-  inline void SetKeyTimesErrorFlag(bool aNewValue) {
+  inline void SetKeyTimesErrorFlag(bool aNewValue)
+  {
     SetErrorFlag(BF_KEY_TIMES, aNewValue);
   }
-  inline void SetKeySplinesErrorFlag(bool aNewValue) {
+  inline void SetKeySplinesErrorFlag(bool aNewValue)
+  {
     SetErrorFlag(BF_KEY_SPLINES, aNewValue);
   }
-  inline void SetKeyPointsErrorFlag(bool aNewValue) {
+  inline void SetKeyPointsErrorFlag(bool aNewValue)
+  {
     SetErrorFlag(BF_KEY_POINTS, aNewValue);
   }
-  inline void SetErrorFlag(AnimationAttributeIdx aField, bool aValue) {
+  inline void SetErrorFlag(AnimationAttributeIdx aField, bool aValue)
+  {
     if (aValue) {
-      mErrorFlags |=  (0x01 << aField);
+      mErrorFlags |= (0x01 << aField);
     } else {
       mErrorFlags &= ~(0x01 << aField);
     }
@@ -415,7 +424,7 @@ protected:
   static nsAttrValue::EnumTable sCalcModeTable[];
   static nsAttrValue::EnumTable sAccumulateTable[];
 
-  FallibleTArray<double>          mKeyTimes;
+  FallibleTArray<double> mKeyTimes;
   FallibleTArray<nsSMILKeySpline> mKeySplines;
 
   // These are the parameters provided by the previous sample. Currently we
@@ -423,11 +432,11 @@ protected:
   // instructed by the compositor. This allows us to apply the result directly
   // to the animation value and allows the compositor to filter out functions
   // that it determines will not contribute to the final result.
-  nsSMILTime                    mSampleTime; // sample time within simple dur
-  nsSMILTimeValue               mSimpleDuration;
-  uint32_t                      mRepeatIteration;
+  nsSMILTime mSampleTime;  // sample time within simple dur
+  nsSMILTimeValue mSimpleDuration;
+  uint32_t mRepeatIteration;
 
-  nsSMILTime                    mBeginTime; // document time
+  nsSMILTime mBeginTime;  // document time
 
   // The owning animation element. This is used for sorting based on document
   // position and for fetching attribute values stored in the element.
@@ -438,21 +447,21 @@ protected:
   // Which attributes have been set but have had errors. This is not used for
   // all attributes but only those which have specified error behaviour
   // associated with them.
-  uint16_t                      mErrorFlags;
+  uint16_t mErrorFlags;
 
   // Allows us to check whether an animation function has changed target from
   // sample to sample (because if neither target nor animated value have
   // changed, we don't have to do anything).
-  nsSMILWeakTargetIdentifier    mLastTarget;
+  nsSMILWeakTargetIdentifier mLastTarget;
 
   // Boolean flags
-  bool mIsActive:1;
-  bool mIsFrozen:1;
-  bool mLastValue:1;
-  bool mHasChanged:1;
-  bool mValueNeedsReparsingEverySample:1;
-  bool mPrevSampleWasSingleValueAnimation:1;
-  bool mWasSkippedInPrevSample:1;
+  bool mIsActive : 1;
+  bool mIsFrozen : 1;
+  bool mLastValue : 1;
+  bool mHasChanged : 1;
+  bool mValueNeedsReparsingEverySample : 1;
+  bool mPrevSampleWasSingleValueAnimation : 1;
+  bool mWasSkippedInPrevSample : 1;
 };
 
-#endif // NS_SMILANIMATIONFUNCTION_H_
+#endif  // NS_SMILANIMATIONFUNCTION_H_

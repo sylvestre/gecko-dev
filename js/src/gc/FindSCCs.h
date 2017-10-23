@@ -15,19 +15,18 @@
 namespace js {
 namespace gc {
 
-template<class Node>
-struct GraphNodeBase
-{
-    Node*          gcNextGraphNode;
-    Node*          gcNextGraphComponent;
-    unsigned       gcDiscoveryTime;
-    unsigned       gcLowLink;
+template <class Node>
+struct GraphNodeBase {
+    Node* gcNextGraphNode;
+    Node* gcNextGraphComponent;
+    unsigned gcDiscoveryTime;
+    unsigned gcLowLink;
 
     GraphNodeBase()
-      : gcNextGraphNode(nullptr),
-        gcNextGraphComponent(nullptr),
-        gcDiscoveryTime(0),
-        gcLowLink(0) {}
+        : gcNextGraphNode(nullptr),
+          gcNextGraphComponent(nullptr),
+          gcDiscoveryTime(0),
+          gcLowLink(0) {}
 
     ~GraphNodeBase() {}
 
@@ -37,9 +36,7 @@ struct GraphNodeBase
         return nullptr;
     }
 
-    Node* nextGroup() const {
-        return gcNextGraphComponent;
-    }
+    Node* nextGroup() const { return gcNextGraphComponent; }
 };
 
 /*
@@ -71,17 +68,15 @@ struct GraphNodeBase
  */
 
 template <typename Node, typename Derived>
-class ComponentFinder
-{
-  public:
+class ComponentFinder {
+   public:
     explicit ComponentFinder(uintptr_t sl)
-      : clock(1),
-        stack(nullptr),
-        firstComponent(nullptr),
-        cur(nullptr),
-        stackLimit(sl),
-        stackFull(false)
-    {}
+        : clock(1),
+          stack(nullptr),
+          firstComponent(nullptr),
+          cur(nullptr),
+          stackLimit(sl),
+          stackFull(false) {}
 
     ~ComponentFinder() {
         MOZ_ASSERT(!stack);
@@ -128,11 +123,10 @@ class ComponentFinder
     }
 
     static void mergeGroups(Node* first) {
-        for (Node* v = first; v; v = v->gcNextGraphNode)
-            v->gcNextGraphComponent = nullptr;
+        for (Node* v = first; v; v = v->gcNextGraphNode) v->gcNextGraphComponent = nullptr;
     }
 
-  public:
+   public:
     /* Call from implementation of GraphNodeBase::findOutgoingEdges(). */
     void addEdgeTo(Node* w) {
         if (w->gcDiscoveryTime == Undefined) {
@@ -143,7 +137,7 @@ class ComponentFinder
         }
     }
 
-  private:
+   private:
     /* Constant used to indicate an unprocessed vertex. */
     static const unsigned Undefined = 0;
 
@@ -169,8 +163,7 @@ class ComponentFinder
         cur->findOutgoingEdges(*static_cast<Derived*>(this));
         cur = old;
 
-        if (stackFull)
-            return;
+        if (stackFull) return;
 
         if (v->gcLowLink == v->gcDiscoveryTime) {
             Node* nextComponent = firstComponent;
@@ -199,13 +192,13 @@ class ComponentFinder
         }
     }
 
-  private:
-    unsigned       clock;
-    Node*          stack;
-    Node*          firstComponent;
-    Node*          cur;
-    uintptr_t      stackLimit;
-    bool           stackFull;
+   private:
+    unsigned clock;
+    Node* stack;
+    Node* firstComponent;
+    Node* cur;
+    uintptr_t stackLimit;
+    bool stackFull;
 };
 
 } /* namespace gc */

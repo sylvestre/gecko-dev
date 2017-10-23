@@ -8,18 +8,19 @@
 
 #include <stdint.h>
 
-#include "FrameMetrics.h"     // for ScrollableLayerGuid
+#include "FrameMetrics.h"  // for ScrollableLayerGuid
 #include "Units.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/layers/GeckoContentController.h"  // for APZStateChange
 #include "mozilla/RefPtr.h"
 #include "nsCOMPtr.h"
-#include "nsISupportsImpl.h"  // for NS_INLINE_DECL_REFCOUNTING
+#include "nsISupportsImpl.h"        // for NS_INLINE_DECL_REFCOUNTING
 #include "nsIWeakReferenceUtils.h"  // for nsWeakPtr
 
 #include <functional>
 
-template <class> class nsCOMPtr;
+template<class>
+class nsCOMPtr;
 class nsIContent;
 class nsIDocument;
 class nsIPresShell;
@@ -33,16 +34,18 @@ class ActiveElementManager;
 typedef std::function<void(const ScrollableLayerGuid&,
                            uint64_t /* input block id */,
                            bool /* prevent default */)>
-        ContentReceivedInputBlockCallback;
+    ContentReceivedInputBlockCallback;
 
 /**
  * A content-side component that keeps track of state for handling APZ
  * gestures and sending APZ notifications.
  */
-class APZEventState {
+class APZEventState
+{
   typedef GeckoContentController::APZStateChange APZStateChange;
   typedef FrameMetrics::ViewID ViewID;
-public:
+
+ public:
   APZEventState(nsIWidget* aWidget,
                 ContentReceivedInputBlockCallback&& aCallback);
 
@@ -74,11 +77,10 @@ public:
   void ProcessMouseEvent(const WidgetMouseEvent& aEvent,
                          const ScrollableLayerGuid& aGuid,
                          uint64_t aInputBlockId);
-  void ProcessAPZStateChange(ViewID aViewId,
-                             APZStateChange aChange,
-                             int aArg);
+  void ProcessAPZStateChange(ViewID aViewId, APZStateChange aChange, int aArg);
   void ProcessClusterHit();
-private:
+
+ private:
   ~APZEventState();
   bool SendPendingTouchPreventedResponse(bool aPreventDefault);
   bool FireContextmenuEvents(const nsCOMPtr<nsIPresShell>& aPresShell,
@@ -88,7 +90,8 @@ private:
                              const nsCOMPtr<nsIWidget>& aWidget);
   already_AddRefed<nsIWidget> GetWidget() const;
   already_AddRefed<nsIContent> GetTouchRollup() const;
-private:
+
+ private:
   nsWeakPtr mWidget;
   RefPtr<ActiveElementManager> mActiveElementManager;
   ContentReceivedInputBlockCallback mContentReceivedInputBlockCallback;
@@ -116,7 +119,7 @@ private:
   nsWeakPtr mTouchRollup;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_APZEventState_h */

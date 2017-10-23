@@ -44,8 +44,7 @@ BSPTree::BuildDrawOrder(BSPTreeNode* aNode,
 }
 
 void
-BSPTree::BuildTree(BSPTreeNode* aRoot,
-                   std::list<LayerPolygon>& aLayers)
+BSPTree::BuildTree(BSPTreeNode* aRoot, std::list<LayerPolygon>& aLayers)
 {
   MOZ_ASSERT(!aLayers.empty());
 
@@ -68,8 +67,8 @@ BSPTree::BuildTree(BSPTreeNode* aRoot,
 
     // Calculate the plane-point distances for the polygon classification.
     size_t pos = 0, neg = 0;
-    nsTArray<float> distances =
-      CalculatePointPlaneDistances(geometry, planeNormal, planePoint, pos, neg);
+    nsTArray<float> distances = CalculatePointPlaneDistances(
+        geometry, planeNormal, planePoint, pos, neg);
 
     // Back polygon
     if (pos == 0 && neg > 0) {
@@ -88,8 +87,8 @@ BSPTree::BuildTree(BSPTreeNode* aRoot,
       nsTArray<gfx::Point4D> backPoints, frontPoints;
       // Clip the polygon against the plane. We reuse the previously calculated
       // distances to find the plane-edge intersections.
-      ClipPointsWithPlane(geometry, planeNormal, distances,
-                          backPoints, frontPoints);
+      ClipPointsWithPlane(
+          geometry, planeNormal, distances, backPoints, frontPoints);
 
       const gfx::Point4D& normal = layerPolygon.geometry->GetNormal();
       Layer* layer = layerPolygon.layer;
@@ -115,5 +114,5 @@ BSPTree::BuildTree(BSPTreeNode* aRoot,
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

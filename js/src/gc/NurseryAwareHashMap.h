@@ -20,15 +20,13 @@ namespace detail {
 // pointers. The only users should be for NurseryAwareHashMap; it is defined
 // externally because we need a GCPolicy for its use in the contained map.
 template <typename T>
-class UnsafeBareReadBarriered : public ReadBarrieredBase<T>
-{
-  public:
+class UnsafeBareReadBarriered : public ReadBarrieredBase<T> {
+   public:
     UnsafeBareReadBarriered() : ReadBarrieredBase<T>(JS::GCPolicy<T>::initial()) {}
     MOZ_IMPLICIT UnsafeBareReadBarriered(const T& v) : ReadBarrieredBase<T>(v) {}
     explicit UnsafeBareReadBarriered(const UnsafeBareReadBarriered& v) : ReadBarrieredBase<T>(v) {}
     UnsafeBareReadBarriered(UnsafeBareReadBarriered&& v)
-      : ReadBarrieredBase<T>(mozilla::Move(v))
-    {}
+        : ReadBarrieredBase<T>(mozilla::Move(v)) {}
 
     UnsafeBareReadBarriered& operator=(const UnsafeBareReadBarriered& v) {
         this->value = v.value;
@@ -41,21 +39,18 @@ class UnsafeBareReadBarriered : public ReadBarrieredBase<T>
     }
 
     const T get() const {
-        if (!InternalBarrierMethods<T>::isMarkable(this->value))
-            return JS::GCPolicy<T>::initial();
+        if (!InternalBarrierMethods<T>::isMarkable(this->value)) return JS::GCPolicy<T>::initial();
         this->read();
         return this->value;
     }
 
-    explicit operator bool() const {
-        return bool(this->value);
-    }
+    explicit operator bool() const { return bool(this->value); }
 
     const T unbarrieredGet() const { return this->value; }
     T* unsafeGet() { return &this->value; }
     T const* unsafeGet() const { return &this->value; }
 };
-} // namespace detail
+}  // namespace detail
 
 // The "nursery aware" hash map is a special case of GCHashMap that is able to
 // treat nursery allocated members weakly during a minor GC: e.g. it allows for
@@ -68,12 +63,9 @@ class UnsafeBareReadBarriered : public ReadBarrieredBase<T>
 // policy to contain an |isTenured| and |needsSweep| members, which is fairly
 // non-standard. This limits its usefulness to the CrossCompartmentMap at the
 // moment, but might serve as a useful base for other tables in future.
-template <typename Key,
-          typename Value,
-          typename HashPolicy = DefaultHasher<Key>,
+template <typename Key, typename Value, typename HashPolicy = DefaultHasher<Key>,
           typename AllocPolicy = TempAllocPolicy>
-class NurseryAwareHashMap
-{
+class NurseryAwareHashMap {
     using BarrieredValue = detail::UnsafeBareReadBarriered<Value>;
     using MapType = GCRekeyableHashMap<Key, BarrieredValue, HashPolicy, AllocPolicy>;
     MapType map;
@@ -83,7 +75,7 @@ class NurseryAwareHashMap
     // the minor GC times proportional to the nursery heap size.
     Vector<Key, 0, AllocPolicy> nurseryEntries;
 
-  public:
+   public:
     using Lookup = typename MapType::Lookup;
     using Ptr = typename MapType::Ptr;
     using Range = typename MapType::Range;
@@ -113,16 +105,14 @@ class NurseryAwareHashMap
         auto p = map.lookupForAdd(k);
         if (p) {
             if (!JS::GCPolicy<Key>::isTenured(k) || !JS::GCPolicy<Value>::isTenured(v)) {
-                if (!nurseryEntries.append(k))
-                    return false;
+                if (!nurseryEntries.append(k)) return false;
             }
             p->value() = v;
             return true;
         }
 
         bool ok = map.add(p, k, v);
-        if (!ok)
-            return false;
+        if (!ok) return false;
 
         if (!JS::GCPolicy<Key>::isTenured(k) || !JS::GCPolicy<Value>::isTenured(v)) {
             if (!nurseryEntries.append(k)) {
@@ -137,8 +127,7 @@ class NurseryAwareHashMap
     void sweepAfterMinorGC(JSTracer* trc) {
         for (auto& key : nurseryEntries) {
             auto p = map.lookup(key);
-            if (!p)
-                continue;
+            if (!p) continue;
 
             // Drop the entry if the value is not marked.
             if (JS::GCPolicy<BarrieredValue>::needsSweep(&p->value())) {
@@ -166,26 +155,22 @@ class NurseryAwareHashMap
         map.sweep();
     }
 
-    bool hasNurseryEntries() const {
-        return !nurseryEntries.empty();
-    }
+    bool hasNurseryEntries() const { return !nurseryEntries.empty(); }
 };
 
-} // namespace js
+}  // namespace js
 
 namespace JS {
 template <typename T>
-struct GCPolicy<js::detail::UnsafeBareReadBarriered<T>>
-{
+struct GCPolicy<js::detail::UnsafeBareReadBarriered<T>> {
     static void trace(JSTracer* trc, js::detail::UnsafeBareReadBarriered<T>* thingp,
-                      const char* name)
-    {
+                      const char* name) {
         js::TraceEdge(trc, thingp, name);
     }
     static bool needsSweep(js::detail::UnsafeBareReadBarriered<T>* thingp) {
         return js::gc::IsAboutToBeFinalized(thingp);
     }
 };
-} // namespace JS
+}  // namespace JS
 
-#endif // gc_NurseryAwareHashMap_h
+#endif  // gc_NurseryAwareHashMap_h

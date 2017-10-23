@@ -15,7 +15,8 @@
 
 @class mozNotificationCenterDelegate;
 
-#if !defined(MAC_OS_X_VERSION_10_8) || (MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_8)
+#if !defined(MAC_OS_X_VERSION_10_8) || \
+    (MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_8)
 typedef NSInteger NSUserNotificationActivationType;
 #endif
 
@@ -27,7 +28,7 @@ class OSXNotificationCenter : public nsIAlertsService,
                               public nsIAlertsIconData,
                               public nsIAlertNotificationImageListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIALERTSSERVICE
   NS_DECL_NSIALERTSICONDATA
@@ -36,20 +37,21 @@ public:
   OSXNotificationCenter();
 
   nsresult Init();
-  void CloseAlertCocoaString(NSString *aAlertName);
-  void OnActivate(NSString *aAlertName, NSUserNotificationActivationType aActivationType,
+  void CloseAlertCocoaString(NSString* aAlertName);
+  void OnActivate(NSString* aAlertName,
+                  NSUserNotificationActivationType aActivationType,
                   unsigned long long aAdditionalActionIndex);
-  void ShowPendingNotification(OSXNotificationInfo *osxni);
+  void ShowPendingNotification(OSXNotificationInfo* osxni);
 
-protected:
+ protected:
   virtual ~OSXNotificationCenter();
 
-private:
-  mozNotificationCenterDelegate *mDelegate;
+ private:
+  mozNotificationCenterDelegate* mDelegate;
   nsTArray<RefPtr<OSXNotificationInfo> > mActiveAlerts;
   nsTArray<RefPtr<OSXNotificationInfo> > mPendingAlerts;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // OSXNotificationCenter_h
+#endif  // OSXNotificationCenter_h

@@ -4,8 +4,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testObjectIsRegExp)
-{
+BEGIN_TEST(testObjectIsRegExp) {
     JS::RootedValue val(cx);
 
     bool isRegExp;
@@ -24,8 +23,7 @@ BEGIN_TEST(testObjectIsRegExp)
 }
 END_TEST(testObjectIsRegExp)
 
-BEGIN_TEST(testGetRegExpFlags)
-{
+BEGIN_TEST(testGetRegExpFlags) {
     JS::RootedValue val(cx);
     JS::RootedObject obj(cx);
 
@@ -45,8 +43,7 @@ BEGIN_TEST(testGetRegExpFlags)
 }
 END_TEST(testGetRegExpFlags)
 
-BEGIN_TEST(testGetRegExpSource)
-{
+BEGIN_TEST(testGetRegExpSource) {
     JS::RootedValue val(cx);
     JS::RootedObject obj(cx);
 

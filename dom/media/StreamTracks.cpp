@@ -17,14 +17,16 @@ extern LazyLogModule gMediaStreamGraphLog;
 void
 StreamTracks::DumpTrackInfo() const
 {
-  STREAM_LOG(LogLevel::Info, ("DumpTracks: mTracksKnownTime %" PRId64, mTracksKnownTime));
+  STREAM_LOG(LogLevel::Info,
+             ("DumpTracks: mTracksKnownTime %" PRId64, mTracksKnownTime));
   for (uint32_t i = 0; i < mTracks.Length(); ++i) {
     Track* track = mTracks[i];
     if (track->IsEnded()) {
       STREAM_LOG(LogLevel::Info, ("Track[%d] %d: ended", i, track->GetID()));
     } else {
-      STREAM_LOG(LogLevel::Info, ("Track[%d] %d: %" PRId64 "", i, track->GetID(),
-                                 track->GetEnd()));
+      STREAM_LOG(
+          LogLevel::Info,
+          ("Track[%d] %d: %" PRId64 "", i, track->GetID(), track->GetEnd()));
     }
   }
 }
@@ -115,4 +117,4 @@ StreamTracks::Clear()
   mTracks.Clear();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

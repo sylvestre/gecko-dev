@@ -21,14 +21,14 @@ namespace mozilla {
 
 class JsepUuidGenerator
 {
-public:
+ public:
   virtual ~JsepUuidGenerator() {}
   virtual bool Generate(std::string* id) = 0;
 };
 
 class JsepSessionImpl : public JsepSession
 {
-public:
+ public:
   JsepSessionImpl(const std::string& name, UniquePtr<JsepUuidGenerator> uuidgen)
       : JsepSession(name),
         mIsOfferer(false),
@@ -59,42 +59,36 @@ public:
   virtual const std::string& GetPwd() const override { return mIcePwd; }
   nsresult SetBundlePolicy(JsepBundlePolicy policy) override;
 
-  virtual bool
-  RemoteIsIceLite() const override
-  {
-    return mRemoteIsIceLite;
-  }
+  virtual bool RemoteIsIceLite() const override { return mRemoteIsIceLite; }
 
-  virtual bool
-  RemoteIceIsRestarting() const override
+  virtual bool RemoteIceIsRestarting() const override
   {
     return mRemoteIceIsRestarting;
   }
 
-  virtual std::vector<std::string>
-  GetIceOptions() const override
+  virtual std::vector<std::string> GetIceOptions() const override
   {
     return mIceOptions;
   }
 
-  virtual nsresult AddDtlsFingerprint(const std::string& algorithm,
-                                      const std::vector<uint8_t>& value) override;
+  virtual nsresult AddDtlsFingerprint(
+      const std::string& algorithm, const std::vector<uint8_t>& value) override;
 
-  nsresult AddRtpExtension(std::vector<SdpExtmapAttributeList::Extmap>& extensions,
-                           const std::string& extensionName,
-                           SdpDirectionAttribute::Direction direction);
+  nsresult AddRtpExtension(
+      std::vector<SdpExtmapAttributeList::Extmap>& extensions,
+      const std::string& extensionName,
+      SdpDirectionAttribute::Direction direction);
   virtual nsresult AddAudioRtpExtension(
       const std::string& extensionName,
       SdpDirectionAttribute::Direction direction =
-      SdpDirectionAttribute::Direction::kSendrecv) override;
+          SdpDirectionAttribute::Direction::kSendrecv) override;
 
   virtual nsresult AddVideoRtpExtension(
       const std::string& extensionName,
       SdpDirectionAttribute::Direction direction =
-      SdpDirectionAttribute::Direction::kSendrecv) override;
+          SdpDirectionAttribute::Direction::kSendrecv) override;
 
-  virtual std::vector<JsepCodecDescription*>&
-  Codecs() override
+  virtual std::vector<JsepCodecDescription*>& Codecs() override
   {
     return mSupportedCodecs.values;
   }
@@ -118,11 +112,10 @@ public:
 
   virtual std::vector<RefPtr<JsepTrack>> GetRemoteTracks() const override;
 
-  virtual std::vector<RefPtr<JsepTrack>>
-    GetRemoteTracksAdded() const override;
+  virtual std::vector<RefPtr<JsepTrack>> GetRemoteTracksAdded() const override;
 
-  virtual std::vector<RefPtr<JsepTrack>>
-    GetRemoteTracksRemoved() const override;
+  virtual std::vector<RefPtr<JsepTrack>> GetRemoteTracksRemoved()
+      const override;
 
   virtual nsresult CreateOffer(const JsepOfferOptions& options,
                                std::string* offer) override;
@@ -130,11 +123,11 @@ public:
   virtual nsresult CreateAnswer(const JsepAnswerOptions& options,
                                 std::string* answer) override;
 
-  virtual std::string GetLocalDescription(JsepDescriptionPendingOrCurrent type)
-                                          const override;
+  virtual std::string GetLocalDescription(
+      JsepDescriptionPendingOrCurrent type) const override;
 
-  virtual std::string GetRemoteDescription(JsepDescriptionPendingOrCurrent type)
-                                           const override;
+  virtual std::string GetRemoteDescription(
+      JsepDescriptionPendingOrCurrent type) const override;
 
   virtual nsresult SetLocalDescription(JsepSdpType type,
                                        const std::string& sdp) override;
@@ -164,45 +157,38 @@ public:
 
   virtual const std::string GetLastError() const override;
 
-  virtual bool
-  IsIceControlling() const override
-  {
-    return mIceControlling;
-  }
+  virtual bool IsIceControlling() const override { return mIceControlling; }
 
-  virtual bool
-  IsOfferer() const override
-  {
-    return mIsOfferer;
-  }
+  virtual bool IsOfferer() const override { return mIsOfferer; }
 
   // Access transports.
-  virtual std::vector<RefPtr<JsepTransport>>
-  GetTransports() const override
+  virtual std::vector<RefPtr<JsepTransport>> GetTransports() const override
   {
     return mTransports;
   }
 
-  virtual std::vector<JsepTrackPair>
-  GetNegotiatedTrackPairs() const override
+  virtual std::vector<JsepTrackPair> GetNegotiatedTrackPairs() const override
   {
     return mNegotiatedTrackPairs;
   }
 
   virtual bool AllLocalTracksAreAssigned() const override;
 
-private:
-  struct JsepDtlsFingerprint {
+ private:
+  struct JsepDtlsFingerprint
+  {
     std::string mAlgorithm;
     std::vector<uint8_t> mValue;
   };
 
-  struct JsepSendingTrack {
+  struct JsepSendingTrack
+  {
     RefPtr<JsepTrack> mTrack;
     Maybe<size_t> mAssignedMLine;
   };
 
-  struct JsepReceivingTrack {
+  struct JsepReceivingTrack
+  {
     RefPtr<JsepTrack> mTrack;
     Maybe<size_t> mAssignedMLine;
   };
@@ -250,8 +236,7 @@ private:
   nsresult SetupOfferMSectionsByType(SdpMediaSection::MediaType type,
                                      const Maybe<size_t>& offerToReceive,
                                      Sdp* sdp);
-  nsresult BindLocalTracks(SdpMediaSection::MediaType mediatype,
-                           Sdp* sdp);
+  nsresult BindLocalTracks(SdpMediaSection::MediaType mediatype, Sdp* sdp);
   nsresult BindRemoteTracks(SdpMediaSection::MediaType mediatype,
                             Sdp* sdp,
                             size_t* offerToReceive);
@@ -302,10 +287,10 @@ private:
 
   nsresult EnableOfferMsection(SdpMediaSection* msection);
 
-  mozilla::Sdp* GetParsedLocalDescription(JsepDescriptionPendingOrCurrent type)
-                                          const;
-  mozilla::Sdp* GetParsedRemoteDescription(JsepDescriptionPendingOrCurrent type)
-                                           const;
+  mozilla::Sdp* GetParsedLocalDescription(
+      JsepDescriptionPendingOrCurrent type) const;
+  mozilla::Sdp* GetParsedRemoteDescription(
+      JsepDescriptionPendingOrCurrent type) const;
   const Sdp* GetAnswer() const;
 
   std::vector<JsepSendingTrack> mLocalTracks;
@@ -313,9 +298,9 @@ private:
   // By the most recent SetRemoteDescription
   std::vector<JsepReceivingTrack> mRemoteTracksAdded;
   std::vector<JsepReceivingTrack> mRemoteTracksRemoved;
-  std::vector<RefPtr<JsepTransport> > mTransports;
+  std::vector<RefPtr<JsepTransport>> mTransports;
   // So we can rollback
-  std::vector<RefPtr<JsepTransport> > mOldTransports;
+  std::vector<RefPtr<JsepTransport>> mOldTransports;
   std::vector<JsepTrackPair> mNegotiatedTrackPairs;
 
   bool mIsOfferer;
@@ -343,7 +328,7 @@ private:
   // When an m-section doesn't have a local track, it still needs an ssrc, which
   // is stored here.
   std::vector<uint32_t> mRecvonlySsrcs;
-  UniquePtr<Sdp> mGeneratedLocalDescription; // Created but not set.
+  UniquePtr<Sdp> mGeneratedLocalDescription;  // Created but not set.
   UniquePtr<Sdp> mCurrentLocalDescription;
   UniquePtr<Sdp> mCurrentRemoteDescription;
   UniquePtr<Sdp> mPendingLocalDescription;
@@ -354,6 +339,6 @@ private:
   SdpHelper mSdpHelper;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

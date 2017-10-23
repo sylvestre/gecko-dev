@@ -8,8 +8,9 @@
 namespace mozilla {
 namespace safebrowsing {
 
-class RiceDeltaDecoder {
-public:
+class RiceDeltaDecoder
+{
+ public:
   // This decoder is tailored for safebrowsing v4, including the
   // bit reading order and how the remainder part is interpreted.
   // The caller just needs to feed the byte stream received from
@@ -28,12 +29,12 @@ public:
               uint32_t aNumEntries,
               uint32_t* aDecodedData);
 
-private:
+ private:
   uint8_t* mEncodedData;
   size_t mEncodedDataSize;
 };
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla
 
 #endif  // UPDATE_V4_DECODER_H

@@ -38,26 +38,25 @@ namespace mozilla {
  *   headCount[AnimalSpecies::Sheep] = 30;
  *
  */
-template<typename IndexType,
-         IndexType SizeAsEnumValue,
-         typename ValueType>
+template<typename IndexType, IndexType SizeAsEnumValue, typename ValueType>
 class EnumeratedArray
 {
-public:
+ public:
   static const size_t kSize = size_t(SizeAsEnumValue);
 
-private:
+ private:
   typedef Array<ValueType, kSize> ArrayType;
 
   ArrayType mArray;
 
-public:
+ public:
   EnumeratedArray() {}
 
-  template <typename... Args>
+  template<typename... Args>
   MOZ_IMPLICIT EnumeratedArray(Args&&... aArgs)
-    : mArray{mozilla::Forward<Args>(aArgs)...}
-  {}
+      : mArray{mozilla::Forward<Args>(aArgs)...}
+  {
+  }
 
   explicit EnumeratedArray(const EnumeratedArray& aOther)
   {
@@ -73,17 +72,14 @@ public:
     }
   }
 
-  ValueType& operator[](IndexType aIndex)
-  {
-    return mArray[size_t(aIndex)];
-  }
+  ValueType& operator[](IndexType aIndex) { return mArray[size_t(aIndex)]; }
 
   const ValueType& operator[](IndexType aIndex) const
   {
     return mArray[size_t(aIndex)];
   }
 
-  EnumeratedArray& operator =(EnumeratedArray&& aOther)
+  EnumeratedArray& operator=(EnumeratedArray&& aOther)
   {
     for (size_t i = 0; i < kSize; i++) {
       mArray[i] = Move(aOther.mArray[i]);
@@ -91,9 +87,9 @@ public:
     return *this;
   }
 
-  typedef typename ArrayType::iterator               iterator;
-  typedef typename ArrayType::const_iterator         const_iterator;
-  typedef typename ArrayType::reverse_iterator       reverse_iterator;
+  typedef typename ArrayType::iterator iterator;
+  typedef typename ArrayType::const_iterator const_iterator;
+  typedef typename ArrayType::reverse_iterator reverse_iterator;
   typedef typename ArrayType::const_reverse_iterator const_reverse_iterator;
 
   // Methods for range-based for loops.
@@ -113,6 +109,6 @@ public:
   const_reverse_iterator crend() const { return mArray.crend(); }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_EnumeratedArray_h
+#endif  // mozilla_EnumeratedArray_h

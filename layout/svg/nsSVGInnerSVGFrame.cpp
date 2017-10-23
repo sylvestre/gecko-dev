@@ -18,15 +18,15 @@ NS_IMPL_FRAMEARENA_HELPERS(nsSVGInnerSVGFrame)
 // nsIFrame methods
 
 NS_QUERYFRAME_HEAD(nsSVGInnerSVGFrame)
-  NS_QUERYFRAME_ENTRY(nsSVGInnerSVGFrame)
-  NS_QUERYFRAME_ENTRY(nsISVGSVGFrame)
+NS_QUERYFRAME_ENTRY(nsSVGInnerSVGFrame)
+NS_QUERYFRAME_ENTRY(nsISVGSVGFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsSVGViewportFrame)
 
 #ifdef DEBUG
 void
-nsSVGInnerSVGFrame::Init(nsIContent*       aContent,
+nsSVGInnerSVGFrame::Init(nsIContent* aContent,
                          nsContainerFrame* aParent,
-                         nsIFrame*         aPrevInFlow)
+                         nsIFrame* aPrevInFlow)
 {
   NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::svg),
                "Content is not an SVG 'svg' element!");

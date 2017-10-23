@@ -48,20 +48,21 @@ for the Unicode Character Database, for Version 10.0.0 of the Unicode Standard.
 
 #pragma pack(1)
 
-
-struct nsCharProps2 {
+struct nsCharProps2
+{
   // Currently only 4 bits are defined here, so 4 more could be added without
   // affecting the storage requirements for this struct. Or we could pack two
   // records per byte, at the cost of a slightly more complex accessor.
-  unsigned char mVertOrient:2;
-  unsigned char mIdType:2;
+  unsigned char mVertOrient : 2;
+  unsigned char mIdType : 2;
 };
 
 #pragma pack()
 
 namespace mozilla {
 namespace unicode {
-enum class Script : int16_t {
+enum class Script : int16_t
+{
   COMMON = 0,
   INHERITED = 1,
   ARABIC = 2,
@@ -242,8 +243,8 @@ enum class Script : int16_t {
 
   INVALID = -1
 };
-} // namespace unicode
-} // namespace mozilla
+}  // namespace unicode
+}  // namespace mozilla
 
 #endif
 /*

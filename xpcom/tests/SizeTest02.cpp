@@ -6,7 +6,7 @@
 
 NS_DEF_PTR(nsIDOMNode);
 
-	/*
+/*
 		This test file compares the generated code size of similar functions between raw
                 COM interface pointers (|AddRef|ing and |Release|ing by hand) and |nsCOMPtr|s.
 
@@ -33,57 +33,54 @@ NS_DEF_PTR(nsIDOMNode);
 			Raw00									144		(1.2000)
 	*/
 
+void  // nsresult
+Test02_Raw00(nsISupports* aDOMNode, nsString* aResult)
+// m144, w66
+{
+  // -- the following code is assumed, but is commented out so we compare only
+  //		 the relevent generated code
 
-void // nsresult
-Test02_Raw00( nsISupports* aDOMNode, nsString* aResult )
-		// m144, w66
-	{
-// -- the following code is assumed, but is commented out so we compare only
-//		 the relevent generated code
+  //		if ( !aDOMNode )
+  //			return NS_ERROR_NULL_POINTER;
 
-//		if ( !aDOMNode )
-//			return NS_ERROR_NULL_POINTER;
+  nsIDOMNode* node = 0;
+  nsresult status =
+      aDOMNode->QueryInterface(NS_GET_IID(nsIDOMNode), (void**)&node);
+  if (NS_SUCCEEDED(status)) {
+    node->GetNodeName(*aResult);
+  }
 
-		nsIDOMNode* node = 0;
-		nsresult status = aDOMNode->QueryInterface(NS_GET_IID(nsIDOMNode), (void**)&node);
-		if ( NS_SUCCEEDED(status) )
-			{
-				node->GetNodeName(*aResult);
-			}
+  NS_IF_RELEASE(node);
 
-		NS_IF_RELEASE(node);
+  //		return status;
+}
 
-//		return status;
-	}
+void  // nsresult
+Test02_Raw01(nsISupports* aDOMNode, nsString* aResult)
+// m128, w52
+{
+  //		if ( !aDOMNode )
+  //			return NS_ERROR_NULL_POINTER;
 
-void // nsresult
-Test02_Raw01( nsISupports* aDOMNode, nsString* aResult )
-		// m128, w52
-	{
-//		if ( !aDOMNode )
-//			return NS_ERROR_NULL_POINTER;
+  nsIDOMNode* node;
+  nsresult status =
+      aDOMNode->QueryInterface(NS_GET_IID(nsIDOMNode), (void**)&node);
+  if (NS_SUCCEEDED(status)) {
+    node->GetNodeName(*aResult);
+    NS_RELEASE(node);
+  }
 
-		nsIDOMNode* node;
-                nsresult status = aDOMNode->QueryInterface(NS_GET_IID(nsIDOMNode), (void**)&node);
-		if ( NS_SUCCEEDED(status) )
-			{
-				node->GetNodeName(*aResult);
-				NS_RELEASE(node);
-			}
+  //		return status;
+}
 
-//		return status;
-	}
+void  // nsresult
+Test02_nsCOMPtr(nsISupports* aDOMNode, nsString* aResult)
+// m120, w63/68
+{
+  nsresult status;
+  nsCOMPtr<nsIDOMNode> node = do_QueryInterface(aDOMNode, &status);
 
-void // nsresult
-Test02_nsCOMPtr( nsISupports* aDOMNode, nsString* aResult )
-		// m120, w63/68
-	{
-		nsresult status;
-		nsCOMPtr<nsIDOMNode> node = do_QueryInterface(aDOMNode, &status);
+  if (node) node->GetNodeName(*aResult);
 
-		if ( node )
-			node->GetNodeName(*aResult);
-
-//		return status;
-	}
-
+  //		return status;
+}

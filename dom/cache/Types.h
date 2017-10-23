@@ -46,8 +46,8 @@ enum class OpenMode : uint8_t
   NumTypes
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_Types_h
+#endif  // mozilla_dom_cache_Types_h

@@ -4,16 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/CompositableClient.h"
-#include <stdint.h>                     // for uint64_t, uint32_t
-#include "gfxPlatform.h"                // for gfxPlatform
+#include <stdint.h>       // for uint64_t, uint32_t
+#include "gfxPlatform.h"  // for gfxPlatform
 #include "mozilla/layers/CompositableForwarder.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/TextureClient.h"  // for TextureClient, etc
 #include "mozilla/layers/TextureClientOGL.h"
-#include "mozilla/mozalloc.h"           // for operator delete, etc
+#include "mozilla/mozalloc.h"  // for operator delete, etc
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
 #ifdef XP_WIN
-#include "gfxWindowsPlatform.h"         // for gfxWindowsPlatform
+#include "gfxWindowsPlatform.h"  // for gfxWindowsPlatform
 #include "mozilla/layers/TextureD3D11.h"
 #endif
 #include "gfxUtils.h"
@@ -37,16 +37,11 @@ CompositableClient::InitIPDL(const CompositableHandle& aHandle)
 
 CompositableClient::CompositableClient(CompositableForwarder* aForwarder,
                                        TextureFlags aTextureFlags)
-: mForwarder(aForwarder)
-, mTextureFlags(aTextureFlags)
-, mIsAsync(false)
+    : mForwarder(aForwarder), mTextureFlags(aTextureFlags), mIsAsync(false)
 {
 }
 
-CompositableClient::~CompositableClient()
-{
-  Destroy();
-}
+CompositableClient::~CompositableClient() { Destroy(); }
 
 LayersBackend
 CompositableClient::GetCompositorBackendType() const
@@ -104,28 +99,34 @@ CompositableClient::CreateBufferTextureClient(gfx::SurfaceFormat aFormat,
                                               TextureFlags aTextureFlags)
 {
   return TextureClient::CreateForRawBufferAccess(GetForwarder(),
-                                                 aFormat, aSize, aMoz2DBackend,
+                                                 aFormat,
+                                                 aSize,
+                                                 aMoz2DBackend,
                                                  aTextureFlags | mTextureFlags);
 }
 
 already_AddRefed<TextureClient>
-CompositableClient::CreateTextureClientForDrawing(gfx::SurfaceFormat aFormat,
-                                                  gfx::IntSize aSize,
-                                                  BackendSelector aSelector,
-                                                  TextureFlags aTextureFlags,
-                                                  TextureAllocationFlags aAllocFlags)
+CompositableClient::CreateTextureClientForDrawing(
+    gfx::SurfaceFormat aFormat,
+    gfx::IntSize aSize,
+    BackendSelector aSelector,
+    TextureFlags aTextureFlags,
+    TextureAllocationFlags aAllocFlags)
 {
   return TextureClient::CreateForDrawing(GetForwarder(),
-                                         aFormat, aSize, aSelector,
+                                         aFormat,
+                                         aSize,
+                                         aSelector,
                                          aTextureFlags | mTextureFlags,
                                          aAllocFlags);
 }
 
 already_AddRefed<TextureClient>
-CompositableClient::CreateTextureClientFromSurface(gfx::SourceSurface* aSurface,
-                                                   BackendSelector aSelector,
-                                                   TextureFlags aTextureFlags,
-                                                   TextureAllocationFlags aAllocFlags)
+CompositableClient::CreateTextureClientFromSurface(
+    gfx::SourceSurface* aSurface,
+    BackendSelector aSelector,
+    TextureFlags aTextureFlags,
+    TextureAllocationFlags aAllocFlags)
 {
   return TextureClient::CreateFromSurface(GetForwarder(),
                                           aSurface,
@@ -137,7 +138,7 @@ CompositableClient::CreateTextureClientFromSurface(gfx::SourceSurface* aSurface,
 bool
 CompositableClient::AddTextureClient(TextureClient* aClient)
 {
-  if(!aClient) {
+  if (!aClient) {
     return false;
   }
   aClient->SetAddedToCompositableClient();
@@ -177,16 +178,18 @@ CompositableClient::GetTextureClientRecycler()
     return nullptr;
   }
 
-  if(!mForwarder->GetTextureForwarder()->UsesImageBridge()) {
+  if (!mForwarder->GetTextureForwarder()->UsesImageBridge()) {
     MOZ_ASSERT(NS_IsMainThread());
-    mTextureClientRecycler = new layers::TextureClientRecycleAllocator(mForwarder);
+    mTextureClientRecycler =
+        new layers::TextureClientRecycleAllocator(mForwarder);
     return mTextureClientRecycler;
   }
 
   // Handle a case that mForwarder is ImageBridge
 
   if (InImageBridgeChildThread()) {
-    mTextureClientRecycler = new layers::TextureClientRecycleAllocator(mForwarder);
+    mTextureClientRecycler =
+        new layers::TextureClientRecycleAllocator(mForwarder);
     return mTextureClientRecycler;
   }
 
@@ -195,16 +198,18 @@ CompositableClient::GetTextureClientRecycler()
   bool done = false;
 
   RefPtr<Runnable> runnable = NS_NewRunnableFunction(
-    "layers::CompositableClient::GetTextureClientRecycler", [&]() {
-      if (!mTextureClientRecycler) {
-        mTextureClientRecycler = new layers::TextureClientRecycleAllocator(mForwarder);
-      }
-      ReentrantMonitorAutoEnter childThreadAutoMon(barrier);
-      done = true;
-      barrier.NotifyAll();
-    });
+      "layers::CompositableClient::GetTextureClientRecycler", [&]() {
+        if (!mTextureClientRecycler) {
+          mTextureClientRecycler =
+              new layers::TextureClientRecycleAllocator(mForwarder);
+        }
+        ReentrantMonitorAutoEnter childThreadAutoMon(barrier);
+        done = true;
+        barrier.NotifyAll();
+      });
 
-  ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(runnable.forget());
+  ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(
+      runnable.forget());
 
   // should stop the thread until done.
   while (!done) {
@@ -240,5 +245,5 @@ AutoRemoveTexture::~AutoRemoveTexture()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

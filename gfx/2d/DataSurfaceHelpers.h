@@ -32,7 +32,7 @@ CreateDataSourceSurfaceFromData(const IntSize& aSize,
  * this surface.
  */
 already_AddRefed<DataSourceSurface>
-CreateDataSourceSurfaceWithStrideFromData(const IntSize &aSize,
+CreateDataSourceSurfaceWithStrideFromData(const IntSize& aSize,
                                           SurfaceFormat aFormat,
                                           int32_t aStride,
                                           const uint8_t* aData,
@@ -45,14 +45,17 @@ CreateDataSourceSurfaceWithStrideFromData(const IntSize &aSize,
  * contain |aSrcSize.width * aSrcSize.height * aBytesPerPixel| bytes.
  */
 void
-CopySurfaceDataToPackedArray(uint8_t* aSrc, uint8_t* aDst, IntSize aSrcSize,
-                             int32_t aSrcStride, int32_t aBytesPerPixel);
+CopySurfaceDataToPackedArray(uint8_t* aSrc,
+                             uint8_t* aDst,
+                             IntSize aSrcSize,
+                             int32_t aSrcStride,
+                             int32_t aBytesPerPixel);
 
 /**
  * Convert aSurface to a packed buffer in BGRA format.
  */
 UniquePtr<uint8_t[]>
-SurfaceToPackedBGRA(DataSourceSurface *aSurface);
+SurfaceToPackedBGRA(DataSourceSurface* aSurface);
 
 /**
  * Convert aSurface to a packed buffer in BGR format. The pixel data is
@@ -65,7 +68,7 @@ SurfaceToPackedBGRA(DataSourceSurface *aSurface);
  * color components).
  */
 uint8_t*
-SurfaceToPackedBGR(DataSourceSurface *aSurface);
+SurfaceToPackedBGR(DataSourceSurface* aSurface);
 
 /**
  * Clears all the bytes in a DataSourceSurface's data array to zero (so to
@@ -74,7 +77,7 @@ SurfaceToPackedBGR(DataSourceSurface *aSurface);
  * more efficient than zeroing the surface after initialization.
  */
 void
-ClearDataSourceSurface(DataSourceSurface *aSurface);
+ClearDataSourceSurface(DataSourceSurface* aSurface);
 
 /**
  * Multiplies aStride and aHeight and makes sure the result is limited to
@@ -113,8 +116,10 @@ BufferSizeFromDimensions(int32_t aWidth,
  * @returns false if the copy is not successful or the aSrc's size is empty.
  */
 bool
-CopyRect(DataSourceSurface* aSrc, DataSourceSurface* aDest,
-         IntRect aSrcRect, IntPoint aDestPoint);
+CopyRect(DataSourceSurface* aSrc,
+         DataSourceSurface* aDest,
+         IntRect aSrcRect,
+         IntPoint aDestPoint);
 
 /**
  * Create a non aliasing copy of aSource. This creates a new DataSourceSurface
@@ -141,7 +146,7 @@ DataAtOffset(DataSourceSurface* aSurface,
 bool
 SurfaceContainsPoint(SourceSurface* aSurface, const IntPoint& aPoint);
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // _MOZILLA_GFX_DATASURFACEHELPERS_H
+#endif  // _MOZILLA_GFX_DATASURFACEHELPERS_H

@@ -67,21 +67,19 @@ NS_INTERFACE_MAP_END
 Response::Response(nsIGlobalObject* aGlobal,
                    InternalResponse* aInternalResponse,
                    AbortSignal* aSignal)
-  : FetchBody<Response>(aGlobal)
-  , mInternalResponse(aInternalResponse)
-  , mSignal(aSignal)
+    : FetchBody<Response>(aGlobal),
+      mInternalResponse(aInternalResponse),
+      mSignal(aSignal)
 {
-  MOZ_ASSERT(aInternalResponse->Headers()->Guard() == HeadersGuardEnum::Immutable ||
-             aInternalResponse->Headers()->Guard() == HeadersGuardEnum::Response);
+  MOZ_ASSERT(
+      aInternalResponse->Headers()->Guard() == HeadersGuardEnum::Immutable ||
+      aInternalResponse->Headers()->Guard() == HeadersGuardEnum::Response);
   SetMimeType();
 
   mozilla::HoldJSObjects(this);
 }
 
-Response::~Response()
-{
-  mozilla::DropJSObjects(this);
-}
+Response::~Response() { mozilla::DropJSObjects(this); }
 
 /* static */ already_AddRefed<Response>
 Response::Error(const GlobalObject& aGlobal)
@@ -93,8 +91,10 @@ Response::Error(const GlobalObject& aGlobal)
 }
 
 /* static */ already_AddRefed<Response>
-Response::Redirect(const GlobalObject& aGlobal, const nsAString& aUrl,
-                   uint16_t aStatus, ErrorResult& aRv)
+Response::Redirect(const GlobalObject& aGlobal,
+                   const nsAString& aUrl,
+                   uint16_t aStatus,
+                   ErrorResult& aRv)
 {
   nsAutoString parsedURL;
 
@@ -135,7 +135,8 @@ Response::Redirect(const GlobalObject& aGlobal, const nsAString& aUrl,
     return nullptr;
   }
 
-  if (aStatus != 301 && aStatus != 302 && aStatus != 303 && aStatus != 307 && aStatus != 308) {
+  if (aStatus != 301 && aStatus != 302 && aStatus != 303 && aStatus != 307 &&
+      aStatus != 308) {
     aRv.ThrowRangeError<MSG_INVALID_REDIRECT_STATUSCODE_ERROR>();
     return nullptr;
   }
@@ -148,8 +149,8 @@ Response::Redirect(const GlobalObject& aGlobal, const nsAString& aUrl,
     return nullptr;
   }
 
-  r->GetInternalHeaders()->Set(NS_LITERAL_CSTRING("Location"),
-                               NS_ConvertUTF16toUTF8(parsedURL), aRv);
+  r->GetInternalHeaders()->Set(
+      NS_LITERAL_CSTRING("Location"), NS_ConvertUTF16toUTF8(parsedURL), aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -162,7 +163,8 @@ Response::Redirect(const GlobalObject& aGlobal, const nsAString& aUrl,
 /*static*/ already_AddRefed<Response>
 Response::Constructor(const GlobalObject& aGlobal,
                       const Optional<fetch::ResponseBodyInit>& aBody,
-                      const ResponseInit& aInit, ErrorResult& aRv)
+                      const ResponseInit& aInit,
+                      ErrorResult& aRv)
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
 
@@ -187,7 +189,7 @@ Response::Constructor(const GlobalObject& aGlobal,
   }
 
   RefPtr<InternalResponse> internalResponse =
-    new InternalResponse(aInit.mStatus, aInit.mStatusText);
+      new InternalResponse(aInit.mStatus, aInit.mStatusText);
 
   // Grab a valid channel info from the global so this response is 'valid' for
   // interception.
@@ -216,7 +218,7 @@ Response::Constructor(const GlobalObject& aGlobal,
     // Instead of using Fill, create an object to allow the constructor to
     // unwrap the HeadersInit.
     RefPtr<Headers> headers =
-      Headers::Create(global, aInit.mHeaders.Value(), aRv);
+        Headers::Create(global, aInit.mHeaders.Value(), aRv);
     if (aRv.Failed()) {
       return nullptr;
     }
@@ -239,7 +241,7 @@ Response::Constructor(const GlobalObject& aGlobal,
 
     if (aBody.Value().IsReadableStream()) {
       const ReadableStream& readableStream =
-        aBody.Value().GetAsReadableStream();
+          aBody.Value().GetAsReadableStream();
 
       JS::Rooted<JSObject*> readableStreamObj(aGlobal.Context(),
                                               readableStream.Obj());
@@ -254,13 +256,12 @@ Response::Constructor(const GlobalObject& aGlobal,
       r->SetReadableStreamBody(aGlobal.Context(), readableStreamObj);
 
       if (JS::ReadableStreamGetMode(readableStreamObj) ==
-            JS::ReadableStreamMode::ExternalSource) {
+          JS::ReadableStreamMode::ExternalSource) {
         // If this is a DOM generated ReadableStream, we can extract the
         // inputStream directly.
         void* underlyingSource = nullptr;
-        if (!JS::ReadableStreamGetExternalUnderlyingSource(aGlobal.Context(),
-                                                           readableStreamObj,
-                                                           &underlyingSource)) {
+        if (!JS::ReadableStreamGetExternalUnderlyingSource(
+                aGlobal.Context(), readableStreamObj, &underlyingSource)) {
           aRv.StealExceptionFromJSContext(aGlobal.Context());
           return nullptr;
         }
@@ -279,7 +280,8 @@ Response::Constructor(const GlobalObject& aGlobal,
       } else {
         // If this is a JS-created ReadableStream, let's create a
         // FetchStreamReader.
-        aRv = FetchStreamReader::Create(aGlobal.Context(), global,
+        aRv = FetchStreamReader::Create(aGlobal.Context(),
+                                        global,
                                         getter_AddRefs(r->mFetchStreamReader),
                                         getter_AddRefs(bodyStream));
         if (NS_WARN_IF(aRv.Failed())) {
@@ -306,8 +308,8 @@ Response::Constructor(const GlobalObject& aGlobal,
                                           aRv)) {
       // Ignore Append() failing here.
       ErrorResult error;
-      internalResponse->Headers()->Append(NS_LITERAL_CSTRING("Content-Type"),
-                                          contentTypeWithCharset, error);
+      internalResponse->Headers()->Append(
+          NS_LITERAL_CSTRING("Content-Type"), contentTypeWithCharset, error);
       error.SuppressException();
     }
 
@@ -332,9 +334,11 @@ Response::Clone(JSContext* aCx, ErrorResult& aRv)
   nsCOMPtr<nsIInputStream> inputStream;
 
   JS::Rooted<JSObject*> body(aCx);
-  MaybeTeeReadableStreamBody(aCx, &body,
+  MaybeTeeReadableStreamBody(aCx,
+                             &body,
                              getter_AddRefs(streamReader),
-                             getter_AddRefs(inputStream), aRv);
+                             getter_AddRefs(inputStream),
+                             aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -343,9 +347,8 @@ Response::Clone(JSContext* aCx, ErrorResult& aRv)
   MOZ_ASSERT_IF(body, inputStream);
 
   RefPtr<InternalResponse> ir =
-    mInternalResponse->Clone(body
-      ? InternalResponse::eDontCloneInputStream
-      : InternalResponse::eCloneInputStream);
+      mInternalResponse->Clone(body ? InternalResponse::eDontCloneInputStream
+                                    : InternalResponse::eCloneInputStream);
 
   RefPtr<Response> response = new Response(mOwner, ir, mSignal);
 
@@ -374,9 +377,11 @@ Response::CloneUnfiltered(JSContext* aCx, ErrorResult& aRv)
   nsCOMPtr<nsIInputStream> inputStream;
 
   JS::Rooted<JSObject*> body(aCx);
-  MaybeTeeReadableStreamBody(aCx, &body,
+  MaybeTeeReadableStreamBody(aCx,
+                             &body,
                              getter_AddRefs(streamReader),
-                             getter_AddRefs(inputStream), aRv);
+                             getter_AddRefs(inputStream),
+                             aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -385,9 +390,8 @@ Response::CloneUnfiltered(JSContext* aCx, ErrorResult& aRv)
   MOZ_ASSERT_IF(body, inputStream);
 
   RefPtr<InternalResponse> clone =
-    mInternalResponse->Clone(body
-      ? InternalResponse::eDontCloneInputStream
-      : InternalResponse::eCloneInputStream);
+      mInternalResponse->Clone(body ? InternalResponse::eDontCloneInputStream
+                                    : InternalResponse::eCloneInputStream);
 
   RefPtr<InternalResponse> ir = clone->Unfiltered();
   RefPtr<Response> ref = new Response(mOwner, ir, mSignal);
@@ -429,5 +433,5 @@ Response::Headers_()
   return mHeaders;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -45,9 +45,8 @@ struct BytecodeInfo;
 
 // Represents a value pushed on the stack. Note that StackValue is not used for
 // locals or arguments since these are always fully synced.
-class StackValue
-{
-  public:
+class StackValue {
+   public:
     enum Kind {
         Constant,
         Register,
@@ -58,11 +57,12 @@ class StackValue
         EvalNewTargetSlot
 #ifdef DEBUG
         // In debug builds, assert Kind is initialized.
-        , Uninitialized
+        ,
+        Uninitialized
 #endif
     };
 
-  private:
+   private:
     Kind kind_;
 
     union {
@@ -82,24 +82,16 @@ class StackValue
 
     JSValueType knownType_;
 
-  public:
-    StackValue() {
-        reset();
-    }
+   public:
+    StackValue() { reset(); }
 
-    Kind kind() const {
-        return kind_;
-    }
-    bool hasKnownType() const {
-        return knownType_ != JSVAL_TYPE_UNKNOWN;
-    }
+    Kind kind() const { return kind_; }
+    bool hasKnownType() const { return knownType_ != JSVAL_TYPE_UNKNOWN; }
     bool hasKnownType(JSValueType type) const {
         MOZ_ASSERT(type != JSVAL_TYPE_UNKNOWN);
         return knownType_ == type;
     }
-    bool isKnownBoolean() const {
-        return hasKnownType(JSVAL_TYPE_BOOLEAN);
-    }
+    bool isKnownBoolean() const { return hasKnownType(JSVAL_TYPE_BOOLEAN); }
     JSValueType knownType() const {
         MOZ_ASSERT(hasKnownType());
         return knownType_;
@@ -163,42 +155,31 @@ class StackValue
 
 enum StackAdjustment { AdjustStack, DontAdjustStack };
 
-class FrameInfo
-{
+class FrameInfo {
     JSScript* script;
     MacroAssembler& masm;
 
     FixedList<StackValue> stack;
     size_t spIndex;
 
-  public:
+   public:
     FrameInfo(JSScript* script, MacroAssembler& masm)
-      : script(script),
-        masm(masm),
-        stack(),
-        spIndex(0)
-    { }
+        : script(script), masm(masm), stack(), spIndex(0) {}
 
     MOZ_MUST_USE bool init(TempAllocator& alloc);
 
-    size_t nlocals() const {
-        return script->nfixed();
-    }
-    size_t nargs() const {
-        return script->functionNonDelazifying()->nargs();
-    }
+    size_t nlocals() const { return script->nfixed(); }
+    size_t nargs() const { return script->functionNonDelazifying()->nargs(); }
 
-  private:
+   private:
     inline StackValue* rawPush() {
         StackValue* val = &stack[spIndex++];
         val->reset();
         return val;
     }
 
-  public:
-    inline size_t stackDepth() const {
-        return spIndex;
-    }
+   public:
+    inline size_t stackDepth() const { return spIndex; }
     inline void setStackDepth(uint32_t newDepth) {
         if (newDepth <= stackDepth()) {
             spIndex = newDepth;
@@ -223,7 +204,7 @@ class FrameInfo
         StackValue* sv = rawPush();
         sv->setConstant(val);
     }
-    inline void push(const ValueOperand& val, JSValueType knownType=JSVAL_TYPE_UNKNOWN) {
+    inline void push(const ValueOperand& val, JSValueType knownType = JSVAL_TYPE_UNKNOWN) {
         StackValue* sv = rawPush();
         sv->setRegister(val, knownType);
     }
@@ -309,7 +290,7 @@ class FrameInfo
 #endif
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_BaselineFrameInfo_h */

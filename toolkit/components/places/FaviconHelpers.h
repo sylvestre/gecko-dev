@@ -53,10 +53,11 @@ namespace places {
 /**
  * Indicates when a icon should be fetched from network.
  */
-enum AsyncFaviconFetchMode {
-  FETCH_NEVER = 0
-, FETCH_IF_MISSING
-, FETCH_ALWAYS
+enum AsyncFaviconFetchMode
+{
+  FETCH_NEVER = 0,
+  FETCH_IF_MISSING,
+  FETCH_ALWAYS
 };
 
 /**
@@ -64,9 +65,7 @@ enum AsyncFaviconFetchMode {
  */
 struct IconPayload
 {
-  IconPayload()
-  : id(0)
-  , width(0)
+  IconPayload() : id(0), width(0)
   {
     data.SetIsVoid(true);
     mimeType.SetIsVoid(true);
@@ -84,10 +83,10 @@ struct IconPayload
 struct IconData
 {
   IconData()
-  : expiration(0)
-  , fetchMode(FETCH_NEVER)
-  , status(ICON_STATUS_UNKNOWN)
-  , rootIcon(0)
+      : expiration(0),
+        fetchMode(FETCH_NEVER),
+        status(ICON_STATUS_UNKNOWN),
+        rootIcon(0)
   {
   }
 
@@ -95,7 +94,7 @@ struct IconData
   nsCString host;
   PRTime expiration;
   enum AsyncFaviconFetchMode fetchMode;
-  uint16_t status; // This is a bitset, see ICON_STATUS_* defines above.
+  uint16_t status;  // This is a bitset, see ICON_STATUS_* defines above.
   uint8_t rootIcon;
   nsTArray<IconPayload> payloads;
 };
@@ -105,20 +104,17 @@ struct IconData
  */
 struct PageData
 {
-  PageData()
-  : id(0)
-  , placeId(0)
-  , canAddToHistory(true)
+  PageData() : id(0), placeId(0), canAddToHistory(true)
   {
     guid.SetIsVoid(true);
   }
 
-  int64_t id; // This is the moz_pages_w_icons id.
-  int64_t placeId; // This is the moz_places page id.
+  int64_t id;       // This is the moz_pages_w_icons id.
+  int64_t placeId;  // This is the moz_places page id.
   nsCString spec;
   nsCString host;
   nsCString bookmarkedSpec;
-  bool canAddToHistory; // False for disabled history and unsupported schemas.
+  bool canAddToHistory;  // False for disabled history and unsupported schemas.
   nsCString guid;
 };
 
@@ -127,11 +123,7 @@ struct PageData
  */
 struct FrameData
 {
-  FrameData(uint16_t aIndex, uint16_t aWidth)
-  : index(aIndex)
-  , width(aWidth)
-  {
-  }
+  FrameData(uint16_t aIndex, uint16_t aWidth) : index(aIndex), width(aWidth) {}
 
   uint16_t index;
   uint16_t width;
@@ -141,12 +133,12 @@ struct FrameData
  * Async fetches icon from database or network, associates it with the required
  * page and finally notifies the change.
  */
-class AsyncFetchAndSetIconForPage final : public Runnable
-                                        , public nsIStreamListener
-                                        , public nsIInterfaceRequestor
-                                        , public nsIChannelEventSink
-                                        , public mozIPlacesPendingOperation
- {
+class AsyncFetchAndSetIconForPage final : public Runnable,
+                                          public nsIStreamListener,
+                                          public nsIInterfaceRequestor,
+                                          public nsIChannelEventSink,
+                                          public mozIPlacesPendingOperation
+{
  public:
   NS_DECL_NSIRUNNABLE
   NS_DECL_NSISTREAMLISTENER
@@ -177,7 +169,7 @@ class AsyncFetchAndSetIconForPage final : public Runnable
                               nsIPrincipal* aLoadingPrincipal,
                               uint64_t aRequestContextID);
 
-private:
+ private:
   nsresult FetchFromNetwork();
   virtual ~AsyncFetchAndSetIconForPage() {}
 
@@ -197,7 +189,7 @@ private:
  */
 class AsyncAssociateIconToPage final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   /**
@@ -210,11 +202,12 @@ public:
    * @param aCallback
    *        Function to be called when the associate process finishes.
    */
-  AsyncAssociateIconToPage(const IconData& aIcon,
-                           const PageData& aPage,
-                           const nsMainThreadPtrHandle<nsIFaviconDataCallback>& aCallback);
+  AsyncAssociateIconToPage(
+      const IconData& aIcon,
+      const PageData& aPage,
+      const nsMainThreadPtrHandle<nsIFaviconDataCallback>& aCallback);
 
-private:
+ private:
   nsMainThreadPtrHandle<nsIFaviconDataCallback> mCallback;
   IconData mIcon;
   PageData mPage;
@@ -226,7 +219,7 @@ private:
  */
 class AsyncGetFaviconURLForPage final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   /**
@@ -246,13 +239,12 @@ public:
                             uint16_t aPreferredWidth,
                             nsIFaviconDataCallback* aCallback);
 
-private:
+ private:
   uint16_t mPreferredWidth;
   nsMainThreadPtrHandle<nsIFaviconDataCallback> mCallback;
   nsCString mPageSpec;
   nsCString mPageHost;
 };
-
 
 /**
  * Asynchronously tries to get the URL and data of a page's favicon, then
@@ -260,7 +252,7 @@ private:
  */
 class AsyncGetFaviconDataForPage final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   /**
@@ -281,7 +273,7 @@ public:
                              uint16_t aPreferredWidth,
                              nsIFaviconDataCallback* aCallback);
 
-private:
+ private:
   uint16_t mPreferredWidth;
   nsMainThreadPtrHandle<nsIFaviconDataCallback> mCallback;
   nsCString mPageSpec;
@@ -290,12 +282,12 @@ private:
 
 class AsyncReplaceFaviconData final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   explicit AsyncReplaceFaviconData(const IconData& aIcon);
 
-private:
+ private:
   nsresult RemoveIconDataCacheEntry();
 
   IconData mIcon;
@@ -306,7 +298,7 @@ private:
  */
 class NotifyIconObservers final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   /**
@@ -319,11 +311,12 @@ public:
    * @param aCallback
    *        Function to be notified in all cases.
    */
-  NotifyIconObservers(const IconData& aIcon,
-                      const PageData& aPage,
-                      const nsMainThreadPtrHandle<nsIFaviconDataCallback>& aCallback);
+  NotifyIconObservers(
+      const IconData& aIcon,
+      const PageData& aPage,
+      const nsMainThreadPtrHandle<nsIFaviconDataCallback>& aCallback);
 
-private:
+ private:
   nsMainThreadPtrHandle<nsIFaviconDataCallback> mCallback;
   IconData mIcon;
   PageData mPage;
@@ -337,7 +330,7 @@ private:
  */
 class FetchAndConvertUnsupportedPayloads final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   /**
@@ -348,9 +341,11 @@ public:
    */
   explicit FetchAndConvertUnsupportedPayloads(mozIStorageConnection* aDBConn);
 
-private:
-  nsresult ConvertPayload(int64_t aId, const nsACString& aMimeType,
-                          nsCString& aPayload, int32_t* aWidth);
+ private:
+  nsresult ConvertPayload(int64_t aId,
+                          const nsACString& aMimeType,
+                          nsCString& aPayload,
+                          int32_t* aWidth);
   nsresult StorePayload(int64_t aId, int32_t aWidth, const nsCString& aPayload);
 
   nsCOMPtr<mozIStorageConnection> mDB;
@@ -361,7 +356,7 @@ private:
  */
 class AsyncCopyFavicons final : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 
   /**
@@ -380,11 +375,11 @@ public:
                     PageData& aToPage,
                     nsIFaviconDataCallback* aCallback);
 
-private:
+ private:
   PageData mFromPage;
   PageData mToPage;
   nsMainThreadPtrHandle<nsIFaviconDataCallback> mCallback;
 };
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla

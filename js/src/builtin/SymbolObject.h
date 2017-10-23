@@ -12,12 +12,11 @@
 
 namespace js {
 
-class SymbolObject : public NativeObject
-{
+class SymbolObject : public NativeObject {
     /* Stores this Symbol object's [[PrimitiveValue]]. */
     static const unsigned PRIMITIVE_VALUE_SLOT = 0;
 
-  public:
+   public:
     static const unsigned RESERVED_SLOTS = 1;
 
     static const Class class_;
@@ -30,11 +29,9 @@ class SymbolObject : public NativeObject
      */
     static SymbolObject* create(JSContext* cx, JS::HandleSymbol symbol);
 
-    JS::Symbol* unbox() const {
-        return getFixedSlot(PRIMITIVE_VALUE_SLOT).toSymbol();
-    }
+    JS::Symbol* unbox() const { return getFixedSlot(PRIMITIVE_VALUE_SLOT).toSymbol(); }
 
-  private:
+   private:
     inline void setPrimitiveValue(JS::Symbol* symbol) {
         setFixedSlot(PRIMITIVE_VALUE_SLOT, SymbolValue(symbol));
     }
@@ -57,11 +54,9 @@ class SymbolObject : public NativeObject
     static const JSFunctionSpec staticMethods[];
 };
 
-extern JSObject*
-InitSymbolClass(JSContext* cx, HandleObject obj);
+extern JSObject* InitSymbolClass(JSContext* cx, HandleObject obj);
 
-extern JSObject*
-InitBareSymbolCtor(JSContext* cx, HandleObject obj);
+extern JSObject* InitBareSymbolCtor(JSContext* cx, HandleObject obj);
 
 } /* namespace js */
 

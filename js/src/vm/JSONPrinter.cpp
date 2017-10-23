@@ -16,34 +16,24 @@
 
 using namespace js;
 
-JSONPrinter::~JSONPrinter()
-{
-    if (dtoaState_)
-        DestroyDtoaState(dtoaState_);
+JSONPrinter::~JSONPrinter() {
+    if (dtoaState_) DestroyDtoaState(dtoaState_);
 }
 
-void
-JSONPrinter::indent()
-{
+void JSONPrinter::indent() {
     MOZ_ASSERT(indentLevel_ >= 0);
     out_.printf("\n");
-    for (int i = 0; i < indentLevel_; i++)
-        out_.printf("  ");
+    for (int i = 0; i < indentLevel_; i++) out_.printf("  ");
 }
 
-void
-JSONPrinter::propertyName(const char* name)
-{
-    if (!first_)
-        out_.printf(",");
+void JSONPrinter::propertyName(const char* name) {
+    if (!first_) out_.printf(",");
     indent();
     out_.printf("\"%s\":", name);
     first_ = false;
 }
 
-void
-JSONPrinter::beginObject()
-{
+void JSONPrinter::beginObject() {
     if (!first_) {
         out_.printf(",");
         indent();
@@ -53,47 +43,33 @@ JSONPrinter::beginObject()
     first_ = true;
 }
 
-void
-JSONPrinter::beginObjectProperty(const char* name)
-{
+void JSONPrinter::beginObjectProperty(const char* name) {
     propertyName(name);
     out_.printf("{");
     indentLevel_++;
     first_ = true;
 }
 
-void
-JSONPrinter::beginListProperty(const char* name)
-{
+void JSONPrinter::beginListProperty(const char* name) {
     propertyName(name);
     out_.printf("[");
     first_ = true;
 }
 
-void
-JSONPrinter::beginStringProperty(const char* name)
-{
+void JSONPrinter::beginStringProperty(const char* name) {
     propertyName(name);
     out_.printf("\"");
 }
 
-void
-JSONPrinter::endStringProperty()
-{
-    out_.printf("\"");
-}
+void JSONPrinter::endStringProperty() { out_.printf("\""); }
 
-void
-JSONPrinter::property(const char* name, const char* value)
-{
+void JSONPrinter::property(const char* name, const char* value) {
     beginStringProperty(name);
     out_.put(value);
     endStringProperty();
 }
 
-void
-JSONPrinter::formatProperty(const char* name, const char* format, ...)
-{
+void JSONPrinter::formatProperty(const char* name, const char* format, ...) {
     va_list ap;
     va_start(ap, format);
 
@@ -104,14 +80,11 @@ JSONPrinter::formatProperty(const char* name, const char* format, ...)
     va_end(ap);
 }
 
-void
-JSONPrinter::value(const char* format, ...)
-{
+void JSONPrinter::value(const char* format, ...) {
     va_list ap;
     va_start(ap, format);
 
-    if (!first_)
-        out_.printf(",");
+    if (!first_) out_.printf(",");
     out_.printf("\"");
     out_.vprintf(format, ap);
     out_.printf("\"");
@@ -120,55 +93,40 @@ JSONPrinter::value(const char* format, ...)
     first_ = false;
 }
 
-void
-JSONPrinter::property(const char* name, int32_t value)
-{
+void JSONPrinter::property(const char* name, int32_t value) {
     propertyName(name);
     out_.printf("%" PRId32, value);
 }
 
-void
-JSONPrinter::value(int val)
-{
-    if (!first_)
-        out_.printf(",");
+void JSONPrinter::value(int val) {
+    if (!first_) out_.printf(",");
     out_.printf("%d", val);
     first_ = false;
 }
 
-void
-JSONPrinter::property(const char* name, uint32_t value)
-{
+void JSONPrinter::property(const char* name, uint32_t value) {
     propertyName(name);
     out_.printf("%" PRIu32, value);
 }
 
-void
-JSONPrinter::property(const char* name, int64_t value)
-{
+void JSONPrinter::property(const char* name, int64_t value) {
     propertyName(name);
     out_.printf("%" PRId64, value);
 }
 
-void
-JSONPrinter::property(const char* name, uint64_t value)
-{
+void JSONPrinter::property(const char* name, uint64_t value) {
     propertyName(name);
     out_.printf("%" PRIu64, value);
 }
 
 #if defined(XP_DARWIN) || defined(__OpenBSD__)
-void
-JSONPrinter::property(const char* name, size_t value)
-{
+void JSONPrinter::property(const char* name, size_t value) {
     propertyName(name);
     out_.printf("%zu", value);
 }
 #endif
 
-void
-JSONPrinter::floatProperty(const char* name, double value, size_t precision)
-{
+void JSONPrinter::floatProperty(const char* name, double value, size_t precision) {
     if (!mozilla::IsFinite(value)) {
         propertyName(name);
         out_.printf("null");
@@ -193,9 +151,8 @@ JSONPrinter::floatProperty(const char* name, double value, size_t precision)
     property(name, str);
 }
 
-void
-JSONPrinter::property(const char* name, const mozilla::TimeDuration& dur, TimePrecision precision)
-{
+void JSONPrinter::property(const char* name, const mozilla::TimeDuration& dur,
+                           TimePrecision precision) {
     if (precision == MICROSECONDS) {
         property(name, static_cast<int64_t>(dur.ToMicroseconds()));
         return;
@@ -204,30 +161,26 @@ JSONPrinter::property(const char* name, const mozilla::TimeDuration& dur, TimePr
     propertyName(name);
     lldiv_t split;
     switch (precision) {
-      case SECONDS:
-        split = lldiv(static_cast<int64_t>(dur.ToMilliseconds()), 1000);
-        break;
-      case MILLISECONDS:
-        split = lldiv(static_cast<int64_t>(dur.ToMicroseconds()), 1000);
-        break;
-      case MICROSECONDS:
-        MOZ_ASSERT_UNREACHABLE("");
+        case SECONDS:
+            split = lldiv(static_cast<int64_t>(dur.ToMilliseconds()), 1000);
+            break;
+        case MILLISECONDS:
+            split = lldiv(static_cast<int64_t>(dur.ToMicroseconds()), 1000);
+            break;
+        case MICROSECONDS:
+            MOZ_ASSERT_UNREACHABLE("");
     };
     out_.printf("%llu.%03llu", split.quot, split.rem);
 }
 
-void
-JSONPrinter::endObject()
-{
+void JSONPrinter::endObject() {
     indentLevel_--;
     indent();
     out_.printf("}");
     first_ = false;
 }
 
-void
-JSONPrinter::endList()
-{
+void JSONPrinter::endList() {
     out_.printf("]");
     first_ = false;
 }

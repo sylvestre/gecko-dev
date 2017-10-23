@@ -15,15 +15,22 @@ class MediaStreamVideoSink;
 
 namespace dom {
 
-class VideoStreamTrack : public MediaStreamTrack {
-public:
-  VideoStreamTrack(DOMMediaStream* aStream, TrackID aTrackID,
-                   TrackID aInputTrackID,
-                   MediaStreamTrackSource* aSource,
-                   const MediaTrackConstraints& aConstraints = MediaTrackConstraints())
-    : MediaStreamTrack(aStream, aTrackID, aInputTrackID, aSource, aConstraints) {}
+class VideoStreamTrack : public MediaStreamTrack
+{
+ public:
+  VideoStreamTrack(
+      DOMMediaStream* aStream,
+      TrackID aTrackID,
+      TrackID aInputTrackID,
+      MediaStreamTrackSource* aSource,
+      const MediaTrackConstraints& aConstraints = MediaTrackConstraints())
+      : MediaStreamTrack(
+            aStream, aTrackID, aInputTrackID, aSource, aConstraints)
+  {
+  }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   VideoStreamTrack* AsVideoStreamTrack() override { return this; }
 
@@ -35,19 +42,16 @@ public:
   // WebIDL
   void GetKind(nsAString& aKind) override { aKind.AssignLiteral("video"); }
 
-protected:
-  already_AddRefed<MediaStreamTrack> CloneInternal(DOMMediaStream* aOwningStream,
-                                                   TrackID aTrackID) override
+ protected:
+  already_AddRefed<MediaStreamTrack> CloneInternal(
+      DOMMediaStream* aOwningStream, TrackID aTrackID) override
   {
-    return do_AddRef(new VideoStreamTrack(aOwningStream,
-                                          aTrackID,
-                                          mInputTrackID,
-                                          mSource,
-                                          mConstraints));
+    return do_AddRef(new VideoStreamTrack(
+        aOwningStream, aTrackID, mInputTrackID, mSource, mConstraints));
   }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* VIDEOSTREAMTRACK_H_ */

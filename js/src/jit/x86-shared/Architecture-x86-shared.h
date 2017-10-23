@@ -8,7 +8,7 @@
 #define jit_x86_shared_Architecture_x86_h
 
 #if !defined(JS_CODEGEN_X86) && !defined(JS_CODEGEN_X64)
-# error "Unsupported architecture!"
+#error "Unsupported architecture!"
 #endif
 
 #include "mozilla/MathAlgorithms.h"
@@ -35,24 +35,24 @@ static constexpr bool SupportsUint32x4Compares = false;
 //   +8 for cycles
 //   +4 for gpr spills
 //   +8 for double spills
-static const uint32_t ION_FRAME_SLACK_SIZE    = 20;
+static const uint32_t ION_FRAME_SLACK_SIZE = 20;
 
 #elif defined(JS_CODEGEN_X64)
 // In bytes: slots needed for potential memory->memory move spills.
 //   +8 for cycles
 //   +8 for gpr spills
 //   +8 for double spills
-static const uint32_t ION_FRAME_SLACK_SIZE     = 24;
+static const uint32_t ION_FRAME_SLACK_SIZE = 24;
 #endif
 
 #if defined(JS_CODEGEN_X86)
 // These offsets are specific to nunboxing, and capture offsets into the
 // components of a js::Value.
-static const int32_t NUNBOX32_TYPE_OFFSET         = 4;
-static const int32_t NUNBOX32_PAYLOAD_OFFSET      = 0;
+static const int32_t NUNBOX32_TYPE_OFFSET = 4;
+static const int32_t NUNBOX32_PAYLOAD_OFFSET = 0;
 
 // Size of each bailout table entry. On x86 this is a 5-byte relative call.
-static const uint32_t BAILOUT_TABLE_ENTRY_SIZE    = 5;
+static const uint32_t BAILOUT_TABLE_ENTRY_SIZE = 5;
 #endif
 
 #if defined(JS_CODEGEN_X64) && defined(_WIN64)
@@ -64,7 +64,7 @@ static const uint32_t ShadowStackSpace = 0;
 static const uint32_t JumpImmediateRange = INT32_MAX;
 
 class Registers {
-  public:
+   public:
     typedef uint8_t Code;
     typedef X86Encoding::RegisterID Encoding;
 
@@ -76,9 +76,7 @@ class Registers {
 #if defined(JS_CODEGEN_X86)
     typedef uint8_t SetType;
 
-    static const char* GetName(Code code) {
-        return X86Encoding::GPRegName(Encoding(code));
-    }
+    static const char* GetName(Code code) { return X86Encoding::GPRegName(Encoding(code)); }
 
     static const uint32_t Total = 8;
     static const uint32_t TotalPhys = 8;
@@ -88,10 +86,9 @@ class Registers {
     typedef uint16_t SetType;
 
     static const char* GetName(Code code) {
-        static const char * const Names[] = { "rax", "rcx", "rdx", "rbx",
-                                              "rsp", "rbp", "rsi", "rdi",
-                                              "r8",  "r9",  "r10", "r11",
-                                              "r12", "r13", "r14", "r15" };
+        static const char* const Names[] = {"rax", "rcx", "rdx", "rbx", "rsp", "rbp",
+                                            "rsi", "rdi", "r8",  "r9",  "r10", "r11",
+                                            "r12", "r13", "r14", "r15"};
         return Names[code];
     }
 
@@ -104,17 +101,12 @@ class Registers {
         static_assert(sizeof(SetType) <= 4, "SetType must be, at most, 32 bits");
         return mozilla::CountPopulation32(x);
     }
-    static uint32_t FirstBit(SetType x) {
-        return mozilla::CountTrailingZeroes32(x);
-    }
-    static uint32_t LastBit(SetType x) {
-        return 31 - mozilla::CountLeadingZeroes32(x);
-    }
+    static uint32_t FirstBit(SetType x) { return mozilla::CountTrailingZeroes32(x); }
+    static uint32_t LastBit(SetType x) { return 31 - mozilla::CountLeadingZeroes32(x); }
 
     static Code FromName(const char* name) {
         for (size_t i = 0; i < Total; i++) {
-            if (strcmp(GetName(Code(i)), name) == 0)
-                return Code(i);
+            if (strcmp(GetName(Code(i)), name) == 0) return Code(i);
         }
         return Invalid;
     }
@@ -128,69 +120,48 @@ class Registers {
     static const SetType ArgRegMask = 0;
 
     static const SetType VolatileMask =
-        (1 << X86Encoding::rax) |
-        (1 << X86Encoding::rcx) |
-        (1 << X86Encoding::rdx);
+        (1 << X86Encoding::rax) | (1 << X86Encoding::rcx) | (1 << X86Encoding::rdx);
 
-    static const SetType WrapperMask =
-        VolatileMask |
-        (1 << X86Encoding::rbx);
+    static const SetType WrapperMask = VolatileMask | (1 << X86Encoding::rbx);
 
-    static const SetType SingleByteRegs =
-        (1 << X86Encoding::rax) |
-        (1 << X86Encoding::rcx) |
-        (1 << X86Encoding::rdx) |
-        (1 << X86Encoding::rbx);
+    static const SetType SingleByteRegs = (1 << X86Encoding::rax) | (1 << X86Encoding::rcx) |
+                                          (1 << X86Encoding::rdx) | (1 << X86Encoding::rbx);
 
-    static const SetType NonAllocatableMask =
-        (1 << X86Encoding::rsp);
+    static const SetType NonAllocatableMask = (1 << X86Encoding::rsp);
 
     // Registers returned from a JS -> JS call.
-    static const SetType JSCallMask =
-        (1 << X86Encoding::rcx) |
-        (1 << X86Encoding::rdx);
+    static const SetType JSCallMask = (1 << X86Encoding::rcx) | (1 << X86Encoding::rdx);
 
     // Registers returned from a JS -> C call.
-    static const SetType CallMask =
-        (1 << X86Encoding::rax);
+    static const SetType CallMask = (1 << X86Encoding::rax);
 
 #elif defined(JS_CODEGEN_X64)
     static const SetType ArgRegMask =
-# if !defined(_WIN64)
-        (1 << X86Encoding::rdi) |
-        (1 << X86Encoding::rsi) |
-# endif
-        (1 << X86Encoding::rdx) |
-        (1 << X86Encoding::rcx) |
-        (1 << X86Encoding::r8) |
+#if !defined(_WIN64)
+        (1 << X86Encoding::rdi) | (1 << X86Encoding::rsi) |
+#endif
+        (1 << X86Encoding::rdx) | (1 << X86Encoding::rcx) | (1 << X86Encoding::r8) |
         (1 << X86Encoding::r9);
 
     static const SetType VolatileMask =
-        (1 << X86Encoding::rax) |
-        ArgRegMask |
-        (1 << X86Encoding::r10) |
-        (1 << X86Encoding::r11);
+        (1 << X86Encoding::rax) | ArgRegMask | (1 << X86Encoding::r10) | (1 << X86Encoding::r11);
 
     static const SetType WrapperMask = VolatileMask;
 
     static const SetType SingleByteRegs = AllMask & ~(1 << X86Encoding::rsp);
 
     static const SetType NonAllocatableMask =
-        (1 << X86Encoding::rsp) |
-        (1 << X86Encoding::r11);      // This is ScratchReg.
+        (1 << X86Encoding::rsp) | (1 << X86Encoding::r11);  // This is ScratchReg.
 
     // Registers returned from a JS -> JS call.
-    static const SetType JSCallMask =
-        (1 << X86Encoding::rcx);
+    static const SetType JSCallMask = (1 << X86Encoding::rcx);
 
     // Registers returned from a JS -> C call.
-    static const SetType CallMask =
-        (1 << X86Encoding::rax);
+    static const SetType CallMask = (1 << X86Encoding::rax);
 
 #endif
 
-    static const SetType NonVolatileMask =
-        AllMask & ~VolatileMask & ~(1 << X86Encoding::rsp);
+    static const SetType NonVolatileMask = AllMask & ~VolatileMask & ~(1 << X86Encoding::rsp);
 
     static const SetType AllocatableMask = AllMask & ~NonAllocatableMask;
 
@@ -201,13 +172,13 @@ class Registers {
 typedef Registers::SetType PackedRegisterMask;
 
 class FloatRegisters {
-  public:
+   public:
     typedef X86Encoding::XMMRegisterID Encoding;
 
     enum ContentType {
-        Single,     // 32-bit float.
-        Double,     // 64-bit double.
-        Simd128,    // 128-bit SIMD type (int32x4, bool16x8, etc).
+        Single,   // 32-bit float.
+        Double,   // 64-bit double.
+        Simd128,  // 128-bit SIMD type (int32x4, bool16x8, etc).
         NumTypes
     };
 
@@ -219,14 +190,11 @@ class FloatRegisters {
         float s4[4];
     };
 
-    static const char* GetName(Encoding code) {
-        return X86Encoding::XMMRegName(code);
-    }
+    static const char* GetName(Encoding code) { return X86Encoding::XMMRegName(code); }
 
     static Encoding FromName(const char* name) {
         for (size_t i = 0; i < Total; i++) {
-            if (strcmp(GetName(Encoding(i)), name) == 0)
-                return Encoding(i);
+            if (strcmp(GetName(Encoding(i)), name) == 0) return Encoding(i);
         }
         return Invalid;
     }
@@ -268,27 +236,22 @@ class FloatRegisters {
 
 #if defined(JS_CODEGEN_X86)
     static const SetType NonAllocatableMask =
-        Spread * (1 << X86Encoding::xmm7);     // This is ScratchDoubleReg.
+        Spread * (1 << X86Encoding::xmm7);  // This is ScratchDoubleReg.
 
 #elif defined(JS_CODEGEN_X64)
     static const SetType NonAllocatableMask =
-        Spread * (1 << X86Encoding::xmm15);    // This is ScratchDoubleReg.
+        Spread * (1 << X86Encoding::xmm15);  // This is ScratchDoubleReg.
 #endif
 
 #if defined(JS_CODEGEN_X64) && defined(_WIN64)
     static const SetType VolatileMask =
-        ( (1 << X86Encoding::xmm0) |
-          (1 << X86Encoding::xmm1) |
-          (1 << X86Encoding::xmm2) |
-          (1 << X86Encoding::xmm3) |
-          (1 << X86Encoding::xmm4) |
-          (1 << X86Encoding::xmm5)
-        ) * SpreadScalar
-        | AllPhysMask * SpreadVector;
+        ((1 << X86Encoding::xmm0) | (1 << X86Encoding::xmm1) | (1 << X86Encoding::xmm2) |
+         (1 << X86Encoding::xmm3) | (1 << X86Encoding::xmm4) | (1 << X86Encoding::xmm5)) *
+            SpreadScalar |
+        AllPhysMask * SpreadVector;
 
 #else
-    static const SetType VolatileMask =
-        AllMask;
+    static const SetType VolatileMask = AllMask;
 #endif
 
     static const SetType NonVolatileMask = AllMask & ~VolatileMask;
@@ -323,21 +286,17 @@ struct FloatRegister {
         static_assert(sizeof(SetType) == 4, "SetType must be 32 bits");
         return mozilla::CountTrailingZeroes32(x);
     }
-    static uint32_t LastBit(SetType x) {
-        return 31 - mozilla::CountLeadingZeroes32(x);
-    }
+    static uint32_t LastBit(SetType x) { return 31 - mozilla::CountLeadingZeroes32(x); }
 
 #elif defined(JS_CODEGEN_X64)
     static uint32_t FirstBit(SetType x) {
         static_assert(sizeof(SetType) == 8, "SetType must be 64 bits");
         return mozilla::CountTrailingZeroes64(x);
     }
-    static uint32_t LastBit(SetType x) {
-        return 63 - mozilla::CountLeadingZeroes64(x);
-    }
+    static uint32_t LastBit(SetType x) { return 63 - mozilla::CountLeadingZeroes64(x); }
 #endif
 
-  private:
+   private:
     // Note: These fields are using one extra bit to make the invalid enumerated
     // values fit, and thus prevent a warning.
     Codes::Encoding reg_ : 5;
@@ -352,37 +311,49 @@ struct FloatRegister {
 #endif
     static const size_t RegMask = (1 << RegSize) - 1;
 
-  public:
-    constexpr FloatRegister()
-        : reg_(Codes::Encoding(0)), type_(Codes::Single), isInvalid_(true)
-    { }
+   public:
+    constexpr FloatRegister() : reg_(Codes::Encoding(0)), type_(Codes::Single), isInvalid_(true) {}
     constexpr FloatRegister(uint32_t r, Codes::ContentType k)
-        : reg_(Codes::Encoding(r)), type_(k), isInvalid_(false)
-    { }
+        : reg_(Codes::Encoding(r)), type_(k), isInvalid_(false) {}
     constexpr FloatRegister(Codes::Encoding r, Codes::ContentType k)
-        : reg_(r), type_(k), isInvalid_(false)
-    { }
+        : reg_(r), type_(k), isInvalid_(false) {}
 
     static FloatRegister FromCode(uint32_t i) {
         MOZ_ASSERT(i < Codes::Total);
         return FloatRegister(i & RegMask, Codes::ContentType(i >> RegSize));
     }
 
-    bool isSingle() const { MOZ_ASSERT(!isInvalid()); return type_ == Codes::Single; }
-    bool isDouble() const { MOZ_ASSERT(!isInvalid()); return type_ == Codes::Double; }
-    bool isSimd128() const { MOZ_ASSERT(!isInvalid()); return type_ == Codes::Simd128; }
+    bool isSingle() const {
+        MOZ_ASSERT(!isInvalid());
+        return type_ == Codes::Single;
+    }
+    bool isDouble() const {
+        MOZ_ASSERT(!isInvalid());
+        return type_ == Codes::Double;
+    }
+    bool isSimd128() const {
+        MOZ_ASSERT(!isInvalid());
+        return type_ == Codes::Simd128;
+    }
     bool isInvalid() const { return isInvalid_; }
 
-    FloatRegister asSingle() const { MOZ_ASSERT(!isInvalid()); return FloatRegister(reg_, Codes::Single); }
-    FloatRegister asDouble() const { MOZ_ASSERT(!isInvalid()); return FloatRegister(reg_, Codes::Double); }
-    FloatRegister asSimd128() const { MOZ_ASSERT(!isInvalid()); return FloatRegister(reg_, Codes::Simd128); }
+    FloatRegister asSingle() const {
+        MOZ_ASSERT(!isInvalid());
+        return FloatRegister(reg_, Codes::Single);
+    }
+    FloatRegister asDouble() const {
+        MOZ_ASSERT(!isInvalid());
+        return FloatRegister(reg_, Codes::Double);
+    }
+    FloatRegister asSimd128() const {
+        MOZ_ASSERT(!isInvalid());
+        return FloatRegister(reg_, Codes::Simd128);
+    }
 
     uint32_t size() const {
         MOZ_ASSERT(!isInvalid());
-        if (isSingle())
-            return sizeof(float);
-        if (isDouble())
-            return sizeof(double);
+        if (isSingle()) return sizeof(float);
+        if (isDouble()) return sizeof(double);
         MOZ_ASSERT(isSimd128());
         return 4 * sizeof(int32_t);
     }
@@ -401,29 +372,19 @@ struct FloatRegister {
     }
     // defined in Assembler-x86-shared.cpp
     const char* name() const;
-    bool volatile_() const {
-        return !!((SetType(1) << code()) & FloatRegisters::VolatileMask);
-    }
-    bool operator !=(FloatRegister other) const {
+    bool volatile_() const { return !!((SetType(1) << code()) & FloatRegisters::VolatileMask); }
+    bool operator!=(FloatRegister other) const {
         return other.reg_ != reg_ || other.type_ != type_;
     }
-    bool operator ==(FloatRegister other) const {
+    bool operator==(FloatRegister other) const {
         return other.reg_ == reg_ && other.type_ == type_;
     }
-    bool aliases(FloatRegister other) const {
-        return other.reg_ == reg_;
-    }
+    bool aliases(FloatRegister other) const { return other.reg_ == reg_; }
     // Check if two floating point registers have the same type.
-    bool equiv(FloatRegister other) const {
-        return other.type_ == type_;
-    }
+    bool equiv(FloatRegister other) const { return other.type_ == type_; }
 
-    uint32_t numAliased() const {
-        return Codes::NumTypes;
-    }
-    uint32_t numAlignedAliased() const {
-        return numAliased();
-    }
+    uint32_t numAliased() const { return Codes::NumTypes; }
+    uint32_t numAlignedAliased() const { return numAliased(); }
 
     // N.B. FloatRegister is an explicit outparam here because msvc-2010
     // miscompiled it on win64 when the value was simply returned
@@ -431,13 +392,9 @@ struct FloatRegister {
         MOZ_ASSERT(aliasIdx < Codes::NumTypes);
         *ret = FloatRegister(reg_, Codes::ContentType((aliasIdx + type_) % Codes::NumTypes));
     }
-    void alignedAliased(uint32_t aliasIdx, FloatRegister* ret) const {
-        aliased(aliasIdx, ret);
-    }
+    void alignedAliased(uint32_t aliasIdx, FloatRegister* ret) const { aliased(aliasIdx, ret); }
 
-    SetType alignedOrDominatedAliasedSet() const {
-        return Codes::Spread << reg_;
-    }
+    SetType alignedOrDominatedAliasedSet() const { return Codes::Spread << reg_; }
 
     static constexpr RegTypeName DefaultType = RegTypeName::Float64;
 
@@ -452,52 +409,44 @@ struct FloatRegister {
         return LiveAsIndexableSet<Name>(s);
     }
 
-    static TypedRegisterSet<FloatRegister> ReduceSetForPush(const TypedRegisterSet<FloatRegister>& s);
+    static TypedRegisterSet<FloatRegister> ReduceSetForPush(
+        const TypedRegisterSet<FloatRegister>& s);
     static uint32_t GetPushSizeInBytes(const TypedRegisterSet<FloatRegister>& s);
     uint32_t getRegisterDumpOffsetInBytes();
 };
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Float32>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Float32>(
+    SetType set) {
     return set & FloatRegisters::AllSingleMask;
 }
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Float64>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Float64>(
+    SetType set) {
     return set & FloatRegisters::AllDoubleMask;
 }
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Vector128>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Vector128>(
+    SetType set) {
     return set & FloatRegisters::AllVector128Mask;
 }
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Any>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Any>(SetType set) {
     return set;
 }
 
 // Arm/D32 has double registers that can NOT be treated as float32
 // and this requires some dances in lowering.
-inline bool
-hasUnaliasedDouble()
-{
-    return false;
-}
+inline bool hasUnaliasedDouble() { return false; }
 
 // On ARM, Dn aliases both S2n and S2n+1, so if you need to convert a float32
 // to a double as a temporary, you need a temporary double register.
-inline bool
-hasMultiAlias()
-{
-    return false;
-}
+inline bool hasMultiAlias() { return false; }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x86_shared_Architecture_x86_h */

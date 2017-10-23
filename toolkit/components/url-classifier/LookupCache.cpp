@@ -32,14 +32,16 @@
 // only cached until the next update.
 
 // Name of the persistent PrefixSet storage
-#define PREFIXSET_SUFFIX  ".pset"
+#define PREFIXSET_SUFFIX ".pset"
 
 #define V2_CACHE_DURATION_SEC (15 * 60)
 
 // MOZ_LOG=UrlClassifierDbService:5
 extern mozilla::LazyLogModule gUrlClassifierDbServiceLog;
-#define LOG(args) MOZ_LOG(gUrlClassifierDbServiceLog, mozilla::LogLevel::Debug, args)
-#define LOG_ENABLED() MOZ_LOG_TEST(gUrlClassifierDbServiceLog, mozilla::LogLevel::Debug)
+#define LOG(args) \
+  MOZ_LOG(gUrlClassifierDbServiceLog, mozilla::LogLevel::Debug, args)
+#define LOG_ENABLED() \
+  MOZ_LOG_TEST(gUrlClassifierDbServiceLog, mozilla::LogLevel::Debug)
 
 namespace mozilla {
 namespace safebrowsing {
@@ -49,8 +51,8 @@ const int CacheResultV4::VER = CacheResult::V4;
 
 const int LookupCacheV2::VER = 2;
 
-static
-void CStringToHexString(const nsACString& aIn, nsACString& aOut)
+static void
+CStringToHexString(const nsACString& aIn, nsACString& aOut)
 {
   static const char* const lut = "0123456789ABCDEF";
 
@@ -68,10 +70,10 @@ void CStringToHexString(const nsACString& aIn, nsACString& aOut)
 LookupCache::LookupCache(const nsACString& aTableName,
                          const nsACString& aProvider,
                          nsIFile* aRootStoreDir)
-  : mPrimed(false)
-  , mTableName(aTableName)
-  , mProvider(aProvider)
-  , mRootStoreDirectory(aRootStoreDir)
+    : mPrimed(false),
+      mTableName(aTableName),
+      mProvider(aProvider),
+      mRootStoreDirectory(aRootStoreDir)
 {
   UpdateRootDirHandle(mRootStoreDirectory);
 }
@@ -109,8 +111,9 @@ LookupCache::UpdateRootDirHandle(nsIFile* aNewRootStoreDirectory)
   if (LOG_ENABLED()) {
     nsString path;
     mStoreDirectory->GetPath(path);
-    LOG(("Private store directory for %s is %s", mTableName.get(),
-                                                 NS_ConvertUTF16toUTF8(path).get()));
+    LOG(("Private store directory for %s is %s",
+         mTableName.get(),
+         NS_ConvertUTF16toUTF8(path).get()));
   }
 
   return rv;
@@ -158,7 +161,7 @@ LookupCache::CheckCache(const Completion& aCompletion,
 
   FullHashExpiryCache& fullHashes = fullHashResponse->fullHashes;
   nsDependentCSubstring completion(
-    reinterpret_cast<const char*>(aCompletion.buf), COMPLETE_SIZE);
+      reinterpret_cast<const char*>(aCompletion.buf), COMPLETE_SIZE);
 
   // Check if we can find the fullhash in positive cache
   if (fullHashes.Get(completion, &expiryTimeSec)) {
@@ -254,7 +257,8 @@ LookupCache::GetCacheInfo(nsIUrlClassifierCacheInfo** aCache)
     RefPtr<nsUrlClassifierCacheEntry> entry = new nsUrlClassifierCacheEntry;
 
     // Set prefix of the cache entry.
-    nsAutoCString prefix(reinterpret_cast<const char*>(&iter.Key()), PREFIX_SIZE);
+    nsAutoCString prefix(reinterpret_cast<const char*>(&iter.Key()),
+                         PREFIX_SIZE);
     CStringToHexString(prefix, entry->prefix);
 
     // Set expiry of the cache entry.
@@ -265,7 +269,7 @@ LookupCache::GetCacheInfo(nsIUrlClassifierCacheInfo** aCache)
     FullHashExpiryCache& fullHashes = response->fullHashes;
     for (auto iter2 = fullHashes.ConstIter(); !iter2.Done(); iter2.Next()) {
       RefPtr<nsUrlClassifierPositiveCacheEntry> match =
-        new nsUrlClassifierPositiveCacheEntry;
+          new nsUrlClassifierPositiveCacheEntry;
 
       // Set fullhash of positive cache entry.
       CStringToHexString(iter2.Key(), match->fullhash);
@@ -274,10 +278,11 @@ LookupCache::GetCacheInfo(nsIUrlClassifierCacheInfo** aCache)
       match->expirySec = iter2.Data();
 
       entry->matches.AppendElement(
-        static_cast<nsIUrlClassifierPositiveCacheEntry*>(match));
+          static_cast<nsIUrlClassifierPositiveCacheEntry*>(match));
     }
 
-    info->entries.AppendElement(static_cast<nsIUrlClassifierCacheEntry*>(entry));
+    info->entries.AppendElement(
+        static_cast<nsIUrlClassifierCacheEntry*>(entry));
   }
 
   NS_ADDREF(*aCache = info);
@@ -290,8 +295,13 @@ LookupCache::IsCanonicalizedIP(const nsACString& aHost)
   // decimal with no surprises.
   uint32_t i1, i2, i3, i4;
   char c;
-  if (PR_sscanf(PromiseFlatCString(aHost).get(), "%u.%u.%u.%u%c",
-                &i1, &i2, &i3, &i4, &c) == 4) {
+  if (PR_sscanf(PromiseFlatCString(aHost).get(),
+                "%u.%u.%u.%u%c",
+                &i1,
+                &i2,
+                &i3,
+                &i4,
+                &c) == 4) {
     return (i1 <= 0xFF && i2 <= 0xFF && i3 <= 0xFF && i4 <= 0xFF);
   }
 
@@ -418,9 +428,8 @@ LookupCache::GetHostKeys(const nsACString& aSpec,
   const nsACString& host = Substring(begin, iter);
 
   if (IsCanonicalizedIP(host)) {
-    nsCString *key = aHostKeys->AppendElement();
-    if (!key)
-      return NS_ERROR_OUT_OF_MEMORY;
+    nsCString* key = aHostKeys->AppendElement();
+    if (!key) return NS_ERROR_OUT_OF_MEMORY;
 
     key->Assign(host);
     key->AppendLiteral("/");
@@ -437,9 +446,8 @@ LookupCache::GetHostKeys(const nsACString& aSpec,
 
   // First check with two domain components
   int32_t last = int32_t(hostComponents.Length()) - 1;
-  nsCString *lookupHost = aHostKeys->AppendElement();
-  if (!lookupHost)
-    return NS_ERROR_OUT_OF_MEMORY;
+  nsCString* lookupHost = aHostKeys->AppendElement();
+  if (!lookupHost) return NS_ERROR_OUT_OF_MEMORY;
 
   lookupHost->Assign(hostComponents[last - 1]);
   lookupHost->AppendLiteral(".");
@@ -448,9 +456,8 @@ LookupCache::GetHostKeys(const nsACString& aSpec,
 
   // Now check with three domain components
   if (hostComponents.Length() > 2) {
-    nsCString *lookupHost2 = aHostKeys->AppendElement();
-    if (!lookupHost2)
-      return NS_ERROR_OUT_OF_MEMORY;
+    nsCString* lookupHost2 = aHostKeys->AppendElement();
+    if (!lookupHost2) return NS_ERROR_OUT_OF_MEMORY;
     lookupHost2->Assign(hostComponents[last - 2]);
     lookupHost2->AppendLiteral(".");
     lookupHost2->Append(*lookupHost);
@@ -495,16 +502,19 @@ LookupCache::LoadPrefixSet()
 }
 
 #if defined(DEBUG)
-static
-nsCString GetFormattedTimeString(int64_t aCurTimeSec)
+static nsCString
+GetFormattedTimeString(int64_t aCurTimeSec)
 {
   PRExplodedTime pret;
   PR_ExplodeTime(aCurTimeSec * PR_USEC_PER_SEC, PR_GMTParameters, &pret);
 
-  return nsPrintfCString(
-         "%04d-%02d-%02d %02d:%02d:%02d UTC",
-         pret.tm_year, pret.tm_month + 1, pret.tm_mday,
-         pret.tm_hour, pret.tm_min, pret.tm_sec);
+  return nsPrintfCString("%04d-%02d-%02d %02d:%02d:%02d UTC",
+                         pret.tm_year,
+                         pret.tm_month + 1,
+                         pret.tm_mday,
+                         pret.tm_hour,
+                         pret.tm_min,
+                         pret.tm_sec);
 }
 
 void
@@ -519,16 +529,20 @@ LookupCache::DumpCache()
 
     nsAutoCString prefix;
     CStringToHexString(
-      nsCString(reinterpret_cast<const char*>(&iter.Key()), PREFIX_SIZE), prefix);
-    LOG(("Cache prefix(%s): %s, Expiry: %s", mTableName.get(), prefix.get(),
-          GetFormattedTimeString(response->negativeCacheExpirySec).get()));
+        nsCString(reinterpret_cast<const char*>(&iter.Key()), PREFIX_SIZE),
+        prefix);
+    LOG(("Cache prefix(%s): %s, Expiry: %s",
+         mTableName.get(),
+         prefix.get(),
+         GetFormattedTimeString(response->negativeCacheExpirySec).get()));
 
     FullHashExpiryCache& fullHashes = response->fullHashes;
     for (auto iter2 = fullHashes.ConstIter(); !iter2.Done(); iter2.Next()) {
       nsAutoCString fullhash;
       CStringToHexString(iter2.Key(), fullhash);
-      LOG(("  - %s, Expiry: %s", fullhash.get(),
-            GetFormattedTimeString(iter2.Data()).get()));
+      LOG(("  - %s, Expiry: %s",
+           fullhash.get(),
+           GetFormattedTimeString(iter2.Data()).get()));
     }
   }
 }
@@ -594,7 +608,10 @@ LookupCacheV2::Has(const Completion& aCompletion,
   }
 
   LOG(("Probe in %s: %X, has %d, confirmed %d",
-       mTableName.get(), prefix, *aHas, *aConfirmed));
+       mTableName.get(),
+       prefix,
+       *aHas,
+       *aConfirmed));
 
   return rv;
 }
@@ -658,10 +675,10 @@ LookupCacheV2::AddGethashResultToCache(AddCompleteArray& aAddCompletes,
 
   for (const AddComplete& add : aAddCompletes) {
     nsDependentCSubstring fullhash(
-      reinterpret_cast<const char*>(add.CompleteHash().buf), COMPLETE_SIZE);
+        reinterpret_cast<const char*>(add.CompleteHash().buf), COMPLETE_SIZE);
 
     CachedFullHashResponse* response =
-      mFullHashCache.LookupOrAdd(add.ToUint32());
+        mFullHashCache.LookupOrAdd(add.ToUint32());
     response->negativeCacheExpirySec = defaultExpirySec;
 
     FullHashExpiryCache& fullHashes = response->fullHashes;
@@ -670,7 +687,7 @@ LookupCacheV2::AddGethashResultToCache(AddCompleteArray& aAddCompletes,
 
   for (const Prefix& prefix : aMissPrefixes) {
     CachedFullHashResponse* response =
-      mFullHashCache.LookupOrAdd(prefix.ToUint32());
+        mFullHashCache.LookupOrAdd(prefix.ToUint32());
 
     response->negativeCacheExpirySec = defaultExpirySec;
   }
@@ -723,8 +740,9 @@ LookupCacheV2::SizeOfPrefixSet()
 }
 
 #ifdef DEBUG
-template <class T>
-static void EnsureSorted(T* aArray)
+template<class T>
+static void
+EnsureSorted(T* aArray)
 {
   typename T::elem_type* start = aArray->Elements();
   typename T::elem_type* end = aArray->Elements() + aArray->Length();
@@ -781,8 +799,7 @@ LookupCacheV2::ConstructPrefixSet(AddPrefixArray& aAddPrefixes)
 void
 LookupCacheV2::DumpCompletions()
 {
-  if (!LOG_ENABLED())
-    return;
+  if (!LOG_ENABLED()) return;
 
   for (uint32_t i = 0; i < mUpdateCompletions.Length(); i++) {
     nsAutoCString str;
@@ -792,5 +809,5 @@ LookupCacheV2::DumpCompletions()
 }
 #endif
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla

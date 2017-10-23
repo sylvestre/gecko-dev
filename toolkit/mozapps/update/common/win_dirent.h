@@ -13,20 +13,25 @@
 
 #include <windows.h>
 
-struct DIR {
+struct DIR
+{
   explicit DIR(const WCHAR* path);
   ~DIR();
   HANDLE findHandle;
   WCHAR name[MAX_PATH];
 };
 
-struct dirent {
+struct dirent
+{
   dirent();
   WCHAR d_name[MAX_PATH];
 };
 
-DIR* opendir(const WCHAR* path);
-int closedir(DIR* dir);
-dirent* readdir(DIR* dir);
+DIR*
+opendir(const WCHAR* path);
+int
+closedir(DIR* dir);
+dirent*
+readdir(DIR* dir);
 
 #endif  // WINDIRENT_H__

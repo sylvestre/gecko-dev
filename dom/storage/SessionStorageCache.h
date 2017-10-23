@@ -14,12 +14,13 @@ namespace dom {
 
 class SessionStorageCache final
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(SessionStorageCache)
 
   SessionStorageCache();
 
-  enum DataSetType {
+  enum DataSetType
+  {
     eDefaultSetType,
     eSessionSetType,
   };
@@ -30,30 +31,31 @@ public:
 
   void Key(DataSetType aDataSetType, uint32_t aIndex, nsAString& aResult);
 
-  void GetItem(DataSetType aDataSetType, const nsAString& aKey,
+  void GetItem(DataSetType aDataSetType,
+               const nsAString& aKey,
                nsAString& aResult);
 
   void GetKeys(DataSetType aDataSetType, nsTArray<nsString>& aKeys);
 
-  nsresult SetItem(DataSetType aDataSetType, const nsAString& aKey,
-                   const nsAString& aValue, nsString& aOldValue);
+  nsresult SetItem(DataSetType aDataSetType,
+                   const nsAString& aKey,
+                   const nsAString& aValue,
+                   nsString& aOldValue);
 
-  nsresult RemoveItem(DataSetType aDataSetType, const nsAString& aKey,
+  nsresult RemoveItem(DataSetType aDataSetType,
+                      const nsAString& aKey,
                       nsString& aOldValue);
 
   void Clear(DataSetType aDataSetType, bool aByUserInteraction = true);
 
-  already_AddRefed<SessionStorageCache>
-  Clone() const;
+  already_AddRefed<SessionStorageCache> Clone() const;
 
-private:
+ private:
   ~SessionStorageCache() = default;
 
   struct DataSet
   {
-    DataSet()
-      : mOriginQuotaUsage(0)
-    {}
+    DataSet() : mOriginQuotaUsage(0) {}
 
     bool ProcessUsageDelta(int64_t aDelta);
 
@@ -68,7 +70,7 @@ private:
   bool mSessionDataSetActive;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_SessionStorageCache_h
+#endif  //mozilla_dom_SessionStorageCache_h

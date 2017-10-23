@@ -36,13 +36,17 @@
 namespace mozilla {
 namespace dom {
 
-#define DOM_CALLBACKOBJECT_IID \
-{ 0xbe74c190, 0x6d76, 0x4991, \
- { 0x84, 0xb9, 0x65, 0x06, 0x99, 0xe6, 0x93, 0x2b } }
+#define DOM_CALLBACKOBJECT_IID                       \
+  {                                                  \
+    0xbe74c190, 0x6d76, 0x4991,                      \
+    {                                                \
+      0x84, 0xb9, 0x65, 0x06, 0x99, 0xe6, 0x93, 0x2b \
+    }                                                \
+  }
 
 class CallbackObject : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(DOM_CALLBACKOBJECT_IID)
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -55,7 +59,8 @@ public:
   // stack, which is later used as an async parent when the callback
   // is invoked.  aCx can be nullptr, in which case no stack is
   // captured.
-  explicit CallbackObject(JSContext* aCx, JS::Handle<JSObject*> aCallback,
+  explicit CallbackObject(JSContext* aCx,
+                          JS::Handle<JSObject*> aCallback,
                           nsIGlobalObject* aIncumbentGlobal)
   {
     if (aCx && JS::ContextOptionsRef(aCx).asyncStack()) {
@@ -97,10 +102,7 @@ public:
   // caller's compartment if the callback is null.
   JSObject* Callback(JSContext* aCx);
 
-  JSObject* GetCreationStack() const
-  {
-    return mCreationStack;
-  }
+  JSObject* GetCreationStack() const { return mCreationStack; }
 
   void MarkForCC()
   {
@@ -134,12 +136,10 @@ public:
     return CallbackPreserveColor();
   }
 
-  nsIGlobalObject* IncumbentGlobalOrNull() const
-  {
-    return mIncumbentGlobal;
-  }
+  nsIGlobalObject* IncumbentGlobalOrNull() const { return mIncumbentGlobal; }
 
-  enum ExceptionHandling {
+  enum ExceptionHandling
+  {
     // Report any exception and don't throw it to the caller code.
     eReportExceptions,
     // Throw an exception to the caller code if the thrown exception is a
@@ -158,15 +158,13 @@ public:
     return aMallocSizeOf(this);
   }
 
-protected:
-  virtual ~CallbackObject()
-  {
-    mozilla::DropJSObjects(this);
-  }
+ protected:
+  virtual ~CallbackObject() { mozilla::DropJSObjects(this); }
 
   explicit CallbackObject(CallbackObject* aCallbackObject)
   {
-    Init(aCallbackObject->mCallback, aCallbackObject->mCreationStack,
+    Init(aCallbackObject->mCallback,
+         aCallbackObject->mCreationStack,
          aCallbackObject->mIncumbentGlobal);
   }
 
@@ -185,22 +183,18 @@ protected:
 
   class JSObjectsDropper final
   {
-  public:
-    explicit JSObjectsDropper(CallbackObject* aHolder)
-      : mHolder(aHolder)
-    {}
+   public:
+    explicit JSObjectsDropper(CallbackObject* aHolder) : mHolder(aHolder) {}
 
-    ~JSObjectsDropper()
-    {
-      mHolder->ClearJSObjects();
-    }
+    ~JSObjectsDropper() { mHolder->ClearJSObjects(); }
 
-  private:
+   private:
     RefPtr<CallbackObject> mHolder;
   };
 
-private:
-  inline void InitNoHold(JSObject* aCallback, JSObject* aCreationStack,
+ private:
+  inline void InitNoHold(JSObject* aCallback,
+                         JSObject* aCreationStack,
                          nsIGlobalObject* aIncumbentGlobal)
   {
     MOZ_ASSERT(aCallback && !mCallback);
@@ -214,7 +208,8 @@ private:
     }
   }
 
-  inline void Init(JSObject* aCallback, JSObject* aCreationStack,
+  inline void Init(JSObject* aCallback,
+                   JSObject* aCreationStack,
                    nsIGlobalObject* aIncumbentGlobal)
   {
     InitNoHold(aCallback, aCreationStack, aIncumbentGlobal);
@@ -229,9 +224,9 @@ private:
   }
 
   CallbackObject(const CallbackObject&) = delete;
-  CallbackObject& operator =(const CallbackObject&) = delete;
+  CallbackObject& operator=(const CallbackObject&) = delete;
 
-protected:
+ protected:
   void ClearJSObjects()
   {
     MOZ_ASSERT_IF(mIncumbentJSGlobal, mCallback);
@@ -255,7 +250,8 @@ protected:
   //
   // Places that use this need to ensure that the callback is traced (e.g. via a
   // Rooted) until the HoldJSObjects call happens.
-  struct FastCallbackConstructor {
+  struct FastCallbackConstructor
+  {
   };
 
   // Just like the public version without the FastCallbackConstructor argument,
@@ -294,7 +290,7 @@ protected:
      * returns, the call is safe to make if GetContext() returns
      * non-null.
      */
-  public:
+   public:
     // If aExceptionHandling == eRethrowContentExceptions then aCompartment
     // needs to be set to the compartment in which exceptions will be rethrown.
     //
@@ -302,19 +298,17 @@ protected:
     // to the compartment in which exceptions will be rethrown.  In that case
     // they will only be rethrown if that compartment's principal subsumes the
     // principal of our (unwrapped) callback.
-    CallSetup(CallbackObject* aCallback, ErrorResult& aRv,
+    CallSetup(CallbackObject* aCallback,
+              ErrorResult& aRv,
               const char* aExecutionReason,
               ExceptionHandling aExceptionHandling,
               JSCompartment* aCompartment = nullptr,
               bool aIsJSImplementedWebIDL = false);
     ~CallSetup();
 
-    JSContext* GetContext() const
-    {
-      return mCx;
-    }
+    JSContext* GetContext() const { return mCx; }
 
-  private:
+   private:
     // We better not get copy-constructed
     CallSetup(const CallSetup&) = delete;
 
@@ -331,7 +325,7 @@ protected:
     Maybe<AutoEntryScript> mAutoEntryScript;
     Maybe<AutoIncumbentScript> mAutoIncumbentScript;
 
-    Maybe<JS::Rooted<JSObject*> > mRootedCallable;
+    Maybe<JS::Rooted<JSObject*>> mRootedCallable;
 
     // Members which are used to set the async stack.
     Maybe<JS::Rooted<JSObject*>> mAsyncStack;
@@ -355,11 +349,12 @@ template<class WebIDLCallbackT, class XPCOMCallbackT>
 class CallbackObjectHolder;
 
 template<class T, class U>
-void ImplCycleCollectionUnlink(CallbackObjectHolder<T, U>& aField);
+void
+ImplCycleCollectionUnlink(CallbackObjectHolder<T, U>& aField);
 
 class CallbackObjectHolderBase
 {
-protected:
+ protected:
   // Returns null on all failures
   already_AddRefed<nsISupports> ToXPCOMCallback(CallbackObject* aCallback,
                                                 const nsIID& aIID) const;
@@ -377,21 +372,21 @@ class CallbackObjectHolder : CallbackObjectHolderBase
    * When storing an XPCOMCallbackT*, mPtrBits is the pointer value with low bit
    * set.
    */
-public:
+ public:
   explicit CallbackObjectHolder(WebIDLCallbackT* aCallback)
-    : mPtrBits(reinterpret_cast<uintptr_t>(aCallback))
+      : mPtrBits(reinterpret_cast<uintptr_t>(aCallback))
   {
     NS_IF_ADDREF(aCallback);
   }
 
   explicit CallbackObjectHolder(XPCOMCallbackT* aCallback)
-    : mPtrBits(reinterpret_cast<uintptr_t>(aCallback) | XPCOMCallbackFlag)
+      : mPtrBits(reinterpret_cast<uintptr_t>(aCallback) | XPCOMCallbackFlag)
   {
     NS_IF_ADDREF(aCallback);
   }
 
   CallbackObjectHolder(CallbackObjectHolder&& aOther)
-    : mPtrBits(aOther.mPtrBits)
+      : mPtrBits(aOther.mPtrBits)
   {
     aOther.mPtrBits = 0;
     static_assert(sizeof(CallbackObjectHolder) == sizeof(void*),
@@ -402,14 +397,9 @@ public:
 
   CallbackObjectHolder(const CallbackObjectHolder& aOther) = delete;
 
-  CallbackObjectHolder()
-    : mPtrBits(0)
-  {}
+  CallbackObjectHolder() : mPtrBits(0) {}
 
-  ~CallbackObjectHolder()
-  {
-    UnlinkSelf();
-  }
+  ~CallbackObjectHolder() { UnlinkSelf(); }
 
   void operator=(WebIDLCallbackT* aCallback)
   {
@@ -440,10 +430,7 @@ public:
   }
 
   // Boolean conversion operator so people can use this in boolean tests
-  explicit operator bool() const
-  {
-    return GetISupports();
-  }
+  explicit operator bool() const { return GetISupports(); }
 
   CallbackObjectHolder Clone() const
   {
@@ -455,10 +442,7 @@ public:
 
   // Even if HasWebIDLCallback returns true, GetWebIDLCallback() might still
   // return null.
-  bool HasWebIDLCallback() const
-  {
-    return !(mPtrBits & XPCOMCallbackFlag);
-  }
+  bool HasWebIDLCallback() const { return !(mPtrBits & XPCOMCallbackFlag); }
 
   WebIDLCallbackT* GetWebIDLCallback() const
   {
@@ -491,7 +475,7 @@ public:
   bool operator==(XPCOMCallbackT* aOtherCallback) const
   {
     return (!aOtherCallback && !GetISupports()) ||
-      (!HasWebIDLCallback() && GetXPCOMCallback() == aOtherCallback);
+           (!HasWebIDLCallback() && GetXPCOMCallback() == aOtherCallback);
   }
 
   bool operator==(const CallbackObjectHolder& aOtherCallback) const
@@ -511,9 +495,8 @@ public:
       return callback.forget();
     }
 
-    nsCOMPtr<nsISupports> supp =
-      CallbackObjectHolderBase::ToXPCOMCallback(GetWebIDLCallback(),
-                                                NS_GET_TEMPLATE_IID(XPCOMCallbackT));
+    nsCOMPtr<nsISupports> supp = CallbackObjectHolderBase::ToXPCOMCallback(
+        GetWebIDLCallback(), NS_GET_TEMPLATE_IID(XPCOMCallbackT));
     if (supp) {
       // ToXPCOMCallback already did the right QI for us.
       return supp.forget().downcast<XPCOMCallbackT>();
@@ -531,12 +514,11 @@ public:
     return nullptr;
   }
 
-private:
+ private:
   static const uintptr_t XPCOMCallbackFlag = 1u;
 
-  friend void
-  ImplCycleCollectionUnlink<WebIDLCallbackT,
-                            XPCOMCallbackT>(CallbackObjectHolder& aField);
+  friend void ImplCycleCollectionUnlink<WebIDLCallbackT, XPCOMCallbackT>(
+      CallbackObjectHolder& aField);
 
   void UnlinkSelf()
   {
@@ -577,11 +559,8 @@ ImplCycleCollectionUnlink(CallbackObjectHolder<T, U>& aField)
 template<typename T>
 class MOZ_RAII RootedCallback : public JS::Rooted<T>
 {
-public:
-  explicit RootedCallback(JSContext* cx)
-    : JS::Rooted<T>(cx)
-    , mCx(cx)
-  {}
+ public:
+  explicit RootedCallback(JSContext* cx) : JS::Rooted<T>(cx), mCx(cx) {}
 
   // We need a way to make assignment from pointers (how we're normally used)
   // work.
@@ -593,10 +572,7 @@ public:
 
   // But nullptr can't use the above template, because it doesn't know which S
   // to select.  So we need a special overload for nullptr.
-  void operator=(decltype(nullptr) arg)
-  {
-    this->get().operator=(arg);
-  }
+  void operator=(decltype(nullptr) arg) { this->get().operator=(arg); }
 
   // Codegen relies on being able to do CallbackOrNull() and Callback() on us.
   JS::Handle<JSObject*> CallbackOrNull() const
@@ -620,9 +596,9 @@ public:
     }
   }
 
-private:
+ private:
   template<typename U>
-  static bool IsInitialized(U& aArg); // Not implemented
+  static bool IsInitialized(U& aArg);  // Not implemented
 
   template<typename U>
   static bool IsInitialized(RefPtr<U>& aRefPtr)
@@ -639,7 +615,7 @@ private:
   JSContext* mCx;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CallbackObject_h
+#endif  // mozilla_dom_CallbackObject_h

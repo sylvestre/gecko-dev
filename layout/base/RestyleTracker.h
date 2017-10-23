@@ -27,38 +27,38 @@ namespace mozilla {
 class ElementRestyler;
 class GeckoRestyleManager;
 
-class RestyleTracker {
-public:
+class RestyleTracker
+{
+ public:
   typedef mozilla::dom::Element Element;
 
-  friend class ElementRestyler; // for AddPendingRestyleToTable
+  friend class ElementRestyler;  // for AddPendingRestyleToTable
 
   explicit RestyleTracker(Element::FlagsType aRestyleBits)
-    : mRestyleBits(aRestyleBits)
-    , mHaveLaterSiblingRestyles(false)
-    , mHaveSelectors(false)
+      : mRestyleBits(aRestyleBits),
+        mHaveLaterSiblingRestyles(false),
+        mHaveSelectors(false)
   {
     NS_PRECONDITION((mRestyleBits & ~ELEMENT_ALL_RESTYLE_FLAGS) == 0,
                     "Why do we have these bits set?");
     NS_PRECONDITION((mRestyleBits & ELEMENT_PENDING_RESTYLE_FLAGS) != 0,
                     "Must have a restyle flag");
     NS_PRECONDITION((mRestyleBits & ELEMENT_PENDING_RESTYLE_FLAGS) !=
-                      ELEMENT_PENDING_RESTYLE_FLAGS,
+                        ELEMENT_PENDING_RESTYLE_FLAGS,
                     "Shouldn't have both restyle flags set");
     NS_PRECONDITION((mRestyleBits & ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS) != 0,
                     "Must have root flag");
     NS_PRECONDITION((mRestyleBits & ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS) !=
-                    ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS,
+                        ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS,
                     "Shouldn't have both root flags");
   }
 
-  void Init(GeckoRestyleManager* aRestyleManager) {
+  void Init(GeckoRestyleManager* aRestyleManager)
+  {
     mRestyleManager = aRestyleManager;
   }
 
-  uint32_t Count() const {
-    return mPendingRestyles.Count();
-  }
+  uint32_t Count() const { return mPendingRestyles.Count(); }
 
   /**
    * Add a restyle for the given element to the tracker.  Returns true
@@ -69,11 +69,12 @@ public:
    * passed.  A Some(nullptr) restyle root can be passed if there is no
    * ancestor element that is a restyle root.
    */
-  bool AddPendingRestyle(Element* aElement, nsRestyleHint aRestyleHint,
-                         nsChangeHint aMinChangeHint,
-                         const RestyleHintData* aRestyleHintData = nullptr,
-                         const mozilla::Maybe<Element*>& aRestyleRoot =
-                           mozilla::Nothing());
+  bool AddPendingRestyle(
+      Element* aElement,
+      nsRestyleHint aRestyleHint,
+      nsChangeHint aMinChangeHint,
+      const RestyleHintData* aRestyleHintData = nullptr,
+      const mozilla::Maybe<Element*>& aRestyleRoot = mozilla::Nothing());
 
   Element* FindClosestRestyleRoot(Element* aElement);
 
@@ -83,35 +84,43 @@ public:
   void DoProcessRestyles();
 
   // Return our ELEMENT_HAS_PENDING_(ANIMATION_)RESTYLE bit
-  uint32_t RestyleBit() const {
+  uint32_t RestyleBit() const
+  {
     return mRestyleBits & ELEMENT_PENDING_RESTYLE_FLAGS;
   }
 
   // Return our ELEMENT_IS_POTENTIAL_(ANIMATION_)RESTYLE_ROOT bit
-  Element::FlagsType RootBit() const {
+  Element::FlagsType RootBit() const
+  {
     return mRestyleBits & ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS;
   }
 
   // Return our ELEMENT_IS_CONDITIONAL_RESTYLE_ANCESTOR bit if present,
   // or 0 if it is not.
-  Element::FlagsType ConditionalDescendantsBit() const {
+  Element::FlagsType ConditionalDescendantsBit() const
+  {
     return mRestyleBits & ELEMENT_IS_CONDITIONAL_RESTYLE_ANCESTOR;
   }
 
-  struct Hints {
+  struct Hints
+  {
     nsRestyleHint mRestyleHint;        // What we want to restyle
     nsChangeHint mChangeHint;          // The minimal change hint for "self"
     RestyleHintData mRestyleHintData;  // Data associated with mRestyleHint
   };
 
-  struct RestyleData : Hints {
-    RestyleData() {
+  struct RestyleData : Hints
+  {
+    RestyleData()
+    {
       mRestyleHint = nsRestyleHint(0);
       mChangeHint = nsChangeHint(0);
     }
 
-    RestyleData(nsRestyleHint aRestyleHint, nsChangeHint aChangeHint,
-                const RestyleHintData* aRestyleHintData) {
+    RestyleData(nsRestyleHint aRestyleHint,
+                nsChangeHint aChangeHint,
+                const RestyleHintData* aRestyleHintData)
+    {
       mRestyleHint = aRestyleHint;
       mChangeHint = aChangeHint;
       if (aRestyleHintData) {
@@ -145,7 +154,8 @@ public:
    * Returns whether there is a RestyleData entry in mPendingRestyles
    * for the given element.
    */
-  bool HasRestyleData(Element* aElement) {
+  bool HasRestyleData(Element* aElement)
+  {
     return mPendingRestyles.Contains(aElement);
   }
 
@@ -162,7 +172,7 @@ public:
    * ancestors appear after descendants.
    */
   void AddRestyleRootsIfAwaitingRestyle(
-                                  const nsTArray<RefPtr<Element>>& aElements);
+      const nsTArray<RefPtr<Element>>& aElements);
 
   /**
    * Converts any eRestyle_SomeDescendants restyle hints in the pending restyle
@@ -183,10 +193,12 @@ public:
   inline int32_t& LoggingDepth();
 #endif
 
-private:
-  bool AddPendingRestyleToTable(Element* aElement, nsRestyleHint aRestyleHint,
-                                nsChangeHint aMinChangeHint,
-                                const RestyleHintData* aRestyleHintData = nullptr);
+ private:
+  bool AddPendingRestyleToTable(
+      Element* aElement,
+      nsRestyleHint aRestyleHint,
+      nsChangeHint aMinChangeHint,
+      const RestyleHintData* aRestyleHintData = nullptr);
 
   /**
    * Handle a single mPendingRestyles entry.  aRestyleHint must not
@@ -199,13 +211,13 @@ private:
                                 const RestyleHintData& aRestyleHintData);
 
   typedef nsClassHashtable<nsISupportsHashKey, RestyleData> PendingRestyleTable;
-  typedef AutoTArray< RefPtr<Element>, 32> RestyleRootArray;
+  typedef AutoTArray<RefPtr<Element>, 32> RestyleRootArray;
   // Our restyle bits.  These will be a subset of ELEMENT_ALL_RESTYLE_FLAGS, and
   // will include one flag from ELEMENT_PENDING_RESTYLE_FLAGS, one flag
   // from ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS, and might also include
   // ELEMENT_IS_CONDITIONAL_RESTYLE_ANCESTOR.
   Element::FlagsType mRestyleBits;
-  GeckoRestyleManager* mRestyleManager; // Owns us
+  GeckoRestyleManager* mRestyleManager;  // Owns us
   // A hashtable that maps elements to pointers to RestyleData structs.  The
   // values only make sense if the element's current document is our
   // document and it has our RestyleBit() flag set.  In particular,
@@ -229,10 +241,11 @@ private:
 };
 
 inline bool
-RestyleTracker::AddPendingRestyleToTable(Element* aElement,
-                                         nsRestyleHint aRestyleHint,
-                                         nsChangeHint aMinChangeHint,
-                                         const RestyleHintData* aRestyleHintData)
+RestyleTracker::AddPendingRestyleToTable(
+    Element* aElement,
+    nsRestyleHint aRestyleHint,
+    nsChangeHint aMinChangeHint,
+    const RestyleHintData* aRestyleHintData)
 {
   RestyleData* existingData;
 
@@ -260,7 +273,7 @@ RestyleTracker::AddPendingRestyleToTable(Element* aElement,
 
   if (!existingData) {
     RestyleData* rd =
-      new RestyleData(aRestyleHint, aMinChangeHint, aRestyleHintData);
+        new RestyleData(aRestyleHint, aMinChangeHint, aRestyleHintData);
 #if defined(MOZ_GECKO_PROFILER)
     if (profiler_feature_active(ProfilerFeature::Restyle)) {
       rd->mBacktrace = profiler_get_backtrace();
@@ -271,13 +284,13 @@ RestyleTracker::AddPendingRestyleToTable(Element* aElement,
   }
 
   bool hadRestyleLaterSiblings =
-    (existingData->mRestyleHint & eRestyle_LaterSiblings) != 0;
+      (existingData->mRestyleHint & eRestyle_LaterSiblings) != 0;
   existingData->mRestyleHint =
-    nsRestyleHint(existingData->mRestyleHint | aRestyleHint);
+      nsRestyleHint(existingData->mRestyleHint | aRestyleHint);
   existingData->mChangeHint |= aMinChangeHint;
   if (aRestyleHintData) {
-    existingData->mRestyleHintData.mSelectorsForDescendants
-      .AppendElements(aRestyleHintData->mSelectorsForDescendants);
+    existingData->mRestyleHintData.mSelectorsForDescendants.AppendElements(
+        aRestyleHintData->mSelectorsForDescendants);
   }
 
   return hadRestyleLaterSiblings;
@@ -318,9 +331,8 @@ RestyleTracker::AddPendingRestyle(Element* aElement,
                                   const RestyleHintData* aRestyleHintData,
                                   const mozilla::Maybe<Element*>& aRestyleRoot)
 {
-  bool hadRestyleLaterSiblings =
-    AddPendingRestyleToTable(aElement, aRestyleHint, aMinChangeHint,
-                             aRestyleHintData);
+  bool hadRestyleLaterSiblings = AddPendingRestyleToTable(
+      aElement, aRestyleHint, aMinChangeHint, aRestyleHintData);
 
   // We can only treat this element as a restyle root if we would
   // actually restyle its descendants (so either call
@@ -328,7 +340,7 @@ RestyleTracker::AddPendingRestyle(Element* aElement,
   if ((aRestyleHint & ~eRestyle_LaterSiblings) ||
       (aMinChangeHint & nsChangeHint_ReconstructFrame)) {
     Element* cur =
-      aRestyleRoot ? *aRestyleRoot : FindClosestRestyleRoot(aElement);
+        aRestyleRoot ? *aRestyleRoot : FindClosestRestyleRoot(aElement);
     if (!cur) {
       mRestyleRoots.AppendElement(aElement);
       cur = aElement;
@@ -370,10 +382,10 @@ RestyleTracker::AddPendingRestyle(Element* aElement,
   }
 
   mHaveLaterSiblingRestyles =
-    mHaveLaterSiblingRestyles || (aRestyleHint & eRestyle_LaterSiblings) != 0;
+      mHaveLaterSiblingRestyles || (aRestyleHint & eRestyle_LaterSiblings) != 0;
   return hadRestyleLaterSiblings;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_RestyleTracker_h */

@@ -46,9 +46,7 @@ NS_INTERFACE_MAP_END
 
 PerformanceObserver::PerformanceObserver(nsPIDOMWindowInner* aOwner,
                                          PerformanceObserverCallback& aCb)
-  : mOwner(aOwner)
-  , mCallback(&aCb)
-  , mConnected(false)
+    : mOwner(aOwner), mCallback(&aCb), mConnected(false)
 {
   MOZ_ASSERT(mOwner);
   mPerformance = aOwner->GetPerformance();
@@ -56,8 +54,7 @@ PerformanceObserver::PerformanceObserver(nsPIDOMWindowInner* aOwner,
 
 PerformanceObserver::PerformanceObserver(WorkerPrivate* aWorkerPrivate,
                                          PerformanceObserverCallback& aCb)
-  : mCallback(&aCb)
-  , mConnected(false)
+    : mCallback(&aCb), mConnected(false)
 {
   MOZ_ASSERT(aWorkerPrivate);
   mPerformance = aWorkerPrivate->GlobalScope()->GetPerformance();
@@ -77,7 +74,7 @@ PerformanceObserver::Constructor(const GlobalObject& aGlobal,
 {
   if (NS_IsMainThread()) {
     nsCOMPtr<nsPIDOMWindowInner> ownerWindow =
-      do_QueryInterface(aGlobal.GetAsSupports());
+        do_QueryInterface(aGlobal.GetAsSupports());
     if (!ownerWindow) {
       aRv.Throw(NS_ERROR_FAILURE);
       return nullptr;
@@ -85,7 +82,7 @@ PerformanceObserver::Constructor(const GlobalObject& aGlobal,
     MOZ_ASSERT(ownerWindow->IsInnerWindow());
 
     RefPtr<PerformanceObserver> observer =
-      new PerformanceObserver(ownerWindow, aCb);
+        new PerformanceObserver(ownerWindow, aCb);
     return observer.forget();
   }
 
@@ -94,12 +91,13 @@ PerformanceObserver::Constructor(const GlobalObject& aGlobal,
   MOZ_ASSERT(workerPrivate);
 
   RefPtr<PerformanceObserver> observer =
-    new PerformanceObserver(workerPrivate, aCb);
+      new PerformanceObserver(workerPrivate, aCb);
   return observer.forget();
 }
 
 JSObject*
-PerformanceObserver::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+PerformanceObserver::WrapObject(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return PerformanceObserverBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -111,7 +109,7 @@ PerformanceObserver::Notify()
     return;
   }
   RefPtr<PerformanceObserverEntryList> list =
-    new PerformanceObserverEntryList(this, mQueuedEntries);
+      new PerformanceObserverEntryList(this, mQueuedEntries);
 
   mQueuedEntries.Clear();
 
@@ -136,12 +134,8 @@ PerformanceObserver::QueueEntry(PerformanceEntry* aEntry)
   mQueuedEntries.AppendElement(aEntry);
 }
 
-static const char16_t *const sValidTypeNames[4] = {
-  u"mark",
-  u"measure",
-  u"resource",
-  u"server"
-};
+static const char16_t* const sValidTypeNames[4] = {
+    u"mark", u"measure", u"resource", u"server"};
 
 void
 PerformanceObserver::Observe(const PerformanceObserverInit& aOptions,

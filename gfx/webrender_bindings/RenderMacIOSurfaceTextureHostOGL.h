@@ -20,7 +20,7 @@ namespace wr {
 
 class RenderMacIOSurfaceTextureHostOGL final : public RenderTextureHostOGL
 {
-public:
+ public:
   explicit RenderMacIOSurfaceTextureHostOGL(MacIOSurface* aSurface);
 
   virtual bool Lock() override;
@@ -31,7 +31,7 @@ public:
   virtual gfx::IntSize GetSize(uint8_t aChannelIndex) const override;
   virtual GLuint GetGLHandle(uint8_t aChannelIndex) const override;
 
-private:
+ private:
   virtual ~RenderMacIOSurfaceTextureHostOGL();
   void DeleteTextureHandle();
 
@@ -40,7 +40,7 @@ private:
   GLuint mTextureHandles[3];
 };
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_RENDERMACIOSURFACETEXTUREHOSTOGL_H
+#endif  // MOZILLA_GFX_RENDERMACIOSURFACETEXTUREHOSTOGL_H

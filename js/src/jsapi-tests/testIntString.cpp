@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testIntString_bug515273)
-{
+BEGIN_TEST(testIntString_bug515273) {
     JS::RootedValue v(cx);
 
     EVAL("'1';", &v);

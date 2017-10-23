@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testBoundFunction)
-{
+BEGIN_TEST(testBoundFunction) {
     EXEC("function foo() {}");
     JS::RootedValue foo(cx);
     EVAL("foo", &foo);

@@ -31,17 +31,16 @@ namespace layers {
 static already_AddRefed<TextureClient>
 CreateYCbCrTextureClientWithBackend(LayersBackend aLayersBackend)
 {
-
   TextureData* data = nullptr;
   IntSize size = IntSize(200, 150);
   IntSize ySize = IntSize(400, 300);
 
   RefPtr<gfxImageSurface> ySurface =
-    new gfxImageSurface(ySize, SurfaceFormat::A8);
+      new gfxImageSurface(ySize, SurfaceFormat::A8);
   RefPtr<gfxImageSurface> cbSurface =
-    new gfxImageSurface(size, SurfaceFormat::A8);
+      new gfxImageSurface(size, SurfaceFormat::A8);
   RefPtr<gfxImageSurface> crSurface =
-    new gfxImageSurface(size, SurfaceFormat::A8);
+      new gfxImageSurface(size, SurfaceFormat::A8);
 
   PlanarYCbCrData clientData;
   clientData.mYChannel = ySurface->Data();
@@ -83,8 +82,8 @@ CreateYCbCrTextureClientWithBackend(LayersBackend aLayersBackend)
 #endif
 
   if (data) {
-    return MakeAndAddRef<TextureClient>(data, TextureFlags::DEALLOCATE_CLIENT,
-                                        nullptr);
+    return MakeAndAddRef<TextureClient>(
+        data, TextureFlags::DEALLOCATE_CLIENT, nullptr);
   }
 
   return nullptr;
@@ -98,9 +97,9 @@ CreateTextureClientWithBackend(LayersBackend aLayersBackend)
 {
   TextureData* data = nullptr;
   SurfaceFormat format = gfxPlatform::GetPlatform()->Optimal2DFormatForContent(
-    gfxContentType::COLOR_ALPHA);
+      gfxContentType::COLOR_ALPHA);
   BackendType moz2DBackend =
-    gfxPlatform::GetPlatform()->GetContentBackendFor(aLayersBackend);
+      gfxPlatform::GetPlatform()->GetContentBackendFor(aLayersBackend);
   TextureAllocationFlags allocFlags = TextureAllocationFlags::ALLOC_DEFAULT;
   IntSize size = IntSize(400, 300);
   TextureFlags textureFlags = TextureFlags::DEALLOCATE_CLIENT;
@@ -116,7 +115,7 @@ CreateTextureClientWithBackend(LayersBackend aLayersBackend)
     // Create DXGITextureData.
     data = DXGITextureData::Create(size, format, allocFlags);
   } else if (!data && format == SurfaceFormat::B8G8R8X8 &&
-      moz2DBackend == BackendType::CAIRO) {
+             moz2DBackend == BackendType::CAIRO) {
     // Create DIBTextureData.
     data = DIBTextureData::Create(size, format, nullptr);
   }
@@ -124,8 +123,13 @@ CreateTextureClientWithBackend(LayersBackend aLayersBackend)
 
   if (!data && aLayersBackend == LayersBackend::LAYERS_BASIC) {
     // Create BufferTextureData.
-    data = BufferTextureData::Create(size, format, moz2DBackend, aLayersBackend,
-                                     textureFlags, allocFlags, nullptr);
+    data = BufferTextureData::Create(size,
+                                     format,
+                                     moz2DBackend,
+                                     aLayersBackend,
+                                     textureFlags,
+                                     allocFlags,
+                                     nullptr);
   }
 
   if (data) {
@@ -153,9 +157,9 @@ CreateTextureHostWithBackend(TextureClient* aClient,
   aClient->ToSurfaceDescriptor(descriptor);
 
   wr::MaybeExternalImageId id = Nothing();
-  return TextureHost::Create(descriptor, nullptr, aLayersBackend,
-                             aClient->GetFlags(), id);
+  return TextureHost::Create(
+      descriptor, nullptr, aLayersBackend, aClient->GetFlags(), id);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

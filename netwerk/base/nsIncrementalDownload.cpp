@@ -32,9 +32,9 @@
 
 // Default values used to initialize a nsIncrementalDownload object.
 #define DEFAULT_CHUNK_SIZE (4096 * 16)  // bytes
-#define DEFAULT_INTERVAL    60          // seconds
+#define DEFAULT_INTERVAL 60             // seconds
 
-#define UPDATE_PROGRESS_INTERVAL PRTime(500 * PR_USEC_PER_MSEC) // 500ms
+#define UPDATE_PROGRESS_INTERVAL PRTime(500 * PR_USEC_PER_MSEC)  // 500ms
 
 // Number of times to retry a failed byte-range request.
 #define MAX_RETRY_COUNT 20
@@ -44,14 +44,13 @@ using namespace mozilla;
 //-----------------------------------------------------------------------------
 
 static nsresult
-WriteToFile(nsIFile *lf, const char *data, uint32_t len, int32_t flags)
+WriteToFile(nsIFile* lf, const char* data, uint32_t len, int32_t flags)
 {
-  PRFileDesc *fd;
+  PRFileDesc* fd;
   int32_t mode = 0600;
   nsresult rv;
   rv = lf->OpenNSPRFileDesc(flags, mode, &fd);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   if (len)
     rv = PR_Write(fd, data, len) == int32_t(len) ? NS_OK : NS_ERROR_FAILURE;
@@ -61,7 +60,7 @@ WriteToFile(nsIFile *lf, const char *data, uint32_t len, int32_t flags)
 }
 
 static nsresult
-AppendToFile(nsIFile *lf, const char *data, uint32_t len)
+AppendToFile(nsIFile* lf, const char* data, uint32_t len)
 {
   int32_t flags = PR_WRONLY | PR_CREATE_FILE | PR_APPEND;
   return WriteToFile(lf, data, len, flags);
@@ -69,19 +68,20 @@ AppendToFile(nsIFile *lf, const char *data, uint32_t len)
 
 // maxSize may be -1 if unknown
 static void
-MakeRangeSpec(const int64_t &size, const int64_t &maxSize, int32_t chunkSize,
-              bool fetchRemaining, nsCString &rangeSpec)
+MakeRangeSpec(const int64_t& size,
+              const int64_t& maxSize,
+              int32_t chunkSize,
+              bool fetchRemaining,
+              nsCString& rangeSpec)
 {
   rangeSpec.AssignLiteral("bytes=");
   rangeSpec.AppendInt(int64_t(size));
   rangeSpec.Append('-');
 
-  if (fetchRemaining)
-    return;
+  if (fetchRemaining) return;
 
   int64_t end = size + int64_t(chunkSize);
-  if (maxSize != int64_t(-1) && end > maxSize)
-    end = maxSize;
+  if (maxSize != int64_t(-1) && end > maxSize) end = maxSize;
   end -= 1;
 
   rangeSpec.AppendInt(int64_t(end));
@@ -89,16 +89,15 @@ MakeRangeSpec(const int64_t &size, const int64_t &maxSize, int32_t chunkSize,
 
 //-----------------------------------------------------------------------------
 
-class nsIncrementalDownload final
-  : public nsIIncrementalDownload
-  , public nsIStreamListener
-  , public nsIObserver
-  , public nsIInterfaceRequestor
-  , public nsIChannelEventSink
-  , public nsSupportsWeakReference
-  , public nsIAsyncVerifyRedirectCallback
+class nsIncrementalDownload final : public nsIIncrementalDownload,
+                                    public nsIStreamListener,
+                                    public nsIObserver,
+                                    public nsIInterfaceRequestor,
+                                    public nsIChannelEventSink,
+                                    public nsSupportsWeakReference,
+                                    public nsIAsyncVerifyRedirectCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUEST
   NS_DECL_NSIINCREMENTALDOWNLOAD
@@ -111,58 +110,58 @@ public:
 
   nsIncrementalDownload();
 
-private:
+ private:
   ~nsIncrementalDownload() {}
   nsresult FlushChunk();
-  void     UpdateProgress();
+  void UpdateProgress();
   nsresult CallOnStartRequest();
-  void     CallOnStopRequest();
+  void CallOnStopRequest();
   nsresult StartTimer(int32_t interval);
   nsresult ProcessTimeout();
   nsresult ReadCurrentSize();
-  nsresult ClearRequestHeader(nsIHttpChannel *channel);
+  nsresult ClearRequestHeader(nsIHttpChannel* channel);
 
-  nsCOMPtr<nsIRequestObserver>             mObserver;
-  nsCOMPtr<nsISupports>                    mObserverContext;
-  nsCOMPtr<nsIProgressEventSink>           mProgressSink;
-  nsCOMPtr<nsIURI>                         mURI;
-  nsCOMPtr<nsIURI>                         mFinalURI;
-  nsCOMPtr<nsIFile>                        mDest;
-  nsCOMPtr<nsIChannel>                     mChannel;
-  nsCOMPtr<nsITimer>                       mTimer;
-  mozilla::UniquePtr<char[]>               mChunk;
-  int32_t                                  mChunkLen;
-  int32_t                                  mChunkSize;
-  int32_t                                  mInterval;
-  int64_t                                  mTotalSize;
-  int64_t                                  mCurrentSize;
-  uint32_t                                 mLoadFlags;
-  int32_t                                  mNonPartialCount;
-  nsresult                                 mStatus;
-  bool                                     mIsPending;
-  bool                                     mDidOnStartRequest;
-  PRTime                                   mLastProgressUpdate;
+  nsCOMPtr<nsIRequestObserver> mObserver;
+  nsCOMPtr<nsISupports> mObserverContext;
+  nsCOMPtr<nsIProgressEventSink> mProgressSink;
+  nsCOMPtr<nsIURI> mURI;
+  nsCOMPtr<nsIURI> mFinalURI;
+  nsCOMPtr<nsIFile> mDest;
+  nsCOMPtr<nsIChannel> mChannel;
+  nsCOMPtr<nsITimer> mTimer;
+  mozilla::UniquePtr<char[]> mChunk;
+  int32_t mChunkLen;
+  int32_t mChunkSize;
+  int32_t mInterval;
+  int64_t mTotalSize;
+  int64_t mCurrentSize;
+  uint32_t mLoadFlags;
+  int32_t mNonPartialCount;
+  nsresult mStatus;
+  bool mIsPending;
+  bool mDidOnStartRequest;
+  PRTime mLastProgressUpdate;
   nsCOMPtr<nsIAsyncVerifyRedirectCallback> mRedirectCallback;
-  nsCOMPtr<nsIChannel>                     mNewRedirectChannel;
-  nsCString                                mPartialValidator;
-  bool                                     mCacheBust;
+  nsCOMPtr<nsIChannel> mNewRedirectChannel;
+  nsCString mPartialValidator;
+  bool mCacheBust;
 };
 
 nsIncrementalDownload::nsIncrementalDownload()
-  : mChunkLen(0)
-  , mChunkSize(DEFAULT_CHUNK_SIZE)
-  , mInterval(DEFAULT_INTERVAL)
-  , mTotalSize(-1)
-  , mCurrentSize(-1)
-  , mLoadFlags(LOAD_NORMAL)
-  , mNonPartialCount(0)
-  , mStatus(NS_OK)
-  , mIsPending(false)
-  , mDidOnStartRequest(false)
-  , mLastProgressUpdate(0)
-  , mRedirectCallback(nullptr)
-  , mNewRedirectChannel(nullptr)
-  , mCacheBust(false)
+    : mChunkLen(0),
+      mChunkSize(DEFAULT_CHUNK_SIZE),
+      mInterval(DEFAULT_INTERVAL),
+      mTotalSize(-1),
+      mCurrentSize(-1),
+      mLoadFlags(LOAD_NORMAL),
+      mNonPartialCount(0),
+      mStatus(NS_OK),
+      mIsPending(false),
+      mDidOnStartRequest(false),
+      mLastProgressUpdate(0),
+      mRedirectCallback(nullptr),
+      mNewRedirectChannel(nullptr),
+      mCacheBust(false)
 {
 }
 
@@ -171,12 +170,10 @@ nsIncrementalDownload::FlushChunk()
 {
   NS_ASSERTION(mTotalSize != int64_t(-1), "total size should be known");
 
-  if (mChunkLen == 0)
-    return NS_OK;
+  if (mChunkLen == 0) return NS_OK;
 
   nsresult rv = AppendToFile(mDest, mChunk.get(), mChunkLen);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   mCurrentSize += int64_t(mChunkLen);
   mChunkLen = 0;
@@ -190,16 +187,14 @@ nsIncrementalDownload::UpdateProgress()
   mLastProgressUpdate = PR_Now();
 
   if (mProgressSink)
-    mProgressSink->OnProgress(this, mObserverContext,
-                              mCurrentSize + mChunkLen,
-                              mTotalSize);
+    mProgressSink->OnProgress(
+        this, mObserverContext, mCurrentSize + mChunkLen, mTotalSize);
 }
 
 nsresult
 nsIncrementalDownload::CallOnStartRequest()
 {
-  if (!mObserver || mDidOnStartRequest)
-    return NS_OK;
+  if (!mObserver || mDidOnStartRequest) return NS_OK;
 
   mDidOnStartRequest = true;
   return mObserver->OnStartRequest(this, mObserverContext);
@@ -208,13 +203,11 @@ nsIncrementalDownload::CallOnStartRequest()
 void
 nsIncrementalDownload::CallOnStopRequest()
 {
-  if (!mObserver)
-    return;
+  if (!mObserver) return;
 
   // Ensure that OnStartRequest is always called once before OnStopRequest.
   nsresult rv = CallOnStartRequest();
-  if (NS_SUCCEEDED(mStatus))
-    mStatus = rv;
+  if (NS_SUCCEEDED(mStatus)) mStatus = rv;
 
   mIsPending = false;
 
@@ -226,9 +219,8 @@ nsIncrementalDownload::CallOnStopRequest()
 nsresult
 nsIncrementalDownload::StartTimer(int32_t interval)
 {
-  return NS_NewTimerWithObserver(getter_AddRefs(mTimer),
-                                 this, interval * 1000,
-                                 nsITimer::TYPE_ONE_SHOT);
+  return NS_NewTimerWithObserver(
+      getter_AddRefs(mTimer), this, interval * 1000, nsITimer::TYPE_ONE_SHOT);
 }
 
 nsresult
@@ -250,23 +242,20 @@ nsIncrementalDownload::ProcessTimeout()
                               nsContentUtils::GetSystemPrincipal(),
                               nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
                               nsIContentPolicy::TYPE_OTHER,
-                              nullptr,   // loadGroup
-                              this,      // aCallbacks
+                              nullptr,  // loadGroup
+                              this,     // aCallbacks
                               mLoadFlags);
 
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   nsCOMPtr<nsIHttpChannel> http = do_QueryInterface(channel, &rv);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   NS_ASSERTION(mCurrentSize != int64_t(-1),
-      "we should know the current file size by now");
+               "we should know the current file size by now");
 
   rv = ClearRequestHeader(http);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // Don't bother making a range request if we are just going to fetch the
   // entire document.
@@ -275,37 +264,39 @@ nsIncrementalDownload::ProcessTimeout()
     MakeRangeSpec(mCurrentSize, mTotalSize, mChunkSize, mInterval == 0, range);
 
     rv = http->SetRequestHeader(NS_LITERAL_CSTRING("Range"), range, false);
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
 
     if (!mPartialValidator.IsEmpty()) {
-      rv = http->SetRequestHeader(NS_LITERAL_CSTRING("If-Range"),
-                                  mPartialValidator, false);
+      rv = http->SetRequestHeader(
+          NS_LITERAL_CSTRING("If-Range"), mPartialValidator, false);
       if (NS_FAILED(rv)) {
-        LOG(("nsIncrementalDownload::ProcessTimeout\n"
+        LOG(
+            ("nsIncrementalDownload::ProcessTimeout\n"
              "    failed to set request header: If-Range\n"));
       }
     }
 
     if (mCacheBust) {
       rv = http->SetRequestHeader(NS_LITERAL_CSTRING("Cache-Control"),
-                                  NS_LITERAL_CSTRING("no-cache"), false);
+                                  NS_LITERAL_CSTRING("no-cache"),
+                                  false);
       if (NS_FAILED(rv)) {
-        LOG(("nsIncrementalDownload::ProcessTimeout\n"
+        LOG(
+            ("nsIncrementalDownload::ProcessTimeout\n"
              "    failed to set request header: If-Range\n"));
       }
-      rv = http->SetRequestHeader(NS_LITERAL_CSTRING("Pragma"),
-                                  NS_LITERAL_CSTRING("no-cache"), false);
+      rv = http->SetRequestHeader(
+          NS_LITERAL_CSTRING("Pragma"), NS_LITERAL_CSTRING("no-cache"), false);
       if (NS_FAILED(rv)) {
-        LOG(("nsIncrementalDownload::ProcessTimeout\n"
+        LOG(
+            ("nsIncrementalDownload::ProcessTimeout\n"
              "    failed to set request header: If-Range\n"));
       }
     }
   }
 
   rv = channel->AsyncOpen2(this);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // Wait to assign mChannel when we know we are going to succeed.  This is
   // important because we don't want to introduce a reference cycle between
@@ -320,14 +311,13 @@ nsresult
 nsIncrementalDownload::ReadCurrentSize()
 {
   int64_t size;
-  nsresult rv = mDest->GetFileSize((int64_t *) &size);
+  nsresult rv = mDest->GetFileSize((int64_t*)&size);
   if (rv == NS_ERROR_FILE_NOT_FOUND ||
       rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
     mCurrentSize = 0;
     return NS_OK;
   }
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   mCurrentSize = size;
   return NS_OK;
@@ -349,7 +339,7 @@ NS_IMPL_ISUPPORTS(nsIncrementalDownload,
 // nsIRequest
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetName(nsACString &name)
+nsIncrementalDownload::GetName(nsACString& name)
 {
   NS_ENSURE_TRUE(mURI, NS_ERROR_NOT_INITIALIZED);
 
@@ -357,14 +347,14 @@ nsIncrementalDownload::GetName(nsACString &name)
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::IsPending(bool *isPending)
+nsIncrementalDownload::IsPending(bool* isPending)
 {
   *isPending = mIsPending;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetStatus(nsresult *status)
+nsIncrementalDownload::GetStatus(nsresult* status)
 {
   *status = mStatus;
   return NS_OK;
@@ -376,24 +366,20 @@ nsIncrementalDownload::Cancel(nsresult status)
   NS_ENSURE_ARG(NS_FAILED(status));
 
   // Ignore this cancelation if we're already canceled.
-  if (NS_FAILED(mStatus))
-    return NS_OK;
+  if (NS_FAILED(mStatus)) return NS_OK;
 
   mStatus = status;
 
   // Nothing more to do if callbacks aren't pending.
-  if (!mIsPending)
-    return NS_OK;
+  if (!mIsPending) return NS_OK;
 
   if (mChannel) {
     mChannel->Cancel(mStatus);
     NS_ASSERTION(!mTimer, "what is this timer object doing here?");
-  }
-  else {
+  } else {
     // dispatch a timer callback event to drive invoking our listener's
     // OnStopRequest.
-    if (mTimer)
-      mTimer->Cancel();
+    if (mTimer) mTimer->Cancel();
     StartTimer(0);
   }
 
@@ -401,19 +387,13 @@ nsIncrementalDownload::Cancel(nsresult status)
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::Suspend()
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+nsIncrementalDownload::Suspend() { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
-nsIncrementalDownload::Resume()
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+nsIncrementalDownload::Resume() { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetLoadFlags(nsLoadFlags *loadFlags)
+nsIncrementalDownload::GetLoadFlags(nsLoadFlags* loadFlags)
 {
   *loadFlags = mLoadFlags;
   return NS_OK;
@@ -427,13 +407,13 @@ nsIncrementalDownload::SetLoadFlags(nsLoadFlags loadFlags)
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetLoadGroup(nsILoadGroup **loadGroup)
+nsIncrementalDownload::GetLoadGroup(nsILoadGroup** loadGroup)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::SetLoadGroup(nsILoadGroup *loadGroup)
+nsIncrementalDownload::SetLoadGroup(nsILoadGroup* loadGroup)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -441,8 +421,10 @@ nsIncrementalDownload::SetLoadGroup(nsILoadGroup *loadGroup)
 // nsIIncrementalDownload
 
 NS_IMETHODIMP
-nsIncrementalDownload::Init(nsIURI *uri, nsIFile *dest,
-                            int32_t chunkSize, int32_t interval)
+nsIncrementalDownload::Init(nsIURI* uri,
+                            nsIFile* dest,
+                            int32_t chunkSize,
+                            int32_t interval)
 {
   // Keep it simple: only allow initialization once
   NS_ENSURE_FALSE(mURI, NS_ERROR_ALREADY_INITIALIZED);
@@ -453,29 +435,27 @@ nsIncrementalDownload::Init(nsIURI *uri, nsIFile *dest,
   mURI = uri;
   mFinalURI = uri;
 
-  if (chunkSize > 0)
-    mChunkSize = chunkSize;
-  if (interval >= 0)
-    mInterval = interval;
+  if (chunkSize > 0) mChunkSize = chunkSize;
+  if (interval >= 0) mInterval = interval;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetURI(nsIURI **result)
+nsIncrementalDownload::GetURI(nsIURI** result)
 {
   NS_IF_ADDREF(*result = mURI);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetFinalURI(nsIURI **result)
+nsIncrementalDownload::GetFinalURI(nsIURI** result)
 {
   NS_IF_ADDREF(*result = mFinalURI);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetDestination(nsIFile **result)
+nsIncrementalDownload::GetDestination(nsIFile** result)
 {
   if (!mDest) {
     *result = nullptr;
@@ -488,22 +468,21 @@ nsIncrementalDownload::GetDestination(nsIFile **result)
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetTotalSize(int64_t *result)
+nsIncrementalDownload::GetTotalSize(int64_t* result)
 {
   *result = mTotalSize;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetCurrentSize(int64_t *result)
+nsIncrementalDownload::GetCurrentSize(int64_t* result)
 {
   *result = mCurrentSize;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::Start(nsIRequestObserver *observer,
-                             nsISupports *context)
+nsIncrementalDownload::Start(nsIRequestObserver* observer, nsISupports* context)
 {
   NS_ENSURE_ARG(observer);
   NS_ENSURE_FALSE(mIsPending, NS_ERROR_IN_PROGRESS);
@@ -513,16 +492,13 @@ nsIncrementalDownload::Start(nsIRequestObserver *observer,
   // reference to us, so that we don't have to worry about calling
   // RemoveObserver.  XXX(darin): The timer code should do this for us.
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
-  if (obs)
-    obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, true);
+  if (obs) obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, true);
 
   nsresult rv = ReadCurrentSize();
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   rv = StartTimer(0);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   mObserver = observer;
   mObserverContext = context;
@@ -535,20 +511,17 @@ nsIncrementalDownload::Start(nsIRequestObserver *observer,
 // nsIRequestObserver
 
 NS_IMETHODIMP
-nsIncrementalDownload::OnStartRequest(nsIRequest *request,
-                                      nsISupports *context)
+nsIncrementalDownload::OnStartRequest(nsIRequest* request, nsISupports* context)
 {
   nsresult rv;
 
   nsCOMPtr<nsIHttpChannel> http = do_QueryInterface(request, &rv);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // Ensure that we are receiving a 206 response.
   uint32_t code;
   rv = http->GetResponseStatus(&code);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
   if (code != 206) {
     // We may already have the entire file downloaded, in which case
     // our request for a range beyond the end of the file would have
@@ -595,7 +568,7 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
 
       rv = http->GetResponseHeader(NS_LITERAL_CSTRING("Content-Range"), buf);
       if (NS_FAILED(rv))
-        return rv; // it isn't a useful 206 without a CONTENT-RANGE of some sort
+        return rv;  // it isn't a useful 206 without a CONTENT-RANGE of some sort
 
       // Content-Range: bytes 0-299999/25604694
       int32_t p = buf.Find("bytes ");
@@ -603,15 +576,12 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
       // first look for the starting point of the content-range
       // to make sure it is what we expect
       if (p != -1) {
-        char *endptr = nullptr;
-        const char *s = buf.get() + p + 6;
-        while (*s && *s == ' ')
-          s++;
+        char* endptr = nullptr;
+        const char* s = buf.get() + p + 6;
+        while (*s && *s == ' ') s++;
         startByte = strtol(s, &endptr, 10);
 
-        if (*s && endptr && (endptr != s) &&
-            (mCurrentSize == startByte)) {
-
+        if (*s && endptr && (endptr != s) && (mCurrentSize == startByte)) {
           // ok the starting point is confirmed. We still need to check the
           // total size of the range for consistency if this isn't
           // the first chunk
@@ -622,7 +592,9 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
             int32_t slash = buf.FindChar('/');
             int64_t rangeSize = 0;
             if (slash != kNotFound &&
-                (PR_sscanf(buf.get() + slash + 1, "%lld", (int64_t *) &rangeSize) == 1) &&
+                (PR_sscanf(buf.get() + slash + 1,
+                           "%lld",
+                           (int64_t*)&rangeSize) == 1) &&
                 rangeSize == mTotalSize) {
               confirmedOK = true;
             }
@@ -649,15 +621,17 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
   if (mTotalSize == int64_t(-1)) {
     // Update knowledge of mFinalURI
     rv = http->GetURI(getter_AddRefs(mFinalURI));
-    if (NS_FAILED(rv))
-      return rv;
-    Unused << http->GetResponseHeader(NS_LITERAL_CSTRING("Etag"), mPartialValidator);
+    if (NS_FAILED(rv)) return rv;
+    Unused << http->GetResponseHeader(NS_LITERAL_CSTRING("Etag"),
+                                      mPartialValidator);
     if (StringBeginsWith(mPartialValidator, NS_LITERAL_CSTRING("W/")))
-      mPartialValidator.Truncate(); // don't use weak validators
+      mPartialValidator.Truncate();  // don't use weak validators
     if (mPartialValidator.IsEmpty()) {
-      rv = http->GetResponseHeader(NS_LITERAL_CSTRING("Last-Modified"), mPartialValidator);
+      rv = http->GetResponseHeader(NS_LITERAL_CSTRING("Last-Modified"),
+                                   mPartialValidator);
       if (NS_FAILED(rv)) {
-        LOG(("nsIncrementalDownload::OnStartRequest\n"
+        LOG(
+            ("nsIncrementalDownload::OnStartRequest\n"
              "    empty validator\n"));
       }
     }
@@ -667,19 +641,17 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
       // download file.
       nsAutoCString buf;
       rv = http->GetResponseHeader(NS_LITERAL_CSTRING("Content-Range"), buf);
-      if (NS_FAILED(rv))
-        return rv;
+      if (NS_FAILED(rv)) return rv;
       int32_t slash = buf.FindChar('/');
       if (slash == kNotFound) {
         NS_WARNING("server returned invalid Content-Range header!");
         return NS_ERROR_UNEXPECTED;
       }
-      if (PR_sscanf(buf.get() + slash + 1, "%lld", (int64_t *) &mTotalSize) != 1)
+      if (PR_sscanf(buf.get() + slash + 1, "%lld", (int64_t*)&mTotalSize) != 1)
         return NS_ERROR_UNEXPECTED;
     } else {
       rv = http->GetContentLength(&mTotalSize);
-      if (NS_FAILED(rv))
-        return rv;
+      if (NS_FAILED(rv)) return rv;
       // We need to know the total size of the thing we're trying to download.
       if (mTotalSize == int64_t(-1)) {
         NS_WARNING("server returned no content-length header!");
@@ -693,8 +665,7 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
 
     // Notify observer that we are starting...
     rv = CallOnStartRequest();
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
   }
 
   // Adjust mChunkSize accordingly if mCurrentSize is close to mTotalSize.
@@ -704,36 +675,30 @@ nsIncrementalDownload::OnStartRequest(nsIRequest *request,
     return NS_ERROR_UNEXPECTED;
   }
 
-  if (diff < int64_t(mChunkSize))
-    mChunkSize = uint32_t(diff);
+  if (diff < int64_t(mChunkSize)) mChunkSize = uint32_t(diff);
 
   mChunk = mozilla::MakeUniqueFallible<char[]>(mChunkSize);
-  if (!mChunk)
-    rv = NS_ERROR_OUT_OF_MEMORY;
+  if (!mChunk) rv = NS_ERROR_OUT_OF_MEMORY;
 
   return rv;
 }
 
 NS_IMETHODIMP
-nsIncrementalDownload::OnStopRequest(nsIRequest *request,
-                                     nsISupports *context,
+nsIncrementalDownload::OnStopRequest(nsIRequest* request,
+                                     nsISupports* context,
                                      nsresult status)
 {
   // Not a real error; just a trick to kill off the channel without our
   // listener having to care.
-  if (status == NS_ERROR_DOWNLOAD_NOT_PARTIAL)
-    return NS_OK;
+  if (status == NS_ERROR_DOWNLOAD_NOT_PARTIAL) return NS_OK;
 
   // Not a real error; just a trick used to suppress OnDataAvailable calls.
-  if (status == NS_ERROR_DOWNLOAD_COMPLETE)
-    status = NS_OK;
+  if (status == NS_ERROR_DOWNLOAD_COMPLETE) status = NS_OK;
 
-  if (NS_SUCCEEDED(mStatus))
-    mStatus = status;
+  if (NS_SUCCEEDED(mStatus)) mStatus = status;
 
   if (mChunk) {
-    if (NS_SUCCEEDED(mStatus))
-      mStatus = FlushChunk();
+    if (NS_SUCCEEDED(mStatus)) mStatus = FlushChunk();
 
     mChunk = nullptr;  // deletes memory
     mChunkLen = 0;
@@ -754,9 +719,9 @@ nsIncrementalDownload::OnStopRequest(nsIRequest *request,
 // nsIStreamListener
 
 NS_IMETHODIMP
-nsIncrementalDownload::OnDataAvailable(nsIRequest *request,
-                                       nsISupports *context,
-                                       nsIInputStream *input,
+nsIncrementalDownload::OnDataAvailable(nsIRequest* request,
+                                       nsISupports* context,
+                                       nsIInputStream* input,
                                        uint64_t offset,
                                        uint32_t count)
 {
@@ -765,18 +730,15 @@ nsIncrementalDownload::OnDataAvailable(nsIRequest *request,
     uint32_t n, len = std::min(space, count);
 
     nsresult rv = input->Read(&mChunk[mChunkLen], len, &n);
-    if (NS_FAILED(rv))
-      return rv;
-    if (n != len)
-      return NS_ERROR_UNEXPECTED;
+    if (NS_FAILED(rv)) return rv;
+    if (n != len) return NS_ERROR_UNEXPECTED;
 
     count -= n;
     mChunkLen += n;
 
     if (mChunkLen == mChunkSize) {
       rv = FlushChunk();
-      if (NS_FAILED(rv))
-        return rv;
+      if (NS_FAILED(rv)) return rv;
     }
   }
 
@@ -789,8 +751,9 @@ nsIncrementalDownload::OnDataAvailable(nsIRequest *request,
 // nsIObserver
 
 NS_IMETHODIMP
-nsIncrementalDownload::Observe(nsISupports *subject, const char *topic,
-                               const char16_t *data)
+nsIncrementalDownload::Observe(nsISupports* subject,
+                               const char* topic,
+                               const char16_t* data)
 {
   if (strcmp(topic, NS_XPCOM_SHUTDOWN_OBSERVER_ID) == 0) {
     Cancel(NS_ERROR_ABORT);
@@ -799,12 +762,10 @@ nsIncrementalDownload::Observe(nsISupports *subject, const char *topic,
     // observer here.  Otherwise, we would notify them after XPCOM has been
     // shutdown or not at all.
     CallOnStopRequest();
-  }
-  else if (strcmp(topic, NS_TIMER_CALLBACK_TOPIC) == 0) {
+  } else if (strcmp(topic, NS_TIMER_CALLBACK_TOPIC) == 0) {
     mTimer = nullptr;
     nsresult rv = ProcessTimeout();
-    if (NS_FAILED(rv))
-      Cancel(rv);
+    if (NS_FAILED(rv)) Cancel(rv);
   }
   return NS_OK;
 }
@@ -812,39 +773,39 @@ nsIncrementalDownload::Observe(nsISupports *subject, const char *topic,
 // nsIInterfaceRequestor
 
 NS_IMETHODIMP
-nsIncrementalDownload::GetInterface(const nsIID &iid, void **result)
+nsIncrementalDownload::GetInterface(const nsIID& iid, void** result)
 {
   if (iid.Equals(NS_GET_IID(nsIChannelEventSink))) {
     NS_ADDREF_THIS();
-    *result = static_cast<nsIChannelEventSink *>(this);
+    *result = static_cast<nsIChannelEventSink*>(this);
     return NS_OK;
   }
 
   nsCOMPtr<nsIInterfaceRequestor> ir = do_QueryInterface(mObserver);
-  if (ir)
-    return ir->GetInterface(iid, result);
+  if (ir) return ir->GetInterface(iid, result);
 
   return NS_ERROR_NO_INTERFACE;
 }
 
 nsresult
-nsIncrementalDownload::ClearRequestHeader(nsIHttpChannel *channel)
+nsIncrementalDownload::ClearRequestHeader(nsIHttpChannel* channel)
 {
   NS_ENSURE_ARG(channel);
 
   // We don't support encodings -- they make the Content-Length not equal
   // to the actual size of the data.
-  return channel->SetRequestHeader(NS_LITERAL_CSTRING("Accept-Encoding"),
-                                   NS_LITERAL_CSTRING(""), false);
+  return channel->SetRequestHeader(
+      NS_LITERAL_CSTRING("Accept-Encoding"), NS_LITERAL_CSTRING(""), false);
 }
 
 // nsIChannelEventSink
 
 NS_IMETHODIMP
-nsIncrementalDownload::AsyncOnChannelRedirect(nsIChannel *oldChannel,
-                                              nsIChannel *newChannel,
-                                              uint32_t flags,
-                                              nsIAsyncVerifyRedirectCallback *cb)
+nsIncrementalDownload::AsyncOnChannelRedirect(
+    nsIChannel* oldChannel,
+    nsIChannel* newChannel,
+    uint32_t flags,
+    nsIAsyncVerifyRedirectCallback* cb)
 {
   // In response to a redirect, we need to propagate the Range header.  See bug
   // 311595.  Any failure code returned from this function aborts the redirect.
@@ -858,8 +819,7 @@ nsIncrementalDownload::AsyncOnChannelRedirect(nsIChannel *oldChannel,
   NS_NAMED_LITERAL_CSTRING(rangeHdr, "Range");
 
   nsresult rv = ClearRequestHeader(newHttpChannel);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // If we didn't have a Range header, then we must be doing a full download.
   nsAutoCString rangeVal;
@@ -874,15 +834,18 @@ nsIncrementalDownload::AsyncOnChannelRedirect(nsIChannel *oldChannel,
 
   if (mCacheBust) {
     rv = newHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Cache-Control"),
-                                          NS_LITERAL_CSTRING("no-cache"), false);
+                                          NS_LITERAL_CSTRING("no-cache"),
+                                          false);
     if (NS_FAILED(rv)) {
-      LOG(("nsIncrementalDownload::AsyncOnChannelRedirect\n"
+      LOG(
+          ("nsIncrementalDownload::AsyncOnChannelRedirect\n"
            "    failed to set request header: Cache-Control\n"));
     }
-    rv = newHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Pragma"),
-                                          NS_LITERAL_CSTRING("no-cache"), false);
+    rv = newHttpChannel->SetRequestHeader(
+        NS_LITERAL_CSTRING("Pragma"), NS_LITERAL_CSTRING("no-cache"), false);
     if (NS_FAILED(rv)) {
-      LOG(("nsIncrementalDownload::AsyncOnChannelRedirect\n"
+      LOG(
+          ("nsIncrementalDownload::AsyncOnChannelRedirect\n"
            "    failed to set request header: Pragma\n"));
     }
   }
@@ -896,12 +859,12 @@ nsIncrementalDownload::AsyncOnChannelRedirect(nsIChannel *oldChannel,
   if (sink) {
     rv = sink->AsyncOnChannelRedirect(oldChannel, newChannel, flags, this);
     if (NS_FAILED(rv)) {
-        mRedirectCallback = nullptr;
-        mNewRedirectChannel = nullptr;
+      mRedirectCallback = nullptr;
+      mNewRedirectChannel = nullptr;
     }
     return rv;
   }
-  (void) OnRedirectVerifyCallback(NS_OK);
+  (void)OnRedirectVerifyCallback(NS_OK);
   return NS_OK;
 }
 
@@ -912,8 +875,7 @@ nsIncrementalDownload::OnRedirectVerifyCallback(nsresult result)
   NS_ASSERTION(mNewRedirectChannel, "mNewRedirectChannel not set in callback");
 
   // Update mChannel, so we can Cancel the new channel.
-  if (NS_SUCCEEDED(result))
-    mChannel = mNewRedirectChannel;
+  if (NS_SUCCEEDED(result)) mChannel = mNewRedirectChannel;
 
   mRedirectCallback->OnRedirectVerifyCallback(result);
   mRedirectCallback = nullptr;
@@ -922,14 +884,12 @@ nsIncrementalDownload::OnRedirectVerifyCallback(nsresult result)
 }
 
 extern nsresult
-net_NewIncrementalDownload(nsISupports *outer, const nsIID &iid, void **result)
+net_NewIncrementalDownload(nsISupports* outer, const nsIID& iid, void** result)
 {
-  if (outer)
-    return NS_ERROR_NO_AGGREGATION;
+  if (outer) return NS_ERROR_NO_AGGREGATION;
 
-  nsIncrementalDownload *d = new nsIncrementalDownload();
-  if (!d)
-    return NS_ERROR_OUT_OF_MEMORY;
+  nsIncrementalDownload* d = new nsIncrementalDownload();
+  if (!d) return NS_ERROR_OUT_OF_MEMORY;
 
   NS_ADDREF(d);
   nsresult rv = d->QueryInterface(iid, result);

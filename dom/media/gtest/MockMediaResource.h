@@ -9,14 +9,15 @@
 #include "nsTArray.h"
 #include "mozilla/Atomics.h"
 
-namespace mozilla
-{
+namespace mozilla {
 
 class MockMediaResource : public MediaResource
 {
-public:
+ public:
   explicit MockMediaResource(const char* aFileName);
-  nsresult ReadAt(int64_t aOffset, char* aBuffer, uint32_t aCount,
+  nsresult ReadAt(int64_t aOffset,
+                  char* aBuffer,
+                  uint32_t aCount,
                   uint32_t* aBytes) override;
   // Data stored in file, caching recommended.
   bool ShouldCacheReads() override { return true; }
@@ -26,11 +27,9 @@ public:
   int64_t GetLength() override;
   int64_t GetNextCachedData(int64_t aOffset) override;
   int64_t GetCachedDataEnd(int64_t aOffset) override;
-  bool IsDataCachedToEndOfResource(int64_t aOffset) override
-  {
-    return false;
-  }
-  nsresult ReadFromCache(char* aBuffer, int64_t aOffset,
+  bool IsDataCachedToEndOfResource(int64_t aOffset) override { return false; }
+  nsresult ReadFromCache(char* aBuffer,
+                         int64_t aOffset,
                          uint32_t aCount) override
   {
     uint32_t bytesRead = 0;
@@ -45,16 +44,16 @@ public:
   void MockClearBufferedRanges();
   void MockAddBufferedRange(int64_t aStart, int64_t aEnd);
 
-protected:
+ protected:
   virtual ~MockMediaResource();
 
-private:
+ private:
   FILE* mFileHandle;
   const char* mFileName;
   MediaByteRangeSet mRanges;
   Atomic<int> mEntry;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

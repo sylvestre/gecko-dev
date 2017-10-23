@@ -10,8 +10,7 @@
 namespace mozilla {
 namespace dom {
 
-TimeoutHandler::TimeoutHandler(JSContext* aCx)
-  : TimeoutHandler()
+TimeoutHandler::TimeoutHandler(JSContext* aCx) : TimeoutHandler()
 {
   nsJSUtils::GetCallingLocation(aCx, mFileName, &mLineNo, &mColumn);
 }
@@ -23,8 +22,9 @@ TimeoutHandler::Call()
 }
 
 void
-TimeoutHandler::GetLocation(const char** aFileName, uint32_t* aLineNo,
-                                    uint32_t* aColumn)
+TimeoutHandler::GetLocation(const char** aFileName,
+                            uint32_t* aLineNo,
+                            uint32_t* aColumn)
 {
   *aFileName = mFileName.get();
   *aLineNo = mLineNo;
@@ -40,5 +40,5 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TimeoutHandler)
   NS_INTERFACE_MAP_ENTRY(nsITimeoutHandler)
 NS_INTERFACE_MAP_END
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

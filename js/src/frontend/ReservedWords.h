@@ -9,7 +9,7 @@
 #ifndef vm_ReservedWords_h
 #define vm_ReservedWords_h
 
-#define FOR_EACH_JAVASCRIPT_RESERVED_WORD(macro) \
+#define FOR_EACH_JAVASCRIPT_RESERVED_WORD(macro)          \
     macro(false, false_, TOK_FALSE) \
     macro(true, true_, TOK_TRUE) \
     macro(null, null, TOK_NULL) \

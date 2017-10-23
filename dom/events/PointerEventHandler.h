@@ -18,30 +18,24 @@ class PresShell;
 
 class PointerCaptureInfo final
 {
-public:
+ public:
   nsCOMPtr<nsIContent> mPendingContent;
   nsCOMPtr<nsIContent> mOverrideContent;
 
   explicit PointerCaptureInfo(nsIContent* aPendingContent)
-    : mPendingContent(aPendingContent)
+      : mPendingContent(aPendingContent)
   {
     MOZ_COUNT_CTOR(PointerCaptureInfo);
   }
 
-  ~PointerCaptureInfo()
-  {
-    MOZ_COUNT_DTOR(PointerCaptureInfo);
-  }
+  ~PointerCaptureInfo() { MOZ_COUNT_DTOR(PointerCaptureInfo); }
 
-  bool Empty()
-  {
-    return !(mPendingContent || mOverrideContent);
-  }
+  bool Empty() { return !(mPendingContent || mOverrideContent); }
 };
 
 class PointerEventHandler final
 {
-public:
+ public:
   // Called in PresShell::Initialize to initialize pointer event related
   // preferences.
   static void Initialize();
@@ -119,8 +113,7 @@ public:
    *       handlers because they may implement default behaviors
    */
   static void PreHandlePointerEventsPreventDefault(
-                WidgetPointerEvent* aPointerEvent,
-                WidgetGUIEvent* aMouseOrTouchEvent);
+      WidgetPointerEvent* aPointerEvent, WidgetGUIEvent* aMouseOrTouchEvent);
 
   /*
    * This function handles the preventDefault behavior of pointerdown. When user
@@ -133,8 +126,7 @@ public:
    * content preventDefault on pointerdown
    */
   static void PostHandlePointerEventsPreventDefault(
-                WidgetPointerEvent* aPointerEvent,
-                WidgetGUIEvent* aMouseOrTouchEvent);
+      WidgetPointerEvent* aPointerEvent, WidgetGUIEvent* aMouseOrTouchEvent);
 
   static void DispatchPointerFromMouseOrTouch(PresShell* aShell,
                                               nsIFrame* aFrame,
@@ -143,7 +135,7 @@ public:
                                               nsEventStatus* aStatus,
                                               nsIContent** aTargetContent);
 
-private:
+ private:
   // GetPointerType returns pointer type like mouse, pen or touch for pointer
   // event with pointerId. The return value must be one of
   // nsIDOMMouseEvent::MOZ_SOURCE_*
@@ -154,11 +146,11 @@ private:
   static bool GetPointerPrimaryState(uint32_t aPointerId);
 
   static void DispatchGotOrLostPointerCaptureEvent(
-                bool aIsGotCapture,
-                const WidgetPointerEvent* aPointerEvent,
-                nsIContent* aCaptureTarget);
+      bool aIsGotCapture,
+      const WidgetPointerEvent* aPointerEvent,
+      nsIContent* aCaptureTarget);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_PointerEventHandler_h
+#endif  // mozilla_PointerEventHandler_h

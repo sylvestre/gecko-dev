@@ -14,23 +14,20 @@ namespace embedding {
 
 NS_IMPL_ISUPPORTS(PrintProgressDialogParent, nsIObserver)
 
-PrintProgressDialogParent::PrintProgressDialogParent() :
-  mActive(true)
-{
-}
+PrintProgressDialogParent::PrintProgressDialogParent() : mActive(true) {}
 
-PrintProgressDialogParent::~PrintProgressDialogParent()
-{
-}
+PrintProgressDialogParent::~PrintProgressDialogParent() {}
 
 void
-PrintProgressDialogParent::SetWebProgressListener(nsIWebProgressListener* aListener)
+PrintProgressDialogParent::SetWebProgressListener(
+    nsIWebProgressListener* aListener)
 {
   mWebProgressListener = aListener;
 }
 
 void
-PrintProgressDialogParent::SetPrintProgressParams(nsIPrintProgressParams* aParams)
+PrintProgressDialogParent::SetPrintProgressParams(
+    nsIPrintProgressParams* aParams)
 {
   mPrintProgressParams = aParams;
 }
@@ -52,8 +49,11 @@ PrintProgressDialogParent::RecvProgressChange(const long& curSelfProgress,
                                               const long& maxTotalProgress)
 {
   if (mWebProgressListener) {
-    mWebProgressListener->OnProgressChange(nullptr, nullptr, curSelfProgress,
-                                           maxSelfProgress, curTotalProgress,
+    mWebProgressListener->OnProgressChange(nullptr,
+                                           nullptr,
+                                           curSelfProgress,
+                                           maxSelfProgress,
+                                           curTotalProgress,
                                            maxTotalProgress);
   }
   return IPC_OK();
@@ -93,19 +93,20 @@ PrintProgressDialogParent::Recv__delete__()
 
 // nsIObserver
 NS_IMETHODIMP
-PrintProgressDialogParent::Observe(nsISupports *aSubject, const char *aTopic,
-                                   const char16_t *aData)
+PrintProgressDialogParent::Observe(nsISupports* aSubject,
+                                   const char* aTopic,
+                                   const char16_t* aData)
 {
   if (mActive) {
     Unused << SendDialogOpened();
   } else {
-    NS_WARNING("The print progress dialog finished opening, but communications "
-               "with the child have been closed.");
+    NS_WARNING(
+        "The print progress dialog finished opening, but communications "
+        "with the child have been closed.");
   }
 
   return NS_OK;
 }
 
-
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla

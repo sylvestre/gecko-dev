@@ -13,10 +13,8 @@
 
 #include "js/Proxy.h"
 
-template<>
-inline bool
-JSObject::is<js::ShapedObject>() const
-{
+template <>
+inline bool JSObject::is<js::ShapedObject>() const {
     return isNative() || is<js::ProxyObject>() || is<js::TypedObject>();
 }
 

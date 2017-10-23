@@ -19,12 +19,12 @@ namespace mozilla {
 // MEDIAMIMETYPE macro, or to compare a MediaMIMEType to a literal.
 class DependentMediaMIMEType
 {
-public:
+ public:
   // Construction from a literal. Checked in debug builds.
   // Use MEDIAMIMETYPE macro instead, for static checking.
-  template <size_t N>
+  template<size_t N>
   explicit DependentMediaMIMEType(const char (&aType)[N])
-    : mMIMEType(aType, N - 1)
+      : mMIMEType(aType, N - 1)
   {
     MOZ_ASSERT(IsMediaMIMEType(aType, N - 1), "Invalid media MIME type");
   }
@@ -32,26 +32,25 @@ public:
   // MIME "type/subtype".
   const nsDependentCString& AsDependentString() const { return mMIMEType; }
 
-private:
+ private:
   nsDependentCString mMIMEType;
 };
 
 // Instantiate a DependentMediaMIMEType from a literal. Statically checked.
-#define MEDIAMIMETYPE(LIT)                                            \
-  static_cast<const DependentMediaMIMEType&>(                         \
-    []() {                                                            \
-      static_assert(IsMediaMIMEType(LIT), "Invalid media MIME type"); \
-      return DependentMediaMIMEType(LIT);                             \
-    }())
+#define MEDIAMIMETYPE(LIT)                                          \
+  static_cast<const DependentMediaMIMEType&>([]() {                 \
+    static_assert(IsMediaMIMEType(LIT), "Invalid media MIME type"); \
+    return DependentMediaMIMEType(LIT);                             \
+  }())
 
 // Class containing only pre-parsed lowercase media MIME type/subtype.
 class MediaMIMEType
 {
-public:
+ public:
   // Construction from a DependentMediaMIMEType, with its inherent checks.
   // Implicit so MEDIAMIMETYPE can be used wherever a MediaMIMEType is expected.
   MOZ_IMPLICIT MediaMIMEType(const DependentMediaMIMEType& aType)
-    : mMIMEType(aType.AsDependentString())
+      : mMIMEType(aType.AsDependentString())
   {
   }
 
@@ -90,30 +89,32 @@ public:
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   friend Maybe<MediaMIMEType> MakeMediaMIMEType(const nsAString& aType);
   friend class MediaExtendedMIMEType;
   explicit MediaMIMEType(const nsACString& aType);
 
-  nsCString mMIMEType; // UTF8 MIME "type/subtype".
+  nsCString mMIMEType;  // UTF8 MIME "type/subtype".
 };
 
-Maybe<MediaMIMEType> MakeMediaMIMEType(const nsAString& aType);
-Maybe<MediaMIMEType> MakeMediaMIMEType(const nsACString& aType);
-Maybe<MediaMIMEType> MakeMediaMIMEType(const char* aType);
-
+Maybe<MediaMIMEType>
+MakeMediaMIMEType(const nsAString& aType);
+Maybe<MediaMIMEType>
+MakeMediaMIMEType(const nsACString& aType);
+Maybe<MediaMIMEType>
+MakeMediaMIMEType(const char* aType);
 
 // A list of case-sensitive codecs attached to a MediaExtendedMIMEType.
 class MediaCodecs
 {
-public:
-  MediaCodecs() { }
+ public:
+  MediaCodecs() {}
   // Construction from a comma-separated list of codecs. Unchecked.
-  explicit MediaCodecs(const nsAString& aCodecs) : mCodecs(aCodecs) { }
+  explicit MediaCodecs(const nsAString& aCodecs) : mCodecs(aCodecs) {}
   // Construction from a literal comma-separated list of codecs. Unchecked.
-  template <size_t N>
+  template<size_t N>
   explicit MediaCodecs(const char (&aCodecs)[N])
-    : mCodecs(NS_ConvertUTF8toUTF16(aCodecs, N - 1))
+      : mCodecs(NS_ConvertUTF8toUTF16(aCodecs, N - 1))
   {
   }
 
@@ -121,16 +122,14 @@ public:
   const nsString& AsString() const { return mCodecs; }
 
   using RangeType =
-    const StringListRange<nsString, StringListRangeEmptyItems::ProcessEmptyItems>;
+      const StringListRange<nsString,
+                            StringListRangeEmptyItems::ProcessEmptyItems>;
 
   // Produces a range object with begin()&end(), can be used in range-for loops.
   // This will iterate through all codecs, even empty ones (except if the
   // original list was an empty string). Iterators dereference to
   // 'const nsDependentString', valid for as long as this MediaCodecs object.
-  RangeType Range() const
-  {
-    return RangeType(mCodecs);
-  };
+  RangeType Range() const { return RangeType(mCodecs); };
 
   // Does this list of codecs contain the given aCodec?
   bool Contains(const nsAString& aCodec) const;
@@ -140,7 +139,7 @@ public:
   // Does this list of codecs contain a codec starting with the given prefix?
   bool ContainsPrefix(const nsAString& aCodecPrefix) const;
 
-  template <size_t N>
+  template<size_t N>
   bool operator==(const char (&aType)[N]) const
   {
     return mCodecs.EqualsASCII(aType, N - 1);
@@ -148,19 +147,18 @@ public:
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   // UTF16 comma-separated list of codecs.
   // See http://www.rfc-editor.org/rfc/rfc4281.txt for the description
   // of the 'codecs' parameter.
   nsString mCodecs;
 };
 
-
 // Class containing pre-parsed media MIME type parameters, e.g.:
 // MIME type/subtype, optional codecs, etc.
 class MediaExtendedMIMEType
 {
-public:
+ public:
   explicit MediaExtendedMIMEType(const MediaMIMEType& aType);
   explicit MediaExtendedMIMEType(MediaMIMEType&& aType);
 
@@ -184,33 +182,40 @@ public:
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
-  friend Maybe<MediaExtendedMIMEType> MakeMediaExtendedMIMEType(const nsAString& aType);
+ private:
+  friend Maybe<MediaExtendedMIMEType> MakeMediaExtendedMIMEType(
+      const nsAString& aType);
   MediaExtendedMIMEType(const nsACString& aOriginalString,
                         const nsACString& aMIMEType,
-                        bool aHaveCodecs, const nsAString& aCodecs,
-                        int32_t aWidth, int32_t aHeight,
-                        int32_t aFramerate, int32_t aBitrate);
+                        bool aHaveCodecs,
+                        const nsAString& aCodecs,
+                        int32_t aWidth,
+                        int32_t aHeight,
+                        int32_t aFramerate,
+                        int32_t aBitrate);
 
   Maybe<int32_t> GetMaybeNumber(int32_t aNumber) const
   {
     return (aNumber < 0) ? Maybe<int32_t>(Nothing()) : Some(int32_t(aNumber));
   }
 
-  nsCString mOriginalString; // Original full string.
-  MediaMIMEType mMIMEType; // MIME type/subtype.
-  bool mHaveCodecs = false; // If false, mCodecs must be empty.
+  nsCString mOriginalString;  // Original full string.
+  MediaMIMEType mMIMEType;    // MIME type/subtype.
+  bool mHaveCodecs = false;   // If false, mCodecs must be empty.
   MediaCodecs mCodecs;
-  int32_t mWidth = -1; // -1 if not provided.
-  int32_t mHeight = -1; // -1 if not provided.
-  int32_t mFramerate = -1; // -1 if not provided.
-  int32_t mBitrate = -1; // -1 if not provided.
+  int32_t mWidth = -1;      // -1 if not provided.
+  int32_t mHeight = -1;     // -1 if not provided.
+  int32_t mFramerate = -1;  // -1 if not provided.
+  int32_t mBitrate = -1;    // -1 if not provided.
 };
 
-Maybe<MediaExtendedMIMEType> MakeMediaExtendedMIMEType(const nsAString& aType);
-Maybe<MediaExtendedMIMEType> MakeMediaExtendedMIMEType(const nsACString& aType);
-Maybe<MediaExtendedMIMEType> MakeMediaExtendedMIMEType(const char* aType);
+Maybe<MediaExtendedMIMEType>
+MakeMediaExtendedMIMEType(const nsAString& aType);
+Maybe<MediaExtendedMIMEType>
+MakeMediaExtendedMIMEType(const nsACString& aType);
+Maybe<MediaExtendedMIMEType>
+MakeMediaExtendedMIMEType(const char* aType);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MediaMIMETypes_h_
+#endif  // MediaMIMETypes_h_

@@ -25,7 +25,9 @@ namespace mozilla {
 
 MOZ_MTLOG_MODULE("mtransport")
 
-nsresult TransportLayerPrsock::InitInternal() {
+nsresult
+TransportLayerPrsock::InitInternal()
+{
   // Get the transport service as a transport service
   nsresult rv;
   stservice_ = do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &rv);
@@ -38,7 +40,9 @@ nsresult TransportLayerPrsock::InitInternal() {
   return NS_OK;
 }
 
-void TransportLayerPrsock::Import(PRFileDesc *fd, nsresult *result) {
+void
+TransportLayerPrsock::Import(PRFileDesc* fd, nsresult* result)
+{
   if (state_ != TS_INIT) {
     *result = NS_ERROR_NOT_INITIALIZED;
     return;
@@ -59,7 +63,9 @@ void TransportLayerPrsock::Import(PRFileDesc *fd, nsresult *result) {
   *result = NS_OK;
 }
 
-int TransportLayerPrsock::SendPacket(const unsigned char *data, size_t len) {
+int
+TransportLayerPrsock::SendPacket(const unsigned char* data, size_t len)
+{
   MOZ_MTLOG(ML_DEBUG, LAYER_INFO << "SendPacket(" << len << ")");
   if (state_ != TS_OPEN) {
     MOZ_MTLOG(ML_DEBUG, LAYER_INFO << "Can't send packet on closed interface");
@@ -79,13 +85,14 @@ int TransportLayerPrsock::SendPacket(const unsigned char *data, size_t len) {
     return TE_WOULDBLOCK;
   }
 
-
   MOZ_MTLOG(ML_DEBUG, LAYER_INFO << "Write error; channel closed");
   TL_SET_STATE(TS_ERROR);
   return TE_ERROR;
 }
 
-void TransportLayerPrsock::OnSocketReady(PRFileDesc *fd, int16_t outflags) {
+void
+TransportLayerPrsock::OnSocketReady(PRFileDesc* fd, int16_t outflags)
+{
   if (!(outflags & PR_POLL_READ)) {
     return;
   }
@@ -113,4 +120,4 @@ void TransportLayerPrsock::OnSocketReady(PRFileDesc *fd, int16_t outflags) {
 }
 
 NS_IMPL_ISUPPORTS0(TransportLayerPrsock::SocketHandler)
-}  // close namespace
+}  // namespace mozilla

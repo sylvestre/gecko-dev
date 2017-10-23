@@ -16,7 +16,8 @@
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(PresentationConnectionList, DOMEventTargetHelper,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(PresentationConnectionList,
+                                   DOMEventTargetHelper,
                                    mGetConnectionListPromise,
                                    mConnections)
 
@@ -26,10 +27,9 @@ NS_IMPL_RELEASE_INHERITED(PresentationConnectionList, DOMEventTargetHelper)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PresentationConnectionList)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-PresentationConnectionList::PresentationConnectionList(nsPIDOMWindowInner* aWindow,
-                                                       Promise* aPromise)
-  : DOMEventTargetHelper(aWindow)
-  , mGetConnectionListPromise(aPromise)
+PresentationConnectionList::PresentationConnectionList(
+    nsPIDOMWindowInner* aWindow, Promise* aPromise)
+    : DOMEventTargetHelper(aWindow), mGetConnectionListPromise(aPromise)
 {
   MOZ_ASSERT(aWindow);
   MOZ_ASSERT(aPromise);
@@ -44,7 +44,7 @@ PresentationConnectionList::WrapObject(JSContext* aCx,
 
 void
 PresentationConnectionList::GetConnections(
-  nsTArray<RefPtr<PresentationConnection>>& aConnections) const
+    nsTArray<RefPtr<PresentationConnection>>& aConnections) const
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     aConnections.Clear();
@@ -56,7 +56,7 @@ PresentationConnectionList::GetConnections(
 
 nsresult
 PresentationConnectionList::DispatchConnectionAvailableEvent(
-  PresentationConnection* aConnection)
+    PresentationConnection* aConnection)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return NS_OK;
@@ -66,10 +66,8 @@ PresentationConnectionList::DispatchConnectionAvailableEvent(
   init.mConnection = aConnection;
 
   RefPtr<PresentationConnectionAvailableEvent> event =
-    PresentationConnectionAvailableEvent::Constructor(
-      this,
-      NS_LITERAL_STRING("connectionavailable"),
-      init);
+      PresentationConnectionAvailableEvent::Constructor(
+          this, NS_LITERAL_STRING("connectionavailable"), init);
 
   if (NS_WARN_IF(!event)) {
     return NS_ERROR_FAILURE;
@@ -77,13 +75,12 @@ PresentationConnectionList::DispatchConnectionAvailableEvent(
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event);
   return asyncDispatcher->PostDOMEvent();
 }
 
 PresentationConnectionList::ConnectionArrayIndex
-PresentationConnectionList::FindConnectionById(
-  const nsAString& aId)
+PresentationConnectionList::FindConnectionById(const nsAString& aId)
 {
   for (ConnectionArrayIndex i = 0; i < mConnections.Length(); i++) {
     nsAutoString id;
@@ -97,8 +94,8 @@ PresentationConnectionList::FindConnectionById(
 }
 
 void
-PresentationConnectionList::NotifyStateChange(const nsAString& aSessionId,
-                                              PresentationConnection* aConnection)
+PresentationConnectionList::NotifyStateChange(
+    const nsAString& aSessionId, PresentationConnection* aConnection)
 {
   if (!aConnection) {
     MOZ_ASSERT(false, "PresentationConnection can not be null.");
@@ -106,7 +103,7 @@ PresentationConnectionList::NotifyStateChange(const nsAString& aSessionId,
   }
 
   bool connectionFound =
-    FindConnectionById(aSessionId) != mConnections.NoIndex ? true : false;
+      FindConnectionById(aSessionId) != mConnections.NoIndex ? true : false;
 
   PresentationConnectionListBinding::ClearCachedConnectionsValue(this);
   switch (aConnection->State()) {
@@ -130,8 +127,8 @@ PresentationConnectionList::NotifyStateChange(const nsAString& aSessionId,
       break;
     default:
       break;
-    }
+  }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

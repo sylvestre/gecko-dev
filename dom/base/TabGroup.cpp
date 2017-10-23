@@ -24,12 +24,12 @@ namespace dom {
 static StaticRefPtr<TabGroup> sChromeTabGroup;
 
 TabGroup::TabGroup(bool aIsChrome)
- : mLastWindowLeft(false)
- , mThrottledQueuesInitialized(false)
- , mNumOfIndexedDBTransactions(0)
- , mNumOfIndexedDBDatabases(0)
- , mIsChrome(aIsChrome)
- , mForegroundCount(0)
+    : mLastWindowLeft(false),
+      mThrottledQueuesInitialized(false),
+      mNumOfIndexedDBTransactions(0),
+      mNumOfIndexedDBDatabases(0),
+      mIsChrome(aIsChrome),
+      mForegroundCount(0)
 {
   CreateEventTargets(/* aNeedValidation = */ !aIsChrome);
 
@@ -68,7 +68,8 @@ TabGroup::EnsureThrottledEventQueues()
   for (size_t i = 0; i < size_t(TaskCategory::Count); i++) {
     TaskCategory category = static_cast<TaskCategory>(i);
     if (category == TaskCategory::Worker || category == TaskCategory::Timer) {
-      nsCOMPtr<nsISerialEventTarget> target = ThrottledEventQueue::Create(mEventTargets[i]);
+      nsCOMPtr<nsISerialEventTarget> target =
+          ThrottledEventQueue::Create(mEventTargets[i]);
       if (target) {
         // This may return nullptr during xpcom shutdown.  This is ok as we
         // do not guarantee a ThrottledEventQueue will be present.
@@ -103,15 +104,15 @@ TabGroup::GetFromActor(TabChild* aTabChild)
 {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
-  nsCOMPtr<nsIEventTarget> target = aTabChild->Manager()->GetEventTargetFor(aTabChild);
+  nsCOMPtr<nsIEventTarget> target =
+      aTabChild->Manager()->GetEventTargetFor(aTabChild);
   if (!target) {
     return nullptr;
   }
 
   // We have an event target. We assume the IPC code created it via
   // TabGroup::CreateEventTarget.
-  RefPtr<SchedulerGroup> group =
-    SchedulerGroup::FromEventTarget(target);
+  RefPtr<SchedulerGroup> group = SchedulerGroup::FromEventTarget(target);
   MOZ_RELEASE_ASSERT(group);
   auto tabGroup = group->AsTabGroup();
   MOZ_RELEASE_ASSERT(tabGroup);
@@ -221,8 +222,11 @@ TabGroup::FindItemWithName(const nsAString& aName,
     docshell->GetSameTypeRootTreeItem(getter_AddRefs(root));
     MOZ_RELEASE_ASSERT(docshell == root);
     if (root && aRequestor != root) {
-      root->FindItemWithName(aName, aRequestor, aOriginalRequestor,
-                             /* aSkipTabGroup = */ true, aFoundItem);
+      root->FindItemWithName(aName,
+                             aRequestor,
+                             aOriginalRequestor,
+                             /* aSkipTabGroup = */ true,
+                             aFoundItem);
       if (*aFoundItem) {
         break;
       }
@@ -249,8 +253,9 @@ TabGroup::GetTopLevelWindows() const
 }
 
 TabGroup::HashEntry::HashEntry(const nsACString* aKey)
-  : nsCStringHashKey(aKey), mDocGroup(nullptr)
-{}
+    : nsCStringHashKey(aKey), mDocGroup(nullptr)
+{
+}
 
 nsISerialEventTarget*
 TabGroup::EventTargetFor(TaskCategory aCategory) const
@@ -306,5 +311,5 @@ TabGroup::IsBackground() const
   return mForegroundCount == 0;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

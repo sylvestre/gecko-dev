@@ -18,34 +18,25 @@
 namespace js {
 namespace jit {
 
-enum class OptimizationLevel : uint8_t
-{
-    Normal,
-    Wasm,
-    Count,
-    DontCompile
-};
+enum class OptimizationLevel : uint8_t { Normal, Wasm, Count, DontCompile };
 
 #ifdef JS_JITSPEW
-inline const char*
-OptimizationLevelString(OptimizationLevel level)
-{
+inline const char* OptimizationLevelString(OptimizationLevel level) {
     switch (level) {
-      case OptimizationLevel::DontCompile:
-        return "Optimization_DontCompile";
-      case OptimizationLevel::Normal:
-        return "Optimization_Normal";
-      case OptimizationLevel::Wasm:
-        return "Optimization_Wasm";
-      case OptimizationLevel::Count:;
+        case OptimizationLevel::DontCompile:
+            return "Optimization_DontCompile";
+        case OptimizationLevel::Normal:
+            return "Optimization_Normal";
+        case OptimizationLevel::Wasm:
+            return "Optimization_Wasm";
+        case OptimizationLevel::Count:;
     }
     MOZ_CRASH("Invalid OptimizationLevel");
 }
 #endif
 
-class OptimizationInfo
-{
-  public:
+class OptimizationInfo {
+   public:
     OptimizationLevel level_;
 
     // Toggles whether Effective Address Analysis is performed.
@@ -150,23 +141,16 @@ class OptimizationInfo
     // as a multiplication of inliningWarmUpThreshold.
     uint32_t inliningRecompileThresholdFactor_;
 
-    OptimizationInfo()
-    { }
+    OptimizationInfo() {}
 
     void initNormalOptimizationInfo();
     void initWasmOptimizationInfo();
 
-    OptimizationLevel level() const {
-        return level_;
-    }
+    OptimizationLevel level() const { return level_; }
 
-    bool inlineInterpreted() const {
-        return inlineInterpreted_ && !JitOptions.disableInlining;
-    }
+    bool inlineInterpreted() const { return inlineInterpreted_ && !JitOptions.disableInlining; }
 
-    bool inlineNative() const {
-        return inlineNative_ && !JitOptions.disableInlining;
-    }
+    bool inlineNative() const { return inlineNative_ && !JitOptions.disableInlining; }
 
     uint32_t compilerWarmUpThreshold(JSScript* script, jsbytecode* pc = nullptr) const;
 
@@ -174,13 +158,9 @@ class OptimizationInfo
         return eagerSimdUnbox_ && !JitOptions.disableEagerSimdUnbox;
     }
 
-    bool gvnEnabled() const {
-        return gvn_ && !JitOptions.disableGvn;
-    }
+    bool gvnEnabled() const { return gvn_ && !JitOptions.disableGvn; }
 
-    bool licmEnabled() const {
-        return licm_ && !JitOptions.disableLicm;
-    }
+    bool licmEnabled() const { return licm_ && !JitOptions.disableLicm; }
 
     bool rangeAnalysisEnabled() const {
         return rangeAnalysis_ && !JitOptions.disableRangeAnalysis;
@@ -194,37 +174,23 @@ class OptimizationInfo
         return reordering_ && !JitOptions.disableInstructionReordering;
     }
 
-    bool autoTruncateEnabled() const {
-        return autoTruncate_ && rangeAnalysisEnabled();
-    }
+    bool autoTruncateEnabled() const { return autoTruncate_ && rangeAnalysisEnabled(); }
 
-    bool sincosEnabled() const {
-        return sincos_ && !JitOptions.disableSincos;
-    }
+    bool sincosEnabled() const { return sincos_ && !JitOptions.disableSincos; }
 
-    bool sinkEnabled() const {
-        return sink_ && !JitOptions.disableSink;
-    }
+    bool sinkEnabled() const { return sink_ && !JitOptions.disableSink; }
 
-    bool eaaEnabled() const {
-        return eaa_ && !JitOptions.disableEaa;
-    }
+    bool eaaEnabled() const { return eaa_ && !JitOptions.disableEaa; }
 
-    bool amaEnabled() const {
-        return ama_ && !JitOptions.disableAma;
-    }
+    bool amaEnabled() const { return ama_ && !JitOptions.disableAma; }
 
     bool edgeCaseAnalysisEnabled() const {
         return edgeCaseAnalysis_ && !JitOptions.disableEdgeCaseAnalysis;
     }
 
-    bool eliminateRedundantChecksEnabled() const {
-        return eliminateRedundantChecks_;
-    }
+    bool eliminateRedundantChecksEnabled() const { return eliminateRedundantChecks_; }
 
-    bool flowAliasAnalysisEnabled() const {
-        return !JitOptions.disableFlowAA;
-    }
+    bool flowAliasAnalysisEnabled() const { return !JitOptions.disableFlowAA; }
 
     IonRegisterAllocator registerAllocator() const {
         if (JitOptions.forcedRegisterAllocator.isSome())
@@ -236,33 +202,25 @@ class OptimizationInfo
         return scalarReplacement_ && !JitOptions.disableScalarReplacement;
     }
 
-    uint32_t smallFunctionMaxInlineDepth() const {
-        return smallFunctionMaxInlineDepth_;
-    }
+    uint32_t smallFunctionMaxInlineDepth() const { return smallFunctionMaxInlineDepth_; }
 
     bool isSmallFunction(JSScript* script) const;
 
-    uint32_t maxInlineDepth() const {
-        return maxInlineDepth_;
-    }
+    uint32_t maxInlineDepth() const { return maxInlineDepth_; }
 
     uint32_t inlineMaxBytecodePerCallSite(bool offThread) const {
         return (offThread || !JitOptions.limitScriptSize)
-               ? inlineMaxBytecodePerCallSiteHelperThread_
-               : inlineMaxBytecodePerCallSiteActiveCooperatingThread_;
+                   ? inlineMaxBytecodePerCallSiteHelperThread_
+                   : inlineMaxBytecodePerCallSiteActiveCooperatingThread_;
     }
 
     uint16_t inlineMaxCalleeInlinedBytecodeLength() const {
         return inlineMaxCalleeInlinedBytecodeLength_;
     }
 
-    uint32_t inlineMaxTotalBytecodeLength() const {
-        return inlineMaxTotalBytecodeLength_;
-    }
+    uint32_t inlineMaxTotalBytecodeLength() const { return inlineMaxTotalBytecodeLength_; }
 
-    uint32_t inliningMaxCallerBytecodeLength() const {
-        return inliningMaxCallerBytecodeLength_;
-    }
+    uint32_t inliningMaxCallerBytecodeLength() const { return inliningMaxCallerBytecodeLength_; }
 
     uint32_t inliningWarmUpThreshold() const {
         uint32_t compilerWarmUpThreshold = compilerWarmUpThreshold_;
@@ -276,17 +234,14 @@ class OptimizationInfo
     }
 };
 
-class OptimizationLevelInfo
-{
-  private:
+class OptimizationLevelInfo {
+   private:
     mozilla::EnumeratedArray<OptimizationLevel, OptimizationLevel::Count, OptimizationInfo> infos_;
 
-  public:
+   public:
     OptimizationLevelInfo();
 
-    const OptimizationInfo* get(OptimizationLevel level) const {
-        return &infos_[level];
-    }
+    const OptimizationInfo* get(OptimizationLevel level) const { return &infos_[level]; }
 
     OptimizationLevel nextLevel(OptimizationLevel level) const;
     OptimizationLevel firstLevel() const;
@@ -296,7 +251,7 @@ class OptimizationLevelInfo
 
 extern OptimizationLevelInfo IonOptimizations;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_IonOptimizationLevels_h */

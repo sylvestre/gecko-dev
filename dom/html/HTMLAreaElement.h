@@ -20,10 +20,9 @@ class EventChainPostVisitor;
 class EventChainPreVisitor;
 namespace dom {
 
-class HTMLAreaElement final : public nsGenericHTMLElement,
-                              public Link
+class HTMLAreaElement final : public nsGenericHTMLElement, public Link
 {
-public:
+ public:
   explicit HTMLAreaElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
@@ -40,47 +39,40 @@ public:
   virtual int32_t TabIndexDefault() override;
 
   virtual nsresult GetEventTargetParent(
-                     EventChainPreVisitor& aVisitor) override;
+      EventChainPreVisitor& aVisitor) override;
   virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
   virtual bool IsLink(nsIURI** aURI) const override;
   virtual void GetLinkTarget(nsAString& aTarget) override;
   virtual already_AddRefed<nsIURI> GetHrefURI() const override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   virtual EventStates IntrinsicState() const override;
 
   // WebIDL
-  void GetAlt(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::alt, aValue);
-  }
+  void GetAlt(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::alt, aValue); }
   void SetAlt(const nsAString& aAlt, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::alt, aAlt, aError);
   }
 
-  void GetCoords(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::coords, aValue);
-  }
+  void GetCoords(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::coords, aValue); }
   void SetCoords(const nsAString& aCoords, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::coords, aCoords, aError);
   }
 
   // argument type nsAString for HTMLImageMapAccessible
-  void GetShape(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::shape, aValue);
-  }
+  void GetShape(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::shape, aValue); }
   void SetShape(const nsAString& aShape, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::shape, aShape, aError);
@@ -111,20 +103,14 @@ public:
     SetHTMLAttr(nsGkAtoms::download, aDownload, aError);
   }
 
-  void GetPing(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::ping, aValue);
-  }
+  void GetPing(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::ping, aValue); }
 
   void SetPing(const nsAString& aPing, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::ping, aPing, aError);
   }
 
-  void GetRel(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::rel, aValue);
-  }
+  void GetRel(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::rel, aValue); }
 
   void SetRel(const nsAString& aRel, ErrorResult& aError)
   {
@@ -172,10 +158,7 @@ public:
 
   // The Link::GetSearchParams is OK for us
 
-  bool NoHref() const
-  {
-    return GetBoolAttr(nsGkAtoms::nohref);
-  }
+  bool NoHref() const { return GetBoolAttr(nsGkAtoms::nohref); }
 
   void SetNoHref(bool aValue, ErrorResult& aError)
   {
@@ -183,10 +166,7 @@ public:
   }
 
   void ToString(nsAString& aSource);
-  void Stringify(nsAString& aResult)
-  {
-    GetHref(aResult);
-  }
+  void Stringify(nsAString& aResult) { GetHref(aResult); }
 
   virtual void NodeInfoChanged(nsIDocument* aOldDoc) final override
   {
@@ -194,21 +174,23 @@ public:
     nsGenericHTMLElement::NodeInfoChanged(aOldDoc);
   }
 
-protected:
+ protected:
   virtual ~HTMLAreaElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
 
-  RefPtr<nsDOMTokenList > mRelList;
+  RefPtr<nsDOMTokenList> mRelList;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLAreaElement_h */

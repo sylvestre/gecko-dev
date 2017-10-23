@@ -12,11 +12,8 @@
 
 namespace base {
 
-FilePath::FilePath(FilePath::StringPieceType path) {
-  MOZ_CRASH();
-}
+FilePath::FilePath(FilePath::StringPieceType path) { MOZ_CRASH(); }
 
-FilePath::~FilePath() {
-}
+FilePath::~FilePath() {}
 
-} // namespace base
+}  // namespace base

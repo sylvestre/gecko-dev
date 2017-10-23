@@ -5,19 +5,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ImageBridgeParent.h"
-#include <stdint.h>                     // for uint64_t, uint32_t
-#include "CompositableHost.h"           // for CompositableParent, Create
-#include "base/message_loop.h"          // for MessageLoop
-#include "base/process.h"               // for ProcessId
-#include "base/task.h"                  // for CancelableTask, DeleteTask, etc
+#include <stdint.h>             // for uint64_t, uint32_t
+#include "CompositableHost.h"   // for CompositableParent, Create
+#include "base/message_loop.h"  // for MessageLoop
+#include "base/process.h"       // for ProcessId
+#include "base/task.h"          // for CancelableTask, DeleteTask, etc
 #include "mozilla/ClearOnShutdown.h"
-#include "mozilla/gfx/Point.h"                   // for IntSize
-#include "mozilla/Hal.h"                // for hal::SetCurrentThreadPriority()
-#include "mozilla/HalTypes.h"           // for hal::THREAD_PRIORITY_COMPOSITOR
-#include "mozilla/ipc/MessageChannel.h" // for MessageChannel, etc
+#include "mozilla/gfx/Point.h"           // for IntSize
+#include "mozilla/Hal.h"                 // for hal::SetCurrentThreadPriority()
+#include "mozilla/HalTypes.h"            // for hal::THREAD_PRIORITY_COMPOSITOR
+#include "mozilla/ipc/MessageChannel.h"  // for MessageChannel, etc
 #include "mozilla/ipc/ProtocolUtils.h"
-#include "mozilla/ipc/Transport.h"      // for Transport
-#include "mozilla/media/MediaSystemResourceManagerParent.h" // for MediaSystemResourceManagerParent
+#include "mozilla/ipc/Transport.h"                           // for Transport
+#include "mozilla/media/MediaSystemResourceManagerParent.h"  // for MediaSystemResourceManagerParent
 #include "mozilla/layers/CompositableTransactionParent.h"
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/LayersMessages.h"  // for EditReply
@@ -25,13 +25,13 @@
 #include "mozilla/layers/TextureHostOGL.h"  // for TextureHostOGL
 #include "mozilla/layers/Compositor.h"
 #include "mozilla/Monitor.h"
-#include "mozilla/mozalloc.h"           // for operator new, etc
+#include "mozilla/mozalloc.h"  // for operator new, etc
 #include "mozilla/Unused.h"
-#include "nsDebug.h"                    // for NS_RUNTIMEABORT, etc
-#include "nsISupportsImpl.h"            // for ImageBridgeParent::Release, etc
-#include "nsTArray.h"                   // for nsTArray, nsTArray_Impl
-#include "nsTArrayForwardDeclare.h"     // for InfallibleTArray
-#include "nsXULAppAPI.h"                // for XRE_GetIOMessageLoop
+#include "nsDebug.h"                 // for NS_RUNTIMEABORT, etc
+#include "nsISupportsImpl.h"         // for ImageBridgeParent::Release, etc
+#include "nsTArray.h"                // for nsTArray, nsTArray_Impl
+#include "nsTArrayForwardDeclare.h"  // for InfallibleTArray
+#include "nsXULAppAPI.h"             // for XRE_GetIOMessageLoop
 #include "mozilla/layers/TextureHost.h"
 #include "nsThreadUtils.h"
 
@@ -49,7 +49,8 @@ StaticAutoPtr<mozilla::Monitor> sImageBridgesLock;
 static StaticRefPtr<ImageBridgeParent> sImageBridgeParentSingleton;
 
 // defined in CompositorBridgeParent.cpp
-CompositorThreadHolder* GetCompositorThreadHolder();
+CompositorThreadHolder*
+GetCompositorThreadHolder();
 
 /* static */ void
 ImageBridgeParent::Setup()
@@ -63,10 +64,10 @@ ImageBridgeParent::Setup()
 
 ImageBridgeParent::ImageBridgeParent(MessageLoop* aLoop,
                                      ProcessId aChildProcessId)
-  : mMessageLoop(aLoop)
-  , mSetChildThreadPriority(false)
-  , mClosed(false)
-  , mCompositorThreadHolder(CompositorThreadHolder::GetSingleton())
+    : mMessageLoop(aLoop),
+      mSetChildThreadPriority(false),
+      mClosed(false),
+      mCompositorThreadHolder(CompositorThreadHolder::GetSingleton())
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -79,15 +80,13 @@ ImageBridgeParent::ImageBridgeParent(MessageLoop* aLoop,
   SetOtherProcessId(aChildProcessId);
 }
 
-ImageBridgeParent::~ImageBridgeParent()
-{
-}
+ImageBridgeParent::~ImageBridgeParent() {}
 
 /* static */ ImageBridgeParent*
 ImageBridgeParent::CreateSameProcess()
 {
-  RefPtr<ImageBridgeParent> parent =
-    new ImageBridgeParent(CompositorThreadHolder::Loop(), base::GetCurrentProcId());
+  RefPtr<ImageBridgeParent> parent = new ImageBridgeParent(
+      CompositorThreadHolder::Loop(), base::GetCurrentProcId());
   parent->mSelfRef = parent;
 
   sImageBridgeParentSingleton = parent;
@@ -100,13 +99,14 @@ ImageBridgeParent::CreateForGPUProcess(Endpoint<PImageBridgeParent>&& aEndpoint)
   MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_GPU);
 
   MessageLoop* loop = CompositorThreadHolder::Loop();
-  RefPtr<ImageBridgeParent> parent = new ImageBridgeParent(loop, aEndpoint.OtherPid());
+  RefPtr<ImageBridgeParent> parent =
+      new ImageBridgeParent(loop, aEndpoint.OtherPid());
 
   loop->PostTask(NewRunnableMethod<Endpoint<PImageBridgeParent>&&>(
-    "layers::ImageBridgeParent::Bind",
-    parent,
-    &ImageBridgeParent::Bind,
-    Move(aEndpoint)));
+      "layers::ImageBridgeParent::Bind",
+      parent,
+      &ImageBridgeParent::Bind,
+      Move(aEndpoint)));
 
   sImageBridgeParentSingleton = parent;
   return true;
@@ -136,10 +136,9 @@ ImageBridgeParent::ShutdownInternal()
 /* static */ void
 ImageBridgeParent::Shutdown()
 {
-  CompositorThreadHolder::Loop()->PostTask(
-    NS_NewRunnableFunction("ImageBridgeParent::Shutdown", []() -> void {
-      ImageBridgeParent::ShutdownInternal();
-  }));
+  CompositorThreadHolder::Loop()->PostTask(NS_NewRunnableFunction(
+      "ImageBridgeParent::Shutdown",
+      []() -> void { ImageBridgeParent::ShutdownInternal(); }));
 }
 
 void
@@ -153,9 +152,9 @@ ImageBridgeParent::ActorDestroy(ActorDestroyReason aWhy)
     sImageBridges.erase(OtherPid());
   }
   MessageLoop::current()->PostTask(
-    NewRunnableMethod("layers::ImageBridgeParent::DeferredDestroy",
-                      this,
-                      &ImageBridgeParent::DeferredDestroy));
+      NewRunnableMethod("layers::ImageBridgeParent::DeferredDestroy",
+                        this,
+                        &ImageBridgeParent::DeferredDestroy));
 
   // It is very important that this method gets called at shutdown (be it a clean
   // or an abnormal shutdown), because DeferredDestroy is what clears mSelfRef.
@@ -178,11 +177,11 @@ ImageBridgeParent::RecvImageBridgeThreadId(const PlatformThreadId& aThreadId)
 
 class MOZ_STACK_CLASS AutoImageBridgeParentAsyncMessageSender
 {
-public:
-  explicit AutoImageBridgeParentAsyncMessageSender(ImageBridgeParent* aImageBridge,
-                                                   InfallibleTArray<OpDestroy>* aToDestroy = nullptr)
-    : mImageBridge(aImageBridge)
-    , mToDestroy(aToDestroy)
+ public:
+  explicit AutoImageBridgeParentAsyncMessageSender(
+      ImageBridgeParent* aImageBridge,
+      InfallibleTArray<OpDestroy>* aToDestroy = nullptr)
+      : mImageBridge(aImageBridge), mToDestroy(aToDestroy)
   {
     mImageBridge->SetAboutToSendAsyncMessages();
   }
@@ -196,7 +195,8 @@ public:
       }
     }
   }
-private:
+
+ private:
   ImageBridgeParent* mImageBridge;
   InfallibleTArray<OpDestroy>* mToDestroy;
 };
@@ -211,12 +211,14 @@ ImageBridgeParent::RecvInitReadLocks(ReadLockArray&& aReadLocks)
 }
 
 mozilla::ipc::IPCResult
-ImageBridgeParent::RecvUpdate(EditArray&& aEdits, OpDestroyArray&& aToDestroy,
+ImageBridgeParent::RecvUpdate(EditArray&& aEdits,
+                              OpDestroyArray&& aToDestroy,
                               const uint64_t& aFwdTransactionId)
 {
   // This ensures that destroy operations are always processed. It is not safe
   // to early-return from RecvUpdate without doing so.
-  AutoImageBridgeParentAsyncMessageSender autoAsyncMessageSender(this, &aToDestroy);
+  AutoImageBridgeParentAsyncMessageSender autoAsyncMessageSender(this,
+                                                                 &aToDestroy);
   UpdateFwdTransactionId(aFwdTransactionId);
   AutoClearReadLocks clearLocks(mReadLocks);
 
@@ -241,12 +243,13 @@ ImageBridgeParent::CreateForContent(Endpoint<PImageBridgeParent>&& aEndpoint)
 {
   MessageLoop* loop = CompositorThreadHolder::Loop();
 
-  RefPtr<ImageBridgeParent> bridge = new ImageBridgeParent(loop, aEndpoint.OtherPid());
+  RefPtr<ImageBridgeParent> bridge =
+      new ImageBridgeParent(loop, aEndpoint.OtherPid());
   loop->PostTask(NewRunnableMethod<Endpoint<PImageBridgeParent>&&>(
-    "layers::ImageBridgeParent::Bind",
-    bridge,
-    &ImageBridgeParent::Bind,
-    Move(aEndpoint)));
+      "layers::ImageBridgeParent::Bind",
+      bridge,
+      &ImageBridgeParent::Bind,
+      Move(aEndpoint)));
 
   return true;
 }
@@ -254,12 +257,12 @@ ImageBridgeParent::CreateForContent(Endpoint<PImageBridgeParent>&& aEndpoint)
 void
 ImageBridgeParent::Bind(Endpoint<PImageBridgeParent>&& aEndpoint)
 {
-  if (!aEndpoint.Bind(this))
-    return;
+  if (!aEndpoint.Bind(this)) return;
   mSelfRef = this;
 }
 
-mozilla::ipc::IPCResult ImageBridgeParent::RecvWillClose()
+mozilla::ipc::IPCResult
+ImageBridgeParent::RecvWillClose()
 {
   // If there is any texture still alive we have to force it to deallocate the
   // device data (GL textures, etc.) now because shortly after SenStop() returns
@@ -297,13 +300,15 @@ ImageBridgeParent::RecvReleaseCompositable(const CompositableHandle& aHandle)
 }
 
 PTextureParent*
-ImageBridgeParent::AllocPTextureParent(const SurfaceDescriptor& aSharedData,
-                                       const LayersBackend& aLayersBackend,
-                                       const TextureFlags& aFlags,
-                                       const uint64_t& aSerial,
-                                       const wr::MaybeExternalImageId& aExternalImageId)
+ImageBridgeParent::AllocPTextureParent(
+    const SurfaceDescriptor& aSharedData,
+    const LayersBackend& aLayersBackend,
+    const TextureFlags& aFlags,
+    const uint64_t& aSerial,
+    const wr::MaybeExternalImageId& aExternalImageId)
 {
-  return TextureHost::CreateIPDLActor(this, aSharedData, aLayersBackend, aFlags, aSerial, aExternalImageId);
+  return TextureHost::CreateIPDLActor(
+      this, aSharedData, aLayersBackend, aFlags, aSerial, aExternalImageId);
 }
 
 bool
@@ -319,7 +324,8 @@ ImageBridgeParent::AllocPMediaSystemResourceManagerParent()
 }
 
 bool
-ImageBridgeParent::DeallocPMediaSystemResourceManagerParent(PMediaSystemResourceManagerParent* aActor)
+ImageBridgeParent::DeallocPMediaSystemResourceManagerParent(
+    PMediaSystemResourceManagerParent* aActor)
 {
   MOZ_ASSERT(aActor);
   delete static_cast<mozilla::media::MediaSystemResourceManagerParent*>(aActor);
@@ -327,14 +333,15 @@ ImageBridgeParent::DeallocPMediaSystemResourceManagerParent(PMediaSystemResource
 }
 
 void
-ImageBridgeParent::SendAsyncMessage(const InfallibleTArray<AsyncParentMessageData>& aMessage)
+ImageBridgeParent::SendAsyncMessage(
+    const InfallibleTArray<AsyncParentMessageData>& aMessage)
 {
   mozilla::Unused << SendParentAsyncMessages(aMessage);
 }
 
 class ProcessIdComparator
 {
-public:
+ public:
   bool Equals(const ImageCompositeNotificationInfo& aA,
               const ImageCompositeNotificationInfo& aB) const
   {
@@ -348,7 +355,8 @@ public:
 };
 
 /* static */ bool
-ImageBridgeParent::NotifyImageComposites(nsTArray<ImageCompositeNotificationInfo>& aNotifications)
+ImageBridgeParent::NotifyImageComposites(
+    nsTArray<ImageCompositeNotificationInfo>& aNotifications)
 {
   // Group the notifications by destination process ID and then send the
   // notifications in one message per group.
@@ -356,7 +364,7 @@ ImageBridgeParent::NotifyImageComposites(nsTArray<ImageCompositeNotificationInfo
   uint32_t i = 0;
   bool ok = true;
   while (i < aNotifications.Length()) {
-    AutoTArray<ImageCompositeNotification,1> notifications;
+    AutoTArray<ImageCompositeNotification, 1> notifications;
     notifications.AppendElement(aNotifications[i].mNotification);
     uint32_t end = i + 1;
     MOZ_ASSERT(aNotifications[i].mNotification.compositable());
@@ -379,7 +387,7 @@ void
 ImageBridgeParent::DeferredDestroy()
 {
   mCompositorThreadHolder = nullptr;
-  mSelfRef = nullptr; // "this" ImageBridge may get deleted here.
+  mSelfRef = nullptr;  // "this" ImageBridge may get deleted here.
 }
 
 RefPtr<ImageBridgeParent>
@@ -387,14 +395,15 @@ ImageBridgeParent::GetInstance(ProcessId aId)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   MonitorAutoLock lock(*sImageBridgesLock);
-  NS_ASSERTION(sImageBridges.count(aId) == 1, "ImageBridgeParent for the process");
+  NS_ASSERTION(sImageBridges.count(aId) == 1,
+               "ImageBridgeParent for the process");
   return sImageBridges[aId];
 }
 
 bool
 ImageBridgeParent::AllocShmem(size_t aSize,
-                      ipc::SharedMemory::SharedMemoryType aType,
-                      ipc::Shmem* aShmem)
+                              ipc::SharedMemory::SharedMemoryType aType,
+                              ipc::Shmem* aShmem)
 {
   if (mClosed) {
     return false;
@@ -404,8 +413,8 @@ ImageBridgeParent::AllocShmem(size_t aSize,
 
 bool
 ImageBridgeParent::AllocUnsafeShmem(size_t aSize,
-                      ipc::SharedMemory::SharedMemoryType aType,
-                      ipc::Shmem* aShmem)
+                                    ipc::SharedMemory::SharedMemoryType aType,
+                                    ipc::Shmem* aShmem)
 {
   if (mClosed) {
     return false;
@@ -422,13 +431,15 @@ ImageBridgeParent::DeallocShmem(ipc::Shmem& aShmem)
   PImageBridgeParent::DeallocShmem(aShmem);
 }
 
-bool ImageBridgeParent::IsSameProcess() const
+bool
+ImageBridgeParent::IsSameProcess() const
 {
   return OtherPid() == base::GetCurrentProcId();
 }
 
 void
-ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture, uint64_t aTransactionId)
+ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
+                                 uint64_t aTransactionId)
 {
   RefPtr<TextureHost> texture = TextureHost::AsTextureHost(aTexture);
   if (!texture) {
@@ -440,13 +451,12 @@ ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture, uint64_t aTransaction
   }
 
   uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
-  mPendingAsyncMessage.push_back(
-    OpNotifyNotUsed(textureId, aTransactionId));
+  mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
 
   if (!IsAboutToSendAsyncMessages()) {
     SendPendingAsyncMessages();
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

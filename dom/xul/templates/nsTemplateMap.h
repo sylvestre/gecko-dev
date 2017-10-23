@@ -9,56 +9,54 @@
 #include "PLDHashTable.h"
 #include "nsXULElement.h"
 
-class nsTemplateMap {
-protected:
-    struct Entry : public PLDHashEntryHdr {
-        nsIContent*     mContent;
-        nsIContent*     mTemplate;
-    };
+class nsTemplateMap
+{
+ protected:
+  struct Entry : public PLDHashEntryHdr
+  {
+    nsIContent* mContent;
+    nsIContent* mTemplate;
+  };
 
-    PLDHashTable mTable;
+  PLDHashTable mTable;
 
-public:
-    nsTemplateMap() : mTable(PLDHashTable::StubOps(), sizeof(Entry)) { }
+ public:
+  nsTemplateMap() : mTable(PLDHashTable::StubOps(), sizeof(Entry)) {}
 
-    ~nsTemplateMap() { }
+  ~nsTemplateMap() {}
 
-    void
-    Put(nsIContent* aContent, nsIContent* aTemplate) {
-        NS_ASSERTION(!mTable.Search(aContent), "aContent already in map");
+  void Put(nsIContent* aContent, nsIContent* aTemplate)
+  {
+    NS_ASSERTION(!mTable.Search(aContent), "aContent already in map");
 
-        auto entry = static_cast<Entry*>(mTable.Add(aContent, mozilla::fallible));
+    auto entry = static_cast<Entry*>(mTable.Add(aContent, mozilla::fallible));
 
-        if (entry) {
-            entry->mContent = aContent;
-            entry->mTemplate = aTemplate;
-        }
+    if (entry) {
+      entry->mContent = aContent;
+      entry->mTemplate = aTemplate;
     }
+  }
 
-    void
-    Remove(nsIContent* aContent) {
-        mTable.Remove(aContent);
+  void Remove(nsIContent* aContent)
+  {
+    mTable.Remove(aContent);
 
-        for (nsIContent* child = aContent->GetFirstChild();
-             child;
-             child = child->GetNextSibling()) {
-            Remove(child);
-        }
+    for (nsIContent* child = aContent->GetFirstChild(); child;
+         child = child->GetNextSibling()) {
+      Remove(child);
     }
+  }
 
+  void GetTemplateFor(nsIContent* aContent, nsIContent** aResult)
+  {
+    auto entry = static_cast<Entry*>(mTable.Search(aContent));
+    if (entry)
+      NS_IF_ADDREF(*aResult = entry->mTemplate);
+    else
+      *aResult = nullptr;
+  }
 
-    void
-    GetTemplateFor(nsIContent* aContent, nsIContent** aResult) {
-        auto entry = static_cast<Entry*>(mTable.Search(aContent));
-        if (entry)
-            NS_IF_ADDREF(*aResult = entry->mTemplate);
-        else
-            *aResult = nullptr;
-    }
-
-    void
-    Clear() { mTable.Clear(); }
+  void Clear() { mTable.Clear(); }
 };
 
-#endif // nsTemplateMap_h__
-
+#endif  // nsTemplateMap_h__

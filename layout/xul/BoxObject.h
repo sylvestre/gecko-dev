@@ -27,14 +27,13 @@ namespace dom {
 
 class Element;
 
-class BoxObject : public nsPIBoxObject,
-                  public nsWrapperCache
+class BoxObject : public nsPIBoxObject, public nsWrapperCache
 {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BoxObject)
   NS_DECL_NSIBOXOBJECT
 
-public:
+ public:
   BoxObject();
 
   // nsPIBoxObject
@@ -49,12 +48,14 @@ public:
 
   // Given a parent frame and a child frame, find the frame whose
   // next sibling is the given child frame and return its element
-  static nsresult GetPreviousSibling(nsIFrame* aParentFrame, nsIFrame* aFrame,
+  static nsresult GetPreviousSibling(nsIFrame* aParentFrame,
+                                     nsIFrame* aFrame,
                                      nsIDOMElement** aResult);
 
   // WebIDL (wraps old impls)
   nsIContent* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   Element* GetElement() const;
 
@@ -65,10 +66,14 @@ public:
   int32_t Width();
   int32_t Height();
 
-  already_AddRefed<nsISupports> GetPropertyAsSupports(const nsAString& propertyName);
+  already_AddRefed<nsISupports> GetPropertyAsSupports(
+      const nsAString& propertyName);
   void SetPropertyAsSupports(const nsAString& propertyName, nsISupports* value);
-  void GetProperty(const nsAString& propertyName, nsString& aRetVal, ErrorResult& aRv);
-  void SetProperty(const nsAString& propertyName, const nsAString& propertyValue);
+  void GetProperty(const nsAString& propertyName,
+                   nsString& aRetVal,
+                   ErrorResult& aRv);
+  void SetProperty(const nsAString& propertyName,
+                   const nsAString& propertyValue);
   void RemoveProperty(const nsAString& propertyName);
 
   already_AddRefed<Element> GetParentBox();
@@ -77,15 +82,16 @@ public:
   already_AddRefed<Element> GetNextSibling();
   already_AddRefed<Element> GetPreviousSibling();
 
-protected:
+ protected:
   virtual ~BoxObject();
 
-  nsAutoPtr<nsInterfaceHashtable<nsStringHashKey,nsISupports> > mPropertyTable; //[OWNER]
+  nsAutoPtr<nsInterfaceHashtable<nsStringHashKey, nsISupports> >
+      mPropertyTable;  //[OWNER]
 
-  nsIContent* mContent; // [WEAK]
+  nsIContent* mContent;  // [WEAK]
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

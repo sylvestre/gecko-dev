@@ -20,7 +20,8 @@ struct AnimData;
 class AnimationInfo
 {
   typedef InfallibleTArray<Animation> AnimationArray;
-public:
+
+ public:
   explicit AnimationInfo(LayerManager* aManager);
   virtual ~AnimationInfo();
 
@@ -39,25 +40,32 @@ public:
   // SetBaseTransformForNextTransaction.)
   Animation* AddAnimationForNextTransaction();
 
-  void SetAnimationGeneration(uint64_t aCount) { mAnimationGeneration = aCount; }
+  void SetAnimationGeneration(uint64_t aCount)
+  {
+    mAnimationGeneration = aCount;
+  }
   uint64_t GetAnimationGeneration() { return mAnimationGeneration; }
 
   // ClearAnimations clears animations on this layer.
   void ClearAnimations();
   void ClearAnimationsForNextTransaction();
-  void SetCompositorAnimations(const CompositorAnimations& aCompositorAnimations);
+  void SetCompositorAnimations(
+      const CompositorAnimations& aCompositorAnimations);
   bool StartPendingAnimations(const TimeStamp& aReadyTime);
   void TransferMutatedFlagToLayer(Layer* aLayer);
 
   uint64_t GetCompositorAnimationsId() { return mCompositorAnimationsId; }
-  StyleAnimationValue GetBaseAnimationStyle() const { return mBaseAnimationStyle; }
+  StyleAnimationValue GetBaseAnimationStyle() const
+  {
+    return mBaseAnimationStyle;
+  }
   InfallibleTArray<AnimData>& GetAnimationData() { return mAnimationData; }
   AnimationArray& GetAnimations() { return mAnimations; }
   bool ApplyPendingUpdatesForThisTransaction();
   bool HasOpacityAnimation() const;
   bool HasTransformAnimation() const;
 
-protected:
+ protected:
   LayerManager* mManager;
   AnimationArray mAnimations;
   uint64_t mCompositorAnimationsId;
@@ -70,7 +78,7 @@ protected:
   bool mMutated;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_ANIMATIONINFO_H
+#endif  // GFX_ANIMATIONINFO_H

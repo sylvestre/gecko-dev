@@ -23,14 +23,9 @@ namespace dom {
 
 NS_IMPL_ISUPPORTS(UDPSocketChildBase, nsIUDPSocketChild)
 
-UDPSocketChildBase::UDPSocketChildBase()
-: mIPCOpen(false)
-{
-}
+UDPSocketChildBase::UDPSocketChildBase() : mIPCOpen(false) {}
 
-UDPSocketChildBase::~UDPSocketChildBase()
-{
-}
+UDPSocketChildBase::~UDPSocketChildBase() {}
 
 void
 UDPSocketChildBase::ReleaseIPDLReference()
@@ -59,24 +54,17 @@ NS_IMETHODIMP_(MozExternalRefCountType) UDPSocketChild::Release(void)
   return refcnt;
 }
 
-UDPSocketChild::UDPSocketChild()
-:mBackgroundManager(nullptr)
-,mLocalPort(0)
-{
-}
+UDPSocketChild::UDPSocketChild() : mBackgroundManager(nullptr), mLocalPort(0) {}
 
-UDPSocketChild::~UDPSocketChild()
-{
-}
+UDPSocketChild::~UDPSocketChild() {}
 
-class UDPSocketBackgroundChildCallback final :
-  public nsIIPCBackgroundChildCreateCallback
+class UDPSocketBackgroundChildCallback final
+    : public nsIIPCBackgroundChildCreateCallback
 {
   bool* mDone;
 
-public:
-  explicit UDPSocketBackgroundChildCallback(bool* aDone)
-  : mDone(aDone)
+ public:
+  explicit UDPSocketBackgroundChildCallback(bool* aDone) : mDone(aDone)
   {
     MOZ_ASSERT(!NS_IsMainThread());
     MOZ_ASSERT(mDone);
@@ -85,24 +73,19 @@ public:
 
   NS_DECL_ISUPPORTS
 
-private:
-  ~UDPSocketBackgroundChildCallback()
-  { }
+ private:
+  ~UDPSocketBackgroundChildCallback() {}
 
-  virtual void
-  ActorCreated(PBackgroundChild* aActor) override
+  virtual void ActorCreated(PBackgroundChild* aActor) override
   {
     *mDone = true;
   }
 
-  virtual void
-  ActorFailed() override
-  {
-    *mDone = true;
-  }
+  virtual void ActorFailed() override { *mDone = true; }
 };
 
-NS_IMPL_ISUPPORTS(UDPSocketBackgroundChildCallback, nsIIPCBackgroundChildCreateCallback)
+NS_IMPL_ISUPPORTS(UDPSocketBackgroundChildCallback,
+                  nsIIPCBackgroundChildCreateCallback)
 
 nsresult
 UDPSocketChild::CreatePBackgroundSpinUntilDone()
@@ -115,7 +98,7 @@ UDPSocketChild::CreatePBackgroundSpinUntilDone()
 
   bool done = false;
   nsCOMPtr<nsIIPCBackgroundChildCreateCallback> callback =
-    new UDPSocketBackgroundChildCallback(&done);
+      new UDPSocketBackgroundChildCallback(&done);
 
   if (NS_WARN_IF(!BackgroundChild::GetOrCreateForCurrentThread(callback))) {
     return NS_ERROR_FAILURE;
@@ -140,15 +123,14 @@ UDPSocketChild::SetBackgroundSpinsEvents()
   using mozilla::ipc::BackgroundChild;
 
   PBackgroundChild* existingBackgroundChild =
-    BackgroundChild::GetForCurrentThread();
+      BackgroundChild::GetForCurrentThread();
   // If it's not spun up yet, block until it is, and retry
   if (!existingBackgroundChild) {
     nsresult rv = CreatePBackgroundSpinUntilDone();
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
-    existingBackgroundChild =
-      BackgroundChild::GetForCurrentThread();
+    existingBackgroundChild = BackgroundChild::GetForCurrentThread();
     MOZ_ASSERT(existingBackgroundChild);
   }
   // By now PBackground is guaranteed to be/have-been up
@@ -167,7 +149,8 @@ UDPSocketChild::Bind(nsIUDPSocketInternal* aSocket,
                      uint32_t sendBufferSize,
                      nsIEventTarget* aMainThreadEventTarget)
 {
-  UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
+  UDPSOCKET_LOG(
+      ("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
 
   NS_ENSURE_ARG(aSocket);
 
@@ -183,19 +166,25 @@ UDPSocketChild::Bind(nsIUDPSocketInternal* aSocket,
     if (aMainThreadEventTarget) {
       gNeckoChild->SetEventTargetForActor(this, aMainThreadEventTarget);
     }
-    gNeckoChild->SendPUDPSocketConstructor(this, IPC::Principal(aPrincipal),
-                                           mFilterName);
+    gNeckoChild->SendPUDPSocketConstructor(
+        this, IPC::Principal(aPrincipal), mFilterName);
   }
 
-  SendBind(UDPAddressInfo(nsCString(aHost), aPort), aAddressReuse, aLoopback,
-           recvBufferSize, sendBufferSize);
+  SendBind(UDPAddressInfo(nsCString(aHost), aPort),
+           aAddressReuse,
+           aLoopback,
+           recvBufferSize,
+           sendBufferSize);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-UDPSocketChild::Connect(nsIUDPSocketInternal* aSocket, const nsACString & aHost, uint16_t aPort)
+UDPSocketChild::Connect(nsIUDPSocketInternal* aSocket,
+                        const nsACString& aHost,
+                        uint16_t aPort)
 {
-  UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
+  UDPSOCKET_LOG(
+      ("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
 
   mSocket = aSocket;
 
@@ -219,9 +208,15 @@ UDPSocketChild::Send(const nsACString& aHost,
 {
   NS_ENSURE_ARG(aData);
 
-  UDPSOCKET_LOG(("%s: %s:%u - %u bytes", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort, aByteLength));
-  return SendDataInternal(UDPSocketAddr(UDPAddressInfo(nsCString(aHost), aPort)),
-                          aData, aByteLength);
+  UDPSOCKET_LOG(("%s: %s:%u - %u bytes",
+                 __FUNCTION__,
+                 PromiseFlatCString(aHost).get(),
+                 aPort,
+                 aByteLength));
+  return SendDataInternal(
+      UDPSocketAddr(UDPAddressInfo(nsCString(aHost), aPort)),
+      aData,
+      aByteLength);
 }
 
 NS_IMETHODIMP
@@ -279,10 +274,12 @@ UDPSocketChild::SendBinaryStream(const nsACString& aHost,
   NS_ENSURE_ARG(aStream);
 
   mozilla::ipc::AutoIPCStream autoStream;
-  autoStream.Serialize(aStream,
-                       static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager()));
+  autoStream.Serialize(
+      aStream,
+      static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager()));
 
-  UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
+  UDPSOCKET_LOG(
+      ("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
   SendOutgoingData(UDPData(autoStream.TakeOptionalValue()),
                    UDPSocketAddr(UDPAddressInfo(nsCString(aHost), aPort)));
 
@@ -380,10 +377,15 @@ mozilla::ipc::IPCResult
 UDPSocketChild::RecvCallbackReceivedData(const UDPAddressInfo& aAddressInfo,
                                          InfallibleTArray<uint8_t>&& aData)
 {
-  UDPSOCKET_LOG(("%s: %s:%u length %zu", __FUNCTION__,
-                 aAddressInfo.addr().get(), aAddressInfo.port(), aData.Length()));
-  nsresult rv = mSocket->CallListenerReceivedData(aAddressInfo.addr(), aAddressInfo.port(),
-                                                  aData.Elements(), aData.Length());
+  UDPSOCKET_LOG(("%s: %s:%u length %zu",
+                 __FUNCTION__,
+                 aAddressInfo.addr().get(),
+                 aAddressInfo.port(),
+                 aData.Length()));
+  nsresult rv = mSocket->CallListenerReceivedData(aAddressInfo.addr(),
+                                                  aAddressInfo.port(),
+                                                  aData.Elements(),
+                                                  aData.Length());
   mozilla::Unused << NS_WARN_IF(NS_FAILED(rv));
 
   return IPC_OK();
@@ -394,12 +396,16 @@ UDPSocketChild::RecvCallbackError(const nsCString& aMessage,
                                   const nsCString& aFilename,
                                   const uint32_t& aLineNumber)
 {
-  UDPSOCKET_LOG(("%s: %s:%s:%u", __FUNCTION__, aMessage.get(), aFilename.get(), aLineNumber));
+  UDPSOCKET_LOG(("%s: %s:%s:%u",
+                 __FUNCTION__,
+                 aMessage.get(),
+                 aFilename.get(),
+                 aLineNumber));
   nsresult rv = mSocket->CallListenerError(aMessage, aFilename, aLineNumber);
   mozilla::Unused << NS_WARN_IF(NS_FAILED(rv));
 
   return IPC_OK();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

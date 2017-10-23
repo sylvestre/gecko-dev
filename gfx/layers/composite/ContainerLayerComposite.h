@@ -6,9 +6,9 @@
 #ifndef GFX_ContainerLayerComposite_H
 #define GFX_ContainerLayerComposite_H
 
-#include "Layers.h"                     // for Layer (ptr only), etc
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/UniquePtr.h"          // for UniquePtr
+#include "Layers.h"              // for Layer (ptr only), etc
+#include "mozilla/Attributes.h"  // for override
+#include "mozilla/UniquePtr.h"   // for UniquePtr
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/gfx/Rect.h"
 
@@ -19,8 +19,7 @@ class CompositableHost;
 class CompositingRenderTarget;
 struct PreparedData;
 
-class ContainerLayerComposite : public ContainerLayer,
-                                public LayerComposite
+class ContainerLayerComposite : public ContainerLayer, public LayerComposite
 {
   template<class ContainerT>
   friend void ContainerPrepare(ContainerT* aContainer,
@@ -38,30 +37,34 @@ class ContainerLayerComposite : public ContainerLayer,
                            const Maybe<gfx::Polygon>& aGeometry);
   template<class ContainerT>
   friend void RenderIntermediate(ContainerT* aContainer,
-                   LayerManagerComposite* aManager,
-                   const gfx::IntRect& aClipRect,
-                   RefPtr<CompositingRenderTarget> surface);
+                                 LayerManagerComposite* aManager,
+                                 const gfx::IntRect& aClipRect,
+                                 RefPtr<CompositingRenderTarget> surface);
   template<class ContainerT>
   friend RefPtr<CompositingRenderTarget>
-  CreateTemporaryTargetAndCopyFromBackground(ContainerT* aContainer,
-                                             LayerManagerComposite* aManager,
-                                             const RenderTargetIntRect& aClipRect);
+  CreateTemporaryTargetAndCopyFromBackground(
+      ContainerT* aContainer,
+      LayerManagerComposite* aManager,
+      const RenderTargetIntRect& aClipRect);
   template<class ContainerT>
-  friend RefPtr<CompositingRenderTarget>
-  CreateOrRecycleTarget(ContainerT* aContainer,
-                        LayerManagerComposite* aManager,
-                        const RenderTargetIntRect& aClipRect);
+  friend RefPtr<CompositingRenderTarget> CreateOrRecycleTarget(
+      ContainerT* aContainer,
+      LayerManagerComposite* aManager,
+      const RenderTargetIntRect& aClipRect);
 
   template<class ContainerT>
-  void RenderMinimap(ContainerT* aContainer, LayerManagerComposite* aManager,
-                     const RenderTargetIntRect& aClipRect, Layer* aLayer);
-public:
-  explicit ContainerLayerComposite(LayerManagerComposite *aManager);
+  void RenderMinimap(ContainerT* aContainer,
+                     LayerManagerComposite* aManager,
+                     const RenderTargetIntRect& aClipRect,
+                     Layer* aLayer);
 
-protected:
+ public:
+  explicit ContainerLayerComposite(LayerManagerComposite* aManager);
+
+ protected:
   ~ContainerLayerComposite();
 
-public:
+ public:
   // LayerComposite Implementation
   virtual Layer* GetLayer() override { return this; }
 
@@ -83,7 +86,8 @@ public:
 
   virtual void Prepare(const RenderTargetIntRect& aClipRect) override;
 
-  virtual void ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSurface) override
+  virtual void ComputeEffectiveTransforms(
+      const gfx::Matrix4x4& aTransformToSurface) override
   {
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
@@ -102,27 +106,31 @@ public:
   // scaling to. This cancels out the post scale of '1 / resolution'
   // added by Layout. TODO: It would be nice to get rid of both of these
   // post-scales.
-  virtual float GetPostXScale() const override {
+  virtual float GetPostXScale() const override
+  {
     if (mScaleToResolution) {
       return mSimpleAttrs.PostXScale() * mPresShellResolution;
     }
     return mSimpleAttrs.PostXScale();
   }
-  virtual float GetPostYScale() const override {
+  virtual float GetPostYScale() const override
+  {
     if (mScaleToResolution) {
       return mSimpleAttrs.PostYScale() * mPresShellResolution;
     }
     return mSimpleAttrs.PostYScale();
   }
 
-  virtual const char* Name() const override { return "ContainerLayerComposite"; }
+  virtual const char* Name() const override
+  {
+    return "ContainerLayerComposite";
+  }
   UniquePtr<PreparedData> mPrepared;
 
   RefPtr<CompositingRenderTarget> mLastIntermediateSurface;
 };
 
-class RefLayerComposite : public RefLayer,
-                          public LayerComposite
+class RefLayerComposite : public RefLayer, public LayerComposite
 {
   template<class ContainerT>
   friend void ContainerPrepare(ContainerT* aContainer,
@@ -140,27 +148,27 @@ class RefLayerComposite : public RefLayer,
                            const Maybe<gfx::Polygon>& aGeometry);
   template<class ContainerT>
   friend void RenderIntermediate(ContainerT* aContainer,
-                   LayerManagerComposite* aManager,
-                   const gfx::IntRect& aClipRect,
-                   RefPtr<CompositingRenderTarget> surface);
+                                 LayerManagerComposite* aManager,
+                                 const gfx::IntRect& aClipRect,
+                                 RefPtr<CompositingRenderTarget> surface);
   template<class ContainerT>
   friend RefPtr<CompositingRenderTarget>
   CreateTemporaryTargetAndCopyFromBackground(ContainerT* aContainer,
                                              LayerManagerComposite* aManager,
                                              const gfx::IntRect& aClipRect);
   template<class ContainerT>
-  friend RefPtr<CompositingRenderTarget>
-  CreateTemporaryTarget(ContainerT* aContainer,
-                        LayerManagerComposite* aManager,
-                        const gfx::IntRect& aClipRect);
+  friend RefPtr<CompositingRenderTarget> CreateTemporaryTarget(
+      ContainerT* aContainer,
+      LayerManagerComposite* aManager,
+      const gfx::IntRect& aClipRect);
 
-public:
-  explicit RefLayerComposite(LayerManagerComposite *aManager);
+ public:
+  explicit RefLayerComposite(LayerManagerComposite* aManager);
 
-protected:
+ protected:
   ~RefLayerComposite();
 
-public:
+ public:
   /** LayerOGL implementation */
   Layer* GetLayer() override { return this; }
 
@@ -180,7 +188,8 @@ public:
 
   virtual void Prepare(const RenderTargetIntRect& aClipRect) override;
 
-  virtual void ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSurface) override
+  virtual void ComputeEffectiveTransforms(
+      const gfx::Matrix4x4& aTransformToSurface) override
   {
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
@@ -201,7 +210,7 @@ public:
   RefPtr<CompositingRenderTarget> mLastIntermediateSurface;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_ContainerLayerComposite_H */

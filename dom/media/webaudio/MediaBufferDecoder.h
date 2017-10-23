@@ -25,7 +25,7 @@ class AudioContext;
 class DecodeErrorCallback;
 class DecodeSuccessCallback;
 class Promise;
-} // namespace dom
+}  // namespace dom
 
 struct WebAudioDecodeJob final
 {
@@ -37,7 +37,8 @@ struct WebAudioDecodeJob final
                     dom::DecodeErrorCallback* aFailureCallback = nullptr);
   ~WebAudioDecodeJob();
 
-  enum ErrorCode {
+  enum ErrorCode
+  {
     NoError,
     UnknownContent,
     UnknownError,
@@ -59,14 +60,16 @@ struct WebAudioDecodeJob final
   RefPtr<dom::AudioContext> mContext;
   RefPtr<dom::Promise> mPromise;
   RefPtr<dom::DecodeSuccessCallback> mSuccessCallback;
-  RefPtr<dom::DecodeErrorCallback> mFailureCallback; // can be null
+  RefPtr<dom::DecodeErrorCallback> mFailureCallback;  // can be null
   RefPtr<dom::AudioBuffer> mOutput;
 };
 
-void AsyncDecodeWebAudio(const char* aContentType, uint8_t* aBuffer,
-                         uint32_t aLength, WebAudioDecodeJob& aDecodeJob);
+void
+AsyncDecodeWebAudio(const char* aContentType,
+                    uint8_t* aBuffer,
+                    uint32_t aLength,
+                    WebAudioDecodeJob& aDecodeJob);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif
-

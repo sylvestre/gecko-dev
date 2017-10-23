@@ -17,15 +17,13 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-nsIconProtocolHandler::nsIconProtocolHandler()
-{ }
+nsIconProtocolHandler::nsIconProtocolHandler() {}
 
-nsIconProtocolHandler::~nsIconProtocolHandler()
-{ }
+nsIconProtocolHandler::~nsIconProtocolHandler() {}
 
-NS_IMPL_ISUPPORTS(nsIconProtocolHandler, nsIProtocolHandler,
+NS_IMPL_ISUPPORTS(nsIconProtocolHandler,
+                  nsIProtocolHandler,
                   nsISupportsWeakReference)
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // nsIProtocolHandler methods:
@@ -49,22 +47,22 @@ nsIconProtocolHandler::AllowPort(int32_t port,
                                  const char* scheme,
                                  bool* _retval)
 {
-    // don't override anything.
-    *_retval = false;
-    return NS_OK;
+  // don't override anything.
+  *_retval = false;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsIconProtocolHandler::GetProtocolFlags(uint32_t* result)
 {
-  *result = URI_NORELATIVE | URI_NOAUTH | URI_IS_UI_RESOURCE |
-            URI_IS_LOCAL_RESOURCE;
+  *result =
+      URI_NORELATIVE | URI_NOAUTH | URI_IS_UI_RESOURCE | URI_IS_LOCAL_RESOURCE;
   return NS_OK;
 }
 
 NS_IMETHODIMP
 nsIconProtocolHandler::NewURI(const nsACString& aSpec,
-                              const char* aOriginCharset, // ignored
+                              const char* aOriginCharset,  // ignored
                               nsIURI* aBaseURI,
                               nsIURI** result)
 {

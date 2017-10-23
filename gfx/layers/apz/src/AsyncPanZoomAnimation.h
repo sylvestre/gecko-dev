@@ -22,18 +22,18 @@ class WheelScrollAnimation;
 class KeyboardScrollAnimation;
 class SmoothScrollAnimation;
 
-class AsyncPanZoomAnimation {
+class AsyncPanZoomAnimation
+{
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AsyncPanZoomAnimation)
 
-public:
-  explicit AsyncPanZoomAnimation()
-  { }
+ public:
+  explicit AsyncPanZoomAnimation() {}
 
   virtual bool DoSample(FrameMetrics& aFrameMetrics,
                         const TimeDuration& aDelta) = 0;
 
-  bool Sample(FrameMetrics& aFrameMetrics,
-              const TimeDuration& aDelta) {
+  bool Sample(FrameMetrics& aFrameMetrics, const TimeDuration& aDelta)
+  {
     // In some situations, particularly when handoff is involved, it's possible
     // for |aDelta| to be negative on the first call to sample. Ignore such a
     // sample here, to avoid each derived class having to deal with this case.
@@ -48,30 +48,25 @@ public:
    * Get the deferred tasks in |mDeferredTasks| and place them in |aTasks|. See
    * |mDeferredTasks| for more information.  Clears |mDeferredTasks|.
    */
-  nsTArray<RefPtr<Runnable>> TakeDeferredTasks() {
+  nsTArray<RefPtr<Runnable>> TakeDeferredTasks()
+  {
     return Move(mDeferredTasks);
   }
 
-  virtual KeyboardScrollAnimation* AsKeyboardScrollAnimation() {
+  virtual KeyboardScrollAnimation* AsKeyboardScrollAnimation()
+  {
     return nullptr;
   }
-  virtual WheelScrollAnimation* AsWheelScrollAnimation() {
-    return nullptr;
-  }
-  virtual SmoothScrollAnimation* AsSmoothScrollAnimation() {
-    return nullptr;
-  }
+  virtual WheelScrollAnimation* AsWheelScrollAnimation() { return nullptr; }
+  virtual SmoothScrollAnimation* AsSmoothScrollAnimation() { return nullptr; }
 
-  virtual bool WantsRepaints() {
-    return true;
-  }
+  virtual bool WantsRepaints() { return true; }
 
   virtual void Cancel(CancelAnimationFlags aFlags) {}
 
-protected:
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
-  virtual ~AsyncPanZoomAnimation()
-  { }
+  virtual ~AsyncPanZoomAnimation() {}
 
   /**
    * Tasks scheduled for execution after the APZC's mMonitor is released.
@@ -81,7 +76,7 @@ protected:
   nsTArray<RefPtr<Runnable>> mDeferredTasks;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_AsyncPanZoomAnimation_h_
+#endif  // mozilla_layers_AsyncPanZoomAnimation_h_

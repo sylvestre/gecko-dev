@@ -31,12 +31,14 @@ struct ObservationWithStack
 {
   explicit ObservationWithStack(mozilla::IOInterposeObserver::Observation& aObs
 #ifdef MOZ_GECKO_PROFILER
-                                , ProfilerBacktrace* aStack
+                                ,
+                                ProfilerBacktrace* aStack
 #endif
                                 )
-    : mObservation(aObs)
+      : mObservation(aObs)
 #ifdef MOZ_GECKO_PROFILER
-    , mStack(aStack)
+        ,
+        mStack(aStack)
 #endif
   {
     aObs.Filename(mFilename);
@@ -44,14 +46,14 @@ struct ObservationWithStack
 
   mozilla::IOInterposeObserver::Observation mObservation;
 #ifdef MOZ_GECKO_PROFILER
-  ProfilerBacktrace*                        mStack;
+  ProfilerBacktrace* mStack;
 #endif
-  nsString                                  mFilename;
+  nsString mFilename;
 };
 
 class MainThreadIOLoggerImpl final : public mozilla::IOInterposeObserver
 {
-public:
+ public:
   MainThreadIOLoggerImpl();
   ~MainThreadIOLoggerImpl();
 
@@ -59,24 +61,22 @@ public:
 
   void Observe(Observation& aObservation);
 
-private:
+ private:
   static void sIOThreadFunc(void* aArg);
   void IOThreadFunc();
 
-  TimeStamp             mLogStartTime;
-  const char*           mFileName;
-  PRThread*             mIOThread;
+  TimeStamp mLogStartTime;
+  const char* mFileName;
+  PRThread* mIOThread;
   IOInterposer::Monitor mMonitor;
-  bool                  mShutdownRequired;
+  bool mShutdownRequired;
   std::vector<ObservationWithStack> mObservations;
 };
 
 static StaticAutoPtr<MainThreadIOLoggerImpl> sImpl;
 
 MainThreadIOLoggerImpl::MainThreadIOLoggerImpl()
-  : mFileName(nullptr)
-  , mIOThread(nullptr)
-  , mShutdownRequired(false)
+    : mFileName(nullptr), mIOThread(nullptr), mShutdownRequired(false)
 {
 }
 
@@ -107,9 +107,13 @@ MainThreadIOLoggerImpl::Init()
     // Can't start
     return false;
   }
-  mIOThread = PR_CreateThread(PR_USER_THREAD, &sIOThreadFunc, this,
-                              PR_PRIORITY_LOW, PR_GLOBAL_THREAD,
-                              PR_JOINABLE_THREAD, 0);
+  mIOThread = PR_CreateThread(PR_USER_THREAD,
+                              &sIOThreadFunc,
+                              this,
+                              PR_PRIORITY_LOW,
+                              PR_GLOBAL_THREAD,
+                              PR_JOINABLE_THREAD,
+                              0);
   if (!mIOThread) {
     return false;
   }
@@ -129,7 +133,8 @@ MainThreadIOLoggerImpl::sIOThreadFunc(void* aArg)
 void
 MainThreadIOLoggerImpl::IOThreadFunc()
 {
-  PRFileDesc* fd = PR_Open(mFileName, PR_WRONLY | PR_CREATE_FILE | PR_TRUNCATE,
+  PRFileDesc* fd = PR_Open(mFileName,
+                           PR_WRONLY | PR_CREATE_FILE | PR_TRUNCATE,
                            PR_IRUSR | PR_IWUSR | PR_IRGRP);
   if (!fd) {
     IOInterposer::MonitorAutoLock lock(mMonitor);
@@ -157,9 +162,11 @@ MainThreadIOLoggerImpl::IOThreadFunc()
 
       // Now write the events.
       for (auto i = observationsToWrite.begin(), e = observationsToWrite.end();
-           i != e; ++i) {
+           i != e;
+           ++i) {
         if (i->mObservation.ObservedOperation() == OpNextStage) {
-          PR_fprintf(fd, "%f,NEXT-STAGE\n",
+          PR_fprintf(fd,
+                     "%f,NEXT-STAGE\n",
                      (TimeStamp::Now() - mLogStartTime).ToMilliseconds());
           continue;
         }
@@ -175,10 +182,14 @@ MainThreadIOLoggerImpl::IOThreadFunc()
          * Format:
          * Start Timestamp (Milliseconds), Operation, Duration (Milliseconds), Event Source, Filename
          */
-        if (PR_fprintf(fd, "%f,%s,%f,%s,%s\n",
-                       (i->mObservation.Start() - mLogStartTime).ToMilliseconds(),
-                       i->mObservation.ObservedOperationString(), durationMs,
-                       i->mObservation.Reference(), nativeFilename.get()) > 0) {
+        if (PR_fprintf(
+                fd,
+                "%f,%s,%f,%s,%s\n",
+                (i->mObservation.Start() - mLogStartTime).ToMilliseconds(),
+                i->mObservation.ObservedOperationString(),
+                durationMs,
+                i->mObservation.Reference(),
+                nativeFilename.get()) > 0) {
 #ifdef MOZ_GECKO_PROFILER
           // TODO: Write out the callstack
           i->mStack = nullptr;
@@ -204,13 +215,14 @@ MainThreadIOLoggerImpl::Observe(Observation& aObservation)
   // Passing nullptr as aStack parameter for now
   mObservations.push_back(ObservationWithStack(aObservation
 #ifdef MOZ_GECKO_PROFILER
-                                               , nullptr
+                                               ,
+                                               nullptr
 #endif
                                                ));
   lock.Notify();
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -228,7 +240,6 @@ Init()
   return true;
 }
 
-} // namespace MainThreadIOLogger
+}  // namespace MainThreadIOLogger
 
-} // namespace mozilla
-
+}  // namespace mozilla

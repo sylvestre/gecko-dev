@@ -15,7 +15,7 @@ namespace gfx {
 
 class VsyncIOThreadHolder final
 {
-public:
+ public:
   VsyncIOThreadHolder();
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VsyncIOThreadHolder)
@@ -24,14 +24,14 @@ public:
 
   RefPtr<nsIThread> GetThread() const;
 
-private:
+ private:
   ~VsyncIOThreadHolder();
 
-private:
+ private:
   RefPtr<nsIThread> mThread;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_ipc_VsyncIOThreadHolder_h
+#endif  // mozilla_gfx_ipc_VsyncIOThreadHolder_h

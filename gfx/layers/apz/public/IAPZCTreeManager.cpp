@@ -21,10 +21,8 @@ namespace layers {
 static bool
 WillHandleMouseEvent(const WidgetMouseEventBase& aEvent)
 {
-  return aEvent.mMessage == eMouseMove ||
-         aEvent.mMessage == eMouseDown ||
-         aEvent.mMessage == eMouseUp ||
-         aEvent.mMessage == eDragEnd;
+  return aEvent.mMessage == eMouseMove || aEvent.mMessage == eMouseDown ||
+         aEvent.mMessage == eMouseUp || aEvent.mMessage == eDragEnd;
 }
 
 /* static */ bool
@@ -37,10 +35,9 @@ IAPZCTreeManager::WillHandleWheelEvent(WidgetWheelEvent* aEvent)
 }
 
 nsEventStatus
-IAPZCTreeManager::ReceiveInputEvent(
-    WidgetInputEvent& aEvent,
-    ScrollableLayerGuid* aOutTargetGuid,
-    uint64_t* aOutInputBlockId)
+IAPZCTreeManager::ReceiveInputEvent(WidgetInputEvent& aEvent,
+                                    ScrollableLayerGuid* aOutTargetGuid,
+                                    uint64_t* aOutInputBlockId)
 {
   APZThreadUtils::AssertOnControllerThread();
 
@@ -53,7 +50,6 @@ IAPZCTreeManager::ReceiveInputEvent(
   switch (aEvent.mClass) {
     case eMouseEventClass:
     case eDragEventClass: {
-
       WidgetMouseEvent& mouseEvent = *aEvent.AsMouseEvent();
 
       // Note, we call this before having transformed the reference point.
@@ -62,28 +58,29 @@ IAPZCTreeManager::ReceiveInputEvent(
       }
 
       if (WillHandleMouseEvent(mouseEvent)) {
-
         MouseInput input(mouseEvent);
-        input.mOrigin = ScreenPoint(mouseEvent.mRefPoint.x, mouseEvent.mRefPoint.y);
+        input.mOrigin =
+            ScreenPoint(mouseEvent.mRefPoint.x, mouseEvent.mRefPoint.y);
 
-        nsEventStatus status = ReceiveInputEvent(input, aOutTargetGuid, aOutInputBlockId);
+        nsEventStatus status =
+            ReceiveInputEvent(input, aOutTargetGuid, aOutInputBlockId);
 
         mouseEvent.mRefPoint.x = input.mOrigin.x;
         mouseEvent.mRefPoint.y = input.mOrigin.y;
         mouseEvent.mFlags.mHandledByAPZ = input.mHandledByAPZ;
         mouseEvent.mFocusSequenceNumber = input.mFocusSequenceNumber;
         return status;
-
       }
 
-      ProcessUnhandledEvent(&mouseEvent.mRefPoint, aOutTargetGuid, &aEvent.mFocusSequenceNumber);
+      ProcessUnhandledEvent(
+          &mouseEvent.mRefPoint, aOutTargetGuid, &aEvent.mFocusSequenceNumber);
       return nsEventStatus_eIgnore;
     }
     case eTouchEventClass: {
-
       WidgetTouchEvent& touchEvent = *aEvent.AsTouchEvent();
       MultiTouchInput touchInput(touchEvent);
-      nsEventStatus result = ReceiveInputEvent(touchInput, aOutTargetGuid, aOutInputBlockId);
+      nsEventStatus result =
+          ReceiveInputEvent(touchInput, aOutTargetGuid, aOutInputBlockId);
       // touchInput was modified in-place to possibly remove some
       // touch points (if we are overscrolled), and the coordinates were
       // modified using the APZ untransform. We need to copy these changes
@@ -92,25 +89,23 @@ IAPZCTreeManager::ReceiveInputEvent(
       touchEvent.mTouches.SetCapacity(touchInput.mTouches.Length());
       for (size_t i = 0; i < touchInput.mTouches.Length(); i++) {
         *touchEvent.mTouches.AppendElement() =
-          touchInput.mTouches[i].ToNewDOMTouch();
+            touchInput.mTouches[i].ToNewDOMTouch();
       }
       touchEvent.mFlags.mHandledByAPZ = touchInput.mHandledByAPZ;
       touchEvent.mFocusSequenceNumber = touchInput.mFocusSequenceNumber;
       return result;
-
     }
     case eWheelEventClass: {
       WidgetWheelEvent& wheelEvent = *aEvent.AsWheelEvent();
 
       if (WillHandleWheelEvent(&wheelEvent)) {
-
-        ScrollWheelInput::ScrollMode scrollMode = ScrollWheelInput::SCROLLMODE_INSTANT;
+        ScrollWheelInput::ScrollMode scrollMode =
+            ScrollWheelInput::SCROLLMODE_INSTANT;
         if (gfxPrefs::SmoothScrollEnabled() &&
             ((wheelEvent.mDeltaMode == nsIDOMWheelEvent::DOM_DELTA_LINE &&
               gfxPrefs::WheelSmoothScrollEnabled()) ||
              (wheelEvent.mDeltaMode == nsIDOMWheelEvent::DOM_DELTA_PAGE &&
-              gfxPrefs::PageSmoothScrollEnabled())))
-        {
+              gfxPrefs::PageSmoothScrollEnabled()))) {
           scrollMode = ScrollWheelInput::SCROLLMODE_SMOOTH;
         }
 
@@ -122,13 +117,16 @@ IAPZCTreeManager::ReceiveInputEvent(
         // If the wheel event becomes no-op event, don't handle it as scroll.
         if (wheelEvent.mDeltaX || wheelEvent.mDeltaY) {
           ScreenPoint origin(wheelEvent.mRefPoint.x, wheelEvent.mRefPoint.y);
-          ScrollWheelInput input(wheelEvent.mTime, wheelEvent.mTimeStamp, 0,
-                                 scrollMode,
-                                 ScrollWheelInput::DeltaTypeForDeltaMode(
-                                                     wheelEvent.mDeltaMode),
-                                 origin,
-                                 wheelEvent.mDeltaX, wheelEvent.mDeltaY,
-                                 wheelEvent.mAllowToOverrideSystemScrollSpeed);
+          ScrollWheelInput input(
+              wheelEvent.mTime,
+              wheelEvent.mTimeStamp,
+              0,
+              scrollMode,
+              ScrollWheelInput::DeltaTypeForDeltaMode(wheelEvent.mDeltaMode),
+              origin,
+              wheelEvent.mDeltaX,
+              wheelEvent.mDeltaY,
+              wheelEvent.mAllowToOverrideSystemScrollSpeed);
 
           // We add the user multiplier as a separate field, rather than premultiplying
           // it, because if the input is converted back to a WidgetWheelEvent, then
@@ -136,11 +134,13 @@ IAPZCTreeManager::ReceiveInputEvent(
           // work around this by asking ESM to customize the event much sooner, and
           // then save the "mCustomizedByUserPrefs" bit on ScrollWheelInput - but for
           // now, this seems easier.
-          EventStateManager::GetUserPrefsForWheelEvent(&wheelEvent,
-            &input.mUserDeltaMultiplierX,
-            &input.mUserDeltaMultiplierY);
+          EventStateManager::GetUserPrefsForWheelEvent(
+              &wheelEvent,
+              &input.mUserDeltaMultiplierX,
+              &input.mUserDeltaMultiplierY);
 
-          nsEventStatus status = ReceiveInputEvent(input, aOutTargetGuid, aOutInputBlockId);
+          nsEventStatus status =
+              ReceiveInputEvent(input, aOutTargetGuid, aOutInputBlockId);
           wheelEvent.mRefPoint.x = input.mOrigin.x;
           wheelEvent.mRefPoint.y = input.mOrigin.y;
           wheelEvent.mFlags.mHandledByAPZ = input.mHandledByAPZ;
@@ -150,27 +150,27 @@ IAPZCTreeManager::ReceiveInputEvent(
       }
 
       UpdateWheelTransaction(aEvent.mRefPoint, aEvent.mMessage);
-      ProcessUnhandledEvent(&aEvent.mRefPoint, aOutTargetGuid, &aEvent.mFocusSequenceNumber);
+      ProcessUnhandledEvent(
+          &aEvent.mRefPoint, aOutTargetGuid, &aEvent.mFocusSequenceNumber);
       return nsEventStatus_eIgnore;
-
     }
     case eKeyboardEventClass: {
       WidgetKeyboardEvent& keyboardEvent = *aEvent.AsKeyboardEvent();
 
       KeyboardInput input(keyboardEvent);
 
-      nsEventStatus status = ReceiveInputEvent(input, aOutTargetGuid, aOutInputBlockId);
+      nsEventStatus status =
+          ReceiveInputEvent(input, aOutTargetGuid, aOutInputBlockId);
 
       keyboardEvent.mFlags.mHandledByAPZ = input.mHandledByAPZ;
       keyboardEvent.mFocusSequenceNumber = input.mFocusSequenceNumber;
       return status;
     }
     default: {
-
       UpdateWheelTransaction(aEvent.mRefPoint, aEvent.mMessage);
-      ProcessUnhandledEvent(&aEvent.mRefPoint, aOutTargetGuid, &aEvent.mFocusSequenceNumber);
+      ProcessUnhandledEvent(
+          &aEvent.mRefPoint, aOutTargetGuid, &aEvent.mFocusSequenceNumber);
       return nsEventStatus_eIgnore;
-
     }
   }
 
@@ -178,5 +178,5 @@ IAPZCTreeManager::ReceiveInputEvent(
   return nsEventStatus_eConsumeNoDefault;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

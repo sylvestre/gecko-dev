@@ -15,7 +15,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGStyleElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGStyleElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGStyleElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -43,39 +43,37 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 //----------------------------------------------------------------------
 // Implementation
 
-SVGStyleElement::SVGStyleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGStyleElementBase(aNodeInfo)
+SVGStyleElement::SVGStyleElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGStyleElementBase(aNodeInfo)
 {
   AddMutationObserver(this);
 }
 
-SVGStyleElement::~SVGStyleElement()
-{
-}
+SVGStyleElement::~SVGStyleElement() {}
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGStyleElement)
-
 
 //----------------------------------------------------------------------
 // nsIContent methods
 
 nsresult
-SVGStyleElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+SVGStyleElement::BindToTree(nsIDocument* aDocument,
+                            nsIContent* aParent,
                             nsIContent* aBindingParent,
                             bool aCompileEventHandlers)
 {
-  nsresult rv = SVGStyleElementBase::BindToTree(aDocument, aParent,
-                                                aBindingParent,
-                                                aCompileEventHandlers);
+  nsresult rv = SVGStyleElementBase::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  void (SVGStyleElement::*update)() = &SVGStyleElement::UpdateStyleSheetInternal;
+  void (SVGStyleElement::*update)() =
+      &SVGStyleElement::UpdateStyleSheetInternal;
   nsContentUtils::AddScriptRunner(
-    NewRunnableMethod("dom::SVGStyleElement::BindToTree", this, update));
+      NewRunnableMethod("dom::SVGStyleElement::BindToTree", this, update));
 
   return rv;
 }
@@ -90,16 +88,17 @@ SVGStyleElement::UnbindFromTree(bool aDeep, bool aNullParent)
 }
 
 nsresult
-SVGStyleElement::SetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                         nsAtom* aPrefix, const nsAString& aValue,
+SVGStyleElement::SetAttr(int32_t aNameSpaceID,
+                         nsAtom* aName,
+                         nsAtom* aPrefix,
+                         const nsAString& aValue,
                          nsIPrincipal* aSubjectPrincipal,
                          bool aNotify)
 {
-  nsresult rv = SVGStyleElementBase::SetAttr(aNameSpaceID, aName, aPrefix,
-                                             aValue, aSubjectPrincipal, aNotify);
+  nsresult rv = SVGStyleElementBase::SetAttr(
+      aNameSpaceID, aName, aPrefix, aValue, aSubjectPrincipal, aNotify);
   if (NS_SUCCEEDED(rv) && aNameSpaceID == kNameSpaceID_None) {
-    if (aName == nsGkAtoms::title ||
-        aName == nsGkAtoms::media ||
+    if (aName == nsGkAtoms::title || aName == nsGkAtoms::media ||
         aName == nsGkAtoms::type) {
       UpdateStyleSheetInternal(nullptr, nullptr, true);
     } else if (aName == nsGkAtoms::scoped &&
@@ -112,14 +111,14 @@ SVGStyleElement::SetAttr(int32_t aNameSpaceID, nsAtom* aName,
 }
 
 nsresult
-SVGStyleElement::UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttribute,
+SVGStyleElement::UnsetAttr(int32_t aNameSpaceID,
+                           nsAtom* aAttribute,
                            bool aNotify)
 {
-  nsresult rv = SVGStyleElementBase::UnsetAttr(aNameSpaceID, aAttribute,
-                                               aNotify);
+  nsresult rv =
+      SVGStyleElementBase::UnsetAttr(aNameSpaceID, aAttribute, aNotify);
   if (NS_SUCCEEDED(rv) && aNameSpaceID == kNameSpaceID_None) {
-    if (aAttribute == nsGkAtoms::title ||
-        aAttribute == nsGkAtoms::media ||
+    if (aAttribute == nsGkAtoms::title || aAttribute == nsGkAtoms::media ||
         aAttribute == nsGkAtoms::type) {
       UpdateStyleSheetInternal(nullptr, nullptr, true);
     } else if (aAttribute == nsGkAtoms::scoped &&
@@ -143,8 +142,8 @@ SVGStyleElement::ParseAttribute(int32_t aNamespaceID,
     return true;
   }
 
-  return SVGStyleElementBase::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                             aResult);
+  return SVGStyleElementBase::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 //----------------------------------------------------------------------
@@ -194,19 +193,19 @@ SVGStyleElement::ContentChanged(nsIContent* aContent)
 //----------------------------------------------------------------------
 
 void
-SVGStyleElement::GetXmlspace(nsAString & aXmlspace)
+SVGStyleElement::GetXmlspace(nsAString& aXmlspace)
 {
   GetAttr(kNameSpaceID_XML, nsGkAtoms::space, aXmlspace);
 }
 
 void
-SVGStyleElement::SetXmlspace(const nsAString & aXmlspace, ErrorResult& rv)
+SVGStyleElement::SetXmlspace(const nsAString& aXmlspace, ErrorResult& rv)
 {
   rv = SetAttr(kNameSpaceID_XML, nsGkAtoms::space, aXmlspace, true);
 }
 
 void
-SVGStyleElement::GetMedia(nsAString & aMedia)
+SVGStyleElement::GetMedia(nsAString& aMedia)
 {
   GetAttr(kNameSpaceID_None, nsGkAtoms::media, aMedia);
 }
@@ -230,7 +229,7 @@ SVGStyleElement::SetScoped(bool aScoped, ErrorResult& rv)
 }
 
 void
-SVGStyleElement::GetType(nsAString & aType)
+SVGStyleElement::GetType(nsAString& aType)
 {
   GetAttr(kNameSpaceID_None, nsGkAtoms::type, aType);
 }
@@ -242,7 +241,7 @@ SVGStyleElement::SetType(const nsAString& aType, ErrorResult& rv)
 }
 
 void
-SVGStyleElement::GetTitle(nsAString & aTitle)
+SVGStyleElement::GetTitle(nsAString& aTitle)
 {
   GetAttr(kNameSpaceID_None, nsGkAtoms::title, aTitle);
 }
@@ -257,7 +256,8 @@ SVGStyleElement::SetTitle(const nsAString& aTitle, ErrorResult& rv)
 // nsStyleLinkElement methods
 
 already_AddRefed<nsIURI>
-SVGStyleElement::GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal)
+SVGStyleElement::GetStyleSheetURL(bool* aIsInline,
+                                  nsIPrincipal** aTriggeringPrincipal)
 {
   *aIsInline = true;
   *aTriggeringPrincipal = nullptr;
@@ -298,6 +298,5 @@ SVGStyleElement::GetCORSMode() const
   return AttrValueToCORSMode(GetParsedAttr(nsGkAtoms::crossorigin));
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

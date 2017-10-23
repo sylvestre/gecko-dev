@@ -13,7 +13,8 @@
 using namespace mozilla;
 using namespace dom;
 
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGPreserveAspectRatio, mSVGElement)
+NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGPreserveAspectRatio,
+                                               mSVGElement)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMSVGPreserveAspectRatio)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMSVGPreserveAspectRatio)
@@ -23,16 +24,23 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGPreserveAspectRatio)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-static const char *sAlignStrings[] =
-  { "none", "xMinYMin", "xMidYMin", "xMaxYMin", "xMinYMid", "xMidYMid",
-    "xMaxYMid", "xMinYMax", "xMidYMax", "xMaxYMax" };
+static const char* sAlignStrings[] = {"none",
+                                      "xMinYMin",
+                                      "xMidYMin",
+                                      "xMaxYMin",
+                                      "xMinYMid",
+                                      "xMidYMid",
+                                      "xMaxYMid",
+                                      "xMinYMax",
+                                      "xMidYMax",
+                                      "xMaxYMax"};
 
-static const char *sMeetOrSliceStrings[] = { "meet", "slice" };
+static const char* sMeetOrSliceStrings[] = {"meet", "slice"};
 
 static uint16_t
-GetAlignForString(const nsAString &aAlignString)
+GetAlignForString(const nsAString& aAlignString)
 {
-  for (uint32_t i = 0 ; i < ArrayLength(sAlignStrings) ; i++) {
+  for (uint32_t i = 0; i < ArrayLength(sAlignStrings); i++) {
     if (aAlignString.EqualsASCII(sAlignStrings[i])) {
       return (i + SVG_ALIGN_MIN_VALID);
     }
@@ -42,9 +50,9 @@ GetAlignForString(const nsAString &aAlignString)
 }
 
 static uint16_t
-GetMeetOrSliceForString(const nsAString &aMeetOrSlice)
+GetMeetOrSliceForString(const nsAString& aMeetOrSlice)
 {
-  for (uint32_t i = 0 ; i < ArrayLength(sMeetOrSliceStrings) ; i++) {
+  for (uint32_t i = 0; i < ArrayLength(sMeetOrSliceStrings); i++) {
     if (aMeetOrSlice.EqualsASCII(sMeetOrSliceStrings[i])) {
       return (i + SVG_MEETORSLICE_MIN_VALID);
     }
@@ -58,11 +66,10 @@ SVGPreserveAspectRatio::FromString(const nsAString& aString,
                                    SVGPreserveAspectRatio* aValue)
 {
   nsWhitespaceTokenizerTemplate<IsSVGWhitespace> tokenizer(aString);
-  if (tokenizer.whitespaceBeforeFirstToken() ||
-      !tokenizer.hasMoreTokens()) {
+  if (tokenizer.whitespaceBeforeFirstToken() || !tokenizer.hasMoreTokens()) {
     return NS_ERROR_DOM_SYNTAX_ERR;
   }
-  const nsAString &token = tokenizer.nextToken();
+  const nsAString& token = tokenizer.nextToken();
 
   nsresult rv;
   SVGPreserveAspectRatio val;
@@ -99,24 +106,26 @@ SVGPreserveAspectRatio::ToString(nsAString& aValueAsString) const
 
   if (mAlign != uint8_t(SVG_PRESERVEASPECTRATIO_NONE)) {
     MOZ_ASSERT(mMeetOrSlice >= SVG_MEETORSLICE_MIN_VALID &&
-               mMeetOrSlice <= SVG_MEETORSLICE_MAX_VALID,
+                   mMeetOrSlice <= SVG_MEETORSLICE_MAX_VALID,
                "Unknown meetOrSlice");
     aValueAsString.Append(' ');
-    aValueAsString.AppendASCII(sMeetOrSliceStrings[mMeetOrSlice - SVG_MEETORSLICE_MIN_VALID]);
+    aValueAsString.AppendASCII(
+        sMeetOrSliceStrings[mMeetOrSlice - SVG_MEETORSLICE_MIN_VALID]);
   }
 }
 
 bool
 SVGPreserveAspectRatio::operator==(const SVGPreserveAspectRatio& aOther) const
 {
-  return mAlign == aOther.mAlign &&
-    mMeetOrSlice == aOther.mMeetOrSlice;
+  return mAlign == aOther.mAlign && mMeetOrSlice == aOther.mMeetOrSlice;
 }
 
 JSObject*
-DOMSVGPreserveAspectRatio::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DOMSVGPreserveAspectRatio::WrapObject(JSContext* aCx,
+                                      JS::Handle<JSObject*> aGivenProto)
 {
-  return mozilla::dom::SVGPreserveAspectRatioBinding::Wrap(aCx, this, aGivenProto);
+  return mozilla::dom::SVGPreserveAspectRatioBinding::Wrap(
+      aCx, this, aGivenProto);
 }
 
 uint16_t
@@ -152,7 +161,8 @@ DOMSVGPreserveAspectRatio::MeetOrSlice()
 }
 
 void
-DOMSVGPreserveAspectRatio::SetMeetOrSlice(uint16_t aMeetOrSlice, ErrorResult& rv)
+DOMSVGPreserveAspectRatio::SetMeetOrSlice(uint16_t aMeetOrSlice,
+                                          ErrorResult& rv)
 {
   if (!mIsBaseValue) {
     rv.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -160,4 +170,3 @@ DOMSVGPreserveAspectRatio::SetMeetOrSlice(uint16_t aMeetOrSlice, ErrorResult& rv
   }
   rv = mVal->SetBaseMeetOrSlice(aMeetOrSlice, mSVGElement);
 }
-

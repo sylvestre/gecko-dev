@@ -19,14 +19,11 @@ namespace mozilla {
 
 WMFMediaDataDecoder::WMFMediaDataDecoder(MFTManager* aMFTManager,
                                          TaskQueue* aTaskQueue)
-  : mTaskQueue(aTaskQueue)
-  , mMFTManager(aMFTManager)
+    : mTaskQueue(aTaskQueue), mMFTManager(aMFTManager)
 {
 }
 
-WMFMediaDataDecoder::~WMFMediaDataDecoder()
-{
-}
+WMFMediaDataDecoder::~WMFMediaDataDecoder() {}
 
 RefPtr<MediaDataDecoder::InitPromise>
 WMFMediaDataDecoder::Init()
@@ -48,24 +45,23 @@ SendTelemetry(unsigned long hr)
   if (SUCCEEDED(hr)) {
     sample = 0;
   } else if (hr < 0xc00d36b0) {
-    sample = 1; // low bucket
+    sample = 1;  // low bucket
   } else if (hr < 0xc00d3700) {
-    sample = hr & 0xffU; // MF_E_*
+    sample = hr & 0xffU;  // MF_E_*
   } else if (hr <= 0xc00d3705) {
-    sample = 0x80 + (hr & 0xfU); // more MF_E_*
+    sample = 0x80 + (hr & 0xfU);  // more MF_E_*
   } else if (hr < 0xc00d6d60) {
-    sample = 2; // mid bucket
+    sample = 2;  // mid bucket
   } else if (hr <= 0xc00d6d78) {
-    sample = hr & 0xffU; // MF_E_TRANSFORM_*
+    sample = hr & 0xffU;  // MF_E_TRANSFORM_*
   } else {
-    sample = 3; // high bucket
+    sample = 3;  // high bucket
   }
 
-  nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
-    "SendTelemetry",
-    [sample] {
-      Telemetry::Accumulate(Telemetry::MEDIA_WMF_DECODE_ERROR, sample);
-    });
+  nsCOMPtr<nsIRunnable> runnable =
+      NS_NewRunnableFunction("SendTelemetry", [sample] {
+        Telemetry::Accumulate(Telemetry::MEDIA_WMF_DECODE_ERROR, sample);
+      });
 
   SystemGroup::Dispatch(TaskCategory::Other, runnable.forget());
 }
@@ -78,8 +74,8 @@ WMFMediaDataDecoder::Shutdown()
   mIsShutDown = true;
 
   if (mTaskQueue) {
-    return InvokeAsync(mTaskQueue, this, __func__,
-                       &WMFMediaDataDecoder::ProcessShutdown);
+    return InvokeAsync(
+        mTaskQueue, this, __func__, &WMFMediaDataDecoder::ProcessShutdown);
   }
   return ProcessShutdown();
 }
@@ -103,9 +99,8 @@ WMFMediaDataDecoder::Decode(MediaRawData* aSample)
 {
   MOZ_DIAGNOSTIC_ASSERT(!mIsShutDown);
 
-  return InvokeAsync<MediaRawData*>(mTaskQueue, this, __func__,
-                                    &WMFMediaDataDecoder::ProcessDecode,
-                                    aSample);
+  return InvokeAsync<MediaRawData*>(
+      mTaskQueue, this, __func__, &WMFMediaDataDecoder::ProcessDecode, aSample);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -116,9 +111,9 @@ WMFMediaDataDecoder::ProcessError(HRESULT aError, const char* aReason)
     mRecordedError = true;
   }
   return DecodePromise::CreateAndReject(
-    MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
-                RESULT_DETAIL("%s:%x", aReason, aError)),
-    __func__);
+      MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                  RESULT_DETAIL("%s:%x", aReason, aError)),
+      __func__);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -177,8 +172,8 @@ WMFMediaDataDecoder::Flush()
 {
   MOZ_DIAGNOSTIC_ASSERT(!mIsShutDown);
 
-  return InvokeAsync(mTaskQueue, this, __func__,
-                     &WMFMediaDataDecoder::ProcessFlush);
+  return InvokeAsync(
+      mTaskQueue, this, __func__, &WMFMediaDataDecoder::ProcessFlush);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -211,12 +206,13 @@ WMFMediaDataDecoder::Drain()
 {
   MOZ_DIAGNOSTIC_ASSERT(!mIsShutDown);
 
-  return InvokeAsync(mTaskQueue, this, __func__,
-                     &WMFMediaDataDecoder::ProcessDrain);
+  return InvokeAsync(
+      mTaskQueue, this, __func__, &WMFMediaDataDecoder::ProcessDrain);
 }
 
 bool
-WMFMediaDataDecoder::IsHardwareAccelerated(nsACString& aFailureReason) const {
+WMFMediaDataDecoder::IsHardwareAccelerated(nsACString& aFailureReason) const
+{
   MOZ_ASSERT(!mIsShutDown);
 
   return mMFTManager && mMFTManager->IsHardwareAccelerated(aFailureReason);
@@ -228,13 +224,12 @@ WMFMediaDataDecoder::SetSeekThreshold(const media::TimeUnit& aTime)
   MOZ_DIAGNOSTIC_ASSERT(!mIsShutDown);
 
   RefPtr<WMFMediaDataDecoder> self = this;
-  nsCOMPtr<nsIRunnable> runnable =
-    NS_NewRunnableFunction("WMFMediaDataDecoder::SetSeekThreshold",
-                           [self, aTime]() {
-    media::TimeUnit threshold = aTime;
-    self->mMFTManager->SetSeekThreshold(threshold);
-  });
+  nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
+      "WMFMediaDataDecoder::SetSeekThreshold", [self, aTime]() {
+        media::TimeUnit threshold = aTime;
+        self->mMFTManager->SetSeekThreshold(threshold);
+      });
   mTaskQueue->Dispatch(runnable.forget());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -29,16 +29,15 @@ class ServoSpecifiedValues;
 // this will contain an nsRuleData. If it is Servo, it will be a PropertyDeclarationBlock.
 class GenericSpecifiedValues
 {
-protected:
+ protected:
   explicit GenericSpecifiedValues(StyleBackendType aType,
                                   nsPresContext* aPresContext,
                                   uint32_t aSIDs)
-    : mType(aType)
-    , mPresContext(aPresContext)
-    , mSIDs(aSIDs)
-  {}
+      : mType(aType), mPresContext(aPresContext), mSIDs(aSIDs)
+  {
+  }
 
-public:
+ public:
   MOZ_DECL_STYLO_METHODS(nsRuleData, ServoSpecifiedValues)
 
   // Check if we already contain a certain longhand
@@ -120,6 +119,6 @@ public:
   const uint32_t mSIDs;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_GenericSpecifiedValues_h
+#endif  // mozilla_GenericSpecifiedValues_h

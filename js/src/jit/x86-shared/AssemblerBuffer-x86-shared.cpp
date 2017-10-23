@@ -13,9 +13,7 @@
 using namespace js;
 using namespace jit;
 
-bool
-AssemblerBuffer::swap(Vector<uint8_t, 0, SystemAllocPolicy>& bytes)
-{
+bool AssemblerBuffer::swap(Vector<uint8_t, 0, SystemAllocPolicy>& bytes) {
     // For now, specialize to the one use case.
     MOZ_ASSERT(bytes.empty());
 
@@ -36,25 +34,21 @@ AssemblerBuffer::swap(Vector<uint8_t, 0, SystemAllocPolicy>& bytes)
     // NB: extractRawBuffer() only returns null if the Vector is using
     // inline storage and thus a malloc would be needed. In this case,
     // just make a simple copy.
-    if (!newBuffer)
-        return bytes.append(m_buffer.begin(), m_buffer.end());
+    if (!newBuffer) return bytes.append(m_buffer.begin(), m_buffer.end());
 
     bytes.replaceRawBuffer((uint8_t*)newBuffer, newLength, newCapacity);
     return true;
 }
 
 #ifdef JS_JITSPEW
-void
-js::jit::GenericAssembler::spew(const char* fmt, va_list va)
-{
+void js::jit::GenericAssembler::spew(const char* fmt, va_list va) {
     // Buffer to hold the formatted string. Note that this may contain
     // '%' characters, so do not pass it directly to printf functions.
     char buf[200];
 
     int i = VsprintfLiteral(buf, fmt, va);
     if (i > -1) {
-        if (printer)
-            printer->printf("%s\n", buf);
+        if (printer) printer->printf("%s\n", buf);
         js::jit::JitSpew(js::jit::JitSpew_Codegen, "%s", buf);
     }
 }

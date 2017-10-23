@@ -16,8 +16,7 @@ namespace gfx {
 static SurfaceFormat
 CairoFormatToSurfaceFormat(cairo_format_t format)
 {
-  switch (format)
-  {
+  switch (format) {
     case CAIRO_FORMAT_ARGB32:
       return SurfaceFormat::B8G8R8A8;
     case CAIRO_FORMAT_RGB24:
@@ -31,22 +30,20 @@ CairoFormatToSurfaceFormat(cairo_format_t format)
   }
 }
 
-SourceSurfaceCairo::SourceSurfaceCairo(cairo_surface_t* aSurface,
-                                       const IntSize& aSize,
-                                       const SurfaceFormat& aFormat,
-                                       DrawTargetCairo* aDrawTarget /* = nullptr */)
- : mSize(aSize)
- , mFormat(aFormat)
- , mSurface(aSurface)
- , mDrawTarget(aDrawTarget)
+SourceSurfaceCairo::SourceSurfaceCairo(
+    cairo_surface_t* aSurface,
+    const IntSize& aSize,
+    const SurfaceFormat& aFormat,
+    DrawTargetCairo* aDrawTarget /* = nullptr */)
+    : mSize(aSize),
+      mFormat(aFormat),
+      mSurface(aSurface),
+      mDrawTarget(aDrawTarget)
 {
   cairo_surface_reference(mSurface);
 }
 
-SourceSurfaceCairo::~SourceSurfaceCairo()
-{
-  cairo_surface_destroy(mSurface);
-}
+SourceSurfaceCairo::~SourceSurfaceCairo() { cairo_surface_destroy(mSurface); }
 
 IntSize
 SourceSurfaceCairo::GetSize() const
@@ -68,8 +65,8 @@ SourceSurfaceCairo::GetDataSurface()
   if (cairo_surface_get_type(mSurface) == CAIRO_SURFACE_TYPE_IMAGE) {
     dataSurf = new DataSourceSurfaceCairo(mSurface);
   } else {
-    cairo_surface_t* imageSurf = cairo_image_surface_create(GfxFormatToCairoFormat(mFormat),
-                                                            mSize.width, mSize.height);
+    cairo_surface_t* imageSurf = cairo_image_surface_create(
+        GfxFormatToCairoFormat(mFormat), mSize.width, mSize.height);
 
     // Fill the new image surface with the contents of our surface.
     cairo_t* ctx = cairo_create(imageSurf);
@@ -99,9 +96,8 @@ SourceSurfaceCairo::DrawTargetWillChange()
     mDrawTarget = nullptr;
 
     // We're about to lose our version of the surface, so make a copy of it.
-    cairo_surface_t* surface = cairo_surface_create_similar(mSurface,
-                                                            GfxFormatToCairoContent(mFormat),
-                                                            mSize.width, mSize.height);
+    cairo_surface_t* surface = cairo_surface_create_similar(
+        mSurface, GfxFormatToCairoContent(mFormat), mSize.width, mSize.height);
     cairo_t* ctx = cairo_create(surface);
     cairo_pattern_t* pat = cairo_pattern_create_for_surface(mSurface);
     cairo_set_source(ctx, pat);
@@ -116,7 +112,7 @@ SourceSurfaceCairo::DrawTargetWillChange()
 }
 
 DataSourceSurfaceCairo::DataSourceSurfaceCairo(cairo_surface_t* imageSurf)
- : mImageSurface(imageSurf)
+    : mImageSurface(imageSurf)
 {
   cairo_surface_reference(mImageSurface);
 }
@@ -126,7 +122,7 @@ DataSourceSurfaceCairo::~DataSourceSurfaceCairo()
   cairo_surface_destroy(mImageSurface);
 }
 
-unsigned char *
+unsigned char*
 DataSourceSurfaceCairo::GetData()
 {
   return cairo_image_surface_get_data(mImageSurface);
@@ -151,7 +147,8 @@ DataSourceSurfaceCairo::GetSize() const
 SurfaceFormat
 DataSourceSurfaceCairo::GetFormat() const
 {
-  return CairoFormatToSurfaceFormat(cairo_image_surface_get_format(mImageSurface));
+  return CairoFormatToSurfaceFormat(
+      cairo_image_surface_get_format(mImageSurface));
 }
 
 cairo_surface_t*
@@ -160,5 +157,5 @@ DataSourceSurfaceCairo::GetSurface() const
   return mImageSurface;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

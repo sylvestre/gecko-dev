@@ -10,26 +10,26 @@
 #include "mozilla/Casting.h"
 
 #if defined(JS_CODEGEN_X86)
-# include "jit/x86/Assembler-x86.h"
+#include "jit/x86/Assembler-x86.h"
 #elif defined(JS_CODEGEN_X64)
-# include "jit/x64/Assembler-x64.h"
+#include "jit/x64/Assembler-x64.h"
 #endif
 
 #ifdef DEBUG
-  #define CHECK_BYTEREG(reg)                                               \
-      JS_BEGIN_MACRO                                                       \
-        AllocatableGeneralRegisterSet byteRegs(Registers::SingleByteRegs); \
-        MOZ_ASSERT(byteRegs.has(reg));                                     \
-      JS_END_MACRO
-  #define CHECK_BYTEREGS(r1, r2)                                           \
-      JS_BEGIN_MACRO                                                       \
-        AllocatableGeneralRegisterSet byteRegs(Registers::SingleByteRegs); \
-        MOZ_ASSERT(byteRegs.has(r1));                                      \
-        MOZ_ASSERT(byteRegs.has(r2));                                      \
-      JS_END_MACRO
+#define CHECK_BYTEREG(reg)                                             \
+    JS_BEGIN_MACRO                                                     \
+    AllocatableGeneralRegisterSet byteRegs(Registers::SingleByteRegs); \
+    MOZ_ASSERT(byteRegs.has(reg));                                     \
+    JS_END_MACRO
+#define CHECK_BYTEREGS(r1, r2)                                         \
+    JS_BEGIN_MACRO                                                     \
+    AllocatableGeneralRegisterSet byteRegs(Registers::SingleByteRegs); \
+    MOZ_ASSERT(byteRegs.has(r1));                                      \
+    MOZ_ASSERT(byteRegs.has(r2));                                      \
+    JS_END_MACRO
 #else
-  #define CHECK_BYTEREG(reg) (void)0
-  #define CHECK_BYTEREGS(r1, r2) (void)0
+#define CHECK_BYTEREG(reg) (void)0
+#define CHECK_BYTEREGS(r1, r2) (void)0
 #endif
 
 namespace js {
@@ -37,21 +37,19 @@ namespace jit {
 
 class MacroAssembler;
 
-class MacroAssemblerX86Shared : public Assembler
-{
-  private:
+class MacroAssemblerX86Shared : public Assembler {
+   private:
     // Perform a downcast. Should be removed by Bug 996602.
     MacroAssembler& asMasm();
     const MacroAssembler& asMasm() const;
 
-  public:
+   public:
     typedef Vector<CodeOffset, 0, SystemAllocPolicy> UsesVector;
 
-  protected:
-
+   protected:
     // For Double, Float and SimdData, make the move ctors explicit so that MSVC
     // knows what to use instead of copying these data structures.
-    template<class T>
+    template <class T>
     struct Constant {
         typedef T Pod;
 
@@ -87,18 +85,17 @@ class MacroAssemblerX86Shared : public Assembler
     typedef HashMap<SimdConstant, size_t, SimdConstant, SystemAllocPolicy> SimdMap;
     SimdMap simdMap_;
 
-    template<class T, class Map>
+    template <class T, class Map>
     T* getConstant(const typename T::Pod& value, Map& map, Vector<T, 0, SystemAllocPolicy>& vec);
 
     Float* getFloat(float f);
     Double* getDouble(double d);
     SimdData* getSimdData(const SimdConstant& v);
 
-  public:
+   public:
     using Assembler::call;
 
-    MacroAssemblerX86Shared()
-    { }
+    MacroAssemblerX86Shared() {}
 
     bool appendRawCode(const uint8_t* code, size_t numBytes) {
         return masm.appendRawCode(code, numBytes);
@@ -123,7 +120,8 @@ class MacroAssemblerX86Shared : public Assembler
             vucomiss(rhs, lhs);
     }
 
-    void branchNegativeZero(FloatRegister reg, Register scratch, Label* label, bool  maybeNonZero = true);
+    void branchNegativeZero(FloatRegister reg, Register scratch, Label* label,
+                            bool maybeNonZero = true);
     void branchNegativeZeroFloat32(FloatRegister reg, Register scratch, Label* label);
 
     void move32(Imm32 imm, Register dest) {
@@ -132,63 +130,28 @@ class MacroAssemblerX86Shared : public Assembler
         // is zero-extended.
         mov(ImmWord(uint32_t(imm.value)), dest);
     }
-    void move32(Imm32 imm, const Operand& dest) {
-        movl(imm, dest);
-    }
-    void move32(Register src, Register dest) {
-        movl(src, dest);
-    }
-    void move32(Register src, const Operand& dest) {
-        movl(src, dest);
-    }
-    void test32(Register lhs, Register rhs) {
-        testl(rhs, lhs);
-    }
-    void test32(const Address& addr, Imm32 imm) {
-        testl(imm, Operand(addr));
-    }
-    void test32(const Operand lhs, Imm32 imm) {
-        testl(imm, lhs);
-    }
-    void test32(Register lhs, Imm32 rhs) {
-        testl(rhs, lhs);
-    }
-    void cmp32(Register lhs, Imm32 rhs) {
-        cmpl(rhs, lhs);
-    }
-    void cmp32(Register lhs, Register rhs) {
-        cmpl(rhs, lhs);
-    }
-    void cmp32(const Address& lhs, Register rhs) {
-        cmp32(Operand(lhs), rhs);
-    }
-    void cmp32(const Address& lhs, Imm32 rhs) {
-        cmp32(Operand(lhs), rhs);
-    }
-    void cmp32(const Operand& lhs, Imm32 rhs) {
-        cmpl(rhs, lhs);
-    }
-    void cmp32(const Operand& lhs, Register rhs) {
-        cmpl(rhs, lhs);
-    }
-    void cmp32(Register lhs, const Operand& rhs) {
-        cmpl(rhs, lhs);
-    }
-    CodeOffset cmp32WithPatch(Register lhs, Imm32 rhs) {
-        return cmplWithPatch(rhs, lhs);
-    }
-    void atomic_inc32(const Operand& addr) {
-        lock_incl(addr);
-    }
-    void atomic_dec32(const Operand& addr) {
-        lock_decl(addr);
-    }
+    void move32(Imm32 imm, const Operand& dest) { movl(imm, dest); }
+    void move32(Register src, Register dest) { movl(src, dest); }
+    void move32(Register src, const Operand& dest) { movl(src, dest); }
+    void test32(Register lhs, Register rhs) { testl(rhs, lhs); }
+    void test32(const Address& addr, Imm32 imm) { testl(imm, Operand(addr)); }
+    void test32(const Operand lhs, Imm32 imm) { testl(imm, lhs); }
+    void test32(Register lhs, Imm32 rhs) { testl(rhs, lhs); }
+    void cmp32(Register lhs, Imm32 rhs) { cmpl(rhs, lhs); }
+    void cmp32(Register lhs, Register rhs) { cmpl(rhs, lhs); }
+    void cmp32(const Address& lhs, Register rhs) { cmp32(Operand(lhs), rhs); }
+    void cmp32(const Address& lhs, Imm32 rhs) { cmp32(Operand(lhs), rhs); }
+    void cmp32(const Operand& lhs, Imm32 rhs) { cmpl(rhs, lhs); }
+    void cmp32(const Operand& lhs, Register rhs) { cmpl(rhs, lhs); }
+    void cmp32(Register lhs, const Operand& rhs) { cmpl(rhs, lhs); }
+    CodeOffset cmp32WithPatch(Register lhs, Imm32 rhs) { return cmplWithPatch(rhs, lhs); }
+    void atomic_inc32(const Operand& addr) { lock_incl(addr); }
+    void atomic_dec32(const Operand& addr) { lock_decl(addr); }
 
     template <typename T>
     void atomicFetchAdd8SignExtend(Register src, const T& mem, Register temp, Register output) {
         CHECK_BYTEREGS(src, output);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         lock_xaddb(output, Operand(mem));
         movsbl(output, output);
     }
@@ -197,8 +160,7 @@ class MacroAssemblerX86Shared : public Assembler
     void atomicFetchAdd8ZeroExtend(Register src, const T& mem, Register temp, Register output) {
         CHECK_BYTEREGS(src, output);
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         lock_xaddb(output, Operand(mem));
         movzbl(output, output);
     }
@@ -224,8 +186,7 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void atomicFetchAdd16SignExtend(Register src, const T& mem, Register temp, Register output) {
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         lock_xaddw(output, Operand(mem));
         movswl(output, output);
     }
@@ -233,8 +194,7 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void atomicFetchAdd16ZeroExtend(Register src, const T& mem, Register temp, Register output) {
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         lock_xaddw(output, Operand(mem));
         movzwl(output, output);
     }
@@ -258,8 +218,7 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void atomicFetchAdd32(Register src, const T& mem, Register temp, Register output) {
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         lock_xaddl(output, Operand(mem));
     }
 
@@ -274,8 +233,7 @@ class MacroAssemblerX86Shared : public Assembler
     void atomicFetchSub8SignExtend(Register src, const T& mem, Register temp, Register output) {
         CHECK_BYTEREGS(src, output);
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         negl(output);
         lock_xaddb(output, Operand(mem));
         movsbl(output, output);
@@ -285,8 +243,7 @@ class MacroAssemblerX86Shared : public Assembler
     void atomicFetchSub8ZeroExtend(Register src, const T& mem, Register temp, Register output) {
         CHECK_BYTEREGS(src, output);
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         negl(output);
         lock_xaddb(output, Operand(mem));
         movzbl(output, output);
@@ -313,8 +270,7 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void atomicFetchSub16SignExtend(Register src, const T& mem, Register temp, Register output) {
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         negl(output);
         lock_xaddw(output, Operand(mem));
         movswl(output, output);
@@ -323,8 +279,7 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void atomicFetchSub16ZeroExtend(Register src, const T& mem, Register temp, Register output) {
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         negl(output);
         lock_xaddw(output, Operand(mem));
         movzwl(output, output);
@@ -349,8 +304,7 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void atomicFetchSub32(Register src, const T& mem, Register temp, Register output) {
         MOZ_ASSERT(temp == InvalidReg);
-        if (src != output)
-            movl(src, output);
+        if (src != output) movl(src, output);
         negl(output);
         lock_xaddl(output, Operand(mem));
     }
@@ -361,16 +315,16 @@ class MacroAssemblerX86Shared : public Assembler
         lock_xaddl(output, Operand(mem));
     }
 
-    // requires output == eax
+        // requires output == eax
 #define ATOMIC_BITOP_BODY(LOAD, OP, LOCK_CMPXCHG) \
-        MOZ_ASSERT(output == eax);                \
-        LOAD(Operand(mem), eax);                  \
-        Label again;                              \
-        bind(&again);                             \
-        movl(eax, temp);                          \
-        OP(src, temp);                            \
-        LOCK_CMPXCHG(temp, Operand(mem));         \
-        j(NonZero, &again);
+    MOZ_ASSERT(output == eax);                    \
+    LOAD(Operand(mem), eax);                      \
+    Label again;                                  \
+    bind(&again);                                 \
+    movl(eax, temp);                              \
+    OP(src, temp);                                \
+    LOCK_CMPXCHG(temp, Operand(mem));             \
+    j(NonZero, &again);
 
     template <typename S, typename T>
     void atomicFetchAnd8SignExtend(const S& src, const T& mem, Register temp, Register output) {
@@ -535,24 +489,12 @@ class MacroAssemblerX86Shared : public Assembler
         j(cond, label);
     }
 
-    void jump(Label* label) {
-        jmp(label);
-    }
-    void jump(JitCode* code) {
-        jmp(code);
-    }
-    void jump(RepatchLabel* label) {
-        jmp(label);
-    }
-    void jump(Register reg) {
-        jmp(Operand(reg));
-    }
-    void jump(const Address& addr) {
-        jmp(Operand(addr));
-    }
-    void jump(wasm::TrapDesc target) {
-        jmp(target);
-    }
+    void jump(Label* label) { jmp(label); }
+    void jump(JitCode* code) { jmp(code); }
+    void jump(RepatchLabel* label) { jmp(label); }
+    void jump(Register reg) { jmp(Operand(reg)); }
+    void jump(const Address& addr) { jmp(Operand(addr)); }
+    void jump(wasm::TrapDesc target) { jmp(target); }
 
     void convertInt32ToDouble(Register src, FloatRegister dest) {
         // vcvtsi2sd and friends write only part of their output register, which
@@ -607,11 +549,10 @@ class MacroAssemblerX86Shared : public Assembler
         Register original_;
         Register substitute_;
 
-      public:
+       public:
         template <typename T>
         AutoEnsureByteRegister(MacroAssemblerX86Shared* masm, T address, Register reg)
-          : masm(masm), original_(reg)
-        {
+            : masm(masm), original_(reg) {
             AllocatableGeneralRegisterSet singleByteRegs(Registers::SingleByteRegs);
             if (singleByteRegs.has(reg)) {
                 substitute_ = reg;
@@ -627,33 +568,18 @@ class MacroAssemblerX86Shared : public Assembler
         }
 
         ~AutoEnsureByteRegister() {
-            if (original_ != substitute_)
-                masm->pop(substitute_);
+            if (original_ != substitute_) masm->pop(substitute_);
         }
 
-        Register reg() {
-            return substitute_;
-        }
+        Register reg() { return substitute_; }
     };
 
-    void load8ZeroExtend(const Operand& src, Register dest) {
-        movzbl(src, dest);
-    }
-    void load8ZeroExtend(const Address& src, Register dest) {
-        movzbl(Operand(src), dest);
-    }
-    void load8ZeroExtend(const BaseIndex& src, Register dest) {
-        movzbl(Operand(src), dest);
-    }
-    void load8SignExtend(const Operand& src, Register dest) {
-        movsbl(src, dest);
-    }
-    void load8SignExtend(const Address& src, Register dest) {
-        movsbl(Operand(src), dest);
-    }
-    void load8SignExtend(const BaseIndex& src, Register dest) {
-        movsbl(Operand(src), dest);
-    }
+    void load8ZeroExtend(const Operand& src, Register dest) { movzbl(src, dest); }
+    void load8ZeroExtend(const Address& src, Register dest) { movzbl(Operand(src), dest); }
+    void load8ZeroExtend(const BaseIndex& src, Register dest) { movzbl(Operand(src), dest); }
+    void load8SignExtend(const Operand& src, Register dest) { movsbl(src, dest); }
+    void load8SignExtend(const Address& src, Register dest) { movsbl(Operand(src), dest); }
+    void load8SignExtend(const BaseIndex& src, Register dest) { movsbl(Operand(src), dest); }
     template <typename T>
     void store8(Imm32 src, const T& dest) {
         movb(src, Operand(dest));
@@ -664,98 +590,76 @@ class MacroAssemblerX86Shared : public Assembler
         movb(ensure.reg(), Operand(dest));
     }
     template <typename T>
-    void compareExchange8ZeroExtend(const T& mem, Register oldval, Register newval, Register output) {
+    void compareExchange8ZeroExtend(const T& mem, Register oldval, Register newval,
+                                    Register output) {
         MOZ_ASSERT(output == eax);
         CHECK_BYTEREG(newval);
-        if (oldval != output)
-            movl(oldval, output);
+        if (oldval != output) movl(oldval, output);
         lock_cmpxchgb(newval, Operand(mem));
         movzbl(output, output);
     }
     template <typename T>
-    void compareExchange8SignExtend(const T& mem, Register oldval, Register newval, Register output) {
+    void compareExchange8SignExtend(const T& mem, Register oldval, Register newval,
+                                    Register output) {
         MOZ_ASSERT(output == eax);
         CHECK_BYTEREG(newval);
-        if (oldval != output)
-            movl(oldval, output);
+        if (oldval != output) movl(oldval, output);
         lock_cmpxchgb(newval, Operand(mem));
         movsbl(output, output);
     }
     template <typename T>
     void atomicExchange8ZeroExtend(const T& mem, Register value, Register output) {
-        if (value != output)
-            movl(value, output);
+        if (value != output) movl(value, output);
         xchgb(output, Operand(mem));
         movzbl(output, output);
     }
     template <typename T>
     void atomicExchange8SignExtend(const T& mem, Register value, Register output) {
-        if (value != output)
-            movl(value, output);
+        if (value != output) movl(value, output);
         xchgb(output, Operand(mem));
         movsbl(output, output);
     }
-    void load16ZeroExtend(const Operand& src, Register dest) {
-        movzwl(src, dest);
-    }
-    void load16ZeroExtend(const Address& src, Register dest) {
-        movzwl(Operand(src), dest);
-    }
-    void load16ZeroExtend(const BaseIndex& src, Register dest) {
-        movzwl(Operand(src), dest);
-    }
+    void load16ZeroExtend(const Operand& src, Register dest) { movzwl(src, dest); }
+    void load16ZeroExtend(const Address& src, Register dest) { movzwl(Operand(src), dest); }
+    void load16ZeroExtend(const BaseIndex& src, Register dest) { movzwl(Operand(src), dest); }
     template <typename S, typename T>
     void store16(const S& src, const T& dest) {
         movw(src, Operand(dest));
     }
     template <typename T>
-    void compareExchange16ZeroExtend(const T& mem, Register oldval, Register newval, Register output) {
+    void compareExchange16ZeroExtend(const T& mem, Register oldval, Register newval,
+                                     Register output) {
         MOZ_ASSERT(output == eax);
-        if (oldval != output)
-            movl(oldval, output);
+        if (oldval != output) movl(oldval, output);
         lock_cmpxchgw(newval, Operand(mem));
         movzwl(output, output);
     }
     template <typename T>
-    void compareExchange16SignExtend(const T& mem, Register oldval, Register newval, Register output) {
+    void compareExchange16SignExtend(const T& mem, Register oldval, Register newval,
+                                     Register output) {
         MOZ_ASSERT(output == eax);
-        if (oldval != output)
-            movl(oldval, output);
+        if (oldval != output) movl(oldval, output);
         lock_cmpxchgw(newval, Operand(mem));
         movswl(output, output);
     }
     template <typename T>
     void atomicExchange16ZeroExtend(const T& mem, Register value, Register output) {
-        if (value != output)
-            movl(value, output);
+        if (value != output) movl(value, output);
         xchgw(output, Operand(mem));
         movzwl(output, output);
     }
     template <typename T>
     void atomicExchange16SignExtend(const T& mem, Register value, Register output) {
-        if (value != output)
-            movl(value, output);
+        if (value != output) movl(value, output);
         xchgw(output, Operand(mem));
         movswl(output, output);
     }
-    void load16SignExtend(const Operand& src, Register dest) {
-        movswl(src, dest);
-    }
-    void load16SignExtend(const Address& src, Register dest) {
-        movswl(Operand(src), dest);
-    }
-    void load16SignExtend(const BaseIndex& src, Register dest) {
-        movswl(Operand(src), dest);
-    }
-    void load32(const Address& address, Register dest) {
-        movl(Operand(address), dest);
-    }
-    void load32(const BaseIndex& src, Register dest) {
-        movl(Operand(src), dest);
-    }
-    void load32(const Operand& src, Register dest) {
-        movl(src, dest);
-    }
+    void load16SignExtend(const Operand& src, Register dest) { movswl(src, dest); }
+    void load16SignExtend(const Address& src, Register dest) { movswl(Operand(src), dest); }
+    void load16SignExtend(const BaseIndex& src, Register dest) { movswl(Operand(src), dest); }
+    void load32(const Address& address, Register dest) { movl(Operand(address), dest); }
+    void load32(const BaseIndex& src, Register dest) { movl(Operand(src), dest); }
+    void load32(const Operand& src, Register dest) { movl(src, dest); }
     template <typename S, typename T>
     void store32(const S& src, const T& dest) {
         movl(src, Operand(dest));
@@ -763,48 +667,38 @@ class MacroAssemblerX86Shared : public Assembler
     template <typename T>
     void compareExchange32(const T& mem, Register oldval, Register newval, Register output) {
         MOZ_ASSERT(output == eax);
-        if (oldval != output)
-            movl(oldval, output);
+        if (oldval != output) movl(oldval, output);
         lock_cmpxchgl(newval, Operand(mem));
     }
     template <typename T>
     void atomicExchange32(const T& mem, Register value, Register output) {
-        if (value != output)
-            movl(value, output);
+        if (value != output) movl(value, output);
         xchgl(output, Operand(mem));
     }
     template <typename S, typename T>
     void store32_NoSecondScratch(const S& src, const T& dest) {
         store32(src, dest);
     }
-    void loadDouble(const Address& src, FloatRegister dest) {
-        vmovsd(src, dest);
-    }
-    void loadDouble(const BaseIndex& src, FloatRegister dest) {
-        vmovsd(src, dest);
-    }
+    void loadDouble(const Address& src, FloatRegister dest) { vmovsd(src, dest); }
+    void loadDouble(const BaseIndex& src, FloatRegister dest) { vmovsd(src, dest); }
     void loadDouble(const Operand& src, FloatRegister dest) {
         switch (src.kind()) {
-          case Operand::MEM_REG_DISP:
-            loadDouble(src.toAddress(), dest);
-            break;
-          case Operand::MEM_SCALE:
-            loadDouble(src.toBaseIndex(), dest);
-            break;
-          default:
-            MOZ_CRASH("unexpected operand kind");
+            case Operand::MEM_REG_DISP:
+                loadDouble(src.toAddress(), dest);
+                break;
+            case Operand::MEM_SCALE:
+                loadDouble(src.toBaseIndex(), dest);
+                break;
+            default:
+                MOZ_CRASH("unexpected operand kind");
         }
     }
     void moveDouble(FloatRegister src, FloatRegister dest) {
         // Use vmovapd instead of vmovsd to avoid dependencies.
         vmovapd(src, dest);
     }
-    void zeroDouble(FloatRegister reg) {
-        vxorpd(reg, reg, reg);
-    }
-    void zeroFloat32(FloatRegister reg) {
-        vxorps(reg, reg, reg);
-    }
+    void zeroDouble(FloatRegister reg) { vxorpd(reg, reg, reg); }
+    void zeroFloat32(FloatRegister reg) { vxorps(reg, reg, reg); }
     void convertFloat32ToDouble(FloatRegister src, FloatRegister dest) {
         vcvtss2sd(src, dest, dest);
     }
@@ -812,18 +706,10 @@ class MacroAssemblerX86Shared : public Assembler
         vcvtsd2ss(src, dest, dest);
     }
 
-    void loadInt32x4(const Address& addr, FloatRegister dest) {
-        vmovdqa(Operand(addr), dest);
-    }
-    void loadFloat32x4(const Address& addr, FloatRegister dest) {
-        vmovaps(Operand(addr), dest);
-    }
-    void storeInt32x4(FloatRegister src, const Address& addr) {
-        vmovdqa(src, Operand(addr));
-    }
-    void storeFloat32x4(FloatRegister src, const Address& addr) {
-        vmovaps(src, Operand(addr));
-    }
+    void loadInt32x4(const Address& addr, FloatRegister dest) { vmovdqa(Operand(addr), dest); }
+    void loadFloat32x4(const Address& addr, FloatRegister dest) { vmovaps(Operand(addr), dest); }
+    void storeInt32x4(FloatRegister src, const Address& addr) { vmovdqa(src, Operand(addr)); }
+    void storeFloat32x4(FloatRegister src, const Address& addr) { vmovaps(src, Operand(addr)); }
 
     void convertFloat32x4ToInt32x4(FloatRegister src, FloatRegister dest) {
         // Note that if the conversion failed (because the converted
@@ -832,48 +718,32 @@ class MacroAssemblerX86Shared : public Assembler
         // value (0x8000000).
         vcvttps2dq(src, dest);
     }
-    void convertInt32x4ToFloat32x4(FloatRegister src, FloatRegister dest) {
-        vcvtdq2ps(src, dest);
-    }
+    void convertInt32x4ToFloat32x4(FloatRegister src, FloatRegister dest) { vcvtdq2ps(src, dest); }
 
     void bitwiseAndSimd128(const Operand& src, FloatRegister dest) {
         // TODO Using the "ps" variant for all types incurs a domain crossing
         // penalty for integer types and double.
         vandps(src, dest, dest);
     }
-    void bitwiseAndNotSimd128(const Operand& src, FloatRegister dest) {
-        vandnps(src, dest, dest);
-    }
-    void bitwiseOrSimd128(const Operand& src, FloatRegister dest) {
-        vorps(src, dest, dest);
-    }
-    void bitwiseXorSimd128(const Operand& src, FloatRegister dest) {
-        vxorps(src, dest, dest);
-    }
-    void zeroSimd128Float(FloatRegister dest) {
-        vxorps(dest, dest, dest);
-    }
-    void zeroSimd128Int(FloatRegister dest) {
-        vpxor(dest, dest, dest);
-    }
+    void bitwiseAndNotSimd128(const Operand& src, FloatRegister dest) { vandnps(src, dest, dest); }
+    void bitwiseOrSimd128(const Operand& src, FloatRegister dest) { vorps(src, dest, dest); }
+    void bitwiseXorSimd128(const Operand& src, FloatRegister dest) { vxorps(src, dest, dest); }
+    void zeroSimd128Float(FloatRegister dest) { vxorps(dest, dest, dest); }
+    void zeroSimd128Int(FloatRegister dest) { vpxor(dest, dest, dest); }
 
-    template <class T, class Reg> inline void loadScalar(const Operand& src, Reg dest);
-    template <class T, class Reg> inline void storeScalar(Reg src, const Address& dest);
-    template <class T> inline void loadAlignedVector(const Address& src, FloatRegister dest);
-    template <class T> inline void storeAlignedVector(FloatRegister src, const Address& dest);
+    template <class T, class Reg>
+    inline void loadScalar(const Operand& src, Reg dest);
+    template <class T, class Reg>
+    inline void storeScalar(Reg src, const Address& dest);
+    template <class T>
+    inline void loadAlignedVector(const Address& src, FloatRegister dest);
+    template <class T>
+    inline void storeAlignedVector(FloatRegister src, const Address& dest);
 
-    void loadInt32x1(const Address& src, FloatRegister dest) {
-        vmovd(Operand(src), dest);
-    }
-    void loadInt32x1(const BaseIndex& src, FloatRegister dest) {
-        vmovd(Operand(src), dest);
-    }
-    void loadInt32x2(const Address& src, FloatRegister dest) {
-        vmovq(Operand(src), dest);
-    }
-    void loadInt32x2(const BaseIndex& src, FloatRegister dest) {
-        vmovq(Operand(src), dest);
-    }
+    void loadInt32x1(const Address& src, FloatRegister dest) { vmovd(Operand(src), dest); }
+    void loadInt32x1(const BaseIndex& src, FloatRegister dest) { vmovd(Operand(src), dest); }
+    void loadInt32x2(const Address& src, FloatRegister dest) { vmovq(Operand(src), dest); }
+    void loadInt32x2(const BaseIndex& src, FloatRegister dest) { vmovq(Operand(src), dest); }
     void loadInt32x3(const BaseIndex& src, FloatRegister dest) {
         BaseIndex srcZ(src);
         srcZ.offset += 2 * sizeof(int32_t);
@@ -896,24 +766,18 @@ class MacroAssemblerX86Shared : public Assembler
     void loadAlignedSimd128Int(const Address& src, FloatRegister dest) {
         vmovdqa(Operand(src), dest);
     }
-    void loadAlignedSimd128Int(const Operand& src, FloatRegister dest) {
-        vmovdqa(src, dest);
-    }
+    void loadAlignedSimd128Int(const Operand& src, FloatRegister dest) { vmovdqa(src, dest); }
     void storeAlignedSimd128Int(FloatRegister src, const Address& dest) {
         vmovdqa(src, Operand(dest));
     }
-    void moveSimd128Int(FloatRegister src, FloatRegister dest) {
-        vmovdqa(src, dest);
-    }
+    void moveSimd128Int(FloatRegister src, FloatRegister dest) { vmovdqa(src, dest); }
     FloatRegister reusedInputInt32x4(FloatRegister src, FloatRegister dest) {
-        if (HasAVX())
-            return src;
+        if (HasAVX()) return src;
         moveSimd128Int(src, dest);
         return dest;
     }
     FloatRegister reusedInputAlignedInt32x4(const Operand& src, FloatRegister dest) {
-        if (HasAVX() && src.kind() == Operand::FPREG)
-            return FloatRegister::FromCode(src.fpu());
+        if (HasAVX() && src.kind() == Operand::FPREG) return FloatRegister::FromCode(src.fpu());
         loadAlignedSimd128Int(src, dest);
         return dest;
     }
@@ -923,22 +787,12 @@ class MacroAssemblerX86Shared : public Assembler
     void loadUnalignedSimd128Int(const BaseIndex& src, FloatRegister dest) {
         vmovdqu(Operand(src), dest);
     }
-    void loadUnalignedSimd128Int(const Operand& src, FloatRegister dest) {
-        vmovdqu(src, dest);
-    }
+    void loadUnalignedSimd128Int(const Operand& src, FloatRegister dest) { vmovdqu(src, dest); }
 
-    void storeInt32x1(FloatRegister src, const Address& dest) {
-        vmovd(src, Operand(dest));
-    }
-    void storeInt32x1(FloatRegister src, const BaseIndex& dest) {
-        vmovd(src, Operand(dest));
-    }
-    void storeInt32x2(FloatRegister src, const Address& dest) {
-        vmovq(src, Operand(dest));
-    }
-    void storeInt32x2(FloatRegister src, const BaseIndex& dest) {
-        vmovq(src, Operand(dest));
-    }
+    void storeInt32x1(FloatRegister src, const Address& dest) { vmovd(src, Operand(dest)); }
+    void storeInt32x1(FloatRegister src, const BaseIndex& dest) { vmovd(src, Operand(dest)); }
+    void storeInt32x2(FloatRegister src, const Address& dest) { vmovq(src, Operand(dest)); }
+    void storeInt32x2(FloatRegister src, const BaseIndex& dest) { vmovq(src, Operand(dest)); }
     void storeInt32x3(FloatRegister src, const Address& dest) {
         Address destZ(dest);
         destZ.offset += 2 * sizeof(int32_t);
@@ -962,33 +816,17 @@ class MacroAssemblerX86Shared : public Assembler
     void storeUnalignedSimd128Int(FloatRegister src, const BaseIndex& dest) {
         vmovdqu(src, Operand(dest));
     }
-    void storeUnalignedSimd128Int(FloatRegister src, const Operand& dest) {
-        vmovdqu(src, dest);
-    }
-    void packedEqualInt32x4(const Operand& src, FloatRegister dest) {
-        vpcmpeqd(src, dest, dest);
-    }
+    void storeUnalignedSimd128Int(FloatRegister src, const Operand& dest) { vmovdqu(src, dest); }
+    void packedEqualInt32x4(const Operand& src, FloatRegister dest) { vpcmpeqd(src, dest, dest); }
     void packedGreaterThanInt32x4(const Operand& src, FloatRegister dest) {
         vpcmpgtd(src, dest, dest);
     }
-    void packedAddInt8(const Operand& src, FloatRegister dest) {
-        vpaddb(src, dest, dest);
-    }
-    void packedSubInt8(const Operand& src, FloatRegister dest) {
-        vpsubb(src, dest, dest);
-    }
-    void packedAddInt16(const Operand& src, FloatRegister dest) {
-        vpaddw(src, dest, dest);
-    }
-    void packedSubInt16(const Operand& src, FloatRegister dest) {
-        vpsubw(src, dest, dest);
-    }
-    void packedAddInt32(const Operand& src, FloatRegister dest) {
-        vpaddd(src, dest, dest);
-    }
-    void packedSubInt32(const Operand& src, FloatRegister dest) {
-        vpsubd(src, dest, dest);
-    }
+    void packedAddInt8(const Operand& src, FloatRegister dest) { vpaddb(src, dest, dest); }
+    void packedSubInt8(const Operand& src, FloatRegister dest) { vpsubb(src, dest, dest); }
+    void packedAddInt16(const Operand& src, FloatRegister dest) { vpaddw(src, dest, dest); }
+    void packedSubInt16(const Operand& src, FloatRegister dest) { vpsubw(src, dest, dest); }
+    void packedAddInt32(const Operand& src, FloatRegister dest) { vpaddd(src, dest, dest); }
+    void packedSubInt32(const Operand& src, FloatRegister dest) { vpsubd(src, dest, dest); }
     void packedRcpApproximationFloat32x4(const Operand& src, FloatRegister dest) {
         // This function is an approximation of the result, this might need
         // fix up if the spec requires a given precision for this operation.
@@ -999,9 +837,7 @@ class MacroAssemblerX86Shared : public Assembler
         // TODO See comment above. See also bug 1068028.
         vrsqrtps(src, dest);
     }
-    void packedSqrtFloat32x4(const Operand& src, FloatRegister dest) {
-        vsqrtps(src, dest);
-    }
+    void packedSqrtFloat32x4(const Operand& src, FloatRegister dest) { vsqrtps(src, dest); }
 
     void packedLeftShiftByScalarInt16x8(FloatRegister src, FloatRegister dest) {
         vpsllw(src, dest, dest);
@@ -1061,25 +897,19 @@ class MacroAssemblerX86Shared : public Assembler
     void loadAlignedSimd128Float(const Address& src, FloatRegister dest) {
         vmovaps(Operand(src), dest);
     }
-    void loadAlignedSimd128Float(const Operand& src, FloatRegister dest) {
-        vmovaps(src, dest);
-    }
+    void loadAlignedSimd128Float(const Operand& src, FloatRegister dest) { vmovaps(src, dest); }
 
     void storeAlignedSimd128Float(FloatRegister src, const Address& dest) {
         vmovaps(src, Operand(dest));
     }
-    void moveSimd128Float(FloatRegister src, FloatRegister dest) {
-        vmovaps(src, dest);
-    }
+    void moveSimd128Float(FloatRegister src, FloatRegister dest) { vmovaps(src, dest); }
     FloatRegister reusedInputFloat32x4(FloatRegister src, FloatRegister dest) {
-        if (HasAVX())
-            return src;
+        if (HasAVX()) return src;
         moveSimd128Float(src, dest);
         return dest;
     }
     FloatRegister reusedInputAlignedFloat32x4(const Operand& src, FloatRegister dest) {
-        if (HasAVX() && src.kind() == Operand::FPREG)
-            return FloatRegister::FromCode(src.fpu());
+        if (HasAVX() && src.kind() == Operand::FPREG) return FloatRegister::FromCode(src.fpu());
         loadAlignedSimd128Float(src, dest);
         return dest;
     }
@@ -1089,34 +919,21 @@ class MacroAssemblerX86Shared : public Assembler
     void loadUnalignedSimd128Float(const BaseIndex& src, FloatRegister dest) {
         vmovdqu(Operand(src), dest);
     }
-    void loadUnalignedSimd128Float(const Operand& src, FloatRegister dest) {
-        vmovups(src, dest);
-    }
+    void loadUnalignedSimd128Float(const Operand& src, FloatRegister dest) { vmovups(src, dest); }
     void storeUnalignedSimd128Float(FloatRegister src, const Address& dest) {
         vmovups(src, Operand(dest));
     }
     void storeUnalignedSimd128Float(FloatRegister src, const BaseIndex& dest) {
         vmovups(src, Operand(dest));
     }
-    void storeUnalignedSimd128Float(FloatRegister src, const Operand& dest) {
-        vmovups(src, dest);
-    }
-    void packedAddFloat32(const Operand& src, FloatRegister dest) {
-        vaddps(src, dest, dest);
-    }
-    void packedSubFloat32(const Operand& src, FloatRegister dest) {
-        vsubps(src, dest, dest);
-    }
-    void packedMulFloat32(const Operand& src, FloatRegister dest) {
-        vmulps(src, dest, dest);
-    }
-    void packedDivFloat32(const Operand& src, FloatRegister dest) {
-        vdivps(src, dest, dest);
-    }
+    void storeUnalignedSimd128Float(FloatRegister src, const Operand& dest) { vmovups(src, dest); }
+    void packedAddFloat32(const Operand& src, FloatRegister dest) { vaddps(src, dest, dest); }
+    void packedSubFloat32(const Operand& src, FloatRegister dest) { vsubps(src, dest, dest); }
+    void packedMulFloat32(const Operand& src, FloatRegister dest) { vmulps(src, dest, dest); }
+    void packedDivFloat32(const Operand& src, FloatRegister dest) { vdivps(src, dest, dest); }
 
-    static uint32_t ComputeShuffleMask(uint32_t x = 0, uint32_t y = 1,
-                                       uint32_t z = 2, uint32_t w = 3)
-    {
+    static uint32_t ComputeShuffleMask(uint32_t x = 0, uint32_t y = 1, uint32_t z = 2,
+                                       uint32_t w = 3) {
         MOZ_ASSERT(x < 4 && y < 4 && z < 4 && w < 4);
         uint32_t r = (w << 6) | (z << 4) | (y << 2) | (x << 0);
         MOZ_ASSERT(r < 256);
@@ -1126,9 +943,7 @@ class MacroAssemblerX86Shared : public Assembler
     void shuffleInt32(uint32_t mask, FloatRegister src, FloatRegister dest) {
         vpshufd(mask, src, dest);
     }
-    void moveLowInt32(FloatRegister src, Register dest) {
-        vmovd(src, dest);
-    }
+    void moveLowInt32(FloatRegister src, Register dest) { vmovd(src, dest); }
 
     void moveHighPairToLowPairFloat32(FloatRegister src, FloatRegister dest) {
         vmovhlps(src, dest, dest);
@@ -1164,22 +979,18 @@ class MacroAssemblerX86Shared : public Assembler
         loadFloat32(src, dest);
         vcvtss2sd(dest, dest, dest);
     }
-    void loadFloat32(const Address& src, FloatRegister dest) {
-        vmovss(src, dest);
-    }
-    void loadFloat32(const BaseIndex& src, FloatRegister dest) {
-        vmovss(src, dest);
-    }
+    void loadFloat32(const Address& src, FloatRegister dest) { vmovss(src, dest); }
+    void loadFloat32(const BaseIndex& src, FloatRegister dest) { vmovss(src, dest); }
     void loadFloat32(const Operand& src, FloatRegister dest) {
         switch (src.kind()) {
-          case Operand::MEM_REG_DISP:
-            loadFloat32(src.toAddress(), dest);
-            break;
-          case Operand::MEM_SCALE:
-            loadFloat32(src.toBaseIndex(), dest);
-            break;
-          default:
-            MOZ_CRASH("unexpected operand kind");
+            case Operand::MEM_REG_DISP:
+                loadFloat32(src.toAddress(), dest);
+                break;
+            case Operand::MEM_SCALE:
+                loadFloat32(src.toBaseIndex(), dest);
+                break;
+            default:
+                MOZ_CRASH("unexpected operand kind");
         }
     }
     void moveFloat32(FloatRegister src, FloatRegister dest) {
@@ -1191,11 +1002,9 @@ class MacroAssemblerX86Shared : public Assembler
     // integer is written to the output register. Otherwise, a bailout is taken to
     // the given snapshot. This function overwrites the scratch float register.
     void convertDoubleToInt32(FloatRegister src, Register dest, Label* fail,
-                              bool negativeZeroCheck = true)
-    {
+                              bool negativeZeroCheck = true) {
         // Check for -0.0
-        if (negativeZeroCheck)
-            branchNegativeZero(src, dest, fail);
+        if (negativeZeroCheck) branchNegativeZero(src, dest, fail);
 
         ScratchDoubleScope scratch(asMasm());
         vcvttsd2si(src, dest);
@@ -1209,11 +1018,9 @@ class MacroAssemblerX86Shared : public Assembler
     // integer is written to the output register. Otherwise, a bailout is taken to
     // the given snapshot. This function overwrites the scratch float register.
     void convertFloat32ToInt32(FloatRegister src, Register dest, Label* fail,
-                               bool negativeZeroCheck = true)
-    {
+                               bool negativeZeroCheck = true) {
         // Check for -0.0
-        if (negativeZeroCheck)
-            branchNegativeZeroFloat32(src, dest, fail);
+        if (negativeZeroCheck) branchNegativeZeroFloat32(src, dest, fail);
 
         ScratchFloat32Scope scratch(asMasm());
         vcvttss2si(src, dest);
@@ -1300,16 +1107,14 @@ class MacroAssemblerX86Shared : public Assembler
             Label end;
             Label ifFalse;
 
-            if (ifNaN == Assembler::NaN_IsFalse)
-                j(Assembler::Parity, &ifFalse);
+            if (ifNaN == Assembler::NaN_IsFalse) j(Assembler::Parity, &ifFalse);
             // Note a subtlety here: FLAGS is live at this point, and the
             // mov interface doesn't guarantee to preserve FLAGS. Use
             // movl instead of mov, because the movl instruction
             // preserves FLAGS.
             movl(Imm32(1), dest);
             j(cond, &end);
-            if (ifNaN == Assembler::NaN_IsTrue)
-                j(Assembler::Parity, &end);
+            if (ifNaN == Assembler::NaN_IsTrue) j(Assembler::Parity, &end);
             bind(&ifFalse);
             mov(ImmWord(0), dest);
 
@@ -1333,92 +1138,82 @@ class MacroAssemblerX86Shared : public Assembler
         // Exists for ARM compatibility.
     }
 
-    CodeOffset labelForPatch() {
-        return CodeOffset(size());
-    }
+    CodeOffset labelForPatch() { return CodeOffset(size()); }
 
-    void abiret() {
-        ret();
-    }
+    void abiret() { ret(); }
 
-    template<typename T>
-    void compareExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem, Register oldval, Register newval,
-                                        Register temp, AnyRegister output);
+    template <typename T>
+    void compareExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem, Register oldval,
+                                        Register newval, Register temp, AnyRegister output);
 
-    template<typename T>
+    template <typename T>
     void atomicExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem, Register value,
                                        Register temp, AnyRegister output);
 
-  protected:
+   protected:
     bool buildOOLFakeExitFrame(void* fakeReturnAddr);
 };
 
 // Specialize for float to use movaps. Use movdqa for everything else.
 template <>
-inline void
-MacroAssemblerX86Shared::loadAlignedVector<float>(const Address& src, FloatRegister dest)
-{
+inline void MacroAssemblerX86Shared::loadAlignedVector<float>(const Address& src,
+                                                              FloatRegister dest) {
     loadAlignedSimd128Float(src, dest);
 }
 
 template <typename T>
-inline void
-MacroAssemblerX86Shared::loadAlignedVector(const Address& src, FloatRegister dest)
-{
+inline void MacroAssemblerX86Shared::loadAlignedVector(const Address& src, FloatRegister dest) {
     loadAlignedSimd128Int(src, dest);
 }
 
 // Specialize for float to use movaps. Use movdqa for everything else.
 template <>
-inline void
-MacroAssemblerX86Shared::storeAlignedVector<float>(FloatRegister src, const Address& dest)
-{
+inline void MacroAssemblerX86Shared::storeAlignedVector<float>(FloatRegister src,
+                                                               const Address& dest) {
     storeAlignedSimd128Float(src, dest);
 }
 
 template <typename T>
-inline void
-MacroAssemblerX86Shared::storeAlignedVector(FloatRegister src, const Address& dest)
-{
+inline void MacroAssemblerX86Shared::storeAlignedVector(FloatRegister src, const Address& dest) {
     storeAlignedSimd128Int(src, dest);
 }
 
-template <> inline void
-MacroAssemblerX86Shared::loadScalar<int8_t>(const Operand& src, Register dest) {
+template <>
+inline void MacroAssemblerX86Shared::loadScalar<int8_t>(const Operand& src, Register dest) {
     load8ZeroExtend(src, dest);
 }
-template <> inline void
-MacroAssemblerX86Shared::loadScalar<int16_t>(const Operand& src, Register dest) {
+template <>
+inline void MacroAssemblerX86Shared::loadScalar<int16_t>(const Operand& src, Register dest) {
     load16ZeroExtend(src, dest);
 }
-template <> inline void
-MacroAssemblerX86Shared::loadScalar<int32_t>(const Operand& src, Register dest) {
+template <>
+inline void MacroAssemblerX86Shared::loadScalar<int32_t>(const Operand& src, Register dest) {
     load32(src, dest);
 }
-template <> inline void
-MacroAssemblerX86Shared::loadScalar<float>(const Operand& src, FloatRegister dest) {
+template <>
+inline void MacroAssemblerX86Shared::loadScalar<float>(const Operand& src, FloatRegister dest) {
     loadFloat32(src, dest);
 }
 
-template <> inline void
-MacroAssemblerX86Shared::storeScalar<int8_t>(Register src, const Address& dest) {
+template <>
+inline void MacroAssemblerX86Shared::storeScalar<int8_t>(Register src, const Address& dest) {
     store8(src, dest);
 }
-template <> inline void
-MacroAssemblerX86Shared::storeScalar<int16_t>(Register src, const Address& dest) {
+template <>
+inline void MacroAssemblerX86Shared::storeScalar<int16_t>(Register src, const Address& dest) {
     store16(src, dest);
 }
-template <> inline void
-MacroAssemblerX86Shared::storeScalar<int32_t>(Register src, const Address& dest) {
+template <>
+inline void MacroAssemblerX86Shared::storeScalar<int32_t>(Register src, const Address& dest) {
     store32(src, dest);
 }
-template <> inline void
-MacroAssemblerX86Shared::storeScalar<float>(FloatRegister src, const Address& dest) {
+template <>
+inline void MacroAssemblerX86Shared::storeScalar<float>(FloatRegister src, const Address& dest) {
     vmovss(src, dest);
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #undef CHECK_BYTEREG
 #undef CHECK_BYTEREGS

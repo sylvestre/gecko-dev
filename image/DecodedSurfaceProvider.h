@@ -21,37 +21,34 @@ namespace image {
  * An ISurfaceProvider that manages the decoding of a single-frame image and
  * stores the resulting surface.
  */
-class DecodedSurfaceProvider final
-  : public ISurfaceProvider
-  , public IDecodingTask
+class DecodedSurfaceProvider final : public ISurfaceProvider,
+                                     public IDecodingTask
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DecodedSurfaceProvider, override)
 
   DecodedSurfaceProvider(NotNull<RasterImage*> aImage,
                          const SurfaceKey& aSurfaceKey,
                          NotNull<Decoder*> aDecoder);
 
-
   //////////////////////////////////////////////////////////////////////////////
   // ISurfaceProvider implementation.
   //////////////////////////////////////////////////////////////////////////////
 
-public:
+ public:
   bool IsFinished() const override;
   size_t LogicalSizeInBytes() const override;
 
-protected:
+ protected:
   DrawableFrameRef DrawableRef(size_t aFrame) override;
   bool IsLocked() const override { return bool(mLockRef); }
   void SetLocked(bool aLocked) override;
-
 
   //////////////////////////////////////////////////////////////////////////////
   // IDecodingTask implementation.
   //////////////////////////////////////////////////////////////////////////////
 
-public:
+ public:
   void Run() override;
   bool ShouldPreferSyncRun() const override;
 
@@ -59,8 +56,7 @@ public:
   // don't block layout or page load.
   TaskPriority Priority() const override { return TaskPriority::eLow; }
 
-
-private:
+ private:
   virtual ~DecodedSurfaceProvider();
 
   void DropImageReference();
@@ -83,7 +79,7 @@ private:
   DrawableFrameRef mLockRef;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_DecodedSurfaceProvider_h
+#endif  // mozilla_image_DecodedSurfaceProvider_h

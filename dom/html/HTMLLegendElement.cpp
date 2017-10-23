@@ -15,10 +15,7 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Legend)
 namespace mozilla {
 namespace dom {
 
-
-HTMLLegendElement::~HTMLLegendElement()
-{
-}
+HTMLLegendElement::~HTMLLegendElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLLegendElement)
 
@@ -42,20 +39,19 @@ HTMLLegendElement::ParseAttribute(int32_t aNamespaceID,
 {
   // this contains center, because IE4 does
   static const nsAttrValue::EnumTable kAlignTable[] = {
-    { "left", NS_STYLE_TEXT_ALIGN_LEFT },
-    { "right", NS_STYLE_TEXT_ALIGN_RIGHT },
-    { "center", NS_STYLE_TEXT_ALIGN_CENTER },
-    { "bottom", NS_STYLE_VERTICAL_ALIGN_BOTTOM },
-    { "top", NS_STYLE_VERTICAL_ALIGN_TOP },
-    { nullptr, 0 }
-  };
+      {"left", NS_STYLE_TEXT_ALIGN_LEFT},
+      {"right", NS_STYLE_TEXT_ALIGN_RIGHT},
+      {"center", NS_STYLE_TEXT_ALIGN_CENTER},
+      {"bottom", NS_STYLE_VERTICAL_ALIGN_BOTTOM},
+      {"top", NS_STYLE_VERTICAL_ALIGN_TOP},
+      {nullptr, 0}};
 
   if (aAttribute == nsGkAtoms::align && aNamespaceID == kNameSpaceID_None) {
     return aResult.ParseEnumValue(aValue, kAlignTable, false);
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 nsChangeHint
@@ -71,13 +67,13 @@ HTMLLegendElement::GetAttributeChangeHint(const nsAtom* aAttribute,
 }
 
 nsresult
-HTMLLegendElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLLegendElement::BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers)
 {
-  return nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                          aBindingParent,
-                                          aCompileEventHandlers);
+  return nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
 }
 
 void
@@ -108,7 +104,9 @@ HTMLLegendElement::Focus(ErrorResult& aError)
   }
 
   nsCOMPtr<nsIDOMElement> result;
-  aError = fm->MoveFocus(nullptr, this, nsIFocusManager::MOVEFOCUS_FORWARD,
+  aError = fm->MoveFocus(nullptr,
+                         this,
+                         nsIFocusManager::MOVEFOCUS_FORWARD,
                          nsIFocusManager::FLAG_NOPARENTFRAME,
                          getter_AddRefs(result));
 }
@@ -138,5 +136,5 @@ HTMLLegendElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLLegendElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

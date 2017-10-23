@@ -12,11 +12,11 @@ namespace mozilla {
 namespace widget {
 
 nsresult
-WindowHook::AddHook(UINT nMsg, Callback callback, void *context) {
-  MessageData *data = LookupOrCreate(nMsg);
+WindowHook::AddHook(UINT nMsg, Callback callback, void* context)
+{
+  MessageData* data = LookupOrCreate(nMsg);
 
-  if (!data)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!data) return NS_ERROR_OUT_OF_MEMORY;
 
   // Ensure we don't overwrite another hook
   NS_ENSURE_TRUE(nullptr == data->hook.cb, NS_ERROR_UNEXPECTED);
@@ -27,13 +27,12 @@ WindowHook::AddHook(UINT nMsg, Callback callback, void *context) {
 }
 
 nsresult
-WindowHook::RemoveHook(UINT nMsg, Callback callback, void *context) {
+WindowHook::RemoveHook(UINT nMsg, Callback callback, void* context)
+{
   CallbackData cbdata(callback, context);
-  MessageData *data = Lookup(nMsg);
-  if (!data)
-    return NS_ERROR_UNEXPECTED;
-  if (data->hook != cbdata)
-    return NS_ERROR_UNEXPECTED;
+  MessageData* data = Lookup(nMsg);
+  if (!data) return NS_ERROR_UNEXPECTED;
+  if (data->hook != cbdata) return NS_ERROR_UNEXPECTED;
   data->hook = CallbackData();
 
   DeleteIfEmpty(data);
@@ -41,45 +40,46 @@ WindowHook::RemoveHook(UINT nMsg, Callback callback, void *context) {
 }
 
 nsresult
-WindowHook::AddMonitor(UINT nMsg, Callback callback, void *context) {
-  MessageData *data = LookupOrCreate(nMsg);
+WindowHook::AddMonitor(UINT nMsg, Callback callback, void* context)
+{
+  MessageData* data = LookupOrCreate(nMsg);
   return (data && data->monitors.AppendElement(CallbackData(callback, context)))
-         ? NS_OK : NS_ERROR_OUT_OF_MEMORY;
+             ? NS_OK
+             : NS_ERROR_OUT_OF_MEMORY;
 }
 
 nsresult
-WindowHook::RemoveMonitor(UINT nMsg, Callback callback, void *context) {
+WindowHook::RemoveMonitor(UINT nMsg, Callback callback, void* context)
+{
   CallbackData cbdata(callback, context);
-  MessageData *data = Lookup(nMsg);
-  if (!data)
-    return NS_ERROR_UNEXPECTED;
+  MessageData* data = Lookup(nMsg);
+  if (!data) return NS_ERROR_UNEXPECTED;
   CallbackDataArray::index_type idx = data->monitors.IndexOf(cbdata);
-  if (idx == CallbackDataArray::NoIndex)
-    return NS_ERROR_UNEXPECTED;
+  if (idx == CallbackDataArray::NoIndex) return NS_ERROR_UNEXPECTED;
   data->monitors.RemoveElementAt(idx);
   DeleteIfEmpty(data);
   return NS_OK;
 }
 
-WindowHook::MessageData *
-WindowHook::Lookup(UINT nMsg) {
+WindowHook::MessageData*
+WindowHook::Lookup(UINT nMsg)
+{
   MessageDataArray::index_type idx;
   for (idx = 0; idx < mMessageData.Length(); idx++) {
-    MessageData &data = mMessageData[idx];
-    if (data.nMsg == nMsg)
-      return &data;
+    MessageData& data = mMessageData[idx];
+    if (data.nMsg == nMsg) return &data;
   }
   return nullptr;
 }
 
-WindowHook::MessageData *
-WindowHook::LookupOrCreate(UINT nMsg) {
-  MessageData *data = Lookup(nMsg);
+WindowHook::MessageData*
+WindowHook::LookupOrCreate(UINT nMsg)
+{
+  MessageData* data = Lookup(nMsg);
   if (!data) {
     data = mMessageData.AppendElement();
 
-    if (!data)
-      return nullptr;
+    if (!data) return nullptr;
 
     data->nMsg = nMsg;
   }
@@ -87,24 +87,25 @@ WindowHook::LookupOrCreate(UINT nMsg) {
 }
 
 void
-WindowHook::DeleteIfEmpty(MessageData *data) {
+WindowHook::DeleteIfEmpty(MessageData* data)
+{
   // Never remove a MessageData that has still a hook or monitor entries.
-  if (data->hook || !data->monitors.IsEmpty())
-    return;
+  if (data->hook || !data->monitors.IsEmpty()) return;
 
   MessageDataArray::index_type idx;
   idx = data - mMessageData.Elements();
-  NS_ASSERTION(idx < mMessageData.Length(), "Attempted to delete MessageData that doesn't belong to this array!");
+  NS_ASSERTION(
+      idx < mMessageData.Length(),
+      "Attempted to delete MessageData that doesn't belong to this array!");
   mMessageData.RemoveElementAt(idx);
 }
 
 bool
-WindowHook::Notify(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam,
-                   MSGResult& aResult)
+WindowHook::Notify(
+    HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam, MSGResult& aResult)
 {
-  MessageData *data = Lookup(nMsg);
-  if (!data)
-    return false;
+  MessageData* data = Lookup(nMsg);
+  if (!data) return false;
 
   uint32_t length = data->monitors.Length();
   for (uint32_t midx = 0; midx < length; midx++) {
@@ -112,18 +113,17 @@ WindowHook::Notify(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam,
   }
 
   aResult.mConsumed =
-    data->hook.Invoke(hWnd, nMsg, wParam, lParam, &aResult.mResult);
+      data->hook.Invoke(hWnd, nMsg, wParam, lParam, &aResult.mResult);
   return aResult.mConsumed;
 }
 
 bool
-WindowHook::CallbackData::Invoke(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam,
-                                 LRESULT *aResult) {
-  if (!cb)
-    return false;
+WindowHook::CallbackData::Invoke(
+    HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT* aResult)
+{
+  if (!cb) return false;
   return cb(context, hWnd, msg, wParam, lParam, aResult);
 }
 
-} // namespace widget
-} // namespace mozilla
-
+}  // namespace widget
+}  // namespace mozilla

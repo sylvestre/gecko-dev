@@ -39,5 +39,5 @@ SVGAnimatedLength::AnimVal()
   return angle.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

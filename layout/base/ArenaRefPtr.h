@@ -49,11 +49,8 @@ class ArenaRefPtr
 {
   friend class ::nsPresArena;
 
-public:
-  ArenaRefPtr()
-  {
-    AssertValidType();
-  }
+ public:
+  ArenaRefPtr() { AssertValidType(); }
 
   template<typename I>
   MOZ_IMPLICIT ArenaRefPtr(already_AddRefed<I>& aRhs)
@@ -106,7 +103,7 @@ public:
 
   T* get() const { return mPtr; }
 
-private:
+ private:
   void AssertValidType();
 
   /**
@@ -115,10 +112,7 @@ private:
    * method is called by nsPresArena when clearing all registered ArenaRefPtrs
    * so that it can deregister them all at once, avoiding hash table churn.
    */
-  void ClearWithoutDeregistering()
-  {
-    mPtr = nullptr;
-  }
+  void ClearWithoutDeregistering() { mPtr = nullptr; }
 
   template<typename I>
   void assign(already_AddRefed<I>& aSmartPtr)
@@ -157,6 +151,6 @@ private:
   RefPtr<T> mPtr;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ArenaRefPtr_h
+#endif  // mozilla_ArenaRefPtr_h

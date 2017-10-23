@@ -47,20 +47,19 @@
 #endif
 
 nsWebBrowserFind::nsWebBrowserFind()
-  : mFindBackwards(false)
-  , mWrapFind(false)
-  , mEntireWord(false)
-  , mMatchCase(false)
-  , mSearchSubFrames(true)
-  , mSearchParentFrames(true)
+    : mFindBackwards(false),
+      mWrapFind(false),
+      mEntireWord(false),
+      mMatchCase(false),
+      mSearchSubFrames(true),
+      mSearchParentFrames(true)
 {
 }
 
-nsWebBrowserFind::~nsWebBrowserFind()
-{
-}
+nsWebBrowserFind::~nsWebBrowserFind() {}
 
-NS_IMPL_ISUPPORTS(nsWebBrowserFind, nsIWebBrowserFind,
+NS_IMPL_ISUPPORTS(nsWebBrowserFind,
+                  nsIWebBrowserFind,
                   nsIWebBrowserFindInFrames)
 
 NS_IMETHODIMP
@@ -72,7 +71,8 @@ nsWebBrowserFind::FindNext(bool* aResult)
   NS_ENSURE_TRUE(CanFindNext(), NS_ERROR_NOT_INITIALIZED);
 
   nsresult rv = NS_OK;
-  nsCOMPtr<nsPIDOMWindowOuter> searchFrame = do_QueryReferent(mCurrentSearchFrame);
+  nsCOMPtr<nsPIDOMWindowOuter> searchFrame =
+      do_QueryReferent(mCurrentSearchFrame);
   NS_ENSURE_TRUE(searchFrame, NS_ERROR_NOT_INITIALIZED);
 
   nsCOMPtr<nsPIDOMWindowOuter> rootFrame = do_QueryReferent(mRootSearchFrame);
@@ -85,10 +85,10 @@ nsWebBrowserFind::FindNext(bool* aResult)
   // this is used by nsTypeAheadFind, which controls find again when it was
   // the last executed find in the current window.
   nsCOMPtr<nsIObserverService> observerSvc =
-    mozilla::services::GetObserverService();
+      mozilla::services::GetObserverService();
   if (observerSvc) {
     nsCOMPtr<nsISupportsInterfacePointer> windowSupportsData =
-      do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
+        do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
     nsCOMPtr<nsISupports> searchWindowSupports = do_QueryInterface(rootFrame);
     windowSupportsData->SetData(searchWindowSupports);
@@ -112,7 +112,7 @@ nsWebBrowserFind::FindNext(bool* aResult)
     return rv;
   }
   if (*aResult) {
-    return OnFind(searchFrame); // we are done
+    return OnFind(searchFrame);  // we are done
   }
 
   // if we are not searching other frames, return
@@ -125,8 +125,8 @@ nsWebBrowserFind::FindNext(bool* aResult)
     return NS_ERROR_FAILURE;
   }
 
-  int32_t enumDirection = mFindBackwards ? nsIDocShell::ENUMERATE_BACKWARDS :
-                                           nsIDocShell::ENUMERATE_FORWARDS;
+  int32_t enumDirection = mFindBackwards ? nsIDocShell::ENUMERATE_BACKWARDS
+                                         : nsIDocShell::ENUMERATE_FORWARDS;
 
   nsCOMPtr<nsISimpleEnumerator> docShellEnumerator;
   rv = rootDocShell->GetDocShellEnumerator(nsIDocShellTreeItem::typeAll,
@@ -138,7 +138,7 @@ nsWebBrowserFind::FindNext(bool* aResult)
 
   // remember where we started
   nsCOMPtr<nsIDocShellTreeItem> startingItem =
-    do_QueryInterface(searchFrame->GetDocShell(), &rv);
+      do_QueryInterface(searchFrame->GetDocShell(), &rv);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -175,14 +175,14 @@ nsWebBrowserFind::FindNext(bool* aResult)
         return rv;
       }
       if (*aResult) {
-        return OnFind(searchFrame); // we are done
+        return OnFind(searchFrame);  // we are done
       }
 
       OnEndSearchFrame(searchFrame);
     }
 
     if (curItem.get() == startingItem.get()) {
-      doFind = true; // start looking in frames after this one
+      doFind = true;  // start looking in frames after this one
     }
   }
 
@@ -231,7 +231,7 @@ nsWebBrowserFind::FindNext(bool* aResult)
         return rv;
       }
       if (*aResult) {
-        return OnFind(searchFrame); // we are done
+        return OnFind(searchFrame);  // we are done
       }
       break;
     }
@@ -245,7 +245,7 @@ nsWebBrowserFind::FindNext(bool* aResult)
       return rv;
     }
     if (*aResult) {
-      return OnFind(searchFrame); // we are done
+      return OnFind(searchFrame);  // we are done
     }
 
     OnEndSearchFrame(searchFrame);
@@ -403,8 +403,11 @@ nsWebBrowserFind::SetSelectionAndScroll(nsPIDOMWindowOuter* aWindow,
         fm->SetFocus(newFocusedElement, nsIFocusManager::FLAG_NOSCROLL);
       } else {
         nsCOMPtr<nsIDOMElement> result;
-        fm->MoveFocus(aWindow, nullptr, nsIFocusManager::MOVEFOCUS_CARET,
-                      nsIFocusManager::FLAG_NOSCROLL, getter_AddRefs(result));
+        fm->MoveFocus(aWindow,
+                      nullptr,
+                      nsIFocusManager::MOVEFOCUS_CARET,
+                      nsIFocusManager::FLAG_NOSCROLL,
+                      getter_AddRefs(result));
       }
     }
 
@@ -414,10 +417,10 @@ nsWebBrowserFind::SetSelectionAndScroll(nsPIDOMWindowOuter* aWindow,
     // After ScrollSelectionIntoView(), the pending notifications might be
     // flushed and PresShell/PresContext/Frames may be dead. See bug 418470.
     selCon->ScrollSelectionIntoView(
-      nsISelectionController::SELECTION_NORMAL,
-      nsISelectionController::SELECTION_WHOLE_SELECTION,
-      nsISelectionController::SCROLL_CENTER_VERTICALLY |
-        nsISelectionController::SCROLL_SYNCHRONOUS);
+        nsISelectionController::SELECTION_NORMAL,
+        nsISelectionController::SELECTION_WHOLE_SELECTION,
+        nsISelectionController::SCROLL_CENTER_VERTICALLY |
+            nsISelectionController::SCROLL_SYNCHRONOUS);
   }
 }
 
@@ -487,8 +490,10 @@ nsWebBrowserFind::SetRangeAroundDocument(nsIDOMRange* aSearchRange,
 // document if there's no selection.
 nsresult
 nsWebBrowserFind::GetSearchLimits(nsIDOMRange* aSearchRange,
-                                  nsIDOMRange* aStartPt, nsIDOMRange* aEndPt,
-                                  nsIDOMDocument* aDoc, nsISelection* aSel,
+                                  nsIDOMRange* aStartPt,
+                                  nsIDOMRange* aEndPt,
+                                  nsIDOMDocument* aDoc,
+                                  nsISelection* aSel,
                                   bool aWrap)
 {
   NS_ENSURE_ARG_POINTER(aSel);
@@ -619,10 +624,12 @@ nsWebBrowserFind::SetSearchFrames(bool aSearchFrames)
 }
 
 NS_IMETHODIMP
-nsWebBrowserFind::GetCurrentSearchFrame(mozIDOMWindowProxy** aCurrentSearchFrame)
+nsWebBrowserFind::GetCurrentSearchFrame(
+    mozIDOMWindowProxy** aCurrentSearchFrame)
 {
   NS_ENSURE_ARG_POINTER(aCurrentSearchFrame);
-  nsCOMPtr<mozIDOMWindowProxy> searchFrame = do_QueryReferent(mCurrentSearchFrame);
+  nsCOMPtr<mozIDOMWindowProxy> searchFrame =
+      do_QueryReferent(mCurrentSearchFrame);
   searchFrame.forget(aCurrentSearchFrame);
   return (*aCurrentSearchFrame) ? NS_OK : NS_ERROR_NOT_INITIALIZED;
 }
@@ -689,7 +696,8 @@ nsWebBrowserFind::SetSearchParentFrames(bool aSearchParentFrames)
 
 */
 nsresult
-nsWebBrowserFind::SearchInFrame(nsPIDOMWindowOuter* aWindow, bool aWrapping,
+nsWebBrowserFind::SearchInFrame(nsPIDOMWindowOuter* aWindow,
+                                bool aWrapping,
                                 bool* aDidFind)
 {
   NS_ENSURE_ARG(aWindow);
@@ -749,7 +757,10 @@ nsWebBrowserFind::SearchInFrame(nsPIDOMWindowOuter* aWindow, bool aWrapping,
 
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = find->Find(mSearchString.get(), searchRange, startPt, endPt,
+  rv = find->Find(mSearchString.get(),
+                  searchRange,
+                  startPt,
+                  endPt,
                   getter_AddRefs(foundRange));
 
   if (NS_SUCCEEDED(rv) && foundRange) {
@@ -799,12 +810,12 @@ nsWebBrowserFind::GetFrameSelection(nsPIDOMWindowOuter* aWindow)
 
   nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
   nsCOMPtr<nsIContent> focusedContent =
-    nsFocusManager::GetFocusedDescendant(aWindow,
-                                         nsFocusManager::eOnlyCurrentWindow,
-                                         getter_AddRefs(focusedWindow));
+      nsFocusManager::GetFocusedDescendant(aWindow,
+                                           nsFocusManager::eOnlyCurrentWindow,
+                                           getter_AddRefs(focusedWindow));
 
   nsIFrame* frame =
-    focusedContent ? focusedContent->GetPrimaryFrame() : nullptr;
+      focusedContent ? focusedContent->GetPrimaryFrame() : nullptr;
 
   nsCOMPtr<nsISelectionController> selCon;
   nsCOMPtr<nsISelection> sel;
@@ -846,7 +857,7 @@ nsWebBrowserFind::OnFind(nsPIDOMWindowOuter* aFoundWindow)
 
   // We don't want a selection to appear in two frames simultaneously
   nsCOMPtr<nsPIDOMWindowOuter> lastFocusedWindow =
-    do_QueryReferent(mLastFocusedWindow);
+      do_QueryReferent(mLastFocusedWindow);
   if (lastFocusedWindow && lastFocusedWindow != aFoundWindow) {
     ClearFrameSelection(lastFocusedWindow);
   }
@@ -856,7 +867,7 @@ nsWebBrowserFind::OnFind(nsPIDOMWindowOuter* aFoundWindow)
     // get the containing frame and focus it. For top-level windows, the right
     // window should already be focused.
     nsCOMPtr<nsIDOMElement> frameElement =
-      do_QueryInterface(aFoundWindow->GetFrameElementInternal());
+        do_QueryInterface(aFoundWindow->GetFrameElementInternal());
     if (frameElement) {
       fm->SetFocus(frameElement, 0);
     }

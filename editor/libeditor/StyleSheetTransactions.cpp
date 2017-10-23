@@ -5,16 +5,16 @@
 
 #include "StyleSheetTransactions.h"
 
-#include <stddef.h>                     // for nullptr
+#include <stddef.h>  // for nullptr
 
 #include "nsAString.h"
-#include "nsCOMPtr.h"                   // for nsCOMPtr, do_QueryInterface, etc.
-#include "mozilla/StyleSheet.h"   // for mozilla::StyleSheet
+#include "nsCOMPtr.h"            // for nsCOMPtr, do_QueryInterface, etc.
+#include "mozilla/StyleSheet.h"  // for mozilla::StyleSheet
 #include "mozilla/StyleSheetInlines.h"
-#include "nsDebug.h"                    // for NS_ENSURE_TRUE
-#include "nsError.h"                    // for NS_OK, etc.
-#include "nsIDocument.h"                // for nsIDocument
-#include "nsIDocumentObserver.h"        // for UPDATE_STYLE
+#include "nsDebug.h"              // for NS_ENSURE_TRUE
+#include "nsError.h"              // for NS_OK, etc.
+#include "nsIDocument.h"          // for nsIDocument
+#include "nsIDocumentObserver.h"  // for UPDATE_STYLE
 
 namespace mozilla {
 
@@ -46,8 +46,7 @@ RemoveStyleSheet(EditorBase& aEditor, StyleSheet* aSheet)
 
 AddStyleSheetTransaction::AddStyleSheetTransaction(EditorBase& aEditorBase,
                                                    StyleSheet* aSheet)
-  : mEditorBase(&aEditorBase)
-  , mSheet(aSheet)
+    : mEditorBase(&aEditorBase), mSheet(aSheet)
 {
   MOZ_ASSERT(aSheet);
 }
@@ -92,10 +91,8 @@ AddStyleSheetTransaction::GetTxnDescription(nsAString& aString)
  ******************************************************************************/
 
 RemoveStyleSheetTransaction::RemoveStyleSheetTransaction(
-                               EditorBase& aEditorBase,
-                               StyleSheet* aSheet)
-  : mEditorBase(&aEditorBase)
-  , mSheet(aSheet)
+    EditorBase& aEditorBase, StyleSheet* aSheet)
+    : mEditorBase(&aEditorBase), mSheet(aSheet)
 {
   MOZ_ASSERT(aSheet);
 }
@@ -135,4 +132,4 @@ RemoveStyleSheetTransaction::GetTxnDescription(nsAString& aString)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -45,8 +45,7 @@ SVGStringList::SetValue(const nsAString& aValue)
   SVGStringList temp;
 
   if (mIsCommaSeparated) {
-    nsCharSeparatedTokenizerTemplate<IsSVGWhitespace>
-      tokenizer(aValue, ',');
+    nsCharSeparatedTokenizerTemplate<IsSVGWhitespace> tokenizer(aValue, ',');
 
     while (tokenizer.hasMoreTokens()) {
       if (!temp.AppendItem(tokenizer.nextToken())) {
@@ -54,7 +53,7 @@ SVGStringList::SetValue(const nsAString& aValue)
       }
     }
     if (tokenizer.separatorAfterCurrentToken()) {
-      return NS_ERROR_DOM_SYNTAX_ERR; // trailing comma
+      return NS_ERROR_DOM_SYNTAX_ERR;  // trailing comma
     }
   } else {
     nsWhitespaceTokenizerTemplate<IsSVGWhitespace> tokenizer(aValue);
@@ -69,4 +68,4 @@ SVGStringList::SetValue(const nsAString& aValue)
   return CopyFrom(temp);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

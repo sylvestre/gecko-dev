@@ -26,8 +26,9 @@ namespace test_arena {
 class A;
 class B;
 
-class Base {
-public:
+class Base
+{
+ public:
   virtual ~Base() {}
   virtual A* AsA() { return nullptr; }
   virtual B* AsB() { return nullptr; }
@@ -36,8 +37,9 @@ public:
 static int sDtorItemA = 0;
 static int sDtorItemB = 0;
 
-class A : public Base {
-public:
+class A : public Base
+{
+ public:
   virtual A* AsA() override { return this; }
 
   explicit A(uint64_t val) : mVal(val) {}
@@ -46,8 +48,9 @@ public:
   uint64_t mVal;
 };
 
-class B : public Base {
-public:
+class B : public Base
+{
+ public:
   virtual B* AsB() override { return this; }
 
   explicit B(const string& str) : mVal(str) {}
@@ -56,14 +59,16 @@ public:
   std::string mVal;
 };
 
-struct BigStruct {
+struct BigStruct
+{
   uint64_t mVal;
   uint8_t data[120];
 
   explicit BigStruct(uint64_t val) : mVal(val) {}
 };
 
-void TestArenaAlloc(IterableArena::ArenaType aType)
+void
+TestArenaAlloc(IterableArena::ArenaType aType)
 {
   sDtorItemA = 0;
   sDtorItemB = 0;
@@ -72,9 +77,7 @@ void TestArenaAlloc(IterableArena::ArenaType aType)
   // An empty arena has no items to iterate over.
   {
     int iterations = 0;
-    arena.ForEach([&](void* item){
-      iterations++;
-    });
+    arena.ForEach([&](void* item) { iterations++; });
     ASSERT_EQ(iterations, 0);
   }
 
@@ -107,23 +110,22 @@ void TestArenaAlloc(IterableArena::ArenaType aType)
   ASSERT_EQ(((Base*)arena.GetStorage(a1))->AsA()->mVal, (uint64_t)42);
   ASSERT_EQ(((Base*)arena.GetStorage(a2))->AsA()->mVal, (uint64_t)1337);
 
-  ASSERT_EQ(((Base*)arena.GetStorage(b1))->AsB()->mVal, std::string("Obladi oblada"));
-  ASSERT_EQ(((Base*)arena.GetStorage(b2))->AsB()->mVal, std::string("Yellow submarine"));
-  ASSERT_EQ(((Base*)arena.GetStorage(b3))->AsB()->mVal, std::string("She's got a ticket to ride"));
+  ASSERT_EQ(((Base*)arena.GetStorage(b1))->AsB()->mVal,
+            std::string("Obladi oblada"));
+  ASSERT_EQ(((Base*)arena.GetStorage(b2))->AsB()->mVal,
+            std::string("Yellow submarine"));
+  ASSERT_EQ(((Base*)arena.GetStorage(b3))->AsB()->mVal,
+            std::string("She's got a ticket to ride"));
 
   {
     int iterations = 0;
-    arena.ForEach([&](void* item){
-      iterations++;
-    });
+    arena.ForEach([&](void* item) { iterations++; });
     ASSERT_EQ(iterations, 5);
   }
 
   // Typically, running the destructors of the elements in the arena will is done
   // manually like this:
-  arena.ForEach([](void* item){
-    ((Base*)item)->~Base();
-  });
+  arena.ForEach([](void* item) { ((Base*)item)->~Base(); });
   arena.Clear();
   ASSERT_EQ(sDtorItemA, 2);
   ASSERT_EQ(sDtorItemB, 3);
@@ -131,15 +133,13 @@ void TestArenaAlloc(IterableArena::ArenaType aType)
   // An empty arena has no items to iterate over (we just cleared it).
   {
     int iterations = 0;
-    arena.ForEach([&](void* item){
-      iterations++;
-    });
+    arena.ForEach([&](void* item) { iterations++; });
     ASSERT_EQ(iterations, 0);
   }
-
 }
 
-void TestArenaLimit(IterableArena::ArenaType aType, bool aShouldReachLimit)
+void
+TestArenaLimit(IterableArena::ArenaType aType, bool aShouldReachLimit)
 {
   IterableArena arena(aType, 128);
 
@@ -158,16 +158,18 @@ void TestArenaLimit(IterableArena::ArenaType aType, bool aShouldReachLimit)
   ASSERT_EQ(reachedLimit, aShouldReachLimit);
 }
 
-} // namespace test_arena
+}  // namespace test_arena
 
 using namespace test_arena;
 
-TEST(Moz2D, FixedArena) {
+TEST(Moz2D, FixedArena)
+{
   TestArenaAlloc(IterableArena::FIXED_SIZE);
   TestArenaLimit(IterableArena::FIXED_SIZE, true);
 }
 
-TEST(Moz2D, GrowableArena) {
+TEST(Moz2D, GrowableArena)
+{
   TestArenaAlloc(IterableArena::GROWABLE);
   TestArenaLimit(IterableArena::GROWABLE, false);
 

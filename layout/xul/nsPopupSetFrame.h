@@ -11,32 +11,33 @@
 #include "nsAtom.h"
 #include "nsBoxFrame.h"
 
-nsIFrame* NS_NewPopupSetFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+nsIFrame*
+NS_NewPopupSetFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsPopupSetFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsPopupSetFrame)
 
   explicit nsPopupSetFrame(nsStyleContext* aContext)
-    : nsBoxFrame(aContext, kClassID)
-  {}
+      : nsBoxFrame(aContext, kClassID)
+  {
+  }
 
   ~nsPopupSetFrame() {}
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual void SetInitialChildList(ChildListID  aListID,
-                                    nsFrameList& aChildList) override;
-  virtual void AppendFrames(ChildListID     aListID,
-                            nsFrameList&    aFrameList) override;
-  virtual void RemoveFrame(ChildListID     aListID,
-                           nsIFrame*       aOldFrame) override;
-  virtual void InsertFrames(ChildListID     aListID,
-                            nsIFrame*       aPrevFrame,
-                            nsFrameList&    aFrameList) override;
+  virtual void SetInitialChildList(ChildListID aListID,
+                                   nsFrameList& aChildList) override;
+  virtual void AppendFrames(ChildListID aListID,
+                            nsFrameList& aFrameList) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aFrameList) override;
 
   virtual const nsFrameList& GetChildList(ChildListID aList) const override;
   virtual void GetChildLists(nsTArray<ChildList>* aLists) const override;
@@ -49,11 +50,11 @@ public:
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
   {
-      return MakeFrameName(NS_LITERAL_STRING("PopupSet"), aResult);
+    return MakeFrameName(NS_LITERAL_STRING("PopupSet"), aResult);
   }
 #endif
 
-protected:
+ protected:
   void AddPopupFrameList(nsFrameList& aPopupFrameList);
   void RemovePopupFrame(nsIFrame* aPopup);
 

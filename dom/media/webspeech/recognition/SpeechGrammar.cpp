@@ -19,21 +19,15 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechGrammar)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-SpeechGrammar::SpeechGrammar(nsISupports* aParent)
-  : mParent(aParent)
-{
-}
+SpeechGrammar::SpeechGrammar(nsISupports* aParent) : mParent(aParent) {}
 
-SpeechGrammar::~SpeechGrammar()
-{
-}
+SpeechGrammar::~SpeechGrammar() {}
 
 already_AddRefed<SpeechGrammar>
-SpeechGrammar::Constructor(const GlobalObject& aGlobal,
-                           ErrorResult& aRv)
+SpeechGrammar::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
   RefPtr<SpeechGrammar> speechGrammar =
-    new SpeechGrammar(aGlobal.GetAsSupports());
+      new SpeechGrammar(aGlobal.GetAsSupports());
   return speechGrammar.forget();
 }
 
@@ -74,5 +68,5 @@ SpeechGrammar::SetWeight(float aArg, ErrorResult& aRv)
   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

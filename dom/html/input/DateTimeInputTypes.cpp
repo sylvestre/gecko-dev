@@ -23,9 +23,8 @@ DateTimeInputTypeBase::IsInputDateTimeEnabled()
   static bool sDateTimePrefCached = false;
   if (!sDateTimePrefCached) {
     sDateTimePrefCached = true;
-    mozilla::Preferences::AddBoolVarCache(&sDateTimeEnabled,
-                                          "dom.forms.datetime",
-                                          false);
+    mozilla::Preferences::AddBoolVarCache(
+        &sDateTimeEnabled, "dom.forms.datetime", false);
   }
 
   return sDateTimeEnabled;
@@ -114,7 +113,8 @@ DateTimeInputTypeBase::HasBadInput() const
     return false;
   }
 
-  return frame->HasBadInput();;
+  return frame->HasBadInput();
+  ;
 }
 
 nsresult
@@ -123,9 +123,12 @@ DateTimeInputTypeBase::GetRangeOverflowMessage(nsAString& aMessage)
   nsAutoString maxStr;
   mInputElement->GetAttr(kNameSpaceID_None, nsGkAtoms::max, maxStr);
 
-  const char16_t* params[] = { maxStr.get() };
-  return nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationDateTimeRangeOverflow", params, aMessage);
+  const char16_t* params[] = {maxStr.get()};
+  return nsContentUtils::FormatLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES,
+      "FormValidationDateTimeRangeOverflow",
+      params,
+      aMessage);
 }
 
 nsresult
@@ -134,9 +137,12 @@ DateTimeInputTypeBase::GetRangeUnderflowMessage(nsAString& aMessage)
   nsAutoString minStr;
   mInputElement->GetAttr(kNameSpaceID_None, nsGkAtoms::min, minStr);
 
-  const char16_t* params[] = { minStr.get() };
-  return nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationDateTimeRangeUnderflow", params, aMessage);
+  const char16_t* params[] = {minStr.get()};
+  return nsContentUtils::FormatLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES,
+      "FormValidationDateTimeRangeUnderflow",
+      params,
+      aMessage);
 }
 
 nsresult
@@ -151,9 +157,12 @@ DateTimeInputTypeBase::MinMaxStepAttrChanged()
 }
 
 bool
-DateTimeInputTypeBase::GetTimeFromMs(double aValue, uint16_t* aHours,
-                                     uint16_t* aMinutes, uint16_t* aSeconds,
-                                     uint16_t* aMilliseconds) const {
+DateTimeInputTypeBase::GetTimeFromMs(double aValue,
+                                     uint16_t* aHours,
+                                     uint16_t* aMinutes,
+                                     uint16_t* aSeconds,
+                                     uint16_t* aMilliseconds) const
+{
   MOZ_ASSERT(aValue >= 0 && aValue < kMsPerDay,
              "aValue must be milliseconds within a day!");
 
@@ -182,8 +191,8 @@ DateInputType::GetBadInputMessage(nsAString& aMessage)
     return NS_ERROR_UNEXPECTED;
   }
 
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationInvalidDate", aMessage);
+  return nsContentUtils::GetLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidDate", aMessage);
 }
 
 bool
@@ -255,7 +264,8 @@ TimeInputType::ConvertNumberToString(mozilla::Decimal aValue,
   // times inside a day [00:00, 24:00[, which means that we should do a
   // modulo on |aValue| using the number of milliseconds in a day (86400000).
   uint32_t value =
-    NS_floorModulo(aValue, mozilla::Decimal::fromDouble(kMsPerDay)).toDouble();
+      NS_floorModulo(aValue, mozilla::Decimal::fromDouble(kMsPerDay))
+          .toDouble();
 
   uint16_t milliseconds, seconds, minutes, hours;
   if (!GetTimeFromMs(value, &hours, &minutes, &seconds, &milliseconds)) {
@@ -263,11 +273,10 @@ TimeInputType::ConvertNumberToString(mozilla::Decimal aValue,
   }
 
   if (milliseconds != 0) {
-    aResultString.AppendPrintf("%02d:%02d:%02d.%03d",
-                               hours, minutes, seconds, milliseconds);
+    aResultString.AppendPrintf(
+        "%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
   } else if (seconds != 0) {
-    aResultString.AppendPrintf("%02d:%02d:%02d",
-                               hours, minutes, seconds);
+    aResultString.AppendPrintf("%02d:%02d:%02d", hours, minutes, seconds);
   } else {
     aResultString.AppendPrintf("%02d:%02d", hours, minutes);
   }
@@ -393,22 +402,21 @@ MonthInputType::ConvertNumberToString(mozilla::Decimal aValue,
 
   aResultString.AppendPrintf("%04.0f-%02.0f", year, month + 1);
   return true;
-
 }
 
 // input type=datetime-local
 
 bool
 DateTimeLocalInputType::ConvertStringToNumber(
-  nsAString& aValue, mozilla::Decimal& aResultValue) const
+    nsAString& aValue, mozilla::Decimal& aResultValue) const
 {
   uint32_t year, month, day, timeInMs;
   if (!ParseDateTimeLocal(aValue, &year, &month, &day, &timeInMs)) {
     return false;
   }
 
-  JS::ClippedTime time = JS::TimeClip(JS::MakeDate(year, month - 1, day,
-                                                   timeInMs));
+  JS::ClippedTime time =
+      JS::TimeClip(JS::MakeDate(year, month - 1, day, timeInMs));
   if (!time.isValid()) {
     return false;
   }
@@ -428,7 +436,8 @@ DateTimeLocalInputType::ConvertNumberToString(mozilla::Decimal aValue,
   aValue = aValue.floor();
 
   uint32_t timeValue =
-    NS_floorModulo(aValue, mozilla::Decimal::fromDouble(kMsPerDay)).toDouble();
+      NS_floorModulo(aValue, mozilla::Decimal::fromDouble(kMsPerDay))
+          .toDouble();
 
   uint16_t milliseconds, seconds, minutes, hours;
   if (!GetTimeFromMs(timeValue, &hours, &minutes, &seconds, &milliseconds)) {
@@ -445,15 +454,24 @@ DateTimeLocalInputType::ConvertNumberToString(mozilla::Decimal aValue,
 
   if (milliseconds != 0) {
     aResultString.AppendPrintf("%04.0f-%02.0f-%02.0fT%02d:%02d:%02d.%03d",
-                               year, month + 1, day, hours, minutes,
-                               seconds, milliseconds);
+                               year,
+                               month + 1,
+                               day,
+                               hours,
+                               minutes,
+                               seconds,
+                               milliseconds);
   } else if (seconds != 0) {
     aResultString.AppendPrintf("%04.0f-%02.0f-%02.0fT%02d:%02d:%02d",
-                               year, month + 1, day, hours, minutes,
+                               year,
+                               month + 1,
+                               day,
+                               hours,
+                               minutes,
                                seconds);
   } else {
-    aResultString.AppendPrintf("%04.0f-%02.0f-%02.0fT%02d:%02d",
-                               year, month + 1, day, hours, minutes);
+    aResultString.AppendPrintf(
+        "%04.0f-%02.0f-%02.0fT%02d:%02d", year, month + 1, day, hours, minutes);
   }
 
   return true;

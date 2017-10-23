@@ -32,8 +32,7 @@ using namespace dom;
 JSEventHandler::JSEventHandler(nsISupports* aTarget,
                                nsAtom* aType,
                                const TypedEventHandler& aTypedHandler)
-  : mEventName(aType)
-  , mTypedHandler(aTypedHandler)
+    : mEventName(aType), mTypedHandler(aTypedHandler)
 {
   nsCOMPtr<nsISupports> base = do_QueryInterface(aTarget);
   mTarget = base.get();
@@ -57,7 +56,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(JSEventHandler)
     nsAutoCString name;
     name.AppendLiteral("JSEventHandler handlerName=");
     name.Append(
-      NS_ConvertUTF16toUTF8(nsDependentAtomString(tmp->mEventName)).get());
+        NS_ConvertUTF16toUTF8(nsDependentAtomString(tmp->mEventName)).get());
     cb.DescribeRefCountedNode(tmp->mRefCnt.get(), name.get());
   } else {
     NS_IMPL_CYCLE_COLLECTION_DESCRIBE(JSEventHandler, tmp->mRefCnt.get())
@@ -122,11 +121,11 @@ JSEventHandler::HandleEvent(nsIDOMEvent* aEvent)
   Event* event = aEvent->InternalDOMEvent();
   bool isMainThread = event->IsMainThreadEvent();
   bool isChromeHandler =
-    isMainThread ?
-      nsContentUtils::ObjectPrincipal(
-        GetTypedEventHandler().Ptr()->CallbackPreserveColor()) ==
-        nsContentUtils::GetSystemPrincipal() :
-      mozilla::dom::workers::IsCurrentThreadRunningChromeWorker();
+      isMainThread
+          ? nsContentUtils::ObjectPrincipal(
+                GetTypedEventHandler().Ptr()->CallbackPreserveColor()) ==
+                nsContentUtils::GetSystemPrincipal()
+          : mozilla::dom::workers::IsCurrentThreadRunningChromeWorker();
 
   if (mTypedHandler.Type() == TypedEventHandler::eOnError) {
     MOZ_ASSERT_IF(mEventName, mEventName == nsGkAtoms::onerror);
@@ -160,17 +159,22 @@ JSEventHandler::HandleEvent(nsIDOMEvent* aEvent)
     }
 
     RefPtr<OnErrorEventHandlerNonNull> handler =
-      mTypedHandler.OnErrorEventHandler();
+        mTypedHandler.OnErrorEventHandler();
     ErrorResult rv;
     JS::Rooted<JS::Value> retval(RootingCx());
-    handler->Call(mTarget, msgOrEvent, fileName, lineNumber,
-                  columnNumber, error, &retval, rv);
+    handler->Call(mTarget,
+                  msgOrEvent,
+                  fileName,
+                  lineNumber,
+                  columnNumber,
+                  error,
+                  &retval,
+                  rv);
     if (rv.Failed()) {
       return rv.StealNSResult();
     }
 
-    if (retval.isBoolean() &&
-        retval.toBoolean() == bool(scriptEvent)) {
+    if (retval.isBoolean() && retval.toBoolean() == bool(scriptEvent)) {
       event->PreventDefaultInternal(isChromeHandler);
     }
     return NS_OK;
@@ -180,7 +184,7 @@ JSEventHandler::HandleEvent(nsIDOMEvent* aEvent)
     MOZ_ASSERT(mEventName == nsGkAtoms::onbeforeunload);
 
     RefPtr<OnBeforeUnloadEventHandlerNonNull> handler =
-      mTypedHandler.OnBeforeUnloadEventHandler();
+        mTypedHandler.OnBeforeUnloadEventHandler();
     ErrorResult rv;
     nsString retval;
     handler->Call(mTarget, *(aEvent->InternalDOMEvent()), retval, rv);
@@ -225,7 +229,7 @@ JSEventHandler::HandleEvent(nsIDOMEvent* aEvent)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 using namespace mozilla;
 
@@ -240,8 +244,7 @@ NS_NewJSEventHandler(nsISupports* aTarget,
                      JSEventHandler** aReturn)
 {
   NS_ENSURE_ARG(aEventType || !NS_IsMainThread());
-  JSEventHandler* it =
-    new JSEventHandler(aTarget, aEventType, aTypedHandler);
+  JSEventHandler* it = new JSEventHandler(aTarget, aEventType, aTypedHandler);
   NS_ADDREF(*aReturn = it);
 
   return NS_OK;

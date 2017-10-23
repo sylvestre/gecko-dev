@@ -19,44 +19,46 @@
  * and allows the content builder to access the nsTemplateMatch (variable assignments
  * and rule information).
  */
-class nsContentSupportMap {
-public:
-    nsContentSupportMap() : mMap(PLDHashTable::StubOps(), sizeof(Entry)) { }
-    ~nsContentSupportMap() { }
+class nsContentSupportMap
+{
+ public:
+  nsContentSupportMap() : mMap(PLDHashTable::StubOps(), sizeof(Entry)) {}
+  ~nsContentSupportMap() {}
 
-    nsresult Put(nsIContent* aElement, nsTemplateMatch* aMatch) {
-        PLDHashEntryHdr* hdr = mMap.Add(aElement, mozilla::fallible);
-        if (!hdr)
-            return NS_ERROR_OUT_OF_MEMORY;
+  nsresult Put(nsIContent* aElement, nsTemplateMatch* aMatch)
+  {
+    PLDHashEntryHdr* hdr = mMap.Add(aElement, mozilla::fallible);
+    if (!hdr) return NS_ERROR_OUT_OF_MEMORY;
 
-        Entry* entry = static_cast<Entry*>(hdr);
-        NS_ASSERTION(entry->mMatch == nullptr, "over-writing entry");
-        entry->mContent = aElement;
-        entry->mMatch   = aMatch;
-        return NS_OK;
-    }
+    Entry* entry = static_cast<Entry*>(hdr);
+    NS_ASSERTION(entry->mMatch == nullptr, "over-writing entry");
+    entry->mContent = aElement;
+    entry->mMatch = aMatch;
+    return NS_OK;
+  }
 
-    bool Get(nsIContent* aElement, nsTemplateMatch** aMatch) {
-        PLDHashEntryHdr* hdr = mMap.Search(aElement);
-        if (!hdr)
-            return false;
+  bool Get(nsIContent* aElement, nsTemplateMatch** aMatch)
+  {
+    PLDHashEntryHdr* hdr = mMap.Search(aElement);
+    if (!hdr) return false;
 
-        Entry* entry = static_cast<Entry*>(hdr);
-        *aMatch = entry->mMatch;
-        return true;
-    }
+    Entry* entry = static_cast<Entry*>(hdr);
+    *aMatch = entry->mMatch;
+    return true;
+  }
 
-    void Remove(nsIContent* aElement);
+  void Remove(nsIContent* aElement);
 
-    void Clear() { mMap.Clear(); }
+  void Clear() { mMap.Clear(); }
 
-protected:
-    PLDHashTable mMap;
+ protected:
+  PLDHashTable mMap;
 
-    struct Entry : public PLDHashEntryHdr {
-        nsIContent*      mContent;
-        nsTemplateMatch* mMatch;
-    };
+  struct Entry : public PLDHashEntryHdr
+  {
+    nsIContent* mContent;
+    nsTemplateMatch* mMatch;
+  };
 };
 
 #endif

@@ -12,14 +12,11 @@ struct ScriptObjectFixture : public JSAPITest {
     static const char code[];
     static char16_t uc_code[];
 
-    ScriptObjectFixture()
-    {
-        for (int i = 0; i < code_size; i++)
-            uc_code[i] = code[i];
+    ScriptObjectFixture() {
+        for (int i = 0; i < code_size; i++) uc_code[i] = code[i];
     }
 
-    bool tryScript(JS::HandleScript script)
-    {
+    bool tryScript(JS::HandleScript script) {
         CHECK(script);
 
         JS_GC(cx);
@@ -32,13 +29,11 @@ struct ScriptObjectFixture : public JSAPITest {
     }
 };
 
-const char ScriptObjectFixture::code[] =
-    "(function(a, b){return a+' '+b;}('hello', 'world'))";
+const char ScriptObjectFixture::code[] = "(function(a, b){return a+' '+b;}('hello', 'world'))";
 const int ScriptObjectFixture::code_size = sizeof(ScriptObjectFixture::code) - 1;
 char16_t ScriptObjectFixture::uc_code[ScriptObjectFixture::code_size];
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     JS::RootedScript script(cx);
@@ -47,8 +42,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript_empty)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript_empty) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     JS::RootedScript script(cx);
@@ -57,8 +51,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript_empty)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScript_empty)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScriptForPrincipals)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScriptForPrincipals) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     JS::RootedScript script(cx);
@@ -67,8 +60,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScriptForPrincipals)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_CompileScriptForPrincipals)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     JS::RootedScript script(cx);
@@ -77,8 +69,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript_empty)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript_empty) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     JS::RootedScript script(cx);
@@ -87,8 +78,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript_empty)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScript_empty)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScriptForPrincipals)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScriptForPrincipals) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     JS::RootedScript script(cx);
@@ -97,8 +87,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScriptForPrincipal
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileUCScriptForPrincipals)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile) {
     TempFile tempScript;
     static const char script_filename[] = "temp-bug438633_JS_CompileFile";
     FILE* script_stream = tempScript.open(script_filename);
@@ -113,8 +102,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile_empty)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile_empty) {
     TempFile tempScript;
     static const char script_filename[] = "temp-bug438633_JS_CompileFile_empty";
     tempScript.open(script_filename);
@@ -128,8 +116,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile_empty)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFile_empty)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle) {
     const char* script_filename = "temporary file";
     TempFile tempScript;
     FILE* script_stream = tempScript.open("temp-bug438633_JS_CompileFileHandle");
@@ -143,8 +130,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle_empty)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle_empty) {
     const char* script_filename = "empty temporary file";
     TempFile tempScript;
     FILE* script_stream = tempScript.open("temp-bug438633_JS_CompileFileHandle_empty");
@@ -156,8 +142,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle_empty)
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandle_empty)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandleForPrincipals)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandleForPrincipals) {
     TempFile tempScript;
     FILE* script_stream = tempScript.open("temp-bug438633_JS_CompileFileHandleForPrincipals");
     CHECK(fputs(code, script_stream) != EOF);
@@ -170,8 +155,7 @@ BEGIN_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandleForPrincip
 }
 END_FIXTURE_TEST(ScriptObjectFixture, bug438633_JS_CompileFileHandleForPrincipals)
 
-BEGIN_FIXTURE_TEST(ScriptObjectFixture, CloneAndExecuteScript)
-{
+BEGIN_FIXTURE_TEST(ScriptObjectFixture, CloneAndExecuteScript) {
     JS::RootedValue fortyTwo(cx);
     fortyTwo.setInt32(42);
     CHECK(JS_SetProperty(cx, global, "val", fortyTwo));

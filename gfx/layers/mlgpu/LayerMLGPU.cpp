@@ -17,9 +17,7 @@ using namespace gfx;
 uint64_t LayerMLGPU::sFrameKey = 0;
 
 LayerMLGPU::LayerMLGPU(LayerManagerMLGPU* aManager)
- : HostLayer(aManager),
-   mFrameKey(0),
-   mPrepared(false)
+    : HostLayer(aManager), mFrameKey(0), mPrepared(false)
 {
 }
 
@@ -36,7 +34,8 @@ LayerMLGPU::GetManager()
 }
 
 bool
-LayerMLGPU::PrepareToRender(FrameBuilder* aBuilder, const RenderTargetIntRect& aClipRect)
+LayerMLGPU::PrepareToRender(FrameBuilder* aBuilder,
+                            const RenderTargetIntRect& aClipRect)
 {
   if (mFrameKey == sFrameKey) {
     return mPrepared;
@@ -98,9 +97,10 @@ LayerMLGPU::GetClippedBoundingBox(RenderViewMLGPU* aView,
   Layer* layer = GetLayer();
   const Matrix4x4& transform = layer->GetEffectiveTransform();
 
-  Rect rect = aGeometry
-              ? aGeometry->BoundingBox()
-              : Rect(layer->GetLocalVisibleRegion().GetBounds().ToUnknownRect());
+  Rect rect =
+      aGeometry
+          ? aGeometry->BoundingBox()
+          : Rect(layer->GetLocalVisibleRegion().GetBounds().ToUnknownRect());
   rect = transform.TransformBounds(rect);
   rect.MoveBy(-aView->GetTargetOffset());
   rect = rect.Intersect(Rect(mComputedClipRect.ToUnknownRect()));
@@ -147,24 +147,18 @@ LayerMLGPU::SetLayerManager(HostLayerManager* aManager)
 }
 
 RefLayerMLGPU::RefLayerMLGPU(LayerManagerMLGPU* aManager)
-  : RefLayer(aManager, static_cast<HostLayer*>(this))
-  , LayerMLGPU(aManager)
+    : RefLayer(aManager, static_cast<HostLayer*>(this)), LayerMLGPU(aManager)
 {
 }
 
-RefLayerMLGPU::~RefLayerMLGPU()
-{
-}
+RefLayerMLGPU::~RefLayerMLGPU() {}
 
 ColorLayerMLGPU::ColorLayerMLGPU(LayerManagerMLGPU* aManager)
-  : ColorLayer(aManager, static_cast<HostLayer*>(this))
-  , LayerMLGPU(aManager)
+    : ColorLayer(aManager, static_cast<HostLayer*>(this)), LayerMLGPU(aManager)
 {
 }
 
-ColorLayerMLGPU::~ColorLayerMLGPU()
-{
-}
+ColorLayerMLGPU::~ColorLayerMLGPU() {}
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

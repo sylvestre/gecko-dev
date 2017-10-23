@@ -18,9 +18,10 @@ namespace mozilla {
 namespace layout {
 
 PrintTranslator::PrintTranslator(nsDeviceContext* aDeviceContext)
-  : mDeviceContext(aDeviceContext)
+    : mDeviceContext(aDeviceContext)
 {
-  RefPtr<gfxContext> context = mDeviceContext->CreateReferenceRenderingContext();
+  RefPtr<gfxContext> context =
+      mDeviceContext->CreateReferenceRenderingContext();
   mBaseDT = context->GetDrawTarget();
 }
 
@@ -48,9 +49,8 @@ PrintTranslator::TranslateRecording(PRFileDescStream& aRecording)
   int32_t eventType;
   ReadElement(aRecording, eventType);
   while (aRecording.good()) {
-    UniquePtr<RecordedEvent> recordedEvent(
-      RecordedEvent::LoadEventFromStream(aRecording,
-      static_cast<RecordedEvent::EventType>(eventType)));
+    UniquePtr<RecordedEvent> recordedEvent(RecordedEvent::LoadEventFromStream(
+        aRecording, static_cast<RecordedEvent::EventType>(eventType)));
 
     // Make sure that the whole event was read from the stream successfully.
     if (!aRecording.good() || !recordedEvent) {
@@ -69,7 +69,7 @@ PrintTranslator::TranslateRecording(PRFileDescStream& aRecording)
 
 already_AddRefed<DrawTarget>
 PrintTranslator::CreateDrawTarget(ReferencePtr aRefPtr,
-                                  const gfx::IntSize &aSize,
+                                  const gfx::IntSize& aSize,
                                   gfx::SurfaceFormat aFormat)
 {
   RefPtr<gfxContext> context = mDeviceContext->CreateRenderingContext();
@@ -83,5 +83,5 @@ PrintTranslator::CreateDrawTarget(ReferencePtr aRefPtr,
   return drawTarget.forget();
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla

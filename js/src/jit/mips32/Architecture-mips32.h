@@ -42,9 +42,8 @@ static const uint32_t BAILOUT_TABLE_ENTRY_SIZE = 2 * sizeof(void*);
 
 // When using O32 ABI, floating-point coprocessor is 32 bit.
 // When using N32 ABI, floating-point coprocessor is 64 bit.
-class FloatRegisters : public FloatRegistersMIPSShared
-{
-  public:
+class FloatRegisters : public FloatRegistersMIPSShared {
+   public:
     static const char* GetName(uint32_t i) {
         MOZ_ASSERT(i < Total);
         return FloatRegistersMIPSShared::GetName(Code(i % 32));
@@ -76,28 +75,19 @@ class FloatRegisters : public FloatRegistersMIPSShared
     static const SetType AllMask = AllDoubleMask | AllSingleMask;
 
     static const SetType NonVolatileDoubleMask =
-        ((1ULL << FloatRegisters::f20) |
-         (1ULL << FloatRegisters::f22) |
-         (1ULL << FloatRegisters::f24) |
-         (1ULL << FloatRegisters::f26) |
-         (1ULL << FloatRegisters::f28) |
-         (1ULL << FloatRegisters::f30)) << 32;
+        ((1ULL << FloatRegisters::f20) | (1ULL << FloatRegisters::f22) |
+         (1ULL << FloatRegisters::f24) | (1ULL << FloatRegisters::f26) |
+         (1ULL << FloatRegisters::f28) | (1ULL << FloatRegisters::f30))
+        << 32;
 
     // f20-single and f21-single alias f20-double ...
     static const SetType NonVolatileMask =
-        NonVolatileDoubleMask |
-        (1ULL << FloatRegisters::f20) |
-        (1ULL << FloatRegisters::f21) |
-        (1ULL << FloatRegisters::f22) |
-        (1ULL << FloatRegisters::f23) |
-        (1ULL << FloatRegisters::f24) |
-        (1ULL << FloatRegisters::f25) |
-        (1ULL << FloatRegisters::f26) |
-        (1ULL << FloatRegisters::f27) |
-        (1ULL << FloatRegisters::f28) |
-        (1ULL << FloatRegisters::f29) |
-        (1ULL << FloatRegisters::f30) |
-        (1ULL << FloatRegisters::f31);
+        NonVolatileDoubleMask | (1ULL << FloatRegisters::f20) | (1ULL << FloatRegisters::f21) |
+        (1ULL << FloatRegisters::f22) | (1ULL << FloatRegisters::f23) |
+        (1ULL << FloatRegisters::f24) | (1ULL << FloatRegisters::f25) |
+        (1ULL << FloatRegisters::f26) | (1ULL << FloatRegisters::f27) |
+        (1ULL << FloatRegisters::f28) | (1ULL << FloatRegisters::f29) |
+        (1ULL << FloatRegisters::f30) | (1ULL << FloatRegisters::f31);
 
     static const SetType VolatileMask = AllMask & ~NonVolatileMask;
     static const SetType VolatileDoubleMask = AllDoubleMask & ~NonVolatileDoubleMask;
@@ -105,15 +95,11 @@ class FloatRegisters : public FloatRegistersMIPSShared
     static const SetType WrapperMask = VolatileMask;
 
     static const SetType NonAllocatableDoubleMask =
-        ((1ULL << FloatRegisters::f16) |
-         (1ULL << FloatRegisters::f18)) << 32;
+        ((1ULL << FloatRegisters::f16) | (1ULL << FloatRegisters::f18)) << 32;
     // f16-single and f17-single alias f16-double ...
     static const SetType NonAllocatableMask =
-        NonAllocatableDoubleMask |
-        (1ULL << FloatRegisters::f16) |
-        (1ULL << FloatRegisters::f17) |
-        (1ULL << FloatRegisters::f18) |
-        (1ULL << FloatRegisters::f19);
+        NonAllocatableDoubleMask | (1ULL << FloatRegisters::f16) | (1ULL << FloatRegisters::f17) |
+        (1ULL << FloatRegisters::f18) | (1ULL << FloatRegisters::f19);
 
     // Registers that can be allocated without being saved, generally.
     static const SetType TempMask = VolatileMask & ~NonAllocatableMask;
@@ -121,9 +107,8 @@ class FloatRegisters : public FloatRegistersMIPSShared
     static const SetType AllocatableMask = AllMask & ~NonAllocatableMask;
 };
 
-class FloatRegister : public FloatRegisterMIPSShared
-{
-  public:
+class FloatRegister : public FloatRegisterMIPSShared {
+   public:
     enum RegType {
         Single = 0x0,
         Double = 0x1,
@@ -134,16 +119,14 @@ class FloatRegister : public FloatRegisterMIPSShared
     typedef Codes::Encoding Encoding;
 
     uint32_t code_ : 6;
-  protected:
+
+   protected:
     RegType kind_ : 1;
 
-  public:
+   public:
     constexpr FloatRegister(uint32_t code, RegType kind = Double)
-      : code_ (Code(code)), kind_(kind)
-    { }
-    constexpr FloatRegister()
-      : code_(Code(FloatRegisters::invalid_freg)), kind_(Double)
-    { }
+        : code_(Code(code)), kind_(kind) {}
+    constexpr FloatRegister() : code_(Code(FloatRegisters::invalid_freg)), kind_(Double) {}
 
     bool operator==(const FloatRegister& other) const {
         MOZ_ASSERT(!isInvalid());
@@ -152,9 +135,7 @@ class FloatRegister : public FloatRegisterMIPSShared
     }
     bool equiv(const FloatRegister& other) const { return other.kind_ == kind_; }
     size_t size() const { return (kind_ == Double) ? 8 : 4; }
-    bool isInvalid() const {
-        return code_ == FloatRegisters::invalid_freg;
-    }
+    bool isInvalid() const { return code_ == FloatRegisters::invalid_freg; }
 
     bool isSingle() const { return kind_ == Single; }
     bool isDouble() const { return kind_ == Double; }
@@ -170,15 +151,13 @@ class FloatRegister : public FloatRegisterMIPSShared
 
     Code code() const {
         MOZ_ASSERT(!isInvalid());
-        return Code(code_  | (kind_ << 5));
+        return Code(code_ | (kind_ << 5));
     }
     Encoding encoding() const {
         MOZ_ASSERT(!isInvalid());
         return Encoding(code_);
     }
-    uint32_t id() const {
-        return code_;
-    }
+    uint32_t id() const { return code_; }
     static FloatRegister FromCode(uint32_t i) {
         uint32_t code = i & 31;
         uint32_t kind = i >> 5;
@@ -187,31 +166,26 @@ class FloatRegister : public FloatRegisterMIPSShared
     // This is similar to FromCode except for double registers on O32.
     static FloatRegister FromIndex(uint32_t index, RegType kind) {
 #if defined(USES_O32_ABI)
-        // Only even FP registers are avaiable for Loongson on O32.
-# if defined(_MIPS_ARCH_LOONGSON3A)
+    // Only even FP registers are avaiable for Loongson on O32.
+#if defined(_MIPS_ARCH_LOONGSON3A)
         return FloatRegister(index * 2, kind);
-# else
-        if (kind == Double)
-            return FloatRegister(index * 2, kind);
-# endif
+#else
+        if (kind == Double) return FloatRegister(index * 2, kind);
+#endif
 #endif
         return FloatRegister(index, kind);
     }
 
     bool volatile_() const {
-        if (isDouble())
-            return !!((1ULL << code_) & FloatRegisters::VolatileMask);
+        if (isDouble()) return !!((1ULL << code_) & FloatRegisters::VolatileMask);
         return !!((1ULL << (code_ & ~1)) & FloatRegisters::VolatileMask);
     }
-    const char* name() const {
-        return FloatRegisters::GetName(code_);
-    }
-    bool operator != (const FloatRegister& other) const {
+    const char* name() const { return FloatRegisters::GetName(code_); }
+    bool operator!=(const FloatRegister& other) const {
         return other.kind_ != kind_ || code_ != other.code_;
     }
     bool aliases(const FloatRegister& other) {
-        if (kind_ == other.kind_)
-            return code_ == other.code_;
+        if (kind_ == other.kind_) return code_ == other.code_;
         return doubleOverlay() == other.doubleOverlay();
     }
     uint32_t numAliased() const {
@@ -260,8 +234,7 @@ class FloatRegister : public FloatRegisterMIPSShared
     }
 
     SetType alignedOrDominatedAliasedSet() const {
-        if (isSingle())
-            return SetType(1) << code_;
+        if (isSingle()) return SetType(1) << code_;
 
         MOZ_ASSERT(isDouble());
         return SetType(0b11) << code_;
@@ -280,29 +253,27 @@ class FloatRegister : public FloatRegisterMIPSShared
         return LiveAsIndexableSet<Name>(s);
     }
 
-    static Code FromName(const char* name) {
-        return FloatRegisters::FromName(name);
-    }
-    static TypedRegisterSet<FloatRegister> ReduceSetForPush(const TypedRegisterSet<FloatRegister>& s);
+    static Code FromName(const char* name) { return FloatRegisters::FromName(name); }
+    static TypedRegisterSet<FloatRegister> ReduceSetForPush(
+        const TypedRegisterSet<FloatRegister>& s);
     static uint32_t GetPushSizeInBytes(const TypedRegisterSet<FloatRegister>& s);
     uint32_t getRegisterDumpOffsetInBytes();
 };
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Float32>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Float32>(
+    SetType set) {
     return set & FloatRegisters::AllSingleMask;
 }
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Float64>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Float64>(
+    SetType set) {
     return set & FloatRegisters::AllDoubleMask;
 }
 
-template <> inline FloatRegister::SetType
-FloatRegister::LiveAsIndexableSet<RegTypeName::Any>(SetType set)
-{
+template <>
+inline FloatRegister::SetType FloatRegister::LiveAsIndexableSet<RegTypeName::Any>(SetType set) {
     return set;
 }
 
@@ -312,7 +283,7 @@ FloatRegister::LiveAsIndexableSet<RegTypeName::Any>(SetType set)
 // registers, namely a2 and a3.
 #define JS_CODEGEN_REGISTER_PAIR 1
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips32_Architecture_mips32_h */

@@ -16,9 +16,12 @@ MediaDrmSessionType
 ToMediaDrmSessionType(dom::MediaKeySessionType aSessionType)
 {
   switch (aSessionType) {
-    case dom::MediaKeySessionType::Temporary: return kKeyStreaming;
-    case dom::MediaKeySessionType::Persistent_license: return kKeyOffline;
-    default: return kKeyStreaming;
+    case dom::MediaKeySessionType::Temporary:
+      return kKeyStreaming;
+    case dom::MediaKeySessionType::Persistent_license:
+      return kKeyOffline;
+    default:
+      return kKeyStreaming;
   };
 }
 
@@ -27,22 +30,19 @@ MediaDrmCDMProxy::MediaDrmCDMProxy(dom::MediaKeys* aKeys,
                                    bool aDistinctiveIdentifierRequired,
                                    bool aPersistentStateRequired,
                                    nsIEventTarget* aMainThread)
-  : CDMProxy(aKeys,
-             aKeySystem,
-             aDistinctiveIdentifierRequired,
-             aPersistentStateRequired,
-             aMainThread)
-  , mCDM(nullptr)
-  , mShutdownCalled(false)
+    : CDMProxy(aKeys,
+               aKeySystem,
+               aDistinctiveIdentifierRequired,
+               aPersistentStateRequired,
+               aMainThread),
+      mCDM(nullptr),
+      mShutdownCalled(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_COUNT_CTOR(MediaDrmCDMProxy);
 }
 
-MediaDrmCDMProxy::~MediaDrmCDMProxy()
-{
-  MOZ_COUNT_DTOR(MediaDrmCDMProxy);
-}
+MediaDrmCDMProxy::~MediaDrmCDMProxy() { MOZ_COUNT_DTOR(MediaDrmCDMProxy); }
 
 void
 MediaDrmCDMProxy::Init(PromiseId aPromiseId,
@@ -60,19 +60,23 @@ MediaDrmCDMProxy::Init(PromiseId aPromiseId,
 
   // Create a thread to work with cdm.
   if (!mOwnerThread) {
-    nsresult rv = NS_NewNamedThread("MDCDMThread", getter_AddRefs(mOwnerThread));
+    nsresult rv =
+        NS_NewNamedThread("MDCDMThread", getter_AddRefs(mOwnerThread));
     if (NS_FAILED(rv)) {
-      RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                    NS_LITERAL_CSTRING("Couldn't create CDM thread MediaDrmCDMProxy::Init"));
+      RejectPromise(aPromiseId,
+                    NS_ERROR_DOM_INVALID_STATE_ERR,
+                    NS_LITERAL_CSTRING(
+                        "Couldn't create CDM thread MediaDrmCDMProxy::Init"));
       return;
     }
   }
 
   mCDM = mozilla::MakeUnique<MediaDrmProxySupport>(mKeySystem);
-  nsCOMPtr<nsIRunnable> task(NewRunnableMethod<uint32_t>("MediaDrmCDMProxy::md_Init",
-                                                         this,
-                                                         &MediaDrmCDMProxy::md_Init,
-                                                         aPromiseId));
+  nsCOMPtr<nsIRunnable> task(
+      NewRunnableMethod<uint32_t>("MediaDrmCDMProxy::md_Init",
+                                  this,
+                                  &MediaDrmCDMProxy::md_Init,
+                                  aPromiseId));
   mOwnerThread->Dispatch(task, NS_DISPATCH_NORMAL);
 }
 
@@ -93,11 +97,11 @@ MediaDrmCDMProxy::CreateSession(uint32_t aCreateSessionToken,
   data->mInitDataType = NS_ConvertUTF16toUTF8(aInitDataType);
   data->mInitData = Move(aInitData);
 
-  nsCOMPtr<nsIRunnable> task(
-    NewRunnableMethod<UniquePtr<CreateSessionData>&&>("MediaDrmCDMProxy::md_CreateSession",
-                                                      this,
-                                                      &MediaDrmCDMProxy::md_CreateSession,
-                                                      Move(data)));
+  nsCOMPtr<nsIRunnable> task(NewRunnableMethod<UniquePtr<CreateSessionData>&&>(
+      "MediaDrmCDMProxy::md_CreateSession",
+      this,
+      &MediaDrmCDMProxy::md_CreateSession,
+      Move(data)));
   mOwnerThread->Dispatch(task, NS_DISPATCH_NORMAL);
 }
 
@@ -107,23 +111,27 @@ MediaDrmCDMProxy::LoadSession(PromiseId aPromiseId,
                               const nsAString& aSessionId)
 {
   // TODO: Implement LoadSession.
-  RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                NS_LITERAL_CSTRING("Currently Fennec did not support LoadSession"));
+  RejectPromise(
+      aPromiseId,
+      NS_ERROR_DOM_INVALID_STATE_ERR,
+      NS_LITERAL_CSTRING("Currently Fennec did not support LoadSession"));
 }
 
 void
 MediaDrmCDMProxy::SetServerCertificate(PromiseId aPromiseId,
-                                     nsTArray<uint8_t>& aCert)
+                                       nsTArray<uint8_t>& aCert)
 {
   // TODO: Implement SetServerCertificate.
-  RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                NS_LITERAL_CSTRING("Currently Fennec did not support SetServerCertificate"));
+  RejectPromise(aPromiseId,
+                NS_ERROR_DOM_INVALID_STATE_ERR,
+                NS_LITERAL_CSTRING(
+                    "Currently Fennec did not support SetServerCertificate"));
 }
 
 void
 MediaDrmCDMProxy::UpdateSession(const nsAString& aSessionId,
-                              PromiseId aPromiseId,
-                              nsTArray<uint8_t>& aResponse)
+                                PromiseId aPromiseId,
+                                nsTArray<uint8_t>& aResponse)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOwnerThread);
@@ -134,17 +142,17 @@ MediaDrmCDMProxy::UpdateSession(const nsAString& aSessionId,
   data->mSessionId = NS_ConvertUTF16toUTF8(aSessionId);
   data->mResponse = Move(aResponse);
 
-  nsCOMPtr<nsIRunnable> task(
-    NewRunnableMethod<UniquePtr<UpdateSessionData>&&>("MediaDrmCDMProxy::md_UpdateSession",
-                                                      this,
-                                                      &MediaDrmCDMProxy::md_UpdateSession,
-                                                      Move(data)));
+  nsCOMPtr<nsIRunnable> task(NewRunnableMethod<UniquePtr<UpdateSessionData>&&>(
+      "MediaDrmCDMProxy::md_UpdateSession",
+      this,
+      &MediaDrmCDMProxy::md_UpdateSession,
+      Move(data)));
   mOwnerThread->Dispatch(task, NS_DISPATCH_NORMAL);
 }
 
 void
 MediaDrmCDMProxy::CloseSession(const nsAString& aSessionId,
-                             PromiseId aPromiseId)
+                               PromiseId aPromiseId)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOwnerThread);
@@ -154,21 +162,23 @@ MediaDrmCDMProxy::CloseSession(const nsAString& aSessionId,
   data->mPromiseId = aPromiseId;
   data->mSessionId = NS_ConvertUTF16toUTF8(aSessionId);
 
-  nsCOMPtr<nsIRunnable> task(
-    NewRunnableMethod<UniquePtr<SessionOpData>&&>("MediaDrmCDMProxy::md_CloseSession",
-                                                  this,
-                                                  &MediaDrmCDMProxy::md_CloseSession,
-                                                  Move(data)));
+  nsCOMPtr<nsIRunnable> task(NewRunnableMethod<UniquePtr<SessionOpData>&&>(
+      "MediaDrmCDMProxy::md_CloseSession",
+      this,
+      &MediaDrmCDMProxy::md_CloseSession,
+      Move(data)));
   mOwnerThread->Dispatch(task, NS_DISPATCH_NORMAL);
 }
 
 void
 MediaDrmCDMProxy::RemoveSession(const nsAString& aSessionId,
-                              PromiseId aPromiseId)
+                                PromiseId aPromiseId)
 {
   // TODO: Implement RemoveSession.
-  RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                NS_LITERAL_CSTRING("Currently Fennec did not support RemoveSession"));
+  RejectPromise(
+      aPromiseId,
+      NS_ERROR_DOM_INVALID_STATE_ERR,
+      NS_LITERAL_CSTRING("Currently Fennec did not support RemoveSession"));
 }
 
 void
@@ -176,9 +186,8 @@ MediaDrmCDMProxy::Shutdown()
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOwnerThread);
-  nsCOMPtr<nsIRunnable> task(
-    NewRunnableMethod("MediaDrmCDMProxy::md_Shutdown",
-                      this, &MediaDrmCDMProxy::md_Shutdown));
+  nsCOMPtr<nsIRunnable> task(NewRunnableMethod(
+      "MediaDrmCDMProxy::md_Shutdown", this, &MediaDrmCDMProxy::md_Shutdown));
 
   mOwnerThread->Dispatch(task, NS_DISPATCH_NORMAL);
   mOwnerThread->Shutdown();
@@ -207,14 +216,16 @@ MediaDrmCDMProxy::OnSetSessionId(uint32_t aCreateSessionToken,
     return;
   }
 
-  RefPtr<dom::MediaKeySession> session(mKeys->GetPendingSession(aCreateSessionToken));
+  RefPtr<dom::MediaKeySession> session(
+      mKeys->GetPendingSession(aCreateSessionToken));
   if (session) {
     session->SetSessionId(aSessionId);
   }
 }
 
 void
-MediaDrmCDMProxy::OnResolveLoadSessionPromise(uint32_t aPromiseId, bool aSuccess)
+MediaDrmCDMProxy::OnResolveLoadSessionPromise(uint32_t aPromiseId,
+                                              bool aSuccess)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (mKeys.IsNull()) {
@@ -306,7 +317,8 @@ MediaDrmCDMProxy::OnDecrypted(uint32_t aId,
 }
 
 void
-MediaDrmCDMProxy::RejectPromise(PromiseId aId, nsresult aCode,
+MediaDrmCDMProxy::RejectPromise(PromiseId aId,
+                                nsresult aCode,
                                 const nsCString& aReason)
 {
   if (NS_IsMainThread()) {
@@ -314,8 +326,8 @@ MediaDrmCDMProxy::RejectPromise(PromiseId aId, nsresult aCode,
       mKeys->RejectPromise(aId, aCode, aReason);
     }
   } else {
-    nsCOMPtr<nsIRunnable> task(new RejectPromiseTask(this, aId, aCode,
-                                                     aReason));
+    nsCOMPtr<nsIRunnable> task(
+        new RejectPromiseTask(this, aId, aCode, aReason));
     mMainThread->Dispatch(task.forget(), NS_DISPATCH_NORMAL);
   }
 }
@@ -366,7 +378,7 @@ MediaDrmCDMProxy::OnKeyStatusesChange(const nsAString& aSessionId)
 
 void
 MediaDrmCDMProxy::GetSessionIdsForKeyId(const nsTArray<uint8_t>& aKeyId,
-                                      nsTArray<nsCString>& aSessionIds)
+                                        nsTArray<nsCString>& aSessionIds)
 {
   CDMCaps::AutoLock caps(Capabilites());
   caps.GetSessionIdsForKeyId(aKeyId, aSessionIds);
@@ -401,7 +413,8 @@ MediaDrmCDMProxy::OnCDMCreated(uint32_t aPromiseId)
   }
 
   // No CDM? Just reject the promise.
-  mKeys->RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
+  mKeys->RejectPromise(aPromiseId,
+                       NS_ERROR_DOM_INVALID_STATE_ERR,
                        NS_LITERAL_CSTRING("Null CDM in OnCDMCreated()"));
 }
 
@@ -414,10 +427,10 @@ MediaDrmCDMProxy::md_Init(uint32_t aPromiseId)
   mCallback.reset(new MediaDrmCDMCallbackProxy(this));
   mCDM->Init(mCallback.get());
   nsCOMPtr<nsIRunnable> task(
-    NewRunnableMethod<uint32_t>("MediaDrmCDMProxy::OnCDMCreated",
-                                this,
-                                &MediaDrmCDMProxy::OnCDMCreated,
-                                aPromiseId));
+      NewRunnableMethod<uint32_t>("MediaDrmCDMProxy::OnCDMCreated",
+                                  this,
+                                  &MediaDrmCDMProxy::OnCDMCreated,
+                                  aPromiseId));
   mMainThread->Dispatch(task.forget(), NS_DISPATCH_NORMAL);
 }
 
@@ -427,7 +440,8 @@ MediaDrmCDMProxy::md_CreateSession(UniquePtr<CreateSessionData>&& aData)
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aData->mPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
+    RejectPromise(aData->mPromiseId,
+                  NS_ERROR_DOM_INVALID_STATE_ERR,
                   NS_LITERAL_CSTRING("Null CDM in md_CreateSession"));
     return;
   }
@@ -445,13 +459,12 @@ MediaDrmCDMProxy::md_UpdateSession(UniquePtr<UpdateSessionData>&& aData)
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aData->mPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
+    RejectPromise(aData->mPromiseId,
+                  NS_ERROR_DOM_INVALID_STATE_ERR,
                   NS_LITERAL_CSTRING("Null CDM in md_UpdateSession"));
     return;
   }
-  mCDM->UpdateSession(aData->mPromiseId,
-                      aData->mSessionId,
-                      aData->mResponse);
+  mCDM->UpdateSession(aData->mPromiseId, aData->mSessionId, aData->mResponse);
 }
 
 void
@@ -460,7 +473,8 @@ MediaDrmCDMProxy::md_CloseSession(UniquePtr<SessionOpData>&& aData)
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aData->mPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
+    RejectPromise(aData->mPromiseId,
+                  NS_ERROR_DOM_INVALID_STATE_ERR,
                   NS_LITERAL_CSTRING("Null CDM in md_CloseSession"));
     return;
   }
@@ -480,4 +494,4 @@ MediaDrmCDMProxy::md_Shutdown()
   mCDM = nullptr;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

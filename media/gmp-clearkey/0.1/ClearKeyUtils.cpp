@@ -69,26 +69,24 @@ CK_Log(const char* aFmt, ...)
 static bool
 PrintableAsString(const uint8_t* aBytes, uint32_t aLength)
 {
-  return all_of(aBytes, aBytes + aLength, [] (uint8_t c) {
-    return isprint(c) == 1;
-  });
+  return all_of(
+      aBytes, aBytes + aLength, [](uint8_t c) { return isprint(c) == 1; });
 }
 
 void
-CK_LogArray(const char* prepend,
-            const uint8_t* aData,
-            const uint32_t aDataSize)
+CK_LogArray(const char* prepend, const uint8_t* aData, const uint32_t aDataSize)
 {
   // If the data is valid ascii, use that. Otherwise print the hex
-  string data = PrintableAsString(aData, aDataSize) ?
-                string(aData, aData + aDataSize) :
-                ClearKeyUtils::ToHexString(aData, aDataSize);
+  string data = PrintableAsString(aData, aDataSize)
+                    ? string(aData, aData + aDataSize)
+                    : ClearKeyUtils::ToHexString(aData, aDataSize);
 
   CK_LOGD("%s%s", prepend, data.c_str());
 }
 
 static void
-IncrementIV(vector<uint8_t>& aIV) {
+IncrementIV(vector<uint8_t>& aIV)
+{
   using mozilla::BigEndian;
 
   assert(aIV.size() == 16);
@@ -97,7 +95,8 @@ IncrementIV(vector<uint8_t>& aIV) {
 
 /* static */ void
 ClearKeyUtils::DecryptAES(const vector<uint8_t>& aKey,
-                          vector<uint8_t>& aData, vector<uint8_t>& aIV)
+                          vector<uint8_t>& aData,
+                          vector<uint8_t>& aIV)
 {
   assert(aIV.size() == CENC_KEY_LEN);
   assert(aKey.size() == CENC_KEY_LEN);
@@ -132,7 +131,7 @@ static bool
 EncodeBase64Web(vector<uint8_t> aBinary, string& aEncoded)
 {
   const char sAlphabet[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
   const uint8_t sMask = 0x3f;
 
   aEncoded.resize((aBinary.size() * 8 + 5) / 6);
@@ -195,14 +194,16 @@ ClearKeyUtils::MakeKeyRequest(const vector<KeyId>& aKeyIDs,
   aOutRequest.append("\"}");
 }
 
-#define EXPECT_SYMBOL(CTX, X) do { \
-  if (GetNextSymbol(CTX) != (X)) { \
-    CK_LOGE("Unexpected symbol in JWK parser"); \
-    return false; \
-  } \
-} while (false)
+#define EXPECT_SYMBOL(CTX, X)                     \
+  do {                                            \
+    if (GetNextSymbol(CTX) != (X)) {              \
+      CK_LOGE("Unexpected symbol in JWK parser"); \
+      return false;                               \
+    }                                             \
+  } while (false)
 
-struct ParserContext {
+struct ParserContext
+{
   const uint8_t* mIter;
   const uint8_t* mEnd;
 };
@@ -227,7 +228,8 @@ GetNextSymbol(ParserContext& aCtx)
   return sym;
 }
 
-static bool SkipToken(ParserContext& aCtx);
+static bool
+SkipToken(ParserContext& aCtx);
 
 static bool
 SkipString(ParserContext& aCtx)
@@ -237,7 +239,7 @@ SkipString(ParserContext& aCtx)
     if (sym == '\\') {
       sym = GetNextSymbol(aCtx);
       if (!sym) {
-          return false;
+        return false;
       }
     } else if (sym == '"') {
       return true;
@@ -307,8 +309,8 @@ static bool
 SkipLiteral(ParserContext& aCtx)
 {
   for (; aCtx.mIter < aCtx.mEnd; aCtx.mIter++) {
-    if (!isalnum(*aCtx.mIter) &&
-        *aCtx.mIter != '.' && *aCtx.mIter != '-' && *aCtx.mIter != '+') {
+    if (!isalnum(*aCtx.mIter) && *aCtx.mIter != '.' && *aCtx.mIter != '-' &&
+        *aCtx.mIter != '+') {
       return true;
     }
   }
@@ -401,11 +403,9 @@ ParseKeyObject(ParserContext& aCtx, KeyIdPair& aOutKey)
     EXPECT_SYMBOL(aCtx, ',');
   }
 
-  return !key.empty() &&
-         !keyId.empty() &&
+  return !key.empty() && !keyId.empty() &&
          DecodeBase64(keyId, aOutKey.mKeyId) &&
-         DecodeBase64(key, aOutKey.mKey) &&
-         GetNextSymbol(aCtx) == '}';
+         DecodeBase64(key, aOutKey.mKey) && GetNextSymbol(aCtx) == '}';
 }
 
 static bool
@@ -436,7 +436,8 @@ ParseKeys(ParserContext& aCtx, vector<KeyIdPair>& aOutKeys)
 }
 
 /* static */ bool
-ClearKeyUtils::ParseJWK(const uint8_t* aKeyData, uint32_t aKeyDataSize,
+ClearKeyUtils::ParseJWK(const uint8_t* aKeyData,
+                        uint32_t aKeyDataSize,
                         vector<KeyIdPair>& aOutKeys,
                         SessionType aSessionType)
 {
@@ -509,7 +510,6 @@ ParseKeyIds(ParserContext& aCtx, vector<KeyId>& aOutKeyIds)
   return GetNextSymbol(aCtx) == ']';
 }
 
-
 /* static */ bool
 ClearKeyUtils::ParseKeyIdsInitData(const uint8_t* aInitData,
                                    uint32_t aInitDataSize,
@@ -530,8 +530,7 @@ ClearKeyUtils::ParseKeyIdsInitData(const uint8_t* aInitData,
 
     if (label == "kids") {
       // Parse "kids" array.
-      if (!ParseKeyIds(ctx, aOutKeyIds) ||
-          aOutKeyIds.empty()) {
+      if (!ParseKeyIds(ctx, aOutKeyIds) || aOutKeyIds.empty()) {
         return false;
       }
     } else {
@@ -557,13 +556,15 @@ ClearKeyUtils::ParseKeyIdsInitData(const uint8_t* aInitData,
 ClearKeyUtils::SessionTypeToString(SessionType aSessionType)
 {
   switch (aSessionType) {
-  case SessionType::kTemporary: return "temporary";
-  case SessionType::kPersistentLicense: return "persistent-license";
-  default: {
-    // We don't support any other license types.
-    assert(false);
-    return "invalid";
-  }
+    case SessionType::kTemporary:
+      return "temporary";
+    case SessionType::kPersistentLicense:
+      return "persistent-license";
+    default: {
+      // We don't support any other license types.
+      assert(false);
+      return "invalid";
+    }
   }
 }
 
@@ -584,7 +585,7 @@ ClearKeyUtils::IsValidSessionId(const char* aBuff, uint32_t aLength)
 }
 
 string
-ClearKeyUtils::ToHexString(const uint8_t * aBytes, uint32_t aLength)
+ClearKeyUtils::ToHexString(const uint8_t* aBytes, uint32_t aLength)
 {
   stringstream ss;
   ss << std::showbase << std::uppercase << std::hex;

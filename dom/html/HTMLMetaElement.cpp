@@ -17,26 +17,25 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Meta)
 namespace mozilla {
 namespace dom {
 
-HTMLMetaElement::HTMLMetaElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLMetaElement::HTMLMetaElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
-HTMLMetaElement::~HTMLMetaElement()
-{
-}
-
+HTMLMetaElement::~HTMLMetaElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLMetaElement, nsGenericHTMLElement)
 
 NS_IMPL_ELEMENT_CLONE(HTMLMetaElement)
 
-
 nsresult
 HTMLMetaElement::SetMetaReferrer(nsIDocument* aDocument)
 {
-  if (!aDocument ||
-      !AttrValueIs(kNameSpaceID_None, nsGkAtoms::name, nsGkAtoms::referrer, eIgnoreCase)) {
+  if (!aDocument || !AttrValueIs(kNameSpaceID_None,
+                                 nsGkAtoms::name,
+                                 nsGkAtoms::referrer,
+                                 eIgnoreCase)) {
     return NS_OK;
   }
   nsAutoString content;
@@ -46,24 +45,28 @@ HTMLMetaElement::SetMetaReferrer(nsIDocument* aDocument)
   }
   Element* headElt = aDocument->GetHeadElement();
   if (headElt && nsContentUtils::ContentIsDescendantOf(this, headElt)) {
-      content = nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(content);
-      aDocument->SetHeaderData(nsGkAtoms::referrer, content);
+    content = nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(
+        content);
+    aDocument->SetHeaderData(nsGkAtoms::referrer, content);
   }
   return NS_OK;
 }
 
 nsresult
-HTMLMetaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLMetaElement::AfterSetAttr(int32_t aNameSpaceID,
+                              nsAtom* aName,
                               const nsAttrValue* aValue,
                               const nsAttrValue* aOldValue,
                               nsIPrincipal* aSubjectPrincipal,
                               bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None) {
-    nsIDocument *document = GetUncomposedDoc();
+    nsIDocument* document = GetUncomposedDoc();
     if (aName == nsGkAtoms::content) {
-      if (document && AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
-                                  nsGkAtoms::viewport, eIgnoreCase)) {
+      if (document && AttrValueIs(kNameSpaceID_None,
+                                  nsGkAtoms::name,
+                                  nsGkAtoms::viewport,
+                                  eIgnoreCase)) {
         nsAutoString content;
         nsresult rv = GetContent(content);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -78,21 +81,23 @@ HTMLMetaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 nsresult
-HTMLMetaElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLMetaElement::BindToTree(nsIDocument* aDocument,
+                            nsIContent* aParent,
                             nsIContent* aBindingParent,
                             bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
-  if (aDocument &&
-      AttrValueIs(kNameSpaceID_None, nsGkAtoms::name, nsGkAtoms::viewport, eIgnoreCase)) {
+  if (aDocument && AttrValueIs(kNameSpaceID_None,
+                               nsGkAtoms::name,
+                               nsGkAtoms::viewport,
+                               eIgnoreCase)) {
     nsAutoString content;
     rv = GetContent(content);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -100,17 +105,20 @@ HTMLMetaElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
   }
 
   if (CSPService::sCSPEnabled && aDocument && !aDocument->IsLoadedAsData() &&
-      AttrValueIs(kNameSpaceID_None, nsGkAtoms::httpEquiv, nsGkAtoms::headerCSP, eIgnoreCase)) {
-
+      AttrValueIs(kNameSpaceID_None,
+                  nsGkAtoms::httpEquiv,
+                  nsGkAtoms::headerCSP,
+                  eIgnoreCase)) {
     // only accept <meta http-equiv="Content-Security-Policy" content=""> if it appears
     // in the <head> element.
     Element* headElt = aDocument->GetHeadElement();
     if (headElt && nsContentUtils::ContentIsDescendantOf(this, headElt)) {
-
       nsAutoString content;
       rv = GetContent(content);
       NS_ENSURE_SUCCESS(rv, rv);
-      content = nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(content);
+      content =
+          nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(
+              content);
 
       nsIPrincipal* principal = aDocument->NodePrincipal();
       nsCOMPtr<nsIContentSecurityPolicy> csp;
@@ -120,9 +128,10 @@ HTMLMetaElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
         // Multiple CSPs (delivered through either header of meta tag) need to be
         // joined together, see:
         // https://w3c.github.io/webappsec/specs/content-security-policy/#delivery-html-meta-element
-        rv = csp->AppendPolicy(content,
-                               false, // csp via meta tag can not be report only
-                               true); // delivered through the meta tag
+        rv =
+            csp->AppendPolicy(content,
+                              false,  // csp via meta tag can not be report only
+                              true);  // delivered through the meta tag
         NS_ENSURE_SUCCESS(rv, rv);
         aDocument->ApplySettingsFromCSP(false);
       }
@@ -151,11 +160,10 @@ void
 HTMLMetaElement::CreateAndDispatchEvent(nsIDocument* aDoc,
                                         const nsAString& aEventName)
 {
-  if (!aDoc)
-    return;
+  if (!aDoc) return;
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, aEventName, true, true);
+      new AsyncEventDispatcher(this, aEventName, true, true);
   asyncDispatcher->RunDOMEventWhenSafe();
 }
 
@@ -165,5 +173,5 @@ HTMLMetaElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLMetaElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

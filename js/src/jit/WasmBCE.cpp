@@ -27,13 +27,10 @@ typedef js::HashMap<uint32_t, MDefinition*, DefaultHasher<uint32_t>, SystemAlloc
 // check, but a set of checks that together dominate a redundant check?
 //
 // TODO (dbounov): Generalize to constant additions relative to one base
-bool
-jit::EliminateBoundsChecks(MIRGenerator* mir, MIRGraph& graph)
-{
+bool jit::EliminateBoundsChecks(MIRGenerator* mir, MIRGraph& graph) {
     // Map for dominating block where a given definition was checked
     LastSeenMap lastSeen;
-    if (!lastSeen.init())
-        return false;
+    if (!lastSeen.init()) return false;
 
     for (ReversePostorderIterator bIter(graph.rpoBegin()); bIter != graph.rpoEnd(); bIter++) {
         MBasicBlock* block = *bIter;
@@ -41,71 +38,65 @@ jit::EliminateBoundsChecks(MIRGenerator* mir, MIRGraph& graph)
             MDefinition* def = *dIter++;
 
             switch (def->op()) {
-              case MDefinition::Opcode::WasmBoundsCheck: {
-                MWasmBoundsCheck* bc = def->toWasmBoundsCheck();
-                MDefinition* addr = bc->index();
+                case MDefinition::Opcode::WasmBoundsCheck: {
+                    MWasmBoundsCheck* bc = def->toWasmBoundsCheck();
+                    MDefinition* addr = bc->index();
 
-                // Eliminate constant-address bounds checks to addresses below
-                // the heap minimum.
-                //
-                // The payload of the MConstant will be Double if the constant
-                // result is above 2^31-1, but we don't care about that for BCE.
+                    // Eliminate constant-address bounds checks to addresses below
+                    // the heap minimum.
+                    //
+                    // The payload of the MConstant will be Double if the constant
+                    // result is above 2^31-1, but we don't care about that for BCE.
 
 #ifndef WASM_HUGE_MEMORY
-                MOZ_ASSERT(wasm::MaxMemoryAccessSize < wasm::GuardSize,
-                           "Guard page handles partial out-of-bounds");
+                    MOZ_ASSERT(wasm::MaxMemoryAccessSize < wasm::GuardSize,
+                               "Guard page handles partial out-of-bounds");
 #endif
 
-                if (addr->isConstant() && addr->toConstant()->type() == MIRType::Int32 &&
-                    uint32_t(addr->toConstant()->toInt32()) < mir->minWasmHeapLength())
-                {
-                    bc->setRedundant();
-                }
-                else
-                {
-                    LastSeenMap::AddPtr ptr = lastSeen.lookupForAdd(addr->id());
-                    if (ptr) {
-                        if (ptr->value()->block()->dominates(block))
-                            bc->setRedundant();
+                    if (addr->isConstant() && addr->toConstant()->type() == MIRType::Int32 &&
+                        uint32_t(addr->toConstant()->toInt32()) < mir->minWasmHeapLength()) {
+                        bc->setRedundant();
                     } else {
-                        if (!lastSeen.add(ptr, addr->id(), def))
-                            return false;
+                        LastSeenMap::AddPtr ptr = lastSeen.lookupForAdd(addr->id());
+                        if (ptr) {
+                            if (ptr->value()->block()->dominates(block)) bc->setRedundant();
+                        } else {
+                            if (!lastSeen.add(ptr, addr->id(), def)) return false;
+                        }
                     }
+                    break;
                 }
-                break;
-              }
-              case MDefinition::Opcode::Phi: {
-                MPhi* phi = def->toPhi();
-                bool phiChecked = true;
+                case MDefinition::Opcode::Phi: {
+                    MPhi* phi = def->toPhi();
+                    bool phiChecked = true;
 
-                MOZ_ASSERT(phi->numOperands() > 0);
+                    MOZ_ASSERT(phi->numOperands() > 0);
 
-                // If all incoming values to a phi node are safe (i.e. have a
-                // check that dominates this block) then we can consider this
-                // phi node checked.
-                //
-                // Note that any phi that is part of a cycle
-                // will not be "safe" since the value coming on the backedge
-                // cannot be in lastSeen because its block hasn't been traversed yet.
-                for (int i = 0, nOps = phi->numOperands(); i < nOps; i++) {
-                    MDefinition* src = phi->getOperand(i);
+                    // If all incoming values to a phi node are safe (i.e. have a
+                    // check that dominates this block) then we can consider this
+                    // phi node checked.
+                    //
+                    // Note that any phi that is part of a cycle
+                    // will not be "safe" since the value coming on the backedge
+                    // cannot be in lastSeen because its block hasn't been traversed yet.
+                    for (int i = 0, nOps = phi->numOperands(); i < nOps; i++) {
+                        MDefinition* src = phi->getOperand(i);
 
-                    LastSeenMap::Ptr checkPtr = lastSeen.lookup(src->id());
-                    if (!checkPtr || !checkPtr->value()->block()->dominates(block)) {
-                        phiChecked = false;
-                        break;
+                        LastSeenMap::Ptr checkPtr = lastSeen.lookup(src->id());
+                        if (!checkPtr || !checkPtr->value()->block()->dominates(block)) {
+                            phiChecked = false;
+                            break;
+                        }
                     }
-                }
 
-                if (phiChecked) {
-                    if (!lastSeen.put(def->id(), def))
-                        return false;
-                }
+                    if (phiChecked) {
+                        if (!lastSeen.put(def->id(), def)) return false;
+                    }
 
-                break;
-              }
-              default:
-                break;
+                    break;
+                }
+                default:
+                    break;
             }
         }
     }

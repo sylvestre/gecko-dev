@@ -39,23 +39,19 @@ XZStream::IsXZ(const void* aBuf, size_t aBufSize)
   static const uint8_t kXzMagic[] = {0xfd, '7', 'z', 'X', 'Z', 0x0};
   MOZ_ASSERT(aBuf);
   return aBufSize > sizeof(kXzMagic) &&
-         !memcmp(reinterpret_cast<const void*>(kXzMagic), aBuf, sizeof(kXzMagic));
+         !memcmp(
+             reinterpret_cast<const void*>(kXzMagic), aBuf, sizeof(kXzMagic));
 }
 
 XZStream::XZStream(const void* aInBuf, size_t aInSize)
-  : mInBuf(static_cast<const uint8_t*>(aInBuf))
-  , mUncompSize(0)
-  , mDec(nullptr)
+    : mInBuf(static_cast<const uint8_t*>(aInBuf)), mUncompSize(0), mDec(nullptr)
 {
   mBuffers.in = mInBuf;
   mBuffers.in_pos = 0;
   mBuffers.in_size = aInSize;
 }
 
-XZStream::~XZStream()
-{
-  xz_dec_end(mDec);
-}
+XZStream::~XZStream() { xz_dec_end(mDec); }
 
 bool
 XZStream::Init()
@@ -206,7 +202,8 @@ XZStream::ParseUncompressedSize() const
   // uncompressed size. We only support xz streams with a single record.
 
   if (memcmp(reinterpret_cast<const void*>(kIndexIndicator),
-             index, sizeof(kIndexIndicator))) {
+             index,
+             sizeof(kIndexIndicator))) {
     ERROR("XZ parsing: Invalid stream index");
     return 0;
   }

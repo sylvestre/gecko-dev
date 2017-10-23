@@ -25,6 +25,6 @@ struct StylePrefs
   static void Init();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_StylePrefs_h
+#endif  // mozilla_StylePrefs_h

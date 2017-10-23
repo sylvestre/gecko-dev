@@ -5,5 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Functions to setup and release the Mac memory pool
-void InitAutoreleasePool();
-void FinishAutoreleasePool();
+void
+InitAutoreleasePool();
+void
+FinishAutoreleasePool();

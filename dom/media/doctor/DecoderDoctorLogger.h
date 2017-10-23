@@ -36,7 +36,7 @@ namespace mozilla {
 // take too much memory.
 class DecoderDoctorLogger
 {
-public:
+ public:
   // Is logging currently enabled? This is tested anyway in all public `Log...`
   // functions, but it may be used to prevent logging-only work in clients.
   static inline bool IsDDLoggingEnabled()
@@ -82,7 +82,7 @@ public:
         aSubjectPointer,
         aCategory,
         aLabel,
-        DDLogValue{ Forward<Value>(aValue) });
+        DDLogValue{Forward<Value>(aValue)});
   }
 
   template<typename Subject, typename Value>
@@ -110,7 +110,7 @@ public:
         aSubjectPointer,
         aCategory,
         aLabel,
-        DDLogValue{ aValue });
+        DDLogValue{aValue});
   }
 
   template<typename Subject>
@@ -119,8 +119,11 @@ public:
                             const char* aLabel,
                             const char* aValue)
   {
-    EagerLogValue(
-      DDLoggedTypeTraits<Subject>::Name(), aSubject, aCategory, aLabel, aValue);
+    EagerLogValue(DDLoggedTypeTraits<Subject>::Name(),
+                  aSubject,
+                  aCategory,
+                  aLabel,
+                  aValue);
   }
 
   template<typename... Args>
@@ -136,7 +139,7 @@ public:
         aCategory,
         aLabel,
         DDLogValue{
-          nsCString{ nsPrintfCString(aFormat, Forward<Args>(aArgs)...) } });
+            nsCString{nsPrintfCString(aFormat, Forward<Args>(aArgs)...)}});
   }
 
   template<typename Subject, typename... Args>
@@ -164,7 +167,7 @@ public:
         aSubjectPointer,
         DDLogCategory::_Construction,
         "",
-        DDLogValue{ DDNoValue{} });
+        DDLogValue{DDNoValue{}});
   }
 
   static void LogConstructionAndBase(const char* aSubjectTypeName,
@@ -176,7 +179,7 @@ public:
         aSubjectPointer,
         DDLogCategory::_DerivedConstruction,
         "",
-        DDLogValue{ DDLogObject{ aBaseTypeName, aBasePointer } });
+        DDLogValue{DDLogObject{aBaseTypeName, aBasePointer}});
   }
 
   template<typename B>
@@ -188,7 +191,7 @@ public:
         aSubjectPointer,
         DDLogCategory::_DerivedConstruction,
         "",
-        DDLogValue{ DDLogObject{ DDLoggedTypeTraits<B>::Name(), aBase } });
+        DDLogValue{DDLogObject{DDLoggedTypeTraits<B>::Name(), aBase}});
   }
 
   template<typename Subject>
@@ -200,15 +203,15 @@ public:
           aSubject,
           DDLogCategory::_Construction,
           "",
-          DDLogValue{ DDNoValue{} });
+          DDLogValue{DDNoValue{}});
     } else {
       Log(DDLoggedTypeTraits<Subject>::Name(),
           aSubject,
           DDLogCategory::_DerivedConstruction,
           "",
-          DDLogValue{ DDLogObject{
-            DDLoggedTypeTraits<typename Traits::BaseType>::Name(),
-            static_cast<const typename Traits::BaseType*>(aSubject) } });
+          DDLogValue{DDLogObject{
+              DDLoggedTypeTraits<typename Traits::BaseType>::Name(),
+              static_cast<const typename Traits::BaseType*>(aSubject)}});
     }
   }
 
@@ -219,7 +222,7 @@ public:
         aSubjectPointer,
         DDLogCategory::_Destruction,
         "",
-        DDLogValue{ DDNoValue{} });
+        DDLogValue{DDNoValue{}});
   }
 
   template<typename Subject>
@@ -229,7 +232,7 @@ public:
         aSubject,
         DDLogCategory::_Destruction,
         "",
-        DDLogValue{ DDNoValue{} });
+        DDLogValue{DDNoValue{}});
   }
 
   template<typename P, typename C>
@@ -242,7 +245,7 @@ public:
           aParent,
           DDLogCategory::_Link,
           aLinkName,
-          DDLogValue{ DDLogObject{ DDLoggedTypeTraits<C>::Name(), aChild } });
+          DDLogValue{DDLogObject{DDLoggedTypeTraits<C>::Name(), aChild}});
     }
   }
 
@@ -257,7 +260,7 @@ public:
           aParentPointer,
           DDLogCategory::_Link,
           aLinkName,
-          DDLogValue{ DDLogObject{ DDLoggedTypeTraits<C>::Name(), aChild } });
+          DDLogValue{DDLogObject{DDLoggedTypeTraits<C>::Name(), aChild}});
     }
   }
 
@@ -272,7 +275,7 @@ public:
           aParent,
           DDLogCategory::_Link,
           aLinkName,
-          DDLogValue{ DDLogObject{ aChildTypeName, aChildPointer } });
+          DDLogValue{DDLogObject{aChildTypeName, aChildPointer}});
     }
   }
 
@@ -286,7 +289,7 @@ public:
           aParentPointer,
           DDLogCategory::_Unlink,
           "",
-          DDLogValue{ DDLogObject{ DDLoggedTypeTraits<C>::Name(), aChild } });
+          DDLogValue{DDLogObject{DDLoggedTypeTraits<C>::Name(), aChild}});
     }
   }
 
@@ -298,7 +301,7 @@ public:
           aParent,
           DDLogCategory::_Unlink,
           "",
-          DDLogValue{ DDLogObject{ DDLoggedTypeTraits<C>::Name(), aChild } });
+          DDLogValue{DDLogObject{DDLoggedTypeTraits<C>::Name(), aChild}});
     }
   }
 
@@ -308,7 +311,7 @@ public:
   static void EnableLogging();
 
   using LogMessagesPromise =
-    MozPromise<nsCString, nsresult, /* IsExclusive = */ true>;
+      MozPromise<nsCString, nsresult, /* IsExclusive = */ true>;
 
   // Retrieve all messages related to a given HTMLMediaElement object.
   // This call will trigger a processing run (to ensure the most recent data
@@ -316,9 +319,9 @@ public:
   // relevant log messages and object lifetimes in a JSON string.
   // The first call will enable logging, until shutdown.
   static RefPtr<LogMessagesPromise> RetrieveMessages(
-    const dom::HTMLMediaElement* aMediaElement);
+      const dom::HTMLMediaElement* aMediaElement);
 
-private:
+ private:
   // If logging is not enabled yet, initiate it, return true.
   // If logging has been shutdown, don't start it, return false.
   // Otherwise return true.
@@ -359,7 +362,7 @@ private:
 template<typename T>
 class DecoderDoctorLifeLogger
 {
-public:
+ public:
   DecoderDoctorLifeLogger()
   {
     DecoderDoctorLogger::LogConstruction(static_cast<const T*>(this));
@@ -374,26 +377,26 @@ public:
 // logging is enabled.
 
 // Log a single value; see DDLogValue for allowed types.
-#define DDLOG(_category, _label, _arg)                                         \
-  do {                                                                         \
-    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                           \
-      DecoderDoctorLogger::EagerLogValue(this, _category, _label, _arg);       \
-    }                                                                          \
+#define DDLOG(_category, _label, _arg)                                   \
+  do {                                                                   \
+    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                     \
+      DecoderDoctorLogger::EagerLogValue(this, _category, _label, _arg); \
+    }                                                                    \
   } while (0)
 // Log a single value, with an EXplicit `this`.
-#define DDLOGEX(_this, _category, _label, _arg)                                \
-  do {                                                                         \
-    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                           \
-      DecoderDoctorLogger::EagerLogValue(_this, _category, _label, _arg);      \
-    }                                                                          \
+#define DDLOGEX(_this, _category, _label, _arg)                           \
+  do {                                                                    \
+    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                      \
+      DecoderDoctorLogger::EagerLogValue(_this, _category, _label, _arg); \
+    }                                                                     \
   } while (0)
 // Log a single value, with EXplicit type name and `this`.
-#define DDLOGEX2(_typename, _this, _category, _label, _arg)                    \
-  do {                                                                         \
-    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                           \
-      DecoderDoctorLogger::EagerLogValue(                                      \
-        _typename, _this, _category, _label, _arg);                            \
-    }                                                                          \
+#define DDLOGEX2(_typename, _this, _category, _label, _arg) \
+  do {                                                      \
+    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {        \
+      DecoderDoctorLogger::EagerLogValue(                   \
+          _typename, _this, _category, _label, _arg);       \
+    }                                                       \
   } while (0)
 
 #ifdef DEBUG
@@ -406,31 +409,31 @@ static void inline MOZ_FORMAT_PRINTF(1, 2) DDLOGPRCheck(const char*, ...) {}
 #endif
 
 // Log a printf'd string. Discouraged, please try using DDLOG instead.
-#define DDLOGPR(_category, _label, _format, ...)                               \
-  do {                                                                         \
-    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                           \
-      DDLOGPR_CHECK(_format, __VA_ARGS__);                                     \
-      DecoderDoctorLogger::EagerLogPrintf(                                     \
-        this, _category, _label, _format, __VA_ARGS__);                        \
-    }                                                                          \
+#define DDLOGPR(_category, _label, _format, ...)          \
+  do {                                                    \
+    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {      \
+      DDLOGPR_CHECK(_format, __VA_ARGS__);                \
+      DecoderDoctorLogger::EagerLogPrintf(                \
+          this, _category, _label, _format, __VA_ARGS__); \
+    }                                                     \
   } while (0)
 
 // Link a child object.
-#define DDLINKCHILD(...)                                                       \
-  do {                                                                         \
-    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                           \
-      DecoderDoctorLogger::LinkParentAndChild(this, __VA_ARGS__);              \
-    }                                                                          \
+#define DDLINKCHILD(...)                                          \
+  do {                                                            \
+    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {              \
+      DecoderDoctorLogger::LinkParentAndChild(this, __VA_ARGS__); \
+    }                                                             \
   } while (0)
 
 // Unlink a child object.
-#define DDUNLINKCHILD(...)                                                     \
-  do {                                                                         \
-    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                           \
-      DecoderDoctorLogger::UnlinkParentAndChild(this, __VA_ARGS__);            \
-    }                                                                          \
+#define DDUNLINKCHILD(...)                                          \
+  do {                                                              \
+    if (DecoderDoctorLogger::IsDDLoggingEnabled()) {                \
+      DecoderDoctorLogger::UnlinkParentAndChild(this, __VA_ARGS__); \
+    }                                                               \
   } while (0)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DecoderDoctorLogger_h_
+#endif  // DecoderDoctorLogger_h_

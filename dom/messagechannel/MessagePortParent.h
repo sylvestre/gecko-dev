@@ -14,38 +14,31 @@ class MessagePortService;
 
 class MessagePortParent final : public PMessagePortParent
 {
-public:
+ public:
   explicit MessagePortParent(const nsID& aUUID);
   ~MessagePortParent();
 
-  bool Entangle(const nsID& aDestinationUUID,
-                const uint32_t& aSequenceID);
+  bool Entangle(const nsID& aDestinationUUID, const uint32_t& aSequenceID);
 
   bool Entangled(const nsTArray<ClonedMessageData>& aMessages);
 
   void Close();
   void CloseAndDelete();
 
-  bool CanSendData() const
-  {
-    return mCanSendData;
-  }
+  bool CanSendData() const { return mCanSendData; }
 
-  const nsID& ID() const
-  {
-    return mUUID;
-  }
+  const nsID& ID() const { return mUUID; }
 
   static bool ForceClose(const nsID& aUUID,
                          const nsID& aDestinationUUID,
                          const uint32_t& aSequenceID);
 
-private:
-  virtual mozilla::ipc::IPCResult RecvPostMessages(nsTArray<ClonedMessageData>&& aMessages)
-                                                                       override;
+ private:
+  virtual mozilla::ipc::IPCResult RecvPostMessages(
+      nsTArray<ClonedMessageData>&& aMessages) override;
 
-  virtual mozilla::ipc::IPCResult RecvDisentangle(nsTArray<ClonedMessageData>&& aMessages)
-                                                                       override;
+  virtual mozilla::ipc::IPCResult RecvDisentangle(
+      nsTArray<ClonedMessageData>&& aMessages) override;
 
   virtual mozilla::ipc::IPCResult RecvStopSendingData() override;
 
@@ -59,7 +52,7 @@ private:
   bool mCanSendData;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MessagePortParent_h
+#endif  // mozilla_dom_MessagePortParent_h

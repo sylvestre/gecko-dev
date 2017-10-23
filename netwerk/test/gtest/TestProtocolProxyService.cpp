@@ -12,18 +12,20 @@
 namespace mozilla {
 namespace net {
 
-TEST(TestProtocolProxyService, LoadHostFilters) {
-  nsCOMPtr<nsIProtocolProxyService2> ps = do_GetService(NS_PROTOCOLPROXYSERVICE_CID);
+TEST(TestProtocolProxyService, LoadHostFilters)
+{
+  nsCOMPtr<nsIProtocolProxyService2> ps =
+      do_GetService(NS_PROTOCOLPROXYSERVICE_CID);
   ASSERT_TRUE(ps);
-  mozilla::net::nsProtocolProxyService* pps = static_cast<mozilla::net::nsProtocolProxyService*>(ps.get());
+  mozilla::net::nsProtocolProxyService* pps =
+      static_cast<mozilla::net::nsProtocolProxyService*>(ps.get());
 
-  nsCOMPtr<nsIURL> url( do_CreateInstance(NS_STANDARDURL_CONTRACTID) );
+  nsCOMPtr<nsIURL> url(do_CreateInstance(NS_STANDARDURL_CONTRACTID));
   ASSERT_TRUE(url) << "couldn't create URL";
 
   nsAutoCString spec;
 
-  auto CheckLoopbackURLs = [&](bool expected)
-  {
+  auto CheckLoopbackURLs = [&](bool expected) {
     // loopback IPs are always filtered
     spec = "http://127.0.0.1";
     ASSERT_EQ(url->SetSpec(spec), NS_OK);
@@ -33,8 +35,7 @@ TEST(TestProtocolProxyService, LoadHostFilters) {
     ASSERT_EQ(pps->CanUseProxy(url, 80), expected);
   };
 
-  auto CheckURLs = [&](bool expected)
-  {
+  auto CheckURLs = [&](bool expected) {
     spec = "http://example.com";
     ASSERT_EQ(url->SetSpec(spec), NS_OK);
     ASSERT_EQ(pps->CanUseProxy(url, 80), expected);
@@ -68,15 +69,13 @@ TEST(TestProtocolProxyService, LoadHostFilters) {
     ASSERT_EQ(pps->CanUseProxy(url, 80), expected);
   };
 
-  auto CheckPortDomain = [&](bool expected)
-  {
+  auto CheckPortDomain = [&](bool expected) {
     spec = "http://blabla.com:10";
     ASSERT_EQ(url->SetSpec(spec), NS_OK);
     ASSERT_EQ(pps->CanUseProxy(url, 80), expected);
   };
 
-  auto CheckLocalDomain = [&](bool expected)
-  {
+  auto CheckLocalDomain = [&](bool expected) {
     spec = "http://test";
     ASSERT_EQ(url->SetSpec(spec), NS_OK);
     ASSERT_EQ(pps->CanUseProxy(url, 80), expected);
@@ -90,14 +89,16 @@ TEST(TestProtocolProxyService, LoadHostFilters) {
   printf("Testing empty filter: %s\n", filter.get());
   pps->LoadHostFilters(filter);
 
-  CheckLoopbackURLs(true); // only time when loopbacks can be proxied. bug?
+  CheckLoopbackURLs(true);  // only time when loopbacks can be proxied. bug?
   CheckLocalDomain(true);
   CheckURLs(true);
   CheckPortDomain(true);
 
   // --------------------------------------------------------------------------
 
-  filter = "example.com, 1.2.3.4/16, [2001::1], 10.0.0.0/8, 2.3.0.0/16:7777, [abcd::1]/64:123, *.test.com";
+  filter =
+      "example.com, 1.2.3.4/16, [2001::1], 10.0.0.0/8, 2.3.0.0/16:7777, "
+      "[abcd::1]/64:123, *.test.com";
   printf("Testing filter: %s\n", filter.get());
   pps->LoadHostFilters(filter);
   // Check URLs can no longer use filtered proxy
@@ -124,5 +125,5 @@ TEST(TestProtocolProxyService, LoadHostFilters) {
   pps->LoadHostFilters(filter);
 }
 
-} // namespace net
-} // namespace mozila
+}  // namespace net
+}  // namespace mozilla

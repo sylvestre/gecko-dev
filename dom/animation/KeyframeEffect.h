@@ -10,7 +10,7 @@
 #include "nsWrapperCache.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/KeyframeEffectReadOnly.h"
-#include "mozilla/AnimationTarget.h" // For (Non)OwningAnimationTarget
+#include "mozilla/AnimationTarget.h"  // For (Non)OwningAnimationTarget
 #include "mozilla/Maybe.h"
 
 struct JSContext;
@@ -32,7 +32,7 @@ class UnrestrictedDoubleOrKeyframeEffectOptions;
 
 class KeyframeEffect : public KeyframeEffectReadOnly
 {
-public:
+ public:
   KeyframeEffect(nsIDocument* aDocument,
                  const Maybe<OwningAnimationTarget>& aTarget,
                  const TimingParams& aTiming,
@@ -41,27 +41,27 @@ public:
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<KeyframeEffect>
-  Constructor(const GlobalObject& aGlobal,
-              const Nullable<ElementOrCSSPseudoElement>& aTarget,
-              JS::Handle<JSObject*> aKeyframes,
-              const UnrestrictedDoubleOrKeyframeEffectOptions& aOptions,
-              ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffect> Constructor(
+      const GlobalObject& aGlobal,
+      const Nullable<ElementOrCSSPseudoElement>& aTarget,
+      JS::Handle<JSObject*> aKeyframes,
+      const UnrestrictedDoubleOrKeyframeEffectOptions& aOptions,
+      ErrorResult& aRv);
 
-  static already_AddRefed<KeyframeEffect>
-  Constructor(const GlobalObject& aGlobal,
-              KeyframeEffectReadOnly& aSource,
-              ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffect> Constructor(
+      const GlobalObject& aGlobal,
+      KeyframeEffectReadOnly& aSource,
+      ErrorResult& aRv);
 
   // Variant of Constructor that accepts a KeyframeAnimationOptions object
   // for use with for Animatable.animate.
   // Not exposed to content.
-  static already_AddRefed<KeyframeEffect>
-  Constructor(const GlobalObject& aGlobal,
-              const Nullable<ElementOrCSSPseudoElement>& aTarget,
-              JS::Handle<JSObject*> aKeyframes,
-              const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
-              ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffect> Constructor(
+      const GlobalObject& aGlobal,
+      const Nullable<ElementOrCSSPseudoElement>& aTarget,
+      JS::Handle<JSObject*> aKeyframes,
+      const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
+      ErrorResult& aRv);
 
   void NotifySpecifiedTimingUpdated();
 
@@ -77,12 +77,12 @@ public:
     return KeyframeEffectReadOnly::IterationComposite();
   }
   void SetIterationComposite(
-    const IterationCompositeOperation& aIterationComposite,
-    CallerType aCallerType);
+      const IterationCompositeOperation& aIterationComposite,
+      CallerType aCallerType);
   void SetComposite(const CompositeOperation& aComposite);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_KeyframeEffect_h
+#endif  // mozilla_dom_KeyframeEffect_h

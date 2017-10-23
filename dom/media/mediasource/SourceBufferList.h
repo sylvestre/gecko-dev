@@ -22,7 +22,8 @@ class JSObject;
 
 namespace mozilla {
 
-template <typename T> class AsyncEventRunner;
+template<typename T>
+class AsyncEventRunner;
 
 namespace dom {
 
@@ -30,7 +31,7 @@ class MediaSource;
 
 class SourceBufferList final : public DOMEventTargetHelper
 {
-public:
+ public:
   /** WebIDL Methods. */
   SourceBuffer* IndexedGetter(uint32_t aIndex, bool& aFound);
 
@@ -49,7 +50,8 @@ public:
 
   MediaSource* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   // Append a SourceBuffer and fire "addsourcebuffer" at the list.
   void Append(SourceBuffer* aSourceBuffer);
@@ -88,7 +90,7 @@ public:
   double HighestStartTime();
   double HighestEndTime();
 
-private:
+ private:
   ~SourceBufferList();
 
   friend class AsyncEventRunner<SourceBufferList>;
@@ -100,8 +102,8 @@ private:
   const RefPtr<AbstractThread> mAbstractMainThread;
 };
 
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_dom_SourceBufferList_h_ */

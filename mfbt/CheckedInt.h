@@ -33,7 +33,8 @@
 
 namespace mozilla {
 
-template<typename T> class CheckedInt;
+template<typename T>
+class CheckedInt;
 
 namespace detail {
 
@@ -48,7 +49,9 @@ namespace detail {
  * type that isn't just a typedef for some of them, is int8_t.
  */
 
-struct UnsupportedType {};
+struct UnsupportedType
+{
+};
 
 template<typename IntegerType>
 struct IsSupportedPass2
@@ -64,80 +67,117 @@ struct IsSupported
 
 template<>
 struct IsSupported<int8_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<uint8_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<int16_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<uint16_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<int32_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<uint32_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<int64_t>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupported<uint64_t>
-{ static const bool value = true; };
-
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<char>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<signed char>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<unsigned char>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<short>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<unsigned short>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<int>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<unsigned int>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<long>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<unsigned long>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<long long>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 template<>
 struct IsSupportedPass2<unsigned long long>
-{ static const bool value = true; };
+{
+  static const bool value = true;
+};
 
 /*
  * Step 2: Implement the actual validity checks.
@@ -149,9 +189,8 @@ template<typename IntegerType, size_t Size = sizeof(IntegerType)>
 struct TwiceBiggerType
 {
   typedef typename detail::StdintTypeForSizeAndSignedness<
-                     sizeof(IntegerType) * 2,
-                     IsSigned<IntegerType>::value
-                   >::Type Type;
+      sizeof(IntegerType) * 2,
+      IsSigned<IntegerType>::value>::Type Type;
 };
 
 template<typename IntegerType>
@@ -212,15 +251,14 @@ template<typename T,
          bool IsTSigned = IsSigned<T>::value,
          bool IsUSigned = IsSigned<U>::value,
          bool DoesTRangeContainURange = DoesRangeContainRange<T, U>::value>
-struct IsInRangeImpl {};
+struct IsInRangeImpl
+{
+};
 
 template<typename T, typename U, bool IsTSigned, bool IsUSigned>
 struct IsInRangeImpl<T, U, IsTSigned, IsUSigned, true>
 {
-  static bool constexpr run(U)
-  {
-    return true;
-  }
+  static bool constexpr run(U) { return true; }
 };
 
 template<typename T, typename U>
@@ -235,10 +273,7 @@ struct IsInRangeImpl<T, U, true, true, false>
 template<typename T, typename U>
 struct IsInRangeImpl<T, U, false, false, false>
 {
-  static bool constexpr run(U aX)
-  {
-    return aX <= MaxValue<T>::value;
-  }
+  static bool constexpr run(U aX) { return aX <= MaxValue<T>::value; }
 };
 
 template<typename T, typename U>
@@ -255,9 +290,8 @@ struct IsInRangeImpl<T, U, false, true, false>
 {
   static bool constexpr run(U aX)
   {
-    return sizeof(T) >= sizeof(U)
-           ? aX >= 0
-           : aX >= 0 && aX <= U(MaxValue<T>::value);
+    return sizeof(T) >= sizeof(U) ? aX >= 0
+                                  : aX >= 0 && aX <= U(MaxValue<T>::value);
   }
 };
 
@@ -286,8 +320,8 @@ IsAddValid(T aX, T aY)
   typename MakeUnsigned<T>::Type uy = aY;
   typename MakeUnsigned<T>::Type result = ux + uy;
   return IsSigned<T>::value
-         ? HasSignBit(BinaryComplement(T((result ^ aX) & (result ^ aY))))
-         : BinaryComplement(aX) >= aY;
+             ? HasSignBit(BinaryComplement(T((result ^ aX) & (result ^ aY))))
+             : BinaryComplement(aX) >= aY;
 #endif
 }
 
@@ -307,16 +341,18 @@ IsSubValid(T aX, T aY)
   typename MakeUnsigned<T>::Type result = ux - uy;
 
   return IsSigned<T>::value
-         ? HasSignBit(BinaryComplement(T((result ^ aX) & (aX ^ aY))))
-         : aX >= aY;
+             ? HasSignBit(BinaryComplement(T((result ^ aX) & (aX ^ aY))))
+             : aX >= aY;
 #endif
 }
 
 template<typename T,
          bool IsTSigned = IsSigned<T>::value,
          bool TwiceBiggerTypeIsSupported =
-           IsSupported<typename TwiceBiggerType<T>::Type>::value>
-struct IsMulValidImpl {};
+             IsSupported<typename TwiceBiggerType<T>::Type>::value>
+struct IsMulValidImpl
+{
+};
 
 template<typename T, bool IsTSigned>
 struct IsMulValidImpl<T, IsTSigned, true>
@@ -341,15 +377,11 @@ struct IsMulValidImpl<T, true, false>
       return true;
     }
     if (aX > 0) {
-      return aY > 0
-             ? aX <= max / aY
-             : aY >= min / aX;
+      return aY > 0 ? aX <= max / aY : aY >= min / aX;
     }
 
     // If we reach this point, we know that aX < 0.
-    return aY > 0
-           ? aX >= min / aY
-           : aY >= max / aX;
+    return aY > 0 ? aX >= min / aY : aY >= max / aX;
   }
 };
 
@@ -358,7 +390,7 @@ struct IsMulValidImpl<T, false, false>
 {
   static bool run(T aX, T aY)
   {
-    return aY == 0 ||  aX <= MaxValue<T>::value / aY;
+    return aY == 0 || aX <= MaxValue<T>::value / aY;
   }
 };
 
@@ -408,10 +440,7 @@ IsModValid(T aX, T aY)
 template<typename T>
 struct IsModValidImpl<T, false>
 {
-  static inline bool run(T aX, T aY)
-  {
-    return aY >= 1;
-  }
+  static inline bool run(T aX, T aY) { return aY >= 1; }
 };
 
 template<typename T>
@@ -454,8 +483,7 @@ struct NegateImpl<T, true>
   }
 };
 
-} // namespace detail
-
+}  // namespace detail
 
 /*
  * Step 3: Now define the CheckedInt class.
@@ -531,21 +559,21 @@ struct NegateImpl<T, true>
 template<typename T>
 class CheckedInt
 {
-protected:
+ protected:
   T mValue;
   bool mIsValid;
 
   template<typename U>
   CheckedInt(U aValue, bool aIsValid) : mValue(aValue), mIsValid(aIsValid)
   {
-    static_assert(detail::IsSupported<T>::value &&
-                  detail::IsSupported<U>::value,
-                  "This type is not supported by CheckedInt");
+    static_assert(
+        detail::IsSupported<T>::value && detail::IsSupported<U>::value,
+        "This type is not supported by CheckedInt");
   }
 
   friend struct detail::NegateImpl<T>;
 
-public:
+ public:
   /**
    * Constructs a checked integer with given @a value. The checked integer is
    * initialized as valid or invalid depending on whether the @a value
@@ -559,12 +587,12 @@ public:
    */
   template<typename U>
   MOZ_IMPLICIT constexpr CheckedInt(U aValue) MOZ_NO_ARITHMETIC_EXPR_IN_ARGUMENT
-    : mValue(T(aValue)),
-      mIsValid(detail::IsInRange<T>(aValue))
+      : mValue(T(aValue)),
+        mIsValid(detail::IsInRange<T>(aValue))
   {
-    static_assert(detail::IsSupported<T>::value &&
-                  detail::IsSupported<U>::value,
-                  "This type is not supported by CheckedInt");
+    static_assert(
+        detail::IsSupported<T>::value && detail::IsSupported<U>::value,
+        "This type is not supported by CheckedInt");
   }
 
   template<typename U>
@@ -588,7 +616,9 @@ public:
   /** @returns the actual value */
   T value() const
   {
-    MOZ_ASSERT(mIsValid, "Invalid checked integer (division by zero or integer overflow)");
+    MOZ_ASSERT(
+        mIsValid,
+        "Invalid checked integer (division by zero or integer overflow)");
     return mValue;
   }
 
@@ -597,50 +627,44 @@ public:
    * of an invalid operation or of an operation involving an invalid checked
    * integer
    */
-  bool isValid() const
-  {
-    return mIsValid;
-  }
+  bool isValid() const { return mIsValid; }
 
   template<typename U>
-  friend CheckedInt<U> operator +(const CheckedInt<U>& aLhs,
-                                  const CheckedInt<U>& aRhs);
+  friend CheckedInt<U> operator+(const CheckedInt<U>& aLhs,
+                                 const CheckedInt<U>& aRhs);
   template<typename U>
-  CheckedInt& operator +=(U aRhs);
-  CheckedInt& operator +=(const CheckedInt<T>& aRhs);
+  CheckedInt& operator+=(U aRhs);
+  CheckedInt& operator+=(const CheckedInt<T>& aRhs);
 
   template<typename U>
-  friend CheckedInt<U> operator -(const CheckedInt<U>& aLhs,
-                                  const CheckedInt<U>& aRhs);
+  friend CheckedInt<U> operator-(const CheckedInt<U>& aLhs,
+                                 const CheckedInt<U>& aRhs);
   template<typename U>
-  CheckedInt& operator -=(U aRhs);
-  CheckedInt& operator -=(const CheckedInt<T>& aRhs);
+  CheckedInt& operator-=(U aRhs);
+  CheckedInt& operator-=(const CheckedInt<T>& aRhs);
 
   template<typename U>
-  friend CheckedInt<U> operator *(const CheckedInt<U>& aLhs,
-                                  const CheckedInt<U>& aRhs);
+  friend CheckedInt<U> operator*(const CheckedInt<U>& aLhs,
+                                 const CheckedInt<U>& aRhs);
   template<typename U>
-  CheckedInt& operator *=(U aRhs);
-  CheckedInt& operator *=(const CheckedInt<T>& aRhs);
+  CheckedInt& operator*=(U aRhs);
+  CheckedInt& operator*=(const CheckedInt<T>& aRhs);
 
   template<typename U>
-  friend CheckedInt<U> operator /(const CheckedInt<U>& aLhs,
-                                  const CheckedInt<U>& aRhs);
+  friend CheckedInt<U> operator/(const CheckedInt<U>& aLhs,
+                                 const CheckedInt<U>& aRhs);
   template<typename U>
-  CheckedInt& operator /=(U aRhs);
-  CheckedInt& operator /=(const CheckedInt<T>& aRhs);
+  CheckedInt& operator/=(U aRhs);
+  CheckedInt& operator/=(const CheckedInt<T>& aRhs);
 
   template<typename U>
-  friend CheckedInt<U> operator %(const CheckedInt<U>& aLhs,
-                                  const CheckedInt<U>& aRhs);
+  friend CheckedInt<U> operator%(const CheckedInt<U>& aLhs,
+                                 const CheckedInt<U>& aRhs);
   template<typename U>
-  CheckedInt& operator %=(U aRhs);
-  CheckedInt& operator %=(const CheckedInt<T>& aRhs);
+  CheckedInt& operator%=(U aRhs);
+  CheckedInt& operator%=(const CheckedInt<T>& aRhs);
 
-  CheckedInt operator -() const
-  {
-    return detail::NegateImpl<T>::negate(*this);
-  }
+  CheckedInt operator-() const { return detail::NegateImpl<T>::negate(*this); }
 
   /**
    * @returns true if the left and right hand sides are valid
@@ -660,7 +684,7 @@ public:
    *  2. This is similar to the behavior of IEEE floats, where a==b
    *     means that a and b have the same value *and* neither is NaN.
    */
-  bool operator ==(const CheckedInt& aOther) const
+  bool operator==(const CheckedInt& aOther) const
   {
     return mIsValid && aOther.mIsValid && mValue == aOther.mValue;
   }
@@ -695,41 +719,46 @@ public:
     return tmp;
   }
 
-private:
+ private:
   /**
    * The !=, <, <=, >, >= operators are disabled:
    * see the comment on operator==.
    */
-  template<typename U> bool operator !=(U aOther) const = delete;
-  template<typename U> bool operator < (U aOther) const = delete;
-  template<typename U> bool operator <=(U aOther) const = delete;
-  template<typename U> bool operator > (U aOther) const = delete;
-  template<typename U> bool operator >=(U aOther) const = delete;
+  template<typename U>
+  bool operator!=(U aOther) const = delete;
+  template<typename U>
+  bool operator<(U aOther) const = delete;
+  template<typename U>
+  bool operator<=(U aOther) const = delete;
+  template<typename U>
+  bool operator>(U aOther) const = delete;
+  template<typename U>
+  bool operator>=(U aOther) const = delete;
 };
 
-#define MOZ_CHECKEDINT_BASIC_BINARY_OPERATOR(NAME, OP)                        \
-  template<typename T>                                                        \
-  inline CheckedInt<T>                                                        \
-  operator OP(const CheckedInt<T>& aLhs, const CheckedInt<T>& aRhs)           \
-  {                                                                           \
-    if (!detail::Is##NAME##Valid(aLhs.mValue, aRhs.mValue)) {                 \
-      return CheckedInt<T>(0, false);                                         \
-    }                                                                         \
-    return CheckedInt<T>(aLhs.mValue OP aRhs.mValue,                          \
-                         aLhs.mIsValid && aRhs.mIsValid);                     \
+#define MOZ_CHECKEDINT_BASIC_BINARY_OPERATOR(NAME, OP)        \
+  template<typename T>                                        \
+  inline CheckedInt<T> operator OP(const CheckedInt<T>& aLhs, \
+                                   const CheckedInt<T>& aRhs) \
+  {                                                           \
+    if (!detail::Is##NAME##Valid(aLhs.mValue, aRhs.mValue)) { \
+      return CheckedInt<T>(0, false);                         \
+    }                                                         \
+    return CheckedInt<T>(aLhs.mValue OP aRhs.mValue,          \
+                         aLhs.mIsValid && aRhs.mIsValid);     \
   }
 
 #if MOZ_HAS_BUILTIN_OP_OVERFLOW
-#define MOZ_CHECKEDINT_BASIC_BINARY_OPERATOR2(NAME, OP, FUN)                  \
-  template<typename T>                                                        \
-  inline CheckedInt<T>                                                        \
-  operator OP(const CheckedInt<T>& aLhs, const CheckedInt<T>& aRhs)           \
-  {                                                                           \
-    T result;                                                                 \
-    if (FUN(aLhs.mValue, aRhs.mValue, &result)) {                             \
-      return CheckedInt<T>(0, false);                                         \
-    }                                                                         \
-    return CheckedInt<T>(result, aLhs.mIsValid && aRhs.mIsValid);             \
+#define MOZ_CHECKEDINT_BASIC_BINARY_OPERATOR2(NAME, OP, FUN)      \
+  template<typename T>                                            \
+  inline CheckedInt<T> operator OP(const CheckedInt<T>& aLhs,     \
+                                   const CheckedInt<T>& aRhs)     \
+  {                                                               \
+    T result;                                                     \
+    if (FUN(aLhs.mValue, aRhs.mValue, &result)) {                 \
+      return CheckedInt<T>(0, false);                             \
+    }                                                             \
+    return CheckedInt<T>(result, aLhs.mIsValid && aRhs.mIsValid); \
   }
 MOZ_CHECKEDINT_BASIC_BINARY_OPERATOR2(Add, +, __builtin_add_overflow)
 MOZ_CHECKEDINT_BASIC_BINARY_OPERATOR2(Sub, -, __builtin_sub_overflow)
@@ -767,41 +796,41 @@ struct CastToCheckedIntImpl<T, CheckedInt<T> >
   static const CheckedInt<T>& run(const CheckedInt<T>& aU) { return aU; }
 };
 
-} // namespace detail
+}  // namespace detail
 
 template<typename T, typename U>
 inline typename detail::CastToCheckedIntImpl<T, U>::ReturnType
 castToCheckedInt(U aU)
 {
-  static_assert(detail::IsSupported<T>::value &&
-                detail::IsSupported<U>::value,
+  static_assert(detail::IsSupported<T>::value && detail::IsSupported<U>::value,
                 "This type is not supported by CheckedInt");
   return detail::CastToCheckedIntImpl<T, U>::run(aU);
 }
 
-#define MOZ_CHECKEDINT_CONVENIENCE_BINARY_OPERATORS(OP, COMPOUND_OP)            \
-  template<typename T>                                                          \
-  template<typename U>                                                          \
-  CheckedInt<T>& CheckedInt<T>::operator COMPOUND_OP(U aRhs)                    \
-  {                                                                             \
-    *this = *this OP castToCheckedInt<T>(aRhs);                                 \
-    return *this;                                                               \
-  }                                                                             \
-  template<typename T>                                                          \
-  CheckedInt<T>& CheckedInt<T>::operator COMPOUND_OP(const CheckedInt<T>& aRhs) \
-  {                                                                             \
-    *this = *this OP aRhs;                                                      \
-    return *this;                                                               \
-  }                                                                             \
-  template<typename T, typename U>                                              \
-  inline CheckedInt<T> operator OP(const CheckedInt<T>& aLhs, U aRhs)           \
-  {                                                                             \
-    return aLhs OP castToCheckedInt<T>(aRhs);                                   \
-  }                                                                             \
-  template<typename T, typename U>                                              \
-  inline CheckedInt<T> operator OP(U aLhs, const CheckedInt<T>& aRhs)           \
-  {                                                                             \
-    return castToCheckedInt<T>(aLhs) OP aRhs;                                   \
+#define MOZ_CHECKEDINT_CONVENIENCE_BINARY_OPERATORS(OP, COMPOUND_OP)  \
+  template<typename T>                                                \
+  template<typename U>                                                \
+  CheckedInt<T>& CheckedInt<T>::operator COMPOUND_OP(U aRhs)          \
+  {                                                                   \
+    *this = *this OP castToCheckedInt<T>(aRhs);                       \
+    return *this;                                                     \
+  }                                                                   \
+  template<typename T>                                                \
+  CheckedInt<T>& CheckedInt<T>::operator COMPOUND_OP(                 \
+      const CheckedInt<T>& aRhs)                                      \
+  {                                                                   \
+    *this = *this OP aRhs;                                            \
+    return *this;                                                     \
+  }                                                                   \
+  template<typename T, typename U>                                    \
+  inline CheckedInt<T> operator OP(const CheckedInt<T>& aLhs, U aRhs) \
+  {                                                                   \
+    return aLhs OP castToCheckedInt<T>(aRhs);                         \
+  }                                                                   \
+  template<typename T, typename U>                                    \
+  inline CheckedInt<T> operator OP(U aLhs, const CheckedInt<T>& aRhs) \
+  {                                                                   \
+    return castToCheckedInt<T>(aLhs) OP aRhs;                         \
   }
 
 MOZ_CHECKEDINT_CONVENIENCE_BINARY_OPERATORS(+, +=)
@@ -814,28 +843,28 @@ MOZ_CHECKEDINT_CONVENIENCE_BINARY_OPERATORS(%, %=)
 
 template<typename T, typename U>
 inline bool
-operator ==(const CheckedInt<T>& aLhs, U aRhs)
+operator==(const CheckedInt<T>& aLhs, U aRhs)
 {
   return aLhs == castToCheckedInt<T>(aRhs);
 }
 
 template<typename T, typename U>
 inline bool
-operator ==(U aLhs, const CheckedInt<T>& aRhs)
+operator==(U aLhs, const CheckedInt<T>& aRhs)
 {
   return castToCheckedInt<T>(aLhs) == aRhs;
 }
 
 // Convenience typedefs.
-typedef CheckedInt<int8_t>   CheckedInt8;
-typedef CheckedInt<uint8_t>  CheckedUint8;
-typedef CheckedInt<int16_t>  CheckedInt16;
+typedef CheckedInt<int8_t> CheckedInt8;
+typedef CheckedInt<uint8_t> CheckedUint8;
+typedef CheckedInt<int16_t> CheckedInt16;
 typedef CheckedInt<uint16_t> CheckedUint16;
-typedef CheckedInt<int32_t>  CheckedInt32;
+typedef CheckedInt<int32_t> CheckedInt32;
 typedef CheckedInt<uint32_t> CheckedUint32;
-typedef CheckedInt<int64_t>  CheckedInt64;
+typedef CheckedInt<int64_t> CheckedInt64;
 typedef CheckedInt<uint64_t> CheckedUint64;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_CheckedInt_h */

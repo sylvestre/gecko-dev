@@ -19,46 +19,38 @@ namespace workers {
 
 class ServiceWorkerWindowClient final : public ServiceWorkerClient
 {
-public:
+ public:
   ServiceWorkerWindowClient(nsISupports* aOwner,
                             const ServiceWorkerClientInfo& aClientInfo)
-    : ServiceWorkerClient(aOwner, aClientInfo),
-      mVisibilityState(aClientInfo.mVisibilityState),
-      mFocused(aClientInfo.mFocused)
+      : ServiceWorkerClient(aOwner, aClientInfo),
+        mVisibilityState(aClientInfo.mVisibilityState),
+        mFocused(aClientInfo.mFocused)
   {
   }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  mozilla::dom::VisibilityState
-  VisibilityState() const
+  mozilla::dom::VisibilityState VisibilityState() const
   {
     return mVisibilityState;
   }
 
-  bool
-  Focused() const
-  {
-    return mFocused;
-  }
+  bool Focused() const { return mFocused; }
 
-  already_AddRefed<Promise>
-  Focus(ErrorResult& aRv) const;
+  already_AddRefed<Promise> Focus(ErrorResult& aRv) const;
 
-  already_AddRefed<Promise>
-  Navigate(const nsAString& aUrl,  ErrorResult& aRv);
+  already_AddRefed<Promise> Navigate(const nsAString& aUrl, ErrorResult& aRv);
 
-private:
-  ~ServiceWorkerWindowClient()
-  { }
+ private:
+  ~ServiceWorkerWindowClient() {}
 
   mozilla::dom::VisibilityState mVisibilityState;
   bool mFocused;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerwindowclient_h
+#endif  // mozilla_dom_workers_serviceworkerwindowclient_h

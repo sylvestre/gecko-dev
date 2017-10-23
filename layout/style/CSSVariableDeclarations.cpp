@@ -17,7 +17,7 @@
 // variable values.)
 #define INITIAL_VALUE "!"
 #define INHERIT_VALUE ";"
-#define UNSET_VALUE   ")"
+#define UNSET_VALUE ")"
 
 namespace mozilla {
 
@@ -26,7 +26,8 @@ CSSVariableDeclarations::CSSVariableDeclarations()
   MOZ_COUNT_CTOR(CSSVariableDeclarations);
 }
 
-CSSVariableDeclarations::CSSVariableDeclarations(const CSSVariableDeclarations& aOther)
+CSSVariableDeclarations::CSSVariableDeclarations(
+    const CSSVariableDeclarations& aOther)
 {
   MOZ_COUNT_CTOR(CSSVariableDeclarations);
   CopyVariablesFrom(aOther);
@@ -52,7 +53,8 @@ CSSVariableDeclarations::operator=(const CSSVariableDeclarations& aOther)
 }
 
 void
-CSSVariableDeclarations::CopyVariablesFrom(const CSSVariableDeclarations& aOther)
+CSSVariableDeclarations::CopyVariablesFrom(
+    const CSSVariableDeclarations& aOther)
 {
   for (auto iter = aOther.mVariables.ConstIter(); !iter.Done(); iter.Next()) {
     mVariables.Put(iter.Key(), iter.UserData());
@@ -137,17 +139,17 @@ CSSVariableDeclarations::MapRuleInfoInto(nsRuleData* aRuleData)
   } else {
     for (auto iter = mVariables.Iter(); !iter.Done(); iter.Next()) {
       nsDataHashtable<nsStringHashKey, nsString>& variables =
-        aRuleData->mVariables->mVariables;
+          aRuleData->mVariables->mVariables;
       const nsAString& aName = iter.Key();
       variables.LookupForAdd(aName).OrInsert(
-        [&iter] () { return iter.UserData(); });
+          [&iter]() { return iter.UserData(); });
     }
   }
 }
 
 void
 CSSVariableDeclarations::AddVariablesToResolver(
-                                           CSSVariableResolver* aResolver) const
+    CSSVariableResolver* aResolver) const
 {
   for (auto iter = mVariables.ConstIter(); !iter.Done(); iter.Next()) {
     const nsAString& name = iter.Key();
@@ -155,7 +157,8 @@ CSSVariableDeclarations::AddVariablesToResolver(
     if (value.EqualsLiteral(INITIAL_VALUE)) {
       // Values of 'initial' are treated the same as an invalid value in the
       // variable resolver.
-      aResolver->Put(name, EmptyString(),
+      aResolver->Put(name,
+                     EmptyString(),
                      eCSSTokenSerialization_Nothing,
                      eCSSTokenSerialization_Nothing,
                      false);
@@ -170,7 +173,8 @@ CSSVariableDeclarations::AddVariablesToResolver(
       // At this point, we don't know what token types are at the start and end
       // of the specified variable value.  These will be determined later during
       // the resolving process.
-      aResolver->Put(name, value,
+      aResolver->Put(name,
+                     value,
                      eCSSTokenSerialization_Nothing,
                      eCSSTokenSerialization_Nothing,
                      false);
@@ -180,7 +184,7 @@ CSSVariableDeclarations::AddVariablesToResolver(
 
 size_t
 CSSVariableDeclarations::SizeOfIncludingThis(
-                                      mozilla::MallocSizeOf aMallocSizeOf) const
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   size_t n = aMallocSizeOf(this);
   n += mVariables.ShallowSizeOfExcludingThis(aMallocSizeOf);
@@ -191,4 +195,4 @@ CSSVariableDeclarations::SizeOfIncludingThis(
   return n;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

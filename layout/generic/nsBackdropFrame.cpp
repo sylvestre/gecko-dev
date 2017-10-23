@@ -49,14 +49,14 @@ nsBackdropFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 }
 
 /* virtual */ LogicalSize
-nsBackdropFrame::ComputeAutoSize(gfxContext*         aRenderingContext,
-                                 WritingMode         aWM,
-                                 const LogicalSize&  aCBSize,
-                                 nscoord             aAvailableISize,
-                                 const LogicalSize&  aMargin,
-                                 const LogicalSize&  aBorder,
-                                 const LogicalSize&  aPadding,
-                                 ComputeSizeFlags    aFlags)
+nsBackdropFrame::ComputeAutoSize(gfxContext* aRenderingContext,
+                                 WritingMode aWM,
+                                 const LogicalSize& aCBSize,
+                                 nscoord aAvailableISize,
+                                 const LogicalSize& aMargin,
+                                 const LogicalSize& aBorder,
+                                 const LogicalSize& aPadding,
+                                 ComputeSizeFlags aFlags)
 {
   // Note that this frame is a child of the viewport frame.
   LogicalSize result(aWM, 0xdeadbeef, NS_UNCONSTRAINEDSIZE);

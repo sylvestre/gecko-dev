@@ -16,7 +16,7 @@ namespace mp4_demuxer {
 class MP4Metadata;
 class ResourceStream;
 class SampleIterator;
-} // namespace mp4_demuxer
+}  // namespace mp4_demuxer
 
 namespace mozilla {
 
@@ -24,15 +24,15 @@ class MP4TrackDemuxer;
 
 class MP4Demuxer : public MediaDataDemuxer
 {
-public:
+ public:
   explicit MP4Demuxer(MediaResource* aResource);
 
   RefPtr<InitPromise> Init() override;
 
   uint32_t GetNumberTracks(TrackInfo::TrackType aType) const override;
 
-  already_AddRefed<MediaTrackDemuxer>
-  GetTrackDemuxer(TrackInfo::TrackType aType, uint32_t aTrackNumber) override;
+  already_AddRefed<MediaTrackDemuxer> GetTrackDemuxer(
+      TrackInfo::TrackType aType, uint32_t aTrackNumber) override;
 
   bool IsSeekable() const override;
 
@@ -42,7 +42,7 @@ public:
 
   void NotifyDataRemoved() override;
 
-private:
+ private:
   friend class MP4TrackDemuxer;
   RefPtr<MediaResource> mResource;
   RefPtr<mp4_demuxer::ResourceStream> mStream;
@@ -52,6 +52,6 @@ private:
   bool mIsSeekable;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

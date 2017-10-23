@@ -28,8 +28,7 @@ nsPKCS11Slot::nsPKCS11Slot(PK11SlotInfo* slot)
   MOZ_ASSERT(slot);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return;
+  if (isAlreadyShutDown()) return;
 
   mSlot.reset(PK11_ReferenceSlot(slot));
   mSeries = PK11_GetSlotSeries(slot);
@@ -37,7 +36,8 @@ nsPKCS11Slot::nsPKCS11Slot(PK11SlotInfo* slot)
 }
 
 nsresult
-nsPKCS11Slot::refreshSlotInfo(const nsNSSShutDownPreventionLock& /*proofOfLock*/)
+nsPKCS11Slot::refreshSlotInfo(
+    const nsNSSShutDownPreventionLock& /*proofOfLock*/)
 {
   CK_SLOT_INFO slotInfo;
   nsresult rv = MapSECStatus(PK11_GetSlotInfo(mSlot.get(), &slotInfo));
@@ -47,16 +47,15 @@ nsPKCS11Slot::refreshSlotInfo(const nsNSSShutDownPreventionLock& /*proofOfLock*/
 
   // Set the Description field
   const char* ccDesc =
-    mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(slotInfo.slotDescription);
+      mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(slotInfo.slotDescription);
   mSlotDesc.Assign(ccDesc, strnlen(ccDesc, sizeof(slotInfo.slotDescription)));
   mSlotDesc.Trim(" ", false, true);
 
   // Set the Manufacturer field
   const char* ccManID =
-    mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(slotInfo.manufacturerID);
-  mSlotManufacturerID.Assign(
-    ccManID,
-    strnlen(ccManID, sizeof(slotInfo.manufacturerID)));
+      mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(slotInfo.manufacturerID);
+  mSlotManufacturerID.Assign(ccManID,
+                             strnlen(ccManID, sizeof(slotInfo.manufacturerID)));
   mSlotManufacturerID.Trim(" ", false, true);
 
   // Set the Hardware Version field
@@ -98,7 +97,7 @@ nsPKCS11Slot::destructorSafeDestroyNSSReference()
 
 nsresult
 nsPKCS11Slot::GetAttributeHelper(const nsACString& attribute,
-                         /*out*/ nsACString& xpcomOutParam)
+                                 /*out*/ nsACString& xpcomOutParam)
 {
   nsNSSShutDownPreventionLock locker;
   if (isAlreadyShutDown()) {
@@ -120,8 +119,7 @@ NS_IMETHODIMP
 nsPKCS11Slot::GetName(/*out*/ nsACString& name)
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   // |csn| is non-owning.
   char* csn = PK11_GetSlotName(mSlot.get());
@@ -170,8 +168,7 @@ nsPKCS11Slot::GetToken(nsIPK11Token** _retval)
   NS_ENSURE_ARG_POINTER(_retval);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   nsCOMPtr<nsIPK11Token> token = new nsPK11Token(mSlot.get());
   token.forget(_retval);
@@ -182,8 +179,7 @@ NS_IMETHODIMP
 nsPKCS11Slot::GetTokenName(/*out*/ nsACString& tokenName)
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   if (!PK11_IsPresent(mSlot.get())) {
     tokenName.SetIsVoid(true);
@@ -207,8 +203,7 @@ nsPKCS11Slot::GetStatus(uint32_t* _retval)
   NS_ENSURE_ARG_POINTER(_retval);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   if (PK11_IsDisabled(mSlot.get())) {
     *_retval = SLOT_DISABLED;
@@ -234,8 +229,7 @@ nsPKCS11Module::nsPKCS11Module(SECMODModule* module)
   MOZ_ASSERT(module);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return;
+  if (isAlreadyShutDown()) return;
 
   mModule.reset(SECMOD_ReferenceModule(module));
 }
@@ -266,8 +260,7 @@ NS_IMETHODIMP
 nsPKCS11Module::GetName(/*out*/ nsACString& name)
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   name = mModule->commonName;
   return NS_OK;
@@ -277,8 +270,7 @@ NS_IMETHODIMP
 nsPKCS11Module::GetLibName(/*out*/ nsACString& libName)
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   if (mModule->dllName) {
     libName = mModule->dllName;
@@ -290,13 +282,12 @@ nsPKCS11Module::GetLibName(/*out*/ nsACString& libName)
 
 NS_IMETHODIMP
 nsPKCS11Module::FindSlotByName(const nsACString& name,
-                       /*out*/ nsIPKCS11Slot** _retval)
+                               /*out*/ nsIPKCS11Slot** _retval)
 {
   NS_ENSURE_ARG_POINTER(_retval);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   const nsCString& flatName = PromiseFlatCString(name);
   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("Getting \"%s\"", flatName.get()));
@@ -307,8 +298,10 @@ nsPKCS11Module::FindSlotByName(const nsACString& name,
                                                     false));
   if (!slotList) {
     /* name must be the token name */
-    slotList.reset(PK11_FindSlotsByNames(mModule->dllName, nullptr /*slotName*/,
-                                         flatName.get() /*tokenName*/, false));
+    slotList.reset(PK11_FindSlotsByNames(mModule->dllName,
+                                         nullptr /*slotName*/,
+                                         flatName.get() /*tokenName*/,
+                                         false));
   }
   if (slotList && slotList->head && slotList->head->slot) {
     slotInfo.reset(PK11_ReferenceSlot(slotList->head->slot));

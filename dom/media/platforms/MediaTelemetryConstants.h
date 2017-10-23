@@ -16,7 +16,7 @@ enum class MediaDecoderBackend : uint32_t
   WMFDXVA2D3D11 = 2
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif // dom_media_platforms_MediaTelemetryConstants_h___
+#endif  // dom_media_platforms_MediaTelemetryConstants_h___

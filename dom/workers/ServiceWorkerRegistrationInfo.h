@@ -15,7 +15,7 @@ namespace dom {
 namespace workers {
 
 class ServiceWorkerRegistrationInfo final
-  : public nsIServiceWorkerRegistrationInfo
+    : public nsIServiceWorkerRegistrationInfo
 {
   uint32_t mControlledDocumentsCounter;
 
@@ -41,7 +41,7 @@ class ServiceWorkerRegistrationInfo final
 
   virtual ~ServiceWorkerRegistrationInfo();
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISERVICEWORKERREGISTRATIONINFO
 
@@ -60,8 +60,7 @@ public:
                                 nsIPrincipal* aPrincipal,
                                 ServiceWorkerUpdateViaCache aUpdateViaCache);
 
-  already_AddRefed<ServiceWorkerInfo>
-  Newest() const
+  already_AddRefed<ServiceWorkerInfo> Newest() const
   {
     RefPtr<ServiceWorkerInfo> newest;
     if (mInstallingWorker) {
@@ -75,153 +74,119 @@ public:
     return newest.forget();
   }
 
-  already_AddRefed<ServiceWorkerInfo>
-  GetServiceWorkerInfoById(uint64_t aId);
+  already_AddRefed<ServiceWorkerInfo> GetServiceWorkerInfoById(uint64_t aId);
 
-  void
-  StartControllingADocument()
-  {
-    ++mControlledDocumentsCounter;
-  }
+  void StartControllingADocument() { ++mControlledDocumentsCounter; }
 
-  void
-  StopControllingADocument()
+  void StopControllingADocument()
   {
     MOZ_ASSERT(mControlledDocumentsCounter);
     --mControlledDocumentsCounter;
   }
 
-  bool
-  IsControllingDocuments() const
+  bool IsControllingDocuments() const
   {
     return mActiveWorker && mControlledDocumentsCounter;
   }
 
-  void
-  Clear();
+  void Clear();
 
-  void
-  TryToActivateAsync();
+  void TryToActivateAsync();
 
-  void
-  TryToActivate();
+  void TryToActivate();
 
-  void
-  Activate();
+  void Activate();
 
-  void
-  FinishActivate(bool aSuccess);
+  void FinishActivate(bool aSuccess);
 
-  void
-  RefreshLastUpdateCheckTime();
+  void RefreshLastUpdateCheckTime();
 
-  bool
-  IsLastUpdateCheckTimeOverOneDay() const;
+  bool IsLastUpdateCheckTimeOverOneDay() const;
 
-  void
-  MaybeScheduleTimeCheckAndUpdate();
+  void MaybeScheduleTimeCheckAndUpdate();
 
-  void
-  MaybeScheduleUpdate();
+  void MaybeScheduleUpdate();
 
-  bool
-  CheckAndClearIfUpdateNeeded();
+  bool CheckAndClearIfUpdateNeeded();
 
-  ServiceWorkerInfo*
-  GetEvaluating() const;
+  ServiceWorkerInfo* GetEvaluating() const;
 
-  ServiceWorkerInfo*
-  GetInstalling() const;
+  ServiceWorkerInfo* GetInstalling() const;
 
-  ServiceWorkerInfo*
-  GetWaiting() const;
+  ServiceWorkerInfo* GetWaiting() const;
 
-  ServiceWorkerInfo*
-  GetActive() const;
+  ServiceWorkerInfo* GetActive() const;
 
-  ServiceWorkerInfo*
-  GetByID(uint64_t aID) const;
+  ServiceWorkerInfo* GetByID(uint64_t aID) const;
 
   // Set the given worker as the evaluating service worker.  The worker
   // state is not changed.
-  void
-  SetEvaluating(ServiceWorkerInfo* aServiceWorker);
+  void SetEvaluating(ServiceWorkerInfo* aServiceWorker);
 
   // Remove an existing evaluating worker, if present.  The worker will
   // be transitioned to the Redundant state.
-  void
-  ClearEvaluating();
+  void ClearEvaluating();
 
   // Remove an existing installing worker, if present.  The worker will
   // be transitioned to the Redundant state.
-  void
-  ClearInstalling();
+  void ClearInstalling();
 
   // Transition the current evaluating worker to be the installing worker.  The
   // worker's state is update to Installing.
-  void
-  TransitionEvaluatingToInstalling();
+  void TransitionEvaluatingToInstalling();
 
   // Transition the current installing worker to be the waiting worker.  The
   // worker's state is updated to Installed.
-  void
-  TransitionInstallingToWaiting();
+  void TransitionInstallingToWaiting();
 
   // Override the current active worker.  This is used during browser
   // initialization to load persisted workers.  Its also used to propagate
   // active workers across child processes in e10s.  This second use will
   // go away once the ServiceWorkerManager moves to the parent process.
   // The worker is transitioned to the Activated state.
-  void
-  SetActive(ServiceWorkerInfo* aServiceWorker);
+  void SetActive(ServiceWorkerInfo* aServiceWorker);
 
   // Transition the current waiting worker to be the new active worker.  The
   // worker is updated to the Activating state.
-  void
-  TransitionWaitingToActive();
+  void TransitionWaitingToActive();
 
   // Determine if the registration is actively performing work.
-  bool
-  IsIdle() const;
+  bool IsIdle() const;
 
-  ServiceWorkerUpdateViaCache
-  GetUpdateViaCache() const;
+  ServiceWorkerUpdateViaCache GetUpdateViaCache() const;
 
-  void
-  SetUpdateViaCache(ServiceWorkerUpdateViaCache aUpdateViaCache);
+  void SetUpdateViaCache(ServiceWorkerUpdateViaCache aUpdateViaCache);
 
-  int64_t
-  GetLastUpdateTime() const;
+  int64_t GetLastUpdateTime() const;
 
-  void
-  SetLastUpdateTime(const int64_t aTime);
+  void SetLastUpdateTime(const int64_t aTime);
 
-private:
-  enum TransitionType {
+ private:
+  enum TransitionType
+  {
     TransitionToNextState = 0,
     Invalidate
   };
 
   // Queued as a runnable from UpdateRegistrationStateProperties.
-  void
-  AsyncUpdateRegistrationStateProperties(WhichServiceWorker aWorker, TransitionType aType);
+  void AsyncUpdateRegistrationStateProperties(WhichServiceWorker aWorker,
+                                              TransitionType aType);
 
   // Roughly equivalent to [[Update Registration State algorithm]]. Make sure
   // this is called *before* updating SW instances' state, otherwise they
   // may get CC-ed.
-  void
-  UpdateRegistrationStateProperties(WhichServiceWorker aWorker, TransitionType aType);
+  void UpdateRegistrationStateProperties(WhichServiceWorker aWorker,
+                                         TransitionType aType);
 
   // Used by devtools to track changes to the properties of *nsIServiceWorkerRegistrationInfo*.
   // Note, this doesn't necessarily need to be in sync with the DOM registration objects, but
   // it does need to be called in the same task that changed |mInstallingWorker|,
   // |mWaitingWorker| or |mActiveWorker|.
-  void
-  NotifyChromeRegistrationListeners();
+  void NotifyChromeRegistrationListeners();
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerregistrationinfo_h
+#endif  // mozilla_dom_workers_serviceworkerregistrationinfo_h

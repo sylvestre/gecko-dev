@@ -8,7 +8,7 @@
 #include "jsapi.h"
 #include "nsCOMPtr.h"
 #include "nsWrapperCache.h"
-#include "nsContentUtils.h" // Required for nsContentUtils::PushEnabled
+#include "nsContentUtils.h"  // Required for nsContentUtils::PushEnabled
 
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/ErrorResult.h"
@@ -30,10 +30,9 @@ class WorkerPrivate;
 
 class Promise;
 
-class PushSubscription final : public nsISupports
-                             , public nsWrapperCache
+class PushSubscription final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(PushSubscription)
 
@@ -44,46 +43,33 @@ public:
                    nsTArray<uint8_t>&& aAuthSecret,
                    nsTArray<uint8_t>&& aAppServerKey);
 
-  JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  nsIGlobalObject*
-  GetParentObject() const
-  {
-    return mGlobal;
-  }
+  nsIGlobalObject* GetParentObject() const { return mGlobal; }
 
-  void
-  GetEndpoint(nsAString& aEndpoint) const
-  {
-    aEndpoint = mEndpoint;
-  }
+  void GetEndpoint(nsAString& aEndpoint) const { aEndpoint = mEndpoint; }
 
-  void
-  GetKey(JSContext* cx,
-         PushEncryptionKeyName aType,
-         JS::MutableHandle<JSObject*> aKey,
-         ErrorResult& aRv);
-
-  static already_AddRefed<PushSubscription>
-  Constructor(GlobalObject& aGlobal,
-              const PushSubscriptionInit& aInitDict,
+  void GetKey(JSContext* cx,
+              PushEncryptionKeyName aType,
+              JS::MutableHandle<JSObject*> aKey,
               ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  Unsubscribe(ErrorResult& aRv);
+  static already_AddRefed<PushSubscription> Constructor(
+      GlobalObject& aGlobal,
+      const PushSubscriptionInit& aInitDict,
+      ErrorResult& aRv);
 
-  void
-  ToJSON(PushSubscriptionJSON& aJSON, ErrorResult& aRv);
+  already_AddRefed<Promise> Unsubscribe(ErrorResult& aRv);
 
-  already_AddRefed<PushSubscriptionOptions>
-  Options();
+  void ToJSON(PushSubscriptionJSON& aJSON, ErrorResult& aRv);
 
-private:
+  already_AddRefed<PushSubscriptionOptions> Options();
+
+ private:
   ~PushSubscription();
 
-  already_AddRefed<Promise>
-  UnsubscribeFromWorker(ErrorResult& aRv);
+  already_AddRefed<Promise> UnsubscribeFromWorker(ErrorResult& aRv);
 
   nsString mEndpoint;
   nsString mScope;
@@ -93,7 +79,7 @@ private:
   RefPtr<PushSubscriptionOptions> mOptions;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PushSubscription_h
+#endif  // mozilla_dom_PushSubscription_h

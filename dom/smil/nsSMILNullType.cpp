@@ -20,7 +20,7 @@ nsSMILNullType::Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const
 {
   NS_PRECONDITION(aDest.mType == aSrc.mType, "Incompatible SMIL types");
   NS_PRECONDITION(aSrc.mType == this, "Unexpected source type");
-  aDest.mU    = aSrc.mU;
+  aDest.mU = aSrc.mU;
   aDest.mType = Singleton();
   return NS_OK;
 }
@@ -36,7 +36,8 @@ nsSMILNullType::IsEqual(const nsSMILValue& aLeft,
 }
 
 nsresult
-nsSMILNullType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+nsSMILNullType::Add(nsSMILValue& aDest,
+                    const nsSMILValue& aValueToAdd,
                     uint32_t aCount) const
 {
   NS_NOTREACHED("Adding NULL type");

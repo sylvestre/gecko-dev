@@ -69,9 +69,10 @@ namespace audio {
 // when it receives device-changed notification from the chrome process.
 class DeviceChangeListener
 {
-protected:
-  virtual ~DeviceChangeListener() {};
-public:
+ protected:
+  virtual ~DeviceChangeListener(){};
+
+ public:
   // The subclass shoule provide its own implementation switching the
   // audio stream to the new default output device.
   virtual void ResetDefaultDevice() = 0;
@@ -79,7 +80,7 @@ public:
 
 class AudioNotificationReceiver final
 {
-public:
+ public:
   // Add the DeviceChangeListener into the subscribers list.
   static void Register(DeviceChangeListener* aDeviceChangeListener);
 
@@ -88,9 +89,9 @@ public:
 
   // Notify all the streams that the default device has been changed.
   static void NotifyDefaultDeviceChanged();
-}; // AudioNotificationReceiver
+};  // AudioNotificationReceiver
 
-} // namespace audio
-} // namespace mozilla
+}  // namespace audio
+}  // namespace mozilla
 
-#endif // MOZILLA_AUDIONOTIFICATIONRECEIVER_H_
+#endif  // MOZILLA_AUDIONOTIFICATIONRECEIVER_H_

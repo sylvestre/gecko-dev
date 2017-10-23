@@ -20,12 +20,12 @@ namespace mozilla {
 namespace dom {
 
 TabContext::TabContext()
-  : mIsPrerendered(false)
-  , mInitialized(false)
-  , mIsMozBrowserElement(false)
-  , mJSPluginID(-1)
-  , mShowAccelerators(UIStateChangeType_NoChange)
-  , mShowFocusRings(UIStateChangeType_NoChange)
+    : mIsPrerendered(false),
+      mInitialized(false),
+      mIsMozBrowserElement(false),
+      mJSPluginID(-1),
+      mShowAccelerators(UIStateChangeType_NoChange),
+      mShowFocusRings(UIStateChangeType_NoChange)
 {
 }
 
@@ -165,7 +165,7 @@ TabContext::AsIPCTabContext() const
 }
 
 MaybeInvalidTabContext::MaybeInvalidTabContext(const IPCTabContext& aParams)
-  : mInvalidReason(nullptr)
+    : mInvalidReason(nullptr)
 {
   bool isMozBrowserElement = false;
   bool isPrerendered = false;
@@ -175,16 +175,17 @@ MaybeInvalidTabContext::MaybeInvalidTabContext(const IPCTabContext& aParams)
   UIStateChangeType showAccelerators = UIStateChangeType_NoChange;
   UIStateChangeType showFocusRings = UIStateChangeType_NoChange;
 
-  switch(aParams.type()) {
+  switch (aParams.type()) {
     case IPCTabContext::TPopupIPCTabContext: {
-      const PopupIPCTabContext &ipcContext = aParams.get_PopupIPCTabContext();
+      const PopupIPCTabContext& ipcContext = aParams.get_PopupIPCTabContext();
 
-      TabContext *context;
+      TabContext* context;
       if (ipcContext.opener().type() == PBrowserOrId::TPBrowserParent) {
         context = TabParent::GetFrom(ipcContext.opener().get_PBrowserParent());
         if (!context) {
-          mInvalidReason = "Child is-browser process tried to "
-                           "open a null tab.";
+          mInvalidReason =
+              "Child is-browser process tried to "
+              "open a null tab.";
           return;
         }
         if (context->IsMozBrowserElement() &&
@@ -193,16 +194,20 @@ MaybeInvalidTabContext::MaybeInvalidTabContext(const IPCTabContext& aParams)
           // open other browser elements, for security reasons.  We should have
           // checked this before calling the TabContext constructor, so this is
           // a fatal error.
-          mInvalidReason = "Child is-browser process tried to "
-                           "open a non-browser tab.";
+          mInvalidReason =
+              "Child is-browser process tried to "
+              "open a non-browser tab.";
           return;
         }
       } else if (ipcContext.opener().type() == PBrowserOrId::TPBrowserChild) {
-        context = static_cast<TabChild*>(ipcContext.opener().get_PBrowserChild());
+        context =
+            static_cast<TabChild*>(ipcContext.opener().get_PBrowserChild());
       } else if (ipcContext.opener().type() == PBrowserOrId::TTabId) {
         // We should never get here because this PopupIPCTabContext is only
         // used for allocating a new tab id, not for allocating a PBrowser.
-        mInvalidReason = "Child process tried to open an tab without the opener information.";
+        mInvalidReason =
+            "Child process tried to open an tab without the opener "
+            "information.";
         return;
       } else {
         // This should be unreachable because PopupIPCTabContext::opener is not a
@@ -223,15 +228,14 @@ MaybeInvalidTabContext::MaybeInvalidTabContext(const IPCTabContext& aParams)
       break;
     }
     case IPCTabContext::TJSPluginFrameIPCTabContext: {
-      const JSPluginFrameIPCTabContext &ipcContext =
-        aParams.get_JSPluginFrameIPCTabContext();
+      const JSPluginFrameIPCTabContext& ipcContext =
+          aParams.get_JSPluginFrameIPCTabContext();
 
       jsPluginId = ipcContext.jsPluginId();
       break;
     }
     case IPCTabContext::TFrameIPCTabContext: {
-      const FrameIPCTabContext &ipcContext =
-        aParams.get_FrameIPCTabContext();
+      const FrameIPCTabContext& ipcContext = aParams.get_FrameIPCTabContext();
 
       isMozBrowserElement = ipcContext.isMozBrowserElement();
       isPrerendered = ipcContext.isPrerendered();
@@ -296,5 +300,5 @@ MaybeInvalidTabContext::GetTabContext()
   return mTabContext;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

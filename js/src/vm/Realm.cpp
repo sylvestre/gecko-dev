@@ -16,8 +16,7 @@
 using namespace js;
 
 JS_PUBLIC_API(void)
-gc::TraceRealm(JSTracer* trc, JS::Realm* realm, const char* name)
-{
+gc::TraceRealm(JSTracer* trc, JS::Realm* realm, const char* name) {
     // The way GC works with compartments is basically incomprehensible.
     // For Realms, what we want is very simple: each Realm has a strong
     // reference to its GlobalObject, and vice versa.
@@ -29,91 +28,73 @@ gc::TraceRealm(JSTracer* trc, JS::Realm* realm, const char* name)
 }
 
 JS_PUBLIC_API(bool)
-gc::RealmNeedsSweep(JS::Realm* realm)
-{
+gc::RealmNeedsSweep(JS::Realm* realm) {
     return JS::GetCompartmentForRealm(realm)->globalIsAboutToBeFinalized();
 }
 
 JS_PUBLIC_API(JS::Realm*)
-JS::GetCurrentRealmOrNull(JSContext* cx)
-{
-    return JS::GetRealmForCompartment(cx->compartment());
-}
+JS::GetCurrentRealmOrNull(JSContext* cx) { return JS::GetRealmForCompartment(cx->compartment()); }
 
 JS_PUBLIC_API(JS::Realm*)
-JS::GetObjectRealmOrNull(JSObject* obj)
-{
+JS::GetObjectRealmOrNull(JSObject* obj) {
     return IsCrossCompartmentWrapper(obj) ? nullptr : GetRealmForCompartment(obj->compartment());
 }
 
 JS_PUBLIC_API(void*)
-JS::GetRealmPrivate(JS::Realm* realm)
-{
-    return GetCompartmentForRealm(realm)->realmData;
-}
+JS::GetRealmPrivate(JS::Realm* realm) { return GetCompartmentForRealm(realm)->realmData; }
 
 JS_PUBLIC_API(void)
-JS::SetRealmPrivate(JS::Realm* realm, void* data)
-{
+JS::SetRealmPrivate(JS::Realm* realm, void* data) {
     GetCompartmentForRealm(realm)->realmData = data;
 }
 
 JS_PUBLIC_API(void)
-JS::SetDestroyRealmCallback(JSContext* cx, JS::DestroyRealmCallback callback)
-{
+JS::SetDestroyRealmCallback(JSContext* cx, JS::DestroyRealmCallback callback) {
     cx->runtime()->destroyRealmCallback = callback;
 }
 
 JS_PUBLIC_API(void)
-JS::SetRealmNameCallback(JSContext* cx, JS::RealmNameCallback callback)
-{
+JS::SetRealmNameCallback(JSContext* cx, JS::RealmNameCallback callback) {
     cx->runtime()->realmNameCallback = callback;
 }
 
 JS_PUBLIC_API(JSObject*)
-JS::GetRealmGlobalOrNull(Handle<JS::Realm*> realm)
-{
+JS::GetRealmGlobalOrNull(Handle<JS::Realm*> realm) {
     return GetCompartmentForRealm(realm)->maybeGlobal();
 }
 
 JS_PUBLIC_API(JSObject*)
-JS::GetRealmObjectPrototype(JSContext* cx)
-{
+JS::GetRealmObjectPrototype(JSContext* cx) {
     CHECK_REQUEST(cx);
     return GlobalObject::getOrCreateObjectPrototype(cx, cx->global());
 }
 
 JS_PUBLIC_API(JSObject*)
-JS::GetRealmFunctionPrototype(JSContext* cx)
-{
+JS::GetRealmFunctionPrototype(JSContext* cx) {
     CHECK_REQUEST(cx);
     return GlobalObject::getOrCreateFunctionPrototype(cx, cx->global());
 }
 
 JS_PUBLIC_API(JSObject*)
-JS::GetRealmArrayPrototype(JSContext* cx)
-{
+JS::GetRealmArrayPrototype(JSContext* cx) {
     CHECK_REQUEST(cx);
     return GlobalObject::getOrCreateArrayPrototype(cx, cx->global());
 }
 
 JS_PUBLIC_API(JSObject*)
-JS::GetRealmErrorPrototype(JSContext* cx)
-{
+JS::GetRealmErrorPrototype(JSContext* cx) {
     CHECK_REQUEST(cx);
     return GlobalObject::getOrCreateCustomErrorPrototype(cx, cx->global(), JSEXN_ERR);
 }
 
 JS_PUBLIC_API(JSObject*)
-JS::GetRealmIteratorPrototype(JSContext* cx)
-{
+JS::GetRealmIteratorPrototype(JSContext* cx) {
     CHECK_REQUEST(cx);
     return GlobalObject::getOrCreateIteratorPrototype(cx, cx->global());
 }
 
 JS_PUBLIC_API(void)
-JS::SetVersionForCurrentRealm(JSContext* cx, JSVersion version)
-{
+JS::SetVersionForCurrentRealm(JSContext* cx, JSVersion version) {
     JSCompartment* compartment = GetContextCompartment(cx);
     compartment->behaviors().setVersion(version);
 }

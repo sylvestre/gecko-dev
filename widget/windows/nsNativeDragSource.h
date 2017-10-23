@@ -20,8 +20,7 @@
  */
 class nsNativeDragSource final : public IDropSource
 {
-public:
-
+ public:
   // construct an nsNativeDragSource referencing adapter
   // nsNativeDragSource(nsIDragSource * adapter);
   explicit nsNativeDragSource(nsIDOMDataTransfer* aDataTransfer);
@@ -48,7 +47,7 @@ public:
 
   bool UserCancelled() { return mUserCancelled; }
 
-protected:
+ protected:
   // Reference count
   ULONG m_cRef;
 
@@ -62,5 +61,4 @@ protected:
   bool mUserCancelled;
 };
 
-#endif // _nsNativeDragSource_h_
-
+#endif  // _nsNativeDragSource_h_

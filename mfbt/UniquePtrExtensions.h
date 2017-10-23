@@ -42,16 +42,14 @@ namespace detail {
 template<typename T>
 struct FreePolicy
 {
-  void operator()(const void* ptr) {
-    free(const_cast<void*>(ptr));
-  }
+  void operator()(const void* ptr) { free(const_cast<void*>(ptr)); }
 };
 
-} // namespace detail
+}  // namespace detail
 
 template<typename T>
 using UniqueFreePtr = UniquePtr<T, detail::FreePolicy<T>>;
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_UniquePtrExtensions_h
+#endif  // mozilla_UniquePtrExtensions_h

@@ -30,14 +30,12 @@ using namespace mozilla::dom;
 static const char* kPrefSVGDisabled = "svg.disabled";
 static const char* kPrefMathMLDisabled = "mathml.disabled";
 static const char* kObservedPrefs[] = {
-  kPrefMathMLDisabled,
-  kPrefSVGDisabled,
-  nullptr
-};
+    kPrefMathMLDisabled, kPrefSVGDisabled, nullptr};
 StaticRefPtr<nsNameSpaceManager> nsNameSpaceManager::sInstance;
 
 /* static */ nsNameSpaceManager*
-nsNameSpaceManager::GetInstance() {
+nsNameSpaceManager::GetInstance()
+{
   if (!sInstance) {
     sInstance = new nsNameSpaceManager();
     if (sInstance->Init()) {
@@ -51,21 +49,21 @@ nsNameSpaceManager::GetInstance() {
   return sInstance;
 }
 
-bool nsNameSpaceManager::Init()
+bool
+nsNameSpaceManager::Init()
 {
   nsresult rv;
-#define REGISTER_NAMESPACE(uri, id) \
+#define REGISTER_NAMESPACE(uri, id)        \
   rv = AddNameSpace(dont_AddRef(uri), id); \
   NS_ENSURE_SUCCESS(rv, false)
 
-#define REGISTER_DISABLED_NAMESPACE(uri, id) \
+#define REGISTER_DISABLED_NAMESPACE(uri, id)       \
   rv = AddDisabledNameSpace(dont_AddRef(uri), id); \
   NS_ENSURE_SUCCESS(rv, false)
 
   mozilla::Preferences::AddStrongObservers(this, kObservedPrefs);
   mMathMLDisabled = mozilla::Preferences::GetBool(kPrefMathMLDisabled);
   mSVGDisabled = mozilla::Preferences::GetBool(kPrefSVGDisabled);
-
 
   // Need to be ordered according to ID.
   MOZ_ASSERT(mURIArray.IsEmpty());
@@ -80,7 +78,8 @@ bool nsNameSpaceManager::Init()
   REGISTER_NAMESPACE(nsGkAtoms::nsuri_rdf, kNameSpaceID_RDF);
   REGISTER_NAMESPACE(nsGkAtoms::nsuri_xul, kNameSpaceID_XUL);
   REGISTER_NAMESPACE(nsGkAtoms::nsuri_svg, kNameSpaceID_SVG);
-  REGISTER_DISABLED_NAMESPACE(nsGkAtoms::nsuri_mathml, kNameSpaceID_disabled_MathML);
+  REGISTER_DISABLED_NAMESPACE(nsGkAtoms::nsuri_mathml,
+                              kNameSpaceID_disabled_MathML);
   REGISTER_DISABLED_NAMESPACE(nsGkAtoms::nsuri_svg, kNameSpaceID_disabled_SVG);
 
 #undef REGISTER_NAMESPACE
@@ -94,7 +93,7 @@ nsNameSpaceManager::RegisterNameSpace(const nsAString& aURI,
                                       int32_t& aNameSpaceID)
 {
   if (aURI.IsEmpty()) {
-    aNameSpaceID = kNameSpaceID_None; // xmlns="", see bug 75700 for details
+    aNameSpaceID = kNameSpaceID_None;  // xmlns="", see bug 75700 for details
 
     return NS_OK;
   }
@@ -134,11 +133,10 @@ nsNameSpaceManager::GetNameSpaceURI(int32_t aNameSpaceID, nsAString& aURI)
 }
 
 int32_t
-nsNameSpaceManager::GetNameSpaceID(const nsAString& aURI,
-                                   bool aInChromeDoc)
+nsNameSpaceManager::GetNameSpaceID(const nsAString& aURI, bool aInChromeDoc)
 {
   if (aURI.IsEmpty()) {
-    return kNameSpaceID_None; // xmlns="", see bug 75700 for details
+    return kNameSpaceID_None;  // xmlns="", see bug 75700 for details
   }
 
   RefPtr<nsAtom> atom = NS_Atomize(aURI);
@@ -146,19 +144,17 @@ nsNameSpaceManager::GetNameSpaceID(const nsAString& aURI,
 }
 
 int32_t
-nsNameSpaceManager::GetNameSpaceID(nsAtom* aURI,
-                                   bool aInChromeDoc)
+nsNameSpaceManager::GetNameSpaceID(nsAtom* aURI, bool aInChromeDoc)
 {
   if (aURI == nsGkAtoms::_empty) {
-    return kNameSpaceID_None; // xmlns="", see bug 75700 for details
+    return kNameSpaceID_None;  // xmlns="", see bug 75700 for details
   }
 
   int32_t nameSpaceID;
-  if (!aInChromeDoc
-      && (mMathMLDisabled || mSVGDisabled)
-      && mDisabledURIToIDTable.Get(aURI, &nameSpaceID)
-      && ((mMathMLDisabled && kNameSpaceID_disabled_MathML == nameSpaceID) ||
-      (mSVGDisabled && kNameSpaceID_disabled_SVG == nameSpaceID))) {
+  if (!aInChromeDoc && (mMathMLDisabled || mSVGDisabled) &&
+      mDisabledURIToIDTable.Get(aURI, &nameSpaceID) &&
+      ((mMathMLDisabled && kNameSpaceID_disabled_MathML == nameSpaceID) ||
+       (mSVGDisabled && kNameSpaceID_disabled_SVG == nameSpaceID))) {
     NS_POSTCONDITION(nameSpaceID >= 0, "Bogus namespace ID");
     return nameSpaceID;
   }
@@ -194,9 +190,11 @@ NS_NewElement(Element** aResult,
     }
 
     RefPtr<mozilla::dom::NodeInfo> genericXMLNI =
-      ni->NodeInfoManager()->
-      GetNodeInfo(ni->NameAtom(), ni->GetPrefixAtom(),
-        kNameSpaceID_disabled_MathML, ni->NodeType(), ni->GetExtraName());
+        ni->NodeInfoManager()->GetNodeInfo(ni->NameAtom(),
+                                           ni->GetPrefixAtom(),
+                                           kNameSpaceID_disabled_MathML,
+                                           ni->NodeType(),
+                                           ni->GetExtraName());
     return NS_NewXMLElement(aResult, genericXMLNI.forget());
   }
   if (ns == kNameSpaceID_SVG) {
@@ -206,9 +204,11 @@ NS_NewElement(Element** aResult,
       return NS_NewSVGElement(aResult, ni.forget(), aFromParser);
     }
     RefPtr<mozilla::dom::NodeInfo> genericXMLNI =
-      ni->NodeInfoManager()->
-      GetNodeInfo(ni->NameAtom(), ni->GetPrefixAtom(),
-        kNameSpaceID_disabled_SVG, ni->NodeType(), ni->GetExtraName());
+        ni->NodeInfoManager()->GetNodeInfo(ni->NameAtom(),
+                                           ni->GetPrefixAtom(),
+                                           kNameSpaceID_disabled_SVG,
+                                           ni->NodeType(),
+                                           ni->GetExtraName());
     return NS_NewXMLElement(aResult, genericXMLNI.forget());
   }
   if (ns == kNameSpaceID_XBL && ni->Equals(nsGkAtoms::children)) {
@@ -227,12 +227,12 @@ nsNameSpaceManager::HasElementCreator(int32_t aNameSpaceID)
          aNameSpaceID == kNameSpaceID_XUL ||
 #endif
          aNameSpaceID == kNameSpaceID_MathML ||
-         aNameSpaceID == kNameSpaceID_SVG ||
-         false;
+         aNameSpaceID == kNameSpaceID_SVG || false;
 }
 
-nsresult nsNameSpaceManager::AddNameSpace(already_AddRefed<nsAtom> aURI,
-                                          const int32_t aNameSpaceID)
+nsresult
+nsNameSpaceManager::AddNameSpace(already_AddRefed<nsAtom> aURI,
+                                 const int32_t aNameSpaceID)
 {
   RefPtr<nsAtom> uri = aURI;
   if (aNameSpaceID < 0) {
@@ -240,7 +240,7 @@ nsresult nsNameSpaceManager::AddNameSpace(already_AddRefed<nsAtom> aURI,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  MOZ_ASSERT(aNameSpaceID == (int32_t) mURIArray.Length());
+  MOZ_ASSERT(aNameSpaceID == (int32_t)mURIArray.Length());
   mURIArray.AppendElement(uri.forget());
   mURIToIDTable.Put(mURIArray.LastElement(), aNameSpaceID);
 
@@ -257,7 +257,7 @@ nsNameSpaceManager::AddDisabledNameSpace(already_AddRefed<nsAtom> aURI,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  MOZ_ASSERT(aNameSpaceID == (int32_t) mURIArray.Length());
+  MOZ_ASSERT(aNameSpaceID == (int32_t)mURIArray.Length());
   mURIArray.AppendElement(uri.forget());
   mDisabledURIToIDTable.Put(mURIArray.LastElement(), aNameSpaceID);
 
@@ -265,12 +265,12 @@ nsNameSpaceManager::AddDisabledNameSpace(already_AddRefed<nsAtom> aURI,
 }
 
 // nsISupports
-NS_IMPL_ISUPPORTS(nsNameSpaceManager,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(nsNameSpaceManager, nsIObserver)
 
 // nsIObserver
 NS_IMETHODIMP
-nsNameSpaceManager::Observe(nsISupports* aObject, const char* aTopic,
+nsNameSpaceManager::Observe(nsISupports* aObject,
+                            const char* aTopic,
                             const char16_t* aMessage)
 {
   mMathMLDisabled = mozilla::Preferences::GetBool(kPrefMathMLDisabled);

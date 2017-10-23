@@ -57,7 +57,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "m_cpp_utils.h"
 
-
 namespace mozilla {
 
 typedef struct nr_ice_ctx_ nr_ice_ctx;
@@ -66,7 +65,8 @@ typedef struct nr_ice_media_stream_ nr_ice_media_stream;
 
 class NrIceCtx;
 
-struct NrIceAddr {
+struct NrIceAddr
+{
   std::string host;
   uint16_t port;
   std::string transport;
@@ -74,15 +74,18 @@ struct NrIceAddr {
 
 /* A summary of a candidate, for use in asking which candidate
    pair is active */
-struct NrIceCandidate {
-  enum Type {
+struct NrIceCandidate
+{
+  enum Type
+  {
     ICE_HOST,
     ICE_SERVER_REFLEXIVE,
     ICE_PEER_REFLEXIVE,
     ICE_RELAYED
   };
 
-  enum TcpType {
+  enum TcpType
+  {
     ICE_NONE,
     ICE_ACTIVE,
     ICE_PASSIVE,
@@ -96,9 +99,10 @@ struct NrIceCandidate {
   std::string codeword;
 };
 
-struct NrIceCandidatePair {
-
-  enum State {
+struct NrIceCandidatePair
+{
+  enum State
+  {
     STATE_FROZEN,
     STATE_WAITING,
     STATE_IN_PROGRESS,
@@ -132,12 +136,18 @@ struct NrIceCandidatePair {
   uint64_t ms_since_last_recv;
 };
 
-class NrIceMediaStream {
+class NrIceMediaStream
+{
  public:
-  static RefPtr<NrIceMediaStream> Create(NrIceCtx *ctx,
+  static RefPtr<NrIceMediaStream> Create(NrIceCtx* ctx,
                                          const std::string& name,
                                          int components);
-  enum State { ICE_CONNECTING, ICE_OPEN, ICE_CLOSED};
+  enum State
+  {
+    ICE_CONNECTING,
+    ICE_OPEN,
+    ICE_CLOSED
+  };
 
   State state() const { return state_; }
 
@@ -174,18 +184,18 @@ class NrIceMediaStream {
 
   // Get the current ICE consent send status plus the timeval of the last
   // consent update time.
-  nsresult GetConsentStatus(int component, bool *can_send, struct timeval *ts);
+  nsresult GetConsentStatus(int component, bool* can_send, struct timeval* ts);
 
   // The number of components
   size_t components() const { return components_; }
 
   // The underlying nICEr stream
-  nr_ice_media_stream *stream() { return stream_; }
+  nr_ice_media_stream* stream() { return stream_; }
   // Signals to indicate events. API users can (and should)
   // register for these.
 
   // Send a packet
-  nsresult SendPacket(int component_id, const unsigned char *data, size_t len);
+  nsresult SendPacket(int component_id, const unsigned char* data, size_t len);
 
   // Set your state to ready. Called by the NrIceCtx;
   void Ready();
@@ -202,35 +212,32 @@ class NrIceMediaStream {
 
   uint16_t GetLevel() const { return level_; }
 
-  sigslot::signal2<NrIceMediaStream *, const std::string& >
-  SignalCandidate;  // A new ICE candidate:
+  sigslot::signal2<NrIceMediaStream*, const std::string&>
+      SignalCandidate;  // A new ICE candidate:
 
-  sigslot::signal1<NrIceMediaStream *> SignalReady;  // Candidate pair ready.
-  sigslot::signal1<NrIceMediaStream *> SignalFailed;  // Candidate pair failed.
-  sigslot::signal4<NrIceMediaStream *, int, const unsigned char *, int>
-  SignalPacketReceived;  // Incoming packet
+  sigslot::signal1<NrIceMediaStream*> SignalReady;   // Candidate pair ready.
+  sigslot::signal1<NrIceMediaStream*> SignalFailed;  // Candidate pair failed.
+  sigslot::signal4<NrIceMediaStream*, int, const unsigned char*, int>
+      SignalPacketReceived;  // Incoming packet
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(NrIceMediaStream)
 
  private:
-  NrIceMediaStream(NrIceCtx *ctx,
-                   const std::string& name,
-                   size_t components);
+  NrIceMediaStream(NrIceCtx* ctx, const std::string& name, size_t components);
 
   ~NrIceMediaStream();
 
   DISALLOW_COPY_ASSIGN(NrIceMediaStream);
 
   State state_;
-  nr_ice_ctx *ctx_;
-  nr_ice_peer_ctx *ctx_peer_;
+  nr_ice_ctx* ctx_;
+  nr_ice_peer_ctx* ctx_peer_;
   const std::string name_;
   const size_t components_;
-  nr_ice_media_stream *stream_;
+  nr_ice_media_stream* stream_;
   uint16_t level_;
   bool has_parsed_attrs_;
 };
 
-
-}  // close namespace
+}  // namespace mozilla
 #endif

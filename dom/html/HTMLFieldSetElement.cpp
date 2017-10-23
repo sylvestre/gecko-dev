@@ -17,11 +17,12 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(FieldSet)
 namespace mozilla {
 namespace dom {
 
-HTMLFieldSetElement::HTMLFieldSetElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLFormElement(aNodeInfo, NS_FORM_FIELDSET)
-  , mElements(nullptr)
-  , mFirstLegend(nullptr)
-  , mInvalidElementsCount(0)
+HTMLFieldSetElement::HTMLFieldSetElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLFormElement(aNodeInfo, NS_FORM_FIELDSET),
+      mElements(nullptr),
+      mFirstLegend(nullptr),
+      mInvalidElementsCount(0)
 {
   // <fieldset> is always barred from constraint validation.
   SetBarredFromConstraintValidation(true);
@@ -38,15 +39,16 @@ HTMLFieldSetElement::~HTMLFieldSetElement()
   }
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLFieldSetElement, nsGenericHTMLFormElement,
-                                   mValidity, mElements)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLFieldSetElement,
+                                   nsGenericHTMLFormElement,
+                                   mValidity,
+                                   mElements)
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLFieldSetElement,
                                              nsGenericHTMLFormElement,
                                              nsIConstraintValidation)
 
 NS_IMPL_ELEMENT_CLONE(HTMLFieldSetElement)
-
 
 bool
 HTMLFieldSetElement::IsDisabledForEvents(EventMessage aMessage)
@@ -68,7 +70,8 @@ HTMLFieldSetElement::GetEventTargetParent(EventChainPreVisitor& aVisitor)
 }
 
 nsresult
-HTMLFieldSetElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLFieldSetElement::AfterSetAttr(int32_t aNameSpaceID,
+                                  nsAtom* aName,
                                   const nsAttrValue* aValue,
                                   const nsAttrValue* aOldValue,
                                   nsIPrincipal* aSubjectPrincipal,
@@ -81,21 +84,20 @@ HTMLFieldSetElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
 
     if (nsINode::GetFirstChild()) {
       if (!mElements) {
-        mElements = new nsContentList(this, MatchListedElements, nullptr, nullptr,
-                                      true);
+        mElements = new nsContentList(
+            this, MatchListedElements, nullptr, nullptr, true);
       }
 
       uint32_t length = mElements->Length(true);
-      for (uint32_t i=0; i<length; ++i) {
+      for (uint32_t i = 0; i < length; ++i) {
         static_cast<nsGenericHTMLFormElement*>(mElements->Item(i))
-          ->FieldSetDisabledChanged(aNotify);
+            ->FieldSetDisabledChanged(aNotify);
       }
     }
   }
 
-  return nsGenericHTMLFormElement::AfterSetAttr(aNameSpaceID, aName,
-                                                aValue, aOldValue,
-                                                aSubjectPrincipal, aNotify);
+  return nsGenericHTMLFormElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 NS_IMETHODIMP
@@ -107,8 +109,10 @@ HTMLFieldSetElement::GetType(nsAString& aType)
 
 /* static */
 bool
-HTMLFieldSetElement::MatchListedElements(Element* aElement, int32_t aNamespaceID,
-                                         nsAtom* aAtom, void* aData)
+HTMLFieldSetElement::MatchListedElements(Element* aElement,
+                                         int32_t aNamespaceID,
+                                         nsAtom* aAtom,
+                                         void* aData)
 {
   nsCOMPtr<nsIFormControl> formControl = do_QueryInterface(aElement);
   return formControl;
@@ -118,8 +122,8 @@ nsIHTMLCollection*
 HTMLFieldSetElement::Elements()
 {
   if (!mElements) {
-    mElements = new nsContentList(this, MatchListedElements, nullptr, nullptr,
-                                  true);
+    mElements =
+        new nsContentList(this, MatchListedElements, nullptr, nullptr, true);
   }
 
   return mElements;
@@ -140,7 +144,8 @@ HTMLFieldSetElement::SubmitNamesValues(HTMLFormSubmission* aFormSubmission)
 }
 
 nsresult
-HTMLFieldSetElement::InsertChildAt(nsIContent* aChild, uint32_t aIndex,
+HTMLFieldSetElement::InsertChildAt(nsIContent* aChild,
+                                   uint32_t aIndex,
                                    bool aNotify)
 {
   bool firstLegendHasChanged = false;
@@ -159,7 +164,8 @@ HTMLFieldSetElement::InsertChildAt(nsIContent* aChild, uint32_t aIndex,
     }
   }
 
-  nsresult rv = nsGenericHTMLFormElement::InsertChildAt(aChild, aIndex, aNotify);
+  nsresult rv =
+      nsGenericHTMLFormElement::InsertChildAt(aChild, aIndex, aNotify);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (firstLegendHasChanged) {
@@ -212,8 +218,8 @@ HTMLFieldSetElement::AddElement(nsGenericHTMLFormElement* aElement)
 
   // We need to update the validity of the fieldset.
   nsCOMPtr<nsIConstraintValidation> cvElmt = do_QueryObject(aElement);
-  if (cvElmt &&
-      cvElmt->IsCandidateForConstraintValidation() && !cvElmt->IsValid()) {
+  if (cvElmt && cvElmt->IsCandidateForConstraintValidation() &&
+      !cvElmt->IsValid()) {
     UpdateValidity(false);
   }
 
@@ -225,10 +231,9 @@ HTMLFieldSetElement::AddElement(nsGenericHTMLFormElement* aElement)
       debugInvalidElementsCount += fieldSet->mInvalidElementsCount;
       continue;
     }
-    nsCOMPtr<nsIConstraintValidation>
-      cvElmt = do_QueryObject(mDependentElements[i]);
-    if (cvElmt &&
-        cvElmt->IsCandidateForConstraintValidation() &&
+    nsCOMPtr<nsIConstraintValidation> cvElmt =
+        do_QueryObject(mDependentElements[i]);
+    if (cvElmt && cvElmt->IsCandidateForConstraintValidation() &&
         !(cvElmt->IsValid())) {
       debugInvalidElementsCount += 1;
     }
@@ -254,8 +259,8 @@ HTMLFieldSetElement::RemoveElement(nsGenericHTMLFormElement* aElement)
 
   // We need to update the validity of the fieldset.
   nsCOMPtr<nsIConstraintValidation> cvElmt = do_QueryObject(aElement);
-  if (cvElmt &&
-      cvElmt->IsCandidateForConstraintValidation() && !cvElmt->IsValid()) {
+  if (cvElmt && cvElmt->IsCandidateForConstraintValidation() &&
+      !cvElmt->IsValid()) {
     UpdateValidity(true);
   }
 
@@ -267,10 +272,9 @@ HTMLFieldSetElement::RemoveElement(nsGenericHTMLFormElement* aElement)
       debugInvalidElementsCount += fieldSet->mInvalidElementsCount;
       continue;
     }
-    nsCOMPtr<nsIConstraintValidation>
-      cvElmt = do_QueryObject(mDependentElements[i]);
-    if (cvElmt &&
-        cvElmt->IsCandidateForConstraintValidation() &&
+    nsCOMPtr<nsIConstraintValidation> cvElmt =
+        do_QueryObject(mDependentElements[i]);
+    if (cvElmt && cvElmt->IsCandidateForConstraintValidation() &&
         !(cvElmt->IsValid())) {
       debugInvalidElementsCount += 1;
     }
@@ -289,14 +293,14 @@ HTMLFieldSetElement::NotifyElementsForFirstLegendChange(bool aNotify)
    * However, this method shouldn't be called very often in normal use cases.
    */
   if (!mElements) {
-    mElements = new nsContentList(this, MatchListedElements, nullptr, nullptr,
-                                  true);
+    mElements =
+        new nsContentList(this, MatchListedElements, nullptr, nullptr, true);
   }
 
   uint32_t length = mElements->Length(true);
   for (uint32_t i = 0; i < length; ++i) {
     static_cast<nsGenericHTMLFormElement*>(mElements->Item(i))
-      ->FieldSetFirstLegendChanged(aNotify);
+        ->FieldSetFirstLegendChanged(aNotify);
   }
 }
 
@@ -314,7 +318,8 @@ HTMLFieldSetElement::UpdateValidity(bool aElementValidity)
   // The fieldset validity has just changed if:
   // - there are no more invalid elements ;
   // - or there is one invalid elmement and an element just became invalid.
-  if (!mInvalidElementsCount || (mInvalidElementsCount == 1 && !aElementValidity)) {
+  if (!mInvalidElementsCount ||
+      (mInvalidElementsCount == 1 && !aElementValidity)) {
     UpdateState(true);
   }
 
@@ -344,5 +349,5 @@ HTMLFieldSetElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLFieldSetElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

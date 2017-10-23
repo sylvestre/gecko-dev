@@ -18,26 +18,26 @@
 #include "mozilla/widget/WinModifierKeyState.h"
 #include <windows.h>
 
-#define NS_NUM_OF_KEYS          70
+#define NS_NUM_OF_KEYS 70
 
-#define VK_OEM_1                0xBA   // ';:' for US
-#define VK_OEM_PLUS             0xBB   // '+' any country
-#define VK_OEM_COMMA            0xBC
-#define VK_OEM_MINUS            0xBD   // '-' any country
-#define VK_OEM_PERIOD           0xBE
-#define VK_OEM_2                0xBF
-#define VK_OEM_3                0xC0
+#define VK_OEM_1 0xBA     // ';:' for US
+#define VK_OEM_PLUS 0xBB  // '+' any country
+#define VK_OEM_COMMA 0xBC
+#define VK_OEM_MINUS 0xBD  // '-' any country
+#define VK_OEM_PERIOD 0xBE
+#define VK_OEM_2 0xBF
+#define VK_OEM_3 0xC0
 // '/?' for Brazilian (ABNT)
-#define VK_ABNT_C1              0xC1
+#define VK_ABNT_C1 0xC1
 // Separator in Numpad for Brazilian (ABNT) or JIS keyboard for Mac.
-#define VK_ABNT_C2              0xC2
-#define VK_OEM_4                0xDB
-#define VK_OEM_5                0xDC
-#define VK_OEM_6                0xDD
-#define VK_OEM_7                0xDE
-#define VK_OEM_8                0xDF
-#define VK_OEM_102              0xE2
-#define VK_OEM_CLEAR            0xFE
+#define VK_ABNT_C2 0xC2
+#define VK_OEM_4 0xDB
+#define VK_OEM_5 0xDC
+#define VK_OEM_6 0xDD
+#define VK_OEM_7 0xDE
+#define VK_OEM_8 0xDF
+#define VK_OEM_102 0xE2
+#define VK_OEM_CLEAR 0xFE
 
 class nsIIdleServiceInternal;
 
@@ -45,21 +45,20 @@ namespace mozilla {
 namespace widget {
 
 static const uint32_t sModifierKeyMap[][3] = {
-  { nsIWidget::CAPS_LOCK, VK_CAPITAL, 0 },
-  { nsIWidget::NUM_LOCK,  VK_NUMLOCK, 0 },
-  { nsIWidget::SHIFT_L,   VK_SHIFT,   VK_LSHIFT },
-  { nsIWidget::SHIFT_R,   VK_SHIFT,   VK_RSHIFT },
-  { nsIWidget::CTRL_L,    VK_CONTROL, VK_LCONTROL },
-  { nsIWidget::CTRL_R,    VK_CONTROL, VK_RCONTROL },
-  { nsIWidget::ALT_L,     VK_MENU,    VK_LMENU },
-  { nsIWidget::ALT_R,     VK_MENU,    VK_RMENU }
-};
+    {nsIWidget::CAPS_LOCK, VK_CAPITAL, 0},
+    {nsIWidget::NUM_LOCK, VK_NUMLOCK, 0},
+    {nsIWidget::SHIFT_L, VK_SHIFT, VK_LSHIFT},
+    {nsIWidget::SHIFT_R, VK_SHIFT, VK_RSHIFT},
+    {nsIWidget::CTRL_L, VK_CONTROL, VK_LCONTROL},
+    {nsIWidget::CTRL_R, VK_CONTROL, VK_RCONTROL},
+    {nsIWidget::ALT_L, VK_MENU, VK_LMENU},
+    {nsIWidget::ALT_R, VK_MENU, VK_RMENU}};
 
 class KeyboardLayout;
 
 class MOZ_STACK_CLASS UniCharsAndModifiers final
 {
-public:
+ public:
   UniCharsAndModifiers() {}
   UniCharsAndModifiers operator+(const UniCharsAndModifiers& aOther) const;
   UniCharsAndModifiers& operator+=(const UniCharsAndModifiers& aOther);
@@ -108,7 +107,7 @@ public:
 
   const nsString& ToString() const { return mChars; }
 
-private:
+ private:
   nsAutoString mChars;
   // 5 is enough number for normal keyboard layout handling.  On Windows,
   // a dead key sequence may cause inputting up to 5 characters per key press.
@@ -120,7 +119,6 @@ struct DeadKeyEntry
   char16_t BaseChar;
   char16_t CompositeChar;
 };
-
 
 class DeadKeyTable
 {
@@ -142,17 +140,13 @@ class DeadKeyTable
     return offsetof(DeadKeyTable, mTable) + aEntries * sizeof(DeadKeyEntry);
   }
 
-public:
-  uint32_t Entries() const
-  {
-    return mEntries;
-  }
+ public:
+  uint32_t Entries() const { return mEntries; }
 
   bool IsEqual(const DeadKeyEntry* aDeadKeyArray, uint32_t aEntries) const
   {
     return (mEntries == aEntries &&
-            !memcmp(mTable, aDeadKeyArray,
-                    aEntries * sizeof(DeadKeyEntry)));
+            !memcmp(mTable, aDeadKeyArray, aEntries * sizeof(DeadKeyEntry)));
   }
 
   char16_t GetCompositeChar(char16_t aBaseChar) const;
@@ -160,7 +154,7 @@ public:
 
 class VirtualKey
 {
-public:
+ public:
   //  0 - Normal
   //  1 - Shift
   //  2 - Control
@@ -180,9 +174,9 @@ public:
 
   enum ShiftStateFlag
   {
-    STATE_SHIFT    = 0x01,
-    STATE_CONTROL  = 0x02,
-    STATE_ALT      = 0x04,
+    STATE_SHIFT = 0x01,
+    STATE_CONTROL = 0x02,
+    STATE_ALT = 0x04,
     STATE_CAPSLOCK = 0x08
   };
 
@@ -190,15 +184,14 @@ public:
 
   static ShiftState ModifiersToShiftState(Modifiers aModifiers);
   static ShiftState ModifierKeyStateToShiftState(
-                      const ModifierKeyState& aModKeyState)
+      const ModifierKeyState& aModKeyState)
   {
     return ModifiersToShiftState(aModKeyState.GetModifiers());
   }
   static Modifiers ShiftStateToModifiers(ShiftState aShiftState);
 
-private:
-  union KeyShiftState
-  {
+ private:
+  union KeyShiftState {
     struct
     {
       char16_t Chars[4];
@@ -222,7 +215,7 @@ private:
     }
   }
 
-public:
+ public:
   static void FillKbdState(PBYTE aKbdState, const ShiftState aShiftState);
 
   bool IsDeadKey(ShiftState aShiftState) const
@@ -236,13 +229,14 @@ public:
     mShiftStates[aShiftState].DeadKey.Table = aDeadKeyTable;
   }
 
-  void SetNormalChars(ShiftState aShiftState, const char16_t* aChars,
+  void SetNormalChars(ShiftState aShiftState,
+                      const char16_t* aChars,
                       uint32_t aNumOfChars);
   void SetDeadChar(ShiftState aShiftState, char16_t aDeadChar);
   const DeadKeyTable* MatchingDeadKeyTable(const DeadKeyEntry* aDeadKeyArray,
                                            uint32_t aEntries) const;
   inline char16_t GetCompositeChar(ShiftState aShiftState,
-                                    char16_t aBaseChar) const
+                                   char16_t aBaseChar) const
   {
     return mShiftStates[aShiftState].DeadKey.Table->GetCompositeChar(aBaseChar);
   }
@@ -255,7 +249,7 @@ public:
   }
   UniCharsAndModifiers GetNativeUniChars(ShiftState aShiftState) const;
   UniCharsAndModifiers GetNativeUniChars(
-                         const ModifierKeyState& aModKeyState) const
+      const ModifierKeyState& aModKeyState) const
   {
     return GetNativeUniChars(ModifierKeyStateToShiftState(aModKeyState));
   }
@@ -270,7 +264,7 @@ class MOZ_STACK_CLASS NativeKey final
 {
   friend class KeyboardLayout;
 
-public:
+ public:
   struct FakeCharMsg
   {
     UINT mCharCode;
@@ -280,11 +274,11 @@ public:
     bool mConsumed;
 
     FakeCharMsg()
-      : mCharCode(0)
-      , mScanCode(0)
-      , mIsSysKey(false)
-      , mIsDeadKey(false)
-      , mConsumed(false)
+        : mCharCode(0),
+          mScanCode(0),
+          mIsSysKey(false),
+          mIsDeadKey(false),
+          mConsumed(false)
     {
     }
 
@@ -292,10 +286,10 @@ public:
     {
       MSG msg;
       msg.hwnd = aWnd;
-      msg.message = mIsDeadKey && mIsSysKey ? WM_SYSDEADCHAR :
-                                 mIsDeadKey ? WM_DEADCHAR :
-                                  mIsSysKey ? WM_SYSCHAR :
-                                              WM_CHAR;
+      msg.message =
+          mIsDeadKey && mIsSysKey
+              ? WM_SYSDEADCHAR
+              : mIsDeadKey ? WM_DEADCHAR : mIsSysKey ? WM_SYSCHAR : WM_CHAR;
       msg.wParam = static_cast<WPARAM>(mCharCode);
       msg.lParam = static_cast<LPARAM>(mScanCode << 16);
       msg.time = 0;
@@ -352,7 +346,7 @@ public:
    */
   static bool IsControlChar(char16_t aChar);
 
-private:
+ private:
   NativeKey* mLastInstance;
   // mRemovingMsg is set at removing a char message from
   // GetFollowingCharMessage().
@@ -417,25 +411,25 @@ private:
   uint32_t mShiftedLatinChar;
   uint32_t mUnshiftedLatinChar;
 
-  WORD    mScanCode;
-  bool    mIsExtended;
-  bool    mIsDeadKey;
+  WORD mScanCode;
+  bool mIsExtended;
+  bool mIsDeadKey;
   // mIsPrintableKey is true if the key may be a printable key without
   // any modifier keys.  Otherwise, false.
   // Please note that the event may not cause any text input even if this
   // is true.  E.g., it might be dead key state or Ctrl key may be pressed.
-  bool    mIsPrintableKey;
+  bool mIsPrintableKey;
   // mCharMessageHasGone is true if the message is a keydown message and
   // it's followed by at least one char message but it's gone at removing
   // from the queue.  This could occur if PeekMessage() or something is
   // hooked by odd tool.
-  bool    mCharMessageHasGone;
+  bool mCharMessageHasGone;
   // mIsOverridingKeyboardLayout is true if the instance temporarily overriding
   // keyboard layout with specified by the constructor.
-  bool    mIsOverridingKeyboardLayout;
+  bool mIsOverridingKeyboardLayout;
   // mCanIgnoreModifierStateAtKeyPress is true if it's allowed to remove
   // Ctrl or Alt modifier state at dispatching eKeyPress.
-  bool    mCanIgnoreModifierStateAtKeyPress;
+  bool mCanIgnoreModifierStateAtKeyPress;
 
   nsTArray<FakeCharMsg>* mFakeCharMsgs;
 
@@ -460,7 +454,7 @@ private:
    * ignored (skipped).
    */
   void InitCommittedCharsAndModifiersWithFollowingCharMessages(
-         const ModifierKeyState& aModKeyState);
+      const ModifierKeyState& aModKeyState);
 
   /**
    * Returns true if the key event is caused by auto repeat.
@@ -516,14 +510,12 @@ private:
 
   bool IsKeyDownMessage() const
   {
-    return (mMsg.message == WM_KEYDOWN ||
-            mMsg.message == WM_SYSKEYDOWN ||
+    return (mMsg.message == WM_KEYDOWN || mMsg.message == WM_SYSKEYDOWN ||
             mMsg.message == MOZ_WM_KEYDOWN);
   }
   bool IsKeyUpMessage() const
   {
-    return (mMsg.message == WM_KEYUP ||
-            mMsg.message == WM_SYSKEYUP ||
+    return (mMsg.message == WM_KEYUP || mMsg.message == WM_SYSKEYUP ||
             mMsg.message == MOZ_WM_KEYUP);
   }
   bool IsCharOrSysCharMessage(const MSG& aMSG) const
@@ -566,8 +558,7 @@ private:
   bool IsFollowedByDeadCharMessage() const;
   bool IsKeyMessageOnPlugin() const
   {
-    return (mMsg.message == MOZ_WM_KEYDOWN ||
-            mMsg.message == MOZ_WM_KEYUP);
+    return (mMsg.message == MOZ_WM_KEYDOWN || mMsg.message == MOZ_WM_KEYUP);
   }
   bool IsPrintableCharMessage(const MSG& aMSG) const
   {
@@ -726,7 +717,7 @@ private:
     return mLastInstance && !IsEmptyMSG(mLastInstance->mRemovingMsg);
   }
 
-public:
+ public:
   /**
    * Returns last key MSG.  If no key MSG has been received yet, the result
    * is empty MSG (i.e., .message is WM_NULL).
@@ -736,7 +727,7 @@ public:
 
 class KeyboardLayout
 {
-public:
+ public:
   static KeyboardLayout* GetInstance();
   static void Shutdown();
   static HKL GetActiveLayout();
@@ -773,11 +764,10 @@ public:
    * Alt key state are never active.
    */
   UniCharsAndModifiers GetUniCharsAndModifiers(
-                         uint8_t aVirtualKey,
-                         const ModifierKeyState& aModKeyState) const
+      uint8_t aVirtualKey, const ModifierKeyState& aModKeyState) const
   {
     VirtualKey::ShiftState shiftState =
-      VirtualKey::ModifierKeyStateToShiftState(aModKeyState);
+        VirtualKey::ModifierKeyStateToShiftState(aModKeyState);
     return GetUniCharsAndModifiers(aVirtualKey, shiftState);
   }
 
@@ -788,8 +778,7 @@ public:
    * actual modifier state of Ctrl and Alt.
    */
   UniCharsAndModifiers GetNativeUniCharsAndModifiers(
-                         uint8_t aVirtualKey,
-                         const ModifierKeyState& aModKeyState) const;
+      uint8_t aVirtualKey, const ModifierKeyState& aModKeyState) const;
 
   /**
    * OnLayoutChange() must be called before the first keydown message is
@@ -838,8 +827,8 @@ public:
 
   HKL GetLayout() const
   {
-    return mIsPendingToRestoreKeyboardLayout ? ::GetKeyboardLayout(0) :
-                                               mKeyboardLayout;
+    return mIsPendingToRestoreKeyboardLayout ? ::GetKeyboardLayout(0)
+                                             : mKeyboardLayout;
   }
 
   /**
@@ -857,7 +846,7 @@ public:
                                     const nsAString& aCharacters,
                                     const nsAString& aUnmodifiedCharacters);
 
-private:
+ private:
   KeyboardLayout();
   ~KeyboardLayout();
 
@@ -887,12 +876,16 @@ private:
   bool mIsPendingToRestoreKeyboardLayout;
 
   static inline int32_t GetKeyIndex(uint8_t aVirtualKey);
-  static int CompareDeadKeyEntries(const void* aArg1, const void* aArg2,
+  static int CompareDeadKeyEntries(const void* aArg1,
+                                   const void* aArg2,
                                    void* aData);
-  static bool AddDeadKeyEntry(char16_t aBaseChar, char16_t aCompositeChar,
-                                DeadKeyEntry* aDeadKeyArray, uint32_t aEntries);
-  bool EnsureDeadKeyActive(bool aIsActive, uint8_t aDeadKey,
-                             const PBYTE aDeadKeyKbdState);
+  static bool AddDeadKeyEntry(char16_t aBaseChar,
+                              char16_t aCompositeChar,
+                              DeadKeyEntry* aDeadKeyArray,
+                              uint32_t aEntries);
+  bool EnsureDeadKeyActive(bool aIsActive,
+                           uint8_t aDeadKey,
+                           const PBYTE aDeadKeyKbdState);
   uint32_t GetDeadKeyCombinations(uint8_t aDeadKey,
                                   const PBYTE aDeadKeyKbdState,
                                   uint16_t aShiftStatesWithBaseChars,
@@ -948,15 +941,13 @@ private:
    * Otherwise, just returns false.
    */
   bool MaybeInitNativeKeyWithCompositeChar(
-         NativeKey& aNativeKey,
-         const ModifierKeyState& aModKeyState);
+      NativeKey& aNativeKey, const ModifierKeyState& aModKeyState);
 
   /**
    * See the comment of GetUniCharsAndModifiers() below.
    */
   UniCharsAndModifiers GetUniCharsAndModifiers(
-                         uint8_t aVirtualKey,
-                         VirtualKey::ShiftState aShiftState) const;
+      uint8_t aVirtualKey, VirtualKey::ShiftState aShiftState) const;
 
   /**
    * GetDeadUniCharsAndModifiers() returns dead chars which are stored in
@@ -981,7 +972,7 @@ private:
 
 class RedirectedKeyDownMessageManager
 {
-public:
+ public:
   /*
    * If a window receives WM_KEYDOWN message or WM_SYSKEYDOWM message which is
    * a redirected message, NativeKey::DispatchKeyDownAndKeyPressEvent()
@@ -994,10 +985,11 @@ public:
    */
   class MOZ_STACK_CLASS AutoFlusher final
   {
-  public:
-    AutoFlusher(nsWindowBase* aWidget, const MSG &aMsg) :
-      mCancel(!RedirectedKeyDownMessageManager::IsRedirectedMessage(aMsg)),
-      mWidget(aWidget), mMsg(aMsg)
+   public:
+    AutoFlusher(nsWindowBase* aWidget, const MSG& aMsg)
+        : mCancel(!RedirectedKeyDownMessageManager::IsRedirectedMessage(aMsg)),
+          mWidget(aWidget),
+          mMsg(aMsg)
     {
     }
 
@@ -1016,10 +1008,10 @@ public:
 
     void Cancel() { mCancel = true; }
 
-  private:
+   private:
     bool mCancel;
     RefPtr<nsWindowBase> mWidget;
-    const MSG &mMsg;
+    const MSG& mMsg;
   };
 
   static void WillRedirect(const MSG& aMsg, bool aDefualtPrevented)
@@ -1028,10 +1020,7 @@ public:
     sDefaultPreventedOfRedirectedMsg = aDefualtPrevented;
   }
 
-  static void Forget()
-  {
-    sRedirectedKeyDownMsg.message = WM_NULL;
-  }
+  static void Forget() { sRedirectedKeyDownMsg.message = WM_NULL; }
 
   static void PreventDefault() { sDefaultPreventedOfRedirectedMsg = true; }
   static bool DefaultPrevented() { return sDefaultPreventedOfRedirectedMsg; }
@@ -1049,7 +1038,7 @@ public:
    */
   static void RemoveNextCharMessage(HWND aWnd);
 
-private:
+ private:
   // sRedirectedKeyDownMsg is WM_KEYDOWN message or WM_SYSKEYDOWN message which
   // is reirected with SendInput() API by
   // widget::NativeKey::DispatchKeyDownAndKeyPressEvent()
@@ -1057,7 +1046,7 @@ private:
   static bool sDefaultPreventedOfRedirectedMsg;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif

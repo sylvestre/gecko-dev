@@ -13,8 +13,7 @@ namespace mozilla {
 namespace dom {
 
 MemoryReportRequestHost::MemoryReportRequestHost(uint32_t aGeneration)
-  : mGeneration(aGeneration),
-    mSuccess(false)
+    : mGeneration(aGeneration), mSuccess(false)
 {
   MOZ_COUNT_CTOR(MemoryReportRequestHost);
   mReporterManager = nsMemoryReporterManager::GetOrCreate();
@@ -66,15 +65,12 @@ MemoryReportRequestClient::Start(uint32_t aGeneration,
                                  const nsACString& aProcessString)
 {
   RefPtr<MemoryReportRequestClient> request = new MemoryReportRequestClient(
-    aGeneration,
-    aAnonymize,
-    aDMDFile,
-    aProcessString);
+      aGeneration, aAnonymize, aDMDFile, aProcessString);
 
   DebugOnly<nsresult> rv;
   if (aMinimizeMemoryUsage) {
     nsCOMPtr<nsIMemoryReporterManager> mgr =
-      do_GetService("@mozilla.org/memory-reporter-manager;1");
+        do_GetService("@mozilla.org/memory-reporter-manager;1");
     rv = mgr->MinimizeMemoryUsage(request);
     // mgr will eventually call actor->Run()
   } else {
@@ -84,72 +80,78 @@ MemoryReportRequestClient::Start(uint32_t aGeneration,
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "actor operation failed");
 }
 
-MemoryReportRequestClient::MemoryReportRequestClient(uint32_t aGeneration,
-                                                     bool aAnonymize,
-                                                     const MaybeFileDesc& aDMDFile,
-                                                     const nsACString& aProcessString)
- : mGeneration(aGeneration),
-   mAnonymize(aAnonymize),
-   mProcessString(aProcessString)
+MemoryReportRequestClient::MemoryReportRequestClient(
+    uint32_t aGeneration,
+    bool aAnonymize,
+    const MaybeFileDesc& aDMDFile,
+    const nsACString& aProcessString)
+    : mGeneration(aGeneration),
+      mAnonymize(aAnonymize),
+      mProcessString(aProcessString)
 {
   if (aDMDFile.type() == MaybeFileDesc::TFileDescriptor) {
     mDMDFile = aDMDFile.get_FileDescriptor();
   }
 }
 
-MemoryReportRequestClient::~MemoryReportRequestClient()
-{
-}
+MemoryReportRequestClient::~MemoryReportRequestClient() {}
 
 class HandleReportCallback final : public nsIHandleReportCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit HandleReportCallback(uint32_t aGeneration,
                                 const nsACString& aProcess)
-  : mGeneration(aGeneration)
-  , mProcess(aProcess)
-  { }
+      : mGeneration(aGeneration), mProcess(aProcess)
+  {
+  }
 
-  NS_IMETHOD Callback(const nsACString& aProcess, const nsACString &aPath,
-                      int32_t aKind, int32_t aUnits, int64_t aAmount,
+  NS_IMETHOD Callback(const nsACString& aProcess,
+                      const nsACString& aPath,
+                      int32_t aKind,
+                      int32_t aUnits,
+                      int64_t aAmount,
                       const nsACString& aDescription,
                       nsISupports* aUnused) override
   {
-    MemoryReport memreport(mProcess, nsCString(aPath), aKind, aUnits,
-                           aAmount, mGeneration, nsCString(aDescription));
+    MemoryReport memreport(mProcess,
+                           nsCString(aPath),
+                           aKind,
+                           aUnits,
+                           aAmount,
+                           mGeneration,
+                           nsCString(aDescription));
     switch (XRE_GetProcessType()) {
       case GeckoProcessType_Content:
         ContentChild::GetSingleton()->SendAddMemoryReport(memreport);
         break;
       case GeckoProcessType_GPU:
-        Unused << gfx::GPUParent::GetSingleton()->SendAddMemoryReport(memreport);
+        Unused << gfx::GPUParent::GetSingleton()->SendAddMemoryReport(
+            memreport);
         break;
       default:
         MOZ_ASSERT_UNREACHABLE("Unhandled process type");
     }
     return NS_OK;
   }
-private:
+
+ private:
   ~HandleReportCallback() = default;
 
   uint32_t mGeneration;
   const nsCString mProcess;
 };
 
-NS_IMPL_ISUPPORTS(
-  HandleReportCallback
-, nsIHandleReportCallback
-)
+NS_IMPL_ISUPPORTS(HandleReportCallback, nsIHandleReportCallback)
 
 class FinishReportingCallback final : public nsIFinishReportingCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit FinishReportingCallback(uint32_t aGeneration)
-  : mGeneration(aGeneration)
+      : mGeneration(aGeneration)
   {
   }
 
@@ -158,10 +160,12 @@ public:
     bool sent = false;
     switch (XRE_GetProcessType()) {
       case GeckoProcessType_Content:
-        sent = ContentChild::GetSingleton()->SendFinishMemoryReport(mGeneration);
+        sent =
+            ContentChild::GetSingleton()->SendFinishMemoryReport(mGeneration);
         break;
       case GeckoProcessType_GPU:
-        sent = gfx::GPUParent::GetSingleton()->SendFinishMemoryReport(mGeneration);
+        sent =
+            gfx::GPUParent::GetSingleton()->SendFinishMemoryReport(mGeneration);
         break;
       default:
         MOZ_ASSERT_UNREACHABLE("Unhandled process type");
@@ -169,37 +173,38 @@ public:
     return sent ? NS_OK : NS_ERROR_FAILURE;
   }
 
-private:
+ private:
   ~FinishReportingCallback() = default;
 
   uint32_t mGeneration;
 };
 
-NS_IMPL_ISUPPORTS(
-  FinishReportingCallback
-, nsIFinishReportingCallback
-)
+NS_IMPL_ISUPPORTS(FinishReportingCallback, nsIFinishReportingCallback)
 
-NS_IMETHODIMP MemoryReportRequestClient::Run()
+NS_IMETHODIMP
+MemoryReportRequestClient::Run()
 {
   nsCOMPtr<nsIMemoryReporterManager> mgr =
-    do_GetService("@mozilla.org/memory-reporter-manager;1");
+      do_GetService("@mozilla.org/memory-reporter-manager;1");
 
   // Run the reporters.  The callback will turn each measurement into a
   // MemoryReport.
   RefPtr<HandleReportCallback> handleReport =
-    new HandleReportCallback(mGeneration, mProcessString);
+      new HandleReportCallback(mGeneration, mProcessString);
   RefPtr<FinishReportingCallback> finishReporting =
-    new FinishReportingCallback(mGeneration);
+      new FinishReportingCallback(mGeneration);
 
-  nsresult rv =
-    mgr->GetReportsForThisProcessExtended(handleReport, nullptr, mAnonymize,
-                                          FileDescriptorToFILE(mDMDFile, "wb"),
-                                          finishReporting, nullptr);
+  nsresult rv = mgr->GetReportsForThisProcessExtended(
+      handleReport,
+      nullptr,
+      mAnonymize,
+      FileDescriptorToFILE(mDMDFile, "wb"),
+      finishReporting,
+      nullptr);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "GetReportsForThisProcessExtended failed");
   return rv;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -18,98 +18,69 @@ namespace jit {
 class MIRGenerator;
 class MIRGraph;
 
-MOZ_MUST_USE bool
-PruneUnusedBranches(MIRGenerator* mir, MIRGraph& graph);
+MOZ_MUST_USE bool PruneUnusedBranches(MIRGenerator* mir, MIRGraph& graph);
 
-MOZ_MUST_USE bool
-FoldTests(MIRGraph& graph);
+MOZ_MUST_USE bool FoldTests(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-FoldEmptyBlocks(MIRGraph& graph);
+MOZ_MUST_USE bool FoldEmptyBlocks(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-SplitCriticalEdges(MIRGraph& graph);
+MOZ_MUST_USE bool SplitCriticalEdges(MIRGraph& graph);
 
-bool
-IsUint32Type(const MDefinition* def);
+bool IsUint32Type(const MDefinition* def);
 
-enum Observability {
-    ConservativeObservability,
-    AggressiveObservability
-};
+enum Observability { ConservativeObservability, AggressiveObservability };
 
-MOZ_MUST_USE bool
-EliminatePhis(MIRGenerator* mir, MIRGraph& graph, Observability observe);
+MOZ_MUST_USE bool EliminatePhis(MIRGenerator* mir, MIRGraph& graph, Observability observe);
 
-size_t
-MarkLoopBlocks(MIRGraph& graph, MBasicBlock* header, bool* canOsr);
+size_t MarkLoopBlocks(MIRGraph& graph, MBasicBlock* header, bool* canOsr);
 
-void
-UnmarkLoopBlocks(MIRGraph& graph, MBasicBlock* header);
+void UnmarkLoopBlocks(MIRGraph& graph, MBasicBlock* header);
 
-MOZ_MUST_USE bool
-MakeLoopsContiguous(MIRGraph& graph);
+MOZ_MUST_USE bool MakeLoopsContiguous(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-EliminateDeadResumePointOperands(MIRGenerator* mir, MIRGraph& graph);
+MOZ_MUST_USE bool EliminateDeadResumePointOperands(MIRGenerator* mir, MIRGraph& graph);
 
-MOZ_MUST_USE bool
-EliminateDeadCode(MIRGenerator* mir, MIRGraph& graph);
+MOZ_MUST_USE bool EliminateDeadCode(MIRGenerator* mir, MIRGraph& graph);
 
-MOZ_MUST_USE bool
-ApplyTypeInformation(MIRGenerator* mir, MIRGraph& graph);
+MOZ_MUST_USE bool ApplyTypeInformation(MIRGenerator* mir, MIRGraph& graph);
 
-MOZ_MUST_USE bool
-MakeMRegExpHoistable(MIRGenerator* mir, MIRGraph& graph);
+MOZ_MUST_USE bool MakeMRegExpHoistable(MIRGenerator* mir, MIRGraph& graph);
 
-void
-RenumberBlocks(MIRGraph& graph);
+void RenumberBlocks(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-AccountForCFGChanges(MIRGenerator* mir, MIRGraph& graph, bool updateAliasAnalysis,
-                     bool underValueNumberer = false);
+MOZ_MUST_USE bool AccountForCFGChanges(MIRGenerator* mir, MIRGraph& graph,
+                                       bool updateAliasAnalysis, bool underValueNumberer = false);
 
-MOZ_MUST_USE bool
-RemoveUnmarkedBlocks(MIRGenerator* mir, MIRGraph& graph, uint32_t numMarkedBlocks);
+MOZ_MUST_USE bool RemoveUnmarkedBlocks(MIRGenerator* mir, MIRGraph& graph,
+                                       uint32_t numMarkedBlocks);
 
-MOZ_MUST_USE bool
-CreateMIRRootList(IonBuilder& builder);
+MOZ_MUST_USE bool CreateMIRRootList(IonBuilder& builder);
 
-void
-ClearDominatorTree(MIRGraph& graph);
+void ClearDominatorTree(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-BuildDominatorTree(MIRGraph& graph);
+MOZ_MUST_USE bool BuildDominatorTree(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-BuildPhiReverseMapping(MIRGraph& graph);
+MOZ_MUST_USE bool BuildPhiReverseMapping(MIRGraph& graph);
 
-void
-AssertBasicGraphCoherency(MIRGraph& graph, bool force = false);
+void AssertBasicGraphCoherency(MIRGraph& graph, bool force = false);
 
-void
-AssertGraphCoherency(MIRGraph& graph, bool force = false);
+void AssertGraphCoherency(MIRGraph& graph, bool force = false);
 
-void
-AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer = false, bool force = false);
+void AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer = false,
+                                  bool force = false);
 
-MOZ_MUST_USE bool
-EliminateRedundantChecks(MIRGraph& graph);
+MOZ_MUST_USE bool EliminateRedundantChecks(MIRGraph& graph);
 
-MOZ_MUST_USE bool
-AddKeepAliveInstructions(MIRGraph& graph);
+MOZ_MUST_USE bool AddKeepAliveInstructions(MIRGraph& graph);
 
 class MDefinition;
 
 // Simple linear sum of the form 'n' or 'x + n'.
-struct SimpleLinearSum
-{
+struct SimpleLinearSum {
     MDefinition* term;
     int32_t constant;
 
-    SimpleLinearSum(MDefinition* term, int32_t constant)
-        : term(term), constant(constant)
-    {}
+    SimpleLinearSum(MDefinition* term, int32_t constant) : term(term), constant(constant) {}
 };
 
 // Math done in a Linear sum can either be in a modulo space, in which case
@@ -119,47 +90,30 @@ struct SimpleLinearSum
 //
 // When the caller ignores which space it is, the definition would be used to
 // deduce it.
-enum class MathSpace {
-    Modulo,
-    Infinite,
-    Unknown
-};
+enum class MathSpace { Modulo, Infinite, Unknown };
 
-SimpleLinearSum
-ExtractLinearSum(MDefinition* ins, MathSpace space = MathSpace::Unknown);
+SimpleLinearSum ExtractLinearSum(MDefinition* ins, MathSpace space = MathSpace::Unknown);
 
-MOZ_MUST_USE bool
-ExtractLinearInequality(MTest* test, BranchDirection direction,
-                        SimpleLinearSum* plhs, MDefinition** prhs, bool* plessEqual);
+MOZ_MUST_USE bool ExtractLinearInequality(MTest* test, BranchDirection direction,
+                                          SimpleLinearSum* plhs, MDefinition** prhs,
+                                          bool* plessEqual);
 
-struct LinearTerm
-{
+struct LinearTerm {
     MDefinition* term;
     int32_t scale;
 
-    LinearTerm(MDefinition* term, int32_t scale)
-      : term(term), scale(scale)
-    {
-    }
+    LinearTerm(MDefinition* term, int32_t scale) : term(term), scale(scale) {}
 };
 
 // General linear sum of the form 'x1*n1 + x2*n2 + ... + n'
-class LinearSum
-{
-  public:
-    explicit LinearSum(TempAllocator& alloc)
-      : terms_(alloc),
-        constant_(0)
-    {
-    }
+class LinearSum {
+   public:
+    explicit LinearSum(TempAllocator& alloc) : terms_(alloc), constant_(0) {}
 
     LinearSum(const LinearSum& other)
-      : terms_(other.terms_.allocPolicy()),
-        constant_(other.constant_)
-    {
+        : terms_(other.terms_.allocPolicy()), constant_(other.constant_) {
         AutoEnterOOMUnsafeRegion oomUnsafe;
-        if (!terms_.appendAll(other.terms_))
-            oomUnsafe.crash("LinearSum::LinearSum");
+        if (!terms_.appendAll(other.terms_)) oomUnsafe.crash("LinearSum::LinearSum");
     }
 
     // These return false on an integer overflow, and afterwards the sum must
@@ -182,40 +136,33 @@ class LinearSum
     void dump(GenericPrinter& out) const;
     void dump() const;
 
-  private:
+   private:
     Vector<LinearTerm, 2, JitAllocPolicy> terms_;
     int32_t constant_;
 };
 
 // Convert all components of a linear sum (except, optionally, the constant)
 // and add any new instructions to the end of block.
-MDefinition*
-ConvertLinearSum(TempAllocator& alloc, MBasicBlock* block, const LinearSum& sum,
-                 bool convertConstant = false);
+MDefinition* ConvertLinearSum(TempAllocator& alloc, MBasicBlock* block, const LinearSum& sum,
+                              bool convertConstant = false);
 
 // Convert the test 'sum >= 0' to a comparison, adding any necessary
 // instructions to the end of block.
-MCompare*
-ConvertLinearInequality(TempAllocator& alloc, MBasicBlock* block, const LinearSum& sum);
+MCompare* ConvertLinearInequality(TempAllocator& alloc, MBasicBlock* block, const LinearSum& sum);
 
-MOZ_MUST_USE bool
-AnalyzeNewScriptDefiniteProperties(JSContext* cx, HandleFunction fun,
-                                   ObjectGroup* group, HandlePlainObject baseobj,
-                                   Vector<TypeNewScript::Initializer>* initializerList);
+MOZ_MUST_USE bool AnalyzeNewScriptDefiniteProperties(
+    JSContext* cx, HandleFunction fun, ObjectGroup* group, HandlePlainObject baseobj,
+    Vector<TypeNewScript::Initializer>* initializerList);
 
-MOZ_MUST_USE bool
-AnalyzeArgumentsUsage(JSContext* cx, JSScript* script);
+MOZ_MUST_USE bool AnalyzeArgumentsUsage(JSContext* cx, JSScript* script);
 
-bool
-DeadIfUnused(const MDefinition* def);
+bool DeadIfUnused(const MDefinition* def);
 
-bool
-IsDiscardable(const MDefinition* def);
+bool IsDiscardable(const MDefinition* def);
 
-void
-DumpMIRExpressions(MIRGraph& graph);
+void DumpMIRExpressions(MIRGraph& graph);
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_IonAnalysis_h */

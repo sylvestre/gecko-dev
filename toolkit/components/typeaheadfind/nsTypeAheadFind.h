@@ -23,14 +23,13 @@ class nsPIDOMWindowInner;
 class nsIPresShell;
 class nsPresContext;
 
-#define TYPEAHEADFIND_NOTFOUND_WAV_URL \
-        "chrome://global/content/notfound.wav"
+#define TYPEAHEADFIND_NOTFOUND_WAV_URL "chrome://global/content/notfound.wav"
 
 class nsTypeAheadFind : public nsITypeAheadFind,
                         public nsIObserver,
                         public nsSupportsWeakReference
 {
-public:
+ public:
   nsTypeAheadFind();
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -39,37 +38,47 @@ public:
 
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsTypeAheadFind, nsITypeAheadFind)
 
-protected:
+ protected:
   virtual ~nsTypeAheadFind();
 
   nsresult PrefsReset();
 
   void SaveFind();
   void PlayNotFoundSound();
-  nsresult GetWebBrowserFind(nsIDocShell *aDocShell,
-                             nsIWebBrowserFind **aWebBrowserFind);
+  nsresult GetWebBrowserFind(nsIDocShell* aDocShell,
+                             nsIWebBrowserFind** aWebBrowserFind);
 
-  void RangeStartsInsideLink(nsIDOMRange *aRange, nsIPresShell *aPresShell,
-                             bool *aIsInsideLink, bool *aIsStartingLink);
+  void RangeStartsInsideLink(nsIDOMRange* aRange,
+                             nsIPresShell* aPresShell,
+                             bool* aIsInsideLink,
+                             bool* aIsStartingLink);
 
-  void GetSelection(nsIPresShell *aPresShell, nsISelectionController **aSelCon,
-                    nsISelection **aDomSel);
+  void GetSelection(nsIPresShell* aPresShell,
+                    nsISelectionController** aSelCon,
+                    nsISelection** aDomSel);
   // *aNewRange may not be collapsed.  If you want to collapse it in a
   // particular way, you need to do it yourself.
-  bool IsRangeVisible(nsIPresShell *aPresShell, nsPresContext *aPresContext,
-                        nsIDOMRange *aRange, bool aMustBeVisible,
-                        bool aGetTopVisibleLeaf, nsIDOMRange **aNewRange,
-                        bool *aUsesIndependentSelection);
-  bool IsRangeRendered(nsIPresShell *aPresShell, nsPresContext *aPresContext,
-                          nsIDOMRange *aRange);
-  nsresult FindItNow(nsIPresShell *aPresShell, bool aIsLinksOnly,
-                     bool aIsFirstVisiblePreferred, bool aFindPrev,
+  bool IsRangeVisible(nsIPresShell* aPresShell,
+                      nsPresContext* aPresContext,
+                      nsIDOMRange* aRange,
+                      bool aMustBeVisible,
+                      bool aGetTopVisibleLeaf,
+                      nsIDOMRange** aNewRange,
+                      bool* aUsesIndependentSelection);
+  bool IsRangeRendered(nsIPresShell* aPresShell,
+                       nsPresContext* aPresContext,
+                       nsIDOMRange* aRange);
+  nsresult FindItNow(nsIPresShell* aPresShell,
+                     bool aIsLinksOnly,
+                     bool aIsFirstVisiblePreferred,
+                     bool aFindPrev,
                      uint16_t* aResult);
-  nsresult GetSearchContainers(nsISupports *aContainer,
-                               nsISelectionController *aSelectionController,
+  nsresult GetSearchContainers(nsISupports* aContainer,
+                               nsISelectionController* aSelectionController,
                                bool aIsFirstVisiblePreferred,
-                               bool aFindPrev, nsIPresShell **aPresShell,
-                               nsPresContext **aPresContext);
+                               bool aFindPrev,
+                               nsIPresShell** aPresShell,
+                               nsPresContext** aPresContext);
 
   // Get the pres shell from mPresShell and return it only if it is still
   // attached to the DOM window.
@@ -86,9 +95,10 @@ protected:
   bool mStartLinksOnlyPref;
   bool mCaretBrowsingOn;
   bool mDidAddObservers;
-  nsCOMPtr<nsIDOMElement> mFoundLink;     // Most recent elem found, if a link
-  nsCOMPtr<nsIDOMElement> mFoundEditable; // Most recent elem found, if editable
-  nsCOMPtr<nsIDOMRange> mFoundRange;      // Most recent range found
+  nsCOMPtr<nsIDOMElement> mFoundLink;  // Most recent elem found, if a link
+  nsCOMPtr<nsIDOMElement>
+      mFoundEditable;                 // Most recent elem found, if editable
+  nsCOMPtr<nsIDOMRange> mFoundRange;  // Most recent range found
   nsCOMPtr<nsPIDOMWindowInner> mCurrentWindow;
   // mLastFindLength is the character length of the last find string.  It is used for
   // disabling the "not found" sound when using backspace or delete
@@ -111,7 +121,8 @@ protected:
   bool mCaseSensitive;
   bool mEntireWord;
 
-  bool EnsureFind() {
+  bool EnsureFind()
+  {
     if (mFind) {
       return true;
     }
@@ -133,5 +144,5 @@ protected:
   nsWeakPtr mDocShell;
   nsWeakPtr mPresShell;
   nsWeakPtr mSelectionController;
-                                          // Most recent match's controller
+  // Most recent match's controller
 };

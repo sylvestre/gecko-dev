@@ -9,25 +9,16 @@
 
 static int callCount = 0;
 
-static bool
-AddProperty(JSContext* cx, JS::HandleObject obj, JS::HandleId id, JS::HandleValue v)
-{
+static bool AddProperty(JSContext* cx, JS::HandleObject obj, JS::HandleId id, JS::HandleValue v) {
     callCount++;
     return true;
 }
 
-static const JSClassOps AddPropertyClassOps = {
-    AddProperty
-};
+static const JSClassOps AddPropertyClassOps = {AddProperty};
 
-static const JSClass AddPropertyClass = {
-    "AddPropertyTester",
-    0,
-    &AddPropertyClassOps
-};
+static const JSClass AddPropertyClass = {"AddPropertyTester", 0, &AddPropertyClassOps};
 
-BEGIN_TEST(testAddPropertyHook)
-{
+BEGIN_TEST(testAddPropertyHook) {
     /*
      * Do the test a bunch of times, because sometimes we seem to randomly
      * miss the propcache.
@@ -44,27 +35,24 @@ BEGIN_TEST(testAddPropertyHook)
     CHECK(obj);
     JS::RootedValue arr(cx, JS::ObjectValue(*obj));
 
-    CHECK(JS_DefineProperty(cx, global, "arr", arr,
-                            JSPROP_ENUMERATE));
+    CHECK(JS_DefineProperty(cx, global, "arr", arr, JSPROP_ENUMERATE));
 
     JS::RootedObject arrObj(cx, &arr.toObject());
     for (int i = 0; i < ExpectedCount; ++i) {
         obj = JS_NewObject(cx, &AddPropertyClass);
         CHECK(obj);
-        CHECK(JS_DefineElement(cx, arrObj, i, obj,
-                               JSPROP_ENUMERATE));
+        CHECK(JS_DefineElement(cx, arrObj, i, obj, JSPROP_ENUMERATE));
     }
 
     // Now add a prop to each of the objects, but make sure to do
     // so at the same bytecode location so we can hit the propcache.
-    EXEC("'use strict';                                     \n"
-         "for (var i = 0; i < arr.length; ++i)              \n"
-         "  arr[i].prop = 42;                               \n"
-         );
+    EXEC(
+        "'use strict';                                     \n"
+        "for (var i = 0; i < arr.length; ++i)              \n"
+        "  arr[i].prop = 42;                               \n");
 
     CHECK(callCount == ExpectedCount);
 
     return true;
 }
 END_TEST(testAddPropertyHook)
-

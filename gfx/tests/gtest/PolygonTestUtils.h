@@ -16,16 +16,22 @@
 namespace mozilla {
 namespace gfx {
 
-bool FuzzyEquals(const Point4D& lhs, const Point4D& rhs);
-bool FuzzyEquals(const Point3D& lhs, const Point3D& rhs);
-bool FuzzyEquals(const Point& lhs, const Point& rhs);
+bool
+FuzzyEquals(const Point4D& lhs, const Point4D& rhs);
+bool
+FuzzyEquals(const Point3D& lhs, const Point3D& rhs);
+bool
+FuzzyEquals(const Point& lhs, const Point& rhs);
 
-bool operator==(const Triangle& lhs, const Triangle& rhs);
-bool operator==(const Polygon& lhs, const Polygon& rhs);
+bool
+operator==(const Triangle& lhs, const Triangle& rhs);
+bool
+operator==(const Polygon& lhs, const Polygon& rhs);
 
 // Compares two arrays with the equality operator.
 template<typename T>
-void AssertArrayEQ(const nsTArray<T>& rhs, const nsTArray<T>& lhs)
+void
+AssertArrayEQ(const nsTArray<T>& rhs, const nsTArray<T>& lhs)
 {
   ASSERT_EQ(lhs.Length(), rhs.Length());
 
@@ -34,7 +40,7 @@ void AssertArrayEQ(const nsTArray<T>& rhs, const nsTArray<T>& lhs)
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* GFX_TEST_POLYGONUTILS_H */

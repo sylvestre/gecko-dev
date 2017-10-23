@@ -46,10 +46,11 @@ namespace media {
 
 class PledgeBase
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(PledgeBase);
-protected:
-  virtual ~PledgeBase() {};
+
+ protected:
+  virtual ~PledgeBase(){};
 };
 
 template<typename ValueType, typename ErrorType = nsresult>
@@ -59,22 +60,22 @@ class Pledge : public PledgeBase
   // wo/std::function support, do template + virtual trick to accept lambdas
   class FunctorsBase
   {
-  public:
+   public:
     FunctorsBase() {}
     virtual void Succeed(ValueType& result) = 0;
     virtual void Fail(ErrorType& error) = 0;
-    virtual ~FunctorsBase() {};
+    virtual ~FunctorsBase(){};
   };
 
-public:
+ public:
   explicit Pledge() : mDone(false), mRejected(false) {}
   Pledge(const Pledge& aOther) = delete;
-  Pledge& operator = (const Pledge&) = delete;
+  Pledge& operator=(const Pledge&) = delete;
 
   template<typename OnSuccessType>
   void Then(OnSuccessType&& aOnSuccess)
   {
-    Then(Forward<OnSuccessType>(aOnSuccess), [](ErrorType&){});
+    Then(Forward<OnSuccessType>(aOnSuccess), [](ErrorType&) {});
   }
 
   template<typename OnSuccessType, typename OnFailureType>
@@ -82,18 +83,14 @@ public:
   {
     class Functors : public FunctorsBase
     {
-    public:
+     public:
       Functors(OnSuccessType&& aOnSuccessRef, OnFailureType&& aOnFailureRef)
-        : mOnSuccess(Move(aOnSuccessRef)), mOnFailure(Move(aOnFailureRef)) {}
-
-      void Succeed(ValueType& result)
+          : mOnSuccess(Move(aOnSuccessRef)), mOnFailure(Move(aOnFailureRef))
       {
-        mOnSuccess(result);
       }
-      void Fail(ErrorType& error)
-      {
-        mOnFailure(error);
-      };
+
+      void Succeed(ValueType& result) { mOnSuccess(result); }
+      void Fail(ErrorType& error) { mOnFailure(error); };
 
       OnSuccessType mOnSuccess;
       OnFailureType mOnFailure;
@@ -126,7 +123,7 @@ public:
     }
   }
 
-protected:
+ protected:
   void Resolve()
   {
     if (!mDone) {
@@ -139,8 +136,9 @@ protected:
   }
 
   ValueType mValue;
-private:
-  ~Pledge() {};
+
+ private:
+  ~Pledge(){};
   bool mDone;
   bool mRejected;
   ErrorType mError;
@@ -188,19 +186,15 @@ private:
 template<typename OnRunType>
 class LambdaRunnable : public Runnable
 {
-public:
+ public:
   explicit LambdaRunnable(OnRunType&& aOnRun)
-    : Runnable("media::LambdaRunnable")
-    , mOnRun(Move(aOnRun))
+      : Runnable("media::LambdaRunnable"), mOnRun(Move(aOnRun))
   {
   }
 
-private:
+ private:
   NS_IMETHODIMP
-  Run() override
-  {
-    return mOnRun();
-  }
+  Run() override { return mOnRun(); }
   OnRunType mOnRun;
 };
 
@@ -278,7 +272,7 @@ NewRunnableFrom(OnRunType&& aOnRun)
 template<class T>
 class CoatCheck
 {
-public:
+ public:
   typedef std::pair<uint32_t, RefPtr<T>> Element;
 
   uint32_t Append(T& t)
@@ -302,7 +296,7 @@ public:
     return nullptr;
   }
 
-private:
+ private:
   static uint32_t GetNextId()
   {
     static uint32_t counter = 0;
@@ -329,16 +323,16 @@ private:
 
 class RefcountableBase
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(RefcountableBase)
-protected:
+ protected:
   virtual ~RefcountableBase() {}
 };
 
 template<typename T>
 class Refcountable : public T, public RefcountableBase
 {
-public:
+ public:
   NS_METHOD_(MozExternalRefCountType) AddRef()
   {
     return RefcountableBase::AddRef();
@@ -349,17 +343,17 @@ public:
     return RefcountableBase::Release();
   }
 
-private:
+ private:
   ~Refcountable<T>() {}
 };
 
 template<typename T>
 class Refcountable<UniquePtr<T>> : public UniquePtr<T>
 {
-public:
+ public:
   explicit Refcountable<UniquePtr<T>>(T* aPtr) : UniquePtr<T>(aPtr) {}
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Refcountable<T>)
-private:
+ private:
   ~Refcountable<UniquePtr<T>>() {}
 };
 
@@ -371,7 +365,7 @@ GetShutdownBarrier();
 
 class ShutdownBlocker : public nsIAsyncShutdownBlocker
 {
-public:
+ public:
   ShutdownBlocker(const nsString& aName) : mName(aName) {}
 
   NS_IMETHOD
@@ -383,24 +377,25 @@ public:
     return NS_OK;
   }
 
-  NS_IMETHOD GetState(nsIPropertyBag**) override
-  {
-    return NS_OK;
-  }
+  NS_IMETHOD GetState(nsIPropertyBag**) override { return NS_OK; }
 
   NS_DECL_ISUPPORTS
-protected:
+ protected:
   virtual ~ShutdownBlocker() {}
-private:
+
+ private:
   const nsString mName;
 };
 
 class ShutdownTicket final
 {
-public:
-  explicit ShutdownTicket(nsIAsyncShutdownBlocker* aBlocker) : mBlocker(aBlocker) {}
+ public:
+  explicit ShutdownTicket(nsIAsyncShutdownBlocker* aBlocker)
+      : mBlocker(aBlocker)
+  {
+  }
   NS_INLINE_DECL_REFCOUNTING(ShutdownTicket)
-private:
+ private:
   ~ShutdownTicket()
   {
     nsCOMPtr<nsIAsyncShutdownClient> barrier = GetShutdownBarrier();
@@ -410,7 +405,7 @@ private:
   nsCOMPtr<nsIAsyncShutdownBlocker> mBlocker;
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif // mozilla_MediaUtils_h
+#endif  // mozilla_MediaUtils_h

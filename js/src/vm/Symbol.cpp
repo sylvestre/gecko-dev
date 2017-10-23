@@ -19,10 +19,8 @@
 using JS::Symbol;
 using namespace js;
 
-Symbol*
-Symbol::newInternal(JSContext* cx, JS::SymbolCode code, uint32_t hash, JSAtom* description,
-                    AutoLockForExclusiveAccess& lock)
-{
+Symbol* Symbol::newInternal(JSContext* cx, JS::SymbolCode code, uint32_t hash, JSAtom* description,
+                            AutoLockForExclusiveAccess& lock) {
     MOZ_ASSERT(cx->compartment() == cx->atomsCompartment(lock));
 
     // Following js::AtomizeString, we grudgingly forgo last-ditch GC here.
@@ -34,14 +32,11 @@ Symbol::newInternal(JSContext* cx, JS::SymbolCode code, uint32_t hash, JSAtom* d
     return new (p) Symbol(code, hash, description);
 }
 
-Symbol*
-Symbol::new_(JSContext* cx, JS::SymbolCode code, JSString* description)
-{
+Symbol* Symbol::new_(JSContext* cx, JS::SymbolCode code, JSString* description) {
     JSAtom* atom = nullptr;
     if (description) {
         atom = AtomizeString(cx, description);
-        if (!atom)
-            return nullptr;
+        if (!atom) return nullptr;
     }
 
     // Lock to allocate. If symbol allocation becomes a bottleneck, this can
@@ -52,17 +47,13 @@ Symbol::new_(JSContext* cx, JS::SymbolCode code, JSString* description)
         AutoAtomsCompartment ac(cx, lock);
         sym = newInternal(cx, code, cx->compartment()->randomHashCode(), atom, lock);
     }
-    if (sym)
-        cx->markAtom(sym);
+    if (sym) cx->markAtom(sym);
     return sym;
 }
 
-Symbol*
-Symbol::for_(JSContext* cx, HandleString description)
-{
+Symbol* Symbol::for_(JSContext* cx, HandleString description) {
     JSAtom* atom = AtomizeString(cx, description);
-    if (!atom)
-        return nullptr;
+    if (!atom) return nullptr;
 
     AutoLockForExclusiveAccess lock(cx);
 
@@ -80,8 +71,7 @@ Symbol::for_(JSContext* cx, HandleString description)
         // that is different than the hash of the corresponding atom.
         HashNumber hash = mozilla::HashGeneric(atom->hash());
         sym = newInternal(cx, SymbolCode::InSymbolRegistry, hash, atom, lock);
-        if (!sym)
-            return nullptr;
+        if (!sym) return nullptr;
 
         // p is still valid here because we have held the lock since the
         // lookupForAdd call, and newInternal can't GC.
@@ -96,16 +86,12 @@ Symbol::for_(JSContext* cx, HandleString description)
 }
 
 #ifdef DEBUG
-void
-Symbol::dump()
-{
+void Symbol::dump() {
     js::Fprinter out(stderr);
     dump(out);
 }
 
-void
-Symbol::dump(js::GenericPrinter& out)
-{
+void Symbol::dump(js::GenericPrinter& out) {
     if (isWellKnownSymbol()) {
         // All the well-known symbol names are ASCII.
         description_->dumpCharsNoNewline(out);
@@ -119,40 +105,31 @@ Symbol::dump(js::GenericPrinter& out)
 
         out.putChar(')');
 
-        if (code_ == SymbolCode::UniqueSymbol)
-            out.printf("@%p", (void*) this);
+        if (code_ == SymbolCode::UniqueSymbol) out.printf("@%p", (void*)this);
     } else {
         out.printf("<Invalid Symbol code=%u>", unsigned(code_));
     }
 }
 #endif  // DEBUG
 
-bool
-js::SymbolDescriptiveString(JSContext* cx, Symbol* sym, MutableHandleValue result)
-{
+bool js::SymbolDescriptiveString(JSContext* cx, Symbol* sym, MutableHandleValue result) {
     // steps 2-5
     StringBuffer sb(cx);
-    if (!sb.append("Symbol("))
-        return false;
+    if (!sb.append("Symbol(")) return false;
     RootedString str(cx, sym->description());
     if (str) {
-        if (!sb.append(str))
-            return false;
+        if (!sb.append(str)) return false;
     }
-    if (!sb.append(')'))
-        return false;
+    if (!sb.append(')')) return false;
 
     // step 6
     str = sb.finishString();
-    if (!str)
-        return false;
+    if (!str) return false;
     result.setString(str);
     return true;
 }
 
-JS::ubi::Node::Size
-JS::ubi::Concrete<JS::Symbol>::size(mozilla::MallocSizeOf mallocSizeOf) const
-{
+JS::ubi::Node::Size JS::ubi::Concrete<JS::Symbol>::size(mozilla::MallocSizeOf mallocSizeOf) const {
     // If we start allocating symbols in the nursery, we will need to update
     // this method.
     MOZ_ASSERT(get().isTenured());

@@ -27,9 +27,9 @@ TEST(storage_file_perms, Test)
 #ifdef ANDROID
   do_check_true(perms == (PR_IRUSR | PR_IWUSR));
 #elif defined(XP_WIN)
-  do_check_true(perms == (PR_IRUSR | PR_IWUSR | PR_IRGRP | PR_IWGRP | PR_IROTH | PR_IWOTH));
+  do_check_true(perms == (PR_IRUSR | PR_IWUSR | PR_IRGRP | PR_IWGRP | PR_IROTH |
+                          PR_IWOTH));
 #else
   do_check_true(perms == (PR_IRUSR | PR_IWUSR | PR_IRGRP | PR_IROTH));
 #endif
 }
-

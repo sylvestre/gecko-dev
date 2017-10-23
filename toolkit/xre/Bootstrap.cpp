@@ -12,85 +12,100 @@ namespace mozilla {
 
 class BootstrapImpl final : public Bootstrap
 {
-protected:
+ protected:
   AutoSQLiteLifetime mSQLLT;
 
-  virtual void Dispose() override
+  virtual void Dispose() override { delete this; }
+
+ public:
+  BootstrapImpl() {}
+
+  ~BootstrapImpl() {}
+
+  virtual void NS_LogInit() override { ::NS_LogInit(); }
+
+  virtual void NS_LogTerm() override { ::NS_LogTerm(); }
+
+  virtual void XRE_TelemetryAccumulate(int aID, uint32_t aSample) override
   {
-    delete this;
-  }
-
-public:
-  BootstrapImpl()
-  {
-  }
-
-  ~BootstrapImpl()
-  {
-  }
-
-  virtual void NS_LogInit() override {
-    ::NS_LogInit();
-  }
-
-  virtual void NS_LogTerm() override {
-    ::NS_LogTerm();
-  }
-
-  virtual void XRE_TelemetryAccumulate(int aID, uint32_t aSample) override {
     ::XRE_TelemetryAccumulate(aID, aSample);
   }
 
-  virtual void XRE_StartupTimelineRecord(int aEvent, mozilla::TimeStamp aWhen) override {
+  virtual void XRE_StartupTimelineRecord(int aEvent,
+                                         mozilla::TimeStamp aWhen) override
+  {
     ::XRE_StartupTimelineRecord(aEvent, aWhen);
   }
 
-  virtual int XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) override {
+  virtual int XRE_main(int argc,
+                       char* argv[],
+                       const BootstrapConfig& aConfig) override
+  {
     return ::XRE_main(argc, argv, aConfig);
   }
 
-  virtual void XRE_StopLateWriteChecks() override {
+  virtual void XRE_StopLateWriteChecks() override
+  {
     ::XRE_StopLateWriteChecks();
   }
 
-  virtual int XRE_XPCShellMain(int argc, char** argv, char** envp, const XREShellData* aShellData) override {
+  virtual int XRE_XPCShellMain(int argc,
+                               char** argv,
+                               char** envp,
+                               const XREShellData* aShellData) override
+  {
     return ::XRE_XPCShellMain(argc, argv, envp, aShellData);
   }
 
-  virtual GeckoProcessType XRE_GetProcessType() override {
+  virtual GeckoProcessType XRE_GetProcessType() override
+  {
     return ::XRE_GetProcessType();
   }
 
-  virtual void XRE_SetProcessType(const char* aProcessTypeString) override {
+  virtual void XRE_SetProcessType(const char* aProcessTypeString) override
+  {
     ::XRE_SetProcessType(aProcessTypeString);
   }
 
-  virtual nsresult XRE_InitChildProcess(int argc, char* argv[], const XREChildData* aChildData) override {
+  virtual nsresult XRE_InitChildProcess(int argc,
+                                        char* argv[],
+                                        const XREChildData* aChildData) override
+  {
     return ::XRE_InitChildProcess(argc, argv, aChildData);
   }
 
-  virtual void XRE_EnableSameExecutableForContentProc() override {
+  virtual void XRE_EnableSameExecutableForContentProc() override
+  {
     ::XRE_EnableSameExecutableForContentProc();
   }
 
 #ifdef MOZ_WIDGET_ANDROID
-  virtual void GeckoStart(JNIEnv* aEnv, char** argv, int argc, const StaticXREAppData& aAppData) override {
+  virtual void GeckoStart(JNIEnv* aEnv,
+                          char** argv,
+                          int argc,
+                          const StaticXREAppData& aAppData) override
+  {
     ::GeckoStart(aEnv, argv, argc, aAppData);
   }
 
-  virtual void XRE_SetAndroidChildFds(JNIEnv* aEnv, int aCrashFd, int aIPCFd) override {
+  virtual void XRE_SetAndroidChildFds(JNIEnv* aEnv,
+                                      int aCrashFd,
+                                      int aIPCFd) override
+  {
     ::XRE_SetAndroidChildFds(aEnv, aCrashFd, aIPCFd);
   }
 #endif
 
 #ifdef LIBFUZZER
-  virtual void XRE_LibFuzzerSetDriver(LibFuzzerDriver aDriver) override {
+  virtual void XRE_LibFuzzerSetDriver(LibFuzzerDriver aDriver) override
+  {
     ::XRE_LibFuzzerSetDriver(aDriver);
   }
 #endif
 
 #ifdef MOZ_IPDL_TESTS
-  virtual int XRE_RunIPDLTest(int argc, char **argv) override {
+  virtual int XRE_RunIPDLTest(int argc, char** argv) override
+  {
     return ::XRE_RunIPDLTest(argc, argv);
   }
 #endif
@@ -106,4 +121,4 @@ XRE_GetBootstrap(Bootstrap::UniquePtr& b)
   b.reset(new BootstrapImpl());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

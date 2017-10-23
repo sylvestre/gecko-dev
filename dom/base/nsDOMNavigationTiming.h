@@ -20,8 +20,9 @@ typedef double DOMHighResTimeStamp;
 
 class nsDOMNavigationTiming final
 {
-public:
-  enum Type {
+ public:
+  enum Type
+  {
     TYPE_NAVIGATE = 0,
     TYPE_RELOAD = 1,
     TYPE_BACK_FORWARD = 2,
@@ -32,10 +33,7 @@ public:
 
   NS_INLINE_DECL_REFCOUNTING(nsDOMNavigationTiming)
 
-  Type GetType() const
-  {
-    return mNavigationType;
-  }
+  Type GetType() const { return mNavigationType; }
 
   inline DOMHighResTimeStamp GetNavigationStartHighRes() const
   {
@@ -62,10 +60,7 @@ public:
     return TimeStampToDOM(GetUnloadEventEndTimeStamp());
   }
 
-  DOMTimeMilliSec GetDomLoading() const
-  {
-    return TimeStampToDOM(mDOMLoading);
-  }
+  DOMTimeMilliSec GetDomLoading() const { return TimeStampToDOM(mDOMLoading); }
   DOMTimeMilliSec GetDomInteractive() const
   {
     return TimeStampToDOM(mDOMInteractive);
@@ -136,7 +131,8 @@ public:
     return TimeStampToDOMHighRes(mLoadEventEnd);
   }
 
-  enum class DocShellState : uint8_t {
+  enum class DocShellState : uint8_t
+  {
     eActive,
     eInactive
   };
@@ -163,7 +159,8 @@ public:
 
   DOMTimeMilliSec TimeStampToDOM(mozilla::TimeStamp aStamp) const;
 
-  inline DOMHighResTimeStamp TimeStampToDOMHighRes(mozilla::TimeStamp aStamp) const
+  inline DOMHighResTimeStamp TimeStampToDOMHighRes(
+      mozilla::TimeStamp aStamp) const
   {
     if (aStamp.IsNull()) {
       return 0;
@@ -172,8 +169,8 @@ public:
     return duration.ToMilliseconds();
   }
 
-private:
-  nsDOMNavigationTiming(const nsDOMNavigationTiming &) = delete;
+ private:
+  nsDOMNavigationTiming(const nsDOMNavigationTiming&) = delete;
   ~nsDOMNavigationTiming();
 
   void Clear();

@@ -29,17 +29,16 @@ namespace image {
 
 const gfx::IntRect
 AnimationState::UpdateState(bool aAnimationFinished,
-                            RasterImage *aImage,
+                            RasterImage* aImage,
                             const gfx::IntSize& aSize,
                             bool aAllowInvalidation /* = true */)
 {
-  LookupResult result =
-    SurfaceCache::Lookup(ImageKey(aImage),
-                         RasterSurfaceKey(aSize,
-                                          DefaultSurfaceFlags(),
-                                          PlaybackType::eAnimated));
+  LookupResult result = SurfaceCache::Lookup(
+      ImageKey(aImage),
+      RasterSurfaceKey(aSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
 
-  return UpdateStateInternal(result, aAnimationFinished, aSize, aAllowInvalidation);
+  return UpdateStateInternal(
+      result, aAnimationFinished, aSize, aAllowInvalidation);
 }
 
 const gfx::IntRect
@@ -187,7 +186,8 @@ AnimationState::LoopLength() const
     return FrameTimeout::Forever();
   }
 
-  MOZ_ASSERT(mHasBeenDecoded, "We know the loop length but decoding isn't done?");
+  MOZ_ASSERT(mHasBeenDecoded,
+             "We know the loop length but decoding isn't done?");
 
   // If we're not looping, a single loop time has no meaning.
   if (mAnimationMode != imgIContainer::kNormalAnimMode) {
@@ -196,7 +196,6 @@ AnimationState::LoopLength() const
 
   return *mLoopLength;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // FrameAnimator implementation.
@@ -208,10 +207,11 @@ FrameAnimator::GetCurrentImgFrameEndTime(AnimationState& aState,
 {
   TimeStamp currentFrameTime = aState.mCurrentAnimationFrameTime;
   Maybe<FrameTimeout> timeout =
-    GetTimeoutForFrame(aState, aFrames, aState.mCurrentAnimationFrameIndex);
+      GetTimeoutForFrame(aState, aFrames, aState.mCurrentAnimationFrameIndex);
 
   if (timeout.isNothing()) {
-    MOZ_ASSERT(aState.GetHasRequestedDecode() && !aState.GetIsCurrentlyDecoded());
+    MOZ_ASSERT(aState.GetHasRequestedDecode() &&
+               !aState.GetIsCurrentlyDecoded());
     return Nothing();
   }
 
@@ -227,7 +227,7 @@ FrameAnimator::GetCurrentImgFrameEndTime(AnimationState& aState,
   }
 
   TimeDuration durationOfTimeout =
-    TimeDuration::FromMilliseconds(double(timeout->AsMilliseconds()));
+      TimeDuration::FromMilliseconds(double(timeout->AsMilliseconds()));
   TimeStamp currentFrameEndTime = currentFrameTime + durationOfTimeout;
 
   return Some(currentFrameEndTime);
@@ -308,7 +308,8 @@ FrameAnimator::AdvanceFrame(AnimationState& aState,
     return ret;
   }
 
-  Maybe<FrameTimeout> nextFrameTimeout = GetTimeoutForFrame(aState, aFrames, nextFrameIndex);
+  Maybe<FrameTimeout> nextFrameTimeout =
+      GetTimeoutForFrame(aState, aFrames, nextFrameIndex);
   // GetTimeoutForFrame can only return none if frame doesn't exist,
   // but we just got it above.
   MOZ_ASSERT(nextFrameTimeout.isSome());
@@ -326,7 +327,8 @@ FrameAnimator::AdvanceFrame(AnimationState& aState,
       // something went wrong, move on to next
       NS_WARNING("FrameAnimator::AdvanceFrame(): Compositing of frame failed");
       nextFrame->SetCompositingFailed(true);
-      Maybe<TimeStamp> currentFrameEndTime = GetCurrentImgFrameEndTime(aState, aFrames);
+      Maybe<TimeStamp> currentFrameEndTime =
+          GetCurrentImgFrameEndTime(aState, aFrames);
       MOZ_ASSERT(currentFrameEndTime.isSome());
       aState.mCurrentAnimationFrameTime = *currentFrameEndTime;
       aState.mCurrentAnimationFrameIndex = nextFrameIndex;
@@ -337,7 +339,8 @@ FrameAnimator::AdvanceFrame(AnimationState& aState,
     nextFrame->SetCompositingFailed(false);
   }
 
-  Maybe<TimeStamp> currentFrameEndTime = GetCurrentImgFrameEndTime(aState, aFrames);
+  Maybe<TimeStamp> currentFrameEndTime =
+      GetCurrentImgFrameEndTime(aState, aFrames);
   MOZ_ASSERT(currentFrameEndTime.isSome());
   aState.mCurrentAnimationFrameTime = *currentFrameEndTime;
 
@@ -354,17 +357,18 @@ FrameAnimator::AdvanceFrame(AnimationState& aState,
     if (delay.ToMilliseconds() > loopTime.AsMilliseconds()) {
       // Explicitly use integer division to get the floor of the number of
       // loops.
-      uint64_t loops = static_cast<uint64_t>(delay.ToMilliseconds())
-                     / loopTime.AsMilliseconds();
+      uint64_t loops = static_cast<uint64_t>(delay.ToMilliseconds()) /
+                       loopTime.AsMilliseconds();
 
       // If we have a finite loop count limit the number of loops we advance.
       if (aState.mLoopRemainingCount >= 0) {
         MOZ_ASSERT(aState.LoopCount() >= 0);
-        loops = std::min(loops, CheckedUint64(aState.mLoopRemainingCount).value());
+        loops =
+            std::min(loops, CheckedUint64(aState.mLoopRemainingCount).value());
       }
 
       aState.mCurrentAnimationFrameTime +=
-        TimeDuration::FromMilliseconds(loops * loopTime.AsMilliseconds());
+          TimeDuration::FromMilliseconds(loops * loopTime.AsMilliseconds());
 
       if (aState.mLoopRemainingCount >= 0) {
         MOZ_ASSERT(loops <= CheckedUint64(aState.mLoopRemainingCount).value());
@@ -398,13 +402,12 @@ FrameAnimator::RequestRefresh(AnimationState& aState,
   // the surface could be discarded at anytime on a different thread. This is
   // must easier to reason about then trying to write code that is safe to
   // having the surface disappear at anytime.
-  LookupResult result =
-    SurfaceCache::Lookup(ImageKey(mImage),
-                         RasterSurfaceKey(mSize,
-                                          DefaultSurfaceFlags(),
-                                          PlaybackType::eAnimated));
+  LookupResult result = SurfaceCache::Lookup(
+      ImageKey(mImage),
+      RasterSurfaceKey(mSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
 
-  ret.mDirtyRect = aState.UpdateStateInternal(result, aAnimationFinished, mSize);
+  ret.mDirtyRect =
+      aState.UpdateStateInternal(result, aAnimationFinished, mSize);
   if (aState.IsDiscarded() || !result) {
     if (!ret.mDirtyRect.IsEmpty()) {
       ret.mFrameAdvanced = true;
@@ -415,10 +418,11 @@ FrameAnimator::RequestRefresh(AnimationState& aState,
   // only advance the frame if the current time is greater than or
   // equal to the current frame's end time.
   Maybe<TimeStamp> currentFrameEndTime =
-    GetCurrentImgFrameEndTime(aState, result.Surface());
+      GetCurrentImgFrameEndTime(aState, result.Surface());
   if (currentFrameEndTime.isNothing()) {
     MOZ_ASSERT(gfxPrefs::ImageMemAnimatedDiscardable());
-    MOZ_ASSERT(aState.GetHasRequestedDecode() && !aState.GetIsCurrentlyDecoded());
+    MOZ_ASSERT(aState.GetHasRequestedDecode() &&
+               !aState.GetIsCurrentlyDecoded());
     MOZ_ASSERT(aState.mCompositedFrameInvalid);
     // Nothing we can do but wait for our previous current frame to be decoded
     // again so we can determine what to do next.
@@ -448,7 +452,7 @@ FrameAnimator::RequestRefresh(AnimationState& aState,
   // Advanced to the correct frame, the composited frame is now valid to be drawn.
   if (*currentFrameEndTime > aTime) {
     aState.mCompositedFrameInvalid = false;
-    ret.mDirtyRect = IntRect(IntPoint(0,0), mSize);
+    ret.mDirtyRect = IntRect(IntPoint(0, 0), mSize);
   }
 
   MOZ_ASSERT(!aState.mIsCurrentlyDecoded || !aState.mCompositedFrameInvalid);
@@ -459,11 +463,9 @@ FrameAnimator::RequestRefresh(AnimationState& aState,
 LookupResult
 FrameAnimator::GetCompositedFrame(AnimationState& aState)
 {
-  LookupResult result =
-    SurfaceCache::Lookup(ImageKey(mImage),
-                         RasterSurfaceKey(mSize,
-                                          DefaultSurfaceFlags(),
-                                          PlaybackType::eAnimated));
+  LookupResult result = SurfaceCache::Lookup(
+      ImageKey(mImage),
+      RasterSurfaceKey(mSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
 
   if (aState.mCompositedFrameInvalid) {
     MOZ_ASSERT(gfxPrefs::ImageMemAnimatedDiscardable());
@@ -476,8 +478,8 @@ FrameAnimator::GetCompositedFrame(AnimationState& aState)
   }
 
   // If we have a composited version of this frame, return that.
-  if (mLastCompositedFrameIndex >= 0 &&
-      (uint32_t(mLastCompositedFrameIndex) == aState.mCurrentAnimationFrameIndex)) {
+  if (mLastCompositedFrameIndex >= 0 && (uint32_t(mLastCompositedFrameIndex) ==
+                                         aState.mCurrentAnimationFrameIndex)) {
     return LookupResult(DrawableSurface(mCompositingFrame->DrawableRef()),
                         MatchType::EXACT);
   }
@@ -525,14 +527,15 @@ DoCollectSizeOfCompositingSurfaces(const RawAccessFrameRef& aSurface,
                                    MallocSizeOf aMallocSizeOf)
 {
   // Concoct a SurfaceKey for this surface.
-  SurfaceKey key = RasterSurfaceKey(aSurface->GetImageSize(),
-                                    DefaultSurfaceFlags(),
-                                    PlaybackType::eStatic);
+  SurfaceKey key = RasterSurfaceKey(
+      aSurface->GetImageSize(), DefaultSurfaceFlags(), PlaybackType::eStatic);
 
   // Create a counter for this surface.
-  SurfaceMemoryCounter counter(key, /* aIsLocked = */ true,
+  SurfaceMemoryCounter counter(key,
+                               /* aIsLocked = */ true,
                                /* aCannotSubstitute */ false,
-                               /* aIsFactor2 */ false, aType);
+                               /* aIsFactor2 */ false,
+                               aType);
 
   // Extract the surface's memory usage information.
   size_t heap = 0, nonHeap = 0, handles = 0;
@@ -547,8 +550,7 @@ DoCollectSizeOfCompositingSurfaces(const RawAccessFrameRef& aSurface,
 
 void
 FrameAnimator::CollectSizeOfCompositingSurfaces(
-    nsTArray<SurfaceMemoryCounter>& aCounters,
-    MallocSizeOf aMallocSizeOf) const
+    nsTArray<SurfaceMemoryCounter>& aCounters, MallocSizeOf aMallocSizeOf) const
 {
   if (mCompositingFrame) {
     DoCollectSizeOfCompositingSurfaces(mCompositingFrame,
@@ -558,10 +560,11 @@ FrameAnimator::CollectSizeOfCompositingSurfaces(
   }
 
   if (mCompositingPrevFrame) {
-    DoCollectSizeOfCompositingSurfaces(mCompositingPrevFrame,
-                                       SurfaceMemoryCounterType::COMPOSITING_PREV,
-                                       aCounters,
-                                       aMallocSizeOf);
+    DoCollectSizeOfCompositingSurfaces(
+        mCompositingPrevFrame,
+        SurfaceMemoryCounterType::COMPOSITING_PREV,
+        aCounters,
+        aMallocSizeOf);
   }
 }
 
@@ -598,9 +601,10 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
     prevFrameData.mDisposalMethod = DisposalMethod::CLEAR;
   }
 
-  IntRect prevRect = prevFrameData.mBlendRect
-                   ? prevFrameData.mRect.Intersect(*prevFrameData.mBlendRect)
-                   : prevFrameData.mRect;
+  IntRect prevRect =
+      prevFrameData.mBlendRect
+          ? prevFrameData.mRect.Intersect(*prevFrameData.mBlendRect)
+          : prevFrameData.mRect;
 
   bool isFullPrevFrame = prevRect.x == 0 && prevRect.y == 0 &&
                          prevRect.Width() == mSize.width &&
@@ -615,9 +619,10 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
 
   AnimationData nextFrameData = nextFrame->GetAnimationData();
 
-  IntRect nextRect = nextFrameData.mBlendRect
-                   ? nextFrameData.mRect.Intersect(*nextFrameData.mBlendRect)
-                   : nextFrameData.mRect;
+  IntRect nextRect =
+      nextFrameData.mBlendRect
+          ? nextFrameData.mRect.Intersect(*nextFrameData.mBlendRect)
+          : nextFrameData.mRect;
 
   bool isFullNextFrame = nextRect.x == 0 && nextRect.y == 0 &&
                          nextRect.Width() == mSize.width &&
@@ -686,16 +691,14 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
   // Create the Compositing Frame
   if (!mCompositingFrame) {
     RefPtr<imgFrame> newFrame = new imgFrame;
-    nsresult rv = newFrame->InitForAnimator(mSize,
-                                            SurfaceFormat::B8G8R8A8);
+    nsresult rv = newFrame->InitForAnimator(mSize, SurfaceFormat::B8G8R8A8);
     if (NS_FAILED(rv)) {
       mCompositingFrame.reset();
       return false;
     }
     mCompositingFrame = newFrame->RawAccessRef();
     needToBlankComposite = true;
-  } else if (int32_t(aNextFrameIndex) != mLastCompositedFrameIndex+1) {
-
+  } else if (int32_t(aNextFrameIndex) != mLastCompositedFrameIndex + 1) {
     // If we are not drawing on top of last composited frame,
     // then we are building a new composite frame, so let's clear it first.
     needToBlankComposite = true;
@@ -736,8 +739,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
         if (needToBlankComposite) {
           // If we just created the composite, it could have anything in its
           // buffer. Clear whole frame
-          ClearFrame(compositingFrameData.mRawData,
-                     compositingFrameData.mRect);
+          ClearFrame(compositingFrameData.mRawData, compositingFrameData.mRect);
         } else {
           // Only blank out previous frame area (both color & Mask/Alpha)
           ClearFrame(compositingFrameData.mRawData,
@@ -747,8 +749,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
         break;
 
       case DisposalMethod::CLEAR_ALL:
-        ClearFrame(compositingFrameData.mRawData,
-                   compositingFrameData.mRect);
+        ClearFrame(compositingFrameData.mRawData, compositingFrameData.mRect);
         break;
 
       case DisposalMethod::RESTORE_PREVIOUS:
@@ -756,7 +757,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
         // compositingFrame.
         if (mCompositingPrevFrame) {
           AnimationData compositingPrevFrameData =
-            mCompositingPrevFrame->GetAnimationData();
+              mCompositingPrevFrame->GetAnimationData();
 
           CopyFrameImage(compositingPrevFrameData.mRawData,
                          compositingPrevFrameData.mRect,
@@ -769,8 +770,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
             mCompositingPrevFrame.reset();
           }
         } else {
-          ClearFrame(compositingFrameData.mRawData,
-                     compositingFrameData.mRect);
+          ClearFrame(compositingFrameData.mRawData, compositingFrameData.mRect);
         }
         break;
 
@@ -800,7 +800,8 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
                            compositingFrameData.mRect);
               }
             }
-            DrawFrameTo(prevFrameData.mRawData, prevFrameData.mRect,
+            DrawFrameTo(prevFrameData.mRawData,
+                        prevFrameData.mRect,
                         prevFrameData.mPaletteDataLength,
                         prevFrameData.mHasAlpha,
                         compositingFrameData.mRawData,
@@ -813,8 +814,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
   } else if (needToBlankComposite) {
     // If we just created the composite, it could have anything in its
     // buffers. Clear them
-    ClearFrame(compositingFrameData.mRawData,
-               compositingFrameData.mRect);
+    ClearFrame(compositingFrameData.mRawData, compositingFrameData.mRect);
   }
 
   // Check if the frame we are composing wants the previous image restored after
@@ -827,8 +827,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
     // overwrite.
     if (!mCompositingPrevFrame) {
       RefPtr<imgFrame> newFrame = new imgFrame;
-      nsresult rv = newFrame->InitForAnimator(mSize,
-                                              SurfaceFormat::B8G8R8A8);
+      nsresult rv = newFrame->InitForAnimator(mSize, SurfaceFormat::B8G8R8A8);
       if (NS_FAILED(rv)) {
         mCompositingPrevFrame.reset();
         return false;
@@ -838,7 +837,7 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
     }
 
     AnimationData compositingPrevFrameData =
-      mCompositingPrevFrame->GetAnimationData();
+        mCompositingPrevFrame->GetAnimationData();
 
     CopyFrameImage(compositingFrameData.mRawData,
                    compositingFrameData.mRect,
@@ -849,7 +848,8 @@ FrameAnimator::DoBlend(DrawableSurface& aFrames,
   }
 
   // blit next frame into it's correct spot
-  DrawFrameTo(nextFrameData.mRawData, nextFrameData.mRect,
+  DrawFrameTo(nextFrameData.mRawData,
+              nextFrameData.mRect,
               nextFrameData.mPaletteDataLength,
               nextFrameData.mHasAlpha,
               compositingFrameData.mRawData,
@@ -879,7 +879,8 @@ FrameAnimator::ClearFrame(uint8_t* aFrameData, const IntRect& aFrameRect)
 
 //******************************************************************************
 void
-FrameAnimator::ClearFrame(uint8_t* aFrameData, const IntRect& aFrameRect,
+FrameAnimator::ClearFrame(uint8_t* aFrameData,
+                          const IntRect& aFrameRect,
                           const IntRect& aRectToClear)
 {
   if (!aFrameData || aFrameRect.Width() <= 0 || aFrameRect.Height() <= 0 ||
@@ -894,8 +895,8 @@ FrameAnimator::ClearFrame(uint8_t* aFrameData, const IntRect& aFrameRect,
 
   uint32_t bytesPerRow = aFrameRect.Width() * 4;
   for (int row = toClear.y; row < toClear.YMost(); ++row) {
-    memset(aFrameData + toClear.x * 4 + row * bytesPerRow, 0,
-           toClear.Width() * 4);
+    memset(
+        aFrameData + toClear.x * 4 + row * bytesPerRow, 0, toClear.Width() * 4);
   }
 }
 
@@ -921,10 +922,14 @@ FrameAnimator::CopyFrameImage(const uint8_t* aDataSrc,
 }
 
 nsresult
-FrameAnimator::DrawFrameTo(const uint8_t* aSrcData, const IntRect& aSrcRect,
-                           uint32_t aSrcPaletteLength, bool aSrcHasAlpha,
-                           uint8_t* aDstPixels, const IntRect& aDstRect,
-                           BlendMethod aBlendMethod, const Maybe<IntRect>& aBlendRect)
+FrameAnimator::DrawFrameTo(const uint8_t* aSrcData,
+                           const IntRect& aSrcRect,
+                           uint32_t aSrcPaletteLength,
+                           bool aSrcHasAlpha,
+                           uint8_t* aDstPixels,
+                           const IntRect& aDstRect,
+                           BlendMethod aBlendMethod,
+                           const Maybe<IntRect>& aBlendRect)
 {
   NS_ENSURE_ARG_POINTER(aSrcData);
   NS_ENSURE_ARG_POINTER(aDstPixels);
@@ -942,17 +947,19 @@ FrameAnimator::DrawFrameTo(const uint8_t* aSrcData, const IntRect& aSrcRect,
   if (aSrcPaletteLength) {
     // Larger than the destination frame, clip it
     int32_t width = std::min(aSrcRect.Width(), aDstRect.Width() - aSrcRect.x);
-    int32_t height = std::min(aSrcRect.Height(), aDstRect.Height() - aSrcRect.y);
+    int32_t height =
+        std::min(aSrcRect.Height(), aDstRect.Height() - aSrcRect.y);
 
     // The clipped image must now fully fit within destination image frame
     NS_ASSERTION((aSrcRect.x >= 0) && (aSrcRect.y >= 0) &&
-                 (aSrcRect.x + width <= aDstRect.Width()) &&
-                 (aSrcRect.y + height <= aDstRect.Height()),
-                "FrameAnimator::DrawFrameTo: Invalid aSrcRect");
+                     (aSrcRect.x + width <= aDstRect.Width()) &&
+                     (aSrcRect.y + height <= aDstRect.Height()),
+                 "FrameAnimator::DrawFrameTo: Invalid aSrcRect");
 
     // clipped image size may be smaller than source, but not larger
-    NS_ASSERTION((width <= aSrcRect.Width()) && (height <= aSrcRect.Height()),
-      "FrameAnimator::DrawFrameTo: source must be smaller than dest");
+    NS_ASSERTION(
+        (width <= aSrcRect.Width()) && (height <= aSrcRect.Height()),
+        "FrameAnimator::DrawFrameTo: source must be smaller than dest");
 
     // Get pointers to image data
     const uint8_t* srcPixels = aSrcData + aSrcPaletteLength;
@@ -984,21 +991,21 @@ FrameAnimator::DrawFrameTo(const uint8_t* aSrcData, const IntRect& aSrcRect,
       }
     }
   } else {
-    pixman_image_t* src =
-      pixman_image_create_bits(
-          aSrcHasAlpha ? PIXMAN_a8r8g8b8 : PIXMAN_x8r8g8b8,
-          aSrcRect.Width(), aSrcRect.Height(),
-          reinterpret_cast<uint32_t*>(const_cast<uint8_t*>(aSrcData)),
-          aSrcRect.Width() * 4);
+    pixman_image_t* src = pixman_image_create_bits(
+        aSrcHasAlpha ? PIXMAN_a8r8g8b8 : PIXMAN_x8r8g8b8,
+        aSrcRect.Width(),
+        aSrcRect.Height(),
+        reinterpret_cast<uint32_t*>(const_cast<uint8_t*>(aSrcData)),
+        aSrcRect.Width() * 4);
     if (!src) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
     pixman_image_t* dst =
-      pixman_image_create_bits(PIXMAN_a8r8g8b8,
-                               aDstRect.Width(),
-                               aDstRect.Height(),
-                               reinterpret_cast<uint32_t*>(aDstPixels),
-                               aDstRect.Width() * 4);
+        pixman_image_create_bits(PIXMAN_a8r8g8b8,
+                                 aDstRect.Width(),
+                                 aDstRect.Height(),
+                                 reinterpret_cast<uint32_t*>(aDstPixels),
+                                 aDstRect.Width() * 4);
     if (!dst) {
       pixman_image_unref(src);
       return NS_ERROR_OUT_OF_MEMORY;
@@ -1017,39 +1024,52 @@ FrameAnimator::DrawFrameTo(const uint8_t* aSrcData, const IntRect& aSrcRect,
     // provide a "blend rect" that tells us where to do this. This is just the
     // frame rect, but hidden in a way that makes it invisible to most of the
     // system, so we can keep eliminating dependencies on it.
-    auto op = aBlendMethod == BlendMethod::SOURCE ? PIXMAN_OP_SRC
-                                                  : PIXMAN_OP_OVER;
+    auto op =
+        aBlendMethod == BlendMethod::SOURCE ? PIXMAN_OP_SRC : PIXMAN_OP_OVER;
 
     if (aBlendMethod == BlendMethod::OVER || !aBlendRect ||
-        (aBlendMethod == BlendMethod::SOURCE && aSrcRect.IsEqualEdges(*aBlendRect))) {
+        (aBlendMethod == BlendMethod::SOURCE &&
+         aSrcRect.IsEqualEdges(*aBlendRect))) {
       // We don't need to do anything clever. (Or, in the case where no blend
       // rect was specified, we can't.)
       pixman_image_composite32(op,
                                src,
                                nullptr,
                                dst,
-                               0, 0,
-                               0, 0,
-                               aSrcRect.x, aSrcRect.y,
-                               aSrcRect.Width(), aSrcRect.Height());
+                               0,
+                               0,
+                               0,
+                               0,
+                               aSrcRect.x,
+                               aSrcRect.y,
+                               aSrcRect.Width(),
+                               aSrcRect.Height());
     } else {
       // We need to do the OVER followed by SOURCE trick above.
       pixman_image_composite32(PIXMAN_OP_OVER,
                                src,
                                nullptr,
                                dst,
-                               0, 0,
-                               0, 0,
-                               aSrcRect.x, aSrcRect.y,
-                               aSrcRect.Width(), aSrcRect.Height());
+                               0,
+                               0,
+                               0,
+                               0,
+                               aSrcRect.x,
+                               aSrcRect.y,
+                               aSrcRect.Width(),
+                               aSrcRect.Height());
       pixman_image_composite32(PIXMAN_OP_SRC,
                                src,
                                nullptr,
                                dst,
-                               aBlendRect->x, aBlendRect->y,
-                               0, 0,
-                               aBlendRect->x, aBlendRect->y,
-                               aBlendRect->Width(), aBlendRect->Height());
+                               aBlendRect->x,
+                               aBlendRect->y,
+                               0,
+                               0,
+                               aBlendRect->x,
+                               aBlendRect->y,
+                               aBlendRect->Width(),
+                               aBlendRect->Height());
     }
 
     pixman_image_unref(src);
@@ -1059,5 +1079,5 @@ FrameAnimator::DrawFrameTo(const uint8_t* aSrcData, const IntRect& aSrcRect,
   return NS_OK;
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

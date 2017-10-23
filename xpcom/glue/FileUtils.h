@@ -7,12 +7,12 @@
 #ifndef mozilla_FileUtils_h
 #define mozilla_FileUtils_h
 
-#include "nscore.h" // nullptr
+#include "nscore.h"  // nullptr
 
 #if defined(XP_UNIX)
-# include <unistd.h>
+#include <unistd.h>
 #elif defined(XP_WIN)
-# include <io.h>
+#include <io.h>
 #endif
 #include "prio.h"
 
@@ -93,7 +93,8 @@ typedef Scoped<ScopedCloseFileTraits> ScopedCloseFile;
  * @param aLength length of file to grow to.
  * @return true on success.
  */
-bool fallocate(PRFileDesc* aFD, int64_t aLength);
+bool
+fallocate(PRFileDesc* aFD, int64_t aLength);
 
 /**
  * Use readahead to preload shared libraries into the file cache before loading.
@@ -102,7 +103,8 @@ bool fallocate(PRFileDesc* aFD, int64_t aLength);
  *
  * @param aFile nsIFile representing path to shared library
  */
-void ReadAheadLib(nsIFile* aFile);
+void
+ReadAheadLib(nsIFile* aFile);
 
 /**
  * Use readahead to preload a file into the file cache before reading.
@@ -115,11 +117,13 @@ void ReadAheadLib(nsIFile* aFile);
  * @param aOutFd Pointer to file descriptor. If specified, ReadAheadFile will
  *        return its internal, opened file descriptor instead of closing it.
  */
-void ReadAheadFile(nsIFile* aFile, const size_t aOffset = 0,
-                   const size_t aCount = SIZE_MAX,
-                   filedesc_t* aOutFd = nullptr);
+void
+ReadAheadFile(nsIFile* aFile,
+              const size_t aOffset = 0,
+              const size_t aCount = SIZE_MAX,
+              filedesc_t* aOutFd = nullptr);
 
-#endif // MOZILLA_INTERNAL_API
+#endif  // MOZILLA_INTERNAL_API
 
 /**
  * Use readahead to preload shared libraries into the file cache before loading.
@@ -128,7 +132,8 @@ void ReadAheadFile(nsIFile* aFile, const size_t aOffset = 0,
  *
  * @param aFilePath path to shared library
  */
-void ReadAheadLib(pathstr_t aFilePath);
+void
+ReadAheadLib(pathstr_t aFilePath);
 
 /**
  * Use readahead to preload a file into the file cache before loading.
@@ -141,9 +146,11 @@ void ReadAheadLib(pathstr_t aFilePath);
  * @param aOutFd Pointer to file descriptor. If specified, ReadAheadFile will
  *        return its internal, opened file descriptor instead of closing it.
  */
-void ReadAheadFile(pathstr_t aFilePath, const size_t aOffset = 0,
-                   const size_t aCount = SIZE_MAX,
-                   filedesc_t* aOutFd = nullptr);
+void
+ReadAheadFile(pathstr_t aFilePath,
+              const size_t aOffset = 0,
+              const size_t aCount = SIZE_MAX,
+              filedesc_t* aOutFd = nullptr);
 
 /**
  * Use readahead to preload a file into the file cache before reading.
@@ -157,19 +164,22 @@ void ReadAheadFile(pathstr_t aFilePath, const size_t aOffset = 0,
  * @param aOffset Offset into the file to begin preloading
  * @param aCount Number of bytes to preload (SIZE_MAX implies file size)
  */
-void ReadAhead(filedesc_t aFd, const size_t aOffset = 0,
-               const size_t aCount = SIZE_MAX);
+void
+ReadAhead(filedesc_t aFd,
+          const size_t aOffset = 0,
+          const size_t aCount = SIZE_MAX);
 
 #if defined(XP_UNIX)
-#define MOZ_TEMP_FAILURE_RETRY(exp) (__extension__({ \
-  typeof (exp) _rc; \
-  do { \
-    _rc = (exp); \
-  } while (_rc == -1 && errno == EINTR); \
-  _rc; \
-}))
+#define MOZ_TEMP_FAILURE_RETRY(exp)        \
+  (__extension__({                         \
+    typeof(exp) _rc;                       \
+    do {                                   \
+      _rc = (exp);                         \
+    } while (_rc == -1 && errno == EINTR); \
+    _rc;                                   \
+  }))
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

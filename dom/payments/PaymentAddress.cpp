@@ -32,18 +32,18 @@ PaymentAddress::PaymentAddress(nsPIDOMWindowInner* aWindow,
                                const nsAString& aOrganization,
                                const nsAString& aRecipient,
                                const nsAString& aPhone)
-  : mCountry(aCountry)
-  , mAddressLine(aAddressLine)
-  , mRegion(aRegion)
-  , mCity(aCity)
-  , mDependentLocality(aDependentLocality)
-  , mPostalCode(aPostalCode)
-  , mSortingCode(aSortingCode)
-  , mLanguageCode(aLanguageCode)
-  , mOrganization(aOrganization)
-  , mRecipient(aRecipient)
-  , mPhone(aPhone)
-  , mOwner(aWindow)
+    : mCountry(aCountry),
+      mAddressLine(aAddressLine),
+      mRegion(aRegion),
+      mCity(aCity),
+      mDependentLocality(aDependentLocality),
+      mPostalCode(aPostalCode),
+      mSortingCode(aSortingCode),
+      mLanguageCode(aLanguageCode),
+      mOrganization(aOrganization),
+      mRecipient(aRecipient),
+      mPhone(aPhone),
+      mOwner(aWindow)
 {
 }
 
@@ -113,9 +113,7 @@ PaymentAddress::GetPhone(nsAString& aRetVal) const
   aRetVal = mPhone;
 }
 
-PaymentAddress::~PaymentAddress()
-{
-}
+PaymentAddress::~PaymentAddress() {}
 
 JSObject*
 PaymentAddress::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -123,6 +121,5 @@ PaymentAddress::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return PaymentAddressBinding::Wrap(aCx, this, aGivenProto);
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

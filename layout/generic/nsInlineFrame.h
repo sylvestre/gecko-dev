@@ -21,7 +21,7 @@ class nsLineLayout;
  */
 class nsInlineFrame : public nsContainerFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsInlineFrame)
 
@@ -29,7 +29,7 @@ public:
                                           nsStyleContext* aContext);
 
   // nsIFrame overrides
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
 #ifdef ACCESSIBILITY
@@ -45,38 +45,40 @@ public:
     if (aFlags & eSupportsCSSTransforms) {
       return false;
     }
-    return nsContainerFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eBidiInlineContainer | nsIFrame::eLineParticipant));
+    return nsContainerFrame::IsFrameOfType(
+        aFlags &
+        ~(nsIFrame::eBidiInlineContainer | nsIFrame::eLineParticipant));
   }
 
   virtual void InvalidateFrame(uint32_t aDisplayItemKey = 0) override;
-  virtual void InvalidateFrameWithRect(const nsRect& aRect, uint32_t aDisplayItemKey = 0) override;
+  virtual void InvalidateFrameWithRect(const nsRect& aRect,
+                                       uint32_t aDisplayItemKey = 0) override;
 
   virtual bool IsEmpty() override;
   virtual bool IsSelfEmpty() override;
 
-  virtual FrameSearchResult
-  PeekOffsetCharacter(bool aForward, int32_t* aOffset,
-                      PeekOffsetCharacterOptions aOptions =
-                        PeekOffsetCharacterOptions()) override;
+  virtual FrameSearchResult PeekOffsetCharacter(
+      bool aForward,
+      int32_t* aOffset,
+      PeekOffsetCharacterOptions aOptions =
+          PeekOffsetCharacterOptions()) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
   virtual nsresult StealFrame(nsIFrame* aChild) override;
 
   // nsIHTMLReflow overrides
-  virtual void AddInlineMinISize(gfxContext *aRenderingContext,
-                                 InlineMinISizeData *aData) override;
-  virtual void AddInlinePrefISize(gfxContext *aRenderingContext,
-                                  InlinePrefISizeData *aData) override;
-  virtual mozilla::LogicalSize
-  ComputeSize(gfxContext *aRenderingContext,
-              mozilla::WritingMode aWritingMode,
-              const mozilla::LogicalSize& aCBSize,
-              nscoord aAvailableISize,
-              const mozilla::LogicalSize& aMargin,
-              const mozilla::LogicalSize& aBorder,
-              const mozilla::LogicalSize& aPadding,
-              ComputeSizeFlags aFlags) override;
+  virtual void AddInlineMinISize(gfxContext* aRenderingContext,
+                                 InlineMinISizeData* aData) override;
+  virtual void AddInlinePrefISize(gfxContext* aRenderingContext,
+                                  InlinePrefISizeData* aData) override;
+  virtual mozilla::LogicalSize ComputeSize(gfxContext* aRenderingContext,
+                                           mozilla::WritingMode aWritingMode,
+                                           const mozilla::LogicalSize& aCBSize,
+                                           nscoord aAvailableISize,
+                                           const mozilla::LogicalSize& aMargin,
+                                           const mozilla::LogicalSize& aBorder,
+                                           const mozilla::LogicalSize& aPadding,
+                                           ComputeSizeFlags aFlags) override;
   virtual nsRect ComputeTightBounds(DrawTarget* aDrawTarget) const override;
   virtual void Reflow(nsPresContext* aPresContext,
                       ReflowOutput& aDesiredSize,
@@ -90,47 +92,52 @@ public:
   virtual bool CanContinueTextRun() const override;
 
   virtual void PullOverflowsFromPrevInFlow() override;
-  virtual nscoord GetLogicalBaseline(mozilla::WritingMode aWritingMode) const override;
+  virtual nscoord GetLogicalBaseline(
+      mozilla::WritingMode aWritingMode) const override;
   virtual bool DrainSelfOverflowList() override;
 
   /**
    * Return true if the frame is first visual frame or first continuation
    */
-  bool IsFirst() const {
+  bool IsFirst() const
+  {
     // If the frame's bidi visual state is set, return is-first state
     // else return true if it's the first continuation.
     return (GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_STATE_IS_SET)
-             ? !!(GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_IS_FIRST)
-             : (!GetPrevInFlow());
+               ? !!(GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_IS_FIRST)
+               : (!GetPrevInFlow());
   }
 
   /**
    * Return true if the frame is last visual frame or last continuation.
    */
-  bool IsLast() const {
+  bool IsLast() const
+  {
     // If the frame's bidi visual state is set, return is-last state
     // else return true if it's the last continuation.
     return (GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_STATE_IS_SET)
-             ? !!(GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_IS_LAST)
-             : (!GetNextInFlow());
+               ? !!(GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_IS_LAST)
+               : (!GetNextInFlow());
   }
 
   // Restyles the block wrappers around our non-inline-outside kids.
   // This will only be called when such wrappers in fact exist.
   void UpdateStyleOfOwnedAnonBoxesForIBSplit(
-    mozilla::ServoRestyleState& aRestyleState);
+      mozilla::ServoRestyleState& aRestyleState);
 
-protected:
+ protected:
   // Additional reflow state used during our reflow methods
-  struct InlineReflowInput {
+  struct InlineReflowInput
+  {
     nsIFrame* mPrevFrame;
     nsInlineFrame* mNextInFlow;
-    nsIFrame*      mLineContainer;
-    nsLineLayout*  mLineLayout;
+    nsIFrame* mLineContainer;
+    nsLineLayout* mLineLayout;
     bool mSetParentPointer;  // when reflowing child frame first set its
-                                     // parent frame pointer
+                             // parent frame pointer
 
-    InlineReflowInput()  {
+    InlineReflowInput()
+    {
       mPrevFrame = nullptr;
       mNextInFlow = nullptr;
       mLineContainer = nullptr;
@@ -140,11 +147,12 @@ protected:
   };
 
   nsInlineFrame(nsStyleContext* aContext, ClassID aID)
-    : nsContainerFrame(aContext, aID)
-    , mBaseline(NS_INTRINSIC_WIDTH_UNKNOWN)
-  {}
+      : nsContainerFrame(aContext, aID), mBaseline(NS_INTRINSIC_WIDTH_UNKNOWN)
+  {
+  }
 
-  virtual LogicalSides GetLogicalSkipSides(const ReflowInput* aReflowInput = nullptr) const override;
+  virtual LogicalSides GetLogicalSkipSides(
+      const ReflowInput* aReflowInput = nullptr) const override;
 
   void ReflowFrames(nsPresContext* aPresContext,
                     const ReflowInput& aReflowInput,
@@ -167,16 +175,19 @@ protected:
                           nsIFrame* aPrevSibling,
                           InlineReflowInput& aState);
 
-private:
+ private:
   explicit nsInlineFrame(nsStyleContext* aContext)
-    : nsInlineFrame(aContext, kClassID)
-  {}
+      : nsInlineFrame(aContext, kClassID)
+  {
+  }
 
   // Helper method for DrainSelfOverflowList() to deal with lazy parenting
   // (which we only do for nsInlineFrame, not nsFirstLineFrame).
-  enum DrainFlags {
-    eDontReparentFrames = 1, // skip reparenting the overflow list frames
-    eInFirstLine = 2, // the request is for an inline descendant of a nsFirstLineFrame
+  enum DrainFlags
+  {
+    eDontReparentFrames = 1,  // skip reparenting the overflow list frames
+    eInFirstLine =
+        2,  // the request is for an inline descendant of a nsFirstLineFrame
   };
   /**
    * Move any frames on our overflow list to the end of our principal list.
@@ -184,7 +195,8 @@ private:
    * @return true if there were any overflow frames
    */
   bool DrainSelfOverflowListInternal(DrainFlags aFlags);
-protected:
+
+ protected:
   nscoord mBaseline;
 };
 
@@ -194,8 +206,9 @@ protected:
  * Variation on inline-frame used to manage lines for line layout in
  * special situations (:first-line style in particular).
  */
-class nsFirstLineFrame final : public nsInlineFrame {
-public:
+class nsFirstLineFrame final : public nsInlineFrame
+{
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsFirstLineFrame)
 
   friend nsFirstLineFrame* NS_NewFirstLineFrame(nsIPresShell* aPresShell,
@@ -209,16 +222,17 @@ public:
                       const ReflowInput& aReflowInput,
                       nsReflowStatus& aStatus) override;
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
   virtual void PullOverflowsFromPrevInFlow() override;
   virtual bool DrainSelfOverflowList() override;
 
-protected:
+ protected:
   explicit nsFirstLineFrame(nsStyleContext* aContext)
-    : nsInlineFrame(aContext, kClassID)
-  {}
+      : nsInlineFrame(aContext, kClassID)
+  {
+  }
 
   virtual nsIFrame* PullOneFrame(nsPresContext* aPresContext,
                                  InlineReflowInput& rs,

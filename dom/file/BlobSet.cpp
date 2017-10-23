@@ -50,7 +50,7 @@ BlobSet::AppendString(const nsAString& aString, bool nativeEOL)
   }
 
   RefPtr<StringBlobImpl> blobImpl =
-    StringBlobImpl::Create(utf8Str, EmptyString());
+      StringBlobImpl::Create(utf8Str, EmptyString());
   return AppendBlobImpl(blobImpl);
 }
 
@@ -62,5 +62,5 @@ BlobSet::AppendBlobImpl(BlobImpl* aBlobImpl)
   return NS_OK;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

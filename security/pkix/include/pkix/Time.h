@@ -31,7 +31,8 @@
 
 #include "pkix/Result.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 // Time with a range from the first second of year 0 (AD) through at least the
 // last second of year 9999, which is the range of legal times in X.509 and
@@ -40,7 +41,7 @@ namespace mozilla { namespace pkix {
 // Pass by value, not by reference.
 class Time final
 {
-public:
+ public:
   // Construct an uninitialized instance.
   //
   // This will fail to compile because there is no default constructor:
@@ -48,8 +49,11 @@ public:
   //
   // This will succeed, leaving the time uninitialized:
   //    Time x(Time::uninitialized);
-  enum Uninitialized { uninitialized };
-  explicit Time(Uninitialized) { }
+  enum Uninitialized
+  {
+    uninitialized
+  };
+  explicit Time(Uninitialized) {}
 
   bool operator==(const Time& other) const
   {
@@ -74,9 +78,8 @@ public:
 
   Result AddSeconds(uint64_t seconds)
   {
-    if (std::numeric_limits<uint64_t>::max() - elapsedSecondsAD
-          < seconds) {
-      return Result::FATAL_ERROR_INVALID_ARGS; // integer overflow
+    if (std::numeric_limits<uint64_t>::max() - elapsedSecondsAD < seconds) {
+      return Result::FATAL_ERROR_INVALID_ARGS;  // integer overflow
     }
     elapsedSecondsAD += seconds;
     return Success;
@@ -85,16 +88,16 @@ public:
   Result SubtractSeconds(uint64_t seconds)
   {
     if (seconds > elapsedSecondsAD) {
-      return Result::FATAL_ERROR_INVALID_ARGS; // integer overflow
+      return Result::FATAL_ERROR_INVALID_ARGS;  // integer overflow
     }
     elapsedSecondsAD -= seconds;
     return Success;
   }
 
-  static const uint64_t ONE_DAY_IN_SECONDS
-    = UINT64_C(24) * UINT64_C(60) * UINT64_C(60);
+  static const uint64_t ONE_DAY_IN_SECONDS =
+      UINT64_C(24) * UINT64_C(60) * UINT64_C(60);
 
-private:
+ private:
   // This constructor is hidden to prevent accidents like this:
   //
   //    Time foo(time_t t)
@@ -102,8 +105,7 @@ private:
   //      // WRONG! 1970-01-01-00:00:00 == time_t(0), but not Time(0)!
   //      return Time(t);
   //    }
-  explicit Time(uint64_t elapsedSecondsAD)
-    : elapsedSecondsAD(elapsedSecondsAD)
+  explicit Time(uint64_t elapsedSecondsAD) : elapsedSecondsAD(elapsedSecondsAD)
   {
   }
   friend Time TimeFromElapsedSecondsAD(uint64_t);
@@ -112,28 +114,31 @@ private:
   uint64_t elapsedSecondsAD;
 };
 
-inline Time TimeFromElapsedSecondsAD(uint64_t elapsedSecondsAD)
+inline Time
+TimeFromElapsedSecondsAD(uint64_t elapsedSecondsAD)
 {
   return Time(elapsedSecondsAD);
 }
 
-Time Now();
+Time
+Now();
 
 // Note the epoch is the unix epoch (ie 00:00:00 UTC, 1 January 1970)
-Time TimeFromEpochInSeconds(uint64_t secondsSinceEpoch);
+Time
+TimeFromEpochInSeconds(uint64_t secondsSinceEpoch);
 
 class Duration final
 {
-public:
+ public:
   Duration(Time timeA, Time timeB)
-    : durationInSeconds(timeA < timeB
-                        ? timeB.elapsedSecondsAD - timeA.elapsedSecondsAD
-                        : timeA.elapsedSecondsAD - timeB.elapsedSecondsAD)
+      : durationInSeconds(timeA < timeB
+                              ? timeB.elapsedSecondsAD - timeA.elapsedSecondsAD
+                              : timeA.elapsedSecondsAD - timeB.elapsedSecondsAD)
   {
   }
 
   explicit Duration(uint64_t durationInSeconds)
-    : durationInSeconds(durationInSeconds)
+      : durationInSeconds(durationInSeconds)
   {
   }
 
@@ -146,10 +151,11 @@ public:
     return durationInSeconds < other.durationInSeconds;
   }
 
-private:
+ private:
   uint64_t durationInSeconds;
 };
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_Time_h
+#endif  // mozilla_pkix_Time_h

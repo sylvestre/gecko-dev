@@ -22,16 +22,13 @@ class DebuggerMemory : public NativeObject {
 
     Debugger* getDebugger();
 
-  public:
+   public:
     static DebuggerMemory* create(JSContext* cx, Debugger* dbg);
 
-    enum {
-        JSSLOT_DEBUGGER,
-        JSSLOT_COUNT
-    };
+    enum { JSSLOT_DEBUGGER, JSSLOT_COUNT };
 
     static bool construct(JSContext* cx, unsigned argc, Value* vp);
-    static const Class          class_;
+    static const Class class_;
     static const JSPropertySpec properties[];
     static const JSFunctionSpec methods[];
 

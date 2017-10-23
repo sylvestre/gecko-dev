@@ -55,7 +55,10 @@ ProxyAccessible::GetCOMInterface(void** aOutAccessible) const
 /**
  * Specializations of this template map an IAccessible type to its IID
  */
-template<typename Interface> struct InterfaceIID {};
+template<typename Interface>
+struct InterfaceIID
+{
+};
 
 template<>
 struct InterfaceIID<IAccessibleValue>
@@ -114,7 +117,7 @@ GetProxyFor(DocAccessibleParent* aDoc, IUnknown* aCOMProxy)
 {
   RefPtr<IGeckoCustom> custom;
   if (FAILED(aCOMProxy->QueryInterface(IID_IGeckoCustom,
-                                       (void**) getter_AddRefs(custom)))) {
+                                       (void**)getter_AddRefs(custom)))) {
     return nullptr;
   }
 
@@ -249,7 +252,8 @@ ProxyAccessible::Language(nsString& aLocale)
   }
 
   RefPtr<IAccessible2> acc2;
-  if (FAILED(acc->QueryInterface(IID_IAccessible2, (void**)getter_AddRefs(acc2)))) {
+  if (FAILED(acc->QueryInterface(IID_IAccessible2,
+                                 (void**)getter_AddRefs(acc2)))) {
     return;
   }
 
@@ -288,8 +292,7 @@ IsEscapedChar(const wchar_t c)
 }
 
 static bool
-ConvertBSTRAttributesToArray(const nsAString& aStr,
-                             nsTArray<Attribute>* aAttrs)
+ConvertBSTRAttributesToArray(const nsAString& aStr, nsTArray<Attribute>* aAttrs)
 {
   if (!aAttrs) {
     return false;
@@ -329,8 +332,8 @@ ConvertBSTRAttributesToArray(const nsAString& aStr,
           return false;
         }
         state = eName;
-        aAttrs->AppendElement(Attribute(NS_ConvertUTF16toUTF8(tokens[eName]),
-                                        tokens[eValue]));
+        aAttrs->AppendElement(
+            Attribute(NS_ConvertUTF16toUTF8(tokens[eName]), tokens[eValue]));
         tokens[eName].Truncate();
         tokens[eValue].Truncate();
         ++itr;
@@ -355,7 +358,8 @@ ProxyAccessible::Attributes(nsTArray<Attribute>* aAttrs) const
   }
 
   RefPtr<IAccessible2> acc2;
-  if (FAILED(acc->QueryInterface(IID_IAccessible2, (void**)getter_AddRefs(acc2)))) {
+  if (FAILED(acc->QueryInterface(IID_IAccessible2,
+                                 (void**)getter_AddRefs(acc2)))) {
     return;
   }
 
@@ -366,9 +370,8 @@ ProxyAccessible::Attributes(nsTArray<Attribute>* aAttrs) const
     return;
   }
 
-  ConvertBSTRAttributesToArray(nsDependentString((wchar_t*)attrs,
-                                                 attrsWrap.length()),
-                               aAttrs);
+  ConvertBSTRAttributesToArray(
+      nsDependentString((wchar_t*)attrs, attrsWrap.length()), aAttrs);
 }
 
 nsTArray<ProxyAccessible*>
@@ -393,7 +396,8 @@ ProxyAccessible::RelationByType(RelationType aType) const
 
   IUnknown** targets;
   long nTargets = 0;
-  HRESULT hr = acc->get_relationTargetsOfType(relationType, 0, &targets, &nTargets);
+  HRESULT hr =
+      acc->get_relationTargetsOfType(relationType, 0, &targets, &nTargets);
   if (FAILED(hr)) {
     nsTArray<ProxyAccessible*>();
   }
@@ -492,7 +496,8 @@ GetIA2TextBoundary(AccessibleTextBoundary aGeckoBoundaryType)
 }
 
 bool
-ProxyAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOffset,
+ProxyAccessible::TextSubstring(int32_t aStartOffset,
+                               int32_t aEndOffset,
                                nsString& aText) const
 {
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
@@ -501,8 +506,8 @@ ProxyAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOffset,
   }
 
   BSTR result;
-  HRESULT hr = acc->get_text(static_cast<long>(aStartOffset),
-                             static_cast<long>(aEndOffset), &result);
+  HRESULT hr = acc->get_text(
+      static_cast<long>(aStartOffset), static_cast<long>(aEndOffset), &result);
   if (FAILED(hr)) {
     return false;
   }
@@ -515,9 +520,10 @@ ProxyAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOffset,
 
 void
 ProxyAccessible::GetTextBeforeOffset(int32_t aOffset,
-                                    AccessibleTextBoundary aBoundaryType,
-                                    nsString& aText, int32_t* aStartOffset,
-                                    int32_t* aEndOffset)
+                                     AccessibleTextBoundary aBoundaryType,
+                                     nsString& aText,
+                                     int32_t* aStartOffset,
+                                     int32_t* aEndOffset)
 {
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
   if (!acc) {
@@ -526,9 +532,8 @@ ProxyAccessible::GetTextBeforeOffset(int32_t aOffset,
 
   BSTR result;
   long start, end;
-  HRESULT hr = acc->get_textBeforeOffset(aOffset,
-                                         GetIA2TextBoundary(aBoundaryType),
-                                         &start, &end, &result);
+  HRESULT hr = acc->get_textBeforeOffset(
+      aOffset, GetIA2TextBoundary(aBoundaryType), &start, &end, &result);
   if (FAILED(hr)) {
     return;
   }
@@ -542,7 +547,8 @@ ProxyAccessible::GetTextBeforeOffset(int32_t aOffset,
 void
 ProxyAccessible::GetTextAfterOffset(int32_t aOffset,
                                     AccessibleTextBoundary aBoundaryType,
-                                    nsString& aText, int32_t* aStartOffset,
+                                    nsString& aText,
+                                    int32_t* aStartOffset,
                                     int32_t* aEndOffset)
 {
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
@@ -552,9 +558,8 @@ ProxyAccessible::GetTextAfterOffset(int32_t aOffset,
 
   BSTR result;
   long start, end;
-  HRESULT hr = acc->get_textAfterOffset(aOffset,
-                                        GetIA2TextBoundary(aBoundaryType),
-                                        &start, &end, &result);
+  HRESULT hr = acc->get_textAfterOffset(
+      aOffset, GetIA2TextBoundary(aBoundaryType), &start, &end, &result);
   if (FAILED(hr)) {
     return;
   }
@@ -567,9 +572,10 @@ ProxyAccessible::GetTextAfterOffset(int32_t aOffset,
 
 void
 ProxyAccessible::GetTextAtOffset(int32_t aOffset,
-                                    AccessibleTextBoundary aBoundaryType,
-                                    nsString& aText, int32_t* aStartOffset,
-                                    int32_t* aEndOffset)
+                                 AccessibleTextBoundary aBoundaryType,
+                                 nsString& aText,
+                                 int32_t* aStartOffset,
+                                 int32_t* aEndOffset)
 {
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
   if (!acc) {
@@ -578,8 +584,8 @@ ProxyAccessible::GetTextAtOffset(int32_t aOffset,
 
   BSTR result;
   long start, end;
-  HRESULT hr = acc->get_textAtOffset(aOffset, GetIA2TextBoundary(aBoundaryType),
-                                     &start, &end, &result);
+  HRESULT hr = acc->get_textAtOffset(
+      aOffset, GetIA2TextBoundary(aBoundaryType), &start, &end, &result);
   if (FAILED(hr)) {
     return;
   }
@@ -645,7 +651,8 @@ ProxyAccessible::SetCaretOffset(int32_t aOffset)
  * aScrollType should be one of the nsIAccessiblescrollType constants.
  */
 void
-ProxyAccessible::ScrollSubstringTo(int32_t aStartOffset, int32_t aEndOffset,
+ProxyAccessible::ScrollSubstringTo(int32_t aStartOffset,
+                                   int32_t aEndOffset,
                                    uint32_t aScrollType)
 {
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
@@ -662,8 +669,10 @@ ProxyAccessible::ScrollSubstringTo(int32_t aStartOffset, int32_t aEndOffset,
  * aCoordinateType is one of the nsIAccessibleCoordinateType constants.
  */
 void
-ProxyAccessible::ScrollSubstringToPoint(int32_t aStartOffset, int32_t aEndOffset,
-                                        uint32_t aCoordinateType, int32_t aX,
+ProxyAccessible::ScrollSubstringToPoint(int32_t aStartOffset,
+                                        int32_t aEndOffset,
+                                        uint32_t aCoordinateType,
+                                        int32_t aX,
                                         int32_t aY)
 {
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
@@ -672,9 +681,11 @@ ProxyAccessible::ScrollSubstringToPoint(int32_t aStartOffset, int32_t aEndOffset
   }
 
   IA2CoordinateType coordType;
-  if (aCoordinateType == nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE) {
+  if (aCoordinateType ==
+      nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE) {
     coordType = IA2_COORDTYPE_SCREEN_RELATIVE;
-  } else if (aCoordinateType == nsIAccessibleCoordinateType::COORDTYPE_PARENT_RELATIVE) {
+  } else if (aCoordinateType ==
+             nsIAccessibleCoordinateType::COORDTYPE_PARENT_RELATIVE) {
     coordType = IA2_COORDTYPE_PARENT_RELATIVE;
   } else {
     MOZ_RELEASE_ASSERT(false, "unsupported coord type");
@@ -752,7 +763,8 @@ ProxyAccessible::AnchorCount(bool* aOk)
 ProxyAccessible*
 ProxyAccessible::AnchorAt(uint32_t aIdx)
 {
-  RefPtr<IAccessibleHyperlink> link = QueryInterface<IAccessibleHyperlink>(this);
+  RefPtr<IAccessibleHyperlink> link =
+      QueryInterface<IAccessibleHyperlink>(this);
   if (!link) {
     return nullptr;
   }
@@ -786,5 +798,5 @@ ProxyAccessible::DOMNodeID(nsString& aID)
   aID = (wchar_t*)resultWrap;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

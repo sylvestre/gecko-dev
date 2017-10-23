@@ -36,8 +36,8 @@ class MediaPipelineFactory;
 namespace dom {
 struct RTCInboundRTPStreamStats;
 struct RTCOutboundRTPStreamStats;
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
 #include "nricectxhandler.h"
 #include "nriceresolver.h"
@@ -50,31 +50,28 @@ class PeerConnectionImpl;
 class PeerConnectionMedia;
 class PCUuidGenerator;
 
-class SourceStreamInfo {
-public:
+class SourceStreamInfo
+{
+ public:
   SourceStreamInfo(DOMMediaStream* aMediaStream,
-                   PeerConnectionMedia *aParent,
+                   PeerConnectionMedia* aParent,
                    const std::string& aId)
-      : mMediaStream(aMediaStream),
-        mParent(aParent),
-        mId(aId) {
+      : mMediaStream(aMediaStream), mParent(aParent), mId(aId)
+  {
     MOZ_ASSERT(mMediaStream);
   }
 
   SourceStreamInfo(already_AddRefed<DOMMediaStream>& aMediaStream,
-                   PeerConnectionMedia *aParent,
+                   PeerConnectionMedia* aParent,
                    const std::string& aId)
-      : mMediaStream(aMediaStream),
-        mParent(aParent),
-        mId(aId) {
+      : mMediaStream(aMediaStream), mParent(aParent), mId(aId)
+  {
     MOZ_ASSERT(mMediaStream);
   }
 
   virtual ~SourceStreamInfo() {}
 
-  DOMMediaStream* GetMediaStream() const {
-    return mMediaStream;
-  }
+  DOMMediaStream* GetMediaStream() const { return mMediaStream; }
 
   nsresult StorePipeline(const std::string& trackId,
                          const RefPtr<MediaPipeline>& aPipeline);
@@ -93,13 +90,18 @@ public:
 
   // This method exists for stats and the unittests.
   // It allows visibility into the pipelines and flows.
-  const std::map<std::string, RefPtr<MediaPipeline>>&
-  GetPipelines() const { return mPipelines; }
+  const std::map<std::string, RefPtr<MediaPipeline>>& GetPipelines() const
+  {
+    return mPipelines;
+  }
   RefPtr<MediaPipeline> GetPipelineByTrackId_m(const std::string& trackId);
   // This is needed so PeerConnectionImpl can unregister itself as
   // PrincipalChangeObserver from each track.
   const std::map<std::string, RefPtr<dom::MediaStreamTrack>>&
-  GetMediaStreamTracks() const { return mTracks; }
+  GetMediaStreamTracks() const
+  {
+    return mTracks;
+  }
   dom::MediaStreamTrack* GetTrackById(const std::string& trackId) const
   {
     auto it = mTracks.find(trackId);
@@ -114,10 +116,11 @@ public:
   void DetachTransport_s();
   virtual void DetachMedia_m();
   bool AnyCodecHasPluginID(uint64_t aPluginID);
-protected:
+
+ protected:
   void EndTrack(MediaStream* stream, dom::MediaStreamTrack* track);
   RefPtr<DOMMediaStream> mMediaStream;
-  PeerConnectionMedia *mParent;
+  PeerConnectionMedia* mParent;
   const std::string mId;
   // These get set up before we generate our local description, the pipelines
   // and conduits are set up once offer/answer completes.
@@ -127,15 +130,17 @@ protected:
 
 // TODO(ekr@rtfm.com): Refactor {Local,Remote}SourceStreamInfo
 // bug 837539.
-class LocalSourceStreamInfo : public SourceStreamInfo {
-  ~LocalSourceStreamInfo() {
-    mMediaStream = nullptr;
-  }
-public:
-  LocalSourceStreamInfo(DOMMediaStream *aMediaStream,
-                        PeerConnectionMedia *aParent,
+class LocalSourceStreamInfo : public SourceStreamInfo
+{
+  ~LocalSourceStreamInfo() { mMediaStream = nullptr; }
+
+ public:
+  LocalSourceStreamInfo(DOMMediaStream* aMediaStream,
+                        PeerConnectionMedia* aParent,
                         const std::string& aId)
-     : SourceStreamInfo(aMediaStream, aParent, aId) {}
+      : SourceStreamInfo(aMediaStream, aParent, aId)
+  {
+  }
 
   nsresult TakePipelineFrom(RefPtr<LocalSourceStreamInfo>& info,
                             const std::string& oldTrackId,
@@ -148,26 +153,28 @@ public:
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(LocalSourceStreamInfo)
 
-private:
+ private:
   already_AddRefed<MediaPipeline> ForgetPipelineByTrackId_m(
       const std::string& trackId);
 };
 
 class RemoteTrackSource : public dom::MediaStreamTrackSource
 {
-public:
+ public:
   explicit RemoteTrackSource(nsIPrincipal* aPrincipal, const nsString& aLabel)
-    : dom::MediaStreamTrackSource(aPrincipal, aLabel) {}
+      : dom::MediaStreamTrackSource(aPrincipal, aLabel)
+  {
+  }
 
   dom::MediaSourceEnum GetMediaSource() const override
   {
     return dom::MediaSourceEnum::Other;
   }
 
-  already_AddRefed<PledgeVoid>
-  ApplyConstraints(nsPIDOMWindowInner* aWindow,
-                   const dom::MediaTrackConstraints& aConstraints,
-                   dom::CallerType aCallerType) override;
+  already_AddRefed<PledgeVoid> ApplyConstraints(
+      nsPIDOMWindowInner* aWindow,
+      const dom::MediaTrackConstraints& aConstraints,
+      dom::CallerType aCallerType) override;
 
   void Stop() override
   {
@@ -181,18 +188,19 @@ public:
     PrincipalChanged();
   }
 
-protected:
+ protected:
   virtual ~RemoteTrackSource() {}
 };
 
-class RemoteSourceStreamInfo : public SourceStreamInfo {
+class RemoteSourceStreamInfo : public SourceStreamInfo
+{
   ~RemoteSourceStreamInfo() {}
+
  public:
   RemoteSourceStreamInfo(already_AddRefed<DOMMediaStream> aMediaStream,
-                         PeerConnectionMedia *aParent,
+                         PeerConnectionMedia* aParent,
                          const std::string& aId)
-    : SourceStreamInfo(aMediaStream, aParent, aId),
-      mReceiving(false)
+      : SourceStreamInfo(aMediaStream, aParent, aId), mReceiving(false)
   {
   }
 
@@ -227,18 +235,18 @@ class RemoteSourceStreamInfo : public SourceStreamInfo {
   bool mReceiving;
 };
 
-class PeerConnectionMedia : public sigslot::has_slots<> {
-  ~PeerConnectionMedia()
-  {
-    MOZ_RELEASE_ASSERT(!mMainThread);
-  }
+class PeerConnectionMedia : public sigslot::has_slots<>
+{
+  ~PeerConnectionMedia() { MOZ_RELEASE_ASSERT(!mMainThread); }
 
  public:
-  explicit PeerConnectionMedia(PeerConnectionImpl *parent);
+  explicit PeerConnectionMedia(PeerConnectionImpl* parent);
 
-  enum IceRestartState { ICE_RESTART_NONE,
-                         ICE_RESTART_PROVISIONAL,
-                         ICE_RESTART_COMMITTED
+  enum IceRestartState
+  {
+    ICE_RESTART_NONE,
+    ICE_RESTART_PROVISIONAL,
+    ICE_RESTART_COMMITTED
   };
 
   PeerConnectionImpl* GetPC() { return mParent; }
@@ -251,11 +259,13 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   RefPtr<NrIceCtxHandler> ice_ctx_hdlr() const { return mIceCtxHdlr; }
   RefPtr<NrIceCtx> ice_ctx() const { return mIceCtxHdlr->ctx(); }
 
-  RefPtr<NrIceMediaStream> ice_media_stream(size_t i) const {
+  RefPtr<NrIceMediaStream> ice_media_stream(size_t i) const
+  {
     return mIceCtxHdlr->ctx()->GetStream(i);
   }
 
-  size_t num_ice_media_streams() const {
+  size_t num_ice_media_streams() const
+  {
     return mIceCtxHdlr->ctx()->GetStreamCount();
   }
 
@@ -274,8 +284,7 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   IceRestartState GetIceRestartState() const;
 
   // Begin ICE restart
-  void BeginIceRestart(const std::string& ufrag,
-                       const std::string& pwd);
+  void BeginIceRestart(const std::string& ufrag, const std::string& pwd);
   // Commit ICE Restart - offer/answer complete, no rollback possible
   void CommitIceRestart();
   // Finalize ICE restart
@@ -284,7 +293,8 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   void RollbackIceRestart();
 
   // Process a trickle ICE candidate.
-  void AddIceCandidate(const std::string& candidate, const std::string& mid,
+  void AddIceCandidate(const std::string& candidate,
+                       const std::string& mid,
                        uint32_t aMLine);
 
   // Handle notifications of network online/offline events.
@@ -302,22 +312,16 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   nsresult RemoveLocalTrack(const std::string& streamId,
                             const std::string& trackId);
   nsresult RemoveRemoteTrack(const std::string& streamId,
-                            const std::string& trackId);
+                             const std::string& trackId);
 
   // Get a specific local stream
-  uint32_t LocalStreamsLength()
-  {
-    return mLocalSourceStreams.Length();
-  }
+  uint32_t LocalStreamsLength() { return mLocalSourceStreams.Length(); }
   LocalSourceStreamInfo* GetLocalStreamByIndex(int index);
   LocalSourceStreamInfo* GetLocalStreamById(const std::string& id);
   LocalSourceStreamInfo* GetLocalStreamByTrackId(const std::string& id);
 
   // Get a specific remote stream
-  uint32_t RemoteStreamsLength()
-  {
-    return mRemoteSourceStreams.Length();
-  }
+  uint32_t RemoteStreamsLength() { return mRemoteSourceStreams.Length(); }
 
   RemoteSourceStreamInfo* GetRemoteStreamByIndex(size_t index);
   RemoteSourceStreamInfo* GetRemoteStreamById(const std::string& id);
@@ -357,7 +361,8 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
 
   // Get a transport flow either RTP/RTCP for a particular stream
   // A stream can be of audio/video/datachannel/budled(?) types
-  RefPtr<TransportFlow> GetTransportFlow(int aStreamIndex, bool aIsRtcp) {
+  RefPtr<TransportFlow> GetTransportFlow(int aStreamIndex, bool aIsRtcp)
+  {
     int index_inner = GetTransportFlowIndex(aStreamIndex, aIsRtcp);
 
     if (mTransportFlows.find(index_inner) == mTransportFlows.end())
@@ -367,16 +372,17 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   }
 
   // Add a transport flow
-  void AddTransportFlow(int aIndex, bool aRtcp,
-                        const RefPtr<TransportFlow> &aFlow);
+  void AddTransportFlow(int aIndex,
+                        bool aRtcp,
+                        const RefPtr<TransportFlow>& aFlow);
   void RemoveTransportFlow(int aIndex, bool aRtcp);
   void ConnectDtlsListener_s(const RefPtr<TransportFlow>& aFlow);
-  void DtlsConnected_s(TransportLayer* aFlow,
-                       TransportLayer::State state);
+  void DtlsConnected_s(TransportLayer* aFlow, TransportLayer::State state);
   static void DtlsConnected_m(const std::string& aParentHandle,
                               bool aPrivacyRequested);
 
-  RefPtr<AudioSessionConduit> GetAudioConduit(size_t level) {
+  RefPtr<AudioSessionConduit> GetAudioConduit(size_t level)
+  {
     auto it = mConduits.find(level);
     if (it == mConduits.end()) {
       return nullptr;
@@ -391,7 +397,8 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
         static_cast<AudioSessionConduit*>(it->second.second.get()));
   }
 
-  RefPtr<VideoSessionConduit> GetVideoConduit(size_t level) {
+  RefPtr<VideoSessionConduit> GetVideoConduit(size_t level)
+  {
     auto it = mConduits.find(level);
     if (it == mConduits.end()) {
       return nullptr;
@@ -406,12 +413,16 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
         static_cast<VideoSessionConduit*>(it->second.second.get()));
   }
 
-  void AddVideoConduit(size_t level, const RefPtr<VideoSessionConduit> &aConduit) {
+  void AddVideoConduit(size_t level,
+                       const RefPtr<VideoSessionConduit>& aConduit)
+  {
     mConduits[level] = std::make_pair(true, aConduit);
   }
 
   // Add a conduit
-  void AddAudioConduit(size_t level, const RefPtr<AudioSessionConduit> &aConduit) {
+  void AddAudioConduit(size_t level,
+                       const RefPtr<AudioSessionConduit>& aConduit)
+  {
     mConduits[level] = std::make_pair(false, aConduit);
   }
 
@@ -423,25 +434,27 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   // This passes a candidate:... attribute  and level
   sigslot::signal2<const std::string&, uint16_t> SignalCandidate;
   // This passes address, port, level of the default candidate.
-  sigslot::signal5<const std::string&, uint16_t,
-                   const std::string&, uint16_t, uint16_t>
+  sigslot::signal5<const std::string&,
+                   uint16_t,
+                   const std::string&,
+                   uint16_t,
+                   uint16_t>
       SignalUpdateDefaultCandidate;
-  sigslot::signal1<uint16_t>
-      SignalEndOfLocalCandidates;
+  sigslot::signal1<uint16_t> SignalEndOfLocalCandidates;
 
   RefPtr<WebRtcCallWrapper> mCall;
 
  private:
-  void InitLocalAddrs(); // for stun local address IPC request
+  void InitLocalAddrs();  // for stun local address IPC request
   nsresult InitProxy();
-  class ProtocolProxyQueryHandler : public nsIProtocolProxyCallback {
+  class ProtocolProxyQueryHandler : public nsIProtocolProxyCallback
+  {
    public:
-    explicit ProtocolProxyQueryHandler(PeerConnectionMedia *pcm) :
-      pcm_(pcm) {}
+    explicit ProtocolProxyQueryHandler(PeerConnectionMedia* pcm) : pcm_(pcm) {}
 
-    NS_IMETHOD OnProxyAvailable(nsICancelable *request,
-                                nsIChannel *aChannel,
-                                nsIProxyInfo *proxyinfo,
+    NS_IMETHOD OnProxyAvailable(nsICancelable* request,
+                                nsIChannel* aChannel,
+                                nsIProxyInfo* proxyinfo,
                                 nsresult result) override;
     NS_DECL_ISUPPORTS
 
@@ -451,12 +464,13 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
     virtual ~ProtocolProxyQueryHandler() {}
   };
 
-  class StunAddrsHandler : public net::StunAddrsListener {
+  class StunAddrsHandler : public net::StunAddrsListener
+  {
    public:
-    explicit StunAddrsHandler(PeerConnectionMedia *pcm) :
-      pcm_(pcm) {}
+    explicit StunAddrsHandler(PeerConnectionMedia* pcm) : pcm_(pcm) {}
     void OnStunAddrsAvailable(
         const mozilla::net::NrIceStunAddrArray& addrs) override;
+
    private:
     RefPtr<PeerConnectionMedia> pcm_;
     virtual ~StunAddrsHandler() {}
@@ -494,21 +508,21 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   bool GetPrefDefaultAddressOnly() const;
   bool GetPrefProxyOnly() const;
 
-  void ConnectSignals(NrIceCtx *aCtx, NrIceCtx *aOldCtx=nullptr);
+  void ConnectSignals(NrIceCtx* aCtx, NrIceCtx* aOldCtx = nullptr);
 
   // Process a trickle ICE candidate.
-  void AddIceCandidate_s(const std::string& aCandidate, const std::string& aMid,
+  void AddIceCandidate_s(const std::string& aCandidate,
+                         const std::string& aMid,
                          uint32_t aMLine);
 
   void UpdateNetworkState_s(bool online);
 
   // ICE events
-  void IceGatheringStateChange_s(NrIceCtx* ctx,
-                               NrIceCtx::GatheringState state);
+  void IceGatheringStateChange_s(NrIceCtx* ctx, NrIceCtx::GatheringState state);
   void IceConnectionStateChange_s(NrIceCtx* ctx,
-                                NrIceCtx::ConnectionState state);
-  void IceStreamReady_s(NrIceMediaStream *aStream);
-  void OnCandidateFound_s(NrIceMediaStream *aStream,
+                                  NrIceCtx::ConnectionState state);
+  void IceStreamReady_s(NrIceMediaStream* aStream);
+  void OnCandidateFound_s(NrIceMediaStream* aStream,
                           const std::string& aCandidate);
   void EndOfLocalCandidates(const std::string& aDefaultAddr,
                             uint16_t aDefaultPort,
@@ -519,8 +533,7 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
                             NrIceCandidate* aCandidate,
                             NrIceCandidate* aRtcpCandidate);
 
-  void IceGatheringStateChange_m(NrIceCtx* ctx,
-                                 NrIceCtx::GatheringState state);
+  void IceGatheringStateChange_m(NrIceCtx* ctx, NrIceCtx::GatheringState state);
   void IceConnectionStateChange_m(NrIceCtx* ctx,
                                   NrIceCtx::ConnectionState state);
   void OnCandidateFound_m(const std::string& aCandidateLine,
@@ -534,23 +547,24 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
                               const std::string& aDefaultRtcpAddr,
                               uint16_t aDefaultRtcpPort,
                               uint16_t aMLine);
-  bool IsIceCtxReady() const {
+  bool IsIceCtxReady() const
+  {
     return mProxyResolveCompleted && mLocalAddrsCompleted;
   }
 
   // The parent PC
-  PeerConnectionImpl *mParent;
+  PeerConnectionImpl* mParent;
   // and a loose handle on it for event driven stuff
   std::string mParentHandle;
   std::string mParentName;
 
   // A list of streams returned from GetUserMedia
   // This is only accessed on the main thread (with one special exception)
-  nsTArray<RefPtr<LocalSourceStreamInfo> > mLocalSourceStreams;
+  nsTArray<RefPtr<LocalSourceStreamInfo>> mLocalSourceStreams;
 
   // A list of streams provided by the other side
   // This is only accessed on the main thread (with one special exception)
-  nsTArray<RefPtr<RemoteSourceStreamInfo> > mRemoteSourceStreams;
+  nsTArray<RefPtr<RemoteSourceStreamInfo>> mRemoteSourceStreams;
 
   std::map<size_t, std::pair<bool, RefPtr<MediaSessionConduit>>> mConduits;
 
@@ -561,7 +575,7 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   RefPtr<NrIceResolver> mDNSResolver;
 
   // Transport flows: even is RTP, odd is RTCP
-  std::map<int, RefPtr<TransportFlow> > mTransportFlows;
+  std::map<int, RefPtr<TransportFlow>> mTransportFlows;
 
   // UUID Generator
   UniquePtr<PCUuidGenerator> mUuidGen;
@@ -602,6 +616,6 @@ class PeerConnectionMedia : public sigslot::has_slots<> {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(PeerConnectionMedia)
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

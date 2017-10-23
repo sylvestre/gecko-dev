@@ -13,9 +13,7 @@ using namespace js::jit;
 namespace js {
 namespace jit {
 
-bool
-ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm)
-{
+bool ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm) {
     Label failure, isNaN;
     masm.ensureDouble(R0, FloatReg0, &failure);
     masm.ensureDouble(R1, FloatReg1, &failure);
@@ -35,5 +33,5 @@ ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm)
     return true;
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js

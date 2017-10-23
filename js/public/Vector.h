@@ -15,25 +15,26 @@ class TempAllocPolicy;
 
 namespace detail {
 
-template <typename T>
+template<typename T>
 struct TypeIsGCThing : mozilla::FalseType
-{};
+{
+};
 
 // Uncomment this once we actually can assert it:
 //template <>
 //struct TypeIsGCThing<JS::Value> : mozilla::TrueType
 //{};
 
-} // namespace detail
+}  // namespace detail
 
-template <typename T,
-          size_t MinInlineCapacity = 0,
-          class AllocPolicy = TempAllocPolicy,
+template<typename T,
+         size_t MinInlineCapacity = 0,
+         class AllocPolicy = TempAllocPolicy,
          // Don't use this with JS::Value!  Use JS::AutoValueVector instead.
-         typename = typename mozilla::EnableIf<!detail::TypeIsGCThing<T>::value>::Type
-         >
+         typename =
+             typename mozilla::EnableIf<!detail::TypeIsGCThing<T>::value>::Type>
 using Vector = mozilla::Vector<T, MinInlineCapacity, AllocPolicy>;
 
-} // namespace js
+}  // namespace js
 
 #endif /* js_Vector_h */

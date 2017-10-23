@@ -20,14 +20,19 @@ namespace net {
 
 class WebSocketFrameData final
 {
-public:
+ public:
   WebSocketFrameData();
 
   explicit WebSocketFrameData(const WebSocketFrameData& aData);
 
-  WebSocketFrameData(DOMHighResTimeStamp aTimeStamp, bool aFinBit,
-                     bool aRsvBit1, bool aRsvBit2, bool aRsvBit3,
-                     uint8_t aOpCode, bool aMaskBit, uint32_t aMask,
+  WebSocketFrameData(DOMHighResTimeStamp aTimeStamp,
+                     bool aFinBit,
+                     bool aRsvBit1,
+                     bool aRsvBit2,
+                     bool aRsvBit3,
+                     uint8_t aOpCode,
+                     bool aMaskBit,
+                     uint32_t aMask,
                      const nsCString& aPayload);
 
   ~WebSocketFrameData();
@@ -52,28 +57,30 @@ public:
 
 class WebSocketFrame final : public nsIWebSocketFrame
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWEBSOCKETFRAME
 
   explicit WebSocketFrame(const WebSocketFrameData& aData);
 
-  WebSocketFrame(bool aFinBit, bool aRsvBit1, bool aRsvBit2, bool aRsvBit3,
-                 uint8_t aOpCode, bool aMaskBit, uint32_t aMask,
+  WebSocketFrame(bool aFinBit,
+                 bool aRsvBit1,
+                 bool aRsvBit2,
+                 bool aRsvBit3,
+                 uint8_t aOpCode,
+                 bool aMaskBit,
+                 uint32_t aMask,
                  const nsCString& aPayload);
 
-  const WebSocketFrameData& Data() const
-  {
-    return mData;
-  }
+  const WebSocketFrameData& Data() const { return mData; }
 
-private:
+ private:
   ~WebSocketFrame();
 
   WebSocketFrameData mData;
 };
 
-} // net namespace
-} // mozilla namespace
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_WebSocketFrame_h
+#endif  // mozilla_net_WebSocketFrame_h

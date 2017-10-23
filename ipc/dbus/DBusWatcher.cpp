@@ -12,15 +12,13 @@ namespace mozilla {
 namespace ipc {
 
 DBusWatcher::DBusWatcher(DBusConnection* aConnection, DBusWatch* aWatch)
-  : mConnection(aConnection)
-  , mWatch(aWatch)
+    : mConnection(aConnection), mWatch(aWatch)
 {
   MOZ_ASSERT(mConnection);
   MOZ_ASSERT(mWatch);
 }
 
-DBusWatcher::~DBusWatcher()
-{ }
+DBusWatcher::~DBusWatcher() {}
 
 DBusConnection*
 DBusWatcher::GetConnection()
@@ -35,7 +33,7 @@ DBusWatcher::StartWatching()
 
   auto flags = dbus_watch_get_flags(mWatch);
 
-  if (!(flags & (DBUS_WATCH_READABLE|DBUS_WATCH_WRITABLE))) {
+  if (!(flags & (DBUS_WATCH_READABLE | DBUS_WATCH_WRITABLE))) {
     return;
   }
 
@@ -44,12 +42,12 @@ DBusWatcher::StartWatching()
   auto fd = dbus_watch_get_unix_fd(mWatch);
 
   if (flags & DBUS_WATCH_READABLE) {
-    ioLoop->WatchFileDescriptor(fd, true, MessageLoopForIO::WATCH_READ,
-                                &mReadWatcher, this);
+    ioLoop->WatchFileDescriptor(
+        fd, true, MessageLoopForIO::WATCH_READ, &mReadWatcher, this);
   }
   if (flags & DBUS_WATCH_WRITABLE) {
-    ioLoop->WatchFileDescriptor(fd, true, MessageLoopForIO::WATCH_WRITE,
-                                &mWriteWatcher, this);
+    ioLoop->WatchFileDescriptor(
+        fd, true, MessageLoopForIO::WATCH_WRITE, &mWriteWatcher, this);
   }
 }
 
@@ -84,7 +82,7 @@ DBusWatcher::AddWatchFunction(DBusWatch* aWatch, void* aData)
   auto connection = static_cast<DBusConnection*>(aData);
 
   UniquePtr<DBusWatcher> dbusWatcher =
-    MakeUnique<DBusWatcher>(connection, aWatch);
+      MakeUnique<DBusWatcher>(connection, aWatch);
 
   dbus_watch_set_data(aWatch, dbusWatcher.get(), DBusWatcher::FreeFunction);
 
@@ -92,7 +90,7 @@ DBusWatcher::AddWatchFunction(DBusWatch* aWatch, void* aData)
     dbusWatcher->StartWatching();
   }
 
-  Unused << dbusWatcher.release(); // picked up in |FreeFunction|
+  Unused << dbusWatcher.release();  // picked up in |FreeFunction|
 
   return TRUE;
 }
@@ -145,5 +143,5 @@ DBusWatcher::OnFileCanWriteWithoutBlocking(int aFd)
   dbus_watch_handle(mWatch, DBUS_WATCH_WRITABLE);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

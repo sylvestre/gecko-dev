@@ -33,8 +33,7 @@ NS_INTERFACE_MAP_BEGIN(nsHostObjectURI)
     // nsSimplURI::QueryInterface and finding something for this CID.
     *aInstancePtr = nullptr;
     return NS_NOINTERFACE;
-  }
-  else
+  } else
 NS_INTERFACE_MAP_END_INHERITING(mozilla::net::nsSimpleURI)
 
 // nsIURIWithBlobImpl methods:
@@ -62,8 +61,7 @@ nsHostObjectURI::GetPrincipalUri(nsIURI** aUri)
 {
   if (mPrincipal) {
     mPrincipal->GetURI(aUri);
-  }
-  else {
+  } else {
     *aUri = nullptr;
   }
 
@@ -92,9 +90,8 @@ nsHostObjectURI::Write(nsIObjectOutputStream* aStream)
   nsresult rv = mozilla::net::nsSimpleURI::Write(aStream);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return NS_WriteOptionalCompoundObject(aStream, mPrincipal,
-                                        NS_GET_IID(nsIPrincipal),
-                                        true);
+  return NS_WriteOptionalCompoundObject(
+      aStream, mPrincipal, NS_GET_IID(nsIPrincipal), true);
 }
 
 // nsIIPCSerializableURI methods:
@@ -130,8 +127,8 @@ nsHostObjectURI::Deserialize(const mozilla::ipc::URIParams& aParams)
   using namespace mozilla::ipc;
 
   if (aParams.type() != URIParams::THostObjectURIParams) {
-      NS_ERROR("Received unknown parameters from the other process!");
-      return false;
+    NS_ERROR("Received unknown parameters from the other process!");
+    return false;
   }
 
   const HostObjectURIParams& hostParams = aParams.get_HostObjectURIParams();
@@ -144,7 +141,8 @@ nsHostObjectURI::Deserialize(const mozilla::ipc::URIParams& aParams)
     return true;
   }
 
-  mPrincipal = PrincipalInfoToPrincipal(hostParams.principal().get_PrincipalInfo());
+  mPrincipal =
+      PrincipalInfoToPrincipal(hostParams.principal().get_PrincipalInfo());
   if (!mPrincipal) {
     return false;
   }
@@ -167,13 +165,14 @@ nsHostObjectURI::SetScheme(const nsACString& aScheme)
 
 // nsIURI methods:
 nsresult
-nsHostObjectURI::CloneInternal(mozilla::net::nsSimpleURI::RefHandlingEnum aRefHandlingMode,
-                               const nsACString& newRef,
-                               nsIURI** aClone)
+nsHostObjectURI::CloneInternal(
+    mozilla::net::nsSimpleURI::RefHandlingEnum aRefHandlingMode,
+    const nsACString& newRef,
+    nsIURI** aClone)
 {
   nsCOMPtr<nsIURI> simpleClone;
-  nsresult rv =
-    mozilla::net::nsSimpleURI::CloneInternal(aRefHandlingMode, newRef, getter_AddRefs(simpleClone));
+  nsresult rv = mozilla::net::nsSimpleURI::CloneInternal(
+      aRefHandlingMode, newRef, getter_AddRefs(simpleClone));
   NS_ENSURE_SUCCESS(rv, rv);
 
 #ifdef DEBUG
@@ -192,9 +191,10 @@ nsHostObjectURI::CloneInternal(mozilla::net::nsSimpleURI::RefHandlingEnum aRefHa
 }
 
 /* virtual */ nsresult
-nsHostObjectURI::EqualsInternal(nsIURI* aOther,
-                                mozilla::net::nsSimpleURI::RefHandlingEnum aRefHandlingMode,
-                                bool* aResult)
+nsHostObjectURI::EqualsInternal(
+    nsIURI* aOther,
+    mozilla::net::nsSimpleURI::RefHandlingEnum aRefHandlingMode,
+    bool* aResult)
 {
   if (!aOther) {
     *aResult = false;
@@ -229,7 +229,7 @@ nsHostObjectURI::EqualsInternal(nsIURI* aOther,
 
 // nsIClassInfo methods:
 NS_IMETHODIMP
-nsHostObjectURI::GetInterfaces(uint32_t *count, nsIID * **array)
+nsHostObjectURI::GetInterfaces(uint32_t* count, nsIID*** array)
 {
   *count = 0;
   *array = nullptr;
@@ -237,7 +237,7 @@ nsHostObjectURI::GetInterfaces(uint32_t *count, nsIID * **array)
 }
 
 NS_IMETHODIMP
-nsHostObjectURI::GetScriptableHelper(nsIXPCScriptable **_retval)
+nsHostObjectURI::GetScriptableHelper(nsIXPCScriptable** _retval)
 {
   *_retval = nullptr;
   return NS_OK;
@@ -260,25 +260,25 @@ nsHostObjectURI::GetClassDescription(nsACString& aClassDescription)
 }
 
 NS_IMETHODIMP
-nsHostObjectURI::GetClassID(nsCID * *aClassID)
+nsHostObjectURI::GetClassID(nsCID** aClassID)
 {
   // Make sure to modify any subclasses as needed if this ever
   // changes to not call the virtual GetClassIDNoAlloc.
-  *aClassID = (nsCID*) moz_xmalloc(sizeof(nsCID));
+  *aClassID = (nsCID*)moz_xmalloc(sizeof(nsCID));
   NS_ENSURE_TRUE(*aClassID, NS_ERROR_OUT_OF_MEMORY);
 
   return GetClassIDNoAlloc(*aClassID);
 }
 
 NS_IMETHODIMP
-nsHostObjectURI::GetFlags(uint32_t *aFlags)
+nsHostObjectURI::GetFlags(uint32_t* aFlags)
 {
   *aFlags = nsIClassInfo::MAIN_THREAD_ONLY;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsHostObjectURI::GetClassIDNoAlloc(nsCID *aClassIDNoAlloc)
+nsHostObjectURI::GetClassIDNoAlloc(nsCID* aClassIDNoAlloc)
 {
   *aClassIDNoAlloc = kHOSTOBJECTURICID;
   return NS_OK;

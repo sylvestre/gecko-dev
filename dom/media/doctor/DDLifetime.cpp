@@ -34,4 +34,4 @@ DDLifetime::Printf() const
   return s;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

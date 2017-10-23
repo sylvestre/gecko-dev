@@ -20,15 +20,15 @@ class nsIDOMKeyEvent;
 namespace mozilla {
 namespace dom {
 class EventTarget;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * EventListener implementation for menubar.
  */
 class nsMenuBarListener final : public nsIDOMEventListener
 {
-public:
+ public:
   explicit nsMenuBarListener(nsMenuBarFrame* aMenuBarFrame,
                              nsIContent* aMenuBarContent);
 
@@ -58,7 +58,7 @@ public:
    */
   static bool IsAccessKeyPressed(nsIDOMKeyEvent* aEvent);
 
-protected:
+ protected:
   virtual ~nsMenuBarListener();
 
   nsresult KeyUp(nsIDOMEvent* aMouseEvent);
@@ -100,4 +100,4 @@ protected:
   static mozilla::Modifiers mAccessKeyMask;
 };
 
-#endif // #ifndef nsMenuBarListener_h
+#endif  // #ifndef nsMenuBarListener_h

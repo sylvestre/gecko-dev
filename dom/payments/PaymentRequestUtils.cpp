@@ -22,7 +22,9 @@ WriteCallback(const char16_t* aBuf, uint32_t aLength, void* aData)
 }
 
 nsresult
-SerializeFromJSObject(JSContext* aCx, JS::HandleObject aObject, nsAString& aSerializedObject)
+SerializeFromJSObject(JSContext* aCx,
+                      JS::HandleObject aObject,
+                      nsAString& aSerializedObject)
 {
   MOZ_ASSERT(aCx);
   JS::RootedValue value(aCx, JS::ObjectValue(*aObject));
@@ -30,21 +32,30 @@ SerializeFromJSObject(JSContext* aCx, JS::HandleObject aObject, nsAString& aSeri
 }
 
 nsresult
-SerializeFromJSVal(JSContext* aCx, JS::HandleValue aValue, nsAString& aSerializedValue)
+SerializeFromJSVal(JSContext* aCx,
+                   JS::HandleValue aValue,
+                   nsAString& aSerializedValue)
 {
   MOZ_ASSERT(aCx);
   aSerializedValue.Truncate();
   JS::RootedValue value(aCx, aValue.get());
   nsAutoString serializedValue;
-  NS_ENSURE_TRUE(JS_Stringify(aCx, &value, nullptr, JS::NullHandleValue,
-                              WriteCallback, &serializedValue), NS_ERROR_XPC_BAD_CONVERT_JS);
+  NS_ENSURE_TRUE(JS_Stringify(aCx,
+                              &value,
+                              nullptr,
+                              JS::NullHandleValue,
+                              WriteCallback,
+                              &serializedValue),
+                 NS_ERROR_XPC_BAD_CONVERT_JS);
   NS_ENSURE_TRUE(!serializedValue.IsEmpty(), NS_ERROR_FAILURE);
   aSerializedValue = serializedValue;
   return NS_OK;
 }
 
 nsresult
-DeserializeToJSObject(const nsAString& aSerializedObject, JSContext* aCx, JS::MutableHandleObject aObject)
+DeserializeToJSObject(const nsAString& aSerializedObject,
+                      JSContext* aCx,
+                      JS::MutableHandleObject aObject)
 {
   MOZ_ASSERT(aCx);
   JS::RootedValue value(aCx);
@@ -61,15 +72,20 @@ DeserializeToJSObject(const nsAString& aSerializedObject, JSContext* aCx, JS::Mu
 }
 
 nsresult
-DeserializeToJSValue(const nsAString& aSerializedObject, JSContext* aCx, JS::MutableHandleValue aValue)
+DeserializeToJSValue(const nsAString& aSerializedObject,
+                     JSContext* aCx,
+                     JS::MutableHandleValue aValue)
 {
   MOZ_ASSERT(aCx);
-  if (!JS_ParseJSON(aCx, static_cast<const char16_t*>(PromiseFlatString(aSerializedObject).get()),
-                    aSerializedObject.Length(), aValue)) {
+  if (!JS_ParseJSON(aCx,
+                    static_cast<const char16_t*>(
+                        PromiseFlatString(aSerializedObject).get()),
+                    aSerializedObject.Length(),
+                    aValue)) {
     return NS_ERROR_UNEXPECTED;
   }
   return NS_OK;
 }
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla

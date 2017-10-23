@@ -30,7 +30,7 @@ namespace {
 // consistency.
 const uint32_t kWorkerStackSize = 256 * sizeof(size_t) * 1024;
 
-} // namespace
+}  // namespace
 
 WorkerThreadFriendKey::WorkerThreadFriendKey()
 {
@@ -42,14 +42,13 @@ WorkerThreadFriendKey::~WorkerThreadFriendKey()
   MOZ_COUNT_DTOR(WorkerThreadFriendKey);
 }
 
-class WorkerThread::Observer final
-  : public nsIThreadObserver
+class WorkerThread::Observer final : public nsIThreadObserver
 {
   WorkerPrivate* mWorkerPrivate;
 
-public:
+ public:
   explicit Observer(WorkerPrivate* aWorkerPrivate)
-  : mWorkerPrivate(aWorkerPrivate)
+      : mWorkerPrivate(aWorkerPrivate)
   {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -57,26 +56,24 @@ public:
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
-private:
-  ~Observer()
-  {
-    mWorkerPrivate->AssertIsOnWorkerThread();
-  }
+ private:
+  ~Observer() { mWorkerPrivate->AssertIsOnWorkerThread(); }
 
   NS_DECL_NSITHREADOBSERVER
 };
 
 WorkerThread::WorkerThread()
-  : nsThread(MakeNotNull<ThreadEventQueue<mozilla::EventQueue>*>(
-               MakeUnique<mozilla::EventQueue>()),
-             nsThread::NOT_MAIN_THREAD,
-             kWorkerStackSize)
-  , mLock("WorkerThread::mLock")
-  , mWorkerPrivateCondVar(mLock, "WorkerThread::mWorkerPrivateCondVar")
-  , mWorkerPrivate(nullptr)
-  , mOtherThreadsDispatchingViaEventTarget(0)
+    : nsThread(MakeNotNull<ThreadEventQueue<mozilla::EventQueue>*>(
+                   MakeUnique<mozilla::EventQueue>()),
+               nsThread::NOT_MAIN_THREAD,
+               kWorkerStackSize),
+      mLock("WorkerThread::mLock"),
+      mWorkerPrivateCondVar(mLock, "WorkerThread::mWorkerPrivateCondVar"),
+      mWorkerPrivate(nullptr),
+      mOtherThreadsDispatchingViaEventTarget(0)
 #ifdef DEBUG
-  , mAcceptingNonWorkerRunnables(true)
+      ,
+      mAcceptingNonWorkerRunnables(true)
 #endif
 {
 }
@@ -173,10 +170,11 @@ WorkerThread::DispatchPrimaryRunnable(const WorkerThreadFriendKey& /* aKey */,
 }
 
 nsresult
-WorkerThread::DispatchAnyThread(const WorkerThreadFriendKey& /* aKey */,
-                       already_AddRefed<WorkerRunnable> aWorkerRunnable)
+WorkerThread::DispatchAnyThread(
+    const WorkerThreadFriendKey& /* aKey */,
+    already_AddRefed<WorkerRunnable> aWorkerRunnable)
 {
-  // May be called on any thread!
+// May be called on any thread!
 
 #ifdef DEBUG
   {
@@ -220,7 +218,7 @@ NS_IMETHODIMP
 WorkerThread::Dispatch(already_AddRefed<nsIRunnable> aRunnable, uint32_t aFlags)
 {
   // May be called on any thread!
-  nsCOMPtr<nsIRunnable> runnable(aRunnable); // in case we exit early
+  nsCOMPtr<nsIRunnable> runnable(aRunnable);  // in case we exit early
 
   // Workers only support asynchronous dispatch.
   if (NS_WARN_IF(aFlags != NS_DISPATCH_NORMAL)) {
@@ -268,7 +266,8 @@ WorkerThread::Dispatch(already_AddRefed<nsIRunnable> aRunnable, uint32_t aFlags)
 
   nsresult rv;
   if (runnable && onWorkerThread) {
-    RefPtr<WorkerRunnable> workerRunnable = workerPrivate->MaybeWrapAsWorkerRunnable(runnable.forget());
+    RefPtr<WorkerRunnable> workerRunnable =
+        workerPrivate->MaybeWrapAsWorkerRunnable(runnable.forget());
     rv = nsThread::Dispatch(workerRunnable.forget(), NS_DISPATCH_NORMAL);
   } else {
     rv = nsThread::Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
@@ -356,6 +355,6 @@ WorkerThread::Observer::AfterProcessNextEvent(nsIThreadInternal* /* aThread */,
   return NS_OK;
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

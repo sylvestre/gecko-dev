@@ -14,41 +14,31 @@
 namespace js {
 namespace jit {
 
-struct ImmShiftedTag : public ImmWord
-{
-    explicit ImmShiftedTag(JSValueShiftedTag shtag)
-      : ImmWord((uintptr_t)shtag)
-    { }
+struct ImmShiftedTag : public ImmWord {
+    explicit ImmShiftedTag(JSValueShiftedTag shtag) : ImmWord((uintptr_t)shtag) {}
 
     explicit ImmShiftedTag(JSValueType type)
-      : ImmWord(uintptr_t(JSValueShiftedTag(JSVAL_TYPE_TO_SHIFTED_TAG(type))))
-    { }
+        : ImmWord(uintptr_t(JSValueShiftedTag(JSVAL_TYPE_TO_SHIFTED_TAG(type)))) {}
 };
 
-struct ImmTag : public Imm32
-{
-    explicit ImmTag(JSValueTag tag)
-      : Imm32(tag)
-    { }
+struct ImmTag : public Imm32 {
+    explicit ImmTag(JSValueTag tag) : Imm32(tag) {}
 };
 
-class MacroAssemblerX64 : public MacroAssemblerX86Shared
-{
-  private:
+class MacroAssemblerX64 : public MacroAssemblerX86Shared {
+   private:
     // Perform a downcast. Should be removed by Bug 996602.
     MacroAssembler& asMasm();
     const MacroAssembler& asMasm() const;
 
     void bindOffsets(const MacroAssemblerX86Shared::UsesVector&);
 
-  public:
+   public:
     using MacroAssemblerX86Shared::load32;
-    using MacroAssemblerX86Shared::store32;
     using MacroAssemblerX86Shared::store16;
+    using MacroAssemblerX86Shared::store32;
 
-    MacroAssemblerX64()
-    {
-    }
+    MacroAssemblerX64() {}
 
     // The buffer is about to be linked, make sure any constant pools or excess
     // bookkeeping has been flushed to the instruction stream.
@@ -60,8 +50,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     void writeDataRelocation(const Value& val) {
         if (val.isGCThing()) {
             gc::Cell* cell = val.toGCThing();
-            if (cell && gc::IsInsideNursery(cell))
-                embedsNurseryPointers_ = true;
+            if (cell && gc::IsInsideNursery(cell)) embedsNurseryPointers_ = true;
             dataRelocations_.writeUnsigned(masm.currentOffset());
         }
     }
@@ -70,15 +59,15 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     // On x86_64, the upper 32 bits do not necessarily only contain the type.
     Operand ToUpper32(Operand base) {
         switch (base.kind()) {
-          case Operand::MEM_REG_DISP:
-            return Operand(Register::FromCode(base.base()), base.disp() + 4);
+            case Operand::MEM_REG_DISP:
+                return Operand(Register::FromCode(base.base()), base.disp() + 4);
 
-          case Operand::MEM_SCALE:
-            return Operand(Register::FromCode(base.base()), Register::FromCode(base.index()),
-                           base.scale(), base.disp() + 4);
+            case Operand::MEM_SCALE:
+                return Operand(Register::FromCode(base.base()), Register::FromCode(base.index()),
+                               base.scale(), base.disp() + 4);
 
-          default:
-            MOZ_CRASH("unexpected operand kind");
+            default:
+                MOZ_CRASH("unexpected operand kind");
         }
     }
     static inline Operand ToUpper32(const Address& address) {
@@ -89,7 +78,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     }
 
     uint32_t Upper32Of(JSValueShiftedTag tag) {
-        union { // Implemented in this way to appease MSVC++.
+        union {  // Implemented in this way to appease MSVC++.
             uint64_t tag;
             struct {
                 uint32_t lo32;
@@ -107,16 +96,10 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     /////////////////////////////////////////////////////////////////
     // X86/X64-common interface.
     /////////////////////////////////////////////////////////////////
-    Address ToPayload(Address value) {
-        return value;
-    }
+    Address ToPayload(Address value) { return value; }
 
-    void storeValue(ValueOperand val, Operand dest) {
-        movq(val.valueReg(), dest);
-    }
-    void storeValue(ValueOperand val, const Address& dest) {
-        storeValue(val, Operand(dest));
-    }
+    void storeValue(ValueOperand val, Operand dest) { movq(val.valueReg(), dest); }
+    void storeValue(ValueOperand val, const Address& dest) { storeValue(val, Operand(dest)); }
     template <typename T>
     void storeValue(JSValueType type, Register reg, const T& dest) {
         // Value types with 32-bit payloads can be emitted as two 32-bit moves.
@@ -140,36 +123,23 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         }
         movq(scratch, Operand(dest));
     }
-    void storeValue(ValueOperand val, BaseIndex dest) {
-        storeValue(val, Operand(dest));
-    }
+    void storeValue(ValueOperand val, BaseIndex dest) { storeValue(val, Operand(dest)); }
     void storeValue(const Address& src, const Address& dest, Register temp) {
         loadPtr(src, temp);
         storePtr(temp, dest);
     }
-    void loadValue(Operand src, ValueOperand val) {
-        movq(src, val.valueReg());
-    }
-    void loadValue(Address src, ValueOperand val) {
-        loadValue(Operand(src), val);
-    }
-    void loadValue(const BaseIndex& src, ValueOperand val) {
-        loadValue(Operand(src), val);
-    }
+    void loadValue(Operand src, ValueOperand val) { movq(src, val.valueReg()); }
+    void loadValue(Address src, ValueOperand val) { loadValue(Operand(src), val); }
+    void loadValue(const BaseIndex& src, ValueOperand val) { loadValue(Operand(src), val); }
     void tagValue(JSValueType type, Register payload, ValueOperand dest) {
         ScratchRegisterScope scratch(asMasm());
         MOZ_ASSERT(dest.valueReg() != scratch);
-        if (payload != dest.valueReg())
-            movq(payload, dest.valueReg());
+        if (payload != dest.valueReg()) movq(payload, dest.valueReg());
         mov(ImmShiftedTag(type), scratch);
         orq(scratch, dest.valueReg());
     }
-    void pushValue(ValueOperand val) {
-        push(val.valueReg());
-    }
-    void popValue(ValueOperand val) {
-        pop(val.valueReg());
-    }
+    void pushValue(ValueOperand val) { push(val.valueReg()); }
+    void popValue(ValueOperand val) { pop(val.valueReg()); }
     void pushValue(const Value& val) {
         if (val.isGCThing()) {
             ScratchRegisterScope scratch(asMasm());
@@ -185,9 +155,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         boxValue(type, reg, scratch);
         push(scratch);
     }
-    void pushValue(const Address& addr) {
-        push(Operand(addr));
-    }
+    void pushValue(const Address& addr) { push(Operand(addr)); }
 
     void boxValue(JSValueType type, Register src, Register dest);
 
@@ -247,9 +215,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         cmp32(tag, ImmTag(JSVAL_TAG_MAGIC));
         return cond;
     }
-    Condition testError(Condition cond, Register tag) {
-        return testMagic(cond, tag);
-    }
+    Condition testError(Condition cond, Register tag) { return testMagic(cond, tag); }
     Condition testPrimitive(Condition cond, Register tag) {
         MOZ_ASSERT(cond == Equal || cond == NotEqual);
         cmp32(tag, ImmTag(JSVAL_UPPER_EXCL_TAG_OF_PRIMITIVE_SET));
@@ -312,7 +278,6 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         return testPrimitive(cond, scratch);
     }
 
-
     Condition testUndefined(Condition cond, const Address& src) {
         cmp32(ToUpper32(src), Imm32(Upper32Of(GetShiftedTag(JSVAL_TYPE_UNDEFINED))));
         return cond;
@@ -369,7 +334,6 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         splitTag(src, scratch);
         return testMagic(cond, scratch);
     }
-
 
     Condition testUndefined(Condition cond, const BaseIndex& src) {
         ScratchRegisterScope scratch(asMasm());
@@ -438,18 +402,14 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
             cmpPtr(lhs, scratch);
         }
     }
-    void cmpPtr(Register lhs, const ImmPtr rhs) {
-        cmpPtr(lhs, ImmWord(uintptr_t(rhs.value)));
-    }
+    void cmpPtr(Register lhs, const ImmPtr rhs) { cmpPtr(lhs, ImmWord(uintptr_t(rhs.value))); }
     void cmpPtr(Register lhs, const ImmGCPtr rhs) {
         ScratchRegisterScope scratch(asMasm());
         MOZ_ASSERT(lhs != scratch);
         movePtr(rhs, scratch);
         cmpPtr(lhs, scratch);
     }
-    void cmpPtr(Register lhs, const Imm32 rhs) {
-        cmpq(rhs, lhs);
-    }
+    void cmpPtr(Register lhs, const Imm32 rhs) { cmpq(rhs, lhs); }
     void cmpPtr(const Operand& lhs, const ImmGCPtr rhs) {
         ScratchRegisterScope scratch(asMasm());
         MOZ_ASSERT(!lhs.containsReg(scratch));
@@ -468,39 +428,19 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     void cmpPtr(const Operand& lhs, const ImmPtr rhs) {
         cmpPtr(lhs, ImmWord(uintptr_t(rhs.value)));
     }
-    void cmpPtr(const Address& lhs, const ImmGCPtr rhs) {
-        cmpPtr(Operand(lhs), rhs);
-    }
-    void cmpPtr(const Address& lhs, const ImmWord rhs) {
-        cmpPtr(Operand(lhs), rhs);
-    }
+    void cmpPtr(const Address& lhs, const ImmGCPtr rhs) { cmpPtr(Operand(lhs), rhs); }
+    void cmpPtr(const Address& lhs, const ImmWord rhs) { cmpPtr(Operand(lhs), rhs); }
     void cmpPtr(const Address& lhs, const ImmPtr rhs) {
         cmpPtr(lhs, ImmWord(uintptr_t(rhs.value)));
     }
-    void cmpPtr(const Operand& lhs, Register rhs) {
-        cmpq(rhs, lhs);
-    }
-    void cmpPtr(Register lhs, const Operand& rhs) {
-        cmpq(rhs, lhs);
-    }
-    void cmpPtr(const Operand& lhs, const Imm32 rhs) {
-        cmpq(rhs, lhs);
-    }
-    void cmpPtr(const Address& lhs, Register rhs) {
-        cmpPtr(Operand(lhs), rhs);
-    }
-    void cmpPtr(Register lhs, Register rhs) {
-        cmpq(rhs, lhs);
-    }
-    void testPtr(Register lhs, Register rhs) {
-        testq(rhs, lhs);
-    }
-    void testPtr(Register lhs, Imm32 rhs) {
-        testq(rhs, lhs);
-    }
-    void testPtr(const Operand& lhs, Imm32 rhs) {
-        testq(rhs, lhs);
-    }
+    void cmpPtr(const Operand& lhs, Register rhs) { cmpq(rhs, lhs); }
+    void cmpPtr(Register lhs, const Operand& rhs) { cmpq(rhs, lhs); }
+    void cmpPtr(const Operand& lhs, const Imm32 rhs) { cmpq(rhs, lhs); }
+    void cmpPtr(const Address& lhs, Register rhs) { cmpPtr(Operand(lhs), rhs); }
+    void cmpPtr(Register lhs, Register rhs) { cmpq(rhs, lhs); }
+    void testPtr(Register lhs, Register rhs) { testq(rhs, lhs); }
+    void testPtr(Register lhs, Imm32 rhs) { testq(rhs, lhs); }
+    void testPtr(const Operand& lhs, Imm32 rhs) { testq(rhs, lhs); }
 
     /////////////////////////////////////////////////////////////////
     // Common interface.
@@ -512,8 +452,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     }
 
     CodeOffsetJump jumpWithPatch(RepatchLabel* label, Condition cond,
-                                 Label* documentation = nullptr)
-    {
+                                 Label* documentation = nullptr) {
         JmpSrc src = jSrc(cond, label);
         return CodeOffsetJump(size(), addPatchableJump(src, Relocation::HARDCODED));
     }
@@ -522,24 +461,12 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         return jumpWithPatch(label);
     }
 
-    void movePtr(Register src, Register dest) {
-        movq(src, dest);
-    }
-    void movePtr(Register src, const Operand& dest) {
-        movq(src, dest);
-    }
-    void movePtr(ImmWord imm, Register dest) {
-        mov(imm, dest);
-    }
-    void movePtr(ImmPtr imm, Register dest) {
-        mov(imm, dest);
-    }
-    void movePtr(wasm::SymbolicAddress imm, Register dest) {
-        mov(imm, dest);
-    }
-    void movePtr(ImmGCPtr imm, Register dest) {
-        movq(imm, dest);
-    }
+    void movePtr(Register src, Register dest) { movq(src, dest); }
+    void movePtr(Register src, const Operand& dest) { movq(src, dest); }
+    void movePtr(ImmWord imm, Register dest) { mov(imm, dest); }
+    void movePtr(ImmPtr imm, Register dest) { mov(imm, dest); }
+    void movePtr(wasm::SymbolicAddress imm, Register dest) { mov(imm, dest); }
+    void movePtr(ImmGCPtr imm, Register dest) { movq(imm, dest); }
     void loadPtr(AbsoluteAddress address, Register dest) {
         if (X86Encoding::IsAddressImmediate(address.addr)) {
             movq(Operand(address), dest);
@@ -549,18 +476,10 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
             loadPtr(Address(scratch, 0x0), dest);
         }
     }
-    void loadPtr(const Address& address, Register dest) {
-        movq(Operand(address), dest);
-    }
-    void load64(const Address& address, Register dest) {
-        movq(Operand(address), dest);
-    }
-    void loadPtr(const Operand& src, Register dest) {
-        movq(src, dest);
-    }
-    void loadPtr(const BaseIndex& src, Register dest) {
-        movq(Operand(src), dest);
-    }
+    void loadPtr(const Address& address, Register dest) { movq(Operand(address), dest); }
+    void load64(const Address& address, Register dest) { movq(Operand(address), dest); }
+    void loadPtr(const Operand& src, Register dest) { movq(src, dest); }
+    void loadPtr(const BaseIndex& src, Register dest) { movq(Operand(src), dest); }
     void loadPrivate(const Address& src, Register dest) {
         loadPtr(src, dest);
         shlq(Imm32(1), dest);
@@ -574,9 +493,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
             load32(Address(scratch, 0x0), dest);
         }
     }
-    void load64(const Address& address, Register64 dest) {
-        movq(Operand(address), dest.reg);
-    }
+    void load64(const Address& address, Register64 dest) { movq(Operand(address), dest.reg); }
     template <typename T>
     void storePtr(ImmWord imm, T address) {
         if ((intptr_t)imm.value <= INT32_MAX && (intptr_t)imm.value >= INT32_MIN) {
@@ -597,18 +514,10 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         movq(imm, scratch);
         movq(scratch, Operand(address));
     }
-    void storePtr(Register src, const Address& address) {
-        movq(src, Operand(address));
-    }
-    void store64(Register src, const Address& address) {
-        movq(src, Operand(address));
-    }
-    void storePtr(Register src, const BaseIndex& address) {
-        movq(src, Operand(address));
-    }
-    void storePtr(Register src, const Operand& dest) {
-        movq(src, dest);
-    }
+    void storePtr(Register src, const Address& address) { movq(src, Operand(address)); }
+    void store64(Register src, const Address& address) { movq(src, Operand(address)); }
+    void storePtr(Register src, const BaseIndex& address) { movq(src, Operand(address)); }
+    void storePtr(Register src, const Operand& dest) { movq(src, dest); }
     void storePtr(Register src, AbsoluteAddress address) {
         if (X86Encoding::IsAddressImmediate(address.addr)) {
             movq(src, Operand(address));
@@ -636,16 +545,11 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
             store16(src, Address(scratch, 0x0));
         }
     }
-    void store64(Register64 src, Address address) {
-        storePtr(src.reg, address);
-    }
-    void store64(Imm64 imm, Address address) {
-        storePtr(ImmWord(imm.value), address);
-    }
+    void store64(Register64 src, Address address) { storePtr(src.reg, address); }
+    void store64(Imm64 imm, Address address) { storePtr(ImmWord(imm.value), address); }
 
     void splitTag(Register src, Register dest) {
-        if (src != dest)
-            movq(src, dest);
+        if (src != dest) movq(src, dest);
         shrq(Imm32(JSVAL_TAG_SHIFT), dest);
     }
     void splitTag(const ValueOperand& operand, Register dest) {
@@ -655,12 +559,8 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         movq(operand, dest);
         shrq(Imm32(JSVAL_TAG_SHIFT), dest);
     }
-    void splitTag(const Address& operand, Register dest) {
-        splitTag(Operand(operand), dest);
-    }
-    void splitTag(const BaseIndex& operand, Register dest) {
-        splitTag(Operand(operand), dest);
-    }
+    void splitTag(const Address& operand, Register dest) { splitTag(Operand(operand), dest); }
+    void splitTag(const BaseIndex& operand, Register dest) { splitTag(Operand(operand), dest); }
 
     // Extracts the tag of a value and places it in ScratchReg.
     Register splitTagForTest(const ValueOperand& value) {
@@ -677,9 +577,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         splitTag(src, scratch);
         return testMagic(cond, scratch);
     }
-    Condition testError(Condition cond, const ValueOperand& src) {
-        return testMagic(cond, src);
-    }
+    Condition testError(Condition cond, const ValueOperand& src) { return testMagic(cond, src); }
 
     void testNullSet(Condition cond, const ValueOperand& value, Register dest) {
         cond = testNull(cond, value);
@@ -706,54 +604,32 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
 
     // Note that the |dest| register here may be ScratchReg, so we shouldn't
     // use it.
-    void unboxInt32(const ValueOperand& src, Register dest) {
-        movl(src.valueReg(), dest);
-    }
-    void unboxInt32(const Operand& src, Register dest) {
-        movl(src, dest);
-    }
-    void unboxInt32(const Address& src, Register dest) {
-        unboxInt32(Operand(src), dest);
-    }
-    void unboxDouble(const Address& src, FloatRegister dest) {
-        loadDouble(Operand(src), dest);
-    }
+    void unboxInt32(const ValueOperand& src, Register dest) { movl(src.valueReg(), dest); }
+    void unboxInt32(const Operand& src, Register dest) { movl(src, dest); }
+    void unboxInt32(const Address& src, Register dest) { unboxInt32(Operand(src), dest); }
+    void unboxDouble(const Address& src, FloatRegister dest) { loadDouble(Operand(src), dest); }
 
     void unboxArgObjMagic(const ValueOperand& src, Register dest) {
         unboxArgObjMagic(Operand(src.valueReg()), dest);
     }
-    void unboxArgObjMagic(const Operand& src, Register dest) {
-        mov(ImmWord(0), dest);
-    }
+    void unboxArgObjMagic(const Operand& src, Register dest) { mov(ImmWord(0), dest); }
     void unboxArgObjMagic(const Address& src, Register dest) {
         unboxArgObjMagic(Operand(src), dest);
     }
 
-    void unboxBoolean(const ValueOperand& src, Register dest) {
-        movl(src.valueReg(), dest);
-    }
-    void unboxBoolean(const Operand& src, Register dest) {
-        movl(src, dest);
-    }
-    void unboxBoolean(const Address& src, Register dest) {
-        unboxBoolean(Operand(src), dest);
-    }
+    void unboxBoolean(const ValueOperand& src, Register dest) { movl(src.valueReg(), dest); }
+    void unboxBoolean(const Operand& src, Register dest) { movl(src, dest); }
+    void unboxBoolean(const Address& src, Register dest) { unboxBoolean(Operand(src), dest); }
 
-    void unboxMagic(const ValueOperand& src, Register dest) {
-        movl(src.valueReg(), dest);
-    }
+    void unboxMagic(const ValueOperand& src, Register dest) { movl(src.valueReg(), dest); }
 
-    void unboxDouble(const ValueOperand& src, FloatRegister dest) {
-        vmovq(src.valueReg(), dest);
-    }
+    void unboxDouble(const ValueOperand& src, FloatRegister dest) { vmovq(src.valueReg(), dest); }
     void unboxPrivate(const ValueOperand& src, const Register dest) {
         movq(src.valueReg(), dest);
         shlq(Imm32(1), dest);
     }
 
-    void notBoolean(const ValueOperand& val) {
-        xorq(Imm32(1), val.valueReg());
-    }
+    void notBoolean(const ValueOperand& val) { xorq(Imm32(1), val.valueReg()); }
 
     // Unbox any non-double value into dest. Prefer unboxInt32 or unboxBoolean
     // instead if the source type is known.
@@ -775,17 +651,14 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
             mov(ImmWord(JSVAL_PAYLOAD_MASK), scratch);
             // If src is already a register, then src and dest are the same
             // thing and we don't need to move anything into dest.
-            if (src.kind() != Operand::REG)
-                movq(src, dest);
+            if (src.kind() != Operand::REG) movq(src, dest);
             andq(scratch, dest);
         } else {
             mov(ImmWord(JSVAL_PAYLOAD_MASK), dest);
             andq(src, dest);
         }
     }
-    void unboxNonDouble(const Address& src, Register dest) {
-        unboxNonDouble(Operand(src), dest);
-    }
+    void unboxNonDouble(const Address& src, Register dest) { unboxNonDouble(Operand(src), dest); }
 
     void unboxString(const ValueOperand& src, Register dest) { unboxNonDouble(src, dest); }
     void unboxString(const Operand& src, Register dest) { unboxNonDouble(src, dest); }
@@ -880,7 +753,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, memoryBase)), HeapReg);
     }
 
-  public:
+   public:
     Condition testInt32Truthy(bool truthy, const ValueOperand& operand) {
         test32(operand.valueReg(), operand.valueReg());
         return truthy ? NonZero : Zero;
@@ -908,19 +781,20 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     template <typename T>
     void storeUnboxedPayload(ValueOperand value, T address, size_t nbytes) {
         switch (nbytes) {
-          case 8: {
-            ScratchRegisterScope scratch(asMasm());
-            unboxNonDouble(value, scratch);
-            storePtr(scratch, address);
-            return;
-          }
-          case 4:
-            store32(value.valueReg(), address);
-            return;
-          case 1:
-            store8(value.valueReg(), address);
-            return;
-          default: MOZ_CRASH("Bad payload width");
+            case 8: {
+                ScratchRegisterScope scratch(asMasm());
+                unboxNonDouble(value, scratch);
+                storePtr(scratch, address);
+                return;
+            }
+            case 4:
+                store32(value.valueReg(), address);
+                return;
+            case 1:
+                store8(value.valueReg(), address);
+                return;
+            default:
+                MOZ_CRASH("Bad payload width");
         }
     }
 
@@ -946,7 +820,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
 
     inline void ensureDouble(const ValueOperand& source, FloatRegister dest, Label* failure);
 
-  public:
+   public:
     void handleFailureWithHandlerTail(void* handler);
 
     // Instrumentation for entering and leaving the profiler.
@@ -956,7 +830,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
 
 typedef MacroAssemblerX64 MacroAssemblerSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x64_MacroAssembler_x64_h */

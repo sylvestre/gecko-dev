@@ -44,7 +44,7 @@ typedef nsTArray<ChannelPixelLayout> ImagePixelLayout;
  */
 class ImageUtils
 {
-public:
+ public:
   class Impl;
   ImageUtils() = delete;
   ImageUtils(const ImageUtils&) = delete;
@@ -59,15 +59,17 @@ public:
 
   uint32_t GetBufferLength() const;
 
-  UniquePtr<ImagePixelLayout>
-  MapDataInto(uint8_t* aBuffer, uint32_t aOffset, uint32_t aBufferLength,
-              ImageBitmapFormat aFormat, ErrorResult& aRv) const;
+  UniquePtr<ImagePixelLayout> MapDataInto(uint8_t* aBuffer,
+                                          uint32_t aOffset,
+                                          uint32_t aBufferLength,
+                                          ImageBitmapFormat aFormat,
+                                          ErrorResult& aRv) const;
 
-protected:
+ protected:
   Impl* mImpl;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_ImageBitmapFormatUtils_h */

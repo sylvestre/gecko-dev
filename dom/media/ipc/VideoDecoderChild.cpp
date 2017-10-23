@@ -27,24 +27,25 @@ ReportUnblacklistingTelemetry(bool isGPUProcessCrashed,
                               const nsCString& aD3D9BlacklistedDriver)
 {
   const nsCString& blacklistedDLL = !aD3D11BlacklistedDriver.IsEmpty()
-                                    ? aD3D11BlacklistedDriver
-                                    : aD3D9BlacklistedDriver;
+                                        ? aD3D11BlacklistedDriver
+                                        : aD3D9BlacklistedDriver;
 
   if (!blacklistedDLL.IsEmpty()) {
-    Telemetry::Accumulate(Telemetry::VIDEO_UNBLACKINGLISTING_DXVA_DRIVER_RUNTIME_STATUS,
-                          blacklistedDLL,
-                          isGPUProcessCrashed ? 1 : 0);
+    Telemetry::Accumulate(
+        Telemetry::VIDEO_UNBLACKINGLISTING_DXVA_DRIVER_RUNTIME_STATUS,
+        blacklistedDLL,
+        isGPUProcessCrashed ? 1 : 0);
   }
 }
-#endif // XP_WIN
+#endif  // XP_WIN
 
 VideoDecoderChild::VideoDecoderChild()
-  : mThread(VideoDecoderManagerChild::GetManagerThread())
-  , mCanSend(false)
-  , mInitialized(false)
-  , mIsHardwareAccelerated(false)
-  , mConversion(MediaDataDecoder::ConversionRequired::kNeedNone)
-  , mNeedNewDecoder(false)
+    : mThread(VideoDecoderManagerChild::GetManagerThread()),
+      mCanSend(false),
+      mInitialized(false),
+      mIsHardwareAccelerated(false),
+      mConversion(MediaDataDecoder::ConversionRequired::kNeedNone),
+      mNeedNewDecoder(false)
 {
 }
 
@@ -62,16 +63,17 @@ VideoDecoderChild::RecvOutput(const VideoDataIPDL& aData)
   // The Image here creates a TextureData object that takes ownership
   // of the SurfaceDescriptor, and is responsible for making sure that
   // it gets deallocated.
-  RefPtr<Image> image = new GPUVideoImage(GetManager(), aData.sd(), aData.frameSize());
+  RefPtr<Image> image =
+      new GPUVideoImage(GetManager(), aData.sd(), aData.frameSize());
 
   RefPtr<VideoData> video = VideoData::CreateFromImage(
-    aData.display(),
-    aData.base().offset(),
-    media::TimeUnit::FromMicroseconds(aData.base().time()),
-    media::TimeUnit::FromMicroseconds(aData.base().duration()),
-    image,
-    aData.base().keyframe(),
-    media::TimeUnit::FromMicroseconds(aData.base().timecode()));
+      aData.display(),
+      aData.base().offset(),
+      media::TimeUnit::FromMicroseconds(aData.base().time()),
+      media::TimeUnit::FromMicroseconds(aData.base().duration()),
+      image,
+      aData.base().keyframe(),
+      media::TimeUnit::FromMicroseconds(aData.base().timecode()));
 
   mDecodedData.AppendElement(Move(video));
   return IPC_OK();
@@ -149,21 +151,21 @@ VideoDecoderChild::ActorDestroy(ActorDestroyReason aWhy)
     // it'll be safe for MediaFormatReader to recreate decoders
     RefPtr<VideoDecoderChild> ref = this;
     GetManager()->RunWhenRecreated(
-      NS_NewRunnableFunction("dom::VideoDecoderChild::ActorDestroy", [=]() {
-        MediaResult error(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER);
-        error.SetGPUCrashTimeStamp(ref->mGPUCrashTime);
-        if (ref->mInitialized) {
-          mDecodedData.Clear();
-          mDecodePromise.RejectIfExists(error, __func__);
-          mDrainPromise.RejectIfExists(error, __func__);
-          mFlushPromise.RejectIfExists(error, __func__);
-          // Make sure the next request will be rejected accordingly if ever
-          // called.
-          mNeedNewDecoder = true;
-        } else {
-          ref->mInitPromise.RejectIfExists(error, __func__);
-        }
-      }));
+        NS_NewRunnableFunction("dom::VideoDecoderChild::ActorDestroy", [=]() {
+          MediaResult error(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER);
+          error.SetGPUCrashTimeStamp(ref->mGPUCrashTime);
+          if (ref->mInitialized) {
+            mDecodedData.Clear();
+            mDecodePromise.RejectIfExists(error, __func__);
+            mDrainPromise.RejectIfExists(error, __func__);
+            mFlushPromise.RejectIfExists(error, __func__);
+            // Make sure the next request will be rejected accordingly if ever
+            // called.
+            mNeedNewDecoder = true;
+          } else {
+            ref->mInitPromise.RejectIfExists(error, __func__);
+          }
+        }));
   }
   mCanSend = false;
 
@@ -171,7 +173,7 @@ VideoDecoderChild::ActorDestroy(ActorDestroyReason aWhy)
   ReportUnblacklistingTelemetry(aWhy == AbnormalShutdown,
                                 mBlacklistedD3D11Driver,
                                 mBlacklistedD3D9Driver);
-#endif // XP_WIN
+#endif  // XP_WIN
 }
 
 MediaResult
@@ -180,7 +182,7 @@ VideoDecoderChild::InitIPDL(const VideoInfo& aVideoInfo,
                             const layers::TextureFactoryIdentifier& aIdentifier)
 {
   RefPtr<VideoDecoderManagerChild> manager =
-    VideoDecoderManagerChild::GetSingleton();
+      VideoDecoderManagerChild::GetSingleton();
 
   // The manager isn't available because VideoDecoderManagerChild has been
   // initialized with null end points and we don't want to decode video on GPU
@@ -214,8 +216,8 @@ VideoDecoderChild::InitIPDL(const VideoInfo& aVideoInfo,
     mCanSend = true;
   }
 
-  return success ? MediaResult(NS_OK) :
-                   MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR, errorDescription);
+  return success ? MediaResult(NS_OK)
+                 : MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR, errorDescription);
 }
 
 void
@@ -241,7 +243,7 @@ VideoDecoderChild::Init()
 
   if (!mIPDLSelfRef) {
     return MediaDataDecoder::InitPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__);
+        NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__);
   }
   // If we failed to send this, then we'll still resolve the Init promise
   // as ActorDestroy handles it.
@@ -274,7 +276,7 @@ VideoDecoderChild::Decode(MediaRawData* aSample)
   Shmem buffer;
   if (!AllocShmem(aSample->Size(), Shmem::SharedMemory::TYPE_BASIC, &buffer)) {
     return MediaDataDecoder::DecodePromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__);
+        NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__);
   }
 
   memcpy(buffer.get<uint8_t>(), aSample->Data(), aSample->Size());
@@ -379,5 +381,5 @@ VideoDecoderChild::GetManager()
   return static_cast<VideoDecoderManagerChild*>(Manager());
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

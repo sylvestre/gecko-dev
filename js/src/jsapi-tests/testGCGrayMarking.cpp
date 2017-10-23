@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18,8 +18,7 @@ using namespace js::gc;
 namespace JS {
 
 template <>
-struct DeletePolicy<js::ObjectWeakMap> : public js::GCManagedDeletePolicy<js::ObjectWeakMap>
-{};
+struct DeletePolicy<js::ObjectWeakMap> : public js::GCManagedDeletePolicy<js::ObjectWeakMap> {};
 
 template <>
 struct MapTypeToRootKind<js::ObjectWeakMap*> {
@@ -27,19 +26,16 @@ struct MapTypeToRootKind<js::ObjectWeakMap*> {
 };
 
 template <>
-struct GCPolicy<js::ObjectWeakMap*> : public NonGCPointerPolicy<js::ObjectWeakMap*>
-{};
+struct GCPolicy<js::ObjectWeakMap*> : public NonGCPointerPolicy<js::ObjectWeakMap*> {};
 
-} // namespace JS
+}  // namespace JS
 
-class AutoNoAnalysisForTest
-{
-  public:
+class AutoNoAnalysisForTest {
+   public:
     AutoNoAnalysisForTest() {}
 } JS_HAZ_GC_SUPPRESSED;
 
-BEGIN_TEST(testGCGrayMarking)
-{
+BEGIN_TEST(testGCGrayMarking) {
     AutoNoAnalysisForTest disableAnalysis;
     AutoDisableCompactingGC disableCompactingGC(cx);
 #ifdef JS_GC_ZEAL
@@ -51,13 +47,8 @@ BEGIN_TEST(testGCGrayMarking)
 
     InitGrayRootTracer();
 
-    bool ok =
-        TestMarking() &&
-        TestWeakMaps() &&
-        TestUnassociatedWeakMaps() &&
-        TestWatchpoints() &&
-        TestCCWs() &&
-        TestGrayUnmarking();
+    bool ok = TestMarking() && TestWeakMaps() && TestUnassociatedWeakMaps() && TestWatchpoints() &&
+              TestCCWs() && TestGrayUnmarking();
 
     global1 = nullptr;
     global2 = nullptr;
@@ -66,9 +57,7 @@ BEGIN_TEST(testGCGrayMarking)
     return ok;
 }
 
-bool
-TestMarking()
-{
+bool TestMarking() {
     JSObject* sameTarget = AllocPlainObject();
     CHECK(sameTarget);
 
@@ -151,9 +140,7 @@ TestMarking()
     return true;
 }
 
-bool
-TestWeakMaps()
-{
+bool TestWeakMaps() {
     JSObject* weakMap = JS::NewWeakMapObject(cx);
     CHECK(weakMap);
 
@@ -330,9 +317,7 @@ TestWeakMaps()
     return true;
 }
 
-bool
-TestUnassociatedWeakMaps()
-{
+bool TestUnassociatedWeakMaps() {
     // Make a weakmap that's not associated with a JSObject.
     auto weakMap = cx->make_unique<ObjectWeakMap>(cx);
     CHECK(weakMap);
@@ -431,9 +416,7 @@ TestUnassociatedWeakMaps()
     return true;
 }
 
-bool
-TestWatchpoints()
-{
+bool TestWatchpoints() {
     JSObject* watched = AllocPlainObject();
     CHECK(watched);
 
@@ -488,9 +471,7 @@ TestWatchpoints()
     return true;
 }
 
-bool
-TestCCWs()
-{
+bool TestCCWs() {
     JSObject* target = AllocPlainObject();
     CHECK(target);
 
@@ -576,9 +557,7 @@ TestCCWs()
     return true;
 }
 
-bool
-TestGrayUnmarking()
-{
+bool TestGrayUnmarking() {
     const size_t length = 2000;
 
     JSObject* chain = AllocObjectChain(length);
@@ -607,28 +586,22 @@ TestGrayUnmarking()
     return true;
 }
 
-struct ColorCheckFunctor
-{
+struct ColorCheckFunctor {
     MarkColor color;
     size_t& count;
 
-    ColorCheckFunctor(MarkColor colorArg, size_t* countArg)
-      : color(colorArg), count(*countArg)
-    {
+    ColorCheckFunctor(MarkColor colorArg, size_t* countArg) : color(colorArg), count(*countArg) {
         count = 0;
     }
 
     bool operator()(JSObject* obj) {
-        if (!CheckCellColor(obj, color))
-            return false;
+        if (!CheckCellColor(obj, color)) return false;
 
         NativeObject& nobj = obj->as<NativeObject>();
-        if (!CheckCellColor(nobj.shape(), color))
-            return false;
+        if (!CheckCellColor(nobj.shape(), color)) return false;
 
         Shape* shape = nobj.shape();
-        if (!CheckCellColor(shape, color))
-            return false;
+        if (!CheckCellColor(shape, color)) return false;
 
         // Shapes and symbols are never marked gray.
         jsid id = shape->propid();
@@ -643,51 +616,39 @@ struct ColorCheckFunctor
 JS::PersistentRootedObject global1;
 JS::PersistentRootedObject global2;
 
-struct GrayRoots
-{
+struct GrayRoots {
     JS::Heap<JSObject*> grayRoot1;
     JS::Heap<JSObject*> grayRoot2;
 };
 
 GrayRoots grayRoots;
 
-bool
-InitGlobals()
-{
+bool InitGlobals() {
     global1.init(cx, global);
-    if (!createGlobal())
-        return false;
+    if (!createGlobal()) return false;
     global2.init(cx, global);
     return global2 != nullptr;
 }
 
-void
-InitGrayRootTracer()
-{
+void InitGrayRootTracer() {
     grayRoots.grayRoot1 = nullptr;
     grayRoots.grayRoot2 = nullptr;
     JS_SetGrayGCRootsTracer(cx, TraceGrayRoots, &grayRoots);
 }
 
-void
-RemoveGrayRootTracer()
-{
+void RemoveGrayRootTracer() {
     grayRoots.grayRoot1 = nullptr;
     grayRoots.grayRoot2 = nullptr;
     JS_SetGrayGCRootsTracer(cx, nullptr, nullptr);
 }
 
-static void
-TraceGrayRoots(JSTracer* trc, void* data)
-{
+static void TraceGrayRoots(JSTracer* trc, void* data) {
     auto grayRoots = static_cast<GrayRoots*>(data);
     TraceEdge(trc, &grayRoots->grayRoot1, "gray root 1");
     TraceEdge(trc, &grayRoots->grayRoot2, "gray root 2");
 }
 
-JSObject*
-AllocPlainObject()
-{
+JSObject* AllocPlainObject() {
     JS::RootedObject obj(cx, JS_NewPlainObject(cx));
     EvictNursery();
 
@@ -695,16 +656,12 @@ AllocPlainObject()
     return obj;
 }
 
-JSObject*
-AllocSameCompartmentSourceObject(JSObject* target)
-{
+JSObject* AllocSameCompartmentSourceObject(JSObject* target) {
     JS::RootedObject source(cx, JS_NewPlainObject(cx));
-    if (!source)
-        return nullptr;
+    if (!source) return nullptr;
 
     JS::RootedObject obj(cx, target);
-    if (!JS_DefineProperty(cx, source, "ptr", obj, 0))
-        return nullptr;
+    if (!JS_DefineProperty(cx, source, "ptr", obj, 0)) return nullptr;
 
     EvictNursery();
 
@@ -712,14 +669,11 @@ AllocSameCompartmentSourceObject(JSObject* target)
     return source;
 }
 
-JSObject*
-GetCrossCompartmentWrapper(JSObject* target)
-{
+JSObject* GetCrossCompartmentWrapper(JSObject* target) {
     MOZ_ASSERT(target->compartment() == global1->compartment());
     JS::RootedObject obj(cx, target);
     JSAutoCompartment ac(cx, global2);
-    if (!JS_WrapObject(cx, &obj))
-        return nullptr;
+    if (!JS_WrapObject(cx, &obj)) return nullptr;
 
     EvictNursery();
 
@@ -727,39 +681,25 @@ GetCrossCompartmentWrapper(JSObject* target)
     return obj;
 }
 
-static JSObject*
-GetKeyDelegate(JSObject* obj)
-{
+static JSObject* GetKeyDelegate(JSObject* obj) {
     return static_cast<JSObject*>(obj->as<NativeObject>().getPrivate());
 }
 
-JSObject*
-AllocWeakmapKeyObject()
-{
-    static const js::ClassExtension KeyClassExtension = {
-        GetKeyDelegate
-    };
+JSObject* AllocWeakmapKeyObject() {
+    static const js::ClassExtension KeyClassExtension = {GetKeyDelegate};
 
-    static const js::Class KeyClass = {
-        "keyWithDelegate",
-        JSCLASS_HAS_PRIVATE,
-        JS_NULL_CLASS_OPS,
-        JS_NULL_CLASS_SPEC,
-        &KeyClassExtension,
-        JS_NULL_OBJECT_OPS
-    };
+    static const js::Class KeyClass = {"keyWithDelegate",  JSCLASS_HAS_PRIVATE,
+                                       JS_NULL_CLASS_OPS,  JS_NULL_CLASS_SPEC,
+                                       &KeyClassExtension, JS_NULL_OBJECT_OPS};
 
     JS::RootedObject key(cx, JS_NewObject(cx, Jsvalify(&KeyClass)));
-    if (!key)
-        return nullptr;
+    if (!key) return nullptr;
 
     EvictNursery();
     return key;
 }
 
-JSObject*
-AllocDelegateForKey(JSObject* key)
-{
+JSObject* AllocDelegateForKey(JSObject* key) {
     JS::RootedObject obj(cx, JS_NewPlainObject(cx));
     EvictNursery();
 
@@ -767,38 +707,31 @@ AllocDelegateForKey(JSObject* key)
     return obj;
 }
 
-JSObject*
-AllocObjectChain(size_t length)
-{
+JSObject* AllocObjectChain(size_t length) {
     // Allocate a chain of linked JSObjects.
 
     // Use a unique property name so the shape is not shared with any other
     // objects.
     RootedString nextPropName(cx, JS_NewStringCopyZ(cx, "unique14142135"));
     RootedId nextId(cx);
-    if (!JS_StringToId(cx, nextPropName, &nextId))
-        return nullptr;
+    if (!JS_StringToId(cx, nextPropName, &nextId)) return nullptr;
 
     RootedObject head(cx);
     for (size_t i = 0; i < length; i++) {
         RootedValue next(cx, ObjectOrNullValue(head));
         head = AllocPlainObject();
-        if (!head)
-            return nullptr;
-        if (!JS_DefinePropertyById(cx, head, nextId, next, 0))
-            return nullptr;
+        if (!head) return nullptr;
+        if (!JS_DefinePropertyById(cx, head, nextId, next, 0)) return nullptr;
     }
 
     return head;
 }
 
 template <typename F>
-bool IterateObjectChain(JSObject* chain, F f)
-{
+bool IterateObjectChain(JSObject* chain, F f) {
     RootedObject obj(cx, chain);
     while (obj) {
-        if (!f(obj))
-            return false;
+        if (!f(obj)) return false;
 
         // Access the 'next' property via the object's slots to avoid triggering
         // gray marking assertions when calling JS_GetPropertyById.
@@ -810,25 +743,19 @@ bool IterateObjectChain(JSObject* chain, F f)
     return true;
 }
 
-static bool
-IsMarkedBlack(Cell* cell)
-{
+static bool IsMarkedBlack(Cell* cell) {
     TenuredCell* tc = &cell->asTenured();
     return tc->isMarkedBlack();
 }
 
-static bool
-IsMarkedGray(Cell* cell)
-{
+static bool IsMarkedGray(Cell* cell) {
     TenuredCell* tc = &cell->asTenured();
     bool isGray = tc->isMarkedGray();
     MOZ_ASSERT_IF(isGray, tc->isMarkedAny());
     return isGray;
 }
 
-static bool
-CheckCellColor(Cell* cell, MarkColor color)
-{
+static bool CheckCellColor(Cell* cell, MarkColor color) {
     MOZ_ASSERT(color == MarkColor::Black || color == MarkColor::Gray);
     if (color == MarkColor::Black && !IsMarkedBlack(cell)) {
         printf("Found non-black cell: %p\n", cell);
@@ -841,15 +768,9 @@ CheckCellColor(Cell* cell, MarkColor color)
     return true;
 }
 
-void
-EvictNursery()
-{
-    cx->runtime()->gc.evictNursery();
-}
+void EvictNursery() { cx->runtime()->gc.evictNursery(); }
 
-bool
-ZoneGC(JS::Zone* zone)
-{
+bool ZoneGC(JS::Zone* zone) {
     uint32_t oldMode = JS_GetGCParameter(cx, JSGC_MODE);
     JS_SetGCParameter(cx, JSGC_MODE, JSGC_MODE_ZONE);
     JS::PrepareZoneForGC(zone);

@@ -25,64 +25,64 @@ using mozilla::RLogConnector;
 
 int NR_LOG_TEST = 0;
 
-class RLogConnectorTest : public ::testing::Test {
-  public:
-    RLogConnectorTest() {
-      Init();
-    }
+class RLogConnectorTest : public ::testing::Test
+{
+ public:
+  RLogConnectorTest() { Init(); }
 
-    ~RLogConnectorTest() {
-      Free();
-    }
+  ~RLogConnectorTest() { Free(); }
 
-    static void SetUpTestCase() {
-      NR_reg_init(NR_REG_MODE_LOCAL);
-      r_log_init();
-      /* Would be nice to be able to unregister in the fixture */
-      const char* facility = "rlogconnector_test";
-      r_log_register(const_cast<char*>(facility), &NR_LOG_TEST);
-    }
+  static void SetUpTestCase()
+  {
+    NR_reg_init(NR_REG_MODE_LOCAL);
+    r_log_init();
+    /* Would be nice to be able to unregister in the fixture */
+    const char* facility = "rlogconnector_test";
+    r_log_register(const_cast<char*>(facility), &NR_LOG_TEST);
+  }
 
-    void Init() {
-      RLogConnector::CreateInstance();
-    }
+  void Init() { RLogConnector::CreateInstance(); }
 
-    void Free() {
-      RLogConnector::DestroyInstance();
-    }
+  void Free() { RLogConnector::DestroyInstance(); }
 
-    void ReInit() {
-      Free();
-      Init();
-    }
+  void ReInit()
+  {
+    Free();
+    Init();
+  }
 };
 
-TEST_F(RLogConnectorTest, TestGetFree) {
+TEST_F(RLogConnectorTest, TestGetFree)
+{
   RLogConnector* instance = RLogConnector::GetInstance();
   ASSERT_NE(nullptr, instance);
 }
 
-TEST_F(RLogConnectorTest, TestFilterEmpty) {
+TEST_F(RLogConnectorTest, TestFilterEmpty)
+{
   std::deque<std::string> logs;
   RLogConnector::GetInstance()->GetAny(0, &logs);
   ASSERT_EQ(0U, logs.size());
 }
 
-TEST_F(RLogConnectorTest, TestBasicFilter) {
+TEST_F(RLogConnectorTest, TestBasicFilter)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test");
   std::deque<std::string> logs;
   RLogConnector::GetInstance()->Filter("Test", 0, &logs);
   ASSERT_EQ(1U, logs.size());
 }
 
-TEST_F(RLogConnectorTest, TestBasicFilterContent) {
+TEST_F(RLogConnectorTest, TestBasicFilterContent)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test");
   std::deque<std::string> logs;
   RLogConnector::GetInstance()->Filter("Test", 0, &logs);
   ASSERT_EQ("Test", logs.back());
 }
 
-TEST_F(RLogConnectorTest, TestFilterAnyFrontMatch) {
+TEST_F(RLogConnectorTest, TestFilterAnyFrontMatch)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test");
   std::vector<std::string> substrings;
   substrings.push_back("foo");
@@ -92,7 +92,8 @@ TEST_F(RLogConnectorTest, TestFilterAnyFrontMatch) {
   ASSERT_EQ("Test", logs.back());
 }
 
-TEST_F(RLogConnectorTest, TestFilterAnyBackMatch) {
+TEST_F(RLogConnectorTest, TestFilterAnyBackMatch)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test");
   std::vector<std::string> substrings;
   substrings.push_back("Test");
@@ -102,7 +103,8 @@ TEST_F(RLogConnectorTest, TestFilterAnyBackMatch) {
   ASSERT_EQ("Test", logs.back());
 }
 
-TEST_F(RLogConnectorTest, TestFilterAnyBothMatch) {
+TEST_F(RLogConnectorTest, TestFilterAnyBothMatch)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test");
   std::vector<std::string> substrings;
   substrings.push_back("Tes");
@@ -112,7 +114,8 @@ TEST_F(RLogConnectorTest, TestFilterAnyBothMatch) {
   ASSERT_EQ("Test", logs.back());
 }
 
-TEST_F(RLogConnectorTest, TestFilterAnyNeitherMatch) {
+TEST_F(RLogConnectorTest, TestFilterAnyNeitherMatch)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test");
   std::vector<std::string> substrings;
   substrings.push_back("tes");
@@ -122,7 +125,8 @@ TEST_F(RLogConnectorTest, TestFilterAnyNeitherMatch) {
   ASSERT_EQ(0U, logs.size());
 }
 
-TEST_F(RLogConnectorTest, TestAllMatch) {
+TEST_F(RLogConnectorTest, TestAllMatch)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   std::deque<std::string> logs;
@@ -130,7 +134,8 @@ TEST_F(RLogConnectorTest, TestAllMatch) {
   ASSERT_EQ(2U, logs.size());
 }
 
-TEST_F(RLogConnectorTest, TestOrder) {
+TEST_F(RLogConnectorTest, TestOrder)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   std::deque<std::string> logs;
@@ -139,7 +144,8 @@ TEST_F(RLogConnectorTest, TestOrder) {
   ASSERT_EQ("Test1", logs.front());
 }
 
-TEST_F(RLogConnectorTest, TestNoMatch) {
+TEST_F(RLogConnectorTest, TestNoMatch)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   std::deque<std::string> logs;
@@ -147,7 +153,8 @@ TEST_F(RLogConnectorTest, TestNoMatch) {
   ASSERT_EQ(0U, logs.size());
 }
 
-TEST_F(RLogConnectorTest, TestSubstringFilter) {
+TEST_F(RLogConnectorTest, TestSubstringFilter)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   std::deque<std::string> logs;
@@ -156,7 +163,8 @@ TEST_F(RLogConnectorTest, TestSubstringFilter) {
   ASSERT_EQ("Test1", logs.back());
 }
 
-TEST_F(RLogConnectorTest, TestFilterLimit) {
+TEST_F(RLogConnectorTest, TestFilterLimit)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   r_log(NR_LOG_TEST, LOG_INFO, "Test3");
@@ -170,7 +178,8 @@ TEST_F(RLogConnectorTest, TestFilterLimit) {
   ASSERT_EQ("Test5", logs.front());
 }
 
-TEST_F(RLogConnectorTest, TestFilterAnyLimit) {
+TEST_F(RLogConnectorTest, TestFilterAnyLimit)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "TestOne");
   r_log(NR_LOG_TEST, LOG_INFO, "TestTwo");
   r_log(NR_LOG_TEST, LOG_INFO, "TestThree");
@@ -190,7 +199,8 @@ TEST_F(RLogConnectorTest, TestFilterAnyLimit) {
   ASSERT_EQ("TestFour", logs.front());
 }
 
-TEST_F(RLogConnectorTest, TestLimit) {
+TEST_F(RLogConnectorTest, TestLimit)
+{
   RLogConnector::GetInstance()->SetLogLimit(3);
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
@@ -205,7 +215,8 @@ TEST_F(RLogConnectorTest, TestLimit) {
   ASSERT_EQ("Test4", logs.front());
 }
 
-TEST_F(RLogConnectorTest, TestLimitBulkDiscard) {
+TEST_F(RLogConnectorTest, TestLimitBulkDiscard)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   r_log(NR_LOG_TEST, LOG_INFO, "Test3");
@@ -220,7 +231,8 @@ TEST_F(RLogConnectorTest, TestLimitBulkDiscard) {
   ASSERT_EQ("Test4", logs.front());
 }
 
-TEST_F(RLogConnectorTest, TestIncreaseLimit) {
+TEST_F(RLogConnectorTest, TestIncreaseLimit)
+{
   RLogConnector::GetInstance()->SetLogLimit(3);
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
@@ -236,7 +248,8 @@ TEST_F(RLogConnectorTest, TestIncreaseLimit) {
   ASSERT_EQ("Test4", logs.front());
 }
 
-TEST_F(RLogConnectorTest, TestClear) {
+TEST_F(RLogConnectorTest, TestClear)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   r_log(NR_LOG_TEST, LOG_INFO, "Test3");
@@ -250,7 +263,8 @@ TEST_F(RLogConnectorTest, TestClear) {
   ASSERT_EQ(0U, logs.size());
 }
 
-TEST_F(RLogConnectorTest, TestReInit) {
+TEST_F(RLogConnectorTest, TestReInit)
+{
   r_log(NR_LOG_TEST, LOG_INFO, "Test1");
   r_log(NR_LOG_TEST, LOG_INFO, "Test2");
   r_log(NR_LOG_TEST, LOG_INFO, "Test3");

@@ -26,15 +26,14 @@ nsSMILCompositor::HashKey(KeyTypePointer aKey)
   // its 2 lowest-order bits. (Those shifted-off bits will always be 0 since
   // our pointers will be word-aligned.)
   return (NS_PTR_TO_UINT32(aKey->mElement.get()) >> 2) +
-    NS_PTR_TO_UINT32(aKey->mAttributeName.get());
+         NS_PTR_TO_UINT32(aKey->mAttributeName.get());
 }
 
 // Cycle-collection support
 void
 nsSMILCompositor::Traverse(nsCycleCollectionTraversalCallback* aCallback)
 {
-  if (!mKey.mElement)
-    return;
+  if (!mKey.mElement) return;
 
   NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(*aCallback, "Compositor mKey.mElement");
   aCallback->NoteXPCOMChild(mKey.mElement);
@@ -52,16 +51,14 @@ nsSMILCompositor::AddAnimationFunction(nsSMILAnimationFunction* aFunc)
 void
 nsSMILCompositor::ComposeAttribute(bool& aMightHavePendingStyleUpdates)
 {
-  if (!mKey.mElement)
-    return;
+  if (!mKey.mElement) return;
 
   // If we might need to resolve base styles, grab a suitable style context
   // for initializing our nsISMILAttr with.
   RefPtr<nsStyleContext> baseStyleContext;
   if (MightNeedBaseStyle()) {
-    baseStyleContext =
-      nsComputedDOMStyle::GetUnanimatedStyleContextNoFlush(mKey.mElement,
-                                                           nullptr, nullptr);
+    baseStyleContext = nsComputedDOMStyle::GetUnanimatedStyleContextNoFlush(
+        mKey.mElement, nullptr, nullptr);
   }
 
   // FIRST: Get the nsISMILAttr (to grab base value from, and to eventually
@@ -122,8 +119,7 @@ nsSMILCompositor::ComposeAttribute(bool& aMightHavePendingStyleUpdates)
 void
 nsSMILCompositor::ClearAnimationEffects()
 {
-  if (!mKey.mElement || !mKey.mAttributeName)
-    return;
+  if (!mKey.mElement || !mKey.mAttributeName) return;
 
   UniquePtr<nsISMILAttr> smilAttr = CreateSMILAttr(nullptr);
   if (!smilAttr) {
@@ -141,8 +137,8 @@ nsSMILCompositor::CreateSMILAttr(nsStyleContext* aBaseStyleContext)
   nsCSSPropertyID propID = GetCSSPropertyToAnimate();
 
   if (propID != eCSSProperty_UNKNOWN) {
-    return MakeUnique<nsSMILCSSProperty>(propID, mKey.mElement.get(),
-                                         aBaseStyleContext);
+    return MakeUnique<nsSMILCSSProperty>(
+        propID, mKey.mElement.get(), aBaseStyleContext);
   }
 
   return mKey.mElement->GetAnimatedAttr(mKey.mAttributeNamespaceID,
@@ -157,11 +153,11 @@ nsSMILCompositor::GetCSSPropertyToAnimate() const
   }
 
   nsCSSPropertyID propID =
-    nsCSSProps::LookupProperty(nsDependentAtomString(mKey.mAttributeName),
-                               CSSEnabledState::eForAllContent);
+      nsCSSProps::LookupProperty(nsDependentAtomString(mKey.mAttributeName),
+                                 CSSEnabledState::eForAllContent);
 
-  if (!nsSMILCSSProperty::IsPropertyAnimatable(propID,
-        mKey.mElement->OwnerDoc()->GetStyleBackendType())) {
+  if (!nsSMILCSSProperty::IsPropertyAnimatable(
+          propID, mKey.mElement->OwnerDoc()->GetStyleBackendType())) {
     return eCSSProperty_UNKNOWN;
   }
 
@@ -220,16 +216,15 @@ nsSMILCompositor::GetFirstFuncToAffectSandwich()
 
   uint32_t i;
   for (i = mAnimationFunctions.Length(); i > 0; --i) {
-    nsSMILAnimationFunction* curAnimFunc = mAnimationFunctions[i-1];
+    nsSMILAnimationFunction* curAnimFunc = mAnimationFunctions[i - 1];
     // In the following, the lack of short-circuit behavior of |= means that we
     // will ALWAYS run UpdateCachedTarget (even if mForceCompositing is true)
     // but only call HasChanged and WasSkippedInPrevSample if necessary.  This
     // is important since we need UpdateCachedTarget to run in order to detect
     // changes to the target in subsequent samples.
-    mForceCompositing |=
-      curAnimFunc->UpdateCachedTarget(mKey) ||
-      (curAnimFunc->HasChanged() && !canThrottle) ||
-      curAnimFunc->WasSkippedInPrevSample();
+    mForceCompositing |= curAnimFunc->UpdateCachedTarget(mKey) ||
+                         (curAnimFunc->HasChanged() && !canThrottle) ||
+                         curAnimFunc->WasSkippedInPrevSample();
 
     if (curAnimFunc->WillReplace()) {
       --i;
@@ -244,7 +239,7 @@ nsSMILCompositor::GetFirstFuncToAffectSandwich()
   // something has changed mForceCompositing will be true.
   if (mForceCompositing) {
     for (uint32_t j = i; j > 0; --j) {
-      mAnimationFunctions[j-1]->SetWasSkipped();
+      mAnimationFunctions[j - 1]->SetWasSkipped();
     }
   }
   return i;

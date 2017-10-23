@@ -40,8 +40,7 @@ ServiceWorkerVisible(JSContext* aCx, JSObject* aObj)
 
 ServiceWorker::ServiceWorker(nsPIDOMWindowInner* aWindow,
                              ServiceWorkerInfo* aInfo)
-  : DOMEventTargetHelper(aWindow),
-    mInfo(aInfo)
+    : DOMEventTargetHelper(aWindow), mInfo(aInfo)
 {
   AssertIsOnMainThread();
   MOZ_ASSERT(aInfo);
@@ -77,7 +76,8 @@ ServiceWorker::GetScriptURL(nsString& aURL) const
 }
 
 void
-ServiceWorker::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
+ServiceWorker::PostMessage(JSContext* aCx,
+                           JS::Handle<JS::Value> aMessage,
                            const Sequence<JSObject*>& aTransferable,
                            ErrorResult& aRv)
 {
@@ -99,11 +99,13 @@ ServiceWorker::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
     return;
   }
 
-  UniquePtr<ServiceWorkerClientInfo> clientInfo(new ServiceWorkerClientInfo(window->GetExtantDoc()));
+  UniquePtr<ServiceWorkerClientInfo> clientInfo(
+      new ServiceWorkerClientInfo(window->GetExtantDoc()));
   ServiceWorkerPrivate* workerPrivate = mInfo->WorkerPrivate();
-  aRv = workerPrivate->SendMessageEvent(aCx, aMessage, aTransferable, Move(clientInfo));
+  aRv = workerPrivate->SendMessageEvent(
+      aCx, aMessage, aTransferable, Move(clientInfo));
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

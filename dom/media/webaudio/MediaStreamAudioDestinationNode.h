@@ -17,34 +17,33 @@ struct AudioNodeOptions;
 
 class MediaStreamAudioDestinationNode final : public AudioNode
 {
-public:
-  static already_AddRefed<MediaStreamAudioDestinationNode>
-  Create(AudioContext& aAudioContext, const AudioNodeOptions& aOptions,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<MediaStreamAudioDestinationNode> Create(
+      AudioContext& aAudioContext,
+      const AudioNodeOptions& aOptions,
+      ErrorResult& aRv);
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MediaStreamAudioDestinationNode, AudioNode)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MediaStreamAudioDestinationNode,
+                                           AudioNode)
 
-  static already_AddRefed<MediaStreamAudioDestinationNode>
-  Constructor(const GlobalObject& aGlobal, AudioContext& aAudioContext,
-              const AudioNodeOptions& aOptions, ErrorResult& aRv)
+  static already_AddRefed<MediaStreamAudioDestinationNode> Constructor(
+      const GlobalObject& aGlobal,
+      AudioContext& aAudioContext,
+      const AudioNodeOptions& aOptions,
+      ErrorResult& aRv)
   {
     return Create(aAudioContext, aOptions, aRv);
   }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  uint16_t NumberOfOutputs() const final override
-  {
-    return 0;
-  }
+  uint16_t NumberOfOutputs() const final override { return 0; }
 
   void DestroyMediaStream() override;
 
-  DOMMediaStream* DOMStream() const
-  {
-    return mDOMStream;
-  }
+  DOMMediaStream* DOMStream() const { return mDOMStream; }
 
   const char* NodeType() const override
   {
@@ -54,7 +53,7 @@ public:
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   explicit MediaStreamAudioDestinationNode(AudioContext* aContext);
   ~MediaStreamAudioDestinationNode() = default;
 
@@ -62,7 +61,7 @@ private:
   RefPtr<MediaInputPort> mPort;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

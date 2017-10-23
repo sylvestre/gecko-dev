@@ -150,25 +150,23 @@ namespace js {
 
 class SavedStacks {
     friend class SavedFrame;
-    friend bool JS::ubi::ConstructSavedFrameStackSlow(JSContext* cx,
-                                                      JS::ubi::StackFrame& ubiFrame,
+    friend bool JS::ubi::ConstructSavedFrameStackSlow(JSContext* cx, JS::ubi::StackFrame& ubiFrame,
                                                       MutableHandleObject outSavedFrameStack);
 
-  public:
+   public:
     SavedStacks()
-      : frames(),
-        bernoulliSeeded(false),
-        bernoulli(1.0, 0x59fdad7f6b4cc573, 0x91adf38db96a9354),
-        creatingSavedFrame(false)
-    { }
+        : frames(),
+          bernoulliSeeded(false),
+          bernoulli(1.0, 0x59fdad7f6b4cc573, 0x91adf38db96a9354),
+          creatingSavedFrame(false) {}
 
     MOZ_MUST_USE bool init();
     bool initialized() const { return frames.initialized(); }
-    MOZ_MUST_USE bool saveCurrentStack(JSContext* cx, MutableHandleSavedFrame frame,
-                                       JS::StackCapture&& capture = JS::StackCapture(JS::AllFrames()));
+    MOZ_MUST_USE bool saveCurrentStack(
+        JSContext* cx, MutableHandleSavedFrame frame,
+        JS::StackCapture&& capture = JS::StackCapture(JS::AllFrames()));
     MOZ_MUST_USE bool copyAsyncStack(JSContext* cx, HandleObject asyncStack,
-                                     HandleString asyncCause,
-                                     MutableHandleSavedFrame adoptedStack,
+                                     HandleString asyncCause, MutableHandleSavedFrame adoptedStack,
                                      uint32_t maxFrameCount = 0);
     void sweep();
     void trace(JSTracer* trc);
@@ -179,21 +177,23 @@ class SavedStacks {
     // Set the sampling random number generator's state to |state0| and
     // |state1|. One or the other must be non-zero. See the comments for
     // mozilla::non_crypto::XorShift128PlusRNG::setState for details.
-    void setRNGState(uint64_t state0, uint64_t state1) { bernoulli.setRandomState(state0, state1); }
+    void setRNGState(uint64_t state0, uint64_t state1) {
+        bernoulli.setRandomState(state0, state1);
+    }
 
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
 
     // An alloction metadata builder that marks cells with the JavaScript stack
     // at which they were allocated.
     struct MetadataBuilder : public AllocationMetadataBuilder {
-        MetadataBuilder() : AllocationMetadataBuilder() { }
-        virtual JSObject* build(JSContext *cx, HandleObject obj,
+        MetadataBuilder() : AllocationMetadataBuilder() {}
+        virtual JSObject* build(JSContext* cx, HandleObject obj,
                                 AutoEnterOOMUnsafeRegion& oomUnsafe) const override;
     };
 
     static const MetadataBuilder metadataBuilder;
 
-  private:
+   private:
     SavedFrame::Set frames;
     bool bernoulliSeeded;
     mozilla::FastBernoulliTrial bernoulli;
@@ -207,20 +207,15 @@ class SavedStacks {
         SavedStacks& stacks;
 
         explicit AutoReentrancyGuard(SavedStacks& stacks MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-            : stacks(stacks)
-        {
+            : stacks(stacks) {
             MOZ_GUARD_OBJECT_NOTIFIER_INIT;
             stacks.creatingSavedFrame = true;
         }
 
-        ~AutoReentrancyGuard()
-        {
-            stacks.creatingSavedFrame = false;
-        }
+        ~AutoReentrancyGuard() { stacks.creatingSavedFrame = false; }
     };
 
-    MOZ_MUST_USE bool insertFrames(JSContext* cx, FrameIter& iter,
-                                   MutableHandleSavedFrame frame,
+    MOZ_MUST_USE bool insertFrames(JSContext* cx, FrameIter& iter, MutableHandleSavedFrame frame,
                                    JS::StackCapture&& capture);
     MOZ_MUST_USE bool adoptAsyncStack(JSContext* cx, HandleSavedFrame asyncStack,
                                       HandleString asyncCause,
@@ -232,21 +227,21 @@ class SavedStacks {
     // Cache for memoizing PCToLineNumber lookups.
 
     struct PCKey {
-        PCKey(JSScript* script, jsbytecode* pc) : script(script), pc(pc) { }
+        PCKey(JSScript* script, jsbytecode* pc) : script(script), pc(pc) {}
 
         HeapPtr<JSScript*> script;
         jsbytecode* pc;
 
-        void trace(JSTracer* trc) { /* PCKey is weak. */ }
+        void trace(JSTracer* trc) { /* PCKey is weak. */
+        }
         bool needsSweep() { return IsAboutToBeFinalized(&script); }
     };
 
-  public:
+   public:
     struct LocationValue {
-        LocationValue() : source(nullptr), line(0), column(0) { }
+        LocationValue() : source(nullptr), line(0), column(0) {}
         LocationValue(JSAtom* source, size_t line, uint32_t column)
-            : source(source), line(line), column(column)
-        { }
+            : source(source), line(line), column(column) {}
 
         void trace(JSTracer* trc) {
             TraceNullableEdge(trc, &source, "SavedStacks::LocationValue::source");
@@ -266,7 +261,7 @@ class SavedStacks {
         uint32_t column;
     };
 
-  private:
+   private:
     struct PCLocationHasher : public DefaultHasher<PCKey> {
         using ScriptPtrHasher = DefaultHasher<JSScript*>;
         using BytecodePtrHasher = DefaultHasher<jsbytecode*>;
@@ -297,13 +292,12 @@ class SavedStacks {
 };
 
 template <typename Wrapper>
-struct WrappedPtrOperations<SavedStacks::LocationValue, Wrapper>
-{
+struct WrappedPtrOperations<SavedStacks::LocationValue, Wrapper> {
     JSAtom* source() const { return loc().source; }
     size_t line() const { return loc().line; }
     uint32_t column() const { return loc().column; }
 
-  private:
+   private:
     const SavedStacks::LocationValue& loc() const {
         return static_cast<const Wrapper*>(this)->get();
     }
@@ -311,20 +305,16 @@ struct WrappedPtrOperations<SavedStacks::LocationValue, Wrapper>
 
 template <typename Wrapper>
 struct MutableWrappedPtrOperations<SavedStacks::LocationValue, Wrapper>
-    : public WrappedPtrOperations<SavedStacks::LocationValue, Wrapper>
-{
+    : public WrappedPtrOperations<SavedStacks::LocationValue, Wrapper> {
     void setSource(JSAtom* v) { loc().source = v; }
     void setLine(size_t v) { loc().line = v; }
     void setColumn(uint32_t v) { loc().column = v; }
 
-  private:
-    SavedStacks::LocationValue& loc() {
-        return static_cast<Wrapper*>(this)->get();
-    }
+   private:
+    SavedStacks::LocationValue& loc() { return static_cast<Wrapper*>(this)->get(); }
 };
 
-UTF8CharsZ
-BuildUTF8StackString(JSContext* cx, HandleObject stack);
+UTF8CharsZ BuildUTF8StackString(JSContext* cx, HandleObject stack);
 
 } /* namespace js */
 

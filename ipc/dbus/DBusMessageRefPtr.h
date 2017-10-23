@@ -15,16 +15,18 @@ namespace mozilla {
 template<>
 struct RefPtrTraits<DBusMessage>
 {
-  static void AddRef(DBusMessage* aMessage) {
+  static void AddRef(DBusMessage* aMessage)
+  {
     MOZ_ASSERT(aMessage);
     dbus_message_ref(aMessage);
   }
-  static void Release(DBusMessage* aMessage) {
+  static void Release(DBusMessage* aMessage)
+  {
     MOZ_ASSERT(aMessage);
     dbus_message_unref(aMessage);
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ipc_DBusMessageRefPtr_h
+#endif  // mozilla_ipc_DBusMessageRefPtr_h

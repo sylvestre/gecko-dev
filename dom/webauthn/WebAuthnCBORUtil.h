@@ -26,7 +26,7 @@ CBOREncodeAttestationObj(const CryptoBuffer& aAuthDataBuf,
                          const CryptoBuffer& aSignatureBuf,
                          /* out */ CryptoBuffer& aAttestationObj);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WebAuthnCBORUtil_h
+#endif  // mozilla_dom_WebAuthnCBORUtil_h

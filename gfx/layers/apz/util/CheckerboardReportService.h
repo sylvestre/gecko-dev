@@ -8,12 +8,12 @@
 
 #include <string>
 
-#include "js/TypeDecls.h" // for JSContext, JSObject
-#include "mozilla/ErrorResult.h" // for ErrorResult
-#include "mozilla/StaticPtr.h" // for StaticRefPtr
-#include "nsCOMPtr.h" // for nsCOMPtr
-#include "nsISupports.h" // for NS_INLINE_DECL_REFCOUNTING
-#include "nsWrapperCache.h" // for nsWrapperCache
+#include "js/TypeDecls.h"         // for JSContext, JSObject
+#include "mozilla/ErrorResult.h"  // for ErrorResult
+#include "mozilla/StaticPtr.h"    // for StaticRefPtr
+#include "nsCOMPtr.h"             // for nsCOMPtr
+#include "nsISupports.h"          // for NS_INLINE_DECL_REFCOUNTING
+#include "nsWrapperCache.h"       // for nsWrapperCache
 
 namespace mozilla {
 
@@ -31,7 +31,7 @@ class CheckerboardEventStorage
 {
   NS_INLINE_DECL_REFCOUNTING(CheckerboardEventStorage)
 
-public:
+ public:
   /**
    * Get the singleton instance.
    */
@@ -48,7 +48,7 @@ public:
    */
   static void Report(uint32_t aSeverity, const std::string& aLog);
 
-private:
+ private:
   /* Stuff for refcounted singleton */
   CheckerboardEventStorage() {}
   virtual ~CheckerboardEventStorage() {}
@@ -57,26 +57,24 @@ private:
 
   void ReportCheckerboard(uint32_t aSeverity, const std::string& aLog);
 
-private:
+ private:
   /**
    * Struct that this class uses internally to store a checkerboard report.
    */
-  struct CheckerboardReport {
-      uint32_t mSeverity; // if 0, this report is empty
-      int64_t mTimestamp; // microseconds since epoch, as from JS_Now()
-      std::string mLog;
+  struct CheckerboardReport
+  {
+    uint32_t mSeverity;  // if 0, this report is empty
+    int64_t mTimestamp;  // microseconds since epoch, as from JS_Now()
+    std::string mLog;
 
-      CheckerboardReport()
-        : mSeverity(0)
-        , mTimestamp(0)
-      {}
+    CheckerboardReport() : mSeverity(0), mTimestamp(0) {}
 
-      CheckerboardReport(uint32_t aSeverity, int64_t aTimestamp,
-                         const std::string& aLog)
-        : mSeverity(aSeverity)
-        , mTimestamp(aTimestamp)
-        , mLog(aLog)
-      {}
+    CheckerboardReport(uint32_t aSeverity,
+                       int64_t aTimestamp,
+                       const std::string& aLog)
+        : mSeverity(aSeverity), mTimestamp(aTimestamp), mLog(aLog)
+    {
+    }
   };
 
   // The first 5 (indices 0-4) are the most severe ones in decreasing order
@@ -87,7 +85,7 @@ private:
   CheckerboardReport mCheckerboardReports[RECENT_MAX_INDEX];
 };
 
-} // namespace layers
+}  // namespace layers
 
 namespace dom {
 
@@ -100,7 +98,7 @@ class GlobalObject;
  */
 class CheckerboardReportService : public nsWrapperCache
 {
-public:
+ public:
   /**
    * Check if the given page is allowed to access this object via the WebIDL
    * bindings. It only returns true if the page is about:checkerboard.
@@ -111,19 +109,20 @@ public:
    * Other standard WebIDL binding glue.
    */
 
-  static already_AddRefed<CheckerboardReportService>
-    Constructor(const dom::GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<CheckerboardReportService> Constructor(
+      const dom::GlobalObject& aGlobal, ErrorResult& aRv);
 
   explicit CheckerboardReportService(nsISupports* aSupports);
 
-  JSObject* WrapObject(JSContext* aCtx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCtx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   nsISupports* GetParentObject();
 
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(CheckerboardReportService)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(CheckerboardReportService)
 
-public:
+ public:
   /*
    * The methods exposed via the webidl.
    */
@@ -132,13 +131,13 @@ public:
   void SetRecordingEnabled(bool aEnabled);
   void FlushActiveReports();
 
-private:
+ private:
   virtual ~CheckerboardReportService() {}
 
   nsCOMPtr<nsISupports> mParent;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_layers_CheckerboardReportService_h */

@@ -14,14 +14,14 @@ namespace sandboxing {
 
 // We are using callbacks here that are passed in from the core code to prevent
 // a circular dependency in the linking during the build.
-typedef void (*LogFunction) (const char* aMessageType,
-                             const char* aFunctionName,
-                             const char* aContext,
-                             const bool aShouldLogStackTrace,
-                             uint32_t aFramesToSkip);
-typedef void (*ProvideLogFunctionCb) (LogFunction aLogFunction);
+typedef void (*LogFunction)(const char* aMessageType,
+                            const char* aFunctionName,
+                            const char* aContext,
+                            const bool aShouldLogStackTrace,
+                            uint32_t aFramesToSkip);
+typedef void (*ProvideLogFunctionCb)(LogFunction aLogFunction);
 
-} // sandboxing
-} // mozilla
+}  // namespace sandboxing
+}  // namespace mozilla
 
-#endif // security_sandbox_loggingTypes_h__
+#endif  // security_sandbox_loggingTypes_h__

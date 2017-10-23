@@ -10,14 +10,14 @@
 
 namespace mozilla {
 
-template <int N>
+template<int N>
 static bool
 StartsWith(const nsACString& string, const char (&prefix)[N])
 {
-    if (N - 1 > string.Length()) {
-      return false;
-    }
-    return memcmp(string.Data(), prefix, N - 1) == 0;
+  if (N - 1 > string.Length()) {
+    return false;
+  }
+  return memcmp(string.Data(), prefix, N - 1) == 0;
 }
 
 bool
@@ -44,10 +44,7 @@ MediaMIMEType::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
   return mMIMEType.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
 }
 
-MediaMIMEType::MediaMIMEType(const nsACString& aType)
-  : mMIMEType(aType)
-{
-}
+MediaMIMEType::MediaMIMEType(const nsACString& aType) : mMIMEType(aType) {}
 
 Maybe<MediaMIMEType>
 MakeMediaMIMEType(const nsAString& aType)
@@ -126,7 +123,6 @@ MediaCodecs::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
   return mCodecs.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
 }
 
-
 static int32_t
 GetParameterAsNumber(const nsContentTypeParser& aParser,
                      const char* aParameter,
@@ -148,28 +144,28 @@ MediaExtendedMIMEType::MediaExtendedMIMEType(const nsACString& aOriginalString,
                                              const nsACString& aMIMEType,
                                              bool aHaveCodecs,
                                              const nsAString& aCodecs,
-                                             int32_t aWidth, int32_t aHeight,
-                                             int32_t aFramerate, int32_t aBitrate)
-  : mOriginalString(aOriginalString)
-  , mMIMEType(aMIMEType)
-  , mHaveCodecs(aHaveCodecs)
-  , mCodecs(aCodecs)
-  , mWidth(aWidth)
-  , mHeight(aHeight)
-  , mFramerate(aFramerate)
-  , mBitrate(aBitrate)
+                                             int32_t aWidth,
+                                             int32_t aHeight,
+                                             int32_t aFramerate,
+                                             int32_t aBitrate)
+    : mOriginalString(aOriginalString),
+      mMIMEType(aMIMEType),
+      mHaveCodecs(aHaveCodecs),
+      mCodecs(aCodecs),
+      mWidth(aWidth),
+      mHeight(aHeight),
+      mFramerate(aFramerate),
+      mBitrate(aBitrate)
 {
 }
 
 MediaExtendedMIMEType::MediaExtendedMIMEType(const MediaMIMEType& aType)
-  : mOriginalString(aType.AsString())
-  , mMIMEType(aType)
+    : mOriginalString(aType.AsString()), mMIMEType(aType)
 {
 }
 
 MediaExtendedMIMEType::MediaExtendedMIMEType(MediaMIMEType&& aType)
-  : mOriginalString(aType.AsString())
-  , mMIMEType(Move(aType))
+    : mOriginalString(aType.AsString()), mMIMEType(Move(aType))
 {
 }
 
@@ -201,17 +197,20 @@ MakeMediaExtendedMIMEType(const nsAString& aType)
 
   return Some(MediaExtendedMIMEType(NS_ConvertUTF16toUTF8(aType),
                                     mime8,
-                                    haveCodecs, codecs,
-                                    width, height,
-                                    framerate, bitrate));
+                                    haveCodecs,
+                                    codecs,
+                                    width,
+                                    height,
+                                    framerate,
+                                    bitrate));
 }
 
 size_t
 MediaExtendedMIMEType::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
 {
-  return mOriginalString.SizeOfExcludingThisIfUnshared(aMallocSizeOf)
-         + mMIMEType.SizeOfExcludingThis(aMallocSizeOf)
-         + mCodecs.SizeOfExcludingThis(aMallocSizeOf);
+  return mOriginalString.SizeOfExcludingThisIfUnshared(aMallocSizeOf) +
+         mMIMEType.SizeOfExcludingThis(aMallocSizeOf) +
+         mCodecs.SizeOfExcludingThis(aMallocSizeOf);
 }
 
 Maybe<MediaExtendedMIMEType>
@@ -229,4 +228,4 @@ MakeMediaExtendedMIMEType(const char* aType)
   return MakeMediaExtendedMIMEType(nsDependentCString(aType));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

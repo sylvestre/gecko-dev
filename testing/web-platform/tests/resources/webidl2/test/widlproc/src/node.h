@@ -15,51 +15,71 @@
 #define node_h
 
 /* struct node : a node in the parse tree (excluding comments) */
-enum { NODE_ELEMENT, NODE_ATTR, NODE_ATTRLIST };
-struct node {
-    int type;
-    struct node *next;
-    struct node *parent;
-    struct node *children;
-    struct comment *comments; /* list of comments attached to this node */
-    /* If wsstart and end are set, they give the literal Web IDL that can
+enum
+{
+  NODE_ELEMENT,
+  NODE_ATTR,
+  NODE_ATTRLIST
+};
+struct node
+{
+  int type;
+  struct node* next;
+  struct node* parent;
+  struct node* children;
+  struct comment* comments; /* list of comments attached to this node */
+  /* If wsstart and end are set, they give the literal Web IDL that can
      * be output in a <webidl> element. */
-    const char *wsstart;
-    /* If start and end are set, they give the text of a scoped name that
+  const char* wsstart;
+  /* If start and end are set, they give the text of a scoped name that
      * can be enclosed in a <ref> when outputting a <webidl> element for
      * an ancestor element. */
-    const char *start;
-    const char *end;
-    const char *id;
+  const char* start;
+  const char* end;
+  const char* id;
 };
 
-struct element {
-    struct node n;
-    const char *name;
+struct element
+{
+  struct node n;
+  const char* name;
 };
 
-struct attr {
-    struct node n;
-    const char *name;
-    const char *value;
+struct attr
+{
+  struct node n;
+  const char* name;
+  const char* value;
 };
 
-struct attrlist {
-    struct node n;
+struct attrlist
+{
+  struct node n;
 };
 
-struct node *newelement(const char *name);
-struct node *newattr(const char *name, const char *val);
-struct node *newattrlist(void);
-void addnode(struct node *parent, struct node *child);
-void reversechildren(struct node *node);
-int nodeisempty(struct node *node);
-const char *getattr(struct node *node, const char *name);
-struct node *nodewalk(struct node *node);
-struct node *findreturntype(struct node *node);
-struct node *findparamidentifier(struct node *node, const char *name);
-struct node *findthrowidentifier(struct node *node, const char *name);
-void outputnode(struct node *node, unsigned int indent);
+struct node*
+newelement(const char* name);
+struct node*
+newattr(const char* name, const char* val);
+struct node*
+newattrlist(void);
+void
+addnode(struct node* parent, struct node* child);
+void
+reversechildren(struct node* node);
+int
+nodeisempty(struct node* node);
+const char*
+getattr(struct node* node, const char* name);
+struct node*
+nodewalk(struct node* node);
+struct node*
+findreturntype(struct node* node);
+struct node*
+findparamidentifier(struct node* node, const char* name);
+struct node*
+findthrowidentifier(struct node* node, const char* name);
+void
+outputnode(struct node* node, unsigned int indent);
 
 #endif /* ndef node_h */
-

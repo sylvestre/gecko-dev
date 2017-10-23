@@ -13,13 +13,17 @@ class nsTransactionItem;
 
 class nsTransactionStack : private nsDeque
 {
-public:
-  enum Type { FOR_UNDO, FOR_REDO };
+ public:
+  enum Type
+  {
+    FOR_UNDO,
+    FOR_REDO
+  };
 
   explicit nsTransactionStack(Type aType);
   ~nsTransactionStack();
 
-  void Push(nsTransactionItem *aTransactionItem);
+  void Push(nsTransactionItem* aTransactionItem);
   void Push(already_AddRefed<nsTransactionItem> aTransactionItem);
   already_AddRefed<nsTransactionItem> Pop();
   already_AddRefed<nsTransactionItem> PopBottom();
@@ -30,10 +34,10 @@ public:
   bool IsEmpty() const { return GetSize() == 0; }
 
   void DoUnlink() { Clear(); }
-  void DoTraverse(nsCycleCollectionTraversalCallback &cb);
+  void DoTraverse(nsCycleCollectionTraversalCallback& cb);
 
-private:
+ private:
   const Type mType;
 };
 
-#endif // nsTransactionStack_h__
+#endif  // nsTransactionStack_h__

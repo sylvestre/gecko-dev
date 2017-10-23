@@ -21,22 +21,28 @@
 #include "nsID.h"
 
 // {51fcd543-3b52-41f7-b91b-6b54102236e6}
-#define NS_NULLPRINCIPALURI_IMPLEMENTATION_CID \
-  {0x51fcd543, 0x3b52, 0x41f7, \
-    {0xb9, 0x1b, 0x6b, 0x54, 0x10, 0x22, 0x36, 0xe6} }
+#define NS_NULLPRINCIPALURI_IMPLEMENTATION_CID       \
+  {                                                  \
+    0x51fcd543, 0x3b52, 0x41f7,                      \
+    {                                                \
+      0xb9, 0x1b, 0x6b, 0x54, 0x10, 0x22, 0x36, 0xe6 \
+    }                                                \
+  }
 
-class NullPrincipalURI final : public nsIURI
-                             , public nsISizeOf
-                             , public nsIIPCSerializableURI
+class NullPrincipalURI final : public nsIURI,
+                               public nsISizeOf,
+                               public nsIIPCSerializableURI
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURI
   NS_DECL_NSIIPCSERIALIZABLEURI
 
   // nsISizeOf
-  virtual size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfExcludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
   // NB: This constructor exists only for deserialization.  Everyone
   // else should call Create.
@@ -45,7 +51,7 @@ public:
   // Returns null on failure.
   static already_AddRefed<NullPrincipalURI> Create();
 
-private:
+ private:
   NullPrincipalURI(const NullPrincipalURI& aOther);
 
   ~NullPrincipalURI() {}
@@ -55,4 +61,4 @@ private:
   nsAutoCStringN<NSID_LENGTH> mPath;
 };
 
-#endif // __NullPrincipalURI_h__
+#endif  // __NullPrincipalURI_h__

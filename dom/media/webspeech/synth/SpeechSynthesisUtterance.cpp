@@ -19,7 +19,8 @@ namespace mozilla {
 namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(SpeechSynthesisUtterance,
-                                   DOMEventTargetHelper, mVoice);
+                                   DOMEventTargetHelper,
+                                   mVoice);
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechSynthesisUtterance)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
@@ -27,22 +28,23 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(SpeechSynthesisUtterance, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(SpeechSynthesisUtterance, DOMEventTargetHelper)
 
-SpeechSynthesisUtterance::SpeechSynthesisUtterance(nsPIDOMWindowInner* aOwnerWindow,
-                                                   const nsAString& text)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mText(text)
-  , mVolume(1)
-  , mRate(1)
-  , mPitch(1)
-  , mState(STATE_NONE)
-  , mPaused(false)
+SpeechSynthesisUtterance::SpeechSynthesisUtterance(
+    nsPIDOMWindowInner* aOwnerWindow, const nsAString& text)
+    : DOMEventTargetHelper(aOwnerWindow),
+      mText(text),
+      mVolume(1),
+      mRate(1),
+      mPitch(1),
+      mState(STATE_NONE),
+      mPaused(false)
 {
 }
 
 SpeechSynthesisUtterance::~SpeechSynthesisUtterance() {}
 
 JSObject*
-SpeechSynthesisUtterance::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SpeechSynthesisUtterance::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto)
 {
   return SpeechSynthesisUtteranceBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -54,8 +56,7 @@ SpeechSynthesisUtterance::GetParentObject() const
 }
 
 already_AddRefed<SpeechSynthesisUtterance>
-SpeechSynthesisUtterance::Constructor(GlobalObject& aGlobal,
-                                      ErrorResult& aRv)
+SpeechSynthesisUtterance::Constructor(GlobalObject& aGlobal, ErrorResult& aRv)
 {
   return Constructor(aGlobal, EmptyString(), aRv);
 }
@@ -74,7 +75,7 @@ SpeechSynthesisUtterance::Constructor(GlobalObject& aGlobal,
 
   MOZ_ASSERT(win->IsInnerWindow());
   RefPtr<SpeechSynthesisUtterance> object =
-    new SpeechSynthesisUtterance(win, aText);
+      new SpeechSynthesisUtterance(win, aText);
   return object.forget();
 }
 
@@ -157,11 +158,12 @@ SpeechSynthesisUtterance::GetChosenVoiceURI(nsString& aResult) const
 }
 
 void
-SpeechSynthesisUtterance::DispatchSpeechSynthesisEvent(const nsAString& aEventType,
-                                                       uint32_t aCharIndex,
-                                                       const Nullable<uint32_t>& aCharLength,
-                                                       float aElapsedTime,
-                                                       const nsAString& aName)
+SpeechSynthesisUtterance::DispatchSpeechSynthesisEvent(
+    const nsAString& aEventType,
+    uint32_t aCharIndex,
+    const Nullable<uint32_t>& aCharLength,
+    float aElapsedTime,
+    const nsAString& aName)
 {
   SpeechSynthesisEventInit init;
   init.mBubbles = false;
@@ -173,9 +175,9 @@ SpeechSynthesisUtterance::DispatchSpeechSynthesisEvent(const nsAString& aEventTy
   init.mName = aName;
 
   RefPtr<SpeechSynthesisEvent> event =
-    SpeechSynthesisEvent::Constructor(this, aEventType, init);
+      SpeechSynthesisEvent::Constructor(this, aEventType, init);
   DispatchTrustedEvent(event);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

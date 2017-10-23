@@ -9,16 +9,17 @@
 namespace mozilla {
 namespace dom {
 
-MutableBlobStreamListener::MutableBlobStreamListener(MutableBlobStorage::MutableBlobStorageType aStorageType,
-                                                     nsISupports* aParent,
-                                                     const nsACString& aContentType,
-                                                     MutableBlobStorageCallback* aCallback,
-                                                     nsIEventTarget* aEventTarget)
-  : mCallback(aCallback)
-  , mParent(aParent)
-  , mStorageType(aStorageType)
-  , mContentType(aContentType)
-  , mEventTarget(aEventTarget)
+MutableBlobStreamListener::MutableBlobStreamListener(
+    MutableBlobStorage::MutableBlobStorageType aStorageType,
+    nsISupports* aParent,
+    const nsACString& aContentType,
+    MutableBlobStorageCallback* aCallback,
+    nsIEventTarget* aEventTarget)
+    : mCallback(aCallback),
+      mParent(aParent),
+      mStorageType(aStorageType),
+      mContentType(aContentType),
+      mEventTarget(aEventTarget)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aCallback);
@@ -40,7 +41,8 @@ NS_IMPL_ISUPPORTS(MutableBlobStreamListener,
                   nsIRequestObserver)
 
 NS_IMETHODIMP
-MutableBlobStreamListener::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
+MutableBlobStreamListener::OnStartRequest(nsIRequest* aRequest,
+                                          nsISupports* aContext)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mStorage);
@@ -51,7 +53,8 @@ MutableBlobStreamListener::OnStartRequest(nsIRequest* aRequest, nsISupports* aCo
 }
 
 NS_IMETHODIMP
-MutableBlobStreamListener::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext,
+MutableBlobStreamListener::OnStopRequest(nsIRequest* aRequest,
+                                         nsISupports* aContext,
                                          nsresult aStatus)
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -95,7 +98,8 @@ MutableBlobStreamListener::WriteSegmentFun(nsIInputStream* aWriterStream,
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  MutableBlobStreamListener* self = static_cast<MutableBlobStreamListener*>(aClosure);
+  MutableBlobStreamListener* self =
+      static_cast<MutableBlobStreamListener*>(aClosure);
   MOZ_ASSERT(self->mStorage);
 
   nsresult rv = self->mStorage->Append(aFromSegment, aCount);
@@ -107,5 +111,5 @@ MutableBlobStreamListener::WriteSegmentFun(nsIInputStream* aWriterStream,
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

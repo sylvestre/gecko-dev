@@ -34,35 +34,39 @@ class nsMappedAttributeElement;
 #define ATTRCHILD_ARRAY_ATTR_SLOTS_BITS 10
 
 #define ATTRCHILD_ARRAY_MAX_ATTR_COUNT \
-    ((1 << ATTRCHILD_ARRAY_ATTR_SLOTS_BITS) - 1)
+  ((1 << ATTRCHILD_ARRAY_ATTR_SLOTS_BITS) - 1)
 
 #define ATTRCHILD_ARRAY_MAX_CHILD_COUNT \
-    (~uint32_t(0) >> ATTRCHILD_ARRAY_ATTR_SLOTS_BITS)
+  (~uint32_t(0) >> ATTRCHILD_ARRAY_ATTR_SLOTS_BITS)
 
 #define ATTRCHILD_ARRAY_ATTR_SLOTS_COUNT_MASK \
-    ((1 << ATTRCHILD_ARRAY_ATTR_SLOTS_BITS) - 1)
-
+  ((1 << ATTRCHILD_ARRAY_ATTR_SLOTS_BITS) - 1)
 
 #define ATTRSIZE (sizeof(InternalAttr) / sizeof(void*))
 
 class nsAttrAndChildArray
 {
   typedef mozilla::dom::BorrowedAttrInfo BorrowedAttrInfo;
-public:
+
+ public:
   nsAttrAndChildArray();
   ~nsAttrAndChildArray();
 
   uint32_t ChildCount() const
   {
-    return mImpl ? (mImpl->mAttrAndChildCount >> ATTRCHILD_ARRAY_ATTR_SLOTS_BITS) : 0;
+    return mImpl
+               ? (mImpl->mAttrAndChildCount >> ATTRCHILD_ARRAY_ATTR_SLOTS_BITS)
+               : 0;
   }
   nsIContent* ChildAt(uint32_t aPos) const
   {
-    NS_ASSERTION(aPos < ChildCount(), "out-of-bounds access in nsAttrAndChildArray");
-    return reinterpret_cast<nsIContent*>(mImpl->mBuffer[AttrSlotsSize() + aPos]);
+    NS_ASSERTION(aPos < ChildCount(),
+                 "out-of-bounds access in nsAttrAndChildArray");
+    return reinterpret_cast<nsIContent*>(
+        mImpl->mBuffer[AttrSlotsSize() + aPos]);
   }
   nsIContent* GetSafeChildAt(uint32_t aPos) const;
-  nsIContent * const * GetChildArray(uint32_t* aChildCount) const;
+  nsIContent* const* GetChildArray(uint32_t* aChildCount) const;
   nsresult AppendChild(nsIContent* aChild)
   {
     return InsertChildAt(aChild, ChildCount());
@@ -94,9 +98,11 @@ public:
   // If the attribute was unset, an empty value will be swapped into aValue
   // and aHadValue will be set to false. Otherwise, aHadValue will be set to
   // true.
-  nsresult SetAndSwapAttr(nsAtom* aLocalName, nsAttrValue& aValue,
+  nsresult SetAndSwapAttr(nsAtom* aLocalName,
+                          nsAttrValue& aValue,
                           bool* aHadValue);
-  nsresult SetAndSwapAttr(mozilla::dom::NodeInfo* aName, nsAttrValue& aValue,
+  nsresult SetAndSwapAttr(mozilla::dom::NodeInfo* aName,
+                          nsAttrValue& aValue,
                           bool* aHadValue);
 
   // Remove the attr at position aPos.  The value of the attr is placed in
@@ -113,17 +119,20 @@ public:
   const nsAttrName* GetSafeAttrNameAt(uint32_t aPos) const;
 
   const nsAttrName* GetExistingAttrNameFromQName(const nsAString& aName) const;
-  int32_t IndexOfAttr(nsAtom* aLocalName, int32_t aNamespaceID = kNameSpaceID_None) const;
+  int32_t IndexOfAttr(nsAtom* aLocalName,
+                      int32_t aNamespaceID = kNameSpaceID_None) const;
 
   // SetAndSwapMappedAttr swaps the current attribute value with aValue.
   // If the attribute was unset, an empty value will be swapped into aValue
   // and aHadValue will be set to false. Otherwise, aHadValue will be set to
   // true.
-  nsresult SetAndSwapMappedAttr(nsAtom* aLocalName, nsAttrValue& aValue,
+  nsresult SetAndSwapMappedAttr(nsAtom* aLocalName,
+                                nsAttrValue& aValue,
                                 nsMappedAttributeElement* aContent,
                                 nsHTMLStyleSheet* aSheet,
                                 bool* aHadValue);
-  nsresult SetMappedAttrStyleSheet(nsHTMLStyleSheet* aSheet) {
+  nsresult SetMappedAttrStyleSheet(nsHTMLStyleSheet* aSheet)
+  {
     if (!mImpl || !mImpl->mMappedAttrs) {
       return NS_OK;
     }
@@ -140,14 +149,12 @@ public:
   }
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
-  bool HasMappedAttrs() const
-  {
-    return MappedAttrCount();
-  }
+  bool HasMappedAttrs() const { return MappedAttrCount(); }
   const nsMappedAttributes* GetMapped() const;
 
   // Force this to have mapped attributes, even if those attributes are empty.
-  nsresult ForceMapped(nsMappedAttributeElement* aContent, nsIDocument* aDocument);
+  nsresult ForceMapped(nsMappedAttributeElement* aContent,
+                       nsIDocument* aDocument);
 
   // Clear the servo declaration block on the mapped attributes, if any
   // Will assert off main thread
@@ -160,7 +167,7 @@ public:
   nsresult EnsureCapacityToClone(const nsAttrAndChildArray& aOther,
                                  bool aAllocateChildren);
 
-private:
+ private:
   nsAttrAndChildArray(const nsAttrAndChildArray& aOther) = delete;
   nsAttrAndChildArray& operator=(const nsAttrAndChildArray& aOther) = delete;
 
@@ -170,21 +177,19 @@ private:
   uint32_t MappedAttrCount() const;
 
   // Returns a non-null zero-refcount object.
-  nsMappedAttributes*
-  GetModifiableMapped(nsMappedAttributeElement* aContent,
-                      nsHTMLStyleSheet* aSheet,
-                      bool aWillAddAttr,
-                      int32_t aAttrCount = 1);
+  nsMappedAttributes* GetModifiableMapped(nsMappedAttributeElement* aContent,
+                                          nsHTMLStyleSheet* aSheet,
+                                          bool aWillAddAttr,
+                                          int32_t aAttrCount = 1);
   nsresult MakeMappedUnique(nsMappedAttributes* aAttributes);
 
-  uint32_t AttrSlotsSize() const
-  {
-    return AttrSlotCount() * ATTRSIZE;
-  }
+  uint32_t AttrSlotsSize() const { return AttrSlotCount() * ATTRSIZE; }
 
   uint32_t AttrSlotCount() const
   {
-    return mImpl ? mImpl->mAttrAndChildCount & ATTRCHILD_ARRAY_ATTR_SLOTS_COUNT_MASK : 0;
+    return mImpl ? mImpl->mAttrAndChildCount &
+                       ATTRCHILD_ARRAY_ATTR_SLOTS_COUNT_MASK
+                 : 0;
   }
 
   bool AttrSlotIsTaken(uint32_t aSlot) const
@@ -209,8 +214,8 @@ private:
 
   void SetAttrSlotAndChildCount(uint32_t aSlotCount, uint32_t aChildCount)
   {
-    mImpl->mAttrAndChildCount = aSlotCount |
-      (aChildCount << ATTRCHILD_ARRAY_ATTR_SLOTS_BITS);
+    mImpl->mAttrAndChildCount =
+        aSlotCount | (aChildCount << ATTRCHILD_ARRAY_ATTR_SLOTS_BITS);
   }
 
   bool GrowBy(uint32_t aGrowSize);
@@ -221,7 +226,9 @@ private:
    * index at which aChild is actually being inserted.  aChildCount is the
    * number of kids we had before the insertion.
    */
-  inline void SetChildAtPos(void** aPos, nsIContent* aChild, uint32_t aIndex,
+  inline void SetChildAtPos(void** aPos,
+                            nsIContent* aChild,
+                            uint32_t aIndex,
                             uint32_t aChildCount);
 
   /**
@@ -235,7 +242,8 @@ private:
     nsAttrValue mValue;
   };
 
-  struct Impl {
+  struct Impl
+  {
     uint32_t mAttrAndChildCount;
     uint32_t mBufferSize;
     nsMappedAttributes* mMappedAttrs;

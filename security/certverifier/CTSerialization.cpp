@@ -13,7 +13,8 @@
 #include "mozilla/Move.h"
 #include "mozilla/TypeTraits.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 using namespace mozilla::pkix;
 
@@ -46,7 +47,8 @@ static const size_t kTreeSizeLength = 8;
 // Length of sha256RootHash buffer of SignedTreeHead
 static const size_t kSthRootHashLength = 32;
 
-enum class SignatureType {
+enum class SignatureType
+{
   CertificateTimestamp = 0,
   TreeHash = 1,
 };
@@ -72,7 +74,7 @@ UncheckedReadUint(size_t length, Reader& in, uint64_t& out)
 }
 
 // Performs overflow sanity checks and calls UncheckedReadUint.
-template <size_t length, typename T>
+template<size_t length, typename T>
 Result
 ReadUint(Reader& in, T& out)
 {
@@ -98,7 +100,7 @@ ReadFixedBytes(size_t length, Reader& in, Input& out)
 // Reads a length-prefixed variable amount of bytes from |in|, updating |out|
 // on success. |prefixLength| indicates the number of bytes needed to represent
 // the length.
-template <size_t prefixLength>
+template<size_t prefixLength>
 Result
 ReadVariableBytes(Reader& in, Input& out)
 {
@@ -120,7 +122,7 @@ ReadHashAlgorithm(Reader& in, DigitallySigned::HashAlgorithm& out)
     return rv;
   }
   DigitallySigned::HashAlgorithm algo =
-    static_cast<DigitallySigned::HashAlgorithm>(value);
+      static_cast<DigitallySigned::HashAlgorithm>(value);
   switch (algo) {
     case DigitallySigned::HashAlgorithm::None:
     case DigitallySigned::HashAlgorithm::MD5:
@@ -145,7 +147,7 @@ ReadSignatureAlgorithm(Reader& in, DigitallySigned::SignatureAlgorithm& out)
     return rv;
   }
   DigitallySigned::SignatureAlgorithm algo =
-    static_cast<DigitallySigned::SignatureAlgorithm>(value);
+      static_cast<DigitallySigned::SignatureAlgorithm>(value);
   switch (algo) {
     case DigitallySigned::SignatureAlgorithm::Anonymous:
     case DigitallySigned::SignatureAlgorithm::RSA:
@@ -167,7 +169,7 @@ ReadVersion(Reader& in, SignedCertificateTimestamp::Version& out)
     return rv;
   }
   SignedCertificateTimestamp::Version version =
-    static_cast<SignedCertificateTimestamp::Version>(value);
+      static_cast<SignedCertificateTimestamp::Version>(value);
   switch (version) {
     case SignedCertificateTimestamp::Version::V1:
       out = version;
@@ -194,7 +196,7 @@ UncheckedWriteUint(size_t length, uint64_t value, Buffer& output)
 }
 
 // Performs sanity checks on T and calls UncheckedWriteUint.
-template <size_t length, typename T>
+template<size_t length, typename T>
 static inline Result
 WriteUint(T value, Buffer& output)
 {
@@ -250,12 +252,12 @@ WriteEncodedBytes(const Buffer& source, Buffer& output)
 // |prefixLength| indicates the number of bytes needed to represent the length.
 // |dataLength| is the length of the byte array following the prefix.
 // Fails if |dataLength| is more than 2^|prefixLength| - 1.
-template <size_t prefixLength>
+template<size_t prefixLength>
 static Result
 WriteVariableBytesPrefix(size_t dataLength, Buffer& output)
 {
   const size_t maxAllowedInputSize =
-    static_cast<size_t>(((1 << (prefixLength * 8)) - 1));
+      static_cast<size_t>(((1 << (prefixLength * 8)) - 1));
   if (dataLength > maxAllowedInputSize) {
     return Result::FATAL_ERROR_INVALID_ARGS;
   }
@@ -267,7 +269,7 @@ WriteVariableBytesPrefix(size_t dataLength, Buffer& output)
 // |prefixLength| indicates the number of bytes needed to represent the length.
 // |input| is the array itself.
 // Fails if the size of |input| is more than 2^|prefixLength| - 1.
-template <size_t prefixLength>
+template<size_t prefixLength>
 static Result
 WriteVariableBytes(Input input, Buffer& output)
 {
@@ -279,7 +281,7 @@ WriteVariableBytes(Input input, Buffer& output)
 }
 
 // Same as above, but the source data is in a Buffer.
-template <size_t prefixLength>
+template<size_t prefixLength>
 static Result
 WriteVariableBytes(const Buffer& source, Buffer& output)
 {
@@ -316,17 +318,16 @@ EncodePrecertLogEntry(const LogEntry& entry, Buffer& output)
                                                         output);
 }
 
-
 Result
 EncodeDigitallySigned(const DigitallySigned& data, Buffer& output)
 {
   Result rv = WriteUint<kHashAlgorithmLength>(
-    static_cast<unsigned int>(data.hashAlgorithm), output);
+      static_cast<unsigned int>(data.hashAlgorithm), output);
   if (rv != Success) {
     return rv;
   }
   rv = WriteUint<kSigAlgorithmLength>(
-    static_cast<unsigned int>(data.signatureAlgorithm), output);
+      static_cast<unsigned int>(data.signatureAlgorithm), output);
   if (rv != Success) {
     return rv;
   }
@@ -365,7 +366,7 @@ Result
 EncodeLogEntry(const LogEntry& entry, Buffer& output)
 {
   Result rv = WriteUint<kLogEntryTypeLength>(
-    static_cast<unsigned int>(entry.type), output);
+      static_cast<unsigned int>(entry.type), output);
   if (rv != Success) {
     return rv;
   }
@@ -387,16 +388,19 @@ WriteTimeSinceEpoch(uint64_t timestamp, Buffer& output)
 }
 
 Result
-EncodeV1SCTSignedData(uint64_t timestamp, Input serializedLogEntry,
-                      Input extensions, Buffer& output)
+EncodeV1SCTSignedData(uint64_t timestamp,
+                      Input serializedLogEntry,
+                      Input extensions,
+                      Buffer& output)
 {
-  Result rv = WriteUint<kVersionLength>(static_cast<unsigned int>(
-    SignedCertificateTimestamp::Version::V1), output);
+  Result rv = WriteUint<kVersionLength>(
+      static_cast<unsigned int>(SignedCertificateTimestamp::Version::V1),
+      output);
   if (rv != Success) {
     return rv;
   }
-  rv = WriteUint<kSignatureTypeLength>(static_cast<unsigned int>(
-    SignatureType::CertificateTimestamp), output);
+  rv = WriteUint<kSignatureTypeLength>(
+      static_cast<unsigned int>(SignatureType::CertificateTimestamp), output);
   if (rv != Success) {
     return rv;
   }
@@ -414,16 +418,15 @@ EncodeV1SCTSignedData(uint64_t timestamp, Input serializedLogEntry,
 }
 
 Result
-EncodeTreeHeadSignature(const SignedTreeHead& signedTreeHead,
-                        Buffer& output)
+EncodeTreeHeadSignature(const SignedTreeHead& signedTreeHead, Buffer& output)
 {
   Result rv = WriteUint<kVersionLength>(
-    static_cast<unsigned int>(signedTreeHead.version), output);
+      static_cast<unsigned int>(signedTreeHead.version), output);
   if (rv != Success) {
     return rv;
   }
   rv = WriteUint<kSignatureTypeLength>(
-    static_cast<unsigned int>(SignatureType::TreeHash), output);
+      static_cast<unsigned int>(SignatureType::TreeHash), output);
   if (rv != Success) {
     return rv;
   }
@@ -524,8 +527,8 @@ EncodeSCTList(const Vector<pkix::Input>& scts, Buffer& output)
   size_t sctListLength = 0;
   for (auto& sct : scts) {
     sctListLength +=
-      /* data size */ sct.GetLength() +
-      /* length prefix size */ kSerializedSCTLengthBytes;
+        /* data size */ sct.GetLength() +
+        /* length prefix size */ kSerializedSCTLengthBytes;
   }
 
   if (!output.reserve(kSCTListLengthBytes + sctListLength)) {
@@ -533,8 +536,8 @@ EncodeSCTList(const Vector<pkix::Input>& scts, Buffer& output)
   }
 
   // Write the prefix for the SCT list.
-  Result rv = WriteVariableBytesPrefix<kSCTListLengthBytes>(sctListLength,
-                                                            output);
+  Result rv =
+      WriteVariableBytesPrefix<kSCTListLengthBytes>(sctListLength, output);
   if (rv != Success) {
     return rv;
   }
@@ -548,4 +551,5 @@ EncodeSCTList(const Vector<pkix::Input>& scts, Buffer& output)
   return Success;
 }
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

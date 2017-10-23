@@ -26,8 +26,9 @@ HoldJSObjectsImpl(nsISupports* aHolder)
   nsXPCOMCycleCollectionParticipant* participant = nullptr;
   CallQueryInterface(aHolder, &participant);
   MOZ_ASSERT(participant, "Failed to QI to nsXPCOMCycleCollectionParticipant!");
-  MOZ_ASSERT(participant->CheckForRightISupports(aHolder),
-             "The result of QIing a JS holder should be the same as ToSupports");
+  MOZ_ASSERT(
+      participant->CheckForRightISupports(aHolder),
+      "The result of QIing a JS holder should be the same as ToSupports");
 
   HoldJSObjectsImpl(aHolder, participant);
 }
@@ -47,13 +48,14 @@ DropJSObjectsImpl(nsISupports* aHolder)
   nsXPCOMCycleCollectionParticipant* participant = nullptr;
   CallQueryInterface(aHolder, &participant);
   MOZ_ASSERT(participant, "Failed to QI to nsXPCOMCycleCollectionParticipant!");
-  MOZ_ASSERT(participant->CheckForRightISupports(aHolder),
-             "The result of QIing a JS holder should be the same as ToSupports");
+  MOZ_ASSERT(
+      participant->CheckForRightISupports(aHolder),
+      "The result of QIing a JS holder should be the same as ToSupports");
 #endif
   DropJSObjectsImpl(static_cast<void*>(aHolder));
 }
 
-} // namespace cyclecollector
+}  // namespace cyclecollector
 
 #ifdef DEBUG
 bool
@@ -65,4 +67,4 @@ IsJSHolder(void* aHolder)
 }
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla

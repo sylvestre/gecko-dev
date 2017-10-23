@@ -60,12 +60,15 @@ TEST(TestXPathGenerator, TestQuoteArgumentWithSingleAndDoubleQuote)
 
   nsAutoString result;
   XPathGenerator::QuoteArgument(arg, result);
-  printf("Result: %s\nExpected: %s\n", NS_ConvertUTF16toUTF8(result).get(), NS_ConvertUTF16toUTF8(expectedResult).get());
+  printf("Result: %s\nExpected: %s\n",
+         NS_ConvertUTF16toUTF8(result).get(),
+         NS_ConvertUTF16toUTF8(expectedResult).get());
 
   ASSERT_TRUE(expectedResult.Equals(result));
 }
 
-TEST(TestXPathGenerator, TestQuoteArgumentWithDoubleQuoteAndASequenceOfSingleQuote)
+TEST(TestXPathGenerator,
+     TestQuoteArgumentWithDoubleQuoteAndASequenceOfSingleQuote)
 {
   nsAutoString arg;
   arg.AssignLiteral(u"\'\'\'\'testing\"");
@@ -75,37 +78,47 @@ TEST(TestXPathGenerator, TestQuoteArgumentWithDoubleQuoteAndASequenceOfSingleQuo
 
   nsAutoString result;
   XPathGenerator::QuoteArgument(arg, result);
-  printf("Result: %s\nExpected: %s\n", NS_ConvertUTF16toUTF8(result).get(), NS_ConvertUTF16toUTF8(expectedResult).get());
+  printf("Result: %s\nExpected: %s\n",
+         NS_ConvertUTF16toUTF8(result).get(),
+         NS_ConvertUTF16toUTF8(expectedResult).get());
 
   ASSERT_TRUE(expectedResult.Equals(result));
 }
 
-TEST(TestXPathGenerator, TestQuoteArgumentWithDoubleQuoteAndTwoSequencesOfSingleQuote)
+TEST(TestXPathGenerator,
+     TestQuoteArgumentWithDoubleQuoteAndTwoSequencesOfSingleQuote)
 {
   nsAutoString arg;
   arg.AssignLiteral(u"\'\'\'\'testing\'\'\'\'\'\'\"");
 
   nsAutoString expectedResult;
-  expectedResult.AssignLiteral(u"concat(\'\',\"\'\'\'\'\",\'testing\',\"\'\'\'\'\'\'\",\'\"\')");
+  expectedResult.AssignLiteral(
+      u"concat(\'\',\"\'\'\'\'\",\'testing\',\"\'\'\'\'\'\'\",\'\"\')");
 
   nsAutoString result;
   XPathGenerator::QuoteArgument(arg, result);
-  printf("Result: %s\nExpected: %s\n", NS_ConvertUTF16toUTF8(result).get(), NS_ConvertUTF16toUTF8(expectedResult).get());
+  printf("Result: %s\nExpected: %s\n",
+         NS_ConvertUTF16toUTF8(result).get(),
+         NS_ConvertUTF16toUTF8(expectedResult).get());
 
   ASSERT_TRUE(expectedResult.Equals(result));
 }
 
-TEST(TestXPathGenerator, TestQuoteArgumentWithDoubleQuoteAndTwoSequencesOfSingleQuoteInMiddle)
+TEST(TestXPathGenerator,
+     TestQuoteArgumentWithDoubleQuoteAndTwoSequencesOfSingleQuoteInMiddle)
 {
   nsAutoString arg;
   arg.AssignLiteral(u"t\'\'\'\'estin\'\'\'\'\'\'\"g");
 
   nsAutoString expectedResult;
-  expectedResult.AssignLiteral(u"concat(\'t\',\"\'\'\'\'\",\'estin\',\"\'\'\'\'\'\'\",\'\"g\')");
+  expectedResult.AssignLiteral(
+      u"concat(\'t\',\"\'\'\'\'\",\'estin\',\"\'\'\'\'\'\'\",\'\"g\')");
 
   nsAutoString result;
   XPathGenerator::QuoteArgument(arg, result);
-  printf("Result: %s\nExpected: %s\n", NS_ConvertUTF16toUTF8(result).get(), NS_ConvertUTF16toUTF8(expectedResult).get());
+  printf("Result: %s\nExpected: %s\n",
+         NS_ConvertUTF16toUTF8(result).get(),
+         NS_ConvertUTF16toUTF8(expectedResult).get());
 
   ASSERT_TRUE(expectedResult.Equals(result));
 }
@@ -134,7 +147,9 @@ TEST(TestXPathGenerator, TestEscapeNameWithSpecialCharacters)
 
   nsAutoString result;
   XPathGenerator::EscapeName(arg, result);
-  printf("Result: %s\nExpected: %s\n", NS_ConvertUTF16toUTF8(result).get(), NS_ConvertUTF16toUTF8(expectedResult).get());
+  printf("Result: %s\nExpected: %s\n",
+         NS_ConvertUTF16toUTF8(result).get(),
+         NS_ConvertUTF16toUTF8(expectedResult).get());
 
   ASSERT_TRUE(expectedResult.Equals(result));
 }

@@ -37,35 +37,32 @@ class nsIDOMCSSStyleSheet;
 
 using namespace mozilla;
 
-#define NS_IF_CLONE(member_)                                                  \
-  PR_BEGIN_MACRO                                                              \
-    if (member_) {                                                            \
-      result->member_ = member_->Clone();                                     \
-      if (!result->member_) {                                                 \
-        delete result;                                                        \
-        return nullptr;                                                        \
-      }                                                                       \
-    }                                                                         \
+#define NS_IF_CLONE(member_)            \
+  PR_BEGIN_MACRO                        \
+  if (member_) {                        \
+    result->member_ = member_->Clone(); \
+    if (!result->member_) {             \
+      delete result;                    \
+      return nullptr;                   \
+    }                                   \
+  }                                     \
   PR_END_MACRO
 
-#define NS_IF_DELETE(ptr)                                                     \
-  PR_BEGIN_MACRO                                                              \
-    delete ptr;                                                               \
-    ptr = nullptr;                                                             \
+#define NS_IF_DELETE(ptr) \
+  PR_BEGIN_MACRO          \
+  delete ptr;             \
+  ptr = nullptr;          \
   PR_END_MACRO
 
 /* ************************************************************************** */
 
-nsAtomList::nsAtomList(nsAtom* aAtom)
-  : mAtom(aAtom),
-    mNext(nullptr)
+nsAtomList::nsAtomList(nsAtom* aAtom) : mAtom(aAtom), mNext(nullptr)
 {
   MOZ_COUNT_CTOR(nsAtomList);
 }
 
 nsAtomList::nsAtomList(const nsString& aAtomValue)
-  : mAtom(nullptr),
-    mNext(nullptr)
+    : mAtom(nullptr), mNext(nullptr)
 {
   MOZ_COUNT_CTOR(nsAtomList);
   mAtom = NS_Atomize(aAtomValue);
@@ -74,12 +71,10 @@ nsAtomList::nsAtomList(const nsString& aAtomValue)
 nsAtomList*
 nsAtomList::Clone(bool aDeep) const
 {
-  nsAtomList *result = new nsAtomList(mAtom);
-  if (!result)
-    return nullptr;
+  nsAtomList* result = new nsAtomList(mAtom);
+  if (!result) return nullptr;
 
-  if (aDeep)
-    NS_CSS_CLONE_LIST_MEMBER(nsAtomList, this, mNext, result, (false));
+  if (aDeep) NS_CSS_CLONE_LIST_MEMBER(nsAtomList, this, mNext, result, (false));
   return result;
 }
 
@@ -106,11 +101,10 @@ nsAtomList::~nsAtomList(void)
 }
 
 nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType)
-  : mType(aType),
-    mNext(nullptr)
+    : mType(aType), mNext(nullptr)
 {
   NS_ASSERTION(!nsCSSPseudoClasses::HasStringArg(aType) &&
-               !nsCSSPseudoClasses::HasNthPairArg(aType),
+                   !nsCSSPseudoClasses::HasNthPairArg(aType),
                "unexpected pseudo-class");
   MOZ_COUNT_CTOR(nsPseudoClassList);
   u.mMemory = nullptr;
@@ -118,8 +112,7 @@ nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType)
 
 nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType,
                                      const char16_t* aString)
-  : mType(aType),
-    mNext(nullptr)
+    : mType(aType), mNext(nullptr)
 {
   NS_ASSERTION(nsCSSPseudoClasses::HasStringArg(aType),
                "unexpected pseudo-class");
@@ -130,22 +123,20 @@ nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType,
 
 nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType,
                                      const int32_t* aIntPair)
-  : mType(aType),
-    mNext(nullptr)
+    : mType(aType), mNext(nullptr)
 {
   NS_ASSERTION(nsCSSPseudoClasses::HasNthPairArg(aType),
                "unexpected pseudo-class");
   NS_ASSERTION(aIntPair, "integer pair expected");
   MOZ_COUNT_CTOR(nsPseudoClassList);
   u.mNumbers =
-    static_cast<int32_t*>(nsMemory::Clone(aIntPair, sizeof(int32_t) * 2));
+      static_cast<int32_t*>(nsMemory::Clone(aIntPair, sizeof(int32_t) * 2));
 }
 
 // adopts aSelectorList
 nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType,
                                      nsCSSSelectorList* aSelectorList)
-  : mType(aType),
-    mNext(nullptr)
+    : mType(aType), mNext(nullptr)
 {
   NS_ASSERTION(nsCSSPseudoClasses::HasSelectorListArg(aType),
                "unexpected pseudo-class");
@@ -157,7 +148,7 @@ nsPseudoClassList::nsPseudoClassList(CSSPseudoClassType aType,
 nsPseudoClassList*
 nsPseudoClassList::Clone(bool aDeep) const
 {
-  nsPseudoClassList *result;
+  nsPseudoClassList* result;
   if (!u.mMemory) {
     result = new nsPseudoClassList(mType);
   } else if (nsCSSPseudoClasses::HasStringArg(mType)) {
@@ -172,14 +163,14 @@ nsPseudoClassList::Clone(bool aDeep) const
   }
 
   if (aDeep)
-    NS_CSS_CLONE_LIST_MEMBER(nsPseudoClassList, this, mNext, result,
-                             (false));
+    NS_CSS_CLONE_LIST_MEMBER(nsPseudoClassList, this, mNext, result, (false));
 
   return result;
 }
 
 size_t
-nsPseudoClassList::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+nsPseudoClassList::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   size_t n = 0;
   const nsPseudoClassList* p = this;
@@ -216,14 +207,14 @@ nsPseudoClassList::~nsPseudoClassList(void)
 }
 
 nsAttrSelector::nsAttrSelector(int32_t aNameSpace, const nsString& aAttr)
-  : mValue(),
-    mNext(nullptr),
-    mLowercaseAttr(nullptr),
-    mCasedAttr(nullptr),
-    mNameSpace(aNameSpace),
-    mFunction(NS_ATTR_FUNC_SET),
-    // mValueCaseSensitivity doesn't matter; we have no value.
-    mValueCaseSensitivity(ValueCaseSensitivity::CaseSensitive)
+    : mValue(),
+      mNext(nullptr),
+      mLowercaseAttr(nullptr),
+      mCasedAttr(nullptr),
+      mNameSpace(aNameSpace),
+      mFunction(NS_ATTR_FUNC_SET),
+      // mValueCaseSensitivity doesn't matter; we have no value.
+      mValueCaseSensitivity(ValueCaseSensitivity::CaseSensitive)
 {
   MOZ_COUNT_CTOR(nsAttrSelector);
 
@@ -234,16 +225,18 @@ nsAttrSelector::nsAttrSelector(int32_t aNameSpace, const nsString& aAttr)
   mLowercaseAttr = NS_Atomize(lowercase);
 }
 
-nsAttrSelector::nsAttrSelector(int32_t aNameSpace, const nsString& aAttr, uint8_t aFunction,
+nsAttrSelector::nsAttrSelector(int32_t aNameSpace,
+                               const nsString& aAttr,
+                               uint8_t aFunction,
                                const nsString& aValue,
                                ValueCaseSensitivity aValueCaseSensitivity)
-  : mValue(aValue),
-    mNext(nullptr),
-    mLowercaseAttr(nullptr),
-    mCasedAttr(nullptr),
-    mNameSpace(aNameSpace),
-    mFunction(aFunction),
-    mValueCaseSensitivity(aValueCaseSensitivity)
+    : mValue(aValue),
+      mNext(nullptr),
+      mLowercaseAttr(nullptr),
+      mCasedAttr(nullptr),
+      mNameSpace(aNameSpace),
+      mFunction(aFunction),
+      mValueCaseSensitivity(aValueCaseSensitivity)
 {
   MOZ_COUNT_CTOR(nsAttrSelector);
 
@@ -254,17 +247,19 @@ nsAttrSelector::nsAttrSelector(int32_t aNameSpace, const nsString& aAttr, uint8_
   mLowercaseAttr = NS_Atomize(lowercase);
 }
 
-nsAttrSelector::nsAttrSelector(int32_t aNameSpace,  nsAtom* aLowercaseAttr,
-                               nsAtom* aCasedAttr, uint8_t aFunction,
+nsAttrSelector::nsAttrSelector(int32_t aNameSpace,
+                               nsAtom* aLowercaseAttr,
+                               nsAtom* aCasedAttr,
+                               uint8_t aFunction,
                                const nsString& aValue,
                                ValueCaseSensitivity aValueCaseSensitivity)
-  : mValue(aValue),
-    mNext(nullptr),
-    mLowercaseAttr(aLowercaseAttr),
-    mCasedAttr(aCasedAttr),
-    mNameSpace(aNameSpace),
-    mFunction(aFunction),
-    mValueCaseSensitivity(aValueCaseSensitivity)
+    : mValue(aValue),
+      mNext(nullptr),
+      mLowercaseAttr(aLowercaseAttr),
+      mCasedAttr(aCasedAttr),
+      mNameSpace(aNameSpace),
+      mFunction(aFunction),
+      mValueCaseSensitivity(aValueCaseSensitivity)
 {
   MOZ_COUNT_CTOR(nsAttrSelector);
 }
@@ -272,9 +267,12 @@ nsAttrSelector::nsAttrSelector(int32_t aNameSpace,  nsAtom* aLowercaseAttr,
 nsAttrSelector*
 nsAttrSelector::Clone(bool aDeep) const
 {
-  nsAttrSelector *result =
-    new nsAttrSelector(mNameSpace, mLowercaseAttr, mCasedAttr,
-                       mFunction, mValue, mValueCaseSensitivity);
+  nsAttrSelector* result = new nsAttrSelector(mNameSpace,
+                                              mLowercaseAttr,
+                                              mCasedAttr,
+                                              mFunction,
+                                              mValue,
+                                              mValueCaseSensitivity);
 
   if (aDeep)
     NS_CSS_CLONE_LIST_MEMBER(nsAttrSelector, this, mNext, result, (false));
@@ -305,17 +303,17 @@ nsAttrSelector::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
 // -- nsCSSSelector -------------------------------
 
 nsCSSSelector::nsCSSSelector(void)
-  : mLowercaseTag(nullptr),
-    mCasedTag(nullptr),
-    mIDList(nullptr),
-    mClassList(nullptr),
-    mPseudoClassList(nullptr),
-    mAttrList(nullptr),
-    mNegations(nullptr),
-    mNext(nullptr),
-    mNameSpace(kNameSpaceID_Unknown),
-    mOperator(0),
-    mPseudoType(CSSPseudoElementType::NotPseudo)
+    : mLowercaseTag(nullptr),
+      mCasedTag(nullptr),
+      mIDList(nullptr),
+      mClassList(nullptr),
+      mPseudoClassList(nullptr),
+      mAttrList(nullptr),
+      mNegations(nullptr),
+      mNext(nullptr),
+      mNameSpace(kNameSpaceID_Unknown),
+      mOperator(0),
+      mPseudoType(CSSPseudoElementType::NotPseudo)
 {
   MOZ_COUNT_CTOR(nsCSSSelector);
 }
@@ -323,9 +321,8 @@ nsCSSSelector::nsCSSSelector(void)
 nsCSSSelector*
 nsCSSSelector::Clone(bool aDeepNext, bool aDeepNegations) const
 {
-  nsCSSSelector *result = new nsCSSSelector();
-  if (!result)
-    return nullptr;
+  nsCSSSelector* result = new nsCSSSelector();
+  if (!result) return nullptr;
 
   result->mNameSpace = mNameSpace;
   result->mLowercaseTag = mLowercaseTag;
@@ -343,13 +340,12 @@ nsCSSSelector::Clone(bool aDeepNext, bool aDeepNegations) const
   NS_ASSERTION(!mNegations || !mNegations->mNext,
                "mNegations can't have non-null mNext");
   if (aDeepNegations) {
-    NS_CSS_CLONE_LIST_MEMBER(nsCSSSelector, this, mNegations, result,
-                             (true, false));
+    NS_CSS_CLONE_LIST_MEMBER(
+        nsCSSSelector, this, mNegations, result, (true, false));
   }
 
   if (aDeepNext) {
-    NS_CSS_CLONE_LIST_MEMBER(nsCSSSelector, this, mNext, result,
-                             (false, true));
+    NS_CSS_CLONE_LIST_MEMBER(nsCSSSelector, this, mNext, result, (false, true));
   }
 
   return result;
@@ -364,7 +360,8 @@ nsCSSSelector::~nsCSSSelector(void)
   NS_CSS_DELETE_LIST_MEMBER(nsCSSSelector, this, mNext);
 }
 
-void nsCSSSelector::Reset(void)
+void
+nsCSSSelector::Reset(void)
 {
   mNameSpace = kNameSpaceID_Unknown;
   mLowercaseTag = nullptr;
@@ -381,15 +378,17 @@ void nsCSSSelector::Reset(void)
   mOperator = char16_t(0);
 }
 
-void nsCSSSelector::SetNameSpace(int32_t aNameSpace)
+void
+nsCSSSelector::SetNameSpace(int32_t aNameSpace)
 {
   mNameSpace = aNameSpace;
 }
 
-void nsCSSSelector::SetTag(const nsString& aTag)
+void
+nsCSSSelector::SetTag(const nsString& aTag)
 {
   if (aTag.IsEmpty()) {
-    mLowercaseTag = mCasedTag =  nullptr;
+    mLowercaseTag = mCasedTag = nullptr;
     return;
   }
 
@@ -400,7 +399,8 @@ void nsCSSSelector::SetTag(const nsString& aTag)
   mLowercaseTag = NS_Atomize(lowercase);
 }
 
-void nsCSSSelector::AddID(const nsString& aID)
+void
+nsCSSSelector::AddID(const nsString& aID)
 {
   if (!aID.IsEmpty()) {
     nsAtomList** list = &mIDList;
@@ -411,7 +411,8 @@ void nsCSSSelector::AddID(const nsString& aID)
   }
 }
 
-void nsCSSSelector::AddClass(const nsString& aClass)
+void
+nsCSSSelector::AddClass(const nsString& aClass)
 {
   if (!aClass.IsEmpty()) {
     nsAtomList** list = &mClassList;
@@ -422,31 +423,34 @@ void nsCSSSelector::AddClass(const nsString& aClass)
   }
 }
 
-void nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType)
+void
+nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType)
 {
   AddPseudoClassInternal(new nsPseudoClassList(aType));
 }
 
-void nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType,
-                                   const char16_t* aString)
+void
+nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType, const char16_t* aString)
 {
   AddPseudoClassInternal(new nsPseudoClassList(aType, aString));
 }
 
-void nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType,
-                                   const int32_t* aIntPair)
+void
+nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType, const int32_t* aIntPair)
 {
   AddPseudoClassInternal(new nsPseudoClassList(aType, aIntPair));
 }
 
-void nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType,
-                                   nsCSSSelectorList* aSelectorList)
+void
+nsCSSSelector::AddPseudoClass(CSSPseudoClassType aType,
+                              nsCSSSelectorList* aSelectorList)
 {
   // Take ownership of nsCSSSelectorList instead of copying.
   AddPseudoClassInternal(new nsPseudoClassList(aType, aSelectorList));
 }
 
-void nsCSSSelector::AddPseudoClassInternal(nsPseudoClassList *aPseudoClass)
+void
+nsCSSSelector::AddPseudoClassInternal(nsPseudoClassList* aPseudoClass)
 {
   nsPseudoClassList** list = &mPseudoClassList;
   while (nullptr != *list) {
@@ -455,7 +459,8 @@ void nsCSSSelector::AddPseudoClassInternal(nsPseudoClassList *aPseudoClass)
   *list = aPseudoClass;
 }
 
-void nsCSSSelector::AddAttribute(int32_t aNameSpace, const nsString& aAttr)
+void
+nsCSSSelector::AddAttribute(int32_t aNameSpace, const nsString& aAttr)
 {
   if (!aAttr.IsEmpty()) {
     nsAttrSelector** list = &mAttrList;
@@ -466,32 +471,38 @@ void nsCSSSelector::AddAttribute(int32_t aNameSpace, const nsString& aAttr)
   }
 }
 
-void nsCSSSelector::AddAttribute(int32_t aNameSpace, const nsString& aAttr, uint8_t aFunc,
-                                 const nsString& aValue,
-                                 nsAttrSelector::ValueCaseSensitivity aCaseSensitivity)
+void
+nsCSSSelector::AddAttribute(
+    int32_t aNameSpace,
+    const nsString& aAttr,
+    uint8_t aFunc,
+    const nsString& aValue,
+    nsAttrSelector::ValueCaseSensitivity aCaseSensitivity)
 {
   if (!aAttr.IsEmpty()) {
     nsAttrSelector** list = &mAttrList;
     while (nullptr != *list) {
       list = &((*list)->mNext);
     }
-    *list = new nsAttrSelector(aNameSpace, aAttr, aFunc, aValue, aCaseSensitivity);
+    *list =
+        new nsAttrSelector(aNameSpace, aAttr, aFunc, aValue, aCaseSensitivity);
   }
 }
 
-void nsCSSSelector::SetOperator(char16_t aOperator)
+void
+nsCSSSelector::SetOperator(char16_t aOperator)
 {
   mOperator = aOperator;
 }
 
-int32_t nsCSSSelector::CalcWeightWithoutNegations() const
+int32_t
+nsCSSSelector::CalcWeightWithoutNegations() const
 {
   int32_t weight = 0;
 
 #ifdef MOZ_XUL
   MOZ_ASSERT(!(IsPseudoElement() &&
-               PseudoType() != CSSPseudoElementType::XULTree &&
-               mClassList),
+               PseudoType() != CSSPseudoElementType::XULTree && mClassList),
              "If non-XUL-tree pseudo-elements can have class selectors "
              "after them, specificity calculation must be updated");
 #else
@@ -531,7 +542,7 @@ int32_t nsCSSSelector::CalcWeightWithoutNegations() const
   // we need to compute specificity after we match, based on which
   // option we matched with (and thus also need to try the
   // highest-specificity options first).
-  nsPseudoClassList *plist = mPseudoClassList;
+  nsPseudoClassList* plist = mPseudoClassList;
   while (nullptr != plist) {
     weight += 1 << 10;
     plist = plist->mNext;
@@ -544,11 +555,12 @@ int32_t nsCSSSelector::CalcWeightWithoutNegations() const
   return weight;
 }
 
-int32_t nsCSSSelector::CalcWeight() const
+int32_t
+nsCSSSelector::CalcWeight() const
 {
   // Loop over this selector and all its negations.
   int32_t weight = 0;
-  for (const nsCSSSelector *n = this; n; n = n->mNegations) {
+  for (const nsCSSSelector* n = this; n; n = n->mNegations) {
     weight += n->CalcWeightWithoutNegations();
   }
   return weight;
@@ -559,29 +571,29 @@ int32_t nsCSSSelector::CalcWeight() const
 // StyleRule:selectorText
 //
 void
-nsCSSSelector::ToString(nsAString& aString, CSSStyleSheet* aSheet,
+nsCSSSelector::ToString(nsAString& aString,
+                        CSSStyleSheet* aSheet,
                         bool aAppend) const
 {
-  if (!aAppend)
-   aString.Truncate();
+  if (!aAppend) aString.Truncate();
 
   // selectors are linked from right-to-left, so the next selector in
   // the linked list actually precedes this one in the resulting string
   AutoTArray<const nsCSSSelector*, 8> stack;
-  for (const nsCSSSelector *s = this; s; s = s->mNext) {
+  for (const nsCSSSelector* s = this; s; s = s->mNext) {
     stack.AppendElement(s);
   }
 
   while (!stack.IsEmpty()) {
     uint32_t index = stack.Length() - 1;
-    const nsCSSSelector *s = stack.ElementAt(index);
+    const nsCSSSelector* s = stack.ElementAt(index);
     stack.RemoveElementAt(index);
 
     s->AppendToStringWithoutCombinators(aString, aSheet, false);
 
     // Append the combinator, if needed.
     if (!stack.IsEmpty()) {
-      const nsCSSSelector *next = stack.ElementAt(index - 1);
+      const nsCSSSelector* next = stack.ElementAt(index - 1);
       char16_t oper = s->mOperator;
       if (next->IsPseudoElement()) {
         NS_ASSERTION(oper == char16_t(':'),
@@ -606,8 +618,8 @@ nsCSSSelector::AppendToStringWithoutCombinators(
     CSSStyleSheet* aSheet,
     bool aUseStandardNamespacePrefixes) const
 {
-  AppendToStringWithoutCombinatorsOrNegations(aString, aSheet, false,
-                                              aUseStandardNamespacePrefixes);
+  AppendToStringWithoutCombinatorsOrNegations(
+      aString, aSheet, false, aUseStandardNamespacePrefixes);
 
   for (const nsCSSSelector* negation = mNegations; negation;
        negation = negation->mNegations) {
@@ -676,10 +688,11 @@ AppendStandardNamespacePrefixToString(nsAString& aString, int32_t aNameSpace)
 #endif
 
 void
-nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
-                   (nsAString& aString, CSSStyleSheet* aSheet,
-                   bool aIsNegated,
-                   bool aUseStandardNamespacePrefixes) const
+nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations(
+    nsAString& aString,
+    CSSStyleSheet* aSheet,
+    bool aIsNegated,
+    bool aUseStandardNamespacePrefixes) const
 {
   nsAutoString temp;
   bool isPseudoElement = IsPseudoElement();
@@ -689,7 +702,7 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
   bool wroteNamespace = false;
   if (!isPseudoElement || !mNext) {
     // append the namespace prefix if needed
-    nsXMLNameSpaceMap *sheetNS = aSheet ? aSheet->GetNameSpaceMap() : nullptr;
+    nsXMLNameSpaceMap* sheetNS = aSheet ? aSheet->GetNameSpaceMap() : nullptr;
 
     // sheetNS is non-null if and only if we had an @namespace rule.  If it's
     // null, that means that the only namespaces we could have are the
@@ -701,15 +714,15 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
       // only for debugging, so use some "standard" prefixes that
       // are recognizable.
       wroteNamespace =
-        AppendStandardNamespacePrefixToString(aString, mNameSpace);
+          AppendStandardNamespacePrefixToString(aString, mNameSpace);
       if (wroteNamespace) {
         aString.Append(char16_t('|'));
       }
 #endif
     } else if (!sheetNS) {
-      NS_ASSERTION(mNameSpace == kNameSpaceID_Unknown ||
-                   mNameSpace == kNameSpaceID_None,
-                   "How did we get this namespace?");
+      NS_ASSERTION(
+          mNameSpace == kNameSpaceID_Unknown || mNameSpace == kNameSpaceID_None,
+          "How did we get this namespace?");
       if (mNameSpace == kNameSpaceID_None) {
         aString.Append(char16_t('|'));
         wroteNamespace = true;
@@ -717,9 +730,9 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
     } else if (sheetNS->FindNameSpaceID(nullptr) == mNameSpace) {
       // We have the default namespace (possibly including the wildcard
       // namespace).  Do nothing.
-      NS_ASSERTION(mNameSpace == kNameSpaceID_Unknown ||
-                   CanBeNamespaced(aIsNegated),
-                   "How did we end up with this namespace?");
+      NS_ASSERTION(
+          mNameSpace == kNameSpaceID_Unknown || CanBeNamespaced(aIsNegated),
+          "How did we end up with this namespace?");
     } else if (mNameSpace == kNameSpaceID_None) {
       NS_ASSERTION(CanBeNamespaced(aIsNegated),
                    "How did we end up with this namespace?");
@@ -728,8 +741,9 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
     } else if (mNameSpace != kNameSpaceID_Unknown) {
       NS_ASSERTION(CanBeNamespaced(aIsNegated),
                    "How did we end up with this namespace?");
-      nsAtom *prefixAtom = sheetNS->FindPrefix(mNameSpace);
-      NS_ASSERTION(prefixAtom, "how'd we get a non-default namespace "
+      nsAtom* prefixAtom = sheetNS->FindPrefix(mNameSpace);
+      NS_ASSERTION(prefixAtom,
+                   "how'd we get a non-default namespace "
                    "without a prefix?");
       nsStyleUtil::AppendEscapedCSSIdent(nsDependentAtomString(prefixAtom),
                                          aString);
@@ -752,9 +766,8 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
     // Universal selector:  avoid writing the universal selector when we
     // can avoid it, especially since we're required to avoid it for the
     // inside of :not()
-    if (wroteNamespace ||
-        (!mIDList && !mClassList && !mPseudoClassList && !mAttrList &&
-         (aIsNegated || !mNegations))) {
+    if (wroteNamespace || (!mIDList && !mClassList && !mPseudoClassList &&
+                           !mAttrList && (aIsNegated || !mNegations))) {
       aString.Append(char16_t('*'));
     }
   } else {
@@ -801,7 +814,8 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
 
       aString.Append(char16_t('('));
       for (nsAtomList* list = mClassList; list; list = list->mNext) {
-        nsStyleUtil::AppendEscapedCSSIdent(nsDependentAtomString(list->mAtom), aString);
+        nsStyleUtil::AppendEscapedCSSIdent(nsDependentAtomString(list->mAtom),
+                                           aString);
         aString.Append(char16_t(','));
       }
       // replace the final comma with a close-paren
@@ -836,8 +850,8 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
           aString.Append(char16_t('|'));
 #endif
         } else if (aSheet) {
-          nsXMLNameSpaceMap *sheetNS = aSheet->GetNameSpaceMap();
-          nsAtom *prefixAtom = sheetNS->FindPrefix(list->mNameSpace);
+          nsXMLNameSpaceMap* sheetNS = aSheet->GetNameSpaceMap();
+          nsAtom* prefixAtom = sheetNS->FindPrefix(list->mNameSpace);
           // Default namespaces don't apply to attribute selectors, so
           // we must have a useful prefix.
           NS_ASSERTION(prefixAtom,
@@ -872,7 +886,7 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
         nsStyleUtil::AppendEscapedCSSString(list->mValue, aString);
 
         if (list->mValueCaseSensitivity ==
-              nsAttrSelector::ValueCaseSensitivity::CaseInsensitive) {
+            nsAttrSelector::ValueCaseSensitivity::CaseInsensitive) {
           aString.AppendLiteral(u" i");
         }
       }
@@ -894,11 +908,10 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
     if (list->u.mMemory) {
       aString.Append(char16_t('('));
       if (nsCSSPseudoClasses::HasStringArg(list->mType)) {
-        nsStyleUtil::AppendEscapedCSSIdent(
-          nsDependentString(list->u.mString), aString);
+        nsStyleUtil::AppendEscapedCSSIdent(nsDependentString(list->u.mString),
+                                           aString);
       } else if (nsCSSPseudoClasses::HasNthPairArg(list->mType)) {
-        int32_t a = list->u.mNumbers[0],
-                b = list->u.mNumbers[1];
+        int32_t a = list->u.mNumbers[0], b = list->u.mNumbers[1];
         temp.Truncate();
         if (a != 0) {
           if (a == -1) {
@@ -909,7 +922,7 @@ nsCSSSelector::AppendToStringWithoutCombinatorsOrNegations
           temp.Append(char16_t('n'));
         }
         if (b != 0 || a == 0) {
-          if (b >= 0 && a != 0) // check a != 0 for whether we printed above
+          if (b >= 0 && a != 0)  // check a != 0 for whether we printed above
             temp.Append(char16_t('+'));
           temp.AppendInt(b);
         }
@@ -941,7 +954,7 @@ nsCSSSelector::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
   while (s) {
     n += aMallocSizeOf(s);
 
-    #define MEASURE(x)   n += x ? x->SizeOfIncludingThis(aMallocSizeOf) : 0;
+#define MEASURE(x) n += x ? x->SizeOfIncludingThis(aMallocSizeOf) : 0;
 
     MEASURE(s->mIDList);
     MEASURE(s->mClassList);
@@ -961,9 +974,7 @@ nsCSSSelector::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
 // -- nsCSSSelectorList -------------------------------
 
 nsCSSSelectorList::nsCSSSelectorList(void)
-  : mSelectors(nullptr),
-    mWeight(0),
-    mNext(nullptr)
+    : mSelectors(nullptr), mWeight(0), mNext(nullptr)
 {
   MOZ_COUNT_CTOR(nsCSSSelectorList);
 }
@@ -1011,12 +1022,11 @@ void
 nsCSSSelectorList::ToString(nsAString& aResult, CSSStyleSheet* aSheet)
 {
   aResult.Truncate();
-  nsCSSSelectorList *p = this;
+  nsCSSSelectorList* p = this;
   for (;;) {
     p->mSelectors->ToString(aResult, aSheet, true);
     p = p->mNext;
-    if (!p)
-      break;
+    if (!p) break;
     aResult.AppendLiteral(", ");
   }
 }
@@ -1024,19 +1034,19 @@ nsCSSSelectorList::ToString(nsAString& aResult, CSSStyleSheet* aSheet)
 nsCSSSelectorList*
 nsCSSSelectorList::Clone(bool aDeep) const
 {
-  nsCSSSelectorList *result = new nsCSSSelectorList();
+  nsCSSSelectorList* result = new nsCSSSelectorList();
   result->mWeight = mWeight;
   NS_IF_CLONE(mSelectors);
 
   if (aDeep) {
-    NS_CSS_CLONE_LIST_MEMBER(nsCSSSelectorList, this, mNext, result,
-                             (false));
+    NS_CSS_CLONE_LIST_MEMBER(nsCSSSelectorList, this, mNext, result, (false));
   }
   return result;
 }
 
 size_t
-nsCSSSelectorList::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+nsCSSSelectorList::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   size_t n = 0;
   const nsCSSSelectorList* s = this;
@@ -1052,46 +1062,46 @@ nsCSSSelectorList::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) cons
 
 class DOMCSSDeclarationImpl : public nsDOMCSSDeclaration
 {
-protected:
+ protected:
   // Needs to be protected so we can use NS_IMPL_ADDREF_USING_AGGREGATOR.
   virtual ~DOMCSSDeclarationImpl(void);
 
   // But we need to allow UniquePtr to delete us.
   friend class mozilla::DefaultDelete<DOMCSSDeclarationImpl>;
 
-public:
-  explicit DOMCSSDeclarationImpl(css::StyleRule *aRule);
+ public:
+  explicit DOMCSSDeclarationImpl(css::StyleRule* aRule);
 
-  NS_IMETHOD GetParentRule(nsIDOMCSSRule **aParent) override;
+  NS_IMETHOD GetParentRule(nsIDOMCSSRule** aParent) override;
   virtual DeclarationBlock* GetCSSDeclaration(Operation aOperation) override;
   virtual nsresult SetCSSDeclaration(DeclarationBlock* aDecl) override;
-  virtual void GetCSSParsingEnvironment(CSSParsingEnvironment& aCSSParseEnv) override;
-  nsDOMCSSDeclaration::ServoCSSParsingEnvironment GetServoCSSParsingEnvironment() const final;
+  virtual void GetCSSParsingEnvironment(
+      CSSParsingEnvironment& aCSSParseEnv) override;
+  nsDOMCSSDeclaration::ServoCSSParsingEnvironment
+  GetServoCSSParsingEnvironment() const final;
   virtual nsIDocument* DocToUpdate() override;
 
   // Override |AddRef| and |Release| for being owned by StyleRule.  Also, we
   // need to forward QI for cycle collection things to StyleRule.
   NS_DECL_ISUPPORTS_INHERITED
 
-  virtual nsINode *GetParentObject() override
+  virtual nsINode* GetParentObject() override
   {
     return mRule ? mRule->GetDocument() : nullptr;
   }
 
-protected:
+ protected:
   // This reference is not reference-counted. The rule object owns us and we go
   // away when it does.
-  css::StyleRule *mRule;
+  css::StyleRule* mRule;
 };
 
-DOMCSSDeclarationImpl::DOMCSSDeclarationImpl(css::StyleRule *aRule)
-  : mRule(aRule)
+DOMCSSDeclarationImpl::DOMCSSDeclarationImpl(css::StyleRule* aRule)
+    : mRule(aRule)
 {
 }
 
-DOMCSSDeclarationImpl::~DOMCSSDeclarationImpl(void)
-{
-}
+DOMCSSDeclarationImpl::~DOMCSSDeclarationImpl(void) {}
 
 NS_IMPL_ADDREF_USING_AGGREGATOR(DOMCSSDeclarationImpl, mRule)
 NS_IMPL_RELEASE_USING_AGGREGATOR(DOMCSSDeclarationImpl, mRule)
@@ -1103,421 +1113,393 @@ NS_INTERFACE_MAP_BEGIN(DOMCSSDeclarationImpl)
   if (aIID.Equals(NS_GET_IID(nsCycleCollectionISupports)) ||
       aIID.Equals(NS_GET_IID(nsXPCOMCycleCollectionParticipant))) {
     return mRule->QueryInterface(aIID, aInstancePtr);
-  }
-  else
-NS_IMPL_QUERY_TAIL_INHERITING(nsDOMCSSDeclaration)
+  } else
+    NS_IMPL_QUERY_TAIL_INHERITING(nsDOMCSSDeclaration)
 
-DeclarationBlock*
-DOMCSSDeclarationImpl::GetCSSDeclaration(Operation aOperation)
-{
-  if (aOperation != eOperation_Read) {
-    RefPtr<CSSStyleSheet> sheet = mRule->GetStyleSheet();
-    if (sheet) {
-      sheet->WillDirty();
-    }
-  }
-  return mRule->GetDeclaration();
-}
-
-void
-DOMCSSDeclarationImpl::GetCSSParsingEnvironment(CSSParsingEnvironment& aCSSParseEnv)
-{
-  GetCSSParsingEnvironmentForRule(mRule, aCSSParseEnv);
-}
-
-nsDOMCSSDeclaration::ServoCSSParsingEnvironment
-DOMCSSDeclarationImpl::GetServoCSSParsingEnvironment() const
-{
-  MOZ_CRASH("GetURLData shouldn't be calling on a Gecko rule");
-}
-
-NS_IMETHODIMP
-DOMCSSDeclarationImpl::GetParentRule(nsIDOMCSSRule **aParent)
-{
-  NS_ENSURE_ARG_POINTER(aParent);
-
-  NS_IF_ADDREF(*aParent = mRule);
-  return NS_OK;
-}
-
-nsresult
-DOMCSSDeclarationImpl::SetCSSDeclaration(DeclarationBlock* aDecl)
-{
-  NS_PRECONDITION(mRule,
-         "can only be called when |GetCSSDeclaration| returned a declaration");
-
-  nsCOMPtr<nsIDocument> doc;
-  RefPtr<CSSStyleSheet> sheet = mRule->GetStyleSheet();
-  if (sheet) {
-    doc = sheet->GetAssociatedDocument();
-  }
-
-  mozAutoDocUpdate updateBatch(doc, UPDATE_STYLE, true);
-
-  mRule->SetDeclaration(aDecl->AsGecko());
-
-  if (sheet) {
-    sheet->DidDirty();
-  }
-
-  if (doc) {
-    doc->StyleRuleChanged(sheet, mRule);
-  }
-  return NS_OK;
-}
-
-nsIDocument*
-DOMCSSDeclarationImpl::DocToUpdate()
-{
-  return nullptr;
-}
-
-// -- StyleRule ------------------------------------
-
-namespace mozilla {
-namespace css {
-
-uint16_t
-StyleRule::Type() const
-{
-  return nsIDOMCSSRule::STYLE_RULE;
-}
-
-NS_IMETHODIMP
-StyleRule::GetStyle(nsIDOMCSSStyleDeclaration** aStyle)
-{
-  NS_ADDREF(*aStyle = Style());
-  return NS_OK;
-}
-
-nsICSSDeclaration*
-StyleRule::Style()
-{
-  if (!mDOMDeclaration) {
-    mDOMDeclaration.reset(new DOMCSSDeclarationImpl(this));
-  }
-  return mDOMDeclaration.get();
-}
-
-NS_IMETHODIMP
-StyleRule::GetCSSStyleRule(BindingStyleRule **aResult)
-{
-  *aResult = this;
-  NS_ADDREF(*aResult);
-  return NS_OK;
-}
-
-StyleRule::StyleRule(nsCSSSelectorList* aSelector,
-                     Declaration* aDeclaration,
-                     uint32_t aLineNumber,
-                     uint32_t aColumnNumber)
-  : BindingStyleRule(aLineNumber, aColumnNumber),
-    mSelector(aSelector),
-    mDeclaration(aDeclaration)
-{
-  NS_PRECONDITION(aDeclaration, "must have a declaration");
-
-  mDeclaration->SetOwningRule(this);
-}
-
-// for |Clone|
-StyleRule::StyleRule(const StyleRule& aCopy)
-  : BindingStyleRule(aCopy),
-    mSelector(aCopy.mSelector ? aCopy.mSelector->Clone() : nullptr),
-    mDeclaration(new Declaration(*aCopy.mDeclaration))
-{
-  mDeclaration->SetOwningRule(this);
-  // rest is constructed lazily on existing data
-}
-
-StyleRule::~StyleRule()
-{
-  delete mSelector;
-  DropReferences();
-}
-
-void
-StyleRule::DropReferences()
-{
-  if (mDeclaration) {
-    mDeclaration->SetOwningRule(nullptr);
-  }
-}
-
-// QueryInterface implementation for StyleRule
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(StyleRule)
-  if (aIID.Equals(NS_GET_IID(mozilla::css::StyleRule))) {
-    *aInstancePtr = this;
-    NS_ADDREF_THIS();
-    return NS_OK;
-  }
-  else
-  NS_INTERFACE_MAP_ENTRY(nsICSSStyleRuleDOMWrapper)
-  NS_INTERFACE_MAP_ENTRY(nsIDOMCSSStyleRule)
-NS_INTERFACE_MAP_END_INHERITING(Rule)
-
-NS_IMPL_ADDREF_INHERITED(StyleRule, Rule)
-NS_IMPL_RELEASE_INHERITED(StyleRule, Rule)
-
-NS_IMPL_CYCLE_COLLECTION_CLASS(StyleRule)
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(StyleRule, Rule)
-  // Keep this in sync with IsCCLeaf.
-  // Trace the wrapper for our declaration.  This just expands out
-  // NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER which we can't use
-  // directly because the wrapper is on the declaration, not on us.
-  if (tmp->mDOMDeclaration) {
-    tmp->mDOMDeclaration->TraceWrapper(aCallbacks, aClosure);
-  }
-NS_IMPL_CYCLE_COLLECTION_TRACE_END
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(StyleRule, Rule)
-  // Unlink the wrapper for our declaraton.  This just expands out
-  // NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER which we can't use
-  // directly because the wrapper is on the declaration, not on us.
-  if (tmp->mDOMDeclaration) {
-    tmp->mDOMDeclaration->ReleaseWrapper(static_cast<nsISupports*>(p));
-  }
-  tmp->DropReferences();
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(StyleRule, Rule)
-  // Keep this in sync with IsCCLeaf.
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-
-bool
-StyleRule::IsCCLeaf() const
-{
-  if (!Rule::IsCCLeaf()) {
-    return false;
-  }
-
-  return !mDOMDeclaration || !mDOMDeclaration->PreservingWrapper();
-}
-
-/* virtual */ int32_t
-StyleRule::GetType() const
-{
-  return Rule::STYLE_RULE;
-}
-
-/* virtual */ already_AddRefed<Rule>
-StyleRule::Clone() const
-{
-  RefPtr<Rule> clone = new StyleRule(*this);
-  return clone.forget();
-}
-
-void
-StyleRule::SetDeclaration(Declaration* aDecl)
-{
-  if (aDecl == mDeclaration) {
-    return;
-  }
-  mDeclaration->SetOwningRule(nullptr);
-  mDeclaration = aDecl;
-  mDeclaration->SetOwningRule(this);
-}
-
-#ifdef DEBUG
-/* virtual */ void
-StyleRule::List(FILE* out, int32_t aIndent) const
-{
-  nsAutoCString str;
-  // Indent
-  for (int32_t index = aIndent; --index >= 0; ) {
-    str.AppendLiteral("  ");
-  }
-
-  if (mSelector) {
-    nsAutoString buffer;
-    mSelector->ToString(buffer, GetStyleSheet());
-    AppendUTF16toUTF8(buffer, str);
-    str.Append(' ');
-  }
-
-  if (nullptr != mDeclaration) {
-    nsAutoString buffer;
-    str.AppendLiteral("{ ");
-    mDeclaration->ToString(buffer);
-    AppendUTF16toUTF8(buffer, str);
-    str.Append('}');
-    CSSStyleSheet* sheet = GetStyleSheet();
-    if (sheet) {
-      nsIURI* uri = sheet->GetSheetURI();
-      if (uri) {
-        str.AppendLiteral(" /* ");
-        str.Append(uri->GetSpecOrDefault());
-        str.Append(':');
-        str.AppendInt(mLineNumber);
-        str.AppendLiteral(" */");
+  DeclarationBlock* DOMCSSDeclarationImpl::GetCSSDeclaration(
+      Operation aOperation)
+  {
+    if (aOperation != eOperation_Read) {
+      RefPtr<CSSStyleSheet> sheet = mRule->GetStyleSheet();
+      if (sheet) {
+        sheet->WillDirty();
       }
     }
+    return mRule->GetDeclaration();
   }
-  else {
-    str.AppendLiteral("{ null declaration }");
-  }
-  str.Append('\n');
-  fprintf_stderr(out, "%s", str.get());
-}
-#endif
 
-void
-StyleRule::GetCssTextImpl(nsAString& aCssText) const
-{
-  if (mSelector) {
-    mSelector->ToString(aCssText, GetStyleSheet());
-    aCssText.Append(char16_t(' '));
-  }
-  aCssText.Append(char16_t('{'));
-  aCssText.Append(char16_t(' '));
-  if (mDeclaration)
+  void DOMCSSDeclarationImpl::GetCSSParsingEnvironment(CSSParsingEnvironment &
+                                                       aCSSParseEnv)
   {
-    nsAutoString   tempString;
-    mDeclaration->ToString( tempString );
-    aCssText.Append( tempString );
-  }
-  aCssText.Append(char16_t(' '));
-  aCssText.Append(char16_t('}'));
-}
-
-NS_IMETHODIMP
-StyleRule::GetSelectorText(nsAString& aSelectorText)
-{
-  if (mSelector)
-    mSelector->ToString(aSelectorText, GetStyleSheet());
-  else
-    aSelectorText.Truncate();
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-StyleRule::SetSelectorText(const nsAString& aSelectorText)
-{
-  // XXX TBI - get a parser and re-parse the selectors,
-  // XXX then need to re-compute the cascade
-  // XXX and dirty sheet
-  return NS_OK;
-}
-
-/* virtual */ size_t
-StyleRule::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
-{
-  size_t n = aMallocSizeOf(this);
-  n += mSelector ? mSelector->SizeOfIncludingThis(aMallocSizeOf) : 0;
-  n += mDeclaration ? mDeclaration->SizeOfIncludingThis(aMallocSizeOf) : 0;
-
-  // Measurement of the following members may be added later if DMD finds it is
-  // worthwhile:
-  // - mDOMRule;
-
-  return n;
-}
-
-nsCSSSelectorList*
-StyleRule::GetSelectorAtIndex(uint32_t aIndex, ErrorResult& rv)
-{
-
-  for (nsCSSSelectorList* sel = mSelector; sel;
-       sel = sel->mNext, --aIndex) {
-    if (aIndex == 0) {
-      return sel;
-    }
+    GetCSSParsingEnvironmentForRule(mRule, aCSSParseEnv);
   }
 
-  // Ran out of selectors
-  rv.Throw(NS_ERROR_INVALID_ARG);
-  return nullptr;
-}
-
-uint32_t
-StyleRule::GetSelectorCount()
-{
-  uint32_t count = 0;
-  for (nsCSSSelectorList* sel = mSelector; sel; sel = sel->mNext) {
-    ++count;
-  }
-  return count;
-}
-
-nsresult
-StyleRule::GetSelectorText(uint32_t aSelectorIndex, nsAString& aText)
-{
-  ErrorResult rv;
-  nsCSSSelectorList* sel = GetSelectorAtIndex(aSelectorIndex, rv);
-  if (rv.Failed()) {
-    return rv.StealNSResult();
+  nsDOMCSSDeclaration::ServoCSSParsingEnvironment
+  DOMCSSDeclarationImpl::GetServoCSSParsingEnvironment() const
+  {
+    MOZ_CRASH("GetURLData shouldn't be calling on a Gecko rule");
   }
 
-  sel->mSelectors->ToString(aText, GetStyleSheet(), false);
+  NS_IMETHODIMP
+  DOMCSSDeclarationImpl::GetParentRule(nsIDOMCSSRule * *aParent)
+  {
+    NS_ENSURE_ARG_POINTER(aParent);
 
-  return NS_OK;
-}
-
-nsresult
-StyleRule::GetSpecificity(uint32_t aSelectorIndex, uint64_t* aSpecificity)
-{
-  ErrorResult rv;
-  nsCSSSelectorList* sel = GetSelectorAtIndex(aSelectorIndex, rv);
-  if (rv.Failed()) {
-    return rv.StealNSResult();
-  }
-
-  *aSpecificity = sel->mWeight;
-  return NS_OK;
-}
-
-nsresult
-StyleRule::SelectorMatchesElement(Element* aElement,
-                                  uint32_t aSelectorIndex,
-                                  const nsAString& aPseudo,
-                                  bool* aMatches)
-{
-  ErrorResult rv;
-  nsCSSSelectorList* tail = GetSelectorAtIndex(aSelectorIndex, rv);
-  if (rv.Failed()) {
-    return rv.StealNSResult();
-  }
-
-  // We want just the one list item, not the whole list tail
-  nsAutoPtr<nsCSSSelectorList> sel(tail->Clone(false));
-
-  // Do not attempt to match if a pseudo element is requested and this is not
-  // a pseudo element selector, or vice versa.
-  if (aPseudo.IsEmpty() == sel->mSelectors->IsPseudoElement()) {
-    *aMatches = false;
+    NS_IF_ADDREF(*aParent = mRule);
     return NS_OK;
   }
 
-  if (!aPseudo.IsEmpty()) {
-    // We need to make sure that the requested pseudo element type
-    // matches the selector pseudo element type before proceeding.
-    RefPtr<nsAtom> pseudoElt = NS_Atomize(aPseudo);
-    if (sel->mSelectors->PseudoType() != nsCSSPseudoElements::
-          GetPseudoType(pseudoElt, CSSEnabledState::eIgnoreEnabledState)) {
+  nsresult DOMCSSDeclarationImpl::SetCSSDeclaration(DeclarationBlock * aDecl)
+  {
+    NS_PRECONDITION(
+        mRule,
+        "can only be called when |GetCSSDeclaration| returned a declaration");
+
+    nsCOMPtr<nsIDocument> doc;
+    RefPtr<CSSStyleSheet> sheet = mRule->GetStyleSheet();
+    if (sheet) {
+      doc = sheet->GetAssociatedDocument();
+    }
+
+    mozAutoDocUpdate updateBatch(doc, UPDATE_STYLE, true);
+
+    mRule->SetDeclaration(aDecl->AsGecko());
+
+    if (sheet) {
+      sheet->DidDirty();
+    }
+
+    if (doc) {
+      doc->StyleRuleChanged(sheet, mRule);
+    }
+    return NS_OK;
+  }
+
+  nsIDocument* DOMCSSDeclarationImpl::DocToUpdate() { return nullptr; }
+
+  // -- StyleRule ------------------------------------
+
+  namespace mozilla {
+  namespace css {
+
+  uint16_t StyleRule::Type() const { return nsIDOMCSSRule::STYLE_RULE; }
+
+  NS_IMETHODIMP
+  StyleRule::GetStyle(nsIDOMCSSStyleDeclaration** aStyle)
+  {
+    NS_ADDREF(*aStyle = Style());
+    return NS_OK;
+  }
+
+  nsICSSDeclaration* StyleRule::Style()
+  {
+    if (!mDOMDeclaration) {
+      mDOMDeclaration.reset(new DOMCSSDeclarationImpl(this));
+    }
+    return mDOMDeclaration.get();
+  }
+
+  NS_IMETHODIMP
+  StyleRule::GetCSSStyleRule(BindingStyleRule** aResult)
+  {
+    *aResult = this;
+    NS_ADDREF(*aResult);
+    return NS_OK;
+  }
+
+  StyleRule::StyleRule(nsCSSSelectorList* aSelector,
+                       Declaration* aDeclaration,
+                       uint32_t aLineNumber,
+                       uint32_t aColumnNumber)
+      : BindingStyleRule(aLineNumber, aColumnNumber),
+        mSelector(aSelector),
+        mDeclaration(aDeclaration)
+  {
+    NS_PRECONDITION(aDeclaration, "must have a declaration");
+
+    mDeclaration->SetOwningRule(this);
+  }
+
+  // for |Clone|
+  StyleRule::StyleRule(const StyleRule& aCopy)
+      : BindingStyleRule(aCopy),
+        mSelector(aCopy.mSelector ? aCopy.mSelector->Clone() : nullptr),
+        mDeclaration(new Declaration(*aCopy.mDeclaration))
+  {
+    mDeclaration->SetOwningRule(this);
+    // rest is constructed lazily on existing data
+  }
+
+  StyleRule::~StyleRule()
+  {
+    delete mSelector;
+    DropReferences();
+  }
+
+  void StyleRule::DropReferences()
+  {
+    if (mDeclaration) {
+      mDeclaration->SetOwningRule(nullptr);
+    }
+  }
+
+  // QueryInterface implementation for StyleRule
+  NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(StyleRule)
+    if (aIID.Equals(NS_GET_IID(mozilla::css::StyleRule))) {
+      *aInstancePtr = this;
+      NS_ADDREF_THIS();
+      return NS_OK;
+    } else
+      NS_INTERFACE_MAP_ENTRY(nsICSSStyleRuleDOMWrapper)
+    NS_INTERFACE_MAP_ENTRY(nsIDOMCSSStyleRule)
+  NS_INTERFACE_MAP_END_INHERITING(Rule)
+
+  NS_IMPL_ADDREF_INHERITED(StyleRule, Rule)
+  NS_IMPL_RELEASE_INHERITED(StyleRule, Rule)
+
+  NS_IMPL_CYCLE_COLLECTION_CLASS(StyleRule)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(StyleRule, Rule)
+    // Keep this in sync with IsCCLeaf.
+    // Trace the wrapper for our declaration.  This just expands out
+    // NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER which we can't use
+    // directly because the wrapper is on the declaration, not on us.
+    if (tmp->mDOMDeclaration) {
+      tmp->mDOMDeclaration->TraceWrapper(aCallbacks, aClosure);
+    }
+  NS_IMPL_CYCLE_COLLECTION_TRACE_END
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(StyleRule, Rule)
+    // Unlink the wrapper for our declaraton.  This just expands out
+    // NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER which we can't use
+    // directly because the wrapper is on the declaration, not on us.
+    if (tmp->mDOMDeclaration) {
+      tmp->mDOMDeclaration->ReleaseWrapper(static_cast<nsISupports*>(p));
+    }
+    tmp->DropReferences();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(StyleRule, Rule)
+    // Keep this in sync with IsCCLeaf.
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+  bool StyleRule::IsCCLeaf() const
+  {
+    if (!Rule::IsCCLeaf()) {
+      return false;
+    }
+
+    return !mDOMDeclaration || !mDOMDeclaration->PreservingWrapper();
+  }
+
+  /* virtual */ int32_t StyleRule::GetType() const { return Rule::STYLE_RULE; }
+
+  /* virtual */ already_AddRefed<Rule> StyleRule::Clone() const
+  {
+    RefPtr<Rule> clone = new StyleRule(*this);
+    return clone.forget();
+  }
+
+  void StyleRule::SetDeclaration(Declaration* aDecl)
+  {
+    if (aDecl == mDeclaration) {
+      return;
+    }
+    mDeclaration->SetOwningRule(nullptr);
+    mDeclaration = aDecl;
+    mDeclaration->SetOwningRule(this);
+  }
+
+#ifdef DEBUG
+  /* virtual */ void StyleRule::List(FILE* out, int32_t aIndent) const
+  {
+    nsAutoCString str;
+    // Indent
+    for (int32_t index = aIndent; --index >= 0;) {
+      str.AppendLiteral("  ");
+    }
+
+    if (mSelector) {
+      nsAutoString buffer;
+      mSelector->ToString(buffer, GetStyleSheet());
+      AppendUTF16toUTF8(buffer, str);
+      str.Append(' ');
+    }
+
+    if (nullptr != mDeclaration) {
+      nsAutoString buffer;
+      str.AppendLiteral("{ ");
+      mDeclaration->ToString(buffer);
+      AppendUTF16toUTF8(buffer, str);
+      str.Append('}');
+      CSSStyleSheet* sheet = GetStyleSheet();
+      if (sheet) {
+        nsIURI* uri = sheet->GetSheetURI();
+        if (uri) {
+          str.AppendLiteral(" /* ");
+          str.Append(uri->GetSpecOrDefault());
+          str.Append(':');
+          str.AppendInt(mLineNumber);
+          str.AppendLiteral(" */");
+        }
+      }
+    } else {
+      str.AppendLiteral("{ null declaration }");
+    }
+    str.Append('\n');
+    fprintf_stderr(out, "%s", str.get());
+  }
+#endif
+
+  void StyleRule::GetCssTextImpl(nsAString& aCssText) const
+  {
+    if (mSelector) {
+      mSelector->ToString(aCssText, GetStyleSheet());
+      aCssText.Append(char16_t(' '));
+    }
+    aCssText.Append(char16_t('{'));
+    aCssText.Append(char16_t(' '));
+    if (mDeclaration) {
+      nsAutoString tempString;
+      mDeclaration->ToString(tempString);
+      aCssText.Append(tempString);
+    }
+    aCssText.Append(char16_t(' '));
+    aCssText.Append(char16_t('}'));
+  }
+
+  NS_IMETHODIMP
+  StyleRule::GetSelectorText(nsAString& aSelectorText)
+  {
+    if (mSelector)
+      mSelector->ToString(aSelectorText, GetStyleSheet());
+    else
+      aSelectorText.Truncate();
+    return NS_OK;
+  }
+
+  NS_IMETHODIMP
+  StyleRule::SetSelectorText(const nsAString& aSelectorText)
+  {
+    // XXX TBI - get a parser and re-parse the selectors,
+    // XXX then need to re-compute the cascade
+    // XXX and dirty sheet
+    return NS_OK;
+  }
+
+  /* virtual */ size_t StyleRule::SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const
+  {
+    size_t n = aMallocSizeOf(this);
+    n += mSelector ? mSelector->SizeOfIncludingThis(aMallocSizeOf) : 0;
+    n += mDeclaration ? mDeclaration->SizeOfIncludingThis(aMallocSizeOf) : 0;
+
+    // Measurement of the following members may be added later if DMD finds it is
+    // worthwhile:
+    // - mDOMRule;
+
+    return n;
+  }
+
+  nsCSSSelectorList* StyleRule::GetSelectorAtIndex(uint32_t aIndex,
+                                                   ErrorResult& rv)
+  {
+    for (nsCSSSelectorList *sel = mSelector; sel; sel = sel->mNext, --aIndex) {
+      if (aIndex == 0) {
+        return sel;
+      }
+    }
+
+    // Ran out of selectors
+    rv.Throw(NS_ERROR_INVALID_ARG);
+    return nullptr;
+  }
+
+  uint32_t StyleRule::GetSelectorCount()
+  {
+    uint32_t count = 0;
+    for (nsCSSSelectorList* sel = mSelector; sel; sel = sel->mNext) {
+      ++count;
+    }
+    return count;
+  }
+
+  nsresult StyleRule::GetSelectorText(uint32_t aSelectorIndex, nsAString& aText)
+  {
+    ErrorResult rv;
+    nsCSSSelectorList* sel = GetSelectorAtIndex(aSelectorIndex, rv);
+    if (rv.Failed()) {
+      return rv.StealNSResult();
+    }
+
+    sel->mSelectors->ToString(aText, GetStyleSheet(), false);
+
+    return NS_OK;
+  }
+
+  nsresult StyleRule::GetSpecificity(uint32_t aSelectorIndex,
+                                     uint64_t* aSpecificity)
+  {
+    ErrorResult rv;
+    nsCSSSelectorList* sel = GetSelectorAtIndex(aSelectorIndex, rv);
+    if (rv.Failed()) {
+      return rv.StealNSResult();
+    }
+
+    *aSpecificity = sel->mWeight;
+    return NS_OK;
+  }
+
+  nsresult StyleRule::SelectorMatchesElement(Element* aElement,
+                                             uint32_t aSelectorIndex,
+                                             const nsAString& aPseudo,
+                                             bool* aMatches)
+  {
+    ErrorResult rv;
+    nsCSSSelectorList* tail = GetSelectorAtIndex(aSelectorIndex, rv);
+    if (rv.Failed()) {
+      return rv.StealNSResult();
+    }
+
+    // We want just the one list item, not the whole list tail
+    nsAutoPtr<nsCSSSelectorList> sel(tail->Clone(false));
+
+    // Do not attempt to match if a pseudo element is requested and this is not
+    // a pseudo element selector, or vice versa.
+    if (aPseudo.IsEmpty() == sel->mSelectors->IsPseudoElement()) {
       *aMatches = false;
       return NS_OK;
     }
 
-    // We have a matching pseudo element, now remove it so we can compare
-    // directly against |element| when proceeding into SelectorListMatches.
-    // It's OK to do this - we just cloned sel and nothing else is using it.
-    sel->RemoveRightmostSelector();
+    if (!aPseudo.IsEmpty()) {
+      // We need to make sure that the requested pseudo element type
+      // matches the selector pseudo element type before proceeding.
+      RefPtr<nsAtom> pseudoElt = NS_Atomize(aPseudo);
+      if (sel->mSelectors->PseudoType() !=
+          nsCSSPseudoElements::GetPseudoType(
+              pseudoElt, CSSEnabledState::eIgnoreEnabledState)) {
+        *aMatches = false;
+        return NS_OK;
+      }
+
+      // We have a matching pseudo element, now remove it so we can compare
+      // directly against |element| when proceeding into SelectorListMatches.
+      // It's OK to do this - we just cloned sel and nothing else is using it.
+      sel->RemoveRightmostSelector();
+    }
+
+    // XXXbz what exactly should we do with visited state here?  If we ever start
+    // caring about it, remember to do FlushPendingLinkUpdates().
+    TreeMatchContext matchingContext(false,
+                                     nsRuleWalker::eRelevantLinkUnvisited,
+                                     aElement->OwnerDoc(),
+                                     TreeMatchContext::eNeverMatchVisited);
+    *aMatches =
+        nsCSSRuleProcessor::SelectorListMatches(aElement, matchingContext, sel);
+    return NS_OK;
   }
 
-  // XXXbz what exactly should we do with visited state here?  If we ever start
-  // caring about it, remember to do FlushPendingLinkUpdates().
-  TreeMatchContext matchingContext(false,
-                                   nsRuleWalker::eRelevantLinkUnvisited,
-                                   aElement->OwnerDoc(),
-                                   TreeMatchContext::eNeverMatchVisited);
-  *aMatches = nsCSSRuleProcessor::SelectorListMatches(aElement, matchingContext,
-                                                      sel);
-  return NS_OK;
-}
+  NotNull<DeclarationBlock*> StyleRule::GetDeclarationBlock() const
+  {
+    return WrapNotNull(mDeclaration);
+  }
 
-NotNull<DeclarationBlock*>
-StyleRule::GetDeclarationBlock() const
-{
-  return WrapNotNull(mDeclaration);
-}
-
-} // namespace css
-} // namespace mozilla
+  }  // namespace css
+  }  // namespace mozilla

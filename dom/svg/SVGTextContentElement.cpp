@@ -18,27 +18,25 @@ namespace mozilla {
 namespace dom {
 
 nsSVGEnumMapping SVGTextContentElement::sLengthAdjustMap[] = {
-  { &nsGkAtoms::spacing, SVG_LENGTHADJUST_SPACING },
-  { &nsGkAtoms::spacingAndGlyphs, SVG_LENGTHADJUST_SPACINGANDGLYPHS },
-  { nullptr, 0 }
-};
+    {&nsGkAtoms::spacing, SVG_LENGTHADJUST_SPACING},
+    {&nsGkAtoms::spacingAndGlyphs, SVG_LENGTHADJUST_SPACINGANDGLYPHS},
+    {nullptr, 0}};
 
-nsSVGElement::EnumInfo SVGTextContentElement::sEnumInfo[1] =
-{
-  { &nsGkAtoms::lengthAdjust, sLengthAdjustMap, SVG_LENGTHADJUST_SPACING }
-};
+nsSVGElement::EnumInfo SVGTextContentElement::sEnumInfo[1] = {
+    {&nsGkAtoms::lengthAdjust, sLengthAdjustMap, SVG_LENGTHADJUST_SPACING}};
 
-nsSVGElement::LengthInfo SVGTextContentElement::sLengthInfo[1] =
-{
-  { &nsGkAtoms::textLength, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::XY }
-};
+nsSVGElement::LengthInfo SVGTextContentElement::sLengthInfo[1] = {
+    {&nsGkAtoms::textLength,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::XY}};
 
 SVGTextFrame*
 SVGTextContentElement::GetSVGTextFrame()
 {
   nsIFrame* frame = GetPrimaryFrame(FlushType::Layout);
   nsIFrame* textFrame =
-    nsLayoutUtils::GetClosestFrameOfType(frame, LayoutFrameType::SVGText);
+      nsLayoutUtils::GetClosestFrameOfType(frame, LayoutFrameType::SVGText);
   return static_cast<SVGTextFrame*>(textFrame);
 }
 
@@ -47,7 +45,7 @@ SVGTextContentElement::GetSVGTextFrameForNonLayoutDependentQuery()
 {
   nsIFrame* frame = GetPrimaryFrame(FlushType::Frames);
   nsIFrame* textFrame =
-    nsLayoutUtils::GetClosestFrameOfType(frame, LayoutFrameType::SVGText);
+      nsLayoutUtils::GetClosestFrameOfType(frame, LayoutFrameType::SVGText);
   return static_cast<SVGTextFrame*>(textFrame);
 }
 
@@ -133,21 +131,23 @@ SVGTextContentElement::GetComputedTextLength()
 }
 
 void
-SVGTextContentElement::SelectSubString(uint32_t charnum, uint32_t nchars, ErrorResult& rv)
+SVGTextContentElement::SelectSubString(uint32_t charnum,
+                                       uint32_t nchars,
+                                       ErrorResult& rv)
 {
   SVGTextFrame* textFrame = GetSVGTextFrame();
-  if (!textFrame)
-    return;
+  if (!textFrame) return;
 
   rv = textFrame->SelectSubString(this, charnum, nchars);
 }
 
 float
-SVGTextContentElement::GetSubStringLength(uint32_t charnum, uint32_t nchars, ErrorResult& rv)
+SVGTextContentElement::GetSubStringLength(uint32_t charnum,
+                                          uint32_t nchars,
+                                          ErrorResult& rv)
 {
   SVGTextFrame* textFrame = GetSVGTextFrameForNonLayoutDependentQuery();
-  if (!textFrame)
-    return 0.0f;
+  if (!textFrame) return 0.0f;
 
   float length = 0.0f;
   rv = textFrame->GetSubStringLength(this, charnum, nchars, &length);
@@ -219,5 +219,5 @@ SVGTextContentElement::GetCharNumAtPosition(nsISVGPoint& aPoint)
   return textFrame ? textFrame->GetCharNumAtPosition(this, &aPoint) : -1;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

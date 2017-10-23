@@ -33,7 +33,7 @@ class ReaderProxy
   using TrackSet = MediaFormatReader::TrackSet;
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ReaderProxy);
 
-public:
+ public:
   ReaderProxy(AbstractThread* aOwnerThread, MediaFormatReader* aReader);
 
   media::TimeUnit StartTime() const;
@@ -41,8 +41,8 @@ public:
 
   RefPtr<AudioDataPromise> RequestAudioData();
 
-  RefPtr<VideoDataPromise>
-  RequestVideoData(const media::TimeUnit& aTimeThreshold);
+  RefPtr<VideoDataPromise> RequestVideoData(
+      const media::TimeUnit& aTimeThreshold);
 
   RefPtr<WaitForDataPromise> WaitForData(MediaData::Type aType);
 
@@ -53,27 +53,37 @@ public:
   void ResetDecode(TrackSet aTracks);
 
   nsresult Init() { return mReader->Init(); }
-  bool UseBufferingHeuristics() const { return mReader->UseBufferingHeuristics(); }
+  bool UseBufferingHeuristics() const
+  {
+    return mReader->UseBufferingHeuristics();
+  }
 
-  bool VideoIsHardwareAccelerated() const {
+  bool VideoIsHardwareAccelerated() const
+  {
     return mReader->VideoIsHardwareAccelerated();
   }
-  TimedMetadataEventSource& TimedMetadataEvent() {
+  TimedMetadataEventSource& TimedMetadataEvent()
+  {
     return mReader->TimedMetadataEvent();
   }
-  MediaEventSource<void>& OnMediaNotSeekable() {
+  MediaEventSource<void>& OnMediaNotSeekable()
+  {
     return mReader->OnMediaNotSeekable();
   }
-  size_t SizeOfAudioQueueInFrames() const {
+  size_t SizeOfAudioQueueInFrames() const
+  {
     return mReader->SizeOfAudioQueueInFrames();
   }
-  size_t SizeOfVideoQueueInFrames() const {
+  size_t SizeOfVideoQueueInFrames() const
+  {
     return mReader->SizeOfVideoQueueInFrames();
   }
-  void ReadUpdatedMetadata(MediaInfo* aInfo) {
+  void ReadUpdatedMetadata(MediaInfo* aInfo)
+  {
     mReader->ReadUpdatedMetadata(aInfo);
   }
-  AbstractCanonical<media::TimeIntervals>* CanonicalBuffered() {
+  AbstractCanonical<media::TimeIntervals>* CanonicalBuffered()
+  {
     return mReader->CanonicalBuffered();
   }
 
@@ -82,9 +92,9 @@ public:
   void SetVideoBlankDecode(bool aIsBlankDecode);
 
   void SetCanonicalDuration(
-    AbstractCanonical<media::NullableTimeUnit>* aCanonical);
+      AbstractCanonical<media::NullableTimeUnit>* aCanonical);
 
-private:
+ private:
   ~ReaderProxy();
   RefPtr<MetadataPromise> OnMetadataRead(MetadataHolder&& aMetadata);
   RefPtr<MetadataPromise> OnMetadataNotRead(const MediaResult& aError);
@@ -103,6 +113,6 @@ private:
   Mirror<media::NullableTimeUnit> mDuration;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ReaderProxy_h_
+#endif  // ReaderProxy_h_

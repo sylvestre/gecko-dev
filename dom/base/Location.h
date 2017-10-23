@@ -26,11 +26,10 @@ namespace dom {
 // Location: Script "location" object
 //*****************************************************************************
 
-class Location final : public nsISupports
-                     , public nsWrapperCache
+class Location final : public nsISupports, public nsWrapperCache
 {
-public:
-  Location(nsPIDOMWindowInner* aWindow, nsIDocShell *aDocShell);
+ public:
+  Location(nsPIDOMWindowInner* aWindow, nsIDocShell* aDocShell);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Location)
@@ -140,10 +139,7 @@ public:
     GetHref(aRetval, aSubjectPrincipal, aError);
   }
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mInnerWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mInnerWindow; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -152,14 +148,11 @@ public:
 
   nsresult GetHref(nsAString& aHref);
 
-  nsresult ToString(nsAString& aString)
-  {
-    return GetHref(aString);
-  }
+  nsresult ToString(nsAString& aString) { return GetHref(aString); }
 
   nsresult Reload(bool aForceget);
 
-protected:
+ protected:
   virtual ~Location();
 
   // In the case of jar: uris, we sometimes want the place the jar was
@@ -174,13 +167,15 @@ protected:
                           // If not null, give it the new ref
                           const nsACString* aNewRef = nullptr);
   nsresult SetURI(nsIURI* aURL, bool aReplace = false);
-  nsresult SetHrefWithBase(const nsAString& aHref, nsIURI* aBase,
+  nsresult SetHrefWithBase(const nsAString& aHref,
+                           nsIURI* aBase,
                            bool aReplace);
-  nsresult SetHrefWithContext(JSContext* cx, const nsAString& aHref,
+  nsresult SetHrefWithContext(JSContext* cx,
+                              const nsAString& aHref,
                               bool aReplace);
 
   nsresult GetSourceBaseURL(JSContext* cx, nsIURI** sourceURL);
-  nsresult CheckURL(nsIURI *url, nsIDocShellLoadInfo** aLoadInfo);
+  nsresult CheckURL(nsIURI* url, nsIDocShellLoadInfo** aLoadInfo);
   bool CallerSubsumes(nsIPrincipal* aSubjectPrincipal);
 
   nsString mCachedHash;
@@ -188,7 +183,7 @@ protected:
   nsWeakPtr mDocShell;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Location_h
+#endif  // mozilla_dom_Location_h

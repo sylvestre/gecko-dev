@@ -19,7 +19,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGSwitchElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGSwitchElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGSwitchElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -27,11 +27,12 @@ SVGSwitchElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // nsISupports methods
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(SVGSwitchElement, SVGSwitchElementBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(SVGSwitchElement,
+                                   SVGSwitchElementBase,
                                    mActiveChild)
 
-NS_IMPL_ADDREF_INHERITED(SVGSwitchElement,SVGSwitchElementBase)
-NS_IMPL_RELEASE_INHERITED(SVGSwitchElement,SVGSwitchElementBase)
+NS_IMPL_ADDREF_INHERITED(SVGSwitchElement, SVGSwitchElementBase)
+NS_IMPL_RELEASE_INHERITED(SVGSwitchElement, SVGSwitchElementBase)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SVGSwitchElement)
 NS_INTERFACE_MAP_END_INHERITING(SVGSwitchElementBase)
@@ -39,14 +40,13 @@ NS_INTERFACE_MAP_END_INHERITING(SVGSwitchElementBase)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGSwitchElement::SVGSwitchElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGSwitchElementBase(aNodeInfo)
+SVGSwitchElement::SVGSwitchElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGSwitchElementBase(aNodeInfo)
 {
 }
 
-SVGSwitchElement::~SVGSwitchElement()
-{
-}
+SVGSwitchElement::~SVGSwitchElement() {}
 
 void
 SVGSwitchElement::MaybeInvalidate()
@@ -55,17 +55,16 @@ SVGSwitchElement::MaybeInvalidate()
   // InvalidateAndScheduleBoundsUpdate has been called, otherwise
   // it will not correctly invalidate the old mActiveChild area.
 
-  nsIContent *newActiveChild = FindActiveChild();
+  nsIContent* newActiveChild = FindActiveChild();
 
   if (newActiveChild == mActiveChild) {
     return;
   }
 
-  nsIFrame *frame = GetPrimaryFrame();
+  nsIFrame* frame = GetPrimaryFrame();
   if (frame) {
     nsLayoutUtils::PostRestyleEvent(
-      this, nsRestyleHint(0),
-      nsChangeHint_InvalidateRenderingObservers);
+        this, nsRestyleHint(0), nsChangeHint_InvalidateRenderingObservers);
     nsSVGUtils::ScheduleReflowSVG(frame);
   }
 
@@ -75,16 +74,13 @@ SVGSwitchElement::MaybeInvalidate()
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGSwitchElement)
 
 //----------------------------------------------------------------------
 // nsINode methods
 
 nsresult
-SVGSwitchElement::InsertChildAt(nsIContent* aKid,
-                                uint32_t aIndex,
-                                bool aNotify)
+SVGSwitchElement::InsertChildAt(nsIContent* aKid, uint32_t aIndex, bool aNotify)
 {
   nsresult rv = SVGSwitchElementBase::InsertChildAt(aKid, aIndex, aNotify);
   if (NS_SUCCEEDED(rv)) {
@@ -106,25 +102,23 @@ SVGSwitchElement::RemoveChildAt(uint32_t aIndex, bool aNotify)
 NS_IMETHODIMP_(bool)
 SVGSwitchElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sFEFloodMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sLightingEffectsMap,
-    sMarkersMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sFEFloodMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sLightingEffectsMap,
+                                                    sMarkersMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGSwitchElementBase::IsAttributeMapped(name);
+         SVGSwitchElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
 // Implementation Helpers:
 
-nsIContent *
+nsIContent*
 SVGSwitchElement::FindActiveChild() const
 {
   nsAutoString acceptLangs;
@@ -132,53 +126,50 @@ SVGSwitchElement::FindActiveChild() const
 
   if (!acceptLangs.IsEmpty()) {
     int32_t bestLanguagePreferenceRank = -1;
-    nsIContent *bestChild = nullptr;
-    nsIContent *defaultChild = nullptr;
-    for (nsIContent* child = nsINode::GetFirstChild();
-         child;
+    nsIContent* bestChild = nullptr;
+    nsIContent* defaultChild = nullptr;
+    for (nsIContent* child = nsINode::GetFirstChild(); child;
          child = child->GetNextSibling()) {
-
       if (!child->IsElement()) {
         continue;
       }
       nsCOMPtr<SVGTests> tests(do_QueryInterface(child));
       if (tests) {
         if (tests->PassesConditionalProcessingTests(
-                            SVGTests::kIgnoreSystemLanguage)) {
+                SVGTests::kIgnoreSystemLanguage)) {
           int32_t languagePreferenceRank =
               tests->GetBestLanguagePreferenceRank(acceptLangs);
           switch (languagePreferenceRank) {
-          case 0:
-            // best possible match
-            return child;
-          case -1:
-            // no match
-            break;
-          case -2:
-            // no systemLanguage attribute. If there's nothing better
-            // we'll use the first such child.
-            if (!defaultChild) {
-              defaultChild = child;
-            }
-            break;
-          default:
-            if (bestLanguagePreferenceRank == -1 ||
-                languagePreferenceRank < bestLanguagePreferenceRank) {
-              bestLanguagePreferenceRank = languagePreferenceRank;
-              bestChild = child;
-            }
-            break;
+            case 0:
+              // best possible match
+              return child;
+            case -1:
+              // no match
+              break;
+            case -2:
+              // no systemLanguage attribute. If there's nothing better
+              // we'll use the first such child.
+              if (!defaultChild) {
+                defaultChild = child;
+              }
+              break;
+            default:
+              if (bestLanguagePreferenceRank == -1 ||
+                  languagePreferenceRank < bestLanguagePreferenceRank) {
+                bestLanguagePreferenceRank = languagePreferenceRank;
+                bestChild = child;
+              }
+              break;
           }
         }
       } else if (!bestChild) {
-         bestChild = child;
+        bestChild = child;
       }
     }
     return bestChild ? bestChild : defaultChild;
   }
 
-  for (nsIContent* child = nsINode::GetFirstChild();
-       child;
+  for (nsIContent* child = nsINode::GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (!child->IsElement()) {
       continue;
@@ -191,6 +182,5 @@ SVGSwitchElement::FindActiveChild() const
   return nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

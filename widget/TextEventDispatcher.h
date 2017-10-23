@@ -33,13 +33,11 @@ class PuppetWidget;
 
 class TextEventDispatcher final
 {
-  ~TextEventDispatcher()
-  {
-  }
+  ~TextEventDispatcher() {}
 
   NS_INLINE_DECL_REFCOUNTING(TextEventDispatcher)
 
-public:
+ public:
   explicit TextEventDispatcher(nsIWidget* aWidget);
 
   /**
@@ -154,9 +152,9 @@ public:
    *                        be initialized with this.  Otherwise, initialized
    *                        with the time at initializing.
    */
-   nsresult CommitComposition(nsEventStatus& aStatus,
-                              const nsAString* aCommitString = nullptr,
-                              const WidgetEventTime* aEventTime = nullptr);
+  nsresult CommitComposition(nsEventStatus& aStatus,
+                             const nsAString* aCommitString = nullptr,
+                             const WidgetEventTime* aEventTime = nullptr);
 
   /**
    * SetPendingCompositionString() sets new composition string which will be
@@ -197,8 +195,7 @@ public:
    *                        Note that Gecko doesn't supported wide caret yet,
    *                        therefore, this is ignored for now.
    */
-  nsresult SetCaretInPendingComposition(uint32_t aOffset,
-                                        uint32_t aLength)
+  nsresult SetCaretInPendingComposition(uint32_t aOffset, uint32_t aLength)
   {
     return mPendingComposition.SetCaret(aOffset, aLength);
   }
@@ -241,10 +238,7 @@ public:
   /**
    * ClearPendingComposition() makes this instance forget pending composition.
    */
-  void ClearPendingComposition()
-  {
-    mPendingComposition.Clear();
-  }
+  void ClearPendingComposition() { mPendingComposition.Clear(); }
 
   /**
    * GetPendingCompositionClauses() returns text ranges which was appended by
@@ -308,7 +302,7 @@ public:
                                    void* aData = nullptr,
                                    bool aNeedsCallback = false);
 
-private:
+ private:
   // mWidget is owner of the instance.  When this is created, this is set.
   // And when mWidget is released, this is cleared by OnDestroyWidget().
   // Note that mWidget may be destroyed already (i.e., mWidget->Destroyed() may
@@ -330,7 +324,7 @@ private:
   // automatically.
   class PendingComposition
   {
-  public:
+   public:
     PendingComposition();
     nsresult SetString(const nsAString& aString);
     nsresult AppendClause(uint32_t aLength, TextRangeType aTextRangeType);
@@ -342,7 +336,7 @@ private:
     const TextRangeArray* GetClauses() const { return mClauses; }
     void Clear();
 
-  private:
+   private:
     nsString mString;
     RefPtr<TextRangeArray> mClauses;
     TextRange mCaret;
@@ -425,8 +419,9 @@ private:
       case eSameProcessSyncInputTransaction:
         return false;
       case eNoInputTransaction:
-        NS_WARNING("Why does the caller need to dispatch an event when "
-                   "there is no input transaction?");
+        NS_WARNING(
+            "Why does the caller need to dispatch an event when "
+            "there is no input transaction?");
         return true;
       default:
         MOZ_CRASH("Define the behavior of new InputTransactionType");
@@ -444,16 +439,14 @@ private:
   // is a composition.
   static bool sDispatchKeyEventsDuringComposition;
 
-  nsresult BeginInputTransactionInternal(
-             TextEventDispatcherListener* aListener,
-             InputTransactionType aType);
+  nsresult BeginInputTransactionInternal(TextEventDispatcherListener* aListener,
+                                         InputTransactionType aType);
 
   /**
    * InitEvent() initializes aEvent.  This must be called before dispatching
    * the event.
    */
   void InitEvent(WidgetGUIEvent& aEvent) const;
-
 
   /**
    * DispatchEvent() dispatches aEvent on aWidget.
@@ -487,8 +480,7 @@ private:
    *                        is nsEventStatus_eConsumeNoDefault.
    */
   nsresult StartCompositionAutomaticallyIfNecessary(
-             nsEventStatus& aStatus,
-             const WidgetEventTime* aEventTime);
+      nsEventStatus& aStatus, const WidgetEventTime* aEventTime);
 
   /**
    * DispatchKeyboardEventInternal() maybe dispatches aKeyboardEvent.
@@ -538,7 +530,7 @@ private:
   void UpdateNotificationRequests();
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // #ifndef mozilla_widget_textcompositionsynthesizer_h_
+#endif  // #ifndef mozilla_widget_textcompositionsynthesizer_h_

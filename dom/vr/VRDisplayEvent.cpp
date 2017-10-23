@@ -32,13 +32,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(VRDisplayEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 VRDisplayEvent::VRDisplayEvent(mozilla::dom::EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
+    : Event(aOwner, nullptr, nullptr)
 {
 }
 
-VRDisplayEvent::~VRDisplayEvent()
-{
-}
+VRDisplayEvent::~VRDisplayEvent() {}
 
 VRDisplay*
 VRDisplayEvent::Display()
@@ -71,11 +69,13 @@ VRDisplayEvent::Constructor(mozilla::dom::EventTarget* aOwner,
 }
 
 already_AddRefed<VRDisplayEvent>
-VRDisplayEvent::Constructor(const GlobalObject& aGlobal, const nsAString& aType,
+VRDisplayEvent::Constructor(const GlobalObject& aGlobal,
+                            const nsAString& aType,
                             const VRDisplayEventInit& aEventInitDict,
                             ErrorResult& aRv)
 {
-  nsCOMPtr<mozilla::dom::EventTarget> owner = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<mozilla::dom::EventTarget> owner =
+      do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(owner, aType, aEventInitDict);
 }
 
@@ -87,9 +87,7 @@ VRDisplayEvent::GetReason() const
   } else {
     return nullptr;
   }
-
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -13,14 +13,12 @@ using namespace mozilla::dom;
 PerformanceMark::PerformanceMark(nsISupports* aParent,
                                  const nsAString& aName,
                                  DOMHighResTimeStamp aStartTime)
-  : PerformanceEntry(aParent, aName, NS_LITERAL_STRING("mark"))
-  , mStartTime(aStartTime)
+    : PerformanceEntry(aParent, aName, NS_LITERAL_STRING("mark")),
+      mStartTime(aStartTime)
 {
 }
 
-PerformanceMark::~PerformanceMark()
-{
-}
+PerformanceMark::~PerformanceMark() {}
 
 JSObject*
 PerformanceMark::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)

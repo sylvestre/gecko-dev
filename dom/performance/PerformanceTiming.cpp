@@ -24,14 +24,14 @@ PerformanceTiming::PerformanceTiming(Performance* aPerformance,
                                      nsITimedChannel* aChannel,
                                      nsIHttpChannel* aHttpChannel,
                                      DOMHighResTimeStamp aZeroTime)
-  : mPerformance(aPerformance),
-    mFetchStart(0.0),
-    mZeroTime(aZeroTime),
-    mRedirectCount(0),
-    mTimingAllowed(true),
-    mAllRedirectsSameOrigin(true),
-    mInitialized(!!aChannel),
-    mReportCrossOriginRedirect(true)
+    : mPerformance(aPerformance),
+      mFetchStart(0.0),
+      mZeroTime(aZeroTime),
+      mRedirectCount(0),
+      mTimingAllowed(true),
+      mAllRedirectsSameOrigin(true),
+      mInitialized(!!aChannel),
+      mReportCrossOriginRedirect(true)
 {
   MOZ_ASSERT(aPerformance, "Parent performance object should be provided");
 
@@ -56,8 +56,7 @@ PerformanceTiming::PerformanceTiming(Performance* aPerformance,
 
   // Non-null aHttpChannel implies that this PerformanceTiming object is being
   // used for subresources, which is irrelevant to this probe.
-  if (!aHttpChannel &&
-      nsContentUtils::IsPerformanceTimingEnabled() &&
+  if (!aHttpChannel && nsContentUtils::IsPerformanceTimingEnabled() &&
       IsTopLevelContentDocument()) {
     Telemetry::Accumulate(Telemetry::TIME_TO_RESPONSE_START_MS,
                           ResponseStartHighRes() - mZeroTime);
@@ -118,7 +117,8 @@ PerformanceTiming::InitializeTimingInfo(nsITimedChannel* aChannel)
         mConnectStart = *clampTime;
       }
 
-      if (!mSecureConnectionStart.IsNull() && mSecureConnectionStart < *clampTime) {
+      if (!mSecureConnectionStart.IsNull() &&
+          mSecureConnectionStart < *clampTime) {
         mSecureConnectionStart = *clampTime;
       }
 
@@ -129,9 +129,7 @@ PerformanceTiming::InitializeTimingInfo(nsITimedChannel* aChannel)
   }
 }
 
-PerformanceTiming::~PerformanceTiming()
-{
-}
+PerformanceTiming::~PerformanceTiming() {}
 
 DOMHighResTimeStamp
 PerformanceTiming::FetchStartHighRes()
@@ -141,8 +139,9 @@ PerformanceTiming::FetchStartHighRes()
         nsContentUtils::ShouldResistFingerprinting()) {
       return mZeroTime;
     }
-    MOZ_ASSERT(!mAsyncOpen.IsNull(), "The fetch start time stamp should always be "
-        "valid if the performance timing is enabled");
+    MOZ_ASSERT(!mAsyncOpen.IsNull(),
+               "The fetch start time stamp should always be "
+               "valid if the performance timing is enabled");
     if (!mAsyncOpen.IsNull()) {
       if (!mWorkerStart.IsNull() && mWorkerStart > mAsyncOpen) {
         mFetchStart = TimeStampToDOMHighRes(mWorkerStart);
@@ -178,7 +177,8 @@ PerformanceTiming::CheckAllowedOrigin(nsIHttpChannel* aResourceChannel,
   // TYPE_DOCUMENT loads have no loadingPrincipal.  And that's OK, because we
   // never actually need to have a performance timing entry for TYPE_DOCUMENT
   // loads.
-  if (loadInfo->GetExternalContentPolicyType() == nsIContentPolicy::TYPE_DOCUMENT) {
+  if (loadInfo->GetExternalContentPolicyType() ==
+      nsIContentPolicy::TYPE_DOCUMENT) {
     return false;
   }
 
@@ -369,8 +369,9 @@ PerformanceTiming::SecureConnectionStartHighRes()
       nsContentUtils::ShouldResistFingerprinting()) {
     return mZeroTime;
   }
-  return mSecureConnectionStart.IsNull() ? mZeroTime
-                                         : TimeStampToDOMHighRes(mSecureConnectionStart);
+  return mSecureConnectionStart.IsNull()
+             ? mZeroTime
+             : TimeStampToDOMHighRes(mSecureConnectionStart);
 }
 
 DOMTimeMilliSec
@@ -426,7 +427,7 @@ PerformanceTiming::ResponseStartHighRes()
     return mZeroTime;
   }
   if (mResponseStart.IsNull() ||
-     (!mCacheReadStart.IsNull() && mCacheReadStart < mResponseStart)) {
+      (!mCacheReadStart.IsNull() && mCacheReadStart < mResponseStart)) {
     mResponseStart = mCacheReadStart;
   }
 
@@ -451,7 +452,7 @@ PerformanceTiming::ResponseEndHighRes()
     return mZeroTime;
   }
   if (mResponseEnd.IsNull() ||
-     (!mCacheReadEnd.IsNull() && mCacheReadEnd < mResponseEnd)) {
+      (!mCacheReadEnd.IsNull() && mCacheReadEnd < mResponseEnd)) {
     mResponseEnd = mCacheReadEnd;
   }
   if (mResponseEnd.IsNull()) {
@@ -475,7 +476,7 @@ PerformanceTiming::IsInitialized() const
 }
 
 JSObject*
-PerformanceTiming::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+PerformanceTiming::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return PerformanceTimingBinding::Wrap(cx, this, aGivenProto);
 }
@@ -499,5 +500,5 @@ PerformanceTiming::IsTopLevelContentDocument() const
   return rootItem->ItemType() == nsIDocShellTreeItem::typeContent;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

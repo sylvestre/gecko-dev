@@ -11,8 +11,9 @@ namespace net {
 
 #define TEST_PREF "network.http_test.auth_utils"
 
-TEST(TestHttpAuthUtils, Bug1351301) {
-  nsCOMPtr<nsIURL> url( do_CreateInstance(NS_STANDARDURL_CONTRACTID) );
+TEST(TestHttpAuthUtils, Bug1351301)
+{
+  nsCOMPtr<nsIURL> url(do_CreateInstance(NS_STANDARDURL_CONTRACTID));
   ASSERT_TRUE(url) << "couldn't create URL";
 
   nsAutoCString spec;
@@ -20,27 +21,27 @@ TEST(TestHttpAuthUtils, Bug1351301) {
   ASSERT_EQ(Preferences::SetCString(TEST_PREF, "bar.com"), NS_OK);
   spec = "http://bar.com";
   ASSERT_EQ(url->SetSpec(spec), NS_OK);
-  ASSERT_EQ(auth::URIMatchesPrefPattern(url,TEST_PREF), true);
+  ASSERT_EQ(auth::URIMatchesPrefPattern(url, TEST_PREF), true);
 
   spec = "http://foo.bar.com";
   ASSERT_EQ(url->SetSpec(spec), NS_OK);
-  ASSERT_EQ(auth::URIMatchesPrefPattern(url,TEST_PREF), true);
+  ASSERT_EQ(auth::URIMatchesPrefPattern(url, TEST_PREF), true);
 
   spec = "http://foobar.com";
   ASSERT_EQ(url->SetSpec(spec), NS_OK);
-  ASSERT_EQ(auth::URIMatchesPrefPattern(url,TEST_PREF), false);
+  ASSERT_EQ(auth::URIMatchesPrefPattern(url, TEST_PREF), false);
 
   ASSERT_EQ(Preferences::SetCString(TEST_PREF, ".bar.com"), NS_OK);
   spec = "http://foo.bar.com";
   ASSERT_EQ(url->SetSpec(spec), NS_OK);
-  ASSERT_EQ(auth::URIMatchesPrefPattern(url,TEST_PREF), true);
+  ASSERT_EQ(auth::URIMatchesPrefPattern(url, TEST_PREF), true);
 
   spec = "http://bar.com";
   ASSERT_EQ(url->SetSpec(spec), NS_OK);
-  ASSERT_EQ(auth::URIMatchesPrefPattern(url,TEST_PREF), false);
+  ASSERT_EQ(auth::URIMatchesPrefPattern(url, TEST_PREF), false);
 
   ASSERT_EQ(Preferences::ClearUser(TEST_PREF), NS_OK);
 }
 
-} // namespace net
-} // namespace mozila
+}  // namespace net
+}  // namespace mozilla

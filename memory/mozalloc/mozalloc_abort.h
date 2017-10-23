@@ -20,9 +20,9 @@
  */
 MFBT_API
 #if !defined(__arm__)
-  MOZ_NORETURN
+MOZ_NORETURN
 #endif
-  void mozalloc_abort(const char* const msg);
+void
+mozalloc_abort(const char* const msg);
 
-
-#endif  /* ifndef mozilla_mozalloc_abort_h */
+#endif /* ifndef mozilla_mozalloc_abort_h */

@@ -59,7 +59,7 @@ ConvertTextAttributeToAtkAttribute(const nsACString& aName,
 
   if (atkName) {
     AtkAttribute* objAttr =
-      static_cast<AtkAttribute*>(g_malloc(sizeof(AtkAttribute)));
+        static_cast<AtkAttribute*>(g_malloc(sizeof(AtkAttribute)));
     objAttr->name = g_strdup(atkName);
     objAttr->value = g_strdup(NS_ConvertUTF16toUTF8(atkValue).get());
     *aAttributeSet = g_slist_prepend(*aAttributeSet, objAttr);
@@ -71,14 +71,13 @@ ConvertToAtkTextAttributeSet(nsTArray<Attribute>& aAttributes)
 {
   AtkAttributeSet* objAttributeSet = nullptr;
   for (size_t i = 0; i < aAttributes.Length(); ++i) {
-    AtkAttribute* objAttr = (AtkAttribute *)g_malloc(sizeof(AtkAttribute));
+    AtkAttribute* objAttr = (AtkAttribute*)g_malloc(sizeof(AtkAttribute));
     objAttr->name = g_strdup(aAttributes[i].Name().get());
     objAttr->value =
-      g_strdup(NS_ConvertUTF16toUTF8(aAttributes[i].Value()).get());
+        g_strdup(NS_ConvertUTF16toUTF8(aAttributes[i].Value()).get());
     objAttributeSet = g_slist_prepend(objAttributeSet, objAttr);
-    ConvertTextAttributeToAtkAttribute(aAttributes[i].Name(),
-                                       aAttributes[i].Value(),
-                                       &objAttributeSet);
+    ConvertTextAttributeToAtkAttribute(
+        aAttributes[i].Name(), aAttributes[i].Value(), &objAttributeSet);
   }
   return objAttributeSet;
 }
@@ -86,8 +85,7 @@ ConvertToAtkTextAttributeSet(nsTArray<Attribute>& aAttributes)
 static AtkAttributeSet*
 ConvertToAtkTextAttributeSet(nsIPersistentProperties* aAttributes)
 {
-  if (!aAttributes)
-    return nullptr;
+  if (!aAttributes) return nullptr;
 
   AtkAttributeSet* objAttributeSet = nullptr;
   nsCOMPtr<nsISimpleEnumerator> propEnum;
@@ -136,14 +134,13 @@ ConvertTexttoAsterisks(AccessibleWrap* accWrap, nsAString& aString)
 extern "C" {
 
 static gchar*
-getTextCB(AtkText *aText, gint aStartOffset, gint aEndOffset)
+getTextCB(AtkText* aText, gint aStartOffset, gint aEndOffset)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   nsAutoString autoStr;
   if (accWrap) {
     HyperTextAccessible* text = accWrap->AsHyperText();
-    if (!text || !text->IsTextRole())
-      return nullptr;
+    if (!text || !text->IsTextRole()) return nullptr;
 
     text->TextSubstring(aStartOffset, aEndOffset, autoStr);
 
@@ -159,23 +156,25 @@ getTextCB(AtkText *aText, gint aStartOffset, gint aEndOffset)
 }
 
 static gchar*
-getTextAfterOffsetCB(AtkText *aText, gint aOffset,
+getTextAfterOffsetCB(AtkText* aText,
+                     gint aOffset,
                      AtkTextBoundary aBoundaryType,
-                     gint *aStartOffset, gint *aEndOffset)
+                     gint* aStartOffset,
+                     gint* aEndOffset)
 {
-    nsAutoString autoStr;
+  nsAutoString autoStr;
   int32_t startOffset = 0, endOffset = 0;
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
     HyperTextAccessible* text = accWrap->AsHyperText();
-    if (!text || !text->IsTextRole())
-      return nullptr;
+    if (!text || !text->IsTextRole()) return nullptr;
 
-    text->TextAfterOffset(aOffset, aBoundaryType, &startOffset, &endOffset, autoStr);
+    text->TextAfterOffset(
+        aOffset, aBoundaryType, &startOffset, &endOffset, autoStr);
     ConvertTexttoAsterisks(accWrap, autoStr);
   } else if (ProxyAccessible* proxy = GetProxy(ATK_OBJECT(aText))) {
-    proxy->GetTextAfterOffset(aOffset, aBoundaryType, autoStr, &startOffset,
-                              &endOffset);
+    proxy->GetTextAfterOffset(
+        aOffset, aBoundaryType, autoStr, &startOffset, &endOffset);
   }
 
   *aStartOffset = startOffset;
@@ -186,23 +185,25 @@ getTextAfterOffsetCB(AtkText *aText, gint aOffset,
 }
 
 static gchar*
-getTextAtOffsetCB(AtkText *aText, gint aOffset,
+getTextAtOffsetCB(AtkText* aText,
+                  gint aOffset,
                   AtkTextBoundary aBoundaryType,
-                  gint *aStartOffset, gint *aEndOffset)
+                  gint* aStartOffset,
+                  gint* aEndOffset)
 {
   nsAutoString autoStr;
   int32_t startOffset = 0, endOffset = 0;
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
     HyperTextAccessible* text = accWrap->AsHyperText();
-    if (!text || !text->IsTextRole())
-      return nullptr;
+    if (!text || !text->IsTextRole()) return nullptr;
 
-    text->TextAtOffset(aOffset, aBoundaryType, &startOffset, &endOffset, autoStr);
+    text->TextAtOffset(
+        aOffset, aBoundaryType, &startOffset, &endOffset, autoStr);
     ConvertTexttoAsterisks(accWrap, autoStr);
   } else if (ProxyAccessible* proxy = GetProxy(ATK_OBJECT(aText))) {
-    proxy->GetTextAtOffset(aOffset, aBoundaryType, autoStr, &startOffset,
-                           &endOffset);
+    proxy->GetTextAtOffset(
+        aOffset, aBoundaryType, autoStr, &startOffset, &endOffset);
   }
 
   *aStartOffset = startOffset;
@@ -234,24 +235,25 @@ getCharacterAtOffsetCB(AtkText* aText, gint aOffset)
 }
 
 static gchar*
-getTextBeforeOffsetCB(AtkText *aText, gint aOffset,
+getTextBeforeOffsetCB(AtkText* aText,
+                      gint aOffset,
                       AtkTextBoundary aBoundaryType,
-                      gint *aStartOffset, gint *aEndOffset)
+                      gint* aStartOffset,
+                      gint* aEndOffset)
 {
   nsAutoString autoStr;
   int32_t startOffset = 0, endOffset = 0;
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
     HyperTextAccessible* text = accWrap->AsHyperText();
-    if (!text || !text->IsTextRole())
-      return nullptr;
+    if (!text || !text->IsTextRole()) return nullptr;
 
-    text->TextBeforeOffset(aOffset, aBoundaryType,
-                           &startOffset, &endOffset, autoStr);
+    text->TextBeforeOffset(
+        aOffset, aBoundaryType, &startOffset, &endOffset, autoStr);
     ConvertTexttoAsterisks(accWrap, autoStr);
   } else if (ProxyAccessible* proxy = GetProxy(ATK_OBJECT(aText))) {
-    proxy->GetTextBeforeOffset(aOffset, aBoundaryType, autoStr, &startOffset,
-                               &endOffset);
+    proxy->GetTextBeforeOffset(
+        aOffset, aBoundaryType, autoStr, &startOffset, &endOffset);
   }
 
   *aStartOffset = startOffset;
@@ -262,7 +264,7 @@ getTextBeforeOffsetCB(AtkText *aText, gint aOffset,
 }
 
 static gint
-getCaretOffsetCB(AtkText *aText)
+getCaretOffsetCB(AtkText* aText)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -282,9 +284,10 @@ getCaretOffsetCB(AtkText *aText)
 }
 
 static AtkAttributeSet*
-getRunAttributesCB(AtkText *aText, gint aOffset,
-                   gint *aStartOffset,
-                   gint *aEndOffset)
+getRunAttributesCB(AtkText* aText,
+                   gint aOffset,
+                   gint* aStartOffset,
+                   gint* aEndOffset)
 {
   *aStartOffset = -1;
   *aEndOffset = -1;
@@ -298,7 +301,7 @@ getRunAttributesCB(AtkText *aText, gint aOffset,
     }
 
     nsCOMPtr<nsIPersistentProperties> attributes =
-      text->TextAttributes(false, aOffset, &startOffset, &endOffset);
+        text->TextAttributes(false, aOffset, &startOffset, &endOffset);
 
     *aStartOffset = startOffset;
     *aEndOffset = endOffset;
@@ -319,7 +322,7 @@ getRunAttributesCB(AtkText *aText, gint aOffset,
 }
 
 static AtkAttributeSet*
-getDefaultAttributesCB(AtkText *aText)
+getDefaultAttributesCB(AtkText* aText)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -328,7 +331,8 @@ getDefaultAttributesCB(AtkText *aText)
       return nullptr;
     }
 
-    nsCOMPtr<nsIPersistentProperties> attributes = text->DefaultTextAttributes();
+    nsCOMPtr<nsIPersistentProperties> attributes =
+        text->DefaultTextAttributes();
     return ConvertToAtkTextAttributeSet(attributes);
   }
 
@@ -343,12 +347,15 @@ getDefaultAttributesCB(AtkText *aText)
 }
 
 static void
-getCharacterExtentsCB(AtkText *aText, gint aOffset,
-                      gint *aX, gint *aY,
-                      gint *aWidth, gint *aHeight,
+getCharacterExtentsCB(AtkText* aText,
+                      gint aOffset,
+                      gint* aX,
+                      gint* aY,
+                      gint* aWidth,
+                      gint* aHeight,
                       AtkCoordType aCoords)
 {
-  if(!aX || !aY || !aWidth || !aHeight) {
+  if (!aX || !aY || !aWidth || !aHeight) {
     return;
   }
 
@@ -381,8 +388,11 @@ getCharacterExtentsCB(AtkText *aText, gint aOffset,
 }
 
 static void
-getRangeExtentsCB(AtkText *aText, gint aStartOffset, gint aEndOffset,
-                  AtkCoordType aCoords, AtkTextRectangle *aRect)
+getRangeExtentsCB(AtkText* aText,
+                  gint aStartOffset,
+                  gint aEndOffset,
+                  AtkCoordType aCoords,
+                  AtkTextRectangle* aRect)
 {
   if (!aRect) {
     return;
@@ -397,7 +407,7 @@ getRangeExtentsCB(AtkText *aText, gint aStartOffset, gint aEndOffset,
   }
 
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
-  if(accWrap) {
+  if (accWrap) {
     HyperTextAccessible* text = accWrap->AsHyperText();
     if (!text || !text->IsTextRole()) {
       return;
@@ -417,13 +427,13 @@ getRangeExtentsCB(AtkText *aText, gint aStartOffset, gint aEndOffset,
 }
 
 static gint
-getCharacterCountCB(AtkText *aText)
+getCharacterCountCB(AtkText* aText)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
     HyperTextAccessible* textAcc = accWrap->AsHyperText();
-    return
-      textAcc->IsDefunct() ? 0 : static_cast<gint>(textAcc->CharacterCount());
+    return textAcc->IsDefunct() ? 0
+                                : static_cast<gint>(textAcc->CharacterCount());
   }
 
   if (ProxyAccessible* proxy = GetProxy(ATK_OBJECT(aText))) {
@@ -434,9 +444,7 @@ getCharacterCountCB(AtkText *aText)
 }
 
 static gint
-getOffsetAtPointCB(AtkText *aText,
-                   gint aX, gint aY,
-                   AtkCoordType aCoords)
+getOffsetAtPointCB(AtkText* aText, gint aX, gint aY, AtkCoordType aCoords)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -445,26 +453,28 @@ getOffsetAtPointCB(AtkText *aText,
       return -1;
     }
 
-    return static_cast<gint>(
-      text->OffsetAtPoint(aX, aY,
-                          (aCoords == ATK_XY_SCREEN ?
-                           nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE :
-                           nsIAccessibleCoordinateType::COORDTYPE_WINDOW_RELATIVE)));
+    return static_cast<gint>(text->OffsetAtPoint(
+        aX,
+        aY,
+        (aCoords == ATK_XY_SCREEN
+             ? nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE
+             : nsIAccessibleCoordinateType::COORDTYPE_WINDOW_RELATIVE)));
   }
 
   if (ProxyAccessible* proxy = GetProxy(ATK_OBJECT(aText))) {
-    return static_cast<gint>(
-      proxy->OffsetAtPoint(aX, aY,
-                           (aCoords == ATK_XY_SCREEN ?
-                            nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE :
-                            nsIAccessibleCoordinateType::COORDTYPE_WINDOW_RELATIVE)));
+    return static_cast<gint>(proxy->OffsetAtPoint(
+        aX,
+        aY,
+        (aCoords == ATK_XY_SCREEN
+             ? nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE
+             : nsIAccessibleCoordinateType::COORDTYPE_WINDOW_RELATIVE)));
   }
 
   return -1;
 }
 
 static gint
-getTextSelectionCountCB(AtkText *aText)
+getTextSelectionCountCB(AtkText* aText)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -484,8 +494,10 @@ getTextSelectionCountCB(AtkText *aText)
 }
 
 static gchar*
-getTextSelectionCB(AtkText *aText, gint aSelectionNum,
-                   gint *aStartOffset, gint *aEndOffset)
+getTextSelectionCB(AtkText* aText,
+                   gint aSelectionNum,
+                   gint* aStartOffset,
+                   gint* aEndOffset)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   int32_t startOffset = 0, endOffset = 0;
@@ -515,9 +527,7 @@ getTextSelectionCB(AtkText *aText, gint aSelectionNum,
 
 // set methods
 static gboolean
-addTextSelectionCB(AtkText *aText,
-                   gint aStartOffset,
-                   gint aEndOffset)
+addTextSelectionCB(AtkText* aText, gint aStartOffset, gint aEndOffset)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -536,8 +546,7 @@ addTextSelectionCB(AtkText *aText,
 }
 
 static gboolean
-removeTextSelectionCB(AtkText *aText,
-                      gint aSelectionNum)
+removeTextSelectionCB(AtkText* aText, gint aSelectionNum)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -556,8 +565,10 @@ removeTextSelectionCB(AtkText *aText,
 }
 
 static gboolean
-setTextSelectionCB(AtkText *aText, gint aSelectionNum,
-                   gint aStartOffset, gint aEndOffset)
+setTextSelectionCB(AtkText* aText,
+                   gint aSelectionNum,
+                   gint aStartOffset,
+                   gint aEndOffset)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -576,7 +587,7 @@ setTextSelectionCB(AtkText *aText, gint aSelectionNum,
 }
 
 static gboolean
-setCaretOffsetCB(AtkText *aText, gint aOffset)
+setCaretOffsetCB(AtkText* aText, gint aOffset)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -602,8 +613,7 @@ void
 textInterfaceInitCB(AtkTextIface* aIface)
 {
   NS_ASSERTION(aIface, "Invalid aIface");
-  if (MOZ_UNLIKELY(!aIface))
-    return;
+  if (MOZ_UNLIKELY(!aIface)) return;
 
   aIface->get_text = getTextCB;
   aIface->get_text_after_offset = getTextAfterOffsetCB;
@@ -620,7 +630,7 @@ textInterfaceInitCB(AtkTextIface* aIface)
   aIface->get_n_selections = getTextSelectionCountCB;
   aIface->get_selection = getTextSelectionCB;
 
-    // set methods
+  // set methods
   aIface->add_selection = addTextSelectionCB;
   aIface->remove_selection = removeTextSelectionCB;
   aIface->set_selection = setTextSelectionCB;
@@ -629,5 +639,5 @@ textInterfaceInitCB(AtkTextIface* aIface)
   // Cache the string values of the atk text attribute names.
   for (uint32_t i = 0; i < ArrayLength(sAtkTextAttrNames); i++)
     sAtkTextAttrNames[i] =
-      atk_text_attribute_get_name(static_cast<AtkTextAttribute>(i));
+        atk_text_attribute_get_name(static_cast<AtkTextAttribute>(i));
 }

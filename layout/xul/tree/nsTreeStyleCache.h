@@ -15,16 +15,10 @@
 
 class nsTreeStyleCache
 {
-public:
-  nsTreeStyleCache()
-    : mNextState(0)
-  {
-  }
+ public:
+  nsTreeStyleCache() : mNextState(0) {}
 
-  ~nsTreeStyleCache()
-  {
-    Clear();
-  }
+  ~nsTreeStyleCache() { Clear(); }
 
   void Clear()
   {
@@ -39,22 +33,23 @@ public:
                                   nsICSSAnonBoxPseudo* aPseudoElement,
                                   const mozilla::AtomArray& aInputWord);
 
-protected:
+ protected:
   typedef uint32_t DFAState;
 
   class Transition final
   {
-  public:
+   public:
     Transition(DFAState aState, nsAtom* aSymbol);
     bool operator==(const Transition& aOther) const;
     uint32_t Hash() const;
 
-  private:
+   private:
     DFAState mState;
     RefPtr<nsAtom> mInputSymbol;
   };
 
-  typedef nsDataHashtable<nsGenericHashKey<Transition>, DFAState> TransitionTable;
+  typedef nsDataHashtable<nsGenericHashKey<Transition>, DFAState>
+      TransitionTable;
 
   // A transition table for a deterministic finite automaton.  The DFA
   // takes as its input a single pseudoelement and an ordered set of properties.
@@ -82,4 +77,4 @@ protected:
   DFAState mNextState;
 };
 
-#endif // nsTreeStyleCache_h__
+#endif  // nsTreeStyleCache_h__

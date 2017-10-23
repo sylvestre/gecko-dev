@@ -31,4 +31,4 @@ ADTSDecoder::IsSupportedType(const MediaContainerType& aContainerType)
   return false;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

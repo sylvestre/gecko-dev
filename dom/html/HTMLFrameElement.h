@@ -16,7 +16,7 @@ namespace dom {
 
 class HTMLFrameElement final : public nsGenericHTMLFrameElement
 {
-public:
+ public:
   using nsGenericHTMLFrameElement::SwapFrameLoaders;
 
   explicit HTMLFrameElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
@@ -32,7 +32,8 @@ public:
                               nsAtom* aAttribute,
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL API
@@ -72,19 +73,13 @@ public:
     SetHTMLAttr(nsGkAtoms::marginwidth, aMarginWidth, aError);
   }
 
-  void GetName(DOMString& aName) const
-  {
-    GetHTMLAttr(nsGkAtoms::name, aName);
-  }
+  void GetName(DOMString& aName) const { GetHTMLAttr(nsGkAtoms::name, aName); }
   void SetName(const nsAString& aName, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::name, aName, aError);
   }
 
-  bool NoResize() const
-  {
-   return GetBoolAttr(nsGkAtoms::noresize);
-  }
+  bool NoResize() const { return GetBoolAttr(nsGkAtoms::noresize); }
   void SetNoResize(bool& aNoResize, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::noresize, aNoResize, aError);
@@ -103,7 +98,9 @@ public:
   {
     GetURIAttr(nsGkAtoms::src, nullptr, aSrc);
   }
-  void SetSrc(const nsAString& aSrc, nsIPrincipal& aTriggeringPrincipal, ErrorResult& aError)
+  void SetSrc(const nsAString& aSrc,
+              nsIPrincipal& aTriggeringPrincipal,
+              ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::src, aSrc, aTriggeringPrincipal, aError);
   }
@@ -111,17 +108,18 @@ public:
   using nsGenericHTMLFrameElement::GetContentDocument;
   using nsGenericHTMLFrameElement::GetContentWindow;
 
-protected:
+ protected:
   virtual ~HTMLFrameElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLFrameElement_h
+#endif  // mozilla_dom_HTMLFrameElement_h

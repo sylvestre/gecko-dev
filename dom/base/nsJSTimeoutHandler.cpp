@@ -28,44 +28,41 @@ using namespace mozilla::dom::workers;
 // Our JS nsIScriptTimeoutHandler implementation.
 class nsJSScriptTimeoutHandler final : public nsIScriptTimeoutHandler
 {
-public:
+ public:
   // nsISupports
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsJSScriptTimeoutHandler)
 
   nsJSScriptTimeoutHandler();
   // This will call SwapElements on aArguments with an empty array.
-  nsJSScriptTimeoutHandler(JSContext* aCx, nsGlobalWindow* aWindow,
+  nsJSScriptTimeoutHandler(JSContext* aCx,
+                           nsGlobalWindow* aWindow,
                            Function& aFunction,
                            nsTArray<JS::Heap<JS::Value>>&& aArguments,
                            ErrorResult& aError);
-  nsJSScriptTimeoutHandler(JSContext* aCx, nsGlobalWindow* aWindow,
-                           const nsAString& aExpression, bool* aAllowEval,
+  nsJSScriptTimeoutHandler(JSContext* aCx,
+                           nsGlobalWindow* aWindow,
+                           const nsAString& aExpression,
+                           bool* aAllowEval,
                            ErrorResult& aError);
-  nsJSScriptTimeoutHandler(JSContext* aCx, WorkerPrivate* aWorkerPrivate,
+  nsJSScriptTimeoutHandler(JSContext* aCx,
+                           WorkerPrivate* aWorkerPrivate,
                            Function& aFunction,
                            nsTArray<JS::Heap<JS::Value>>&& aArguments);
-  nsJSScriptTimeoutHandler(JSContext* aCx, WorkerPrivate* aWorkerPrivate,
+  nsJSScriptTimeoutHandler(JSContext* aCx,
+                           WorkerPrivate* aWorkerPrivate,
                            const nsAString& aExpression);
 
   virtual const nsAString& GetHandlerText() override;
 
-  virtual Function* GetCallback() override
-  {
-    return mFunction;
-  }
+  virtual Function* GetCallback() override { return mFunction; }
 
-  virtual const nsTArray<JS::Value>& GetArgs() override
-  {
-    return mArgs;
-  }
+  virtual const nsTArray<JS::Value>& GetArgs() override { return mArgs; }
 
-  virtual nsresult Call() override
-  {
-    return NS_OK;
-  }
+  virtual nsresult Call() override { return NS_OK; }
 
-  virtual void GetLocation(const char** aFileName, uint32_t* aLineNo,
+  virtual void GetLocation(const char** aFileName,
+                           uint32_t* aLineNo,
                            uint32_t* aColumn) override
   {
     *aFileName = mFileName.get();
@@ -82,11 +79,10 @@ public:
 
   void ReleaseJSObjects();
 
-private:
+ private:
   ~nsJSScriptTimeoutHandler();
 
-  void Init(JSContext* aCx,
-            nsTArray<JS::Heap<JS::Value>>&& aArguments);
+  void Init(JSContext* aCx, nsTArray<JS::Heap<JS::Value>>&& aArguments);
   void Init(JSContext* aCx);
 
   // filename, line number and JS language version string of the
@@ -102,7 +98,6 @@ private:
   RefPtr<Function> mFunction;
 };
 
-
 // nsJSScriptTimeoutHandler
 // QueryInterface implementation for nsJSScriptTimeoutHandler
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsJSScriptTimeoutHandler)
@@ -117,9 +112,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsJSScriptTimeoutHandler)
       JSObject* obj = tmp->mFunction->CallablePreserveColor();
       JSFunction* fun = JS_GetObjectFunction(js::UncheckedUnwrap(obj));
       if (fun && JS_GetFunctionId(fun)) {
-        JSFlatString *funId = JS_ASSERT_STRING_IS_FLAT(JS_GetFunctionId(fun));
+        JSFlatString* funId = JS_ASSERT_STRING_IS_FLAT(JS_GetFunctionId(fun));
         size_t size = 1 + JS_PutEscapedFlatString(nullptr, 0, funId, 0);
-        char *funIdName = new char[size];
+        char* funIdName = new char[size];
         if (funIdName) {
           JS_PutEscapedFlatString(funIdName, size, funId, 0);
           name.AppendLiteral(" [");
@@ -138,8 +133,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsJSScriptTimeoutHandler)
       name.Append(']');
     }
     cb.DescribeRefCountedNode(tmp->mRefCnt.get(), name.get());
-  }
-  else {
+  } else {
     NS_IMPL_CYCLE_COLLECTION_DESCRIBE(nsJSScriptTimeoutHandler,
                                       tmp->mRefCnt.get())
   }
@@ -194,8 +188,8 @@ CheckCSPForEval(JSContext* aCx, nsGlobalWindow* aWindow, ErrorResult& aError)
 
   if (reportViolation) {
     // TODO : need actual script sample in violation report.
-    NS_NAMED_LITERAL_STRING(scriptSample,
-                            "call to eval() or related function blocked by CSP");
+    NS_NAMED_LITERAL_STRING(
+        scriptSample, "call to eval() or related function blocked by CSP");
 
     // Get the calling location.
     uint32_t lineNum = 0;
@@ -205,27 +199,25 @@ CheckCSPForEval(JSContext* aCx, nsGlobalWindow* aWindow, ErrorResult& aError)
     }
 
     csp->LogViolationDetails(nsIContentSecurityPolicy::VIOLATION_TYPE_EVAL,
-                             fileNameString, scriptSample, lineNum,
-                             EmptyString(), EmptyString());
+                             fileNameString,
+                             scriptSample,
+                             lineNum,
+                             EmptyString(),
+                             EmptyString());
   }
 
   return allowsEval;
 }
 
-nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler()
-  : mLineNo(0)
-  , mColumn(0)
-{
-}
+nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler() : mLineNo(0), mColumn(0) {}
 
-nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
-                                                   nsGlobalWindow *aWindow,
-                                                   Function& aFunction,
-                                                   nsTArray<JS::Heap<JS::Value>>&& aArguments,
-                                                   ErrorResult& aError)
-  : mLineNo(0)
-  , mColumn(0)
-  , mFunction(&aFunction)
+nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(
+    JSContext* aCx,
+    nsGlobalWindow* aWindow,
+    Function& aFunction,
+    nsTArray<JS::Heap<JS::Value>>&& aArguments,
+    ErrorResult& aError)
+    : mLineNo(0), mColumn(0), mFunction(&aFunction)
 {
   if (!aWindow->GetContextInternal() || !aWindow->FastGetGlobalJSObject()) {
     // This window was already closed, or never properly initialized,
@@ -238,13 +230,11 @@ nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
 }
 
 nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
-                                                   nsGlobalWindow *aWindow,
+                                                   nsGlobalWindow* aWindow,
                                                    const nsAString& aExpression,
                                                    bool* aAllowEval,
                                                    ErrorResult& aError)
-  : mLineNo(0)
-  , mColumn(0)
-  , mExpr(aExpression)
+    : mLineNo(0), mColumn(0), mExpr(aExpression)
 {
   if (!aWindow->GetContextInternal() || !aWindow->FastGetGlobalJSObject()) {
     // This window was already closed, or never properly initialized,
@@ -261,13 +251,12 @@ nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
   Init(aCx);
 }
 
-nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
-                                                   WorkerPrivate* aWorkerPrivate,
-                                                   Function& aFunction,
-                                                   nsTArray<JS::Heap<JS::Value>>&& aArguments)
-  : mLineNo(0)
-  , mColumn(0)
-  , mFunction(&aFunction)
+nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(
+    JSContext* aCx,
+    WorkerPrivate* aWorkerPrivate,
+    Function& aFunction,
+    nsTArray<JS::Heap<JS::Value>>&& aArguments)
+    : mLineNo(0), mColumn(0), mFunction(&aFunction)
 {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
@@ -275,12 +264,9 @@ nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
   Init(aCx, Move(aArguments));
 }
 
-nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
-                                                   WorkerPrivate* aWorkerPrivate,
-                                                   const nsAString& aExpression)
-  : mLineNo(0)
-  , mColumn(0)
-  , mExpr(aExpression)
+nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(
+    JSContext* aCx, WorkerPrivate* aWorkerPrivate, const nsAString& aExpression)
+    : mLineNo(0), mColumn(0), mExpr(aExpression)
 {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
@@ -288,10 +274,7 @@ nsJSScriptTimeoutHandler::nsJSScriptTimeoutHandler(JSContext* aCx,
   Init(aCx);
 }
 
-nsJSScriptTimeoutHandler::~nsJSScriptTimeoutHandler()
-{
-  ReleaseJSObjects();
-}
+nsJSScriptTimeoutHandler::~nsJSScriptTimeoutHandler() { ReleaseJSObjects(); }
 
 void
 nsJSScriptTimeoutHandler::Init(JSContext* aCx,
@@ -328,7 +311,8 @@ nsJSScriptTimeoutHandler::GetHandlerText()
 }
 
 already_AddRefed<nsIScriptTimeoutHandler>
-NS_CreateJSTimeoutHandler(JSContext *aCx, nsGlobalWindow *aWindow,
+NS_CreateJSTimeoutHandler(JSContext* aCx,
+                          nsGlobalWindow* aWindow,
                           Function& aFunction,
                           const Sequence<JS::Value>& aArguments,
                           ErrorResult& aError)
@@ -340,17 +324,19 @@ NS_CreateJSTimeoutHandler(JSContext *aCx, nsGlobalWindow *aWindow,
   }
 
   RefPtr<nsJSScriptTimeoutHandler> handler =
-    new nsJSScriptTimeoutHandler(aCx, aWindow, aFunction, Move(args), aError);
+      new nsJSScriptTimeoutHandler(aCx, aWindow, aFunction, Move(args), aError);
   return aError.Failed() ? nullptr : handler.forget();
 }
 
 already_AddRefed<nsIScriptTimeoutHandler>
-NS_CreateJSTimeoutHandler(JSContext* aCx, nsGlobalWindow *aWindow,
-                          const nsAString& aExpression, ErrorResult& aError)
+NS_CreateJSTimeoutHandler(JSContext* aCx,
+                          nsGlobalWindow* aWindow,
+                          const nsAString& aExpression,
+                          ErrorResult& aError)
 {
   bool allowEval = false;
-  RefPtr<nsJSScriptTimeoutHandler> handler =
-    new nsJSScriptTimeoutHandler(aCx, aWindow, aExpression, &allowEval, aError);
+  RefPtr<nsJSScriptTimeoutHandler> handler = new nsJSScriptTimeoutHandler(
+      aCx, aWindow, aExpression, &allowEval, aError);
   if (aError.Failed() || !allowEval) {
     return nullptr;
   }
@@ -359,7 +345,8 @@ NS_CreateJSTimeoutHandler(JSContext* aCx, nsGlobalWindow *aWindow,
 }
 
 already_AddRefed<nsIScriptTimeoutHandler>
-NS_CreateJSTimeoutHandler(JSContext *aCx, WorkerPrivate* aWorkerPrivate,
+NS_CreateJSTimeoutHandler(JSContext* aCx,
+                          WorkerPrivate* aWorkerPrivate,
                           Function& aFunction,
                           const Sequence<JS::Value>& aArguments,
                           ErrorResult& aError)
@@ -371,15 +358,16 @@ NS_CreateJSTimeoutHandler(JSContext *aCx, WorkerPrivate* aWorkerPrivate,
   }
 
   RefPtr<nsJSScriptTimeoutHandler> handler =
-    new nsJSScriptTimeoutHandler(aCx, aWorkerPrivate, aFunction, Move(args));
+      new nsJSScriptTimeoutHandler(aCx, aWorkerPrivate, aFunction, Move(args));
   return handler.forget();
 }
 
 already_AddRefed<nsIScriptTimeoutHandler>
-NS_CreateJSTimeoutHandler(JSContext* aCx, WorkerPrivate* aWorkerPrivate,
+NS_CreateJSTimeoutHandler(JSContext* aCx,
+                          WorkerPrivate* aWorkerPrivate,
                           const nsAString& aExpression)
 {
   RefPtr<nsJSScriptTimeoutHandler> handler =
-    new nsJSScriptTimeoutHandler(aCx, aWorkerPrivate, aExpression);
+      new nsJSScriptTimeoutHandler(aCx, aWorkerPrivate, aExpression);
   return handler.forget();
 }

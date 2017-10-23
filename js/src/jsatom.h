@@ -28,27 +28,21 @@ namespace js {
  * Return a printable, lossless char[] representation of a string-type atom.
  * The lifetime of the result matches the lifetime of bytes.
  */
-extern const char*
-AtomToPrintableString(JSContext* cx, JSAtom* atom, JSAutoByteString* bytes);
+extern const char* AtomToPrintableString(JSContext* cx, JSAtom* atom, JSAutoByteString* bytes);
 
-class AtomStateEntry
-{
+class AtomStateEntry {
     uintptr_t bits;
 
     static const uintptr_t NO_TAG_MASK = uintptr_t(-1) - 1;
 
-  public:
+   public:
     AtomStateEntry() : bits(0) {}
     AtomStateEntry(const AtomStateEntry& other) : bits(other.bits) {}
-    AtomStateEntry(JSAtom* ptr, bool tagged)
-      : bits(uintptr_t(ptr) | uintptr_t(tagged))
-    {
+    AtomStateEntry(JSAtom* ptr, bool tagged) : bits(uintptr_t(ptr) | uintptr_t(tagged)) {
         MOZ_ASSERT((uintptr_t(ptr) & 0x1) == 0);
     }
 
-    bool isPinned() const {
-        return bits & 0x1;
-    }
+    bool isPinned() const { return bits & 0x1; }
 
     /*
      * Non-branching code sequence. Note that the const_cast is safe because
@@ -67,10 +61,8 @@ class AtomStateEntry
     }
 };
 
-struct AtomHasher
-{
-    struct Lookup
-    {
+struct AtomHasher {
+    struct Lookup {
         union {
             const JS::Latin1Char* latin1Chars;
             const char16_t* twoByteChars;
@@ -83,13 +75,11 @@ struct AtomHasher
         HashNumber hash;
 
         MOZ_ALWAYS_INLINE Lookup(const char16_t* chars, size_t length)
-          : twoByteChars(chars), isLatin1(false), length(length), atom(nullptr)
-        {
+            : twoByteChars(chars), isLatin1(false), length(length), atom(nullptr) {
             hash = mozilla::HashString(chars, length);
         }
         MOZ_ALWAYS_INLINE Lookup(const JS::Latin1Char* chars, size_t length)
-          : latin1Chars(chars), isLatin1(true), length(length), atom(nullptr)
-        {
+            : latin1Chars(chars), isLatin1(true), length(length), atom(nullptr) {
             hash = mozilla::HashString(chars, length);
         }
         inline explicit Lookup(const JSAtom* atom);
@@ -105,11 +95,10 @@ using AtomSet = JS::GCHashSet<AtomStateEntry, AtomHasher, SystemAllocPolicy>;
 // This class is a wrapper for AtomSet that is used to ensure the AtomSet is
 // not modified. It should only expose read-only methods from AtomSet.
 // Note however that the atoms within the table can be marked during GC.
-class FrozenAtomSet
-{
+class FrozenAtomSet {
     AtomSet* mSet;
 
-public:
+   public:
     // This constructor takes ownership of the passed-in AtomSet.
     explicit FrozenAtomSet(AtomSet* set) { mSet = set; }
 
@@ -128,25 +117,23 @@ public:
 
 class PropertyName;
 
-}  /* namespace js */
+} /* namespace js */
 
-extern bool
-AtomIsPinned(JSContext* cx, JSAtom* atom);
+extern bool AtomIsPinned(JSContext* cx, JSAtom* atom);
 
 #ifdef DEBUG
 
 // This may be called either with or without the atoms lock held.
-extern bool
-AtomIsPinnedInRuntime(JSRuntime* rt, JSAtom* atom);
+extern bool AtomIsPinnedInRuntime(JSRuntime* rt, JSAtom* atom);
 
-#endif // DEBUG
+#endif  // DEBUG
 
 /* Well-known predefined C strings. */
-#define DECLARE_PROTO_STR(name,init,clasp) extern const char js_##name##_str[];
+#define DECLARE_PROTO_STR(name, init, clasp) extern const char js_##name##_str[];
 JS_FOR_EACH_PROTOTYPE(DECLARE_PROTO_STR)
 #undef DECLARE_PROTO_STR
 
-#define DECLARE_CONST_CHAR_STR(idpart, id, text)  extern const char js_##idpart##_str[];
+#define DECLARE_CONST_CHAR_STR(idpart, id, text) extern const char js_##idpart##_str[];
 FOR_EACH_COMMON_PROPERTYNAME(DECLARE_CONST_CHAR_STR)
 #undef DECLARE_CONST_CHAR_STR
 
@@ -162,53 +149,38 @@ class AutoLockForExclusiveAccess;
 /*
  * Atom tracing and garbage collection hooks.
  */
-void
-TraceAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock);
+void TraceAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock);
 
-void
-TracePermanentAtoms(JSTracer* trc);
+void TracePermanentAtoms(JSTracer* trc);
 
-void
-TraceWellKnownSymbols(JSTracer* trc);
+void TraceWellKnownSymbols(JSTracer* trc);
 
 /* N.B. must correspond to boolean tagging behavior. */
-enum PinningBehavior
-{
-    DoNotPinAtom = false,
-    PinAtom = true
-};
+enum PinningBehavior { DoNotPinAtom = false, PinAtom = true };
 
-extern JSAtom*
-Atomize(JSContext* cx, const char* bytes, size_t length,
-        js::PinningBehavior pin = js::DoNotPinAtom,
-        const mozilla::Maybe<uint32_t>& indexValue = mozilla::Nothing());
+extern JSAtom* Atomize(JSContext* cx, const char* bytes, size_t length,
+                       js::PinningBehavior pin = js::DoNotPinAtom,
+                       const mozilla::Maybe<uint32_t>& indexValue = mozilla::Nothing());
 
 template <typename CharT>
-extern JSAtom*
-AtomizeChars(JSContext* cx, const CharT* chars, size_t length,
-             js::PinningBehavior pin = js::DoNotPinAtom);
+extern JSAtom* AtomizeChars(JSContext* cx, const CharT* chars, size_t length,
+                            js::PinningBehavior pin = js::DoNotPinAtom);
 
-extern JSAtom*
-AtomizeUTF8Chars(JSContext* cx, const char* utf8Chars, size_t utf8ByteLength);
+extern JSAtom* AtomizeUTF8Chars(JSContext* cx, const char* utf8Chars, size_t utf8ByteLength);
 
-extern JSAtom*
-AtomizeString(JSContext* cx, JSString* str, js::PinningBehavior pin = js::DoNotPinAtom);
+extern JSAtom* AtomizeString(JSContext* cx, JSString* str,
+                             js::PinningBehavior pin = js::DoNotPinAtom);
 
 template <AllowGC allowGC>
-extern JSAtom*
-ToAtom(JSContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v);
+extern JSAtom* ToAtom(JSContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v);
 
-enum XDRMode {
-    XDR_ENCODE,
-    XDR_DECODE
-};
+enum XDRMode { XDR_ENCODE, XDR_DECODE };
 
 template <XDRMode mode>
 class XDRState;
 
-template<XDRMode mode>
-bool
-XDRAtom(XDRState<mode>* xdr, js::MutableHandleAtom atomp);
+template <XDRMode mode>
+bool XDRAtom(XDRState<mode>* xdr, js::MutableHandleAtom atomp);
 
 #ifdef DEBUG
 
@@ -216,7 +188,7 @@ bool AtomIsMarked(Zone* zone, JSAtom* atom);
 bool AtomIsMarked(Zone* zone, jsid id);
 bool AtomIsMarked(Zone* zone, const Value& value);
 
-#endif // DEBUG
+#endif  // DEBUG
 
 } /* namespace js */
 

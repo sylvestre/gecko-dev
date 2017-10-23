@@ -19,13 +19,12 @@ class ScriptFrameIter;
 
 namespace jit {
 class JitFrameLayout;
-} // namespace jit
+}  // namespace jit
 
 // RareArgumentsData stores the deleted-elements bits for an arguments object.
 // Because |delete arguments[i]| is uncommon, we allocate this data the first
 // time an element is deleted.
-class RareArgumentsData
-{
+class RareArgumentsData {
     // Pointer to an array of bits indicating, for every argument in
     // [0, initialLength) whether the element has been deleted. See
     // ArgumentsObject::isElementDeleted comment.
@@ -35,7 +34,7 @@ class RareArgumentsData
     RareArgumentsData(const RareArgumentsData&) = delete;
     void operator=(const RareArgumentsData&) = delete;
 
-  public:
+   public:
     static RareArgumentsData* create(JSContext* cx, ArgumentsObject* obj);
     static size_t bytesRequired(size_t numActuals);
 
@@ -56,13 +55,12 @@ class RareArgumentsData
 // call. It is used to store arguments[i] -- up until the corresponding
 // property is modified, when the relevant value is flagged to memorialize the
 // modification.
-struct ArgumentsData
-{
+struct ArgumentsData {
     /*
      * numArgs = Max(numFormalArgs, numActualArgs)
      * The array 'args' has numArgs elements.
      */
-    uint32_t    numArgs;
+    uint32_t numArgs;
 
     RareArgumentsData* rareData;
 
@@ -141,15 +139,14 @@ static const unsigned ARGS_LENGTH_MAX = 500 * 1000;
  *     Stores the initial arguments.callee. This value can be overridden on
  *     mapped arguments objects, see hasOverriddenCallee.
  */
-class ArgumentsObject : public NativeObject
-{
-  protected:
+class ArgumentsObject : public NativeObject {
+   protected:
     static const uint32_t INITIAL_LENGTH_SLOT = 0;
     static const uint32_t DATA_SLOT = 1;
     static const uint32_t MAYBE_CALL_SLOT = 2;
     static const uint32_t CALLEE_SLOT = 3;
 
-  public:
+   public:
     static const uint32_t LENGTH_OVERRIDDEN_BIT = 0x1;
     static const uint32_t ITERATOR_OVERRIDDEN_BIT = 0x2;
     static const uint32_t ELEMENT_OVERRIDDEN_BIT = 0x4;
@@ -159,7 +156,7 @@ class ArgumentsObject : public NativeObject
     static_assert(ARGS_LENGTH_MAX <= (UINT32_MAX >> PACKED_BITS_COUNT),
                   "Max arguments length must fit in available bits");
 
-  protected:
+   protected:
     template <typename CopyArgs>
     static ArgumentsObject* create(JSContext* cx, HandleFunction callee, unsigned numActuals,
                                    CopyArgs& copy);
@@ -168,15 +165,12 @@ class ArgumentsObject : public NativeObject
         return reinterpret_cast<ArgumentsData*>(getFixedSlot(DATA_SLOT).toPrivate());
     }
 
-    RareArgumentsData* maybeRareData() const {
-        return data()->rareData;
-    }
+    RareArgumentsData* maybeRareData() const { return data()->rareData; }
 
     MOZ_MUST_USE bool createRareData(JSContext* cx);
 
     RareArgumentsData* getOrCreateRareData(JSContext* cx) {
-        if (!data()->rareData && !createRareData(cx))
-            return nullptr;
+        if (!data()->rareData && !createRareData(cx)) return nullptr;
         return data()->rareData;
     }
 
@@ -185,7 +179,7 @@ class ArgumentsObject : public NativeObject
 
     static bool obj_mayResolve(const JSAtomState& names, jsid id, JSObject*);
 
-  public:
+   public:
     static const uint32_t RESERVED_SLOTS = 4;
     static const gc::AllocKind FINALIZE_KIND = gc::AllocKind::OBJECT4_BACKGROUND;
 
@@ -283,8 +277,7 @@ class ArgumentsObject : public NativeObject
      */
     bool isElementDeleted(uint32_t i) const {
         MOZ_ASSERT(i < data()->numArgs);
-        if (i >= initialLength())
-            return false;
+        if (i >= initialLength()) return false;
         return maybeRareData() && maybeRareData()->isElementDeleted(initialLength(), i);
     }
 
@@ -337,8 +330,7 @@ class ArgumentsObject : public NativeObject
      * NB: Returning false does not indicate error!
      */
     bool maybeGetElement(uint32_t i, MutableHandleValue vp) {
-        if (i >= initialLength() || isElementDeleted(i))
-            return false;
+        if (i >= initialLength() || isElementDeleted(i)) return false;
         vp.set(element(i));
         return true;
     }
@@ -350,7 +342,7 @@ class ArgumentsObject : public NativeObject
      * |miscSize| argument in JSObject::sizeOfExcludingThis().
      */
     size_t sizeOfMisc(mozilla::MallocSizeOf mallocSizeOf) const {
-        if (!data()) // Template arguments objects have no data.
+        if (!data())  // Template arguments objects have no data.
             return 0;
         return mallocSizeOf(data()) + mallocSizeOf(maybeRareData());
     }
@@ -364,12 +356,8 @@ class ArgumentsObject : public NativeObject
     static size_t objectMoved(JSObject* dst, JSObject* src);
 
     /* For jit use: */
-    static size_t getDataSlotOffset() {
-        return getFixedSlotOffset(DATA_SLOT);
-    }
-    static size_t getInitialLengthSlotOffset() {
-        return getFixedSlotOffset(INITIAL_LENGTH_SLOT);
-    }
+    static size_t getDataSlotOffset() { return getFixedSlotOffset(DATA_SLOT); }
+    static size_t getInitialLengthSlotOffset() { return getFixedSlotOffset(INITIAL_LENGTH_SLOT); }
 
     static Value MagicEnvSlotValue(uint32_t slot) {
         // When forwarding slots to a backing CallObject, the slot numbers are
@@ -396,18 +384,15 @@ class ArgumentsObject : public NativeObject
                                          ArgumentsObject* obj, ArgumentsData* data);
 };
 
-class MappedArgumentsObject : public ArgumentsObject
-{
+class MappedArgumentsObject : public ArgumentsObject {
     static const ClassOps classOps_;
     static const ClassExtension classExt_;
     static const ObjectOps objectOps_;
 
-  public:
+   public:
     static const Class class_;
 
-    JSFunction& callee() const {
-        return getFixedSlot(CALLEE_SLOT).toObject().as<JSFunction>();
-    }
+    JSFunction& callee() const { return getFixedSlot(CALLEE_SLOT).toObject().as<JSFunction>(); }
 
     bool hasOverriddenCallee() const {
         const Value& v = getFixedSlot(INITIAL_LENGTH_SLOT);
@@ -419,32 +404,29 @@ class MappedArgumentsObject : public ArgumentsObject
         setFixedSlot(INITIAL_LENGTH_SLOT, Int32Value(v));
     }
 
-  private:
+   private:
     static bool obj_enumerate(JSContext* cx, HandleObject obj);
     static bool obj_resolve(JSContext* cx, HandleObject obj, HandleId id, bool* resolvedp);
     static bool obj_defineProperty(JSContext* cx, HandleObject obj, HandleId id,
                                    Handle<JS::PropertyDescriptor> desc, ObjectOpResult& result);
 };
 
-class UnmappedArgumentsObject : public ArgumentsObject
-{
+class UnmappedArgumentsObject : public ArgumentsObject {
     static const ClassOps classOps_;
     static const ClassExtension classExt_;
 
-  public:
+   public:
     static const Class class_;
 
-  private:
+   private:
     static bool obj_enumerate(JSContext* cx, HandleObject obj);
     static bool obj_resolve(JSContext* cx, HandleObject obj, HandleId id, bool* resolvedp);
 };
 
-} // namespace js
+}  // namespace js
 
-template<>
-inline bool
-JSObject::is<js::ArgumentsObject>() const
-{
+template <>
+inline bool JSObject::is<js::ArgumentsObject>() const {
     return is<js::MappedArgumentsObject>() || is<js::UnmappedArgumentsObject>();
 }
 

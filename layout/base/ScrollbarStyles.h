@@ -7,8 +7,8 @@
 #define ScrollbarStyles_h
 
 #include <stdint.h>
-#include "nsStyleConsts.h" // for NS_STYLE_SCROLL_SNAP_*
-#include "nsStyleCoord.h" // for nsStyleCoord
+#include "nsStyleConsts.h"  // for NS_STYLE_SCROLL_SNAP_*
+#include "nsStyleCoord.h"   // for nsStyleCoord
 #include "mozilla/dom/WindowBinding.h"
 
 // Forward declarations
@@ -35,13 +35,14 @@ struct ScrollbarStyles
   nsStyleCoord::CalcValue mScrollSnapDestinationY;
 
   ScrollbarStyles(uint8_t aH, uint8_t aV)
-    : mHorizontal(aH), mVertical(aV),
-      mScrollBehavior(NS_STYLE_SCROLL_BEHAVIOR_AUTO),
-      mScrollSnapTypeX(NS_STYLE_SCROLL_SNAP_TYPE_NONE),
-      mScrollSnapTypeY(NS_STYLE_SCROLL_SNAP_TYPE_NONE),
-      mScrollSnapPointsX(nsStyleCoord(eStyleUnit_None)),
-      mScrollSnapPointsY(nsStyleCoord(eStyleUnit_None)) {
-
+      : mHorizontal(aH),
+        mVertical(aV),
+        mScrollBehavior(NS_STYLE_SCROLL_BEHAVIOR_AUTO),
+        mScrollSnapTypeX(NS_STYLE_SCROLL_SNAP_TYPE_NONE),
+        mScrollSnapTypeY(NS_STYLE_SCROLL_SNAP_TYPE_NONE),
+        mScrollSnapPointsX(nsStyleCoord(eStyleUnit_None)),
+        mScrollSnapPointsY(nsStyleCoord(eStyleUnit_None))
+  {
     mScrollSnapDestinationX.mPercent = 0;
     mScrollSnapDestinationX.mLength = nscoord(0.0f);
     mScrollSnapDestinationX.mHasPercent = false;
@@ -52,8 +53,10 @@ struct ScrollbarStyles
 
   explicit ScrollbarStyles(const nsStyleDisplay* aDisplay);
   ScrollbarStyles(uint8_t aH, uint8_t aV, const nsStyleDisplay* aDisplay);
-  bool operator==(const ScrollbarStyles& aStyles) const {
-    return aStyles.mHorizontal == mHorizontal && aStyles.mVertical == mVertical &&
+  bool operator==(const ScrollbarStyles& aStyles) const
+  {
+    return aStyles.mHorizontal == mHorizontal &&
+           aStyles.mVertical == mVertical &&
            aStyles.mScrollBehavior == mScrollBehavior &&
            aStyles.mScrollSnapTypeX == mScrollSnapTypeX &&
            aStyles.mScrollSnapTypeY == mScrollSnapTypeY &&
@@ -62,20 +65,23 @@ struct ScrollbarStyles
            aStyles.mScrollSnapDestinationX == mScrollSnapDestinationX &&
            aStyles.mScrollSnapDestinationY == mScrollSnapDestinationY;
   }
-  bool operator!=(const ScrollbarStyles& aStyles) const {
+  bool operator!=(const ScrollbarStyles& aStyles) const
+  {
     return !(*this == aStyles);
   }
-  bool IsHiddenInBothDirections() const {
+  bool IsHiddenInBothDirections() const
+  {
     return mHorizontal == NS_STYLE_OVERFLOW_HIDDEN &&
            mVertical == NS_STYLE_OVERFLOW_HIDDEN;
   }
-  bool IsSmoothScroll(dom::ScrollBehavior aBehavior) const {
+  bool IsSmoothScroll(dom::ScrollBehavior aBehavior) const
+  {
     return aBehavior == dom::ScrollBehavior::Smooth ||
-             (aBehavior == dom::ScrollBehavior::Auto &&
-               mScrollBehavior == NS_STYLE_SCROLL_BEHAVIOR_SMOOTH);
+           (aBehavior == dom::ScrollBehavior::Auto &&
+            mScrollBehavior == NS_STYLE_SCROLL_BEHAVIOR_SMOOTH);
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

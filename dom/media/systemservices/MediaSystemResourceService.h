@@ -17,14 +17,14 @@ namespace mozilla {
 
 namespace media {
 class MediaSystemResourceManagerParent;
-} // namespace media
+}  // namespace media
 
 /**
  * Manage media system resource allocation requests within system.
  */
 class MediaSystemResourceService
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaSystemResourceService)
 
   static MediaSystemResourceService* Get();
@@ -42,24 +42,29 @@ public:
 
   void ReleaseResource(media::MediaSystemResourceManagerParent* aParent);
 
-private:
+ private:
   MediaSystemResourceService();
   ~MediaSystemResourceService();
 
-  struct MediaSystemResourceRequest {
-    MediaSystemResourceRequest()
-      : mParent(nullptr), mId(-1) {}
-    MediaSystemResourceRequest(media::MediaSystemResourceManagerParent* aParent, uint32_t aId)
-      : mParent(aParent), mId(aId) {}
+  struct MediaSystemResourceRequest
+  {
+    MediaSystemResourceRequest() : mParent(nullptr), mId(-1) {}
+    MediaSystemResourceRequest(media::MediaSystemResourceManagerParent* aParent,
+                               uint32_t aId)
+        : mParent(aParent), mId(aId)
+    {
+    }
     media::MediaSystemResourceManagerParent* mParent;
     uint32_t mId;
   };
 
-  struct MediaSystemResource {
-    MediaSystemResource()
-      : mResourceCount(0) {}
+  struct MediaSystemResource
+  {
+    MediaSystemResource() : mResourceCount(0) {}
     explicit MediaSystemResource(uint32_t aResourceCount)
-      : mResourceCount(aResourceCount) {}
+        : mResourceCount(aResourceCount)
+    {
+    }
 
     std::deque<MediaSystemResourceRequest> mWaitingRequests;
     std::deque<MediaSystemResourceRequest> mAcquiredRequests;
@@ -84,6 +89,6 @@ private:
   static StaticRefPtr<MediaSystemResourceService> sSingleton;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

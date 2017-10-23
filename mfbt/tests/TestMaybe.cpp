@@ -24,15 +24,13 @@ using mozilla::Swap;
 using mozilla::ToMaybe;
 using mozilla::UniquePtr;
 
-#define RUN_TEST(t) \
-  do { \
-    bool cond = (t()); \
-    if (!cond) \
-      return 1; \
-    cond = AllDestructorsWereCalled(); \
+#define RUN_TEST(t)                                                     \
+  do {                                                                  \
+    bool cond = (t());                                                  \
+    if (!cond) return 1;                                                \
+    cond = AllDestructorsWereCalled();                                  \
     MOZ_ASSERT(cond, "Failed to destroy all objects during test: " #t); \
-    if (!cond) \
-      return 1; \
+    if (!cond) return 1;                                                \
   } while (false)
 
 enum Status
@@ -50,37 +48,32 @@ enum Status
 
 static size_t sUndestroyedObjects = 0;
 
-static bool AllDestructorsWereCalled()
+static bool
+AllDestructorsWereCalled()
 {
   return sUndestroyedObjects == 0;
 }
 
 struct BasicValue
 {
-  BasicValue()
-    : mStatus(eWasDefaultConstructed)
-    , mTag(0)
+  BasicValue() : mStatus(eWasDefaultConstructed), mTag(0)
   {
     ++sUndestroyedObjects;
   }
 
-  explicit BasicValue(int aTag)
-    : mStatus(eWasConstructed)
-    , mTag(aTag)
+  explicit BasicValue(int aTag) : mStatus(eWasConstructed), mTag(aTag)
   {
     ++sUndestroyedObjects;
   }
 
   BasicValue(const BasicValue& aOther)
-    : mStatus(eWasCopyConstructed)
-    , mTag(aOther.mTag)
+      : mStatus(eWasCopyConstructed), mTag(aOther.mTag)
   {
     ++sUndestroyedObjects;
   }
 
   BasicValue(BasicValue&& aOther)
-    : mStatus(eWasMoveConstructed)
-    , mTag(aOther.mTag)
+      : mStatus(eWasMoveConstructed), mTag(aOther.mTag)
   {
     ++sUndestroyedObjects;
     aOther.mStatus = eWasMovedFrom;
@@ -110,30 +103,22 @@ struct BasicValue
     return mTag == aOther.mTag;
   }
 
-  bool operator<(const BasicValue& aOther) const
-  {
-    return mTag < aOther.mTag;
-  }
+  bool operator<(const BasicValue& aOther) const { return mTag < aOther.mTag; }
 
   Status GetStatus() const { return mStatus; }
   void SetTag(int aValue) { mTag = aValue; }
   int GetTag() const { return mTag; }
 
-private:
+ private:
   Status mStatus;
   int mTag;
 };
 
 struct UncopyableValue
 {
-  UncopyableValue()
-    : mStatus(eWasDefaultConstructed)
-  {
-    ++sUndestroyedObjects;
-  }
+  UncopyableValue() : mStatus(eWasDefaultConstructed) { ++sUndestroyedObjects; }
 
-  UncopyableValue(UncopyableValue&& aOther)
-    : mStatus(eWasMoveConstructed)
+  UncopyableValue(UncopyableValue&& aOther) : mStatus(eWasMoveConstructed)
   {
     ++sUndestroyedObjects;
     aOther.mStatus = eWasMovedFrom;
@@ -150,7 +135,7 @@ struct UncopyableValue
 
   Status GetStatus() { return mStatus; }
 
-private:
+ private:
   UncopyableValue(const UncopyableValue& aOther) = delete;
   UncopyableValue& operator=(const UncopyableValue& aOther) = delete;
 
@@ -159,14 +144,9 @@ private:
 
 struct UnmovableValue
 {
-  UnmovableValue()
-    : mStatus(eWasDefaultConstructed)
-  {
-    ++sUndestroyedObjects;
-  }
+  UnmovableValue() : mStatus(eWasDefaultConstructed) { ++sUndestroyedObjects; }
 
-  UnmovableValue(const UnmovableValue& aOther)
-    : mStatus(eWasCopyConstructed)
+  UnmovableValue(const UnmovableValue& aOther) : mStatus(eWasCopyConstructed)
   {
     ++sUndestroyedObjects;
   }
@@ -181,7 +161,7 @@ struct UnmovableValue
 
   Status GetStatus() { return mStatus; }
 
-private:
+ private:
   UnmovableValue(UnmovableValue&& aOther) = delete;
   UnmovableValue& operator=(UnmovableValue&& aOther) = delete;
 
@@ -190,14 +170,12 @@ private:
 
 struct UncopyableUnmovableValue
 {
-  UncopyableUnmovableValue()
-    : mStatus(eWasDefaultConstructed)
+  UncopyableUnmovableValue() : mStatus(eWasDefaultConstructed)
   {
     ++sUndestroyedObjects;
   }
 
-  explicit UncopyableUnmovableValue(int)
-    : mStatus(eWasConstructed)
+  explicit UncopyableUnmovableValue(int) : mStatus(eWasConstructed)
   {
     ++sUndestroyedObjects;
   }
@@ -206,11 +184,13 @@ struct UncopyableUnmovableValue
 
   Status GetStatus() { return mStatus; }
 
-private:
+ private:
   UncopyableUnmovableValue(const UncopyableUnmovableValue& aOther) = delete;
-  UncopyableUnmovableValue& operator=(const UncopyableUnmovableValue& aOther) = delete;
+  UncopyableUnmovableValue& operator=(const UncopyableUnmovableValue& aOther) =
+      delete;
   UncopyableUnmovableValue(UncopyableUnmovableValue&& aOther) = delete;
-  UncopyableUnmovableValue& operator=(UncopyableUnmovableValue&& aOther) = delete;
+  UncopyableUnmovableValue& operator=(UncopyableUnmovableValue&& aOther) =
+      delete;
 
   Status mStatus;
 };
@@ -276,12 +256,10 @@ TestBasicFeatures()
   static_assert(IsSame<BasicValue, decltype(mayValueCRef.value())>::value,
                 "value() should return a BasicValue");
   MOZ_RELEASE_ASSERT(mayValueCRef.ref() == BasicValue());
-  static_assert(IsSame<const BasicValue&,
-                       decltype(mayValueCRef.ref())>::value,
+  static_assert(IsSame<const BasicValue&, decltype(mayValueCRef.ref())>::value,
                 "ref() should return a const BasicValue&");
   MOZ_RELEASE_ASSERT(mayValueCRef.ptr() != nullptr);
-  static_assert(IsSame<const BasicValue*,
-                       decltype(mayValueCRef.ptr())>::value,
+  static_assert(IsSame<const BasicValue*, decltype(mayValueCRef.ptr())>::value,
                 "ptr() should return a const BasicValue*");
   MOZ_RELEASE_ASSERT(mayValueCRef->GetStatus() == eWasDefaultConstructed);
   mayValue.reset();
@@ -378,10 +356,12 @@ TestCopyAndMove()
   // Check that types that support neither moves or copies work.
   Maybe<UncopyableUnmovableValue> mayUncopyableUnmovableValue;
   mayUncopyableUnmovableValue.emplace();
-  MOZ_RELEASE_ASSERT(mayUncopyableUnmovableValue->GetStatus() == eWasDefaultConstructed);
+  MOZ_RELEASE_ASSERT(mayUncopyableUnmovableValue->GetStatus() ==
+                     eWasDefaultConstructed);
   mayUncopyableUnmovableValue.reset();
   mayUncopyableUnmovableValue.emplace(0);
-  MOZ_RELEASE_ASSERT(mayUncopyableUnmovableValue->GetStatus() == eWasConstructed);
+  MOZ_RELEASE_ASSERT(mayUncopyableUnmovableValue->GetStatus() ==
+                     eWasConstructed);
 
   return true;
 }
@@ -415,110 +395,120 @@ TestFunctionalAccessors()
   // Check that the 'some' case of functional accessors works.
   Maybe<BasicValue> someValue = Some(BasicValue(3));
   MOZ_RELEASE_ASSERT(someValue.valueOr(value) == BasicValue(3));
-  static_assert(IsSame<BasicValue,
-                       decltype(someValue.valueOr(value))>::value,
+  static_assert(IsSame<BasicValue, decltype(someValue.valueOr(value))>::value,
                 "valueOr should return a BasicValue");
   MOZ_RELEASE_ASSERT(someValue.valueOrFrom(&MakeBasicValue) == BasicValue(3));
   static_assert(IsSame<BasicValue,
                        decltype(someValue.valueOrFrom(&MakeBasicValue))>::value,
                 "valueOrFrom should return a BasicValue");
   MOZ_RELEASE_ASSERT(someValue.ptrOr(&value) != &value);
-  static_assert(IsSame<BasicValue*,
-                       decltype(someValue.ptrOr(&value))>::value,
+  static_assert(IsSame<BasicValue*, decltype(someValue.ptrOr(&value))>::value,
                 "ptrOr should return a BasicValue*");
   MOZ_RELEASE_ASSERT(*someValue.ptrOrFrom(&MakeBasicValuePtr) == BasicValue(3));
-  static_assert(IsSame<BasicValue*,
-                       decltype(someValue.ptrOrFrom(&MakeBasicValuePtr))>::value,
-                "ptrOrFrom should return a BasicValue*");
+  static_assert(
+      IsSame<BasicValue*,
+             decltype(someValue.ptrOrFrom(&MakeBasicValuePtr))>::value,
+      "ptrOrFrom should return a BasicValue*");
   MOZ_RELEASE_ASSERT(someValue.refOr(value) == BasicValue(3));
-  static_assert(IsSame<BasicValue&,
-                       decltype(someValue.refOr(value))>::value,
+  static_assert(IsSame<BasicValue&, decltype(someValue.refOr(value))>::value,
                 "refOr should return a BasicValue&");
   MOZ_RELEASE_ASSERT(someValue.refOrFrom(&MakeBasicValueRef) == BasicValue(3));
-  static_assert(IsSame<BasicValue&,
-                       decltype(someValue.refOrFrom(&MakeBasicValueRef))>::value,
-                "refOrFrom should return a BasicValue&");
+  static_assert(
+      IsSame<BasicValue&,
+             decltype(someValue.refOrFrom(&MakeBasicValueRef))>::value,
+      "refOrFrom should return a BasicValue&");
 
   // Check that the 'some' case works through a const reference.
   const Maybe<BasicValue>& someValueCRef = someValue;
   MOZ_RELEASE_ASSERT(someValueCRef.valueOr(value) == BasicValue(3));
-  static_assert(IsSame<BasicValue,
-                       decltype(someValueCRef.valueOr(value))>::value,
-                "valueOr should return a BasicValue");
-  MOZ_RELEASE_ASSERT(someValueCRef.valueOrFrom(&MakeBasicValue) == BasicValue(3));
-  static_assert(IsSame<BasicValue,
-                       decltype(someValueCRef.valueOrFrom(&MakeBasicValue))>::value,
-                "valueOrFrom should return a BasicValue");
+  static_assert(
+      IsSame<BasicValue, decltype(someValueCRef.valueOr(value))>::value,
+      "valueOr should return a BasicValue");
+  MOZ_RELEASE_ASSERT(someValueCRef.valueOrFrom(&MakeBasicValue) ==
+                     BasicValue(3));
+  static_assert(
+      IsSame<BasicValue,
+             decltype(someValueCRef.valueOrFrom(&MakeBasicValue))>::value,
+      "valueOrFrom should return a BasicValue");
   MOZ_RELEASE_ASSERT(someValueCRef.ptrOr(&value) != &value);
-  static_assert(IsSame<const BasicValue*,
-                       decltype(someValueCRef.ptrOr(&value))>::value,
-                "ptrOr should return a const BasicValue*");
-  MOZ_RELEASE_ASSERT(*someValueCRef.ptrOrFrom(&MakeBasicValuePtr) == BasicValue(3));
-  static_assert(IsSame<const BasicValue*,
-                       decltype(someValueCRef.ptrOrFrom(&MakeBasicValuePtr))>::value,
-                "ptrOrFrom should return a const BasicValue*");
+  static_assert(
+      IsSame<const BasicValue*, decltype(someValueCRef.ptrOr(&value))>::value,
+      "ptrOr should return a const BasicValue*");
+  MOZ_RELEASE_ASSERT(*someValueCRef.ptrOrFrom(&MakeBasicValuePtr) ==
+                     BasicValue(3));
+  static_assert(
+      IsSame<const BasicValue*,
+             decltype(someValueCRef.ptrOrFrom(&MakeBasicValuePtr))>::value,
+      "ptrOrFrom should return a const BasicValue*");
   MOZ_RELEASE_ASSERT(someValueCRef.refOr(value) == BasicValue(3));
-  static_assert(IsSame<const BasicValue&,
-                       decltype(someValueCRef.refOr(value))>::value,
-                "refOr should return a const BasicValue&");
-  MOZ_RELEASE_ASSERT(someValueCRef.refOrFrom(&MakeBasicValueRef) == BasicValue(3));
-  static_assert(IsSame<const BasicValue&,
-                       decltype(someValueCRef.refOrFrom(&MakeBasicValueRef))>::value,
-                "refOrFrom should return a const BasicValue&");
+  static_assert(
+      IsSame<const BasicValue&, decltype(someValueCRef.refOr(value))>::value,
+      "refOr should return a const BasicValue&");
+  MOZ_RELEASE_ASSERT(someValueCRef.refOrFrom(&MakeBasicValueRef) ==
+                     BasicValue(3));
+  static_assert(
+      IsSame<const BasicValue&,
+             decltype(someValueCRef.refOrFrom(&MakeBasicValueRef))>::value,
+      "refOrFrom should return a const BasicValue&");
 
   // Check that the 'none' case of functional accessors works.
   Maybe<BasicValue> noneValue;
   MOZ_RELEASE_ASSERT(noneValue.valueOr(value) == BasicValue(9));
-  static_assert(IsSame<BasicValue,
-                       decltype(noneValue.valueOr(value))>::value,
+  static_assert(IsSame<BasicValue, decltype(noneValue.valueOr(value))>::value,
                 "valueOr should return a BasicValue");
   MOZ_RELEASE_ASSERT(noneValue.valueOrFrom(&MakeBasicValue) == BasicValue(9));
   static_assert(IsSame<BasicValue,
                        decltype(noneValue.valueOrFrom(&MakeBasicValue))>::value,
                 "valueOrFrom should return a BasicValue");
   MOZ_RELEASE_ASSERT(noneValue.ptrOr(&value) == &value);
-  static_assert(IsSame<BasicValue*,
-                       decltype(noneValue.ptrOr(&value))>::value,
+  static_assert(IsSame<BasicValue*, decltype(noneValue.ptrOr(&value))>::value,
                 "ptrOr should return a BasicValue*");
   MOZ_RELEASE_ASSERT(*noneValue.ptrOrFrom(&MakeBasicValuePtr) == BasicValue(9));
-  static_assert(IsSame<BasicValue*,
-                       decltype(noneValue.ptrOrFrom(&MakeBasicValuePtr))>::value,
-                "ptrOrFrom should return a BasicValue*");
+  static_assert(
+      IsSame<BasicValue*,
+             decltype(noneValue.ptrOrFrom(&MakeBasicValuePtr))>::value,
+      "ptrOrFrom should return a BasicValue*");
   MOZ_RELEASE_ASSERT(noneValue.refOr(value) == BasicValue(9));
-  static_assert(IsSame<BasicValue&,
-                       decltype(noneValue.refOr(value))>::value,
+  static_assert(IsSame<BasicValue&, decltype(noneValue.refOr(value))>::value,
                 "refOr should return a BasicValue&");
   MOZ_RELEASE_ASSERT(noneValue.refOrFrom(&MakeBasicValueRef) == BasicValue(9));
-  static_assert(IsSame<BasicValue&,
-                       decltype(noneValue.refOrFrom(&MakeBasicValueRef))>::value,
-                "refOrFrom should return a BasicValue&");
+  static_assert(
+      IsSame<BasicValue&,
+             decltype(noneValue.refOrFrom(&MakeBasicValueRef))>::value,
+      "refOrFrom should return a BasicValue&");
 
   // Check that the 'none' case works through a const reference.
   const Maybe<BasicValue>& noneValueCRef = noneValue;
   MOZ_RELEASE_ASSERT(noneValueCRef.valueOr(value) == BasicValue(9));
-  static_assert(IsSame<BasicValue,
-                       decltype(noneValueCRef.valueOr(value))>::value,
-                "valueOr should return a BasicValue");
-  MOZ_RELEASE_ASSERT(noneValueCRef.valueOrFrom(&MakeBasicValue) == BasicValue(9));
-  static_assert(IsSame<BasicValue,
-                       decltype(noneValueCRef.valueOrFrom(&MakeBasicValue))>::value,
-                "valueOrFrom should return a BasicValue");
+  static_assert(
+      IsSame<BasicValue, decltype(noneValueCRef.valueOr(value))>::value,
+      "valueOr should return a BasicValue");
+  MOZ_RELEASE_ASSERT(noneValueCRef.valueOrFrom(&MakeBasicValue) ==
+                     BasicValue(9));
+  static_assert(
+      IsSame<BasicValue,
+             decltype(noneValueCRef.valueOrFrom(&MakeBasicValue))>::value,
+      "valueOrFrom should return a BasicValue");
   MOZ_RELEASE_ASSERT(noneValueCRef.ptrOr(&value) == &value);
-  static_assert(IsSame<const BasicValue*,
-                       decltype(noneValueCRef.ptrOr(&value))>::value,
-                "ptrOr should return a const BasicValue*");
-  MOZ_RELEASE_ASSERT(*noneValueCRef.ptrOrFrom(&MakeBasicValuePtr) == BasicValue(9));
-  static_assert(IsSame<const BasicValue*,
-                       decltype(noneValueCRef.ptrOrFrom(&MakeBasicValuePtr))>::value,
-                "ptrOrFrom should return a const BasicValue*");
+  static_assert(
+      IsSame<const BasicValue*, decltype(noneValueCRef.ptrOr(&value))>::value,
+      "ptrOr should return a const BasicValue*");
+  MOZ_RELEASE_ASSERT(*noneValueCRef.ptrOrFrom(&MakeBasicValuePtr) ==
+                     BasicValue(9));
+  static_assert(
+      IsSame<const BasicValue*,
+             decltype(noneValueCRef.ptrOrFrom(&MakeBasicValuePtr))>::value,
+      "ptrOrFrom should return a const BasicValue*");
   MOZ_RELEASE_ASSERT(noneValueCRef.refOr(value) == BasicValue(9));
-  static_assert(IsSame<const BasicValue&,
-                       decltype(noneValueCRef.refOr(value))>::value,
-                "refOr should return a const BasicValue&");
-  MOZ_RELEASE_ASSERT(noneValueCRef.refOrFrom(&MakeBasicValueRef) == BasicValue(9));
-  static_assert(IsSame<const BasicValue&,
-                       decltype(noneValueCRef.refOrFrom(&MakeBasicValueRef))>::value,
-                "refOrFrom should return a const BasicValue&");
+  static_assert(
+      IsSame<const BasicValue&, decltype(noneValueCRef.refOr(value))>::value,
+      "refOr should return a const BasicValue&");
+  MOZ_RELEASE_ASSERT(noneValueCRef.refOrFrom(&MakeBasicValueRef) ==
+                     BasicValue(9));
+  static_assert(
+      IsSame<const BasicValue&,
+             decltype(noneValueCRef.refOrFrom(&MakeBasicValueRef))>::value,
+      "refOrFrom should return a const BasicValue&");
 
   // Clean up so the undestroyed objects count stays accurate.
   delete sStaticBasicValue;
@@ -544,7 +534,7 @@ AccessValue(const BasicValue&)
 
 struct IncrementTagFunctor
 {
-  IncrementTagFunctor() : mBy(1) { }
+  IncrementTagFunctor() : mBy(1) {}
 
   void operator()(BasicValue& aValue)
   {
@@ -595,7 +585,8 @@ TestApply()
   MOZ_RELEASE_ASSERT(mayValue->GetTag() == 4);
   mayValue.apply([=](BasicValue& aVal) { aVal.SetTag(aVal.GetTag() * two); });
   MOZ_RELEASE_ASSERT(mayValue->GetTag() == 8);
-  mayValueCRef.apply([&](const BasicValue& aVal) { gFunctionWasApplied = true; });
+  mayValueCRef.apply(
+      [&](const BasicValue& aVal) { gFunctionWasApplied = true; });
   MOZ_RELEASE_ASSERT(gFunctionWasApplied == true);
 
   return true;
@@ -617,12 +608,9 @@ TimesTwoAndResetOriginal(BasicValue& aValue)
 
 struct MultiplyTagFunctor
 {
-  MultiplyTagFunctor() : mBy(2) { }
+  MultiplyTagFunctor() : mBy(2) {}
 
-  int operator()(BasicValue& aValue)
-  {
-    return aValue.GetTag() * mBy.GetTag();
-  }
+  int operator()(BasicValue& aValue) { return aValue.GetTag() * mBy.GetTag(); }
 
   BasicValue mBy;
 };
@@ -633,8 +621,7 @@ TestMap()
   // Check that map handles the 'Nothing' case.
   Maybe<BasicValue> mayValue;
   MOZ_RELEASE_ASSERT(mayValue.map(&TimesTwo) == Nothing());
-  static_assert(IsSame<Maybe<int>,
-                       decltype(mayValue.map(&TimesTwo))>::value,
+  static_assert(IsSame<Maybe<int>, decltype(mayValue.map(&TimesTwo))>::value,
                 "map(TimesTwo) should return a Maybe<int>");
   MOZ_RELEASE_ASSERT(mayValue.map(&TimesTwoAndResetOriginal) == Nothing());
 
@@ -649,9 +636,9 @@ TestMap()
   mayValue->SetTag(2);
   const Maybe<BasicValue>& mayValueCRef = mayValue;
   MOZ_RELEASE_ASSERT(mayValueCRef.map(&TimesTwo) == Some(4));
-  static_assert(IsSame<Maybe<int>,
-                       decltype(mayValueCRef.map(&TimesTwo))>::value,
-                "map(TimesTwo) should return a Maybe<int>");
+  static_assert(
+      IsSame<Maybe<int>, decltype(mayValueCRef.map(&TimesTwo))>::value,
+      "map(TimesTwo) should return a Maybe<int>");
 
   // Check that map works with functors.
   MultiplyTagFunctor tagMultiplier;
@@ -663,19 +650,13 @@ TestMap()
   int two = 2;
   mayValue = Some(BasicValue(2));
   Maybe<int> mappedValue =
-    mayValue.map([&](const BasicValue& aVal) {
-      return aVal.GetTag() * two;
-    });
+      mayValue.map([&](const BasicValue& aVal) { return aVal.GetTag() * two; });
   MOZ_RELEASE_ASSERT(mappedValue == Some(4));
   mappedValue =
-    mayValue.map([=](const BasicValue& aVal) {
-      return aVal.GetTag() * two;
-    });
+      mayValue.map([=](const BasicValue& aVal) { return aVal.GetTag() * two; });
   MOZ_RELEASE_ASSERT(mappedValue == Some(4));
-  mappedValue =
-    mayValueCRef.map([&](const BasicValue& aVal) {
-      return aVal.GetTag() * two;
-    });
+  mappedValue = mayValueCRef.map(
+      [&](const BasicValue& aVal) { return aVal.GetTag() * two; });
   MOZ_RELEASE_ASSERT(mappedValue == Some(4));
 
   return true;
@@ -698,8 +679,9 @@ TestToMaybe()
 
   // Check that a null pointer translates into a Nothing value.
   mayValue = ToMaybe(nullPointer);
-  static_assert(IsSame<Maybe<BasicValue>, decltype(ToMaybe(nullPointer))>::value,
-                "ToMaybe should return a Maybe<BasicValue>");
+  static_assert(
+      IsSame<Maybe<BasicValue>, decltype(ToMaybe(nullPointer))>::value,
+      "ToMaybe should return a Maybe<BasicValue>");
   MOZ_RELEASE_ASSERT(mayValue.isNothing());
 
   return true;
@@ -749,16 +731,19 @@ TestComparisonOperators()
 // Check that Maybe<> can wrap a superclass that happens to also be a concrete
 // class (i.e. that the compiler doesn't warn when we invoke the superclass's
 // destructor explicitly in |reset()|.
-class MySuperClass {
-  virtual void VirtualMethod() { /* do nothing */ }
+class MySuperClass
+{
+  virtual void VirtualMethod() { /* do nothing */}
 };
 
-class MyDerivedClass : public MySuperClass {
-  void VirtualMethod() override { /* do nothing */ }
+class MyDerivedClass : public MySuperClass
+{
+  void VirtualMethod() override { /* do nothing */}
 };
 
 static bool
-TestVirtualFunction() {
+TestVirtualFunction()
+{
   Maybe<MySuperClass> super;
   super.emplace();
   super.reset();
@@ -805,8 +790,12 @@ TestSomeNullptrConversion()
   return true;
 }
 
-struct Base {};
-struct Derived : Base {};
+struct Base
+{
+};
+struct Derived : Base
+{
+};
 
 static Maybe<Base*>
 ReturnDerivedPointer()
@@ -856,35 +845,26 @@ struct SourceType1
 {
   int mTag;
 
-  operator int() const
-  {
-    return mTag;
-  }
+  operator int() const { return mTag; }
 };
 struct DestType
 {
   int mTag;
   Status mStatus;
 
-  DestType()
-    : mTag(0)
-    , mStatus(eWasDefaultConstructed)
-  {}
+  DestType() : mTag(0), mStatus(eWasDefaultConstructed) {}
 
-  MOZ_IMPLICIT DestType(int aTag)
-    : mTag(aTag)
-    , mStatus(eWasConstructed)
-  {}
+  MOZ_IMPLICIT DestType(int aTag) : mTag(aTag), mStatus(eWasConstructed) {}
 
   MOZ_IMPLICIT DestType(SourceType1&& aSrc)
-    : mTag(aSrc.mTag)
-    , mStatus(eWasMoveConstructed)
-  {}
+      : mTag(aSrc.mTag), mStatus(eWasMoveConstructed)
+  {
+  }
 
   MOZ_IMPLICIT DestType(const SourceType1& aSrc)
-    : mTag(aSrc.mTag)
-    , mStatus(eWasCopyConstructed)
-  {}
+      : mTag(aSrc.mTag), mStatus(eWasCopyConstructed)
+  {
+  }
 
   DestType& operator=(int aTag)
   {
@@ -911,7 +891,7 @@ struct SourceType2
 {
   int mTag;
 
-  operator DestType() const&
+  operator DestType() const &
   {
     DestType result;
     result.mTag = mTag;
@@ -932,13 +912,13 @@ static bool
 TestTypeConversion()
 {
   {
-    Maybe<SourceType1> src = Some(SourceType1 {1});
+    Maybe<SourceType1> src = Some(SourceType1{1});
     Maybe<DestType> dest = src;
     MOZ_RELEASE_ASSERT(src.isSome() && src->mTag == 1);
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 1);
     MOZ_RELEASE_ASSERT(dest->mStatus == eWasCopyConstructed);
 
-    src = Some(SourceType1 {2});
+    src = Some(SourceType1{2});
     dest = src;
     MOZ_RELEASE_ASSERT(src.isSome() && src->mTag == 2);
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 2);
@@ -946,13 +926,13 @@ TestTypeConversion()
   }
 
   {
-    Maybe<SourceType1> src = Some(SourceType1 {1});
+    Maybe<SourceType1> src = Some(SourceType1{1});
     Maybe<DestType> dest = Move(src);
     MOZ_RELEASE_ASSERT(src.isNothing());
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 1);
     MOZ_RELEASE_ASSERT(dest->mStatus == eWasMoveConstructed);
 
-    src = Some(SourceType1 {2});
+    src = Some(SourceType1{2});
     dest = Move(src);
     MOZ_RELEASE_ASSERT(src.isNothing());
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 2);
@@ -960,13 +940,13 @@ TestTypeConversion()
   }
 
   {
-    Maybe<SourceType2> src = Some(SourceType2 {1});
+    Maybe<SourceType2> src = Some(SourceType2{1});
     Maybe<DestType> dest = src;
     MOZ_RELEASE_ASSERT(src.isSome() && src->mTag == 1);
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 1);
     MOZ_RELEASE_ASSERT(dest->mStatus == eWasCopiedFrom);
 
-    src = Some(SourceType2 {2});
+    src = Some(SourceType2{2});
     dest = src;
     MOZ_RELEASE_ASSERT(src.isSome() && src->mTag == 2);
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 2);
@@ -974,13 +954,13 @@ TestTypeConversion()
   }
 
   {
-    Maybe<SourceType2> src = Some(SourceType2 {1});
+    Maybe<SourceType2> src = Some(SourceType2{1});
     Maybe<DestType> dest = Move(src);
     MOZ_RELEASE_ASSERT(src.isNothing());
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 1);
     MOZ_RELEASE_ASSERT(dest->mStatus == eWasMovedFrom);
 
-    src = Some(SourceType2 {2});
+    src = Some(SourceType2{2});
     dest = Move(src);
     MOZ_RELEASE_ASSERT(src.isNothing());
     MOZ_RELEASE_ASSERT(dest.isSome() && dest->mTag == 2);
@@ -1016,24 +996,24 @@ TestTypeConversion()
   }
 
   {
-    Maybe<SourceType1> src = Some(SourceType1 {1});
+    Maybe<SourceType1> src = Some(SourceType1{1});
     Maybe<int> dest = src;
     MOZ_RELEASE_ASSERT(src.isSome() && src->mTag == 1);
     MOZ_RELEASE_ASSERT(dest.isSome() && *dest == 1);
 
-    src = Some(SourceType1 {2});
+    src = Some(SourceType1{2});
     dest = src;
     MOZ_RELEASE_ASSERT(src.isSome() && src->mTag == 2);
     MOZ_RELEASE_ASSERT(dest.isSome() && *dest == 2);
   }
 
   {
-    Maybe<SourceType1> src = Some(SourceType1 {1});
+    Maybe<SourceType1> src = Some(SourceType1{1});
     Maybe<int> dest = Move(src);
     MOZ_RELEASE_ASSERT(src.isNothing());
     MOZ_RELEASE_ASSERT(dest.isSome() && *dest == 1);
 
-    src = Some(SourceType1 {2});
+    src = Some(SourceType1{2});
     dest = Move(src);
     MOZ_RELEASE_ASSERT(src.isNothing());
     MOZ_RELEASE_ASSERT(dest.isSome() && *dest == 2);

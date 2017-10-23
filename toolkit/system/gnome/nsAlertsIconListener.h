@@ -24,7 +24,7 @@ class nsAlertsIconListener : public nsIAlertNotificationImageListener,
                              public nsIObserver,
                              public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIALERTNOTIFICATIONIMAGELISTENER
   NS_DECL_NSIOBSERVER
@@ -39,7 +39,7 @@ public:
   void SendCallback();
   void SendClosed();
 
-protected:
+ protected:
   virtual ~nsAlertsIconListener();
 
   /**
@@ -52,10 +52,18 @@ protected:
   typedef bool (*notify_is_initted_t)(void);
   typedef bool (*notify_init_t)(const char*);
   typedef GList* (*notify_get_server_caps_t)(void);
-  typedef NotifyNotification* (*notify_notification_new_t)(const char*, const char*, const char*, const char*);
+  typedef NotifyNotification* (*notify_notification_new_t)(const char*,
+                                                           const char*,
+                                                           const char*,
+                                                           const char*);
   typedef bool (*notify_notification_show_t)(void*, GError**);
   typedef void (*notify_notification_set_icon_from_pixbuf_t)(void*, GdkPixbuf*);
-  typedef void (*notify_notification_add_action_t)(void*, const char*, const char*, NotifyActionCallback, gpointer, GFreeFunc);
+  typedef void (*notify_notification_add_action_t)(void*,
+                                                   const char*,
+                                                   const char*,
+                                                   NotifyActionCallback,
+                                                   gpointer,
+                                                   GFreeFunc);
   typedef bool (*notify_notification_close_t)(void*, GError**);
 
   nsCOMPtr<nsICancelable> mIconRequest;
@@ -77,7 +85,8 @@ protected:
   static notify_get_server_caps_t notify_get_server_caps;
   static notify_notification_new_t notify_notification_new;
   static notify_notification_show_t notify_notification_show;
-  static notify_notification_set_icon_from_pixbuf_t notify_notification_set_icon_from_pixbuf;
+  static notify_notification_set_icon_from_pixbuf_t
+      notify_notification_set_icon_from_pixbuf;
   static notify_notification_add_action_t notify_notification_add_action;
   static notify_notification_close_t notify_notification_close;
   NotifyNotification* mNotification;

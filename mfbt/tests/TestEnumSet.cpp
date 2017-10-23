@@ -35,14 +35,15 @@ enum SeaBird
 
 class EnumSetSuite
 {
-public:
+ public:
   EnumSetSuite()
-    : mAlcidae()
-    , mDiomedeidae(ALBATROSS)
-    , mPetrelProcellariidae(GADFLY_PETREL, TRUE_PETREL)
-    , mNonPetrelProcellariidae(FULMAR, PRION, SHEARWATER)
-    , mPetrels(GADFLY_PETREL, TRUE_PETREL, DIVING_PETREL, STORM_PETREL)
-  { }
+      : mAlcidae(),
+        mDiomedeidae(ALBATROSS),
+        mPetrelProcellariidae(GADFLY_PETREL, TRUE_PETREL),
+        mNonPetrelProcellariidae(FULMAR, PRION, SHEARWATER),
+        mPetrels(GADFLY_PETREL, TRUE_PETREL, DIVING_PETREL, STORM_PETREL)
+  {
+  }
 
   void runTests()
   {
@@ -64,7 +65,7 @@ public:
     testInitializerListConstuctor();
   }
 
-private:
+ private:
   void testSize()
   {
     MOZ_RELEASE_ASSERT(mAlcidae.size() == 0);
@@ -156,13 +157,13 @@ private:
 
   void testUnion()
   {
-    EnumSet<SeaBird> procellariidae = mPetrelProcellariidae +
-                                      mNonPetrelProcellariidae;
+    EnumSet<SeaBird> procellariidae =
+        mPetrelProcellariidae + mNonPetrelProcellariidae;
     MOZ_RELEASE_ASSERT(procellariidae.size() == 5);
 
     // Both procellariidae and mPetrels include GADFLY_PETREL and TRUE_PETREL
-    EnumSet<SeaBird> procellariiformes = mDiomedeidae + procellariidae +
-                                         mPetrels;
+    EnumSet<SeaBird> procellariiformes =
+        mDiomedeidae + procellariidae + mPetrels;
     MOZ_RELEASE_ASSERT(procellariiformes.size() == 8);
   }
 
@@ -221,8 +222,7 @@ private:
   void testEquality()
   {
     EnumSet<SeaBird> likes = mPetrels & mPetrelProcellariidae;
-    MOZ_RELEASE_ASSERT(likes == EnumSet<SeaBird>(GADFLY_PETREL,
-                                         TRUE_PETREL));
+    MOZ_RELEASE_ASSERT(likes == EnumSet<SeaBird>(GADFLY_PETREL, TRUE_PETREL));
   }
 
   void testDuplicates()
@@ -263,10 +263,10 @@ private:
 
   void testInitializerListConstuctor()
   {
-    EnumSet<SeaBird> empty {};
+    EnumSet<SeaBird> empty{};
     MOZ_RELEASE_ASSERT(empty.size() == 0);
 
-    EnumSet<SeaBird> someBirds { SKIMMER, GULL, BOOBY };
+    EnumSet<SeaBird> someBirds{SKIMMER, GULL, BOOBY};
     MOZ_RELEASE_ASSERT(someBirds.size() == 3);
     MOZ_RELEASE_ASSERT(someBirds.contains(SKIMMER));
     MOZ_RELEASE_ASSERT(someBirds.contains(GULL));

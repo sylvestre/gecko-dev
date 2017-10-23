@@ -29,7 +29,7 @@ namespace media {
 class ShutdownTicket;
 }
 
-template <typename T>
+template<typename T>
 class LinkedList;
 #ifdef MOZ_WEBRTC
 class AudioOutputObserver;
@@ -55,16 +55,13 @@ struct StreamUpdate
  */
 class ControlMessage
 {
-public:
+ public:
   explicit ControlMessage(MediaStream* aStream) : mStream(aStream)
   {
     MOZ_COUNT_CTOR(ControlMessage);
   }
   // All these run on the graph thread
-  virtual ~ControlMessage()
-  {
-    MOZ_COUNT_DTOR(ControlMessage);
-  }
+  virtual ~ControlMessage() { MOZ_COUNT_DTOR(ControlMessage); }
   // Do the action of this message on the MediaStreamGraph thread. Any actions
   // affecting graph processing should take effect at mProcessedTime.
   // All stream data for times < mProcessedTime has already been
@@ -78,7 +75,7 @@ public:
   virtual void RunDuringShutdown() {}
   MediaStream* GetStream() { return mStream; }
 
-protected:
+ protected:
   // We do not hold a reference to mStream. The graph will be holding
   // a reference to the stream until the Destroy message is processed. The
   // last message referencing a stream is the Destroy message for that stream.
@@ -87,7 +84,7 @@ protected:
 
 class MessageBlock
 {
-public:
+ public:
   nsTArray<UniquePtr<ControlMessage>> mMessages;
 };
 
@@ -105,7 +102,7 @@ class MediaStreamGraphImpl : public MediaStreamGraph,
                              public nsITimerCallback,
                              public nsINamed
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIMEMORYREPORTER
   NS_DECL_NSITIMERCALLBACK
@@ -176,16 +173,16 @@ public:
   /**
    * Respond to CollectReports with sizes collected on the graph thread.
    */
-  static void
-  FinishCollectReports(nsIHandleReportCallback* aHandleReport,
-                       nsISupports* aData,
-                       const nsTArray<AudioNodeSizes>& aAudioStreamSizes);
+  static void FinishCollectReports(
+      nsIHandleReportCallback* aHandleReport,
+      nsISupports* aData,
+      const nsTArray<AudioNodeSizes>& aAudioStreamSizes);
 
   // The following methods run on the graph thread (or possibly the main thread
   // if mLifecycleState > LIFECYCLE_RUNNING)
   void CollectSizesForMemoryReport(
-         already_AddRefed<nsIHandleReportCallback> aHandleReport,
-         already_AddRefed<nsISupports> aHandlerData);
+      already_AddRefed<nsIHandleReportCallback> aHandleReport,
+      already_AddRefed<nsISupports> aHandlerData);
 
   /**
    * Returns true if this MediaStreamGraph should keep running
@@ -358,7 +355,8 @@ public:
    * Given a graph time aTime, convert it to a stream time taking into
    * account the time during which aStream is scheduled to be blocked.
    */
-  StreamTime GraphTimeToStreamTimeWithBlocking(MediaStream* aStream, GraphTime aTime);
+  StreamTime GraphTimeToStreamTimeWithBlocking(MediaStream* aStream,
+                                               GraphTime aTime);
 
   /**
    * Call NotifyHaveCurrentData on aStream's listeners.
@@ -379,12 +377,11 @@ public:
    * at the current buffer end point. The StreamTracks's tracks must be
    * explicitly set to finished by the caller.
    */
-  void OpenAudioInputImpl(int aID,
-                          AudioDataListener *aListener);
+  void OpenAudioInputImpl(int aID, AudioDataListener* aListener);
   virtual nsresult OpenAudioInput(int aID,
-                                  AudioDataListener *aListener) override;
-  void CloseAudioInputImpl(AudioDataListener *aListener);
-  virtual void CloseAudioInput(AudioDataListener *aListener) override;
+                                  AudioDataListener* aListener) override;
+  void CloseAudioInputImpl(AudioDataListener* aListener);
+  virtual void CloseAudioInput(AudioDataListener* aListener) override;
 
   void FinishStream(MediaStream* aStream);
   /**
@@ -415,26 +412,20 @@ public:
   /**
    * Mark the media stream order as dirty.
    */
-  void SetStreamOrderDirty()
-  {
-    mStreamOrderDirty = true;
-  }
+  void SetStreamOrderDirty() { mStreamOrderDirty = true; }
 
-  uint32_t AudioChannelCount() const
-  {
-    return mOutputChannels;
-  }
+  uint32_t AudioChannelCount() const { return mOutputChannels; }
 
   double MediaTimeToSeconds(GraphTime aTime) const
   {
     NS_ASSERTION(aTime > -STREAM_TIME_MAX && aTime <= STREAM_TIME_MAX,
                  "Bad time");
-    return static_cast<double>(aTime)/GraphRate();
+    return static_cast<double>(aTime) / GraphRate();
   }
 
   GraphTime SecondsToMediaTime(double aS) const
   {
-    NS_ASSERTION(0 <= aS && aS <= TRACK_TICKS_MAX/TRACK_RATE_MAX,
+    NS_ASSERTION(0 <= aS && aS <= TRACK_TICKS_MAX / TRACK_RATE_MAX,
                  "Bad seconds");
     return GraphRate() * aS;
   }
@@ -481,27 +472,26 @@ public:
     mDriver = aDriver;
   }
 
-  Monitor& GetMonitor()
-  {
-    return mMonitor;
-  }
+  Monitor& GetMonitor() { return mMonitor; }
 
   void EnsureNextIteration()
   {
-    mNeedAnotherIteration = true; // atomic
+    mNeedAnotherIteration = true;  // atomic
     // Note: GraphDriver must ensure that there's no race on setting
     // mNeedAnotherIteration and mGraphDriverAsleep -- see WaitForNextIteration()
-    if (mGraphDriverAsleep) { // atomic
+    if (mGraphDriverAsleep) {  // atomic
       MonitorAutoLock mon(mMonitor);
-      CurrentDriver()->WakeUp(); // Might not be the same driver; might have woken already
+      CurrentDriver()
+          ->WakeUp();  // Might not be the same driver; might have woken already
     }
   }
 
   void EnsureNextIterationLocked()
   {
-    mNeedAnotherIteration = true; // atomic
-    if (mGraphDriverAsleep) { // atomic
-      CurrentDriver()->WakeUp(); // Might not be the same driver; might have woken already
+    mNeedAnotherIteration = true;  // atomic
+    if (mGraphDriverAsleep) {      // atomic
+      CurrentDriver()
+          ->WakeUp();  // Might not be the same driver; might have woken already
     }
   }
 
@@ -509,28 +499,27 @@ public:
   void RegisterCaptureStreamForWindow(uint64_t aWindowId,
                                       ProcessedMediaStream* aCaptureStream);
   void UnregisterCaptureStreamForWindow(uint64_t aWindowId);
-  already_AddRefed<MediaInputPort>
-  ConnectToCaptureStream(uint64_t aWindowId, MediaStream* aMediaStream);
+  already_AddRefed<MediaInputPort> ConnectToCaptureStream(
+      uint64_t aWindowId, MediaStream* aMediaStream);
 
-  class StreamSet {
-  public:
-    class iterator {
-    public:
+  class StreamSet
+  {
+   public:
+    class iterator
+    {
+     public:
       explicit iterator(MediaStreamGraphImpl& aGraph)
-        : mGraph(&aGraph), mArrayNum(-1), mArrayIndex(0)
+          : mGraph(&aGraph), mArrayNum(-1), mArrayIndex(0)
       {
         ++(*this);
       }
       iterator() : mGraph(nullptr), mArrayNum(2), mArrayIndex(0) {}
-      MediaStream* operator*()
-      {
-        return Array()->ElementAt(mArrayIndex);
-      }
+      MediaStream* operator*() { return Array()->ElementAt(mArrayIndex); }
       iterator operator++()
       {
         ++mArrayIndex;
         while (mArrayNum < 2 &&
-          (mArrayNum < 0 || mArrayIndex >= Array()->Length())) {
+               (mArrayNum < 0 || mArrayIndex >= Array()->Length())) {
           ++mArrayNum;
           mArrayIndex = 0;
         }
@@ -538,13 +527,15 @@ public:
       }
       bool operator==(const iterator& aOther) const
       {
-        return mArrayNum == aOther.mArrayNum && mArrayIndex == aOther.mArrayIndex;
+        return mArrayNum == aOther.mArrayNum &&
+               mArrayIndex == aOther.mArrayIndex;
       }
       bool operator!=(const iterator& aOther) const
       {
         return !(*this == aOther);
       }
-    private:
+
+     private:
       nsTArray<MediaStream*>* Array()
       {
         return mArrayNum == 0 ? &mGraph->mStreams : &mGraph->mSuspendedStreams;
@@ -557,7 +548,8 @@ public:
     explicit StreamSet(MediaStreamGraphImpl& aGraph) : mGraph(aGraph) {}
     iterator begin() { return iterator(mGraph); }
     iterator end() { return iterator(); }
-  private:
+
+   private:
     MediaStreamGraphImpl& mGraph;
   };
   StreamSet AllStreams() { return StreamSet(*this); }
@@ -653,7 +645,7 @@ public:
   /**
    * Runnables to run after the next update to main thread state.
    */
-  nsTArray<nsCOMPtr<nsIRunnable> > mUpdateRunnables;
+  nsTArray<nsCOMPtr<nsIRunnable>> mUpdateRunnables;
   /**
    * A list of batches of messages to process. Each batch is processed
    * as an atomic unit.
@@ -793,7 +785,7 @@ public:
   // used to limit graph shutdown time
   nsCOMPtr<nsITimer> mShutdownTimer;
 
-private:
+ private:
   virtual ~MediaStreamGraphImpl();
 
   MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf)
@@ -830,6 +822,6 @@ private:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MEDIASTREAMGRAPHIMPL_H_ */

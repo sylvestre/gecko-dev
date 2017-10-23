@@ -16,14 +16,13 @@
  */
 class nsAutoXPTCStub : protected nsIXPTCProxy
 {
-public:
+ public:
   nsISomeInterface* mXPTCStub;
 
-protected:
+ protected:
   nsAutoXPTCStub() : mXPTCStub(nullptr) {}
 
-  nsresult
-  InitStub(const nsIID& aIID)
+  nsresult InitStub(const nsIID& aIID)
   {
     return NS_GetXPTCallStub(aIID, this, &mXPTCStub);
   }
@@ -35,11 +34,12 @@ protected:
     }
   }
 
-  size_t
-  SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+  size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
   {
-    return mXPTCStub ? NS_SizeOfIncludingThisXPTCallStub(mXPTCStub, aMallocSizeOf) : 0;
+    return mXPTCStub
+               ? NS_SizeOfIncludingThisXPTCallStub(mXPTCStub, aMallocSizeOf)
+               : 0;
   }
 };
 
-#endif // nsXPTCUtils_h__
+#endif  // nsXPTCUtils_h__

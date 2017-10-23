@@ -25,23 +25,26 @@
 
 using namespace mozilla::dom;
 
-class nsDocElementBoxFrame final : public nsBoxFrame
-                                 , public nsIAnonymousContentCreator
+class nsDocElementBoxFrame final : public nsBoxFrame,
+                                   public nsIAnonymousContentCreator
 {
-public:
+ public:
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
   friend nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
                                   nsStyleContext* aContext);
 
   explicit nsDocElementBoxFrame(nsStyleContext* aContext)
-    :nsBoxFrame(aContext, kClassID, true) {}
+      : nsBoxFrame(aContext, kClassID, true)
+  {
+  }
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsDocElementBoxFrame)
 
   // nsIAnonymousContentCreator
-  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements) override;
+  virtual nsresult CreateAnonymousContent(
+      nsTArray<ContentInfo>& aElements) override;
   virtual void AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
                                         uint32_t aFilter) override;
 
@@ -56,7 +59,7 @@ public:
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
-private:
+ private:
   nsCOMPtr<Element> mPopupgroupContent;
   nsCOMPtr<Element> mTooltipContent;
 };
@@ -87,36 +90,35 @@ nsDocElementBoxFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
     // The page is currently being torn down.  Why bother.
     return NS_ERROR_FAILURE;
   }
-  nsNodeInfoManager *nodeInfoManager = doc->NodeInfoManager();
+  nsNodeInfoManager* nodeInfoManager = doc->NodeInfoManager();
 
   // create the top-secret popupgroup node. shhhhh!
   RefPtr<NodeInfo> nodeInfo;
   nodeInfo = nodeInfoManager->GetNodeInfo(nsGkAtoms::popupgroup,
-                                          nullptr, kNameSpaceID_XUL,
+                                          nullptr,
+                                          kNameSpaceID_XUL,
                                           nsIDOMNode::ELEMENT_NODE);
   NS_ENSURE_TRUE(nodeInfo, NS_ERROR_OUT_OF_MEMORY);
 
-  nsresult rv = NS_NewXULElement(getter_AddRefs(mPopupgroupContent),
-                                 nodeInfo.forget());
+  nsresult rv =
+      NS_NewXULElement(getter_AddRefs(mPopupgroupContent), nodeInfo.forget());
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (!aElements.AppendElement(mPopupgroupContent))
     return NS_ERROR_OUT_OF_MEMORY;
 
   // create the top-secret default tooltip node. shhhhh!
-  nodeInfo = nodeInfoManager->GetNodeInfo(nsGkAtoms::tooltip, nullptr,
-                                          kNameSpaceID_XUL,
-                                          nsIDOMNode::ELEMENT_NODE);
+  nodeInfo = nodeInfoManager->GetNodeInfo(
+      nsGkAtoms::tooltip, nullptr, kNameSpaceID_XUL, nsIDOMNode::ELEMENT_NODE);
   NS_ENSURE_TRUE(nodeInfo, NS_ERROR_OUT_OF_MEMORY);
 
   rv = NS_NewXULElement(getter_AddRefs(mTooltipContent), nodeInfo.forget());
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::_default,
-                           NS_LITERAL_STRING("true"), false);
+  mTooltipContent->SetAttr(
+      kNameSpaceID_None, nsGkAtoms::_default, NS_LITERAL_STRING("true"), false);
 
-  if (!aElements.AppendElement(mTooltipContent))
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!aElements.AppendElement(mTooltipContent)) return NS_ERROR_OUT_OF_MEMORY;
 
   return NS_OK;
 }
@@ -135,7 +137,7 @@ nsDocElementBoxFrame::AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
 }
 
 NS_QUERYFRAME_HEAD(nsDocElementBoxFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsBoxFrame)
 
 #ifdef DEBUG_FRAME_DUMP

@@ -16,39 +16,56 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGLineElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGLineElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGLineElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGLineElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::x1, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::y1, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::x2, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::y2, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGLineElement::sLengthInfo[4] = {
+    {&nsGkAtoms::x1,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y1,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::x2,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y2,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
 };
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGLineElement::SVGLineElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGLineElementBase(aNodeInfo)
+SVGLineElement::SVGLineElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGLineElementBase(aNodeInfo)
 {
 }
 
 void
-SVGLineElement::MaybeAdjustForZeroLength(float aX1, float aY1,
-                                         float& aX2, float aY2)
+SVGLineElement::MaybeAdjustForZeroLength(float aX1,
+                                         float aY1,
+                                         float& aX2,
+                                         float aY2)
 {
   if (aX1 == aX2 && aY1 == aY2) {
     SVGContentUtils::AutoStrokeOptions strokeOptions;
-    SVGContentUtils::GetStrokeOptions(&strokeOptions, this, nullptr, nullptr,
+    SVGContentUtils::GetStrokeOptions(&strokeOptions,
+                                      this,
+                                      nullptr,
+                                      nullptr,
                                       SVGContentUtils::eIgnoreStrokeDashing);
 
     if (strokeOptions.mLineCap != CapStyle::BUTT) {
       float tinyLength =
-        strokeOptions.mLineWidth / SVG_ZERO_LENGTH_PATH_FIX_FACTOR;
+          strokeOptions.mLineWidth / SVG_ZERO_LENGTH_PATH_FIX_FACTOR;
       aX2 += tinyLength;
     }
   }
@@ -91,12 +108,10 @@ SVGLineElement::Y2()
 NS_IMETHODIMP_(bool)
 SVGLineElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sMarkersMap
-  };
+  static const MappedAttributeEntry* const map[] = {sMarkersMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGLineElementBase::IsAttributeMapped(name);
+         SVGLineElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -105,15 +120,16 @@ SVGLineElement::IsAttributeMapped(const nsAtom* name) const
 nsSVGElement::LengthAttributesInfo
 SVGLineElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 //----------------------------------------------------------------------
 // SVGGeometryElement methods
 
 void
-SVGLineElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks) {
+SVGLineElement::GetMarkPoints(nsTArray<nsSVGMark>* aMarks)
+{
   float x1, y1, x2, y2;
 
   GetAnimatedLengthValues(&x1, &y1, &x2, &y2, nullptr);
@@ -242,8 +258,8 @@ SVGLineElement::GetGeometryBounds(Rect* aBounds,
     }
   }
 
-  const Matrix& toBoundsSpace = aToNonScalingStrokeSpace ?
-    nonScalingToBounds : aToBoundsSpace;
+  const Matrix& toBoundsSpace =
+      aToNonScalingStrokeSpace ? nonScalingToBounds : aToBoundsSpace;
 
   *aBounds = Rect(toBoundsSpace.TransformPoint(points[0]), Size());
   for (uint32_t i = 1; i < 4; ++i) {
@@ -253,5 +269,5 @@ SVGLineElement::GetGeometryBounds(Rect* aBounds,
   return true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

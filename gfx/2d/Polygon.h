@@ -72,7 +72,8 @@ nsTArray<float>
 CalculatePointPlaneDistances(const nsTArray<Point4DTyped<Units>>& aPoints,
                              const Point4DTyped<Units>& aPlaneNormal,
                              const Point4DTyped<Units>& aPlanePoint,
-                             size_t& aPos, size_t& aNeg)
+                             size_t& aPos,
+                             size_t& aNeg)
 {
   // Point classification might produce incorrect results due to numerical
   // inaccuracies. Using an epsilon value makes the splitting plane "thicker".
@@ -158,24 +159,29 @@ ClipPointsWithPlane(const nsTArray<Point4DTyped<Units>>& aPoints,
  * PolygonTyped stores the points of a convex planar polygon.
  */
 template<class Units>
-class PolygonTyped {
+class PolygonTyped
+{
   typedef Point3DTyped<Units> Point3DType;
   typedef Point4DTyped<Units> Point4DType;
 
-public:
+ public:
   PolygonTyped() {}
 
   explicit PolygonTyped(const nsTArray<Point4DType>& aPoints,
                         const Point4DType& aNormal = DefaultNormal())
-    : mNormal(aNormal), mPoints(aPoints) {}
+      : mNormal(aNormal), mPoints(aPoints)
+  {
+  }
 
   explicit PolygonTyped(nsTArray<Point4DType>&& aPoints,
                         const Point4DType& aNormal = DefaultNormal())
-    : mNormal(aNormal), mPoints(Move(aPoints)) {}
+      : mNormal(aNormal), mPoints(Move(aPoints))
+  {
+  }
 
   explicit PolygonTyped(const std::initializer_list<Point4DType>& aPoints,
                         const Point4DType& aNormal = DefaultNormal())
-    : mNormal(aNormal), mPoints(aPoints)
+      : mNormal(aNormal), mPoints(aPoints)
   {
 #ifdef DEBUG
     EnsurePlanarPolygon();
@@ -247,14 +253,14 @@ public:
       // Calculate the distances between the points of the polygon and the
       // plane defined by |aPolygon|.
       const nsTArray<float> distances =
-        CalculatePointPlaneDistances(clippedPoints, normal, p1, pos, neg);
+          CalculatePointPlaneDistances(clippedPoints, normal, p1, pos, neg);
 
       backPoints.ClearAndRetainStorage();
       frontPoints.ClearAndRetainStorage();
 
       // Clip the polygon points using the previously calculated distances.
-      ClipPointsWithPlane(clippedPoints, normal, distances,
-                          backPoints, frontPoints);
+      ClipPointsWithPlane(
+          clippedPoints, normal, distances, backPoints, frontPoints);
 
       // Only use the points behind the clipping plane.
       clippedPoints = Move(backPoints);
@@ -273,25 +279,18 @@ public:
    */
   static PolygonTyped<Units> FromRect(const RectTyped<Units>& aRect)
   {
-    nsTArray<Point4DType> points {
-      Point4DType(aRect.x, aRect.y, 0.0f, 1.0f),
-      Point4DType(aRect.x, aRect.YMost(), 0.0f, 1.0f),
-      Point4DType(aRect.XMost(), aRect.YMost(), 0.0f, 1.0f),
-      Point4DType(aRect.XMost(), aRect.y, 0.0f, 1.0f)
-    };
+    nsTArray<Point4DType> points{
+        Point4DType(aRect.x, aRect.y, 0.0f, 1.0f),
+        Point4DType(aRect.x, aRect.YMost(), 0.0f, 1.0f),
+        Point4DType(aRect.XMost(), aRect.YMost(), 0.0f, 1.0f),
+        Point4DType(aRect.XMost(), aRect.y, 0.0f, 1.0f)};
 
     return PolygonTyped<Units>(Move(points));
   }
 
-  const Point4DType& GetNormal() const
-  {
-    return mNormal;
-  }
+  const Point4DType& GetNormal() const { return mNormal; }
 
-  const nsTArray<Point4DType>& GetPoints() const
-  {
-    return mPoints;
-  }
+  const nsTArray<Point4DType>& GetPoints() const { return mPoints; }
 
   bool IsEmpty() const
   {
@@ -341,7 +340,7 @@ public:
     mNormal = aTransform.Inverse().Transpose().TransformPoint(mNormal);
   }
 
-private:
+ private:
   static Point4DType DefaultNormal()
   {
     return Point4DType(0.0f, 0.0f, 1.0f, 0.0f);
@@ -398,7 +397,7 @@ private:
       point = aTransform.TransformPoint(point);
 
       if (aDivideByW && point.w > 0.0f) {
-          point = point / point.w;
+        point = point / point.w;
       }
     }
   }
@@ -409,7 +408,7 @@ private:
 
 typedef PolygonTyped<UnknownUnits> Polygon;
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_POLYGON_H */

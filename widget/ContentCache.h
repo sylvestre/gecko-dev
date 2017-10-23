@@ -25,7 +25,7 @@ class ContentCacheInParent;
 
 namespace dom {
 class TabParent;
-} // namespace dom
+}  // namespace dom
 
 /**
  * ContentCache stores various information of the child content.
@@ -35,13 +35,13 @@ class TabParent;
 
 class ContentCache
 {
-public:
+ public:
   typedef InfallibleTArray<LayoutDeviceIntRect> RectArray;
   typedef widget::IMENotification IMENotification;
 
   ContentCache();
 
-protected:
+ protected:
   // Whole text in the target
   nsString mText;
 
@@ -73,11 +73,7 @@ protected:
     // Whole rect of selected text. This is empty if the selection is collapsed.
     LayoutDeviceIntRect mRect;
 
-    Selection()
-      : mAnchor(UINT32_MAX)
-      , mFocus(UINT32_MAX)
-    {
-    }
+    Selection() : mAnchor(UINT32_MAX), mFocus(UINT32_MAX) {}
 
     void Clear()
     {
@@ -139,15 +135,15 @@ protected:
     {
       NS_ASSERTION(IsValid(),
                    "The caller should check if the selection is valid");
-      return Reversed() ? mFocusCharRects[eNextCharRect] :
-                          mAnchorCharRects[eNextCharRect];
+      return Reversed() ? mFocusCharRects[eNextCharRect]
+                        : mAnchorCharRects[eNextCharRect];
     }
     LayoutDeviceIntRect EndCharRect() const
     {
       NS_ASSERTION(IsValid(),
                    "The caller should check if the selection is valid");
-      return Reversed() ? mAnchorCharRects[eNextCharRect] :
-                          mFocusCharRects[eNextCharRect];
+      return Reversed() ? mAnchorCharRects[eNextCharRect]
+                        : mFocusCharRects[eNextCharRect];
     }
   } mSelection;
 
@@ -165,10 +161,7 @@ protected:
     uint32_t mOffset;
     LayoutDeviceIntRect mRect;
 
-    Caret()
-      : mOffset(UINT32_MAX)
-    {
-    }
+    Caret() : mOffset(UINT32_MAX) {}
 
     void Clear()
     {
@@ -180,8 +173,7 @@ protected:
 
     uint32_t Offset() const
     {
-      NS_ASSERTION(IsValid(),
-                   "The caller should check if the caret is valid");
+      NS_ASSERTION(IsValid(), "The caller should check if the caret is valid");
       return mOffset;
     }
   } mCaret;
@@ -191,10 +183,7 @@ protected:
     uint32_t mStart;
     RectArray mRects;
 
-    TextRectArray()
-      : mStart(UINT32_MAX)
-    {
-    }
+    TextRectArray() : mStart(UINT32_MAX) {}
 
     void Clear()
     {
@@ -208,23 +197,18 @@ protected:
         return false;
       }
       CheckedInt<uint32_t> endOffset =
-        CheckedInt<uint32_t>(mStart) + mRects.Length();
+          CheckedInt<uint32_t>(mStart) + mRects.Length();
       return endOffset.isValid();
     }
-    bool HasRects() const
-    {
-      return IsValid() && !mRects.IsEmpty();
-    }
+    bool HasRects() const { return IsValid() && !mRects.IsEmpty(); }
     uint32_t StartOffset() const
     {
-      NS_ASSERTION(IsValid(),
-                   "The caller should check if the caret is valid");
+      NS_ASSERTION(IsValid(), "The caller should check if the caret is valid");
       return mStart;
     }
     uint32_t EndOffset() const
     {
-      NS_ASSERTION(IsValid(),
-                   "The caller should check if the caret is valid");
+      NS_ASSERTION(IsValid(), "The caller should check if the caret is valid");
       if (!IsValid()) {
         return UINT32_MAX;
       }
@@ -232,13 +216,11 @@ protected:
     }
     bool InRange(uint32_t aOffset) const
     {
-      return IsValid() &&
-             StartOffset() <= aOffset && aOffset < EndOffset();
+      return IsValid() && StartOffset() <= aOffset && aOffset < EndOffset();
     }
     bool InRange(uint32_t aOffset, uint32_t aLength) const
     {
-      CheckedInt<uint32_t> endOffset =
-        CheckedInt<uint32_t>(aOffset) + aLength;
+      CheckedInt<uint32_t> endOffset = CheckedInt<uint32_t>(aOffset) + aLength;
       if (NS_WARN_IF(!endOffset.isValid())) {
         return false;
       }
@@ -249,8 +231,7 @@ protected:
       if (!HasRects() || aOffset == UINT32_MAX || !aLength) {
         return false;
       }
-      CheckedInt<uint32_t> endOffset =
-        CheckedInt<uint32_t>(aOffset) + aLength;
+      CheckedInt<uint32_t> endOffset = CheckedInt<uint32_t>(aOffset) + aLength;
       if (NS_WARN_IF(!endOffset.isValid())) {
         return false;
       }
@@ -259,8 +240,7 @@ protected:
     LayoutDeviceIntRect GetRect(uint32_t aOffset) const;
     LayoutDeviceIntRect GetUnionRect(uint32_t aOffset, uint32_t aLength) const;
     LayoutDeviceIntRect GetUnionRectAsFarAsPossible(
-                          uint32_t aOffset, uint32_t aLength,
-                          bool aRoundToExistingOffset) const;
+        uint32_t aOffset, uint32_t aLength, bool aRoundToExistingOffset) const;
   } mTextRectArray;
 
   LayoutDeviceIntRect mEditorRect;
@@ -271,7 +251,7 @@ protected:
 
 class ContentCacheInChild final : public ContentCache
 {
-public:
+ public:
   ContentCacheInChild();
 
   /**
@@ -305,7 +285,7 @@ public:
                     bool aReversed,
                     const WritingMode& aWritingMode);
 
-private:
+ private:
   bool QueryCharRect(nsIWidget* aWidget,
                      uint32_t aOffset,
                      LayoutDeviceIntRect& aCharRect) const;
@@ -321,7 +301,7 @@ private:
 
 class ContentCacheInParent final : public ContentCache
 {
-public:
+ public:
   explicit ContentCacheInParent(dom::TabParent& aTabParent);
 
   /**
@@ -401,10 +381,9 @@ public:
    * hasn't been handled all sending events yet, this stores the notification
    * and flush it later.
    */
-  void MaybeNotifyIME(nsIWidget* aWidget,
-                      const IMENotification& aNotification);
+  void MaybeNotifyIME(nsIWidget* aWidget, const IMENotification& aNotification);
 
-private:
+ private:
   IMENotification mPendingSelectionChange;
   IMENotification mPendingTextChange;
   IMENotification mPendingLayoutChange;
@@ -449,8 +428,8 @@ private:
     }
   }
   nsTArray<RequestIMEToCommitCompositionResult>
-    mRequestIMEToCommitCompositionResults;
-#endif // #ifdef MOZ_CRASHREPORTER
+      mRequestIMEToCommitCompositionResults;
+#endif  // #ifdef MOZ_CRASHREPORTER
 
   // mTabParent is owner of the instance.
   dom::TabParent& MOZ_NON_OWNING_REF mTabParent;
@@ -518,9 +497,9 @@ private:
    * Append event message log to aLog.
    */
   void AppendEventMessageLog(nsACString& aLog) const;
-#endif // #ifdef MOZ_CRASHREPORTER
+#endif  // #ifdef MOZ_CRASHREPORTER
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ContentCache_h
+#endif  // mozilla_ContentCache_h

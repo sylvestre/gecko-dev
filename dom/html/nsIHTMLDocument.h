@@ -13,16 +13,20 @@
 class nsIContent;
 class nsContentList;
 
-#define NS_IHTMLDOCUMENT_IID \
-{ 0xcf814492, 0x303c, 0x4718, \
-  { 0x9a, 0x3e, 0x39, 0xbc, 0xd5, 0x2c, 0x10, 0xdb } }
+#define NS_IHTMLDOCUMENT_IID                         \
+  {                                                  \
+    0xcf814492, 0x303c, 0x4718,                      \
+    {                                                \
+      0x9a, 0x3e, 0x39, 0xbc, 0xd5, 0x2c, 0x10, 0xdb \
+    }                                                \
+  }
 
 /**
  * HTML document extensions to nsIDocument.
  */
 class nsIHTMLDocument : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IHTMLDOCUMENT_IID)
 
   /**
@@ -59,10 +63,11 @@ public:
    * @param aChange +1 if the contentEditable attribute/property was changed to
    *                true, -1 if it was changed to false
    */
-  virtual nsresult ChangeContentEditableCount(nsIContent *aElement,
+  virtual nsresult ChangeContentEditableCount(nsIContent* aElement,
                                               int32_t aChange) = 0;
 
-  enum EditingState {
+  enum EditingState
+  {
     eTearingDown = -2,
     eSettingUp = -1,
     eOff = 0,

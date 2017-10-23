@@ -44,11 +44,10 @@ struct PluginHangUIResponse
   {
     identifier = PLUGIN_HANGUI_RESULT
   };
-  unsigned int  mResponseBits;
+  unsigned int mResponseBits;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
-#endif // mozilla_plugins_PluginHangUI_h
-
+#endif  // mozilla_plugins_PluginHangUI_h

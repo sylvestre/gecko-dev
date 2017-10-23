@@ -13,26 +13,28 @@
 namespace mozilla {
 namespace layout {
 
-class PRFileDescStream : public mozilla::gfx::EventStream {
-public:
+class PRFileDescStream : public mozilla::gfx::EventStream
+{
+ public:
   PRFileDescStream() : mFd(nullptr), mGood(true) {}
 
-  void OpenFD(PRFileDesc* aFd) {
+  void OpenFD(PRFileDesc* aFd)
+  {
     MOZ_ASSERT(!IsOpen());
     mFd = aFd;
     mGood = true;
   }
 
-  void Close() {
+  void Close()
+  {
     PR_Close(mFd);
     mFd = nullptr;
   }
 
-  bool IsOpen() {
-    return mFd != nullptr;
-  }
+  bool IsOpen() { return mFd != nullptr; }
 
-  void Flush() {
+  void Flush()
+  {
     // We need to be API compatible with std::ostream, and so we silently handle
     // flushes on a closed FD.
     if (IsOpen()) {
@@ -40,36 +42,37 @@ public:
     }
   }
 
-  void Seek(PRInt32 aOffset, PRSeekWhence aWhence) {
+  void Seek(PRInt32 aOffset, PRSeekWhence aWhence)
+  {
     PR_Seek(mFd, aOffset, aWhence);
   }
 
-  void write(const char* aData, size_t aSize) {
+  void write(const char* aData, size_t aSize)
+  {
     // See comment in Flush().
     if (IsOpen()) {
       PR_Write(mFd, static_cast<const void*>(aData), aSize);
     }
   }
 
-  void read(char* aOut, size_t aSize) {
+  void read(char* aOut, size_t aSize)
+  {
     PRInt32 res = PR_Read(mFd, static_cast<void*>(aOut), aSize);
     mGood = res >= 0 && ((size_t)res == aSize);
   }
 
-  bool good() {
-    return mGood;
-  }
+  bool good() { return mGood; }
 
-private:
+ private:
   PRFileDesc* mFd;
   bool mGood;
 };
 
 class DrawEventRecorderPRFileDesc : public gfx::DrawEventRecorderPrivate
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DrawEventRecorderPRFileDesc, override)
-  explicit DrawEventRecorderPRFileDesc() { };
+  explicit DrawEventRecorderPRFileDesc(){};
   ~DrawEventRecorderPRFileDesc();
 
   void RecordEvent(const gfx::RecordedEvent& aEvent) override;
@@ -91,14 +94,14 @@ public:
    */
   void Close();
 
-private:
+ private:
   void Flush() override;
 
   PRFileDescStream mOutputStream;
 };
 
-}
+}  // namespace layout
 
-}
+}  // namespace mozilla
 
 #endif /* mozilla_layout_printing_DrawEventRecorder_h */

@@ -37,7 +37,7 @@ namespace dom {
 
 class DocGroup final
 {
-public:
+ public:
   typedef nsTArray<nsIDocument*>::iterator Iterator;
   friend class TabGroup;
 
@@ -46,17 +46,11 @@ public:
   // Returns NS_ERROR_FAILURE and sets |aString| to an empty string if the TLD
   // service isn't available. Returns NS_OK on success, but may still set
   // |aString| may still be set to an empty string.
-  static MOZ_MUST_USE nsresult
-  GetKey(nsIPrincipal* aPrincipal, nsACString& aString);
+  static MOZ_MUST_USE nsresult GetKey(nsIPrincipal* aPrincipal,
+                                      nsACString& aString);
 
-  bool MatchesKey(const nsACString& aKey)
-  {
-    return aKey == mKey;
-  }
-  TabGroup* GetTabGroup()
-  {
-    return mTabGroup;
-  }
+  bool MatchesKey(const nsACString& aKey) { return aKey == mKey; }
+  TabGroup* GetTabGroup() { return mTabGroup; }
   mozilla::dom::CustomElementReactionsStack* CustomElementReactionsStack()
   {
     MOZ_ASSERT(NS_IsMainThread());
@@ -85,21 +79,17 @@ public:
 
   nsISerialEventTarget* EventTargetFor(TaskCategory aCategory) const;
 
-  AbstractThread*
-  AbstractMainThreadFor(TaskCategory aCategory);
+  AbstractThread* AbstractMainThreadFor(TaskCategory aCategory);
 
   // Ensure that it's valid to access the DocGroup at this time.
-  void ValidateAccess() const
-  {
-    mTabGroup->ValidateAccess();
-  }
+  void ValidateAccess() const { mTabGroup->ValidateAccess(); }
 
   // Return a pointer that can be continually checked to see if access to this
   // DocGroup is valid. This pointer should live at least as long as the
   // DocGroup.
   bool* GetValidAccessPtr();
 
-private:
+ private:
   DocGroup(TabGroup* aTabGroup, const nsACString& aKey);
   ~DocGroup();
 
@@ -109,7 +99,7 @@ private:
   RefPtr<mozilla::dom::CustomElementReactionsStack> mReactionsStack;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // defined(DocGroup_h)
+#endif  // defined(DocGroup_h)

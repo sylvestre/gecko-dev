@@ -13,15 +13,15 @@ class nsIDOMNode;
 
 namespace mozilla {
 class EventStateManager;
-} // namespace mozilla
+}  // namespace mozilla
 
 class inLayoutUtils
 {
-public:
-  static mozilla::EventStateManager*
-           GetEventStateManagerFor(nsIDOMElement *aElement);
+ public:
+  static mozilla::EventStateManager* GetEventStateManagerFor(
+      nsIDOMElement* aElement);
   static nsIDOMDocument* GetSubDocumentFor(nsIDOMNode* aNode);
   static nsIDOMNode* GetContainerFor(const nsIDocument& aDoc);
 };
 
-#endif // __inLayoutUtils_h__
+#endif  // __inLayoutUtils_h__

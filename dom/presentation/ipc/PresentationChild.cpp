@@ -19,8 +19,7 @@ using namespace mozilla::dom;
  */
 
 PresentationChild::PresentationChild(PresentationIPCService* aService)
-  : mActorDestroyed(false)
-  , mService(aService)
+    : mActorDestroyed(false), mService(aService)
 {
   MOZ_ASSERT(mService);
 
@@ -46,14 +45,18 @@ PresentationChild::ActorDestroy(ActorDestroyReason aWhy)
 }
 
 PPresentationRequestChild*
-PresentationChild::AllocPPresentationRequestChild(const PresentationIPCRequest& aRequest)
+PresentationChild::AllocPPresentationRequestChild(
+    const PresentationIPCRequest& aRequest)
 {
-  NS_NOTREACHED("We should never be manually allocating PPresentationRequestChild actors");
+  NS_NOTREACHED(
+      "We should never be manually allocating PPresentationRequestChild "
+      "actors");
   return nullptr;
 }
 
 bool
-PresentationChild::DeallocPPresentationRequestChild(PPresentationRequestChild* aActor)
+PresentationChild::DeallocPPresentationRequestChild(
+    PPresentationRequestChild* aActor)
 {
   delete aActor;
   return true;
@@ -61,12 +64,13 @@ PresentationChild::DeallocPPresentationRequestChild(PPresentationRequestChild* a
 
 mozilla::ipc::IPCResult
 PresentationChild::RecvPPresentationBuilderConstructor(
-  PPresentationBuilderChild* aActor,
-  const nsString& aSessionId,
-  const uint8_t& aRole)
+    PPresentationBuilderChild* aActor,
+    const nsString& aSessionId,
+    const uint8_t& aRole)
 {
   // Child will build the session transport
-  PresentationBuilderChild* actor = static_cast<PresentationBuilderChild*>(aActor);
+  PresentationBuilderChild* actor =
+      static_cast<PresentationBuilderChild*>(aActor);
   if (NS_WARN_IF(NS_FAILED(actor->Init()))) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -77,30 +81,28 @@ PPresentationBuilderChild*
 PresentationChild::AllocPPresentationBuilderChild(const nsString& aSessionId,
                                                   const uint8_t& aRole)
 {
-  RefPtr<PresentationBuilderChild> actor
-    = new PresentationBuilderChild(aSessionId, aRole);
+  RefPtr<PresentationBuilderChild> actor =
+      new PresentationBuilderChild(aSessionId, aRole);
 
   return actor.forget().take();
 }
 
 bool
-PresentationChild::DeallocPPresentationBuilderChild(PPresentationBuilderChild* aActor)
+PresentationChild::DeallocPPresentationBuilderChild(
+    PPresentationBuilderChild* aActor)
 {
   RefPtr<PresentationBuilderChild> actor =
-    dont_AddRef(static_cast<PresentationBuilderChild*>(aActor));
+      dont_AddRef(static_cast<PresentationBuilderChild*>(aActor));
   return true;
 }
 
-
 mozilla::ipc::IPCResult
 PresentationChild::RecvNotifyAvailableChange(
-                                        nsTArray<nsString>&& aAvailabilityUrls,
-                                        const bool& aAvailable)
+    nsTArray<nsString>&& aAvailabilityUrls, const bool& aAvailable)
 {
   if (mService) {
-    Unused <<
-      NS_WARN_IF(NS_FAILED(mService->NotifyAvailableChange(aAvailabilityUrls,
-                                                           aAvailable)));
+    Unused << NS_WARN_IF(NS_FAILED(
+        mService->NotifyAvailableChange(aAvailabilityUrls, aAvailable)));
   }
   return IPC_OK();
 }
@@ -111,9 +113,8 @@ PresentationChild::RecvNotifySessionStateChange(const nsString& aSessionId,
                                                 const nsresult& aReason)
 {
   if (mService) {
-    Unused << NS_WARN_IF(NS_FAILED(mService->NotifySessionStateChange(aSessionId,
-                                                                      aState,
-                                                                      aReason)));
+    Unused << NS_WARN_IF(NS_FAILED(
+        mService->NotifySessionStateChange(aSessionId, aState, aReason)));
   }
   return IPC_OK();
 }
@@ -124,9 +125,8 @@ PresentationChild::RecvNotifyMessage(const nsString& aSessionId,
                                      const bool& aIsBinary)
 {
   if (mService) {
-    Unused << NS_WARN_IF(NS_FAILED(mService->NotifyMessage(aSessionId,
-                                                           aData,
-                                                           aIsBinary)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(mService->NotifyMessage(aSessionId, aData, aIsBinary)));
   }
   return IPC_OK();
 }
@@ -136,7 +136,8 @@ PresentationChild::RecvNotifySessionConnect(const uint64_t& aWindowId,
                                             const nsString& aSessionId)
 {
   if (mService) {
-    Unused << NS_WARN_IF(NS_FAILED(mService->NotifySessionConnect(aWindowId, aSessionId)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(mService->NotifySessionConnect(aWindowId, aSessionId)));
   }
   return IPC_OK();
 }
@@ -148,7 +149,7 @@ PresentationChild::RecvNotifyCloseSessionTransport(const nsString& aSessionId,
 {
   if (mService) {
     Unused << NS_WARN_IF(NS_FAILED(
-      mService->CloseContentSessionTransport(aSessionId, aRole, aReason)));
+        mService->CloseContentSessionTransport(aSessionId, aRole, aReason)));
   }
   return IPC_OK();
 }
@@ -157,9 +158,9 @@ PresentationChild::RecvNotifyCloseSessionTransport(const nsString& aSessionId,
  * Implementation of PresentationRequestChild
  */
 
-PresentationRequestChild::PresentationRequestChild(nsIPresentationServiceCallback* aCallback)
-  : mActorDestroyed(false)
-  , mCallback(aCallback)
+PresentationRequestChild::PresentationRequestChild(
+    nsIPresentationServiceCallback* aCallback)
+    : mActorDestroyed(false), mCallback(aCallback)
 {
   MOZ_COUNT_CTOR(PresentationRequestChild);
 }

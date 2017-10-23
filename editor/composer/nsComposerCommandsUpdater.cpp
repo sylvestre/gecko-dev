@@ -4,31 +4,31 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/mozalloc.h"           // for operator new
+#include "mozilla/mozalloc.h"  // for operator new
 #include "mozilla/dom/Selection.h"
 #include "nsAString.h"
-#include "nsComponentManagerUtils.h"    // for do_CreateInstance
+#include "nsComponentManagerUtils.h"  // for do_CreateInstance
 #include "nsComposerCommandsUpdater.h"
-#include "nsDebug.h"                    // for NS_ENSURE_TRUE, etc
-#include "nsError.h"                    // for NS_OK, NS_ERROR_FAILURE, etc
-#include "nsICommandManager.h"          // for nsICommandManager
-#include "nsID.h"                       // for NS_GET_IID, etc
-#include "nsIDOMWindow.h"               // for nsIDOMWindow
-#include "nsIDocShell.h"                // for nsIDocShell
+#include "nsDebug.h"                     // for NS_ENSURE_TRUE, etc
+#include "nsError.h"                     // for NS_OK, NS_ERROR_FAILURE, etc
+#include "nsICommandManager.h"           // for nsICommandManager
+#include "nsID.h"                        // for NS_GET_IID, etc
+#include "nsIDOMWindow.h"                // for nsIDOMWindow
+#include "nsIDocShell.h"                 // for nsIDocShell
 #include "nsIInterfaceRequestorUtils.h"  // for do_GetInterface
-#include "nsISelection.h"               // for nsISelection
-#include "nsITransactionManager.h"      // for nsITransactionManager
-#include "nsLiteralString.h"            // for NS_LITERAL_STRING
-#include "nsPICommandUpdater.h"         // for nsPICommandUpdater
-#include "nsPIDOMWindow.h"              // for nsPIDOMWindow
+#include "nsISelection.h"                // for nsISelection
+#include "nsITransactionManager.h"       // for nsITransactionManager
+#include "nsLiteralString.h"             // for NS_LITERAL_STRING
+#include "nsPICommandUpdater.h"          // for nsPICommandUpdater
+#include "nsPIDOMWindow.h"               // for nsPIDOMWindow
 
 class nsIDOMDocument;
 class nsITransaction;
 
 nsComposerCommandsUpdater::nsComposerCommandsUpdater()
-:  mDirtyState(eStateUninitialized)
-,  mSelectionCollapsed(eStateUninitialized)
-,  mFirstDoOfFirstUndo(true)
+    : mDirtyState(eStateUninitialized),
+      mSelectionCollapsed(eStateUninitialized),
+      mFirstDoOfFirstUndo(true)
 {
 }
 
@@ -40,9 +40,12 @@ nsComposerCommandsUpdater::~nsComposerCommandsUpdater()
   }
 }
 
-NS_IMPL_ISUPPORTS(nsComposerCommandsUpdater, nsISelectionListener,
-                  nsIDocumentStateListener, nsITransactionListener,
-                  nsITimerCallback, nsINamed)
+NS_IMPL_ISUPPORTS(nsComposerCommandsUpdater,
+                  nsISelectionListener,
+                  nsIDocumentStateListener,
+                  nsITransactionListener,
+                  nsITimerCallback,
+                  nsINamed)
 
 #if 0
 #pragma mark -
@@ -65,15 +68,14 @@ nsComposerCommandsUpdater::NotifyDocumentWillBeDestroyed()
     mUpdateTimer = nullptr;
   }
 
-  // We can't call this right now; it is too late in some cases and the window
-  // is already partially destructed (e.g. JS objects may be gone).
+    // We can't call this right now; it is too late in some cases and the window
+    // is already partially destructed (e.g. JS objects may be gone).
 #if 0
   // Trigger an nsIObserve notification that the document will be destroyed
   UpdateOneCommand("obs_documentWillBeDestroyed");
 #endif
   return NS_OK;
 }
-
 
 NS_IMETHODIMP
 nsComposerCommandsUpdater::NotifyDocumentStateChanged(bool aNowDirty)
@@ -83,8 +85,9 @@ nsComposerCommandsUpdater::NotifyDocumentStateChanged(bool aNowDirty)
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::NotifySelectionChanged(nsIDOMDocument *,
-                                                  nsISelection *, int16_t)
+nsComposerCommandsUpdater::NotifySelectionChanged(nsIDOMDocument*,
+                                                  nsISelection*,
+                                                  int16_t)
 {
   return PrimeUpdateTimer();
 }
@@ -94,16 +97,18 @@ nsComposerCommandsUpdater::NotifySelectionChanged(nsIDOMDocument *,
 #endif
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::WillDo(nsITransactionManager *aManager,
-                                  nsITransaction *aTransaction, bool *aInterrupt)
+nsComposerCommandsUpdater::WillDo(nsITransactionManager* aManager,
+                                  nsITransaction* aTransaction,
+                                  bool* aInterrupt)
 {
   *aInterrupt = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::DidDo(nsITransactionManager *aManager,
-  nsITransaction *aTransaction, nsresult aDoResult)
+nsComposerCommandsUpdater::DidDo(nsITransactionManager* aManager,
+                                 nsITransaction* aTransaction,
+                                 nsresult aDoResult)
 {
   // only need to update if the status of the Undo menu item changes.
   int32_t undoCount;
@@ -119,40 +124,40 @@ nsComposerCommandsUpdater::DidDo(nsITransactionManager *aManager,
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::WillUndo(nsITransactionManager *aManager,
-                                    nsITransaction *aTransaction,
-                                    bool *aInterrupt)
+nsComposerCommandsUpdater::WillUndo(nsITransactionManager* aManager,
+                                    nsITransaction* aTransaction,
+                                    bool* aInterrupt)
 {
   *aInterrupt = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::DidUndo(nsITransactionManager *aManager,
-                                   nsITransaction *aTransaction,
+nsComposerCommandsUpdater::DidUndo(nsITransactionManager* aManager,
+                                   nsITransaction* aTransaction,
                                    nsresult aUndoResult)
 {
   int32_t undoCount;
   aManager->GetNumberOfUndoItems(&undoCount);
   if (undoCount == 0)
-    mFirstDoOfFirstUndo = true;    // reset the state for the next do
+    mFirstDoOfFirstUndo = true;  // reset the state for the next do
 
   UpdateCommandGroup(NS_LITERAL_STRING("undo"));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::WillRedo(nsITransactionManager *aManager,
-                                    nsITransaction *aTransaction,
-                                    bool *aInterrupt)
+nsComposerCommandsUpdater::WillRedo(nsITransactionManager* aManager,
+                                    nsITransaction* aTransaction,
+                                    bool* aInterrupt)
 {
   *aInterrupt = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::DidRedo(nsITransactionManager *aManager,
-                                   nsITransaction *aTransaction,
+nsComposerCommandsUpdater::DidRedo(nsITransactionManager* aManager,
+                                   nsITransaction* aTransaction,
                                    nsresult aRedoResult)
 {
   UpdateCommandGroup(NS_LITERAL_STRING("undo"));
@@ -160,50 +165,51 @@ nsComposerCommandsUpdater::DidRedo(nsITransactionManager *aManager,
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::WillBeginBatch(nsITransactionManager *aManager,
-                                          bool *aInterrupt)
+nsComposerCommandsUpdater::WillBeginBatch(nsITransactionManager* aManager,
+                                          bool* aInterrupt)
 {
   *aInterrupt = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::DidBeginBatch(nsITransactionManager *aManager,
+nsComposerCommandsUpdater::DidBeginBatch(nsITransactionManager* aManager,
                                          nsresult aResult)
 {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::WillEndBatch(nsITransactionManager *aManager,
-                                        bool *aInterrupt)
+nsComposerCommandsUpdater::WillEndBatch(nsITransactionManager* aManager,
+                                        bool* aInterrupt)
 {
   *aInterrupt = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::DidEndBatch(nsITransactionManager *aManager,
+nsComposerCommandsUpdater::DidEndBatch(nsITransactionManager* aManager,
                                        nsresult aResult)
 {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::WillMerge(nsITransactionManager *aManager,
-                                     nsITransaction *aTopTransaction,
-                                     nsITransaction *aTransactionToMerge,
-                                     bool *aInterrupt)
+nsComposerCommandsUpdater::WillMerge(nsITransactionManager* aManager,
+                                     nsITransaction* aTopTransaction,
+                                     nsITransaction* aTransactionToMerge,
+                                     bool* aInterrupt)
 {
   *aInterrupt = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsComposerCommandsUpdater::DidMerge(nsITransactionManager *aManager,
-                                    nsITransaction *aTopTransaction,
-                                    nsITransaction *aTransactionToMerge,
-                                    bool aDidMerge, nsresult aMergeResult)
+nsComposerCommandsUpdater::DidMerge(nsITransactionManager* aManager,
+                                    nsITransaction* aTopTransaction,
+                                    nsITransaction* aTransactionToMerge,
+                                    bool aDidMerge,
+                                    nsresult aMergeResult)
 {
   return NS_OK;
 }
@@ -225,7 +231,8 @@ nsresult
 nsComposerCommandsUpdater::PrimeUpdateTimer()
 {
   if (!mUpdateTimer) {
-    mUpdateTimer = NS_NewTimer();;
+    mUpdateTimer = NS_NewTimer();
+    ;
     NS_ENSURE_TRUE(mUpdateTimer, NS_ERROR_OUT_OF_MEMORY);
   }
 
@@ -235,8 +242,8 @@ nsComposerCommandsUpdater::PrimeUpdateTimer()
                                         nsITimer::TYPE_ONE_SHOT);
 }
 
-
-void nsComposerCommandsUpdater::TimerCallback()
+void
+nsComposerCommandsUpdater::TimerCallback()
 {
   // if the selection state has changed, update stuff
   bool isCollapsed = SelectionIsCollapsed();
@@ -267,7 +274,6 @@ nsComposerCommandsUpdater::UpdateCommandGroup(const nsAString& aCommandGroup)
 {
   nsCOMPtr<nsPICommandUpdater> commandUpdater = GetCommandUpdater();
   NS_ENSURE_TRUE(commandUpdater, NS_ERROR_FAILURE);
-
 
   // This hardcoded list of commands is temporary.
   // This code should use nsIControllerCommandGroup.
@@ -320,7 +326,7 @@ nsComposerCommandsUpdater::UpdateCommandGroup(const nsAString& aCommandGroup)
 }
 
 nsresult
-nsComposerCommandsUpdater::UpdateOneCommand(const char *aCommand)
+nsComposerCommandsUpdater::UpdateOneCommand(const char* aCommand)
 {
   nsCOMPtr<nsPICommandUpdater> commandUpdater = GetCommandUpdater();
   NS_ENSURE_TRUE(commandUpdater, NS_ERROR_FAILURE);
@@ -366,7 +372,7 @@ nsComposerCommandsUpdater::GetName(nsACString& aName)
 #endif
 
 nsresult
-nsComposerCommandsUpdater::Notify(nsITimer *timer)
+nsComposerCommandsUpdater::Notify(nsITimer* timer)
 {
   NS_ASSERTION(timer == mUpdateTimer.get(), "Hey, this ain't my timer!");
   TimerCallback();
@@ -376,7 +382,6 @@ nsComposerCommandsUpdater::Notify(nsITimer *timer)
 #if 0
 #pragma mark -
 #endif
-
 
 nsresult
 NS_NewComposerCommandsUpdater(nsISelectionListener** aInstancePtrResult)

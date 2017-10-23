@@ -13,7 +13,8 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGAnimateTransformElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGAnimateTransformElement::WrapNode(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto)
 {
   return SVGAnimateTransformElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -21,8 +22,9 @@ SVGAnimateTransformElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGive
 //----------------------------------------------------------------------
 // Implementation
 
-SVGAnimateTransformElement::SVGAnimateTransformElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGAnimationElement(aNodeInfo)
+SVGAnimateTransformElement::SVGAnimateTransformElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGAnimationElement(aNodeInfo)
 {
 }
 
@@ -37,19 +39,16 @@ SVGAnimateTransformElement::ParseAttribute(int32_t aNamespaceID,
   if (aNamespaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::type) {
     aResult.ParseAtom(aValue);
     nsAtom* atom = aResult.GetAtomValue();
-    if (atom != nsGkAtoms::translate &&
-        atom != nsGkAtoms::scale &&
-        atom != nsGkAtoms::rotate &&
-        atom != nsGkAtoms::skewX &&
+    if (atom != nsGkAtoms::translate && atom != nsGkAtoms::scale &&
+        atom != nsGkAtoms::rotate && atom != nsGkAtoms::skewX &&
         atom != nsGkAtoms::skewY) {
       ReportAttributeParseFailure(OwnerDoc(), aAttribute, aValue);
     }
     return true;
   }
 
-  return SVGAnimationElement::ParseAttribute(aNamespaceID,
-                                             aAttribute, aValue,
-                                             aResult);
+  return SVGAnimationElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 //----------------------------------------------------------------------
@@ -65,6 +64,5 @@ SVGAnimateTransformElement::AnimationFunction()
   return mAnimationFunction;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

@@ -4,7 +4,7 @@
 
 #include "TestNestedLoops.h"
 
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 
 namespace mozilla {
 namespace _ipdltest {
@@ -14,59 +14,57 @@ namespace _ipdltest {
 
 TestNestedLoopsParent::TestNestedLoopsParent() : mBreakNestedLoop(false)
 {
-    MOZ_COUNT_CTOR(TestNestedLoopsParent);
+  MOZ_COUNT_CTOR(TestNestedLoopsParent);
 }
 
 TestNestedLoopsParent::~TestNestedLoopsParent()
 {
-    MOZ_COUNT_DTOR(TestNestedLoopsParent);
+  MOZ_COUNT_DTOR(TestNestedLoopsParent);
 }
 
 void
 TestNestedLoopsParent::Main()
 {
-    if (!SendStart())
-        fail("sending Start");
+  if (!SendStart()) fail("sending Start");
 
-    // sigh ... spin for a while to let Nonce arrive
-    puts(" (sleeping to wait for nonce ... sorry)");
-    PR_Sleep(5000);
+  // sigh ... spin for a while to let Nonce arrive
+  puts(" (sleeping to wait for nonce ... sorry)");
+  PR_Sleep(5000);
 
-    // while waiting for the reply to R, we'll receive Nonce
-    if (!CallR())
-        fail("calling R");
+  // while waiting for the reply to R, we'll receive Nonce
+  if (!CallR()) fail("calling R");
 
-    Close();
+  Close();
 }
 
 mozilla::ipc::IPCResult
 TestNestedLoopsParent::RecvNonce()
 {
-    // if we have an OnMaybeDequeueOne waiting for us (we may not, due
-    // to the inherent race condition in this test, then this event
-    // must be ordered after it in the queue
-    MessageLoop::current()->PostTask(NewNonOwningRunnableMethod(
+  // if we have an OnMaybeDequeueOne waiting for us (we may not, due
+  // to the inherent race condition in this test, then this event
+  // must be ordered after it in the queue
+  MessageLoop::current()->PostTask(NewNonOwningRunnableMethod(
       "_ipdltest::TestNestedLoopsParent::BreakNestedLoop",
       this,
       &TestNestedLoopsParent::BreakNestedLoop));
 
-    // sigh ... spin for a while to let the reply to R arrive
-    puts(" (sleeping to wait for reply to R ... sorry)");
-    PR_Sleep(5000);
+  // sigh ... spin for a while to let the reply to R arrive
+  puts(" (sleeping to wait for reply to R ... sorry)");
+  PR_Sleep(5000);
 
-    // sigh ... we have no idea when code might do this
-    do {
-        if (!NS_ProcessNextEvent(nullptr, false))
-            fail("expected at least one pending event");
-    } while (!mBreakNestedLoop);
+  // sigh ... we have no idea when code might do this
+  do {
+    if (!NS_ProcessNextEvent(nullptr, false))
+      fail("expected at least one pending event");
+  } while (!mBreakNestedLoop);
 
-    return IPC_OK();
+  return IPC_OK();
 }
 
 void
 TestNestedLoopsParent::BreakNestedLoop()
 {
-    mBreakNestedLoop = true;
+  mBreakNestedLoop = true;
 }
 
 //-----------------------------------------------------------------------------
@@ -74,27 +72,26 @@ TestNestedLoopsParent::BreakNestedLoop()
 
 TestNestedLoopsChild::TestNestedLoopsChild()
 {
-    MOZ_COUNT_CTOR(TestNestedLoopsChild);
+  MOZ_COUNT_CTOR(TestNestedLoopsChild);
 }
 
 TestNestedLoopsChild::~TestNestedLoopsChild()
 {
-    MOZ_COUNT_DTOR(TestNestedLoopsChild);
+  MOZ_COUNT_DTOR(TestNestedLoopsChild);
 }
 
 mozilla::ipc::IPCResult
 TestNestedLoopsChild::RecvStart()
 {
-    if (!SendNonce())
-        fail("sending Nonce");
-    return IPC_OK();
+  if (!SendNonce()) fail("sending Nonce");
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestNestedLoopsChild::AnswerR()
 {
-    return IPC_OK();
+  return IPC_OK();
 }
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

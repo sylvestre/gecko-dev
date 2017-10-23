@@ -5,18 +5,20 @@
 /* A handy class that will allocate data for size*T objects on the stack and
  * otherwise allocate them on the heap. It is similar in purpose to AutoTArray */
 
-template <class T, size_t size>
+template<class T, size_t size>
 class StackArray
 {
-public:
-  explicit StackArray(size_t count) {
+ public:
+  explicit StackArray(size_t count)
+  {
     if (count > size) {
       mData = new T[count];
     } else {
       mData = mStackData;
     }
   }
-  ~StackArray() {
+  ~StackArray()
+  {
     if (mData != mStackData) {
       delete[] mData;
     }
@@ -24,7 +26,8 @@ public:
   T& operator[](size_t n) { return mData[n]; }
   const T& operator[](size_t n) const { return mData[n]; }
   T* data() { return mData; };
-private:
+
+ private:
   T mStackData[size];
   T* mData;
 };

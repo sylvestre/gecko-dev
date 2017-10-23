@@ -14,15 +14,17 @@ namespace mozilla {
 
 namespace gfx {
 // See VRManagerChild.cpp
-void ReleaseVRManagerParentSingleton();
-} // namespace gfx
+void
+ReleaseVRManagerParentSingleton();
+}  // namespace gfx
 
 namespace layers {
 
 static StaticRefPtr<CompositorThreadHolder> sCompositorThreadHolder;
 static bool sFinishedCompositorShutDown = false;
 
-CompositorThreadHolder* GetCompositorThreadHolder()
+CompositorThreadHolder*
+GetCompositorThreadHolder()
 {
   return sCompositorThreadHolder;
 }
@@ -31,8 +33,8 @@ base::Thread*
 CompositorThread()
 {
   return sCompositorThreadHolder
-         ? sCompositorThreadHolder->GetCompositorThread()
-         : nullptr;
+             ? sCompositorThreadHolder->GetCompositorThread()
+             : nullptr;
 }
 
 /* static */ MessageLoop*
@@ -48,7 +50,7 @@ CompositorThreadHolder::GetSingleton()
 }
 
 CompositorThreadHolder::CompositorThreadHolder()
-  : mCompositorThread(CreateCompositorThread())
+    : mCompositorThread(CreateCompositorThread())
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
@@ -65,7 +67,8 @@ CompositorThreadHolder::DestroyCompositorThread(base::Thread* aCompositorThread)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  MOZ_ASSERT(!sCompositorThreadHolder, "We shouldn't be destroying the compositor thread yet.");
+  MOZ_ASSERT(!sCompositorThreadHolder,
+             "We shouldn't be destroying the compositor thread yet.");
 
   CompositorBridgeParent::Shutdown();
   delete aCompositorThread;
@@ -77,7 +80,8 @@ CompositorThreadHolder::CreateCompositorThread()
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  MOZ_ASSERT(!sCompositorThreadHolder, "The compositor thread has already been started!");
+  MOZ_ASSERT(!sCompositorThreadHolder,
+             "The compositor thread has already been started!");
 
   base::Thread* compositorThread = new base::Thread("Compositor");
 
@@ -85,11 +89,11 @@ CompositorThreadHolder::CreateCompositorThread()
   /* Timeout values are powers-of-two to enable us get better data.
      128ms is chosen for transient hangs because 8Hz should be the minimally
      acceptable goal for Compositor responsiveness (normal goal is 60Hz). */
-  options.transient_hang_timeout = 128; // milliseconds
+  options.transient_hang_timeout = 128;  // milliseconds
   /* 2048ms is chosen for permanent hangs because it's longer than most
    * Compositor hangs seen in the wild, but is short enough to not miss getting
    * native hang stacks. */
-  options.permanent_hang_timeout = 2048; // milliseconds
+  options.permanent_hang_timeout = 2048;  // milliseconds
 #if defined(_WIN32)
   /* With d3d9 the compositor thread creates native ui, see DeviceManagerD3D9. As
    * such the thread is a gui thread, and must process a windows message queue or
@@ -112,7 +116,8 @@ void
 CompositorThreadHolder::Start()
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on the main Thread!");
-  MOZ_ASSERT(!sCompositorThreadHolder, "The compositor thread has already been started!");
+  MOZ_ASSERT(!sCompositorThreadHolder,
+             "The compositor thread has already been started!");
 
   sCompositorThreadHolder = new CompositorThreadHolder();
 }
@@ -121,7 +126,8 @@ void
 CompositorThreadHolder::Shutdown()
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on the main Thread!");
-  MOZ_ASSERT(sCompositorThreadHolder, "The compositor thread has already been shut down!");
+  MOZ_ASSERT(sCompositorThreadHolder,
+             "The compositor thread has already been shut down!");
 
   ImageBridgeParent::Shutdown();
   gfx::ReleaseVRManagerParentSingleton();
@@ -144,8 +150,8 @@ CompositorThreadHolder::IsInCompositorThread()
          CompositorThread()->thread_id() == PlatformThread::CurrentId();
 }
 
-} // namespace mozilla
-} // namespace layers
+}  // namespace layers
+}  // namespace mozilla
 
 bool
 NS_IsInCompositorThread()

@@ -44,7 +44,8 @@ extern bool gStarted;
 /**
  * Check if the TaskTracer has been started.
  */
-inline bool IsStartLogging()
+inline bool
+IsStartLogging()
 {
   // |gStarted| is not an atomic variable, but it is fine for it is a
   // boolean value and will be changed under the protection of
@@ -59,11 +60,13 @@ inline bool IsStartLogging()
   return gStarted;
 }
 
-enum {
+enum
+{
   FORKED_AFTER_NUWA = 1 << 0
 };
 
-enum SourceEventType {
+enum SourceEventType
+{
 #define SOURCE_EVENT_NAME(x) x,
 #include "SourceEventTypeMap.h"
 #undef SOURCE_EVENT_NAME
@@ -74,7 +77,8 @@ class AutoSaveCurTraceInfoImpl
   uint64_t mSavedTaskId;
   uint64_t mSavedSourceEventId;
   SourceEventType mSavedSourceEventType;
-public:
+
+ public:
   AutoSaveCurTraceInfoImpl();
   ~AutoSaveCurTraceInfoImpl();
 };
@@ -82,8 +86,10 @@ public:
 class AutoSaveCurTraceInfo
 {
   Maybe<AutoSaveCurTraceInfoImpl> mSaved;
-public:
-  AutoSaveCurTraceInfo() {
+
+ public:
+  AutoSaveCurTraceInfo()
+  {
     if (IsStartLogging()) {
       mSaved.emplace();
     }
@@ -95,38 +101,45 @@ public:
    * It means that TaskTrace had been enabled when the instance was
    * created.
    */
-  bool HasSavedTraceInfo() {
-    return !!mSaved;
-  }
+  bool HasSavedTraceInfo() { return !!mSaved; }
 };
 
 class AutoSourceEvent : public AutoSaveCurTraceInfo
 {
   void StartScope(SourceEventType aType);
   void StopScope();
-public:
-  explicit AutoSourceEvent(SourceEventType aType) : AutoSaveCurTraceInfo() {
+
+ public:
+  explicit AutoSourceEvent(SourceEventType aType) : AutoSaveCurTraceInfo()
+  {
     if (HasSavedTraceInfo()) {
       StartScope(aType);
     }
   }
 
-  ~AutoSourceEvent() {
+  ~AutoSourceEvent()
+  {
     if (HasSavedTraceInfo()) {
       StopScope();
     }
   }
 };
 
-void InitTaskTracer(uint32_t aFlags = 0);
-void ShutdownTaskTracer();
+void
+InitTaskTracer(uint32_t aFlags = 0);
+void
+ShutdownTaskTracer();
 
-void DoAddLabel(const char* aFormat, va_list& aArgs);
+void
+DoAddLabel(const char* aFormat, va_list& aArgs);
 
 // Add a label to the currently running task, aFormat is the message to log,
 // followed by corresponding parameters.
-inline void AddLabel(const char* aFormat, ...) MOZ_FORMAT_PRINTF(1, 2);
-inline void AddLabel(const char* aFormat, ...) {
+inline void
+AddLabel(const char* aFormat, ...) MOZ_FORMAT_PRINTF(1, 2);
+inline void
+AddLabel(const char* aFormat, ...)
+{
   if (IsStartLogging()) {
     va_list args;
     va_start(args, aFormat);
@@ -135,12 +148,16 @@ inline void AddLabel(const char* aFormat, ...) {
   }
 }
 
-void StartLogging();
-void StopLogging();
-UniquePtr<nsTArray<nsCString>> GetLoggedData(TimeStamp aStartTime);
+void
+StartLogging();
+void
+StopLogging();
+UniquePtr<nsTArray<nsCString>>
+GetLoggedData(TimeStamp aStartTime);
 
 // Returns the timestamp when Task Tracer is enabled in this process.
-PRTime GetStartTime();
+PRTime
+GetStartTime();
 
 /**
  * Internal functions.
@@ -152,19 +169,23 @@ CreateTracedRunnable(already_AddRefed<nsIRunnable>&& aRunnable);
 // Free the TraceInfo allocated on a thread's TLS. Currently we are wrapping
 // tasks running on nsThreads and base::thread, so FreeTraceInfo is called at
 // where nsThread and base::thread release themselves.
-void FreeTraceInfo();
+void
+FreeTraceInfo();
 
-const char* GetJSLabelPrefix();
+const char*
+GetJSLabelPrefix();
 
-void GetCurTraceInfo(uint64_t* aOutSourceEventId, uint64_t* aOutParentTaskId,
-                     SourceEventType* aOutSourceEventType);
+void
+GetCurTraceInfo(uint64_t* aOutSourceEventId,
+                uint64_t* aOutParentTaskId,
+                SourceEventType* aOutSourceEventType);
 
 class AutoScopedLabel
 {
   char* mLabel;
   void Init(const char* aFormat, va_list& aArgs);
 
-public:
+ public:
   explicit AutoScopedLabel(const char* aFormat, ...) : mLabel(nullptr)
   {
     if (IsStartLogging()) {
@@ -184,7 +205,7 @@ public:
   }
 };
 
-} // namespace tasktracer
-} // namespace mozilla.
+}  // namespace tasktracer
+}  // namespace mozilla.
 
 #endif

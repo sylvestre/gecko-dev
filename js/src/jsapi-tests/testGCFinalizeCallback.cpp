@@ -8,8 +8,7 @@ static const unsigned BufferSize = 20;
 static unsigned FinalizeCalls = 0;
 static JSFinalizeStatus StatusBuffer[BufferSize];
 
-BEGIN_TEST(testGCFinalizeCallback)
-{
+BEGIN_TEST(testGCFinalizeCallback) {
     JS_SetGCParameter(cx, JSGC_MODE, JSGC_MODE_INCREMENTAL);
 
     /* Full GC, non-incremental. */
@@ -108,8 +107,7 @@ BEGIN_TEST(testGCFinalizeCallback)
     JS::RootedObject global4(cx, createTestGlobal());
     budget = js::SliceBudget(js::WorkBudget(1));
     cx->runtime()->gc.debugGCSlice(budget);
-    while (cx->runtime()->gc.isIncrementalGCInProgress())
-        cx->runtime()->gc.debugGCSlice(budget);
+    while (cx->runtime()->gc.isIncrementalGCInProgress()) cx->runtime()->gc.debugGCSlice(budget);
     CHECK(!cx->runtime()->gc.isIncrementalGCInProgress());
     CHECK(!cx->runtime()->gc.isFullGc());
     CHECK(checkMultipleGroups());
@@ -131,44 +129,37 @@ BEGIN_TEST(testGCFinalizeCallback)
     return true;
 }
 
-JSObject* createTestGlobal()
-{
+JSObject* createTestGlobal() {
     JS::CompartmentOptions options;
     return JS_NewGlobalObject(cx, getGlobalClass(), nullptr, JS::FireOnNewGlobalHook, options);
 }
 
-virtual bool init() override
-{
-    if (!JSAPITest::init())
-        return false;
+virtual bool init() override {
+    if (!JSAPITest::init()) return false;
 
     JS_AddFinalizeCallback(cx, FinalizeCallback, nullptr);
     return true;
 }
 
-virtual void uninit() override
-{
+virtual void uninit() override {
     JS_RemoveFinalizeCallback(cx, FinalizeCallback);
     JSAPITest::uninit();
 }
 
-bool checkSingleGroup()
-{
+bool checkSingleGroup() {
     CHECK(FinalizeCalls < BufferSize);
     CHECK(FinalizeCalls == 4);
     return true;
 }
 
-bool checkMultipleGroups()
-{
+bool checkMultipleGroups() {
     CHECK(FinalizeCalls < BufferSize);
     CHECK(FinalizeCalls % 3 == 1);
     CHECK((FinalizeCalls - 1) / 3 > 1);
     return true;
 }
 
-bool checkFinalizeStatus()
-{
+bool checkFinalizeStatus() {
     /*
      * The finalize callback should be called twice for each sweep group
      * finalized, with status JSFINALIZE_GROUP_START and JSFINALIZE_GROUP_END,
@@ -186,11 +177,8 @@ bool checkFinalizeStatus()
     return true;
 }
 
-static void
-FinalizeCallback(JSFreeOp* fop, JSFinalizeStatus status, void* data)
-{
-    if (FinalizeCalls < BufferSize)
-        StatusBuffer[FinalizeCalls] = status;
+static void FinalizeCallback(JSFreeOp* fop, JSFinalizeStatus status, void* data) {
+    if (FinalizeCalls < BufferSize) StatusBuffer[FinalizeCalls] = status;
     ++FinalizeCalls;
 }
 END_TEST(testGCFinalizeCallback)

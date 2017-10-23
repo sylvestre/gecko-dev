@@ -28,34 +28,32 @@ namespace dom {
 UIEvent::UIEvent(EventTarget* aOwner,
                  nsPresContext* aPresContext,
                  WidgetGUIEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent : new InternalUIEvent(false, eVoidEvent, nullptr))
-  , mClientPoint(0, 0)
-  , mLayerPoint(0, 0)
-  , mPagePoint(0, 0)
-  , mMovementPoint(0, 0)
-  , mIsPointerLocked(EventStateManager::sIsPointerLocked)
-  , mLastClientPoint(EventStateManager::sLastClientPoint)
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent : new InternalUIEvent(false, eVoidEvent, nullptr)),
+      mClientPoint(0, 0),
+      mLayerPoint(0, 0),
+      mPagePoint(0, 0),
+      mMovementPoint(0, 0),
+      mIsPointerLocked(EventStateManager::sIsPointerLocked),
+      mLastClientPoint(EventStateManager::sLastClientPoint)
 {
   if (aEvent) {
     mEventIsInternal = false;
-  }
-  else {
+  } else {
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
   }
 
   // Fill mDetail and mView according to the mEvent (widget-generated
   // event) we've got
-  switch(mEvent->mClass) {
-    case eUIEventClass:
-    {
+  switch (mEvent->mClass) {
+    case eUIEventClass: {
       mDetail = mEvent->AsUIEvent()->mDetail;
       break;
     }
 
-    case eScrollPortEventClass:
-    {
+    case eScrollPortEventClass: {
       InternalScrollPortEvent* scrollEvent = mEvent->AsScrollPortEvent();
       mDetail = static_cast<int32_t>(scrollEvent->mOrient);
       break;
@@ -67,12 +65,10 @@ UIEvent::UIEvent(EventTarget* aOwner,
   }
 
   mView = nullptr;
-  if (mPresContext)
-  {
+  if (mPresContext) {
     nsIDocShell* docShell = mPresContext->GetDocShell();
-    if (docShell)
-    {
-       mView = docShell->GetWindow();
+    if (docShell) {
+      mView = docShell->GetWindow();
     }
   }
 }
@@ -87,15 +83,14 @@ UIEvent::Constructor(const GlobalObject& aGlobal,
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<UIEvent> e = new UIEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
-  e->InitUIEvent(aType, aParam.mBubbles, aParam.mCancelable, aParam.mView,
-                 aParam.mDetail);
+  e->InitUIEvent(
+      aType, aParam.mBubbles, aParam.mCancelable, aParam.mView, aParam.mDetail);
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(UIEvent, Event,
-                                   mView)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(UIEvent, Event, mView)
 
 NS_IMPL_ADDREF_INHERITED(UIEvent, Event)
 NS_IMPL_RELEASE_INHERITED(UIEvent, Event)
@@ -174,8 +169,8 @@ UIEvent::InitUIEvent(const nsAString& typeArg,
   Event::InitEvent(typeArg, canBubbleArg, cancelableArg);
 
   mDetail = detailArg;
-  mView = viewArg ? nsPIDOMWindowInner::From(viewArg)->GetOuterWindow() :
-                    nullptr;
+  mView =
+      viewArg ? nsPIDOMWindowInner::From(viewArg)->GetOuterWindow() : nullptr;
 
   return NS_OK;
 }
@@ -199,8 +194,9 @@ UIEvent::PageX() const
     return mPagePoint.x;
   }
 
-  return Event::GetPageCoords(mPresContext, mEvent, mEvent->mRefPoint,
-                              mClientPoint).x;
+  return Event::GetPageCoords(
+             mPresContext, mEvent, mEvent->mRefPoint, mClientPoint)
+      .x;
 }
 
 NS_IMETHODIMP
@@ -222,8 +218,9 @@ UIEvent::PageY() const
     return mPagePoint.y;
   }
 
-  return Event::GetPageCoords(mPresContext, mEvent, mEvent->mRefPoint,
-                              mClientPoint).y;
+  return Event::GetPageCoords(
+             mPresContext, mEvent, mEvent->mRefPoint, mClientPoint)
+      .y;
 }
 
 NS_IMETHODIMP
@@ -248,9 +245,10 @@ UIEvent::GetRangeParent()
   }
 
   if (targetFrame) {
-    nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent,
-                                                              targetFrame);
-    nsCOMPtr<nsIContent> parent = targetFrame->GetContentOffsetsFromPoint(pt).content;
+    nsPoint pt =
+        nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent, targetFrame);
+    nsCOMPtr<nsIContent> parent =
+        targetFrame->GetContentOffsetsFromPoint(pt).content;
     if (parent) {
       if (parent->ChromeOnlyAccess() &&
           !nsContentUtils::CanAccessNativeAnon()) {
@@ -302,8 +300,8 @@ UIEvent::RangeOffset() const
     return 0;
   }
 
-  nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent,
-                                                            targetFrame);
+  nsPoint pt =
+      nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent, targetFrame);
   return targetFrame->GetContentOffsetsFromPoint(pt).offset;
 }
 
@@ -322,14 +320,12 @@ UIEvent::GetLayerPoint() const
        mEvent->mClass != eTouchEventClass &&
        mEvent->mClass != eDragEventClass &&
        mEvent->mClass != eSimpleGestureEventClass) ||
-      !mPresContext ||
-      mEventIsInternal) {
+      !mPresContext || mEventIsInternal) {
     return mLayerPoint;
   }
   // XXX I'm not really sure this is correct; it's my best shot, though
   nsIFrame* targetFrame = mPresContext->EventStateManager()->GetEventTarget();
-  if (!targetFrame)
-    return mLayerPoint;
+  if (!targetFrame) return mLayerPoint;
   nsIFrame* layer = nsLayoutUtils::GetClosestLayer(targetFrame);
   nsPoint pt(nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent, layer));
   return nsIntPoint(nsPresContext::AppUnitsToIntCSSPixels(pt.x),
@@ -361,20 +357,20 @@ UIEvent::AsEvent(void)
 NS_IMETHODIMP
 UIEvent::DuplicatePrivateData()
 {
-  mClientPoint =
-    Event::GetClientCoords(mPresContext, mEvent, mEvent->mRefPoint,
-                           mClientPoint);
+  mClientPoint = Event::GetClientCoords(
+      mPresContext, mEvent, mEvent->mRefPoint, mClientPoint);
   mMovementPoint = GetMovementPoint();
   mLayerPoint = GetLayerPoint();
-  mPagePoint =
-    Event::GetPageCoords(mPresContext, mEvent, mEvent->mRefPoint, mClientPoint);
+  mPagePoint = Event::GetPageCoords(
+      mPresContext, mEvent, mEvent->mRefPoint, mClientPoint);
   // GetScreenPoint converts mEvent->mRefPoint to right coordinates.
   CSSIntPoint screenPoint =
-    Event::GetScreenCoords(mPresContext, mEvent, mEvent->mRefPoint);
+      Event::GetScreenCoords(mPresContext, mEvent, mEvent->mRefPoint);
   nsresult rv = Event::DuplicatePrivateData();
   if (NS_SUCCEEDED(rv)) {
-    CSSToLayoutDeviceScale scale = mPresContext ? mPresContext->CSSToDevPixelScale()
-                                                : CSSToLayoutDeviceScale(1);
+    CSSToLayoutDeviceScale scale = mPresContext
+                                       ? mPresContext->CSSToDevPixelScale()
+                                       : CSSToLayoutDeviceScale(1);
     mEvent->mRefPoint = RoundedToInt(screenPoint * scale);
   }
   return rv;
@@ -411,20 +407,19 @@ struct ModifierPair
   const char* name;
 };
 static const ModifierPair kPairs[] = {
-  { MODIFIER_ALT,        NS_DOM_KEYNAME_ALT },
-  { MODIFIER_ALTGRAPH,   NS_DOM_KEYNAME_ALTGRAPH },
-  { MODIFIER_CAPSLOCK,   NS_DOM_KEYNAME_CAPSLOCK },
-  { MODIFIER_CONTROL,    NS_DOM_KEYNAME_CONTROL },
-  { MODIFIER_FN,         NS_DOM_KEYNAME_FN },
-  { MODIFIER_FNLOCK,     NS_DOM_KEYNAME_FNLOCK },
-  { MODIFIER_META,       NS_DOM_KEYNAME_META },
-  { MODIFIER_NUMLOCK,    NS_DOM_KEYNAME_NUMLOCK },
-  { MODIFIER_SCROLLLOCK, NS_DOM_KEYNAME_SCROLLLOCK },
-  { MODIFIER_SHIFT,      NS_DOM_KEYNAME_SHIFT },
-  { MODIFIER_SYMBOL,     NS_DOM_KEYNAME_SYMBOL },
-  { MODIFIER_SYMBOLLOCK, NS_DOM_KEYNAME_SYMBOLLOCK },
-  { MODIFIER_OS,         NS_DOM_KEYNAME_OS }
-};
+    {MODIFIER_ALT, NS_DOM_KEYNAME_ALT},
+    {MODIFIER_ALTGRAPH, NS_DOM_KEYNAME_ALTGRAPH},
+    {MODIFIER_CAPSLOCK, NS_DOM_KEYNAME_CAPSLOCK},
+    {MODIFIER_CONTROL, NS_DOM_KEYNAME_CONTROL},
+    {MODIFIER_FN, NS_DOM_KEYNAME_FN},
+    {MODIFIER_FNLOCK, NS_DOM_KEYNAME_FNLOCK},
+    {MODIFIER_META, NS_DOM_KEYNAME_META},
+    {MODIFIER_NUMLOCK, NS_DOM_KEYNAME_NUMLOCK},
+    {MODIFIER_SCROLLLOCK, NS_DOM_KEYNAME_SCROLLLOCK},
+    {MODIFIER_SHIFT, NS_DOM_KEYNAME_SHIFT},
+    {MODIFIER_SYMBOL, NS_DOM_KEYNAME_SYMBOL},
+    {MODIFIER_SYMBOLLOCK, NS_DOM_KEYNAME_SYMBOLLOCK},
+    {MODIFIER_OS, NS_DOM_KEYNAME_OS}};
 
 // static
 Modifiers
@@ -483,30 +478,30 @@ UIEvent::InitModifiers(const EventModifierInit& aParam)
 
   inputEvent->mModifiers = MODIFIER_NONE;
 
-#define SET_MODIFIER(aName, aValue) \
-  if (aParam.m##aName) { \
+#define SET_MODIFIER(aName, aValue)   \
+  if (aParam.m##aName) {              \
     inputEvent->mModifiers |= aValue; \
-  } \
+  }
 
-  SET_MODIFIER(CtrlKey,                 MODIFIER_CONTROL)
-  SET_MODIFIER(ShiftKey,                MODIFIER_SHIFT)
-  SET_MODIFIER(AltKey,                  MODIFIER_ALT)
-  SET_MODIFIER(MetaKey,                 MODIFIER_META)
-  SET_MODIFIER(ModifierAltGraph,        MODIFIER_ALTGRAPH)
-  SET_MODIFIER(ModifierCapsLock,        MODIFIER_CAPSLOCK)
-  SET_MODIFIER(ModifierFn,              MODIFIER_FN)
-  SET_MODIFIER(ModifierFnLock,          MODIFIER_FNLOCK)
-  SET_MODIFIER(ModifierNumLock,         MODIFIER_NUMLOCK)
-  SET_MODIFIER(ModifierOS,              MODIFIER_OS)
-  SET_MODIFIER(ModifierScrollLock,      MODIFIER_SCROLLLOCK)
-  SET_MODIFIER(ModifierSymbol,          MODIFIER_SYMBOL)
-  SET_MODIFIER(ModifierSymbolLock,      MODIFIER_SYMBOLLOCK)
+  SET_MODIFIER(CtrlKey, MODIFIER_CONTROL)
+  SET_MODIFIER(ShiftKey, MODIFIER_SHIFT)
+  SET_MODIFIER(AltKey, MODIFIER_ALT)
+  SET_MODIFIER(MetaKey, MODIFIER_META)
+  SET_MODIFIER(ModifierAltGraph, MODIFIER_ALTGRAPH)
+  SET_MODIFIER(ModifierCapsLock, MODIFIER_CAPSLOCK)
+  SET_MODIFIER(ModifierFn, MODIFIER_FN)
+  SET_MODIFIER(ModifierFnLock, MODIFIER_FNLOCK)
+  SET_MODIFIER(ModifierNumLock, MODIFIER_NUMLOCK)
+  SET_MODIFIER(ModifierOS, MODIFIER_OS)
+  SET_MODIFIER(ModifierScrollLock, MODIFIER_SCROLLLOCK)
+  SET_MODIFIER(ModifierSymbol, MODIFIER_SYMBOL)
+  SET_MODIFIER(ModifierSymbolLock, MODIFIER_SYMBOLLOCK)
 
 #undef SET_MODIFIER
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

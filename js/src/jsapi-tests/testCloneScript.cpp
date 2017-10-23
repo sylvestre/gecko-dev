@@ -10,8 +10,7 @@
 #include "jsfriendapi.h"
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(test_cloneScript)
-{
+BEGIN_TEST(test_cloneScript) {
     JS::RootedObject A(cx, createGlobal());
     JS::RootedObject B(cx, createGlobal());
 
@@ -36,8 +35,8 @@ BEGIN_TEST(test_cloneScript)
         JS::CompileOptions options(cx);
         options.setFileAndLine(__FILE__, 1);
         JS::AutoObjectVector emptyScopeChain(cx);
-        CHECK(JS::CompileFunction(cx, emptyScopeChain, options, "f", 0, nullptr,
-                                  source, strlen(source), &fun));
+        CHECK(JS::CompileFunction(cx, emptyScopeChain, options, "f", 0, nullptr, source,
+                                  strlen(source), &fun));
         CHECK(obj = JS_GetFunctionObject(fun));
     }
 
@@ -51,13 +50,9 @@ BEGIN_TEST(test_cloneScript)
 }
 END_TEST(test_cloneScript)
 
-struct Principals final : public JSPrincipals
-{
-  public:
-    Principals()
-    {
-        refcount = 0;
-    }
+struct Principals final : public JSPrincipals {
+   public:
+    Principals() { refcount = 0; }
 
     bool write(JSContext* cx, JSStructuredCloneWriter* writer) override {
         MOZ_ASSERT(false, "not imlemented");
@@ -65,33 +60,24 @@ struct Principals final : public JSPrincipals
     }
 };
 
-class AutoDropPrincipals
-{
+class AutoDropPrincipals {
     JSContext* cx;
     JSPrincipals* principals;
 
-  public:
-    AutoDropPrincipals(JSContext* cx, JSPrincipals* principals)
-      : cx(cx), principals(principals)
-    {
+   public:
+    AutoDropPrincipals(JSContext* cx, JSPrincipals* principals) : cx(cx), principals(principals) {
         JS_HoldPrincipals(principals);
     }
 
-    ~AutoDropPrincipals()
-    {
-        JS_DropPrincipals(cx, principals);
-    }
+    ~AutoDropPrincipals() { JS_DropPrincipals(cx, principals); }
 };
 
-static void
-DestroyPrincipals(JSPrincipals* principals)
-{
+static void DestroyPrincipals(JSPrincipals* principals) {
     auto p = static_cast<Principals*>(principals);
     delete p;
 }
 
-BEGIN_TEST(test_cloneScriptWithPrincipals)
-{
+BEGIN_TEST(test_cloneScriptWithPrincipals) {
     JS_InitDestroyPrincipalsCallback(cx, DestroyPrincipals);
 
     JSPrincipals* principalsA = new Principals();
@@ -105,7 +91,7 @@ BEGIN_TEST(test_cloneScriptWithPrincipals)
     CHECK(A);
     CHECK(B);
 
-    const char* argnames[] = { "arg" };
+    const char* argnames[] = {"arg"};
     const char* source = "return function() { return arg; }";
 
     JS::RootedObject obj(cx);
@@ -117,9 +103,8 @@ BEGIN_TEST(test_cloneScriptWithPrincipals)
         options.setFileAndLine(__FILE__, 1);
         JS::RootedFunction fun(cx);
         JS::AutoObjectVector emptyScopeChain(cx);
-        JS::CompileFunction(cx, emptyScopeChain, options, "f",
-                           mozilla::ArrayLength(argnames), argnames, source,
-                           strlen(source), &fun);
+        JS::CompileFunction(cx, emptyScopeChain, options, "f", mozilla::ArrayLength(argnames),
+                            argnames, source, strlen(source), &fun);
         CHECK(fun);
 
         JSScript* script;

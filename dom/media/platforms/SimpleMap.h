@@ -13,10 +13,10 @@ namespace mozilla {
 template<typename T>
 class SimpleMap
 {
-public:
+ public:
   typedef Pair<int64_t, T> Element;
 
-  SimpleMap() : mMutex("SimpleMap") { }
+  SimpleMap() : mMutex("SimpleMap") {}
 
   // Insert Key and Value pair at the end of our map.
   void Insert(int64_t aKey, const T& aValue)
@@ -47,11 +47,11 @@ public:
     mMap.Clear();
   }
 
-private:
-  Mutex mMutex; // To protect mMap.
+ private:
+  Mutex mMutex;  // To protect mMap.
   AutoTArray<Element, 16> mMap;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SimpleMap_h
+#endif  // mozilla_SimpleMap_h

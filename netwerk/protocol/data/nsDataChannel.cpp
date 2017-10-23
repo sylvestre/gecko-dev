@@ -18,74 +18,74 @@
 using namespace mozilla;
 
 nsresult
-nsDataChannel::OpenContentStream(bool async, nsIInputStream **result,
+nsDataChannel::OpenContentStream(bool async,
+                                 nsIInputStream** result,
                                  nsIChannel** channel)
 {
-    NS_ENSURE_TRUE(URI(), NS_ERROR_NOT_INITIALIZED);
+  NS_ENSURE_TRUE(URI(), NS_ERROR_NOT_INITIALIZED);
 
-    nsresult rv;
+  nsresult rv;
 
-    nsAutoCString spec;
-    rv = URI()->GetAsciiSpec(spec);
-    if (NS_FAILED(rv)) return rv;
+  nsAutoCString spec;
+  rv = URI()->GetAsciiSpec(spec);
+  if (NS_FAILED(rv)) return rv;
 
-    nsCString contentType, contentCharset, dataBuffer;
-    bool lBase64;
-    rv = nsDataHandler::ParseURI(spec, contentType, &contentCharset,
-                                 lBase64, &dataBuffer);
-    if (NS_FAILED(rv))
-        return rv;
+  nsCString contentType, contentCharset, dataBuffer;
+  bool lBase64;
+  rv = nsDataHandler::ParseURI(
+      spec, contentType, &contentCharset, lBase64, &dataBuffer);
+  if (NS_FAILED(rv)) return rv;
 
-    NS_UnescapeURL(dataBuffer);
+  NS_UnescapeURL(dataBuffer);
 
-    if (lBase64) {
-        // Don't allow spaces in base64-encoded content. This is only
-        // relevant for escaped spaces; other spaces are stripped in
-        // NewURI.
-        dataBuffer.StripWhitespace();
-    }
+  if (lBase64) {
+    // Don't allow spaces in base64-encoded content. This is only
+    // relevant for escaped spaces; other spaces are stripped in
+    // NewURI.
+    dataBuffer.StripWhitespace();
+  }
 
-    nsCOMPtr<nsIInputStream> bufInStream;
-    nsCOMPtr<nsIOutputStream> bufOutStream;
+  nsCOMPtr<nsIInputStream> bufInStream;
+  nsCOMPtr<nsIOutputStream> bufOutStream;
 
-    // create an unbounded pipe.
-    rv = NS_NewPipe(getter_AddRefs(bufInStream),
-                    getter_AddRefs(bufOutStream),
-                    nsIOService::gDefaultSegmentSize,
-                    UINT32_MAX,
-                    async, true);
-    if (NS_FAILED(rv))
-        return rv;
+  // create an unbounded pipe.
+  rv = NS_NewPipe(getter_AddRefs(bufInStream),
+                  getter_AddRefs(bufOutStream),
+                  nsIOService::gDefaultSegmentSize,
+                  UINT32_MAX,
+                  async,
+                  true);
+  if (NS_FAILED(rv)) return rv;
 
-    uint32_t contentLen;
-    if (lBase64) {
-        const uint32_t dataLen = dataBuffer.Length();
-        int32_t resultLen = 0;
-        if (dataLen >= 1 && dataBuffer[dataLen-1] == '=') {
-            if (dataLen >= 2 && dataBuffer[dataLen-2] == '=')
-                resultLen = dataLen-2;
-            else
-                resultLen = dataLen-1;
-        } else {
-            resultLen = dataLen;
-        }
-        resultLen = ((resultLen * 3) / 4);
-
-        nsAutoCString decodedData;
-        rv = Base64Decode(dataBuffer, decodedData);
-        NS_ENSURE_SUCCESS(rv, rv);
-        rv = bufOutStream->Write(decodedData.get(), resultLen, &contentLen);
+  uint32_t contentLen;
+  if (lBase64) {
+    const uint32_t dataLen = dataBuffer.Length();
+    int32_t resultLen = 0;
+    if (dataLen >= 1 && dataBuffer[dataLen - 1] == '=') {
+      if (dataLen >= 2 && dataBuffer[dataLen - 2] == '=')
+        resultLen = dataLen - 2;
+      else
+        resultLen = dataLen - 1;
     } else {
-        rv = bufOutStream->Write(dataBuffer.get(), dataBuffer.Length(), &contentLen);
+      resultLen = dataLen;
     }
-    if (NS_FAILED(rv))
-        return rv;
+    resultLen = ((resultLen * 3) / 4);
 
-    SetContentType(contentType);
-    SetContentCharset(contentCharset);
-    mContentLength = contentLen;
+    nsAutoCString decodedData;
+    rv = Base64Decode(dataBuffer, decodedData);
+    NS_ENSURE_SUCCESS(rv, rv);
+    rv = bufOutStream->Write(decodedData.get(), resultLen, &contentLen);
+  } else {
+    rv =
+        bufOutStream->Write(dataBuffer.get(), dataBuffer.Length(), &contentLen);
+  }
+  if (NS_FAILED(rv)) return rv;
 
-    bufInStream.forget(result);
+  SetContentType(contentType);
+  SetContentCharset(contentCharset);
+  mContentLength = contentLen;
 
-    return NS_OK;
+  bufInStream.forget(result);
+
+  return NS_OK;
 }

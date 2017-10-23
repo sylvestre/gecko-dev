@@ -18,13 +18,15 @@
 namespace base {
 namespace win {
 
-class BASE_EXPORT RegKey {
+class BASE_EXPORT RegKey
+{
  public:
-  RegKey() {};
+  RegKey(){};
   RegKey(HKEY rootkey, const wchar_t* subkey, REGSAM access) {}
   ~RegKey() {}
 
-  LONG Open(HKEY rootkey, const wchar_t* subkey, REGSAM access) {
+  LONG Open(HKEY rootkey, const wchar_t* subkey, REGSAM access)
+  {
     return ERROR_CANTOPEN;
   }
 

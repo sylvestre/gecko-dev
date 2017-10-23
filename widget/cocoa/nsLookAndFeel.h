@@ -9,15 +9,16 @@
 
 class nsLookAndFeel final : public nsXPLookAndFeel
 {
-public:
+ public:
   nsLookAndFeel();
   virtual ~nsLookAndFeel();
 
-  virtual nsresult NativeGetColor(ColorID aID, nscolor &aResult);
-  virtual void NativeInit() final {};
-  virtual nsresult GetIntImpl(IntID aID, int32_t &aResult);
-  virtual nsresult GetFloatImpl(FloatID aID, float &aResult);
-  virtual bool GetFontImpl(FontID aID, nsString& aFontName,
+  virtual nsresult NativeGetColor(ColorID aID, nscolor& aResult);
+  virtual void NativeInit() final{};
+  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
+  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
+  virtual bool GetFontImpl(FontID aID,
+                           nsString& aFontName,
                            gfxFontStyle& aFontStyle,
                            float aDevPixPerCSSPixel);
   virtual char16_t GetPasswordCharacterImpl()
@@ -29,15 +30,16 @@ public:
   static bool UseOverlayScrollbars();
 
   virtual nsTArray<LookAndFeelInt> GetIntCacheImpl();
-  virtual void SetIntCacheImpl(const nsTArray<LookAndFeelInt>& aLookAndFeelIntCache);
+  virtual void SetIntCacheImpl(
+      const nsTArray<LookAndFeelInt>& aLookAndFeelIntCache);
 
   virtual void RefreshImpl();
 
-protected:
+ protected:
   static bool SystemWantsOverlayScrollbars();
   static bool AllowOverlayScrollbarsOverlap();
 
-private:
+ private:
   int32_t mUseOverlayScrollbars;
   bool mUseOverlayScrollbarsCached;
 
@@ -45,4 +47,4 @@ private:
   bool mAllowOverlayScrollbarsOverlapCached;
 };
 
-#endif // nsLookAndFeel_h_
+#endif  // nsLookAndFeel_h_

@@ -46,13 +46,16 @@ namespace {
 void
 SendJSWarning(nsIDocument* aDocument,
               const char* aWarningName,
-              const char16_t** aWarningArgs, uint32_t aWarningArgsLen)
+              const char16_t** aWarningArgs,
+              uint32_t aWarningArgsLen)
 {
   nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
-                                  NS_LITERAL_CSTRING("HTML"), aDocument,
+                                  NS_LITERAL_CSTRING("HTML"),
+                                  aDocument,
                                   nsContentUtils::eFORMS_PROPERTIES,
                                   aWarningName,
-                                  aWarningArgs, aWarningArgsLen);
+                                  aWarningArgs,
+                                  aWarningArgsLen);
 }
 
 void
@@ -85,7 +88,7 @@ RetrieveDirectoryName(Directory* aDirectory, nsAString& aDirname)
 
 class FSURLEncoded : public EncodingFormSubmission
 {
-public:
+ public:
   /**
    * @param aEncoding the character encoding of the form
    * @param aMethod the method of the submit (either NS_FORM_METHOD_GET or
@@ -95,28 +98,28 @@ public:
                int32_t aMethod,
                nsIDocument* aDocument,
                nsIContent* aOriginatingElement)
-    : EncodingFormSubmission(aEncoding, aOriginatingElement)
-    , mMethod(aMethod)
-    , mDocument(aDocument)
-    , mWarnedFileControl(false)
+      : EncodingFormSubmission(aEncoding, aOriginatingElement),
+        mMethod(aMethod),
+        mDocument(aDocument),
+        mWarnedFileControl(false)
   {
   }
 
-  virtual nsresult
-  AddNameValuePair(const nsAString& aName, const nsAString& aValue) override;
+  virtual nsresult AddNameValuePair(const nsAString& aName,
+                                    const nsAString& aValue) override;
 
-  virtual nsresult
-  AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob) override;
+  virtual nsresult AddNameBlobOrNullPair(const nsAString& aName,
+                                         Blob* aBlob) override;
 
-  virtual nsresult
-  AddNameDirectoryPair(const nsAString& aName, Directory* aDirectory) override;
+  virtual nsresult AddNameDirectoryPair(const nsAString& aName,
+                                        Directory* aDirectory) override;
 
-  virtual nsresult
-  GetEncodedSubmission(nsIURI* aURI, nsIInputStream** aPostDataStream,
-                       int64_t* aPostDataStreamLength) override;
+  virtual nsresult GetEncodedSubmission(
+      nsIURI* aURI,
+      nsIInputStream** aPostDataStream,
+      int64_t* aPostDataStreamLength) override;
 
-protected:
-
+ protected:
   /**
    * URL encode a Unicode string by encoding it to bytes, converting linebreaks
    * properly, and then escaping many bytes as %xx.
@@ -127,7 +130,7 @@ protected:
    */
   nsresult URLEncode(const nsAString& aStr, nsACString& aEncoded);
 
-private:
+ private:
   /**
    * The method of the submit (either NS_FORM_METHOD_GET or
    * NS_FORM_METHOD_POST).
@@ -145,8 +148,7 @@ private:
 };
 
 nsresult
-FSURLEncoded::AddNameValuePair(const nsAString& aName,
-                               const nsAString& aValue)
+FSURLEncoded::AddNameValuePair(const nsAString& aName, const nsAString& aValue)
 {
   // Encode value
   nsCString convValue;
@@ -158,21 +160,19 @@ FSURLEncoded::AddNameValuePair(const nsAString& aName,
   rv = URLEncode(aName, convName);
   NS_ENSURE_SUCCESS(rv, rv);
 
-
   // Append data to string
   if (mQueryString.IsEmpty()) {
     mQueryString += convName + NS_LITERAL_CSTRING("=") + convValue;
   } else {
-    mQueryString += NS_LITERAL_CSTRING("&") + convName
-                  + NS_LITERAL_CSTRING("=") + convValue;
+    mQueryString += NS_LITERAL_CSTRING("&") + convName +
+                    NS_LITERAL_CSTRING("=") + convValue;
   }
 
   return NS_OK;
 }
 
 nsresult
-FSURLEncoded::AddNameBlobOrNullPair(const nsAString& aName,
-                                    Blob* aBlob)
+FSURLEncoded::AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob)
 {
   if (!mWarnedFileControl) {
     SendJSWarning(mDocument, "ForgotFileEnctypeWarning", nullptr, 0);
@@ -207,8 +207,8 @@ HandleMailtoSubject(nsCString& aPath)
 
     // Get the end of the name at the = op.  If it is *after* the next &,
     // assume that someone made a parameter without an = in it
-    int32_t nameEnd = aPath.FindChar('=', paramSep+1);
-    int32_t nextParamSep = aPath.FindChar('&', paramSep+1);
+    int32_t nameEnd = aPath.FindChar('=', paramSep + 1);
+    int32_t nextParamSep = aPath.FindChar('&', paramSep + 1);
     if (nextParamSep == kNotFound) {
       nextParamSep = aPath.Length();
     }
@@ -220,8 +220,8 @@ HandleMailtoSubject(nsCString& aPath)
     }
 
     if (nameEnd != kNotFound) {
-      if (Substring(aPath, paramSep+1, nameEnd-(paramSep+1)).
-          LowerCaseEqualsLiteral("subject")) {
+      if (Substring(aPath, paramSep + 1, nameEnd - (paramSep + 1))
+              .LowerCaseEqualsLiteral("subject")) {
         hasSubject = true;
         break;
       }
@@ -240,26 +240,24 @@ HandleMailtoSubject(nsCString& aPath)
 
     // Get the default subject
     nsAutoString brandName;
-    nsresult rv =
-      nsContentUtils::GetLocalizedString(nsContentUtils::eBRAND_PROPERTIES,
-                                         "brandShortName", brandName);
-    if (NS_FAILED(rv))
-      return;
-    const char16_t *formatStrings[] = { brandName.get() };
+    nsresult rv = nsContentUtils::GetLocalizedString(
+        nsContentUtils::eBRAND_PROPERTIES, "brandShortName", brandName);
+    if (NS_FAILED(rv)) return;
+    const char16_t* formatStrings[] = {brandName.get()};
     nsAutoString subjectStr;
-    rv = nsContentUtils::FormatLocalizedString(
-                                           nsContentUtils::eFORMS_PROPERTIES,
-                                           "DefaultFormSubject",
-                                           formatStrings,
-                                           subjectStr);
-    if (NS_FAILED(rv))
-      return;
+    rv =
+        nsContentUtils::FormatLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
+                                              "DefaultFormSubject",
+                                              formatStrings,
+                                              subjectStr);
+    if (NS_FAILED(rv)) return;
     aPath.AppendLiteral("subject=");
     nsCString subjectStrEscaped;
-    rv = NS_EscapeURL(NS_ConvertUTF16toUTF8(subjectStr), esc_Query,
-                      subjectStrEscaped, mozilla::fallible);
-    if (NS_FAILED(rv))
-      return;
+    rv = NS_EscapeURL(NS_ConvertUTF16toUTF8(subjectStr),
+                      esc_Query,
+                      subjectStrEscaped,
+                      mozilla::fallible);
+    if (NS_FAILED(rv)) return;
 
     aPath.Append(subjectStrEscaped);
   }
@@ -276,11 +274,9 @@ FSURLEncoded::GetEncodedSubmission(nsIURI* aURI,
   *aPostDataStreamLength = -1;
 
   if (mMethod == NS_FORM_METHOD_POST) {
-
     bool isMailto = false;
     aURI->SchemeIs("mailto", &isMailto);
     if (isMailto) {
-
       nsAutoCString path;
       rv = aURI->GetPathQueryRef(path);
       NS_ENSURE_SUCCESS(rv, rv);
@@ -298,7 +294,6 @@ FSURLEncoded::GetEncodedSubmission(nsIURI* aURI,
       rv = aURI->SetPathQueryRef(path);
 
     } else {
-
       nsCOMPtr<nsIInputStream> dataStream;
       // XXX We *really* need to either get the string to disown its data (and
       // not destroy it), or make a string input stream that owns the CString
@@ -307,7 +302,7 @@ FSURLEncoded::GetEncodedSubmission(nsIURI* aURI,
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsCOMPtr<nsIMIMEInputStream> mimeStream(
-        do_CreateInstance("@mozilla.org/network/mime-input-stream;1", &rv));
+          do_CreateInstance("@mozilla.org/network/mime-input-stream;1", &rv));
       NS_ENSURE_SUCCESS(rv, rv);
 
       mimeStream->AddHeader("Content-Type",
@@ -332,8 +327,7 @@ FSURLEncoded::GetEncodedSubmission(nsIURI* aURI,
     nsCOMPtr<nsIURL> url = do_QueryInterface(aURI);
     if (url) {
       url->SetQuery(mQueryString);
-    }
-    else {
+    } else {
       nsAutoCString path;
       rv = aURI->GetPathQueryRef(path);
       NS_ENSURE_SUCCESS(rv, rv);
@@ -369,12 +363,12 @@ FSURLEncoded::URLEncode(const nsAString& aStr, nsACString& aEncoded)
 {
   // convert to CRLF breaks
   int32_t convertedBufLength = 0;
-  char16_t* convertedBuf =
-    nsLinebreakConverter::ConvertUnicharLineBreaks(aStr.BeginReading(),
-                                                   nsLinebreakConverter::eLinebreakAny,
-                                                   nsLinebreakConverter::eLinebreakNet,
-                                                   aStr.Length(),
-                                                   &convertedBufLength);
+  char16_t* convertedBuf = nsLinebreakConverter::ConvertUnicharLineBreaks(
+      aStr.BeginReading(),
+      nsLinebreakConverter::eLinebreakAny,
+      nsLinebreakConverter::eLinebreakNet,
+      aStr.Length(),
+      &convertedBufLength);
   NS_ENSURE_TRUE(convertedBuf, NS_ERROR_OUT_OF_MEMORY);
 
   nsAutoString convertedString;
@@ -391,16 +385,15 @@ FSURLEncoded::URLEncode(const nsAString& aStr, nsACString& aEncoded)
   return NS_OK;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // --------------------------------------------------------------------------
 
 FSMultipartFormData::FSMultipartFormData(NotNull<const Encoding*> aEncoding,
                                          nsIContent* aOriginatingElement)
-  : EncodingFormSubmission(aEncoding, aOriginatingElement)
+    : EncodingFormSubmission(aEncoding, aOriginatingElement)
 {
-  mPostData =
-    do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
+  mPostData = do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
 
   nsCOMPtr<nsIInputStream> inputStream = do_QueryInterface(mPostData);
   MOZ_ASSERT(SameCOMIdentity(mPostData, inputStream));
@@ -423,8 +416,8 @@ nsIInputStream*
 FSMultipartFormData::GetSubmissionBody(uint64_t* aContentLength)
 {
   // Finish data
-  mPostDataChunk += NS_LITERAL_CSTRING("--") + mBoundary
-                  + NS_LITERAL_CSTRING("--" CRLF);
+  mPostDataChunk +=
+      NS_LITERAL_CSTRING("--") + mBoundary + NS_LITERAL_CSTRING("--" CRLF);
 
   // Add final data input stream
   AddPostDataStream();
@@ -442,10 +435,10 @@ FSMultipartFormData::AddNameValuePair(const nsAString& aName,
   nsresult rv = EncodeVal(aValue, encodedVal, false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  valueStr.Adopt(nsLinebreakConverter::
-                 ConvertLineBreaks(encodedVal.get(),
-                                   nsLinebreakConverter::eLinebreakAny,
-                                   nsLinebreakConverter::eLinebreakNet));
+  valueStr.Adopt(nsLinebreakConverter::ConvertLineBreaks(
+      encodedVal.get(),
+      nsLinebreakConverter::eLinebreakAny,
+      nsLinebreakConverter::eLinebreakNet));
 
   nsAutoCString nameStr;
   rv = EncodeVal(aName, nameStr, true);
@@ -456,11 +449,10 @@ FSMultipartFormData::AddNameValuePair(const nsAString& aName,
   // XXX: name parameter should be encoded per RFC 2231
   // RFC 2388 specifies that RFC 2047 be used, but I think it's not
   // consistent with MIME standard.
-  mPostDataChunk += NS_LITERAL_CSTRING("--") + mBoundary
-                 + NS_LITERAL_CSTRING(CRLF)
-                 + NS_LITERAL_CSTRING("Content-Disposition: form-data; name=\"")
-                 + nameStr + NS_LITERAL_CSTRING("\"" CRLF CRLF)
-                 + valueStr + NS_LITERAL_CSTRING(CRLF);
+  mPostDataChunk +=
+      NS_LITERAL_CSTRING("--") + mBoundary + NS_LITERAL_CSTRING(CRLF) +
+      NS_LITERAL_CSTRING("Content-Disposition: form-data; name=\"") + nameStr +
+      NS_LITERAL_CSTRING("\"" CRLF CRLF) + valueStr + NS_LITERAL_CSTRING(CRLF);
 
   return NS_OK;
 }
@@ -507,10 +499,10 @@ FSMultipartFormData::AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob)
       contentType16.AssignLiteral("application/octet-stream");
     }
 
-    contentType.Adopt(nsLinebreakConverter::
-                      ConvertLineBreaks(NS_ConvertUTF16toUTF8(contentType16).get(),
-                                        nsLinebreakConverter::eLinebreakAny,
-                                        nsLinebreakConverter::eLinebreakSpace));
+    contentType.Adopt(nsLinebreakConverter::ConvertLineBreaks(
+        NS_ConvertUTF16toUTF8(contentType16).get(),
+        nsLinebreakConverter::eLinebreakAny,
+        nsLinebreakConverter::eLinebreakSpace));
 
     // Get input stream
     aBlob->CreateInputStream(getter_AddRefs(fileStream), error);
@@ -528,8 +520,8 @@ FSMultipartFormData::AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob)
     if (fileStream) {
       // Create buffered stream (for efficiency)
       nsCOMPtr<nsIInputStream> bufferedStream;
-      rv = NS_NewBufferedInputStream(getter_AddRefs(bufferedStream),
-                                     fileStream.forget(), 8192);
+      rv = NS_NewBufferedInputStream(
+          getter_AddRefs(bufferedStream), fileStream.forget(), 8192);
       NS_ENSURE_SUCCESS(rv, rv);
 
       fileStream = bufferedStream;
@@ -574,9 +566,11 @@ FSMultipartFormData::AddNameDirectoryPair(const nsAString& aName,
   rv = EncodeVal(dirname16, dirname, true);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  AddDataChunk(nameStr, dirname,
+  AddDataChunk(nameStr,
+               dirname,
                NS_LITERAL_CSTRING("application/octet-stream"),
-               nullptr, 0);
+               nullptr,
+               0);
   return NS_OK;
 }
 
@@ -591,17 +585,16 @@ FSMultipartFormData::AddDataChunk(const nsACString& aName,
   // Make MIME block for name/value pair
   //
   // more appropriate than always using binary?
-  mPostDataChunk += NS_LITERAL_CSTRING("--") + mBoundary
-                 + NS_LITERAL_CSTRING(CRLF);
+  mPostDataChunk +=
+      NS_LITERAL_CSTRING("--") + mBoundary + NS_LITERAL_CSTRING(CRLF);
   // XXX: name/filename parameter should be encoded per RFC 2231
   // RFC 2388 specifies that RFC 2047 be used, but I think it's not
   // consistent with the MIME standard.
   mPostDataChunk +=
-         NS_LITERAL_CSTRING("Content-Disposition: form-data; name=\"")
-       + aName + NS_LITERAL_CSTRING("\"; filename=\"")
-       + aFilename + NS_LITERAL_CSTRING("\"" CRLF)
-       + NS_LITERAL_CSTRING("Content-Type: ")
-       + aContentType + NS_LITERAL_CSTRING(CRLF CRLF);
+      NS_LITERAL_CSTRING("Content-Disposition: form-data; name=\"") + aName +
+      NS_LITERAL_CSTRING("\"; filename=\"") + aFilename +
+      NS_LITERAL_CSTRING("\"" CRLF) + NS_LITERAL_CSTRING("Content-Type: ") +
+      aContentType + NS_LITERAL_CSTRING(CRLF CRLF);
 
   // We should not try to append an invalid stream. That will happen for example
   // if we try to update a file that actually do not exist.
@@ -626,8 +619,8 @@ FSMultipartFormData::GetEncodedSubmission(nsIURI* aURI,
   nsresult rv;
 
   // Make header
-  nsCOMPtr<nsIMIMEInputStream> mimeStream
-    = do_CreateInstance("@mozilla.org/network/mime-input-stream;1", &rv);
+  nsCOMPtr<nsIMIMEInputStream> mimeStream =
+      do_CreateInstance("@mozilla.org/network/mime-input-stream;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString contentType;
@@ -668,27 +661,27 @@ namespace {
 
 class FSTextPlain : public EncodingFormSubmission
 {
-public:
+ public:
   FSTextPlain(NotNull<const Encoding*> aEncoding,
               nsIContent* aOriginatingElement)
-    : EncodingFormSubmission(aEncoding, aOriginatingElement)
+      : EncodingFormSubmission(aEncoding, aOriginatingElement)
   {
   }
 
-  virtual nsresult
-  AddNameValuePair(const nsAString& aName, const nsAString& aValue) override;
+  virtual nsresult AddNameValuePair(const nsAString& aName,
+                                    const nsAString& aValue) override;
 
-  virtual nsresult
-  AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob) override;
+  virtual nsresult AddNameBlobOrNullPair(const nsAString& aName,
+                                         Blob* aBlob) override;
 
-  virtual nsresult
-  AddNameDirectoryPair(const nsAString& aName, Directory* aDirectory) override;
+  virtual nsresult AddNameDirectoryPair(const nsAString& aName,
+                                        Directory* aDirectory) override;
 
-  virtual nsresult
-  GetEncodedSubmission(nsIURI* aURI, nsIInputStream** aPostDataStream,
-                       int64_t* aPostDataStreaLength) override;
+  virtual nsresult GetEncodedSubmission(nsIURI* aURI,
+                                        nsIInputStream** aPostDataStream,
+                                        int64_t* aPostDataStreaLength) override;
 
-private:
+ private:
   nsString mBody;
 };
 
@@ -714,8 +707,7 @@ FSTextPlain::AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob)
 }
 
 nsresult
-FSTextPlain::AddNameDirectoryPair(const nsAString& aName,
-                                  Directory* aDirectory)
+FSTextPlain::AddNameDirectoryPair(const nsAString& aName, Directory* aDirectory)
 {
   nsAutoString dirname;
   RetrieveDirectoryName(aDirectory, dirname);
@@ -747,8 +739,8 @@ FSTextPlain::GetEncodedSubmission(nsIURI* aURI,
 
     // Append the body to and force-plain-text args to the mailto line
     nsAutoCString escapedBody;
-    if (NS_WARN_IF(!NS_Escape(NS_ConvertUTF16toUTF8(mBody), escapedBody,
-                              url_XAlphas))) {
+    if (NS_WARN_IF(!NS_Escape(
+            NS_ConvertUTF16toUTF8(mBody), escapedBody, url_XAlphas))) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
@@ -765,10 +757,10 @@ FSTextPlain::GetEncodedSubmission(nsIURI* aURI,
     // encoded, but that how text/plain is specced.
     nsCString cbody;
     EncodeVal(mBody, cbody, false);
-    cbody.Adopt(nsLinebreakConverter::
-                ConvertLineBreaks(cbody.get(),
-                                  nsLinebreakConverter::eLinebreakAny,
-                                  nsLinebreakConverter::eLinebreakNet));
+    cbody.Adopt(nsLinebreakConverter::ConvertLineBreaks(
+        cbody.get(),
+        nsLinebreakConverter::eLinebreakAny,
+        nsLinebreakConverter::eLinebreakNet));
     nsCOMPtr<nsIInputStream> bodyStream;
     rv = NS_NewCStringInputStream(getter_AddRefs(bodyStream), cbody);
     if (!bodyStream) {
@@ -776,8 +768,8 @@ FSTextPlain::GetEncodedSubmission(nsIURI* aURI,
     }
 
     // Create mime stream with headers and such
-    nsCOMPtr<nsIMIMEInputStream> mimeStream
-        = do_CreateInstance("@mozilla.org/network/mime-input-stream;1", &rv);
+    nsCOMPtr<nsIMIMEInputStream> mimeStream =
+        do_CreateInstance("@mozilla.org/network/mime-input-stream;1", &rv);
     NS_ENSURE_SUCCESS(rv, rv);
 
     mimeStream->AddHeader("Content-Type", "text/plain");
@@ -790,35 +782,33 @@ FSTextPlain::GetEncodedSubmission(nsIURI* aURI,
   return rv;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // --------------------------------------------------------------------------
 
 EncodingFormSubmission::EncodingFormSubmission(
-  NotNull<const Encoding*> aEncoding,
-  nsIContent* aOriginatingElement)
-  : HTMLFormSubmission(aEncoding, aOriginatingElement)
+    NotNull<const Encoding*> aEncoding, nsIContent* aOriginatingElement)
+    : HTMLFormSubmission(aEncoding, aOriginatingElement)
 {
   if (!aEncoding->CanEncodeEverything()) {
     nsAutoCString name;
     aEncoding->Name(name);
     NS_ConvertUTF8toUTF16 nameUtf16(name);
     const char16_t* namePtr = nameUtf16.get();
-    SendJSWarning(aOriginatingElement ? aOriginatingElement->GetOwnerDocument()
-                                      : nullptr,
-                  "CannotEncodeAllUnicode",
-                  &namePtr,
-                  1);
+    SendJSWarning(
+        aOriginatingElement ? aOriginatingElement->GetOwnerDocument() : nullptr,
+        "CannotEncodeAllUnicode",
+        &namePtr,
+        1);
   }
 }
 
-EncodingFormSubmission::~EncodingFormSubmission()
-{
-}
+EncodingFormSubmission::~EncodingFormSubmission() {}
 
 // i18n helper routines
 nsresult
-EncodingFormSubmission::EncodeVal(const nsAString& aStr, nsCString& aOut,
+EncodingFormSubmission::EncodeVal(const nsAString& aStr,
+                                  nsCString& aOut,
                                   bool aHeaderEncode)
 {
   nsresult rv;
@@ -829,14 +819,12 @@ EncodingFormSubmission::EncodeVal(const nsAString& aStr, nsCString& aOut,
   }
 
   if (aHeaderEncode) {
-    aOut.Adopt(nsLinebreakConverter::
-               ConvertLineBreaks(aOut.get(),
-                                 nsLinebreakConverter::eLinebreakAny,
-                                 nsLinebreakConverter::eLinebreakSpace));
-    aOut.ReplaceSubstring(NS_LITERAL_CSTRING("\""),
-                          NS_LITERAL_CSTRING("\\\""));
+    aOut.Adopt(nsLinebreakConverter::ConvertLineBreaks(
+        aOut.get(),
+        nsLinebreakConverter::eLinebreakAny,
+        nsLinebreakConverter::eLinebreakSpace));
+    aOut.ReplaceSubstring(NS_LITERAL_CSTRING("\""), NS_LITERAL_CSTRING("\\\""));
   }
-
 
   return NS_OK;
 }
@@ -849,17 +837,17 @@ NotNull<const Encoding*>
 GetSubmitEncoding(nsGenericHTMLElement* aForm)
 {
   nsAutoString acceptCharsetValue;
-  aForm->GetAttr(kNameSpaceID_None, nsGkAtoms::acceptcharset,
-                 acceptCharsetValue);
+  aForm->GetAttr(
+      kNameSpaceID_None, nsGkAtoms::acceptcharset, acceptCharsetValue);
 
   int32_t charsetLen = acceptCharsetValue.Length();
   if (charsetLen > 0) {
-    int32_t offset=0;
-    int32_t spPos=0;
+    int32_t offset = 0;
+    int32_t spPos = 0;
     // get charset from charsets one by one
     do {
       spPos = acceptCharsetValue.FindChar(char16_t(' '), offset);
-      int32_t cnt = ((-1==spPos)?(charsetLen-offset):(spPos-offset));
+      int32_t cnt = ((-1 == spPos) ? (charsetLen - offset) : (spPos - offset));
       if (cnt > 0) {
         nsAutoString uCharset;
         acceptCharsetValue.Mid(uCharset, offset, cnt);
@@ -882,8 +870,7 @@ GetSubmitEncoding(nsGenericHTMLElement* aForm)
 }
 
 void
-GetEnumAttr(nsGenericHTMLElement* aContent,
-            nsAtom* atom, int32_t* aValue)
+GetEnumAttr(nsGenericHTMLElement* aContent, nsAtom* atom, int32_t* aValue)
 {
   const nsAttrValue* value = aContent->GetParsedAttr(atom);
   if (value && value->Type() == nsAttrValue::eEnum) {
@@ -891,7 +878,7 @@ GetEnumAttr(nsGenericHTMLElement* aContent,
   }
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 /* static */ nsresult
 HTMLFormSubmission::GetFromForm(nsGenericHTMLElement* aForm,
@@ -924,8 +911,7 @@ HTMLFormSubmission::GetFromForm(nsGenericHTMLElement* aForm,
   auto encoding = GetSubmitEncoding(aForm)->OutputEncoding();
 
   // Choose encoder
-  if (method == NS_FORM_METHOD_POST &&
-      enctype == NS_FORM_ENCTYPE_MULTIPART) {
+  if (method == NS_FORM_METHOD_POST && enctype == NS_FORM_ENCTYPE_MULTIPART) {
     *aFormSubmission = new FSMultipartFormData(encoding, aOriginatingElement);
   } else if (method == NS_FORM_METHOD_POST &&
              enctype == NS_FORM_ENCTYPE_TEXTPLAIN) {
@@ -938,21 +924,20 @@ HTMLFormSubmission::GetFromForm(nsGenericHTMLElement* aForm,
       if (aOriginatingElement &&
           aOriginatingElement->HasAttr(kNameSpaceID_None,
                                        nsGkAtoms::formenctype)) {
-        aOriginatingElement->GetAttr(kNameSpaceID_None, nsGkAtoms::formenctype,
-                                     enctypeStr);
+        aOriginatingElement->GetAttr(
+            kNameSpaceID_None, nsGkAtoms::formenctype, enctypeStr);
       } else {
         aForm->GetAttr(kNameSpaceID_None, nsGkAtoms::enctype, enctypeStr);
       }
       const char16_t* enctypeStrPtr = enctypeStr.get();
-      SendJSWarning(doc, "ForgotPostWarning",
-                    &enctypeStrPtr, 1);
+      SendJSWarning(doc, "ForgotPostWarning", &enctypeStrPtr, 1);
     }
     *aFormSubmission =
-      new FSURLEncoded(encoding, method, doc, aOriginatingElement);
+        new FSURLEncoded(encoding, method, doc, aOriginatingElement);
   }
 
   return NS_OK;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

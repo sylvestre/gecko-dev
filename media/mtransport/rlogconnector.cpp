@@ -15,7 +15,7 @@
 #include <string>
 #include "logging.h"
 #include "mozilla/Assertions.h"
-#include "mozilla/Move.h" // Pinch hitting for <utility> and std::move
+#include "mozilla/Move.h"  // Pinch hitting for <utility> and std::move
 #include "mozilla/Mutex.h"
 #include "mozilla/Sprintf.h"
 #include <vector>
@@ -27,10 +27,9 @@ extern "C" {
 }
 
 /* Matches r_dest_vlog type defined in r_log.h */
-static int ringbuffer_vlog(int facility,
-                           int level,
-                           const char *format,
-                           va_list ap) {
+static int
+ringbuffer_vlog(int facility, int level, const char* format, va_list ap)
+{
   MOZ_ASSERT(mozilla::RLogConnector::GetInstance());
   // I could be evil and printf right into a std::string, but unless this
   // shows up in profiling, it is not worth doing.
@@ -41,7 +40,9 @@ static int ringbuffer_vlog(int facility,
   return 0;
 }
 
-static mozilla::LogLevel rLogLvlToMozLogLvl(int level) {
+static mozilla::LogLevel
+rLogLvlToMozLogLvl(int level)
+{
   switch (level) {
     case LOG_EMERG:
     case LOG_ALERT:
@@ -67,21 +68,23 @@ namespace mozilla {
 RLogConnector* RLogConnector::instance;
 
 RLogConnector::RLogConnector()
-  : log_limit_(4096),
-    mutex_("RLogConnector::mutex_"),
-    disableCount_(0) {
+    : log_limit_(4096), mutex_("RLogConnector::mutex_"), disableCount_(0)
+{
 }
 
-RLogConnector::~RLogConnector() {
-}
+RLogConnector::~RLogConnector() {}
 
-void RLogConnector::SetLogLimit(uint32_t new_limit) {
+void
+RLogConnector::SetLogLimit(uint32_t new_limit)
+{
   OffTheBooksMutexAutoLock lock(mutex_);
   log_limit_ = new_limit;
   RemoveOld();
 }
 
-void RLogConnector::Log(int level, std::string&& log) {
+void
+RLogConnector::Log(int level, std::string&& log)
+{
   MOZ_MTLOG(rLogLvlToMozLogLvl(level), log);
 
   if (level <= LOG_INFO) {
@@ -92,18 +95,24 @@ void RLogConnector::Log(int level, std::string&& log) {
   }
 }
 
-void RLogConnector::AddMsg(std::string&& msg) {
+void
+RLogConnector::AddMsg(std::string&& msg)
+{
   log_messages_.push_front(Move(msg));
   RemoveOld();
 }
 
-inline void RLogConnector::RemoveOld() {
+inline void
+RLogConnector::RemoveOld()
+{
   if (log_messages_.size() > log_limit_) {
     log_messages_.resize(log_limit_);
   }
 }
 
-RLogConnector* RLogConnector::CreateInstance() {
+RLogConnector*
+RLogConnector::CreateInstance()
+{
   if (!instance) {
     instance = new RLogConnector;
     NR_reg_init(NR_REG_MODE_LOCAL);
@@ -112,11 +121,15 @@ RLogConnector* RLogConnector::CreateInstance() {
   return instance;
 }
 
-RLogConnector* RLogConnector::GetInstance() {
+RLogConnector*
+RLogConnector::GetInstance()
+{
   return instance;
 }
 
-void RLogConnector::DestroyInstance() {
+void
+RLogConnector::DestroyInstance()
+{
   // First param is ignored when passing null
   r_log_set_extra_destination(LOG_DEBUG, nullptr);
   delete instance;
@@ -128,7 +141,9 @@ void RLogConnector::DestroyInstance() {
 // is shared across all instances of PeerConnectionImpls. There is no way with the current
 // structure of r_log to run separate logs.
 
-void RLogConnector::EnterPrivateMode() {
+void
+RLogConnector::EnterPrivateMode()
+{
   OffTheBooksMutexAutoLock lock(mutex_);
   ++disableCount_;
   MOZ_ASSERT(disableCount_ != 0);
@@ -138,30 +153,39 @@ void RLogConnector::EnterPrivateMode() {
   }
 }
 
-void RLogConnector::ExitPrivateMode() {
+void
+RLogConnector::ExitPrivateMode()
+{
   OffTheBooksMutexAutoLock lock(mutex_);
   MOZ_ASSERT(disableCount_ != 0);
 
   if (--disableCount_ == 0) {
-    AddMsg("LOGGING RESUMED: no connections are active in a Private Window ***");
+    AddMsg(
+        "LOGGING RESUMED: no connections are active in a Private Window ***");
   }
 }
 
-void RLogConnector::Clear() {
+void
+RLogConnector::Clear()
+{
   OffTheBooksMutexAutoLock lock(mutex_);
   log_messages_.clear();
 }
 
-void RLogConnector::Filter(const std::string& substring,
-                            uint32_t limit,
-                            std::deque<std::string>* matching_logs) {
+void
+RLogConnector::Filter(const std::string& substring,
+                      uint32_t limit,
+                      std::deque<std::string>* matching_logs)
+{
   std::vector<std::string> substrings;
   substrings.push_back(substring);
   FilterAny(substrings, limit, matching_logs);
 }
 
-inline bool AnySubstringMatches(const std::vector<std::string>& substrings,
-                                const std::string& string) {
+inline bool
+AnySubstringMatches(const std::vector<std::string>& substrings,
+                    const std::string& string)
+{
   for (auto sub = substrings.begin(); sub != substrings.end(); ++sub) {
     if (string.find(*sub) != std::string::npos) {
       return true;
@@ -170,9 +194,11 @@ inline bool AnySubstringMatches(const std::vector<std::string>& substrings,
   return false;
 }
 
-void RLogConnector::FilterAny(const std::vector<std::string>& substrings,
-                               uint32_t limit,
-                               std::deque<std::string>* matching_logs) {
+void
+RLogConnector::FilterAny(const std::vector<std::string>& substrings,
+                         uint32_t limit,
+                         std::deque<std::string>* matching_logs)
+{
   OffTheBooksMutexAutoLock lock(mutex_);
   if (limit == 0) {
     // At a max, all of the log messages.
@@ -188,4 +214,4 @@ void RLogConnector::FilterAny(const std::vector<std::string>& substrings,
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

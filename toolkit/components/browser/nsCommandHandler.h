@@ -12,21 +12,19 @@
 
 class nsPIDOMWindowOuter;
 
-class nsCommandHandler
-  : public nsICommandHandlerInit
-  , public nsICommandHandler
+class nsCommandHandler : public nsICommandHandlerInit, public nsICommandHandler
 {
-public:
+ public:
   nsCommandHandler();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSICOMMANDHANDLERINIT
   NS_DECL_NSICOMMANDHANDLER
 
-protected:
+ protected:
   virtual ~nsCommandHandler();
 
-private:
+ private:
   nsresult GetCommandHandler(nsICommandHandler** aCommandHandler);
 
   nsPIDOMWindowOuter* mWindow;

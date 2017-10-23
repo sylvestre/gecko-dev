@@ -14,112 +14,93 @@ using namespace js;
 using namespace js::jit;
 
 ABIArgGenerator::ABIArgGenerator()
-  : usedArgSlots_(0),
-    firstArgFloatSize_(0),
-    useGPRForFloats_(false),
-    current_()
-{}
+    : usedArgSlots_(0), firstArgFloatSize_(0), useGPRForFloats_(false), current_() {}
 
-ABIArg
-ABIArgGenerator::next(MIRType type)
-{
+ABIArg ABIArgGenerator::next(MIRType type) {
     Register destReg;
     switch (type) {
-      case MIRType::Int32:
-      case MIRType::Pointer:
-        if (GetIntArgReg(usedArgSlots_, &destReg))
-            current_ = ABIArg(destReg);
-        else
-            current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
-        usedArgSlots_++;
-        break;
-      case MIRType::Int64:
-        if (!usedArgSlots_) {
-            current_ = ABIArg(a0, a1);
-            usedArgSlots_ = 2;
-        } else if (usedArgSlots_ <= 2) {
-            current_ = ABIArg(a2, a3);
-            usedArgSlots_ = 4;
-        } else {
-            if (usedArgSlots_ < NumIntArgRegs)
-                usedArgSlots_ = NumIntArgRegs;
-            usedArgSlots_ += usedArgSlots_ % 2;
-            current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
-            usedArgSlots_ += 2;
-        }
-        break;
-      case MIRType::Float32:
-        if (!usedArgSlots_) {
-            current_ = ABIArg(f12.asSingle());
-            firstArgFloatSize_ = 1;
-        } else if (usedArgSlots_ == firstArgFloatSize_) {
-            current_ = ABIArg(f14.asSingle());
-        } else if (useGPRForFloats_ && GetIntArgReg(usedArgSlots_, &destReg)) {
-            current_ = ABIArg(destReg);
-        } else {
-            if (usedArgSlots_ < NumIntArgRegs)
-                usedArgSlots_ = NumIntArgRegs;
-            current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
-        }
-        usedArgSlots_++;
-        break;
-      case MIRType::Double:
-        if (!usedArgSlots_) {
-            current_ = ABIArg(f12);
-            usedArgSlots_ = 2;
-            firstArgFloatSize_ = 2;
-        } else if (usedArgSlots_ == firstArgFloatSize_) {
-            current_ = ABIArg(f14);
-            usedArgSlots_ = 4;
-        } else if (useGPRForFloats_ && usedArgSlots_ <= 2) {
-            current_ = ABIArg(a2, a3);
-            usedArgSlots_ = 4;
-        } else {
-            if (usedArgSlots_ < NumIntArgRegs)
-                usedArgSlots_ = NumIntArgRegs;
-            usedArgSlots_ += usedArgSlots_ % 2;
-            current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
-            usedArgSlots_ += 2;
-        }
-        break;
-      default:
-        MOZ_CRASH("Unexpected argument type");
+        case MIRType::Int32:
+        case MIRType::Pointer:
+            if (GetIntArgReg(usedArgSlots_, &destReg))
+                current_ = ABIArg(destReg);
+            else
+                current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
+            usedArgSlots_++;
+            break;
+        case MIRType::Int64:
+            if (!usedArgSlots_) {
+                current_ = ABIArg(a0, a1);
+                usedArgSlots_ = 2;
+            } else if (usedArgSlots_ <= 2) {
+                current_ = ABIArg(a2, a3);
+                usedArgSlots_ = 4;
+            } else {
+                if (usedArgSlots_ < NumIntArgRegs) usedArgSlots_ = NumIntArgRegs;
+                usedArgSlots_ += usedArgSlots_ % 2;
+                current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
+                usedArgSlots_ += 2;
+            }
+            break;
+        case MIRType::Float32:
+            if (!usedArgSlots_) {
+                current_ = ABIArg(f12.asSingle());
+                firstArgFloatSize_ = 1;
+            } else if (usedArgSlots_ == firstArgFloatSize_) {
+                current_ = ABIArg(f14.asSingle());
+            } else if (useGPRForFloats_ && GetIntArgReg(usedArgSlots_, &destReg)) {
+                current_ = ABIArg(destReg);
+            } else {
+                if (usedArgSlots_ < NumIntArgRegs) usedArgSlots_ = NumIntArgRegs;
+                current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
+            }
+            usedArgSlots_++;
+            break;
+        case MIRType::Double:
+            if (!usedArgSlots_) {
+                current_ = ABIArg(f12);
+                usedArgSlots_ = 2;
+                firstArgFloatSize_ = 2;
+            } else if (usedArgSlots_ == firstArgFloatSize_) {
+                current_ = ABIArg(f14);
+                usedArgSlots_ = 4;
+            } else if (useGPRForFloats_ && usedArgSlots_ <= 2) {
+                current_ = ABIArg(a2, a3);
+                usedArgSlots_ = 4;
+            } else {
+                if (usedArgSlots_ < NumIntArgRegs) usedArgSlots_ = NumIntArgRegs;
+                usedArgSlots_ += usedArgSlots_ % 2;
+                current_ = ABIArg(usedArgSlots_ * sizeof(intptr_t));
+                usedArgSlots_ += 2;
+            }
+            break;
+        default:
+            MOZ_CRASH("Unexpected argument type");
     }
     return current_;
 }
 
-uint32_t
-js::jit::RT(FloatRegister r)
-{
+uint32_t js::jit::RT(FloatRegister r) {
     MOZ_ASSERT(r.id() < FloatRegisters::RegisterIdLimit);
     return r.id() << RTShift;
 }
 
-uint32_t
-js::jit::RD(FloatRegister r)
-{
+uint32_t js::jit::RD(FloatRegister r) {
     MOZ_ASSERT(r.id() < FloatRegisters::RegisterIdLimit);
     return r.id() << RDShift;
 }
 
-uint32_t
-js::jit::RZ(FloatRegister r)
-{
+uint32_t js::jit::RZ(FloatRegister r) {
     MOZ_ASSERT(r.id() < FloatRegisters::RegisterIdLimit);
     return r.id() << RZShift;
 }
 
-uint32_t
-js::jit::SA(FloatRegister r)
-{
+uint32_t js::jit::SA(FloatRegister r) {
     MOZ_ASSERT(r.id() < FloatRegisters::RegisterIdLimit);
     return r.id() << SAShift;
 }
 
 // Used to patch jumps created by MacroAssemblerMIPSCompat::jumpWithPatch.
-void
-jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label, ReprotectCode reprotect)
-{
+void jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label, ReprotectCode reprotect) {
     Instruction* inst1 = (Instruction*)jump_.raw();
     Instruction* inst2 = inst1->next();
 
@@ -131,10 +112,8 @@ jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label, ReprotectCode r
 
 // For more infromation about backedges look at comment in
 // MacroAssemblerMIPSCompat::backedgeJump()
-void
-jit::PatchBackedge(CodeLocationJump& jump, CodeLocationLabel label,
-                   JitZoneGroup::BackedgeTarget target)
-{
+void jit::PatchBackedge(CodeLocationJump& jump, CodeLocationLabel label,
+                        JitZoneGroup::BackedgeTarget target) {
     uint32_t sourceAddr = (uint32_t)jump.raw();
     uint32_t targetAddr = (uint32_t)label.raw();
     InstImm* branch = (InstImm*)jump.raw();
@@ -157,65 +136,52 @@ jit::PatchBackedge(CodeLocationJump& jump, CodeLocationLabel label,
     }
 }
 
-void
-Assembler::executableCopy(uint8_t* buffer, bool flushICache)
-{
+void Assembler::executableCopy(uint8_t* buffer, bool flushICache) {
     MOZ_ASSERT(isFinished);
     m_buffer.executableCopy(buffer);
 
     // Patch all long jumps during code copy.
     for (size_t i = 0; i < longJumps_.length(); i++) {
-        Instruction* inst1 = (Instruction*) ((uint32_t)buffer + longJumps_[i]);
+        Instruction* inst1 = (Instruction*)((uint32_t)buffer + longJumps_[i]);
 
         uint32_t value = Assembler::ExtractLuiOriValue(inst1, inst1->next());
         AssemblerMIPSShared::UpdateLuiOriValue(inst1, inst1->next(), (uint32_t)buffer + value);
     }
 
-    if (flushICache)
-        AutoFlushICache::setRange(uintptr_t(buffer), m_buffer.size());
+    if (flushICache) AutoFlushICache::setRange(uintptr_t(buffer), m_buffer.size());
 }
 
-uintptr_t
-Assembler::GetPointer(uint8_t* instPtr)
-{
+uintptr_t Assembler::GetPointer(uint8_t* instPtr) {
     Instruction* inst = (Instruction*)instPtr;
     return Assembler::ExtractLuiOriValue(inst, inst->next());
 }
 
-static JitCode*
-CodeFromJump(Instruction* jump)
-{
+static JitCode* CodeFromJump(Instruction* jump) {
     uint8_t* target = (uint8_t*)Assembler::ExtractLuiOriValue(jump, jump->next());
     return JitCode::FromExecutable(target);
 }
 
-void
-Assembler::TraceJumpRelocations(JSTracer* trc, JitCode* code, CompactBufferReader& reader)
-{
+void Assembler::TraceJumpRelocations(JSTracer* trc, JitCode* code, CompactBufferReader& reader) {
     while (reader.more()) {
         JitCode* child = CodeFromJump((Instruction*)(code->raw() + reader.readUnsigned()));
         TraceManuallyBarrieredEdge(trc, &child, "rel32");
     }
 }
 
-static void
-TraceOneDataRelocation(JSTracer* trc, Instruction* inst)
-{
+static void TraceOneDataRelocation(JSTracer* trc, Instruction* inst) {
     void* ptr = (void*)Assembler::ExtractLuiOriValue(inst, inst->next());
     void* prior = ptr;
 
     // No barrier needed since these are constants.
     TraceManuallyBarrieredGenericPointerEdge(trc, reinterpret_cast<gc::Cell**>(&ptr),
-                                                 "ion-masm-ptr");
+                                             "ion-masm-ptr");
     if (ptr != prior) {
         AssemblerMIPSShared::UpdateLuiOriValue(inst, inst->next(), uint32_t(ptr));
         AutoFlushICache::flush(uintptr_t(inst), 8);
     }
 }
 
-static void
-TraceDataRelocations(JSTracer* trc, uint8_t* buffer, CompactBufferReader& reader)
-{
+static void TraceDataRelocations(JSTracer* trc, uint8_t* buffer, CompactBufferReader& reader) {
     while (reader.more()) {
         size_t offset = reader.readUnsigned();
         Instruction* inst = (Instruction*)(buffer + offset);
@@ -223,70 +189,60 @@ TraceDataRelocations(JSTracer* trc, uint8_t* buffer, CompactBufferReader& reader
     }
 }
 
-static void
-TraceDataRelocations(JSTracer* trc, MIPSBuffer* buffer, CompactBufferReader& reader)
-{
+static void TraceDataRelocations(JSTracer* trc, MIPSBuffer* buffer, CompactBufferReader& reader) {
     while (reader.more()) {
-        BufferOffset bo (reader.readUnsigned());
+        BufferOffset bo(reader.readUnsigned());
         MIPSBuffer::AssemblerBufferInstIterator iter(bo, buffer);
         TraceOneDataRelocation(trc, iter.cur());
     }
 }
 
-void
-Assembler::TraceDataRelocations(JSTracer* trc, JitCode* code, CompactBufferReader& reader)
-{
+void Assembler::TraceDataRelocations(JSTracer* trc, JitCode* code, CompactBufferReader& reader) {
     ::TraceDataRelocations(trc, code->raw(), reader);
 }
 
-Assembler::Condition
-Assembler::UnsignedCondition(Condition cond)
-{
+Assembler::Condition Assembler::UnsignedCondition(Condition cond) {
     switch (cond) {
-      case Zero:
-      case NonZero:
-        return cond;
-      case LessThan:
-      case Below:
-        return Below;
-      case LessThanOrEqual:
-      case BelowOrEqual:
-        return BelowOrEqual;
-      case GreaterThan:
-      case Above:
-        return Above;
-      case AboveOrEqual:
-      case GreaterThanOrEqual:
-        return AboveOrEqual;
-      default:
-        MOZ_CRASH("unexpected condition");
+        case Zero:
+        case NonZero:
+            return cond;
+        case LessThan:
+        case Below:
+            return Below;
+        case LessThanOrEqual:
+        case BelowOrEqual:
+            return BelowOrEqual;
+        case GreaterThan:
+        case Above:
+            return Above;
+        case AboveOrEqual:
+        case GreaterThanOrEqual:
+            return AboveOrEqual;
+        default:
+            MOZ_CRASH("unexpected condition");
     }
 }
 
-Assembler::Condition
-Assembler::ConditionWithoutEqual(Condition cond)
-{
+Assembler::Condition Assembler::ConditionWithoutEqual(Condition cond) {
     switch (cond) {
-      case LessThan:
-      case LessThanOrEqual:
-        return LessThan;
-      case Below:
-      case BelowOrEqual:
-        return Below;
-      case GreaterThan:
-      case GreaterThanOrEqual:
-        return GreaterThan;
-      case Above:
-      case AboveOrEqual:
-        return Above;
-      default:
-        MOZ_CRASH("unexpected condition");
+        case LessThan:
+        case LessThanOrEqual:
+            return LessThan;
+        case Below:
+        case BelowOrEqual:
+            return Below;
+        case GreaterThan:
+        case GreaterThanOrEqual:
+            return GreaterThan;
+        case Above:
+        case AboveOrEqual:
+            return Above;
+        default:
+            MOZ_CRASH("unexpected condition");
     }
 }
 
-void
-Assembler::trace(JSTracer* trc)
-{
+void Assembler::trace(JSTracer* trc) {
     for (size_t i = 0; i < jumps_.length(); i++) {
         RelativePatch& rp = jumps_[i];
         if (rp.kind == Relocation::JITCODE) {
@@ -301,19 +257,16 @@ Assembler::trace(JSTracer* trc)
     }
 }
 
-void
-Assembler::Bind(uint8_t* rawCode, CodeOffset label, CodeOffset target)
-{
+void Assembler::Bind(uint8_t* rawCode, CodeOffset label, CodeOffset target) {
     if (label.bound()) {
         intptr_t offset = label.offset();
-        Instruction* inst = (Instruction*) (rawCode + offset);
-        AssemblerMIPSShared::UpdateLuiOriValue(inst, inst->next(), (uint32_t)(rawCode + target.offset()));
+        Instruction* inst = (Instruction*)(rawCode + offset);
+        AssemblerMIPSShared::UpdateLuiOriValue(inst, inst->next(),
+                                               (uint32_t)(rawCode + target.offset()));
     }
 }
 
-void
-Assembler::bind(InstImm* inst, uintptr_t branch, uintptr_t target)
-{
+void Assembler::bind(InstImm* inst, uintptr_t branch, uintptr_t target) {
     int32_t offset = target - branch;
     InstImm inst_bgezal = InstImm(op_regimm, zero, rt_bgezal, BOffImm16(0));
     InstImm inst_beq = InstImm(op_beq, zero, zero, BOffImm16(0));
@@ -337,8 +290,8 @@ Assembler::bind(InstImm* inst, uintptr_t branch, uintptr_t target)
     }
 
     if (BOffImm16::IsInRange(offset)) {
-        bool conditional = (inst[0].encode() != inst_bgezal.encode() &&
-                            inst[0].encode() != inst_beq.encode());
+        bool conditional =
+            (inst[0].encode() != inst_bgezal.encode() && inst[0].encode() != inst_beq.encode());
 
         inst[0].setBOffImm16(BOffImm16(offset));
         inst[1].makeNop();
@@ -368,9 +321,7 @@ Assembler::bind(InstImm* inst, uintptr_t branch, uintptr_t target)
     }
 }
 
-void
-Assembler::bind(RepatchLabel* label)
-{
+void Assembler::bind(RepatchLabel* label) {
     BufferOffset dest = nextOffset();
     if (label->used() && !oom()) {
         // If the label has a use, then change this use to refer to
@@ -388,8 +339,7 @@ Assembler::bind(RepatchLabel* label)
             //     jumpWithpatch
             AssemblerMIPSShared::UpdateLuiOriValue(inst, inst->next(), dest.getOffset());
         } else if (inst[1].extractOpcode() == (uint32_t(op_lui) >> OpcodeShift) ||
-                   BOffImm16::IsInRange(offset))
-        {
+                   BOffImm16::IsInRange(offset)) {
             // Handle code produced by:
             //     backedgeJump
             //     branchWithCode
@@ -422,32 +372,25 @@ Assembler::bind(RepatchLabel* label)
             MOZ_ASSERT(inst[3].encode() == NopInst);
             MOZ_ASSERT(inst[4].encode() == NopInst);
             addLongJump(BufferOffset(label->offset() + sizeof(void*)));
-            Assembler::WriteLuiOriInstructions(&inst[1], &inst[2], ScratchRegister, dest.getOffset());
+            Assembler::WriteLuiOriInstructions(&inst[1], &inst[2], ScratchRegister,
+                                               dest.getOffset());
             inst[3] = InstReg(op_special, ScratchRegister, zero, zero, ff_jr).encode();
         }
     }
     label->bind(dest.getOffset());
 }
 
-void
-Assembler::processCodeLabels(uint8_t* rawCode)
-{
+void Assembler::processCodeLabels(uint8_t* rawCode) {
     for (size_t i = 0; i < codeLabels_.length(); i++) {
         CodeLabel label = codeLabels_[i];
         Bind(rawCode, *label.patchAt(), *label.target());
     }
 }
 
-uint32_t
-Assembler::PatchWrite_NearCallSize()
-{
-    return 4 * sizeof(uint32_t);
-}
+uint32_t Assembler::PatchWrite_NearCallSize() { return 4 * sizeof(uint32_t); }
 
-void
-Assembler::PatchWrite_NearCall(CodeLocationLabel start, CodeLocationLabel toCall)
-{
-    Instruction* inst = (Instruction*) start.raw();
+void Assembler::PatchWrite_NearCall(CodeLocationLabel start, CodeLocationLabel toCall) {
+    Instruction* inst = (Instruction*)start.raw();
     uint8_t* dest = toCall.raw();
 
     // Overwrite whatever instruction used to be here with a call.
@@ -463,11 +406,9 @@ Assembler::PatchWrite_NearCall(CodeLocationLabel start, CodeLocationLabel toCall
     AutoFlushICache::flush(uintptr_t(inst), PatchWrite_NearCallSize());
 }
 
-uint32_t
-Assembler::ExtractLuiOriValue(Instruction* inst0, Instruction* inst1)
-{
-    InstImm* i0 = (InstImm*) inst0;
-    InstImm* i1 = (InstImm*) inst1;
+uint32_t Assembler::ExtractLuiOriValue(Instruction* inst0, Instruction* inst1) {
+    InstImm* i0 = (InstImm*)inst0;
+    InstImm* i1 = (InstImm*)inst1;
     MOZ_ASSERT(i0->extractOpcode() == ((uint32_t)op_lui >> OpcodeShift));
     MOZ_ASSERT(i1->extractOpcode() == ((uint32_t)op_ori >> OpcodeShift));
 
@@ -476,27 +417,21 @@ Assembler::ExtractLuiOriValue(Instruction* inst0, Instruction* inst1)
     return value;
 }
 
-void
-Assembler::WriteLuiOriInstructions(Instruction* inst0, Instruction* inst1,
-                                   Register reg, uint32_t value)
-{
+void Assembler::WriteLuiOriInstructions(Instruction* inst0, Instruction* inst1, Register reg,
+                                        uint32_t value) {
     *inst0 = InstImm(op_lui, zero, reg, Imm16::Upper(Imm32(value)));
     *inst1 = InstImm(op_ori, reg, reg, Imm16::Lower(Imm32(value)));
 }
 
-void
-Assembler::PatchDataWithValueCheck(CodeLocationLabel label, ImmPtr newValue,
-                                   ImmPtr expectedValue)
-{
+void Assembler::PatchDataWithValueCheck(CodeLocationLabel label, ImmPtr newValue,
+                                        ImmPtr expectedValue) {
     PatchDataWithValueCheck(label, PatchedImmPtr(newValue.value),
                             PatchedImmPtr(expectedValue.value));
 }
 
-void
-Assembler::PatchDataWithValueCheck(CodeLocationLabel label, PatchedImmPtr newValue,
-                                   PatchedImmPtr expectedValue)
-{
-    Instruction* inst = (Instruction*) label.raw();
+void Assembler::PatchDataWithValueCheck(CodeLocationLabel label, PatchedImmPtr newValue,
+                                        PatchedImmPtr expectedValue) {
+    Instruction* inst = (Instruction*)label.raw();
 
     // Extract old Value
     DebugOnly<uint32_t> value = Assembler::ExtractLuiOriValue(&inst[0], &inst[1]);
@@ -508,20 +443,16 @@ Assembler::PatchDataWithValueCheck(CodeLocationLabel label, PatchedImmPtr newVal
     AutoFlushICache::flush(uintptr_t(inst), 8);
 }
 
-uint32_t
-Assembler::ExtractInstructionImmediate(uint8_t* code)
-{
+uint32_t Assembler::ExtractInstructionImmediate(uint8_t* code) {
     InstImm* inst = (InstImm*)code;
     return Assembler::ExtractLuiOriValue(inst, inst->next());
 }
 
-void
-Assembler::ToggleCall(CodeLocationLabel inst_, bool enabled)
-{
+void Assembler::ToggleCall(CodeLocationLabel inst_, bool enabled) {
     Instruction* inst = (Instruction*)inst_.raw();
-    InstImm* i0 = (InstImm*) inst;
-    InstImm* i1 = (InstImm*) i0->next();
-    Instruction* i2 = (Instruction*) i1->next();
+    InstImm* i0 = (InstImm*)inst;
+    InstImm* i1 = (InstImm*)i0->next();
+    Instruction* i2 = (Instruction*)i1->next();
 
     MOZ_ASSERT(i0->extractOpcode() == ((uint32_t)op_lui >> OpcodeShift));
     MOZ_ASSERT(i1->extractOpcode() == ((uint32_t)op_ori >> OpcodeShift));

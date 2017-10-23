@@ -123,7 +123,6 @@ TEST(Synchronization, MonitorContention)
   delete gMon1;
 }
 
-
 static ReentrantMonitor* gMon2;
 
 static void
@@ -156,7 +155,6 @@ TEST(Synchronization, MonitorContention2)
 
   delete gMon2;
 }
-
 
 static ReentrantMonitor* gMon3;
 static int32_t gMonFirst;

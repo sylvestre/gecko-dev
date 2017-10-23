@@ -13,7 +13,7 @@
 extern const char* const kCSSRawKeywords[];
 
 // define an array of all CSS keywords
-#define CSS_KEY(_name,_id) #_name,
+#define CSS_KEY(_name, _id) #_name,
 const char* const kCSSRawKeywords[] = {
 #include "nsCSSKeywordList.h"
 };
@@ -27,8 +27,8 @@ nsCSSKeywords::AddRefTable(void)
 {
   if (0 == gKeywordTableRefCount++) {
     NS_ASSERTION(!gKeywordTable, "pre existing array!");
-    gKeywordTable =
-      new nsStaticCaseInsensitiveNameTable(kCSSRawKeywords, eCSSKeyword_COUNT);
+    gKeywordTable = new nsStaticCaseInsensitiveNameTable(kCSSRawKeywords,
+                                                         eCSSKeyword_COUNT);
 #ifdef DEBUG
     // Partially verify the entries.
     int32_t index = 0;
@@ -36,7 +36,8 @@ nsCSSKeywords::AddRefTable(void)
       nsAutoCString temp(kCSSRawKeywords[index]);
       NS_ASSERTION(-1 == temp.FindChar('_'), "underscore char in table");
     }
-    NS_ASSERTION(index == eCSSKeyword_COUNT, "kCSSRawKeywords and eCSSKeyword_COUNT are out of sync");
+    NS_ASSERTION(index == eCSSKeyword_COUNT,
+                 "kCSSRawKeywords and eCSSKeyword_COUNT are out of sync");
 #endif
   }
 }
@@ -84,4 +85,3 @@ nsCSSKeywords::GetStringValue(nsCSSKeyword aKeyword)
     return kNullStr;
   }
 }
-

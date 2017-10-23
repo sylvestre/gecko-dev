@@ -57,8 +57,7 @@ struct WorldConstants
 
 struct ClearConstants
 {
-  explicit ClearConstants(int aDepth) : depth(aDepth)
-  {}
+  explicit ClearConstants(int aDepth) : depth(aDepth) {}
   int depth;
   int padding[3];
 };
@@ -79,23 +78,25 @@ struct MaskCombineInput
 struct MaskInformation
 {
   MaskInformation(float aOpacity, bool aHasMask)
-   : opacity(aOpacity),
-     hasMask(aHasMask ? 1 : 0)
-  {}
+      : opacity(aOpacity), hasMask(aHasMask ? 1 : 0)
+  {
+  }
   float opacity;
   uint32_t hasMask;
   uint32_t padding[2];
 };
 
-struct YCbCrShaderConstants {
+struct YCbCrShaderConstants
+{
   float yuvColorMatrix[3][4];
 };
 
-struct BlendVertexShaderConstants {
+struct BlendVertexShaderConstants
+{
   float backdropTransform[4][4];
 };
 
-template <typename T>
+template<typename T>
 static inline nsTArray<gfx::IntRect>
 ToRectArray(const T& aRegion)
 {
@@ -109,26 +110,36 @@ ToRectArray(const T& aRegion)
 struct SimpleTraits
 {
   explicit SimpleTraits(const ItemInfo& aItem, const gfx::Rect& aRect)
-   : mItem(aItem),
-     mRect(aRect)
-  {}
+      : mItem(aItem), mRect(aRect)
+  {
+  }
 
   // Helper nonce structs so functions can break vertex data up by each
   // triangle in a quad, or return vertex info for a unit quad.
-  struct AnyTriangle { };
-  struct FirstTriangle : AnyTriangle { };
-  struct SecondTriangle : AnyTriangle { };
-  struct UnitQuad { };
+  struct AnyTriangle
+  {
+  };
+  struct FirstTriangle : AnyTriangle
+  {
+  };
+  struct SecondTriangle : AnyTriangle
+  {
+  };
+  struct UnitQuad
+  {
+  };
 
   // This is the base vertex layout used by all unit quad shaders.
-  struct UnitQuadVertex {
+  struct UnitQuadVertex
+  {
     gfx::Rect rect;
     uint32_t layerIndex;
     int depth;
   };
 
   // This is the base vertex layout used by all unit triangle shaders.
-  struct TriangleVertices {
+  struct TriangleVertices
+  {
     gfx::Point p1, p2, p3;
     uint32_t layerIndex;
     int depth;
@@ -153,9 +164,7 @@ struct SimpleTraits
 
   // Accessors.
   const Maybe<gfx::Polygon>& geometry() const;
-  const gfx::Rect& rect() const {
-    return mRect;
-  }
+  const gfx::Rect& rect() const { return mRect; }
 
   const ItemInfo& mItem;
   gfx::Rect mRect;
@@ -163,13 +172,17 @@ struct SimpleTraits
 
 struct ColorTraits : public SimpleTraits
 {
-  ColorTraits(const ItemInfo& aItem, const gfx::Rect& aRect, const gfx::Color& aColor)
-   : SimpleTraits(aItem, aRect), mColor(aColor)
-  {}
+  ColorTraits(const ItemInfo& aItem,
+              const gfx::Rect& aRect,
+              const gfx::Color& aColor)
+      : SimpleTraits(aItem, aRect), mColor(aColor)
+  {
+  }
 
   // Color data is the same across all vertex types.
-  template <typename VertexType>
-  const gfx::Color& MakeVertexData(const VertexType& aIgnore) const {
+  template<typename VertexType>
+  const gfx::Color& MakeVertexData(const VertexType& aIgnore) const
+  {
     return mColor;
   }
 
@@ -178,28 +191,34 @@ struct ColorTraits : public SimpleTraits
 
 struct TexturedTraits : public SimpleTraits
 {
-  TexturedTraits(const ItemInfo& aItem, const gfx::Rect& aRect, const gfx::Rect& aTexCoords)
-   : SimpleTraits(aItem, aRect), mTexCoords(aTexCoords)
-  {}
+  TexturedTraits(const ItemInfo& aItem,
+                 const gfx::Rect& aRect,
+                 const gfx::Rect& aTexCoords)
+      : SimpleTraits(aItem, aRect), mTexCoords(aTexCoords)
+  {
+  }
 
   // Textured triangles need to compute a texture coordinate for each vertex.
-  nsTArray<gfx::TexturedTriangle> GenerateTriangles(const gfx::Polygon& aPolygon) const;
+  nsTArray<gfx::TexturedTriangle> GenerateTriangles(
+      const gfx::Polygon& aPolygon) const;
 
-  struct VertexData {
+  struct VertexData
+  {
     gfx::Point p1, p2, p3;
   };
   VertexData MakeVertexData(const FirstTriangle& aIgnore) const;
   VertexData MakeVertexData(const SecondTriangle& aIgnore) const;
   VertexData MakeVertexData(const gfx::TexturedTriangle& aTriangle) const;
-  const gfx::Rect& MakeVertexData(const UnitQuad& aIgnore) const {
+  const gfx::Rect& MakeVertexData(const UnitQuad& aIgnore) const
+  {
     return mTexCoords;
   }
 
   gfx::Rect mTexCoords;
 };
 
-} // namespace mlg
-} // namespace layers
-} // namespace mozilla
+}  // namespace mlg
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

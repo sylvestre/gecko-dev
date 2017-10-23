@@ -21,9 +21,8 @@ class BrowserStreamParent : public PBrowserStreamParent, public AStream
   friend class PluginModuleParent;
   friend class PluginInstanceParent;
 
-public:
-  BrowserStreamParent(PluginInstanceParent* npp,
-                      NPStream* stream);
+ public:
+  BrowserStreamParent(PluginInstanceParent* npp, NPStream* stream);
   virtual ~BrowserStreamParent();
 
   virtual bool IsBrowserStream() override { return true; }
@@ -44,7 +43,7 @@ public:
     }
   }
 
-private:
+ private:
   using PBrowserStreamParent::SendNPP_DestroyStream;
 
   PluginInstanceParent* mNPP;
@@ -52,7 +51,8 @@ private:
   nsCOMPtr<nsISupports> mStreamPeer;
   RefPtr<nsNPAPIPluginStreamListener> mStreamListener;
 
-  enum {
+  enum
+  {
     INITIALIZING,
     DEFERRING_DESTROY,
     ALIVE,
@@ -61,7 +61,7 @@ private:
   } mState;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
 #endif

@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include <string.h>
 #ifdef __GNUC__
 #include <unistd.h>
@@ -22,12 +21,12 @@ StaticMutex FFmpegDataDecoder<LIBAV_VER>::sMonitor;
 FFmpegDataDecoder<LIBAV_VER>::FFmpegDataDecoder(FFmpegLibWrapper* aLib,
                                                 TaskQueue* aTaskQueue,
                                                 AVCodecID aCodecID)
-  : mLib(aLib)
-  , mCodecContext(nullptr)
-  , mFrame(NULL)
-  , mExtraData(nullptr)
-  , mCodecID(aCodecID)
-  , mTaskQueue(aTaskQueue)
+    : mLib(aLib),
+      mCodecContext(nullptr),
+      mFrame(NULL),
+      mExtraData(nullptr),
+      mCodecID(aCodecID),
+      mTaskQueue(aTaskQueue)
 {
   MOZ_ASSERT(aLib);
   MOZ_COUNT_CTOR(FFmpegDataDecoder);
@@ -102,22 +101,22 @@ FFmpegDataDecoder<LIBAV_VER>::Shutdown()
 RefPtr<MediaDataDecoder::DecodePromise>
 FFmpegDataDecoder<LIBAV_VER>::Decode(MediaRawData* aSample)
 {
-  return InvokeAsync<MediaRawData*>(mTaskQueue, this, __func__,
-                                    &FFmpegDataDecoder::ProcessDecode, aSample);
+  return InvokeAsync<MediaRawData*>(
+      mTaskQueue, this, __func__, &FFmpegDataDecoder::ProcessDecode, aSample);
 }
 
 RefPtr<MediaDataDecoder::FlushPromise>
 FFmpegDataDecoder<LIBAV_VER>::Flush()
 {
-  return InvokeAsync(mTaskQueue, this, __func__,
-                     &FFmpegDataDecoder<LIBAV_VER>::ProcessFlush);
+  return InvokeAsync(
+      mTaskQueue, this, __func__, &FFmpegDataDecoder<LIBAV_VER>::ProcessFlush);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
 FFmpegDataDecoder<LIBAV_VER>::Drain()
 {
-  return InvokeAsync(mTaskQueue, this, __func__,
-                     &FFmpegDataDecoder<LIBAV_VER>::ProcessDrain);
+  return InvokeAsync(
+      mTaskQueue, this, __func__, &FFmpegDataDecoder<LIBAV_VER>::ProcessDrain);
 }
 
 RefPtr<MediaDataDecoder::FlushPromise>
@@ -178,4 +177,4 @@ FFmpegDataDecoder<LIBAV_VER>::FindAVCodec(FFmpegLibWrapper* aLib,
   return aLib->avcodec_find_decoder(aCodec);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

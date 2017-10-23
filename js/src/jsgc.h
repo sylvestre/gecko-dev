@@ -28,7 +28,7 @@ class AutoLockHelperThreadState;
 
 namespace gcstats {
 struct Statistics;
-} // namespace gcstats
+}  // namespace gcstats
 
 class Nursery;
 
@@ -37,12 +37,12 @@ namespace gc {
 struct FinalizePhase;
 
 #define GCSTATES(D) \
-    D(NotActive) \
-    D(MarkRoots) \
-    D(Mark) \
-    D(Sweep) \
-    D(Finalize) \
-    D(Compact) \
+    D(NotActive)    \
+    D(MarkRoots)    \
+    D(Mark)         \
+    D(Sweep)        \
+    D(Finalize)     \
+    D(Compact)      \
     D(Decommit)
 enum class State {
 #define MAKE_STATE(name) name,
@@ -51,16 +51,16 @@ enum class State {
 };
 
 // Reasons we reset an ongoing incremental GC or perform a non-incremental GC.
-#define GC_ABORT_REASONS(D) \
-    D(None) \
+#define GC_ABORT_REASONS(D)    \
+    D(None)                    \
     D(NonIncrementalRequested) \
-    D(AbortRequested) \
-    D(Unused1) \
-    D(IncrementalDisabled) \
-    D(ModeChange) \
-    D(MallocBytesTrigger) \
-    D(GCBytesTrigger) \
-    D(ZoneChange) \
+    D(AbortRequested)          \
+    D(Unused1)                 \
+    D(IncrementalDisabled)     \
+    D(ModeChange)              \
+    D(MallocBytesTrigger)      \
+    D(GCBytesTrigger)          \
+    D(ZoneChange)              \
     D(CompartmentRevived)
 enum class AbortReason {
 #define MAKE_REASON(name) name,
@@ -74,101 +74,101 @@ enum class AbortReason {
  *
  * The AllocKind is available as MapTypeToFinalizeKind<SomeType>::kind.
  */
-template <typename T> struct MapTypeToFinalizeKind {};
+template <typename T>
+struct MapTypeToFinalizeKind {};
 #define EXPAND_MAPTYPETOFINALIZEKIND(allocKind, traceKind, type, sizedType) \
-    template <> struct MapTypeToFinalizeKind<type> { \
-        static const AllocKind kind = AllocKind::allocKind; \
+    template <>                                                             \
+    struct MapTypeToFinalizeKind<type> {                                    \
+        static const AllocKind kind = AllocKind::allocKind;                 \
     };
 FOR_EACH_NONOBJECT_ALLOCKIND(EXPAND_MAPTYPETOFINALIZEKIND)
 #undef EXPAND_MAPTYPETOFINALIZEKIND
 
-template <typename T> struct ParticipatesInCC {};
+template <typename T>
+struct ParticipatesInCC {};
 #define EXPAND_PARTICIPATES_IN_CC(_, type, addToCCKind) \
-    template <> struct ParticipatesInCC<type> { static const bool value = addToCCKind; };
+    template <>                                         \
+    struct ParticipatesInCC<type> {                     \
+        static const bool value = addToCCKind;          \
+    };
 JS_FOR_EACH_TRACEKIND(EXPAND_PARTICIPATES_IN_CC)
 #undef EXPAND_PARTICIPATES_IN_CC
 
-static inline bool
-IsNurseryAllocable(AllocKind kind)
-{
+static inline bool IsNurseryAllocable(AllocKind kind) {
     MOZ_ASSERT(IsValidAllocKind(kind));
     static const bool map[] = {
-        true,      /* AllocKind::FUNCTION */
-        true,      /* AllocKind::FUNCTION_EXTENDED */
-        false,     /* AllocKind::OBJECT0 */
-        true,      /* AllocKind::OBJECT0_BACKGROUND */
-        false,     /* AllocKind::OBJECT2 */
-        true,      /* AllocKind::OBJECT2_BACKGROUND */
-        false,     /* AllocKind::OBJECT4 */
-        true,      /* AllocKind::OBJECT4_BACKGROUND */
-        false,     /* AllocKind::OBJECT8 */
-        true,      /* AllocKind::OBJECT8_BACKGROUND */
-        false,     /* AllocKind::OBJECT12 */
-        true,      /* AllocKind::OBJECT12_BACKGROUND */
-        false,     /* AllocKind::OBJECT16 */
-        true,      /* AllocKind::OBJECT16_BACKGROUND */
-        false,     /* AllocKind::SCRIPT */
-        false,     /* AllocKind::LAZY_SCRIPT */
-        false,     /* AllocKind::SHAPE */
-        false,     /* AllocKind::ACCESSOR_SHAPE */
-        false,     /* AllocKind::BASE_SHAPE */
-        false,     /* AllocKind::OBJECT_GROUP */
-        false,     /* AllocKind::FAT_INLINE_STRING */
-        false,     /* AllocKind::STRING */
-        false,     /* AllocKind::EXTERNAL_STRING */
-        false,     /* AllocKind::FAT_INLINE_ATOM */
-        false,     /* AllocKind::ATOM */
-        false,     /* AllocKind::SYMBOL */
-        false,     /* AllocKind::JITCODE */
-        false,     /* AllocKind::SCOPE */
-        false,     /* AllocKind::REGEXP_SHARED */
+        true,  /* AllocKind::FUNCTION */
+        true,  /* AllocKind::FUNCTION_EXTENDED */
+        false, /* AllocKind::OBJECT0 */
+        true,  /* AllocKind::OBJECT0_BACKGROUND */
+        false, /* AllocKind::OBJECT2 */
+        true,  /* AllocKind::OBJECT2_BACKGROUND */
+        false, /* AllocKind::OBJECT4 */
+        true,  /* AllocKind::OBJECT4_BACKGROUND */
+        false, /* AllocKind::OBJECT8 */
+        true,  /* AllocKind::OBJECT8_BACKGROUND */
+        false, /* AllocKind::OBJECT12 */
+        true,  /* AllocKind::OBJECT12_BACKGROUND */
+        false, /* AllocKind::OBJECT16 */
+        true,  /* AllocKind::OBJECT16_BACKGROUND */
+        false, /* AllocKind::SCRIPT */
+        false, /* AllocKind::LAZY_SCRIPT */
+        false, /* AllocKind::SHAPE */
+        false, /* AllocKind::ACCESSOR_SHAPE */
+        false, /* AllocKind::BASE_SHAPE */
+        false, /* AllocKind::OBJECT_GROUP */
+        false, /* AllocKind::FAT_INLINE_STRING */
+        false, /* AllocKind::STRING */
+        false, /* AllocKind::EXTERNAL_STRING */
+        false, /* AllocKind::FAT_INLINE_ATOM */
+        false, /* AllocKind::ATOM */
+        false, /* AllocKind::SYMBOL */
+        false, /* AllocKind::JITCODE */
+        false, /* AllocKind::SCOPE */
+        false, /* AllocKind::REGEXP_SHARED */
     };
     JS_STATIC_ASSERT(JS_ARRAY_LENGTH(map) == size_t(AllocKind::LIMIT));
     return map[size_t(kind)];
 }
 
-static inline bool
-IsBackgroundFinalized(AllocKind kind)
-{
+static inline bool IsBackgroundFinalized(AllocKind kind) {
     MOZ_ASSERT(IsValidAllocKind(kind));
     static const bool map[] = {
-        true,      /* AllocKind::FUNCTION */
-        true,      /* AllocKind::FUNCTION_EXTENDED */
-        false,     /* AllocKind::OBJECT0 */
-        true,      /* AllocKind::OBJECT0_BACKGROUND */
-        false,     /* AllocKind::OBJECT2 */
-        true,      /* AllocKind::OBJECT2_BACKGROUND */
-        false,     /* AllocKind::OBJECT4 */
-        true,      /* AllocKind::OBJECT4_BACKGROUND */
-        false,     /* AllocKind::OBJECT8 */
-        true,      /* AllocKind::OBJECT8_BACKGROUND */
-        false,     /* AllocKind::OBJECT12 */
-        true,      /* AllocKind::OBJECT12_BACKGROUND */
-        false,     /* AllocKind::OBJECT16 */
-        true,      /* AllocKind::OBJECT16_BACKGROUND */
-        false,     /* AllocKind::SCRIPT */
-        true,      /* AllocKind::LAZY_SCRIPT */
-        true,      /* AllocKind::SHAPE */
-        true,      /* AllocKind::ACCESSOR_SHAPE */
-        true,      /* AllocKind::BASE_SHAPE */
-        true,      /* AllocKind::OBJECT_GROUP */
-        true,      /* AllocKind::FAT_INLINE_STRING */
-        true,      /* AllocKind::STRING */
-        true,      /* AllocKind::EXTERNAL_STRING */
-        true,      /* AllocKind::FAT_INLINE_ATOM */
-        true,      /* AllocKind::ATOM */
-        true,      /* AllocKind::SYMBOL */
-        false,     /* AllocKind::JITCODE */
-        true,      /* AllocKind::SCOPE */
-        true,      /* AllocKind::REGEXP_SHARED */
+        true,  /* AllocKind::FUNCTION */
+        true,  /* AllocKind::FUNCTION_EXTENDED */
+        false, /* AllocKind::OBJECT0 */
+        true,  /* AllocKind::OBJECT0_BACKGROUND */
+        false, /* AllocKind::OBJECT2 */
+        true,  /* AllocKind::OBJECT2_BACKGROUND */
+        false, /* AllocKind::OBJECT4 */
+        true,  /* AllocKind::OBJECT4_BACKGROUND */
+        false, /* AllocKind::OBJECT8 */
+        true,  /* AllocKind::OBJECT8_BACKGROUND */
+        false, /* AllocKind::OBJECT12 */
+        true,  /* AllocKind::OBJECT12_BACKGROUND */
+        false, /* AllocKind::OBJECT16 */
+        true,  /* AllocKind::OBJECT16_BACKGROUND */
+        false, /* AllocKind::SCRIPT */
+        true,  /* AllocKind::LAZY_SCRIPT */
+        true,  /* AllocKind::SHAPE */
+        true,  /* AllocKind::ACCESSOR_SHAPE */
+        true,  /* AllocKind::BASE_SHAPE */
+        true,  /* AllocKind::OBJECT_GROUP */
+        true,  /* AllocKind::FAT_INLINE_STRING */
+        true,  /* AllocKind::STRING */
+        true,  /* AllocKind::EXTERNAL_STRING */
+        true,  /* AllocKind::FAT_INLINE_ATOM */
+        true,  /* AllocKind::ATOM */
+        true,  /* AllocKind::SYMBOL */
+        false, /* AllocKind::JITCODE */
+        true,  /* AllocKind::SCOPE */
+        true,  /* AllocKind::REGEXP_SHARED */
     };
     JS_STATIC_ASSERT(JS_ARRAY_LENGTH(map) == size_t(AllocKind::LIMIT));
     return map[size_t(kind)];
 }
 
-static inline bool
-CanBeFinalizedInBackground(AllocKind kind, const Class* clasp)
-{
+static inline bool CanBeFinalizedInBackground(AllocKind kind, const Class* clasp) {
     MOZ_ASSERT(IsObjectAllocKind(kind));
     /* If the class has no finalizer or a finalizer that is safe to call on
      * a different thread, we change the alloc kind. For example,
@@ -187,18 +187,13 @@ const size_t SLOTS_TO_THING_KIND_LIMIT = 17;
 extern const AllocKind slotsToThingKind[];
 
 /* Get the best kind to use when making an object with the given slot count. */
-static inline AllocKind
-GetGCObjectKind(size_t numSlots)
-{
-    if (numSlots >= SLOTS_TO_THING_KIND_LIMIT)
-        return AllocKind::OBJECT16;
+static inline AllocKind GetGCObjectKind(size_t numSlots) {
+    if (numSlots >= SLOTS_TO_THING_KIND_LIMIT) return AllocKind::OBJECT16;
     return slotsToThingKind[numSlots];
 }
 
 /* As for GetGCObjectKind, but for dense array allocation. */
-static inline AllocKind
-GetGCArrayKind(size_t numElements)
-{
+static inline AllocKind GetGCArrayKind(size_t numElements) {
     /*
      * Dense arrays can use their fixed slots to hold their elements array
      * (less two Values worth of ObjectElements header), but if more than the
@@ -207,29 +202,23 @@ GetGCArrayKind(size_t numElements)
      */
     JS_STATIC_ASSERT(ObjectElements::VALUES_PER_HEADER == 2);
     if (numElements > NativeObject::MAX_DENSE_ELEMENTS_COUNT ||
-        numElements + ObjectElements::VALUES_PER_HEADER >= SLOTS_TO_THING_KIND_LIMIT)
-    {
+        numElements + ObjectElements::VALUES_PER_HEADER >= SLOTS_TO_THING_KIND_LIMIT) {
         return AllocKind::OBJECT2;
     }
     return slotsToThingKind[numElements + ObjectElements::VALUES_PER_HEADER];
 }
 
-static inline AllocKind
-GetGCObjectFixedSlotsKind(size_t numFixedSlots)
-{
+static inline AllocKind GetGCObjectFixedSlotsKind(size_t numFixedSlots) {
     MOZ_ASSERT(numFixedSlots < SLOTS_TO_THING_KIND_LIMIT);
     return slotsToThingKind[numFixedSlots];
 }
 
 // Get the best kind to use when allocating an object that needs a specific
 // number of bytes.
-static inline AllocKind
-GetGCObjectKindForBytes(size_t nbytes)
-{
+static inline AllocKind GetGCObjectKindForBytes(size_t nbytes) {
     MOZ_ASSERT(nbytes <= JSObject::MAX_BYTE_SIZE);
 
-    if (nbytes <= sizeof(NativeObject))
-        return AllocKind::OBJECT0;
+    if (nbytes <= sizeof(NativeObject)) return AllocKind::OBJECT0;
     nbytes -= sizeof(NativeObject);
 
     size_t dataSlots = AlignBytes(nbytes, sizeof(Value)) / sizeof(Value);
@@ -237,48 +226,42 @@ GetGCObjectKindForBytes(size_t nbytes)
     return GetGCObjectKind(dataSlots);
 }
 
-static inline AllocKind
-GetBackgroundAllocKind(AllocKind kind)
-{
+static inline AllocKind GetBackgroundAllocKind(AllocKind kind) {
     MOZ_ASSERT(!IsBackgroundFinalized(kind));
     MOZ_ASSERT(IsObjectAllocKind(kind));
     return AllocKind(size_t(kind) + 1);
 }
 
 /* Get the number of fixed slots and initial capacity associated with a kind. */
-static inline size_t
-GetGCKindSlots(AllocKind thingKind)
-{
+static inline size_t GetGCKindSlots(AllocKind thingKind) {
     /* Using a switch in hopes that thingKind will usually be a compile-time constant. */
     switch (thingKind) {
-      case AllocKind::FUNCTION:
-      case AllocKind::OBJECT0:
-      case AllocKind::OBJECT0_BACKGROUND:
-        return 0;
-      case AllocKind::FUNCTION_EXTENDED:
-      case AllocKind::OBJECT2:
-      case AllocKind::OBJECT2_BACKGROUND:
-        return 2;
-      case AllocKind::OBJECT4:
-      case AllocKind::OBJECT4_BACKGROUND:
-        return 4;
-      case AllocKind::OBJECT8:
-      case AllocKind::OBJECT8_BACKGROUND:
-        return 8;
-      case AllocKind::OBJECT12:
-      case AllocKind::OBJECT12_BACKGROUND:
-        return 12;
-      case AllocKind::OBJECT16:
-      case AllocKind::OBJECT16_BACKGROUND:
-        return 16;
-      default:
-        MOZ_CRASH("Bad object alloc kind");
+        case AllocKind::FUNCTION:
+        case AllocKind::OBJECT0:
+        case AllocKind::OBJECT0_BACKGROUND:
+            return 0;
+        case AllocKind::FUNCTION_EXTENDED:
+        case AllocKind::OBJECT2:
+        case AllocKind::OBJECT2_BACKGROUND:
+            return 2;
+        case AllocKind::OBJECT4:
+        case AllocKind::OBJECT4_BACKGROUND:
+            return 4;
+        case AllocKind::OBJECT8:
+        case AllocKind::OBJECT8_BACKGROUND:
+            return 8;
+        case AllocKind::OBJECT12:
+        case AllocKind::OBJECT12_BACKGROUND:
+            return 12;
+        case AllocKind::OBJECT16:
+        case AllocKind::OBJECT16_BACKGROUND:
+            return 16;
+        default:
+            MOZ_CRASH("Bad object alloc kind");
     }
 }
 
-static inline size_t
-GetGCKindSlots(AllocKind thingKind, const Class* clasp)
-{
+static inline size_t GetGCKindSlots(AllocKind thingKind, const Class* clasp) {
     size_t nslots = GetGCKindSlots(thingKind);
 
     /* An object's private data uses the space taken by its last fixed slot. */
@@ -291,15 +274,12 @@ GetGCKindSlots(AllocKind thingKind, const Class* clasp)
      * Functions have a larger alloc kind than AllocKind::OBJECT to reserve
      * space for the extra fields in JSFunction, but have no fixed slots.
      */
-    if (clasp == FunctionClassPtr)
-        nslots = 0;
+    if (clasp == FunctionClassPtr) nslots = 0;
 
     return nslots;
 }
 
-static inline size_t
-GetGCKindBytes(AllocKind thingKind)
-{
+static inline size_t GetGCKindBytes(AllocKind thingKind) {
     return sizeof(JSObject_Slots0) + GetGCKindSlots(thingKind) * sizeof(Value);
 }
 
@@ -307,8 +287,7 @@ GetGCKindBytes(AllocKind thingKind)
  * A single segment of a SortedArenaList. Each segment has a head and a tail,
  * which track the start and end of a segment for O(1) append and concatenation.
  */
-struct SortedArenaListSegment
-{
+struct SortedArenaListSegment {
     Arena* head;
     Arena** tailp;
 
@@ -317,9 +296,7 @@ struct SortedArenaListSegment
         tailp = &head;
     }
 
-    bool isEmpty() const {
-        return tailp == &head;
-    }
+    bool isEmpty() const { return tailp == &head; }
 
     // Appends |arena| to this segment.
     void append(Arena* arena) {
@@ -334,9 +311,7 @@ struct SortedArenaListSegment
     // follows it. This essentially turns the tail into a cursor (see also the
     // description of ArenaList), but from the perspective of a SortedArenaList
     // this makes no difference.
-    void linkTo(Arena* arena) {
-        *tailp = arena;
-    }
+    void linkTo(Arena* arena) { *tailp = arena; }
 };
 
 /*
@@ -385,14 +360,10 @@ class ArenaList {
         check();
     }
 
-  public:
-    ArenaList() {
-        clear();
-    }
+   public:
+    ArenaList() { clear(); }
 
-    ArenaList(const ArenaList& other) {
-        copy(other);
-    }
+    ArenaList(const ArenaList& other) { copy(other); }
 
     ArenaList& operator=(const ArenaList& other) {
         copy(other);
@@ -451,8 +422,7 @@ class ArenaList {
     }
 
     void moveCursorToEnd() {
-        while (!isCursorAtEnd())
-            cursorp_ = &(*cursorp_)->next;
+        while (!isCursorAtEnd()) cursorp_ = &(*cursorp_)->next;
     }
 
     // This can return nullptr.
@@ -465,8 +435,7 @@ class ArenaList {
     Arena* takeNextArena() {
         check();
         Arena* arena = *cursorp_;
-        if (!arena)
-            return nullptr;
+        if (!arena) return nullptr;
         cursorp_ = &arena->next;
         check();
         return arena;
@@ -482,8 +451,7 @@ class ArenaList {
         *cursorp_ = a;
         // At this point, the cursor is sitting before |a|. Move it after |a|
         // if necessary.
-        if (!a->hasFreeThings())
-            cursorp_ = &a->next;
+        if (!a->hasFreeThings()) cursorp_ = &a->next;
         check();
     }
 
@@ -501,8 +469,7 @@ class ArenaList {
         check();
         other.check();
         MOZ_ASSERT(other.isCursorAtEnd());
-        if (other.isCursorAtHead())
-            return *this;
+        if (other.isCursorAtHead()) return *this;
         // Insert the full arenas of |other| after those of |this|.
         *other.cursorp_ = *cursorp_;
         *cursorp_ = other.head_;
@@ -513,8 +480,8 @@ class ArenaList {
 
     Arena* removeRemainingArenas(Arena** arenap);
     Arena** pickArenasToRelocate(size_t& arenaTotalOut, size_t& relocTotalOut);
-    Arena* relocateArenas(Arena* toRelocate, Arena* relocated,
-                          SliceBudget& sliceBudget, gcstats::Statistics& stats);
+    Arena* relocateArenas(Arena* toRelocate, Arena* relocated, SliceBudget& sliceBudget,
+                          gcstats::Statistics& stats);
 };
 
 /*
@@ -522,19 +489,20 @@ class ArenaList {
  * segments. Each segment has a head and a tail, which can be linked up to
  * other segments to create a contiguous ArenaList.
  */
-class SortedArenaList
-{
-  public:
+class SortedArenaList {
+   public:
     // The minimum size, in bytes, of a GC thing.
     static const size_t MinThingSize = 16;
 
-    static_assert(ArenaSize <= 4096, "When increasing the Arena size, please consider how"\
-                                     " this will affect the size of a SortedArenaList.");
+    static_assert(ArenaSize <= 4096,
+                  "When increasing the Arena size, please consider how"
+                  " this will affect the size of a SortedArenaList.");
 
-    static_assert(MinThingSize >= 16, "When decreasing the minimum thing size, please consider"\
-                                      " how this will affect the size of a SortedArenaList.");
+    static_assert(MinThingSize >= 16,
+                  "When decreasing the minimum thing size, please consider"
+                  " how this will affect the size of a SortedArenaList.");
 
-  private:
+   private:
     // The maximum number of GC things that an arena can hold.
     static const size_t MaxThingsPerArena = (ArenaSize - ArenaHeaderSize) / MinThingSize;
 
@@ -545,10 +513,8 @@ class SortedArenaList
     Arena* headAt(size_t n) { return segments[n].head; }
     Arena** tailAt(size_t n) { return segments[n].tailp; }
 
-  public:
-    explicit SortedArenaList(size_t thingsPerArena = MaxThingsPerArena) {
-        reset(thingsPerArena);
-    }
+   public:
+    explicit SortedArenaList(size_t thingsPerArena = MaxThingsPerArena) { reset(thingsPerArena); }
 
     void setThingsPerArena(size_t thingsPerArena) {
         MOZ_ASSERT(thingsPerArena && thingsPerArena <= MaxThingsPerArena);
@@ -559,8 +525,7 @@ class SortedArenaList
     void reset(size_t thingsPerArena = MaxThingsPerArena) {
         setThingsPerArena(thingsPerArena);
         // Initialize the segments.
-        for (size_t i = 0; i <= thingsPerArena; ++i)
-            segments[i].clear();
+        for (size_t i = 0; i <= thingsPerArena; ++i) segments[i].clear();
     }
 
     // Inserts an arena, which has room for |nfree| more things, in its segment.
@@ -604,14 +569,9 @@ class SortedArenaList
     }
 };
 
-enum ShouldCheckThresholds
-{
-    DontCheckThresholds = 0,
-    CheckThresholds = 1
-};
+enum ShouldCheckThresholds { DontCheckThresholds = 0, CheckThresholds = 1 };
 
-class ArenaLists
-{
+class ArenaLists {
     JSRuntime* const runtime_;
 
     /*
@@ -643,8 +603,12 @@ class ArenaLists
 
     /* The current background finalization state, accessed atomically. */
     UnprotectedData<AllAllocKindArray<BackgroundFinalizeState>> backgroundFinalizeState_;
-    BackgroundFinalizeState& backgroundFinalizeState(AllocKind i) { return backgroundFinalizeState_.ref()[i]; }
-    const BackgroundFinalizeState& backgroundFinalizeState(AllocKind i) const { return backgroundFinalizeState_.ref()[i]; }
+    BackgroundFinalizeState& backgroundFinalizeState(AllocKind i) {
+        return backgroundFinalizeState_.ref()[i];
+    }
+    const BackgroundFinalizeState& backgroundFinalizeState(AllocKind i) const {
+        return backgroundFinalizeState_.ref()[i];
+    }
 
     /* For each arena kind, a list of arenas remaining to be swept. */
     ActiveThreadOrGCTaskData<AllAllocKindArray<Arena*>> arenaListsToSweep_;
@@ -670,7 +634,7 @@ class ArenaLists
     ArenaList& savedObjectArenas(AllocKind i) { return savedObjectArenas_.ref()[i]; }
     ZoneGroupData<Arena*> savedEmptyObjectArenas;
 
-  public:
+   public:
     explicit ArenaLists(JSRuntime* rt, ZoneGroup* group);
     ~ArenaLists();
 
@@ -678,17 +642,12 @@ class ArenaLists
         return reinterpret_cast<const void*>(&freeLists_.refNoCheck()[thingKind]);
     }
 
-    Arena* getFirstArena(AllocKind thingKind) const {
-        return arenaLists(thingKind).head();
-    }
+    Arena* getFirstArena(AllocKind thingKind) const { return arenaLists(thingKind).head(); }
 
-    Arena* getFirstArenaToSweep(AllocKind thingKind) const {
-        return arenaListsToSweep(thingKind);
-    }
+    Arena* getFirstArenaToSweep(AllocKind thingKind) const { return arenaListsToSweep(thingKind); }
 
     Arena* getFirstSweptArena(AllocKind thingKind) const {
-        if (thingKind != incrementalSweptArenaKind.ref())
-            return nullptr;
+        if (thingKind != incrementalSweptArenaKind.ref()) return nullptr;
         return incrementalSweptArenas.ref().head();
     }
 
@@ -702,10 +661,8 @@ class ArenaLists
              * The arena cannot be empty if the background finalization is not yet
              * done.
              */
-            if (backgroundFinalizeState(i) != BFS_DONE)
-                return false;
-            if (!arenaLists(i).isEmpty())
-                return false;
+            if (backgroundFinalizeState(i) != BFS_DONE) return false;
+            if (!arenaLists(i).isEmpty()) return false;
         }
         return true;
     }
@@ -731,8 +688,7 @@ class ArenaLists
      * Clear the free lists so we won't try to allocate from swept arenas.
      */
     void purge() {
-        for (auto i : AllAllocKinds())
-            freeLists(i) = &placeholder;
+        for (auto i : AllAllocKinds()) freeLists(i) = &placeholder;
     }
 
     inline void prepareForIncrementalGC();
@@ -757,8 +713,7 @@ class ArenaLists
 
     void checkEmptyFreeLists() {
 #ifdef DEBUG
-        for (auto i : AllAllocKinds())
-            checkEmptyFreeList(i);
+        for (auto i : AllAllocKinds()) checkEmptyFreeList(i);
 #endif
     }
 
@@ -766,16 +721,13 @@ class ArenaLists
         bool empty = true;
 #ifdef DEBUG
         for (auto i : AllAllocKinds()) {
-            if (!checkEmptyArenaList(i))
-                empty = false;
+            if (!checkEmptyArenaList(i)) empty = false;
         }
 #endif
         return empty;
     }
 
-    void checkEmptyFreeList(AllocKind kind) {
-        MOZ_ASSERT(freeLists(kind)->isEmpty());
-    }
+    void checkEmptyFreeList(AllocKind kind) { MOZ_ASSERT(freeLists(kind)->isEmpty()); }
 
     bool checkEmptyArenaList(AllocKind kind);
 
@@ -793,12 +745,9 @@ class ArenaLists
 
     // When finalizing arenas, whether to keep empty arenas on the list or
     // release them immediately.
-    enum KeepArenasEnum {
-        RELEASE_ARENAS,
-        KEEP_ARENAS
-    };
+    enum KeepArenasEnum { RELEASE_ARENAS, KEEP_ARENAS };
 
-  private:
+   private:
     inline void queueForForegroundSweep(FreeOp* fop, const FinalizePhase& phase);
     inline void queueForBackgroundSweep(FreeOp* fop, const FinalizePhase& phase);
     inline void queueForForegroundSweep(FreeOp* fop, AllocKind thingKind);
@@ -817,35 +766,27 @@ class ArenaLists
 /* The number of GC cycles an empty chunk can survive before been released. */
 const size_t MAX_EMPTY_CHUNK_AGE = 4;
 
-extern bool
-InitializeStaticData();
+extern bool InitializeStaticData();
 
 } /* namespace gc */
 
 class InterpreterFrame;
 
-extern void
-TraceRuntime(JSTracer* trc);
+extern void TraceRuntime(JSTracer* trc);
 
-extern void
-ReleaseAllJITCode(FreeOp* op);
+extern void ReleaseAllJITCode(FreeOp* op);
 
-extern void
-PrepareForDebugGC(JSRuntime* rt);
+extern void PrepareForDebugGC(JSRuntime* rt);
 
 /* Functions for managing cross compartment gray pointers. */
 
-extern void
-DelayCrossCompartmentGrayMarking(JSObject* src);
+extern void DelayCrossCompartmentGrayMarking(JSObject* src);
 
-extern void
-NotifyGCNukeWrapper(JSObject* o);
+extern void NotifyGCNukeWrapper(JSObject* o);
 
-extern unsigned
-NotifyGCPreSwap(JSObject* a, JSObject* b);
+extern unsigned NotifyGCPreSwap(JSObject* a, JSObject* b);
 
-extern void
-NotifyGCPostSwap(JSObject* a, JSObject* b, unsigned preResult);
+extern void NotifyGCPostSwap(JSObject* a, JSObject* b, unsigned preResult);
 
 /*
  * Helper state for use when JS helper threads sweep and allocate GC thing kinds
@@ -855,12 +796,8 @@ NotifyGCPostSwap(JSObject* a, JSObject* b, unsigned preResult);
  * on the active thread, but GCHelperState encapsulates this from clients as
  * much as possible.
  */
-class GCHelperState
-{
-    enum State {
-        IDLE,
-        SWEEPING
-    };
+class GCHelperState {
+    enum State { IDLE, SWEEPING };
 
     // Associated runtime.
     JSRuntime* const rt;
@@ -887,19 +824,14 @@ class GCHelperState
 
     static void freeElementsAndArray(void** array, void** end) {
         MOZ_ASSERT(array <= end);
-        for (void** p = array; p != end; ++p)
-            js_free(*p);
+        for (void** p = array; p != end; ++p) js_free(*p);
         js_free(array);
     }
 
     void doSweep(AutoLockGC& lock);
 
-  public:
-    explicit GCHelperState(JSRuntime* rt)
-      : rt(rt),
-        done(),
-        state_(IDLE)
-    { }
+   public:
+    explicit GCHelperState(JSRuntime* rt) : rt(rt), done(), state_(IDLE) {}
 
     JSRuntime* runtime() { return rt; }
 
@@ -922,16 +854,13 @@ class GCHelperState
      * Outside the GC lock may give true answer when in fact the sweeping has
      * been done.
      */
-    bool isBackgroundSweeping() const {
-        return state_ == SWEEPING;
-    }
+    bool isBackgroundSweeping() const { return state_ == SWEEPING; }
 };
 
 // A generic task used to dispatch work to the helper thread system.
 // Users should derive from GCParallelTask add what data they need and
 // override |run|.
-class GCParallelTask
-{
+class GCParallelTask {
     JSRuntime* const runtime_;
 
     // The state of the parallel computation.
@@ -947,20 +876,17 @@ class GCParallelTask
 
     explicit GCParallelTask(const GCParallelTask&) = delete;
 
-  protected:
+   protected:
     // A flag to signal a request for early completion of the off-thread task.
     mozilla::Atomic<bool> cancel_;
 
     virtual void run() = 0;
 
-  public:
-    explicit GCParallelTask(JSRuntime* runtime) : runtime_(runtime), state(NotStarted), duration_(nullptr) {}
+   public:
+    explicit GCParallelTask(JSRuntime* runtime)
+        : runtime_(runtime), state(NotStarted), duration_(nullptr) {}
     GCParallelTask(GCParallelTask&& other)
-      : runtime_(other.runtime_),
-        state(other.state),
-        duration_(nullptr),
-        cancel_(false)
-    {}
+        : runtime_(other.runtime_), state(other.state), duration_(nullptr), cancel_(false) {}
 
     // Derived classes must override this to ensure that join() gets called
     // before members get destructed.
@@ -984,11 +910,10 @@ class GCParallelTask
     void runFromActiveCooperatingThread(JSRuntime* rt);
 
     // Dispatch a cancelation request.
-    enum CancelMode { CancelNoWait, CancelAndWait};
+    enum CancelMode { CancelNoWait, CancelAndWait };
     void cancel(CancelMode mode = CancelNoWait) {
         cancel_ = true;
-        if (mode == CancelAndWait)
-            join();
+        if (mode == CancelAndWait) join();
     }
 
     // Check if a task is actively running.
@@ -997,7 +922,7 @@ class GCParallelTask
 
     // This should be friended to HelperThread, but cannot be because it
     // would introduce several circular dependencies.
-  public:
+   public:
     void runFromHelperThread(AutoLockHelperThreadState& locked);
 };
 
@@ -1016,29 +941,25 @@ typedef void (*IterateCellCallback)(JSRuntime* rt, void* data, void* thing,
  * Note that no read barrier is triggered on the cells passed to cellCallback,
  * so no these pointers must not escape the callback.
  */
-extern void
-IterateHeapUnbarriered(JSContext* cx, void* data,
-                       IterateZoneCallback zoneCallback,
-                       JSIterateCompartmentCallback compartmentCallback,
-                       IterateArenaCallback arenaCallback,
-                       IterateCellCallback cellCallback);
+extern void IterateHeapUnbarriered(JSContext* cx, void* data, IterateZoneCallback zoneCallback,
+                                   JSIterateCompartmentCallback compartmentCallback,
+                                   IterateArenaCallback arenaCallback,
+                                   IterateCellCallback cellCallback);
 
 /*
  * This function is like IterateZonesCompartmentsArenasCells, but does it for a
  * single zone.
  */
-extern void
-IterateHeapUnbarrieredForZone(JSContext* cx, Zone* zone, void* data,
-                              IterateZoneCallback zoneCallback,
-                              JSIterateCompartmentCallback compartmentCallback,
-                              IterateArenaCallback arenaCallback,
-                              IterateCellCallback cellCallback);
+extern void IterateHeapUnbarrieredForZone(JSContext* cx, Zone* zone, void* data,
+                                          IterateZoneCallback zoneCallback,
+                                          JSIterateCompartmentCallback compartmentCallback,
+                                          IterateArenaCallback arenaCallback,
+                                          IterateCellCallback cellCallback);
 
 /*
  * Invoke chunkCallback on every in-use chunk.
  */
-extern void
-IterateChunks(JSContext* cx, void* data, IterateChunkCallback chunkCallback);
+extern void IterateChunks(JSContext* cx, void* data, IterateChunkCallback chunkCallback);
 
 typedef void (*IterateScriptCallback)(JSRuntime* rt, void* data, JSScript* script);
 
@@ -1046,16 +967,13 @@ typedef void (*IterateScriptCallback)(JSRuntime* rt, void* data, JSScript* scrip
  * Invoke scriptCallback on every in-use script for
  * the given compartment or for all compartments if it is null.
  */
-extern void
-IterateScripts(JSContext* cx, JSCompartment* compartment,
-               void* data, IterateScriptCallback scriptCallback);
+extern void IterateScripts(JSContext* cx, JSCompartment* compartment, void* data,
+                           IterateScriptCallback scriptCallback);
 
-extern void
-FinalizeStringRT(JSRuntime* rt, JSString* str);
+extern void FinalizeStringRT(JSRuntime* rt, JSString* str);
 
-JSCompartment*
-NewCompartment(JSContext* cx, JSPrincipals* principals,
-               const JS::CompartmentOptions& options);
+JSCompartment* NewCompartment(JSContext* cx, JSPrincipals* principals,
+                              const JS::CompartmentOptions& options);
 
 namespace gc {
 
@@ -1063,15 +981,13 @@ namespace gc {
  * Merge all contents of source into target. This can only be used if source is
  * the only compartment in its zone.
  */
-void
-MergeCompartments(JSCompartment* source, JSCompartment* target);
+void MergeCompartments(JSCompartment* source, JSCompartment* target);
 
 /*
  * This structure overlays a Cell in the Nursery and re-purposes its memory
  * for managing the Nursery collection process.
  */
-class RelocationOverlay
-{
+class RelocationOverlay {
     /* The low bit is set so this should never equal a normal pointer. */
     static const uintptr_t Relocated = uintptr_t(0xbad0bad1);
 
@@ -1084,14 +1000,12 @@ class RelocationOverlay
     /* A list entry to track all relocated things. */
     RelocationOverlay* next_;
 
-  public:
+   public:
     static RelocationOverlay* fromCell(Cell* cell) {
         return reinterpret_cast<RelocationOverlay*>(cell);
     }
 
-    bool isForwarded() const {
-        return magic_ == Relocated;
-    }
+    bool isForwarded() const { return magic_ == Relocated; }
 
     Cell* forwardingAddress() const {
         MOZ_ASSERT(isForwarded());
@@ -1110,9 +1024,7 @@ class RelocationOverlay
         return next_;
     }
 
-    static bool isCellForwarded(Cell* cell) {
-        return fromCell(cell)->isForwarded();
-    }
+    static bool isCellForwarded(Cell* cell) { return fromCell(cell)->isForwarded(); }
 };
 
 // Functions for checking and updating GC thing pointers that might have been
@@ -1154,61 +1066,51 @@ inline void CheckGCThingAfterMovingGC(const ReadBarriered<T*>& t);
 
 inline void CheckValueAfterMovingGC(const JS::Value& value);
 
-#endif // JSGC_HASH_TABLE_CHECKS
+#endif  // JSGC_HASH_TABLE_CHECKS
 
-#define JS_FOR_EACH_ZEAL_MODE(D)               \
-            D(RootsChange, 1)                  \
-            D(Alloc, 2)                        \
-            D(FrameGC, 3)                      \
-            D(VerifierPre, 4)                  \
-            D(FrameVerifierPre, 5)             \
-            D(GenerationalGC, 7)               \
-            D(IncrementalRootsThenFinish, 8)   \
-            D(IncrementalMarkAllThenFinish, 9) \
-            D(IncrementalMultipleSlices, 10)   \
-            D(IncrementalMarkingValidator, 11) \
-            D(ElementsBarrier, 12)             \
-            D(CheckHashTablesOnMinorGC, 13)    \
-            D(Compact, 14)                     \
-            D(CheckHeapAfterGC, 15)            \
-            D(CheckNursery, 16)                \
-            D(IncrementalSweepThenFinish, 17)
+#define JS_FOR_EACH_ZEAL_MODE(D)       \
+    D(RootsChange, 1)                  \
+    D(Alloc, 2)                        \
+    D(FrameGC, 3)                      \
+    D(VerifierPre, 4)                  \
+    D(FrameVerifierPre, 5)             \
+    D(GenerationalGC, 7)               \
+    D(IncrementalRootsThenFinish, 8)   \
+    D(IncrementalMarkAllThenFinish, 9) \
+    D(IncrementalMultipleSlices, 10)   \
+    D(IncrementalMarkingValidator, 11) \
+    D(ElementsBarrier, 12)             \
+    D(CheckHashTablesOnMinorGC, 13)    \
+    D(Compact, 14)                     \
+    D(CheckHeapAfterGC, 15)            \
+    D(CheckNursery, 16)                \
+    D(IncrementalSweepThenFinish, 17)
 
 enum class ZealMode {
 #define ZEAL_MODE(name, value) name = value,
     JS_FOR_EACH_ZEAL_MODE(ZEAL_MODE)
 #undef ZEAL_MODE
-    Limit = 17
+        Limit = 17
 };
 
-enum VerifierType {
-    PreBarrierVerifier
-};
+enum VerifierType { PreBarrierVerifier };
 
 #ifdef JS_GC_ZEAL
 
 extern const char* ZealModeHelpText;
 
 /* Check that write barriers have been used correctly. See jsgc.cpp. */
-void
-VerifyBarriers(JSRuntime* rt, VerifierType type);
+void VerifyBarriers(JSRuntime* rt, VerifierType type);
 
-void
-MaybeVerifyBarriers(JSContext* cx, bool always = false);
+void MaybeVerifyBarriers(JSContext* cx, bool always = false);
 
 void DumpArenaInfo();
 
 #else
 
-static inline void
-VerifyBarriers(JSRuntime* rt, VerifierType type)
-{
-}
+static inline void VerifyBarriers(JSRuntime* rt, VerifierType type) {}
 
-static inline void
-MaybeVerifyBarriers(JSContext* cx, bool always = false)
-{
-}
+static inline void MaybeVerifyBarriers(JSContext* cx, bool always = false) {}
 
 #endif
 
@@ -1218,28 +1120,23 @@ MaybeVerifyBarriers(JSContext* cx, bool always = false)
  * read the comment in vm/Runtime.h above |suppressGC| and take all appropriate
  * precautions before instantiating this class.
  */
-class MOZ_RAII JS_HAZ_GC_SUPPRESSED AutoSuppressGC
-{
+class MOZ_RAII JS_HAZ_GC_SUPPRESSED AutoSuppressGC {
     int32_t& suppressGC_;
 
-  public:
+   public:
     explicit AutoSuppressGC(JSContext* cx);
 
-    ~AutoSuppressGC()
-    {
-        suppressGC_--;
-    }
+    ~AutoSuppressGC() { suppressGC_--; }
 };
 
 // A singly linked list of zones.
-class ZoneList
-{
-    static Zone * const End;
+class ZoneList {
+    static Zone* const End;
 
     Zone* head;
     Zone* tail;
 
-  public:
+   public:
     ZoneList();
     ~ZoneList();
 
@@ -1251,7 +1148,7 @@ class ZoneList
     void removeFront();
     void clear();
 
-  private:
+   private:
     explicit ZoneList(Zone* singleZone);
     void check() const;
 
@@ -1259,11 +1156,9 @@ class ZoneList
     ZoneList& operator=(const ZoneList& other) = delete;
 };
 
-JSObject*
-NewMemoryStatisticsObject(JSContext* cx);
+JSObject* NewMemoryStatisticsObject(JSContext* cx);
 
-struct MOZ_RAII AutoAssertNoNurseryAlloc
-{
+struct MOZ_RAII AutoAssertNoNurseryAlloc {
 #ifdef DEBUG
     AutoAssertNoNurseryAlloc();
     ~AutoAssertNoNurseryAlloc();
@@ -1297,23 +1192,20 @@ struct MOZ_RAII AutoAssertNoNurseryAlloc
  * in the Maybe<> field as the token.
  */
 class MOZ_RAII AutoAssertHeapBusy {
-  protected:
+   protected:
     JSRuntime* rt;
 
     // Check that the heap really is busy, and record the rt for the check in
     // the destructor.
-    void checkCondition(JSRuntime *rt);
+    void checkCondition(JSRuntime* rt);
 
-    AutoAssertHeapBusy() : rt(nullptr) {
-    }
+    AutoAssertHeapBusy() : rt(nullptr) {}
 
-  public:
-    explicit AutoAssertHeapBusy(JSRuntime* rt) {
-        checkCondition(rt);
-    }
+   public:
+    explicit AutoAssertHeapBusy(JSRuntime* rt) { checkCondition(rt); }
 
     ~AutoAssertHeapBusy() {
-        MOZ_ASSERT(rt); // checkCondition must always be called.
+        MOZ_ASSERT(rt);  // checkCondition must always be called.
         checkCondition(rt);
     }
 };
@@ -1322,9 +1214,8 @@ class MOZ_RAII AutoAssertHeapBusy {
  * A class that serves as a token that the nursery in the current thread's zone
  * group is empty.
  */
-class MOZ_RAII AutoAssertEmptyNursery
-{
-  protected:
+class MOZ_RAII AutoAssertEmptyNursery {
+   protected:
     JSContext* cx;
 
     mozilla::Maybe<AutoAssertNoNurseryAlloc> noAlloc;
@@ -1333,17 +1224,13 @@ class MOZ_RAII AutoAssertEmptyNursery
     void checkCondition(JSContext* cx);
 
     // For subclasses that need to empty the nursery in their constructors.
-    AutoAssertEmptyNursery() : cx(nullptr) {
-    }
+    AutoAssertEmptyNursery() : cx(nullptr) {}
 
-  public:
-    explicit AutoAssertEmptyNursery(JSContext* cx) : cx(nullptr) {
-        checkCondition(cx);
-    }
+   public:
+    explicit AutoAssertEmptyNursery(JSContext* cx) : cx(nullptr) { checkCondition(cx); }
 
-    AutoAssertEmptyNursery(const AutoAssertEmptyNursery& other) : AutoAssertEmptyNursery(other.cx)
-    {
-    }
+    AutoAssertEmptyNursery(const AutoAssertEmptyNursery& other)
+        : AutoAssertEmptyNursery(other.cx) {}
 };
 
 /*
@@ -1355,28 +1242,22 @@ class MOZ_RAII AutoAssertEmptyNursery
  * likely fix this by removing AutoAssertHeapBusy, but that is currently
  * waiting on jonco's review.
  */
-class MOZ_RAII AutoEmptyNursery : public AutoAssertEmptyNursery
-{
-  public:
+class MOZ_RAII AutoEmptyNursery : public AutoAssertEmptyNursery {
+   public:
     explicit AutoEmptyNursery(JSContext* cx);
 };
 
-const char*
-StateName(State state);
+const char* StateName(State state);
 
-inline bool
-IsOOMReason(JS::gcreason::Reason reason)
-{
-    return reason == JS::gcreason::LAST_DITCH ||
-           reason == JS::gcreason::MEM_PRESSURE;
+inline bool IsOOMReason(JS::gcreason::Reason reason) {
+    return reason == JS::gcreason::LAST_DITCH || reason == JS::gcreason::MEM_PRESSURE;
 }
 
 } /* namespace gc */
 
 /* Use this to avoid assertions when manipulating the wrapper map. */
-class MOZ_RAII AutoDisableProxyCheck
-{
-  public:
+class MOZ_RAII AutoDisableProxyCheck {
+   public:
 #ifdef DEBUG
     AutoDisableProxyCheck();
     ~AutoDisableProxyCheck();
@@ -1385,18 +1266,16 @@ class MOZ_RAII AutoDisableProxyCheck
 #endif
 };
 
-struct MOZ_RAII AutoDisableCompactingGC
-{
+struct MOZ_RAII AutoDisableCompactingGC {
     explicit AutoDisableCompactingGC(JSContext* cx);
     ~AutoDisableCompactingGC();
 
-  private:
+   private:
     JSContext* cx;
 };
 
 // This is the same as IsInsideNursery, but not inlined.
-bool
-UninlinedIsInsideNursery(const gc::Cell* cell);
+bool UninlinedIsInsideNursery(const gc::Cell* cell);
 
 } /* namespace js */
 

@@ -19,15 +19,17 @@ namespace widget {
 
 using namespace mozilla::gfx;
 
-WinCompositorWidget::WinCompositorWidget(const WinCompositorWidgetInitData& aInitData,
-                                         const layers::CompositorOptions& aOptions)
- : CompositorWidget(aOptions)
- , mWidgetKey(aInitData.widgetKey()),
-   mWnd(reinterpret_cast<HWND>(aInitData.hWnd())),
-   mTransparencyMode(static_cast<nsTransparencyMode>(aInitData.transparencyMode())),
-   mMemoryDC(nullptr),
-   mCompositeDC(nullptr),
-   mLockedBackBufferData(nullptr)
+WinCompositorWidget::WinCompositorWidget(
+    const WinCompositorWidgetInitData& aInitData,
+    const layers::CompositorOptions& aOptions)
+    : CompositorWidget(aOptions),
+      mWidgetKey(aInitData.widgetKey()),
+      mWnd(reinterpret_cast<HWND>(aInitData.hWnd())),
+      mTransparencyMode(
+          static_cast<nsTransparencyMode>(aInitData.transparencyMode())),
+      mMemoryDC(nullptr),
+      mCompositeDC(nullptr),
+      mLockedBackBufferData(nullptr)
 {
   MOZ_ASSERT(mWnd && ::IsWindow(mWnd));
 
@@ -69,9 +71,7 @@ WinCompositorWidget::GetClientSize()
   if (!::GetClientRect(mWnd, &r)) {
     return LayoutDeviceIntSize();
   }
-  return LayoutDeviceIntSize(
-    r.right - r.left,
-    r.bottom - r.top);
+  return LayoutDeviceIntSize(r.right - r.left, r.bottom - r.top);
 }
 
 already_AddRefed<gfx::DrawTarget>
@@ -91,8 +91,9 @@ WinCompositorWidget::StartRemoteDrawing()
     if (!dc) {
       return nullptr;
     }
-    uint32_t flags = (mTransparencyMode == eTransparencyOpaque) ? 0 :
-        gfxWindowsSurface::FLAG_IS_TRANSPARENT;
+    uint32_t flags = (mTransparencyMode == eTransparencyOpaque)
+                         ? 0
+                         : gfxWindowsSurface::FLAG_IS_TRANSPARENT;
     surf = new gfxWindowsSurface(dc, flags);
   }
 
@@ -105,8 +106,8 @@ WinCompositorWidget::StartRemoteDrawing()
   }
 
   RefPtr<DrawTarget> dt =
-    mozilla::gfx::Factory::CreateDrawTargetForCairoSurface(surf->CairoSurface(),
-                                                           size);
+      mozilla::gfx::Factory::CreateDrawTargetForCairoSurface(
+          surf->CairoSurface(), size);
   if (dt) {
     mCompositeDC = dc;
   } else {
@@ -134,7 +135,7 @@ WinCompositorWidget::EndRemoteDrawing()
 bool
 WinCompositorWidget::NeedsToDeferEndRemoteDrawing()
 {
-  if(mNotDeferEndRemoteDrawing) {
+  if (mNotDeferEndRemoteDrawing) {
     return false;
   }
 
@@ -162,14 +163,15 @@ WinCompositorWidget::NeedsToDeferEndRemoteDrawing()
 }
 
 already_AddRefed<gfx::DrawTarget>
-WinCompositorWidget::GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
-                                             const LayoutDeviceIntRect& aRect,
-                                             const LayoutDeviceIntRect& aClearRect)
+WinCompositorWidget::GetBackBufferDrawTarget(
+    gfx::DrawTarget* aScreenTarget,
+    const LayoutDeviceIntRect& aRect,
+    const LayoutDeviceIntRect& aClearRect)
 {
   MOZ_ASSERT(!mLockedBackBufferData);
 
-  RefPtr<gfx::DrawTarget> target =
-    CompositorWidget::GetBackBufferDrawTarget(aScreenTarget, aRect, aClearRect);
+  RefPtr<gfx::DrawTarget> target = CompositorWidget::GetBackBufferDrawTarget(
+      aScreenTarget, aRect, aClearRect);
   if (!target) {
     return nullptr;
   }
@@ -185,12 +187,8 @@ WinCompositorWidget::GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
     return target.forget();
   }
 
-  RefPtr<gfx::DrawTarget> dataTarget =
-    Factory::CreateDrawTargetForData(BackendType::CAIRO,
-                                     destData,
-                                     destSize,
-                                     destStride,
-                                     destFormat);
+  RefPtr<gfx::DrawTarget> dataTarget = Factory::CreateDrawTargetForData(
+      BackendType::CAIRO, destData, destSize, destStride, destFormat);
   mLockedBackBufferData = destData;
 
   return dataTarget.forget();
@@ -254,7 +252,8 @@ void
 WinCompositorWidget::CreateTransparentSurface(const gfx::IntSize& aSize)
 {
   MOZ_ASSERT(!mTransparentSurface && !mMemoryDC);
-  RefPtr<gfxWindowsSurface> surface = new gfxWindowsSurface(aSize, SurfaceFormat::A8R8G8B8_UINT32);
+  RefPtr<gfxWindowsSurface> surface =
+      new gfxWindowsSurface(aSize, SurfaceFormat::A8R8G8B8_UINT32);
   mTransparentSurface = surface;
   mMemoryDC = surface->GetDC();
 }
@@ -287,7 +286,7 @@ WinCompositorWidget::ClearTransparentWindow()
   IntSize size = mTransparentSurface->GetSize();
   if (!size.IsEmpty()) {
     RefPtr<DrawTarget> drawTarget =
-      gfxPlatform::CreateDrawTargetForSurface(mTransparentSurface, size);
+        gfxPlatform::CreateDrawTargetForSurface(mTransparentSurface, size);
     if (!drawTarget) {
       return;
     }
@@ -305,32 +304,36 @@ WinCompositorWidget::RedrawTransparentWindow()
 
   ::GdiFlush();
 
-  BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
-  SIZE winSize = { size.width, size.height };
-  POINT srcPos = { 0, 0 };
+  BLENDFUNCTION bf = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+  SIZE winSize = {size.width, size.height};
+  POINT srcPos = {0, 0};
   HWND hWnd = WinUtils::GetTopLevelHWND(mWnd, true);
   RECT winRect;
   ::GetWindowRect(hWnd, &winRect);
 
   // perform the alpha blend
-  return !!::UpdateLayeredWindow(
-    hWnd, nullptr, (POINT*)&winRect, &winSize, mMemoryDC,
-    &srcPos, 0, &bf, ULW_ALPHA);
+  return !!::UpdateLayeredWindow(hWnd,
+                                 nullptr,
+                                 (POINT*)&winRect,
+                                 &winSize,
+                                 mMemoryDC,
+                                 &srcPos,
+                                 0,
+                                 &bf,
+                                 ULW_ALPHA);
 }
 
 HDC
 WinCompositorWidget::GetWindowSurface()
 {
-  return eTransparencyTransparent == mTransparencyMode
-         ? mMemoryDC
-         : ::GetDC(mWnd);
+  return eTransparencyTransparent == mTransparencyMode ? mMemoryDC
+                                                       : ::GetDC(mWnd);
 }
 
 void
 WinCompositorWidget::FreeWindowSurface(HDC dc)
 {
-  if (eTransparencyTransparent != mTransparencyMode)
-    ::ReleaseDC(mWnd, dc);
+  if (eTransparencyTransparent != mTransparencyMode) ::ReleaseDC(mWnd, dc);
 }
 
 bool
@@ -339,5 +342,5 @@ WinCompositorWidget::IsHidden() const
   return ::IsIconic(mWnd);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

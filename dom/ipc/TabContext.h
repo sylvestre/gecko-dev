@@ -29,7 +29,7 @@ class IPCTabContext;
  */
 class TabContext
 {
-public:
+ public:
   TabContext();
 
   /* (The implicit copy-constructor and operator= are fine.) */
@@ -82,7 +82,7 @@ public:
   UIStateChangeType ShowAccelerators() const;
   UIStateChangeType ShowFocusRings() const;
 
-protected:
+ protected:
   friend class MaybeInvalidTabContext;
 
   /**
@@ -135,7 +135,7 @@ protected:
    */
   bool SetTabContextForJSPluginFrame(int32_t aJSPluginID);
 
-private:
+ private:
   /**
    * Has this TabContext been initialized?  If so, mutator methods will fail.
    */
@@ -175,19 +175,18 @@ private:
  */
 class MutableTabContext : public TabContext
 {
-public:
+ public:
   bool SetTabContext(const TabContext& aContext)
   {
     return TabContext::SetTabContext(aContext);
   }
 
-  bool
-  SetTabContext(bool aIsMozBrowserElement,
-                bool aIsPrerendered,
-                UIStateChangeType aShowAccelerators,
-                UIStateChangeType aShowFocusRings,
-                const OriginAttributes& aOriginAttributes,
-                const nsAString& aPresentationURL = EmptyString())
+  bool SetTabContext(bool aIsMozBrowserElement,
+                     bool aIsPrerendered,
+                     UIStateChangeType aShowAccelerators,
+                     UIStateChangeType aShowFocusRings,
+                     const OriginAttributes& aOriginAttributes,
+                     const nsAString& aPresentationURL = EmptyString())
   {
     return TabContext::SetTabContext(aIsMozBrowserElement,
                                      aIsPrerendered,
@@ -201,7 +200,6 @@ public:
   {
     return TabContext::SetTabContextForJSPluginFrame(aJSPluginID);
   }
-
 };
 
 /**
@@ -228,7 +226,7 @@ public:
  */
 class MaybeInvalidTabContext
 {
-public:
+ public:
   /**
    * This constructor copies the information in aContext and sets IsValid() as
    * appropriate.
@@ -254,7 +252,7 @@ public:
    */
   const TabContext& GetTabContext();
 
-private:
+ private:
   MaybeInvalidTabContext(const MaybeInvalidTabContext&) = delete;
   MaybeInvalidTabContext& operator=(const MaybeInvalidTabContext&) = delete;
 
@@ -262,7 +260,7 @@ private:
   MutableTabContext mTabContext;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

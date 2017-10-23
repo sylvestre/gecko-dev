@@ -13,17 +13,14 @@ namespace mozilla {
 namespace layout {
 
 VsyncChild::VsyncChild()
-  : mObservingVsync(false)
-  , mIsShutdown(false)
-  , mVsyncRate(TimeDuration::Forever())
+    : mObservingVsync(false),
+      mIsShutdown(false),
+      mVsyncRate(TimeDuration::Forever())
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-VsyncChild::~VsyncChild()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-}
+VsyncChild::~VsyncChild() { MOZ_ASSERT(NS_IsMainThread()); }
 
 bool
 VsyncChild::SendObserve()
@@ -99,5 +96,5 @@ VsyncChild::RecvVsyncRate(const float& aVsyncRate)
   return IPC_OK();
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla

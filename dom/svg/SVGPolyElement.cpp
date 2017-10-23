@@ -15,8 +15,8 @@ using namespace mozilla::gfx;
 //----------------------------------------------------------------------
 // nsISupports methods
 
-NS_IMPL_ADDREF_INHERITED(SVGPolyElement,SVGPolyElementBase)
-NS_IMPL_RELEASE_INHERITED(SVGPolyElement,SVGPolyElementBase)
+NS_IMPL_ADDREF_INHERITED(SVGPolyElement, SVGPolyElementBase)
+NS_IMPL_RELEASE_INHERITED(SVGPolyElement, SVGPolyElementBase)
 
 NS_INTERFACE_MAP_BEGIN(SVGPolyElement)
 NS_INTERFACE_MAP_END_INHERITING(SVGPolyElementBase)
@@ -24,31 +24,31 @@ NS_INTERFACE_MAP_END_INHERITING(SVGPolyElementBase)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGPolyElement::SVGPolyElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGPolyElementBase(aNodeInfo)
+SVGPolyElement::SVGPolyElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGPolyElementBase(aNodeInfo)
 {
 }
 
-SVGPolyElement::~SVGPolyElement()
-{
-}
+SVGPolyElement::~SVGPolyElement() {}
 
 already_AddRefed<DOMSVGPointList>
 SVGPolyElement::Points()
 {
-  void *key = mPoints.GetBaseValKey();
-  RefPtr<DOMSVGPointList> points = DOMSVGPointList::GetDOMWrapper(key, this, false);
+  void* key = mPoints.GetBaseValKey();
+  RefPtr<DOMSVGPointList> points =
+      DOMSVGPointList::GetDOMWrapper(key, this, false);
   return points.forget();
 }
 
 already_AddRefed<DOMSVGPointList>
 SVGPolyElement::AnimatedPoints()
 {
-  void *key = mPoints.GetAnimValKey();
-  RefPtr<DOMSVGPointList> points = DOMSVGPointList::GetDOMWrapper(key, this, true);
+  void* key = mPoints.GetAnimValKey();
+  RefPtr<DOMSVGPointList> points =
+      DOMSVGPointList::GetDOMWrapper(key, this, true);
   return points.forget();
 }
-
 
 //----------------------------------------------------------------------
 // nsIContent methods
@@ -56,12 +56,10 @@ SVGPolyElement::AnimatedPoints()
 NS_IMETHODIMP_(bool)
 SVGPolyElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sMarkersMap
-  };
+  static const MappedAttributeEntry* const map[] = {sMarkersMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGPolyElementBase::IsAttributeMapped(name);
+         SVGPolyElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -77,21 +75,19 @@ SVGPolyElement::HasValidDimensions() const
 // SVGGeometryElement methods
 
 bool
-SVGPolyElement::AttributeDefinesGeometry(const nsAtom *aName)
+SVGPolyElement::AttributeDefinesGeometry(const nsAtom* aName)
 {
-  if (aName == nsGkAtoms::points)
-    return true;
+  if (aName == nsGkAtoms::points) return true;
 
   return false;
 }
 
 void
-SVGPolyElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
+SVGPolyElement::GetMarkPoints(nsTArray<nsSVGMark>* aMarks)
 {
-  const SVGPointList &points = mPoints.GetAnimValue();
+  const SVGPointList& points = mPoints.GetAnimValue();
 
-  if (!points.Length())
-    return;
+  if (!points.Length()) return;
 
   float px = points[0].mX, py = points[0].mY, prevAngle = 0.0;
 
@@ -100,14 +96,14 @@ SVGPolyElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
   for (uint32_t i = 1; i < points.Length(); ++i) {
     float x = points[i].mX;
     float y = points[i].mY;
-    float angle = atan2(y-py, x-px);
+    float angle = atan2(y - py, x - px);
 
     // Vertex marker.
     if (i == 1) {
       aMarks->ElementAt(0).angle = angle;
     } else {
       aMarks->ElementAt(aMarks->Length() - 1).angle =
-        SVGContentUtils::AngleBisect(prevAngle, angle);
+          SVGContentUtils::AngleBisect(prevAngle, angle);
     }
 
     aMarks->AppendElement(nsSVGMark(x, y, 0, nsSVGMark::eMid));
@@ -127,7 +123,7 @@ SVGPolyElement::GetGeometryBounds(Rect* aBounds,
                                   const Matrix& aToBoundsSpace,
                                   const Matrix* aToNonScalingStrokeSpace)
 {
-  const SVGPointList &points = mPoints.GetAnimValue();
+  const SVGPointList& points = mPoints.GetAnimValue();
 
   if (!points.Length()) {
     // Rendering of the element is disabled
@@ -156,4 +152,3 @@ SVGPolyElement::GetGeometryBounds(Rect* aBounds,
   }
   return true;
 }
-

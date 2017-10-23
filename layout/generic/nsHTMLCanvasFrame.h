@@ -17,17 +17,18 @@ namespace mozilla {
 namespace layers {
 class Layer;
 class LayerManager;
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 class nsPresContext;
 class nsDisplayItem;
 
-nsIFrame* NS_NewHTMLCanvasFrame (nsIPresShell* aPresShell, nsStyleContext* aContext);
+nsIFrame*
+NS_NewHTMLCanvasFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsHTMLCanvasFrame final : public nsContainerFrame
 {
-public:
+ public:
   typedef mozilla::layers::CanvasRenderer CanvasRenderer;
   typedef mozilla::layers::Layer Layer;
   typedef mozilla::layers::LayerManager LayerManager;
@@ -37,46 +38,46 @@ public:
   NS_DECL_FRAMEARENA_HELPERS(nsHTMLCanvasFrame)
 
   explicit nsHTMLCanvasFrame(nsStyleContext* aContext)
-    : nsContainerFrame(aContext, kClassID)
-    , mBorderPadding(GetWritingMode())
-  {}
+      : nsContainerFrame(aContext, kClassID), mBorderPadding(GetWritingMode())
+  {
+  }
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
-  already_AddRefed<Layer> BuildLayer(nsDisplayListBuilder* aBuilder,
-                                     LayerManager* aManager,
-                                     nsDisplayItem* aItem,
-                                     const ContainerLayerParameters& aContainerParameters);
+  already_AddRefed<Layer> BuildLayer(
+      nsDisplayListBuilder* aBuilder,
+      LayerManager* aManager,
+      nsDisplayItem* aItem,
+      const ContainerLayerParameters& aContainerParameters);
   bool InitializeCanvasRenderer(nsDisplayListBuilder* aBuilder,
                                 CanvasRenderer* aRenderer);
 
   /* get the size of the canvas's image */
   nsIntSize GetCanvasSize();
 
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  virtual nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
   virtual mozilla::IntrinsicSize GetIntrinsicSize() override;
   virtual nsSize GetIntrinsicRatio() override;
 
-  virtual mozilla::LogicalSize
-  ComputeSize(gfxContext *aRenderingContext,
-              mozilla::WritingMode aWritingMode,
-              const mozilla::LogicalSize& aCBSize,
-              nscoord aAvailableISize,
-              const mozilla::LogicalSize& aMargin,
-              const mozilla::LogicalSize& aBorder,
-              const mozilla::LogicalSize& aPadding,
-              ComputeSizeFlags aFlags) override;
+  virtual mozilla::LogicalSize ComputeSize(gfxContext* aRenderingContext,
+                                           mozilla::WritingMode aWritingMode,
+                                           const mozilla::LogicalSize& aCBSize,
+                                           nscoord aAvailableISize,
+                                           const mozilla::LogicalSize& aMargin,
+                                           const mozilla::LogicalSize& aBorder,
+                                           const mozilla::LogicalSize& aPadding,
+                                           ComputeSizeFlags aFlags) override;
 
-  virtual void Reflow(nsPresContext*           aPresContext,
-                      ReflowOutput&     aDesiredSize,
+  virtual void Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
   nsRect GetInnerArea() const;
 
@@ -86,8 +87,8 @@ public:
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsSplittableFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedSizing));
+    return nsSplittableFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedSizing));
   }
 
 #ifdef DEBUG_FRAME_DUMP
@@ -95,14 +96,15 @@ public:
 #endif
 
   // Inserted child content gets its frames parented by our child block
-  virtual nsContainerFrame* GetContentInsertionFrame() override {
+  virtual nsContainerFrame* GetContentInsertionFrame() override
+  {
     return PrincipalChildList().FirstChild()->GetContentInsertionFrame();
   }
 
   // Return the ::-moz-html-canvas-content anonymous box.
   void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
 
-protected:
+ protected:
   virtual ~nsHTMLCanvasFrame();
 
   nscoord GetContinuationOffset(nscoord* aWidth = 0) const;

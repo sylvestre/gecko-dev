@@ -11,7 +11,8 @@
 // nsSVGGenericContainerFrame Implementation
 
 nsIFrame*
-NS_NewSVGGenericContainerFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
+NS_NewSVGGenericContainerFrame(nsIPresShell* aPresShell,
+                               nsStyleContext* aContext)
 {
   return new (aPresShell) nsSVGGenericContainerFrame(aContext);
 }
@@ -22,15 +23,15 @@ NS_IMPL_FRAMEARENA_HELPERS(nsSVGGenericContainerFrame)
 // nsIFrame methods
 
 nsresult
-nsSVGGenericContainerFrame::AttributeChanged(int32_t         aNameSpaceID,
-                                             nsAtom*        aAttribute,
-                                             int32_t         aModType)
+nsSVGGenericContainerFrame::AttributeChanged(int32_t aNameSpaceID,
+                                             nsAtom* aAttribute,
+                                             int32_t aModType)
 {
 #ifdef DEBUG
-    nsAutoString str;
-    aAttribute->ToString(str);
-    printf("** nsSVGGenericContainerFrame::AttributeChanged(%s)\n",
-           NS_LossyConvertUTF16toASCII(str).get());
+  nsAutoString str;
+  aAttribute->ToString(str);
+  printf("** nsSVGGenericContainerFrame::AttributeChanged(%s)\n",
+         NS_LossyConvertUTF16toASCII(str).get());
 #endif
 
   return NS_OK;

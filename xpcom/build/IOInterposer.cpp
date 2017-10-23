@@ -16,10 +16,10 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/ThreadLocal.h"
-#include "nscore.h" // for NS_FREE_PERMANENT_DATA
+#include "nscore.h"  // for NS_FREE_PERMANENT_DATA
 #if !defined(XP_WIN)
 #include "NSPRInterposer.h"
-#endif // !defined(XP_WIN)
+#endif  // !defined(XP_WIN)
 #include "nsXULAppAPI.h"
 #include "PoisonIOInterposer.h"
 
@@ -41,59 +41,56 @@ void
 VectorRemove(std::vector<T>& aVector, const T& aElement)
 {
   typename std::vector<T>::iterator newEnd =
-    std::remove(aVector.begin(), aVector.end(), aElement);
+      std::remove(aVector.begin(), aVector.end(), aElement);
   aVector.erase(newEnd, aVector.end());
 }
 
 /** Lists of Observers */
 struct ObserverLists
 {
-private:
+ private:
   ~ObserverLists() {}
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ObserverLists)
 
   ObserverLists() {}
 
   ObserverLists(ObserverLists const& aOther)
-    : mCreateObservers(aOther.mCreateObservers)
-    , mReadObservers(aOther.mReadObservers)
-    , mWriteObservers(aOther.mWriteObservers)
-    , mFSyncObservers(aOther.mFSyncObservers)
-    , mStatObservers(aOther.mStatObservers)
-    , mCloseObservers(aOther.mCloseObservers)
-    , mStageObservers(aOther.mStageObservers)
+      : mCreateObservers(aOther.mCreateObservers),
+        mReadObservers(aOther.mReadObservers),
+        mWriteObservers(aOther.mWriteObservers),
+        mFSyncObservers(aOther.mFSyncObservers),
+        mStatObservers(aOther.mStatObservers),
+        mCloseObservers(aOther.mCloseObservers),
+        mStageObservers(aOther.mStageObservers)
   {
   }
   // Lists of observers for I/O events.
   // These are implemented as vectors since they are allowed to survive gecko,
   // without reporting leaks. This is necessary for the IOInterposer to be used
   // for late-write checks.
-  std::vector<IOInterposeObserver*>  mCreateObservers;
-  std::vector<IOInterposeObserver*>  mReadObservers;
-  std::vector<IOInterposeObserver*>  mWriteObservers;
-  std::vector<IOInterposeObserver*>  mFSyncObservers;
-  std::vector<IOInterposeObserver*>  mStatObservers;
-  std::vector<IOInterposeObserver*>  mCloseObservers;
-  std::vector<IOInterposeObserver*>  mStageObservers;
+  std::vector<IOInterposeObserver*> mCreateObservers;
+  std::vector<IOInterposeObserver*> mReadObservers;
+  std::vector<IOInterposeObserver*> mWriteObservers;
+  std::vector<IOInterposeObserver*> mFSyncObservers;
+  std::vector<IOInterposeObserver*> mStatObservers;
+  std::vector<IOInterposeObserver*> mCloseObservers;
+  std::vector<IOInterposeObserver*> mStageObservers;
 };
 
 class PerThreadData
 {
-public:
+ public:
   explicit PerThreadData(bool aIsMainThread = false)
-    : mIsMainThread(aIsMainThread)
-    , mIsHandlingObservation(false)
-    , mCurrentGeneration(0)
+      : mIsMainThread(aIsMainThread),
+        mIsHandlingObservation(false),
+        mCurrentGeneration(0)
   {
     MOZ_COUNT_CTOR(PerThreadData);
   }
 
-  ~PerThreadData()
-  {
-    MOZ_COUNT_DTOR(PerThreadData);
-  }
+  ~PerThreadData() { MOZ_COUNT_DTOR(PerThreadData); }
 
   void CallObservers(IOInterposeObserver::Observation& aObservation)
   {
@@ -163,27 +160,23 @@ public:
     }
   }
 
-private:
-  bool                  mIsMainThread;
-  bool                  mIsHandlingObservation;
-  uint32_t              mCurrentGeneration;
+ private:
+  bool mIsMainThread;
+  bool mIsHandlingObservation;
+  uint32_t mCurrentGeneration;
   RefPtr<ObserverLists> mObserverLists;
 };
 
 class MasterList
 {
-public:
+ public:
   MasterList()
-    : mObservedOperations(IOInterposeObserver::OpNone)
-    , mIsEnabled(true)
+      : mObservedOperations(IOInterposeObserver::OpNone), mIsEnabled(true)
   {
     MOZ_COUNT_CTOR(MasterList);
   }
 
-  ~MasterList()
-  {
-    MOZ_COUNT_DTOR(MasterList);
-  }
+  ~MasterList() { MOZ_COUNT_DTOR(MasterList); }
 
   inline void Disable() { mIsEnabled = false; }
   inline void Enable() { mIsEnabled = true; }
@@ -231,7 +224,7 @@ public:
     }
     mObserverLists = newLists;
     mObservedOperations =
-      (IOInterposeObserver::Operation)(mObservedOperations | aOp);
+        (IOInterposeObserver::Operation)(mObservedOperations | aOp);
 
     mCurrentGeneration++;
   }
@@ -251,57 +244,50 @@ public:
     if (aOp & IOInterposeObserver::OpCreateOrOpen) {
       VectorRemove(newLists->mCreateObservers, aObserver);
       if (newLists->mCreateObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpCreateOrOpen);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpCreateOrOpen);
       }
     }
     if (aOp & IOInterposeObserver::OpRead) {
       VectorRemove(newLists->mReadObservers, aObserver);
       if (newLists->mReadObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpRead);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpRead);
       }
     }
     if (aOp & IOInterposeObserver::OpWrite) {
       VectorRemove(newLists->mWriteObservers, aObserver);
       if (newLists->mWriteObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpWrite);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpWrite);
       }
     }
     if (aOp & IOInterposeObserver::OpFSync) {
       VectorRemove(newLists->mFSyncObservers, aObserver);
       if (newLists->mFSyncObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpFSync);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpFSync);
       }
     }
     if (aOp & IOInterposeObserver::OpStat) {
       VectorRemove(newLists->mStatObservers, aObserver);
       if (newLists->mStatObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpStat);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpStat);
       }
     }
     if (aOp & IOInterposeObserver::OpClose) {
       VectorRemove(newLists->mCloseObservers, aObserver);
       if (newLists->mCloseObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpClose);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpClose);
       }
     }
     if (aOp & IOInterposeObserver::OpNextStage) {
       VectorRemove(newLists->mStageObservers, aObserver);
       if (newLists->mStageObservers.empty()) {
-        mObservedOperations =
-          (IOInterposeObserver::Operation)(mObservedOperations &
-                                           ~IOInterposeObserver::OpNextStage);
+        mObservedOperations = (IOInterposeObserver::Operation)(
+            mObservedOperations & ~IOInterposeObserver::OpNextStage);
       }
     }
     mObserverLists = newLists;
@@ -329,29 +315,29 @@ public:
     return mIsEnabled && !!(mObservedOperations & aOp);
   }
 
-private:
-  RefPtr<ObserverLists>             mObserverLists;
+ private:
+  RefPtr<ObserverLists> mObserverLists;
   // Note, we cannot use mozilla::Mutex here as the ObserverLists may be leaked
   // (We want to monitor IO during shutdown). Furthermore, as we may have to
   // unregister observers during shutdown an OffTheBooksMutex is not an option
   // either, as its base calls into sDeadlockDetector which may be nullptr
   // during shutdown.
-  IOInterposer::Mutex               mLock;
+  IOInterposer::Mutex mLock;
   // Flags tracking which operations are being observed
-  IOInterposeObserver::Operation    mObservedOperations;
+  IOInterposeObserver::Operation mObservedOperations;
   // Used for quickly disabling everything by IOInterposer::Disable()
-  Atomic<bool>                      mIsEnabled;
+  Atomic<bool> mIsEnabled;
   // Used to inform threads that the master observer list has changed
-  Atomic<uint32_t>                  mCurrentGeneration;
+  Atomic<uint32_t> mCurrentGeneration;
 };
 
 // Special observation used by IOInterposer::EnteringNextStage()
 class NextStageObservation : public IOInterposeObserver::Observation
 {
-public:
+ public:
   NextStageObservation()
-    : IOInterposeObserver::Observation(IOInterposeObserver::OpNextStage,
-                                       "IOInterposer", false)
+      : IOInterposeObserver::Observation(
+            IOInterposeObserver::OpNextStage, "IOInterposer", false)
   {
     mStart = TimeStamp::Now();
     mEnd = mStart;
@@ -362,15 +348,15 @@ public:
 static StaticAutoPtr<MasterList> sMasterList;
 static MOZ_THREAD_LOCAL(PerThreadData*) sThreadLocalData;
 static bool sThreadLocalDataInitialized;
-} // namespace
+}  // namespace
 
 IOInterposeObserver::Observation::Observation(Operation aOperation,
                                               const char* aReference,
                                               bool aShouldReport)
-  : mOperation(aOperation)
-  , mReference(aReference)
-  , mShouldReport(IOInterposer::IsObservedOperation(aOperation) &&
-                  aShouldReport)
+    : mOperation(aOperation),
+      mReference(aReference),
+      mShouldReport(IOInterposer::IsObservedOperation(aOperation) &&
+                    aShouldReport)
 {
   if (mShouldReport) {
     mStart = TimeStamp::Now();
@@ -381,11 +367,11 @@ IOInterposeObserver::Observation::Observation(Operation aOperation,
                                               const TimeStamp& aStart,
                                               const TimeStamp& aEnd,
                                               const char* aReference)
-  : mOperation(aOperation)
-  , mStart(aStart)
-  , mEnd(aEnd)
-  , mReference(aReference)
-  , mShouldReport(false)
+    : mOperation(aOperation),
+      mStart(aStart),
+      mEnd(aEnd),
+      mReference(aReference),
+      mShouldReport(false)
 {
 }
 
@@ -464,7 +450,7 @@ IOInterposeObserver::IsMainThread()
 void
 IOInterposer::Clear()
 {
-  /* Clear() is a no-op on release builds so that we may continue to trap I/O
+/* Clear() is a no-op on release builds so that we may continue to trap I/O
      until process termination. In leak-checking builds, we need to shut down
      IOInterposer so that all references are properly released. */
 #ifdef NS_FREE_PERMANENT_DATA
@@ -579,4 +565,3 @@ IOInterposer::EnteringNextStage()
   NextStageObservation observation;
   Report(observation);
 }
-

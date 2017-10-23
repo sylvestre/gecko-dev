@@ -32,14 +32,13 @@ NS_DEFINE_CID(kStandardURLCID, NS_STANDARDURL_CID);
 NS_DEFINE_CID(kJARURICID, NS_JARURI_CID);
 NS_DEFINE_CID(kIconURICID, NS_MOZICONURI_CID);
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace ipc {
 
 void
-SerializeURI(nsIURI* aURI,
-             URIParams& aParams)
+SerializeURI(nsIURI* aURI, URIParams& aParams)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aURI);
@@ -56,8 +55,7 @@ SerializeURI(nsIURI* aURI,
 }
 
 void
-SerializeURI(nsIURI* aURI,
-             OptionalURIParams& aParams)
+SerializeURI(nsIURI* aURI, OptionalURIParams& aParams)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -65,8 +63,7 @@ SerializeURI(nsIURI* aURI,
     URIParams params;
     SerializeURI(aURI, params);
     aParams = params;
-  }
-  else {
+  } else {
     aParams = mozilla::void_t();
   }
 }
@@ -150,5 +147,5 @@ DeserializeURI(const OptionalURIParams& aParams)
   return uri.forget();
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

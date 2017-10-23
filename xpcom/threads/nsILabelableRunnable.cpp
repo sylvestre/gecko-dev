@@ -27,7 +27,8 @@ nsILabelableRunnable::IsReadyToRun()
 
   if (groups.mMulti.isSome()) {
     MOZ_ASSERT(!groups.mSingle);
-    for (auto iter = groups.mMulti.ref().ConstIter(); !iter.Done(); iter.Next()) {
+    for (auto iter = groups.mMulti.ref().ConstIter(); !iter.Done();
+         iter.Next()) {
       if (iter.Get()->GetKey()->IsRunning()) {
         return false;
       }

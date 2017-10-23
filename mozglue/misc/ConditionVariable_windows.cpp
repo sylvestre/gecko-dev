@@ -19,12 +19,12 @@
 // are not redefined as compiler intrinsics. Fix that for the interlocked
 // functions that are used in this file.
 #if defined(_MSC_VER) && !defined(InterlockedExchangeAdd)
-#define InterlockedExchangeAdd(addend, value)                                  \
+#define InterlockedExchangeAdd(addend, value) \
   _InterlockedExchangeAdd((volatile long*)(addend), (long)(value))
 #endif
 
 #if defined(_MSC_VER) && !defined(InterlockedIncrement)
-#define InterlockedIncrement(addend)                                           \
+#define InterlockedIncrement(addend) \
   _InterlockedIncrement((volatile long*)(addend))
 #endif
 
@@ -60,8 +60,8 @@ mozilla::detail::ConditionVariableImpl::wait(MutexImpl& lock)
 }
 
 mozilla::detail::CVStatus
-mozilla::detail::ConditionVariableImpl::wait_for(MutexImpl& lock,
-                                                 const mozilla::TimeDuration& rel_time)
+mozilla::detail::ConditionVariableImpl::wait_for(
+    MutexImpl& lock, const mozilla::TimeDuration& rel_time)
 {
   CRITICAL_SECTION* cs = &lock.platformData()->criticalSection;
 
@@ -70,14 +70,11 @@ mozilla::detail::ConditionVariableImpl::wait_for(MutexImpl& lock,
   // greater than UINT32_MAX, resulting in the correct INFINITE wait.
   double msecd = rel_time.ToMilliseconds();
   DWORD msec = msecd < 0.0
-               ? 0
-               : msecd > UINT32_MAX
-                 ? INFINITE
-                 : static_cast<DWORD>(msecd);
+                   ? 0
+                   : msecd > UINT32_MAX ? INFINITE : static_cast<DWORD>(msecd);
 
   BOOL r = SleepConditionVariableCS(&platformData()->cv_, cs, msec);
-  if (r)
-    return CVStatus::NoTimeout;
+  if (r) return CVStatus::NoTimeout;
   MOZ_RELEASE_ASSERT(GetLastError() == ERROR_TIMEOUT);
   return CVStatus::Timeout;
 }

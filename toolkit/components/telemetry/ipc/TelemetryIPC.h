@@ -26,7 +26,7 @@ struct DynamicScalarDefinition;
 struct ChildEventData;
 struct DiscardedData;
 
-}
+}  // namespace Telemetry
 
 namespace TelemetryIPC {
 
@@ -36,8 +36,10 @@ namespace TelemetryIPC {
  * @param aProcessType - the process type to accumulate the histograms for
  * @param aAccumulations - accumulation actions to perform
  */
-void AccumulateChildHistograms(Telemetry::ProcessID aProcessType,
-                               const nsTArray<Telemetry::HistogramAccumulation>& aAccumulations);
+void
+AccumulateChildHistograms(
+    Telemetry::ProcessID aProcessType,
+    const nsTArray<Telemetry::HistogramAccumulation>& aAccumulations);
 
 /**
  * Accumulate child process data into keyed histograms for the given process type.
@@ -45,8 +47,10 @@ void AccumulateChildHistograms(Telemetry::ProcessID aProcessType,
  * @param aProcessType - the process type to accumulate the keyed histograms for
  * @param aAccumulations - accumulation actions to perform
  */
-void AccumulateChildKeyedHistograms(Telemetry::ProcessID aProcessType,
-                                    const nsTArray<Telemetry::KeyedHistogramAccumulation>& aAccumulations);
+void
+AccumulateChildKeyedHistograms(
+    Telemetry::ProcessID aProcessType,
+    const nsTArray<Telemetry::KeyedHistogramAccumulation>& aAccumulations);
 
 /**
  * Update scalars for the given process type with the data coming from child process.
@@ -54,8 +58,9 @@ void AccumulateChildKeyedHistograms(Telemetry::ProcessID aProcessType,
  * @param aProcessType - the process type to process the scalar actions for
  * @param aScalarActions - actions to update the scalar data
  */
-void UpdateChildScalars(Telemetry::ProcessID aProcessType,
-                        const nsTArray<Telemetry::ScalarAction>& aScalarActions);
+void
+UpdateChildScalars(Telemetry::ProcessID aProcessType,
+                   const nsTArray<Telemetry::ScalarAction>& aScalarActions);
 
 /**
  * Update keyed scalars for the given process type with the data coming from child process.
@@ -63,8 +68,10 @@ void UpdateChildScalars(Telemetry::ProcessID aProcessType,
  * @param aProcessType - the process type to process the keyed scalar actions for
  * @param aScalarActions - actions to update the keyed scalar data
  */
-void UpdateChildKeyedScalars(Telemetry::ProcessID aProcessType,
-                             const nsTArray<Telemetry::KeyedScalarAction>& aScalarActions);
+void
+UpdateChildKeyedScalars(
+    Telemetry::ProcessID aProcessType,
+    const nsTArray<Telemetry::KeyedScalarAction>& aScalarActions);
 
 /**
  * Record events for the given process type with the data coming from child process.
@@ -72,8 +79,9 @@ void UpdateChildKeyedScalars(Telemetry::ProcessID aProcessType,
  * @param aProcessType - the process type to record the events for
  * @param aEvents - events to record
  */
-void RecordChildEvents(Telemetry::ProcessID aProcessType,
-                       const nsTArray<Telemetry::ChildEventData>& aEvents);
+void
+RecordChildEvents(Telemetry::ProcessID aProcessType,
+                  const nsTArray<Telemetry::ChildEventData>& aEvents);
 
 /**
  * Record the counts of data the child process had to discard
@@ -81,23 +89,28 @@ void RecordChildEvents(Telemetry::ProcessID aProcessType,
  * @param aProcessType - the process reporting the discarded data
  * @param aDiscardedData - stats about the discarded data
  */
-void RecordDiscardedData(Telemetry::ProcessID aProcessType,
-                         const Telemetry::DiscardedData& aDiscardedData);
+void
+RecordDiscardedData(Telemetry::ProcessID aProcessType,
+                    const Telemetry::DiscardedData& aDiscardedData);
 
 /**
  * Get the dynamic scalar definitions from the parent process.
  * @param aDefs - The array that will contain the scalar definitions.
  */
-void GetDynamicScalarDefinitions(nsTArray<mozilla::Telemetry::DynamicScalarDefinition>& aDefs);
+void
+GetDynamicScalarDefinitions(
+    nsTArray<mozilla::Telemetry::DynamicScalarDefinition>& aDefs);
 
 /**
  * Add the dynamic scalar definitions coming from the parent process
  * to the current child process.
  * @param aDefs - The array that contains the scalar definitions.
  */
-void AddDynamicScalarDefinitions(const nsTArray<mozilla::Telemetry::DynamicScalarDefinition>& aDefs);
+void
+AddDynamicScalarDefinitions(
+    const nsTArray<mozilla::Telemetry::DynamicScalarDefinition>& aDefs);
 
-}
-}
+}  // namespace TelemetryIPC
+}  // namespace mozilla
 
-#endif // TelemetryIPC_h__
+#endif  // TelemetryIPC_h__

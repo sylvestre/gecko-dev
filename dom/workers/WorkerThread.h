@@ -22,7 +22,8 @@ namespace workers {
 
 class RuntimeService;
 class WorkerPrivate;
-template <class> class WorkerPrivateParent;
+template<class>
+class WorkerPrivateParent;
 class WorkerRunnable;
 
 // This class lets us restrict the public methods that can be called on
@@ -38,8 +39,7 @@ class WorkerThreadFriendKey
   ~WorkerThreadFriendKey();
 };
 
-class WorkerThread final
-  : public nsThread
+class WorkerThread final : public nsThread
 {
   class Observer;
 
@@ -60,27 +60,24 @@ class WorkerThread final
   bool mAcceptingNonWorkerRunnables;
 #endif
 
-public:
-  static already_AddRefed<WorkerThread>
-  Create(const WorkerThreadFriendKey& aKey);
+ public:
+  static already_AddRefed<WorkerThread> Create(
+      const WorkerThreadFriendKey& aKey);
 
-  void
-  SetWorker(const WorkerThreadFriendKey& aKey, WorkerPrivate* aWorkerPrivate);
+  void SetWorker(const WorkerThreadFriendKey& aKey,
+                 WorkerPrivate* aWorkerPrivate);
 
-  nsresult
-  DispatchPrimaryRunnable(const WorkerThreadFriendKey& aKey,
-                          already_AddRefed<nsIRunnable> aRunnable);
+  nsresult DispatchPrimaryRunnable(const WorkerThreadFriendKey& aKey,
+                                   already_AddRefed<nsIRunnable> aRunnable);
 
-  nsresult
-  DispatchAnyThread(const WorkerThreadFriendKey& aKey,
-           already_AddRefed<WorkerRunnable> aWorkerRunnable);
+  nsresult DispatchAnyThread(const WorkerThreadFriendKey& aKey,
+                             already_AddRefed<WorkerRunnable> aWorkerRunnable);
 
-  uint32_t
-  RecursionDepth(const WorkerThreadFriendKey& aKey) const;
+  uint32_t RecursionDepth(const WorkerThreadFriendKey& aKey) const;
 
   NS_DECL_ISUPPORTS_INHERITED
 
-private:
+ private:
   WorkerThread();
   ~WorkerThread();
 
@@ -96,8 +93,8 @@ private:
   DelayedDispatch(already_AddRefed<nsIRunnable>, uint32_t) override;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_WorkerThread_h__
+#endif  // mozilla_dom_workers_WorkerThread_h__

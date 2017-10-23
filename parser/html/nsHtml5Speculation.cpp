@@ -7,13 +7,13 @@
 using namespace mozilla;
 
 nsHtml5Speculation::nsHtml5Speculation(nsHtml5OwningUTF16Buffer* aBuffer,
-                                       int32_t aStart, 
-                                       int32_t aStartLineNumber, 
+                                       int32_t aStart,
+                                       int32_t aStartLineNumber,
                                        nsAHtml5TreeBuilderState* aSnapshot)
-  : mBuffer(aBuffer)
-  , mStart(aStart)
-  , mStartLineNumber(aStartLineNumber)
-  , mSnapshot(aSnapshot)
+    : mBuffer(aBuffer),
+      mStart(aStart),
+      mStartLineNumber(aStartLineNumber),
+      mSnapshot(aSnapshot)
 {
   MOZ_COUNT_CTOR(nsHtml5Speculation);
 }

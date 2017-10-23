@@ -20,13 +20,16 @@ namespace mozilla {
 
 namespace detail {
 
-enum RunnableResult {
+enum RunnableResult
+{
   NoResult,
   ReturnsResult
 };
 
 static inline nsresult
-RunOnThreadInternal(nsIEventTarget *thread, nsIRunnable *runnable, uint32_t flags)
+RunOnThreadInternal(nsIEventTarget* thread,
+                    nsIRunnable* runnable,
+                    uint32_t flags)
 {
   nsCOMPtr<nsIRunnable> runnable_ref(runnable);
   if (thread) {
@@ -51,13 +54,13 @@ RunOnThreadInternal(nsIEventTarget *thread, nsIRunnable *runnable, uint32_t flag
 }
 
 template<RunnableResult result>
-class runnable_args_base : public Runnable {
+class runnable_args_base : public Runnable
+{
  public:
   runnable_args_base() : Runnable("media-runnable_args_base") {}
 
   NS_IMETHOD Run() = 0;
 };
-
 
 template<typename R>
 struct RunnableFunctionCallHelper
@@ -76,7 +79,9 @@ template<>
 struct RunnableFunctionCallHelper<void>
 {
   template<typename FunType, typename... Args, size_t... Indices>
-  static void apply(FunType func, Tuple<Args...>& args, IndexSequence<Indices...>)
+  static void apply(FunType func,
+                    Tuple<Args...>& args,
+                    IndexSequence<Indices...>)
   {
     func(Get<Indices>(args)...);
   }
@@ -86,7 +91,10 @@ template<typename R>
 struct RunnableMethodCallHelper
 {
   template<typename Class, typename M, typename... Args, size_t... Indices>
-  static R apply(Class obj, M method, Tuple<Args...>& args, IndexSequence<Indices...>)
+  static R apply(Class obj,
+                 M method,
+                 Tuple<Args...>& args,
+                 IndexSequence<Indices...>)
   {
     return ((*obj).*method)(Get<Indices>(args)...);
   }
@@ -99,30 +107,36 @@ template<>
 struct RunnableMethodCallHelper<void>
 {
   template<typename Class, typename M, typename... Args, size_t... Indices>
-  static void apply(Class obj, M method, Tuple<Args...>& args, IndexSequence<Indices...>)
+  static void apply(Class obj,
+                    M method,
+                    Tuple<Args...>& args,
+                    IndexSequence<Indices...>)
   {
     ((*obj).*method)(Get<Indices>(args)...);
   }
 };
 
-}
+}  // namespace detail
 
 template<typename FunType, typename... Args>
 class runnable_args_func : public detail::runnable_args_base<detail::NoResult>
 {
-public:
+ public:
   // |explicit| to pacify static analysis when there are no |args|.
   template<typename... Arguments>
   explicit runnable_args_func(FunType f, Arguments&&... args)
-    : mFunc(f), mArgs(Forward<Arguments>(args)...)
-  {}
+      : mFunc(f), mArgs(Forward<Arguments>(args)...)
+  {
+  }
 
-  NS_IMETHOD Run() {
-    detail::RunnableFunctionCallHelper<void>::apply(mFunc, mArgs, typename IndexSequenceFor<Args...>::Type());
+  NS_IMETHOD Run()
+  {
+    detail::RunnableFunctionCallHelper<void>::apply(
+        mFunc, mArgs, typename IndexSequenceFor<Args...>::Type());
     return NS_OK;
   }
 
-private:
+ private:
   FunType mFunc;
   Tuple<Args...> mArgs;
 };
@@ -131,24 +145,30 @@ template<typename FunType, typename... Args>
 runnable_args_func<FunType, typename mozilla::Decay<Args>::Type...>*
 WrapRunnableNM(FunType f, Args&&... args)
 {
-  return new runnable_args_func<FunType, typename mozilla::Decay<Args>::Type...>(f, Forward<Args>(args)...);
+  return new runnable_args_func<FunType,
+                                typename mozilla::Decay<Args>::Type...>(
+      f, Forward<Args>(args)...);
 }
 
 template<typename Ret, typename FunType, typename... Args>
-class runnable_args_func_ret : public detail::runnable_args_base<detail::ReturnsResult>
+class runnable_args_func_ret
+    : public detail::runnable_args_base<detail::ReturnsResult>
 {
-public:
+ public:
   template<typename... Arguments>
   runnable_args_func_ret(Ret* ret, FunType f, Arguments&&... args)
-    : mReturn(ret), mFunc(f), mArgs(Forward<Arguments>(args)...)
-  {}
+      : mReturn(ret), mFunc(f), mArgs(Forward<Arguments>(args)...)
+  {
+  }
 
-  NS_IMETHOD Run() {
-    *mReturn = detail::RunnableFunctionCallHelper<Ret>::apply(mFunc, mArgs, typename IndexSequenceFor<Args...>::Type());
+  NS_IMETHOD Run()
+  {
+    *mReturn = detail::RunnableFunctionCallHelper<Ret>::apply(
+        mFunc, mArgs, typename IndexSequenceFor<Args...>::Type());
     return NS_OK;
   }
 
-private:
+ private:
   Ret* mReturn;
   FunType mFunc;
   Tuple<Args...> mArgs;
@@ -158,24 +178,30 @@ template<typename R, typename FunType, typename... Args>
 runnable_args_func_ret<R, FunType, typename mozilla::Decay<Args>::Type...>*
 WrapRunnableNMRet(R* ret, FunType f, Args&&... args)
 {
-  return new runnable_args_func_ret<R, FunType, typename mozilla::Decay<Args>::Type...>(ret, f, Forward<Args>(args)...);
+  return new runnable_args_func_ret<R,
+                                    FunType,
+                                    typename mozilla::Decay<Args>::Type...>(
+      ret, f, Forward<Args>(args)...);
 }
 
 template<typename Class, typename M, typename... Args>
 class runnable_args_memfn : public detail::runnable_args_base<detail::NoResult>
 {
-public:
+ public:
   template<typename... Arguments>
   runnable_args_memfn(Class obj, M method, Arguments&&... args)
-    : mObj(obj), mMethod(method), mArgs(Forward<Arguments>(args)...)
-  {}
+      : mObj(obj), mMethod(method), mArgs(Forward<Arguments>(args)...)
+  {
+  }
 
-  NS_IMETHOD Run() {
-    detail::RunnableMethodCallHelper<void>::apply(mObj, mMethod, mArgs, typename IndexSequenceFor<Args...>::Type());
+  NS_IMETHOD Run()
+  {
+    detail::RunnableMethodCallHelper<void>::apply(
+        mObj, mMethod, mArgs, typename IndexSequenceFor<Args...>::Type());
     return NS_OK;
   }
 
-private:
+ private:
   Class mObj;
   M mMethod;
   Tuple<Args...> mArgs;
@@ -185,24 +211,34 @@ template<typename Class, typename M, typename... Args>
 runnable_args_memfn<Class, M, typename mozilla::Decay<Args>::Type...>*
 WrapRunnable(Class obj, M method, Args&&... args)
 {
-  return new runnable_args_memfn<Class, M, typename mozilla::Decay<Args>::Type...>(obj, method, Forward<Args>(args)...);
+  return new runnable_args_memfn<Class,
+                                 M,
+                                 typename mozilla::Decay<Args>::Type...>(
+      obj, method, Forward<Args>(args)...);
 }
 
 template<typename Ret, typename Class, typename M, typename... Args>
-class runnable_args_memfn_ret : public detail::runnable_args_base<detail::ReturnsResult>
+class runnable_args_memfn_ret
+    : public detail::runnable_args_base<detail::ReturnsResult>
 {
-public:
+ public:
   template<typename... Arguments>
   runnable_args_memfn_ret(Ret* ret, Class obj, M method, Arguments... args)
-    : mReturn(ret), mObj(obj), mMethod(method), mArgs(Forward<Arguments>(args)...)
-  {}
+      : mReturn(ret),
+        mObj(obj),
+        mMethod(method),
+        mArgs(Forward<Arguments>(args)...)
+  {
+  }
 
-  NS_IMETHOD Run() {
-    *mReturn = detail::RunnableMethodCallHelper<Ret>::apply(mObj, mMethod, mArgs, typename IndexSequenceFor<Args...>::Type());
+  NS_IMETHOD Run()
+  {
+    *mReturn = detail::RunnableMethodCallHelper<Ret>::apply(
+        mObj, mMethod, mArgs, typename IndexSequenceFor<Args...>::Type());
     return NS_OK;
   }
 
-private:
+ private:
   Ret* mReturn;
   Class mObj;
   M mMethod;
@@ -213,48 +249,64 @@ template<typename R, typename Class, typename M, typename... Args>
 runnable_args_memfn_ret<R, Class, M, typename mozilla::Decay<Args>::Type...>*
 WrapRunnableRet(R* ret, Class obj, M method, Args&&... args)
 {
-  return new runnable_args_memfn_ret<R, Class, M, typename mozilla::Decay<Args>::Type...>(ret, obj, method, Forward<Args>(args)...);
-}
-
-static inline nsresult RUN_ON_THREAD(nsIEventTarget *thread, detail::runnable_args_base<detail::NoResult> *runnable, uint32_t flags) {
-  return detail::RunOnThreadInternal(thread, static_cast<nsIRunnable *>(runnable), flags);
+  return new runnable_args_memfn_ret<R,
+                                     Class,
+                                     M,
+                                     typename mozilla::Decay<Args>::Type...>(
+      ret, obj, method, Forward<Args>(args)...);
 }
 
 static inline nsresult
-RUN_ON_THREAD(nsIEventTarget *thread, detail::runnable_args_base<detail::ReturnsResult> *runnable)
+RUN_ON_THREAD(nsIEventTarget* thread,
+              detail::runnable_args_base<detail::NoResult>* runnable,
+              uint32_t flags)
 {
-  return detail::RunOnThreadInternal(thread, static_cast<nsIRunnable *>(runnable), NS_DISPATCH_SYNC);
+  return detail::RunOnThreadInternal(
+      thread, static_cast<nsIRunnable*>(runnable), flags);
+}
+
+static inline nsresult
+RUN_ON_THREAD(nsIEventTarget* thread,
+              detail::runnable_args_base<detail::ReturnsResult>* runnable)
+{
+  return detail::RunOnThreadInternal(
+      thread, static_cast<nsIRunnable*>(runnable), NS_DISPATCH_SYNC);
 }
 
 #ifdef DEBUG
-#define ASSERT_ON_THREAD(t) do {                \
-    if (t) {                                    \
-      bool on;                                    \
-      nsresult rv;                                \
-      rv = t->IsOnCurrentThread(&on);             \
-      MOZ_ASSERT(NS_SUCCEEDED(rv));               \
-      MOZ_ASSERT(on);                             \
-    }                                           \
-  } while(0)
+#define ASSERT_ON_THREAD(t)           \
+  do {                                \
+    if (t) {                          \
+      bool on;                        \
+      nsresult rv;                    \
+      rv = t->IsOnCurrentThread(&on); \
+      MOZ_ASSERT(NS_SUCCEEDED(rv));   \
+      MOZ_ASSERT(on);                 \
+    }                                 \
+  } while (0)
 #else
 #define ASSERT_ON_THREAD(t)
 #endif
 
-template <class T>
-class DispatchedRelease : public detail::runnable_args_base<detail::NoResult> {
-public:
+template<class T>
+class DispatchedRelease : public detail::runnable_args_base<detail::NoResult>
+{
+ public:
   explicit DispatchedRelease(already_AddRefed<T>& ref) : ref_(ref) {}
 
-  NS_IMETHOD Run() {
+  NS_IMETHOD Run()
+  {
     ref_ = nullptr;
     return NS_OK;
   }
-private:
+
+ private:
   RefPtr<T> ref_;
 };
 
-template <typename T>
-DispatchedRelease<T>* WrapRelease(already_AddRefed<T>&& ref)
+template<typename T>
+DispatchedRelease<T>*
+WrapRelease(already_AddRefed<T>&& ref)
 {
   return new DispatchedRelease<T>(ref);
 }

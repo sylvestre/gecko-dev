@@ -12,15 +12,9 @@
 namespace mozilla {
 namespace dom {
 
-FileSystemBase::FileSystemBase()
-  : mShutdown(false)
-{
-}
+FileSystemBase::FileSystemBase() : mShutdown(false) {}
 
-FileSystemBase::~FileSystemBase()
-{
-  AssertIsOnOwningThread();
-}
+FileSystemBase::~FileSystemBase() { AssertIsOnOwningThread(); }
 
 void
 FileSystemBase::Shutdown()
@@ -75,7 +69,8 @@ FileSystemBase::IsSafeDirectory(Directory* aDir) const
 }
 
 void
-FileSystemBase::GetDirectoryName(nsIFile* aFile, nsAString& aRetval,
+FileSystemBase::GetDirectoryName(nsIFile* aFile,
+                                 nsAString& aRetval,
                                  ErrorResult& aRv) const
 {
   AssertIsOnOwningThread();
@@ -161,5 +156,5 @@ FileSystemBase::AssertIsOnOwningThread() const
   NS_ASSERT_OWNINGTHREAD(FileSystemBase);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

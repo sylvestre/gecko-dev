@@ -70,12 +70,12 @@ using namespace dom;
 
 class ELMCreationDetector
 {
-public:
+ public:
   ELMCreationDetector()
-    // We can do this optimization only in the main thread.
-    : mNonMainThread(!NS_IsMainThread())
-    , mInitialCount(mNonMainThread ?
-                      0 : EventListenerManager::sMainThreadCreatedCount)
+      // We can do this optimization only in the main thread.
+      : mNonMainThread(!NS_IsMainThread()),
+        mInitialCount(
+            mNonMainThread ? 0 : EventListenerManager::sMainThreadCreatedCount)
   {
   }
 
@@ -85,18 +85,16 @@ public:
            mInitialCount != EventListenerManager::sMainThreadCreatedCount;
   }
 
-  bool IsMainThread()
-  {
-    return !mNonMainThread;
-  }
+  bool IsMainThread() { return !mNonMainThread; }
 
-private:
+ private:
   bool mNonMainThread;
   uint32_t mInitialCount;
 };
 
-static bool IsEventTargetChrome(EventTarget* aEventTarget,
-                                nsIDocument** aDocument = nullptr)
+static bool
+IsEventTargetChrome(EventTarget* aEventTarget,
+                    nsIDocument** aDocument = nullptr)
 {
   if (aDocument) {
     *aDocument = nullptr;
@@ -129,17 +127,14 @@ static bool IsEventTargetChrome(EventTarget* aEventTarget,
   return isChrome;
 }
 
-
 // EventTargetChainItem represents a single item in the event target chain.
 class EventTargetChainItem
 {
-private:
+ private:
   explicit EventTargetChainItem(EventTarget* aTarget);
-public:
-  EventTargetChainItem()
-    : mItemFlags(0)
-  {
-  }
+
+ public:
+  EventTargetChainItem() : mItemFlags(0) {}
 
   static EventTargetChainItem* Create(nsTArray<EventTargetChainItem>& aChain,
                                       EventTarget* aTarget,
@@ -159,12 +154,13 @@ public:
   }
 
   static EventTargetChainItem* GetFirstCanHandleEventTarget(
-                                 nsTArray<EventTargetChainItem>& aChain)
+      nsTArray<EventTargetChainItem>& aChain)
   {
     return &aChain[GetFirstCanHandleEventTargetIdx(aChain)];
   }
 
-  static uint32_t GetFirstCanHandleEventTargetIdx(nsTArray<EventTargetChainItem>& aChain)
+  static uint32_t GetFirstCanHandleEventTargetIdx(
+      nsTArray<EventTargetChainItem>& aChain)
   {
     // aChain[i].PreHandleEventOnly() = true only when the target element wants
     // PreHandleEvent and set mCanHandle=false. So we find the first element
@@ -179,7 +175,7 @@ public:
   }
 
   static EventTargetChainItem* GetLastCanHandleEventTarget(
-                                 nsTArray<EventTargetChainItem>& aChain)
+      nsTArray<EventTargetChainItem>& aChain)
   {
     // Fine the last item which can handle the event.
     for (int32_t i = aChain.Length() - 1; i >= 0; --i) {
@@ -196,70 +192,46 @@ public:
     return !!(mTarget);
   }
 
-  EventTarget* GetNewTarget()
-  {
-    return mNewTarget;
-  }
+  EventTarget* GetNewTarget() { return mNewTarget; }
 
-  void SetNewTarget(EventTarget* aNewTarget)
-  {
-    mNewTarget = aNewTarget;
-  }
+  void SetNewTarget(EventTarget* aNewTarget) { mNewTarget = aNewTarget; }
 
   void SetForceContentDispatch(bool aForce)
   {
     mFlags.mForceContentDispatch = aForce;
   }
 
-  bool ForceContentDispatch()
-  {
-    return mFlags.mForceContentDispatch;
-  }
+  bool ForceContentDispatch() { return mFlags.mForceContentDispatch; }
 
   void SetWantsWillHandleEvent(bool aWants)
   {
     mFlags.mWantsWillHandleEvent = aWants;
   }
 
-  bool WantsWillHandleEvent()
-  {
-    return mFlags.mWantsWillHandleEvent;
-  }
+  bool WantsWillHandleEvent() { return mFlags.mWantsWillHandleEvent; }
 
   void SetWantsPreHandleEvent(bool aWants)
   {
     mFlags.mWantsPreHandleEvent = aWants;
   }
 
-  bool WantsPreHandleEvent()
-  {
-    return mFlags.mWantsPreHandleEvent;
-  }
+  bool WantsPreHandleEvent() { return mFlags.mWantsPreHandleEvent; }
 
   void SetPreHandleEventOnly(bool aWants)
   {
     mFlags.mPreHandleEventOnly = aWants;
   }
 
-  bool PreHandleEventOnly()
-  {
-    return mFlags.mPreHandleEventOnly;
-  }
+  bool PreHandleEventOnly() { return mFlags.mPreHandleEventOnly; }
 
   void SetMayHaveListenerManager(bool aMayHave)
   {
     mFlags.mMayHaveManager = aMayHave;
   }
 
-  bool MayHaveListenerManager()
-  {
-    return mFlags.mMayHaveManager;
-  }
+  bool MayHaveListenerManager() { return mFlags.mMayHaveManager; }
 
-  EventTarget* CurrentTarget()
-  {
-    return mTarget;
-  }
+  EventTarget* CurrentTarget() { return mTarget; }
 
   /**
    * Dispatches event through the event target chain.
@@ -287,8 +259,7 @@ public:
    * If the current item in the event target chain has an event listener
    * manager, this method calls EventListenerManager::HandleEvent().
    */
-  void HandleEvent(EventChainPostVisitor& aVisitor,
-                   ELMCreationDetector& aCd)
+  void HandleEvent(EventChainPostVisitor& aVisitor, ELMCreationDetector& aCd)
   {
     if (WantsWillHandleEvent()) {
       mTarget->WillHandleEvent(aVisitor);
@@ -297,8 +268,7 @@ public:
       return;
     }
     if (aVisitor.mEvent->mFlags.mOnlySystemGroupDispatchInContent &&
-        !aVisitor.mEvent->mFlags.mInSystemGroup &&
-        !IsCurrentTargetChrome()) {
+        !aVisitor.mEvent->mFlags.mInSystemGroup && !IsCurrentTargetChrome()) {
       return;
     }
     if (!mManager) {
@@ -310,7 +280,8 @@ public:
     if (mManager) {
       NS_ASSERTION(aVisitor.mEvent->mCurrentTarget == nullptr,
                    "CurrentTarget should be null!");
-      mManager->HandleEvent(aVisitor.mPresContext, aVisitor.mEvent,
+      mManager->HandleEvent(aVisitor.mPresContext,
+                            aVisitor.mEvent,
                             &aVisitor.mDOMEvent,
                             CurrentTarget(),
                             &aVisitor.mEventStatus);
@@ -324,16 +295,13 @@ public:
    */
   void PostHandleEvent(EventChainPostVisitor& aVisitor);
 
-private:
-  nsCOMPtr<EventTarget>             mTarget;
+ private:
+  nsCOMPtr<EventTarget> mTarget;
 
   class EventTargetChainFlags
   {
-  public:
-    explicit EventTargetChainFlags()
-    {
-      SetRawFlags(0);
-    }
+   public:
+    explicit EventTargetChainFlags() { SetRawFlags(0); }
     // Cached flags for each EventTargetChainItem which are set when calling
     // GetEventTargetParent to create event target chain. They are used to
     // manage or speedup event dispatching.
@@ -344,22 +312,24 @@ private:
     bool mIsChromeContent : 1;
     bool mWantsPreHandleEvent : 1;
     bool mPreHandleEventOnly : 1;
-  private:
+
+   private:
     typedef uint32_t RawFlags;
     void SetRawFlags(RawFlags aRawFlags)
     {
-      static_assert(sizeof(EventTargetChainFlags) <= sizeof(RawFlags),
-        "EventTargetChainFlags must not be bigger than the RawFlags");
+      static_assert(
+          sizeof(EventTargetChainFlags) <= sizeof(RawFlags),
+          "EventTargetChainFlags must not be bigger than the RawFlags");
       memcpy(this, &aRawFlags, sizeof(EventTargetChainFlags));
     }
   } mFlags;
 
-  uint16_t                          mItemFlags;
-  nsCOMPtr<nsISupports>             mItemData;
+  uint16_t mItemFlags;
+  nsCOMPtr<nsISupports> mItemData;
   // Event retargeting must happen whenever mNewTarget is non-null.
-  nsCOMPtr<EventTarget>             mNewTarget;
+  nsCOMPtr<EventTarget> mNewTarget;
   // Cache mTarget's event listener manager.
-  RefPtr<EventListenerManager>    mManager;
+  RefPtr<EventListenerManager> mManager;
 
   bool IsCurrentTargetChrome()
   {
@@ -374,8 +344,7 @@ private:
 };
 
 EventTargetChainItem::EventTargetChainItem(EventTarget* aTarget)
-  : mTarget(aTarget)
-  , mItemFlags(0)
+    : mTarget(aTarget), mItemFlags(0)
 {
   MOZ_ASSERT(!aTarget || mTarget == aTarget->GetTargetForEventTargetChain());
 }
@@ -415,16 +384,16 @@ EventTargetChainItem::PostHandleEvent(EventChainPostVisitor& aVisitor)
 
 void
 EventTargetChainItem::HandleEventTargetChain(
-                        nsTArray<EventTargetChainItem>& aChain,
-                        EventChainPostVisitor& aVisitor,
-                        EventDispatchingCallback* aCallback,
-                        ELMCreationDetector& aCd)
+    nsTArray<EventTargetChainItem>& aChain,
+    EventChainPostVisitor& aVisitor,
+    EventDispatchingCallback* aCallback,
+    ELMCreationDetector& aCd)
 {
   // Save the target so that it can be restored later.
   nsCOMPtr<EventTarget> firstTarget = aVisitor.mEvent->mTarget;
   uint32_t chainLength = aChain.Length();
   uint32_t firstCanHandleEventTargetIdx =
-    EventTargetChainItem::GetFirstCanHandleEventTargetIdx(aChain);
+      EventTargetChainItem::GetFirstCanHandleEventTargetIdx(aChain);
 
   // Capture
   aVisitor.mEvent->mFlags.mInCapturePhase = true;
@@ -512,10 +481,7 @@ EventTargetChainItem::HandleEventTargetChain(
     // Setting back the target which was used also for default event group.
     aVisitor.mEvent->mTarget = firstTarget;
     aVisitor.mEvent->mFlags.mInSystemGroup = true;
-    HandleEventTargetChain(aChain,
-                           aVisitor,
-                           aCallback,
-                           aCd);
+    HandleEventTargetChain(aChain, aVisitor, aCallback, aCd);
     aVisitor.mEvent->mFlags.mInSystemGroup = false;
 
     // After dispatch, clear all the propagation flags so that
@@ -546,10 +512,8 @@ EventTargetChainItemForChromeTarget(nsTArray<EventTargetChainItem>& aChain,
   EventTarget* piTarget = win ? win->GetParentTarget() : nullptr;
   NS_ENSURE_TRUE(piTarget, nullptr);
 
-  EventTargetChainItem* etci =
-    EventTargetChainItem::Create(aChain,
-                                 piTarget->GetTargetForEventTargetChain(),
-                                 aChild);
+  EventTargetChainItem* etci = EventTargetChainItem::Create(
+      aChain, piTarget->GetTargetForEventTargetChain(), aChild);
   if (!etci->IsValid()) {
     EventTargetChainItem::DestroyLast(aChain, etci);
     return nullptr;
@@ -558,10 +522,11 @@ EventTargetChainItemForChromeTarget(nsTArray<EventTargetChainItem>& aChain,
 }
 
 /* static */ EventTargetChainItem*
-MayRetargetToChromeIfCanNotHandleEvent(
-  nsTArray<EventTargetChainItem>& aChain, EventChainPreVisitor& aPreVisitor,
-  EventTargetChainItem* aTargetEtci, EventTargetChainItem* aChildEtci,
-  nsINode* aContent)
+MayRetargetToChromeIfCanNotHandleEvent(nsTArray<EventTargetChainItem>& aChain,
+                                       EventChainPreVisitor& aPreVisitor,
+                                       EventTargetChainItem* aTargetEtci,
+                                       EventTargetChainItem* aChildEtci,
+                                       nsINode* aContent)
 {
   if (!aPreVisitor.mWantsPreHandleEvent) {
     // Keep EventTargetChainItem if we need to call PreHandleEvent on it.
@@ -570,7 +535,7 @@ MayRetargetToChromeIfCanNotHandleEvent(
   if (aPreVisitor.mAutomaticChromeDispatch && aContent) {
     // Event target couldn't handle the event. Try to propagate to chrome.
     EventTargetChainItem* chromeTargetEtci =
-      EventTargetChainItemForChromeTarget(aChain, aContent, aChildEtci);
+        EventTargetChainItemForChromeTarget(aChain, aContent, aChildEtci);
     if (chromeTargetEtci) {
       chromeTargetEtci->GetEventTargetParent(aPreVisitor);
       return chromeTargetEtci;
@@ -634,7 +599,7 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
     nsCOMPtr<nsIContent> content = do_QueryInterface(target);
     if (content && content->IsInNativeAnonymousSubtree()) {
       nsCOMPtr<EventTarget> newTarget =
-        do_QueryInterface(content->FindFirstNonChromeOnlyAccessContent());
+          do_QueryInterface(content->FindFirstNonChromeOnlyAccessContent());
       NS_ENSURE_STATE(newTarget);
 
       aEvent->mOriginalTarget = target;
@@ -663,11 +628,9 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
   }
 
 #ifdef DEBUG
-  if (aEvent->mMessage != eVoidEvent &&
-      !nsContentUtils::IsSafeToRunScript()) {
+  if (aEvent->mMessage != eVoidEvent && !nsContentUtils::IsSafeToRunScript()) {
     nsresult rv = NS_ERROR_FAILURE;
-    if (target->GetContextForEventHandlers(&rv) ||
-        NS_FAILED(rv)) {
+    if (target->GetContextForEventHandlers(&rv) || NS_FAILED(rv)) {
       nsCOMPtr<nsINode> node = do_QueryInterface(target);
       if (node && nsContentUtils::IsChromeDoc(node->OwnerDoc())) {
         NS_WARNING("Fix the caller!");
@@ -680,7 +643,7 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
   if (aDOMEvent) {
     WidgetEvent* innerEvent = aDOMEvent->WidgetEventPtr();
     NS_ASSERTION(innerEvent == aEvent,
-                  "The inner event of aDOMEvent is not the same as aEvent!");
+                 "The inner event of aDOMEvent is not the same as aEvent!");
   }
 #endif
 
@@ -702,8 +665,8 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
   }
 
   // Create the event target chain item for the event target.
-  EventTargetChainItem* targetEtci =
-    EventTargetChainItem::Create(chain, target->GetTargetForEventTargetChain());
+  EventTargetChainItem* targetEtci = EventTargetChainItem::Create(
+      chain, target->GetTargetForEventTargetChain());
   MOZ_ASSERT(&chain[0] == targetEtci);
   if (!targetEtci->IsValid()) {
     EventTargetChainItem::DestroyLast(chain, targetEtci);
@@ -728,10 +691,9 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
 
   if (retargeted) {
     aEvent->mOriginalTarget =
-      aEvent->mOriginalTarget->GetTargetForEventTargetChain();
+        aEvent->mOriginalTarget->GetTargetForEventTargetChain();
     NS_ENSURE_STATE(aEvent->mOriginalTarget);
-  }
-  else {
+  } else {
     aEvent->mOriginalTarget = aEvent->mTarget;
   }
 
@@ -744,14 +706,13 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
   // Create visitor object and start event dispatching.
   // GetEventTargetParent for the original target.
   nsEventStatus status = aEventStatus ? *aEventStatus : nsEventStatus_eIgnore;
-  EventChainPreVisitor preVisitor(aPresContext, aEvent, aDOMEvent, status,
-                                  isInAnon);
+  EventChainPreVisitor preVisitor(
+      aPresContext, aEvent, aDOMEvent, status, isInAnon);
   targetEtci->GetEventTargetParent(preVisitor);
 
   if (!preVisitor.mCanHandle) {
-    targetEtci = MayRetargetToChromeIfCanNotHandleEvent(chain, preVisitor,
-                                                        targetEtci, nullptr,
-                                                        content);
+    targetEtci = MayRetargetToChromeIfCanNotHandleEvent(
+        chain, preVisitor, targetEtci, nullptr, content);
   }
   if (!preVisitor.mCanHandle) {
     // The original target and chrome target (mAutomaticChromeDispatch=true)
@@ -768,8 +729,8 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
     targetEtci = nullptr;
     while (preVisitor.mParentTarget) {
       EventTarget* parentTarget = preVisitor.mParentTarget;
-      EventTargetChainItem* parentEtci =
-        EventTargetChainItem::Create(chain, preVisitor.mParentTarget, topEtci);
+      EventTargetChainItem* parentEtci = EventTargetChainItem::Create(
+          chain, preVisitor.mParentTarget, topEtci);
       if (!parentEtci->IsValid()) {
         EventTargetChainItem::DestroyLast(chain, parentEtci);
         rv = NS_ERROR_FAILURE;
@@ -789,14 +750,11 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
         topEtci = parentEtci;
       } else {
         nsCOMPtr<nsINode> disabledTarget = do_QueryInterface(parentTarget);
-        parentEtci = MayRetargetToChromeIfCanNotHandleEvent(chain,
-                                                            preVisitor,
-                                                            parentEtci,
-                                                            topEtci,
-                                                            disabledTarget);
+        parentEtci = MayRetargetToChromeIfCanNotHandleEvent(
+            chain, preVisitor, parentEtci, topEtci, disabledTarget);
         if (parentEtci && preVisitor.mCanHandle) {
           EventTargetChainItem* item =
-            EventTargetChainItem::GetFirstCanHandleEventTarget(chain);
+              EventTargetChainItem::GetFirstCanHandleEventTarget(chain);
           item->SetNewTarget(parentTarget);
           topEtci = parentEtci;
           continue;
@@ -819,8 +777,8 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
         }
         // Handle the chain.
         EventChainPostVisitor postVisitor(preVisitor);
-        EventTargetChainItem::HandleEventTargetChain(chain, postVisitor,
-                                                     aCallback, cd);
+        EventTargetChainItem::HandleEventTargetChain(
+            chain, postVisitor, aCallback, cd);
 
         preVisitor.mEventStatus = postVisitor.mEventStatus;
         // If the DOM event was created during event flow.
@@ -880,16 +838,18 @@ EventDispatcher::DispatchDOMEvent(nsISupports* aTarget,
 
     if (!dontResetTrusted) {
       //Check security state to determine if dispatcher is trusted
-      bool trusted = NS_IsMainThread() ? nsContentUtils::LegacyIsCallerChromeOrNativeCode()
-                                       : mozilla::dom::workers::IsCurrentThreadRunningChromeWorker();
+      bool trusted =
+          NS_IsMainThread()
+              ? nsContentUtils::LegacyIsCallerChromeOrNativeCode()
+              : mozilla::dom::workers::IsCurrentThreadRunningChromeWorker();
       aDOMEvent->SetTrusted(trusted);
     }
 
-    return EventDispatcher::Dispatch(aTarget, aPresContext, innerEvent,
-                                     aDOMEvent, aEventStatus);
+    return EventDispatcher::Dispatch(
+        aTarget, aPresContext, innerEvent, aDOMEvent, aEventStatus);
   } else if (aEvent) {
-    return EventDispatcher::Dispatch(aTarget, aPresContext, aEvent,
-                                     aDOMEvent, aEventStatus);
+    return EventDispatcher::Dispatch(
+        aTarget, aPresContext, aEvent, aDOMEvent, aEventStatus);
   }
   return NS_ERROR_ILLEGAL_VALUE;
 }
@@ -902,70 +862,74 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
                              CallerType aCallerType)
 {
   if (aEvent) {
-    switch(aEvent->mClass) {
-    case eMutationEventClass:
-      return NS_NewDOMMutationEvent(aOwner, aPresContext,
-                                    aEvent->AsMutationEvent());
-    case eGUIEventClass:
-    case eScrollPortEventClass:
-    case eUIEventClass:
-      return NS_NewDOMUIEvent(aOwner, aPresContext, aEvent->AsGUIEvent());
-    case eScrollAreaEventClass:
-      return NS_NewDOMScrollAreaEvent(aOwner, aPresContext,
-                                      aEvent->AsScrollAreaEvent());
-    case eKeyboardEventClass:
-      return NS_NewDOMKeyboardEvent(aOwner, aPresContext,
-                                    aEvent->AsKeyboardEvent());
-    case eCompositionEventClass:
-      return NS_NewDOMCompositionEvent(aOwner, aPresContext,
-                                       aEvent->AsCompositionEvent());
-    case eMouseEventClass:
-      return NS_NewDOMMouseEvent(aOwner, aPresContext, aEvent->AsMouseEvent());
-    case eFocusEventClass:
-      return NS_NewDOMFocusEvent(aOwner, aPresContext, aEvent->AsFocusEvent());
-    case eMouseScrollEventClass:
-      return NS_NewDOMMouseScrollEvent(aOwner, aPresContext,
-                                       aEvent->AsMouseScrollEvent());
-    case eWheelEventClass:
-      return NS_NewDOMWheelEvent(aOwner, aPresContext, aEvent->AsWheelEvent());
-    case eEditorInputEventClass:
-      return NS_NewDOMInputEvent(aOwner, aPresContext,
-                                 aEvent->AsEditorInputEvent());
-    case eDragEventClass:
-      return NS_NewDOMDragEvent(aOwner, aPresContext, aEvent->AsDragEvent());
-    case eClipboardEventClass:
-      return NS_NewDOMClipboardEvent(aOwner, aPresContext,
-                                     aEvent->AsClipboardEvent());
-    case eSMILTimeEventClass:
-      return NS_NewDOMTimeEvent(aOwner, aPresContext,
-                                aEvent->AsSMILTimeEvent());
-    case eCommandEventClass:
-      return NS_NewDOMCommandEvent(aOwner, aPresContext,
-                                   aEvent->AsCommandEvent());
-    case eSimpleGestureEventClass:
-      return NS_NewDOMSimpleGestureEvent(aOwner, aPresContext,
-                                         aEvent->AsSimpleGestureEvent());
-    case ePointerEventClass:
-      return NS_NewDOMPointerEvent(aOwner, aPresContext,
-                                   aEvent->AsPointerEvent());
-    case eTouchEventClass:
-      return NS_NewDOMTouchEvent(aOwner, aPresContext, aEvent->AsTouchEvent());
-    case eTransitionEventClass:
-      return NS_NewDOMTransitionEvent(aOwner, aPresContext,
-                                      aEvent->AsTransitionEvent());
-    case eAnimationEventClass:
-      return NS_NewDOMAnimationEvent(aOwner, aPresContext,
-                                     aEvent->AsAnimationEvent());
-    default:
-      // For all other types of events, create a vanilla event object.
-      return NS_NewDOMEvent(aOwner, aPresContext, aEvent);
+    switch (aEvent->mClass) {
+      case eMutationEventClass:
+        return NS_NewDOMMutationEvent(
+            aOwner, aPresContext, aEvent->AsMutationEvent());
+      case eGUIEventClass:
+      case eScrollPortEventClass:
+      case eUIEventClass:
+        return NS_NewDOMUIEvent(aOwner, aPresContext, aEvent->AsGUIEvent());
+      case eScrollAreaEventClass:
+        return NS_NewDOMScrollAreaEvent(
+            aOwner, aPresContext, aEvent->AsScrollAreaEvent());
+      case eKeyboardEventClass:
+        return NS_NewDOMKeyboardEvent(
+            aOwner, aPresContext, aEvent->AsKeyboardEvent());
+      case eCompositionEventClass:
+        return NS_NewDOMCompositionEvent(
+            aOwner, aPresContext, aEvent->AsCompositionEvent());
+      case eMouseEventClass:
+        return NS_NewDOMMouseEvent(
+            aOwner, aPresContext, aEvent->AsMouseEvent());
+      case eFocusEventClass:
+        return NS_NewDOMFocusEvent(
+            aOwner, aPresContext, aEvent->AsFocusEvent());
+      case eMouseScrollEventClass:
+        return NS_NewDOMMouseScrollEvent(
+            aOwner, aPresContext, aEvent->AsMouseScrollEvent());
+      case eWheelEventClass:
+        return NS_NewDOMWheelEvent(
+            aOwner, aPresContext, aEvent->AsWheelEvent());
+      case eEditorInputEventClass:
+        return NS_NewDOMInputEvent(
+            aOwner, aPresContext, aEvent->AsEditorInputEvent());
+      case eDragEventClass:
+        return NS_NewDOMDragEvent(aOwner, aPresContext, aEvent->AsDragEvent());
+      case eClipboardEventClass:
+        return NS_NewDOMClipboardEvent(
+            aOwner, aPresContext, aEvent->AsClipboardEvent());
+      case eSMILTimeEventClass:
+        return NS_NewDOMTimeEvent(
+            aOwner, aPresContext, aEvent->AsSMILTimeEvent());
+      case eCommandEventClass:
+        return NS_NewDOMCommandEvent(
+            aOwner, aPresContext, aEvent->AsCommandEvent());
+      case eSimpleGestureEventClass:
+        return NS_NewDOMSimpleGestureEvent(
+            aOwner, aPresContext, aEvent->AsSimpleGestureEvent());
+      case ePointerEventClass:
+        return NS_NewDOMPointerEvent(
+            aOwner, aPresContext, aEvent->AsPointerEvent());
+      case eTouchEventClass:
+        return NS_NewDOMTouchEvent(
+            aOwner, aPresContext, aEvent->AsTouchEvent());
+      case eTransitionEventClass:
+        return NS_NewDOMTransitionEvent(
+            aOwner, aPresContext, aEvent->AsTransitionEvent());
+      case eAnimationEventClass:
+        return NS_NewDOMAnimationEvent(
+            aOwner, aPresContext, aEvent->AsAnimationEvent());
+      default:
+        // For all other types of events, create a vanilla event object.
+        return NS_NewDOMEvent(aOwner, aPresContext, aEvent);
     }
   }
 
-  // And if we didn't get an event, check the type argument.
+    // And if we didn't get an event, check the type argument.
 
-#define LOG_EVENT_CREATION(name) mozilla::Telemetry::Accumulate( \
-    mozilla::Telemetry::CREATE_EVENT_##name, true);
+#define LOG_EVENT_CREATION(name) \
+  mozilla::Telemetry::Accumulate(mozilla::Telemetry::CREATE_EVENT_##name, true);
 
   if (aEventType.LowerCaseEqualsLiteral("mouseevent")) {
     LOG_EVENT_CREATION(MOUSEEVENT);
@@ -1011,7 +975,7 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
     LOG_EVENT_CREATION(DEVICEORIENTATIONEVENT);
     DeviceOrientationEventInit init;
     RefPtr<Event> event =
-      DeviceOrientationEvent::Constructor(aOwner, EmptyString(), init);
+        DeviceOrientationEvent::Constructor(aOwner, EmptyString(), init);
     event->MarkUninitialized();
     return event.forget();
   }
@@ -1061,7 +1025,8 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
     return NS_NewDOMScrollAreaEvent(aOwner, aPresContext, nullptr);
   }
   if (aEventType.LowerCaseEqualsLiteral("touchevent") &&
-      TouchEvent::PrefEnabled(nsContentUtils::GetDocShellForEventTarget(aOwner))) {
+      TouchEvent::PrefEnabled(
+          nsContentUtils::GetDocShellForEventTarget(aOwner))) {
     LOG_EVENT_CREATION(TOUCHEVENT);
     return NS_NewDOMTouchEvent(aOwner, aPresContext, nullptr);
   }
@@ -1069,7 +1034,7 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
     LOG_EVENT_CREATION(HASHCHANGEEVENT);
     HashChangeEventInit init;
     RefPtr<Event> event =
-      HashChangeEvent::Constructor(aOwner, EmptyString(), init);
+        HashChangeEvent::Constructor(aOwner, EmptyString(), init);
     event->MarkUninitialized();
     return event.forget();
   }
@@ -1080,7 +1045,7 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
   if (aEventType.LowerCaseEqualsLiteral("storageevent")) {
     LOG_EVENT_CREATION(STORAGEEVENT);
     RefPtr<Event> event =
-      StorageEvent::Constructor(aOwner, EmptyString(), StorageEventInit());
+        StorageEvent::Constructor(aOwner, EmptyString(), StorageEventInit());
     event->MarkUninitialized();
     return event.forget();
   }
@@ -1113,4 +1078,4 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
   return nullptr;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

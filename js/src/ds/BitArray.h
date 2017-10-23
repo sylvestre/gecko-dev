@@ -16,9 +16,8 @@
 namespace js {
 
 template <size_t nbits>
-class BitArray
-{
-  private:
+class BitArray {
+   private:
     // Use a 32 bit word to make it easier to access a BitArray from JIT code.
     using WordT = uint32_t;
 
@@ -30,11 +29,10 @@ class BitArray
 
     WordT map[numSlots];
 
-  public:
+   public:
     void clear(bool value) {
         memset(map, value ? 0xFF : 0, sizeof(map));
-        if (value)
-            map[numSlots - 1] &= paddingMask;
+        if (value) map[numSlots - 1] &= paddingMask;
     }
 
     inline bool get(size_t offset) const {
@@ -60,8 +58,7 @@ class BitArray
 
     bool isAllClear() const {
         for (size_t i = 0; i < numSlots; i++) {
-            if (map[i])
-                return false;
+            if (map[i]) return false;
         }
         return true;
     }
@@ -72,9 +69,7 @@ class BitArray
         *maskp = WordT(1) << (offset % bitsPerElement);
     }
 
-    static size_t offsetOfMap() {
-        return offsetof(BitArray<nbits>, map);
-    }
+    static size_t offsetOfMap() { return offsetof(BitArray<nbits>, map); }
 };
 
 } /* namespace js */

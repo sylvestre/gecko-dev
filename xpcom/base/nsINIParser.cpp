@@ -9,7 +9,7 @@
 #include "nsError.h"
 #include "nsIFile.h"
 #include "nsINIParser.h"
-#include "mozilla/FileUtils.h" // AutoFILE
+#include "mozilla/FileUtils.h"  // AutoFILE
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/URLPreloader.h"
 
@@ -43,7 +43,7 @@ TS_tfopen(const char* aPath, const char* aMode)
 
 class AutoFILE
 {
-public:
+ public:
   explicit AutoFILE(FILE* aFp = nullptr) : fp_(aFp) {}
   ~AutoFILE()
   {
@@ -54,7 +54,8 @@ public:
   operator FILE*() { return fp_; }
   FILE** operator&() { return &fp_; }
   void operator=(FILE* aFp) { fp_ = aFp; }
-private:
+
+ private:
   FILE* fp_;
 };
 
@@ -110,16 +111,16 @@ nsINIParser::InitFromString(const nsCString& aStr)
 
   // outer loop tokenizes into lines
   while (char* token = NS_strtok(kNL, &buffer)) {
-    if (token[0] == '#' || token[0] == ';') { // it's a comment
+    if (token[0] == '#' || token[0] == ';') {  // it's a comment
       continue;
     }
 
     token = (char*)NS_strspnp(kWhitespace, token);
-    if (!*token) { // empty line
+    if (!*token) {  // empty line
       continue;
     }
 
-    if (token[0] == '[') { // section header!
+    if (token[0] == '[') {  // section header!
       ++token;
       currSection = token;
 
@@ -181,7 +182,8 @@ nsINIParser::InitFromString(const nsCString& aStr)
 }
 
 nsresult
-nsINIParser::GetString(const char* aSection, const char* aKey,
+nsINIParser::GetString(const char* aSection,
+                       const char* aKey,
                        nsACString& aResult)
 {
   INIValue* val;
@@ -200,8 +202,10 @@ nsINIParser::GetString(const char* aSection, const char* aKey,
 }
 
 nsresult
-nsINIParser::GetString(const char* aSection, const char* aKey,
-                       char* aResult, uint32_t aResultLen)
+nsINIParser::GetString(const char* aSection,
+                       const char* aKey,
+                       char* aResult,
+                       uint32_t aResultLen)
 {
   INIValue* val;
   mSections.Get(aSection, &val);
@@ -236,14 +240,12 @@ nsINIParser::GetSections(INISectionCallback aCB, void* aClosure)
 
 nsresult
 nsINIParser::GetStrings(const char* aSection,
-                        INIStringCallback aCB, void* aClosure)
+                        INIStringCallback aCB,
+                        void* aClosure)
 {
   INIValue* val;
 
-  for (mSections.Get(aSection, &val);
-       val;
-       val = val->next.get()) {
-
+  for (mSections.Get(aSection, &val); val; val = val->next.get()) {
     if (!aCB(val->key, val->value, aClosure)) {
       return NS_OK;
     }

@@ -74,17 +74,17 @@ enum class AdvanceMode
 
 class ImageSourceBuffer : public ::testing::Test
 {
-public:
+ public:
   ImageSourceBuffer()
-    : mSourceBuffer(new SourceBuffer)
-    , mExpectNoResume(new ExpectNoResume)
-    , mCountResumes(new CountResumes)
+      : mSourceBuffer(new SourceBuffer),
+        mExpectNoResume(new ExpectNoResume),
+        mCountResumes(new CountResumes)
   {
     GenerateData(mData, sizeof(mData));
     EXPECT_FALSE(mSourceBuffer->IsComplete());
   }
 
-protected:
+ protected:
   void CheckedAppendToBuffer(const char* aData, size_t aLength)
   {
     EXPECT_TRUE(NS_SUCCEEDED(mSourceBuffer->Append(aData, aLength)));
@@ -125,16 +125,16 @@ protected:
     ExpectRemainingBytes(aIterator, aLength);
   }
 
-  void CheckedAdvanceIteratorStateOnly(SourceBufferIterator& aIterator,
-                                       size_t aLength,
-                                       uint32_t aChunks,
-                                       size_t aTotalLength,
-                                       AdvanceMode aAdvanceMode
-                                         = AdvanceMode::eAdvanceAsMuchAsPossible)
+  void CheckedAdvanceIteratorStateOnly(
+      SourceBufferIterator& aIterator,
+      size_t aLength,
+      uint32_t aChunks,
+      size_t aTotalLength,
+      AdvanceMode aAdvanceMode = AdvanceMode::eAdvanceAsMuchAsPossible)
   {
-    const size_t advanceBy = aAdvanceMode == AdvanceMode::eAdvanceAsMuchAsPossible
-                           ? SIZE_MAX
-                           : aLength;
+    const size_t advanceBy =
+        aAdvanceMode == AdvanceMode::eAdvanceAsMuchAsPossible ? SIZE_MAX
+                                                              : aLength;
 
     auto state = aIterator.AdvanceOrScheduleResume(advanceBy, mExpectNoResume);
     ASSERT_EQ(SourceBufferIterator::READY, state);
@@ -150,16 +150,16 @@ protected:
     CheckedAdvanceIteratorStateOnly(aIterator, aLength, 1, aLength);
   }
 
-  void CheckedAdvanceIterator(SourceBufferIterator& aIterator,
-                              size_t aLength,
-                              uint32_t aChunks,
-                              size_t aTotalLength,
-                              AdvanceMode aAdvanceMode
-                                = AdvanceMode::eAdvanceAsMuchAsPossible)
+  void CheckedAdvanceIterator(
+      SourceBufferIterator& aIterator,
+      size_t aLength,
+      uint32_t aChunks,
+      size_t aTotalLength,
+      AdvanceMode aAdvanceMode = AdvanceMode::eAdvanceAsMuchAsPossible)
   {
     // Check that the iterator is in the expected state.
-    CheckedAdvanceIteratorStateOnly(aIterator, aLength, aChunks,
-                                    aTotalLength, aAdvanceMode);
+    CheckedAdvanceIteratorStateOnly(
+        aIterator, aLength, aChunks, aTotalLength, aAdvanceMode);
 
     // Check that we read the expected data. To do this, we need to compute our
     // offset in the SourceBuffer, but fortunately that's pretty easy: it's the
@@ -318,8 +318,8 @@ TEST_F(ImageSourceBuffer, AppendFromInputStream)
   ASSERT_TRUE(NS_SUCCEEDED(inputStream->Available(&length)));
 
   // Write test data to the buffer.
-  EXPECT_TRUE(NS_SUCCEEDED(mSourceBuffer->AppendFromInputStream(inputStream,
-                                                                length)));
+  EXPECT_TRUE(
+      NS_SUCCEEDED(mSourceBuffer->AppendFromInputStream(inputStream, length)));
   CheckedCompleteBuffer(iterator, length);
 
   // Verify that the iterator sees the appropriate amount of data.
@@ -389,8 +389,10 @@ TEST_F(ImageSourceBuffer, ExpectLengthAllocatesRequestedCapacity)
   // Verify that the iterator sees a first chunk with 1 byte, and a second chunk
   // with the remaining data.
   CheckedAdvanceIterator(iterator, 1, 1, 1);
-  CheckedAdvanceIterator(iterator, SourceBuffer::MIN_CHUNK_CAPACITY - 1, 2,
-		                   SourceBuffer::MIN_CHUNK_CAPACITY);
+  CheckedAdvanceIterator(iterator,
+                         SourceBuffer::MIN_CHUNK_CAPACITY - 1,
+                         2,
+                         SourceBuffer::MIN_CHUNK_CAPACITY);
   CheckIteratorIsComplete(iterator, 2, SourceBuffer::MIN_CHUNK_CAPACITY);
 }
 
@@ -490,7 +492,7 @@ TEST_F(ImageSourceBuffer, LargeAppendsAllocateAtMostOneChunk)
 
   // Verify that the iterator sees a second chunk of the length we expect.
   const size_t expectedSecondChunkLength =
-    totalLength - SourceBuffer::MIN_CHUNK_CAPACITY;
+      totalLength - SourceBuffer::MIN_CHUNK_CAPACITY;
   CheckedAdvanceIterator(iterator, expectedSecondChunkLength, 2, totalLength);
 
   // Write one more byte; we expect to see that it triggers an allocation.
@@ -584,7 +586,7 @@ TEST_F(ImageSourceBuffer, SourceBufferIteratorsCanBeMoved)
   CheckedAppendToBufferInChunks(chunkLength, totalLength);
   CheckedCompleteBuffer(iterator, totalLength);
 
-  auto GetIterator = [&]{
+  auto GetIterator = [&] {
     SourceBufferIterator lambdaIterator = mSourceBuffer->Iterator();
     CheckedAdvanceIterator(lambdaIterator, chunkLength);
     return lambdaIterator;
@@ -635,8 +637,8 @@ TEST_F(ImageSourceBuffer, SubchunkAdvance)
   // we're advancing a chunk at a time.
   size_t offset = 0;
   while (offset < chunkLength) {
-    CheckedAdvanceIteratorStateOnly(iterator, 1, 1, chunkLength,
-                                    AdvanceMode::eAdvanceByLengthExactly);
+    CheckedAdvanceIteratorStateOnly(
+        iterator, 1, 1, chunkLength, AdvanceMode::eAdvanceByLengthExactly);
     CheckData(iterator.Data(), offset++, iterator.Length());
   }
 
@@ -644,14 +646,14 @@ TEST_F(ImageSourceBuffer, SubchunkAdvance)
   // can't advance within the same chunk, so the chunk count should increase. We
   // check that by passing 2 for the |aChunks| parameter of
   // CheckedAdvanceIteratorStateOnly().
-  CheckedAdvanceIteratorStateOnly(iterator, 1, 2, totalLength,
-                                  AdvanceMode::eAdvanceByLengthExactly);
+  CheckedAdvanceIteratorStateOnly(
+      iterator, 1, 2, totalLength, AdvanceMode::eAdvanceByLengthExactly);
   CheckData(iterator.Data(), offset++, iterator.Length());
 
   // Read the rest of the second chunk. The chunk count should not increase.
   while (offset < totalLength) {
-    CheckedAdvanceIteratorStateOnly(iterator, 1, 2, totalLength,
-                                    AdvanceMode::eAdvanceByLengthExactly);
+    CheckedAdvanceIteratorStateOnly(
+        iterator, 1, 2, totalLength, AdvanceMode::eAdvanceByLengthExactly);
     CheckData(iterator.Data(), offset++, iterator.Length());
   }
 
@@ -675,8 +677,8 @@ TEST_F(ImageSourceBuffer, SubchunkZeroByteAdvance)
   // if the iterator is in the initial state to keep the invariant that
   // SourceBufferIterator in the READY state always returns a non-null pointer
   // from Data().
-  CheckedAdvanceIteratorStateOnly(iterator, 0, 1, chunkLength,
-                                  AdvanceMode::eAdvanceByLengthExactly);
+  CheckedAdvanceIteratorStateOnly(
+      iterator, 0, 1, chunkLength, AdvanceMode::eAdvanceByLengthExactly);
 
   // Advance through the first chunk. As in the |SubchunkAdvance| test, the
   // chunk count should not increase. We do a zero-length advance after each
@@ -684,30 +686,30 @@ TEST_F(ImageSourceBuffer, SubchunkZeroByteAdvance)
   // iterator's position or cause a new chunk to be read.
   size_t offset = 0;
   while (offset < chunkLength) {
-    CheckedAdvanceIteratorStateOnly(iterator, 1, 1, chunkLength,
-                                    AdvanceMode::eAdvanceByLengthExactly);
+    CheckedAdvanceIteratorStateOnly(
+        iterator, 1, 1, chunkLength, AdvanceMode::eAdvanceByLengthExactly);
     CheckData(iterator.Data(), offset++, iterator.Length());
-    CheckedAdvanceIteratorStateOnly(iterator, 0, 1, chunkLength,
-                                    AdvanceMode::eAdvanceByLengthExactly);
+    CheckedAdvanceIteratorStateOnly(
+        iterator, 0, 1, chunkLength, AdvanceMode::eAdvanceByLengthExactly);
   }
 
   // Read the first byte of the second chunk. This is the point at which we
   // can't advance within the same chunk, so the chunk count should increase. As
   // before, we do a zero-length advance afterward.
-  CheckedAdvanceIteratorStateOnly(iterator, 1, 2, totalLength,
-                                  AdvanceMode::eAdvanceByLengthExactly);
+  CheckedAdvanceIteratorStateOnly(
+      iterator, 1, 2, totalLength, AdvanceMode::eAdvanceByLengthExactly);
   CheckData(iterator.Data(), offset++, iterator.Length());
-  CheckedAdvanceIteratorStateOnly(iterator, 0, 2, totalLength,
-                                  AdvanceMode::eAdvanceByLengthExactly);
+  CheckedAdvanceIteratorStateOnly(
+      iterator, 0, 2, totalLength, AdvanceMode::eAdvanceByLengthExactly);
 
   // Read the rest of the second chunk. The chunk count should not increase. As
   // before, we do a zero-length advance after each normal advance.
   while (offset < totalLength) {
-    CheckedAdvanceIteratorStateOnly(iterator, 1, 2, totalLength,
-                                    AdvanceMode::eAdvanceByLengthExactly);
+    CheckedAdvanceIteratorStateOnly(
+        iterator, 1, 2, totalLength, AdvanceMode::eAdvanceByLengthExactly);
     CheckData(iterator.Data(), offset++, iterator.Length());
-    CheckedAdvanceIteratorStateOnly(iterator, 0, 2, totalLength,
-                                    AdvanceMode::eAdvanceByLengthExactly);
+    CheckedAdvanceIteratorStateOnly(
+        iterator, 0, 2, totalLength, AdvanceMode::eAdvanceByLengthExactly);
   }
 
   // Make sure we reached the end.

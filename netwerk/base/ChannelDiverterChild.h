@@ -12,15 +12,14 @@
 namespace mozilla {
 namespace net {
 
-class ChannelDiverterChild :
-  public PChannelDiverterChild
+class ChannelDiverterChild : public PChannelDiverterChild
 {
-public:
+ public:
   ChannelDiverterChild();
   virtual ~ChannelDiverterChild();
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* _channeldiverterchild_h_ */

@@ -36,7 +36,8 @@ static void
 InitializeHooks();
 #endif
 
-ChromiumCDMAdapter::ChromiumCDMAdapter(nsTArray<Pair<nsCString, nsCString>>&& aHostPathPairs)
+ChromiumCDMAdapter::ChromiumCDMAdapter(
+    nsTArray<Pair<nsCString, nsCString>>&& aHostPathPairs)
 {
 #ifdef XP_WIN
   InitializeHooks();
@@ -87,7 +88,7 @@ ChromiumCDMAdapter::GMPInit(const GMPPlatformAPI* aPlatformAPI)
   // Note: we must call the VerifyCdmHost_0 function if it's present before
   // we call the initialize function.
   auto verify = reinterpret_cast<decltype(::VerifyCdmHost_0)*>(
-    PR_FindFunctionSymbol(mLib, STRINGIFY(VerifyCdmHost_0)));
+      PR_FindFunctionSymbol(mLib, STRINGIFY(VerifyCdmHost_0)));
   if (verify) {
     nsTArray<cdm::HostFile> files;
     for (HostFileData& hostFile : mHostFiles) {
@@ -99,7 +100,7 @@ ChromiumCDMAdapter::GMPInit(const GMPPlatformAPI* aPlatformAPI)
 #endif
 
   auto init = reinterpret_cast<decltype(::INITIALIZE_CDM_MODULE)*>(
-    PR_FindFunctionSymbol(mLib, STRINGIFY(INITIALIZE_CDM_MODULE)));
+      PR_FindFunctionSymbol(mLib, STRINGIFY(INITIALIZE_CDM_MODULE)));
   if (!init) {
     return GMPGenericErr;
   }
@@ -126,35 +127,36 @@ ChromiumCDMAdapter::GMPGetAPI(const char* aAPIName,
   bool isCDM8 = !strcmp(aAPIName, CHROMIUM_CDM_API_BACKWARD_COMPAT);
   if (isCDM8 || isCDM9) {
     auto create = reinterpret_cast<decltype(::CreateCdmInstance)*>(
-      PR_FindFunctionSymbol(mLib, "CreateCdmInstance"));
+        PR_FindFunctionSymbol(mLib, "CreateCdmInstance"));
     if (!create) {
-      GMP_LOG("ChromiumCDMAdapter::GMPGetAPI(%s, 0x%p, 0x%p, %u) this=0x%p "
-              "FAILED to find CreateCdmInstance",
-              aAPIName,
-              aHostAPI,
-              aPluginAPI,
-              aDecryptorId,
-              this);
+      GMP_LOG(
+          "ChromiumCDMAdapter::GMPGetAPI(%s, 0x%p, 0x%p, %u) this=0x%p "
+          "FAILED to find CreateCdmInstance",
+          aAPIName,
+          aHostAPI,
+          aPluginAPI,
+          aDecryptorId,
+          this);
       return GMPGenericErr;
     }
 
-    int version = isCDM8 ? cdm::ContentDecryptionModule_8::kVersion :
-                           cdm::ContentDecryptionModule_9::kVersion;
-    void* cdm =
-      create(version,
-             kEMEKeySystemWidevine.get(),
-             kEMEKeySystemWidevine.Length(),
-             &ChromiumCdmHost,
-             aHostAPI);
+    int version = isCDM8 ? cdm::ContentDecryptionModule_8::kVersion
+                         : cdm::ContentDecryptionModule_9::kVersion;
+    void* cdm = create(version,
+                       kEMEKeySystemWidevine.get(),
+                       kEMEKeySystemWidevine.Length(),
+                       &ChromiumCdmHost,
+                       aHostAPI);
     if (!cdm) {
-      GMP_LOG("ChromiumCDMAdapter::GMPGetAPI(%s, 0x%p, 0x%p, %u) this=0x%p "
-              "FAILED to create cdm version %d",
-              aAPIName,
-              aHostAPI,
-              aPluginAPI,
-              aDecryptorId,
-              this,
-              version);
+      GMP_LOG(
+          "ChromiumCDMAdapter::GMPGetAPI(%s, 0x%p, 0x%p, %u) this=0x%p "
+          "FAILED to create cdm version %d",
+          aAPIName,
+          aHostAPI,
+          aPluginAPI,
+          aDecryptorId,
+          this,
+          version);
       return GMPGenericErr;
     }
     GMP_LOG("cdm: 0x%p, version: %d", cdm, version);
@@ -169,7 +171,8 @@ ChromiumCDMAdapter::GMPShutdown()
   GMP_LOG("ChromiumCDMAdapter::GMPShutdown()");
 
   decltype(::DeinitializeCdmModule)* deinit;
-  deinit = (decltype(deinit))(PR_FindFunctionSymbol(mLib, "DeinitializeCdmModule"));
+  deinit =
+      (decltype(deinit))(PR_FindFunctionSymbol(mLib, "DeinitializeCdmModule"));
   if (deinit) {
     GMP_LOG("DeinitializeCdmModule()");
     deinit();
@@ -184,9 +187,9 @@ ChromiumCDMAdapter::Supports(int32_t aModuleVersion,
 {
   return aModuleVersion == CDM_MODULE_VERSION &&
          (aInterfaceVersion == cdm::ContentDecryptionModule_8::kVersion ||
-         aInterfaceVersion == cdm::ContentDecryptionModule_9::kVersion) &&
+          aInterfaceVersion == cdm::ContentDecryptionModule_9::kVersion) &&
          (aHostVersion == cdm::Host_8::kVersion ||
-         aHostVersion == cdm::Host_9::kVersion);
+          aHostVersion == cdm::Host_9::kVersion);
 }
 
 #ifdef XP_WIN
@@ -254,7 +257,7 @@ GetDosDeviceNames()
 static std::wstring
 GetDeviceMapping(const std::wstring& aDosDeviceName)
 {
-  wchar_t buf[MAX_PATH] = { 0 };
+  wchar_t buf[MAX_PATH] = {0};
   DWORD rv = QueryDosDeviceW(aDosDeviceName.c_str(), buf, MAX_PATH);
   if (rv == 0) {
     return std::wstring(L"");
@@ -283,8 +286,7 @@ InitializeHooks()
 #endif
 
 HostFile::HostFile(HostFile&& aOther)
-  : mPath(aOther.mPath)
-  , mFile(aOther.TakePlatformFile())
+    : mPath(aOther.mPath), mFile(aOther.TakePlatformFile())
 {
 }
 
@@ -301,8 +303,7 @@ HostFile::~HostFile()
 }
 
 #ifdef XP_WIN
-HostFile::HostFile(const nsCString& aPath)
-  : mPath(NS_ConvertUTF8toUTF16(aPath))
+HostFile::HostFile(const nsCString& aPath) : mPath(NS_ConvertUTF8toUTF16(aPath))
 {
   HANDLE handle = CreateFileW(mPath.get(),
                               GENERIC_READ,
@@ -316,8 +317,7 @@ HostFile::HostFile(const nsCString& aPath)
 #endif
 
 #ifndef XP_WIN
-HostFile::HostFile(const nsCString& aPath)
-  : mPath(aPath)
+HostFile::HostFile(const nsCString& aPath) : mPath(aPath)
 {
   // Note: open() returns -1 on failure; i.e. kInvalidPlatformFile.
   mFile = open(aPath.get(), O_RDONLY);
@@ -333,13 +333,13 @@ HostFile::TakePlatformFile()
 }
 
 void
-ChromiumCDMAdapter::PopulateHostFiles(nsTArray<Pair<nsCString, nsCString>>&& aHostPathPairs)
+ChromiumCDMAdapter::PopulateHostFiles(
+    nsTArray<Pair<nsCString, nsCString>>&& aHostPathPairs)
 {
   for (const auto& pair : aHostPathPairs) {
-    mHostFiles.AppendElement(
-      HostFileData(mozilla::HostFile(pair.first()),
-                   mozilla::HostFile(pair.second())));
+    mHostFiles.AppendElement(HostFileData(mozilla::HostFile(pair.first()),
+                                          mozilla::HostFile(pair.second())));
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

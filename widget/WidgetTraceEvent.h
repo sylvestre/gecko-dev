@@ -9,19 +9,23 @@ namespace mozilla {
 
 // Perform any required initialization in the widget backend for
 // event tracing. Return true if initialization was successful.
-bool InitWidgetTracing();
+bool
+InitWidgetTracing();
 
 // Perform any required cleanup in the widget backend for event tracing.
-void CleanUpWidgetTracing();
+void
+CleanUpWidgetTracing();
 
 // Fire a tracer event at the UI-thread event loop, and block until
 // the event is processed. This should only be called by
 // a thread that's not the UI thread.
-bool FireAndWaitForTracerEvent();
+bool
+FireAndWaitForTracerEvent();
 
 // Signal that the event has been received by the event loop.
-void SignalTracerThread();
+void
+SignalTracerThread();
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif  // WIDGET_PUBLIC_WIDGETTRACEEVENT_H_

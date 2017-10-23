@@ -20,13 +20,13 @@
 namespace mozilla {
 namespace a11y {
 
-template <class Derived>
+template<class Derived>
 void
 ProxyAccessibleBase<Derived>::Shutdown()
 {
   MOZ_DIAGNOSTIC_ASSERT(!IsDoc());
   xpcAccessibleDocument* xpcDoc =
-    GetAccService()->GetCachedXPCDocument(Document());
+      GetAccService()->GetCachedXPCDocument(Document());
   if (xpcDoc) {
     xpcDoc->NotifyOfShutdown(static_cast<Derived*>(this));
   }
@@ -35,8 +35,7 @@ ProxyAccessibleBase<Derived>::Shutdown()
   // can be destroyed before the doc they own.
   uint32_t childCount = mChildren.Length();
   if (!mOuterDoc) {
-    for (uint32_t idx = 0; idx < childCount; idx++)
-      mChildren[idx]->Shutdown();
+    for (uint32_t idx = 0; idx < childCount; idx++) mChildren[idx]->Shutdown();
   } else {
     if (childCount > 1) {
       MOZ_CRASH("outer doc has too many documents!");
@@ -50,7 +49,7 @@ ProxyAccessibleBase<Derived>::Shutdown()
   mDoc->RemoveAccessible(static_cast<Derived*>(this));
 }
 
-template <class Derived>
+template<class Derived>
 void
 ProxyAccessibleBase<Derived>::SetChildDoc(DocAccessibleParent* aChildDoc)
 {
@@ -60,7 +59,7 @@ ProxyAccessibleBase<Derived>::SetChildDoc(DocAccessibleParent* aChildDoc)
   mOuterDoc = true;
 }
 
-template <class Derived>
+template<class Derived>
 void
 ProxyAccessibleBase<Derived>::ClearChildDoc(DocAccessibleParent* aChildDoc)
 {
@@ -73,28 +72,27 @@ ProxyAccessibleBase<Derived>::ClearChildDoc(DocAccessibleParent* aChildDoc)
   mChildren.RemoveElement(aChildDoc);
 }
 
-template <class Derived>
+template<class Derived>
 bool
 ProxyAccessibleBase<Derived>::MustPruneChildren() const
 {
   // this is the equivalent to nsAccUtils::MustPrune for proxies and should be
   // kept in sync with that.
-  if (mRole != roles::MENUITEM && mRole != roles::COMBOBOX_OPTION
-      && mRole != roles::OPTION && mRole != roles::ENTRY
-      && mRole != roles::FLAT_EQUATION && mRole != roles::PASSWORD_TEXT
-      && mRole != roles::PUSHBUTTON && mRole != roles::TOGGLE_BUTTON
-      && mRole != roles::GRAPHIC && mRole != roles::SLIDER
-      && mRole != roles::PROGRESSBAR && mRole != roles::SEPARATOR)
+  if (mRole != roles::MENUITEM && mRole != roles::COMBOBOX_OPTION &&
+      mRole != roles::OPTION && mRole != roles::ENTRY &&
+      mRole != roles::FLAT_EQUATION && mRole != roles::PASSWORD_TEXT &&
+      mRole != roles::PUSHBUTTON && mRole != roles::TOGGLE_BUTTON &&
+      mRole != roles::GRAPHIC && mRole != roles::SLIDER &&
+      mRole != roles::PROGRESSBAR && mRole != roles::SEPARATOR)
     return false;
 
-  if (mChildren.Length() != 1)
-    return false;
+  if (mChildren.Length() != 1) return false;
 
-  return mChildren[0]->Role() == roles::TEXT_LEAF
-    || mChildren[0]->Role() == roles::STATICTEXT;
+  return mChildren[0]->Role() == roles::TEXT_LEAF ||
+         mChildren[0]->Role() == roles::STATICTEXT;
 }
 
-template <class Derived>
+template<class Derived>
 uint32_t
 ProxyAccessibleBase<Derived>::EmbeddedChildCount() const
 {
@@ -108,7 +106,7 @@ ProxyAccessibleBase<Derived>::EmbeddedChildCount() const
   return count;
 }
 
-template <class Derived>
+template<class Derived>
 int32_t
 ProxyAccessibleBase<Derived>::IndexOfEmbeddedChild(const Derived* aChild)
 {
@@ -126,7 +124,7 @@ ProxyAccessibleBase<Derived>::IndexOfEmbeddedChild(const Derived* aChild)
   return -1;
 }
 
-template <class Derived>
+template<class Derived>
 Derived*
 ProxyAccessibleBase<Derived>::EmbeddedChildAt(size_t aChildIdx)
 {
@@ -146,15 +144,14 @@ ProxyAccessibleBase<Derived>::EmbeddedChildAt(size_t aChildIdx)
   return nullptr;
 }
 
-template <class Derived>
+template<class Derived>
 Accessible*
 ProxyAccessibleBase<Derived>::OuterDocOfRemoteBrowser() const
 {
   auto tab = static_cast<dom::TabParent*>(mDoc->Manager());
   dom::Element* frame = tab->GetOwnerElement();
   NS_ASSERTION(frame, "why isn't the tab in a frame!");
-  if (!frame)
-    return nullptr;
+  if (!frame) return nullptr;
 
   DocAccessible* chromeDoc = GetExistingDocAccessible(frame->OwnerDoc());
 
@@ -204,5 +201,5 @@ ProxyAccessibleBase<Derived>::Parent() const
 
 template class ProxyAccessibleBase<ProxyAccessible>;
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

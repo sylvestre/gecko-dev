@@ -20,41 +20,38 @@ class nsXULTemplateResultRDF;
  */
 class nsXULTemplateResultSetRDF final : public nsISimpleEnumerator
 {
-private:
-    nsXULTemplateQueryProcessorRDF* mProcessor;
+ private:
+  nsXULTemplateQueryProcessorRDF* mProcessor;
 
-    nsRDFQuery* mQuery;
+  nsRDFQuery* mQuery;
 
-    const InstantiationSet* mInstantiations;
+  const InstantiationSet* mInstantiations;
 
-    nsCOMPtr<nsIRDFResource> mResource;
+  nsCOMPtr<nsIRDFResource> mResource;
 
-    InstantiationSet::List *mCurrent;
+  InstantiationSet::List* mCurrent;
 
-    bool mCheckedNext;
+  bool mCheckedNext;
 
-    ~nsXULTemplateResultSetRDF()
-    {
-        delete mInstantiations;
-    }
+  ~nsXULTemplateResultSetRDF() { delete mInstantiations; }
 
-public:
+ public:
+  // nsISupports interface
+  NS_DECL_ISUPPORTS
 
-    // nsISupports interface
-    NS_DECL_ISUPPORTS
+  // nsISimpleEnumerator interface
+  NS_DECL_NSISIMPLEENUMERATOR
 
-    // nsISimpleEnumerator interface
-    NS_DECL_NSISIMPLEENUMERATOR
-
-    nsXULTemplateResultSetRDF(nsXULTemplateQueryProcessorRDF *aProcessor,
-                              nsRDFQuery* aQuery,
-                              const InstantiationSet* aInstantiations)
-        : mProcessor(aProcessor),
-          mQuery(aQuery),
-          mInstantiations(aInstantiations),
-          mCurrent(nullptr),
-          mCheckedNext(false)
-    { }
+  nsXULTemplateResultSetRDF(nsXULTemplateQueryProcessorRDF* aProcessor,
+                            nsRDFQuery* aQuery,
+                            const InstantiationSet* aInstantiations)
+      : mProcessor(aProcessor),
+        mQuery(aQuery),
+        mInstantiations(aInstantiations),
+        mCurrent(nullptr),
+        mCheckedNext(false)
+  {
+  }
 };
 
-#endif // nsXULTemplateResultSetRDF_h__
+#endif  // nsXULTemplateResultSetRDF_h__

@@ -152,7 +152,7 @@ class MediaDecoderStateMachine
 
   using TrackSet = MediaFormatReader::TrackSet;
 
-public:
+ public:
   typedef MediaDecoderOwner::NextFrameStatus NextFrameStatus;
   typedef mozilla::layers::ImageContainer::FrameID FrameID;
   MediaDecoderStateMachine(MediaDecoder* aDecoder, MediaFormatReader* aReader);
@@ -184,10 +184,10 @@ public:
   void DispatchSetPlaybackRate(double aPlaybackRate)
   {
     OwnerThread()->DispatchStateChange(
-      NewRunnableMethod<double>("MediaDecoderStateMachine::SetPlaybackRate",
-                                this,
-                                &MediaDecoderStateMachine::SetPlaybackRate,
-                                aPlaybackRate));
+        NewRunnableMethod<double>("MediaDecoderStateMachine::SetPlaybackRate",
+                                  this,
+                                  &MediaDecoderStateMachine::SetPlaybackRate,
+                                  aPlaybackRate));
   }
 
   RefPtr<ShutdownPromise> BeginShutdown();
@@ -197,13 +197,13 @@ public:
   {
     RefPtr<MediaDecoderStateMachine> self = this;
     nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-      "MediaDecoderStateMachine::DispatchSetFragmentEndTime",
-      [self, aEndTime]() {
-        // A negative number means we don't have a fragment end time at all.
-        self->mFragmentEndTime = aEndTime >= media::TimeUnit::Zero()
-                                   ? aEndTime
-                                   : media::TimeUnit::Invalid();
-      });
+        "MediaDecoderStateMachine::DispatchSetFragmentEndTime",
+        [self, aEndTime]() {
+          // A negative number means we don't have a fragment end time at all.
+          self->mFragmentEndTime = aEndTime >= media::TimeUnit::Zero()
+                                       ? aEndTime
+                                       : media::TimeUnit::Invalid();
+        });
     OwnerThread()->Dispatch(r.forget());
   }
 
@@ -211,10 +211,8 @@ public:
   {
     RefPtr<MediaDecoderStateMachine> self = this;
     nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-      "MediaDecoderStateMachine::DispatchCanPlayThrough",
-      [self, aCanPlayThrough]() {
-        self->mCanPlayThrough = aCanPlayThrough;
-      });
+        "MediaDecoderStateMachine::DispatchCanPlayThrough",
+        [self, aCanPlayThrough]() { self->mCanPlayThrough = aCanPlayThrough; });
     OwnerThread()->DispatchStateChange(r.forget());
   }
 
@@ -222,14 +220,13 @@ public:
   {
     RefPtr<MediaDecoderStateMachine> self = this;
     nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-      "MediaDecoderStateMachine::DispatchIsLiveStream",
-      [self, aIsLiveStream]() {
-        self->mIsLiveStream = aIsLiveStream;
-      });
+        "MediaDecoderStateMachine::DispatchIsLiveStream",
+        [self, aIsLiveStream]() { self->mIsLiveStream = aIsLiveStream; });
     OwnerThread()->DispatchStateChange(r.forget());
   }
 
-  TimedMetadataEventSource& TimedMetadataEvent() {
+  TimedMetadataEventSource& TimedMetadataEvent()
+  {
     return mMetadataManager.TimedMetadataEvent();
   }
 
@@ -238,22 +235,35 @@ public:
   MediaEventSourceExc<UniquePtr<MediaInfo>,
                       UniquePtr<MetadataTags>,
                       MediaDecoderEventVisibility>&
-  MetadataLoadedEvent() { return mMetadataLoadedEvent; }
+  MetadataLoadedEvent()
+  {
+    return mMetadataLoadedEvent;
+  }
 
-  MediaEventSourceExc<nsAutoPtr<MediaInfo>,
-                      MediaDecoderEventVisibility>&
-  FirstFrameLoadedEvent() { return mFirstFrameLoadedEvent; }
+  MediaEventSourceExc<nsAutoPtr<MediaInfo>, MediaDecoderEventVisibility>&
+  FirstFrameLoadedEvent()
+  {
+    return mFirstFrameLoadedEvent;
+  }
 
-  MediaEventSource<MediaEventType>&
-  OnPlaybackEvent() { return mOnPlaybackEvent; }
-  MediaEventSource<MediaResult>&
-  OnPlaybackErrorEvent() { return mOnPlaybackErrorEvent; }
+  MediaEventSource<MediaEventType>& OnPlaybackEvent()
+  {
+    return mOnPlaybackEvent;
+  }
+  MediaEventSource<MediaResult>& OnPlaybackErrorEvent()
+  {
+    return mOnPlaybackErrorEvent;
+  }
 
-  MediaEventSource<DecoderDoctorEvent>&
-  OnDecoderDoctorEvent() { return mOnDecoderDoctorEvent; }
+  MediaEventSource<DecoderDoctorEvent>& OnDecoderDoctorEvent()
+  {
+    return mOnDecoderDoctorEvent;
+  }
 
-  MediaEventSource<NextFrameStatus>&
-  OnNextFrameStatus() { return mOnNextFrameStatus; }
+  MediaEventSource<NextFrameStatus>& OnNextFrameStatus()
+  {
+    return mOnNextFrameStatus;
+  }
 
   size_t SizeOfVideoQueue() const;
 
@@ -262,7 +272,7 @@ public:
   // Sets the video decode mode. Used by the suspend-video-decoder feature.
   void SetVideoDecodeMode(VideoDecodeMode aMode);
 
-private:
+ private:
   class StateObject;
   class DecodeMetadataState;
   class DormantState;
@@ -338,7 +348,7 @@ private:
 
   void SetVideoDecodeModeInternal(VideoDecodeMode aMode);
 
-protected:
+ protected:
   virtual ~MediaDecoderStateMachine();
 
   void BufferedRangeUpdated();
@@ -377,7 +387,6 @@ protected:
     MOZ_ASSERT(OnTaskQueue());
     return IsVideoDecoding() && VideoQueue().GetSize() <= 1;
   }
-
 
   // Returns true if we're running low on buffered data.
   bool HasLowBufferedData();
@@ -485,7 +494,7 @@ protected:
   bool IsAudioDecoding();
   bool IsVideoDecoding();
 
-private:
+ private:
   // Resolved by the MediaSink to signal that all audio/video outstanding
   // work is complete and identify which part(a/v) of the sink is shutting down.
   void OnMediaSinkAudioComplete();
@@ -652,9 +661,10 @@ private:
 
   MediaEventProducerExc<UniquePtr<MediaInfo>,
                         UniquePtr<MetadataTags>,
-                        MediaDecoderEventVisibility> mMetadataLoadedEvent;
-  MediaEventProducerExc<nsAutoPtr<MediaInfo>,
-                        MediaDecoderEventVisibility> mFirstFrameLoadedEvent;
+                        MediaDecoderEventVisibility>
+      mMetadataLoadedEvent;
+  MediaEventProducerExc<nsAutoPtr<MediaInfo>, MediaDecoderEventVisibility>
+      mFirstFrameLoadedEvent;
 
   MediaEventProducer<MediaEventType> mOnPlaybackEvent;
   MediaEventProducer<MediaResult> mOnPlaybackErrorEvent;
@@ -665,7 +675,7 @@ private:
 
   const bool mIsMSE;
 
-private:
+ private:
   // The buffered range. Mirrored from the decoder thread.
   Mirror<media::TimeIntervals> mBuffered;
 
@@ -705,7 +715,7 @@ private:
   // Used to distinguish whether the audio is producing sound.
   Canonical<bool> mIsAudioDataAudible;
 
-public:
+ public:
   AbstractCanonical<media::TimeIntervals>* CanonicalBuffered() const;
 
   AbstractCanonical<media::NullableTimeUnit>* CanonicalDuration()
@@ -737,6 +747,6 @@ public:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

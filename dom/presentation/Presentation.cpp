@@ -27,7 +27,8 @@ namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Presentation,
                                       mWindow,
-                                      mDefaultRequest, mReceiver)
+                                      mDefaultRequest,
+                                      mReceiver)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(Presentation)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(Presentation)
@@ -44,18 +45,12 @@ Presentation::Create(nsPIDOMWindowInner* aWindow)
   return presentation.forget();
 }
 
-Presentation::Presentation(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
-{
-}
+Presentation::Presentation(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {}
 
-Presentation::~Presentation()
-{
-}
+Presentation::~Presentation() {}
 
 /* virtual */ JSObject*
-Presentation::WrapObject(JSContext* aCx,
-                         JS::Handle<JSObject*> aGivenProto)
+Presentation::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return PresentationBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -157,7 +152,7 @@ Presentation::HasReceiverSupport() const
   }
 
   nsCOMPtr<nsIScriptSecurityManager> securityManager =
-    nsContentUtils::GetSecurityManager();
+      nsContentUtils::GetSecurityManager();
   if (!securityManager) {
     return false;
   }
@@ -169,9 +164,8 @@ Presentation::HasReceiverSupport() const
   }
 
   nsCOMPtr<nsIURI> docURI = mWindow->GetDocumentURI();
-  return NS_SUCCEEDED(securityManager->CheckSameOriginURI(presentationURI,
-                                                          docURI,
-                                                          false));
+  return NS_SUCCEEDED(
+      securityManager->CheckSameOriginURI(presentationURI, docURI, false));
 }
 
 bool
@@ -190,5 +184,5 @@ Presentation::IsInPresentedContent() const
   return !presentationURL.IsEmpty();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

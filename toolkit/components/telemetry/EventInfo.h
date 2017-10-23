@@ -16,7 +16,8 @@
 
 namespace {
 
-struct CommonEventInfo {
+struct CommonEventInfo
+{
   // Indices for the category and expiration strings.
   uint32_t category_offset;
   uint32_t expiration_version_offset;
@@ -40,7 +41,8 @@ struct CommonEventInfo {
   const nsCString extra_key(uint32_t index) const;
 };
 
-struct EventInfo {
+struct EventInfo
+{
   // The corresponding CommonEventInfo.
   const CommonEventInfo& common_info;
 
@@ -52,6 +54,6 @@ struct EventInfo {
   const nsCString object() const;
 };
 
-} // namespace
+}  // namespace
 
-#endif // TelemetryEventInfo_h__
+#endif  // TelemetryEventInfo_h__

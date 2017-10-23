@@ -11,13 +11,11 @@ namespace mozilla {
 namespace widget {
 
 CompositorWidget::CompositorWidget(const layers::CompositorOptions& aOptions)
-  : mOptions(aOptions)
+    : mOptions(aOptions)
 {
 }
 
-CompositorWidget::~CompositorWidget()
-{
-}
+CompositorWidget::~CompositorWidget() {}
 
 already_AddRefed<gfx::DrawTarget>
 CompositorWidget::StartRemoteDrawing()
@@ -38,7 +36,9 @@ CompositorWidget::GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
 {
   MOZ_ASSERT(aScreenTarget);
   gfx::SurfaceFormat format =
-    aScreenTarget->GetFormat() == gfx::SurfaceFormat::B8G8R8X8 ? gfx::SurfaceFormat::B8G8R8X8 : gfx::SurfaceFormat::B8G8R8A8;
+      aScreenTarget->GetFormat() == gfx::SurfaceFormat::B8G8R8X8
+          ? gfx::SurfaceFormat::B8G8R8X8
+          : gfx::SurfaceFormat::B8G8R8A8;
   gfx::IntSize size = aRect.ToUnknownRect().Size();
   gfx::IntSize clientSize(GetClientSize().ToUnknownSize());
 
@@ -52,8 +52,10 @@ CompositorWidget::GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
     target = mLastBackBuffer;
     target->SetTransform(gfx::Matrix());
     if (!aClearRect.IsEmpty()) {
-      gfx::IntRect clearRect = aClearRect.ToUnknownRect() - aRect.ToUnknownRect().TopLeft();
-      target->ClearRect(gfx::Rect(clearRect.x, clearRect.y, clearRect.width, clearRect.height));
+      gfx::IntRect clearRect =
+          aClearRect.ToUnknownRect() - aRect.ToUnknownRect().TopLeft();
+      target->ClearRect(gfx::Rect(
+          clearRect.x, clearRect.y, clearRect.width, clearRect.height));
     }
   } else {
     target = aScreenTarget->CreateSimilarDrawTarget(size, format);
@@ -65,7 +67,8 @@ CompositorWidget::GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
 already_AddRefed<gfx::SourceSurface>
 CompositorWidget::EndBackBufferDrawing()
 {
-  RefPtr<gfx::SourceSurface> surface = mLastBackBuffer ? mLastBackBuffer->Snapshot() : nullptr;
+  RefPtr<gfx::SourceSurface> surface =
+      mLastBackBuffer ? mLastBackBuffer->Snapshot() : nullptr;
   return surface.forget();
 }
 
@@ -85,5 +88,5 @@ CompositorWidget::GetVsyncObserver() const
   return nullptr;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

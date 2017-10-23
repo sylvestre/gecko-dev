@@ -13,19 +13,13 @@
 
 class txObject
 {
-public:
-    txObject()
-    {
-        MOZ_COUNT_CTOR(txObject);
-    }
+ public:
+  txObject() { MOZ_COUNT_CTOR(txObject); }
 
-    /**
+  /**
      * Deletes this txObject
      */
-    virtual ~txObject()
-    {
-        MOZ_COUNT_DTOR(txObject);
-    }
+  virtual ~txObject() { MOZ_COUNT_DTOR(txObject); }
 };
 
 /**
@@ -33,18 +27,18 @@ public:
  */
 class txDouble
 {
-public:
-    /**
+ public:
+  /**
      * Converts the value of the given double to a string, and appends
      * the result to the destination string.
      */
-    static void toString(double aValue, nsAString& aDest);
+  static void toString(double aValue, nsAString& aDest);
 
-    /**
+  /**
      * Converts the given String to a double, if the string value does not
      * represent a double, NaN will be returned.
      */
-    static double toDouble(const nsAString& aStr);
+  static double toDouble(const nsAString& aStr);
 };
 
 #endif

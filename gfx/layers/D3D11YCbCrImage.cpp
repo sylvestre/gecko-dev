@@ -15,12 +15,11 @@ using namespace mozilla::gfx;
 namespace mozilla {
 namespace layers {
 
-D3D11YCbCrImage::D3D11YCbCrImage()
- : Image(NULL, ImageFormat::D3D11_YCBCR_IMAGE)
+D3D11YCbCrImage::D3D11YCbCrImage() : Image(NULL, ImageFormat::D3D11_YCBCR_IMAGE)
 {
 }
 
-D3D11YCbCrImage::~D3D11YCbCrImage() { }
+D3D11YCbCrImage::~D3D11YCbCrImage() {}
 
 bool
 D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
@@ -28,13 +27,13 @@ D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
                          const PlanarYCbCrData& aData)
 {
   mPictureRect = IntRect(
-    aData.mPicX, aData.mPicY, aData.mPicSize.width, aData.mPicSize.height);
+      aData.mPicX, aData.mPicY, aData.mPicSize.width, aData.mPicSize.height);
   mYSize = aData.mYSize;
   mCbCrSize = aData.mCbCrSize;
   mColorSpace = aData.mYUVColorSpace;
 
   D3D11YCbCrRecycleAllocator* allocator =
-    aContainer->GetD3D11YCbCrRecycleAllocator(aAllocator);
+      aContainer->GetD3D11YCbCrRecycleAllocator(aAllocator);
   if (!allocator) {
     return false;
   }
@@ -48,8 +47,8 @@ D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
     return false;
   }
 
-  DXGIYCbCrTextureData *data =
-    static_cast<DXGIYCbCrTextureData*>(mTextureClient->GetInternalData());
+  DXGIYCbCrTextureData* data =
+      static_cast<DXGIYCbCrTextureData*>(mTextureClient->GetInternalData());
 
   ID3D11Texture2D* textureY = data->GetD3D11Texture(0);
   ID3D11Texture2D* textureCb = data->GetD3D11Texture(1);
@@ -57,7 +56,7 @@ D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
 
   RefPtr<ID3D10Multithread> mt;
   HRESULT hr = allocator->GetDevice()->QueryInterface(
-    (ID3D10Multithread**)getter_AddRefs(mt));
+      (ID3D10Multithread**)getter_AddRefs(mt));
 
   if (FAILED(hr) || !mt) {
     gfxCriticalError() << "Multithread safety interface not supported. " << hr;
@@ -101,7 +100,6 @@ D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
                          aData.mCbCrStride,
                          aData.mCbCrStride * aData.mCbCrSize.height);
 
-
   return true;
 }
 
@@ -120,8 +118,7 @@ D3D11YCbCrImage::GetTextureClient(KnowsCompositor* aForwarder)
 const DXGIYCbCrTextureData*
 D3D11YCbCrImage::GetData() const
 {
-  if (!mTextureClient)
-    return nullptr;
+  if (!mTextureClient) return nullptr;
 
   return static_cast<DXGIYCbCrTextureData*>(mTextureClient->GetInternalData());
 }
@@ -131,19 +128,19 @@ D3D11YCbCrImage::GetAsSourceSurface()
 {
   if (!mTextureClient) {
     gfxWarning()
-      << "GetAsSourceSurface() called on uninitialized D3D11YCbCrImage.";
+        << "GetAsSourceSurface() called on uninitialized D3D11YCbCrImage.";
     return nullptr;
   }
 
   gfx::IntSize size(mPictureRect.Size());
   gfx::SurfaceFormat format =
-    gfx::ImageFormatToSurfaceFormat(gfxVars::OffscreenFormat());
+      gfx::ImageFormatToSurfaceFormat(gfxVars::OffscreenFormat());
   HRESULT hr;
 
   PlanarYCbCrData data;
 
-  DXGIYCbCrTextureData *dxgiData =
-    static_cast<DXGIYCbCrTextureData*>(mTextureClient->GetInternalData());
+  DXGIYCbCrTextureData* dxgiData =
+      static_cast<DXGIYCbCrTextureData*>(mTextureClient->GetInternalData());
 
   if (!dxgiData) {
     gfxCriticalError() << "Failed to get texture client internal data.";
@@ -264,7 +261,7 @@ D3D11YCbCrImage::GetAsSourceSurface()
   }
 
   gfx::ConvertYCbCrToRGB(
-    data, format, size, mapping.GetData(), mapping.GetStride());
+      data, format, size, mapping.GetData(), mapping.GetStride());
 
   ctx->Unmap(softTexY, 0);
   ctx->Unmap(softTexCb, 0);
@@ -292,14 +289,13 @@ D3D11YCbCrRecycleAllocator::Allocate(SurfaceFormat aFormat,
 
   gfx::IntSize YSize = mYSize.refOr(aSize);
   gfx::IntSize CbCrSize =
-    mCbCrSize.refOr(gfx::IntSize(YSize.width, YSize.height));
-  CD3D11_TEXTURE2D_DESC newDesc(DXGI_FORMAT_R8_UNORM, YSize.width, YSize.height,
-                                1, 1);
+      mCbCrSize.refOr(gfx::IntSize(YSize.width, YSize.height));
+  CD3D11_TEXTURE2D_DESC newDesc(
+      DXGI_FORMAT_R8_UNORM, YSize.width, YSize.height, 1, 1);
   newDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
 
   RefPtr<ID3D10Multithread> mt;
-  HRESULT hr = mDevice->QueryInterface(
-    (ID3D10Multithread**)getter_AddRefs(mt));
+  HRESULT hr = mDevice->QueryInterface((ID3D10Multithread**)getter_AddRefs(mt));
 
   if (FAILED(hr) || !mt) {
     gfxCriticalError() << "Multithread safety interface not supported. " << hr;
@@ -329,16 +325,11 @@ D3D11YCbCrRecycleAllocator::Allocate(SurfaceFormat aFormat,
   NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
   return TextureClient::CreateWithData(
-    DXGIYCbCrTextureData::Create(
-      textureY,
-      textureCb,
-      textureCr,
-      aSize,
-      YSize,
-      CbCrSize),
-    TextureFlags::DEFAULT,
-    mSurfaceAllocator->GetTextureForwarder());
+      DXGIYCbCrTextureData::Create(
+          textureY, textureCb, textureCr, aSize, YSize, CbCrSize),
+      TextureFlags::DEFAULT,
+      mSurfaceAllocator->GetTextureForwarder());
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

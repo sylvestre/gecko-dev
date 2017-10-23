@@ -15,13 +15,12 @@ namespace dom {
 
 /* PaymentActionRequest */
 
-NS_IMPL_ISUPPORTS(PaymentActionRequest,
-                  nsIPaymentActionRequest)
+NS_IMPL_ISUPPORTS(PaymentActionRequest, nsIPaymentActionRequest)
 
 PaymentActionRequest::PaymentActionRequest()
-  : mRequestId(EmptyString())
-  , mType(nsIPaymentActionRequest::UNKNOWN_ACTION)
-  , mCallback(nullptr)
+    : mRequestId(EmptyString()),
+      mType(nsIPaymentActionRequest::UNKNOWN_ACTION),
+      mCallback(nullptr)
 {
 }
 
@@ -65,10 +64,7 @@ NS_IMPL_ISUPPORTS_INHERITED(PaymentCreateActionRequest,
                             PaymentActionRequest,
                             nsIPaymentCreateActionRequest)
 
-PaymentCreateActionRequest::PaymentCreateActionRequest()
-  : mTabId(0)
-{
-}
+PaymentCreateActionRequest::PaymentCreateActionRequest() : mTabId(0) {}
 
 NS_IMETHODIMP
 PaymentCreateActionRequest::InitRequest(const nsAString& aRequestId,
@@ -84,7 +80,8 @@ PaymentCreateActionRequest::InitRequest(const nsAString& aRequestId,
   NS_ENSURE_ARG_POINTER(aMethodData);
   NS_ENSURE_ARG_POINTER(aDetails);
   NS_ENSURE_ARG_POINTER(aOptions);
-  nsresult rv = Init(aRequestId, nsIPaymentActionRequest::CREATE_ACTION, aCallback);
+  nsresult rv =
+      Init(aRequestId, nsIPaymentActionRequest::CREATE_ACTION, aCallback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -105,7 +102,8 @@ PaymentCreateActionRequest::GetTabId(uint64_t* aTabId)
 }
 
 NS_IMETHODIMP
-PaymentCreateActionRequest::GetTopLevelPrincipal(nsIPrincipal** aTopLevelPrincipal)
+PaymentCreateActionRequest::GetTopLevelPrincipal(
+    nsIPrincipal** aTopLevelPrincipal)
 {
   NS_ENSURE_ARG_POINTER(aTopLevelPrincipal);
   MOZ_ASSERT(mTopLevelPrincipal);
@@ -151,7 +149,7 @@ NS_IMPL_ISUPPORTS_INHERITED(PaymentCompleteActionRequest,
                             nsIPaymentCompleteActionRequest)
 
 PaymentCompleteActionRequest::PaymentCompleteActionRequest()
-  : mCompleteStatus(EmptyString())
+    : mCompleteStatus(EmptyString())
 {
 }
 
@@ -168,7 +166,8 @@ PaymentCompleteActionRequest::InitRequest(const nsAString& aRequestId,
                                           const nsAString& aCompleteStatus)
 {
   NS_ENSURE_ARG_POINTER(aCallback);
-  nsresult rv = Init(aRequestId, nsIPaymentActionRequest::COMPLETE_ACTION, aCallback);
+  nsresult rv =
+      Init(aRequestId, nsIPaymentActionRequest::COMPLETE_ACTION, aCallback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -199,7 +198,8 @@ PaymentUpdateActionRequest::InitRequest(const nsAString& aRequestId,
 {
   NS_ENSURE_ARG_POINTER(aCallback);
   NS_ENSURE_ARG_POINTER(aDetails);
-  nsresult rv = Init(aRequestId, nsIPaymentActionRequest::UPDATE_ACTION, aCallback);
+  nsresult rv =
+      Init(aRequestId, nsIPaymentActionRequest::UPDATE_ACTION, aCallback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -207,5 +207,5 @@ PaymentUpdateActionRequest::InitRequest(const nsAString& aRequestId,
   return NS_OK;
 }
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla

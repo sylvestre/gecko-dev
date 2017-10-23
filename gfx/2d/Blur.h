@@ -15,7 +15,7 @@ namespace mozilla {
 namespace gfx {
 
 #ifdef _MSC_VER
-#pragma warning( disable : 4251 )
+#pragma warning(disable : 4251)
 #endif
 
 /**
@@ -38,8 +38,7 @@ namespace gfx {
  */
 class GFX2D_API AlphaBoxBlur
 {
-public:
-
+ public:
   /** Constructs a box blur and computes the backing surface size.
    *
    * @param aRect The coordinates of the surface to create in device units.
@@ -135,23 +134,38 @@ public:
   static IntSize CalculateBlurRadius(const Point& aStandardDeviation);
   static Float CalculateBlurSigma(int32_t aBlurRadius);
 
-private:
-
+ private:
   void BoxBlur_C(uint8_t* aData,
-                 int32_t aLeftLobe, int32_t aRightLobe, int32_t aTopLobe,
-                 int32_t aBottomLobe, uint32_t *aIntegralImage, size_t aIntegralImageStride);
+                 int32_t aLeftLobe,
+                 int32_t aRightLobe,
+                 int32_t aTopLobe,
+                 int32_t aBottomLobe,
+                 uint32_t* aIntegralImage,
+                 size_t aIntegralImageStride);
   void BoxBlur_SSE2(uint8_t* aData,
-                    int32_t aLeftLobe, int32_t aRightLobe, int32_t aTopLobe,
-                    int32_t aBottomLobe, uint32_t *aIntegralImage, size_t aIntegralImageStride);
+                    int32_t aLeftLobe,
+                    int32_t aRightLobe,
+                    int32_t aTopLobe,
+                    int32_t aBottomLobe,
+                    uint32_t* aIntegralImage,
+                    size_t aIntegralImageStride);
 #ifdef BUILD_ARM_NEON
   void BoxBlur_NEON(uint8_t* aData,
-                    int32_t aLeftLobe, int32_t aRightLobe, int32_t aTopLobe,
-                    int32_t aBottomLobe, uint32_t *aIntegralImage, size_t aIntegralImageStride);
+                    int32_t aLeftLobe,
+                    int32_t aRightLobe,
+                    int32_t aTopLobe,
+                    int32_t aBottomLobe,
+                    uint32_t* aIntegralImage,
+                    size_t aIntegralImageStride);
 #endif
 #ifdef _MIPS_ARCH_LOONGSON3A
   void BoxBlur_LS3(uint8_t* aData,
-                    int32_t aLeftLobe, int32_t aRightLobe, int32_t aTopLobe,
-                    int32_t aBottomLobe, uint32_t *aIntegralImage, size_t aIntegralImageStride);
+                   int32_t aLeftLobe,
+                   int32_t aRightLobe,
+                   int32_t aTopLobe,
+                   int32_t aBottomLobe,
+                   uint32_t* aIntegralImage,
+                   size_t aIntegralImageStride);
 #endif
 
   static CheckedInt<int32_t> RoundUpToMultipleOf4(int32_t aVal);
@@ -199,7 +213,7 @@ private:
   bool mHasDirtyRect;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_BLUR_H_ */

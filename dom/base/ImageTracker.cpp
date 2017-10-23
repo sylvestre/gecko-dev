@@ -12,16 +12,9 @@
 namespace mozilla {
 namespace dom {
 
-ImageTracker::ImageTracker()
-  : mLocking(false)
-  , mAnimating(true)
-{
-}
+ImageTracker::ImageTracker() : mLocking(false), mAnimating(true) {}
 
-ImageTracker::~ImageTracker()
-{
-  SetLockingState(false);
-}
+ImageTracker::~ImageTracker() { SetLockingState(false); }
 
 nsresult
 ImageTracker::Add(imgIRequest* aImage)
@@ -101,13 +94,13 @@ nsresult
 ImageTracker::SetLockingState(bool aLocked)
 {
   if (XRE_IsContentProcess() &&
-      !Preferences::GetBool("image.mem.allow_locking_in_content_processes", true)) {
+      !Preferences::GetBool("image.mem.allow_locking_in_content_processes",
+                            true)) {
     return NS_OK;
   }
 
   // If there's no change, there's nothing to do.
-  if (mLocking == aLocked)
-    return NS_OK;
+  if (mLocking == aLocked) return NS_OK;
 
   // Otherwise, iterate over our images and perform the appropriate action.
   for (auto iter = mImages.Iter(); !iter.Done(); iter.Next()) {
@@ -129,8 +122,7 @@ void
 ImageTracker::SetAnimatingState(bool aAnimating)
 {
   // If there's no change, there's nothing to do.
-  if (mAnimating == aAnimating)
-    return;
+  if (mAnimating == aAnimating) return;
 
   // Otherwise, iterate over our images and perform the appropriate action.
   for (auto iter = mImages.Iter(); !iter.Done(); iter.Next()) {
@@ -154,5 +146,5 @@ ImageTracker::RequestDiscardAll()
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

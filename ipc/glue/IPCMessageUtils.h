@@ -37,7 +37,7 @@
 #include "nsCSSPropertyID.h"
 
 #ifdef _MSC_VER
-#pragma warning( disable : 4800 )
+#pragma warning(disable : 4800)
 #endif
 
 #if !defined(OS_POSIX)
@@ -46,7 +46,11 @@
 // base::FileDescriptor acts as a static assert that we only get one
 // def or the other (or neither, in which case code using
 // FileDescriptor fails to build)
-namespace base { struct FileDescriptor { }; }
+namespace base {
+struct FileDescriptor
+{
+};
+}  // namespace base
 #endif
 
 namespace mozilla {
@@ -57,17 +61,19 @@ typedef uintptr_t WindowsHandle;
 
 // XXX there are out of place and might be generally useful.  Could
 // move to nscore.h or something.
-struct void_t {
+struct void_t
+{
   bool operator==(const void_t&) const { return true; }
 };
-struct null_t {
+struct null_t
+{
   bool operator==(const null_t&) const { return true; }
 };
 
 struct SerializedStructuredCloneBuffer final
 {
-  SerializedStructuredCloneBuffer&
-  operator=(const SerializedStructuredCloneBuffer& aOther)
+  SerializedStructuredCloneBuffer& operator=(
+      const SerializedStructuredCloneBuffer& aOther)
   {
     data.Clear();
     auto iter = aOther.data.Iter();
@@ -78,8 +84,7 @@ struct SerializedStructuredCloneBuffer final
     return *this;
   }
 
-  bool
-  operator==(const SerializedStructuredCloneBuffer& aOther) const
+  bool operator==(const SerializedStructuredCloneBuffer& aOther) const
   {
     // The copy assignment operator and the equality operator are
     // needed by the IPDL generated code. We relied on the copy
@@ -91,7 +96,7 @@ struct SerializedStructuredCloneBuffer final
   JSStructuredCloneData data;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -113,29 +118,36 @@ static const uint32_t MAX_MESSAGE_SIZE = 65536;
  *
  * \sa https://developer.mozilla.org/en/IPDL/Type_Serialization
  */
-template <typename E, typename EnumValidator>
-struct EnumSerializer {
+template<typename E, typename EnumValidator>
+struct EnumSerializer
+{
   typedef E paramType;
   typedef typename mozilla::UnsignedStdintTypeForSize<sizeof(paramType)>::Type
-          uintParamType;
+      uintParamType;
 
-  static void Write(Message* aMsg, const paramType& aValue) {
+  static void Write(Message* aMsg, const paramType& aValue)
+  {
     MOZ_RELEASE_ASSERT(EnumValidator::IsLegalValue(aValue));
     WriteParam(aMsg, uintParamType(aValue));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult) {
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
+  {
     uintParamType value;
     if (!ReadParam(aMsg, aIter, &value)) {
 #ifdef MOZ_CRASHREPORTER
-      CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("IPCReadErrorReason"),
-                                         NS_LITERAL_CSTRING("Bad iter"));
+      CrashReporter::AnnotateCrashReport(
+          NS_LITERAL_CSTRING("IPCReadErrorReason"),
+          NS_LITERAL_CSTRING("Bad iter"));
 #endif
       return false;
     } else if (!EnumValidator::IsLegalValue(paramType(value))) {
 #ifdef MOZ_CRASHREPORTER
-      CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("IPCReadErrorReason"),
-                                         NS_LITERAL_CSTRING("Illegal value"));
+      CrashReporter::AnnotateCrashReport(
+          NS_LITERAL_CSTRING("IPCReadErrorReason"),
+          NS_LITERAL_CSTRING("Illegal value"));
 #endif
       return false;
     }
@@ -144,50 +156,48 @@ struct EnumSerializer {
   }
 };
 
-template <typename E,
-          E MinLegal,
-          E HighBound>
+template<typename E, E MinLegal, E HighBound>
 class ContiguousEnumValidator
 {
   // Silence overzealous -Wtype-limits bug in GCC fixed in GCC 4.8:
   // "comparison of unsigned expression >= 0 is always true"
   // http://gcc.gnu.org/bugzilla/show_bug.cgi?id=11856
-  template <typename T>
-  static bool IsLessThanOrEqual(T a, T b) { return a <= b; }
+  template<typename T>
+  static bool IsLessThanOrEqual(T a, T b)
+  {
+    return a <= b;
+  }
 
-public:
+ public:
   static bool IsLegalValue(E e)
   {
     return IsLessThanOrEqual(MinLegal, e) && e < HighBound;
   }
 };
 
-template <typename E,
-          E MinLegal,
-          E MaxLegal>
+template<typename E, E MinLegal, E MaxLegal>
 class ContiguousEnumValidatorInclusive
 {
   // Silence overzealous -Wtype-limits bug in GCC fixed in GCC 4.8:
   // "comparison of unsigned expression >= 0 is always true"
   // http://gcc.gnu.org/bugzilla/show_bug.cgi?id=11856
-  template <typename T>
-  static bool IsLessThanOrEqual(T a, T b) { return a <= b; }
+  template<typename T>
+  static bool IsLessThanOrEqual(T a, T b)
+  {
+    return a <= b;
+  }
 
-public:
+ public:
   static bool IsLegalValue(E e)
   {
     return IsLessThanOrEqual(MinLegal, e) && e <= MaxLegal;
   }
 };
 
-template <typename E,
-          E AllBits>
+template<typename E, E AllBits>
 struct BitFlagsEnumValidator
 {
-  static bool IsLegalValue(E e)
-  {
-    return (e & AllBits) == e;
-  }
+  static bool IsLegalValue(E e) { return (e & AllBits) == e; }
 };
 
 /**
@@ -206,13 +216,11 @@ struct BitFlagsEnumValidator
  * \endcode
  * FOO_FIRST, FOO_SECOND, and FOO_LAST are valid value.
  */
-template <typename E,
-          E MinLegal,
-          E HighBound>
+template<typename E, E MinLegal, E HighBound>
 struct ContiguousEnumSerializer
-  : EnumSerializer<E,
-                   ContiguousEnumValidator<E, MinLegal, HighBound>>
-{};
+    : EnumSerializer<E, ContiguousEnumValidator<E, MinLegal, HighBound>>
+{
+};
 
 /**
  * This is similar to ContiguousEnumSerializer, but the last template
@@ -220,13 +228,11 @@ struct ContiguousEnumSerializer
  * sentinel value. This is intended to support enumerations that don't
  * have sentinel values.
  */
-template <typename E,
-          E MinLegal,
-          E MaxLegal>
+template<typename E, E MinLegal, E MaxLegal>
 struct ContiguousEnumSerializerInclusive
-  : EnumSerializer<E,
-                   ContiguousEnumValidatorInclusive<E, MinLegal, MaxLegal>>
-{};
+    : EnumSerializer<E, ContiguousEnumValidatorInclusive<E, MinLegal, MaxLegal>>
+{
+};
 
 /**
  * Specialization of EnumSerializer for enums representing bit flags.
@@ -248,12 +254,11 @@ struct ContiguousEnumSerializerInclusive
  *     public BitFlagsEnumSerializer<FOO, FOO::ALL_BITS> {};
  * \endcode
  */
-template <typename E,
-          E AllBits>
+template<typename E, E AllBits>
 struct BitFlagsEnumSerializer
-  : EnumSerializer<E,
-                   BitFlagsEnumValidator<E, AllBits>>
-{};
+    : EnumSerializer<E, BitFlagsEnumValidator<E, AllBits>>
+{
+};
 
 /**
  * A helper class for serializing plain-old data (POD) structures.
@@ -263,18 +268,22 @@ struct BitFlagsEnumSerializer
  *
  * Derive ParamTraits<T> from PlainOldDataSerializer<T> if T is POD.
  */
-template <typename T>
+template<typename T>
 struct PlainOldDataSerializer
 {
   // TODO: Once the mozilla::IsPod trait is in good enough shape (bug 900042),
   //       static_assert that mozilla::IsPod<T>::value is true.
   typedef T paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
     aMsg->WriteBytes(&aParam, sizeof(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult) {
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
+  {
     return aMsg->ReadBytesInto(aIter, aResult, sizeof(paramType));
   }
 };
@@ -283,14 +292,17 @@ struct PlainOldDataSerializer
  * A helper class for serializing empty structs. Since the struct is empty there
  * is nothing to write, and a priori we know the result of the read.
  */
-template <typename T>
+template<typename T>
 struct EmptyStructSerializer
 {
   typedef T paramType;
 
   static void Write(Message* aMsg, const paramType& aParam) {}
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult) {
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
+  {
     *aResult = {};
     return true;
   }
@@ -306,7 +318,9 @@ struct ParamTraits<int8_t>
     aMsg->WriteBytes(&aParam, sizeof(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return aMsg->ReadBytesInto(aIter, aResult, sizeof(*aResult));
   }
@@ -322,7 +336,9 @@ struct ParamTraits<uint8_t>
     aMsg->WriteBytes(&aParam, sizeof(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return aMsg->ReadBytesInto(aIter, aResult, sizeof(*aResult));
   }
@@ -334,17 +350,21 @@ template<>
 struct ParamTraits<base::FileDescriptor>
 {
   typedef base::FileDescriptor paramType;
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
     MOZ_CRASH("FileDescriptor isn't meaningful on this platform");
   }
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult) {
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
+  {
     MOZ_CRASH("FileDescriptor isn't meaningful on this platform");
     return false;
   }
 };
 #endif  // !defined(OS_POSIX)
 
-template <>
+template<>
 struct ParamTraits<nsACString>
 {
   typedef nsACString paramType;
@@ -363,11 +383,12 @@ struct ParamTraits<nsACString>
     aMsg->WriteBytes(aParam.BeginReading(), length);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     bool isVoid;
-    if (!aMsg->ReadBool(aIter, &isVoid))
-      return false;
+    if (!aMsg->ReadBool(aIter, &isVoid)) return false;
 
     if (isVoid) {
       aResult->SetIsVoid(true);
@@ -392,7 +413,7 @@ struct ParamTraits<nsACString>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<nsAString>
 {
   typedef nsAString paramType;
@@ -411,11 +432,12 @@ struct ParamTraits<nsAString>
     aMsg->WriteBytes(aParam.BeginReading(), length * sizeof(char16_t));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     bool isVoid;
-    if (!aMsg->ReadBool(aIter, &isVoid))
-      return false;
+    if (!aMsg->ReadBool(aIter, &isVoid)) return false;
 
     if (isVoid) {
       aResult->SetIsVoid(true);
@@ -428,7 +450,8 @@ struct ParamTraits<nsAString>
     }
     aResult->SetLength(length);
 
-    return aMsg->ReadBytesInto(aIter, aResult->BeginWriting(), length * sizeof(char16_t));
+    return aMsg->ReadBytesInto(
+        aIter, aResult->BeginWriting(), length * sizeof(char16_t));
   }
 
   static void Log(const paramType& aParam, std::wstring* aLog)
@@ -448,13 +471,13 @@ struct ParamTraits<nsAString>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<nsCString> : ParamTraits<nsACString>
 {
   typedef nsCString paramType;
 };
 
-template <>
+template<>
 struct ParamTraits<nsLiteralCString> : ParamTraits<nsACString>
 {
   typedef nsLiteralCString paramType;
@@ -470,25 +493,25 @@ struct ParamTraits<nsAutoCString> : ParamTraits<nsCString>
 
 #endif  // MOZILLA_INTERNAL_API
 
-template <>
+template<>
 struct ParamTraits<nsString> : ParamTraits<nsAString>
 {
   typedef nsString paramType;
 };
 
-template <>
+template<>
 struct ParamTraits<nsLiteralString> : ParamTraits<nsAString>
 {
   typedef nsLiteralString paramType;
 };
 
-template <>
+template<>
 struct ParamTraits<nsDependentSubstring> : ParamTraits<nsAString>
 {
   typedef nsDependentSubstring paramType;
 };
 
-template <>
+template<>
 struct ParamTraits<nsDependentCSubstring> : ParamTraits<nsACString>
 {
   typedef nsDependentCSubstring paramType;
@@ -507,13 +530,14 @@ struct ParamTraits<nsAutoString> : ParamTraits<nsString>
 // Pickle::ReadBytes and ::WriteBytes take the length in ints, so we must
 // ensure there is no overflow. This returns |false| if it would overflow.
 // Otherwise, it returns |true| and places the byte length in |aByteLength|.
-bool ByteLengthIsValid(uint32_t aNumElements, size_t aElementSize, int* aByteLength);
+bool
+ByteLengthIsValid(uint32_t aNumElements, size_t aElementSize, int* aByteLength);
 
 // Note: IPDL will sometimes codegen specialized implementations of
 // nsTArray serialization and deserialization code in
 // implementSpecialArrayPickling(). This is needed when ParamTraits<E>
 // is not defined.
-template <typename E>
+template<typename E>
 struct ParamTraits<nsTArray<E>>
 {
   typedef nsTArray<E> paramType;
@@ -523,8 +547,8 @@ struct ParamTraits<nsTArray<E>>
   // not use mozilla::IsPod here because it is perfectly reasonable to have
   // a data structure T for which IsPod<T>::value is true, yet also have a
   // ParamTraits<T> specialization.
-  static const bool sUseWriteBytes = (mozilla::IsIntegral<E>::value ||
-                                      mozilla::IsFloatingPoint<E>::value);
+  static const bool sUseWriteBytes =
+      (mozilla::IsIntegral<E>::value || mozilla::IsFloatingPoint<E>::value);
 
   static void Write(Message* aMsg, const paramType& aParam)
   {
@@ -545,7 +569,9 @@ struct ParamTraits<nsTArray<E>>
 
   // This method uses infallible allocation so that an OOM failure will
   // show up as an OOM crash rather than an IPC FatalError.
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     uint32_t length;
     if (!ReadParam(aMsg, aIter, &length)) {
@@ -595,11 +621,12 @@ struct ParamTraits<FallibleTArray<E>>
   }
 
   // Deserialize the array infallibly, but return a FallibleTArray.
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     nsTArray<E> temp;
-    if (!ReadParam(aMsg, aIter, &temp))
-      return false;
+    if (!ReadParam(aMsg, aIter, &temp)) return false;
 
     aResult->SwapElements(temp);
     return true;
@@ -627,7 +654,9 @@ struct ParamTraits<float>
     aMsg->WriteBytes(&aParam, sizeof(paramType));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return aMsg->ReadBytesInto(aIter, aResult, sizeof(*aResult));
   }
@@ -638,20 +667,22 @@ struct ParamTraits<float>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<nsCSSPropertyID>
-  : public ContiguousEnumSerializer<nsCSSPropertyID,
-                                    eCSSProperty_UNKNOWN,
-                                    eCSSProperty_COUNT>
-{};
+    : public ContiguousEnumSerializer<nsCSSPropertyID,
+                                      eCSSProperty_UNKNOWN,
+                                      eCSSProperty_COUNT>
+{
+};
 
 template<>
 struct ParamTraits<mozilla::void_t>
 {
   typedef mozilla::void_t paramType;
-  static void Write(Message* aMsg, const paramType& aParam) { }
-  static bool
-  Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static void Write(Message* aMsg, const paramType& aParam) {}
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     *aResult = paramType();
     return true;
@@ -662,9 +693,10 @@ template<>
 struct ParamTraits<mozilla::null_t>
 {
   typedef mozilla::null_t paramType;
-  static void Write(Message* aMsg, const paramType& aParam) { }
-  static bool
-  Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static void Write(Message* aMsg, const paramType& aParam) {}
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     *aResult = paramType();
     return true;
@@ -686,16 +718,17 @@ struct ParamTraits<nsID>
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
-    if(!ReadParam(aMsg, aIter, &(aResult->m0)) ||
-       !ReadParam(aMsg, aIter, &(aResult->m1)) ||
-       !ReadParam(aMsg, aIter, &(aResult->m2)))
+    if (!ReadParam(aMsg, aIter, &(aResult->m0)) ||
+        !ReadParam(aMsg, aIter, &(aResult->m1)) ||
+        !ReadParam(aMsg, aIter, &(aResult->m2)))
       return false;
 
     for (unsigned int i = 0; i < mozilla::ArrayLength(aResult->m3); i++)
-      if (!ReadParam(aMsg, aIter, &(aResult->m3[i])))
-        return false;
+      if (!ReadParam(aMsg, aIter, &(aResult->m3[i]))) return false;
 
     return true;
   }
@@ -703,10 +736,8 @@ struct ParamTraits<nsID>
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
     aLog->append(L"{");
-    aLog->append(StringPrintf(L"%8.8X-%4.4X-%4.4X-",
-                              aParam.m0,
-                              aParam.m1,
-                              aParam.m2));
+    aLog->append(
+        StringPrintf(L"%8.8X-%4.4X-%4.4X-", aParam.m0, aParam.m1, aParam.m2));
     for (unsigned int i = 0; i < mozilla::ArrayLength(aParam.m3); i++)
       aLog->append(StringPrintf(L"%2.2X", aParam.m3[i]));
     aLog->append(L"}");
@@ -721,7 +752,9 @@ struct ParamTraits<mozilla::TimeDuration>
   {
     WriteParam(aMsg, aParam.mValue);
   }
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->mValue);
   };
@@ -735,7 +768,9 @@ struct ParamTraits<mozilla::TimeStamp>
   {
     WriteParam(aMsg, aParam.mValue);
   }
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->mValue);
   };
@@ -754,7 +789,9 @@ struct ParamTraits<mozilla::TimeStampValue>
     WriteParam(aMsg, aParam.mHasQPC);
     WriteParam(aMsg, aParam.mIsNull);
   }
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return (ReadParam(aMsg, aIter, &aResult->mGTC) &&
             ReadParam(aMsg, aIter, &aResult->mQPC) &&
@@ -765,7 +802,7 @@ struct ParamTraits<mozilla::TimeStampValue>
 
 #endif
 
-template <>
+template<>
 struct ParamTraits<mozilla::dom::ipc::StructuredCloneData>
 {
   typedef mozilla::dom::ipc::StructuredCloneData paramType;
@@ -775,7 +812,9 @@ struct ParamTraits<mozilla::dom::ipc::StructuredCloneData>
     aParam.WriteIPCParams(aMsg);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return aResult->ReadIPCParams(aMsg, aIter);
   }
@@ -786,7 +825,7 @@ struct ParamTraits<mozilla::dom::ipc::StructuredCloneData>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::net::WebSocketFrameData>
 {
   typedef mozilla::net::WebSocketFrameData paramType;
@@ -796,13 +835,15 @@ struct ParamTraits<mozilla::net::WebSocketFrameData>
     aParam.WriteIPCParams(aMsg);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return aResult->ReadIPCParams(aMsg, aIter);
   }
 };
 
-template <>
+template<>
 struct ParamTraits<JSStructuredCloneData>
 {
   typedef JSStructuredCloneData paramType;
@@ -813,12 +854,15 @@ struct ParamTraits<JSStructuredCloneData>
     WriteParam(aMsg, aParam.Size());
     auto iter = aParam.Iter();
     while (!iter.Done()) {
-      aMsg->WriteBytes(iter.Data(), iter.RemainingInSegment(), sizeof(uint64_t));
+      aMsg->WriteBytes(
+          iter.Data(), iter.RemainingInSegment(), sizeof(uint64_t));
       iter.Advance(aParam, iter.RemainingInSegment());
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     size_t length = 0;
     if (!ReadParam(aMsg, aIter, &length)) {
@@ -834,13 +878,14 @@ struct ParamTraits<JSStructuredCloneData>
     // case is PContentChild::SendGetXPCOMProcessAttributes. We can't
     // return a borrowed buffer because the out param outlives the
     // IPDL callback.
-    if (length && !aMsg->ExtractBuffers(aIter, length, &buffers, sizeof(uint64_t))) {
+    if (length &&
+        !aMsg->ExtractBuffers(aIter, length, &buffers, sizeof(uint64_t))) {
       return false;
     }
 
     bool success;
     mozilla::BufferList<js::SystemAllocPolicy> out =
-      buffers.MoveFallible<js::SystemAllocPolicy>(&success);
+        buffers.MoveFallible<js::SystemAllocPolicy>(&success);
     if (!success) {
       return false;
     }
@@ -851,7 +896,7 @@ struct ParamTraits<JSStructuredCloneData>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::SerializedStructuredCloneBuffer>
 {
   typedef mozilla::SerializedStructuredCloneBuffer paramType;
@@ -861,7 +906,9 @@ struct ParamTraits<mozilla::SerializedStructuredCloneBuffer>
     WriteParam(aMsg, aParam.data);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->data);
   }
@@ -872,10 +919,10 @@ struct ParamTraits<mozilla::SerializedStructuredCloneBuffer>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<nsIWidget::TouchPointerState>
-  : public BitFlagsEnumSerializer<nsIWidget::TouchPointerState,
-                                  nsIWidget::TouchPointerState::ALL_BITS>
+    : public BitFlagsEnumSerializer<nsIWidget::TouchPointerState,
+                                    nsIWidget::TouchPointerState::ALL_BITS>
 {
 };
 
@@ -924,7 +971,8 @@ struct ParamTraits<mozilla::Variant<Ts...>>
     Message* msg;
 
     template<class T>
-    void match(const T& t) {
+    void match(const T& t)
+    {
       WriteParam(msg, t);
     }
   };
@@ -941,10 +989,12 @@ struct ParamTraits<mozilla::Variant<Ts...>>
   template<size_t N, typename dummy = void>
   struct VariantReader
   {
-    using Next = VariantReader<N-1>;
+    using Next = VariantReader<N - 1>;
 
-    static bool Read(const Message* msg, PickleIterator* iter,
-        Tag tag, paramType* result)
+    static bool Read(const Message* msg,
+                     PickleIterator* iter,
+                     Tag tag,
+                     paramType* result)
     {
       // Since the VariantReader specializations start at N , we need to
       // subtract one to look at N - 1, the first valid tag.  This means our
@@ -964,7 +1014,7 @@ struct ParamTraits<mozilla::Variant<Ts...>>
       }
     }
 
-  }; // VariantReader<N>
+  };  // VariantReader<N>
 
   // Since we are conditioning on tag = N - 1 in the preceding specialization,
   // if we get to `VariantReader<0, dummy>` we have failed to find
@@ -972,8 +1022,10 @@ struct ParamTraits<mozilla::Variant<Ts...>>
   template<typename dummy>
   struct VariantReader<0, dummy>
   {
-    static bool Read(const Message* msg, PickleIterator* iter,
-        Tag tag, paramType* result)
+    static bool Read(const Message* msg,
+                     PickleIterator* iter,
+                     Tag tag,
+                     paramType* result)
     {
       return false;
     }
@@ -1005,7 +1057,9 @@ struct ParamTraits<mozilla::dom::Optional<T>>
     WriteParam(aMsg, false);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     bool wasPassed = false;
 

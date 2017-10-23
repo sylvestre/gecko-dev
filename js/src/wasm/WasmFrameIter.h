@@ -29,7 +29,7 @@ namespace js {
 namespace jit {
 class MacroAssembler;
 struct Register;
-} // namespace jit
+}  // namespace jit
 
 namespace wasm {
 
@@ -58,12 +58,11 @@ struct CallableOffsets;
 // an informative message to the user and at least the name of the innermost
 // function stack frame.
 
-class WasmFrameIter
-{
-  public:
+class WasmFrameIter {
+   public:
     enum class Unwind { True, False };
 
-  private:
+   private:
     jit::JitActivation* activation_;
     const Code* code_;
     const CallSite* callsite_;
@@ -74,7 +73,7 @@ class WasmFrameIter
 
     void popFrame();
 
-  public:
+   public:
     // See comment above this class definition.
     explicit WasmFrameIter(jit::JitActivation* activation, Frame* fp = nullptr);
     const jit::JitActivation* activation() const { return activation_; }
@@ -100,32 +99,26 @@ enum class SymbolicAddress;
 // code or the state of not having left compiled wasm code
 // (ExitReason::None). It is either a known reason, or a enumeration to a native
 // function that is used for better display in the profiler.
-class ExitReason
-{
+class ExitReason {
     uint32_t payload_;
 
     ExitReason() {}
 
-  public:
-    enum class Fixed : uint32_t
-    {
-        None,          // default state, the pc is in wasm code
-        ImportJit,     // fast-path call directly into JIT code
-        ImportInterp,  // slow-path call into C++ Invoke()
-        BuiltinNative, // fast-path call directly into native C++ code
-        Trap,          // call to trap handler
-        DebugTrap      // call to debug trap handler
+   public:
+    enum class Fixed : uint32_t {
+        None,           // default state, the pc is in wasm code
+        ImportJit,      // fast-path call directly into JIT code
+        ImportInterp,   // slow-path call into C++ Invoke()
+        BuiltinNative,  // fast-path call directly into native C++ code
+        Trap,           // call to trap handler
+        DebugTrap       // call to debug trap handler
     };
 
-    MOZ_IMPLICIT ExitReason(Fixed exitReason)
-      : payload_(0x0 | (uint32_t(exitReason) << 1))
-    {
+    MOZ_IMPLICIT ExitReason(Fixed exitReason) : payload_(0x0 | (uint32_t(exitReason) << 1)) {
         MOZ_ASSERT(isFixed());
     }
 
-    explicit ExitReason(SymbolicAddress sym)
-      : payload_(0x1 | (uint32_t(sym) << 1))
-    {
+    explicit ExitReason(SymbolicAddress sym) : payload_(0x1 | (uint32_t(sym) << 1)) {
         MOZ_ASSERT(uint32_t(sym) <= (UINT32_MAX << 1), "packing constraints");
         MOZ_ASSERT(!isFixed());
     }
@@ -142,9 +135,7 @@ class ExitReason
     bool isNone() const { return isFixed() && fixed() == Fixed::None; }
     bool isNative() const { return !isFixed() || fixed() == Fixed::BuiltinNative; }
 
-    uint32_t encode() const {
-        return payload_;
-    }
+    uint32_t encode() const { return payload_; }
     Fixed fixed() const {
         MOZ_ASSERT(isFixed());
         return Fixed(payload_ >> 1);
@@ -157,8 +148,7 @@ class ExitReason
 
 // Iterates over the frames of a single wasm JitActivation, given an
 // asynchronously-interrupted thread's state.
-class ProfilingFrameIterator
-{
+class ProfilingFrameIterator {
     const jit::JitActivation* activation_;
     const Code* code_;
     const CodeRange* codeRange_;
@@ -169,7 +159,7 @@ class ProfilingFrameIterator
 
     void initFromExitFP(const Frame* fp = nullptr);
 
-  public:
+   public:
     ProfilingFrameIterator();
     explicit ProfilingFrameIterator(const jit::JitActivation& activation,
                                     const Frame* fp = nullptr);
@@ -178,49 +168,44 @@ class ProfilingFrameIterator
     void operator++();
     bool done() const { return !codeRange_; }
 
-    void* stackAddress() const { MOZ_ASSERT(!done()); return stackAddress_; }
+    void* stackAddress() const {
+        MOZ_ASSERT(!done());
+        return stackAddress_;
+    }
     const char* label() const;
 };
 
 // Prologue/epilogue code generation
 
-void
-SetExitFP(jit::MacroAssembler& masm, jit::Register scratch);
-void
-ClearExitFP(jit::MacroAssembler& masm, jit::Register scratch);
+void SetExitFP(jit::MacroAssembler& masm, jit::Register scratch);
+void ClearExitFP(jit::MacroAssembler& masm, jit::Register scratch);
 
-void
-GenerateExitPrologue(jit::MacroAssembler& masm, unsigned framePushed, ExitReason reason,
-                     CallableOffsets* offsets);
-void
-GenerateExitEpilogue(jit::MacroAssembler& masm, unsigned framePushed, ExitReason reason,
-                     CallableOffsets* offsets);
-void
-GenerateJitExitPrologue(jit::MacroAssembler& masm, unsigned framePushed, CallableOffsets* offsets);
-void
-GenerateJitExitEpilogue(jit::MacroAssembler& masm, unsigned framePushed, CallableOffsets* offsets);
-void
-GenerateFunctionPrologue(jit::MacroAssembler& masm, unsigned framePushed, const SigIdDesc& sigId,
-                         FuncOffsets* offsets, CompileMode mode = CompileMode::Once,
-                         uint32_t funcIndex = 0);
-void
-GenerateFunctionEpilogue(jit::MacroAssembler& masm, unsigned framePushed, FuncOffsets* offsets);
+void GenerateExitPrologue(jit::MacroAssembler& masm, unsigned framePushed, ExitReason reason,
+                          CallableOffsets* offsets);
+void GenerateExitEpilogue(jit::MacroAssembler& masm, unsigned framePushed, ExitReason reason,
+                          CallableOffsets* offsets);
+void GenerateJitExitPrologue(jit::MacroAssembler& masm, unsigned framePushed,
+                             CallableOffsets* offsets);
+void GenerateJitExitEpilogue(jit::MacroAssembler& masm, unsigned framePushed,
+                             CallableOffsets* offsets);
+void GenerateFunctionPrologue(jit::MacroAssembler& masm, unsigned framePushed,
+                              const SigIdDesc& sigId, FuncOffsets* offsets,
+                              CompileMode mode = CompileMode::Once, uint32_t funcIndex = 0);
+void GenerateFunctionEpilogue(jit::MacroAssembler& masm, unsigned framePushed,
+                              FuncOffsets* offsets);
 
 // Given a fault at pc with register fp, return the faulting instance if there
 // is such a plausible instance, and otherwise null.
 
-Instance*
-LookupFaultingInstance(const CodeSegment& codeSegment, void* pc, void* fp);
+Instance* LookupFaultingInstance(const CodeSegment& codeSegment, void* pc, void* fp);
 
 // Return whether the given PC is in wasm code.
 
-bool
-InCompiledCode(void* pc);
+bool InCompiledCode(void* pc);
 
 // Describes register state and associated code at a given call frame.
 
-struct UnwindState
-{
+struct UnwindState {
     Frame* fp;
     void* pc;
     const Code* code;
@@ -241,11 +226,10 @@ typedef JS::ProfilingFrameIterator::RegisterState RegisterState;
 // Returns true if it was possible to get to a clear state, or false if the
 // frame should be ignored.
 
-bool
-StartUnwinding(const jit::JitActivation& activation, const RegisterState& registers,
-               UnwindState* unwindState, bool* unwoundCaller);
+bool StartUnwinding(const jit::JitActivation& activation, const RegisterState& registers,
+                    UnwindState* unwindState, bool* unwoundCaller);
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_frame_iter_h
+#endif  // wasm_frame_iter_h

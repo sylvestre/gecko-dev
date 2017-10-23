@@ -14,19 +14,18 @@
 class nsDocShell;
 class nsIWebNavigationInfo;
 
-class nsDSURIContentListener final
-  : public nsIURIContentListener
-  , public nsSupportsWeakReference
+class nsDSURIContentListener final : public nsIURIContentListener,
+                                     public nsSupportsWeakReference
 {
   friend class nsDocShell;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURICONTENTLISTENER
 
   nsresult Init();
 
-protected:
+ protected:
   explicit nsDSURIContentListener(nsDocShell* aDocShell);
   virtual ~nsDSURIContentListener();
 
@@ -37,7 +36,7 @@ protected:
     mExistingJPEGStreamListener = nullptr;
   }
 
-protected:
+ protected:
   nsDocShell* mDocShell;
   // Hack to handle multipart images without creating a new viewer
   nsCOMPtr<nsIStreamListener> mExistingJPEGStreamListener;

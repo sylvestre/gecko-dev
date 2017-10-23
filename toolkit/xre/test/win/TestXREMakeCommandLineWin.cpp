@@ -18,17 +18,17 @@
 #define DUMMY_ARG1 L"\"arg 1\" "
 
 #ifndef MAXPATHLEN
-# ifdef PATH_MAX
-#  define MAXPATHLEN PATH_MAX
-# elif defined(MAX_PATH)
-#  define MAXPATHLEN MAX_PATH
-# elif defined(_MAX_PATH)
-#  define MAXPATHLEN _MAX_PATH
-# elif defined(CCHMAXPATH)
-#  define MAXPATHLEN CCHMAXPATH
-# else
-#  define MAXPATHLEN 1024
-# endif
+#ifdef PATH_MAX
+#define MAXPATHLEN PATH_MAX
+#elif defined(MAX_PATH)
+#define MAXPATHLEN MAX_PATH
+#elif defined(_MAX_PATH)
+#define MAXPATHLEN _MAX_PATH
+#elif defined(CCHMAXPATH)
+#define MAXPATHLEN CCHMAXPATH
+#else
+#define MAXPATHLEN 1024
+#endif
 #endif
 
 #define TEST_NAME L"XRE MakeCommandLine"
@@ -42,9 +42,10 @@
 // CommandLineToArgvW and converting it back to a command line with
 // MakeCommandLine.
 static int
-verifyCmdLineCreation(wchar_t *inCmdLine,
-                      wchar_t *compareCmdLine,
-                      bool passes, int testNum)
+verifyCmdLineCreation(wchar_t* inCmdLine,
+                      wchar_t* compareCmdLine,
+                      bool passes,
+                      int testNum)
 {
   int rv = 0;
   int i;
@@ -58,22 +59,24 @@ verifyCmdLineCreation(wchar_t *inCmdLine,
   // the console's font has been set to one that can display the characters. You
   // can also redirect the console output to a file that has been saved as Unicode
   // to view the characters.
-//  _setmode(_fileno(stdout), _O_WTEXT);
+  //  _setmode(_fileno(stdout), _O_WTEXT);
 
   // Prepend an additional argument to the command line. CommandLineToArgvW
   // handles argv[0] differently than other arguments since argv[0] is the path
   // to the binary being executed and MakeCommandLine only handles argv[1] and
   // larger.
-  wchar_t *inCmdLineNew = (wchar_t *) malloc((wcslen(DUMMY_ARG1) + wcslen(inCmdLine) + 1) * sizeof(wchar_t));
+  wchar_t* inCmdLineNew = (wchar_t*)malloc(
+      (wcslen(DUMMY_ARG1) + wcslen(inCmdLine) + 1) * sizeof(wchar_t));
   wcscpy(inCmdLineNew, DUMMY_ARG1);
   wcscat(inCmdLineNew, inCmdLine);
-  LPWSTR *inArgv = CommandLineToArgvW(inCmdLineNew, &inArgc);
+  LPWSTR* inArgv = CommandLineToArgvW(inCmdLineNew, &inArgc);
 
-  wchar_t *outCmdLine = MakeCommandLine(inArgc - 1, inArgv + 1);
-  wchar_t *outCmdLineNew = (wchar_t *) malloc((wcslen(DUMMY_ARG1) + wcslen(outCmdLine) + 1) * sizeof(wchar_t));
+  wchar_t* outCmdLine = MakeCommandLine(inArgc - 1, inArgv + 1);
+  wchar_t* outCmdLineNew = (wchar_t*)malloc(
+      (wcslen(DUMMY_ARG1) + wcslen(outCmdLine) + 1) * sizeof(wchar_t));
   wcscpy(outCmdLineNew, DUMMY_ARG1);
   wcscat(outCmdLineNew, outCmdLine);
-  LPWSTR *outArgv = CommandLineToArgvW(outCmdLineNew, &outArgc);
+  LPWSTR* outArgv = CommandLineToArgvW(outCmdLineNew, &outArgc);
 
   if (VERBOSE) {
     wprintf(L"\n");
@@ -99,7 +102,9 @@ verifyCmdLineCreation(wchar_t *inCmdLine,
   isEqual = (inArgc == outArgc);
   if (!isEqual) {
     wprintf(L"TEST-%s-FAIL | %s | ARGC Comparison (check %2d)\n",
-            passes ? L"UNEXPECTED" : L"KNOWN", TEST_NAME, testNum);
+            passes ? L"UNEXPECTED" : L"KNOWN",
+            TEST_NAME,
+            testNum);
     if (passes) {
       rv = 1;
     }
@@ -115,7 +120,9 @@ verifyCmdLineCreation(wchar_t *inCmdLine,
     isEqual = (wcscmp(inArgv[i], outArgv[i]) == 0);
     if (!isEqual) {
       wprintf(L"TEST-%s-FAIL | %s | ARGV Comparison (check %2d)\n",
-              passes ? L"UNEXPECTED" : L"KNOWN", TEST_NAME, testNum);
+              passes ? L"UNEXPECTED" : L"KNOWN",
+              TEST_NAME,
+              testNum);
       if (passes) {
         rv = 1;
       }
@@ -131,7 +138,9 @@ verifyCmdLineCreation(wchar_t *inCmdLine,
   isEqual = (wcscmp(outCmdLine, compareCmdLine) == 0);
   if (!isEqual) {
     wprintf(L"TEST-%s-FAIL | %s | Command Line Comparison (check %2d)\n",
-            passes ? L"UNEXPECTED" : L"KNOWN", TEST_NAME, testNum);
+            passes ? L"UNEXPECTED" : L"KNOWN",
+            TEST_NAME,
+            testNum);
     if (passes) {
       rv = 1;
     }
@@ -160,15 +169,18 @@ verifyCmdLineCreation(wchar_t *inCmdLine,
   return rv;
 }
 
-int wmain(int argc, wchar_t *argv[])
+int
+wmain(int argc, wchar_t* argv[])
 {
   int i;
   int rv = 0;
 
   if (argc > 1 && (_wcsicmp(argv[1], L"-check-one") != 0 || argc != 3)) {
-    fwprintf(stderr, L"Displays and validates output from MakeCommandLine.\n\n");
+    fwprintf(stderr,
+             L"Displays and validates output from MakeCommandLine.\n\n");
     fwprintf(stderr, L"Usage: %s -check-one <test number>\n\n", argv[0]);
-    fwprintf(stderr, L"  <test number>\tSpecifies the test number to run from the\n");
+    fwprintf(stderr,
+             L"  <test number>\tSpecifies the test number to run from the\n");
     fwprintf(stderr, L"\t\tTestXREMakeCommandLineWin.ini file.\n");
     return 255;
   }
@@ -179,7 +191,7 @@ int wmain(int argc, wchar_t *argv[])
     return 2;
   }
 
-  WCHAR *slash = wcsrchr(inifile, '\\');
+  WCHAR* slash = wcsrchr(inifile, '\\');
   if (!slash) {
     wprintf(L"TEST-UNEXPECTED-FAIL | %s | wcsrchr\n", TEST_NAME);
     return 3;
@@ -203,15 +215,26 @@ int wmain(int argc, wchar_t *argv[])
     _snwprintf(sOutputKey, MAXPATHLEN, L"output_%d", i);
     _snwprintf(sPassesKey, MAXPATHLEN, L"passes_%d", i);
 
-    if (!GetPrivateProfileStringW(L"MakeCommandLineTests", sInputKey, nullptr,
-                                  sInputVal, MAXPATHLEN, inifile)) {
+    if (!GetPrivateProfileStringW(L"MakeCommandLineTests",
+                                  sInputKey,
+                                  nullptr,
+                                  sInputVal,
+                                  MAXPATHLEN,
+                                  inifile)) {
       if (i == 0 || (argc > 2 && _wcsicmp(argv[1], L"-check-one") == 0)) {
-        wprintf(L"TEST-UNEXPECTED-FAIL | %s | see following explanation:\n", TEST_NAME);
-        wprintf(L"ERROR: Either the TestXREMakeCommandLineWin.ini file doesn't exist\n");
+        wprintf(L"TEST-UNEXPECTED-FAIL | %s | see following explanation:\n",
+                TEST_NAME);
+        wprintf(
+            L"ERROR: Either the TestXREMakeCommandLineWin.ini file doesn't "
+            L"exist\n");
         if (argc > 1 && _wcsicmp(argv[1], L"-check-one") == 0 && argc == 3) {
-          wprintf(L"ERROR: or the test is not defined in the MakeCommandLineTests section.\n");
+          wprintf(
+              L"ERROR: or the test is not defined in the MakeCommandLineTests "
+              L"section.\n");
         } else {
-          wprintf(L"ERROR: or it has no tests defined in the MakeCommandLineTests section.\n");
+          wprintf(
+              L"ERROR: or it has no tests defined in the MakeCommandLineTests "
+              L"section.\n");
         }
         wprintf(L"ERROR: File: %s\n", inifile);
         return 4;
@@ -219,14 +242,24 @@ int wmain(int argc, wchar_t *argv[])
       break;
     }
 
-    GetPrivateProfileStringW(L"MakeCommandLineTests", sOutputKey, nullptr,
-                             sOutputVal, MAXPATHLEN, inifile);
-    GetPrivateProfileStringW(L"MakeCommandLineTests", sPassesKey, nullptr,
-                             sPassesVal, MAXPATHLEN, inifile);
+    GetPrivateProfileStringW(L"MakeCommandLineTests",
+                             sOutputKey,
+                             nullptr,
+                             sOutputVal,
+                             MAXPATHLEN,
+                             inifile);
+    GetPrivateProfileStringW(L"MakeCommandLineTests",
+                             sPassesKey,
+                             nullptr,
+                             sPassesVal,
+                             MAXPATHLEN,
+                             inifile);
 
-    rv |= verifyCmdLineCreation(sInputVal, sOutputVal,
-                                (_wcsicmp(sPassesVal, L"false") == 0) ? FALSE : TRUE,
-                                i);
+    rv |= verifyCmdLineCreation(
+        sInputVal,
+        sOutputVal,
+        (_wcsicmp(sPassesVal, L"false") == 0) ? FALSE : TRUE,
+        i);
 
     if (argc > 2 && _wcsicmp(argv[1], L"-check-one") == 0) {
       break;
@@ -244,19 +277,19 @@ int wmain(int argc, wchar_t *argv[])
 
 #ifdef __MINGW32__
 
-/* MingW currently does not implement a wide version of the
+  /* MingW currently does not implement a wide version of the
    startup routines.  Workaround is to implement something like
    it ourselves.  See bug 411826 */
 
 #include <shellapi.h>
 
-int main(int argc, char **argv)
+int
+main(int argc, char** argv)
 {
   LPWSTR commandLine = GetCommandLineW();
   int argcw = 0;
-  LPWSTR *argvw = CommandLineToArgvW(commandLine, &argcw);
-  if (!argvw)
-    return 127;
+  LPWSTR* argvw = CommandLineToArgvW(commandLine, &argcw);
+  if (!argvw) return 127;
 
   int result = wmain(argcw, argvw);
   LocalFree(argvw);

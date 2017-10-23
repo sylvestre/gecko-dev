@@ -112,7 +112,7 @@
 #endif
 #endif
 
-#define SIZxPTR ((int)(sizeof(uintptr_t)*2))
+#define SIZxPTR ((int)(sizeof(uintptr_t) * 2))
 
 /* This program assumes that a whole number of return instructions fit into
  * 32 bits, and that 32-bit alignment is sufficient for a branch destination.
@@ -120,10 +120,9 @@
  * can be enough.
  */
 
-#if defined __i386__ || defined __x86_64__ ||   \
-  defined __i386 || defined __x86_64 ||         \
-  defined _M_IX86 || defined _M_AMD64
-#define RETURN_INSTR 0xC3C3C3C3  /* ret; ret; ret; ret */
+#if defined __i386__ || defined __x86_64__ || defined __i386 || \
+    defined __x86_64 || defined _M_IX86 || defined _M_AMD64
+#define RETURN_INSTR 0xC3C3C3C3 /* ret; ret; ret; ret */
 
 #elif defined __arm__ || defined _M_ARM
 #define RETURN_INSTR 0xE12FFF1E /* bx lr */
@@ -161,9 +160,12 @@
 #define RETURN_INSTR 0xd65f03c0 /* ret */
 
 #elif defined __ia64
-struct ia64_instr { uint32_t mI[4]; };
-static const ia64_instr _return_instr =
-  {{ 0x00000011, 0x00000001, 0x80000200, 0x00840008 }}; /* br.ret.sptk.many b0 */
+struct ia64_instr
+{
+  uint32_t mI[4];
+};
+static const ia64_instr _return_instr = {
+    {0x00000011, 0x00000001, 0x80000200, 0x00840008}}; /* br.ret.sptk.many b0 */
 
 #define RETURN_INSTR _return_instr
 #define RETURN_INSTR_TYPE ia64_instr
@@ -184,18 +186,21 @@ static LPSTR
 StrW32Error(DWORD aErrcode)
 {
   LPSTR errmsg;
-  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                 FORMAT_MESSAGE_FROM_SYSTEM |
-                 FORMAT_MESSAGE_IGNORE_INSERTS,
-                 nullptr, aErrcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                 (LPSTR)&errmsg, 0, nullptr);
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                     FORMAT_MESSAGE_IGNORE_INSERTS,
+                 nullptr,
+                 aErrcode,
+                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                 (LPSTR)&errmsg,
+                 0,
+                 nullptr);
 
   // FormatMessage puts an unwanted newline at the end of the string
-  size_t n = strlen(errmsg)-1;
+  size_t n = strlen(errmsg) - 1;
   while (errmsg[n] == '\r' || errmsg[n] == '\n') {
     n--;
   }
-  errmsg[n+1] = '\0';
+  errmsg[n + 1] = '\0';
   return errmsg;
 }
 #define LastErrMsg() (StrW32Error(GetLastError()))
@@ -213,8 +218,9 @@ PageSize()
 static void*
 ReserveRegion(uintptr_t aRequest, bool aAccessible)
 {
-  return VirtualAlloc((void*)aRequest, PageSize(),
-                      aAccessible ? MEM_RESERVE|MEM_COMMIT : MEM_RESERVE,
+  return VirtualAlloc((void*)aRequest,
+                      PageSize(),
+                      aAccessible ? MEM_RESERVE | MEM_COMMIT : MEM_RESERVE,
                       aAccessible ? PAGE_EXECUTE_READWRITE : PAGE_NOACCESS);
 }
 
@@ -240,7 +246,7 @@ MakeRegionExecutable(void*)
 #undef MAP_FAILED
 #define MAP_FAILED 0
 
-#else // Unix
+#else  // Unix
 
 #define LastErrMsg() (strerror(errno))
 
@@ -255,9 +261,12 @@ PageSize()
 static void*
 ReserveRegion(uintptr_t aRequest, bool aAccessible)
 {
-  return mmap(reinterpret_cast<void*>(aRequest), PageSize(),
-              aAccessible ? PROT_READ|PROT_WRITE : PROT_NONE,
-              MAP_PRIVATE|MAP_ANON, -1, 0);
+  return mmap(reinterpret_cast<void*>(aRequest),
+              PageSize(),
+              aAccessible ? PROT_READ | PROT_WRITE : PROT_NONE,
+              MAP_PRIVATE | MAP_ANON,
+              -1,
+              0);
 }
 
 static void
@@ -270,7 +279,8 @@ static bool
 ProbeRegion(uintptr_t aPage)
 {
 #ifdef XP_SOLARIS
-  return !!posix_madvise(reinterpret_cast<void*>(aPage), PageSize(), POSIX_MADV_NORMAL);
+  return !!posix_madvise(
+      reinterpret_cast<void*>(aPage), PageSize(), POSIX_MADV_NORMAL);
 #else
   return !!madvise(reinterpret_cast<void*>(aPage), PageSize(), MADV_NORMAL);
 #endif
@@ -279,7 +289,8 @@ ProbeRegion(uintptr_t aPage)
 static int
 MakeRegionExecutable(void* aPage)
 {
-  return mprotect((caddr_t)aPage, PageSize(), PROT_READ|PROT_WRITE|PROT_EXEC);
+  return mprotect(
+      (caddr_t)aPage, PageSize(), PROT_READ | PROT_WRITE | PROT_EXEC);
 }
 
 #endif
@@ -291,9 +302,9 @@ ReservePoisonArea()
     // Use the hardware-inaccessible region.
     // We have to avoid 64-bit constants and shifts by 32 bits, since this
     // code is compiled in 32-bit mode, although it is never executed there.
-    uintptr_t result = (((uintptr_t(0x7FFFFFFFu) << 31) << 1 |
-                         uintptr_t(0xF0DEAFFFu)) &
-                        ~uintptr_t(PageSize()-1));
+    uintptr_t result =
+        (((uintptr_t(0x7FFFFFFFu) << 31) << 1 | uintptr_t(0xF0DEAFFFu)) &
+         ~uintptr_t(PageSize() - 1));
     printf("INFO | poison area assumed at 0x%.*" PRIxPTR "\n", SIZxPTR, result);
     return result;
   }
@@ -304,7 +315,9 @@ ReservePoisonArea()
   if (result == reinterpret_cast<void*>(candidate)) {
     // success - inaccessible page allocated
     printf("INFO | poison area allocated at 0x%.*" PRIxPTR
-           " (preferred addr)\n", SIZxPTR, reinterpret_cast<uintptr_t>(result));
+           " (preferred addr)\n",
+           SIZxPTR,
+           reinterpret_cast<uintptr_t>(result));
     return candidate;
   }
 
@@ -315,8 +328,9 @@ ReservePoisonArea()
     if (result != MAP_FAILED) {
       ReleaseRegion(result);
     }
-    printf("INFO | poison area assumed at 0x%.*" PRIxPTR
-           " (preferred addr)\n", SIZxPTR, candidate);
+    printf("INFO | poison area assumed at 0x%.*" PRIxPTR " (preferred addr)\n",
+           SIZxPTR,
+           candidate);
     return candidate;
   }
 
@@ -325,7 +339,9 @@ ReservePoisonArea()
   if (result != MAP_FAILED) {
     uintptr_t ures = reinterpret_cast<uintptr_t>(result);
     printf("INFO | poison area allocated at 0x%.*" PRIxPTR
-           " (consolation prize)\n", SIZxPTR, ures);
+           " (consolation prize)\n",
+           SIZxPTR,
+           ures);
     return ures;
   }
 
@@ -334,8 +350,9 @@ ReservePoisonArea()
   result = ReserveRegion(0, false);
   if (result != MAP_FAILED) {
     uintptr_t ures = reinterpret_cast<uintptr_t>(result);
-    printf("INFO | poison area allocated at 0x%.*" PRIxPTR
-           " (fallback)\n", SIZxPTR, ures);
+    printf("INFO | poison area allocated at 0x%.*" PRIxPTR " (fallback)\n",
+           SIZxPTR,
+           ures);
     return ures;
   }
 
@@ -349,14 +366,14 @@ ReservePoisonArea()
 static uintptr_t
 ReservePositiveControl()
 {
-
   void* result = ReserveRegion(0, false);
   if (result == MAP_FAILED) {
     printf("ERROR | allocating positive control | %s\n", LastErrMsg());
     return 0;
   }
   printf("INFO | positive control allocated at 0x%.*" PRIxPTR "\n",
-         SIZxPTR, (uintptr_t)result);
+         SIZxPTR,
+         (uintptr_t)result);
   return (uintptr_t)result;
 }
 
@@ -374,8 +391,7 @@ ReserveNegativeControl()
 
   // Fill the page with return instructions.
   RETURN_INSTR_TYPE* p = reinterpret_cast<RETURN_INSTR_TYPE*>(result);
-  RETURN_INSTR_TYPE* limit =
-    reinterpret_cast<RETURN_INSTR_TYPE*>(
+  RETURN_INSTR_TYPE* limit = reinterpret_cast<RETURN_INSTR_TYPE*>(
       reinterpret_cast<char*>(result) + PageSize());
   while (p < limit) {
     *p++ = RETURN_INSTR;
@@ -390,7 +406,8 @@ ReserveNegativeControl()
   }
 
   printf("INFO | negative control allocated at 0x%.*" PRIxPTR "\n",
-         SIZxPTR, (uintptr_t)result);
+         SIZxPTR,
+         (uintptr_t)result);
   return (uintptr_t)result;
 }
 
@@ -402,8 +419,10 @@ JumpTo(uintptr_t aOpaddr)
   {
     uintptr_t mFunc;
     uintptr_t mGp;
-  } call = { aOpaddr, };
-  ((void (*)())&call)();
+  } call = {
+      aOpaddr,
+  };
+  ((void (*)()) & call)();
 #else
   ((void (*)())aOpaddr)();
 #endif
@@ -440,22 +459,39 @@ TestPage(const char* aPageLabel, uintptr_t aPageAddr, int aShouldSucceed)
   bool failed = false;
   for (unsigned int test = 0; test < 3; test++) {
     switch (test) {
-      // The execute test must be done before the write test, because the
-      // write test will clobber memory at the target address.
-    case 0: oplabel = "reading"; opaddr = aPageAddr + PageSize()/2 - 1; break;
-    case 1: oplabel = "executing"; opaddr = aPageAddr + PageSize()/2; break;
-    case 2: oplabel = "writing"; opaddr = aPageAddr + PageSize()/2 - 1; break;
-    default: abort();
+        // The execute test must be done before the write test, because the
+        // write test will clobber memory at the target address.
+      case 0:
+        oplabel = "reading";
+        opaddr = aPageAddr + PageSize() / 2 - 1;
+        break;
+      case 1:
+        oplabel = "executing";
+        opaddr = aPageAddr + PageSize() / 2;
+        break;
+      case 2:
+        oplabel = "writing";
+        opaddr = aPageAddr + PageSize() / 2 - 1;
+        break;
+      default:
+        abort();
     }
 
 #ifdef _WIN32
     BOOL badptr;
 
     switch (test) {
-    case 0: badptr = IsBadReadPtr((const void*)opaddr, 1); break;
-    case 1: badptr = IsBadExecPtr(opaddr); break;
-    case 2: badptr = IsBadWritePtr((void*)opaddr, 1); break;
-    default: abort();
+      case 0:
+        badptr = IsBadReadPtr((const void*)opaddr, 1);
+        break;
+      case 1:
+        badptr = IsBadExecPtr(opaddr);
+        break;
+      case 2:
+        badptr = IsBadWritePtr((void*)opaddr, 1);
+        break;
+      default:
+        abort();
     }
 
     if (badptr) {
@@ -477,24 +513,29 @@ TestPage(const char* aPageLabel, uintptr_t aPageAddr, int aShouldSucceed)
 #else
     pid_t pid = fork();
     if (pid == -1) {
-      printf("ERROR | %s %s | fork=%s\n", oplabel, aPageLabel,
-             LastErrMsg());
+      printf("ERROR | %s %s | fork=%s\n", oplabel, aPageLabel, LastErrMsg());
       exit(2);
     } else if (pid == 0) {
       volatile unsigned char scratch;
       switch (test) {
-      case 0: scratch = *(volatile unsigned char*)opaddr; break;
-      case 1: JumpTo(opaddr); break;
-      case 2: *(volatile unsigned char*)opaddr = 0; break;
-      default: abort();
+        case 0:
+          scratch = *(volatile unsigned char*)opaddr;
+          break;
+        case 1:
+          JumpTo(opaddr);
+          break;
+        case 2:
+          *(volatile unsigned char*)opaddr = 0;
+          break;
+        default:
+          abort();
       }
       (void)scratch;
       _exit(0);
     } else {
       int status;
       if (waitpid(pid, &status, 0) != pid) {
-        printf("ERROR | %s %s | wait=%s\n", oplabel, aPageLabel,
-               LastErrMsg());
+        printf("ERROR | %s %s | wait=%s\n", oplabel, aPageLabel, LastErrMsg());
         exit(2);
       }
 
@@ -503,25 +544,34 @@ TestPage(const char* aPageLabel, uintptr_t aPageAddr, int aShouldSucceed)
           printf("TEST-PASS | %s %s\n", oplabel, aPageLabel);
         } else {
           printf("TEST-UNEXPECTED-FAIL | %s %s | unexpected successful exit\n",
-                 oplabel, aPageLabel);
+                 oplabel,
+                 aPageLabel);
           failed = true;
         }
       } else if (WIFEXITED(status)) {
         printf("ERROR | %s %s | unexpected exit code %d\n",
-               oplabel, aPageLabel, WEXITSTATUS(status));
+               oplabel,
+               aPageLabel,
+               WEXITSTATUS(status));
         exit(2);
       } else if (WIFSIGNALED(status)) {
         if (aShouldSucceed) {
           printf("TEST-UNEXPECTED-FAIL | %s %s | unexpected signal %d\n",
-                 oplabel, aPageLabel, WTERMSIG(status));
+                 oplabel,
+                 aPageLabel,
+                 WTERMSIG(status));
           failed = true;
         } else {
           printf("TEST-PASS | %s %s | signal %d (as expected)\n",
-                 oplabel, aPageLabel, WTERMSIG(status));
+                 oplabel,
+                 aPageLabel,
+                 WTERMSIG(status));
         }
       } else {
         printf("ERROR | %s %s | unexpected exit status %d\n",
-               oplabel, aPageLabel, status);
+               oplabel,
+               aPageLabel,
+               status);
         exit(2);
       }
     }

@@ -24,11 +24,11 @@ class PresentationDeviceRequest;
 class PresentationRespondingInfo;
 
 class PresentationService final
-                      : public nsIPresentationService
-                      , public nsIObserver
-                      , public PresentationServiceBase<PresentationSessionInfo>
+    : public nsIPresentationService,
+      public nsIObserver,
+      public PresentationServiceBase<PresentationSessionInfo>
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIPRESENTATIONSERVICE
@@ -40,7 +40,7 @@ public:
                            const uint8_t aRole,
                            base::ProcessId aProcessId);
 
-private:
+ private:
   friend class PresentationDeviceRequest;
 
   virtual ~PresentationService();
@@ -52,17 +52,15 @@ private:
   nsresult HandleReconnectRequest(nsIPresentationSessionRequest* aRequest);
 
   // This is meant to be called by PresentationDeviceRequest.
-  already_AddRefed<PresentationSessionInfo>
-  CreateControllingSessionInfo(const nsAString& aUrl,
-                               const nsAString& aSessionId,
-                               uint64_t aWindowId);
+  already_AddRefed<PresentationSessionInfo> CreateControllingSessionInfo(
+      const nsAString& aUrl, const nsAString& aSessionId, uint64_t aWindowId);
 
   // Emumerate all devices to get the availability of each input Urls.
   nsresult UpdateAvailabilityUrlChange(
-                                  const nsTArray<nsString>& aAvailabilityUrls);
+      const nsTArray<nsString>& aAvailabilityUrls);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationService_h
+#endif  // mozilla_dom_PresentationService_h

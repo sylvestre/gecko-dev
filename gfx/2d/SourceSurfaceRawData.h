@@ -15,17 +15,17 @@ namespace gfx {
 
 class SourceSurfaceRawData : public DataSourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceRawData, override)
 
   SourceSurfaceRawData()
-    : mRawData(0)
-    , mStride(0)
-    , mFormat(SurfaceFormat::UNKNOWN)
-    , mMapCount(0)
-    , mOwnData(false)
-    , mDeallocator(nullptr)
-    , mClosure(nullptr)
+      : mRawData(0),
+        mStride(0),
+        mFormat(SurfaceFormat::UNKNOWN),
+        mMapCount(0),
+        mOwnData(false),
+        mDeallocator(nullptr),
+        mClosure(nullptr)
   {
   }
 
@@ -35,13 +35,13 @@ public:
       mDeallocator(mClosure);
     } else if (mOwnData) {
       // The buffer is created from GuaranteePersistance().
-      delete [] mRawData;
+      delete[] mRawData;
     }
 
     MOZ_ASSERT(mMapCount == 0);
   }
 
-  virtual uint8_t *GetData() override { return mRawData; }
+  virtual uint8_t* GetData() override { return mRawData; }
   virtual int32_t Stride() override { return mStride; }
 
   virtual SurfaceType GetType() const override { return SurfaceType::DATA; }
@@ -59,7 +59,7 @@ public:
   //
   // Once mfbt supports Monitors we should implement proper read/write
   // locking to prevent write races.
-  virtual bool Map(MapType, MappedSurface *aMappedSurface) override
+  virtual bool Map(MapType, MappedSurface* aMappedSurface) override
   {
     aMappedSurface->mData = GetData();
     aMappedSurface->mStride = Stride();
@@ -76,20 +76,20 @@ public:
     MOZ_ASSERT(mMapCount >= 0);
   }
 
-private:
+ private:
   friend class Factory;
 
   // If we have a custom deallocator, the |aData| will be released using the
   // custom deallocator and |aClosure| in dtor.  The assumption is that the
   // caller will check for valid size and stride before making this call.
-  void InitWrappingData(unsigned char *aData,
-                        const IntSize &aSize,
+  void InitWrappingData(unsigned char* aData,
+                        const IntSize& aSize,
                         int32_t aStride,
                         SurfaceFormat aFormat,
                         Factory::SourceSurfaceDeallocator aDeallocator,
                         void* aClosure);
 
-  uint8_t *mRawData;
+  uint8_t* mRawData;
   int32_t mStride;
   SurfaceFormat mFormat;
   IntSize mSize;
@@ -102,17 +102,14 @@ private:
 
 class SourceSurfaceAlignedRawData : public DataSourceSurface
 {
-public:
-  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceAlignedRawData, override)
+ public:
+  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceAlignedRawData,
+                                          override)
   SourceSurfaceAlignedRawData()
-    : mStride(0)
-    , mFormat(SurfaceFormat::UNKNOWN)
-    , mMapCount(0)
-  {}
-  ~SourceSurfaceAlignedRawData()
+      : mStride(0), mFormat(SurfaceFormat::UNKNOWN), mMapCount(0)
   {
-    MOZ_ASSERT(mMapCount == 0);
   }
+  ~SourceSurfaceAlignedRawData() { MOZ_ASSERT(mMapCount == 0); }
 
   virtual uint8_t* GetData() override { return mArray; }
   virtual int32_t Stride() override { return mStride; }
@@ -121,7 +118,7 @@ public:
   virtual IntSize GetSize() const override { return mSize; }
   virtual SurfaceFormat GetFormat() const override { return mFormat; }
 
-  virtual bool Map(MapType, MappedSurface *aMappedSurface) override
+  virtual bool Map(MapType, MappedSurface* aMappedSurface) override
   {
     aMappedSurface->mData = GetData();
     aMappedSurface->mStride = Stride();
@@ -138,10 +135,10 @@ public:
     MOZ_ASSERT(mMapCount >= 0);
   }
 
-private:
+ private:
   friend class Factory;
 
-  bool Init(const IntSize &aSize,
+  bool Init(const IntSize& aSize,
             SurfaceFormat aFormat,
             bool aClearMem,
             uint8_t aClearValue,
@@ -154,7 +151,7 @@ private:
   Atomic<int32_t> mMapCount;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SOURCESURFACERAWDATA_H_ */

@@ -16,4 +16,4 @@ DefineChromeWorkerFunctions(JSContext* aCx, JS::Handle<JSObject*> aGlobal);
 
 END_WORKERS_NAMESPACE
 
-#endif // mozilla_dom_workers_chromeworkerscope_h__
+#endif  // mozilla_dom_workers_chromeworkerscope_h__

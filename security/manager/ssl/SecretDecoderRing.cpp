@@ -19,17 +19,15 @@
 #include "nsNSSComponent.h"
 #include "nsNSSHelper.h"
 #include "pk11func.h"
-#include "pk11sdr.h" // For PK11SDR_Encrypt, PK11SDR_Decrypt
-#include "ssl.h" // For SSL_ClearSessionCache
+#include "pk11sdr.h"  // For PK11SDR_Encrypt, PK11SDR_Decrypt
+#include "ssl.h"      // For SSL_ClearSessionCache
 
 using namespace mozilla;
 
 // NOTE: Should these be the thread-safe versions?
 NS_IMPL_ISUPPORTS(SecretDecoderRing, nsISecretDecoderRing)
 
-SecretDecoderRing::SecretDecoderRing()
-{
-}
+SecretDecoderRing::SecretDecoderRing() {}
 
 SecretDecoderRing::~SecretDecoderRing()
 {
@@ -116,7 +114,7 @@ SecretDecoderRing::Decrypt(const nsACString& data, /*out*/ nsACString& result)
 
 NS_IMETHODIMP
 SecretDecoderRing::EncryptString(const nsACString& text,
-                         /*out*/ nsACString& encryptedBase64Text)
+                                 /*out*/ nsACString& encryptedBase64Text)
 {
   nsAutoCString encryptedText;
   nsresult rv = Encrypt(text, encryptedText);
@@ -134,7 +132,7 @@ SecretDecoderRing::EncryptString(const nsACString& text,
 
 NS_IMETHODIMP
 SecretDecoderRing::DecryptString(const nsACString& encryptedBase64Text,
-                         /*out*/ nsACString& decryptedText)
+                                 /*out*/ nsACString& decryptedText)
 {
   nsAutoCString encryptedText;
   nsresult rv = Base64Decode(encryptedBase64Text, encryptedText);
@@ -174,7 +172,7 @@ SecretDecoderRing::ChangePassword()
   }
 
   nsCOMPtr<nsIInterfaceRequestor> ctx = new PipUIContext();
-  bool canceled; // Ignored
+  bool canceled;  // Ignored
   return dialogs->SetPassword(ctx, tokenName, &canceled);
 }
 
@@ -185,8 +183,7 @@ SecretDecoderRing::Logout()
 
   nsresult rv;
   nsCOMPtr<nsINSSComponent> nssComponent(do_GetService(kNSSComponentCID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   {
     nsNSSShutDownPreventionLock locker;
@@ -208,8 +205,7 @@ SecretDecoderRing::LogoutAndTeardown()
 
   nsresult rv;
   nsCOMPtr<nsINSSComponent> nssComponent(do_GetService(kNSSComponentCID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   {
     nsNSSShutDownPreventionLock locker;
@@ -227,8 +223,7 @@ SecretDecoderRing::LogoutAndTeardown()
   // sure that all connections that should be stopped, are stopped. See
   // bug 517584.
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
-  if (os)
-    os->NotifyObservers(nullptr, "net:prune-dead-connections", nullptr);
+  if (os) os->NotifyObservers(nullptr, "net:prune-dead-connections", nullptr);
 
   return rv;
 }

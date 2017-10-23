@@ -18,7 +18,7 @@ namespace wr {
 
 class RenderTextureHostOGL : public RenderTextureHost
 {
-public:
+ public:
   RenderTextureHostOGL();
 
   virtual void SetGLContext(gl::GLContext* aContext) = 0;
@@ -26,13 +26,13 @@ public:
   virtual gfx::IntSize GetSize(uint8_t aChannelIndex) const = 0;
   virtual GLuint GetGLHandle(uint8_t aChannelIndex) const = 0;
 
-  virtual RenderTextureHostOGL* AsTextureHostOGL()  override { return this; }
+  virtual RenderTextureHostOGL* AsTextureHostOGL() override { return this; }
 
-protected:
+ protected:
   virtual ~RenderTextureHostOGL();
 };
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_RENDERTEXTUREHOSTOGL_H
+#endif  // MOZILLA_GFX_RENDERTEXTUREHOSTOGL_H

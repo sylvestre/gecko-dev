@@ -20,7 +20,9 @@
 namespace mozilla {
 namespace gfx {
 
-static inline bool FuzzyEqual(Float aV1, Float aV2) {
+static inline bool
+FuzzyEqual(Float aV1, Float aV2)
+{
   // XXX - Check if fabs does the smart thing and just negates the sign bit.
   return fabs(aV2 - aV1) < 1e-6;
 }
@@ -35,19 +37,15 @@ class BaseMatrix
   typedef SizeTyped<UnknownUnits, T> MatrixSize;
   typedef RectTyped<UnknownUnits, T> MatrixRect;
 
-public:
-  BaseMatrix()
-    : _11(1.0f), _12(0)
-    , _21(0), _22(1.0f)
-    , _31(0), _32(0)
-  {}
+ public:
+  BaseMatrix() : _11(1.0f), _12(0), _21(0), _22(1.0f), _31(0), _32(0) {}
   BaseMatrix(T a11, T a12, T a21, T a22, T a31, T a32)
-    : _11(a11), _12(a12)
-    , _21(a21), _22(a22)
-    , _31(a31), _32(a32)
-  {}
+      : _11(a11), _12(a12), _21(a21), _22(a22), _31(a31), _32(a32)
+  {
+  }
   union {
-    struct {
+    struct
+    {
       T _11, _12;
       T _21, _22;
       T _31, _32;
@@ -55,23 +53,17 @@ public:
     T components[6];
   };
 
-  MOZ_ALWAYS_INLINE BaseMatrix Copy() const
+  MOZ_ALWAYS_INLINE BaseMatrix Copy() const { return BaseMatrix<T>(*this); }
+
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  const BaseMatrix& aMatrix)
   {
-    return BaseMatrix<T>(*this);
+    return aStream << "[ " << aMatrix._11 << " " << aMatrix._12 << "; "
+                   << aMatrix._21 << " " << aMatrix._22 << "; " << aMatrix._31
+                   << " " << aMatrix._32 << "; ]";
   }
 
-  friend std::ostream& operator<<(std::ostream& aStream, const BaseMatrix& aMatrix)
-  {
-    return aStream << "[ " << aMatrix._11
-                   << " "  << aMatrix._12
-                   << "; " << aMatrix._21
-                   << " "  << aMatrix._22
-                   << "; " << aMatrix._31
-                   << " "  << aMatrix._32
-                   << "; ]";
-  }
-
-  MatrixPoint TransformPoint(const MatrixPoint &aPoint) const
+  MatrixPoint TransformPoint(const MatrixPoint& aPoint) const
   {
     MatrixPoint retPoint;
 
@@ -81,7 +73,7 @@ public:
     return retPoint;
   }
 
-  MatrixSize TransformSize(const MatrixSize &aSize) const
+  MatrixSize TransformSize(const MatrixSize& aSize) const
   {
     MatrixSize retSize;
 
@@ -118,15 +110,11 @@ public:
     min_y = max_y = quad[0].y;
 
     for (i = 1; i < 4; i++) {
-      if (quad[i].x < min_x)
-        min_x = quad[i].x;
-      if (quad[i].x > max_x)
-        max_x = quad[i].x;
+      if (quad[i].x < min_x) min_x = quad[i].x;
+      if (quad[i].x > max_x) max_x = quad[i].x;
 
-      if (quad[i].y < min_y)
-        min_y = quad[i].y;
-      if (quad[i].y > max_y)
-        max_y = quad[i].y;
+      if (quad[i].y < min_y) min_y = quad[i].y;
+      if (quad[i].y > max_y) max_y = quad[i].y;
     }
 
     return MatrixRect(min_x, min_y, max_x - min_x, max_y - min_y);
@@ -161,7 +149,7 @@ public:
    * this method would be preferred since it only involves four floating-point
    * multiplications.)
    */
-  BaseMatrix<T> &PreTranslate(T aX, T aY)
+  BaseMatrix<T>& PreTranslate(T aX, T aY)
   {
     _31 += _11 * aX + _21 * aY;
     _32 += _12 * aX + _22 * aY;
@@ -169,7 +157,7 @@ public:
     return *this;
   }
 
-  BaseMatrix<T> &PreTranslate(const MatrixPoint &aPoint)
+  BaseMatrix<T>& PreTranslate(const MatrixPoint& aPoint)
   {
     return PreTranslate(aPoint.x, aPoint.y);
   }
@@ -186,14 +174,14 @@ public:
    * the Post* methods add a transform to the device space end of the
    * transformation.
    */
-  BaseMatrix<T> &PostTranslate(T aX, T aY)
+  BaseMatrix<T>& PostTranslate(T aX, T aY)
   {
     _31 += aX;
     _32 += aY;
     return *this;
   }
 
-  BaseMatrix<T> &PostTranslate(const MatrixPoint &aPoint)
+  BaseMatrix<T>& PostTranslate(const MatrixPoint& aPoint)
   {
     return PostTranslate(aPoint.x, aPoint.y);
   }
@@ -202,11 +190,11 @@ public:
   {
     return BaseMatrix<T>(aScaleX, 0.0f, 0.0f, aScaleY, 0.0f, 0.0f);
   }
-  
+
   /**
    * Similar to PreTranslate, but applies a scale instead of a translation.
    */
-  BaseMatrix<T> &PreScale(T aX, T aY)
+  BaseMatrix<T>& PreScale(T aX, T aY)
   {
     _11 *= aX;
     _12 *= aX;
@@ -219,7 +207,7 @@ public:
   /**
    * Similar to PostTranslate, but applies a scale instead of a translation.
    */
-  BaseMatrix<T> &PostScale(T aScaleX, T aScaleY)
+  BaseMatrix<T>& PostScale(T aScaleX, T aScaleY)
   {
     _11 *= aScaleX;
     _12 *= aScaleY;
@@ -236,7 +224,7 @@ public:
   /**
    * Similar to PreTranslate, but applies a rotation instead of a translation.
    */
-  BaseMatrix<T> &PreRotate(T aAngle)
+  BaseMatrix<T>& PreRotate(T aAngle)
   {
     return *this = BaseMatrix<T>::Rotation(aAngle) * *this;
   }
@@ -273,16 +261,14 @@ public:
   {
     BaseMatrix<T> clone = *this;
     DebugOnly<bool> inverted = clone.Invert();
-    MOZ_ASSERT(inverted, "Attempted to get the inverse of a non-invertible matrix");
+    MOZ_ASSERT(inverted,
+               "Attempted to get the inverse of a non-invertible matrix");
     return clone;
   }
 
-  T Determinant() const
-  {
-    return _11 * _22 - _12 * _21;
-  }
+  T Determinant() const { return _11 * _22 - _12 * _21; }
 
-  BaseMatrix<T> operator*(const BaseMatrix<T> &aMatrix) const
+  BaseMatrix<T> operator*(const BaseMatrix<T>& aMatrix) const
   {
     BaseMatrix<T> resultMatrix;
 
@@ -290,13 +276,15 @@ public:
     resultMatrix._12 = this->_11 * aMatrix._12 + this->_12 * aMatrix._22;
     resultMatrix._21 = this->_21 * aMatrix._11 + this->_22 * aMatrix._21;
     resultMatrix._22 = this->_21 * aMatrix._12 + this->_22 * aMatrix._22;
-    resultMatrix._31 = this->_31 * aMatrix._11 + this->_32 * aMatrix._21 + aMatrix._31;
-    resultMatrix._32 = this->_31 * aMatrix._12 + this->_32 * aMatrix._22 + aMatrix._32;
+    resultMatrix._31 =
+        this->_31 * aMatrix._11 + this->_32 * aMatrix._21 + aMatrix._31;
+    resultMatrix._32 =
+        this->_31 * aMatrix._12 + this->_32 * aMatrix._22 + aMatrix._32;
 
     return resultMatrix;
   }
 
-  BaseMatrix<T>& operator*=(const BaseMatrix<T> &aMatrix)
+  BaseMatrix<T>& operator*=(const BaseMatrix<T>& aMatrix)
   {
     *this = *this * aMatrix;
     return *this;
@@ -310,7 +298,7 @@ public:
   /**
    * Multiplies in the opposite order to operator=*.
    */
-  BaseMatrix<T> &PreMultiply(const BaseMatrix<T> &aMatrix)
+  BaseMatrix<T>& PreMultiply(const BaseMatrix<T>& aMatrix)
   {
     *this = aMatrix * *this;
     return *this;
@@ -333,8 +321,7 @@ public:
 
   bool ExactlyEquals(const BaseMatrix<T>& o) const
   {
-    return _11 == o._11 && _12 == o._12 &&
-           _21 == o._21 && _22 == o._22 &&
+    return _11 == o._11 && _12 == o._12 && _21 == o._21 && _22 == o._22 &&
            _31 == o._31 && _32 == o._32;
   }
 
@@ -349,7 +336,8 @@ public:
   /* Returns true if the matrix is a rectilinear transformation (i.e.
    * grid-aligned rectangles are transformed to grid-aligned rectangles)
    */
-  bool IsRectilinear() const {
+  bool IsRectilinear() const
+  {
     if (FuzzyEqual(_12, 0) && FuzzyEqual(_21, 0)) {
       return true;
     } else if (FuzzyEqual(_22, 0) && FuzzyEqual(_11, 0)) {
@@ -363,24 +351,23 @@ public:
    * Returns true if the matrix is anything other than a straight
    * translation by integers.
   */
-  bool HasNonIntegerTranslation() const {
-    return HasNonTranslation() ||
-      !FuzzyEqual(_31, floor(_31 + T(0.5))) ||
-      !FuzzyEqual(_32, floor(_32 + T(0.5)));
+  bool HasNonIntegerTranslation() const
+  {
+    return HasNonTranslation() || !FuzzyEqual(_31, floor(_31 + T(0.5))) ||
+           !FuzzyEqual(_32, floor(_32 + T(0.5)));
   }
 
   /**
    * Returns true if the matrix only has an integer translation.
    */
-  bool HasOnlyIntegerTranslation() const {
-    return !HasNonIntegerTranslation();
-  }
+  bool HasOnlyIntegerTranslation() const { return !HasNonIntegerTranslation(); }
 
   /**
    * Returns true if the matrix has any transform other
    * than a straight translation.
    */
-  bool HasNonTranslation() const {
+  bool HasNonTranslation() const
+  {
     return !FuzzyEqual(_11, 1.0) || !FuzzyEqual(_22, 1.0) ||
            !FuzzyEqual(_12, 0.0) || !FuzzyEqual(_21, 0.0);
   }
@@ -389,18 +376,18 @@ public:
    * Returns true if the matrix has any transform other
    * than a translation or a -1 y scale (y axis flip)
    */
-  bool HasNonTranslationOrFlip() const {
-      return !FuzzyEqual(_11, 1.0) ||
-             (!FuzzyEqual(_22, 1.0) && !FuzzyEqual(_22, -1.0)) ||
-             !FuzzyEqual(_21, 0.0) || !FuzzyEqual(_12, 0.0);
+  bool HasNonTranslationOrFlip() const
+  {
+    return !FuzzyEqual(_11, 1.0) ||
+           (!FuzzyEqual(_22, 1.0) && !FuzzyEqual(_22, -1.0)) ||
+           !FuzzyEqual(_21, 0.0) || !FuzzyEqual(_12, 0.0);
   }
 
   /* Returns true if the matrix is an identity matrix.
    */
   bool IsIdentity() const
   {
-    return _11 == 1.0f && _12 == 0.0f &&
-           _21 == 0.0f && _22 == 1.0f &&
+    return _11 == 1.0f && _12 == 0.0f && _21 == 0.0f && _22 == 1.0f &&
            _31 == 0.0f && _32 == 0.0f;
   }
 
@@ -441,22 +428,20 @@ public:
 
   bool IsAllIntegers() const
   {
-    return FuzzyIsInteger(_11) && FuzzyIsInteger(_12) &&
-           FuzzyIsInteger(_21) && FuzzyIsInteger(_22) &&
-           FuzzyIsInteger(_31) && FuzzyIsInteger(_32);
+    return FuzzyIsInteger(_11) && FuzzyIsInteger(_12) && FuzzyIsInteger(_21) &&
+           FuzzyIsInteger(_22) && FuzzyIsInteger(_31) && FuzzyIsInteger(_32);
   }
 
-  MatrixPoint GetTranslation() const {
-    return MatrixPoint(_31, _32);
-  }
+  MatrixPoint GetTranslation() const { return MatrixPoint(_31, _32); }
 
   /**
    * Returns true if matrix is multiple of 90 degrees rotation with flipping,
    * scaling and translation.
    */
-  bool PreservesAxisAlignedRectangles() const {
-      return ((FuzzyEqual(_11, 0.0) && FuzzyEqual(_22, 0.0))
-          || (FuzzyEqual(_12, 0.0) && FuzzyEqual(_21, 0.0)));
+  bool PreservesAxisAlignedRectangles() const
+  {
+    return ((FuzzyEqual(_11, 0.0) && FuzzyEqual(_22, 0.0)) ||
+            (FuzzyEqual(_12, 0.0) && FuzzyEqual(_21, 0.0)));
   }
 
   /**
@@ -464,16 +449,15 @@ public:
    * than a translation or scale; this is, if there is
    * rotation.
    */
-  bool HasNonAxisAlignedTransform() const {
-      return !FuzzyEqual(_21, 0.0) || !FuzzyEqual(_12, 0.0);
+  bool HasNonAxisAlignedTransform() const
+  {
+    return !FuzzyEqual(_21, 0.0) || !FuzzyEqual(_12, 0.0);
   }
 
   /**
    * Returns true if the matrix has negative scaling (i.e. flip).
    */
-  bool HasNegativeScaling() const {
-      return (_11 < 0.0) || (_22 < 0.0);
-  }
+  bool HasNegativeScaling() const { return (_11 < 0.0) || (_22 < 0.0); }
 
   /**
    * Computes the scale factors of this matrix; that is,
@@ -481,7 +465,8 @@ public:
    * The xMajor parameter indicates if the larger scale is
    * to be assumed to be in the X direction or not.
    */
-  MatrixSize ScaleFactors(bool xMajor) const {
+  MatrixSize ScaleFactors(bool xMajor) const
+  {
     T det = Determinant();
 
     if (det == 0.0) {
@@ -496,7 +481,7 @@ public:
 
     // ignore mirroring
     if (det < 0.0) {
-      det = - det;
+      det = -det;
     }
 
     if (major) {
@@ -540,11 +525,10 @@ ComputePerspectivePlaneIntercept(const Point4DTyped<Units, F>& aFirst,
   return aFirst + (aSecond - aFirst) * t;
 }
 
-
-template <typename SourceUnits, typename TargetUnits>
+template<typename SourceUnits, typename TargetUnits>
 class Matrix4x4Typed
 {
-public:
+ public:
   typedef PointTyped<SourceUnits> SourcePoint;
   typedef PointTyped<TargetUnits> TargetPoint;
   typedef Point3DTyped<SourceUnits> SourcePoint3D;
@@ -555,21 +539,59 @@ public:
   typedef RectTyped<TargetUnits> TargetRect;
 
   Matrix4x4Typed()
-    : _11(1.0f), _12(0.0f), _13(0.0f), _14(0.0f)
-    , _21(0.0f), _22(1.0f), _23(0.0f), _24(0.0f)
-    , _31(0.0f), _32(0.0f), _33(1.0f), _34(0.0f)
-    , _41(0.0f), _42(0.0f), _43(0.0f), _44(1.0f)
-  {}
+      : _11(1.0f),
+        _12(0.0f),
+        _13(0.0f),
+        _14(0.0f),
+        _21(0.0f),
+        _22(1.0f),
+        _23(0.0f),
+        _24(0.0f),
+        _31(0.0f),
+        _32(0.0f),
+        _33(1.0f),
+        _34(0.0f),
+        _41(0.0f),
+        _42(0.0f),
+        _43(0.0f),
+        _44(1.0f)
+  {
+  }
 
-  Matrix4x4Typed(Float a11, Float a12, Float a13, Float a14,
-                 Float a21, Float a22, Float a23, Float a24,
-                 Float a31, Float a32, Float a33, Float a34,
-                 Float a41, Float a42, Float a43, Float a44)
-    : _11(a11), _12(a12), _13(a13), _14(a14)
-    , _21(a21), _22(a22), _23(a23), _24(a24)
-    , _31(a31), _32(a32), _33(a33), _34(a34)
-    , _41(a41), _42(a42), _43(a43), _44(a44)
-  {}
+  Matrix4x4Typed(Float a11,
+                 Float a12,
+                 Float a13,
+                 Float a14,
+                 Float a21,
+                 Float a22,
+                 Float a23,
+                 Float a24,
+                 Float a31,
+                 Float a32,
+                 Float a33,
+                 Float a34,
+                 Float a41,
+                 Float a42,
+                 Float a43,
+                 Float a44)
+      : _11(a11),
+        _12(a12),
+        _13(a13),
+        _14(a14),
+        _21(a21),
+        _22(a22),
+        _23(a23),
+        _24(a24),
+        _31(a31),
+        _32(a32),
+        _33(a33),
+        _34(a34),
+        _41(a41),
+        _42(a42),
+        _43(a43),
+        _44(a44)
+  {
+  }
 
   explicit Matrix4x4Typed(const Float aArray[16])
   {
@@ -582,7 +604,8 @@ public:
   }
 
   union {
-    struct {
+    struct
+    {
       Float _11, _12, _13, _14;
       Float _21, _22, _23, _24;
       Float _31, _32, _33, _34;
@@ -591,25 +614,33 @@ public:
     Float components[16];
   };
 
-  friend std::ostream& operator<<(std::ostream& aStream, const Matrix4x4Typed& aMatrix)
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  const Matrix4x4Typed& aMatrix)
   {
-    const Float *f = &aMatrix._11;
-    aStream << "[ " << f[0] << " "  << f[1] << " " << f[2] << " " << f[3] << " ;" << std::endl; f += 4;
-    aStream << "  " << f[0] << " "  << f[1] << " " << f[2] << " " << f[3] << " ;" << std::endl; f += 4;
-    aStream << "  " << f[0] << " "  << f[1] << " " << f[2] << " " << f[3] << " ;" << std::endl; f += 4;
-    aStream << "  " << f[0] << " "  << f[1] << " " << f[2] << " " << f[3] << " ]" << std::endl;
+    const Float* f = &aMatrix._11;
+    aStream << "[ " << f[0] << " " << f[1] << " " << f[2] << " " << f[3] << " ;"
+            << std::endl;
+    f += 4;
+    aStream << "  " << f[0] << " " << f[1] << " " << f[2] << " " << f[3] << " ;"
+            << std::endl;
+    f += 4;
+    aStream << "  " << f[0] << " " << f[1] << " " << f[2] << " " << f[3] << " ;"
+            << std::endl;
+    f += 4;
+    aStream << "  " << f[0] << " " << f[1] << " " << f[2] << " " << f[3] << " ]"
+            << std::endl;
     return aStream;
   }
 
   Point4D& operator[](int aIndex)
   {
-      MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
-      return *reinterpret_cast<Point4D*>((&_11)+4*aIndex);
+    MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
+    return *reinterpret_cast<Point4D*>((&_11) + 4 * aIndex);
   }
   const Point4D& operator[](int aIndex) const
   {
-      MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
-      return *reinterpret_cast<const Point4D*>((&_11)+4*aIndex);
+    MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
+    return *reinterpret_cast<const Point4D*>((&_11) + 4 * aIndex);
   }
 
   /**
@@ -617,8 +648,7 @@ public:
    */
   bool Is2D() const
   {
-    if (_13 != 0.0f || _14 != 0.0f ||
-        _23 != 0.0f || _24 != 0.0f ||
+    if (_13 != 0.0f || _14 != 0.0f || _23 != 0.0f || _24 != 0.0f ||
         _31 != 0.0f || _32 != 0.0f || _33 != 1.0f || _34 != 0.0f ||
         _43 != 0.0f || _44 != 1.0f) {
       return false;
@@ -626,7 +656,8 @@ public:
     return true;
   }
 
-  bool Is2D(Matrix* aMatrix) const {
+  bool Is2D(Matrix* aMatrix) const
+  {
     if (!Is2D()) {
       return false;
     }
@@ -648,10 +679,9 @@ public:
     return Matrix(_11, _12, _21, _22, _41, _42);
   }
 
-  bool CanDraw2D(Matrix* aMatrix = nullptr) const {
-    if (_14 != 0.0f ||
-        _24 != 0.0f ||
-        _44 != 1.0f) {
+  bool CanDraw2D(Matrix* aMatrix = nullptr) const
+  {
+    if (_14 != 0.0f || _24 != 0.0f || _44 != 1.0f) {
       return false;
     }
     if (aMatrix) {
@@ -665,7 +695,8 @@ public:
     return true;
   }
 
-  Matrix4x4Typed& ProjectTo2D() {
+  Matrix4x4Typed& ProjectTo2D()
+  {
     _31 = 0.0f;
     _32 = 0.0f;
     _13 = 0.0f;
@@ -680,8 +711,7 @@ public:
     // coordinate transform divide by W. The matrix can be converted to
     // a true 2D matrix by normalizing out the scaling effect of _44 on
     // the remaining components ahead of time.
-    if (_14 == 0.0f && _24 == 0.0f &&
-        _44 != 1.0f && _44 != 0.0f) {
+    if (_14 == 0.0f && _24 == 0.0f && _44 != 1.0f && _44 != 0.0f) {
       Float scale = 1.0f / _44;
       _11 *= scale;
       _12 *= scale;
@@ -695,8 +725,9 @@ public:
   }
 
   template<class F>
-  Point4DTyped<TargetUnits, F>
-  ProjectPoint(const PointTyped<SourceUnits, F>& aPoint) const {
+  Point4DTyped<TargetUnits, F> ProjectPoint(
+      const PointTyped<SourceUnits, F>& aPoint) const
+  {
     // Find a value for z that will transform to 0.
 
     // The transformed value of z is computed as:
@@ -706,12 +737,14 @@ public:
     F z = -(aPoint.x * _13 + aPoint.y * _23 + _43) / _33;
 
     // Compute the transformed point
-    return this->TransformPoint(Point4DTyped<SourceUnits, F>(aPoint.x, aPoint.y, z, 1));
+    return this->TransformPoint(
+        Point4DTyped<SourceUnits, F>(aPoint.x, aPoint.y, z, 1));
   }
 
   template<class F>
-  RectTyped<TargetUnits, F>
-  ProjectRectBounds(const RectTyped<SourceUnits, F>& aRect, const RectTyped<TargetUnits, F>& aClip) const
+  RectTyped<TargetUnits, F> ProjectRectBounds(
+      const RectTyped<SourceUnits, F>& aRect,
+      const RectTyped<TargetUnits, F>& aClip) const
   {
     // This function must never return std::numeric_limits<Float>::max() or any
     // other arbitrary large value in place of inifinity.  This often occurs when
@@ -749,10 +782,11 @@ public:
     F max_x = -std::numeric_limits<F>::max();
     F max_y = -std::numeric_limits<F>::max();
 
-    for (int i=0; i<4; i++) {
+    for (int i = 0; i < 4; i++) {
       // Only use points that exist above the w=0 plane
       if (points[i].HasPositiveWCoord()) {
-        PointTyped<TargetUnits, F> point2d = aClip.ClampPoint(points[i].As2DPoint());
+        PointTyped<TargetUnits, F> point2d =
+            aClip.ClampPoint(points[i].As2DPoint());
         min_x = std::min<F>(point2d.x, min_x);
         max_x = std::max<F>(point2d.x, max_x);
         min_y = std::min<F>(point2d.y, min_y);
@@ -765,7 +799,7 @@ public:
         // to find the point of intersection with the w=0 plane and use that
         // instead.
         Point4DTyped<TargetUnits, F> intercept =
-          ComputePerspectivePlaneIntercept(points[i], points[next]);
+            ComputePerspectivePlaneIntercept(points[i], points[next]);
         // Since intercept.w will always be 0 here, we interpret x,y,z as a
         // direction towards an infinite vanishing point.
         if (intercept.x < 0.0f) {
@@ -785,7 +819,8 @@ public:
       return RectTyped<TargetUnits, F>(0, 0, 0, 0);
     }
 
-    return RectTyped<TargetUnits, F>(min_x, min_y, max_x - min_x, max_y - min_y);
+    return RectTyped<TargetUnits, F>(
+        min_x, min_y, max_x - min_x, max_y - min_y);
   }
 
   /**
@@ -793,8 +828,9 @@ public:
    * the transformed bounds to the extents of aClip.
    */
   template<class F>
-  RectTyped<TargetUnits, F> TransformAndClipBounds(const RectTyped<SourceUnits, F>& aRect,
-                                                   const RectTyped<TargetUnits, F>& aClip) const
+  RectTyped<TargetUnits, F> TransformAndClipBounds(
+      const RectTyped<SourceUnits, F>& aRect,
+      const RectTyped<TargetUnits, F>& aClip) const
   {
     PointTyped<UnknownUnits, F> verts[kTransformAndClipRectMaxVerts];
     size_t vertCount = TransformAndClipRect(aRect, aClip, verts);
@@ -803,7 +839,7 @@ public:
     F min_y = std::numeric_limits<F>::max();
     F max_x = -std::numeric_limits<F>::max();
     F max_y = -std::numeric_limits<F>::max();
-    for (size_t i=0; i < vertCount; i++) {
+    for (size_t i = 0; i < vertCount; i++) {
       min_x = std::min(min_x, verts[i].x);
       max_x = std::max(max_x, verts[i].x);
       min_y = std::min(min_y, verts[i].y);
@@ -814,12 +850,14 @@ public:
       return RectTyped<TargetUnits, F>(0, 0, 0, 0);
     }
 
-    return RectTyped<TargetUnits, F>(min_x, min_y, max_x - min_x, max_y - min_y);
+    return RectTyped<TargetUnits, F>(
+        min_x, min_y, max_x - min_x, max_y - min_y);
   }
 
   template<class F>
-  RectTyped<TargetUnits, F> TransformAndClipBounds(const TriangleTyped<SourceUnits, F>& aTriangle,
-                                                   const RectTyped<TargetUnits, F>& aClip) const
+  RectTyped<TargetUnits, F> TransformAndClipBounds(
+      const TriangleTyped<SourceUnits, F>& aTriangle,
+      const RectTyped<TargetUnits, F>& aClip) const
   {
     return TransformAndClipBounds(aTriangle.BoundingBox(), aClip);
   }
@@ -844,23 +882,29 @@ public:
     Point4DTyped<UnknownUnits, F> points[2][kTransformAndClipRectMaxVerts];
     Point4DTyped<UnknownUnits, F>* dstPoint = points[0];
 
-    *dstPoint++ = TransformPoint(Point4DTyped<UnknownUnits, F>(aRect.x, aRect.y, 0, 1));
-    *dstPoint++ = TransformPoint(Point4DTyped<UnknownUnits, F>(aRect.XMost(), aRect.y, 0, 1));
-    *dstPoint++ = TransformPoint(Point4DTyped<UnknownUnits, F>(aRect.XMost(), aRect.YMost(), 0, 1));
-    *dstPoint++ = TransformPoint(Point4DTyped<UnknownUnits, F>(aRect.x, aRect.YMost(), 0, 1));
+    *dstPoint++ =
+        TransformPoint(Point4DTyped<UnknownUnits, F>(aRect.x, aRect.y, 0, 1));
+    *dstPoint++ = TransformPoint(
+        Point4DTyped<UnknownUnits, F>(aRect.XMost(), aRect.y, 0, 1));
+    *dstPoint++ = TransformPoint(
+        Point4DTyped<UnknownUnits, F>(aRect.XMost(), aRect.YMost(), 0, 1));
+    *dstPoint++ = TransformPoint(
+        Point4DTyped<UnknownUnits, F>(aRect.x, aRect.YMost(), 0, 1));
 
     // View frustum clipping planes are described as normals originating from
     // the 0,0,0,0 origin.
     Point4DTyped<UnknownUnits, F> planeNormals[4];
     planeNormals[0] = Point4DTyped<UnknownUnits, F>(1.0, 0.0, 0.0, -aClip.x);
-    planeNormals[1] = Point4DTyped<UnknownUnits, F>(-1.0, 0.0, 0.0, aClip.XMost());
+    planeNormals[1] =
+        Point4DTyped<UnknownUnits, F>(-1.0, 0.0, 0.0, aClip.XMost());
     planeNormals[2] = Point4DTyped<UnknownUnits, F>(0.0, 1.0, 0.0, -aClip.y);
-    planeNormals[3] = Point4DTyped<UnknownUnits, F>(0.0, -1.0, 0.0, aClip.YMost());
+    planeNormals[3] =
+        Point4DTyped<UnknownUnits, F>(0.0, -1.0, 0.0, aClip.YMost());
 
     // Iterate through each clipping plane and clip the polygon.
     // In each pass, we double buffer, alternating between points[0] and
     // points[1].
-    for (int plane=0; plane < 4; plane++) {
+    for (int plane = 0; plane < 4; plane++) {
       planeNormals[plane].Normalize();
       Point4DTyped<UnknownUnits, F>* srcPoint = points[plane & 1];
       Point4DTyped<UnknownUnits, F>* srcPointEnd = dstPoint;
@@ -870,7 +914,8 @@ public:
 
       Point4DTyped<UnknownUnits, F>* prevPoint = srcPointEnd - 1;
       F prevDot = planeNormals[plane].DotProduct(*prevPoint);
-      while (srcPoint < srcPointEnd && ((dstPoint - dstPointStart) < kTransformAndClipRectMaxVerts)) {
+      while (srcPoint < srcPointEnd &&
+             ((dstPoint - dstPointStart) < kTransformAndClipRectMaxVerts)) {
         F nextDot = planeNormals[plane].DotProduct(*srcPoint);
 
         if ((nextDot >= 0.0) != (prevDot >= 0.0)) {
@@ -897,8 +942,9 @@ public:
 
     size_t dstPointCount = 0;
     size_t srcPointCount = dstPoint - points[0];
-    for (Point4DTyped<UnknownUnits, F>* srcPoint = points[0]; srcPoint < points[0] + srcPointCount; srcPoint++) {
-
+    for (Point4DTyped<UnknownUnits, F>* srcPoint = points[0];
+         srcPoint < points[0] + srcPointCount;
+         srcPoint++) {
       PointTyped<TargetUnits, F> p;
       if (srcPoint->w == 0.0) {
         // If a point lies on the intersection of the clipping planes at
@@ -918,7 +964,8 @@ public:
 
   static const int kTransformAndClipRectMaxVerts = 32;
 
-  static Matrix4x4Typed From2D(const Matrix &aMatrix) {
+  static Matrix4x4Typed From2D(const Matrix& aMatrix)
+  {
     Matrix4x4Typed matrix;
     matrix._11 = aMatrix._11;
     matrix._12 = aMatrix._12;
@@ -936,29 +983,35 @@ public:
 
   TargetPoint4D TransposeTransform4D(const SourcePoint4D& aPoint) const
   {
-      Float x = aPoint.x * _11 + aPoint.y * _12 + aPoint.z * _13 + aPoint.w * _14;
-      Float y = aPoint.x * _21 + aPoint.y * _22 + aPoint.z * _23 + aPoint.w * _24;
-      Float z = aPoint.x * _31 + aPoint.y * _32 + aPoint.z * _33 + aPoint.w * _34;
-      Float w = aPoint.x * _41 + aPoint.y * _42 + aPoint.z * _43 + aPoint.w * _44;
+    Float x = aPoint.x * _11 + aPoint.y * _12 + aPoint.z * _13 + aPoint.w * _14;
+    Float y = aPoint.x * _21 + aPoint.y * _22 + aPoint.z * _23 + aPoint.w * _24;
+    Float z = aPoint.x * _31 + aPoint.y * _32 + aPoint.z * _33 + aPoint.w * _34;
+    Float w = aPoint.x * _41 + aPoint.y * _42 + aPoint.z * _43 + aPoint.w * _44;
 
-      return TargetPoint4D(x, y, z, w);
+    return TargetPoint4D(x, y, z, w);
   }
 
   template<class F>
-  Point4DTyped<TargetUnits, F> TransformPoint(const Point4DTyped<SourceUnits, F>& aPoint) const
+  Point4DTyped<TargetUnits, F> TransformPoint(
+      const Point4DTyped<SourceUnits, F>& aPoint) const
   {
     Point4DTyped<TargetUnits, F> retPoint;
 
-    retPoint.x = aPoint.x * _11 + aPoint.y * _21 + aPoint.z * _31 + aPoint.w * _41;
-    retPoint.y = aPoint.x * _12 + aPoint.y * _22 + aPoint.z * _32 + aPoint.w * _42;
-    retPoint.z = aPoint.x * _13 + aPoint.y * _23 + aPoint.z * _33 + aPoint.w * _43;
-    retPoint.w = aPoint.x * _14 + aPoint.y * _24 + aPoint.z * _34 + aPoint.w * _44;
+    retPoint.x =
+        aPoint.x * _11 + aPoint.y * _21 + aPoint.z * _31 + aPoint.w * _41;
+    retPoint.y =
+        aPoint.x * _12 + aPoint.y * _22 + aPoint.z * _32 + aPoint.w * _42;
+    retPoint.z =
+        aPoint.x * _13 + aPoint.y * _23 + aPoint.z * _33 + aPoint.w * _43;
+    retPoint.w =
+        aPoint.x * _14 + aPoint.y * _24 + aPoint.z * _34 + aPoint.w * _44;
 
     return retPoint;
   }
 
   template<class F>
-  Point3DTyped<TargetUnits, F> TransformPoint(const Point3DTyped<SourceUnits, F>& aPoint) const
+  Point3DTyped<TargetUnits, F> TransformPoint(
+      const Point3DTyped<SourceUnits, F>& aPoint) const
   {
     Point3DTyped<TargetUnits, F> result;
     result.x = aPoint.x * _11 + aPoint.y * _21 + aPoint.z * _31 + _41;
@@ -971,14 +1024,16 @@ public:
   }
 
   template<class F>
-  PointTyped<TargetUnits, F> TransformPoint(const PointTyped<SourceUnits, F> &aPoint) const
+  PointTyped<TargetUnits, F> TransformPoint(
+      const PointTyped<SourceUnits, F>& aPoint) const
   {
     Point4DTyped<SourceUnits, F> temp(aPoint.x, aPoint.y, 0, 1);
     return TransformPoint(temp).As2DPoint();
   }
 
   template<class F>
-  GFX2D_API RectTyped<TargetUnits, F> TransformBounds(const RectTyped<SourceUnits, F>& aRect) const
+  GFX2D_API RectTyped<TargetUnits, F> TransformBounds(
+      const RectTyped<SourceUnits, F>& aRect) const
   {
     PointTyped<TargetUnits, F> quad[4];
     F min_x, max_x;
@@ -1008,15 +1063,28 @@ public:
       }
     }
 
-    return RectTyped<TargetUnits, F>(min_x, min_y, max_x - min_x, max_y - min_y);
+    return RectTyped<TargetUnits, F>(
+        min_x, min_y, max_x - min_x, max_y - min_y);
   }
 
   static Matrix4x4Typed Translation(Float aX, Float aY, Float aZ)
   {
-    return Matrix4x4Typed(1.0f, 0.0f, 0.0f, 0.0f,
-                          0.0f, 1.0f, 0.0f, 0.0f,
-                          0.0f, 0.0f, 1.0f, 0.0f,
-                          aX,   aY,   aZ, 1.0f);
+    return Matrix4x4Typed(1.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          1.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          1.0f,
+                          0.0f,
+                          aX,
+                          aY,
+                          aZ,
+                          1.0f);
   }
 
   static Matrix4x4Typed Translation(const TargetPoint3D& aP)
@@ -1048,7 +1116,7 @@ public:
    * this method would be preferred since it only involves 12 floating-point
    * multiplications.)
    */
-  Matrix4x4Typed &PreTranslate(Float aX, Float aY, Float aZ)
+  Matrix4x4Typed& PreTranslate(Float aX, Float aY, Float aZ)
   {
     _41 += aX * _11 + aY * _21 + aZ * _31;
     _42 += aX * _12 + aY * _22 + aZ * _32;
@@ -1058,7 +1126,8 @@ public:
     return *this;
   }
 
-  Matrix4x4Typed &PreTranslate(const Point3D& aPoint) {
+  Matrix4x4Typed& PreTranslate(const Point3D& aPoint)
+  {
     return PreTranslate(aPoint.x, aPoint.y, aPoint.z);
   }
 
@@ -1074,7 +1143,7 @@ public:
    * the Post* methods add a transform to the device space end of the
    * transformation.
    */
-  Matrix4x4Typed &PostTranslate(Float aX, Float aY, Float aZ)
+  Matrix4x4Typed& PostTranslate(Float aX, Float aY, Float aZ)
   {
     _11 += _14 * aX;
     _21 += _24 * aX;
@@ -1092,26 +1161,40 @@ public:
     return *this;
   }
 
-  Matrix4x4Typed &PostTranslate(const TargetPoint3D& aPoint) {
+  Matrix4x4Typed& PostTranslate(const TargetPoint3D& aPoint)
+  {
     return PostTranslate(aPoint.x, aPoint.y, aPoint.z);
   }
 
-  Matrix4x4Typed &PostTranslate(const TargetPoint& aPoint) {
+  Matrix4x4Typed& PostTranslate(const TargetPoint& aPoint)
+  {
     return PostTranslate(aPoint.x, aPoint.y, 0);
   }
 
   static Matrix4x4Typed Scaling(Float aScaleX, Float aScaleY, float aScaleZ)
   {
-    return Matrix4x4Typed(aScaleX, 0.0f, 0.0f, 0.0f,
-                          0.0f, aScaleY, 0.0f, 0.0f,
-                          0.0f, 0.0f, aScaleZ, 0.0f,
-                          0.0f, 0.0f, 0.0f, 1.0f);
+    return Matrix4x4Typed(aScaleX,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          aScaleY,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          aScaleZ,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          0.0f,
+                          1.0f);
   }
 
   /**
    * Similar to PreTranslate, but applies a scale instead of a translation.
    */
-  Matrix4x4Typed &PreScale(Float aX, Float aY, Float aZ)
+  Matrix4x4Typed& PreScale(Float aX, Float aY, Float aZ)
   {
     _11 *= aX;
     _12 *= aX;
@@ -1132,7 +1215,7 @@ public:
   /**
    * Similar to PostTranslate, but applies a scale instead of a translation.
    */
-  Matrix4x4Typed &PostScale(Float aScaleX, Float aScaleY, Float aScaleZ)
+  Matrix4x4Typed& PostScale(Float aScaleX, Float aScaleY, Float aScaleZ)
   {
     _11 *= aScaleX;
     _21 *= aScaleX;
@@ -1150,27 +1233,18 @@ public:
     return *this;
   }
 
-  void SkewXY(Float aSkew)
-  {
-    (*this)[1] += (*this)[0] * aSkew;
-  }
+  void SkewXY(Float aSkew) { (*this)[1] += (*this)[0] * aSkew; }
 
-  void SkewXZ(Float aSkew)
-  {
-      (*this)[2] += (*this)[0] * aSkew;
-  }
+  void SkewXZ(Float aSkew) { (*this)[2] += (*this)[0] * aSkew; }
 
-  void SkewYZ(Float aSkew)
-  {
-      (*this)[2] += (*this)[1] * aSkew;
-  }
+  void SkewYZ(Float aSkew) { (*this)[2] += (*this)[1] * aSkew; }
 
-  Matrix4x4Typed &ChangeBasis(const Point3D& aOrigin)
+  Matrix4x4Typed& ChangeBasis(const Point3D& aOrigin)
   {
     return ChangeBasis(aOrigin.x, aOrigin.y, aOrigin.z);
   }
 
-  Matrix4x4Typed &ChangeBasis(Float aX, Float aY, Float aZ)
+  Matrix4x4Typed& ChangeBasis(Float aX, Float aY, Float aZ)
   {
     // Translate to the origin before applying this matrix
     PreTranslate(-aX, -aY, -aZ);
@@ -1181,7 +1255,8 @@ public:
     return *this;
   }
 
-  Matrix4x4Typed& Transpose() {
+  Matrix4x4Typed& Transpose()
+  {
     std::swap(_12, _21);
     std::swap(_13, _31);
     std::swap(_14, _41);
@@ -1203,37 +1278,52 @@ public:
            _41 == o._41 && _42 == o._42 && _43 == o._43 && _44 == o._44;
   }
 
-  bool operator!=(const Matrix4x4Typed& o) const
-  {
-    return !((*this) == o);
-  }
+  bool operator!=(const Matrix4x4Typed& o) const { return !((*this) == o); }
 
-  template <typename NewTargetUnits>
-  Matrix4x4Typed<SourceUnits, NewTargetUnits> operator*(const Matrix4x4Typed<TargetUnits, NewTargetUnits> &aMatrix) const
+  template<typename NewTargetUnits>
+  Matrix4x4Typed<SourceUnits, NewTargetUnits> operator*(
+      const Matrix4x4Typed<TargetUnits, NewTargetUnits>& aMatrix) const
   {
     Matrix4x4Typed<SourceUnits, NewTargetUnits> matrix;
 
-    matrix._11 = _11 * aMatrix._11 + _12 * aMatrix._21 + _13 * aMatrix._31 + _14 * aMatrix._41;
-    matrix._21 = _21 * aMatrix._11 + _22 * aMatrix._21 + _23 * aMatrix._31 + _24 * aMatrix._41;
-    matrix._31 = _31 * aMatrix._11 + _32 * aMatrix._21 + _33 * aMatrix._31 + _34 * aMatrix._41;
-    matrix._41 = _41 * aMatrix._11 + _42 * aMatrix._21 + _43 * aMatrix._31 + _44 * aMatrix._41;
-    matrix._12 = _11 * aMatrix._12 + _12 * aMatrix._22 + _13 * aMatrix._32 + _14 * aMatrix._42;
-    matrix._22 = _21 * aMatrix._12 + _22 * aMatrix._22 + _23 * aMatrix._32 + _24 * aMatrix._42;
-    matrix._32 = _31 * aMatrix._12 + _32 * aMatrix._22 + _33 * aMatrix._32 + _34 * aMatrix._42;
-    matrix._42 = _41 * aMatrix._12 + _42 * aMatrix._22 + _43 * aMatrix._32 + _44 * aMatrix._42;
-    matrix._13 = _11 * aMatrix._13 + _12 * aMatrix._23 + _13 * aMatrix._33 + _14 * aMatrix._43;
-    matrix._23 = _21 * aMatrix._13 + _22 * aMatrix._23 + _23 * aMatrix._33 + _24 * aMatrix._43;
-    matrix._33 = _31 * aMatrix._13 + _32 * aMatrix._23 + _33 * aMatrix._33 + _34 * aMatrix._43;
-    matrix._43 = _41 * aMatrix._13 + _42 * aMatrix._23 + _43 * aMatrix._33 + _44 * aMatrix._43;
-    matrix._14 = _11 * aMatrix._14 + _12 * aMatrix._24 + _13 * aMatrix._34 + _14 * aMatrix._44;
-    matrix._24 = _21 * aMatrix._14 + _22 * aMatrix._24 + _23 * aMatrix._34 + _24 * aMatrix._44;
-    matrix._34 = _31 * aMatrix._14 + _32 * aMatrix._24 + _33 * aMatrix._34 + _34 * aMatrix._44;
-    matrix._44 = _41 * aMatrix._14 + _42 * aMatrix._24 + _43 * aMatrix._34 + _44 * aMatrix._44;
+    matrix._11 = _11 * aMatrix._11 + _12 * aMatrix._21 + _13 * aMatrix._31 +
+                 _14 * aMatrix._41;
+    matrix._21 = _21 * aMatrix._11 + _22 * aMatrix._21 + _23 * aMatrix._31 +
+                 _24 * aMatrix._41;
+    matrix._31 = _31 * aMatrix._11 + _32 * aMatrix._21 + _33 * aMatrix._31 +
+                 _34 * aMatrix._41;
+    matrix._41 = _41 * aMatrix._11 + _42 * aMatrix._21 + _43 * aMatrix._31 +
+                 _44 * aMatrix._41;
+    matrix._12 = _11 * aMatrix._12 + _12 * aMatrix._22 + _13 * aMatrix._32 +
+                 _14 * aMatrix._42;
+    matrix._22 = _21 * aMatrix._12 + _22 * aMatrix._22 + _23 * aMatrix._32 +
+                 _24 * aMatrix._42;
+    matrix._32 = _31 * aMatrix._12 + _32 * aMatrix._22 + _33 * aMatrix._32 +
+                 _34 * aMatrix._42;
+    matrix._42 = _41 * aMatrix._12 + _42 * aMatrix._22 + _43 * aMatrix._32 +
+                 _44 * aMatrix._42;
+    matrix._13 = _11 * aMatrix._13 + _12 * aMatrix._23 + _13 * aMatrix._33 +
+                 _14 * aMatrix._43;
+    matrix._23 = _21 * aMatrix._13 + _22 * aMatrix._23 + _23 * aMatrix._33 +
+                 _24 * aMatrix._43;
+    matrix._33 = _31 * aMatrix._13 + _32 * aMatrix._23 + _33 * aMatrix._33 +
+                 _34 * aMatrix._43;
+    matrix._43 = _41 * aMatrix._13 + _42 * aMatrix._23 + _43 * aMatrix._33 +
+                 _44 * aMatrix._43;
+    matrix._14 = _11 * aMatrix._14 + _12 * aMatrix._24 + _13 * aMatrix._34 +
+                 _14 * aMatrix._44;
+    matrix._24 = _21 * aMatrix._14 + _22 * aMatrix._24 + _23 * aMatrix._34 +
+                 _24 * aMatrix._44;
+    matrix._34 = _31 * aMatrix._14 + _32 * aMatrix._24 + _33 * aMatrix._34 +
+                 _34 * aMatrix._44;
+    matrix._44 = _41 * aMatrix._14 + _42 * aMatrix._24 + _43 * aMatrix._34 +
+                 _44 * aMatrix._44;
 
     return matrix;
   }
 
-  Matrix4x4Typed& operator*=(const Matrix4x4Typed<TargetUnits, TargetUnits> &aMatrix)
+  Matrix4x4Typed& operator*=(
+      const Matrix4x4Typed<TargetUnits, TargetUnits>& aMatrix)
   {
     *this = *this * aMatrix;
     return *this;
@@ -1249,37 +1339,22 @@ public:
            _41 == 0.0f && _42 == 0.0f && _43 == 0.0f && _44 == 1.0f;
   }
 
-  bool IsSingular() const
-  {
-    return Determinant() == 0.0;
-  }
+  bool IsSingular() const { return Determinant() == 0.0; }
 
   Float Determinant() const
   {
-    return _14 * _23 * _32 * _41
-         - _13 * _24 * _32 * _41
-         - _14 * _22 * _33 * _41
-         + _12 * _24 * _33 * _41
-         + _13 * _22 * _34 * _41
-         - _12 * _23 * _34 * _41
-         - _14 * _23 * _31 * _42
-         + _13 * _24 * _31 * _42
-         + _14 * _21 * _33 * _42
-         - _11 * _24 * _33 * _42
-         - _13 * _21 * _34 * _42
-         + _11 * _23 * _34 * _42
-         + _14 * _22 * _31 * _43
-         - _12 * _24 * _31 * _43
-         - _14 * _21 * _32 * _43
-         + _11 * _24 * _32 * _43
-         + _12 * _21 * _34 * _43
-         - _11 * _22 * _34 * _43
-         - _13 * _22 * _31 * _44
-         + _12 * _23 * _31 * _44
-         + _13 * _21 * _32 * _44
-         - _11 * _23 * _32 * _44
-         - _12 * _21 * _33 * _44
-         + _11 * _22 * _33 * _44;
+    return _14 * _23 * _32 * _41 - _13 * _24 * _32 * _41 -
+           _14 * _22 * _33 * _41 + _12 * _24 * _33 * _41 +
+           _13 * _22 * _34 * _41 - _12 * _23 * _34 * _41 -
+           _14 * _23 * _31 * _42 + _13 * _24 * _31 * _42 +
+           _14 * _21 * _33 * _42 - _11 * _24 * _33 * _42 -
+           _13 * _21 * _34 * _42 + _11 * _23 * _34 * _42 +
+           _14 * _22 * _31 * _43 - _12 * _24 * _31 * _43 -
+           _14 * _21 * _32 * _43 + _11 * _24 * _32 * _43 +
+           _12 * _21 * _34 * _43 - _11 * _22 * _34 * _43 -
+           _13 * _22 * _31 * _44 + _12 * _23 * _31 * _44 +
+           _13 * _21 * _32 * _44 - _11 * _23 * _32 * _44 -
+           _12 * _21 * _33 * _44 + _11 * _22 * _33 * _44;
   }
 
   // Invert() is not unit-correct. Prefer Inverse() where possible.
@@ -1291,22 +1366,38 @@ public:
     }
 
     Matrix4x4Typed<SourceUnits, TargetUnits> result;
-    result._11 = _23 * _34 * _42 - _24 * _33 * _42 + _24 * _32 * _43 - _22 * _34 * _43 - _23 * _32 * _44 + _22 * _33 * _44;
-    result._12 = _14 * _33 * _42 - _13 * _34 * _42 - _14 * _32 * _43 + _12 * _34 * _43 + _13 * _32 * _44 - _12 * _33 * _44;
-    result._13 = _13 * _24 * _42 - _14 * _23 * _42 + _14 * _22 * _43 - _12 * _24 * _43 - _13 * _22 * _44 + _12 * _23 * _44;
-    result._14 = _14 * _23 * _32 - _13 * _24 * _32 - _14 * _22 * _33 + _12 * _24 * _33 + _13 * _22 * _34 - _12 * _23 * _34;
-    result._21 = _24 * _33 * _41 - _23 * _34 * _41 - _24 * _31 * _43 + _21 * _34 * _43 + _23 * _31 * _44 - _21 * _33 * _44;
-    result._22 = _13 * _34 * _41 - _14 * _33 * _41 + _14 * _31 * _43 - _11 * _34 * _43 - _13 * _31 * _44 + _11 * _33 * _44;
-    result._23 = _14 * _23 * _41 - _13 * _24 * _41 - _14 * _21 * _43 + _11 * _24 * _43 + _13 * _21 * _44 - _11 * _23 * _44;
-    result._24 = _13 * _24 * _31 - _14 * _23 * _31 + _14 * _21 * _33 - _11 * _24 * _33 - _13 * _21 * _34 + _11 * _23 * _34;
-    result._31 = _22 * _34 * _41 - _24 * _32 * _41 + _24 * _31 * _42 - _21 * _34 * _42 - _22 * _31 * _44 + _21 * _32 * _44;
-    result._32 = _14 * _32 * _41 - _12 * _34 * _41 - _14 * _31 * _42 + _11 * _34 * _42 + _12 * _31 * _44 - _11 * _32 * _44;
-    result._33 = _12 * _24 * _41 - _14 * _22 * _41 + _14 * _21 * _42 - _11 * _24 * _42 - _12 * _21 * _44 + _11 * _22 * _44;
-    result._34 = _14 * _22 * _31 - _12 * _24 * _31 - _14 * _21 * _32 + _11 * _24 * _32 + _12 * _21 * _34 - _11 * _22 * _34;
-    result._41 = _23 * _32 * _41 - _22 * _33 * _41 - _23 * _31 * _42 + _21 * _33 * _42 + _22 * _31 * _43 - _21 * _32 * _43;
-    result._42 = _12 * _33 * _41 - _13 * _32 * _41 + _13 * _31 * _42 - _11 * _33 * _42 - _12 * _31 * _43 + _11 * _32 * _43;
-    result._43 = _13 * _22 * _41 - _12 * _23 * _41 - _13 * _21 * _42 + _11 * _23 * _42 + _12 * _21 * _43 - _11 * _22 * _43;
-    result._44 = _12 * _23 * _31 - _13 * _22 * _31 + _13 * _21 * _32 - _11 * _23 * _32 - _12 * _21 * _33 + _11 * _22 * _33;
+    result._11 = _23 * _34 * _42 - _24 * _33 * _42 + _24 * _32 * _43 -
+                 _22 * _34 * _43 - _23 * _32 * _44 + _22 * _33 * _44;
+    result._12 = _14 * _33 * _42 - _13 * _34 * _42 - _14 * _32 * _43 +
+                 _12 * _34 * _43 + _13 * _32 * _44 - _12 * _33 * _44;
+    result._13 = _13 * _24 * _42 - _14 * _23 * _42 + _14 * _22 * _43 -
+                 _12 * _24 * _43 - _13 * _22 * _44 + _12 * _23 * _44;
+    result._14 = _14 * _23 * _32 - _13 * _24 * _32 - _14 * _22 * _33 +
+                 _12 * _24 * _33 + _13 * _22 * _34 - _12 * _23 * _34;
+    result._21 = _24 * _33 * _41 - _23 * _34 * _41 - _24 * _31 * _43 +
+                 _21 * _34 * _43 + _23 * _31 * _44 - _21 * _33 * _44;
+    result._22 = _13 * _34 * _41 - _14 * _33 * _41 + _14 * _31 * _43 -
+                 _11 * _34 * _43 - _13 * _31 * _44 + _11 * _33 * _44;
+    result._23 = _14 * _23 * _41 - _13 * _24 * _41 - _14 * _21 * _43 +
+                 _11 * _24 * _43 + _13 * _21 * _44 - _11 * _23 * _44;
+    result._24 = _13 * _24 * _31 - _14 * _23 * _31 + _14 * _21 * _33 -
+                 _11 * _24 * _33 - _13 * _21 * _34 + _11 * _23 * _34;
+    result._31 = _22 * _34 * _41 - _24 * _32 * _41 + _24 * _31 * _42 -
+                 _21 * _34 * _42 - _22 * _31 * _44 + _21 * _32 * _44;
+    result._32 = _14 * _32 * _41 - _12 * _34 * _41 - _14 * _31 * _42 +
+                 _11 * _34 * _42 + _12 * _31 * _44 - _11 * _32 * _44;
+    result._33 = _12 * _24 * _41 - _14 * _22 * _41 + _14 * _21 * _42 -
+                 _11 * _24 * _42 - _12 * _21 * _44 + _11 * _22 * _44;
+    result._34 = _14 * _22 * _31 - _12 * _24 * _31 - _14 * _21 * _32 +
+                 _11 * _24 * _32 + _12 * _21 * _34 - _11 * _22 * _34;
+    result._41 = _23 * _32 * _41 - _22 * _33 * _41 - _23 * _31 * _42 +
+                 _21 * _33 * _42 + _22 * _31 * _43 - _21 * _32 * _43;
+    result._42 = _12 * _33 * _41 - _13 * _32 * _41 + _13 * _31 * _42 -
+                 _11 * _33 * _42 - _12 * _31 * _43 + _11 * _32 * _43;
+    result._43 = _13 * _22 * _41 - _12 * _23 * _41 - _13 * _21 * _42 +
+                 _11 * _23 * _42 + _12 * _21 * _43 - _11 * _22 * _43;
+    result._44 = _12 * _23 * _31 - _13 * _22 * _31 + _13 * _21 * _32 -
+                 _11 * _23 * _32 - _12 * _21 * _33 + _11 * _22 * _33;
 
     result._11 /= det;
     result._12 /= det;
@@ -1334,7 +1425,8 @@ public:
     typedef Matrix4x4Typed<TargetUnits, SourceUnits> InvertedMatrix;
     InvertedMatrix clone = InvertedMatrix::FromUnknownMatrix(ToUnknownMatrix());
     DebugOnly<bool> inverted = clone.Invert();
-    MOZ_ASSERT(inverted, "Attempted to get the inverse of a non-invertible matrix");
+    MOZ_ASSERT(inverted,
+               "Attempted to get the inverse of a non-invertible matrix");
     return clone;
   }
 
@@ -1347,14 +1439,14 @@ public:
     }
     return Nothing();
   }
-  
+
   void Normalize()
   {
-      for (int i = 0; i < 4; i++) {
-          for (int j = 0; j < 4; j++) {
-              (*this)[i][j] /= (*this)[3][3];
-         }
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+        (*this)[i][j] /= (*this)[3][3];
       }
+    }
   }
 
   bool FuzzyEqual(const Matrix4x4Typed& o) const
@@ -1393,13 +1485,12 @@ public:
   {
     // Inverse()._33 < 0;
     Float det = Determinant();
-    Float __33 = _12*_24*_41 - _14*_22*_41 +
-                _14*_21*_42 - _11*_24*_42 -
-                _12*_21*_44 + _11*_22*_44;
+    Float __33 = _12 * _24 * _41 - _14 * _22 * _41 + _14 * _21 * _42 -
+                 _11 * _24 * _42 - _12 * _21 * _44 + _11 * _22 * _44;
     return (__33 * det) < 0;
   }
 
-  Matrix4x4Typed &NudgeToIntegersFixedEpsilon()
+  Matrix4x4Typed& NudgeToIntegersFixedEpsilon()
   {
     NudgeToInteger(&_11);
     NudgeToInteger(&_12);
@@ -1423,17 +1514,20 @@ public:
 
   Point4D TransposedVector(int aIndex) const
   {
-      MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
-      return Point4D(*((&_11)+aIndex), *((&_21)+aIndex), *((&_31)+aIndex), *((&_41)+aIndex));
+    MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
+    return Point4D(*((&_11) + aIndex),
+                   *((&_21) + aIndex),
+                   *((&_31) + aIndex),
+                   *((&_41) + aIndex));
   }
 
-  void SetTransposedVector(int aIndex, Point4D &aVector)
+  void SetTransposedVector(int aIndex, Point4D& aVector)
   {
-      MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
-      *((&_11)+aIndex) = aVector.x;
-      *((&_21)+aIndex) = aVector.y;
-      *((&_31)+aIndex) = aVector.z;
-      *((&_41)+aIndex) = aVector.w;
+    MOZ_ASSERT(aIndex >= 0 && aIndex <= 3, "Invalid matrix array index");
+    *((&_11) + aIndex) = aVector.x;
+    *((&_21) + aIndex) = aVector.y;
+    *((&_31) + aIndex) = aVector.z;
+    *((&_41) + aIndex) = aVector.w;
   }
 
   // Sets this matrix to a rotation matrix given by aQuat.
@@ -1630,10 +1724,10 @@ public:
   void Perspective(float aDepth)
   {
     MOZ_ASSERT(aDepth > 0.0f, "Perspective must be positive!");
-    _31 += -1.0/aDepth * _41;
-    _32 += -1.0/aDepth * _42;
-    _33 += -1.0/aDepth * _43;
-    _34 += -1.0/aDepth * _44;
+    _31 += -1.0 / aDepth * _41;
+    _32 += -1.0 / aDepth * _42;
+    _33 += -1.0 / aDepth * _43;
+    _34 += -1.0 / aDepth * _44;
   }
 
   Point3D GetNormalVector() const
@@ -1655,7 +1749,8 @@ public:
    * Returns true if the matrix has any transform other
    * than a straight translation.
    */
-  bool HasNonTranslation() const {
+  bool HasNonTranslation() const
+  {
     return !gfx::FuzzyEqual(_11, 1.0) || !gfx::FuzzyEqual(_22, 1.0) ||
            !gfx::FuzzyEqual(_12, 0.0) || !gfx::FuzzyEqual(_21, 0.0) ||
            !gfx::FuzzyEqual(_13, 0.0) || !gfx::FuzzyEqual(_23, 0.0) ||
@@ -1667,17 +1762,18 @@ public:
    * Returns true if the matrix is anything other than a straight
    * translation by integers.
   */
-  bool HasNonIntegerTranslation() const {
-    return HasNonTranslation() ||
-      !gfx::FuzzyEqual(_41, floor(_41 + 0.5)) ||
-      !gfx::FuzzyEqual(_42, floor(_42 + 0.5)) ||
-      !gfx::FuzzyEqual(_43, floor(_43 + 0.5));
+  bool HasNonIntegerTranslation() const
+  {
+    return HasNonTranslation() || !gfx::FuzzyEqual(_41, floor(_41 + 0.5)) ||
+           !gfx::FuzzyEqual(_42, floor(_42 + 0.5)) ||
+           !gfx::FuzzyEqual(_43, floor(_43 + 0.5));
   }
 
   /**
    * Return true if the matrix is with perspective (w).
    */
-  bool HasPerspectiveComponent() const {
+  bool HasPerspectiveComponent() const
+  {
     return _14 != 0 || _24 != 0 || _34 != 0 || _44 != 1;
   }
 
@@ -1685,7 +1781,8 @@ public:
    * grid-aligned rectangles are transformed to grid-aligned rectangles).
    * This should only be called on 2D matrices.
    */
-  bool IsRectilinear() const {
+  bool IsRectilinear() const
+  {
     MOZ_ASSERT(Is2D());
     if (gfx::FuzzyEqual(_12, 0) && gfx::FuzzyEqual(_21, 0)) {
       return true;
@@ -1698,17 +1795,43 @@ public:
   /**
    * Convert between typed and untyped matrices.
    */
-  Matrix4x4 ToUnknownMatrix() const {
-    return Matrix4x4{_11, _12, _13, _14,
-                     _21, _22, _23, _24,
-                     _31, _32, _33, _34,
-                     _41, _42, _43, _44};
+  Matrix4x4 ToUnknownMatrix() const
+  {
+    return Matrix4x4{_11,
+                     _12,
+                     _13,
+                     _14,
+                     _21,
+                     _22,
+                     _23,
+                     _24,
+                     _31,
+                     _32,
+                     _33,
+                     _34,
+                     _41,
+                     _42,
+                     _43,
+                     _44};
   }
-  static Matrix4x4Typed FromUnknownMatrix(const Matrix4x4& aUnknown) {
-    return Matrix4x4Typed{aUnknown._11, aUnknown._12, aUnknown._13, aUnknown._14,
-                          aUnknown._21, aUnknown._22, aUnknown._23, aUnknown._24,
-                          aUnknown._31, aUnknown._32, aUnknown._33, aUnknown._34,
-                          aUnknown._41, aUnknown._42, aUnknown._43, aUnknown._44};
+  static Matrix4x4Typed FromUnknownMatrix(const Matrix4x4& aUnknown)
+  {
+    return Matrix4x4Typed{aUnknown._11,
+                          aUnknown._12,
+                          aUnknown._13,
+                          aUnknown._14,
+                          aUnknown._21,
+                          aUnknown._22,
+                          aUnknown._23,
+                          aUnknown._24,
+                          aUnknown._31,
+                          aUnknown._32,
+                          aUnknown._33,
+                          aUnknown._34,
+                          aUnknown._41,
+                          aUnknown._42,
+                          aUnknown._43,
+                          aUnknown._44};
   }
 };
 
@@ -1716,27 +1839,74 @@ typedef Matrix4x4Typed<UnknownUnits, UnknownUnits> Matrix4x4;
 
 class Matrix5x4
 {
-public:
+ public:
   Matrix5x4()
-    : _11(1.0f), _12(0), _13(0), _14(0)
-    , _21(0), _22(1.0f), _23(0), _24(0)
-    , _31(0), _32(0), _33(1.0f), _34(0)
-    , _41(0), _42(0), _43(0), _44(1.0f)
-    , _51(0), _52(0), _53(0), _54(0)
-  {}
-  Matrix5x4(Float a11, Float a12, Float a13, Float a14,
-         Float a21, Float a22, Float a23, Float a24,
-         Float a31, Float a32, Float a33, Float a34,
-         Float a41, Float a42, Float a43, Float a44,
-         Float a51, Float a52, Float a53, Float a54)
-    : _11(a11), _12(a12), _13(a13), _14(a14)
-    , _21(a21), _22(a22), _23(a23), _24(a24)
-    , _31(a31), _32(a32), _33(a33), _34(a34)
-    , _41(a41), _42(a42), _43(a43), _44(a44)
-    , _51(a51), _52(a52), _53(a53), _54(a54)
-  {}
+      : _11(1.0f),
+        _12(0),
+        _13(0),
+        _14(0),
+        _21(0),
+        _22(1.0f),
+        _23(0),
+        _24(0),
+        _31(0),
+        _32(0),
+        _33(1.0f),
+        _34(0),
+        _41(0),
+        _42(0),
+        _43(0),
+        _44(1.0f),
+        _51(0),
+        _52(0),
+        _53(0),
+        _54(0)
+  {
+  }
+  Matrix5x4(Float a11,
+            Float a12,
+            Float a13,
+            Float a14,
+            Float a21,
+            Float a22,
+            Float a23,
+            Float a24,
+            Float a31,
+            Float a32,
+            Float a33,
+            Float a34,
+            Float a41,
+            Float a42,
+            Float a43,
+            Float a44,
+            Float a51,
+            Float a52,
+            Float a53,
+            Float a54)
+      : _11(a11),
+        _12(a12),
+        _13(a13),
+        _14(a14),
+        _21(a21),
+        _22(a22),
+        _23(a23),
+        _24(a24),
+        _31(a31),
+        _32(a32),
+        _33(a33),
+        _34(a34),
+        _41(a41),
+        _42(a42),
+        _43(a43),
+        _44(a44),
+        _51(a51),
+        _52(a52),
+        _53(a53),
+        _54(a54)
+  {
+  }
 
-  bool operator==(const Matrix5x4 &o) const
+  bool operator==(const Matrix5x4& o) const
   {
     return _11 == o._11 && _12 == o._12 && _13 == o._13 && _14 == o._14 &&
            _21 == o._21 && _22 == o._22 && _23 == o._23 && _24 == o._24 &&
@@ -1745,47 +1915,72 @@ public:
            _51 == o._51 && _52 == o._52 && _53 == o._53 && _54 == o._54;
   }
 
-  bool operator!=(const Matrix5x4 &aMatrix) const
+  bool operator!=(const Matrix5x4& aMatrix) const
   {
     return !(*this == aMatrix);
   }
 
-  Matrix5x4 operator*(const Matrix5x4 &aMatrix) const
+  Matrix5x4 operator*(const Matrix5x4& aMatrix) const
   {
     Matrix5x4 resultMatrix;
 
-    resultMatrix._11 = this->_11 * aMatrix._11 + this->_12 * aMatrix._21 + this->_13 * aMatrix._31 + this->_14 * aMatrix._41;
-    resultMatrix._12 = this->_11 * aMatrix._12 + this->_12 * aMatrix._22 + this->_13 * aMatrix._32 + this->_14 * aMatrix._42;
-    resultMatrix._13 = this->_11 * aMatrix._13 + this->_12 * aMatrix._23 + this->_13 * aMatrix._33 + this->_14 * aMatrix._43;
-    resultMatrix._14 = this->_11 * aMatrix._14 + this->_12 * aMatrix._24 + this->_13 * aMatrix._34 + this->_14 * aMatrix._44;
-    resultMatrix._21 = this->_21 * aMatrix._11 + this->_22 * aMatrix._21 + this->_23 * aMatrix._31 + this->_24 * aMatrix._41;
-    resultMatrix._22 = this->_21 * aMatrix._12 + this->_22 * aMatrix._22 + this->_23 * aMatrix._32 + this->_24 * aMatrix._42;
-    resultMatrix._23 = this->_21 * aMatrix._13 + this->_22 * aMatrix._23 + this->_23 * aMatrix._33 + this->_24 * aMatrix._43;
-    resultMatrix._24 = this->_21 * aMatrix._14 + this->_22 * aMatrix._24 + this->_23 * aMatrix._34 + this->_24 * aMatrix._44;
-    resultMatrix._31 = this->_31 * aMatrix._11 + this->_32 * aMatrix._21 + this->_33 * aMatrix._31 + this->_34 * aMatrix._41;
-    resultMatrix._32 = this->_31 * aMatrix._12 + this->_32 * aMatrix._22 + this->_33 * aMatrix._32 + this->_34 * aMatrix._42;
-    resultMatrix._33 = this->_31 * aMatrix._13 + this->_32 * aMatrix._23 + this->_33 * aMatrix._33 + this->_34 * aMatrix._43;
-    resultMatrix._34 = this->_31 * aMatrix._14 + this->_32 * aMatrix._24 + this->_33 * aMatrix._34 + this->_34 * aMatrix._44;
-    resultMatrix._41 = this->_41 * aMatrix._11 + this->_42 * aMatrix._21 + this->_43 * aMatrix._31 + this->_44 * aMatrix._41;
-    resultMatrix._42 = this->_41 * aMatrix._12 + this->_42 * aMatrix._22 + this->_43 * aMatrix._32 + this->_44 * aMatrix._42;
-    resultMatrix._43 = this->_41 * aMatrix._13 + this->_42 * aMatrix._23 + this->_43 * aMatrix._33 + this->_44 * aMatrix._43;
-    resultMatrix._44 = this->_41 * aMatrix._14 + this->_42 * aMatrix._24 + this->_43 * aMatrix._34 + this->_44 * aMatrix._44;
-    resultMatrix._51 = this->_51 * aMatrix._11 + this->_52 * aMatrix._21 + this->_53 * aMatrix._31 + this->_54 * aMatrix._41 + aMatrix._51;
-    resultMatrix._52 = this->_51 * aMatrix._12 + this->_52 * aMatrix._22 + this->_53 * aMatrix._32 + this->_54 * aMatrix._42 + aMatrix._52;
-    resultMatrix._53 = this->_51 * aMatrix._13 + this->_52 * aMatrix._23 + this->_53 * aMatrix._33 + this->_54 * aMatrix._43 + aMatrix._53;
-    resultMatrix._54 = this->_51 * aMatrix._14 + this->_52 * aMatrix._24 + this->_53 * aMatrix._34 + this->_54 * aMatrix._44 + aMatrix._54;
+    resultMatrix._11 = this->_11 * aMatrix._11 + this->_12 * aMatrix._21 +
+                       this->_13 * aMatrix._31 + this->_14 * aMatrix._41;
+    resultMatrix._12 = this->_11 * aMatrix._12 + this->_12 * aMatrix._22 +
+                       this->_13 * aMatrix._32 + this->_14 * aMatrix._42;
+    resultMatrix._13 = this->_11 * aMatrix._13 + this->_12 * aMatrix._23 +
+                       this->_13 * aMatrix._33 + this->_14 * aMatrix._43;
+    resultMatrix._14 = this->_11 * aMatrix._14 + this->_12 * aMatrix._24 +
+                       this->_13 * aMatrix._34 + this->_14 * aMatrix._44;
+    resultMatrix._21 = this->_21 * aMatrix._11 + this->_22 * aMatrix._21 +
+                       this->_23 * aMatrix._31 + this->_24 * aMatrix._41;
+    resultMatrix._22 = this->_21 * aMatrix._12 + this->_22 * aMatrix._22 +
+                       this->_23 * aMatrix._32 + this->_24 * aMatrix._42;
+    resultMatrix._23 = this->_21 * aMatrix._13 + this->_22 * aMatrix._23 +
+                       this->_23 * aMatrix._33 + this->_24 * aMatrix._43;
+    resultMatrix._24 = this->_21 * aMatrix._14 + this->_22 * aMatrix._24 +
+                       this->_23 * aMatrix._34 + this->_24 * aMatrix._44;
+    resultMatrix._31 = this->_31 * aMatrix._11 + this->_32 * aMatrix._21 +
+                       this->_33 * aMatrix._31 + this->_34 * aMatrix._41;
+    resultMatrix._32 = this->_31 * aMatrix._12 + this->_32 * aMatrix._22 +
+                       this->_33 * aMatrix._32 + this->_34 * aMatrix._42;
+    resultMatrix._33 = this->_31 * aMatrix._13 + this->_32 * aMatrix._23 +
+                       this->_33 * aMatrix._33 + this->_34 * aMatrix._43;
+    resultMatrix._34 = this->_31 * aMatrix._14 + this->_32 * aMatrix._24 +
+                       this->_33 * aMatrix._34 + this->_34 * aMatrix._44;
+    resultMatrix._41 = this->_41 * aMatrix._11 + this->_42 * aMatrix._21 +
+                       this->_43 * aMatrix._31 + this->_44 * aMatrix._41;
+    resultMatrix._42 = this->_41 * aMatrix._12 + this->_42 * aMatrix._22 +
+                       this->_43 * aMatrix._32 + this->_44 * aMatrix._42;
+    resultMatrix._43 = this->_41 * aMatrix._13 + this->_42 * aMatrix._23 +
+                       this->_43 * aMatrix._33 + this->_44 * aMatrix._43;
+    resultMatrix._44 = this->_41 * aMatrix._14 + this->_42 * aMatrix._24 +
+                       this->_43 * aMatrix._34 + this->_44 * aMatrix._44;
+    resultMatrix._51 = this->_51 * aMatrix._11 + this->_52 * aMatrix._21 +
+                       this->_53 * aMatrix._31 + this->_54 * aMatrix._41 +
+                       aMatrix._51;
+    resultMatrix._52 = this->_51 * aMatrix._12 + this->_52 * aMatrix._22 +
+                       this->_53 * aMatrix._32 + this->_54 * aMatrix._42 +
+                       aMatrix._52;
+    resultMatrix._53 = this->_51 * aMatrix._13 + this->_52 * aMatrix._23 +
+                       this->_53 * aMatrix._33 + this->_54 * aMatrix._43 +
+                       aMatrix._53;
+    resultMatrix._54 = this->_51 * aMatrix._14 + this->_52 * aMatrix._24 +
+                       this->_53 * aMatrix._34 + this->_54 * aMatrix._44 +
+                       aMatrix._54;
 
     return resultMatrix;
   }
 
-  Matrix5x4& operator*=(const Matrix5x4 &aMatrix)
+  Matrix5x4& operator*=(const Matrix5x4& aMatrix)
   {
     *this = *this * aMatrix;
     return *this;
   }
 
   union {
-    struct {
+    struct
+    {
       Float _11, _12, _13, _14;
       Float _21, _22, _23, _24;
       Float _31, _32, _33, _34;
@@ -1796,7 +1991,7 @@ public:
   };
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_MATRIX_H_ */

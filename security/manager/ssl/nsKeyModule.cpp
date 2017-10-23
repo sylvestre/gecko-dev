@@ -12,10 +12,7 @@ using namespace mozilla::psm;
 
 NS_IMPL_ISUPPORTS(nsKeyObject, nsIKeyObject)
 
-nsKeyObject::nsKeyObject()
-  : mSymKey(nullptr)
-{
-}
+nsKeyObject::nsKeyObject() : mSymKey(nullptr) {}
 
 nsKeyObject::~nsKeyObject()
 {
@@ -81,7 +78,7 @@ nsKeyObject::GetKeyObj(PK11SymKey** _retval)
 }
 
 NS_IMETHODIMP
-nsKeyObject::GetType(int16_t *_retval)
+nsKeyObject::GetType(int16_t* _retval)
 {
   if (!_retval) {
     return NS_ERROR_INVALID_ARG;
@@ -95,9 +92,7 @@ nsKeyObject::GetType(int16_t *_retval)
 
 NS_IMPL_ISUPPORTS(nsKeyObjectFactory, nsIKeyObjectFactory)
 
-nsKeyObjectFactory::nsKeyObjectFactory()
-{
-}
+nsKeyObjectFactory::nsKeyObjectFactory() {}
 
 nsKeyObjectFactory::~nsKeyObjectFactory()
 {
@@ -109,7 +104,8 @@ nsKeyObjectFactory::~nsKeyObjectFactory()
 }
 
 NS_IMETHODIMP
-nsKeyObjectFactory::KeyFromString(int16_t aAlgorithm, const nsACString& aKey,
+nsKeyObjectFactory::KeyFromString(int16_t aAlgorithm,
+                                  const nsACString& aKey,
                                   nsIKeyObject** _retval)
 {
   if (!_retval || aAlgorithm != nsIKeyObject::HMAC) {
@@ -126,7 +122,7 @@ nsKeyObjectFactory::KeyFromString(int16_t aAlgorithm, const nsACString& aKey,
 
   nsresult rv;
   nsCOMPtr<nsIKeyObject> key(
-    do_CreateInstance(NS_KEYMODULEOBJECT_CONTRACTID, &rv));
+      do_CreateInstance(NS_KEYMODULEOBJECT_CONTRACTID, &rv));
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -142,9 +138,12 @@ nsKeyObjectFactory::KeyFromString(int16_t aAlgorithm, const nsACString& aKey,
     return NS_ERROR_FAILURE;
   }
 
-  UniquePK11SymKey symKey(PK11_ImportSymKey(slot.get(), cipherMech,
-                                            PK11_OriginUnwrap, cipherOperation,
-                                            &keyItem, nullptr));
+  UniquePK11SymKey symKey(PK11_ImportSymKey(slot.get(),
+                                            cipherMech,
+                                            PK11_OriginUnwrap,
+                                            cipherOperation,
+                                            &keyItem,
+                                            nullptr));
   if (!symKey) {
     return NS_ERROR_FAILURE;
   }

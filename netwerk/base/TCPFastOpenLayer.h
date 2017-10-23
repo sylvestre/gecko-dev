@@ -32,20 +32,27 @@ typedef enum {
   TFO_FAILED_UNKNOW_ERROR_NO_TFO_FAILED_TOO,
   TFO_FAILED_BACKUP_CONNECTION_NO_TFO_FAILED_TOO,
   TFO_FAILED,
-  TFO_HTTP // TFO is disabled for non-secure connections.
+  TFO_HTTP  // TFO is disabled for non-secure connections.
 } TFOResult;
 
-nsresult AttachTCPFastOpenIOLayer(PRFileDesc *fd);
+nsresult
+AttachTCPFastOpenIOLayer(PRFileDesc* fd);
 
 // Get the result of TCP Fast Open.
-void TCPFastOpenFinish(PRFileDesc *fd, PRErrorCode &err,
-                       bool &fastOpenNotSupported, uint8_t &tfoStatus);
+void
+TCPFastOpenFinish(PRFileDesc* fd,
+                  PRErrorCode& err,
+                  bool& fastOpenNotSupported,
+                  uint8_t& tfoStatus);
 
-int32_t TCPFastOpenGetBufferSizeLeft(PRFileDesc *fd);
+int32_t
+TCPFastOpenGetBufferSizeLeft(PRFileDesc* fd);
 
-bool TCPFastOpenGetCurrentBufferSize(PRFileDesc *fd);
-bool TCPFastOpenFlushBuffer(PRFileDesc *fd);
-}
-}
+bool
+TCPFastOpenGetCurrentBufferSize(PRFileDesc* fd);
+bool
+TCPFastOpenFlushBuffer(PRFileDesc* fd);
+}  // namespace net
+}  // namespace mozilla
 
-#endif // TCPFastOpenLayer_h__
+#endif  // TCPFastOpenLayer_h__

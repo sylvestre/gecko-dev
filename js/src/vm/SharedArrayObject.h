@@ -41,9 +41,8 @@ class FutexWaiter;
  * the data array using a constant pointer, instead of computing its
  * address.
  */
-class SharedArrayRawBuffer
-{
-  private:
+class SharedArrayRawBuffer {
+   private:
     mozilla::Atomic<uint32_t, mozilla::ReleaseAcquire> refcount_;
     uint32_t length;
     bool preparedForAsmJS;
@@ -52,43 +51,31 @@ class SharedArrayRawBuffer
     // location within this buffer.
     FutexWaiter* waiters_;
 
-  protected:
+   protected:
     SharedArrayRawBuffer(uint8_t* buffer, uint32_t length, bool preparedForAsmJS)
-      : refcount_(1),
-        length(length),
-        preparedForAsmJS(preparedForAsmJS),
-        waiters_(nullptr)
-    {
+        : refcount_(1), length(length), preparedForAsmJS(preparedForAsmJS), waiters_(nullptr) {
         MOZ_ASSERT(buffer == dataPointerShared());
     }
 
-  public:
+   public:
     static SharedArrayRawBuffer* New(JSContext* cx, uint32_t length);
 
     // This may be called from multiple threads.  The caller must take
     // care of mutual exclusion.
-    FutexWaiter* waiters() const {
-        return waiters_;
-    }
+    FutexWaiter* waiters() const { return waiters_; }
 
     // This may be called from multiple threads.  The caller must take
     // care of mutual exclusion.
-    void setWaiters(FutexWaiter* waiters) {
-        waiters_ = waiters;
-    }
+    void setWaiters(FutexWaiter* waiters) { waiters_ = waiters; }
 
     SharedMem<uint8_t*> dataPointerShared() const {
         uint8_t* ptr = reinterpret_cast<uint8_t*>(const_cast<SharedArrayRawBuffer*>(this));
         return SharedMem<uint8_t*>::shared(ptr + sizeof(SharedArrayRawBuffer));
     }
 
-    uint32_t byteLength() const {
-        return length;
-    }
+    uint32_t byteLength() const { return length; }
 
-    bool isPreparedForAsmJS() const {
-        return preparedForAsmJS;
-    }
+    bool isPreparedForAsmJS() const { return preparedForAsmJS; }
 
     uint32_t refcount() const { return refcount_; }
 
@@ -117,11 +104,10 @@ class SharedArrayRawBuffer
  * and keeps it alive.  The SharedArrayBuffer does /not/ reference its
  * views.
  */
-class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared
-{
+class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared {
     static bool byteLengthGetterImpl(JSContext* cx, const CallArgs& args);
 
-  public:
+   public:
     // RAWBUF_SLOT holds a pointer (as "private" data) to the
     // SharedArrayRawBuffer object, which is manually managed storage.
     static const uint8_t RAWBUF_SLOT = 0;
@@ -136,13 +122,11 @@ class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared
     static bool class_constructor(JSContext* cx, unsigned argc, Value* vp);
 
     // Create a SharedArrayBufferObject with a new SharedArrayRawBuffer.
-    static SharedArrayBufferObject* New(JSContext* cx,
-                                        uint32_t length,
+    static SharedArrayBufferObject* New(JSContext* cx, uint32_t length,
                                         HandleObject proto = nullptr);
 
     // Create a SharedArrayBufferObject using an existing SharedArrayRawBuffer.
-    static SharedArrayBufferObject* New(JSContext* cx,
-                                        SharedArrayRawBuffer* buffer,
+    static SharedArrayBufferObject* New(JSContext* cx, SharedArrayRawBuffer* buffer,
                                         HandleObject proto = nullptr);
 
     static void Finalize(FreeOp* fop, JSObject* obj);
@@ -165,18 +149,14 @@ class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared
         return dataPointerShared().asValue();
     }
 
-    uint32_t byteLength() const {
-        return rawBufferObject()->byteLength();
-    }
-    bool isPreparedForAsmJS() const {
-        return rawBufferObject()->isPreparedForAsmJS();
-    }
+    uint32_t byteLength() const { return rawBufferObject()->byteLength(); }
+    bool isPreparedForAsmJS() const { return rawBufferObject()->isPreparedForAsmJS(); }
 
     SharedMem<uint8_t*> dataPointerShared() const {
         return rawBufferObject()->dataPointerShared();
     }
 
-private:
+   private:
     void acceptRawBuffer(SharedArrayRawBuffer* buffer);
     void dropRawBuffer();
 };
@@ -187,6 +167,6 @@ bool IsSharedArrayBuffer(JSObject* o);
 
 SharedArrayBufferObject& AsSharedArrayBuffer(HandleObject o);
 
-} // namespace js
+}  // namespace js
 
-#endif // vm_SharedArrayObject_h
+#endif  // vm_SharedArrayObject_h

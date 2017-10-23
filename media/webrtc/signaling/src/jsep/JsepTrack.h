@@ -28,26 +28,19 @@ namespace mozilla {
 
 class JsepTrackNegotiatedDetails
 {
-public:
-  JsepTrackNegotiatedDetails() :
-    mTias(0)
-  {}
+ public:
+  JsepTrackNegotiatedDetails() : mTias(0) {}
 
-  size_t
-  GetEncodingCount() const
-  {
-    return mEncodings.values.size();
-  }
+  size_t GetEncodingCount() const { return mEncodings.values.size(); }
 
-  const JsepTrackEncoding&
-  GetEncoding(size_t index) const
+  const JsepTrackEncoding& GetEncoding(size_t index) const
   {
     MOZ_RELEASE_ASSERT(index < mEncodings.values.size());
     return *mEncodings.values[index];
   }
 
-  const SdpExtmapAttributeList::Extmap*
-  GetExt(const std::string& ext_name) const
+  const SdpExtmapAttributeList::Extmap* GetExt(
+      const std::string& ext_name) const
   {
     auto it = mExtmap.find(ext_name);
     if (it != mExtmap.end()) {
@@ -56,11 +49,11 @@ public:
     return nullptr;
   }
 
-  void
-  ForEachRTPHeaderExtension(
-    const std::function<void(const SdpExtmapAttributeList::Extmap& extmap)> & fn) const
+  void ForEachRTPHeaderExtension(
+      const std::function<void(const SdpExtmapAttributeList::Extmap& extmap)>&
+          fn) const
   {
-    for(auto entry: mExtmap) {
+    for (auto entry : mExtmap) {
       fn(entry.second);
     }
   }
@@ -70,23 +63,20 @@ public:
     return mUniquePayloadTypes;
   }
 
-  uint32_t GetTias() const
-  {
-    return mTias;
-  }
+  uint32_t GetTias() const { return mTias; }
 
-private:
+ private:
   friend class JsepTrack;
 
   std::map<std::string, SdpExtmapAttributeList::Extmap> mExtmap;
   std::vector<uint8_t> mUniquePayloadTypes;
   PtrVector<JsepTrackEncoding> mEncodings;
-  uint32_t mTias; // bits per second
+  uint32_t mTias;  // bits per second
 };
 
 class JsepTrack
 {
-public:
+ public:
   JsepTrack(mozilla::SdpMediaSection::MediaType type,
             const std::string& streamid,
             const std::string& trackid,
@@ -96,97 +86,56 @@ public:
         mTrackId(trackid),
         mDirection(direction),
         mActive(false)
-  {}
+  {
+  }
 
-  virtual mozilla::SdpMediaSection::MediaType
-  GetMediaType() const
+  virtual mozilla::SdpMediaSection::MediaType GetMediaType() const
   {
     return mType;
   }
 
-  virtual const std::string&
-  GetStreamId() const
-  {
-    return mStreamId;
-  }
+  virtual const std::string& GetStreamId() const { return mStreamId; }
 
-  virtual void
-  SetStreamId(const std::string& id)
-  {
-    mStreamId = id;
-  }
+  virtual void SetStreamId(const std::string& id) { mStreamId = id; }
 
-  virtual const std::string&
-  GetTrackId() const
-  {
-    return mTrackId;
-  }
+  virtual const std::string& GetTrackId() const { return mTrackId; }
 
-  virtual void
-  SetTrackId(const std::string& id)
-  {
-    mTrackId = id;
-  }
+  virtual void SetTrackId(const std::string& id) { mTrackId = id; }
 
-  virtual const std::string&
-  GetCNAME() const
-  {
-    return mCNAME;
-  }
+  virtual const std::string& GetCNAME() const { return mCNAME; }
 
-  virtual void
-  SetCNAME(const std::string& cname)
-  {
-    mCNAME = cname;
-  }
+  virtual void SetCNAME(const std::string& cname) { mCNAME = cname; }
 
-  virtual sdp::Direction
-  GetDirection() const
-  {
-    return mDirection;
-  }
+  virtual sdp::Direction GetDirection() const { return mDirection; }
 
-  virtual const std::vector<uint32_t>&
-  GetSsrcs() const
-  {
-    return mSsrcs;
-  }
+  virtual const std::vector<uint32_t>& GetSsrcs() const { return mSsrcs; }
 
-  virtual void
-  AddSsrc(uint32_t ssrc)
+  virtual void AddSsrc(uint32_t ssrc)
   {
     if (mType != SdpMediaSection::kApplication) {
       mSsrcs.push_back(ssrc);
     }
   }
 
-  bool
-  GetActive() const
-  {
-    return mActive;
-  }
+  bool GetActive() const { return mActive; }
 
-  void
-  SetActive(bool active)
-  {
-    mActive = active;
-  }
+  void SetActive(bool active) { mActive = active; }
 
   virtual void PopulateCodecs(
       const std::vector<JsepCodecDescription*>& prototype);
 
-  template <class UnaryFunction>
+  template<class UnaryFunction>
   void ForEachCodec(UnaryFunction func)
   {
-    std::for_each(mPrototypeCodecs.values.begin(),
-                  mPrototypeCodecs.values.end(), func);
+    std::for_each(
+        mPrototypeCodecs.values.begin(), mPrototypeCodecs.values.end(), func);
   }
 
-  template <class BinaryPredicate>
+  template<class BinaryPredicate>
   void SortCodecs(BinaryPredicate sorter)
   {
-    std::stable_sort(mPrototypeCodecs.values.begin(),
-                     mPrototypeCodecs.values.end(), sorter);
+    std::stable_sort(
+        mPrototypeCodecs.values.begin(), mPrototypeCodecs.values.end(), sorter);
   }
 
   virtual void AddToOffer(SdpMediaSection* offer) const;
@@ -199,8 +148,7 @@ public:
   virtual void GetNegotiatedPayloadTypes(std::vector<uint16_t>* payloadTypes);
 
   // This will be set when negotiation is carried out.
-  virtual const JsepTrackNegotiatedDetails*
-  GetNegotiatedDetails() const
+  virtual const JsepTrackNegotiatedDetails* GetNegotiatedDetails() const
   {
     if (mNegotiatedDetails) {
       return mNegotiatedDetails.get();
@@ -208,8 +156,7 @@ public:
     return nullptr;
   }
 
-  virtual JsepTrackNegotiatedDetails*
-  GetNegotiatedDetails()
+  virtual JsepTrackNegotiatedDetails* GetNegotiatedDetails()
   {
     if (mNegotiatedDetails) {
       return mNegotiatedDetails.get();
@@ -217,11 +164,7 @@ public:
     return nullptr;
   }
 
-  virtual void
-  ClearNegotiatedDetails()
-  {
-    mNegotiatedDetails.reset();
-  }
+  virtual void ClearNegotiatedDetails() { mNegotiatedDetails.reset(); }
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(JsepTrack);
 
@@ -246,16 +189,15 @@ public:
                             sdp::Direction direction,
                             SdpMediaSection* msection);
 
-protected:
+ protected:
   virtual ~JsepTrack() {}
 
-private:
+ private:
   std::vector<JsepCodecDescription*> GetCodecClones() const;
   static void EnsureNoDuplicatePayloadTypes(
       std::vector<JsepCodecDescription*>* codecs);
-  static void GetPayloadTypes(
-      const std::vector<JsepCodecDescription*>& codecs,
-      std::vector<uint16_t>* pts);
+  static void GetPayloadTypes(const std::vector<JsepCodecDescription*>& codecs,
+                              std::vector<uint16_t>* pts);
   static void EnsurePayloadTypeIsUnique(std::set<uint16_t>* uniquePayloadTypes,
                                         JsepCodecDescription* codec);
   void AddToMsection(const std::vector<JsepCodecDescription*>& codecs,
@@ -298,31 +240,32 @@ private:
 };
 
 // Need a better name for this.
-struct JsepTrackPair {
+struct JsepTrackPair
+{
   size_t mLevel;
   // Is this track pair sharing a transport with another?
-  size_t mBundleLevel = SIZE_MAX; // SIZE_MAX if no bundle level
+  size_t mBundleLevel = SIZE_MAX;  // SIZE_MAX if no bundle level
   uint32_t mRecvonlySsrc;
   RefPtr<JsepTrack> mSending;
   RefPtr<JsepTrack> mReceiving;
   RefPtr<JsepTransport> mRtpTransport;
   RefPtr<JsepTransport> mRtcpTransport;
 
-  bool HasBundleLevel() const {
-    return mBundleLevel != SIZE_MAX;
-  }
+  bool HasBundleLevel() const { return mBundleLevel != SIZE_MAX; }
 
-  size_t BundleLevel() const {
+  size_t BundleLevel() const
+  {
     MOZ_ASSERT(HasBundleLevel());
     return mBundleLevel;
   }
 
-  void SetBundleLevel(size_t aBundleLevel) {
+  void SetBundleLevel(size_t aBundleLevel)
+  {
     MOZ_ASSERT(aBundleLevel != SIZE_MAX);
     mBundleLevel = aBundleLevel;
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

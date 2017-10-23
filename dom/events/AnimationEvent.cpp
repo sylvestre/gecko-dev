@@ -14,13 +14,13 @@ namespace dom {
 AnimationEvent::AnimationEvent(EventTarget* aOwner,
                                nsPresContext* aPresContext,
                                InternalAnimationEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent : new InternalAnimationEvent(false, eVoidEvent))
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent : new InternalAnimationEvent(false, eVoidEvent))
 {
   if (aEvent) {
     mEventIsInternal = false;
-  }
-  else {
+  } else {
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
   }
@@ -83,8 +83,8 @@ AnimationEvent::GetPseudoElement(nsAString& aPseudoElement)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -94,7 +94,6 @@ NS_NewDOMAnimationEvent(EventTarget* aOwner,
                         nsPresContext* aPresContext,
                         InternalAnimationEvent* aEvent)
 {
-  RefPtr<AnimationEvent> it =
-    new AnimationEvent(aOwner, aPresContext, aEvent);
+  RefPtr<AnimationEvent> it = new AnimationEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

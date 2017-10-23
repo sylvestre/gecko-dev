@@ -7,23 +7,22 @@
 #include "mozilla/mozalloc.h"
 
 #ifdef MOZ_MEMORY
-int posix_memalign(void** memptr, size_t alignment, size_t size);
+int
+posix_memalign(void** memptr, size_t alignment, size_t size);
 #endif
 
 namespace mozilla {
 
 VolatileBuffer::VolatileBuffer()
-  : mMutex("VolatileBuffer")
-  , mBuf(nullptr)
-  , mSize(0)
-  , mLockCount(0)
+    : mMutex("VolatileBuffer"), mBuf(nullptr), mSize(0), mLockCount(0)
 {
 }
 
-bool VolatileBuffer::Init(size_t aSize, size_t aAlignment)
+bool
+VolatileBuffer::Init(size_t aSize, size_t aAlignment)
 {
   MOZ_ASSERT(!mSize && !mBuf, "Init called twice");
-  MOZ_ASSERT(!(aAlignment % sizeof(void *)),
+  MOZ_ASSERT(!(aAlignment % sizeof(void*)),
              "Alignment must be multiple of pointer size");
 
   mSize = aSize;
@@ -88,4 +87,4 @@ VolatileBuffer::NonHeapSizeOfExcludingThis() const
   return 0;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

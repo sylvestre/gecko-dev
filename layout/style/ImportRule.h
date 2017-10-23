@@ -30,20 +30,24 @@ namespace css {
 
 class ImportRule final : public dom::CSSImportRule
 {
-public:
-  ImportRule(nsMediaList* aMedia, const nsString& aURLSpec,
-             uint32_t aLineNumber, uint32_t aColumnNumber);
-private:
+ public:
+  ImportRule(nsMediaList* aMedia,
+             const nsString& aURLSpec,
+             uint32_t aLineNumber,
+             uint32_t aColumnNumber);
+
+ private:
   // for |Clone|
   ImportRule(const ImportRule& aCopy);
   ~ImportRule();
-public:
+
+ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ImportRule, Rule)
   NS_DECL_ISUPPORTS_INHERITED
 
   // unhide since nsIDOMCSSImportRule has its own GetStyleSheet and GetMedia
-  using dom::CSSImportRule::GetStyleSheet;
   using dom::CSSImportRule::GetMedia;
+  using dom::CSSImportRule::GetStyleSheet;
 
   // Rule methods
 #ifdef DEBUG
@@ -53,7 +57,8 @@ public:
 
   void SetSheet(CSSStyleSheet*);
 
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
   // nsIDOMCSSImportRule interface
   NS_IMETHOD GetHref(nsAString& aHref) final;
@@ -63,13 +68,13 @@ public:
   dom::MediaList* GetMedia() const final;
   StyleSheet* GetStyleSheet() const final;
 
-private:
-  nsString  mURLSpec;
+ private:
+  nsString mURLSpec;
   RefPtr<nsMediaList> mMedia;
   RefPtr<CSSStyleSheet> mChildSheet;
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 #endif /* mozilla_css_ImportRule_h__ */

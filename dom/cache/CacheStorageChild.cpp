@@ -24,9 +24,7 @@ DeallocPCacheStorageChild(PCacheStorageChild* aActor)
 
 CacheStorageChild::CacheStorageChild(CacheStorage* aListener,
                                      CacheWorkerHolder* aWorkerHolder)
-  : mListener(aListener)
-  , mNumChildActors(0)
-  , mDelayedDestroy(false)
+    : mListener(aListener), mNumChildActors(0), mDelayedDestroy(false)
 {
   MOZ_COUNT_CTOR(cache::CacheStorageChild);
   MOZ_DIAGNOSTIC_ASSERT(mListener);
@@ -50,12 +48,14 @@ CacheStorageChild::ClearListener()
 }
 
 void
-CacheStorageChild::ExecuteOp(nsIGlobalObject* aGlobal, Promise* aPromise,
-                             nsISupports* aParent, const CacheOpArgs& aArgs)
+CacheStorageChild::ExecuteOp(nsIGlobalObject* aGlobal,
+                             Promise* aPromise,
+                             nsISupports* aParent,
+                             const CacheOpArgs& aArgs)
 {
   mNumChildActors += 1;
   Unused << SendPCacheOpConstructor(
-    new CacheOpChild(GetWorkerHolder(), aGlobal, aParent, aPromise), aArgs);
+      new CacheOpChild(GetWorkerHolder(), aGlobal, aParent, aPromise), aArgs);
 }
 
 void
@@ -143,6 +143,6 @@ CacheStorageChild::NoteDeletedActor()
   }
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

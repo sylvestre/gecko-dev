@@ -32,36 +32,24 @@ using namespace mozilla::ipc;
 
 // helper function for parsing out attributes like size, and contentType
 // from the icon url.
-static void extractAttributeValue(const char* aSearchString,
-                                  const char* aAttributeName,
-                                  nsCString& aResult);
+static void
+extractAttributeValue(const char* aSearchString,
+                      const char* aAttributeName,
+                      nsCString& aResult);
 
-static const char* kSizeStrings[] =
-{
-  "button",
-  "toolbar",
-  "toolbarsmall",
-  "menu",
-  "dnd",
-  "dialog"
-};
+static const char* kSizeStrings[] = {
+    "button", "toolbar", "toolbarsmall", "menu", "dnd", "dialog"};
 
-static const char* kStateStrings[] =
-{
-  "normal",
-  "disabled"
-};
+static const char* kStateStrings[] = {"normal", "disabled"};
 
 ////////////////////////////////////////////////////////////////////////////////
 
 nsMozIconURI::nsMozIconURI()
-  : mSize(DEFAULT_IMAGE_SIZE),
-    mIconSize(-1),
-    mIconState(-1)
-{ }
+    : mSize(DEFAULT_IMAGE_SIZE), mIconSize(-1), mIconState(-1)
+{
+}
 
-nsMozIconURI::~nsMozIconURI()
-{ }
+nsMozIconURI::~nsMozIconURI() {}
 
 NS_IMPL_ISUPPORTS(nsMozIconURI, nsIMozIconURI, nsIURI, nsIIPCSerializableURI)
 
@@ -112,10 +100,7 @@ nsMozIconURI::GetSpec(nsACString& aSpec)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetSpecIgnoringRef(nsACString& result)
-{
-  return GetSpec(result);
-}
+nsMozIconURI::GetSpecIgnoringRef(nsACString& result) { return GetSpec(result); }
 
 NS_IMETHODIMP
 nsMozIconURI::GetDisplaySpec(nsACString& aUnicodeSpec)
@@ -154,8 +139,8 @@ nsMozIconURI::GetHasRef(bool* result)
 // Assumption: attribute pairs in the string are separated by '&'.
 void
 extractAttributeValue(const char* aSearchString,
-                           const char* aAttributeName,
-                           nsCString& aResult)
+                      const char* aAttributeName,
+                      nsCString& aResult)
 {
   //NS_ENSURE_ARG_POINTER(extractAttributeValue);
 
@@ -166,8 +151,8 @@ extractAttributeValue(const char* aSearchString,
     uint32_t attributeNameSize = strlen(aAttributeName);
     const char* startOfAttribute = PL_strcasestr(aSearchString, aAttributeName);
     if (startOfAttribute &&
-       ( *(startOfAttribute-1) == '?' || *(startOfAttribute-1) == '&') ) {
-      startOfAttribute += attributeNameSize; // skip over the attributeName
+        (*(startOfAttribute - 1) == '?' || *(startOfAttribute - 1) == '&')) {
+      startOfAttribute += attributeNameSize;  // skip over the attributeName
       // is there something after the attribute name
       if (*startOfAttribute) {
         const char* endofAttribute = strchr(startOfAttribute, '&');
@@ -176,9 +161,9 @@ extractAttributeValue(const char* aSearchString,
         } else {
           aResult.Assign(startOfAttribute);
         }
-      } // if we have a attribute value
-    } // if we have a attribute name
-  } // if we got non-null search string and attribute name values
+      }  // if we have a attribute value
+    }    // if we have a attribute name
+  }      // if we got non-null search string and attribute name values
 }
 
 NS_IMETHODIMP
@@ -194,8 +179,8 @@ nsMozIconURI::SetSpec(const nsACString& aSpec)
   mIconState = -1;
 
   nsAutoCString iconSpec(aSpec);
-  if (!Substring(iconSpec, 0,
-                 MOZICON_SCHEME_LEN).EqualsLiteral(MOZICON_SCHEME)) {
+  if (!Substring(iconSpec, 0, MOZICON_SCHEME_LEN)
+           .EqualsLiteral(MOZICON_SCHEME)) {
     return NS_ERROR_MALFORMED_URI;
   }
 
@@ -305,10 +290,7 @@ nsMozIconURI::SetScheme(const nsACString& aScheme)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetUsername(nsACString& aUsername)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::GetUsername(nsACString& aUsername) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::SetUsername(const nsACString& aUsername)
@@ -317,10 +299,7 @@ nsMozIconURI::SetUsername(const nsACString& aUsername)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetPassword(nsACString& aPassword)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::GetPassword(nsACString& aPassword) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::SetPassword(const nsACString& aPassword)
@@ -329,10 +308,7 @@ nsMozIconURI::SetPassword(const nsACString& aPassword)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetUserPass(nsACString& aUserPass)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::GetUserPass(nsACString& aUserPass) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::SetUserPass(const nsACString& aUserPass)
@@ -341,10 +317,7 @@ nsMozIconURI::SetUserPass(const nsACString& aUserPass)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetHostPort(nsACString& aHostPort)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::GetHostPort(nsACString& aHostPort) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::SetHostPort(const nsACString& aHostPort)
@@ -359,28 +332,16 @@ nsMozIconURI::SetHostAndPort(const nsACString& aHostPort)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetHost(nsACString& aHost)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::GetHost(nsACString& aHost) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
-nsMozIconURI::SetHost(const nsACString& aHost)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::SetHost(const nsACString& aHost) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
-nsMozIconURI::GetPort(int32_t* aPort)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::GetPort(int32_t* aPort) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
-nsMozIconURI::SetPort(int32_t aPort)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::SetPort(int32_t aPort) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::GetPathQueryRef(nsACString& aPath)
@@ -416,10 +377,7 @@ nsMozIconURI::GetQuery(nsACString& aQuery)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::SetQuery(const nsACString& aQuery)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::SetQuery(const nsACString& aQuery) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::SetQueryWithEncoding(const nsACString& aQuery,
@@ -436,10 +394,7 @@ nsMozIconURI::GetRef(nsACString& aRef)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::SetRef(const nsACString& aRef)
-{
-  return NS_ERROR_FAILURE;
-}
+nsMozIconURI::SetRef(const nsACString& aRef) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 nsMozIconURI::Equals(nsIURI* other, bool* result)
@@ -529,7 +484,6 @@ nsMozIconURI::CloneWithNewRef(const nsACString& newRef, nsIURI** result)
   return Clone(result);
 }
 
-
 NS_IMETHODIMP
 nsMozIconURI::Resolve(const nsACString& relativePath, nsACString& result)
 {
@@ -537,10 +491,7 @@ nsMozIconURI::Resolve(const nsACString& relativePath, nsACString& result)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetAsciiSpec(nsACString& aSpecA)
-{
-  return GetSpec(aSpecA);
-}
+nsMozIconURI::GetAsciiSpec(nsACString& aSpecA) { return GetSpec(aSpecA); }
 
 NS_IMETHODIMP
 nsMozIconURI::GetAsciiHostPort(nsACString& aHostPortA)
@@ -549,10 +500,7 @@ nsMozIconURI::GetAsciiHostPort(nsACString& aHostPortA)
 }
 
 NS_IMETHODIMP
-nsMozIconURI::GetAsciiHost(nsACString& aHostA)
-{
-  return GetHost(aHostA);
-}
+nsMozIconURI::GetAsciiHost(nsACString& aHostA) { return GetHost(aHostA); }
 
 ////////////////////////////////////////////////////////////////////////////////
 // nsIIconUri methods:
@@ -574,7 +522,7 @@ nsMozIconURI::SetIconURL(nsIURL* aFileUrl)
 
 NS_IMETHODIMP
 nsMozIconURI::GetImageSize(uint32_t* aImageSize)
-              // measured by # of pixels in a row. defaults to 16.
+// measured by # of pixels in a row. defaults to 16.
 {
   *aImageSize = mSize;
   return NS_OK;
@@ -582,7 +530,7 @@ nsMozIconURI::GetImageSize(uint32_t* aImageSize)
 
 NS_IMETHODIMP
 nsMozIconURI::SetImageSize(uint32_t aImageSize)
-              // measured by # of pixels in a row. defaults to 16.
+// measured by # of pixels in a row. defaults to 16.
 {
   mSize = aImageSize;
   return NS_OK;
@@ -621,7 +569,7 @@ nsMozIconURI::GetFileExtension(nsACString& aFileExtension)
 
   if (!mFileName.IsEmpty()) {
     // truncate the extension out of the file path...
-    const char* chFileName = mFileName.get(); // get the underlying buffer
+    const char* chFileName = mFileName.get();  // get the underlying buffer
     const char* fileExt = strrchr(chFileName, '.');
     if (!fileExt) {
       return NS_OK;
@@ -721,11 +669,9 @@ nsMozIconURI::Deserialize(const URIParams& aParams)
 ////////////////////////////////////////////////////////////
 // Nested version of nsIconURI
 
-nsNestedMozIconURI::nsNestedMozIconURI()
-{ }
+nsNestedMozIconURI::nsNestedMozIconURI() {}
 
-nsNestedMozIconURI::~nsNestedMozIconURI()
-{ }
+nsNestedMozIconURI::~nsNestedMozIconURI() {}
 
 NS_IMPL_ISUPPORTS_INHERITED(nsNestedMozIconURI, nsMozIconURI, nsINestedURI)
 
@@ -746,4 +692,3 @@ nsNestedMozIconURI::GetInnermostURI(nsIURI** aURI)
 {
   return NS_ImplGetInnermostURI(this, aURI);
 }
-

@@ -20,10 +20,10 @@ namespace mozilla {
 
 class Addon;
 
-class AddonManagerStartup final : public amIAddonManagerStartup
-                                , public nsIObserver
+class AddonManagerStartup final : public amIAddonManagerStartup,
+                                  public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_AMIADDONMANAGERSTARTUP
   NS_DECL_NSIOBSERVER
@@ -38,17 +38,11 @@ public:
     return inst.forget();
   }
 
-  const nsCOMArray<nsIFile>& ExtensionPaths()
-  {
-    return mExtensionPaths;
-  }
+  const nsCOMArray<nsIFile>& ExtensionPaths() { return mExtensionPaths; }
 
-  const nsCOMArray<nsIFile>& ThemePaths()
-  {
-    return mExtensionPaths;
-  }
+  const nsCOMArray<nsIFile>& ThemePaths() { return mExtensionPaths; }
 
-private:
+ private:
   Result<Ok, nsresult> AddInstallLocation(Addon& addon);
 
   nsIFile* ProfileDir();
@@ -60,18 +54,22 @@ private:
 
   bool mInitialized;
 
-protected:
+ protected:
   virtual ~AddonManagerStartup() = default;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #define NS_ADDONMANAGERSTARTUP_CONTRACTID \
   "@mozilla.org/addons/addon-manager-startup;1"
 
 // {17a59a6b-92b8-42e5-bce0-ab434c7a7135
-#define NS_ADDON_MANAGER_STARTUP_CID \
-{ 0x17a59a6b, 0x92b8, 0x42e5, \
-  { 0xbc, 0xe0, 0xab, 0x43, 0x4c, 0x7a, 0x71, 0x35 } }
+#define NS_ADDON_MANAGER_STARTUP_CID                 \
+  {                                                  \
+    0x17a59a6b, 0x92b8, 0x42e5,                      \
+    {                                                \
+      0xbc, 0xe0, 0xab, 0x43, 0x4c, 0x7a, 0x71, 0x35 \
+    }                                                \
+  }
 
-#endif // AddonManagerStartup_h
+#endif  // AddonManagerStartup_h

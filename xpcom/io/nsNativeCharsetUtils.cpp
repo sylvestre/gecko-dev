@@ -23,7 +23,7 @@ NS_CopyNativeToUnicode(const nsACString& aInput, nsAString& aOutput)
 }
 
 nsresult
-NS_CopyUnicodeToNative(const nsAString&  aInput, nsACString& aOutput)
+NS_CopyUnicodeToNative(const nsAString& aInput, nsACString& aOutput)
 {
   CopyUTF16toUTF8(aInput, aOutput);
   return NS_OK;
@@ -39,14 +39,13 @@ NS_ShutdownNativeCharsetUtils()
 {
 }
 
-
 //-----------------------------------------------------------------------------
 // XP_UNIX
 //-----------------------------------------------------------------------------
 #elif defined(XP_UNIX)
 
-#include <stdlib.h>   // mbtowc, wctomb
-#include <locale.h>   // setlocale
+#include <stdlib.h>  // mbtowc, wctomb
+#include <locale.h>  // setlocale
 #include "mozilla/Mutex.h"
 #include "nscore.h"
 #include "nsAString.h"
@@ -62,18 +61,21 @@ using namespace mozilla;
 // iconv for all platforms where nltypes.h and nllanginfo.h are present
 // along with iconv.
 //
-#if defined(HAVE_ICONV) && defined(HAVE_NL_TYPES_H) && defined(HAVE_LANGINFO_CODESET)
+#if defined(HAVE_ICONV) && defined(HAVE_NL_TYPES_H) && \
+    defined(HAVE_LANGINFO_CODESET)
 #define USE_ICONV 1
 #else
 #define USE_STDCONV 1
 #endif
 
 static void
-isolatin1_to_utf16(const char** aInput, uint32_t* aInputLeft,
-                   char16_t** aOutput, uint32_t* aOutputLeft)
+isolatin1_to_utf16(const char** aInput,
+                   uint32_t* aInputLeft,
+                   char16_t** aOutput,
+                   uint32_t* aOutputLeft)
 {
   while (*aInputLeft && *aOutputLeft) {
-    **aOutput = (unsigned char)** aInput;
+    **aOutput = (unsigned char)**aInput;
     (*aInput)++;
     (*aInputLeft)--;
     (*aOutput)++;
@@ -82,8 +84,10 @@ isolatin1_to_utf16(const char** aInput, uint32_t* aInputLeft,
 }
 
 static void
-utf16_to_isolatin1(const char16_t** aInput, uint32_t* aInputLeft,
-                   char** aOutput, uint32_t* aOutputLeft)
+utf16_to_isolatin1(const char16_t** aInput,
+                   uint32_t* aInputLeft,
+                   char** aOutput,
+                   uint32_t* aOutputLeft)
 {
   while (*aInputLeft && *aOutputLeft) {
     **aOutput = (unsigned char)**aInput;
@@ -98,16 +102,16 @@ utf16_to_isolatin1(const char16_t** aInput, uint32_t* aInputLeft,
 // conversion using iconv
 //-----------------------------------------------------------------------------
 #if defined(USE_ICONV)
-#include <nl_types.h> // CODESET
-#include <langinfo.h> // nl_langinfo
-#include <iconv.h>    // iconv_open, iconv, iconv_close
+#include <nl_types.h>  // CODESET
+#include <langinfo.h>  // nl_langinfo
+#include <iconv.h>     // iconv_open, iconv, iconv_close
 #include <errno.h>
 #include "plstr.h"
 
 #if defined(HAVE_ICONV_WITH_CONST_INPUT)
 #define ICONV_INPUT(x) (x)
 #else
-#define ICONV_INPUT(x) ((char **)x)
+#define ICONV_INPUT(x) ((char**)x)
 #endif
 
 // solaris definitely needs this, but we'll enable it by default
@@ -121,8 +125,10 @@ utf16_to_isolatin1(const char16_t** aInput, uint32_t* aInputLeft,
 
 static inline size_t
 xp_iconv(iconv_t converter,
-         const char** aInput, size_t* aInputLeft,
-         char** aOutput, size_t* aOutputLeft)
+         const char** aInput,
+         size_t* aInputLeft,
+         char** aOutput,
+         size_t* aOutputLeft)
 {
   size_t res, outputAvail = *aOutputLeft;
   res = iconv(converter, ICONV_INPUT(aInput), aInputLeft, aOutput, aOutputLeft);
@@ -146,7 +152,7 @@ xp_iconv_reset(iconv_t converter)
   // for all parameter to reset the converter, but beware the
   // evil Solaris crash if you go down this route >:-)
 
-  const char* zero_char_in_ptr  = nullptr;
+  const char* zero_char_in_ptr = nullptr;
   char* zero_char_out_ptr = nullptr;
   size_t zero_size_in = 0;
   size_t zero_size_out = 0;
@@ -202,72 +208,66 @@ xp_iconv_open(const char** to_list, const char** from_list)
  */
 static const char* UTF_16_NAMES[] = {
 #if defined(IS_LITTLE_ENDIAN)
-  "UTF-16LE",
+    "UTF-16LE",
 #if defined(__GLIBC__)
-  "UNICODELITTLE",
+    "UNICODELITTLE",
 #endif
-  "UCS-2LE",
+    "UCS-2LE",
 #else
-  "UTF-16BE",
+    "UTF-16BE",
 #if defined(__GLIBC__)
-  "UNICODEBIG",
+    "UNICODEBIG",
 #endif
-  "UCS-2BE",
+    "UCS-2BE",
 #endif
-  "UTF-16",
-  "UCS-2",
-  "UCS2",
-  "UCS_2",
-  "ucs-2",
-  "ucs2",
-  "ucs_2",
-  nullptr
-};
+    "UTF-16",
+    "UCS-2",
+    "UCS2",
+    "UCS_2",
+    "ucs-2",
+    "ucs2",
+    "ucs_2",
+    nullptr};
 
 #if defined(ENABLE_UTF8_FALLBACK_SUPPORT)
 static const char* UTF_8_NAMES[] = {
-  "UTF-8",
-  "UTF8",
-  "UTF_8",
-  "utf-8",
-  "utf8",
-  "utf_8",
-  nullptr
-};
+    "UTF-8", "UTF8", "UTF_8", "utf-8", "utf8", "utf_8", nullptr};
 #endif
 
-static const char* ISO_8859_1_NAMES[] = {
-  "ISO-8859-1",
+static const char* ISO_8859_1_NAMES[] = {"ISO-8859-1",
 #if !defined(__GLIBC__)
-  "ISO8859-1",
-  "ISO88591",
-  "ISO_8859_1",
-  "ISO8859_1",
-  "iso-8859-1",
-  "iso8859-1",
-  "iso88591",
-  "iso_8859_1",
-  "iso8859_1",
+                                         "ISO8859-1",
+                                         "ISO88591",
+                                         "ISO_8859_1",
+                                         "ISO8859_1",
+                                         "iso-8859-1",
+                                         "iso8859-1",
+                                         "iso88591",
+                                         "iso_8859_1",
+                                         "iso8859_1",
 #endif
-  nullptr
-};
+                                         nullptr};
 
 class nsNativeCharsetConverter
 {
-public:
+ public:
   nsNativeCharsetConverter();
   ~nsNativeCharsetConverter();
 
-  nsresult NativeToUnicode(const char** aInput, uint32_t* aInputLeft,
-                           char16_t** aOutput, uint32_t* aOutputLeft);
-  nsresult UnicodeToNative(const char16_t** aInput, uint32_t* aInputLeft,
-                           char** aOutput, uint32_t* aOutputLeft);
+  nsresult NativeToUnicode(const char** aInput,
+                           uint32_t* aInputLeft,
+                           char16_t** aOutput,
+                           uint32_t* aOutputLeft);
+  nsresult UnicodeToNative(const char16_t** aInput,
+                           uint32_t* aInputLeft,
+                           char** aOutput,
+                           uint32_t* aOutputLeft);
 
   static void GlobalInit();
   static void GlobalShutdown();
   static bool IsNativeUTF8();
 
-private:
+ private:
   static iconv_t gNativeToUnicode;
   static iconv_t gUnicodeToNative;
 #if defined(ENABLE_UTF8_FALLBACK_SUPPORT)
@@ -276,9 +276,9 @@ private:
   static iconv_t gUnicodeToUTF8;
   static iconv_t gUTF8ToUnicode;
 #endif
-  static Mutex*  gLock;
-  static bool    gInitialized;
-  static bool    gIsNativeUTF8;
+  static Mutex* gLock;
+  static bool gInitialized;
+  static bool gIsNativeUTF8;
 
   static void LazyInit();
 
@@ -299,14 +299,14 @@ private:
 iconv_t nsNativeCharsetConverter::gNativeToUnicode = INVALID_ICONV_T;
 iconv_t nsNativeCharsetConverter::gUnicodeToNative = INVALID_ICONV_T;
 #if defined(ENABLE_UTF8_FALLBACK_SUPPORT)
-iconv_t nsNativeCharsetConverter::gNativeToUTF8    = INVALID_ICONV_T;
-iconv_t nsNativeCharsetConverter::gUTF8ToNative    = INVALID_ICONV_T;
-iconv_t nsNativeCharsetConverter::gUnicodeToUTF8   = INVALID_ICONV_T;
-iconv_t nsNativeCharsetConverter::gUTF8ToUnicode   = INVALID_ICONV_T;
+iconv_t nsNativeCharsetConverter::gNativeToUTF8 = INVALID_ICONV_T;
+iconv_t nsNativeCharsetConverter::gUTF8ToNative = INVALID_ICONV_T;
+iconv_t nsNativeCharsetConverter::gUnicodeToUTF8 = INVALID_ICONV_T;
+iconv_t nsNativeCharsetConverter::gUTF8ToUnicode = INVALID_ICONV_T;
 #endif
-Mutex*  nsNativeCharsetConverter::gLock            = nullptr;
-bool    nsNativeCharsetConverter::gInitialized     = false;
-bool    nsNativeCharsetConverter::gIsNativeUTF8    = false;
+Mutex* nsNativeCharsetConverter::gLock = nullptr;
+bool nsNativeCharsetConverter::gInitialized = false;
+bool nsNativeCharsetConverter::gIsNativeUTF8 = false;
 
 void
 nsNativeCharsetConverter::LazyInit()
@@ -318,7 +318,7 @@ nsNativeCharsetConverter::LazyInit()
   if (!gLock) {
     setlocale(LC_CTYPE, "");
   }
-  const char* blank_list[] = { "", nullptr };
+  const char* blank_list[] = {"", nullptr};
   const char** native_charset_list = blank_list;
   const char* native_charset = nl_langinfo(CODESET);
   if (!native_charset) {
@@ -342,18 +342,24 @@ nsNativeCharsetConverter::LazyInit()
   if (gNativeToUnicode == INVALID_ICONV_T) {
     gNativeToUTF8 = xp_iconv_open(UTF_8_NAMES, native_charset_list);
     gUTF8ToUnicode = xp_iconv_open(UTF_16_NAMES, UTF_8_NAMES);
-    NS_ASSERTION(gNativeToUTF8 != INVALID_ICONV_T, "no native to utf-8 converter");
-    NS_ASSERTION(gUTF8ToUnicode != INVALID_ICONV_T, "no utf-8 to utf-16 converter");
+    NS_ASSERTION(gNativeToUTF8 != INVALID_ICONV_T,
+                 "no native to utf-8 converter");
+    NS_ASSERTION(gUTF8ToUnicode != INVALID_ICONV_T,
+                 "no utf-8 to utf-16 converter");
   }
   if (gUnicodeToNative == INVALID_ICONV_T) {
     gUnicodeToUTF8 = xp_iconv_open(UTF_8_NAMES, UTF_16_NAMES);
     gUTF8ToNative = xp_iconv_open(native_charset_list, UTF_8_NAMES);
-    NS_ASSERTION(gUnicodeToUTF8 != INVALID_ICONV_T, "no utf-16 to utf-8 converter");
-    NS_ASSERTION(gUTF8ToNative != INVALID_ICONV_T, "no utf-8 to native converter");
+    NS_ASSERTION(gUnicodeToUTF8 != INVALID_ICONV_T,
+                 "no utf-16 to utf-8 converter");
+    NS_ASSERTION(gUTF8ToNative != INVALID_ICONV_T,
+                 "no utf-8 to native converter");
   }
 #else
-  NS_ASSERTION(gNativeToUnicode != INVALID_ICONV_T, "no native to utf-16 converter");
-  NS_ASSERTION(gUnicodeToNative != INVALID_ICONV_T, "no utf-16 to native converter");
+  NS_ASSERTION(gNativeToUnicode != INVALID_ICONV_T,
+               "no native to utf-16 converter");
+  NS_ASSERTION(gUnicodeToNative != INVALID_ICONV_T,
+               "no utf-16 to native converter");
 #endif
 
   /*
@@ -366,7 +372,7 @@ nsNativeCharsetConverter::LazyInit()
    *
    * This dummy conversion gets rid of the BOMs and fixes bug 153562.
    */
-  char dummy_input[1] = { ' ' };
+  char dummy_input[1] = {' '};
   char dummy_output[4];
 
   if (gNativeToUnicode != INVALID_ICONV_T) {
@@ -480,8 +486,8 @@ nsNativeCharsetConverter::NativeToUnicode(const char** aInput,
   size_t outLeft = (size_t)*aOutputLeft * 2;
 
   if (gNativeToUnicode != INVALID_ICONV_T) {
-
-    res = xp_iconv(gNativeToUnicode, aInput, &inLeft, (char**)aOutput, &outLeft);
+    res =
+        xp_iconv(gNativeToUnicode, aInput, &inLeft, (char**)aOutput, &outLeft);
 
     *aInputLeft = inLeft;
     *aOutputLeft = outLeft / 2;
@@ -515,8 +521,8 @@ nsNativeCharsetConverter::NativeToUnicode(const char** aInput,
       NS_ASSERTION(outLeft > 0, "bad assumption");
       p = ubuf;
       n = sizeof(ubuf) - n;
-      res = xp_iconv(gUTF8ToUnicode, (const char**)&p, &n,
-                     (char**)aOutput, &outLeft);
+      res = xp_iconv(
+          gUTF8ToUnicode, (const char**)&p, &n, (char**)aOutput, &outLeft);
       if (res == (size_t)-1) {
         NS_ERROR("conversion from utf-8 to utf-16 failed");
         break;
@@ -555,8 +561,8 @@ nsNativeCharsetConverter::UnicodeToNative(const char16_t** aInput,
   size_t outLeft = (size_t)*aOutputLeft;
 
   if (gUnicodeToNative != INVALID_ICONV_T) {
-    res = xp_iconv(gUnicodeToNative, (const char**)aInput, &inLeft,
-                   aOutput, &outLeft);
+    res = xp_iconv(
+        gUnicodeToNative, (const char**)aInput, &inLeft, aOutput, &outLeft);
 
     *aInputLeft = inLeft / 2;
     *aOutputLeft = outLeft;
@@ -574,7 +580,7 @@ nsNativeCharsetConverter::UnicodeToNative(const char16_t** aInput,
            (gUTF8ToNative != INVALID_ICONV_T)) {
     const char* in = (const char*)*aInput;
 
-    char ubuf[6]; // max utf-8 char length (really only needs to be 4 bytes)
+    char ubuf[6];  // max utf-8 char length (really only needs to be 4 bytes)
 
     // convert one uchar at a time...
     while (inLeft && outLeft) {
@@ -634,31 +640,35 @@ nsNativeCharsetConverter::IsNativeUTF8()
   return gIsNativeUTF8;
 }
 
-#endif // USE_ICONV
+#endif  // USE_ICONV
 
 //-----------------------------------------------------------------------------
 // conversion using mb[r]towc/wc[r]tomb
 //-----------------------------------------------------------------------------
 #if defined(USE_STDCONV)
 #if defined(HAVE_WCRTOMB) || defined(HAVE_MBRTOWC)
-#include <wchar.h>    // mbrtowc, wcrtomb
+#include <wchar.h>  // mbrtowc, wcrtomb
 #endif
 
 class nsNativeCharsetConverter
 {
-public:
+ public:
   nsNativeCharsetConverter();
 
-  nsresult NativeToUnicode(const char** aInput, uint32_t* aInputLeft,
-                           char16_t** aOutput, uint32_t* aOutputLeft);
-  nsresult UnicodeToNative(const char16_t** aInput, uint32_t* aInputLeft,
-                           char** aOutput, uint32_t* aOutputLeft);
+  nsresult NativeToUnicode(const char** aInput,
+                           uint32_t* aInputLeft,
+                           char16_t** aOutput,
+                           uint32_t* aOutputLeft);
+  nsresult UnicodeToNative(const char16_t** aInput,
+                           uint32_t* aInputLeft,
+                           char** aOutput,
+                           uint32_t* aOutputLeft);
 
   static void GlobalInit();
-  static void GlobalShutdown() { }
+  static void GlobalShutdown() {}
   static bool IsNativeUTF8();
 
-private:
+ private:
   static bool gWCharIsUnicode;
 
 #if defined(HAVE_WCRTOMB) || defined(HAVE_MBRTOWC)
@@ -732,7 +742,7 @@ nsNativeCharsetConverter::NativeToUnicode(const char** aInput,
         tmp = (unsigned char)**aInput;
         incr = 1;
       }
-      ** aOutput = (char16_t)tmp;
+      **aOutput = (char16_t)tmp;
       (*aInput) += incr;
       (*aInputLeft) -= incr;
       (*aOutput)++;
@@ -758,18 +768,19 @@ nsNativeCharsetConverter::UnicodeToNative(const char16_t** aInput,
 
     while (*aInputLeft && *aOutputLeft >= MB_CUR_MAX) {
 #ifdef HAVE_WCRTOMB
-      incr = (int)wcrtomb(*aOutput, (wchar_t)**aInput, &ps);
+      incr = (int)wcrtomb(*aOutput, (wchar_t) * *aInput, &ps);
 #else
       // XXX is this thread-safe?
-      incr = (int)wctomb(*aOutput, (wchar_t)**aInput);
+      incr = (int)wctomb(*aOutput, (wchar_t) * *aInput);
 #endif
       if (incr < 0) {
         NS_WARNING("mbtowc failed: possible charset mismatch");
-        ** aOutput = (unsigned char)**aInput; // truncate
+        **aOutput = (unsigned char)**aInput;  // truncate
         incr = 1;
       }
       // most likely we're dead anyways if this assertion should fire
-      NS_ASSERTION(uint32_t(incr) <= *aOutputLeft, "wrote beyond end of string");
+      NS_ASSERTION(uint32_t(incr) <= *aOutputLeft,
+                   "wrote beyond end of string");
       (*aOutput) += incr;
       (*aOutputLeft) -= incr;
       (*aInput)++;
@@ -791,7 +802,7 @@ nsNativeCharsetConverter::IsNativeUTF8()
   return false;
 }
 
-#endif // USE_STDCONV
+#endif  // USE_STDCONV
 
 //-----------------------------------------------------------------------------
 // API implementation
@@ -936,7 +947,7 @@ NS_CopyNativeToUnicode(const nsACString& aInput, nsAString& aOutput)
 }
 
 nsresult
-NS_CopyUnicodeToNative(const nsAString&  aInput, nsACString& aOutput)
+NS_CopyUnicodeToNative(const nsAString& aInput, nsACString& aOutput)
 {
   uint32_t inputLen = aInput.Length();
 
@@ -948,8 +959,8 @@ NS_CopyUnicodeToNative(const nsAString&  aInput, nsACString& aOutput)
   // determine length of result
   uint32_t resultLen = 0;
 
-  int n = ::WideCharToMultiByte(CP_ACP, 0, buf, inputLen, nullptr, 0,
-                                nullptr, nullptr);
+  int n = ::WideCharToMultiByte(
+      CP_ACP, 0, buf, inputLen, nullptr, 0, nullptr, nullptr);
   if (n > 0) {
     resultLen += n;
   }
@@ -968,8 +979,8 @@ NS_CopyUnicodeToNative(const nsAString&  aInput, nsACString& aOutput)
 
     char* result = out_iter.get();
 
-    ::WideCharToMultiByte(CP_ACP, 0, buf, inputLen, result, resultLen,
-                          &defaultChar, nullptr);
+    ::WideCharToMultiByte(
+        CP_ACP, 0, buf, inputLen, result, resultLen, &defaultChar, nullptr);
   }
   return NS_OK;
 }

@@ -19,22 +19,26 @@ class ArrayBufferViewOrArrayBuffer;
 }
 
 #ifndef EME_LOG
-  LogModule* GetEMELog();
-  #define EME_LOG(...) MOZ_LOG(GetEMELog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
-  #define EME_LOG_ENABLED() MOZ_LOG_TEST(GetEMELog(), mozilla::LogLevel::Debug)
+LogModule*
+GetEMELog();
+#define EME_LOG(...) \
+  MOZ_LOG(GetEMELog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define EME_LOG_ENABLED() MOZ_LOG_TEST(GetEMELog(), mozilla::LogLevel::Debug)
 #endif
 
 #ifndef EME_VERBOSE_LOG
-  LogModule* GetEMEVerboseLog();
-  #define EME_VERBOSE_LOG(...) MOZ_LOG(GetEMEVerboseLog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
+LogModule*
+GetEMEVerboseLog();
+#define EME_VERBOSE_LOG(...) \
+  MOZ_LOG(GetEMEVerboseLog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
 #else
-  #ifndef EME_LOG
-    #define EME_LOG(...)
-  #endif
+#ifndef EME_LOG
+#define EME_LOG(...)
+#endif
 
-  #ifndef EME_VERBOSE_LOG
-    #define EME_VERBOSE_LOG(...)
-  #endif
+#ifndef EME_VERBOSE_LOG
+#define EME_VERBOSE_LOG(...)
+#endif
 #endif
 
 // Helper function to extract a copy of data coming in from JS in an
@@ -42,21 +46,21 @@ class ArrayBufferViewOrArrayBuffer;
 //
 // Only call this on a properly initialized ArrayBufferViewOrArrayBuffer.
 void
-CopyArrayBufferViewOrArrayBufferData(const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView,
-                                     nsTArray<uint8_t>& aOutData);
+CopyArrayBufferViewOrArrayBufferData(
+    const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView,
+    nsTArray<uint8_t>& aOutData);
 
-struct ArrayData {
+struct ArrayData
+{
   explicit ArrayData(const uint8_t* aData, size_t aLength)
-    : mData(aData)
-    , mLength(aLength)
+      : mData(aData), mLength(aLength)
   {
   }
   const uint8_t* mData;
   const size_t mLength;
-  bool IsValid() const {
-    return mData != nullptr && mLength != 0;
-  }
-  bool operator== (const nsTArray<uint8_t>& aOther) const {
+  bool IsValid() const { return mData != nullptr && mLength != 0; }
+  bool operator==(const nsTArray<uint8_t>& aOther) const
+  {
     return mLength == aOther.Length() &&
            memcmp(mData, aOther.Elements(), mLength) == 0;
   }
@@ -78,7 +82,8 @@ struct ArrayData {
 //
 // Only call this on a properly initialized ArrayBufferViewOrArrayBuffer.
 ArrayData
-GetArrayBufferViewOrArrayBufferData(const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView);
+GetArrayBufferViewOrArrayBufferData(
+    const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView);
 
 nsString
 KeySystemToGMPName(const nsAString& aKeySystem);
@@ -92,9 +97,10 @@ IsWidevineKeySystem(const nsAString& aKeySystem);
 // Note: Primetime is now unsupported, but we leave it in the enum so
 // that the telemetry enum values are not changed; doing so would break
 // existing telemetry probes.
-enum CDMType {
+enum CDMType
+{
   eClearKey = 0,
-  ePrimetime = 1, // Note: Unsupported.
+  ePrimetime = 1,  // Note: Unsupported.
   eWidevine = 2,
   eUnknown = 3
 };
@@ -102,6 +108,6 @@ enum CDMType {
 CDMType
 ToCDMTypeTelemetryEnum(const nsString& aKeySystem);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // EME_LOG_H_
+#endif  // EME_LOG_H_

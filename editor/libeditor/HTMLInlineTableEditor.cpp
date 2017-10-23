@@ -67,24 +67,36 @@ HTMLEditor::ShowInlineTableEditingUI(nsIDOMElement* aCell)
   NS_ENSURE_TRUE(bodyElement, NS_ERROR_NULL_POINTER);
 
   mAddColumnBeforeButton =
-    CreateAnonymousElement(nsGkAtoms::a, *bodyElement,
-                           NS_LITERAL_STRING("mozTableAddColumnBefore"), false);
+      CreateAnonymousElement(nsGkAtoms::a,
+                             *bodyElement,
+                             NS_LITERAL_STRING("mozTableAddColumnBefore"),
+                             false);
   mRemoveColumnButton =
-    CreateAnonymousElement(nsGkAtoms::a, *bodyElement,
-                           NS_LITERAL_STRING("mozTableRemoveColumn"), false);
+      CreateAnonymousElement(nsGkAtoms::a,
+                             *bodyElement,
+                             NS_LITERAL_STRING("mozTableRemoveColumn"),
+                             false);
   mAddColumnAfterButton =
-    CreateAnonymousElement(nsGkAtoms::a, *bodyElement,
-                           NS_LITERAL_STRING("mozTableAddColumnAfter"), false);
+      CreateAnonymousElement(nsGkAtoms::a,
+                             *bodyElement,
+                             NS_LITERAL_STRING("mozTableAddColumnAfter"),
+                             false);
 
   mAddRowBeforeButton =
-    CreateAnonymousElement(nsGkAtoms::a, *bodyElement,
-                           NS_LITERAL_STRING("mozTableAddRowBefore"), false);
+      CreateAnonymousElement(nsGkAtoms::a,
+                             *bodyElement,
+                             NS_LITERAL_STRING("mozTableAddRowBefore"),
+                             false);
   mRemoveRowButton =
-    CreateAnonymousElement(nsGkAtoms::a, *bodyElement,
-                           NS_LITERAL_STRING("mozTableRemoveRow"), false);
+      CreateAnonymousElement(nsGkAtoms::a,
+                             *bodyElement,
+                             NS_LITERAL_STRING("mozTableRemoveRow"),
+                             false);
   mAddRowAfterButton =
-    CreateAnonymousElement(nsGkAtoms::a, *bodyElement,
-                           NS_LITERAL_STRING("mozTableAddRowAfter"), false);
+      CreateAnonymousElement(nsGkAtoms::a,
+                             *bodyElement,
+                             NS_LITERAL_STRING("mozTableAddRowAfter"),
+                             false);
 
   AddMouseClickListener(mAddColumnBeforeButton);
   AddMouseClickListener(mRemoveColumnButton);
@@ -131,11 +143,12 @@ HTMLEditor::DoInlineTableEditingAction(nsIDOMElement* aElement)
   NS_ENSURE_ARG_POINTER(aElement);
   bool anonElement = false;
   if (aElement &&
-      NS_SUCCEEDED(aElement->HasAttribute(NS_LITERAL_STRING("_moz_anonclass"), &anonElement)) &&
+      NS_SUCCEEDED(aElement->HasAttribute(NS_LITERAL_STRING("_moz_anonclass"),
+                                          &anonElement)) &&
       anonElement) {
     nsAutoString anonclass;
     nsresult rv =
-      aElement->GetAttribute(NS_LITERAL_STRING("_moz_anonclass"), anonclass);
+        aElement->GetAttribute(NS_LITERAL_STRING("_moz_anonclass"), anonclass);
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (!StringBeginsWith(anonclass, NS_LITERAL_STRING("mozTable")))
@@ -148,7 +161,8 @@ HTMLEditor::DoInlineTableEditingAction(nsIDOMElement* aElement)
     NS_ENSURE_SUCCESS(rv, rv);
 
     bool hideUI = false;
-    bool hideResizersWithInlineTableUI = (GetAsDOMNode(mResizedObject) == tableElement);
+    bool hideResizersWithInlineTableUI =
+        (GetAsDOMNode(mResizedObject) == tableElement);
 
     if (anonclass.EqualsLiteral("mozTableAddColumnBefore"))
       InsertTableColumn(1, false);
@@ -163,14 +177,12 @@ HTMLEditor::DoInlineTableEditingAction(nsIDOMElement* aElement)
 #ifndef DISABLE_TABLE_DELETION
       hideUI = (colCount == 1);
 #endif
-    }
-    else if (anonclass.EqualsLiteral("mozTableRemoveRow")) {
+    } else if (anonclass.EqualsLiteral("mozTableRemoveRow")) {
       DeleteTableRow(1);
 #ifndef DISABLE_TABLE_DELETION
       hideUI = (rowCount == 1);
 #endif
-    }
-    else
+    } else
       return NS_OK;
 
     // InsertTableRow might causes reframe
@@ -180,8 +192,7 @@ HTMLEditor::DoInlineTableEditingAction(nsIDOMElement* aElement)
 
     if (hideUI) {
       HideInlineTableEditingUI();
-      if (hideResizersWithInlineTableUI)
-        HideResizers();
+      if (hideResizersWithInlineTableUI) HideResizers();
     }
   }
 
@@ -193,8 +204,8 @@ HTMLEditor::AddMouseClickListener(Element* aElement)
 {
   nsCOMPtr<nsIDOMEventTarget> evtTarget(do_QueryInterface(aElement));
   if (evtTarget) {
-    evtTarget->AddEventListener(NS_LITERAL_STRING("click"),
-                                mEventListener, true);
+    evtTarget->AddEventListener(
+        NS_LITERAL_STRING("click"), mEventListener, true);
   }
 }
 
@@ -203,15 +214,16 @@ HTMLEditor::RemoveMouseClickListener(Element* aElement)
 {
   nsCOMPtr<nsIDOMEventTarget> evtTarget(do_QueryInterface(aElement));
   if (evtTarget) {
-    evtTarget->RemoveEventListener(NS_LITERAL_STRING("click"),
-                                   mEventListener, true);
+    evtTarget->RemoveEventListener(
+        NS_LITERAL_STRING("click"), mEventListener, true);
   }
 }
 
 NS_IMETHODIMP
 HTMLEditor::RefreshInlineTableEditingUI()
 {
-  nsCOMPtr<nsIDOMHTMLElement> htmlElement = do_QueryInterface(mInlineEditedCell);
+  nsCOMPtr<nsIDOMHTMLElement> htmlElement =
+      do_QueryInterface(mInlineEditedCell);
   if (!htmlElement) {
     return NS_ERROR_NULL_POINTER;
   }
@@ -219,7 +231,7 @@ HTMLEditor::RefreshInlineTableEditingUI()
   int32_t xCell, yCell, wCell, hCell;
   nsCOMPtr<Element> element = do_QueryInterface(mInlineEditedCell);
   if (NS_WARN_IF(!element)) {
-   return NS_ERROR_FAILURE;
+    return NS_ERROR_FAILURE;
   }
   GetElementOrigin(*element, xCell, yCell);
 
@@ -228,8 +240,8 @@ HTMLEditor::RefreshInlineTableEditingUI()
   rv = htmlElement->GetOffsetHeight(&hCell);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  int32_t xHoriz = xCell + wCell/2;
-  int32_t yVert  = yCell + hCell/2;
+  int32_t xHoriz = xCell + wCell / 2;
+  int32_t yVert = yCell + hCell / 2;
 
   nsCOMPtr<nsIDOMNode> tableNode = GetEnclosingTable(mInlineEditedCell);
   nsCOMPtr<nsIDOMElement> tableElement = do_QueryInterface(tableNode);
@@ -237,39 +249,43 @@ HTMLEditor::RefreshInlineTableEditingUI()
   rv = GetTableSize(tableElement, &rowCount, &colCount);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  SetAnonymousElementPosition(xHoriz-10, yCell-7,  mAddColumnBeforeButton);
+  SetAnonymousElementPosition(xHoriz - 10, yCell - 7, mAddColumnBeforeButton);
 #ifdef DISABLE_TABLE_DELETION
-  if (colCount== 1) {
-    mRemoveColumnButton->SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
-                                 NS_LITERAL_STRING("hidden"), true);
+  if (colCount == 1) {
+    mRemoveColumnButton->SetAttr(kNameSpaceID_None,
+                                 nsGkAtoms::_class,
+                                 NS_LITERAL_STRING("hidden"),
+                                 true);
   } else {
     if (mRemoveColumnButton->HasAttr(kNameSpaceID_None, nsGkAtoms::_class)) {
       mRemoveColumnButton->UnsetAttr(kNameSpaceID_None, nsGkAtoms::_class);
     }
 #endif
-    SetAnonymousElementPosition(xHoriz-4, yCell-7,  mRemoveColumnButton);
+    SetAnonymousElementPosition(xHoriz - 4, yCell - 7, mRemoveColumnButton);
 #ifdef DISABLE_TABLE_DELETION
   }
 #endif
-  SetAnonymousElementPosition(xHoriz+6, yCell-7,  mAddColumnAfterButton);
+  SetAnonymousElementPosition(xHoriz + 6, yCell - 7, mAddColumnAfterButton);
 
-  SetAnonymousElementPosition(xCell-7, yVert-10,  mAddRowBeforeButton);
+  SetAnonymousElementPosition(xCell - 7, yVert - 10, mAddRowBeforeButton);
 #ifdef DISABLE_TABLE_DELETION
-  if (rowCount== 1) {
-    mRemoveRowButton->SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
-                              NS_LITERAL_STRING("hidden"), true);
+  if (rowCount == 1) {
+    mRemoveRowButton->SetAttr(kNameSpaceID_None,
+                              nsGkAtoms::_class,
+                              NS_LITERAL_STRING("hidden"),
+                              true);
   } else {
     if (mRemoveRowButton->HasAttr(kNameSpaceID_None, nsGkAtoms::_class)) {
       mRemoveRowButton->UnsetAttr(kNameSpaceID_None, nsGkAtoms::_class, true);
     }
 #endif
-    SetAnonymousElementPosition(xCell-7, yVert-4,  mRemoveRowButton);
+    SetAnonymousElementPosition(xCell - 7, yVert - 4, mRemoveRowButton);
 #ifdef DISABLE_TABLE_DELETION
   }
 #endif
-  SetAnonymousElementPosition(xCell-7, yVert+6,  mAddRowAfterButton);
+  SetAnonymousElementPosition(xCell - 7, yVert + 6, mAddRowAfterButton);
 
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

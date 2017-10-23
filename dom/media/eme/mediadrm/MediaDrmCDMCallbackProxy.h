@@ -15,16 +15,15 @@ class CDMProxy;
 // Proxies call backs from the MediaDrmProxy -> MediaDrmProxySupport back to the MediaKeys
 // object on the main thread.
 // We used annotation calledFrom = "gecko" to ensure running on main thread.
-class MediaDrmCDMCallbackProxy : public DecryptorProxyCallback {
-public:
-
+class MediaDrmCDMCallbackProxy : public DecryptorProxyCallback
+{
+ public:
   void SetDecryptorId(uint32_t aId) override {}
 
   void SetSessionId(uint32_t aCreateSessionToken,
                     const nsCString& aSessionId) override;
 
-  void ResolveLoadSessionPromise(uint32_t aPromiseId,
-                                 bool aSuccess) override;
+  void ResolveLoadSessionPromise(uint32_t aPromiseId, bool aSuccess) override;
 
   void ResolvePromise(uint32_t aPromiseId) override;
 
@@ -53,9 +52,9 @@ public:
   void BatchedKeyStatusChanged(const nsCString& aSessionId,
                                const nsTArray<CDMKeyInfo>& aKeyInfos) override;
 
-   ~MediaDrmCDMCallbackProxy() {}
+  ~MediaDrmCDMCallbackProxy() {}
 
-private:
+ private:
   friend class MediaDrmCDMProxy;
   explicit MediaDrmCDMCallbackProxy(CDMProxy* aProxy);
 
@@ -65,5 +64,5 @@ private:
   CDMProxy* mProxy;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 #endif

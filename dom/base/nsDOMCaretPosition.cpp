@@ -13,15 +13,14 @@
 using namespace mozilla::dom;
 
 nsDOMCaretPosition::nsDOMCaretPosition(nsINode* aNode, uint32_t aOffset)
-  : mOffset(aOffset), mOffsetNode(aNode), mAnonymousContentNode(nullptr)
+    : mOffset(aOffset), mOffsetNode(aNode), mAnonymousContentNode(nullptr)
 {
 }
 
-nsDOMCaretPosition::~nsDOMCaretPosition()
-{
-}
+nsDOMCaretPosition::~nsDOMCaretPosition() {}
 
-nsINode* nsDOMCaretPosition::GetOffsetNode() const
+nsINode*
+nsDOMCaretPosition::GetOffsetNode() const
 {
   return mOffsetNode;
 }
@@ -43,14 +42,14 @@ nsDOMCaretPosition::GetClientRect() const
     node = mOffsetNode;
   }
 
-  nsresult creationRv = nsRange::CreateRange(node, mOffset, node,
-                                             mOffset,
-                                             getter_AddRefs<nsRange>(domRange));
+  nsresult creationRv = nsRange::CreateRange(
+      node, mOffset, node, mOffset, getter_AddRefs<nsRange>(domRange));
   if (!NS_SUCCEEDED(creationRv)) {
     return nullptr;
   }
 
-  NS_ASSERTION(domRange, "unable to retrieve valid dom range from CaretPosition");
+  NS_ASSERTION(domRange,
+               "unable to retrieve valid dom range from CaretPosition");
 
   rect = domRange->GetBoundingClientRect(false);
 
@@ -58,13 +57,15 @@ nsDOMCaretPosition::GetClientRect() const
 }
 
 JSObject*
-nsDOMCaretPosition::WrapObject(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+nsDOMCaretPosition::WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::CaretPositionBinding::Wrap(aCx, this, aGivenProto);
 }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsDOMCaretPosition,
-                                      mOffsetNode, mAnonymousContentNode)
+                                      mOffsetNode,
+                                      mAnonymousContentNode)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMCaretPosition)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMCaretPosition)
@@ -73,4 +74,3 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMCaretPosition)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
-

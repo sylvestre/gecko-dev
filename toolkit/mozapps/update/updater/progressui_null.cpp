@@ -6,20 +6,24 @@
 
 #include "progressui.h"
 
-int InitProgressUI(int *argc, char ***argv)
+int
+InitProgressUI(int* argc, char*** argv)
 {
   return 0;
 }
 
-int ShowProgressUI()
+int
+ShowProgressUI()
 {
   return 0;
 }
 
-void QuitProgressUI()
+void
+QuitProgressUI()
 {
 }
 
-void UpdateProgressUI(float progress)
+void
+UpdateProgressUI(float progress)
 {
 }

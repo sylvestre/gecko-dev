@@ -13,7 +13,8 @@
 namespace mozilla {
 namespace dom {
 namespace time {
-void InitializeDateCacheCleaner();
-} //namespace time
-} //namespace dom
-} //namespace mozilla
+void
+InitializeDateCacheCleaner();
+}  //namespace time
+}  //namespace dom
+}  //namespace mozilla

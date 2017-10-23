@@ -18,26 +18,22 @@ namespace gc {
 
 // This class manages state used for marking atoms during GCs.
 // See AtomMarking.cpp for details.
-class AtomMarkingRuntime
-{
+class AtomMarkingRuntime {
     // Unused arena atom bitmap indexes. Protected by the GC lock.
     js::ExclusiveAccessLockOrGCTaskData<Vector<size_t, 0, SystemAllocPolicy>> freeArenaIndexes;
 
     void markChildren(JSContext* cx, JSAtom*) {}
 
     void markChildren(JSContext* cx, JS::Symbol* symbol) {
-        if (JSAtom* description = symbol->description())
-            markAtom(cx, description);
+        if (JSAtom* description = symbol->description()) markAtom(cx, description);
     }
 
-  public:
+   public:
     // The extent of all allocated and free words in atom mark bitmaps.
     // This monotonically increases and may be read from without locking.
     mozilla::Atomic<size_t> allocatedWords;
 
-    AtomMarkingRuntime()
-      : allocatedWords(0)
-    {}
+    AtomMarkingRuntime() : allocatedWords(0) {}
 
     // Mark an arena as holding things in the atoms zone.
     void registerArena(Arena* arena);
@@ -59,11 +55,13 @@ class AtomMarkingRuntime
     void updateChunkMarkBits(JSRuntime* runtime);
 
     // Mark an atom or id as being newly reachable by the context's zone.
-    template <typename T> void markAtom(JSContext* cx, T* thing);
+    template <typename T>
+    void markAtom(JSContext* cx, T* thing);
 
     // Version of markAtom that's always inlined, for performance-sensitive
     // callers.
-    template <typename T> MOZ_ALWAYS_INLINE void inlinedMarkAtom(JSContext* cx, T* thing);
+    template <typename T>
+    MOZ_ALWAYS_INLINE void inlinedMarkAtom(JSContext* cx, T* thing);
 
     void markId(JSContext* cx, jsid id);
     void markAtomValue(JSContext* cx, const Value& value);
@@ -73,13 +71,14 @@ class AtomMarkingRuntime
 
 #ifdef DEBUG
     // Return whether |thing/id| is in the atom marking bitmap for |zone|.
-    template <typename T> bool atomIsMarked(Zone* zone, T* thing);
+    template <typename T>
+    bool atomIsMarked(Zone* zone, T* thing);
     bool idIsMarked(Zone* zone, jsid id);
     bool valueIsMarked(Zone* zone, const Value& value);
 #endif
 };
 
-} // namespace gc
-} // namespace js
+}  // namespace gc
+}  // namespace js
 
-#endif // gc_AtomMarking_h
+#endif  // gc_AtomMarking_h

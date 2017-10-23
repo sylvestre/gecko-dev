@@ -13,14 +13,17 @@ namespace mozilla {
 /*
  * A WebM muxer helper for package the valid WebM format.
  */
-class EbmlComposer {
-public:
+class EbmlComposer
+{
+ public:
   EbmlComposer();
   /*
    * Assign the parameter which header required.
    */
-  void SetVideoConfig(uint32_t aWidth, uint32_t aHeight,
-                      uint32_t aDisplayWidth, uint32_t aDisplayHeight);
+  void SetVideoConfig(uint32_t aWidth,
+                      uint32_t aHeight,
+                      uint32_t aDisplayWidth,
+                      uint32_t aDisplayHeight);
 
   void SetAudioConfig(uint32_t aSampleFreq, uint32_t aChannels);
   /*
@@ -44,7 +47,8 @@ public:
    */
   void ExtractBuffer(nsTArray<nsTArray<uint8_t> >* aDestBufs,
                      uint32_t aFlag = 0);
-private:
+
+ private:
   // Move the metadata data to mClusterCanFlushBuffs.
   void FinishMetadata();
   // Close current cluster and move data to mClusterCanFlushBuffs.
@@ -55,7 +59,8 @@ private:
   nsTArray<nsTArray<uint8_t> > mClusterCanFlushBuffs;
 
   // Indicate the data types in mClusterBuffs.
-  enum {
+  enum
+  {
     FLUSH_NONE = 0,
     FLUSH_METADATA = 1 << 0,
     FLUSH_CLUSTER = 1 << 1
@@ -83,6 +88,6 @@ private:
   int mChannels;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

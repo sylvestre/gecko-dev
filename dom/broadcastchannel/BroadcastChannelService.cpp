@@ -24,7 +24,7 @@ namespace {
 
 BroadcastChannelService* sInstance = nullptr;
 
-} // namespace
+}  // namespace
 
 BroadcastChannelService::BroadcastChannelService()
 {
@@ -65,8 +65,9 @@ BroadcastChannelService::RegisterActor(BroadcastChannelParent* aParent,
   MOZ_ASSERT(aParent);
 
   nsTArray<BroadcastChannelParent*>* parents =
-    mAgents.LookupForAdd(aOriginChannelKey).OrInsert(
-      [] () { return new nsTArray<BroadcastChannelParent*>(); });
+      mAgents.LookupForAdd(aOriginChannelKey).OrInsert([]() {
+        return new nsTArray<BroadcastChannelParent*>();
+      });
 
   MOZ_ASSERT(!parents->Contains(aParent));
   parents->AppendElement(aParent);
@@ -132,8 +133,8 @@ BroadcastChannelService::PostMessage(BroadcastChannelParent* aParent,
     if (!blobImpls.IsEmpty()) {
       // Serialize Blob objects for this message.
       for (uint32_t i = 0, len = blobImpls.Length(); i < len; ++i) {
-        nsresult rv = IPCBlobUtils::Serialize(blobImpls[i], parent->Manager(),
-                                              newData.blobs()[i]);
+        nsresult rv = IPCBlobUtils::Serialize(
+            blobImpls[i], parent->Manager(), newData.blobs()[i]);
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return;
         }
@@ -144,5 +145,5 @@ BroadcastChannelService::PostMessage(BroadcastChannelParent* aParent,
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -23,12 +23,12 @@ namespace mozilla {
 enum class CSSPseudoElementType : uint8_t;
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsHTMLCSSStyleSheet final : public nsIStyleRuleProcessor
 {
-public:
+ public:
   nsHTMLCSSStyleSheet();
 
   NS_DECL_ISUPPORTS
@@ -40,17 +40,20 @@ public:
 #ifdef MOZ_XUL
   virtual void RulesMatching(XULTreeRuleProcessorData* aData) override;
 #endif
-  virtual nsRestyleHint HasStateDependentStyle(StateRuleProcessorData* aData) override;
-  virtual nsRestyleHint HasStateDependentStyle(PseudoElementStateRuleProcessorData* aData) override;
-  virtual bool HasDocumentStateDependentStyle(StateRuleProcessorData* aData) override;
-  virtual nsRestyleHint
-    HasAttributeDependentStyle(AttributeRuleProcessorData* aData,
-                               mozilla::RestyleHintData& aRestyleHintDataResult) override;
+  virtual nsRestyleHint HasStateDependentStyle(
+      StateRuleProcessorData* aData) override;
+  virtual nsRestyleHint HasStateDependentStyle(
+      PseudoElementStateRuleProcessorData* aData) override;
+  virtual bool HasDocumentStateDependentStyle(
+      StateRuleProcessorData* aData) override;
+  virtual nsRestyleHint HasAttributeDependentStyle(
+      AttributeRuleProcessorData* aData,
+      mozilla::RestyleHintData& aRestyleHintDataResult) override;
   virtual bool MediumFeaturesChanged(nsPresContext* aPresContext) override;
-  virtual size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-    const MOZ_MUST_OVERRIDE override;
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-    const MOZ_MUST_OVERRIDE override;
+  virtual size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+      MOZ_MUST_OVERRIDE override;
+  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+      MOZ_MUST_OVERRIDE override;
 
   // Variants of RulesMatching method above that is specific to this
   // rule processor.
@@ -67,13 +70,13 @@ public:
   void EvictStyleAttr(const nsAString& aSerialized, MiscContainer* aValue);
   MiscContainer* LookupStyleAttr(const nsAString& aSerialized);
 
-private:
+ private:
   ~nsHTMLCSSStyleSheet();
 
   nsHTMLCSSStyleSheet(const nsHTMLCSSStyleSheet& aCopy) = delete;
   nsHTMLCSSStyleSheet& operator=(const nsHTMLCSSStyleSheet& aCopy) = delete;
 
-protected:
+ protected:
   nsDataHashtable<nsStringHashKey, MiscContainer*> mCachedStyleAttrs;
 };
 

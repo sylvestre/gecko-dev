@@ -24,18 +24,22 @@
 #include "nsPrintfCString.h"
 
 extern mozilla::LazyLogModule gMediaDemuxerLog;
-mozilla::LogModule* GetDemuxerLog()
+mozilla::LogModule*
+GetDemuxerLog()
 {
   return gMediaDemuxerLog;
 }
 
-#define LOG(arg, ...) MOZ_LOG(gMediaDemuxerLog, mozilla::LogLevel::Debug, ("MP4Demuxer(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define LOG(arg, ...)               \
+  MOZ_LOG(gMediaDemuxerLog,         \
+          mozilla::LogLevel::Debug, \
+          ("MP4Demuxer(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 namespace mozilla {
 
 class MP4TrackDemuxer : public MediaTrackDemuxer
 {
-public:
+ public:
   MP4TrackDemuxer(MP4Demuxer* aParent,
                   UniquePtr<TrackInfo>&& aInfo,
                   const mp4_demuxer::IndiceWrapper& aIndices);
@@ -50,8 +54,8 @@ public:
 
   nsresult GetNextRandomAccessPoint(media::TimeUnit* aTime) override;
 
-  RefPtr<SkipAccessPointPromise>
-  SkipToNextRandomAccessPoint(const media::TimeUnit& aTimeThreshold) override;
+  RefPtr<SkipAccessPointPromise> SkipToNextRandomAccessPoint(
+      const media::TimeUnit& aTimeThreshold) override;
 
   media::TimeIntervals GetBuffered() override;
 
@@ -59,7 +63,7 @@ public:
 
   void NotifyDataRemoved();
 
-private:
+ private:
   friend class MP4Demuxer;
   void NotifyDataArrived();
   already_AddRefed<MediaRawData> GetNextSample();
@@ -78,19 +82,18 @@ private:
   bool mIsH264 = false;
 };
 
-
 // Returns true if no SPS was found and search for it should continue.
 bool
 AccumulateSPSTelemetry(const MediaByteBuffer* aExtradata)
 {
   mp4_demuxer::SPSData spsdata;
   if (mp4_demuxer::H264::DecodeSPSFromExtraData(aExtradata, spsdata)) {
-    uint8_t constraints = (spsdata.constraint_set0_flag ? (1 << 0) : 0)
-                          | (spsdata.constraint_set1_flag ? (1 << 1) : 0)
-                          | (spsdata.constraint_set2_flag ? (1 << 2) : 0)
-                          | (spsdata.constraint_set3_flag ? (1 << 3) : 0)
-                          | (spsdata.constraint_set4_flag ? (1 << 4) : 0)
-                          | (spsdata.constraint_set5_flag ? (1 << 5) : 0);
+    uint8_t constraints = (spsdata.constraint_set0_flag ? (1 << 0) : 0) |
+                          (spsdata.constraint_set1_flag ? (1 << 1) : 0) |
+                          (spsdata.constraint_set2_flag ? (1 << 2) : 0) |
+                          (spsdata.constraint_set3_flag ? (1 << 3) : 0) |
+                          (spsdata.constraint_set4_flag ? (1 << 4) : 0) |
+                          (spsdata.constraint_set5_flag ? (1 << 5) : 0);
     Telemetry::Accumulate(Telemetry::VIDEO_DECODED_H264_SPS_CONSTRAINT_SET_FLAG,
                           constraints);
 
@@ -102,8 +105,8 @@ AccumulateSPSTelemetry(const MediaByteBuffer* aExtradata)
     // otherwise collect 0 for unknown level.
     Telemetry::Accumulate(Telemetry::VIDEO_DECODED_H264_SPS_LEVEL,
                           (spsdata.level_idc >= 10 && spsdata.level_idc <= 52)
-                          ? spsdata.level_idc
-                          : 0);
+                              ? spsdata.level_idc
+                              : 0);
 
     // max_num_ref_frames should be between 0 and 16, anything larger will
     // be treated as invalid.
@@ -117,8 +120,7 @@ AccumulateSPSTelemetry(const MediaByteBuffer* aExtradata)
 }
 
 MP4Demuxer::MP4Demuxer(MediaResource* aResource)
-  : mResource(aResource)
-  , mStream(new mp4_demuxer::ResourceStream(aResource))
+    : mResource(aResource), mStream(new mp4_demuxer::ResourceStream(aResource))
 {
 }
 
@@ -131,20 +133,20 @@ MP4Demuxer::Init()
   MediaResult result{NS_OK};
 
   mp4_demuxer::MP4Metadata::ResultAndByteBuffer initData =
-    mp4_demuxer::MP4Metadata::Metadata(stream);
+      mp4_demuxer::MP4Metadata::Metadata(stream);
   if (!initData.Ref()) {
     return InitPromise::CreateAndReject(
-      NS_FAILED(initData.Result())
-      ? Move(initData.Result())
-      : MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                    RESULT_DETAIL("Invalid MP4 metadata or OOM")),
-      __func__);
+        NS_FAILED(initData.Result())
+            ? Move(initData.Result())
+            : MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                          RESULT_DETAIL("Invalid MP4 metadata or OOM")),
+        __func__);
   } else if (NS_FAILED(initData.Result()) && result == NS_OK) {
     result = Move(initData.Result());
   }
 
   RefPtr<mp4_demuxer::BufferStream> bufferstream =
-    new mp4_demuxer::BufferStream(initData.Ref());
+      new mp4_demuxer::BufferStream(initData.Ref());
 
   mp4_demuxer::MP4Metadata metadata{bufferstream};
 
@@ -152,10 +154,11 @@ MP4Demuxer::Init()
   if (audioTrackCount.Ref() == mp4_demuxer::MP4Metadata::NumberTracksError()) {
     if (MediaPrefs::MediaWarningsAsErrors()) {
       return InitPromise::CreateAndReject(
-        MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                    RESULT_DETAIL("Invalid audio track (%s)",
-                                  audioTrackCount.Result().Description().get())),
-        __func__);
+          MediaResult(
+              NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+              RESULT_DETAIL("Invalid audio track (%s)",
+                            audioTrackCount.Result().Description().get())),
+          __func__);
     }
     audioTrackCount.Ref() = 0;
   }
@@ -164,21 +167,23 @@ MP4Demuxer::Init()
   if (videoTrackCount.Ref() == mp4_demuxer::MP4Metadata::NumberTracksError()) {
     if (MediaPrefs::MediaWarningsAsErrors()) {
       return InitPromise::CreateAndReject(
-        MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                    RESULT_DETAIL("Invalid video track (%s)",
-                                  videoTrackCount.Result().Description().get())),
-        __func__);
+          MediaResult(
+              NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+              RESULT_DETAIL("Invalid video track (%s)",
+                            videoTrackCount.Result().Description().get())),
+          __func__);
     }
     videoTrackCount.Ref() = 0;
   }
 
   if (audioTrackCount.Ref() == 0 && videoTrackCount.Ref() == 0) {
     return InitPromise::CreateAndReject(
-      MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                  RESULT_DETAIL("No MP4 audio (%s) or video (%s) tracks",
-                                audioTrackCount.Result().Description().get(),
-                                videoTrackCount.Result().Description().get())),
-      __func__);
+        MediaResult(
+            NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+            RESULT_DETAIL("No MP4 audio (%s) or video (%s) tracks",
+                          audioTrackCount.Result().Description().get(),
+                          videoTrackCount.Result().Description().get())),
+        __func__);
   }
 
   if (NS_FAILED(audioTrackCount.Result()) && result == NS_OK) {
@@ -191,26 +196,27 @@ MP4Demuxer::Init()
   if (audioTrackCount.Ref() != 0) {
     for (size_t i = 0; i < audioTrackCount.Ref(); i++) {
       mp4_demuxer::MP4Metadata::ResultAndTrackInfo info =
-        metadata.GetTrackInfo(TrackInfo::kAudioTrack, i);
+          metadata.GetTrackInfo(TrackInfo::kAudioTrack, i);
       if (!info.Ref()) {
         if (MediaPrefs::MediaWarningsAsErrors()) {
           return InitPromise::CreateAndReject(
-            MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                        RESULT_DETAIL("Invalid MP4 audio track (%s)",
-                                      info.Result().Description().get())),
-            __func__);
+              MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                          RESULT_DETAIL("Invalid MP4 audio track (%s)",
+                                        info.Result().Description().get())),
+              __func__);
         }
         if (result == NS_OK) {
-          result = MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                               RESULT_DETAIL("Invalid MP4 audio track (%s)",
-                                             info.Result().Description().get()));
+          result =
+              MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                          RESULT_DETAIL("Invalid MP4 audio track (%s)",
+                                        info.Result().Description().get()));
         }
         continue;
       } else if (NS_FAILED(info.Result()) && result == NS_OK) {
         result = Move(info.Result());
       }
       mp4_demuxer::MP4Metadata::ResultAndIndice indices =
-        metadata.GetTrackIndice(info.Ref()->mTrackId);
+          metadata.GetTrackIndice(info.Ref()->mTrackId);
       if (!indices.Ref()) {
         if (NS_FAILED(info.Result()) && result == NS_OK) {
           result = Move(indices.Result());
@@ -218,33 +224,34 @@ MP4Demuxer::Init()
         continue;
       }
       mAudioDemuxers.AppendElement(
-        new MP4TrackDemuxer(this, Move(info.Ref()), *indices.Ref().get()));
+          new MP4TrackDemuxer(this, Move(info.Ref()), *indices.Ref().get()));
     }
   }
 
   if (videoTrackCount.Ref() != 0) {
     for (size_t i = 0; i < videoTrackCount.Ref(); i++) {
       mp4_demuxer::MP4Metadata::ResultAndTrackInfo info =
-        metadata.GetTrackInfo(TrackInfo::kVideoTrack, i);
+          metadata.GetTrackInfo(TrackInfo::kVideoTrack, i);
       if (!info.Ref()) {
         if (MediaPrefs::MediaWarningsAsErrors()) {
           return InitPromise::CreateAndReject(
-            MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                        RESULT_DETAIL("Invalid MP4 video track (%s)",
-                                      info.Result().Description().get())),
-            __func__);
+              MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                          RESULT_DETAIL("Invalid MP4 video track (%s)",
+                                        info.Result().Description().get())),
+              __func__);
         }
         if (result == NS_OK) {
-          result = MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
-                               RESULT_DETAIL("Invalid MP4 video track (%s)",
-                                             info.Result().Description().get()));
+          result =
+              MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                          RESULT_DETAIL("Invalid MP4 video track (%s)",
+                                        info.Result().Description().get()));
         }
         continue;
       } else if (NS_FAILED(info.Result()) && result == NS_OK) {
         result = Move(info.Result());
       }
       mp4_demuxer::MP4Metadata::ResultAndIndice indices =
-        metadata.GetTrackIndice(info.Ref()->mTrackId);
+          metadata.GetTrackIndice(info.Ref()->mTrackId);
       if (!indices.Ref()) {
         if (NS_FAILED(info.Result()) && result == NS_OK) {
           result = Move(indices.Result());
@@ -252,12 +259,11 @@ MP4Demuxer::Init()
         continue;
       }
       mVideoDemuxers.AppendElement(
-        new MP4TrackDemuxer(this, Move(info.Ref()), *indices.Ref().get()));
+          new MP4TrackDemuxer(this, Move(info.Ref()), *indices.Ref().get()));
     }
   }
 
-  mp4_demuxer::MP4Metadata::ResultAndCryptoFile cryptoFile =
-    metadata.Crypto();
+  mp4_demuxer::MP4Metadata::ResultAndCryptoFile cryptoFile = metadata.Crypto();
   if (NS_FAILED(cryptoFile.Result()) && result == NS_OK) {
     result = Move(cryptoFile.Result());
   }
@@ -278,9 +284,12 @@ uint32_t
 MP4Demuxer::GetNumberTracks(TrackInfo::TrackType aType) const
 {
   switch (aType) {
-    case TrackInfo::kAudioTrack: return uint32_t(mAudioDemuxers.Length());
-    case TrackInfo::kVideoTrack: return uint32_t(mVideoDemuxers.Length());
-    default: return 0;
+    case TrackInfo::kAudioTrack:
+      return uint32_t(mAudioDemuxers.Length());
+    case TrackInfo::kVideoTrack:
+      return uint32_t(mVideoDemuxers.Length());
+    default:
+      return 0;
   }
 }
 
@@ -345,17 +354,15 @@ MP4Demuxer::GetCrypto()
 MP4TrackDemuxer::MP4TrackDemuxer(MP4Demuxer* aParent,
                                  UniquePtr<TrackInfo>&& aInfo,
                                  const mp4_demuxer::IndiceWrapper& aIndices)
-  : mParent(aParent)
-  , mStream(new mp4_demuxer::ResourceStream(mParent->mResource))
-  , mInfo(Move(aInfo))
-  , mIndex(new mp4_demuxer::Index(aIndices,
-                                  mStream,
-                                  mInfo->mTrackId,
-                                  mInfo->IsAudio()))
-  , mIterator(MakeUnique<mp4_demuxer::SampleIterator>(mIndex))
-  , mNeedReIndex(true)
+    : mParent(aParent),
+      mStream(new mp4_demuxer::ResourceStream(mParent->mResource)),
+      mInfo(Move(aInfo)),
+      mIndex(new mp4_demuxer::Index(
+          aIndices, mStream, mInfo->mTrackId, mInfo->IsAudio())),
+      mIterator(MakeUnique<mp4_demuxer::SampleIterator>(mIndex)),
+      mNeedReIndex(true)
 {
-  EnsureUpToDateIndex(); // Force update of index
+  EnsureUpToDateIndex();  // Force update of index
 
   VideoInfo* videoInfo = mInfo->GetAsVideoInfo();
   // Collect telemetry from h264 AVCC SPS.
@@ -431,11 +438,11 @@ MP4TrackDemuxer::GetNextSample()
     sample->mExtraData = mInfo->GetAsVideoInfo()->mExtraData;
     if (mIsH264 && !sample->mCrypto.mValid) {
       mp4_demuxer::H264::FrameType type =
-        mp4_demuxer::H264::GetFrameType(sample);
+          mp4_demuxer::H264::GetFrameType(sample);
       switch (type) {
-        case mp4_demuxer::H264::FrameType::I_FRAME: MOZ_FALLTHROUGH;
-        case mp4_demuxer::H264::FrameType::OTHER:
-        {
+        case mp4_demuxer::H264::FrameType::I_FRAME:
+          MOZ_FALLTHROUGH;
+        case mp4_demuxer::H264::FrameType::OTHER: {
           bool keyframe = type == mp4_demuxer::H264::FrameType::I_FRAME;
           if (sample->mKeyframe != keyframe) {
             NS_WARNING(nsPrintfCString("Frame incorrectly marked as %skeyframe "
@@ -445,19 +452,18 @@ MP4TrackDemuxer::GetNextSample()
                                        sample->mTime.ToMicroseconds(),
                                        sample->mDuration.ToMicroseconds(),
                                        sample->mTimecode.ToMicroseconds())
-                         .get());
+                           .get());
             sample->mKeyframe = keyframe;
           }
           break;
         }
         case mp4_demuxer::H264::FrameType::INVALID:
-          NS_WARNING(
-            nsPrintfCString("Invalid H264 frame @ pts:%" PRId64 " dur:%" PRId64
-                            " dts:%" PRId64,
-                            sample->mTime.ToMicroseconds(),
-                            sample->mDuration.ToMicroseconds(),
-                            sample->mTimecode.ToMicroseconds())
-              .get());
+          NS_WARNING(nsPrintfCString("Invalid H264 frame @ pts:%" PRId64
+                                     " dur:%" PRId64 " dts:%" PRId64,
+                                     sample->mTime.ToMicroseconds(),
+                                     sample->mDuration.ToMicroseconds(),
+                                     sample->mTimecode.ToMicroseconds())
+                         .get());
           // We could reject the sample now, however demuxer errors are fatal.
           // So we keep the invalid frame, relying on the H264 decoder to
           // handle the error later.
@@ -492,8 +498,7 @@ MP4TrackDemuxer::GetSamples(int32_t aNumSamples)
   }
 
   if (mQueuedSample) {
-    NS_ASSERTION(mQueuedSample->mKeyframe,
-                 "mQueuedSample must be a keyframe");
+    NS_ASSERTION(mQueuedSample->mKeyframe, "mQueuedSample must be a keyframe");
     samples->mSamples.AppendElement(mQueuedSample);
     mQueuedSample = nullptr;
     aNumSamples--;
@@ -516,10 +521,10 @@ MP4TrackDemuxer::GetSamples(int32_t aNumSamples)
     if (mNeedSPSForTelemetry && mIsH264 &&
         mp4_demuxer::AnnexB::IsAVCC(sample)) {
       RefPtr<MediaByteBuffer> extradata =
-        mp4_demuxer::H264::ExtractExtraData(sample);
+          mp4_demuxer::H264::ExtractExtraData(sample);
       if (mp4_demuxer::H264::HasSPS(extradata)) {
         RefPtr<MediaByteBuffer> extradata =
-          mp4_demuxer::H264::ExtractExtraData(sample);
+            mp4_demuxer::H264::ExtractExtraData(sample);
         mNeedSPSForTelemetry = AccumulateSPSTelemetry(extradata);
       }
     }
@@ -538,8 +543,7 @@ MP4TrackDemuxer::SetNextKeyFrameTime()
   mNextKeyframeTime.reset();
   mp4_demuxer::Microseconds frameTime = mIterator->GetNextKeyframeTime();
   if (frameTime != -1) {
-    mNextKeyframeTime.emplace(
-      media::TimeUnit::FromMicroseconds(frameTime));
+    mNextKeyframeTime.emplace(media::TimeUnit::FromMicroseconds(frameTime));
   }
 }
 
@@ -566,7 +570,7 @@ MP4TrackDemuxer::GetNextRandomAccessPoint(media::TimeUnit* aTime)
 
 RefPtr<MP4TrackDemuxer::SkipAccessPointPromise>
 MP4TrackDemuxer::SkipToNextRandomAccessPoint(
-  const media::TimeUnit& aTimeThreshold)
+    const media::TimeUnit& aTimeThreshold)
 {
   mQueuedSample = nullptr;
   // Loop until we reach the next keyframe after the threshold.
@@ -628,6 +632,6 @@ MP4TrackDemuxer::BreakCycles()
   mParent = nullptr;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #undef LOG

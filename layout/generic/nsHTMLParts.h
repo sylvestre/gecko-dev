@@ -27,25 +27,22 @@ class nsIChannel;
 class nsTableColFrame;
 namespace mozilla {
 class ViewportFrame;
-} // namespace mozilla
+}  // namespace mozilla
 
 // These are all the block specific frame bits, they are copied from
 // the prev-in-flow to a newly created next-in-flow, except for the
 // NS_BLOCK_FLAGS_NON_INHERITED_MASK bits below.
-#define NS_BLOCK_FLAGS_MASK (NS_BLOCK_FORMATTING_CONTEXT_STATE_BITS | \
-                             NS_BLOCK_CLIP_PAGINATED_OVERFLOW  | \
-                             NS_BLOCK_HAS_FIRST_LETTER_STYLE   | \
-                             NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET | \
-                             NS_BLOCK_HAS_FIRST_LETTER_CHILD   | \
-                             NS_BLOCK_FRAME_HAS_INSIDE_BULLET)
+#define NS_BLOCK_FLAGS_MASK                                                    \
+  (NS_BLOCK_FORMATTING_CONTEXT_STATE_BITS | NS_BLOCK_CLIP_PAGINATED_OVERFLOW | \
+   NS_BLOCK_HAS_FIRST_LETTER_STYLE | NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET |       \
+   NS_BLOCK_HAS_FIRST_LETTER_CHILD | NS_BLOCK_FRAME_HAS_INSIDE_BULLET)
 
 // This is the subset of NS_BLOCK_FLAGS_MASK that is NOT inherited
 // by default.  They should only be set on the first-in-flow.
 // See nsBlockFrame::Init.
-#define NS_BLOCK_FLAGS_NON_INHERITED_MASK                        \
-                            (NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET | \
-                             NS_BLOCK_HAS_FIRST_LETTER_CHILD   | \
-                             NS_BLOCK_FRAME_HAS_INSIDE_BULLET)
+#define NS_BLOCK_FLAGS_NON_INHERITED_MASK                                \
+  (NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET | NS_BLOCK_HAS_FIRST_LETTER_CHILD | \
+   NS_BLOCK_FRAME_HAS_INSIDE_BULLET)
 
 // Factory methods for creating html layout objects
 
@@ -57,8 +54,9 @@ NS_NewBlockFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 // Special Generated Content Node. It contains text taken from an
 // attribute of its *grandparent* content node.
 nsresult
-NS_NewAttributeContent(nsNodeInfoManager *aNodeInfoManager,
-                       int32_t aNameSpaceID, nsAtom* aAttrName,
+NS_NewAttributeContent(nsNodeInfoManager* aNodeInfoManager,
+                       int32_t aNameSpaceID,
+                       nsAtom* aAttrName,
                        nsIContent** aResult);
 
 // Create a basic area frame but the GetFrameForPoint is overridden to always
@@ -66,11 +64,14 @@ NS_NewAttributeContent(nsNodeInfoManager *aNodeInfoManager,
 // By default, area frames will extend
 // their height to cover any children that "stick out".
 nsContainerFrame*
-NS_NewSelectsAreaFrame(nsIPresShell* aPresShell, nsStyleContext* aContext, nsFrameState aFlags);
+NS_NewSelectsAreaFrame(nsIPresShell* aPresShell,
+                       nsStyleContext* aContext,
+                       nsFrameState aFlags);
 
 // Create a block formatting context blockframe
 nsBlockFrame*
-NS_NewBlockFormattingContext(nsIPresShell* aPresShell, nsStyleContext* aStyleContext);
+NS_NewBlockFormattingContext(nsIPresShell* aPresShell,
+                             nsStyleContext* aStyleContext);
 
 nsIFrame*
 NS_NewBRFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
@@ -104,16 +105,20 @@ NS_NewContinuingTextFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsIFrame*
 NS_NewEmptyFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 inline nsIFrame*
-NS_NewWBRFrame(nsIPresShell* aPresShell, nsStyleContext* aContext) {
+NS_NewWBRFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
+{
   return NS_NewEmptyFrame(aPresShell, aContext);
 }
 
 nsContainerFrame*
-NS_NewColumnSetFrame(nsIPresShell* aPresShell, nsStyleContext* aContext, nsFrameState aStateFlags);
+NS_NewColumnSetFrame(nsIPresShell* aPresShell,
+                     nsStyleContext* aContext,
+                     nsFrameState aStateFlags);
 
 class nsSimplePageSequenceFrame;
 nsSimplePageSequenceFrame*
-NS_NewSimplePageSequenceFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+NS_NewSimplePageSequenceFrame(nsIPresShell* aPresShell,
+                              nsStyleContext* aContext);
 class nsPageFrame;
 nsPageFrame*
 NS_NewPageFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
@@ -137,7 +142,8 @@ NS_NewCheckboxRadioFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsIFrame*
 NS_NewImageControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsContainerFrame*
-NS_NewHTMLButtonControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+NS_NewHTMLButtonControlFrame(nsIPresShell* aPresShell,
+                             nsStyleContext* aContext);
 nsContainerFrame*
 NS_NewFieldSetFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsIFrame*
@@ -151,7 +157,9 @@ NS_NewTextControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsContainerFrame*
 NS_NewListControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsComboboxControlFrame*
-NS_NewComboboxControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext, nsFrameState aFlags);
+NS_NewComboboxControlFrame(nsIPresShell* aPresShell,
+                           nsStyleContext* aContext,
+                           nsFrameState aFlags);
 nsIFrame*
 NS_NewProgressFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 nsIFrame*
@@ -185,12 +193,15 @@ nsTableRowGroupFrame*
 NS_NewTableRowGroupFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 class nsTableCellFrame;
 nsTableCellFrame*
-NS_NewTableCellFrame(nsIPresShell* aPresShell, nsStyleContext* aContext, nsTableFrame* aTableFrame);
+NS_NewTableCellFrame(nsIPresShell* aPresShell,
+                     nsStyleContext* aContext,
+                     nsTableFrame* aTableFrame);
 
 nsresult
 NS_NewHTMLContentSink(nsIHTMLContentSink** aInstancePtrResult,
-                      nsIDocument* aDoc, nsIURI* aURL,
-                      nsISupports* aContainer, // e.g. docshell
+                      nsIDocument* aDoc,
+                      nsIURI* aURL,
+                      nsISupports* aContainer,  // e.g. docshell
                       nsIChannel* aChannel);
 nsresult
 NS_NewHTMLFragmentContentSink(nsIFragmentContentSink** aInstancePtrResult);

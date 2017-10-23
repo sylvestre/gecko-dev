@@ -18,19 +18,24 @@ using namespace mozilla::a11y;
 extern "C" {
 
 static AtkObject*
-refAccessibleAtPointCB(AtkComponent* aComponent, gint aAccX, gint aAccY,
+refAccessibleAtPointCB(AtkComponent* aComponent,
+                       gint aAccX,
+                       gint aAccY,
                        AtkCoordType aCoordType)
 {
-  return refAccessibleAtPointHelper(ATK_OBJECT(aComponent),
-                                    aAccX, aAccY, aCoordType);
+  return refAccessibleAtPointHelper(
+      ATK_OBJECT(aComponent), aAccX, aAccY, aCoordType);
 }
 
 static void
-getExtentsCB(AtkComponent* aComponent, gint* aX, gint* aY,
-             gint* aWidth, gint* aHeight, AtkCoordType aCoordType)
+getExtentsCB(AtkComponent* aComponent,
+             gint* aX,
+             gint* aY,
+             gint* aWidth,
+             gint* aHeight,
+             AtkCoordType aCoordType)
 {
-  getExtentsHelper(ATK_OBJECT(aComponent),
-                   aX, aY, aWidth, aHeight, aCoordType);
+  getExtentsHelper(ATK_OBJECT(aComponent), aX, aY, aWidth, aHeight, aCoordType);
 }
 
 static gboolean
@@ -54,7 +59,9 @@ grabFocusCB(AtkComponent* aComponent)
 }
 
 AtkObject*
-refAccessibleAtPointHelper(AtkObject* aAtkObj, gint aX, gint aY,
+refAccessibleAtPointHelper(AtkObject* aAtkObj,
+                           gint aX,
+                           gint aY,
                            AtkCoordType aCoordType)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(aAtkObj);
@@ -66,13 +73,13 @@ refAccessibleAtPointHelper(AtkObject* aAtkObj, gint aX, gint aY,
     // Accessible::ChildAtPoint(x,y) is in screen pixels.
     if (aCoordType == ATK_XY_WINDOW) {
       nsIntPoint winCoords =
-        nsCoreUtils::GetScreenCoordsForWindow(accWrap->GetNode());
+          nsCoreUtils::GetScreenCoordsForWindow(accWrap->GetNode());
       aX += winCoords.x;
       aY += winCoords.y;
     }
 
-    Accessible* accAtPoint = accWrap->ChildAtPoint(aX, aY,
-                                                   Accessible::eDirectChild);
+    Accessible* accAtPoint =
+        accWrap->ChildAtPoint(aX, aY, Accessible::eDirectChild);
     if (!accAtPoint) {
       return nullptr;
     }
@@ -87,7 +94,7 @@ refAccessibleAtPointHelper(AtkObject* aAtkObj, gint aX, gint aY,
 
   if (ProxyAccessible* proxy = GetProxy(aAtkObj)) {
     ProxyAccessible* result =
-      proxy->AccessibleAtPoint(aX, aY, aCoordType == ATK_XY_WINDOW);
+        proxy->AccessibleAtPoint(aX, aY, aCoordType == ATK_XY_WINDOW);
     AtkObject* atkObj = result ? GetWrapperFor(result) : nullptr;
     if (atkObj) {
       g_object_ref(atkObj);
@@ -100,7 +107,10 @@ refAccessibleAtPointHelper(AtkObject* aAtkObj, gint aX, gint aY,
 
 void
 getExtentsHelper(AtkObject* aAtkObj,
-                 gint* aX, gint* aY, gint* aWidth, gint* aHeight,
+                 gint* aX,
+                 gint* aY,
+                 gint* aWidth,
+                 gint* aHeight,
                  AtkCoordType aCoordType)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(aAtkObj);
@@ -112,12 +122,11 @@ getExtentsHelper(AtkObject* aAtkObj,
     }
 
     nsIntRect screenRect = accWrap->Bounds();
-    if (screenRect.IsEmpty())
-      return;
+    if (screenRect.IsEmpty()) return;
 
     if (aCoordType == ATK_XY_WINDOW) {
       nsIntPoint winCoords =
-        nsCoreUtils::GetScreenCoordsForWindow(accWrap->GetNode());
+          nsCoreUtils::GetScreenCoordsForWindow(accWrap->GetNode());
       screenRect.x -= winCoords.x;
       screenRect.y -= winCoords.y;
     }
@@ -138,8 +147,7 @@ void
 componentInterfaceInitCB(AtkComponentIface* aIface)
 {
   NS_ASSERTION(aIface, "Invalid Interface");
-  if(MOZ_UNLIKELY(!aIface))
-    return;
+  if (MOZ_UNLIKELY(!aIface)) return;
 
   /*
    * Use default implementation in atk for contains, get_position,

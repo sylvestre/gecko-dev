@@ -16,31 +16,34 @@
 
 class nsSVGStopFrame : public nsFrame
 {
-  friend nsIFrame*
-  NS_NewSVGStopFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
-protected:
+  friend nsIFrame* NS_NewSVGStopFrame(nsIPresShell* aPresShell,
+                                      nsStyleContext* aContext);
+
+ protected:
   explicit nsSVGStopFrame(nsStyleContext* aContext)
-    : nsFrame(aContext, kClassID)
+      : nsFrame(aContext, kClassID)
   {
     AddStateBits(NS_FRAME_IS_NONDISPLAY);
   }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSVGStopFrame)
 
   // nsIFrame interface:
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
-  void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
-                        const nsDisplayListSet& aLists) override {}
+  void BuildDisplayList(nsDisplayListBuilder* aBuilder,
+                        const nsDisplayListSet& aLists) override
+  {
+  }
 
-  virtual nsresult AttributeChanged(int32_t         aNameSpaceID,
-                                    nsAtom*        aAttribute,
-                                    int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
@@ -65,26 +68,27 @@ NS_IMPL_FRAMEARENA_HELPERS(nsSVGStopFrame)
 
 #ifdef DEBUG
 void
-nsSVGStopFrame::Init(nsIContent*       aContent,
+nsSVGStopFrame::Init(nsIContent* aContent,
                      nsContainerFrame* aParent,
-                     nsIFrame*         aPrevInFlow)
+                     nsIFrame* aPrevInFlow)
 {
-  NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::stop), "Content is not a stop element");
+  NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::stop),
+               "Content is not a stop element");
 
   nsFrame::Init(aContent, aParent, aPrevInFlow);
 }
 #endif /* DEBUG */
 
 nsresult
-nsSVGStopFrame::AttributeChanged(int32_t         aNameSpaceID,
-                                 nsAtom*        aAttribute,
-                                 int32_t         aModType)
+nsSVGStopFrame::AttributeChanged(int32_t aNameSpaceID,
+                                 nsAtom* aAttribute,
+                                 int32_t aModType)
 {
-  if (aNameSpaceID == kNameSpaceID_None &&
-      aAttribute == nsGkAtoms::offset) {
-    MOZ_ASSERT(GetParent()->IsSVGLinearGradientFrame() ||
-               GetParent()->IsSVGRadialGradientFrame(),
-               "Observers observe the gradient, so that's what we must invalidate");
+  if (aNameSpaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::offset) {
+    MOZ_ASSERT(
+        GetParent()->IsSVGLinearGradientFrame() ||
+            GetParent()->IsSVGRadialGradientFrame(),
+        "Observers observe the gradient, so that's what we must invalidate");
     SVGObserverUtils::InvalidateDirectRenderingObservers(GetParent());
   }
 
@@ -95,8 +99,8 @@ nsSVGStopFrame::AttributeChanged(int32_t         aNameSpaceID,
 // Public functions
 // -------------------------------------------------------------------------
 
-nsIFrame* NS_NewSVGStopFrame(nsIPresShell*   aPresShell,
-                             nsStyleContext* aContext)
+nsIFrame*
+NS_NewSVGStopFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsSVGStopFrame(aContext);
 }

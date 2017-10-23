@@ -11,7 +11,7 @@
 #include "mozilla/layers/Compositor.h"  // for Compositor
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/LayersTypes.h"
-#include "mozilla/mozalloc.h"           // for operator new, etc
+#include "mozilla/mozalloc.h"  // for operator new, etc
 
 using namespace mozilla::gl;
 
@@ -20,22 +20,20 @@ namespace layers {
 
 class GLManagerCompositor : public GLManager
 {
-public:
-  explicit GLManagerCompositor(CompositorOGL* aCompositor)
-    : mImpl(aCompositor)
-  {}
-
-  virtual GLContext* gl() const override
+ public:
+  explicit GLManagerCompositor(CompositorOGL* aCompositor) : mImpl(aCompositor)
   {
-    return mImpl->gl();
   }
 
-  virtual void ActivateProgram(ShaderProgramOGL *aProg) override
+  virtual GLContext* gl() const override { return mImpl->gl(); }
+
+  virtual void ActivateProgram(ShaderProgramOGL* aProg) override
   {
     mImpl->ActivateProgram(aProg);
   }
 
-  virtual ShaderProgramOGL* GetProgram(GLenum aTarget, gfx::SurfaceFormat aFormat) override
+  virtual ShaderProgramOGL* GetProgram(GLenum aTarget,
+                                       gfx::SurfaceFormat aFormat) override
   {
     ShaderConfigOGL config = ShaderConfigFromTargetAndFormat(aTarget, aFormat);
     return mImpl->GetShaderProgramFor(config);
@@ -46,25 +44,27 @@ public:
     return mImpl->GetProjMatrix();
   }
 
-  virtual void BindAndDrawQuad(ShaderProgramOGL *aProg,
+  virtual void BindAndDrawQuad(ShaderProgramOGL* aProg,
                                const gfx::Rect& aLayerRect,
                                const gfx::Rect& aTextureRect) override
   {
     mImpl->BindAndDrawQuad(aProg, aLayerRect, aTextureRect);
   }
 
-private:
+ private:
   RefPtr<CompositorOGL> mImpl;
 };
 
 /* static */ GLManager*
 GLManager::CreateGLManager(LayerManagerComposite* aManager)
 {
-  if (aManager && aManager->GetCompositor()->GetBackendType() == LayersBackend::LAYERS_OPENGL) {
-    return new GLManagerCompositor(aManager->GetCompositor()->AsCompositorOGL());
+  if (aManager && aManager->GetCompositor()->GetBackendType() ==
+                      LayersBackend::LAYERS_OPENGL) {
+    return new GLManagerCompositor(
+        aManager->GetCompositor()->AsCompositorOGL());
   }
   return nullptr;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

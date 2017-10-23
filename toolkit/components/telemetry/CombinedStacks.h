@@ -20,8 +20,9 @@ namespace Telemetry {
  * This class is conceptually a list of ProcessedStack objects, but it represents them
  * more efficiently by keeping a single global list of modules.
  */
-class CombinedStacks {
-public:
+class CombinedStacks
+{
+ public:
   explicit CombinedStacks();
   explicit CombinedStacks(size_t aMaxStacksCount);
 
@@ -38,7 +39,7 @@ public:
   void Clear();
 #endif
 
-private:
+ private:
   std::vector<Telemetry::ProcessedStack::Module> mModules;
   // A circular buffer to hold the stacks.
   std::vector<Stack> mStacks;
@@ -51,10 +52,10 @@ private:
 /**
  * Creates a JSON representation of given combined stacks object.
  */
-JSObject *
-CreateJSStackObject(JSContext *cx, const CombinedStacks &stacks);
+JSObject*
+CreateJSStackObject(JSContext* cx, const CombinedStacks& stacks);
 
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Telemetry
+}  // namespace mozilla
 
-#endif // CombinedStacks_h__
+#endif  // CombinedStacks_h__

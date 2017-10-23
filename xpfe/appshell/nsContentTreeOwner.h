@@ -28,36 +28,36 @@ class nsContentTreeOwner final : public nsIDocShellTreeOwner,
                                  public nsIWebBrowserChrome3,
                                  public nsIWindowProvider
 {
-friend class nsXULWindow;
-friend class nsSiteWindow;
+  friend class nsXULWindow;
+  friend class nsSiteWindow;
 
-public:
-   NS_DECL_ISUPPORTS
+ public:
+  NS_DECL_ISUPPORTS
 
-   NS_DECL_NSIBASEWINDOW
-   NS_DECL_NSIDOCSHELLTREEOWNER
-   NS_DECL_NSIINTERFACEREQUESTOR
-   NS_DECL_NSIWEBBROWSERCHROME
-   NS_DECL_NSIWEBBROWSERCHROME2
-   NS_DECL_NSIWEBBROWSERCHROME3
-   NS_DECL_NSIWINDOWPROVIDER
+  NS_DECL_NSIBASEWINDOW
+  NS_DECL_NSIDOCSHELLTREEOWNER
+  NS_DECL_NSIINTERFACEREQUESTOR
+  NS_DECL_NSIWEBBROWSERCHROME
+  NS_DECL_NSIWEBBROWSERCHROME2
+  NS_DECL_NSIWEBBROWSERCHROME3
+  NS_DECL_NSIWINDOWPROVIDER
 
-protected:
-   explicit nsContentTreeOwner(bool fPrimary);
-   virtual ~nsContentTreeOwner();
+ protected:
+  explicit nsContentTreeOwner(bool fPrimary);
+  virtual ~nsContentTreeOwner();
 
-   void XULWindow(nsXULWindow* aXULWindow);
-   nsXULWindow* XULWindow();
+  void XULWindow(nsXULWindow* aXULWindow);
+  nsXULWindow* XULWindow();
 
-protected:
-   nsXULWindow      *mXULWindow;
-   nsSiteWindow    *mSiteWindow;
-   bool              mPrimary;
-   bool              mContentTitleSetting;
-   nsString          mWindowTitleModifier;
-   nsString          mTitleSeparator;
-   nsString          mTitlePreface;
-   nsString          mTitleDefault;
+ protected:
+  nsXULWindow* mXULWindow;
+  nsSiteWindow* mSiteWindow;
+  bool mPrimary;
+  bool mContentTitleSetting;
+  nsString mWindowTitleModifier;
+  nsString mTitleSeparator;
+  nsString mTitlePreface;
+  nsString mTitleDefault;
 };
 
 #endif /* nsContentTreeOwner_h__ */

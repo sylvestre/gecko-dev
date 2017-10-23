@@ -24,8 +24,8 @@ SVGAnimatedLengthList::SetBaseValueString(const nsAString& aValue)
     return rv;
   }
 
-  DOMSVGAnimatedLengthList *domWrapper =
-    DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
+  DOMSVGAnimatedLengthList* domWrapper =
+      DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
   if (domWrapper) {
     // We must send this notification *before* changing mBaseVal! If the length
     // of our baseVal is being reduced, our baseVal's DOM wrapper list may have
@@ -51,8 +51,8 @@ SVGAnimatedLengthList::SetBaseValueString(const nsAString& aValue)
 void
 SVGAnimatedLengthList::ClearBaseValue(uint32_t aAttrEnum)
 {
-  DOMSVGAnimatedLengthList *domWrapper =
-    DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
+  DOMSVGAnimatedLengthList* domWrapper =
+      DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
   if (domWrapper) {
     // We must send this notification *before* changing mBaseVal! (See above.)
     domWrapper->InternalBaseValListWillChangeTo(SVGLengthList());
@@ -63,11 +63,11 @@ SVGAnimatedLengthList::ClearBaseValue(uint32_t aAttrEnum)
 
 nsresult
 SVGAnimatedLengthList::SetAnimValue(const SVGLengthList& aNewAnimValue,
-                                    nsSVGElement *aElement,
+                                    nsSVGElement* aElement,
                                     uint32_t aAttrEnum)
 {
-  DOMSVGAnimatedLengthList *domWrapper =
-    DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
+  DOMSVGAnimatedLengthList* domWrapper =
+      DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
   if (domWrapper) {
     // A new animation may totally change the number of items in the animVal
     // list, replacing what was essentially a mirror of the baseVal list, or
@@ -102,11 +102,11 @@ SVGAnimatedLengthList::SetAnimValue(const SVGLengthList& aNewAnimValue,
 }
 
 void
-SVGAnimatedLengthList::ClearAnimValue(nsSVGElement *aElement,
+SVGAnimatedLengthList::ClearAnimValue(nsSVGElement* aElement,
                                       uint32_t aAttrEnum)
 {
-  DOMSVGAnimatedLengthList *domWrapper =
-    DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
+  DOMSVGAnimatedLengthList* domWrapper =
+      DOMSVGAnimatedLengthList::GetDOMWrapperIfExists(this);
   if (domWrapper) {
     // When all animation ends, animVal simply mirrors baseVal, which may have
     // a different number of items to the last active animated value. We must
@@ -120,24 +120,24 @@ SVGAnimatedLengthList::ClearAnimValue(nsSVGElement *aElement,
 }
 
 UniquePtr<nsISMILAttr>
-SVGAnimatedLengthList::ToSMILAttr(nsSVGElement *aSVGElement,
+SVGAnimatedLengthList::ToSMILAttr(nsSVGElement* aSVGElement,
                                   uint8_t aAttrEnum,
                                   uint8_t aAxis,
                                   bool aCanZeroPadList)
 {
-  return MakeUnique<SMILAnimatedLengthList>(this, aSVGElement, aAttrEnum,
-                                            aAxis, aCanZeroPadList);
+  return MakeUnique<SMILAnimatedLengthList>(
+      this, aSVGElement, aAttrEnum, aAxis, aCanZeroPadList);
 }
 
 nsresult
-SVGAnimatedLengthList::
-  SMILAnimatedLengthList::ValueFromString(const nsAString& aStr,
-                               const dom::SVGAnimationElement* /*aSrcElement*/,
-                               nsSMILValue& aValue,
-                               bool& aPreventCachingOfSandwich) const
+SVGAnimatedLengthList::SMILAnimatedLengthList::ValueFromString(
+    const nsAString& aStr,
+    const dom::SVGAnimationElement* /*aSrcElement*/,
+    nsSMILValue& aValue,
+    bool& aPreventCachingOfSandwich) const
 {
   nsSMILValue val(&SVGLengthListSMILType::sSingleton);
-  SVGLengthListAndInfo *llai = static_cast<SVGLengthListAndInfo*>(val.mU.mPtr);
+  SVGLengthListAndInfo* llai = static_cast<SVGLengthListAndInfo*>(val.mU.mPtr);
   nsresult rv = llai->SetValueFromString(aStr);
   if (NS_SUCCEEDED(rv)) {
     llai->SetInfo(mElement, mAxis, mCanZeroPadList);
@@ -180,7 +180,7 @@ SVGAnimatedLengthList::SMILAnimatedLengthList::GetBaseValue() const
   nsSMILValue val;
 
   nsSMILValue tmp(&SVGLengthListSMILType::sSingleton);
-  SVGLengthListAndInfo *llai = static_cast<SVGLengthListAndInfo*>(tmp.mU.mPtr);
+  SVGLengthListAndInfo* llai = static_cast<SVGLengthListAndInfo*>(tmp.mU.mPtr);
   nsresult rv = llai->CopyFrom(mVal->mBaseVal);
   if (NS_SUCCEEDED(rv)) {
     llai->SetInfo(mElement, mAxis, mCanZeroPadList);
@@ -190,7 +190,8 @@ SVGAnimatedLengthList::SMILAnimatedLengthList::GetBaseValue() const
 }
 
 nsresult
-SVGAnimatedLengthList::SMILAnimatedLengthList::SetAnimValue(const nsSMILValue& aValue)
+SVGAnimatedLengthList::SMILAnimatedLengthList::SetAnimValue(
+    const nsSMILValue& aValue)
 {
   NS_ASSERTION(aValue.mType == &SVGLengthListSMILType::sSingleton,
                "Unexpected type to assign animated value");
@@ -210,4 +211,4 @@ SVGAnimatedLengthList::SMILAnimatedLengthList::ClearAnimValue()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

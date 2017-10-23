@@ -10,14 +10,12 @@
 
 class nsUDPSocketProvider final : public nsISocketProvider
 {
-public:
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSISOCKETPROVIDER
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSISOCKETPROVIDER
 
-private:
-    ~nsUDPSocketProvider();
-
+ private:
+  ~nsUDPSocketProvider();
 };
 
 #endif /* nsUDPSocketProvider_h__ */
-

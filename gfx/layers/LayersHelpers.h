@@ -29,15 +29,14 @@ ComputeBackdropCopyRect(const gfx::Rect& aRect,
                         gfx::Rect* aOutLayerQuad = nullptr);
 
 // Compute uv-coordinates for a rect inside a texture.
-template <typename T>
+template<typename T>
 static inline gfx::Rect
 TextureRectToCoords(const T& aRect, const gfx::IntSize& aSize)
 {
-  return gfx::Rect(
-    float(aRect.x) / aSize.width,
-    float(aRect.y) / aSize.height,
-    float(aRect.width) / aSize.width,
-    float(aRect.height) / aSize.height);
+  return gfx::Rect(float(aRect.x) / aSize.width,
+                   float(aRect.y) / aSize.height,
+                   float(aRect.width) / aSize.width,
+                   float(aRect.height) / aSize.height);
 }
 
 // This is defined in Compositor.cpp.
@@ -47,9 +46,10 @@ GenerateTexturedTriangles(const gfx::Polygon& aPolygon,
                           const gfx::Rect& aTexRect);
 
 // This is defined in ContainerLayerComposite.cpp.
-void TransformLayerGeometry(Layer* aLayer, Maybe<gfx::Polygon>& aGeometry);
+void
+TransformLayerGeometry(Layer* aLayer, Maybe<gfx::Polygon>& aGeometry);
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_LayersHelpers_h
+#endif  // mozilla_gfx_layers_LayersHelpers_h

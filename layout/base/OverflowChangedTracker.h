@@ -19,8 +19,9 @@ namespace mozilla {
  */
 class OverflowChangedTracker
 {
-public:
-  enum ChangeKind {
+ public:
+  enum ChangeKind
+  {
     /**
      * The frame was explicitly added as a result of
      * nsChangeHint_UpdatePostTransformOverflow and hence may have had a style
@@ -34,9 +35,7 @@ public:
     CHILDREN_CHANGED,
   };
 
-  OverflowChangedTracker() :
-    mSubtreeRoot(nullptr)
-  {}
+  OverflowChangedTracker() : mSubtreeRoot(nullptr) {}
 
   ~OverflowChangedTracker()
   {
@@ -54,9 +53,10 @@ public:
    * If the overflow area changes, then UpdateOverflow will also
    * be called on the parent.
    */
-  void AddFrame(nsIFrame* aFrame, ChangeKind aChangeKind) {
+  void AddFrame(nsIFrame* aFrame, ChangeKind aChangeKind)
+  {
     uint32_t depth = aFrame->GetDepthInFrameTree();
-    Entry *entry = nullptr;
+    Entry* entry = nullptr;
     if (!mEntryList.empty()) {
       entry = mEntryList.find(Entry(aFrame, depth));
     }
@@ -72,7 +72,8 @@ public:
   /**
    * Remove a frame.
    */
-  void RemoveFrame(nsIFrame* aFrame) {
+  void RemoveFrame(nsIFrame* aFrame)
+  {
     if (mEntryList.empty()) {
       return;
     }
@@ -88,7 +89,8 @@ public:
    * only if currently reflowing aSubtreeRoot, to ensure overflow changes will
    * still propagate correctly.
    */
-  void SetSubtreeRoot(const nsIFrame* aSubtreeRoot) {
+  void SetSubtreeRoot(const nsIFrame* aSubtreeRoot)
+  {
     mSubtreeRoot = aSubtreeRoot;
   }
 
@@ -98,10 +100,11 @@ public:
    * Start from those deepest in the frame tree and works upwards. This stops
    * us from processing the same frame twice.
    */
-  void Flush() {
+  void Flush()
+  {
     while (!mEntryList.empty()) {
-      Entry *entry = mEntryList.removeMin();
-      nsIFrame *frame = entry->mFrame;
+      Entry* entry = mEntryList.removeMin();
+      nsIFrame* frame = entry->mFrame;
 
       bool overflowChanged = false;
       if (entry->mChangeKind == CHILDREN_CHANGED) {
@@ -112,12 +115,12 @@ public:
         // Take a faster path that doesn't require unioning the overflow areas
         // of our children.
 
-        NS_ASSERTION(frame->GetProperty(
-                       nsIFrame::DebugInitialOverflowPropertyApplied()),
-                     "InitialOverflowProperty must be set first.");
+        NS_ASSERTION(
+            frame->GetProperty(nsIFrame::DebugInitialOverflowPropertyApplied()),
+            "InitialOverflowProperty must be set first.");
 
         nsOverflowAreas* overflow =
-          frame->GetProperty(nsIFrame::InitialOverflowProperty());
+            frame->GetProperty(nsIFrame::InitialOverflowProperty());
         if (overflow) {
           // FinishAndStoreOverflow will change the overflow areas passed in,
           // so make a copy.
@@ -138,21 +141,25 @@ public:
       // then we need to update the parent with the overflow areas of its
       // children.
       if (overflowChanged) {
-        nsIFrame *parent = frame->GetParent();
-        while (parent &&
-               parent != mSubtreeRoot &&
+        nsIFrame* parent = frame->GetParent();
+        while (parent && parent != mSubtreeRoot &&
                parent->Combines3DTransformWithAncestors()) {
           // Passing frames in between the frame and the establisher of
           // 3D rendering context.
           parent = parent->GetParent();
-          MOZ_ASSERT(parent, "Root frame should never return true for Combines3DTransformWithAncestors");
+          MOZ_ASSERT(parent,
+                     "Root frame should never return true for "
+                     "Combines3DTransformWithAncestors");
         }
         if (parent && parent != mSubtreeRoot) {
-          Entry* parentEntry = mEntryList.find(Entry(parent, entry->mDepth - 1));
+          Entry* parentEntry =
+              mEntryList.find(Entry(parent, entry->mDepth - 1));
           if (parentEntry) {
-            parentEntry->mChangeKind = std::max(parentEntry->mChangeKind, CHILDREN_CHANGED);
+            parentEntry->mChangeKind =
+                std::max(parentEntry->mChangeKind, CHILDREN_CHANGED);
           } else {
-            mEntryList.insert(new Entry(parent, entry->mDepth - 1, CHILDREN_CHANGED));
+            mEntryList.insert(
+                new Entry(parent, entry->mDepth - 1, CHILDREN_CHANGED));
           }
         }
       }
@@ -160,14 +167,15 @@ public:
     }
   }
 
-private:
+ private:
   struct Entry : SplayTreeNode<Entry>
   {
-    Entry(nsIFrame* aFrame, uint32_t aDepth, ChangeKind aChangeKind = CHILDREN_CHANGED)
-      : mFrame(aFrame)
-      , mDepth(aDepth)
-      , mChangeKind(aChangeKind)
-    {}
+    Entry(nsIFrame* aFrame,
+          uint32_t aDepth,
+          ChangeKind aChangeKind = CHILDREN_CHANGED)
+        : mFrame(aFrame), mDepth(aDepth), mChangeKind(aChangeKind)
+    {
+    }
 
     bool operator==(const Entry& aOther) const
     {
@@ -210,6 +218,6 @@ private:
   const nsIFrame* mSubtreeRoot;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

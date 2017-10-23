@@ -26,16 +26,12 @@ namespace dom {
 using namespace workers;
 
 BroadcastChannelChild::BroadcastChannelChild(const nsACString& aOrigin)
-  : mBC(nullptr)
-  , mActorDestroyed(false)
+    : mBC(nullptr), mActorDestroyed(false)
 {
   CopyUTF8toUTF16(aOrigin, mOrigin);
 }
 
-BroadcastChannelChild::~BroadcastChannelChild()
-{
-  MOZ_ASSERT(!mBC);
-}
+BroadcastChannelChild::~BroadcastChannelChild() { MOZ_ASSERT(!mBC); }
 
 mozilla::ipc::IPCResult
 BroadcastChannelChild::RecvNotify(const ClonedMessageData& aData)
@@ -95,7 +91,7 @@ BroadcastChannelChild::RecvNotify(const ClonedMessageData& aData)
   init.mData = value;
 
   RefPtr<MessageEvent> event =
-    MessageEvent::Constructor(mBC, NS_LITERAL_STRING("message"), init);
+      MessageEvent::Constructor(mBC, NS_LITERAL_STRING("message"), init);
 
   event->SetTrusted(true);
 
@@ -120,12 +116,12 @@ BroadcastChannelChild::DispatchError(JSContext* aCx)
   init.mOrigin = mOrigin;
 
   RefPtr<Event> event =
-    MessageEvent::Constructor(mBC, NS_LITERAL_STRING("messageerror"), init);
+      MessageEvent::Constructor(mBC, NS_LITERAL_STRING("messageerror"), init);
   event->SetTrusted(true);
 
   bool dummy;
   mBC->DispatchEvent(event, &dummy);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

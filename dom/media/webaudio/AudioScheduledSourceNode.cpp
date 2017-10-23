@@ -10,13 +10,15 @@
 namespace mozilla {
 namespace dom {
 
-AudioScheduledSourceNode::AudioScheduledSourceNode(AudioContext* aContext,
-                                                   uint32_t aChannelCount,
-                                                   ChannelCountMode aChannelCountMode,
-                                                   ChannelInterpretation aChannelInterpretation)
-  : AudioNode(aContext, aChannelCount, aChannelCountMode,
-              aChannelInterpretation)
-{}
+AudioScheduledSourceNode::AudioScheduledSourceNode(
+    AudioContext* aContext,
+    uint32_t aChannelCount,
+    ChannelCountMode aChannelCountMode,
+    ChannelInterpretation aChannelInterpretation)
+    : AudioNode(
+          aContext, aChannelCount, aChannelCountMode, aChannelInterpretation)
+{
+}
 
 JSObject*
 AudioScheduledSourceNode::WrapObject(JSContext* aCx,
@@ -25,5 +27,5 @@ AudioScheduledSourceNode::WrapObject(JSContext* aCx,
   return AudioScheduledSourceNodeBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

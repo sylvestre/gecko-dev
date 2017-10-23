@@ -21,14 +21,14 @@ DoListAddresses(AddrMapType& aAddrMap)
   UniquePtr<MIB_IPADDRTABLE> ipAddrTable;
   DWORD size = sizeof(MIB_IPADDRTABLE);
 
-  ipAddrTable.reset((MIB_IPADDRTABLE*) malloc(size));
+  ipAddrTable.reset((MIB_IPADDRTABLE*)malloc(size));
   if (!ipAddrTable) {
     return NS_ERROR_FAILURE;
   }
 
   DWORD retVal = GetIpAddrTable(ipAddrTable.get(), &size, 0);
   if (retVal == ERROR_INSUFFICIENT_BUFFER) {
-    ipAddrTable.reset((MIB_IPADDRTABLE*) malloc(size));
+    ipAddrTable.reset((MIB_IPADDRTABLE*)malloc(size));
     if (!ipAddrTable) {
       return NS_ERROR_FAILURE;
     }
@@ -40,15 +40,17 @@ DoListAddresses(AddrMapType& aAddrMap)
 
   for (DWORD i = 0; i < ipAddrTable->dwNumEntries; i++) {
     int index = ipAddrTable->table[i].dwIndex;
-    uint32_t addrVal = (uint32_t) ipAddrTable->table[i].dwAddr;
+    uint32_t addrVal = (uint32_t)ipAddrTable->table[i].dwAddr;
 
     nsCString indexString;
     indexString.AppendInt(index, 10);
 
     nsCString addrString;
     addrString.AppendPrintf("%d.%d.%d.%d",
-        (addrVal >> 0) & 0xff, (addrVal >> 8) & 0xff,
-        (addrVal >> 16) & 0xff, (addrVal >> 24) & 0xff);
+                            (addrVal >> 0) & 0xff,
+                            (addrVal >> 8) & 0xff,
+                            (addrVal >> 16) & 0xff,
+                            (addrVal >> 24) & 0xff);
 
     aAddrMap.Put(indexString, addrString);
   }
@@ -56,5 +58,5 @@ DoListAddresses(AddrMapType& aAddrMap)
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

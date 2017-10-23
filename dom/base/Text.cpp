@@ -23,9 +23,11 @@ Text::SplitText(uint32_t aOffset, ErrorResult& rv)
 
 /* static */ already_AddRefed<Text>
 Text::Constructor(const GlobalObject& aGlobal,
-                  const nsAString& aData, ErrorResult& aRv)
+                  const nsAString& aData,
+                  ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window || !window->GetDoc()) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -34,5 +36,5 @@ Text::Constructor(const GlobalObject& aGlobal,
   return window->GetDoc()->CreateTextNode(aData);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

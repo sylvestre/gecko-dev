@@ -29,23 +29,20 @@ using namespace mozilla;
 // This is a nsICancelableRunnable because we can dispatch it to Workers and
 // those can be shut down at any time, and in these cases, Cancel() is called
 // instead of Run().
-class nsInputStreamReadyEvent final
-  : public CancelableRunnable
-  , public nsIInputStreamCallback
+class nsInputStreamReadyEvent final : public CancelableRunnable,
+                                      public nsIInputStreamCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-    nsInputStreamReadyEvent(const char* aName,
-                            nsIInputStreamCallback* aCallback,
-                            nsIEventTarget* aTarget)
-    : CancelableRunnable(aName)
-    , mCallback(aCallback)
-    , mTarget(aTarget)
+  nsInputStreamReadyEvent(const char* aName,
+                          nsIInputStreamCallback* aCallback,
+                          nsIEventTarget* aTarget)
+      : CancelableRunnable(aName), mCallback(aCallback), mTarget(aTarget)
   {
   }
 
-private:
+ private:
   ~nsInputStreamReadyEvent()
   {
     if (!mCallback) {
@@ -61,8 +58,8 @@ private:
     bool val;
     nsresult rv = mTarget->IsOnCurrentThread(&val);
     if (NS_FAILED(rv) || !val) {
-      nsCOMPtr<nsIInputStreamCallback> event =
-        NS_NewInputStreamReadyEvent("~nsInputStreamReadyEvent", mCallback, mTarget);
+      nsCOMPtr<nsIInputStreamCallback> event = NS_NewInputStreamReadyEvent(
+          "~nsInputStreamReadyEvent", mCallback, mTarget);
       mCallback = nullptr;
       if (event) {
         rv = event->OnInputStreamReady(nullptr);
@@ -75,13 +72,12 @@ private:
     }
   }
 
-public:
+ public:
   NS_IMETHOD OnInputStreamReady(nsIAsyncInputStream* aStream) override
   {
     mStream = aStream;
 
-    nsresult rv =
-      mTarget->Dispatch(this, NS_DISPATCH_NORMAL);
+    nsresult rv = mTarget->Dispatch(this, NS_DISPATCH_NORMAL);
     if (NS_FAILED(rv)) {
       NS_WARNING("Dispatch failed");
       return NS_ERROR_FAILURE;
@@ -107,13 +103,14 @@ public:
     return NS_OK;
   }
 
-private:
-  nsCOMPtr<nsIAsyncInputStream>    mStream;
+ private:
+  nsCOMPtr<nsIAsyncInputStream> mStream;
   nsCOMPtr<nsIInputStreamCallback> mCallback;
-  nsCOMPtr<nsIEventTarget>         mTarget;
+  nsCOMPtr<nsIEventTarget> mTarget;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED(nsInputStreamReadyEvent, CancelableRunnable,
+NS_IMPL_ISUPPORTS_INHERITED(nsInputStreamReadyEvent,
+                            CancelableRunnable,
                             nsIInputStreamCallback)
 
 //-----------------------------------------------------------------------------
@@ -121,22 +118,21 @@ NS_IMPL_ISUPPORTS_INHERITED(nsInputStreamReadyEvent, CancelableRunnable,
 // This is a nsICancelableRunnable because we can dispatch it to Workers and
 // those can be shut down at any time, and in these cases, Cancel() is called
 // instead of Run().
-class nsOutputStreamReadyEvent final
-  : public CancelableRunnable
-  , public nsIOutputStreamCallback
+class nsOutputStreamReadyEvent final : public CancelableRunnable,
+                                       public nsIOutputStreamCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   nsOutputStreamReadyEvent(nsIOutputStreamCallback* aCallback,
                            nsIEventTarget* aTarget)
-    : CancelableRunnable("nsOutputStreamReadyEvent")
-    , mCallback(aCallback)
-    , mTarget(aTarget)
+      : CancelableRunnable("nsOutputStreamReadyEvent"),
+        mCallback(aCallback),
+        mTarget(aTarget)
   {
   }
 
-private:
+ private:
   ~nsOutputStreamReadyEvent()
   {
     if (!mCallback) {
@@ -153,7 +149,7 @@ private:
     nsresult rv = mTarget->IsOnCurrentThread(&val);
     if (NS_FAILED(rv) || !val) {
       nsCOMPtr<nsIOutputStreamCallback> event =
-        NS_NewOutputStreamReadyEvent(mCallback, mTarget);
+          NS_NewOutputStreamReadyEvent(mCallback, mTarget);
       mCallback = nullptr;
       if (event) {
         rv = event->OnOutputStreamReady(nullptr);
@@ -166,13 +162,12 @@ private:
     }
   }
 
-public:
+ public:
   NS_IMETHOD OnOutputStreamReady(nsIAsyncOutputStream* aStream) override
   {
     mStream = aStream;
 
-    nsresult rv =
-      mTarget->Dispatch(this, NS_DISPATCH_NORMAL);
+    nsresult rv = mTarget->Dispatch(this, NS_DISPATCH_NORMAL);
     if (NS_FAILED(rv)) {
       NS_WARNING("PostEvent failed");
       return NS_ERROR_FAILURE;
@@ -198,13 +193,14 @@ public:
     return NS_OK;
   }
 
-private:
-  nsCOMPtr<nsIAsyncOutputStream>    mStream;
+ private:
+  nsCOMPtr<nsIAsyncOutputStream> mStream;
   nsCOMPtr<nsIOutputStreamCallback> mCallback;
-  nsCOMPtr<nsIEventTarget>          mTarget;
+  nsCOMPtr<nsIEventTarget> mTarget;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED(nsOutputStreamReadyEvent, CancelableRunnable,
+NS_IMPL_ISUPPORTS_INHERITED(nsOutputStreamReadyEvent,
+                            CancelableRunnable,
                             nsIOutputStreamCallback)
 
 //-----------------------------------------------------------------------------
@@ -217,7 +213,7 @@ NS_NewInputStreamReadyEvent(const char* aName,
   NS_ASSERTION(aCallback, "null callback");
   NS_ASSERTION(aTarget, "null target");
   RefPtr<nsInputStreamReadyEvent> ev =
-    new nsInputStreamReadyEvent(aName, aCallback, aTarget);
+      new nsInputStreamReadyEvent(aName, aCallback, aTarget);
   return ev.forget();
 }
 
@@ -228,7 +224,7 @@ NS_NewOutputStreamReadyEvent(nsIOutputStreamCallback* aCallback,
   NS_ASSERTION(aCallback, "null callback");
   NS_ASSERTION(aTarget, "null target");
   RefPtr<nsOutputStreamReadyEvent> ev =
-    new nsOutputStreamReadyEvent(aCallback, aTarget);
+      new nsOutputStreamReadyEvent(aCallback, aTarget);
   return ev.forget();
 }
 
@@ -236,27 +232,26 @@ NS_NewOutputStreamReadyEvent(nsIOutputStreamCallback* aCallback,
 // NS_AsyncCopy implementation
 
 // abstract stream copier...
-class nsAStreamCopier
-  : public nsIInputStreamCallback
-  , public nsIOutputStreamCallback
-  , public CancelableRunnable
+class nsAStreamCopier : public nsIInputStreamCallback,
+                        public nsIOutputStreamCallback,
+                        public CancelableRunnable
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   nsAStreamCopier()
-    : CancelableRunnable("nsAStreamCopier")
-    , mLock("nsAStreamCopier.mLock")
-    , mCallback(nullptr)
-    , mProgressCallback(nullptr)
-    , mClosure(nullptr)
-    , mChunkSize(0)
-    , mEventInProcess(false)
-    , mEventIsPending(false)
-    , mCloseSource(true)
-    , mCloseSink(true)
-    , mCanceled(false)
-    , mCancelStatus(NS_OK)
+      : CancelableRunnable("nsAStreamCopier"),
+        mLock("nsAStreamCopier.mLock"),
+        mCallback(nullptr),
+        mProgressCallback(nullptr),
+        mClosure(nullptr),
+        mChunkSize(0),
+        mEventInProcess(false),
+        mEventIsPending(false),
+        mCloseSource(true),
+        mCloseSink(true),
+        mCanceled(false),
+        mCancelStatus(NS_OK)
   {
   }
 
@@ -325,8 +320,8 @@ public:
         if (n > 0 && mProgressCallback) {
           mProgressCallback(mClosure, n);
         }
-        copyFailed = NS_FAILED(sourceCondition) ||
-                     NS_FAILED(sinkCondition) || n == 0;
+        copyFailed =
+            NS_FAILED(sourceCondition) || NS_FAILED(sinkCondition) || n == 0;
 
         MutexAutoLock lock(mLock);
         canceled = mCanceled;
@@ -339,9 +334,8 @@ public:
           mAsyncSource->AsyncWait(this, 0, 0, nullptr);
 
           if (mAsyncSink)
-            mAsyncSink->AsyncWait(this,
-                                  nsIAsyncOutputStream::WAIT_CLOSURE_ONLY,
-                                  0, nullptr);
+            mAsyncSink->AsyncWait(
+                this, nsIAsyncOutputStream::WAIT_CLOSURE_ONLY, 0, nullptr);
           break;
         } else if (sinkCondition == NS_BASE_STREAM_WOULD_BLOCK && mAsyncSink) {
           // need to wait for more room in the sink.  while waiting for
@@ -350,9 +344,8 @@ public:
           mAsyncSink->AsyncWait(this, 0, 0, nullptr);
 
           if (mAsyncSource)
-            mAsyncSource->AsyncWait(this,
-                                    nsIAsyncInputStream::WAIT_CLOSURE_ONLY,
-                                    0, nullptr);
+            mAsyncSource->AsyncWait(
+                this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY, 0, nullptr);
           break;
         }
       }
@@ -360,8 +353,8 @@ public:
         if (mCloseSource) {
           // close source
           if (mAsyncSource)
-            mAsyncSource->CloseWithStatus(
-              canceled ? cancelStatus : sinkCondition);
+            mAsyncSource->CloseWithStatus(canceled ? cancelStatus
+                                                   : sinkCondition);
           else {
             mSource->Close();
           }
@@ -372,14 +365,13 @@ public:
         if (mCloseSink) {
           // close sink
           if (mAsyncSink)
-            mAsyncSink->CloseWithStatus(
-              canceled ? cancelStatus : sourceCondition);
+            mAsyncSink->CloseWithStatus(canceled ? cancelStatus
+                                                 : sourceCondition);
           else {
             // If we have an nsISafeOutputStream, and our
             // sourceCondition and sinkCondition are not set to a
             // failure state, finish writing.
-            nsCOMPtr<nsISafeOutputStream> sostream =
-              do_QueryInterface(mSink);
+            nsCOMPtr<nsISafeOutputStream> sostream = do_QueryInterface(mSink);
             if (sostream && NS_SUCCEEDED(sourceCondition) &&
                 NS_SUCCEEDED(sinkCondition)) {
               sostream->Finish();
@@ -488,28 +480,26 @@ public:
     return rv;
   }
 
-protected:
-  nsCOMPtr<nsIInputStream>       mSource;
-  nsCOMPtr<nsIOutputStream>      mSink;
-  nsCOMPtr<nsIAsyncInputStream>  mAsyncSource;
+ protected:
+  nsCOMPtr<nsIInputStream> mSource;
+  nsCOMPtr<nsIOutputStream> mSink;
+  nsCOMPtr<nsIAsyncInputStream> mAsyncSource;
   nsCOMPtr<nsIAsyncOutputStream> mAsyncSink;
-  nsCOMPtr<nsIEventTarget>       mTarget;
-  Mutex                          mLock;
-  nsAsyncCopyCallbackFun         mCallback;
-  nsAsyncCopyProgressFun         mProgressCallback;
-  void*                          mClosure;
-  uint32_t                       mChunkSize;
-  bool                           mEventInProcess;
-  bool                           mEventIsPending;
-  bool                           mCloseSource;
-  bool                           mCloseSink;
-  bool                           mCanceled;
-  nsresult                       mCancelStatus;
+  nsCOMPtr<nsIEventTarget> mTarget;
+  Mutex mLock;
+  nsAsyncCopyCallbackFun mCallback;
+  nsAsyncCopyProgressFun mProgressCallback;
+  void* mClosure;
+  uint32_t mChunkSize;
+  bool mEventInProcess;
+  bool mEventIsPending;
+  bool mCloseSource;
+  bool mCloseSink;
+  bool mCanceled;
+  nsresult mCancelStatus;
 
   // virtual since subclasses call superclass Release()
-  virtual ~nsAStreamCopier()
-  {
-  }
+  virtual ~nsAStreamCopier() {}
 };
 
 NS_IMPL_ISUPPORTS_INHERITED(nsAStreamCopier,
@@ -519,19 +509,15 @@ NS_IMPL_ISUPPORTS_INHERITED(nsAStreamCopier,
 
 class nsStreamCopierIB final : public nsAStreamCopier
 {
-public:
-  nsStreamCopierIB() : nsAStreamCopier()
-  {
-  }
-  virtual ~nsStreamCopierIB()
-  {
-  }
+ public:
+  nsStreamCopierIB() : nsAStreamCopier() {}
+  virtual ~nsStreamCopierIB() {}
 
   struct MOZ_STACK_CLASS ReadSegmentsState
   {
     // the nsIOutputStream will outlive the ReadSegmentsState on the stack
     nsIOutputStream* MOZ_NON_OWNING_REF mSink;
-    nsresult         mSinkCondition;
+    nsresult mSinkCondition;
   };
 
   static nsresult ConsumeInputBuffer(nsIInputStream* aInStr,
@@ -553,8 +539,7 @@ public:
     return state->mSinkCondition;
   }
 
-  uint32_t DoCopy(nsresult* aSourceCondition,
-                  nsresult* aSinkCondition) override
+  uint32_t DoCopy(nsresult* aSourceCondition, nsresult* aSinkCondition) override
   {
     ReadSegmentsState state;
     state.mSink = mSink;
@@ -562,32 +547,25 @@ public:
 
     uint32_t n;
     *aSourceCondition =
-      mSource->ReadSegments(ConsumeInputBuffer, &state, mChunkSize, &n);
+        mSource->ReadSegments(ConsumeInputBuffer, &state, mChunkSize, &n);
     *aSinkCondition = state.mSinkCondition;
     return n;
   }
 
-  nsresult Cancel() override
-  {
-    return NS_OK;
-  }
+  nsresult Cancel() override { return NS_OK; }
 };
 
 class nsStreamCopierOB final : public nsAStreamCopier
 {
-public:
-  nsStreamCopierOB() : nsAStreamCopier()
-  {
-  }
-  virtual ~nsStreamCopierOB()
-  {
-  }
+ public:
+  nsStreamCopierOB() : nsAStreamCopier() {}
+  virtual ~nsStreamCopierOB() {}
 
   struct MOZ_STACK_CLASS WriteSegmentsState
   {
     // the nsIInputStream will outlive the WriteSegmentsState on the stack
     nsIInputStream* MOZ_NON_OWNING_REF mSource;
-    nsresult        mSourceCondition;
+    nsresult mSourceCondition;
   };
 
   static nsresult FillOutputBuffer(nsIOutputStream* aOutStr,
@@ -609,8 +587,7 @@ public:
     return state->mSourceCondition;
   }
 
-  uint32_t DoCopy(nsresult* aSourceCondition,
-                  nsresult* aSinkCondition) override
+  uint32_t DoCopy(nsresult* aSourceCondition, nsresult* aSinkCondition) override
   {
     WriteSegmentsState state;
     state.mSource = mSource;
@@ -618,31 +595,28 @@ public:
 
     uint32_t n;
     *aSinkCondition =
-      mSink->WriteSegments(FillOutputBuffer, &state, mChunkSize, &n);
+        mSink->WriteSegments(FillOutputBuffer, &state, mChunkSize, &n);
     *aSourceCondition = state.mSourceCondition;
     return n;
   }
 
-  nsresult Cancel() override
-  {
-    return NS_OK;
-  }
+  nsresult Cancel() override { return NS_OK; }
 };
 
 //-----------------------------------------------------------------------------
 
 nsresult
-NS_AsyncCopy(nsIInputStream*         aSource,
-             nsIOutputStream*        aSink,
-             nsIEventTarget*         aTarget,
-             nsAsyncCopyMode         aMode,
-             uint32_t                aChunkSize,
-             nsAsyncCopyCallbackFun  aCallback,
-             void*                   aClosure,
-             bool                    aCloseSource,
-             bool                    aCloseSink,
-             nsISupports**           aCopierCtx,
-             nsAsyncCopyProgressFun  aProgressCallback)
+NS_AsyncCopy(nsIInputStream* aSource,
+             nsIOutputStream* aSink,
+             nsIEventTarget* aTarget,
+             nsAsyncCopyMode aMode,
+             uint32_t aChunkSize,
+             nsAsyncCopyCallbackFun aCallback,
+             void* aClosure,
+             bool aCloseSource,
+             bool aCloseSink,
+             nsISupports** aCopierCtx,
+             nsAsyncCopyProgressFun aProgressCallback)
 {
   NS_ASSERTION(aTarget, "non-null target required");
 
@@ -657,8 +631,15 @@ NS_AsyncCopy(nsIInputStream*         aSource,
 
   // Start() takes an owning ref to the copier...
   NS_ADDREF(copier);
-  rv = copier->Start(aSource, aSink, aTarget, aCallback, aClosure, aChunkSize,
-                     aCloseSource, aCloseSink, aProgressCallback);
+  rv = copier->Start(aSource,
+                     aSink,
+                     aTarget,
+                     aCallback,
+                     aClosure,
+                     aChunkSize,
+                     aCloseSource,
+                     aCloseSink,
+                     aProgressCallback);
 
   if (aCopierCtx) {
     *aCopierCtx = static_cast<nsISupports*>(static_cast<nsIRunnable*>(copier));
@@ -675,14 +656,15 @@ nsresult
 NS_CancelAsyncCopy(nsISupports* aCopierCtx, nsresult aReason)
 {
   nsAStreamCopier* copier =
-    static_cast<nsAStreamCopier*>(static_cast<nsIRunnable *>(aCopierCtx));
+      static_cast<nsAStreamCopier*>(static_cast<nsIRunnable*>(aCopierCtx));
   return copier->Cancel(aReason);
 }
 
 //-----------------------------------------------------------------------------
 
 nsresult
-NS_ConsumeStream(nsIInputStream* aStream, uint32_t aMaxCount,
+NS_ConsumeStream(nsIInputStream* aStream,
+                 uint32_t aMaxCount,
                  nsACString& aResult)
 {
   nsresult rv = NS_OK;
@@ -864,13 +846,15 @@ NS_WriteSegmentThunk(nsIInputStream* aInStr,
                      uint32_t* aCountWritten)
 {
   nsWriteSegmentThunk* thunk = static_cast<nsWriteSegmentThunk*>(aClosure);
-  return thunk->mFun(thunk->mStream, thunk->mClosure, aBuffer, aOffset, aCount,
-                     aCountWritten);
+  return thunk->mFun(
+      thunk->mStream, thunk->mClosure, aBuffer, aOffset, aCount, aCountWritten);
 }
 
 nsresult
-NS_FillArray(FallibleTArray<char>& aDest, nsIInputStream* aInput,
-             uint32_t aKeep, uint32_t* aNewBytes)
+NS_FillArray(FallibleTArray<char>& aDest,
+             nsIInputStream* aInput,
+             uint32_t aKeep,
+             uint32_t* aNewBytes)
 {
   MOZ_ASSERT(aInput, "null stream");
   MOZ_ASSERT(aKeep <= aDest.Length(), "illegal keep count");
@@ -882,7 +866,7 @@ NS_FillArray(FallibleTArray<char>& aDest, nsIInputStream* aInput,
   }
 
   nsresult rv =
-    aInput->Read(aBuffer + aKeep, aDest.Capacity() - aKeep, aNewBytes);
+      aInput->Read(aBuffer + aKeep, aDest.Capacity() - aKeep, aNewBytes);
   if (NS_FAILED(rv)) {
     *aNewBytes = 0;
   }
@@ -907,7 +891,8 @@ NS_InputStreamIsCloneable(nsIInputStream* aSource)
 }
 
 nsresult
-NS_CloneInputStream(nsIInputStream* aSource, nsIInputStream** aCloneOut,
+NS_CloneInputStream(nsIInputStream* aSource,
+                    nsIInputStream** aCloneOut,
                     nsIInputStream** aReplacementOut)
 {
   if (NS_WARN_IF(!aSource)) {
@@ -937,23 +922,34 @@ NS_CloneInputStream(nsIInputStream* aSource, nsIInputStream** aCloneOut,
   nsCOMPtr<nsIInputStream> readerClone;
   nsCOMPtr<nsIOutputStream> writer;
 
-  nsresult rv = NS_NewPipe(getter_AddRefs(reader), getter_AddRefs(writer),
-                           0, 0,        // default segment size and max size
-                           true, true); // non-blocking
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  nsresult rv = NS_NewPipe(getter_AddRefs(reader),
+                           getter_AddRefs(writer),
+                           0,
+                           0,  // default segment size and max size
+                           true,
+                           true);  // non-blocking
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   cloneable = do_QueryInterface(reader);
   MOZ_ASSERT(cloneable && cloneable->GetCloneable());
 
   rv = cloneable->Clone(getter_AddRefs(readerClone));
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   nsCOMPtr<nsIEventTarget> target =
-    do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID, &rv);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID, &rv);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   rv = NS_AsyncCopy(aSource, writer, target, NS_ASYNCCOPY_VIA_WRITESEGMENTS);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   readerClone.forget(aCloneOut);
   reader.forget(aReplacementOut);

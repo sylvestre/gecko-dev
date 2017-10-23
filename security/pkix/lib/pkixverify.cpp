@@ -24,18 +24,19 @@
 
 #include "pkixutil.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 Result
 DigestSignedData(TrustDomain& trustDomain,
                  const der::SignedDataWithSignature& signedData,
-                 /*out*/ uint8_t(&digestBuf)[MAX_DIGEST_SIZE_IN_BYTES],
+                 /*out*/ uint8_t (&digestBuf)[MAX_DIGEST_SIZE_IN_BYTES],
                  /*out*/ der::PublicKeyAlgorithm& publicKeyAlg,
                  /*out*/ SignedDigest& signedDigest)
 {
   Reader signatureAlg(signedData.algorithm);
   Result rv = der::SignatureAlgorithmIdentifierValue(
-                signatureAlg, publicKeyAlg, signedDigest.digestAlgorithm);
+      signatureAlg, publicKeyAlg, signedDigest.digestAlgorithm);
   if (rv != Success) {
     return rv;
   }
@@ -45,16 +46,24 @@ DigestSignedData(TrustDomain& trustDomain,
 
   size_t digestLen;
   switch (signedDigest.digestAlgorithm) {
-    case DigestAlgorithm::sha512: digestLen = 512 / 8; break;
-    case DigestAlgorithm::sha384: digestLen = 384 / 8; break;
-    case DigestAlgorithm::sha256: digestLen = 256 / 8; break;
-    case DigestAlgorithm::sha1: digestLen = 160 / 8; break;
-    MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
+    case DigestAlgorithm::sha512:
+      digestLen = 512 / 8;
+      break;
+    case DigestAlgorithm::sha384:
+      digestLen = 384 / 8;
+      break;
+    case DigestAlgorithm::sha256:
+      digestLen = 256 / 8;
+      break;
+    case DigestAlgorithm::sha1:
+      digestLen = 160 / 8;
+      break;
+      MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
   }
   assert(digestLen <= sizeof(digestBuf));
 
-  rv = trustDomain.DigestBuf(signedData.data, signedDigest.digestAlgorithm,
-                             digestBuf, digestLen);
+  rv = trustDomain.DigestBuf(
+      signedData.data, signedDigest.digestAlgorithm, digestBuf, digestLen);
   if (rv != Success) {
     return rv;
   }
@@ -79,7 +88,7 @@ VerifySignedDigest(TrustDomain& trustDomain,
     case der::PublicKeyAlgorithm::RSA_PKCS1:
       return trustDomain.VerifyRSAPKCS1SignedDigest(signedDigest,
                                                     signerSubjectPublicKeyInfo);
-    MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
+      MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
   }
 }
 
@@ -91,13 +100,14 @@ VerifySignedData(TrustDomain& trustDomain,
   uint8_t digestBuf[MAX_DIGEST_SIZE_IN_BYTES];
   der::PublicKeyAlgorithm publicKeyAlg;
   SignedDigest signedDigest;
-  Result rv = DigestSignedData(trustDomain, signedData, digestBuf,
-                               publicKeyAlg, signedDigest);
+  Result rv = DigestSignedData(
+      trustDomain, signedData, digestBuf, publicKeyAlg, signedDigest);
   if (rv != Success) {
     return rv;
   }
-  return VerifySignedDigest(trustDomain, publicKeyAlg, signedDigest,
-                            signerSubjectPublicKeyInfo);
+  return VerifySignedDigest(
+      trustDomain, publicKeyAlg, signedDigest, signerSubjectPublicKeyInfo);
 }
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla

@@ -11,16 +11,12 @@
 namespace mozilla {
 
 ProfilerChild::ProfilerChild()
-  : mThread(NS_GetCurrentThread())
-  , mDestroyed(false)
+    : mThread(NS_GetCurrentThread()), mDestroyed(false)
 {
   MOZ_COUNT_CTOR(ProfilerChild);
 }
 
-ProfilerChild::~ProfilerChild()
-{
-  MOZ_COUNT_DTOR(ProfilerChild);
-}
+ProfilerChild::~ProfilerChild() { MOZ_COUNT_DTOR(ProfilerChild); }
 
 mozilla::ipc::IPCResult
 ProfilerChild::RecvStart(const ProfilerInitParams& params)
@@ -30,7 +26,8 @@ ProfilerChild::RecvStart(const ProfilerInitParams& params)
     filterArray.AppendElement(params.filters()[i].get());
   }
 
-  profiler_start(params.entries(), params.interval(),
+  profiler_start(params.entries(),
+                 params.interval(),
                  params.features(),
                  filterArray.Elements(),
                  filterArray.Length());
@@ -46,9 +43,11 @@ ProfilerChild::RecvEnsureStarted(const ProfilerInitParams& params)
     filterArray.AppendElement(params.filters()[i].get());
   }
 
-  profiler_ensure_started(params.entries(), params.interval(),
+  profiler_ensure_started(params.entries(),
+                          params.interval(),
                           params.features(),
-                          filterArray.Elements(), filterArray.Length());
+                          filterArray.Elements(),
+                          filterArray.Length());
 
   return IPC_OK();
 }
@@ -79,7 +78,7 @@ CollectProfileOrEmptyString(bool aIsShuttingDown)
 {
   nsCString profileCString;
   UniquePtr<char[]> profile =
-    profiler_get_profile(/* aSinceTime */ 0, aIsShuttingDown);
+      profiler_get_profile(/* aSinceTime */ 0, aIsShuttingDown);
   if (profile) {
     profileCString = nsCString(profile.get(), strlen(profile.get()));
   } else {
@@ -115,4 +114,4 @@ ProfilerChild::GrabShutdownProfile()
   return CollectProfileOrEmptyString(/* aIsShuttingDown */ true);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

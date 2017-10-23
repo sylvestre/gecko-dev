@@ -16,12 +16,11 @@ using mozilla::Runnable;
 
 class WaitCondition final : public nsINestedEventLoopCondition
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   WaitCondition(Atomic<uint32_t>& aCounter, uint32_t aMaxCount)
-    : mCounter(aCounter)
-    , mMaxCount(aMaxCount)
+      : mCounter(aCounter), mMaxCount(aMaxCount)
   {
   }
 
@@ -31,7 +30,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   ~WaitCondition() = default;
 
   Atomic<uint32_t>& mCounter;
@@ -42,28 +41,23 @@ NS_IMPL_ISUPPORTS(WaitCondition, nsINestedEventLoopCondition)
 
 class SpinRunnable final : public Runnable
 {
-public:
+ public:
   explicit SpinRunnable(nsINestedEventLoopCondition* aCondition)
-    : Runnable("SpinRunnable")
-    , mCondition(aCondition)
-    , mResult(NS_OK)
+      : Runnable("SpinRunnable"), mCondition(aCondition), mResult(NS_OK)
   {
   }
 
   NS_IMETHODIMP Run()
   {
     nsCOMPtr<nsIThreadManager> threadMan =
-      do_GetService("@mozilla.org/thread-manager;1");
+        do_GetService("@mozilla.org/thread-manager;1");
     mResult = threadMan->SpinEventLoopUntil(mCondition);
     return NS_OK;
   }
 
-  nsresult SpinLoopResult()
-  {
-    return mResult;
-  }
+  nsresult SpinLoopResult() { return mResult; }
 
-private:
+ private:
   ~SpinRunnable() = default;
 
   nsCOMPtr<nsINestedEventLoopCondition> mCondition;
@@ -72,10 +66,9 @@ private:
 
 class CountRunnable final : public Runnable
 {
-public:
+ public:
   explicit CountRunnable(Atomic<uint32_t>& aCounter)
-    : Runnable("CountRunnable")
-    , mCounter(aCounter)
+      : Runnable("CountRunnable"), mCounter(aCounter)
   {
   }
 
@@ -85,7 +78,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   Atomic<uint32_t>& mCounter;
 };
 
@@ -96,7 +89,7 @@ TEST(ThreadManager, SpinEventLoopUntilSuccess)
   mozilla::Atomic<uint32_t> count(0);
 
   nsCOMPtr<nsINestedEventLoopCondition> condition =
-    new WaitCondition(count, kRunnablesToDispatch);
+      new WaitCondition(count, kRunnablesToDispatch);
   RefPtr<SpinRunnable> spinner = new SpinRunnable(condition);
   nsCOMPtr<nsIThread> thread;
   rv = NS_NewNamedThread("SpinEventLoop", getter_AddRefs(thread), spinner);
@@ -115,12 +108,11 @@ TEST(ThreadManager, SpinEventLoopUntilSuccess)
 
 class ErrorCondition final : public nsINestedEventLoopCondition
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   ErrorCondition(Atomic<uint32_t>& aCounter, uint32_t aMaxCount)
-    : mCounter(aCounter)
-    , mMaxCount(aMaxCount)
+      : mCounter(aCounter), mMaxCount(aMaxCount)
   {
   }
 
@@ -132,7 +124,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   ~ErrorCondition() = default;
 
   Atomic<uint32_t>& mCounter;
@@ -148,7 +140,7 @@ TEST(ThreadManager, SpinEventLoopUntilError)
   mozilla::Atomic<uint32_t> count(0);
 
   nsCOMPtr<nsINestedEventLoopCondition> condition =
-    new ErrorCondition(count, kRunnablesToDispatch);
+      new ErrorCondition(count, kRunnablesToDispatch);
   RefPtr<SpinRunnable> spinner = new SpinRunnable(condition);
   nsCOMPtr<nsIThread> thread;
   rv = NS_NewNamedThread("SpinEventLoop", getter_AddRefs(thread), spinner);

@@ -30,12 +30,14 @@ class ProfilerParentTracker;
 // and handles shutdown.
 class ProfilerParent final : public PProfilerParent
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(ProfilerParent)
 
-  static mozilla::ipc::Endpoint<PProfilerChild> CreateForProcess(base::ProcessId aOtherPid);
+  static mozilla::ipc::Endpoint<PProfilerChild> CreateForProcess(
+      base::ProcessId aOtherPid);
 
-  typedef MozPromise<nsCString, PromiseRejectReason, false> SingleProcessProfilePromise;
+  typedef MozPromise<nsCString, PromiseRejectReason, false>
+      SingleProcessProfilePromise;
 
   // The following static methods can be called on any thread, but they are
   // no-ops on anything other than the main thread.
@@ -57,7 +59,7 @@ public:
   static void ProfilerPaused();
   static void ProfilerResumed();
 
-private:
+ private:
   friend class ProfilerParentTracker;
 
   ProfilerParent();
@@ -68,10 +70,11 @@ private:
   void DeallocPProfilerParent() override;
 
   RefPtr<ProfilerParent> mSelfRef;
-  nsTArray<MozPromiseHolder<SingleProcessProfilePromise>> mPendingRequestedProfiles;
+  nsTArray<MozPromiseHolder<SingleProcessProfilePromise>>
+      mPendingRequestedProfiles;
   bool mDestroyed;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif  // ProfilerParent_h

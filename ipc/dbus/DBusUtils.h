@@ -25,7 +25,8 @@
 
 // LOGE and free a D-Bus error
 // Using #define so that __FUNCTION__ resolves usefully
-#define LOG_AND_FREE_DBUS_ERROR_WITH_MSG(err, msg) log_and_free_dbus_error(err, __FUNCTION__, msg);
+#define LOG_AND_FREE_DBUS_ERROR_WITH_MSG(err, msg) \
+  log_and_free_dbus_error(err, __FUNCTION__, msg);
 #define LOG_AND_FREE_DBUS_ERROR(err) log_and_free_dbus_error(err, __FUNCTION__);
 
 namespace mozilla {
@@ -33,21 +34,15 @@ namespace ipc {
 
 class DBusMessageRefPtr
 {
-public:
+ public:
   explicit DBusMessageRefPtr(DBusMessage* aMsg);
   ~DBusMessageRefPtr();
 
-  operator DBusMessage* ()
-  {
-    return mMsg;
-  }
+  operator DBusMessage*() { return mMsg; }
 
-  DBusMessage* get()
-  {
-    return mMsg;
-  }
+  DBusMessage* get() { return mMsg; }
 
-private:
+ private:
   DBusMessage* mMsg;
 };
 
@@ -59,7 +54,7 @@ private:
  */
 class DBusReplyHandler
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DBusReplyHandler)
 
   /**
@@ -73,33 +68,25 @@ public:
    */
   virtual void Handle(DBusMessage* aReply) = 0;
 
-protected:
-  DBusReplyHandler()
-  {
-  }
+ protected:
+  DBusReplyHandler() {}
 
-  DBusReplyHandler(const DBusReplyHandler& aHandler)
-  {
-  }
+  DBusReplyHandler(const DBusReplyHandler& aHandler) {}
 
-  DBusReplyHandler& operator = (const DBusReplyHandler& aRhs)
-  {
-    return *this;
-  }
+  DBusReplyHandler& operator=(const DBusReplyHandler& aRhs) { return *this; }
 
-  virtual ~DBusReplyHandler()
-  {
-  }
+  virtual ~DBusReplyHandler() {}
 };
 
-void log_and_free_dbus_error(DBusError* err,
-                             const char* function,
-                             DBusMessage* msg = nullptr);
+void
+log_and_free_dbus_error(DBusError* err,
+                        const char* function,
+                        DBusMessage* msg = nullptr);
 
-int dbus_returns_int32(DBusMessage *reply);
+int
+dbus_returns_int32(DBusMessage* reply);
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif
-

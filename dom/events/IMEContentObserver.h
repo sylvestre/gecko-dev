@@ -12,7 +12,7 @@
 #include "mozilla/dom/Selection.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsIDocShell.h" // XXX Why does only this need to be included here?
+#include "nsIDocShell.h"  // XXX Why does only this need to be included here?
 #include "nsIEditorObserver.h"
 #include "nsIReflowObserver.h"
 #include "nsISelectionListener.h"
@@ -35,14 +35,14 @@ class TextComposition;
 
 // IMEContentObserver notifies widget of any text and selection changes
 // in the currently focused editor
-class IMEContentObserver final : public nsISelectionListener
-                               , public nsStubMutationObserver
-                               , public nsIReflowObserver
-                               , public nsIScrollObserver
-                               , public nsSupportsWeakReference
-                               , public nsIEditorObserver
+class IMEContentObserver final : public nsISelectionListener,
+                                 public nsStubMutationObserver,
+                                 public nsIReflowObserver,
+                                 public nsIScrollObserver,
+                                 public nsSupportsWeakReference,
+                                 public nsIEditorObserver
 {
-public:
+ public:
   typedef ContentEventHandler::NodePosition NodePosition;
   typedef ContentEventHandler::NodePositionBefore NodePositionBefore;
   typedef widget::IMENotification::SelectionChangeData SelectionChangeData;
@@ -93,8 +93,10 @@ public:
    *                        Otherwise, i.e., this will observe a plugin content,
    *                        should be nullptr.
    */
-  void Init(nsIWidget* aWidget, nsPresContext* aPresContext,
-            nsIContent* aContent, EditorBase* aEditorBase);
+  void Init(nsIWidget* aWidget,
+            nsPresContext* aPresContext,
+            nsIContent* aContent,
+            EditorBase* aEditorBase);
 
   /**
    * Destroy() finalizes the instance, i.e., stops observing contents and
@@ -166,17 +168,19 @@ public:
    */
   void MaybeNotifyCompositionEventHandled();
 
-private:
+ private:
   ~IMEContentObserver() {}
 
-  enum State {
+  enum State
+  {
     eState_NotObserving,
     eState_Initializing,
     eState_StoppedObserving,
     eState_Observing
   };
   State GetState() const;
-  bool InitWithEditor(nsPresContext* aPresContext, nsIContent* aContent,
+  bool InitWithEditor(nsPresContext* aPresContext,
+                      nsIContent* aContent,
                       EditorBase* aEditorBase);
   bool InitWithPlugin(nsPresContext* aPresContext, nsIContent* aContent);
   bool IsInitializedWithPlugin() const { return !mEditorBase; }
@@ -290,8 +294,7 @@ private:
   }
   bool NeedsToNotifyIMEOfSomething() const
   {
-    return mNeedsToNotifyIMEOfFocusSet ||
-           mNeedsToNotifyIMEOfTextChange ||
+    return mNeedsToNotifyIMEOfFocusSet || mNeedsToNotifyIMEOfTextChange ||
            mNeedsToNotifyIMEOfSelectionChange ||
            mNeedsToNotifyIMEOfPositionChange ||
            mNeedsToNotifyIMEOfCompositionEventHandled;
@@ -320,9 +323,9 @@ private:
    * Helper classes to notify IME.
    */
 
-  class AChangeEvent: public Runnable
+  class AChangeEvent : public Runnable
   {
-  protected:
+   protected:
     enum ChangeEventType
     {
       eChangeEventType_Focus,
@@ -334,10 +337,9 @@ private:
 
     explicit AChangeEvent(const char* aName,
                           IMEContentObserver* aIMEContentObserver)
-      : Runnable(aName)
-      , mIMEContentObserver(
-          do_GetWeakReference(
-            static_cast<nsISelectionListener*>(aIMEContentObserver)))
+        : Runnable(aName),
+          mIMEContentObserver(do_GetWeakReference(
+              static_cast<nsISelectionListener*>(aIMEContentObserver)))
     {
       MOZ_ASSERT(aIMEContentObserver);
     }
@@ -345,7 +347,7 @@ private:
     already_AddRefed<IMEContentObserver> GetObserver() const
     {
       nsCOMPtr<nsISelectionListener> observer =
-        do_QueryReferent(mIMEContentObserver);
+          do_QueryReferent(mIMEContentObserver);
       return observer.forget().downcast<IMEContentObserver>();
     }
 
@@ -362,18 +364,19 @@ private:
     bool IsSafeToNotifyIME(ChangeEventType aChangeEventType) const;
   };
 
-  class IMENotificationSender: public AChangeEvent
+  class IMENotificationSender : public AChangeEvent
   {
-  public:
+   public:
     explicit IMENotificationSender(IMEContentObserver* aIMEContentObserver)
-      : AChangeEvent("IMENotificationSender", aIMEContentObserver)
-      , mIsRunning(false)
+        : AChangeEvent("IMENotificationSender", aIMEContentObserver),
+          mIsRunning(false)
     {
     }
     NS_IMETHOD Run() override;
 
     void Dispatch(nsIDocShell* aDocShell);
-  private:
+
+   private:
     void SendFocusSet();
     void SendSelectionChange();
     void SendTextChange();
@@ -397,10 +400,9 @@ private:
    */
   class DocumentObserver final : public nsStubDocumentObserver
   {
-  public:
+   public:
     explicit DocumentObserver(IMEContentObserver& aIMEContentObserver)
-      : mIMEContentObserver(&aIMEContentObserver)
-      , mDocumentUpdating(0)
+        : mIMEContentObserver(&aIMEContentObserver), mDocumentUpdating(0)
     {
     }
 
@@ -417,7 +419,7 @@ private:
     bool IsObserving() const { return mDocument != nullptr; }
     bool IsUpdating() const { return mDocumentUpdating != 0; }
 
-  private:
+   private:
     DocumentObserver() = delete;
     virtual ~DocumentObserver() { Destroy(); }
 
@@ -444,10 +446,7 @@ private:
     // and a child node whose index is mNodeOffset of mContainerNode.
     uint32_t mFlatTextLength;
 
-    FlatTextCache()
-      : mFlatTextLength(0)
-    {
-    }
+    FlatTextCache() : mFlatTextLength(0) {}
 
     void Clear()
     {
@@ -456,8 +455,7 @@ private:
       mFlatTextLength = 0;
     }
 
-    void Cache(nsINode* aContainer, nsINode* aNode,
-               uint32_t aFlatTextLength)
+    void Cache(nsINode* aContainer, nsINode* aNode, uint32_t aFlatTextLength)
     {
       MOZ_ASSERT(aContainer, "aContainer must not be null");
       MOZ_ASSERT(!aNode || aNode->GetParentNode() == aContainer,
@@ -533,6 +531,6 @@ private:
   bool mIsHandlingQueryContentEvent;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_IMEContentObserver_h_
+#endif  // mozilla_IMEContentObserver_h_

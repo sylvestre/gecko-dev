@@ -21,9 +21,8 @@ namespace js {
 namespace jit {
 
 template <typename MemoryView>
-class EmulateStateOf
-{
-  private:
+class EmulateStateOf {
+   private:
     typedef typename MemoryView::BlockState BlockState;
 
     MIRGenerator* mir_;
@@ -32,45 +31,36 @@ class EmulateStateOf
     // Block state at the entrance of all basic blocks.
     Vector<BlockState*, 8, SystemAllocPolicy> states_;
 
-  public:
-    EmulateStateOf(MIRGenerator* mir, MIRGraph& graph)
-      : mir_(mir),
-        graph_(graph)
-    {
-    }
+   public:
+    EmulateStateOf(MIRGenerator* mir, MIRGraph& graph) : mir_(mir), graph_(graph) {}
 
     bool run(MemoryView& view);
 };
 
 template <typename MemoryView>
-bool
-EmulateStateOf<MemoryView>::run(MemoryView& view)
-{
+bool EmulateStateOf<MemoryView>::run(MemoryView& view) {
     // Initialize the current block state of each block to an unknown state.
-    if (!states_.appendN(nullptr, graph_.numBlocks()))
-        return false;
+    if (!states_.appendN(nullptr, graph_.numBlocks())) return false;
 
     // Initialize the first block which needs to be traversed in RPO.
     MBasicBlock* startBlock = view.startingBlock();
-    if (!view.initStartingState(&states_[startBlock->id()]))
-        return false;
+    if (!view.initStartingState(&states_[startBlock->id()])) return false;
 
     // Iterate over each basic block which has a valid entry state, and merge
     // the state in the successor blocks.
-    for (ReversePostorderIterator block = graph_.rpoBegin(startBlock); block != graph_.rpoEnd(); block++) {
-        if (mir_->shouldCancel(MemoryView::phaseName))
-            return false;
+    for (ReversePostorderIterator block = graph_.rpoBegin(startBlock); block != graph_.rpoEnd();
+         block++) {
+        if (mir_->shouldCancel(MemoryView::phaseName)) return false;
 
         // Get the block state as the result of the merge of all predecessors
         // which have already been visited in RPO.  This means that backedges
         // are not yet merged into the loop.
         BlockState* state = states_[block->id()];
-        if (!state)
-            continue;
+        if (!state) continue;
         view.setEntryBlockState(state);
 
         // Iterates over resume points, phi and instructions.
-        for (MNodeIterator iter(*block); iter; ) {
+        for (MNodeIterator iter(*block); iter;) {
             // Increment the iterator before visiting the instruction, as the
             // visit function might discard itself from the basic block.
             MNode* ins = *iter++;
@@ -78,16 +68,14 @@ EmulateStateOf<MemoryView>::run(MemoryView& view)
                 ins->toDefinition()->accept(&view);
             else
                 view.visitResumePoint(ins->toResumePoint());
-            if (view.oom())
-                return false;
+            if (view.oom()) return false;
         }
 
         // For each successor, merge the current state into the state of the
         // successors.
         for (size_t s = 0; s < block->numSuccessors(); s++) {
             MBasicBlock* succ = block->getSuccessor(s);
-            if (!view.mergeIntoSuccessorState(*block, succ, &states_[succ->id()]))
-                return false;
+            if (!view.mergeIntoSuccessorState(*block, succ, &states_[succ->id()])) return false;
         }
     }
 
@@ -95,14 +83,11 @@ EmulateStateOf<MemoryView>::run(MemoryView& view)
     return true;
 }
 
-static bool
-IsObjectEscaped(MInstruction* ins, JSObject* objDefault = nullptr);
+static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault = nullptr);
 
 // Returns False if the lambda is not escaped and if it is optimizable by
 // ScalarReplacementOfObject.
-static bool
-IsLambdaEscaped(MInstruction* lambda, JSObject* obj)
-{
+static bool IsLambdaEscaped(MInstruction* lambda, JSObject* obj) {
     MOZ_ASSERT(lambda->isLambda() || lambda->isLambdaArrow());
     JitSpewDef(JitSpew_Escape, "Check lambda\n", lambda);
     JitSpewIndent spewIndent(JitSpew_Escape);
@@ -135,9 +120,7 @@ IsLambdaEscaped(MInstruction* lambda, JSObject* obj)
     return false;
 }
 
-static inline bool
-IsOptimizableObjectInstruction(MInstruction* ins)
-{
+static inline bool IsOptimizableObjectInstruction(MInstruction* ins) {
     return ins->isNewObject() || ins->isCreateThisWithTemplate() || ins->isNewCallObject() ||
            ins->isNewIterator();
 }
@@ -147,9 +130,7 @@ IsOptimizableObjectInstruction(MInstruction* ins)
 //
 // For the moment, this code is dumb as it only supports objects which are not
 // changing shape, and which are known by TI at the object creation.
-static bool
-IsObjectEscaped(MInstruction* ins, JSObject* objDefault)
-{
+static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault) {
     MOZ_ASSERT(ins->type() == MIRType::Object);
     MOZ_ASSERT(IsOptimizableObjectInstruction(ins) || ins->isGuardShape() ||
                ins->isFunctionEnvironment());
@@ -158,8 +139,7 @@ IsObjectEscaped(MInstruction* ins, JSObject* objDefault)
     JitSpewIndent spewIndent(JitSpew_Escape);
 
     JSObject* obj = objDefault;
-    if (!obj)
-        obj = MObjectState::templateObjectOf(ins);
+    if (!obj) obj = MObjectState::templateObjectOf(ins);
 
     if (!obj) {
         JitSpew(JitSpew_Escape, "No template object defined.");
@@ -182,84 +162,83 @@ IsObjectEscaped(MInstruction* ins, JSObject* objDefault)
 
         MDefinition* def = consumer->toDefinition();
         switch (def->op()) {
-          case MDefinition::Opcode::StoreFixedSlot:
-          case MDefinition::Opcode::LoadFixedSlot:
-            // Not escaped if it is the first argument.
-            if (def->indexOf(*i) == 0)
-                break;
+            case MDefinition::Opcode::StoreFixedSlot:
+            case MDefinition::Opcode::LoadFixedSlot:
+                // Not escaped if it is the first argument.
+                if (def->indexOf(*i) == 0) break;
 
-            JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
-            return true;
-
-          case MDefinition::Opcode::LoadUnboxedScalar:
-          case MDefinition::Opcode::StoreUnboxedScalar:
-          case MDefinition::Opcode::LoadUnboxedObjectOrNull:
-          case MDefinition::Opcode::StoreUnboxedObjectOrNull:
-          case MDefinition::Opcode::LoadUnboxedString:
-          case MDefinition::Opcode::StoreUnboxedString:
-            // Not escaped if it is the first argument.
-            if (def->indexOf(*i) != 0) {
                 JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
                 return true;
-            }
 
-            if (!def->getOperand(1)->isConstant()) {
-                JitSpewDef(JitSpew_Escape, "is addressed with unknown index\n", def);
-                return true;
-            }
+            case MDefinition::Opcode::LoadUnboxedScalar:
+            case MDefinition::Opcode::StoreUnboxedScalar:
+            case MDefinition::Opcode::LoadUnboxedObjectOrNull:
+            case MDefinition::Opcode::StoreUnboxedObjectOrNull:
+            case MDefinition::Opcode::LoadUnboxedString:
+            case MDefinition::Opcode::StoreUnboxedString:
+                // Not escaped if it is the first argument.
+                if (def->indexOf(*i) != 0) {
+                    JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
+                    return true;
+                }
 
-            break;
+                if (!def->getOperand(1)->isConstant()) {
+                    JitSpewDef(JitSpew_Escape, "is addressed with unknown index\n", def);
+                    return true;
+                }
 
-          case MDefinition::Opcode::PostWriteBarrier:
-            break;
+                break;
 
-          case MDefinition::Opcode::Slots: {
+            case MDefinition::Opcode::PostWriteBarrier:
+                break;
+
+            case MDefinition::Opcode::Slots: {
 #ifdef DEBUG
-            // Assert that MSlots are only used by MStoreSlot and MLoadSlot.
-            MSlots* ins = def->toSlots();
-            MOZ_ASSERT(ins->object() != 0);
-            for (MUseIterator i(ins->usesBegin()); i != ins->usesEnd(); i++) {
-                // toDefinition should normally never fail, since they don't get
-                // captured by resume points.
-                MDefinition* def = (*i)->consumer()->toDefinition();
-                MOZ_ASSERT(def->op() == MDefinition::Opcode::StoreSlot ||
-                           def->op() == MDefinition::Opcode::LoadSlot);
-            }
+                // Assert that MSlots are only used by MStoreSlot and MLoadSlot.
+                MSlots* ins = def->toSlots();
+                MOZ_ASSERT(ins->object() != 0);
+                for (MUseIterator i(ins->usesBegin()); i != ins->usesEnd(); i++) {
+                    // toDefinition should normally never fail, since they don't get
+                    // captured by resume points.
+                    MDefinition* def = (*i)->consumer()->toDefinition();
+                    MOZ_ASSERT(def->op() == MDefinition::Opcode::StoreSlot ||
+                               def->op() == MDefinition::Opcode::LoadSlot);
+                }
 #endif
-            break;
-          }
-
-          case MDefinition::Opcode::GuardShape: {
-            MGuardShape* guard = def->toGuardShape();
-            MOZ_ASSERT(!ins->isGuardShape());
-            if (obj->maybeShape() != guard->shape()) {
-                JitSpewDef(JitSpew_Escape, "has a non-matching guard shape\n", guard);
-                return true;
+                break;
             }
-            if (IsObjectEscaped(def->toInstruction(), obj)) {
-                JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
-                return true;
+
+            case MDefinition::Opcode::GuardShape: {
+                MGuardShape* guard = def->toGuardShape();
+                MOZ_ASSERT(!ins->isGuardShape());
+                if (obj->maybeShape() != guard->shape()) {
+                    JitSpewDef(JitSpew_Escape, "has a non-matching guard shape\n", guard);
+                    return true;
+                }
+                if (IsObjectEscaped(def->toInstruction(), obj)) {
+                    JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
+                    return true;
+                }
+                break;
             }
-            break;
-          }
 
-          case MDefinition::Opcode::Lambda:
-          case MDefinition::Opcode::LambdaArrow: {
-            if (IsLambdaEscaped(def->toInstruction(), obj)) {
-                JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
-                return true;
+            case MDefinition::Opcode::Lambda:
+            case MDefinition::Opcode::LambdaArrow: {
+                if (IsLambdaEscaped(def->toInstruction(), obj)) {
+                    JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
+                    return true;
+                }
+                break;
             }
-            break;
-          }
 
-          // This instruction is a no-op used to verify that scalar replacement
-          // is working as expected in jit-test.
-          case MDefinition::Opcode::AssertRecoveredOnBailout:
-            break;
+            // This instruction is a no-op used to verify that scalar replacement
+            // is working as expected in jit-test.
+            case MDefinition::Opcode::AssertRecoveredOnBailout:
+                break;
 
-          default:
-            JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
-            return true;
+            default:
+                JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
+                return true;
         }
     }
 
@@ -267,13 +246,12 @@ IsObjectEscaped(MInstruction* ins, JSObject* objDefault)
     return false;
 }
 
-class ObjectMemoryView : public MDefinitionVisitorDefaultNoop
-{
-  public:
+class ObjectMemoryView : public MDefinitionVisitorDefaultNoop {
+   public:
     typedef MObjectState BlockState;
     static const char* phaseName;
 
-  private:
+   private:
     TempAllocator& alloc_;
     MConstant* undefinedVal_;
     MInstruction* obj_;
@@ -285,7 +263,7 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop
 
     bool oom_;
 
-  public:
+   public:
     ObjectMemoryView(TempAllocator& alloc, MInstruction* obj);
 
     MBasicBlock* startingBlock();
@@ -302,7 +280,7 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop
 
     bool oom() const { return oom_; }
 
-  public:
+   public:
     void visitResumePoint(MResumePoint* rp);
     void visitObjectState(MObjectState* ins);
     void visitStoreFixedSlot(MStoreFixedSlot* ins);
@@ -321,7 +299,7 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop
     void visitStoreUnboxedString(MStoreUnboxedString* ins);
     void visitLoadUnboxedString(MLoadUnboxedString* ins);
 
-  private:
+   private:
     void storeOffset(MInstruction* ins, size_t offset, MDefinition* value);
     void loadOffset(MInstruction* ins, size_t offset);
 };
@@ -329,13 +307,12 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop
 const char* ObjectMemoryView::phaseName = "Scalar Replacement of Object";
 
 ObjectMemoryView::ObjectMemoryView(TempAllocator& alloc, MInstruction* obj)
-  : alloc_(alloc),
-    obj_(obj),
-    startBlock_(obj->block()),
-    state_(nullptr),
-    lastResumePoint_(nullptr),
-    oom_(false)
-{
+    : alloc_(alloc),
+      obj_(obj),
+      startBlock_(obj->block()),
+      state_(nullptr),
+      lastResumePoint_(nullptr),
+      oom_(false) {
     // Annotate snapshots RValue such that we recover the store first.
     obj_->setIncompleteObject();
 
@@ -344,29 +321,21 @@ ObjectMemoryView::ObjectMemoryView(TempAllocator& alloc, MInstruction* obj)
     obj_->setImplicitlyUsedUnchecked();
 }
 
-MBasicBlock*
-ObjectMemoryView::startingBlock()
-{
-    return startBlock_;
-}
+MBasicBlock* ObjectMemoryView::startingBlock() { return startBlock_; }
 
-bool
-ObjectMemoryView::initStartingState(BlockState** pState)
-{
+bool ObjectMemoryView::initStartingState(BlockState** pState) {
     // Uninitialized slots have an "undefined" value.
     undefinedVal_ = MConstant::New(alloc_, UndefinedValue());
     startBlock_->insertBefore(obj_, undefinedVal_);
 
     // Create a new block state and insert at it at the location of the new object.
     BlockState* state = BlockState::New(alloc_, obj_);
-    if (!state)
-        return false;
+    if (!state) return false;
 
     startBlock_->insertAfter(obj_, state);
 
     // Initialize the properties of the object state.
-    if (!state->initFromTemplateObject(alloc_, undefinedVal_))
-        return false;
+    if (!state->initFromTemplateObject(alloc_, undefinedVal_)) return false;
 
     // Hold out of resume point until it is visited.
     state->setInWorklist();
@@ -375,16 +344,10 @@ ObjectMemoryView::initStartingState(BlockState** pState)
     return true;
 }
 
-void
-ObjectMemoryView::setEntryBlockState(BlockState* state)
-{
-    state_ = state;
-}
+void ObjectMemoryView::setEntryBlockState(BlockState* state) { state_ = state; }
 
-bool
-ObjectMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
-                                          BlockState** pSuccState)
-{
+bool ObjectMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
+                                               BlockState** pSuccState) {
     BlockState* succState = *pSuccState;
 
     // When a block has no state yet, create an empty one for the
@@ -396,8 +359,7 @@ ObjectMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
         // analysis fails otherwise.  Such condition can succeed if the
         // successor is a join at the end of a if-block and the object
         // only exists within the branch.
-        if (!startBlock_->dominates(succ))
-            return true;
+        if (!startBlock_->dominates(succ)) return true;
 
         // If there is only one predecessor, carry over the last state of the
         // block to the successor.  As the block state is immutable, if the
@@ -413,19 +375,16 @@ ObjectMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
         // nodes.  These would later be removed by the removal of redundant phi
         // nodes.
         succState = BlockState::Copy(alloc_, state_);
-        if (!succState)
-            return false;
+        if (!succState) return false;
 
         size_t numPreds = succ->numPredecessors();
         for (size_t slot = 0; slot < state_->numSlots(); slot++) {
             MPhi* phi = MPhi::New(alloc_);
-            if (!phi->reserveLength(numPreds))
-                return false;
+            if (!phi->reserveLength(numPreds)) return false;
 
             // Fill the input of the successors Phi with undefined
             // values, and each block later fills the Phi inputs.
-            for (size_t p = 0; p < numPreds; p++)
-                phi->addInput(undefinedVal_);
+            for (size_t p = 0; p < numPreds; p++) phi->addInput(undefinedVal_);
 
             // Add Phi in the list of Phis of the basic block.
             succ->addPhi(phi);
@@ -467,9 +426,7 @@ ObjectMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
 }
 
 #ifdef DEBUG
-void
-ObjectMemoryView::assertSuccess()
-{
+void ObjectMemoryView::assertSuccess() {
     for (MUseIterator i(obj_->usesBegin()); i != obj_->usesEnd(); i++) {
         MNode* ins = (*i)->consumer();
         MDefinition* def = nullptr;
@@ -488,9 +445,7 @@ ObjectMemoryView::assertSuccess()
 }
 #endif
 
-void
-ObjectMemoryView::visitResumePoint(MResumePoint* rp)
-{
+void ObjectMemoryView::visitResumePoint(MResumePoint* rp) {
     // As long as the MObjectState is not yet seen next to the allocation, we do
     // not patch the resume point to recover the side effects.
     if (!state_->isInWorklist()) {
@@ -499,19 +454,13 @@ ObjectMemoryView::visitResumePoint(MResumePoint* rp)
     }
 }
 
-void
-ObjectMemoryView::visitObjectState(MObjectState* ins)
-{
-    if (ins->isInWorklist())
-        ins->setNotInWorklist();
+void ObjectMemoryView::visitObjectState(MObjectState* ins) {
+    if (ins->isInWorklist()) ins->setNotInWorklist();
 }
 
-void
-ObjectMemoryView::visitStoreFixedSlot(MStoreFixedSlot* ins)
-{
+void ObjectMemoryView::visitStoreFixedSlot(MStoreFixedSlot* ins) {
     // Skip stores made on other objects.
-    if (ins->object() != obj_)
-        return;
+    if (ins->object() != obj_) return;
 
     // Clone the state and update the slot value.
     if (state_->hasFixedSlot(ins->slot())) {
@@ -534,12 +483,9 @@ ObjectMemoryView::visitStoreFixedSlot(MStoreFixedSlot* ins)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitLoadFixedSlot(MLoadFixedSlot* ins)
-{
+void ObjectMemoryView::visitLoadFixedSlot(MLoadFixedSlot* ins) {
     // Skip loads made on other objects.
-    if (ins->object() != obj_)
-        return;
+    if (ins->object() != obj_) return;
 
     // Replace load by the slot value.
     if (state_->hasFixedSlot(ins->slot())) {
@@ -556,25 +502,21 @@ ObjectMemoryView::visitLoadFixedSlot(MLoadFixedSlot* ins)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitPostWriteBarrier(MPostWriteBarrier* ins)
-{
+void ObjectMemoryView::visitPostWriteBarrier(MPostWriteBarrier* ins) {
     // Skip loads made on other objects.
-    if (ins->object() != obj_)
-        return;
+    if (ins->object() != obj_) return;
 
     // Remove original instruction.
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitStoreSlot(MStoreSlot* ins)
-{
+void ObjectMemoryView::visitStoreSlot(MStoreSlot* ins) {
     // Skip stores made on other objects.
     MSlots* slots = ins->slots()->toSlots();
     if (slots->object() != obj_) {
         // Guard objects are replaced when they are visited.
-        MOZ_ASSERT(!slots->object()->isGuardShape() || slots->object()->toGuardShape()->object() != obj_);
+        MOZ_ASSERT(!slots->object()->isGuardShape() ||
+                   slots->object()->toGuardShape()->object() != obj_);
         return;
     }
 
@@ -599,14 +541,13 @@ ObjectMemoryView::visitStoreSlot(MStoreSlot* ins)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitLoadSlot(MLoadSlot* ins)
-{
+void ObjectMemoryView::visitLoadSlot(MLoadSlot* ins) {
     // Skip loads made on other objects.
     MSlots* slots = ins->slots()->toSlots();
     if (slots->object() != obj_) {
         // Guard objects are replaced when they are visited.
-        MOZ_ASSERT(!slots->object()->isGuardShape() || slots->object()->toGuardShape()->object() != obj_);
+        MOZ_ASSERT(!slots->object()->isGuardShape() ||
+                   slots->object()->toGuardShape()->object() != obj_);
         return;
     }
 
@@ -625,12 +566,9 @@ ObjectMemoryView::visitLoadSlot(MLoadSlot* ins)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitGuardShape(MGuardShape* ins)
-{
+void ObjectMemoryView::visitGuardShape(MGuardShape* ins) {
     // Skip loads made on other objects.
-    if (ins->object() != obj_)
-        return;
+    if (ins->object() != obj_) return;
 
     // Replace the shape guard by its object.
     ins->replaceAllUsesWith(obj_);
@@ -639,17 +577,13 @@ ObjectMemoryView::visitGuardShape(MGuardShape* ins)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitFunctionEnvironment(MFunctionEnvironment* ins)
-{
+void ObjectMemoryView::visitFunctionEnvironment(MFunctionEnvironment* ins) {
     // Skip function environment which are not aliases of the NewCallObject.
     MDefinition* input = ins->input();
     if (input->isLambda()) {
-        if (input->toLambda()->environmentChain() != obj_)
-            return;
+        if (input->toLambda()->environmentChain() != obj_) return;
     } else if (input->isLambdaArrow()) {
-        if (input->toLambdaArrow()->environmentChain() != obj_)
-            return;
+        if (input->toLambdaArrow()->environmentChain() != obj_) return;
     } else {
         return;
     }
@@ -661,44 +595,32 @@ ObjectMemoryView::visitFunctionEnvironment(MFunctionEnvironment* ins)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitLambda(MLambda* ins)
-{
-    if (ins->environmentChain() != obj_)
-        return;
+void ObjectMemoryView::visitLambda(MLambda* ins) {
+    if (ins->environmentChain() != obj_) return;
 
     // In order to recover the lambda we need to recover the scope chain, as the
     // lambda is holding it.
     ins->setIncompleteObject();
 }
 
-void
-ObjectMemoryView::visitLambdaArrow(MLambdaArrow* ins)
-{
-    if (ins->environmentChain() != obj_)
-        return;
+void ObjectMemoryView::visitLambdaArrow(MLambdaArrow* ins) {
+    if (ins->environmentChain() != obj_) return;
 
     ins->setIncompleteObject();
 }
 
-static size_t
-GetOffsetOf(MDefinition* index, size_t width, int32_t baseOffset)
-{
+static size_t GetOffsetOf(MDefinition* index, size_t width, int32_t baseOffset) {
     int32_t idx = index->toConstant()->toInt32();
     MOZ_ASSERT(idx >= 0);
     MOZ_ASSERT(baseOffset >= 0 && size_t(baseOffset) >= UnboxedPlainObject::offsetOfData());
     return idx * width + baseOffset - UnboxedPlainObject::offsetOfData();
 }
 
-static size_t
-GetOffsetOf(MDefinition* index, Scalar::Type type, int32_t baseOffset)
-{
+static size_t GetOffsetOf(MDefinition* index, Scalar::Type type, int32_t baseOffset) {
     return GetOffsetOf(index, Scalar::byteSize(type), baseOffset);
 }
 
-void
-ObjectMemoryView::storeOffset(MInstruction* ins, size_t offset, MDefinition* value)
-{
+void ObjectMemoryView::storeOffset(MInstruction* ins, size_t offset, MDefinition* value) {
     // Clone the state and update the slot value.
     MOZ_ASSERT(state_->hasOffset(offset));
     state_ = BlockState::Copy(alloc_, state_);
@@ -714,9 +636,7 @@ ObjectMemoryView::storeOffset(MInstruction* ins, size_t offset, MDefinition* val
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::loadOffset(MInstruction* ins, size_t offset)
-{
+void ObjectMemoryView::loadOffset(MInstruction* ins, size_t offset) {
     // Replace load by the slot value.
     MOZ_ASSERT(state_->hasOffset(offset));
     ins->replaceAllUsesWith(state_->getOffset(offset));
@@ -725,98 +645,73 @@ ObjectMemoryView::loadOffset(MInstruction* ins, size_t offset)
     ins->block()->discard(ins);
 }
 
-void
-ObjectMemoryView::visitStoreUnboxedScalar(MStoreUnboxedScalar* ins)
-{
+void ObjectMemoryView::visitStoreUnboxedScalar(MStoreUnboxedScalar* ins) {
     // Skip stores made on other objects.
-    if (ins->elements() != obj_)
-        return;
+    if (ins->elements() != obj_) return;
 
     size_t offset = GetOffsetOf(ins->index(), ins->storageType(), ins->offsetAdjustment());
     storeOffset(ins, offset, ins->value());
 }
 
-void
-ObjectMemoryView::visitLoadUnboxedScalar(MLoadUnboxedScalar* ins)
-{
+void ObjectMemoryView::visitLoadUnboxedScalar(MLoadUnboxedScalar* ins) {
     // Skip loads made on other objects.
-    if (ins->elements() != obj_)
-        return;
+    if (ins->elements() != obj_) return;
 
     // Replace load by the slot value.
     size_t offset = GetOffsetOf(ins->index(), ins->storageType(), ins->offsetAdjustment());
     loadOffset(ins, offset);
 }
 
-void
-ObjectMemoryView::visitStoreUnboxedObjectOrNull(MStoreUnboxedObjectOrNull* ins)
-{
+void ObjectMemoryView::visitStoreUnboxedObjectOrNull(MStoreUnboxedObjectOrNull* ins) {
     // Skip stores made on other objects.
-    if (ins->elements() != obj_)
-        return;
+    if (ins->elements() != obj_) return;
 
     // Clone the state and update the slot value.
     size_t offset = GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
     storeOffset(ins, offset, ins->value());
 }
 
-void
-ObjectMemoryView::visitLoadUnboxedObjectOrNull(MLoadUnboxedObjectOrNull* ins)
-{
+void ObjectMemoryView::visitLoadUnboxedObjectOrNull(MLoadUnboxedObjectOrNull* ins) {
     // Skip loads made on other objects.
-    if (ins->elements() != obj_)
-        return;
+    if (ins->elements() != obj_) return;
 
     // Replace load by the slot value.
     size_t offset = GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
     loadOffset(ins, offset);
 }
 
-void
-ObjectMemoryView::visitStoreUnboxedString(MStoreUnboxedString* ins)
-{
+void ObjectMemoryView::visitStoreUnboxedString(MStoreUnboxedString* ins) {
     // Skip stores made on other objects.
-    if (ins->elements() != obj_)
-        return;
+    if (ins->elements() != obj_) return;
 
     // Clone the state and update the slot value.
     size_t offset = GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
     storeOffset(ins, offset, ins->value());
 }
 
-void
-ObjectMemoryView::visitLoadUnboxedString(MLoadUnboxedString* ins)
-{
+void ObjectMemoryView::visitLoadUnboxedString(MLoadUnboxedString* ins) {
     // Skip loads made on other objects.
-    if (ins->elements() != obj_)
-        return;
+    if (ins->elements() != obj_) return;
 
     // Replace load by the slot value.
     size_t offset = GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
     loadOffset(ins, offset);
 }
 
-static bool
-IndexOf(MDefinition* ins, int32_t* res)
-{
+static bool IndexOf(MDefinition* ins, int32_t* res) {
     MOZ_ASSERT(ins->isLoadElement() || ins->isStoreElement());
-    MDefinition* indexDef = ins->getOperand(1); // ins->index();
-    if (indexDef->isBoundsCheck())
-        indexDef = indexDef->toBoundsCheck()->index();
-    if (indexDef->isToInt32())
-        indexDef = indexDef->toToInt32()->getOperand(0);
+    MDefinition* indexDef = ins->getOperand(1);  // ins->index();
+    if (indexDef->isBoundsCheck()) indexDef = indexDef->toBoundsCheck()->index();
+    if (indexDef->isToInt32()) indexDef = indexDef->toToInt32()->getOperand(0);
     MConstant* indexDefConst = indexDef->maybeConstantValue();
-    if (!indexDefConst || indexDefConst->type() != MIRType::Int32)
-        return false;
+    if (!indexDefConst || indexDefConst->type() != MIRType::Int32) return false;
     *res = indexDefConst->toInt32();
     return true;
 }
 
 // Returns False if the elements is not escaped and if it is optimizable by
 // ScalarReplacementOfArray.
-static bool
-IsElementEscaped(MElements* def, uint32_t arraySize)
-{
+static bool IsElementEscaped(MElements* def, uint32_t arraySize) {
     JitSpewDef(JitSpew_Escape, "Check elements\n", def);
     JitSpewIndent spewIndent(JitSpew_Escape);
 
@@ -826,85 +721,86 @@ IsElementEscaped(MElements* def, uint32_t arraySize)
         MDefinition* access = (*i)->consumer()->toDefinition();
 
         switch (access->op()) {
-          case MDefinition::Opcode::LoadElement: {
-            MOZ_ASSERT(access->toLoadElement()->elements() == def);
+            case MDefinition::Opcode::LoadElement: {
+                MOZ_ASSERT(access->toLoadElement()->elements() == def);
 
-            // If we need hole checks, then the array cannot be escaped
-            // as the array might refer to the prototype chain to look
-            // for properties, thus it might do additional side-effects
-            // which are not reflected by the alias set, is we are
-            // bailing on holes.
-            if (access->toLoadElement()->needsHoleCheck()) {
-                JitSpewDef(JitSpew_Escape,
-                           "has a load element with a hole check\n", access);
-                return true;
+                // If we need hole checks, then the array cannot be escaped
+                // as the array might refer to the prototype chain to look
+                // for properties, thus it might do additional side-effects
+                // which are not reflected by the alias set, is we are
+                // bailing on holes.
+                if (access->toLoadElement()->needsHoleCheck()) {
+                    JitSpewDef(JitSpew_Escape, "has a load element with a hole check\n", access);
+                    return true;
+                }
+
+                // If the index is not a constant then this index can alias
+                // all others. We do not handle this case.
+                int32_t index;
+                if (!IndexOf(access, &index)) {
+                    JitSpewDef(JitSpew_Escape, "has a load element with a non-trivial index\n",
+                               access);
+                    return true;
+                }
+                if (index < 0 || arraySize <= uint32_t(index)) {
+                    JitSpewDef(JitSpew_Escape, "has a load element with an out-of-bound index\n",
+                               access);
+                    return true;
+                }
+                break;
             }
 
-            // If the index is not a constant then this index can alias
-            // all others. We do not handle this case.
-            int32_t index;
-            if (!IndexOf(access, &index)) {
-                JitSpewDef(JitSpew_Escape,
-                           "has a load element with a non-trivial index\n", access);
-                return true;
-            }
-            if (index < 0 || arraySize <= uint32_t(index)) {
-                JitSpewDef(JitSpew_Escape,
-                           "has a load element with an out-of-bound index\n", access);
-                return true;
-            }
-            break;
-          }
+            case MDefinition::Opcode::StoreElement: {
+                MOZ_ASSERT(access->toStoreElement()->elements() == def);
 
-          case MDefinition::Opcode::StoreElement: {
-            MOZ_ASSERT(access->toStoreElement()->elements() == def);
+                // If we need hole checks, then the array cannot be escaped
+                // as the array might refer to the prototype chain to look
+                // for properties, thus it might do additional side-effects
+                // which are not reflected by the alias set, is we are
+                // bailing on holes.
+                if (access->toStoreElement()->needsHoleCheck()) {
+                    JitSpewDef(JitSpew_Escape, "has a store element with a hole check\n", access);
+                    return true;
+                }
 
-            // If we need hole checks, then the array cannot be escaped
-            // as the array might refer to the prototype chain to look
-            // for properties, thus it might do additional side-effects
-            // which are not reflected by the alias set, is we are
-            // bailing on holes.
-            if (access->toStoreElement()->needsHoleCheck()) {
-                JitSpewDef(JitSpew_Escape,
-                           "has a store element with a hole check\n", access);
-                return true;
-            }
+                // If the index is not a constant then this index can alias
+                // all others. We do not handle this case.
+                int32_t index;
+                if (!IndexOf(access, &index)) {
+                    JitSpewDef(JitSpew_Escape, "has a store element with a non-trivial index\n",
+                               access);
+                    return true;
+                }
+                if (index < 0 || arraySize <= uint32_t(index)) {
+                    JitSpewDef(JitSpew_Escape, "has a store element with an out-of-bound index\n",
+                               access);
+                    return true;
+                }
 
-            // If the index is not a constant then this index can alias
-            // all others. We do not handle this case.
-            int32_t index;
-            if (!IndexOf(access, &index)) {
-                JitSpewDef(JitSpew_Escape, "has a store element with a non-trivial index\n", access);
-                return true;
-            }
-            if (index < 0 || arraySize <= uint32_t(index)) {
-                JitSpewDef(JitSpew_Escape, "has a store element with an out-of-bound index\n", access);
-                return true;
+                // We are not yet encoding magic hole constants in resume points.
+                if (access->toStoreElement()->value()->type() == MIRType::MagicHole) {
+                    JitSpewDef(JitSpew_Escape, "has a store element with an magic-hole constant\n",
+                               access);
+                    return true;
+                }
+                break;
             }
 
-            // We are not yet encoding magic hole constants in resume points.
-            if (access->toStoreElement()->value()->type() == MIRType::MagicHole) {
-                JitSpewDef(JitSpew_Escape, "has a store element with an magic-hole constant\n", access);
+            case MDefinition::Opcode::SetInitializedLength:
+                MOZ_ASSERT(access->toSetInitializedLength()->elements() == def);
+                break;
+
+            case MDefinition::Opcode::InitializedLength:
+                MOZ_ASSERT(access->toInitializedLength()->elements() == def);
+                break;
+
+            case MDefinition::Opcode::ArrayLength:
+                MOZ_ASSERT(access->toArrayLength()->elements() == def);
+                break;
+
+            default:
+                JitSpewDef(JitSpew_Escape, "is escaped by\n", access);
                 return true;
-            }
-            break;
-          }
-
-          case MDefinition::Opcode::SetInitializedLength:
-            MOZ_ASSERT(access->toSetInitializedLength()->elements() == def);
-            break;
-
-          case MDefinition::Opcode::InitializedLength:
-            MOZ_ASSERT(access->toInitializedLength()->elements() == def);
-            break;
-
-          case MDefinition::Opcode::ArrayLength:
-            MOZ_ASSERT(access->toArrayLength()->elements() == def);
-            break;
-
-          default:
-            JitSpewDef(JitSpew_Escape, "is escaped by\n", access);
-            return true;
         }
     }
     JitSpew(JitSpew_Escape, "Elements is not escaped");
@@ -916,9 +812,7 @@ IsElementEscaped(MElements* def, uint32_t arraySize)
 //
 // For the moment, this code is dumb as it only supports arrays which are not
 // changing length, with only access with known constants.
-static bool
-IsArrayEscaped(MInstruction* ins)
-{
+static bool IsArrayEscaped(MInstruction* ins) {
     MOZ_ASSERT(ins->type() == MIRType::Object);
     MOZ_ASSERT(ins->isNewArray());
     uint32_t length = ins->toNewArray()->length();
@@ -953,25 +847,25 @@ IsArrayEscaped(MInstruction* ins)
 
         MDefinition* def = consumer->toDefinition();
         switch (def->op()) {
-          case MDefinition::Opcode::Elements: {
-            MElements *elem = def->toElements();
-            MOZ_ASSERT(elem->object() == ins);
-            if (IsElementEscaped(elem, length)) {
-                JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", elem);
-                return true;
+            case MDefinition::Opcode::Elements: {
+                MElements* elem = def->toElements();
+                MOZ_ASSERT(elem->object() == ins);
+                if (IsElementEscaped(elem, length)) {
+                    JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", elem);
+                    return true;
+                }
+
+                break;
             }
 
-            break;
-          }
+            // This instruction is a no-op used to verify that scalar replacement
+            // is working as expected in jit-test.
+            case MDefinition::Opcode::AssertRecoveredOnBailout:
+                break;
 
-          // This instruction is a no-op used to verify that scalar replacement
-          // is working as expected in jit-test.
-          case MDefinition::Opcode::AssertRecoveredOnBailout:
-            break;
-
-          default:
-            JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
-            return true;
+            default:
+                JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
+                return true;
         }
     }
 
@@ -985,13 +879,12 @@ IsArrayEscaped(MInstruction* ins)
 //
 // In order to restore the value of the array correctly in case of bailouts, we
 // replace all reference of the allocation by the MArrayState definition.
-class ArrayMemoryView : public MDefinitionVisitorDefaultNoop
-{
-  public:
+class ArrayMemoryView : public MDefinitionVisitorDefaultNoop {
+   public:
     typedef MArrayState BlockState;
     static const char* phaseName;
 
-  private:
+   private:
     TempAllocator& alloc_;
     MConstant* undefinedVal_;
     MConstant* length_;
@@ -1004,7 +897,7 @@ class ArrayMemoryView : public MDefinitionVisitorDefaultNoop
 
     bool oom_;
 
-  public:
+   public:
     ArrayMemoryView(TempAllocator& alloc, MInstruction* arr);
 
     MBasicBlock* startingBlock();
@@ -1021,11 +914,11 @@ class ArrayMemoryView : public MDefinitionVisitorDefaultNoop
 
     bool oom() const { return oom_; }
 
-  private:
+   private:
     bool isArrayStateElements(MDefinition* elements);
     void discardInstruction(MInstruction* ins, MDefinition* elements);
 
-  public:
+   public:
     void visitResumePoint(MResumePoint* rp);
     void visitArrayState(MArrayState* ins);
     void visitStoreElement(MStoreElement* ins);
@@ -1038,15 +931,14 @@ class ArrayMemoryView : public MDefinitionVisitorDefaultNoop
 const char* ArrayMemoryView::phaseName = "Scalar Replacement of Array";
 
 ArrayMemoryView::ArrayMemoryView(TempAllocator& alloc, MInstruction* arr)
-  : alloc_(alloc),
-    undefinedVal_(nullptr),
-    length_(nullptr),
-    arr_(arr),
-    startBlock_(arr->block()),
-    state_(nullptr),
-    lastResumePoint_(nullptr),
-    oom_(false)
-{
+    : alloc_(alloc),
+      undefinedVal_(nullptr),
+      length_(nullptr),
+      arr_(arr),
+      startBlock_(arr->block()),
+      state_(nullptr),
+      lastResumePoint_(nullptr),
+      oom_(false) {
     // Annotate snapshots RValue such that we recover the store first.
     arr_->setIncompleteObject();
 
@@ -1055,15 +947,9 @@ ArrayMemoryView::ArrayMemoryView(TempAllocator& alloc, MInstruction* arr)
     arr_->setImplicitlyUsedUnchecked();
 }
 
-MBasicBlock*
-ArrayMemoryView::startingBlock()
-{
-    return startBlock_;
-}
+MBasicBlock* ArrayMemoryView::startingBlock() { return startBlock_; }
 
-bool
-ArrayMemoryView::initStartingState(BlockState** pState)
-{
+bool ArrayMemoryView::initStartingState(BlockState** pState) {
     // Uninitialized elements have an "undefined" value.
     undefinedVal_ = MConstant::New(alloc_, UndefinedValue());
     MConstant* initLength = MConstant::New(alloc_, Int32Value(0));
@@ -1072,8 +958,7 @@ ArrayMemoryView::initStartingState(BlockState** pState)
 
     // Create a new block state and insert at it at the location of the new array.
     BlockState* state = BlockState::New(alloc_, arr_, undefinedVal_, initLength);
-    if (!state)
-        return false;
+    if (!state) return false;
 
     startBlock_->insertAfter(arr_, state);
 
@@ -1084,16 +969,10 @@ ArrayMemoryView::initStartingState(BlockState** pState)
     return true;
 }
 
-void
-ArrayMemoryView::setEntryBlockState(BlockState* state)
-{
-    state_ = state;
-}
+void ArrayMemoryView::setEntryBlockState(BlockState* state) { state_ = state; }
 
-bool
-ArrayMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
-                                          BlockState** pSuccState)
-{
+bool ArrayMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
+                                              BlockState** pSuccState) {
     BlockState* succState = *pSuccState;
 
     // When a block has no state yet, create an empty one for the
@@ -1105,8 +984,7 @@ ArrayMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
         // analysis fails otherwise.  Such condition can succeed if the
         // successor is a join at the end of a if-block and the array
         // only exists within the branch.
-        if (!startBlock_->dominates(succ))
-            return true;
+        if (!startBlock_->dominates(succ)) return true;
 
         // If there is only one predecessor, carry over the last state of the
         // block to the successor.  As the block state is immutable, if the
@@ -1122,19 +1000,16 @@ ArrayMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
         // nodes.  These would later be removed by the removal of redundant phi
         // nodes.
         succState = BlockState::Copy(alloc_, state_);
-        if (!succState)
-            return false;
+        if (!succState) return false;
 
         size_t numPreds = succ->numPredecessors();
         for (size_t index = 0; index < state_->numElements(); index++) {
             MPhi* phi = MPhi::New(alloc_);
-            if (!phi->reserveLength(numPreds))
-                return false;
+            if (!phi->reserveLength(numPreds)) return false;
 
             // Fill the input of the successors Phi with undefined
             // values, and each block later fills the Phi inputs.
-            for (size_t p = 0; p < numPreds; p++)
-                phi->addInput(undefinedVal_);
+            for (size_t p = 0; p < numPreds; p++) phi->addInput(undefinedVal_);
 
             // Add Phi in the list of Phis of the basic block.
             succ->addPhi(phi);
@@ -1176,16 +1051,10 @@ ArrayMemoryView::mergeIntoSuccessorState(MBasicBlock* curr, MBasicBlock* succ,
 }
 
 #ifdef DEBUG
-void
-ArrayMemoryView::assertSuccess()
-{
-    MOZ_ASSERT(!arr_->hasLiveDefUses());
-}
+void ArrayMemoryView::assertSuccess() { MOZ_ASSERT(!arr_->hasLiveDefUses()); }
 #endif
 
-void
-ArrayMemoryView::visitResumePoint(MResumePoint* rp)
-{
+void ArrayMemoryView::visitResumePoint(MResumePoint* rp) {
     // As long as the MArrayState is not yet seen next to the allocation, we do
     // not patch the resume point to recover the side effects.
     if (!state_->isInWorklist()) {
@@ -1194,35 +1063,24 @@ ArrayMemoryView::visitResumePoint(MResumePoint* rp)
     }
 }
 
-void
-ArrayMemoryView::visitArrayState(MArrayState* ins)
-{
-    if (ins->isInWorklist())
-        ins->setNotInWorklist();
+void ArrayMemoryView::visitArrayState(MArrayState* ins) {
+    if (ins->isInWorklist()) ins->setNotInWorklist();
 }
 
-bool
-ArrayMemoryView::isArrayStateElements(MDefinition* elements)
-{
+bool ArrayMemoryView::isArrayStateElements(MDefinition* elements) {
     return elements->isElements() && elements->toElements()->object() == arr_;
 }
 
-void
-ArrayMemoryView::discardInstruction(MInstruction* ins, MDefinition* elements)
-{
+void ArrayMemoryView::discardInstruction(MInstruction* ins, MDefinition* elements) {
     MOZ_ASSERT(elements->isElements());
     ins->block()->discard(ins);
-    if (!elements->hasLiveDefUses())
-        elements->block()->discard(elements->toInstruction());
+    if (!elements->hasLiveDefUses()) elements->block()->discard(elements->toInstruction());
 }
 
-void
-ArrayMemoryView::visitStoreElement(MStoreElement* ins)
-{
+void ArrayMemoryView::visitStoreElement(MStoreElement* ins) {
     // Skip other array objects.
     MDefinition* elements = ins->elements();
-    if (!isArrayStateElements(elements))
-        return;
+    if (!isArrayStateElements(elements)) return;
 
     // Register value of the setter in the state.
     int32_t index;
@@ -1240,13 +1098,10 @@ ArrayMemoryView::visitStoreElement(MStoreElement* ins)
     discardInstruction(ins, elements);
 }
 
-void
-ArrayMemoryView::visitLoadElement(MLoadElement* ins)
-{
+void ArrayMemoryView::visitLoadElement(MLoadElement* ins) {
     // Skip other array objects.
     MDefinition* elements = ins->elements();
-    if (!isArrayStateElements(elements))
-        return;
+    if (!isArrayStateElements(elements)) return;
 
     // Replace by the value contained at the index.
     int32_t index;
@@ -1257,13 +1112,10 @@ ArrayMemoryView::visitLoadElement(MLoadElement* ins)
     discardInstruction(ins, elements);
 }
 
-void
-ArrayMemoryView::visitSetInitializedLength(MSetInitializedLength* ins)
-{
+void ArrayMemoryView::visitSetInitializedLength(MSetInitializedLength* ins) {
     // Skip other array objects.
     MDefinition* elements = ins->elements();
-    if (!isArrayStateElements(elements))
-        return;
+    if (!isArrayStateElements(elements)) return;
 
     // Replace by the new initialized length.  Note that the argument of
     // MSetInitalizedLength is the last index and not the initialized length.
@@ -1285,13 +1137,10 @@ ArrayMemoryView::visitSetInitializedLength(MSetInitializedLength* ins)
     discardInstruction(ins, elements);
 }
 
-void
-ArrayMemoryView::visitInitializedLength(MInitializedLength* ins)
-{
+void ArrayMemoryView::visitInitializedLength(MInitializedLength* ins) {
     // Skip other array objects.
     MDefinition* elements = ins->elements();
-    if (!isArrayStateElements(elements))
-        return;
+    if (!isArrayStateElements(elements)) return;
 
     // Replace by the value of the length.
     ins->replaceAllUsesWith(state_->initializedLength());
@@ -1300,13 +1149,10 @@ ArrayMemoryView::visitInitializedLength(MInitializedLength* ins)
     discardInstruction(ins, elements);
 }
 
-void
-ArrayMemoryView::visitArrayLength(MArrayLength* ins)
-{
+void ArrayMemoryView::visitArrayLength(MArrayLength* ins) {
     // Skip other array objects.
     MDefinition* elements = ins->elements();
-    if (!isArrayStateElements(elements))
-        return;
+    if (!isArrayStateElements(elements)) return;
 
     // Replace by the value of the length.
     if (!length_) {
@@ -1319,23 +1165,18 @@ ArrayMemoryView::visitArrayLength(MArrayLength* ins)
     discardInstruction(ins, elements);
 }
 
-bool
-ScalarReplacement(MIRGenerator* mir, MIRGraph& graph)
-{
+bool ScalarReplacement(MIRGenerator* mir, MIRGraph& graph) {
     EmulateStateOf<ObjectMemoryView> replaceObject(mir, graph);
     EmulateStateOf<ArrayMemoryView> replaceArray(mir, graph);
     bool addedPhi = false;
 
     for (ReversePostorderIterator block = graph.rpoBegin(); block != graph.rpoEnd(); block++) {
-        if (mir->shouldCancel("Scalar Replacement (main loop)"))
-            return false;
+        if (mir->shouldCancel("Scalar Replacement (main loop)")) return false;
 
         for (MInstructionIterator ins = block->begin(); ins != block->end(); ins++) {
-            if (IsOptimizableObjectInstruction(*ins) && !IsObjectEscaped(*ins))
-            {
+            if (IsOptimizableObjectInstruction(*ins) && !IsObjectEscaped(*ins)) {
                 ObjectMemoryView view(graph.alloc(), *ins);
-                if (!replaceObject.run(view))
-                    return false;
+                if (!replaceObject.run(view)) return false;
                 view.assertSuccess();
                 addedPhi = true;
                 continue;
@@ -1343,8 +1184,7 @@ ScalarReplacement(MIRGenerator* mir, MIRGraph& graph)
 
             if (ins->isNewArray() && !IsArrayEscaped(*ins)) {
                 ArrayMemoryView view(graph.alloc(), *ins);
-                if (!replaceArray.run(view))
-                    return false;
+                if (!replaceArray.run(view)) return false;
                 view.assertSuccess();
                 addedPhi = true;
                 continue;
@@ -1358,8 +1198,7 @@ ScalarReplacement(MIRGenerator* mir, MIRGraph& graph)
         // state. The conservative observability only focuses on Phis which are
         // not used as resume points operands.
         AssertExtendedGraphCoherency(graph);
-        if (!EliminatePhis(mir, graph, ConservativeObservability))
-            return false;
+        if (!EliminatePhis(mir, graph, ConservativeObservability)) return false;
     }
 
     return true;

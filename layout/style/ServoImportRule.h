@@ -19,16 +19,17 @@ class ServoMediaList;
 
 class ServoImportRule final : public dom::CSSImportRule
 {
-public:
+ public:
   ServoImportRule(RefPtr<RawServoImportRule> aRawRule,
-                  uint32_t aLine, uint32_t aColumn);
+                  uint32_t aLine,
+                  uint32_t aColumn);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ServoImportRule, dom::CSSImportRule)
 
   // unhide since nsIDOMCSSImportRule has its own GetStyleSheet and GetMedia
-  using dom::CSSImportRule::GetStyleSheet;
   using dom::CSSImportRule::GetMedia;
+  using dom::CSSImportRule::GetStyleSheet;
 
 #ifdef DEBUG
   void List(FILE* out = stdout, int32_t aIndent = 0) const final;
@@ -44,13 +45,13 @@ public:
   dom::MediaList* GetMedia() const final;
   StyleSheet* GetStyleSheet() const final;
 
-private:
+ private:
   ~ServoImportRule();
 
   RefPtr<RawServoImportRule> mRawRule;
   RefPtr<ServoStyleSheet> mChildSheet;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoImportRule_h
+#endif  // mozilla_ServoImportRule_h

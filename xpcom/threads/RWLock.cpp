@@ -19,9 +19,10 @@ static_assert(sizeof(SRWLOCK) <= sizeof(void*), "SRWLOCK is too big!");
 namespace mozilla {
 
 RWLock::RWLock(const char* aName)
-  : BlockingResourceBase(aName, eMutex)
+    : BlockingResourceBase(aName, eMutex)
 #ifdef DEBUG
-  , mOwningThread(nullptr)
+      ,
+      mOwningThread(nullptr)
 #endif
 {
 #ifdef XP_WIN
@@ -92,6 +93,6 @@ RWLock::WriteUnlockInternal()
 #endif
 }
 
-}
+}  // namespace mozilla
 
 #undef NativeHandle

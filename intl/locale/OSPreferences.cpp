@@ -100,8 +100,8 @@ OSPreferences::CanonicalizeLanguageTag(nsCString& aLoc)
 
   UErrorCode status = U_ZERO_ERROR;
 
-  int32_t langTagLen =
-    uloc_toLanguageTag(aLoc.get(), langTag, sizeof(langTag) - 1, false, &status);
+  int32_t langTagLen = uloc_toLanguageTag(
+      aLoc.get(), langTag, sizeof(langTag) - 1, false, &status);
 
   if (U_FAILURE(status)) {
     return false;
@@ -176,9 +176,8 @@ OSPreferences::GetDateTimePatternForStyle(DateTimeFormatStyle aDateStyle,
   }
 
   UErrorCode status = U_ZERO_ERROR;
-  UDateFormat* df = udat_open(timeStyle, dateStyle,
-                              locale.get(),
-                              nullptr, -1, nullptr, -1, &status);
+  UDateFormat* df = udat_open(
+      timeStyle, dateStyle, locale.get(), nullptr, -1, nullptr, -1, &status);
   if (U_FAILURE(status)) {
     return false;
   }
@@ -191,7 +190,6 @@ OSPreferences::GetDateTimePatternForStyle(DateTimeFormatStyle aDateStyle,
   aRetVal.Assign((const char16_t*)pattern, patsize);
   return true;
 }
-
 
 /**
  * This method retrieves from ICU the best skeleton for a given date/time style.
@@ -216,10 +214,12 @@ OSPreferences::GetDateTimeSkeletonForStyle(DateTimeFormatStyle aDateStyle,
   UChar skeleton[kSkeletonMax];
 
   UErrorCode status = U_ZERO_ERROR;
-  int32_t skelsize = udatpg_getSkeleton(
-    nullptr, (const UChar*)pattern.BeginReading(), pattern.Length(),
-    skeleton, kSkeletonMax, &status
-  );
+  int32_t skelsize = udatpg_getSkeleton(nullptr,
+                                        (const UChar*)pattern.BeginReading(),
+                                        pattern.Length(),
+                                        skeleton,
+                                        kSkeletonMax,
+                                        &status);
   if (U_FAILURE(status)) {
     return false;
   }
@@ -243,20 +243,27 @@ OSPreferences::GetPatternForSkeleton(const nsAString& aSkeleton,
                                      nsAString& aRetVal)
 {
   UErrorCode status = U_ZERO_ERROR;
-  UDateTimePatternGenerator* pg = udatpg_open(PromiseFlatCString(aLocale).get(), &status);
+  UDateTimePatternGenerator* pg =
+      udatpg_open(PromiseFlatCString(aLocale).get(), &status);
   if (U_FAILURE(status)) {
     return false;
   }
 
-  int32_t len =
-    udatpg_getBestPattern(pg, (const UChar*)aSkeleton.BeginReading(),
-                          aSkeleton.Length(), nullptr, 0, &status);
-  if (status == U_BUFFER_OVERFLOW_ERROR) { // expected
+  int32_t len = udatpg_getBestPattern(pg,
+                                      (const UChar*)aSkeleton.BeginReading(),
+                                      aSkeleton.Length(),
+                                      nullptr,
+                                      0,
+                                      &status);
+  if (status == U_BUFFER_OVERFLOW_ERROR) {  // expected
     aRetVal.SetLength(len);
     status = U_ZERO_ERROR;
-    udatpg_getBestPattern(pg, (const UChar*)aSkeleton.BeginReading(),
-                          aSkeleton.Length(), (UChar*)aRetVal.BeginWriting(),
-                          len, &status);
+    udatpg_getBestPattern(pg,
+                          (const UChar*)aSkeleton.BeginReading(),
+                          aSkeleton.Length(),
+                          (UChar*)aRetVal.BeginWriting(),
+                          len,
+                          &status);
   }
 
   udatpg_close(pg);
@@ -279,7 +286,8 @@ OSPreferences::GetDateTimeConnectorPattern(const nsACString& aLocale,
 {
   bool result = false;
   UErrorCode status = U_ZERO_ERROR;
-  UDateTimePatternGenerator* pg = udatpg_open(PromiseFlatCString(aLocale).get(), &status);
+  UDateTimePatternGenerator* pg =
+      udatpg_open(PromiseFlatCString(aLocale).get(), &status);
   if (U_SUCCESS(status)) {
     int32_t resultSize;
     const UChar* value = udatpg_getDateTimeFormat(pg, &resultSize);
@@ -298,7 +306,7 @@ OSPreferences::GetDateTimeConnectorPattern(const nsACString& aLocale,
 NS_IMETHODIMP
 OSPreferences::GetSystemLocales(uint32_t* aCount, char*** aOutArray)
 {
-  AutoTArray<nsCString,10> tempLocales;
+  AutoTArray<nsCString, 10> tempLocales;
   nsTArray<nsCString>* systemLocalesPtr;
 
   if (!mSystemLocales.IsEmpty()) {
@@ -325,7 +333,7 @@ OSPreferences::GetSystemLocale(nsACString& aRetVal)
   if (!mSystemLocales.IsEmpty()) {
     aRetVal = mSystemLocales[0];
   } else {
-    AutoTArray<nsCString,10> locales;
+    AutoTArray<nsCString, 10> locales;
     GetSystemLocales(locales);
     if (!locales.IsEmpty()) {
       aRetVal = locales[0];
@@ -337,7 +345,7 @@ OSPreferences::GetSystemLocale(nsACString& aRetVal)
 NS_IMETHODIMP
 OSPreferences::GetRegionalPrefsLocales(uint32_t* aCount, char*** aOutArray)
 {
-  AutoTArray<nsCString,10> tempLocales;
+  AutoTArray<nsCString, 10> tempLocales;
   nsTArray<nsCString>* regionalPrefsLocalesPtr;
 
   if (!mRegionalPrefsLocales.IsEmpty()) {

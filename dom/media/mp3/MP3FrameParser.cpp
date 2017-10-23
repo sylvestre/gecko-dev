@@ -17,7 +17,8 @@ extern mozilla::LazyLogModule gMediaDemuxerLog;
 #define MP3LOG(msg, ...) \
   MOZ_LOG(gMediaDemuxerLog, LogLevel::Debug, ("MP3Demuxer " msg, ##__VA_ARGS__))
 #define MP3LOGV(msg, ...) \
-  MOZ_LOG(gMediaDemuxerLog, LogLevel::Verbose, ("MP3Demuxer " msg, ##__VA_ARGS__))
+  MOZ_LOG(                \
+      gMediaDemuxerLog, LogLevel::Verbose, ("MP3Demuxer " msg, ##__VA_ARGS__))
 
 using mp4_demuxer::ByteReader;
 
@@ -31,11 +32,9 @@ static const int SYNC1 = 0;
 static const int SYNC2_VERSION_LAYER_PROTECTION = 1;
 static const int BITRATE_SAMPLERATE_PADDING_PRIVATE = 2;
 static const int CHANNELMODE_MODEEXT_COPY_ORIG_EMPH = 3;
-} // namespace frame_header
+}  // namespace frame_header
 
-FrameParser::FrameParser()
-{
-}
+FrameParser::FrameParser() {}
 
 void
 FrameParser::Reset()
@@ -113,9 +112,11 @@ FrameParser::Parse(ByteReader* aReader, uint32_t* aBytesToSkip)
         // Skipping across the ID3v2 tag would take us past the end of the
         // buffer, therefore we return immediately and let the calling function
         // handle skipping the rest of the tag.
-        MP3LOGV("ID3v2 tag detected, size=%d,"
-                " needing to skip %zu bytes past the current buffer",
-                tagSize, skipSize - aReader->Remaining());
+        MP3LOGV(
+            "ID3v2 tag detected, size=%d,"
+            " needing to skip %zu bytes past the current buffer",
+            tagSize,
+            skipSize - aReader->Remaining());
         *aBytesToSkip = skipSize - aReader->Remaining();
         return false;
       }
@@ -128,7 +129,8 @@ FrameParser::Parse(ByteReader* aReader, uint32_t* aBytesToSkip)
     }
   }
 
-  while (aReader->CanRead8() && !mFrame.ParseNext(aReader->ReadU8())) { }
+  while (aReader->CanRead8() && !mFrame.ParseNext(aReader->ReadU8())) {
+  }
 
   if (mFrame.Length()) {
     // MP3 frame found.
@@ -143,10 +145,7 @@ FrameParser::Parse(ByteReader* aReader, uint32_t* aBytesToSkip)
 
 // FrameParser::Header
 
-FrameParser::FrameHeader::FrameHeader()
-{
-  Reset();
-}
+FrameParser::FrameHeader::FrameHeader() { Reset(); }
 
 uint8_t
 FrameParser::FrameHeader::Sync1() const
@@ -211,7 +210,7 @@ FrameParser::FrameHeader::RawChannelMode() const
 int32_t
 FrameParser::FrameHeader::Layer() const
 {
-  static const uint8_t LAYERS[4] = { 0, 3, 2, 1 };
+  static const uint8_t LAYERS[4] = {0, 3, 2, 1};
 
   return LAYERS[RawLayer()];
 }
@@ -221,12 +220,12 @@ FrameParser::FrameHeader::SampleRate() const
 {
   // Sample rates - use [version][srate]
   static const uint16_t SAMPLE_RATE[4][4] = {
-    // clang-format off
+      // clang-format off
     { 11025, 12000,  8000, 0 }, // MPEG 2.5
     {     0,     0,     0, 0 }, // Reserved
     { 22050, 24000, 16000, 0 }, // MPEG 2
     { 44100, 48000, 32000, 0 }  // MPEG 1
-    // clang-format on
+      // clang-format on
   };
 
   return SAMPLE_RATE[RawVersion()][RawSampleRate()];
@@ -245,13 +244,13 @@ FrameParser::FrameHeader::SamplesPerFrame() const
 {
   // Samples per frame - use [version][layer]
   static const uint16_t FRAME_SAMPLE[4][4] = {
-    // clang-format off
+      // clang-format off
     // Layer     3     2     1       Version
     {      0,  576, 1152,  384 }, // 2.5
     {      0,    0,    0,    0 }, // Reserved
     {      0,  576, 1152,  384 }, // 2
     {      0, 1152, 1152,  384 }  // 1
-    // clang-format on
+      // clang-format on
   };
 
   return FRAME_SAMPLE[RawVersion()][RawLayer()];
@@ -262,7 +261,7 @@ FrameParser::FrameHeader::Bitrate() const
 {
   // Bitrates - use [version][layer][bitrate]
   static const uint16_t BITRATE[4][4][16] = {
-    // clang-format off
+      // clang-format off
     { // Version 2.5
       { 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0 }, // Reserved
       { 0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, 0 }, // Layer 3
@@ -287,7 +286,7 @@ FrameParser::FrameHeader::Bitrate() const
       { 0,  32,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384, 0 }, // Layer 2
       { 0,  32,  64,  96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0 }, // Layer 1
     }
-    // clang-format on
+      // clang-format on
   };
 
   return 1000 * BITRATE[RawVersion()][RawLayer()][RawBitrate()];
@@ -297,7 +296,7 @@ int32_t
 FrameParser::FrameHeader::SlotSize() const
 {
   // Slot size (MPEG unit of measurement) - use [layer]
-  static const uint8_t SLOT_SIZE[4] = { 0, 1, 1, 4 }; // Rsvd, 3, 2, 1
+  static const uint8_t SLOT_SIZE[4] = {0, 1, 1, 4};  // Rsvd, 3, 2, 1
 
   return SLOT_SIZE[RawLayer()];
 }
@@ -324,13 +323,10 @@ FrameParser::FrameHeader::IsValid(int aPos) const
     return Sync1() == 0xFF;
   }
   if (aPos == frame_header::SYNC2_VERSION_LAYER_PROTECTION) {
-    return Sync2() == 7 &&
-           RawVersion() != 1 &&
-           Layer() == 3;
+    return Sync2() == 7 && RawVersion() != 1 && Layer() == 3;
   }
   if (aPos == frame_header::BITRATE_SAMPLERATE_PADDING_PRIVATE) {
-    return RawBitrate() != 0xF && RawBitrate() != 0 &&
-           RawSampleRate() != 3;
+    return RawBitrate() != 0xF && RawBitrate() != 0 && RawSampleRate() != 3;
   }
   return true;
 }
@@ -361,12 +357,9 @@ FrameParser::FrameHeader::Update(uint8_t c)
 namespace vbr_header {
 static const char* TYPE_STR[3] = {"NONE", "XING", "VBRI"};
 static const uint32_t TOC_SIZE = 100;
-} // namespace vbr_header
+}  // namespace vbr_header
 
-FrameParser::VBRHeader::VBRHeader()
-  : mType(NONE)
-{
-}
+FrameParser::VBRHeader::VBRHeader() : mType(NONE) {}
 
 FrameParser::VBRHeader::VBRHeaderType
 FrameParser::VBRHeader::Type() const
@@ -407,12 +400,10 @@ FrameParser::VBRHeader::IsValid() const
 bool
 FrameParser::VBRHeader::IsComplete() const
 {
-  return IsValid() &&
-         mNumAudioFrames.valueOr(0) > 0 &&
-         mNumBytes.valueOr(0) > 0
-         // We don't care about the scale for any computations here.
-         // && mScale < 101
-         ;
+  return IsValid() && mNumAudioFrames.valueOr(0) > 0 && mNumBytes.valueOr(0) > 0
+      // We don't care about the scale for any computations here.
+      // && mScale < 101
+      ;
 }
 
 int64_t
@@ -424,7 +415,7 @@ FrameParser::VBRHeader::Offset(float aDurationFac) const
 
   // Constrain the duration percentage to [0, 99].
   const float durationPer =
-    100.0f * std::min(0.99f, std::max(0.0f, aDurationFac));
+      100.0f * std::min(0.99f, std::max(0.0f, aDurationFac));
   const size_t fullPer = durationPer;
   const float rest = durationPer - fullPer;
 
@@ -456,8 +447,8 @@ FrameParser::VBRHeader::ParseXing(ByteReader* aReader)
   const size_t prevReaderOffset = aReader->Offset();
 
   // We have to search for the Xing header as its position can change.
-  while (aReader->CanRead32() &&
-         aReader->PeekU32() != XING_TAG && aReader->PeekU32() != INFO_TAG) {
+  while (aReader->CanRead32() && aReader->PeekU32() != XING_TAG &&
+         aReader->PeekU32() != INFO_TAG) {
     aReader->Read(1);
   }
 
@@ -531,10 +522,14 @@ FrameParser::VBRHeader::Parse(ByteReader* aReader)
 {
   const bool rv = ParseVBRI(aReader) || ParseXing(aReader);
   if (rv) {
-    MP3LOG("VBRHeader::Parse found valid VBR/CBR header: type=%s"
-           " NumAudioFrames=%u NumBytes=%u Scale=%u TOC-size=%zu",
-           vbr_header::TYPE_STR[Type()], NumAudioFrames().valueOr(0),
-           NumBytes().valueOr(0), Scale().valueOr(0), mTOC.size());
+    MP3LOG(
+        "VBRHeader::Parse found valid VBR/CBR header: type=%s"
+        " NumAudioFrames=%u NumBytes=%u Scale=%u TOC-size=%zu",
+        vbr_header::TYPE_STR[Type()],
+        NumAudioFrames().valueOr(0),
+        NumBytes().valueOr(0),
+        Scale().valueOr(0),
+        mTOC.size());
   }
   return rv;
 }
@@ -555,9 +550,9 @@ FrameParser::Frame::Length() const
   }
 
   const float bitsPerSample = mHeader.SamplesPerFrame() / 8.0f;
-  const int32_t frameLen = bitsPerSample * mHeader.Bitrate()
-                           / mHeader.SampleRate()
-                           + mHeader.Padding() * mHeader.SlotSize();
+  const int32_t frameLen =
+      bitsPerSample * mHeader.Bitrate() / mHeader.SampleRate() +
+      mHeader.Padding() * mHeader.SlotSize();
   return frameLen;
 }
 
@@ -597,14 +592,15 @@ static const uint8_t ID[ID_LEN] = {'I', 'D', '3'};
 
 static const uint8_t MIN_MAJOR_VER = 2;
 static const uint8_t MAX_MAJOR_VER = 4;
-} // namespace id3_header
+}  // namespace id3_header
 
 uint32_t
 ID3Parser::Parse(ByteReader* aReader)
 {
   MOZ_ASSERT(aReader);
 
-  while (aReader->CanRead8() && !mHeader.ParseNext(aReader->ReadU8())) { }
+  while (aReader->CanRead8() && !mHeader.ParseNext(aReader->ReadU8())) {
+  }
 
   return mHeader.TotalTagSize();
 }
@@ -623,10 +619,7 @@ ID3Parser::Header() const
 
 // ID3Parser::Header
 
-ID3Parser::ID3Header::ID3Header()
-{
-  Reset();
-}
+ID3Parser::ID3Header::ID3Header() { Reset(); }
 
 void
 ID3Parser::ID3Header::Reset()
@@ -701,7 +694,9 @@ ID3Parser::ID3Header::IsValid(int aPos) const
   }
   const uint8_t c = mRaw[aPos];
   switch (aPos) {
-    case 0: case 1: case 2:
+    case 0:
+    case 1:
+    case 2:
       // Expecting "ID3".
       return id3_header::ID[aPos] == c;
     case 3:
@@ -712,7 +707,10 @@ ID3Parser::ID3Header::IsValid(int aPos) const
     case 5:
       // Validate flags for supported versions, see bug 949036.
       return ((0xFF >> MajorVersion()) & c) == 0;
-    case 6: case 7: case 8: case 9:
+    case 6:
+    case 7:
+    case 8:
+    case 9:
       return c < 0x80;
   }
   return true;
@@ -738,4 +736,4 @@ ID3Parser::ID3Header::Update(uint8_t c)
   return IsValid(mPos++);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

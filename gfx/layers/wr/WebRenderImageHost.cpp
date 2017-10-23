@@ -8,13 +8,13 @@
 #include "LayersLogging.h"
 #include "mozilla/layers/Compositor.h"  // for Compositor
 #include "mozilla/layers/Effects.h"     // for TexturedEffect, Effect, etc
-#include "mozilla/layers/LayerManagerComposite.h"     // for TexturedEffect, Effect, etc
+#include "mozilla/layers/LayerManagerComposite.h"  // for TexturedEffect, Effect, etc
 #include "mozilla/layers/WebRenderBridgeParent.h"
 #include "mozilla/layers/AsyncImagePipelineManager.h"
 #include "nsAString.h"
-#include "nsDebug.h"                    // for NS_WARNING, NS_ASSERTION
-#include "nsPrintfCString.h"            // for nsPrintfCString
-#include "nsString.h"                   // for nsAutoCString
+#include "nsDebug.h"          // for NS_WARNING, NS_ASSERTION
+#include "nsPrintfCString.h"  // for nsPrintfCString
+#include "nsString.h"         // for nsAutoCString
 
 namespace mozilla {
 
@@ -25,16 +25,14 @@ namespace layers {
 class ISurfaceAllocator;
 
 WebRenderImageHost::WebRenderImageHost(const TextureInfo& aTextureInfo)
-  : CompositableHost(aTextureInfo)
-  , ImageComposite()
-  , mWrBridge(nullptr)
-  , mWrBridgeBindings(0)
-{}
-
-WebRenderImageHost::~WebRenderImageHost()
+    : CompositableHost(aTextureInfo),
+      ImageComposite(),
+      mWrBridge(nullptr),
+      mWrBridgeBindings(0)
 {
-  MOZ_ASSERT(!mWrBridge);
 }
+
+WebRenderImageHost::~WebRenderImageHost() { MOZ_ASSERT(!mWrBridge); }
 
 void
 WebRenderImageHost::UseTextureHost(const nsTArray<TimedTexture>& aTextures)
@@ -47,8 +45,8 @@ WebRenderImageHost::UseTextureHost(const nsTArray<TimedTexture>& aTextures)
   for (uint32_t i = 0; i < aTextures.Length(); ++i) {
     const TimedTexture& t = aTextures[i];
     MOZ_ASSERT(t.mTexture);
-    if (i + 1 < aTextures.Length() &&
-        t.mProducerID == mLastProducerID && t.mFrameID < mLastFrameID) {
+    if (i + 1 < aTextures.Length() && t.mProducerID == mLastProducerID &&
+        t.mFrameID < mLastFrameID) {
       // Ignore frames before a frame that we already composited. We don't
       // ever want to display these frames. This could be important if
       // the frame producer adjusts timestamps (e.g. to track the audio clock)
@@ -82,8 +80,9 @@ WebRenderImageHost::UseTextureHost(const nsTArray<TimedTexture>& aTextures)
       bool frameComesAfter = mImages[i].mFrameID > mLastFrameID ||
                              mImages[i].mProducerID != mLastProducerID;
       if (frameComesAfter && !mImages[i].mTimeStamp.IsNull()) {
-        mWrBridge->AsyncImageManager()->CompositeUntil(mImages[i].mTimeStamp +
-                           TimeDuration::FromMilliseconds(BIAS_TIME_MS));
+        mWrBridge->AsyncImageManager()->CompositeUntil(
+            mImages[i].mTimeStamp +
+            TimeDuration::FromMilliseconds(BIAS_TIME_MS));
         break;
       }
     }
@@ -155,7 +154,9 @@ WebRenderImageHost::GetAsTextureHostForComposite()
 
   if (uint32_t(imageIndex) + 1 < mImages.Length()) {
     MOZ_ASSERT(mWrBridge->AsyncImageManager());
-    mWrBridge->AsyncImageManager()->CompositeUntil(mImages[imageIndex + 1].mTimeStamp + TimeDuration::FromMilliseconds(BIAS_TIME_MS));
+    mWrBridge->AsyncImageManager()->CompositeUntil(
+        mImages[imageIndex + 1].mTimeStamp +
+        TimeDuration::FromMilliseconds(BIAS_TIME_MS));
   }
 
   TimedImage* img = &mImages[imageIndex];
@@ -165,9 +166,11 @@ WebRenderImageHost::GetAsTextureHostForComposite()
       ImageCompositeNotificationInfo info;
       info.mImageBridgeProcessId = mAsyncRef.mProcessId;
       info.mNotification = ImageCompositeNotification(
-        mAsyncRef.mHandle,
-        img->mTimeStamp, mWrBridge->AsyncImageManager()->GetCompositionTime(),
-        img->mFrameID, img->mProducerID);
+          mAsyncRef.mHandle,
+          img->mTimeStamp,
+          mWrBridge->AsyncImageManager()->GetCompositionTime(),
+          img->mFrameID,
+          img->mProducerID);
       mWrBridge->AsyncImageManager()->AppendImageCompositeNotification(info);
     }
     mLastFrameID = img->mFrameID;
@@ -187,39 +190,36 @@ WebRenderImageHost::SetCurrentTextureHost(TextureHost* aTexture)
     return;
   }
 
-  if (mWrBridge &&
-      !mAsyncRef &&
-      !!mCurrentTextureHost &&
+  if (mWrBridge && !mAsyncRef && !!mCurrentTextureHost &&
       mCurrentTextureHost != aTexture &&
       mCurrentTextureHost->AsWebRenderTextureHost()) {
     MOZ_ASSERT(mWrBridge->AsyncImageManager());
     wr::PipelineId piplineId = mWrBridge->PipelineId();
     wr::Epoch epoch = mWrBridge->WrEpoch();
     mWrBridge->AsyncImageManager()->HoldExternalImage(
-      piplineId,
-      epoch,
-      mCurrentTextureHost->AsWebRenderTextureHost());
+        piplineId, epoch, mCurrentTextureHost->AsWebRenderTextureHost());
   }
 
   mCurrentTextureHost = aTexture;
 }
 
-void WebRenderImageHost::Attach(Layer* aLayer,
-                       TextureSourceProvider* aProvider,
-                       AttachFlags aFlags)
+void
+WebRenderImageHost::Attach(Layer* aLayer,
+                           TextureSourceProvider* aProvider,
+                           AttachFlags aFlags)
 {
 }
 
 void
 WebRenderImageHost::Composite(Compositor* aCompositor,
-                     LayerComposite* aLayer,
-                     EffectChain& aEffectChain,
-                     float aOpacity,
-                     const gfx::Matrix4x4& aTransform,
-                     const gfx::SamplingFilter aSamplingFilter,
-                     const gfx::IntRect& aClipRect,
-                     const nsIntRegion* aVisibleRegion,
-                     const Maybe<gfx::Polygon>& aGeometry)
+                              LayerComposite* aLayer,
+                              EffectChain& aEffectChain,
+                              float aOpacity,
+                              const gfx::Matrix4x4& aTransform,
+                              const gfx::SamplingFilter aSamplingFilter,
+                              const gfx::IntRect& aClipRect,
+                              const nsIntRegion* aVisibleRegion,
+                              const Maybe<gfx::Polygon>& aGeometry)
 {
   MOZ_ASSERT_UNREACHABLE("unexpected to be called");
 }
@@ -252,13 +252,12 @@ WebRenderImageHost::PrintInfo(std::stringstream& aStream, const char* aPrefix)
 
 void
 WebRenderImageHost::Dump(std::stringstream& aStream,
-                const char* aPrefix,
-                bool aDumpHtml)
+                         const char* aPrefix,
+                         bool aDumpHtml)
 {
   for (auto& img : mImages) {
     aStream << aPrefix;
-    aStream << (aDumpHtml ? "<ul><li>TextureHost: "
-                             : "TextureHost: ");
+    aStream << (aDumpHtml ? "<ul><li>TextureHost: " : "TextureHost: ");
     DumpTextureHost(aStream, img.mTextureHost);
     aStream << (aDumpHtml ? " </li></ul> " : " ");
   }
@@ -321,5 +320,5 @@ WebRenderImageHost::ClearWrBridge()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

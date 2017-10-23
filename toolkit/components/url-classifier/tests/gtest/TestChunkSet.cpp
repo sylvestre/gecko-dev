@@ -136,9 +136,9 @@ TEST(UrlClassifierChunkSet, Stress)
   mozilla::safebrowsing::ChunkSet mergeSet;
   std::set<int> refSet;
   std::set<int> refMergeSet;
-  static const int TEST_ITERS   =  7000;
-  static const int REMOVE_ITERS =  3000;
-  static const int TEST_RANGE   = 10000;
+  static const int TEST_ITERS = 7000;
+  static const int REMOVE_ITERS = 3000;
+  static const int TEST_RANGE = 10000;
 
   // Construction by Set
   for (int i = 0; i < TEST_ITERS; i++) {

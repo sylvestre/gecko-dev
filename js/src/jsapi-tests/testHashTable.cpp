@@ -28,37 +28,28 @@ const size_t TestIterations = 10;
 
 JS_STATIC_ASSERT(TestSize <= 0x0000FFFF / 2);
 
-struct LowToHigh
-{
+struct LowToHigh {
     static uint32_t rekey(uint32_t initial) {
-        if (initial > uint32_t(0x0000FFFF))
-            return initial;
+        if (initial > uint32_t(0x0000FFFF)) return initial;
         return initial << 16;
     }
 
-    static bool shouldBeRemoved(uint32_t initial) {
-        return false;
-    }
+    static bool shouldBeRemoved(uint32_t initial) { return false; }
 };
 
-struct LowToHighWithRemoval
-{
+struct LowToHighWithRemoval {
     static uint32_t rekey(uint32_t initial) {
-        if (initial > uint32_t(0x0000FFFF))
-            return initial;
+        if (initial > uint32_t(0x0000FFFF)) return initial;
         return initial << 16;
     }
 
     static bool shouldBeRemoved(uint32_t initial) {
-        if (initial >= 0x00010000)
-            return (initial >> 16) % 2 == 0;
+        if (initial >= 0x00010000) return (initial >> 16) % 2 == 0;
         return initial % 2 == 0;
     }
 };
 
-static bool
-MapsAreEqual(IntMap& am, IntMap& bm)
-{
+static bool MapsAreEqual(IntMap& am, IntMap& bm) {
     bool equal = true;
     if (am.count() != bm.count()) {
         equal = false;
@@ -79,9 +70,7 @@ MapsAreEqual(IntMap& am, IntMap& bm)
     return equal;
 }
 
-static bool
-SetsAreEqual(IntSet& am, IntSet& bm)
-{
+static bool SetsAreEqual(IntSet& am, IntSet& bm) {
     bool equal = true;
     if (am.count() != bm.count()) {
         equal = false;
@@ -102,37 +91,29 @@ SetsAreEqual(IntSet& am, IntSet& bm)
     return equal;
 }
 
-static bool
-AddLowKeys(IntMap* am, IntMap* bm, int seed)
-{
+static bool AddLowKeys(IntMap* am, IntMap* bm, int seed) {
     size_t i = 0;
     srand(seed);
     while (i < TestSize) {
         uint32_t n = rand() & 0x0000FFFF;
         if (!am->has(n)) {
-            if (bm->has(n))
-                return false;
+            if (bm->has(n)) return false;
 
-            if (!am->putNew(n, n) || !bm->putNew(n, n))
-                return false;
+            if (!am->putNew(n, n) || !bm->putNew(n, n)) return false;
             i++;
         }
     }
     return true;
 }
 
-static bool
-AddLowKeys(IntSet* as, IntSet* bs, int seed)
-{
+static bool AddLowKeys(IntSet* as, IntSet* bs, int seed) {
     size_t i = 0;
     srand(seed);
     while (i < TestSize) {
         uint32_t n = rand() & 0x0000FFFF;
         if (!as->has(n)) {
-            if (bs->has(n))
-                return false;
-            if (!as->putNew(n) || !bs->putNew(n))
-                return false;
+            if (bs->has(n)) return false;
+            if (!as->putNew(n) || !bs->putNew(n)) return false;
             i++;
         }
     }
@@ -140,59 +121,46 @@ AddLowKeys(IntSet* as, IntSet* bs, int seed)
 }
 
 template <class NewKeyFunction>
-static bool
-SlowRekey(IntMap* m) {
+static bool SlowRekey(IntMap* m) {
     IntMap tmp;
-    if (!tmp.init())
-        return false;
+    if (!tmp.init()) return false;
 
     for (IntMap::Range r = m->all(); !r.empty(); r.popFront()) {
-        if (NewKeyFunction::shouldBeRemoved(r.front().key()))
-            continue;
+        if (NewKeyFunction::shouldBeRemoved(r.front().key())) continue;
         uint32_t hi = NewKeyFunction::rekey(r.front().key());
-        if (tmp.has(hi))
-            return false;
-        if (!tmp.putNew(hi, r.front().value()))
-            return false;
+        if (tmp.has(hi)) return false;
+        if (!tmp.putNew(hi, r.front().value())) return false;
     }
 
     m->clear();
     for (IntMap::Range r = tmp.all(); !r.empty(); r.popFront()) {
-        if (!m->putNew(r.front().key(), r.front().value()))
-            return false;
+        if (!m->putNew(r.front().key(), r.front().value())) return false;
     }
 
     return true;
 }
 
 template <class NewKeyFunction>
-static bool
-SlowRekey(IntSet* s) {
+static bool SlowRekey(IntSet* s) {
     IntSet tmp;
-    if (!tmp.init())
-        return false;
+    if (!tmp.init()) return false;
 
     for (IntSet::Range r = s->all(); !r.empty(); r.popFront()) {
-        if (NewKeyFunction::shouldBeRemoved(r.front()))
-            continue;
+        if (NewKeyFunction::shouldBeRemoved(r.front())) continue;
         uint32_t hi = NewKeyFunction::rekey(r.front());
-        if (tmp.has(hi))
-            return false;
-        if (!tmp.putNew(hi))
-            return false;
+        if (tmp.has(hi)) return false;
+        if (!tmp.putNew(hi)) return false;
     }
 
     s->clear();
     for (IntSet::Range r = tmp.all(); !r.empty(); r.popFront()) {
-        if (!s->putNew(r.front()))
-            return false;
+        if (!s->putNew(r.front())) return false;
     }
 
     return true;
 }
 
-BEGIN_TEST(testHashRekeyManual)
-{
+BEGIN_TEST(testHashRekeyManual) {
     IntMap am, bm;
     CHECK(am.init());
     CHECK(bm.init());
@@ -205,8 +173,7 @@ BEGIN_TEST(testHashRekeyManual)
 
         for (IntMap::Enum e(am); !e.empty(); e.popFront()) {
             uint32_t tmp = LowToHigh::rekey(e.front().key());
-            if (tmp != e.front().key())
-                e.rekeyFront(tmp);
+            if (tmp != e.front().key()) e.rekeyFront(tmp);
         }
         CHECK(SlowRekey<LowToHigh>(&bm));
 
@@ -227,8 +194,7 @@ BEGIN_TEST(testHashRekeyManual)
 
         for (IntSet::Enum e(as); !e.empty(); e.popFront()) {
             uint32_t tmp = LowToHigh::rekey(e.front());
-            if (tmp != e.front())
-                e.rekeyFront(tmp);
+            if (tmp != e.front()) e.rekeyFront(tmp);
         }
         CHECK(SlowRekey<LowToHigh>(&bs));
 
@@ -241,8 +207,7 @@ BEGIN_TEST(testHashRekeyManual)
 }
 END_TEST(testHashRekeyManual)
 
-BEGIN_TEST(testHashRekeyManualRemoval)
-{
+BEGIN_TEST(testHashRekeyManualRemoval) {
     IntMap am, bm;
     CHECK(am.init());
     CHECK(bm.init());
@@ -258,8 +223,7 @@ BEGIN_TEST(testHashRekeyManualRemoval)
                 e.removeFront();
             } else {
                 uint32_t tmp = LowToHighWithRemoval::rekey(e.front().key());
-                if (tmp != e.front().key())
-                    e.rekeyFront(tmp);
+                if (tmp != e.front().key()) e.rekeyFront(tmp);
             }
         }
         CHECK(SlowRekey<LowToHighWithRemoval>(&bm));
@@ -284,8 +248,7 @@ BEGIN_TEST(testHashRekeyManualRemoval)
                 e.removeFront();
             } else {
                 uint32_t tmp = LowToHighWithRemoval::rekey(e.front());
-                if (tmp != e.front())
-                    e.rekeyFront(tmp);
+                if (tmp != e.front()) e.rekeyFront(tmp);
             }
         }
         CHECK(SlowRekey<LowToHighWithRemoval>(&bs));
@@ -303,38 +266,33 @@ END_TEST(testHashRekeyManualRemoval)
 struct MoveOnlyType {
     uint32_t val;
 
-    explicit MoveOnlyType(uint32_t val) : val(val) { }
+    explicit MoveOnlyType(uint32_t val) : val(val) {}
 
-    MoveOnlyType(MoveOnlyType&& rhs) {
-        val = rhs.val;
-    }
+    MoveOnlyType(MoveOnlyType&& rhs) { val = rhs.val; }
 
     MoveOnlyType& operator=(MoveOnlyType&& rhs) {
         MOZ_ASSERT(&rhs != this);
         this->~MoveOnlyType();
-        new(this) MoveOnlyType(mozilla::Move(rhs));
+        new (this) MoveOnlyType(mozilla::Move(rhs));
         return *this;
     }
 
     struct HashPolicy {
         typedef MoveOnlyType Lookup;
 
-        static js::HashNumber hash(const Lookup& lookup) {
-            return lookup.val;
-        }
+        static js::HashNumber hash(const Lookup& lookup) { return lookup.val; }
 
         static bool match(const MoveOnlyType& existing, const Lookup& lookup) {
             return existing.val == lookup.val;
         }
     };
 
-  private:
+   private:
     MoveOnlyType(const MoveOnlyType&) = delete;
     MoveOnlyType& operator=(const MoveOnlyType&) = delete;
 };
 
-BEGIN_TEST(testHashSetOfMoveOnlyType)
-{
+BEGIN_TEST(testHashSetOfMoveOnlyType) {
     typedef js::HashSet<MoveOnlyType, MoveOnlyType::HashPolicy, js::SystemAllocPolicy> Set;
 
     Set set;
@@ -342,7 +300,7 @@ BEGIN_TEST(testHashSetOfMoveOnlyType)
 
     MoveOnlyType a(1);
 
-    CHECK(set.put(mozilla::Move(a))); // This shouldn't generate a compiler error.
+    CHECK(set.put(mozilla::Move(a)));  // This shouldn't generate a compiler error.
 
     return true;
 }
@@ -352,20 +310,17 @@ END_TEST(testHashSetOfMoveOnlyType)
 
 // Add entries to a HashMap using lookupWithDefault until either we get an OOM,
 // or the table has been resized a few times.
-static bool
-LookupWithDefaultUntilResize() {
+static bool LookupWithDefaultUntilResize() {
     IntMap m;
 
-    if (!m.init())
-        return false;
+    if (!m.init()) return false;
 
     // Add entries until we've resized the table four times.
     size_t lastCapacity = m.capacity();
     size_t resizes = 0;
     uint32_t key = 0;
     while (resizes < 4) {
-        if (!m.lookupWithDefault(key++, 0))
-            return false;
+        if (!m.lookupWithDefault(key++, 0)) return false;
 
         size_t capacity = m.capacity();
         if (capacity != lastCapacity) {
@@ -377,8 +332,7 @@ LookupWithDefaultUntilResize() {
     return true;
 }
 
-BEGIN_TEST(testHashMapLookupWithDefaultOOM)
-{
+BEGIN_TEST(testHashMapLookupWithDefaultOOM) {
     uint32_t timeToFail;
     for (timeToFail = 1; timeToFail < 1000; timeToFail++) {
         js::oom::SimulateOOMAfter(timeToFail, js::THREAD_TYPE_COOPERATING, false);
@@ -390,17 +344,15 @@ BEGIN_TEST(testHashMapLookupWithDefaultOOM)
 }
 
 END_TEST(testHashMapLookupWithDefaultOOM)
-#endif // defined(DEBUG)
+#endif  // defined(DEBUG)
 
-BEGIN_TEST(testHashTableMovableEnum)
-{
+BEGIN_TEST(testHashTableMovableEnum) {
     CHECK(set.init());
 
     // Exercise returning a hash table Enum object from a function.
 
     CHECK(set.put(1));
-    for (auto e = enumerateSet(); !e.empty(); e.popFront())
-        e.removeFront();
+    for (auto e = enumerateSet(); !e.empty(); e.popFront()) e.removeFront();
     CHECK(set.count() == 0);
 
     // Test moving an Enum object explicitly.
@@ -427,9 +379,6 @@ BEGIN_TEST(testHashTableMovableEnum)
 
 IntSet set;
 
-IntSet::Enum enumerateSet()
-{
-    return IntSet::Enum(set);
-}
+IntSet::Enum enumerateSet() { return IntSet::Enum(set); }
 
 END_TEST(testHashTableMovableEnum)

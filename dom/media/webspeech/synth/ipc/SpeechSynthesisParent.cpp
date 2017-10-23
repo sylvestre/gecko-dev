@@ -39,40 +39,44 @@ SpeechSynthesisParent::AllocPSpeechSynthesisRequestParent(const nsString& aText,
                                                           const float& aPitch,
                                                           const bool& aIsChrome)
 {
-  RefPtr<SpeechTaskParent> task = new SpeechTaskParent(aVolume, aText, aIsChrome);
+  RefPtr<SpeechTaskParent> task =
+      new SpeechTaskParent(aVolume, aText, aIsChrome);
   SpeechSynthesisRequestParent* actor = new SpeechSynthesisRequestParent(task);
   return actor;
 }
 
 bool
-SpeechSynthesisParent::DeallocPSpeechSynthesisRequestParent(PSpeechSynthesisRequestParent* aActor)
+SpeechSynthesisParent::DeallocPSpeechSynthesisRequestParent(
+    PSpeechSynthesisRequestParent* aActor)
 {
   delete aActor;
   return true;
 }
 
 mozilla::ipc::IPCResult
-SpeechSynthesisParent::RecvPSpeechSynthesisRequestConstructor(PSpeechSynthesisRequestParent* aActor,
-                                                              const nsString& aText,
-                                                              const nsString& aLang,
-                                                              const nsString& aUri,
-                                                              const float& aVolume,
-                                                              const float& aRate,
-                                                              const float& aPitch,
-                                                              const bool& aIsChrome)
+SpeechSynthesisParent::RecvPSpeechSynthesisRequestConstructor(
+    PSpeechSynthesisRequestParent* aActor,
+    const nsString& aText,
+    const nsString& aLang,
+    const nsString& aUri,
+    const float& aVolume,
+    const float& aRate,
+    const float& aPitch,
+    const bool& aIsChrome)
 {
   MOZ_ASSERT(aActor);
   SpeechSynthesisRequestParent* actor =
-    static_cast<SpeechSynthesisRequestParent*>(aActor);
-  nsSynthVoiceRegistry::GetInstance()->Speak(aText, aLang, aUri, aVolume, aRate,
-                                             aPitch, actor->mTask);
+      static_cast<SpeechSynthesisRequestParent*>(aActor);
+  nsSynthVoiceRegistry::GetInstance()->Speak(
+      aText, aLang, aUri, aVolume, aRate, aPitch, actor->mTask);
   return IPC_OK();
 }
 
 // SpeechSynthesisRequestParent
 
-SpeechSynthesisRequestParent::SpeechSynthesisRequestParent(SpeechTaskParent* aTask)
-  : mTask(aTask)
+SpeechSynthesisRequestParent::SpeechSynthesisRequestParent(
+    SpeechTaskParent* aTask)
+    : mTask(aTask)
 {
   mTask->mActor = this;
   MOZ_COUNT_CTOR(SpeechSynthesisRequestParent);
@@ -149,7 +153,7 @@ nsresult
 SpeechTaskParent::DispatchStartImpl(const nsAString& aUri)
 {
   MOZ_ASSERT(mActor);
-  if(NS_WARN_IF(!(mActor->SendOnStart(nsString(aUri))))) {
+  if (NS_WARN_IF(!(mActor->SendOnStart(nsString(aUri))))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -164,7 +168,7 @@ SpeechTaskParent::DispatchEndImpl(float aElapsedTime, uint32_t aCharIndex)
     return NS_OK;
   }
 
-  if(NS_WARN_IF(!(mActor->SendOnEnd(false, aElapsedTime, aCharIndex)))) {
+  if (NS_WARN_IF(!(mActor->SendOnEnd(false, aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -175,7 +179,7 @@ nsresult
 SpeechTaskParent::DispatchPauseImpl(float aElapsedTime, uint32_t aCharIndex)
 {
   MOZ_ASSERT(mActor);
-  if(NS_WARN_IF(!(mActor->SendOnPause(aElapsedTime, aCharIndex)))) {
+  if (NS_WARN_IF(!(mActor->SendOnPause(aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -186,7 +190,7 @@ nsresult
 SpeechTaskParent::DispatchResumeImpl(float aElapsedTime, uint32_t aCharIndex)
 {
   MOZ_ASSERT(mActor);
-  if(NS_WARN_IF(!(mActor->SendOnResume(aElapsedTime, aCharIndex)))) {
+  if (NS_WARN_IF(!(mActor->SendOnResume(aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -197,7 +201,7 @@ nsresult
 SpeechTaskParent::DispatchErrorImpl(float aElapsedTime, uint32_t aCharIndex)
 {
   MOZ_ASSERT(mActor);
-  if(NS_WARN_IF(!(mActor->SendOnEnd(true, aElapsedTime, aCharIndex)))) {
+  if (NS_WARN_IF(!(mActor->SendOnEnd(true, aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -206,12 +210,14 @@ SpeechTaskParent::DispatchErrorImpl(float aElapsedTime, uint32_t aCharIndex)
 
 nsresult
 SpeechTaskParent::DispatchBoundaryImpl(const nsAString& aName,
-                                       float aElapsedTime, uint32_t aCharIndex,
-                                       uint32_t aCharLength, uint8_t argc)
+                                       float aElapsedTime,
+                                       uint32_t aCharIndex,
+                                       uint32_t aCharLength,
+                                       uint8_t argc)
 {
   MOZ_ASSERT(mActor);
-  if(NS_WARN_IF(!(mActor->SendOnBoundary(nsString(aName), aElapsedTime,
-                                         aCharIndex, aCharLength, argc)))) {
+  if (NS_WARN_IF(!(mActor->SendOnBoundary(
+          nsString(aName), aElapsedTime, aCharIndex, aCharLength, argc)))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -220,15 +226,17 @@ SpeechTaskParent::DispatchBoundaryImpl(const nsAString& aName,
 
 nsresult
 SpeechTaskParent::DispatchMarkImpl(const nsAString& aName,
-                                   float aElapsedTime, uint32_t aCharIndex)
+                                   float aElapsedTime,
+                                   uint32_t aCharIndex)
 {
   MOZ_ASSERT(mActor);
-  if(NS_WARN_IF(!(mActor->SendOnMark(nsString(aName), aElapsedTime, aCharIndex)))) {
+  if (NS_WARN_IF(
+          !(mActor->SendOnMark(nsString(aName), aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
 
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

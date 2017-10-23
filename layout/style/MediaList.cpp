@@ -130,5 +130,5 @@ MediaList::AppendMedium(const nsAString& aNewMedium)
   return DoMediaChange([&]() { return Append(aNewMedium); });
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

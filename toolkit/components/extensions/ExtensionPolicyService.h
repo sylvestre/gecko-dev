@@ -25,16 +25,16 @@ class nsIPIDOMWindowOuter;
 
 namespace mozilla {
 namespace extensions {
-  class DocInfo;
+class DocInfo;
 }
 
 using extensions::DocInfo;
 using extensions::WebExtensionPolicy;
 
-class ExtensionPolicyService final : public nsIAddonPolicyService
-                                   , public nsIObserver
+class ExtensionPolicyService final : public nsIAddonPolicyService,
+                                     public nsIObserver
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(ExtensionPolicyService,
                                            nsIAddonPolicyService)
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -48,8 +48,7 @@ public:
     return do_AddRef(&GetSingleton());
   }
 
-  WebExtensionPolicy*
-  GetByID(const nsAtom* aAddonId)
+  WebExtensionPolicy* GetByID(const nsAtom* aAddonId)
   {
     return mExtensions.GetWeak(aAddonId);
   }
@@ -78,10 +77,10 @@ public:
   bool UseRemoteExtensions() const;
   bool IsExtensionProcess() const;
 
-protected:
+ protected:
   virtual ~ExtensionPolicyService() = default;
 
-private:
+ private:
   ExtensionPolicyService();
 
   void RegisterObservers();
@@ -101,6 +100,6 @@ private:
   static bool sRemoteExtensions;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ExtensionPolicyService_h
+#endif  // mozilla_ExtensionPolicyService_h

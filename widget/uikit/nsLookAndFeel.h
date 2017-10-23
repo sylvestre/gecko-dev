@@ -10,27 +10,25 @@
 
 class nsLookAndFeel final : public nsXPLookAndFeel
 {
-public:
-    nsLookAndFeel();
-    virtual ~nsLookAndFeel();
+ public:
+  nsLookAndFeel();
+  virtual ~nsLookAndFeel();
 
-    virtual nsresult NativeGetColor(const ColorID aID, nscolor &aResult);
-    virtual void NativeInit() final {};
-    virtual nsresult GetIntImpl(IntID aID, int32_t &aResult);
-    virtual nsresult GetFloatImpl(FloatID aID, float &aResult);
-    virtual bool GetFontImpl(FontID aID, nsString& aFontName,
-                             gfxFontStyle& aFontStyle,
-                             float aDevPixPerCSSPixel);
-    virtual char16_t GetPasswordCharacterImpl()
-    {
-        // unicode value for the bullet character, used for password textfields.
-        return 0x2022;
-    }
+  virtual nsresult NativeGetColor(const ColorID aID, nscolor& aResult);
+  virtual void NativeInit() final{};
+  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
+  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
+  virtual bool GetFontImpl(FontID aID,
+                           nsString& aFontName,
+                           gfxFontStyle& aFontStyle,
+                           float aDevPixPerCSSPixel);
+  virtual char16_t GetPasswordCharacterImpl()
+  {
+    // unicode value for the bullet character, used for password textfields.
+    return 0x2022;
+  }
 
-    static bool UseOverlayScrollbars()
-    {
-        return true;
-    }
+  static bool UseOverlayScrollbars() { return true; }
 };
 
 #endif

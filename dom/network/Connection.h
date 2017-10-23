@@ -17,20 +17,19 @@ namespace mozilla {
 
 namespace hal {
 class NetworkInformation;
-} // namespace hal
+}  // namespace hal
 
 namespace dom {
 
 namespace workers {
 class WorkerPrivate;
-} // namespace workers
+}  // namespace workers
 
 namespace network {
 
-class Connection : public DOMEventTargetHelper
-                 , public nsINetworkProperties
+class Connection : public DOMEventTargetHelper, public nsINetworkProperties
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSINETWORKPROPERTIES
   NS_DECL_OWNINGTHREAD
@@ -39,12 +38,10 @@ public:
 
   static bool IsEnabled(JSContext* aCx, JSObject* aObj);
 
-  static Connection*
-  CreateForWindow(nsPIDOMWindowInner* aWindow);
+  static Connection* CreateForWindow(nsPIDOMWindowInner* aWindow);
 
-  static already_AddRefed<Connection>
-  CreateForWorker(workers::WorkerPrivate* aWorkerPrivate,
-                  ErrorResult& aRv);
+  static already_AddRefed<Connection> CreateForWorker(
+      workers::WorkerPrivate* aWorkerPrivate, ErrorResult& aRv);
 
   void Shutdown();
 
@@ -55,22 +52,25 @@ public:
 
   ConnectionType Type() const
   {
-    return nsContentUtils::ShouldResistFingerprinting() ?
-             static_cast<ConnectionType>(ConnectionType::Unknown) : mType;
+    return nsContentUtils::ShouldResistFingerprinting()
+               ? static_cast<ConnectionType>(ConnectionType::Unknown)
+               : mType;
   }
 
   IMPL_EVENT_HANDLER(typechange)
 
-protected:
+ protected:
   Connection(nsPIDOMWindowInner* aWindow);
   virtual ~Connection();
 
-  void Update(ConnectionType aType, bool aIsWifi, uint32_t aDHCPGateway,
+  void Update(ConnectionType aType,
+              bool aIsWifi,
+              uint32_t aDHCPGateway,
               bool aNotify);
 
   virtual void ShutdownInternal() = 0;
 
-private:
+ private:
   /**
    * The type of current connection.
    */
@@ -89,8 +89,8 @@ private:
   bool mBeenShutDown;
 };
 
-} // namespace network
-} // namespace dom
-} // namespace mozilla
+}  // namespace network
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_network_Connection_h
+#endif  // mozilla_dom_network_Connection_h

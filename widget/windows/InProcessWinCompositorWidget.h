@@ -19,7 +19,7 @@ namespace widget {
 // with the compositor.
 class InProcessWinCompositorWidget final : public WinCompositorWidget
 {
-public:
+ public:
   InProcessWinCompositorWidget(const WinCompositorWidgetInitData& aInitData,
                                const layers::CompositorOptions& aOptions,
                                nsWindow* aWindow);
@@ -27,11 +27,11 @@ public:
   void ObserveVsync(VsyncObserver* aObserver) override;
   nsIWidget* RealWidget() override;
 
-private:
+ private:
   nsWindow* mWindow;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // widget_windows_InProcessCompositorWidgetParent_h
+#endif  // widget_windows_InProcessCompositorWidgetParent_h

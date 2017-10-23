@@ -39,7 +39,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaKeyMessageEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 MediaKeyMessageEvent::MediaKeyMessageEvent(EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
+    : Event(aOwner, nullptr, nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
@@ -57,7 +57,8 @@ MediaKeyMessageEvent::AsMediaKeyMessageEvent()
 }
 
 JSObject*
-MediaKeyMessageEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+MediaKeyMessageEvent::WrapObjectInternal(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto)
 {
   return MediaKeyMessageEventBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -76,10 +77,11 @@ MediaKeyMessageEvent::Constructor(EventTarget* aOwner,
 }
 
 already_AddRefed<MediaKeyMessageEvent>
-MediaKeyMessageEvent::Constructor(const GlobalObject& aGlobal,
-                                  const nsAString& aType,
-                                  const MediaKeyMessageEventInit& aEventInitDict,
-                                  ErrorResult& aRv)
+MediaKeyMessageEvent::Constructor(
+    const GlobalObject& aGlobal,
+    const nsAString& aType,
+    const MediaKeyMessageEventInit& aEventInitDict,
+    ErrorResult& aRv)
 {
   nsCOMPtr<EventTarget> owner = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<MediaKeyMessageEvent> e = new MediaKeyMessageEvent(owner);
@@ -105,10 +107,8 @@ MediaKeyMessageEvent::GetMessage(JSContext* cx,
                                  ErrorResult& aRv)
 {
   if (!mMessage) {
-    mMessage = ArrayBuffer::Create(cx,
-                                   this,
-                                   mRawMessage.Length(),
-                                   mRawMessage.Elements());
+    mMessage = ArrayBuffer::Create(
+        cx, this, mRawMessage.Length(), mRawMessage.Elements());
     if (!mMessage) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
       return;
@@ -118,5 +118,5 @@ MediaKeyMessageEvent::GetMessage(JSContext* cx,
   aMessage.set(mMessage);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

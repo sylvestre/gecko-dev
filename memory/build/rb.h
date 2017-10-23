@@ -82,55 +82,44 @@ enum NodeColor
 };
 
 /* Node structure. */
-template <typename T>
+template<typename T>
 class RedBlackTreeNode
 {
   T* mLeft;
   /* The lowest bit is the color */
   T* mRightAndColor;
 
-public:
-  T* Left()
-  {
-    return mLeft;
-  }
+ public:
+  T* Left() { return mLeft; }
 
-  void SetLeft(T* aValue)
-  {
-    mLeft = aValue;
-  }
+  void SetLeft(T* aValue) { mLeft = aValue; }
 
   T* Right()
   {
-    return reinterpret_cast<T*>(
-      reinterpret_cast<uintptr_t>(mRightAndColor) & uintptr_t(~1));
+    return reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(mRightAndColor) &
+                                uintptr_t(~1));
   }
 
   void SetRight(T* aValue)
   {
     mRightAndColor = reinterpret_cast<T*>(
-      (reinterpret_cast<uintptr_t>(aValue) & uintptr_t(~1)) | Color());
+        (reinterpret_cast<uintptr_t>(aValue) & uintptr_t(~1)) | Color());
   }
 
   NodeColor Color()
   {
-    return static_cast<NodeColor>(reinterpret_cast<uintptr_t>(mRightAndColor) & 1);
+    return static_cast<NodeColor>(reinterpret_cast<uintptr_t>(mRightAndColor) &
+                                  1);
   }
 
-  bool IsBlack()
-  {
-    return Color() == NodeColor::Black;
-  }
+  bool IsBlack() { return Color() == NodeColor::Black; }
 
-  bool IsRed()
-  {
-    return Color() == NodeColor::Red;
-  }
+  bool IsRed() { return Color() == NodeColor::Red; }
 
   void SetColor(NodeColor aColor)
   {
     mRightAndColor = reinterpret_cast<T*>(
-      (reinterpret_cast<uintptr_t>(mRightAndColor) & uintptr_t(~1)) | aColor);
+        (reinterpret_cast<uintptr_t>(mRightAndColor) & uintptr_t(~1)) | aColor);
   }
 };
 
@@ -138,7 +127,7 @@ public:
 template<typename T, typename Trait>
 class RedBlackTree
 {
-public:
+ public:
   void Init()
   {
     mRoot = &mSentinel;
@@ -157,20 +146,11 @@ public:
     return Last(reinterpret_cast<TreeNode*>(aStart));
   }
 
-  T* Next(T* aNode)
-  {
-    return Next(reinterpret_cast<TreeNode*>(aNode));
-  }
+  T* Next(T* aNode) { return Next(reinterpret_cast<TreeNode*>(aNode)); }
 
-  T* Prev(T* aNode)
-  {
-    return Prev(reinterpret_cast<TreeNode*>(aNode));
-  }
+  T* Prev(T* aNode) { return Prev(reinterpret_cast<TreeNode*>(aNode)); }
 
-  T* Search(T* aKey)
-  {
-    return Search(reinterpret_cast<TreeNode*>(aKey));
-  }
+  T* Search(T* aKey) { return Search(reinterpret_cast<TreeNode*>(aKey)); }
 
   /* Find a match if it exists. Otherwise, find the next greater node, if one
    * exists */
@@ -179,55 +159,28 @@ public:
     return SearchOrNext(reinterpret_cast<TreeNode*>(aKey));
   }
 
-  void Insert(T* aNode)
-  {
-    Insert(reinterpret_cast<TreeNode*>(aNode));
-  }
+  void Insert(T* aNode) { Insert(reinterpret_cast<TreeNode*>(aNode)); }
 
-  void Remove(T* aNode)
-  {
-    return Remove(reinterpret_cast<TreeNode*>(aNode));
-  }
+  void Remove(T* aNode) { return Remove(reinterpret_cast<TreeNode*>(aNode)); }
 
-private:
+ private:
   /* Helper class to avoid having all the tree traversal code further below
    * have to use Trait::GetTreeNode, adding visual noise. */
   struct TreeNode : public T
   {
-    TreeNode* Left()
-    {
-      return (TreeNode*)Trait::GetTreeNode(this).Left();
-    }
+    TreeNode* Left() { return (TreeNode*)Trait::GetTreeNode(this).Left(); }
 
-    void SetLeft(T* aValue)
-    {
-      Trait::GetTreeNode(this).SetLeft(aValue);
-    }
+    void SetLeft(T* aValue) { Trait::GetTreeNode(this).SetLeft(aValue); }
 
-    TreeNode* Right()
-    {
-      return (TreeNode*)Trait::GetTreeNode(this).Right();
-    }
+    TreeNode* Right() { return (TreeNode*)Trait::GetTreeNode(this).Right(); }
 
-    void SetRight(T* aValue)
-    {
-      Trait::GetTreeNode(this).SetRight(aValue);
-    }
+    void SetRight(T* aValue) { Trait::GetTreeNode(this).SetRight(aValue); }
 
-    NodeColor Color()
-    {
-      return Trait::GetTreeNode(this).Color();
-    }
+    NodeColor Color() { return Trait::GetTreeNode(this).Color(); }
 
-    bool IsRed()
-    {
-      return Trait::GetTreeNode(this).IsRed();
-    }
+    bool IsRed() { return Trait::GetTreeNode(this).IsRed(); }
 
-    bool IsBlack()
-    {
-      return Trait::GetTreeNode(this).IsBlack();
-    }
+    bool IsBlack() { return Trait::GetTreeNode(this).IsBlack(); }
 
     void SetColor(NodeColor aColor)
     {
@@ -720,17 +673,16 @@ private:
    * This works out to a maximum depth of 87 and 180 for 32- and 64-bit
    * systems, respectively (approximately 348 and 1440 bytes, respectively).
    */
-public:
+ public:
   class Iterator
   {
     TreeNode* mSentinel;
     TreeNode* mPath[3 * ((SIZEOF_PTR << 3) - (SIZEOF_PTR_2POW + 1))];
     unsigned mDepth;
 
-  public:
+   public:
     explicit Iterator(RedBlackTree<T, Trait>* aTree)
-      : mSentinel(&aTree->mSentinel)
-      , mDepth(0)
+        : mSentinel(&aTree->mSentinel), mDepth(0)
     {
       /* Initialize the path to contain the left spine. */
       if (aTree->mRoot != mSentinel) {
@@ -747,11 +699,10 @@ public:
       Iterator* mIterator;
       T* mItem;
 
-    public:
-      Item(Iterator* aIterator, T* aItem)
-        : mIterator(aIterator)
-        , mItem(aItem)
-      { }
+     public:
+      Item(Iterator* aIterator, T* aItem) : mIterator(aIterator), mItem(aItem)
+      {
+      }
 
       bool operator!=(const Item& aOther) const
       {
@@ -772,10 +723,7 @@ public:
       return Item(this, mDepth > 0 ? mPath[mDepth - 1] : nullptr);
     }
 
-    Item end()
-    {
-      return Item(this, nullptr);
-    }
+    Item end() { return Item(this, nullptr); }
 
     TreeNode* Next()
     {

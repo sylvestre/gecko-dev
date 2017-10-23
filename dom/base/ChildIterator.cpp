@@ -16,13 +16,18 @@
 namespace mozilla {
 namespace dom {
 
-class MatchedNodes {
-public:
+class MatchedNodes
+{
+ public:
   explicit MatchedNodes(HTMLContentElement* aInsertionPoint)
-    : mIsContentElement(true), mContentElement(aInsertionPoint) {}
+      : mIsContentElement(true), mContentElement(aInsertionPoint)
+  {
+  }
 
   explicit MatchedNodes(XBLChildrenElement* aInsertionPoint)
-    : mIsContentElement(false), mChildrenElement(aInsertionPoint) {}
+      : mIsContentElement(false), mChildrenElement(aInsertionPoint)
+  {
+  }
 
   uint32_t Length() const
   {
@@ -41,7 +46,8 @@ public:
     return mIsContentElement ? mContentElement->MatchedNodes().IsEmpty()
                              : !mChildrenElement->HasInsertedChildren();
   }
-protected:
+
+ protected:
   bool mIsContentElement;
   union {
     HTMLContentElement* mContentElement;
@@ -91,7 +97,7 @@ ExplicitChildIterator::GetNextChild()
   } else if (mIsFirst) {  // at the beginning of the child list
     mChild = mParent->GetFirstChild();
     mIsFirst = false;
-  } else if (mChild) { // in the middle of the child list
+  } else if (mChild) {  // in the middle of the child list
     mChild = mChild->GetNextSibling();
   }
 
@@ -137,7 +143,7 @@ FlattenedChildIterator::Init(bool aIgnoreXBL)
   }
 
   nsXBLBinding* binding =
-    mParent->OwnerDoc()->BindingManager()->GetBindingWithContent(mParent);
+      mParent->OwnerDoc()->BindingManager()->GetBindingWithContent(mParent);
 
   if (binding) {
     MOZ_ASSERT(binding->GetAnonymousContent());
@@ -149,8 +155,7 @@ FlattenedChildIterator::Init(bool aIgnoreXBL)
   // - The node we're iterating has a binding with content attached to it.
   // - The node is generated XBL content and has an <xbl:children> child.
   if (!mXBLInvolved && mParent->GetBindingParent()) {
-    for (nsIContent* child = mParent->GetFirstChild();
-         child;
+    for (nsIContent* child = mParent->GetFirstChild(); child;
          child = child->GetNextSibling()) {
       if (child->NodeInfo()->Equals(nsGkAtoms::children, kNameSpaceID_XBL)) {
         MOZ_ASSERT(child->GetBindingParent());
@@ -216,11 +221,11 @@ ExplicitChildIterator::GetPreviousChild()
     }
 
     mChild = mChild->GetPreviousSibling();
-  } else if (mIsFirst) { // at the beginning of the child list
+  } else if (mIsFirst) {  // at the beginning of the child list
     return nullptr;
-  } else if (mChild) { // in the middle of the child list
+  } else if (mChild) {  // in the middle of the child list
     mChild = mChild->GetPreviousSibling();
-  } else { // at the end of the child list
+  } else {  // at the end of the child list
     mChild = mParent->GetLastChild();
   }
 
@@ -283,7 +288,6 @@ AllChildrenIterator::Get() const
       return nullptr;
   }
 }
-
 
 bool
 AllChildrenIterator::Seek(nsIContent* aChildToFind)
@@ -349,12 +353,10 @@ AllChildrenIterator::GetNextChild()
       MOZ_ASSERT(mAnonKidsIdx == UINT32_MAX);
       AppendNativeAnonymousChildren();
       mAnonKidsIdx = 0;
-    }
-    else {
+    } else {
       if (mAnonKidsIdx == UINT32_MAX) {
         mAnonKidsIdx = 0;
-      }
-      else {
+      } else {
         mAnonKidsIdx++;
       }
     }
@@ -429,5 +431,5 @@ StyleChildrenIterator::GetNextChild()
   return AllChildrenIterator::GetNextChild();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

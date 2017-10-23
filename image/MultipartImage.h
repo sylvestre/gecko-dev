@@ -19,11 +19,9 @@ class NextPartObserver;
  * An Image wrapper that implements support for multipart/x-mixed-replace
  * images.
  */
-class MultipartImage
-  : public ImageWrapper
-  , public IProgressObserver
+class MultipartImage : public ImageWrapper, public IProgressObserver
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(MultipartImage)
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -47,15 +45,14 @@ public:
   // so we override these methods to do nothing.
   NS_IMETHOD LockImage() override { return NS_OK; }
   NS_IMETHOD UnlockImage() override { return NS_OK; }
-  virtual void IncrementAnimationConsumers() override { }
-  virtual void DecrementAnimationConsumers() override { }
+  virtual void IncrementAnimationConsumers() override {}
+  virtual void DecrementAnimationConsumers() override {}
 #ifdef DEBUG
   virtual uint32_t GetAnimationConsumers() override { return 1; }
 #endif
 
   // Overridden IProgressObserver methods:
-  virtual void Notify(int32_t aType,
-                      const nsIntRect* aRect = nullptr) override;
+  virtual void Notify(int32_t aType, const nsIntRect* aRect = nullptr) override;
   virtual void OnLoadComplete(bool aLastPart) override;
   virtual void SetHasImage() override;
   virtual bool NotificationsDeferred() const override;
@@ -63,13 +60,13 @@ public:
 
   // We don't allow multipart images to block onload, so we override these
   // methods to do nothing.
-  virtual void BlockOnload() override { }
-  virtual void UnblockOnload() override { }
+  virtual void BlockOnload() override {}
+  virtual void UnblockOnload() override {}
 
-protected:
+ protected:
   virtual ~MultipartImage();
 
-private:
+ private:
   friend class ImageFactory;
   friend class NextPartObserver;
 
@@ -84,7 +81,7 @@ private:
   bool mDeferNotifications : 1;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_MultipartImage_h
+#endif  // mozilla_image_MultipartImage_h

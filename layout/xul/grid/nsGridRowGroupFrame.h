@@ -25,25 +25,23 @@
  */
 class nsGridRowGroupFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsGridRowGroupFrame)
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
   {
-      return MakeFrameName(NS_LITERAL_STRING("nsGridRowGroup"), aResult);
+    return MakeFrameName(NS_LITERAL_STRING("nsGridRowGroup"), aResult);
   }
 #endif
 
-  nsGridRowGroupFrame(nsStyleContext* aContext,
-                      nsBoxLayout* aLayoutManager):
-    nsBoxFrame(aContext, kClassID, false, aLayoutManager) {}
+  nsGridRowGroupFrame(nsStyleContext* aContext, nsBoxLayout* aLayoutManager)
+      : nsBoxFrame(aContext, kClassID, false, aLayoutManager)
+  {
+  }
 
   virtual nscoord GetXULFlex() override;
 
-}; // class nsGridRowGroupFrame
-
-
+};  // class nsGridRowGroupFrame
 
 #endif
-

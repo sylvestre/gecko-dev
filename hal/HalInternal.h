@@ -18,7 +18,7 @@
  */
 
 #ifndef MOZ_HAL_NAMESPACE
-# error "You shouldn't directly include HalInternal.h!"
+#error "You shouldn't directly include HalInternal.h!"
 #endif
 
 namespace mozilla {
@@ -27,69 +27,82 @@ namespace MOZ_HAL_NAMESPACE {
 /**
  * Enables battery notifications from the backend.
  */
-void EnableBatteryNotifications();
+void
+EnableBatteryNotifications();
 
 /**
  * Disables battery notifications from the backend.
  */
-void DisableBatteryNotifications();
+void
+DisableBatteryNotifications();
 
 /**
  * Enables network notifications from the backend.
  */
-void EnableNetworkNotifications();
+void
+EnableNetworkNotifications();
 
 /**
  * Disables network notifications from the backend.
  */
-void DisableNetworkNotifications();
+void
+DisableNetworkNotifications();
 
 /**
  * Enables screen orientation notifications from the backend.
  */
-void EnableScreenConfigurationNotifications();
+void
+EnableScreenConfigurationNotifications();
 
 /**
  * Disables screen orientation notifications from the backend.
  */
-void DisableScreenConfigurationNotifications();
+void
+DisableScreenConfigurationNotifications();
 
 /**
  * Enable switch notifications from the backend
  */
-void EnableSwitchNotifications(hal::SwitchDevice aDevice);
+void
+EnableSwitchNotifications(hal::SwitchDevice aDevice);
 
 /**
  * Disable switch notifications from the backend
  */
-void DisableSwitchNotifications(hal::SwitchDevice aDevice);
+void
+DisableSwitchNotifications(hal::SwitchDevice aDevice);
 
 /**
  * Enable system clock change notifications from the backend.
  */
-void EnableSystemClockChangeNotifications();
+void
+EnableSystemClockChangeNotifications();
 
 /**
  * Disable system clock change notifications from the backend.
  */
-void DisableSystemClockChangeNotifications();
+void
+DisableSystemClockChangeNotifications();
 
 /**
  * Enable system timezone change notifications from the backend.
  */
-void EnableSystemTimezoneChangeNotifications();
+void
+EnableSystemTimezoneChangeNotifications();
 
 /**
  * Disable system timezone change notifications from the backend.
  */
-void DisableSystemTimezoneChangeNotifications();
+void
+DisableSystemTimezoneChangeNotifications();
 
 /**
  * Has the child-side HAL IPC object been destroyed?  If so, you shouldn't send
  * messages to hal_sandbox.
  */
-bool HalChildDestroyed();
-} // namespace MOZ_HAL_NAMESPACE
-} // namespace mozilla
+bool
+HalChildDestroyed();
+}  // namespace MOZ_HAL_NAMESPACE
+}  // namespace mozilla
 
 #endif  // mozilla_HalInternal_h

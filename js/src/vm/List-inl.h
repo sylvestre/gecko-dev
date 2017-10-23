@@ -18,19 +18,14 @@
 
 namespace js {
 
-inline MOZ_MUST_USE NativeObject*
-NewList(JSContext* cx)
-{
+inline MOZ_MUST_USE NativeObject* NewList(JSContext* cx) {
     return NewObjectWithNullTaggedProto<PlainObject>(cx);
 }
 
-inline MOZ_MUST_USE bool
-AppendToList(JSContext* cx, HandleNativeObject list, HandleValue value)
-{
+inline MOZ_MUST_USE bool AppendToList(JSContext* cx, HandleNativeObject list, HandleValue value) {
     uint32_t length = list->getDenseInitializedLength();
 
-    if (!list->ensureElements(cx, length + 1))
-        return false;
+    if (!list->ensureElements(cx, length + 1)) return false;
 
     list->ensureDenseInitializedLength(cx, length, 1);
     list->setDenseElement(length, value);
@@ -38,18 +33,14 @@ AppendToList(JSContext* cx, HandleNativeObject list, HandleValue value)
     return true;
 }
 
-template<class T>
-inline MOZ_MUST_USE T*
-PeekList(NativeObject* list)
-{
+template <class T>
+inline MOZ_MUST_USE T* PeekList(NativeObject* list) {
     MOZ_ASSERT(list->getDenseInitializedLength() > 0);
     return &list->getDenseElement(0).toObject().as<T>();
 }
 
-template<class T>
-inline MOZ_MUST_USE T*
-ShiftFromList(JSContext* cx, HandleNativeObject list)
-{
+template <class T>
+inline MOZ_MUST_USE T* ShiftFromList(JSContext* cx, HandleNativeObject list) {
     uint32_t length = list->getDenseInitializedLength();
     MOZ_ASSERT(length > 0);
 

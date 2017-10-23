@@ -18,9 +18,8 @@ struct DtoaState;
 
 namespace js {
 
-class JSONPrinter
-{
-  protected:
+class JSONPrinter {
+   protected:
     int indentLevel_;
     bool first_;
     GenericPrinter& out_;
@@ -28,14 +27,9 @@ class JSONPrinter
 
     void indent();
 
-  public:
+   public:
     explicit JSONPrinter(GenericPrinter& out)
-      : indentLevel_(0),
-        first_(true),
-        out_(out),
-        dtoaState_(nullptr)
-    {
-    }
+        : indentLevel_(0), first_(true), out_(out), dtoaState_(nullptr) {}
 
     ~JSONPrinter();
 
@@ -77,10 +71,10 @@ class JSONPrinter
     // to its saw-OOM state.
     void outOfMemory() { out_.reportOutOfMemory(); }
 
-  protected:
+   protected:
     void propertyName(const char* name);
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_JSONPrinter_h */

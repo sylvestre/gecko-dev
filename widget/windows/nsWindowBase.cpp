@@ -16,7 +16,7 @@
 using namespace mozilla;
 using namespace mozilla::widget;
 
-static const wchar_t kUser32LibName[] =  L"user32.dll";
+static const wchar_t kUser32LibName[] = L"user32.dll";
 bool nsWindowBase::sTouchInjectInitialized = false;
 InjectTouchInputPtr nsWindowBase::sInjectTouchFuncPtr;
 
@@ -56,19 +56,21 @@ nsWindowBase::InitTouchInjection()
     }
 
     InitializeTouchInjectionPtr func =
-      (InitializeTouchInjectionPtr)GetProcAddress(hMod, "InitializeTouchInjection");
+        (InitializeTouchInjectionPtr)GetProcAddress(hMod,
+                                                    "InitializeTouchInjection");
     if (!func) {
       WinUtils::Log("InitializeTouchInjection not available.");
       return false;
     }
 
     if (!func(TOUCH_INJECT_MAX_POINTS, TOUCH_FEEDBACK_DEFAULT)) {
-      WinUtils::Log("InitializeTouchInjection failure. GetLastError=%d", GetLastError());
+      WinUtils::Log("InitializeTouchInjection failure. GetLastError=%d",
+                    GetLastError());
       return false;
     }
 
     sInjectTouchFuncPtr =
-      (InjectTouchInputPtr)GetProcAddress(hMod, "InjectTouchInput");
+        (InjectTouchInputPtr)GetProcAddress(hMod, "InjectTouchInput");
     if (!sInjectTouchFuncPtr) {
       WinUtils::Log("InjectTouchInput not available.");
       return false;
@@ -79,8 +81,10 @@ nsWindowBase::InitTouchInjection()
 }
 
 bool
-nsWindowBase::InjectTouchPoint(uint32_t aId, LayoutDeviceIntPoint& aPoint,
-                               POINTER_FLAGS aFlags, uint32_t aPressure,
+nsWindowBase::InjectTouchPoint(uint32_t aId,
+                               LayoutDeviceIntPoint& aPoint,
+                               POINTER_FLAGS aFlags,
+                               uint32_t aPressure,
                                uint32_t aOrientation)
 {
   if (aId > TOUCH_INJECT_MAX_POINTS) {
@@ -92,12 +96,13 @@ nsWindowBase::InjectTouchPoint(uint32_t aId, LayoutDeviceIntPoint& aPoint,
   memset(&info, 0, sizeof(POINTER_TOUCH_INFO));
 
   info.touchFlags = TOUCH_FLAG_NONE;
-  info.touchMask = TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE;
+  info.touchMask =
+      TOUCH_MASK_CONTACTAREA | TOUCH_MASK_ORIENTATION | TOUCH_MASK_PRESSURE;
   info.pressure = aPressure;
   info.orientation = aOrientation;
 
   info.pointerInfo.pointerFlags = aFlags;
-  info.pointerInfo.pointerType =  PT_TOUCH;
+  info.pointerInfo.pointerType = PT_TOUCH;
   info.pointerInfo.pointerId = aId;
   info.pointerInfo.ptPixelLocation.x = aPoint.x;
   info.pointerInfo.ptPixelLocation.y = aPoint.y;
@@ -114,7 +119,8 @@ nsWindowBase::InjectTouchPoint(uint32_t aId, LayoutDeviceIntPoint& aPoint,
   return true;
 }
 
-void nsWindowBase::ChangedDPI()
+void
+nsWindowBase::ChangedDPI()
 {
   if (mWidgetListener) {
     nsIPresShell* presShell = mWidgetListener->GetPresShell();
@@ -126,12 +132,13 @@ void nsWindowBase::ChangedDPI()
 }
 
 nsresult
-nsWindowBase::SynthesizeNativeTouchPoint(uint32_t aPointerId,
-                                         nsIWidget::TouchPointerState aPointerState,
-                                         LayoutDeviceIntPoint aPoint,
-                                         double aPointerPressure,
-                                         uint32_t aPointerOrientation,
-                                         nsIObserver* aObserver)
+nsWindowBase::SynthesizeNativeTouchPoint(
+    uint32_t aPointerId,
+    nsIWidget::TouchPointerState aPointerState,
+    LayoutDeviceIntPoint aPoint,
+    double aPointerPressure,
+    uint32_t aPointerOrientation,
+    nsIObserver* aObserver)
 {
   AutoObserverNotifier notifier(aObserver, "touchpoint");
 
@@ -150,10 +157,15 @@ nsWindowBase::SynthesizeNativeTouchPoint(uint32_t aPointerId,
 
     WidgetEventTime time = CurrentMessageWidgetEventTime();
     LayoutDeviceIntPoint pointInWindow = aPoint - WidgetToScreenOffset();
-    MultiTouchInput inputToDispatch = UpdateSynthesizedTouchState(
-        mSynthesizedTouchInput.get(), time.mTime, time.mTimeStamp,
-        aPointerId, aPointerState, pointInWindow, aPointerPressure,
-        aPointerOrientation);
+    MultiTouchInput inputToDispatch =
+        UpdateSynthesizedTouchState(mSynthesizedTouchInput.get(),
+                                    time.mTime,
+                                    time.mTimeStamp,
+                                    aPointerId,
+                                    aPointerState,
+                                    pointInWindow,
+                                    aPointerPressure,
+                                    aPointerOrientation);
     DispatchTouchInput(inputToDispatch);
     return NS_OK;
   }
@@ -176,7 +188,7 @@ nsWindowBase::SynthesizeNativeTouchPoint(uint32_t aPointerId,
     if (hover) {
       flags |= POINTER_FLAG_INRANGE;
     } else if (contact) {
-      flags |= POINTER_FLAG_INCONTACT|POINTER_FLAG_INRANGE;
+      flags |= POINTER_FLAG_INCONTACT | POINTER_FLAG_INRANGE;
     } else if (remove) {
       flags = POINTER_FLAG_UP;
       // Remove the pointer from our tracking list. This is nsAutPtr wrapped,
@@ -188,9 +200,10 @@ nsWindowBase::SynthesizeNativeTouchPoint(uint32_t aPointerId,
       flags |= POINTER_FLAG_CANCELED;
     }
 
-    return !InjectTouchPoint(aPointerId, aPoint, flags,
-                             pressure, aPointerOrientation) ?
-      NS_ERROR_UNEXPECTED : NS_OK;
+    return !InjectTouchPoint(
+               aPointerId, aPoint, flags, pressure, aPointerOrientation)
+               ? NS_ERROR_UNEXPECTED
+               : NS_OK;
   }
 
   // Missing init state, error out
@@ -203,13 +216,14 @@ nsWindowBase::SynthesizeNativeTouchPoint(uint32_t aPointerId,
 
   POINTER_FLAGS flags = POINTER_FLAG_INRANGE;
   if (contact) {
-    flags |= POINTER_FLAG_INCONTACT|POINTER_FLAG_DOWN;
+    flags |= POINTER_FLAG_INCONTACT | POINTER_FLAG_DOWN;
   }
 
   mActivePointers.Put(aPointerId, info);
-  return !InjectTouchPoint(aPointerId, aPoint, flags,
-                           pressure, aPointerOrientation) ?
-    NS_ERROR_UNEXPECTED : NS_OK;
+  return !InjectTouchPoint(
+             aPointerId, aPoint, flags, pressure, aPointerOrientation)
+             ? NS_ERROR_UNEXPECTED
+             : NS_OK;
 }
 
 nsresult
@@ -223,8 +237,8 @@ nsWindowBase::ClearNativeTouchSequence(nsIObserver* aObserver)
   // cancel all input points
   for (auto iter = mActivePointers.Iter(); !iter.Done(); iter.Next()) {
     nsAutoPtr<PointerInfo>& info = iter.Data();
-    InjectTouchPoint(info.get()->mPointerId, info.get()->mPosition,
-                     POINTER_FLAG_CANCELED);
+    InjectTouchPoint(
+        info.get()->mPointerId, info.get()->mPosition, POINTER_FLAG_CANCELED);
     iter.Remove();
   }
 
@@ -234,8 +248,7 @@ nsWindowBase::ClearNativeTouchSequence(nsIObserver* aObserver)
 }
 
 bool
-nsWindowBase::HandleAppCommandMsg(const MSG& aAppCommandMsg,
-                                  LRESULT *aRetValue)
+nsWindowBase::HandleAppCommandMsg(const MSG& aAppCommandMsg, LRESULT* aRetValue)
 {
   ModifierKeyState modKeyState;
   NativeKey nativeKey(this, aAppCommandMsg, modKeyState);

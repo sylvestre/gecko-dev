@@ -11,8 +11,7 @@ using namespace mozilla::a11y;
 // XULListboxAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-NS_IMPL_ISUPPORTS_INHERITED0(XULListboxAccessibleWrap,
-                             XULListboxAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(XULListboxAccessibleWrap, XULListboxAccessible)
 
 IMPL_IUNKNOWN_QUERY_HEAD(XULListboxAccessibleWrap)
 IMPL_IUNKNOWN_QUERY_CLASS_COND(ia2AccessibleTable,
@@ -31,8 +30,7 @@ XULListboxAccessibleWrap::Shutdown()
 // XULListCellAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-NS_IMPL_ISUPPORTS_INHERITED0(XULListCellAccessibleWrap,
-                             XULListCellAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(XULListCellAccessibleWrap, XULListCellAccessible)
 
 IMPL_IUNKNOWN_INHERITED1(XULListCellAccessibleWrap,
                          HyperTextAccessibleWrap,

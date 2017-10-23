@@ -15,7 +15,7 @@ namespace dom {
 
 class SelectionChangeListener final : public nsISelectionListener
 {
-public:
+ public:
   // SelectionChangeListener has to participate in cycle collection because
   // it holds strong references to nsINodes in its mOldRanges array.
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -45,13 +45,13 @@ public:
     bool Equals(const nsRange* aRange);
   };
 
-private:
+ private:
   nsTArray<RawRangeData> mOldRanges;
 
   ~SelectionChangeListener() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_SelectionChangeListener_h_
+#endif  // mozilla_SelectionChangeListener_h_

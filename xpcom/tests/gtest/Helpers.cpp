@@ -22,14 +22,14 @@ void
 CreateData(uint32_t aNumBytes, nsTArray<char>& aDataOut)
 {
   static const char data[] =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec egestas "
-    "purus eu condimentum iaculis. In accumsan leo eget odio porttitor, non "
-    "rhoncus nulla vestibulum. Etiam lacinia consectetur nisl nec "
-    "sollicitudin. Sed fringilla accumsan diam, pulvinar varius massa. Duis "
-    "mollis dignissim felis, eget tempus nisi tristique ut. Fusce euismod, "
-    "lectus non lacinia tempor, tellus diam suscipit quam, eget hendrerit "
-    "lacus nunc fringilla ante. Sed ultrices massa vitae risus molestie, ut "
-    "finibus quam laoreet nullam.";
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec egestas "
+      "purus eu condimentum iaculis. In accumsan leo eget odio porttitor, non "
+      "rhoncus nulla vestibulum. Etiam lacinia consectetur nisl nec "
+      "sollicitudin. Sed fringilla accumsan diam, pulvinar varius massa. Duis "
+      "mollis dignissim felis, eget tempus nisi tristique ut. Fusce euismod, "
+      "lectus non lacinia tempor, tellus diam suscipit quam, eget hendrerit "
+      "lacus nunc fringilla ante. Sed ultrices massa vitae risus molestie, ut "
+      "finibus quam laoreet nullam.";
   static const uint32_t dataLength = sizeof(data) - 1;
 
   aDataOut.SetCapacity(aNumBytes);
@@ -44,16 +44,18 @@ CreateData(uint32_t aNumBytes, nsTArray<char>& aDataOut)
 // Write the given number of bytes out to the stream.  Loop until expected
 // bytes count is reached or an error occurs.
 void
-Write(nsIOutputStream* aStream, const nsTArray<char>& aData, uint32_t aOffset,
+Write(nsIOutputStream* aStream,
+      const nsTArray<char>& aData,
+      uint32_t aOffset,
       uint32_t aNumBytes)
 {
   uint32_t remaining =
-    std::min(aNumBytes, static_cast<uint32_t>(aData.Length() - aOffset));
+      std::min(aNumBytes, static_cast<uint32_t>(aData.Length() - aOffset));
 
   while (remaining > 0) {
     uint32_t numWritten;
-    nsresult rv = aStream->Write(aData.Elements() + aOffset, remaining,
-                                 &numWritten);
+    nsresult rv =
+        aStream->Write(aData.Elements() + aOffset, remaining, &numWritten);
     ASSERT_TRUE(NS_SUCCEEDED(rv));
     if (numWritten < 1) {
       break;
@@ -96,14 +98,9 @@ ConsumeAndValidateStream(nsIInputStream* aStream,
 
 NS_IMPL_ISUPPORTS(OutputStreamCallback, nsIOutputStreamCallback);
 
-OutputStreamCallback::OutputStreamCallback()
-  : mCalled(false)
-{
-}
+OutputStreamCallback::OutputStreamCallback() : mCalled(false) {}
 
-OutputStreamCallback::~OutputStreamCallback()
-{
-}
+OutputStreamCallback::~OutputStreamCallback() {}
 
 NS_IMETHODIMP
 OutputStreamCallback::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
@@ -114,14 +111,9 @@ OutputStreamCallback::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
 
 NS_IMPL_ISUPPORTS(InputStreamCallback, nsIInputStreamCallback);
 
-InputStreamCallback::InputStreamCallback()
-  : mCalled(false)
-{
-}
+InputStreamCallback::InputStreamCallback() : mCalled(false) {}
 
-InputStreamCallback::~InputStreamCallback()
-{
-}
+InputStreamCallback::~InputStreamCallback() {}
 
 NS_IMETHODIMP
 InputStreamCallback::OnInputStreamReady(nsIAsyncInputStream* aStream)
@@ -130,4 +122,4 @@ InputStreamCallback::OnInputStreamReady(nsIAsyncInputStream* aStream)
   return NS_OK;
 }
 
-} // namespace testing
+}  // namespace testing

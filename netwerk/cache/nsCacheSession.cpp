@@ -11,16 +11,17 @@
 
 NS_IMPL_ISUPPORTS(nsCacheSession, nsICacheSession)
 
-nsCacheSession::nsCacheSession(const char *         clientID,
+nsCacheSession::nsCacheSession(const char* clientID,
                                nsCacheStoragePolicy storagePolicy,
-                               bool                 streamBased)
-    : mClientID(clientID),
-      mInfo(0)
+                               bool streamBased)
+    : mClientID(clientID), mInfo(0)
 {
   SetStoragePolicy(storagePolicy);
 
-  if (streamBased) MarkStreamBased();
-  else SetStoragePolicy(nsICache::STORE_IN_MEMORY);
+  if (streamBased)
+    MarkStreamBased();
+  else
+    SetStoragePolicy(nsICache::STORE_IN_MEMORY);
 
   MarkPublic();
 
@@ -30,118 +31,122 @@ nsCacheSession::nsCacheSession(const char *         clientID,
 nsCacheSession::~nsCacheSession()
 {
   /* destructor code */
-    // notify service we are going away?
+  // notify service we are going away?
 }
-
-
-NS_IMETHODIMP nsCacheSession::GetDoomEntriesIfExpired(bool *result)
-{
-    NS_ENSURE_ARG_POINTER(result);
-    *result = WillDoomEntriesIfExpired();
-    return NS_OK;
-}
-
-
-NS_IMETHODIMP nsCacheSession::SetProfileDirectory(nsIFile *profileDir)
-{
-  if (StoragePolicy() != nsICache::STORE_OFFLINE && profileDir) {
-        // Profile directory override is currently implemented only for
-        // offline cache.  This is an early failure to prevent the request
-        // being processed before it would fail later because of inability
-        // to assign a cache base dir.
-        return NS_ERROR_UNEXPECTED;
-    }
-
-    mProfileDir = profileDir;
-    return NS_OK;
-}
-
-NS_IMETHODIMP nsCacheSession::GetProfileDirectory(nsIFile **profileDir)
-{
-    if (mProfileDir)
-        NS_ADDREF(*profileDir = mProfileDir);
-    else
-        *profileDir = nullptr;
-
-    return NS_OK;
-}
-
-
-NS_IMETHODIMP nsCacheSession::SetDoomEntriesIfExpired(bool doomEntriesIfExpired)
-{
-    if (doomEntriesIfExpired)  MarkDoomEntriesIfExpired();
-    else                       ClearDoomEntriesIfExpired();
-    return NS_OK;
-}
-
 
 NS_IMETHODIMP
-nsCacheSession::OpenCacheEntry(const nsACString &         key,
-                               nsCacheAccessMode          accessRequested,
-                               bool                       blockingMode,
-                               nsICacheEntryDescriptor ** result)
+nsCacheSession::GetDoomEntriesIfExpired(bool* result)
 {
-    nsresult rv;
-
-    if (NS_IsMainThread())
-        rv = NS_ERROR_NOT_AVAILABLE;
-    else
-        rv = nsCacheService::OpenCacheEntry(this,
-                                            key,
-                                            accessRequested,
-                                            blockingMode,
-                                            nullptr, // no listener
-                                            result);
-    return rv;
+  NS_ENSURE_ARG_POINTER(result);
+  *result = WillDoomEntriesIfExpired();
+  return NS_OK;
 }
 
-
-NS_IMETHODIMP nsCacheSession::AsyncOpenCacheEntry(const nsACString & key,
-                                                  nsCacheAccessMode accessRequested,
-                                                  nsICacheListener *listener,
-                                                  bool              noWait)
+NS_IMETHODIMP
+nsCacheSession::SetProfileDirectory(nsIFile* profileDir)
 {
-    nsresult rv;
+  if (StoragePolicy() != nsICache::STORE_OFFLINE && profileDir) {
+    // Profile directory override is currently implemented only for
+    // offline cache.  This is an early failure to prevent the request
+    // being processed before it would fail later because of inability
+    // to assign a cache base dir.
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  mProfileDir = profileDir;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCacheSession::GetProfileDirectory(nsIFile** profileDir)
+{
+  if (mProfileDir)
+    NS_ADDREF(*profileDir = mProfileDir);
+  else
+    *profileDir = nullptr;
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCacheSession::SetDoomEntriesIfExpired(bool doomEntriesIfExpired)
+{
+  if (doomEntriesIfExpired)
+    MarkDoomEntriesIfExpired();
+  else
+    ClearDoomEntriesIfExpired();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCacheSession::OpenCacheEntry(const nsACString& key,
+                               nsCacheAccessMode accessRequested,
+                               bool blockingMode,
+                               nsICacheEntryDescriptor** result)
+{
+  nsresult rv;
+
+  if (NS_IsMainThread())
+    rv = NS_ERROR_NOT_AVAILABLE;
+  else
     rv = nsCacheService::OpenCacheEntry(this,
                                         key,
                                         accessRequested,
-                                        !noWait,
-                                        listener,
-                                        nullptr); // no result
-
-    if (rv == NS_ERROR_CACHE_WAIT_FOR_VALIDATION) rv = NS_OK;
-    return rv;
+                                        blockingMode,
+                                        nullptr,  // no listener
+                                        result);
+  return rv;
 }
 
-NS_IMETHODIMP nsCacheSession::EvictEntries()
+NS_IMETHODIMP
+nsCacheSession::AsyncOpenCacheEntry(const nsACString& key,
+                                    nsCacheAccessMode accessRequested,
+                                    nsICacheListener* listener,
+                                    bool noWait)
 {
-    return nsCacheService::EvictEntriesForSession(this);
+  nsresult rv;
+  rv = nsCacheService::OpenCacheEntry(this,
+                                      key,
+                                      accessRequested,
+                                      !noWait,
+                                      listener,
+                                      nullptr);  // no result
+
+  if (rv == NS_ERROR_CACHE_WAIT_FOR_VALIDATION) rv = NS_OK;
+  return rv;
 }
 
-
-NS_IMETHODIMP nsCacheSession::IsStorageEnabled(bool *result)
+NS_IMETHODIMP
+nsCacheSession::EvictEntries()
 {
-
-    return nsCacheService::IsStorageEnabledForPolicy(StoragePolicy(), result);
+  return nsCacheService::EvictEntriesForSession(this);
 }
 
-NS_IMETHODIMP nsCacheSession::DoomEntry(const nsACString &key,
-                                        nsICacheListener *listener)
+NS_IMETHODIMP
+nsCacheSession::IsStorageEnabled(bool* result)
 {
-    return nsCacheService::DoomEntry(this, key, listener);
+  return nsCacheService::IsStorageEnabledForPolicy(StoragePolicy(), result);
 }
 
-NS_IMETHODIMP nsCacheSession::GetIsPrivate(bool* aPrivate)
+NS_IMETHODIMP
+nsCacheSession::DoomEntry(const nsACString& key, nsICacheListener* listener)
 {
-    *aPrivate = IsPrivate();
-    return NS_OK;
+  return nsCacheService::DoomEntry(this, key, listener);
 }
 
-NS_IMETHODIMP nsCacheSession::SetIsPrivate(bool aPrivate)
+NS_IMETHODIMP
+nsCacheSession::GetIsPrivate(bool* aPrivate)
 {
-    if (aPrivate)
-        MarkPrivate();
-    else
-        MarkPublic();
-    return NS_OK;
+  *aPrivate = IsPrivate();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCacheSession::SetIsPrivate(bool aPrivate)
+{
+  if (aPrivate)
+    MarkPrivate();
+  else
+    MarkPublic();
+  return NS_OK;
 }

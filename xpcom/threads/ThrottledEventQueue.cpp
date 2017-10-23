@@ -24,7 +24,7 @@ namespace {
 
 static const char kShutdownTopic[] = "xpcom-shutdown";
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // The ThrottledEventQueue is designed with inner and outer objects:
 //
@@ -67,11 +67,11 @@ class ThrottledEventQueue::Inner final : public nsIObserver
   {
     RefPtr<Inner> mInner;
 
-  public:
+   public:
     explicit Executor(Inner* aInner)
-      : Runnable("ThrottledEventQueue::Inner::Executor")
-      , mInner(aInner)
-    { }
+        : Runnable("ThrottledEventQueue::Inner::Executor"), mInner(aInner)
+    {
+    }
 
     NS_IMETHODIMP
     Run() override
@@ -81,10 +81,7 @@ class ThrottledEventQueue::Inner final : public nsIObserver
     }
 
     NS_IMETHODIMP
-    GetName(nsACString& aName) override
-    {
-      return mInner->CurrentName(aName);
-    }
+    GetName(nsACString& aName) override { return mInner->CurrentName(aName); }
   };
 
   mutable Mutex mMutex;
@@ -103,10 +100,10 @@ class ThrottledEventQueue::Inner final : public nsIObserver
   bool mShutdownStarted;
 
   explicit Inner(nsISerialEventTarget* aBaseTarget)
-    : mMutex("ThrottledEventQueue")
-    , mIdleCondVar(mMutex, "ThrottledEventQueue:Idle")
-    , mBaseTarget(aBaseTarget)
-    , mShutdownStarted(false)
+      : mMutex("ThrottledEventQueue"),
+        mIdleCondVar(mMutex, "ThrottledEventQueue:Idle"),
+        mBaseTarget(aBaseTarget),
+        mShutdownStarted(false)
   {
   }
 
@@ -116,8 +113,7 @@ class ThrottledEventQueue::Inner final : public nsIObserver
     MOZ_ASSERT(mShutdownStarted);
   }
 
-  nsresult
-  CurrentName(nsACString& aName)
+  nsresult CurrentName(nsACString& aName)
   {
     nsCOMPtr<nsIRunnable> event;
 
@@ -145,8 +141,7 @@ class ThrottledEventQueue::Inner final : public nsIObserver
     return NS_OK;
   }
 
-  void
-  ExecuteRunnable()
+  void ExecuteRunnable()
   {
     // Any thread
     nsCOMPtr<nsIRunnable> event;
@@ -175,7 +170,7 @@ class ThrottledEventQueue::Inner final : public nsIObserver
         // the next throttled event.  We must do this before executing
         // the event in case the event spins the event loop.
         MOZ_ALWAYS_SUCCEEDS(
-          mBaseTarget->Dispatch(mExecutor, NS_DISPATCH_NORMAL));
+            mBaseTarget->Dispatch(mExecutor, NS_DISPATCH_NORMAL));
       }
 
       // Otherwise the queue is empty and we can stop dispatching the
@@ -197,13 +192,14 @@ class ThrottledEventQueue::Inner final : public nsIObserver
     // of the method in order to wait for the event to finish running.
     if (shouldShutdown) {
       MOZ_ASSERT(IsEmpty());
-      NS_DispatchToMainThread(NewRunnableMethod("ThrottledEventQueue::Inner::ShutdownComplete",
-                                                this, &Inner::ShutdownComplete));
+      NS_DispatchToMainThread(
+          NewRunnableMethod("ThrottledEventQueue::Inner::ShutdownComplete",
+                            this,
+                            &Inner::ShutdownComplete));
     }
   }
 
-  void
-  ShutdownComplete()
+  void ShutdownComplete()
   {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsEmpty());
@@ -211,13 +207,13 @@ class ThrottledEventQueue::Inner final : public nsIObserver
     obs->RemoveObserver(this, kShutdownTopic);
   }
 
-public:
-  static already_AddRefed<Inner>
-  Create(nsISerialEventTarget* aBaseTarget)
+ public:
+  static already_AddRefed<Inner> Create(nsISerialEventTarget* aBaseTarget)
   {
     MOZ_ASSERT(NS_IsMainThread());
 
-    if (ClearOnShutdown_Internal::sCurrentShutdownPhase != ShutdownPhase::NotInShutdown) {
+    if (ClearOnShutdown_Internal::sCurrentShutdownPhase !=
+        ShutdownPhase::NotInShutdown) {
       return nullptr;
     }
 
@@ -228,8 +224,8 @@ public:
 
     RefPtr<Inner> ref = new Inner(aBaseTarget);
 
-    nsresult rv = obs->AddObserver(ref, kShutdownTopic,
-                                   false /* means OS will hold a strong ref */);
+    nsresult rv = obs->AddObserver(
+        ref, kShutdownTopic, false /* means OS will hold a strong ref */);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       ref->MaybeStartShutdown();
       MOZ_ASSERT(ref->IsEmpty());
@@ -250,15 +246,12 @@ public:
     // Once shutdown begins we set the Atomic<bool> mShutdownStarted flag.
     // This prevents any new runnables from being dispatched into the
     // TaskQueue.  Therefore this loop should be finite.
-    MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() -> bool {
-        return IsEmpty();
-    }));
+    MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() -> bool { return IsEmpty(); }));
 
     return NS_OK;
   }
 
-  void
-  MaybeStartShutdown()
+  void MaybeStartShutdown()
   {
     // Any thread
     MutexAutoLock lock(mMutex);
@@ -276,27 +269,26 @@ public:
     }
 
     // The queue is empty, so we can complete immediately.
-    NS_DispatchToMainThread(NewRunnableMethod("ThrottledEventQueue::Inner::ShutdownComplete",
-                                              this, &Inner::ShutdownComplete));
+    NS_DispatchToMainThread(
+        NewRunnableMethod("ThrottledEventQueue::Inner::ShutdownComplete",
+                          this,
+                          &Inner::ShutdownComplete));
   }
 
-  bool
-  IsEmpty() const
+  bool IsEmpty() const
   {
     // Any thread
     return Length() == 0;
   }
 
-  uint32_t
-  Length() const
+  uint32_t Length() const
   {
     // Any thread
     MutexAutoLock lock(mMutex);
     return mEventQueue.Count(lock);
   }
 
-  void
-  AwaitIdle() const
+  void AwaitIdle() const
   {
     // Any thread, except the main thread or our base target.  Blocking the
     // main thread is forbidden.  Blocking the base target is guaranteed to
@@ -314,19 +306,16 @@ public:
     }
   }
 
-  nsresult
-  DispatchFromScript(nsIRunnable* aEvent, uint32_t aFlags)
+  nsresult DispatchFromScript(nsIRunnable* aEvent, uint32_t aFlags)
   {
     // Any thread
     nsCOMPtr<nsIRunnable> r = aEvent;
     return Dispatch(r.forget(), aFlags);
   }
 
-  nsresult
-  Dispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags)
+  nsresult Dispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags)
   {
-    MOZ_ASSERT(aFlags == NS_DISPATCH_NORMAL ||
-               aFlags == NS_DISPATCH_AT_END);
+    MOZ_ASSERT(aFlags == NS_DISPATCH_NORMAL || aFlags == NS_DISPATCH_AT_END);
 
     // Any thread
     MutexAutoLock lock(mMutex);
@@ -358,19 +347,15 @@ public:
     return NS_OK;
   }
 
-  nsresult
-  DelayedDispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aDelay)
+  nsresult DelayedDispatch(already_AddRefed<nsIRunnable> aEvent,
+                           uint32_t aDelay)
   {
     // The base target may implement this, but we don't.  Always fail
     // to provide consistent behavior.
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
-  bool
-  IsOnCurrentThread()
-  {
-    return mBaseTarget->IsOnCurrentThread();
-  }
+  bool IsOnCurrentThread() { return mBaseTarget->IsOnCurrentThread(); }
 
   NS_DECL_THREADSAFE_ISUPPORTS
 };
@@ -383,15 +368,12 @@ NS_IMPL_ISUPPORTS(ThrottledEventQueue,
                   nsISerialEventTarget);
 
 ThrottledEventQueue::ThrottledEventQueue(already_AddRefed<Inner> aInner)
-  : mInner(aInner)
+    : mInner(aInner)
 {
   MOZ_ASSERT(mInner);
 }
 
-ThrottledEventQueue::~ThrottledEventQueue()
-{
-  mInner->MaybeStartShutdown();
-}
+ThrottledEventQueue::~ThrottledEventQueue() { mInner->MaybeStartShutdown(); }
 
 void
 ThrottledEventQueue::MaybeStartShutdown()
@@ -410,8 +392,7 @@ ThrottledEventQueue::Create(nsISerialEventTarget* aBaseTarget)
     return nullptr;
   }
 
-  RefPtr<ThrottledEventQueue> ref =
-    new ThrottledEventQueue(inner.forget());
+  RefPtr<ThrottledEventQueue> ref = new ThrottledEventQueue(inner.forget());
   return ref.forget();
 }
 
@@ -441,14 +422,14 @@ ThrottledEventQueue::DispatchFromScript(nsIRunnable* aEvent, uint32_t aFlags)
 
 NS_IMETHODIMP
 ThrottledEventQueue::Dispatch(already_AddRefed<nsIRunnable> aEvent,
-                                     uint32_t aFlags)
+                              uint32_t aFlags)
 {
   return mInner->Dispatch(Move(aEvent), aFlags);
 }
 
 NS_IMETHODIMP
 ThrottledEventQueue::DelayedDispatch(already_AddRefed<nsIRunnable> aEvent,
-                                            uint32_t aFlags)
+                                     uint32_t aFlags)
 {
   return mInner->DelayedDispatch(Move(aEvent), aFlags);
 }
@@ -466,4 +447,4 @@ ThrottledEventQueue::IsOnCurrentThreadInfallible()
   return mInner->IsOnCurrentThread();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

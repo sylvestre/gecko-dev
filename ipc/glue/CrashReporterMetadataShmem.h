@@ -20,7 +20,7 @@ class CrashReporterMetadataShmem
   typedef mozilla::ipc::Shmem Shmem;
   typedef CrashReporter::AnnotationTable AnnotationTable;
 
-public:
+ public:
   explicit CrashReporterMetadataShmem(const Shmem& aShmem);
   ~CrashReporterMetadataShmem();
 
@@ -29,20 +29,21 @@ public:
   void AppendAppNotes(const nsCString& aData);
 
 #ifdef MOZ_CRASHREPORTER
-  static void ReadAppNotes(const Shmem& aShmem, CrashReporter::AnnotationTable* aNotes);
+  static void ReadAppNotes(const Shmem& aShmem,
+                           CrashReporter::AnnotationTable* aNotes);
 #endif
 
-private:
+ private:
   void SyncNotesToShmem();
 
-private:
+ private:
   Shmem mShmem;
 
   AnnotationTable mNotes;
   nsCString mAppNotes;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_CrashReporterMetadataShmem_h
+#endif  // mozilla_ipc_CrashReporterMetadataShmem_h

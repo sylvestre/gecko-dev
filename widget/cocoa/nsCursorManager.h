@@ -15,11 +15,10 @@
                 <code>nsCursorManager</code> encapsulates the details of setting different types of cursors, animating
                 cursors and cleaning up cursors when they are no longer in use.
  */
-@interface nsCursorManager : NSObject
-{
-  @private
-  NSMutableDictionary *mCursors;
-  nsMacCursor *mCurrentMacCursor;
+@interface nsCursorManager : NSObject {
+ @private
+  NSMutableDictionary* mCursors;
+  nsMacCursor* mCurrentMacCursor;
 }
 
 /*! @method     setCursor:
@@ -28,7 +27,7 @@
                 Resources associated with the previous cursor are cleaned up.
     @param aCursor the cursor to use
 */
-- (nsresult) setCursor: (nsCursor) aCursor;
+- (nsresult)setCursor:(nsCursor)aCursor;
 
 /*! @method  setCursorWithImage:hotSpotX:hotSpotY:
  @abstract   Sets the current cursor to a custom image
@@ -39,21 +38,23 @@
  @param aHotSpotY the y coordinate of the cursor's hotspot
  @param scaleFactor the scale factor of the target display (2 for a retina display)
  */
-- (nsresult) setCursorWithImage: (imgIContainer*) aCursorImage hotSpotX: (uint32_t) aHotspotX hotSpotY: (uint32_t) aHotspotY scaleFactor: (CGFloat) scaleFactor;
-
+- (nsresult)setCursorWithImage:(imgIContainer*)aCursorImage
+                      hotSpotX:(uint32_t)aHotspotX
+                      hotSpotY:(uint32_t)aHotspotY
+                   scaleFactor:(CGFloat)scaleFactor;
 
 /*! @method     sharedInstance
     @abstract   Get the Singleton instance of the cursor manager.
     @discussion Use this method to obtain a reference to the cursor manager.
     @result a reference to the cursor manager
 */
-+ (nsCursorManager *) sharedInstance;
++ (nsCursorManager*)sharedInstance;
 
 /*! @method     dispose
     @abstract   Releases the shared instance of the cursor manager.
     @discussion Use dispose to clean up the cursor manager and associated cursors.
 */
-+ (void) dispose;
++ (void)dispose;
 @end
 
 @interface NSCursor (Undocumented)
@@ -62,4 +63,4 @@
 + (NSCursor*)busyButClickableCursor;
 @end
 
-#endif // nsCursorManager_h_
+#endif  // nsCursorManager_h_

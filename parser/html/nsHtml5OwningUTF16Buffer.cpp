@@ -5,16 +5,14 @@
 #include "nsHtml5OwningUTF16Buffer.h"
 
 nsHtml5OwningUTF16Buffer::nsHtml5OwningUTF16Buffer(char16_t* aBuffer)
-  : nsHtml5UTF16Buffer(aBuffer, 0),
-    next(nullptr),
-    key(nullptr)
-{}
+    : nsHtml5UTF16Buffer(aBuffer, 0), next(nullptr), key(nullptr)
+{
+}
 
 nsHtml5OwningUTF16Buffer::nsHtml5OwningUTF16Buffer(void* aKey)
-  : nsHtml5UTF16Buffer(nullptr, 0),
-    next(nullptr),
-    key(aKey)
-{}
+    : nsHtml5UTF16Buffer(nullptr, 0), next(nullptr), key(aKey)
+{
+}
 
 nsHtml5OwningUTF16Buffer::~nsHtml5OwningUTF16Buffer()
 {
@@ -39,7 +37,7 @@ nsHtml5OwningUTF16Buffer::FalliblyCreate(int32_t aLength)
     return nullptr;
   }
   RefPtr<nsHtml5OwningUTF16Buffer> newObj =
-    new (mozilla::fallible) nsHtml5OwningUTF16Buffer(newBuf);
+      new (mozilla::fallible) nsHtml5OwningUTF16Buffer(newBuf);
   if (!newObj) {
     delete[] newBuf;
     return nullptr;

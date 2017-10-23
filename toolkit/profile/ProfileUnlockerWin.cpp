@@ -18,11 +18,12 @@ namespace mozilla {
  */
 class MOZ_STACK_CLASS ScopedRestartManagerSession
 {
-public:
+ public:
   explicit ScopedRestartManagerSession(ProfileUnlockerWin& aUnlocker)
-    : mError(ERROR_INVALID_HANDLE)
-    , mHandle((DWORD)-1) // 0 is a valid restart manager handle
-    , mUnlocker(aUnlocker)
+      : mError(ERROR_INVALID_HANDLE),
+        mHandle((DWORD)-1)  // 0 is a valid restart manager handle
+        ,
+        mUnlocker(aUnlocker)
   {
     mError = mUnlocker.StartSession(mHandle);
   }
@@ -37,40 +38,30 @@ public:
   /**
    * @return true if the handle is a valid Restart Ranager handle.
    */
-  inline bool
-  ok()
-  {
-    return mError == ERROR_SUCCESS;
-  }
+  inline bool ok() { return mError == ERROR_SUCCESS; }
 
   /**
    * @return the Restart Manager handle to pass to other Restart Manager APIs.
    */
-  inline DWORD
-  handle()
-  {
-    return mHandle;
-  }
+  inline DWORD handle() { return mHandle; }
 
-private:
-  DWORD               mError;
-  DWORD               mHandle;
+ private:
+  DWORD mError;
+  DWORD mHandle;
   ProfileUnlockerWin& mUnlocker;
 };
 
 ProfileUnlockerWin::ProfileUnlockerWin(const nsAString& aFileName)
-  : mRmStartSession(nullptr)
-  , mRmRegisterResources(nullptr)
-  , mRmGetList(nullptr)
-  , mRmEndSession(nullptr)
-  , mQueryFullProcessImageName(nullptr)
-  , mFileName(aFileName)
+    : mRmStartSession(nullptr),
+      mRmRegisterResources(nullptr),
+      mRmGetList(nullptr),
+      mRmEndSession(nullptr),
+      mQueryFullProcessImageName(nullptr),
+      mFileName(aFileName)
 {
 }
 
-ProfileUnlockerWin::~ProfileUnlockerWin()
-{
-}
+ProfileUnlockerWin::~ProfileUnlockerWin() {}
 
 NS_IMPL_ISUPPORTS(ProfileUnlockerWin, nsIProfileUnlocker)
 
@@ -86,32 +77,30 @@ ProfileUnlockerWin::Init()
   if (!module) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  mRmStartSession =
-    reinterpret_cast<RMSTARTSESSION>(::GetProcAddress(module, "RmStartSession"));
+  mRmStartSession = reinterpret_cast<RMSTARTSESSION>(
+      ::GetProcAddress(module, "RmStartSession"));
   if (!mRmStartSession) {
     return NS_ERROR_UNEXPECTED;
   }
-  mRmRegisterResources =
-    reinterpret_cast<RMREGISTERRESOURCES>(::GetProcAddress(module,
-                                                       "RmRegisterResources"));
+  mRmRegisterResources = reinterpret_cast<RMREGISTERRESOURCES>(
+      ::GetProcAddress(module, "RmRegisterResources"));
   if (!mRmRegisterResources) {
     return NS_ERROR_UNEXPECTED;
   }
-  mRmGetList = reinterpret_cast<RMGETLIST>(::GetProcAddress(module,
-                                                            "RmGetList"));
+  mRmGetList =
+      reinterpret_cast<RMGETLIST>(::GetProcAddress(module, "RmGetList"));
   if (!mRmGetList) {
     return NS_ERROR_UNEXPECTED;
   }
-  mRmEndSession = reinterpret_cast<RMENDSESSION>(::GetProcAddress(module,
-                                                                  "RmEndSession"));
+  mRmEndSession =
+      reinterpret_cast<RMENDSESSION>(::GetProcAddress(module, "RmEndSession"));
   if (!mRmEndSession) {
     return NS_ERROR_UNEXPECTED;
   }
 
   mQueryFullProcessImageName =
-    reinterpret_cast<QUERYFULLPROCESSIMAGENAME>(::GetProcAddress(
-                                  ::GetModuleHandleW(L"kernel32.dll"),
-                                  "QueryFullProcessImageNameW"));
+      reinterpret_cast<QUERYFULLPROCESSIMAGENAME>(::GetProcAddress(
+          ::GetModuleHandleW(L"kernel32.dll"), "QueryFullProcessImageNameW"));
   if (!mQueryFullProcessImageName) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -149,9 +138,9 @@ ProfileUnlockerWin::Unlock(uint32_t aSeverity)
     return NS_ERROR_FAILURE;
   }
 
-  LPCWSTR resources[] = { mFileName.get() };
-  DWORD error = mRmRegisterResources(session.handle(), 1, resources, 0, nullptr,
-                                     0, nullptr);
+  LPCWSTR resources[] = {mFileName.get()};
+  DWORD error = mRmRegisterResources(
+      session.handle(), 1, resources, 0, nullptr, 0, nullptr);
   if (error != ERROR_SUCCESS) {
     return NS_ERROR_FAILURE;
   }
@@ -165,8 +154,8 @@ ProfileUnlockerWin::Unlock(uint32_t aSeverity)
   while (error == ERROR_MORE_DATA) {
     info.SetLength(numEntriesNeeded);
     numEntries = numEntriesNeeded;
-    error = mRmGetList(session.handle(), &numEntriesNeeded, &numEntries,
-                       &info[0], &reason);
+    error = mRmGetList(
+        session.handle(), &numEntriesNeeded, &numEntries, &info[0], &reason);
   }
   if (error != ERROR_SUCCESS) {
     return NS_ERROR_FAILURE;
@@ -199,15 +188,15 @@ ProfileUnlockerWin::TryToTerminate(RM_UNIQUE_PROCESS& aProcess)
   // at least one handle to that process remains open, so when we reach this
   // point the PID is still valid and the process will open successfully.
   DWORD accessRights = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE;
-  nsAutoHandle otherProcess(::OpenProcess(accessRights, FALSE,
-                                          aProcess.dwProcessId));
+  nsAutoHandle otherProcess(
+      ::OpenProcess(accessRights, FALSE, aProcess.dwProcessId));
   if (!otherProcess) {
     return NS_ERROR_FAILURE;
   }
 
   FILETIME creationTime, exitTime, kernelTime, userTime;
-  if (!::GetProcessTimes(otherProcess, &creationTime, &exitTime, &kernelTime,
-                         &userTime)) {
+  if (!::GetProcessTimes(
+          otherProcess, &creationTime, &exitTime, &kernelTime, &userTime)) {
     return NS_ERROR_FAILURE;
   }
   if (::CompareFileTime(&aProcess.ProcessStartTime, &creationTime)) {
@@ -233,7 +222,8 @@ ProfileUnlockerWin::TryToTerminate(RM_UNIQUE_PROCESS& aProcess)
   }
   nsCOMPtr<nsIFile> otherProcessImageName;
   if (NS_FAILED(NS_NewLocalFile(nsDependentString(imageName, imageNameLen),
-                                false, getter_AddRefs(otherProcessImageName)))) {
+                                false,
+                                getter_AddRefs(otherProcessImageName)))) {
     return NS_ERROR_FAILURE;
   }
   nsAutoString otherProcessLeafName;
@@ -242,13 +232,14 @@ ProfileUnlockerWin::TryToTerminate(RM_UNIQUE_PROCESS& aProcess)
   }
 
   imageNameLen = MAX_PATH;
-  if (!mQueryFullProcessImageName(::GetCurrentProcess(), 0, imageName,
-        &imageNameLen)) {
+  if (!mQueryFullProcessImageName(
+          ::GetCurrentProcess(), 0, imageName, &imageNameLen)) {
     return NS_ERROR_FAILURE;
   }
   nsCOMPtr<nsIFile> thisProcessImageName;
   if (NS_FAILED(NS_NewLocalFile(nsDependentString(imageName, imageNameLen),
-                                false, getter_AddRefs(thisProcessImageName)))) {
+                                false,
+                                getter_AddRefs(thisProcessImageName)))) {
     return NS_ERROR_FAILURE;
   }
   nsAutoString thisProcessLeafName;
@@ -274,5 +265,4 @@ ProfileUnlockerWin::TryToTerminate(RM_UNIQUE_PROCESS& aProcess)
   return NS_OK;
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

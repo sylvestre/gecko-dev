@@ -16,9 +16,12 @@
 
 extern mozilla::LazyLogModule gMediaDemuxerLog;
 #define LOG(msg, ...) \
-  MOZ_LOG(gMediaDemuxerLog, LogLevel::Debug, ("FlacDemuxer " msg, ##__VA_ARGS__))
-#define LOGV(msg, ...) \
-  MOZ_LOG(gMediaDemuxerLog, LogLevel::Verbose, ("FlacDemuxer " msg, ##__VA_ARGS__))
+  MOZ_LOG(            \
+      gMediaDemuxerLog, LogLevel::Debug, ("FlacDemuxer " msg, ##__VA_ARGS__))
+#define LOGV(msg, ...)       \
+  MOZ_LOG(gMediaDemuxerLog,  \
+          LogLevel::Verbose, \
+          ("FlacDemuxer " msg, ##__VA_ARGS__))
 
 using namespace mozilla::media;
 
@@ -30,7 +33,7 @@ namespace flac {
 
 class FrameHeader
 {
-public:
+ public:
   const AudioInfo& Info() const { return mInfo; }
 
   uint32_t Size() const { return mSize; }
@@ -145,7 +148,7 @@ public:
     return mValid;
   }
 
-private:
+ private:
   friend class Frame;
   enum
   {
@@ -158,7 +161,8 @@ private:
   // Index in samples from start;
   int64_t mIndex = 0;
   bool mVariableBlockSize = false;
-  uint32_t mBlocksize = 0;;
+  uint32_t mBlocksize = 0;
+  ;
   uint32_t mSize = 0;
   bool mValid = false;
 
@@ -168,64 +172,72 @@ private:
   static const uint8_t CRC8Table[256];
 };
 
-const int FrameHeader::FlacSampleRateTable[16] =
-{
-  0,
-  88200, 176400, 192000,
-  8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000,
-  0, 0, 0, 0
-};
+const int FrameHeader::FlacSampleRateTable[16] = {0,
+                                                  88200,
+                                                  176400,
+                                                  192000,
+                                                  8000,
+                                                  16000,
+                                                  22050,
+                                                  24000,
+                                                  32000,
+                                                  44100,
+                                                  48000,
+                                                  96000,
+                                                  0,
+                                                  0,
+                                                  0,
+                                                  0};
 
-const int32_t FrameHeader::FlacBlocksizeTable[16] =
-{
-  0     , 192   , 576<<0, 576<<1, 576<<2, 576<<3,      0,      0,
-  256<<0, 256<<1, 256<<2, 256<<3, 256<<4, 256<<5, 256<<6, 256<<7
-};
+const int32_t FrameHeader::FlacBlocksizeTable[16] = {0,
+                                                     192,
+                                                     576 << 0,
+                                                     576 << 1,
+                                                     576 << 2,
+                                                     576 << 3,
+                                                     0,
+                                                     0,
+                                                     256 << 0,
+                                                     256 << 1,
+                                                     256 << 2,
+                                                     256 << 3,
+                                                     256 << 4,
+                                                     256 << 5,
+                                                     256 << 6,
+                                                     256 << 7};
 
-const uint8_t FrameHeader::FlacSampleSizeTable[8] = { 0, 8, 12, 0, 16, 20, 24, 0 };
+const uint8_t FrameHeader::FlacSampleSizeTable[8] = {
+    0, 8, 12, 0, 16, 20, 24, 0};
 
-const uint8_t FrameHeader::CRC8Table[256] =
-{
-  0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15,
-  0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
-  0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65,
-  0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D,
-  0xE0, 0xE7, 0xEE, 0xE9, 0xFC, 0xFB, 0xF2, 0xF5,
-  0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
-  0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85,
-  0xA8, 0xAF, 0xA6, 0xA1, 0xB4, 0xB3, 0xBA, 0xBD,
-  0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2,
-  0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA,
-  0xB7, 0xB0, 0xB9, 0xBE, 0xAB, 0xAC, 0xA5, 0xA2,
-  0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
-  0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32,
-  0x1F, 0x18, 0x11, 0x16, 0x03, 0x04, 0x0D, 0x0A,
-  0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42,
-  0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A,
-  0x89, 0x8E, 0x87, 0x80, 0x95, 0x92, 0x9B, 0x9C,
-  0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
-  0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC,
-  0xC1, 0xC6, 0xCF, 0xC8, 0xDD, 0xDA, 0xD3, 0xD4,
-  0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C,
-  0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44,
-  0x19, 0x1E, 0x17, 0x10, 0x05, 0x02, 0x0B, 0x0C,
-  0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
-  0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B,
-  0x76, 0x71, 0x78, 0x7F, 0x6A, 0x6D, 0x64, 0x63,
-  0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B,
-  0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13,
-  0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB,
-  0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
-  0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB,
-  0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3
-};
+const uint8_t FrameHeader::CRC8Table[256] = {
+    0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15, 0x38, 0x3F, 0x36, 0x31,
+    0x24, 0x23, 0x2A, 0x2D, 0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65,
+    0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D, 0xE0, 0xE7, 0xEE, 0xE9,
+    0xFC, 0xFB, 0xF2, 0xF5, 0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
+    0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85, 0xA8, 0xAF, 0xA6, 0xA1,
+    0xB4, 0xB3, 0xBA, 0xBD, 0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2,
+    0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA, 0xB7, 0xB0, 0xB9, 0xBE,
+    0xAB, 0xAC, 0xA5, 0xA2, 0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
+    0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32, 0x1F, 0x18, 0x11, 0x16,
+    0x03, 0x04, 0x0D, 0x0A, 0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42,
+    0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A, 0x89, 0x8E, 0x87, 0x80,
+    0x95, 0x92, 0x9B, 0x9C, 0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
+    0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC, 0xC1, 0xC6, 0xCF, 0xC8,
+    0xDD, 0xDA, 0xD3, 0xD4, 0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C,
+    0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44, 0x19, 0x1E, 0x17, 0x10,
+    0x05, 0x02, 0x0B, 0x0C, 0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
+    0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B, 0x76, 0x71, 0x78, 0x7F,
+    0x6A, 0x6D, 0x64, 0x63, 0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B,
+    0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13, 0xAE, 0xA9, 0xA0, 0xA7,
+    0xB2, 0xB5, 0xBC, 0xBB, 0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
+    0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF,
+    0xFA, 0xFD, 0xF4, 0xF3};
 
 // flac::Frame - Frame meta container used to parse and hold a frame
 // header and side info.
 class Frame
 {
-public:
-
+ public:
   // The FLAC signature is made of 14 bits set to 1; however the 15th bit is
   // mandatorily set to 0, so we need to find either of 0xfffc or 0xfffd 2-bytes
   // signature. We first use a bitmask to see if 0xfc or 0xfd is present. And if
@@ -277,7 +289,7 @@ public:
       uint32_t read = 0;
       buffer.SetLength(BUFFER_SIZE + innerOffset);
       nsresult rv =
-        aResource.Read(buffer.Elements() + innerOffset, BUFFER_SIZE, &read);
+          aResource.Read(buffer.Elements() + innerOffset, BUFFER_SIZE, &read);
       if (NS_FAILED(rv)) {
         return false;
       }
@@ -292,7 +304,7 @@ public:
 
       const size_t bufSize = read + innerOffset - FLAC_MAX_FRAME_HEADER_SIZE;
       int64_t foundOffset =
-        FindNext(reinterpret_cast<uint8_t*>(buffer.Elements()), bufSize);
+          FindNext(reinterpret_cast<uint8_t*>(buffer.Elements()), bufSize);
 
       if (foundOffset >= 0) {
         SetOffset(aResource, foundOffset + offset);
@@ -357,7 +369,7 @@ public:
   // Resets the frame header and data.
   void Reset() { *this = Frame(); }
 
-private:
+ private:
   void SetOffset(MediaResourceIndex& aResource, int64_t aOffset)
   {
     mOffset = aOffset;
@@ -372,13 +384,11 @@ private:
 
   // The currently parsed frame header.
   FrameHeader mHeader;
-
 };
 
 class FrameParser
 {
-public:
-
+ public:
   // Returns the currently parsed frame. Reset via EndFrameSession.
   const Frame& CurrentFrame() const { return mFrame; }
 
@@ -442,7 +452,7 @@ public:
   // Return a hash table with tag metadata.
   MetadataTags* GetTags() const { return mParser.GetTags(); }
 
-private:
+ private:
   bool GetNextFrame(MediaResourceIndex& aResource)
   {
     while (mNextFrame.FindNext(aResource)) {
@@ -452,7 +462,7 @@ private:
       if (mFrame.IsValid() &&
           mNextFrame.Offset() - mFrame.Offset() < FLAC_MAX_FRAME_SIZE &&
           !CheckCRC16AtOffset(
-            mFrame.Offset(), mNextFrame.Offset(), aResource)) {
+              mFrame.Offset(), mNextFrame.Offset(), aResource)) {
         // The frame doesn't match its CRC or would be too far, skip it..
         continue;
       }
@@ -481,7 +491,8 @@ private:
     return mNextFrame.IsValid();
   }
 
-  bool CheckCRC16AtOffset(int64_t aStart, int64_t aEnd,
+  bool CheckCRC16AtOffset(int64_t aStart,
+                          int64_t aEnd,
                           MediaResourceIndex& aResource) const
   {
     int64_t size = aEnd - aStart;
@@ -498,47 +509,43 @@ private:
 
     uint16_t crc = 0;
     uint8_t* buf = reinterpret_cast<uint8_t*>(buffer.get());
-    const uint8_t *end = buf + size;
+    const uint8_t* end = buf + size;
     while (buf < end) {
       crc = CRC16Table[((uint8_t)crc) ^ *buf++] ^ (crc >> 8);
     }
     return !crc;
   }
 
-  const uint16_t CRC16Table[256] =
-  {
-    0x0000, 0x0580, 0x0F80, 0x0A00, 0x1B80, 0x1E00, 0x1400, 0x1180,
-    0x3380, 0x3600, 0x3C00, 0x3980, 0x2800, 0x2D80, 0x2780, 0x2200,
-    0x6380, 0x6600, 0x6C00, 0x6980, 0x7800, 0x7D80, 0x7780, 0x7200,
-    0x5000, 0x5580, 0x5F80, 0x5A00, 0x4B80, 0x4E00, 0x4400, 0x4180,
-    0xC380, 0xC600, 0xCC00, 0xC980, 0xD800, 0xDD80, 0xD780, 0xD200,
-    0xF000, 0xF580, 0xFF80, 0xFA00, 0xEB80, 0xEE00, 0xE400, 0xE180,
-    0xA000, 0xA580, 0xAF80, 0xAA00, 0xBB80, 0xBE00, 0xB400, 0xB180,
-    0x9380, 0x9600, 0x9C00, 0x9980, 0x8800, 0x8D80, 0x8780, 0x8200,
-    0x8381, 0x8601, 0x8C01, 0x8981, 0x9801, 0x9D81, 0x9781, 0x9201,
-    0xB001, 0xB581, 0xBF81, 0xBA01, 0xAB81, 0xAE01, 0xA401, 0xA181,
-    0xE001, 0xE581, 0xEF81, 0xEA01, 0xFB81, 0xFE01, 0xF401, 0xF181,
-    0xD381, 0xD601, 0xDC01, 0xD981, 0xC801, 0xCD81, 0xC781, 0xC201,
-    0x4001, 0x4581, 0x4F81, 0x4A01, 0x5B81, 0x5E01, 0x5401, 0x5181,
-    0x7381, 0x7601, 0x7C01, 0x7981, 0x6801, 0x6D81, 0x6781, 0x6201,
-    0x2381, 0x2601, 0x2C01, 0x2981, 0x3801, 0x3D81, 0x3781, 0x3201,
-    0x1001, 0x1581, 0x1F81, 0x1A01, 0x0B81, 0x0E01, 0x0401, 0x0181,
-    0x0383, 0x0603, 0x0C03, 0x0983, 0x1803, 0x1D83, 0x1783, 0x1203,
-    0x3003, 0x3583, 0x3F83, 0x3A03, 0x2B83, 0x2E03, 0x2403, 0x2183,
-    0x6003, 0x6583, 0x6F83, 0x6A03, 0x7B83, 0x7E03, 0x7403, 0x7183,
-    0x5383, 0x5603, 0x5C03, 0x5983, 0x4803, 0x4D83, 0x4783, 0x4203,
-    0xC003, 0xC583, 0xCF83, 0xCA03, 0xDB83, 0xDE03, 0xD403, 0xD183,
-    0xF383, 0xF603, 0xFC03, 0xF983, 0xE803, 0xED83, 0xE783, 0xE203,
-    0xA383, 0xA603, 0xAC03, 0xA983, 0xB803, 0xBD83, 0xB783, 0xB203,
-    0x9003, 0x9583, 0x9F83, 0x9A03, 0x8B83, 0x8E03, 0x8403, 0x8183,
-    0x8002, 0x8582, 0x8F82, 0x8A02, 0x9B82, 0x9E02, 0x9402, 0x9182,
-    0xB382, 0xB602, 0xBC02, 0xB982, 0xA802, 0xAD82, 0xA782, 0xA202,
-    0xE382, 0xE602, 0xEC02, 0xE982, 0xF802, 0xFD82, 0xF782, 0xF202,
-    0xD002, 0xD582, 0xDF82, 0xDA02, 0xCB82, 0xCE02, 0xC402, 0xC182,
-    0x4382, 0x4602, 0x4C02, 0x4982, 0x5802, 0x5D82, 0x5782, 0x5202,
-    0x7002, 0x7582, 0x7F82, 0x7A02, 0x6B82, 0x6E02, 0x6402, 0x6182,
-    0x2002, 0x2582, 0x2F82, 0x2A02, 0x3B82, 0x3E02, 0x3402, 0x3182,
-    0x1382, 0x1602, 0x1C02, 0x1982, 0x0802, 0x0D82, 0x0782, 0x0202,
+  const uint16_t CRC16Table[256] = {
+      0x0000, 0x0580, 0x0F80, 0x0A00, 0x1B80, 0x1E00, 0x1400, 0x1180, 0x3380,
+      0x3600, 0x3C00, 0x3980, 0x2800, 0x2D80, 0x2780, 0x2200, 0x6380, 0x6600,
+      0x6C00, 0x6980, 0x7800, 0x7D80, 0x7780, 0x7200, 0x5000, 0x5580, 0x5F80,
+      0x5A00, 0x4B80, 0x4E00, 0x4400, 0x4180, 0xC380, 0xC600, 0xCC00, 0xC980,
+      0xD800, 0xDD80, 0xD780, 0xD200, 0xF000, 0xF580, 0xFF80, 0xFA00, 0xEB80,
+      0xEE00, 0xE400, 0xE180, 0xA000, 0xA580, 0xAF80, 0xAA00, 0xBB80, 0xBE00,
+      0xB400, 0xB180, 0x9380, 0x9600, 0x9C00, 0x9980, 0x8800, 0x8D80, 0x8780,
+      0x8200, 0x8381, 0x8601, 0x8C01, 0x8981, 0x9801, 0x9D81, 0x9781, 0x9201,
+      0xB001, 0xB581, 0xBF81, 0xBA01, 0xAB81, 0xAE01, 0xA401, 0xA181, 0xE001,
+      0xE581, 0xEF81, 0xEA01, 0xFB81, 0xFE01, 0xF401, 0xF181, 0xD381, 0xD601,
+      0xDC01, 0xD981, 0xC801, 0xCD81, 0xC781, 0xC201, 0x4001, 0x4581, 0x4F81,
+      0x4A01, 0x5B81, 0x5E01, 0x5401, 0x5181, 0x7381, 0x7601, 0x7C01, 0x7981,
+      0x6801, 0x6D81, 0x6781, 0x6201, 0x2381, 0x2601, 0x2C01, 0x2981, 0x3801,
+      0x3D81, 0x3781, 0x3201, 0x1001, 0x1581, 0x1F81, 0x1A01, 0x0B81, 0x0E01,
+      0x0401, 0x0181, 0x0383, 0x0603, 0x0C03, 0x0983, 0x1803, 0x1D83, 0x1783,
+      0x1203, 0x3003, 0x3583, 0x3F83, 0x3A03, 0x2B83, 0x2E03, 0x2403, 0x2183,
+      0x6003, 0x6583, 0x6F83, 0x6A03, 0x7B83, 0x7E03, 0x7403, 0x7183, 0x5383,
+      0x5603, 0x5C03, 0x5983, 0x4803, 0x4D83, 0x4783, 0x4203, 0xC003, 0xC583,
+      0xCF83, 0xCA03, 0xDB83, 0xDE03, 0xD403, 0xD183, 0xF383, 0xF603, 0xFC03,
+      0xF983, 0xE803, 0xED83, 0xE783, 0xE203, 0xA383, 0xA603, 0xAC03, 0xA983,
+      0xB803, 0xBD83, 0xB783, 0xB203, 0x9003, 0x9583, 0x9F83, 0x9A03, 0x8B83,
+      0x8E03, 0x8403, 0x8183, 0x8002, 0x8582, 0x8F82, 0x8A02, 0x9B82, 0x9E02,
+      0x9402, 0x9182, 0xB382, 0xB602, 0xBC02, 0xB982, 0xA802, 0xAD82, 0xA782,
+      0xA202, 0xE382, 0xE602, 0xEC02, 0xE982, 0xF802, 0xFD82, 0xF782, 0xF202,
+      0xD002, 0xD582, 0xDF82, 0xDA02, 0xCB82, 0xCE02, 0xC402, 0xC182, 0x4382,
+      0x4602, 0x4C02, 0x4982, 0x5802, 0x5D82, 0x5782, 0x5202, 0x7002, 0x7582,
+      0x7F82, 0x7A02, 0x6B82, 0x6E02, 0x6402, 0x6182, 0x2002, 0x2582, 0x2F82,
+      0x2A02, 0x3B82, 0x3E02, 0x3402, 0x3182, 0x1382, 0x1602, 0x1C02, 0x1982,
+      0x0802, 0x0D82, 0x0782, 0x0202,
   };
 
   FlacFrameParser mParser;
@@ -549,11 +556,11 @@ private:
   Frame mFrame;
 };
 
-} // namespace flac
+}  // namespace flac
 
 // FlacDemuxer
 
-FlacDemuxer::FlacDemuxer(MediaResource* aSource) : mSource(aSource) { }
+FlacDemuxer::FlacDemuxer(MediaResource* aSource) : mSource(aSource) {}
 
 bool
 FlacDemuxer::InitInternal()
@@ -570,8 +577,8 @@ FlacDemuxer::Init()
   if (!InitInternal()) {
     LOG("Init() failure: waiting for data");
 
-    return InitPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_DEMUXER_ERR, __func__);
+    return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                                        __func__);
   }
 
   LOG("Init() successful");
@@ -602,16 +609,12 @@ FlacDemuxer::IsSeekable() const
 
 // FlacTrackDemuxer
 FlacTrackDemuxer::FlacTrackDemuxer(MediaResource* aSource)
-  : mSource(aSource)
-  , mParser(new flac::FrameParser())
-  , mTotalFrameLen(0)
+    : mSource(aSource), mParser(new flac::FrameParser()), mTotalFrameLen(0)
 {
   Reset();
 }
 
-FlacTrackDemuxer::~FlacTrackDemuxer()
-{
-}
+FlacTrackDemuxer::~FlacTrackDemuxer() {}
 
 bool
 FlacTrackDemuxer::Init()
@@ -620,8 +623,8 @@ FlacTrackDemuxer::Init()
 
   // First check if we have a valid Flac start.
   char buffer[BUFFER_SIZE];
-  const uint8_t* ubuffer = // only needed due to type constraints of ReadAt.
-    reinterpret_cast<uint8_t*>(buffer);
+  const uint8_t* ubuffer =  // only needed due to type constraints of ReadAt.
+      reinterpret_cast<uint8_t*>(buffer);
   int64_t offset = 0;
 
   do {
@@ -638,8 +641,7 @@ FlacTrackDemuxer::Init()
       break;
     }
     uint32_t sizeHeader = mParser->HeaderBlockLength(ubuffer);
-    RefPtr<MediaByteBuffer> block =
-      mSource.MediaReadAt(offset, sizeHeader);
+    RefPtr<MediaByteBuffer> block = mSource.MediaReadAt(offset, sizeHeader);
     if (!block || block->Length() != sizeHeader) {
       break;
     }
@@ -718,8 +720,10 @@ TimeUnit
 FlacTrackDemuxer::FastSeek(const TimeUnit& aTime)
 {
   LOG("FastSeek(%f) avgFrameLen=%f mParsedFramesDuration=%f offset=%" PRId64,
-      aTime.ToSeconds(), AverageFrameLength(),
-      mParsedFramesDuration.ToSeconds(), GetResourceOffset());
+      aTime.ToSeconds(),
+      AverageFrameLength(),
+      mParsedFramesDuration.ToSeconds(),
+      GetResourceOffset());
 
   // Invalidate current frames in the parser.
   mParser->EndFrameSession();
@@ -743,7 +747,7 @@ FlacTrackDemuxer::FastSeek(const TimeUnit& aTime)
 
   // Estimate where the position might be.
   int64_t pivot =
-    aTime.ToSeconds() * AverageFrameLength() + mParser->FirstFrame().Offset();
+      aTime.ToSeconds() * AverageFrameLength() + mParser->FirstFrame().Offset();
 
   // Time in seconds where we can stop seeking and will continue using
   // ScanUntil.
@@ -765,7 +769,9 @@ FlacTrackDemuxer::FastSeek(const TimeUnit& aTime)
     timeSeekedTo = frame.Time();
 
     LOGV("FastSeek: interation:%u found:%f @ %" PRId64,
-         iterations, timeSeekedTo.ToSeconds(), frame.Offset());
+         iterations,
+         timeSeekedTo.ToSeconds(),
+         frame.Offset());
 
     if (lastFoundOffset && lastFoundOffset.ref() == frame.Offset()) {
       // Same frame found twice. We're done.
@@ -802,8 +808,10 @@ TimeUnit
 FlacTrackDemuxer::ScanUntil(const TimeUnit& aTime)
 {
   LOG("ScanUntil(%f avgFrameLen=%f mParsedFramesDuration=%f offset=%" PRId64,
-      aTime.ToSeconds(), AverageFrameLength(),
-      mParsedFramesDuration.ToSeconds(), mParser->CurrentFrame().Offset());
+      aTime.ToSeconds(),
+      AverageFrameLength(),
+      mParsedFramesDuration.ToSeconds(),
+      mParser->CurrentFrame().Offset());
 
   if (!mParser->FirstFrame().IsValid() ||
       aTime <= mParser->FirstFrame().Time()) {
@@ -831,34 +839,39 @@ FlacTrackDemuxer::ScanUntil(const TimeUnit& aTime)
 RefPtr<FlacTrackDemuxer::SamplesPromise>
 FlacTrackDemuxer::GetSamples(int32_t aNumSamples)
 {
-  LOGV("GetSamples(%d) Begin offset=%" PRId64 " mParsedFramesDuration=%f"
+  LOGV("GetSamples(%d) Begin offset=%" PRId64
+       " mParsedFramesDuration=%f"
        " mTotalFrameLen=%" PRIu64,
-       aNumSamples, GetResourceOffset(), mParsedFramesDuration.ToSeconds(),
+       aNumSamples,
+       GetResourceOffset(),
+       mParsedFramesDuration.ToSeconds(),
        mTotalFrameLen);
 
   if (!aNumSamples) {
-    return SamplesPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_DEMUXER_ERR, __func__);
+    return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                                           __func__);
   }
 
   RefPtr<SamplesHolder> frames = new SamplesHolder();
 
   while (aNumSamples--) {
     RefPtr<MediaRawData> frame(GetNextFrame(FindNextFrame()));
-    if (!frame)
-      break;
+    if (!frame) break;
 
     frames->mSamples.AppendElement(frame);
   }
 
   LOGV("GetSamples() End mSamples.Length=%zu aNumSamples=%d offset=%" PRId64
        " mParsedFramesDuration=%f mTotalFrameLen=%" PRIu64,
-       frames->mSamples.Length(), aNumSamples, GetResourceOffset(),
-       mParsedFramesDuration.ToSeconds(), mTotalFrameLen);
+       frames->mSamples.Length(),
+       aNumSamples,
+       GetResourceOffset(),
+       mParsedFramesDuration.ToSeconds(),
+       mTotalFrameLen);
 
   if (frames->mSamples.IsEmpty()) {
-    return SamplesPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_END_OF_STREAM, __func__);
+    return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_END_OF_STREAM,
+                                           __func__);
   }
 
   return SamplesPromise::CreateAndResolve(frames, __func__);
@@ -882,7 +895,7 @@ FlacTrackDemuxer::SkipToNextRandomAccessPoint(const TimeUnit& aTimeThreshold)
 {
   // Will not be called for audio-only resources.
   return SkipAccessPointPromise::CreateAndReject(
-    SkipFailureHolder(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, 0), __func__);
+      SkipFailureHolder(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, 0), __func__);
 }
 
 int64_t
@@ -909,26 +922,31 @@ FlacTrackDemuxer::GetBuffered()
 const flac::Frame&
 FlacTrackDemuxer::FindNextFrame()
 {
-  LOGV("FindNext() Begin offset=%" PRId64 " mParsedFramesDuration=%f"
+  LOGV("FindNext() Begin offset=%" PRId64
+       " mParsedFramesDuration=%f"
        " mTotalFrameLen=%" PRIu64,
-       GetResourceOffset(), mParsedFramesDuration.ToSeconds(), mTotalFrameLen);
+       GetResourceOffset(),
+       mParsedFramesDuration.ToSeconds(),
+       mTotalFrameLen);
 
   if (mParser->FindNextFrame(mSource)) {
     // Update our current progress stats.
     mParsedFramesDuration =
-      std::max(mParsedFramesDuration,
-               mParser->CurrentFrame().Time() - mParser->FirstFrame().Time()
-               + mParser->CurrentFrame().Duration());
-    mTotalFrameLen =
-      std::max<uint64_t>(mTotalFrameLen,
-                         mParser->CurrentFrame().Offset()
-                         - mParser->FirstFrame().Offset()
-                         + mParser->CurrentFrame().Size());
+        std::max(mParsedFramesDuration,
+                 mParser->CurrentFrame().Time() - mParser->FirstFrame().Time() +
+                     mParser->CurrentFrame().Duration());
+    mTotalFrameLen = std::max<uint64_t>(mTotalFrameLen,
+                                        mParser->CurrentFrame().Offset() -
+                                            mParser->FirstFrame().Offset() +
+                                            mParser->CurrentFrame().Size());
 
-    LOGV("FindNext() End time=%f offset=%" PRId64 " mParsedFramesDuration=%f"
+    LOGV("FindNext() End time=%f offset=%" PRId64
+         " mParsedFramesDuration=%f"
          " mTotalFrameLen=%" PRIu64,
-         mParser->CurrentFrame().Time().ToSeconds(), GetResourceOffset(),
-         mParsedFramesDuration.ToSeconds(), mTotalFrameLen);
+         mParser->CurrentFrame().Time().ToSeconds(),
+         GetResourceOffset(),
+         mParsedFramesDuration.ToSeconds(),
+         mTotalFrameLen);
   }
 
   return mParser->CurrentFrame();
@@ -943,7 +961,9 @@ FlacTrackDemuxer::GetNextFrame(const flac::Frame& aFrame)
   }
 
   LOG("GetNextFrame() Begin(time=%f offset=%" PRId64 " size=%u)",
-      aFrame.Time().ToSeconds(), aFrame.Offset(), aFrame.Size());
+      aFrame.Time().ToSeconds(),
+      aFrame.Offset(),
+      aFrame.Size());
 
   const int64_t offset = aFrame.Offset();
   const uint32_t size = aFrame.Size();
@@ -979,8 +999,10 @@ int32_t
 FlacTrackDemuxer::Read(uint8_t* aBuffer, int64_t aOffset, int32_t aSize)
 {
   uint32_t read = 0;
-  const nsresult rv = mSource.ReadAt(aOffset, reinterpret_cast<char*>(aBuffer),
-                                     static_cast<uint32_t>(aSize), &read);
+  const nsresult rv = mSource.ReadAt(aOffset,
+                                     reinterpret_cast<char*>(aBuffer),
+                                     static_cast<uint32_t>(aSize),
+                                     &read);
   NS_ENSURE_SUCCESS(rv, 0);
   return static_cast<int32_t>(read);
 }
@@ -1036,7 +1058,7 @@ FlacTrackDemuxer::TimeAtEnd()
 
   // Update our current progress stats.
   mParsedFramesDuration =
-    previousTime + previousDuration - mParser->FirstFrame().Time();
+      previousTime + previousDuration - mParser->FirstFrame().Time();
   mTotalFrameLen = streamLen - mParser->FirstFrame().Offset();
 
   return mParsedFramesDuration;
@@ -1053,4 +1075,4 @@ FlacDemuxer::FlacSniffer(const uint8_t* aData, const uint32_t aLength)
   return frame.FindNext(aData, aLength - FLAC_MAX_FRAME_HEADER_SIZE) >= 0;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

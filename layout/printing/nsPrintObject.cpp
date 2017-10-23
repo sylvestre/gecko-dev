@@ -6,7 +6,7 @@
 #include "nsPrintObject.h"
 #include "nsIContentViewer.h"
 #include "nsIDOMDocument.h"
-#include "nsContentUtils.h" // for nsAutoScriptBlocker
+#include "nsContentUtils.h"  // for nsAutoScriptBlocker
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsPIDOMWindow.h"
 #include "nsGkAtoms.h"
@@ -18,15 +18,20 @@
 //---------------------------------------------------
 //-- nsPrintObject Class Impl
 //---------------------------------------------------
-nsPrintObject::nsPrintObject() :
-  mContent(nullptr), mFrameType(eFrame), mParent(nullptr),
-  mHasBeenPrinted(false), mDontPrint(true), mPrintAsIs(false),
-  mInvisible(false), mDidCreateDocShell(false),
-  mShrinkRatio(1.0), mZoomRatio(1.0)
+nsPrintObject::nsPrintObject()
+    : mContent(nullptr),
+      mFrameType(eFrame),
+      mParent(nullptr),
+      mHasBeenPrinted(false),
+      mDontPrint(true),
+      mPrintAsIs(false),
+      mInvisible(false),
+      mDidCreateDocShell(false),
+      mShrinkRatio(1.0),
+      mZoomRatio(1.0)
 {
   MOZ_COUNT_CTOR(nsPrintObject);
 }
-
 
 nsPrintObject::~nsPrintObject()
 {
@@ -40,12 +45,13 @@ nsPrintObject::~nsPrintObject()
     }
   }
   mDocShell = nullptr;
-  mTreeOwner = nullptr; // mTreeOwner must be released after mDocShell;
+  mTreeOwner = nullptr;  // mTreeOwner must be released after mDocShell;
 }
 
 //------------------------------------------------------------------
 nsresult
-nsPrintObject::Init(nsIDocShell* aDocShell, nsIDOMDocument* aDoc,
+nsPrintObject::Init(nsIDocShell* aDocShell,
+                    nsIDOMDocument* aDoc,
                     bool aPrintPreview)
 {
   mPrintPreview = aPrintPreview;
@@ -106,4 +112,3 @@ nsPrintObject::DestroyPresentation()
   mPresContext = nullptr;
   mViewManager = nullptr;
 }
-

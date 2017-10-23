@@ -22,10 +22,10 @@ class nsIDOMDocument;
 
 class txAXMLEventHandler
 {
-public:
-    virtual ~txAXMLEventHandler() {}
+ public:
+  virtual ~txAXMLEventHandler() {}
 
-    /**
+  /**
      * Signals to receive the start of an attribute.
      *
      * @param aPrefix the prefix of the attribute
@@ -34,11 +34,13 @@ public:
      * @param aNsID the namespace ID of the attribute
      * @param aValue the value of the attribute
      */
-    virtual nsresult attribute(nsAtom* aPrefix, nsAtom* aLocalName,
-                               nsAtom* aLowercaseLocalName, int32_t aNsID,
-                               const nsString& aValue) = 0;
+  virtual nsresult attribute(nsAtom* aPrefix,
+                             nsAtom* aLocalName,
+                             nsAtom* aLowercaseLocalName,
+                             int32_t aNsID,
+                             const nsString& aValue) = 0;
 
-    /**
+  /**
      * Signals to receive the start of an attribute.
      *
      * @param aPrefix the prefix of the attribute
@@ -46,52 +48,52 @@ public:
      * @param aNsID the namespace ID of the attribute
      * @param aValue the value of the attribute
      */
-    virtual nsresult attribute(nsAtom* aPrefix,
-                               const nsAString& aLocalName,
-                               const int32_t aNsID,
-                               const nsString& aValue) = 0;
+  virtual nsresult attribute(nsAtom* aPrefix,
+                             const nsAString& aLocalName,
+                             const int32_t aNsID,
+                             const nsString& aValue) = 0;
 
-    /**
+  /**
      * Signals to receive characters.
      *
      * @param aData the characters to receive
      * @param aDOE disable output escaping for these characters
      */
-    virtual nsresult characters(const nsAString& aData, bool aDOE) = 0;
+  virtual nsresult characters(const nsAString& aData, bool aDOE) = 0;
 
-    /**
+  /**
      * Signals to receive data that should be treated as a comment.
      *
      * @param data the comment data to receive
      */
-    virtual nsresult comment(const nsString& aData) = 0;
+  virtual nsresult comment(const nsString& aData) = 0;
 
-    /**
+  /**
      * Signals the end of a document. It is an error to call
      * this method more than once.
      */
-    virtual nsresult endDocument(nsresult aResult) = 0;
+  virtual nsresult endDocument(nsresult aResult) = 0;
 
-    /**
+  /**
      * Signals to receive the end of an element.
      */
-    virtual nsresult endElement() = 0;
+  virtual nsresult endElement() = 0;
 
-    /**
+  /**
      * Signals to receive a processing instruction.
      *
      * @param aTarget the target of the processing instruction
      * @param aData the data of the processing instruction
      */
-    virtual nsresult processingInstruction(const nsString& aTarget,
-                                           const nsString& aData) = 0;
+  virtual nsresult processingInstruction(const nsString& aTarget,
+                                         const nsString& aData) = 0;
 
-    /**
+  /**
      * Signals the start of a document.
      */
-    virtual nsresult startDocument() = 0;
+  virtual nsresult startDocument() = 0;
 
-    /**
+  /**
      * Signals to receive the start of an element.
      *
      * @param aPrefix the prefix of the element
@@ -99,12 +101,12 @@ public:
      * @param aLowercaseName the localname of the element in lower case
      * @param aNsID the namespace ID of the element
      */
-    virtual nsresult startElement(nsAtom* aPrefix,
-                                  nsAtom* aLocalName,
-                                  nsAtom* aLowercaseLocalName,
-                                  int32_t aNsID) = 0;
+  virtual nsresult startElement(nsAtom* aPrefix,
+                                nsAtom* aLocalName,
+                                nsAtom* aLowercaseLocalName,
+                                int32_t aNsID) = 0;
 
-    /**
+  /**
      * Signals to receive the start of an element. Can throw
      * NS_ERROR_XSLT_BAD_NODE_NAME if the name is invalid
      *
@@ -112,67 +114,66 @@ public:
      * @param aLocalName the localname of the element
      * @param aNsID the namespace ID of the element
      */
-    virtual nsresult startElement(nsAtom* aPrefix,
-                                  const nsAString& aLocalName,
-                                  const int32_t aNsID) = 0;
+  virtual nsresult startElement(nsAtom* aPrefix,
+                                const nsAString& aLocalName,
+                                const int32_t aNsID) = 0;
 };
 
-#define TX_DECL_TXAXMLEVENTHANDLER                                           \
-    virtual nsresult attribute(nsAtom* aPrefix, nsAtom* aLocalName,        \
-                               nsAtom* aLowercaseLocalName, int32_t aNsID,  \
-                               const nsString& aValue);                      \
-    virtual nsresult attribute(nsAtom* aPrefix,                             \
-                               const nsAString& aLocalName,                  \
-                               const int32_t aNsID,                          \
-                               const nsString& aValue);                      \
-    virtual nsresult characters(const nsAString& aData, bool aDOE);          \
-    virtual nsresult comment(const nsString& aData);                         \
-    virtual nsresult endDocument(nsresult aResult = NS_OK);                  \
-    virtual nsresult endElement();                                           \
-    virtual nsresult processingInstruction(const nsString& aTarget,          \
-                                           const nsString& aData);           \
-    virtual nsresult startDocument();                                        \
-    virtual nsresult startElement(nsAtom* aPrefix,                          \
-                                  nsAtom* aLocalName,                       \
-                                  nsAtom* aLowercaseLocalName,              \
-                                  int32_t aNsID);                            \
-    virtual nsresult startElement(nsAtom* aPrefix,                          \
-                                  const nsAString& aName,                    \
-                                  const int32_t aNsID);
-
+#define TX_DECL_TXAXMLEVENTHANDLER                                \
+  virtual nsresult attribute(nsAtom* aPrefix,                     \
+                             nsAtom* aLocalName,                  \
+                             nsAtom* aLowercaseLocalName,         \
+                             int32_t aNsID,                       \
+                             const nsString& aValue);             \
+  virtual nsresult attribute(nsAtom* aPrefix,                     \
+                             const nsAString& aLocalName,         \
+                             const int32_t aNsID,                 \
+                             const nsString& aValue);             \
+  virtual nsresult characters(const nsAString& aData, bool aDOE); \
+  virtual nsresult comment(const nsString& aData);                \
+  virtual nsresult endDocument(nsresult aResult = NS_OK);         \
+  virtual nsresult endElement();                                  \
+  virtual nsresult processingInstruction(const nsString& aTarget, \
+                                         const nsString& aData);  \
+  virtual nsresult startDocument();                               \
+  virtual nsresult startElement(nsAtom* aPrefix,                  \
+                                nsAtom* aLocalName,               \
+                                nsAtom* aLowercaseLocalName,      \
+                                int32_t aNsID);                   \
+  virtual nsresult startElement(                                  \
+      nsAtom* aPrefix, const nsAString& aName, const int32_t aNsID);
 
 class txAOutputXMLEventHandler : public txAXMLEventHandler
 {
-public:
-    /**
+ public:
+  /**
      * Gets the Mozilla output document
      *
      * @param aDocument the Mozilla output document
      */
-    virtual void getOutputDocument(nsIDOMDocument** aDocument) = 0;
+  virtual void getOutputDocument(nsIDOMDocument** aDocument) = 0;
 };
 
-#define TX_DECL_TXAOUTPUTXMLEVENTHANDLER                        \
-    virtual void getOutputDocument(nsIDOMDocument** aDocument);
+#define TX_DECL_TXAOUTPUTXMLEVENTHANDLER \
+  virtual void getOutputDocument(nsIDOMDocument** aDocument);
 
 /**
  * Interface used to create the appropriate outputhandler
  */
 class txAOutputHandlerFactory
 {
-public:
-    virtual ~txAOutputHandlerFactory() {}
+ public:
+  virtual ~txAOutputHandlerFactory() {}
 
-    /**
+  /**
      * Creates an outputhandler for the specified format.
      * @param aFromat  format to get handler for
      * @param aHandler outparam. The created handler
      */
-    virtual nsresult
-    createHandlerWith(txOutputFormat* aFormat,
-                      txAXMLEventHandler** aHandler) = 0;
+  virtual nsresult createHandlerWith(txOutputFormat* aFormat,
+                                     txAXMLEventHandler** aHandler) = 0;
 
-    /**
+  /**
      * Creates an outputhandler for the specified format, with the specified
      * name and namespace for the root element.
      * @param aFromat  format to get handler for
@@ -180,19 +181,18 @@ public:
      * @param aNsID    namespace-id of the root element
      * @param aHandler outparam. The created handler
      */
-    virtual nsresult
-    createHandlerWith(txOutputFormat* aFormat,
-                      const nsAString& aName,
-                      int32_t aNsID,
-                      txAXMLEventHandler** aHandler) = 0;
+  virtual nsresult createHandlerWith(txOutputFormat* aFormat,
+                                     const nsAString& aName,
+                                     int32_t aNsID,
+                                     txAXMLEventHandler** aHandler) = 0;
 };
 
-#define TX_DECL_TXAOUTPUTHANDLERFACTORY                        \
-    nsresult createHandlerWith(txOutputFormat* aFormat,        \
-                               txAXMLEventHandler** aHandler); \
-    nsresult createHandlerWith(txOutputFormat* aFormat,        \
-                               const nsAString& aName,         \
-                               int32_t aNsID,                  \
-                               txAXMLEventHandler** aHandler);
+#define TX_DECL_TXAOUTPUTHANDLERFACTORY                      \
+  nsresult createHandlerWith(txOutputFormat* aFormat,        \
+                             txAXMLEventHandler** aHandler); \
+  nsresult createHandlerWith(txOutputFormat* aFormat,        \
+                             const nsAString& aName,         \
+                             int32_t aNsID,                  \
+                             txAXMLEventHandler** aHandler);
 
 #endif

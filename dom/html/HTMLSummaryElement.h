@@ -19,22 +19,24 @@ class HTMLDetailsElement;
 //
 class HTMLSummaryElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   using NodeInfo = mozilla::dom::NodeInfo;
 
   explicit HTMLSummaryElement(already_AddRefed<NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
   NS_IMPL_FROMCONTENT_HTML_WITH_TAG(HTMLSummaryElement, summary)
 
-  nsresult Clone(NodeInfo* aNodeInfo, nsINode** aResult,
+  nsresult Clone(NodeInfo* aNodeInfo,
+                 nsINode** aResult,
                  bool aPreallocateChildren) const override;
 
   nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
-  bool IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
+  bool IsHTMLFocusable(bool aWithMouse,
+                       bool* aIsFocusable,
                        int32_t* aTabIndex) override;
 
   int32_t TabIndexDefault() override;
@@ -47,14 +49,14 @@ public:
   // nullptr if there is no such details element.
   HTMLDetailsElement* GetDetails() const;
 
-protected:
+ protected:
   virtual ~HTMLSummaryElement();
 
   JSObject* WrapNode(JSContext* aCx,
                      JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLSummaryElement_h */

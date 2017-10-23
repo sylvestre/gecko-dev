@@ -29,38 +29,35 @@ namespace detail {
 
 typedef ULONG EncodedLenT;
 
-} // namespace detail
+}  // namespace detail
 
 class MOZ_NON_TEMPORARY_CLASS StructToStream
 {
-public:
+ public:
   /**
    * This constructor variant represents an empty/null struct to be serialized.
    */
   StructToStream()
-    : mStatus(RPC_S_OK)
-    , mHandle(nullptr)
-    , mBuffer(nullptr)
-    , mEncodedLen(0)
+      : mStatus(RPC_S_OK), mHandle(nullptr), mBuffer(nullptr), mEncodedLen(0)
   {
   }
 
-  template <typename StructT>
+  template<typename StructT>
   StructToStream(StructT& aSrcStruct, void (*aEncodeFnPtr)(handle_t, StructT*))
-    : mStatus(RPC_X_INVALID_BUFFER)
-    , mHandle(nullptr)
-    , mBuffer(nullptr)
-    , mEncodedLen(0)
+      : mStatus(RPC_X_INVALID_BUFFER),
+        mHandle(nullptr),
+        mBuffer(nullptr),
+        mEncodedLen(0)
   {
-    mStatus = ::MesEncodeDynBufferHandleCreate(&mBuffer, &mEncodedLen,
-                                               &mHandle);
+    mStatus =
+        ::MesEncodeDynBufferHandleCreate(&mBuffer, &mEncodedLen, &mHandle);
     if (mStatus != RPC_S_OK) {
       return;
     }
 
-    MOZ_SEH_TRY {
-      aEncodeFnPtr(mHandle, &aSrcStruct);
-    } MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+    MOZ_SEH_TRY { aEncodeFnPtr(mHandle, &aSrcStruct); }
+    MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    {
       mStatus = ::RpcExceptionCode();
       return;
     }
@@ -78,10 +75,7 @@ public:
     }
   }
 
-  static unsigned long GetEmptySize()
-  {
-    return sizeof(detail::EncodedLenT);
-  }
+  static unsigned long GetEmptySize() { return sizeof(detail::EncodedLenT); }
 
   static HRESULT WriteEmpty(IStream* aDestStream)
   {
@@ -89,20 +83,11 @@ public:
     return emptyStruct.Write(aDestStream);
   }
 
-  explicit operator bool() const
-  {
-    return mStatus == RPC_S_OK;
-  }
+  explicit operator bool() const { return mStatus == RPC_S_OK; }
 
-  bool IsEmpty() const
-  {
-    return mStatus == RPC_S_OK && !mEncodedLen;
-  }
+  bool IsEmpty() const { return mStatus == RPC_S_OK && !mEncodedLen; }
 
-  unsigned long GetSize() const
-  {
-    return sizeof(mEncodedLen) + mEncodedLen;
-  }
+  unsigned long GetSize() const { return sizeof(mEncodedLen) + mEncodedLen; }
 
   HRESULT Write(IStream* aDestStream)
   {
@@ -114,8 +99,8 @@ public:
     }
 
     ULONG bytesWritten;
-    HRESULT hr = aDestStream->Write(&mEncodedLen, sizeof(mEncodedLen),
-                                    &bytesWritten);
+    HRESULT hr =
+        aDestStream->Write(&mEncodedLen, sizeof(mEncodedLen), &bytesWritten);
     if (FAILED(hr)) {
       return hr;
     }
@@ -141,10 +126,10 @@ public:
   StructToStream& operator=(const StructToStream&) = delete;
   StructToStream& operator=(StructToStream&&) = delete;
 
-private:
-  RPC_STATUS          mStatus;
-  handle_t            mHandle;
-  char*               mBuffer;
+ private:
+  RPC_STATUS mStatus;
+  handle_t mHandle;
+  char* mBuffer;
   detail::EncodedLenT mEncodedLen;
 };
 
@@ -152,18 +137,14 @@ class MOZ_NON_TEMPORARY_CLASS StructFromStream
 {
   struct AlignedFreeDeleter
   {
-    void operator()(void* aPtr)
-    {
-      ::_aligned_free(aPtr);
-    }
+    void operator()(void* aPtr) { ::_aligned_free(aPtr); }
   };
 
   static const detail::EncodedLenT kRpcReqdBufAlignment = 8;
 
-public:
+ public:
   explicit StructFromStream(IStream* aStream)
-    : mStatus(RPC_X_INVALID_BUFFER)
-    , mHandle(nullptr)
+      : mStatus(RPC_X_INVALID_BUFFER), mHandle(nullptr)
   {
     MOZ_ASSERT(aStream);
 
@@ -199,7 +180,7 @@ public:
 
     // This memory allocation is fallible
     mEncodedBuffer.reset(static_cast<char*>(
-          ::_aligned_malloc(encodedLen, kRpcReqdBufAlignment)));
+        ::_aligned_malloc(encodedLen, kRpcReqdBufAlignment)));
     if (!mEncodedBuffer) {
       return;
     }
@@ -210,8 +191,8 @@ public:
       return;
     }
 
-    mStatus = ::MesDecodeBufferHandleCreate(mEncodedBuffer.get(), encodedLen,
-                                            &mHandle);
+    mStatus = ::MesDecodeBufferHandleCreate(
+        mEncodedBuffer.get(), encodedLen, &mHandle);
   }
 
   ~StructFromStream()
@@ -221,14 +202,11 @@ public:
     }
   }
 
-  explicit operator bool() const
-  {
-    return mStatus == RPC_S_OK || IsEmpty();
-  }
+  explicit operator bool() const { return mStatus == RPC_S_OK || IsEmpty(); }
 
   bool IsEmpty() const { return mStatus == RPC_S_OBJECT_NOT_FOUND; }
 
-  template <typename StructT>
+  template<typename StructT>
   bool Read(StructT* aDestStruct, void (*aDecodeFnPtr)(handle_t, StructT*))
   {
     if (!aDestStruct || !aDecodeFnPtr || mStatus != RPC_S_OK) {
@@ -239,9 +217,9 @@ public:
     //     is zeroed out!
     ZeroMemory(aDestStruct, sizeof(StructT));
 
-    MOZ_SEH_TRY {
-      aDecodeFnPtr(mHandle, aDestStruct);
-    } MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+    MOZ_SEH_TRY { aDecodeFnPtr(mHandle, aDestStruct); }
+    MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    {
       mStatus = ::RpcExceptionCode();
       return false;
     }
@@ -254,13 +232,13 @@ public:
   StructFromStream& operator=(const StructFromStream&) = delete;
   StructFromStream& operator=(StructFromStream&&) = delete;
 
-private:
-  RPC_STATUS                          mStatus;
-  handle_t                            mHandle;
+ private:
+  RPC_STATUS mStatus;
+  handle_t mHandle;
   UniquePtr<char, AlignedFreeDeleter> mEncodedBuffer;
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_StructStream_h
+#endif  // mozilla_mscom_StructStream_h

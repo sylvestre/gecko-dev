@@ -29,7 +29,7 @@
 
 #include "nsXULAppAPI.h"
 
-static nsIAppShell *sAppShell;
+static nsIAppShell* sAppShell;
 
 static nsresult
 nsAppShellInit()
@@ -37,8 +37,7 @@ nsAppShellInit()
   NS_ASSERTION(!sAppShell, "already initialized");
 
   sAppShell = new nsAppShell();
-  if (!sAppShell)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!sAppShell) return NS_ERROR_OUT_OF_MEMORY;
   NS_ADDREF(sAppShell);
 
   nsresult rv;
@@ -58,7 +57,7 @@ nsAppShellShutdown()
 }
 
 static nsresult
-nsAppShellConstructor(nsISupports *outer, const nsIID &iid, void **result)
+nsAppShellConstructor(nsISupports* outer, const nsIID& iid, void** result)
 {
   NS_ENSURE_TRUE(!outer, NS_ERROR_NO_AGGREGATION);
   NS_ENSURE_TRUE(sAppShell, NS_ERROR_NOT_INITIALIZED);

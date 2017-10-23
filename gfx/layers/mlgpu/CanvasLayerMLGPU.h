@@ -6,15 +6,15 @@
 #ifndef GFX_CanvasLayerMLGPU_H
 #define GFX_CanvasLayerMLGPU_H
 
-#include "Layers.h"                     // for CanvasLayer, etc
+#include "Layers.h"  // for CanvasLayer, etc
 #include "TexturedLayerMLGPU.h"
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for RefPtr
+#include "mozilla/Attributes.h"                // for override
+#include "mozilla/RefPtr.h"                    // for RefPtr
 #include "mozilla/layers/LayerManagerMLGPU.h"  // for LayerComposite, etc
-#include "mozilla/layers/LayersTypes.h"  // for LayerRenderState, etc
-#include "nsDebug.h"                    // for NS_RUNTIMEABORT
-#include "nsRect.h"                     // for mozilla::gfx::IntRect
-#include "nscore.h"                     // for nsACString
+#include "mozilla/layers/LayersTypes.h"        // for LayerRenderState, etc
+#include "nsDebug.h"                           // for NS_RUNTIMEABORT
+#include "nsRect.h"                            // for mozilla::gfx::IntRect
+#include "nscore.h"                            // for nsACString
 
 namespace mozilla {
 namespace layers {
@@ -22,16 +22,15 @@ namespace layers {
 class CompositableHost;
 class ImageHost;
 
-class CanvasLayerMLGPU final : public CanvasLayer,
-                               public TexturedLayerMLGPU
+class CanvasLayerMLGPU final : public CanvasLayer, public TexturedLayerMLGPU
 {
-public:
+ public:
   explicit CanvasLayerMLGPU(LayerManagerMLGPU* aManager);
 
-protected:
+ protected:
   ~CanvasLayerMLGPU() override;
 
-public:
+ public:
   Layer* GetLayer() override;
   void Disconnect() override;
 
@@ -43,8 +42,9 @@ public:
 
   MOZ_LAYER_DECL_NAME("CanvasLayerMLGPU", TYPE_CANVAS)
 
-protected:
-  CanvasRenderer* CreateCanvasRendererInternal() override {
+ protected:
+  CanvasRenderer* CreateCanvasRendererInternal() override
+  {
     MOZ_CRASH("Incompatible surface type");
     return nullptr;
   }
@@ -53,7 +53,7 @@ protected:
   void CleanupResources();
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_CanvasLayerMLGPU_H */

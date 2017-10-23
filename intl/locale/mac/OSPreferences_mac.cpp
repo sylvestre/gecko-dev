@@ -93,10 +93,12 @@ CreateCFLocaleFor(const nsACString& aLocale)
   }
 
   CFStringRef identifier =
-    CFStringCreateWithBytesNoCopy(kCFAllocatorDefault,
-                                  (const uint8_t*)reqLocale.BeginReading(),
-                                  reqLocale.Length(), kCFStringEncodingASCII,
-                                  false, kCFAllocatorNull);
+      CFStringCreateWithBytesNoCopy(kCFAllocatorDefault,
+                                    (const uint8_t*)reqLocale.BeginReading(),
+                                    reqLocale.Length(),
+                                    kCFStringEncodingASCII,
+                                    false,
+                                    kCFAllocatorNull);
   if (!identifier) {
     return nullptr;
   }
@@ -116,7 +118,8 @@ CreateCFLocaleFor(const nsACString& aLocale)
 bool
 OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
                                    DateTimeFormatStyle aTimeStyle,
-                                   const nsACString& aLocale, nsAString& aRetVal)
+                                   const nsACString& aLocale,
+                                   nsAString& aRetVal)
 {
   CFLocaleRef locale = CreateCFLocaleFor(aLocale);
   if (!locale) {
@@ -124,16 +127,17 @@ OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
   }
 
   CFDateFormatterRef formatter =
-    CFDateFormatterCreate(kCFAllocatorDefault, locale,
-                          ToCFDateFormatterStyle(aDateStyle),
-                          ToCFDateFormatterStyle(aTimeStyle));
+      CFDateFormatterCreate(kCFAllocatorDefault,
+                            locale,
+                            ToCFDateFormatterStyle(aDateStyle),
+                            ToCFDateFormatterStyle(aTimeStyle));
   CFStringRef format = CFDateFormatterGetFormat(formatter);
   CFRelease(locale);
 
   CFRange range = CFRangeMake(0, CFStringGetLength(format));
   aRetVal.SetLength(range.length);
-  CFStringGetCharacters(format, range,
-                        reinterpret_cast<UniChar*>(aRetVal.BeginWriting()));
+  CFStringGetCharacters(
+      format, range, reinterpret_cast<UniChar*>(aRetVal.BeginWriting()));
   CFRelease(formatter);
 
   return true;

@@ -9,7 +9,7 @@
 #include "nsAString.h"
 #include "nsAtom.h"
 #include "nsUnicharUtils.h"
-#include "nsContentUtils.h" // For ASCIIToLower().
+#include "nsContentUtils.h"  // For ASCIIToLower().
 
 typedef nsCaseInsensitiveStringComparator txCaseInsensitiveStringComparator;
 
@@ -31,4 +31,4 @@ TX_ToLowerCaseAtom(nsAtom* aAtom)
   return NS_Atomize(str);
 }
 
-#endif // txStringUtils_h__
+#endif  // txStringUtils_h__

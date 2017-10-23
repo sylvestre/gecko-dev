@@ -20,15 +20,13 @@
 using namespace mozilla;
 
 nsDSURIContentListener::nsDSURIContentListener(nsDocShell* aDocShell)
-  : mDocShell(aDocShell)
-  , mExistingJPEGRequest(nullptr)
-  , mParentContentListener(nullptr)
+    : mDocShell(aDocShell),
+      mExistingJPEGRequest(nullptr),
+      mParentContentListener(nullptr)
 {
 }
 
-nsDSURIContentListener::~nsDSURIContentListener()
-{
-}
+nsDSURIContentListener::~nsDSURIContentListener() {}
 
 nsresult
 nsDSURIContentListener::Init()
@@ -111,7 +109,8 @@ nsDSURIContentListener::DoContent(const nsACString& aContentType,
     copy.forget(aContentHandler);
     rv = NS_OK;
   } else {
-    rv = mDocShell->CreateContentViewer(aContentType, aRequest, aContentHandler);
+    rv =
+        mDocShell->CreateContentViewer(aContentType, aRequest, aContentHandler);
     if (NS_SUCCEEDED(rv) && reuseCV) {
       mExistingJPEGStreamListener = *aContentHandler;
     } else {
@@ -134,7 +133,7 @@ nsDSURIContentListener::DoContent(const nsACString& aContentType,
 
   if (loadFlags & nsIChannel::LOAD_RETARGETED_DOCUMENT_URI) {
     nsCOMPtr<nsPIDOMWindowOuter> domWindow =
-      mDocShell ? mDocShell->GetWindow() : nullptr;
+        mDocShell ? mDocShell->GetWindow() : nullptr;
     NS_ENSURE_TRUE(domWindow, NS_ERROR_FAILURE);
     domWindow->Focus();
   }
@@ -156,9 +155,8 @@ nsDSURIContentListener::IsPreferred(const char* aContentType,
   nsCOMPtr<nsIURIContentListener> parentListener;
   GetParentContentListener(getter_AddRefs(parentListener));
   if (parentListener) {
-    return parentListener->IsPreferred(aContentType,
-                                       aDesiredContentType,
-                                       aCanHandle);
+    return parentListener->IsPreferred(
+        aContentType, aDesiredContentType, aCanHandle);
   }
   // we used to return false here if we didn't have a parent properly registered
   // at the top of the docshell hierarchy to dictate what content types this
@@ -188,9 +186,8 @@ nsDSURIContentListener::CanHandleContent(const char* aContentType,
   nsresult rv = NS_OK;
   if (aContentType) {
     uint32_t canHandle = nsIWebNavigationInfo::UNSUPPORTED;
-    rv = mNavInfo->IsTypeSupported(nsDependentCString(aContentType),
-                                   mDocShell,
-                                   &canHandle);
+    rv = mNavInfo->IsTypeSupported(
+        nsDependentCString(aContentType), mDocShell, &canHandle);
     *aCanHandleContent = (canHandle != nsIWebNavigationInfo::UNSUPPORTED);
   }
 
@@ -209,7 +206,7 @@ nsDSURIContentListener::SetLoadCookie(nsISupports* aLoadCookie)
 {
 #ifdef DEBUG
   RefPtr<nsDocLoader> cookieAsDocLoader =
-    nsDocLoader::GetAsDocLoader(aLoadCookie);
+      nsDocLoader::GetAsDocLoader(aLoadCookie);
   NS_ASSERTION(cookieAsDocLoader && cookieAsDocLoader == mDocShell,
                "Invalid load cookie being set!");
 #endif
@@ -222,7 +219,7 @@ nsDSURIContentListener::GetParentContentListener(
 {
   if (mWeakParentContentListener) {
     nsCOMPtr<nsIURIContentListener> tempListener =
-      do_QueryReferent(mWeakParentContentListener);
+        do_QueryReferent(mWeakParentContentListener);
     *aParentListener = tempListener;
     NS_IF_ADDREF(*aParentListener);
   } else {

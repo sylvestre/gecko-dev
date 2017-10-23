@@ -26,4 +26,4 @@ struct XREShellData
 #endif
 };
 
-#endif // XREShellData_h
+#endif  // XREShellData_h

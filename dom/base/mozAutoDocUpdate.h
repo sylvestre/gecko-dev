@@ -7,7 +7,7 @@
 #ifndef mozAutoDocUpdate_h_
 #define mozAutoDocUpdate_h_
 
-#include "nsContentUtils.h" // For AddScriptBlocker() and RemoveScriptBlocker().
+#include "nsContentUtils.h"  // For AddScriptBlocker() and RemoveScriptBlocker().
 #include "nsIDocument.h"
 #include "nsIDocumentObserver.h"
 
@@ -20,16 +20,15 @@
  */
 class MOZ_STACK_CLASS mozAutoDocUpdate
 {
-public:
-  mozAutoDocUpdate(nsIDocument* aDocument, nsUpdateType aUpdateType,
-                   bool aNotify) :
-    mDocument(aNotify ? aDocument : nullptr),
-    mUpdateType(aUpdateType)
+ public:
+  mozAutoDocUpdate(nsIDocument* aDocument,
+                   nsUpdateType aUpdateType,
+                   bool aNotify)
+      : mDocument(aNotify ? aDocument : nullptr), mUpdateType(aUpdateType)
   {
     if (mDocument) {
       mDocument->BeginUpdate(mUpdateType);
-    }
-    else {
+    } else {
       nsContentUtils::AddScriptBlocker();
     }
   }
@@ -38,24 +37,22 @@ public:
   {
     if (mDocument) {
       mDocument->EndUpdate(mUpdateType);
-    }
-    else {
+    } else {
       nsContentUtils::RemoveScriptBlocker();
     }
   }
 
-private:
+ private:
   nsCOMPtr<nsIDocument> mDocument;
   nsUpdateType mUpdateType;
 };
 
-#define MOZ_AUTO_DOC_UPDATE_PASTE2(tok,line) tok##line
-#define MOZ_AUTO_DOC_UPDATE_PASTE(tok,line) \
-  MOZ_AUTO_DOC_UPDATE_PASTE2(tok,line)
-#define MOZ_AUTO_DOC_UPDATE(doc,type,notify) \
-  mozAutoDocUpdate MOZ_AUTO_DOC_UPDATE_PASTE(_autoDocUpdater_, __LINE__) \
-  (doc,type,notify)
-
+#define MOZ_AUTO_DOC_UPDATE_PASTE2(tok, line) tok##line
+#define MOZ_AUTO_DOC_UPDATE_PASTE(tok, line) \
+  MOZ_AUTO_DOC_UPDATE_PASTE2(tok, line)
+#define MOZ_AUTO_DOC_UPDATE(doc, type, notify)                            \
+  mozAutoDocUpdate MOZ_AUTO_DOC_UPDATE_PASTE(_autoDocUpdater_, __LINE__)( \
+      doc, type, notify)
 
 /**
  * Creates an update batch only under certain conditions.
@@ -67,10 +64,9 @@ private:
  */
 class MOZ_STACK_CLASS mozAutoDocConditionalContentUpdateBatch
 {
-public:
-  mozAutoDocConditionalContentUpdateBatch(nsIDocument* aDocument,
-                                          bool aNotify) :
-    mDocument(aNotify ? aDocument : nullptr)
+ public:
+  mozAutoDocConditionalContentUpdateBatch(nsIDocument* aDocument, bool aNotify)
+      : mDocument(aNotify ? aDocument : nullptr)
   {
     if (mDocument) {
       mDocument->BeginUpdate(UPDATE_CONTENT_MODEL);
@@ -84,7 +80,7 @@ public:
     }
   }
 
-private:
+ private:
   nsCOMPtr<nsIDocument> mDocument;
 };
 

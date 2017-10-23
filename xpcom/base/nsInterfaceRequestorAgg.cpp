@@ -13,7 +13,7 @@
 
 class nsInterfaceRequestorAgg final : public nsIInterfaceRequestor
 {
-public:
+ public:
   // XXX This needs to support threadsafe refcounting until we fix bug 243591.
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINTERFACEREQUESTOR
@@ -21,16 +21,14 @@ public:
   nsInterfaceRequestorAgg(nsIInterfaceRequestor* aFirst,
                           nsIInterfaceRequestor* aSecond,
                           nsIEventTarget* aConsumerTarget = nullptr)
-    : mFirst(aFirst)
-    , mSecond(aSecond)
-    , mConsumerTarget(aConsumerTarget)
+      : mFirst(aFirst), mSecond(aSecond), mConsumerTarget(aConsumerTarget)
   {
     if (!mConsumerTarget) {
       mConsumerTarget = GetCurrentThreadEventTarget();
     }
   }
 
-private:
+ private:
   ~nsInterfaceRequestorAgg();
 
   nsCOMPtr<nsIInterfaceRequestor> mFirst, mSecond;
@@ -55,9 +53,9 @@ nsInterfaceRequestorAgg::GetInterface(const nsIID& aIID, void** aResult)
 nsInterfaceRequestorAgg::~nsInterfaceRequestorAgg()
 {
   NS_ProxyRelease(
-    "nsInterfaceRequestorAgg::mFirst", mConsumerTarget, mFirst.forget());
+      "nsInterfaceRequestorAgg::mFirst", mConsumerTarget, mFirst.forget());
   NS_ProxyRelease(
-    "nsInterfaceRequestorAgg::mSecond", mConsumerTarget, mSecond.forget());
+      "nsInterfaceRequestorAgg::mSecond", mConsumerTarget, mSecond.forget());
 }
 
 nsresult

@@ -17,11 +17,11 @@ namespace plugins {
  */
 class AStream
 {
-public:
+ public:
   virtual bool IsBrowserStream() = 0;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
 #endif

@@ -12,15 +12,15 @@
 namespace mozilla {
 namespace dom {
 class HTMLOptionElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
   * nsIListControlFrame is the interface for frame-based listboxes.
   */
 class nsIListControlFrame : public nsQueryFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIListControlFrame)
 
   /**
@@ -94,4 +94,3 @@ public:
 };
 
 #endif
-

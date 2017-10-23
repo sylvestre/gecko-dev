@@ -11,7 +11,7 @@
 
 #ifdef MOZILLA_INTERNAL_API
 #include "GeckoProfiler.h"
-#endif //MOZILLA_INTERNAL_API
+#endif  //MOZILLA_INTERNAL_API
 
 #include "mozilla/BlockingResourceBase.h"
 
@@ -27,7 +27,6 @@
 //
 namespace mozilla {
 
-
 /**
  * ReentrantMonitor
  * Java-like monitor.
@@ -36,15 +35,16 @@ namespace mozilla {
  **/
 class ReentrantMonitor : BlockingResourceBase
 {
-public:
+ public:
   /**
    * ReentrantMonitor
    * @param aName A name which can reference this monitor
    */
   explicit ReentrantMonitor(const char* aName)
-    : BlockingResourceBase(aName, eReentrantMonitor)
+      : BlockingResourceBase(aName, eReentrantMonitor)
 #ifdef DEBUG
-    , mEntryCount(0)
+        ,
+        mEntryCount(0)
 #endif
   {
     MOZ_COUNT_CTOR(ReentrantMonitor);
@@ -87,12 +87,13 @@ public:
   {
 #ifdef MOZILLA_INTERNAL_API
     AUTO_PROFILER_THREAD_SLEEP;
-#endif //MOZILLA_INTERNAL_API
-    return PR_Wait(mReentrantMonitor, aInterval) == PR_SUCCESS ?
-      NS_OK : NS_ERROR_FAILURE;
+#endif  //MOZILLA_INTERNAL_API
+    return PR_Wait(mReentrantMonitor, aInterval) == PR_SUCCESS
+               ? NS_OK
+               : NS_ERROR_FAILURE;
   }
 
-#else // ifndef DEBUG
+#else  // ifndef DEBUG
   void Enter();
   void Exit();
   nsresult Wait(PRIntervalTime aInterval = PR_INTERVAL_NO_TIMEOUT);
@@ -105,8 +106,8 @@ public:
    **/
   nsresult Notify()
   {
-    return PR_Notify(mReentrantMonitor) == PR_SUCCESS ? NS_OK :
-                                                        NS_ERROR_FAILURE;
+    return PR_Notify(mReentrantMonitor) == PR_SUCCESS ? NS_OK
+                                                      : NS_ERROR_FAILURE;
   }
 
   /**
@@ -115,8 +116,8 @@ public:
    **/
   nsresult NotifyAll()
   {
-    return PR_NotifyAll(mReentrantMonitor) == PR_SUCCESS ? NS_OK :
-                                                           NS_ERROR_FAILURE;
+    return PR_NotifyAll(mReentrantMonitor) == PR_SUCCESS ? NS_OK
+                                                         : NS_ERROR_FAILURE;
   }
 
 #ifdef DEBUG
@@ -144,7 +145,7 @@ public:
 
 #endif  // ifdef DEBUG
 
-private:
+ private:
   ReentrantMonitor();
   ReentrantMonitor(const ReentrantMonitor&);
   ReentrantMonitor& operator=(const ReentrantMonitor&);
@@ -155,7 +156,6 @@ private:
 #endif
 };
 
-
 /**
  * ReentrantMonitorAutoEnter
  * Enters the ReentrantMonitor when it enters scope, and exits it when
@@ -165,7 +165,7 @@ private:
  */
 class MOZ_STACK_CLASS ReentrantMonitorAutoEnter
 {
-public:
+ public:
   /**
    * Constructor
    * The constructor aquires the given lock.  The destructor
@@ -173,17 +173,15 @@ public:
    *
    * @param aReentrantMonitor A valid mozilla::ReentrantMonitor*.
    **/
-  explicit ReentrantMonitorAutoEnter(mozilla::ReentrantMonitor& aReentrantMonitor)
-    : mReentrantMonitor(&aReentrantMonitor)
+  explicit ReentrantMonitorAutoEnter(
+      mozilla::ReentrantMonitor& aReentrantMonitor)
+      : mReentrantMonitor(&aReentrantMonitor)
   {
     NS_ASSERTION(mReentrantMonitor, "null monitor");
     mReentrantMonitor->Enter();
   }
 
-  ~ReentrantMonitorAutoEnter(void)
-  {
-    mReentrantMonitor->Exit();
-  }
+  ~ReentrantMonitorAutoEnter(void) { mReentrantMonitor->Exit(); }
 
   nsresult Wait(PRIntervalTime aInterval = PR_INTERVAL_NO_TIMEOUT)
   {
@@ -193,7 +191,7 @@ public:
   nsresult Notify() { return mReentrantMonitor->Notify(); }
   nsresult NotifyAll() { return mReentrantMonitor->NotifyAll(); }
 
-private:
+ private:
   ReentrantMonitorAutoEnter();
   ReentrantMonitorAutoEnter(const ReentrantMonitorAutoEnter&);
   ReentrantMonitorAutoEnter& operator=(const ReentrantMonitorAutoEnter&);
@@ -213,7 +211,7 @@ private:
  */
 class MOZ_STACK_CLASS ReentrantMonitorAutoExit
 {
-public:
+ public:
   /**
    * Constructor
    * The constructor releases the given lock.  The destructor
@@ -224,7 +222,7 @@ public:
    *                 must be already locked.
    **/
   explicit ReentrantMonitorAutoExit(ReentrantMonitor& aReentrantMonitor)
-    : mReentrantMonitor(&aReentrantMonitor)
+      : mReentrantMonitor(&aReentrantMonitor)
   {
     NS_ASSERTION(mReentrantMonitor, "null monitor");
     mReentrantMonitor->AssertCurrentThreadIn();
@@ -232,20 +230,17 @@ public:
   }
 
   explicit ReentrantMonitorAutoExit(
-    ReentrantMonitorAutoEnter& aReentrantMonitorAutoEnter)
-    : mReentrantMonitor(aReentrantMonitorAutoEnter.mReentrantMonitor)
+      ReentrantMonitorAutoEnter& aReentrantMonitorAutoEnter)
+      : mReentrantMonitor(aReentrantMonitorAutoEnter.mReentrantMonitor)
   {
     NS_ASSERTION(mReentrantMonitor, "null monitor");
     mReentrantMonitor->AssertCurrentThreadIn();
     mReentrantMonitor->Exit();
   }
 
-  ~ReentrantMonitorAutoExit(void)
-  {
-    mReentrantMonitor->Enter();
-  }
+  ~ReentrantMonitorAutoExit(void) { mReentrantMonitor->Enter(); }
 
-private:
+ private:
   ReentrantMonitorAutoExit();
   ReentrantMonitorAutoExit(const ReentrantMonitorAutoExit&);
   ReentrantMonitorAutoExit& operator=(const ReentrantMonitorAutoExit&);
@@ -254,6 +249,6 @@ private:
   ReentrantMonitor* mReentrantMonitor;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ifndef mozilla_ReentrantMonitor_h
+#endif  // ifndef mozilla_ReentrantMonitor_h

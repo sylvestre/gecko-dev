@@ -14,16 +14,13 @@ NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Frame)
 namespace mozilla {
 namespace dom {
 
-HTMLFrameElement::HTMLFrameElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                                   FromParser aFromParser)
-  : nsGenericHTMLFrameElement(aNodeInfo, aFromParser)
+HTMLFrameElement::HTMLFrameElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo, FromParser aFromParser)
+    : nsGenericHTMLFrameElement(aNodeInfo, aFromParser)
 {
 }
 
-HTMLFrameElement::~HTMLFrameElement()
-{
-}
-
+HTMLFrameElement::~HTMLFrameElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLFrameElement, nsGenericHTMLFrameElement)
 
@@ -53,8 +50,8 @@ HTMLFrameElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLFrameElement::ParseAttribute(aNamespaceID, aAttribute,
-                                                   aValue, aResult);
+  return nsGenericHTMLFrameElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 JSObject*
@@ -63,5 +60,5 @@ HTMLFrameElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLFrameElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

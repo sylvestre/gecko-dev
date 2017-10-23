@@ -12,9 +12,7 @@
 #include "gc/StoreBuffer.h"
 #include "gc/Zone.h"
 
-inline void
-js::gc::Arena::init(JS::Zone* zoneArg, AllocKind kind)
-{
+inline void js::gc::Arena::init(JS::Zone* zoneArg, AllocKind kind) {
     MOZ_ASSERT(firstFreeSpan.isEmpty());
     MOZ_ASSERT(!zone);
     MOZ_ASSERT(!allocated());
@@ -32,24 +30,17 @@ js::gc::Arena::init(JS::Zone* zoneArg, AllocKind kind)
         bufferedCells() = &ArenaCellSet::Empty;
 }
 
-inline void
-js::gc::Arena::release()
-{
-    if (zone->isAtomsZone())
-        zone->runtimeFromAnyThread()->gc.atomMarking.unregisterArena(this);
+inline void js::gc::Arena::release() {
+    if (zone->isAtomsZone()) zone->runtimeFromAnyThread()->gc.atomMarking.unregisterArena(this);
     setAsNotAllocated();
 }
 
-inline js::gc::ArenaCellSet*&
-js::gc::Arena::bufferedCells()
-{
+inline js::gc::ArenaCellSet*& js::gc::Arena::bufferedCells() {
     MOZ_ASSERT(zone && !zone->isAtomsZone());
     return bufferedCells_;
 }
 
-inline size_t&
-js::gc::Arena::atomBitmapStart()
-{
+inline size_t& js::gc::Arena::atomBitmapStart() {
     MOZ_ASSERT(zone && zone->isAtomsZone());
     return atomBitmapStart_;
 }

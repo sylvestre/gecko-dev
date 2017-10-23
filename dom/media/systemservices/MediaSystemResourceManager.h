@@ -19,7 +19,7 @@ namespace mozilla {
 
 namespace media {
 class MediaSystemResourceManagerChild;
-} // namespace media
+}  // namespace media
 
 class MediaSystemResourceClient;
 class MediaSystemResourceReservationListener;
@@ -31,7 +31,7 @@ class TaskQueue;
  */
 class MediaSystemResourceManager
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaSystemResourceManager)
 
   static MediaSystemResourceManager* Get();
@@ -52,7 +52,7 @@ public:
 
   void RecvResponse(uint32_t aId, bool aSuccess);
 
-private:
+ private:
   MediaSystemResourceManager();
   virtual ~MediaSystemResourceManager();
 
@@ -77,6 +77,6 @@ private:
   static StaticRefPtr<MediaSystemResourceManager> sSingleton;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

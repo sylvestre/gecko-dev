@@ -18,9 +18,8 @@ NS_IMPL_ISUPPORTS(PrintProgressDialogChild,
                   nsIWebProgressListener,
                   nsIPrintProgressParams)
 
-PrintProgressDialogChild::PrintProgressDialogChild(
-  nsIObserver* aOpenObserver) :
-  mOpenObserver(aOpenObserver)
+PrintProgressDialogChild::PrintProgressDialogChild(nsIObserver* aOpenObserver)
+    : mOpenObserver(aOpenObserver)
 {
 }
 
@@ -56,15 +55,15 @@ PrintProgressDialogChild::OnStateChange(nsIWebProgress* aProgress,
 }
 
 NS_IMETHODIMP
-PrintProgressDialogChild::OnProgressChange(nsIWebProgress * aProgress,
-                                           nsIRequest * aRequest,
+PrintProgressDialogChild::OnProgressChange(nsIWebProgress* aProgress,
+                                           nsIRequest* aRequest,
                                            int32_t aCurSelfProgress,
                                            int32_t aMaxSelfProgress,
                                            int32_t aCurTotalProgress,
                                            int32_t aMaxTotalProgress)
 {
-  Unused << SendProgressChange(aCurSelfProgress, aMaxSelfProgress,
-                               aCurTotalProgress, aMaxTotalProgress);
+  Unused << SendProgressChange(
+      aCurSelfProgress, aMaxSelfProgress, aCurTotalProgress, aMaxTotalProgress);
   return NS_OK;
 }
 
@@ -126,5 +125,5 @@ PrintProgressDialogChild::SetDocURL(const nsAString& aDocURL)
   return NS_OK;
 }
 
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla

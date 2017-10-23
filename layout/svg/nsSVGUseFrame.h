@@ -10,21 +10,19 @@
 #include "nsIAnonymousContentCreator.h"
 #include "nsSVGGFrame.h"
 
-class nsSVGUseFrame final
-  : public nsSVGGFrame
-  , public nsIAnonymousContentCreator
+class nsSVGUseFrame final : public nsSVGGFrame,
+                            public nsIAnonymousContentCreator
 {
   friend nsIFrame* NS_NewSVGUseFrame(nsIPresShell* aPresShell,
                                      nsStyleContext* aContext);
 
-protected:
+ protected:
   explicit nsSVGUseFrame(nsStyleContext* aContext)
-    : nsSVGGFrame(aContext, kClassID)
-    , mHasValidDimensions(true)
+      : nsSVGGFrame(aContext, kClassID), mHasValidDimensions(true)
   {
   }
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsSVGUseFrame)
 
@@ -57,9 +55,9 @@ public:
 
   nsIContent* GetContentClone() { return mContentClone.get(); }
 
-private:
+ private:
   bool mHasValidDimensions;
   nsCOMPtr<nsIContent> mContentClone;
 };
 
-#endif // __NS_SVGUSEFRAME_H__
+#endif  // __NS_SVGUSEFRAME_H__

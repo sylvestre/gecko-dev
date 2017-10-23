@@ -10,11 +10,11 @@
 namespace mozilla {
 namespace dom {
 
-PushSubscriptionOptions::PushSubscriptionOptions(nsIGlobalObject* aGlobal,
-                                                 nsTArray<uint8_t>&& aRawAppServerKey)
-  : mGlobal(aGlobal)
-  , mRawAppServerKey(Move(aRawAppServerKey))
-  , mAppServerKey(nullptr)
+PushSubscriptionOptions::PushSubscriptionOptions(
+    nsIGlobalObject* aGlobal, nsTArray<uint8_t>&& aRawAppServerKey)
+    : mGlobal(aGlobal),
+      mRawAppServerKey(Move(aRawAppServerKey)),
+      mAppServerKey(nullptr)
 {
   // There's only one global on a worker, so we don't need to pass a global
   // object to the constructor.
@@ -58,9 +58,8 @@ PushSubscriptionOptions::WrapObject(JSContext* aCx,
 }
 
 void
-PushSubscriptionOptions::GetApplicationServerKey(JSContext* aCx,
-                                                 JS::MutableHandle<JSObject*> aKey,
-                                                 ErrorResult& aRv)
+PushSubscriptionOptions::GetApplicationServerKey(
+    JSContext* aCx, JS::MutableHandle<JSObject*> aKey, ErrorResult& aRv)
 {
   if (!mRawAppServerKey.IsEmpty() && !mAppServerKey) {
     JS::Rooted<JSObject*> appServerKey(aCx);
@@ -74,5 +73,5 @@ PushSubscriptionOptions::GetApplicationServerKey(JSContext* aCx,
   aKey.set(mAppServerKey);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

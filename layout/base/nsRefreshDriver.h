@@ -40,16 +40,17 @@ class RefreshDriverTimer;
 class Runnable;
 namespace layout {
 class VsyncChild;
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
 /**
  * An abstract base class to be implemented by callers wanting to be
  * notified at refresh times.  When nothing needs to be painted, callers
  * may not be notified.
  */
-class nsARefreshObserver {
-public:
+class nsARefreshObserver
+{
+ public:
   // AddRef and Release signatures that match nsISupports.  Implementors
   // must implement reference counting, and those that do implement
   // nsISupports will already have methods with the correct signature.
@@ -66,16 +67,17 @@ public:
  * that a refresh has occurred. Callers must ensure an observer is removed
  * before it is destroyed.
  */
-class nsAPostRefreshObserver {
-public:
+class nsAPostRefreshObserver
+{
+ public:
   virtual void DidRefresh() = 0;
 };
 
 class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
                               public nsARefreshObserver
 {
-public:
-  explicit nsRefreshDriver(nsPresContext *aPresContext);
+ public:
+  explicit nsRefreshDriver(nsPresContext* aPresContext);
   ~nsRefreshDriver();
 
   /**
@@ -121,9 +123,9 @@ public:
    *
    * The observer will be called even if there is no other activity.
    */
-  bool AddRefreshObserver(nsARefreshObserver *aObserver,
+  bool AddRefreshObserver(nsARefreshObserver* aObserver,
                           mozilla::FlushType aFlushType);
-  bool RemoveRefreshObserver(nsARefreshObserver *aObserver,
+  bool RemoveRefreshObserver(nsARefreshObserver* aObserver,
                              mozilla::FlushType aFlushType);
 
   void PostScrollEvent(mozilla::Runnable* aScrollEvent);
@@ -134,8 +136,8 @@ public:
    * must remove the observer before it is deleted. This does not trigger
    * refresh driver ticks.
    */
-  void AddPostRefreshObserver(nsAPostRefreshObserver *aObserver);
-  void RemovePostRefreshObserver(nsAPostRefreshObserver *aObserver);
+  void AddPostRefreshObserver(nsAPostRefreshObserver* aObserver);
+  void RemovePostRefreshObserver(nsAPostRefreshObserver* aObserver);
 
   /**
    * Add/Remove imgIRequest versions of observers.
@@ -157,7 +159,8 @@ public:
   /**
    * Add / remove presshells that we should flush style and layout on
    */
-  bool AddStyleFlushObserver(nsIPresShell* aShell) {
+  bool AddStyleFlushObserver(nsIPresShell* aShell)
+  {
     NS_ASSERTION(!mStyleFlushObservers.Contains(aShell),
                  "Double-adding style flush observer");
     // We only get the cause for the first observer each frame because capturing
@@ -174,10 +177,12 @@ public:
 
     return appended;
   }
-  void RemoveStyleFlushObserver(nsIPresShell* aShell) {
+  void RemoveStyleFlushObserver(nsIPresShell* aShell)
+  {
     mStyleFlushObservers.RemoveElement(aShell);
   }
-  bool AddLayoutFlushObserver(nsIPresShell* aShell) {
+  bool AddLayoutFlushObserver(nsIPresShell* aShell)
+  {
     NS_ASSERTION(!IsLayoutFlushObserver(aShell),
                  "Double-adding layout flush observer");
 #ifdef MOZ_GECKO_PROFILER
@@ -193,10 +198,12 @@ public:
     EnsureTimerStarted();
     return appended;
   }
-  void RemoveLayoutFlushObserver(nsIPresShell* aShell) {
+  void RemoveLayoutFlushObserver(nsIPresShell* aShell)
+  {
     mLayoutFlushObservers.RemoveElement(aShell);
   }
-  bool IsLayoutFlushObserver(nsIPresShell* aShell) {
+  bool IsLayoutFlushObserver(nsIPresShell* aShell)
+  {
     return mLayoutFlushObservers.Contains(aShell);
   }
 
@@ -215,15 +222,9 @@ public:
    * Remember whether our presshell's view manager needs a flush
    */
   void ScheduleViewManagerFlush();
-  void RevokeViewManagerFlush() {
-    mViewManagerFlushIsPending = false;
-  }
-  bool ViewManagerFlushIsPending() {
-    return mViewManagerFlushIsPending;
-  }
-  bool HasScheduleFlush() {
-    return mHasScheduleFlush;
-  }
+  void RevokeViewManagerFlush() { mViewManagerFlushIsPending = false; }
+  bool ViewManagerFlushIsPending() { return mViewManagerFlushIsPending; }
+  bool HasScheduleFlush() { return mHasScheduleFlush; }
 
   /**
    * Add a document for which we have FrameRequestCallbacks
@@ -299,7 +300,7 @@ public:
   /**
    * Check whether the given observer is an observer for the given flush type
    */
-  bool IsRefreshObserver(nsARefreshObserver *aObserver,
+  bool IsRefreshObserver(nsARefreshObserver* aObserver,
                          mozilla::FlushType aFlushType);
 #endif
 
@@ -339,8 +340,14 @@ public:
   bool IsWaitingForPaint(mozilla::TimeStamp aTime);
 
   // nsARefreshObserver
-  NS_IMETHOD_(MozExternalRefCountType) AddRef(void) override { return TransactionIdAllocator::AddRef(); }
-  NS_IMETHOD_(MozExternalRefCountType) Release(void) override { return TransactionIdAllocator::Release(); }
+  NS_IMETHOD_(MozExternalRefCountType) AddRef(void) override
+  {
+    return TransactionIdAllocator::AddRef();
+  }
+  NS_IMETHOD_(MozExternalRefCountType) Release(void) override
+  {
+    return TransactionIdAllocator::Release();
+  }
   virtual void WillRefresh(mozilla::TimeStamp aTime) override;
 
   /**
@@ -366,19 +373,15 @@ public:
                                             uint32_t aDelay);
   static void CancelIdleRunnable(nsIRunnable* aRunnable);
 
-  bool SkippedPaints() const
-  {
-    return mSkippedPaints;
-  }
+  bool SkippedPaints() const { return mSkippedPaints; }
 
-private:
+ private:
   typedef nsTObserverArray<nsARefreshObserver*> ObserverArray;
   typedef nsTArray<RefPtr<mozilla::Runnable>> ScrollEventArray;
   typedef nsTHashtable<nsISupportsHashKey> RequestTable;
-  struct ImageStartData {
-    ImageStartData()
-    {
-    }
+  struct ImageStartData
+  {
+    ImageStartData() {}
 
     mozilla::Maybe<mozilla::TimeStamp> mStartTime;
     RequestTable mEntries;
@@ -390,7 +393,8 @@ private:
   void RunFrameRequestCallbacks(mozilla::TimeStamp aNowTime);
   void Tick(int64_t aNowEpoch, mozilla::TimeStamp aNowTime);
 
-  enum EnsureTimerStartedFlags {
+  enum EnsureTimerStartedFlags
+  {
     eNone = 0,
     eForceAdjustTimer = 1 << 0,
     eAllowTimeToGoBackwards = 1 << 1,
@@ -406,12 +410,13 @@ private:
   void DoRefresh();
 
   double GetRefreshTimerInterval() const;
-  double GetRegularTimerInterval(bool *outIsDefault = nullptr) const;
+  double GetRegularTimerInterval(bool* outIsDefault = nullptr) const;
   static double GetThrottledTimerInterval();
 
   static mozilla::TimeDuration GetMinRecomputeVisibilityInterval();
 
-  bool HaveFrameRequestCallbacks() const {
+  bool HaveFrameRequestCallbacks() const
+  {
     return mFrameRequestCallbackDocs.Length() != 0;
   }
 
@@ -489,7 +494,8 @@ private:
   AutoTArray<nsCOMPtr<nsIRunnable>, 16> mEarlyRunners;
   ScrollEventArray mScrollEvents;
 
-  struct PendingEvent {
+  struct PendingEvent
+  {
     nsCOMPtr<nsINode> mTarget;
     nsCOMPtr<nsIDOMEvent> mEvent;
   };

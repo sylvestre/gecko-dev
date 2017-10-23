@@ -22,13 +22,13 @@ class nsDocumentOpenInfo;
 
 class nsURILoader final : public nsIURILoader
 {
-public:
+ public:
   NS_DECL_NSIURILOADER
   NS_DECL_ISUPPORTS
 
   nsURILoader();
 
-protected:
+ protected:
   ~nsURILoader();
 
   /**
@@ -52,7 +52,7 @@ protected:
    * Logging.  The module is called "URILoader"
    */
   static mozilla::LazyLogModule mLog;
-  
+
   friend class nsDocumentOpenInfo;
 };
 

@@ -45,21 +45,23 @@ import NEWEST_IA2_IDL;
 namespace mozilla {
 namespace a11y {
 
-class AccessibleHandler final : public mscom::Handler
-                              , public NEWEST_IA2_INTERFACE
-                              , public IServiceProvider
-                              , public IProvideClassInfo
+class AccessibleHandler final : public mscom::Handler,
+                                public NEWEST_IA2_INTERFACE,
+                                public IServiceProvider,
+                                public IProvideClassInfo
 {
-public:
+ public:
   static HRESULT Create(IUnknown* aOuter, REFIID aIid, void** aOutInterface);
 
   // mscom::Handler
-  HRESULT QueryHandlerInterface(IUnknown* aProxyUnknown, REFIID aIid,
+  HRESULT QueryHandlerInterface(IUnknown* aProxyUnknown,
+                                REFIID aIid,
                                 void** aOutInterface) override;
   HRESULT ReadHandlerPayload(IStream* aStream, REFIID aIid) override;
 
   REFIID MarshalAs(REFIID aRequestedIid) override;
-  HRESULT GetMarshalInterface(REFIID aMarshalAsIid, NotNull<IUnknown*> aProxy,
+  HRESULT GetMarshalInterface(REFIID aMarshalAsIid,
+                              NotNull<IUnknown*> aProxy,
                               NotNull<IID*> aOutIid,
                               NotNull<IUnknown**> aOutUnk) override;
   HRESULT GetHandlerPayloadSize(REFIID aIid, DWORD* aOutPayloadSize) override;
@@ -71,38 +73,54 @@ public:
   STDMETHODIMP_(ULONG) Release() override;
 
   // IDispatch
-  STDMETHODIMP GetTypeInfoCount(UINT *pctinfo) override;
-  STDMETHODIMP GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo) override;
-  STDMETHODIMP GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames,
-                             LCID lcid, DISPID *rgDispId) override;
-  STDMETHODIMP Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags,
-                      DISPPARAMS *pDispParams, VARIANT *pVarResult,
-                      EXCEPINFO *pExcepInfo, UINT *puArgErr) override;
+  STDMETHODIMP GetTypeInfoCount(UINT* pctinfo) override;
+  STDMETHODIMP GetTypeInfo(UINT iTInfo,
+                           LCID lcid,
+                           ITypeInfo** ppTInfo) override;
+  STDMETHODIMP GetIDsOfNames(REFIID riid,
+                             LPOLESTR* rgszNames,
+                             UINT cNames,
+                             LCID lcid,
+                             DISPID* rgDispId) override;
+  STDMETHODIMP Invoke(DISPID dispIdMember,
+                      REFIID riid,
+                      LCID lcid,
+                      WORD wFlags,
+                      DISPPARAMS* pDispParams,
+                      VARIANT* pVarResult,
+                      EXCEPINFO* pExcepInfo,
+                      UINT* puArgErr) override;
 
   // IAccessible
-  STDMETHODIMP get_accParent(IDispatch **ppdispParent) override;
-  STDMETHODIMP get_accChildCount(long *pcountChildren) override;
-  STDMETHODIMP get_accChild(VARIANT varChild, IDispatch **ppdispChild) override;
-  STDMETHODIMP get_accName(VARIANT varChild, BSTR *pszName) override;
-  STDMETHODIMP get_accValue(VARIANT varChild, BSTR *pszValue) override;
-  STDMETHODIMP get_accDescription(VARIANT varChild, BSTR *pszDescription) override;
-  STDMETHODIMP get_accRole(VARIANT varChild, VARIANT *pvarRole) override;
-  STDMETHODIMP get_accState(VARIANT varChild, VARIANT *pvarState) override;
-  STDMETHODIMP get_accHelp(VARIANT varChild, BSTR *pszHelp) override;
-  STDMETHODIMP get_accHelpTopic(BSTR *pszHelpFile, VARIANT varChild,
-                                long *pidTopic) override;
+  STDMETHODIMP get_accParent(IDispatch** ppdispParent) override;
+  STDMETHODIMP get_accChildCount(long* pcountChildren) override;
+  STDMETHODIMP get_accChild(VARIANT varChild, IDispatch** ppdispChild) override;
+  STDMETHODIMP get_accName(VARIANT varChild, BSTR* pszName) override;
+  STDMETHODIMP get_accValue(VARIANT varChild, BSTR* pszValue) override;
+  STDMETHODIMP get_accDescription(VARIANT varChild,
+                                  BSTR* pszDescription) override;
+  STDMETHODIMP get_accRole(VARIANT varChild, VARIANT* pvarRole) override;
+  STDMETHODIMP get_accState(VARIANT varChild, VARIANT* pvarState) override;
+  STDMETHODIMP get_accHelp(VARIANT varChild, BSTR* pszHelp) override;
+  STDMETHODIMP get_accHelpTopic(BSTR* pszHelpFile,
+                                VARIANT varChild,
+                                long* pidTopic) override;
   STDMETHODIMP get_accKeyboardShortcut(VARIANT varChild,
-                                       BSTR *pszKeyboardShortcut) override;
-  STDMETHODIMP get_accFocus(VARIANT *pvarChild) override;
-  STDMETHODIMP get_accSelection(VARIANT *pvarChildren) override;
+                                       BSTR* pszKeyboardShortcut) override;
+  STDMETHODIMP get_accFocus(VARIANT* pvarChild) override;
+  STDMETHODIMP get_accSelection(VARIANT* pvarChildren) override;
   STDMETHODIMP get_accDefaultAction(VARIANT varChild,
-                                    BSTR *pszDefaultAction) override;
+                                    BSTR* pszDefaultAction) override;
   STDMETHODIMP accSelect(long flagsSelect, VARIANT varChild) override;
-  STDMETHODIMP accLocation(long *pxLeft, long *pyTop, long *pcxWidth,
-                           long *pcyHeight, VARIANT varChild) override;
-  STDMETHODIMP accNavigate(long navDir, VARIANT varStart,
-                           VARIANT *pvarEndUpAt) override;
-  STDMETHODIMP accHitTest( long xLeft, long yTop, VARIANT *pvarChild) override;
+  STDMETHODIMP accLocation(long* pxLeft,
+                           long* pyTop,
+                           long* pcxWidth,
+                           long* pcyHeight,
+                           VARIANT varChild) override;
+  STDMETHODIMP accNavigate(long navDir,
+                           VARIANT varStart,
+                           VARIANT* pvarEndUpAt) override;
+  STDMETHODIMP accHitTest(long xLeft, long yTop, VARIANT* pvarChild) override;
   STDMETHODIMP accDoDefaultAction(VARIANT varChild) override;
   STDMETHODIMP put_accName(VARIANT varChild, BSTR szName) override;
   STDMETHODIMP put_accValue(VARIANT varChild, BSTR szValue) override;
@@ -111,23 +129,28 @@ public:
   STDMETHODIMP get_nRelations(long* nRelations) override;
   STDMETHODIMP get_relation(long relationIndex,
                             IAccessibleRelation** relation) override;
-  STDMETHODIMP get_relations(long maxRelations, IAccessibleRelation** relations,
+  STDMETHODIMP get_relations(long maxRelations,
+                             IAccessibleRelation** relations,
                              long* nRelations) override;
   STDMETHODIMP role(long* role) override;
   STDMETHODIMP scrollTo(IA2ScrollType scrollType) override;
-  STDMETHODIMP scrollToPoint(IA2CoordinateType coordinateType, long x,
+  STDMETHODIMP scrollToPoint(IA2CoordinateType coordinateType,
+                             long x,
                              long y) override;
-  STDMETHODIMP get_groupPosition(long* groupLevel, long* similarItemsInGroup,
+  STDMETHODIMP get_groupPosition(long* groupLevel,
+                                 long* similarItemsInGroup,
                                  long* positionInGroup) override;
   STDMETHODIMP get_states(AccessibleStates* states) override;
   STDMETHODIMP get_extendedRole(BSTR* extendedRole) override;
   STDMETHODIMP get_localizedExtendedRole(BSTR* localizedExtendedRole) override;
   STDMETHODIMP get_nExtendedStates(long* nExtendedStates) override;
-  STDMETHODIMP get_extendedStates(long maxExtendedStates, BSTR** extendedStates,
+  STDMETHODIMP get_extendedStates(long maxExtendedStates,
+                                  BSTR** extendedStates,
                                   long* nExtendedStates) override;
-  STDMETHODIMP get_localizedExtendedStates(long maxLocalizedExtendedStates,
-                                           BSTR** localizedExtendedStates,
-                                           long* nLocalizedExtendedStates) override;
+  STDMETHODIMP get_localizedExtendedStates(
+      long maxLocalizedExtendedStates,
+      BSTR** localizedExtendedStates,
+      long* nLocalizedExtendedStates) override;
   STDMETHODIMP get_uniqueID(long* uniqueID) override;
   STDMETHODIMP get_windowHandle(HWND* windowHandle) override;
   STDMETHODIMP get_indexInParent(long* indexInParent) override;
@@ -138,7 +161,8 @@ public:
   STDMETHODIMP get_attribute(BSTR name, VARIANT* attribute) override;
   STDMETHODIMP get_accessibleWithCaret(IUnknown** accessible,
                                        long* caretOffset) override;
-  STDMETHODIMP get_relationTargetsOfType(BSTR type, long maxTargets,
+  STDMETHODIMP get_relationTargetsOfType(BSTR type,
+                                         long maxTargets,
                                          IUnknown*** targets,
                                          long* nTargets) override;
 
@@ -146,13 +170,14 @@ public:
   STDMETHODIMP get_selectionRanges(IA2Range** ranges, long* nRanges) override;
 
   // IServiceProvider
-  STDMETHODIMP QueryService(REFGUID aServiceId, REFIID aIid,
+  STDMETHODIMP QueryService(REFGUID aServiceId,
+                            REFIID aIid,
                             void** aOutInterface) override;
 
   // IProvideClassInfo
   STDMETHODIMP GetClassInfo(ITypeInfo** aOutTypeInfo) override;
 
-private:
+ private:
   AccessibleHandler(IUnknown* aOuter, HRESULT* aResult);
   virtual ~AccessibleHandler();
 
@@ -160,7 +185,7 @@ private:
   HRESULT ResolveIDispatch();
   HRESULT MaybeUpdateCachedData();
 
-  RefPtr<IUnknown>                  mDispatchUnk;
+  RefPtr<IUnknown> mDispatchUnk;
   /**
    * Handlers aggregate their proxies. This means that their proxies delegate
    * their IUnknown implementation to us.
@@ -180,19 +205,19 @@ private:
    * It is safe for us to use these raw pointers because the aggregated
    * objects's lifetimes are proper subsets of our own lifetime.
    */
-  IDispatch*                        mDispatch;         // weak
-  NEWEST_IA2_INTERFACE*             mIA2PassThru;      // weak
-  IServiceProvider*                 mServProvPassThru; // weak
-  IA2Payload                        mCachedData;
-  UniquePtr<mscom::StructToStream>  mSerializer;
-  uint32_t                          mCacheGen;
+  IDispatch* mDispatch;                 // weak
+  NEWEST_IA2_INTERFACE* mIA2PassThru;   // weak
+  IServiceProvider* mServProvPassThru;  // weak
+  IA2Payload mCachedData;
+  UniquePtr<mscom::StructToStream> mSerializer;
+  uint32_t mCacheGen;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // !defined(MOZILLA_INTERNAL_API)
+#endif  // !defined(MOZILLA_INTERNAL_API)
 
-#endif // defined(__midl)
+#endif  // defined(__midl)
 
-#endif // mozilla_a11y_AccessibleHandler_h
+#endif  // mozilla_a11y_AccessibleHandler_h

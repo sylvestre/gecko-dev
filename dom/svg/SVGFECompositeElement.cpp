@@ -15,43 +15,34 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFECompositeElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFECompositeElement::WrapNode(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFECompositeElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFECompositeElement::sNumberInfo[4] =
-{
-  { &nsGkAtoms::k1, 0, false },
-  { &nsGkAtoms::k2, 0, false },
-  { &nsGkAtoms::k3, 0, false },
-  { &nsGkAtoms::k4, 0, false }
-};
+nsSVGElement::NumberInfo SVGFECompositeElement::sNumberInfo[4] = {
+    {&nsGkAtoms::k1, 0, false},
+    {&nsGkAtoms::k2, 0, false},
+    {&nsGkAtoms::k3, 0, false},
+    {&nsGkAtoms::k4, 0, false}};
 
 nsSVGEnumMapping SVGFECompositeElement::sOperatorMap[] = {
-  {&nsGkAtoms::over, SVG_FECOMPOSITE_OPERATOR_OVER},
-  {&nsGkAtoms::in, SVG_FECOMPOSITE_OPERATOR_IN},
-  {&nsGkAtoms::out, SVG_FECOMPOSITE_OPERATOR_OUT},
-  {&nsGkAtoms::atop, SVG_FECOMPOSITE_OPERATOR_ATOP},
-  {&nsGkAtoms::xor_, SVG_FECOMPOSITE_OPERATOR_XOR},
-  {&nsGkAtoms::arithmetic, SVG_FECOMPOSITE_OPERATOR_ARITHMETIC},
-  {nullptr, 0}
-};
+    {&nsGkAtoms::over, SVG_FECOMPOSITE_OPERATOR_OVER},
+    {&nsGkAtoms::in, SVG_FECOMPOSITE_OPERATOR_IN},
+    {&nsGkAtoms::out, SVG_FECOMPOSITE_OPERATOR_OUT},
+    {&nsGkAtoms::atop, SVG_FECOMPOSITE_OPERATOR_ATOP},
+    {&nsGkAtoms::xor_, SVG_FECOMPOSITE_OPERATOR_XOR},
+    {&nsGkAtoms::arithmetic, SVG_FECOMPOSITE_OPERATOR_ARITHMETIC},
+    {nullptr, 0}};
 
-nsSVGElement::EnumInfo SVGFECompositeElement::sEnumInfo[1] =
-{
-  { &nsGkAtoms::_operator,
-    sOperatorMap,
-    SVG_FECOMPOSITE_OPERATOR_OVER
-  }
-};
+nsSVGElement::EnumInfo SVGFECompositeElement::sEnumInfo[1] = {
+    {&nsGkAtoms::_operator, sOperatorMap, SVG_FECOMPOSITE_OPERATOR_OVER}};
 
-nsSVGElement::StringInfo SVGFECompositeElement::sStringInfo[3] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true },
-  { &nsGkAtoms::in2, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFECompositeElement::sStringInfo[3] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true},
+    {&nsGkAtoms::in2, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -110,10 +101,11 @@ SVGFECompositeElement::SetK(float k1, float k2, float k3, float k4)
 }
 
 FilterPrimitiveDescription
-SVGFECompositeElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                               const IntRect& aFilterSubregion,
-                                               const nsTArray<bool>& aInputsAreTainted,
-                                               nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFECompositeElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   FilterPrimitiveDescription descr(PrimitiveType::Composite);
   uint32_t op = mEnumAttributes[OPERATOR].GetAnimValue();
@@ -121,7 +113,7 @@ SVGFECompositeElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
 
   if (op == SVG_FECOMPOSITE_OPERATOR_ARITHMETIC) {
     float k[4];
-    GetAnimatedNumberValues(k, k+1, k+2, k+3, nullptr);
+    GetAnimatedNumberValues(k, k + 1, k + 2, k + 3, nullptr);
     descr.Attributes().Set(eCompositeCoefficients, k, 4);
   }
 
@@ -132,14 +124,12 @@ bool
 SVGFECompositeElement::AttributeAffectsRendering(int32_t aNameSpaceID,
                                                  nsAtom* aAttribute) const
 {
-  return SVGFECompositeElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
+  return SVGFECompositeElementBase::AttributeAffectsRendering(aNameSpaceID,
+                                                              aAttribute) ||
          (aNameSpaceID == kNameSpaceID_None &&
-          (aAttribute == nsGkAtoms::in ||
-           aAttribute == nsGkAtoms::in2 ||
-           aAttribute == nsGkAtoms::k1 ||
-           aAttribute == nsGkAtoms::k2 ||
-           aAttribute == nsGkAtoms::k3 ||
-           aAttribute == nsGkAtoms::k4 ||
+          (aAttribute == nsGkAtoms::in || aAttribute == nsGkAtoms::in2 ||
+           aAttribute == nsGkAtoms::k1 || aAttribute == nsGkAtoms::k2 ||
+           aAttribute == nsGkAtoms::k3 || aAttribute == nsGkAtoms::k4 ||
            aAttribute == nsGkAtoms::_operator));
 }
 
@@ -156,23 +146,22 @@ SVGFECompositeElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 nsSVGElement::NumberAttributesInfo
 SVGFECompositeElement::GetNumberInfo()
 {
-  return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
-                              ArrayLength(sNumberInfo));
+  return NumberAttributesInfo(
+      mNumberAttributes, sNumberInfo, ArrayLength(sNumberInfo));
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGFECompositeElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGFECompositeElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

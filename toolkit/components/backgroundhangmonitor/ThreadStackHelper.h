@@ -27,16 +27,15 @@
 
 // Support pseudostack and native stack on these platforms.
 #if defined(XP_LINUX) || defined(XP_WIN) || defined(XP_MACOSX)
-#  define MOZ_THREADSTACKHELPER_PSEUDO
-#  define MOZ_THREADSTACKHELPER_NATIVE
+#define MOZ_THREADSTACKHELPER_PSEUDO
+#define MOZ_THREADSTACKHELPER_NATIVE
 #endif
-
 
 // Android x86 builds consistently crash in the Background Hang Reporter. bug
 // 1368520.
 #if defined(__ANDROID__)
-#  undef MOZ_THREADSTACKHELPER_PSEUDO
-#  undef MOZ_THREADSTACKHELPER_NATIVE
+#undef MOZ_THREADSTACKHELPER_PSEUDO
+#undef MOZ_THREADSTACKHELPER_NATIVE
 #endif
 
 namespace mozilla {
@@ -53,14 +52,14 @@ namespace mozilla {
  */
 class ThreadStackHelper : public ProfilerStackCollector
 {
-public:
+ public:
   // When a native stack is gathered, this vector holds the raw program counter
   // values that FramePointerStackWalk will return to us after it walks the
   // stack. When gathering the Telemetry payload, Telemetry will take care of
   // mapping these program counters to proper addresses within modules.
   typedef NativeHangStack NativeStack;
 
-private:
+ private:
   HangStack* mStackToFill;
   Array<char, nsThread::kRunnableNameBufSize>* mRunnableNameBuffer;
   // const PseudoStack* const mPseudoStack;
@@ -71,7 +70,7 @@ private:
 
   bool PrepareStackBuffer(HangStack& aStack);
 
-public:
+ public:
   /**
    * Create a ThreadStackHelper instance targeting the current thread.
    */
@@ -87,7 +86,7 @@ public:
    */
   void GetStack(HangStack& aStack, nsACString& aRunnableName, bool aStackWalk);
 
-protected:
+ protected:
   /**
    * ProfilerStackCollector
    */
@@ -97,15 +96,15 @@ protected:
   virtual void CollectWasmFrame(const char* aLabel) override;
   virtual void CollectPseudoEntry(const js::ProfileEntry& aEntry) override;
 
-private:
+ private:
   void TryAppendFrame(mozilla::HangStack::Frame aFrame);
 
   // The profiler's unique thread identifier for the target thread.
   int mThreadId;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZ_GECKO_PROFILER
+#endif  // MOZ_GECKO_PROFILER
 
-#endif // mozilla_ThreadStackHelper_h
+#endif  // mozilla_ThreadStackHelper_h

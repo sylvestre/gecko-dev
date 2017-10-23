@@ -12,69 +12,69 @@
 
 #include "nsIFactory.h"
 
+nsresult
+CallCreateInstance(const nsCID& aClass,
+                   nsISupports* aDelegate,
+                   const nsIID& aIID,
+                   void** aResult);
 
-nsresult CallCreateInstance(const nsCID& aClass, nsISupports* aDelegate,
-                            const nsIID& aIID, void** aResult);
+nsresult
+CallCreateInstance(const char* aContractID,
+                   nsISupports* aDelegate,
+                   const nsIID& aIID,
+                   void** aResult);
 
-nsresult CallCreateInstance(const char* aContractID, nsISupports* aDelegate,
-                            const nsIID& aIID, void** aResult);
+nsresult
+CallGetClassObject(const nsCID& aClass, const nsIID& aIID, void** aResult);
 
-nsresult CallGetClassObject(const nsCID& aClass, const nsIID& aIID,
-                            void** aResult);
-
-nsresult CallGetClassObject(const char* aContractID, const nsIID& aIID,
-                            void** aResult);
-
+nsresult
+CallGetClassObject(const char* aContractID, const nsIID& aIID, void** aResult);
 
 class MOZ_STACK_CLASS nsCreateInstanceByCID final : public nsCOMPtr_helper
 {
-public:
+ public:
   nsCreateInstanceByCID(const nsCID& aCID, nsresult* aErrorPtr)
-    : mCID(aCID)
-    , mErrorPtr(aErrorPtr)
-  {
-  }
-
-  virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const
-    override;
-
-private:
-  const nsCID&    mCID;
-  nsresult*       mErrorPtr;
-};
-
-class MOZ_STACK_CLASS nsCreateInstanceByContractID final : public nsCOMPtr_helper
-{
-public:
-  nsCreateInstanceByContractID(const char* aContractID, nsresult* aErrorPtr)
-    : mContractID(aContractID)
-    , mErrorPtr(aErrorPtr)
+      : mCID(aCID), mErrorPtr(aErrorPtr)
   {
   }
 
   virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
 
-private:
-  const char*   mContractID;
-  nsresult*     mErrorPtr;
+ private:
+  const nsCID& mCID;
+  nsresult* mErrorPtr;
+};
+
+class MOZ_STACK_CLASS nsCreateInstanceByContractID final
+    : public nsCOMPtr_helper
+{
+ public:
+  nsCreateInstanceByContractID(const char* aContractID, nsresult* aErrorPtr)
+      : mContractID(aContractID), mErrorPtr(aErrorPtr)
+  {
+  }
+
+  virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
+
+ private:
+  const char* mContractID;
+  nsresult* mErrorPtr;
 };
 
 class MOZ_STACK_CLASS nsCreateInstanceFromFactory final : public nsCOMPtr_helper
 {
-public:
+ public:
   nsCreateInstanceFromFactory(nsIFactory* aFactory, nsresult* aErrorPtr)
-    : mFactory(aFactory)
-    , mErrorPtr(aErrorPtr)
+      : mFactory(aFactory), mErrorPtr(aErrorPtr)
   {
   }
 
   virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
 
-private:
+ private:
   nsIFactory* MOZ_NON_OWNING_REF mFactory;
-  nsresult*     mErrorPtr;
+  nsresult* mErrorPtr;
 };
-
 
 inline const nsCreateInstanceByCID
 do_CreateInstance(const nsCID& aCID, nsresult* aError = 0)
@@ -94,37 +94,35 @@ do_CreateInstance(nsIFactory* aFactory, nsresult* aError = 0)
   return nsCreateInstanceFromFactory(aFactory, aError);
 }
 
-
 class MOZ_STACK_CLASS nsGetClassObjectByCID final : public nsCOMPtr_helper
 {
-public:
+ public:
   nsGetClassObjectByCID(const nsCID& aCID, nsresult* aErrorPtr)
-    : mCID(aCID)
-    , mErrorPtr(aErrorPtr)
+      : mCID(aCID), mErrorPtr(aErrorPtr)
   {
   }
 
   virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
 
-private:
-  const nsCID&    mCID;
-  nsresult*       mErrorPtr;
+ private:
+  const nsCID& mCID;
+  nsresult* mErrorPtr;
 };
 
-class MOZ_STACK_CLASS nsGetClassObjectByContractID final : public nsCOMPtr_helper
+class MOZ_STACK_CLASS nsGetClassObjectByContractID final
+    : public nsCOMPtr_helper
 {
-public:
+ public:
   nsGetClassObjectByContractID(const char* aContractID, nsresult* aErrorPtr)
-    : mContractID(aContractID)
-    , mErrorPtr(aErrorPtr)
+      : mContractID(aContractID), mErrorPtr(aErrorPtr)
   {
   }
 
   virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
 
-private:
-  const char*   mContractID;
-  nsresult*     mErrorPtr;
+ private:
+  const char* mContractID;
+  nsresult* mErrorPtr;
 };
 
 /**
@@ -155,7 +153,8 @@ CallCreateInstance(const nsCID& aClass,
 {
   NS_PRECONDITION(aDestination, "null parameter");
 
-  return CallCreateInstance(aClass, aDelegate,
+  return CallCreateInstance(aClass,
+                            aDelegate,
                             NS_GET_TEMPLATE_IID(DestinationType),
                             reinterpret_cast<void**>(aDestination));
 }
@@ -166,7 +165,8 @@ CallCreateInstance(const nsCID& aClass, DestinationType** aDestination)
 {
   NS_PRECONDITION(aDestination, "null parameter");
 
-  return CallCreateInstance(aClass, nullptr,
+  return CallCreateInstance(aClass,
+                            nullptr,
                             NS_GET_TEMPLATE_IID(DestinationType),
                             reinterpret_cast<void**>(aDestination));
 }
@@ -193,7 +193,8 @@ CallCreateInstance(const char* aContractID, DestinationType** aDestination)
   NS_PRECONDITION(aContractID, "null parameter");
   NS_PRECONDITION(aDestination, "null parameter");
 
-  return CallCreateInstance(aContractID, nullptr,
+  return CallCreateInstance(aContractID,
+                            nullptr,
                             NS_GET_TEMPLATE_IID(DestinationType),
                             reinterpret_cast<void**>(aDestination));
 }
@@ -230,7 +231,8 @@ CallGetClassObject(const nsCID& aClass, DestinationType** aDestination)
 {
   NS_PRECONDITION(aDestination, "null parameter");
 
-  return CallGetClassObject(aClass, NS_GET_TEMPLATE_IID(DestinationType),
+  return CallGetClassObject(aClass,
+                            NS_GET_TEMPLATE_IID(DestinationType),
                             reinterpret_cast<void**>(aDestination));
 }
 
@@ -240,7 +242,8 @@ CallGetClassObject(const char* aContractID, DestinationType** aDestination)
 {
   NS_PRECONDITION(aDestination, "null parameter");
 
-  return CallGetClassObject(aContractID, NS_GET_TEMPLATE_IID(DestinationType),
+  return CallGetClassObject(aContractID,
+                            NS_GET_TEMPLATE_IID(DestinationType),
                             reinterpret_cast<void**>(aDestination));
 }
 

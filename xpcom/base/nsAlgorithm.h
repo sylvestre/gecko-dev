@@ -9,7 +9,7 @@
 
 #include "nsCharTraits.h"  // for |nsCharSourceTraits|, |nsCharSinkTraits|
 
-template <class T>
+template<class T>
 inline T
 NS_ROUNDUP(const T& aA, const T& aB)
 {
@@ -19,7 +19,7 @@ NS_ROUNDUP(const T& aA, const T& aB)
 // We use these instead of std::min/max because we can't include the algorithm
 // header in all of XPCOM because the stl wrappers will error out when included
 // in parts of XPCOM. These functions should never be used outside of XPCOM.
-template <class T>
+template<class T>
 inline const T&
 XPCOM_MIN(const T& aA, const T& aB)
 {
@@ -27,7 +27,7 @@ XPCOM_MIN(const T& aA, const T& aB)
 }
 
 // Must return b when a == b in case a is -0
-template <class T>
+template<class T>
 inline const T&
 XPCOM_MAX(const T& aA, const T& aB)
 {
@@ -36,7 +36,7 @@ XPCOM_MAX(const T& aA, const T& aB)
 
 namespace mozilla {
 
-template <class T>
+template<class T>
 inline const T&
 clamped(const T& aA, const T& aMin, const T& aMax)
 {
@@ -45,9 +45,9 @@ clamped(const T& aA, const T& aMin, const T& aMax)
   return XPCOM_MIN(XPCOM_MAX(aA, aMin), aMax);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-template <class InputIterator, class T>
+template<class InputIterator, class T>
 inline uint32_t
 NS_COUNT(InputIterator& aFirst, const InputIterator& aLast, const T& aValue)
 {
@@ -59,17 +59,19 @@ NS_COUNT(InputIterator& aFirst, const InputIterator& aLast, const T& aValue)
   return result;
 }
 
-template <class InputIterator, class OutputIterator>
+template<class InputIterator, class OutputIterator>
 inline OutputIterator&
-copy_string(const InputIterator& aFirst, const InputIterator& aLast,
+copy_string(const InputIterator& aFirst,
+            const InputIterator& aLast,
             OutputIterator& aResult)
 {
   typedef nsCharSourceTraits<InputIterator> source_traits;
-  typedef nsCharSinkTraits<OutputIterator>  sink_traits;
+  typedef nsCharSinkTraits<OutputIterator> sink_traits;
 
-  sink_traits::write(aResult, source_traits::read(aFirst),
+  sink_traits::write(aResult,
+                     source_traits::read(aFirst),
                      source_traits::readable_distance(aFirst, aLast));
   return aResult;
 }
 
-#endif // !defined(nsAlgorithm_h___)
+#endif  // !defined(nsAlgorithm_h___)

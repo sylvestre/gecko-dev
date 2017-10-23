@@ -12,9 +12,9 @@
 namespace mozilla {
 namespace a11y {
 
-class ApplicationAccessibleWrap: public ApplicationAccessible
+class ApplicationAccessibleWrap : public ApplicationAccessible
 {
-public:
+ public:
   ApplicationAccessibleWrap();
   virtual ~ApplicationAccessibleWrap();
 
@@ -29,7 +29,7 @@ public:
   virtual void GetNativeInterface(void** aOutAccessible) override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif   /* __NS_APP_ROOT_ACCESSIBLE_H__ */
+#endif /* __NS_APP_ROOT_ACCESSIBLE_H__ */

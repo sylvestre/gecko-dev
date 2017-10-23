@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "nsStringEnumerator.h"
 #include "nsISimpleEnumerator.h"
 #include "nsSupportsPrimitives.h"
@@ -15,41 +14,38 @@
 // nsStringEnumerator
 //
 
-class nsStringEnumerator final
-  : public nsIStringEnumerator
-  , public nsIUTF8StringEnumerator
-  , public nsISimpleEnumerator
+class nsStringEnumerator final : public nsIStringEnumerator,
+                                 public nsIUTF8StringEnumerator,
+                                 public nsISimpleEnumerator
 {
-public:
+ public:
   nsStringEnumerator(const nsTArray<nsString>* aArray, bool aOwnsArray)
-    : mArray(aArray)
-    , mIndex(0)
-    , mOwnsArray(aOwnsArray)
-    , mIsUnicode(true)
-  {}
+      : mArray(aArray), mIndex(0), mOwnsArray(aOwnsArray), mIsUnicode(true)
+  {
+  }
 
   nsStringEnumerator(const nsTArray<nsCString>* aArray, bool aOwnsArray)
-    : mCArray(aArray)
-    , mIndex(0)
-    , mOwnsArray(aOwnsArray)
-    , mIsUnicode(false)
-  {}
+      : mCArray(aArray), mIndex(0), mOwnsArray(aOwnsArray), mIsUnicode(false)
+  {
+  }
 
   nsStringEnumerator(const nsTArray<nsString>* aArray, nsISupports* aOwner)
-    : mArray(aArray)
-    , mIndex(0)
-    , mOwner(aOwner)
-    , mOwnsArray(false)
-    , mIsUnicode(true)
-  {}
+      : mArray(aArray),
+        mIndex(0),
+        mOwner(aOwner),
+        mOwnsArray(false),
+        mIsUnicode(true)
+  {
+  }
 
   nsStringEnumerator(const nsTArray<nsCString>* aArray, nsISupports* aOwner)
-    : mCArray(aArray)
-    , mIndex(0)
-    , mOwner(aOwner)
-    , mOwnsArray(false)
-    , mIsUnicode(false)
-  {}
+      : mCArray(aArray),
+        mIndex(0),
+        mOwner(aOwner),
+        mOwnsArray(false),
+        mIsUnicode(false)
+  {
+  }
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIUTF8STRINGENUMERATOR
@@ -59,7 +55,7 @@ public:
   NS_IMETHOD GetNext(nsAString& aResult) override;
   NS_DECL_NSISIMPLEENUMERATOR
 
-private:
+ private:
   ~nsStringEnumerator()
   {
     if (mOwnsArray) {
@@ -74,8 +70,7 @@ private:
     }
   }
 
-  union
-  {
+  union {
     const nsTArray<nsString>* mArray;
     const nsTArray<nsCString>* mCArray;
   };
@@ -109,10 +104,7 @@ nsStringEnumerator::HasMore(bool* aResult)
 }
 
 NS_IMETHODIMP
-nsStringEnumerator::HasMoreElements(bool* aResult)
-{
-  return HasMore(aResult);
-}
+nsStringEnumerator::HasMoreElements(bool* aResult) { return HasMore(aResult); }
 
 NS_IMETHODIMP
 nsStringEnumerator::GetNext(nsISupports** aResult)
@@ -187,7 +179,8 @@ StringEnumeratorTail(T** aResult)
 
 nsresult
 NS_NewStringEnumerator(nsIStringEnumerator** aResult,
-                       const nsTArray<nsString>* aArray, nsISupports* aOwner)
+                       const nsTArray<nsString>* aArray,
+                       nsISupports* aOwner)
 {
   if (NS_WARN_IF(!aResult) || NS_WARN_IF(!aArray)) {
     return NS_ERROR_INVALID_ARG;
@@ -196,7 +189,6 @@ NS_NewStringEnumerator(nsIStringEnumerator** aResult,
   *aResult = new nsStringEnumerator(aArray, aOwner);
   return StringEnumeratorTail(aResult);
 }
-
 
 nsresult
 NS_NewUTF8StringEnumerator(nsIUTF8StringEnumerator** aResult,
@@ -259,4 +251,3 @@ NS_NewUTF8StringEnumerator(nsIUTF8StringEnumerator** aResult,
   *aResult = new nsStringEnumerator(aArray, false);
   return StringEnumeratorTail(aResult);
 }
-

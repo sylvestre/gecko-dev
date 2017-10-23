@@ -17,8 +17,8 @@
 #include "mozilla/OperatorNewExtensions.h"
 #include "mozilla/TemplateLib.h"
 
-#include <new> // for placement new
-#include <stddef.h> // for size_t
+#include <new>       // for placement new
+#include <stddef.h>  // for size_t
 
 namespace mozilla {
 
@@ -41,9 +41,8 @@ template<class T1, class T2>
 class MOZ_NON_PARAM MaybeOneOf
 {
   static constexpr size_t StorageAlignment =
-    tl::Max<alignof(T1), alignof(T2)>::value;
-  static constexpr size_t StorageSize =
-    tl::Max<sizeof(T1), sizeof(T2)>::value;
+      tl::Max<alignof(T1), alignof(T2)>::value;
+  static constexpr size_t StorageSize = tl::Max<sizeof(T1), sizeof(T2)>::value;
 
   alignas(StorageAlignment) unsigned char storage[StorageSize];
 
@@ -52,29 +51,36 @@ class MOZ_NON_PARAM MaybeOneOf
   void* data() { return storage; }
   const void* data() const { return storage; }
 
-  enum State { None, SomeT1, SomeT2 } state;
-  template <class T, class Ignored = void> struct Type2State {};
+  enum State
+  {
+    None,
+    SomeT1,
+    SomeT2
+  } state;
+  template<class T, class Ignored = void>
+  struct Type2State
+  {
+  };
 
-  template <class T>
+  template<class T>
   T& as()
   {
     MOZ_ASSERT(state == Type2State<T>::result);
     return *static_cast<T*>(data());
   }
 
-  template <class T>
+  template<class T>
   const T& as() const
   {
     MOZ_ASSERT(state == Type2State<T>::result);
     return *static_cast<const T*>(data());
   }
 
-public:
+ public:
   MaybeOneOf() : state(None) {}
   ~MaybeOneOf() { destroyIfConstructed(); }
 
-  MaybeOneOf(MaybeOneOf&& rhs)
-    : state(None)
+  MaybeOneOf(MaybeOneOf&& rhs) : state(None)
   {
     if (!rhs.empty()) {
       if (rhs.constructed<T1>()) {
@@ -92,16 +98,19 @@ public:
   {
     MOZ_ASSERT(this != &rhs, "Self-move is prohibited");
     this->~MaybeOneOf();
-    new(this) MaybeOneOf(Move(rhs));
+    new (this) MaybeOneOf(Move(rhs));
     return *this;
   }
 
   bool empty() const { return state == None; }
 
-  template <class T>
-  bool constructed() const { return state == Type2State<T>::result; }
+  template<class T>
+  bool constructed() const
+  {
+    return state == Type2State<T>::result;
+  }
 
-  template <class T, class... Args>
+  template<class T, class... Args>
   void construct(Args&&... aArgs)
   {
     MOZ_ASSERT(state == None);
@@ -109,13 +118,13 @@ public:
     ::new (KnownNotNull, data()) T(Forward<Args>(aArgs)...);
   }
 
-  template <class T>
+  template<class T>
   T& ref()
   {
     return as<T>();
   }
 
-  template <class T>
+  template<class T>
   const T& ref() const
   {
     return as<T>();
@@ -139,27 +148,27 @@ public:
     }
   }
 
-private:
+ private:
   MaybeOneOf(const MaybeOneOf& aOther) = delete;
   const MaybeOneOf& operator=(const MaybeOneOf& aOther) = delete;
 };
 
-template <class T1, class T2>
-template <class Ignored>
+template<class T1, class T2>
+template<class Ignored>
 struct MaybeOneOf<T1, T2>::Type2State<T1, Ignored>
 {
   typedef MaybeOneOf<T1, T2> Enclosing;
   static const typename Enclosing::State result = Enclosing::SomeT1;
 };
 
-template <class T1, class T2>
-template <class Ignored>
+template<class T1, class T2>
+template<class Ignored>
 struct MaybeOneOf<T1, T2>::Type2State<T2, Ignored>
 {
   typedef MaybeOneOf<T1, T2> Enclosing;
   static const typename Enclosing::State result = Enclosing::SomeT2;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_MaybeOneOf_h */

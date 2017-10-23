@@ -11,7 +11,7 @@ using mozilla::RefCounted;
 
 class Foo : public RefCounted<Foo>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(Foo)
 
   Foo() : mDead(false) {}
@@ -25,12 +25,14 @@ public:
     sNumDestroyed++;
   }
 
-private:
+ private:
   bool mDead;
 };
 int Foo::sNumDestroyed;
 
-struct Bar : public Foo {};
+struct Bar : public Foo
+{
+};
 
 already_AddRefed<Foo>
 NewFoo()
@@ -136,4 +138,3 @@ main()
 
   return 0;
 }
-

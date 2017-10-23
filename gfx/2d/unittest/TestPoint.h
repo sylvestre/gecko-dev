@@ -9,7 +9,7 @@
 
 class TestPoint : public TestBase
 {
-public:
+ public:
   TestPoint();
 
   void Addition();

@@ -6,7 +6,6 @@
 
 #include "nsString.h"
 
-
 /**
  * nsTString obsolete API support
  */
@@ -32,8 +31,7 @@
 inline char
 ascii_tolower(char aChar)
 {
-  if (aChar >= 'A' && aChar <= 'Z')
-    return aChar + ('a' - 'A');
+  if (aChar >= 'A' && aChar <= 'Z') return aChar + ('a' - 'A');
   return aChar;
 }
 
@@ -41,7 +39,6 @@ ascii_tolower(char aChar)
 //
 //  This set of methods is used to search a buffer looking for a char.
 //
-
 
 /**
  *  This methods cans the given buffer for the given char
@@ -55,42 +52,39 @@ ascii_tolower(char aChar)
  *  @return  index of pos if found, else -1 (kNotFound)
  */
 static int32_t
-FindChar1(const char* aDest,uint32_t aDestLength,int32_t anOffset,const char16_t aChar,int32_t aCount) {
+FindChar1(const char* aDest,
+          uint32_t aDestLength,
+          int32_t anOffset,
+          const char16_t aChar,
+          int32_t aCount)
+{
+  if (anOffset < 0) anOffset = 0;
 
-  if(anOffset < 0)
-    anOffset=0;
+  if (aCount < 0) aCount = (int32_t)aDestLength;
 
-  if(aCount < 0)
-    aCount = (int32_t)aDestLength;
-
-  if((aChar < 256) && (0 < aDestLength) && ((uint32_t)anOffset < aDestLength)) {
-
+  if ((aChar < 256) && (0 < aDestLength) &&
+      ((uint32_t)anOffset < aDestLength)) {
     //We'll only search if the given aChar is within the normal ascii a range,
     //(Since this string is definitely within the ascii range).
 
-    if(0<aCount) {
+    if (0 < aCount) {
+      const char* left = aDest + anOffset;
+      const char* last = left + aCount;
+      const char* max = aDest + aDestLength;
+      const char* end = (last < max) ? last : max;
 
-      const char* left= aDest+anOffset;
-      const char* last= left+aCount;
-      const char* max = aDest+aDestLength;
-      const char* end = (last<max) ? last : max;
+      int32_t theMax = end - left;
+      if (0 < theMax) {
+        unsigned char theChar = (unsigned char)aChar;
+        const char* result = (const char*)memchr(left, (int)theChar, theMax);
 
-      int32_t theMax = end-left;
-      if(0<theMax) {
-
-        unsigned char theChar = (unsigned char) aChar;
-        const char* result=(const char*)memchr(left, (int)theChar, theMax);
-
-        if(result)
-          return result-aDest;
-
+        if (result) return result - aDest;
       }
     }
   }
 
   return kNotFound;
 }
-
 
 /**
  *  This methods cans the given buffer for the given char
@@ -104,28 +98,26 @@ FindChar1(const char* aDest,uint32_t aDestLength,int32_t anOffset,const char16_t
  *  @return  index of pos if found, else -1 (kNotFound)
  */
 static int32_t
-FindChar2(const char16_t* aDest,uint32_t aDestLength,int32_t anOffset,const char16_t aChar,int32_t aCount) {
+FindChar2(const char16_t* aDest,
+          uint32_t aDestLength,
+          int32_t anOffset,
+          const char16_t aChar,
+          int32_t aCount)
+{
+  if (anOffset < 0) anOffset = 0;
 
-  if(anOffset < 0)
-    anOffset=0;
+  if (aCount < 0) aCount = (int32_t)aDestLength;
 
-  if(aCount < 0)
-    aCount = (int32_t)aDestLength;
-
-  if((0<aDestLength) && ((uint32_t)anOffset < aDestLength)) {
-
-    if(0<aCount) {
-
+  if ((0 < aDestLength) && ((uint32_t)anOffset < aDestLength)) {
+    if (0 < aCount) {
       const char16_t* root = aDest;
-      const char16_t* left = root+anOffset;
-      const char16_t* last = left+aCount;
-      const char16_t* max  = root+aDestLength;
-      const char16_t* end  = (last<max) ? last : max;
+      const char16_t* left = root + anOffset;
+      const char16_t* last = left + aCount;
+      const char16_t* max = root + aDestLength;
+      const char16_t* end = (last < max) ? last : max;
 
-      while(left<end){
-
-        if(*left==aChar)
-          return (left-root);
+      while (left < end) {
+        if (*left == aChar) return (left - root);
 
         ++left;
       }
@@ -134,7 +126,6 @@ FindChar2(const char16_t* aDest,uint32_t aDestLength,int32_t anOffset,const char
 
   return kNotFound;
 }
-
 
 /**
  *  This methods cans the given buffer (in reverse) for the given char
@@ -149,30 +140,29 @@ FindChar2(const char16_t* aDest,uint32_t aDestLength,int32_t anOffset,const char
  */
 
 static int32_t
-RFindChar1(const char* aDest,uint32_t aDestLength,int32_t anOffset,const char16_t aChar,int32_t aCount) {
+RFindChar1(const char* aDest,
+           uint32_t aDestLength,
+           int32_t anOffset,
+           const char16_t aChar,
+           int32_t aCount)
+{
+  if (anOffset < 0) anOffset = (int32_t)aDestLength - 1;
 
-  if(anOffset < 0)
-    anOffset=(int32_t)aDestLength-1;
+  if (aCount < 0) aCount = int32_t(aDestLength);
 
-  if(aCount < 0)
-    aCount = int32_t(aDestLength);
-
-  if((aChar<256) && (0 < aDestLength) && ((uint32_t)anOffset < aDestLength)) {
-
+  if ((aChar < 256) && (0 < aDestLength) &&
+      ((uint32_t)anOffset < aDestLength)) {
     //We'll only search if the given aChar is within the normal ascii a range,
     //(Since this string is definitely within the ascii range).
 
-    if(0 < aCount) {
-
+    if (0 < aCount) {
       const char* rightmost = aDest + anOffset;
-      const char* min       = rightmost - aCount + 1;
-      const char* leftmost  = (min<aDest) ? aDest: min;
+      const char* min = rightmost - aCount + 1;
+      const char* leftmost = (min < aDest) ? aDest : min;
 
-      char theChar=(char)aChar;
-      while(leftmost <= rightmost){
-
-        if((*rightmost) == theChar)
-          return rightmost - aDest;
+      char theChar = (char)aChar;
+      while (leftmost <= rightmost) {
+        if ((*rightmost) == theChar) return rightmost - aDest;
 
         --rightmost;
       }
@@ -181,7 +171,6 @@ RFindChar1(const char* aDest,uint32_t aDestLength,int32_t anOffset,const char16_
 
   return kNotFound;
 }
-
 
 /**
  *  This methods cans the given buffer for the given char
@@ -195,27 +184,25 @@ RFindChar1(const char* aDest,uint32_t aDestLength,int32_t anOffset,const char16_
  *  @return  index of pos if found, else -1 (kNotFound)
  */
 static int32_t
-RFindChar2(const char16_t* aDest,uint32_t aDestLength,int32_t anOffset,const char16_t aChar,int32_t aCount) {
+RFindChar2(const char16_t* aDest,
+           uint32_t aDestLength,
+           int32_t anOffset,
+           const char16_t aChar,
+           int32_t aCount)
+{
+  if (anOffset < 0) anOffset = (int32_t)aDestLength - 1;
 
-  if(anOffset < 0)
-    anOffset=(int32_t)aDestLength-1;
+  if (aCount < 0) aCount = int32_t(aDestLength);
 
-  if(aCount < 0)
-    aCount = int32_t(aDestLength);
-
-  if((0 < aDestLength) && ((uint32_t)anOffset < aDestLength)) {
-
-    if(0 < aCount) {
-
-      const char16_t* root      = aDest;
+  if ((0 < aDestLength) && ((uint32_t)anOffset < aDestLength)) {
+    if (0 < aCount) {
+      const char16_t* root = aDest;
       const char16_t* rightmost = root + anOffset;
-      const char16_t* min       = rightmost - aCount + 1;
-      const char16_t* leftmost  = (min<root) ? root: min;
+      const char16_t* min = rightmost - aCount + 1;
+      const char16_t* leftmost = (min < root) ? root : min;
 
-      while(leftmost <= rightmost){
-
-        if((*rightmost) == aChar)
-          return rightmost - root;
+      while (leftmost <= rightmost) {
+        if ((*rightmost) == aChar) return rightmost - root;
 
         --rightmost;
       }
@@ -234,7 +221,6 @@ RFindChar2(const char16_t* aDest,uint32_t aDestLength,int32_t anOffset,const cha
 //  higher level routines).
 //
 
-
 /**
  * This method compares the data in one buffer with another
  * @update	gess 01/04/99
@@ -246,21 +232,25 @@ RFindChar2(const char16_t* aDest,uint32_t aDestLength,int32_t anOffset,const cha
  */
 static
 #ifdef __SUNPRO_CC
-inline
+    inline
 #endif /* __SUNPRO_CC */
-int32_t
-Compare1To1(const char* aStr1,const char* aStr2,uint32_t aCount,bool aIgnoreCase) {
-  int32_t result=0;
-  if(aIgnoreCase)
-    result=int32_t(PL_strncasecmp(aStr1, aStr2, aCount));
+    int32_t
+    Compare1To1(const char* aStr1,
+                const char* aStr2,
+                uint32_t aCount,
+                bool aIgnoreCase)
+{
+  int32_t result = 0;
+  if (aIgnoreCase)
+    result = int32_t(PL_strncasecmp(aStr1, aStr2, aCount));
   else
-    result=nsCharTraits<char>::compare(aStr1,aStr2,aCount);
+    result = nsCharTraits<char>::compare(aStr1, aStr2, aCount);
 
   // alien comparisons may return out-of-bound answers
   //  instead of the -1, 0, 1 expected by most clients
-  if ( result < -1 )
+  if (result < -1)
     result = -1;
-  else if ( result > 1 )
+  else if (result > 1)
     result = 1;
   return result;
 }
@@ -276,34 +266,34 @@ Compare1To1(const char* aStr1,const char* aStr2,uint32_t aCount,bool aIgnoreCase
  */
 static
 #ifdef __SUNPRO_CC
-inline
+    inline
 #endif /* __SUNPRO_CC */
-int32_t
-Compare2To2(const char16_t* aStr1,const char16_t* aStr2,uint32_t aCount){
+    int32_t
+    Compare2To2(const char16_t* aStr1, const char16_t* aStr2, uint32_t aCount)
+{
   int32_t result;
 
-  if ( aStr1 && aStr2 )
+  if (aStr1 && aStr2)
     result = nsCharTraits<char16_t>::compare(aStr1, aStr2, aCount);
 
   // The following cases are rare and survivable caller errors.
   //  Two null pointers are equal, but any string, even 0 length
   //  is greater than a null pointer.  It might not really matter,
   //  but we pick something reasonable anyway.
-  else if ( !aStr1 && !aStr2 )
+  else if (!aStr1 && !aStr2)
     result = 0;
-  else if ( aStr1 )
+  else if (aStr1)
     result = 1;
   else
     result = -1;
 
   // alien comparisons may give answers outside the -1, 0, 1 expected by callers
-  if ( result < -1 )
+  if (result < -1)
     result = -1;
-  else if ( result > 1 )
+  else if (result > 1)
     result = 1;
   return result;
 }
-
 
 /**
  * This method compares the data in one buffer with another
@@ -316,17 +306,20 @@ Compare2To2(const char16_t* aStr1,const char16_t* aStr2,uint32_t aCount){
  */
 static
 #ifdef __SUNPRO_CC
-inline
+    inline
 #endif /* __SUNPRO_CC */
-int32_t
-Compare2To1(const char16_t* aStr1,const char* aStr2,uint32_t aCount,bool aIgnoreCase){
+    int32_t
+    Compare2To1(const char16_t* aStr1,
+                const char* aStr2,
+                uint32_t aCount,
+                bool aIgnoreCase)
+{
   const char16_t* s1 = aStr1;
-  const char *s2 = aStr2;
+  const char* s2 = aStr2;
 
   if (aStr1 && aStr2) {
     if (aCount != 0) {
       do {
-
         char16_t c1 = *s1++;
         char16_t c2 = char16_t((unsigned char)*s2++);
 
@@ -336,13 +329,14 @@ Compare2To1(const char16_t* aStr1,const char* aStr2,uint32_t aCount,bool aIgnore
           // it is just fine to compare an constant, ascii value (i.e. "body")
           // against some non-ascii value (i.e. a unicode string that
           // was downloaded from a web page)
-          if (aIgnoreCase && c2>=128)
-            NS_WARNING("got a non-ASCII string, but we can't do an accurate case conversion!");
+          if (aIgnoreCase && c2 >= 128)
+            NS_WARNING(
+                "got a non-ASCII string, but we can't do an accurate case "
+                "conversion!");
 #endif
 
           // can't do case conversion on characters out of our range
-          if (aIgnoreCase && c1<128 && c2<128) {
-
+          if (aIgnoreCase && c1 < 128 && c2 < 128) {
             c1 = ascii_tolower(char(c1));
             c2 = ascii_tolower(char(c2));
 
@@ -358,7 +352,6 @@ Compare2To1(const char16_t* aStr1,const char* aStr2,uint32_t aCount,bool aIgnore
   return 0;
 }
 
-
 /**
  * This method compares the data in one buffer with another
  * @update	gess 01/04/99
@@ -369,17 +362,19 @@ Compare2To1(const char16_t* aStr1,const char* aStr2,uint32_t aCount,bool aIgnore
  * @return  -1,0,1 depending on <,==,>
  */
 inline int32_t
-Compare1To2(const char* aStr1,const char16_t* aStr2,uint32_t aCount,bool aIgnoreCase){
+Compare1To2(const char* aStr1,
+            const char16_t* aStr2,
+            uint32_t aCount,
+            bool aIgnoreCase)
+{
   return Compare2To1(aStr2, aStr1, aCount, aIgnoreCase) * -1;
 }
-
 
 //-----------------------------------------------------------------------------
 //
 //  This set of methods is used compress char sequences in a buffer...
 //
 
-
 /**
  * This method compresses duplicate runs of a given char from the given buffer
  *
@@ -392,39 +387,37 @@ Compare1To2(const char* aStr1,const char16_t* aStr2,uint32_t aCount,bool aIgnore
  * @return  the new length of the given buffer
  */
 static int32_t
-CompressChars1(char* aString,uint32_t aLength,const char* aSet){
-
-  char*  from = aString;
-  char*  end =  aString + aLength;
-  char*  to = from;
+CompressChars1(char* aString, uint32_t aLength, const char* aSet)
+{
+  char* from = aString;
+  char* end = aString + aLength;
+  char* to = from;
 
   //this code converts /n, /t, /r into normal space ' ';
   //it also compresses runs of whitespace down to a single char...
-  if(aSet && aString && (0 < aLength)){
-    uint32_t aSetLen=strlen(aSet);
+  if (aSet && aString && (0 < aLength)) {
+    uint32_t aSetLen = strlen(aSet);
 
     while (from < end) {
       char theChar = *from++;
 
-      *to++=theChar; //always copy this char...
+      *to++ = theChar;  //always copy this char...
 
-      if((kNotFound!=FindChar1(aSet,aSetLen,0,theChar,aSetLen))){
+      if ((kNotFound != FindChar1(aSet, aSetLen, 0, theChar, aSetLen))) {
         while (from < end) {
           theChar = *from++;
-          if(kNotFound==FindChar1(aSet,aSetLen,0,theChar,aSetLen)){
+          if (kNotFound == FindChar1(aSet, aSetLen, 0, theChar, aSetLen)) {
             *to++ = theChar;
             break;
           }
-        } //while
-      } //if
-    } //if
+        }  //while
+      }    //if
+    }      //if
     *to = 0;
   }
   return to - aString;
 }
 
-
-
 /**
  * This method compresses duplicate runs of a given char from the given buffer
  *
@@ -437,32 +430,33 @@ CompressChars1(char* aString,uint32_t aLength,const char* aSet){
  * @return  the new length of the given buffer
  */
 static int32_t
-CompressChars2(char16_t* aString,uint32_t aLength,const char* aSet) {
-
-  char16_t*  from = aString;
-  char16_t*  end =  from + aLength;
-  char16_t*  to = from;
+CompressChars2(char16_t* aString, uint32_t aLength, const char* aSet)
+{
+  char16_t* from = aString;
+  char16_t* end = from + aLength;
+  char16_t* to = from;
 
   //this code converts /n, /t, /r into normal space ' ';
   //it also compresses runs of whitespace down to a single char...
-  if(aSet && aString && (0 < aLength)){
-    uint32_t aSetLen=strlen(aSet);
+  if (aSet && aString && (0 < aLength)) {
+    uint32_t aSetLen = strlen(aSet);
 
     while (from < end) {
       char16_t theChar = *from++;
 
-      *to++=theChar; //always copy this char...
+      *to++ = theChar;  //always copy this char...
 
-      if((theChar<256) && (kNotFound!=FindChar1(aSet,aSetLen,0,theChar,aSetLen))){
+      if ((theChar < 256) &&
+          (kNotFound != FindChar1(aSet, aSetLen, 0, theChar, aSetLen))) {
         while (from < end) {
           theChar = *from++;
-          if(kNotFound==FindChar1(aSet,aSetLen,0,theChar,aSetLen)){
+          if (kNotFound == FindChar1(aSet, aSetLen, 0, theChar, aSetLen)) {
             *to++ = theChar;
             break;
           }
-        } //while
-      } //if
-    } //if
+        }  //while
+      }    //if
+    }      //if
     *to = 0;
   }
   return to - (char16_t*)aString;
@@ -480,19 +474,19 @@ CompressChars2(char16_t* aString,uint32_t aLength,const char* aSet) {
  * @return  the new length of the given buffer
  */
 static int32_t
-StripChars1(char* aString,uint32_t aLength,const char* aSet) {
-
+StripChars1(char* aString, uint32_t aLength, const char* aSet)
+{
   // XXX(darin): this code should defer writing until necessary.
 
-  char*  to   = aString;
-  char*  from = aString-1;
-  char*  end  = aString + aLength;
+  char* to = aString;
+  char* from = aString - 1;
+  char* end = aString + aLength;
 
-  if(aSet && aString && (0 < aLength)){
-    uint32_t aSetLen=strlen(aSet);
+  if (aSet && aString && (0 < aLength)) {
+    uint32_t aSetLen = strlen(aSet);
     while (++from < end) {
       char theChar = *from;
-      if(kNotFound==FindChar1(aSet,aSetLen,0,theChar,aSetLen)){
+      if (kNotFound == FindChar1(aSet, aSetLen, 0, theChar, aSetLen)) {
         *to++ = theChar;
       }
     }
@@ -500,7 +494,6 @@ StripChars1(char* aString,uint32_t aLength,const char* aSet) {
   }
   return to - (char*)aString;
 }
-
 
 /**
  * This method strips chars in a given set from the given buffer
@@ -514,22 +507,23 @@ StripChars1(char* aString,uint32_t aLength,const char* aSet) {
  * @return  the new length of the given buffer
  */
 static int32_t
-StripChars2(char16_t* aString,uint32_t aLength,const char* aSet) {
-
+StripChars2(char16_t* aString, uint32_t aLength, const char* aSet)
+{
   // XXX(darin): this code should defer writing until necessary.
 
-  char16_t*  to   = aString;
-  char16_t*  from = aString-1;
-  char16_t*  end  = to + aLength;
+  char16_t* to = aString;
+  char16_t* from = aString - 1;
+  char16_t* end = to + aLength;
 
-  if(aSet && aString && (0 < aLength)){
-    uint32_t aSetLen=strlen(aSet);
+  if (aSet && aString && (0 < aLength)) {
+    uint32_t aSetLen = strlen(aSet);
     while (++from < end) {
       char16_t theChar = *from;
       //Note the test for ascii range below. If you have a real unicode char,
       //and you're searching for chars in the (given) ascii string, there's no
       //point in doing the real search since it's out of the ascii range.
-      if((255<theChar) || (kNotFound==FindChar1(aSet,aSetLen,0,theChar,aSetLen))){
+      if ((255 < theChar) ||
+          (kNotFound == FindChar1(aSet, aSetLen, 0, theChar, aSetLen))) {
         *to++ = theChar;
       }
     }
@@ -541,14 +535,14 @@ StripChars2(char16_t* aString,uint32_t aLength,const char* aSet) {
 /* ***** END RICKG BLOCK ***** */
 
 // This function is used to implement FindCharInSet and friends
-template <class CharT>
+template<class CharT>
 #ifndef __SUNPRO_CC
 static
 #endif /* !__SUNPRO_CC */
-CharT
-GetFindInSetFilter( const CharT* set)
+    CharT
+    GetFindInSetFilter(const CharT* set)
 {
-  CharT filter = ~CharT(0); // All bits set
+  CharT filter = ~CharT(0);  // All bits set
   while (*set) {
     filter &= ~(*set);
     ++set;
@@ -557,102 +551,115 @@ GetFindInSetFilter( const CharT* set)
 }
 
 // This template class is used by our code to access rickg's buffer routines.
-template <class CharT> struct nsBufferRoutines {};
+template<class CharT>
+struct nsBufferRoutines
+{
+};
 
-template <>
+template<>
 struct nsBufferRoutines<char>
 {
-  static
-  int32_t compare( const char* a, const char* b, uint32_t max, bool ic )
+  static int32_t compare(const char* a, const char* b, uint32_t max, bool ic)
   {
     return Compare1To1(a, b, max, ic);
   }
 
-  static
-  int32_t compare( const char* a, const char16_t* b, uint32_t max, bool ic )
+  static int32_t compare(const char* a,
+                         const char16_t* b,
+                         uint32_t max,
+                         bool ic)
   {
     return Compare1To2(a, b, max, ic);
   }
 
-  static
-  int32_t find_char( const char* s, uint32_t max, int32_t offset, const char16_t c, int32_t count )
+  static int32_t find_char(const char* s,
+                           uint32_t max,
+                           int32_t offset,
+                           const char16_t c,
+                           int32_t count)
   {
     return FindChar1(s, max, offset, c, count);
   }
 
-  static
-  int32_t rfind_char( const char* s, uint32_t max, int32_t offset, const char16_t c, int32_t count )
+  static int32_t rfind_char(const char* s,
+                            uint32_t max,
+                            int32_t offset,
+                            const char16_t c,
+                            int32_t count)
   {
     return RFindChar1(s, max, offset, c, count);
   }
 
-  static
-  char get_find_in_set_filter( const char* set )
+  static char get_find_in_set_filter(const char* set)
   {
     return GetFindInSetFilter(set);
   }
 
-  static
-  int32_t strip_chars( char* s, uint32_t len, const char* set )
+  static int32_t strip_chars(char* s, uint32_t len, const char* set)
   {
     return StripChars1(s, len, set);
   }
 
-  static
-  int32_t compress_chars( char* s, uint32_t len, const char* set )
+  static int32_t compress_chars(char* s, uint32_t len, const char* set)
   {
     return CompressChars1(s, len, set);
   }
 };
 
-template <>
+template<>
 struct nsBufferRoutines<char16_t>
 {
-  static
-  int32_t compare( const char16_t* a, const char16_t* b, uint32_t max, bool ic )
+  static int32_t compare(const char16_t* a,
+                         const char16_t* b,
+                         uint32_t max,
+                         bool ic)
   {
     NS_ASSERTION(!ic, "no case-insensitive compare here");
     return Compare2To2(a, b, max);
   }
 
-  static
-  int32_t compare( const char16_t* a, const char* b, uint32_t max, bool ic )
+  static int32_t compare(const char16_t* a,
+                         const char* b,
+                         uint32_t max,
+                         bool ic)
   {
     return Compare2To1(a, b, max, ic);
   }
 
-  static
-  int32_t find_char( const char16_t* s, uint32_t max, int32_t offset, const char16_t c, int32_t count )
+  static int32_t find_char(const char16_t* s,
+                           uint32_t max,
+                           int32_t offset,
+                           const char16_t c,
+                           int32_t count)
   {
     return FindChar2(s, max, offset, c, count);
   }
 
-  static
-  int32_t rfind_char( const char16_t* s, uint32_t max, int32_t offset, const char16_t c, int32_t count )
+  static int32_t rfind_char(const char16_t* s,
+                            uint32_t max,
+                            int32_t offset,
+                            const char16_t c,
+                            int32_t count)
   {
     return RFindChar2(s, max, offset, c, count);
   }
 
-  static
-  char16_t get_find_in_set_filter( const char16_t* set )
+  static char16_t get_find_in_set_filter(const char16_t* set)
   {
     return GetFindInSetFilter(set);
   }
 
-  static
-  char16_t get_find_in_set_filter( const char* set )
+  static char16_t get_find_in_set_filter(const char* set)
   {
-    return (~char16_t(0)^~char(0)) | GetFindInSetFilter(set);
+    return (~char16_t(0) ^ ~char(0)) | GetFindInSetFilter(set);
   }
 
-  static
-  int32_t strip_chars( char16_t* s, uint32_t max, const char* set )
+  static int32_t strip_chars(char16_t* s, uint32_t max, const char* set)
   {
     return StripChars2(s, max, set);
   }
 
-  static
-  int32_t compress_chars( char16_t* s, uint32_t len, const char* set )
+  static int32_t compress_chars(char16_t* s, uint32_t len, const char* set)
   {
     return CompressChars2(s, len, set);
   }
@@ -660,21 +667,21 @@ struct nsBufferRoutines<char16_t>
 
 //-----------------------------------------------------------------------------
 
-template <class L, class R>
+template<class L, class R>
 #ifndef __SUNPRO_CC
 static
 #endif /* !__SUNPRO_CC */
-int32_t
-FindSubstring( const L* big, uint32_t bigLen,
-               const R* little, uint32_t littleLen,
-               bool ignoreCase )
+    int32_t
+    FindSubstring(const L* big,
+                  uint32_t bigLen,
+                  const R* little,
+                  uint32_t littleLen,
+                  bool ignoreCase)
 {
-  if (littleLen > bigLen)
-    return kNotFound;
+  if (littleLen > bigLen) return kNotFound;
 
   int32_t i, max = int32_t(bigLen - littleLen);
-  for (i=0; i<=max; ++i, ++big)
-  {
+  for (i = 0; i <= max; ++i, ++big) {
     if (nsBufferRoutines<L>::compare(big, little, littleLen, ignoreCase) == 0)
       return i;
   }
@@ -682,23 +689,23 @@ FindSubstring( const L* big, uint32_t bigLen,
   return kNotFound;
 }
 
-template <class L, class R>
+template<class L, class R>
 #ifndef __SUNPRO_CC
 static
 #endif /* !__SUNPRO_CC */
-int32_t
-RFindSubstring( const L* big, uint32_t bigLen,
-                const R* little, uint32_t littleLen,
-                bool ignoreCase )
+    int32_t
+    RFindSubstring(const L* big,
+                   uint32_t bigLen,
+                   const R* little,
+                   uint32_t littleLen,
+                   bool ignoreCase)
 {
-  if (littleLen > bigLen)
-    return kNotFound;
+  if (littleLen > bigLen) return kNotFound;
 
   int32_t i, max = int32_t(bigLen - littleLen);
 
   const L* iter = big + max;
-  for (i=max; iter >= big; --i, --iter)
-  {
+  for (i = max; iter >= big; --i, --iter) {
     if (nsBufferRoutines<L>::compare(iter, little, littleLen, ignoreCase) == 0)
       return i;
   }
@@ -706,29 +713,27 @@ RFindSubstring( const L* big, uint32_t bigLen,
   return kNotFound;
 }
 
-template <class CharT, class SetCharT>
+template<class CharT, class SetCharT>
 #ifndef __SUNPRO_CC
 static
 #endif /* !__SUNPRO_CC */
-int32_t
-FindCharInSet( const CharT* data, uint32_t dataLen, const SetCharT* set )
+    int32_t
+    FindCharInSet(const CharT* data, uint32_t dataLen, const SetCharT* set)
 {
   CharT filter = nsBufferRoutines<CharT>::get_find_in_set_filter(set);
 
   const CharT* end = data + dataLen;
-  for (const CharT* iter = data; iter < end; ++iter)
-  {
+  for (const CharT* iter = data; iter < end; ++iter) {
     CharT currentChar = *iter;
     if (currentChar & filter)
-      continue; // char is not in filter set; go on with next char.
+      continue;  // char is not in filter set; go on with next char.
 
     // test all chars
     const SetCharT* charInSet = set;
     CharT setChar = CharT(*charInSet);
-    while (setChar)
-    {
+    while (setChar) {
       if (setChar == currentChar)
-        return iter - data; // found it!  return index of the found char.
+        return iter - data;  // found it!  return index of the found char.
 
       setChar = CharT(*(++charInSet));
     }
@@ -736,28 +741,26 @@ FindCharInSet( const CharT* data, uint32_t dataLen, const SetCharT* set )
   return kNotFound;
 }
 
-template <class CharT, class SetCharT>
+template<class CharT, class SetCharT>
 #ifndef __SUNPRO_CC
 static
 #endif /* !__SUNPRO_CC */
-int32_t
-RFindCharInSet( const CharT* data, uint32_t dataLen, const SetCharT* set )
+    int32_t
+    RFindCharInSet(const CharT* data, uint32_t dataLen, const SetCharT* set)
 {
   CharT filter = nsBufferRoutines<CharT>::get_find_in_set_filter(set);
 
-  for (const CharT* iter = data + dataLen - 1; iter >= data; --iter)
-  {
+  for (const CharT* iter = data + dataLen - 1; iter >= data; --iter) {
     CharT currentChar = *iter;
     if (currentChar & filter)
-      continue; // char is not in filter set; go on with next char.
+      continue;  // char is not in filter set; go on with next char.
 
     // test all chars
     const CharT* charInSet = set;
     CharT setChar = *charInSet;
-    while (setChar)
-    {
+    while (setChar) {
       if (setChar == currentChar)
-        return iter - data; // found it!  return index of the found char.
+        return iter - data;  // found it!  return index of the found char.
 
       setChar = *(++charInSet);
     }
@@ -773,30 +776,26 @@ RFindCharInSet( const CharT* data, uint32_t dataLen, const SetCharT* set )
  *   |count| specifies length of search range
  */
 static void
-Find_ComputeSearchRange( uint32_t bigLen, uint32_t littleLen, int32_t& offset, int32_t& count )
+Find_ComputeSearchRange(uint32_t bigLen,
+                        uint32_t littleLen,
+                        int32_t& offset,
+                        int32_t& count)
 {
   // |count| specifies how many iterations to make from |offset|
 
-  if (offset < 0)
-  {
+  if (offset < 0) {
     offset = 0;
-  }
-  else if (uint32_t(offset) > bigLen)
-  {
+  } else if (uint32_t(offset) > bigLen) {
     count = 0;
     return;
   }
 
   int32_t maxCount = bigLen - offset;
-  if (count < 0 || count > maxCount)
-  {
+  if (count < 0 || count > maxCount) {
     count = maxCount;
-  }
-  else
-  {
+  } else {
     count += littleLen;
-    if (count > maxCount)
-      count = maxCount;
+    if (count > maxCount) count = maxCount;
   }
 }
 
@@ -825,29 +824,28 @@ Find_ComputeSearchRange( uint32_t bigLen, uint32_t littleLen, int32_t& offset, i
  *
  */
 static void
-RFind_ComputeSearchRange( uint32_t bigLen, uint32_t littleLen, int32_t& offset, int32_t& count )
+RFind_ComputeSearchRange(uint32_t bigLen,
+                         uint32_t littleLen,
+                         int32_t& offset,
+                         int32_t& count)
 {
-  if (littleLen > bigLen)
-  {
+  if (littleLen > bigLen) {
     offset = 0;
     count = 0;
     return;
   }
 
-  if (offset < 0)
-    offset = bigLen - littleLen;
-  if (count < 0)
-    count = offset + 1;
+  if (offset < 0) offset = bigLen - littleLen;
+  if (count < 0) count = offset + 1;
 
   int32_t start = offset - count + 1;
-  if (start < 0)
-    start = 0;
+  if (start < 0) start = 0;
 
   count = offset + littleLen - start;
   offset = start;
 }
 
-//-----------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------
 
 #include "nsTStringObsolete.cpp"
 
@@ -855,56 +853,64 @@ RFind_ComputeSearchRange( uint32_t bigLen, uint32_t littleLen, int32_t& offset, 
 
 // specialized methods:
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 int32_t
-nsTString<T>::Find(const self_type& aString, int32_t aOffset, int32_t aCount) const
+nsTString<T>::Find(const self_type& aString,
+                   int32_t aOffset,
+                   int32_t aCount) const
 {
   // this method changes the meaning of aOffset and aCount:
   Find_ComputeSearchRange(this->mLength, aString.Length(), aOffset, aCount);
 
   // Capture the raw buffer locally to help msvc deduce the type.
   const char_type* str = aString.get();
-  int32_t result = FindSubstring(this->mData + aOffset, aCount, str, aString.Length(), false);
-  if (result != kNotFound)
-    result += aOffset;
+  int32_t result = FindSubstring(
+      this->mData + aOffset, aCount, str, aString.Length(), false);
+  if (result != kNotFound) result += aOffset;
   return result;
 }
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 int32_t
-nsTString<T>::Find(const char_type* aString, int32_t aOffset, int32_t aCount) const
+nsTString<T>::Find(const char_type* aString,
+                   int32_t aOffset,
+                   int32_t aCount) const
 {
   return Find(nsTDependentString<T>(aString), aOffset, aCount);
 }
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 int32_t
-nsTString<T>::RFind(const self_type& aString, int32_t aOffset, int32_t aCount) const
+nsTString<T>::RFind(const self_type& aString,
+                    int32_t aOffset,
+                    int32_t aCount) const
 {
   // this method changes the meaning of aOffset and aCount:
   RFind_ComputeSearchRange(this->mLength, aString.Length(), aOffset, aCount);
 
   // Capture the raw buffer locally to help msvc deduce the type.
   const char_type* str = aString.get();
-  int32_t result = RFindSubstring(this->mData + aOffset, aCount, str, aString.Length(), false);
-  if (result != kNotFound)
-    result += aOffset;
+  int32_t result = RFindSubstring(
+      this->mData + aOffset, aCount, str, aString.Length(), false);
+  if (result != kNotFound) result += aOffset;
   return result;
 }
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 int32_t
-nsTString<T>::RFind(const char_type* aString, int32_t aOffset, int32_t aCount) const
+nsTString<T>::RFind(const char_type* aString,
+                    int32_t aOffset,
+                    int32_t aCount) const
 {
   return RFind(nsTDependentString<T>(aString), aOffset, aCount);
 }
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 int32_t
 nsTString<T>::FindCharInSet(const char* aSet, int32_t aOffset) const
 {
@@ -913,28 +919,26 @@ nsTString<T>::FindCharInSet(const char* aSet, int32_t aOffset) const
   else if (aOffset >= int32_t(this->mLength))
     return kNotFound;
 
-  int32_t result = ::FindCharInSet(this->mData + aOffset, this->mLength - aOffset, aSet);
-  if (result != kNotFound)
-    result += aOffset;
+  int32_t result =
+      ::FindCharInSet(this->mData + aOffset, this->mLength - aOffset, aSet);
+  if (result != kNotFound) result += aOffset;
   return result;
 }
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 void
 nsTString<T>::ReplaceChar(const char* aSet, char16_t aNewChar)
 {
-  if (!this->EnsureMutable()) // XXX do this lazily?
+  if (!this->EnsureMutable())  // XXX do this lazily?
     this->AllocFailed(this->mLength);
 
   char16_t* data = this->mData;
   uint32_t lenRemaining = this->mLength;
 
-  while (lenRemaining)
-  {
+  while (lenRemaining) {
     int32_t i = ::FindCharInSet(data, lenRemaining, aSet);
-    if (i == kNotFound)
-      break;
+    if (i == kNotFound) break;
 
     data[i++] = aNewChar;
     data += i;
@@ -942,15 +946,16 @@ nsTString<T>::ReplaceChar(const char* aSet, char16_t aNewChar)
   }
 }
 
-
 /**
  * nsTString::Compare,CompareWithConversion,etc.
  */
 
-template <typename T>
-template <typename Q, typename EnableIfChar>
+template<typename T>
+template<typename Q, typename EnableIfChar>
 int32_t
-nsTString<T>::Compare(const char_type* aString, bool aIgnoreCase, int32_t aCount) const
+nsTString<T>::Compare(const char_type* aString,
+                      bool aIgnoreCase,
+                      int32_t aCount) const
 {
   uint32_t strLen = char_traits::length(aString);
 
@@ -962,26 +967,25 @@ nsTString<T>::Compare(const char_type* aString, bool aIgnoreCase, int32_t aCount
   else
     compareCount = aCount;
 
-  int32_t result =
-    nsBufferRoutines<T>::compare(this->mData, aString, compareCount, aIgnoreCase);
+  int32_t result = nsBufferRoutines<T>::compare(
+      this->mData, aString, compareCount, aIgnoreCase);
 
-  if (result == 0 &&
-      (aCount < 0 || strLen < uint32_t(aCount) || this->mLength < uint32_t(aCount)))
-  {
+  if (result == 0 && (aCount < 0 || strLen < uint32_t(aCount) ||
+                      this->mLength < uint32_t(aCount))) {
     // Since the caller didn't give us a length to test, or strings shorter
     // than aCount, and compareCount characters matched, we have to assume
     // that the longer string is greater.
 
-    if (this->mLength != strLen)
-      result = (this->mLength < strLen) ? -1 : 1;
+    if (this->mLength != strLen) result = (this->mLength < strLen) ? -1 : 1;
   }
   return result;
 }
 
-template <typename T>
-template <typename Q, typename EnableIfChar16>
+template<typename T>
+template<typename Q, typename EnableIfChar16>
 bool
-nsTString<T>::EqualsIgnoreCase(const incompatible_char_type* aString, int32_t aCount) const
+nsTString<T>::EqualsIgnoreCase(const incompatible_char_type* aString,
+                               int32_t aCount) const
 {
   uint32_t strLen = nsCharTraits<char>::length(aString);
 
@@ -994,58 +998,53 @@ nsTString<T>::EqualsIgnoreCase(const incompatible_char_type* aString, int32_t aC
     compareCount = aCount;
 
   int32_t result =
-    nsBufferRoutines<T>::compare(this->mData, aString, compareCount, true);
+      nsBufferRoutines<T>::compare(this->mData, aString, compareCount, true);
 
-  if (result == 0 &&
-      (aCount < 0 || strLen < uint32_t(aCount) || this->mLength < uint32_t(aCount)))
-  {
+  if (result == 0 && (aCount < 0 || strLen < uint32_t(aCount) ||
+                      this->mLength < uint32_t(aCount))) {
     // Since the caller didn't give us a length to test, or strings shorter
     // than aCount, and compareCount characters matched, we have to assume
     // that the longer string is greater.
 
     if (this->mLength != strLen)
-      result = 1; // Arbitrarily using any number != 0
+      result = 1;  // Arbitrarily using any number != 0
   }
   return result == 0;
 }
-
 
 /**
  * nsTString::ToDouble
  */
 
-template <>
+template<>
 double
 nsTString<char>::ToDouble(nsresult* aErrorCode) const
 {
   double res = 0.0;
-  if (this->mLength > 0)
-  {
-    char *conv_stopped;
-    const char *str = this->mData;
+  if (this->mLength > 0) {
+    char* conv_stopped;
+    const char* str = this->mData;
     // Use PR_strtod, not strtod, since we don't want locale involved.
     res = PR_strtod(str, &conv_stopped);
-    if (conv_stopped == str+this->mLength)
+    if (conv_stopped == str + this->mLength)
       *aErrorCode = NS_OK;
-    else // Not all the string was scanned
+    else  // Not all the string was scanned
       *aErrorCode = NS_ERROR_ILLEGAL_VALUE;
-  }
-  else
-  {
+  } else {
     // The string was too short (0 characters)
     *aErrorCode = NS_ERROR_ILLEGAL_VALUE;
   }
   return res;
 }
 
-template <>
+template<>
 double
 nsTString<char16_t>::ToDouble(nsresult* aErrorCode) const
 {
   return NS_LossyConvertUTF16toASCII(*this).ToDouble(aErrorCode);
 }
 
-template <typename T>
+template<typename T>
 float
 nsTString<T>::ToFloat(nsresult* aErrorCode) const
 {
@@ -1055,4 +1054,4 @@ nsTString<T>::ToFloat(nsresult* aErrorCode) const
 template class nsTString<char>;
 template class nsTString<char16_t>;
 
-#endif // !MOZ_STRING_WITH_OBSOLETE_API
+#endif  // !MOZ_STRING_WITH_OBSOLETE_API

@@ -23,19 +23,19 @@ namespace mozilla {
 namespace dom {
 class TabParent;
 class PBrowserOrId;
-} // namespace dom
+}  // namespace dom
 
 namespace net {
 class ChannelEventQueue;
 
-class FTPChannelParent final : public PFTPChannelParent
-                             , public nsIParentChannel
-                             , public nsIInterfaceRequestor
-                             , public ADivertableParentChannel
-                             , public nsIChannelEventSink
-                             , public nsIFTPChannelParentInternal
+class FTPChannelParent final : public PFTPChannelParent,
+                               public nsIParentChannel,
+                               public nsIInterfaceRequestor,
+                               public ADivertableParentChannel,
+                               public nsIChannelEventSink,
+                               public nsIFTPChannelParentInternal
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
   NS_DECL_NSISTREAMLISTENER
@@ -50,7 +50,7 @@ public:
   bool Init(const FTPChannelCreationArgs& aOpenArgs);
 
   // ADivertableParentChannel functions.
-  void DivertTo(nsIStreamListener *aListener) override;
+  void DivertTo(nsIStreamListener* aListener) override;
   nsresult SuspendForDiversion() override;
   nsresult SuspendMessageDiversion() override;
   nsresult ResumeMessageDiversion() override;
@@ -64,9 +64,9 @@ public:
   // Called asynchronously from FailDiversion.
   void NotifyDiversionFailed(nsresult aErrorCode, bool aSkipResume = true);
 
-  NS_IMETHOD SetErrorMsg(const char *aMsg, bool aUseUTF8) override;
+  NS_IMETHOD SetErrorMsg(const char* aMsg, bool aUseUTF8) override;
 
-protected:
+ protected:
   virtual ~FTPChannelParent();
 
   // private, supporting function for ADivertableParentChannel.
@@ -75,7 +75,8 @@ protected:
   // Asynchronously calls NotifyDiversionFailed.
   void FailDiversion(nsresult aErrorCode, bool aSkipResume = true);
 
-  bool DoAsyncOpen(const URIParams& aURI, const uint64_t& aStartPos,
+  bool DoAsyncOpen(const URIParams& aURI,
+                   const uint64_t& aStartPos,
                    const nsCString& aEntityID,
                    const OptionalIPCStream& aUploadStream,
                    const OptionalLoadInfoArgs& aLoadInfoArgs);
@@ -97,10 +98,12 @@ protected:
   virtual mozilla::ipc::IPCResult RecvCancel(const nsresult& status) override;
   virtual mozilla::ipc::IPCResult RecvSuspend() override;
   virtual mozilla::ipc::IPCResult RecvResume() override;
-  virtual mozilla::ipc::IPCResult RecvDivertOnDataAvailable(const nsCString& data,
-                                                            const uint64_t& offset,
-                                                            const uint32_t& count) override;
-  virtual mozilla::ipc::IPCResult RecvDivertOnStopRequest(const nsresult& statusCode) override;
+  virtual mozilla::ipc::IPCResult RecvDivertOnDataAvailable(
+      const nsCString& data,
+      const uint64_t& offset,
+      const uint32_t& count) override;
+  virtual mozilla::ipc::IPCResult RecvDivertOnStopRequest(
+      const nsresult& statusCode) override;
   virtual mozilla::ipc::IPCResult RecvDivertComplete() override;
 
   nsresult SuspendChannel();
@@ -140,7 +143,7 @@ protected:
   bool mUseUTF8;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_FTPChannelParent_h
+#endif  // mozilla_net_FTPChannelParent_h

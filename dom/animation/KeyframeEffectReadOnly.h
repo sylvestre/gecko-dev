@@ -57,7 +57,7 @@ class UnrestrictedDoubleOrKeyframeEffectOptions;
 enum class IterationCompositeOperation : uint8_t;
 enum class CompositeOperation : uint8_t;
 struct AnimationPropertyDetails;
-}
+}  // namespace dom
 
 struct AnimationProperty
 {
@@ -82,7 +82,9 @@ struct AnimationProperty
   // mPerformanceWarning.
   AnimationProperty() = default;
   AnimationProperty(const AnimationProperty& aOther)
-    : mProperty(aOther.mProperty), mSegments(aOther.mSegments) { }
+      : mProperty(aOther.mProperty), mSegments(aOther.mSegments)
+  {
+  }
   AnimationProperty& operator=(const AnimationProperty& aOther)
   {
     mProperty = aOther.mProperty;
@@ -98,8 +100,7 @@ struct AnimationProperty
   // we ignore this member to avoid generating spurious change records.
   bool operator==(const AnimationProperty& aOther) const
   {
-    return mProperty == aOther.mProperty &&
-           mSegments == aOther.mSegments;
+    return mProperty == aOther.mProperty && mSegments == aOther.mSegments;
   }
   bool operator!=(const AnimationProperty& aOther) const
   {
@@ -115,15 +116,15 @@ class Animation;
 
 class KeyframeEffectReadOnly : public AnimationEffectReadOnly
 {
-public:
+ public:
   KeyframeEffectReadOnly(nsIDocument* aDocument,
                          const Maybe<OwningAnimationTarget>& aTarget,
                          const TimingParams& aTiming,
                          const KeyframeEffectParams& aOptions);
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(KeyframeEffectReadOnly,
-                                                        AnimationEffectReadOnly)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
+      KeyframeEffectReadOnly, AnimationEffectReadOnly)
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -131,17 +132,17 @@ public:
   KeyframeEffectReadOnly* AsKeyframeEffect() override { return this; }
 
   // KeyframeEffectReadOnly interface
-  static already_AddRefed<KeyframeEffectReadOnly>
-  Constructor(const GlobalObject& aGlobal,
-              const Nullable<ElementOrCSSPseudoElement>& aTarget,
-              JS::Handle<JSObject*> aKeyframes,
-              const UnrestrictedDoubleOrKeyframeEffectOptions& aOptions,
-              ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffectReadOnly> Constructor(
+      const GlobalObject& aGlobal,
+      const Nullable<ElementOrCSSPseudoElement>& aTarget,
+      JS::Handle<JSObject*> aKeyframes,
+      const UnrestrictedDoubleOrKeyframeEffectOptions& aOptions,
+      ErrorResult& aRv);
 
-  static already_AddRefed<KeyframeEffectReadOnly>
-  Constructor(const GlobalObject& aGlobal,
-              KeyframeEffectReadOnly& aSource,
-              ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffectReadOnly> Constructor(
+      const GlobalObject& aGlobal,
+      KeyframeEffectReadOnly& aSource,
+      ErrorResult& aRv);
 
   void GetTarget(Nullable<OwningElementOrCSSPseudoElement>& aRv) const;
   Maybe<NonOwningAnimationTarget> GetTarget() const
@@ -163,7 +164,8 @@ public:
   void NotifyAnimationTimingUpdated();
   void RequestRestyle(EffectCompositor::RestyleType aRestyleType);
   void SetAnimation(Animation* aAnimation) override;
-  void SetKeyframes(JSContext* aContext, JS::Handle<JSObject*> aKeyframes,
+  void SetKeyframes(JSContext* aContext,
+                    JS::Handle<JSObject*> aKeyframes,
                     ErrorResult& aRv);
   void SetKeyframes(nsTArray<Keyframe>&& aKeyframes,
                     GeckoStyleContext* aStyleContext);
@@ -186,7 +188,7 @@ public:
     return GetEffectiveAnimationOfProperty(aProperty) != nullptr;
   }
   const AnimationProperty* GetEffectiveAnimationOfProperty(
-    nsCSSPropertyID aProperty) const;
+      nsCSSPropertyID aProperty) const;
 
   const InfallibleTArray<AnimationProperty>& Properties() const
   {
@@ -216,10 +218,10 @@ public:
   // |aCompositeOperation|.
   // Returns |aValueToComposite| if |aCompositeOperation| is Replace.
   static StyleAnimationValue CompositeValue(
-    nsCSSPropertyID aProperty,
-    const StyleAnimationValue& aValueToComposite,
-    const StyleAnimationValue& aUnderlyingValue,
-    CompositeOperation aCompositeOperation);
+      nsCSSPropertyID aProperty,
+      const StyleAnimationValue& aValueToComposite,
+      const StyleAnimationValue& aUnderlyingValue,
+      CompositeOperation aCompositeOperation);
 
   // Returns true if at least one property is being animated on compositor.
   bool IsRunningOnCompositor() const;
@@ -236,7 +238,8 @@ public:
   // When returning true, |aPerformanceWarning| stores the reason why
   // we shouldn't run the transform animations.
   bool ShouldBlockAsyncTransformAnimations(
-    const nsIFrame* aFrame, AnimationPerformanceWarning::Type& aPerformanceWarning) const;
+      const nsIFrame* aFrame,
+      AnimationPerformanceWarning::Type& aPerformanceWarning) const;
   bool HasGeometricProperties() const;
   bool AffectsGeometry() const override
   {
@@ -250,9 +253,8 @@ public:
   // indicating why, for example, the property could not be animated on the
   // compositor. |aParams| and |aParamsLength| are optional parameters which
   // will be used to generate a localized message for devtools.
-  void SetPerformanceWarning(
-    nsCSSPropertyID aProperty,
-    const AnimationPerformanceWarning& aWarning);
+  void SetPerformanceWarning(nsCSSPropertyID aProperty,
+                             const AnimationPerformanceWarning& aWarning);
 
   // Record telemetry about the size of the content being animated.
   void RecordFrameSizeTelemetry(uint32_t aPixelArea);
@@ -288,7 +290,7 @@ public:
     return result;
   }
 
-protected:
+ protected:
   KeyframeEffectReadOnly(nsIDocument* aDocument,
                          const Maybe<OwningAnimationTarget>& aTarget,
                          AnimationEffectTimingReadOnly* aTiming,
@@ -296,22 +298,22 @@ protected:
 
   ~KeyframeEffectReadOnly() override = default;
 
-  static Maybe<OwningAnimationTarget>
-  ConvertTarget(const Nullable<ElementOrCSSPseudoElement>& aTarget);
+  static Maybe<OwningAnimationTarget> ConvertTarget(
+      const Nullable<ElementOrCSSPseudoElement>& aTarget);
 
   template<class KeyframeEffectType, class OptionsType>
-  static already_AddRefed<KeyframeEffectType>
-  ConstructKeyframeEffect(const GlobalObject& aGlobal,
-                          const Nullable<ElementOrCSSPseudoElement>& aTarget,
-                          JS::Handle<JSObject*> aKeyframes,
-                          const OptionsType& aOptions,
-                          ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffectType> ConstructKeyframeEffect(
+      const GlobalObject& aGlobal,
+      const Nullable<ElementOrCSSPseudoElement>& aTarget,
+      JS::Handle<JSObject*> aKeyframes,
+      const OptionsType& aOptions,
+      ErrorResult& aRv);
 
   template<class KeyframeEffectType>
-  static already_AddRefed<KeyframeEffectType>
-  ConstructKeyframeEffect(const GlobalObject& aGlobal,
-                          KeyframeEffectReadOnly& aSource,
-                          ErrorResult& aRv);
+  static already_AddRefed<KeyframeEffectType> ConstructKeyframeEffect(
+      const GlobalObject& aGlobal,
+      KeyframeEffectReadOnly& aSource,
+      ErrorResult& aRv);
 
   // Build properties by recalculating from |mKeyframes| using |aStyleContext|
   // to resolve specified values. This function also applies paced spacing if
@@ -355,15 +357,15 @@ protected:
   // |aAnimationRule|, uses the base value for the property recorded on the
   // target element's EffectSet.
   StyleAnimationValue CompositeValue(
-    nsCSSPropertyID aProperty,
-    const RefPtr<AnimValuesStyleRule>& aAnimationRule,
-    const StyleAnimationValue& aValueToComposite,
-    CompositeOperation aCompositeOperation);
+      nsCSSPropertyID aProperty,
+      const RefPtr<AnimValuesStyleRule>& aAnimationRule,
+      const StyleAnimationValue& aValueToComposite,
+      CompositeOperation aCompositeOperation);
 
   // Returns underlying style animation value for |aProperty|.
   StyleAnimationValue GetUnderlyingStyle(
-    nsCSSPropertyID aProperty,
-    const RefPtr<AnimValuesStyleRule>& aAnimationRule);
+      nsCSSPropertyID aProperty,
+      const RefPtr<AnimValuesStyleRule>& aAnimationRule);
 
   // Ensure the base styles is available for any properties in |aProperties|.
   void EnsureBaseStyles(GeckoStyleContext* aStyleContext,
@@ -392,7 +394,7 @@ protected:
   KeyframeEffectParams mEffectOptions;
 
   // The specified keyframes.
-  nsTArray<Keyframe>          mKeyframes;
+  nsTArray<Keyframe> mKeyframes;
 
   // A set of per-property value arrays, derived from |mKeyframes|.
   nsTArray<AnimationProperty> mProperties;
@@ -416,7 +418,7 @@ protected:
   // (i.e. it uses the additive or accumulate composite mode).
   nsDataHashtable<nsUint32HashKey, StyleAnimationValue> mBaseStyleValues;
   nsRefPtrHashtable<nsUint32HashKey, RawServoAnimationValue>
-    mBaseStyleValuesForServo;
+      mBaseStyleValuesForServo;
 
   // True if this effect is in the EffectSet for its target element. This is
   // used as an optimization to avoid unnecessary hashmap lookups on the
@@ -432,7 +434,7 @@ protected:
   // pair.
   bool mRecordedFrameSize = false;
 
-private:
+ private:
   nsChangeHint mCumulativeChangeHint;
 
   template<typename StyleType>
@@ -452,14 +454,14 @@ private:
                         const ComputedTiming& aComputedTiming);
 
   already_AddRefed<nsStyleContext> CreateStyleContextForAnimationValue(
-    nsCSSPropertyID aProperty,
-    const AnimationValue& aValue,
-    GeckoStyleContext* aBaseStyleContext);
+      nsCSSPropertyID aProperty,
+      const AnimationValue& aValue,
+      GeckoStyleContext* aBaseStyleContext);
 
   already_AddRefed<nsStyleContext> CreateStyleContextForAnimationValue(
-    nsCSSPropertyID aProperty,
-    const AnimationValue& aValue,
-    const ServoStyleContext* aBaseStyleContext);
+      nsCSSPropertyID aProperty,
+      const AnimationValue& aValue,
+      const ServoStyleContext* aBaseStyleContext);
 
   nsIFrame* GetAnimationFrame() const;
 
@@ -474,8 +476,8 @@ private:
   // animations for |aFrame|. When returning true, the reason for the
   // limitation is stored in |aOutPerformanceWarning|.
   static bool CanAnimateTransformOnCompositor(
-    const nsIFrame* aFrame,
-    AnimationPerformanceWarning::Type& aPerformanceWarning);
+      const nsIFrame* aFrame,
+      AnimationPerformanceWarning::Type& aPerformanceWarning);
   static bool IsGeometricProperty(const nsCSSPropertyID aProperty);
 
   static const TimeDuration OverflowRegionRefreshInterval();
@@ -486,7 +488,7 @@ private:
   bool mIsComposingStyle = false;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_KeyframeEffectReadOnly_h
+#endif  // mozilla_dom_KeyframeEffectReadOnly_h

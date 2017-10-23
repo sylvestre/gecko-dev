@@ -21,7 +21,7 @@ class BlobImpl;
 class ContentChild;
 class ContentParent;
 
-} // namespace dom
+}  // namespace dom
 
 namespace ipc {
 
@@ -55,30 +55,26 @@ class BackgroundChild final
   typedef base::ProcessId ProcessId;
   typedef mozilla::ipc::Transport Transport;
 
-public:
+ public:
   // See above.
-  static PBackgroundChild*
-  GetForCurrentThread();
+  static PBackgroundChild* GetForCurrentThread();
 
   // See above.
-  static bool
-  GetOrCreateForCurrentThread(nsIIPCBackgroundChildCreateCallback* aCallback);
+  static bool GetOrCreateForCurrentThread(
+      nsIIPCBackgroundChildCreateCallback* aCallback);
 
   // See above.
-  static PBackgroundChild*
-  GetOrCreateForCurrentThread();
+  static PBackgroundChild* GetOrCreateForCurrentThread();
 
   // See above.
-  static void
-  CloseForCurrentThread();
+  static void CloseForCurrentThread();
 
-private:
+ private:
   // Only called by ContentChild or ContentParent.
-  static void
-  Startup();
+  static void Startup();
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_backgroundchild_h__
+#endif  // mozilla_ipc_backgroundchild_h__

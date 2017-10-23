@@ -4,10 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef nsContentAreaDragDrop_h__
 #define nsContentAreaDragDrop_h__
-
 
 #include "nsCOMPtr.h"
 
@@ -23,16 +21,15 @@ class nsIFile;
 namespace mozilla {
 namespace dom {
 class DataTransfer;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 //
 // class nsContentAreaDragDrop, used to generate the dragdata
 //
 class nsContentAreaDragDrop
 {
-public:
-
+ public:
   /**
    * Determine what data in the content area, if any, is being dragged.
    *
@@ -68,14 +65,13 @@ class nsContentAreaDragDropDataProvider : public nsIFlavorDataProvider
 {
   virtual ~nsContentAreaDragDropDataProvider() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIFLAVORDATAPROVIDER
 
   nsresult SaveURIToFile(nsAString& inSourceURIString,
-                         nsIFile* inDestFile, bool isPrivate);
+                         nsIFile* inDestFile,
+                         bool isPrivate);
 };
 
-
 #endif /* nsContentAreaDragDrop_h__ */
-

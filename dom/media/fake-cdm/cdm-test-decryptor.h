@@ -10,8 +10,9 @@
 #include <string>
 #include "mozilla/Attributes.h"
 
-class FakeDecryptor : public cdm::ContentDecryptionModule_8 {
-public:
+class FakeDecryptor : public cdm::ContentDecryptionModule_8
+{
+ public:
   explicit FakeDecryptor(cdm::Host_8* aHost);
 
   void Initialize(bool aAllowDistinctiveIdentifier,
@@ -21,8 +22,7 @@ public:
 
   void SetServerCertificate(uint32_t aPromiseId,
                             const uint8_t* aServerCertificateData,
-                            uint32_t aServerCertificateDataSize)
-                            override
+                            uint32_t aServerCertificateDataSize) override
   {
   }
 
@@ -30,8 +30,7 @@ public:
                                        cdm::SessionType aSessionType,
                                        cdm::InitDataType aInitDataType,
                                        const uint8_t* aInitData,
-                                       uint32_t aInitDataSize)
-                                       override
+                                       uint32_t aInitDataSize) override
   {
   }
 
@@ -60,9 +59,7 @@ public:
   {
   }
 
-  void TimerExpired(void* aContext) override
-  {
-  }
+  void TimerExpired(void* aContext) override {}
 
   cdm::Status Decrypt(const cdm::InputBuffer& aEncryptedBuffer,
                       cdm::DecryptedBlock* aDecryptedBuffer) override
@@ -71,41 +68,35 @@ public:
   }
 
   cdm::Status InitializeAudioDecoder(
-    const cdm::AudioDecoderConfig& aAudioDecoderConfig) override
+      const cdm::AudioDecoderConfig& aAudioDecoderConfig) override
   {
     return cdm::Status::kDecodeError;
   }
 
   cdm::Status InitializeVideoDecoder(
-    const cdm::VideoDecoderConfig& aVideoDecoderConfig) override
+      const cdm::VideoDecoderConfig& aVideoDecoderConfig) override
   {
     return cdm::Status::kDecodeError;
   }
 
-  void DeinitializeDecoder(cdm::StreamType aDecoderType) override
-  {
-  }
+  void DeinitializeDecoder(cdm::StreamType aDecoderType) override {}
 
-  void ResetDecoder(cdm::StreamType aDecoderType) override
-  {
-  }
+  void ResetDecoder(cdm::StreamType aDecoderType) override {}
 
-  cdm::Status DecryptAndDecodeFrame(
-    const cdm::InputBuffer& aEncryptedBuffer,
-    cdm::VideoFrame* aVideoFrame) override
+  cdm::Status DecryptAndDecodeFrame(const cdm::InputBuffer& aEncryptedBuffer,
+                                    cdm::VideoFrame* aVideoFrame) override
   {
     return cdm::Status::kDecodeError;
   }
 
-  cdm::Status DecryptAndDecodeSamples(
-    const cdm::InputBuffer& aEncryptedBuffer,
-    cdm::AudioFrames* aAudioFrame) override
+  cdm::Status DecryptAndDecodeSamples(const cdm::InputBuffer& aEncryptedBuffer,
+                                      cdm::AudioFrames* aAudioFrame) override
   {
     return cdm::Status::kDecodeError;
   }
 
   void OnPlatformChallengeResponse(
-    const cdm::PlatformChallengeResponse& aResponse) override
+      const cdm::PlatformChallengeResponse& aResponse) override
   {
   }
 
@@ -127,12 +118,10 @@ public:
 
   static FakeDecryptor* sInstance;
 
-private:
-
+ private:
   virtual ~FakeDecryptor() {}
 
   void TestStorage();
-
 };
 
 #endif

@@ -34,35 +34,37 @@ namespace gfx {
 #define GASP_DOGRAY 0x2
 
 static inline unsigned short
-readShort(const char *aBuf)
+readShort(const char* aBuf)
 {
   return (*aBuf << 8) | *(aBuf + 1);
 }
 
 static bool
-DoGrayscale(IDWriteFontFace *aDWFace, Float ppem)
+DoGrayscale(IDWriteFontFace* aDWFace, Float ppem)
 {
-  void *tableContext;
-  char *tableData;
+  void* tableContext;
+  char* tableData;
   UINT32 tableSize;
   BOOL exists;
-  aDWFace->TryGetFontTable(GASP_TAG, (const void**)&tableData, &tableSize, &tableContext, &exists);
+  aDWFace->TryGetFontTable(
+      GASP_TAG, (const void**)&tableData, &tableSize, &tableContext, &exists);
 
   if (exists) {
     if (tableSize < 4) {
       aDWFace->ReleaseFontTable(tableContext);
       return true;
     }
-    struct gaspRange {
-      unsigned short maxPPEM; // Stored big-endian
-      unsigned short behavior; // Stored big-endian
+    struct gaspRange
+    {
+      unsigned short maxPPEM;   // Stored big-endian
+      unsigned short behavior;  // Stored big-endian
     };
     unsigned short numRanges = readShort(tableData + 2);
     if (tableSize < (UINT)4 + numRanges * 4) {
       aDWFace->ReleaseFontTable(tableContext);
       return true;
     }
-    gaspRange *ranges = (gaspRange *)(tableData + 4);
+    gaspRange* ranges = (gaspRange*)(tableData + 4);
     for (int i = 0; i < numRanges; i++) {
       if (readShort((char*)&ranges[i].maxPPEM) > ppem) {
         if (!(readShort((char*)&ranges[i].behavior) & GASP_DOGRAY)) {
@@ -80,31 +82,31 @@ DoGrayscale(IDWriteFontFace *aDWFace, Float ppem)
 static inline DWRITE_FONT_STRETCH
 DWriteFontStretchFromStretch(int16_t aStretch)
 {
-    switch (aStretch) {
-        case NS_FONT_STRETCH_ULTRA_CONDENSED:
-            return DWRITE_FONT_STRETCH_ULTRA_CONDENSED;
-        case NS_FONT_STRETCH_EXTRA_CONDENSED:
-            return DWRITE_FONT_STRETCH_EXTRA_CONDENSED;
-        case NS_FONT_STRETCH_CONDENSED:
-            return DWRITE_FONT_STRETCH_CONDENSED;
-        case NS_FONT_STRETCH_SEMI_CONDENSED:
-            return DWRITE_FONT_STRETCH_SEMI_CONDENSED;
-        case NS_FONT_STRETCH_NORMAL:
-            return DWRITE_FONT_STRETCH_NORMAL;
-        case NS_FONT_STRETCH_SEMI_EXPANDED:
-            return DWRITE_FONT_STRETCH_SEMI_EXPANDED;
-        case NS_FONT_STRETCH_EXPANDED:
-            return DWRITE_FONT_STRETCH_EXPANDED;
-        case NS_FONT_STRETCH_EXTRA_EXPANDED:
-            return DWRITE_FONT_STRETCH_EXTRA_EXPANDED;
-        case NS_FONT_STRETCH_ULTRA_EXPANDED:
-            return DWRITE_FONT_STRETCH_ULTRA_EXPANDED;
-        default:
-            return DWRITE_FONT_STRETCH_UNDEFINED;
-    }
+  switch (aStretch) {
+    case NS_FONT_STRETCH_ULTRA_CONDENSED:
+      return DWRITE_FONT_STRETCH_ULTRA_CONDENSED;
+    case NS_FONT_STRETCH_EXTRA_CONDENSED:
+      return DWRITE_FONT_STRETCH_EXTRA_CONDENSED;
+    case NS_FONT_STRETCH_CONDENSED:
+      return DWRITE_FONT_STRETCH_CONDENSED;
+    case NS_FONT_STRETCH_SEMI_CONDENSED:
+      return DWRITE_FONT_STRETCH_SEMI_CONDENSED;
+    case NS_FONT_STRETCH_NORMAL:
+      return DWRITE_FONT_STRETCH_NORMAL;
+    case NS_FONT_STRETCH_SEMI_EXPANDED:
+      return DWRITE_FONT_STRETCH_SEMI_EXPANDED;
+    case NS_FONT_STRETCH_EXPANDED:
+      return DWRITE_FONT_STRETCH_EXPANDED;
+    case NS_FONT_STRETCH_EXTRA_EXPANDED:
+      return DWRITE_FONT_STRETCH_EXTRA_EXPANDED;
+    case NS_FONT_STRETCH_ULTRA_EXPANDED:
+      return DWRITE_FONT_STRETCH_ULTRA_EXPANDED;
+    default:
+      return DWRITE_FONT_STRETCH_UNDEFINED;
+  }
 }
 
-ScaledFontDWrite::ScaledFontDWrite(IDWriteFontFace *aFontFace,
+ScaledFontDWrite::ScaledFontDWrite(IDWriteFontFace* aFontFace,
                                    const RefPtr<UnscaledFont>& aUnscaledFont,
                                    Float aSize,
                                    bool aUseEmbeddedBitmap,
@@ -113,39 +115,41 @@ ScaledFontDWrite::ScaledFontDWrite(IDWriteFontFace *aFontFace,
                                    Float aGamma,
                                    Float aContrast,
                                    const gfxFontStyle* aStyle)
-    : ScaledFontBase(aUnscaledFont, aSize)
-    , mFontFace(aFontFace)
-    , mUseEmbeddedBitmap(aUseEmbeddedBitmap)
-    , mForceGDIMode(aForceGDIMode)
-    , mParams(aParams)
-    , mGamma(aGamma)
-    , mContrast(aContrast)
+    : ScaledFontBase(aUnscaledFont, aSize),
+      mFontFace(aFontFace),
+      mUseEmbeddedBitmap(aUseEmbeddedBitmap),
+      mForceGDIMode(aForceGDIMode),
+      mParams(aParams),
+      mGamma(aGamma),
+      mContrast(aContrast)
 {
   if (aStyle) {
     mStyle = SkFontStyle(aStyle->weight,
                          DWriteFontStretchFromStretch(aStyle->stretch),
-                         aStyle->style == NS_FONT_STYLE_NORMAL ?
-                         SkFontStyle::kUpright_Slant : SkFontStyle::kItalic_Slant);
+                         aStyle->style == NS_FONT_STYLE_NORMAL
+                             ? SkFontStyle::kUpright_Slant
+                             : SkFontStyle::kItalic_Slant);
   }
 }
 
 already_AddRefed<Path>
-ScaledFontDWrite::GetPathForGlyphs(const GlyphBuffer &aBuffer, const DrawTarget *aTarget)
+ScaledFontDWrite::GetPathForGlyphs(const GlyphBuffer& aBuffer,
+                                   const DrawTarget* aTarget)
 {
-  if (aTarget->GetBackendType() != BackendType::DIRECT2D && aTarget->GetBackendType() != BackendType::DIRECT2D1_1) {
+  if (aTarget->GetBackendType() != BackendType::DIRECT2D &&
+      aTarget->GetBackendType() != BackendType::DIRECT2D1_1) {
     return ScaledFontBase::GetPathForGlyphs(aBuffer, aTarget);
   }
 
   RefPtr<PathBuilder> pathBuilder = aTarget->CreatePathBuilder();
 
-  PathBuilderD2D *pathBuilderD2D =
-    static_cast<PathBuilderD2D*>(pathBuilder.get());
+  PathBuilderD2D* pathBuilderD2D =
+      static_cast<PathBuilderD2D*>(pathBuilder.get());
 
   CopyGlyphsToSink(aBuffer, pathBuilderD2D->GetSink());
 
   return pathBuilder->Finish();
 }
-
 
 #ifdef USE_SKIA
 SkTypeface*
@@ -169,33 +173,39 @@ ScaledFontDWrite::GetSkTypeface()
       contrast = 1.0f;
     }
 
-    mTypeface = SkCreateTypefaceFromDWriteFont(factory, mFontFace, mStyle, mForceGDIMode, gamma, contrast);
+    mTypeface = SkCreateTypefaceFromDWriteFont(
+        factory, mFontFace, mStyle, mForceGDIMode, gamma, contrast);
   }
   return mTypeface;
 }
 #endif
 
 void
-ScaledFontDWrite::CopyGlyphsToBuilder(const GlyphBuffer &aBuffer, PathBuilder *aBuilder, const Matrix *aTransformHint)
+ScaledFontDWrite::CopyGlyphsToBuilder(const GlyphBuffer& aBuffer,
+                                      PathBuilder* aBuilder,
+                                      const Matrix* aTransformHint)
 {
   BackendType backendType = aBuilder->GetBackendType();
-  if (backendType != BackendType::DIRECT2D && backendType != BackendType::DIRECT2D1_1) {
+  if (backendType != BackendType::DIRECT2D &&
+      backendType != BackendType::DIRECT2D1_1) {
     ScaledFontBase::CopyGlyphsToBuilder(aBuffer, aBuilder, aTransformHint);
     return;
   }
 
-  PathBuilderD2D *pathBuilderD2D =
-    static_cast<PathBuilderD2D*>(aBuilder);
+  PathBuilderD2D* pathBuilderD2D = static_cast<PathBuilderD2D*>(aBuilder);
 
   if (pathBuilderD2D->IsFigureActive()) {
-    gfxCriticalNote << "Attempting to copy glyphs to PathBuilderD2D with active figure.";
+    gfxCriticalNote
+        << "Attempting to copy glyphs to PathBuilderD2D with active figure.";
   }
 
   CopyGlyphsToSink(aBuffer, pathBuilderD2D->GetSink());
 }
 
 void
-ScaledFontDWrite::GetGlyphDesignMetrics(const uint16_t* aGlyphs, uint32_t aNumGlyphs, GlyphMetrics* aGlyphMetrics)
+ScaledFontDWrite::GetGlyphDesignMetrics(const uint16_t* aGlyphs,
+                                        uint32_t aNumGlyphs,
+                                        GlyphMetrics* aGlyphMetrics)
 {
   DWRITE_FONT_METRICS fontMetrics;
   mFontFace->GetMetrics(&fontMetrics);
@@ -206,18 +216,27 @@ ScaledFontDWrite::GetGlyphDesignMetrics(const uint16_t* aGlyphs, uint32_t aNumGl
   Float designUnitCorrection = 1.f / fontMetrics.designUnitsPerEm;
 
   for (uint32_t i = 0; i < aNumGlyphs; i++) {
-    aGlyphMetrics[i].mXBearing = metrics[i].leftSideBearing * designUnitCorrection * mSize;
-    aGlyphMetrics[i].mXAdvance = metrics[i].advanceWidth * designUnitCorrection * mSize;
-    aGlyphMetrics[i].mYBearing = metrics[i].topSideBearing * designUnitCorrection * mSize;
-    aGlyphMetrics[i].mYAdvance = metrics[i].advanceHeight * designUnitCorrection * mSize;
-    aGlyphMetrics[i].mWidth = (metrics[i].advanceHeight - metrics[i].topSideBearing - metrics[i].bottomSideBearing) *
-                              designUnitCorrection * mSize;
-    aGlyphMetrics[i].mHeight = (metrics[i].topSideBearing - metrics[i].verticalOriginY) * designUnitCorrection * mSize;
+    aGlyphMetrics[i].mXBearing =
+        metrics[i].leftSideBearing * designUnitCorrection * mSize;
+    aGlyphMetrics[i].mXAdvance =
+        metrics[i].advanceWidth * designUnitCorrection * mSize;
+    aGlyphMetrics[i].mYBearing =
+        metrics[i].topSideBearing * designUnitCorrection * mSize;
+    aGlyphMetrics[i].mYAdvance =
+        metrics[i].advanceHeight * designUnitCorrection * mSize;
+    aGlyphMetrics[i].mWidth =
+        (metrics[i].advanceHeight - metrics[i].topSideBearing -
+         metrics[i].bottomSideBearing) *
+        designUnitCorrection * mSize;
+    aGlyphMetrics[i].mHeight =
+        (metrics[i].topSideBearing - metrics[i].verticalOriginY) *
+        designUnitCorrection * mSize;
   }
 }
 
 void
-ScaledFontDWrite::CopyGlyphsToSink(const GlyphBuffer &aBuffer, ID2D1GeometrySink *aSink)
+ScaledFontDWrite::CopyGlyphsToSink(const GlyphBuffer& aBuffer,
+                                   ID2D1GeometrySink* aSink)
 {
   std::vector<UINT16> indices;
   std::vector<FLOAT> advances;
@@ -233,17 +252,23 @@ ScaledFontDWrite::CopyGlyphsToSink(const GlyphBuffer &aBuffer, ID2D1GeometrySink
     offsets[i].ascenderOffset = -aBuffer.mGlyphs[i].mPosition.y;
   }
 
-  HRESULT hr =
-    mFontFace->GetGlyphRunOutline(mSize, &indices.front(), &advances.front(),
-                                  &offsets.front(), aBuffer.mNumGlyphs,
-                                  FALSE, FALSE, aSink);
+  HRESULT hr = mFontFace->GetGlyphRunOutline(mSize,
+                                             &indices.front(),
+                                             &advances.front(),
+                                             &offsets.front(),
+                                             aBuffer.mNumGlyphs,
+                                             FALSE,
+                                             FALSE,
+                                             aSink);
   if (FAILED(hr)) {
-    gfxCriticalNote << "Failed to copy glyphs to geometry sink. Code: " << hexa(hr);
+    gfxCriticalNote << "Failed to copy glyphs to geometry sink. Code: "
+                    << hexa(hr);
   }
 }
 
 bool
-UnscaledFontDWrite::GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton)
+UnscaledFontDWrite::GetFontFileData(FontFileDataOutput aDataCallback,
+                                    void* aBaton)
 {
   UINT32 fileCount = 0;
   mFontFace->GetFiles(&fileCount, nullptr);
@@ -260,7 +285,7 @@ UnscaledFontDWrite::GetFontFileData(FontFileDataOutput aDataCallback, void *aBat
   RefPtr<IDWriteFontFile> file;
   mFontFace->GetFiles(&fileCount, getter_AddRefs(file));
 
-  const void *referenceKey;
+  const void* referenceKey;
   UINT32 refKeySize;
   // XXX - This can currently crash for webfonts, as when we get the reference
   // key out of the file, that can be an invalid reference key for the loader
@@ -282,11 +307,12 @@ UnscaledFontDWrite::GetFontFileData(FontFileDataOutput aDataCallback, void *aBat
   }
 
   uint32_t fileSize = static_cast<uint32_t>(fileSize64);
-  const void *fragmentStart;
-  void *context;
+  const void* fragmentStart;
+  void* context;
   stream->ReadFileFragment(&fragmentStart, 0, fileSize, &context);
 
-  aDataCallback((uint8_t*)fragmentStart, fileSize, mFontFace->GetIndex(), aBaton);
+  aDataCallback(
+      (uint8_t*)fragmentStart, fileSize, mFontFace->GetIndex(), aBaton);
 
   stream->ReleaseFileFragment(context);
 
@@ -297,20 +323,26 @@ bool
 ScaledFontDWrite::GetFontInstanceData(FontInstanceDataOutput aCb, void* aBaton)
 {
   InstanceData instance(this);
-  aCb(reinterpret_cast<uint8_t*>(&instance), sizeof(instance), nullptr, 0, aBaton);
+  aCb(reinterpret_cast<uint8_t*>(&instance),
+      sizeof(instance),
+      nullptr,
+      0,
+      aBaton);
   return true;
 }
 
 bool
-ScaledFontDWrite::GetWRFontInstanceOptions(Maybe<wr::FontInstanceOptions>* aOutOptions,
-                                           Maybe<wr::FontInstancePlatformOptions>* aOutPlatformOptions,
-                                           std::vector<FontVariation>* aOutVariations)
+ScaledFontDWrite::GetWRFontInstanceOptions(
+    Maybe<wr::FontInstanceOptions>* aOutOptions,
+    Maybe<wr::FontInstancePlatformOptions>* aOutPlatformOptions,
+    std::vector<FontVariation>* aOutVariations)
 {
   AntialiasMode aaMode = GetDefaultAAMode();
   if (aaMode != AntialiasMode::SUBPIXEL) {
     wr::FontInstanceOptions options;
-    options.render_mode =
-      aaMode == AntialiasMode::NONE ? wr::FontRenderMode::Mono : wr::FontRenderMode::Alpha;
+    options.render_mode = aaMode == AntialiasMode::NONE
+                              ? wr::FontRenderMode::Mono
+                              : wr::FontRenderMode::Alpha;
     options.subpx_dir = wr::SubpixelDirection::Horizontal;
     options.synthetic_italics = false;
     *aOutOptions = Some(options);
@@ -335,15 +367,17 @@ UnscaledFontDWrite::CreateScaledFont(Float aGlyphSize,
     return nullptr;
   }
 
-  const ScaledFontDWrite::InstanceData *instanceData =
-    reinterpret_cast<const ScaledFontDWrite::InstanceData*>(aInstanceData);
+  const ScaledFontDWrite::InstanceData* instanceData =
+      reinterpret_cast<const ScaledFontDWrite::InstanceData*>(aInstanceData);
   RefPtr<ScaledFontBase> scaledFont =
-    new ScaledFontDWrite(mFontFace, this, aGlyphSize,
-                         instanceData->mUseEmbeddedBitmap,
-                         instanceData->mForceGDIMode,
-                         nullptr,
-                         instanceData->mGamma,
-                         instanceData->mContrast);
+      new ScaledFontDWrite(mFontFace,
+                           this,
+                           aGlyphSize,
+                           instanceData->mUseEmbeddedBitmap,
+                           instanceData->mForceGDIMode,
+                           nullptr,
+                           instanceData->mGamma,
+                           instanceData->mContrast);
 
   if (mNeedsCairo && !scaledFont->PopulateCairoScaledFont()) {
     gfxWarning() << "Unable to create cairo scaled font DWrite font.";
@@ -377,6 +411,5 @@ ScaledFontDWrite::GetCairoFontFace()
   return cairo_dwrite_font_face_create_for_dwrite_fontface(nullptr, mFontFace);
 }
 #endif
-
 }
-}
+}  // namespace mozilla

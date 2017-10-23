@@ -38,10 +38,7 @@ struct TimeStampInitialization
     mFirstTimeStamp = TimeStamp::Now();
   };
 
-  ~TimeStampInitialization()
-  {
-    TimeStamp::Shutdown();
-  };
+  ~TimeStampInitialization() { TimeStamp::Shutdown(); };
 };
 
 static TimeStampInitialization sInitOnce;
@@ -93,4 +90,4 @@ TimeStamp::RecordProcessRestart()
   sInitOnce.mProcessCreation = TimeStamp();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

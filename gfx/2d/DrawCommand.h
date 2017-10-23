@@ -15,7 +15,8 @@
 namespace mozilla {
 namespace gfx {
 
-enum class CommandType : int8_t {
+enum class CommandType : int8_t
+{
   DRAWSURFACE = 0,
   DRAWFILTER,
   DRAWSURFACEWITHSHADOW,
@@ -43,32 +44,32 @@ enum class CommandType : int8_t {
 
 class DrawingCommand
 {
-public:
+ public:
   virtual ~DrawingCommand() {}
 
-  virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix* aTransform = nullptr) const = 0;
+  virtual void ExecuteOnDT(DrawTarget* aDT,
+                           const Matrix* aTransform = nullptr) const = 0;
 
-  virtual bool GetAffectedRect(Rect& aDeviceRect, const Matrix& aTransform) const { return false; }
+  virtual bool GetAffectedRect(Rect& aDeviceRect,
+                               const Matrix& aTransform) const
+  {
+    return false;
+  }
 
   CommandType GetType() { return mType; }
 
-protected:
-  explicit DrawingCommand(CommandType aType)
-    : mType(aType)
-  {
-  }
+ protected:
+  explicit DrawingCommand(CommandType aType) : mType(aType) {}
 
-private:
+ private:
   CommandType mType;
 };
 
 class StrokeOptionsCommand : public DrawingCommand
 {
-public:
-  StrokeOptionsCommand(CommandType aType,
-                       const StrokeOptions& aStrokeOptions)
-    : DrawingCommand(aType)
-    , mStrokeOptions(aStrokeOptions)
+ public:
+  StrokeOptionsCommand(CommandType aType, const StrokeOptions& aStrokeOptions)
+      : DrawingCommand(aType), mStrokeOptions(aStrokeOptions)
   {
     // Stroke Options dashes are owned by the caller.
     // Have to copy them here so they don't get freed
@@ -76,67 +77,59 @@ public:
     if (aStrokeOptions.mDashLength) {
       mDashes.resize(aStrokeOptions.mDashLength);
       mStrokeOptions.mDashPattern = &mDashes.front();
-      PodCopy(&mDashes.front(), aStrokeOptions.mDashPattern, mStrokeOptions.mDashLength);
+      PodCopy(&mDashes.front(),
+              aStrokeOptions.mDashPattern,
+              mStrokeOptions.mDashLength);
     }
   }
 
   virtual ~StrokeOptionsCommand() {}
 
-protected:
+ protected:
   StrokeOptions mStrokeOptions;
   std::vector<Float> mDashes;
 };
 
 class StoredPattern
 {
-public:
-  explicit StoredPattern(const Pattern& aPattern)
-  {
-    Assign(aPattern);
-  }
+ public:
+  explicit StoredPattern(const Pattern& aPattern) { Assign(aPattern); }
 
   void Assign(const Pattern& aPattern)
   {
     switch (aPattern.GetType()) {
-    case PatternType::COLOR:
-      new (mColor)ColorPattern(*static_cast<const ColorPattern*>(&aPattern));
-      return;
-    case PatternType::SURFACE:
-    {
-      SurfacePattern* surfPat = new (mSurface)SurfacePattern(*static_cast<const SurfacePattern*>(&aPattern));
-      surfPat->mSurface->GuaranteePersistance();
-      return;
-    }
-    case PatternType::LINEAR_GRADIENT:
-      new (mLinear)LinearGradientPattern(*static_cast<const LinearGradientPattern*>(&aPattern));
-      return;
-    case PatternType::RADIAL_GRADIENT:
-      new (mRadial)RadialGradientPattern(*static_cast<const RadialGradientPattern*>(&aPattern));
-      return;
+      case PatternType::COLOR:
+        new (mColor) ColorPattern(*static_cast<const ColorPattern*>(&aPattern));
+        return;
+      case PatternType::SURFACE: {
+        SurfacePattern* surfPat = new (mSurface)
+            SurfacePattern(*static_cast<const SurfacePattern*>(&aPattern));
+        surfPat->mSurface->GuaranteePersistance();
+        return;
+      }
+      case PatternType::LINEAR_GRADIENT:
+        new (mLinear) LinearGradientPattern(
+            *static_cast<const LinearGradientPattern*>(&aPattern));
+        return;
+      case PatternType::RADIAL_GRADIENT:
+        new (mRadial) RadialGradientPattern(
+            *static_cast<const RadialGradientPattern*>(&aPattern));
+        return;
     }
   }
 
-  ~StoredPattern()
-  {
-    reinterpret_cast<Pattern*>(mPattern)->~Pattern();
-  }
+  ~StoredPattern() { reinterpret_cast<Pattern*>(mPattern)->~Pattern(); }
 
-  operator Pattern&()
-  {
-    return *reinterpret_cast<Pattern*>(mPattern);
-  }
+  operator Pattern&() { return *reinterpret_cast<Pattern*>(mPattern); }
 
   operator const Pattern&() const
   {
     return *reinterpret_cast<const Pattern*>(mPattern);
   }
 
-  StoredPattern(const StoredPattern& aPattern)
-  {
-    Assign(aPattern);
-  }
+  StoredPattern(const StoredPattern& aPattern) { Assign(aPattern); }
 
-private:
+ private:
   StoredPattern operator=(const StoredPattern& aOther)
   {
     // Block this so that we notice if someone's doing excessive assigning.
@@ -154,14 +147,18 @@ private:
 
 class DrawSurfaceCommand : public DrawingCommand
 {
-public:
-  DrawSurfaceCommand(SourceSurface *aSurface, const Rect& aDest,
-                     const Rect& aSource, const DrawSurfaceOptions& aSurfOptions,
+ public:
+  DrawSurfaceCommand(SourceSurface* aSurface,
+                     const Rect& aDest,
+                     const Rect& aSource,
+                     const DrawSurfaceOptions& aSurfOptions,
                      const DrawOptions& aOptions)
-    : DrawingCommand(CommandType::DRAWSURFACE)
-    , mSurface(aSurface), mDest(aDest)
-    , mSource(aSource), mSurfOptions(aSurfOptions)
-    , mOptions(aOptions)
+      : DrawingCommand(CommandType::DRAWSURFACE),
+        mSurface(aSurface),
+        mDest(aDest),
+        mSource(aSource),
+        mSurfOptions(aSurfOptions),
+        mOptions(aOptions)
   {
   }
 
@@ -170,7 +167,7 @@ public:
     aDT->DrawSurface(mSurface, mDest, mSource, mSurfOptions, mOptions);
   }
 
-private:
+ private:
   RefPtr<SourceSurface> mSurface;
   Rect mDest;
   Rect mSource;
@@ -180,12 +177,16 @@ private:
 
 class DrawFilterCommand : public DrawingCommand
 {
-public:
-  DrawFilterCommand(FilterNode* aFilter, const Rect& aSourceRect,
-                    const Point& aDestPoint, const DrawOptions& aOptions)
-    : DrawingCommand(CommandType::DRAWSURFACE)
-    , mFilter(aFilter), mSourceRect(aSourceRect)
-    , mDestPoint(aDestPoint), mOptions(aOptions)
+ public:
+  DrawFilterCommand(FilterNode* aFilter,
+                    const Rect& aSourceRect,
+                    const Point& aDestPoint,
+                    const DrawOptions& aOptions)
+      : DrawingCommand(CommandType::DRAWSURFACE),
+        mFilter(aFilter),
+        mSourceRect(aSourceRect),
+        mDestPoint(aDestPoint),
+        mOptions(aOptions)
   {
   }
 
@@ -194,7 +195,7 @@ public:
     aDT->DrawFilter(mFilter, mSourceRect, mDestPoint, mOptions);
   }
 
-private:
+ private:
   RefPtr<FilterNode> mFilter;
   Rect mSourceRect;
   Point mDestPoint;
@@ -203,10 +204,9 @@ private:
 
 class ClearRectCommand : public DrawingCommand
 {
-public:
+ public:
   explicit ClearRectCommand(const Rect& aRect)
-    : DrawingCommand(CommandType::CLEARRECT)
-    , mRect(aRect)
+      : DrawingCommand(CommandType::CLEARRECT), mRect(aRect)
   {
   }
 
@@ -215,20 +215,20 @@ public:
     aDT->ClearRect(mRect);
   }
 
-private:
+ private:
   Rect mRect;
 };
 
 class CopySurfaceCommand : public DrawingCommand
 {
-public:
+ public:
   CopySurfaceCommand(SourceSurface* aSurface,
                      const IntRect& aSourceRect,
                      const IntPoint& aDestination)
-    : DrawingCommand(CommandType::COPYSURFACE)
-    , mSurface(aSurface)
-    , mSourceRect(aSourceRect)
-    , mDestination(aDestination)
+      : DrawingCommand(CommandType::COPYSURFACE),
+        mSurface(aSurface),
+        mSourceRect(aSourceRect),
+        mDestination(aDestination)
   {
   }
 
@@ -239,10 +239,11 @@ public:
     if (aTransform) {
       dest = aTransform->TransformPoint(dest);
     }
-    aDT->CopySurface(mSurface, mSourceRect, IntPoint(uint32_t(dest.x), uint32_t(dest.y)));
+    aDT->CopySurface(
+        mSurface, mSourceRect, IntPoint(uint32_t(dest.x), uint32_t(dest.y)));
   }
 
-private:
+ private:
   RefPtr<SourceSurface> mSurface;
   IntRect mSourceRect;
   IntPoint mDestination;
@@ -250,14 +251,14 @@ private:
 
 class FillRectCommand : public DrawingCommand
 {
-public:
+ public:
   FillRectCommand(const Rect& aRect,
                   const Pattern& aPattern,
                   const DrawOptions& aOptions)
-    : DrawingCommand(CommandType::FILLRECT)
-    , mRect(aRect)
-    , mPattern(aPattern)
-    , mOptions(aOptions)
+      : DrawingCommand(CommandType::FILLRECT),
+        mRect(aRect),
+        mPattern(aPattern),
+        mOptions(aOptions)
   {
   }
 
@@ -272,7 +273,7 @@ public:
     return true;
   }
 
-private:
+ private:
   Rect mRect;
   StoredPattern mPattern;
   DrawOptions mOptions;
@@ -280,15 +281,15 @@ private:
 
 class StrokeRectCommand : public StrokeOptionsCommand
 {
-public:
+ public:
   StrokeRectCommand(const Rect& aRect,
                     const Pattern& aPattern,
                     const StrokeOptions& aStrokeOptions,
                     const DrawOptions& aOptions)
-    : StrokeOptionsCommand(CommandType::STROKERECT, aStrokeOptions)
-    , mRect(aRect)
-    , mPattern(aPattern)
-    , mOptions(aOptions)
+      : StrokeOptionsCommand(CommandType::STROKERECT, aStrokeOptions),
+        mRect(aRect),
+        mPattern(aPattern),
+        mOptions(aOptions)
   {
   }
 
@@ -297,7 +298,7 @@ public:
     aDT->StrokeRect(mRect, mPattern, mStrokeOptions, mOptions);
   }
 
-private:
+ private:
   Rect mRect;
   StoredPattern mPattern;
   DrawOptions mOptions;
@@ -305,17 +306,17 @@ private:
 
 class StrokeLineCommand : public StrokeOptionsCommand
 {
-public:
+ public:
   StrokeLineCommand(const Point& aStart,
                     const Point& aEnd,
                     const Pattern& aPattern,
                     const StrokeOptions& aStrokeOptions,
                     const DrawOptions& aOptions)
-    : StrokeOptionsCommand(CommandType::STROKELINE, aStrokeOptions)
-    , mStart(aStart)
-    , mEnd(aEnd)
-    , mPattern(aPattern)
-    , mOptions(aOptions)
+      : StrokeOptionsCommand(CommandType::STROKELINE, aStrokeOptions),
+        mStart(aStart),
+        mEnd(aEnd),
+        mPattern(aPattern),
+        mOptions(aOptions)
   {
   }
 
@@ -324,7 +325,7 @@ public:
     aDT->StrokeLine(mStart, mEnd, mPattern, mStrokeOptions, mOptions);
   }
 
-private:
+ private:
   Point mStart;
   Point mEnd;
   StoredPattern mPattern;
@@ -333,14 +334,14 @@ private:
 
 class FillCommand : public DrawingCommand
 {
-public:
+ public:
   FillCommand(const Path* aPath,
               const Pattern& aPattern,
               const DrawOptions& aOptions)
-    : DrawingCommand(CommandType::FILL)
-    , mPath(const_cast<Path*>(aPath))
-    , mPattern(aPattern)
-    , mOptions(aOptions)
+      : DrawingCommand(CommandType::FILL),
+        mPath(const_cast<Path*>(aPath)),
+        mPattern(aPattern),
+        mOptions(aOptions)
   {
   }
 
@@ -355,7 +356,7 @@ public:
     return true;
   }
 
-private:
+ private:
   RefPtr<Path> mPath;
   StoredPattern mPattern;
   DrawOptions mOptions;
@@ -371,9 +372,9 @@ private:
 
 // The logic for this comes from _cairo_stroke_style_max_distance_from_path
 static Rect
-PathExtentsToMaxStrokeExtents(const StrokeOptions &aStrokeOptions,
-                              const Rect &aRect,
-                              const Matrix &aTransform)
+PathExtentsToMaxStrokeExtents(const StrokeOptions& aStrokeOptions,
+                              const Rect& aRect,
+                              const Matrix& aTransform)
 {
   double styleExpansionFactor = 0.5f;
 
@@ -401,18 +402,17 @@ PathExtentsToMaxStrokeExtents(const StrokeOptions &aStrokeOptions,
   return result;
 }
 
-
 class StrokeCommand : public StrokeOptionsCommand
 {
-public:
+ public:
   StrokeCommand(const Path* aPath,
                 const Pattern& aPattern,
                 const StrokeOptions& aStrokeOptions,
                 const DrawOptions& aOptions)
-    : StrokeOptionsCommand(CommandType::STROKE, aStrokeOptions)
-    , mPath(const_cast<Path*>(aPath))
-    , mPattern(aPattern)
-    , mOptions(aOptions)
+      : StrokeOptionsCommand(CommandType::STROKE, aStrokeOptions),
+        mPath(const_cast<Path*>(aPath)),
+        mPattern(aPattern),
+        mOptions(aOptions)
   {
   }
 
@@ -423,11 +423,12 @@ public:
 
   bool GetAffectedRect(Rect& aDeviceRect, const Matrix& aTransform) const
   {
-    aDeviceRect = PathExtentsToMaxStrokeExtents(mStrokeOptions, mPath->GetBounds(aTransform), aTransform);
+    aDeviceRect = PathExtentsToMaxStrokeExtents(
+        mStrokeOptions, mPath->GetBounds(aTransform), aTransform);
     return true;
   }
 
-private:
+ private:
   RefPtr<Path> mPath;
   StoredPattern mPattern;
   DrawOptions mOptions;
@@ -436,20 +437,22 @@ private:
 class FillGlyphsCommand : public DrawingCommand
 {
   friend class DrawTargetCaptureImpl;
-public:
+
+ public:
   FillGlyphsCommand(ScaledFont* aFont,
                     const GlyphBuffer& aBuffer,
                     const Pattern& aPattern,
                     const DrawOptions& aOptions,
                     const GlyphRenderingOptions* aRenderingOptions)
-    : DrawingCommand(CommandType::FILLGLYPHS)
-    , mFont(aFont)
-    , mPattern(aPattern)
-    , mOptions(aOptions)
-    , mRenderingOptions(const_cast<GlyphRenderingOptions*>(aRenderingOptions))
+      : DrawingCommand(CommandType::FILLGLYPHS),
+        mFont(aFont),
+        mPattern(aPattern),
+        mOptions(aOptions),
+        mRenderingOptions(const_cast<GlyphRenderingOptions*>(aRenderingOptions))
   {
     mGlyphs.resize(aBuffer.mNumGlyphs);
-    memcpy(&mGlyphs.front(), aBuffer.mGlyphs, sizeof(Glyph) * aBuffer.mNumGlyphs);
+    memcpy(
+        &mGlyphs.front(), aBuffer.mGlyphs, sizeof(Glyph) * aBuffer.mNumGlyphs);
   }
 
   virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const
@@ -460,7 +463,7 @@ public:
     aDT->FillGlyphs(mFont, buf, mPattern, mOptions, mRenderingOptions);
   }
 
-private:
+ private:
   RefPtr<ScaledFont> mFont;
   std::vector<Glyph> mGlyphs;
   StoredPattern mPattern;
@@ -471,21 +474,23 @@ private:
 class StrokeGlyphsCommand : public StrokeOptionsCommand
 {
   friend class DrawTargetCaptureImpl;
-public:
+
+ public:
   StrokeGlyphsCommand(ScaledFont* aFont,
                       const GlyphBuffer& aBuffer,
                       const Pattern& aPattern,
                       const StrokeOptions& aStrokeOptions,
                       const DrawOptions& aOptions,
                       const GlyphRenderingOptions* aRenderingOptions)
-    : StrokeOptionsCommand(CommandType::STROKEGLYPHS, aStrokeOptions)
-    , mFont(aFont)
-    , mPattern(aPattern)
-    , mOptions(aOptions)
-    , mRenderingOptions(const_cast<GlyphRenderingOptions*>(aRenderingOptions))
+      : StrokeOptionsCommand(CommandType::STROKEGLYPHS, aStrokeOptions),
+        mFont(aFont),
+        mPattern(aPattern),
+        mOptions(aOptions),
+        mRenderingOptions(const_cast<GlyphRenderingOptions*>(aRenderingOptions))
   {
     mGlyphs.resize(aBuffer.mNumGlyphs);
-    memcpy(&mGlyphs.front(), aBuffer.mGlyphs, sizeof(Glyph) * aBuffer.mNumGlyphs);
+    memcpy(
+        &mGlyphs.front(), aBuffer.mGlyphs, sizeof(Glyph) * aBuffer.mNumGlyphs);
   }
 
   virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const
@@ -493,10 +498,11 @@ public:
     GlyphBuffer buf;
     buf.mNumGlyphs = mGlyphs.size();
     buf.mGlyphs = &mGlyphs.front();
-    aDT->StrokeGlyphs(mFont, buf, mPattern, mStrokeOptions, mOptions, mRenderingOptions);
+    aDT->StrokeGlyphs(
+        mFont, buf, mPattern, mStrokeOptions, mOptions, mRenderingOptions);
   }
 
-private:
+ private:
   RefPtr<ScaledFont> mFont;
   std::vector<Glyph> mGlyphs;
   StoredPattern mPattern;
@@ -506,14 +512,14 @@ private:
 
 class MaskCommand : public DrawingCommand
 {
-public:
+ public:
   MaskCommand(const Pattern& aSource,
               const Pattern& aMask,
               const DrawOptions& aOptions)
-    : DrawingCommand(CommandType::MASK)
-    , mSource(aSource)
-    , mMask(aMask)
-    , mOptions(aOptions)
+      : DrawingCommand(CommandType::MASK),
+        mSource(aSource),
+        mMask(aMask),
+        mOptions(aOptions)
   {
   }
 
@@ -522,7 +528,7 @@ public:
     aDT->Mask(mSource, mMask, mOptions);
   }
 
-private:
+ private:
   StoredPattern mSource;
   StoredPattern mMask;
   DrawOptions mOptions;
@@ -530,16 +536,16 @@ private:
 
 class MaskSurfaceCommand : public DrawingCommand
 {
-public:
+ public:
   MaskSurfaceCommand(const Pattern& aSource,
                      const SourceSurface* aMask,
                      const Point& aOffset,
                      const DrawOptions& aOptions)
-    : DrawingCommand(CommandType::MASKSURFACE)
-    , mSource(aSource)
-    , mMask(const_cast<SourceSurface*>(aMask))
-    , mOffset(aOffset)
-    , mOptions(aOptions)
+      : DrawingCommand(CommandType::MASKSURFACE),
+        mSource(aSource),
+        mMask(const_cast<SourceSurface*>(aMask)),
+        mOffset(aOffset),
+        mOptions(aOptions)
   {
   }
 
@@ -548,7 +554,7 @@ public:
     aDT->MaskSurface(mSource, mMask, mOffset, mOptions);
   }
 
-private:
+ private:
   StoredPattern mSource;
   RefPtr<SourceSurface> mMask;
   Point mOffset;
@@ -557,10 +563,9 @@ private:
 
 class PushClipCommand : public DrawingCommand
 {
-public:
+ public:
   explicit PushClipCommand(const Path* aPath)
-    : DrawingCommand(CommandType::PUSHCLIP)
-    , mPath(const_cast<Path*>(aPath))
+      : DrawingCommand(CommandType::PUSHCLIP), mPath(const_cast<Path*>(aPath))
   {
   }
 
@@ -569,16 +574,15 @@ public:
     aDT->PushClip(mPath);
   }
 
-private:
+ private:
   RefPtr<Path> mPath;
 };
 
 class PushClipRectCommand : public DrawingCommand
 {
-public:
+ public:
   explicit PushClipRectCommand(const Rect& aRect)
-    : DrawingCommand(CommandType::PUSHCLIPRECT)
-    , mRect(aRect)
+      : DrawingCommand(CommandType::PUSHCLIPRECT), mRect(aRect)
   {
   }
 
@@ -587,36 +591,36 @@ public:
     aDT->PushClipRect(mRect);
   }
 
-private:
+ private:
   Rect mRect;
 };
 
 class PushLayerCommand : public DrawingCommand
 {
-public:
+ public:
   PushLayerCommand(const bool aOpaque,
                    const Float aOpacity,
                    SourceSurface* aMask,
                    const Matrix& aMaskTransform,
                    const IntRect& aBounds,
                    bool aCopyBackground)
-    : DrawingCommand(CommandType::PUSHLAYER)
-    , mOpaque(aOpaque)
-    , mOpacity(aOpacity)
-    , mMask(aMask)
-    , mMaskTransform(aMaskTransform)
-    , mBounds(aBounds)
-    , mCopyBackground(aCopyBackground)
+      : DrawingCommand(CommandType::PUSHLAYER),
+        mOpaque(aOpaque),
+        mOpacity(aOpacity),
+        mMask(aMask),
+        mMaskTransform(aMaskTransform),
+        mBounds(aBounds),
+        mCopyBackground(aCopyBackground)
   {
   }
 
   virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const
   {
-    aDT->PushLayer(mOpaque, mOpacity, mMask,
-                   mMaskTransform, mBounds, mCopyBackground);
+    aDT->PushLayer(
+        mOpaque, mOpacity, mMask, mMaskTransform, mBounds, mCopyBackground);
   }
 
-private:
+ private:
   bool mOpaque;
   float mOpacity;
   RefPtr<SourceSurface> mMask;
@@ -627,11 +631,8 @@ private:
 
 class PopClipCommand : public DrawingCommand
 {
-public:
-  PopClipCommand()
-    : DrawingCommand(CommandType::POPCLIP)
-  {
-  }
+ public:
+  PopClipCommand() : DrawingCommand(CommandType::POPCLIP) {}
 
   virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const
   {
@@ -641,11 +642,8 @@ public:
 
 class PopLayerCommand : public DrawingCommand
 {
-public:
-  PopLayerCommand()
-    : DrawingCommand(CommandType::POPLAYER)
-  {
-  }
+ public:
+  PopLayerCommand() : DrawingCommand(CommandType::POPLAYER) {}
 
   virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const
   {
@@ -656,10 +654,10 @@ public:
 class SetTransformCommand : public DrawingCommand
 {
   friend class DrawTargetCaptureImpl;
-public:
+
+ public:
   explicit SetTransformCommand(const Matrix& aTransform)
-    : DrawingCommand(CommandType::SETTRANSFORM)
-    , mTransform(aTransform)
+      : DrawingCommand(CommandType::SETTRANSFORM), mTransform(aTransform)
   {
   }
 
@@ -672,17 +670,18 @@ public:
     }
   }
 
-private:
+ private:
   Matrix mTransform;
 };
 
 class SetPermitSubpixelAACommand : public DrawingCommand
 {
   friend class DrawTargetCaptureImpl;
-public:
+
+ public:
   explicit SetPermitSubpixelAACommand(bool aPermitSubpixelAA)
-    : DrawingCommand(CommandType::SETPERMITSUBPIXELAA)
-    , mPermitSubpixelAA(aPermitSubpixelAA)
+      : DrawingCommand(CommandType::SETPERMITSUBPIXELAA),
+        mPermitSubpixelAA(aPermitSubpixelAA)
   {
   }
 
@@ -691,17 +690,14 @@ public:
     aDT->SetPermitSubpixelAA(mPermitSubpixelAA);
   }
 
-private:
+ private:
   bool mPermitSubpixelAA;
 };
 
 class FlushCommand : public DrawingCommand
 {
-public:
-  explicit FlushCommand()
-    : DrawingCommand(CommandType::FLUSH)
-  {
-  }
+ public:
+  explicit FlushCommand() : DrawingCommand(CommandType::FLUSH) {}
 
   virtual void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const
   {
@@ -709,8 +705,8 @@ public:
   }
 };
 
-} // namespace gfx
+}  // namespace gfx
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_DRAWCOMMAND_H_ */

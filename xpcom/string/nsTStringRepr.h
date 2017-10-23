@@ -7,37 +7,44 @@
 #ifndef nsTStringRepr_h
 #define nsTStringRepr_h
 
-#include <type_traits> // std::enable_if
+#include <type_traits>  // std::enable_if
 
 #include "nsStringFlags.h"
 #include "nsCharTraits.h"
 
-template <typename T> class nsTSubstringTuple;
-template <typename T> class nsTLiteralString;
+template<typename T>
+class nsTSubstringTuple;
+template<typename T>
+class nsTLiteralString;
 
 // The base for string comparators
-template <typename T> class nsTStringComparator
+template<typename T>
+class nsTStringComparator
 {
-public:
+ public:
   typedef T char_type;
 
   nsTStringComparator() {}
 
-  virtual int operator()(const char_type*, const char_type*,
-                         uint32_t, uint32_t) const = 0;
+  virtual int operator()(const char_type*,
+                         const char_type*,
+                         uint32_t,
+                         uint32_t) const = 0;
 };
 
 // The default string comparator (case-sensitive comparision)
-template <typename T> class nsTDefaultStringComparator
-  : public nsTStringComparator<T>
+template<typename T>
+class nsTDefaultStringComparator : public nsTStringComparator<T>
 {
-public:
+ public:
   typedef T char_type;
 
   nsTDefaultStringComparator() {}
 
-  virtual int operator()(const char_type*, const char_type*,
-                         uint32_t, uint32_t) const override;
+  virtual int operator()(const char_type*,
+                         const char_type*,
+                         uint32_t,
+                         uint32_t) const override;
 };
 
 extern template class nsTDefaultStringComparator<char>;
@@ -68,11 +75,13 @@ namespace mozilla {
 // Please note that we had to use a separate type `Q` for this to work. You
 // will get a semi-decent compiler error if you use `T` directly.
 
-template <typename CharType> using CharOnlyT =
-  typename std::enable_if<std::is_same<char, CharType>::value>::type;
+template<typename CharType>
+using CharOnlyT =
+    typename std::enable_if<std::is_same<char, CharType>::value>::type;
 
-template <typename CharType> using Char16OnlyT =
-  typename std::enable_if<std::is_same<char16_t, CharType>::value>::type;
+template<typename CharType>
+using Char16OnlyT =
+    typename std::enable_if<std::is_same<char16_t, CharType>::value>::type;
 
 namespace detail {
 
@@ -90,9 +99,10 @@ namespace detail {
 // NAMES:
 //   nsStringRepr for wide characters
 //   nsCStringRepr for narrow characters
-template <typename T> class nsTStringRepr
+template<typename T>
+class nsTStringRepr
 {
-public:
+ public:
   typedef mozilla::fallible_t fallible_t;
 
   typedef T char_type;
@@ -123,14 +133,8 @@ public:
   typedef StringClassFlags ClassFlags;
 
   // Reading iterators.
-  const_char_iterator BeginReading() const
-  {
-    return mData;
-  }
-  const_char_iterator EndReading() const
-  {
-    return mData + mLength;
-  }
+  const_char_iterator BeginReading() const { return mData; }
+  const_char_iterator EndReading() const { return mData + mLength; }
 
   // Deprecated reading iterators.
   const_iterator& BeginReading(const_iterator& aIter) const
@@ -160,46 +164,33 @@ public:
   }
 
   // Accessors.
-  template <typename U, typename Dummy> struct raw_type { typedef const U* type; };
+  template<typename U, typename Dummy>
+  struct raw_type
+  {
+    typedef const U* type;
+  };
 #if defined(MOZ_USE_CHAR16_WRAPPER)
-  template <typename Dummy> struct raw_type<char16_t, Dummy> { typedef char16ptr_t type; };
+  template<typename Dummy>
+  struct raw_type<char16_t, Dummy>
+  {
+    typedef char16ptr_t type;
+  };
 #endif
 
   // Returns pointer to string data (not necessarily null-terminated)
-  const typename raw_type<T, int>::type Data() const
-  {
-    return mData;
-  }
+  const typename raw_type<T, int>::type Data() const { return mData; }
 
-  size_type Length() const
-  {
-    return mLength;
-  }
+  size_type Length() const { return mLength; }
 
-  DataFlags GetDataFlags() const
-  {
-    return mDataFlags;
-  }
+  DataFlags GetDataFlags() const { return mDataFlags; }
 
-  bool IsEmpty() const
-  {
-    return mLength == 0;
-  }
+  bool IsEmpty() const { return mLength == 0; }
 
-  bool IsLiteral() const
-  {
-    return !!(mDataFlags & DataFlags::LITERAL);
-  }
+  bool IsLiteral() const { return !!(mDataFlags & DataFlags::LITERAL); }
 
-  bool IsVoid() const
-  {
-    return !!(mDataFlags & DataFlags::VOIDED);
-  }
+  bool IsVoid() const { return !!(mDataFlags & DataFlags::VOIDED); }
 
-  bool IsTerminated() const
-  {
-    return !!(mDataFlags & DataFlags::TERMINATED);
-  }
+  bool IsTerminated() const { return !!(mDataFlags & DataFlags::TERMINATED); }
 
   char_type CharAt(index_type aIndex) const
   {
@@ -207,10 +198,7 @@ public:
     return mData[aIndex];
   }
 
-  char_type operator[](index_type aIndex) const
-  {
-    return CharAt(aIndex);
-  }
+  char_type operator[](index_type aIndex) const { return CharAt(aIndex); }
 
   char_type First() const;
 
@@ -237,12 +225,12 @@ public:
                           const comparator_type& aComp) const;
 
 #if defined(MOZ_USE_CHAR16_WRAPPER)
-  template <typename Q = T, typename EnableIfChar16 = Char16OnlyT<Q>>
+  template<typename Q = T, typename EnableIfChar16 = Char16OnlyT<Q>>
   bool NS_FASTCALL Equals(char16ptr_t aData) const
   {
     return Equals(static_cast<const char16_t*>(aData));
   }
-  template <typename Q = T, typename EnableIfChar16 = Char16OnlyT<Q>>
+  template<typename Q = T, typename EnableIfChar16 = Char16OnlyT<Q>>
   bool NS_FASTCALL Equals(char16ptr_t aData, const comparator_type& aComp) const
   {
     return Equals(static_cast<const char16_t*>(aData), aComp);
@@ -294,25 +282,26 @@ public:
   // Returns true if this string overlaps with the given string fragment.
   bool IsDependentOn(const char_type* aStart, const char_type* aEnd) const
   {
-     // If it _isn't_ the case that one fragment starts after the other ends,
-     // or ends before the other starts, then, they conflict:
-     //
-     //   !(f2.begin >= f1.aEnd || f2.aEnd <= f1.begin)
-     //
-     // Simplified, that gives us:
+    // If it _isn't_ the case that one fragment starts after the other ends,
+    // or ends before the other starts, then, they conflict:
+    //
+    //   !(f2.begin >= f1.aEnd || f2.aEnd <= f1.begin)
+    //
+    // Simplified, that gives us:
     return (aStart < (mData + mLength) && aEnd > mData);
   }
 
-protected:
-  nsTStringRepr() = delete; // Never instantiate directly
+ protected:
+  nsTStringRepr() = delete;  // Never instantiate directly
 
-  constexpr
-  nsTStringRepr(char_type* aData, size_type aLength,
-               DataFlags aDataFlags, ClassFlags aClassFlags)
-    : mData(aData)
-    , mLength(aLength)
-    , mDataFlags(aDataFlags)
-    , mClassFlags(aClassFlags)
+  constexpr nsTStringRepr(char_type* aData,
+                          size_type aLength,
+                          DataFlags aDataFlags,
+                          ClassFlags aClassFlags)
+      : mData(aData),
+        mLength(aLength),
+        mDataFlags(aDataFlags),
+        mClassFlags(aClassFlags)
   {
   }
 
@@ -325,16 +314,16 @@ protected:
 extern template class nsTStringRepr<char>;
 extern template class nsTStringRepr<char16_t>;
 
-} // namespace detail
-} // namespace mozilla
+}  // namespace detail
+}  // namespace mozilla
 
-template <typename T>
+template<typename T>
 int NS_FASTCALL
 Compare(const mozilla::detail::nsTStringRepr<T>& aLhs,
         const mozilla::detail::nsTStringRepr<T>& aRhs,
         const nsTStringComparator<T>& = nsTDefaultStringComparator<T>());
 
-template <typename T>
+template<typename T>
 inline bool
 operator!=(const mozilla::detail::nsTStringRepr<T>& aLhs,
            const mozilla::detail::nsTStringRepr<T>& aRhs)
@@ -342,15 +331,14 @@ operator!=(const mozilla::detail::nsTStringRepr<T>& aLhs,
   return !aLhs.Equals(aRhs);
 }
 
-template <typename T>
+template<typename T>
 inline bool
-operator!=(const mozilla::detail::nsTStringRepr<T>& aLhs,
-           const T* aRhs)
+operator!=(const mozilla::detail::nsTStringRepr<T>& aLhs, const T* aRhs)
 {
   return !aLhs.Equals(aRhs);
 }
 
-template <typename T>
+template<typename T>
 inline bool
 operator<(const mozilla::detail::nsTStringRepr<T>& aLhs,
           const mozilla::detail::nsTStringRepr<T>& aRhs)
@@ -358,7 +346,7 @@ operator<(const mozilla::detail::nsTStringRepr<T>& aLhs,
   return Compare(aLhs, aRhs) < 0;
 }
 
-template <typename T>
+template<typename T>
 inline bool
 operator<=(const mozilla::detail::nsTStringRepr<T>& aLhs,
            const mozilla::detail::nsTStringRepr<T>& aRhs)
@@ -366,7 +354,7 @@ operator<=(const mozilla::detail::nsTStringRepr<T>& aLhs,
   return Compare(aLhs, aRhs) <= 0;
 }
 
-template <typename T>
+template<typename T>
 inline bool
 operator==(const mozilla::detail::nsTStringRepr<T>& aLhs,
            const mozilla::detail::nsTStringRepr<T>& aRhs)
@@ -374,15 +362,14 @@ operator==(const mozilla::detail::nsTStringRepr<T>& aLhs,
   return aLhs.Equals(aRhs);
 }
 
-template <typename T>
+template<typename T>
 inline bool
-operator==(const mozilla::detail::nsTStringRepr<T>& aLhs,
-           const T* aRhs)
+operator==(const mozilla::detail::nsTStringRepr<T>& aLhs, const T* aRhs)
 {
   return aLhs.Equals(aRhs);
 }
 
-template <typename T>
+template<typename T>
 inline bool
 operator>=(const mozilla::detail::nsTStringRepr<T>& aLhs,
            const mozilla::detail::nsTStringRepr<T>& aRhs)
@@ -390,7 +377,7 @@ operator>=(const mozilla::detail::nsTStringRepr<T>& aLhs,
   return Compare(aLhs, aRhs) >= 0;
 }
 
-template <typename T>
+template<typename T>
 inline bool
 operator>(const mozilla::detail::nsTStringRepr<T>& aLhs,
           const mozilla::detail::nsTStringRepr<T>& aRhs)

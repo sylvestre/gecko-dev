@@ -33,7 +33,8 @@ class HTMLMediaElement;
 
 typedef nsRefPtrHashtable<nsStringHashKey, MediaKeySession> KeySessionHashMap;
 typedef nsRefPtrHashtable<nsUint32HashKey, dom::DetailedPromise> PromiseHashMap;
-typedef nsRefPtrHashtable<nsUint32HashKey, MediaKeySession> PendingKeySessionsHashMap;
+typedef nsRefPtrHashtable<nsUint32HashKey, MediaKeySession>
+    PendingKeySessionsHashMap;
 typedef nsDataHashtable<nsUint32HashKey, uint32_t> PendingPromiseIdTokenHashMap;
 typedef uint32_t PromiseId;
 
@@ -45,7 +46,7 @@ class MediaKeys final : public nsISupports,
 {
   ~MediaKeys();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaKeys)
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(MediaKeys)
@@ -58,7 +59,8 @@ public:
 
   nsPIDOMWindowInner* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   nsresult Bind(HTMLMediaElement* aElement);
   void Unbind();
@@ -67,14 +69,12 @@ public:
   void GetKeySystem(nsString& retval) const;
 
   // JavaScript: MediaKeys.createSession()
-  already_AddRefed<MediaKeySession> CreateSession(JSContext* aCx,
-                                                  MediaKeySessionType aSessionType,
-                                                  ErrorResult& aRv);
+  already_AddRefed<MediaKeySession> CreateSession(
+      JSContext* aCx, MediaKeySessionType aSessionType, ErrorResult& aRv);
 
   // JavaScript: MediaKeys.SetServerCertificate()
-  already_AddRefed<DetailedPromise>
-    SetServerCertificate(const ArrayBufferViewOrArrayBuffer& aServerCertificate,
-                         ErrorResult& aRv);
+  already_AddRefed<DetailedPromise> SetServerCertificate(
+      const ArrayBufferViewOrArrayBuffer& aServerCertificate, ErrorResult& aRv);
 
   already_AddRefed<MediaKeySession> GetSession(const nsAString& aSessionId);
 
@@ -114,7 +114,8 @@ public:
   void ConnectPendingPromiseIdWithToken(PromiseId aId, uint32_t aToken);
 
   // Reject promise with DOMException corresponding to aExceptionCode.
-  void RejectPromise(PromiseId aId, nsresult aExceptionCode,
+  void RejectPromise(PromiseId aId,
+                     nsresult aExceptionCode,
                      const nsCString& aReason);
   // Resolves promise with "undefined".
   void ResolvePromise(PromiseId aId);
@@ -130,8 +131,7 @@ public:
 
   void GetSessionsInfo(nsString& sessionsInfo);
 
-private:
-
+ private:
   // Instantiate CDMProxy instance.
   // It could be MediaDrmCDMProxy (Widevine on Fennec) or ChromiumCDMProxy (the rest).
   already_AddRefed<CDMProxy> CreateCDMProxy(nsIEventTarget* aMainThread);
@@ -160,7 +160,7 @@ private:
   PendingPromiseIdTokenHashMap mPromiseIdToken;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mediakeys_h__
+#endif  // mozilla_dom_mediakeys_h__

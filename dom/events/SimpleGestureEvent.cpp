@@ -14,10 +14,11 @@ namespace dom {
 SimpleGestureEvent::SimpleGestureEvent(EventTarget* aOwner,
                                        nsPresContext* aPresContext,
                                        WidgetSimpleGestureEvent* aEvent)
-  : MouseEvent(aOwner, aPresContext,
-               aEvent ? aEvent :
-                        new WidgetSimpleGestureEvent(false, eVoidEvent,
-                                                     nullptr))
+    : MouseEvent(aOwner,
+                 aPresContext,
+                 aEvent
+                     ? aEvent
+                     : new WidgetSimpleGestureEvent(false, eVoidEvent, nullptr))
 {
   NS_ASSERTION(mEvent->mClass == eSimpleGestureEventClass,
                "event type mismatch");
@@ -29,7 +30,7 @@ SimpleGestureEvent::SimpleGestureEvent(EventTarget* aOwner,
     mEvent->mTime = PR_Now();
     mEvent->mRefPoint = LayoutDeviceIntPoint(0, 0);
     static_cast<WidgetMouseEventBase*>(mEvent)->inputSource =
-      nsIDOMMouseEvent::MOZ_SOURCE_UNKNOWN;
+        nsIDOMMouseEvent::MOZ_SOURCE_UNKNOWN;
   }
 }
 
@@ -126,11 +127,21 @@ SimpleGestureEvent::InitSimpleGestureEvent(const nsAString& aTypeArg,
 {
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
 
-  MouseEvent::InitMouseEvent(aTypeArg, aCanBubbleArg, aCancelableArg,
-                             aViewArg, aDetailArg,
-                             aScreenX, aScreenY, aClientX, aClientY,
-                             aCtrlKeyArg, aAltKeyArg, aShiftKeyArg,
-                             aMetaKeyArg, aButton, aRelatedTarget);
+  MouseEvent::InitMouseEvent(aTypeArg,
+                             aCanBubbleArg,
+                             aCancelableArg,
+                             aViewArg,
+                             aDetailArg,
+                             aScreenX,
+                             aScreenY,
+                             aClientX,
+                             aClientY,
+                             aCtrlKeyArg,
+                             aAltKeyArg,
+                             aShiftKeyArg,
+                             aMetaKeyArg,
+                             aButton,
+                             aRelatedTarget);
 
   WidgetSimpleGestureEvent* simpleGestureEvent = mEvent->AsSimpleGestureEvent();
   simpleGestureEvent->mAllowedDirections = aAllowedDirectionsArg;
@@ -139,8 +150,8 @@ SimpleGestureEvent::InitSimpleGestureEvent(const nsAString& aTypeArg,
   simpleGestureEvent->mClickCount = aClickCountArg;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -151,6 +162,6 @@ NS_NewDOMSimpleGestureEvent(EventTarget* aOwner,
                             WidgetSimpleGestureEvent* aEvent)
 {
   RefPtr<SimpleGestureEvent> it =
-    new SimpleGestureEvent(aOwner, aPresContext, aEvent);
+      new SimpleGestureEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

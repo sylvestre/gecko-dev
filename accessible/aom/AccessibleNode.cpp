@@ -31,15 +31,13 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(AccessibleNode)
 AccessibleNode::AccessibleNode(nsINode* aNode) : mDOMNode(aNode)
 {
   DocAccessible* doc =
-    GetOrCreateAccService()->GetDocAccessible(mDOMNode->OwnerDoc());
+      GetOrCreateAccService()->GetDocAccessible(mDOMNode->OwnerDoc());
   if (doc) {
     mIntl = doc->GetAccessible(mDOMNode);
   }
 }
 
-AccessibleNode::~AccessibleNode()
-{
-}
+AccessibleNode::~AccessibleNode() {}
 
 /* virtual */ JSObject*
 AccessibleNode::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -108,7 +106,8 @@ AccessibleNode::Is(const Sequence<nsString>& aFlavors)
 {
   if (!mIntl) {
     for (const auto& flavor : aFlavors) {
-      if (!flavor.EqualsLiteral("unknown") && !flavor.EqualsLiteral("defunct")) {
+      if (!flavor.EqualsLiteral("unknown") &&
+          !flavor.EqualsLiteral("defunct")) {
         return false;
       }
     }
@@ -148,7 +147,8 @@ AccessibleNode::Has(const Sequence<nsString>& aAttributes)
 }
 
 void
-AccessibleNode::Get(JSContext* aCX, const nsAString& aAttribute,
+AccessibleNode::Get(JSContext* aCX,
+                    const nsAString& aAttribute,
                     JS::MutableHandle<JS::Value> aValue,
                     ErrorResult& aRv)
 {

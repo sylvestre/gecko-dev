@@ -16,18 +16,14 @@ using namespace mozilla::gfx;
 
 static VideoBridgeParent* sVideoBridgeSingleton;
 
-VideoBridgeParent::VideoBridgeParent()
-  : mClosed(false)
+VideoBridgeParent::VideoBridgeParent() : mClosed(false)
 {
   mSelfRef = this;
   sVideoBridgeSingleton = this;
   mCompositorThreadRef = CompositorThreadHolder::GetSingleton();
 }
 
-VideoBridgeParent::~VideoBridgeParent()
-{
-  sVideoBridgeSingleton = nullptr;
-}
+VideoBridgeParent::~VideoBridgeParent() { sVideoBridgeSingleton = nullptr; }
 
 /* static */ VideoBridgeParent*
 VideoBridgeParent::GetSingleton()
@@ -61,8 +57,8 @@ VideoBridgeParent::AllocPTextureParent(const SurfaceDescriptor& aSharedData,
                                        const TextureFlags& aFlags,
                                        const uint64_t& aSerial)
 {
-  PTextureParent* parent =
-    TextureHost::CreateIPDLActor(this, aSharedData, aLayersBackend, aFlags, aSerial, Nothing());
+  PTextureParent* parent = TextureHost::CreateIPDLActor(
+      this, aSharedData, aLayersBackend, aFlags, aSerial, Nothing());
   mTextureMap[aSerial] = parent;
   return parent;
 }
@@ -75,7 +71,8 @@ VideoBridgeParent::DeallocPTextureParent(PTextureParent* actor)
 }
 
 void
-VideoBridgeParent::SendAsyncMessage(const InfallibleTArray<AsyncParentMessageData>& aMessage)
+VideoBridgeParent::SendAsyncMessage(
+    const InfallibleTArray<AsyncParentMessageData>& aMessage)
 {
   MOZ_ASSERT(false, "AsyncMessages not supported");
 }
@@ -118,9 +115,10 @@ VideoBridgeParent::IsSameProcess() const
 }
 
 void
-VideoBridgeParent::NotifyNotUsed(PTextureParent* aTexture, uint64_t aTransactionId)
+VideoBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
+                                 uint64_t aTransactionId)
 {
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

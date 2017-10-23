@@ -22,24 +22,29 @@ typedef void (*nsMediaFeatureValueGetter)(nsPresContext* aPresContext,
 
 struct nsMediaFeature
 {
-  nsAtom **mName; // extra indirection to point to nsGkAtoms members
+  nsAtom** mName;  // extra indirection to point to nsGkAtoms members
 
-  enum RangeType { eMinMaxAllowed, eMinMaxNotAllowed };
+  enum RangeType
+  {
+    eMinMaxAllowed,
+    eMinMaxNotAllowed
+  };
   RangeType mRangeType;
 
-  enum ValueType {
+  enum ValueType
+  {
     // All value types allow eCSSUnit_Null to indicate that no value
     // was given (in addition to the types listed below).
-    eLength,     // values are eCSSUnit_Pixel
-    eInteger,    // values are eCSSUnit_Integer
-    eFloat,      // values are eCSSUnit_Number
-    eBoolInteger,// values are eCSSUnit_Integer (0, -0, or 1 only)
-    eIntRatio,   // values are eCSSUnit_Array of two eCSSUnit_Integer
-    eResolution, // values are in eCSSUnit_Inch (for dpi),
-                 //   eCSSUnit_Pixel (for dppx), or
-                 //   eCSSUnit_Centimeter (for dpcm)
-    eEnumerated, // values are eCSSUnit_Enumerated (uses keyword table)
-    eIdent       // values are eCSSUnit_Ident
+    eLength,       // values are eCSSUnit_Pixel
+    eInteger,      // values are eCSSUnit_Integer
+    eFloat,        // values are eCSSUnit_Number
+    eBoolInteger,  // values are eCSSUnit_Integer (0, -0, or 1 only)
+    eIntRatio,     // values are eCSSUnit_Array of two eCSSUnit_Integer
+    eResolution,   // values are in eCSSUnit_Inch (for dpi),
+                   //   eCSSUnit_Pixel (for dppx), or
+                   //   eCSSUnit_Centimeter (for dpcm)
+    eEnumerated,   // values are eCSSUnit_Enumerated (uses keyword table)
+    eIdent         // values are eCSSUnit_Ident
     // Note that a number of pieces of code (both for parsing and
     // for matching of valueless expressions) assume that all numeric
     // value types cannot be negative.  The parsing code also does
@@ -47,12 +52,13 @@ struct nsMediaFeature
   };
   ValueType mValueType;
 
-  enum RequirementFlags : uint8_t {
+  enum RequirementFlags : uint8_t
+  {
     // Bitfield of requirements that must be satisfied in order for this
     // media feature to be active.
     eNoRequirements = 0,
-    eHasWebkitPrefix = 1 << 0, // Feature name must start w/ "-webkit-", even
-                               // before any "min-"/"max-" qualifier.
+    eHasWebkitPrefix = 1 << 0,  // Feature name must start w/ "-webkit-", even
+                                // before any "min-"/"max-" qualifier.
 
     // Feature is only supported if the pref
     // "layout.css.prefixes.device-pixel-ratio-webkit" is enabled.
@@ -73,7 +79,7 @@ struct nsMediaFeature
     const nsCSSProps::KTableEntry* mKeywordTable;
     // If mGetter == GetSystemMetric (which implies mValueType ==
     //   eBoolInteger): nsAtom * const *, for the system metric.
-    nsAtom * const * mMetric;
+    nsAtom* const* mMetric;
   } mData;
 
   // A function that returns the current value for this feature for a
@@ -84,7 +90,7 @@ struct nsMediaFeature
 
 class nsMediaFeatures
 {
-public:
+ public:
   // Terminated with an entry whose mName is null.
   static const nsMediaFeature features[];
 };

@@ -33,7 +33,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-
 /* Each OMX header must include all required header files to allow the
  *  header to compile without errors.  The includes below are required
  *  for this header file to compile successfully
@@ -41,50 +40,55 @@ extern "C" {
 
 #include <OMX_Core.h>
 
-
 /**
  * Enumeration of possible data types which match to multiple domains or no
  * domain at all.  For types which are vendor specific, a value above
  * OMX_OTHER_VENDORTSTART should be used.
  */
 typedef enum OMX_OTHER_FORMATTYPE {
-    OMX_OTHER_FormatTime = 0, /**< Transmission of various timestamps, elapsed time,
+  OMX_OTHER_FormatTime =
+      0,                  /**< Transmission of various timestamps, elapsed time,
                                    time deltas, etc */
-    OMX_OTHER_FormatPower,    /**< Perhaps used for enabling/disabling power
+  OMX_OTHER_FormatPower,  /**< Perhaps used for enabling/disabling power
                                    management, setting clocks? */
-    OMX_OTHER_FormatStats,    /**< Could be things such as frame rate, frames
+  OMX_OTHER_FormatStats,  /**< Could be things such as frame rate, frames
                                    dropped, etc */
-    OMX_OTHER_FormatBinary,   /**< Arbitrary binary data */
-    OMX_OTHER_FormatVendorReserved = 1000, /**< Starting value for vendor specific
+  OMX_OTHER_FormatBinary, /**< Arbitrary binary data */
+  OMX_OTHER_FormatVendorReserved = 1000, /**< Starting value for vendor specific
                                                 formats */
 
-    OMX_OTHER_FormatKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
-    OMX_OTHER_FormatVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
-    OMX_OTHER_FormatMax = 0x7FFFFFFF
+  OMX_OTHER_FormatKhronosExtensions =
+      0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
+  OMX_OTHER_FormatVendorStartUnused =
+      0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+  OMX_OTHER_FormatMax = 0x7FFFFFFF
 } OMX_OTHER_FORMATTYPE;
 
 /**
  * Enumeration of seek modes.
  */
 typedef enum OMX_TIME_SEEKMODETYPE {
-    OMX_TIME_SeekModeFast = 0, /**< Prefer seeking to an approximation
+  OMX_TIME_SeekModeFast = 0, /**< Prefer seeking to an approximation
                                 * of the requested seek position over
                                 * the actual seek position if it
                                 * results in a faster seek. */
-    OMX_TIME_SeekModeAccurate, /**< Prefer seeking to the actual seek
+  OMX_TIME_SeekModeAccurate, /**< Prefer seeking to the actual seek
                                 * position over an approximation
                                 * of the requested seek position even
                                 * if it results in a slower seek. */
-    OMX_TIME_SeekModeKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
-    OMX_TIME_SeekModeVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
-    OMX_TIME_SeekModeMax = 0x7FFFFFFF
+  OMX_TIME_SeekModeKhronosExtensions =
+      0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
+  OMX_TIME_SeekModeVendorStartUnused =
+      0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+  OMX_TIME_SeekModeMax = 0x7FFFFFFF
 } OMX_TIME_SEEKMODETYPE;
 
 /* Structure representing the seekmode of the component */
-typedef struct OMX_TIME_CONFIG_SEEKMODETYPE {
-    OMX_U32 nSize;                  /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;       /**< OMX specification version information */
-    OMX_TIME_SEEKMODETYPE eType;    /**< The seek mode */
+typedef struct OMX_TIME_CONFIG_SEEKMODETYPE
+{
+  OMX_U32 nSize;               /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion;    /**< OMX specification version information */
+  OMX_TIME_SEEKMODETYPE eType; /**< The seek mode */
 } OMX_TIME_CONFIG_SEEKMODETYPE;
 
 /** Structure representing a time stamp used with the following configs
@@ -109,44 +113,51 @@ typedef struct OMX_TIME_CONFIG_SEEKMODETYPE {
  * (GetConfig) or commanding a component to seek to the given location
  * (SetConfig)
  */
-typedef struct OMX_TIME_CONFIG_TIMESTAMPTYPE {
-    OMX_U32 nSize;               /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;    /**< OMX specification version
+typedef struct OMX_TIME_CONFIG_TIMESTAMPTYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version
                                   *   information */
-    OMX_U32 nPortIndex;     /**< port that this structure applies to */
-    OMX_TICKS nTimestamp;  	     /**< timestamp .*/
+  OMX_U32 nPortIndex;       /**< port that this structure applies to */
+  OMX_TICKS nTimestamp;     /**< timestamp .*/
 } OMX_TIME_CONFIG_TIMESTAMPTYPE;
 
 /** Enumeration of possible reference clocks to the media time. */
 typedef enum OMX_TIME_UPDATETYPE {
-      OMX_TIME_UpdateRequestFulfillment,    /**< Update is the fulfillment of a media time request. */
-      OMX_TIME_UpdateScaleChanged,	        /**< Update was generated because the scale chagned. */
-      OMX_TIME_UpdateClockStateChanged,     /**< Update was generated because the clock state changed. */
-      OMX_TIME_UpdateKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
-      OMX_TIME_UpdateVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
-      OMX_TIME_UpdateMax = 0x7FFFFFFF
+  OMX_TIME_UpdateRequestFulfillment, /**< Update is the fulfillment of a media time request. */
+  OMX_TIME_UpdateScaleChanged, /**< Update was generated because the scale chagned. */
+  OMX_TIME_UpdateClockStateChanged, /**< Update was generated because the clock state changed. */
+  OMX_TIME_UpdateKhronosExtensions =
+      0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
+  OMX_TIME_UpdateVendorStartUnused =
+      0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+  OMX_TIME_UpdateMax = 0x7FFFFFFF
 } OMX_TIME_UPDATETYPE;
 
 /** Enumeration of possible reference clocks to the media time. */
 typedef enum OMX_TIME_REFCLOCKTYPE {
-      OMX_TIME_RefClockNone,    /**< Use no references. */
-      OMX_TIME_RefClockAudio,	/**< Use references sent through OMX_IndexConfigTimeCurrentAudioReference */
-      OMX_TIME_RefClockVideo,   /**< Use references sent through OMX_IndexConfigTimeCurrentVideoReference */
-      OMX_TIME_RefClockKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
-      OMX_TIME_RefClockVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
-      OMX_TIME_RefClockMax = 0x7FFFFFFF
+  OMX_TIME_RefClockNone, /**< Use no references. */
+  OMX_TIME_RefClockAudio, /**< Use references sent through OMX_IndexConfigTimeCurrentAudioReference */
+  OMX_TIME_RefClockVideo, /**< Use references sent through OMX_IndexConfigTimeCurrentVideoReference */
+  OMX_TIME_RefClockKhronosExtensions =
+      0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
+  OMX_TIME_RefClockVendorStartUnused =
+      0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+  OMX_TIME_RefClockMax = 0x7FFFFFFF
 } OMX_TIME_REFCLOCKTYPE;
 
 /** Enumeration of clock states. */
 typedef enum OMX_TIME_CLOCKSTATE {
-      OMX_TIME_ClockStateRunning,             /**< Clock running. */
-      OMX_TIME_ClockStateWaitingForStartTime, /**< Clock waiting until the
+  OMX_TIME_ClockStateRunning,             /**< Clock running. */
+  OMX_TIME_ClockStateWaitingForStartTime, /**< Clock waiting until the
                                                *   prescribed clients emit their
                                                *   start time. */
-      OMX_TIME_ClockStateStopped,             /**< Clock stopped. */
-      OMX_TIME_ClockStateKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
-      OMX_TIME_ClockStateVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
-      OMX_TIME_ClockStateMax = 0x7FFFFFFF
+  OMX_TIME_ClockStateStopped,             /**< Clock stopped. */
+  OMX_TIME_ClockStateKhronosExtensions =
+      0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
+  OMX_TIME_ClockStateVendorStartUnused =
+      0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+  OMX_TIME_ClockStateMax = 0x7FFFFFFF
 } OMX_TIME_CLOCKSTATE;
 
 /** Structure representing a media time request to the clock component.
@@ -172,17 +183,19 @@ typedef enum OMX_TIME_CLOCKSTATE {
  *  to wait a slight amount more time itself as specified by the return values).
  */
 
-typedef struct OMX_TIME_CONFIG_MEDIATIMEREQUESTTYPE {
-    OMX_U32 nSize;              /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;   /**< OMX specification version information */
-    OMX_U32 nPortIndex;         /**< port that this structure applies to */
-    OMX_PTR pClientPrivate;     /**< Client private data to disabiguate this media time
+typedef struct OMX_TIME_CONFIG_MEDIATIMEREQUESTTYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+  OMX_U32 nPortIndex;       /**< port that this structure applies to */
+  OMX_PTR
+      pClientPrivate; /**< Client private data to disabiguate this media time
                                  *   from others (e.g. the number of the frame to deliver).
                                  *   Duplicated in the media time structure that fulfills
                                  *   this request. A value of zero is reserved for time scale
                                  *   updates. */
-    OMX_TICKS nMediaTimestamp;  /**< Media timestamp requested.*/
-    OMX_TICKS nOffset;          /**< Amount of wall clock time by which this
+  OMX_TICKS nMediaTimestamp; /**< Media timestamp requested.*/
+  OMX_TICKS nOffset;         /**< Amount of wall clock time by which this
                                  *   request should be fulfilled early */
 } OMX_TIME_CONFIG_MEDIATIMEREQUESTTYPE;
 
@@ -213,26 +226,29 @@ typedef struct OMX_TIME_CONFIG_MEDIATIMEREQUESTTYPE {
  *   from the cloc component and subtracting it from nWallTimeAtMedia.
  */
 
-typedef struct OMX_TIME_MEDIATIMETYPE {
-    OMX_U32 nSize;                  /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;       /**< OMX specification version information */
-    OMX_U32 nClientPrivate;         /**< Client private data to disabiguate this media time
+typedef struct OMX_TIME_MEDIATIMETYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+  OMX_U32
+      nClientPrivate; /**< Client private data to disabiguate this media time
                                      *   from others. Copied from the media time request.
                                      *   A value of zero is reserved for time scale updates. */
-    OMX_TIME_UPDATETYPE eUpdateType; /**< Reason for the update */
-    OMX_TICKS nMediaTimestamp;      /**< Media time requested. If no media time was
+  OMX_TIME_UPDATETYPE eUpdateType; /**< Reason for the update */
+  OMX_TICKS nMediaTimestamp; /**< Media time requested. If no media time was
                                      *   requested then this is the current media time. */
-    OMX_TICKS nOffset;              /**< Amount of wall clock time by which this
+  OMX_TICKS nOffset;         /**< Amount of wall clock time by which this
                                      *   request was actually fulfilled early */
 
-    OMX_TICKS nWallTimeAtMediaTime; /**< Wall time corresponding to nMediaTimeStamp.
+  OMX_TICKS
+      nWallTimeAtMediaTime;   /**< Wall time corresponding to nMediaTimeStamp.
                                      *   A client may compare this value to current
                                      *   media time obtained from the Clock Component to determine
                                      *   the wall time until the media timestamp is really
                                      *   current. */
-    OMX_S32 xScale;                 /**< Current media time scale in Q16 format. */
-    OMX_TIME_CLOCKSTATE eState;     /* Seeking Change. Added 7/12.*/
-                                    /**< State of the media time. */
+  OMX_S32 xScale;             /**< Current media time scale in Q16 format. */
+  OMX_TIME_CLOCKSTATE eState; /* Seeking Change. Added 7/12.*/
+                              /**< State of the media time. */
 } OMX_TIME_MEDIATIMETYPE;
 
 /** Structure representing the current media time scale factor. Applicable only to clock
@@ -240,10 +256,11 @@ typedef struct OMX_TIME_MEDIATIMETYPE {
  *  the clock component client ports. Upon recieving this config the clock component changes
  *  the rate by which the media time increases or decreases effectively implementing trick modes.
  */
-typedef struct OMX_TIME_CONFIG_SCALETYPE {
-    OMX_U32 nSize;                  /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;       /**< OMX specification version information */
-    OMX_S32 xScale;                 /**< This is a value in Q16 format which is used for
+typedef struct OMX_TIME_CONFIG_SCALETYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+  OMX_S32 xScale;           /**< This is a value in Q16 format which is used for
                                      * scaling the media time */
 } OMX_TIME_CONFIG_SCALETYPE;
 
@@ -269,64 +286,70 @@ typedef struct OMX_TIME_CONFIG_SCALETYPE {
  *  nWaitMask to send starttimes (via
  *  OMX_IndexConfigTimeClientStartTime). The Clock Component then starts
  *  the media clock using the earliest start time supplied. */
-typedef struct OMX_TIME_CONFIG_CLOCKSTATETYPE {
-    OMX_U32 nSize;              /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;   /**< OMX specification version
+typedef struct OMX_TIME_CONFIG_CLOCKSTATETYPE
+{
+  OMX_U32 nSize;              /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion;   /**< OMX specification version
                                  *   information */
-    OMX_TIME_CLOCKSTATE eState; /**< State of the media time. */
-    OMX_TICKS nStartTime;       /**< Start time of the media time. */
-    OMX_TICKS nOffset;          /**< Time to offset the media time by
+  OMX_TIME_CLOCKSTATE eState; /**< State of the media time. */
+  OMX_TICKS nStartTime;       /**< Start time of the media time. */
+  OMX_TICKS nOffset;          /**< Time to offset the media time by
                                  * (e.g. preroll). Media time will be
                                  * reported to be nOffset ticks earlier.
                                  */
-    OMX_U32 nWaitMask;          /**< Mask of OMX_CLOCKPORT values. */
+  OMX_U32 nWaitMask;          /**< Mask of OMX_CLOCKPORT values. */
 } OMX_TIME_CONFIG_CLOCKSTATETYPE;
 
 /** Structure representing the reference clock currently being used to
  *  compute media time. IL client uses this config to change or query the
  *  clock component's active reference clock */
-typedef struct OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE {
-    OMX_U32 nSize;                  /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion;       /**< OMX specification version information */
-    OMX_TIME_REFCLOCKTYPE eClock;   /**< Reference clock used to compute media time */
+typedef struct OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+  OMX_TIME_REFCLOCKTYPE
+      eClock; /**< Reference clock used to compute media time */
 } OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE;
 
 /** Descriptor for setting specifics of power type.
  *  Note: this structure is listed for backwards compatibility. */
-typedef struct OMX_OTHER_CONFIG_POWERTYPE {
-    OMX_U32 nSize;            /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
-    OMX_BOOL bEnablePM;       /**< Flag to enable Power Management */
+typedef struct OMX_OTHER_CONFIG_POWERTYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+  OMX_BOOL bEnablePM;       /**< Flag to enable Power Management */
 } OMX_OTHER_CONFIG_POWERTYPE;
-
 
 /** Descriptor for setting specifics of stats type.
  *  Note: this structure is listed for backwards compatibility. */
-typedef struct OMX_OTHER_CONFIG_STATSTYPE {
-    OMX_U32 nSize;            /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
-    /* what goes here */
+typedef struct OMX_OTHER_CONFIG_STATSTYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+                            /* what goes here */
 } OMX_OTHER_CONFIG_STATSTYPE;
-
 
 /**
  * The PortDefinition structure is used to define all of the parameters
  * necessary for the compliant component to setup an input or an output other
  * path.
  */
-typedef struct OMX_OTHER_PORTDEFINITIONTYPE {
-    OMX_OTHER_FORMATTYPE eFormat;  /**< Type of data expected for this channel */
+typedef struct OMX_OTHER_PORTDEFINITIONTYPE
+{
+  OMX_OTHER_FORMATTYPE eFormat; /**< Type of data expected for this channel */
 } OMX_OTHER_PORTDEFINITIONTYPE;
 
 /**  Port format parameter.  This structure is used to enumerate
   *  the various data input/output format supported by the port.
   */
-typedef struct OMX_OTHER_PARAM_PORTFORMATTYPE {
-    OMX_U32 nSize; /**< size of the structure in bytes */
-    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
-    OMX_U32 nPortIndex; /**< Indicates which port to set */
-    OMX_U32 nIndex; /**< Indicates the enumeration index for the format from 0x0 to N-1 */
-    OMX_OTHER_FORMATTYPE eFormat; /**< Type of data expected for this channel */
+typedef struct OMX_OTHER_PARAM_PORTFORMATTYPE
+{
+  OMX_U32 nSize;            /**< size of the structure in bytes */
+  OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+  OMX_U32 nPortIndex;       /**< Indicates which port to set */
+  OMX_U32
+      nIndex; /**< Indicates the enumeration index for the format from 0x0 to N-1 */
+  OMX_OTHER_FORMATTYPE eFormat; /**< Type of data expected for this channel */
 } OMX_OTHER_PARAM_PORTFORMATTYPE;
 
 #ifdef __cplusplus

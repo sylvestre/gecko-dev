@@ -13,14 +13,13 @@
 namespace mozilla {
 namespace dom {
 
-class CSSKeyframeRule : public css::Rule
-                      , public nsIDOMCSSKeyframeRule
+class CSSKeyframeRule : public css::Rule, public nsIDOMCSSKeyframeRule
 {
-protected:
+ protected:
   using css::Rule::Rule;
   virtual ~CSSKeyframeRule() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   int32_t GetType() const final { return Rule::KEYFRAME_RULE; }
@@ -41,7 +40,7 @@ public:
   JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) final;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSKeyframeRule_h
+#endif  // mozilla_dom_CSSKeyframeRule_h

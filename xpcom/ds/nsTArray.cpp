@@ -11,7 +11,7 @@
 #include "mozilla/CheckedInt.h"
 #include "mozilla/IntegerPrintfMacros.h"
 
-nsTArrayHeader nsTArrayHeader::sEmptyHdr = { 0, 0, 0 };
+nsTArrayHeader nsTArrayHeader::sEmptyHdr = {0, 0, 0};
 
 bool
 IsTwiceTheRequiredBytesRepresentableAsUint32(size_t aCapacity, size_t aElemSize)
@@ -23,7 +23,8 @@ IsTwiceTheRequiredBytesRepresentableAsUint32(size_t aCapacity, size_t aElemSize)
 MOZ_NORETURN MOZ_COLD void
 InvalidArrayIndex_CRASH(size_t aIndex, size_t aLength)
 {
-  MOZ_CRASH_UNSAFE_PRINTF(
-    "ElementAt(aIndex = %" PRIu64 ", aLength = %" PRIu64 ")",
-    static_cast<uint64_t>(aIndex), static_cast<uint64_t>(aLength));
+  MOZ_CRASH_UNSAFE_PRINTF("ElementAt(aIndex = %" PRIu64 ", aLength = %" PRIu64
+                          ")",
+                          static_cast<uint64_t>(aIndex),
+                          static_cast<uint64_t>(aLength));
 }

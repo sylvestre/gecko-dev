@@ -20,15 +20,15 @@ namespace mozilla {
 
 namespace dom {
 class TabParent;
-} // namespace dom
+}  // namespace dom
 
 namespace layers {
 struct TextureFactoryIdentifier;
-} // namespace layers
+}  // namespace layers
 
 namespace layout {
 class PRenderFrameParent;
-} // namespace layout
+}  // namespace layout
 
 /**
  * BrowserElementParent implements a portion of the parent-process side of
@@ -43,8 +43,7 @@ class PRenderFrameParent;
  */
 class BrowserElementParent
 {
-public:
-
+ public:
   /**
    * Possible results from a window.open call.
    * ADDED     - The frame was added to a document (i.e. handled by the embedder).
@@ -54,7 +53,8 @@ public:
    *             called preventDefault() to prevent the platform from handling the call.
    */
 
-  enum OpenWindowResult {
+  enum OpenWindowResult
+  {
     OPEN_WINDOW_ADDED,
     OPEN_WINDOW_IGNORED,
     OPEN_WINDOW_CANCELLED
@@ -92,15 +92,15 @@ public:
    *         frame to a document and whether it called preventDefault to prevent
    *         the platform from handling the open request.
    */
-  static OpenWindowResult
-  OpenWindowOOP(dom::TabParent* aOpenerTabParent,
-                dom::TabParent* aPopupTabParent,
-                layout::PRenderFrameParent* aRenderFrame,
-                const nsAString& aURL,
-                const nsAString& aName,
-                const nsAString& aFeatures,
-                layers::TextureFactoryIdentifier* aTextureFactoryIdentifier,
-                uint64_t* aLayersId);
+  static OpenWindowResult OpenWindowOOP(
+      dom::TabParent* aOpenerTabParent,
+      dom::TabParent* aPopupTabParent,
+      layout::PRenderFrameParent* aRenderFrame,
+      const nsAString& aURL,
+      const nsAString& aName,
+      const nsAString& aFeatures,
+      layers::TextureFactoryIdentifier* aTextureFactoryIdentifier,
+      uint64_t* aLayersId);
 
   /**
    * Handle a window.open call from an in-process <iframe mozbrowser>.
@@ -113,23 +113,23 @@ public:
    *         frame to a document or whether they called preventDefault to prevent
    *         the platform from handling the open request
    */
-  static OpenWindowResult
-  OpenWindowInProcess(nsPIDOMWindowOuter* aOpenerWindow,
-                      nsIURI* aURI,
-                      const nsAString& aName,
-                      const nsACString& aFeatures,
-                      bool aForceNoOpener,
-                      mozIDOMWindowProxy** aReturnWindow);
+  static OpenWindowResult OpenWindowInProcess(
+      nsPIDOMWindowOuter* aOpenerWindow,
+      nsIURI* aURI,
+      const nsAString& aName,
+      const nsACString& aFeatures,
+      bool aForceNoOpener,
+      mozIDOMWindowProxy** aReturnWindow);
 
-private:
-  static OpenWindowResult
-  DispatchOpenWindowEvent(dom::Element* aOpenerFrameElement,
-                          dom::Element* aPopupFrameElement,
-                          const nsAString& aURL,
-                          const nsAString& aName,
-                          const nsAString& aFeatures);
+ private:
+  static OpenWindowResult DispatchOpenWindowEvent(
+      dom::Element* aOpenerFrameElement,
+      dom::Element* aPopupFrameElement,
+      const nsAString& aURL,
+      const nsAString& aName,
+      const nsAString& aFeatures);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

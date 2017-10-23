@@ -16,7 +16,7 @@ namespace dom {
 
 class PresentationSessionRequest final : public nsIPresentationSessionRequest
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRESENTATIONSESSIONREQUEST
 
@@ -25,7 +25,7 @@ public:
                              const nsAString& aPresentationId,
                              nsIPresentationControlChannel* aControlChannel);
 
-private:
+ private:
   virtual ~PresentationSessionRequest();
 
   nsString mUrl;
@@ -34,8 +34,7 @@ private:
   nsCOMPtr<nsIPresentationControlChannel> mControlChannel;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_PresentationSessionRequest_h__ */
-

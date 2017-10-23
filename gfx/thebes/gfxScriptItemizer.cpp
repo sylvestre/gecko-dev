@@ -55,58 +55,59 @@
 using namespace mozilla::unicode;
 
 #define MOD(sp) ((sp) % PAREN_STACK_DEPTH)
-#define LIMIT_INC(sp) (((sp) < PAREN_STACK_DEPTH)? (sp) + 1 : PAREN_STACK_DEPTH)
-#define INC(sp,count) (MOD((sp) + (count)))
+#define LIMIT_INC(sp) \
+  (((sp) < PAREN_STACK_DEPTH) ? (sp) + 1 : PAREN_STACK_DEPTH)
+#define INC(sp, count) (MOD((sp) + (count)))
 #define INC1(sp) (INC(sp, 1))
-#define DEC(sp,count) (MOD((sp) + PAREN_STACK_DEPTH - (count)))
+#define DEC(sp, count) (MOD((sp) + PAREN_STACK_DEPTH - (count)))
 #define DEC1(sp) (DEC(sp, 1))
 #define STACK_IS_EMPTY() (pushCount <= 0)
-#define STACK_IS_NOT_EMPTY() (! STACK_IS_EMPTY())
+#define STACK_IS_NOT_EMPTY() (!STACK_IS_EMPTY())
 #define TOP() (parenStack[parenSP])
 #define SYNC_FIXUP() (fixupCount = 0)
 
 void
 gfxScriptItemizer::push(uint32_t endPairChar, Script newScriptCode)
 {
-    pushCount  = LIMIT_INC(pushCount);
-    fixupCount = LIMIT_INC(fixupCount);
+  pushCount = LIMIT_INC(pushCount);
+  fixupCount = LIMIT_INC(fixupCount);
 
-    parenSP = INC1(parenSP);
-    parenStack[parenSP].endPairChar = endPairChar;
-    parenStack[parenSP].scriptCode = newScriptCode;
+  parenSP = INC1(parenSP);
+  parenStack[parenSP].endPairChar = endPairChar;
+  parenStack[parenSP].scriptCode = newScriptCode;
 }
 
 void
 gfxScriptItemizer::pop()
 {
-    if (STACK_IS_EMPTY()) {
-        return;
-    }
+  if (STACK_IS_EMPTY()) {
+    return;
+  }
 
-    if (fixupCount > 0) {
-        fixupCount -= 1;
-    }
+  if (fixupCount > 0) {
+    fixupCount -= 1;
+  }
 
-    pushCount -= 1;
-    parenSP = DEC1(parenSP);
-  
-    /* If the stack is now empty, reset the stack
+  pushCount -= 1;
+  parenSP = DEC1(parenSP);
+
+  /* If the stack is now empty, reset the stack
        pointers to their initial values.
      */
-    if (STACK_IS_EMPTY()) {
-        parenSP = -1;
-    }
+  if (STACK_IS_EMPTY()) {
+    parenSP = -1;
+  }
 }
 
 void
 gfxScriptItemizer::fixup(Script newScriptCode)
 {
-    int32_t fixupSP = DEC(parenSP, fixupCount);
+  int32_t fixupSP = DEC(parenSP, fixupCount);
 
-    while (fixupCount-- > 0) {
-        fixupSP = INC1(fixupSP);
-        parenStack[fixupSP].scriptCode = newScriptCode;
-    }
+  while (fixupCount-- > 0) {
+    fixupSP = INC1(fixupSP);
+    parenStack[fixupSP].scriptCode = newScriptCode;
+  }
 }
 
 // We regard the current char as having the same script as the in-progress run
@@ -115,63 +116,62 @@ gfxScriptItemizer::fixup(Script newScriptCode)
 static inline bool
 SameScript(Script runScript, Script currCharScript, uint32_t aCurrCh)
 {
-    return runScript <= Script::INHERITED ||
-           currCharScript <= Script::INHERITED ||
-           currCharScript == runScript ||
-           IsClusterExtender(aCurrCh) ||
-           HasScript(aCurrCh, runScript);
+  return runScript <= Script::INHERITED ||
+         currCharScript <= Script::INHERITED || currCharScript == runScript ||
+         IsClusterExtender(aCurrCh) || HasScript(aCurrCh, runScript);
 }
 
-gfxScriptItemizer::gfxScriptItemizer(const char16_t *src, uint32_t length)
+gfxScriptItemizer::gfxScriptItemizer(const char16_t* src, uint32_t length)
     : textPtr(src), textLength(length)
 {
-    reset();
+  reset();
 }
 
 void
-gfxScriptItemizer::SetText(const char16_t *src, uint32_t length)
+gfxScriptItemizer::SetText(const char16_t* src, uint32_t length)
 {
-    textPtr  = src;
-    textLength = length;
+  textPtr = src;
+  textLength = length;
 
-    reset();
+  reset();
 }
 
 bool
-gfxScriptItemizer::Next(uint32_t& aRunStart, uint32_t& aRunLimit,
+gfxScriptItemizer::Next(uint32_t& aRunStart,
+                        uint32_t& aRunLimit,
                         Script& aRunScript)
 {
-    /* if we've fallen off the end of the text, we're done */
-    if (scriptLimit >= textLength) {
-        return false;
+  /* if we've fallen off the end of the text, we're done */
+  if (scriptLimit >= textLength) {
+    return false;
+  }
+
+  SYNC_FIXUP();
+  scriptCode = Script::COMMON;
+
+  for (scriptStart = scriptLimit; scriptLimit < textLength; scriptLimit += 1) {
+    uint32_t ch;
+    Script sc;
+    uint32_t startOfChar = scriptLimit;
+
+    ch = textPtr[scriptLimit];
+
+    /* decode UTF-16 (may be surrogate pair) */
+    if (NS_IS_HIGH_SURROGATE(ch) && scriptLimit < textLength - 1) {
+      uint32_t low = textPtr[scriptLimit + 1];
+      if (NS_IS_LOW_SURROGATE(low)) {
+        ch = SURROGATE_TO_UCS4(ch, low);
+        scriptLimit += 1;
+      }
     }
 
-    SYNC_FIXUP();
-    scriptCode = Script::COMMON;
+    // Initialize gc to UNASSIGNED; we'll only set it to the true GC
+    // if the character has script=COMMON, otherwise we don't care.
+    uint8_t gc = HB_UNICODE_GENERAL_CATEGORY_UNASSIGNED;
 
-    for (scriptStart = scriptLimit; scriptLimit < textLength; scriptLimit += 1) {
-        uint32_t ch;
-        Script sc;
-        uint32_t startOfChar = scriptLimit;
-
-        ch = textPtr[scriptLimit];
-
-        /* decode UTF-16 (may be surrogate pair) */
-        if (NS_IS_HIGH_SURROGATE(ch) && scriptLimit < textLength - 1) {
-            uint32_t low = textPtr[scriptLimit + 1];
-            if (NS_IS_LOW_SURROGATE(low)) {
-                ch = SURROGATE_TO_UCS4(ch, low);
-                scriptLimit += 1;
-            }
-        }
-
-        // Initialize gc to UNASSIGNED; we'll only set it to the true GC
-        // if the character has script=COMMON, otherwise we don't care.
-        uint8_t gc = HB_UNICODE_GENERAL_CATEGORY_UNASSIGNED;
-
-        sc = GetScriptCode(ch);
-        if (sc == Script::COMMON) {
-            /*
+    sc = GetScriptCode(ch);
+    if (sc == Script::COMMON) {
+      /*
              * Paired character handling:
              *
              * if it's an open character, push it onto the stack.
@@ -182,55 +182,52 @@ gfxScriptItemizer::Next(uint32_t& aRunStart, uint32_t& aRunLimit,
              * We only do this if the script is COMMON; for chars with
              * specific script assignments, we just use them as-is.
              */
-            gc = GetGeneralCategory(ch);
-            if (gc == HB_UNICODE_GENERAL_CATEGORY_OPEN_PUNCTUATION) {
-                uint32_t endPairChar = mozilla::unicode::GetMirroredChar(ch);
-                if (endPairChar != ch) {
-                    push(endPairChar, scriptCode);
-                }
-            } else if (gc == HB_UNICODE_GENERAL_CATEGORY_CLOSE_PUNCTUATION &&
-                HasMirroredChar(ch))
-            {
-                while (STACK_IS_NOT_EMPTY() && TOP().endPairChar != ch) {
-                    pop();
-                }
-
-                if (STACK_IS_NOT_EMPTY()) {
-                    sc = TOP().scriptCode;
-                }
-            }
+      gc = GetGeneralCategory(ch);
+      if (gc == HB_UNICODE_GENERAL_CATEGORY_OPEN_PUNCTUATION) {
+        uint32_t endPairChar = mozilla::unicode::GetMirroredChar(ch);
+        if (endPairChar != ch) {
+          push(endPairChar, scriptCode);
+        }
+      } else if (gc == HB_UNICODE_GENERAL_CATEGORY_CLOSE_PUNCTUATION &&
+                 HasMirroredChar(ch)) {
+        while (STACK_IS_NOT_EMPTY() && TOP().endPairChar != ch) {
+          pop();
         }
 
-        if (SameScript(scriptCode, sc, ch)) {
-            if (scriptCode <= Script::INHERITED &&
-                sc > Script::INHERITED)
-            {
-                scriptCode = sc;
-                fixup(scriptCode);
-            }
+        if (STACK_IS_NOT_EMPTY()) {
+          sc = TOP().scriptCode;
+        }
+      }
+    }
 
-            /*
+    if (SameScript(scriptCode, sc, ch)) {
+      if (scriptCode <= Script::INHERITED && sc > Script::INHERITED) {
+        scriptCode = sc;
+        fixup(scriptCode);
+      }
+
+      /*
              * if this character is a close paired character,
              * pop the matching open character from the stack
              */
-            if (gc == HB_UNICODE_GENERAL_CATEGORY_CLOSE_PUNCTUATION &&
-                HasMirroredChar(ch)) {
-                pop();
-            }
-        } else {
-            /*
+      if (gc == HB_UNICODE_GENERAL_CATEGORY_CLOSE_PUNCTUATION &&
+          HasMirroredChar(ch)) {
+        pop();
+      }
+    } else {
+      /*
              * reset scriptLimit in case it was advanced during reading a
              * multiple-code-unit character
              */
-            scriptLimit = startOfChar;
+      scriptLimit = startOfChar;
 
-            break;
-        }
+      break;
     }
+  }
 
-    aRunStart = scriptStart;
-    aRunLimit = scriptLimit;
-    aRunScript = scriptCode;
+  aRunStart = scriptStart;
+  aRunLimit = scriptLimit;
+  aRunScript = scriptCode;
 
-    return true;
+  return true;
 }

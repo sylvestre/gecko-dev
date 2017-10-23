@@ -42,8 +42,9 @@ class PanGestureInput;
  * doomed to fail. In that case, the purpose of the SwipeTracker is to simulate
  * a bounce-back animation.)
  */
-class SwipeTracker final : public nsARefreshObserver {
-public:
+class SwipeTracker final : public nsARefreshObserver
+{
+ public:
   NS_INLINE_DECL_REFCOUNTING(SwipeTracker, override)
 
   SwipeTracker(nsChildView& aWidget,
@@ -56,26 +57,31 @@ public:
   nsEventStatus ProcessEvent(const PanGestureInput& aEvent);
   void CancelSwipe(const TimeStamp& aTimeStamp);
 
-  static WidgetSimpleGestureEvent
-    CreateSwipeGestureEvent(EventMessage aMsg, nsIWidget* aWidget,
-                            const LayoutDeviceIntPoint& aPosition,
-                            const TimeStamp& aTimeStamp);
-
+  static WidgetSimpleGestureEvent CreateSwipeGestureEvent(
+      EventMessage aMsg,
+      nsIWidget* aWidget,
+      const LayoutDeviceIntPoint& aPosition,
+      const TimeStamp& aTimeStamp);
 
   // nsARefreshObserver
   void WillRefresh(mozilla::TimeStamp aTime) override;
 
-protected:
+ protected:
   ~SwipeTracker();
 
-  bool SwipingInAllowedDirection() const { return mAllowedDirections & mSwipeDirection; }
+  bool SwipingInAllowedDirection() const
+  {
+    return mAllowedDirections & mSwipeDirection;
+  }
   double SwipeSuccessTargetValue() const;
   double ClampToAllowedRange(double aGestureAmount) const;
   bool ComputeSwipeSuccess() const;
   void StartAnimating(double aTargetValue);
   void SwipeFinished(const TimeStamp& aTimeStamp);
   void UnregisterFromRefreshDriver();
-  bool SendSwipeEvent(EventMessage aMsg, uint32_t aDirection, double aDelta,
+  bool SendSwipeEvent(EventMessage aMsg,
+                      uint32_t aDirection,
+                      double aDelta,
                       const TimeStamp& aTimeStamp);
 
   nsChildView& mWidget;
@@ -93,6 +99,6 @@ protected:
   bool mRegisteredWithRefreshDriver;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // SwipeTracker_h
+#endif  // SwipeTracker_h

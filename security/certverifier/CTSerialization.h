@@ -15,20 +15,22 @@
 
 // Utility functions for encoding/decoding structures used by Certificate
 // Transparency to/from the TLS wire format encoding.
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Encodes the DigitallySigned |data| to |output|.
-pkix::Result EncodeDigitallySigned(const DigitallySigned& data,
-                                   Buffer& output);
+pkix::Result
+EncodeDigitallySigned(const DigitallySigned& data, Buffer& output);
 
 // Reads and decodes a DigitallySigned object from |reader|.
 // On failure, the cursor position of |reader| is undefined.
-pkix::Result DecodeDigitallySigned(pkix::Reader& reader,
-                                   DigitallySigned& output);
+pkix::Result
+DecodeDigitallySigned(pkix::Reader& reader, DigitallySigned& output);
 
 // Encodes the |input| LogEntry to |output|. The size of the entry
 // must not exceed the allowed size in RFC6962.
-pkix::Result EncodeLogEntry(const LogEntry& entry, Buffer& output);
+pkix::Result
+EncodeLogEntry(const LogEntry& entry, Buffer& output);
 
 // Encodes the data signed by a Signed Certificate Timestamp (SCT) into
 // |output|. The signature included in the SCT can then be verified over these
@@ -36,16 +38,17 @@ pkix::Result EncodeLogEntry(const LogEntry& entry, Buffer& output);
 // |timestamp| timestamp from the SCT.
 // |serializedLogEntry| the log entry signed by the SCT.
 // |extensions| CT extensions.
-pkix::Result EncodeV1SCTSignedData(uint64_t timestamp,
-                                   pkix::Input serializedLogEntry,
-                                   pkix::Input extensions,
-                                   Buffer& output);
+pkix::Result
+EncodeV1SCTSignedData(uint64_t timestamp,
+                      pkix::Input serializedLogEntry,
+                      pkix::Input extensions,
+                      Buffer& output);
 
 // Encodes the data signed by a Signed Tree Head (STH) |signedTreeHead| into
 // |output|. The signature included in the |signedTreeHead| can then be
 // verified over these bytes.
-pkix::Result EncodeTreeHeadSignature(const SignedTreeHead& signedTreeHead,
-                                     Buffer& output);
+pkix::Result
+EncodeTreeHeadSignature(const SignedTreeHead& signedTreeHead, Buffer& output);
 
 // Decodes a list of Signed Certificate Timestamps
 // (SignedCertificateTimestampList as defined in RFC6962). This list
@@ -53,18 +56,23 @@ pkix::Result EncodeTreeHeadSignature(const SignedTreeHead& signedTreeHead,
 // To extract the individual items of the list, call ReadSCTListItem on
 // the returned reader until the reader reaches its end.
 // Note that the validity of each extracted SCT should be checked separately.
-pkix::Result DecodeSCTList(pkix::Input input, pkix::Reader& listReader);
+pkix::Result
+DecodeSCTList(pkix::Input input, pkix::Reader& listReader);
 
 // Reads a single SCT from the reader returned by DecodeSCTList.
-pkix::Result ReadSCTListItem(pkix::Reader& listReader, pkix::Input& result);
+pkix::Result
+ReadSCTListItem(pkix::Reader& listReader, pkix::Input& result);
 
 // Decodes a single SCT from |input| to |output|.
-pkix::Result DecodeSignedCertificateTimestamp(pkix::Reader& input,
-  SignedCertificateTimestamp& output);
+pkix::Result
+DecodeSignedCertificateTimestamp(pkix::Reader& input,
+                                 SignedCertificateTimestamp& output);
 
 // Encodes a list of SCTs (|scts|) to |output|.
-pkix::Result EncodeSCTList(const Vector<pkix::Input>& scts, Buffer& output);
+pkix::Result
+EncodeSCTList(const Vector<pkix::Input>& scts, Buffer& output);
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
-#endif // CTSerialization_h
+#endif  // CTSerialization_h

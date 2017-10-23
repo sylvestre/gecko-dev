@@ -22,7 +22,7 @@ namespace mozilla {
 namespace sandboxing {
 class PermissionsService;
 }
-}
+}  // namespace mozilla
 #endif
 
 namespace mozilla {
@@ -34,18 +34,12 @@ struct StaticXREAppData;
  */
 class XREAppData
 {
-public:
-  XREAppData() { }
-  ~XREAppData() { }
-  XREAppData(const XREAppData& aOther)
-  {
-    *this = aOther;
-  }
+ public:
+  XREAppData() {}
+  ~XREAppData() {}
+  XREAppData(const XREAppData& aOther) { *this = aOther; }
 
-  explicit XREAppData(const StaticXREAppData& aOther)
-  {
-    *this = aOther;
-  }
+  explicit XREAppData(const StaticXREAppData& aOther) { *this = aOther; }
 
   XREAppData& operator=(const StaticXREAppData& aOther);
   XREAppData& operator=(const XREAppData& aOther);
@@ -55,12 +49,9 @@ public:
   // than using UniquePtr directly, use an auto-converting wrapper.
   class CharPtr
   {
-  public:
+   public:
     explicit CharPtr() = default;
-    explicit CharPtr(const char* v)
-    {
-      *this = v;
-    }
+    explicit CharPtr(const char* v) { *this = v; }
     CharPtr(CharPtr&&) = default;
     ~CharPtr() = default;
 
@@ -75,15 +66,13 @@ public:
     }
     CharPtr& operator=(const CharPtr& v)
     {
-      *this = (const char*) v;
+      *this = (const char*)v;
       return *this;
     }
 
-    operator const char*() const {
-      return mValue.get();
-    }
+    operator const char*() const { return mValue.get(); }
 
-  private:
+   private:
     UniqueFreePtr<const char> mValue;
   };
 
@@ -231,6 +220,6 @@ struct StaticXREAppData
   const char* UAName;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // XREAppData_h
+#endif  // XREAppData_h

@@ -9,9 +9,7 @@
 
 using namespace mozilla;
 
-EventQueue::EventQueue()
-{
-}
+EventQueue::EventQueue() {}
 
 void
 EventQueue::PutEvent(already_AddRefed<nsIRunnable>&& aEvent,

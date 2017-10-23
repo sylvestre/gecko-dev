@@ -19,33 +19,21 @@ namespace js {
  * must have a static priority(const T&) method which returns higher numbers
  * for higher priority elements.
  */
-template <class T, class P,
-          size_t MinInlineCapacity = 0,
-          class AllocPolicy = TempAllocPolicy>
-class PriorityQueue
-{
+template <class T, class P, size_t MinInlineCapacity = 0, class AllocPolicy = TempAllocPolicy>
+class PriorityQueue {
     Vector<T, MinInlineCapacity, AllocPolicy> heap;
 
     PriorityQueue(const PriorityQueue&) = delete;
     PriorityQueue& operator=(const PriorityQueue&) = delete;
 
-  public:
+   public:
+    explicit PriorityQueue(AllocPolicy ap = AllocPolicy()) : heap(ap) {}
 
-    explicit PriorityQueue(AllocPolicy ap = AllocPolicy())
-      : heap(ap)
-    {}
+    MOZ_MUST_USE bool reserve(size_t capacity) { return heap.reserve(capacity); }
 
-    MOZ_MUST_USE bool reserve(size_t capacity) {
-        return heap.reserve(capacity);
-    }
+    size_t length() const { return heap.length(); }
 
-    size_t length() const {
-        return heap.length();
-    }
-
-    bool empty() const {
-        return heap.empty();
-    }
+    bool empty() const { return heap.empty(); }
 
     T removeHighest() {
         T highest = heap[0];
@@ -58,8 +46,7 @@ class PriorityQueue
     }
 
     MOZ_MUST_USE bool insert(const T& v) {
-        if (!heap.append(v))
-            return false;
+        if (!heap.append(v)) return false;
         siftUp(heap.length() - 1);
         return true;
     }
@@ -69,8 +56,7 @@ class PriorityQueue
         siftUp(heap.length() - 1);
     }
 
-  private:
-
+   private:
     /*
      * Elements of the vector encode a binary tree:
      *
@@ -92,8 +78,7 @@ class PriorityQueue
             if (left < heap.length()) {
                 if (right < heap.length()) {
                     if (P::priority(heap[n]) < P::priority(heap[right]) &&
-                        P::priority(heap[left]) < P::priority(heap[right]))
-                    {
+                        P::priority(heap[left]) < P::priority(heap[right])) {
                         swap(n, right);
                         n = right;
                         continue;
@@ -115,8 +100,7 @@ class PriorityQueue
         while (n > 0) {
             size_t parent = (n - 1) / 2;
 
-            if (P::priority(heap[parent]) > P::priority(heap[n]))
-                break;
+            if (P::priority(heap[parent]) > P::priority(heap[n])) break;
 
             swap(n, parent);
             n = parent;
@@ -130,6 +114,6 @@ class PriorityQueue
     }
 };
 
-}  /* namespace js */
+} /* namespace js */
 
 #endif /* ds_PriorityQueue_h */

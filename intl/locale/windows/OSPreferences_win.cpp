@@ -18,8 +18,8 @@ OSPreferences::ReadSystemLocales(nsTArray<nsCString>& aLocaleList)
   MOZ_ASSERT(aLocaleList.IsEmpty());
 
   WCHAR locale[LOCALE_NAME_MAX_LENGTH];
-  if (NS_WARN_IF(!LCIDToLocaleName(LOCALE_SYSTEM_DEFAULT, locale,
-                                   LOCALE_NAME_MAX_LENGTH, 0))) {
+  if (NS_WARN_IF(!LCIDToLocaleName(
+          LOCALE_SYSTEM_DEFAULT, locale, LOCALE_NAME_MAX_LENGTH, 0))) {
     return false;
   }
 
@@ -38,8 +38,8 @@ OSPreferences::ReadRegionalPrefsLocales(nsTArray<nsCString>& aLocaleList)
   MOZ_ASSERT(aLocaleList.IsEmpty());
 
   WCHAR locale[LOCALE_NAME_MAX_LENGTH];
-  if (NS_WARN_IF(!LCIDToLocaleName(LOCALE_USER_DEFAULT, locale,
-                                   LOCALE_NAME_MAX_LENGTH, 0))) {
+  if (NS_WARN_IF(!LCIDToLocaleName(
+          LOCALE_USER_DEFAULT, locale, LOCALE_NAME_MAX_LENGTH, 0))) {
     return false;
   }
 
@@ -62,8 +62,8 @@ static void
 ReadUserLocale(nsCString& aRetVal)
 {
   WCHAR locale[LOCALE_NAME_MAX_LENGTH];
-  if (NS_WARN_IF(!LCIDToLocaleName(LOCALE_USER_DEFAULT, locale,
-                                   LOCALE_NAME_MAX_LENGTH, 0))) {
+  if (NS_WARN_IF(!LCIDToLocaleName(
+          LOCALE_USER_DEFAULT, locale, LOCALE_NAME_MAX_LENGTH, 0))) {
     aRetVal.AssignLiteral("en-US");
     return;
   }
@@ -156,7 +156,8 @@ GetWindowsLocaleFor(const nsACString& aLocale, LPWSTR aBuffer)
 bool
 OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
                                    DateTimeFormatStyle aTimeStyle,
-                                   const nsACString& aLocale, nsAString& aRetVal)
+                                   const nsACString& aLocale,
+                                   nsAString& aRetVal)
 {
   WCHAR buffer[LOCALE_NAME_MAX_LENGTH];
 
@@ -175,7 +176,8 @@ OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
   nsAutoString tmpStr;
   nsAString* str;
   if (isDate && isTime) {
-    if (!GetDateTimeConnectorPattern(NS_ConvertUTF16toUTF8(localeName), aRetVal)) {
+    if (!GetDateTimeConnectorPattern(NS_ConvertUTF16toUTF8(localeName),
+                                     aRetVal)) {
       NS_WARNING("failed to get date/time connector");
       aRetVal.AssignLiteral(u"{1} {0}");
     }
@@ -198,7 +200,7 @@ OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
     // to its output buffer. See bug 1358159 for details.
     str->SetLength(len);
     GetLocaleInfoEx(localeName, lcType, (WCHAR*)str->BeginWriting(), len);
-    str->SetLength(len - 1); // -1 because len counts the null terminator
+    str->SetLength(len - 1);  // -1 because len counts the null terminator
 
     // Windows uses "ddd" and "dddd" for abbreviated and full day names respectively,
     //   https://msdn.microsoft.com/en-us/library/windows/desktop/dd317787(v=vs.85).aspx

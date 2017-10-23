@@ -30,10 +30,9 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(StatementParams)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(StatementParams)
 
-StatementParams::StatementParams(nsPIDOMWindowInner* aWindow, Statement *aStatement)
-: mWindow(aWindow),
-  mStatement(aStatement),
-  mParamCount(0)
+StatementParams::StatementParams(nsPIDOMWindowInner* aWindow,
+                                 Statement* aStatement)
+    : mWindow(aWindow), mStatement(aStatement), mParamCount(0)
 {
   NS_ASSERTION(mStatement != nullptr, "mStatement is null");
   (void)mStatement->GetParameterCount(&mParamCount);
@@ -141,5 +140,5 @@ StatementParams::IndexedSetter(JSContext* aCx,
   aRv = mStatement->BindByIndex(aIndex, variant);
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla

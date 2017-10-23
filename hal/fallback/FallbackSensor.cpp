@@ -12,12 +12,14 @@ namespace mozilla {
 namespace hal_impl {
 
 void
-EnableSensorNotifications(SensorType aSensor) {
+EnableSensorNotifications(SensorType aSensor)
+{
 }
 
 void
-DisableSensorNotifications(SensorType aSensor) {
+DisableSensorNotifications(SensorType aSensor)
+{
 }
 
-}
-}
+}  // namespace hal_impl
+}  // namespace mozilla

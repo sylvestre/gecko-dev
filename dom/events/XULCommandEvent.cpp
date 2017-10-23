@@ -13,14 +13,14 @@ namespace dom {
 XULCommandEvent::XULCommandEvent(EventTarget* aOwner,
                                  nsPresContext* aPresContext,
                                  WidgetInputEvent* aEvent)
-  : UIEvent(aOwner, aPresContext,
-            aEvent ? aEvent :
-                     new WidgetInputEvent(false, eVoidEvent, nullptr))
+    : UIEvent(
+          aOwner,
+          aPresContext,
+          aEvent ? aEvent : new WidgetInputEvent(false, eVoidEvent, nullptr))
 {
   if (aEvent) {
     mEventIsInternal = false;
-  }
-  else {
+  } else {
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
   }
@@ -29,8 +29,7 @@ XULCommandEvent::XULCommandEvent(EventTarget* aOwner,
 NS_IMPL_ADDREF_INHERITED(XULCommandEvent, UIEvent)
 NS_IMPL_RELEASE_INHERITED(XULCommandEvent, UIEvent)
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(XULCommandEvent, UIEvent,
-                                   mSourceEvent)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(XULCommandEvent, UIEvent, mSourceEvent)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(XULCommandEvent)
   NS_INTERFACE_MAP_ENTRY(nsIDOMXULCommandEvent)
@@ -133,16 +132,16 @@ XULCommandEvent::InitCommandEvent(const nsAString& aType,
   auto* view = nsGlobalWindow::Cast(nsPIDOMWindowInner::From(aView));
   UIEvent::InitUIEvent(aType, aCanBubble, aCancelable, view, aDetail);
 
-  mEvent->AsInputEvent()->InitBasicModifiers(aCtrlKey, aAltKey,
-                                             aShiftKey, aMetaKey);
+  mEvent->AsInputEvent()->InitBasicModifiers(
+      aCtrlKey, aAltKey, aShiftKey, aMetaKey);
   mSourceEvent = aSourceEvent;
   mInputSource = aInputSource;
 
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -153,6 +152,6 @@ NS_NewDOMXULCommandEvent(EventTarget* aOwner,
                          WidgetInputEvent* aEvent)
 {
   RefPtr<XULCommandEvent> it =
-    new XULCommandEvent(aOwner, aPresContext, aEvent);
+      new XULCommandEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

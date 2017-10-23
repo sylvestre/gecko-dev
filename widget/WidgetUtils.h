@@ -19,7 +19,8 @@ class nsPIDOMWindowOuter;
 namespace mozilla {
 
 // NB: these must match up with pseudo-enum in nsIScreen.idl.
-enum ScreenRotation {
+enum ScreenRotation
+{
   ROTATION_0 = 0,
   ROTATION_90,
   ROTATION_180,
@@ -28,21 +29,21 @@ enum ScreenRotation {
   ROTATION_COUNT
 };
 
-gfx::Matrix ComputeTransformForRotation(const nsIntRect& aBounds,
-                                        ScreenRotation aRotation);
+gfx::Matrix
+ComputeTransformForRotation(const nsIntRect& aBounds, ScreenRotation aRotation);
 
-gfx::Matrix ComputeTransformForUnRotation(const nsIntRect& aBounds,
-                                          ScreenRotation aRotation);
+gfx::Matrix
+ComputeTransformForUnRotation(const nsIntRect& aBounds,
+                              ScreenRotation aRotation);
 
-nsIntRect RotateRect(nsIntRect aRect,
-                     const nsIntRect& aBounds,
-                     ScreenRotation aRotation);
+nsIntRect
+RotateRect(nsIntRect aRect, const nsIntRect& aBounds, ScreenRotation aRotation);
 
 namespace widget {
 
 class WidgetUtils
 {
-public:
+ public:
   /**
    * Shutdown() is called when "xpcom-will-shutdown" is notified.  This is
    * useful when you need to observe the notification in XP level code under
@@ -54,7 +55,8 @@ public:
    * Starting at the docshell item for the passed in DOM window this looks up
    * the docshell tree until it finds a docshell item that has a widget.
    */
-  static already_AddRefed<nsIWidget> DOMWindowToWidget(nsPIDOMWindowOuter* aDOMWindow);
+  static already_AddRefed<nsIWidget> DOMWindowToWidget(
+      nsPIDOMWindowOuter* aDOMWindow);
 
   /**
    * Compute our keyCode value (NS_VK_*) from an ASCII character.
@@ -93,7 +95,7 @@ public:
   static void SendBidiKeyboardInfoToContent();
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // mozilla_WidgetUtils_h
+#endif  // mozilla_WidgetUtils_h

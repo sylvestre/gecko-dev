@@ -22,17 +22,16 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace dom {
 
-class Storage : public nsIDOMStorage
-              , public nsWrapperCache
+class Storage : public nsIDOMStorage, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(Storage,
-                                                         nsIDOMStorage)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(Storage, nsIDOMStorage)
 
   Storage(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal);
 
-  enum StorageType {
+  enum StorageType
+  {
     eSessionStorage,
     eLocalStorage,
   };
@@ -43,36 +42,32 @@ public:
 
   virtual int64_t GetOriginQuotaUsage() const = 0;
 
-  nsIPrincipal*
-  Principal() const
-  {
-    return mPrincipal;
-  }
+  nsIPrincipal* Principal() const { return mPrincipal; }
 
   // WebIDL
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual uint32_t
-  GetLength(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
+  virtual uint32_t GetLength(nsIPrincipal& aSubjectPrincipal,
+                             ErrorResult& aRv) = 0;
 
-  virtual void
-  Key(uint32_t aIndex, nsAString& aResult,
-      nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
+  virtual void Key(uint32_t aIndex,
+                   nsAString& aResult,
+                   nsIPrincipal& aSubjectPrincipal,
+                   ErrorResult& aRv) = 0;
 
-  virtual void
-  GetItem(const nsAString& aKey, nsAString& aResult,
-          nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
+  virtual void GetItem(const nsAString& aKey,
+                       nsAString& aResult,
+                       nsIPrincipal& aSubjectPrincipal,
+                       ErrorResult& aRv) = 0;
 
-  virtual void
-  GetSupportedNames(nsTArray<nsString>& aKeys) = 0;
+  virtual void GetSupportedNames(nsTArray<nsString>& aKeys) = 0;
 
-  void NamedGetter(const nsAString& aKey, bool& aFound, nsAString& aResult,
+  void NamedGetter(const nsAString& aKey,
+                   bool& aFound,
+                   nsAString& aResult,
                    nsIPrincipal& aSubjectPrincipal,
                    ErrorResult& aRv)
   {
@@ -80,22 +75,25 @@ public:
     aFound = !aResult.IsVoid();
   }
 
-  virtual void
-  SetItem(const nsAString& aKey, const nsAString& aValue,
-          nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
+  virtual void SetItem(const nsAString& aKey,
+                       const nsAString& aValue,
+                       nsIPrincipal& aSubjectPrincipal,
+                       ErrorResult& aRv) = 0;
 
-  void NamedSetter(const nsAString& aKey, const nsAString& aValue,
+  void NamedSetter(const nsAString& aKey,
+                   const nsAString& aValue,
                    nsIPrincipal& aSubjectPrincipal,
                    ErrorResult& aRv)
   {
     SetItem(aKey, aValue, aSubjectPrincipal, aRv);
   }
 
-  virtual void
-  RemoveItem(const nsAString& aKey, nsIPrincipal& aSubjectPrincipal,
-             ErrorResult& aRv) = 0;
+  virtual void RemoveItem(const nsAString& aKey,
+                          nsIPrincipal& aSubjectPrincipal,
+                          ErrorResult& aRv) = 0;
 
-  void NamedDeleter(const nsAString& aKey, bool& aFound,
+  void NamedDeleter(const nsAString& aKey,
+                    bool& aFound,
                     nsIPrincipal& aSubjectPrincipal,
                     ErrorResult& aRv)
   {
@@ -104,19 +102,21 @@ public:
     aFound = !aRv.ErrorCodeIs(NS_SUCCESS_DOM_NO_OPERATION);
   }
 
-  virtual void
-  Clear(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
+  virtual void Clear(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
 
   bool IsSessionOnly() const { return mIsSessionOnly; }
 
-  static void
-  NotifyChange(Storage* aStorage, nsIPrincipal* aPrincipal,
-               const nsAString& aKey, const nsAString& aOldValue,
-               const nsAString& aNewValue, const char16_t* aStorageType,
-               const nsAString& aDocumentURI, bool aIsPrivate,
-               bool aImmediateDispatch);
+  static void NotifyChange(Storage* aStorage,
+                           nsIPrincipal* aPrincipal,
+                           const nsAString& aKey,
+                           const nsAString& aOldValue,
+                           const nsAString& aNewValue,
+                           const char16_t* aStorageType,
+                           const nsAString& aDocumentURI,
+                           bool aIsPrivate,
+                           bool aImmediateDispatch);
 
-protected:
+ protected:
   virtual ~Storage();
 
   // The method checks whether the caller can use a storage.
@@ -128,7 +128,7 @@ protected:
   // hand together).
   bool CanUseStorage(nsIPrincipal& aSubjectPrincipal);
 
-private:
+ private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsCOMPtr<nsIPrincipal> mPrincipal;
 
@@ -138,7 +138,7 @@ private:
   bool mIsSessionOnly : 1;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Storage_h
+#endif  // mozilla_dom_Storage_h

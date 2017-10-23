@@ -54,21 +54,22 @@ MOZ_BEGIN_EXTERN_C
 
 #ifndef REPLACE_MALLOC_IMPL
 /* Returns the replace-malloc bridge if there is one to be returned. */
-MFBT_API ReplaceMallocBridge* get_bridge();
+MFBT_API ReplaceMallocBridge*
+get_bridge();
 #endif
 
 /* Table of malloc functions.
  *   e.g. void* (*malloc)(size_t), etc.
  */
 #define MALLOC_DECL(name, return_type, ...) \
-  typedef return_type(name ## _impl_t)(__VA_ARGS__);
+  typedef return_type(name##_impl_t)(__VA_ARGS__);
 
 #include "malloc_decls.h"
 
-#define MALLOC_DECL(name, return_type, ...) \
-  name ## _impl_t * name;
+#define MALLOC_DECL(name, return_type, ...) name##_impl_t* name;
 
-typedef struct {
+typedef struct
+{
 #include "malloc_decls.h"
 } malloc_table_t;
 
@@ -90,25 +91,27 @@ MOZ_END_EXTERN_C
  */
 namespace mozilla {
 namespace detail {
-template <typename R, typename... Args>
-struct AllocHookType {
+template<typename R, typename... Args>
+struct AllocHookType
+{
   using Type = R (*)(R, Args...);
 };
 
-template <typename... Args>
+template<typename... Args>
 struct AllocHookType<void, Args...>
 {
   using Type = void (*)(Args...);
 };
 
-} // namespace detail
-} // namespace mozilla
+}  // namespace detail
+}  // namespace mozilla
 
-#define MALLOC_DECL(name, return_type, ...) \
+#define MALLOC_DECL(name, return_type, ...)                                 \
   typename mozilla::detail::AllocHookType<return_type, ##__VA_ARGS__>::Type \
-    name ## _hook;
+      name##_hook;
 
-typedef struct {
+typedef struct
+{
 #include "malloc_decls.h"
   /* Like free_hook, but called before realloc_hook. free_hook is called
    * instead of not given. */
@@ -118,7 +121,7 @@ typedef struct {
 namespace mozilla {
 namespace dmd {
 struct DMDFuncs;
-} // namespace dmd
+}  // namespace dmd
 
 /* Callbacks to register debug file handles for Poison IO interpose.
  * See Mozilla(|Un)RegisterDebugHandle in xpcom/build/PoisonIOInterposer.h */
@@ -129,7 +132,7 @@ struct DebugFdRegistry
   virtual void UnRegisterHandle(intptr_t aFd);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 struct ReplaceMallocBridge
 {
@@ -157,21 +160,26 @@ struct ReplaceMallocBridge
    * Functions from a previously registered table may still be called for
    * a brief time after RegisterHook returns.
    * This method was added in version 3 of the bridge. */
-  virtual const malloc_table_t*
-  RegisterHook(const char* aName, const malloc_table_t* aTable,
-               const malloc_hook_table_t* aHookTable) { return nullptr; }
+  virtual const malloc_table_t* RegisterHook(
+      const char* aName,
+      const malloc_table_t* aTable,
+      const malloc_hook_table_t* aHookTable)
+  {
+    return nullptr;
+  }
 
 #ifndef REPLACE_MALLOC_IMPL
   /* Returns the replace-malloc bridge if its version is at least the
    * requested one. */
-  static ReplaceMallocBridge* Get(int aMinimumVersion) {
+  static ReplaceMallocBridge* Get(int aMinimumVersion)
+  {
     static ReplaceMallocBridge* sSingleton = get_bridge();
-    return (sSingleton && sSingleton->mVersion >= aMinimumVersion)
-      ? sSingleton : nullptr;
+    return (sSingleton && sSingleton->mVersion >= aMinimumVersion) ? sSingleton
+                                                                   : nullptr;
   }
 #endif
 
-protected:
+ protected:
   const int mVersion;
 };
 
@@ -200,9 +208,10 @@ struct ReplaceMalloc
     }
   }
 
-  static const malloc_table_t*
-  RegisterHook(const char* aName, const malloc_table_t* aTable,
-               const malloc_hook_table_t* aHookTable)
+  static const malloc_table_t* RegisterHook(
+      const char* aName,
+      const malloc_table_t* aTable,
+      const malloc_hook_table_t* aHookTable)
   {
     auto singleton = ReplaceMallocBridge::Get(/* minimumVersion */ 3);
     return singleton ? singleton->RegisterHook(aName, aTable, aHookTable)

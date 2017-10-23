@@ -16,10 +16,9 @@ class nsGlobalWindow;
 namespace mozilla {
 namespace dom {
 
-class TimeEvent final : public Event,
-                        public nsIDOMTimeEvent
+class TimeEvent final : public Event, public nsIDOMTimeEvent
 {
-public:
+ public:
   TimeEvent(EventTarget* aOwner,
             nsPresContext* aPresContext,
             InternalSMILTimeEvent* aEvent);
@@ -34,38 +33,33 @@ public:
   // Forward to base class
   NS_FORWARD_TO_EVENT
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return TimeEventBinding::Wrap(aCx, this, aGivenProto);
   }
 
-  void InitTimeEvent(const nsAString& aType, nsGlobalWindow* aView,
+  void InitTimeEvent(const nsAString& aType,
+                     nsGlobalWindow* aView,
                      int32_t aDetail);
 
+  int32_t Detail() const { return mDetail; }
 
-  int32_t Detail() const
-  {
-    return mDetail;
-  }
+  nsPIDOMWindowOuter* GetView() const { return mView; }
 
-  nsPIDOMWindowOuter* GetView() const
-  {
-    return mView;
-  }
-
-private:
+ private:
   ~TimeEvent() {}
 
   nsCOMPtr<nsPIDOMWindowOuter> mView;
   int32_t mDetail;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::TimeEvent>
 NS_NewDOMTimeEvent(mozilla::dom::EventTarget* aOwner,
                    nsPresContext* aPresContext,
                    mozilla::InternalSMILTimeEvent* aEvent);
 
-#endif // mozilla_dom_TimeEvent_h_
+#endif  // mozilla_dom_TimeEvent_h_

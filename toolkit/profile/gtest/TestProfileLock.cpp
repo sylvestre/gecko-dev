@@ -19,8 +19,7 @@ TEST(ProfileLock, BasicLock)
   nsresult rv;
 
   nsCOMPtr<nsIFile> tmpDir;
-  rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR,
-                              getter_AddRefs(tmpDir));
+  rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(tmpDir));
   ASSERT_EQ(NS_SUCCEEDED(rv), true);
 
   rv = tmpDir->AppendNative(nsCString(tmpExt));

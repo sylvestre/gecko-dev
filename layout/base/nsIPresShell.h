@@ -30,7 +30,7 @@
 #include "nsRect.h"
 #include "nsRegionFwd.h"
 #include "nsWeakReference.h"
-#include <stdio.h> // for FILE definition
+#include <stdio.h>  // for FILE definition
 #include "nsChangeHint.h"
 #include "nsRefPtrHashtable.h"
 #include "nsClassHashtable.h"
@@ -54,7 +54,7 @@ class nsCaret;
 namespace mozilla {
 class AccessibleCaretEventHub;
 class CSSStyleSheet;
-} // namespace mozilla
+}  // namespace mozilla
 class nsFrameSelection;
 class nsFrameManager;
 class nsILayoutHistoryState;
@@ -62,7 +62,8 @@ class nsIReflowCallback;
 class nsIDOMNode;
 class nsCSSFrameConstructor;
 class nsISelection;
-template<class E> class nsCOMArray;
+template<class E>
+class nsCOMArray;
 class AutoWeakFrame;
 class WeakFrame;
 class nsIScrollableFrame;
@@ -82,8 +83,8 @@ class nsAccessibilityService;
 namespace mozilla {
 namespace a11y {
 class DocAccessible;
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 #endif
 class nsITimer;
 
@@ -95,16 +96,16 @@ class Element;
 class Touch;
 class Selection;
 class ShadowRoot;
-} // namespace dom
+}  // namespace dom
 
 namespace layers {
 class LayerManager;
-} // namespace layers
+}  // namespace layers
 
 namespace gfx {
 class SourceSurface;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 // Flags to pass to SetCapturingContent
 //
@@ -117,7 +118,8 @@ class SourceSurface;
 // true when the mouse is pointer locked, and events are sent to locked element
 #define CAPTURE_POINTERLOCK 8
 
-typedef struct CapturingContentInfo {
+typedef struct CapturingContentInfo
+{
   // capture should only be allowed during a mousedown event
   bool mAllowed;
   bool mPointerLock;
@@ -127,22 +129,27 @@ typedef struct CapturingContentInfo {
 } CapturingContentInfo;
 
 // a75573d6-34c8-4485-8fb7-edcb6fc70e12
-#define NS_IPRESSHELL_IID \
-{ 0xa75573d6, 0x34c8, 0x4485, \
-  { 0x8f, 0xb7, 0xed, 0xcb, 0x6f, 0xc7, 0x0e, 0x12 } }
+#define NS_IPRESSHELL_IID                            \
+  {                                                  \
+    0xa75573d6, 0x34c8, 0x4485,                      \
+    {                                                \
+      0x8f, 0xb7, 0xed, 0xcb, 0x6f, 0xc7, 0x0e, 0x12 \
+    }                                                \
+  }
 
 // debug VerifyReflow flags
-#define VERIFY_REFLOW_ON                    0x01
-#define VERIFY_REFLOW_NOISY                 0x02
-#define VERIFY_REFLOW_ALL                   0x04
-#define VERIFY_REFLOW_DUMP_COMMANDS         0x08
-#define VERIFY_REFLOW_NOISY_RC              0x10
-#define VERIFY_REFLOW_REALLY_NOISY_RC       0x20
-#define VERIFY_REFLOW_DURING_RESIZE_REFLOW  0x40
+#define VERIFY_REFLOW_ON 0x01
+#define VERIFY_REFLOW_NOISY 0x02
+#define VERIFY_REFLOW_ALL 0x04
+#define VERIFY_REFLOW_DUMP_COMMANDS 0x08
+#define VERIFY_REFLOW_NOISY_RC 0x10
+#define VERIFY_REFLOW_REALLY_NOISY_RC 0x20
+#define VERIFY_REFLOW_DURING_RESIZE_REFLOW 0x40
 
 #undef NOISY_INTERRUPTIBLE_REFLOW
 
-enum nsRectVisibility {
+enum nsRectVisibility
+{
   nsRectVisibility_kVisible,
   nsRectVisibility_kAboveViewport,
   nsRectVisibility_kBelowViewport,
@@ -164,20 +171,21 @@ enum nsRectVisibility {
 
 class nsIPresShell : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IPRESSHELL_IID)
 
-protected:
+ protected:
   typedef mozilla::layers::LayerManager LayerManager;
   typedef mozilla::gfx::SourceSurface SourceSurface;
 
-  enum eRenderFlag {
+  enum eRenderFlag
+  {
     STATE_IGNORING_VIEWPORT_SCROLLING = 0x1,
     STATE_DRAWWINDOW_NOT_FLUSHING = 0x2
   };
-  typedef uint8_t RenderFlags; // for storing the above flags
+  typedef uint8_t RenderFlags;  // for storing the above flags
 
-public:
+ public:
   nsIPresShell();
 
   /**
@@ -208,8 +216,7 @@ public:
   void FreeFrame(nsQueryFrame::FrameIID aID, void* aPtr)
   {
     RecordFree(aPtr);
-    if (!mIsDestroying)
-      mFrameArena.FreeByFrameID(aID, aPtr);
+    if (!mIsDestroying) mFrameArena.FreeByFrameID(aID, aPtr);
   }
 
   /**
@@ -228,8 +235,7 @@ public:
   void FreeByObjectID(mozilla::ArenaObjectID aID, void* aPtr)
   {
     RecordFree(aPtr);
-    if (!mIsDestroying)
-      mFrameArena.FreeByObjectID(aID, aPtr);
+    if (!mIsDestroying) mFrameArena.FreeByObjectID(aID, aPtr);
   }
 
   template<typename T>
@@ -279,11 +285,12 @@ public:
 
   nsCSSFrameConstructor* FrameConstructor() const { return mFrameConstructor; }
 
-  nsFrameManager* FrameManager() const {
+  nsFrameManager* FrameManager() const
+  {
     // reinterpret_cast is valid since nsFrameManager does not add
     // any members over nsFrameManagerBase.
-    return reinterpret_cast<nsFrameManager*>
-                           (const_cast<nsIPresShell*>(this)->mFrameManager);
+    return reinterpret_cast<nsFrameManager*>(
+        const_cast<nsIPresShell*>(this)->mFrameManager);
   }
 
   /* Enable/disable author style level. Disabling author style disables the entire
@@ -363,12 +370,18 @@ public:
    * Reflow the frame model into a new width and height.  The
    * coordinates for aWidth and aHeight must be in standard nscoord's.
    */
-  virtual nsresult ResizeReflow(nscoord aWidth, nscoord aHeight, nscoord aOldWidth = 0, nscoord aOldHeight = 0) = 0;
+  virtual nsresult ResizeReflow(nscoord aWidth,
+                                nscoord aHeight,
+                                nscoord aOldWidth = 0,
+                                nscoord aOldHeight = 0) = 0;
   /**
    * Do the same thing as ResizeReflow but even if ResizeReflowOverride was
    * called previously.
    */
-  virtual nsresult ResizeReflowIgnoreOverride(nscoord aWidth, nscoord aHeight, nscoord aOldWidth, nscoord aOldHeight) = 0;
+  virtual nsresult ResizeReflowIgnoreOverride(nscoord aWidth,
+                                              nscoord aHeight,
+                                              nscoord aOldWidth,
+                                              nscoord aOldHeight) = 0;
 
   /**
    * Returns true if ResizeReflowOverride has been called.
@@ -388,9 +401,7 @@ public:
   /**
    * This calls through to the frame manager to get the root frame.
    */
-  nsIFrame* GetRootFrame() const {
-    return mFrameManager->GetRootFrame();
-  }
+  nsIFrame* GetRootFrame() const { return mFrameManager->GetRootFrame(); }
 
   /*
    * Get root scroll frame from FrameManager()->GetRootFrame().
@@ -420,10 +431,14 @@ public:
    * aDirection is eEither.  Otherwise, this returns a nearest frame that is
    * scrollable in the specified direction.
    */
-  enum ScrollDirection { eHorizontal, eVertical, eEither };
+  enum ScrollDirection
+  {
+    eHorizontal,
+    eVertical,
+    eEither
+  };
   nsIScrollableFrame* GetScrollableFrameToScrollForContent(
-                         nsIContent* aContent,
-                         ScrollDirection aDirection);
+      nsIContent* aContent, ScrollDirection aDirection);
 
   /**
    * Gets nearest scrollable frame from current focused content or DOM
@@ -466,25 +481,27 @@ public:
    * be marked dirty.  Passing aIntrinsicDirty = eResize and aBitToAdd = 0
    * would result in no work being done, so don't do that.
    */
-  enum IntrinsicDirty {
+  enum IntrinsicDirty
+  {
     // XXXldb eResize should be renamed
-    eResize,     // don't mark any intrinsic widths dirty
-    eTreeChange, // mark intrinsic widths dirty on aFrame and its ancestors
-    eStyleChange // Do eTreeChange, plus all of aFrame's descendants
+    eResize,      // don't mark any intrinsic widths dirty
+    eTreeChange,  // mark intrinsic widths dirty on aFrame and its ancestors
+    eStyleChange  // Do eTreeChange, plus all of aFrame's descendants
   };
-  enum ReflowRootHandling {
-    ePositionOrSizeChange, // aFrame is changing position or size
-    eNoPositionOrSizeChange, // ... NOT changing ...
-    eInferFromBitToAdd // is changing iff (aBitToAdd == NS_FRAME_IS_DIRTY)
+  enum ReflowRootHandling
+  {
+    ePositionOrSizeChange,    // aFrame is changing position or size
+    eNoPositionOrSizeChange,  // ... NOT changing ...
+    eInferFromBitToAdd  // is changing iff (aBitToAdd == NS_FRAME_IS_DIRTY)
 
     // Note:  With eStyleChange, these can also apply to out-of-flows
     // in addition to aFrame.
   };
-  virtual void FrameNeedsReflow(nsIFrame *aFrame,
-                                IntrinsicDirty aIntrinsicDirty,
-                                nsFrameState aBitToAdd,
-                                ReflowRootHandling aRootHandling =
-                                  eInferFromBitToAdd) = 0;
+  virtual void FrameNeedsReflow(
+      nsIFrame* aFrame,
+      IntrinsicDirty aIntrinsicDirty,
+      nsFrameState aBitToAdd,
+      ReflowRootHandling aRootHandling = eInferFromBitToAdd) = 0;
 
   /**
    * Calls FrameNeedsReflow on all fixed position children of the root frame.
@@ -502,7 +519,7 @@ public:
    * method doesn't mark any intrinsic widths dirty and doesn't add any bits
    * other than NS_FRAME_HAS_DIRTY_CHILDREN.
    */
-  virtual void FrameNeedsToContinueReflow(nsIFrame *aFrame) = 0;
+  virtual void FrameNeedsToContinueReflow(nsIFrame* aFrame) = 0;
 
   virtual void CancelAllPendingReflows() = 0;
 
@@ -523,7 +540,8 @@ public:
   // ShadowRoot has APIs that can change styles so we only
   // want to restyle elements in the ShadowRoot and not the whole
   // document.
-  virtual void RecordShadowStyleChange(mozilla::dom::ShadowRoot* aShadowRoot) = 0;
+  virtual void RecordShadowStyleChange(
+      mozilla::dom::ShadowRoot* aShadowRoot) = 0;
 
   /**
    * Determine if it is safe to flush all pending notifications
@@ -547,7 +565,7 @@ public:
    *
    * @param aType the type of notifications to flush
    */
-public:
+ public:
   void FlushPendingNotifications(mozilla::FlushType aType)
   {
     if (!NeedFlush(aType)) {
@@ -566,14 +584,14 @@ public:
     DoFlushPendingNotifications(aType);
   }
 
-protected:
+ protected:
   /**
    * Implementation methods for FlushPendingNotifications.
    */
   virtual void DoFlushPendingNotifications(mozilla::FlushType aType) = 0;
   virtual void DoFlushPendingNotifications(mozilla::ChangesToFlush aType) = 0;
 
-public:
+ public:
   /**
    * Whether we might need a flush for the given flush type.  If this
    * function returns false, we definitely don't need to flush.
@@ -593,8 +611,7 @@ public:
            (mNeedLayoutFlush &&
             aType >= mozilla::FlushType::InterruptibleLayout) ||
            aType >= mozilla::FlushType::Display ||
-           mNeedThrottledAnimationFlush ||
-           mInFlush;
+           mNeedThrottledAnimationFlush || mInFlush;
   }
 
   inline void EnsureStyleFlush();
@@ -607,8 +624,7 @@ public:
 
   void ObserveStyleFlushes()
   {
-    if (!ObservingStyleFlushes())
-      DoObserveStyleFlushes();
+    if (!ObservingStyleFlushes()) DoObserveStyleFlushes();
   }
 
   bool NeedStyleFlush() const { return mNeedStyleFlush; }
@@ -638,7 +654,8 @@ public:
    * be false.  If |aAdditionalScrollFlags| is nsIPresShell::SCROLL_SMOOTH_AUTO
    * and |aScroll| is true, the scrolling may be performed with an animation.
    */
-  virtual nsresult GoToAnchor(const nsAString& aAnchorName, bool aScroll,
+  virtual nsresult GoToAnchor(const nsAString& aAnchorName,
+                              bool aScroll,
                               uint32_t aAdditionalScrollFlags = 0) = 0;
 
   /**
@@ -651,25 +668,28 @@ public:
    */
   virtual nsresult ScrollToAnchor() = 0;
 
-  enum {
-    SCROLL_TOP     = 0,
-    SCROLL_BOTTOM  = 100,
-    SCROLL_LEFT    = 0,
-    SCROLL_RIGHT   = 100,
-    SCROLL_CENTER  = 50,
+  enum
+  {
+    SCROLL_TOP = 0,
+    SCROLL_BOTTOM = 100,
+    SCROLL_LEFT = 0,
+    SCROLL_RIGHT = 100,
+    SCROLL_CENTER = 50,
     SCROLL_MINIMUM = -1
   };
 
-  enum WhenToScroll {
+  enum WhenToScroll
+  {
     SCROLL_ALWAYS,
     SCROLL_IF_NOT_VISIBLE,
     SCROLL_IF_NOT_FULLY_VISIBLE
   };
-  typedef struct ScrollAxis {
+  typedef struct ScrollAxis
+  {
     int16_t mWhereToScroll;
     WhenToScroll mWhenToScroll : 8;
     bool mOnlyIfPerceivedScrollableDirection : 1;
-  /**
+    /**
    * @param aWhere: Either a percentage or a special value.
    *                nsIPresShell defines:
    *                * (Default) SCROLL_MINIMUM = -1: The visible area is
@@ -706,10 +726,13 @@ public:
    */
     explicit ScrollAxis(int16_t aWhere = SCROLL_MINIMUM,
                         WhenToScroll aWhen = SCROLL_IF_NOT_FULLY_VISIBLE,
-                        bool aOnlyIfPerceivedScrollableDirection = false) :
-      mWhereToScroll(aWhere), mWhenToScroll(aWhen),
-      mOnlyIfPerceivedScrollableDirection(aOnlyIfPerceivedScrollableDirection)
-    {}
+                        bool aOnlyIfPerceivedScrollableDirection = false)
+        : mWhereToScroll(aWhere),
+          mWhenToScroll(aWhen),
+          mOnlyIfPerceivedScrollableDirection(
+              aOnlyIfPerceivedScrollableDirection)
+    {
+    }
   } ScrollAxis;
   /**
    * Scrolls the view of the document so that the primary frame of the content
@@ -743,11 +766,12 @@ public:
    *                  nsIScrollableFrame::ScrollMode::INSTANT will be used.
    */
   virtual nsresult ScrollContentIntoView(nsIContent* aContent,
-                                                     ScrollAxis  aVertical,
-                                                     ScrollAxis  aHorizontal,
-                                                     uint32_t    aFlags) = 0;
+                                         ScrollAxis aVertical,
+                                         ScrollAxis aHorizontal,
+                                         uint32_t aFlags) = 0;
 
-  enum {
+  enum
+  {
     SCROLL_FIRST_ANCESTOR_ONLY = 0x01,
     SCROLL_OVERFLOW_HIDDEN = 0x02,
     SCROLL_NO_PARENT_FRAMES = 0x04,
@@ -773,11 +797,11 @@ public:
    * contain this document in a iframe or the like.
    * @return true if any scrolling happened, false if no scrolling happened
    */
-  virtual bool ScrollFrameRectIntoView(nsIFrame*     aFrame,
+  virtual bool ScrollFrameRectIntoView(nsIFrame* aFrame,
                                        const nsRect& aRect,
-                                       ScrollAxis    aVertical,
-                                       ScrollAxis    aHorizontal,
-                                       uint32_t      aFlags) = 0;
+                                       ScrollAxis aVertical,
+                                       ScrollAxis aHorizontal,
+                                       uint32_t aFlags) = 0;
 
   /**
    * Determine if a rectangle specified in the frame's coordinate system
@@ -793,8 +817,8 @@ public:
    *         nsRectVisibility_kRightOfViewport rectangle is outside the viewport
    *         in the specified direction
    */
-  virtual nsRectVisibility GetRectVisibility(nsIFrame *aFrame,
-                                             const nsRect &aRect,
+  virtual nsRectVisibility GetRectVisibility(nsIFrame* aFrame,
+                                             const nsRect& aRect,
                                              nscoord aMinTwips) const = 0;
 
   /**
@@ -813,7 +837,8 @@ public:
   /**
    * Get the AccessibleCaretEventHub, if it exists. AddRefs it.
    */
-  virtual already_AddRefed<mozilla::AccessibleCaretEventHub> GetAccessibleCaretEventHub() const = 0;
+  virtual already_AddRefed<mozilla::AccessibleCaretEventHub>
+  GetAccessibleCaretEventHub() const = 0;
 
   /**
    * Get the caret, if it exists. AddRefs it.
@@ -823,7 +848,7 @@ public:
   /**
    * Set the current caret to a new caret. To undo this, call RestoreCaret.
    */
-  virtual void SetCaret(nsCaret *aNewCaret) = 0;
+  virtual void SetCaret(nsCaret* aNewCaret) = 0;
 
   /**
    * Restore the caret to the original caret that this pres shell was created
@@ -848,8 +873,8 @@ public:
     */
   int16_t GetSelectionFlags() const { return mSelectionFlags; }
 
-  virtual mozilla::dom::Selection*
-    GetCurrentSelection(mozilla::SelectionType aSelectionType) = 0;
+  virtual mozilla::dom::Selection* GetCurrentSelection(
+      mozilla::SelectionType aSelectionType) = 0;
 
   /**
    * Gets a selection controller for the focused content in the DOM window
@@ -866,35 +891,33 @@ public:
    *                            nullptr.
    */
   virtual already_AddRefed<nsISelectionController>
-            GetSelectionControllerForFocusedContent(
-              nsIContent** aFocusedContent = nullptr) = 0;
+  GetSelectionControllerForFocusedContent(
+      nsIContent** aFocusedContent = nullptr) = 0;
 
   /**
     * Interface to dispatch events via the presshell
     * @note The caller must have a strong reference to the PresShell.
     */
-  virtual nsresult HandleEventWithTarget(
-                                 mozilla::WidgetEvent* aEvent,
-                                 nsIFrame* aFrame,
-                                 nsIContent* aContent,
-                                 nsEventStatus* aStatus) = 0;
-
-  /**
-   * Dispatch event to content only (NOT full processing)
-   * @note The caller must have a strong reference to the PresShell.
-   */
-  virtual nsresult HandleDOMEventWithTarget(
-                                 nsIContent* aTargetContent,
-                                 mozilla::WidgetEvent* aEvent,
-                                 nsEventStatus* aStatus) = 0;
+  virtual nsresult HandleEventWithTarget(mozilla::WidgetEvent* aEvent,
+                                         nsIFrame* aFrame,
+                                         nsIContent* aContent,
+                                         nsEventStatus* aStatus) = 0;
 
   /**
    * Dispatch event to content only (NOT full processing)
    * @note The caller must have a strong reference to the PresShell.
    */
   virtual nsresult HandleDOMEventWithTarget(nsIContent* aTargetContent,
-                                                        nsIDOMEvent* aEvent,
-                                                        nsEventStatus* aStatus) = 0;
+                                            mozilla::WidgetEvent* aEvent,
+                                            nsEventStatus* aStatus) = 0;
+
+  /**
+   * Dispatch event to content only (NOT full processing)
+   * @note The caller must have a strong reference to the PresShell.
+   */
+  virtual nsresult HandleDOMEventWithTarget(nsIContent* aTargetContent,
+                                            nsIDOMEvent* aEvent,
+                                            nsEventStatus* aStatus) = 0;
 
   /**
    * Return whether or not the event is valid to be dispatched
@@ -911,13 +934,14 @@ public:
     * Gets the current target event frame from the PresShell
     */
   virtual already_AddRefed<nsIContent> GetEventTargetContent(
-                                                     mozilla::WidgetEvent* aEvent) = 0;
+      mozilla::WidgetEvent* aEvent) = 0;
 
   /**
    * Get and set the history state for the current document
    */
 
-  virtual nsresult CaptureHistoryState(nsILayoutHistoryState** aLayoutHistoryState) = 0;
+  virtual nsresult CaptureHistoryState(
+      nsILayoutHistoryState** aLayoutHistoryState) = 0;
 
   /**
    * Determine if reflow is currently locked
@@ -1001,22 +1025,22 @@ public:
 
 #ifdef MOZ_REFLOW_PERF
   virtual void DumpReflows() = 0;
-  virtual void CountReflows(const char * aName, nsIFrame * aFrame) = 0;
-  virtual void PaintCount(const char * aName,
-                                      gfxContext* aRenderingContext,
-                                      nsPresContext * aPresContext,
-                                      nsIFrame * aFrame,
-                                      const nsPoint& aOffset,
-                                      uint32_t aColor) = 0;
+  virtual void CountReflows(const char* aName, nsIFrame* aFrame) = 0;
+  virtual void PaintCount(const char* aName,
+                          gfxContext* aRenderingContext,
+                          nsPresContext* aPresContext,
+                          nsIFrame* aFrame,
+                          const nsPoint& aOffset,
+                          uint32_t aColor) = 0;
   virtual void SetPaintFrameCount(bool aOn) = 0;
   virtual bool IsPaintingFrameCounts() = 0;
 #endif
 
 #ifdef DEBUG
   // Debugging hooks
-  virtual void ListStyleContexts(FILE *out, int32_t aIndent = 0) = 0;
+  virtual void ListStyleContexts(FILE* out, int32_t aIndent = 0) = 0;
 
-  virtual void ListStyleSheets(FILE *out, int32_t aIndent = 0) = 0;
+  virtual void ListStyleSheets(FILE* out, int32_t aIndent = 0) = 0;
   virtual void VerifyStyleTree() = 0;
 #endif
 
@@ -1054,7 +1078,7 @@ public:
    * user events at the docshell's parent.  This pointer allows us to do that.
    * It should not be used for any other purpose.
    */
-  void SetForwardingContainer(const mozilla::WeakPtr<nsDocShell> &aContainer);
+  void SetForwardingContainer(const mozilla::WeakPtr<nsDocShell>& aContainer);
 
   /**
    * Render the document into an arbitrary gfxContext
@@ -1094,7 +1118,8 @@ public:
    * one CSS pixel in the source document is rendered to one unit in the current
    * transform.
    */
-  enum {
+  enum
+  {
     RENDER_IS_UNTRUSTED = 0x01,
     RENDER_IGNORE_VIEWPORT_SCROLLING = 0x02,
     RENDER_CARET = 0x04,
@@ -1103,11 +1128,13 @@ public:
     RENDER_DOCUMENT_RELATIVE = 0x20,
     RENDER_DRAWWINDOW_NOT_FLUSHING = 0x40
   };
-  virtual nsresult RenderDocument(const nsRect& aRect, uint32_t aFlags,
+  virtual nsresult RenderDocument(const nsRect& aRect,
+                                  uint32_t aFlags,
                                   nscolor aBackgroundColor,
                                   gfxContext* aRenderedContext) = 0;
 
-  enum {
+  enum
+  {
     RENDER_IS_IMAGE = 0x100,
     RENDER_AUTO_SCALE = 0x80
   };
@@ -1118,12 +1145,12 @@ public:
    * edge of the presshell area. The aPoint, aScreenRect and aFlags arguments
    * function in a similar manner as RenderSelection.
    */
-  virtual already_AddRefed<mozilla::gfx::SourceSurface>
-  RenderNode(nsIDOMNode* aNode,
-             nsIntRegion* aRegion,
-             const mozilla::LayoutDeviceIntPoint aPoint,
-             mozilla::LayoutDeviceIntRect* aScreenRect,
-             uint32_t aFlags) = 0;
+  virtual already_AddRefed<mozilla::gfx::SourceSurface> RenderNode(
+      nsIDOMNode* aNode,
+      nsIntRegion* aRegion,
+      const mozilla::LayoutDeviceIntPoint aPoint,
+      mozilla::LayoutDeviceIntRect* aScreenRect,
+      uint32_t aFlags) = 0;
 
   /**
    * Renders a selection to a surface and returns it. This method is primarily
@@ -1141,11 +1168,11 @@ public:
    * point isn't used because the position can be determined from the displayed
    * frames.
    */
-  virtual already_AddRefed<mozilla::gfx::SourceSurface>
-  RenderSelection(nsISelection* aSelection,
-                  const mozilla::LayoutDeviceIntPoint aPoint,
-                  mozilla::LayoutDeviceIntRect* aScreenRect,
-                  uint32_t aFlags) = 0;
+  virtual already_AddRefed<mozilla::gfx::SourceSurface> RenderSelection(
+      nsISelection* aSelection,
+      const mozilla::LayoutDeviceIntPoint aPoint,
+      mozilla::LayoutDeviceIntRect* aScreenRect,
+      uint32_t aFlags) = 0;
 
   void AddAutoWeakFrame(AutoWeakFrame* aWeakFrame);
   void AddWeakFrame(WeakFrame* aWeakFrame);
@@ -1199,18 +1226,19 @@ public:
    * can add it manually after LayoutUseContainersForRootFrame has built the
    * scrolling ContainerLayer.
    */
-  enum {
+  enum
+  {
     FORCE_DRAW = 0x01,
     ADD_FOR_SUBDOC = 0x02,
     APPEND_UNSCROLLED_ONLY = 0x04,
   };
-  virtual void AddCanvasBackgroundColorItem(nsDisplayListBuilder& aBuilder,
-                                            nsDisplayList& aList,
-                                            nsIFrame* aFrame,
-                                            const nsRect& aBounds,
-                                            nscolor aBackstopColor = NS_RGBA(0,0,0,0),
-                                            uint32_t aFlags = 0) = 0;
-
+  virtual void AddCanvasBackgroundColorItem(
+      nsDisplayListBuilder& aBuilder,
+      nsDisplayList& aList,
+      nsIFrame* aFrame,
+      const nsRect& aBounds,
+      nscolor aBackstopColor = NS_RGBA(0, 0, 0, 0),
+      uint32_t aFlags = 0) = 0;
 
   /**
    * Add a solid color item to the bottom of aList with frame aFrame and
@@ -1240,10 +1268,7 @@ public:
 
   virtual nsresult SetIsActive(bool aIsActive) = 0;
 
-  bool IsActive()
-  {
-    return mIsActive;
-  }
+  bool IsActive() { return mIsActive; }
 
   // mouse capturing
   static CapturingContentInfo gCaptureInfo;
@@ -1275,10 +1300,7 @@ public:
   /**
    * Return the active content currently capturing the mouse if any.
    */
-  static nsIContent* GetCapturingContent()
-  {
-    return gCaptureInfo.mContent;
-  }
+  static nsIContent* GetCapturingContent() { return gCaptureInfo.mContent; }
 
   /**
    * Allow or disallow mouse capturing.
@@ -1313,7 +1335,8 @@ public:
    * This returns the focused DOM window under our top level window.
    * I.e., when we are deactive, this returns the *last* focused DOM window.
    */
-  virtual already_AddRefed<nsPIDOMWindowOuter> GetFocusedDOMWindowInOurWindow() = 0;
+  virtual already_AddRefed<nsPIDOMWindowOuter>
+  GetFocusedDOMWindowInOurWindow() = 0;
 
   /**
    * Get the focused content under this window.
@@ -1339,9 +1362,11 @@ public:
    */
   virtual void SetIgnoreViewportScrolling(bool aIgnore) = 0;
   bool IgnoringViewportScrolling() const
-  { return mRenderFlags & STATE_IGNORING_VIEWPORT_SCROLLING; }
+  {
+    return mRenderFlags & STATE_IGNORING_VIEWPORT_SCROLLING;
+  }
 
-   /**
+  /**
    * Set a "resolution" for the document, which if not 1.0 will
    * allocate more or fewer pixels for rescalable content by a factor
    * of |resolution| in both dimensions.  Return NS_OK iff the
@@ -1382,15 +1407,17 @@ public:
    * Used by session restore code to restore a resolution before the first
    * paint.
    */
-  virtual void SetRestoreResolution(float aResolution,
-                                    mozilla::LayoutDeviceIntSize aDisplaySize) = 0;
+  virtual void SetRestoreResolution(
+      float aResolution, mozilla::LayoutDeviceIntSize aDisplaySize) = 0;
 
   /**
    * Returns whether we are in a DrawWindow() call that used the
    * DRAWWINDOW_DO_NOT_FLUSH flag.
    */
   bool InDrawWindowNotFlushing() const
-  { return mRenderFlags & STATE_DRAWWINDOW_NOT_FLUSHING; }
+  {
+    return mRenderFlags & STATE_DRAWWINDOW_NOT_FLUSHING;
+  }
 
   /**
    * Set the isFirstPaint flag.
@@ -1411,7 +1438,8 @@ public:
    */
   virtual void SynthesizeMouseMove(bool aFromScroll) = 0;
 
-  enum PaintFlags {
+  enum PaintFlags
+  {
     /* Update the layer tree and paint PaintedLayers. If this is not specified,
      * we may still have to do it if the layer tree lost PaintedLayer contents
      * we need for compositing. */
@@ -1421,7 +1449,8 @@ public:
     /* Sync-decode images. */
     PAINT_SYNC_DECODE_IMAGES = 0x04
   };
-  virtual void Paint(nsView* aViewToPaint, const nsRegion& aDirtyRegion,
+  virtual void Paint(nsView* aViewToPaint,
+                     const nsRegion& aDirtyRegion,
                      uint32_t aFlags) = 0;
   virtual nsresult HandleEvent(nsIFrame* aFrame,
                                mozilla::WidgetGUIEvent* aEvent,
@@ -1457,7 +1486,8 @@ public:
    * @param aType PAINT_DELAYED_COMPRESS : Schedule a paint to be executed after a delay, and
    * put FrameLayerBuilder in 'compressed' mode that avoids short cut optimizations.
    */
-  enum PaintType {
+  enum PaintType
+  {
     PAINT_DEFAULT,
     PAINT_DELAYED_COMPRESS
   };
@@ -1472,23 +1502,28 @@ public:
   /**
    * Methods that retrieve the cached font inflation preferences.
    */
-  uint32_t FontSizeInflationEmPerLine() const {
+  uint32_t FontSizeInflationEmPerLine() const
+  {
     return mFontSizeInflationEmPerLine;
   }
 
-  uint32_t FontSizeInflationMinTwips() const {
+  uint32_t FontSizeInflationMinTwips() const
+  {
     return mFontSizeInflationMinTwips;
   }
 
-  uint32_t FontSizeInflationLineThreshold() const {
+  uint32_t FontSizeInflationLineThreshold() const
+  {
     return mFontSizeInflationLineThreshold;
   }
 
-  bool FontSizeInflationForceEnabled() const {
+  bool FontSizeInflationForceEnabled() const
+  {
     return mFontSizeInflationForceEnabled;
   }
 
-  bool FontSizeInflationDisabledInMasterProcess() const {
+  bool FontSizeInflationDisabledInMasterProcess() const
+  {
     return mFontSizeInflationDisabledInMasterProcess;
   }
 
@@ -1514,15 +1549,14 @@ public:
   /**
    * Return true if the most recent interruptible reflow was interrupted.
    */
-  bool IsReflowInterrupted() const {
-    return mWasLastReflowInterrupted;
-  }
+  bool IsReflowInterrupted() const { return mWasLastReflowInterrupted; }
 
   /**
    * Return true if the the interruptible reflows have to be suppressed.
    * This may happen only if if the most recent reflow was interrupted.
    */
-  bool SuppressInterruptibleReflows() const {
+  bool SuppressInterruptibleReflows() const
+  {
     return mWasLastReflowInterrupted;
   }
 
@@ -1544,7 +1578,8 @@ public:
 
   /// Clears the current list of approximately visible frames on this pres shell
   /// and replaces it with frames that are in the display list @aList.
-  virtual void RebuildApproximateFrameVisibilityDisplayList(const nsDisplayList& aList) = 0;
+  virtual void RebuildApproximateFrameVisibilityDisplayList(
+      const nsDisplayList& aList) = 0;
   virtual void RebuildApproximateFrameVisibility(nsRect* aRect = nullptr,
                                                  bool aRemoveOnly = false) = 0;
 
@@ -1556,7 +1591,6 @@ public:
 
   /// Whether we should assume all frames are visible.
   virtual bool AssumeAllFramesVisible() = 0;
-
 
   /**
    * Returns whether the document's style set's rule processor for the
@@ -1570,7 +1604,7 @@ public:
   /**
    * Refresh observer management.
    */
-protected:
+ protected:
   void DoObserveStyleFlushes();
   void DoObserveLayoutFlushes();
 
@@ -1592,21 +1626,23 @@ protected:
    */
   void HandleSystemFontScale();
 
-  void RecordAlloc(void* aPtr) {
+  void RecordAlloc(void* aPtr)
+  {
 #ifdef DEBUG
     MOZ_ASSERT(!mAllocatedPointers.Contains(aPtr));
     mAllocatedPointers.PutEntry(aPtr);
 #endif
   }
 
-  void RecordFree(void* aPtr) {
+  void RecordFree(void* aPtr)
+  {
 #ifdef DEBUG
     MOZ_ASSERT(mAllocatedPointers.Contains(aPtr));
     mAllocatedPointers.RemoveEntry(aPtr);
 #endif
   }
 
-public:
+ public:
   bool AddRefreshObserver(nsARefreshObserver* aObserver,
                           mozilla::FlushType aFlushType);
   bool RemoveRefreshObserver(nsARefreshObserver* aObserver,
@@ -1620,11 +1656,14 @@ public:
   static void ClearMouseCapture(nsIFrame* aFrame);
 
   void SetScrollPositionClampingScrollPortSize(nscoord aWidth, nscoord aHeight);
-  bool IsScrollPositionClampingScrollPortSizeSet() {
+  bool IsScrollPositionClampingScrollPortSizeSet()
+  {
     return mScrollPositionClampingScrollPortSizeSet;
   }
-  nsSize GetScrollPositionClampingScrollPortSize() {
-    NS_ASSERTION(mScrollPositionClampingScrollPortSizeSet, "asking for scroll port when its not set?");
+  nsSize GetScrollPositionClampingScrollPortSize()
+  {
+    NS_ASSERTION(mScrollPositionClampingScrollPortSizeSet,
+                 "asking for scroll port when its not set?");
     return mScrollPositionClampingScrollPortSize;
   }
 
@@ -1636,16 +1675,17 @@ public:
   /**
    * Documents belonging to an invisible DocShell must not be painted ever.
    */
-  bool IsNeverPainting() {
-    return mIsNeverPainting;
-  }
+  bool IsNeverPainting() { return mIsNeverPainting; }
 
-  void SetNeverPainting(bool aNeverPainting) {
+  void SetNeverPainting(bool aNeverPainting)
+  {
     mIsNeverPainting = aNeverPainting;
   }
 
   bool HasPendingReflow() const
-    { return mObservingLayoutFlushes || mReflowContinueTimer; }
+  {
+    return mObservingLayoutFlushes || mReflowContinueTimer;
+  }
 
   void SyncWindowProperties(nsView* aView);
 
@@ -1657,7 +1697,7 @@ public:
   virtual void NotifyStyleSheetServiceSheetRemoved(mozilla::StyleSheet* aSheet,
                                                    uint32_t aSheetType) = 0;
 
-protected:
+ protected:
   friend class nsRefreshDriver;
 
   // IMPORTANT: The ownership implicit in the following member variables
@@ -1666,17 +1706,17 @@ protected:
 
   // These are the same Document and PresContext owned by the DocViewer.
   // we must share ownership.
-  nsCOMPtr<nsIDocument>     mDocument;
-  RefPtr<nsPresContext>   mPresContext;
-  mozilla::StyleSetHandle   mStyleSet;      // [OWNS]
-  nsCSSFrameConstructor*    mFrameConstructor; // [OWNS]
-  nsViewManager*           mViewManager;   // [WEAK] docViewer owns it so I don't have to
-  nsPresArena               mFrameArena;
+  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<nsPresContext> mPresContext;
+  mozilla::StyleSetHandle mStyleSet;         // [OWNS]
+  nsCSSFrameConstructor* mFrameConstructor;  // [OWNS]
+  nsViewManager* mViewManager;  // [WEAK] docViewer owns it so I don't have to
+  nsPresArena mFrameArena;
   RefPtr<nsFrameSelection> mSelection;
   // Pointer into mFrameConstructor - this is purely so that FrameManager() and
   // GetRootFrame() can be inlined:
-  nsFrameManagerBase*       mFrameManager;
-  mozilla::WeakPtr<nsDocShell>                 mForwardingContainer;
+  nsFrameManagerBase* mFrameManager;
+  mozilla::WeakPtr<nsDocShell> mForwardingContainer;
 #ifdef ACCESSIBILITY
   mozilla::a11y::DocAccessible* mDocAccessible;
 #endif
@@ -1685,10 +1725,10 @@ protected:
   // the resume reflow event off a timer to avoid event starvation because
   // posted messages are processed before other messages when the modal
   // moving/sizing loop is running, see bug 491700 for details.
-  nsCOMPtr<nsITimer>        mReflowContinueTimer;
+  nsCOMPtr<nsITimer> mReflowContinueTimer;
 
 #ifdef DEBUG
-  nsIFrame*                 mDrawEventTargetFrame;
+  nsIFrame* mDrawEventTargetFrame;
 
   // We track allocated pointers in a debug-only hashtable to assert against
   // missing/double frees.
@@ -1696,46 +1736,46 @@ protected:
 #endif
 
   // Count of the number of times this presshell has been painted to a window.
-  uint64_t                  mPaintCount;
+  uint64_t mPaintCount;
 
-  nsSize                    mScrollPositionClampingScrollPortSize;
+  nsSize mScrollPositionClampingScrollPortSize;
 
   // A list of stack weak frames. This is a pointer to the last item in the list.
-  AutoWeakFrame*            mAutoWeakFrames;
+  AutoWeakFrame* mAutoWeakFrames;
 
   // A hash table of heap allocated weak frames.
   nsTHashtable<nsPtrHashKey<WeakFrame>> mWeakFrames;
 
   // Most recent canvas background color.
-  nscolor                   mCanvasBackgroundColor;
+  nscolor mCanvasBackgroundColor;
 
   // Used to force allocation and rendering of proportionally more or
   // less pixels in both dimensions.
-  mozilla::Maybe<float>     mResolution;
+  mozilla::Maybe<float> mResolution;
 
-  int16_t                   mSelectionFlags;
+  int16_t mSelectionFlags;
 
   // Flags controlling how our document is rendered.  These persist
   // between paints and so are tied with retained layer pixels.
   // PresShell flushes retained layers when the rendering state
   // changes in a way that prevents us from being able to (usefully)
   // re-use old pixels.
-  RenderFlags               mRenderFlags;
-  bool                      mDidInitialize : 1;
-  bool                      mIsDestroying : 1;
-  bool                      mIsReflowing : 1;
+  RenderFlags mRenderFlags;
+  bool mDidInitialize : 1;
+  bool mIsDestroying : 1;
+  bool mIsReflowing : 1;
 
   // For all documents we initially lock down painting.
-  bool                      mPaintingSuppressed : 1;
+  bool mPaintingSuppressed : 1;
 
-  bool                      mIsActive : 1;
-  bool                      mFrozen : 1;
-  bool                      mIsFirstPaint : 1;
-  bool                      mObservesMutationsForPrint : 1;
+  bool mIsActive : 1;
+  bool mFrozen : 1;
+  bool mIsFirstPaint : 1;
+  bool mObservesMutationsForPrint : 1;
 
   // Whether the most recent interruptible reflow was actually interrupted:
-  bool                      mWasLastReflowInterrupted : 1;
-  bool                      mScrollPositionClampingScrollPortSizeSet : 1;
+  bool mWasLastReflowInterrupted : 1;
+  bool mScrollPositionClampingScrollPortSizeSet : 1;
 
   // True if a layout flush might not be a no-op
   bool mNeedLayoutFlush : 1;
@@ -1744,21 +1784,21 @@ protected:
   bool mNeedStyleFlush : 1;
 
   // True if we're observing the refresh driver for style flushes.
-  bool mObservingStyleFlushes: 1;
+  bool mObservingStyleFlushes : 1;
 
   // True if we're observing the refresh driver for layout flushes, that is, if
   // we have a reflow scheduled.
   //
   // Guaranteed to be false if mReflowContinueTimer is non-null.
-  bool mObservingLayoutFlushes: 1;
+  bool mObservingLayoutFlushes : 1;
 
   // True if there are throttled animations that would be processed when
   // performing a flush with mFlushAnimations == true.
   bool mNeedThrottledAnimationFlush : 1;
 
-  uint32_t                  mPresShellId;
+  uint32_t mPresShellId;
 
-  static nsIContent*        gKeyDownTarget;
+  static nsIContent* gKeyDownTarget;
 
   // Cached font inflation values. This is done to prevent changing of font
   // inflation until a page is reloaded.

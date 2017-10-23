@@ -14,52 +14,74 @@ template<>
 bool
 CSSOrderAwareFrameIterator::CSSOrderComparator(nsIFrame* const& a,
                                                nsIFrame* const& b)
-{ return a->StylePosition()->mOrder < b->StylePosition()->mOrder; }
+{
+  return a->StylePosition()->mOrder < b->StylePosition()->mOrder;
+}
 
 template<>
 bool
 CSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(nsIFrame* const& a,
                                                          nsIFrame* const& b)
-{ return a->StyleXUL()->mBoxOrdinal < b->StyleXUL()->mBoxOrdinal; }
+{
+  return a->StyleXUL()->mBoxOrdinal < b->StyleXUL()->mBoxOrdinal;
+}
 
 template<>
 bool
-CSSOrderAwareFrameIterator::IsForward() const { return true; }
+CSSOrderAwareFrameIterator::IsForward() const
+{
+  return true;
+}
 
 template<>
 nsFrameList::iterator
 CSSOrderAwareFrameIterator::begin(const nsFrameList& aList)
-{ return aList.begin(); }
+{
+  return aList.begin();
+}
 
 template<>
-nsFrameList::iterator CSSOrderAwareFrameIterator::end(const nsFrameList& aList)
-{ return aList.end(); }
+nsFrameList::iterator
+CSSOrderAwareFrameIterator::end(const nsFrameList& aList)
+{
+  return aList.end();
+}
 
 template<>
 bool
 ReverseCSSOrderAwareFrameIterator::CSSOrderComparator(nsIFrame* const& a,
                                                       nsIFrame* const& b)
-{ return a->StylePosition()->mOrder > b->StylePosition()->mOrder; }
+{
+  return a->StylePosition()->mOrder > b->StylePosition()->mOrder;
+}
 
 template<>
 bool
-ReverseCSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(nsIFrame* const& a,
-                                                                nsIFrame* const& b)
-{ return a->StyleXUL()->mBoxOrdinal > b->StyleXUL()->mBoxOrdinal; }
+ReverseCSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(
+    nsIFrame* const& a, nsIFrame* const& b)
+{
+  return a->StyleXUL()->mBoxOrdinal > b->StyleXUL()->mBoxOrdinal;
+}
 
 template<>
 bool
 ReverseCSSOrderAwareFrameIterator::IsForward() const
-{ return false; }
+{
+  return false;
+}
 
 template<>
 nsFrameList::reverse_iterator
 ReverseCSSOrderAwareFrameIterator::begin(const nsFrameList& aList)
-{ return aList.rbegin(); }
+{
+  return aList.rbegin();
+}
 
 template<>
 nsFrameList::reverse_iterator
 ReverseCSSOrderAwareFrameIterator::end(const nsFrameList& aList)
-{ return aList.rend(); }
+{
+  return aList.rend();
+}
 
-} // namespace mozilla
+}  // namespace mozilla

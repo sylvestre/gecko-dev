@@ -20,9 +20,9 @@
 // FIXME/cjones: these really only pertain to the linux sys string
 // converters.
 #ifdef WCHAR_T_IS_UTF16
-#  define ICONV_WCHAR_T_ENCODING "UTF-16"
+#define ICONV_WCHAR_T_ENCODING "UTF-16"
 #else
-#  define ICONV_WCHAR_T_ENCODING "WCHAR_T"
+#define ICONV_WCHAR_T_ENCODING "WCHAR_T"
 #endif
 
 // FIXME/cjones: BIG assumption here that std::string is a good
@@ -40,11 +40,11 @@ GhettoStringConvert(const FromType& in)
   ToType out;
   out.resize(in.length());
   for (int i = 0; i < static_cast<int>(in.length()); ++i)
-      out[i] = static_cast<typename ToType::value_type>(in[i]);
+    out[i] = static_cast<typename ToType::value_type>(in[i]);
   return out;
 }
 
-} // namespace base
+}  // namespace base
 
 // Implement functions that were in the chromium ICU library, which
 // we're not taking.
@@ -52,13 +52,13 @@ GhettoStringConvert(const FromType& in)
 std::string
 WideToUTF8(const std::wstring& wide)
 {
-    return base::SysWideToUTF8(wide);
+  return base::SysWideToUTF8(wide);
 }
 
 std::wstring
 UTF8ToWide(const StringPiece& utf8)
 {
-    return base::SysUTF8ToWide(utf8);
+  return base::SysUTF8ToWide(utf8);
 }
 
 namespace base {
@@ -68,27 +68,35 @@ namespace base {
 // and Windows.
 
 #if !defined(OS_MACOSX) && !defined(OS_WIN)
-std::string SysWideToUTF8(const std::wstring& wide) {
+std::string
+SysWideToUTF8(const std::wstring& wide)
+{
   // FIXME/cjones: do this with iconv
   return GhettoStringConvert<std::wstring, std::string>(wide);
 }
 #endif
 
 #if !defined(OS_MACOSX) && !defined(OS_WIN)
-std::wstring SysUTF8ToWide(const StringPiece& utf8) {
+std::wstring
+SysUTF8ToWide(const StringPiece& utf8)
+{
   // FIXME/cjones: do this with iconv
   return GhettoStringConvert<StringPiece, std::wstring>(utf8);
 }
 
-std::string SysWideToNativeMB(const std::wstring& wide) {
+std::string
+SysWideToNativeMB(const std::wstring& wide)
+{
   // TODO(evanm): we can't assume Linux is UTF-8.
   return SysWideToUTF8(wide);
 }
 
-std::wstring SysNativeMBToWide(const StringPiece& native_mb) {
+std::wstring
+SysNativeMBToWide(const StringPiece& native_mb)
+{
   // TODO(evanm): we can't assume Linux is UTF-8.
   return SysUTF8ToWide(native_mb);
 }
 #endif
 
-} // namespace base
+}  // namespace base

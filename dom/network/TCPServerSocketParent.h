@@ -19,15 +19,17 @@ class TCPServerSocket;
 class TCPServerSocketEvent;
 class TCPSocketParent;
 
-class TCPServerSocketParent : public mozilla::net::PTCPServerSocketParent
-                            , public nsISupports
+class TCPServerSocketParent : public mozilla::net::PTCPServerSocketParent,
+                              public nsISupports
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTION_CLASS(TCPServerSocketParent)
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
 
-  TCPServerSocketParent(PNeckoParent* neckoParent, uint16_t aLocalPort,
-                        uint16_t aBacklog, bool aUseArrayBuffers);
+  TCPServerSocketParent(PNeckoParent* neckoParent,
+                        uint16_t aLocalPort,
+                        uint16_t aBacklog,
+                        bool aUseArrayBuffers);
 
   void Init();
 
@@ -39,10 +41,10 @@ public:
 
   void OnConnect(TCPServerSocketEvent* event);
 
-private:
+ private:
   ~TCPServerSocketParent();
 
-  nsresult SendCallbackAccept(TCPSocketParent *socket);
+  nsresult SendCallbackAccept(TCPSocketParent* socket);
 
   virtual void ActorDestroy(ActorDestroyReason why) override;
 
@@ -51,7 +53,7 @@ private:
   bool mIPCOpen;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TCPServerSocketParent_h
+#endif  // mozilla_dom_TCPServerSocketParent_h

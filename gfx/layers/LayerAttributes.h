@@ -11,19 +11,22 @@
 #include "mozilla/layers/LayersTypes.h"
 
 namespace IPC {
-template <typename T> struct ParamTraits;
-} // namespace IPC
+template<typename T>
+struct ParamTraits;
+}  // namespace IPC
 
 namespace mozilla {
 namespace layers {
 
 // Data stored for scroll thumb container layers.
-struct ScrollThumbData {
+struct ScrollThumbData
+{
   ScrollThumbData()
-    : mDirection(ScrollDirection::NONE)
-    , mThumbRatio(0.0f)
-    , mIsAsyncDraggable(false)
-  {}
+      : mDirection(ScrollDirection::NONE),
+        mThumbRatio(0.0f),
+        mIsAsyncDraggable(false)
+  {
+  }
   ScrollThumbData(ScrollDirection aDirection,
                   float aThumbRatio,
                   CSSCoord aThumbStart,
@@ -31,14 +34,15 @@ struct ScrollThumbData {
                   bool aIsAsyncDraggable,
                   CSSCoord aScrollTrackStart,
                   CSSCoord aScrollTrackLength)
-    : mDirection(aDirection)
-    , mThumbRatio(aThumbRatio)
-    , mThumbStart(aThumbStart)
-    , mThumbLength(aThumbLength)
-    , mIsAsyncDraggable(aIsAsyncDraggable)
-    , mScrollTrackStart(aScrollTrackStart)
-    , mScrollTrackLength(aScrollTrackLength)
-  {}
+      : mDirection(aDirection),
+        mThumbRatio(aThumbRatio),
+        mThumbStart(aThumbStart),
+        mThumbLength(aThumbLength),
+        mIsAsyncDraggable(aIsAsyncDraggable),
+        mScrollTrackStart(aScrollTrackStart),
+        mScrollTrackLength(aScrollTrackLength)
+  {
+  }
 
   ScrollDirection mDirection;
   // The scrollbar thumb ratio is the ratio of the thumb position (in the CSS
@@ -52,7 +56,8 @@ struct ScrollThumbData {
   CSSCoord mScrollTrackStart;
   CSSCoord mScrollTrackLength;
 
-  bool operator==(const ScrollThumbData& aOther) const {
+  bool operator==(const ScrollThumbData& aOther) const
+  {
     return mDirection == aOther.mDirection &&
            mThumbRatio == aOther.mThumbRatio &&
            mThumbStart == aOther.mThumbStart &&
@@ -61,7 +66,8 @@ struct ScrollThumbData {
            mScrollTrackStart == aOther.mScrollTrackStart &&
            mScrollTrackLength == aOther.mScrollTrackLength;
   }
-  bool operator!=(const ScrollThumbData& aOther) const {
+  bool operator!=(const ScrollThumbData& aOther) const
+  {
     return !(*this == aOther);
   }
 };
@@ -71,18 +77,19 @@ struct ScrollThumbData {
 class SimpleLayerAttributes final
 {
   friend struct IPC::ParamTraits<mozilla::layers::SimpleLayerAttributes>;
-public:
+
+ public:
   SimpleLayerAttributes()
-   : mTransformIsPerspective(false),
-     mPostXScale(1.0f),
-     mPostYScale(1.0f),
-     mContentFlags(0),
-     mOpacity(1.0f),
-     mIsFixedPosition(false),
-     mScrollbarTargetContainerId(FrameMetrics::NULL_SCROLL_ID),
-     mIsScrollbarContainer(false),
-     mMixBlendMode(gfx::CompositionOp::OP_OVER),
-     mForceIsolatedGroup(false)
+      : mTransformIsPerspective(false),
+        mPostXScale(1.0f),
+        mPostYScale(1.0f),
+        mContentFlags(0),
+        mOpacity(1.0f),
+        mIsFixedPosition(false),
+        mScrollbarTargetContainerId(FrameMetrics::NULL_SCROLL_ID),
+        mIsScrollbarContainer(false),
+        mMixBlendMode(gfx::CompositionOp::OP_OVER),
+        mForceIsolatedGroup(false)
   {
   }
 
@@ -91,7 +98,8 @@ public:
   // All set methods return true if values changed, false otherwise.
   //
 
-  bool SetPostScale(float aXScale, float aYScale) {
+  bool SetPostScale(float aXScale, float aYScale)
+  {
     if (mPostXScale == aXScale && mPostYScale == aYScale) {
       return false;
     }
@@ -99,38 +107,42 @@ public:
     mPostYScale = aYScale;
     return true;
   }
-  bool SetContentFlags(uint32_t aFlags) {
+  bool SetContentFlags(uint32_t aFlags)
+  {
     if (aFlags == mContentFlags) {
       return false;
     }
     mContentFlags = aFlags;
     return true;
   }
-  bool SetOpacity(float aOpacity) {
+  bool SetOpacity(float aOpacity)
+  {
     if (aOpacity == mOpacity) {
       return false;
     }
     mOpacity = aOpacity;
     return true;
   }
-  bool SetIsFixedPosition(bool aFixedPosition) {
+  bool SetIsFixedPosition(bool aFixedPosition)
+  {
     if (mIsFixedPosition == aFixedPosition) {
       return false;
     }
     mIsFixedPosition = aFixedPosition;
     return true;
   }
-  bool SetScrollThumbData(FrameMetrics::ViewID aScrollId, const ScrollThumbData& aThumbData) {
-    if (mScrollbarTargetContainerId == aScrollId &&
-        mThumbData == aThumbData)
-    {
+  bool SetScrollThumbData(FrameMetrics::ViewID aScrollId,
+                          const ScrollThumbData& aThumbData)
+  {
+    if (mScrollbarTargetContainerId == aScrollId && mThumbData == aThumbData) {
       return false;
     }
     mScrollbarTargetContainerId = aScrollId;
     mThumbData = aThumbData;
     return true;
   }
-  bool SetIsScrollbarContainer(FrameMetrics::ViewID aScrollId) {
+  bool SetIsScrollbarContainer(FrameMetrics::ViewID aScrollId)
+  {
     if (mIsScrollbarContainer && mScrollbarTargetContainerId == aScrollId) {
       return false;
     }
@@ -138,35 +150,40 @@ public:
     mScrollbarTargetContainerId = aScrollId;
     return true;
   }
-  bool SetMixBlendMode(gfx::CompositionOp aMixBlendMode) {
+  bool SetMixBlendMode(gfx::CompositionOp aMixBlendMode)
+  {
     if (mMixBlendMode == aMixBlendMode) {
       return false;
     }
     mMixBlendMode = aMixBlendMode;
     return true;
   }
-  bool SetForceIsolatedGroup(bool aForceIsolatedGroup) {
+  bool SetForceIsolatedGroup(bool aForceIsolatedGroup)
+  {
     if (mForceIsolatedGroup == aForceIsolatedGroup) {
       return false;
     }
     mForceIsolatedGroup = aForceIsolatedGroup;
     return true;
   }
-  bool SetTransform(const gfx::Matrix4x4& aMatrix) {
+  bool SetTransform(const gfx::Matrix4x4& aMatrix)
+  {
     if (mTransform == aMatrix) {
       return false;
     }
     mTransform = aMatrix;
     return true;
   }
-  bool SetTransformIsPerspective(bool aIsPerspective) {
+  bool SetTransformIsPerspective(bool aIsPerspective)
+  {
     if (mTransformIsPerspective == aIsPerspective) {
       return false;
     }
     mTransformIsPerspective = aIsPerspective;
     return true;
   }
-  bool SetScrolledClip(const Maybe<LayerClip>& aScrolledClip) {
+  bool SetScrolledClip(const Maybe<LayerClip>& aScrolledClip)
+  {
     if (mScrolledClip == aScrolledClip) {
       return false;
     }
@@ -177,8 +194,7 @@ public:
                             const LayerPoint& aAnchor,
                             int32_t aSides)
   {
-    if (mFixedPositionData &&
-        mFixedPositionData->mScrollId == aScrollId &&
+    if (mFixedPositionData && mFixedPositionData->mScrollId == aScrollId &&
         mFixedPositionData->mAnchor == aAnchor &&
         mFixedPositionData->mSides == aSides) {
       return false;
@@ -191,7 +207,8 @@ public:
     mFixedPositionData->mSides = aSides;
     return true;
   }
-  bool SetStickyPositionData(FrameMetrics::ViewID aScrollId, LayerRect aOuter,
+  bool SetStickyPositionData(FrameMetrics::ViewID aScrollId,
+                             LayerRect aOuter,
                              LayerRect aInner)
   {
     if (mStickyPositionData &&
@@ -210,7 +227,8 @@ public:
 
   // This returns true if scrolling info is equivalent for the purposes of
   // APZ hit testing.
-  bool HitTestingInfoIsEqual(const SimpleLayerAttributes& aOther) const {
+  bool HitTestingInfoIsEqual(const SimpleLayerAttributes& aOther) const
+  {
     if (mIsScrollbarContainer != aOther.mIsScrollbarContainer) {
       return false;
     }
@@ -220,7 +238,8 @@ public:
     if (mThumbData != aOther.mThumbData) {
       return false;
     }
-    if (FixedPositionScrollContainerId() != aOther.FixedPositionScrollContainerId()) {
+    if (FixedPositionScrollContainerId() !=
+        aOther.FixedPositionScrollContainerId()) {
       return false;
     }
     if (mTransform != aOther.mTransform) {
@@ -233,70 +252,51 @@ public:
   // Getters.
   //
 
-  float PostXScale() const {
-    return mPostXScale;
-  }
-  float PostYScale() const {
-    return mPostYScale;
-  }
-  uint32_t ContentFlags() const {
-    return mContentFlags;
-  }
-  float Opacity() const {
-    return mOpacity;
-  }
-  bool IsFixedPosition() const {
-    return mIsFixedPosition;
-  }
-  FrameMetrics::ViewID ScrollbarTargetContainerId() const {
+  float PostXScale() const { return mPostXScale; }
+  float PostYScale() const { return mPostYScale; }
+  uint32_t ContentFlags() const { return mContentFlags; }
+  float Opacity() const { return mOpacity; }
+  bool IsFixedPosition() const { return mIsFixedPosition; }
+  FrameMetrics::ViewID ScrollbarTargetContainerId() const
+  {
     return mScrollbarTargetContainerId;
   }
-  const ScrollThumbData& ThumbData() const {
-    return mThumbData;
+  const ScrollThumbData& ThumbData() const { return mThumbData; }
+  float IsScrollbarContainer() const { return mIsScrollbarContainer; }
+  gfx::CompositionOp MixBlendMode() const { return mMixBlendMode; }
+  bool ForceIsolatedGroup() const { return mForceIsolatedGroup; }
+  const gfx::Matrix4x4& Transform() const { return mTransform; }
+  bool TransformIsPerspective() const { return mTransformIsPerspective; }
+  const Maybe<LayerClip>& ScrolledClip() const { return mScrolledClip; }
+  FrameMetrics::ViewID FixedPositionScrollContainerId() const
+  {
+    return mFixedPositionData ? mFixedPositionData->mScrollId
+                              : FrameMetrics::NULL_SCROLL_ID;
   }
-  float IsScrollbarContainer() const {
-    return mIsScrollbarContainer;
-  }
-  gfx::CompositionOp MixBlendMode() const {
-    return mMixBlendMode;
-  }
-  bool ForceIsolatedGroup() const {
-    return mForceIsolatedGroup;
-  }
-  const gfx::Matrix4x4& Transform() const {
-    return mTransform;
-  }
-  bool TransformIsPerspective() const {
-    return mTransformIsPerspective;
-  }
-  const Maybe<LayerClip>& ScrolledClip() const {
-    return mScrolledClip;
-  }
-  FrameMetrics::ViewID FixedPositionScrollContainerId() const {
-    return mFixedPositionData
-           ? mFixedPositionData->mScrollId
-           : FrameMetrics::NULL_SCROLL_ID;
-  }
-  LayerPoint FixedPositionAnchor() const {
+  LayerPoint FixedPositionAnchor() const
+  {
     return mFixedPositionData ? mFixedPositionData->mAnchor : LayerPoint();
   }
-  int32_t FixedPositionSides() const {
+  int32_t FixedPositionSides() const
+  {
     return mFixedPositionData ? mFixedPositionData->mSides : eSideBitsNone;
   }
-  bool IsStickyPosition() const {
-    return !!mStickyPositionData;
-  }
-  FrameMetrics::ViewID StickyScrollContainerId() const {
+  bool IsStickyPosition() const { return !!mStickyPositionData; }
+  FrameMetrics::ViewID StickyScrollContainerId() const
+  {
     return mStickyPositionData->mScrollId;
   }
-  const LayerRect& StickyScrollRangeOuter() const {
+  const LayerRect& StickyScrollRangeOuter() const
+  {
     return mStickyPositionData->mOuter;
   }
-  const LayerRect& StickyScrollRangeInner() const {
+  const LayerRect& StickyScrollRangeInner() const
+  {
     return mStickyPositionData->mInner;
   }
 
-  bool operator ==(const SimpleLayerAttributes& aOther) const {
+  bool operator==(const SimpleLayerAttributes& aOther) const
+  {
     return mTransform == aOther.mTransform &&
            mTransformIsPerspective == aOther.mTransformIsPerspective &&
            mScrolledClip == aOther.mScrolledClip &&
@@ -312,7 +312,7 @@ public:
            mForceIsolatedGroup == aOther.mForceIsolatedGroup;
   }
 
-private:
+ private:
   gfx::Matrix4x4 mTransform;
   bool mTransformIsPerspective;
   Maybe<LayerClip> mScrolledClip;
@@ -327,14 +327,16 @@ private:
   gfx::CompositionOp mMixBlendMode;
   bool mForceIsolatedGroup;
 
-  struct FixedPositionData {
+  struct FixedPositionData
+  {
     FrameMetrics::ViewID mScrollId;
     LayerPoint mAnchor;
     int32_t mSides;
   };
   Maybe<FixedPositionData> mFixedPositionData;
 
-  struct StickyPositionData {
+  struct StickyPositionData
+  {
     FrameMetrics::ViewID mScrollId;
     LayerRect mOuter;
     LayerRect mInner;
@@ -345,7 +347,7 @@ private:
   // copied over IPC. Make sure to add new members to operator ==.
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_LayerAttributes_h
+#endif  // mozilla_gfx_layers_LayerAttributes_h

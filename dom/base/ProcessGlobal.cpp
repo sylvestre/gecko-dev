@@ -14,8 +14,7 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 ProcessGlobal::ProcessGlobal(nsFrameMessageManager* aMessageManager)
- : mInitialized(false),
-   mMessageManager(aMessageManager)
+    : mInitialized(false), mMessageManager(aMessageManager)
 {
   SetIsNotDOMBinding();
   mozilla::HoldJSObjects(this);
@@ -30,7 +29,8 @@ ProcessGlobal::~ProcessGlobal()
 ProcessGlobal*
 ProcessGlobal::Get()
 {
-  nsCOMPtr<nsISyncMessageSender> service = do_GetService(NS_CHILDPROCESSMESSAGEMANAGER_CONTRACTID);
+  nsCOMPtr<nsISyncMessageSender> service =
+      do_GetService(NS_CHILDPROCESSMESSAGEMANAGER_CONTRACTID);
   if (!service) {
     return nullptr;
   }
@@ -89,8 +89,10 @@ ProcessGlobal::Init()
   }
   mInitialized = true;
 
-  nsISupports* scopeSupports = NS_ISUPPORTS_CAST(nsIContentProcessMessageManager*, this);
-  return InitChildGlobalInternal(scopeSupports, NS_LITERAL_CSTRING("processChildGlobal"));
+  nsISupports* scopeSupports =
+      NS_ISUPPORTS_CAST(nsIContentProcessMessageManager*, this);
+  return InitChildGlobalInternal(scopeSupports,
+                                 NS_LITERAL_CSTRING("processChildGlobal"));
 }
 
 void

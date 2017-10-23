@@ -23,15 +23,13 @@ class MOZ_RAII ReentrancyGuard
   bool& mEntered;
 #endif
 
-public:
+ public:
   template<class T>
 #ifdef DEBUG
-  explicit ReentrancyGuard(T& aObj
-                           MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mEntered(aObj.mEntered)
+  explicit ReentrancyGuard(T& aObj MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mEntered(aObj.mEntered)
 #else
-  explicit ReentrancyGuard(T&
-                           MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  explicit ReentrancyGuard(T& MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
 #endif
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
@@ -47,11 +45,11 @@ public:
 #endif
   }
 
-private:
+ private:
   ReentrancyGuard(const ReentrancyGuard&) = delete;
   void operator=(const ReentrancyGuard&) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_ReentrancyGuard_h */

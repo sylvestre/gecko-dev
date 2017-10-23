@@ -43,4 +43,4 @@ nsIPresShell::SetNeedThrottledAnimationFlush()
   }
 }
 
-#endif // nsIPresShellInlines_h
+#endif  // nsIPresShellInlines_h

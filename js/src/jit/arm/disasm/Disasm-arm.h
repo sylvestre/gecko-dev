@@ -28,7 +28,7 @@ const int ReasonableBufferSize = 256;
 // Functions exactly like a character array with helper methods.
 template <typename T>
 class V8Vector {
-  public:
+   public:
     V8Vector() : start_(nullptr), length_(0) {}
     V8Vector(T* data, int length) : start_(data), length_(length) {
         MOZ_ASSERT(length == 0 || (length > 0 && data != nullptr));
@@ -51,16 +51,15 @@ class V8Vector {
         return V8Vector<T>(start_ + offset, length_ - offset);
     }
 
-  private:
+   private:
     T* start_;
     int length_;
 };
 
-
 template <typename T, int kSize>
 class EmbeddedVector : public V8Vector<T> {
-  public:
-    EmbeddedVector() : V8Vector<T>(buffer_, kSize) { }
+   public:
+    EmbeddedVector() : V8Vector<T>(buffer_, kSize) {}
 
     explicit EmbeddedVector(T initial_value) : V8Vector<T>(buffer_, kSize) {
         for (int i = 0; i < kSize; ++i) {
@@ -69,8 +68,7 @@ class EmbeddedVector : public V8Vector<T> {
     }
 
     // When copying, make underlying Vector to reference our buffer.
-    EmbeddedVector(const EmbeddedVector& rhs)
-        : V8Vector<T>(rhs) {
+    EmbeddedVector(const EmbeddedVector& rhs) : V8Vector<T>(rhs) {
         MemCopy(buffer_, rhs.buffer_, sizeof(T) * kSize);
         this->set_start(buffer_);
     }
@@ -83,16 +81,15 @@ class EmbeddedVector : public V8Vector<T> {
         return *this;
     }
 
-  private:
+   private:
     T buffer_[kSize];
 };
-
 
 // Interface and default implementation for converting addresses and
 // register-numbers to text.  The default implementation is machine
 // specific.
 class NameConverter {
-  public:
+   public:
     virtual ~NameConverter() {}
     virtual const char* NameOfCPURegister(int reg) const;
     virtual const char* NameOfByteCPURegister(int reg) const;
@@ -101,14 +98,13 @@ class NameConverter {
     virtual const char* NameOfConstant(byte* addr) const;
     virtual const char* NameInCode(byte* addr) const;
 
-  protected:
+   protected:
     EmbeddedVector<char, 128> tmp_buffer_;
 };
 
-
 // A generic Disassembler interface
 class Disassembler {
-  public:
+   public:
     // Caller deallocates converter.
     explicit Disassembler(const NameConverter& converter);
 
@@ -125,7 +121,8 @@ class Disassembler {
     // Write disassembly into specified file 'f' using specified NameConverter
     // (see constructor).
     static void Disassemble(FILE* f, uint8_t* begin, uint8_t* end);
-  private:
+
+   private:
     const NameConverter& converter_;
 
     // Disallow implicit constructors.
@@ -138,6 +135,6 @@ class Disassembler {
 }  // namespace jit
 }  // namespace js
 
-#endif // JS_DISASM_ARM
+#endif  // JS_DISASM_ARM
 
 #endif  // jit_arm_disasm_Disasm_arm_h

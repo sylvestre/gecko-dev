@@ -19,7 +19,7 @@ class HTMLScriptElement final : public nsGenericHTMLElement,
                                 public nsIDOMHTMLScriptElement,
                                 public ScriptElement
 {
-public:
+ public:
   using Element::GetText;
   using Element::SetText;
 
@@ -44,7 +44,8 @@ public:
   virtual CORSMode GetCORSMode() const override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual bool ParseAttribute(int32_t aNamespaceID,
@@ -52,11 +53,13 @@ public:
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // Element
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
@@ -67,11 +70,10 @@ public:
   void SetCharset(const nsAString& aCharset, ErrorResult& rv);
   void SetDefer(bool aDefer, ErrorResult& rv);
   bool Defer();
-  void SetSrc(const nsAString& aSrc, nsIPrincipal& aTriggeringPrincipal, ErrorResult& rv);
-  void GetSrc(nsString& aSrc, nsIPrincipal&)
-  {
-    GetSrc(aSrc);
-  };
+  void SetSrc(const nsAString& aSrc,
+              nsIPrincipal& aTriggeringPrincipal,
+              ErrorResult& rv);
+  void GetSrc(nsString& aSrc, nsIPrincipal&) { GetSrc(aSrc); };
   void SetType(const nsAString& aType, ErrorResult& rv);
   void SetHtmlFor(const nsAString& aHtmlFor, ErrorResult& rv);
   void SetEvent(const nsAString& aEvent, ErrorResult& rv);
@@ -99,16 +101,17 @@ public:
   bool NoModule();
   void SetNoModule(bool aValue, ErrorResult& rv);
 
-protected:
+ protected:
   virtual ~HTMLScriptElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   // ScriptElement
   virtual bool HasScriptContent() override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLScriptElement_h
+#endif  // mozilla_dom_HTMLScriptElement_h

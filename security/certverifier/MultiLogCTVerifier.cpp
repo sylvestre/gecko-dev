@@ -11,7 +11,8 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/Move.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 using namespace mozilla::pkix;
 
@@ -59,8 +60,11 @@ MultiLogCTVerifier::Verify(Input cert,
     if (rv != Success) {
       return rv;
     }
-    rv = VerifySCTs(sctListFromCert, precertEntry,
-                    VerifiedSCT::Origin::Embedded, time, result);
+    rv = VerifySCTs(sctListFromCert,
+                    precertEntry,
+                    VerifiedSCT::Origin::Embedded,
+                    time,
+                    result);
     if (rv != Success) {
       return rv;
     }
@@ -74,8 +78,11 @@ MultiLogCTVerifier::Verify(Input cert,
 
   // Verify SCTs from a stapled OCSP response
   if (sctListFromOCSPResponse.GetLength() > 0) {
-    rv = VerifySCTs(sctListFromOCSPResponse, x509Entry,
-                    VerifiedSCT::Origin::OCSPResponse, time, result);
+    rv = VerifySCTs(sctListFromOCSPResponse,
+                    x509Entry,
+                    VerifiedSCT::Origin::OCSPResponse,
+                    time,
+                    result);
     if (rv != Success) {
       return rv;
     }
@@ -83,8 +90,11 @@ MultiLogCTVerifier::Verify(Input cert,
 
   // Verify SCTs from a TLS extension
   if (sctListFromTLSExtension.GetLength() > 0) {
-    rv = VerifySCTs(sctListFromTLSExtension, x509Entry,
-                    VerifiedSCT::Origin::TLSExtension, time, result);
+    rv = VerifySCTs(sctListFromTLSExtension,
+                    x509Entry,
+                    VerifiedSCT::Origin::TLSExtension,
+                    time,
+                    result);
     if (rv != Success) {
       return rv;
     }
@@ -151,23 +161,23 @@ MultiLogCTVerifier::VerifySingleSCT(SignedCertificateTimestamp&& sct,
 
   if (!matchingLog) {
     // SCT does not match any known log.
-    return StoreVerifiedSct(result, Move(verifiedSct),
-                            VerifiedSCT::Status::UnknownLog);
+    return StoreVerifiedSct(
+        result, Move(verifiedSct), VerifiedSCT::Status::UnknownLog);
   }
 
   verifiedSct.logOperatorId = matchingLog->operatorId();
 
   if (!matchingLog->SignatureParametersMatch(verifiedSct.sct.signature)) {
     // SCT signature parameters do not match the log's.
-    return StoreVerifiedSct(result, Move(verifiedSct),
-                            VerifiedSCT::Status::InvalidSignature);
+    return StoreVerifiedSct(
+        result, Move(verifiedSct), VerifiedSCT::Status::InvalidSignature);
   }
 
   Result rv = matchingLog->Verify(expectedEntry, verifiedSct.sct);
   if (rv != Success) {
     if (rv == Result::ERROR_BAD_SIGNATURE) {
-      return StoreVerifiedSct(result, Move(verifiedSct),
-                              VerifiedSCT::Status::InvalidSignature);
+      return StoreVerifiedSct(
+          result, Move(verifiedSct), VerifiedSCT::Status::InvalidSignature);
     }
     return rv;
   }
@@ -179,10 +189,10 @@ MultiLogCTVerifier::VerifySingleSCT(SignedCertificateTimestamp&& sct,
   // (towards the future) is more "secure", although practically
   // it does not matter.
   Time sctTime =
-    TimeFromEpochInSeconds((verifiedSct.sct.timestamp + 999u) / 1000u);
+      TimeFromEpochInSeconds((verifiedSct.sct.timestamp + 999u) / 1000u);
   if (sctTime > time) {
-    return StoreVerifiedSct(result, Move(verifiedSct),
-                            VerifiedSCT::Status::InvalidTimestamp);
+    return StoreVerifiedSct(
+        result, Move(verifiedSct), VerifiedSCT::Status::InvalidTimestamp);
   }
 
   // SCT verified ok, see if the log is qualified. Since SCTs from
@@ -190,12 +200,14 @@ MultiLogCTVerifier::VerifySingleSCT(SignedCertificateTimestamp&& sct,
   // the CT Policy), the log qualification check must be the last one we do.
   if (matchingLog->isDisqualified()) {
     verifiedSct.logDisqualificationTime = matchingLog->disqualificationTime();
-    return StoreVerifiedSct(result, Move(verifiedSct),
+    return StoreVerifiedSct(result,
+                            Move(verifiedSct),
                             VerifiedSCT::Status::ValidFromDisqualifiedLog);
   }
 
-  return StoreVerifiedSct(result, Move(verifiedSct),
-                          VerifiedSCT::Status::Valid);
+  return StoreVerifiedSct(
+      result, Move(verifiedSct), VerifiedSCT::Status::Valid);
 }
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

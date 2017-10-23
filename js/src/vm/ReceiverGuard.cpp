@@ -12,9 +12,7 @@
 
 using namespace js;
 
-void
-HeapReceiverGuard::trace(JSTracer* trc)
-{
+void HeapReceiverGuard::trace(JSTracer* trc) {
     TraceNullableEdge(trc, &shape_, "receiver_guard_shape");
     TraceNullableEdge(trc, &group_, "receiver_guard_group");
 }

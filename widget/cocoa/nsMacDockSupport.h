@@ -13,14 +13,14 @@
 
 class nsMacDockSupport : public nsIMacDockSupport, public nsITaskbarProgress
 {
-public:
+ public:
   nsMacDockSupport();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMACDOCKSUPPORT
   NS_DECL_NSITASKBARPROGRESS
 
-protected:
+ protected:
   virtual ~nsMacDockSupport();
 
   nsCOMPtr<nsIStandaloneNativeMenu> mDockMenu;

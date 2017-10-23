@@ -13,8 +13,7 @@ namespace mozilla {
 namespace dom {
 
 /* static */
-StaticAutoPtr<AvailabilityCollection>
-AvailabilityCollection::sSingleton;
+StaticAutoPtr<AvailabilityCollection> AvailabilityCollection::sSingleton;
 static bool gOnceAliveNowDead = false;
 
 /* static */ AvailabilityCollection*
@@ -72,7 +71,8 @@ AvailabilityCollection::Remove(PresentationAvailability* aAvailability)
 }
 
 already_AddRefed<PresentationAvailability>
-AvailabilityCollection::Find(const uint64_t aWindowId, const nsTArray<nsString>& aUrls)
+AvailabilityCollection::Find(const uint64_t aWindowId,
+                             const nsTArray<nsString>& aUrls)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -91,9 +91,8 @@ AvailabilityCollection::Find(const uint64_t aWindowId, const nsTArray<nsString>&
     }
   }
 
-
   return nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

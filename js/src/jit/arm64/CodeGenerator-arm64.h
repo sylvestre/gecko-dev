@@ -16,16 +16,15 @@ namespace jit {
 class OutOfLineBailout;
 class OutOfLineTableSwitch;
 
-class CodeGeneratorARM64 : public CodeGeneratorShared
-{
+class CodeGeneratorARM64 : public CodeGeneratorShared {
     friend class MoveResolverARM64;
 
     CodeGeneratorARM64* thisFromCtor() { return this; }
 
-  public:
+   public:
     CodeGeneratorARM64(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
-  protected:
+   protected:
     NonAssertingLabel deoptLabel_;
 
     MoveOperand toMoveOperand(const LAllocation a) const;
@@ -58,7 +57,7 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
         return bailoutIf(Assembler::Zero, snapshot);
     }
 
-  protected:
+   protected:
     bool generateOutOfLineCode();
 
     void emitRoundDouble(FloatRegister src, Register dest, Label* fail);
@@ -68,26 +67,22 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
     void emitBranch(Assembler::Condition cond, MBasicBlock* ifTrue, MBasicBlock* ifFalse);
 
     void testNullEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                            MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testNull(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
     void testUndefinedEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testUndefined(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
     void testObjectEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                              MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                              MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testObject(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
-    void testZeroEmitBranch(Assembler::Condition cond, Register reg,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+    void testZeroEmitBranch(Assembler::Condition cond, Register reg, MBasicBlock* ifTrue,
+                            MBasicBlock* ifFalse) {
         MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
         masm.cmpPtr(reg, ImmWord(0));
         emitBranch(cond, ifTrue, ifFalse);
@@ -95,7 +90,7 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
 
     void emitTableSwitchDispatch(MTableSwitch* mir, Register index, Register base);
 
-  public:
+   public:
     // Instruction visitors.
     virtual void visitMinMaxD(LMinMaxD* ins);
     virtual void visitMinMaxF(LMinMaxF* math);
@@ -156,7 +151,7 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
     void visitOutOfLineBailout(OutOfLineBailout* ool);
     void visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool);
 
-  protected:
+   protected:
     ValueOperand ToValue(LInstruction* ins, size_t pos);
     ValueOperand ToOutValue(LInstruction* ins);
     ValueOperand ToTempValue(LInstruction* ins, size_t pos);
@@ -172,7 +167,7 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
     void modICommon(MMod* mir, Register lhs, Register rhs, Register output, LSnapshot* snapshot,
                     Label& done);
 
-  public:
+   public:
     void visitBox(LBox* box);
     void visitUnbox(LUnbox* unbox);
     void visitValue(LValue* value);
@@ -208,16 +203,14 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
 
     void setReturnDoubleRegs(LiveRegisterSet* regs);
 
-  protected:
-    void postWasmCall(LWasmCall* lir) {
-        MOZ_CRASH("postWasmCall");
-    }
+   protected:
+    void postWasmCall(LWasmCall* lir) { MOZ_CRASH("postWasmCall"); }
 
     void visitEffectiveAddress(LEffectiveAddress* ins);
     void visitUDiv(LUDiv* ins);
     void visitUMod(LUMod* ins);
 
-  public:
+   public:
     // Unimplemented SIMD instructions.
     void visitSimdSplatX4(LSimdSplatX4* lir) { MOZ_CRASH("NYI"); }
     void visitSimd128Int(LSimd128Int* ins) { MOZ_CRASH("NYI"); }
@@ -234,24 +227,19 @@ class CodeGeneratorARM64 : public CodeGeneratorShared
 typedef CodeGeneratorARM64 CodeGeneratorSpecific;
 
 // An out-of-line bailout thunk.
-class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorARM64>
-{
-  protected: // Silence Clang warning.
+class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorARM64> {
+   protected:  // Silence Clang warning.
     LSnapshot* snapshot_;
 
-  public:
-    OutOfLineBailout(LSnapshot* snapshot)
-      : snapshot_(snapshot)
-    { }
+   public:
+    OutOfLineBailout(LSnapshot* snapshot) : snapshot_(snapshot) {}
 
     void accept(CodeGeneratorARM64* codegen);
 
-    LSnapshot* snapshot() const {
-        return snapshot_;
-    }
+    LSnapshot* snapshot() const { return snapshot_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm64_CodeGenerator_arm64_h */

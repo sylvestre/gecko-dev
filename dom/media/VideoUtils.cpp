@@ -36,7 +36,9 @@ NS_NAMED_LITERAL_CSTRING(kEMEKeySystemWidevine, "com.widevine.alpha");
 using layers::PlanarYCbCrImage;
 using media::TimeUnit;
 
-CheckedInt64 SaferMultDiv(int64_t aValue, uint32_t aMul, uint32_t aDiv) {
+CheckedInt64
+SaferMultDiv(int64_t aValue, uint32_t aMul, uint32_t aDiv)
+{
   int64_t major = aValue / aDiv;
   int64_t remainder = aValue % aDiv;
   return CheckedInt64(remainder) * aMul / aDiv + CheckedInt64(major) * aMul;
@@ -44,29 +46,39 @@ CheckedInt64 SaferMultDiv(int64_t aValue, uint32_t aMul, uint32_t aDiv) {
 
 // Converts from number of audio frames to microseconds, given the specified
 // audio rate.
-CheckedInt64 FramesToUsecs(int64_t aFrames, uint32_t aRate) {
+CheckedInt64
+FramesToUsecs(int64_t aFrames, uint32_t aRate)
+{
   return SaferMultDiv(aFrames, USECS_PER_S, aRate);
 }
 
-TimeUnit FramesToTimeUnit(int64_t aFrames, uint32_t aRate) {
+TimeUnit
+FramesToTimeUnit(int64_t aFrames, uint32_t aRate)
+{
   int64_t major = aFrames / aRate;
   int64_t remainder = aFrames % aRate;
   return TimeUnit::FromMicroseconds(major) * USECS_PER_S +
-    (TimeUnit::FromMicroseconds(remainder) * USECS_PER_S) / aRate;
+         (TimeUnit::FromMicroseconds(remainder) * USECS_PER_S) / aRate;
 }
 
 // Converts from microseconds to number of audio frames, given the specified
 // audio rate.
-CheckedInt64 UsecsToFrames(int64_t aUsecs, uint32_t aRate) {
+CheckedInt64
+UsecsToFrames(int64_t aUsecs, uint32_t aRate)
+{
   return SaferMultDiv(aUsecs, aRate, USECS_PER_S);
 }
 
 // Format TimeUnit as number of frames at given rate.
-CheckedInt64 TimeUnitToFrames(const TimeUnit& aTime, uint32_t aRate) {
+CheckedInt64
+TimeUnitToFrames(const TimeUnit& aTime, uint32_t aRate)
+{
   return UsecsToFrames(aTime.ToMicroseconds(), aRate);
 }
 
-nsresult SecondsToUsecs(double aSeconds, int64_t& aOutUsecs) {
+nsresult
+SecondsToUsecs(double aSeconds, int64_t& aOutUsecs)
+{
   if (aSeconds * double(USECS_PER_S) > INT64_MAX) {
     return NS_ERROR_FAILURE;
   }
@@ -74,11 +86,11 @@ nsresult SecondsToUsecs(double aSeconds, int64_t& aOutUsecs) {
   return NS_OK;
 }
 
-static int32_t ConditionDimension(float aValue)
+static int32_t
+ConditionDimension(float aValue)
 {
   // This will exclude NaNs and too-big values.
-  if (aValue > 1.0 && aValue <= INT32_MAX)
-    return int32_t(NS_round(aValue));
+  if (aValue > 1.0 && aValue <= INT32_MAX) return int32_t(NS_round(aValue));
   return 0;
 }
 
@@ -94,27 +106,27 @@ ScaleDisplayByAspectRatio(gfx::IntSize& aDisplay, float aAspectRatio)
   }
 }
 
-static int64_t BytesToTime(int64_t offset, int64_t length, int64_t durationUs) {
+static int64_t
+BytesToTime(int64_t offset, int64_t length, int64_t durationUs)
+{
   NS_ASSERTION(length > 0, "Must have positive length");
   double r = double(offset) / double(length);
-  if (r > 1.0)
-    r = 1.0;
+  if (r > 1.0) r = 1.0;
   return int64_t(double(durationUs) * r);
 }
 
-media::TimeIntervals GetEstimatedBufferedTimeRanges(mozilla::MediaResource* aStream,
-                                                    int64_t aDurationUsecs)
+media::TimeIntervals
+GetEstimatedBufferedTimeRanges(mozilla::MediaResource* aStream,
+                               int64_t aDurationUsecs)
 {
   media::TimeIntervals buffered;
   // Nothing to cache if the media takes 0us to play.
-  if (aDurationUsecs <= 0 || !aStream)
-    return buffered;
+  if (aDurationUsecs <= 0 || !aStream) return buffered;
 
   // Special case completely cached files.  This also handles local files.
   if (aStream->IsDataCachedToEndOfResource(0)) {
-    buffered +=
-      media::TimeInterval(TimeUnit::Zero(),
-                          TimeUnit::FromMicroseconds(aDurationUsecs));
+    buffered += media::TimeInterval(TimeUnit::Zero(),
+                                    TimeUnit::FromMicroseconds(aDurationUsecs));
     return buffered;
   }
 
@@ -123,8 +135,7 @@ media::TimeIntervals GetEstimatedBufferedTimeRanges(mozilla::MediaResource* aStr
   // If we can't determine the total size, pretend that we have nothing
   // buffered. This will put us in a state of eternally-low-on-undecoded-data
   // which is not great, but about the best we can do.
-  if (totalBytes <= 0)
-    return buffered;
+  if (totalBytes <= 0) return buffered;
 
   int64_t startOffset = aStream->GetNextCachedData(0);
   while (startOffset >= 0) {
@@ -136,17 +147,16 @@ media::TimeIntervals GetEstimatedBufferedTimeRanges(mozilla::MediaResource* aStr
     int64_t startUs = BytesToTime(startOffset, totalBytes, aDurationUsecs);
     int64_t endUs = BytesToTime(endOffset, totalBytes, aDurationUsecs);
     if (startUs != endUs) {
-      buffered +=
-        media::TimeInterval(TimeUnit::FromMicroseconds(startUs),
-                            TimeUnit::FromMicroseconds(endUs));
+      buffered += media::TimeInterval(TimeUnit::FromMicroseconds(startUs),
+                                      TimeUnit::FromMicroseconds(endUs));
     }
     startOffset = aStream->GetNextCachedData(endOffset);
   }
   return buffered;
 }
 
-void DownmixStereoToMono(mozilla::AudioDataValue* aBuffer,
-                         uint32_t aFrames)
+void
+DownmixStereoToMono(mozilla::AudioDataValue* aBuffer, uint32_t aFrames)
 {
   MOZ_ASSERT(aBuffer);
   const int channels = 2;
@@ -157,8 +167,8 @@ void DownmixStereoToMono(mozilla::AudioDataValue* aBuffer,
     int sample = 0;
 #endif
     // The sample of the buffer would be interleaved.
-    sample = (aBuffer[fIdx*channels] + aBuffer[fIdx*channels + 1]) * 0.5;
-    aBuffer[fIdx*channels] = aBuffer[fIdx*channels + 1] = sample;
+    sample = (aBuffer[fIdx * channels] + aBuffer[fIdx * channels + 1]) * 0.5;
+    aBuffer[fIdx * channels] = aBuffer[fIdx * channels + 1] = sample;
   }
 }
 
@@ -177,28 +187,30 @@ IsValidVideoRegion(const gfx::IntSize& aFrame,
                    const gfx::IntRect& aPicture,
                    const gfx::IntSize& aDisplay)
 {
-  return
-    aFrame.width <= PlanarYCbCrImage::MAX_DIMENSION &&
-    aFrame.height <= PlanarYCbCrImage::MAX_DIMENSION &&
-    aFrame.width * aFrame.height <= MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
-    aFrame.width * aFrame.height != 0 &&
-    aPicture.width <= PlanarYCbCrImage::MAX_DIMENSION &&
-    aPicture.x < PlanarYCbCrImage::MAX_DIMENSION &&
-    aPicture.x + aPicture.width < PlanarYCbCrImage::MAX_DIMENSION &&
-    aPicture.height <= PlanarYCbCrImage::MAX_DIMENSION &&
-    aPicture.y < PlanarYCbCrImage::MAX_DIMENSION &&
-    aPicture.y + aPicture.height < PlanarYCbCrImage::MAX_DIMENSION &&
-    aPicture.width * aPicture.height <= MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
-    aPicture.width * aPicture.height != 0 &&
-    aDisplay.width <= PlanarYCbCrImage::MAX_DIMENSION &&
-    aDisplay.height <= PlanarYCbCrImage::MAX_DIMENSION &&
-    aDisplay.width * aDisplay.height <= MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
-    aDisplay.width * aDisplay.height != 0;
+  return aFrame.width <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aFrame.height <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aFrame.width * aFrame.height <= MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
+         aFrame.width * aFrame.height != 0 &&
+         aPicture.width <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.x < PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.x + aPicture.width < PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.height <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.y < PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.y + aPicture.height < PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.width * aPicture.height <=
+             MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
+         aPicture.width * aPicture.height != 0 &&
+         aDisplay.width <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aDisplay.height <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aDisplay.width * aDisplay.height <=
+             MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
+         aDisplay.width * aDisplay.height != 0;
 }
 
-already_AddRefed<SharedThreadPool> GetMediaThreadPool(MediaThreadType aType)
+already_AddRefed<SharedThreadPool>
+GetMediaThreadPool(MediaThreadType aType)
 {
-  const char *name;
+  const char* name;
   switch (aType) {
     case MediaThreadType::PLATFORM_DECODER:
       name = "MediaPDecoder";
@@ -209,8 +221,8 @@ already_AddRefed<SharedThreadPool> GetMediaThreadPool(MediaThreadType aType)
       name = "MediaPlayback";
       break;
   }
-  return SharedThreadPool::
-    Get(nsDependentCString(name), MediaPrefs::MediaThreadPoolDefaultCount());
+  return SharedThreadPool::Get(nsDependentCString(name),
+                               MediaPrefs::MediaThreadPoolDefaultCount());
 }
 
 bool
@@ -229,16 +241,17 @@ ExtractVPXCodecDetails(const nsAString& aCodec,
                                 dummyColorspace);
 }
 
-bool ExtractVPXCodecDetails(const nsAString& aCodec,
-                            uint8_t& aProfile,
-                            uint8_t& aLevel,
-                            uint8_t& aBitDepth,
-                            uint8_t& aChromaSubsampling,
-                            VideoColorSpace& aColorSpace)
+bool
+ExtractVPXCodecDetails(const nsAString& aCodec,
+                       uint8_t& aProfile,
+                       uint8_t& aLevel,
+                       uint8_t& aBitDepth,
+                       uint8_t& aChromaSubsampling,
+                       VideoColorSpace& aColorSpace)
 {
   // Assign default value.
   aChromaSubsampling = 1;
-  auto splitter =  aCodec.Split(u'.');
+  auto splitter = aCodec.Split(u'.');
   auto fieldsItr = splitter.begin();
   auto fourCC = *fieldsItr;
 
@@ -247,9 +260,14 @@ bool ExtractVPXCodecDetails(const nsAString& aCodec,
     return false;
   }
   ++fieldsItr;
-  uint8_t *fields[] = { &aProfile, &aLevel, &aBitDepth, &aChromaSubsampling,
-                        &aColorSpace.mPrimaryId, &aColorSpace.mTransferId,
-                        &aColorSpace.mMatrixId, &aColorSpace.mRangeId };
+  uint8_t* fields[] = {&aProfile,
+                       &aLevel,
+                       &aBitDepth,
+                       &aChromaSubsampling,
+                       &aColorSpace.mPrimaryId,
+                       &aColorSpace.mTransferId,
+                       &aColorSpace.mMatrixId,
+                       &aColorSpace.mRangeId};
   int fieldsCount = 0;
   nsresult rv;
   for (; fieldsItr != splitter.end(); ++fieldsItr, ++fieldsCount) {
@@ -257,8 +275,8 @@ bool ExtractVPXCodecDetails(const nsAString& aCodec,
       // No more than 8 fields are expected.
       return false;
     }
-    *(fields[fieldsCount]) =
-      static_cast<uint8_t>(PromiseFlatString((*fieldsItr)).ToInteger(&rv, 10));
+    *(fields[fieldsCount]) = static_cast<uint8_t>(
+        PromiseFlatString((*fieldsItr)).ToInteger(&rv, 10));
     // We got invalid field value, parsing error.
     NS_ENSURE_SUCCESS(rv, false);
   }
@@ -282,7 +300,7 @@ bool ExtractVPXCodecDetails(const nsAString& aCodec,
     return false;
   }
 
- // level, See https://www.webmproject.org/vp9/mp4/#semantics_1
+  // level, See https://www.webmproject.org/vp9/mp4/#semantics_1
   switch (aLevel) {
     case 10:
     case 11:
@@ -421,7 +439,8 @@ ExtractH264CodecDetails(const nsAString& aCodec,
   // We don't NS_ENSURE_SUCCESS here because ExtractH264CodecDetails doesn't
   // care about this, but we make sure constraints is above 4 (constraint_set5_flag)
   // otherwise collect 0 for unknown.
-  uint8_t constraints = PromiseFlatString(Substring(aCodec, 7, 2)).ToInteger(&rv, 16);
+  uint8_t constraints =
+      PromiseFlatString(Substring(aCodec, 7, 2)).ToInteger(&rv, 16);
   Telemetry::Accumulate(Telemetry::VIDEO_CANPLAYTYPE_H264_CONSTRAINT_SET_FLAG,
                         constraints >= 4 ? constraints : 0);
 
@@ -443,12 +462,12 @@ GenerateRandomName(nsCString& aOutSalt, uint32_t aLength)
 {
   nsresult rv;
   nsCOMPtr<nsIRandomGenerator> rg =
-    do_GetService("@mozilla.org/security/random-generator;1", &rv);
+      do_GetService("@mozilla.org/security/random-generator;1", &rv);
   if (NS_FAILED(rv)) return rv;
 
   // For each three bytes of random data we will get four bytes of ASCII.
   const uint32_t requiredBytesLength =
-    static_cast<uint32_t>((aLength + 3) / 4 * 3);
+      static_cast<uint32_t>((aLength + 3) / 4 * 3);
 
   uint8_t* buffer;
   rv = rg->GenerateRandomBytes(requiredBytesLength, &buffer);
@@ -460,7 +479,7 @@ GenerateRandomName(nsCString& aOutSalt, uint32_t aLength)
   rv = Base64Encode(randomData, temp);
   free(buffer);
   buffer = nullptr;
-  if (NS_FAILED (rv)) return rv;
+  if (NS_FAILED(rv)) return rv;
 
   aOutSalt = temp;
   return NS_OK;
@@ -482,12 +501,13 @@ already_AddRefed<TaskQueue>
 CreateMediaDecodeTaskQueue(const char* aName)
 {
   RefPtr<TaskQueue> queue = new TaskQueue(
-    GetMediaThreadPool(MediaThreadType::PLATFORM_DECODER), aName);
+      GetMediaThreadPool(MediaThreadType::PLATFORM_DECODER), aName);
   return queue.forget();
 }
 
 void
-SimpleTimer::Cancel() {
+SimpleTimer::Cancel()
+{
   if (mTimer) {
 #ifdef DEBUG
     nsCOMPtr<nsIEventTarget> target;
@@ -503,7 +523,8 @@ SimpleTimer::Cancel() {
 }
 
 NS_IMETHODIMP
-SimpleTimer::Notify(nsITimer *timer) {
+SimpleTimer::Notify(nsITimer* timer)
+{
   RefPtr<SimpleTimer> deathGrip(this);
   if (mTask) {
     mTask->Run();
@@ -520,7 +541,9 @@ SimpleTimer::GetName(nsACString& aName)
 }
 
 nsresult
-SimpleTimer::Init(nsIRunnable* aTask, uint32_t aTimeoutMs, nsIEventTarget* aTarget)
+SimpleTimer::Init(nsIRunnable* aTask,
+                  uint32_t aTimeoutMs,
+                  nsIEventTarget* aTarget)
 {
   nsresult rv;
 
@@ -536,7 +559,9 @@ SimpleTimer::Init(nsIRunnable* aTask, uint32_t aTimeoutMs, nsIEventTarget* aTarg
   }
 
   rv = NS_NewTimerWithCallback(getter_AddRefs(mTimer),
-                               this, aTimeoutMs, nsITimer::TYPE_ONE_SHOT,
+                               this,
+                               aTimeoutMs,
+                               nsITimer::TYPE_ONE_SHOT,
                                target);
   if (NS_FAILED(rv)) {
     return rv;
@@ -549,7 +574,9 @@ SimpleTimer::Init(nsIRunnable* aTask, uint32_t aTimeoutMs, nsIEventTarget* aTarg
 NS_IMPL_ISUPPORTS(SimpleTimer, nsITimerCallback, nsINamed)
 
 already_AddRefed<SimpleTimer>
-SimpleTimer::Create(nsIRunnable* aTask, uint32_t aTimeoutMs, nsIEventTarget* aTarget)
+SimpleTimer::Create(nsIRunnable* aTask,
+                    uint32_t aTimeoutMs,
+                    nsIEventTarget* aTarget)
 {
   RefPtr<SimpleTimer> t(new SimpleTimer());
   if (NS_FAILED(t->Init(aTask, aTimeoutMs, aTarget))) {
@@ -564,12 +591,12 @@ LogToBrowserConsole(const nsAString& aMsg)
   if (!NS_IsMainThread()) {
     nsString msg(aMsg);
     nsCOMPtr<nsIRunnable> task = NS_NewRunnableFunction(
-      "LogToBrowserConsole", [msg]() { LogToBrowserConsole(msg); });
+        "LogToBrowserConsole", [msg]() { LogToBrowserConsole(msg); });
     SystemGroup::Dispatch(TaskCategory::Other, task.forget());
     return;
   }
   nsCOMPtr<nsIConsoleService> console(
-    do_GetService("@mozilla.org/consoleservice;1"));
+      do_GetService("@mozilla.org/consoleservice;1"));
   if (!console) {
     NS_WARNING("Failed to log message to console.");
     return;
@@ -612,14 +639,14 @@ ParseMIMETypeString(const nsAString& aMIMEType,
   return ParseCodecsString(codecsStr, aOutCodecs);
 }
 
-template <int N>
+template<int N>
 static bool
 StartsWith(const nsACString& string, const char (&prefix)[N])
 {
-    if (N - 1 > string.Length()) {
-      return false;
-    }
-    return memcmp(string.Data(), prefix, N - 1) == 0;
+  if (N - 1 > string.Length()) {
+    return false;
+  }
+  return memcmp(string.Data(), prefix, N - 1) == 0;
 }
 
 bool
@@ -633,13 +660,14 @@ IsH264CodecString(const nsAString& aCodec)
 bool
 IsAACCodecString(const nsAString& aCodec)
 {
-  return
-    aCodec.EqualsLiteral("mp4a.40.2") || // MPEG4 AAC-LC
-    aCodec.EqualsLiteral("mp4a.40.02") || // MPEG4 AAC-LC(for compatibility)
-    aCodec.EqualsLiteral("mp4a.40.5") || // MPEG4 HE-AAC
-    aCodec.EqualsLiteral("mp4a.40.05") || // MPEG4 HE-AAC(for compatibility)
-    aCodec.EqualsLiteral("mp4a.67") || // MPEG2 AAC-LC
-    aCodec.EqualsLiteral("mp4a.40.29");  // MPEG4 HE-AACv2
+  return aCodec.EqualsLiteral("mp4a.40.2") ||  // MPEG4 AAC-LC
+         aCodec.EqualsLiteral(
+             "mp4a.40.02") ||  // MPEG4 AAC-LC(for compatibility)
+         aCodec.EqualsLiteral("mp4a.40.5") ||  // MPEG4 HE-AAC
+         aCodec.EqualsLiteral(
+             "mp4a.40.05") ||                 // MPEG4 HE-AAC(for compatibility)
+         aCodec.EqualsLiteral("mp4a.67") ||   // MPEG2 AAC-LC
+         aCodec.EqualsLiteral("mp4a.40.29");  // MPEG4 HE-AACv2
 }
 
 bool
@@ -648,8 +676,7 @@ IsVP8CodecString(const nsAString& aCodec)
   uint8_t profile = 0;
   uint8_t level = 0;
   uint8_t bitDepth = 0;
-  return aCodec.EqualsLiteral("vp8") ||
-         aCodec.EqualsLiteral("vp8.0") ||
+  return aCodec.EqualsLiteral("vp8") || aCodec.EqualsLiteral("vp8.0") ||
          (StartsWith(NS_ConvertUTF16toUTF8(aCodec), "vp08") &&
           ExtractVPXCodecDetails(aCodec, profile, level, bitDepth));
 }
@@ -660,8 +687,7 @@ IsVP9CodecString(const nsAString& aCodec)
   uint8_t profile = 0;
   uint8_t level = 0;
   uint8_t bitDepth = 0;
-  return aCodec.EqualsLiteral("vp9") ||
-         aCodec.EqualsLiteral("vp9.0") ||
+  return aCodec.EqualsLiteral("vp9") || aCodec.EqualsLiteral("vp9.0") ||
          (StartsWith(NS_ConvertUTF16toUTF8(aCodec), "vp09") &&
           ExtractVPXCodecDetails(aCodec, profile, level, bitDepth));
 }
@@ -682,8 +708,7 @@ CreateTrackInfoWithMIMEType(const nsACString& aCodecMIMEType)
 
 UniquePtr<TrackInfo>
 CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-  const nsACString& aCodecMIMEType,
-  const MediaContainerType& aContainerType)
+    const nsACString& aCodecMIMEType, const MediaContainerType& aContainerType)
 {
   UniquePtr<TrackInfo> trackInfo = CreateTrackInfoWithMIMEType(aCodecMIMEType);
   if (trackInfo) {
@@ -702,4 +727,4 @@ CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
   return trackInfo;
 }
 
-} // end namespace mozilla
+}  // end namespace mozilla

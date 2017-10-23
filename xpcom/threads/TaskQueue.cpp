@@ -15,13 +15,10 @@ class TaskQueue::EventTargetWrapper final : public nsISerialEventTarget
 {
   RefPtr<TaskQueue> mTaskQueue;
 
-  ~EventTargetWrapper()
-  {
-  }
+  ~EventTargetWrapper() {}
 
-public:
-  explicit EventTargetWrapper(TaskQueue* aTaskQueue)
-    : mTaskQueue(aTaskQueue)
+ public:
+  explicit EventTargetWrapper(TaskQueue* aTaskQueue) : mTaskQueue(aTaskQueue)
   {
     MOZ_ASSERT(mTaskQueue);
   }
@@ -38,7 +35,7 @@ public:
   {
     nsCOMPtr<nsIRunnable> runnable = aEvent;
     MonitorAutoLock mon(mTaskQueue->mQueueMonitor);
-    return mTaskQueue->DispatchLocked(/* passed by ref */runnable,
+    return mTaskQueue->DispatchLocked(/* passed by ref */ runnable,
                                       DontAssertDispatchSuccess,
                                       NormalDispatch);
   }
@@ -72,19 +69,19 @@ NS_IMPL_ISUPPORTS(TaskQueue::EventTargetWrapper,
 TaskQueue::TaskQueue(already_AddRefed<nsIEventTarget> aTarget,
                      const char* aName,
                      bool aRequireTailDispatch)
-  : AbstractThread(aRequireTailDispatch)
-  , mTarget(aTarget)
-  , mQueueMonitor("TaskQueue::Queue")
-  , mTailDispatcher(nullptr)
-  , mIsRunning(false)
-  , mIsShutdown(false)
-  , mName(aName)
+    : AbstractThread(aRequireTailDispatch),
+      mTarget(aTarget),
+      mQueueMonitor("TaskQueue::Queue"),
+      mTailDispatcher(nullptr),
+      mIsRunning(false),
+      mIsShutdown(false),
+      mName(aName)
 {
 }
 
 TaskQueue::TaskQueue(already_AddRefed<nsIEventTarget> aTarget,
                      bool aSupportsTailDispatch)
-  : TaskQueue(Move(aTarget), "Unnamed", aSupportsTailDispatch)
+    : TaskQueue(Move(aTarget), "Unnamed", aSupportsTailDispatch)
 {
 }
 
@@ -115,8 +112,10 @@ TaskQueue::DispatchLocked(nsCOMPtr<nsIRunnable>& aRunnable,
   }
 
   AbstractThread* currentThread;
-  if (aReason != TailDispatch && (currentThread = GetCurrent()) && RequiresTailDispatch(currentThread)) {
-    currentThread->TailDispatcher().AddTask(this, aRunnable.forget(), aFailureHandling);
+  if (aReason != TailDispatch && (currentThread = GetCurrent()) &&
+      RequiresTailDispatch(currentThread)) {
+    currentThread->TailDispatcher().AddTask(
+        this, aRunnable.forget(), aFailureHandling);
     return NS_OK;
   }
 
@@ -282,4 +281,4 @@ TaskQueue::Runner::Run()
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

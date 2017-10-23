@@ -13,7 +13,8 @@ BEGIN_WORKERS_NAMESPACE
 
 struct WorkerPrincipal final : public JSPrincipals
 {
-  bool write(JSContext* aCx, JSStructuredCloneWriter* aWriter) override {
+  bool write(JSContext* aCx, JSStructuredCloneWriter* aWriter) override
+  {
     MOZ_CRASH("WorkerPrincipal::write not implemented");
     return false;
   }
@@ -45,7 +46,8 @@ GetWorkerPrincipal()
 void
 DestroyWorkerPrincipals(JSPrincipals* aPrincipals)
 {
-  MOZ_ASSERT_UNREACHABLE("Worker principals refcount should never fall below one");
+  MOZ_ASSERT_UNREACHABLE(
+      "Worker principals refcount should never fall below one");
 }
 
 END_WORKERS_NAMESPACE

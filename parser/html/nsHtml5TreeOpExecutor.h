@@ -29,284 +29,261 @@ class nsHtml5StreamParser;
 class nsIContent;
 class nsIDocument;
 
-class nsHtml5TreeOpExecutor final : public nsHtml5DocumentBuilder,
-                                    public nsIContentSink,
-                                    public nsAHtml5TreeOpSink,
-                                    public mozilla::LinkedListElement<nsHtml5TreeOpExecutor>
+class nsHtml5TreeOpExecutor final
+    : public nsHtml5DocumentBuilder,
+      public nsIContentSink,
+      public nsAHtml5TreeOpSink,
+      public mozilla::LinkedListElement<nsHtml5TreeOpExecutor>
 {
   friend class nsHtml5FlushLoopGuard;
   typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
   using Encoding = mozilla::Encoding;
-  template <typename T> using NotNull = mozilla::NotNull<T>;
+  template<typename T>
+  using NotNull = mozilla::NotNull<T>;
 
-  public:
-    NS_DECL_ISUPPORTS_INHERITED
+ public:
+  NS_DECL_ISUPPORTS_INHERITED
 
-  private:
-    static bool        sExternalViewSource;
+ private:
+  static bool sExternalViewSource;
 #ifdef DEBUG_NS_HTML5_TREE_OP_EXECUTOR_FLUSH
-    static uint32_t    sAppendBatchMaxSize;
-    static uint32_t    sAppendBatchSlotsExamined;
-    static uint32_t    sAppendBatchExaminations;
-    static uint32_t    sLongestTimeOffTheEventLoop;
-    static uint32_t    sTimesFlushLoopInterrupted;
+  static uint32_t sAppendBatchMaxSize;
+  static uint32_t sAppendBatchSlotsExamined;
+  static uint32_t sAppendBatchExaminations;
+  static uint32_t sLongestTimeOffTheEventLoop;
+  static uint32_t sTimesFlushLoopInterrupted;
 #endif
 
-    /**
+  /**
      * Whether EOF needs to be suppressed
      */
-    bool                                 mSuppressEOF;
-    
-    bool                                 mReadingFromStage;
-    nsTArray<nsHtml5TreeOperation>       mOpQueue;
-    nsHtml5StreamParser*                 mStreamParser;
-    
-    /**
+  bool mSuppressEOF;
+
+  bool mReadingFromStage;
+  nsTArray<nsHtml5TreeOperation> mOpQueue;
+  nsHtml5StreamParser* mStreamParser;
+
+  /**
      * URLs already preloaded/preloading.
      */
-    nsTHashtable<nsCStringHashKey> mPreloadedURLs;
+  nsTHashtable<nsCStringHashKey> mPreloadedURLs;
 
-    nsCOMPtr<nsIURI> mSpeculationBaseURI;
+  nsCOMPtr<nsIURI> mSpeculationBaseURI;
 
-    /**
+  /**
      * Speculative referrer policy
      */
-    ReferrerPolicy   mSpeculationReferrerPolicy;
+  ReferrerPolicy mSpeculationReferrerPolicy;
 
-    nsCOMPtr<nsIURI> mViewSourceBaseURI;
+  nsCOMPtr<nsIURI> mViewSourceBaseURI;
 
-    /**
+  /**
      * Whether the parser has started
      */
-    bool                          mStarted;
+  bool mStarted;
 
-    nsHtml5TreeOpStage            mStage;
+  nsHtml5TreeOpStage mStage;
 
-    bool                          mRunFlushLoopOnStack;
+  bool mRunFlushLoopOnStack;
 
-    bool                          mCallContinueInterruptedParsingIfEnabled;
+  bool mCallContinueInterruptedParsingIfEnabled;
 
-    /**
+  /**
      * Whether this executor has already complained about matters related
      * to character encoding declarations.
      */
-    bool                          mAlreadyComplainedAboutCharset;
+  bool mAlreadyComplainedAboutCharset;
 
-  public:
+ public:
+  nsHtml5TreeOpExecutor();
 
-    nsHtml5TreeOpExecutor();
+ protected:
+  virtual ~nsHtml5TreeOpExecutor();
 
-  protected:
+ public:
+  // nsIContentSink
 
-    virtual ~nsHtml5TreeOpExecutor();
-
-  public:
-
-    // nsIContentSink
-
-    /**
+  /**
      * Unimplemented. For interface compat only.
      */
-    NS_IMETHOD WillParse() override;
+  NS_IMETHOD WillParse() override;
 
-    /**
+  /**
      * 
      */
-    NS_IMETHOD WillBuildModel(nsDTDMode aDTDMode) override;
+  NS_IMETHOD WillBuildModel(nsDTDMode aDTDMode) override;
 
-    /**
+  /**
      * Emits EOF.
      */
-    NS_IMETHOD DidBuildModel(bool aTerminated) override;
+  NS_IMETHOD DidBuildModel(bool aTerminated) override;
 
-    /**
+  /**
      * Forwards to nsContentSink
      */
-    NS_IMETHOD WillInterrupt() override;
+  NS_IMETHOD WillInterrupt() override;
 
-    /**
+  /**
      * Unimplemented. For interface compat only.
      */
-    NS_IMETHOD WillResume() override;
+  NS_IMETHOD WillResume() override;
 
-    /**
+  /**
      * Sets the parser.
      */
-    NS_IMETHOD SetParser(nsParserBase* aParser) override;
+  NS_IMETHOD SetParser(nsParserBase* aParser) override;
 
-    /**
+  /**
      * No-op for backwards compat.
      */
-    virtual void FlushPendingNotifications(mozilla::FlushType aType) override;
+  virtual void FlushPendingNotifications(mozilla::FlushType aType) override;
 
-    /**
+  /**
      * Don't call. For interface compat only.
      */
-    virtual void SetDocumentCharset(NotNull<const Encoding*> aEncoding) override
-    {
-        NS_NOTREACHED("No one should call this.");
-    }
+  virtual void SetDocumentCharset(NotNull<const Encoding*> aEncoding) override
+  {
+    NS_NOTREACHED("No one should call this.");
+  }
 
-    /**
+  /**
      * Returns the document.
      */
-    virtual nsISupports *GetTarget() override;
-  
-    virtual void ContinueInterruptedParsingAsync() override;
+  virtual nsISupports* GetTarget() override;
 
-    bool IsScriptExecuting() override
-    {
-      return IsScriptExecutingImpl();
-    }
+  virtual void ContinueInterruptedParsingAsync() override;
 
-    // Not from interface
+  bool IsScriptExecuting() override { return IsScriptExecutingImpl(); }
 
-    void SetStreamParser(nsHtml5StreamParser* aStreamParser)
-    {
-      mStreamParser = aStreamParser;
-    }
-    
-    void InitializeDocWriteParserState(nsAHtml5TreeBuilderState* aState, int32_t aLine);
+  // Not from interface
 
-    bool IsScriptEnabled();
+  void SetStreamParser(nsHtml5StreamParser* aStreamParser)
+  {
+    mStreamParser = aStreamParser;
+  }
 
-    virtual nsresult MarkAsBroken(nsresult aReason) override;
+  void InitializeDocWriteParserState(nsAHtml5TreeBuilderState* aState,
+                                     int32_t aLine);
 
-    void StartLayout(bool* aInterrupted);
+  bool IsScriptEnabled();
 
-    void PauseDocUpdate(bool* aInterrupted);
-    
-    void FlushSpeculativeLoads();
-                  
-    void RunFlushLoop();
+  virtual nsresult MarkAsBroken(nsresult aReason) override;
 
-    nsresult FlushDocumentWrite();
+  void StartLayout(bool* aInterrupted);
 
-    void MaybeSuspend();
+  void PauseDocUpdate(bool* aInterrupted);
 
-    void Start();
+  void FlushSpeculativeLoads();
 
-    void NeedsCharsetSwitchTo(NotNull<const Encoding*> aEncoding,
-                              int32_t aSource,
-                              uint32_t aLineNumber);
+  void RunFlushLoop();
 
-    void MaybeComplainAboutCharset(const char* aMsgId,
-                                   bool aError,
-                                   uint32_t aLineNumber);
+  nsresult FlushDocumentWrite();
 
-    void ComplainAboutBogusProtocolCharset(nsIDocument* aDoc);
+  void MaybeSuspend();
 
-    bool IsComplete()
-    {
-      return !mParser;
-    }
-    
-    bool HasStarted()
-    {
-      return mStarted;
-    }
-    
-    bool IsFlushing()
-    {
-      return mFlushState >= eInFlush;
-    }
+  void Start();
+
+  void NeedsCharsetSwitchTo(NotNull<const Encoding*> aEncoding,
+                            int32_t aSource,
+                            uint32_t aLineNumber);
+
+  void MaybeComplainAboutCharset(const char* aMsgId,
+                                 bool aError,
+                                 uint32_t aLineNumber);
+
+  void ComplainAboutBogusProtocolCharset(nsIDocument* aDoc);
+
+  bool IsComplete() { return !mParser; }
+
+  bool HasStarted() { return mStarted; }
+
+  bool IsFlushing() { return mFlushState >= eInFlush; }
 
 #ifdef DEBUG
-    bool IsInFlushLoop()
-    {
-      return mRunFlushLoopOnStack;
-    }
+  bool IsInFlushLoop() { return mRunFlushLoopOnStack; }
 #endif
-    
-    void RunScript(nsIContent* aScriptElement);
-    
-    /**
+
+  void RunScript(nsIContent* aScriptElement);
+
+  /**
      * Flush the operations from the tree operations from the argument
      * queue unconditionally. (This is for the main thread case.)
      */
-    virtual void MoveOpsFrom(nsTArray<nsHtml5TreeOperation>& aOpQueue) override;
-    
-    nsHtml5TreeOpStage* GetStage()
-    {
-      return &mStage;
-    }
-    
-    void StartReadingFromStage()
-    {
-      mReadingFromStage = true;
-    }
+  virtual void MoveOpsFrom(nsTArray<nsHtml5TreeOperation>& aOpQueue) override;
 
-    void StreamEnded();
-    
+  nsHtml5TreeOpStage* GetStage() { return &mStage; }
+
+  void StartReadingFromStage() { mReadingFromStage = true; }
+
+  void StreamEnded();
+
 #ifdef DEBUG
-    void AssertStageEmpty()
-    {
-      mStage.AssertEmpty();
-    }
+  void AssertStageEmpty() { mStage.AssertEmpty(); }
 #endif
 
-    nsIURI* GetViewSourceBaseURI();
+  nsIURI* GetViewSourceBaseURI();
 
-    void PreloadScript(const nsAString& aURL,
-                       const nsAString& aCharset,
-                       const nsAString& aType,
-                       const nsAString& aCrossOrigin,
-                       const nsAString& aIntegrity,
-                       bool aScriptFromHead,
-                       bool aAsync,
-                       bool aDefer);
+  void PreloadScript(const nsAString& aURL,
+                     const nsAString& aCharset,
+                     const nsAString& aType,
+                     const nsAString& aCrossOrigin,
+                     const nsAString& aIntegrity,
+                     bool aScriptFromHead,
+                     bool aAsync,
+                     bool aDefer);
 
-    void PreloadStyle(const nsAString& aURL, const nsAString& aCharset,
-                      const nsAString& aCrossOrigin,
-                      const nsAString& aReferrerPolicy,
-                      const nsAString& aIntegrity);
+  void PreloadStyle(const nsAString& aURL,
+                    const nsAString& aCharset,
+                    const nsAString& aCrossOrigin,
+                    const nsAString& aReferrerPolicy,
+                    const nsAString& aIntegrity);
 
-    void PreloadImage(const nsAString& aURL,
-                      const nsAString& aCrossOrigin,
-                      const nsAString& aSrcset,
-                      const nsAString& aSizes,
-                      const nsAString& aImageReferrerPolicy);
+  void PreloadImage(const nsAString& aURL,
+                    const nsAString& aCrossOrigin,
+                    const nsAString& aSrcset,
+                    const nsAString& aSizes,
+                    const nsAString& aImageReferrerPolicy);
 
-    void PreloadOpenPicture();
+  void PreloadOpenPicture();
 
-    void PreloadEndPicture();
+  void PreloadEndPicture();
 
-    void PreloadPictureSource(const nsAString& aSrcset,
-                              const nsAString& aSizes,
-                              const nsAString& aType,
-                              const nsAString& aMedia);
+  void PreloadPictureSource(const nsAString& aSrcset,
+                            const nsAString& aSizes,
+                            const nsAString& aType,
+                            const nsAString& aMedia);
 
-    void SetSpeculationBase(const nsAString& aURL);
+  void SetSpeculationBase(const nsAString& aURL);
 
-    void SetSpeculationReferrerPolicy(ReferrerPolicy aReferrerPolicy);
-    void SetSpeculationReferrerPolicy(const nsAString& aReferrerPolicy);
+  void SetSpeculationReferrerPolicy(ReferrerPolicy aReferrerPolicy);
+  void SetSpeculationReferrerPolicy(const nsAString& aReferrerPolicy);
 
-    void AddSpeculationCSP(const nsAString& aCSP);
+  void AddSpeculationCSP(const nsAString& aCSP);
 
-    void AddBase(const nsAString& aURL);
+  void AddBase(const nsAString& aURL);
 
-    static void InitializeStatics();
+  static void InitializeStatics();
 
-  private:
-    nsHtml5Parser* GetParser();
+ private:
+  nsHtml5Parser* GetParser();
 
-    bool IsExternalViewSource();
+  bool IsExternalViewSource();
 
-    /**
+  /**
      * Get a nsIURI for an nsString if the URL hasn't been preloaded yet.
      */
-    already_AddRefed<nsIURI> ConvertIfNotPreloadedYet(const nsAString& aURL);
+  already_AddRefed<nsIURI> ConvertIfNotPreloadedYet(const nsAString& aURL);
 
-    /**
+  /**
      * The base URI we would use for current preload operations
      */
-    nsIURI* BaseURIForPreload();
+  nsIURI* BaseURIForPreload();
 
-    /**
+  /**
      * Returns true if we haven't preloaded this URI yet, and adds it to the
      * list of preloaded URIs
      */
-    bool ShouldPreloadURI(nsIURI *aURI);
+  bool ShouldPreloadURI(nsIURI* aURI);
 };
 
-#endif // nsHtml5TreeOpExecutor_h
+#endif  // nsHtml5TreeOpExecutor_h

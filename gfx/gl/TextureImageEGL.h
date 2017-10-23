@@ -11,60 +11,59 @@
 namespace mozilla {
 namespace gl {
 
-class TextureImageEGL final
-    : public TextureImage
+class TextureImageEGL final : public TextureImage
 {
-public:
-    TextureImageEGL(GLuint aTexture,
-                    const gfx::IntSize& aSize,
-                    GLenum aWrapMode,
-                    ContentType aContentType,
-                    GLContext* aContext,
-                    Flags aFlags = TextureImage::NoFlags,
-                    TextureState aTextureState = Created,
-                    TextureImage::ImageFormat aImageFormat = SurfaceFormat::UNKNOWN);
+ public:
+  TextureImageEGL(
+      GLuint aTexture,
+      const gfx::IntSize& aSize,
+      GLenum aWrapMode,
+      ContentType aContentType,
+      GLContext* aContext,
+      Flags aFlags = TextureImage::NoFlags,
+      TextureState aTextureState = Created,
+      TextureImage::ImageFormat aImageFormat = SurfaceFormat::UNKNOWN);
 
-    virtual ~TextureImageEGL();
+  virtual ~TextureImageEGL();
 
-    virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf, const nsIntRegion& aRegion, const gfx::IntPoint& aFrom = gfx::IntPoint(0,0));
+  virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf,
+                            const nsIntRegion& aRegion,
+                            const gfx::IntPoint& aFrom = gfx::IntPoint(0, 0));
 
-    virtual void BindTexture(GLenum aTextureUnit);
+  virtual void BindTexture(GLenum aTextureUnit);
 
-    virtual GLuint GetTextureID()
-    {
-        // Ensure the texture is allocated before it is used.
-        if (mTextureState == Created) {
-            Resize(mSize);
-        }
-        return mTexture;
-    };
-
-    virtual void Resize(const gfx::IntSize& aSize);
-
-    bool BindTexImage();
-
-    bool ReleaseTexImage();
-
-    virtual bool CreateEGLSurface(gfxASurface* aSurface)
-    {
-        return false;
+  virtual GLuint GetTextureID()
+  {
+    // Ensure the texture is allocated before it is used.
+    if (mTextureState == Created) {
+      Resize(mSize);
     }
+    return mTexture;
+  };
 
-    virtual void DestroyEGLSurface(void);
+  virtual void Resize(const gfx::IntSize& aSize);
 
-protected:
-    typedef gfxImageFormat ImageFormat;
+  bool BindTexImage();
 
-    GLContext* mGLContext;
+  bool ReleaseTexImage();
 
-    gfx::SurfaceFormat mUpdateFormat;
-    EGLImage mEGLImage;
-    GLuint mTexture;
-    EGLSurface mSurface;
-    EGLConfig mConfig;
-    TextureState mTextureState;
+  virtual bool CreateEGLSurface(gfxASurface* aSurface) { return false; }
 
-    bool mBound;
+  virtual void DestroyEGLSurface(void);
+
+ protected:
+  typedef gfxImageFormat ImageFormat;
+
+  GLContext* mGLContext;
+
+  gfx::SurfaceFormat mUpdateFormat;
+  EGLImage mEGLImage;
+  GLuint mTexture;
+  EGLSurface mSurface;
+  EGLConfig mConfig;
+  TextureState mTextureState;
+
+  bool mBound;
 };
 
 already_AddRefed<TextureImage>
@@ -82,7 +81,7 @@ TileGenFuncEGL(GLContext* gl,
                TextureImage::Flags aFlags,
                TextureImage::ImageFormat aImageFormat);
 
-} // namespace gl
-} // namespace mozilla
+}  // namespace gl
+}  // namespace mozilla
 
-#endif // TEXTUREIMAGEEGL_H_
+#endif  // TEXTUREIMAGEEGL_H_

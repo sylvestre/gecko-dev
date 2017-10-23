@@ -24,12 +24,12 @@ enum EXIFTag
 // See Section 4.6.2.
 enum EXIFType
 {
-  ByteType       = 1,
-  ASCIIType      = 2,
-  ShortType      = 3,
-  LongType       = 4,
-  RationalType   = 5,
-  UndefinedType  = 7,
+  ByteType = 1,
+  ASCIIType = 2,
+  ShortType = 3,
+  LongType = 4,
+  RationalType = 5,
+  UndefinedType = 7,
   SignedLongType = 9,
   SignedRational = 10,
 };
@@ -117,7 +117,7 @@ EXIFParser::ParseIFD0(Orientation& aOrientationOut)
     return false;
   }
 
-  for (uint16_t entry = 0 ; entry < entryCount ; ++entry) {
+  for (uint16_t entry = 0; entry < entryCount; ++entry) {
     // Read the fields of the entry.
     uint16_t tag;
     if (!ReadUInt16(tag)) {
@@ -170,15 +170,32 @@ EXIFParser::ParseOrientation(uint16_t aType, uint32_t aCount, Orientation& aOut)
   }
 
   switch (value) {
-    case 1: aOut = Orientation(Angle::D0,   Flip::Unflipped);  break;
-    case 2: aOut = Orientation(Angle::D0,   Flip::Horizontal); break;
-    case 3: aOut = Orientation(Angle::D180, Flip::Unflipped);  break;
-    case 4: aOut = Orientation(Angle::D180, Flip::Horizontal); break;
-    case 5: aOut = Orientation(Angle::D90,  Flip::Horizontal); break;
-    case 6: aOut = Orientation(Angle::D90,  Flip::Unflipped);  break;
-    case 7: aOut = Orientation(Angle::D270, Flip::Horizontal); break;
-    case 8: aOut = Orientation(Angle::D270, Flip::Unflipped);  break;
-    default: return false;
+    case 1:
+      aOut = Orientation(Angle::D0, Flip::Unflipped);
+      break;
+    case 2:
+      aOut = Orientation(Angle::D0, Flip::Horizontal);
+      break;
+    case 3:
+      aOut = Orientation(Angle::D180, Flip::Unflipped);
+      break;
+    case 4:
+      aOut = Orientation(Angle::D180, Flip::Horizontal);
+      break;
+    case 5:
+      aOut = Orientation(Angle::D90, Flip::Horizontal);
+      break;
+    case 6:
+      aOut = Orientation(Angle::D90, Flip::Unflipped);
+      break;
+    case 7:
+      aOut = Orientation(Angle::D270, Flip::Horizontal);
+      break;
+    case 8:
+      aOut = Orientation(Angle::D270, Flip::Unflipped);
+      break;
+    default:
+      return false;
   }
 
   // This is a 32-bit field, but the orientation value only occupies the first
@@ -236,7 +253,7 @@ EXIFParser::MatchString(const char* aString, const uint32_t aLength)
     return false;
   }
 
-  for (uint32_t i = 0 ; i < aLength ; ++i) {
+  for (uint32_t i = 0; i < aLength; ++i) {
     if (mCurrent[i] != aString[i]) {
       return false;
     }
@@ -327,5 +344,5 @@ EXIFParser::ReadUInt32(uint32_t& aValue)
   return matched;
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

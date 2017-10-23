@@ -27,18 +27,22 @@ class GlobalQueueItem;
 
 class nsSynthVoiceRegistry final : public nsISynthVoiceRegistry
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISYNTHVOICEREGISTRY
 
   nsSynthVoiceRegistry();
 
-  already_AddRefed<nsSpeechTask> SpeakUtterance(SpeechSynthesisUtterance& aUtterance,
-                                                const nsAString& aDocLang);
+  already_AddRefed<nsSpeechTask> SpeakUtterance(
+      SpeechSynthesisUtterance& aUtterance, const nsAString& aDocLang);
 
-  void Speak(const nsAString& aText, const nsAString& aLang,
-             const nsAString& aUri, const float& aVolume,  const float& aRate,
-             const float& aPitch, nsSpeechTask* aTask);
+  void Speak(const nsAString& aText,
+             const nsAString& aLang,
+             const nsAString& aUri,
+             const float& aVolume,
+             const float& aRate,
+             const float& aPitch,
+             nsSpeechTask* aTask);
 
   bool SendInitialVoicesAndState(SpeechSynthesisParent* aParent);
 
@@ -70,7 +74,7 @@ public:
 
   static void Shutdown();
 
-private:
+ private:
   virtual ~nsSynthVoiceRegistry();
 
   VoiceData* FindBestMatch(const nsAString& aUri, const nsAString& lang);
@@ -106,7 +110,7 @@ private:
   bool mIsSpeaking;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

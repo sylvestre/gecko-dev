@@ -35,7 +35,7 @@ LayerTransforms::GetAverage()
     current = nextTransform;
   }
 
-  average = average / (float) length;
+  average = average / (float)length;
   return average;
 }
 
@@ -66,26 +66,24 @@ LayerTransforms::GetStdDev()
   return stdDev;
 }
 
-LayerTransformRecorder::~LayerTransformRecorder()
-{
-  Reset();
-}
+LayerTransformRecorder::~LayerTransformRecorder() { Reset(); }
 
 void
 LayerTransformRecorder::RecordTransform(Layer* aLayer, const Point& aTransform)
 {
-  LayerTransforms* layerTransforms = GetLayerTransforms((uintptr_t) aLayer);
+  LayerTransforms* layerTransforms = GetLayerTransforms((uintptr_t)aLayer);
   layerTransforms->mTransforms.AppendElement(aTransform);
 }
 
 void
 LayerTransformRecorder::EndTest(FrameUniformityData* aOutData)
 {
-  for (auto iter = mFrameTransforms.begin(); iter != mFrameTransforms.end(); ++iter) {
+  for (auto iter = mFrameTransforms.begin(); iter != mFrameTransforms.end();
+       ++iter) {
     uintptr_t layer = iter->first;
     float uniformity = CalculateFrameUniformity(layer);
 
-    std::pair<uintptr_t,float> result(layer, uniformity);
+    std::pair<uintptr_t, float> result(layer, uniformity);
     aOutData->mUniformities.insert(result);
   }
 
@@ -107,7 +105,8 @@ LayerTransformRecorder::GetLayerTransforms(uintptr_t aLayer)
 void
 LayerTransformRecorder::Reset()
 {
-  for (auto iter = mFrameTransforms.begin(); iter != mFrameTransforms.end(); ++iter) {
+  for (auto iter = mFrameTransforms.begin(); iter != mFrameTransforms.end();
+       ++iter) {
     LayerTransforms* layerTransforms = iter->second;
     delete layerTransforms;
   }
@@ -131,7 +130,8 @@ bool
 FrameUniformityData::ToJS(JS::MutableHandleValue aOutValue, JSContext* aContext)
 {
   dom::FrameUniformityResults results;
-  dom::Sequence<dom::FrameUniformity>& layers = results.mLayerUniformities.Construct();
+  dom::Sequence<dom::FrameUniformity>& layers =
+      results.mLayerUniformities.Construct();
 
   for (auto iter = mUniformities.begin(); iter != mUniformities.end(); ++iter) {
     uintptr_t layerAddr = iter->first;
@@ -148,5 +148,5 @@ FrameUniformityData::ToJS(JS::MutableHandleValue aOutValue, JSContext* aContext)
   return dom::ToJSValue(aContext, results, aOutValue);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

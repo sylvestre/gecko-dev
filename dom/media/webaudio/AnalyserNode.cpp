@@ -28,32 +28,31 @@ class AnalyserNodeEngine final : public AudioNodeEngine
 {
   class TransferBuffer final : public Runnable
   {
-  public:
+   public:
     TransferBuffer(AudioNodeStream* aStream, const AudioChunk& aChunk)
-      : Runnable("dom::AnalyserNodeEngine::TransferBuffer")
-      , mStream(aStream)
-      , mChunk(aChunk)
+        : Runnable("dom::AnalyserNodeEngine::TransferBuffer"),
+          mStream(aStream),
+          mChunk(aChunk)
     {
     }
 
     NS_IMETHOD Run() override
     {
       RefPtr<AnalyserNode> node =
-        static_cast<AnalyserNode*>(mStream->Engine()->NodeMainThread());
+          static_cast<AnalyserNode*>(mStream->Engine()->NodeMainThread());
       if (node) {
         node->AppendChunk(mChunk);
       }
       return NS_OK;
     }
 
-  private:
+   private:
     RefPtr<AudioNodeStream> mStream;
     AudioChunk mChunk;
   };
 
-public:
-  explicit AnalyserNodeEngine(AnalyserNode* aNode)
-    : AudioNodeEngine(aNode)
+ public:
+  explicit AnalyserNodeEngine(AnalyserNode* aNode) : AudioNodeEngine(aNode)
   {
     MOZ_ASSERT(NS_IsMainThread());
   }
@@ -84,14 +83,11 @@ public:
     }
 
     RefPtr<TransferBuffer> transfer =
-      new TransferBuffer(aStream, aInput.AsAudioChunk());
+        new TransferBuffer(aStream, aInput.AsAudioChunk());
     mAbstractMainThread->Dispatch(transfer.forget());
   }
 
-  virtual bool IsActive() const override
-  {
-    return mChunksToProcess != 0;
-  }
+  virtual bool IsActive() const override { return mChunksToProcess != 0; }
 
   virtual size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override
   {
@@ -141,14 +137,12 @@ AnalyserNode::Create(AudioContext& aAudioContext,
 }
 
 AnalyserNode::AnalyserNode(AudioContext* aContext)
-  : AudioNode(aContext,
-              1,
-              ChannelCountMode::Max,
-              ChannelInterpretation::Speakers)
-  , mAnalysisBlock(2048)
-  , mMinDecibels(-100.)
-  , mMaxDecibels(-30.)
-  , mSmoothingTimeConstant(.8)
+    : AudioNode(
+          aContext, 1, ChannelCountMode::Max, ChannelInterpretation::Speakers),
+      mAnalysisBlock(2048),
+      mMinDecibels(-100.),
+      mMaxDecibels(-30.),
+      mSmoothingTimeConstant(.8)
 {
   mStream = AudioNodeStream::Create(aContext,
                                     new AnalyserNodeEngine(this),
@@ -189,9 +183,7 @@ void
 AnalyserNode::SetFftSize(uint32_t aValue, ErrorResult& aRv)
 {
   // Disallow values that are not a power of 2 and outside the [32,32768] range
-  if (aValue < 32 ||
-      aValue > MAX_FFT_SIZE ||
-      (aValue & (aValue - 1)) != 0) {
+  if (aValue < 32 || aValue > MAX_FFT_SIZE || (aValue & (aValue - 1)) != 0) {
     aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return;
   }
@@ -245,9 +237,8 @@ AnalyserNode::GetFloatFrequencyData(const Float32Array& aArray)
   size_t length = std::min(size_t(aArray.Length()), mOutputBuffer.Length());
 
   for (size_t i = 0; i < length; ++i) {
-    buffer[i] =
-      WebAudioUtils::ConvertLinearToDecibels(mOutputBuffer[i],
-                                             -std::numeric_limits<float>::infinity());
+    buffer[i] = WebAudioUtils::ConvertLinearToDecibels(
+        mOutputBuffer[i], -std::numeric_limits<float>::infinity());
   }
 }
 
@@ -267,10 +258,13 @@ AnalyserNode::GetByteFrequencyData(const Uint8Array& aArray)
   size_t length = std::min(size_t(aArray.Length()), mOutputBuffer.Length());
 
   for (size_t i = 0; i < length; ++i) {
-    const double decibels = WebAudioUtils::ConvertLinearToDecibels(mOutputBuffer[i], mMinDecibels);
+    const double decibels =
+        WebAudioUtils::ConvertLinearToDecibels(mOutputBuffer[i], mMinDecibels);
     // scale down the value to the range of [0, UCHAR_MAX]
-    const double scaled = std::max(0.0, std::min(double(UCHAR_MAX),
-                                                 UCHAR_MAX * (decibels - mMinDecibels) * rangeScaleFactor));
+    const double scaled = std::max(
+        0.0,
+        std::min(double(UCHAR_MAX),
+                 UCHAR_MAX*(decibels - mMinDecibels) * rangeScaleFactor));
     buffer[i] = static_cast<unsigned char>(scaled);
   }
 }
@@ -304,8 +298,8 @@ AnalyserNode::GetByteTimeDomainData(const Uint8Array& aArray)
   for (size_t i = 0; i < length; ++i) {
     const float value = tmpBuffer[i];
     // scale the value to the range of [0, UCHAR_MAX]
-    const float scaled = std::max(0.0f, std::min(float(UCHAR_MAX),
-                                                 128.0f * (value + 1.0f)));
+    const float scaled =
+        std::max(0.0f, std::min(float(UCHAR_MAX), 128.0f * (value + 1.0f)));
     buffer[i] = static_cast<unsigned char>(scaled);
   }
 }
@@ -328,9 +322,9 @@ AnalyserNode::FFTAnalysis()
   const double magnitudeScale = 1.0 / fftSize;
 
   for (uint32_t i = 0; i < mOutputBuffer.Length(); ++i) {
-    double scalarMagnitude = NS_hypot(mAnalysisBlock.RealData(i),
-                                      mAnalysisBlock.ImagData(i)) *
-                             magnitudeScale;
+    double scalarMagnitude =
+        NS_hypot(mAnalysisBlock.RealData(i), mAnalysisBlock.ImagData(i)) *
+        magnitudeScale;
     mOutputBuffer[i] = mSmoothingTimeConstant * mOutputBuffer[i] +
                        (1.0 - mSmoothingTimeConstant) * scalarMagnitude;
   }
@@ -391,29 +385,29 @@ AnalyserNode::GetTimeDomainData(float* aData, size_t aLength)
   }
 
   size_t readChunk =
-    mCurrentChunk - ((fftSize - 1) >> WEBAUDIO_BLOCK_SIZE_BITS);
+      mCurrentChunk - ((fftSize - 1) >> WEBAUDIO_BLOCK_SIZE_BITS);
   size_t readIndex = (0 - fftSize) & (WEBAUDIO_BLOCK_SIZE - 1);
   MOZ_ASSERT(readIndex == 0 || readIndex + fftSize == WEBAUDIO_BLOCK_SIZE);
 
-  for (size_t writeIndex = 0; writeIndex < aLength; ) {
+  for (size_t writeIndex = 0; writeIndex < aLength;) {
     const AudioChunk& chunk = mChunks[readChunk & (CHUNK_COUNT - 1)];
     const size_t channelCount = chunk.ChannelCount();
     size_t copyLength =
-      std::min<size_t>(aLength - writeIndex, WEBAUDIO_BLOCK_SIZE);
+        std::min<size_t>(aLength - writeIndex, WEBAUDIO_BLOCK_SIZE);
     float* dataOut = &aData[writeIndex];
 
     if (channelCount == 0) {
       PodZero(dataOut, copyLength);
     } else {
       float scale = chunk.mVolume / channelCount;
-      { // channel 0
+      {  // channel 0
         auto channelData =
-          static_cast<const float*>(chunk.mChannelData[0]) + readIndex;
+            static_cast<const float*>(chunk.mChannelData[0]) + readIndex;
         AudioBufferCopyWithScale(channelData, scale, dataOut, copyLength);
       }
       for (uint32_t i = 1; i < channelCount; ++i) {
         auto channelData =
-          static_cast<const float*>(chunk.mChannelData[i]) + readIndex;
+            static_cast<const float*>(chunk.mChannelData[i]) + readIndex;
         AudioBufferAddWithScale(channelData, scale, dataOut, copyLength);
       }
     }
@@ -423,6 +417,5 @@ AnalyserNode::GetTimeDomainData(float* aData, size_t aLength)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

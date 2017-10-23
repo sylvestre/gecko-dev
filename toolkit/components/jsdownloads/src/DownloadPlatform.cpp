@@ -40,11 +40,12 @@
 
 using namespace mozilla;
 
-DownloadPlatform *DownloadPlatform::gDownloadPlatformService = nullptr;
+DownloadPlatform* DownloadPlatform::gDownloadPlatformService = nullptr;
 
 NS_IMPL_ISUPPORTS(DownloadPlatform, mozIDownloadPlatform);
 
-DownloadPlatform* DownloadPlatform::GetDownloadPlatform()
+DownloadPlatform*
+DownloadPlatform::GetDownloadPlatform()
 {
   if (!gDownloadPlatformService) {
     gDownloadPlatformService = new DownloadPlatform();
@@ -60,13 +61,20 @@ DownloadPlatform* DownloadPlatform::GetDownloadPlatform()
 }
 
 #ifdef MOZ_WIDGET_GTK
-static void gio_set_metadata_done(GObject *source_obj, GAsyncResult *res, gpointer user_data)
+static void
+gio_set_metadata_done(GObject* source_obj,
+                      GAsyncResult* res,
+                      gpointer user_data)
 {
-  GError *err = nullptr;
+  GError* err = nullptr;
   g_file_set_attributes_finish(G_FILE(source_obj), res, nullptr, &err);
   if (err) {
 #ifdef DEBUG
-    NS_DebugBreak(NS_DEBUG_WARNING, "Set file metadata failed: ", err->message, __FILE__, __LINE__);
+    NS_DebugBreak(NS_DEBUG_WARNING,
+                  "Set file metadata failed: ",
+                  err->message,
+                  __FILE__,
+                  __LINE__);
 #endif
     g_error_free(err);
   }
@@ -75,22 +83,21 @@ static void gio_set_metadata_done(GObject *source_obj, GAsyncResult *res, gpoint
 
 #ifdef XP_MACOSX
 // Caller is responsible for freeing any result (CF Create Rule)
-CFURLRef CreateCFURLFromNSIURI(nsIURI *aURI) {
+CFURLRef
+CreateCFURLFromNSIURI(nsIURI* aURI)
+{
   nsAutoCString spec;
   if (aURI) {
     aURI->GetSpec(spec);
   }
 
-  CFStringRef urlStr = ::CFStringCreateWithCString(kCFAllocatorDefault,
-                                                   spec.get(),
-                                                   kCFStringEncodingUTF8);
+  CFStringRef urlStr = ::CFStringCreateWithCString(
+      kCFAllocatorDefault, spec.get(), kCFStringEncodingUTF8);
   if (!urlStr) {
     return NULL;
   }
 
-  CFURLRef url = ::CFURLCreateWithString(kCFAllocatorDefault,
-                                         urlStr,
-                                         NULL);
+  CFURLRef url = ::CFURLCreateWithString(kCFAllocatorDefault, urlStr, NULL);
 
   ::CFRelease(urlStr);
 
@@ -98,11 +105,15 @@ CFURLRef CreateCFURLFromNSIURI(nsIURI *aURI) {
 }
 #endif
 
-nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIFile* aTarget,
-                                        const nsACString& aContentType, bool aIsPrivate)
+nsresult
+DownloadPlatform::DownloadDone(nsIURI* aSource,
+                               nsIURI* aReferrer,
+                               nsIFile* aTarget,
+                               const nsACString& aContentType,
+                               bool aIsPrivate)
 {
-#if defined(XP_WIN) || defined(XP_MACOSX) || defined(MOZ_WIDGET_ANDROID) \
- || defined(MOZ_WIDGET_GTK)
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(MOZ_WIDGET_ANDROID) || \
+    defined(MOZ_WIDGET_GTK)
 
   nsAutoString path;
   if (aTarget && NS_SUCCEEDED(aTarget->GetPath(path))) {
@@ -122,8 +133,8 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIF
 #elif defined(MOZ_WIDGET_GTK)
         GtkRecentManager* manager = gtk_recent_manager_get_default();
 
-        gchar* uri = g_filename_to_uri(NS_ConvertUTF16toUTF8(path).get(),
-                                       nullptr, nullptr);
+        gchar* uri = g_filename_to_uri(
+            NS_ConvertUTF16toUTF8(path).get(), nullptr, nullptr);
         if (uri) {
           gtk_recent_manager_add_item(manager, uri);
           g_free(uri);
@@ -137,13 +148,16 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIF
       nsCString source_uri;
       nsresult rv = aSource->GetSpec(source_uri);
       NS_ENSURE_SUCCESS(rv, rv);
-      GFileInfo *file_info = g_file_info_new();
-      g_file_info_set_attribute_string(file_info, "metadata::download-uri", source_uri.get());
+      GFileInfo* file_info = g_file_info_new();
+      g_file_info_set_attribute_string(
+          file_info, "metadata::download-uri", source_uri.get());
       g_file_set_attributes_async(gio_file,
                                   file_info,
                                   G_FILE_QUERY_INFO_NONE,
                                   G_PRIORITY_DEFAULT,
-                                  nullptr, gio_set_metadata_done, nullptr);
+                                  nullptr,
+                                  gio_set_metadata_done,
+                                  nullptr);
       g_object_unref(file_info);
       g_object_unref(gio_file);
 #endif
@@ -152,20 +166,25 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIF
 
 #ifdef XP_MACOSX
     // On OS X, make the downloads stack bounce.
-    CFStringRef observedObject = ::CFStringCreateWithCString(kCFAllocatorDefault,
-                                             NS_ConvertUTF16toUTF8(path).get(),
-                                             kCFStringEncodingUTF8);
-    CFNotificationCenterRef center = ::CFNotificationCenterGetDistributedCenter();
-    ::CFNotificationCenterPostNotification(center, CFSTR("com.apple.DownloadFileFinished"),
-                                           observedObject, nullptr, TRUE);
+    CFStringRef observedObject =
+        ::CFStringCreateWithCString(kCFAllocatorDefault,
+                                    NS_ConvertUTF16toUTF8(path).get(),
+                                    kCFStringEncodingUTF8);
+    CFNotificationCenterRef center =
+        ::CFNotificationCenterGetDistributedCenter();
+    ::CFNotificationCenterPostNotification(
+        center,
+        CFSTR("com.apple.DownloadFileFinished"),
+        observedObject,
+        nullptr,
+        TRUE);
     ::CFRelease(observedObject);
 
     // Add OS X origin and referrer file metadata
     CFStringRef pathCFStr = NULL;
     if (!path.IsEmpty()) {
-      pathCFStr = ::CFStringCreateWithCharacters(kCFAllocatorDefault,
-                                                 (const UniChar*)path.get(),
-                                                 path.Length());
+      pathCFStr = ::CFStringCreateWithCharacters(
+          kCFAllocatorDefault, (const UniChar*)path.get(), path.Length());
     }
     if (pathCFStr) {
       bool isFromWeb = IsURLPossiblyFromWeb(aSource);
@@ -173,13 +192,10 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIF
       CFURLRef sourceCFURL = CreateCFURLFromNSIURI(aSource);
       CFURLRef referrerCFURL = CreateCFURLFromNSIURI(aReferrer);
 
-      CocoaFileUtils::AddOriginMetadataToFile(pathCFStr,
-                                              sourceCFURL,
-                                              referrerCFURL);
-      CocoaFileUtils::AddQuarantineMetadataToFile(pathCFStr,
-                                                  sourceCFURL,
-                                                  referrerCFURL,
-                                                  isFromWeb);
+      CocoaFileUtils::AddOriginMetadataToFile(
+          pathCFStr, sourceCFURL, referrerCFURL);
+      CocoaFileUtils::AddQuarantineMetadataToFile(
+          pathCFStr, sourceCFURL, referrerCFURL, isFromWeb);
 
       ::CFRelease(pathCFStr);
       if (sourceCFURL) {
@@ -197,20 +213,22 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIF
   return NS_OK;
 }
 
-nsresult DownloadPlatform::MapUrlToZone(const nsAString& aURL,
-                                        uint32_t* aZone)
+nsresult
+DownloadPlatform::MapUrlToZone(const nsAString& aURL, uint32_t* aZone)
 {
 #ifdef XP_WIN
   RefPtr<IInternetSecurityManager> inetSecMgr;
-  if (FAILED(CoCreateInstance(CLSID_InternetSecurityManager, NULL,
-                              CLSCTX_ALL, IID_IInternetSecurityManager,
+  if (FAILED(CoCreateInstance(CLSID_InternetSecurityManager,
+                              NULL,
+                              CLSCTX_ALL,
+                              IID_IInternetSecurityManager,
                               getter_AddRefs(inetSecMgr)))) {
     return NS_ERROR_UNEXPECTED;
   }
 
   DWORD zone;
-  if (inetSecMgr->MapUrlToZone(PromiseFlatString(aURL).get(),
-                               &zone, 0) != S_OK) {
+  if (inetSecMgr->MapUrlToZone(PromiseFlatString(aURL).get(), &zone, 0) !=
+      S_OK) {
     return NS_ERROR_UNEXPECTED;
   } else {
     *aZone = zone;
@@ -225,7 +243,8 @@ nsresult DownloadPlatform::MapUrlToZone(const nsAString& aURL,
 // Check if a URI is likely to be web-based, by checking its URI flags.
 // If in doubt (e.g. if anything fails during the check) claims things
 // are from the web.
-bool DownloadPlatform::IsURLPossiblyFromWeb(nsIURI* aURI)
+bool
+DownloadPlatform::IsURLPossiblyFromWeb(nsIURI* aURI)
 {
   nsCOMPtr<nsIIOService> ios = do_GetIOService();
   nsCOMPtr<nsIURI> uri = aURI;

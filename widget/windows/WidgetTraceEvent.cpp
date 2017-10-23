@@ -32,15 +32,18 @@ HANDLE sEventHandle = nullptr;
 
 // We need a runnable in order to find the hidden window on the main
 // thread.
-class HWNDGetter : public mozilla::Runnable {
-public:
+class HWNDGetter : public mozilla::Runnable
+{
+ public:
   HWNDGetter() : Runnable("HWNDGetter"), hidden_window_hwnd(nullptr) {}
 
   HWND hidden_window_hwnd;
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     // Jump through some hoops to locate the hidden window.
-    nsCOMPtr<nsIAppShellService> appShell(do_GetService(NS_APPSHELLSERVICE_CONTRACTID));
+    nsCOMPtr<nsIAppShellService> appShell(
+        do_GetService(NS_APPSHELLSERVICE_CONTRACTID));
     nsCOMPtr<nsIXULWindow> hiddenWindow;
 
     nsresult rv = appShell->GetHiddenWindow(getter_AddRefs(hiddenWindow));
@@ -56,14 +59,12 @@ public:
 
     nsCOMPtr<nsIBaseWindow> baseWindow(do_QueryInterface(docShell));
 
-    if (!baseWindow)
-      return NS_ERROR_FAILURE;
+    if (!baseWindow) return NS_ERROR_FAILURE;
 
     nsCOMPtr<nsIWidget> widget;
     baseWindow->GetMainWidget(getter_AddRefs(widget));
 
-    if (!widget)
-      return NS_ERROR_FAILURE;
+    if (!widget) return NS_ERROR_FAILURE;
 
     hidden_window_hwnd = (HWND)widget->GetNativeData(NS_NATIVE_WINDOW);
 
@@ -71,7 +72,8 @@ public:
   }
 };
 
-HWND GetHiddenWindowHWND()
+HWND
+GetHiddenWindowHWND()
 {
   // Need to dispatch this to the main thread because plenty of
   // the things it wants to access are main-thread-only.
@@ -80,31 +82,34 @@ HWND GetHiddenWindowHWND()
   return getter->hidden_window_hwnd;
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
-bool InitWidgetTracing()
+bool
+InitWidgetTracing()
 {
   sEventHandle = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   return sEventHandle != nullptr;
 }
 
-void CleanUpWidgetTracing()
+void
+CleanUpWidgetTracing()
 {
   CloseHandle(sEventHandle);
   sEventHandle = nullptr;
 }
 
 // This function is called from the main (UI) thread.
-void SignalTracerThread()
+void
+SignalTracerThread()
 {
-  if (sEventHandle != nullptr)
-    SetEvent(sEventHandle);
+  if (sEventHandle != nullptr) SetEvent(sEventHandle);
 }
 
 // This function is called from the background tracer thread.
-bool FireAndWaitForTracerEvent()
+bool
+FireAndWaitForTracerEvent()
 {
   MOZ_ASSERT(sEventHandle, "Tracing not initialized!");
 
@@ -114,8 +119,7 @@ bool FireAndWaitForTracerEvent()
     hidden_window = GetHiddenWindowHWND();
   }
 
-  if (hidden_window == nullptr)
-    return false;
+  if (hidden_window == nullptr) return false;
 
   // Post the tracer message into the hidden window's message queue,
   // and then block until it's processed.
@@ -124,4 +128,4 @@ bool FireAndWaitForTracerEvent()
   return true;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

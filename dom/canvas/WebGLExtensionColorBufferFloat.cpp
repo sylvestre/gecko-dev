@@ -15,43 +15,44 @@
 
 namespace mozilla {
 
-WebGLExtensionColorBufferFloat::WebGLExtensionColorBufferFloat(WebGLContext* webgl)
+WebGLExtensionColorBufferFloat::WebGLExtensionColorBufferFloat(
+    WebGLContext* webgl)
     : WebGLExtensionBase(webgl)
 {
-    MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+  MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
 
-    auto& fua = webgl->mFormatUsage;
+  auto& fua = webgl->mFormatUsage;
 
-    auto fnUpdateUsage = [&fua](GLenum sizedFormat, webgl::EffectiveFormat effFormat) {
-        auto usage = fua->EditUsage(effFormat);
-        usage->SetRenderable();
-        fua->AllowRBFormat(sizedFormat, usage);
-    };
+  auto fnUpdateUsage = [&fua](GLenum sizedFormat,
+                              webgl::EffectiveFormat effFormat) {
+    auto usage = fua->EditUsage(effFormat);
+    usage->SetRenderable();
+    fua->AllowRBFormat(sizedFormat, usage);
+  };
 
-#define FOO(x) fnUpdateUsage(LOCAL_GL_ ## x, webgl::EffectiveFormat::x)
+#define FOO(x) fnUpdateUsage(LOCAL_GL_##x, webgl::EffectiveFormat::x)
 
-    // The extension doesn't actually add RGB32F; only RGBA32F.
-    FOO(RGBA32F);
+  // The extension doesn't actually add RGB32F; only RGBA32F.
+  FOO(RGBA32F);
 
 #undef FOO
 }
 
-WebGLExtensionColorBufferFloat::~WebGLExtensionColorBufferFloat()
-{
-}
+WebGLExtensionColorBufferFloat::~WebGLExtensionColorBufferFloat() {}
 
 bool
 WebGLExtensionColorBufferFloat::IsSupported(const WebGLContext* webgl)
 {
-    gl::GLContext* gl = webgl->GL();
+  gl::GLContext* gl = webgl->GL();
 
-    // ANGLE supports this, but doesn't have a way to advertize its support,
-    // since it's compliant with WEBGL_color_buffer_float's clamping, but not
-    // EXT_color_buffer_float.
-    return gl->IsSupported(gl::GLFeature::renderbuffer_color_float) ||
-           gl->IsANGLE();
+  // ANGLE supports this, but doesn't have a way to advertize its support,
+  // since it's compliant with WEBGL_color_buffer_float's clamping, but not
+  // EXT_color_buffer_float.
+  return gl->IsSupported(gl::GLFeature::renderbuffer_color_float) ||
+         gl->IsANGLE();
 }
 
-IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionColorBufferFloat, WEBGL_color_buffer_float)
+IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionColorBufferFloat,
+                          WEBGL_color_buffer_float)
 
-} // namespace mozilla
+}  // namespace mozilla

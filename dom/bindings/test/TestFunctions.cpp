@@ -84,11 +84,12 @@ TestFunctions::GetStringDataAsDOMString(const Optional<uint32_t>& aLength,
 }
 
 bool
-TestFunctions::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto,
+TestFunctions::WrapObject(JSContext* aCx,
+                          JS::Handle<JSObject*> aGivenProto,
                           JS::MutableHandle<JSObject*> aWrapper)
 {
   return TestFunctionsBinding::Wrap(aCx, this, aGivenProto, aWrapper);
 }
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla

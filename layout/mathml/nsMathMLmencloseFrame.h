@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef nsMathMLmencloseFrame_h___
 #define nsMathMLmencloseFrame_h___
 
@@ -26,51 +25,48 @@
 */
 
 enum nsMencloseNotation
-  {
-    NOTATION_LONGDIV,
-    NOTATION_RADICAL,
-    NOTATION_ROUNDEDBOX,
-    NOTATION_CIRCLE,
-    NOTATION_LEFT,
-    NOTATION_RIGHT,
-    NOTATION_TOP,
-    NOTATION_BOTTOM,
-    NOTATION_UPDIAGONALSTRIKE,
-    NOTATION_DOWNDIAGONALSTRIKE,
-    NOTATION_VERTICALSTRIKE,
-    NOTATION_HORIZONTALSTRIKE,
-    NOTATION_UPDIAGONALARROW,
-    NOTATION_PHASORANGLE
-  };
+{
+  NOTATION_LONGDIV,
+  NOTATION_RADICAL,
+  NOTATION_ROUNDEDBOX,
+  NOTATION_CIRCLE,
+  NOTATION_LEFT,
+  NOTATION_RIGHT,
+  NOTATION_TOP,
+  NOTATION_BOTTOM,
+  NOTATION_UPDIAGONALSTRIKE,
+  NOTATION_DOWNDIAGONALSTRIKE,
+  NOTATION_VERTICALSTRIKE,
+  NOTATION_HORIZONTALSTRIKE,
+  NOTATION_UPDIAGONALARROW,
+  NOTATION_PHASORANGLE
+};
 
-class nsMathMLmencloseFrame : public nsMathMLContainerFrame {
-public:
+class nsMathMLmencloseFrame : public nsMathMLContainerFrame
+{
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmencloseFrame)
 
-  friend nsIFrame* NS_NewMathMLmencloseFrame(nsIPresShell*   aPresShell,
+  friend nsIFrame* NS_NewMathMLmencloseFrame(nsIPresShell* aPresShell,
                                              nsStyleContext* aContext);
 
-  virtual nsresult
-  Place(DrawTarget*          aDrawTarget,
-        bool                 aPlaceOrigin,
-        ReflowOutput& aDesiredSize) override;
+  virtual nsresult Place(DrawTarget* aDrawTarget,
+                         bool aPlaceOrigin,
+                         ReflowOutput& aDesiredSize) override;
 
-  virtual nsresult
-  MeasureForWidth(DrawTarget* aDrawTarget,
-                  ReflowOutput& aDesiredSize) override;
+  virtual nsresult MeasureForWidth(DrawTarget* aDrawTarget,
+                                   ReflowOutput& aDesiredSize) override;
 
-  virtual nsresult
-  AttributeChanged(int32_t         aNameSpaceID,
-                   nsAtom*        aAttribute,
-                   int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
-  virtual void
-  SetAdditionalStyleContext(int32_t          aIndex,
-                            nsStyleContext*  aStyleContext) override;
-  virtual nsStyleContext*
-  GetAdditionalStyleContext(int32_t aIndex) const override;
+  virtual void SetAdditionalStyleContext(
+      int32_t aIndex, nsStyleContext* aStyleContext) override;
+  virtual nsStyleContext* GetAdditionalStyleContext(
+      int32_t aIndex) const override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   NS_IMETHOD
@@ -79,23 +75,22 @@ public:
   NS_IMETHOD
   TransmitAutomaticData() override;
 
-  virtual nscoord
-  FixInterFrameSpacing(ReflowOutput& aDesiredSize) override;
+  virtual nscoord FixInterFrameSpacing(ReflowOutput& aDesiredSize) override;
 
-  bool
-  IsMrowLike() override {
-    return mFrames.FirstChild() != mFrames.LastChild() ||
-           !mFrames.FirstChild();
+  bool IsMrowLike() override
+  {
+    return mFrames.FirstChild() != mFrames.LastChild() || !mFrames.FirstChild();
   }
 
-protected:
-  explicit nsMathMLmencloseFrame(nsStyleContext* aContext, ClassID aID = kClassID);
+ protected:
+  explicit nsMathMLmencloseFrame(nsStyleContext* aContext,
+                                 ClassID aID = kClassID);
   virtual ~nsMathMLmencloseFrame();
 
-  nsresult PlaceInternal(DrawTarget*          aDrawTarget,
-                         bool                 aPlaceOrigin,
+  nsresult PlaceInternal(DrawTarget* aDrawTarget,
+                         bool aPlaceOrigin,
                          ReflowOutput& aDesiredSize,
-                         bool                 aWidthOnly);
+                         bool aWidthOnly);
 
   // functions to parse the "notation" attribute.
   nsresult AddNotation(const nsAString& aNotation);
@@ -118,9 +113,11 @@ protected:
   // Display a frame of the specified type.
   // @param aType Type of frame to display
   void DisplayNotation(nsDisplayListBuilder* aBuilder,
-                       nsIFrame* aFrame, const nsRect& aRect,
+                       nsIFrame* aFrame,
+                       const nsRect& aRect,
                        const nsDisplayListSet& aLists,
-                       nscoord aThickness, nsMencloseNotation aType);
+                       nscoord aThickness,
+                       nsMencloseNotation aType);
 };
 
 #endif /* nsMathMLmencloseFrame_h___ */

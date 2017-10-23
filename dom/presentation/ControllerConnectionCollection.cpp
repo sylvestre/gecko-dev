@@ -15,7 +15,7 @@ namespace dom {
 
 /* static */
 StaticAutoPtr<ControllerConnectionCollection>
-ControllerConnectionCollection::sSingleton;
+    ControllerConnectionCollection::sSingleton;
 
 /* static */ ControllerConnectionCollection*
 ControllerConnectionCollection::GetSingleton()
@@ -42,8 +42,7 @@ ControllerConnectionCollection::~ControllerConnectionCollection()
 
 void
 ControllerConnectionCollection::AddConnection(
-  PresentationConnection* aConnection,
-  const uint8_t aRole)
+    PresentationConnection* aConnection, const uint8_t aRole)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (aRole != nsIPresentationService::ROLE_CONTROLLER) {
@@ -65,8 +64,7 @@ ControllerConnectionCollection::AddConnection(
 
 void
 ControllerConnectionCollection::RemoveConnection(
-  PresentationConnection* aConnection,
-  const uint8_t aRole)
+    PresentationConnection* aConnection, const uint8_t aRole)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (aRole != nsIPresentationService::ROLE_CONTROLLER) {
@@ -83,10 +81,9 @@ ControllerConnectionCollection::RemoveConnection(
 }
 
 already_AddRefed<PresentationConnection>
-ControllerConnectionCollection::FindConnection(
-  uint64_t aWindowId,
-  const nsAString& aId,
-  const uint8_t aRole)
+ControllerConnectionCollection::FindConnection(uint64_t aWindowId,
+                                               const nsAString& aId,
+                                               const uint8_t aRole)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (aRole != nsIPresentationService::ROLE_CONTROLLER) {
@@ -112,5 +109,5 @@ ControllerConnectionCollection::FindConnection(
   return nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

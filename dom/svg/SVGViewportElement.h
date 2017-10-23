@@ -33,13 +33,12 @@ class SVGTransform;
 class SVGViewElement;
 class SVGViewportElement;
 
-class svgFloatSize {
-public:
-  svgFloatSize(float aWidth, float aHeight)
-    : width(aWidth)
-    , height(aHeight)
-  {}
-  bool operator!=(const svgFloatSize& rhs) {
+class svgFloatSize
+{
+ public:
+  svgFloatSize(float aWidth, float aHeight) : width(aWidth), height(aHeight) {}
+  bool operator!=(const svgFloatSize& rhs)
+  {
     return width != rhs.width || height != rhs.height;
   }
   float width;
@@ -51,20 +50,18 @@ class SVGViewportElement : public SVGGraphicsElement
   friend class ::nsSVGOuterSVGFrame;
   friend class ::nsSVGViewportFrame;
 
-protected:
-
+ protected:
   SVGViewportElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
   ~SVGViewportElement();
 
-public:
-
+ public:
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
   // nsSVGElement specializations:
   virtual gfxMatrix PrependLocalTransformsTo(
-    const gfxMatrix &aMatrix,
-    SVGTransformTypes aWhich = eAllTransforms) const override;
+      const gfxMatrix& aMatrix,
+      SVGTransformTypes aWhich = eAllTransforms) const override;
 
   virtual bool HasValidDimensions() const override;
 
@@ -86,9 +83,7 @@ public:
    * Note also that this method does not pay attention to whether the width or
    * height values of the viewBox rect are positive!
    */
-  bool HasViewBoxRect() const {
-    return GetViewBoxInternal().HasRect();
-  }
+  bool HasViewBoxRect() const { return GetViewBoxInternal().HasRect(); }
 
   /**
    * Returns true if we should synthesize a viewBox for ourselves (that is, if
@@ -99,17 +94,17 @@ public:
    */
   bool ShouldSynthesizeViewBox() const;
 
-  bool HasViewBoxOrSyntheticViewBox() const {
+  bool HasViewBoxOrSyntheticViewBox() const
+  {
     return HasViewBoxRect() || ShouldSynthesizeViewBox();
   }
 
-  bool HasChildrenOnlyTransform() const {
-    return mHasChildrenOnlyTransform;
-  }
+  bool HasChildrenOnlyTransform() const { return mHasChildrenOnlyTransform; }
 
   void UpdateHasChildrenOnlyTransform();
 
-  enum ChildrenOnlyTransformChangedFlags {
+  enum ChildrenOnlyTransformChangedFlags
+  {
     eDuringReflow = 1
   };
 
@@ -127,12 +122,14 @@ public:
 
   gfx::Matrix GetViewBoxTransform() const;
 
-  svgFloatSize GetViewportSize() const {
+  svgFloatSize GetViewportSize() const
+  {
     return svgFloatSize(mViewportWidth, mViewportHeight);
   }
 
-  void SetViewportSize(const svgFloatSize& aSize) {
-    mViewportWidth  = aSize.width;
+  void SetViewportSize(const svgFloatSize& aSize)
+  {
+    mViewportWidth = aSize.width;
     mViewportHeight = aSize.height;
   }
 
@@ -141,13 +138,13 @@ public:
   already_AddRefed<DOMSVGAnimatedPreserveAspectRatio> PreserveAspectRatio();
   virtual nsSVGViewBox* GetViewBox() override;
 
-protected:
-
+ protected:
   // implementation helpers:
 
-  bool IsRoot() const {
+  bool IsRoot() const
+  {
     NS_ASSERTION((IsInUncomposedDoc() && !GetParent()) ==
-                 (OwnerDoc() && (OwnerDoc()->GetRootElement() == this)),
+                     (OwnerDoc() && (OwnerDoc()->GetRootElement() == this)),
                  "Can't determine if we're root");
     return IsInUncomposedDoc() && !GetParent();
   }
@@ -157,8 +154,9 @@ protected:
    * another non-foreignObject SVG element, or this is a SVG <symbol> element
    * this is the root of a use-element shadow tree.
    */
-  bool IsInner() const {
-    const nsIContent *parent = GetFlattenedTreeParent();
+  bool IsInner() const
+  {
+    const nsIContent* parent = GetFlattenedTreeParent();
     return parent && parent->IsSVGElement() &&
            !parent->IsSVGElement(nsGkAtoms::foreignObject);
   }
@@ -167,7 +165,8 @@ protected:
    * Returns the explicit or default preserveAspectRatio, unless we're
    * synthesizing a viewBox, in which case it returns the "none" value.
    */
-  virtual SVGPreserveAspectRatio GetPreserveAspectRatioWithOverride() const {
+  virtual SVGPreserveAspectRatio GetPreserveAspectRatioWithOverride() const
+  {
     return mPreserveAspectRatio.GetAnimValue();
   }
 
@@ -176,29 +175,34 @@ protected:
    * viewBox, if appropriate, or else a viewBox matching the dimensions of the
    * SVG viewport.
    */
-  nsSVGViewBoxRect GetViewBoxWithSynthesis(
-      float aViewportWidth, float aViewportHeight) const;
+  nsSVGViewBoxRect GetViewBoxWithSynthesis(float aViewportWidth,
+                                           float aViewportHeight) const;
 
   /**
    * Retrieve the value of currentScale and currentTranslate.
    */
-  virtual SVGPoint GetCurrentTranslate() const
-  { return SVGPoint(0.0f, 0.0f); }
-  virtual float GetCurrentScale() const
-  { return 1.0f; }
+  virtual SVGPoint GetCurrentTranslate() const { return SVGPoint(0.0f, 0.0f); }
+  virtual float GetCurrentScale() const { return 1.0f; }
 
-  enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
+  enum
+  {
+    ATTR_X,
+    ATTR_Y,
+    ATTR_WIDTH,
+    ATTR_HEIGHT
+  };
   nsSVGLength2 mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
   virtual LengthAttributesInfo GetLengthInfo() override;
 
-  virtual SVGAnimatedPreserveAspectRatio *GetPreserveAspectRatio() override;
+  virtual SVGAnimatedPreserveAspectRatio* GetPreserveAspectRatio() override;
 
   virtual const nsSVGViewBox& GetViewBoxInternal() const { return mViewBox; }
-  virtual nsSVGAnimatedTransformList* GetTransformInternal() const {
+  virtual nsSVGAnimatedTransformList* GetTransformInternal() const
+  {
     return mTransforms;
   }
-  nsSVGViewBox                   mViewBox;
+  nsSVGViewBox mViewBox;
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
 
   // The size of the rectangular SVG viewport into which we render. This is
@@ -211,11 +215,11 @@ protected:
   // XXXjwatt our frame should probably reset these when it's destroyed.
   float mViewportWidth, mViewportHeight;
 
-  bool     mHasChildrenOnlyTransform;
+  bool mHasChildrenOnlyTransform;
 };
 
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // SVGViewportElement_h
+#endif  // SVGViewportElement_h

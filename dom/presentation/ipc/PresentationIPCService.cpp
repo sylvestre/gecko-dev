@@ -26,7 +26,7 @@ namespace {
 
 PresentationChild* sPresentationChild;
 
-} // anonymous
+}  // namespace
 
 NS_IMPL_ISUPPORTS(PresentationIPCService,
                   nsIPresentationService,
@@ -39,8 +39,8 @@ PresentationIPCService::PresentationIPCService()
     return;
   }
   sPresentationChild = new PresentationChild(this);
-  Unused <<
-    NS_WARN_IF(!contentChild->SendPPresentationConstructor(sPresentationChild));
+  Unused << NS_WARN_IF(
+      !contentChild->SendPPresentationConstructor(sPresentationChild));
 }
 
 /* virtual */
@@ -56,33 +56,33 @@ PresentationIPCService::~PresentationIPCService()
 
 NS_IMETHODIMP
 PresentationIPCService::StartSession(
-               const nsTArray<nsString>& aUrls,
-               const nsAString& aSessionId,
-               const nsAString& aOrigin,
-               const nsAString& aDeviceId,
-               uint64_t aWindowId,
-               nsIDOMEventTarget* aEventTarget,
-               nsIPrincipal* aPrincipal,
-               nsIPresentationServiceCallback* aCallback,
-               nsIPresentationTransportBuilderConstructor* aBuilderConstructor)
+    const nsTArray<nsString>& aUrls,
+    const nsAString& aSessionId,
+    const nsAString& aOrigin,
+    const nsAString& aDeviceId,
+    uint64_t aWindowId,
+    nsIDOMEventTarget* aEventTarget,
+    nsIPrincipal* aPrincipal,
+    nsIPresentationServiceCallback* aCallback,
+    nsIPresentationTransportBuilderConstructor* aBuilderConstructor)
 {
   if (aWindowId != 0) {
-    AddRespondingSessionId(aWindowId,
-                           aSessionId,
-                           nsIPresentationService::ROLE_CONTROLLER);
+    AddRespondingSessionId(
+        aWindowId, aSessionId, nsIPresentationService::ROLE_CONTROLLER);
   }
 
   nsPIDOMWindowInner* window =
-    nsGlobalWindow::GetInnerWindowWithId(aWindowId)->AsInner();
+      nsGlobalWindow::GetInnerWindowWithId(aWindowId)->AsInner();
   TabId tabId = TabParent::GetTabIdFrom(window->GetDocShell());
 
-  return SendRequest(aCallback, StartSessionRequest(aUrls,
-                                                    nsString(aSessionId),
-                                                    nsString(aOrigin),
-                                                    nsString(aDeviceId),
-                                                    aWindowId,
-                                                    tabId,
-                                                    IPC::Principal(aPrincipal)));
+  return SendRequest(aCallback,
+                     StartSessionRequest(aUrls,
+                                         nsString(aSessionId),
+                                         nsString(aOrigin),
+                                         nsString(aDeviceId),
+                                         aWindowId,
+                                         tabId,
+                                         IPC::Principal(aPrincipal)));
 }
 
 NS_IMETHODIMP
@@ -94,21 +94,21 @@ PresentationIPCService::SendSessionMessage(const nsAString& aSessionId,
   MOZ_ASSERT(!aData.IsEmpty());
 
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   // data channel session transport is maintained by content process
   if (info) {
     return info->Send(aData);
   }
 
-  return SendRequest(nullptr, SendSessionMessageRequest(nsString(aSessionId),
-                                                        aRole,
-                                                        nsString(aData)));
+  return SendRequest(
+      nullptr,
+      SendSessionMessageRequest(nsString(aSessionId), aRole, nsString(aData)));
 }
 
 NS_IMETHODIMP
 PresentationIPCService::SendSessionBinaryMsg(const nsAString& aSessionId,
                                              uint8_t aRole,
-                                             const nsACString &aData)
+                                             const nsACString& aData)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!aData.IsEmpty());
@@ -117,7 +117,7 @@ PresentationIPCService::SendSessionBinaryMsg(const nsAString& aSessionId,
              aRole == nsIPresentationService::ROLE_RECEIVER);
 
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   // data channel session transport is maintained by content process
   if (info) {
     return info->SendBinaryMsg(aData);
@@ -138,7 +138,7 @@ PresentationIPCService::SendSessionBlob(const nsAString& aSessionId,
   MOZ_ASSERT(aBlob);
 
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   // data channel session transport is maintained by content process
   if (info) {
     return info->SendBlob(aBlob);
@@ -154,15 +154,14 @@ PresentationIPCService::CloseSession(const nsAString& aSessionId,
 {
   MOZ_ASSERT(!aSessionId.IsEmpty());
 
-  nsresult rv = SendRequest(nullptr, CloseSessionRequest(nsString(aSessionId),
-                                                         aRole,
-                                                         aClosedReason));
+  nsresult rv = SendRequest(
+      nullptr, CloseSessionRequest(nsString(aSessionId), aRole, aClosedReason));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   if (info) {
     return info->Close(NS_OK);
   }
@@ -176,13 +175,14 @@ PresentationIPCService::TerminateSession(const nsAString& aSessionId,
 {
   MOZ_ASSERT(!aSessionId.IsEmpty());
 
-  nsresult rv = SendRequest(nullptr, TerminateSessionRequest(nsString(aSessionId), aRole));
+  nsresult rv = SendRequest(
+      nullptr, TerminateSessionRequest(nsString(aSessionId), aRole));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   if (info) {
     return info->Close(NS_OK);
   }
@@ -191,10 +191,11 @@ PresentationIPCService::TerminateSession(const nsAString& aSessionId,
 }
 
 NS_IMETHODIMP
-PresentationIPCService::ReconnectSession(const nsTArray<nsString>& aUrls,
-                                         const nsAString& aSessionId,
-                                         uint8_t aRole,
-                                         nsIPresentationServiceCallback* aCallback)
+PresentationIPCService::ReconnectSession(
+    const nsTArray<nsString>& aUrls,
+    const nsAString& aSessionId,
+    uint8_t aRole,
+    nsIPresentationServiceCallback* aCallback)
 {
   MOZ_ASSERT(!aSessionId.IsEmpty());
 
@@ -203,9 +204,8 @@ PresentationIPCService::ReconnectSession(const nsTArray<nsString>& aUrls,
     return NS_ERROR_INVALID_ARG;
   }
 
-  return SendRequest(aCallback, ReconnectSessionRequest(aUrls,
-                                                        nsString(aSessionId),
-                                                        aRole));
+  return SendRequest(
+      aCallback, ReconnectSessionRequest(aUrls, nsString(aSessionId), aRole));
 }
 
 NS_IMETHODIMP
@@ -219,8 +219,8 @@ PresentationIPCService::BuildTransport(const nsAString& aSessionId,
     return NS_ERROR_INVALID_ARG;
   }
 
-  return SendRequest(nullptr, BuildTransportRequest(nsString(aSessionId),
-                                                    aRole));
+  return SendRequest(nullptr,
+                     BuildTransportRequest(nsString(aSessionId), aRole));
 }
 
 nsresult
@@ -229,28 +229,28 @@ PresentationIPCService::SendRequest(nsIPresentationServiceCallback* aCallback,
 {
   if (sPresentationChild) {
     PresentationRequestChild* actor = new PresentationRequestChild(aCallback);
-    Unused << NS_WARN_IF(!sPresentationChild->SendPPresentationRequestConstructor(actor, aRequest));
+    Unused << NS_WARN_IF(
+        !sPresentationChild->SendPPresentationRequestConstructor(actor,
+                                                                 aRequest));
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
 PresentationIPCService::RegisterAvailabilityListener(
-                                const nsTArray<nsString>& aAvailabilityUrls,
-                                nsIPresentationAvailabilityListener* aListener)
+    const nsTArray<nsString>& aAvailabilityUrls,
+    nsIPresentationAvailabilityListener* aListener)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!aAvailabilityUrls.IsEmpty());
   MOZ_ASSERT(aListener);
 
   nsTArray<nsString> addedUrls;
-  mAvailabilityManager.AddAvailabilityListener(aAvailabilityUrls,
-                                               aListener,
-                                               addedUrls);
+  mAvailabilityManager.AddAvailabilityListener(
+      aAvailabilityUrls, aListener, addedUrls);
 
   if (sPresentationChild && !addedUrls.IsEmpty()) {
-    Unused <<
-      NS_WARN_IF(
+    Unused << NS_WARN_IF(
         !sPresentationChild->SendRegisterAvailabilityHandler(addedUrls));
   }
   return NS_OK;
@@ -258,28 +258,27 @@ PresentationIPCService::RegisterAvailabilityListener(
 
 NS_IMETHODIMP
 PresentationIPCService::UnregisterAvailabilityListener(
-                                const nsTArray<nsString>& aAvailabilityUrls,
-                                nsIPresentationAvailabilityListener* aListener)
+    const nsTArray<nsString>& aAvailabilityUrls,
+    nsIPresentationAvailabilityListener* aListener)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsTArray<nsString> removedUrls;
-  mAvailabilityManager.RemoveAvailabilityListener(aAvailabilityUrls,
-                                                  aListener,
-                                                  removedUrls);
+  mAvailabilityManager.RemoveAvailabilityListener(
+      aAvailabilityUrls, aListener, removedUrls);
 
   if (sPresentationChild && !removedUrls.IsEmpty()) {
-    Unused <<
-      NS_WARN_IF(
+    Unused << NS_WARN_IF(
         !sPresentationChild->SendUnregisterAvailabilityHandler(removedUrls));
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-PresentationIPCService::RegisterSessionListener(const nsAString& aSessionId,
-                                                uint8_t aRole,
-                                                nsIPresentationSessionListener* aListener)
+PresentationIPCService::RegisterSessionListener(
+    const nsAString& aSessionId,
+    uint8_t aRole,
+    nsIPresentationSessionListener* aListener)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aListener);
@@ -292,8 +291,7 @@ PresentationIPCService::RegisterSessionListener(const nsAString& aSessionId,
 
   mSessionListeners.Put(aSessionId, aListener);
   if (sPresentationChild) {
-    Unused <<
-      NS_WARN_IF(!sPresentationChild->SendRegisterSessionHandler(
+    Unused << NS_WARN_IF(!sPresentationChild->SendRegisterSessionHandler(
         nsString(aSessionId), aRole));
   }
   return NS_OK;
@@ -309,23 +307,22 @@ PresentationIPCService::UnregisterSessionListener(const nsAString& aSessionId,
 
   mSessionListeners.Remove(aSessionId);
   if (sPresentationChild) {
-    Unused <<
-      NS_WARN_IF(!sPresentationChild->SendUnregisterSessionHandler(
+    Unused << NS_WARN_IF(!sPresentationChild->SendUnregisterSessionHandler(
         nsString(aSessionId), aRole));
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-PresentationIPCService::RegisterRespondingListener(uint64_t aWindowId,
-                                                   nsIPresentationRespondingListener* aListener)
+PresentationIPCService::RegisterRespondingListener(
+    uint64_t aWindowId, nsIPresentationRespondingListener* aListener)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   mRespondingListeners.Put(aWindowId, aListener);
   if (sPresentationChild) {
-    Unused <<
-      NS_WARN_IF(!sPresentationChild->SendRegisterRespondingHandler(aWindowId));
+    Unused << NS_WARN_IF(
+        !sPresentationChild->SendRegisterRespondingHandler(aWindowId));
   }
   return NS_OK;
 }
@@ -337,20 +334,20 @@ PresentationIPCService::UnregisterRespondingListener(uint64_t aWindowId)
 
   mRespondingListeners.Remove(aWindowId);
   if (sPresentationChild) {
-    Unused <<
-      NS_WARN_IF(!sPresentationChild->SendUnregisterRespondingHandler(
-        aWindowId));
+    Unused << NS_WARN_IF(
+        !sPresentationChild->SendUnregisterRespondingHandler(aWindowId));
   }
   return NS_OK;
 }
 
 nsresult
-PresentationIPCService::NotifySessionTransport(const nsString& aSessionId,
-                                               const uint8_t& aRole,
-                                               nsIPresentationSessionTransport* aTransport)
+PresentationIPCService::NotifySessionTransport(
+    const nsString& aSessionId,
+    const uint8_t& aRole,
+    nsIPresentationSessionTransport* aTransport)
 {
   RefPtr<PresentationContentSessionInfo> info =
-    new PresentationContentSessionInfo(aSessionId, aRole, aTransport);
+      new PresentationContentSessionInfo(aSessionId, aRole, aTransport);
 
   if (NS_WARN_IF(NS_FAILED(info->Init()))) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -386,7 +383,8 @@ PresentationIPCService::NotifySessionStateChange(const nsAString& aSessionId,
                                                  nsresult aReason)
 {
   nsCOMPtr<nsIPresentationSessionListener> listener;
-  if (NS_WARN_IF(!mSessionListeners.Get(aSessionId, getter_AddRefs(listener)))) {
+  if (NS_WARN_IF(
+          !mSessionListeners.Get(aSessionId, getter_AddRefs(listener)))) {
     return NS_OK;
   }
 
@@ -400,7 +398,8 @@ PresentationIPCService::NotifyMessage(const nsAString& aSessionId,
                                       const bool& aIsBinary)
 {
   nsCOMPtr<nsIPresentationSessionListener> listener;
-  if (NS_WARN_IF(!mSessionListeners.Get(aSessionId, getter_AddRefs(listener)))) {
+  if (NS_WARN_IF(
+          !mSessionListeners.Get(aSessionId, getter_AddRefs(listener)))) {
     return NS_OK;
   }
 
@@ -414,11 +413,12 @@ PresentationIPCService::NotifyTransportClosed(const nsAString& aSessionId,
                                               nsresult aReason)
 {
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   if (NS_WARN_IF(!info)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  Unused << NS_WARN_IF(!sPresentationChild->SendNotifyTransportClosed(nsString(aSessionId), aRole, aReason));
+  Unused << NS_WARN_IF(!sPresentationChild->SendNotifyTransportClosed(
+      nsString(aSessionId), aRole, aReason));
   return NS_OK;
 }
 
@@ -427,7 +427,8 @@ PresentationIPCService::NotifySessionConnect(uint64_t aWindowId,
                                              const nsAString& aSessionId)
 {
   nsCOMPtr<nsIPresentationRespondingListener> listener;
-  if (NS_WARN_IF(!mRespondingListeners.Get(aWindowId, getter_AddRefs(listener)))) {
+  if (NS_WARN_IF(
+          !mRespondingListeners.Get(aWindowId, getter_AddRefs(listener)))) {
     return NS_OK;
   }
 
@@ -436,8 +437,7 @@ PresentationIPCService::NotifySessionConnect(uint64_t aWindowId,
 
 NS_IMETHODIMP
 PresentationIPCService::NotifyAvailableChange(
-                                   const nsTArray<nsString>& aAvailabilityUrls,
-                                   bool aAvailable)
+    const nsTArray<nsString>& aAvailabilityUrls, bool aAvailable)
 {
   return mAvailabilityManager.DoNotifyAvailableChange(aAvailabilityUrls,
                                                       aAvailable);
@@ -445,10 +445,10 @@ PresentationIPCService::NotifyAvailableChange(
 
 NS_IMETHODIMP
 PresentationIPCService::NotifyReceiverReady(
-               const nsAString& aSessionId,
-               uint64_t aWindowId,
-               bool aIsLoading,
-               nsIPresentationTransportBuilderConstructor* aBuilderConstructor)
+    const nsAString& aSessionId,
+    uint64_t aWindowId,
+    bool aIsLoading,
+    nsIPresentationTransportBuilderConstructor* aBuilderConstructor)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -458,13 +458,11 @@ PresentationIPCService::NotifyReceiverReady(
   }
 
   // Track the responding info for an OOP receiver page.
-  AddRespondingSessionId(aWindowId,
-                         aSessionId,
-                         nsIPresentationService::ROLE_RECEIVER);
+  AddRespondingSessionId(
+      aWindowId, aSessionId, nsIPresentationService::ROLE_RECEIVER);
 
-  Unused << NS_WARN_IF(!sPresentationChild->SendNotifyReceiverReady(nsString(aSessionId),
-                                                                    aWindowId,
-                                                                    aIsLoading));
+  Unused << NS_WARN_IF(!sPresentationChild->SendNotifyReceiverReady(
+      nsString(aSessionId), aWindowId, aIsLoading));
 
   // Release mCallback after using aSessionId
   // because aSessionId is held by mCallback.
@@ -476,24 +474,25 @@ NS_IMETHODIMP
 PresentationIPCService::UntrackSessionInfo(const nsAString& aSessionId,
                                            uint8_t aRole)
 {
-  PRES_DEBUG("content %s:id[%s], role[%d]\n", __func__,
-             NS_ConvertUTF16toUTF8(aSessionId).get(), aRole);
+  PRES_DEBUG("content %s:id[%s], role[%d]\n",
+             __func__,
+             NS_ConvertUTF16toUTF8(aSessionId).get(),
+             aRole);
 
   if (nsIPresentationService::ROLE_RECEIVER == aRole) {
     // Terminate receiver page.
     uint64_t windowId;
-    if (NS_SUCCEEDED(GetWindowIdBySessionIdInternal(aSessionId,
-                                                    aRole,
-                                                    &windowId))) {
+    if (NS_SUCCEEDED(
+            GetWindowIdBySessionIdInternal(aSessionId, aRole, &windowId))) {
       NS_DispatchToMainThread(NS_NewRunnableFunction(
-        "dom::PresentationIPCService::UntrackSessionInfo",
-        [windowId]() -> void {
-          PRES_DEBUG("Attempt to close window[%" PRIu64 "]\n", windowId);
+          "dom::PresentationIPCService::UntrackSessionInfo",
+          [windowId]() -> void {
+            PRES_DEBUG("Attempt to close window[%" PRIu64 "]\n", windowId);
 
-          if (auto* window = nsGlobalWindow::GetInnerWindowWithId(windowId)) {
-            window->Close();
-          }
-        }));
+            if (auto* window = nsGlobalWindow::GetInnerWindowWithId(windowId)) {
+              window->Close();
+            }
+          }));
     }
   }
 
@@ -531,7 +530,7 @@ PresentationIPCService::CloseContentSessionTransport(const nsString& aSessionId,
                                                      nsresult aReason)
 {
   RefPtr<PresentationContentSessionInfo> info =
-    GetSessionInfo(aSessionId, aRole);
+      GetSessionInfo(aSessionId, aRole);
   if (NS_WARN_IF(!info)) {
     return NS_ERROR_NOT_AVAILABLE;
   }

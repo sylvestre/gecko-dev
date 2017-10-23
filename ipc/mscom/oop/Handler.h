@@ -9,7 +9,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #error This code is NOT for internal Gecko use!
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #include <objidl.h>
 
@@ -26,18 +26,28 @@ namespace mscom {
 
 class Handler : public IMarshal
 {
-public:
+ public:
   // IMarshal
-  STDMETHODIMP GetUnmarshalClass(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+  STDMETHODIMP GetUnmarshalClass(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  CLSID* pCid) override;
-  STDMETHODIMP GetMarshalSizeMax(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+  STDMETHODIMP GetMarshalSizeMax(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  DWORD* pSize) override;
-  STDMETHODIMP MarshalInterface(IStream* pStm, REFIID riid, void* pv,
-                                DWORD dwDestContext, void* pvDestContext,
+  STDMETHODIMP MarshalInterface(IStream* pStm,
+                                REFIID riid,
+                                void* pv,
+                                DWORD dwDestContext,
+                                void* pvDestContext,
                                 DWORD mshlflags) override;
-  STDMETHODIMP UnmarshalInterface(IStream* pStm, REFIID riid,
+  STDMETHODIMP UnmarshalInterface(IStream* pStm,
+                                  REFIID riid,
                                   void** ppv) override;
   STDMETHODIMP ReleaseMarshalData(IStream* pStm) override;
   STDMETHODIMP DisconnectObject(DWORD dwReserved) override;
@@ -54,7 +64,8 @@ public:
    *                      client.
    * @return The usual HRESULT codes similarly to IUnknown::QueryInterface
    */
-  virtual HRESULT QueryHandlerInterface(IUnknown* aProxyUnknown, REFIID aIid,
+  virtual HRESULT QueryHandlerInterface(IUnknown* aProxyUnknown,
+                                        REFIID aIid,
                                         void** aOutInterface) = 0;
   /**
    * Called when the implementer should deserialize data in aStream.
@@ -63,7 +74,9 @@ public:
    *         HRESULT error code otherwise.
    */
   virtual HRESULT ReadHandlerPayload(IStream* aStream, REFIID aIid)
-  { return S_FALSE; }
+  {
+    return S_FALSE;
+  }
 
   /**
    * Unfortunately when COM marshals a proxy, it doesn't implicitly marshal
@@ -111,23 +124,22 @@ public:
   static HRESULT Register(REFCLSID aClsid);
   static HRESULT Unregister(REFCLSID aClsid);
 
-protected:
+ protected:
   Handler(IUnknown* aOuter, HRESULT* aResult);
   virtual ~Handler() {}
   bool HasPayload() const { return mHasPayload; }
   IUnknown* GetOuter() const { return mOuter; }
 
-private:
-  ULONG             mRefCnt;
-  IUnknown*         mOuter;
-  RefPtr<IUnknown>  mInnerUnk;
-  IMarshal*         mUnmarshal; // WEAK
-  bool              mHasPayload;
+ private:
+  ULONG mRefCnt;
+  IUnknown* mOuter;
+  RefPtr<IUnknown> mInnerUnk;
+  IMarshal* mUnmarshal;  // WEAK
+  bool mHasPayload;
   DECLARE_AGGREGATABLE(Handler);
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_Handler_h
-
+#endif  // mozilla_mscom_Handler_h

@@ -23,14 +23,15 @@ namespace layers {
 
 // Image class that refers to a decoded video frame within
 // the GPU process.
-class GPUVideoImage final : public Image {
+class GPUVideoImage final : public Image
+{
   friend class gl::GLBlitHelper;
-public:
+
+ public:
   GPUVideoImage(dom::VideoDecoderManagerChild* aManager,
                 const SurfaceDescriptorGPUVideo& aSD,
                 const gfx::IntSize& aSize)
-    : Image(nullptr, ImageFormat::GPU_VIDEO)
-    , mSize(aSize)
+      : Image(nullptr, ImageFormat::GPU_VIDEO), mSize(aSize)
   {
     // Create the TextureClient immediately since the GPUVideoTextureData
     // is responsible for deallocating the SurfaceDescriptor.
@@ -39,25 +40,26 @@ public:
     // TextureData (in the decoder thread of the GPU process) is using
     // it too, and we want to make sure we don't send the delete message
     // until we've stopped being used on the compositor.
-    mTextureClient =
-      TextureClient::CreateWithData(new GPUVideoTextureData(aManager, aSD, aSize),
-                                    TextureFlags::RECYCLE,
-                                    ImageBridgeChild::GetSingleton().get());
+    mTextureClient = TextureClient::CreateWithData(
+        new GPUVideoTextureData(aManager, aSD, aSize),
+        TextureFlags::RECYCLE,
+        ImageBridgeChild::GetSingleton().get());
   }
 
   ~GPUVideoImage() override {}
 
   gfx::IntSize GetSize() override { return mSize; }
 
-private:
-  GPUVideoTextureData* GetData() const {
+ private:
+  GPUVideoTextureData* GetData() const
+  {
     if (!mTextureClient) {
       return nullptr;
     }
     return mTextureClient->GetInternalData()->AsGPUVideoTextureData();
   }
 
-public:
+ public:
   virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override
   {
     GPUVideoTextureData* data = GetData();
@@ -69,16 +71,17 @@ public:
 
   virtual TextureClient* GetTextureClient(KnowsCompositor* aForwarder) override
   {
-    MOZ_ASSERT(aForwarder == ImageBridgeChild::GetSingleton(), "Must only use GPUVideo on ImageBridge");
+    MOZ_ASSERT(aForwarder == ImageBridgeChild::GetSingleton(),
+               "Must only use GPUVideo on ImageBridge");
     return mTextureClient;
   }
 
-private:
+ private:
   gfx::IntSize mSize;
   RefPtr<TextureClient> mTextureClient;
 };
 
-} // namepace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_GPU_VIDEO_IMAGE_H
+#endif  // GFX_GPU_VIDEO_IMAGE_H

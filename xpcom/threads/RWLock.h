@@ -43,7 +43,7 @@ namespace mozilla {
 // a waiting writer when unlocking.
 class RWLock : public BlockingResourceBase
 {
-public:
+ public:
   explicit RWLock(const char* aName);
 
   // Windows rwlocks don't need any special handling to be destroyed, but
@@ -67,7 +67,7 @@ public:
   void WriteUnlock() { WriteUnlockInternal(); }
 #endif
 
-private:
+ private:
   void ReadLockInternal();
   void ReadUnlockInternal();
   void WriteLockInternal();
@@ -95,19 +95,16 @@ private:
 // calls to ReadLock() and ReadUnlock().
 class MOZ_RAII AutoReadLock final
 {
-public:
+ public:
   explicit AutoReadLock(RWLock& aLock MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mLock(&aLock)
+      : mLock(&aLock)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mLock, "null lock");
     mLock->ReadLock();
   }
 
-  ~AutoReadLock()
-  {
-    mLock->ReadUnlock();
-  }
+  ~AutoReadLock() { mLock->ReadUnlock(); }
 
  private:
   AutoReadLock() = delete;
@@ -122,19 +119,16 @@ public:
 // calls to WriteLock() and WriteUnlock().
 class MOZ_RAII AutoWriteLock final
 {
-public:
+ public:
   explicit AutoWriteLock(RWLock& aLock MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mLock(&aLock)
+      : mLock(&aLock)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mLock, "null lock");
     mLock->WriteLock();
   }
 
-  ~AutoWriteLock()
-  {
-    mLock->WriteUnlock();
-  }
+  ~AutoWriteLock() { mLock->WriteUnlock(); }
 
  private:
   AutoWriteLock() = delete;
@@ -145,6 +139,6 @@ public:
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_RWLock_h
+#endif  // mozilla_RWLock_h

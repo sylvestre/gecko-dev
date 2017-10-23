@@ -51,17 +51,20 @@ OSVR_EXTERN_C_BEGIN
 /** @brief A structure defining a 3D (6DOF) rigid body pose: translation and
     rotation.
 */
-typedef struct OSVR_Pose3 {
-    /** @brief Position vector */
-    OSVR_Vec3 translation;
-    /** @brief Orientation as a unit quaternion */
-    OSVR_Quaternion rotation;
+typedef struct OSVR_Pose3
+{
+  /** @brief Position vector */
+  OSVR_Vec3 translation;
+  /** @brief Orientation as a unit quaternion */
+  OSVR_Quaternion rotation;
 } OSVR_Pose3;
 
 /** @brief Set a pose to identity */
-OSVR_INLINE void osvrPose3SetIdentity(OSVR_Pose3 *pose) {
-    osvrQuatSetIdentity(&(pose->rotation));
-    osvrVec3Zero(&(pose->translation));
+OSVR_INLINE void
+osvrPose3SetIdentity(OSVR_Pose3* pose)
+{
+  osvrQuatSetIdentity(&(pose->rotation));
+  osvrVec3Zero(&(pose->translation));
 }
 /** @} */
 

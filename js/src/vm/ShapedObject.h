@@ -18,40 +18,33 @@ namespace js {
  * ShapedObject is only created as the base class of some other class.  It's
  * never created as a most-derived class.
  */
-class ShapedObject : public JSObject
-{
-  protected:
+class ShapedObject : public JSObject {
+   protected:
     // Property layout description and other state.
     GCPtrShape shape_;
 
-  public:
+   public:
     // Set the shape of an object. This pointer is valid for native objects and
     // some non-native objects. After creating an object, the objects for which
     // the shape pointer is invalid need to overwrite this pointer before a GC
     // can occur.
-    void initShape(Shape* shape) {
-        this->shape_.init(shape);
-    }
+    void initShape(Shape* shape) { this->shape_.init(shape); }
 
-    void setShape(Shape* shape) {
-        this->shape_ = shape;
-    }
+    void setShape(Shape* shape) { this->shape_ = shape; }
 
     Shape* shape() const { return this->shape_; }
 
-    void traceShape(JSTracer* trc) {
-        TraceEdge(trc, &shape_, "shape");
-    }
+    void traceShape(JSTracer* trc) { TraceEdge(trc, &shape_, "shape"); }
 
     static size_t offsetOfShape() { return offsetof(ShapedObject, shape_); }
 
-  private:
+   private:
     static void staticAsserts() {
         static_assert(offsetof(ShapedObject, shape_) == offsetof(shadow::Object, shape),
                       "shadow shape must match actual shape");
     }
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_ShapedObject_h */

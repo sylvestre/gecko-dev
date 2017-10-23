@@ -19,8 +19,7 @@ using namespace mozilla::a11y;
 void
 nsEventShell::FireEvent(AccEvent* aEvent)
 {
-  if (!aEvent || aEvent->mEventRule == AccEvent::eDoNotEmit)
-    return;
+  if (!aEvent || aEvent->mEventRule == AccEvent::eDoNotEmit) return;
 
   Accessible* accessible = aEvent->GetAccessible();
   NS_ENSURE_TRUE_VOID(accessible);
@@ -49,27 +48,28 @@ nsEventShell::FireEvent(AccEvent* aEvent)
 }
 
 void
-nsEventShell::FireEvent(uint32_t aEventType, Accessible* aAccessible,
+nsEventShell::FireEvent(uint32_t aEventType,
+                        Accessible* aAccessible,
                         EIsFromUserInput aIsFromUserInput)
 {
   NS_ENSURE_TRUE_VOID(aAccessible);
 
-  RefPtr<AccEvent> event = new AccEvent(aEventType, aAccessible,
-                                          aIsFromUserInput);
+  RefPtr<AccEvent> event =
+      new AccEvent(aEventType, aAccessible, aIsFromUserInput);
 
   FireEvent(event);
 }
 
 void
-nsEventShell::GetEventAttributes(nsINode *aNode,
-                                 nsIPersistentProperties *aAttributes)
+nsEventShell::GetEventAttributes(nsINode* aNode,
+                                 nsIPersistentProperties* aAttributes)
 {
-  if (aNode != sEventTargetNode)
-    return;
+  if (aNode != sEventTargetNode) return;
 
-  nsAccUtils::SetAccAttr(aAttributes, nsGkAtoms::eventFromInput,
-                         sEventFromUserInput ? NS_LITERAL_STRING("true") :
-                                               NS_LITERAL_STRING("false"));
+  nsAccUtils::SetAccAttr(aAttributes,
+                         nsGkAtoms::eventFromInput,
+                         sEventFromUserInput ? NS_LITERAL_STRING("true")
+                                             : NS_LITERAL_STRING("false"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

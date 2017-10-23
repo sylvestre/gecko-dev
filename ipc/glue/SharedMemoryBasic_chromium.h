@@ -24,14 +24,14 @@
 namespace mozilla {
 namespace ipc {
 
-class SharedMemoryBasic final : public SharedMemoryCommon<base::SharedMemoryHandle>
+class SharedMemoryBasic final
+    : public SharedMemoryCommon<base::SharedMemoryHandle>
 {
-public:
-  SharedMemoryBasic()
-  {
-  }
+ public:
+  SharedMemoryBasic() {}
 
-  virtual bool SetHandle(const Handle& aHandle, OpenRights aRights) override {
+  virtual bool SetHandle(const Handle& aHandle, OpenRights aRights) override
+  {
     return mSharedMemory.SetHandle(aHandle, aRights == RightsReadOnly);
   }
 
@@ -53,10 +53,7 @@ public:
     return ok;
   }
 
-  virtual void CloseHandle() override
-  {
-    mSharedMemory.Close(false);
-  }
+  virtual void CloseHandle() override { mSharedMemory.Close(false); }
 
   virtual void* memory() const override
   {
@@ -68,17 +65,11 @@ public:
 #endif
   }
 
-  virtual SharedMemoryType Type() const override
-  {
-    return TYPE_BASIC;
-  }
+  virtual SharedMemoryType Type() const override { return TYPE_BASIC; }
 
-  static Handle NULLHandle()
-  {
-    return base::SharedMemory::NULLHandle();
-  }
+  static Handle NULLHandle() { return base::SharedMemory::NULLHandle(); }
 
-  virtual bool IsHandleValid(const Handle &aHandle) const override
+  virtual bool IsHandleValid(const Handle& aHandle) const override
   {
     return base::SharedMemory::IsHandleValid(aHandle);
   }
@@ -88,21 +79,17 @@ public:
   {
     base::SharedMemoryHandle handle;
     bool ret = mSharedMemory.ShareToProcess(aProcessId, &handle);
-    if (ret)
-      *new_handle = handle;
+    if (ret) *new_handle = handle;
     return ret;
   }
 
-private:
-  ~SharedMemoryBasic()
-  {
-  }
+ private:
+  ~SharedMemoryBasic() {}
 
   base::SharedMemory mSharedMemory;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-
-#endif // ifndef mozilla_ipc_SharedMemoryBasic_chromium_h
+#endif  // ifndef mozilla_ipc_SharedMemoryBasic_chromium_h

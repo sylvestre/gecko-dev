@@ -35,30 +35,33 @@
 
 #ifdef ENABLE_WMF
 #include "WMFUtils.h"
-#endif // ENABLE_WMF
+#endif  // ENABLE_WMF
 
 extern "C" {
 
 CDM_API
-void INITIALIZE_CDM_MODULE() {
-
+void
+INITIALIZE_CDM_MODULE()
+{
 }
 
 static bool sCanReadHostVerificationFiles = false;
 
 CDM_API
-void* CreateCdmInstance(int cdm_interface_version,
-                        const char* key_system,
-                        uint32_t key_system_size,
-                        GetCdmHostFunc get_cdm_host_func,
-                        void* user_data)
+void*
+CreateCdmInstance(int cdm_interface_version,
+                  const char* key_system,
+                  uint32_t key_system_size,
+                  GetCdmHostFunc get_cdm_host_func,
+                  void* user_data)
 {
-
   CK_LOGE("ClearKey CreateCDMInstance");
 
   if (cdm_interface_version != cdm::ContentDecryptionModule_8::kVersion) {
-    CK_LOGE("ClearKey CreateCDMInstance failed due to requesting unsupported version %d.",
-            cdm_interface_version);
+    CK_LOGE(
+        "ClearKey CreateCDMInstance failed due to requesting unsupported "
+        "version %d.",
+        cdm_interface_version);
     return nullptr;
   }
 #ifdef ENABLE_WMF
@@ -76,7 +79,7 @@ void* CreateCdmInstance(int cdm_interface_version,
 #endif
 
   cdm::Host_8* host = static_cast<cdm::Host_8*>(
-    get_cdm_host_func(cdm_interface_version, user_data));
+      get_cdm_host_func(cdm_interface_version, user_data));
   ClearKeyCDM* clearKey = new ClearKeyCDM(host);
 
   CK_LOGE("Created ClearKeyCDM instance!");
@@ -134,4 +137,4 @@ VerifyCdmHost_0(const cdm::HostFile* aHostFiles, uint32_t aNumFiles)
   return rv;
 }
 
-} // extern "C".
+}  // extern "C".

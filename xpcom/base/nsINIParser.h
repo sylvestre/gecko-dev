@@ -23,7 +23,7 @@ class nsIFile;
 
 class nsINIParser
 {
-public:
+ public:
   nsINIParser() {}
   ~nsINIParser() {}
 
@@ -58,7 +58,8 @@ public:
    * Callback for GetStrings
    * @return false to stop enumeration, or true to continue
    */
-  typedef bool (*INIStringCallback)(const char* aString, const char* aValue,
+  typedef bool (*INIStringCallback)(const char* aString,
+                                    const char* aValue,
                                     void* aClosure);
 
   /**
@@ -66,7 +67,8 @@ public:
    * not exist, this function will silently return.
    */
   nsresult GetStrings(const char* aSection,
-                      INIStringCallback aCB, void* aClosure);
+                      INIStringCallback aCB,
+                      void* aClosure);
 
   /**
    * Get the value of the specified key in the specified section
@@ -78,7 +80,8 @@ public:
    * @throws NS_ERROR_FAILURE if the specified section/key could not be
    *                          found.
    */
-  nsresult GetString(const char* aSection, const char* aKey,
+  nsresult GetString(const char* aSection,
+                     const char* aKey,
                      nsACString& aResult);
 
   /**
@@ -92,17 +95,15 @@ public:
    *
    * @see GetString [1]
    */
-  nsresult GetString(const char* aSection, const char* aKey,
-                     char* aResult, uint32_t aResultLen);
+  nsresult GetString(const char* aSection,
+                     const char* aKey,
+                     char* aResult,
+                     uint32_t aResultLen);
 
-private:
+ private:
   struct INIValue
   {
-    INIValue(const char* aKey, const char* aValue)
-      : key(aKey)
-      , value(aValue)
-    {
-    }
+    INIValue(const char* aKey, const char* aValue) : key(aKey), value(aValue) {}
 
     const char* key;
     const char* value;

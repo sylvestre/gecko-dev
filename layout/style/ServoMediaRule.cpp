@@ -16,15 +16,15 @@ using namespace mozilla::dom;
 namespace mozilla {
 
 ServoMediaRule::ServoMediaRule(RefPtr<RawServoMediaRule> aRawRule,
-                               uint32_t aLine, uint32_t aColumn)
-  : CSSMediaRule(Servo_MediaRule_GetRules(aRawRule).Consume(), aLine, aColumn)
-  , mRawRule(Move(aRawRule))
+                               uint32_t aLine,
+                               uint32_t aColumn)
+    : CSSMediaRule(
+          Servo_MediaRule_GetRules(aRawRule).Consume(), aLine, aColumn),
+      mRawRule(Move(aRawRule))
 {
 }
 
-ServoMediaRule::~ServoMediaRule()
-{
-}
+ServoMediaRule::~ServoMediaRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoMediaRule, CSSMediaRule)
 NS_IMPL_RELEASE_INHERITED(ServoMediaRule, CSSMediaRule)
@@ -33,8 +33,7 @@ NS_IMPL_RELEASE_INHERITED(ServoMediaRule, CSSMediaRule)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ServoMediaRule)
 NS_INTERFACE_MAP_END_INHERITING(CSSMediaRule)
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(ServoMediaRule, CSSMediaRule,
-                                   mMediaList)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(ServoMediaRule, CSSMediaRule, mMediaList)
 
 /* virtual */ already_AddRefed<css::Rule>
 ServoMediaRule::Clone() const
@@ -103,7 +102,7 @@ ServoMediaRule::Media()
 {
   if (!mMediaList) {
     mMediaList =
-      new ServoMediaList(Servo_MediaRule_GetMedia(mRawRule).Consume());
+        new ServoMediaList(Servo_MediaRule_GetMedia(mRawRule).Consume());
     mMediaList->SetStyleSheet(GetStyleSheet());
   }
   return mMediaList;
@@ -116,4 +115,4 @@ ServoMediaRule::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
   return aMallocSizeOf(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -20,11 +20,11 @@ namespace mozilla {
 class PeerConnectionImpl;
 namespace dom {
 
-class MediaStreamList : public nsISupports,
-                        public nsWrapperCache
+class MediaStreamList : public nsISupports, public nsWrapperCache
 {
-public:
-  enum StreamType {
+ public:
+  enum StreamType
+  {
     Local,
     Remote
   };
@@ -34,21 +34,21 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaStreamList)
 
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
-    override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
   nsISupports* GetParentObject();
 
   DOMMediaStream* IndexedGetter(uint32_t index, bool& found);
   uint32_t Length();
 
-private:
+ private:
   virtual ~MediaStreamList();
 
   RefPtr<PeerConnectionImpl> mPeerConnection;
   StreamType mType;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // MediaStreamList_h__
+#endif  // MediaStreamList_h__

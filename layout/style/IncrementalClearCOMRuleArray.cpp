@@ -6,7 +6,7 @@
 
 #include "mozilla/IncrementalClearCOMRuleArray.h"
 
-#include <algorithm> // For std::min
+#include <algorithm>  // For std::min
 #include "nsCycleCollector.h"
 #include "mozilla/DeferredFinalize.h"
 #include "nsTArray.h"
@@ -16,7 +16,6 @@ using namespace mozilla;
 
 typedef nsCOMArray<css::Rule> RuleArray;
 typedef nsTArray<RuleArray> RuleArrayArray;
-
 
 // These methods are based on those in DeferredFinalizerImpl.
 
@@ -41,7 +40,8 @@ AppendRulesArrayPointer(void* aData, void* aObject)
 static bool
 DeferredFinalizeRulesArray(uint32_t aSliceBudget, void* aData)
 {
-  MOZ_ASSERT(aSliceBudget > 0, "nonsensical/useless call with aSliceBudget == 0");
+  MOZ_ASSERT(aSliceBudget > 0,
+             "nonsensical/useless call with aSliceBudget == 0");
   RuleArrayArray* rulesArray = static_cast<RuleArrayArray*>(aData);
 
   size_t newOuterLen = rulesArray->Length();

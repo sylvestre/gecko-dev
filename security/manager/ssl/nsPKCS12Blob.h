@@ -22,7 +22,7 @@ class nsIX509Cert;
 //
 class nsPKCS12Blob : public nsNSSShutDownObject
 {
-public:
+ public:
   nsPKCS12Blob();
   virtual ~nsPKCS12Blob();
 
@@ -30,20 +30,19 @@ public:
   virtual void virtualDestroyNSSReference() override {}
 
   // PKCS#12 Import
-  nsresult ImportFromFile(nsIFile *file);
+  nsresult ImportFromFile(nsIFile* file);
 
   // PKCS#12 Export
-  nsresult ExportToFile(nsIFile *file, nsIX509Cert **certs, int numCerts);
+  nsresult ExportToFile(nsIFile* file, nsIX509Cert** certs, int numCerts);
 
-private:
-
-  nsCOMPtr<nsIMutableArray>       mCertArray;
+ private:
+  nsCOMPtr<nsIMutableArray> mCertArray;
   nsCOMPtr<nsIInterfaceRequestor> mUIContext;
 
   // local helper functions
-  nsresult getPKCS12FilePassword(SECItem *);
-  nsresult newPKCS12FilePassword(SECItem *);
-  nsresult inputToDecoder(SEC_PKCS12DecoderContext *, nsIFile *);
+  nsresult getPKCS12FilePassword(SECItem*);
+  nsresult newPKCS12FilePassword(SECItem*);
+  nsresult inputToDecoder(SEC_PKCS12DecoderContext*, nsIFile*);
   nsresult unicodeToItem(const nsString& uni, SECItem* item);
   void handleError(int myerr = 0);
 
@@ -59,16 +58,27 @@ private:
   //   We try both variations, zero length item and empty string,
   //   without giving a user prompt when trying the different empty password flavors.
 
-  enum RetryReason { rr_do_not_retry, rr_bad_password, rr_auto_retry_empty_password_flavors };
-  enum ImportMode { im_standard_prompt, im_try_zero_length_secitem };
+  enum RetryReason
+  {
+    rr_do_not_retry,
+    rr_bad_password,
+    rr_auto_retry_empty_password_flavors
+  };
+  enum ImportMode
+  {
+    im_standard_prompt,
+    im_try_zero_length_secitem
+  };
 
-  nsresult ImportFromFileHelper(nsIFile *file, ImportMode aImportMode, RetryReason &aWantRetry);
+  nsresult ImportFromFileHelper(nsIFile* file,
+                                ImportMode aImportMode,
+                                RetryReason& aWantRetry);
 
   // NSPR file I/O for export file
-  PRFileDesc *mTmpFile;
+  PRFileDesc* mTmpFile;
 
-  static SECItem * nickname_collision(SECItem *, PRBool *, void *);
-  static void write_export_file(void *arg, const char *buf, unsigned long len);
+  static SECItem* nickname_collision(SECItem*, PRBool*, void*);
+  static void write_export_file(void* arg, const char* buf, unsigned long len);
 };
 
-#endif // nsPKCS12Blob_h
+#endif  // nsPKCS12Blob_h

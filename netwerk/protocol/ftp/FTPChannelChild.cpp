@@ -33,16 +33,16 @@ namespace mozilla {
 namespace net {
 
 FTPChannelChild::FTPChannelChild(nsIURI* uri)
-: mIPCOpen(false)
-, mUnknownDecoderInvolved(false)
-, mCanceled(false)
-, mSuspendCount(0)
-, mIsPending(false)
-, mLastModifiedTime(0)
-, mStartPos(0)
-, mDivertingToParent(false)
-, mFlushedForDiversion(false)
-, mSuspendSent(false)
+    : mIPCOpen(false),
+      mUnknownDecoderInvolved(false),
+      mCanceled(false),
+      mSuspendCount(0),
+      mIsPending(false),
+      mLastModifiedTime(0),
+      mStartPos(0),
+      mDivertingToParent(false),
+      mFlushedForDiversion(false),
+      mSuspendSent(false)
 {
   LOG(("Creating FTPChannelChild @%p\n", this));
   // grab a reference to the handler to ensure that it doesn't go away.
@@ -122,10 +122,7 @@ FTPChannelChild::GetEntityID(nsACString& entityID)
 }
 
 NS_IMETHODIMP
-FTPChannelChild::GetProxyInfo(nsIProxyInfo** aProxyInfo)
-{
-  DROP_DEAD();
-}
+FTPChannelChild::GetProxyInfo(nsIProxyInfo** aProxyInfo) { DROP_DEAD(); }
 
 NS_IMETHODIMP
 FTPChannelChild::SetUploadStream(nsIInputStream* stream,
@@ -153,8 +150,9 @@ FTPChannelChild::AsyncOpen(::nsIStreamListener* listener, nsISupports* aContext)
   LOG(("FTPChannelChild::AsyncOpen [this=%p]\n", this));
 
   NS_ENSURE_TRUE((gNeckoChild), NS_ERROR_FAILURE);
-  NS_ENSURE_TRUE(!static_cast<ContentChild*>(gNeckoChild->Manager())->
-                   IsShuttingDown(), NS_ERROR_FAILURE);
+  NS_ENSURE_TRUE(
+      !static_cast<ContentChild*>(gNeckoChild->Manager())->IsShuttingDown(),
+      NS_ERROR_FAILURE);
   NS_ENSURE_ARG_POINTER(listener);
   NS_ENSURE_TRUE(!mIsPending, NS_ERROR_IN_PROGRESS);
   NS_ENSURE_TRUE(!mWasOpened, NS_ERROR_ALREADY_OPENED);
@@ -162,15 +160,15 @@ FTPChannelChild::AsyncOpen(::nsIStreamListener* listener, nsISupports* aContext)
   // Port checked in parent, but duplicate here so we can return with error
   // immediately, as we've done since before e10s.
   nsresult rv;
-  rv = NS_CheckPortSafety(nsBaseChannel::URI()); // Need to disambiguate,
-                                                 // because in the child ipdl,
-                                                 // a typedef URI is defined...
-  if (NS_FAILED(rv))
-    return rv;
+  rv = NS_CheckPortSafety(nsBaseChannel::URI());  // Need to disambiguate,
+                                                  // because in the child ipdl,
+                                                  // a typedef URI is defined...
+  if (NS_FAILED(rv)) return rv;
 
   mozilla::dom::TabChild* tabChild = nullptr;
   nsCOMPtr<nsITabChild> iTabChild;
-  NS_QueryNotificationCallbacks(mCallbacks, mLoadGroup,
+  NS_QueryNotificationCallbacks(mCallbacks,
+                                mLoadGroup,
                                 NS_GET_IID(nsITabChild),
                                 getter_AddRefs(iTabChild));
   GetCallback(iTabChild);
@@ -185,8 +183,7 @@ FTPChannelChild::AsyncOpen(::nsIStreamListener* listener, nsISupports* aContext)
   mListenerContext = aContext;
 
   // add ourselves to the load group.
-  if (mLoadGroup)
-    mLoadGroup->AddRequest(this, nullptr);
+  if (mLoadGroup) mLoadGroup->AddRequest(this, nullptr);
 
   mozilla::ipc::AutoIPCStream autoStream;
   autoStream.Serialize(mUploadStream,
@@ -206,9 +203,8 @@ FTPChannelChild::AsyncOpen(::nsIStreamListener* listener, nsISupports* aContext)
   // This must happen before the constructor message is sent.
   SetupNeckoTarget();
 
-  gNeckoChild->
-    SendPFTPChannelConstructor(this, tabChild, IPC::SerializedLoadContext(this),
-                               openArgs);
+  gNeckoChild->SendPFTPChannelConstructor(
+      this, tabChild, IPC::SerializedLoadContext(this), openArgs);
 
   // The socket transport layer in the chrome process now has a logical ref to
   // us until OnStopRequest is called.
@@ -242,7 +238,7 @@ FTPChannelChild::OpenContentStream(bool async,
 
 class FTPStartRequestEvent : public NeckoTargetChannelEvent<FTPChannelChild>
 {
-public:
+ public:
   FTPStartRequestEvent(FTPChannelChild* aChild,
                        const nsresult& aChannelStatus,
                        const int64_t& aContentLength,
@@ -250,22 +246,26 @@ public:
                        const PRTime& aLastModified,
                        const nsCString& aEntityID,
                        const URIParams& aURI)
-    : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
-    , mChannelStatus(aChannelStatus)
-    , mContentLength(aContentLength)
-    , mContentType(aContentType)
-    , mLastModified(aLastModified)
-    , mEntityID(aEntityID)
-    , mURI(aURI)
+      : NeckoTargetChannelEvent<FTPChannelChild>(aChild),
+        mChannelStatus(aChannelStatus),
+        mContentLength(aContentLength),
+        mContentType(aContentType),
+        mLastModified(aLastModified),
+        mEntityID(aEntityID),
+        mURI(aURI)
   {
   }
   void Run()
   {
-    mChild->DoOnStartRequest(mChannelStatus, mContentLength, mContentType,
-                             mLastModified, mEntityID, mURI);
+    mChild->DoOnStartRequest(mChannelStatus,
+                             mContentLength,
+                             mContentType,
+                             mLastModified,
+                             mEntityID,
+                             mURI);
   }
 
-private:
+ private:
   nsresult mChannelStatus;
   int64_t mContentLength;
   nsCString mContentType;
@@ -284,16 +284,21 @@ FTPChannelChild::RecvOnStartRequest(const nsresult& aChannelStatus,
 {
   // mFlushedForDiversion and mDivertingToParent should NEVER be set at this
   // stage, as they are set in the listener's OnStartRequest.
-  MOZ_RELEASE_ASSERT(!mFlushedForDiversion,
-    "mFlushedForDiversion should be unset before OnStartRequest!");
-  MOZ_RELEASE_ASSERT(!mDivertingToParent,
-    "mDivertingToParent should be unset before OnStartRequest!");
+  MOZ_RELEASE_ASSERT(
+      !mFlushedForDiversion,
+      "mFlushedForDiversion should be unset before OnStartRequest!");
+  MOZ_RELEASE_ASSERT(
+      !mDivertingToParent,
+      "mDivertingToParent should be unset before OnStartRequest!");
 
   LOG(("FTPChannelChild::RecvOnStartRequest [this=%p]\n", this));
 
-  mEventQ->RunOrEnqueue(new FTPStartRequestEvent(this, aChannelStatus,
-                                                 aContentLength, aContentType,
-                                                 aLastModified, aEntityID,
+  mEventQ->RunOrEnqueue(new FTPStartRequestEvent(this,
+                                                 aChannelStatus,
+                                                 aContentLength,
+                                                 aContentType,
+                                                 aLastModified,
+                                                 aEntityID,
                                                  aURI));
   return IPC_OK();
 }
@@ -310,10 +315,12 @@ FTPChannelChild::DoOnStartRequest(const nsresult& aChannelStatus,
 
   // mFlushedForDiversion and mDivertingToParent should NEVER be set at this
   // stage, as they are set in the listener's OnStartRequest.
-  MOZ_RELEASE_ASSERT(!mFlushedForDiversion,
-    "mFlushedForDiversion should be unset before OnStartRequest!");
-  MOZ_RELEASE_ASSERT(!mDivertingToParent,
-    "mDivertingToParent should be unset before OnStartRequest!");
+  MOZ_RELEASE_ASSERT(
+      !mFlushedForDiversion,
+      "mFlushedForDiversion should be unset before OnStartRequest!");
+  MOZ_RELEASE_ASSERT(
+      !mDivertingToParent,
+      "mDivertingToParent should be unset before OnStartRequest!");
 
   if (!mCanceled && NS_SUCCEEDED(mStatus)) {
     mStatus = aChannelStatus;
@@ -338,8 +345,7 @@ FTPChannelChild::DoOnStartRequest(const nsresult& aChannelStatus,
 
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
   rv = mListener->OnStartRequest(this, mListenerContext);
-  if (NS_FAILED(rv))
-    Cancel(rv);
+  if (NS_FAILED(rv)) Cancel(rv);
 
   if (mDivertingToParent) {
     mListener = nullptr;
@@ -352,17 +358,17 @@ FTPChannelChild::DoOnStartRequest(const nsresult& aChannelStatus,
 
 class FTPDataAvailableEvent : public NeckoTargetChannelEvent<FTPChannelChild>
 {
-public:
+ public:
   FTPDataAvailableEvent(FTPChannelChild* aChild,
                         const nsresult& aChannelStatus,
                         const nsCString& aData,
                         const uint64_t& aOffset,
                         const uint32_t& aCount)
-    : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
-    , mChannelStatus(aChannelStatus)
-    , mData(aData)
-    , mOffset(aOffset)
-    , mCount(aCount)
+      : NeckoTargetChannelEvent<FTPChannelChild>(aChild),
+        mChannelStatus(aChannelStatus),
+        mData(aData),
+        mOffset(aOffset),
+        mCount(aCount)
   {
   }
   void Run()
@@ -370,7 +376,7 @@ public:
     mChild->DoOnDataAvailable(mChannelStatus, mData, mOffset, mCount);
   }
 
-private:
+ private:
   nsresult mChannelStatus;
   nsCString mData;
   uint64_t mOffset;
@@ -388,29 +394,29 @@ FTPChannelChild::RecvOnDataAvailable(const nsresult& channelStatus,
 
   LOG(("FTPChannelChild::RecvOnDataAvailable [this=%p]\n", this));
 
-  mEventQ->RunOrEnqueue(new FTPDataAvailableEvent(this, channelStatus, data,
-                                                  offset, count),
-                        mDivertingToParent);
+  mEventQ->RunOrEnqueue(
+      new FTPDataAvailableEvent(this, channelStatus, data, offset, count),
+      mDivertingToParent);
 
   return IPC_OK();
 }
 
-class MaybeDivertOnDataFTPEvent : public NeckoTargetChannelEvent<FTPChannelChild>
+class MaybeDivertOnDataFTPEvent
+    : public NeckoTargetChannelEvent<FTPChannelChild>
 {
  public:
   MaybeDivertOnDataFTPEvent(FTPChannelChild* child,
                             const nsCString& data,
                             const uint64_t& offset,
                             const uint32_t& count)
-  : NeckoTargetChannelEvent<FTPChannelChild>(child)
-  , mData(data)
-  , mOffset(offset)
-  , mCount(count) {}
-
-  void Run()
+      : NeckoTargetChannelEvent<FTPChannelChild>(child),
+        mData(data),
+        mOffset(offset),
+        mCount(count)
   {
-    mChild->MaybeDivertOnData(mData, mOffset, mCount);
   }
+
+  void Run() { mChild->MaybeDivertOnData(mData, mOffset, mCount); }
 
  private:
   nsCString mData;
@@ -441,19 +447,19 @@ FTPChannelChild::DoOnDataAvailable(const nsresult& channelStatus,
   }
 
   if (mDivertingToParent) {
-    MOZ_RELEASE_ASSERT(!mFlushedForDiversion,
-      "Should not be processing any more callbacks from parent!");
+    MOZ_RELEASE_ASSERT(
+        !mFlushedForDiversion,
+        "Should not be processing any more callbacks from parent!");
 
     SendDivertOnDataAvailable(data, offset, count);
     return;
   }
 
-  if (mCanceled)
-    return;
+  if (mCanceled) return;
 
   if (mUnknownDecoderInvolved) {
     mUnknownDecoderEventQ.AppendElement(
-      MakeUnique<MaybeDivertOnDataFTPEvent>(this, data, offset, count));
+        MakeUnique<MaybeDivertOnDataFTPEvent>(this, data, offset, count));
   }
 
   // NOTE: the OnDataAvailable contract requires the client to read all the data
@@ -462,42 +468,36 @@ FTPChannelChild::DoOnDataAvailable(const nsresult& channelStatus,
   // support only reading part of the data, allowing later calls to read the
   // rest.
   nsCOMPtr<nsIInputStream> stringStream;
-  nsresult rv = NS_NewByteInputStream(getter_AddRefs(stringStream),
-                                      data.get(),
-                                      count,
-                                      NS_ASSIGNMENT_DEPEND);
+  nsresult rv = NS_NewByteInputStream(
+      getter_AddRefs(stringStream), data.get(), count, NS_ASSIGNMENT_DEPEND);
   if (NS_FAILED(rv)) {
     Cancel(rv);
     return;
   }
 
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
-  rv = mListener->OnDataAvailable(this, mListenerContext,
-                                  stringStream, offset, count);
-  if (NS_FAILED(rv))
-    Cancel(rv);
+  rv = mListener->OnDataAvailable(
+      this, mListenerContext, stringStream, offset, count);
+  if (NS_FAILED(rv)) Cancel(rv);
   stringStream->Close();
 }
 
 class FTPStopRequestEvent : public NeckoTargetChannelEvent<FTPChannelChild>
 {
-public:
+ public:
   FTPStopRequestEvent(FTPChannelChild* aChild,
                       const nsresult& aChannelStatus,
-                      const nsCString &aErrorMsg,
+                      const nsCString& aErrorMsg,
                       bool aUseUTF8)
-    : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
-    , mChannelStatus(aChannelStatus)
-    , mErrorMsg(aErrorMsg)
-    , mUseUTF8(aUseUTF8)
+      : NeckoTargetChannelEvent<FTPChannelChild>(aChild),
+        mChannelStatus(aChannelStatus),
+        mErrorMsg(aErrorMsg),
+        mUseUTF8(aUseUTF8)
   {
   }
-  void Run()
-  {
-    mChild->DoOnStopRequest(mChannelStatus, mErrorMsg, mUseUTF8);
-  }
+  void Run() { mChild->DoOnStopRequest(mChannelStatus, mErrorMsg, mUseUTF8); }
 
-private:
+ private:
   nsresult mChannelStatus;
   nsCString mErrorMsg;
   bool mUseUTF8;
@@ -505,34 +505,35 @@ private:
 
 mozilla::ipc::IPCResult
 FTPChannelChild::RecvOnStopRequest(const nsresult& aChannelStatus,
-                                   const nsCString &aErrorMsg,
-                                   const bool &aUseUTF8)
+                                   const nsCString& aErrorMsg,
+                                   const bool& aUseUTF8)
 {
   MOZ_RELEASE_ASSERT(!mFlushedForDiversion,
-    "Should not be receiving any more callbacks from parent!");
+                     "Should not be receiving any more callbacks from parent!");
 
-  LOG(("FTPChannelChild::RecvOnStopRequest [this=%p status=%" PRIx32"]\n",
-       this, static_cast<uint32_t>(aChannelStatus)));
+  LOG(("FTPChannelChild::RecvOnStopRequest [this=%p status=%" PRIx32 "]\n",
+       this,
+       static_cast<uint32_t>(aChannelStatus)));
 
-  mEventQ->RunOrEnqueue(new FTPStopRequestEvent(this, aChannelStatus, aErrorMsg,
-                                                aUseUTF8));
+  mEventQ->RunOrEnqueue(
+      new FTPStopRequestEvent(this, aChannelStatus, aErrorMsg, aUseUTF8));
   return IPC_OK();
 }
 
 class nsFtpChildAsyncAlert : public Runnable
 {
-public:
-  nsFtpChildAsyncAlert(nsIPrompt *aPrompter, nsString aResponseMsg)
-    : Runnable("nsFtpChildAsyncAlert")
-    , mPrompter(aPrompter)
-    , mResponseMsg(aResponseMsg)
+ public:
+  nsFtpChildAsyncAlert(nsIPrompt* aPrompter, nsString aResponseMsg)
+      : Runnable("nsFtpChildAsyncAlert"),
+        mPrompter(aPrompter),
+        mResponseMsg(aResponseMsg)
   {
   }
-protected:
-  virtual ~nsFtpChildAsyncAlert()
-  {
-  }
-public:
+
+ protected:
+  virtual ~nsFtpChildAsyncAlert() {}
+
+ public:
   NS_IMETHOD Run() override
   {
     if (mPrompter) {
@@ -540,23 +541,24 @@ public:
     }
     return NS_OK;
   }
-private:
+
+ private:
   nsCOMPtr<nsIPrompt> mPrompter;
   nsString mResponseMsg;
 };
 
-class MaybeDivertOnStopFTPEvent : public NeckoTargetChannelEvent<FTPChannelChild>
+class MaybeDivertOnStopFTPEvent
+    : public NeckoTargetChannelEvent<FTPChannelChild>
 {
  public:
   MaybeDivertOnStopFTPEvent(FTPChannelChild* child,
                             const nsresult& aChannelStatus)
-  : NeckoTargetChannelEvent<FTPChannelChild>(child)
-  , mChannelStatus(aChannelStatus) {}
-
-  void Run()
+      : NeckoTargetChannelEvent<FTPChannelChild>(child),
+        mChannelStatus(aChannelStatus)
   {
-    mChild->MaybeDivertOnStop(mChannelStatus);
   }
+
+  void Run() { mChild->MaybeDivertOnStop(mChannelStatus); }
 
  private:
   nsresult mChannelStatus;
@@ -572,29 +574,30 @@ FTPChannelChild::MaybeDivertOnStop(const nsresult& aChannelStatus)
 
 void
 FTPChannelChild::DoOnStopRequest(const nsresult& aChannelStatus,
-                                 const nsCString &aErrorMsg,
+                                 const nsCString& aErrorMsg,
                                  bool aUseUTF8)
 {
   LOG(("FTPChannelChild::DoOnStopRequest [this=%p status=%" PRIx32 "]\n",
-       this, static_cast<uint32_t>(aChannelStatus)));
+       this,
+       static_cast<uint32_t>(aChannelStatus)));
 
   if (mDivertingToParent) {
-    MOZ_RELEASE_ASSERT(!mFlushedForDiversion,
-      "Should not be processing any more callbacks from parent!");
+    MOZ_RELEASE_ASSERT(
+        !mFlushedForDiversion,
+        "Should not be processing any more callbacks from parent!");
 
     SendDivertOnStopRequest(aChannelStatus);
     return;
   }
 
-  if (!mCanceled)
-    mStatus = aChannelStatus;
+  if (!mCanceled) mStatus = aChannelStatus;
 
   if (mUnknownDecoderInvolved) {
     mUnknownDecoderEventQ.AppendElement(
-      MakeUnique<MaybeDivertOnStopFTPEvent>(this, aChannelStatus));
+        MakeUnique<MaybeDivertOnStopFTPEvent>(this, aChannelStatus));
   }
 
-  { // Ensure that all queued ipdl events are dispatched before
+  {  // Ensure that all queued ipdl events are dispatched before
     // we initiate protocol deletion below.
     mIsPending = false;
     AutoEventEnqueuer ensureSerialDispatch(mEventQ);
@@ -606,11 +609,11 @@ FTPChannelChild::DoOnStopRequest(const nsresult& aChannelStatus,
       if (prompter) {
         nsCOMPtr<nsIRunnable> alertEvent;
         if (aUseUTF8) {
-          alertEvent = new nsFtpChildAsyncAlert(prompter,
-                             NS_ConvertUTF8toUTF16(aErrorMsg));
+          alertEvent = new nsFtpChildAsyncAlert(
+              prompter, NS_ConvertUTF8toUTF16(aErrorMsg));
         } else {
-          alertEvent = new nsFtpChildAsyncAlert(prompter,
-                             NS_ConvertASCIItoUTF16(aErrorMsg));
+          alertEvent = new nsFtpChildAsyncAlert(
+              prompter, NS_ConvertASCIItoUTF16(aErrorMsg));
         }
 
         Dispatch(alertEvent.forget());
@@ -620,8 +623,7 @@ FTPChannelChild::DoOnStopRequest(const nsresult& aChannelStatus,
     mListener = nullptr;
     mListenerContext = nullptr;
 
-    if (mLoadGroup)
-      mLoadGroup->RemoveRequest(this, nullptr, aChannelStatus);
+    if (mLoadGroup) mLoadGroup->RemoveRequest(this, nullptr, aChannelStatus);
   }
 
   // This calls NeckoChild::DeallocPFTPChannelChild(), which deletes |this| if IPDL
@@ -633,8 +635,9 @@ class FTPFailedAsyncOpenEvent : public NeckoTargetChannelEvent<FTPChannelChild>
 {
  public:
   FTPFailedAsyncOpenEvent(FTPChannelChild* aChild, nsresult aStatus)
-  : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
-  , mStatus(aStatus) {}
+      : NeckoTargetChannelEvent<FTPChannelChild>(aChild), mStatus(aStatus)
+  {
+  }
   void Run() { mChild->DoFailedAsyncOpen(mStatus); }
 
  private:
@@ -645,7 +648,8 @@ mozilla::ipc::IPCResult
 FTPChannelChild::RecvFailedAsyncOpen(const nsresult& statusCode)
 {
   LOG(("FTPChannelChild::RecvFailedAsyncOpen [this=%p status=%" PRIx32 "]\n",
-       this, static_cast<uint32_t>(statusCode)));
+       this,
+       static_cast<uint32_t>(statusCode)));
   mEventQ->RunOrEnqueue(new FTPFailedAsyncOpenEvent(this, statusCode));
   return IPC_OK();
 }
@@ -654,11 +658,11 @@ void
 FTPChannelChild::DoFailedAsyncOpen(const nsresult& statusCode)
 {
   LOG(("FTPChannelChild::DoFailedAsyncOpen [this=%p status=%" PRIx32 "]\n",
-       this, static_cast<uint32_t>(statusCode)));
+       this,
+       static_cast<uint32_t>(statusCode)));
   mStatus = statusCode;
 
-  if (mLoadGroup)
-    mLoadGroup->RemoveRequest(this, nullptr, statusCode);
+  if (mLoadGroup) mLoadGroup->RemoveRequest(this, nullptr, statusCode);
 
   if (mListener) {
     mListener->OnStartRequest(this, mListenerContext);
@@ -671,23 +675,20 @@ FTPChannelChild::DoFailedAsyncOpen(const nsresult& statusCode)
   mListener = nullptr;
   mListenerContext = nullptr;
 
-  if (mIPCOpen)
-    Send__delete__(this);
+  if (mIPCOpen) Send__delete__(this);
 }
 
-class FTPFlushedForDiversionEvent : public NeckoTargetChannelEvent<FTPChannelChild>
+class FTPFlushedForDiversionEvent
+    : public NeckoTargetChannelEvent<FTPChannelChild>
 {
  public:
   explicit FTPFlushedForDiversionEvent(FTPChannelChild* aChild)
-  : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
+      : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
   {
     MOZ_RELEASE_ASSERT(aChild);
   }
 
-  void Run()
-  {
-    mChild->FlushedForDiversion();
-  }
+  void Run() { mChild->FlushedForDiversion(); }
 };
 
 mozilla::ipc::IPCResult
@@ -733,7 +734,9 @@ class FTPDeleteSelfEvent : public NeckoTargetChannelEvent<FTPChannelChild>
 {
  public:
   explicit FTPDeleteSelfEvent(FTPChannelChild* aChild)
-  : NeckoTargetChannelEvent<FTPChannelChild>(aChild) {}
+      : NeckoTargetChannelEvent<FTPChannelChild>(aChild)
+  {
+  }
   void Run() { mChild->DoDeleteSelf(); }
 };
 
@@ -747,21 +750,18 @@ FTPChannelChild::RecvDeleteSelf()
 void
 FTPChannelChild::DoDeleteSelf()
 {
-  if (mIPCOpen)
-    Send__delete__(this);
+  if (mIPCOpen) Send__delete__(this);
 }
 
 NS_IMETHODIMP
 FTPChannelChild::Cancel(nsresult status)
 {
   LOG(("FTPChannelChild::Cancel [this=%p]\n", this));
-  if (mCanceled)
-    return NS_OK;
+  if (mCanceled) return NS_OK;
 
   mCanceled = true;
   mStatus = status;
-  if (mIPCOpen)
-    SendCancel(status);
+  if (mIPCOpen) SendCancel(status);
   return NS_OK;
 }
 
@@ -811,14 +811,16 @@ NS_IMETHODIMP
 FTPChannelChild::ConnectParent(uint32_t id)
 {
   NS_ENSURE_TRUE((gNeckoChild), NS_ERROR_FAILURE);
-  NS_ENSURE_TRUE(!static_cast<ContentChild*>(gNeckoChild->Manager())->
-                   IsShuttingDown(), NS_ERROR_FAILURE);
+  NS_ENSURE_TRUE(
+      !static_cast<ContentChild*>(gNeckoChild->Manager())->IsShuttingDown(),
+      NS_ERROR_FAILURE);
 
   LOG(("FTPChannelChild::ConnectParent [this=%p]\n", this));
 
   mozilla::dom::TabChild* tabChild = nullptr;
   nsCOMPtr<nsITabChild> iTabChild;
-  NS_QueryNotificationCallbacks(mCallbacks, mLoadGroup,
+  NS_QueryNotificationCallbacks(mCallbacks,
+                                mLoadGroup,
                                 NS_GET_IID(nsITabChild),
                                 getter_AddRefs(iTabChild));
   GetCallback(iTabChild);
@@ -835,9 +837,8 @@ FTPChannelChild::ConnectParent(uint32_t id)
 
   FTPChannelConnectArgs connectArgs(id);
 
-  if (!gNeckoChild->SendPFTPChannelConstructor(this, tabChild,
-                                               IPC::SerializedLoadContext(this),
-                                               connectArgs)) {
+  if (!gNeckoChild->SendPFTPChannelConstructor(
+          this, tabChild, IPC::SerializedLoadContext(this), connectArgs)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -845,8 +846,8 @@ FTPChannelChild::ConnectParent(uint32_t id)
 }
 
 NS_IMETHODIMP
-FTPChannelChild::CompleteRedirectSetup(nsIStreamListener *listener,
-                                       nsISupports *aContext)
+FTPChannelChild::CompleteRedirectSetup(nsIStreamListener* listener,
+                                       nsISupports* aContext)
 {
   LOG(("FTPChannelChild::CompleteRedirectSetup [this=%p]\n", this));
 
@@ -859,8 +860,7 @@ FTPChannelChild::CompleteRedirectSetup(nsIStreamListener *listener,
   mListenerContext = aContext;
 
   // add ourselves to the load group.
-  if (mLoadGroup)
-    mLoadGroup->AddRequest(this, nullptr);
+  if (mLoadGroup) mLoadGroup->AddRequest(this, nullptr);
 
   // We already have an open IPDL connection to the parent. If on-modify-request
   // listeners or load group observers canceled us, let the parent handle it
@@ -872,13 +872,14 @@ FTPChannelChild::CompleteRedirectSetup(nsIStreamListener *listener,
 // FTPChannelChild::nsIDivertableChannel
 //-----------------------------------------------------------------------------
 NS_IMETHODIMP
-FTPChannelChild::DivertToParent(ChannelDiverterChild **aChild)
+FTPChannelChild::DivertToParent(ChannelDiverterChild** aChild)
 {
   MOZ_RELEASE_ASSERT(aChild);
   MOZ_RELEASE_ASSERT(gNeckoChild);
   MOZ_RELEASE_ASSERT(!mDivertingToParent);
-  NS_ENSURE_TRUE(!static_cast<ContentChild*>(gNeckoChild->Manager())->
-                   IsShuttingDown(), NS_ERROR_FAILURE);
+  NS_ENSURE_TRUE(
+      !static_cast<ContentChild*>(gNeckoChild->Manager())->IsShuttingDown(),
+      NS_ERROR_FAILURE);
 
   LOG(("FTPChannelChild::DivertToParent [this=%p]\n", this));
 
@@ -897,7 +898,7 @@ FTPChannelChild::DivertToParent(ChannelDiverterChild **aChild)
   mDivertingToParent = true;
 
   PChannelDiverterChild* diverter =
-    gNeckoChild->SendPChannelDiverterConstructor(this);
+      gNeckoChild->SendPChannelDiverterConstructor(this);
   MOZ_RELEASE_ASSERT(diverter);
 
   *aChild = static_cast<ChannelDiverterChild*>(diverter);
@@ -945,7 +946,8 @@ FTPChannelChild::SetupNeckoTarget()
   nsCOMPtr<nsILoadInfo> loadInfo;
   GetLoadInfo(getter_AddRefs(loadInfo));
 
-  mNeckoTarget = nsContentUtils::GetEventTargetByLoadInfo(loadInfo, TaskCategory::Network);
+  mNeckoTarget =
+      nsContentUtils::GetEventTargetByLoadInfo(loadInfo, TaskCategory::Network);
   if (!mNeckoTarget) {
     return;
   }
@@ -953,6 +955,5 @@ FTPChannelChild::SetupNeckoTarget()
   gNeckoChild->SetEventTargetForActor(this, mNeckoTarget);
 }
 
-} // namespace net
-} // namespace mozilla
-
+}  // namespace net
+}  // namespace mozilla

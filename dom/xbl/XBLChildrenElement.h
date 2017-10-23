@@ -19,13 +19,15 @@ namespace dom {
 
 class XBLChildrenElement : public nsXMLElement
 {
-public:
-  explicit XBLChildrenElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsXMLElement(aNodeInfo)
+ public:
+  explicit XBLChildrenElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsXMLElement(aNodeInfo)
   {
   }
-  explicit XBLChildrenElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
-    : nsXMLElement(aNodeInfo)
+  explicit XBLChildrenElement(
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
+      : nsXMLElement(aNodeInfo)
   {
   }
 
@@ -33,7 +35,8 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // nsINode interface methods
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   virtual nsIDOMNode* AsDOMNode() override { return this; }
@@ -105,15 +108,9 @@ public:
     }
   }
 
-  uint32_t InsertedChildrenLength()
-  {
-    return mInsertedChildren.Length();
-  }
+  uint32_t InsertedChildrenLength() { return mInsertedChildren.Length(); }
 
-  bool HasInsertedChildren()
-  {
-    return !mInsertedChildren.IsEmpty();
-  }
+  bool HasInsertedChildren() { return !mInsertedChildren.IsEmpty(); }
 
   int32_t IndexOfInsertedChild(nsIContent* aChild)
   {
@@ -127,37 +124,32 @@ public:
     return mIncludes.Contains(aChild->NodeInfo()->NameAtom());
   }
 
-  bool IsDefaultInsertion()
-  {
-    return mIncludes.IsEmpty();
-  }
+  bool IsDefaultInsertion() { return mIncludes.IsEmpty(); }
 
   nsIContent* InsertedChild(uint32_t aIndex)
   {
     return mInsertedChildren[aIndex];
   }
 
-protected:
+ protected:
   ~XBLChildrenElement();
-  virtual nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult BeforeSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override;
 
-private:
-  nsTArray<nsIContent*> mInsertedChildren; // WEAK
+ private:
+  nsTArray<nsIContent*> mInsertedChildren;  // WEAK
   nsTArray<RefPtr<nsAtom> > mIncludes;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsAnonymousContentList : public nsINodeList
 {
-public:
-  explicit nsAnonymousContentList(nsIContent* aParent)
-    : mParent(aParent)
-  {
-  }
+ public:
+  explicit nsAnonymousContentList(nsIContent* aParent) : mParent(aParent) {}
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsAnonymousContentList)
@@ -169,18 +161,15 @@ public:
   virtual nsINode* GetParentObject() override { return mParent; }
   virtual nsIContent* Item(uint32_t aIndex) override;
 
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  bool IsListFor(nsIContent* aContent) {
-    return mParent == aContent;
-  }
+  bool IsListFor(nsIContent* aContent) { return mParent == aContent; }
 
-private:
-  virtual ~nsAnonymousContentList()
-  {
-  }
+ private:
+  virtual ~nsAnonymousContentList() {}
 
   nsCOMPtr<nsIContent> mParent;
 };
 
-#endif // nsXBLChildrenElement_h___
+#endif  // nsXBLChildrenElement_h___

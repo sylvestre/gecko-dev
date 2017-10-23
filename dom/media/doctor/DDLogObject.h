@@ -17,18 +17,13 @@ namespace mozilla {
 // one, so extra information is needed to distinguish them, see DDLifetime.
 class DDLogObject
 {
-public:
+ public:
   // Default-initialization with null pointer.
-  DDLogObject()
-    : mTypeName("<unset>")
-    , mPointer(nullptr)
-  {
-  }
+  DDLogObject() : mTypeName("<unset>"), mPointer(nullptr) {}
 
   // Construction with given non-null type name and pointer.
   DDLogObject(const char* aTypeName, const void* aPointer)
-    : mTypeName(aTypeName)
-    , mPointer(aPointer)
+      : mTypeName(aTypeName), mPointer(aPointer)
   {
     MOZ_ASSERT(aTypeName);
     MOZ_ASSERT(aPointer);
@@ -62,11 +57,11 @@ public:
   void AppendPrintf(nsCString& mString) const;
   nsCString Printf() const;
 
-private:
+ private:
   const char* mTypeName;
   const void* mPointer;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDLogObject_h_
+#endif  // DDLogObject_h_

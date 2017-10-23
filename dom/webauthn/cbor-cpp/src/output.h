@@ -14,21 +14,21 @@
 	   limitations under the License.
 */
 
-
 #ifndef __CborOutput_H_
 #define __CborOutput_H_
 
 namespace cbor {
-    class output {
-    public:
-        virtual unsigned char *data() = 0;
+class output
+{
+ public:
+  virtual unsigned char* data() = 0;
 
-        virtual unsigned int size() = 0;
+  virtual unsigned int size() = 0;
 
-        virtual void put_byte(unsigned char value) = 0;
+  virtual void put_byte(unsigned char value) = 0;
 
-        virtual void put_bytes(const unsigned char *data, int size) = 0;
-    };
-}
+  virtual void put_bytes(const unsigned char* data, int size) = 0;
+};
+}  // namespace cbor
 
-#endif //__CborOutput_H_
+#endif  //__CborOutput_H_

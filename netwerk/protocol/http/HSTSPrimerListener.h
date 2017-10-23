@@ -30,7 +30,8 @@ class nsHttpChannel;
 /*
  * How often do we send an HSTS priming request (over all requests)
  */
-enum HSTSPrimingRequest {
+enum HSTSPrimingRequest
+{
   // No HSTS priming request. The request is not mixed-content, or we have
   // already cached the result before nsMixedContentBlocker::ShouldLoad
   eHSTS_PRIMING_NO_REQUEST = 0,
@@ -55,34 +56,35 @@ enum HSTSPrimingRequest {
 /*
  * How often do we get back an HSTS priming result which upgrades the connection to HTTPS?
  */
-enum HSTSPrimingResult {
+enum HSTSPrimingResult
+{
   // This site has been seen before and won't be upgraded
   eHSTS_PRIMING_CACHED_NO_UPGRADE = 0,
   // This site has been seen before and will be upgraded
   eHSTS_PRIMING_CACHED_DO_UPGRADE = 1,
   // This site has been seen before and will be blocked
-  eHSTS_PRIMING_CACHED_BLOCK      = 2,
+  eHSTS_PRIMING_CACHED_BLOCK = 2,
   // The request was already upgraded, probably through
   // upgrade-insecure-requests
-  eHSTS_PRIMING_ALREADY_UPGRADED  = 3,
+  eHSTS_PRIMING_ALREADY_UPGRADED = 3,
   // HSTS priming is successful and the connection will be upgraded to HTTPS
-  eHSTS_PRIMING_SUCCEEDED         = 4,
+  eHSTS_PRIMING_SUCCEEDED = 4,
   // When priming succeeds, but preferences require preservation of the order
   // of mixed-content and hsts, and mixed-content blocks the load
-  eHSTS_PRIMING_SUCCEEDED_BLOCK   = 5,
+  eHSTS_PRIMING_SUCCEEDED_BLOCK = 5,
   // When priming succeeds, but preferences require preservation of the order
   // of mixed-content and hsts, and mixed-content allows the load over http
-  eHSTS_PRIMING_SUCCEEDED_HTTP    = 6,
+  eHSTS_PRIMING_SUCCEEDED_HTTP = 6,
   // HSTS priming failed, and the load is blocked by mixed-content
-  eHSTS_PRIMING_FAILED_BLOCK      = 7,
+  eHSTS_PRIMING_FAILED_BLOCK = 7,
   // HSTS priming failed, and the load is allowed by mixed-content
-  eHSTS_PRIMING_FAILED_ACCEPT     = 8,
+  eHSTS_PRIMING_FAILED_ACCEPT = 8,
   // The HSTS Priming request timed out, and the load is blocked by
   // mixed-content
-  eHSTS_PRIMING_TIMEOUT_BLOCK     = 9,
+  eHSTS_PRIMING_TIMEOUT_BLOCK = 9,
   // The HSTS Priming request timed out, and the load is allowed by
   // mixed-content
-  eHSTS_PRIMING_TIMEOUT_ACCEPT    = 10,
+  eHSTS_PRIMING_TIMEOUT_ACCEPT = 10,
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -94,7 +96,7 @@ class HSTSPrimingListener final : public nsIStreamListener,
                                   public nsITimerCallback,
                                   public nsINamed
 {
-public:
+ public:
   explicit HSTSPrimingListener(nsIHstsPrimingCallback* aCallback);
 
   NS_DECL_ISUPPORTS
@@ -104,7 +106,7 @@ public:
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
 
-private:
+ private:
   ~HSTSPrimingListener() {}
 
   // Only nsHttpChannel can invoke HSTS priming
@@ -156,7 +158,7 @@ private:
   static uint32_t sHSTSPrimingTimeout;
 };
 
+}  // namespace net
+}  // namespace mozilla
 
-}} // mozilla::net
-
-#endif // HSTSPrimingListener_h__
+#endif  // HSTSPrimingListener_h__

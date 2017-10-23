@@ -14,8 +14,11 @@ namespace dom {
 
 template<typename M>
 /* static */ IPCBlobInputStreamParent*
-IPCBlobInputStreamParent::Create(nsIInputStream* aInputStream, uint64_t aSize,
-                                 uint64_t aChildID, nsresult* aRv, M* aManager)
+IPCBlobInputStreamParent::Create(nsIInputStream* aInputStream,
+                                 uint64_t aSize,
+                                 uint64_t aChildID,
+                                 nsresult* aRv,
+                                 M* aManager)
 {
   MOZ_ASSERT(aInputStream);
   MOZ_ASSERT(aRv);
@@ -26,17 +29,19 @@ IPCBlobInputStreamParent::Create(nsIInputStream* aInputStream, uint64_t aSize,
     return nullptr;
   }
 
-  IPCBlobInputStreamStorage::Get()->AddStream(aInputStream, id, aSize, aChildID);
+  IPCBlobInputStreamStorage::Get()->AddStream(
+      aInputStream, id, aSize, aChildID);
 
   return new IPCBlobInputStreamParent(id, aSize, aManager);
 }
 
 /* static */ IPCBlobInputStreamParent*
-IPCBlobInputStreamParent::Create(const nsID& aID, uint64_t aSize,
+IPCBlobInputStreamParent::Create(const nsID& aID,
+                                 uint64_t aSize,
                                  PBackgroundParent* aManager)
 {
   IPCBlobInputStreamParent* actor =
-    new IPCBlobInputStreamParent(aID, aSize, aManager);
+      new IPCBlobInputStreamParent(aID, aSize, aManager);
 
   actor->mCallback = IPCBlobInputStreamStorage::Get()->TakeCallback(aID);
 
@@ -46,22 +51,24 @@ IPCBlobInputStreamParent::Create(const nsID& aID, uint64_t aSize,
 IPCBlobInputStreamParent::IPCBlobInputStreamParent(const nsID& aID,
                                                    uint64_t aSize,
                                                    nsIContentParent* aManager)
-  : mID(aID)
-  , mSize(aSize)
-  , mContentManager(aManager)
-  , mPBackgroundManager(nullptr)
-  , mMigrating(false)
-{}
+    : mID(aID),
+      mSize(aSize),
+      mContentManager(aManager),
+      mPBackgroundManager(nullptr),
+      mMigrating(false)
+{
+}
 
 IPCBlobInputStreamParent::IPCBlobInputStreamParent(const nsID& aID,
                                                    uint64_t aSize,
                                                    PBackgroundParent* aManager)
-  : mID(aID)
-  , mSize(aSize)
-  , mContentManager(nullptr)
-  , mPBackgroundManager(aManager)
-  , mMigrating(false)
-{}
+    : mID(aID),
+      mSize(aSize),
+      mContentManager(nullptr),
+      mPBackgroundManager(aManager),
+      mMigrating(false)
+{
+}
 
 void
 IPCBlobInputStreamParent::ActorDestroy(IProtocol::ActorDestroyReason aReason)
@@ -95,7 +102,7 @@ IPCBlobInputStreamParent::ActorDestroy(IProtocol::ActorDestroyReason aReason)
 
 void
 IPCBlobInputStreamParent::SetCallback(
-                                    IPCBlobInputStreamParentCallback* aCallback)
+    IPCBlobInputStreamParentCallback* aCallback)
 {
   MOZ_ASSERT(aCallback);
   MOZ_ASSERT(!mCallback);
@@ -109,7 +116,8 @@ IPCBlobInputStreamParent::RecvStreamNeeded()
   MOZ_ASSERT(mContentManager || mPBackgroundManager);
 
   nsCOMPtr<nsIInputStream> stream;
-  IPCBlobInputStreamStorage::Get()->GetStream(mID, 0, mSize, getter_AddRefs(stream));
+  IPCBlobInputStreamStorage::Get()->GetStream(
+      mID, 0, mSize, getter_AddRefs(stream));
   if (!stream) {
     if (!SendStreamReady(void_t())) {
       return IPC_FAIL(this, "SendStreamReady failed");
@@ -161,9 +169,10 @@ bool
 IPCBlobInputStreamParent::HasValidStream() const
 {
   nsCOMPtr<nsIInputStream> stream;
-  IPCBlobInputStreamStorage::Get()->GetStream(mID, 0, mSize, getter_AddRefs(stream));
+  IPCBlobInputStreamStorage::Get()->GetStream(
+      mID, 0, mSize, getter_AddRefs(stream));
   return !!stream;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

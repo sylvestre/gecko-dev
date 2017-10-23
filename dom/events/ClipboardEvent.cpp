@@ -15,8 +15,9 @@ namespace dom {
 ClipboardEvent::ClipboardEvent(EventTarget* aOwner,
                                nsPresContext* aPresContext,
                                InternalClipboardEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent : new InternalClipboardEvent(false, eVoidEvent))
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent : new InternalClipboardEvent(false, eVoidEvent))
 {
   if (aEvent) {
     mEventIsInternal = false;
@@ -49,7 +50,8 @@ ClipboardEvent::InitClipboardEvent(const nsAString& aType,
 }
 
 void
-ClipboardEvent::InitClipboardEvent(const nsAString& aType, bool aCanBubble,
+ClipboardEvent::InitClipboardEvent(const nsAString& aType,
+                                   bool aCanBubble,
                                    bool aCancelable,
                                    DataTransfer* aClipboardData)
 {
@@ -77,14 +79,14 @@ ClipboardEvent::Constructor(const GlobalObject& aGlobal,
       // support other types of events, make sure that read/write privileges are
       // checked properly within DataTransfer.
       clipboardData = new DataTransfer(ToSupports(e), eCopy, false, -1);
-      clipboardData->SetData(aParam.mDataType, aParam.mData,
-                             *aGlobal.GetSubjectPrincipal(), aRv);
+      clipboardData->SetData(
+          aParam.mDataType, aParam.mData, *aGlobal.GetSubjectPrincipal(), aRv);
       NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
     }
   }
 
-  e->InitClipboardEvent(aType, aParam.mBubbles, aParam.mCancelable,
-                        clipboardData);
+  e->InitClipboardEvent(
+      aType, aParam.mBubbles, aParam.mCancelable, clipboardData);
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
@@ -105,20 +107,20 @@ ClipboardEvent::GetClipboardData()
   if (!event->mClipboardData) {
     if (mEventIsInternal) {
       event->mClipboardData =
-        new DataTransfer(ToSupports(this), eCopy, false, -1);
+          new DataTransfer(ToSupports(this), eCopy, false, -1);
     } else {
-      event->mClipboardData =
-        new DataTransfer(ToSupports(this), event->mMessage,
-                         event->mMessage == ePaste,
-                         nsIClipboard::kGlobalClipboard);
+      event->mClipboardData = new DataTransfer(ToSupports(this),
+                                               event->mMessage,
+                                               event->mMessage == ePaste,
+                                               nsIClipboard::kGlobalClipboard);
     }
   }
 
   return event->mClipboardData;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -128,7 +130,6 @@ NS_NewDOMClipboardEvent(EventTarget* aOwner,
                         nsPresContext* aPresContext,
                         InternalClipboardEvent* aEvent)
 {
-  RefPtr<ClipboardEvent> it =
-    new ClipboardEvent(aOwner, aPresContext, aEvent);
+  RefPtr<ClipboardEvent> it = new ClipboardEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

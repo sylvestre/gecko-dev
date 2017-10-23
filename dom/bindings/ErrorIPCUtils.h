@@ -15,10 +15,13 @@
 namespace IPC {
 
 template<>
-struct ParamTraits<mozilla::dom::ErrNum> :
-  public ContiguousEnumSerializer<mozilla::dom::ErrNum,
-                                  mozilla::dom::ErrNum(0),
-                                  mozilla::dom::ErrNum(mozilla::dom::Err_Limit)> {};
+struct ParamTraits<mozilla::dom::ErrNum>
+    : public ContiguousEnumSerializer<mozilla::dom::ErrNum,
+                                      mozilla::dom::ErrNum(0),
+                                      mozilla::dom::ErrNum(
+                                          mozilla::dom::Err_Limit)>
+{
+};
 
 template<>
 struct ParamTraits<mozilla::ErrorResult>
@@ -31,13 +34,15 @@ struct ParamTraits<mozilla::ErrorResult>
     // true when we're expecting a JS exception.  We cannot send such messages
     // over the IPC channel since there is no sane way of transferring the JS
     // value over to the other side.  Callers should never do that.
-    MOZ_ASSERT_IF(aParam.IsJSException(), aParam.mMightHaveUnreportedJSException);
+    MOZ_ASSERT_IF(aParam.IsJSException(),
+                  aParam.mMightHaveUnreportedJSException);
     if (aParam.IsJSException()
 #ifdef DEBUG
         || aParam.mMightHaveUnreportedJSException
 #endif
-        ) {
-      MOZ_CRASH("Cannot encode an ErrorResult representing a Javascript exception");
+    ) {
+      MOZ_CRASH(
+          "Cannot encode an ErrorResult representing a Javascript exception");
     }
 
     WriteParam(aMsg, aParam.mResult);
@@ -50,7 +55,9 @@ struct ParamTraits<mozilla::ErrorResult>
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     paramType readValue;
     if (!ReadParam(aMsg, aIter, &readValue.mResult)) {
@@ -79,6 +86,6 @@ struct ParamTraits<mozilla::ErrorResult>
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
 #endif

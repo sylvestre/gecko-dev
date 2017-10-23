@@ -43,15 +43,16 @@
 namespace mozilla {
 
 // Must be contiguous starting at 0
-enum class ShutdownPhase {
+enum class ShutdownPhase
+{
   NotInShutdown = 0,
   WillShutdown,
   Shutdown,
   ShutdownThreads,
   ShutdownLoaders,
   ShutdownFinal,
-  ShutdownPhase_Length, // never pass this value
-  First = WillShutdown, // for iteration
+  ShutdownPhase_Length,  // never pass this value
+  First = WillShutdown,  // for iteration
   Last = ShutdownFinal
 };
 
@@ -59,21 +60,16 @@ namespace ClearOnShutdown_Internal {
 
 class ShutdownObserver : public LinkedListElement<ShutdownObserver>
 {
-public:
+ public:
   virtual void Shutdown() = 0;
-  virtual ~ShutdownObserver()
-  {
-  }
+  virtual ~ShutdownObserver() {}
 };
 
 template<class SmartPtr>
 class PointerClearer : public ShutdownObserver
 {
-public:
-  explicit PointerClearer(SmartPtr* aPtr)
-    : mPtr(aPtr)
-  {
-  }
+ public:
+  explicit PointerClearer(SmartPtr* aPtr) : mPtr(aPtr) {}
 
   virtual void Shutdown() override
   {
@@ -82,20 +78,22 @@ public:
     }
   }
 
-private:
+ private:
   SmartPtr* mPtr;
 };
 
 typedef LinkedList<ShutdownObserver> ShutdownList;
 extern Array<StaticAutoPtr<ShutdownList>,
-             static_cast<size_t>(ShutdownPhase::ShutdownPhase_Length)> sShutdownObservers;
+             static_cast<size_t>(ShutdownPhase::ShutdownPhase_Length)>
+    sShutdownObservers;
 extern ShutdownPhase sCurrentShutdownPhase;
 
-} // namespace ClearOnShutdown_Internal
+}  // namespace ClearOnShutdown_Internal
 
 template<class SmartPtr>
 inline void
-ClearOnShutdown(SmartPtr* aPtr, ShutdownPhase aPhase = ShutdownPhase::ShutdownFinal)
+ClearOnShutdown(SmartPtr* aPtr,
+                ShutdownPhase aPhase = ShutdownPhase::ShutdownFinal)
 {
   using namespace ClearOnShutdown_Internal;
 
@@ -103,7 +101,8 @@ ClearOnShutdown(SmartPtr* aPtr, ShutdownPhase aPhase = ShutdownPhase::ShutdownFi
   MOZ_ASSERT(aPhase != ShutdownPhase::ShutdownPhase_Length);
 
   // Adding a ClearOnShutdown for a "past" phase is an error.
-  if (!(static_cast<size_t>(sCurrentShutdownPhase) < static_cast<size_t>(aPhase))) {
+  if (!(static_cast<size_t>(sCurrentShutdownPhase) <
+        static_cast<size_t>(aPhase))) {
     MOZ_ASSERT(false, "ClearOnShutdown for phase that already was cleared");
     *aPtr = nullptr;
     return;
@@ -112,13 +111,15 @@ ClearOnShutdown(SmartPtr* aPtr, ShutdownPhase aPhase = ShutdownPhase::ShutdownFi
   if (!(sShutdownObservers[static_cast<size_t>(aPhase)])) {
     sShutdownObservers[static_cast<size_t>(aPhase)] = new ShutdownList();
   }
-  sShutdownObservers[static_cast<size_t>(aPhase)]->insertBack(new PointerClearer<SmartPtr>(aPtr));
+  sShutdownObservers[static_cast<size_t>(aPhase)]->insertBack(
+      new PointerClearer<SmartPtr>(aPtr));
 }
 
 // Called when XPCOM is shutting down, after all shutdown notifications have
 // been sent and after all threads' event loops have been purged.
-void KillClearOnShutdown(ShutdownPhase aPhase);
+void
+KillClearOnShutdown(ShutdownPhase aPhase);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

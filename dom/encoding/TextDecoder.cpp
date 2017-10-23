@@ -15,8 +15,7 @@ namespace mozilla {
 namespace dom {
 
 void
-TextDecoder::Init(const nsAString& aLabel, const bool aFatal,
-                  ErrorResult& aRv)
+TextDecoder::Init(const nsAString& aLabel, const bool aFatal, ErrorResult& aRv)
 {
   // Let encoding be the result of getting an encoding from label.
   // If encoding is failure or replacement, throw a RangeError
@@ -71,14 +70,14 @@ TextDecoder::Decode(Span<const uint8_t> aInput,
   bool hadErrors;
   if (mFatal) {
     Tie(result, read, written) = mDecoder->DecodeToUTF16WithoutReplacement(
-      aInput, aOutDecodedString, !aStream);
+        aInput, aOutDecodedString, !aStream);
     if (result != kInputEmpty) {
       aRv.ThrowTypeError<MSG_DOM_DECODING_FAILED>();
       return;
     }
   } else {
     Tie(result, read, written, hadErrors) =
-      mDecoder->DecodeToUTF16(aInput, aOutDecodedString, !aStream);
+        mDecoder->DecodeToUTF16(aInput, aOutDecodedString, !aStream);
   }
   MOZ_ASSERT(result == kInputEmpty);
   MOZ_ASSERT(read == aInput.Length());
@@ -130,5 +129,5 @@ TextDecoder::GetEncoding(nsAString& aEncoding)
   nsContentUtils::ASCIIToLower(aEncoding);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -20,14 +20,11 @@ class MPhi;
 class MIRGenerator;
 class MResumePoint;
 
-class ValueNumberer
-{
+class ValueNumberer {
     // Value numbering data.
-    class VisibleValues
-    {
+    class VisibleValues {
         // Hash policy for ValueSet.
-        struct ValueHasher
-        {
+        struct ValueHasher {
             typedef const MDefinition* Lookup;
             typedef MDefinition* Key;
             static HashNumber hash(Lookup ins);
@@ -37,9 +34,9 @@ class ValueNumberer
 
         typedef HashSet<MDefinition*, ValueHasher, JitAllocPolicy> ValueSet;
 
-        ValueSet set_;        // Set of visible values
+        ValueSet set_;  // Set of visible values
 
-      public:
+       public:
         explicit VisibleValues(TempAllocator& alloc);
         MOZ_MUST_USE bool init();
 
@@ -62,21 +59,18 @@ class ValueNumberer
 
     MIRGenerator* const mir_;
     MIRGraph& graph_;
-    VisibleValues values_;            // Numbered values
-    DefWorklist deadDefs_;            // Worklist for deleting values
-    BlockWorklist remainingBlocks_;   // Blocks remaining with fewer preds
-    MDefinition* nextDef_;            // The next definition; don't discard
-    size_t totalNumVisited_;          // The number of blocks visited
-    bool rerun_;                      // Should we run another GVN iteration?
-    bool blocksRemoved_;              // Have any blocks been removed?
-    bool updateAliasAnalysis_;        // Do we care about AliasAnalysis?
-    bool dependenciesBroken_;         // Have we broken AliasAnalysis?
-    bool hasOSRFixups_;               // Have we created any OSR fixup blocks?
+    VisibleValues values_;           // Numbered values
+    DefWorklist deadDefs_;           // Worklist for deleting values
+    BlockWorklist remainingBlocks_;  // Blocks remaining with fewer preds
+    MDefinition* nextDef_;           // The next definition; don't discard
+    size_t totalNumVisited_;         // The number of blocks visited
+    bool rerun_;                     // Should we run another GVN iteration?
+    bool blocksRemoved_;             // Have any blocks been removed?
+    bool updateAliasAnalysis_;       // Do we care about AliasAnalysis?
+    bool dependenciesBroken_;        // Have we broken AliasAnalysis?
+    bool hasOSRFixups_;              // Have we created any OSR fixup blocks?
 
-    enum UseRemovedOption {
-        DontSetUseRemoved,
-        SetUseRemoved
-    };
+    enum UseRemovedOption { DontSetUseRemoved, SetUseRemoved };
 
     MOZ_MUST_USE bool handleUseReleased(MDefinition* def, UseRemovedOption useRemovedOption);
     MOZ_MUST_USE bool discardDefsRecursively(MDefinition* def);
@@ -106,14 +100,11 @@ class ValueNumberer
     MOZ_MUST_USE bool insertOSRFixups();
     MOZ_MUST_USE bool cleanupOSRFixups();
 
-  public:
+   public:
     ValueNumberer(MIRGenerator* mir, MIRGraph& graph);
     MOZ_MUST_USE bool init();
 
-    enum UpdateAliasAnalysisFlag {
-        DontUpdateAliasAnalysis,
-        UpdateAliasAnalysis
-    };
+    enum UpdateAliasAnalysisFlag { DontUpdateAliasAnalysis, UpdateAliasAnalysis };
 
     // Optimize the graph, performing expression simplification and
     // canonicalization, eliminating statically fully-redundant expressions,
@@ -121,7 +112,7 @@ class ValueNumberer
     MOZ_MUST_USE bool run(UpdateAliasAnalysisFlag updateAliasAnalysis);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_ValueNumbering_h */

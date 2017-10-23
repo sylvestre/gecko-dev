@@ -14,12 +14,12 @@ namespace gfx {
 
 class SharedDIB
 {
-public:
+ public:
   typedef base::SharedMemoryHandle Handle;
 
   static const uint32_t kBytesPerPixel = 4;
 
-public:
+ public:
   SharedDIB();
   ~SharedDIB();
 
@@ -38,13 +38,13 @@ public:
   nsresult Attach(Handle aHandle, uint32_t aSize);
 
   // Returns a SharedMemoryHandle suitable for sharing with another process.
-  nsresult ShareToProcess(base::ProcessId aTargetPid, Handle *aNewHandle);
+  nsresult ShareToProcess(base::ProcessId aTargetPid, Handle* aNewHandle);
 
-protected:
-  base::SharedMemory *mShMem;
+ protected:
+  base::SharedMemory* mShMem;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif

@@ -18,10 +18,9 @@ class GMPVideoDecoderParent;
 class GMPVideoEncoderParent;
 class ChromiumCDMParent;
 
-class GMPContentParent final : public PGMPContentParent,
-                               public GMPSharedMem
+class GMPContentParent final : public PGMPContentParent, public GMPSharedMem
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPContentParent)
 
   explicit GMPContentParent(GMPParent* aParent = nullptr);
@@ -45,37 +44,26 @@ public:
   {
     mDisplayName = aDisplayName;
   }
-  const nsCString& GetDisplayName()
-  {
-    return mDisplayName;
-  }
-  void SetPluginId(const uint32_t aPluginId)
-  {
-    mPluginId = aPluginId;
-  }
-  uint32_t GetPluginId() const
-  {
-    return mPluginId;
-  }
+  const nsCString& GetDisplayName() { return mDisplayName; }
+  void SetPluginId(const uint32_t aPluginId) { mPluginId = aPluginId; }
+  uint32_t GetPluginId() const { return mPluginId; }
 
-  class CloseBlocker {
-  public:
+  class CloseBlocker
+  {
+   public:
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CloseBlocker)
 
-    explicit CloseBlocker(GMPContentParent* aParent)
-      : mParent(aParent)
+    explicit CloseBlocker(GMPContentParent* aParent) : mParent(aParent)
     {
       mParent->AddCloseBlocker();
     }
     RefPtr<GMPContentParent> mParent;
-  private:
-    ~CloseBlocker() {
-      mParent->RemoveCloseBlocker();
-    }
+
+   private:
+    ~CloseBlocker() { mParent->RemoveCloseBlocker(); }
   };
 
-private:
-
+ private:
   void AddCloseBlocker();
   void RemoveCloseBlocker();
 
@@ -83,7 +71,8 @@ private:
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  PGMPVideoDecoderParent* AllocPGMPVideoDecoderParent(const uint32_t& aDecryptorId) override;
+  PGMPVideoDecoderParent* AllocPGMPVideoDecoderParent(
+      const uint32_t& aDecryptorId) override;
   bool DeallocPGMPVideoDecoderParent(PGMPVideoDecoderParent* aActor) override;
 
   PGMPVideoEncoderParent* AllocPGMPVideoEncoderParent() override;
@@ -95,10 +84,7 @@ private:
   void CloseIfUnused();
   // Needed because NewRunnableMethod tried to use the class that the method
   // lives on to store the receiver, but PGMPContentParent isn't refcounted.
-  void Close()
-  {
-    PGMPContentParent::Close();
-  }
+  void Close() { PGMPContentParent::Close(); }
 
   nsTArray<RefPtr<GMPVideoDecoderParent>> mVideoDecoders;
   nsTArray<RefPtr<GMPVideoEncoderParent>> mVideoEncoders;
@@ -110,7 +96,7 @@ private:
   uint32_t mCloseBlockerCount = 0;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPParent_h_
+#endif  // GMPParent_h_

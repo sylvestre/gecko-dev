@@ -19,7 +19,7 @@ using namespace mozilla::dom;
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsDOMStringMap)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsDOMStringMap)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mElement)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mElement)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsDOMStringMap)
@@ -46,8 +46,7 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMStringMap)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMStringMap)
 
 nsDOMStringMap::nsDOMStringMap(Element* aElement)
-  : mElement(aElement),
-    mRemovingProp(false)
+    : mElement(aElement), mRemovingProp(false)
 {
   mElement->AddMutationObserver(this);
 }
@@ -64,13 +63,14 @@ nsDOMStringMap::~nsDOMStringMap()
 
 /* virtual */
 JSObject*
-nsDOMStringMap::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+nsDOMStringMap::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return DOMStringMapBinding::Wrap(cx, this, aGivenProto);
 }
 
 void
-nsDOMStringMap::NamedGetter(const nsAString& aProp, bool& found,
+nsDOMStringMap::NamedGetter(const nsAString& aProp,
+                            bool& found,
                             DOMString& aResult) const
 {
   nsAutoString attr;
@@ -151,8 +151,7 @@ nsDOMStringMap::GetSupportedNames(nsTArray<nsString>& aNames)
     }
 
     nsAutoString prop;
-    if (!AttrToDataProp(nsDependentAtomString(attrName->LocalName()),
-                        prop)) {
+    if (!AttrToDataProp(nsDependentAtomString(attrName->LocalName()), prop)) {
       continue;
     }
 
@@ -164,8 +163,8 @@ nsDOMStringMap::GetSupportedNames(nsTArray<nsString>& aNames)
  * Converts a dataset property name to the corresponding data attribute name.
  * (ex. aBigFish to data-a-big-fish).
  */
-bool nsDOMStringMap::DataPropToAttr(const nsAString& aProp,
-                                    nsAutoString& aResult)
+bool
+nsDOMStringMap::DataPropToAttr(const nsAString& aProp, nsAutoString& aResult)
 {
   // aResult is an autostring, so don't worry about setting its capacity:
   // SetCapacity is slow even when it's a no-op and we already have enough
@@ -182,8 +181,8 @@ bool nsDOMStringMap::DataPropToAttr(const nsAString& aProp,
   const char16_t* cur = start;
   for (; cur < end; ++cur) {
     const char16_t* next = cur + 1;
-    if (char16_t('-') == *cur && next < end &&
-        char16_t('a') <= *next && *next <= char16_t('z')) {
+    if (char16_t('-') == *cur && next < end && char16_t('a') <= *next &&
+        *next <= char16_t('z')) {
       // Syntax error if character following "-" is in range "a" to "z".
       return false;
     }
@@ -194,7 +193,7 @@ bool nsDOMStringMap::DataPropToAttr(const nsAString& aProp,
       // Uncamel-case characters in the range of "A" to "Z".
       aResult.Append(char16_t('-'));
       aResult.Append(*cur - 'A' + 'a');
-      start = next; // We've already appended the thing at *cur
+      start = next;  // We've already appended the thing at *cur
     }
   }
 
@@ -207,8 +206,8 @@ bool nsDOMStringMap::DataPropToAttr(const nsAString& aProp,
  * Converts a data attribute name to the corresponding dataset property name.
  * (ex. data-a-big-fish to aBigFish).
  */
-bool nsDOMStringMap::AttrToDataProp(const nsAString& aAttr,
-                                    nsAutoString& aResult)
+bool
+nsDOMStringMap::AttrToDataProp(const nsAString& aAttr, nsAutoString& aResult)
 {
   // If the attribute name does not begin with "data-" then it can not be
   // a data attribute.
@@ -229,8 +228,8 @@ bool nsDOMStringMap::AttrToDataProp(const nsAString& aAttr,
   // Otherwise append character to property name.
   for (; cur < end; ++cur) {
     const char16_t* next = cur + 1;
-    if (char16_t('-') == *cur && next < end &&
-        char16_t('a') <= *next && *next <= char16_t('z')) {
+    if (char16_t('-') == *cur && next < end && char16_t('a') <= *next &&
+        *next <= char16_t('z')) {
       // Upper case the lower case letters that follow a "-".
       aResult.Append(*next - 'a' + 'A');
       // Consume character to account for "-" character.
@@ -245,8 +244,10 @@ bool nsDOMStringMap::AttrToDataProp(const nsAString& aAttr,
 }
 
 void
-nsDOMStringMap::AttributeChanged(nsIDocument *aDocument, Element* aElement,
-                                 int32_t aNameSpaceID, nsAtom* aAttribute,
+nsDOMStringMap::AttributeChanged(nsIDocument* aDocument,
+                                 Element* aElement,
+                                 int32_t aNameSpaceID,
+                                 nsAtom* aAttribute,
                                  int32_t aModType,
                                  const nsAttrValue* aOldValue)
 {

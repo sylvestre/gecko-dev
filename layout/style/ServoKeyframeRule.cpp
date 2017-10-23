@@ -17,17 +17,16 @@ namespace mozilla {
 
 class ServoKeyframeDeclaration : public nsDOMCSSDeclaration
 {
-public:
-  explicit ServoKeyframeDeclaration(ServoKeyframeRule* aRule)
-    : mRule(aRule)
+ public:
+  explicit ServoKeyframeDeclaration(ServoKeyframeRule* aRule) : mRule(aRule)
   {
     mDecls = new ServoDeclarationBlock(
-      Servo_Keyframe_GetStyle(aRule->Raw()).Consume());
+        Servo_Keyframe_GetStyle(aRule->Raw()).Consume());
   }
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(
-    ServoKeyframeDeclaration, nsICSSDeclaration)
+      ServoKeyframeDeclaration, nsICSSDeclaration)
 
   NS_IMETHOD GetParentRule(nsIDOMCSSRule** aParent) final
   {
@@ -58,8 +57,9 @@ public:
   }
   void GetCSSParsingEnvironment(CSSParsingEnvironment& aCSSParseEnv) final
   {
-    MOZ_ASSERT_UNREACHABLE("GetCSSParsingEnvironment "
-                           "shouldn't be calling for a Servo rule");
+    MOZ_ASSERT_UNREACHABLE(
+        "GetCSSParsingEnvironment "
+        "shouldn't be calling for a Servo rule");
     GetCSSParsingEnvironmentForRule(mRule, aCSSParseEnv);
   }
   ServoCSSParsingEnvironment GetServoCSSParsingEnvironment() const final
@@ -80,7 +80,7 @@ public:
     return n;
   }
 
-private:
+ private:
   virtual ~ServoKeyframeDeclaration() {}
 
   ServoKeyframeRule* mRule;
@@ -100,9 +100,7 @@ NS_INTERFACE_MAP_END_INHERITING(nsDOMCSSDeclaration)
 // ServoKeyframeRule
 //
 
-ServoKeyframeRule::~ServoKeyframeRule()
-{
-}
+ServoKeyframeRule::~ServoKeyframeRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoKeyframeRule, dom::CSSKeyframeRule)
 NS_IMPL_RELEASE_INHERITED(ServoKeyframeRule, dom::CSSKeyframeRule)
@@ -182,9 +180,7 @@ NS_IMETHODIMP
 ServoKeyframeRule::SetKeyText(const nsAString& aKeyText)
 {
   NS_ConvertUTF16toUTF8 keyText(aKeyText);
-  UpdateRule([this, &keyText]() {
-    Servo_Keyframe_SetKeyText(mRaw, &keyText);
-  });
+  UpdateRule([this, &keyText]() { Servo_Keyframe_SetKeyText(mRaw, &keyText); });
   return NS_OK;
 }
 
@@ -213,4 +209,4 @@ ServoKeyframeRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
   return n;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

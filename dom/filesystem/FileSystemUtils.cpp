@@ -17,7 +17,7 @@ TokenizerIgnoreNothing(char16_t /* aChar */)
   return false;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 /* static */ bool
 FileSystemUtils::IsDescendantPath(const nsAString& aPath,
@@ -51,16 +51,15 @@ FileSystemUtils::IsValidRelativeDOMPath(const nsAString& aPath,
   NS_NAMED_LITERAL_STRING(kParentDir, "..");
 
   // Split path and check each path component.
-  nsCharSeparatedTokenizerTemplate<TokenizerIgnoreNothing>
-    tokenizer(aPath, FILESYSTEM_DOM_PATH_SEPARATOR_CHAR);
+  nsCharSeparatedTokenizerTemplate<TokenizerIgnoreNothing> tokenizer(
+      aPath, FILESYSTEM_DOM_PATH_SEPARATOR_CHAR);
 
   while (tokenizer.hasMoreTokens()) {
     nsDependentSubstring pathComponent = tokenizer.nextToken();
     // The path containing empty components, such as "foo//bar", is invalid.
     // We don't allow paths, such as "../foo", "foo/./bar" and "foo/../bar",
     // to walk up the directory.
-    if (pathComponent.IsEmpty() ||
-        pathComponent.Equals(kCurrentDir) ||
+    if (pathComponent.IsEmpty() || pathComponent.Equals(kCurrentDir) ||
         pathComponent.Equals(kParentDir)) {
       return false;
     }
@@ -94,5 +93,5 @@ FileSystemUtils::DispatchRunnable(nsIGlobalObject* aGlobal,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

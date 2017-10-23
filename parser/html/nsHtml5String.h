@@ -22,13 +22,13 @@ class nsHtml5TreeBuilder;
  */
 class nsHtml5String final
 {
-private:
-
+ private:
   static const uintptr_t kKindMask = uintptr_t(3);
 
   static const uintptr_t kPtrMask = ~kKindMask;
 
-  enum Kind : uintptr_t {
+  enum Kind : uintptr_t
+  {
     eNull = 0,
     eEmpty = 1,
     eStringBuffer = 2,
@@ -61,28 +61,22 @@ private:
     }
   }
 
-public:
+ public:
   /**
    * Default constructor.
    */
-  inline nsHtml5String()
-    : nsHtml5String(nullptr)
-  {
-  }
+  inline nsHtml5String() : nsHtml5String(nullptr) {}
 
   /**
    * Constructor from nullptr.
    */
-  inline MOZ_IMPLICIT nsHtml5String(decltype(nullptr))
-    : mBits(eNull)
-  {
-  }
+  inline MOZ_IMPLICIT nsHtml5String(decltype(nullptr)) : mBits(eNull) {}
 
   inline uint32_t Length() const
   {
     switch (GetKind()) {
       case eStringBuffer:
-        return (AsStringBuffer()->StorageSize()/sizeof(char16_t) - 1);
+        return (AsStringBuffer()->StorageSize() / sizeof(char16_t) - 1);
       case eAtom:
         return AsAtom()->GetLength();
       default:
@@ -135,12 +129,11 @@ public:
 
   static nsHtml5String EmptyString();
 
-private:
-
+ private:
   /**
    * Constructor from raw bits.
    */
-  explicit nsHtml5String(uintptr_t aBits) : mBits(aBits) {};
+  explicit nsHtml5String(uintptr_t aBits) : mBits(aBits){};
 
   /**
    * Zero if null, one if empty, otherwise tagged pointer
@@ -150,4 +143,4 @@ private:
   uintptr_t mBits;
 };
 
-#endif // nsHtml5String_h
+#endif  // nsHtml5String_h

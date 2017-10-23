@@ -15,25 +15,29 @@ namespace gfx {
 // from which it always returns SurfaceType::DATA.
 class DataSourceSurfaceWrapper : public DataSourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceWrapper, override)
-  explicit DataSourceSurfaceWrapper(DataSourceSurface *aSurface)
-   : mSurface(aSurface)
-  {}
+  explicit DataSourceSurfaceWrapper(DataSourceSurface* aSurface)
+      : mSurface(aSurface)
+  {
+  }
 
   virtual SurfaceType GetType() const override { return SurfaceType::DATA; }
 
-  virtual uint8_t *GetData() override { return mSurface->GetData(); }
+  virtual uint8_t* GetData() override { return mSurface->GetData(); }
   virtual int32_t Stride() override { return mSurface->Stride(); }
   virtual IntSize GetSize() const override { return mSurface->GetSize(); }
-  virtual SurfaceFormat GetFormat() const override { return mSurface->GetFormat(); }
+  virtual SurfaceFormat GetFormat() const override
+  {
+    return mSurface->GetFormat();
+  }
   virtual bool IsValid() const override { return mSurface->IsValid(); }
 
-private:
+ private:
   RefPtr<DataSourceSurface> mSurface;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_DATASOURCESURFACEWRAPPER_H_ */

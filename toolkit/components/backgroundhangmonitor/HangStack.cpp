@@ -6,8 +6,7 @@
 
 namespace mozilla {
 
-HangStack::HangStack(const HangStack& aOther)
-  : mModules(aOther.mModules)
+HangStack::HangStack(const HangStack& aOther) : mModules(aOther.mModules)
 {
   if (NS_WARN_IF(!mBuffer.reserve(aOther.mBuffer.length()) ||
                  !mImpl.reserve(aOther.mImpl.length()))) {
@@ -43,7 +42,7 @@ HangStack::InfallibleAppendViaBuffer(const char* aText, size_t aLength)
 
   const char* const entry = mBuffer.end();
   mBuffer.infallibleAppend(aText, aLength);
-  mBuffer.infallibleAppend('\0'); // Explicitly append null-terminator
+  mBuffer.infallibleAppend('\0');  // Explicitly append null-terminator
 
   this->infallibleAppend(Frame(entry));
 }
@@ -66,7 +65,7 @@ HangStack::AppendViaBuffer(const char* aText, size_t aLength)
 
   if (prevStart != mBuffer.begin()) {
     // The buffer has moved; we have to adjust pointers in the stack.
-    for (auto & frame : *this) {
+    for (auto& frame : *this) {
       if (frame.GetKind() == Frame::Kind::STRING) {
         const char*& entry = frame.AsString();
         if (entry >= prevStart && entry < prevEnd) {
@@ -85,16 +84,19 @@ namespace {
 
 // Sorting comparator used by ReadModuleInformation. Sorts PC Frames by their
 // PC.
-struct PCFrameComparator {
-  bool LessThan(HangStack::Frame* const& a, HangStack::Frame* const& b) const {
+struct PCFrameComparator
+{
+  bool LessThan(HangStack::Frame* const& a, HangStack::Frame* const& b) const
+  {
     return a->AsPC() < b->AsPC();
   }
-  bool Equals(HangStack::Frame* const& a, HangStack::Frame* const& b) const {
+  bool Equals(HangStack::Frame* const& a, HangStack::Frame* const& b) const
+  {
     return a->AsPC() == b->AsPC();
   }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 void
 HangStack::ReadModuleInformation()
@@ -133,7 +135,7 @@ HangStack::ReadModuleInformation()
       if (frame->AsPC() >= moduleStart) {
         uint64_t offset = frame->AsPC() - moduleStart;
         if (NS_WARN_IF(offset > UINT32_MAX)) {
-          continue; // module/offset can only hold 32-bit offsets into shared libraries.
+          continue;  // module/offset can only hold 32-bit offsets into shared libraries.
         }
 
         // If we found the module, rewrite the Frame entry to instead be a
@@ -142,41 +144,37 @@ HangStack::ReadModuleInformation()
         // that we do.
         moduleReferenced = true;
         uint32_t module = mModules.Length();
-        ModOffset modOffset = {
-          module,
-          static_cast<uint32_t>(offset)
-        };
+        ModOffset modOffset = {module, static_cast<uint32_t>(offset)};
         *frame = Frame(modOffset);
       }
     }
 
     if (moduleReferenced) {
       nsDependentCString cstr(info.GetBreakpadId().c_str());
-      Module module = {
-        info.GetDebugName(),
-        cstr
-      };
+      Module module = {info.GetDebugName(), cstr};
       mModules.AppendElement(module);
     }
   }
 #endif
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 namespace IPC {
 
 void
-ParamTraits<mozilla::HangStack::ModOffset>::Write(Message* aMsg, const mozilla::HangStack::ModOffset& aParam)
+ParamTraits<mozilla::HangStack::ModOffset>::Write(
+    Message* aMsg, const mozilla::HangStack::ModOffset& aParam)
 {
   WriteParam(aMsg, aParam.mModule);
   WriteParam(aMsg, aParam.mOffset);
 }
 
 bool
-ParamTraits<mozilla::HangStack::ModOffset>::Read(const Message* aMsg,
-                                                 PickleIterator* aIter,
-                                                 mozilla::HangStack::ModOffset* aResult)
+ParamTraits<mozilla::HangStack::ModOffset>::Read(
+    const Message* aMsg,
+    PickleIterator* aIter,
+    mozilla::HangStack::ModOffset* aResult)
 {
   if (!ReadParam(aMsg, aIter, &aResult->mModule)) {
     return false;
@@ -188,15 +186,18 @@ ParamTraits<mozilla::HangStack::ModOffset>::Read(const Message* aMsg,
 }
 
 void
-ParamTraits<mozilla::HangStack::Module>::Write(Message* aMsg, const mozilla::HangStack::Module& aParam)
+ParamTraits<mozilla::HangStack::Module>::Write(
+    Message* aMsg, const mozilla::HangStack::Module& aParam)
 {
   WriteParam(aMsg, aParam.mName);
   WriteParam(aMsg, aParam.mBreakpadId);
 }
 
 bool
-ParamTraits<mozilla::HangStack::Module>::Read(const Message* aMsg, PickleIterator* aIter,
-                                              mozilla::HangStack::Module* aResult)
+ParamTraits<mozilla::HangStack::Module>::Read(
+    const Message* aMsg,
+    PickleIterator* aIter,
+    mozilla::HangStack::Module* aResult)
 {
   if (!ReadParam(aMsg, aIter, &aResult->mName)) {
     return false;
@@ -208,7 +209,8 @@ ParamTraits<mozilla::HangStack::Module>::Read(const Message* aMsg, PickleIterato
 }
 
 void
-ParamTraits<mozilla::HangStack>::Write(Message* aMsg, const mozilla::HangStack& aParam)
+ParamTraits<mozilla::HangStack>::Write(Message* aMsg,
+                                       const mozilla::HangStack& aParam)
 {
   typedef mozilla::HangStack::Frame Frame;
 
@@ -322,4 +324,4 @@ ParamTraits<mozilla::HangStack>::Read(const Message* aMsg,
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC

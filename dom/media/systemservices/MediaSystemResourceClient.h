@@ -18,14 +18,14 @@ namespace mozilla {
 
 class MediaSystemResourceManager;
 
-
 /**
  * This is a base class for listener callbacks.
  * This callback is invoked when the media system resource reservation state
  * is changed.
  */
-class MediaSystemResourceReservationListener {
-public:
+class MediaSystemResourceReservationListener
+{
+ public:
   virtual void ResourceReserved() = 0;
   virtual void ResourceReserveFailed() = 0;
 };
@@ -37,10 +37,10 @@ public:
  */
 class MediaSystemResourceClient
 {
-public:
-
+ public:
   // Enumeration for the valid decoding states
-  enum ResourceState {
+  enum ResourceState
+  {
     RESOURCE_STATE_START,
     RESOURCE_STATE_WAITING,
     RESOURCE_STATE_ACQUIRED,
@@ -69,7 +69,7 @@ public:
 
   void ReleaseResource();
 
-private:
+ private:
   ~MediaSystemResourceClient();
 
   RefPtr<MediaSystemResourceManager> mManager;
@@ -89,6 +89,6 @@ private:
   friend class MediaSystemResourceManager;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

@@ -47,7 +47,8 @@ namespace testing {
 //  ...
 //  ASSERT_DEATH( ... some crash ...);
 //
-class DisableExceptionHandlerInScope {
+class DisableExceptionHandlerInScope
+{
  public:
   DisableExceptionHandlerInScope();
   ~DisableExceptionHandlerInScope();

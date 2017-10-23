@@ -46,11 +46,11 @@ namespace dom {
 class SVGSVGElement;
 class SVGViewportElement;
 
-static const unsigned short SVG_UNIT_TYPE_UNKNOWN           = 0;
-static const unsigned short SVG_UNIT_TYPE_USERSPACEONUSE    = 1;
+static const unsigned short SVG_UNIT_TYPE_UNKNOWN = 0;
+static const unsigned short SVG_UNIT_TYPE_USERSPACEONUSE = 1;
 static const unsigned short SVG_UNIT_TYPE_OBJECTBOUNDINGBOX = 2;
 
-} // namespace dom
+}  // namespace dom
 
 class SVGAnimatedNumberList;
 class SVGNumberList;
@@ -63,26 +63,29 @@ class nsSVGAnimatedTransformList;
 class SVGStringList;
 class DOMSVGStringList;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 struct nsSVGEnumMapping;
 
 typedef nsStyledElement nsSVGElementBase;
 
-class nsSVGElement : public nsSVGElementBase    // nsIContent
-                   , public nsIDOMSVGElement
+class nsSVGElement : public nsSVGElementBase  // nsIContent
+    ,
+                     public nsIDOMSVGElement
 {
-protected:
+ protected:
   explicit nsSVGElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
-  friend nsresult NS_NewSVGElement(mozilla::dom::Element **aResult,
-                                   already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+  friend nsresult NS_NewSVGElement(
+      mozilla::dom::Element** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
   nsresult Init();
   virtual ~nsSVGElement();
 
-public:
-
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
-                         bool aPreallocateChildren) const MOZ_MUST_OVERRIDE override;
+ public:
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
+                         bool aPreallocateChildren) const
+      MOZ_MUST_OVERRIDE override;
 
   typedef mozilla::SVGNumberList SVGNumberList;
   typedef mozilla::SVGAnimatedNumberList SVGAnimatedNumberList;
@@ -90,7 +93,8 @@ public:
   typedef mozilla::SVGAnimatedLengthList SVGAnimatedLengthList;
   typedef mozilla::SVGAnimatedPointList SVGAnimatedPointList;
   typedef mozilla::SVGAnimatedPathSegList SVGAnimatedPathSegList;
-  typedef mozilla::SVGAnimatedPreserveAspectRatio SVGAnimatedPreserveAspectRatio;
+  typedef mozilla::SVGAnimatedPreserveAspectRatio
+      SVGAnimatedPreserveAspectRatio;
   typedef mozilla::nsSVGAnimatedTransformList nsSVGAnimatedTransformList;
   typedef mozilla::SVGStringList SVGStringList;
 
@@ -101,11 +105,13 @@ public:
 
   // nsIContent interface methods
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
 
-  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID,
+                             nsAtom* aAttribute,
                              bool aNotify) override;
 
   virtual nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
@@ -172,24 +178,29 @@ public:
    * does not include any transforms due to the 'transform' attribute.
    */
   virtual gfxMatrix PrependLocalTransformsTo(
-    const gfxMatrix &aMatrix, SVGTransformTypes aWhich = eAllTransforms) const;
+      const gfxMatrix& aMatrix,
+      SVGTransformTypes aWhich = eAllTransforms) const;
 
   // Setter for to set the current <animateMotion> transformation
   // Only visible for nsSVGGraphicElement, so it's a no-op here, and that
   // subclass has the useful implementation.
-  virtual void SetAnimateMotionTransform(const mozilla::gfx::Matrix* aMatrix) {/*no-op*/}
-  virtual const mozilla::gfx::Matrix* GetAnimateMotionTransform() const { return nullptr; }
+  virtual void SetAnimateMotionTransform(const mozilla::gfx::Matrix* aMatrix)
+  { /*no-op*/}
+  virtual const mozilla::gfx::Matrix* GetAnimateMotionTransform() const
+  {
+    return nullptr;
+  }
 
-  bool IsStringAnimatable(uint8_t aAttrEnum) {
+  bool IsStringAnimatable(uint8_t aAttrEnum)
+  {
     return GetStringInfo().mStringInfo[aAttrEnum].mIsAnimatable;
   }
-  bool NumberAttrAllowsPercentage(uint8_t aAttrEnum) {
+  bool NumberAttrAllowsPercentage(uint8_t aAttrEnum)
+  {
     return GetNumberInfo().mNumberInfo[aAttrEnum].mPercentagesAllowed;
   }
-  virtual bool HasValidDimensions() const {
-    return true;
-  }
-  void SetLength(nsAtom* aName, const nsSVGLength2 &aLength);
+  virtual bool HasValidDimensions() const { return true; }
+  void SetLength(nsAtom* aName, const nsSVGLength2& aLength);
 
   nsAttrValue WillChangeLength(uint8_t aAttrEnum);
   nsAttrValue WillChangeNumberPair(uint8_t aAttrEnum);
@@ -246,7 +257,8 @@ public:
   void DidAnimateTransformList(int32_t aModType);
   void DidAnimateString(uint8_t aAttrEnum);
 
-  enum {
+  enum
+  {
     /**
      * Flag to indicate to GetAnimatedXxx() methods that the object being
      * requested should be allocated if it hasn't already been allocated, and
@@ -256,18 +268,17 @@ public:
     DO_ALLOCATE = 0x1
   };
 
-  nsSVGLength2* GetAnimatedLength(const nsAtom *aAttrName);
-  void GetAnimatedLengthValues(float *aFirst, ...);
-  void GetAnimatedNumberValues(float *aFirst, ...);
-  void GetAnimatedIntegerValues(int32_t *aFirst, ...);
+  nsSVGLength2* GetAnimatedLength(const nsAtom* aAttrName);
+  void GetAnimatedLengthValues(float* aFirst, ...);
+  void GetAnimatedNumberValues(float* aFirst, ...);
+  void GetAnimatedIntegerValues(int32_t* aFirst, ...);
   SVGAnimatedNumberList* GetAnimatedNumberList(uint8_t aAttrEnum);
-  SVGAnimatedNumberList* GetAnimatedNumberList(nsAtom *aAttrName);
-  void GetAnimatedLengthListValues(SVGUserUnitList *aFirst, ...);
+  SVGAnimatedNumberList* GetAnimatedNumberList(nsAtom* aAttrName);
+  void GetAnimatedLengthListValues(SVGUserUnitList* aFirst, ...);
   SVGAnimatedLengthList* GetAnimatedLengthList(uint8_t aAttrEnum);
-  virtual SVGAnimatedPointList* GetAnimatedPointList() {
-    return nullptr;
-  }
-  virtual SVGAnimatedPathSegList* GetAnimPathSegList() {
+  virtual SVGAnimatedPointList* GetAnimatedPointList() { return nullptr; }
+  virtual SVGAnimatedPathSegList* GetAnimPathSegList()
+  {
     // DOM interface 'SVGAnimatedPathData' (*inherited* by nsSVGPathElement)
     // has a member called 'animatedPathSegList' member, so we have a shorter
     // name so we don't get hidden by the GetAnimatedPathSegList declared by
@@ -287,7 +298,8 @@ public:
    * to return non-null must pass the DO_ALLOCATE flag.
    */
   virtual nsSVGAnimatedTransformList* GetAnimatedTransformList(
-                                                        uint32_t aFlags = 0) {
+      uint32_t aFlags = 0)
+  {
     return nullptr;
   }
 
@@ -301,15 +313,9 @@ public:
   void GetStringBaseValue(uint8_t aAttrEnum, nsAString& aResult) const;
   void SetStringBaseValue(uint8_t aAttrEnum, const nsAString& aValue);
 
-  virtual nsAtom* GetPointListAttrName() const {
-    return nullptr;
-  }
-  virtual nsAtom* GetPathDataAttrName() const {
-    return nullptr;
-  }
-  virtual nsAtom* GetTransformListAttrName() const {
-    return nullptr;
-  }
+  virtual nsAtom* GetPointListAttrName() const { return nullptr; }
+  virtual nsAtom* GetPathDataAttrName() const { return nullptr; }
+  virtual nsAtom* GetTransformListAttrName() const { return nullptr; }
   const nsAttrValue* GetAnimatedClassName() const
   {
     if (!mClassAttribute.IsAnimated()) {
@@ -328,13 +334,15 @@ public:
   already_AddRefed<mozilla::dom::SVGAnimatedString> ClassName();
 
   virtual bool IsSVGFocusable(bool* aIsFocusable, int32_t* aTabIndex);
-  virtual bool IsFocusableInternal(int32_t* aTabIndex, bool aWithMouse) override;
+  virtual bool IsFocusableInternal(int32_t* aTabIndex,
+                                   bool aWithMouse) override;
 
   void UpdateContentDeclarationBlock(mozilla::StyleBackendType aBackend);
   const mozilla::DeclarationBlock* GetContentDeclarationBlock() const;
 
-protected:
-  virtual JSObject* WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+ protected:
+  virtual JSObject* WrapNode(JSContext* cx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
 #ifdef DEBUG
   // We define BeforeSetAttr here and mark it final to ensure it is NOT used
@@ -342,20 +350,25 @@ protected:
   // This is because we're not currently passing the correct value for aValue to
   // BeforeSetAttr since it would involve allocating extra SVG value types.
   // See the comment in nsSVGElement::WillChangeValue.
-  virtual nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult BeforeSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override final
   {
-    return nsSVGElementBase::BeforeSetAttr(aNamespaceID, aName, aValue, aNotify);
+    return nsSVGElementBase::BeforeSetAttr(
+        aNamespaceID, aName, aValue, aNotify);
   }
-#endif // DEBUG
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+#endif  // DEBUG
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
-  virtual bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
-                                const nsAString& aValue, nsAttrValue& aResult) override;
+  virtual bool ParseAttribute(int32_t aNamespaceID,
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
   static nsresult ReportAttributeParseFailure(nsIDocument* aDocument,
                                               nsAtom* aAttribute,
                                               const nsAString& aValue);
@@ -363,198 +376,237 @@ protected:
   nsAttrValue WillChangeValue(nsAtom* aName);
   // aNewValue is set to the old value. This value may be invalid if
   // !StoresOwnData.
-  void DidChangeValue(nsAtom* aName, const nsAttrValue& aEmptyOrOldValue,
+  void DidChangeValue(nsAtom* aName,
+                      const nsAttrValue& aEmptyOrOldValue,
                       nsAttrValue& aNewValue);
   void MaybeSerializeAttrBeforeRemoval(nsAtom* aName, bool aNotify);
 
   static nsAtom* GetEventNameForAttr(nsAtom* aAttr);
 
-  struct LengthInfo {
+  struct LengthInfo
+  {
     nsAtom** mName;
-    float     mDefaultValue;
-    uint8_t   mDefaultUnitType;
-    uint8_t   mCtxType;
+    float mDefaultValue;
+    uint8_t mDefaultUnitType;
+    uint8_t mCtxType;
   };
 
-  struct LengthAttributesInfo {
+  struct LengthAttributesInfo
+  {
     nsSVGLength2* mLengths;
-    LengthInfo*   mLengthInfo;
-    uint32_t      mLengthCount;
+    LengthInfo* mLengthInfo;
+    uint32_t mLengthCount;
 
-    LengthAttributesInfo(nsSVGLength2 *aLengths,
-                         LengthInfo *aLengthInfo,
-                         uint32_t aLengthCount) :
-      mLengths(aLengths), mLengthInfo(aLengthInfo), mLengthCount(aLengthCount)
-      {}
+    LengthAttributesInfo(nsSVGLength2* aLengths,
+                         LengthInfo* aLengthInfo,
+                         uint32_t aLengthCount)
+        : mLengths(aLengths),
+          mLengthInfo(aLengthInfo),
+          mLengthCount(aLengthCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct NumberInfo {
+  struct NumberInfo
+  {
     nsAtom** mName;
-    float     mDefaultValue;
+    float mDefaultValue;
     bool mPercentagesAllowed;
   };
 
-  struct NumberAttributesInfo {
+  struct NumberAttributesInfo
+  {
     nsSVGNumber2* mNumbers;
-    NumberInfo*   mNumberInfo;
-    uint32_t      mNumberCount;
+    NumberInfo* mNumberInfo;
+    uint32_t mNumberCount;
 
-    NumberAttributesInfo(nsSVGNumber2 *aNumbers,
-                         NumberInfo *aNumberInfo,
-                         uint32_t aNumberCount) :
-      mNumbers(aNumbers), mNumberInfo(aNumberInfo), mNumberCount(aNumberCount)
-      {}
+    NumberAttributesInfo(nsSVGNumber2* aNumbers,
+                         NumberInfo* aNumberInfo,
+                         uint32_t aNumberCount)
+        : mNumbers(aNumbers),
+          mNumberInfo(aNumberInfo),
+          mNumberCount(aNumberCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct NumberPairInfo {
+  struct NumberPairInfo
+  {
     nsAtom** mName;
-    float     mDefaultValue1;
-    float     mDefaultValue2;
+    float mDefaultValue1;
+    float mDefaultValue2;
   };
 
-  struct NumberPairAttributesInfo {
+  struct NumberPairAttributesInfo
+  {
     nsSVGNumberPair* mNumberPairs;
-    NumberPairInfo*  mNumberPairInfo;
-    uint32_t         mNumberPairCount;
+    NumberPairInfo* mNumberPairInfo;
+    uint32_t mNumberPairCount;
 
-    NumberPairAttributesInfo(nsSVGNumberPair *aNumberPairs,
-                             NumberPairInfo *aNumberPairInfo,
-                             uint32_t aNumberPairCount) :
-      mNumberPairs(aNumberPairs), mNumberPairInfo(aNumberPairInfo),
-      mNumberPairCount(aNumberPairCount)
-      {}
+    NumberPairAttributesInfo(nsSVGNumberPair* aNumberPairs,
+                             NumberPairInfo* aNumberPairInfo,
+                             uint32_t aNumberPairCount)
+        : mNumberPairs(aNumberPairs),
+          mNumberPairInfo(aNumberPairInfo),
+          mNumberPairCount(aNumberPairCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct IntegerInfo {
+  struct IntegerInfo
+  {
     nsAtom** mName;
-    int32_t   mDefaultValue;
+    int32_t mDefaultValue;
   };
 
-  struct IntegerAttributesInfo {
+  struct IntegerAttributesInfo
+  {
     nsSVGInteger* mIntegers;
-    IntegerInfo*  mIntegerInfo;
-    uint32_t      mIntegerCount;
+    IntegerInfo* mIntegerInfo;
+    uint32_t mIntegerCount;
 
-    IntegerAttributesInfo(nsSVGInteger *aIntegers,
-                          IntegerInfo *aIntegerInfo,
-                          uint32_t aIntegerCount) :
-      mIntegers(aIntegers), mIntegerInfo(aIntegerInfo), mIntegerCount(aIntegerCount)
-      {}
+    IntegerAttributesInfo(nsSVGInteger* aIntegers,
+                          IntegerInfo* aIntegerInfo,
+                          uint32_t aIntegerCount)
+        : mIntegers(aIntegers),
+          mIntegerInfo(aIntegerInfo),
+          mIntegerCount(aIntegerCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct IntegerPairInfo {
+  struct IntegerPairInfo
+  {
     nsAtom** mName;
-    int32_t   mDefaultValue1;
-    int32_t   mDefaultValue2;
+    int32_t mDefaultValue1;
+    int32_t mDefaultValue2;
   };
 
-  struct IntegerPairAttributesInfo {
+  struct IntegerPairAttributesInfo
+  {
     nsSVGIntegerPair* mIntegerPairs;
-    IntegerPairInfo*  mIntegerPairInfo;
-    uint32_t          mIntegerPairCount;
+    IntegerPairInfo* mIntegerPairInfo;
+    uint32_t mIntegerPairCount;
 
-    IntegerPairAttributesInfo(nsSVGIntegerPair *aIntegerPairs,
-                              IntegerPairInfo *aIntegerPairInfo,
-                              uint32_t aIntegerPairCount) :
-      mIntegerPairs(aIntegerPairs), mIntegerPairInfo(aIntegerPairInfo),
-      mIntegerPairCount(aIntegerPairCount)
-      {}
+    IntegerPairAttributesInfo(nsSVGIntegerPair* aIntegerPairs,
+                              IntegerPairInfo* aIntegerPairInfo,
+                              uint32_t aIntegerPairCount)
+        : mIntegerPairs(aIntegerPairs),
+          mIntegerPairInfo(aIntegerPairInfo),
+          mIntegerPairCount(aIntegerPairCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct AngleInfo {
+  struct AngleInfo
+  {
     nsAtom** mName;
-    float     mDefaultValue;
-    uint8_t   mDefaultUnitType;
+    float mDefaultValue;
+    uint8_t mDefaultUnitType;
   };
 
-  struct AngleAttributesInfo {
+  struct AngleAttributesInfo
+  {
     nsSVGAngle* mAngles;
-    AngleInfo*  mAngleInfo;
-    uint32_t    mAngleCount;
+    AngleInfo* mAngleInfo;
+    uint32_t mAngleCount;
 
-    AngleAttributesInfo(nsSVGAngle *aAngles,
-                        AngleInfo *aAngleInfo,
-                        uint32_t aAngleCount) :
-      mAngles(aAngles), mAngleInfo(aAngleInfo), mAngleCount(aAngleCount)
-      {}
+    AngleAttributesInfo(nsSVGAngle* aAngles,
+                        AngleInfo* aAngleInfo,
+                        uint32_t aAngleCount)
+        : mAngles(aAngles), mAngleInfo(aAngleInfo), mAngleCount(aAngleCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct BooleanInfo {
-    nsAtom**    mName;
+  struct BooleanInfo
+  {
+    nsAtom** mName;
     bool mDefaultValue;
   };
 
-  struct BooleanAttributesInfo {
+  struct BooleanAttributesInfo
+  {
     nsSVGBoolean* mBooleans;
-    BooleanInfo*  mBooleanInfo;
-    uint32_t      mBooleanCount;
+    BooleanInfo* mBooleanInfo;
+    uint32_t mBooleanCount;
 
-    BooleanAttributesInfo(nsSVGBoolean *aBooleans,
-                          BooleanInfo *aBooleanInfo,
-                          uint32_t aBooleanCount) :
-      mBooleans(aBooleans), mBooleanInfo(aBooleanInfo), mBooleanCount(aBooleanCount)
-      {}
+    BooleanAttributesInfo(nsSVGBoolean* aBooleans,
+                          BooleanInfo* aBooleanInfo,
+                          uint32_t aBooleanCount)
+        : mBooleans(aBooleans),
+          mBooleanInfo(aBooleanInfo),
+          mBooleanCount(aBooleanCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
   friend class nsSVGEnum;
 
-  struct EnumInfo {
-    nsAtom**         mName;
+  struct EnumInfo
+  {
+    nsAtom** mName;
     nsSVGEnumMapping* mMapping;
-    uint16_t          mDefaultValue;
+    uint16_t mDefaultValue;
   };
 
-  struct EnumAttributesInfo {
+  struct EnumAttributesInfo
+  {
     nsSVGEnum* mEnums;
-    EnumInfo*  mEnumInfo;
-    uint32_t   mEnumCount;
+    EnumInfo* mEnumInfo;
+    uint32_t mEnumCount;
 
-    EnumAttributesInfo(nsSVGEnum *aEnums,
-                       EnumInfo *aEnumInfo,
-                       uint32_t aEnumCount) :
-      mEnums(aEnums), mEnumInfo(aEnumInfo), mEnumCount(aEnumCount)
-      {}
+    EnumAttributesInfo(nsSVGEnum* aEnums,
+                       EnumInfo* aEnumInfo,
+                       uint32_t aEnumCount)
+        : mEnums(aEnums), mEnumInfo(aEnumInfo), mEnumCount(aEnumCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct NumberListInfo {
+  struct NumberListInfo
+  {
     nsAtom** mName;
   };
 
-  struct NumberListAttributesInfo {
+  struct NumberListAttributesInfo
+  {
     SVGAnimatedNumberList* mNumberLists;
-    NumberListInfo*        mNumberListInfo;
-    uint32_t               mNumberListCount;
+    NumberListInfo* mNumberListInfo;
+    uint32_t mNumberListCount;
 
-    NumberListAttributesInfo(SVGAnimatedNumberList *aNumberLists,
-                             NumberListInfo *aNumberListInfo,
+    NumberListAttributesInfo(SVGAnimatedNumberList* aNumberLists,
+                             NumberListInfo* aNumberListInfo,
                              uint32_t aNumberListCount)
-      : mNumberLists(aNumberLists)
-      , mNumberListInfo(aNumberListInfo)
-      , mNumberListCount(aNumberListCount)
-    {}
+        : mNumberLists(aNumberLists),
+          mNumberListInfo(aNumberListInfo),
+          mNumberListCount(aNumberListCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct LengthListInfo {
+  struct LengthListInfo
+  {
     nsAtom** mName;
-    uint8_t   mAxis;
+    uint8_t mAxis;
     /**
      * Flag to indicate whether appending zeros to the end of the list would
      * change the rendering of the SVG for the attribute in question. For x and
@@ -566,59 +618,70 @@ protected:
     bool mCouldZeroPadList;
   };
 
-  struct LengthListAttributesInfo {
+  struct LengthListAttributesInfo
+  {
     SVGAnimatedLengthList* mLengthLists;
-    LengthListInfo*        mLengthListInfo;
-    uint32_t               mLengthListCount;
+    LengthListInfo* mLengthListInfo;
+    uint32_t mLengthListCount;
 
-    LengthListAttributesInfo(SVGAnimatedLengthList *aLengthLists,
-                             LengthListInfo *aLengthListInfo,
+    LengthListAttributesInfo(SVGAnimatedLengthList* aLengthLists,
+                             LengthListInfo* aLengthListInfo,
                              uint32_t aLengthListCount)
-      : mLengthLists(aLengthLists)
-      , mLengthListInfo(aLengthListInfo)
-      , mLengthListCount(aLengthListCount)
-    {}
+        : mLengthLists(aLengthLists),
+          mLengthListInfo(aLengthListInfo),
+          mLengthListCount(aLengthListCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
-  struct StringInfo {
-    nsAtom**    mName;
-    int32_t      mNamespaceID;
+  struct StringInfo
+  {
+    nsAtom** mName;
+    int32_t mNamespaceID;
     bool mIsAnimatable;
   };
 
-  struct StringAttributesInfo {
-    nsSVGString*  mStrings;
-    StringInfo*   mStringInfo;
-    uint32_t      mStringCount;
+  struct StringAttributesInfo
+  {
+    nsSVGString* mStrings;
+    StringInfo* mStringInfo;
+    uint32_t mStringCount;
 
-    StringAttributesInfo(nsSVGString *aStrings,
-                         StringInfo *aStringInfo,
-                         uint32_t aStringCount) :
-      mStrings(aStrings), mStringInfo(aStringInfo), mStringCount(aStringCount)
-      {}
+    StringAttributesInfo(nsSVGString* aStrings,
+                         StringInfo* aStringInfo,
+                         uint32_t aStringCount)
+        : mStrings(aStrings),
+          mStringInfo(aStringInfo),
+          mStringCount(aStringCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
 
   friend class mozilla::DOMSVGStringList;
 
-  struct StringListInfo {
-    nsAtom**    mName;
+  struct StringListInfo
+  {
+    nsAtom** mName;
   };
 
-  struct StringListAttributesInfo {
-    SVGStringList*    mStringLists;
-    StringListInfo*   mStringListInfo;
-    uint32_t          mStringListCount;
+  struct StringListAttributesInfo
+  {
+    SVGStringList* mStringLists;
+    StringListInfo* mStringListInfo;
+    uint32_t mStringListCount;
 
-    StringListAttributesInfo(SVGStringList  *aStringLists,
-                             StringListInfo *aStringListInfo,
-                             uint32_t aStringListCount) :
-      mStringLists(aStringLists), mStringListInfo(aStringListInfo),
-      mStringListCount(aStringListCount)
-      {}
+    StringListAttributesInfo(SVGStringList* aStringLists,
+                             StringListInfo* aStringListInfo,
+                             uint32_t aStringListCount)
+        : mStringLists(aStringLists),
+          mStringListInfo(aStringListInfo),
+          mStringListCount(aStringListCount)
+    {
+    }
 
     void Reset(uint8_t aAttrEnum);
   };
@@ -633,8 +696,8 @@ protected:
   virtual EnumAttributesInfo GetEnumInfo();
   // We assume all viewboxes and preserveAspectRatios are alike
   // so we don't need to wrap the class
-  virtual nsSVGViewBox *GetViewBox();
-  virtual SVGAnimatedPreserveAspectRatio *GetPreserveAspectRatio();
+  virtual nsSVGViewBox* GetViewBox();
+  virtual SVGAnimatedPreserveAspectRatio* GetPreserveAspectRatio();
   virtual NumberListAttributesInfo GetNumberListInfo();
   virtual LengthListAttributesInfo GetLengthListInfo();
   virtual StringAttributesInfo GetStringInfo();
@@ -642,8 +705,9 @@ protected:
 
   static nsSVGEnumMapping sSVGUnitTypesMap[];
 
-private:
-  void UnsetAttrInternal(int32_t aNameSpaceID, nsAtom* aAttribute,
+ private:
+  void UnsetAttrInternal(int32_t aNameSpaceID,
+                         nsAtom* aAttribute,
                          bool aNotify);
 
   nsSVGClass mClassAttribute;
@@ -654,83 +718,83 @@ private:
 /**
  * A macro to implement the NS_NewSVGXXXElement() functions.
  */
-#define NS_IMPL_NS_NEW_SVG_ELEMENT(_elementName)                             \
-nsresult                                                                     \
-NS_NewSVG##_elementName##Element(nsIContent **aResult,                       \
-                                 already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)  \
-{                                                                            \
-  RefPtr<nsSVG##_elementName##Element> it =                                \
-    new nsSVG##_elementName##Element(aNodeInfo);                             \
-                                                                             \
-  nsresult rv = it->Init();                                                  \
-                                                                             \
-  if (NS_FAILED(rv)) {                                                       \
-    return rv;                                                               \
-  }                                                                          \
-                                                                             \
-  it.forget(aResult);                                                        \
-                                                                             \
-  return rv;                                                                 \
-}
+#define NS_IMPL_NS_NEW_SVG_ELEMENT(_elementName)            \
+  nsresult NS_NewSVG##_elementName##Element(                \
+      nsIContent** aResult,                                 \
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo) \
+  {                                                         \
+    RefPtr<nsSVG##_elementName##Element> it =               \
+        new nsSVG##_elementName##Element(aNodeInfo);        \
+                                                            \
+    nsresult rv = it->Init();                               \
+                                                            \
+    if (NS_FAILED(rv)) {                                    \
+      return rv;                                            \
+    }                                                       \
+                                                            \
+    it.forget(aResult);                                     \
+                                                            \
+    return rv;                                              \
+  }
 
-#define NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(_elementName)                  \
-nsresult                                                                     \
-NS_NewSVG##_elementName##Element(nsIContent **aResult,                       \
-                                 already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)  \
-{                                                                            \
-  RefPtr<mozilla::dom::SVG##_elementName##Element> it =                    \
-    new mozilla::dom::SVG##_elementName##Element(aNodeInfo);                 \
-                                                                             \
-  nsresult rv = it->Init();                                                  \
-                                                                             \
-  if (NS_FAILED(rv)) {                                                       \
-    return rv;                                                               \
-  }                                                                          \
-                                                                             \
-  it.forget(aResult);                                                        \
-                                                                             \
-  return rv;                                                                 \
-}
+#define NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(_elementName)      \
+  nsresult NS_NewSVG##_elementName##Element(                     \
+      nsIContent** aResult,                                      \
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)      \
+  {                                                              \
+    RefPtr<mozilla::dom::SVG##_elementName##Element> it =        \
+        new mozilla::dom::SVG##_elementName##Element(aNodeInfo); \
+                                                                 \
+    nsresult rv = it->Init();                                    \
+                                                                 \
+    if (NS_FAILED(rv)) {                                         \
+      return rv;                                                 \
+    }                                                            \
+                                                                 \
+    it.forget(aResult);                                          \
+                                                                 \
+    return rv;                                                   \
+  }
 
-#define NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT_CHECK_PARSER(_elementName)     \
-nsresult                                                                     \
-NS_NewSVG##_elementName##Element(nsIContent **aResult,                       \
-                                 already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,  \
-                                 mozilla::dom::FromParser aFromParser)       \
-{                                                                            \
-  RefPtr<mozilla::dom::SVG##_elementName##Element> it =                    \
-    new mozilla::dom::SVG##_elementName##Element(aNodeInfo, aFromParser);    \
-                                                                             \
-  nsresult rv = it->Init();                                                  \
-                                                                             \
-  if (NS_FAILED(rv)) {                                                       \
-    return rv;                                                               \
-  }                                                                          \
-                                                                             \
-  it.forget(aResult);                                                        \
-                                                                             \
-  return rv;                                                                 \
-}
+#define NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT_CHECK_PARSER(_elementName)      \
+  nsresult NS_NewSVG##_elementName##Element(                                  \
+      nsIContent** aResult,                                                   \
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,                   \
+      mozilla::dom::FromParser aFromParser)                                   \
+  {                                                                           \
+    RefPtr<mozilla::dom::SVG##_elementName##Element> it =                     \
+        new mozilla::dom::SVG##_elementName##Element(aNodeInfo, aFromParser); \
+                                                                              \
+    nsresult rv = it->Init();                                                 \
+                                                                              \
+    if (NS_FAILED(rv)) {                                                      \
+      return rv;                                                              \
+    }                                                                         \
+                                                                              \
+    it.forget(aResult);                                                       \
+                                                                              \
+    return rv;                                                                \
+  }
 
 // No unlinking, we'd need to null out the value pointer (the object it
 // points to is held by the element) and null-check it everywhere.
-#define NS_SVG_VAL_IMPL_CYCLE_COLLECTION(_val, _element)                     \
-NS_IMPL_CYCLE_COLLECTION_CLASS(_val)                                         \
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_val)                                \
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_element) \
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END                                        \
-NS_IMPL_CYCLE_COLLECTION_UNLINK_0(_val)
+#define NS_SVG_VAL_IMPL_CYCLE_COLLECTION(_val, _element) \
+  NS_IMPL_CYCLE_COLLECTION_CLASS(_val)                   \
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_val)          \
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_element)          \
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END                  \
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_0(_val)
 
-#define NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(_val, _element)       \
-NS_IMPL_CYCLE_COLLECTION_CLASS(_val)                                         \
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_val)                                  \
-NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER                            \
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                          \
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_val)                                \
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_element)                                \
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END                                        \
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(_val)                                   \
-NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER                             \
-NS_IMPL_CYCLE_COLLECTION_TRACE_END
+#define NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(_val, _element) \
+  NS_IMPL_CYCLE_COLLECTION_CLASS(_val)                                 \
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(_val)                          \
+    NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER                  \
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_END                                  \
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(_val)                        \
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(_element)                        \
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END                                \
+  NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(_val)                           \
+    NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER                   \
+  NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-#endif // __NS_SVGELEMENT_H__
+#endif  // __NS_SVGELEMENT_H__

@@ -14,23 +14,20 @@ namespace mozilla {
 namespace dom {
 
 const double HTMLProgressElement::kIndeterminatePosition = -1.0;
-const double HTMLProgressElement::kDefaultValue          =  0.0;
-const double HTMLProgressElement::kDefaultMax            =  1.0;
+const double HTMLProgressElement::kDefaultValue = 0.0;
+const double HTMLProgressElement::kDefaultMax = 1.0;
 
-
-HTMLProgressElement::HTMLProgressElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLProgressElement::HTMLProgressElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
   // We start out indeterminate
   AddStatesSilently(NS_EVENT_STATE_INDETERMINATE);
 }
 
-HTMLProgressElement::~HTMLProgressElement()
-{
-}
+HTMLProgressElement::~HTMLProgressElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLProgressElement)
-
 
 EventStates
 HTMLProgressElement::IntrinsicState() const
@@ -45,8 +42,10 @@ HTMLProgressElement::IntrinsicState() const
 }
 
 bool
-HTMLProgressElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
-                                    const nsAString& aValue, nsAttrValue& aResult)
+HTMLProgressElement::ParseAttribute(int32_t aNamespaceID,
+                                    nsAtom* aAttribute,
+                                    const nsAString& aValue,
+                                    nsAttrValue& aResult)
 {
   if (aNamespaceID == kNameSpaceID_None) {
     if (aAttribute == nsGkAtoms::value || aAttribute == nsGkAtoms::max) {
@@ -54,8 +53,8 @@ HTMLProgressElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute,
-                                              aValue, aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 double
@@ -105,5 +104,5 @@ HTMLProgressElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLProgressElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

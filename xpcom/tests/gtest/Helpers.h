@@ -22,7 +22,9 @@ void
 CreateData(uint32_t aNumBytes, nsTArray<char>& aDataOut);
 
 void
-Write(nsIOutputStream* aStream, const nsTArray<char>& aData, uint32_t aOffset,
+Write(nsIOutputStream* aStream,
+      const nsTArray<char>& aData,
+      uint32_t aOffset,
       uint32_t aNumBytes);
 
 void
@@ -38,36 +40,38 @@ ConsumeAndValidateStream(nsIInputStream* aStream,
 
 class OutputStreamCallback final : public nsIOutputStreamCallback
 {
-public:
+ public:
   OutputStreamCallback();
 
   bool Called() const { return mCalled; }
 
-private:
+ private:
   ~OutputStreamCallback();
 
   bool mCalled;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOUTPUTSTREAMCALLBACK
 };
 
 class InputStreamCallback final : public nsIInputStreamCallback
 {
-public:
+ public:
   InputStreamCallback();
 
   bool Called() const { return mCalled; }
 
-private:
+ private:
   ~InputStreamCallback();
 
   bool mCalled;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIINPUTSTREAMCALLBACK
 };
 
-} // namespace testing
+}  // namespace testing
 
-#endif // __Helpers_h
+#endif  // __Helpers_h

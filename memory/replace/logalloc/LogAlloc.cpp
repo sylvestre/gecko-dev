@@ -29,12 +29,14 @@ static bool sStdoutOrStderr = false;
 static Lock sLock;
 
 static void
-prefork() {
+prefork()
+{
   sLock.Acquire();
 }
 
 static void
-postfork() {
+postfork()
+{
   sLock.Release();
 }
 
@@ -56,17 +58,17 @@ GetTid()
 
 #ifdef ANDROID
 /* See mozglue/android/APKOpen.cpp */
-extern "C" MOZ_EXPORT __attribute__((weak))
-void* __dso_handle;
+extern "C" MOZ_EXPORT __attribute__((weak)) void* __dso_handle;
 
 /* Android doesn't have pthread_atfork defined in pthread.h */
-extern "C" MOZ_EXPORT
-int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
+extern "C" MOZ_EXPORT int
+pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
 #endif
 
 class LogAllocBridge : public ReplaceMallocBridge
 {
-  virtual void InitDebugFd(mozilla::DebugFdRegistry& aRegistry) override {
+  virtual void InitDebugFd(mozilla::DebugFdRegistry& aRegistry) override
+  {
     if (!sStdoutOrStderr) {
       aRegistry.RegisterHandle(sFd);
     }
@@ -117,7 +119,7 @@ replace_init(const malloc_table_t* aTable)
   char* log = getenv("MALLOC_LOG");
   if (log && *log) {
     int fd = 0;
-    const char *fd_num = log;
+    const char* fd_num = log;
     while (*fd_num) {
       /* Reject non digits. */
       if (*fd_num < '0' || *fd_num > '9') {
@@ -141,9 +143,13 @@ replace_init(const malloc_table_t* aTable)
     if (fd > 0) {
       handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
     } else {
-      handle = CreateFileA(log, FILE_APPEND_DATA, FILE_SHARE_READ |
-                           FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
-                           FILE_ATTRIBUTE_NORMAL, nullptr);
+      handle = CreateFileA(log,
+                           FILE_APPEND_DATA,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr,
+                           OPEN_ALWAYS,
+                           FILE_ATTRIBUTE_NORMAL,
+                           nullptr);
     }
     if (handle != INVALID_HANDLE_VALUE) {
       sFd = reinterpret_cast<intptr_t>(handle);
@@ -189,8 +195,13 @@ replace_posix_memalign(void** aPtr, size_t aAlignment, size_t aSize)
   AutoLock lock(sLock);
   int ret = sFuncs->posix_memalign(aPtr, aAlignment, aSize);
   if (ret == 0) {
-    FdPrintf(sFd, "%zu %zu posix_memalign(%zu,%zu)=%p\n", GetPid(), GetTid(),
-             aAlignment, aSize, *aPtr);
+    FdPrintf(sFd,
+             "%zu %zu posix_memalign(%zu,%zu)=%p\n",
+             GetPid(),
+             GetTid(),
+             aAlignment,
+             aSize,
+             *aPtr);
   }
   return ret;
 }
@@ -201,8 +212,13 @@ replace_aligned_alloc(size_t aAlignment, size_t aSize)
   AutoLock lock(sLock);
   void* ptr = sFuncs->aligned_alloc(aAlignment, aSize);
   if (ptr) {
-    FdPrintf(sFd, "%zu %zu aligned_alloc(%zu,%zu)=%p\n", GetPid(), GetTid(),
-             aAlignment, aSize, ptr);
+    FdPrintf(sFd,
+             "%zu %zu aligned_alloc(%zu,%zu)=%p\n",
+             GetPid(),
+             GetTid(),
+             aAlignment,
+             aSize,
+             ptr);
   }
   return ptr;
 }
@@ -214,8 +230,13 @@ replace_calloc(size_t aNum, size_t aSize)
   AutoLock lock(sLock);
   void* ptr = sFuncs->calloc(aNum, aSize);
   if (ptr) {
-    FdPrintf(sFd, "%zu %zu calloc(%zu,%zu)=%p\n", GetPid(), GetTid(), aNum,
-             aSize, ptr);
+    FdPrintf(sFd,
+             "%zu %zu calloc(%zu,%zu)=%p\n",
+             GetPid(),
+             GetTid(),
+             aNum,
+             aSize,
+             ptr);
   }
   return ptr;
 }
@@ -226,8 +247,13 @@ replace_realloc(void* aPtr, size_t aSize)
   AutoLock lock(sLock);
   void* new_ptr = sFuncs->realloc(aPtr, aSize);
   if (new_ptr || !aSize) {
-    FdPrintf(sFd, "%zu %zu realloc(%p,%zu)=%p\n", GetPid(), GetTid(), aPtr,
-             aSize, new_ptr);
+    FdPrintf(sFd,
+             "%zu %zu realloc(%p,%zu)=%p\n",
+             GetPid(),
+             GetTid(),
+             aPtr,
+             aSize,
+             new_ptr);
   }
   return new_ptr;
 }
@@ -248,8 +274,13 @@ replace_memalign(size_t aAlignment, size_t aSize)
   AutoLock lock(sLock);
   void* ptr = sFuncs->memalign(aAlignment, aSize);
   if (ptr) {
-    FdPrintf(sFd, "%zu %zu memalign(%zu,%zu)=%p\n", GetPid(), GetTid(),
-             aAlignment, aSize, ptr);
+    FdPrintf(sFd,
+             "%zu %zu memalign(%zu,%zu)=%p\n",
+             GetPid(),
+             GetTid(),
+             aAlignment,
+             aSize,
+             ptr);
   }
   return ptr;
 }

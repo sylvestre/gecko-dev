@@ -13,16 +13,17 @@ class nsMIMEInfoBase;
 class nsGNOMERegistry
 {
  public:
-  static bool HandlerExists(const char *aProtocolScheme);
+  static bool HandlerExists(const char* aProtocolScheme);
 
-  static nsresult LoadURL(nsIURI *aURL);
+  static nsresult LoadURL(nsIURI* aURL);
 
-  static void GetAppDescForScheme(const nsACString& aScheme,
-                                  nsAString& aDesc);
+  static void GetAppDescForScheme(const nsACString& aScheme, nsAString& aDesc);
 
-  static already_AddRefed<nsMIMEInfoBase> GetFromExtension(const nsACString& aFileExt);
+  static already_AddRefed<nsMIMEInfoBase> GetFromExtension(
+      const nsACString& aFileExt);
 
-  static already_AddRefed<nsMIMEInfoBase> GetFromType(const nsACString& aMIMEType);
+  static already_AddRefed<nsMIMEInfoBase> GetFromType(
+      const nsACString& aMIMEType);
 };
 
-#endif // nsGNOMERegistry_h
+#endif  // nsGNOMERegistry_h

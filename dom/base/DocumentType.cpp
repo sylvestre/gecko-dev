@@ -20,22 +20,24 @@
 
 nsresult
 NS_NewDOMDocumentType(nsIDOMDocumentType** aDocType,
-                      nsNodeInfoManager *aNodeInfoManager,
-                      nsAtom *aName,
+                      nsNodeInfoManager* aNodeInfoManager,
+                      nsAtom* aName,
                       const nsAString& aPublicId,
                       const nsAString& aSystemId,
                       const nsAString& aInternalSubset)
 {
   NS_ENSURE_ARG_POINTER(aDocType);
   mozilla::ErrorResult rv;
-  *aDocType = NS_NewDOMDocumentType(aNodeInfoManager, aName, aPublicId,
-                                    aSystemId, aInternalSubset, rv).take();
+  *aDocType =
+      NS_NewDOMDocumentType(
+          aNodeInfoManager, aName, aPublicId, aSystemId, aInternalSubset, rv)
+          .take();
   return rv.StealNSResult();
 }
 
 already_AddRefed<mozilla::dom::DocumentType>
 NS_NewDOMDocumentType(nsNodeInfoManager* aNodeInfoManager,
-                      nsAtom *aName,
+                      nsAtom* aName,
                       const nsAString& aPublicId,
                       const nsAString& aSystemId,
                       const nsAString& aInternalSubset,
@@ -47,13 +49,14 @@ NS_NewDOMDocumentType(nsNodeInfoManager* aNodeInfoManager,
   }
 
   already_AddRefed<mozilla::dom::NodeInfo> ni =
-    aNodeInfoManager->GetNodeInfo(nsGkAtoms::documentTypeNodeName, nullptr,
-                                  kNameSpaceID_None,
-                                  nsIDOMNode::DOCUMENT_TYPE_NODE,
-                                  aName);
+      aNodeInfoManager->GetNodeInfo(nsGkAtoms::documentTypeNodeName,
+                                    nullptr,
+                                    kNameSpaceID_None,
+                                    nsIDOMNode::DOCUMENT_TYPE_NODE,
+                                    aName);
 
   RefPtr<mozilla::dom::DocumentType> docType =
-    new mozilla::dom::DocumentType(ni, aPublicId, aSystemId, aInternalSubset);
+      new mozilla::dom::DocumentType(ni, aPublicId, aSystemId, aInternalSubset);
   return docType.forget();
 }
 
@@ -61,7 +64,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-DocumentType::WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+DocumentType::WrapNode(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return DocumentTypeBinding::Wrap(cx, this, aGivenProto);
 }
@@ -69,21 +72,21 @@ DocumentType::WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
 DocumentType::DocumentType(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
                            const nsAString& aPublicId,
                            const nsAString& aSystemId,
-                           const nsAString& aInternalSubset) :
-  DocumentTypeForward(aNodeInfo),
-  mPublicId(aPublicId),
-  mSystemId(aSystemId),
-  mInternalSubset(aInternalSubset)
+                           const nsAString& aInternalSubset)
+    : DocumentTypeForward(aNodeInfo),
+      mPublicId(aPublicId),
+      mSystemId(aSystemId),
+      mInternalSubset(aInternalSubset)
 {
   MOZ_ASSERT(mNodeInfo->NodeType() == nsIDOMNode::DOCUMENT_TYPE_NODE,
              "Bad NodeType in aNodeInfo");
 }
 
-DocumentType::~DocumentType()
-{
-}
+DocumentType::~DocumentType() {}
 
-NS_IMPL_ISUPPORTS_INHERITED(DocumentType, nsGenericDOMDataNode, nsIDOMNode,
+NS_IMPL_ISUPPORTS_INHERITED(DocumentType,
+                            nsGenericDOMDataNode,
+                            nsIDOMNode,
                             nsIDOMDocumentType)
 
 bool
@@ -133,12 +136,13 @@ DocumentType::GetInternalSubset(nsAString& aInternalSubset)
 }
 
 nsGenericDOMDataNode*
-DocumentType::CloneDataNode(mozilla::dom::NodeInfo *aNodeInfo, bool aCloneText) const
+DocumentType::CloneDataNode(mozilla::dom::NodeInfo* aNodeInfo,
+                            bool aCloneText) const
 {
-  already_AddRefed<mozilla::dom::NodeInfo> ni = RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();
+  already_AddRefed<mozilla::dom::NodeInfo> ni =
+      RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();
   return new DocumentType(ni, mPublicId, mSystemId, mInternalSubset);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

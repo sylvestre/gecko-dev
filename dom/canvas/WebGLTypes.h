@@ -17,8 +17,8 @@ typedef bool WebGLboolean;
 
 namespace mozilla {
 namespace gl {
-class GLContext; // This is going to be needed a lot.
-} // namespace gl
+class GLContext;  // This is going to be needed a lot.
+}  // namespace gl
 
 /*
  * WebGLTextureFakeBlackStatus is an enum to track what needs to use a dummy 1x1 black
@@ -41,10 +41,11 @@ class GLContext; // This is going to be needed a lot.
  *       depending on whether the image format has alpha.
  */
 
-enum class FakeBlackType : uint8_t {
-    None,
-    RGBA0001, // Incomplete textures and uninitialized no-alpha color textures.
-    RGBA0000, // Uninitialized with-alpha color textures.
+enum class FakeBlackType : uint8_t
+{
+  None,
+  RGBA0001,  // Incomplete textures and uninitialized no-alpha color textures.
+  RGBA0000,  // Uninitialized with-alpha color textures.
 };
 
 /*
@@ -53,10 +54,11 @@ enum class FakeBlackType : uint8_t {
  * OpenGL ES 2.0 allows drawing without vertex attrib 0 array enabled, but
  * desktop OpenGL does not allow that.
  */
-enum class WebGLVertexAttrib0Status : uint8_t {
-    Default, // default status - no emulation needed
-    EmulatedUninitializedArray, // need an artificial attrib 0 array, but contents may be left uninitialized
-    EmulatedInitializedArray // need an artificial attrib 0 array, and contents must be initialized
+enum class WebGLVertexAttrib0Status : uint8_t
+{
+  Default,  // default status - no emulation needed
+  EmulatedUninitializedArray,  // need an artificial attrib 0 array, but contents may be left uninitialized
+  EmulatedInitializedArray  // need an artificial attrib 0 array, and contents must be initialized
 };
 
 /*
@@ -69,10 +71,11 @@ enum class WebGLVertexAttrib0Status : uint8_t {
  *   initialized. It is the state that renderbuffers are in after a renderbufferStorage call,
  *   and it is the state that texture images are in after a texImage2D call with null data.
  */
-enum class WebGLImageDataStatus : uint8_t {
-    NoImageData,
-    UninitializedImageData,
-    InitializedImageData
+enum class WebGLImageDataStatus : uint8_t
+{
+  NoImageData,
+  UninitializedImageData,
+  InitializedImageData
 };
 
 /*
@@ -83,141 +86,142 @@ enum class WebGLImageDataStatus : uint8_t {
  *  - additional source formats, depending on browser details, used when uploading
  *    textures from DOM elements. See gfxImageSurface::Format().
  */
-enum class WebGLTexelFormat : uint8_t {
-    // returned by SurfaceFromElementResultToImageSurface to indicate absence of image data
-    None,
-    // common value for formats for which format conversions are not supported
-    FormatNotSupportingAnyConversion,
-    // dummy pseudo-format meaning "use the other format".
-    // For example, if SrcFormat=Auto and DstFormat=RGB8, then the source
-    // is implicitly treated as being RGB8 itself.
-    Auto,
-    // 1-channel formats
-    A8,
-    A16F, // OES_texture_half_float
-    A32F, // OES_texture_float
-    R8,
-    R16F, // OES_texture_half_float
-    R32F, // OES_texture_float
-    // 2-channel formats
-    RA8,
-    RA16F, // OES_texture_half_float
-    RA32F, // OES_texture_float
-    RG8,
-    RG16F,
-    RG32F,
-    // 3-channel formats
-    RGB8,
-    RGB565,
-    RGB11F11F10F,
-    RGB16F, // OES_texture_half_float
-    RGB32F, // OES_texture_float
-    // 4-channel formats
-    RGBA8,
-    RGBA5551,
-    RGBA4444,
-    RGBA16F, // OES_texture_half_float
-    RGBA32F, // OES_texture_float
-    // DOM element source only formats.
-    RGBX8,
-    BGRX8,
-    BGRA8
+enum class WebGLTexelFormat : uint8_t
+{
+  // returned by SurfaceFromElementResultToImageSurface to indicate absence of image data
+  None,
+  // common value for formats for which format conversions are not supported
+  FormatNotSupportingAnyConversion,
+  // dummy pseudo-format meaning "use the other format".
+  // For example, if SrcFormat=Auto and DstFormat=RGB8, then the source
+  // is implicitly treated as being RGB8 itself.
+  Auto,
+  // 1-channel formats
+  A8,
+  A16F,  // OES_texture_half_float
+  A32F,  // OES_texture_float
+  R8,
+  R16F,  // OES_texture_half_float
+  R32F,  // OES_texture_float
+  // 2-channel formats
+  RA8,
+  RA16F,  // OES_texture_half_float
+  RA32F,  // OES_texture_float
+  RG8,
+  RG16F,
+  RG32F,
+  // 3-channel formats
+  RGB8,
+  RGB565,
+  RGB11F11F10F,
+  RGB16F,  // OES_texture_half_float
+  RGB32F,  // OES_texture_float
+  // 4-channel formats
+  RGBA8,
+  RGBA5551,
+  RGBA4444,
+  RGBA16F,  // OES_texture_half_float
+  RGBA32F,  // OES_texture_float
+  // DOM element source only formats.
+  RGBX8,
+  BGRX8,
+  BGRA8
 };
 
-enum class WebGLTexImageFunc : uint8_t {
-    TexImage,
-    TexSubImage,
-    CopyTexImage,
-    CopyTexSubImage,
-    CompTexImage,
-    CompTexSubImage,
+enum class WebGLTexImageFunc : uint8_t
+{
+  TexImage,
+  TexSubImage,
+  CopyTexImage,
+  CopyTexSubImage,
+  CompTexImage,
+  CompTexSubImage,
 };
 
-enum class WebGLTexDimensions : uint8_t {
-    Tex2D,
-    Tex3D
+enum class WebGLTexDimensions : uint8_t
+{
+  Tex2D,
+  Tex3D
 };
 
 // Please keep extensions in alphabetic order.
-enum class WebGLExtensionID : uint8_t {
-    ANGLE_instanced_arrays,
-    EXT_blend_minmax,
-    EXT_color_buffer_float,
-    EXT_color_buffer_half_float,
-    EXT_frag_depth,
-    EXT_sRGB,
-    EXT_shader_texture_lod,
-    EXT_texture_filter_anisotropic,
-    EXT_disjoint_timer_query,
-    MOZ_debug,
-    OES_element_index_uint,
-    OES_standard_derivatives,
-    OES_texture_float,
-    OES_texture_float_linear,
-    OES_texture_half_float,
-    OES_texture_half_float_linear,
-    OES_vertex_array_object,
-    WEBGL_color_buffer_float,
-    WEBGL_compressed_texture_astc,
-    WEBGL_compressed_texture_atc,
-    WEBGL_compressed_texture_etc,
-    WEBGL_compressed_texture_etc1,
-    WEBGL_compressed_texture_pvrtc,
-    WEBGL_compressed_texture_s3tc,
-    WEBGL_compressed_texture_s3tc_srgb,
-    WEBGL_debug_renderer_info,
-    WEBGL_debug_shaders,
-    WEBGL_depth_texture,
-    WEBGL_draw_buffers,
-    WEBGL_lose_context,
-    Max,
-    Unknown
+enum class WebGLExtensionID : uint8_t
+{
+  ANGLE_instanced_arrays,
+  EXT_blend_minmax,
+  EXT_color_buffer_float,
+  EXT_color_buffer_half_float,
+  EXT_frag_depth,
+  EXT_sRGB,
+  EXT_shader_texture_lod,
+  EXT_texture_filter_anisotropic,
+  EXT_disjoint_timer_query,
+  MOZ_debug,
+  OES_element_index_uint,
+  OES_standard_derivatives,
+  OES_texture_float,
+  OES_texture_float_linear,
+  OES_texture_half_float,
+  OES_texture_half_float_linear,
+  OES_vertex_array_object,
+  WEBGL_color_buffer_float,
+  WEBGL_compressed_texture_astc,
+  WEBGL_compressed_texture_atc,
+  WEBGL_compressed_texture_etc,
+  WEBGL_compressed_texture_etc1,
+  WEBGL_compressed_texture_pvrtc,
+  WEBGL_compressed_texture_s3tc,
+  WEBGL_compressed_texture_s3tc_srgb,
+  WEBGL_debug_renderer_info,
+  WEBGL_debug_shaders,
+  WEBGL_depth_texture,
+  WEBGL_draw_buffers,
+  WEBGL_lose_context,
+  Max,
+  Unknown
 };
 
 class UniqueBuffer
 {
-    // Like UniquePtr<>, but for void* and malloc/calloc/free.
-    void* mBuffer;
+  // Like UniquePtr<>, but for void* and malloc/calloc/free.
+  void* mBuffer;
 
-public:
-    UniqueBuffer()
-        : mBuffer(nullptr)
-    { }
+ public:
+  UniqueBuffer() : mBuffer(nullptr) {}
 
-    MOZ_IMPLICIT UniqueBuffer(void* buffer)
-        : mBuffer(buffer)
-    { }
+  MOZ_IMPLICIT UniqueBuffer(void* buffer) : mBuffer(buffer) {}
 
-    ~UniqueBuffer() {
-        free(mBuffer);
-    }
+  ~UniqueBuffer() { free(mBuffer); }
 
-    UniqueBuffer(UniqueBuffer&& other) {
-        this->mBuffer = other.mBuffer;
-        other.mBuffer = nullptr;
-    }
+  UniqueBuffer(UniqueBuffer&& other)
+  {
+    this->mBuffer = other.mBuffer;
+    other.mBuffer = nullptr;
+  }
 
-    UniqueBuffer& operator =(UniqueBuffer&& other) {
-        free(this->mBuffer);
-        this->mBuffer = other.mBuffer;
-        other.mBuffer = nullptr;
-        return *this;
-    }
+  UniqueBuffer& operator=(UniqueBuffer&& other)
+  {
+    free(this->mBuffer);
+    this->mBuffer = other.mBuffer;
+    other.mBuffer = nullptr;
+    return *this;
+  }
 
-    UniqueBuffer& operator =(void* newBuffer) {
-        free(this->mBuffer);
-        this->mBuffer = newBuffer;
-        return *this;
-    }
+  UniqueBuffer& operator=(void* newBuffer)
+  {
+    free(this->mBuffer);
+    this->mBuffer = newBuffer;
+    return *this;
+  }
 
-    explicit operator bool() const { return bool(mBuffer); }
+  explicit operator bool() const { return bool(mBuffer); }
 
-    void* get() const { return mBuffer; }
+  void* get() const { return mBuffer; }
 
-    UniqueBuffer(const UniqueBuffer& other) = delete; // construct using Move()!
-    void operator =(const UniqueBuffer& other) = delete; // assign using Move()!
+  UniqueBuffer(const UniqueBuffer& other) = delete;  // construct using Move()!
+  void operator=(const UniqueBuffer& other) = delete;  // assign using Move()!
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

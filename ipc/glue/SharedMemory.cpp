@@ -21,22 +21,29 @@ class ShmemReporter final : public nsIMemoryReporter
 {
   ~ShmemReporter() {}
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   NS_IMETHOD
-  CollectReports(nsIHandleReportCallback* aHandleReport, nsISupports* aData,
+  CollectReports(nsIHandleReportCallback* aHandleReport,
+                 nsISupports* aData,
                  bool aAnonymize) override
   {
     MOZ_COLLECT_REPORT(
-      "shmem-allocated", KIND_OTHER, UNITS_BYTES, gShmemAllocated,
-      "Memory shared with other processes that is accessible (but not "
-      "necessarily mapped).");
+        "shmem-allocated",
+        KIND_OTHER,
+        UNITS_BYTES,
+        gShmemAllocated,
+        "Memory shared with other processes that is accessible (but not "
+        "necessarily mapped).");
 
     MOZ_COLLECT_REPORT(
-      "shmem-mapped", KIND_OTHER, UNITS_BYTES, gShmemMapped,
-      "Memory shared with other processes that is mapped into the address "
-      "space.");
+        "shmem-mapped",
+        KIND_OTHER,
+        UNITS_BYTES,
+        gShmemMapped,
+        "Memory shared with other processes that is mapped into the address "
+        "space.");
 
     return NS_OK;
   }
@@ -44,9 +51,7 @@ public:
 
 NS_IMPL_ISUPPORTS(ShmemReporter, nsIMemoryReporter)
 
-SharedMemory::SharedMemory()
-  : mAllocSize(0)
-  , mMappedSize(0)
+SharedMemory::SharedMemory() : mAllocSize(0), mMappedSize(0)
 {
   static Atomic<bool> registered;
   if (registered.compareExchange(false, true)) {
@@ -79,8 +84,7 @@ SharedMemory::Mapped(size_t aNBytes)
 void
 SharedMemory::Unmapped()
 {
-  MOZ_ASSERT(gShmemMapped >= mMappedSize,
-             "Can't unmap more than mapped");
+  MOZ_ASSERT(gShmemMapped >= mMappedSize, "Can't unmap more than mapped");
   gShmemMapped -= mMappedSize;
   mMappedSize = 0;
 }
@@ -94,5 +98,5 @@ SharedMemory::Destroyed()
   mAllocSize = 0;
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

@@ -12,7 +12,7 @@
 // This is mapped to the cubeb_device_info.
 class AudioDeviceInfo final : public nsIAudioDeviceInfo
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIAUDIODEVICEINFO
 
@@ -31,7 +31,7 @@ public:
                            uint32_t aMaxLatency,
                            uint32_t aMinLatency);
 
-private:
+ private:
   virtual ~AudioDeviceInfo() = default;
 
   nsString mName;
@@ -50,4 +50,4 @@ private:
   uint32_t mMinLatency;
 };
 
-#endif // MOZILLA_AudioDeviceInfo_H
+#endif  // MOZILLA_AudioDeviceInfo_H

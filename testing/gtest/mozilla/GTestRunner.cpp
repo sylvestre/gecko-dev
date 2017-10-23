@@ -29,33 +29,41 @@ namespace mozilla {
 // See gtest.h for method documentation
 class MozillaPrinter : public EmptyTestEventListener
 {
-public:
-  virtual void OnTestProgramStart(const UnitTest& /* aUnitTest */) override {
+ public:
+  virtual void OnTestProgramStart(const UnitTest& /* aUnitTest */) override
+  {
     printf("TEST-INFO | GTest unit test starting\n");
   }
-  virtual void OnTestProgramEnd(const UnitTest& aUnitTest) override {
+  virtual void OnTestProgramEnd(const UnitTest& aUnitTest) override
+  {
     printf("TEST-%s | GTest unit test: %s\n",
            aUnitTest.Passed() ? "PASS" : "UNEXPECTED-FAIL",
            aUnitTest.Passed() ? "passed" : "failed");
     printf("Passed: %d\n", aUnitTest.successful_test_count());
     printf("Failed: %d\n", aUnitTest.failed_test_count());
   }
-  virtual void OnTestStart(const TestInfo& aTestInfo) override {
+  virtual void OnTestStart(const TestInfo& aTestInfo) override
+  {
     mTestInfo = &aTestInfo;
-    printf("TEST-START | %s.%s\n",
-        mTestInfo->test_case_name(), mTestInfo->name());
+    printf(
+        "TEST-START | %s.%s\n", mTestInfo->test_case_name(), mTestInfo->name());
   }
-  virtual void OnTestPartResult(const TestPartResult& aTestPartResult) override {
+  virtual void OnTestPartResult(const TestPartResult& aTestPartResult) override
+  {
     printf("TEST-%s | %s.%s | %s @ %s:%i\n",
            !aTestPartResult.failed() ? "PASS" : "UNEXPECTED-FAIL",
-           mTestInfo ? mTestInfo->test_case_name() : "?", mTestInfo ? mTestInfo->name() : "?",
+           mTestInfo ? mTestInfo->test_case_name() : "?",
+           mTestInfo ? mTestInfo->name() : "?",
            aTestPartResult.summary(),
-           aTestPartResult.file_name(), aTestPartResult.line_number());
+           aTestPartResult.file_name(),
+           aTestPartResult.line_number());
   }
-  virtual void OnTestEnd(const TestInfo& aTestInfo) override {
+  virtual void OnTestEnd(const TestInfo& aTestInfo) override
+  {
     printf("TEST-%s | %s.%s | test completed (time: %llims)\n",
-           aTestInfo.result()->Passed() ? "PASS": "UNEXPECTED-FAIL",
-           aTestInfo.test_case_name(), aTestInfo.name(),
+           aTestInfo.result()->Passed() ? "PASS" : "UNEXPECTED-FAIL",
+           aTestInfo.test_case_name(),
+           aTestInfo.name(),
            aTestInfo.result()->elapsed_time());
     MOZ_ASSERT(&aTestInfo == mTestInfo);
     mTestInfo = nullptr;
@@ -64,7 +72,8 @@ public:
   const TestInfo* mTestInfo;
 };
 
-static void ReplaceGTestLogger()
+static void
+ReplaceGTestLogger()
 {
   // Replace the GTest logger so that it can be passed
   // by the mozilla test parsers.
@@ -76,7 +85,8 @@ static void ReplaceGTestLogger()
   listeners.Append(new MozillaPrinter);
 }
 
-int RunGTestFunc(int* argc, char** argv)
+int
+RunGTestFunc(int* argc, char** argv)
 {
   InitGoogleTest(argc, argv);
 
@@ -93,7 +103,7 @@ int RunGTestFunc(int* argc, char** argv)
 #endif
 #ifdef MOZ_CRASHREPORTER
   nsCOMPtr<nsICrashReporter> crashreporter;
-  char *crashreporterStr = PR_GetEnv("MOZ_CRASHREPORTER");
+  char* crashreporterStr = PR_GetEnv("MOZ_CRASHREPORTER");
   if (crashreporterStr && !strcmp(crashreporterStr, "1")) {
     //TODO: move this to an even-more-common location to use in all
     // C++ unittests
@@ -104,9 +114,8 @@ int RunGTestFunc(int* argc, char** argv)
       nsCOMPtr<nsIProperties> dirsvc =
           do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
       nsCOMPtr<nsIFile> cwd;
-      nsresult rv = dirsvc->Get(NS_OS_CURRENT_WORKING_DIR,
-                       NS_GET_IID(nsIFile),
-                       getter_AddRefs(cwd));
+      nsresult rv = dirsvc->Get(
+          NS_OS_CURRENT_WORKING_DIR, NS_GET_IID(nsIFile), getter_AddRefs(cwd));
       MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
       crashreporter->SetEnabled(true);
       crashreporter->SetMinidumpPath(cwd);
@@ -121,11 +130,10 @@ int RunGTestFunc(int* argc, char** argv)
 // RunGTest is initialized to nullptr but if GTest (this file)
 // is linked in then RunGTest will be set here indicating
 // GTest is supported.
-class _InitRunGTest {
-public:
-  _InitRunGTest() {
-    RunGTest = RunGTestFunc;
-  }
+class _InitRunGTest
+{
+ public:
+  _InitRunGTest() { RunGTest = RunGTestFunc; }
 } InitRunGTest;
 
-} // namespace mozilla
+}  // namespace mozilla

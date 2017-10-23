@@ -29,9 +29,7 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMMatrixReadOnly, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMMatrixReadOnly, Release)
 
 already_AddRefed<DOMMatrix>
-DOMMatrixReadOnly::Translate(double aTx,
-                             double aTy,
-                             double aTz) const
+DOMMatrixReadOnly::Translate(double aTx, double aTy, double aTz) const
 {
   RefPtr<DOMMatrix> retval = new DOMMatrix(mParent, *this);
   retval->TranslateSelf(aTx, aTy, aTz);
@@ -40,9 +38,7 @@ DOMMatrixReadOnly::Translate(double aTx,
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrixReadOnly::Scale(double aScale,
-                         double aOriginX,
-                         double aOriginY) const
+DOMMatrixReadOnly::Scale(double aScale, double aOriginX, double aOriginY) const
 {
   RefPtr<DOMMatrix> retval = new DOMMatrix(mParent, *this);
   retval->ScaleSelf(aScale, aOriginX, aOriginY);
@@ -71,15 +67,14 @@ DOMMatrixReadOnly::ScaleNonUniform(double aScaleX,
                                    double aOriginZ) const
 {
   RefPtr<DOMMatrix> retval = new DOMMatrix(mParent, *this);
-  retval->ScaleNonUniformSelf(aScaleX, aScaleY, aScaleZ, aOriginX, aOriginY, aOriginZ);
+  retval->ScaleNonUniformSelf(
+      aScaleX, aScaleY, aScaleZ, aOriginX, aOriginY, aOriginZ);
 
   return retval.forget();
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrixReadOnly::Rotate(double aAngle,
-                          double aOriginX ,
-                          double aOriginY) const
+DOMMatrixReadOnly::Rotate(double aAngle, double aOriginX, double aOriginY) const
 {
   RefPtr<DOMMatrix> retval = new DOMMatrix(mParent, *this);
   retval->RotateSelf(aAngle, aOriginX, aOriginY);
@@ -88,8 +83,7 @@ DOMMatrixReadOnly::Rotate(double aAngle,
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrixReadOnly::RotateFromVector(double x,
-                                    double y) const
+DOMMatrixReadOnly::RotateFromVector(double x, double y) const
 {
   RefPtr<DOMMatrix> retval = new DOMMatrix(mParent, *this);
   retval->RotateFromVectorSelf(x, y);
@@ -243,7 +237,9 @@ DOMMatrixReadOnly::TransformPoint(const DOMPointInit& point) const
   return retval.forget();
 }
 
-template <typename T> void GetDataFromMatrix(const DOMMatrixReadOnly* aMatrix, T* aData)
+template<typename T>
+void
+GetDataFromMatrix(const DOMMatrixReadOnly* aMatrix, T* aData)
 {
   aData[0] = static_cast<T>(aMatrix->M11());
   aData[1] = static_cast<T>(aMatrix->M12());
@@ -264,7 +260,9 @@ template <typename T> void GetDataFromMatrix(const DOMMatrixReadOnly* aMatrix, T
 }
 
 void
-DOMMatrixReadOnly::ToFloat32Array(JSContext* aCx, JS::MutableHandle<JSObject*> aResult, ErrorResult& aRv) const
+DOMMatrixReadOnly::ToFloat32Array(JSContext* aCx,
+                                  JS::MutableHandle<JSObject*> aResult,
+                                  ErrorResult& aRv) const
 {
   AutoTArray<float, 16> arr;
   arr.SetLength(16);
@@ -278,7 +276,9 @@ DOMMatrixReadOnly::ToFloat32Array(JSContext* aCx, JS::MutableHandle<JSObject*> a
 }
 
 void
-DOMMatrixReadOnly::ToFloat64Array(JSContext* aCx, JS::MutableHandle<JSObject*> aResult, ErrorResult& aRv) const
+DOMMatrixReadOnly::ToFloat64Array(JSContext* aCx,
+                                  JS::MutableHandle<JSObject*> aResult,
+                                  ErrorResult& aRv) const
 {
   AutoTArray<double, 16> arr;
   arr.SetLength(16);
@@ -309,32 +309,52 @@ DOMMatrixReadOnly::Stringify(nsAString& aResult)
     // We can't use AppendPrintf here, because it does locale-specific
     // formatting of floating-point values.
     matrixStr.AssignLiteral("matrix3d(");
-    AppendFloat(matrixStr, M11()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M12()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M13()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M14()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M21()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M22()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M23()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M24()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M31()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M32()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M33()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M34()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M41()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M42()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, M43()); matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M11());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M12());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M13());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M14());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M21());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M22());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M23());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M24());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M31());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M32());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M33());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M34());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M41());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M42());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, M43());
+    matrixStr.AppendLiteral(", ");
     AppendFloat(matrixStr, M44());
     matrixStr.AppendLiteral(")");
   } else {
     // We can't use AppendPrintf here, because it does locale-specific
     // formatting of floating-point values.
     matrixStr.AssignLiteral("matrix(");
-    AppendFloat(matrixStr, A()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, B()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, C()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, D()); matrixStr.AppendLiteral(", ");
-    AppendFloat(matrixStr, E()); matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, A());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, B());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, C());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, D());
+    matrixStr.AppendLiteral(", ");
+    AppendFloat(matrixStr, E());
+    matrixStr.AppendLiteral(", ");
     AppendFloat(matrixStr, F());
     matrixStr.AppendLiteral(")");
   }
@@ -350,7 +370,9 @@ DOMMatrix::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrix::Constructor(const GlobalObject& aGlobal, const nsAString& aTransformList, ErrorResult& aRv)
+DOMMatrix::Constructor(const GlobalObject& aGlobal,
+                       const nsAString& aTransformList,
+                       ErrorResult& aRv)
 {
   RefPtr<DOMMatrix> obj = new DOMMatrix(aGlobal.GetAsSupports());
 
@@ -359,13 +381,20 @@ DOMMatrix::Constructor(const GlobalObject& aGlobal, const nsAString& aTransformL
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrix::Constructor(const GlobalObject& aGlobal, const DOMMatrixReadOnly& aOther, ErrorResult& aRv)
+DOMMatrix::Constructor(const GlobalObject& aGlobal,
+                       const DOMMatrixReadOnly& aOther,
+                       ErrorResult& aRv)
 {
   RefPtr<DOMMatrix> obj = new DOMMatrix(aGlobal.GetAsSupports(), aOther);
   return obj.forget();
 }
 
-template <typename T> void SetDataInMatrix(DOMMatrix* aMatrix, const T* aData, int aLength, ErrorResult& aRv)
+template<typename T>
+void
+SetDataInMatrix(DOMMatrix* aMatrix,
+                const T* aData,
+                int aLength,
+                ErrorResult& aRv)
 {
   if (aLength == 16) {
     aMatrix->SetM11(aData[0]);
@@ -397,7 +426,9 @@ template <typename T> void SetDataInMatrix(DOMMatrix* aMatrix, const T* aData, i
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrix::Constructor(const GlobalObject& aGlobal, const Float32Array& aArray32, ErrorResult& aRv)
+DOMMatrix::Constructor(const GlobalObject& aGlobal,
+                       const Float32Array& aArray32,
+                       ErrorResult& aRv)
 {
   RefPtr<DOMMatrix> obj = new DOMMatrix(aGlobal.GetAsSupports());
   aArray32.ComputeLengthAndData();
@@ -407,7 +438,9 @@ DOMMatrix::Constructor(const GlobalObject& aGlobal, const Float32Array& aArray32
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrix::Constructor(const GlobalObject& aGlobal, const Float64Array& aArray64, ErrorResult& aRv)
+DOMMatrix::Constructor(const GlobalObject& aGlobal,
+                       const Float64Array& aArray64,
+                       ErrorResult& aRv)
 {
   RefPtr<DOMMatrix> obj = new DOMMatrix(aGlobal.GetAsSupports());
   aArray64.ComputeLengthAndData();
@@ -417,15 +450,19 @@ DOMMatrix::Constructor(const GlobalObject& aGlobal, const Float64Array& aArray64
 }
 
 already_AddRefed<DOMMatrix>
-DOMMatrix::Constructor(const GlobalObject& aGlobal, const Sequence<double>& aNumberSequence, ErrorResult& aRv)
+DOMMatrix::Constructor(const GlobalObject& aGlobal,
+                       const Sequence<double>& aNumberSequence,
+                       ErrorResult& aRv)
 {
   RefPtr<DOMMatrix> obj = new DOMMatrix(aGlobal.GetAsSupports());
-  SetDataInMatrix(obj, aNumberSequence.Elements(), aNumberSequence.Length(), aRv);
+  SetDataInMatrix(
+      obj, aNumberSequence.Elements(), aNumberSequence.Length(), aRv);
 
   return obj.forget();
 }
 
-void DOMMatrix::Ensure3DMatrix()
+void
+DOMMatrix::Ensure3DMatrix()
 {
   if (!mMatrix3D) {
     mMatrix3D = new gfx::Matrix4x4(gfx::Matrix4x4::From2D(*mMatrix2D));
@@ -476,9 +513,7 @@ DOMMatrix::PreMultiplySelf(const DOMMatrix& aOther)
 }
 
 DOMMatrix*
-DOMMatrix::TranslateSelf(double aTx,
-                         double aTy,
-                         double aTz)
+DOMMatrix::TranslateSelf(double aTx, double aTy, double aTz)
 {
   if (aTx == 0 && aTy == 0 && aTz == 0) {
     return this;
@@ -503,8 +538,10 @@ DOMMatrix::ScaleSelf(double aScale, double aOriginX, double aOriginY)
 }
 
 DOMMatrix*
-DOMMatrix::Scale3dSelf(double aScale, double aOriginX,
-                       double aOriginY, double aOriginZ)
+DOMMatrix::Scale3dSelf(double aScale,
+                       double aOriginX,
+                       double aOriginY,
+                       double aOriginZ)
 {
   ScaleNonUniformSelf(aScale, aScale, aScale, aOriginX, aOriginY, aOriginZ);
 
@@ -577,8 +614,7 @@ DOMMatrix::RotateSelf(double aAngle, double aOriginX, double aOriginY)
 }
 
 DOMMatrix*
-DOMMatrix::RotateAxisAngleSelf(double aX, double aY,
-                               double aZ, double aAngle)
+DOMMatrix::RotateAxisAngleSelf(double aX, double aY, double aZ, double aAngle)
 {
   if (fmod(aAngle, 360) == 0) {
     return this;
@@ -685,5 +721,5 @@ DOMMatrix::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return DOMMatrixBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -93,8 +93,8 @@ WebCryptoThreadPool::Shutdown()
   NS_WARNING_ASSERTION(obs, "Failed to retrieve observer service!");
 
   if (obs) {
-    if (NS_FAILED(obs->RemoveObserver(this,
-                                      NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID))) {
+    if (NS_FAILED(
+            obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID))) {
       NS_WARNING("Failed to remove shutdown observer!");
     }
   }
@@ -115,5 +115,5 @@ WebCryptoThreadPool::Observe(nsISupports* aSubject,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -28,19 +28,21 @@ class SurfaceFactory;
 }
 namespace gfx {
 
-class VRLayerChild : public PVRLayerChild {
+class VRLayerChild : public PVRLayerChild
+{
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRLayerChild)
 
-public:
+ public:
   static PVRLayerChild* CreateIPDLActor();
   static bool DestroyIPDLActor(PVRLayerChild* actor);
 
   void Initialize(dom::HTMLCanvasElement* aCanvasElement,
-                  const gfx::Rect& aLeftEyeRect, const gfx::Rect& aRightEyeRect);
+                  const gfx::Rect& aLeftEyeRect,
+                  const gfx::Rect& aRightEyeRect);
   void SubmitFrame(uint64_t aFrameId);
   bool IsIPCOpen();
 
-private:
+ private:
   VRLayerChild();
   virtual ~VRLayerChild();
   void ClearSurfaces();
@@ -65,7 +67,7 @@ private:
   uint64_t mLastSubmittedFrameId;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif

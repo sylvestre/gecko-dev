@@ -43,9 +43,9 @@ nsIRootBox::GetRootBox(nsIPresShell* aShell)
 
 class nsRootBoxFrame final : public nsBoxFrame, public nsIRootBox
 {
-public:
-
-  friend nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+ public:
+  friend nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
+                                  nsStyleContext* aContext);
 
   explicit nsRootBoxFrame(nsStyleContext* aContext);
 
@@ -59,23 +59,22 @@ public:
   virtual nsresult AddTooltipSupport(nsIContent* aNode) override;
   virtual nsresult RemoveTooltipSupport(nsIContent* aNode) override;
 
-  virtual void AppendFrames(ChildListID     aListID,
-                            nsFrameList&    aFrameList) override;
-  virtual void InsertFrames(ChildListID     aListID,
-                            nsIFrame*       aPrevFrame,
-                            nsFrameList&    aFrameList) override;
-  virtual void RemoveFrame(ChildListID     aListID,
-                           nsIFrame*       aOldFrame) override;
+  virtual void AppendFrames(ChildListID aListID,
+                            nsFrameList& aFrameList) override;
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aFrameList) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
-  virtual void Reflow(nsPresContext*          aPresContext,
-                          ReflowOutput&     aDesiredSize,
-                          const ReflowInput& aReflowInput,
-                          nsReflowStatus&          aStatus) override;
+  virtual void Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
+                      const ReflowInput& aReflowInput,
+                      nsReflowStatus& aStatus) override;
   virtual nsresult HandleEvent(nsPresContext* aPresContext,
                                WidgetGUIEvent* aEvent,
                                nsEventStatus* aEventStatus) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
@@ -92,7 +91,7 @@ public:
 
   nsPopupSetFrame* mPopupSetFrame;
 
-protected:
+ protected:
   nsIContent* mDefaultTooltip;
 };
 
@@ -107,9 +106,9 @@ NS_NewRootBoxFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsRootBoxFrame)
 
 nsRootBoxFrame::nsRootBoxFrame(nsStyleContext* aContext)
-  : nsBoxFrame(aContext, kClassID, true)
-  , mPopupSetFrame(nullptr)
-  , mDefaultTooltip(nullptr)
+    : nsBoxFrame(aContext, kClassID, true),
+      mPopupSetFrame(nullptr),
+      mDefaultTooltip(nullptr)
 {
   nsCOMPtr<nsBoxLayout> layout;
   NS_NewStackLayout(layout);
@@ -117,8 +116,7 @@ nsRootBoxFrame::nsRootBoxFrame(nsStyleContext* aContext)
 }
 
 void
-nsRootBoxFrame::AppendFrames(ChildListID     aListID,
-                             nsFrameList&    aFrameList)
+nsRootBoxFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList)
 {
   MOZ_ASSERT(aListID == kPrincipalList, "unexpected child list ID");
   MOZ_ASSERT(mFrames.IsEmpty(), "already have a child frame");
@@ -126,9 +124,9 @@ nsRootBoxFrame::AppendFrames(ChildListID     aListID,
 }
 
 void
-nsRootBoxFrame::InsertFrames(ChildListID     aListID,
-                             nsIFrame*       aPrevFrame,
-                             nsFrameList&    aFrameList)
+nsRootBoxFrame::InsertFrames(ChildListID aListID,
+                             nsIFrame* aPrevFrame,
+                             nsFrameList& aFrameList)
 {
   // Because we only support a single child frame inserting is the same
   // as appending.
@@ -137,8 +135,7 @@ nsRootBoxFrame::InsertFrames(ChildListID     aListID,
 }
 
 void
-nsRootBoxFrame::RemoveFrame(ChildListID     aListID,
-                            nsIFrame*       aOldFrame)
+nsRootBoxFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list ID");
   if (aOldFrame == mFrames.FirstChild()) {
@@ -153,10 +150,10 @@ int32_t gReflows = 0;
 #endif
 
 void
-nsRootBoxFrame::Reflow(nsPresContext*           aPresContext,
-                       ReflowOutput&     aDesiredSize,
+nsRootBoxFrame::Reflow(nsPresContext* aPresContext,
+                       ReflowOutput& aDesiredSize,
                        const ReflowInput& aReflowInput,
-                       nsReflowStatus&          aStatus)
+                       nsReflowStatus& aStatus)
 {
   DO_GLOBAL_REFLOW_COUNT("nsRootBoxFrame");
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
@@ -169,7 +166,7 @@ nsRootBoxFrame::Reflow(nsPresContext*           aPresContext,
 }
 
 void
-nsRootBoxFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsRootBoxFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                  const nsDisplayListSet& aLists)
 {
   if (mContent && mContent->GetProperty(nsGkAtoms::DisplayPortMargins)) {
@@ -177,7 +174,7 @@ nsRootBoxFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     // ChromeProcessController::InitializeRoot, and we should to supply the
     // base rect.
     nsRect displayPortBase =
-      aBuilder->GetVisibleRect().Intersect(nsRect(nsPoint(0, 0), GetSize()));
+        aBuilder->GetVisibleRect().Intersect(nsRect(nsPoint(0, 0), GetSize()));
     nsLayoutUtils::SetDisplayPortBase(mContent, displayPortBase);
   }
 
@@ -247,9 +244,8 @@ nsRootBoxFrame::AddTooltipSupport(nsIContent* aNode)
 {
   NS_ENSURE_TRUE(aNode, NS_ERROR_NULL_POINTER);
 
-  nsXULTooltipListener *listener = nsXULTooltipListener::GetInstance();
-  if (!listener)
-    return NS_ERROR_OUT_OF_MEMORY;
+  nsXULTooltipListener* listener = nsXULTooltipListener::GetInstance();
+  if (!listener) return NS_ERROR_OUT_OF_MEMORY;
 
   return listener->AddTooltipSupport(aNode);
 }
@@ -265,7 +261,7 @@ nsRootBoxFrame::RemoveTooltipSupport(nsIContent* aNode)
 }
 
 NS_QUERYFRAME_HEAD(nsRootBoxFrame)
-  NS_QUERYFRAME_ENTRY(nsIRootBox)
+NS_QUERYFRAME_ENTRY(nsIRootBox)
 NS_QUERYFRAME_TAIL_INHERITING(nsBoxFrame)
 
 #ifdef DEBUG_FRAME_DUMP

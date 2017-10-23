@@ -16,30 +16,21 @@ class XMLHttpRequestStringBuffer final
   friend class XMLHttpRequestStringWriterHelper;
   friend class XMLHttpRequestStringSnapshotReaderHelper;
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(XMLHttpRequestStringBuffer)
   NS_DECL_OWNINGTHREAD
 
-  XMLHttpRequestStringBuffer()
-    : mMutex("XMLHttpRequestStringBuffer::mMutex")
-  {
-  }
+  XMLHttpRequestStringBuffer() : mMutex("XMLHttpRequestStringBuffer::mMutex") {}
 
-  uint32_t
-  Length()
+  uint32_t Length()
   {
     MutexAutoLock lock(mMutex);
     return mData.Length();
   }
 
-  uint32_t
-  UnsafeLength() const
-  {
-    return mData.Length();
-  }
+  uint32_t UnsafeLength() const { return mData.Length(); }
 
-  void
-  Append(const nsAString& aString)
+  void Append(const nsAString& aString)
   {
     NS_ASSERT_OWNINGTHREAD(XMLHttpRequestStringBuffer);
 
@@ -47,21 +38,18 @@ public:
     mData.Append(aString);
   }
 
-  MOZ_MUST_USE bool
-  GetAsString(nsAString& aString)
+  MOZ_MUST_USE bool GetAsString(nsAString& aString)
   {
     MutexAutoLock lock(mMutex);
     return aString.Assign(mData, mozilla::fallible);
   }
 
-  size_t
-  SizeOfThis(MallocSizeOf aMallocSizeOf) const
+  size_t SizeOfThis(MallocSizeOf aMallocSizeOf) const
   {
     return mData.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
   }
 
-  MOZ_MUST_USE bool
-  GetAsString(DOMString& aString, uint32_t aLength)
+  MOZ_MUST_USE bool GetAsString(DOMString& aString, uint32_t aLength)
   {
     MutexAutoLock lock(mMutex);
     MOZ_ASSERT(aLength <= mData.Length());
@@ -80,25 +68,20 @@ public:
     // We can get here if mData is empty.  In that case it won't have an
     // nsStringBuffer....
     MOZ_ASSERT(mData.IsEmpty());
-    return aString.AsAString().Assign(mData.BeginReading(), aLength,
-                                      mozilla::fallible);
+    return aString.AsAString().Assign(
+        mData.BeginReading(), aLength, mozilla::fallible);
   }
 
-  void
-  CreateSnapshot(XMLHttpRequestStringSnapshot& aSnapshot)
+  void CreateSnapshot(XMLHttpRequestStringSnapshot& aSnapshot)
   {
     MutexAutoLock lock(mMutex);
     aSnapshot.Set(this, mData.Length());
   }
 
-private:
-  ~XMLHttpRequestStringBuffer()
-  {}
+ private:
+  ~XMLHttpRequestStringBuffer() {}
 
-  nsString& UnsafeData()
-  {
-    return mData;
-  }
+  nsString& UnsafeData() { return mData; }
 
   Mutex mMutex;
 
@@ -110,13 +93,11 @@ private:
 // XMLHttpRequestString
 
 XMLHttpRequestString::XMLHttpRequestString()
-  : mBuffer(new XMLHttpRequestStringBuffer())
+    : mBuffer(new XMLHttpRequestStringBuffer())
 {
 }
 
-XMLHttpRequestString::~XMLHttpRequestString()
-{
-}
+XMLHttpRequestString::~XMLHttpRequestString() {}
 
 void
 XMLHttpRequestString::Truncate()
@@ -164,17 +145,15 @@ XMLHttpRequestString::CreateSnapshot(XMLHttpRequestStringSnapshot& aSnapshot)
 // XMLHttpRequestStringSnapshot
 
 XMLHttpRequestStringSnapshot::XMLHttpRequestStringSnapshot()
-  : mLength(0)
-  , mVoid(false)
+    : mLength(0), mVoid(false)
 {
 }
 
-XMLHttpRequestStringSnapshot::~XMLHttpRequestStringSnapshot()
-{
-}
+XMLHttpRequestStringSnapshot::~XMLHttpRequestStringSnapshot() {}
 
 XMLHttpRequestStringSnapshot&
-XMLHttpRequestStringSnapshot::operator=(const XMLHttpRequestStringSnapshot& aOther)
+XMLHttpRequestStringSnapshot::operator=(
+    const XMLHttpRequestStringSnapshot& aOther)
 {
   mBuffer = aOther.mBuffer;
   mLength = aOther.mLength;
@@ -220,16 +199,17 @@ XMLHttpRequestStringSnapshot::GetAsString(DOMString& aString) const
 // ---------------------------------------------------------------------------
 // XMLHttpRequestStringWriterHelper
 
-XMLHttpRequestStringWriterHelper::XMLHttpRequestStringWriterHelper(XMLHttpRequestString& aString)
-  : mBuffer(aString.mBuffer)
-  , mLock(aString.mBuffer->mMutex)
+XMLHttpRequestStringWriterHelper::XMLHttpRequestStringWriterHelper(
+    XMLHttpRequestString& aString)
+    : mBuffer(aString.mBuffer), mLock(aString.mBuffer->mMutex)
 {
 }
 
 bool
 XMLHttpRequestStringWriterHelper::AddCapacity(int32_t aCapacity)
 {
-  return mBuffer->UnsafeData().SetCapacity(mBuffer->UnsafeLength() + aCapacity, fallible);
+  return mBuffer->UnsafeData().SetCapacity(mBuffer->UnsafeLength() + aCapacity,
+                                           fallible);
 }
 
 char16_t*
@@ -247,9 +227,10 @@ XMLHttpRequestStringWriterHelper::AddLength(int32_t aLength)
 // ---------------------------------------------------------------------------
 // XMLHttpRequestStringReaderHelper
 
-XMLHttpRequestStringSnapshotReaderHelper::XMLHttpRequestStringSnapshotReaderHelper(XMLHttpRequestStringSnapshot& aSnapshot)
-  : mBuffer(aSnapshot.mBuffer)
-  , mLock(aSnapshot.mBuffer->mMutex)
+XMLHttpRequestStringSnapshotReaderHelper::
+    XMLHttpRequestStringSnapshotReaderHelper(
+        XMLHttpRequestStringSnapshot& aSnapshot)
+    : mBuffer(aSnapshot.mBuffer), mLock(aSnapshot.mBuffer->mMutex)
 {
 }
 
@@ -265,5 +246,5 @@ XMLHttpRequestStringSnapshotReaderHelper::Length() const
   return mBuffer->UnsafeLength();
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

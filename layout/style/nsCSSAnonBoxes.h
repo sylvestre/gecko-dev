@@ -13,14 +13,16 @@
 
 // Empty class derived from nsAtom so that function signatures can
 // require an atom from this atom list.
-class nsICSSAnonBoxPseudo : public nsAtom {};
+class nsICSSAnonBoxPseudo : public nsAtom
+{
+};
 
-class nsCSSAnonBoxes {
-public:
-
+class nsCSSAnonBoxes
+{
+ public:
   static void AddRefAtoms();
 
-  static bool IsAnonBox(nsAtom *aAtom);
+  static bool IsAnonBox(nsAtom* aAtom);
 #ifdef MOZ_XUL
   static bool IsTreePseudoElement(nsAtom* aPseudo);
 #endif
@@ -36,7 +38,8 @@ public:
 #undef CSS_ANON_BOX
 
   typedef uint8_t NonInheritingBase;
-  enum class NonInheriting : NonInheritingBase {
+  enum class NonInheriting : NonInheritingBase
+  {
 #define CSS_ANON_BOX(_name, _value) /* nothing */
 #define CSS_NON_INHERITING_ANON_BOX(_name, _value) _name,
 #include "nsCSSAnonBoxList.h"
@@ -58,7 +61,7 @@ public:
 #include "nsCSSAnonBoxList.h"
 #undef CSS_NON_INHERITING_ANON_BOX
 #undef CSS_ANON_BOX
-      false;
+        false;
   }
 
 #ifdef DEBUG
@@ -74,17 +77,17 @@ public:
 #include "nsCSSAnonBoxList.h"
 #undef CSS_NON_INHERITING_ANON_BOX
 #undef CSS_ANON_BOX
-      false;
+        false;
   }
-#endif // DEBUG
+#endif  // DEBUG
 
   // This function is rather slow; you probably don't want to use it outside
   // asserts unless you have to.
-  static bool IsWrapperAnonBox(nsAtom* aPseudo) {
+  static bool IsWrapperAnonBox(nsAtom* aPseudo)
+  {
     // We commonly get null passed here, and want to quickly return false for
     // it.
-    return aPseudo &&
-      (
+    return aPseudo && (
 #define CSS_ANON_BOX(_name, _value) /* nothing */
 #define CSS_WRAPPER_ANON_BOX(_name, _value) _name == aPseudo ||
 #define CSS_NON_INHERITING_ANON_BOX(_name, _value) /* nothing */
@@ -92,7 +95,7 @@ public:
 #undef CSS_NON_INHERITING_ANON_BOX
 #undef CSS_WRAPPER_ANON_BOX
 #undef CSS_ANON_BOX
-       false);
+                          false);
   }
 
   // Get the NonInheriting type for a given pseudo tag.  The pseudo tag must

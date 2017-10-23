@@ -21,17 +21,16 @@ class AppCacheStorage : public CacheStorage
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICACHESTORAGE
 
-public:
-  AppCacheStorage(nsILoadContextInfo* aInfo,
-                  nsIApplicationCache* aAppCache);
+ public:
+  AppCacheStorage(nsILoadContextInfo* aInfo, nsIApplicationCache* aAppCache);
 
-private:
+ private:
   virtual ~AppCacheStorage();
 
   nsCOMPtr<nsIApplicationCache> mAppCache;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

@@ -15,10 +15,9 @@
 namespace mozilla {
 namespace dom {
 
-class CommandEvent : public Event,
-                     public nsIDOMCommandEvent
+class CommandEvent : public Event, public nsIDOMCommandEvent
 {
-public:
+ public:
   CommandEvent(EventTarget* aOwner,
                nsPresContext* aPresContext,
                WidgetCommandEvent* aEvent);
@@ -30,7 +29,8 @@ public:
   // Forward to base class
   NS_FORWARD_TO_EVENT
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return CommandEventBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -44,16 +44,16 @@ public:
     aRv = InitCommandEvent(aType, aCanBubble, aCancelable, aCommand);
   }
 
-protected:
+ protected:
   ~CommandEvent() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::CommandEvent>
 NS_NewDOMCommandEvent(mozilla::dom::EventTarget* aOwner,
                       nsPresContext* aPresContext,
                       mozilla::WidgetCommandEvent* aEvent);
 
-#endif // mozilla_dom_CommandEvent_h_
+#endif  // mozilla_dom_CommandEvent_h_

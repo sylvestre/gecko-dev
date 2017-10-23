@@ -33,10 +33,10 @@ namespace {
 // Reads over a CRLF and positions start after it.
 static bool
 PushOverLine(nsACString::const_iterator& aStart,
-	     const nsACString::const_iterator& aEnd)
+             const nsACString::const_iterator& aEnd)
 {
   if (*aStart == nsCRT::CR && (aEnd - aStart > 1) && *(++aStart) == nsCRT::LF) {
-    ++aStart; // advance to after CRLF
+    ++aStart;  // advance to after CRLF
     return true;
   }
 
@@ -44,17 +44,15 @@ PushOverLine(nsACString::const_iterator& aStart,
 }
 
 class MOZ_STACK_CLASS FillFormIterator final
-  : public URLSearchParams::ForEachIterator
+    : public URLSearchParams::ForEachIterator
 {
-public:
-  explicit FillFormIterator(FormData* aFormData)
-    : mFormData(aFormData)
+ public:
+  explicit FillFormIterator(FormData* aFormData) : mFormData(aFormData)
   {
     MOZ_ASSERT(aFormData);
   }
 
-  bool URLParamsIterator(const nsString& aName,
-                         const nsString& aValue) override
+  bool URLParamsIterator(const nsString& aName, const nsString& aValue) override
   {
     ErrorResult rv;
     mFormData->Append(aName, aValue, rv);
@@ -62,7 +60,7 @@ public:
     return true;
   }
 
-private:
+ private:
   FormData* mFormData;
 };
 
@@ -87,7 +85,7 @@ private:
  */
 class MOZ_STACK_CLASS FormDataParser
 {
-private:
+ private:
   RefPtr<FormData> mFormData;
   nsCString mMimeType;
   nsCString mData;
@@ -108,10 +106,9 @@ private:
 
   // Reads over a boundary and sets start to the position after the end of the
   // boundary. Returns false if no boundary is found immediately.
-  bool
-  PushOverBoundary(const nsACString& aBoundaryString,
-                   nsACString::const_iterator& aStart,
-                   nsACString::const_iterator& aEnd)
+  bool PushOverBoundary(const nsACString& aBoundaryString,
+                        nsACString::const_iterator& aStart,
+                        nsACString::const_iterator& aEnd)
   {
     // We copy the end iterator to keep the original pointing to the real end
     // of the string.
@@ -136,15 +133,13 @@ private:
     return false;
   }
 
-  bool
-  ParseHeader(nsACString::const_iterator& aStart,
-              nsACString::const_iterator& aEnd,
-              bool* aWasEmptyHeader)
+  bool ParseHeader(nsACString::const_iterator& aStart,
+                   nsACString::const_iterator& aEnd,
+                   bool* aWasEmptyHeader)
   {
     nsAutoCString headerName, headerValue;
-    if (!FetchUtil::ExtractHeader(aStart, aEnd,
-                                  headerName, headerValue,
-                                  aWasEmptyHeader)) {
+    if (!FetchUtil::ExtractHeader(
+            aStart, aEnd, headerName, headerValue, aWasEmptyHeader)) {
       return false;
     }
     if (*aWasEmptyHeader) {
@@ -195,10 +190,9 @@ private:
   // CRLF is part of the boundary and not the body, but any prior CRLFs are
   // part of the body. This will position the iterator at the beginning of the
   // boundary (after the CRLF).
-  bool
-  ParseBody(const nsACString& aBoundaryString,
-            nsACString::const_iterator& aStart,
-            nsACString::const_iterator& aEnd)
+  bool ParseBody(const nsACString& aBoundaryString,
+                 nsACString::const_iterator& aStart,
+                 nsACString::const_iterator& aEnd)
   {
     const char* beginning = aStart.get();
 
@@ -221,7 +215,7 @@ private:
     aStart.advance(-2);
 
     // Skip optional hyphens.
-    if (*aStart == '-' && *(aStart.get()+1) == '-') {
+    if (*aStart == '-' && *(aStart.get() + 1) == '-') {
       if (aStart.get() - beginning < 2) {
         return false;
       }
@@ -229,7 +223,7 @@ private:
       aStart.advance(-2);
     }
 
-    if (*aStart != nsCRT::CR || *(aStart.get()+1) != nsCRT::LF) {
+    if (*aStart != nsCRT::CR || *(aStart.get() + 1) != nsCRT::LF) {
       return false;
     }
 
@@ -262,17 +256,19 @@ private:
       nsCString::const_iterator bodyIter, bodyEnd;
       body.BeginReading(bodyIter);
       body.EndReading(bodyEnd);
-      char *p = copy;
+      char* p = copy;
       while (bodyIter != bodyEnd) {
         *p++ = *bodyIter++;
       }
       p = nullptr;
 
       RefPtr<Blob> file =
-        File::CreateMemoryFile(mParentObject,
-                               reinterpret_cast<void *>(copy), body.Length(),
-                               NS_ConvertUTF8toUTF16(mFilename),
-                               NS_ConvertUTF8toUTF16(mContentType), /* aLastModifiedDate */ 0);
+          File::CreateMemoryFile(mParentObject,
+                                 reinterpret_cast<void*>(copy),
+                                 body.Length(),
+                                 NS_ConvertUTF8toUTF16(mFilename),
+                                 NS_ConvertUTF8toUTF16(mContentType),
+                                 /* aLastModifiedDate */ 0);
       Optional<nsAString> dummy;
       ErrorResult rv;
       mFormData->Append(name, *file, dummy, rv);
@@ -285,14 +281,18 @@ private:
     return true;
   }
 
-public:
-  FormDataParser(const nsACString& aMimeType, const nsACString& aData, nsIGlobalObject* aParent)
-    : mMimeType(aMimeType), mData(aData), mState(START_PART), mParentObject(aParent)
+ public:
+  FormDataParser(const nsACString& aMimeType,
+                 const nsACString& aData,
+                 nsIGlobalObject* aParent)
+      : mMimeType(aMimeType),
+        mData(aData),
+        mState(START_PART),
+        mParentObject(aParent)
   {
   }
 
-  bool
-  Parse()
+  bool Parse()
   {
     // Determine boundary from mimetype.
     const char* boundaryId = nullptr;
@@ -309,7 +309,7 @@ public:
     // Skip over '='.
     boundaryId++;
 
-    char *attrib = (char *) strchr(boundaryId, ';');
+    char* attrib = (char*)strchr(boundaryId, ';');
     if (attrib) *attrib = '\0';
 
     nsAutoCString boundaryString(boundaryId);
@@ -328,7 +328,7 @@ public:
     mData.EndReading(end);
 
     while (start != end) {
-      switch(mState) {
+      switch (mState) {
         case START_PART:
           mName.SetIsVoid(true);
           mFilename.SetIsVoid(true);
@@ -368,8 +368,9 @@ public:
 
         case PARSE_BODY:
           if (mName.IsVoid()) {
-            NS_WARNING("No content-disposition header with a valid name was "
-                       "found. Failing at body parse.");
+            NS_WARNING(
+                "No content-disposition header with a valid name was "
+                "found. Failing at body parse.");
             return false;
           }
 
@@ -389,23 +390,21 @@ public:
     return false;
   }
 
-  already_AddRefed<FormData> GetFormData()
-  {
-    return mFormData.forget();
-  }
+  already_AddRefed<FormData> GetFormData() { return mFormData.forget(); }
 };
-}
+}  // namespace
 
 // static
 void
 BodyUtil::ConsumeArrayBuffer(JSContext* aCx,
-                              JS::MutableHandle<JSObject*> aValue,
-                              uint32_t aInputLength, uint8_t* aInput,
-                              ErrorResult& aRv)
+                             JS::MutableHandle<JSObject*> aValue,
+                             uint32_t aInputLength,
+                             uint8_t* aInput,
+                             ErrorResult& aRv)
 {
   JS::Rooted<JSObject*> arrayBuffer(aCx);
-  arrayBuffer = JS_NewArrayBufferWithContents(aCx, aInputLength,
-    reinterpret_cast<void *>(aInput));
+  arrayBuffer = JS_NewArrayBufferWithContents(
+      aCx, aInputLength, reinterpret_cast<void*>(aInput));
   if (!arrayBuffer) {
     JS_ClearPendingException(aCx);
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
@@ -416,14 +415,14 @@ BodyUtil::ConsumeArrayBuffer(JSContext* aCx,
 
 // static
 already_AddRefed<Blob>
-BodyUtil::ConsumeBlob(nsISupports* aParent, const nsString& aMimeType,
-                       uint32_t aInputLength, uint8_t* aInput,
-                       ErrorResult& aRv)
+BodyUtil::ConsumeBlob(nsISupports* aParent,
+                      const nsString& aMimeType,
+                      uint32_t aInputLength,
+                      uint8_t* aInput,
+                      ErrorResult& aRv)
 {
-  RefPtr<Blob> blob =
-    Blob::CreateMemoryBlob(aParent,
-                           reinterpret_cast<void *>(aInput), aInputLength,
-                           aMimeType);
+  RefPtr<Blob> blob = Blob::CreateMemoryBlob(
+      aParent, reinterpret_cast<void*>(aInput), aInputLength, aMimeType);
 
   if (!blob) {
     aRv.Throw(NS_ERROR_DOM_UNKNOWN_ERR);
@@ -434,8 +433,10 @@ BodyUtil::ConsumeBlob(nsISupports* aParent, const nsString& aMimeType,
 
 // static
 already_AddRefed<FormData>
-BodyUtil::ConsumeFormData(nsIGlobalObject* aParent, const nsCString& aMimeType,
-                           const nsCString& aStr, ErrorResult& aRv)
+BodyUtil::ConsumeFormData(nsIGlobalObject* aParent,
+                          const nsCString& aMimeType,
+                          const nsCString& aStr,
+                          ErrorResult& aRv)
 {
   NS_NAMED_LITERAL_CSTRING(formDataMimeType, "multipart/form-data");
 
@@ -443,7 +444,8 @@ BodyUtil::ConsumeFormData(nsIGlobalObject* aParent, const nsCString& aMimeType,
   // but disallow multipart/form-datafoobar.
   bool isValidFormDataMimeType = StringBeginsWith(aMimeType, formDataMimeType);
 
-  if (isValidFormDataMimeType && aMimeType.Length() > formDataMimeType.Length()) {
+  if (isValidFormDataMimeType &&
+      aMimeType.Length() > formDataMimeType.Length()) {
     isValidFormDataMimeType = aMimeType[formDataMimeType.Length()] == ';';
   }
 
@@ -459,10 +461,12 @@ BodyUtil::ConsumeFormData(nsIGlobalObject* aParent, const nsCString& aMimeType,
     return fd.forget();
   }
 
-  NS_NAMED_LITERAL_CSTRING(urlDataMimeType, "application/x-www-form-urlencoded");
+  NS_NAMED_LITERAL_CSTRING(urlDataMimeType,
+                           "application/x-www-form-urlencoded");
   bool isValidUrlEncodedMimeType = StringBeginsWith(aMimeType, urlDataMimeType);
 
-  if (isValidUrlEncodedMimeType && aMimeType.Length() > urlDataMimeType.Length()) {
+  if (isValidUrlEncodedMimeType &&
+      aMimeType.Length() > urlDataMimeType.Length()) {
     isValidUrlEncodedMimeType = aMimeType[urlDataMimeType.Length()] == ';';
   }
 
@@ -484,11 +488,10 @@ BodyUtil::ConsumeFormData(nsIGlobalObject* aParent, const nsCString& aMimeType,
 
 // static
 nsresult
-BodyUtil::ConsumeText(uint32_t aInputLength, uint8_t* aInput,
-                       nsString& aText)
+BodyUtil::ConsumeText(uint32_t aInputLength, uint8_t* aInput, nsString& aText)
 {
-  nsresult rv =
-    UTF_8_ENCODING->DecodeWithBOMRemoval(MakeSpan(aInput, aInputLength), aText);
+  nsresult rv = UTF_8_ENCODING->DecodeWithBOMRemoval(
+      MakeSpan(aInput, aInputLength), aText);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -497,8 +500,10 @@ BodyUtil::ConsumeText(uint32_t aInputLength, uint8_t* aInput,
 
 // static
 void
-BodyUtil::ConsumeJson(JSContext* aCx, JS::MutableHandle<JS::Value> aValue,
-                       const nsString& aStr, ErrorResult& aRv)
+BodyUtil::ConsumeJson(JSContext* aCx,
+                      JS::MutableHandle<JS::Value> aValue,
+                      const nsString& aStr,
+                      ErrorResult& aRv)
 {
   aRv.MightThrowJSException();
 
@@ -521,5 +526,5 @@ BodyUtil::ConsumeJson(JSContext* aCx, JS::MutableHandle<JS::Value> aValue,
   aValue.set(json);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

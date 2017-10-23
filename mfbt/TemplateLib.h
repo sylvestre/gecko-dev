@@ -31,9 +31,7 @@ template<size_t Size, size_t... Rest>
 struct Min
 {
   static constexpr size_t value =
-    Size < Min<Rest...>::value
-    ? Size
-    : Min<Rest...>::value;
+      Size < Min<Rest...>::value ? Size : Min<Rest...>::value;
 };
 
 template<size_t Size>
@@ -46,9 +44,7 @@ template<size_t Size, size_t... Rest>
 struct Max
 {
   static constexpr size_t value =
-    Size > Max<Rest...>::value
-    ? Size
-    : Max<Rest...>::value;
+      Size > Max<Rest...>::value ? Size : Max<Rest...>::value;
 };
 
 template<size_t Size>
@@ -63,8 +59,15 @@ struct FloorLog2
 {
   static const size_t value = 1 + FloorLog2<I / 2>::value;
 };
-template<> struct FloorLog2<0> { /* Error */ };
-template<> struct FloorLog2<1> { static const size_t value = 0; };
+template<>
+struct FloorLog2<0>
+{ /* Error */
+};
+template<>
+struct FloorLog2<1>
+{
+  static const size_t value = 0;
+};
 
 /** Compute ceiling(log2(i)). */
 template<size_t I>
@@ -104,7 +107,7 @@ struct NBitMask
   // C++11, and usually one in C++98.  Add this value to |value| to assure
   // its computation.
   static const size_t checkPrecondition =
-    0 / size_t(N < BitSize<size_t>::value);
+      0 / size_t(N < BitSize<size_t>::value);
   static const size_t value = (size_t(1) << N) - 1 + checkPrecondition;
 };
 template<>
@@ -121,10 +124,17 @@ template<size_t N>
 struct MulOverflowMask
 {
   static const size_t value =
-    ~NBitMask<BitSize<size_t>::value - CeilingLog2<N>::value>::value;
+      ~NBitMask<BitSize<size_t>::value - CeilingLog2<N>::value>::value;
 };
-template<> struct MulOverflowMask<0> { /* Error */ };
-template<> struct MulOverflowMask<1> { static const size_t value = 0; };
+template<>
+struct MulOverflowMask<0>
+{ /* Error */
+};
+template<>
+struct MulOverflowMask<1>
+{
+  static const size_t value = 0;
+};
 
 /**
  * And<bool...> computes the logical 'and' of its argument booleans.
@@ -139,14 +149,17 @@ template<bool...>
 struct And;
 
 template<>
-struct And<> : public TrueType { };
+struct And<> : public TrueType
+{
+};
 
 template<bool C1, bool... Cn>
-struct And<C1, Cn...>
-  : public Conditional<C1, And<Cn...>, FalseType>::Type { };
+struct And<C1, Cn...> : public Conditional<C1, And<Cn...>, FalseType>::Type
+{
+};
 
-} // namespace tl
+}  // namespace tl
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_TemplateLib_h */

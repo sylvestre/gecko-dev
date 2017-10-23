@@ -15,28 +15,22 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::gfx;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DOMQuad, mParent, mBounds, mPoints[0],
-                                      mPoints[1], mPoints[2], mPoints[3])
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(
+    DOMQuad, mParent, mBounds, mPoints[0], mPoints[1], mPoints[2], mPoints[3])
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMQuad, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMQuad, Release)
 
-DOMQuad::DOMQuad(nsISupports* aParent, CSSPoint aPoints[4])
-  : mParent(aParent)
+DOMQuad::DOMQuad(nsISupports* aParent, CSSPoint aPoints[4]) : mParent(aParent)
 {
   for (uint32_t i = 0; i < 4; ++i) {
     mPoints[i] = new DOMPoint(aParent, aPoints[i].x, aPoints[i].y);
   }
 }
 
-DOMQuad::DOMQuad(nsISupports* aParent)
-  : mParent(aParent)
-{
-}
+DOMQuad::DOMQuad(nsISupports* aParent) : mParent(aParent) {}
 
-DOMQuad::~DOMQuad()
-{
-}
+DOMQuad::~DOMQuad() {}
 
 JSObject*
 DOMQuad::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -61,7 +55,8 @@ DOMQuad::Constructor(const GlobalObject& aGlobal,
 }
 
 already_AddRefed<DOMQuad>
-DOMQuad::Constructor(const GlobalObject& aGlobal, const DOMRectReadOnly& aRect,
+DOMQuad::Constructor(const GlobalObject& aGlobal,
+                     const DOMRectReadOnly& aRect,
                      ErrorResult& aRV)
 {
   CSSPoint points[4];
@@ -76,11 +71,11 @@ DOMQuad::Constructor(const GlobalObject& aGlobal, const DOMRectReadOnly& aRect,
 
 class DOMQuad::QuadBounds final : public DOMRectReadOnly
 {
-public:
+ public:
   explicit QuadBounds(DOMQuad* aQuad)
-    : DOMRectReadOnly(aQuad->GetParentObject())
-    , mQuad(aQuad)
-  {}
+      : DOMRectReadOnly(aQuad->GetParentObject()), mQuad(aQuad)
+  {
+  }
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(QuadBounds, DOMRectReadOnly)
   NS_DECL_ISUPPORTS_INHERITED
@@ -136,7 +131,7 @@ public:
     *aY2 = y2;
   }
 
-protected:
+ protected:
   virtual ~QuadBounds() {}
 
   RefPtr<DOMQuad> mQuad;

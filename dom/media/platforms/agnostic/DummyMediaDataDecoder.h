@@ -18,7 +18,7 @@ class MediaRawData;
 
 class DummyDataCreator
 {
-public:
+ public:
   virtual ~DummyDataCreator();
   virtual already_AddRefed<MediaData> Create(MediaRawData* aSample) = 0;
 };
@@ -27,7 +27,7 @@ public:
 // MediaData objects.
 class DummyMediaDataDecoder : public MediaDataDecoder
 {
-public:
+ public:
   DummyMediaDataDecoder(UniquePtr<DummyDataCreator>&& aCreator,
                         const nsACString& aDescription,
                         const CreateDecoderParams& aParams);
@@ -46,7 +46,7 @@ public:
 
   ConversionRequired NeedsConversion() const override;
 
-private:
+ private:
   UniquePtr<DummyDataCreator> mCreator;
   const bool mIsH264;
   const uint32_t mMaxRefFrames;
@@ -55,6 +55,6 @@ private:
   nsCString mDescription;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // !defined(DummyMediaDataDecoder_h_)
+#endif  // !defined(DummyMediaDataDecoder_h_)

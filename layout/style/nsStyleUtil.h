@@ -24,16 +24,16 @@ struct gfxAlternateValue;
 struct nsCSSValueList;
 
 // Style utility functions
-class nsStyleUtil {
-public:
+class nsStyleUtil
+{
+ public:
+  static bool DashMatchCompare(const nsAString& aAttributeValue,
+                               const nsAString& aSelectorValue,
+                               const nsStringComparator& aComparator);
 
- static bool DashMatchCompare(const nsAString& aAttributeValue,
-                                const nsAString& aSelectorValue,
-                                const nsStringComparator& aComparator);
-
- static bool ValueIncludes(const nsAString& aValueList,
-                           const nsAString& aValue,
-                           const nsStringComparator& aComparator);
+  static bool ValueIncludes(const nsAString& aValueList,
+                            const nsAString& aValue,
+                            const nsStringComparator& aComparator);
 
   // Append a quoted (with 'quoteChar') and escaped version of aString
   // to aResult.  'quoteChar' must be ' or ".
@@ -48,22 +48,19 @@ public:
   static void AppendEscapedCSSIdent(const nsAString& aIdent,
                                     nsAString& aResult);
 
-  static void
-  AppendEscapedCSSFontFamilyList(const mozilla::FontFamilyList& aFamilyList,
-                                 nsAString& aResult);
-  static void
-  AppendEscapedCSSFontFamilyList(mozilla::SharedFontList* aFontlist,
-                                 nsAString& aResult)
+  static void AppendEscapedCSSFontFamilyList(
+      const mozilla::FontFamilyList& aFamilyList, nsAString& aResult);
+  static void AppendEscapedCSSFontFamilyList(mozilla::SharedFontList* aFontlist,
+                                             nsAString& aResult)
   {
     AppendEscapedCSSFontFamilyList(aFontlist->mNames, aResult);
   }
 
-private:
-  static void
-  AppendEscapedCSSFontFamilyList(const nsTArray<mozilla::FontFamilyName>& aNames,
-                                 nsAString& aResult);
+ private:
+  static void AppendEscapedCSSFontFamilyList(
+      const nsTArray<mozilla::FontFamilyName>& aNames, nsAString& aResult);
 
-public:
+ public:
   // Append a bitmask-valued property's value(s) (space-separated) to aResult.
   static void AppendBitmaskCSSValue(nsCSSPropertyID aProperty,
                                     int32_t aMaskedValue,
@@ -77,14 +74,14 @@ public:
 
   static void AppendFontTagAsString(uint32_t aTag, nsAString& aResult);
 
-  static void AppendFontFeatureSettings(const nsTArray<gfxFontFeature>& aFeatures,
-                                        nsAString& aResult);
+  static void AppendFontFeatureSettings(
+      const nsTArray<gfxFontFeature>& aFeatures, nsAString& aResult);
 
   static void AppendFontFeatureSettings(const nsCSSValue& src,
                                         nsAString& aResult);
 
-  static void AppendFontVariationSettings(const nsTArray<gfxFontVariation>& aVariations,
-                                          nsAString& aResult);
+  static void AppendFontVariationSettings(
+      const nsTArray<gfxFontVariation>& aVariations, nsAString& aResult);
 
   static void AppendFontVariationSettings(const nsCSSValue& src,
                                           nsAString& aResult);
@@ -99,14 +96,11 @@ public:
   static void AppendStepsTimingFunction(nsTimingFunction::Type aType,
                                         uint32_t aSteps,
                                         nsAString& aResult);
-  static void AppendFramesTimingFunction(uint32_t aFrames,
-                                         nsAString& aResult);
-  static void AppendCubicBezierTimingFunction(float aX1, float aY1,
-                                              float aX2, float aY2,
-                                              nsAString& aResult);
+  static void AppendFramesTimingFunction(uint32_t aFrames, nsAString& aResult);
+  static void AppendCubicBezierTimingFunction(
+      float aX1, float aY1, float aX2, float aY2, nsAString& aResult);
   static void AppendCubicBezierKeywordTimingFunction(
-      nsTimingFunction::Type aType,
-      nsAString& aResult);
+      nsTimingFunction::Type aType, nsAString& aResult);
 
   static void AppendSerializedFontSrc(const nsCSSValue& aValue,
                                       nsAString& aResult);
@@ -116,14 +110,13 @@ public:
                                           nsAString& aFeatureName);
 
   // Append functional font-variant-alternates values to string
-  static void
-  SerializeFunctionalAlternates(const nsTArray<gfxAlternateValue>& aAlternates,
-                                nsAString& aResult);
+  static void SerializeFunctionalAlternates(
+      const nsTArray<gfxAlternateValue>& aAlternates, nsAString& aResult);
 
   // List of functional font-variant-alternates values to feature/value pairs
-  static void
-  ComputeFunctionalAlternates(const nsCSSValueList* aList,
-                              nsTArray<gfxAlternateValue>& aAlternateValues);
+  static void ComputeFunctionalAlternates(
+      const nsCSSValueList* aList,
+      nsTArray<gfxAlternateValue>& aAlternateValues);
 
   /*
    * Convert an author-provided floating point number to an integer (0
@@ -148,8 +141,8 @@ public:
    * Does this child count as significant for selector matching?
    */
   static bool IsSignificantChild(nsIContent* aChild,
-                                   bool aTextIsSignificant,
-                                   bool aWhitespaceIsSignificant);
+                                 bool aTextIsSignificant,
+                                 bool aWhitespaceIsSignificant);
 
   /*
    * Thread-safe version of IsSignificantChild()
@@ -208,7 +201,8 @@ public:
                                    nsresult* aRv);
 
   template<size_t N>
-  static bool MatchesLanguagePrefix(const char16_t* aLang, size_t aLen,
+  static bool MatchesLanguagePrefix(const char16_t* aLang,
+                                    size_t aLen,
                                     const char16_t (&aPrefix)[N])
   {
     return !nsCRT::strncmp(aLang, aPrefix, N - 1) &&
@@ -220,8 +214,8 @@ public:
                                     const char16_t (&aPrefix)[N])
   {
     MOZ_ASSERT(aLang);
-    return MatchesLanguagePrefix(aLang->GetUTF16String(),
-                                 aLang->GetLength(), aPrefix);
+    return MatchesLanguagePrefix(
+        aLang->GetUTF16String(), aLang->GetLength(), aPrefix);
   }
 
   template<size_t N>
@@ -231,6 +225,5 @@ public:
     return MatchesLanguagePrefix(aLang.Data(), aLang.Length(), aPrefix);
   }
 };
-
 
 #endif /* nsStyleUtil_h___ */

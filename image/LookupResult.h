@@ -42,41 +42,41 @@ enum class MatchType : uint8_t
  */
 class MOZ_STACK_CLASS LookupResult
 {
-public:
-  explicit LookupResult(MatchType aMatchType)
-    : mMatchType(aMatchType)
+ public:
+  explicit LookupResult(MatchType aMatchType) : mMatchType(aMatchType)
   {
-    MOZ_ASSERT(mMatchType == MatchType::NOT_FOUND ||
-               mMatchType == MatchType::PENDING,
-               "Only NOT_FOUND or PENDING make sense with no surface");
+    MOZ_ASSERT(
+        mMatchType == MatchType::NOT_FOUND || mMatchType == MatchType::PENDING,
+        "Only NOT_FOUND or PENDING make sense with no surface");
   }
 
   LookupResult(LookupResult&& aOther)
-    : mSurface(Move(aOther.mSurface))
-    , mMatchType(aOther.mMatchType)
-  { }
+      : mSurface(Move(aOther.mSurface)), mMatchType(aOther.mMatchType)
+  {
+  }
 
   LookupResult(DrawableSurface&& aSurface, MatchType aMatchType)
-    : mSurface(Move(aSurface))
-    , mMatchType(aMatchType)
+      : mSurface(Move(aSurface)), mMatchType(aMatchType)
   {
     MOZ_ASSERT(!mSurface || !(mMatchType == MatchType::NOT_FOUND ||
                               mMatchType == MatchType::PENDING),
                "Only NOT_FOUND or PENDING make sense with no surface");
     MOZ_ASSERT(mSurface || mMatchType == MatchType::NOT_FOUND ||
-                           mMatchType == MatchType::PENDING,
+                   mMatchType == MatchType::PENDING,
                "NOT_FOUND or PENDING do not make sense with a surface");
   }
 
-  LookupResult(DrawableSurface&& aSurface, MatchType aMatchType,
+  LookupResult(DrawableSurface&& aSurface,
+               MatchType aMatchType,
                const gfx::IntSize& aSuggestedSize)
-    : mSurface(Move(aSurface))
-    , mMatchType(aMatchType)
-    , mSuggestedSize(aSuggestedSize)
+      : mSurface(Move(aSurface)),
+        mMatchType(aMatchType),
+        mSuggestedSize(aSuggestedSize)
   {
     MOZ_ASSERT(!mSuggestedSize.IsEmpty());
-    MOZ_ASSERT(!mSurface || aMatchType == MatchType::SUBSTITUTE_BECAUSE_NOT_FOUND,
-               "Only SUBSTITUTE_BECAUSE_NOT_FOUND make sense with no surface");
+    MOZ_ASSERT(
+        !mSurface || aMatchType == MatchType::SUBSTITUTE_BECAUSE_NOT_FOUND,
+        "Only SUBSTITUTE_BECAUSE_NOT_FOUND make sense with no surface");
     MOZ_ASSERT(mSurface || aMatchType == MatchType::NOT_FOUND,
                "NOT_FOUND does not make sense with a surface");
   }
@@ -100,7 +100,7 @@ public:
   /// @return what kind of match this is (exact, substitute, etc.)
   MatchType Type() const { return mMatchType; }
 
-private:
+ private:
   LookupResult(const LookupResult&) = delete;
 
   DrawableSurface mSurface;
@@ -111,7 +111,7 @@ private:
   gfx::IntSize mSuggestedSize;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_LookupResult_h
+#endif  // mozilla_image_LookupResult_h

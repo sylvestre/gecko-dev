@@ -54,7 +54,8 @@ FileDescriptorFile::Clone(nsIFile** aFileOut)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::OpenNSPRFileDesc(int32_t aFlags, int32_t aMode,
+FileDescriptorFile::OpenNSPRFileDesc(int32_t aFlags,
+                                     int32_t aMode,
                                      PRFileDesc** aRetval)
 {
   // Remove optional OS_READAHEAD flag so we test against PR_RDONLY
@@ -167,10 +168,7 @@ FileDescriptorFile::AppendNative(const nsACString& aFragment)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::Normalize()
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::Normalize() { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 FileDescriptorFile::Create(uint32_t aType, uint32_t aPermissions)
@@ -233,7 +231,8 @@ FileDescriptorFile::GetPersistentDescriptor(nsACString& aPersistentDescriptor)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::SetPersistentDescriptor(const nsACString& aPersistentDescriptor)
+FileDescriptorFile::SetPersistentDescriptor(
+    const nsACString& aPersistentDescriptor)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -319,10 +318,7 @@ FileDescriptorFile::RenameToNative(nsIFile* aNewParentDir,
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::Remove(bool aRecursive)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::Remove(bool aRecursive) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 FileDescriptorFile::GetPermissions(uint32_t* aPermissions)
@@ -391,10 +387,7 @@ FileDescriptorFile::GetFileSizeOfLink(int64_t* aFileSize)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::Exists(bool* aRetVal)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::Exists(bool* aRetVal) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 FileDescriptorFile::IsWritable(bool* aRetVal)
@@ -415,10 +408,7 @@ FileDescriptorFile::IsExecutable(bool* aRetVal)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::IsHidden(bool* aRetVal)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::IsHidden(bool* aRetVal) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 FileDescriptorFile::IsDirectory(bool* aRetVal)
@@ -427,10 +417,7 @@ FileDescriptorFile::IsDirectory(bool* aRetVal)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::IsFile(bool* aRetVal)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::IsFile(bool* aRetVal) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 FileDescriptorFile::IsSymlink(bool* aRetVal)
@@ -475,16 +462,10 @@ FileDescriptorFile::GetDiskSpaceAvailable(int64_t* aDiskSpaceAvailable)
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::Reveal()
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::Reveal() { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
-FileDescriptorFile::Launch()
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+FileDescriptorFile::Launch() { return NS_ERROR_NOT_IMPLEMENTED; }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

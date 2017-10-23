@@ -24,8 +24,8 @@
 
 using namespace mozilla;
 using namespace mozilla::dom;
-using js::GetGlobalForObjectCrossCompartment;
 using js::AssertSameCompartment;
+using js::GetGlobalForObjectCrossCompartment;
 
 nsresult
 nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
@@ -35,8 +35,9 @@ nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
   // this prototype implementation as a guide.  The prototype implementation is compiled lazily,
   // so for the first bound element that needs a concrete implementation, we also build the
   // prototype implementation.
-  if (!mMembers && !mFields)  // Constructor and destructor also live in mMembers
-    return NS_OK; // Nothing to do, so let's not waste time.
+  if (!mMembers &&
+      !mFields)    // Constructor and destructor also live in mMembers
+    return NS_OK;  // Nothing to do, so let's not waste time.
 
   // If the way this gets the script context changes, fix
   // nsXBLProtoImplAnonymousMethod::Execute
@@ -67,12 +68,13 @@ nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
                                   aBinding->GetBoundElement(),
                                   &targetClassObject,
                                   &targetObjectIsNew);
-  NS_ENSURE_SUCCESS(rv, rv); // kick out if we were unable to properly intialize our target objects
+  NS_ENSURE_SUCCESS(
+      rv,
+      rv);  // kick out if we were unable to properly intialize our target objects
   MOZ_ASSERT(targetClassObject);
 
   // If the prototype already existed, we don't need to install anything. return early.
-  if (!targetObjectIsNew)
-    return NS_OK;
+  if (!targetObjectIsNew) return NS_OK;
 
   // We want to define the canonical set of members in a safe place. If we're
   // using a separate XBL scope, we want to define them there first (so that
@@ -84,11 +86,13 @@ nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
   // First, start by entering the compartment of the XBL scope. This may or may
   // not be the same compartment as globalObject.
   JSAddonId* addonId = MapURIToAddonID(aPrototypeBinding->BindingURI());
-  JS::Rooted<JSObject*> globalObject(cx,
-    GetGlobalForObjectCrossCompartment(targetClassObject));
-  JS::Rooted<JSObject*> scopeObject(cx, xpc::GetScopeForXBLExecution(cx, globalObject, addonId));
+  JS::Rooted<JSObject*> globalObject(
+      cx, GetGlobalForObjectCrossCompartment(targetClassObject));
+  JS::Rooted<JSObject*> scopeObject(
+      cx, xpc::GetScopeForXBLExecution(cx, globalObject, addonId));
   NS_ENSURE_TRUE(scopeObject, NS_ERROR_OUT_OF_MEMORY);
-  MOZ_ASSERT(js::GetGlobalForObjectCrossCompartment(scopeObject) == scopeObject);
+  MOZ_ASSERT(js::GetGlobalForObjectCrossCompartment(scopeObject) ==
+             scopeObject);
   JSAutoCompartment ac(cx, scopeObject);
 
   // Determine the appropriate property holder.
@@ -104,22 +108,27 @@ nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
   JS::Rooted<JSObject*> propertyHolder(cx);
   JS::Rooted<JS::PropertyDescriptor> existingHolder(cx);
   if (scopeObject != globalObject &&
-      !JS_GetOwnUCPropertyDescriptor(cx, scopeObject, className, &existingHolder)) {
+      !JS_GetOwnUCPropertyDescriptor(
+          cx, scopeObject, className, &existingHolder)) {
     return NS_ERROR_FAILURE;
   }
-  bool propertyHolderIsNew = !existingHolder.object() || !existingHolder.value().isObject();
+  bool propertyHolderIsNew =
+      !existingHolder.object() || !existingHolder.value().isObject();
 
   if (!propertyHolderIsNew) {
     propertyHolder = &existingHolder.value().toObject();
   } else if (scopeObject != globalObject) {
-
     // This is just a property holder, so it doesn't need any special JSClass.
     propertyHolder = JS_NewObjectWithGivenProto(cx, nullptr, nullptr);
     NS_ENSURE_TRUE(propertyHolder, NS_ERROR_OUT_OF_MEMORY);
 
     // Define it as a property on the scopeObject, using the same name used on
     // the content side.
-    bool ok = JS_DefineUCProperty(cx, scopeObject, className, -1, propertyHolder,
+    bool ok = JS_DefineUCProperty(cx,
+                                  scopeObject,
+                                  className,
+                                  -1,
+                                  propertyHolder,
                                   JSPROP_PERMANENT | JSPROP_READONLY);
     NS_ENSURE_TRUE(ok, NS_ERROR_UNEXPECTED);
   } else {
@@ -128,9 +137,7 @@ nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
 
   // Walk our member list and install each one in turn on the XBL scope object.
   if (propertyHolderIsNew) {
-    for (nsXBLProtoImplMember* curr = mMembers;
-         curr;
-         curr = curr->GetNext())
+    for (nsXBLProtoImplMember* curr = mMembers; curr; curr = curr->GetNext())
       curr->InstallMember(cx, propertyHolder);
   }
 
@@ -169,34 +176,33 @@ nsXBLProtoImpl::InstallImplementation(nsXBLPrototypeBinding* aPrototypeBinding,
   JSAutoCompartment ac2(cx, targetClassObject);
 
   // Install all of our field accessors.
-  for (nsXBLProtoImplField* curr = mFields;
-       curr;
-       curr = curr->GetNext())
+  for (nsXBLProtoImplField* curr = mFields; curr; curr = curr->GetNext())
     curr->InstallAccessors(cx, targetClassObject);
 
   return NS_OK;
 }
 
 nsresult
-nsXBLProtoImpl::InitTargetObjects(nsXBLPrototypeBinding* aBinding,
-                                  nsIContent* aBoundElement,
-                                  JS::MutableHandle<JSObject*> aTargetClassObject,
-                                  bool* aTargetIsNew)
+nsXBLProtoImpl::InitTargetObjects(
+    nsXBLPrototypeBinding* aBinding,
+    nsIContent* aBoundElement,
+    JS::MutableHandle<JSObject*> aTargetClassObject,
+    bool* aTargetIsNew)
 {
   nsresult rv = NS_OK;
 
   if (!mPrecompiledMemberHolder) {
-    rv = CompilePrototypeMembers(aBinding); // This is the first time we've ever installed this binding on an element.
-                                 // We need to go ahead and compile all methods and properties on a class
-                                 // in our prototype binding.
-    if (NS_FAILED(rv))
-      return rv;
+    rv = CompilePrototypeMembers(
+        aBinding);  // This is the first time we've ever installed this binding on an element.
+    // We need to go ahead and compile all methods and properties on a class
+    // in our prototype binding.
+    if (NS_FAILED(rv)) return rv;
 
     MOZ_ASSERT(mPrecompiledMemberHolder);
   }
 
-  nsIDocument *ownerDoc = aBoundElement->OwnerDoc();
-  nsIGlobalObject *sgo;
+  nsIDocument* ownerDoc = aBoundElement->OwnerDoc();
+  nsIGlobalObject* sgo;
 
   if (!(sgo = ownerDoc->GetScopeObject())) {
     return NS_ERROR_UNEXPECTED;
@@ -214,7 +220,9 @@ nsXBLProtoImpl::InitTargetObjects(nsXBLPrototypeBinding* aBinding,
   bool defineOnGlobal = dom::XULElementBinding::ConstructorEnabled(cx, global);
   dom::XULElementBinding::GetConstructorObjectHandle(cx, defineOnGlobal);
 
-  rv = nsContentUtils::WrapNative(cx, aBoundElement, &v,
+  rv = nsContentUtils::WrapNative(cx,
+                                  aBoundElement,
+                                  &v,
                                   /* aAllowWrapping = */ false);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -225,7 +233,8 @@ nsXBLProtoImpl::InitTargetObjects(nsXBLPrototypeBinding* aBinding,
   // concrete base class.  We need to alter the object so that our concrete class is interposed
   // between the object and its base class.  We become the new base class of the object, and the
   // object's old base class becomes the new class' base class.
-  rv = aBinding->InitClass(mClassName, cx, value, aTargetClassObject, aTargetIsNew);
+  rv = aBinding->InitClass(
+      mClassName, cx, value, aTargetClassObject, aTargetIsNew);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -242,20 +251,16 @@ nsXBLProtoImpl::CompilePrototypeMembers(nsXBLPrototypeBinding* aBinding)
   // bind the prototype to a real xbl instance, we'll clone the pre-compiled JS into the real instance's
   // context.
   AutoJSAPI jsapi;
-  if (NS_WARN_IF(!jsapi.Init(xpc::CompilationScope())))
-    return NS_ERROR_FAILURE;
+  if (NS_WARN_IF(!jsapi.Init(xpc::CompilationScope()))) return NS_ERROR_FAILURE;
   JSContext* cx = jsapi.cx();
 
   mPrecompiledMemberHolder = JS_NewObjectWithGivenProto(cx, nullptr, nullptr);
-  if (!mPrecompiledMemberHolder)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!mPrecompiledMemberHolder) return NS_ERROR_OUT_OF_MEMORY;
 
   // Now that we have a class object installed, we walk our member list and compile each of our
   // properties and methods in turn.
   JS::Rooted<JSObject*> rootedHolder(cx, mPrecompiledMemberHolder);
-  for (nsXBLProtoImplMember* curr = mMembers;
-       curr;
-       curr = curr->GetNext()) {
+  for (nsXBLProtoImplMember* curr = mMembers; curr; curr = curr->GetNext()) {
     nsresult rv = curr->CompileMember(jsapi, mClassName, rootedHolder);
     if (NS_FAILED(rv)) {
       DestroyMembers();
@@ -267,7 +272,8 @@ nsXBLProtoImpl::CompilePrototypeMembers(nsXBLPrototypeBinding* aBinding)
 }
 
 bool
-nsXBLProtoImpl::LookupMember(JSContext* aCx, nsString& aName,
+nsXBLProtoImpl::LookupMember(JSContext* aCx,
+                             nsString& aName,
                              JS::Handle<jsid> aNameAsId,
                              JS::MutableHandle<JS::PropertyDescriptor> aDesc,
                              JS::Handle<JSObject*> aClassObject)
@@ -281,7 +287,7 @@ nsXBLProtoImpl::LookupMember(JSContext* aCx, nsString& aName,
 }
 
 void
-nsXBLProtoImpl::Trace(const TraceCallbacks& aCallbacks, void *aClosure)
+nsXBLProtoImpl::Trace(const TraceCallbacks& aCallbacks, void* aClosure)
 {
   // If we don't have a class object then we either didn't compile members
   // or we only have fields, in both cases there are no cycles through our
@@ -290,7 +296,7 @@ nsXBLProtoImpl::Trace(const TraceCallbacks& aCallbacks, void *aClosure)
     return;
   }
 
-  nsXBLProtoImplMember *member;
+  nsXBLProtoImplMember* member;
   for (member = mMembers; member; member = member->GetNext()) {
     member->Trace(aCallbacks, aClosure);
   }
@@ -317,7 +323,7 @@ nsXBLProtoImpl::FindField(const nsString& aFieldName) const
 }
 
 bool
-nsXBLProtoImpl::ResolveAllFields(JSContext *cx, JS::Handle<JSObject*> obj) const
+nsXBLProtoImpl::ResolveAllFields(JSContext* cx, JS::Handle<JSObject*> obj) const
 {
   for (nsXBLProtoImplField* f = mFields; f; f = f->GetNext()) {
     nsDependentString name(f->GetName());
@@ -331,7 +337,7 @@ nsXBLProtoImpl::ResolveAllFields(JSContext *cx, JS::Handle<JSObject*> obj) const
 }
 
 void
-nsXBLProtoImpl::UndefineFields(JSContext *cx, JS::Handle<JSObject*> obj) const
+nsXBLProtoImpl::UndefineFields(JSContext* cx, JS::Handle<JSObject*> obj) const
 {
   JSAutoRequest ar(cx);
   for (nsXBLProtoImplField* f = mFields; f; f = f->GetNext()) {
@@ -366,8 +372,7 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
   AutoJSContext cx;
   // Set up a class object first so that deserialization is possible
   mPrecompiledMemberHolder = JS_NewObjectWithGivenProto(cx, nullptr, nullptr);
-  if (!mPrecompiledMemberHolder)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!mPrecompiledMemberHolder) return NS_ERROR_OUT_OF_MEMORY;
 
   nsXBLProtoImplField* previousField = nullptr;
   nsXBLProtoImplMember* previousMember = nullptr;
@@ -376,14 +381,12 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
     XBLBindingSerializeDetails type;
     nsresult rv = aStream->Read8(&type);
     NS_ENSURE_SUCCESS(rv, rv);
-    if (type == XBLBinding_Serialize_NoMoreItems)
-      break;
+    if (type == XBLBinding_Serialize_NoMoreItems) break;
 
     switch (type & XBLBinding_Serialize_Mask) {
-      case XBLBinding_Serialize_Field:
-      {
+      case XBLBinding_Serialize_Field: {
         nsXBLProtoImplField* field =
-          new nsXBLProtoImplField(type & XBLBinding_Serialize_ReadOnly);
+            new nsXBLProtoImplField(type & XBLBinding_Serialize_ReadOnly);
         rv = field->Read(aStream);
         if (NS_FAILED(rv)) {
           delete field;
@@ -392,8 +395,7 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
 
         if (previousField) {
           previousField->SetNext(field);
-        }
-        else {
+        } else {
           mFields = field;
         }
         previousField = field;
@@ -402,14 +404,13 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
       }
       case XBLBinding_Serialize_GetterProperty:
       case XBLBinding_Serialize_SetterProperty:
-      case XBLBinding_Serialize_GetterSetterProperty:
-      {
+      case XBLBinding_Serialize_GetterSetterProperty: {
         nsAutoString name;
         nsresult rv = aStream->ReadString(name);
         NS_ENSURE_SUCCESS(rv, rv);
 
-        nsXBLProtoImplProperty* prop =
-          new nsXBLProtoImplProperty(name.get(), type & XBLBinding_Serialize_ReadOnly);
+        nsXBLProtoImplProperty* prop = new nsXBLProtoImplProperty(
+            name.get(), type & XBLBinding_Serialize_ReadOnly);
         rv = prop->Read(aStream, type & XBLBinding_Serialize_Mask);
         if (NS_FAILED(rv)) {
           delete prop;
@@ -419,8 +420,7 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
         previousMember = AddMember(prop, previousMember);
         break;
       }
-      case XBLBinding_Serialize_Method:
-      {
+      case XBLBinding_Serialize_Method: {
         nsAutoString name;
         rv = aStream->ReadString(name);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -435,8 +435,7 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
         previousMember = AddMember(method, previousMember);
         break;
       }
-      case XBLBinding_Serialize_Constructor:
-      {
+      case XBLBinding_Serialize_Constructor: {
         nsAutoString name;
         rv = aStream->ReadString(name);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -452,8 +451,7 @@ nsXBLProtoImpl::Read(nsIObjectInputStream* aStream,
         previousMember = AddMember(mConstructor, previousMember);
         break;
       }
-      case XBLBinding_Serialize_Destructor:
-      {
+      case XBLBinding_Serialize_Destructor: {
         nsAutoString name;
         rv = aStream->ReadString(name);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -499,11 +497,9 @@ nsXBLProtoImpl::Write(nsIObjectOutputStream* aStream,
   for (nsXBLProtoImplMember* curr = mMembers; curr; curr = curr->GetNext()) {
     if (curr == mConstructor) {
       rv = mConstructor->Write(aStream, XBLBinding_Serialize_Constructor);
-    }
-    else if (curr == mDestructor) {
+    } else if (curr == mDestructor) {
       rv = mDestructor->Write(aStream, XBLBinding_Serialize_Destructor);
-    }
-    else {
+    } else {
       rv = curr->Write(aStream);
     }
     NS_ENSURE_SUCCESS(rv, rv);
@@ -531,4 +527,3 @@ NS_NewXBLProtoImpl(nsXBLPrototypeBinding* aBinding,
   aBinding->SetImplementation(impl);
   *aResult = impl;
 }
-

@@ -26,9 +26,7 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-nsHTMLCSSStyleSheet::nsHTMLCSSStyleSheet()
-{
-}
+nsHTMLCSSStyleSheet::nsHTMLCSSStyleSheet() {}
 
 nsHTMLCSSStyleSheet::~nsHTMLCSSStyleSheet()
 {
@@ -56,8 +54,8 @@ NS_IMPL_ISUPPORTS(nsHTMLCSSStyleSheet, nsIStyleRuleProcessor)
 /* virtual */ void
 nsHTMLCSSStyleSheet::RulesMatching(ElementRuleProcessorData* aData)
 {
-  ElementRulesMatching(aData->mPresContext, aData->mElement,
-                       aData->mRuleWalker);
+  ElementRulesMatching(
+      aData->mPresContext, aData->mElement, aData->mRuleWalker);
 }
 
 void
@@ -78,7 +76,7 @@ nsHTMLCSSStyleSheet::ElementRulesMatching(nsPresContext* aPresContext,
                "stylo: ElementRulesMatching must not be called when we have "
                "a Servo-backed style system");
     GeckoRestyleManager* restyleManager =
-      aPresContext->RestyleManager()->AsGecko();
+        aPresContext->RestyleManager()->AsGecko();
     if (!restyleManager->SkipAnimationRules()) {
       // Animation restyle (or non-restyle traversal of rules)
       // Now we can walk SMIL overrride style, without triggering transitions.
@@ -89,13 +87,13 @@ nsHTMLCSSStyleSheet::ElementRulesMatching(nsPresContext* aPresContext,
 }
 
 void
-nsHTMLCSSStyleSheet::PseudoElementRulesMatching(Element* aPseudoElement,
-                                                CSSPseudoElementType
-                                                  aPseudoType,
-                                                nsRuleWalker* aRuleWalker)
+nsHTMLCSSStyleSheet::PseudoElementRulesMatching(
+    Element* aPseudoElement,
+    CSSPseudoElementType aPseudoType,
+    nsRuleWalker* aRuleWalker)
 {
-  MOZ_ASSERT(nsCSSPseudoElements::
-               PseudoElementSupportsStyleAttribute(aPseudoType));
+  MOZ_ASSERT(
+      nsCSSPseudoElements::PseudoElementSupportsStyleAttribute(aPseudoType));
   MOZ_ASSERT(aPseudoElement);
 
   // just get the one and only style rule from the content's STYLE attribute
@@ -109,10 +107,11 @@ nsHTMLCSSStyleSheet::PseudoElementRulesMatching(Element* aPseudoElement,
 /* virtual */ void
 nsHTMLCSSStyleSheet::RulesMatching(PseudoElementRuleProcessorData* aData)
 {
-  if (nsCSSPseudoElements::PseudoElementSupportsStyleAttribute(aData->mPseudoType) &&
+  if (nsCSSPseudoElements::PseudoElementSupportsStyleAttribute(
+          aData->mPseudoType) &&
       aData->mPseudoElement) {
-    PseudoElementRulesMatching(aData->mPseudoElement, aData->mPseudoType,
-                               aData->mRuleWalker);
+    PseudoElementRulesMatching(
+        aData->mPseudoElement, aData->mPseudoType, aData->mRuleWalker);
   }
 }
 
@@ -136,13 +135,15 @@ nsHTMLCSSStyleSheet::HasStateDependentStyle(StateRuleProcessorData* aData)
 }
 
 /* virtual */ nsRestyleHint
-nsHTMLCSSStyleSheet::HasStateDependentStyle(PseudoElementStateRuleProcessorData* aData)
+nsHTMLCSSStyleSheet::HasStateDependentStyle(
+    PseudoElementStateRuleProcessorData* aData)
 {
   return nsRestyleHint(0);
 }
 
 /* virtual */ bool
-nsHTMLCSSStyleSheet::HasDocumentStateDependentStyle(StateRuleProcessorData* aData)
+nsHTMLCSSStyleSheet::HasDocumentStateDependentStyle(
+    StateRuleProcessorData* aData)
 {
   return false;
 }
@@ -150,8 +151,7 @@ nsHTMLCSSStyleSheet::HasDocumentStateDependentStyle(StateRuleProcessorData* aDat
 // Test if style is dependent on attribute
 /* virtual */ nsRestyleHint
 nsHTMLCSSStyleSheet::HasAttributeDependentStyle(
-    AttributeRuleProcessorData* aData,
-    RestyleHintData& aRestyleHintDataResult)
+    AttributeRuleProcessorData* aData, RestyleHintData& aRestyleHintDataResult)
 {
   // Perhaps should check that it's XUL, SVG, (or HTML) namespace, but
   // it doesn't really matter.
@@ -169,7 +169,8 @@ nsHTMLCSSStyleSheet::MediumFeaturesChanged(nsPresContext* aPresContext)
 }
 
 /* virtual */ size_t
-nsHTMLCSSStyleSheet::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+nsHTMLCSSStyleSheet::SizeOfExcludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   // The size of mCachedStyleAttrs's mTable member (a PLDHashTable) is
   // significant in itself, but more significant is the size of the nsString
@@ -186,7 +187,8 @@ nsHTMLCSSStyleSheet::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) co
 }
 
 /* virtual */ size_t
-nsHTMLCSSStyleSheet::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+nsHTMLCSSStyleSheet::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
 }

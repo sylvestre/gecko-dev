@@ -16,18 +16,16 @@
 namespace mozilla {
 namespace dom {
 
-class AudioDestinationTrackSource final :
-  public MediaStreamTrackSource
+class AudioDestinationTrackSource final : public MediaStreamTrackSource
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioDestinationTrackSource,
                                            MediaStreamTrackSource)
 
   AudioDestinationTrackSource(MediaStreamAudioDestinationNode* aNode,
                               nsIPrincipal* aPrincipal)
-    : MediaStreamTrackSource(aPrincipal, nsString())
-    , mNode(aNode)
+      : MediaStreamTrackSource(aPrincipal, nsString()), mNode(aNode)
   {
   }
 
@@ -44,28 +42,25 @@ public:
     return MediaSourceEnum::AudioCapture;
   }
 
-  void Stop() override
-  {
-    Destroy();
-  }
+  void Stop() override { Destroy(); }
 
-private:
+ private:
   ~AudioDestinationTrackSource() = default;
 
   RefPtr<MediaStreamAudioDestinationNode> mNode;
 };
 
-NS_IMPL_ADDREF_INHERITED(AudioDestinationTrackSource,
-                         MediaStreamTrackSource)
-NS_IMPL_RELEASE_INHERITED(AudioDestinationTrackSource,
-                          MediaStreamTrackSource)
+NS_IMPL_ADDREF_INHERITED(AudioDestinationTrackSource, MediaStreamTrackSource)
+NS_IMPL_RELEASE_INHERITED(AudioDestinationTrackSource, MediaStreamTrackSource)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AudioDestinationTrackSource)
 NS_INTERFACE_MAP_END_INHERITING(MediaStreamTrackSource)
 NS_IMPL_CYCLE_COLLECTION_INHERITED(AudioDestinationTrackSource,
                                    MediaStreamTrackSource,
                                    mNode)
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaStreamAudioDestinationNode, AudioNode, mDOMStream)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaStreamAudioDestinationNode,
+                                   AudioNode,
+                                   mDOMStream)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaStreamAudioDestinationNode)
 NS_INTERFACE_MAP_END_INHERITING(AudioNode)
@@ -73,33 +68,34 @@ NS_INTERFACE_MAP_END_INHERITING(AudioNode)
 NS_IMPL_ADDREF_INHERITED(MediaStreamAudioDestinationNode, AudioNode)
 NS_IMPL_RELEASE_INHERITED(MediaStreamAudioDestinationNode, AudioNode)
 
-MediaStreamAudioDestinationNode::MediaStreamAudioDestinationNode(AudioContext* aContext)
-  : AudioNode(aContext,
-              2,
-              ChannelCountMode::Explicit,
-              ChannelInterpretation::Speakers)
-  , mDOMStream(
-      DOMAudioNodeMediaStream::CreateTrackUnionStreamAsInput(GetOwner(),
-                                                             this,
-                                                             aContext->Graph()))
+MediaStreamAudioDestinationNode::MediaStreamAudioDestinationNode(
+    AudioContext* aContext)
+    : AudioNode(aContext,
+                2,
+                ChannelCountMode::Explicit,
+                ChannelInterpretation::Speakers),
+      mDOMStream(DOMAudioNodeMediaStream::CreateTrackUnionStreamAsInput(
+          GetOwner(), this, aContext->Graph()))
 {
   // Ensure an audio track with the correct ID is exposed to JS
   nsIDocument* doc = aContext->GetParentObject()->GetExtantDoc();
   RefPtr<MediaStreamTrackSource> source =
-    new AudioDestinationTrackSource(this, doc->NodePrincipal());
+      new AudioDestinationTrackSource(this, doc->NodePrincipal());
   RefPtr<MediaStreamTrack> track =
-    mDOMStream->CreateDOMTrack(AudioNodeStream::AUDIO_TRACK,
-                               MediaSegment::AUDIO, source,
-                               MediaTrackConstraints());
+      mDOMStream->CreateDOMTrack(AudioNodeStream::AUDIO_TRACK,
+                                 MediaSegment::AUDIO,
+                                 source,
+                                 MediaTrackConstraints());
   mDOMStream->AddTrackInternal(track);
 
-  ProcessedMediaStream* outputStream = mDOMStream->GetInputStream()->AsProcessedStream();
+  ProcessedMediaStream* outputStream =
+      mDOMStream->GetInputStream()->AsProcessedStream();
   MOZ_ASSERT(!!outputStream);
   AudioNodeEngine* engine = new AudioNodeEngine(this);
-  mStream = AudioNodeStream::Create(aContext, engine,
-                                    AudioNodeStream::EXTERNAL_OUTPUT,
-                                    aContext->Graph());
-  mPort = outputStream->AllocateInputPort(mStream, AudioNodeStream::AUDIO_TRACK);
+  mStream = AudioNodeStream::Create(
+      aContext, engine, AudioNodeStream::EXTERNAL_OUTPUT, aContext->Graph());
+  mPort =
+      outputStream->AllocateInputPort(mStream, AudioNodeStream::AUDIO_TRACK);
 }
 
 /* static */ already_AddRefed<MediaStreamAudioDestinationNode>
@@ -117,7 +113,7 @@ MediaStreamAudioDestinationNode::Create(AudioContext& aAudioContext,
   }
 
   RefPtr<MediaStreamAudioDestinationNode> audioNode =
-    new MediaStreamAudioDestinationNode(&aAudioContext);
+      new MediaStreamAudioDestinationNode(&aAudioContext);
 
   audioNode->Initialize(aOptions, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
@@ -128,7 +124,8 @@ MediaStreamAudioDestinationNode::Create(AudioContext& aAudioContext,
 }
 
 size_t
-MediaStreamAudioDestinationNode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
+MediaStreamAudioDestinationNode::SizeOfExcludingThis(
+    MallocSizeOf aMallocSizeOf) const
 {
   // Future:
   // - mDOMStream
@@ -138,7 +135,8 @@ MediaStreamAudioDestinationNode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf)
 }
 
 size_t
-MediaStreamAudioDestinationNode::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+MediaStreamAudioDestinationNode::SizeOfIncludingThis(
+    MallocSizeOf aMallocSizeOf) const
 {
   return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
 }
@@ -154,10 +152,11 @@ MediaStreamAudioDestinationNode::DestroyMediaStream()
 }
 
 JSObject*
-MediaStreamAudioDestinationNode::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+MediaStreamAudioDestinationNode::WrapObject(JSContext* aCx,
+                                            JS::Handle<JSObject*> aGivenProto)
 {
   return MediaStreamAudioDestinationNodeBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

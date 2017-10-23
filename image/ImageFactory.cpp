@@ -31,7 +31,8 @@ namespace image {
 
 /*static*/ void
 ImageFactory::Initialize()
-{ }
+{
+}
 
 static uint32_t
 ComputeImageFlags(ImageURL* uri, const nsCString& aMimeType, bool isMultiPart)
@@ -92,10 +93,8 @@ NotifyImageLoading(ImageURL* aURI)
 {
   if (!NS_IsMainThread()) {
     RefPtr<ImageURL> uri(aURI);
-    nsCOMPtr<nsIRunnable> ev =
-      NS_NewRunnableFunction("NotifyImageLoading", [uri] () -> void {
-        NotifyImageLoading(uri);
-    });
+    nsCOMPtr<nsIRunnable> ev = NS_NewRunnableFunction(
+        "NotifyImageLoading", [uri]() -> void { NotifyImageLoading(uri); });
     SystemGroup::Dispatch(TaskCategory::Other, ev.forget());
     return;
   }
@@ -105,7 +104,8 @@ NotifyImageLoading(ImageURL* aURI)
   if (obs) {
     nsAutoCString spec;
     aURI->GetSpec(spec);
-    obs->NotifyObservers(nullptr, "image-loading", NS_ConvertUTF8toUTF16(spec).get());
+    obs->NotifyObservers(
+        nullptr, "image-loading", NS_ConvertUTF8toUTF16(spec).get());
   }
 }
 #endif
@@ -135,16 +135,24 @@ ImageFactory::CreateImage(nsIRequest* aRequest,
 
   // Select the type of image to create based on MIME type.
   if (aMimeType.EqualsLiteral(IMAGE_SVG_XML)) {
-    return CreateVectorImage(aRequest, aProgressTracker, aMimeType,
-                             aURI, imageFlags, aInnerWindowId);
+    return CreateVectorImage(aRequest,
+                             aProgressTracker,
+                             aMimeType,
+                             aURI,
+                             imageFlags,
+                             aInnerWindowId);
   } else {
-    return CreateRasterImage(aRequest, aProgressTracker, aMimeType,
-                             aURI, imageFlags, aInnerWindowId);
+    return CreateRasterImage(aRequest,
+                             aProgressTracker,
+                             aMimeType,
+                             aURI,
+                             imageFlags,
+                             aInnerWindowId);
   }
 }
 
 // Marks an image as having an error before returning it.
-template <typename T>
+template<typename T>
 static already_AddRefed<Image>
 BadImage(const char* aMessage, RefPtr<T>& aImage)
 {
@@ -313,5 +321,5 @@ ImageFactory::CreateVectorImage(nsIRequest* aRequest,
   return newImage.forget();
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

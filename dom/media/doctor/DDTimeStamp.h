@@ -24,6 +24,6 @@ DDNow()
 double
 ToSeconds(const DDTimeStamp& aTimeStamp);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDTimeStamp_h_
+#endif  // DDTimeStamp_h_

@@ -35,8 +35,10 @@ nsCheckSummedOutputStream::Finish()
   NS_ENSURE_SUCCESS(rv, rv);
 
   uint32_t written;
-  rv = nsBufferedOutputStream::Write(reinterpret_cast<const char*>(mCheckSum.BeginReading()),
-                                     mCheckSum.Length(), &written);
+  rv = nsBufferedOutputStream::Write(
+      reinterpret_cast<const char*>(mCheckSum.BeginReading()),
+      mCheckSum.Length(),
+      &written);
   NS_ASSERTION(written == mCheckSum.Length(), "Error writing stream checksum");
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -44,7 +46,9 @@ nsCheckSummedOutputStream::Finish()
 }
 
 NS_IMETHODIMP
-nsCheckSummedOutputStream::Write(const char *buf, uint32_t count, uint32_t *result)
+nsCheckSummedOutputStream::Write(const char* buf,
+                                 uint32_t count,
+                                 uint32_t* result)
 {
   nsresult rv = mHash->Update(reinterpret_cast<const uint8_t*>(buf), count);
   NS_ENSURE_SUCCESS(rv, rv);

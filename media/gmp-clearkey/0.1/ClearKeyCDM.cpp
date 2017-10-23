@@ -14,8 +14,7 @@ void
 ClearKeyCDM::Initialize(bool aAllowDistinctiveIdentifier,
                         bool aAllowPersistentState)
 {
-  mSessionManager->Init(aAllowDistinctiveIdentifier,
-                        aAllowPersistentState);
+  mSessionManager->Init(aAllowDistinctiveIdentifier, aAllowPersistentState);
 }
 
 void
@@ -23,9 +22,8 @@ ClearKeyCDM::SetServerCertificate(uint32_t aPromiseId,
                                   const uint8_t* aServerCertificateData,
                                   uint32_t aServerCertificateDataSize)
 {
-  mSessionManager->SetServerCertificate(aPromiseId,
-                                        aServerCertificateData,
-                                        aServerCertificateDataSize);
+  mSessionManager->SetServerCertificate(
+      aPromiseId, aServerCertificateData, aServerCertificateDataSize);
 }
 
 void
@@ -35,11 +33,8 @@ ClearKeyCDM::CreateSessionAndGenerateRequest(uint32_t aPromiseId,
                                              const uint8_t* aInitData,
                                              uint32_t aInitDataSize)
 {
-  mSessionManager->CreateSession(aPromiseId,
-                                 aInitDataType,
-                                 aInitData,
-                                 aInitDataSize,
-                                 aSessionType);
+  mSessionManager->CreateSession(
+      aPromiseId, aInitDataType, aInitData, aInitDataSize, aSessionType);
 }
 
 void
@@ -48,9 +43,7 @@ ClearKeyCDM::LoadSession(uint32_t aPromiseId,
                          const char* aSessionId,
                          uint32_t aSessionIdSize)
 {
-  mSessionManager->LoadSession(aPromiseId,
-                               aSessionId,
-                               aSessionIdSize);
+  mSessionManager->LoadSession(aPromiseId, aSessionId, aSessionIdSize);
 }
 
 void
@@ -60,11 +53,8 @@ ClearKeyCDM::UpdateSession(uint32_t aPromiseId,
                            const uint8_t* aResponse,
                            uint32_t aResponseSize)
 {
-  mSessionManager->UpdateSession(aPromiseId,
-                                 aSessionId,
-                                 aSessionIdSize,
-                                 aResponse,
-                                 aResponseSize);
+  mSessionManager->UpdateSession(
+      aPromiseId, aSessionId, aSessionIdSize, aResponse, aResponseSize);
 }
 
 void
@@ -72,9 +62,7 @@ ClearKeyCDM::CloseSession(uint32_t aPromiseId,
                           const char* aSessionId,
                           uint32_t aSessionIdSize)
 {
-  mSessionManager->CloseSession(aPromiseId,
-                                aSessionId,
-                                aSessionIdSize);
+  mSessionManager->CloseSession(aPromiseId, aSessionId, aSessionIdSize);
 }
 
 void
@@ -82,9 +70,7 @@ ClearKeyCDM::RemoveSession(uint32_t aPromiseId,
                            const char* aSessionId,
                            uint32_t aSessionIdSize)
 {
-  mSessionManager->RemoveSession(aPromiseId,
-                                 aSessionId,
-                                 aSessionIdSize);
+  mSessionManager->RemoveSession(aPromiseId, aSessionId, aSessionIdSize);
 }
 
 void
@@ -104,7 +90,7 @@ ClearKeyCDM::Decrypt(const InputBuffer& aEncryptedBuffer,
 
 Status
 ClearKeyCDM::InitializeAudioDecoder(
-  const AudioDecoderConfig& aAudioDecoderConfig)
+    const AudioDecoderConfig& aAudioDecoderConfig)
 {
   // Audio decoding is not supported by Clearkey because Widevine doesn't
   // support it and Clearkey's raison d'etre is to provide test coverage
@@ -114,7 +100,7 @@ ClearKeyCDM::InitializeAudioDecoder(
 
 Status
 ClearKeyCDM::InitializeVideoDecoder(
-  const VideoDecoderConfig& aVideoDecoderConfig)
+    const VideoDecoderConfig& aVideoDecoderConfig)
 {
 #ifdef ENABLE_WMF
   mVideoDecoder = new VideoDecoder(mHost);
@@ -168,7 +154,7 @@ ClearKeyCDM::DecryptAndDecodeSamples(const InputBuffer& aEncryptedBuffer,
 
 void
 ClearKeyCDM::OnPlatformChallengeResponse(
-  const PlatformChallengeResponse& aResponse)
+    const PlatformChallengeResponse& aResponse)
 {
   // This function should never be called and is not supported.
   assert(false);

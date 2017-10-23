@@ -33,19 +33,20 @@ XPCStringConvert::FinalizeLiteral(const JSStringFinalizer* fin, char16_t* chars)
 {
 }
 
-const JSStringFinalizer XPCStringConvert::sLiteralFinalizer =
-    { XPCStringConvert::FinalizeLiteral };
+const JSStringFinalizer XPCStringConvert::sLiteralFinalizer = {
+    XPCStringConvert::FinalizeLiteral};
 
 // static
 void
-XPCStringConvert::FinalizeDOMString(const JSStringFinalizer* fin, char16_t* chars)
+XPCStringConvert::FinalizeDOMString(const JSStringFinalizer* fin,
+                                    char16_t* chars)
 {
-    nsStringBuffer* buf = nsStringBuffer::FromData(chars);
-    buf->Release();
+  nsStringBuffer* buf = nsStringBuffer::FromData(chars);
+  buf->Release();
 }
 
-const JSStringFinalizer XPCStringConvert::sDOMStringFinalizer =
-    { XPCStringConvert::FinalizeDOMString };
+const JSStringFinalizer XPCStringConvert::sDOMStringFinalizer = {
+    XPCStringConvert::FinalizeDOMString};
 
 // convert a readable to a JSString, copying string data
 // static
@@ -55,37 +56,36 @@ XPCStringConvert::ReadableToJSVal(JSContext* cx,
                                   nsStringBuffer** sharedBuffer,
                                   MutableHandleValue vp)
 {
-    *sharedBuffer = nullptr;
+  *sharedBuffer = nullptr;
 
-    uint32_t length = readable.Length();
+  uint32_t length = readable.Length();
 
-    if (readable.IsLiteral()) {
-        bool ignored;
-        JSString* str = JS_NewMaybeExternalString(cx,
-                                                  static_cast<const char16_t*>(readable.BeginReading()),
-                                                  length, &sLiteralFinalizer, &ignored);
-        if (!str)
-            return false;
-        vp.setString(str);
-        return true;
-    }
-
-    nsStringBuffer* buf = nsStringBuffer::FromString(readable);
-    if (buf) {
-        bool shared;
-        if (!StringBufferToJSVal(cx, buf, length, vp, &shared))
-            return false;
-        if (shared)
-            *sharedBuffer = buf;
-        return true;
-    }
-
-    // blech, have to copy.
-    JSString* str = JS_NewUCStringCopyN(cx, readable.BeginReading(), length);
-    if (!str)
-        return false;
+  if (readable.IsLiteral()) {
+    bool ignored;
+    JSString* str = JS_NewMaybeExternalString(
+        cx,
+        static_cast<const char16_t*>(readable.BeginReading()),
+        length,
+        &sLiteralFinalizer,
+        &ignored);
+    if (!str) return false;
     vp.setString(str);
     return true;
+  }
+
+  nsStringBuffer* buf = nsStringBuffer::FromString(readable);
+  if (buf) {
+    bool shared;
+    if (!StringBufferToJSVal(cx, buf, length, vp, &shared)) return false;
+    if (shared) *sharedBuffer = buf;
+    return true;
+  }
+
+  // blech, have to copy.
+  JSString* str = JS_NewUCStringCopyN(cx, readable.BeginReading(), length);
+  if (!str) return false;
+  vp.setString(str);
+  return true;
 }
 
 namespace xpc {
@@ -93,16 +93,16 @@ namespace xpc {
 bool
 NonVoidStringToJsval(JSContext* cx, nsAString& str, MutableHandleValue rval)
 {
-    nsStringBuffer* sharedBuffer;
-    if (!XPCStringConvert::ReadableToJSVal(cx, str, &sharedBuffer, rval))
-      return false;
+  nsStringBuffer* sharedBuffer;
+  if (!XPCStringConvert::ReadableToJSVal(cx, str, &sharedBuffer, rval))
+    return false;
 
-    if (sharedBuffer) {
-        // The string was shared but ReadableToJSVal didn't addref it.
-        // Move the ownership from str to jsstr.
-        str.ForgetSharedBuffer();
-    }
-    return true;
+  if (sharedBuffer) {
+    // The string was shared but ReadableToJSVal didn't addref it.
+    // Move the ownership from str to jsstr.
+    str.ForgetSharedBuffer();
+  }
+  return true;
 }
 
-} // namespace xpc
+}  // namespace xpc

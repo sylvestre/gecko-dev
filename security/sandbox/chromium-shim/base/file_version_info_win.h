@@ -20,10 +20,14 @@ namespace base {
 class FilePath;
 }
 
-class FileVersionInfoWin {
+class FileVersionInfoWin
+{
  public:
-  static FileVersionInfoWin*
-    CreateFileVersionInfo(const base::FilePath& file_path) { MOZ_CRASH(); }
+  static FileVersionInfoWin* CreateFileVersionInfo(
+      const base::FilePath& file_path)
+  {
+    MOZ_CRASH();
+  }
 
   VS_FIXEDFILEINFO* fixed_file_info() { MOZ_CRASH(); }
 };

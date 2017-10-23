@@ -16,7 +16,7 @@
 
 class nsLayoutStatics
 {
-public:
+ public:
   // Called by the layout module constructor. This call performs an AddRef()
   // internally.
   static nsresult Initialize();
@@ -30,8 +30,8 @@ public:
                  "nsLayoutStatics already dropped to zero!");
 
     ++sLayoutStaticRefcnt;
-    NS_LOG_ADDREF(&sLayoutStaticRefcnt, sLayoutStaticRefcnt,
-                  "nsLayoutStatics", 1);
+    NS_LOG_ADDREF(
+        &sLayoutStaticRefcnt, sLayoutStaticRefcnt, "nsLayoutStatics", 1);
   }
   static void Release()
   {
@@ -39,14 +39,13 @@ public:
                  "nsLayoutStatics reference counting must be on main thread");
 
     --sLayoutStaticRefcnt;
-    NS_LOG_RELEASE(&sLayoutStaticRefcnt, sLayoutStaticRefcnt,
-                   "nsLayoutStatics");
+    NS_LOG_RELEASE(
+        &sLayoutStaticRefcnt, sLayoutStaticRefcnt, "nsLayoutStatics");
 
-    if (!sLayoutStaticRefcnt)
-      Shutdown();
+    if (!sLayoutStaticRefcnt) Shutdown();
   }
 
-private:
+ private:
   // not to be called!
   nsLayoutStatics();
 
@@ -57,15 +56,9 @@ private:
 
 class nsLayoutStaticsRef
 {
-public:
-  nsLayoutStaticsRef()
-  {
-    nsLayoutStatics::AddRef();
-  }
-  ~nsLayoutStaticsRef()
-  {
-    nsLayoutStatics::Release();
-  }
+ public:
+  nsLayoutStaticsRef() { nsLayoutStatics::AddRef(); }
+  ~nsLayoutStaticsRef() { nsLayoutStatics::Release(); }
 };
 
-#endif // nsLayoutStatics_h__
+#endif  // nsLayoutStatics_h__

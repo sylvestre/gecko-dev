@@ -26,10 +26,9 @@ namespace dom {
  * timeout.  Holds a strong reference to an nsITimeoutHandler, which
  * abstracts the language specific cruft.
  */
-class Timeout final
-  : public LinkedListElement<RefPtr<Timeout>>
+class Timeout final : public LinkedListElement<RefPtr<Timeout>>
 {
-public:
+ public:
   Timeout();
 
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(Timeout)
@@ -50,7 +49,7 @@ public:
   // Can only be called when frozen.
   const TimeDuration& TimeRemaining() const;
 
-private:
+ private:
   // mWhen and mTimeRemaining can't be in a union, sadly, because they
   // have constructors.
   // Nominal time to run this timeout.  Use only when timeouts are not
@@ -62,7 +61,7 @@ private:
 
   ~Timeout() = default;
 
-public:
+ public:
   // Public member variables in this section.  Please don't add to this list
   // or mix methods with these.  The interleaving public/private sections
   // is necessary as we migrate members to private while still trying to
@@ -109,7 +108,7 @@ public:
   bool mIsTracking;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_timeout_h
+#endif  // mozilla_dom_timeout_h

@@ -19,24 +19,21 @@ class Grid;
 class GridLines;
 class GridTracks;
 
-class GridDimension : public nsISupports
-                    , public nsWrapperCache
+class GridDimension : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   explicit GridDimension(Grid* aParent);
 
-protected:
+ protected:
   virtual ~GridDimension();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(GridDimension)
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-  Grid* GetParentObject()
-  {
-    return mParent;
-  }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+  Grid* GetParentObject() { return mParent; }
 
   GridLines* Lines() const;
   GridTracks* Tracks() const;
@@ -47,13 +44,13 @@ public:
                    const nsTArray<RefPtr<GridArea>>& aAreas,
                    bool aIsRow);
 
-protected:
+ protected:
   RefPtr<Grid> mParent;
   RefPtr<GridLines> mLines;
   RefPtr<GridTracks> mTracks;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_GridDimension_h */

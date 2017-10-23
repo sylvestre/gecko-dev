@@ -18,9 +18,7 @@ namespace jit {
 
 OptimizationLevelInfo IonOptimizations;
 
-void
-OptimizationInfo::initNormalOptimizationInfo()
-{
+void OptimizationInfo::initNormalOptimizationInfo() {
     level_ = OptimizationLevel::Normal;
 
     autoTruncate_ = true;
@@ -54,9 +52,7 @@ OptimizationInfo::initNormalOptimizationInfo()
     inliningRecompileThresholdFactor_ = 4;
 }
 
-void
-OptimizationInfo::initWasmOptimizationInfo()
-{
+void OptimizationInfo::initWasmOptimizationInfo() {
     // The Wasm optimization level
     // Disables some passes that don't work well with wasm.
 
@@ -67,21 +63,18 @@ OptimizationInfo::initWasmOptimizationInfo()
 
     ama_ = true;
     autoTruncate_ = false;
-    eagerSimdUnbox_ = false;           // wasm has no boxing / unboxing.
+    eagerSimdUnbox_ = false;  // wasm has no boxing / unboxing.
     edgeCaseAnalysis_ = false;
     eliminateRedundantChecks_ = false;
-    scalarReplacement_ = false;        // wasm has no objects.
+    scalarReplacement_ = false;  // wasm has no objects.
     sincos_ = false;
     sink_ = false;
 }
 
-uint32_t
-OptimizationInfo::compilerWarmUpThreshold(JSScript* script, jsbytecode* pc) const
-{
+uint32_t OptimizationInfo::compilerWarmUpThreshold(JSScript* script, jsbytecode* pc) const {
     MOZ_ASSERT(pc == nullptr || pc == script->code() || JSOp(*pc) == JSOP_LOOPENTRY);
 
-    if (pc == script->code())
-        pc = nullptr;
+    if (pc == script->code()) pc = nullptr;
 
     uint32_t warmUpThreshold = compilerWarmUpThreshold_;
     if (JitOptions.forcedDefaultIonWarmUpThreshold.isSome())
@@ -99,14 +92,13 @@ OptimizationInfo::compilerWarmUpThreshold(JSScript* script, jsbytecode* pc) cons
     // avoid later recompilation.
 
     if (script->length() > MAX_ACTIVE_THREAD_SCRIPT_SIZE)
-        warmUpThreshold *= (script->length() / (double) MAX_ACTIVE_THREAD_SCRIPT_SIZE);
+        warmUpThreshold *= (script->length() / (double)MAX_ACTIVE_THREAD_SCRIPT_SIZE);
 
     uint32_t numLocalsAndArgs = NumLocalsAndArgs(script);
     if (numLocalsAndArgs > MAX_ACTIVE_THREAD_LOCALS_AND_ARGS)
-        warmUpThreshold *= (numLocalsAndArgs / (double) MAX_ACTIVE_THREAD_LOCALS_AND_ARGS);
+        warmUpThreshold *= (numLocalsAndArgs / (double)MAX_ACTIVE_THREAD_LOCALS_AND_ARGS);
 
-    if (!pc || JitOptions.eagerCompilation)
-        return warmUpThreshold;
+    if (!pc || JitOptions.eagerCompilation) return warmUpThreshold;
 
     // It's more efficient to enter outer loops, rather than inner loops, via OSR.
     // To accomplish this, we use a slightly higher threshold for inner loops.
@@ -116,8 +108,7 @@ OptimizationInfo::compilerWarmUpThreshold(JSScript* script, jsbytecode* pc) cons
     return warmUpThreshold + loopDepth * 100;
 }
 
-OptimizationLevelInfo::OptimizationLevelInfo()
-{
+OptimizationLevelInfo::OptimizationLevelInfo() {
     infos_[OptimizationLevel::Normal].initNormalOptimizationInfo();
     infos_[OptimizationLevel::Wasm].initWasmOptimizationInfo();
 
@@ -131,42 +122,33 @@ OptimizationLevelInfo::OptimizationLevelInfo()
 #endif
 }
 
-OptimizationLevel
-OptimizationLevelInfo::nextLevel(OptimizationLevel level) const
-{
+OptimizationLevel OptimizationLevelInfo::nextLevel(OptimizationLevel level) const {
     MOZ_ASSERT(!isLastLevel(level));
     switch (level) {
-      case OptimizationLevel::DontCompile:
-        return OptimizationLevel::Normal;
-      case OptimizationLevel::Normal:
-      case OptimizationLevel::Wasm:
-      case OptimizationLevel::Count:;
+        case OptimizationLevel::DontCompile:
+            return OptimizationLevel::Normal;
+        case OptimizationLevel::Normal:
+        case OptimizationLevel::Wasm:
+        case OptimizationLevel::Count:;
     }
     MOZ_CRASH("Unknown optimization level.");
 }
 
-OptimizationLevel
-OptimizationLevelInfo::firstLevel() const
-{
+OptimizationLevel OptimizationLevelInfo::firstLevel() const {
     return nextLevel(OptimizationLevel::DontCompile);
 }
 
-bool
-OptimizationLevelInfo::isLastLevel(OptimizationLevel level) const
-{
+bool OptimizationLevelInfo::isLastLevel(OptimizationLevel level) const {
     return level == OptimizationLevel::Normal;
 }
 
-OptimizationLevel
-OptimizationLevelInfo::levelForScript(JSScript* script, jsbytecode* pc) const
-{
+OptimizationLevel OptimizationLevelInfo::levelForScript(JSScript* script, jsbytecode* pc) const {
     OptimizationLevel prev = OptimizationLevel::DontCompile;
 
     while (!isLastLevel(prev)) {
         OptimizationLevel level = nextLevel(prev);
         const OptimizationInfo* info = get(level);
-        if (script->getWarmUpCount() < info->compilerWarmUpThreshold(script, pc))
-            return prev;
+        if (script->getWarmUpCount() < info->compilerWarmUpThreshold(script, pc)) return prev;
 
         prev = level;
     }
@@ -174,5 +156,5 @@ OptimizationLevelInfo::levelForScript(JSScript* script, jsbytecode* pc) const
     return prev;
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js

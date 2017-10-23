@@ -35,16 +35,13 @@ namespace mscom {
  */
 class AgileReference
 {
-public:
+ public:
   AgileReference(REFIID aIid, IUnknown* aObject);
   AgileReference(AgileReference&& aOther);
 
   ~AgileReference();
 
-  explicit operator bool() const
-  {
-    return mAgileRef || mGitCookie;
-  }
+  explicit operator bool() const { return mAgileRef || mGitCookie; }
 
   HRESULT Resolve(REFIID aIid, void** aOutInterface);
 
@@ -52,16 +49,16 @@ public:
   AgileReference& operator=(const AgileReference& aOther) = delete;
   AgileReference& operator=(AgileReference&& aOther) = delete;
 
-private:
+ private:
   IGlobalInterfaceTable* ObtainGit();
 
-private:
-  IID                     mIid;
+ private:
+  IID mIid;
   RefPtr<IAgileReference> mAgileRef;
-  DWORD                   mGitCookie;
+  DWORD mGitCookie;
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_AgileReference_h
+#endif  // mozilla_mscom_AgileReference_h

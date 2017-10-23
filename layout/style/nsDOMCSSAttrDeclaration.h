@@ -11,36 +11,38 @@
 #include "mozilla/Attributes.h"
 #include "nsDOMCSSDeclaration.h"
 
-
 namespace mozilla {
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsDOMCSSAttributeDeclaration final : public nsDOMCSSDeclaration
 {
-public:
+ public:
   typedef mozilla::dom::Element Element;
   nsDOMCSSAttributeDeclaration(Element* aContent, bool aIsSMILOverride);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsDOMCSSAttributeDeclaration,
-                                                                   nsICSSDeclaration)
+  NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_AMBIGUOUS(
+      nsDOMCSSAttributeDeclaration, nsICSSDeclaration)
 
   // If GetCSSDeclaration returns non-null, then the decl it returns
   // is owned by our current style rule.
-  virtual mozilla::DeclarationBlock* GetCSSDeclaration(Operation aOperation) override;
-  virtual void GetCSSParsingEnvironment(CSSParsingEnvironment& aCSSParseEnv) override;
-  nsDOMCSSDeclaration::ServoCSSParsingEnvironment GetServoCSSParsingEnvironment() const final;
-  NS_IMETHOD GetParentRule(nsIDOMCSSRule **aParent) override;
+  virtual mozilla::DeclarationBlock* GetCSSDeclaration(
+      Operation aOperation) override;
+  virtual void GetCSSParsingEnvironment(
+      CSSParsingEnvironment& aCSSParseEnv) override;
+  nsDOMCSSDeclaration::ServoCSSParsingEnvironment
+  GetServoCSSParsingEnvironment() const final;
+  NS_IMETHOD GetParentRule(nsIDOMCSSRule** aParent) override;
 
   virtual nsINode* GetParentObject() override;
 
   NS_IMETHOD SetPropertyValue(const nsCSSPropertyID aPropID,
                               const nsAString& aValue) override;
 
-protected:
+ protected:
   ~nsDOMCSSAttributeDeclaration();
 
   virtual nsresult SetCSSDeclaration(mozilla::DeclarationBlock* aDecl) override;

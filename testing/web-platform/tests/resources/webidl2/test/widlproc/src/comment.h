@@ -17,9 +17,13 @@
 struct tok;
 struct node;
 
-void addcomment(struct tok *tok);
-void setcommentnode(struct node *node2);
-void processcomments(struct node *root);
-void outputdescriptive(struct node *node, unsigned int indent);
+void
+addcomment(struct tok* tok);
+void
+setcommentnode(struct node* node2);
+void
+processcomments(struct node* root);
+void
+outputdescriptive(struct node* node, unsigned int indent);
 
 #endif /* ndef comment_h */

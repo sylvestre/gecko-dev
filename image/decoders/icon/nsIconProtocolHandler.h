@@ -12,15 +12,15 @@
 class nsIconProtocolHandler : public nsIProtocolHandler,
                               public nsSupportsWeakReference
 {
-public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIPROTOCOLHANDLER
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIPROTOCOLHANDLER
 
-    // nsIconProtocolHandler methods:
-    nsIconProtocolHandler();
+  // nsIconProtocolHandler methods:
+  nsIconProtocolHandler();
 
-protected:
-    virtual ~nsIconProtocolHandler();
+ protected:
+  virtual ~nsIconProtocolHandler();
 };
 
-#endif // mozilla_image_decoders_icon_nsIconProtocolHandler_h
+#endif  // mozilla_image_decoders_icon_nsIconProtocolHandler_h

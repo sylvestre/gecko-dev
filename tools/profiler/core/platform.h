@@ -47,16 +47,18 @@
 #if defined(__GLIBC__)
 #include <unistd.h>
 #include <sys/syscall.h>
-static inline pid_t gettid()
+static inline pid_t
+gettid()
 {
-  return (pid_t) syscall(SYS_gettid);
+  return (pid_t)syscall(SYS_gettid);
 }
 #elif defined(GP_OS_darwin)
 #include <unistd.h>
 #include <sys/syscall.h>
-static inline pid_t gettid()
+static inline pid_t
+gettid()
 {
-  return (pid_t) syscall(SYS_thread_selfid);
+  return (pid_t)syscall(SYS_thread_selfid);
 }
 #elif defined(GP_OS_android)
 #include <unistd.h>
@@ -72,18 +74,18 @@ extern mozilla::LazyLogModule gProfilerLog;
 
 // These are for MOZ_LOG="prof:3" or higher. It's the default logging level for
 // the profiler, and should be used sparingly.
-#define LOG_TEST \
-  MOZ_LOG_TEST(gProfilerLog, mozilla::LogLevel::Info)
-#define LOG(arg, ...) \
-  MOZ_LOG(gProfilerLog, mozilla::LogLevel::Info, \
+#define LOG_TEST MOZ_LOG_TEST(gProfilerLog, mozilla::LogLevel::Info)
+#define LOG(arg, ...)              \
+  MOZ_LOG(gProfilerLog,            \
+          mozilla::LogLevel::Info, \
           ("[%d] " arg, getpid(), ##__VA_ARGS__))
 
 // These are for MOZ_LOG="prof:4" or higher. It should be used for logging that
 // is somewhat more verbose than LOG.
-#define DEBUG_LOG_TEST \
-  MOZ_LOG_TEST(gProfilerLog, mozilla::LogLevel::Debug)
-#define DEBUG_LOG(arg, ...) \
-  MOZ_LOG(gProfilerLog, mozilla::LogLevel::Debug, \
+#define DEBUG_LOG_TEST MOZ_LOG_TEST(gProfilerLog, mozilla::LogLevel::Debug)
+#define DEBUG_LOG(arg, ...)         \
+  MOZ_LOG(gProfilerLog,             \
+          mozilla::LogLevel::Debug, \
           ("[%d] " arg, getpid(), ##__VA_ARGS__))
 
 typedef uint8_t* Address;
@@ -95,8 +97,9 @@ typedef uint8_t* Address;
 // functions. Add methods here to cope with differences between the
 // supported platforms.
 
-class Thread {
-public:
+class Thread
+{
+ public:
   static int GetCurrentId();
 };
 
@@ -107,21 +110,24 @@ class PlatformData;
 
 // We can't new/delete the type safely without defining it
 // (-Wdelete-incomplete).  Use these to hide the details from clients.
-struct PlatformDataDestructor {
+struct PlatformDataDestructor
+{
   void operator()(PlatformData*);
 };
 
 typedef mozilla::UniquePtr<PlatformData, PlatformDataDestructor>
-  UniquePlatformData;
-UniquePlatformData AllocPlatformData(int aThreadId);
+    UniquePlatformData;
+UniquePlatformData
+AllocPlatformData(int aThreadId);
 
 namespace mozilla {
 class JSONWriter;
 }
-void AppendSharedLibraries(mozilla::JSONWriter& aWriter);
+void
+AppendSharedLibraries(mozilla::JSONWriter& aWriter);
 
 // Convert the array of strings to a bitfield.
-uint32_t ParseFeaturesFromStringArray(const char** aFeatures,
-                                      uint32_t aFeatureCount);
+uint32_t
+ParseFeaturesFromStringArray(const char** aFeatures, uint32_t aFeatureCount);
 
 #endif /* ndef TOOLS_PLATFORM_H_ */

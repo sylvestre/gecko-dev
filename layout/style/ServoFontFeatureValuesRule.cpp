@@ -15,16 +15,14 @@ using namespace mozilla::dom;
 namespace mozilla {
 
 ServoFontFeatureValuesRule::ServoFontFeatureValuesRule(
-  RefPtr<RawServoFontFeatureValuesRule> aRawRule,
-  uint32_t aLine, uint32_t aColumn)
-  : CSSFontFeatureValuesRule(aLine, aColumn)
-  , mRawRule(Move(aRawRule))
+    RefPtr<RawServoFontFeatureValuesRule> aRawRule,
+    uint32_t aLine,
+    uint32_t aColumn)
+    : CSSFontFeatureValuesRule(aLine, aColumn), mRawRule(Move(aRawRule))
 {
 }
 
-ServoFontFeatureValuesRule::~ServoFontFeatureValuesRule()
-{
-}
+ServoFontFeatureValuesRule::~ServoFontFeatureValuesRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoFontFeatureValuesRule, CSSFontFeatureValuesRule)
 NS_IMPL_RELEASE_INHERITED(ServoFontFeatureValuesRule, CSSFontFeatureValuesRule)
@@ -44,7 +42,8 @@ ServoFontFeatureValuesRule::Clone() const
 }
 
 size_t
-ServoFontFeatureValuesRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+ServoFontFeatureValuesRule::SizeOfIncludingThis(
+    MallocSizeOf aMallocSizeOf) const
 {
   // TODO Implement this!
   return aMallocSizeOf(this);
@@ -99,4 +98,4 @@ ServoFontFeatureValuesRule::SetValueText(const nsAString& aValueText)
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

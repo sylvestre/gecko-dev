@@ -44,9 +44,9 @@ namespace js {
 class PropertyName;
 class WasmFunctionCallObject;
 namespace jit {
-    struct BaselineScript;
-    enum class RoundingMode;
-}
+struct BaselineScript;
+enum class RoundingMode;
+}  // namespace jit
 
 // This is a widespread header, so lets keep out the core wasm impl types.
 
@@ -77,13 +77,13 @@ namespace wasm {
 using mozilla::Atomic;
 using mozilla::DebugOnly;
 using mozilla::EnumeratedArray;
+using mozilla::MallocSizeOf;
 using mozilla::Maybe;
 using mozilla::Move;
-using mozilla::MallocSizeOf;
 using mozilla::Nothing;
-using mozilla::PodZero;
 using mozilla::PodCopy;
 using mozilla::PodEqual;
+using mozilla::PodZero;
 using mozilla::Some;
 using mozilla::Unused;
 
@@ -111,11 +111,16 @@ class Table;
 // which is pretty verbose to do within js::wasm, so factor that process out
 // into a macro.
 
-#define WASM_DECLARE_POD_VECTOR(Type, VectorName)                               \
-} } namespace mozilla {                                                         \
-template <> struct IsPod<js::wasm::Type> : TrueType {};                         \
-} namespace js { namespace wasm {                                               \
-typedef Vector<Type, 0, SystemAllocPolicy> VectorName;
+#define WASM_DECLARE_POD_VECTOR(Type, VectorName) \
+    }                                             \
+    }                                             \
+    namespace mozilla {                           \
+    template <>                                   \
+    struct IsPod<js::wasm::Type> : TrueType {};   \
+    }                                             \
+    namespace js {                                \
+    namespace wasm {                              \
+    typedef Vector<Type, 0, SystemAllocPolicy> VectorName;
 
 // A wasm Module and everything it contains must support serialization and
 // deserialization. Some data can be simply copied as raw bytes and,
@@ -123,22 +128,22 @@ typedef Vector<Type, 0, SystemAllocPolicy> VectorName;
 // should implement the below methods which are called recusively by the
 // containing Module.
 
-#define WASM_DECLARE_SERIALIZABLE(Type)                                         \
-    size_t serializedSize() const;                                              \
-    uint8_t* serialize(uint8_t* cursor) const;                                  \
-    const uint8_t* deserialize(const uint8_t* cursor);                          \
+#define WASM_DECLARE_SERIALIZABLE(Type)                \
+    size_t serializedSize() const;                     \
+    uint8_t* serialize(uint8_t* cursor) const;         \
+    const uint8_t* deserialize(const uint8_t* cursor); \
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-#define WASM_DECLARE_SERIALIZABLE_VIRTUAL(Type)                                 \
-    virtual size_t serializedSize() const;                                      \
-    virtual uint8_t* serialize(uint8_t* cursor) const;                          \
-    virtual const uint8_t* deserialize(const uint8_t* cursor);                  \
+#define WASM_DECLARE_SERIALIZABLE_VIRTUAL(Type)                \
+    virtual size_t serializedSize() const;                     \
+    virtual uint8_t* serialize(uint8_t* cursor) const;         \
+    virtual const uint8_t* deserialize(const uint8_t* cursor); \
     virtual size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-#define WASM_DECLARE_SERIALIZABLE_OVERRIDE(Type)                                \
-    size_t serializedSize() const override;                                     \
-    uint8_t* serialize(uint8_t* cursor) const override;                         \
-    const uint8_t* deserialize(const uint8_t* cursor) override;                 \
+#define WASM_DECLARE_SERIALIZABLE_OVERRIDE(Type)                \
+    size_t serializedSize() const override;                     \
+    uint8_t* serialize(uint8_t* cursor) const override;         \
+    const uint8_t* deserialize(const uint8_t* cursor) override; \
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const override;
 
 // This reusable base class factors out the logic for a resource that is shared
@@ -146,15 +151,13 @@ typedef Vector<Type, 0, SystemAllocPolicy> VectorName;
 // about:memory stats.
 
 template <class T>
-struct ShareableBase : AtomicRefCounted<T>
-{
+struct ShareableBase : AtomicRefCounted<T> {
     using SeenSet = HashSet<const T*, DefaultHasher<const T*>, SystemAllocPolicy>;
 
     size_t sizeOfIncludingThisIfNotSeen(MallocSizeOf mallocSizeOf, SeenSet* seen) const {
         const T* self = static_cast<const T*>(this);
         typename SeenSet::AddPtr p = seen->lookupForAdd(self);
-        if (p)
-            return 0;
+        if (p) return 0;
         bool ok = seen->add(p, self);
         (void)ok;  // oh well
         return mallocSizeOf(self) + self->sizeOfExcludingThis(mallocSizeOf);
@@ -163,127 +166,124 @@ struct ShareableBase : AtomicRefCounted<T>
 
 // ValType utilities
 
-static inline unsigned
-SizeOf(ValType vt)
-{
+static inline unsigned SizeOf(ValType vt) {
     switch (vt) {
-      case ValType::I32:
-      case ValType::F32:
-        return 4;
-      case ValType::I64:
-      case ValType::F64:
-        return 8;
-      case ValType::I8x16:
-      case ValType::I16x8:
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B8x16:
-      case ValType::B16x8:
-      case ValType::B32x4:
-        return 16;
-      default:
-        MOZ_CRASH("Invalid ValType");
+        case ValType::I32:
+        case ValType::F32:
+            return 4;
+        case ValType::I64:
+        case ValType::F64:
+            return 8;
+        case ValType::I8x16:
+        case ValType::I16x8:
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B8x16:
+        case ValType::B16x8:
+        case ValType::B32x4:
+            return 16;
+        default:
+            MOZ_CRASH("Invalid ValType");
     }
 }
 
-static inline bool
-IsSimdType(ValType vt)
-{
+static inline bool IsSimdType(ValType vt) {
     switch (vt) {
-      case ValType::I8x16:
-      case ValType::I16x8:
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B8x16:
-      case ValType::B16x8:
-      case ValType::B32x4:
-        return true;
-      default:
-        return false;
+        case ValType::I8x16:
+        case ValType::I16x8:
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B8x16:
+        case ValType::B16x8:
+        case ValType::B32x4:
+            return true;
+        default:
+            return false;
     }
 }
 
-static inline uint32_t
-NumSimdElements(ValType vt)
-{
+static inline uint32_t NumSimdElements(ValType vt) {
     MOZ_ASSERT(IsSimdType(vt));
     switch (vt) {
-      case ValType::I8x16:
-      case ValType::B8x16:
-        return 16;
-      case ValType::I16x8:
-      case ValType::B16x8:
-        return 8;
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B32x4:
-        return 4;
-     default:
-        MOZ_CRASH("Unhandled SIMD type");
+        case ValType::I8x16:
+        case ValType::B8x16:
+            return 16;
+        case ValType::I16x8:
+        case ValType::B16x8:
+            return 8;
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B32x4:
+            return 4;
+        default:
+            MOZ_CRASH("Unhandled SIMD type");
     }
 }
 
-static inline ValType
-SimdElementType(ValType vt)
-{
+static inline ValType SimdElementType(ValType vt) {
     MOZ_ASSERT(IsSimdType(vt));
     switch (vt) {
-      case ValType::I8x16:
-      case ValType::I16x8:
-      case ValType::I32x4:
-        return ValType::I32;
-      case ValType::F32x4:
-        return ValType::F32;
-      case ValType::B8x16:
-      case ValType::B16x8:
-      case ValType::B32x4:
-        return ValType::I32;
-     default:
-        MOZ_CRASH("Unhandled SIMD type");
+        case ValType::I8x16:
+        case ValType::I16x8:
+        case ValType::I32x4:
+            return ValType::I32;
+        case ValType::F32x4:
+            return ValType::F32;
+        case ValType::B8x16:
+        case ValType::B16x8:
+        case ValType::B32x4:
+            return ValType::I32;
+        default:
+            MOZ_CRASH("Unhandled SIMD type");
     }
 }
 
-static inline ValType
-SimdBoolType(ValType vt)
-{
+static inline ValType SimdBoolType(ValType vt) {
     MOZ_ASSERT(IsSimdType(vt));
     switch (vt) {
-      case ValType::I8x16:
-      case ValType::B8x16:
-        return ValType::B8x16;
-      case ValType::I16x8:
-      case ValType::B16x8:
-        return ValType::B16x8;
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B32x4:
-        return ValType::B32x4;
-     default:
-        MOZ_CRASH("Unhandled SIMD type");
+        case ValType::I8x16:
+        case ValType::B8x16:
+            return ValType::B8x16;
+        case ValType::I16x8:
+        case ValType::B16x8:
+            return ValType::B16x8;
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B32x4:
+            return ValType::B32x4;
+        default:
+            MOZ_CRASH("Unhandled SIMD type");
     }
 }
 
-static inline bool
-IsSimdBoolType(ValType vt)
-{
+static inline bool IsSimdBoolType(ValType vt) {
     return vt == ValType::B8x16 || vt == ValType::B16x8 || vt == ValType::B32x4;
 }
 
-static inline jit::MIRType
-ToMIRType(ValType vt)
-{
+static inline jit::MIRType ToMIRType(ValType vt) {
     switch (vt) {
-      case ValType::I32: return jit::MIRType::Int32;
-      case ValType::I64: return jit::MIRType::Int64;
-      case ValType::F32: return jit::MIRType::Float32;
-      case ValType::F64: return jit::MIRType::Double;
-      case ValType::I8x16: return jit::MIRType::Int8x16;
-      case ValType::I16x8: return jit::MIRType::Int16x8;
-      case ValType::I32x4: return jit::MIRType::Int32x4;
-      case ValType::F32x4: return jit::MIRType::Float32x4;
-      case ValType::B8x16: return jit::MIRType::Bool8x16;
-      case ValType::B16x8: return jit::MIRType::Bool16x8;
-      case ValType::B32x4: return jit::MIRType::Bool32x4;
+        case ValType::I32:
+            return jit::MIRType::Int32;
+        case ValType::I64:
+            return jit::MIRType::Int64;
+        case ValType::F32:
+            return jit::MIRType::Float32;
+        case ValType::F64:
+            return jit::MIRType::Double;
+        case ValType::I8x16:
+            return jit::MIRType::Int8x16;
+        case ValType::I16x8:
+            return jit::MIRType::Int16x8;
+        case ValType::I32x4:
+            return jit::MIRType::Int32x4;
+        case ValType::F32x4:
+            return jit::MIRType::Float32x4;
+        case ValType::B8x16:
+            return jit::MIRType::Bool8x16;
+        case ValType::B16x8:
+            return jit::MIRType::Bool16x8;
+        case ValType::B32x4:
+            return jit::MIRType::Bool32x4;
     }
     MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("bad type");
 }
@@ -293,14 +293,13 @@ ToMIRType(ValType vt)
 // generalized to a list of ValType and this enum will go away, replaced,
 // wherever it is used, by a varU32 + list of ValType.
 
-enum class ExprType
-{
-    Void  = uint8_t(TypeCode::BlockVoid),
+enum class ExprType {
+    Void = uint8_t(TypeCode::BlockVoid),
 
-    I32   = uint8_t(TypeCode::I32),
-    I64   = uint8_t(TypeCode::I64),
-    F32   = uint8_t(TypeCode::F32),
-    F64   = uint8_t(TypeCode::F64),
+    I32 = uint8_t(TypeCode::I32),
+    I64 = uint8_t(TypeCode::I64),
+    F32 = uint8_t(TypeCode::F32),
+    F64 = uint8_t(TypeCode::F64),
 
     I8x16 = uint8_t(TypeCode::I8x16),
     I16x8 = uint8_t(TypeCode::I16x8),
@@ -313,63 +312,53 @@ enum class ExprType
     Limit = uint8_t(TypeCode::Limit)
 };
 
-static inline bool
-IsVoid(ExprType et)
-{
-    return et == ExprType::Void;
-}
+static inline bool IsVoid(ExprType et) { return et == ExprType::Void; }
 
-static inline ValType
-NonVoidToValType(ExprType et)
-{
+static inline ValType NonVoidToValType(ExprType et) {
     MOZ_ASSERT(!IsVoid(et));
     return ValType(et);
 }
 
-static inline ExprType
-ToExprType(ValType vt)
-{
-    return ExprType(vt);
-}
+static inline ExprType ToExprType(ValType vt) { return ExprType(vt); }
 
-static inline bool
-IsSimdType(ExprType et)
-{
-    return IsVoid(et) ? false : IsSimdType(ValType(et));
-}
+static inline bool IsSimdType(ExprType et) { return IsVoid(et) ? false : IsSimdType(ValType(et)); }
 
-static inline jit::MIRType
-ToMIRType(ExprType et)
-{
+static inline jit::MIRType ToMIRType(ExprType et) {
     return IsVoid(et) ? jit::MIRType::None : ToMIRType(ValType(et));
 }
 
-static inline const char*
-ToCString(ExprType type)
-{
+static inline const char* ToCString(ExprType type) {
     switch (type) {
-      case ExprType::Void:  return "void";
-      case ExprType::I32:   return "i32";
-      case ExprType::I64:   return "i64";
-      case ExprType::F32:   return "f32";
-      case ExprType::F64:   return "f64";
-      case ExprType::I8x16: return "i8x16";
-      case ExprType::I16x8: return "i16x8";
-      case ExprType::I32x4: return "i32x4";
-      case ExprType::F32x4: return "f32x4";
-      case ExprType::B8x16: return "b8x16";
-      case ExprType::B16x8: return "b16x8";
-      case ExprType::B32x4: return "b32x4";
-      case ExprType::Limit:;
+        case ExprType::Void:
+            return "void";
+        case ExprType::I32:
+            return "i32";
+        case ExprType::I64:
+            return "i64";
+        case ExprType::F32:
+            return "f32";
+        case ExprType::F64:
+            return "f64";
+        case ExprType::I8x16:
+            return "i8x16";
+        case ExprType::I16x8:
+            return "i16x8";
+        case ExprType::I32x4:
+            return "i32x4";
+        case ExprType::F32x4:
+            return "f32x4";
+        case ExprType::B8x16:
+            return "b8x16";
+        case ExprType::B16x8:
+            return "b16x8";
+        case ExprType::B32x4:
+            return "b32x4";
+        case ExprType::Limit:;
     }
     MOZ_CRASH("bad expression type");
 }
 
-static inline const char*
-ToCString(ValType type)
-{
-    return ToCString(ToExprType(type));
-}
+static inline const char* ToCString(ValType type) { return ToCString(ToExprType(type)); }
 
 // Code can be compiled either with the Baseline compiler or the Ion compiler,
 // and tier-variant data are tagged with the Tier value.
@@ -378,43 +367,25 @@ ToCString(ValType type)
 // linkdata.  The tiers are normally explicit (Baseline and Ion); implicit tiers
 // can be obtained through accessors on Code objects (eg, stableTier).
 
-enum class Tier
-{
-    Baseline,
-    Debug = Baseline,
-    Ion,
-    Serialized = Ion
-};
+enum class Tier { Baseline, Debug = Baseline, Ion, Serialized = Ion };
 
 // The CompileMode controls how compilation of a module is performed (notably,
 // how many times we compile it).
 
-enum class CompileMode
-{
-    Once,
-    Tier1,
-    Tier2
-};
+enum class CompileMode { Once, Tier1, Tier2 };
 
 // Typed enum for whether debugging is enabled.
 
-enum class DebugEnabled
-{
-    False,
-    True
-};
+enum class DebugEnabled { False, True };
 
 // Iterator over tiers present in a tiered data structure.
 
-class Tiers
-{
+class Tiers {
     Tier t_[2];
     uint32_t n_;
 
-  public:
-    explicit Tiers() {
-        n_ = 0;
-    }
+   public:
+    explicit Tiers() { n_ = 0; }
     explicit Tiers(Tier t) {
         t_[0] = t;
         n_ = 1;
@@ -426,12 +397,8 @@ class Tiers
         n_ = 2;
     }
 
-    Tier* begin() {
-        return t_;
-    }
-    Tier* end() {
-        return t_ + n_;
-    }
+    Tier* begin() { return t_; }
+    Tier* end() { return t_ + n_; }
 };
 
 // The Val class represents a single WebAssembly value of a given value type,
@@ -441,8 +408,7 @@ class Tiers
 // within WebAssembly, floats are not canonicalized. Canonicalization must
 // happen at the JS boundary.
 
-class Val
-{
+class Val {
     ValType type_;
     union U {
         uint32_t i32_;
@@ -456,7 +422,7 @@ class Val
         U() {}
     } u;
 
-  public:
+   public:
     Val() = default;
 
     explicit Val(uint32_t i32) : type_(ValType::I32) { u.i32_ = i32; }
@@ -484,10 +450,22 @@ class Val
     ValType type() const { return type_; }
     bool isSimd() const { return IsSimdType(type()); }
 
-    uint32_t i32() const { MOZ_ASSERT(type_ == ValType::I32); return u.i32_; }
-    uint64_t i64() const { MOZ_ASSERT(type_ == ValType::I64); return u.i64_; }
-    const float& f32() const { MOZ_ASSERT(type_ == ValType::F32); return u.f32_; }
-    const double& f64() const { MOZ_ASSERT(type_ == ValType::F64); return u.f64_; }
+    uint32_t i32() const {
+        MOZ_ASSERT(type_ == ValType::I32);
+        return u.i32_;
+    }
+    uint64_t i64() const {
+        MOZ_ASSERT(type_ == ValType::I64);
+        return u.i64_;
+    }
+    const float& f32() const {
+        MOZ_ASSERT(type_ == ValType::F32);
+        return u.f32_;
+    }
+    const double& f64() const {
+        MOZ_ASSERT(type_ == ValType::F64);
+        return u.f64_;
+    }
 
     const I8x16& i8x16() const {
         MOZ_ASSERT(type_ == ValType::I8x16 || type_ == ValType::B8x16);
@@ -521,12 +499,11 @@ typedef Vector<Val, 0, SystemAllocPolicy> ValVector;
 // duration of module validation+compilation). Thus, long-lived objects like
 // WasmModule must use malloced allocation.
 
-class Sig
-{
+class Sig {
     ValTypeVector args_;
     ExprType ret_;
 
-  public:
+   public:
     Sig() : args_(), ret_(ExprType::Void) {}
     Sig(ValTypeVector&& args, ExprType ret) : args_(Move(args)), ret_(ret) {}
 
@@ -540,21 +517,16 @@ class Sig
     const ValTypeVector& args() const { return args_; }
     const ExprType& ret() const { return ret_; }
 
-    HashNumber hash() const {
-        return AddContainerToHash(args_, HashNumber(ret_));
-    }
+    HashNumber hash() const { return AddContainerToHash(args_, HashNumber(ret_)); }
     bool operator==(const Sig& rhs) const {
         return ret() == rhs.ret() && EqualContainers(args(), rhs.args());
     }
-    bool operator!=(const Sig& rhs) const {
-        return !(*this == rhs);
-    }
+    bool operator!=(const Sig& rhs) const { return !(*this == rhs); }
 
     WASM_DECLARE_SERIALIZABLE(Sig)
 };
 
-struct SigHashPolicy
-{
+struct SigHashPolicy {
     typedef const Sig& Lookup;
     static HashNumber hash(Lookup sig) { return sig.hash(); }
     static bool match(const Sig* lhs, Lookup rhs) { return *lhs == rhs; }
@@ -564,15 +536,11 @@ struct SigHashPolicy
 // a global or a table element offset. Such expressions are created during
 // decoding and actually executed on module instantiation.
 
-class InitExpr
-{
-  public:
-    enum class Kind {
-        Constant,
-        GetGlobal
-    };
+class InitExpr {
+   public:
+    enum class Kind { Constant, GetGlobal };
 
-  private:
+   private:
     Kind kind_;
     union U {
         Val val_;
@@ -583,12 +551,10 @@ class InitExpr
         U() {}
     } u;
 
-  public:
+   public:
     InitExpr() = default;
 
-    explicit InitExpr(Val val) : kind_(Kind::Constant) {
-        u.val_ = val;
-    }
+    explicit InitExpr(Val val) : kind_(Kind::Constant) { u.val_ = val; }
 
     explicit InitExpr(uint32_t globalIndex, ValType type) : kind_(Kind::GetGlobal) {
         u.global.index_ = globalIndex;
@@ -598,14 +564,22 @@ class InitExpr
     Kind kind() const { return kind_; }
 
     bool isVal() const { return kind() == Kind::Constant; }
-    Val val() const { MOZ_ASSERT(isVal()); return u.val_; }
+    Val val() const {
+        MOZ_ASSERT(isVal());
+        return u.val_;
+    }
 
-    uint32_t globalIndex() const { MOZ_ASSERT(kind() == Kind::GetGlobal); return u.global.index_; }
+    uint32_t globalIndex() const {
+        MOZ_ASSERT(kind() == Kind::GetGlobal);
+        return u.global.index_;
+    }
 
     ValType type() const {
         switch (kind()) {
-          case Kind::Constant: return u.val_.type();
-          case Kind::GetGlobal: return u.global.type_;
+            case Kind::Constant:
+                return u.val_.type();
+            case Kind::GetGlobal:
+                return u.global.type_;
         }
         MOZ_CRASH("unexpected initExpr type");
     }
@@ -613,8 +587,7 @@ class InitExpr
 
 // CacheableChars is used to cacheably store UniqueChars.
 
-struct CacheableChars : UniqueChars
-{
+struct CacheableChars : UniqueChars {
     CacheableChars() = default;
     explicit CacheableChars(char* ptr) : UniqueChars(ptr) {}
     MOZ_IMPLICIT CacheableChars(UniqueChars&& rhs) : UniqueChars(Move(rhs)) {}
@@ -629,16 +602,14 @@ typedef Vector<CacheableChars, 0, SystemAllocPolicy> CacheableCharsVector;
 // ImportVector is built incrementally by ModuleGenerator and then stored
 // immutably by Module.
 
-struct Import
-{
+struct Import {
     CacheableChars module;
     CacheableChars field;
     DefinitionKind kind;
 
     Import() = default;
     Import(UniqueChars&& module, UniqueChars&& field, DefinitionKind kind)
-      : module(Move(module)), field(Move(field)), kind(kind)
-    {}
+        : module(Move(module)), field(Move(field)), kind(kind) {}
 
     WASM_DECLARE_SERIALIZABLE(Import)
 };
@@ -654,15 +625,14 @@ typedef Vector<Import, 0, SystemAllocPolicy> ImportVector;
 // ExportVector is built incrementally by ModuleGenerator and then stored
 // immutably by Module.
 
-class Export
-{
+class Export {
     CacheableChars fieldName_;
     struct CacheablePod {
         DefinitionKind kind_;
         uint32_t index_;
     } pod;
 
-  public:
+   public:
     Export() = default;
     explicit Export(UniqueChars fieldName, uint32_t index, DefinitionKind kind);
     explicit Export(UniqueChars fieldName, DefinitionKind kind);
@@ -682,15 +652,9 @@ typedef Vector<Export, 0, SystemAllocPolicy> ExportVector;
 // exposes mutable and immutable private globals, but can't import nor export
 // mutable globals.
 
-enum class GlobalKind
-{
-    Import,
-    Constant,
-    Variable
-};
+enum class GlobalKind { Import, Constant, Variable };
 
-class GlobalDesc
-{
+class GlobalDesc {
     union V {
         struct {
             union U {
@@ -709,12 +673,11 @@ class GlobalDesc
     } u;
     GlobalKind kind_;
 
-  public:
+   public:
     GlobalDesc() = default;
 
     explicit GlobalDesc(InitExpr initial, bool isMutable)
-      : kind_((isMutable || !initial.isVal()) ? GlobalKind::Variable : GlobalKind::Constant)
-    {
+        : kind_((isMutable || !initial.isVal()) ? GlobalKind::Variable : GlobalKind::Constant) {
         if (isVariable()) {
             u.var.val.initial_ = initial;
             u.var.isMutable_ = isMutable;
@@ -725,8 +688,7 @@ class GlobalDesc
     }
 
     explicit GlobalDesc(ValType type, bool isMutable, uint32_t importIndex)
-      : kind_(GlobalKind::Import)
-    {
+        : kind_(GlobalKind::Import) {
         u.var.val.import.type_ = type;
         u.var.val.import.index_ = importIndex;
         u.var.isMutable_ = isMutable;
@@ -750,15 +712,27 @@ class GlobalDesc
     bool isImport() const { return kind_ == GlobalKind::Import; }
 
     bool isMutable() const { return !isConstant() && u.var.isMutable_; }
-    Val constantValue() const { MOZ_ASSERT(isConstant()); return u.cst_; }
-    const InitExpr& initExpr() const { MOZ_ASSERT(isVariable()); return u.var.val.initial_; }
-    uint32_t importIndex() const { MOZ_ASSERT(isImport()); return u.var.val.import.index_; }
+    Val constantValue() const {
+        MOZ_ASSERT(isConstant());
+        return u.cst_;
+    }
+    const InitExpr& initExpr() const {
+        MOZ_ASSERT(isVariable());
+        return u.var.val.initial_;
+    }
+    uint32_t importIndex() const {
+        MOZ_ASSERT(isImport());
+        return u.var.val.import.index_;
+    }
 
     ValType type() const {
         switch (kind_) {
-          case GlobalKind::Import:   return u.var.val.import.type_;
-          case GlobalKind::Variable: return u.var.val.initial_.type();
-          case GlobalKind::Constant: return u.cst_.type();
+            case GlobalKind::Import:
+                return u.var.val.import.type_;
+            case GlobalKind::Variable:
+                return u.var.val.initial_.type();
+            case GlobalKind::Constant:
+                return u.cst_.type();
         }
         MOZ_CRASH("unexpected global kind");
     }
@@ -772,8 +746,7 @@ typedef Vector<GlobalDesc, 0, SystemAllocPolicy> GlobalDescVector;
 // The codeRangeIndices are laid out in a nondeterminstic order as a result of
 // parallel compilation.
 
-struct ElemSegment
-{
+struct ElemSegment {
     uint32_t tableIndex;
     InitExpr offset;
     Uint32Vector elemFuncIndices;
@@ -782,28 +755,27 @@ struct ElemSegment
 
     ElemSegment() = default;
     ElemSegment(uint32_t tableIndex, InitExpr offset, Uint32Vector&& elemFuncIndices)
-      : tableIndex(tableIndex), offset(offset), elemFuncIndices(Move(elemFuncIndices))
-    {}
+        : tableIndex(tableIndex), offset(offset), elemFuncIndices(Move(elemFuncIndices)) {}
 
     Uint32Vector& elemCodeRangeIndices(Tier t) {
         switch (t) {
-          case Tier::Baseline:
-            return elemCodeRangeIndices1_;
-          case Tier::Ion:
-            return elemCodeRangeIndices2_;
-          default:
-            MOZ_CRASH("No such tier");
+            case Tier::Baseline:
+                return elemCodeRangeIndices1_;
+            case Tier::Ion:
+                return elemCodeRangeIndices2_;
+            default:
+                MOZ_CRASH("No such tier");
         }
     }
 
     const Uint32Vector& elemCodeRangeIndices(Tier t) const {
         switch (t) {
-          case Tier::Baseline:
-            return elemCodeRangeIndices1_;
-          case Tier::Ion:
-            return elemCodeRangeIndices2_;
-          default:
-            MOZ_CRASH("No such tier");
+            case Tier::Baseline:
+                return elemCodeRangeIndices1_;
+            case Tier::Ion:
+                return elemCodeRangeIndices2_;
+            default:
+                MOZ_CRASH("No such tier");
         }
     }
 
@@ -822,8 +794,7 @@ typedef Vector<ElemSegment, 0, SystemAllocPolicy> ElemSegmentVector;
 // DataSegment describes the offset of a data segment in the bytecode that is
 // to be copied at a given offset into linear memory upon instantiation.
 
-struct DataSegment
-{
+struct DataSegment {
     InitExpr offset;
     uint32_t bytecodeOffset;
     uint32_t length;
@@ -842,19 +813,18 @@ typedef Vector<DataSegment, 0, SystemAllocPolicy> DataSegmentVector;
 // the immediates (the LSB is necessarily 0 for allocated Sig pointers due to
 // alignment).
 
-class SigIdDesc
-{
-  public:
+class SigIdDesc {
+   public:
     enum class Kind { None, Immediate, Global };
     static const uintptr_t ImmediateBit = 0x1;
 
-  private:
+   private:
     Kind kind_;
     size_t bits_;
 
     SigIdDesc(Kind kind, size_t bits) : kind_(kind), bits_(bits) {}
 
-  public:
+   public:
     Kind kind() const { return kind_; }
     static bool isGlobal(const Sig& sig);
 
@@ -864,16 +834,21 @@ class SigIdDesc
 
     bool isGlobal() const { return kind_ == Kind::Global; }
 
-    size_t immediate() const { MOZ_ASSERT(kind_ == Kind::Immediate); return bits_; }
-    uint32_t globalDataOffset() const { MOZ_ASSERT(kind_ == Kind::Global); return bits_; }
+    size_t immediate() const {
+        MOZ_ASSERT(kind_ == Kind::Immediate);
+        return bits_;
+    }
+    uint32_t globalDataOffset() const {
+        MOZ_ASSERT(kind_ == Kind::Global);
+        return bits_;
+    }
 };
 
 // SigWithId pairs a Sig with SigIdDesc, describing either how to compile code
 // that compares this signature's id or, at instantiation what signature ids to
 // allocate in the global hash and where to put them.
 
-struct SigWithId : Sig
-{
+struct SigWithId : Sig {
     SigIdDesc id;
 
     SigWithId() = default;
@@ -893,8 +868,7 @@ typedef Vector<const SigWithId*, 0, SystemAllocPolicy> SigWithIdPtrVector;
 // generated jump will be bound to a tiny stub which fills the offset and
 // then jumps to a per-Trap shared stub at the end of the module.
 
-enum class Trap
-{
+enum class Trap {
     // The Unreachable opcode has been executed.
     Unreachable,
     // An integer arithmetic operation led to an overflow.
@@ -924,11 +898,8 @@ enum class Trap
 // The (,Callable,Func)Offsets classes are used to record the offsets of
 // different key points in a CodeRange during compilation.
 
-struct Offsets
-{
-    explicit Offsets(uint32_t begin = 0, uint32_t end = 0)
-      : begin(begin), end(end)
-    {}
+struct Offsets {
+    explicit Offsets(uint32_t begin = 0, uint32_t end = 0) : begin(begin), end(end) {}
 
     // These define a [begin, end) contiguous range of instructions compiled
     // into a CodeRange.
@@ -936,22 +907,16 @@ struct Offsets
     uint32_t end;
 };
 
-struct CallableOffsets : Offsets
-{
-    MOZ_IMPLICIT CallableOffsets(uint32_t ret = 0)
-      : Offsets(), ret(ret)
-    {}
+struct CallableOffsets : Offsets {
+    MOZ_IMPLICIT CallableOffsets(uint32_t ret = 0) : Offsets(), ret(ret) {}
 
     // The offset of the return instruction precedes 'end' by a variable number
     // of instructions due to out-of-line codegen.
     uint32_t ret;
 };
 
-struct JitExitOffsets : CallableOffsets
-{
-    MOZ_IMPLICIT JitExitOffsets()
-      : CallableOffsets(), untrustedFPStart(0), untrustedFPEnd(0)
-    {}
+struct JitExitOffsets : CallableOffsets {
+    MOZ_IMPLICIT JitExitOffsets() : CallableOffsets(), untrustedFPStart(0), untrustedFPEnd(0) {}
 
     // There are a few instructions in the Jit exit where FP may be trash
     // (because it may have been clobbered by the JS Jit), known as the
@@ -960,13 +925,8 @@ struct JitExitOffsets : CallableOffsets
     uint32_t untrustedFPEnd;
 };
 
-struct FuncOffsets : CallableOffsets
-{
-    MOZ_IMPLICIT FuncOffsets()
-      : CallableOffsets(),
-        normalEntry(0),
-        tierEntry(0)
-    {}
+struct FuncOffsets : CallableOffsets {
+    MOZ_IMPLICIT FuncOffsets() : CallableOffsets(), normalEntry(0), tierEntry(0) {}
 
     // Function CodeRanges have a table entry which takes an extra signature
     // argument which is checked against the callee's signature before falling
@@ -988,9 +948,8 @@ typedef Vector<FuncOffsets, 0, SystemAllocPolicy> FuncOffsetsVector;
 // module's code segment. A CodeRange describes what the code does and, for
 // function bodies, the name and source coordinates of the function.
 
-class CodeRange
-{
-  public:
+class CodeRange {
+   public:
     enum Kind {
         Function,          // function definition
         Entry,             // calls into wasm from C++
@@ -1006,7 +965,7 @@ class CodeRange
         Throw              // special stack-unwinding stub jumped to by other stubs
     };
 
-  private:
+   private:
     // All fields are treated as cacheable POD:
     uint32_t begin_;
     uint32_t ret_;
@@ -1030,7 +989,7 @@ class CodeRange
     } u;
     Kind kind_ : 8;
 
-  public:
+   public:
     CodeRange() = default;
     CodeRange(Kind kind, Offsets offsets);
     CodeRange(Kind kind, uint32_t funcIndex, Offsets offsets);
@@ -1043,43 +1002,26 @@ class CodeRange
     void offsetBy(uint32_t offset) {
         begin_ += offset;
         end_ += offset;
-        if (hasReturn())
-            ret_ += offset;
+        if (hasReturn()) ret_ += offset;
     }
 
     // All CodeRanges have a begin and end.
 
-    uint32_t begin() const {
-        return begin_;
-    }
-    uint32_t end() const {
-        return end_;
-    }
+    uint32_t begin() const { return begin_; }
+    uint32_t end() const { return end_; }
 
     // Other fields are only available for certain CodeRange::Kinds.
 
-    Kind kind() const {
-        return kind_;
-    }
+    Kind kind() const { return kind_; }
 
-    bool isFunction() const {
-        return kind() == Function;
-    }
+    bool isFunction() const { return kind() == Function; }
     bool isImportExit() const {
         return kind() == ImportJitExit || kind() == ImportInterpExit || kind() == BuiltinThunk;
     }
-    bool isImportJitExit() const {
-        return kind() == ImportJitExit;
-    }
-    bool isTrapExit() const {
-        return kind() == TrapExit;
-    }
-    bool isDebugTrap() const {
-        return kind() == DebugTrap;
-    }
-    bool isThunk() const {
-        return kind() == FarJumpIsland;
-    }
+    bool isImportJitExit() const { return kind() == ImportJitExit; }
+    bool isTrapExit() const { return kind() == TrapExit; }
+    bool isDebugTrap() const { return kind() == DebugTrap; }
+    bool isThunk() const { return kind() == FarJumpIsland; }
 
     // Function, import exits and trap exits have standard callable prologues
     // and epilogues. Asynchronous frame iteration needs to know the offset of
@@ -1096,9 +1038,7 @@ class CodeRange
     // Functions, export stubs and import stubs all have an associated function
     // index.
 
-    bool hasFuncIndex() const {
-        return isFunction() || isImportExit() || kind() == Entry;
-    }
+    bool hasFuncIndex() const { return isFunction() || isImportExit() || kind() == Entry; }
     uint32_t funcIndex() const {
         MOZ_ASSERT(hasFuncIndex());
         return u.funcIndex_;
@@ -1153,24 +1093,21 @@ class CodeRange
         bool operator==(const CodeRange& rhs) const {
             return offset >= rhs.begin() && offset < rhs.end();
         }
-        bool operator<(const CodeRange& rhs) const {
-            return offset < rhs.begin();
-        }
+        bool operator<(const CodeRange& rhs) const { return offset < rhs.begin(); }
     };
 };
 
 WASM_DECLARE_POD_VECTOR(CodeRange, CodeRangeVector)
 
-extern const CodeRange*
-LookupInSorted(const CodeRangeVector& codeRanges, CodeRange::OffsetInCode target);
+extern const CodeRange* LookupInSorted(const CodeRangeVector& codeRanges,
+                                       CodeRange::OffsetInCode target);
 
 // A wrapper around the bytecode offset of a wasm instruction within a whole
 // module, used for trap offsets or call offsets. These offsets should refer to
 // the first byte of the instruction that triggered the trap / did the call and
 // should ultimately derive from OpIter::bytecodeOffset.
 
-struct BytecodeOffset
-{
+struct BytecodeOffset {
     static const uint32_t INVALID = -1;
     uint32_t bytecodeOffset;
 
@@ -1186,29 +1123,26 @@ struct BytecodeOffset
 // the metadata necessary to walk up to the next frame. Lastly CallSiteAndTarget
 // adds the function index of the callee.
 
-class CallSiteDesc
-{
+class CallSiteDesc {
     uint32_t lineOrBytecode_ : 29;
     uint32_t kind_ : 3;
-  public:
+
+   public:
     enum Kind {
-        Func,       // pc-relative call to a specific function
-        Dynamic,    // dynamic callee called via register
-        Symbolic,   // call to a single symbolic callee
-        TrapExit,   // call to a trap exit
-        EnterFrame, // call to a enter frame handler
-        LeaveFrame, // call to a leave frame handler
-        Breakpoint  // call to instruction breakpoint
+        Func,        // pc-relative call to a specific function
+        Dynamic,     // dynamic callee called via register
+        Symbolic,    // call to a single symbolic callee
+        TrapExit,    // call to a trap exit
+        EnterFrame,  // call to a enter frame handler
+        LeaveFrame,  // call to a leave frame handler
+        Breakpoint   // call to instruction breakpoint
     };
     CallSiteDesc() {}
-    explicit CallSiteDesc(Kind kind)
-      : lineOrBytecode_(0), kind_(kind)
-    {
+    explicit CallSiteDesc(Kind kind) : lineOrBytecode_(0), kind_(kind) {
         MOZ_ASSERT(kind == Kind(kind_));
     }
     CallSiteDesc(uint32_t lineOrBytecode, Kind kind)
-      : lineOrBytecode_(lineOrBytecode), kind_(kind)
-    {
+        : lineOrBytecode_(lineOrBytecode), kind_(kind) {
         MOZ_ASSERT(kind == Kind(kind_));
         MOZ_ASSERT(lineOrBytecode == lineOrBytecode_);
     }
@@ -1216,17 +1150,14 @@ class CallSiteDesc
     Kind kind() const { return Kind(kind_); }
 };
 
-class CallSite : public CallSiteDesc
-{
+class CallSite : public CallSiteDesc {
     uint32_t returnAddressOffset_;
 
-  public:
+   public:
     CallSite() {}
 
     CallSite(CallSiteDesc desc, uint32_t returnAddressOffset)
-      : CallSiteDesc(desc),
-        returnAddressOffset_(returnAddressOffset)
-    { }
+        : CallSiteDesc(desc), returnAddressOffset_(returnAddressOffset) {}
 
     void offsetBy(int32_t delta) { returnAddressOffset_ += delta; }
     uint32_t returnAddressOffset() const { return returnAddressOffset_; }
@@ -1239,34 +1170,39 @@ WASM_DECLARE_POD_VECTOR(CallSite, CallSiteVector)
 // officially know whether it targets a function or trap, relying on the Kind of
 // the CallSite to discriminate.
 
-class CallSiteTarget
-{
+class CallSiteTarget {
     uint32_t packed_;
 #ifdef DEBUG
     enum Kind { None, FuncIndex, TrapExit } kind_;
 #endif
 
-  public:
+   public:
     explicit CallSiteTarget()
-      : packed_(UINT32_MAX)
+        : packed_(UINT32_MAX)
 #ifdef DEBUG
-      , kind_(None)
+          ,
+          kind_(None)
 #endif
-    {}
+    {
+    }
 
     explicit CallSiteTarget(uint32_t funcIndex)
-      : packed_(funcIndex)
+        : packed_(funcIndex)
 #ifdef DEBUG
-      , kind_(FuncIndex)
+          ,
+          kind_(FuncIndex)
 #endif
-    {}
+    {
+    }
 
     explicit CallSiteTarget(Trap trap)
-      : packed_(uint32_t(trap))
+        : packed_(uint32_t(trap))
 #ifdef DEBUG
-      , kind_(TrapExit)
+          ,
+          kind_(TrapExit)
 #endif
-    {}
+    {
+    }
 
     uint32_t funcIndex() const {
         MOZ_ASSERT(kind_ == FuncIndex);
@@ -1289,8 +1225,7 @@ typedef Vector<CallSiteTarget, 0, SystemAllocPolicy> CallSiteTargetVector;
 // SymbolicAddresses and the offsets of their use in the code for later patching
 // during static linking.
 
-enum class SymbolicAddress
-{
+enum class SymbolicAddress {
     ToInt32,
 #if defined(JS_CODEGEN_ARM)
     aeabi_idivmod,
@@ -1349,16 +1284,14 @@ enum class SymbolicAddress
     Limit
 };
 
-bool
-IsRoundingFunction(SymbolicAddress callee, jit::RoundingMode* mode);
+bool IsRoundingFunction(SymbolicAddress callee, jit::RoundingMode* mode);
 
 // Assumptions captures ambient state that must be the same when compiling and
 // deserializing a module for the compiled code to be valid. If it's not, then
 // the module must be recompiled from scratch.
 
-struct Assumptions
-{
-    uint32_t              cpuId;
+struct Assumptions {
+    uint32_t cpuId;
     JS::BuildIdCharVector buildId;
 
     explicit Assumptions(JS::BuildIdCharVector&& buildId);
@@ -1381,37 +1314,26 @@ struct Assumptions
 
 // A Module can either be asm.js or wasm.
 
-enum ModuleKind
-{
-    Wasm,
-    AsmJS
-};
+enum ModuleKind { Wasm, AsmJS };
 
 // Represents the resizable limits of memories and tables.
 
-struct Limits
-{
+struct Limits {
     uint32_t initial;
     Maybe<uint32_t> maximum;
 
     Limits() = default;
     explicit Limits(uint32_t initial, const Maybe<uint32_t>& maximum = Nothing())
-      : initial(initial), maximum(maximum)
-    {}
+        : initial(initial), maximum(maximum) {}
 };
 
 // TableDesc describes a table as well as the offset of the table's base pointer
 // in global memory. Currently, wasm only has "any function" and asm.js only
 // "typed function".
 
-enum class TableKind
-{
-    AnyFunction,
-    TypedFunction
-};
+enum class TableKind { AnyFunction, TypedFunction };
 
-struct TableDesc
-{
+struct TableDesc {
     TableKind kind;
     bool external;
     uint32_t globalDataOffset;
@@ -1419,11 +1341,7 @@ struct TableDesc
 
     TableDesc() = default;
     TableDesc(TableKind kind, const Limits& limits)
-     : kind(kind),
-       external(false),
-       globalDataOffset(UINT32_MAX),
-       limits(limits)
-    {}
+        : kind(kind), external(false), globalDataOffset(UINT32_MAX), limits(limits) {}
 };
 
 typedef Vector<TableDesc, 0, SystemAllocPolicy> TableDescVector;
@@ -1431,8 +1349,7 @@ typedef Vector<TableDesc, 0, SystemAllocPolicy> TableDescVector;
 // ExportArg holds the unboxed operands to the wasm entry trampoline which can
 // be called through an ExportFuncPtr.
 
-struct ExportArg
-{
+struct ExportArg {
     uint64_t lo;
     uint64_t hi;
 };
@@ -1449,8 +1366,7 @@ struct ExportArg
 //
 // After the TlsData struct follows the module's declared TLS variables.
 
-struct TlsData
-{
+struct TlsData {
     // Pointer to the base of the default memory (or null if there is none).
     uint8_t* memoryBase;
 
@@ -1487,8 +1403,7 @@ typedef int32_t (*ExportFuncPtr)(ExportArg* args, TlsData* tls);
 // directly from JIT code and mutated by Instance as exits become optimized and
 // deoptimized.
 
-struct FuncImportTls
-{
+struct FuncImportTls {
     // The code to call at an import site: a wasm callee, a thunk into C++, or a
     // thunk into JIT code.
     void* code;
@@ -1512,8 +1427,7 @@ struct FuncImportTls
 // instance's thread-local storage which is accessed directly from JIT code
 // to bounds-check and index the table.
 
-struct TableTls
-{
+struct TableTls {
     // Length of the table in number of elements (not bytes).
     uint32_t length;
 
@@ -1526,8 +1440,7 @@ struct TableTls
 // the internal representation is an array of ExternalTableElem instead of just
 // an array of code pointers.
 
-struct ExternalTableElem
-{
+struct ExternalTableElem {
     // The code to call when calling this element. The table ABI is the system
     // ABI with the additional ABI requirements that:
     //  - WasmTlsReg and any pinned registers have been loaded appropriately
@@ -1543,9 +1456,8 @@ struct ExternalTableElem
 // CalleeDesc describes how to compile one of the variety of asm.js/wasm calls.
 // This is hoisted into WasmTypes.h for sharing between Ion and Baseline.
 
-class CalleeDesc
-{
-  public:
+class CalleeDesc {
+   public:
     enum Which {
         // Calls a function defined in the same module by its index.
         Func,
@@ -1568,7 +1480,7 @@ class CalleeDesc
         BuiltinInstanceMethod
     };
 
-  private:
+   private:
     // which_ shall be initialized in the static constructors
     MOZ_INIT_OUTSIDE_CTOR Which which_;
     union U {
@@ -1586,7 +1498,7 @@ class CalleeDesc
         SymbolicAddress builtin_;
     } u;
 
-  public:
+   public:
     CalleeDesc() {}
     static CalleeDesc function(uint32_t funcIndex) {
         CalleeDesc c;
@@ -1627,9 +1539,7 @@ class CalleeDesc
         c.u.builtin_ = callee;
         return c;
     }
-    Which which() const {
-        return which_;
-    }
+    Which which() const { return which_; }
     uint32_t funcIndex() const {
         MOZ_ASSERT(which_ == Func);
         return u.funcIndex_;
@@ -1638,9 +1548,7 @@ class CalleeDesc
         MOZ_ASSERT(which_ == Import);
         return u.import.globalDataOffset_;
     }
-    bool isTable() const {
-        return which_ == WasmTable || which_ == AsmJSTable;
-    }
+    bool isTable() const { return which_ == WasmTable || which_ == AsmJSTable; }
     uint32_t tableLengthGlobalDataOffset() const {
         MOZ_ASSERT(isTable());
         return u.table.globalDataOffset_ + offsetof(TableTls, length);
@@ -1670,11 +1578,9 @@ class CalleeDesc
 // Because ARM has a fixed-width instruction encoding, ARM can only express a
 // limited subset of immediates (in a single instruction).
 
-extern bool
-IsValidARMImmediate(uint32_t i);
+extern bool IsValidARMImmediate(uint32_t i);
 
-extern uint32_t
-RoundUpToNextValidARMImmediate(uint32_t i);
+extern uint32_t RoundUpToNextValidARMImmediate(uint32_t i);
 
 // The WebAssembly spec hard-codes the virtual page size to be 64KiB and
 // requires the size of linear memory to always be a multiple of 64KiB.
@@ -1705,7 +1611,7 @@ static const uint64_t HugeMappedSize = IndexRange + OffsetGuardLimit + Unaligned
 
 static_assert(MaxMemoryAccessSize <= UnalignedGuardPage, "rounded up to static page size");
 
-#else // !WASM_HUGE_MEMORY
+#else  // !WASM_HUGE_MEMORY
 
 // On !WASM_HUGE_MEMORY platforms:
 //  - To avoid OOM in ArrayBuffer::prepareForAsmJS, asm.js continues to use the
@@ -1721,8 +1627,7 @@ static const size_t GuardSize = PageSize;
 // Return whether the given immediate satisfies the constraints of the platform
 // (viz. that, on ARM, IsValidARMImmediate).
 
-extern bool
-IsValidBoundsCheckImmediate(uint32_t i);
+extern bool IsValidBoundsCheckImmediate(uint32_t i);
 
 // For a given WebAssembly/asm.js max size, return the number of bytes to
 // map which will necessarily be a multiple of the system page size and greater
@@ -1730,10 +1635,9 @@ IsValidBoundsCheckImmediate(uint32_t i);
 //   boundsCheckLimit = mappedSize - GuardSize
 //   IsValidBoundsCheckImmediate(boundsCheckLimit)
 
-extern size_t
-ComputeMappedSize(uint32_t maxSize);
+extern size_t ComputeMappedSize(uint32_t maxSize);
 
-#endif // WASM_HUGE_MEMORY
+#endif  // WASM_HUGE_MEMORY
 
 // Metadata for memory accesses. On WASM_HUGE_MEMORY platforms, only
 // (non-SIMD/Atomic) asm.js loads and stores create a MemoryAccess so that the
@@ -1743,24 +1647,17 @@ ComputeMappedSize(uint32_t maxSize);
 // the MemoryAccess records the location of each for patching. On all other
 // platforms, no MemoryAccess is created.
 
-class MemoryAccess
-{
+class MemoryAccess {
     uint32_t insnOffset_;
     uint32_t trapOutOfLineOffset_;
 
-  public:
+   public:
     MemoryAccess() = default;
     explicit MemoryAccess(uint32_t insnOffset, uint32_t trapOutOfLineOffset = UINT32_MAX)
-      : insnOffset_(insnOffset),
-        trapOutOfLineOffset_(trapOutOfLineOffset)
-    {}
+        : insnOffset_(insnOffset), trapOutOfLineOffset_(trapOutOfLineOffset) {}
 
-    uint32_t insnOffset() const {
-        return insnOffset_;
-    }
-    bool hasTrapOutOfLineCode() const {
-        return trapOutOfLineOffset_ != UINT32_MAX;
-    }
+    uint32_t insnOffset() const { return insnOffset_; }
+    bool hasTrapOutOfLineCode() const { return trapOutOfLineOffset_ != UINT32_MAX; }
     uint8_t* trapOutOfLineCode(uint8_t* code) const {
         MOZ_ASSERT(hasTrapOutOfLineCode());
         return code + trapOutOfLineOffset_;
@@ -1768,8 +1665,7 @@ class MemoryAccess
 
     void offsetBy(uint32_t delta) {
         insnOffset_ += delta;
-        if (hasTrapOutOfLineCode())
-            trapOutOfLineOffset_ += delta;
+        if (hasTrapOutOfLineCode()) trapOutOfLineOffset_ += delta;
     }
 };
 
@@ -1787,8 +1683,7 @@ WASM_DECLARE_POD_VECTOR(MemoryAccess, MemoryAccessVector)
 // are counted by masm.framePushed. Thus, the stack alignment at any point in
 // time is (sizeof(wasm::Frame) + masm.framePushed) % WasmStackAlignment.
 
-struct Frame
-{
+struct Frame {
     // The caller's Frame*. See GenerateCallableEpilogue for why this must be
     // the first field of wasm::Frame (in a downward-growing stack).
     Frame* callerFP;
@@ -1815,13 +1710,11 @@ struct Frame
 // with debugging enabled, then all its code creates DebugFrames on the stack
 // instead of just Frames. These extra fields are used by the Debugger API.
 
-class DebugFrame
-{
+class DebugFrame {
     // The results field left uninitialized and only used during the baseline
     // compiler's return sequence to allow the debugger to inspect and modify
     // the return value of a frame being debugged.
-    union
-    {
+    union {
         int32_t resultI32_;
         int64_t resultI64_;
         float resultF32_;
@@ -1837,10 +1730,8 @@ class DebugFrame
     uint32_t funcIndex_;
 
     // Flags whose meaning are described below.
-    union
-    {
-        struct
-        {
+    union {
+        struct {
             bool observing_ : 1;
             bool isDebuggee_ : 1;
             bool prevUpToDate_ : 1;
@@ -1853,7 +1744,7 @@ class DebugFrame
     // The Frame goes at the end since the stack grows down.
     Frame frame_;
 
-  public:
+   public:
     Frame& frame() { return frame_; }
     uint32_t funcIndex() const { return funcIndex_; }
     Instance* instance() const { return frame_.instance(); }
@@ -1911,7 +1802,7 @@ class DebugFrame
     static void alignmentStaticAsserts();
 };
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_types_h
+#endif  // wasm_types_h

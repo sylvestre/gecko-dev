@@ -40,14 +40,16 @@
 #include "pkix/Input.h"
 #include "pkix/pkixtypes.h"
 
-namespace mozilla { namespace pkix { namespace der {
+namespace mozilla {
+namespace pkix {
+namespace der {
 
 enum Class : uint8_t
 {
-   UNIVERSAL = 0 << 6,
-// APPLICATION = 1 << 6, // unused
-   CONTEXT_SPECIFIC = 2 << 6,
-// PRIVATE = 3 << 6 // unused
+  UNIVERSAL = 0 << 6,
+  // APPLICATION = 1 << 6, // unused
+  CONTEXT_SPECIFIC = 2 << 6,
+  // PRIVATE = 3 << 6 // unused
 };
 
 enum Constructed
@@ -65,8 +67,8 @@ enum Tag : uint8_t
   OIDTag = UNIVERSAL | 0x06,
   ENUMERATED = UNIVERSAL | 0x0a,
   UTF8String = UNIVERSAL | 0x0c,
-  SEQUENCE = UNIVERSAL | CONSTRUCTED | 0x10, // 0x30
-  SET = UNIVERSAL | CONSTRUCTED | 0x11, // 0x31
+  SEQUENCE = UNIVERSAL | CONSTRUCTED | 0x10,  // 0x30
+  SET = UNIVERSAL | CONSTRUCTED | 0x11,       // 0x31
   PrintableString = UNIVERSAL | 0x13,
   TeletexString = UNIVERSAL | 0x14,
   IA5String = UNIVERSAL | 0x16,
@@ -74,11 +76,18 @@ enum Tag : uint8_t
   GENERALIZED_TIME = UNIVERSAL | 0x18,
 };
 
-enum class EmptyAllowed { No = 0, Yes = 1 };
+enum class EmptyAllowed
+{
+  No = 0,
+  Yes = 1
+};
 
-Result ReadTagAndGetValue(Reader& input, /*out*/ uint8_t& tag,
-                          /*out*/ Input& value);
-Result End(Reader& input);
+Result
+ReadTagAndGetValue(Reader& input,
+                   /*out*/ uint8_t& tag,
+                   /*out*/ Input& value);
+Result
+End(Reader& input);
 
 inline Result
 ExpectTagAndGetValue(Reader& input, uint8_t tag, /*out*/ Input& value)
@@ -146,7 +155,7 @@ End(Reader& input)
   return Success;
 }
 
-template <typename Decoder>
+template<typename Decoder>
 inline Result
 Nested(Reader& input, uint8_t tag, Decoder decoder)
 {
@@ -162,7 +171,7 @@ Nested(Reader& input, uint8_t tag, Decoder decoder)
   return End(nested);
 }
 
-template <typename Decoder>
+template<typename Decoder>
 inline Result
 Nested(Reader& input, uint8_t outerTag, uint8_t innerTag, Decoder decoder)
 {
@@ -205,10 +214,13 @@ Nested(Reader& input, uint8_t outerTag, uint8_t innerTag, Decoder decoder)
 // In these examples the function will get called once for each element of
 // foos.
 //
-template <typename Decoder>
+template<typename Decoder>
 inline Result
-NestedOf(Reader& input, uint8_t outerTag, uint8_t innerTag,
-         EmptyAllowed mayBeEmpty, Decoder decoder)
+NestedOf(Reader& input,
+         uint8_t outerTag,
+         uint8_t innerTag,
+         EmptyAllowed mayBeEmpty,
+         Decoder decoder)
 {
   Reader inner;
   Result rv = ExpectTagAndGetValue(input, outerTag, inner);
@@ -238,7 +250,8 @@ NestedOf(Reader& input, uint8_t outerTag, uint8_t innerTag,
 // This function reduces the boilerplate necessary for stripping the outermost
 // SEQUENCE (or similar) and ensuring that nothing follows it.
 inline Result
-ExpectTagAndGetValueAtEnd(Reader& outer, uint8_t expectedTag,
+ExpectTagAndGetValueAtEnd(Reader& outer,
+                          uint8_t expectedTag,
                           /*out*/ Reader& inner)
 {
   Result rv = der::ExpectTagAndGetValue(outer, expectedTag, inner);
@@ -250,7 +263,8 @@ ExpectTagAndGetValueAtEnd(Reader& outer, uint8_t expectedTag,
 
 // Similar to the above, but takes an Input instead of a Reader&.
 inline Result
-ExpectTagAndGetValueAtEnd(Input outer, uint8_t expectedTag,
+ExpectTagAndGetValueAtEnd(Input outer,
+                          uint8_t expectedTag,
                           /*out*/ Reader& inner)
 {
   Reader outerReader(outer);
@@ -268,16 +282,19 @@ enum class IntegralValueRestriction
   MustBe0To127,
 };
 
-Result IntegralBytes(Reader& input, uint8_t tag,
-                     IntegralValueRestriction valueRestriction,
-             /*out*/ Input& value,
-    /*optional out*/ Input::size_type* significantBytes = nullptr);
+Result
+IntegralBytes(Reader& input,
+              uint8_t tag,
+              IntegralValueRestriction valueRestriction,
+              /*out*/ Input& value,
+              /*optional out*/ Input::size_type* significantBytes = nullptr);
 
 // This parser will only parse values between 0..127. If this range is
 // increased then callers will need to be changed.
-Result IntegralValue(Reader& input, uint8_t tag, /*out*/ uint8_t& value);
+Result
+IntegralValue(Reader& input, uint8_t tag, /*out*/ uint8_t& value);
 
-} // namespace internal
+}  // namespace internal
 
 Result
 BitStringWithNoUnusedBits(Reader& input, /*out*/ Input& value);
@@ -301,8 +318,12 @@ Boolean(Reader& input, /*out*/ bool& value)
     return rv;
   }
   switch (intValue) {
-    case 0: value = false; return Success;
-    case 0xFF: value = true; return Success;
+    case 0:
+      value = false;
+      return Success;
+    case 0xFF:
+      value = true;
+      return Success;
     default:
       return Result::ERROR_BAD_DER;
   }
@@ -343,9 +364,10 @@ namespace internal {
 // Only times from 1970-01-01-00:00:00 onward are accepted, in order to
 // eliminate the chance for complications in converting times to traditional
 // time formats that start at 1970.
-Result TimeChoice(Reader& input, uint8_t tag, /*out*/ Time& time);
+Result
+TimeChoice(Reader& input, uint8_t tag, /*out*/ Time& time);
 
-} // namespace internal
+}  // namespace internal
 
 // Only times from 1970-01-01-00:00:00 onward are accepted, in order to
 // eliminate the chance for complications in converting times to traditional
@@ -371,12 +393,16 @@ TimeChoice(Reader& input, /*out*/ Time& time)
 // the number of significant bytes in the value (the length of the value, less
 // the length of any leading padding), which is useful for key size checks.
 inline Result
-PositiveInteger(Reader& input, /*out*/ Input& value,
+PositiveInteger(Reader& input,
+                /*out*/ Input& value,
                 /*optional out*/ Input::size_type* significantBytes = nullptr)
 {
   return internal::IntegralBytes(
-           input, INTEGER, internal::IntegralValueRestriction::MustBePositive,
-           value, significantBytes);
+      input,
+      INTEGER,
+      internal::IntegralValueRestriction::MustBePositive,
+      value,
+      significantBytes);
 }
 
 // This parser will only parse values between 0..127. If this range is
@@ -420,7 +446,7 @@ Null(Reader& input)
   return ExpectTagAndEmptyValue(input, NULLTag);
 }
 
-template <uint8_t Len>
+template<uint8_t Len>
 Result
 OID(Reader& input, const uint8_t (&expectedOid)[Len])
 {
@@ -451,23 +477,30 @@ CertificateSerialNumber(Reader& input, /*out*/ Input& value)
   //   that are negative or zero.  Certificate users SHOULD be prepared to
   //   gracefully handle such certificates."
   return internal::IntegralBytes(
-           input, INTEGER, internal::IntegralValueRestriction::NoRestriction,
-           value);
+      input, INTEGER, internal::IntegralValueRestriction::NoRestriction, value);
 }
 
 // x.509 and OCSP both use this same version numbering scheme, though OCSP
 // only supports v1.
-enum class Version { v1 = 0, v2 = 1, v3 = 2, v4 = 3 };
+enum class Version
+{
+  v1 = 0,
+  v2 = 1,
+  v3 = 2,
+  v4 = 3
+};
 
 // X.509 Certificate and OCSP ResponseData both use
 // "[0] EXPLICIT Version DEFAULT v1". Although an explicit encoding of v1 is
 // illegal, we support it because some real-world OCSP responses explicitly
 // encode it.
-Result OptionalVersion(Reader& input, /*out*/ Version& version);
+Result
+OptionalVersion(Reader& input, /*out*/ Version& version);
 
-template <typename ExtensionHandler>
+template<typename ExtensionHandler>
 inline Result
-OptionalExtensions(Reader& input, uint8_t tag,
+OptionalExtensions(Reader& input,
+                   uint8_t tag,
                    ExtensionHandler extensionHandler)
 {
   if (!input.Peek(tag)) {
@@ -480,43 +513,48 @@ OptionalExtensions(Reader& input, uint8_t tag,
     // TODO(bug 997994): According to the specification, there should never be
     // an empty sequence of extensions but we've found OCSP responses that have
     // that (see bug 991898).
-    return NestedOf(tagged, SEQUENCE, SEQUENCE, EmptyAllowed::Yes,
-                    [extensionHandler](Reader& extension) -> Result {
-      // Extension  ::=  SEQUENCE  {
-      //      extnID      OBJECT IDENTIFIER,
-      //      critical    BOOLEAN DEFAULT FALSE,
-      //      extnValue   OCTET STRING
-      //      }
-      Reader extnID;
-      Result rv = ExpectTagAndGetValue(extension, OIDTag, extnID);
-      if (rv != Success) {
-        return rv;
-      }
-      bool critical;
-      rv = OptionalBoolean(extension, critical);
-      if (rv != Success) {
-        return rv;
-      }
-      Input extnValue;
-      rv = ExpectTagAndGetValue(extension, OCTET_STRING, extnValue);
-      if (rv != Success) {
-        return rv;
-      }
-      bool understood = false;
-      rv = extensionHandler(extnID, extnValue, critical, understood);
-      if (rv != Success) {
-        return rv;
-      }
-      if (critical && !understood) {
-        return Result::ERROR_UNKNOWN_CRITICAL_EXTENSION;
-      }
-      return Success;
-    });
+    return NestedOf(
+        tagged,
+        SEQUENCE,
+        SEQUENCE,
+        EmptyAllowed::Yes,
+        [extensionHandler](Reader& extension) -> Result {
+          // Extension  ::=  SEQUENCE  {
+          //      extnID      OBJECT IDENTIFIER,
+          //      critical    BOOLEAN DEFAULT FALSE,
+          //      extnValue   OCTET STRING
+          //      }
+          Reader extnID;
+          Result rv = ExpectTagAndGetValue(extension, OIDTag, extnID);
+          if (rv != Success) {
+            return rv;
+          }
+          bool critical;
+          rv = OptionalBoolean(extension, critical);
+          if (rv != Success) {
+            return rv;
+          }
+          Input extnValue;
+          rv = ExpectTagAndGetValue(extension, OCTET_STRING, extnValue);
+          if (rv != Success) {
+            return rv;
+          }
+          bool understood = false;
+          rv = extensionHandler(extnID, extnValue, critical, understood);
+          if (rv != Success) {
+            return rv;
+          }
+          if (critical && !understood) {
+            return Result::ERROR_UNKNOWN_CRITICAL_EXTENSION;
+          }
+          return Success;
+        });
   });
 }
 
-Result DigestAlgorithmIdentifier(Reader& input,
-                                 /*out*/ DigestAlgorithm& algorithm);
+Result
+DigestAlgorithmIdentifier(Reader& input,
+                          /*out*/ DigestAlgorithm& algorithm);
 
 enum class PublicKeyAlgorithm
 {
@@ -524,14 +562,15 @@ enum class PublicKeyAlgorithm
   ECDSA,
 };
 
-Result SignatureAlgorithmIdentifierValue(
-         Reader& input,
-         /*out*/ PublicKeyAlgorithm& publicKeyAlgorithm,
-         /*out*/ DigestAlgorithm& digestAlgorithm);
+Result
+SignatureAlgorithmIdentifierValue(
+    Reader& input,
+    /*out*/ PublicKeyAlgorithm& publicKeyAlgorithm,
+    /*out*/ DigestAlgorithm& digestAlgorithm);
 
 struct SignedDataWithSignature final
 {
-public:
+ public:
   Input data;
   Input algorithm;
   Input signature;
@@ -557,9 +596,13 @@ public:
 //    signatureAlgorithm   AlgorithmIdentifier,
 //    signature            BIT STRING,
 //    certs            [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
-Result SignedData(Reader& input, /*out*/ Reader& tbs,
-                  /*out*/ SignedDataWithSignature& signedDataWithSignature);
+Result
+SignedData(Reader& input,
+           /*out*/ Reader& tbs,
+           /*out*/ SignedDataWithSignature& signedDataWithSignature);
 
-} } } // namespace mozilla::pkix::der
+}  // namespace der
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_pkixder_h
+#endif  // mozilla_pkix_pkixder_h

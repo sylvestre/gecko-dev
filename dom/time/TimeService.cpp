@@ -30,11 +30,12 @@ TimeService::GetInstance()
 }
 
 NS_IMETHODIMP
-TimeService::Set(int64_t aTimeInMS) {
+TimeService::Set(int64_t aTimeInMS)
+{
   hal::AdjustSystemClock(aTimeInMS - (JS_Now() / PR_USEC_PER_MSEC));
   return NS_OK;
 }
 
-} // namespace time
-} // namespace dom
-} // namespace mozilla
+}  // namespace time
+}  // namespace dom
+}  // namespace mozilla

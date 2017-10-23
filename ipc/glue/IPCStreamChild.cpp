@@ -21,12 +21,11 @@ namespace ipc {
 
 namespace {
 
-class IPCStreamSourceChild final : public PChildToParentStreamChild
-                                 , public IPCStreamSource
+class IPCStreamSourceChild final : public PChildToParentStreamChild,
+                                   public IPCStreamSource
 {
-public:
-  static IPCStreamSourceChild*
-  Create(nsIAsyncInputStream* aInputStream)
+ public:
+  static IPCStreamSourceChild* Create(nsIAsyncInputStream* aInputStream)
   {
     MOZ_ASSERT(aInputStream);
 
@@ -41,46 +40,39 @@ public:
 
   // PChildToParentStreamChild methods
 
-  void
-  ActorDestroy(ActorDestroyReason aReason) override
-  {
-    ActorDestroyed();
-  }
+  void ActorDestroy(ActorDestroyReason aReason) override { ActorDestroyed(); }
 
-  IPCResult
-  RecvStartReading() override
+  IPCResult RecvStartReading() override
   {
     Start();
     return IPC_OK();
   }
 
-  IPCResult
-  RecvRequestClose(const nsresult& aRv) override
+  IPCResult RecvRequestClose(const nsresult& aRv) override
   {
     OnEnd(aRv);
     return IPC_OK();
   }
 
-  void
-  Close(nsresult aRv) override
+  void Close(nsresult aRv) override
   {
     MOZ_ASSERT(IPCStreamSource::mState == IPCStreamSource::eClosed);
     Unused << SendClose(aRv);
   }
 
-  void
-  SendData(const wr::ByteBuffer& aBuffer) override
+  void SendData(const wr::ByteBuffer& aBuffer) override
   {
     Unused << SendBuffer(aBuffer);
   }
 
-private:
+ private:
   explicit IPCStreamSourceChild(nsIAsyncInputStream* aInputStream)
-    :IPCStreamSource(aInputStream)
-  {}
+      : IPCStreamSource(aInputStream)
+  {
+  }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 /* static */ PChildToParentStreamChild*
 IPCStreamSource::Create(nsIAsyncInputStream* aInputStream,
@@ -137,36 +129,26 @@ IPCStreamSource::Cast(PChildToParentStreamChild* aActor)
 
 namespace {
 
-class IPCStreamDestinationChild final : public PParentToChildStreamChild
-                                      , public IPCStreamDestination
+class IPCStreamDestinationChild final : public PParentToChildStreamChild,
+                                        public IPCStreamDestination
 {
-public:
-  nsresult Initialize()
-  {
-    return IPCStreamDestination::Initialize();
-  }
+ public:
+  nsresult Initialize() { return IPCStreamDestination::Initialize(); }
 
-  ~IPCStreamDestinationChild()
-  {}
+  ~IPCStreamDestinationChild() {}
 
-private:
+ private:
   // PParentToChildStreamChild methods
 
-  void
-  ActorDestroy(ActorDestroyReason aReason) override
-  {
-    ActorDestroyed();
-  }
+  void ActorDestroy(ActorDestroyReason aReason) override { ActorDestroyed(); }
 
-  IPCResult
-  RecvBuffer(const wr::ByteBuffer& aBuffer) override
+  IPCResult RecvBuffer(const wr::ByteBuffer& aBuffer) override
   {
     BufferReceived(aBuffer);
     return IPC_OK();
   }
 
-  IPCResult
-  RecvClose(const nsresult& aRv) override
+  IPCResult RecvClose(const nsresult& aRv) override
   {
     CloseReceived(aRv);
     return IPC_OK();
@@ -174,27 +156,18 @@ private:
 
   // IPCStreamDestination methods
 
-  void
-  StartReading() override
+  void StartReading() override
   {
     MOZ_ASSERT(HasDelayedStart());
     Unused << SendStartReading();
   }
 
-  void
-  RequestClose(nsresult aRv) override
-  {
-    Unused << SendRequestClose(aRv);
-  }
+  void RequestClose(nsresult aRv) override { Unused << SendRequestClose(aRv); }
 
-  void
-  TerminateDestination() override
-  {
-    Unused << Send__delete__(this);
-  }
+  void TerminateDestination() override { Unused << Send__delete__(this); }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 PParentToChildStreamChild*
 AllocPParentToChildStreamChild()
@@ -222,5 +195,5 @@ IPCStreamDestination::Cast(PParentToChildStreamChild* aActor)
   return static_cast<IPCStreamDestinationChild*>(aActor);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

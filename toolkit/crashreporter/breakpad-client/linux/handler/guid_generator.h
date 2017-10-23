@@ -40,9 +40,11 @@ const char kGUIDFormatString[] = "%08x-%04x-%04x-%04x-%012" PRIx64;
 const size_t kGUIDStringLength = 36;
 
 // Create a guid.
-bool CreateGUID(GUID *guid);
+bool
+CreateGUID(GUID* guid);
 
 // Get the string from guid.
-bool GUIDToString(const GUID *guid, char *buf, size_t buf_len);
+bool
+GUIDToString(const GUID* guid, char* buf, size_t buf_len);
 
 #endif

@@ -37,18 +37,20 @@ struct GMPTestRunner
   void RunTestGMPCrossOrigin3(GMPTestMonitor& aMonitor);
   void RunTestGMPCrossOrigin4(GMPTestMonitor& aMonitor);
 
-private:
-  ~GMPTestRunner() { }
+ private:
+  ~GMPTestRunner() {}
 };
 
-template<class T, class Base,
-         nsresult (NS_STDCALL GeckoMediaPluginService::*Getter)(GMPCrashHelper*,
-                                                                nsTArray<nsCString>*,
-                                                                const nsACString&,
-                                                                UniquePtr<Base>&&)>
+template<class T,
+         class Base,
+         nsresult (NS_STDCALL GeckoMediaPluginService::*Getter)(
+             GMPCrashHelper*,
+             nsTArray<nsCString>*,
+             const nsACString&,
+             UniquePtr<Base>&&)>
 class RunTestGMPVideoCodec : public Base
 {
-public:
+ public:
   void Done(T* aGMP, GMPVideoHost* aHost) override
   {
     EXPECT_TRUE(aGMP);
@@ -65,12 +67,11 @@ public:
     Get(aOrigin, Move(callback));
   }
 
-protected:
+ protected:
   typedef T GMPCodecType;
   typedef Base GMPCallbackType;
 
-  explicit RunTestGMPVideoCodec(GMPTestMonitor& aMonitor)
-    : mMonitor(aMonitor)
+  explicit RunTestGMPVideoCodec(GMPTestMonitor& aMonitor) : mMonitor(aMonitor)
   {
   }
 
@@ -81,22 +82,22 @@ protected:
     tags.AppendElement(NS_LITERAL_CSTRING("fake"));
 
     RefPtr<GeckoMediaPluginService> service =
-      GeckoMediaPluginService::GetGeckoMediaPluginService();
+        GeckoMediaPluginService::GetGeckoMediaPluginService();
     return ((*service).*Getter)(nullptr, &tags, aNodeId, Move(aCallback));
   }
 
-protected:
+ protected:
   GMPTestMonitor& mMonitor;
 };
 
 typedef RunTestGMPVideoCodec<GMPVideoDecoderProxy,
                              GetGMPVideoDecoderCallback,
                              &GeckoMediaPluginService::GetGMPVideoDecoder>
-  RunTestGMPVideoDecoder;
+    RunTestGMPVideoDecoder;
 typedef RunTestGMPVideoCodec<GMPVideoEncoderProxy,
                              GetGMPVideoEncoderCallback,
                              &GeckoMediaPluginService::GetGMPVideoEncoder>
-  RunTestGMPVideoEncoder;
+    RunTestGMPVideoEncoder;
 
 void
 GMPTestRunner::RunTestGMPTestCodec1(GMPTestMonitor& aMonitor)
@@ -119,13 +120,13 @@ GMPTestRunner::RunTestGMPTestCodec3(GMPTestMonitor& aMonitor)
 template<class Base>
 class RunTestGMPCrossOrigin : public Base
 {
-public:
+ public:
   void Done(typename Base::GMPCodecType* aGMP, GMPVideoHost* aHost) override
   {
     EXPECT_TRUE(aGMP);
 
     UniquePtr<typename Base::GMPCallbackType> callback(
-      new Step2(Base::mMonitor, aGMP, mShouldBeEqual));
+        new Step2(Base::mMonitor, aGMP, mShouldBeEqual));
     nsresult rv = Base::Get(mOrigin2, Move(callback));
     EXPECT_TRUE(NS_SUCCEEDED(rv));
     if (NS_FAILED(rv)) {
@@ -133,11 +134,12 @@ public:
     }
   }
 
-  static void Run(GMPTestMonitor& aMonitor, const nsCString& aOrigin1,
+  static void Run(GMPTestMonitor& aMonitor,
+                  const nsCString& aOrigin1,
                   const nsCString& aOrigin2)
   {
     UniquePtr<typename Base::GMPCallbackType> callback(
-      new RunTestGMPCrossOrigin<Base>(aMonitor, aOrigin1, aOrigin2));
+        new RunTestGMPCrossOrigin<Base>(aMonitor, aOrigin1, aOrigin2));
     nsresult rv = Base::Get(aOrigin1, Move(callback));
     EXPECT_TRUE(NS_SUCCEEDED(rv));
     if (NS_FAILED(rv)) {
@@ -145,33 +147,32 @@ public:
     }
   }
 
-private:
-  RunTestGMPCrossOrigin(GMPTestMonitor& aMonitor, const nsCString& aOrigin1,
+ private:
+  RunTestGMPCrossOrigin(GMPTestMonitor& aMonitor,
+                        const nsCString& aOrigin1,
                         const nsCString& aOrigin2)
-    : Base(aMonitor),
-      mGMP(nullptr),
-      mOrigin2(aOrigin2),
-      mShouldBeEqual(aOrigin1.Equals(aOrigin2))
+      : Base(aMonitor),
+        mGMP(nullptr),
+        mOrigin2(aOrigin2),
+        mShouldBeEqual(aOrigin1.Equals(aOrigin2))
   {
   }
 
   class Step2 : public Base
   {
-  public:
+   public:
     Step2(GMPTestMonitor& aMonitor,
           typename Base::GMPCodecType* aGMP,
           bool aShouldBeEqual)
-      : Base(aMonitor),
-        mGMP(aGMP),
-        mShouldBeEqual(aShouldBeEqual)
+        : Base(aMonitor), mGMP(aGMP), mShouldBeEqual(aShouldBeEqual)
     {
     }
     void Done(typename Base::GMPCodecType* aGMP, GMPVideoHost* aHost) override
     {
       EXPECT_TRUE(aGMP);
       if (aGMP) {
-        EXPECT_TRUE(mGMP &&
-                    (mGMP->GetPluginId() == aGMP->GetPluginId()) == mShouldBeEqual);
+        EXPECT_TRUE(mGMP && (mGMP->GetPluginId() == aGMP->GetPluginId()) ==
+                                mShouldBeEqual);
       }
       if (mGMP) {
         mGMP->Close();
@@ -179,7 +180,7 @@ private:
       Base::Done(aGMP, aHost);
     }
 
-  private:
+   private:
     typename Base::GMPCodecType* mGMP;
     bool mShouldBeEqual;
   };
@@ -190,61 +191,63 @@ private:
 };
 
 typedef RunTestGMPCrossOrigin<RunTestGMPVideoDecoder>
-  RunTestGMPVideoDecoderCrossOrigin;
+    RunTestGMPVideoDecoderCrossOrigin;
 typedef RunTestGMPCrossOrigin<RunTestGMPVideoEncoder>
-  RunTestGMPVideoEncoderCrossOrigin;
+    RunTestGMPVideoEncoderCrossOrigin;
 
 void
 GMPTestRunner::RunTestGMPCrossOrigin1(GMPTestMonitor& aMonitor)
 {
   RunTestGMPVideoDecoderCrossOrigin::Run(
-    aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin2"));
+      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin2"));
 }
 
 void
 GMPTestRunner::RunTestGMPCrossOrigin2(GMPTestMonitor& aMonitor)
 {
   RunTestGMPVideoEncoderCrossOrigin::Run(
-    aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin2"));
+      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin2"));
 }
 
 void
 GMPTestRunner::RunTestGMPCrossOrigin3(GMPTestMonitor& aMonitor)
 {
   RunTestGMPVideoDecoderCrossOrigin::Run(
-    aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin1"));
+      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin1"));
 }
 
 void
 GMPTestRunner::RunTestGMPCrossOrigin4(GMPTestMonitor& aMonitor)
 {
   RunTestGMPVideoEncoderCrossOrigin::Run(
-    aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin1"));
+      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin1"));
 }
 
 void
 GMPTestRunner::DoTest(void (GMPTestRunner::*aTestMethod)(GMPTestMonitor&))
 {
   RefPtr<GeckoMediaPluginService> service =
-    GeckoMediaPluginService::GetGeckoMediaPluginService();
+      GeckoMediaPluginService::GetGeckoMediaPluginService();
   nsCOMPtr<nsIThread> thread;
   EXPECT_TRUE(NS_SUCCEEDED(service->GetThread(getter_AddRefs(thread))));
 
   GMPTestMonitor monitor;
   thread->Dispatch(NewRunnableMethod<GMPTestMonitor&>(
-                     "GMPTestRunner::DoTest", this, aTestMethod, monitor),
+                       "GMPTestRunner::DoTest", this, aTestMethod, monitor),
                    NS_DISPATCH_NORMAL);
   monitor.AwaitFinished();
 }
 
-TEST(GeckoMediaPlugins, GMPTestCodec) {
+TEST(GeckoMediaPlugins, GMPTestCodec)
+{
   RefPtr<GMPTestRunner> runner = new GMPTestRunner();
   runner->DoTest(&GMPTestRunner::RunTestGMPTestCodec1);
   runner->DoTest(&GMPTestRunner::RunTestGMPTestCodec2);
   runner->DoTest(&GMPTestRunner::RunTestGMPTestCodec3);
 }
 
-TEST(GeckoMediaPlugins, GMPCrossOrigin) {
+TEST(GeckoMediaPlugins, GMPCrossOrigin)
+{
   RefPtr<GMPTestRunner> runner = new GMPTestRunner();
   runner->DoTest(&GMPTestRunner::RunTestGMPCrossOrigin1);
   runner->DoTest(&GMPTestRunner::RunTestGMPCrossOrigin2);

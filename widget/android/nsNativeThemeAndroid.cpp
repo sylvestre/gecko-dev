@@ -42,45 +42,46 @@ PaintCheckboxControl(nsIFrame* aFrame,
   // simulate native theming.
   RectCornerRadii innerRadii(2, 2, 2, 2);
   nsRect paddingRect =
-    nsCSSRendering::GetBoxShadowInnerPaddingRect(aFrame, aRect);
+      nsCSSRendering::GetBoxShadowInnerPaddingRect(aFrame, aRect);
   const nscoord twipsPerPixel = aFrame->PresContext()->DevPixelsToAppUnits(1);
   Rect shadowGfxRect = NSRectToRect(paddingRect, twipsPerPixel);
   shadowGfxRect.Round();
   RefPtr<Path> roundedRect =
-    MakePathForRoundedRect(*aDrawTarget, shadowGfxRect, innerRadii);
-  aDrawTarget->Stroke(roundedRect,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBorderColor)));
-  aDrawTarget->Fill(roundedRect,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBackgroundColor)));
+      MakePathForRoundedRect(*aDrawTarget, shadowGfxRect, innerRadii);
+  aDrawTarget->Stroke(
+      roundedRect,
+      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBorderColor)));
+  aDrawTarget->Fill(
+      roundedRect,
+      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBackgroundColor)));
 
   if (aState.HasState(NS_EVENT_STATE_DISABLED)) {
-    aDrawTarget->Fill(roundedRect,
-      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidDisabledColor)));
+    aDrawTarget->Fill(
+        roundedRect,
+        ColorPattern(ToDeviceColor(mozilla::widget::sAndroidDisabledColor)));
     return;
   }
 
   if (aState.HasState(NS_EVENT_STATE_ACTIVE)) {
-    aDrawTarget->Fill(roundedRect,
-      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidActiveColor)));
+    aDrawTarget->Fill(
+        roundedRect,
+        ColorPattern(ToDeviceColor(mozilla::widget::sAndroidActiveColor)));
   }
 }
 
 static void
-PaintCheckMark(nsIFrame* aFrame,
-               DrawTarget* aDrawTarget,
-               const nsRect& aRect)
+PaintCheckMark(nsIFrame* aFrame, DrawTarget* aDrawTarget, const nsRect& aRect)
 {
   // Points come from the coordinates on a 7X7 unit box centered at 0,0
-  const int32_t checkPolygonX[] = { -3, -1,  3,  3, -1, -3 };
-  const int32_t checkPolygonY[] = { -1,  1, -3, -1,  3,  1 };
+  const int32_t checkPolygonX[] = {-3, -1, 3, 3, -1, -3};
+  const int32_t checkPolygonY[] = {-1, 1, -3, -1, 3, 1};
   const int32_t checkNumPoints = sizeof(checkPolygonX) / sizeof(int32_t);
-  const int32_t checkSize      = 9; // 2 units of padding on either side
-                                    // of the 7x7 unit checkmark
+  const int32_t checkSize = 9;  // 2 units of padding on either side
+                                // of the 7x7 unit checkmark
 
   // Scale the checkmark based on the smallest dimension
   nscoord paintScale = std::min(aRect.width, aRect.height) / checkSize;
-  nsPoint paintCenter(aRect.x + aRect.width  / 2,
-                      aRect.y + aRect.height / 2);
+  nsPoint paintCenter(aRect.x + aRect.width / 2, aRect.y + aRect.height / 2);
 
   RefPtr<PathBuilder> builder = aDrawTarget->CreatePathBuilder();
   nsPoint p = paintCenter + nsPoint(checkPolygonX[0] * paintScale,
@@ -94,8 +95,8 @@ PaintCheckMark(nsIFrame* aFrame,
     builder->LineTo(NSPointToPoint(p, appUnitsPerDevPixel));
   }
   RefPtr<Path> path = builder->Finish();
-  aDrawTarget->Fill(path,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidCheckColor)));
+  aDrawTarget->Fill(
+      path, ColorPattern(ToDeviceColor(mozilla::widget::sAndroidCheckColor)));
 }
 
 static void
@@ -106,13 +107,14 @@ PaintIndeterminateMark(nsIFrame* aFrame,
   int32_t appUnitsPerDevPixel = aFrame->PresContext()->AppUnitsPerDevPixel();
 
   nsRect rect(aRect);
-  rect.y += (rect.height - rect.height/4) / 2;
+  rect.y += (rect.height - rect.height / 4) / 2;
   rect.height /= 4;
 
   Rect devPxRect = NSRectToSnappedRect(rect, appUnitsPerDevPixel, *aDrawTarget);
 
-  aDrawTarget->FillRect(devPxRect,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidCheckColor)));
+  aDrawTarget->FillRect(
+      devPxRect,
+      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidCheckColor)));
 }
 
 static void
@@ -130,20 +132,24 @@ PaintRadioControl(nsIFrame* aFrame,
   RefPtr<PathBuilder> builder = aDrawTarget->CreatePathBuilder();
   AppendEllipseToPath(builder, devPxRect.Center(), devPxRect.Size());
   RefPtr<Path> ellipse = builder->Finish();
-  aDrawTarget->Stroke(ellipse,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBorderColor)));
-  aDrawTarget->Fill(ellipse,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBackgroundColor)));
+  aDrawTarget->Stroke(
+      ellipse,
+      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBorderColor)));
+  aDrawTarget->Fill(
+      ellipse,
+      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidBackgroundColor)));
 
   if (aState.HasState(NS_EVENT_STATE_DISABLED)) {
-    aDrawTarget->Fill(ellipse,
-      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidDisabledColor)));
+    aDrawTarget->Fill(
+        ellipse,
+        ColorPattern(ToDeviceColor(mozilla::widget::sAndroidDisabledColor)));
     return;
   }
 
   if (aState.HasState(NS_EVENT_STATE_ACTIVE)) {
-    aDrawTarget->Fill(ellipse,
-      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidActiveColor)));
+    aDrawTarget->Fill(
+        ellipse,
+        ColorPattern(ToDeviceColor(mozilla::widget::sAndroidActiveColor)));
   }
 }
 
@@ -158,15 +164,15 @@ PaintCheckedRadioButton(nsIFrame* aFrame,
   rect.Deflate(nsPresContext::CSSPixelsToAppUnits(2),
                nsPresContext::CSSPixelsToAppUnits(2));
 
-  Rect devPxRect =
-    ToRect(nsLayoutUtils::RectToGfxRect(rect,
-                                        aFrame->PresContext()->AppUnitsPerDevPixel()));
+  Rect devPxRect = ToRect(nsLayoutUtils::RectToGfxRect(
+      rect, aFrame->PresContext()->AppUnitsPerDevPixel()));
 
   RefPtr<PathBuilder> builder = aDrawTarget->CreatePathBuilder();
   AppendEllipseToPath(builder, devPxRect.Center(), devPxRect.Size());
   RefPtr<Path> ellipse = builder->Finish();
-  aDrawTarget->Fill(ellipse,
-    ColorPattern(ToDeviceColor(mozilla::widget::sAndroidCheckColor)));
+  aDrawTarget->Fill(
+      ellipse,
+      ColorPattern(ToDeviceColor(mozilla::widget::sAndroidCheckColor)));
 }
 
 NS_IMETHODIMP
@@ -197,7 +203,8 @@ nsNativeThemeAndroid::DrawWidgetBackground(gfxContext* aContext,
       }
       break;
     default:
-      MOZ_ASSERT_UNREACHABLE("Should not get here with a widget type we don't support.");
+      MOZ_ASSERT_UNREACHABLE(
+          "Should not get here with a widget type we don't support.");
       return NS_ERROR_NOT_IMPLEMENTED;
   }
 
@@ -205,8 +212,10 @@ nsNativeThemeAndroid::DrawWidgetBackground(gfxContext* aContext,
 }
 
 NS_IMETHODIMP
-nsNativeThemeAndroid::GetWidgetBorder(nsDeviceContext* aContext, nsIFrame* aFrame,
-                                      uint8_t aWidgetType, nsIntMargin* aResult)
+nsNativeThemeAndroid::GetWidgetBorder(nsDeviceContext* aContext,
+                                      nsIFrame* aFrame,
+                                      uint8_t aWidgetType,
+                                      nsIntMargin* aResult)
 {
   *aResult = nsIntMargin();
   return NS_OK;
@@ -214,7 +223,8 @@ nsNativeThemeAndroid::GetWidgetBorder(nsDeviceContext* aContext, nsIFrame* aFram
 
 bool
 nsNativeThemeAndroid::GetWidgetPadding(nsDeviceContext* aContext,
-                                       nsIFrame* aFrame, uint8_t aWidgetType,
+                                       nsIFrame* aFrame,
+                                       uint8_t aWidgetType,
                                        nsIntMargin* aResult)
 {
   return false;
@@ -222,7 +232,8 @@ nsNativeThemeAndroid::GetWidgetPadding(nsDeviceContext* aContext,
 
 bool
 nsNativeThemeAndroid::GetWidgetOverflow(nsDeviceContext* aContext,
-                                        nsIFrame* aFrame, uint8_t aWidgetType,
+                                        nsIFrame* aFrame,
+                                        uint8_t aWidgetType,
                                         nsRect* aOverflowRect)
 {
   return false;
@@ -230,9 +241,10 @@ nsNativeThemeAndroid::GetWidgetOverflow(nsDeviceContext* aContext,
 
 NS_IMETHODIMP
 nsNativeThemeAndroid::GetMinimumWidgetSize(nsPresContext* aPresContext,
-                                       nsIFrame* aFrame, uint8_t aWidgetType,
-                                       LayoutDeviceIntSize* aResult,
-                                       bool* aIsOverridable)
+                                           nsIFrame* aFrame,
+                                           uint8_t aWidgetType,
+                                           LayoutDeviceIntSize* aResult,
+                                           bool* aIsOverridable)
 {
   if (aWidgetType == NS_THEME_RADIO || aWidgetType == NS_THEME_CHECKBOX) {
     // 9px + (1px padding + 1px border) * 2
@@ -244,13 +256,14 @@ nsNativeThemeAndroid::GetMinimumWidgetSize(nsPresContext* aPresContext,
 }
 
 NS_IMETHODIMP
-nsNativeThemeAndroid::WidgetStateChanged(nsIFrame* aFrame, uint8_t aWidgetType,
-                                     nsAtom* aAttribute, bool* aShouldRepaint,
-                                     const nsAttrValue* aOldValue)
+nsNativeThemeAndroid::WidgetStateChanged(nsIFrame* aFrame,
+                                         uint8_t aWidgetType,
+                                         nsAtom* aAttribute,
+                                         bool* aShouldRepaint,
+                                         const nsAttrValue* aOldValue)
 {
   if (aWidgetType == NS_THEME_RADIO || aWidgetType == NS_THEME_CHECKBOX) {
-    if (aAttribute == nsGkAtoms::active ||
-        aAttribute == nsGkAtoms::disabled ||
+    if (aAttribute == nsGkAtoms::active || aAttribute == nsGkAtoms::disabled ||
         aAttribute == nsGkAtoms::hover) {
       *aShouldRepaint = true;
       return NS_OK;
@@ -262,10 +275,7 @@ nsNativeThemeAndroid::WidgetStateChanged(nsIFrame* aFrame, uint8_t aWidgetType,
 }
 
 NS_IMETHODIMP
-nsNativeThemeAndroid::ThemeChanged()
-{
-  return NS_OK;
-}
+nsNativeThemeAndroid::ThemeChanged() { return NS_OK; }
 
 NS_IMETHODIMP_(bool)
 nsNativeThemeAndroid::ThemeSupportsWidget(nsPresContext* aPresContext,
@@ -282,10 +292,7 @@ nsNativeThemeAndroid::ThemeSupportsWidget(nsPresContext* aPresContext,
 }
 
 NS_IMETHODIMP_(bool)
-nsNativeThemeAndroid::WidgetIsContainer(uint8_t aWidgetType)
-{
-  return false;
-}
+nsNativeThemeAndroid::WidgetIsContainer(uint8_t aWidgetType) { return false; }
 
 bool
 nsNativeThemeAndroid::ThemeDrawsFocusForWidget(uint8_t aWidgetType)
@@ -300,7 +307,8 @@ nsNativeThemeAndroid::ThemeNeedsComboboxDropmarker()
 }
 
 nsITheme::Transparency
-nsNativeThemeAndroid::GetWidgetTransparency(nsIFrame* aFrame, uint8_t aWidgetType)
+nsNativeThemeAndroid::GetWidgetTransparency(nsIFrame* aFrame,
+                                            uint8_t aWidgetType)
 {
   return eUnknownTransparency;
 }

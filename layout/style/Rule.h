@@ -16,37 +16,36 @@
 
 class nsIDocument;
 struct nsRuleData;
-template<class T> struct already_AddRefed;
+template<class T>
+struct already_AddRefed;
 class nsHTMLCSSStyleSheet;
 
 namespace mozilla {
 namespace css {
 class GroupRule;
 
-class Rule : public nsIDOMCSSRule
-           , public nsWrapperCache
+class Rule : public nsIDOMCSSRule, public nsWrapperCache
 {
-protected:
+ protected:
   Rule(uint32_t aLineNumber, uint32_t aColumnNumber)
-    : mSheet(nullptr),
-      mParentRule(nullptr),
-      mLineNumber(aLineNumber),
-      mColumnNumber(aColumnNumber)
+      : mSheet(nullptr),
+        mParentRule(nullptr),
+        mLineNumber(aLineNumber),
+        mColumnNumber(aColumnNumber)
   {
   }
 
   Rule(const Rule& aCopy)
-    : mSheet(aCopy.mSheet),
-      mParentRule(aCopy.mParentRule),
-      mLineNumber(aCopy.mLineNumber),
-      mColumnNumber(aCopy.mColumnNumber)
+      : mSheet(aCopy.mSheet),
+        mParentRule(aCopy.mParentRule),
+        mLineNumber(aCopy.mLineNumber),
+        mColumnNumber(aCopy.mColumnNumber)
   {
   }
 
   virtual ~Rule() {}
 
-public:
-
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS(Rule)
   // Return true if this rule is known to be a cycle collection leaf, in the
@@ -65,7 +64,8 @@ public:
   //   then N < M
   // Note that CSSStyleSheet::RebuildChildList assumes that no other kinds of
   // rules can come between two rules of type IMPORT_RULE.
-  enum {
+  enum
+  {
     UNKNOWN_RULE = 0,
     CHARSET_RULE,
     IMPORT_RULE,
@@ -95,7 +95,8 @@ public:
 
   virtual void SetStyleSheet(StyleSheet* aSheet);
 
-  void SetParentRule(GroupRule* aRule) {
+  void SetParentRule(GroupRule* aRule)
+  {
     // We don't reference count this up reference. The group rule
     // will tell us when it's going away or when we're detached from
     // it.
@@ -112,8 +113,8 @@ public:
 
   // This is pure virtual because all of Rule's data members are non-owning and
   // thus measured elsewhere.
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-    const MOZ_MUST_OVERRIDE = 0;
+  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+      MOZ_MUST_OVERRIDE = 0;
 
   // WebIDL interface, aka helpers for nsIDOMCSSRule implementation.
   virtual uint16_t Type() const = 0;
@@ -124,7 +125,7 @@ public:
   StyleSheet* GetParentStyleSheet() const { return GetStyleSheet(); }
   nsIDocument* GetParentObject() const { return GetDocument(); }
 
-protected:
+ protected:
   // True if we're known-live for cycle collection purposes.
   bool IsKnownLive() const;
 
@@ -135,11 +136,11 @@ protected:
   GroupRule* MOZ_NON_OWNING_REF mParentRule;
 
   // Keep the same type so that MSVC packs them.
-  uint32_t          mLineNumber;
-  uint32_t          mColumnNumber;
+  uint32_t mLineNumber;
+  uint32_t mColumnNumber;
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 #endif /* mozilla_css_Rule_h___ */

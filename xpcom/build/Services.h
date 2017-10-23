@@ -21,14 +21,13 @@ namespace mozilla {
 namespace services {
 
 #ifdef MOZILLA_INTERNAL_API
-#define MOZ_SERVICE(NAME, TYPE, SERVICE_CID)                        \
-    already_AddRefed<TYPE> Get##NAME();
+#define MOZ_SERVICE(NAME, TYPE, SERVICE_CID) already_AddRefed<TYPE> Get##NAME();
 
 #include "ServiceList.h"
 #undef MOZ_SERVICE
 #endif
 
-} // namespace services
-} // namespace mozilla
+}  // namespace services
+}  // namespace mozilla
 
 #endif

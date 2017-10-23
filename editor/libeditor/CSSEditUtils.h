@@ -6,11 +6,11 @@
 #ifndef mozilla_CSSEditUtils_h
 #define mozilla_CSSEditUtils_h
 
-#include "mozilla/ChangeStyleTransaction.h" // for ChangeStyleTransaction
-#include "nsCOMPtr.h"               // for already_AddRefed
+#include "mozilla/ChangeStyleTransaction.h"  // for ChangeStyleTransaction
+#include "nsCOMPtr.h"                        // for already_AddRefed
 #include "nsStringFwd.h"
-#include "nsTArray.h"               // for nsTArray
-#include "nscore.h"                 // for nsAString, nsresult, nullptr
+#include "nsTArray.h"  // for nsTArray
+#include "nscore.h"    // for nsAString, nsresult, nullptr
 
 class nsComputedDOMStyle;
 class nsAtom;
@@ -25,7 +25,7 @@ namespace mozilla {
 class HTMLEditor;
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 typedef void (*nsProcessValueFunc)(const nsAString* aInputString,
                                    nsAString& aOutputString,
@@ -35,13 +35,13 @@ typedef void (*nsProcessValueFunc)(const nsAString* aInputString,
 
 class CSSEditUtils final
 {
-public:
+ public:
   explicit CSSEditUtils(HTMLEditor* aEditor);
   ~CSSEditUtils();
 
   enum nsCSSEditableProperty
   {
-    eCSSEditableProperty_NONE=0,
+    eCSSEditableProperty_NONE = 0,
     eCSSEditableProperty_background_color,
     eCSSEditableProperty_background_image,
     eCSSEditableProperty_border,
@@ -63,8 +63,11 @@ public:
     eCSSEditableProperty_width
   };
 
-  enum StyleType { eSpecified, eComputed };
-
+  enum StyleType
+  {
+    eSpecified,
+    eComputed
+  };
 
   struct CSSEquivTable
   {
@@ -88,9 +91,11 @@ public:
    * @return               A boolean saying if the tag/attribute has a CSS
    *                       equiv.
    */
-  bool IsCSSEditableProperty(nsINode* aNode, nsAtom* aProperty,
+  bool IsCSSEditableProperty(nsINode* aNode,
+                             nsAtom* aProperty,
                              const nsAString* aAttribute);
-  bool IsCSSEditableProperty(nsINode* aNode, nsAtom* aProperty,
+  bool IsCSSEditableProperty(nsINode* aNode,
+                             nsAtom* aProperty,
                              nsAtom* aAttribute);
 
   /**
@@ -104,10 +109,13 @@ public:
    * @param aSuppressTransaction [IN] A boolean indicating, when true,
    *                                  that no transaction should be recorded.
    */
-  nsresult SetCSSProperty(dom::Element& aElement, nsAtom& aProperty,
-                          const nsAString& aValue, bool aSuppressTxn = false);
+  nsresult SetCSSProperty(dom::Element& aElement,
+                          nsAtom& aProperty,
+                          const nsAString& aValue,
+                          bool aSuppressTxn = false);
   nsresult SetCSSPropertyPixels(dom::Element& aElement,
-                                nsAtom& aProperty, int32_t aIntValue);
+                                nsAtom& aProperty,
+                                int32_t aIntValue);
   nsresult RemoveCSSProperty(dom::Element& aElement,
                              nsAtom& aProperty,
                              const nsAString& aPropertyValue,
@@ -138,9 +146,11 @@ public:
    * @param aProperty      [IN] An atom containing the CSS property to get.
    * @param aPropertyValue [OUT] The retrieved value of the property.
    */
-  nsresult GetSpecifiedProperty(nsINode& aNode, nsAtom& aProperty,
+  nsresult GetSpecifiedProperty(nsINode& aNode,
+                                nsAtom& aProperty,
                                 nsAString& aValue);
-  nsresult GetComputedProperty(nsINode& aNode, nsAtom& aProperty,
+  nsresult GetComputedProperty(nsINode& aNode,
+                               nsAtom& aProperty,
                                nsAString& aValue);
 
   /**
@@ -153,7 +163,8 @@ public:
    * @param aPropertyValue  [IN] The value of the property we have to remove
    *                             if the property accepts more than one value.
    */
-  nsresult RemoveCSSInlineStyle(nsINode& aNode, nsAtom* aProperty,
+  nsresult RemoveCSSInlineStyle(nsINode& aNode,
+                                nsAtom* aProperty,
                                 const nsAString& aPropertyValue);
 
   /**
@@ -182,7 +193,7 @@ public:
    * @param aLengthUnit    [OUT] The default length unit as it is defined in
    *                             prefs.
    */
-  void GetDefaultLengthUnit(nsAString & aLengthUnit);
+  void GetDefaultLengthUnit(nsAString& aLengthUnit);
 
   /**
    * Returns the list of values for the CSS equivalences to
@@ -364,8 +375,7 @@ public:
    * @return                     true if the two elements are considered to
    *                             have same styles.
    */
-  bool ElementsSameStyle(dom::Element* aFirstNode,
-                         dom::Element* aSecondNode);
+  bool ElementsSameStyle(dom::Element* aFirstNode, dom::Element* aSecondNode);
   bool ElementsSameStyle(nsIDOMNode* aFirstNode, nsIDOMNode* aSecondNode);
 
   /**
@@ -382,12 +392,13 @@ public:
   nsresult GetInlineStyles(nsIDOMElement* aElement,
                            nsIDOMCSSStyleDeclaration** aCssDecl,
                            uint32_t* aLength);
-private:
+
+ private:
   nsresult GetInlineStyles(nsISupports* aElement,
                            nsIDOMCSSStyleDeclaration** aCssDecl,
                            uint32_t* aLength);
 
-public:
+ public:
   /**
    * Returns aNode itself if it is an element node, or the first ancestors
    * being an element node if aNode is not one itself.
@@ -404,7 +415,7 @@ public:
    */
   already_AddRefed<nsComputedDOMStyle> GetComputedStyle(dom::Element* aElement);
 
-private:
+ private:
   /**
    * Retrieves the CSS property atom from an enum.
    *
@@ -467,10 +478,11 @@ private:
    * @param aValue             [IN] The value to set for this CSS property.
    * @param aChangeType        [IN] eSet to set, eRemove to remove.
    */
-  already_AddRefed<ChangeStyleTransaction>
-  CreateCSSPropertyTxn(dom::Element& aElement,
-                       nsAtom& aProperty, const nsAString& aValue,
-                       ChangeStyleTransaction::EChangeType aChangeType);
+  already_AddRefed<ChangeStyleTransaction> CreateCSSPropertyTxn(
+      dom::Element& aElement,
+      nsAtom& aProperty,
+      const nsAString& aValue,
+      ChangeStyleTransaction::EChangeType aChangeType);
 
   /**
    * Back-end for GetSpecifiedProperty and GetComputedProperty.
@@ -480,24 +492,26 @@ private:
    * @param aValue              [OUT] The retrieved value for this property.
    * @param aStyleType          [IN] eSpecified or eComputed.
    */
-  nsresult GetCSSInlinePropertyBase(nsINode* aNode, nsAtom* aProperty,
-                                    nsAString& aValue, StyleType aStyleType);
+  nsresult GetCSSInlinePropertyBase(nsINode* aNode,
+                                    nsAtom* aProperty,
+                                    nsAString& aValue,
+                                    StyleType aStyleType);
 
-private:
+ private:
   HTMLEditor* mHTMLEditor;
   bool mIsCSSPrefChecked;
 };
 
-#define NS_EDITOR_INDENT_INCREMENT_IN        0.4134f
-#define NS_EDITOR_INDENT_INCREMENT_CM        1.05f
-#define NS_EDITOR_INDENT_INCREMENT_MM        10.5f
-#define NS_EDITOR_INDENT_INCREMENT_PT        29.76f
-#define NS_EDITOR_INDENT_INCREMENT_PC        2.48f
-#define NS_EDITOR_INDENT_INCREMENT_EM        3
-#define NS_EDITOR_INDENT_INCREMENT_EX        6
-#define NS_EDITOR_INDENT_INCREMENT_PX        40
-#define NS_EDITOR_INDENT_INCREMENT_PERCENT   4
+#define NS_EDITOR_INDENT_INCREMENT_IN 0.4134f
+#define NS_EDITOR_INDENT_INCREMENT_CM 1.05f
+#define NS_EDITOR_INDENT_INCREMENT_MM 10.5f
+#define NS_EDITOR_INDENT_INCREMENT_PT 29.76f
+#define NS_EDITOR_INDENT_INCREMENT_PC 2.48f
+#define NS_EDITOR_INDENT_INCREMENT_EM 3
+#define NS_EDITOR_INDENT_INCREMENT_EX 6
+#define NS_EDITOR_INDENT_INCREMENT_PX 40
+#define NS_EDITOR_INDENT_INCREMENT_PERCENT 4
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef mozilla_CSSEditUtils_h
+#endif  // #ifndef mozilla_CSSEditUtils_h

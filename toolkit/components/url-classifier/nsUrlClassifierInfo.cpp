@@ -8,7 +8,7 @@ NS_IMPL_ISUPPORTS(nsUrlClassifierPositiveCacheEntry,
                   nsIUrlClassifierPositiveCacheEntry)
 
 nsUrlClassifierPositiveCacheEntry::nsUrlClassifierPositiveCacheEntry()
-  : expirySec(-1)
+    : expirySec(-1)
 {
 }
 
@@ -30,13 +30,9 @@ nsUrlClassifierPositiveCacheEntry::GetFullhash(nsACString& aFullHash)
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsUrlClassifierCacheEntry,
-                  nsIUrlClassifierCacheEntry)
+NS_IMPL_ISUPPORTS(nsUrlClassifierCacheEntry, nsIUrlClassifierCacheEntry)
 
-nsUrlClassifierCacheEntry::nsUrlClassifierCacheEntry()
-  : expirySec(-1)
-{
-}
+nsUrlClassifierCacheEntry::nsUrlClassifierCacheEntry() : expirySec(-1) {}
 
 NS_IMETHODIMP
 nsUrlClassifierCacheEntry::GetPrefix(nsACString& aPrefix)
@@ -65,7 +61,7 @@ nsUrlClassifierCacheEntry::GetMatches(nsIArray** aMatches)
 
   nsCOMPtr<nsIMutableArray> array(do_CreateInstance(NS_ARRAY_CONTRACTID));
 
-  for (uint32_t i = 0;i < matches.Length(); i++) {
+  for (uint32_t i = 0; i < matches.Length(); i++) {
     array->AppendElement(matches[i], false);
   }
 
@@ -74,12 +70,9 @@ nsUrlClassifierCacheEntry::GetMatches(nsIArray** aMatches)
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsUrlClassifierCacheInfo,
-                  nsIUrlClassifierCacheInfo)
+NS_IMPL_ISUPPORTS(nsUrlClassifierCacheInfo, nsIUrlClassifierCacheInfo)
 
-nsUrlClassifierCacheInfo::nsUrlClassifierCacheInfo()
-{
-}
+nsUrlClassifierCacheInfo::nsUrlClassifierCacheInfo() {}
 
 NS_IMETHODIMP
 nsUrlClassifierCacheInfo::GetTable(nsACString& aTable)
@@ -97,7 +90,7 @@ nsUrlClassifierCacheInfo::GetEntries(nsIArray** aEntries)
 
   nsCOMPtr<nsIMutableArray> array(do_CreateInstance(NS_ARRAY_CONTRACTID));
 
-  for (uint32_t i = 0;i < entries.Length(); i++) {
+  for (uint32_t i = 0; i < entries.Length(); i++) {
     array->AppendElement(entries[i], false);
   }
 

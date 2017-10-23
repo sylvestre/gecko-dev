@@ -52,7 +52,7 @@ class nsISMILType
    */
   friend class nsSMILValue;
 
-protected:
+ protected:
   /**
    * Initialises aValue and sets it to some identity value such that adding
    * aValue to another value of the same type has no effect.
@@ -105,7 +105,7 @@ protected:
    * @pre aDest.mType == aSrc.mType == this
    */
   virtual bool IsEqual(const nsSMILValue& aLeft,
-                         const nsSMILValue& aRight) const = 0;
+                       const nsSMILValue& aRight) const = 0;
 
   /**
    * Adds two values.
@@ -211,4 +211,4 @@ protected:
                                nsSMILValue& aResult) const = 0;
 };
 
-#endif // NS_ISMILTYPE_H_
+#endif  // NS_ISMILTYPE_H_

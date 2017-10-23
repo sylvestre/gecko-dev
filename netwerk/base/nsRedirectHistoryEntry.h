@@ -15,23 +15,23 @@ namespace net {
 
 class nsRedirectHistoryEntry final : public nsIRedirectHistoryEntry
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIREDIRECTHISTORYENTRY
 
-  nsRedirectHistoryEntry(nsIPrincipal* aPrincipal, nsIURI* aReferrer,
+  nsRedirectHistoryEntry(nsIPrincipal* aPrincipal,
+                         nsIURI* aReferrer,
                          const nsACString& aRemoteAddress);
 
-private:
+ private:
   ~nsRedirectHistoryEntry();
 
   nsCOMPtr<nsIPrincipal> mPrincipal;
   nsCOMPtr<nsIURI> mReferrer;
   nsCString mRemoteAddress;
-
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // nsRedirectHistoryEntry_h__
+#endif  // nsRedirectHistoryEntry_h__

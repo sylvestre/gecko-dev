@@ -15,13 +15,15 @@ namespace mozilla {
 
 class LayerTimelineMarker : public TimelineMarker
 {
-public:
+ public:
   explicit LayerTimelineMarker(const nsIntRegion& aRegion)
-    : TimelineMarker("Layer", MarkerTracingType::HELPER_EVENT)
-    , mRegion(aRegion)
-  {}
+      : TimelineMarker("Layer", MarkerTracingType::HELPER_EVENT),
+        mRegion(aRegion)
+  {
+  }
 
-  void AddLayerRectangles(dom::Sequence<dom::ProfileTimelineLayerRect>& aRectangles)
+  void AddLayerRectangles(
+      dom::Sequence<dom::ProfileTimelineLayerRect>& aRectangles)
   {
     for (auto iter = mRegion.RectIter(); !iter.Done(); iter.Next()) {
       const nsIntRect& iterRect = iter.Get();
@@ -34,10 +36,10 @@ public:
     }
   }
 
-private:
+ private:
   nsIntRegion mRegion;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_LayerTimelineMarker_h_
+#endif  // mozilla_LayerTimelineMarker_h_

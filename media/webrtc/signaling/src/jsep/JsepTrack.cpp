@@ -8,8 +8,7 @@
 
 #include <algorithm>
 
-namespace mozilla
-{
+namespace mozilla {
 void
 JsepTrack::GetNegotiatedPayloadTypes(std::vector<uint16_t>* payloadTypes)
 {
@@ -29,9 +28,8 @@ JsepTrack::GetNegotiatedPayloadTypes(std::vector<uint16_t>* payloadTypes)
 
 /* static */
 void
-JsepTrack::GetPayloadTypes(
-    const std::vector<JsepCodecDescription*>& codecs,
-    std::vector<uint16_t>* payloadTypes)
+JsepTrack::GetPayloadTypes(const std::vector<JsepCodecDescription*>& codecs,
+                           std::vector<uint16_t>* payloadTypes)
 {
   for (JsepCodecDescription* codec : codecs) {
     uint16_t pt;
@@ -211,7 +209,7 @@ JsepTrack::GetRids(const SdpMediaSection& msection,
 {
   rids->clear();
   if (!msection.GetAttributeList().HasAttribute(
-        SdpAttribute::kSimulcastAttribute)) {
+          SdpAttribute::kSimulcastAttribute)) {
     return;
   }
 
@@ -267,7 +265,7 @@ JsepTrack::CreateEncodings(
   // TODO add support for b=AS if TIAS is not set (bug 976521)
 
   std::vector<SdpRidAttributeList::Rid> rids;
-  GetRids(remote, sdp::kRecv, &rids); // Get rids we will send
+  GetRids(remote, sdp::kRecv, &rids);  // Get rids we will send
   NegotiateRids(rids, &mJsEncodeConstraints);
   if (rids.empty()) {
     // Add dummy value with an empty id to make sure we get a single unicast
@@ -346,7 +344,7 @@ JsepTrack::NegotiateCodecs(
       }
 
       std::string originalFormat = codec->mDefaultPt;
-      if(codec->Negotiate(fmt, remote)) {
+      if (codec->Negotiate(fmt, remote)) {
         codecs->push_back(codec);
         unnegotiatedCodecs.values[i] = nullptr;
         if (formatChanges) {
@@ -366,11 +364,9 @@ JsepTrack::NegotiateCodecs(
   for (auto codec : *codecs) {
     if (codec->mName == "red") {
       red = static_cast<JsepVideoCodecDescription*>(codec);
-    }
-    else if (codec->mName == "ulpfec") {
+    } else if (codec->mName == "ulpfec") {
       ulpfec = static_cast<JsepVideoCodecDescription*>(codec);
-    }
-    else if (codec->mName == "telephone-event") {
+    } else if (codec->mName == "telephone-event") {
       dtmf = static_cast<JsepAudioCodecDescription*>(codec);
     }
   }
@@ -435,7 +431,7 @@ JsepTrack::NegotiateCodecs(
       }
     }
     if (dtmf) {
-      (*codecs)[newSize-1] = dtmf;
+      (*codecs)[newSize - 1] = dtmf;
     }
     codecs->resize(newSize);
   }
@@ -449,9 +445,7 @@ JsepTrack::Negotiate(const SdpMediaSection& answer,
   negotiatedCodecs.values = GetCodecClones();
 
   std::map<std::string, std::string> formatChanges;
-  NegotiateCodecs(remote,
-                  &negotiatedCodecs.values,
-                  &formatChanges);
+  NegotiateCodecs(remote, &negotiatedCodecs.values, &formatChanges);
 
   // Use |formatChanges| to update mPrototypeCodecs
   size_t insertPos = 0;
@@ -459,10 +453,9 @@ JsepTrack::Negotiate(const SdpMediaSection& answer,
     if (formatChanges.count(mPrototypeCodecs.values[i]->mDefaultPt)) {
       // Update the payload type to what was negotiated
       mPrototypeCodecs.values[i]->mDefaultPt =
-        formatChanges[mPrototypeCodecs.values[i]->mDefaultPt];
+          formatChanges[mPrototypeCodecs.values[i]->mDefaultPt];
       // Move this negotiated codec up front
-      std::swap(mPrototypeCodecs.values[insertPos],
-                mPrototypeCodecs.values[i]);
+      std::swap(mPrototypeCodecs.values[insertPos], mPrototypeCodecs.values[i]);
       ++insertPos;
     }
   }
@@ -548,5 +541,4 @@ JsepTrack::SetUniquePayloadTypes(const std::vector<RefPtr<JsepTrack>>& tracks)
   }
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

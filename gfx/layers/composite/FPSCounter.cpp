@@ -12,12 +12,12 @@
 #include "mozilla/gfx/Types.h"          // for Color, SurfaceFormat
 #include "mozilla/layers/Compositor.h"  // for Compositor
 #include "mozilla/layers/CompositorTypes.h"
-#include "mozilla/layers/Effects.h"     // for Effect, EffectChain, etc
-#include "mozilla/TimeStamp.h"          // for TimeStamp, TimeDuration
-#include "nsPoint.h"                    // for nsIntPoint
-#include "nsRect.h"                     // for mozilla::gfx::IntRect
-#include "nsIFile.h"                    // for nsIFile
-#include "nsDirectoryServiceDefs.h"     // for NS_OS_TMP_DIR
+#include "mozilla/layers/Effects.h"  // for Effect, EffectChain, etc
+#include "mozilla/TimeStamp.h"       // for TimeStamp, TimeDuration
+#include "nsPoint.h"                 // for nsIntPoint
+#include "nsRect.h"                  // for mozilla::gfx::IntRect
+#include "nsIFile.h"                 // for nsIFile
+#include "nsDirectoryServiceDefs.h"  // for NS_OS_TMP_DIR
 #include "mozilla/Sprintf.h"
 #include "FPSCounter.h"
 
@@ -27,14 +27,12 @@ namespace layers {
 using namespace mozilla::gfx;
 
 FPSCounter::FPSCounter(const char* aName)
-  : mWriteIndex(0)
-  , mIteratorIndex(-1)
-  , mFPSName(aName)
+    : mWriteIndex(0), mIteratorIndex(-1), mFPSName(aName)
 {
   Init();
 }
 
-FPSCounter::~FPSCounter() { }
+FPSCounter::~FPSCounter() {}
 
 void
 FPSCounter::Init()
@@ -47,15 +45,19 @@ FPSCounter::Init()
 
 // Returns true if we captured a full interval of data
 bool
-FPSCounter::CapturedFullInterval(TimeStamp aTimestamp) {
+FPSCounter::CapturedFullInterval(TimeStamp aTimestamp)
+{
   TimeDuration duration = aTimestamp - mLastInterval;
   return duration.ToSeconds() >= kFpsDumpInterval;
 }
 
 void
-FPSCounter::AddFrame(TimeStamp aTimestamp) {
-  NS_ASSERTION(mWriteIndex < kMaxFrames, "We probably have a bug with the circular buffer");
-  NS_ASSERTION(mWriteIndex >= 0, "Circular Buffer index should never be negative");
+FPSCounter::AddFrame(TimeStamp aTimestamp)
+{
+  NS_ASSERTION(mWriteIndex < kMaxFrames,
+               "We probably have a bug with the circular buffer");
+  NS_ASSERTION(mWriteIndex >= 0,
+               "Circular Buffer index should never be negative");
 
   int index = mWriteIndex++;
   if (mWriteIndex == kMaxFrames) {
@@ -72,7 +74,8 @@ FPSCounter::AddFrame(TimeStamp aTimestamp) {
 }
 
 double
-FPSCounter::AddFrameAndGetFps(TimeStamp aTimestamp) {
+FPSCounter::AddFrameAndGetFps(TimeStamp aTimestamp)
+{
   AddFrame(aTimestamp);
   return GetFPS(aTimestamp);
 }
@@ -97,9 +100,11 @@ FPSCounter::GetLatestTimeStamp()
 
 // Returns true if we iterated over a full interval of data
 bool
-FPSCounter::IteratedFullInterval(TimeStamp aTimestamp, double aDuration) {
+FPSCounter::IteratedFullInterval(TimeStamp aTimestamp, double aDuration)
+{
   MOZ_ASSERT(mIteratorIndex >= 0, "Cannot be negative");
-  MOZ_ASSERT(mIteratorIndex < kMaxFrames, "Iterator index cannot be greater than kMaxFrames");
+  MOZ_ASSERT(mIteratorIndex < kMaxFrames,
+             "Iterator index cannot be greater than kMaxFrames");
 
   TimeStamp currentStamp = mFrameTimestamps[mIteratorIndex];
   TimeDuration duration = aTimestamp - currentStamp;
@@ -117,14 +122,15 @@ FPSCounter::ResetReverseIterator()
  * is within the given duration that we're interested in.
  * Duration is in seconds
  */
-bool FPSCounter::HasNext(TimeStamp aTimestamp, double aDuration)
+bool
+FPSCounter::HasNext(TimeStamp aTimestamp, double aDuration)
 {
   // Order of evaluation here has to stay the same
   // otherwise IteratedFullInterval reads from mFrameTimestamps which cannot
   // be null
-  return (mIteratorIndex != mWriteIndex) // Didn't loop around the buffer
-          && !mFrameTimestamps[mIteratorIndex].IsNull() // valid data
-          && !IteratedFullInterval(aTimestamp, aDuration);
+  return (mIteratorIndex != mWriteIndex)  // Didn't loop around the buffer
+         && !mFrameTimestamps[mIteratorIndex].IsNull()  // valid data
+         && !IteratedFullInterval(aTimestamp, aDuration);
 }
 
 TimeStamp
@@ -160,7 +166,7 @@ double
 FPSCounter::GetFPS(TimeStamp aTimestamp)
 {
   int frameCount = 0;
-  int duration = 1.0; // Only care about the last 1s of data
+  int duration = 1.0;  // Only care about the last 1s of data
 
   ResetReverseIterator();
   while (HasNext(aTimestamp, duration)) {
@@ -187,7 +193,7 @@ FPSCounter::BuildHistogram(std::map<int, int>& aFpsData)
     currentTimeStamp = GetNextTimeStamp();
     TimeDuration interval = currentIntervalStart - currentTimeStamp;
 
-    if (interval.ToSeconds() >= 1.0 ) {
+    if (interval.ToSeconds() >= 1.0) {
       currentIntervalStart = currentTimeStamp;
       aFpsData[frameCount]++;
       frameCount = 0;
@@ -199,7 +205,9 @@ FPSCounter::BuildHistogram(std::map<int, int>& aFpsData)
 
   TimeDuration totalTime = currentIntervalStart - currentTimeStamp;
   printf_stderr("Discarded %d frames over %f ms in histogram for %s\n",
-    frameCount, totalTime.ToMilliseconds(), mFPSName);
+                frameCount,
+                totalTime.ToMilliseconds(),
+                mFPSName);
   return totalFrameCount;
 }
 
@@ -246,8 +254,8 @@ FPSCounter::GetMean(std::map<int, int> aHistogram)
   double samples = 0.0;
 
   for (std::map<int, int>::iterator iter = aHistogram.begin();
-    iter != aHistogram.end(); ++iter)
-  {
+       iter != aHistogram.end();
+       ++iter) {
     int fps = iter->first;
     int count = iter->second;
 
@@ -266,12 +274,12 @@ FPSCounter::GetStdDev(std::map<int, int> aHistogram)
   double samples = 0.0;
 
   for (std::map<int, int>::iterator iter = aHistogram.begin();
-    iter != aHistogram.end(); ++iter)
-  {
+       iter != aHistogram.end();
+       ++iter) {
     int fps = iter->first;
     int count = iter->second;
 
-    double diff = ((double) fps) - average;
+    double diff = ((double)fps) - average;
     diff *= diff;
 
     for (int i = 0; i < count; i++) {
@@ -294,9 +302,12 @@ FPSCounter::PrintFPS()
   std::map<int, int> histogram;
   int totalFrames = BuildHistogram(histogram);
 
-  TimeDuration measurementInterval = mFrameTimestamps[GetLatestReadIndex()] - mLastInterval;
+  TimeDuration measurementInterval =
+      mFrameTimestamps[GetLatestReadIndex()] - mLastInterval;
   printf_stderr("FPS for %s. Total Frames: %d Time Interval: %f seconds\n",
-                mFPSName, totalFrames, measurementInterval.ToSecondsSigDigits());
+                mFPSName,
+                totalFrames,
+                measurementInterval.ToSecondsSigDigits());
 
   PrintHistogram(histogram);
 }
@@ -314,13 +325,13 @@ FPSCounter::PrintHistogram(std::map<int, int>& aHistogram)
   char buffer[kBufferLength];
 
   for (std::map<int, int>::iterator iter = aHistogram.begin();
-    iter != aHistogram.end(); iter++)
-  {
+       iter != aHistogram.end();
+       iter++) {
     int fps = iter->first;
     int count = iter->second;
 
-    int lengthRequired = snprintf(buffer + length, availableSpace,
-                                  "FPS: %d = %d. ", fps, count);
+    int lengthRequired =
+        snprintf(buffer + length, availableSpace, "FPS: %d = %d. ", fps, count);
     // Ran out of buffer space. Oh well - just print what we have.
     if (lengthRequired > availableSpace) {
       break;
@@ -330,7 +341,8 @@ FPSCounter::PrintHistogram(std::map<int, int>& aHistogram)
   }
 
   printf_stderr("%s\n", buffer);
-  printf_stderr("Mean: %f , std dev %f\n", GetMean(aHistogram), GetStdDev(aHistogram));
+  printf_stderr(
+      "Mean: %f , std dev %f\n", GetMean(aHistogram), GetStdDev(aHistogram));
 }
 
 // Write FPS timestamp data to a file only if
@@ -345,7 +357,8 @@ FPSCounter::WriteFrameTimeStamps()
   MOZ_ASSERT(mWriteIndex == 0);
 
   nsCOMPtr<nsIFile> resultFile;
-  nsresult rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(resultFile));
+  nsresult rv =
+      NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(resultFile));
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (!strncmp(mFPSName, "Compositor", strlen(mFPSName))) {
@@ -371,5 +384,5 @@ FPSCounter::WriteFrameTimeStamps()
   return NS_OK;
 }
 
-} // end namespace layers
-} // end namespace mozilla
+}  // end namespace layers
+}  // end namespace mozilla

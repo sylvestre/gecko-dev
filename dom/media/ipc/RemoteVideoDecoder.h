@@ -23,7 +23,7 @@ class RemoteDecoderModule;
 // operates solely on the VideoDecoderManagerChild thread.
 class RemoteVideoDecoder : public MediaDataDecoder
 {
-public:
+ public:
   friend class RemoteDecoderModule;
 
   // MediaDataDecoder
@@ -37,7 +37,7 @@ public:
   nsCString GetDescriptionName() const override;
   ConversionRequired NeedsConversion() const override;
 
-private:
+ private:
   RemoteVideoDecoder();
   ~RemoteVideoDecoder();
 
@@ -59,10 +59,11 @@ private:
 // protocol
 class RemoteDecoderModule : public PlatformDecoderModule
 {
-public:
+ public:
   explicit RemoteDecoderModule(PlatformDecoderModule* aWrapped)
-    : mWrapped(aWrapped)
-  {}
+      : mWrapped(aWrapped)
+  {
+  }
 
   nsresult Startup() override;
 
@@ -72,19 +73,19 @@ public:
                 DecoderDoctorDiagnostics* aDiagnostics) const override;
 
   already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
-    const CreateDecoderParams& aParams) override;
+      const CreateDecoderParams& aParams) override;
 
   already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
-    const CreateDecoderParams& aParams) override
+      const CreateDecoderParams& aParams) override
   {
     return nullptr;
   }
 
-private:
+ private:
   RefPtr<PlatformDecoderModule> mWrapped;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // include_dom_ipc_RemoteVideoDecoder_h
+#endif  // include_dom_ipc_RemoteVideoDecoder_h

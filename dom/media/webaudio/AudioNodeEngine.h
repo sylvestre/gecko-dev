@@ -18,7 +18,7 @@ struct ThreeDPoint;
 class AudioParamTimeline;
 class DelayNodeEngine;
 struct AudioTimelineEvent;
-} // namespace dom
+}  // namespace dom
 
 class AbstractThread;
 class AudioBlock;
@@ -32,7 +32,7 @@ class AudioNodeStream;
  */
 class ThreadSharedFloatArrayBufferList final : public ThreadSharedObject
 {
-public:
+ public:
   /**
    * Construct with null channel data pointers.
    */
@@ -45,26 +45,25 @@ public:
    * JS_NewArrayBufferWithContents().  The buffer contents are uninitialized
    * and so should be set using GetDataForWrite().
    */
-  static already_AddRefed<ThreadSharedFloatArrayBufferList>
-  Create(uint32_t aChannelCount, size_t aLength, const mozilla::fallible_t&);
+  static already_AddRefed<ThreadSharedFloatArrayBufferList> Create(
+      uint32_t aChannelCount, size_t aLength, const mozilla::fallible_t&);
 
-  ThreadSharedFloatArrayBufferList*
-  AsThreadSharedFloatArrayBufferList() override
+  ThreadSharedFloatArrayBufferList* AsThreadSharedFloatArrayBufferList()
+      override
   {
     return this;
   };
 
   struct Storage final
   {
-    Storage() :
-      mDataToFree(nullptr),
-      mFree(nullptr),
-      mSampleData(nullptr)
-    {}
-    ~Storage() {
+    Storage() : mDataToFree(nullptr), mFree(nullptr), mSampleData(nullptr) {}
+    ~Storage()
+    {
       if (mFree) {
         mFree(mDataToFree);
-      } else { MOZ_ASSERT(!mDataToFree); }
+      } else {
+        MOZ_ASSERT(!mDataToFree);
+      }
     }
     size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
     {
@@ -84,7 +83,10 @@ public:
   /**
    * This can be called on any thread.
    */
-  const float* GetData(uint32_t aIndex) const { return mContents[aIndex].mSampleData; }
+  const float* GetData(uint32_t aIndex) const
+  {
+    return mContents[aIndex].mSampleData;
+  }
   /**
    * This can be called on any thread, but only when the calling thread is the
    * only owner.
@@ -99,7 +101,10 @@ public:
    * Call this only during initialization, before the object is handed to
    * any other thread.
    */
-  void SetData(uint32_t aIndex, void* aDataToFree, void (*aFreeFunc)(void*), float* aData)
+  void SetData(uint32_t aIndex,
+               void* aDataToFree,
+               void (*aFreeFunc)(void*),
+               float* aData)
   {
     Storage* s = &mContents[aIndex];
     if (s->mFree) {
@@ -134,80 +139,86 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   AutoTArray<Storage, 2> mContents;
 };
 
 /**
  * aChunk must have been allocated by AllocateAudioBlock.
  */
-void WriteZeroesToAudioBlock(AudioBlock* aChunk, uint32_t aStart,
-                             uint32_t aLength);
+void
+WriteZeroesToAudioBlock(AudioBlock* aChunk, uint32_t aStart, uint32_t aLength);
 
 /**
  * Copy with scale. aScale == 1.0f should be optimized.
  */
-void AudioBufferCopyWithScale(const float* aInput,
+void
+AudioBufferCopyWithScale(const float* aInput,
+                         float aScale,
+                         float* aOutput,
+                         uint32_t aSize);
+
+/**
+ * Pointwise multiply-add operation. aScale == 1.0f should be optimized.
+ */
+void
+AudioBufferAddWithScale(const float* aInput,
+                        float aScale,
+                        float* aOutput,
+                        uint32_t aSize);
+
+/**
+ * Pointwise multiply-add operation. aScale == 1.0f should be optimized.
+ */
+void
+AudioBlockAddChannelWithScale(const float aInput[WEBAUDIO_BLOCK_SIZE],
                               float aScale,
-                              float* aOutput,
-                              uint32_t aSize);
-
-/**
- * Pointwise multiply-add operation. aScale == 1.0f should be optimized.
- */
-void AudioBufferAddWithScale(const float* aInput,
-                             float aScale,
-                             float* aOutput,
-                             uint32_t aSize);
-
-/**
- * Pointwise multiply-add operation. aScale == 1.0f should be optimized.
- */
-void AudioBlockAddChannelWithScale(const float aInput[WEBAUDIO_BLOCK_SIZE],
-                                   float aScale,
-                                   float aOutput[WEBAUDIO_BLOCK_SIZE]);
+                              float aOutput[WEBAUDIO_BLOCK_SIZE]);
 
 /**
  * Pointwise copy-scaled operation. aScale == 1.0f should be optimized.
  *
  * Buffer size is implicitly assumed to be WEBAUDIO_BLOCK_SIZE.
  */
-void AudioBlockCopyChannelWithScale(const float* aInput,
-                                    float aScale,
-                                    float* aOutput);
+void
+AudioBlockCopyChannelWithScale(const float* aInput,
+                               float aScale,
+                               float* aOutput);
 
 /**
  * Vector copy-scaled operation.
  */
-void AudioBlockCopyChannelWithScale(const float aInput[WEBAUDIO_BLOCK_SIZE],
-                                    const float aScale[WEBAUDIO_BLOCK_SIZE],
-                                    float aOutput[WEBAUDIO_BLOCK_SIZE]);
+void
+AudioBlockCopyChannelWithScale(const float aInput[WEBAUDIO_BLOCK_SIZE],
+                               const float aScale[WEBAUDIO_BLOCK_SIZE],
+                               float aOutput[WEBAUDIO_BLOCK_SIZE]);
 
 /**
  * Vector complex multiplication on arbitrary sized buffers.
  */
-void BufferComplexMultiply(const float* aInput,
-                           const float* aScale,
-                           float* aOutput,
-                           uint32_t aSize);
+void
+BufferComplexMultiply(const float* aInput,
+                      const float* aScale,
+                      float* aOutput,
+                      uint32_t aSize);
 
 /**
  * Vector maximum element magnitude ( max(abs(aInput)) ).
  */
-float AudioBufferPeakValue(const float* aInput, uint32_t aSize);
+float
+AudioBufferPeakValue(const float* aInput, uint32_t aSize);
 
 /**
  * In place gain. aScale == 1.0f should be optimized.
  */
-void AudioBlockInPlaceScale(float aBlock[WEBAUDIO_BLOCK_SIZE],
-                            float aScale);
+void
+AudioBlockInPlaceScale(float aBlock[WEBAUDIO_BLOCK_SIZE], float aScale);
 
 /**
  * In place gain. aScale == 1.0f should be optimized.
  */
-void AudioBufferInPlaceScale(float* aBlock,
-                             float aScale,
-                             uint32_t aSize);
+void
+AudioBufferInPlaceScale(float* aBlock, float aScale, uint32_t aSize);
 
 /**
  * Upmix a mono input to a stereo output, scaling the two output channels by two
@@ -216,7 +227,8 @@ void AudioBufferInPlaceScale(float* aBlock,
  */
 void
 AudioBlockPanMonoToStereo(const float aInput[WEBAUDIO_BLOCK_SIZE],
-                          float aGainL, float aGainR,
+                          float aGainL,
+                          float aGainR,
                           float aOutputL[WEBAUDIO_BLOCK_SIZE],
                           float aOutputR[WEBAUDIO_BLOCK_SIZE]);
 
@@ -234,7 +246,9 @@ AudioBlockPanMonoToStereo(const float aInput[WEBAUDIO_BLOCK_SIZE],
 void
 AudioBlockPanStereoToStereo(const float aInputL[WEBAUDIO_BLOCK_SIZE],
                             const float aInputR[WEBAUDIO_BLOCK_SIZE],
-                            float aGainL, float aGainR, bool aIsOnTheLeft,
+                            float aGainL,
+                            float aGainR,
+                            bool aIsOnTheLeft,
                             float aOutputL[WEBAUDIO_BLOCK_SIZE],
                             float aOutputR[WEBAUDIO_BLOCK_SIZE]);
 void
@@ -242,7 +256,7 @@ AudioBlockPanStereoToStereo(const float aInputL[WEBAUDIO_BLOCK_SIZE],
                             const float aInputR[WEBAUDIO_BLOCK_SIZE],
                             float aGainL[WEBAUDIO_BLOCK_SIZE],
                             float aGainR[WEBAUDIO_BLOCK_SIZE],
-                            bool  aIsOnTheLeft[WEBAUDIO_BLOCK_SIZE],
+                            bool aIsOnTheLeft[WEBAUDIO_BLOCK_SIZE],
                             float aOutputL[WEBAUDIO_BLOCK_SIZE],
                             float aOutputR[WEBAUDIO_BLOCK_SIZE]);
 
@@ -258,7 +272,7 @@ AudioBufferSumOfSquares(const float* aInput, uint32_t aLength);
  */
 class AudioNodeEngine
 {
-public:
+ public:
   // This should be compatible with AudioNodeStream::OutputChunks.
   typedef AutoTArray<AudioBlock, 1> OutputChunks;
 
@@ -398,17 +412,17 @@ public:
     aUsage.mNodeType = mNodeType;
   }
 
-private:
+ private:
   // This is cleared from AudioNode::DestroyMediaStream()
-  dom::AudioNode* MOZ_NON_OWNING_REF mNode; // main thread only
+  dom::AudioNode* MOZ_NON_OWNING_REF mNode;  // main thread only
   const char* const mNodeType;
   const uint16_t mInputCount;
   const uint16_t mOutputCount;
 
-protected:
+ protected:
   const RefPtr<AbstractThread> mAbstractMainThread;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_AUDIONODEENGINE_H_ */

@@ -24,18 +24,20 @@ typedef std::vector<uintptr_t> NativeHangStack;
    with optional internal storage for strings. */
 class HangStack
 {
-public:
+ public:
   static const size_t sMaxInlineStorage = 8;
 
   // The maximum depth for the native stack frames that we might collect.
   // XXX: Consider moving this to a different object?
   static const size_t sMaxNativeFrames = 150;
 
-  struct ModOffset {
+  struct ModOffset
+  {
     uint32_t mModule;
     uint32_t mOffset;
 
-    bool operator==(const ModOffset& aOther) const {
+    bool operator==(const ModOffset& aOther) const
+    {
       return mModule == aOther.mModule && mOffset == aOther.mOffset;
     }
   };
@@ -56,8 +58,9 @@ public:
   // itself does not have a ParamTraits implementation.
   class Frame
   {
-  public:
-    enum class Kind {
+   public:
+    enum class Kind
+    {
       STRING,
       MODOFFSET,
       PC,
@@ -65,75 +68,59 @@ public:
       JIT,
       WASM,
       SUPPRESSED,
-      END // Marker
+      END  // Marker
     };
 
-    Frame()
-      : mKind(Kind::STRING)
-      , mString("")
-    {}
+    Frame() : mKind(Kind::STRING), mString("") {}
 
-    explicit Frame(const char* aString)
-      : mKind(Kind::STRING)
-      , mString(aString)
-    {}
+    explicit Frame(const char* aString) : mKind(Kind::STRING), mString(aString)
+    {
+    }
 
     explicit Frame(ModOffset aModOffset)
-      : mKind(Kind::MODOFFSET)
-      , mModOffset(aModOffset)
-    {}
-
-    explicit Frame(uintptr_t aPC)
-      : mKind(Kind::PC)
-      , mPC(aPC)
-    {}
-
-    Kind GetKind() const {
-      return mKind;
+        : mKind(Kind::MODOFFSET), mModOffset(aModOffset)
+    {
     }
 
-    const char*& AsString() {
+    explicit Frame(uintptr_t aPC) : mKind(Kind::PC), mPC(aPC) {}
+
+    Kind GetKind() const { return mKind; }
+
+    const char*& AsString()
+    {
       MOZ_ASSERT(mKind == Kind::STRING);
       return mString;
     }
 
-    const char* const& AsString() const {
+    const char* const& AsString() const
+    {
       MOZ_ASSERT(mKind == Kind::STRING);
       return mString;
     }
 
-    const ModOffset& AsModOffset() const {
+    const ModOffset& AsModOffset() const
+    {
       MOZ_ASSERT(mKind == Kind::MODOFFSET);
       return mModOffset;
     }
 
-    const uintptr_t& AsPC() const {
+    const uintptr_t& AsPC() const
+    {
       MOZ_ASSERT(mKind == Kind::PC);
       return mPC;
     }
 
     // Public constant frames copies of each of the data-less frames.
-    static Frame Content() {
-      return Frame(Kind::CONTENT);
-    }
-    static Frame Jit() {
-      return Frame(Kind::JIT);
-    }
-    static Frame Wasm() {
-      return Frame(Kind::WASM);
-    }
-    static Frame Suppressed() {
-      return Frame(Kind::SUPPRESSED);
-    }
+    static Frame Content() { return Frame(Kind::CONTENT); }
+    static Frame Jit() { return Frame(Kind::JIT); }
+    static Frame Wasm() { return Frame(Kind::WASM); }
+    static Frame Suppressed() { return Frame(Kind::SUPPRESSED); }
 
-  private:
-    explicit Frame(Kind aKind)
-      : mKind(aKind)
+   private:
+    explicit Frame(Kind aKind) : mKind(aKind)
     {
-      MOZ_ASSERT(aKind == Kind::CONTENT ||
-                 aKind == Kind::JIT ||
-                 aKind == Kind::WASM ||
-                 aKind == Kind::SUPPRESSED,
+      MOZ_ASSERT(aKind == Kind::CONTENT || aKind == Kind::JIT ||
+                     aKind == Kind::WASM || aKind == Kind::SUPPRESSED,
                  "Kind must only be one of CONTENT, JIT, WASM or SUPPRESSED "
                  "for the data-free constructor.");
     }
@@ -146,18 +133,20 @@ public:
     };
   };
 
-  struct Module {
+  struct Module
+  {
     // The file name, /foo/bar/libxul.so for example.
     // It can contain unicode characters.
     nsString mName;
     nsCString mBreakpadId;
 
-    bool operator==(const Module& aOther) const {
+    bool operator==(const Module& aOther) const
+    {
       return mName == aOther.mName && mBreakpadId == aOther.mBreakpadId;
     }
   };
 
-private:
+ private:
   typedef mozilla::Vector<Frame, sMaxInlineStorage> Impl;
   Impl mImpl;
 
@@ -166,25 +155,27 @@ private:
   mozilla::Vector<char, 0> mBuffer;
   nsTArray<Module> mModules;
 
-public:
+ public:
   HangStack() {}
 
   HangStack(const HangStack& aOther);
   HangStack(HangStack&& aOther)
-    : mImpl(mozilla::Move(aOther.mImpl))
-    , mBuffer(mozilla::Move(aOther.mBuffer))
-    , mModules(mozilla::Move(aOther.mModules))
+      : mImpl(mozilla::Move(aOther.mImpl)),
+        mBuffer(mozilla::Move(aOther.mBuffer)),
+        mModules(mozilla::Move(aOther.mModules))
   {
   }
 
-  HangStack& operator=(HangStack&& aOther) {
+  HangStack& operator=(HangStack&& aOther)
+  {
     mImpl = mozilla::Move(aOther.mImpl);
     mBuffer = mozilla::Move(aOther.mBuffer);
     mModules = mozilla::Move(aOther.mModules);
     return *this;
   }
 
-  bool operator==(const HangStack& aOther) const {
+  bool operator==(const HangStack& aOther) const
+  {
     for (size_t i = 0; i < length(); i++) {
       if (!IsSameAsEntry(operator[](i), aOther[i])) {
         return false;
@@ -193,22 +184,17 @@ public:
     return true;
   }
 
-  bool operator!=(const HangStack& aOther) const {
-    return !operator==(aOther);
-  }
+  bool operator!=(const HangStack& aOther) const { return !operator==(aOther); }
 
-  Frame& operator[](size_t aIndex) {
-    return mImpl[aIndex];
-  }
+  Frame& operator[](size_t aIndex) { return mImpl[aIndex]; }
 
-  Frame const& operator[](size_t aIndex) const {
-    return mImpl[aIndex];
-  }
+  Frame const& operator[](size_t aIndex) const { return mImpl[aIndex]; }
 
   size_t capacity() const { return mImpl.capacity(); }
   size_t length() const { return mImpl.length(); }
   bool empty() const { return mImpl.empty(); }
-  bool canAppendWithoutRealloc(size_t aNeeded) const {
+  bool canAppendWithoutRealloc(size_t aNeeded) const
+  {
     return mImpl.canAppendWithoutRealloc(aNeeded);
   }
   void infallibleAppend(Frame aEntry) { mImpl.infallibleAppend(aEntry); }
@@ -219,21 +205,22 @@ public:
   Frame const* end() const { return mImpl.end(); }
   Frame& back() { return mImpl.back(); }
   void erase(Frame* aEntry) { mImpl.erase(aEntry); }
-  void erase(Frame* aBegin, Frame* aEnd) {
-    mImpl.erase(aBegin, aEnd);
-  }
+  void erase(Frame* aBegin, Frame* aEnd) { mImpl.erase(aBegin, aEnd); }
 
-  void clear() {
+  void clear()
+  {
     mImpl.clear();
     mBuffer.clear();
     mModules.Clear();
   }
 
-  bool IsInBuffer(const char* aEntry) const {
+  bool IsInBuffer(const char* aEntry) const
+  {
     return aEntry >= mBuffer.begin() && aEntry < mBuffer.end();
   }
 
-  bool IsSameAsEntry(const Frame& aFrame, const Frame& aOther) const {
+  bool IsSameAsEntry(const Frame& aFrame, const Frame& aOther) const
+  {
     if (aFrame.GetKind() != aOther.GetKind()) {
       return false;
     }
@@ -242,9 +229,9 @@ public:
       case Frame::Kind::STRING:
         // If the entry came from the buffer, we need to compare its content;
         // otherwise we only need to compare its pointer.
-        return IsInBuffer(aFrame.AsString()) ?
-          !strcmp(aFrame.AsString(), aOther.AsString()) :
-          (aFrame.AsString() == aOther.AsString());
+        return IsInBuffer(aFrame.AsString())
+                   ? !strcmp(aFrame.AsString(), aOther.AsString())
+                   : (aFrame.AsString() == aOther.AsString());
       case Frame::Kind::MODOFFSET:
         return aFrame.AsModOffset() == aOther.AsModOffset();
       case Frame::Kind::PC:
@@ -254,32 +241,30 @@ public:
     }
   }
 
-  bool IsSameAsEntry(const char* aEntry, const char* aOther) const {
+  bool IsSameAsEntry(const char* aEntry, const char* aOther) const
+  {
     // If the entry came from the buffer, we need to compare its content;
     // otherwise we only need to compare its pointer.
     return IsInBuffer(aEntry) ? !strcmp(aEntry, aOther) : (aEntry == aOther);
   }
 
-  size_t AvailableBufferSize() const {
+  size_t AvailableBufferSize() const
+  {
     return mBuffer.capacity() - mBuffer.length();
   }
 
-  MOZ_MUST_USE bool EnsureBufferCapacity(size_t aCapacity) {
+  MOZ_MUST_USE bool EnsureBufferCapacity(size_t aCapacity)
+  {
     // aCapacity is the minimal capacity and Vector may make the actual
     // capacity larger, in which case we want to use up all the space.
-    return mBuffer.reserve(aCapacity) &&
-           mBuffer.reserve(mBuffer.capacity());
+    return mBuffer.reserve(aCapacity) && mBuffer.reserve(mBuffer.capacity());
   }
 
   void InfallibleAppendViaBuffer(const char* aText, size_t aLength);
   bool AppendViaBuffer(const char* aText, size_t aLength);
 
-  const nsTArray<Module>& GetModules() const {
-    return mModules;
-  }
-  nsTArray<Module>& GetModules() {
-    return mModules;
-  }
+  const nsTArray<Module>& GetModules() const { return mModules; }
+  nsTArray<Module>& GetModules() { return mModules; }
 
   /**
    * Get the current list of loaded modules, and use it to transform Kind::PC
@@ -291,14 +276,14 @@ public:
   void ReadModuleInformation();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 namespace IPC {
 
 template<>
 class ParamTraits<mozilla::HangStack::ModOffset>
 {
-public:
+ public:
   typedef mozilla::HangStack::ModOffset paramType;
   static void Write(Message* aMsg, const paramType& aParam);
   static bool Read(const Message* aMsg,
@@ -308,16 +293,16 @@ public:
 
 template<>
 struct ParamTraits<mozilla::HangStack::Frame::Kind>
-  : public ContiguousEnumSerializer<
-            mozilla::HangStack::Frame::Kind,
-            mozilla::HangStack::Frame::Kind::STRING,
-            mozilla::HangStack::Frame::Kind::END>
-{};
+    : public ContiguousEnumSerializer<mozilla::HangStack::Frame::Kind,
+                                      mozilla::HangStack::Frame::Kind::STRING,
+                                      mozilla::HangStack::Frame::Kind::END>
+{
+};
 
 template<>
 struct ParamTraits<mozilla::HangStack::Module>
 {
-public:
+ public:
   typedef mozilla::HangStack::Module paramType;
   static void Write(Message* aMsg, const paramType& aParam);
   static bool Read(const Message* aMsg,
@@ -335,6 +320,6 @@ struct ParamTraits<mozilla::HangStack>
                    paramType* aResult);
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_HangStack_h
+#endif  // mozilla_HangStack_h

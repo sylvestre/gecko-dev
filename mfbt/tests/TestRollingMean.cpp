@@ -11,10 +11,10 @@ using mozilla::RollingMean;
 
 class MyClass
 {
-public:
+ public:
   uint32_t mValue;
 
-  explicit MyClass(uint32_t aValue = 0) : mValue(aValue) { }
+  explicit MyClass(uint32_t aValue = 0) : mValue(aValue) {}
 
   bool operator==(const MyClass& aOther) const
   {
@@ -31,18 +31,16 @@ public:
     return MyClass(mValue - aOther.mValue);
   }
 
-  MyClass operator/(uint32_t aDiv) const
-  {
-    return MyClass(mValue / aDiv);
-  }
+  MyClass operator/(uint32_t aDiv) const { return MyClass(mValue / aDiv); }
 };
 
 class RollingMeanSuite
 {
-public:
-  RollingMeanSuite() { }
+ public:
+  RollingMeanSuite() {}
 
-  void runTests() {
+  void runTests()
+  {
     testZero();
     testClear();
     testRolling();
@@ -50,7 +48,7 @@ public:
     testMove();
   }
 
-private:
+ private:
   void testZero()
   {
     RollingMean<uint32_t, uint64_t> mean(3);

@@ -20,22 +20,23 @@ class ImageDocument final : public MediaDocument,
                             public imgINotificationObserver,
                             public nsIDOMEventListener
 {
-public:
+ public:
   ImageDocument();
 
   NS_DECL_ISUPPORTS_INHERITED
 
   virtual nsresult Init() override;
 
-  virtual nsresult StartDocumentLoad(const char*         aCommand,
-                                     nsIChannel*         aChannel,
-                                     nsILoadGroup*       aLoadGroup,
-                                     nsISupports*        aContainer,
+  virtual nsresult StartDocumentLoad(const char* aCommand,
+                                     nsIChannel* aChannel,
+                                     nsILoadGroup* aLoadGroup,
+                                     nsISupports* aContainer,
                                      nsIStreamListener** aDocListener,
-                                     bool                aReset = true,
-                                     nsIContentSink*     aSink = nullptr) override;
+                                     bool aReset = true,
+                                     nsIContentSink* aSink = nullptr) override;
 
-  virtual void SetScriptGlobalObject(nsIScriptGlobalObject* aScriptGlobalObject) override;
+  virtual void SetScriptGlobalObject(
+      nsIScriptGlobalObject* aScriptGlobalObject) override;
   virtual void Destroy() override;
   virtual void OnPageShow(bool aPersisted,
                           EventTarget* aDispatchStartTarget) override;
@@ -53,27 +54,21 @@ public:
   void DefaultCheckOverflowing() { CheckOverflowing(mResizeImageByDefault); }
 
   // WebIDL API
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-    override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   bool ImageIsOverflowing() const
   {
     return mImageIsOverflowingHorizontally || mImageIsOverflowingVertically;
   }
-  bool ImageIsResized() const
-  {
-    return mImageIsResized;
-  }
+  bool ImageIsResized() const { return mImageIsResized; }
   already_AddRefed<imgIRequest> GetImageRequest(ErrorResult& aRv);
   void ShrinkToFit();
   void RestoreImage();
-  void RestoreImageTo(int32_t aX, int32_t aY)
-  {
-    ScrollImageTo(aX, aY, true);
-  }
+  void RestoreImageTo(int32_t aX, int32_t aY) { ScrollImageTo(aX, aY, true); }
   void ToggleImageSize();
 
-protected:
+ protected:
   virtual ~ImageDocument();
 
   virtual nsresult CreateSyntheticDocument() override;
@@ -84,9 +79,9 @@ protected:
 
   void ScrollImageTo(int32_t aX, int32_t aY, bool restoreImage);
 
-  float GetRatio() {
-    return std::min(mVisibleWidth / mImageWidth,
-                    mVisibleHeight / mImageHeight);
+  float GetRatio()
+  {
+    return std::min(mVisibleWidth / mImageWidth, mVisibleHeight / mImageHeight);
   }
 
   void ResetZoomLevel();
@@ -94,10 +89,11 @@ protected:
 
   void UpdateSizeFromLayout();
 
-  enum eModeClasses {
+  enum eModeClasses
+  {
     eNone,
     eShrinkToFit,
-    eOverflowingVertical, // And maybe horizontal too.
+    eOverflowingVertical,  // And maybe horizontal too.
     eOverflowingHorizontalOnly
   };
   void SetModeClass(eModeClasses mode);
@@ -106,31 +102,31 @@ protected:
   nsresult OnLoadComplete(imgIRequest* aRequest, nsresult aStatus);
   void OnHasTransparency();
 
-  nsCOMPtr<Element>             mImageContent;
+  nsCOMPtr<Element> mImageContent;
 
-  float                         mVisibleWidth;
-  float                         mVisibleHeight;
-  int32_t                       mImageWidth;
-  int32_t                       mImageHeight;
+  float mVisibleWidth;
+  float mVisibleHeight;
+  int32_t mImageWidth;
+  int32_t mImageHeight;
 
-  bool                          mResizeImageByDefault;
-  bool                          mClickResizingEnabled;
-  bool                          mImageIsOverflowingHorizontally;
-  bool                          mImageIsOverflowingVertically;
+  bool mResizeImageByDefault;
+  bool mClickResizingEnabled;
+  bool mImageIsOverflowingHorizontally;
+  bool mImageIsOverflowingVertically;
   // mImageIsResized is true if the image is currently resized
-  bool                          mImageIsResized;
+  bool mImageIsResized;
   // mShouldResize is true if the image should be resized when it doesn't fit
   // mImageIsResized cannot be true when this is false, but mImageIsResized
   // can be false when this is true
-  bool                          mShouldResize;
-  bool                          mFirstResize;
+  bool mShouldResize;
+  bool mFirstResize;
   // mObservingImageLoader is true while the observer is set.
-  bool                          mObservingImageLoader;
+  bool mObservingImageLoader;
 
-  float                         mOriginalZoomLevel;
+  float mOriginalZoomLevel;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_ImageDocument_h */

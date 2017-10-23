@@ -22,8 +22,7 @@ using namespace js::jit;
 
 using mozilla::DebugOnly;
 
-struct DebugModeOSREntry
-{
+struct DebugModeOSREntry {
     JSScript* script;
     BaselineScript* oldBaselineScript;
     ICStub* oldStub;
@@ -33,34 +32,31 @@ struct DebugModeOSREntry
     ICEntry::Kind frameKind;
 
     explicit DebugModeOSREntry(JSScript* script)
-      : script(script),
-        oldBaselineScript(script->baselineScript()),
-        oldStub(nullptr),
-        newStub(nullptr),
-        recompInfo(nullptr),
-        pcOffset(uint32_t(-1)),
-        frameKind(ICEntry::Kind_Invalid)
-    { }
+        : script(script),
+          oldBaselineScript(script->baselineScript()),
+          oldStub(nullptr),
+          newStub(nullptr),
+          recompInfo(nullptr),
+          pcOffset(uint32_t(-1)),
+          frameKind(ICEntry::Kind_Invalid) {}
 
     DebugModeOSREntry(JSScript* script, uint32_t pcOffset)
-      : script(script),
-        oldBaselineScript(script->baselineScript()),
-        oldStub(nullptr),
-        newStub(nullptr),
-        recompInfo(nullptr),
-        pcOffset(pcOffset),
-        frameKind(ICEntry::Kind_Invalid)
-    { }
+        : script(script),
+          oldBaselineScript(script->baselineScript()),
+          oldStub(nullptr),
+          newStub(nullptr),
+          recompInfo(nullptr),
+          pcOffset(pcOffset),
+          frameKind(ICEntry::Kind_Invalid) {}
 
     DebugModeOSREntry(JSScript* script, const ICEntry& icEntry)
-      : script(script),
-        oldBaselineScript(script->baselineScript()),
-        oldStub(nullptr),
-        newStub(nullptr),
-        recompInfo(nullptr),
-        pcOffset(icEntry.pcOffset()),
-        frameKind(icEntry.kind())
-    {
+        : script(script),
+          oldBaselineScript(script->baselineScript()),
+          oldStub(nullptr),
+          newStub(nullptr),
+          recompInfo(nullptr),
+          pcOffset(icEntry.pcOffset()),
+          frameKind(icEntry.kind()) {
 #ifdef DEBUG
         MOZ_ASSERT(pcOffset == icEntry.pcOffset());
         MOZ_ASSERT(frameKind == icEntry.kind());
@@ -68,14 +64,13 @@ struct DebugModeOSREntry
     }
 
     DebugModeOSREntry(JSScript* script, BaselineDebugModeOSRInfo* info)
-      : script(script),
-        oldBaselineScript(script->baselineScript()),
-        oldStub(nullptr),
-        newStub(nullptr),
-        recompInfo(nullptr),
-        pcOffset(script->pcToOffset(info->pc)),
-        frameKind(info->frameKind)
-    {
+        : script(script),
+          oldBaselineScript(script->baselineScript()),
+          oldStub(nullptr),
+          newStub(nullptr),
+          recompInfo(nullptr),
+          pcOffset(script->pcToOffset(info->pc)),
+          frameKind(info->frameKind) {
 #ifdef DEBUG
         MOZ_ASSERT(pcOffset == script->pcToOffset(info->pc));
         MOZ_ASSERT(frameKind == info->frameKind);
@@ -83,14 +78,13 @@ struct DebugModeOSREntry
     }
 
     DebugModeOSREntry(DebugModeOSREntry&& other)
-      : script(other.script),
-        oldBaselineScript(other.oldBaselineScript),
-        oldStub(other.oldStub),
-        newStub(other.newStub),
-        recompInfo(other.recompInfo ? other.takeRecompInfo() : nullptr),
-        pcOffset(other.pcOffset),
-        frameKind(other.frameKind)
-    { }
+        : script(other.script),
+          oldBaselineScript(other.oldBaselineScript),
+          oldStub(other.oldStub),
+          newStub(other.newStub),
+          recompInfo(other.recompInfo ? other.takeRecompInfo() : nullptr),
+          pcOffset(other.pcOffset),
+          frameKind(other.frameKind) {}
 
     ~DebugModeOSREntry() {
         // Note that this is nulled out when the recompInfo is taken by the
@@ -100,18 +94,14 @@ struct DebugModeOSREntry
     }
 
     bool needsRecompileInfo() const {
-        return frameKind == ICEntry::Kind_CallVM ||
-               frameKind == ICEntry::Kind_WarmupCounter ||
+        return frameKind == ICEntry::Kind_CallVM || frameKind == ICEntry::Kind_WarmupCounter ||
                frameKind == ICEntry::Kind_StackCheck ||
                frameKind == ICEntry::Kind_EarlyStackCheck ||
-               frameKind == ICEntry::Kind_DebugTrap ||
-               frameKind == ICEntry::Kind_DebugPrologue ||
+               frameKind == ICEntry::Kind_DebugTrap || frameKind == ICEntry::Kind_DebugPrologue ||
                frameKind == ICEntry::Kind_DebugEpilogue;
     }
 
-    bool recompiled() const {
-        return oldBaselineScript != script->baselineScript();
-    }
+    bool recompiled() const { return oldBaselineScript != script->baselineScript(); }
 
     BaselineDebugModeOSRInfo* takeRecompInfo() {
         MOZ_ASSERT(needsRecompileInfo() && recompInfo);
@@ -145,20 +135,15 @@ struct DebugModeOSREntry
 
 typedef Vector<DebugModeOSREntry> DebugModeOSREntryVector;
 
-class UniqueScriptOSREntryIter
-{
+class UniqueScriptOSREntryIter {
     const DebugModeOSREntryVector& entries_;
     size_t index_;
 
-  public:
+   public:
     explicit UniqueScriptOSREntryIter(const DebugModeOSREntryVector& entries)
-      : entries_(entries),
-        index_(0)
-    { }
+        : entries_(entries), index_(0) {}
 
-    bool done() {
-        return index_ == entries_.length();
-    }
+    bool done() { return index_ == entries_.length(); }
 
     const DebugModeOSREntry& entry() {
         MOZ_ASSERT(!done());
@@ -175,87 +160,80 @@ class UniqueScriptOSREntryIter
                     break;
                 }
             }
-            if (unique)
-                break;
+            if (unique) break;
         }
         return *this;
     }
 };
 
-static bool
-CollectJitStackScripts(JSContext* cx, const Debugger::ExecutionObservableSet& obs,
-                       const ActivationIterator& activation, DebugModeOSREntryVector& entries)
-{
+static bool CollectJitStackScripts(JSContext* cx, const Debugger::ExecutionObservableSet& obs,
+                                   const ActivationIterator& activation,
+                                   DebugModeOSREntryVector& entries) {
     ICStub* prevFrameStubPtr = nullptr;
     bool needsRecompileHandler = false;
     for (OnlyJSJitFrameIter iter(activation); !iter.done(); ++iter) {
         const JSJitFrameIter& frame = iter.frame();
         switch (frame.type()) {
-          case JitFrame_BaselineJS: {
-            JSScript* script = frame.script();
+            case JitFrame_BaselineJS: {
+                JSScript* script = frame.script();
 
-            if (!obs.shouldRecompileOrInvalidate(script)) {
+                if (!obs.shouldRecompileOrInvalidate(script)) {
+                    prevFrameStubPtr = nullptr;
+                    break;
+                }
+
+                BaselineFrame* baselineFrame = frame.baselineFrame();
+
+                if (BaselineDebugModeOSRInfo* info = baselineFrame->getDebugModeOSRInfo()) {
+                    // If patching a previously patched yet unpopped frame, we can
+                    // use the BaselineDebugModeOSRInfo on the frame directly to
+                    // patch. Indeed, we cannot use frame.returnAddressToFp(), as
+                    // it points into the debug mode OSR handler and cannot be
+                    // used to look up a corresponding ICEntry.
+                    //
+                    // See cases F and G in PatchBaselineFramesForDebugMode.
+                    if (!entries.append(DebugModeOSREntry(script, info))) return false;
+                } else if (baselineFrame->isHandlingException()) {
+                    // We are in the middle of handling an exception and the frame
+                    // must have an override pc.
+                    uint32_t offset = script->pcToOffset(baselineFrame->overridePc());
+                    if (!entries.append(DebugModeOSREntry(script, offset))) return false;
+                } else {
+                    // The frame must be settled on a pc with an ICEntry.
+                    uint8_t* retAddr = frame.returnAddressToFp();
+                    BaselineICEntry& icEntry =
+                        script->baselineScript()->icEntryFromReturnAddress(retAddr);
+                    if (!entries.append(DebugModeOSREntry(script, icEntry))) return false;
+                }
+
+                if (entries.back().needsRecompileInfo()) {
+                    if (!entries.back().allocateRecompileInfo(cx)) return false;
+
+                    needsRecompileHandler |= true;
+                }
+                entries.back().oldStub = prevFrameStubPtr;
                 prevFrameStubPtr = nullptr;
                 break;
             }
 
-            BaselineFrame* baselineFrame = frame.baselineFrame();
+            case JitFrame_BaselineStub:
+                prevFrameStubPtr =
+                    reinterpret_cast<BaselineStubFrameLayout*>(frame.fp())->maybeStubPtr();
+                break;
 
-            if (BaselineDebugModeOSRInfo* info = baselineFrame->getDebugModeOSRInfo()) {
-                // If patching a previously patched yet unpopped frame, we can
-                // use the BaselineDebugModeOSRInfo on the frame directly to
-                // patch. Indeed, we cannot use frame.returnAddressToFp(), as
-                // it points into the debug mode OSR handler and cannot be
-                // used to look up a corresponding ICEntry.
-                //
-                // See cases F and G in PatchBaselineFramesForDebugMode.
-                if (!entries.append(DebugModeOSREntry(script, info)))
-                    return false;
-            } else if (baselineFrame->isHandlingException()) {
-                // We are in the middle of handling an exception and the frame
-                // must have an override pc.
-                uint32_t offset = script->pcToOffset(baselineFrame->overridePc());
-                if (!entries.append(DebugModeOSREntry(script, offset)))
-                    return false;
-            } else {
-                // The frame must be settled on a pc with an ICEntry.
-                uint8_t* retAddr = frame.returnAddressToFp();
-                BaselineICEntry& icEntry = script->baselineScript()->icEntryFromReturnAddress(retAddr);
-                if (!entries.append(DebugModeOSREntry(script, icEntry)))
-                    return false;
-            }
-
-            if (entries.back().needsRecompileInfo()) {
-                if (!entries.back().allocateRecompileInfo(cx))
-                    return false;
-
-                needsRecompileHandler |= true;
-            }
-            entries.back().oldStub = prevFrameStubPtr;
-            prevFrameStubPtr = nullptr;
-            break;
-          }
-
-          case JitFrame_BaselineStub:
-            prevFrameStubPtr =
-                reinterpret_cast<BaselineStubFrameLayout*>(frame.fp())->maybeStubPtr();
-            break;
-
-          case JitFrame_IonJS: {
-            InlineFrameIterator inlineIter(cx, &frame);
-            while (true) {
-                if (obs.shouldRecompileOrInvalidate(inlineIter.script())) {
-                    if (!entries.append(DebugModeOSREntry(inlineIter.script())))
-                        return false;
+            case JitFrame_IonJS: {
+                InlineFrameIterator inlineIter(cx, &frame);
+                while (true) {
+                    if (obs.shouldRecompileOrInvalidate(inlineIter.script())) {
+                        if (!entries.append(DebugModeOSREntry(inlineIter.script()))) return false;
+                    }
+                    if (!inlineIter.more()) break;
+                    ++inlineIter;
                 }
-                if (!inlineIter.more())
-                    break;
-                ++inlineIter;
+                break;
             }
-            break;
-          }
 
-          default:;
+            default:;
         }
     }
 
@@ -263,18 +241,16 @@ CollectJitStackScripts(JSContext* cx, const Debugger::ExecutionObservableSet& ob
     // patching the stack is infallible.
     if (needsRecompileHandler) {
         JitRuntime* rt = cx->runtime()->jitRuntime();
-        if (!rt->getBaselineDebugModeOSRHandlerAddress(cx, true))
-            return false;
+        if (!rt->getBaselineDebugModeOSRHandlerAddress(cx, true)) return false;
     }
 
     return true;
 }
 
-static bool
-CollectInterpreterStackScripts(JSContext* cx, const Debugger::ExecutionObservableSet& obs,
-                               const ActivationIterator& activation,
-                               DebugModeOSREntryVector& entries)
-{
+static bool CollectInterpreterStackScripts(JSContext* cx,
+                                           const Debugger::ExecutionObservableSet& obs,
+                                           const ActivationIterator& activation,
+                                           DebugModeOSREntryVector& entries) {
     // Collect interpreter frame stacks with IonScript or BaselineScript as
     // well. These do not need to be patched, but do need to be invalidated
     // and recompiled.
@@ -282,76 +258,65 @@ CollectInterpreterStackScripts(JSContext* cx, const Debugger::ExecutionObservabl
     for (InterpreterFrameIterator iter(act); !iter.done(); ++iter) {
         JSScript* script = iter.frame()->script();
         if (obs.shouldRecompileOrInvalidate(script)) {
-            if (!entries.append(DebugModeOSREntry(iter.frame()->script())))
-                return false;
+            if (!entries.append(DebugModeOSREntry(iter.frame()->script()))) return false;
         }
     }
     return true;
 }
 
 #ifdef JS_JITSPEW
-static const char*
-ICEntryKindToString(ICEntry::Kind kind)
-{
+static const char* ICEntryKindToString(ICEntry::Kind kind) {
     switch (kind) {
-      case ICEntry::Kind_Op:
-        return "IC";
-      case ICEntry::Kind_NonOp:
-        return "non-op IC";
-      case ICEntry::Kind_CallVM:
-        return "callVM";
-      case ICEntry::Kind_WarmupCounter:
-        return "warmup counter";
-      case ICEntry::Kind_StackCheck:
-        return "stack check";
-      case ICEntry::Kind_EarlyStackCheck:
-        return "early stack check";
-      case ICEntry::Kind_DebugTrap:
-        return "debug trap";
-      case ICEntry::Kind_DebugPrologue:
-        return "debug prologue";
-      case ICEntry::Kind_DebugEpilogue:
-        return "debug epilogue";
-      default:
-        MOZ_CRASH("bad ICEntry kind");
+        case ICEntry::Kind_Op:
+            return "IC";
+        case ICEntry::Kind_NonOp:
+            return "non-op IC";
+        case ICEntry::Kind_CallVM:
+            return "callVM";
+        case ICEntry::Kind_WarmupCounter:
+            return "warmup counter";
+        case ICEntry::Kind_StackCheck:
+            return "stack check";
+        case ICEntry::Kind_EarlyStackCheck:
+            return "early stack check";
+        case ICEntry::Kind_DebugTrap:
+            return "debug trap";
+        case ICEntry::Kind_DebugPrologue:
+            return "debug prologue";
+        case ICEntry::Kind_DebugEpilogue:
+            return "debug epilogue";
+        default:
+            MOZ_CRASH("bad ICEntry kind");
     }
 }
-#endif // JS_JITSPEW
+#endif  // JS_JITSPEW
 
-static void
-SpewPatchBaselineFrame(uint8_t* oldReturnAddress, uint8_t* newReturnAddress,
-                       JSScript* script, ICEntry::Kind frameKind, jsbytecode* pc)
-{
+static void SpewPatchBaselineFrame(uint8_t* oldReturnAddress, uint8_t* newReturnAddress,
+                                   JSScript* script, ICEntry::Kind frameKind, jsbytecode* pc) {
     JitSpew(JitSpew_BaselineDebugModeOSR,
-            "Patch return %p -> %p on BaselineJS frame (%s:%zu) from %s at %s",
-            oldReturnAddress, newReturnAddress, script->filename(), script->lineno(),
-            ICEntryKindToString(frameKind), CodeName[(JSOp)*pc]);
+            "Patch return %p -> %p on BaselineJS frame (%s:%zu) from %s at %s", oldReturnAddress,
+            newReturnAddress, script->filename(), script->lineno(), ICEntryKindToString(frameKind),
+            CodeName[(JSOp)*pc]);
 }
 
-static void
-SpewPatchBaselineFrameFromExceptionHandler(uint8_t* oldReturnAddress, uint8_t* newReturnAddress,
-                                           JSScript* script, jsbytecode* pc)
-{
+static void SpewPatchBaselineFrameFromExceptionHandler(uint8_t* oldReturnAddress,
+                                                       uint8_t* newReturnAddress, JSScript* script,
+                                                       jsbytecode* pc) {
     JitSpew(JitSpew_BaselineDebugModeOSR,
             "Patch return %p -> %p on BaselineJS frame (%s:%zu) from exception handler at %s",
             oldReturnAddress, newReturnAddress, script->filename(), script->lineno(),
             CodeName[(JSOp)*pc]);
 }
 
-static void
-SpewPatchStubFrame(ICStub* oldStub, ICStub* newStub)
-{
-    JitSpew(JitSpew_BaselineDebugModeOSR,
-            "Patch   stub %p -> %p on BaselineStub frame (%s)",
+static void SpewPatchStubFrame(ICStub* oldStub, ICStub* newStub) {
+    JitSpew(JitSpew_BaselineDebugModeOSR, "Patch   stub %p -> %p on BaselineStub frame (%s)",
             oldStub, newStub, newStub ? ICStub::KindString(newStub->kind()) : "exception handler");
 }
 
-static void
-PatchBaselineFramesForDebugMode(JSContext* cx, const CooperatingContext& target,
-                                const Debugger::ExecutionObservableSet& obs,
-                                const ActivationIterator& activation,
-                                DebugModeOSREntryVector& entries, size_t* start)
-{
+static void PatchBaselineFramesForDebugMode(JSContext* cx, const CooperatingContext& target,
+                                            const Debugger::ExecutionObservableSet& obs,
+                                            const ActivationIterator& activation,
+                                            DebugModeOSREntryVector& entries, size_t* start) {
     //
     // Recompile Patching Overview
     //
@@ -387,253 +352,248 @@ PatchBaselineFramesForDebugMode(JSContext* cx, const CooperatingContext& target,
     for (OnlyJSJitFrameIter iter(activation); !iter.done(); ++iter) {
         const JSJitFrameIter& frame = iter.frame();
         switch (frame.type()) {
-          case JitFrame_BaselineJS: {
-            // If the script wasn't recompiled or is not observed, there's
-            // nothing to patch.
-            if (!obs.shouldRecompileOrInvalidate(frame.script()))
-                break;
+            case JitFrame_BaselineJS: {
+                // If the script wasn't recompiled or is not observed, there's
+                // nothing to patch.
+                if (!obs.shouldRecompileOrInvalidate(frame.script())) break;
 
-            DebugModeOSREntry& entry = entries[entryIndex];
+                DebugModeOSREntry& entry = entries[entryIndex];
 
-            if (!entry.recompiled()) {
-                entryIndex++;
-                break;
-            }
-
-            JSScript* script = entry.script;
-            uint32_t pcOffset = entry.pcOffset;
-            jsbytecode* pc = script->offsetToPC(pcOffset);
-
-            MOZ_ASSERT(script == frame.script());
-            MOZ_ASSERT(pcOffset < script->length());
-
-            BaselineScript* bl = script->baselineScript();
-            ICEntry::Kind kind = entry.frameKind;
-
-            if (kind == ICEntry::Kind_Op) {
-                // Case A above.
-                //
-                // Patching these cases needs to patch both the stub frame and
-                // the baseline frame. The stub frame is patched below. For
-                // the baseline frame here, we resume right after the IC
-                // returns.
-                //
-                // Since we're using the same IC stub code, we can resume
-                // directly to the IC resume address.
-                uint8_t* retAddr = bl->returnAddressForIC(bl->icEntryFromPCOffset(pcOffset));
-                SpewPatchBaselineFrame(prev->returnAddress(), retAddr, script, kind, pc);
-                DebugModeOSRVolatileJitFrameIter::forwardLiveIterators(
-                    target, prev->returnAddress(), retAddr);
-                prev->setReturnAddress(retAddr);
-                entryIndex++;
-                break;
-            }
-
-            if (kind == ICEntry::Kind_Invalid) {
-                // Case H above.
-                //
-                // We are recompiling on-stack scripts from inside the
-                // exception handler, by way of an onExceptionUnwind
-                // invocation, on a pc without an ICEntry. This means the
-                // frame must have an override pc.
-                //
-                // If profiling is off, patch the resume address to nullptr,
-                // to ensure the old address is not used anywhere.
-                //
-                // If profiling is on, JSJitProfilingFrameIterator requires a
-                // valid return address.
-                MOZ_ASSERT(frame.baselineFrame()->isHandlingException());
-                MOZ_ASSERT(frame.baselineFrame()->overridePc() == pc);
-                uint8_t* retAddr;
-                if (cx->runtime()->geckoProfiler().enabled())
-                    retAddr = bl->nativeCodeForPC(script, pc);
-                else
-                    retAddr = nullptr;
-                SpewPatchBaselineFrameFromExceptionHandler(prev->returnAddress(), retAddr,
-                                                           script, pc);
-                DebugModeOSRVolatileJitFrameIter::forwardLiveIterators(
-                    target, prev->returnAddress(), retAddr);
-                prev->setReturnAddress(retAddr);
-                entryIndex++;
-                break;
-            }
-
-            // Case F above.
-            //
-            // We undo a previous recompile by handling cases B, C, D, E, I or J
-            // like normal, except that we retrieve the pc information via
-            // the previous OSR debug info stashed on the frame.
-            BaselineDebugModeOSRInfo* info = frame.baselineFrame()->getDebugModeOSRInfo();
-            if (info) {
-                MOZ_ASSERT(info->pc == pc);
-                MOZ_ASSERT(info->frameKind == kind);
-                MOZ_ASSERT(kind == ICEntry::Kind_CallVM ||
-                           kind == ICEntry::Kind_WarmupCounter ||
-                           kind == ICEntry::Kind_StackCheck ||
-                           kind == ICEntry::Kind_EarlyStackCheck ||
-                           kind == ICEntry::Kind_DebugTrap ||
-                           kind == ICEntry::Kind_DebugPrologue ||
-                           kind == ICEntry::Kind_DebugEpilogue);
-
-                // We will have allocated a new recompile info, so delete the
-                // existing one.
-                frame.baselineFrame()->deleteDebugModeOSRInfo();
-            }
-
-            // The RecompileInfo must already be allocated so that this
-            // function may be infallible.
-            BaselineDebugModeOSRInfo* recompInfo = entry.takeRecompInfo();
-
-            bool popFrameReg;
-            switch (kind) {
-              case ICEntry::Kind_CallVM: {
-                // Case B above.
-                //
-                // Patching returns from a VM call. After fixing up the the
-                // continuation for unsynced values (the frame register is
-                // popped by the callVM trampoline), we resume at the
-                // return-from-callVM address. The assumption here is that all
-                // callVMs which can trigger debug mode OSR are the *only*
-                // callVMs generated for their respective pc locations in the
-                // baseline JIT code.
-                BaselineICEntry& callVMEntry = bl->callVMEntryFromPCOffset(pcOffset);
-                recompInfo->resumeAddr = bl->returnAddressForIC(callVMEntry);
-                popFrameReg = false;
-                break;
-              }
-
-              case ICEntry::Kind_WarmupCounter: {
-                // Case J above.
-                //
-                // Patching mechanism is identical to a CallVM. This is
-                // handled especially only because the warmup counter VM call is
-                // part of the prologue, and not tied an opcode.
-                BaselineICEntry& warmupCountEntry = bl->warmupCountICEntry();
-                recompInfo->resumeAddr = bl->returnAddressForIC(warmupCountEntry);
-                popFrameReg = false;
-                break;
-              }
-
-              case ICEntry::Kind_StackCheck:
-              case ICEntry::Kind_EarlyStackCheck: {
-                // Case I above.
-                //
-                // Patching mechanism is identical to a CallVM. This is
-                // handled especially only because the stack check VM call is
-                // part of the prologue, and not tied an opcode.
-                bool earlyCheck = kind == ICEntry::Kind_EarlyStackCheck;
-                BaselineICEntry& stackCheckEntry = bl->stackCheckICEntry(earlyCheck);
-                recompInfo->resumeAddr = bl->returnAddressForIC(stackCheckEntry);
-                popFrameReg = false;
-                break;
-              }
-
-              case ICEntry::Kind_DebugTrap:
-                // Case C above.
-                //
-                // Debug traps are emitted before each op, so we resume at the
-                // same op. Calling debug trap handlers is done via a toggled
-                // call to a thunk (DebugTrapHandler) that takes care tearing
-                // down its own stub frame so we don't need to worry about
-                // popping the frame reg.
-                recompInfo->resumeAddr = bl->nativeCodeForPC(script, pc, &recompInfo->slotInfo);
-                popFrameReg = false;
-                break;
-
-              case ICEntry::Kind_DebugPrologue:
-                // Case D above.
-                //
-                // We patch a jump directly to the right place in the prologue
-                // after popping the frame reg and checking for forced return.
-                recompInfo->resumeAddr = bl->postDebugPrologueAddr();
-                popFrameReg = true;
-                break;
-
-              default:
-                // Case E above.
-                //
-                // We patch a jump directly to the epilogue after popping the
-                // frame reg and checking for forced return.
-                MOZ_ASSERT(kind == ICEntry::Kind_DebugEpilogue);
-                recompInfo->resumeAddr = bl->epilogueEntryAddr();
-                popFrameReg = true;
-                break;
-            }
-
-            SpewPatchBaselineFrame(prev->returnAddress(), recompInfo->resumeAddr,
-                                   script, kind, recompInfo->pc);
-
-            // The recompile handler must already be created so that this
-            // function may be infallible.
-            JitRuntime* rt = cx->runtime()->jitRuntime();
-            void* handlerAddr = rt->getBaselineDebugModeOSRHandlerAddress(cx, popFrameReg);
-            MOZ_ASSERT(handlerAddr);
-
-            prev->setReturnAddress(reinterpret_cast<uint8_t*>(handlerAddr));
-            frame.baselineFrame()->setDebugModeOSRInfo(recompInfo);
-            frame.baselineFrame()->setOverridePc(recompInfo->pc);
-
-            entryIndex++;
-            break;
-          }
-
-          case JitFrame_BaselineStub: {
-            JSJitFrameIter prev(iter.frame());
-            ++prev;
-            BaselineFrame* prevFrame = prev.baselineFrame();
-            if (!obs.shouldRecompileOrInvalidate(prevFrame->script()))
-                break;
-
-            DebugModeOSREntry& entry = entries[entryIndex];
-
-            // If the script wasn't recompiled, there's nothing to patch.
-            if (!entry.recompiled())
-                break;
-
-            BaselineStubFrameLayout* layout =
-                reinterpret_cast<BaselineStubFrameLayout*>(frame.fp());
-            MOZ_ASSERT(layout->maybeStubPtr() == entry.oldStub);
-
-            // Patch baseline stub frames for case A above.
-            //
-            // We need to patch the stub frame to point to an ICStub belonging
-            // to the recompiled baseline script. These stubs are allocated up
-            // front in CloneOldBaselineStub. They share the same JitCode as
-            // the old baseline script's stubs, so we don't need to patch the
-            // exit frame's return address.
-            //
-            // Subtlety here: the debug trap handler of case C above pushes a
-            // stub frame with a null stub pointer. This handler will exist
-            // across recompiling the script, so we don't patch anything for
-            // such stub frames. We will return to that handler, which takes
-            // care of cleaning up the stub frame.
-            //
-            // Note that for stub pointers that are already on the C stack
-            // (i.e. fallback calls), we need to check for recompilation using
-            // DebugModeOSRVolatileStub.
-            if (layout->maybeStubPtr()) {
-                MOZ_ASSERT(entry.newStub || prevFrame->isHandlingException());
-                SpewPatchStubFrame(entry.oldStub, entry.newStub);
-                layout->setStubPtr(entry.newStub);
-            }
-
-            break;
-          }
-
-          case JitFrame_IonJS: {
-            // Nothing to patch.
-            InlineFrameIterator inlineIter(cx, &frame);
-            while (true) {
-                if (obs.shouldRecompileOrInvalidate(inlineIter.script()))
+                if (!entry.recompiled()) {
                     entryIndex++;
-                if (!inlineIter.more())
                     break;
-                ++inlineIter;
-            }
-            break;
-          }
+                }
 
-          default:;
+                JSScript* script = entry.script;
+                uint32_t pcOffset = entry.pcOffset;
+                jsbytecode* pc = script->offsetToPC(pcOffset);
+
+                MOZ_ASSERT(script == frame.script());
+                MOZ_ASSERT(pcOffset < script->length());
+
+                BaselineScript* bl = script->baselineScript();
+                ICEntry::Kind kind = entry.frameKind;
+
+                if (kind == ICEntry::Kind_Op) {
+                    // Case A above.
+                    //
+                    // Patching these cases needs to patch both the stub frame and
+                    // the baseline frame. The stub frame is patched below. For
+                    // the baseline frame here, we resume right after the IC
+                    // returns.
+                    //
+                    // Since we're using the same IC stub code, we can resume
+                    // directly to the IC resume address.
+                    uint8_t* retAddr = bl->returnAddressForIC(bl->icEntryFromPCOffset(pcOffset));
+                    SpewPatchBaselineFrame(prev->returnAddress(), retAddr, script, kind, pc);
+                    DebugModeOSRVolatileJitFrameIter::forwardLiveIterators(
+                        target, prev->returnAddress(), retAddr);
+                    prev->setReturnAddress(retAddr);
+                    entryIndex++;
+                    break;
+                }
+
+                if (kind == ICEntry::Kind_Invalid) {
+                    // Case H above.
+                    //
+                    // We are recompiling on-stack scripts from inside the
+                    // exception handler, by way of an onExceptionUnwind
+                    // invocation, on a pc without an ICEntry. This means the
+                    // frame must have an override pc.
+                    //
+                    // If profiling is off, patch the resume address to nullptr,
+                    // to ensure the old address is not used anywhere.
+                    //
+                    // If profiling is on, JSJitProfilingFrameIterator requires a
+                    // valid return address.
+                    MOZ_ASSERT(frame.baselineFrame()->isHandlingException());
+                    MOZ_ASSERT(frame.baselineFrame()->overridePc() == pc);
+                    uint8_t* retAddr;
+                    if (cx->runtime()->geckoProfiler().enabled())
+                        retAddr = bl->nativeCodeForPC(script, pc);
+                    else
+                        retAddr = nullptr;
+                    SpewPatchBaselineFrameFromExceptionHandler(prev->returnAddress(), retAddr,
+                                                               script, pc);
+                    DebugModeOSRVolatileJitFrameIter::forwardLiveIterators(
+                        target, prev->returnAddress(), retAddr);
+                    prev->setReturnAddress(retAddr);
+                    entryIndex++;
+                    break;
+                }
+
+                // Case F above.
+                //
+                // We undo a previous recompile by handling cases B, C, D, E, I or J
+                // like normal, except that we retrieve the pc information via
+                // the previous OSR debug info stashed on the frame.
+                BaselineDebugModeOSRInfo* info = frame.baselineFrame()->getDebugModeOSRInfo();
+                if (info) {
+                    MOZ_ASSERT(info->pc == pc);
+                    MOZ_ASSERT(info->frameKind == kind);
+                    MOZ_ASSERT(
+                        kind == ICEntry::Kind_CallVM || kind == ICEntry::Kind_WarmupCounter ||
+                        kind == ICEntry::Kind_StackCheck ||
+                        kind == ICEntry::Kind_EarlyStackCheck || kind == ICEntry::Kind_DebugTrap ||
+                        kind == ICEntry::Kind_DebugPrologue ||
+                        kind == ICEntry::Kind_DebugEpilogue);
+
+                    // We will have allocated a new recompile info, so delete the
+                    // existing one.
+                    frame.baselineFrame()->deleteDebugModeOSRInfo();
+                }
+
+                // The RecompileInfo must already be allocated so that this
+                // function may be infallible.
+                BaselineDebugModeOSRInfo* recompInfo = entry.takeRecompInfo();
+
+                bool popFrameReg;
+                switch (kind) {
+                    case ICEntry::Kind_CallVM: {
+                        // Case B above.
+                        //
+                        // Patching returns from a VM call. After fixing up the the
+                        // continuation for unsynced values (the frame register is
+                        // popped by the callVM trampoline), we resume at the
+                        // return-from-callVM address. The assumption here is that all
+                        // callVMs which can trigger debug mode OSR are the *only*
+                        // callVMs generated for their respective pc locations in the
+                        // baseline JIT code.
+                        BaselineICEntry& callVMEntry = bl->callVMEntryFromPCOffset(pcOffset);
+                        recompInfo->resumeAddr = bl->returnAddressForIC(callVMEntry);
+                        popFrameReg = false;
+                        break;
+                    }
+
+                    case ICEntry::Kind_WarmupCounter: {
+                        // Case J above.
+                        //
+                        // Patching mechanism is identical to a CallVM. This is
+                        // handled especially only because the warmup counter VM call is
+                        // part of the prologue, and not tied an opcode.
+                        BaselineICEntry& warmupCountEntry = bl->warmupCountICEntry();
+                        recompInfo->resumeAddr = bl->returnAddressForIC(warmupCountEntry);
+                        popFrameReg = false;
+                        break;
+                    }
+
+                    case ICEntry::Kind_StackCheck:
+                    case ICEntry::Kind_EarlyStackCheck: {
+                        // Case I above.
+                        //
+                        // Patching mechanism is identical to a CallVM. This is
+                        // handled especially only because the stack check VM call is
+                        // part of the prologue, and not tied an opcode.
+                        bool earlyCheck = kind == ICEntry::Kind_EarlyStackCheck;
+                        BaselineICEntry& stackCheckEntry = bl->stackCheckICEntry(earlyCheck);
+                        recompInfo->resumeAddr = bl->returnAddressForIC(stackCheckEntry);
+                        popFrameReg = false;
+                        break;
+                    }
+
+                    case ICEntry::Kind_DebugTrap:
+                        // Case C above.
+                        //
+                        // Debug traps are emitted before each op, so we resume at the
+                        // same op. Calling debug trap handlers is done via a toggled
+                        // call to a thunk (DebugTrapHandler) that takes care tearing
+                        // down its own stub frame so we don't need to worry about
+                        // popping the frame reg.
+                        recompInfo->resumeAddr =
+                            bl->nativeCodeForPC(script, pc, &recompInfo->slotInfo);
+                        popFrameReg = false;
+                        break;
+
+                    case ICEntry::Kind_DebugPrologue:
+                        // Case D above.
+                        //
+                        // We patch a jump directly to the right place in the prologue
+                        // after popping the frame reg and checking for forced return.
+                        recompInfo->resumeAddr = bl->postDebugPrologueAddr();
+                        popFrameReg = true;
+                        break;
+
+                    default:
+                        // Case E above.
+                        //
+                        // We patch a jump directly to the epilogue after popping the
+                        // frame reg and checking for forced return.
+                        MOZ_ASSERT(kind == ICEntry::Kind_DebugEpilogue);
+                        recompInfo->resumeAddr = bl->epilogueEntryAddr();
+                        popFrameReg = true;
+                        break;
+                }
+
+                SpewPatchBaselineFrame(prev->returnAddress(), recompInfo->resumeAddr, script, kind,
+                                       recompInfo->pc);
+
+                // The recompile handler must already be created so that this
+                // function may be infallible.
+                JitRuntime* rt = cx->runtime()->jitRuntime();
+                void* handlerAddr = rt->getBaselineDebugModeOSRHandlerAddress(cx, popFrameReg);
+                MOZ_ASSERT(handlerAddr);
+
+                prev->setReturnAddress(reinterpret_cast<uint8_t*>(handlerAddr));
+                frame.baselineFrame()->setDebugModeOSRInfo(recompInfo);
+                frame.baselineFrame()->setOverridePc(recompInfo->pc);
+
+                entryIndex++;
+                break;
+            }
+
+            case JitFrame_BaselineStub: {
+                JSJitFrameIter prev(iter.frame());
+                ++prev;
+                BaselineFrame* prevFrame = prev.baselineFrame();
+                if (!obs.shouldRecompileOrInvalidate(prevFrame->script())) break;
+
+                DebugModeOSREntry& entry = entries[entryIndex];
+
+                // If the script wasn't recompiled, there's nothing to patch.
+                if (!entry.recompiled()) break;
+
+                BaselineStubFrameLayout* layout =
+                    reinterpret_cast<BaselineStubFrameLayout*>(frame.fp());
+                MOZ_ASSERT(layout->maybeStubPtr() == entry.oldStub);
+
+                // Patch baseline stub frames for case A above.
+                //
+                // We need to patch the stub frame to point to an ICStub belonging
+                // to the recompiled baseline script. These stubs are allocated up
+                // front in CloneOldBaselineStub. They share the same JitCode as
+                // the old baseline script's stubs, so we don't need to patch the
+                // exit frame's return address.
+                //
+                // Subtlety here: the debug trap handler of case C above pushes a
+                // stub frame with a null stub pointer. This handler will exist
+                // across recompiling the script, so we don't patch anything for
+                // such stub frames. We will return to that handler, which takes
+                // care of cleaning up the stub frame.
+                //
+                // Note that for stub pointers that are already on the C stack
+                // (i.e. fallback calls), we need to check for recompilation using
+                // DebugModeOSRVolatileStub.
+                if (layout->maybeStubPtr()) {
+                    MOZ_ASSERT(entry.newStub || prevFrame->isHandlingException());
+                    SpewPatchStubFrame(entry.oldStub, entry.newStub);
+                    layout->setStubPtr(entry.newStub);
+                }
+
+                break;
+            }
+
+            case JitFrame_IonJS: {
+                // Nothing to patch.
+                InlineFrameIterator inlineIter(cx, &frame);
+                while (true) {
+                    if (obs.shouldRecompileOrInvalidate(inlineIter.script())) entryIndex++;
+                    if (!inlineIter.more()) break;
+                    ++inlineIter;
+                }
+                break;
+            }
+
+            default:;
         }
 
         prev = frame.current();
@@ -642,36 +602,30 @@ PatchBaselineFramesForDebugMode(JSContext* cx, const CooperatingContext& target,
     *start = entryIndex;
 }
 
-static void
-SkipInterpreterFrameEntries(const Debugger::ExecutionObservableSet& obs,
-                            const ActivationIterator& activation,
-                            DebugModeOSREntryVector& entries, size_t* start)
-{
+static void SkipInterpreterFrameEntries(const Debugger::ExecutionObservableSet& obs,
+                                        const ActivationIterator& activation,
+                                        DebugModeOSREntryVector& entries, size_t* start) {
     size_t entryIndex = *start;
 
     // Skip interpreter frames, which do not need patching.
     InterpreterActivation* act = activation.activation()->asInterpreter();
     for (InterpreterFrameIterator iter(act); !iter.done(); ++iter) {
-        if (obs.shouldRecompileOrInvalidate(iter.frame()->script()))
-            entryIndex++;
+        if (obs.shouldRecompileOrInvalidate(iter.frame()->script())) entryIndex++;
     }
 
     *start = entryIndex;
 }
 
-static bool
-RecompileBaselineScriptForDebugMode(JSContext* cx, JSScript* script,
-                                    Debugger::IsObserving observing)
-{
+static bool RecompileBaselineScriptForDebugMode(JSContext* cx, JSScript* script,
+                                                Debugger::IsObserving observing) {
     BaselineScript* oldBaselineScript = script->baselineScript();
 
     // If a script is on the stack multiple times, it may have already
     // been recompiled.
-    if (oldBaselineScript->hasDebugInstrumentation() == observing)
-        return true;
+    if (oldBaselineScript->hasDebugInstrumentation() == observing) return true;
 
-    JitSpew(JitSpew_BaselineDebugModeOSR, "Recompiling (%s:%zu) for %s",
-            script->filename(), script->lineno(), observing ? "DEBUGGING" : "NORMAL EXECUTION");
+    JitSpew(JitSpew_BaselineDebugModeOSR, "Recompiling (%s:%zu) for %s", script->filename(),
+            script->lineno(), observing ? "DEBUGGING" : "NORMAL EXECUTION");
 
     script->setBaselineScript(cx->runtime(), nullptr);
 
@@ -691,23 +645,21 @@ RecompileBaselineScriptForDebugMode(JSContext* cx, JSScript* script,
     return true;
 }
 
-#define PATCHABLE_ICSTUB_KIND_LIST(_)           \
-    _(CacheIR_Monitored)                        \
-    _(CacheIR_Updated)                          \
-    _(Call_Scripted)                            \
-    _(Call_AnyScripted)                         \
-    _(Call_Native)                              \
-    _(Call_ClassHook)                           \
-    _(Call_ScriptedApplyArray)                  \
-    _(Call_ScriptedApplyArguments)              \
+#define PATCHABLE_ICSTUB_KIND_LIST(_) \
+    _(CacheIR_Monitored)              \
+    _(CacheIR_Updated)                \
+    _(Call_Scripted)                  \
+    _(Call_AnyScripted)               \
+    _(Call_Native)                    \
+    _(Call_ClassHook)                 \
+    _(Call_ScriptedApplyArray)        \
+    _(Call_ScriptedApplyArguments)    \
     _(Call_ScriptedFunCall)
 
-static bool
-CloneOldBaselineStub(JSContext* cx, DebugModeOSREntryVector& entries, size_t entryIndex)
-{
+static bool CloneOldBaselineStub(JSContext* cx, DebugModeOSREntryVector& entries,
+                                 size_t entryIndex) {
     DebugModeOSREntry& entry = entries[entryIndex];
-    if (!entry.oldStub)
-        return true;
+    if (!entry.oldStub) return true;
 
     ICStub* oldStub = entry.oldStub;
     MOZ_ASSERT(oldStub->makesGCCalls());
@@ -761,41 +713,38 @@ CloneOldBaselineStub(JSContext* cx, DebugModeOSREntryVector& entries, size_t ent
     } else {
         firstMonitorStub = nullptr;
     }
-    ICStubSpace* stubSpace = ICStubCompiler::StubSpaceForStub(oldStub->makesGCCalls(), entry.script,
-                                                              ICStubCompiler::Engine::Baseline);
+    ICStubSpace* stubSpace = ICStubCompiler::StubSpaceForStub(
+        oldStub->makesGCCalls(), entry.script, ICStubCompiler::Engine::Baseline);
 
     // Clone the existing stub into the recompiled IC.
     //
     // Note that since JitCode is a GC thing, cloning an ICStub with the same
     // JitCode ensures it won't be collected.
     switch (oldStub->kind()) {
-#define CASE_KIND(kindName)                                                  \
-      case ICStub::kindName:                                                 \
-        entry.newStub = IC##kindName::Clone(cx, stubSpace, firstMonitorStub, \
-                                            *oldStub->to##kindName());       \
+#define CASE_KIND(kindName)                                                                 \
+    case ICStub::kindName:                                                                  \
+        entry.newStub =                                                                     \
+            IC##kindName::Clone(cx, stubSpace, firstMonitorStub, *oldStub->to##kindName()); \
         break;
         PATCHABLE_ICSTUB_KIND_LIST(CASE_KIND)
 #undef CASE_KIND
 
-      default:
-        MOZ_CRASH("Bad stub kind");
+        default:
+            MOZ_CRASH("Bad stub kind");
     }
 
-    if (!entry.newStub)
-        return false;
+    if (!entry.newStub) return false;
 
     fallbackStub->addNewStub(entry.newStub);
     return true;
 }
 
-static bool
-InvalidateScriptsInZone(JSContext* cx, Zone* zone, const Vector<DebugModeOSREntry>& entries)
-{
+static bool InvalidateScriptsInZone(JSContext* cx, Zone* zone,
+                                    const Vector<DebugModeOSREntry>& entries) {
     RecompileInfoVector invalid;
     for (UniqueScriptOSREntryIter iter(entries); !iter.done(); ++iter) {
         JSScript* script = iter.entry().script;
-        if (script->compartment()->zone() != zone)
-            continue;
+        if (script->compartment()->zone() != zone) continue;
 
         if (script->hasIonScript()) {
             if (!invalid.append(script->ionScript()->recompileInfo())) {
@@ -808,8 +757,7 @@ InvalidateScriptsInZone(JSContext* cx, Zone* zone, const Vector<DebugModeOSREntr
         // BaselineScript. If we relied on the call to Invalidate below to
         // cancel off-thread Ion compiles, only those with existing IonScripts
         // would be cancelled.
-        if (script->hasBaselineScript())
-            CancelOffThreadIonCompile(script);
+        if (script->hasBaselineScript()) CancelOffThreadIonCompile(script);
     }
 
     // No need to cancel off-thread Ion compiles again, we already did it
@@ -819,10 +767,8 @@ InvalidateScriptsInZone(JSContext* cx, Zone* zone, const Vector<DebugModeOSREntr
     return true;
 }
 
-static void
-UndoRecompileBaselineScriptsForDebugMode(JSContext* cx,
-                                         const DebugModeOSREntryVector& entries)
-{
+static void UndoRecompileBaselineScriptsForDebugMode(JSContext* cx,
+                                                     const DebugModeOSREntryVector& entries) {
     // In case of failure, roll back the entire set of active scripts so that
     // we don't have to patch return addresses on the stack.
     for (UniqueScriptOSREntryIter iter(entries); !iter.done(); ++iter) {
@@ -836,11 +782,9 @@ UndoRecompileBaselineScriptsForDebugMode(JSContext* cx,
     }
 }
 
-bool
-jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
-                                                 const Debugger::ExecutionObservableSet& obs,
-                                                 Debugger::IsObserving observing)
-{
+bool jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
+                                                      const Debugger::ExecutionObservableSet& obs,
+                                                      Debugger::IsObserving observing) {
     // First recompile the active scripts on the stack and patch the live
     // frames.
     Vector<DebugModeOSREntry> entries(cx);
@@ -848,17 +792,14 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
     for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
         for (ActivationIterator iter(cx, target); !iter.done(); ++iter) {
             if (iter->isJit()) {
-                if (!CollectJitStackScripts(cx, obs, iter, entries))
-                    return false;
+                if (!CollectJitStackScripts(cx, obs, iter, entries)) return false;
             } else if (iter->isInterpreter()) {
-                if (!CollectInterpreterStackScripts(cx, obs, iter, entries))
-                    return false;
+                if (!CollectInterpreterStackScripts(cx, obs, iter, entries)) return false;
             }
         }
     }
 
-    if (entries.empty())
-        return true;
+    if (entries.empty()) return true;
 
     // When the profiler is enabled, we need to have suppressed sampling,
     // since the basline jit scripts are in a state of flux.
@@ -866,13 +807,11 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
 
     // Invalidate all scripts we are recompiling.
     if (Zone* zone = obs.singleZone()) {
-        if (!InvalidateScriptsInZone(cx, zone, entries))
-            return false;
+        if (!InvalidateScriptsInZone(cx, zone, entries)) return false;
     } else {
         typedef Debugger::ExecutionObservableSet::ZoneRange ZoneRange;
         for (ZoneRange r = obs.zones()->all(); !r.empty(); r.popFront()) {
-            if (!InvalidateScriptsInZone(cx, r.front(), entries))
-                return false;
+            if (!InvalidateScriptsInZone(cx, r.front(), entries)) return false;
         }
     }
 
@@ -883,8 +822,7 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
         JSScript* script = entries[i].script;
         AutoCompartment ac(cx, script);
         if (!RecompileBaselineScriptForDebugMode(cx, script, observing) ||
-            !CloneOldBaselineStub(cx, entries, i))
-        {
+            !CloneOldBaselineStub(cx, entries, i)) {
             UndoRecompileBaselineScriptsForDebugMode(cx, entries);
             return false;
         }
@@ -915,48 +853,40 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
     return true;
 }
 
-void
-BaselineDebugModeOSRInfo::popValueInto(PCMappingSlotInfo::SlotLocation loc, Value* vp)
-{
+void BaselineDebugModeOSRInfo::popValueInto(PCMappingSlotInfo::SlotLocation loc, Value* vp) {
     switch (loc) {
-      case PCMappingSlotInfo::SlotInR0:
-        valueR0 = vp[stackAdjust];
-        break;
-      case PCMappingSlotInfo::SlotInR1:
-        valueR1 = vp[stackAdjust];
-        break;
-      case PCMappingSlotInfo::SlotIgnore:
-        break;
-      default:
-        MOZ_CRASH("Bad slot location");
+        case PCMappingSlotInfo::SlotInR0:
+            valueR0 = vp[stackAdjust];
+            break;
+        case PCMappingSlotInfo::SlotInR1:
+            valueR1 = vp[stackAdjust];
+            break;
+        case PCMappingSlotInfo::SlotIgnore:
+            break;
+        default:
+            MOZ_CRASH("Bad slot location");
     }
 
     stackAdjust++;
 }
 
-static inline bool
-HasForcedReturn(BaselineDebugModeOSRInfo* info, bool rv)
-{
+static inline bool HasForcedReturn(BaselineDebugModeOSRInfo* info, bool rv) {
     ICEntry::Kind kind = info->frameKind;
 
     // The debug epilogue always checks its resumption value, so we don't need
     // to check rv.
-    if (kind == ICEntry::Kind_DebugEpilogue)
-        return true;
+    if (kind == ICEntry::Kind_DebugEpilogue) return true;
 
     // |rv| is the value in ReturnReg. If true, in the case of the prologue,
     // it means a forced return.
-    if (kind == ICEntry::Kind_DebugPrologue)
-        return rv;
+    if (kind == ICEntry::Kind_DebugPrologue) return rv;
 
     // N.B. The debug trap handler handles its own forced return, so no
     // need to deal with it here.
     return false;
 }
 
-static inline bool
-IsReturningFromCallVM(BaselineDebugModeOSRInfo* info)
-{
+static inline bool IsReturningFromCallVM(BaselineDebugModeOSRInfo* info) {
     // Keep this in sync with EmitBranchIsReturningFromCallVM.
     //
     // The stack check entries are returns from a callVM, but have a special
@@ -967,17 +897,14 @@ IsReturningFromCallVM(BaselineDebugModeOSRInfo* info)
            info->frameKind == ICEntry::Kind_EarlyStackCheck;
 }
 
-static void
-EmitBranchICEntryKind(MacroAssembler& masm, Register entry, ICEntry::Kind kind, Label* label)
-{
+static void EmitBranchICEntryKind(MacroAssembler& masm, Register entry, ICEntry::Kind kind,
+                                  Label* label) {
     masm.branch32(MacroAssembler::Equal,
-                  Address(entry, offsetof(BaselineDebugModeOSRInfo, frameKind)),
-                  Imm32(kind), label);
+                  Address(entry, offsetof(BaselineDebugModeOSRInfo, frameKind)), Imm32(kind),
+                  label);
 }
 
-static void
-EmitBranchIsReturningFromCallVM(MacroAssembler& masm, Register entry, Label* label)
-{
+static void EmitBranchIsReturningFromCallVM(MacroAssembler& masm, Register entry, Label* label) {
     // Keep this in sync with IsReturningFromCallVM.
     EmitBranchICEntryKind(masm, entry, ICEntry::Kind_CallVM, label);
     EmitBranchICEntryKind(masm, entry, ICEntry::Kind_WarmupCounter, label);
@@ -985,9 +912,7 @@ EmitBranchIsReturningFromCallVM(MacroAssembler& masm, Register entry, Label* lab
     EmitBranchICEntryKind(masm, entry, ICEntry::Kind_EarlyStackCheck, label);
 }
 
-static void
-SyncBaselineDebugModeOSRInfo(BaselineFrame* frame, Value* vp, bool rv)
-{
+static void SyncBaselineDebugModeOSRInfo(BaselineFrame* frame, Value* vp, bool rv) {
     AutoUnsafeCallWithABI unsafe;
     BaselineDebugModeOSRInfo* info = frame->debugModeOSRInfo();
     MOZ_ASSERT(info);
@@ -1010,19 +935,15 @@ SyncBaselineDebugModeOSRInfo(BaselineFrame* frame, Value* vp, bool rv)
     if (!IsReturningFromCallVM(info)) {
         unsigned numUnsynced = info->slotInfo.numUnsynced();
         MOZ_ASSERT(numUnsynced <= 2);
-        if (numUnsynced > 0)
-            info->popValueInto(info->slotInfo.topSlotLocation(), vp);
-        if (numUnsynced > 1)
-            info->popValueInto(info->slotInfo.nextSlotLocation(), vp);
+        if (numUnsynced > 0) info->popValueInto(info->slotInfo.topSlotLocation(), vp);
+        if (numUnsynced > 1) info->popValueInto(info->slotInfo.nextSlotLocation(), vp);
     }
 
     // Scale stackAdjust.
     info->stackAdjust *= sizeof(Value);
 }
 
-static void
-FinishBaselineDebugModeOSR(BaselineFrame* frame)
-{
+static void FinishBaselineDebugModeOSR(BaselineFrame* frame) {
     AutoUnsafeCallWithABI unsafe;
     frame->deleteDebugModeOSRInfo();
 
@@ -1030,16 +951,12 @@ FinishBaselineDebugModeOSR(BaselineFrame* frame)
     frame->clearOverridePc();
 }
 
-void
-BaselineFrame::deleteDebugModeOSRInfo()
-{
+void BaselineFrame::deleteDebugModeOSRInfo() {
     js_delete(getDebugModeOSRInfo());
     flags_ &= ~HAS_DEBUG_MODE_OSR_INFO;
 }
 
-JitCode*
-JitRuntime::getBaselineDebugModeOSRHandler(JSContext* cx)
-{
+JitCode* JitRuntime::getBaselineDebugModeOSRHandler(JSContext* cx) {
     if (!baselineDebugModeOSRHandler_) {
         AutoLockForExclusiveAccess lock(cx);
         AutoAtomsCompartment ac(cx, lock);
@@ -1053,19 +970,14 @@ JitRuntime::getBaselineDebugModeOSRHandler(JSContext* cx)
     return baselineDebugModeOSRHandler_;
 }
 
-void*
-JitRuntime::getBaselineDebugModeOSRHandlerAddress(JSContext* cx, bool popFrameReg)
-{
-    if (!getBaselineDebugModeOSRHandler(cx))
-        return nullptr;
-    return popFrameReg
-           ? baselineDebugModeOSRHandler_->raw()
-           : baselineDebugModeOSRHandlerNoFrameRegPopAddr_.ref();
+void* JitRuntime::getBaselineDebugModeOSRHandlerAddress(JSContext* cx, bool popFrameReg) {
+    if (!getBaselineDebugModeOSRHandler(cx)) return nullptr;
+    return popFrameReg ? baselineDebugModeOSRHandler_->raw()
+                       : baselineDebugModeOSRHandlerNoFrameRegPopAddr_.ref();
 }
 
-static void
-EmitBaselineDebugModeOSRHandlerTail(MacroAssembler& masm, Register temp, bool returnFromCallVM)
-{
+static void EmitBaselineDebugModeOSRHandlerTail(MacroAssembler& masm, Register temp,
+                                                bool returnFromCallVM) {
     // Save real return address on the stack temporarily.
     //
     // If we're returning from a callVM, we don't need to worry about R0 and
@@ -1110,9 +1022,8 @@ EmitBaselineDebugModeOSRHandlerTail(MacroAssembler& masm, Register temp, bool re
     masm.jump(target);
 }
 
-JitCode*
-JitRuntime::generateBaselineDebugModeOSRHandler(JSContext* cx, uint32_t* noFrameRegPopOffsetOut)
-{
+JitCode* JitRuntime::generateBaselineDebugModeOSRHandler(JSContext* cx,
+                                                         uint32_t* noFrameRegPopOffsetOut) {
     MacroAssembler masm(cx);
 
     AllocatableGeneralRegisterSet regs(GeneralRegisterSet::All());
@@ -1164,8 +1075,7 @@ JitRuntime::generateBaselineDebugModeOSRHandler(JSContext* cx, uint32_t* noFrame
     Linker linker(masm);
     AutoFlushICache afc("BaselineDebugModeOSRHandler");
     JitCode* code = linker.newCode<NoGC>(cx, OTHER_CODE);
-    if (!code)
-        return nullptr;
+    if (!code) return nullptr;
 
     *noFrameRegPopOffsetOut = noFrameRegPopOffset.offset();
 
@@ -1176,10 +1086,8 @@ JitRuntime::generateBaselineDebugModeOSRHandler(JSContext* cx, uint32_t* noFrame
     return code;
 }
 
-/* static */ void
-DebugModeOSRVolatileJitFrameIter::forwardLiveIterators(const CooperatingContext& cx,
-                                                         uint8_t* oldAddr, uint8_t* newAddr)
-{
+/* static */ void DebugModeOSRVolatileJitFrameIter::forwardLiveIterators(
+    const CooperatingContext& cx, uint8_t* oldAddr, uint8_t* newAddr) {
     DebugModeOSRVolatileJitFrameIter* iter;
     for (iter = cx.context()->liveVolatileJitFrameIter_; iter; iter = iter->prev)
         iter->asJSJit().exchangeReturnAddressIfMatch(oldAddr, newAddr);

@@ -20,5 +20,5 @@ DisableSwitchNotifications(SwitchDevice aDevice)
 {
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

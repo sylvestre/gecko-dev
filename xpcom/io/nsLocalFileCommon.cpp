@@ -6,7 +6,7 @@
 
 #include "nsIServiceManager.h"
 
-#include "nsLocalFile.h" // includes platform-specific headers
+#include "nsLocalFile.h"  // includes platform-specific headers
 
 #include "nsString.h"
 #include "nsCOMPtr.h"
@@ -19,7 +19,6 @@
 #ifdef XP_WIN
 #include <string.h>
 #endif
-
 
 void
 NS_StartupLocalFile()
@@ -52,7 +51,7 @@ nsLocalFile::InitWithFile(nsIFile* aFile)
 
 #define kMaxFilenameLength 255
 #define kMaxExtensionLength 100
-#define kMaxSequenceNumberLength 5 // "-9999"
+#define kMaxSequenceNumberLength 5  // "-9999"
 // requirement: kMaxExtensionLength < kMaxFilenameLength - kMaxSequenceNumberLength
 
 NS_IMETHODIMP
@@ -72,8 +71,8 @@ nsLocalFile::CreateUnique(uint32_t aType, uint32_t aAttributes)
     return rv;
   }
 
-  longName = (pathName.Length() + kMaxSequenceNumberLength >
-              kMaxFilenameLength);
+  longName =
+      (pathName.Length() + kMaxSequenceNumberLength > kMaxFilenameLength);
   if (!longName) {
     rv = Create(aType, aAttributes);
     if (rv != NS_ERROR_FILE_ALREADY_EXISTS) {
@@ -100,14 +99,14 @@ nsLocalFile::CreateUnique(uint32_t aType, uint32_t aAttributes)
   if (lastDot == kNotFound) {
     rootName = leafName;
   } else {
-    suffix = Substring(leafName, lastDot);      // include '.'
-    rootName = Substring(leafName, 0, lastDot); // strip suffix and dot
+    suffix = Substring(leafName, lastDot);       // include '.'
+    rootName = Substring(leafName, 0, lastDot);  // strip suffix and dot
   }
 
   if (longName) {
-    int32_t maxRootLength = (kMaxFilenameLength -
-                             (pathName.Length() - leafName.Length()) -
-                             suffix.Length() - kMaxSequenceNumberLength);
+    int32_t maxRootLength =
+        (kMaxFilenameLength - (pathName.Length() - leafName.Length()) -
+         suffix.Length() - kMaxSequenceNumberLength);
 
     // We cannot create an item inside a directory whose name is too long.
     // Also, ensure that at least one character remains after we truncate
@@ -118,8 +117,9 @@ nsLocalFile::CreateUnique(uint32_t aType, uint32_t aAttributes)
 
 #ifdef XP_WIN
     // ensure that we don't cut the name in mid-UTF16-character
-    rootName.SetLength(NS_IS_LOW_SURROGATE(rootName[maxRootLength]) ?
-                       maxRootLength - 1 : maxRootLength);
+    rootName.SetLength(NS_IS_LOW_SURROGATE(rootName[maxRootLength])
+                           ? maxRootLength - 1
+                           : maxRootLength);
     SetLeafName(rootName + suffix);
 #else
     if (NS_IsNativeUTF8()) {
@@ -145,11 +145,10 @@ nsLocalFile::CreateUnique(uint32_t aType, uint32_t aAttributes)
   }
 
   for (int indx = 1; indx < 10000; ++indx) {
-    // start with "Picture-1.jpg" after "Picture.jpg" exists
+  // start with "Picture-1.jpg" after "Picture.jpg" exists
 #ifdef XP_WIN
     SetLeafName(rootName +
-                NS_ConvertASCIItoUTF16(nsPrintfCString("-%d", indx)) +
-                suffix);
+                NS_ConvertASCIItoUTF16(nsPrintfCString("-%d", indx)) + suffix);
 #else
     SetNativeLeafName(rootName + nsPrintfCString("-%d", indx) + suffix);
 #endif
@@ -164,9 +163,9 @@ nsLocalFile::CreateUnique(uint32_t aType, uint32_t aAttributes)
 }
 
 #if defined(XP_WIN)
-static const char16_t kPathSeparatorChar       = '\\';
+static const char16_t kPathSeparatorChar = '\\';
 #elif defined(XP_UNIX)
-static const char16_t kPathSeparatorChar       = '/';
+static const char16_t kPathSeparatorChar = '/';
 #else
 #error Need to define file path separator for your platform
 #endif
@@ -193,7 +192,6 @@ SplitPath(char16_t* aPath, nsTArray<char16_t*>& aNodeArray)
     }
   }
 }
-
 
 NS_IMETHODIMP
 nsLocalFile::GetRelativeDescriptor(nsIFile* aFromFile, nsACString& aResult)
@@ -305,7 +303,8 @@ nsLocalFile::SetRelativeDescriptor(nsIFile* aFromFile,
   while (nodeEnd != strEnd) {
     FindCharInReadable('/', nodeEnd, strEnd);
     targetFile->Append(NS_ConvertUTF8toUTF16(Substring(nodeBegin, nodeEnd)));
-    if (nodeEnd != strEnd) { // If there's more left in the string, inc over the '/' nodeEnd is on.
+    if (nodeEnd !=
+        strEnd) {  // If there's more left in the string, inc over the '/' nodeEnd is on.
       ++nodeEnd;
     }
     nodeBegin = nodeEnd;

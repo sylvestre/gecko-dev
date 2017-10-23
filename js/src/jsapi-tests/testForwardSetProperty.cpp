@@ -9,23 +9,25 @@
 
 using namespace JS;
 
-BEGIN_TEST(testForwardSetProperty)
-{
+BEGIN_TEST(testForwardSetProperty) {
     RootedValue v1(cx);
-    EVAL("var foundValue; \n"
-         "var obj1 = { set prop(val) { foundValue = this; } }; \n"
-         "obj1;",
-         &v1);
+    EVAL(
+        "var foundValue; \n"
+        "var obj1 = { set prop(val) { foundValue = this; } }; \n"
+        "obj1;",
+        &v1);
 
     RootedValue v2(cx);
-    EVAL("var obj2 = Object.create(obj1); \n"
-         "obj2;",
-         &v2);
+    EVAL(
+        "var obj2 = Object.create(obj1); \n"
+        "obj2;",
+        &v2);
 
     RootedValue v3(cx);
-    EVAL("var obj3 = {}; \n"
-         "obj3;",
-         &v3);
+    EVAL(
+        "var obj3 = {}; \n"
+        "obj3;",
+        &v3);
 
     RootedObject obj1(cx, &v1.toObject());
     RootedObject obj2(cx, &v2.toObject());
@@ -39,11 +41,12 @@ BEGIN_TEST(testForwardSetProperty)
     RootedId prop(cx);
     CHECK(JS_ValueToId(cx, propkey, &prop));
 
-    EXEC("function assertEq(a, b, msg) \n"
-         "{ \n"
-         "  if (!Object.is(a, b)) \n"
-         "    throw new Error('Assertion failure: ' + msg); \n"
-         "}");
+    EXEC(
+        "function assertEq(a, b, msg) \n"
+        "{ \n"
+        "  if (!Object.is(a, b)) \n"
+        "    throw new Error('Assertion failure: ' + msg); \n"
+        "}");
 
     // Non-strict setter
 
@@ -56,17 +59,20 @@ BEGIN_TEST(testForwardSetProperty)
     CHECK(JS_ForwardSetPropertyTo(cx, obj2, prop, setval, setval, result));
     CHECK(result);
 
-    EXEC("assertEq(typeof foundValue === 'object', true, \n"
-         "         'passing 42 as receiver to non-strict setter ' + \n"
-         "         'must box');");
+    EXEC(
+        "assertEq(typeof foundValue === 'object', true, \n"
+        "         'passing 42 as receiver to non-strict setter ' + \n"
+        "         'must box');");
 
-    EXEC("assertEq(foundValue instanceof Number, true, \n"
-         "         'passing 42 as receiver to non-strict setter ' + \n"
-         "         'must box to a Number');");
+    EXEC(
+        "assertEq(foundValue instanceof Number, true, \n"
+        "         'passing 42 as receiver to non-strict setter ' + \n"
+        "         'must box to a Number');");
 
-    EXEC("assertEq(foundValue.valueOf(), 42, \n"
-         "         'passing 42 as receiver to non-strict setter ' + \n"
-         "         'must box to new Number(42)');");
+    EXEC(
+        "assertEq(foundValue.valueOf(), 42, \n"
+        "         'passing 42 as receiver to non-strict setter ' + \n"
+        "         'must box to new Number(42)');");
 
     // Strict setter
 
@@ -82,8 +88,9 @@ BEGIN_TEST(testForwardSetProperty)
     CHECK(JS_ForwardSetPropertyTo(cx, obj4, prop, setval, setval, result));
     CHECK(result);
 
-    EXEC("assertEq(foundValue, 42, \n"
-         "         '42 passed as receiver to strict setter was mangled');");
+    EXEC(
+        "assertEq(foundValue, 42, \n"
+        "         '42 passed as receiver to strict setter was mangled');");
 
     return true;
 }

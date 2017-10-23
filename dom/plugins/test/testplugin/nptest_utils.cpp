@@ -90,15 +90,14 @@ doubleVariantToIdentifier(NPVariant variant)
 uint32_t
 parseHexColor(const char* color, int len)
 {
-  uint8_t bgra[4] = { 0, 0, 0, 0xFF };
+  uint8_t bgra[4] = {0, 0, 0, 0xFF};
   int i = 0;
 
   // Ignore unsupported formats.
-  if (len != 9 && len != 8)
-    return 0;
+  if (len != 9 && len != 8) return 0;
 
   // start from the right and work to the left
-  while (len >= 2) { // we have at least #AA or AA left.
+  while (len >= 2) {  // we have at least #AA or AA left.
     char byte[3];
     // parse two hex digits
     byte[0] = color[len - 2];

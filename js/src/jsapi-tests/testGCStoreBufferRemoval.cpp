@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -19,8 +19,7 @@ struct AutoIgnoreRootingHazards {
 } JS_HAZ_GC_SUPPRESSED;
 volatile int AutoIgnoreRootingHazards::depth = 0;
 
-BEGIN_TEST(testGCStoreBufferRemoval)
-{
+BEGIN_TEST(testGCStoreBufferRemoval) {
     // Sanity check - objects start in the nursery and then become tenured.
     JS_GC(cx);
     JS::RootedObject obj(cx, NurseryObject());
@@ -36,8 +35,7 @@ BEGIN_TEST(testGCStoreBufferRemoval)
     {
         JSObject* badObject = reinterpret_cast<JSObject*>(1);
         JSObject* punnedPtr = nullptr;
-        HeapPtr<JSObject*>* relocPtr =
-            reinterpret_cast<HeapPtr<JSObject*>*>(&punnedPtr);
+        HeapPtr<JSObject*>* relocPtr = reinterpret_cast<HeapPtr<JSObject*>*>(&punnedPtr);
         new (relocPtr) HeapPtr<JSObject*>;
         *relocPtr = NurseryObject();
         relocPtr->~HeapPtr<JSObject*>();
@@ -88,8 +86,7 @@ BEGIN_TEST(testGCStoreBufferRemoval)
     {
         JSObject* badObject = reinterpret_cast<JSObject*>(1);
         JSObject* punnedPtr = nullptr;
-        Heap<JSObject*>* heapPtr =
-            reinterpret_cast<Heap<JSObject*>*>(&punnedPtr);
+        Heap<JSObject*>* heapPtr = reinterpret_cast<Heap<JSObject*>*>(&punnedPtr);
         new (heapPtr) Heap<JSObject*>;
         *heapPtr = NurseryObject();
         heapPtr->~Heap<JSObject*>();
@@ -114,8 +111,5 @@ BEGIN_TEST(testGCStoreBufferRemoval)
     return true;
 }
 
-JSObject* NurseryObject()
-{
-    return JS_NewPlainObject(cx);
-}
+JSObject* NurseryObject() { return JS_NewPlainObject(cx); }
 END_TEST(testGCStoreBufferRemoval)

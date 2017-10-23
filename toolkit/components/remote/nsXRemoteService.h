@@ -21,42 +21,44 @@ class nsIWeakReference;
 /**
   Base class for GTK/Qt remote service
 */
-class nsXRemoteService : public nsIRemoteService,
-                         public nsIObserver
+class nsXRemoteService : public nsIRemoteService, public nsIObserver
 {
-public:
-    NS_DECL_NSIOBSERVER
+ public:
+  NS_DECL_NSIOBSERVER
 
+ protected:
+  nsXRemoteService();
 
-protected:
-    nsXRemoteService();
+  static bool HandleNewProperty(Window aWindowId,
+                                Display* aDisplay,
+                                Time aEventTime,
+                                Atom aChangedAtom,
+                                nsIWeakReference* aDomWindow);
 
-    static bool HandleNewProperty(Window aWindowId,Display* aDisplay,
-                                    Time aEventTime, Atom aChangedAtom,
-                                    nsIWeakReference* aDomWindow);
+  void XRemoteBaseStartup(const char* aAppName, const char* aProfileName);
 
-    void XRemoteBaseStartup(const char *aAppName, const char *aProfileName);
+  void HandleCommandsFor(Window aWindowId);
+  static nsXRemoteService* sRemoteImplementation;
 
-    void HandleCommandsFor(Window aWindowId);
-    static nsXRemoteService *sRemoteImplementation;
-private:
-    void EnsureAtoms();
-    static const char* HandleCommandLine(char* aBuffer, nsIDOMWindow* aWindow,
-                                         uint32_t aTimestamp);
+ private:
+  void EnsureAtoms();
+  static const char* HandleCommandLine(char* aBuffer,
+                                       nsIDOMWindow* aWindow,
+                                       uint32_t aTimestamp);
 
-    virtual void SetDesktopStartupIDOrTimestamp(const nsACString& aDesktopStartupID,
-                                                uint32_t aTimestamp) = 0;
+  virtual void SetDesktopStartupIDOrTimestamp(
+      const nsACString& aDesktopStartupID, uint32_t aTimestamp) = 0;
 
-    nsCString mAppName;
-    nsCString mProfileName;
+  nsCString mAppName;
+  nsCString mProfileName;
 
-    static Atom sMozVersionAtom;
-    static Atom sMozLockAtom;
-    static Atom sMozResponseAtom;
-    static Atom sMozUserAtom;
-    static Atom sMozProfileAtom;
-    static Atom sMozProgramAtom;
-    static Atom sMozCommandLineAtom;
+  static Atom sMozVersionAtom;
+  static Atom sMozLockAtom;
+  static Atom sMozResponseAtom;
+  static Atom sMozUserAtom;
+  static Atom sMozProfileAtom;
+  static Atom sMozProgramAtom;
+  static Atom sMozCommandLineAtom;
 };
 
-#endif // NSXREMOTESERVICE_H
+#endif  // NSXREMOTESERVICE_H

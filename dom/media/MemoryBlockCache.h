@@ -31,13 +31,13 @@ namespace mozilla {
 // whereas reads can be done with byte granularity.
 class MemoryBlockCache : public MediaBlockCacheBase
 {
-public:
+ public:
   explicit MemoryBlockCache(int64_t aContentLength);
 
-protected:
+ protected:
   virtual ~MemoryBlockCache();
 
-public:
+ public:
   // Allocate initial buffer.
   // If re-initializing, clear buffer.
   virtual nsresult Init() override;
@@ -63,7 +63,7 @@ public:
   virtual nsresult MoveBlock(int32_t aSourceBlockIndex,
                              int32_t aDestBlockIndex) override;
 
-private:
+ private:
   static size_t BlockIndexToOffset(uint32_t aBlockIndex)
   {
     return static_cast<size_t>(aBlockIndex) * BLOCK_SIZE;
@@ -87,6 +87,6 @@ private:
   bool mHasGrown = false;
 };
 
-} // End namespace mozilla.
+}  // End namespace mozilla.
 
 #endif /* MEMORY_BLOCK_CACHE_H_ */

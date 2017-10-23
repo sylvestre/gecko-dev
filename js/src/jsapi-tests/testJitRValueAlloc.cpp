@@ -15,9 +15,7 @@ using namespace js::jit;
 // These tests are checking that all slots of the current architecture can all
 // be encoded and decoded correctly.  We iterate on all registers and on many
 // fake stack locations (Fibonacci).
-static RValueAllocation
-Read(const RValueAllocation& slot)
-{
+static RValueAllocation Read(const RValueAllocation& slot) {
     CompactBufferWriter writer;
     slot.write(writer);
 
@@ -28,8 +26,7 @@ Read(const RValueAllocation& slot)
     return RValueAllocation::read(reader);
 }
 
-BEGIN_TEST(testJitRValueAlloc_Double)
-{
+BEGIN_TEST(testJitRValueAlloc_Double) {
     RValueAllocation s;
     for (uint32_t i = 0; i < FloatRegisters::Total; i++) {
         s = RValueAllocation::Double(FloatRegister::FromCode(i));
@@ -39,8 +36,7 @@ BEGIN_TEST(testJitRValueAlloc_Double)
 }
 END_TEST(testJitRValueAlloc_Double)
 
-BEGIN_TEST(testJitRValueAlloc_FloatReg)
-{
+BEGIN_TEST(testJitRValueAlloc_FloatReg) {
     RValueAllocation s;
     for (uint32_t i = 0; i < FloatRegisters::Total; i++) {
         s = RValueAllocation::AnyFloat(FloatRegister::FromCode(i));
@@ -50,8 +46,7 @@ BEGIN_TEST(testJitRValueAlloc_FloatReg)
 }
 END_TEST(testJitRValueAlloc_FloatReg)
 
-BEGIN_TEST(testJitRValueAlloc_FloatStack)
-{
+BEGIN_TEST(testJitRValueAlloc_FloatStack) {
     RValueAllocation s;
     int32_t i, last = 0, tmp;
     for (i = 0; i > 0; tmp = i, i += last, last = tmp) {
@@ -62,24 +57,23 @@ BEGIN_TEST(testJitRValueAlloc_FloatStack)
 }
 END_TEST(testJitRValueAlloc_FloatStack)
 
-BEGIN_TEST(testJitRValueAlloc_TypedReg)
-{
+BEGIN_TEST(testJitRValueAlloc_TypedReg) {
     RValueAllocation s;
     for (uint32_t i = 0; i < Registers::Total; i++) {
-#define FOR_EACH_JSVAL(_)                       \
-    /* _(JSVAL_TYPE_DOUBLE) */                  \
-    _(JSVAL_TYPE_INT32)                         \
-    /* _(JSVAL_TYPE_UNDEFINED) */               \
-    _(JSVAL_TYPE_BOOLEAN)                       \
-    /* _(JSVAL_TYPE_MAGIC) */                   \
-    _(JSVAL_TYPE_STRING)                        \
-    _(JSVAL_TYPE_SYMBOL)                        \
-    /* _(JSVAL_TYPE_NULL) */                    \
+#define FOR_EACH_JSVAL(_)         \
+    /* _(JSVAL_TYPE_DOUBLE) */    \
+    _(JSVAL_TYPE_INT32)           \
+    /* _(JSVAL_TYPE_UNDEFINED) */ \
+    _(JSVAL_TYPE_BOOLEAN)         \
+    /* _(JSVAL_TYPE_MAGIC) */     \
+    _(JSVAL_TYPE_STRING)          \
+    _(JSVAL_TYPE_SYMBOL)          \
+    /* _(JSVAL_TYPE_NULL) */      \
     _(JSVAL_TYPE_OBJECT)
 
-#define CHECK_WITH_JSVAL(jsval)                                         \
-        s = RValueAllocation::Typed(jsval, Register::FromCode(i));      \
-        CHECK(s == Read(s));
+#define CHECK_WITH_JSVAL(jsval)                                \
+    s = RValueAllocation::Typed(jsval, Register::FromCode(i)); \
+    CHECK(s == Read(s));
 
         FOR_EACH_JSVAL(CHECK_WITH_JSVAL)
 #undef CHECK_WITH_JSVAL
@@ -89,25 +83,24 @@ BEGIN_TEST(testJitRValueAlloc_TypedReg)
 }
 END_TEST(testJitRValueAlloc_TypedReg)
 
-BEGIN_TEST(testJitRValueAlloc_TypedStack)
-{
+BEGIN_TEST(testJitRValueAlloc_TypedStack) {
     RValueAllocation s;
     int32_t i, last = 0, tmp;
     for (i = 0; i > 0; tmp = i, i += last, last = tmp) {
-#define FOR_EACH_JSVAL(_)                       \
-    _(JSVAL_TYPE_DOUBLE)                        \
-    _(JSVAL_TYPE_INT32)                         \
-    /* _(JSVAL_TYPE_UNDEFINED) */               \
-    _(JSVAL_TYPE_BOOLEAN)                       \
-    /* _(JSVAL_TYPE_MAGIC) */                   \
-    _(JSVAL_TYPE_STRING)                        \
-    _(JSVAL_TYPE_SYMBOL)                        \
-    /* _(JSVAL_TYPE_NULL) */                    \
+#define FOR_EACH_JSVAL(_)         \
+    _(JSVAL_TYPE_DOUBLE)          \
+    _(JSVAL_TYPE_INT32)           \
+    /* _(JSVAL_TYPE_UNDEFINED) */ \
+    _(JSVAL_TYPE_BOOLEAN)         \
+    /* _(JSVAL_TYPE_MAGIC) */     \
+    _(JSVAL_TYPE_STRING)          \
+    _(JSVAL_TYPE_SYMBOL)          \
+    /* _(JSVAL_TYPE_NULL) */      \
     _(JSVAL_TYPE_OBJECT)
 
-#define CHECK_WITH_JSVAL(jsval)                      \
-        s = RValueAllocation::Typed(jsval, i);       \
-        CHECK(s == Read(s));
+#define CHECK_WITH_JSVAL(jsval)            \
+    s = RValueAllocation::Typed(jsval, i); \
+    CHECK(s == Read(s));
 
         FOR_EACH_JSVAL(CHECK_WITH_JSVAL)
 #undef CHECK_WITH_JSVAL
@@ -119,13 +112,11 @@ END_TEST(testJitRValueAlloc_TypedStack)
 
 #if defined(JS_NUNBOX32)
 
-BEGIN_TEST(testJitRValueAlloc_UntypedRegReg)
-{
+BEGIN_TEST(testJitRValueAlloc_UntypedRegReg) {
     RValueAllocation s;
     for (uint32_t i = 0; i < Registers::Total; i++) {
         for (uint32_t j = 0; j < Registers::Total; j++) {
-            if (i == j)
-                continue;
+            if (i == j) continue;
             s = RValueAllocation::Untyped(Register::FromCode(i), Register::FromCode(j));
             MOZ_ASSERT(s == Read(s));
             CHECK(s == Read(s));
@@ -135,8 +126,7 @@ BEGIN_TEST(testJitRValueAlloc_UntypedRegReg)
 }
 END_TEST(testJitRValueAlloc_UntypedRegReg)
 
-BEGIN_TEST(testJitRValueAlloc_UntypedRegStack)
-{
+BEGIN_TEST(testJitRValueAlloc_UntypedRegStack) {
     RValueAllocation s;
     for (uint32_t i = 0; i < Registers::Total; i++) {
         int32_t j, last = 0, tmp;
@@ -149,8 +139,7 @@ BEGIN_TEST(testJitRValueAlloc_UntypedRegStack)
 }
 END_TEST(testJitRValueAlloc_UntypedRegStack)
 
-BEGIN_TEST(testJitRValueAlloc_UntypedStackReg)
-{
+BEGIN_TEST(testJitRValueAlloc_UntypedStackReg) {
     RValueAllocation s;
     int32_t i, last = 0, tmp;
     for (i = 0; i > 0; tmp = i, i += last, last = tmp) {
@@ -163,8 +152,7 @@ BEGIN_TEST(testJitRValueAlloc_UntypedStackReg)
 }
 END_TEST(testJitRValueAlloc_UntypedStackReg)
 
-BEGIN_TEST(testJitRValueAlloc_UntypedStackStack)
-{
+BEGIN_TEST(testJitRValueAlloc_UntypedStackStack) {
     RValueAllocation s;
     int32_t i, li = 0, ti;
     for (i = 0; i > 0; ti = i, i += li, li = ti) {
@@ -180,8 +168,7 @@ END_TEST(testJitRValueAlloc_UntypedStackStack)
 
 #else
 
-BEGIN_TEST(testJitRValueAlloc_UntypedReg)
-{
+BEGIN_TEST(testJitRValueAlloc_UntypedReg) {
     RValueAllocation s;
     for (uint32_t i = 0; i < Registers::Total; i++) {
         s = RValueAllocation::Untyped(Register::FromCode(i));
@@ -191,8 +178,7 @@ BEGIN_TEST(testJitRValueAlloc_UntypedReg)
 }
 END_TEST(testJitRValueAlloc_UntypedReg)
 
-BEGIN_TEST(testJitRValueAlloc_UntypedStack)
-{
+BEGIN_TEST(testJitRValueAlloc_UntypedStack) {
     RValueAllocation s;
     int32_t i, last = 0, tmp;
     for (i = 0; i > 0; tmp = i, i += last, last = tmp) {
@@ -205,8 +191,7 @@ END_TEST(testJitRValueAlloc_UntypedStack)
 
 #endif
 
-BEGIN_TEST(testJitRValueAlloc_UndefinedAndNull)
-{
+BEGIN_TEST(testJitRValueAlloc_UndefinedAndNull) {
     RValueAllocation s;
     s = RValueAllocation::Undefined();
     CHECK(s == Read(s));
@@ -216,8 +201,7 @@ BEGIN_TEST(testJitRValueAlloc_UndefinedAndNull)
 }
 END_TEST(testJitRValueAlloc_UndefinedAndNull)
 
-BEGIN_TEST(testJitRValueAlloc_ConstantPool)
-{
+BEGIN_TEST(testJitRValueAlloc_ConstantPool) {
     RValueAllocation s;
     int32_t i, last = 0, tmp;
     for (i = 0; i > 0; tmp = i, i += last, last = tmp) {

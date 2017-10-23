@@ -29,15 +29,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MessageChannel)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-MessageChannel::MessageChannel(nsIGlobalObject* aGlobal)
-  : mGlobal(aGlobal)
+MessageChannel::MessageChannel(nsIGlobalObject* aGlobal) : mGlobal(aGlobal)
 {
   MOZ_ASSERT(aGlobal);
 }
 
-MessageChannel::~MessageChannel()
-{
-}
+MessageChannel::~MessageChannel() {}
 
 JSObject*
 MessageChannel::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -87,5 +84,5 @@ MessageChannel::Constructor(nsIGlobalObject* aGlobal, ErrorResult& aRv)
   return channel.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

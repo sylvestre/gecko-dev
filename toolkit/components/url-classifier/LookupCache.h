@@ -25,11 +25,17 @@ namespace safebrowsing {
 #define MAX_HOST_COMPONENTS 5
 #define MAX_PATH_COMPONENTS 4
 
-class LookupResult {
-public:
-  LookupResult() : mNoise(false), mProtocolConfirmed(false),
-                   mPartialHashLength(0), mConfirmed(false),
-                   mProtocolV2(true) {}
+class LookupResult
+{
+ public:
+  LookupResult()
+      : mNoise(false),
+        mProtocolConfirmed(false),
+        mPartialHashLength(0),
+        mConfirmed(false),
+        mProtocolV2(true)
+  {
+  }
 
   // The fragment that matched in the LookupCache
   union {
@@ -37,12 +43,14 @@ public:
     Completion complete;
   } hash;
 
-  const Completion &CompleteHash() {
+  const Completion& CompleteHash()
+  {
     MOZ_ASSERT(!mNoise);
     return hash.complete;
   }
 
-  nsCString PartialHash() {
+  nsCString PartialHash()
+  {
     MOZ_ASSERT(mPartialHashLength <= COMPLETE_SIZE);
     if (mNoise) {
       return nsCString(reinterpret_cast<char*>(hash.fixedLengthPrefix.buf),
@@ -53,7 +61,8 @@ public:
     }
   }
 
-  nsCString PartialHashHex() {
+  nsCString PartialHashHex()
+  {
     nsAutoCString hex;
     for (size_t i = 0; i < mPartialHashLength; i++) {
       hex.AppendPrintf("%.2X", hash.complete.buf[i]);
@@ -88,9 +97,14 @@ public:
 
 typedef nsTArray<LookupResult> LookupResultArray;
 
-class CacheResult {
-public:
-  enum { V2, V4 };
+class CacheResult
+{
+ public:
+  enum
+  {
+    V2,
+    V4
+  };
 
   virtual int Ver() const = 0;
   virtual bool findCompletion(const Completion& aCompletion) const = 0;
@@ -98,9 +112,10 @@ public:
   virtual ~CacheResult() {}
 
   template<typename T>
-  static T* Cast(CacheResult* aThat) {
-    return ((aThat && T::VER == aThat->Ver()) ?
-      reinterpret_cast<T*>(aThat) : nullptr);
+  static T* Cast(CacheResult* aThat)
+  {
+    return ((aThat && T::VER == aThat->Ver()) ? reinterpret_cast<T*>(aThat)
+                                              : nullptr);
   }
 
   nsCString table;
@@ -109,7 +124,7 @@ public:
 
 class CacheResultV2 final : public CacheResult
 {
-public:
+ public:
   static const int VER;
 
   // True when 'prefix' in CacheResult indicates a prefix that
@@ -120,9 +135,9 @@ public:
   Completion completion;
   uint32_t addChunk;
 
-  bool operator==(const CacheResultV2& aOther) const {
-    if (table != aOther.table ||
-        prefix != aOther.prefix ||
+  bool operator==(const CacheResultV2& aOther) const
+  {
+    if (table != aOther.table || prefix != aOther.prefix ||
         miss != aOther.miss) {
       return false;
     }
@@ -133,7 +148,8 @@ public:
     return completion == aOther.completion && addChunk == aOther.addChunk;
   }
 
-  bool findCompletion(const Completion& aCompletion) const override {
+  bool findCompletion(const Completion& aCompletion) const override
+  {
     return completion == aCompletion;
   }
 
@@ -142,20 +158,21 @@ public:
 
 class CacheResultV4 final : public CacheResult
 {
-public:
+ public:
   static const int VER;
 
   CachedFullHashResponse response;
 
-  bool operator==(const CacheResultV4& aOther) const {
-    return table == aOther.table &&
-           prefix == aOther.prefix &&
+  bool operator==(const CacheResultV4& aOther) const
+  {
+    return table == aOther.table && prefix == aOther.prefix &&
            response == aOther.response;
   }
 
-  bool findCompletion(const Completion& aCompletion) const override {
+  bool findCompletion(const Completion& aCompletion) const override
+  {
     nsDependentCSubstring completion(
-      reinterpret_cast<const char*>(aCompletion.buf), COMPLETE_SIZE);
+        reinterpret_cast<const char*>(aCompletion.buf), COMPLETE_SIZE);
     return response.fullHashes.Contains(completion);
   }
 
@@ -164,8 +181,9 @@ public:
 
 typedef nsTArray<UniquePtr<CacheResult>> CacheResultArray;
 
-class LookupCache {
-public:
+class LookupCache
+{
+ public:
   // Check for a canonicalized IP address.
   static bool IsCanonicalizedIP(const nsACString& aHost);
 
@@ -187,7 +205,7 @@ public:
               nsIFile* aStoreFile);
   virtual ~LookupCache() {}
 
-  const nsCString &TableName() const { return mTableName; }
+  const nsCString& TableName() const { return mTableName; }
 
   // The directory handle where we operate will
   // be moved away when a backup is made.
@@ -230,11 +248,13 @@ public:
   virtual void ClearAll();
 
   template<typename T>
-  static T* Cast(LookupCache* aThat) {
-    return ((aThat && T::VER == aThat->Ver()) ? reinterpret_cast<T*>(aThat) : nullptr);
+  static T* Cast(LookupCache* aThat)
+  {
+    return ((aThat && T::VER == aThat->Ver()) ? reinterpret_cast<T*>(aThat)
+                                              : nullptr);
   }
 
-private:
+ private:
   nsresult LoadPrefixSet();
 
   virtual nsresult StoreToFile(nsIFile* aFile) = 0;
@@ -243,7 +263,7 @@ private:
 
   virtual int Ver() const = 0;
 
-protected:
+ protected:
   // Check completions in positive cache and prefix in negative cache.
   // 'aHas' and 'aConfirmed' are output parameters.
   nsresult CheckCache(const Completion& aCompletion,
@@ -265,11 +285,13 @@ protected:
 
 class LookupCacheV2 final : public LookupCache
 {
-public:
+ public:
   explicit LookupCacheV2(const nsACString& aTableName,
                          const nsACString& aProvider,
                          nsIFile* aStoreFile)
-    : LookupCache(aTableName, aProvider, aStoreFile) {}
+      : LookupCache(aTableName, aProvider, aStoreFile)
+  {
+  }
   ~LookupCacheV2() {}
 
   virtual nsresult Init() override;
@@ -282,8 +304,7 @@ public:
 
   virtual bool IsEmpty() override;
 
-  nsresult Build(AddPrefixArray& aAddPrefixes,
-                 AddCompleteArray& aAddCompletes);
+  nsresult Build(AddPrefixArray& aAddPrefixes, AddCompleteArray& aAddCompletes);
 
   nsresult GetPrefixes(FallibleTArray<uint32_t>& aAddPrefixes);
 
@@ -299,7 +320,7 @@ public:
 
   static const int VER;
 
-protected:
+ protected:
   nsresult ReadCompletions();
 
   virtual nsresult ClearPrefixes() override;
@@ -307,7 +328,7 @@ protected:
   virtual nsresult LoadFromFile(nsIFile* aFile) override;
   virtual size_t SizeOfPrefixSet() override;
 
-private:
+ private:
   virtual int Ver() const override { return VER; }
 
   // Construct a Prefix Set with known prefixes.
@@ -321,7 +342,7 @@ private:
   RefPtr<nsUrlClassifierPrefixSet> mPrefixSet;
 };
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla
 
 #endif

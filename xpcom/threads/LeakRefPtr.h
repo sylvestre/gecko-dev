@@ -20,9 +20,8 @@ namespace mozilla {
 template<class T>
 class LeakRefPtr
 {
-public:
-  explicit LeakRefPtr(already_AddRefed<T>&& aPtr)
-    : mRawPtr(aPtr.take()) { }
+ public:
+  explicit LeakRefPtr(already_AddRefed<T>&& aPtr) : mRawPtr(aPtr.take()) {}
 
   explicit operator bool() const { return !!mRawPtr; }
 
@@ -43,10 +42,10 @@ public:
 
   void release() { NS_RELEASE(mRawPtr); }
 
-private:
+ private:
   T* MOZ_OWNING_REF mRawPtr;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // LeakRefPtr_h
+#endif  // LeakRefPtr_h

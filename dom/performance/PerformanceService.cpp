@@ -33,7 +33,7 @@ DOMHighResTimeStamp
 PerformanceService::TimeOrigin(const TimeStamp& aCreationTimeStamp) const
 {
   return (aCreationTimeStamp - mCreationTimeStamp).ToMilliseconds() +
-           (mCreationEpochTime / PR_USEC_PER_MSEC);
+         (mCreationEpochTime / PR_USEC_PER_MSEC);
 }
 
 PerformanceService::PerformanceService()
@@ -42,5 +42,5 @@ PerformanceService::PerformanceService()
   mCreationEpochTime = PR_Now();
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

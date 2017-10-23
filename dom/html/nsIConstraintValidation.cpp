@@ -25,15 +25,14 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 nsIConstraintValidation::nsIConstraintValidation()
-  : mValidityBitField(0)
-  // By default, all elements are subjects to constraint validation.
-  , mBarredFromConstraintValidation(false)
+    : mValidityBitField(0)
+      // By default, all elements are subjects to constraint validation.
+      ,
+      mBarredFromConstraintValidation(false)
 {
 }
 
-nsIConstraintValidation::~nsIConstraintValidation()
-{
-}
+nsIConstraintValidation::~nsIConstraintValidation() {}
 
 mozilla::dom::ValidityState*
 nsIConstraintValidation::Validity()
@@ -63,11 +62,12 @@ nsIConstraintValidation::GetValidationMessage(nsAString& aValidationMessage,
 
   if (IsCandidateForConstraintValidation() && !IsValid()) {
     nsCOMPtr<nsIContent> content = do_QueryInterface(this);
-    NS_ASSERTION(content, "This class should be inherited by HTML elements only!");
+    NS_ASSERTION(content,
+                 "This class should be inherited by HTML elements only!");
 
     nsAutoString authorMessage;
-    content->GetAttr(kNameSpaceID_None, nsGkAtoms::x_moz_errormessage,
-                     authorMessage);
+    content->GetAttr(
+        kNameSpaceID_None, nsGkAtoms::x_moz_errormessage, authorMessage);
 
     if (!authorMessage.IsEmpty()) {
       aValidationMessage.Assign(authorMessage);
@@ -115,11 +115,11 @@ nsIConstraintValidation::CheckValidity()
   }
 
   nsCOMPtr<nsIContent> content = do_QueryInterface(this);
-  NS_ASSERTION(content, "This class should be inherited by HTML elements only!");
+  NS_ASSERTION(content,
+               "This class should be inherited by HTML elements only!");
 
-  nsContentUtils::DispatchTrustedEvent(content->OwnerDoc(), content,
-                                       NS_LITERAL_STRING("invalid"),
-                                       false, true);
+  nsContentUtils::DispatchTrustedEvent(
+      content->OwnerDoc(), content, NS_LITERAL_STRING("invalid"), false, true);
   return false;
 }
 
@@ -144,15 +144,18 @@ nsIConstraintValidation::ReportValidity()
   MOZ_ASSERT(content, "This class should be inherited by HTML elements only!");
 
   bool defaultAction = true;
-  nsContentUtils::DispatchTrustedEvent(content->OwnerDoc(), content,
+  nsContentUtils::DispatchTrustedEvent(content->OwnerDoc(),
+                                       content,
                                        NS_LITERAL_STRING("invalid"),
-                                       false, true, &defaultAction);
+                                       false,
+                                       true,
+                                       &defaultAction);
   if (!defaultAction) {
     return false;
   }
 
   nsCOMPtr<nsIObserverService> service =
-    mozilla::services::GetObserverService();
+      mozilla::services::GetObserverService();
   if (!service) {
     NS_WARNING("No observer service available!");
     return true;
@@ -169,7 +172,7 @@ nsIConstraintValidation::ReportValidity()
   rv = theEnum->HasMoreElements(&hasObserver);
 
   nsCOMPtr<nsIMutableArray> invalidElements =
-    do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
+      do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
   invalidElements->AppendElement(content, false);
 
   NS_ENSURE_SUCCESS(rv, true);
@@ -188,7 +191,7 @@ nsIConstraintValidation::ReportValidity()
   if (content->IsHTMLElement(nsGkAtoms::input) &&
       nsContentUtils::IsFocusedContent(content)) {
     HTMLInputElement* inputElement =
-    HTMLInputElement::FromContentOrNull(content);
+        HTMLInputElement::FromContentOrNull(content);
 
     inputElement->UpdateValidityUIBits(true);
   }
@@ -199,8 +202,7 @@ nsIConstraintValidation::ReportValidity()
 }
 
 void
-nsIConstraintValidation::SetValidityState(ValidityStateType aState,
-                                          bool aValue)
+nsIConstraintValidation::SetValidityState(ValidityStateType aState, bool aValue)
 {
   bool previousValidity = IsValid();
 
@@ -216,12 +218,12 @@ nsIConstraintValidation::SetValidityState(ValidityStateType aState,
     NS_ASSERTION(formCtrl, "This interface should be used by form elements!");
 
     HTMLFormElement* form =
-      static_cast<HTMLFormElement*>(formCtrl->GetFormElement());
+        static_cast<HTMLFormElement*>(formCtrl->GetFormElement());
     if (form) {
       form->UpdateValidity(IsValid());
     }
     HTMLFieldSetElement* fieldSet = formCtrl->GetFieldSet();
-      if (fieldSet) {
+    if (fieldSet) {
       fieldSet->UpdateValidity(IsValid());
     }
   }
@@ -251,7 +253,7 @@ nsIConstraintValidation::SetBarredFromConstraintValidation(bool aBarred)
     // inform the form and fieldset that we are now valid. Otherwise, we are now
     // invalid.
     HTMLFormElement* form =
-      static_cast<HTMLFormElement*>(formCtrl->GetFormElement());
+        static_cast<HTMLFormElement*>(formCtrl->GetFormElement());
     if (form) {
       form->UpdateValidity(aBarred);
     }
@@ -261,4 +263,3 @@ nsIConstraintValidation::SetBarredFromConstraintValidation(bool aBarred)
     }
   }
 }
-

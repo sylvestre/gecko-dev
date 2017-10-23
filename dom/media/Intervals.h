@@ -16,8 +16,8 @@ namespace mozilla {
 namespace media {
 template<class T>
 class IntervalSet;
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
 template<class E>
 struct nsTArray_CopyChooser<mozilla::media::IntervalSet<E>>
@@ -38,46 +38,40 @@ namespace media {
 template<typename T>
 class Interval
 {
-public:
+ public:
   typedef Interval<T> SelfType;
 
-  Interval()
-    : mStart(T())
-    , mEnd(T())
-    , mFuzz(T())
-  { }
+  Interval() : mStart(T()), mEnd(T()), mFuzz(T()) {}
 
   template<typename StartArg, typename EndArg>
   Interval(StartArg&& aStart, EndArg&& aEnd)
-    : mStart(Forward<StartArg>(aStart))
-    , mEnd(Forward<EndArg>(aEnd))
-    , mFuzz()
+      : mStart(Forward<StartArg>(aStart)), mEnd(Forward<EndArg>(aEnd)), mFuzz()
   {
     MOZ_ASSERT(aStart <= aEnd);
   }
 
   template<typename StartArg, typename EndArg, typename FuzzArg>
   Interval(StartArg&& aStart, EndArg&& aEnd, FuzzArg&& aFuzz)
-    : mStart(Forward<StartArg>(aStart))
-    , mEnd(Forward<EndArg>(aEnd))
-    , mFuzz(Forward<FuzzArg>(aFuzz))
+      : mStart(Forward<StartArg>(aStart)),
+        mEnd(Forward<EndArg>(aEnd)),
+        mFuzz(Forward<FuzzArg>(aFuzz))
   {
     MOZ_ASSERT(aStart <= aEnd);
   }
 
   Interval(const SelfType& aOther)
-    : mStart(aOther.mStart)
-    , mEnd(aOther.mEnd)
-    , mFuzz(aOther.mFuzz)
-  { }
+      : mStart(aOther.mStart), mEnd(aOther.mEnd), mFuzz(aOther.mFuzz)
+  {
+  }
 
   Interval(SelfType&& aOther)
-    : mStart(Move(aOther.mStart))
-    , mEnd(Move(aOther.mEnd))
-    , mFuzz(Move(aOther.mFuzz))
-  { }
+      : mStart(Move(aOther.mStart)),
+        mEnd(Move(aOther.mEnd)),
+        mFuzz(Move(aOther.mFuzz))
+  {
+  }
 
-  SelfType& operator= (const SelfType& aOther)
+  SelfType& operator=(const SelfType& aOther)
   {
     mStart = aOther.mStart;
     mEnd = aOther.mEnd;
@@ -85,59 +79,51 @@ public:
     return *this;
   }
 
-  SelfType& operator= (SelfType&& aOther)
+  SelfType& operator=(SelfType&& aOther)
   {
     MOZ_ASSERT(&aOther != this, "self-moves are prohibited");
     this->~Interval();
-    new(this) Interval(Move(aOther));
+    new (this) Interval(Move(aOther));
     return *this;
   }
 
   // Basic interval arithmetic operator definition.
-  SelfType operator+ (const SelfType& aOther) const
+  SelfType operator+(const SelfType& aOther) const
   {
-    return SelfType(mStart + aOther.mStart,
-                    mEnd + aOther.mEnd,
-                    mFuzz + aOther.mFuzz);
+    return SelfType(
+        mStart + aOther.mStart, mEnd + aOther.mEnd, mFuzz + aOther.mFuzz);
   }
 
-  SelfType operator+ (const T& aVal) const
+  SelfType operator+(const T& aVal) const
   {
     return SelfType(mStart + aVal, mEnd + aVal, mFuzz);
   }
 
   // Basic interval arithmetic operator definition.
-  SelfType operator- (const SelfType& aOther) const
+  SelfType operator-(const SelfType& aOther) const
   {
-    return SelfType(mStart - aOther.mEnd,
-                    mEnd - aOther.mStart,
-                    mFuzz + aOther.mFuzz);
+    return SelfType(
+        mStart - aOther.mEnd, mEnd - aOther.mStart, mFuzz + aOther.mFuzz);
   }
 
-  SelfType operator- (const T& aVal) const
+  SelfType operator-(const T& aVal) const
   {
     return SelfType(mStart - aVal, mEnd - aVal, mFuzz);
   }
 
-  bool operator== (const SelfType& aOther) const
+  bool operator==(const SelfType& aOther) const
   {
     return mStart == aOther.mStart && mEnd == aOther.mEnd;
   }
 
-  bool operator!= (const SelfType& aOther) const
-  {
-    return !(*this == aOther);
-  }
+  bool operator!=(const SelfType& aOther) const { return !(*this == aOther); }
 
   bool Contains(const T& aX) const
   {
     return mStart - mFuzz <= aX && aX < mEnd + mFuzz;
   }
 
-  bool ContainsStrict(const T& aX) const
-  {
-    return mStart <= aX && aX < mEnd;
-  }
+  bool ContainsStrict(const T& aX) const { return mStart <= aX && aX < mEnd; }
 
   bool ContainsWithStrictEnd(const T& aX) const
   {
@@ -183,7 +169,8 @@ public:
   // This operation isn't commutative.
   bool Contiguous(const SelfType& aOther) const
   {
-    return mEnd <= aOther.mStart && aOther.mStart - mEnd <= mFuzz + aOther.mFuzz;
+    return mEnd <= aOther.mStart &&
+           aOther.mStart - mEnd <= mFuzz + aOther.mFuzz;
   }
 
   bool RightOf(const SelfType& aOther) const
@@ -226,20 +213,11 @@ public:
     return SelfType();
   }
 
-  T Length() const
-  {
-    return mEnd - mStart;
-  }
+  T Length() const { return mEnd - mStart; }
 
-  bool IsEmpty() const
-  {
-    return mStart == mEnd;
-  }
+  bool IsEmpty() const { return mStart == mEnd; }
 
-  void SetFuzz(const T& aFuzz)
-  {
-    mFuzz = aFuzz;
-  }
+  void SetFuzz(const T& aFuzz) { mFuzz = aFuzz; }
 
   // Returns true if the two intervals intersect with this being on the right
   // of aOther
@@ -254,7 +232,7 @@ public:
   T mEnd;
   T mFuzz;
 
-private:
+ private:
 };
 
 // An IntervalSet in a collection of Intervals. The IntervalSet is always
@@ -262,23 +240,16 @@ private:
 template<typename T>
 class IntervalSet
 {
-public:
+ public:
   typedef IntervalSet<T> SelfType;
   typedef Interval<T> ElemType;
-  typedef AutoTArray<ElemType,4> ContainerType;
+  typedef AutoTArray<ElemType, 4> ContainerType;
   typedef typename ContainerType::index_type IndexType;
 
-  IntervalSet()
-  {
-  }
-  virtual ~IntervalSet()
-  {
-  }
+  IntervalSet() {}
+  virtual ~IntervalSet() {}
 
-  IntervalSet(const SelfType& aOther)
-    : mIntervals(aOther.mIntervals)
-  {
-  }
+  IntervalSet(const SelfType& aOther) : mIntervals(aOther.mIntervals) {}
 
   IntervalSet(SelfType&& aOther)
   {
@@ -299,31 +270,31 @@ public:
     }
   }
 
-  bool operator== (const SelfType& aOther) const
+  bool operator==(const SelfType& aOther) const
   {
     return mIntervals == aOther.mIntervals;
   }
 
-  bool operator!= (const SelfType& aOther) const
+  bool operator!=(const SelfType& aOther) const
   {
     return mIntervals != aOther.mIntervals;
   }
 
-  SelfType& operator= (const SelfType& aOther)
+  SelfType& operator=(const SelfType& aOther)
   {
     mIntervals = aOther.mIntervals;
     return *this;
   }
 
-  SelfType& operator= (SelfType&& aOther)
+  SelfType& operator=(SelfType&& aOther)
   {
     MOZ_ASSERT(&aOther != this, "self-moves are prohibited");
     this->~IntervalSet();
-    new(this) IntervalSet(Move(aOther));
+    new (this) IntervalSet(Move(aOther));
     return *this;
   }
 
-  SelfType& operator= (const ElemType& aInterval)
+  SelfType& operator=(const ElemType& aInterval)
   {
     mIntervals.Clear();
     if (!aInterval.IsEmpty()) {
@@ -332,7 +303,7 @@ public:
     return *this;
   }
 
-  SelfType& operator= (ElemType&& aInterval)
+  SelfType& operator=(ElemType&& aInterval)
   {
     mIntervals.Clear();
     if (!aInterval.IsEmpty()) {
@@ -392,34 +363,34 @@ public:
     return *this;
   }
 
-  SelfType& operator+= (const SelfType& aIntervals)
+  SelfType& operator+=(const SelfType& aIntervals)
   {
     Add(aIntervals);
     return *this;
   }
 
-  SelfType& operator+= (const ElemType& aInterval)
+  SelfType& operator+=(const ElemType& aInterval)
   {
     Add(aInterval);
     return *this;
   }
 
-  SelfType operator+ (const SelfType& aIntervals) const
+  SelfType operator+(const SelfType& aIntervals) const
   {
     SelfType intervals(*this);
     intervals.Add(aIntervals);
     return intervals;
   }
 
-  SelfType operator+ (const ElemType& aInterval) const
+  SelfType operator+(const ElemType& aInterval) const
   {
     SelfType intervals(*this);
     intervals.Add(aInterval);
     return intervals;
   }
 
-  friend SelfType operator+ (const ElemType& aInterval,
-                             const SelfType& aIntervals)
+  friend SelfType operator+(const ElemType& aInterval,
+                            const SelfType& aIntervals)
   {
     SelfType intervals;
     intervals.Add(aInterval);
@@ -430,7 +401,7 @@ public:
   // Excludes an interval from an IntervalSet.
   // This is done by inverting aInterval within the bounds of mIntervals
   // and then doing the intersection.
-  SelfType& operator-= (const ElemType& aInterval)
+  SelfType& operator-=(const ElemType& aInterval)
   {
     if (aInterval.IsEmpty() || mIntervals.IsEmpty()) {
       return *this;
@@ -444,7 +415,7 @@ public:
     return Intersection(intervals);
   }
 
-  SelfType& operator-= (const SelfType& aIntervals)
+  SelfType& operator-=(const SelfType& aIntervals)
   {
     for (const auto& interval : aIntervals.mIntervals) {
       *this -= interval;
@@ -452,14 +423,14 @@ public:
     return *this;
   }
 
-  SelfType operator- (const SelfType& aInterval) const
+  SelfType operator-(const SelfType& aInterval) const
   {
     SelfType intervals(*this);
     intervals -= aInterval;
     return intervals;
   }
 
-  SelfType operator- (const ElemType& aInterval) const
+  SelfType operator-(const ElemType& aInterval) const
   {
     SelfType intervals(*this);
     intervals -= aInterval;
@@ -507,7 +478,7 @@ public:
     return Intersection(intervals);
   }
 
-  const ElemType& operator[] (IndexType aIndex) const
+  const ElemType& operator[](IndexType aIndex) const
   {
     return mIntervals[aIndex];
   }
@@ -545,15 +516,9 @@ public:
     }
   }
 
-  IndexType Length() const
-  {
-    return mIntervals.Length();
-  }
+  IndexType Length() const { return mIntervals.Length(); }
 
-  T Start(IndexType aIndex) const
-  {
-    return mIntervals[aIndex].mStart;
-  }
+  T Start(IndexType aIndex) const { return mIntervals[aIndex].mStart; }
 
   T Start(IndexType aIndex, bool& aExists) const
   {
@@ -566,10 +531,7 @@ public:
     }
   }
 
-  T End(IndexType aIndex) const
-  {
-    return mIntervals[aIndex].mEnd;
-  }
+  T End(IndexType aIndex) const { return mIntervals[aIndex].mEnd; }
 
   T End(IndexType aIndex, bool& aExists) const
   {
@@ -604,8 +566,7 @@ public:
 
   bool Contains(const T& aX) const
   {
-    for (const auto& interval : mIntervals)
-    {
+    for (const auto& interval : mIntervals) {
       if (interval.Contains(aX)) {
         return true;
       }
@@ -674,20 +635,14 @@ public:
   }
 
   // Methods for range-based for loops.
-  typename ContainerType::iterator begin()
-  {
-    return mIntervals.begin();
-  }
+  typename ContainerType::iterator begin() { return mIntervals.begin(); }
 
   typename ContainerType::const_iterator begin() const
   {
     return mIntervals.begin();
   }
 
-  typename ContainerType::iterator end()
-  {
-    return mIntervals.end();
-  }
+  typename ContainerType::iterator end() { return mIntervals.end(); }
 
   typename ContainerType::const_iterator end() const
   {
@@ -706,15 +661,12 @@ public:
     return mIntervals.LastElement();
   }
 
-  void Clear()
-  {
-    mIntervals.Clear();
-  }
+  void Clear() { mIntervals.Clear(); }
 
-protected:
+ protected:
   ContainerType mIntervals;
 
-private:
+ private:
   void Normalize()
   {
     if (mIntervals.Length() >= 2) {
@@ -747,16 +699,17 @@ private:
       return aT1.mStart == aT2.mStart && aT1.mEnd == aT2.mEnd;
     }
 
-    bool LessThan(const ElemType& aT1, const ElemType& aT2) const {
+    bool LessThan(const ElemType& aT1, const ElemType& aT2) const
+    {
       return aT1.mStart - aT1.mFuzz < aT2.mStart + aT2.mFuzz;
     }
   };
 };
 
-  // clang doesn't allow for this to be defined inline of IntervalSet.
+// clang doesn't allow for this to be defined inline of IntervalSet.
 template<typename T>
-IntervalSet<T> Union(const IntervalSet<T>& aIntervals1,
-                     const IntervalSet<T>& aIntervals2)
+IntervalSet<T>
+Union(const IntervalSet<T>& aIntervals1, const IntervalSet<T>& aIntervals2)
 {
   IntervalSet<T> intervals(aIntervals1);
   intervals.Union(aIntervals2);
@@ -764,15 +717,16 @@ IntervalSet<T> Union(const IntervalSet<T>& aIntervals1,
 }
 
 template<typename T>
-IntervalSet<T> Intersection(const IntervalSet<T>& aIntervals1,
-                            const IntervalSet<T>& aIntervals2)
+IntervalSet<T>
+Intersection(const IntervalSet<T>& aIntervals1,
+             const IntervalSet<T>& aIntervals2)
 {
   IntervalSet<T> intersection(aIntervals1);
   intersection.Intersection(aIntervals2);
   return intersection;
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif // INTERVALS_H
+#endif  // INTERVALS_H

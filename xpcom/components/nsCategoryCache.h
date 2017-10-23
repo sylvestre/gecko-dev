@@ -27,7 +27,7 @@ class nsCategoryObserver final : public nsIObserver
 {
   ~nsCategoryObserver();
 
-public:
+ public:
   explicit nsCategoryObserver(const char* aCategory);
 
   void ListenerDied();
@@ -39,13 +39,13 @@ public:
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
-private:
+ private:
   void RemoveObservers();
 
   nsInterfaceHashtable<nsCStringHashKey, nsISupports> mHash;
   nsCString mCategory;
-  void(*mCallback)(void*);
-  void *mClosure;
+  void (*mCallback)(void*);
+  void* mClosure;
   bool mObserversRemoved;
 };
 
@@ -59,9 +59,8 @@ private:
 template<class T>
 class nsCategoryCache final
 {
-public:
-  explicit nsCategoryCache(const char* aCategory)
-    : mCategoryName(aCategory)
+ public:
+  explicit nsCategoryCache(const char* aCategory) : mCategoryName(aCategory)
   {
     MOZ_ASSERT(NS_IsMainThread());
   }
@@ -98,7 +97,7 @@ public:
     return mCachedEntries;
   }
 
-private:
+ private:
   void LazyInit()
   {
     // Lazy initialization, so that services in this category can't
@@ -127,7 +126,7 @@ private:
     self->mCachedEntries.Clear();
   }
 
-private:
+ private:
   // Not to be implemented
   nsCategoryCache(const nsCategoryCache<T>&);
 

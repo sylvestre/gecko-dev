@@ -10,26 +10,28 @@
 
 #include "gtest/gtest.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 using namespace pkix;
 
 class CTLogVerifierTest : public ::testing::Test
 {
-public:
+ public:
   void SetUp() override
   {
     // Does nothing if NSS is already initialized.
     MOZ_RELEASE_ASSERT(NSS_NoDB_Init(nullptr) == SECSuccess);
 
-    ASSERT_EQ(Success, mLog.Init(InputForBuffer(GetTestPublicKey()),
-                                 -1 /*operator id*/,
-                                 CTLogStatus::Included,
-                                 0 /*disqualification time*/));
+    ASSERT_EQ(Success,
+              mLog.Init(InputForBuffer(GetTestPublicKey()),
+                        -1 /*operator id*/,
+                        CTLogStatus::Included,
+                        0 /*disqualification time*/));
     ASSERT_EQ(GetTestPublicKeyId(), mLog.keyId());
   }
 
-protected:
+ protected:
   CTLogVerifier mLog;
 };
 
@@ -87,8 +89,8 @@ TEST_F(CTLogVerifierTest, FailsInvalidSignature)
   SignedCertificateTimestamp certSct2;
   GetX509CertSCT(certSct2);
   certSct2.signature.signatureData[0] ^= '\xFF';
-  EXPECT_EQ(pkix::Result::ERROR_BAD_SIGNATURE, mLog.Verify(certEntry,
-                                                           certSct2));
+  EXPECT_EQ(pkix::Result::ERROR_BAD_SIGNATURE,
+            mLog.Verify(certEntry, certSct2));
 }
 
 TEST_F(CTLogVerifierTest, FailsInvalidLogID)
@@ -103,8 +105,8 @@ TEST_F(CTLogVerifierTest, FailsInvalidLogID)
   // attempting signature validation.
   MOZ_RELEASE_ASSERT(certSct.logId.append('\x0'));
 
-  EXPECT_EQ(pkix::Result::FATAL_ERROR_INVALID_ARGS, mLog.Verify(certEntry,
-                                                                certSct));
+  EXPECT_EQ(pkix::Result::FATAL_ERROR_INVALID_ARGS,
+            mLog.Verify(certEntry, certSct));
 }
 
 TEST_F(CTLogVerifierTest, VerifiesValidSTH)
@@ -129,10 +131,12 @@ TEST_F(CTLogVerifierTest, ExcessDataInPublicKey)
   MOZ_RELEASE_ASSERT(key.append("extra", 5));
 
   CTLogVerifier log;
-  EXPECT_NE(Success, log.Init(InputForBuffer(key),
-                              -1 /*operator id*/,
-                              CTLogStatus::Included,
-                              0 /*disqualification time*/));
+  EXPECT_NE(Success,
+            log.Init(InputForBuffer(key),
+                     -1 /*operator id*/,
+                     CTLogStatus::Included,
+                     0 /*disqualification time*/));
 }
 
-} }  // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

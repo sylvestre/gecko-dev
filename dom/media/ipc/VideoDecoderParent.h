@@ -21,7 +21,7 @@ class KnowsCompositorVideo;
 
 class VideoDecoderParent final : public PVideoDecoderParent
 {
-public:
+ public:
   // We refcount this class since the task queue can have runnables
   // that reference us.
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VideoDecoderParent)
@@ -47,7 +47,7 @@ public:
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   bool OnManagerThread();
   void Error(const MediaResult& aError);
 
@@ -65,7 +65,7 @@ private:
   bool mDestroyed;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // include_dom_ipc_VideoDecoderParent_h
+#endif  // include_dom_ipc_VideoDecoderParent_h

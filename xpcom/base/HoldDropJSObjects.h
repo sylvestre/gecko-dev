@@ -18,13 +18,16 @@ class nsScriptObjectTracer;
 namespace mozilla {
 namespace cyclecollector {
 
-void HoldJSObjectsImpl(void* aHolder, nsScriptObjectTracer* aTracer);
-void HoldJSObjectsImpl(nsISupports* aHolder);
-void DropJSObjectsImpl(void* aHolder);
-void DropJSObjectsImpl(nsISupports* aHolder);
+void
+HoldJSObjectsImpl(void* aHolder, nsScriptObjectTracer* aTracer);
+void
+HoldJSObjectsImpl(nsISupports* aHolder);
+void
+DropJSObjectsImpl(void* aHolder);
+void
+DropJSObjectsImpl(nsISupports* aHolder);
 
-} // namespace cyclecollector
-
+}  // namespace cyclecollector
 
 template<class T, bool isISupports = IsBaseOf<nsISupports, T>::value>
 struct HoldDropJSObjectsHelper
@@ -34,10 +37,7 @@ struct HoldDropJSObjectsHelper
     cyclecollector::HoldJSObjectsImpl(aHolder,
                                       NS_CYCLE_COLLECTION_PARTICIPANT(T));
   }
-  static void Drop(T* aHolder)
-  {
-    cyclecollector::DropJSObjectsImpl(aHolder);
-  }
+  static void Drop(T* aHolder) { cyclecollector::DropJSObjectsImpl(aHolder); }
 };
 
 template<class T>
@@ -52,7 +52,6 @@ struct HoldDropJSObjectsHelper<T, true>
     cyclecollector::DropJSObjectsImpl(ToSupports(aHolder));
   }
 };
-
 
 template<class T>
 void
@@ -69,9 +68,10 @@ DropJSObjects(T* aHolder)
 }
 
 #ifdef DEBUG
-bool IsJSHolder(void* aHolder);
+bool
+IsJSHolder(void* aHolder);
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_HoldDropJSObjects_h
+#endif  // mozilla_HoldDropJSObjects_h

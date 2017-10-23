@@ -25,20 +25,19 @@
 
 class nsTObserverArray_base
 {
-public:
+ public:
   typedef size_t index_type;
   typedef size_t size_type;
   typedef ptrdiff_t diff_type;
 
-protected:
+ protected:
   class Iterator_base
   {
-  protected:
+   protected:
     friend class nsTObserverArray_base;
 
     Iterator_base(index_type aPosition, Iterator_base* aNext)
-      : mPosition(aPosition)
-      , mNext(aNext)
+        : mPosition(aPosition), mNext(aNext)
     {
     }
 
@@ -77,8 +76,8 @@ protected:
 template<class T, size_t N>
 class nsAutoTObserverArray : protected nsTObserverArray_base
 {
-public:
-  typedef T           elem_type;
+ public:
+  typedef T elem_type;
   typedef nsTArray<T> array_type;
 
   nsAutoTObserverArray() {}
@@ -96,24 +95,15 @@ public:
   // This method provides direct, readonly access to the array elements.
   // @return A pointer to the first element of the array.  If the array is
   // empty, then this pointer must not be dereferenced.
-  const elem_type* Elements() const
-  {
-    return mArray.Elements();
-  }
-  elem_type* Elements()
-  {
-    return mArray.Elements();
-  }
+  const elem_type* Elements() const { return mArray.Elements(); }
+  elem_type* Elements() { return mArray.Elements(); }
 
   // This method provides direct access to an element of the array. The given
   // index must be within the array bounds. If the underlying array may change
   // during iteration, use an iterator instead of this function.
   // @param aIndex The index of an element in the array.
   // @return A reference to the i'th element of the array.
-  elem_type& ElementAt(index_type aIndex)
-  {
-    return mArray.ElementAt(aIndex);
-  }
+  elem_type& ElementAt(index_type aIndex) { return mArray.ElementAt(aIndex); }
 
   // Same as above, but readonly.
   const elem_type& ElementAt(index_type aIndex) const
@@ -220,10 +210,7 @@ public:
 
   // Same as above, but without copy-constructing. This is useful to avoid
   // temporaries.
-  elem_type* AppendElement()
-  {
-    return mArray.AppendElement();
-  }
+  elem_type* AppendElement() { return mArray.AppendElement(); }
 
   // Append an element to the array unless it already exists in the array.
   // 'operator==' must be defined for elem_type.
@@ -263,7 +250,7 @@ public:
   }
 
   // See nsTArray::RemoveElementsBy.
-  template <typename Predicate>
+  template<typename Predicate>
   void RemoveElementsBy(Predicate aPredicate)
   {
     index_type i = 0;
@@ -306,13 +293,13 @@ public:
   // Base class for iterators. Do not use this directly.
   class Iterator : public Iterator_base
   {
-  protected:
+   protected:
     friend class nsAutoTObserverArray;
     typedef nsAutoTObserverArray<T, N> array_type;
 
     Iterator(index_type aPosition, const array_type& aArray)
-      : Iterator_base(aPosition, aArray.mIterators)
-      , mArray(const_cast<array_type&>(aArray))
+        : Iterator_base(aPosition, aArray.mIterators),
+          mArray(const_cast<array_type&>(aArray))
     {
       aArray.mIterators = this;
     }
@@ -339,17 +326,14 @@ public:
   // @see EndLimitedIterator
   class ForwardIterator : protected Iterator
   {
-  public:
+   public:
     typedef nsAutoTObserverArray<T, N> array_type;
-    typedef Iterator                   base_type;
+    typedef Iterator base_type;
 
-    explicit ForwardIterator(const array_type& aArray)
-      : Iterator(0, aArray)
-    {
-    }
+    explicit ForwardIterator(const array_type& aArray) : Iterator(0, aArray) {}
 
     ForwardIterator(const array_type& aArray, index_type aPos)
-      : Iterator(aPos, aArray)
+        : Iterator(aPos, aArray)
     {
     }
 
@@ -382,13 +366,12 @@ public:
   // observers appended to the array after the iterator was created.
   class EndLimitedIterator : protected ForwardIterator
   {
-  public:
+   public:
     typedef nsAutoTObserverArray<T, N> array_type;
-    typedef Iterator                   base_type;
+    typedef Iterator base_type;
 
     explicit EndLimitedIterator(const array_type& aArray)
-      : ForwardIterator(aArray)
-      , mEnd(aArray, aArray.Length())
+        : ForwardIterator(aArray), mEnd(aArray, aArray.Length())
     {
     }
 
@@ -406,7 +389,7 @@ public:
       return base_type::mArray.Elements()[base_type::mPosition++];
     }
 
-  private:
+   private:
     ForwardIterator mEnd;
   };
 
@@ -419,12 +402,12 @@ public:
   // - removed during iteration *will not* be traversed.
   class BackwardIterator : protected Iterator
   {
-  public:
+   public:
     typedef nsAutoTObserverArray<T, N> array_type;
-    typedef Iterator                   base_type;
+    typedef Iterator base_type;
 
     explicit BackwardIterator(const array_type& aArray)
-      : Iterator(aArray.Length(), aArray)
+        : Iterator(aArray.Length(), aArray)
     {
     }
 
@@ -451,15 +434,15 @@ public:
     }
   };
 
-protected:
+ protected:
   AutoTArray<T, N> mArray;
 };
 
 template<class T>
 class nsTObserverArray : public nsAutoTObserverArray<T, 0>
 {
-public:
-  typedef nsAutoTObserverArray<T, 0>       base_type;
+ public:
+  typedef nsAutoTObserverArray<T, 0> base_type;
   typedef nsTObserverArray_base::size_type size_type;
 
   //
@@ -499,61 +482,65 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
 // XXXbz I wish I didn't have to pass in the observer type, but I
 // don't see a way to get it out of array_.
 // Note that this macro only works if the array holds pointers to XPCOM objects.
-#define NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(array_, obstype_, func_, params_) \
-  do {                                                                       \
-    nsTObserverArray<obstype_ *>::ForwardIterator iter_(array_);             \
-    RefPtr<obstype_> obs_;                                                 \
-    while (iter_.HasMore()) {                                                 \
-      obs_ = iter_.GetNext();                                                \
-      obs_ -> func_ params_ ;                                                \
-    }                                                                        \
-  } while(0)
+#define NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(               \
+    array_, obstype_, func_, params_)                           \
+  do {                                                          \
+    nsTObserverArray<obstype_*>::ForwardIterator iter_(array_); \
+    RefPtr<obstype_> obs_;                                      \
+    while (iter_.HasMore()) {                                   \
+      obs_ = iter_.GetNext();                                   \
+      obs_->func_ params_;                                      \
+    }                                                           \
+  } while (0)
 
 // Note that this macro only works if the array holds pointers to XPCOM objects.
 #define NS_OBSERVER_ARRAY_NOTIFY_OBSERVERS(array_, obstype_, func_, params_) \
   do {                                                                       \
-    nsTObserverArray<obstype_ *>::ForwardIterator iter_(array_);             \
+    nsTObserverArray<obstype_*>::ForwardIterator iter_(array_);              \
     obstype_* obs_;                                                          \
     while (iter_.HasMore()) {                                                \
       obs_ = iter_.GetNext();                                                \
-      obs_ -> func_ params_ ;                                                \
+      obs_->func_ params_;                                                   \
     }                                                                        \
-  } while(0)
+  } while (0)
 
 // Note that this macro only works if the array holds pointers to XPCOM objects.
-#define NS_OBSERVER_AUTO_ARRAY_NOTIFY_OBSERVERS(array_, obstype_, num_, func_, params_) \
-  do {                                                                       \
-    nsAutoTObserverArray<obstype_ *, num_>::ForwardIterator iter_(array_);   \
-    obstype_* obs_;                                                          \
-    while (iter_.HasMore()) {                                                \
-      obs_ = iter_.GetNext();                                                \
-      obs_ -> func_ params_ ;                                                \
-    }                                                                        \
-  } while(0)
+#define NS_OBSERVER_AUTO_ARRAY_NOTIFY_OBSERVERS(                          \
+    array_, obstype_, num_, func_, params_)                               \
+  do {                                                                    \
+    nsAutoTObserverArray<obstype_*, num_>::ForwardIterator iter_(array_); \
+    obstype_* obs_;                                                       \
+    while (iter_.HasMore()) {                                             \
+      obs_ = iter_.GetNext();                                             \
+      obs_->func_ params_;                                                \
+    }                                                                     \
+  } while (0)
 
-#define NS_OBSERVER_ARRAY_NOTIFY_OBSERVERS_WITH_QI(array_, basetype_, obstype_, func_, params_) \
-  do {                                                                       \
-    nsTObserverArray<basetype_ *>::ForwardIterator iter_(array_);            \
-    basetype_* obsbase_;                                                     \
-    while (iter_.HasMore()) {                                                \
-      obsbase_ = iter_.GetNext();                                            \
-      nsCOMPtr<obstype_> obs_ = do_QueryInterface(obsbase_);                 \
-      if (obs_) {                                                            \
-        obs_ -> func_ params_ ;                                              \
-      }                                                                      \
-    }                                                                        \
-  } while(0)
+#define NS_OBSERVER_ARRAY_NOTIFY_OBSERVERS_WITH_QI(              \
+    array_, basetype_, obstype_, func_, params_)                 \
+  do {                                                           \
+    nsTObserverArray<basetype_*>::ForwardIterator iter_(array_); \
+    basetype_* obsbase_;                                         \
+    while (iter_.HasMore()) {                                    \
+      obsbase_ = iter_.GetNext();                                \
+      nsCOMPtr<obstype_> obs_ = do_QueryInterface(obsbase_);     \
+      if (obs_) {                                                \
+        obs_->func_ params_;                                     \
+      }                                                          \
+    }                                                            \
+  } while (0)
 
-#define NS_OBSERVER_AUTO_ARRAY_NOTIFY_OBSERVERS_WITH_QI(array_, basetype_, num_, obstype_, func_, params_) \
-  do {                                                                       \
-    nsAutoTObserverArray<basetype_ *, num_>::ForwardIterator iter_(array_);  \
-    basetype_* obsbase_;                                                     \
-    while (iter_.HasMore()) {                                                \
-      obsbase_ = iter_.GetNext();                                            \
-      nsCOMPtr<obstype_> obs_ = do_QueryInterface(obsbase_);                 \
-      if (obs_) {                                                            \
-        obs_ -> func_ params_ ;                                              \
-      }                                                                      \
-    }                                                                        \
-  } while(0)
-#endif // nsTObserverArray_h___
+#define NS_OBSERVER_AUTO_ARRAY_NOTIFY_OBSERVERS_WITH_QI(                   \
+    array_, basetype_, num_, obstype_, func_, params_)                     \
+  do {                                                                     \
+    nsAutoTObserverArray<basetype_*, num_>::ForwardIterator iter_(array_); \
+    basetype_* obsbase_;                                                   \
+    while (iter_.HasMore()) {                                              \
+      obsbase_ = iter_.GetNext();                                          \
+      nsCOMPtr<obstype_> obs_ = do_QueryInterface(obsbase_);               \
+      if (obs_) {                                                          \
+        obs_->func_ params_;                                               \
+      }                                                                    \
+    }                                                                      \
+  } while (0)
+#endif  // nsTObserverArray_h___

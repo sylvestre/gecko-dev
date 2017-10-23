@@ -21,10 +21,9 @@ namespace dom {
 
 class GlobalObject;
 
-class SpeechGrammar final : public nsISupports,
-                            public nsWrapperCache
+class SpeechGrammar final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   explicit SpeechGrammar(nsISupports* aParent);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -32,10 +31,11 @@ public:
 
   nsISupports* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<SpeechGrammar>
-    Constructor(const GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<SpeechGrammar> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
 
   void GetSrc(nsString& aRetVal, ErrorResult& aRv) const;
 
@@ -45,7 +45,7 @@ public:
 
   void SetWeight(float aArg, ErrorResult& aRv);
 
-private:
+ private:
   ~SpeechGrammar();
 
   nsCOMPtr<nsISupports> mParent;
@@ -53,7 +53,7 @@ private:
   nsString mSrc;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

@@ -13,19 +13,19 @@ namespace mozilla {
 
 class AppleDecoderModule : public PlatformDecoderModule
 {
-public:
+ public:
   AppleDecoderModule();
   virtual ~AppleDecoderModule();
 
   nsresult Startup() override;
 
   // Decode thread.
-  already_AddRefed<MediaDataDecoder>
-  CreateVideoDecoder(const CreateDecoderParams& aParams) override;
+  already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+      const CreateDecoderParams& aParams) override;
 
   // Decode thread.
-  already_AddRefed<MediaDataDecoder>
-  CreateAudioDecoder(const CreateDecoderParams& aParams) override;
+  already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
+      const CreateDecoderParams& aParams) override;
 
   bool SupportsMimeType(const nsACString& aMimeType,
                         DecoderDoctorDiagnostics* aDiagnostics) const override;
@@ -34,13 +34,13 @@ public:
 
   static bool sCanUseHardwareVideoDecoder;
 
-private:
+ private:
   static bool sInitialized;
   static bool sIsCoreMediaAvailable;
   static bool sIsVTAvailable;
   static bool sIsVTHWAvailable;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AppleDecoderModule_h
+#endif  // mozilla_AppleDecoderModule_h

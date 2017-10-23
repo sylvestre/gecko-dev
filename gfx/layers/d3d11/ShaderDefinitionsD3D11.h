@@ -32,10 +32,10 @@ struct PixelShaderConstants
 
 struct Vertex
 {
-    float position[2];
+  float position[2];
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_d3d11_ShaderDefinitionsD3D11_h
+#endif  // mozilla_gfx_layers_d3d11_ShaderDefinitionsD3D11_h

@@ -37,9 +37,7 @@ static const uint32_t kStartupDelay = 0;
 
 const char kTestingPref[] = "dom.storage.testing";
 
-NS_IMPL_ISUPPORTS(StorageObserver,
-                  nsIObserver,
-                  nsISupportsWeakReference)
+NS_IMPL_ISUPPORTS(StorageObserver, nsIObserver, nsISupportsWeakReference)
 
 StorageObserver* StorageObserver::sSelf = nullptr;
 
@@ -169,10 +167,8 @@ StorageObserver::ClearMatchingOrigin(const char16_t* aData,
   } else {
     // In case the IDN service is not available, this is the best we can come
     // up with!
-    rv = NS_EscapeURL(domain,
-                      esc_OnlyNonASCII | esc_AlwaysCopy,
-                      convertedDomain,
-                      fallible);
+    rv = NS_EscapeURL(
+        domain, esc_OnlyNonASCII | esc_AlwaysCopy, convertedDomain, fallible);
   }
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -212,7 +208,9 @@ StorageObserver::Observe(nsISupports* aSubject,
     obs->RemoveObserver(this, kStartupTopic);
 
     return NS_NewTimerWithObserver(getter_AddRefs(mDBThreadStartDelayTimer),
-                                   this, nsITimer::TYPE_ONE_SHOT, kStartupDelay);
+                                   this,
+                                   nsITimer::TYPE_ONE_SHOT,
+                                   kStartupDelay);
   }
 
   // Timer callback used to start the database a short timer after startup
@@ -289,7 +287,8 @@ StorageObserver::Observe(nsISupports* aSubject,
     }
 
     nsAutoCString originSuffix;
-    BasePrincipal::Cast(principal)->OriginAttributesRef().CreateSuffix(originSuffix);
+    BasePrincipal::Cast(principal)->OriginAttributesRef().CreateSuffix(
+        originSuffix);
 
     nsCOMPtr<nsIURI> origin;
     principal->GetURI(getter_AddRefs(origin));
@@ -307,7 +306,8 @@ StorageObserver::Observe(nsISupports* aSubject,
     rv = CreateReversedDomain(host, originScope);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    Notify("session-only-cleared", NS_ConvertUTF8toUTF16(originSuffix),
+    Notify("session-only-cleared",
+           NS_ConvertUTF8toUTF16(originSuffix),
            originScope);
 
     return NS_OK;
@@ -398,9 +398,9 @@ StorageObserver::Observe(nsISupports* aSubject,
       bool done = false;
 
       RefPtr<StorageDBThread::ShutdownRunnable> shutdownRunnable =
-        new StorageDBThread::ShutdownRunnable(done);
+          new StorageDBThread::ShutdownRunnable(done);
       MOZ_ALWAYS_SUCCEEDS(
-        mBackgroundThread->Dispatch(shutdownRunnable, NS_DISPATCH_NORMAL));
+          mBackgroundThread->Dispatch(shutdownRunnable, NS_DISPATCH_NORMAL));
 
       MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return done; }));
 
@@ -450,5 +450,5 @@ StorageObserver::Observe(nsISupports* aSubject,
   return NS_ERROR_UNEXPECTED;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

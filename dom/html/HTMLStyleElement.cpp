@@ -19,15 +19,14 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Style)
 namespace mozilla {
 namespace dom {
 
-HTMLStyleElement::HTMLStyleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLStyleElement::HTMLStyleElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
   AddMutationObserver(this);
 }
 
-HTMLStyleElement::~HTMLStyleElement()
-{
-}
+HTMLStyleElement::~HTMLStyleElement() {}
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(HTMLStyleElement)
 
@@ -47,7 +46,6 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLStyleElement,
                                              nsIMutationObserver)
 
 NS_IMPL_ELEMENT_CLONE(HTMLStyleElement)
-
 
 bool
 HTMLStyleElement::Disabled()
@@ -106,18 +104,19 @@ HTMLStyleElement::ContentChanged(nsIContent* aContent)
 }
 
 nsresult
-HTMLStyleElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLStyleElement::BindToTree(nsIDocument* aDocument,
+                             nsIContent* aParent,
                              nsIContent* aBindingParent,
                              bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  void (HTMLStyleElement::*update)() = &HTMLStyleElement::UpdateStyleSheetInternal;
+  void (HTMLStyleElement::*update)() =
+      &HTMLStyleElement::UpdateStyleSheetInternal;
   nsContentUtils::AddScriptRunner(
-    NewRunnableMethod("dom::HTMLStyleElement::BindToTree", this, update));
+      NewRunnableMethod("dom::HTMLStyleElement::BindToTree", this, update));
 
   return rv;
 }
@@ -141,15 +140,15 @@ HTMLStyleElement::UnbindFromTree(bool aDeep, bool aNullParent)
 }
 
 nsresult
-HTMLStyleElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLStyleElement::AfterSetAttr(int32_t aNameSpaceID,
+                               nsAtom* aName,
                                const nsAttrValue* aValue,
                                const nsAttrValue* aOldValue,
                                nsIPrincipal* aSubjectPrincipal,
                                bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None) {
-    if (aName == nsGkAtoms::title ||
-        aName == nsGkAtoms::media ||
+    if (aName == nsGkAtoms::title || aName == nsGkAtoms::media ||
         aName == nsGkAtoms::type) {
       UpdateStyleSheetInternal(nullptr, nullptr, true);
     } else if (aName == nsGkAtoms::scoped &&
@@ -159,8 +158,8 @@ HTMLStyleElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 NS_IMETHODIMP
@@ -173,8 +172,7 @@ HTMLStyleElement::GetInnerHTML(nsAString& aInnerHTML)
 }
 
 void
-HTMLStyleElement::SetInnerHTML(const nsAString& aInnerHTML,
-                               ErrorResult& aError)
+HTMLStyleElement::SetInnerHTML(const nsAString& aInnerHTML, ErrorResult& aError)
 {
   SetEnableUpdates(false);
 
@@ -186,7 +184,8 @@ HTMLStyleElement::SetInnerHTML(const nsAString& aInnerHTML,
 }
 
 already_AddRefed<nsIURI>
-HTMLStyleElement::GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal)
+HTMLStyleElement::GetStyleSheetURL(bool* aIsInline,
+                                   nsIPrincipal** aTriggeringPrincipal)
 {
   *aIsInline = true;
   *aTriggeringPrincipal = nullptr;
@@ -233,11 +232,10 @@ HTMLStyleElement::GetStyleSheetInfo(nsAString& aTitle,
 }
 
 JSObject*
-HTMLStyleElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLStyleElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLStyleElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

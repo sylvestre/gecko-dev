@@ -20,14 +20,13 @@
 class gfxContext;
 namespace mozilla {
 struct ReflowInput;
-} // namespace mozilla
-
+}  // namespace mozilla
 
 class MOZ_STACK_CLASS nsBoxLayoutState
 {
   using ReflowInput = mozilla::ReflowInput;
 
-public:
+ public:
   explicit nsBoxLayoutState(nsPresContext* aPresContext,
                             gfxContext* aRenderingContext = nullptr,
                             // see OuterReflowInput() below
@@ -51,9 +50,12 @@ public:
   // doing box layout or intrinsic size calculation will cause bugs.
   gfxContext* GetRenderingContext() const { return mRenderingContext; }
 
-  struct AutoReflowDepth {
-    explicit AutoReflowDepth(nsBoxLayoutState& aState)
-      : mState(aState) { ++mState.mReflowDepth; }
+  struct AutoReflowDepth
+  {
+    explicit AutoReflowDepth(nsBoxLayoutState& aState) : mState(aState)
+    {
+      ++mState.mReflowDepth;
+    }
     ~AutoReflowDepth() { --mState.mReflowDepth; }
     nsBoxLayoutState& mState;
   };
@@ -64,14 +66,13 @@ public:
 
   uint16_t GetReflowDepth() { return mReflowDepth; }
 
-private:
+ private:
   RefPtr<nsPresContext> mPresContext;
-  gfxContext *mRenderingContext;
-  const ReflowInput *mOuterReflowInput;
+  gfxContext* mRenderingContext;
+  const ReflowInput* mOuterReflowInput;
   uint32_t mLayoutFlags;
   uint16_t mReflowDepth;
   bool mPaintingDisabled;
 };
 
 #endif
-

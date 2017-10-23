@@ -17,11 +17,11 @@ using namespace mozilla::dom;
 /* Implementation */
 
 static nsSVGAttrTearoffTable<nsSVGInteger, nsSVGInteger::DOMAnimatedInteger>
-  sSVGAnimatedIntegerTearoffTable;
+    sSVGAnimatedIntegerTearoffTable;
 
 nsresult
-nsSVGInteger::SetBaseValueString(const nsAString &aValueAsString,
-                                 nsSVGElement *aSVGElement)
+nsSVGInteger::SetBaseValueString(const nsAString& aValueAsString,
+                                 nsSVGElement* aSVGElement)
 {
   int32_t value;
 
@@ -33,22 +33,21 @@ nsSVGInteger::SetBaseValueString(const nsAString &aValueAsString,
   mBaseVal = value;
   if (!mIsAnimated) {
     mAnimVal = mBaseVal;
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
   return NS_OK;
 }
 
 void
-nsSVGInteger::GetBaseValueString(nsAString & aValueAsString)
+nsSVGInteger::GetBaseValueString(nsAString& aValueAsString)
 {
   aValueAsString.Truncate();
   aValueAsString.AppendInt(mBaseVal);
 }
 
 void
-nsSVGInteger::SetBaseValue(int aValue, nsSVGElement *aSVGElement)
+nsSVGInteger::SetBaseValue(int aValue, nsSVGElement* aSVGElement)
 {
   // We can't just rely on SetParsedAttrValue (as called by DidChangeInteger)
   // detecting redundant changes since it will compare false if the existing
@@ -62,15 +61,14 @@ nsSVGInteger::SetBaseValue(int aValue, nsSVGElement *aSVGElement)
   mIsBaseSet = true;
   if (!mIsAnimated) {
     mAnimVal = mBaseVal;
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
   aSVGElement->DidChangeInteger(mAttrEnum);
 }
 
 void
-nsSVGInteger::SetAnimValue(int aValue, nsSVGElement *aSVGElement)
+nsSVGInteger::SetAnimValue(int aValue, nsSVGElement* aSVGElement)
 {
   if (mIsAnimated && aValue == mAnimVal) {
     return;
@@ -81,10 +79,10 @@ nsSVGInteger::SetAnimValue(int aValue, nsSVGElement *aSVGElement)
 }
 
 already_AddRefed<SVGAnimatedInteger>
-nsSVGInteger::ToDOMAnimatedInteger(nsSVGElement *aSVGElement)
+nsSVGInteger::ToDOMAnimatedInteger(nsSVGElement* aSVGElement)
 {
   RefPtr<DOMAnimatedInteger> domAnimatedInteger =
-    sSVGAnimatedIntegerTearoffTable.GetTearoff(this);
+      sSVGAnimatedIntegerTearoffTable.GetTearoff(this);
   if (!domAnimatedInteger) {
     domAnimatedInteger = new DOMAnimatedInteger(this, aSVGElement);
     sSVGAnimatedIntegerTearoffTable.AddTearoff(this, domAnimatedInteger);
@@ -99,16 +97,17 @@ nsSVGInteger::DOMAnimatedInteger::~DOMAnimatedInteger()
 }
 
 UniquePtr<nsISMILAttr>
-nsSVGInteger::ToSMILAttr(nsSVGElement *aSVGElement)
+nsSVGInteger::ToSMILAttr(nsSVGElement* aSVGElement)
 {
   return MakeUnique<SMILInteger>(this, aSVGElement);
 }
 
 nsresult
-nsSVGInteger::SMILInteger::ValueFromString(const nsAString& aStr,
-                                           const dom::SVGAnimationElement* /*aSrcElement*/,
-                                           nsSMILValue& aValue,
-                                           bool& aPreventCachingOfSandwich) const
+nsSVGInteger::SMILInteger::ValueFromString(
+    const nsAString& aStr,
+    const dom::SVGAnimationElement* /*aSrcElement*/,
+    nsSMILValue& aValue,
+    bool& aPreventCachingOfSandwich) const
 {
   int32_t val;
 

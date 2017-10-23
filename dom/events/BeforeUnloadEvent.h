@@ -14,18 +14,18 @@
 namespace mozilla {
 namespace dom {
 
-class BeforeUnloadEvent : public Event,
-                          public nsIDOMBeforeUnloadEvent
+class BeforeUnloadEvent : public Event, public nsIDOMBeforeUnloadEvent
 {
-public:
+ public:
   BeforeUnloadEvent(EventTarget* aOwner,
                     nsPresContext* aPresContext,
                     WidgetEvent* aEvent)
-    : Event(aOwner, aPresContext, aEvent)
+      : Event(aOwner, aPresContext, aEvent)
   {
   }
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return BeforeUnloadEventBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -38,18 +38,18 @@ public:
   // nsIDOMBeforeUnloadEvent Interface
   NS_DECL_NSIDOMBEFOREUNLOADEVENT
 
-protected:
+ protected:
   ~BeforeUnloadEvent() {}
 
   nsString mText;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::BeforeUnloadEvent>
 NS_NewDOMBeforeUnloadEvent(mozilla::dom::EventTarget* aOwner,
                            nsPresContext* aPresContext,
                            mozilla::WidgetEvent* aEvent);
 
-#endif // mozilla_dom_BeforeUnloadEvent_h_
+#endif  // mozilla_dom_BeforeUnloadEvent_h_

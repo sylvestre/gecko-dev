@@ -15,9 +15,7 @@ NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(FontFaceSetIterator, Release)
 
 FontFaceSetIterator::FontFaceSetIterator(FontFaceSet* aFontFaceSet,
                                          bool aIsKeyAndValue)
-  : mFontFaceSet(aFontFaceSet)
-  , mNextIndex(0)
-  , mIsKeyAndValue(aIsKeyAndValue)
+    : mFontFaceSet(aFontFaceSet), mNextIndex(0), mIsKeyAndValue(aIsKeyAndValue)
 {
   MOZ_COUNT_CTOR(FontFaceSetIterator);
 }
@@ -36,7 +34,8 @@ FontFaceSetIterator::WrapObject(JSContext* aCx,
 }
 
 void
-FontFaceSetIterator::Next(JSContext* aCx, FontFaceSetIteratorResult& aResult,
+FontFaceSetIterator::Next(JSContext* aCx,
+                          FontFaceSetIteratorResult& aResult,
                           ErrorResult& aRv)
 {
   if (!mFontFaceSet) {
@@ -76,5 +75,5 @@ FontFaceSetIterator::Next(JSContext* aCx, FontFaceSetIteratorResult& aResult,
   aResult.mDone = false;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

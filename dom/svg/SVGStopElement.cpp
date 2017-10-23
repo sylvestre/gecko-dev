@@ -13,19 +13,20 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGStopElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGStopElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGStopElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGStopElement::sNumberInfo =
-{ &nsGkAtoms::offset, 0, true };
+nsSVGElement::NumberInfo SVGStopElement::sNumberInfo = {
+    &nsGkAtoms::offset, 0, true};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGStopElement::SVGStopElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGStopElementBase(aNodeInfo)
+SVGStopElement::SVGStopElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGStopElementBase(aNodeInfo)
 {
 }
 
@@ -57,14 +58,11 @@ SVGStopElement::GetNumberInfo()
 NS_IMETHODIMP_(bool)
 SVGStopElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sGradientStopMap
-  };
+  static const MappedAttributeEntry* const map[] = {sGradientStopMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGStopElementBase::IsAttributeMapped(name);
+         SVGStopElementBase::IsAttributeMapped(name);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

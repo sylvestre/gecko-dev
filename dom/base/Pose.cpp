@@ -41,23 +41,19 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_END
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(Pose, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(Pose, Release)
 
-
 Pose::Pose(nsISupports* aParent)
-  : mParent(aParent),
-    mPosition(nullptr),
-    mLinearVelocity(nullptr),
-    mLinearAcceleration(nullptr),
-    mOrientation(nullptr),
-    mAngularVelocity(nullptr),
-    mAngularAcceleration(nullptr)
+    : mParent(aParent),
+      mPosition(nullptr),
+      mLinearVelocity(nullptr),
+      mLinearAcceleration(nullptr),
+      mOrientation(nullptr),
+      mAngularVelocity(nullptr),
+      mAngularAcceleration(nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
 
-Pose::~Pose()
-{
-  mozilla::DropJSObjects(this);
-}
+Pose::~Pose() { mozilla::DropJSObjects(this); }
 
 nsISupports*
 Pose::GetParentObject() const
@@ -66,13 +62,16 @@ Pose::GetParentObject() const
 }
 
 void
-Pose::SetFloat32Array(JSContext* aJSContext, JS::MutableHandle<JSObject*> aRetVal,
-                      JS::Heap<JSObject*>& aObj, float* aVal, uint32_t sizeOfVal,
-                      bool bCreate, ErrorResult& aRv)
+Pose::SetFloat32Array(JSContext* aJSContext,
+                      JS::MutableHandle<JSObject*> aRetVal,
+                      JS::Heap<JSObject*>& aObj,
+                      float* aVal,
+                      uint32_t sizeOfVal,
+                      bool bCreate,
+                      ErrorResult& aRv)
 {
   if (bCreate) {
-    aObj = Float32Array::Create(aJSContext, this,
-                                 sizeOfVal, aVal);
+    aObj = Float32Array::Create(aJSContext, this, sizeOfVal, aVal);
     if (!aObj) {
       aRv.NoteJSContextException(aJSContext);
       return;
@@ -82,5 +81,5 @@ Pose::SetFloat32Array(JSContext* aJSContext, JS::MutableHandle<JSObject*> aRetVa
   aRetVal.set(aObj);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

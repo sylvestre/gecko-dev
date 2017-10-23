@@ -35,19 +35,19 @@
 // MACRO_NAME=CSS_ANON_BOX/CSS_NON_INHERITING_ANON_BOX/CSS_WRAPPER_ANON_BOX
 
 #ifndef CSS_NON_INHERITING_ANON_BOX
-#  ifdef DEFINED_CSS_NON_INHERITING_ANON_BOX
-#    error "Recursive includes of nsCSSAnonBoxList.h?"
-#  endif /* DEFINED_CSS_NON_INHERITING_ANON_BOX */
-#  define CSS_NON_INHERITING_ANON_BOX(name_, value_) CSS_ANON_BOX(name_, value_)
-#  define DEFINED_CSS_NON_INHERITING_ANON_BOX
+#ifdef DEFINED_CSS_NON_INHERITING_ANON_BOX
+#error "Recursive includes of nsCSSAnonBoxList.h?"
+#endif /* DEFINED_CSS_NON_INHERITING_ANON_BOX */
+#define CSS_NON_INHERITING_ANON_BOX(name_, value_) CSS_ANON_BOX(name_, value_)
+#define DEFINED_CSS_NON_INHERITING_ANON_BOX
 #endif /* CSS_NON_INHERITING_ANON_BOX */
 
 #ifndef CSS_WRAPPER_ANON_BOX
-#  ifdef DEFINED_CSS_WRAPPER_ANON_BOX
-#    error "Recursive includes of nsCSSAnonBoxList.h?"
-#  endif /* DEFINED_CSS_WRAPPER_ANON_BOX */
-#  define CSS_WRAPPER_ANON_BOX(name_, value_) CSS_ANON_BOX(name_, value_)
-#  define DEFINED_CSS_WRAPPER_ANON_BOX
+#ifdef DEFINED_CSS_WRAPPER_ANON_BOX
+#error "Recursive includes of nsCSSAnonBoxList.h?"
+#endif /* DEFINED_CSS_WRAPPER_ANON_BOX */
+#define CSS_WRAPPER_ANON_BOX(name_, value_) CSS_ANON_BOX(name_, value_)
+#define DEFINED_CSS_WRAPPER_ANON_BOX
 #endif /* CSS_WRAPPER_ANON_BOX */
 
 // ::-moz-text, ::-moz-oof-placeholder, and ::-moz-first-letter-continuation are
@@ -75,7 +75,8 @@ CSS_ANON_BOX(cellContent, ":-moz-cell-content")
 CSS_ANON_BOX(dropDownList, ":-moz-dropdown-list")
 CSS_ANON_BOX(fieldsetContent, ":-moz-fieldset-content")
 CSS_NON_INHERITING_ANON_BOX(framesetBlank, ":-moz-frameset-blank")
-CSS_ANON_BOX(mozDisplayComboboxControlFrame, ":-moz-display-comboboxcontrol-frame")
+CSS_ANON_BOX(mozDisplayComboboxControlFrame,
+             ":-moz-display-comboboxcontrol-frame")
 CSS_ANON_BOX(htmlCanvasContent, ":-moz-html-canvas-content")
 
 CSS_WRAPPER_ANON_BOX(inlineTable, ":-moz-inline-table")
@@ -134,11 +135,11 @@ CSS_ANON_BOX(mozSVGForeignContent, ":-moz-svg-foreign-content")
 CSS_ANON_BOX(mozSVGText, ":-moz-svg-text")
 
 #ifdef DEFINED_CSS_NON_INHERITING_ANON_BOX
-#  undef DEFINED_CSS_NON_INHERITING_ANON_BOX
-#  undef CSS_NON_INHERITING_ANON_BOX
+#undef DEFINED_CSS_NON_INHERITING_ANON_BOX
+#undef CSS_NON_INHERITING_ANON_BOX
 #endif /* DEFINED_CSS_NON_INHERITING_ANON_BOX */
 
 #ifdef DEFINED_CSS_WRAPPER_ANON_BOX
-#  undef DEFINED_CSS_WRAPPER_ANON_BOX
-#  undef CSS_WRAPPER_ANON_BOX
+#undef DEFINED_CSS_WRAPPER_ANON_BOX
+#undef CSS_WRAPPER_ANON_BOX
 #endif /* DEFINED_CSS_NON_INHERITING_ANON_BOX */

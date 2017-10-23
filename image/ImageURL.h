@@ -32,9 +32,9 @@ class ImageCacheKey;
  */
 class ImageURL
 {
-public:
+ public:
   explicit ImageURL(nsIURI* aURI, nsresult& aRv)
-    : mURI(new nsMainThreadPtrHolder<nsIURI>("ImageURL::mURI", aURI))
+      : mURI(new nsMainThreadPtrHolder<nsIURI>("ImageURL::mURI", aURI))
   {
     MOZ_ASSERT(NS_IsMainThread(), "Cannot use nsIURI off main thread!");
 
@@ -59,7 +59,8 @@ public:
   /// A weak pointer to the URI spec for this ImageURL. For logging only.
   const char* Spec() const { return mSpec.get(); }
 
-  enum TruncatedSpecStatus {
+  enum TruncatedSpecStatus
+  {
     FitsInto1k,
     TruncatedTo1k
   };
@@ -110,12 +111,9 @@ public:
     return mSpec == aOther.mSpec;
   }
 
-  bool HasSameRef(const ImageURL& aOther) const
-  {
-    return mRef == aOther.mRef;
-  }
+  bool HasSameRef(const ImageURL& aOther) const { return mRef == aOther.mRef; }
 
-private:
+ private:
   friend class ImageCacheKey;
 
   PLDHashNumber ComputeHash(const Maybe<uint64_t>& aBlobSerial) const
@@ -143,10 +141,10 @@ private:
   nsAutoCString mScheme;
   nsAutoCString mRef;
 
-  ~ImageURL() { }
+  ~ImageURL() {}
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ImageURL_h
+#endif  // mozilla_image_ImageURL_h

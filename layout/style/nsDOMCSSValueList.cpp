@@ -11,13 +11,11 @@
 using namespace mozilla;
 
 nsDOMCSSValueList::nsDOMCSSValueList(bool aCommaDelimited, bool aReadonly)
-  : CSSValue(), mCommaDelimited(aCommaDelimited), mReadonly(aReadonly)
+    : CSSValue(), mCommaDelimited(aCommaDelimited), mReadonly(aReadonly)
 {
 }
 
-nsDOMCSSValueList::~nsDOMCSSValueList()
-{
-}
+nsDOMCSSValueList::~nsDOMCSSValueList() {}
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMCSSValueList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMCSSValueList)
@@ -33,7 +31,7 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsDOMCSSValueList, mCSSValues)
 
 JSObject*
-nsDOMCSSValueList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+nsDOMCSSValueList::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return dom::CSSValueListBinding::Wrap(cx, this, aGivenProto);
 }
@@ -57,21 +55,20 @@ nsDOMCSSValueList::GetCssText(nsAString& aCssText)
   nsAutoString separator;
   if (mCommaDelimited) {
     separator.AssignLiteral(", ");
-  }
-  else {
+  } else {
     separator.Assign(char16_t(' '));
   }
 
   nsAutoString tmpStr;
   for (uint32_t i = 0; i < count; ++i) {
-    CSSValue *cssValue = mCSSValues[i];
-    NS_ASSERTION(cssValue, "Eek!  Someone filled the value list with null CSSValues!");
+    CSSValue* cssValue = mCSSValues[i];
+    NS_ASSERTION(cssValue,
+                 "Eek!  Someone filled the value list with null CSSValues!");
     ErrorResult dummy;
     if (cssValue) {
       cssValue->GetCssText(tmpStr, dummy);
 
       if (tmpStr.IsEmpty()) {
-
 #ifdef DEBUG_caillon
         NS_ERROR("Eek!  An empty CSSValue!  Bad!");
 #endif

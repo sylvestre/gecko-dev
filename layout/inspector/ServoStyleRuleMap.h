@@ -20,18 +20,19 @@ class ServoCSSRuleList;
 class ServoStyleSet;
 namespace css {
 class Rule;
-} // namespace css
+}  // namespace css
 
-class ServoStyleRuleMap final : public nsStubDocumentObserver
-                              , public nsICSSLoaderObserver
+class ServoStyleRuleMap final : public nsStubDocumentObserver,
+                                public nsICSSLoaderObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit ServoStyleRuleMap(ServoStyleSet* aStyleSet);
 
   void EnsureTable();
-  ServoStyleRule* Lookup(const RawServoStyleRule* aRawRule) const {
+  ServoStyleRule* Lookup(const RawServoStyleRule* aRawRule) const
+  {
     return mTable.Get(aRawRule);
   }
 
@@ -44,11 +45,12 @@ public:
 
   // nsICSSLoaderObserver
   NS_IMETHOD StyleSheetLoaded(StyleSheet* aSheet,
-                              bool aWasAlternate, nsresult aStatus) final;
+                              bool aWasAlternate,
+                              nsresult aStatus) final;
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   ~ServoStyleRuleMap();
 
   // Since we would never have a document which contains no style rule,
@@ -61,11 +63,12 @@ private:
   void FillTableFromStyleSheet(ServoStyleSheet* aSheet);
 
   typedef nsDataHashtable<nsPtrHashKey<const RawServoStyleRule>,
-                          WeakPtr<ServoStyleRule>> Hashtable;
+                          WeakPtr<ServoStyleRule>>
+      Hashtable;
   Hashtable mTable;
   ServoStyleSet* mStyleSet;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoStyleRuleMap_h
+#endif  // mozilla_ServoStyleRuleMap_h

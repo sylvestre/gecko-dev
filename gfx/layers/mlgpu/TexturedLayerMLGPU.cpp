@@ -17,7 +17,7 @@ namespace layers {
 using namespace gfx;
 
 TexturedLayerMLGPU::TexturedLayerMLGPU(LayerManagerMLGPU* aManager)
- : LayerMLGPU(aManager)
+    : LayerMLGPU(aManager)
 {
 }
 
@@ -102,7 +102,8 @@ TexturedLayerMLGPU::OnPrepareToRender(FrameBuilder* aBuilder)
     mTexture = source;
   }
 
-  mPictureRect = IntRect(0, 0, info.img->mPictureRect.Width(), info.img->mPictureRect.Height());
+  mPictureRect = IntRect(
+      0, 0, info.img->mPictureRect.Width(), info.img->mPictureRect.Height());
 
   mHost->FinishRendering(info);
   return true;
@@ -143,7 +144,8 @@ TexturedLayerMLGPU::AssignBigImage(FrameBuilder* aBuilder,
     {
       Rect screenRect = transform.TransformBounds(Rect(rect));
       screenRect.MoveBy(-aView->GetTargetOffset());
-      screenRect = screenRect.Intersect(Rect(mComputedClipRect.ToUnknownRect()));
+      screenRect =
+          screenRect.Intersect(Rect(mComputedClipRect.ToUnknownRect()));
       if (screenRect.IsEmpty()) {
         // This tile is not in the clip region, so skip it.
         continue;
@@ -156,7 +158,8 @@ TexturedLayerMLGPU::AssignBigImage(FrameBuilder* aBuilder,
     }
 
     // Create a temporary item.
-    RefPtr<TempImageLayerMLGPU> item = new TempImageLayerMLGPU(aBuilder->GetManager());
+    RefPtr<TempImageLayerMLGPU> item =
+        new TempImageLayerMLGPU(aBuilder->GetManager());
     item->Init(this, tile, rect);
 
     Maybe<Polygon> geometry = aGeometry;
@@ -169,14 +172,12 @@ TexturedLayerMLGPU::AssignBigImage(FrameBuilder* aBuilder,
 }
 
 TempImageLayerMLGPU::TempImageLayerMLGPU(LayerManagerMLGPU* aManager)
- : ImageLayer(aManager, static_cast<HostLayer*>(this)),
-   TexturedLayerMLGPU(aManager)
+    : ImageLayer(aManager, static_cast<HostLayer*>(this)),
+      TexturedLayerMLGPU(aManager)
 {
 }
 
-TempImageLayerMLGPU::~TempImageLayerMLGPU()
-{
-}
+TempImageLayerMLGPU::~TempImageLayerMLGPU() {}
 
 void
 TempImageLayerMLGPU::Init(TexturedLayerMLGPU* aSource,
@@ -185,7 +186,8 @@ TempImageLayerMLGPU::Init(TexturedLayerMLGPU* aSource,
 {
   // ImageLayer properties.
   mEffectiveTransform = aSource->GetLayer()->GetEffectiveTransform();
-  mEffectiveTransformForBuffer = aSource->GetLayer()->GetEffectiveTransformForBuffer();
+  mEffectiveTransformForBuffer =
+      aSource->GetLayer()->GetEffectiveTransformForBuffer();
 
   // Base LayerMLGPU properties.
   mComputedClipRect = aSource->GetComputedClipRect();
@@ -206,5 +208,5 @@ TempImageLayerMLGPU::Init(TexturedLayerMLGPU* aSource,
   MarkPrepared();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

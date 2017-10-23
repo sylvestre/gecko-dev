@@ -14,7 +14,9 @@
 #include "nsFrameManager.h"
 
 void
-nsStyleChangeList::AppendChange(nsIFrame* aFrame, nsIContent* aContent, nsChangeHint aHint)
+nsStyleChangeList::AppendChange(nsIFrame* aFrame,
+                                nsIContent* aContent,
+                                nsChangeHint aHint)
 {
   MOZ_ASSERT(aFrame || (aHint & nsChangeHint_ReconstructFrame),
              "must have frame");
@@ -25,20 +27,20 @@ nsStyleChangeList::AppendChange(nsIFrame* aFrame, nsIContent* aContent, nsChange
   MOZ_ASSERT(aContent || !(aHint & nsChangeHint_ReconstructFrame),
              "must have content");
   // XXXbz we should make this take Element instead of nsIContent
-  MOZ_ASSERT(!aContent || aContent->IsElement() ||
-             // display:contents elements posts the changes for their children:
-             (aFrame && aContent->GetParent() &&
-             aFrame->PresContext()->FrameManager()->
-               GetDisplayContentsStyleFor(aContent->GetParent())) ||
-             (aContent->IsNodeOfType(nsINode::eTEXT) &&
-              aContent->IsStyledByServo() &&
-              aContent->HasFlag(NODE_NEEDS_FRAME) &&
-              aHint & nsChangeHint_ReconstructFrame),
-             "Shouldn't be trying to restyle non-elements directly, "
-             "except if it's a display:contents child or a text node "
-             "doing lazy frame construction");
+  MOZ_ASSERT(
+      !aContent || aContent->IsElement() ||
+          // display:contents elements posts the changes for their children:
+          (aFrame && aContent->GetParent() &&
+           aFrame->PresContext()->FrameManager()->GetDisplayContentsStyleFor(
+               aContent->GetParent())) ||
+          (aContent->IsNodeOfType(nsINode::eTEXT) &&
+           aContent->IsStyledByServo() && aContent->HasFlag(NODE_NEEDS_FRAME) &&
+           aHint & nsChangeHint_ReconstructFrame),
+      "Shouldn't be trying to restyle non-elements directly, "
+      "except if it's a display:contents child or a text node "
+      "doing lazy frame construction");
   MOZ_ASSERT(!(aHint & nsChangeHint_AllReflowHints) ||
-             (aHint & nsChangeHint_NeedReflow),
+                 (aHint & nsChangeHint_NeedReflow),
              "Reflow hint bits set without actually asking for a reflow");
 
   if (aContent && (aHint & nsChangeHint_ReconstructFrame)) {
@@ -52,7 +54,7 @@ nsStyleChangeList::AppendChange(nsIFrame* aFrame, nsIContent* aContent, nsChange
       // handle that case via mDestroyedFrames.
       for (size_t i = 0; i < Length(); ++i) {
         MOZ_ASSERT(aContent != (*this)[i].mContent ||
-                   !((*this)[i].mHint & nsChangeHint_ReconstructFrame),
+                       !((*this)[i].mHint & nsChangeHint_ReconstructFrame),
                    "Should not append a non-ReconstructFrame hint after \
                    appending a ReconstructFrame hint for the same \
                    content.");
@@ -73,5 +75,5 @@ nsStyleChangeList::AppendChange(nsIFrame* aFrame, nsIContent* aContent, nsChange
     return;
   }
 
-  AppendElement(nsStyleChangeData { aFrame, aContent, aHint });
+  AppendElement(nsStyleChangeData{aFrame, aContent, aHint});
 }

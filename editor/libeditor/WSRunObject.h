@@ -7,7 +7,7 @@
 #define WSRunObject_h
 
 #include "nsCOMPtr.h"
-#include "nsIEditor.h" // for EDirection
+#include "nsIEditor.h"  // for EDirection
 #include "nsINode.h"
 #include "nscore.h"
 #include "mozilla/Attributes.h"
@@ -48,19 +48,19 @@ struct EditorDOMPoint;
  */
 class WSType
 {
-public:
+ public:
   enum Enum
   {
-    none       = 0,
-    leadingWS  = 1,      // leading insignificant ws, ie, after block or br
-    trailingWS = 1 << 1, // trailing insignificant ws, ie, before block
-    normalWS   = 1 << 2, // normal significant ws, ie, after text, image, ...
-    text       = 1 << 3, // indicates regular (non-ws) text
-    special    = 1 << 4, // indicates an inline non-container, like image
-    br         = 1 << 5, // indicates a br node
-    otherBlock = 1 << 6, // indicates a block other than one ws run is in
-    thisBlock  = 1 << 7, // indicates the block ws run is in
-    block      = otherBlock | thisBlock // block found
+    none = 0,
+    leadingWS = 1,        // leading insignificant ws, ie, after block or br
+    trailingWS = 1 << 1,  // trailing insignificant ws, ie, before block
+    normalWS = 1 << 2,    // normal significant ws, ie, after text, image, ...
+    text = 1 << 3,        // indicates regular (non-ws) text
+    special = 1 << 4,     // indicates an inline non-container, like image
+    br = 1 << 5,          // indicates a br node
+    otherBlock = 1 << 6,  // indicates a block other than one ws run is in
+    thisBlock = 1 << 7,   // indicates the block ws run is in
+    block = otherBlock | thisBlock  // block found
   };
 
   /**
@@ -68,9 +68,7 @@ public:
    * themselves, and are only a separate type because there's no other obvious
    * way to name specific WSType values.
    */
-  MOZ_IMPLICIT WSType(const Enum& aEnum = none)
-    : mEnum(aEnum)
-  {}
+  MOZ_IMPLICIT WSType(const Enum& aEnum = none) : mEnum(aEnum) {}
 
   // operator==, &, and | need to access mEnum
   friend bool operator==(const WSType& aLeft, const WSType& aRight);
@@ -93,11 +91,11 @@ public:
     return *this;
   }
 
-private:
+ private:
   uint16_t mEnum;
   void bool_conversion_helper() {}
 
-public:
+ public:
   // Allow boolean conversion with no numeric conversion
   typedef void (WSType::*bool_type)();
   operator bool_type() const
@@ -110,12 +108,14 @@ public:
  * These are declared as global functions so "WSType::Enum == WSType" et al.
  * will work using the implicit constructor.
  */
-inline bool operator==(const WSType& aLeft, const WSType& aRight)
+inline bool
+operator==(const WSType& aLeft, const WSType& aRight)
 {
   return aLeft.mEnum == aRight.mEnum;
 }
 
-inline bool operator!=(const WSType& aLeft, const WSType& aRight)
+inline bool
+operator!=(const WSType& aLeft, const WSType& aRight)
 {
   return !(aLeft == aRight);
 }
@@ -127,7 +127,8 @@ inline const WSType operator&(const WSType& aLeft, const WSType& aRight)
   return ret;
 }
 
-inline const WSType operator|(const WSType& aLeft, const WSType& aRight)
+inline const WSType
+operator|(const WSType& aLeft, const WSType& aRight)
 {
   WSType ret;
   ret.mEnum = aLeft.mEnum | aRight.mEnum;
@@ -144,15 +145,15 @@ inline const WSType operator&(const WSType::Enum& aLeft,
   return WSType(aLeft) & WSType(aRight);
 }
 
-inline const WSType operator|(const WSType::Enum& aLeft,
-                              const WSType::Enum& aRight)
+inline const WSType
+operator|(const WSType::Enum& aLeft, const WSType::Enum& aRight)
 {
   return WSType(aLeft) | WSType(aRight);
 }
 
 class MOZ_STACK_CLASS WSRunObject final
 {
-public:
+ public:
   enum BlockBoundary
   {
     kBeforeBlock,
@@ -161,9 +162,18 @@ public:
     kAfterBlock
   };
 
-  enum {eBefore = 1};
-  enum {eAfter  = 1 << 1};
-  enum {eBoth   = eBefore | eAfter};
+  enum
+  {
+    eBefore = 1
+  };
+  enum
+  {
+    eAfter = 1 << 1
+  };
+  enum
+  {
+    eBoth = eBefore | eAfter
+  };
 
   WSRunObject(HTMLEditor* aHTMLEditor, nsINode* aNode, int32_t aOffset);
   WSRunObject(HTMLEditor* aHTMLEditor, nsIDOMNode* aNode, int32_t aOffset);
@@ -263,7 +273,7 @@ public:
   // be safely converted to regular ascii space and converts them.
   nsresult AdjustWhitespace();
 
-protected:
+ protected:
   // WSFragment represents a single run of ws (all leadingws, or all normalws,
   // or all trailingws, or all leading+trailingws).  Note that this single run
   // may still span multiple nodes.
@@ -279,11 +289,9 @@ protected:
     WSFragment *mLeft, *mRight;
 
     WSFragment()
-      : mStartOffset(0)
-      , mEndOffset(0)
-      , mLeft(nullptr)
-      , mRight(nullptr)
-    {}
+        : mStartOffset(0), mEndOffset(0), mLeft(nullptr), mRight(nullptr)
+    {
+    }
   };
 
   // A WSPoint struct represents a unique location within the ws run.  It is
@@ -296,17 +304,12 @@ protected:
     uint32_t mOffset;
     char16_t mChar;
 
-    WSPoint()
-      : mTextNode(nullptr)
-      , mOffset(0)
-      , mChar(0)
-    {}
+    WSPoint() : mTextNode(nullptr), mOffset(0), mChar(0) {}
 
     WSPoint(dom::Text* aTextNode, int32_t aOffset, char16_t aChar)
-      : mTextNode(aTextNode)
-      , mOffset(aOffset)
-      , mChar(aChar)
-    {}
+        : mTextNode(aTextNode), mOffset(aOffset), mChar(aChar)
+    {
+    }
   };
 
   /**
@@ -327,26 +330,32 @@ protected:
   nsIContent* GetNextWSNode(EditorDOMPoint aPoint, nsINode* aBlockParent);
   nsresult PrepareToDeleteRangePriv(WSRunObject* aEndObject);
   nsresult PrepareToSplitAcrossBlocksPriv();
-  nsresult DeleteChars(nsINode* aStartNode, int32_t aStartOffset,
-                       nsINode* aEndNode, int32_t aEndOffset);
+  nsresult DeleteChars(nsINode* aStartNode,
+                       int32_t aStartOffset,
+                       nsINode* aEndNode,
+                       int32_t aEndOffset);
   WSPoint GetCharAfter(nsINode* aNode, int32_t aOffset);
   WSPoint GetCharBefore(nsINode* aNode, int32_t aOffset);
   WSPoint GetCharAfter(const WSPoint& aPoint);
   WSPoint GetCharBefore(const WSPoint& aPoint);
   nsresult ConvertToNBSP(WSPoint aPoint);
-  void GetAsciiWSBounds(int16_t aDir, nsINode* aNode, int32_t aOffset,
-                        dom::Text** outStartNode, int32_t* outStartOffset,
-                        dom::Text** outEndNode, int32_t* outEndOffset);
-  void FindRun(nsINode* aNode, int32_t aOffset, WSFragment** outRun,
+  void GetAsciiWSBounds(int16_t aDir,
+                        nsINode* aNode,
+                        int32_t aOffset,
+                        dom::Text** outStartNode,
+                        int32_t* outStartOffset,
+                        dom::Text** outEndNode,
+                        int32_t* outEndOffset);
+  void FindRun(nsINode* aNode,
+               int32_t aOffset,
+               WSFragment** outRun,
                bool after);
   char16_t GetCharAt(dom::Text* aTextNode, int32_t aOffset);
   WSPoint GetWSPointAfter(nsINode* aNode, int32_t aOffset);
   WSPoint GetWSPointBefore(nsINode* aNode, int32_t aOffset);
-  nsresult CheckTrailingNBSPOfRun(WSFragment *aRun);
-  nsresult CheckTrailingNBSP(WSFragment* aRun, nsINode* aNode,
-                             int32_t aOffset);
-  nsresult CheckLeadingNBSP(WSFragment* aRun, nsINode* aNode,
-                            int32_t aOffset);
+  nsresult CheckTrailingNBSPOfRun(WSFragment* aRun);
+  nsresult CheckTrailingNBSP(WSFragment* aRun, nsINode* aNode, int32_t aOffset);
+  nsresult CheckLeadingNBSP(WSFragment* aRun, nsINode* aNode, int32_t aOffset);
 
   nsresult Scrub();
   bool IsBlockNode(nsINode* aNode);
@@ -400,6 +409,6 @@ protected:
   friend class HTMLEditor;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef WSRunObject_h
+#endif  // #ifndef WSRunObject_h

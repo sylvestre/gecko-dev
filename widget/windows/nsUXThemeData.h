@@ -19,7 +19,7 @@
 
 // These window messages are not defined in dwmapi.h
 #ifndef WM_DWMCOMPOSITIONCHANGED
-#define WM_DWMCOMPOSITIONCHANGED        0x031E
+#define WM_DWMCOMPOSITIONCHANGED 0x031E
 #endif
 
 // Windows 7 additions
@@ -29,9 +29,10 @@
 #endif
 
 #define DWMWA_FORCE_ICONIC_REPRESENTATION 7
-#define DWMWA_HAS_ICONIC_BITMAP           10
+#define DWMWA_HAS_ICONIC_BITMAP 10
 
-enum nsUXThemeClass {
+enum nsUXThemeClass
+{
   eUXButton = 0,
   eUXEdit,
   eUXTooltip,
@@ -57,28 +58,31 @@ enum nsUXThemeClass {
 };
 
 // Native windows style constants
-enum WindowsTheme {
+enum WindowsTheme
+{
   WINTHEME_UNRECOGNIZED = 0,
-  WINTHEME_CLASSIC      = 1, // no theme
-  WINTHEME_AERO         = 2,
-  WINTHEME_LUNA         = 3,
-  WINTHEME_ROYALE       = 4,
-  WINTHEME_ZUNE         = 5,
-  WINTHEME_AERO_LITE    = 6
+  WINTHEME_CLASSIC = 1,  // no theme
+  WINTHEME_AERO = 2,
+  WINTHEME_LUNA = 3,
+  WINTHEME_ROYALE = 4,
+  WINTHEME_ZUNE = 5,
+  WINTHEME_AERO_LITE = 6
 };
-enum WindowsThemeColor {
+enum WindowsThemeColor
+{
   WINTHEMECOLOR_UNRECOGNIZED = 0,
-  WINTHEMECOLOR_NORMAL       = 1,
-  WINTHEMECOLOR_HOMESTEAD    = 2,
-  WINTHEMECOLOR_METALLIC     = 3
+  WINTHEMECOLOR_NORMAL = 1,
+  WINTHEMECOLOR_HOMESTEAD = 2,
+  WINTHEMECOLOR_METALLIC = 3
 };
 
-#define CMDBUTTONIDX_MINIMIZE    0
-#define CMDBUTTONIDX_RESTORE     1
-#define CMDBUTTONIDX_CLOSE       2
-#define CMDBUTTONIDX_BUTTONBOX   3
+#define CMDBUTTONIDX_MINIMIZE 0
+#define CMDBUTTONIDX_RESTORE 1
+#define CMDBUTTONIDX_CLOSE 2
+#define CMDBUTTONIDX_BUTTONBOX 3
 
-class nsUXThemeData {
+class nsUXThemeData
+{
   static HANDLE sThemes[eUXNumClasses];
 
   // We initialize sCommandButtonBoxMetrics separately as a performance
@@ -89,11 +93,11 @@ class nsUXThemeData {
   static SIZE sCommandButtonBoxMetrics;
   static bool sCommandButtonBoxMetricsInitialized;
 
-  static const wchar_t *GetClassName(nsUXThemeClass);
+  static const wchar_t* GetClassName(nsUXThemeClass);
   static void EnsureCommandButtonMetrics();
   static void EnsureCommandButtonBoxMetrics();
 
-public:
+ public:
   static bool sFlatMenus;
   static bool sTitlebarInfoPopulatedAero;
   static bool sTitlebarInfoPopulatedThemed;
@@ -110,11 +114,13 @@ public:
   // nsWindow calls this to update desktop settings info
   static void UpdateTitlebarInfo(HWND aWnd);
 
-  static SIZE GetCommandButtonMetrics(int aMetric) {
+  static SIZE GetCommandButtonMetrics(int aMetric)
+  {
     EnsureCommandButtonMetrics();
     return sCommandButtonMetrics[aMetric];
   }
-  static SIZE GetCommandButtonBoxMetrics() {
+  static SIZE GetCommandButtonBoxMetrics()
+  {
     EnsureCommandButtonBoxMetrics();
     return sCommandButtonBoxMetrics;
   }
@@ -131,4 +137,4 @@ public:
   // composition transition.
   static bool CheckForCompositor(bool aUpdateCache = false);
 };
-#endif // __UXThemeData_h__
+#endif  // __UXThemeData_h__

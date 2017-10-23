@@ -26,11 +26,8 @@ namespace {
 
 class MOZ_NON_TEMPORARY_CLASS InParamWalker : private ICallFrameWalker
 {
-public:
-  InParamWalker()
-    : mPreHandoff(true)
-  {
-  }
+ public:
+  InParamWalker() : mPreHandoff(true) {}
 
   void SetHandoffDone()
   {
@@ -48,7 +45,7 @@ public:
     return aFrame->WalkFrame(CALLFRAME_WALK_IN, this);
   }
 
-private:
+ private:
   // IUnknown
   STDMETHODIMP QueryInterface(REFIID aIid, void** aOutInterface) override
   {
@@ -65,18 +62,14 @@ private:
     return E_NOINTERFACE;
   }
 
-  STDMETHODIMP_(ULONG) AddRef() override
-  {
-    return 2;
-  }
+  STDMETHODIMP_(ULONG) AddRef() override { return 2; }
 
-  STDMETHODIMP_(ULONG) Release() override
-  {
-    return 1;
-  }
+  STDMETHODIMP_(ULONG) Release() override { return 1; }
 
   // ICallFrameWalker
-  STDMETHODIMP OnWalkInterface(REFIID aIid, PVOID* aInterface, BOOL aIn,
+  STDMETHODIMP OnWalkInterface(REFIID aIid,
+                               PVOID* aInterface,
+                               BOOL aIn,
                                BOOL aOut) override
   {
     MOZ_ASSERT(aIn);
@@ -114,20 +107,20 @@ private:
   InParamWalker& operator=(const InParamWalker&) = delete;
   InParamWalker& operator=(InParamWalker&&) = delete;
 
-private:
-  bool                                mPreHandoff;
-  AutoTArray<AgileReference, 1>       mAgileRefs;
-  nsTArray<AgileReference>::iterator  mAgileRefsItr;
+ private:
+  bool mPreHandoff;
+  AutoTArray<AgileReference, 1> mAgileRefs;
+  nsTArray<AgileReference>::iterator mAgileRefsItr;
 };
 
 class HandoffRunnable : public mozilla::Runnable
 {
-public:
+ public:
   explicit HandoffRunnable(ICallFrame* aCallFrame, IUnknown* aTargetInterface)
-    : Runnable("HandoffRunnable")
-    , mCallFrame(aCallFrame)
-    , mTargetInterface(aTargetInterface)
-    , mResult(E_UNEXPECTED)
+      : Runnable("HandoffRunnable"),
+        mCallFrame(aCallFrame),
+        mTargetInterface(aTargetInterface),
+        mResult(E_UNEXPECTED)
   {
     DebugOnly<HRESULT> hr = mInParamWalker.Walk(aCallFrame);
     MOZ_ASSERT(SUCCEEDED(hr));
@@ -144,23 +137,20 @@ public:
     return NS_OK;
   }
 
-  HRESULT GetResult() const
-  {
-    return mResult;
-  }
+  HRESULT GetResult() const { return mResult; }
 
-private:
-  ICallFrame*   mCallFrame;
+ private:
+  ICallFrame* mCallFrame;
   InParamWalker mInParamWalker;
-  IUnknown*     mTargetInterface;
-  HRESULT       mResult;
+  IUnknown* mTargetInterface;
+  HRESULT mResult;
 };
 
 class MOZ_RAII SavedCallFrame final
 {
-public:
+ public:
   explicit SavedCallFrame(mozilla::NotNull<ICallFrame*> aFrame)
-    : mCallFrame(aFrame)
+      : mCallFrame(aFrame)
   {
     static const bool sIsInit = tlsFrame.init();
     MOZ_ASSERT(sIsInit);
@@ -193,16 +183,16 @@ public:
   SavedCallFrame& operator=(const SavedCallFrame&) = delete;
   SavedCallFrame& operator=(SavedCallFrame&&) = delete;
 
-private:
+ private:
   ICallFrame* mCallFrame;
 
-private:
+ private:
   static MOZ_THREAD_LOCAL(SavedCallFrame*) tlsFrame;
 };
 
 MOZ_THREAD_LOCAL(SavedCallFrame*) SavedCallFrame::tlsFrame;
 
-} // anonymous namespace
+}  // anonymous namespace
 
 namespace mozilla {
 namespace mscom {
@@ -212,19 +202,15 @@ MainThreadHandoff::Create(IHandlerProvider* aHandlerProvider,
                           IInterceptorSink** aOutput)
 {
   RefPtr<MainThreadHandoff> handoff(new MainThreadHandoff(aHandlerProvider));
-  return handoff->QueryInterface(IID_IInterceptorSink, (void**) aOutput);
+  return handoff->QueryInterface(IID_IInterceptorSink, (void**)aOutput);
 }
 
 MainThreadHandoff::MainThreadHandoff(IHandlerProvider* aHandlerProvider)
-  : mRefCnt(0)
-  , mHandlerProvider(aHandlerProvider)
+    : mRefCnt(0), mHandlerProvider(aHandlerProvider)
 {
 }
 
-MainThreadHandoff::~MainThreadHandoff()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-}
+MainThreadHandoff::~MainThreadHandoff() { MOZ_ASSERT(NS_IsMainThread()); }
 
 HRESULT
 MainThreadHandoff::QueryInterface(REFIID riid, void** ppv)
@@ -253,13 +239,13 @@ MainThreadHandoff::QueryInterface(REFIID riid, void** ppv)
 ULONG
 MainThreadHandoff::AddRef()
 {
-  return (ULONG) InterlockedIncrement((LONG*)&mRefCnt);
+  return (ULONG)InterlockedIncrement((LONG*)&mRefCnt);
 }
 
 ULONG
 MainThreadHandoff::Release()
 {
-  ULONG newRefCnt = (ULONG) InterlockedDecrement((LONG*)&mRefCnt);
+  ULONG newRefCnt = (ULONG)InterlockedDecrement((LONG*)&mRefCnt);
   if (newRefCnt == 0) {
     // It is possible for the last Release() call to happen off-main-thread.
     // If so, we need to dispatch an event to delete ourselves.
@@ -270,8 +256,7 @@ MainThreadHandoff::Release()
       // main thread right now, so we send a reference to ourselves to the main
       // thread to be re-released there.
       RefPtr<MainThreadHandoff> self = this;
-      NS_ReleaseOnMainThreadSystemGroup(
-        "MainThreadHandoff", self.forget());
+      NS_ReleaseOnMainThreadSystemGroup("MainThreadHandoff", self.forget());
     }
   }
   return newRefCnt;
@@ -299,12 +284,13 @@ MainThreadHandoff::FixIServiceProvider(ICallFrame* aFrame)
     return DISP_E_BADVARTYPE;
   }
 
-  IID** iidOutParam = reinterpret_cast<IID**>(
-                        static_cast<BYTE*>(aFrame->GetStackLocation()) +
-                        iidOutParamInfo.stackOffset);
+  IID** iidOutParam =
+      reinterpret_cast<IID**>(static_cast<BYTE*>(aFrame->GetStackLocation()) +
+                              iidOutParamInfo.stackOffset);
 
   return OnWalkInterface(**iidOutParam,
-                         reinterpret_cast<void**>(varIfaceOut.ppunkVal), FALSE,
+                         reinterpret_cast<void**>(varIfaceOut.ppunkVal),
+                         FALSE,
                          TRUE);
 }
 
@@ -336,8 +322,8 @@ MainThreadHandoff::OnCall(ICallFrame* aFrame)
   }
 
   // (2) Execute the method call synchronously on the main thread
-  RefPtr<HandoffRunnable> handoffInfo(new HandoffRunnable(aFrame,
-                                                          targetInterface.get()));
+  RefPtr<HandoffRunnable> handoffInfo(
+      new HandoffRunnable(aFrame, targetInterface.get()));
   MainThreadInvoker invoker;
   if (!invoker.Invoke(do_AddRef(handoffInfo))) {
     MOZ_ASSERT(false);
@@ -355,8 +341,8 @@ MainThreadHandoff::OnCall(ICallFrame* aFrame)
 
   // (3) Log *before* wrapping outputs so that the log will contain pointers to
   // the true target interface, not the wrapped ones.
-  InterceptorLog::Event(aFrame, targetInterface.get(), overhead,
-                        invoker.GetDuration());
+  InterceptorLog::Event(
+      aFrame, targetInterface.get(), overhead, invoker.GetDuration());
 
   // (4) Scan the function call for outparams that contain interface pointers.
   // Those will need to be wrapped with MainThreadHandoff so that they too will
@@ -436,9 +422,8 @@ MainThreadHandoff::FixArrayElements(ICallFrame* aFrame,
   VARIANT paramVal;
   VariantInit(&paramVal);
   HRESULT hr = aFrame->GetParam(aArrayData.mLengthParamIndex, &paramVal);
-  MOZ_ASSERT(SUCCEEDED(hr) &&
-             (paramVal.vt == (VT_I4 | VT_BYREF) ||
-             paramVal.vt == (VT_UI4 | VT_BYREF)));
+  MOZ_ASSERT(SUCCEEDED(hr) && (paramVal.vt == (VT_I4 | VT_BYREF) ||
+                               paramVal.vt == (VT_UI4 | VT_BYREF)));
   if (FAILED(hr) || (paramVal.vt != (VT_I4 | VT_BYREF) &&
                      paramVal.vt != (VT_UI4 | VT_BYREF))) {
     return hr;
@@ -467,8 +452,8 @@ MainThreadHandoff::FixArrayElements(ICallFrame* aFrame,
       // In order for the server to allocate the array's buffer and store it in
       // an outparam, the parameter must be typed as Type***. Since the base
       // of the array is Type*, we must dereference twice.
-      arrayPtr = **reinterpret_cast<PVOID**>(reinterpret_cast<PBYTE>(stackBase) +
-                                             paramInfo.stackOffset);
+      arrayPtr = **reinterpret_cast<PVOID**>(
+          reinterpret_cast<PBYTE>(stackBase) + paramInfo.stackOffset);
     } else {
       // We dereference because we need to obtain the value of a parameter
       // from a stack offset. This pointer is the base of the array.
@@ -491,7 +476,8 @@ MainThreadHandoff::FixArrayElements(ICallFrame* aFrame,
   for (LONG index = 0; index < arrayLength; ++index) {
     hr = OnWalkInterface(aArrayData.mArrayParamIid,
                          ResolveInterfacePtr(arrayPtr, paramVal.vt, index),
-                         FALSE, TRUE);
+                         FALSE,
+                         TRUE);
     if (FAILED(hr)) {
       return hr;
     }
@@ -544,8 +530,10 @@ MainThreadHandoff::MarshalAs(REFIID aIid)
 }
 
 HRESULT
-MainThreadHandoff::OnWalkInterface(REFIID aIid, PVOID* aInterface,
-                                   BOOL aIsInParam, BOOL aIsOutParam)
+MainThreadHandoff::OnWalkInterface(REFIID aIid,
+                                   PVOID* aInterface,
+                                   BOOL aIsInParam,
+                                   BOOL aIsOutParam)
 {
   MOZ_ASSERT(aInterface && aIsOutParam);
   if (!aInterface || !aIsOutParam) {
@@ -572,7 +560,7 @@ MainThreadHandoff::OnWalkInterface(REFIID aIid, PVOID* aInterface,
 
   RefPtr<IInterceptor> interceptor;
   HRESULT hr = mInterceptor->Resolve(IID_IInterceptor,
-                                     (void**) getter_AddRefs(interceptor));
+                                     (void**)getter_AddRefs(interceptor));
   MOZ_ASSERT(SUCCEEDED(hr));
   if (FAILED(hr)) {
     return hr;
@@ -592,21 +580,21 @@ MainThreadHandoff::OnWalkInterface(REFIID aIid, PVOID* aInterface,
 
     if (!areTargetsEqual) {
       // This check must be done on the main thread
-      auto checkFn = [&existingTarget, &origInterface, &areTargetsEqual]() -> void {
+      auto checkFn =
+          [&existingTarget, &origInterface, &areTargetsEqual]() -> void {
         RefPtr<IUnknown> unkExisting;
-        HRESULT hrExisting =
-          existingTarget->QueryInterface(IID_IUnknown,
-                                         (void**)getter_AddRefs(unkExisting));
+        HRESULT hrExisting = existingTarget->QueryInterface(
+            IID_IUnknown, (void**)getter_AddRefs(unkExisting));
         RefPtr<IUnknown> unkNew;
-        HRESULT hrNew =
-          origInterface->QueryInterface(IID_IUnknown,
-                                        (void**)getter_AddRefs(unkNew));
-        areTargetsEqual = SUCCEEDED(hrExisting) && SUCCEEDED(hrNew) &&
-                          unkExisting == unkNew;
+        HRESULT hrNew = origInterface->QueryInterface(
+            IID_IUnknown, (void**)getter_AddRefs(unkNew));
+        areTargetsEqual =
+            SUCCEEDED(hrExisting) && SUCCEEDED(hrNew) && unkExisting == unkNew;
       };
 
       MainThreadInvoker invoker;
-      invoker.Invoke(NS_NewRunnableFunction("MainThreadHandoff::OnWalkInterface", checkFn));
+      invoker.Invoke(NS_NewRunnableFunction(
+          "MainThreadHandoff::OnWalkInterface", checkFn));
     }
 
     if (areTargetsEqual) {
@@ -638,13 +626,14 @@ MainThreadHandoff::OnWalkInterface(REFIID aIid, PVOID* aInterface,
         return hr;
       }
 
-      effectiveIid = mHandlerProvider->GetEffectiveOutParamIid(callIid,
-                                                               callMethod);
+      effectiveIid =
+          mHandlerProvider->GetEffectiveOutParamIid(callIid, callMethod);
     }
 
-    hr = mHandlerProvider->NewInstance(effectiveIid,
-                                       ToInterceptorTargetPtr(origInterface),
-                                       WrapNotNull((IHandlerProvider**)getter_AddRefs(payload)));
+    hr = mHandlerProvider->NewInstance(
+        effectiveIid,
+        ToInterceptorTargetPtr(origInterface),
+        WrapNotNull((IHandlerProvider**)getter_AddRefs(payload)));
     MOZ_ASSERT(SUCCEEDED(hr));
     if (FAILED(hr)) {
       return hr;
@@ -659,12 +648,12 @@ MainThreadHandoff::OnWalkInterface(REFIID aIid, PVOID* aInterface,
     return hr;
   }
 
-  REFIID interceptorIid = payload ? payload->MarshalAs(effectiveIid) :
-                                    effectiveIid;
+  REFIID interceptorIid =
+      payload ? payload->MarshalAs(effectiveIid) : effectiveIid;
 
   RefPtr<IUnknown> wrapped;
-  hr = Interceptor::Create(Move(origInterface), handoff, interceptorIid,
-                           getter_AddRefs(wrapped));
+  hr = Interceptor::Create(
+      Move(origInterface), handoff, interceptorIid, getter_AddRefs(wrapped));
   MOZ_ASSERT(SUCCEEDED(hr));
   if (FAILED(hr)) {
     return hr;
@@ -676,5 +665,5 @@ MainThreadHandoff::OnWalkInterface(REFIID aIid, PVOID* aInterface,
   return S_OK;
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

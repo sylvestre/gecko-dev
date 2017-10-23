@@ -15,72 +15,67 @@ namespace mozilla {
 void
 WebGLContext::BindVertexArray(WebGLVertexArray* array)
 {
-    if (IsContextLost())
-        return;
+  if (IsContextLost()) return;
 
-    if (array && !ValidateObject("bindVertexArrayObject", *array))
-        return;
+  if (array && !ValidateObject("bindVertexArrayObject", *array)) return;
 
-    InvalidateBufferFetching();
+  InvalidateBufferFetching();
 
-    MakeContextCurrent();
+  MakeContextCurrent();
 
-    if (mBoundVertexArray) {
-        mBoundVertexArray->AddBufferBindCounts(-1);
-    }
+  if (mBoundVertexArray) {
+    mBoundVertexArray->AddBufferBindCounts(-1);
+  }
 
-    if (array == nullptr) {
-        array = mDefaultVertexArray;
-    }
+  if (array == nullptr) {
+    array = mDefaultVertexArray;
+  }
 
-    array->BindVertexArray();
+  array->BindVertexArray();
 
-    MOZ_ASSERT(mBoundVertexArray == array);
-    if (mBoundVertexArray) {
-        mBoundVertexArray->AddBufferBindCounts(+1);
-    }
+  MOZ_ASSERT(mBoundVertexArray == array);
+  if (mBoundVertexArray) {
+    mBoundVertexArray->AddBufferBindCounts(+1);
+  }
 }
 
 already_AddRefed<WebGLVertexArray>
 WebGLContext::CreateVertexArray()
 {
-    if (IsContextLost())
-        return nullptr;
+  if (IsContextLost()) return nullptr;
 
-    RefPtr<WebGLVertexArray> globj = CreateVertexArrayImpl();
+  RefPtr<WebGLVertexArray> globj = CreateVertexArrayImpl();
 
-    MakeContextCurrent();
-    globj->GenVertexArray();
+  MakeContextCurrent();
+  globj->GenVertexArray();
 
-    return globj.forget();
+  return globj.forget();
 }
 
 WebGLVertexArray*
 WebGLContext::CreateVertexArrayImpl()
 {
-    return WebGLVertexArray::Create(this);
+  return WebGLVertexArray::Create(this);
 }
 
 void
 WebGLContext::DeleteVertexArray(WebGLVertexArray* array)
 {
-    if (!ValidateDeleteObject("deleteVertexArray", array))
-        return;
+  if (!ValidateDeleteObject("deleteVertexArray", array)) return;
 
-    if (mBoundVertexArray == array)
-        BindVertexArray(static_cast<WebGLVertexArray*>(nullptr));
+  if (mBoundVertexArray == array)
+    BindVertexArray(static_cast<WebGLVertexArray*>(nullptr));
 
-    array->RequestDelete();
+  array->RequestDelete();
 }
 
 bool
 WebGLContext::IsVertexArray(const WebGLVertexArray* array)
 {
-    if (!ValidateIsObject("isVertexArray", array))
-        return false;
+  if (!ValidateIsObject("isVertexArray", array)) return false;
 
-    MakeContextCurrent();
-    return array->IsVertexArray();
+  MakeContextCurrent();
+  return array->IsVertexArray();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

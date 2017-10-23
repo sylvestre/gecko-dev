@@ -10,18 +10,19 @@
 #include "nsString.h"
 #include "nsTArray.h"
 
-class nsPSPrinterList {
-    public:
-        nsPSPrinterList();
+class nsPSPrinterList
+{
+ public:
+  nsPSPrinterList();
 
-        /**
+  /**
          * Is the PostScript module enabled or disabled?
          * @return true if enabled,
          *         false if not.
          */
-        bool Enabled();
+  bool Enabled();
 
-        /**
+  /**
          * Obtain a list of printers (print destinations) supported by the
          * PostScript module, Each entry will be in the form <type>/<name>,
          * where <type> is a printer type string, and <name> is the actual
@@ -33,21 +34,22 @@ class nsPSPrinterList {
          *              There should always be at least one entry. The
          *              first entry is the default print destination.
          */
-        void GetPrinterList(nsTArray<nsCString>& aList);
+  void GetPrinterList(nsTArray<nsCString>& aList);
 
-        enum PrinterType {
-            kTypeUnknown,         // Not actually handled by the PS module
-            kTypePS,              // Generic postscript module printer
-            kTypeCUPS             // CUPS printer
-        };
+  enum PrinterType
+  {
+    kTypeUnknown,  // Not actually handled by the PS module
+    kTypePS,       // Generic postscript module printer
+    kTypeCUPS      // CUPS printer
+  };
 
-        /**
+  /**
          * Identify a printer's type from its name.
          * @param aName The printer's full name as a UTF8 string, including
          *              the <type> portion as described for GetPrinterList().
          * @return The PrinterType value for this name.
          */
-        static PrinterType GetPrinterType(const nsACString& aName);
+  static PrinterType GetPrinterType(const nsACString& aName);
 };
 
 #endif /* nsPSPrinters_h___ */

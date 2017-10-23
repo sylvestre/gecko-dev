@@ -45,28 +45,50 @@ struct VoiceDetails
 };
 
 static const VoiceDetails sDirectVoices[] = {
-  {"urn:moz-tts:fake-direct:bob", "Bob Marley", "en-JM", true, 0},
-  {"urn:moz-tts:fake-direct:amy", "Amy Winehouse", "en-GB", false, 0},
-  {"urn:moz-tts:fake-direct:lenny", "Leonard Cohen", "en-CA", false, 0},
-  {"urn:moz-tts:fake-direct:celine", "Celine Dion", "fr-CA", false, 0},
-  {"urn:moz-tts:fake-direct:julie", "Julieta Venegas", "es-MX", false, },
+    {"urn:moz-tts:fake-direct:bob", "Bob Marley", "en-JM", true, 0},
+    {"urn:moz-tts:fake-direct:amy", "Amy Winehouse", "en-GB", false, 0},
+    {"urn:moz-tts:fake-direct:lenny", "Leonard Cohen", "en-CA", false, 0},
+    {"urn:moz-tts:fake-direct:celine", "Celine Dion", "fr-CA", false, 0},
+    {
+        "urn:moz-tts:fake-direct:julie",
+        "Julieta Venegas",
+        "es-MX",
+        false,
+    },
 };
 
 static const VoiceDetails sIndirectVoices[] = {
-  {"urn:moz-tts:fake-indirect:zanetta", "Zanetta Farussi", "it-IT", false, 0},
-  {"urn:moz-tts:fake-indirect:margherita", "Margherita Durastanti", "it-IT-noevents-noend", false, eSuppressEvents | eSuppressEnd},
-  {"urn:moz-tts:fake-indirect:teresa", "Teresa Cornelys", "it-IT-noend", false, eSuppressEnd},
-  {"urn:moz-tts:fake-indirect:cecilia", "Cecilia Bartoli", "it-IT-failatstart", false, eFailAtStart},
-  {"urn:moz-tts:fake-indirect:gottardo", "Gottardo Aldighieri", "it-IT-fail", false, eFail},
+    {"urn:moz-tts:fake-indirect:zanetta", "Zanetta Farussi", "it-IT", false, 0},
+    {"urn:moz-tts:fake-indirect:margherita",
+     "Margherita Durastanti",
+     "it-IT-noevents-noend",
+     false,
+     eSuppressEvents | eSuppressEnd},
+    {"urn:moz-tts:fake-indirect:teresa",
+     "Teresa Cornelys",
+     "it-IT-noend",
+     false,
+     eSuppressEnd},
+    {"urn:moz-tts:fake-indirect:cecilia",
+     "Cecilia Bartoli",
+     "it-IT-failatstart",
+     false,
+     eFailAtStart},
+    {"urn:moz-tts:fake-indirect:gottardo",
+     "Gottardo Aldighieri",
+     "it-IT-fail",
+     false,
+     eFail},
 };
 
 // FakeSynthCallback
 class FakeSynthCallback : public nsISpeechTaskCallback
 {
-public:
-  explicit FakeSynthCallback(nsISpeechTask* aTask) : mTask(aTask) { }
+ public:
+  explicit FakeSynthCallback(nsISpeechTask* aTask) : mTask(aTask) {}
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(FakeSynthCallback, nsISpeechTaskCallback)
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(FakeSynthCallback,
+                                           nsISpeechTaskCallback)
 
   NS_IMETHOD OnPause() override
   {
@@ -95,13 +117,10 @@ public:
     return NS_OK;
   }
 
-  NS_IMETHOD OnVolumeChanged(float aVolume) override
-  {
-    return NS_OK;
-  }
+  NS_IMETHOD OnVolumeChanged(float aVolume) override { return NS_OK; }
 
-private:
-  virtual ~FakeSynthCallback() { }
+ private:
+  virtual ~FakeSynthCallback() {}
 
   nsCOMPtr<nsISpeechTask> mTask;
 };
@@ -120,31 +139,31 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(FakeSynthCallback)
 
 class FakeDirectAudioSynth : public nsISpeechService
 {
-
-public:
-  FakeDirectAudioSynth() { }
+ public:
+  FakeDirectAudioSynth() {}
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSISPEECHSERVICE
 
-private:
-  virtual ~FakeDirectAudioSynth() { }
+ private:
+  virtual ~FakeDirectAudioSynth() {}
 };
 
 NS_IMPL_ISUPPORTS(FakeDirectAudioSynth, nsISpeechService)
 
 NS_IMETHODIMP
-FakeDirectAudioSynth::Speak(const nsAString& aText, const nsAString& aUri,
-                            float aVolume, float aRate, float aPitch,
+FakeDirectAudioSynth::Speak(const nsAString& aText,
+                            const nsAString& aUri,
+                            float aVolume,
+                            float aRate,
+                            float aPitch,
                             nsISpeechTask* aTask)
 {
   class Runnable final : public mozilla::Runnable
   {
-  public:
+   public:
     Runnable(nsISpeechTask* aTask, const nsAString& aText)
-      : mozilla::Runnable("Runnable")
-      , mTask(aTask)
-      , mText(aText)
+        : mozilla::Runnable("Runnable"), mTask(aTask), mText(aText)
     {
     }
 
@@ -164,7 +183,7 @@ FakeDirectAudioSynth::Speak(const nsAString& aText, const nsAString& aUri,
       return NS_OK;
     }
 
-  private:
+   private:
     nsCOMPtr<nsISpeechTask> mTask;
     nsString mText;
   };
@@ -185,30 +204,31 @@ FakeDirectAudioSynth::GetServiceType(SpeechServiceType* aServiceType)
 
 class FakeIndirectAudioSynth : public nsISpeechService
 {
-
-public:
+ public:
   FakeIndirectAudioSynth() {}
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSISPEECHSERVICE
 
-private:
-  virtual ~FakeIndirectAudioSynth() { }
+ private:
+  virtual ~FakeIndirectAudioSynth() {}
 };
 
 NS_IMPL_ISUPPORTS(FakeIndirectAudioSynth, nsISpeechService)
 
 NS_IMETHODIMP
-FakeIndirectAudioSynth::Speak(const nsAString& aText, const nsAString& aUri,
-                              float aVolume, float aRate, float aPitch,
+FakeIndirectAudioSynth::Speak(const nsAString& aText,
+                              const nsAString& aUri,
+                              float aVolume,
+                              float aRate,
+                              float aPitch,
                               nsISpeechTask* aTask)
 {
   class DispatchStart final : public Runnable
   {
-  public:
+   public:
     explicit DispatchStart(nsISpeechTask* aTask)
-      : mozilla::Runnable("DispatchStart")
-      , mTask(aTask)
+        : mozilla::Runnable("DispatchStart"), mTask(aTask)
     {
     }
 
@@ -219,50 +239,46 @@ FakeIndirectAudioSynth::Speak(const nsAString& aText, const nsAString& aUri,
       return NS_OK;
     }
 
-  private:
+   private:
     nsCOMPtr<nsISpeechTask> mTask;
   };
 
   class DispatchEnd final : public Runnable
   {
-  public:
+   public:
     DispatchEnd(nsISpeechTask* aTask, const nsAString& aText)
-      : mozilla::Runnable("DispatchEnd")
-      , mTask(aTask)
-      , mText(aText)
+        : mozilla::Runnable("DispatchEnd"), mTask(aTask), mText(aText)
     {
     }
 
     NS_IMETHOD Run() override
     {
-      mTask->DispatchEnd(mText.Length()/2, mText.Length());
+      mTask->DispatchEnd(mText.Length() / 2, mText.Length());
 
       return NS_OK;
     }
 
-  private:
+   private:
     nsCOMPtr<nsISpeechTask> mTask;
     nsString mText;
   };
 
   class DispatchError final : public Runnable
   {
-  public:
+   public:
     DispatchError(nsISpeechTask* aTask, const nsAString& aText)
-      : mozilla::Runnable("DispatchError")
-      , mTask(aTask)
-      , mText(aText)
+        : mozilla::Runnable("DispatchError"), mTask(aTask), mText(aText)
     {
     }
 
     NS_IMETHOD Run() override
     {
-      mTask->DispatchError(mText.Length()/2, mText.Length());
+      mTask->DispatchError(mText.Length() / 2, mText.Length());
 
       return NS_OK;
     }
 
-  private:
+   private:
     nsCOMPtr<nsISpeechTask> mTask;
     nsString mText;
   };
@@ -278,8 +294,8 @@ FakeIndirectAudioSynth::Speak(const nsAString& aText, const nsAString& aUri,
     return NS_ERROR_FAILURE;
   }
 
-  RefPtr<FakeSynthCallback> cb = new FakeSynthCallback(
-    (flags & eSuppressEvents) ? nullptr : aTask);
+  RefPtr<FakeSynthCallback> cb =
+      new FakeSynthCallback((flags & eSuppressEvents) ? nullptr : aTask);
 
   aTask->Setup(cb, 0, 0, 0);
 
@@ -314,16 +330,14 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(nsFakeSynthServices)
 NS_IMPL_RELEASE(nsFakeSynthServices)
 
-nsFakeSynthServices::nsFakeSynthServices()
-{
-}
+nsFakeSynthServices::nsFakeSynthServices() {}
 
-nsFakeSynthServices::~nsFakeSynthServices()
-{
-}
+nsFakeSynthServices::~nsFakeSynthServices() {}
 
 static void
-AddVoices(nsISpeechService* aService, const VoiceDetails* aVoices, uint32_t aLength)
+AddVoices(nsISpeechService* aService,
+          const VoiceDetails* aVoices,
+          uint32_t aLength)
 {
   RefPtr<nsSynthVoiceRegistry> registry = nsSynthVoiceRegistry::GetInstance();
   for (uint32_t i = 0; i < aLength; i++) {
@@ -354,17 +368,18 @@ nsFakeSynthServices::Init()
 // nsIObserver
 
 NS_IMETHODIMP
-nsFakeSynthServices::Observe(nsISupports* aSubject, const char* aTopic,
+nsFakeSynthServices::Observe(nsISupports* aSubject,
+                             const char* aTopic,
                              const char16_t* aData)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  if(NS_WARN_IF(!(!strcmp(aTopic, "speech-synth-started")))) {
+  if (NS_WARN_IF(!(!strcmp(aTopic, "speech-synth-started")))) {
     return NS_ERROR_UNEXPECTED;
   }
 
   if (Preferences::GetBool("media.webspeech.synth.test")) {
     NS_DispatchToMainThread(NewRunnableMethod(
-      "dom::nsFakeSynthServices::Init", this, &nsFakeSynthServices::Init));
+        "dom::nsFakeSynthServices::Init", this, &nsFakeSynthServices::Init));
   }
 
   return NS_OK;
@@ -377,7 +392,8 @@ nsFakeSynthServices::GetInstance()
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (!XRE_IsParentProcess()) {
-    MOZ_ASSERT(false, "nsFakeSynthServices can only be started on main gecko process");
+    MOZ_ASSERT(false,
+               "nsFakeSynthServices can only be started on main gecko process");
     return nullptr;
   }
 
@@ -405,5 +421,5 @@ nsFakeSynthServices::Shutdown()
   sSingleton = nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

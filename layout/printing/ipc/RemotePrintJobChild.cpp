@@ -14,12 +14,9 @@
 namespace mozilla {
 namespace layout {
 
-NS_IMPL_ISUPPORTS(RemotePrintJobChild,
-                  nsIWebProgressListener)
+NS_IMPL_ISUPPORTS(RemotePrintJobChild, nsIWebProgressListener)
 
-RemotePrintJobChild::RemotePrintJobChild()
-{
-}
+RemotePrintJobChild::RemotePrintJobChild() {}
 
 nsresult
 RemotePrintJobChild::InitializePrint(const nsString& aDocumentTitle,
@@ -29,16 +26,16 @@ RemotePrintJobChild::InitializePrint(const nsString& aDocumentTitle,
 {
   // Print initialization can sometimes display a dialog in the parent, so we
   // need to spin a nested event loop until initialization completes.
-  Unused << SendInitializePrint(aDocumentTitle, aPrintToFile, aStartPage,
-                                aEndPage);
+  Unused << SendInitializePrint(
+      aDocumentTitle, aPrintToFile, aStartPage, aEndPage);
   mozilla::SpinEventLoopUntil([&]() { return mPrintInitialized; });
 
   return mInitializationResult;
 }
 
 mozilla::ipc::IPCResult
-RemotePrintJobChild::RecvPrintInitializationResult(const nsresult& aRv,
-                                                   const mozilla::ipc::FileDescriptor& aFd)
+RemotePrintJobChild::RecvPrintInitializationResult(
+    const nsresult& aRv, const mozilla::ipc::FileDescriptor& aFd)
 {
   mPrintInitialized = true;
   mInitializationResult = aRv;
@@ -48,7 +45,8 @@ RemotePrintJobChild::RecvPrintInitializationResult(const nsresult& aRv,
   return IPC_OK();
 }
 
-void RemotePrintJobChild::SetNextPageFD(const mozilla::ipc::FileDescriptor& aFd)
+void
+RemotePrintJobChild::SetNextPageFD(const mozilla::ipc::FileDescriptor& aFd)
 {
   auto handle = aFd.ClonePlatformHandle();
   mNextPageFD = PR_ImportFile(PROsfd(handle.release()));
@@ -102,7 +100,8 @@ RemotePrintJobChild::SetPrintEngine(nsPrintEngine* aPrintEngine)
 
 NS_IMETHODIMP
 RemotePrintJobChild::OnStateChange(nsIWebProgress* aProgress,
-                                   nsIRequest* aRequest, uint32_t aStateFlags,
+                                   nsIRequest* aRequest,
+                                   uint32_t aStateFlags,
                                    nsresult aStatus)
 {
   Unused << SendStateChange(aStateFlags, aStatus);
@@ -110,21 +109,22 @@ RemotePrintJobChild::OnStateChange(nsIWebProgress* aProgress,
 }
 
 NS_IMETHODIMP
-RemotePrintJobChild::OnProgressChange(nsIWebProgress * aProgress,
-                                      nsIRequest * aRequest,
+RemotePrintJobChild::OnProgressChange(nsIWebProgress* aProgress,
+                                      nsIRequest* aRequest,
                                       int32_t aCurSelfProgress,
                                       int32_t aMaxSelfProgress,
                                       int32_t aCurTotalProgress,
                                       int32_t aMaxTotalProgress)
 {
-  Unused << SendProgressChange(aCurSelfProgress, aMaxSelfProgress,
-                               aCurTotalProgress, aMaxTotalProgress);
+  Unused << SendProgressChange(
+      aCurSelfProgress, aMaxSelfProgress, aCurTotalProgress, aMaxTotalProgress);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 RemotePrintJobChild::OnLocationChange(nsIWebProgress* aProgress,
-                                      nsIRequest* aRequest, nsIURI* aURI,
+                                      nsIRequest* aRequest,
+                                      nsIURI* aURI,
                                       uint32_t aFlags)
 {
   return NS_OK;
@@ -132,7 +132,8 @@ RemotePrintJobChild::OnLocationChange(nsIWebProgress* aProgress,
 
 NS_IMETHODIMP
 RemotePrintJobChild::OnStatusChange(nsIWebProgress* aProgress,
-                                    nsIRequest* aRequest, nsresult aStatus,
+                                    nsIRequest* aRequest,
+                                    nsresult aStatus,
                                     const char16_t* aMessage)
 {
   Unused << SendStatusChange(aStatus);
@@ -141,16 +142,15 @@ RemotePrintJobChild::OnStatusChange(nsIWebProgress* aProgress,
 
 NS_IMETHODIMP
 RemotePrintJobChild::OnSecurityChange(nsIWebProgress* aProgress,
-                                      nsIRequest* aRequest, uint32_t aState)
+                                      nsIRequest* aRequest,
+                                      uint32_t aState)
 {
   return NS_OK;
 }
 
 // End of nsIWebProgressListener
 
-RemotePrintJobChild::~RemotePrintJobChild()
-{
-}
+RemotePrintJobChild::~RemotePrintJobChild() {}
 
 void
 RemotePrintJobChild::ActorDestroy(ActorDestroyReason aWhy)
@@ -159,5 +159,5 @@ RemotePrintJobChild::ActorDestroy(ActorDestroyReason aWhy)
   mPrintEngine = nullptr;
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla

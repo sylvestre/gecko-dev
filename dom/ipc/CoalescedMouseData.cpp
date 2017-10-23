@@ -37,19 +37,17 @@ CoalescedMouseData::Coalesce(const WidgetMouseEvent& aEvent,
 
 bool
 CoalescedMouseData::CanCoalesce(const WidgetMouseEvent& aEvent,
-                             const ScrollableLayerGuid& aGuid,
-                             const uint64_t& aInputBlockId)
+                                const ScrollableLayerGuid& aGuid,
+                                const uint64_t& aInputBlockId)
 {
   return !mCoalescedInputEvent ||
          (mCoalescedInputEvent->mModifiers == aEvent.mModifiers &&
           mCoalescedInputEvent->inputSource == aEvent.inputSource &&
           mCoalescedInputEvent->pointerId == aEvent.pointerId &&
           mCoalescedInputEvent->button == aEvent.button &&
-          mCoalescedInputEvent->buttons == aEvent.buttons &&
-          mGuid == aGuid &&
+          mCoalescedInputEvent->buttons == aEvent.buttons && mGuid == aGuid &&
           mInputBlockId == aInputBlockId);
 }
-
 
 void
 CoalescedMouseMoveFlusher::WillRefresh(mozilla::TimeStamp aTime)
@@ -71,7 +69,7 @@ CoalescedMouseMoveFlusher::StartObserver()
   if (refreshDriver) {
     mRefreshDriver = refreshDriver;
     DebugOnly<bool> success =
-      mRefreshDriver->AddRefreshObserver(this, FlushType::Event);
+        mRefreshDriver->AddRefreshObserver(this, FlushType::Event);
     MOZ_ASSERT(success);
   }
 }

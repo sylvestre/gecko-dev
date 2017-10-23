@@ -12,15 +12,15 @@ namespace mozilla {
 namespace dom {
 
 Timeout::Timeout()
-  : mTimeoutId(0),
-    mFiringId(TimeoutManager::InvalidFiringId),
-    mPopupState(openAllowed),
-    mReason(Reason::eTimeoutOrInterval),
-    mNestingLevel(0),
-    mCleared(false),
-    mRunning(false),
-    mIsInterval(false),
-    mIsTracking(false)
+    : mTimeoutId(0),
+      mFiringId(TimeoutManager::InvalidFiringId),
+      mPopupState(openAllowed),
+      mReason(Reason::eTimeoutOrInterval),
+      mNestingLevel(0),
+      mCleared(false),
+      mRunning(false),
+      mIsInterval(false),
+      mIsTracking(false)
 {
 }
 
@@ -81,5 +81,5 @@ Timeout::TimeRemaining() const
   return mTimeRemaining;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

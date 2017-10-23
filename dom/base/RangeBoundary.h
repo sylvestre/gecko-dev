@@ -31,7 +31,8 @@ namespace mozilla {
 template<typename ParentType, typename RefType>
 class RangeBoundaryBase;
 
-typedef RangeBoundaryBase<nsCOMPtr<nsINode>, nsCOMPtr<nsIContent>> RangeBoundary;
+typedef RangeBoundaryBase<nsCOMPtr<nsINode>, nsCOMPtr<nsIContent>>
+    RangeBoundary;
 typedef RangeBoundaryBase<nsINode*, nsIContent*> RawRangeBoundary;
 
 // This class has two specializations, one using reference counting
@@ -44,14 +45,14 @@ class RangeBoundaryBase
   friend class RangeBoundaryBase;
 
   friend void ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback&,
-                                          RangeBoundary&, const char*,
+                                          RangeBoundary&,
+                                          const char*,
                                           uint32_t);
   friend void ImplCycleCollectionUnlink(RangeBoundary&);
 
-public:
+ public:
   RangeBoundaryBase(nsINode* aContainer, nsIContent* aRef)
-    : mParent(aContainer)
-    , mRef(aRef)
+      : mParent(aContainer), mRef(aRef)
   {
     if (!mRef) {
       mOffset = mozilla::Some(0);
@@ -63,9 +64,7 @@ public:
   }
 
   RangeBoundaryBase(nsINode* aContainer, int32_t aOffset)
-    : mParent(aContainer)
-    , mRef(nullptr)
-    , mOffset(mozilla::Some(aOffset))
+      : mParent(aContainer), mRef(nullptr), mOffset(mozilla::Some(aOffset))
   {
     if (mParent && mParent->IsContainerNode()) {
       // Find a reference node
@@ -83,35 +82,20 @@ public:
                          "Constructing RangeBoundary with invalid value");
   }
 
-  RangeBoundaryBase()
-    : mParent(nullptr)
-    , mRef(nullptr)
-  {
-  }
+  RangeBoundaryBase() : mParent(nullptr), mRef(nullptr) {}
 
   // Needed for initializing RawRangeBoundary from an existing RangeBoundary.
   template<typename PT, typename RT>
   explicit RangeBoundaryBase(const RangeBoundaryBase<PT, RT>& aOther)
-    : mParent(aOther.mParent)
-    , mRef(aOther.mRef)
-    , mOffset(aOther.mOffset)
+      : mParent(aOther.mParent), mRef(aOther.mRef), mOffset(aOther.mOffset)
   {
   }
 
-  nsIContent*
-  Ref() const
-  {
-    return mRef;
-  }
+  nsIContent* Ref() const { return mRef; }
 
-  nsINode*
-  Container() const
-  {
-    return mParent;
-  }
+  nsINode* Container() const { return mParent; }
 
-  nsIContent*
-  GetChildAtOffset() const
+  nsIContent* GetChildAtOffset() const
   {
     if (!mParent || !mParent->IsContainerNode()) {
       return nullptr;
@@ -124,8 +108,7 @@ public:
     return mRef->GetNextSibling();
   }
 
-  uint32_t
-  Offset() const
+  uint32_t Offset() const
   {
     if (mOffset.isSome()) {
       return mOffset.value();
@@ -142,11 +125,11 @@ public:
     return mOffset.value();
   }
 
-  void
-  InvalidateOffset()
+  void InvalidateOffset()
   {
     MOZ_ASSERT(mParent);
-    MOZ_ASSERT(mParent->IsContainerNode(), "Range is positioned on a text node!");
+    MOZ_ASSERT(mParent->IsContainerNode(),
+               "Range is positioned on a text node!");
 
     if (!mRef) {
       MOZ_ASSERT(mOffset.isSome() && mOffset.value() == 0,
@@ -156,8 +139,7 @@ public:
     mOffset.reset();
   }
 
-  void
-  Set(nsINode* aContainer, int32_t aOffset)
+  void Set(nsINode* aContainer, int32_t aOffset)
   {
     mParent = aContainer;
     if (mParent && mParent->IsContainerNode()) {
@@ -183,8 +165,7 @@ public:
                          "Setting RangeBoundary to invalid value");
   }
 
-  void
-  SetAfterRef(nsINode* aParent, nsIContent* aRef)
+  void SetAfterRef(nsINode* aParent, nsIContent* aRef)
   {
     mParent = aParent;
     mRef = aRef;
@@ -195,14 +176,9 @@ public:
     }
   }
 
-  bool
-  IsSet() const
-  {
-    return mParent && (mRef || mOffset.isSome());
-  }
+  bool IsSet() const { return mParent && (mRef || mOffset.isSome()); }
 
-  bool
-  IsSetAndValid() const
+  bool IsSetAndValid() const
   {
     if (!IsSet()) {
       return false;
@@ -214,8 +190,7 @@ public:
     return Offset() <= Container()->Length();
   }
 
-  bool
-  IsStartOfContainer() const
+  bool IsStartOfContainer() const
   {
     // We're at the first point in the container if we don't have a reference,
     // and our offset is 0. If we don't have a Ref, we should already have an
@@ -223,28 +198,25 @@ public:
     return !Ref() && mOffset.value() == 0;
   }
 
-  bool
-  IsEndOfContainer() const
+  bool IsEndOfContainer() const
   {
     // We're at the last point in the container if Ref is a pointer to the last
     // child in Container(), or our Offset() is the same as the length of our
     // container. If we don't have a Ref, then we should already have an offset,
     // so we can just directly fetch it.
-    return Ref()
-      ? !Ref()->GetNextSibling()
-      : mOffset.value() == Container()->Length();
+    return Ref() ? !Ref()->GetNextSibling()
+                 : mOffset.value() == Container()->Length();
   }
 
   // Convenience methods for switching between the two types
   // of RangeBoundary.
-  RangeBoundaryBase<nsINode*, nsIContent*>
-  AsRaw() const
+  RangeBoundaryBase<nsINode*, nsIContent*> AsRaw() const
   {
     return RangeBoundaryBase<nsINode*, nsIContent*>(*this);
   }
 
   template<typename A, typename B>
-  RangeBoundaryBase& operator=(const RangeBoundaryBase<A,B>& aOther)
+  RangeBoundaryBase& operator=(const RangeBoundaryBase<A, B>& aOther)
   {
     mParent = aOther.mParent;
     mRef = aOther.mRef;
@@ -256,7 +228,7 @@ public:
   bool operator==(const RangeBoundaryBase<A, B>& aOther) const
   {
     return mParent == aOther.mParent &&
-      (mRef ? mRef == aOther.mRef : mOffset == aOther.mOffset);
+           (mRef ? mRef == aOther.mRef : mOffset == aOther.mOffset);
   }
 
   template<typename A, typename B>
@@ -265,7 +237,7 @@ public:
     return !(*this == aOther);
   }
 
-private:
+ private:
   ParentType mParent;
   RefType mRef;
 
@@ -289,6 +261,6 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
   ImplCycleCollectionTraverse(aCallback, aField.mRef, "mRef", 0);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // defined(mozilla_RangeBoundary_h)
+#endif  // defined(mozilla_RangeBoundary_h)

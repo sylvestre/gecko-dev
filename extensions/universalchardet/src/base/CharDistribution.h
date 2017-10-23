@@ -12,8 +12,8 @@
 
 class CharDistributionAnalysis
 {
-public:
-  CharDistributionAnalysis() {Reset();}
+ public:
+  CharDistributionAnalysis() { Reset(); }
 
   //feed a block of data and do distribution analysis
   void HandleData(const char* aBuf, uint32_t aLen) {}
@@ -26,14 +26,11 @@ public:
     //we only care about 2-bytes character in our distribution analysis
     order = (aCharLen == 2) ? GetOrder(aStr) : -1;
 
-    if (order >= 0)
-    {
+    if (order >= 0) {
       mTotalChars++;
       //order is valid
-      if ((uint32_t)order < mTableSize)
-      {
-        if (512 > mCharToFreqOrder[order])
-          mFreqChars++;
+      if ((uint32_t)order < mTableSize) {
+        if (512 > mCharToFreqOrder[order]) mFreqChars++;
       }
     }
   }
@@ -42,7 +39,7 @@ public:
   float GetConfidence(void);
 
   //Reset analyser, clear any state
-  void      Reset()
+  void Reset()
   {
     mDone = false;
     mTotalChars = 0;
@@ -52,16 +49,16 @@ public:
 
   //It is not necessary to receive all data to draw conclusion. For charset detection,
   // certain amount of data is enough
-  bool GotEnoughData() {return mTotalChars > ENOUGH_DATA_THRESHOLD;}
+  bool GotEnoughData() { return mTotalChars > ENOUGH_DATA_THRESHOLD; }
 
-protected:
+ protected:
   //we do not handle character base on its original encoding string, but
   //convert this encoding string to a number, here called order.
   //This allow multiple encoding of a language to share one frequency table
-  virtual int32_t GetOrder(const char* str) {return -1;}
+  virtual int32_t GetOrder(const char* str) { return -1; }
 
   //If this flag is set to true, detection is done and conclusion has been made
-  bool     mDone;
+  bool mDone;
 
   //The number of characters whose frequency order is less than 512
   uint32_t mFreqChars;
@@ -73,48 +70,51 @@ protected:
   uint32_t mDataThreshold;
 
   //Mapping table to get frequency order from char order (get from GetOrder())
-  const int16_t  *mCharToFreqOrder;
+  const int16_t* mCharToFreqOrder;
 
   //Size of above table
   uint32_t mTableSize;
 
   //This is a constant value varies from language to language, it is used in
   //calculating confidence. See my paper for further detail.
-  float    mTypicalDistributionRatio;
+  float mTypicalDistributionRatio;
 };
 
-
-class EUCTWDistributionAnalysis: public CharDistributionAnalysis
+class EUCTWDistributionAnalysis : public CharDistributionAnalysis
 {
-public:
+ public:
   EUCTWDistributionAnalysis();
-protected:
 
+ protected:
   //for euc-TW encoding, we are interested
   //  first  byte range: 0xc4 -- 0xfe
   //  second byte range: 0xa1 -- 0xfe
   //no validation needed here. State machine has done that
   int32_t GetOrder(const char* str)
-  { if ((unsigned char)*str >= (unsigned char)0xc4)
-      return 94*((unsigned char)str[0]-(unsigned char)0xc4) + (unsigned char)str[1] - (unsigned char)0xa1;
+  {
+    if ((unsigned char)*str >= (unsigned char)0xc4)
+      return 94 * ((unsigned char)str[0] - (unsigned char)0xc4) +
+             (unsigned char)str[1] - (unsigned char)0xa1;
     else
       return -1;
   }
 };
 
-
 class EUCKRDistributionAnalysis : public CharDistributionAnalysis
 {
-public:
+ public:
   EUCKRDistributionAnalysis();
-protected:
+
+ protected:
   //for euc-KR encoding, we are interested
   //  first  byte range: 0xb0 -- 0xfe
   //  second byte range: 0xa1 -- 0xfe
   //no validation needed here. State machine has done that
   int32_t GetOrder(const char* str)
-  { if ((unsigned char)*str >= (unsigned char)0xb0)
-      return 94*((unsigned char)str[0]-(unsigned char)0xb0) + (unsigned char)str[1] - (unsigned char)0xa1;
+  {
+    if ((unsigned char)*str >= (unsigned char)0xb0)
+      return 94 * ((unsigned char)str[0] - (unsigned char)0xb0) +
+             (unsigned char)str[1] - (unsigned char)0xa1;
     else
       return -1;
   }
@@ -122,37 +122,44 @@ protected:
 
 class GB2312DistributionAnalysis : public CharDistributionAnalysis
 {
-public:
+ public:
   GB2312DistributionAnalysis();
-protected:
+
+ protected:
   //for GB2312 encoding, we are interested
   //  first  byte range: 0xb0 -- 0xfe
   //  second byte range: 0xa1 -- 0xfe
   //no validation needed here. State machine has done that
   int32_t GetOrder(const char* str)
-  { if ((unsigned char)*str >= (unsigned char)0xb0 && (unsigned char)str[1] >= (unsigned char)0xa1)
-      return 94*((unsigned char)str[0]-(unsigned char)0xb0) + (unsigned char)str[1] - (unsigned char)0xa1;
+  {
+    if ((unsigned char)*str >= (unsigned char)0xb0 &&
+        (unsigned char)str[1] >= (unsigned char)0xa1)
+      return 94 * ((unsigned char)str[0] - (unsigned char)0xb0) +
+             (unsigned char)str[1] - (unsigned char)0xa1;
     else
       return -1;
   }
 };
 
-
 class Big5DistributionAnalysis : public CharDistributionAnalysis
 {
-public:
+ public:
   Big5DistributionAnalysis();
-protected:
+
+ protected:
   //for big5 encoding, we are interested
   //  first  byte range: 0xa4 -- 0xfe
   //  second byte range: 0x40 -- 0x7e , 0xa1 -- 0xfe
   //no validation needed here. State machine has done that
   int32_t GetOrder(const char* str)
-  { if ((unsigned char)*str >= (unsigned char)0xa4)
+  {
+    if ((unsigned char)*str >= (unsigned char)0xa4)
       if ((unsigned char)str[1] >= (unsigned char)0xa1)
-        return 157*((unsigned char)str[0]-(unsigned char)0xa4) + (unsigned char)str[1] - (unsigned char)0xa1 +63;
+        return 157 * ((unsigned char)str[0] - (unsigned char)0xa4) +
+               (unsigned char)str[1] - (unsigned char)0xa1 + 63;
       else
-        return 157*((unsigned char)str[0]-(unsigned char)0xa4) + (unsigned char)str[1] - (unsigned char)0x40;
+        return 157 * ((unsigned char)str[0] - (unsigned char)0xa4) +
+               (unsigned char)str[1] - (unsigned char)0x40;
     else
       return -1;
   }
@@ -160,9 +167,10 @@ protected:
 
 class SJISDistributionAnalysis : public CharDistributionAnalysis
 {
-public:
+ public:
   SJISDistributionAnalysis();
-protected:
+
+ protected:
   //for sjis encoding, we are interested
   //  first  byte range: 0x81 -- 0x9f , 0xe0 -- 0xfe
   //  second byte range: 0x40 -- 0x7e,  0x81 -- oxfe
@@ -170,35 +178,38 @@ protected:
   int32_t GetOrder(const char* str)
   {
     int32_t order;
-    if ((unsigned char)*str >= (unsigned char)0x81 && (unsigned char)*str <= (unsigned char)0x9f)
-      order = 188 * ((unsigned char)str[0]-(unsigned char)0x81);
-    else if ((unsigned char)*str >= (unsigned char)0xe0 && (unsigned char)*str <= (unsigned char)0xef)
-      order = 188 * ((unsigned char)str[0]-(unsigned char)0xe0 + 31);
+    if ((unsigned char)*str >= (unsigned char)0x81 &&
+        (unsigned char)*str <= (unsigned char)0x9f)
+      order = 188 * ((unsigned char)str[0] - (unsigned char)0x81);
+    else if ((unsigned char)*str >= (unsigned char)0xe0 &&
+             (unsigned char)*str <= (unsigned char)0xef)
+      order = 188 * ((unsigned char)str[0] - (unsigned char)0xe0 + 31);
     else
       return -1;
-    order += (unsigned char)*(str+1) - 0x40;
-    if ((unsigned char)str[1] > (unsigned char)0x7f)
-      order--;
+    order += (unsigned char)*(str + 1) - 0x40;
+    if ((unsigned char)str[1] > (unsigned char)0x7f) order--;
     return order;
   }
 };
 
 class EUCJPDistributionAnalysis : public CharDistributionAnalysis
 {
-public:
+ public:
   EUCJPDistributionAnalysis();
-protected:
+
+ protected:
   //for euc-JP encoding, we are interested
   //  first  byte range: 0xa0 -- 0xfe
   //  second byte range: 0xa1 -- 0xfe
   //no validation needed here. State machine has done that
   int32_t GetOrder(const char* str)
-  { if ((unsigned char)*str >= (unsigned char)0xa0)
-      return 94*((unsigned char)str[0]-(unsigned char)0xa1) + (unsigned char)str[1] - (unsigned char)0xa1;
+  {
+    if ((unsigned char)*str >= (unsigned char)0xa0)
+      return 94 * ((unsigned char)str[0] - (unsigned char)0xa1) +
+             (unsigned char)str[1] - (unsigned char)0xa1;
     else
       return -1;
   }
 };
 
-#endif //CharDistribution_h__
-
+#endif  //CharDistribution_h__

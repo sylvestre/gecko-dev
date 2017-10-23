@@ -71,20 +71,21 @@ class GMPServiceCreateHelper final : public mozilla::Runnable
 {
   RefPtr<GeckoMediaPluginService> mService;
 
-public:
-  static already_AddRefed<GeckoMediaPluginService>
-  GetOrCreate()
+ public:
+  static already_AddRefed<GeckoMediaPluginService> GetOrCreate()
   {
     RefPtr<GeckoMediaPluginService> service;
 
     if (NS_IsMainThread()) {
       service = GetOrCreateOnMainThread();
     } else {
-      RefPtr<GMPServiceCreateHelper> createHelper = new GMPServiceCreateHelper();
+      RefPtr<GMPServiceCreateHelper> createHelper =
+          new GMPServiceCreateHelper();
 
       mozilla::SyncRunnable::DispatchToThread(
-        SystemGroup::EventTargetFor(mozilla::TaskCategory::Other),
-        createHelper, true);
+          SystemGroup::EventTargetFor(mozilla::TaskCategory::Other),
+          createHelper,
+          true);
 
       service = createHelper->mService.forget();
     }
@@ -92,31 +93,24 @@ public:
     return service.forget();
   }
 
-private:
-  GMPServiceCreateHelper()
-    : Runnable("GMPServiceCreateHelper")
-  {
-  }
+ private:
+  GMPServiceCreateHelper() : Runnable("GMPServiceCreateHelper") {}
 
-  ~GMPServiceCreateHelper()
-  {
-    MOZ_ASSERT(!mService);
-  }
+  ~GMPServiceCreateHelper() { MOZ_ASSERT(!mService); }
 
-  static already_AddRefed<GeckoMediaPluginService>
-  GetOrCreateOnMainThread()
+  static already_AddRefed<GeckoMediaPluginService> GetOrCreateOnMainThread()
   {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!sSingletonService) {
       if (XRE_IsParentProcess()) {
         RefPtr<GeckoMediaPluginServiceParent> service =
-          new GeckoMediaPluginServiceParent();
+            new GeckoMediaPluginServiceParent();
         service->Init();
         sSingletonService = service;
       } else {
         RefPtr<GeckoMediaPluginServiceChild> service =
-          new GeckoMediaPluginServiceChild();
+            new GeckoMediaPluginServiceChild();
         service->Init();
         sSingletonService = service;
       }
@@ -144,30 +138,32 @@ GeckoMediaPluginService::GetGeckoMediaPluginService()
   return GMPServiceCreateHelper::GetOrCreate();
 }
 
-NS_IMPL_ISUPPORTS(GeckoMediaPluginService, mozIGeckoMediaPluginService, nsIObserver)
+NS_IMPL_ISUPPORTS(GeckoMediaPluginService,
+                  mozIGeckoMediaPluginService,
+                  nsIObserver)
 
 GeckoMediaPluginService::GeckoMediaPluginService()
-  : mMutex("GeckoMediaPluginService::mMutex")
-  , mGMPThreadShutdown(false)
-  , mShuttingDownOnGMPThread(false)
+    : mMutex("GeckoMediaPluginService::mMutex"),
+      mGMPThreadShutdown(false),
+      mShuttingDownOnGMPThread(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsCOMPtr<nsIXULAppInfo> appInfo = do_GetService("@mozilla.org/xre/app-info;1");
+  nsCOMPtr<nsIXULAppInfo> appInfo =
+      do_GetService("@mozilla.org/xre/app-info;1");
   if (appInfo) {
     nsAutoCString version;
     nsAutoCString buildID;
     if (NS_SUCCEEDED(appInfo->GetVersion(version)) &&
         NS_SUCCEEDED(appInfo->GetAppBuildID(buildID))) {
       LOGD(("GeckoMediaPluginService created; Gecko version=%s buildID=%s",
-            version.get(), buildID.get()));
+            version.get(),
+            buildID.get()));
     }
   }
 }
 
-GeckoMediaPluginService::~GeckoMediaPluginService()
-{
-}
+GeckoMediaPluginService::~GeckoMediaPluginService() {}
 
 NS_IMETHODIMP
 GeckoMediaPluginService::RunPluginCrashCallbacks(uint32_t aPluginId,
@@ -182,7 +178,10 @@ GeckoMediaPluginService::RunPluginCrashCallbacks(uint32_t aPluginId,
     mPluginCrashHelpers.Remove(aPluginId, &helpers);
   }
   if (!helpers) {
-    LOGD(("%s::%s(%i) No crash helpers, not handling crash.", __CLASS__, __FUNCTION__, aPluginId));
+    LOGD(("%s::%s(%i) No crash helpers, not handling crash.",
+          __CLASS__,
+          __FUNCTION__,
+          aPluginId));
     return NS_OK;
   }
 
@@ -204,9 +203,8 @@ GeckoMediaPluginService::RunPluginCrashCallbacks(uint32_t aPluginId,
     CopyUTF8toUTF16(aPluginName, init.mPluginName);
     init.mSubmittedCrashReport = false;
     RefPtr<dom::PluginCrashedEvent> event =
-      dom::PluginCrashedEvent::Constructor(document,
-                                           NS_LITERAL_STRING("PluginCrashed"),
-                                           init);
+        dom::PluginCrashedEvent::Constructor(
+            document, NS_LITERAL_STRING("PluginCrashed"), init);
     event->SetTrusted(true);
     event->WidgetEventPtr()->mFlags.mOnlyChromeDispatch = true;
 
@@ -221,9 +219,11 @@ GeckoMediaPluginService::Init()
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsCOMPtr<nsIObserverService> obsService = mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> obsService =
+      mozilla::services::GetObserverService();
   MOZ_ASSERT(obsService);
-  MOZ_ALWAYS_SUCCEEDS(obsService->AddObserver(this, NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID, false));
+  MOZ_ALWAYS_SUCCEEDS(obsService->AddObserver(
+      this, NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID, false));
 
   // Kick off scanning for plugins
   nsCOMPtr<nsIThread> thread;
@@ -238,9 +238,14 @@ GeckoMediaPluginService::GetCDM(const NodeId& aNodeId,
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
 
   if (mShuttingDownOnGMPThread || aTags.IsEmpty()) {
-    nsPrintfCString reason("%s::%s failed, aTags.IsEmpty() = %d, mShuttingDownOnGMPThread = %d.",
-      __CLASS__, __FUNCTION__, aTags.IsEmpty(), mShuttingDownOnGMPThread);
-    return GetCDMParentPromise::CreateAndReject(MediaResult(NS_ERROR_FAILURE, reason.get()), __func__);
+    nsPrintfCString reason(
+        "%s::%s failed, aTags.IsEmpty() = %d, mShuttingDownOnGMPThread = %d.",
+        __CLASS__,
+        __FUNCTION__,
+        aTags.IsEmpty(),
+        mShuttingDownOnGMPThread);
+    return GetCDMParentPromise::CreateAndReject(
+        MediaResult(NS_ERROR_FAILURE, reason.get()), __func__);
   }
 
   typedef MozPromiseHolder<GetCDMParentPromise> PromiseHolder;
@@ -249,32 +254,37 @@ GeckoMediaPluginService::GetCDM(const NodeId& aNodeId,
   RefPtr<AbstractThread> thread(GetAbstractGMPThread());
   RefPtr<GMPCrashHelper> helper(aHelper);
   GetContentParent(
-    aHelper, aNodeId, NS_LITERAL_CSTRING(CHROMIUM_CDM_API), aTags)
-    ->Then(thread,
-           __func__,
-           [rawHolder, helper](RefPtr<GMPContentParent::CloseBlocker> wrapper) {
-             RefPtr<GMPContentParent> parent = wrapper->mParent;
-             UniquePtr<PromiseHolder> holder(rawHolder);
-             RefPtr<ChromiumCDMParent> cdm = parent->GetChromiumCDM();
-             if (!parent) {
-               nsPrintfCString reason(
-                 "%s::%s failed since GetChromiumCDM returns nullptr.",
-                 __CLASS__, __FUNCTION__);
-               holder->Reject(MediaResult(NS_ERROR_FAILURE, reason.get()), __func__);
-               return;
-             }
-             if (helper) {
-               cdm->SetCrashHelper(helper);
-             }
-             holder->Resolve(cdm, __func__);
-           },
-           [rawHolder] {
-             nsPrintfCString reason(
-               "%s::%s failed since GetContentParent rejects the promise.",
-               __CLASS__, __FUNCTION__);
-             UniquePtr<PromiseHolder> holder(rawHolder);
-             holder->Reject(MediaResult(NS_ERROR_FAILURE, reason.get()), __func__);
-           });
+      aHelper, aNodeId, NS_LITERAL_CSTRING(CHROMIUM_CDM_API), aTags)
+      ->Then(
+          thread,
+          __func__,
+          [rawHolder, helper](RefPtr<GMPContentParent::CloseBlocker> wrapper) {
+            RefPtr<GMPContentParent> parent = wrapper->mParent;
+            UniquePtr<PromiseHolder> holder(rawHolder);
+            RefPtr<ChromiumCDMParent> cdm = parent->GetChromiumCDM();
+            if (!parent) {
+              nsPrintfCString reason(
+                  "%s::%s failed since GetChromiumCDM returns nullptr.",
+                  __CLASS__,
+                  __FUNCTION__);
+              holder->Reject(MediaResult(NS_ERROR_FAILURE, reason.get()),
+                             __func__);
+              return;
+            }
+            if (helper) {
+              cdm->SetCrashHelper(helper);
+            }
+            holder->Resolve(cdm, __func__);
+          },
+          [rawHolder] {
+            nsPrintfCString reason(
+                "%s::%s failed since GetContentParent rejects the promise.",
+                __CLASS__,
+                __FUNCTION__);
+            UniquePtr<PromiseHolder> holder(rawHolder);
+            holder->Reject(MediaResult(NS_ERROR_FAILURE, reason.get()),
+                           __func__);
+          });
 
   return promise;
 }
@@ -297,8 +307,7 @@ GeckoMediaPluginService::ShutdownGMPThread()
 }
 
 nsresult
-GeckoMediaPluginService::GMPDispatch(nsIRunnable* event,
-                                     uint32_t flags)
+GeckoMediaPluginService::GMPDispatch(nsIRunnable* event, uint32_t flags)
 {
   nsCOMPtr<nsIRunnable> r(event);
   return GMPDispatch(r.forget());
@@ -337,7 +346,8 @@ GeckoMediaPluginService::GetThread(nsIThread** aThread)
       return rv;
     }
 
-    mAbstractGMPThread = AbstractThread::CreateXPCOMThreadWrapper(mGMPThread, false);
+    mAbstractGMPThread =
+        AbstractThread::CreateXPCOMThreadWrapper(mGMPThread, false);
 
     // Tell the thread to initialize plugins
     InitializePlugins(mAbstractGMPThread.get());
@@ -357,11 +367,12 @@ GeckoMediaPluginService::GetAbstractGMPThread()
 }
 
 NS_IMETHODIMP
-GeckoMediaPluginService::GetDecryptingGMPVideoDecoder(GMPCrashHelper* aHelper,
-                                                      nsTArray<nsCString>* aTags,
-                                                      const nsACString& aNodeId,
-                                                      UniquePtr<GetGMPVideoDecoderCallback>&& aCallback,
-                                                      uint32_t aDecryptorId)
+GeckoMediaPluginService::GetDecryptingGMPVideoDecoder(
+    GMPCrashHelper* aHelper,
+    nsTArray<nsCString>* aTags,
+    const nsACString& aNodeId,
+    UniquePtr<GetGMPVideoDecoderCallback>&& aCallback,
+    uint32_t aDecryptorId)
 {
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
   NS_ENSURE_ARG(aTags && aTags->Length() > 0);
@@ -374,32 +385,37 @@ GeckoMediaPluginService::GetDecryptingGMPVideoDecoder(GMPCrashHelper* aHelper,
   GetGMPVideoDecoderCallback* rawCallback = aCallback.release();
   RefPtr<AbstractThread> thread(GetAbstractGMPThread());
   RefPtr<GMPCrashHelper> helper(aHelper);
-  GetContentParent(aHelper, aNodeId, NS_LITERAL_CSTRING(GMP_API_VIDEO_DECODER), *aTags)
-    ->Then(thread, __func__,
-      [rawCallback, helper, aDecryptorId](RefPtr<GMPContentParent::CloseBlocker> wrapper) {
-        RefPtr<GMPContentParent> parent = wrapper->mParent;
-        UniquePtr<GetGMPVideoDecoderCallback> callback(rawCallback);
-        GMPVideoDecoderParent* actor = nullptr;
-        GMPVideoHostImpl* host = nullptr;
-        if (parent && NS_SUCCEEDED(parent->GetGMPVideoDecoder(&actor, aDecryptorId))) {
-          host = &(actor->Host());
-          actor->SetCrashHelper(helper);
-        }
-        callback->Done(actor, host);
-      },
-      [rawCallback] {
-        UniquePtr<GetGMPVideoDecoderCallback> callback(rawCallback);
-        callback->Done(nullptr, nullptr);
-      });
+  GetContentParent(
+      aHelper, aNodeId, NS_LITERAL_CSTRING(GMP_API_VIDEO_DECODER), *aTags)
+      ->Then(thread,
+             __func__,
+             [rawCallback, helper, aDecryptorId](
+                 RefPtr<GMPContentParent::CloseBlocker> wrapper) {
+               RefPtr<GMPContentParent> parent = wrapper->mParent;
+               UniquePtr<GetGMPVideoDecoderCallback> callback(rawCallback);
+               GMPVideoDecoderParent* actor = nullptr;
+               GMPVideoHostImpl* host = nullptr;
+               if (parent && NS_SUCCEEDED(parent->GetGMPVideoDecoder(
+                                 &actor, aDecryptorId))) {
+                 host = &(actor->Host());
+                 actor->SetCrashHelper(helper);
+               }
+               callback->Done(actor, host);
+             },
+             [rawCallback] {
+               UniquePtr<GetGMPVideoDecoderCallback> callback(rawCallback);
+               callback->Done(nullptr, nullptr);
+             });
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-GeckoMediaPluginService::GetGMPVideoEncoder(GMPCrashHelper* aHelper,
-                                            nsTArray<nsCString>* aTags,
-                                            const nsACString& aNodeId,
-                                            UniquePtr<GetGMPVideoEncoderCallback>&& aCallback)
+GeckoMediaPluginService::GetGMPVideoEncoder(
+    GMPCrashHelper* aHelper,
+    nsTArray<nsCString>* aTags,
+    const nsACString& aNodeId,
+    UniquePtr<GetGMPVideoEncoderCallback>&& aCallback)
 {
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
   NS_ENSURE_ARG(aTags && aTags->Length() > 0);
@@ -412,29 +428,33 @@ GeckoMediaPluginService::GetGMPVideoEncoder(GMPCrashHelper* aHelper,
   GetGMPVideoEncoderCallback* rawCallback = aCallback.release();
   RefPtr<AbstractThread> thread(GetAbstractGMPThread());
   RefPtr<GMPCrashHelper> helper(aHelper);
-  GetContentParent(aHelper, aNodeId, NS_LITERAL_CSTRING(GMP_API_VIDEO_ENCODER), *aTags)
-    ->Then(thread, __func__,
-      [rawCallback, helper](RefPtr<GMPContentParent::CloseBlocker> wrapper) {
-        RefPtr<GMPContentParent> parent = wrapper->mParent;
-        UniquePtr<GetGMPVideoEncoderCallback> callback(rawCallback);
-        GMPVideoEncoderParent* actor = nullptr;
-        GMPVideoHostImpl* host = nullptr;
-        if (parent && NS_SUCCEEDED(parent->GetGMPVideoEncoder(&actor))) {
-          host = &(actor->Host());
-          actor->SetCrashHelper(helper);
-        }
-        callback->Done(actor, host);
-      },
-      [rawCallback] {
-        UniquePtr<GetGMPVideoEncoderCallback> callback(rawCallback);
-        callback->Done(nullptr, nullptr);
-      });
+  GetContentParent(
+      aHelper, aNodeId, NS_LITERAL_CSTRING(GMP_API_VIDEO_ENCODER), *aTags)
+      ->Then(thread,
+             __func__,
+             [rawCallback,
+              helper](RefPtr<GMPContentParent::CloseBlocker> wrapper) {
+               RefPtr<GMPContentParent> parent = wrapper->mParent;
+               UniquePtr<GetGMPVideoEncoderCallback> callback(rawCallback);
+               GMPVideoEncoderParent* actor = nullptr;
+               GMPVideoHostImpl* host = nullptr;
+               if (parent && NS_SUCCEEDED(parent->GetGMPVideoEncoder(&actor))) {
+                 host = &(actor->Host());
+                 actor->SetCrashHelper(helper);
+               }
+               callback->Done(actor, host);
+             },
+             [rawCallback] {
+               UniquePtr<GetGMPVideoEncoderCallback> callback(rawCallback);
+               callback->Done(nullptr, nullptr);
+             });
 
   return NS_OK;
 }
 
 void
-GeckoMediaPluginService::ConnectCrashHelper(uint32_t aPluginId, GMPCrashHelper* aHelper)
+GeckoMediaPluginService::ConnectCrashHelper(uint32_t aPluginId,
+                                            GMPCrashHelper* aHelper)
 {
   if (!aHelper) {
     return;
@@ -450,7 +470,8 @@ GeckoMediaPluginService::ConnectCrashHelper(uint32_t aPluginId, GMPCrashHelper* 
   helpers->AppendElement(aHelper);
 }
 
-void GeckoMediaPluginService::DisconnectCrashHelper(GMPCrashHelper* aHelper)
+void
+GeckoMediaPluginService::DisconnectCrashHelper(GMPCrashHelper* aHelper)
 {
   if (!aHelper) {
     return;
@@ -462,12 +483,12 @@ void GeckoMediaPluginService::DisconnectCrashHelper(GMPCrashHelper* aHelper)
       continue;
     }
     helpers->RemoveElement(aHelper);
-    MOZ_ASSERT(!helpers->Contains(aHelper)); // Ensure there aren't duplicates.
+    MOZ_ASSERT(!helpers->Contains(aHelper));  // Ensure there aren't duplicates.
     if (helpers->IsEmpty()) {
       iter.Remove();
     }
   }
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

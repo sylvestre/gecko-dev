@@ -25,7 +25,6 @@
 
 /* --------------------------- Public routines ---------------------------- */
 
-
 /*
  * NS_WildCardValid takes a shell expression exp as input. It returns:
  *
@@ -38,9 +37,11 @@
 #define INVALID_SXP -2
 #define VALID_SXP 1
 
-int NS_WildCardValid(const char* aExpr);
+int
+NS_WildCardValid(const char* aExpr);
 
-int NS_WildCardValid(const char16_t* aExpr);
+int
+NS_WildCardValid(const char16_t* aExpr);
 
 /* return values for the search routines */
 #define MATCH 0
@@ -55,10 +56,12 @@ int NS_WildCardValid(const char16_t* aExpr);
  * Returns 0 on match and 1 on non-match.
  */
 
-int NS_WildCardMatch(const char* aStr, const char* aExpr,
-                     bool aCaseInsensitive);
+int
+NS_WildCardMatch(const char* aStr, const char* aExpr, bool aCaseInsensitive);
 
-int NS_WildCardMatch(const char16_t* aStr, const char16_t* aExpr,
-                     bool aCaseInsensitive);
+int
+NS_WildCardMatch(const char16_t* aStr,
+                 const char16_t* aExpr,
+                 bool aCaseInsensitive);
 
 #endif /* nsWildCard_h__ */

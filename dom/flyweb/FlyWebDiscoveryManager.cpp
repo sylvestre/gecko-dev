@@ -23,10 +23,15 @@ namespace dom {
 
 static LazyLogModule gFlyWebDiscoveryManagerLog("FlyWebDiscoveryManager");
 #undef LOG_I
-#define LOG_I(...) MOZ_LOG(mozilla::dom::gFlyWebDiscoveryManagerLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define LOG_I(...)                                  \
+  MOZ_LOG(mozilla::dom::gFlyWebDiscoveryManagerLog, \
+          mozilla::LogLevel::Debug,                 \
+          (__VA_ARGS__))
 #undef LOG_E
-#define LOG_E(...) MOZ_LOG(mozilla::dom::gFlyWebDiscoveryManagerLog, mozilla::LogLevel::Error, (__VA_ARGS__))
-
+#define LOG_E(...)                                  \
+  MOZ_LOG(mozilla::dom::gFlyWebDiscoveryManagerLog, \
+          mozilla::LogLevel::Error,                 \
+          (__VA_ARGS__))
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(FlyWebDiscoveryManager)
 
@@ -39,9 +44,7 @@ NS_INTERFACE_MAP_END
 
 FlyWebDiscoveryManager::FlyWebDiscoveryManager(nsISupports* aParent,
                                                FlyWebService* aService)
-  : mParent(aParent)
-  , mService(aService)
-  , mNextId(0)
+    : mParent(aParent), mService(aService), mNextId(0)
 {
 }
 
@@ -51,7 +54,8 @@ FlyWebDiscoveryManager::~FlyWebDiscoveryManager()
 }
 
 JSObject*
-FlyWebDiscoveryManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+FlyWebDiscoveryManager::WrapObject(JSContext* aCx,
+                                   JS::Handle<JSObject*> aGivenProto)
 {
   return FlyWebDiscoveryManagerBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -63,20 +67,22 @@ FlyWebDiscoveryManager::GetParentObject() const
 }
 
 /* static */ already_AddRefed<FlyWebDiscoveryManager>
-FlyWebDiscoveryManager::Constructor(const GlobalObject& aGlobal, ErrorResult& rv)
+FlyWebDiscoveryManager::Constructor(const GlobalObject& aGlobal,
+                                    ErrorResult& rv)
 {
   RefPtr<FlyWebService> service = FlyWebService::GetOrCreate();
   if (!service) {
     return nullptr;
   }
 
-  RefPtr<FlyWebDiscoveryManager> result = new FlyWebDiscoveryManager(
-                    aGlobal.GetAsSupports(), service);
+  RefPtr<FlyWebDiscoveryManager> result =
+      new FlyWebDiscoveryManager(aGlobal.GetAsSupports(), service);
   return result.forget();
 }
 
 void
-FlyWebDiscoveryManager::ListServices(nsTArray<FlyWebDiscoveredService>& aServices)
+FlyWebDiscoveryManager::ListServices(
+    nsTArray<FlyWebDiscoveredService>& aServices)
 {
   return mService->ListDiscoveredServices(aServices);
 }
@@ -114,13 +120,12 @@ FlyWebDiscoveryManager::NotifyDiscoveredServicesChanged()
   Sequence<FlyWebDiscoveredService> servicesSeq;
   servicesSeq.SwapElements(services);
   for (auto iter = mCallbackMap.Iter(); !iter.Done(); iter.Next()) {
-    FlyWebDiscoveryCallback *callback = iter.UserData();
+    FlyWebDiscoveryCallback* callback = iter.UserData();
     ErrorResult err;
     callback->OnDiscoveredServicesChanged(servicesSeq, err);
     ENSURE_SUCCESS_VOID(err);
   }
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -16,10 +16,9 @@
 namespace mozilla {
 namespace dom {
 
-class MutationEvent : public Event,
-                      public nsIDOMMutationEvent
+class MutationEvent : public Event, public nsIDOMMutationEvent
 {
-public:
+ public:
   MutationEvent(EventTarget* aOwner,
                 nsPresContext* aPresContext,
                 InternalMutationEvent* aEvent);
@@ -31,7 +30,8 @@ public:
   // Forward to base class
   NS_FORWARD_TO_EVENT
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return MutationEventBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -46,28 +46,35 @@ public:
   uint16_t AttrChange();
 
   void InitMutationEvent(const nsAString& aType,
-                         bool& aCanBubble, bool& aCancelable,
+                         bool& aCanBubble,
+                         bool& aCancelable,
                          nsINode* aRelatedNode,
                          const nsAString& aPrevValue,
                          const nsAString& aNewValue,
                          const nsAString& aAttrName,
-                         uint16_t& aAttrChange, ErrorResult& aRv)
+                         uint16_t& aAttrChange,
+                         ErrorResult& aRv)
   {
-    aRv = InitMutationEvent(aType, aCanBubble, aCancelable,
+    aRv = InitMutationEvent(aType,
+                            aCanBubble,
+                            aCancelable,
                             aRelatedNode ? aRelatedNode->AsDOMNode() : nullptr,
-                            aPrevValue, aNewValue, aAttrName, aAttrChange);
+                            aPrevValue,
+                            aNewValue,
+                            aAttrName,
+                            aAttrChange);
   }
 
-protected:
+ protected:
   ~MutationEvent() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::MutationEvent>
 NS_NewDOMMutationEvent(mozilla::dom::EventTarget* aOwner,
                        nsPresContext* aPresContext,
                        mozilla::InternalMutationEvent* aEvent);
 
-#endif // mozilla_dom_MutationEvent_h_
+#endif  // mozilla_dom_MutationEvent_h_

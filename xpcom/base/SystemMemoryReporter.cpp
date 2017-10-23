@@ -53,7 +53,10 @@ namespace SystemMemoryReporter {
 struct MOZ_STACK_CLASS AutoDir
 {
   explicit AutoDir(DIR* aDir) : mDir(aDir) {}
-  ~AutoDir() { if (mDir) closedir(mDir); };
+  ~AutoDir()
+  {
+    if (mDir) closedir(mDir);
+  };
   DIR* mDir;
 };
 
@@ -63,7 +66,10 @@ struct MOZ_STACK_CLASS AutoDir
 struct MOZ_STACK_CLASS AutoFile
 {
   explicit AutoFile(FILE* aFile) : mFile(aFile) {}
-  ~AutoFile() { if (mFile) fclose(mFile); }
+  ~AutoFile()
+  {
+    if (mFile) fclose(mFile);
+  }
   FILE* mFile;
 };
 
@@ -137,20 +143,26 @@ class SystemReporter final : public nsIMemoryReporter
 {
   ~SystemReporter() {}
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-#define REPORT(_path, _units, _amount, _desc)                                 \
-  do {                                                                        \
-    size_t __amount = _amount;  /* evaluate _amount only once */              \
-    if (__amount > 0) {                                                       \
-      aHandleReport->Callback(NS_LITERAL_CSTRING("System"), _path,            \
-                              KIND_OTHER, _units, __amount, _desc, aData);    \
-    }                                                                         \
+#define REPORT(_path, _units, _amount, _desc)                   \
+  do {                                                          \
+    size_t __amount = _amount; /* evaluate _amount only once */ \
+    if (__amount > 0) {                                         \
+      aHandleReport->Callback(NS_LITERAL_CSTRING("System"),     \
+                              _path,                            \
+                              KIND_OTHER,                       \
+                              _units,                           \
+                              __amount,                         \
+                              _desc,                            \
+                              aData);                           \
+    }                                                           \
   } while (0)
 
   NS_IMETHOD CollectReports(nsIHandleReportCallback* aHandleReport,
-                            nsISupports* aData, bool aAnonymize) override
+                            nsISupports* aData,
+                            bool aAnonymize) override
   {
     // There is lots of privacy-sensitive data in /proc. Just skip this
     // reporter entirely when anonymization is required.
@@ -173,15 +185,20 @@ public:
     // Report the non-process numbers.
     if (NS_SUCCEEDED(rv1) && NS_SUCCEEDED(rv2)) {
       int64_t other = memTotal - memFree - totalPss;
-      REPORT(NS_LITERAL_CSTRING("mem/other"), UNITS_BYTES, other,
-             NS_LITERAL_CSTRING(
-"Memory which is neither owned by any user-space process nor free. Note that "
-"this includes memory holding cached files from the disk which can be "
-"reclaimed by the OS at any time."));
+      REPORT(NS_LITERAL_CSTRING("mem/other"),
+             UNITS_BYTES,
+             other,
+             NS_LITERAL_CSTRING("Memory which is neither owned by any "
+                                "user-space process nor free. Note that "
+                                "this includes memory holding cached files "
+                                "from the disk which can be "
+                                "reclaimed by the OS at any time."));
 
-      REPORT(NS_LITERAL_CSTRING("mem/free"), UNITS_BYTES, memFree,
+      REPORT(NS_LITERAL_CSTRING("mem/free"),
+             UNITS_BYTES,
+             memFree,
              NS_LITERAL_CSTRING(
-"Memory which is free and not being used for any purpose."));
+                 "Memory which is free and not being used for any purpose."));
     }
 
     // Report reserved memory not included in memTotal.
@@ -199,11 +216,11 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   // These are the cross-cutting measurements across all processes.
   class ProcessSizes
   {
-  public:
+   public:
     void Add(const nsACString& aKey, size_t aSize)
     {
       mTagged.Put(aKey, mTagged.Get(aKey) + aSize);
@@ -226,7 +243,7 @@ private:
       }
     }
 
-  private:
+   private:
     nsDataHashtable<nsCStringHashKey, size_t> mTagged;
   };
 
@@ -238,7 +255,7 @@ private:
     }
 
     int n1 = fscanf(f, "MemTotal: %" SCNd64 " kB\n", aMemTotal);
-    int n2 = fscanf(f, "MemFree: %"  SCNd64 " kB\n", aMemFree);
+    int n2 = fscanf(f, "MemFree: %" SCNd64 " kB\n", aMemFree);
 
     fclose(f);
 
@@ -248,7 +265,7 @@ private:
 
     // Convert from KB to B.
     *aMemTotal *= 1024;
-    *aMemFree  *= 1024;
+    *aMemFree *= 1024;
 
     return NS_OK;
   }
@@ -303,8 +320,8 @@ private:
           // so just skip if we can't open the file.
           continue;
         }
-        ParseMappings(f, processName, aHandleReport, aData, &processSizes,
-                      aTotalPss);
+        ParseMappings(
+            f, processName, aHandleReport, aData, &processSizes, aTotalPss);
         fclose(f);
 
         // Report the open file descriptors for this process.
@@ -366,8 +383,14 @@ private:
         int n = sscanf(line,
                        "%llx-%llx %4s %llx "
                        "%16[0-9a-fA-F]:%16[0-9a-fA-F] %u %n",
-                       &addrStart, &addrEnd, perms, &offset, devMajor,
-                       devMinor, &inode, &pathOffset);
+                       &addrStart,
+                       &addrEnd,
+                       perms,
+                       &offset,
+                       devMajor,
+                       devMinor,
+                       &inode,
+                       &pathOffset);
 
         if (n >= argCount - 1) {
           currentPath.Assign(line + pathOffset);
@@ -386,7 +409,8 @@ private:
       size_t pss = pss_kb * 1024;
       if (pss > 0) {
         nsAutoCString name, description, tag;
-        GetReporterNameAndDescription(currentPath.get(), perms, name, description, tag);
+        GetReporterNameAndDescription(
+            currentPath.get(), perms, name, description, tag);
 
         nsAutoCString processMemPath("mem/processes/");
         processMemPath.Append(aProcessName);
@@ -425,16 +449,17 @@ private:
     if (absPath.EqualsLiteral("[heap]")) {
       aName.AppendLiteral("anonymous/brk-heap");
       aDesc.AppendLiteral(
-        "Memory in anonymous mappings within the boundaries defined by "
-        "brk() / sbrk().  This is likely to be just a portion of the "
-        "application's heap; the remainder lives in other anonymous mappings. "
-        "This corresponds to '[heap]' in /proc/<pid>/smaps.");
+          "Memory in anonymous mappings within the boundaries defined by "
+          "brk() / sbrk().  This is likely to be just a portion of the "
+          "application's heap; the remainder lives in other anonymous "
+          "mappings. "
+          "This corresponds to '[heap]' in /proc/<pid>/smaps.");
       aTag = aName;
     } else if (absPath.EqualsLiteral("[stack]")) {
       aName.AppendLiteral("stack/main-thread");
       aDesc.AppendPrintf(
-        "The stack size of the process's main thread.  This corresponds to "
-        "'[stack]' in /proc/<pid>/smaps.");
+          "The stack size of the process's main thread.  This corresponds to "
+          "'[stack]' in /proc/<pid>/smaps.");
       aTag = aName;
     } else if (MozTaggedMemoryIsSupported() &&
                StringBeginsWith(absPath, NS_LITERAL_CSTRING("[stack:"))) {
@@ -459,16 +484,21 @@ private:
       aTag = aName;
       aName.AppendPrintf("/thread(%d)", tid);
 
-      aDesc.AppendPrintf("The stack size of a non-main thread named '%s' with "
-                         "thread ID %d.  This corresponds to '[stack:%d]' "
-                         "in /proc/%d/smaps.", threadName.get(), tid, tid, tid);
+      aDesc.AppendPrintf(
+          "The stack size of a non-main thread named '%s' with "
+          "thread ID %d.  This corresponds to '[stack:%d]' "
+          "in /proc/%d/smaps.",
+          threadName.get(),
+          tid,
+          tid,
+          tid);
     } else if (absPath.EqualsLiteral("[vdso]")) {
       aName.AppendLiteral("vdso");
       aDesc.AppendLiteral(
-        "The virtual dynamically-linked shared object, also known as the "
-        "'vsyscall page'. This is a memory region mapped by the operating "
-        "system for the purpose of allowing processes to perform some "
-        "privileged actions without the overhead of a syscall.");
+          "The virtual dynamically-linked shared object, also known as the "
+          "'vsyscall page'. This is a memory region mapped by the operating "
+          "system for the purpose of allowing processes to perform some "
+          "privileged actions without the overhead of a syscall.");
       aTag = aName;
     } else if (StringBeginsWith(absPath, NS_LITERAL_CSTRING("[anon:")) &&
                EndsWithLiteral(absPath, "]")) {
@@ -527,8 +557,9 @@ private:
         aTag = aName;
       } else {
         aName.AppendLiteral("anonymous/outside-brk");
-        aDesc.AppendLiteral("Memory in anonymous mappings outside the "
-                            "boundaries defined by brk() / sbrk().");
+        aDesc.AppendLiteral(
+            "Memory in anonymous mappings outside the "
+            "boundaries defined by brk() / sbrk().");
         aTag = aName;
       }
     }
@@ -609,21 +640,26 @@ private:
           if (NS_WARN_IF(scanned != 1)) {
             continue;
           }
-          for (const char* nextParen = strchr(buf, '(');
-               nextParen != nullptr;
+          for (const char* nextParen = strchr(buf, '('); nextParen != nullptr;
                nextParen = strchr(nextParen + 1, '(')) {
             uint64_t mapStart, mapLen;
 
-            scanned = sscanf(nextParen + 1, "%" SCNx64 ",%" SCNx64,
-                             &mapStart, &mapLen);
+            scanned = sscanf(
+                nextParen + 1, "%" SCNx64 ",%" SCNx64, &mapStart, &mapLen);
             if (NS_WARN_IF(scanned != 2)) {
               break;
             }
 
-            nsPrintfCString path("mem/pmem/used/%s/segment(pid=%d, "
-                                 "offset=0x%" PRIx64 ")", name, pid, mapStart);
-            nsPrintfCString desc("Physical memory reserved for the \"%s\" pool "
-                                 "and allocated to a buffer.", name);
+            nsPrintfCString path(
+                "mem/pmem/used/%s/segment(pid=%d, "
+                "offset=0x%" PRIx64 ")",
+                name,
+                pid,
+                mapStart);
+            nsPrintfCString desc(
+                "Physical memory reserved for the \"%s\" pool "
+                "and allocated to a buffer.",
+                name);
             REPORT(path, UNITS_BYTES, mapLen, desc);
             freeSize -= mapLen;
           }
@@ -632,17 +668,18 @@ private:
       }
 
       nsPrintfCString path("mem/pmem/free/%s", name);
-      nsPrintfCString desc("Physical memory reserved for the \"%s\" pool and "
-                           "unavailable to the rest of the system, but not "
-                           "currently allocated.", name);
+      nsPrintfCString desc(
+          "Physical memory reserved for the \"%s\" pool and "
+          "unavailable to the rest of the system, but not "
+          "currently allocated.",
+          name);
       REPORT(path, UNITS_BYTES, freeSize, desc);
     }
     closedir(d);
   }
 
-  void
-  CollectIonReports(nsIHandleReportCallback* aHandleReport,
-                    nsISupports* aData)
+  void CollectIonReports(nsIHandleReportCallback* aHandleReport,
+                         nsISupports* aData)
   {
     // ION is a replacement for PMEM (and other similar allocators).
     //
@@ -711,7 +748,9 @@ private:
            strncmp(kSep, buffer, kSepLen) != 0) {
       if (sscanf(buffer, kFormatString, client, &pid, &size) == kNumFields) {
         nsPrintfCString entryPath("ion-memory/%s (pid=%d)", client, pid);
-        REPORT(entryPath, UNITS_BYTES, size,
+        REPORT(entryPath,
+               UNITS_BYTES,
+               size,
                NS_LITERAL_CSTRING("An ION kernel memory allocation."));
       }
     }
@@ -724,7 +763,9 @@ private:
            strncmp(kSep, buffer, kSepLen) != 0) {
       if (sscanf(buffer, kFormatString, client, &pid, &size) == kNumFields) {
         nsPrintfCString entryPath("ion-memory/%s (pid=%d)", client, pid);
-        REPORT(entryPath, UNITS_BYTES, size,
+        REPORT(entryPath,
+               UNITS_BYTES,
+               size,
                NS_LITERAL_CSTRING("An ION kernel memory allocation."));
       }
     }
@@ -732,8 +773,7 @@ private:
     // Ignore the rest of the file.
   }
 
-  uint64_t
-  ReadSizeFromFile(const char* aFilename)
+  uint64_t ReadSizeFromFile(const char* aFilename)
   {
     FILE* sizeFile = fopen(aFilename, "r");
     if (NS_WARN_IF(!sizeFile)) {
@@ -747,9 +787,8 @@ private:
     return size;
   }
 
-  void
-  CollectZramReports(nsIHandleReportCallback* aHandleReport,
-                     nsISupports* aData)
+  void CollectZramReports(nsIHandleReportCallback* aHandleReport,
+                          nsISupports* aData)
   {
     // zram usage stats files can be found under:
     //  /sys/block/zram<id>
@@ -786,15 +825,17 @@ private:
 
       nsPrintfCString diskUsedPath("zram-disksize/%s/used", name);
       nsPrintfCString diskUsedDesc(
-        "The uncompressed size of data stored in \"%s.\" "
-        "This excludes zero-filled pages since "
-        "no memory is allocated for them.", name);
+          "The uncompressed size of data stored in \"%s.\" "
+          "This excludes zero-filled pages since "
+          "no memory is allocated for them.",
+          name);
       REPORT(diskUsedPath, UNITS_BYTES, origSize, diskUsedDesc);
 
       nsPrintfCString diskUnusedPath("zram-disksize/%s/unused", name);
       nsPrintfCString diskUnusedDesc(
-        "The amount of uncompressed data that can still be "
-        "be stored in \"%s\"", name);
+          "The amount of uncompressed data that can still be "
+          "be stored in \"%s\"",
+          name);
       REPORT(diskUnusedPath, UNITS_BYTES, unusedSize, diskUnusedDesc);
 
       // Report disk accesses.
@@ -805,14 +846,16 @@ private:
       uint64_t writes = ReadSizeFromFile(writesFile.get());
 
       nsPrintfCString readsDesc(
-        "The number of reads (failed or successful) done on "
-        "\"%s\"", name);
+          "The number of reads (failed or successful) done on "
+          "\"%s\"",
+          name);
       nsPrintfCString readsPath("zram-accesses/%s/reads", name);
       REPORT(readsPath, UNITS_COUNT_CUMULATIVE, reads, readsDesc);
 
       nsPrintfCString writesDesc(
-        "The number of writes (failed or successful) done "
-        "on \"%s\"", name);
+          "The number of writes (failed or successful) done "
+          "on \"%s\"",
+          name);
       nsPrintfCString writesPath("zram-accesses/%s/writes", name);
       REPORT(writesPath, UNITS_COUNT_CUMULATIVE, writes, writesDesc);
 
@@ -821,8 +864,7 @@ private:
       uint64_t comprSize = ReadSizeFromFile(comprSizeFile.get());
 
       nsPrintfCString comprSizeDesc(
-        "The compressed size of data stored in \"%s\"",
-        name);
+          "The compressed size of data stored in \"%s\"", name);
       nsPrintfCString comprSizePath("zram-compr-data-size/%s", name);
       REPORT(comprSizePath, UNITS_BYTES, comprSize, comprSizeDesc);
     }
@@ -830,11 +872,10 @@ private:
     closedir(d);
   }
 
-  void
-  CollectOpenFileReports(nsIHandleReportCallback* aHandleReport,
-                         nsISupports* aData,
-                         const nsACString& aProcPath,
-                         const nsACString& aProcessName)
+  void CollectOpenFileReports(nsIHandleReportCallback* aHandleReport,
+                              nsISupports* aData,
+                              const nsACString& aProcPath,
+                              const nsACString& aProcessName)
   {
     // All file descriptors opened by a process are listed under
     // /proc/<pid>/fd/<numerical_fd>. Each entry is a symlink that points to the
@@ -873,7 +914,7 @@ private:
         const char* descriptionPrefix = nullptr;
 
         if (CHECK_PREFIX(kFilePrefix)) {
-          category = "files"; // No trailing slash, the file path will have one
+          category = "files";  // No trailing slash, the file path will have one
           descriptionPrefix = "An open";
         } else if (CHECK_PREFIX(kSocketPrefix)) {
           category = "sockets/";
@@ -892,10 +933,10 @@ private:
 #undef CHECK_PREFIX
 
         const nsCString processName(aProcessName);
-        nsPrintfCString entryPath("open-fds/%s/%s%s/%s",
-                                  processName.get(), category, linkPath, fd);
-        nsPrintfCString entryDescription("%s file descriptor opened by the process",
-                                         descriptionPrefix);
+        nsPrintfCString entryPath(
+            "open-fds/%s/%s%s/%s", processName.get(), category, linkPath, fd);
+        nsPrintfCString entryDescription(
+            "%s file descriptor opened by the process", descriptionPrefix);
         REPORT(entryPath, UNITS_COUNT, 1, entryDescription);
       }
     }
@@ -903,9 +944,8 @@ private:
     closedir(d);
   }
 
-  void
-  CollectKgslReports(nsIHandleReportCallback* aHandleReport,
-                     nsISupports* aData)
+  void CollectKgslReports(nsIHandleReportCallback* aHandleReport,
+                          nsISupports* aData)
   {
     // Each process that uses kgsl memory will have an entry under
     // /sys/kernel/debug/kgsl/proc/<pid>/mem. This file format includes a
@@ -915,9 +955,8 @@ private:
     // We care primarily about the usage and size.
 
     // For simplicity numbers will be uint64_t, strings 63 chars max.
-    const char* const kScanFormat =
-      "%" SCNx64 " %" SCNx64 " %" SCNu64 " %" SCNu64
-      " %63s %63s %63s %" SCNu64;
+    const char* const kScanFormat = "%" SCNx64 " %" SCNx64 " %" SCNu64
+                                    " %" SCNu64 " %63s %63s %63s %" SCNu64;
     const int kNumFields = 8;
     const size_t kStringSize = 64;
 
@@ -967,10 +1006,20 @@ private:
       char buff[1024];
       Unused << fgets(buff, 1024, memFile);
 
-      while (fscanf(memFile, kScanFormat, &gpuaddr, &useraddr, &size, &id,
-                    flags, type, usage, &sglen) == kNumFields) {
+      while (fscanf(memFile,
+                    kScanFormat,
+                    &gpuaddr,
+                    &useraddr,
+                    &size,
+                    &id,
+                    flags,
+                    type,
+                    usage,
+                    &sglen) == kNumFields) {
         nsPrintfCString entryPath("kgsl-memory/%s/%s", procName.get(), usage);
-        REPORT(entryPath, UNITS_BYTES, size,
+        REPORT(entryPath,
+               UNITS_BYTES,
+               size,
                NS_LITERAL_CSTRING("A kgsl graphics memory allocation."));
       }
     }
@@ -985,5 +1034,5 @@ Init()
   RegisterStrongMemoryReporter(new SystemReporter());
 }
 
-} // namespace SystemMemoryReporter
-} // namespace mozilla
+}  // namespace SystemMemoryReporter
+}  // namespace mozilla

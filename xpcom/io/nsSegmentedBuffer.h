@@ -11,26 +11,22 @@
 
 class nsSegmentedBuffer
 {
-public:
+ public:
   nsSegmentedBuffer()
-    : mSegmentSize(0)
-    , mMaxSize(0)
-    , mSegmentArray(nullptr)
-    , mSegmentArrayCount(0)
-    , mFirstSegmentIndex(0)
-    , mLastSegmentIndex(0)
+      : mSegmentSize(0),
+        mMaxSize(0),
+        mSegmentArray(nullptr),
+        mSegmentArrayCount(0),
+        mFirstSegmentIndex(0),
+        mLastSegmentIndex(0)
   {
   }
 
-  ~nsSegmentedBuffer()
-  {
-    Empty();
-  }
-
+  ~nsSegmentedBuffer() { Empty(); }
 
   nsresult Init(uint32_t aSegmentSize, uint32_t aMaxSize);
 
-  char* AppendNewSegment();   // pushes at end
+  char* AppendNewSegment();  // pushes at end
 
   // returns true if no more segments remain:
   bool DeleteFirstSegment();  // pops from beginning
@@ -42,7 +38,7 @@ public:
   // consumption when data is not an exact multiple of segment size.
   bool ReallocLastSegment(size_t aNewSize);
 
-  void Empty();               // frees all segments
+  void Empty();  // frees all segments
 
   inline uint32_t GetSegmentCount()
   {
@@ -53,18 +49,9 @@ public:
     }
   }
 
-  inline uint32_t GetSegmentSize()
-  {
-    return mSegmentSize;
-  }
-  inline uint32_t GetMaxSize()
-  {
-    return mMaxSize;
-  }
-  inline uint32_t GetSize()
-  {
-    return GetSegmentCount() * mSegmentSize;
-  }
+  inline uint32_t GetSegmentSize() { return mSegmentSize; }
+  inline uint32_t GetMaxSize() { return mMaxSize; }
+  inline uint32_t GetSize() { return GetSegmentCount() * mSegmentSize; }
 
   inline char* GetSegment(uint32_t aIndex)
   {
@@ -73,7 +60,7 @@ public:
     return mSegmentArray[i];
   }
 
-protected:
+ protected:
   inline int32_t ModSegArraySize(int32_t aIndex)
   {
     uint32_t result = aIndex & (mSegmentArrayCount - 1);
@@ -87,13 +74,13 @@ protected:
     return ModSegArraySize(mLastSegmentIndex + 1) == mFirstSegmentIndex;
   }
 
-protected:
-  uint32_t            mSegmentSize;
-  uint32_t            mMaxSize;
-  char**              mSegmentArray;
-  uint32_t            mSegmentArrayCount;
-  int32_t             mFirstSegmentIndex;
-  int32_t             mLastSegmentIndex;
+ protected:
+  uint32_t mSegmentSize;
+  uint32_t mMaxSize;
+  char** mSegmentArray;
+  uint32_t mSegmentArrayCount;
+  int32_t mFirstSegmentIndex;
+  int32_t mLastSegmentIndex;
 };
 
 // NS_SEGMENTARRAY_INITIAL_SIZE: This number needs to start out as a
@@ -106,4 +93,4 @@ protected:
 // needing to grow the segment array.
 #define NS_SEGMENTARRAY_INITIAL_COUNT 32
 
-#endif // nsSegmentedBuffer_h__
+#endif  // nsSegmentedBuffer_h__

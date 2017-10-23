@@ -16,8 +16,9 @@ struct StackMark;
 class AutoStackArena;
 
 // Private helper class for AutoStackArena.
-class StackArena {
-private:
+class StackArena
+{
+ private:
   friend class AutoStackArena;
   StackArena();
   ~StackArena();
@@ -60,10 +61,10 @@ private:
 // Individual allocations cannot exceed StackBlock::MAX_USABLE_SIZE
 // bytes.
 //
-class MOZ_RAII AutoStackArena {
-public:
-  AutoStackArena()
-    : mOwnsStackArena(false)
+class MOZ_RAII AutoStackArena
+{
+ public:
+  AutoStackArena() : mOwnsStackArena(false)
   {
     if (!gStackArena) {
       gStackArena = new StackArena();
@@ -72,7 +73,8 @@ public:
     gStackArena->Push();
   }
 
-  ~AutoStackArena() {
+  ~AutoStackArena()
+  {
     gStackArena->Pop();
     if (mOwnsStackArena) {
       delete gStackArena;
@@ -80,15 +82,13 @@ public:
     }
   }
 
-  static void* Allocate(size_t aSize) {
-    return gStackArena->Allocate(aSize);
-  }
+  static void* Allocate(size_t aSize) { return gStackArena->Allocate(aSize); }
 
-private:
+ private:
   static StackArena* gStackArena;
   bool mOwnsStackArena;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

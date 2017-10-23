@@ -38,10 +38,11 @@ gfxFontSrcURI::gfxFontSrcURI(nsIURI* aURI)
     // hold it strongly here as well.  (And we'd have to
     // NS_ReleaseOnMainThreadSystemGroup it in our destructor anyway.)
     RefPtr<mozilla::net::nsSimpleURI> simpleURI =
-      mozilla::net::nsSimpleURI::From(aURI);
+        mozilla::net::nsSimpleURI::From(aURI);
     mSimpleURI = simpleURI;
 
-    NS_ASSERTION(mSimpleURI, "Why aren't our data: URLs backed by nsSimpleURI?");
+    NS_ASSERTION(mSimpleURI,
+                 "Why aren't our data: URLs backed by nsSimpleURI?");
   } else {
     mSimpleURI = nullptr;
   }
@@ -53,9 +54,8 @@ gfxFontSrcURI::gfxFontSrcURI(nsIURI* aURI)
   mHash = nsURIHashKey::HashKey(mURI);
 
   mInheritsSecurityContext =
-    HasFlag(aURI, nsIProtocolHandler::URI_INHERITS_SECURITY_CONTEXT);
-  mSyncLoadIsOK =
-    HasFlag(aURI, nsIProtocolHandler::URI_SYNC_LOAD_IS_OK);
+      HasFlag(aURI, nsIProtocolHandler::URI_INHERITS_SECURITY_CONTEXT);
+  mSyncLoadIsOK = HasFlag(aURI, nsIProtocolHandler::URI_SYNC_LOAD_IS_OK);
 }
 
 gfxFontSrcURI::~gfxFontSrcURI()
@@ -79,8 +79,8 @@ gfxFontSrcURI::Equals(gfxFontSrcURI* aOther)
       mSimpleURI->GetScheme(thisScheme);
 
       nsCString otherScheme;
-      if (!StringBeginsWith(aOther->mSpec, thisScheme,
-                            nsDefaultCStringComparator())) {
+      if (!StringBeginsWith(
+              aOther->mSpec, thisScheme, nsDefaultCStringComparator())) {
         return false;
       }
     }

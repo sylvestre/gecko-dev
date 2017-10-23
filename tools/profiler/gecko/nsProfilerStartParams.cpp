@@ -7,20 +7,19 @@
 
 NS_IMPL_ISUPPORTS(nsProfilerStartParams, nsIProfilerStartParams)
 
-nsProfilerStartParams::nsProfilerStartParams(uint32_t aEntries,
-                                             double aInterval,
-                                             uint32_t aFeatures,
-                                             const nsTArray<nsCString>& aFilters) :
-  mEntries(aEntries),
-  mInterval(aInterval),
-  mFeatures(aFeatures),
-  mFilters(aFilters)
+nsProfilerStartParams::nsProfilerStartParams(
+    uint32_t aEntries,
+    double aInterval,
+    uint32_t aFeatures,
+    const nsTArray<nsCString>& aFilters)
+    : mEntries(aEntries),
+      mInterval(aInterval),
+      mFeatures(aFeatures),
+      mFilters(aFilters)
 {
 }
 
-nsProfilerStartParams::~nsProfilerStartParams()
-{
-}
+nsProfilerStartParams::~nsProfilerStartParams() {}
 
 NS_IMETHODIMP
 nsProfilerStartParams::GetEntries(uint32_t* aEntries)

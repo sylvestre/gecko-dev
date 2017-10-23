@@ -19,17 +19,17 @@ NS_IMPL_ADDREF(MediaTimer)
 NS_IMPL_RELEASE_WITH_DESTROY(MediaTimer, DispatchDestroy())
 
 MediaTimer::MediaTimer()
-  : mMonitor("MediaTimer Monitor")
-  , mTimer(NS_NewTimer())
-  , mCreationTimeStamp(TimeStamp::Now())
-  , mUpdateScheduled(false)
+    : mMonitor("MediaTimer Monitor"),
+      mTimer(NS_NewTimer()),
+      mCreationTimeStamp(TimeStamp::Now()),
+      mUpdateScheduled(false)
 {
   TIMER_LOG("MediaTimer::MediaTimer");
 
   // Use the SharedThreadPool to create an nsIThreadPool with a maximum of one
   // thread, which is equivalent to an nsIThread for our purposes.
   RefPtr<SharedThreadPool> threadPool(
-    SharedThreadPool::Get(NS_LITERAL_CSTRING("MediaTimer"), 1));
+      SharedThreadPool::Get(NS_LITERAL_CSTRING("MediaTimer"), 1));
   mThread = threadPool.get();
   mTimer->SetTarget(mThread);
 }
@@ -42,11 +42,11 @@ MediaTimer::DispatchDestroy()
   // to unwind.
   nsCOMPtr<nsIEventTarget> thread = mThread;
   nsresult rv =
-    thread->Dispatch(NewNonOwningRunnableMethod(
-                       "MediaTimer::Destroy", this, &MediaTimer::Destroy),
-                     NS_DISPATCH_NORMAL);
+      thread->Dispatch(NewNonOwningRunnableMethod(
+                           "MediaTimer::Destroy", this, &MediaTimer::Destroy),
+                       NS_DISPATCH_NORMAL);
   MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-  (void) rv;
+  (void)rv;
 }
 
 void
@@ -99,10 +99,10 @@ MediaTimer::ScheduleUpdate()
   mUpdateScheduled = true;
 
   nsresult rv = mThread->Dispatch(
-    NewRunnableMethod("MediaTimer::Update", this, &MediaTimer::Update),
-    NS_DISPATCH_NORMAL);
+      NewRunnableMethod("MediaTimer::Update", this, &MediaTimer::Update),
+      NS_DISPATCH_NORMAL);
   MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-  (void) rv;
+  (void)rv;
 }
 
 void
@@ -127,7 +127,8 @@ MediaTimer::UpdateLocked()
     mEntries.top().mPromise->Resolve(true, __func__);
     DebugOnly<TimeStamp> poppedTimeStamp = mEntries.top().mTimeStamp;
     mEntries.pop();
-    MOZ_ASSERT_IF(!mEntries.empty(), *&poppedTimeStamp <= mEntries.top().mTimeStamp);
+    MOZ_ASSERT_IF(!mEntries.empty(),
+                  *&poppedTimeStamp <= mEntries.top().mTimeStamp);
   }
 
   // If we've got no more entries, cancel any pending timer and bail out.
@@ -176,11 +177,13 @@ MediaTimer::ArmTimer(const TimeStamp& aTarget, const TimeStamp& aNow)
   unsigned long delay = std::ceil((aTarget - aNow).ToMilliseconds());
   TIMER_LOG("MediaTimer::ArmTimer delay=%lu", delay);
   mCurrentTimerTarget = aTarget;
-  nsresult rv = mTimer->InitWithNamedFuncCallback(&TimerCallback, this, delay,
+  nsresult rv = mTimer->InitWithNamedFuncCallback(&TimerCallback,
+                                                  this,
+                                                  delay,
                                                   nsITimer::TYPE_ONE_SHOT,
                                                   "MediaTimer::TimerCallback");
   MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-  (void) rv;
+  (void)rv;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

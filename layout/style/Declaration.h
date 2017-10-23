@@ -30,9 +30,13 @@
 #include <stdio.h>
 
 // feec07b8-3fe6-491e-90d5-cc93f853e048
-#define NS_CSS_DECLARATION_IMPL_CID \
-{ 0xfeec07b8, 0x3fe6, 0x491e, \
-  { 0x90, 0xd5, 0xcc, 0x93, 0xf8, 0x53, 0xe0, 0x48 } }
+#define NS_CSS_DECLARATION_IMPL_CID                  \
+  {                                                  \
+    0xfeec07b8, 0x3fe6, 0x491e,                      \
+    {                                                \
+      0x90, 0xd5, 0xcc, 0x93, 0xf8, 0x53, 0xe0, 0x48 \
+    }                                                \
+  }
 
 class nsHTMLCSSStyleSheet;
 
@@ -52,8 +56,7 @@ class Declaration;
  */
 class ImportantStyleData final : public nsIStyleRule
 {
-public:
-
+ public:
   NS_DECL_ISUPPORTS
 
   inline ::mozilla::css::Declaration* Declaration();
@@ -67,7 +70,7 @@ public:
   virtual void List(FILE* out = stdout, int32_t aIndent = 0) const override;
 #endif
 
-private:
+ private:
   ImportantStyleData() {}
   ~ImportantStyleData() {}
 
@@ -83,10 +86,9 @@ private:
 // be copied before it can be modified, which is taken care of by
 // |EnsureMutable|.
 
-class Declaration final : public DeclarationBlock
-                        , public nsIStyleRule
+class Declaration final : public DeclarationBlock, public nsIStyleRule
 {
-public:
+ public:
   /**
    * Construct an |Declaration| that is in an invalid state (null
    * |mData|) and cannot be used until its |CompressFrom| method or
@@ -102,13 +104,12 @@ public:
   // for StyleRule to traverse it.
   NS_DECL_ISUPPORTS
 
-private:
+ private:
   ~Declaration();
 
-public:
-
+ public:
   // nsIStyleRule implementation
-  virtual void MapRuleInfoInto(nsRuleData *aRuleData) override;
+  virtual void MapRuleInfoInto(nsRuleData* aRuleData) override;
   virtual bool MightMapInheritedStyleData() override;
   virtual bool GetDiscretelyAnimatedCSSValue(nsCSSPropertyID aProperty,
                                              nsCSSValue* aValue) override;
@@ -131,7 +132,8 @@ public:
 
   bool HasProperty(nsCSSPropertyID aProperty) const;
 
-  bool HasImportantData() const {
+  bool HasImportantData() const
+  {
     return mImportantData || mImportantVariables;
   }
 
@@ -176,9 +178,7 @@ public:
    */
   bool GetVariableIsImportant(const nsAString& aName) const;
 
-  uint32_t Count() const {
-    return mOrder.Length();
-  }
+  uint32_t Count() const { return mOrder.Length(); }
 
   // Returns whether we actually had a property at aIndex
   bool GetNthProperty(uint32_t aIndex, nsAString& aReturn) const;
@@ -188,7 +188,8 @@ public:
   nsCSSCompressedDataBlock* GetNormalBlock() const { return mData; }
   nsCSSCompressedDataBlock* GetImportantBlock() const { return mImportantData; }
 
-  void AssertNotExpanded() const {
+  void AssertNotExpanded() const
+  {
     MOZ_ASSERT(mData, "should only be called when not expanded");
   }
 
@@ -202,12 +203,12 @@ public:
    * After calling, |aExpandedData| should be in its initial state.
    * Callers must make sure mOrder is updated as necessary.
    */
-  void CompressFrom(nsCSSExpandedDataBlock *aExpandedData) {
+  void CompressFrom(nsCSSExpandedDataBlock* aExpandedData)
+  {
     MOZ_ASSERT(!mData, "oops");
     MOZ_ASSERT(!mImportantData, "oops");
-    aExpandedData->Compress(getter_Transfers(mData),
-                            getter_Transfers(mImportantData),
-                            mOrder);
+    aExpandedData->Compress(
+        getter_Transfers(mData), getter_Transfers(mImportantData), mOrder);
     aExpandedData->AssertInitialState();
   }
 
@@ -218,7 +219,8 @@ public:
    * should last only during parsing.  During this time only
    * |ValueAppended| should be called.
    */
-  void ExpandTo(nsCSSExpandedDataBlock *aExpandedData) {
+  void ExpandTo(nsCSSExpandedDataBlock* aExpandedData)
+  {
     AssertMutable();
     aExpandedData->AssertInitialState();
 
@@ -226,7 +228,8 @@ public:
     aExpandedData->Expand(mData.forget(), mImportantData.forget());
   }
 
-  void MapImportantRuleInfoInto(nsRuleData *aRuleData) const {
+  void MapImportantRuleInfoInto(nsRuleData* aRuleData) const
+  {
     AssertNotExpanded();
     MOZ_ASSERT(mImportantData || mImportantVariables,
                "must have important data or variables");
@@ -250,9 +253,10 @@ public:
    * |aFromBlock|.  |aChanged| is set to true if the declaration
    * changed as a result of the call, and to false otherwise.
    */
-  bool TryReplaceValue(nsCSSPropertyID aProperty, bool aIsImportant,
-                         nsCSSExpandedDataBlock& aFromBlock,
-                         bool* aChanged)
+  bool TryReplaceValue(nsCSSPropertyID aProperty,
+                       bool aIsImportant,
+                       nsCSSExpandedDataBlock& aFromBlock,
+                       bool* aChanged)
   {
     AssertMutable();
     AssertNotExpanded();
@@ -261,7 +265,7 @@ public:
       *aChanged = false;
       return false;
     }
-    nsCSSCompressedDataBlock *block = aIsImportant ? mImportantData : mData;
+    nsCSSCompressedDataBlock* block = aIsImportant ? mImportantData : mData;
     // mImportantData might be null
     if (!block) {
       *aChanged = false;
@@ -270,16 +274,17 @@ public:
 
 #ifdef DEBUG
     {
-      nsCSSCompressedDataBlock *other = aIsImportant ? mData : mImportantData;
-      MOZ_ASSERT(!other || !other->ValueFor(aProperty) ||
-                 !block->ValueFor(aProperty),
-                 "Property both important and not?");
+      nsCSSCompressedDataBlock* other = aIsImportant ? mData : mImportantData;
+      MOZ_ASSERT(
+          !other || !other->ValueFor(aProperty) || !block->ValueFor(aProperty),
+          "Property both important and not?");
     }
 #endif
     return block->TryReplaceValue(aProperty, aFromBlock, aChanged);
   }
 
-  bool HasNonImportantValueFor(nsCSSPropertyID aProperty) const {
+  bool HasNonImportantValueFor(nsCSSPropertyID aProperty) const
+  {
     MOZ_ASSERT(!nsCSSProps::IsShorthand(aProperty), "must be longhand");
     return !!mData->ValueFor(aProperty);
   }
@@ -288,7 +293,8 @@ public:
    * Clear the data, in preparation for its replacement with entirely
    * new data by a call to |CompressFrom|.
    */
-  void ClearData() {
+  void ClearData()
+  {
     AssertMutable();
     mData = nullptr;
     mImportantData = nullptr;
@@ -298,24 +304,27 @@ public:
     mVariableOrder.Clear();
   }
 
-  ImportantStyleData* GetImportantStyleData() {
+  ImportantStyleData* GetImportantStyleData()
+  {
     if (HasImportantData()) {
       return &mImportantStyleData;
     }
     return nullptr;
   }
 
-private:
+ private:
   Declaration& operator=(const Declaration& aCopy) = delete;
   bool operator==(const Declaration& aCopy) const = delete;
 
-  void GetPropertyValueInternal(nsCSSPropertyID aProperty, nsAString& aValue,
+  void GetPropertyValueInternal(nsCSSPropertyID aProperty,
+                                nsAString& aValue,
                                 bool* aIsTokenStream = nullptr) const;
   bool GetPropertyIsImportantByID(nsCSSPropertyID aProperty) const;
 
   static void AppendImportanceToString(bool aIsImportant, nsAString& aString);
   // return whether there was a value in |aValue| (i.e., it had a non-null unit)
-  bool AppendValueToString(nsCSSPropertyID aProperty, nsAString& aResult,
+  bool AppendValueToString(nsCSSPropertyID aProperty,
+                           nsAString& aResult,
                            bool* aIsTokenStream = nullptr) const;
   // Helper for ToString with strange semantics regarding aValue.
   void AppendPropertyAndValueToString(nsCSSPropertyID aProperty,
@@ -327,21 +336,22 @@ private:
   void AppendVariableAndValueToString(const nsAString& aName,
                                       nsAString& aResult) const;
 
-  void GetImageLayerValue(nsCSSCompressedDataBlock *data,
+  void GetImageLayerValue(nsCSSCompressedDataBlock* data,
                           nsAString& aValue,
                           const nsCSSPropertyID aTable[]) const;
 
-  void GetImageLayerPositionValue(nsCSSCompressedDataBlock *data,
+  void GetImageLayerPositionValue(nsCSSCompressedDataBlock* data,
                                   nsAString& aValue,
                                   const nsCSSPropertyID aTable[]) const;
 
-public:
+ public:
   /**
    * Returns the property at the given index in the ordered list of
    * declarations.  For custom properties, eCSSPropertyExtra_variable
    * is returned.
    */
-  nsCSSPropertyID GetPropertyAt(uint32_t aIndex) const {
+  nsCSSPropertyID GetPropertyAt(uint32_t aIndex) const
+  {
     uint32_t value = mOrder[aIndex];
     if (value >= eCSSProperty_COUNT) {
       return eCSSPropertyExtra_variable;
@@ -353,7 +363,8 @@ public:
    * Gets the name of the custom property at the given index in the ordered
    * list of declarations.
    */
-  void GetCustomPropertyNameAt(uint32_t aIndex, nsAString& aResult) const {
+  void GetCustomPropertyNameAt(uint32_t aIndex, nsAString& aResult) const
+  {
     MOZ_ASSERT(mOrder[aIndex] >= eCSSProperty_COUNT);
     uint32_t variableIndex = mOrder[aIndex] - eCSSProperty_COUNT;
     aResult.Truncate();
@@ -363,7 +374,7 @@ public:
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   // The order of properties in this declaration.  Longhand properties are
   // represented by their nsCSSPropertyID value, and each custom property (--*)
   // is represented by a value that begins at eCSSProperty_COUNT.
@@ -408,7 +419,7 @@ ImportantStyleData::Declaration()
 
 NS_DEFINE_STATIC_IID_ACCESSOR(Declaration, NS_CSS_DECLARATION_IMPL_CID)
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 #endif /* mozilla_css_Declaration_h */

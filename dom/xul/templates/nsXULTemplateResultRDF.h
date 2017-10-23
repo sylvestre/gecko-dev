@@ -20,62 +20,59 @@
  */
 class nsXULTemplateResultRDF final : public nsIXULTemplateResult
 {
-public:
-    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-    NS_DECL_CYCLE_COLLECTION_CLASS(nsXULTemplateResultRDF)
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_CLASS(nsXULTemplateResultRDF)
 
-    NS_DECL_NSIXULTEMPLATERESULT
+  NS_DECL_NSIXULTEMPLATERESULT
 
-    explicit nsXULTemplateResultRDF(nsIRDFResource* aNode);
+  explicit nsXULTemplateResultRDF(nsIRDFResource* aNode);
 
-    nsXULTemplateResultRDF(nsRDFQuery* aQuery,
-                           const Instantiation& aInst,
-                           nsIRDFResource* aNode);
+  nsXULTemplateResultRDF(nsRDFQuery* aQuery,
+                         const Instantiation& aInst,
+                         nsIRDFResource* aNode);
 
-    nsITemplateRDFQuery* Query() { return mQuery; }
+  nsITemplateRDFQuery* Query() { return mQuery; }
 
-    nsXULTemplateQueryProcessorRDF* GetProcessor()
-    {
-        return (mQuery ? mQuery->Processor() : nullptr);
-    }
+  nsXULTemplateQueryProcessorRDF* GetProcessor()
+  {
+    return (mQuery ? mQuery->Processor() : nullptr);
+  }
 
-    /**
+  /**
      * Get the value of a variable, first by looking in the assignments and
      * then the bindings
      */
-    void
-    GetAssignment(nsAtom* aVar, nsIRDFNode** aValue);
+  void GetAssignment(nsAtom* aVar, nsIRDFNode** aValue);
 
-    /**
+  /**
      * Synchronize the bindings after a change in the RDF graph. Bindings that
      * would be affected will be assigned appropriately based on the change.
      */
-    bool
-    SyncAssignments(nsIRDFResource* aSubject,
-                    nsIRDFResource* aPredicate,
-                    nsIRDFNode* aTarget);
+  bool SyncAssignments(nsIRDFResource* aSubject,
+                       nsIRDFResource* aPredicate,
+                       nsIRDFNode* aTarget);
 
-    /**
+  /**
      * Return true if the result has an instantiation involving a particular
      * memory element.
      */
-    bool
-    HasMemoryElement(const MemoryElement& aMemoryElement);
+  bool HasMemoryElement(const MemoryElement& aMemoryElement);
 
-protected:
-    ~nsXULTemplateResultRDF();
+ protected:
+  ~nsXULTemplateResultRDF();
 
-    // query that generated the result
-    nsCOMPtr<nsITemplateRDFQuery> mQuery;
+  // query that generated the result
+  nsCOMPtr<nsITemplateRDFQuery> mQuery;
 
-    // resource node
-    nsCOMPtr<nsIRDFResource> mNode;
+  // resource node
+  nsCOMPtr<nsIRDFResource> mNode;
 
-    // data computed from query
-    Instantiation mInst;
+  // data computed from query
+  Instantiation mInst;
 
-    // extra assignments made by rules (<binding> tags)
-    nsBindingValues mBindingValues;
+  // extra assignments made by rules (<binding> tags)
+  nsBindingValues mBindingValues;
 };
 
-#endif // nsXULTemplateResultRDF_h__
+#endif  // nsXULTemplateResultRDF_h__

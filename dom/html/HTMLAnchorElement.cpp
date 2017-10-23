@@ -25,15 +25,17 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Anchor)
 namespace mozilla {
 namespace dom {
 
-#define ANCHOR_ELEMENT_FLAG_BIT(n_) NODE_FLAG_BIT(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET + (n_))
+#define ANCHOR_ELEMENT_FLAG_BIT(n_) \
+  NODE_FLAG_BIT(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET + (n_))
 
 // Anchor element specific bits
-enum {
+enum
+{
   // Indicates that a DNS Prefetch has been requested from this Anchor elem
-  HTML_ANCHOR_DNS_PREFETCH_REQUESTED =    ANCHOR_ELEMENT_FLAG_BIT(0),
+  HTML_ANCHOR_DNS_PREFETCH_REQUESTED = ANCHOR_ELEMENT_FLAG_BIT(0),
 
   // Indicates that a DNS Prefetch was added to the deferral queue
-  HTML_ANCHOR_DNS_PREFETCH_DEFERRED =     ANCHOR_ELEMENT_FLAG_BIT(1)
+  HTML_ANCHOR_DNS_PREFETCH_DEFERRED = ANCHOR_ELEMENT_FLAG_BIT(1)
 };
 
 ASSERT_NODE_FLAGS_SPACE(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET + 2);
@@ -42,14 +44,9 @@ ASSERT_NODE_FLAGS_SPACE(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET + 2);
 
 // static
 const DOMTokenListSupportedToken HTMLAnchorElement::sSupportedRelValues[] = {
-  "noreferrer",
-  "noopener",
-  nullptr
-};
+    "noreferrer", "noopener", nullptr};
 
-HTMLAnchorElement::~HTMLAnchorElement()
-{
-}
+HTMLAnchorElement::~HTMLAnchorElement() {}
 
 bool
 HTMLAnchorElement::IsInteractiveHTMLContent(bool aIgnoreTabindex) const
@@ -69,7 +66,7 @@ NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLAnchorElement,
 NS_IMPL_ELEMENT_CLONE(HTMLAnchorElement)
 
 JSObject*
-HTMLAnchorElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLAnchorElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLAnchorElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -90,8 +87,8 @@ HTMLAnchorElement::Draggable() const
     return nsGenericHTMLElement::Draggable();
   }
 
-  return !AttrValueIs(kNameSpaceID_None, nsGkAtoms::draggable,
-                      nsGkAtoms::_false, eIgnoreCase);
+  return !AttrValueIs(
+      kNameSpaceID_None, nsGkAtoms::draggable, nsGkAtoms::_false, eIgnoreCase);
 }
 
 void
@@ -115,15 +112,15 @@ HTMLAnchorElement::HasDeferredDNSPrefetchRequest()
 }
 
 nsresult
-HTMLAnchorElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLAnchorElement::BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers)
 {
   Link::ResetLinkState(false, Link::ElementHasHref());
 
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Prefetch links
@@ -166,9 +163,11 @@ IsNodeInEditableRegion(nsINode* aNode)
 
 bool
 HTMLAnchorElement::IsHTMLFocusable(bool aWithMouse,
-                                   bool *aIsFocusable, int32_t *aTabIndex)
+                                   bool* aIsFocusable,
+                                   int32_t* aTabIndex)
 {
-  if (nsGenericHTMLElement::IsHTMLFocusable(aWithMouse, aIsFocusable, aTabIndex)) {
+  if (nsGenericHTMLElement::IsHTMLFocusable(
+          aWithMouse, aIsFocusable, aTabIndex)) {
     return true;
   }
 
@@ -268,7 +267,8 @@ HTMLAnchorElement::RelList()
 void
 HTMLAnchorElement::GetText(nsAString& aText, mozilla::ErrorResult& aRv)
 {
-  if (NS_WARN_IF(!nsContentUtils::GetNodeTextContent(this, true, aText, fallible))) {
+  if (NS_WARN_IF(
+          !nsContentUtils::GetNodeTextContent(this, true, aText, fallible))) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
   }
 }
@@ -297,7 +297,8 @@ HTMLAnchorElement::GetHrefURI() const
 }
 
 nsresult
-HTMLAnchorElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLAnchorElement::BeforeSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify)
 {
@@ -308,12 +309,13 @@ HTMLAnchorElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::BeforeSetAttr(aNamespaceID, aName, aValue,
-                                             aNotify);
+  return nsGenericHTMLElement::BeforeSetAttr(
+      aNamespaceID, aName, aValue, aNotify);
 }
 
 nsresult
-HTMLAnchorElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLAnchorElement::AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -328,8 +330,8 @@ HTMLAnchorElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNamespaceID, aName,
-                                            aValue, aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 EventStates
@@ -346,5 +348,5 @@ HTMLAnchorElement::AddSizeOfExcludingThis(nsWindowSizes& aSizes,
   *aNodeSize += Link::SizeOfExcludingThis(aSizes.mState);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

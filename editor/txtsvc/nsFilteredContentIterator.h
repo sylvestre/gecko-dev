@@ -21,8 +21,7 @@ class nsRange;
 
 class nsFilteredContentIterator final : public nsIContentIterator
 {
-public:
-
+ public:
   // nsISupports interface...
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(nsFilteredContentIterator)
@@ -32,24 +31,26 @@ public:
   /* nsIContentIterator */
   virtual nsresult Init(nsINode* aRoot) override;
   virtual nsresult Init(nsIDOMRange* aRange) override;
-  virtual nsresult Init(nsINode* aStartContainer, uint32_t aStartOffset,
-                        nsINode* aEndContainer, uint32_t aEndOffset) override;
+  virtual nsresult Init(nsINode* aStartContainer,
+                        uint32_t aStartOffset,
+                        nsINode* aEndContainer,
+                        uint32_t aEndOffset) override;
   virtual nsresult Init(const mozilla::RawRangeBoundary& aStart,
                         const mozilla::RawRangeBoundary& aEnd) override;
   virtual void First() override;
   virtual void Last() override;
   virtual void Next() override;
   virtual void Prev() override;
-  virtual nsINode *GetCurrentNode() override;
+  virtual nsINode* GetCurrentNode() override;
   virtual bool IsDone() override;
   virtual nsresult PositionAt(nsINode* aCurNode) override;
 
   /* Helpers */
-  bool DidSkip()      { return mDidSkip; }
-  void         ClearDidSkip() {  mDidSkip = false; }
+  bool DidSkip() { return mDidSkip; }
+  void ClearDidSkip() { mDidSkip = false; }
 
-protected:
-  nsFilteredContentIterator() : mDidSkip(false), mIsOutOfRange(false) { }
+ protected:
+  nsFilteredContentIterator() : mDidSkip(false), mIsOutOfRange(false) {}
 
   virtual ~nsFilteredContentIterator();
 
@@ -59,8 +60,10 @@ protected:
   nsresult InitWithRange();
 
   // enum to give us the direction
-  typedef enum {eDirNotSet, eForward, eBackward} eDirectionType;
-  nsresult AdvanceNode(nsIDOMNode* aNode, nsIDOMNode*& aNewNode, eDirectionType aDir);
+  typedef enum { eDirNotSet, eForward, eBackward } eDirectionType;
+  nsresult AdvanceNode(nsIDOMNode* aNode,
+                       nsIDOMNode*& aNewNode,
+                       eDirectionType aDir);
   void CheckAdvNode(nsIDOMNode* aNode, bool& aDidSkip, eDirectionType aDir);
   nsresult SwitchDirections(bool aChangeToForward);
 
@@ -75,10 +78,10 @@ protected:
   RefPtr<nsAtom> mMapAtom;
 
   nsCOMPtr<nsITextServicesFilter> mFilter;
-  RefPtr<nsRange>               mRange;
-  bool                            mDidSkip;
-  bool                            mIsOutOfRange;
-  eDirectionType                  mDirection;
+  RefPtr<nsRange> mRange;
+  bool mDidSkip;
+  bool mIsOutOfRange;
+  eDirectionType mDirection;
 };
 
 #endif

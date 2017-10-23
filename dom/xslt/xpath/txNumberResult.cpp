@@ -23,37 +23,42 @@
 NumberResult::NumberResult(double aValue, txResultRecycler* aRecycler)
     : txAExprResult(aRecycler), value(aValue)
 {
-} //-- NumberResult
+}  //-- NumberResult
 
 /*
  * Virtual Methods from ExprResult
 */
 
-short NumberResult::getResultType() {
-    return txAExprResult::NUMBER;
-} //-- getResultType
+short
+NumberResult::getResultType()
+{
+  return txAExprResult::NUMBER;
+}  //-- getResultType
 
 void
 NumberResult::stringValue(nsString& aResult)
 {
-    txDouble::toString(value, aResult);
+  txDouble::toString(value, aResult);
 }
 
 const nsString*
 NumberResult::stringValuePointer()
 {
-    return nullptr;
+  return nullptr;
 }
 
-bool NumberResult::booleanValue() {
+bool
+NumberResult::booleanValue()
+{
   // OG+
   // As per the XPath spec, the boolean value of a number is true if and only if
   // it is neither positive 0 nor negative 0 nor NaN
   return (bool)(value != 0.0 && !mozilla::IsNaN(value));
   // OG-
-} //-- booleanValue
+}  //-- booleanValue
 
-double NumberResult::numberValue() {
-    return this->value;
-} //-- numberValue
-
+double
+NumberResult::numberValue()
+{
+  return this->value;
+}  //-- numberValue

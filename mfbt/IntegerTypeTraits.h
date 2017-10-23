@@ -72,17 +72,19 @@ struct StdintTypeForSizeAndSignedness<8, false>
   typedef uint64_t Type;
 };
 
-} // namespace detail
+}  // namespace detail
 
 template<size_t Size>
 struct UnsignedStdintTypeForSize
-  : detail::StdintTypeForSizeAndSignedness<Size, false>
-{};
+    : detail::StdintTypeForSizeAndSignedness<Size, false>
+{
+};
 
 template<size_t Size>
 struct SignedStdintTypeForSize
-  : detail::StdintTypeForSizeAndSignedness<Size, true>
-{};
+    : detail::StdintTypeForSizeAndSignedness<Size, true>
+{
+};
 
 template<typename IntegerType>
 struct PositionOfSignBit
@@ -101,14 +103,14 @@ struct PositionOfSignBit
 template<typename IntegerType>
 struct MinValue
 {
-private:
+ private:
   static_assert(IsIntegral<IntegerType>::value,
                 "MinValue is only for integral types");
 
   typedef typename MakeUnsigned<IntegerType>::Type UnsignedIntegerType;
   static const size_t PosOfSignBit = PositionOfSignBit<IntegerType>::value;
 
-public:
+ public:
   // Bitwise ops may return a larger type, that's why we cast explicitly.
   // In C++, left bit shifts on signed values is undefined by the standard
   // unless the shifted value is representable.
@@ -117,8 +119,8 @@ public:
   // unsigned-to-signed is only well-defined if the value is representable.
   static const IntegerType value =
       IsSigned<IntegerType>::value
-      ? IntegerType(UnsignedIntegerType(1) << PosOfSignBit)
-      : IntegerType(0);
+          ? IntegerType(UnsignedIntegerType(1) << PosOfSignBit)
+          : IntegerType(0);
 };
 
 /**
@@ -138,6 +140,6 @@ struct MaxValue
   static const IntegerType value = ~MinValue<IntegerType>::value;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_IntegerTypeTraits_h
+#endif  // mozilla_IntegerTypeTraits_h

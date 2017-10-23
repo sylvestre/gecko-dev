@@ -22,15 +22,19 @@
 #include "mozilla/NotNull.h"
 
 #define NS_SAXXMLREADER_CONTRACTID "@mozilla.org/saxparser/xmlreader;1"
-#define NS_SAXXMLREADER_CID  \
-{ 0xab1da296, 0x6125, 0x40ba, \
-{ 0x96, 0xd0, 0x47, 0xa8, 0x28, 0x2a, 0xe3, 0xdb} }
+#define NS_SAXXMLREADER_CID                          \
+  {                                                  \
+    0xab1da296, 0x6125, 0x40ba,                      \
+    {                                                \
+      0x96, 0xd0, 0x47, 0xa8, 0x28, 0x2a, 0xe3, 0xdb \
+    }                                                \
+  }
 
 class nsSAXXMLReader final : public nsISAXXMLReader,
                              public nsIExtendedExpatSink,
                              public nsIContentSink
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsSAXXMLReader, nsISAXXMLReader)
   NS_DECL_NSIEXPATSINK
@@ -42,39 +46,25 @@ public:
   nsSAXXMLReader();
 
   //nsIContentSink
-  NS_IMETHOD WillParse() override
-  {
-    return NS_OK;
-  }
+  NS_IMETHOD WillParse() override { return NS_OK; }
 
   NS_IMETHOD WillBuildModel(nsDTDMode aDTDMode) override;
   NS_IMETHOD DidBuildModel(bool aTerminated) override;
   NS_IMETHOD SetParser(nsParserBase* aParser) override;
-  
-  NS_IMETHOD WillInterrupt() override
-  {
-    return NS_OK;
-  }
 
-  NS_IMETHOD WillResume() override
-  {
-    return NS_OK;
-  }
-  
-  virtual void FlushPendingNotifications(mozilla::FlushType aType) override
-  {
-  }
-  
+  NS_IMETHOD WillInterrupt() override { return NS_OK; }
+
+  NS_IMETHOD WillResume() override { return NS_OK; }
+
+  virtual void FlushPendingNotifications(mozilla::FlushType aType) override {}
+
   virtual void SetDocumentCharset(NotNull<const Encoding*> aEncoding) override
   {
   }
-  
-  virtual nsISupports *GetTarget() override
-  {
-    return nullptr;
-  }
 
-private:
+  virtual nsISupports* GetTarget() override { return nullptr; }
+
+ private:
   ~nsSAXXMLReader() {}
 
   nsCOMPtr<nsISAXContentHandler> mContentHandler;
@@ -86,15 +76,15 @@ private:
   nsCOMPtr<nsIStreamListener> mListener;
   nsCOMPtr<nsIRequestObserver> mParserObserver;
   bool mIsAsyncParse;
-  static bool TryChannelCharset(nsIChannel *aChannel,
+  static bool TryChannelCharset(nsIChannel* aChannel,
                                 int32_t& aCharsetSource,
                                 NotNull<const Encoding*>& aEncoding);
   nsresult EnsureBaseURI();
-  nsresult InitParser(nsIRequestObserver *aListener, nsIChannel *aChannel);
-  nsresult SplitExpatName(const char16_t *aExpatName,
-                          nsString &aURI,
-                          nsString &aLocalName,
-                          nsString &aQName);
+  nsresult InitParser(nsIRequestObserver* aListener, nsIChannel* aChannel);
+  nsresult SplitExpatName(const char16_t* aExpatName,
+                          nsString& aURI,
+                          nsString& aLocalName,
+                          nsString& aQName);
   nsString mPublicId;
   nsString mSystemId;
 
@@ -102,4 +92,4 @@ private:
   bool mEnableNamespacePrefixes;
 };
 
-#endif // nsSAXXMLReader_h__
+#endif  // nsSAXXMLReader_h__

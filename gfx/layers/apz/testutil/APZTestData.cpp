@@ -11,11 +11,15 @@
 namespace mozilla {
 namespace layers {
 
-struct APZTestDataToJSConverter {
-  template <typename Key, typename Value, typename KeyValuePair>
+struct APZTestDataToJSConverter
+{
+  template<typename Key, typename Value, typename KeyValuePair>
   static void ConvertMap(const std::map<Key, Value>& aFrom,
-                               dom::Sequence<KeyValuePair>& aOutTo,
-                               void (*aElementConverter)(const Key&, const Value&, KeyValuePair&)) {
+                         dom::Sequence<KeyValuePair>& aOutTo,
+                         void (*aElementConverter)(const Key&,
+                                                   const Value&,
+                                                   KeyValuePair&))
+  {
     for (auto it = aFrom.begin(); it != aFrom.end(); ++it) {
       aOutTo.AppendElement(fallible);
       aElementConverter(it->first, it->second, aOutTo.LastElement());
@@ -23,33 +27,42 @@ struct APZTestDataToJSConverter {
   }
 
   static void ConvertAPZTestData(const APZTestData& aFrom,
-                                 dom::APZTestData& aOutTo) {
+                                 dom::APZTestData& aOutTo)
+  {
     ConvertMap(aFrom.mPaints, aOutTo.mPaints.Construct(), ConvertBucket);
-    ConvertMap(aFrom.mRepaintRequests, aOutTo.mRepaintRequests.Construct(), ConvertBucket);
+    ConvertMap(aFrom.mRepaintRequests,
+               aOutTo.mRepaintRequests.Construct(),
+               ConvertBucket);
   }
 
   static void ConvertBucket(const SequenceNumber& aKey,
                             const APZTestData::Bucket& aValue,
-                            dom::APZBucket& aOutKeyValuePair) {
+                            dom::APZBucket& aOutKeyValuePair)
+  {
     aOutKeyValuePair.mSequenceNumber.Construct() = aKey;
-    ConvertMap(aValue, aOutKeyValuePair.mScrollFrames.Construct(), ConvertScrollFrameData);
+    ConvertMap(aValue,
+               aOutKeyValuePair.mScrollFrames.Construct(),
+               ConvertScrollFrameData);
   }
 
   static void ConvertScrollFrameData(const APZTestData::ViewID& aKey,
                                      const APZTestData::ScrollFrameData& aValue,
-                                     dom::ScrollFrameData& aOutKeyValuePair) {
+                                     dom::ScrollFrameData& aOutKeyValuePair)
+  {
     aOutKeyValuePair.mScrollId.Construct() = aKey;
     ConvertMap(aValue, aOutKeyValuePair.mEntries.Construct(), ConvertEntry);
   }
 
   static void ConvertEntry(const std::string& aKey,
                            const std::string& aValue,
-                           dom::ScrollFrameDataEntry& aOutKeyValuePair) {
+                           dom::ScrollFrameDataEntry& aOutKeyValuePair)
+  {
     ConvertString(aKey, aOutKeyValuePair.mKey.Construct());
     ConvertString(aValue, aOutKeyValuePair.mValue.Construct());
   }
 
-  static void ConvertString(const std::string& aFrom, nsString& aOutTo) {
+  static void ConvertString(const std::string& aFrom, nsString& aOutTo)
+  {
     aOutTo = NS_ConvertUTF8toUTF16(aFrom.c_str(), aFrom.size());
   }
 };
@@ -62,5 +75,5 @@ APZTestData::ToJS(JS::MutableHandleValue aOutValue, JSContext* aContext) const
   return dom::ToJSValue(aContext, result, aOutValue);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

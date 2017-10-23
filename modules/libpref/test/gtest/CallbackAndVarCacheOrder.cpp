@@ -110,7 +110,7 @@ RunTest(const char* aPrefName1, const char* aPrefName2, T aValue1, T aValue2)
   AddVarCacheFunc(&var1, aPrefName1);
   ASSERT_EQ(var1, aValue1);
 
-  closure1 = { &var1, aValue2 };
+  closure1 = {&var1, aValue2};
   rv = Preferences::RegisterCallback(VarChanged<T, U>, aPrefName1, &closure1);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
@@ -123,7 +123,7 @@ RunTest(const char* aPrefName1, const char* aPrefName2, T aValue1, T aValue2)
 
   SetFunc(aPrefName2, aValue1);
 
-  closure2 = { &var2, aValue2 };
+  closure2 = {&var2, aValue2};
   rv = Preferences::RegisterCallback(VarChanged<T, U>, aPrefName2, &closure2);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
@@ -154,7 +154,7 @@ TEST(CallbackAndVarCacheOrder, Uint)
 TEST(CallbackAndVarCacheOrder, AtomicUint)
 {
   RunTest<uint32_t, Atomic<uint32_t, Relaxed>>(
-    "test_pref.atomic_uint.1", "test_pref.atomic_uint.2", 6u, 7u);
+      "test_pref.atomic_uint.1", "test_pref.atomic_uint.2", 6u, 7u);
 }
 
 TEST(CallbackAndVarCacheOrder, Float)
@@ -162,4 +162,4 @@ TEST(CallbackAndVarCacheOrder, Float)
   RunTest<float>("test_pref.float.1", "test_pref.float.2", -8.0f, 9.0f);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

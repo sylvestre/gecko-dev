@@ -13,10 +13,9 @@
 
 #ifdef MOZILLA_INTERNAL_API
 #include "GeckoProfiler.h"
-#endif //MOZILLA_INTERNAL_API
+#endif  //MOZILLA_INTERNAL_API
 
 namespace mozilla {
-
 
 /**
  * CondVar
@@ -25,7 +24,7 @@ namespace mozilla {
  */
 class CondVar : BlockingResourceBase
 {
-public:
+ public:
   /**
    * CondVar
    *
@@ -38,8 +37,7 @@ public:
    *          by Monitor::DestroyMonitor()
    **/
   CondVar(Mutex& aLock, const char* aName)
-    : BlockingResourceBase(aName, eCondVar)
-    , mLock(&aLock)
+      : BlockingResourceBase(aName, eCondVar), mLock(&aLock)
   {
     MOZ_COUNT_CTOR(CondVar);
   }
@@ -48,10 +46,7 @@ public:
    * ~CondVar
    * Clean up after this CondVar, but NOT its associated Mutex.
    **/
-  ~CondVar()
-  {
-    MOZ_COUNT_DTOR(CondVar);
-  }
+  ~CondVar() { MOZ_COUNT_DTOR(CondVar); }
 
 #ifndef DEBUG
   /**
@@ -60,10 +55,9 @@ public:
    **/
   nsresult Wait(PRIntervalTime aInterval = PR_INTERVAL_NO_TIMEOUT)
   {
-
 #ifdef MOZILLA_INTERNAL_API
     AUTO_PROFILER_THREAD_SLEEP;
-#endif //MOZILLA_INTERNAL_API
+#endif  //MOZILLA_INTERNAL_API
     if (aInterval == PR_INTERVAL_NO_TIMEOUT) {
       mImpl.wait(*mLock);
     } else {
@@ -73,7 +67,7 @@ public:
   }
 #else
   nsresult Wait(PRIntervalTime aInterval = PR_INTERVAL_NO_TIMEOUT);
-#endif // ifndef DEBUG
+#endif  // ifndef DEBUG
 
   /**
    * Notify
@@ -100,10 +94,7 @@ public:
    * AssertCurrentThreadOwnsMutex
    * @see Mutex::AssertCurrentThreadOwns
    **/
-  void AssertCurrentThreadOwnsMutex()
-  {
-    mLock->AssertCurrentThreadOwns();
-  }
+  void AssertCurrentThreadOwnsMutex() { mLock->AssertCurrentThreadOwns(); }
 
   /**
    * AssertNotCurrentThreadOwnsMutex
@@ -120,7 +111,7 @@ public:
 
 #endif  // ifdef DEBUG
 
-private:
+ private:
   CondVar();
   CondVar(const CondVar&) = delete;
   CondVar& operator=(const CondVar&) = delete;
@@ -129,8 +120,6 @@ private:
   detail::ConditionVariableImpl mImpl;
 };
 
-
-} // namespace mozilla
-
+}  // namespace mozilla
 
 #endif  // ifndef mozilla_CondVar_h

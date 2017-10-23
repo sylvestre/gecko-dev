@@ -11,9 +11,11 @@
 
 namespace mozilla {
 
-class IrishCasing {
-private:
-  enum IrishStates {
+class IrishCasing
+{
+ private:
+  enum IrishStates
+  {
     kState_Start,
     kState_InWord,
     kState_b,
@@ -29,7 +31,8 @@ private:
     kNumStates
   };
 
-  enum IrishClasses {
+  enum IrishClasses
+  {
     kClass_b,
     kClass_B,
     kClass_cC,
@@ -53,65 +56,54 @@ private:
     kNumClasses
   };
 
-public:
-  class State {
+ public:
+  class State
+  {
     friend class IrishCasing;
 
-  public:
-    State()
-      : mState(kState_Start)
-    {
-    }
+   public:
+    State() : mState(kState_Start) {}
 
-    MOZ_IMPLICIT State(const IrishStates& aState)
-      : mState(aState)
-    {
-    }
+    MOZ_IMPLICIT State(const IrishStates& aState) : mState(aState) {}
 
-    void Reset()
-    {
-      mState = kState_Start;
-    }
+    void Reset() { mState = kState_Start; }
 
-    operator IrishStates() const
-    {
-      return mState;
-    }
+    operator IrishStates() const { return mState; }
 
-  private:
-    explicit State(uint8_t aState)
-      : mState(IrishStates(aState))
-    {
-    }
+   private:
+    explicit State(uint8_t aState) : mState(IrishStates(aState)) {}
 
     uint8_t GetClass(uint32_t aCh);
 
     IrishStates mState;
   };
 
-  enum {
+  enum
+  {
     kMarkPositionFlag = 0x80,
-    kActionMask       = 0x30,
-    kActionShift      = 4,
-    kNextStateMask    = 0x0f
+    kActionMask = 0x30,
+    kActionShift = 4,
+    kNextStateMask = 0x0f
   };
 
   static const uint8_t sUppercaseStateTable[kNumClasses][kNumStates];
   static const uint8_t sLcClasses[26];
   static const uint8_t sUcClasses[26];
 
-  static uint32_t UpperCase(uint32_t aCh, State& aState,
-                            bool& aMarkPos, uint8_t& aAction);
+  static uint32_t UpperCase(uint32_t aCh,
+                            State& aState,
+                            bool& aMarkPos,
+                            uint8_t& aAction);
 
   static bool IsUpperVowel(uint32_t aCh)
   {
     return GetClass(aCh) == kClass_Vowel;
   }
 
-private:
+ private:
   static uint8_t GetClass(uint32_t aCh);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

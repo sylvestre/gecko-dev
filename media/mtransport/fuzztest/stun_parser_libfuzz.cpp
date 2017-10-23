@@ -17,13 +17,16 @@ extern "C" {
 #include "stun_codec.h"
 }
 
-int FuzzingInitStunParser(int *argc, char ***argv) {
+int
+FuzzingInitStunParser(int* argc, char*** argv)
+{
   return 0;
 }
 
 static int
-RunStunParserFuzzing(const uint8_t* data, size_t size) {
-  nr_stun_message *req = 0;
+RunStunParserFuzzing(const uint8_t* data, size_t size)
+{
+  nr_stun_message* req = 0;
 
   UCHAR* mes = (UCHAR*)data;
 
@@ -36,4 +39,6 @@ RunStunParserFuzzing(const uint8_t* data, size_t size) {
   return 0;
 }
 
-MOZ_FUZZING_INTERFACE_RAW(FuzzingInitStunParser, RunStunParserFuzzing, StunParser);
+MOZ_FUZZING_INTERFACE_RAW(FuzzingInitStunParser,
+                          RunStunParserFuzzing,
+                          StunParser);

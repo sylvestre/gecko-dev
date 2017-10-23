@@ -18,10 +18,11 @@ class mozIDOMWindowProxy;
 
 class nsColorPicker final : public nsIColorPicker
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  NS_IMETHOD Init(mozIDOMWindowProxy* aParent, const nsAString& aTitle,
+  NS_IMETHOD Init(mozIDOMWindowProxy* aParent,
+                  const nsAString& aTitle,
                   const nsAString& aInitialColor) override;
   NS_IMETHOD Open(nsIColorPickerShownCallback* aCallback) override;
 
@@ -34,7 +35,7 @@ public:
   // as it is not needed anymore for now
   void Done();
 
-private:
+ private:
   ~nsColorPicker();
 
   static NSColor* GetNSColorFromHexString(const nsAString& aColor);
@@ -42,9 +43,9 @@ private:
 
   static NSColorPanelWrapper* sColorPanelWrapper;
 
-  nsString             mTitle;
-  nsString             mColor;
+  nsString mTitle;
+  nsString mColor;
   nsCOMPtr<nsIColorPickerShownCallback> mCallback;
 };
 
-#endif // nsColorPicker_h_
+#endif  // nsColorPicker_h_

@@ -10,7 +10,7 @@
 #include "nsTArray.h"
 #include "AudioBlock.h"
 #include "AudioSegment.h"
-#include "mozilla/dom/AudioNodeBinding.h" // for ChannelInterpretation
+#include "mozilla/dom/AudioNodeBinding.h"  // for ChannelInterpretation
 
 namespace mozilla {
 
@@ -18,18 +18,20 @@ class DelayBuffer final
 {
   typedef dom::ChannelInterpretation ChannelInterpretation;
 
-public:
+ public:
   // See WebAudioUtils::ComputeSmoothingRate() for frame to frame exponential
   // |smoothingRate| multiplier.
   DelayBuffer(double aMaxDelayTicks, double aSmoothingRate)
-    : mSmoothingRate(aSmoothingRate)
-    , mCurrentDelay(-1.0)
-    // Round the maximum delay up to the next tick.
-    , mMaxDelayTicks(ceil(aMaxDelayTicks))
-    , mCurrentChunk(0)
-    // mLastReadChunk is initialized in EnsureBuffer
+      : mSmoothingRate(aSmoothingRate),
+        mCurrentDelay(-1.0)
+        // Round the maximum delay up to the next tick.
+        ,
+        mMaxDelayTicks(ceil(aMaxDelayTicks)),
+        mCurrentChunk(0)
+  // mLastReadChunk is initialized in EnsureBuffer
 #ifdef DEBUG
-    , mHaveWrittenBlock(false)
+        ,
+        mHaveWrittenBlock(false)
 #endif
   {
     // The 180 second limit in AudioContext::CreateDelay() and the
@@ -49,7 +51,8 @@ public:
             ChannelInterpretation aChannelInterpretation);
   // Read a block with a constant delay, which will be smoothed with the
   // previous delay.  The delay should be >= 0 and <= MaxDelayTicks().
-  void Read(double aDelayTicks, AudioBlock* aOutputChunk,
+  void Read(double aDelayTicks,
+            AudioBlock* aOutputChunk,
             ChannelInterpretation aChannelInterpretation);
 
   // Read into one of the channels of aOutputChunk, given an array of
@@ -57,7 +60,8 @@ public:
   // channels.  aOutputChunk must have already been allocated with at least as
   // many channels as were in any of the blocks passed to Write().
   void ReadChannel(const double aPerFrameDelays[WEBAUDIO_BLOCK_SIZE],
-                   AudioBlock* aOutputChunk, uint32_t aChannel,
+                   AudioBlock* aOutputChunk,
+                   uint32_t aChannel,
                    ChannelInterpretation aChannelInterpretation);
 
   // Advance the buffer pointer
@@ -70,7 +74,8 @@ public:
 #endif
   }
 
-  void Reset() {
+  void Reset()
+  {
     mChunks.Clear();
     mCurrentDelay = -1.0;
   };
@@ -79,23 +84,25 @@ public:
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   void ReadChannels(const double aPerFrameDelays[WEBAUDIO_BLOCK_SIZE],
                     AudioBlock* aOutputChunk,
-                    uint32_t aFirstChannel, uint32_t aNumChannelsToRead,
+                    uint32_t aFirstChannel,
+                    uint32_t aNumChannelsToRead,
                     ChannelInterpretation aChannelInterpretation);
   bool EnsureBuffer();
   int PositionForDelay(int aDelay);
   int ChunkForPosition(int aPosition);
   int OffsetForPosition(int aPosition);
   int ChunkForDelay(int aDelay);
-  void UpdateUpmixChannels(int aNewReadChunk, uint32_t channelCount,
+  void UpdateUpmixChannels(int aNewReadChunk,
+                           uint32_t channelCount,
                            ChannelInterpretation aChannelInterpretation);
 
   // Circular buffer for capturing delayed samples.
   FallibleTArray<AudioChunk> mChunks;
   // Cache upmixed channel arrays.
-  AutoTArray<const float*,GUESS_AUDIO_CHANNELS> mUpmixChannels;
+  AutoTArray<const float*, GUESS_AUDIO_CHANNELS> mUpmixChannels;
   double mSmoothingRate;
   // Current delay, in fractional ticks
   double mCurrentDelay;
@@ -111,6 +118,6 @@ private:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DelayBuffer_h_
+#endif  // DelayBuffer_h_

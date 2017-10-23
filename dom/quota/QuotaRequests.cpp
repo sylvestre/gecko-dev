@@ -13,17 +13,13 @@ namespace mozilla {
 namespace dom {
 namespace quota {
 
-RequestBase::RequestBase()
-  : mResultCode(NS_OK)
-  , mHaveResultOrErrorCode(false)
+RequestBase::RequestBase() : mResultCode(NS_OK), mHaveResultOrErrorCode(false)
 {
   AssertIsOnOwningThread();
 }
 
 RequestBase::RequestBase(nsIPrincipal* aPrincipal)
-  : mPrincipal(aPrincipal)
-  , mResultCode(NS_OK)
-  , mHaveResultOrErrorCode(false)
+    : mPrincipal(aPrincipal), mResultCode(NS_OK), mHaveResultOrErrorCode(false)
 {
   AssertIsOnOwningThread();
 }
@@ -36,7 +32,7 @@ RequestBase::AssertIsOnOwningThread() const
   NS_ASSERT_OWNINGTHREAD(RequestBase);
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 void
 RequestBase::SetError(nsresult aRv)
@@ -85,9 +81,7 @@ RequestBase::GetResultCode(nsresult* aResultCode)
 }
 
 UsageRequest::UsageRequest(nsIQuotaUsageCallback* aCallback)
-  : mCallback(aCallback)
-  , mBackgroundActor(nullptr)
-  , mCanceled(false)
+    : mCallback(aCallback), mBackgroundActor(nullptr), mCanceled(false)
 {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aCallback);
@@ -95,20 +89,17 @@ UsageRequest::UsageRequest(nsIQuotaUsageCallback* aCallback)
 
 UsageRequest::UsageRequest(nsIPrincipal* aPrincipal,
                            nsIQuotaUsageCallback* aCallback)
-  : RequestBase(aPrincipal)
-  , mCallback(aCallback)
-  , mBackgroundActor(nullptr)
-  , mCanceled(false)
+    : RequestBase(aPrincipal),
+      mCallback(aCallback),
+      mBackgroundActor(nullptr),
+      mCanceled(false)
 {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aPrincipal);
   MOZ_ASSERT(aCallback);
 }
 
-UsageRequest::~UsageRequest()
-{
-  AssertIsOnOwningThread();
-}
+UsageRequest::~UsageRequest() { AssertIsOnOwningThread(); }
 
 void
 UsageRequest::SetBackgroundActor(QuotaUsageRequestChild* aBackgroundActor)
@@ -211,22 +202,15 @@ UsageRequest::FireCallback()
   mCallback = nullptr;
 }
 
-Request::Request()
-{
-  AssertIsOnOwningThread();
-}
+Request::Request() { AssertIsOnOwningThread(); }
 
-Request::Request(nsIPrincipal* aPrincipal)
-  : RequestBase(aPrincipal)
+Request::Request(nsIPrincipal* aPrincipal) : RequestBase(aPrincipal)
 {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aPrincipal);
 }
 
-Request::~Request()
-{
-  AssertIsOnOwningThread();
-}
+Request::~Request() { AssertIsOnOwningThread(); }
 
 void
 Request::SetResult(nsIVariant* aResult)
@@ -297,6 +281,6 @@ Request::FireCallback()
   }
 }
 
-} // namespace quota
-} // namespace dom
-} // namespace mozilla
+}  // namespace quota
+}  // namespace dom
+}  // namespace mozilla

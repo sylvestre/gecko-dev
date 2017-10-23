@@ -20,13 +20,16 @@
 // protocol.
 namespace mozilla {
 
-class DtlsIdentity final {
+class DtlsIdentity final
+{
  public:
   // This constructor takes ownership of privkey and cert.
   DtlsIdentity(UniqueSECKEYPrivateKey privkey,
                UniqueCERTCertificate cert,
                SSLKEAType authType)
-      : private_key_(Move(privkey)), cert_(Move(cert)), auth_type_(authType) {}
+      : private_key_(Move(privkey)), cert_(Move(cert)), auth_type_(authType)
+  {
+  }
 
   // This is only for use in tests, or for external linkage.  It makes a (bad)
   // instance of this class.
@@ -43,17 +46,18 @@ class DtlsIdentity final {
   SSLKEAType auth_type() const { return auth_type_; }
 
   nsresult ComputeFingerprint(const std::string algorithm,
-                              uint8_t *digest,
+                              uint8_t* digest,
                               size_t size,
-                              size_t *digest_length) const;
+                              size_t* digest_length) const;
   static nsresult ComputeFingerprint(const UniqueCERTCertificate& cert,
                                      const std::string algorithm,
-                                     uint8_t *digest,
+                                     uint8_t* digest,
                                      size_t size,
-                                     size_t *digest_length);
+                                     size_t* digest_length);
 
   static const std::string DEFAULT_HASH_ALGORITHM;
-  enum {
+  enum
+  {
     HASH_ALGORITHM_MAX_LENGTH = 64
   };
 
@@ -67,5 +71,5 @@ class DtlsIdentity final {
   UniqueCERTCertificate cert_;
   SSLKEAType auth_type_;
 };
-}  // close namespace
+}  // namespace mozilla
 #endif

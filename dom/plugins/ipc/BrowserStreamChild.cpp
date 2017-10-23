@@ -18,19 +18,23 @@ BrowserStreamChild::BrowserStreamChild(PluginInstanceChild* instance,
                                        const uint32_t& lastmodified,
                                        StreamNotifyChild* notifyData,
                                        const nsCString& headers)
-  : mInstance(instance)
-  , mStreamStatus(kStreamOpen)
-  , mDestroyPending(NOT_DESTROYED)
-  , mNotifyPending(false)
-  , mInstanceDying(false)
-  , mState(CONSTRUCTING)
-  , mURL(url)
-  , mHeaders(headers)
-  , mStreamNotify(notifyData)
-  , mDeliveryTracker(this)
+    : mInstance(instance),
+      mStreamStatus(kStreamOpen),
+      mDestroyPending(NOT_DESTROYED),
+      mNotifyPending(false),
+      mInstanceDying(false),
+      mState(CONSTRUCTING),
+      mURL(url),
+      mHeaders(headers),
+      mStreamNotify(notifyData),
+      mDeliveryTracker(this)
 {
-  PLUGIN_LOG_DEBUG(("%s (%s, %i, %i, %p, %s)", FULLFUNCTION,
-                    url.get(), length, lastmodified, (void*) notifyData,
+  PLUGIN_LOG_DEBUG(("%s (%s, %i, %i, %p, %s)",
+                    FULLFUNCTION,
+                    url.get(),
+                    length,
+                    lastmodified,
+                    (void*)notifyData,
                     headers.get()));
 
   AssertPluginThread();
@@ -48,24 +52,26 @@ BrowserStreamChild::BrowserStreamChild(PluginInstanceChild* instance,
 }
 
 NPError
-BrowserStreamChild::StreamConstructed(
-            const nsCString& mimeType,
-            const bool& seekable,
-            uint16_t* stype)
+BrowserStreamChild::StreamConstructed(const nsCString& mimeType,
+                                      const bool& seekable,
+                                      uint16_t* stype)
 {
   NPError rv = NPERR_NO_ERROR;
 
   *stype = NP_NORMAL;
   rv = mInstance->mPluginIface->newstream(
-    &mInstance->mData, const_cast<char*>(NullableStringGet(mimeType)),
-    &mStream, seekable, stype);
+      &mInstance->mData,
+      const_cast<char*>(NullableStringGet(mimeType)),
+      &mStream,
+      seekable,
+      stype);
 
   // NP_NORMAL is the only permissible stream type
   if (*stype != NP_NORMAL) {
     rv = NPERR_INVALID_PARAM;
     // The plugin thinks the stream is alive, so we kill it explicitly
-    (void) mInstance->mPluginIface
-      ->destroystream(&mInstance->mData, &mStream, NPRES_NETWORK_ERR);
+    (void)mInstance->mPluginIface->destroystream(
+        &mInstance->mData, &mStream, NPRES_NETWORK_ERR);
   }
 
   if (rv != NPERR_NO_ERROR) {
@@ -74,8 +80,7 @@ BrowserStreamChild::StreamConstructed(
       mStreamNotify->SetAssociatedStream(nullptr);
       mStreamNotify = nullptr;
     }
-  }
-  else {
+  } else {
     mState = ALIVE;
   }
 
@@ -99,8 +104,7 @@ BrowserStreamChild::RecvWrite(const int32_t& offset,
   if (ALIVE != mState)
     MOZ_CRASH("Unexpected state: received data after NPP_DestroyStream?");
 
-  if (kStreamOpen != mStreamStatus)
-    return IPC_OK();
+  if (kStreamOpen != mStreamStatus) return IPC_OK();
 
   mStream.end = newlength;
 
@@ -126,8 +130,7 @@ BrowserStreamChild::RecvNPP_DestroyStream(const NPReason& reason)
 
   mState = DYING;
   mDestroyPending = DESTROY_PENDING;
-  if (NPRES_DONE != reason)
-    mStreamStatus = reason;
+  if (NPRES_DONE != reason) mStreamStatus = reason;
 
   EnsureDeliveryPending();
   return IPC_OK();
@@ -138,8 +141,7 @@ BrowserStreamChild::Recv__delete__()
 {
   AssertPluginThread();
 
-  if (DELETING != mState)
-    MOZ_CRASH("Bad state, not DELETING");
+  if (DELETING != mState) MOZ_CRASH("Bad state, not DELETING");
 
   return IPC_OK();
 }
@@ -148,7 +150,7 @@ void
 BrowserStreamChild::EnsureDeliveryPending()
 {
   MessageLoop::current()->PostTask(
-    mDeliveryTracker.NewRunnableMethod(&BrowserStreamChild::Deliver));
+      mDeliveryTracker.NewRunnableMethod(&BrowserStreamChild::Deliver));
 }
 
 void
@@ -168,15 +170,13 @@ BrowserStreamChild::Deliver()
 
   if (DESTROY_PENDING == mDestroyPending) {
     mDestroyPending = DESTROYED;
-    if (mState != DYING)
-      MOZ_CRASH("mDestroyPending but state not DYING");
+    if (mState != DYING) MOZ_CRASH("mDestroyPending but state not DYING");
 
     NS_ASSERTION(NPRES_DONE != mStreamStatus, "Success status set too early!");
-    if (kStreamOpen == mStreamStatus)
-      mStreamStatus = NPRES_DONE;
+    if (kStreamOpen == mStreamStatus) mStreamStatus = NPRES_DONE;
 
-    (void) mInstance->mPluginIface
-      ->destroystream(&mInstance->mData, &mStream, mStreamStatus);
+    (void)mInstance->mPluginIface->destroystream(
+        &mInstance->mData, &mStream, mStreamStatus);
   }
   if (DESTROYED == mDestroyPending && mNotifyPending) {
     NS_ASSERTION(mStreamNotify, "mDestroyPending but no mStreamNotify?");
@@ -186,8 +186,8 @@ BrowserStreamChild::Deliver()
     delete mStreamNotify;
     mStreamNotify = nullptr;
   }
-  if (DYING == mState && DESTROYED == mDestroyPending
-      && !mStreamNotify && !mInstanceDying) {
+  if (DYING == mState && DESTROYED == mDestroyPending && !mStreamNotify &&
+      !mInstanceDying) {
     SendStreamDestroyed();
     mState = DELETING;
   }
@@ -196,28 +196,28 @@ BrowserStreamChild::Deliver()
 bool
 BrowserStreamChild::DeliverPendingData()
 {
-  if (mState != ALIVE && mState != DYING)
-    MOZ_CRASH("Unexpected state");
+  if (mState != ALIVE && mState != DYING) MOZ_CRASH("Unexpected state");
 
   NS_ASSERTION(mPendingData.Length(), "Called from Deliver with empty pending");
 
-  while (mPendingData[0].curpos < static_cast<int32_t>(mPendingData[0].data.Length())) {
-    int32_t r = mInstance->mPluginIface->writeready(&mInstance->mData, &mStream);
-    if (kStreamOpen != mStreamStatus)
-      return false;
-    if (0 == r) // plugin wants to suspend delivery
+  while (mPendingData[0].curpos <
+         static_cast<int32_t>(mPendingData[0].data.Length())) {
+    int32_t r =
+        mInstance->mPluginIface->writeready(&mInstance->mData, &mStream);
+    if (kStreamOpen != mStreamStatus) return false;
+    if (0 == r)  // plugin wants to suspend delivery
       return true;
 
     r = mInstance->mPluginIface->write(
-      &mInstance->mData, &mStream,
-      mPendingData[0].offset + mPendingData[0].curpos, // offset
-      mPendingData[0].data.Length() - mPendingData[0].curpos, // length
-      const_cast<char*>(mPendingData[0].data.BeginReading() + mPendingData[0].curpos));
-    if (kStreamOpen != mStreamStatus)
-      return false;
-    if (0 == r)
-      return true;
-    if (r < 0) { // error condition
+        &mInstance->mData,
+        &mStream,
+        mPendingData[0].offset + mPendingData[0].curpos,         // offset
+        mPendingData[0].data.Length() - mPendingData[0].curpos,  // length
+        const_cast<char*>(mPendingData[0].data.BeginReading() +
+                          mPendingData[0].curpos));
+    if (kStreamOpen != mStreamStatus) return false;
+    if (0 == r) return true;
+    if (r < 0) {  // error condition
       mStreamStatus = NPRES_NETWORK_ERR;
 
       // Set up stream destruction
@@ -233,11 +233,11 @@ BrowserStreamChild::DeliverPendingData()
 void
 BrowserStreamChild::SetSuspendedTimer()
 {
-  if (mSuspendedTimer.IsRunning())
-    return;
-  mSuspendedTimer.Start(
-    base::TimeDelta::FromMilliseconds(100), // 100ms copied from Mozilla plugin host
-    this, &BrowserStreamChild::Deliver);
+  if (mSuspendedTimer.IsRunning()) return;
+  mSuspendedTimer.Start(base::TimeDelta::FromMilliseconds(
+                            100),  // 100ms copied from Mozilla plugin host
+                        this,
+                        &BrowserStreamChild::Deliver);
 }
 
 void

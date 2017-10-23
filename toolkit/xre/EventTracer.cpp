@@ -67,16 +67,17 @@
 
 #include "nsThreadUtils.h"
 
+using mozilla::FireAndWaitForTracerEvent;
 using mozilla::TimeDuration;
 using mozilla::TimeStamp;
-using mozilla::FireAndWaitForTracerEvent;
 
 namespace {
 
 PRThread* sTracerThread = nullptr;
 bool sExit = false;
 
-struct TracerStartClosure {
+struct TracerStartClosure
+{
   bool mLogTracing;
   int32_t mThresholdInterval;
 };
@@ -91,7 +92,8 @@ struct TracerStartClosure {
  * settting the environment variable MOZ_INSTRUMENT_EVENT_LOOP_OUTPUT
  * to the name of a file to use.
  */
-void TracerThread(void *arg)
+void
+TracerThread(void* arg)
 {
   AUTO_PROFILER_REGISTER_THREAD("Event Tracer");
   NS_SetCurrentThreadName("Event Tracer");
@@ -112,8 +114,7 @@ void TracerThread(void *arg)
   if (envfile) {
     log = fopen(envfile, "w");
   }
-  if (log == nullptr)
-    log = stdout;
+  if (log == nullptr) log = stdout;
 
   char* thresholdenv = PR_GetEnv("MOZ_INSTRUMENT_EVENT_LOOP_THRESHOLD");
   if (thresholdenv && *thresholdenv) {
@@ -148,15 +149,15 @@ void TracerThread(void *arg)
       // Only report samples that exceed our measurement threshold.
       long long now = PR_Now() / PR_USEC_PER_MSEC;
       if (threadArgs->mLogTracing && duration.ToMilliseconds() > threshold) {
-        fprintf(log, "MOZ_EVENT_TRACE sample %llu %lf\n",
+        fprintf(log,
+                "MOZ_EVENT_TRACE sample %llu %lf\n",
                 now,
                 duration.ToMilliseconds());
       }
 
       if (next_sleep > duration.ToMilliseconds()) {
         next_sleep -= int(duration.ToMilliseconds());
-      }
-      else {
+      } else {
         // Don't sleep at all if this event took longer than the measure
         // interval to deliver.
         next_sleep = 0;
@@ -173,24 +174,22 @@ void TracerThread(void *arg)
     fprintf(log, "MOZ_EVENT_TRACE stop %llu\n", now);
   }
 
-  if (log != stdout)
-    fclose(log);
+  if (log != stdout) fclose(log);
 
   delete threadArgs;
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
-bool InitEventTracing(bool aLog)
+bool
+InitEventTracing(bool aLog)
 {
-  if (sTracerThread)
-    return true;
+  if (sTracerThread) return true;
 
   // Initialize the widget backend.
-  if (!InitWidgetTracing())
-    return false;
+  if (!InitWidgetTracing()) return false;
 
   // The tracer thread owns the object and will delete it.
   TracerStartClosure* args = new TracerStartClosure();
@@ -214,21 +213,20 @@ bool InitEventTracing(bool aLog)
   return sTracerThread != nullptr;
 }
 
-void ShutdownEventTracing()
+void
+ShutdownEventTracing()
 {
-  if (!sTracerThread)
-    return;
+  if (!sTracerThread) return;
 
   sExit = true;
   // Ensure that the tracer thread doesn't hang.
   SignalTracerThread();
 
-  if (sTracerThread)
-    PR_JoinThread(sTracerThread);
+  if (sTracerThread) PR_JoinThread(sTracerThread);
   sTracerThread = nullptr;
 
   // Allow the widget backend to clean up.
   CleanUpWidgetTracing();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

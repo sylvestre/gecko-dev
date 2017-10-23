@@ -13,7 +13,7 @@ namespace a11y {
 
 class XULMenuitemAccessibleWrap : public XULMenuitemAccessible
 {
-public:
+ public:
   XULMenuitemAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc);
   virtual ~XULMenuitemAccessibleWrap() {}
 
@@ -21,7 +21,7 @@ public:
   virtual mozilla::a11y::ENameValueFlag Name(nsString& aName);
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

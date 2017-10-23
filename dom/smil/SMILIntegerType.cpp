@@ -47,7 +47,8 @@ SMILIntegerType::IsEqual(const nsSMILValue& aLeft,
 }
 
 nsresult
-SMILIntegerType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+SMILIntegerType::Add(nsSMILValue& aDest,
+                     const nsSMILValue& aValueToAdd,
                      uint32_t aCount) const
 {
   NS_PRECONDITION(aValueToAdd.mType == aDest.mType,
@@ -62,7 +63,8 @@ SMILIntegerType::ComputeDistance(const nsSMILValue& aFrom,
                                  const nsSMILValue& aTo,
                                  double& aDistance) const
 {
-  NS_PRECONDITION(aFrom.mType == aTo.mType,"Trying to compare different types");
+  NS_PRECONDITION(aFrom.mType == aTo.mType,
+                  "Trying to compare different types");
   NS_PRECONDITION(aFrom.mType == this, "Unexpected source type");
   aDistance = fabs(double(aTo.mU.mInt - aFrom.mU.mInt));
   return NS_OK;
@@ -78,10 +80,10 @@ SMILIntegerType::Interpolate(const nsSMILValue& aStartVal,
                   "Trying to interpolate different types");
   NS_PRECONDITION(aStartVal.mType == this,
                   "Unexpected types for interpolation");
-  NS_PRECONDITION(aResult.mType   == this, "Unexpected result type");
+  NS_PRECONDITION(aResult.mType == this, "Unexpected result type");
 
-  const double startVal   = double(aStartVal.mU.mInt);
-  const double endVal     = double(aEndVal.mU.mInt);
+  const double startVal = double(aStartVal.mU.mInt);
+  const double endVal = double(aEndVal.mU.mInt);
   const double currentVal = startVal + (endVal - startVal) * aUnitDistance;
 
   // When currentVal is exactly midway between its two nearest integers, we
@@ -89,12 +91,12 @@ SMILIntegerType::Interpolate(const nsSMILValue& aStartVal,
   // consistent behaviour (from the SMIL author's point of view).
 
   if (startVal < endVal) {
-    aResult.mU.mInt = int64_t(floor(currentVal + 0.5)); // round mid up
+    aResult.mU.mInt = int64_t(floor(currentVal + 0.5));  // round mid up
   } else {
-    aResult.mU.mInt = int64_t(ceil(currentVal - 0.5)); // round mid down
+    aResult.mU.mInt = int64_t(ceil(currentVal - 0.5));  // round mid down
   }
 
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

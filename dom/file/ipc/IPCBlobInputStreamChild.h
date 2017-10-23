@@ -23,9 +23,9 @@ class WorkerHolder;
 class IPCBlobInputStream;
 
 class IPCBlobInputStreamChild final
-  : public mozilla::ipc::PIPCBlobInputStreamChild
+    : public mozilla::ipc::PIPCBlobInputStreamChild
 {
-public:
+ public:
   enum ActorState
   {
     // The actor is connected via IPDL to the parent.
@@ -47,44 +47,28 @@ public:
 
   IPCBlobInputStreamChild(const nsID& aID, uint64_t aSize);
 
-  void
-  ActorDestroy(IProtocol::ActorDestroyReason aReason) override;
+  void ActorDestroy(IProtocol::ActorDestroyReason aReason) override;
 
-  ActorState
-  State();
+  ActorState State();
 
-  already_AddRefed<IPCBlobInputStream>
-  CreateStream();
+  already_AddRefed<IPCBlobInputStream> CreateStream();
 
-  void
-  ForgetStream(IPCBlobInputStream* aStream);
+  void ForgetStream(IPCBlobInputStream* aStream);
 
-  const nsID&
-  ID() const
-  {
-    return mID;
-  }
+  const nsID& ID() const { return mID; }
 
-  uint64_t
-  Size() const
-  {
-    return mSize;
-  }
+  uint64_t Size() const { return mSize; }
 
-  void
-  StreamNeeded(IPCBlobInputStream* aStream,
-               nsIEventTarget* aEventTarget);
+  void StreamNeeded(IPCBlobInputStream* aStream, nsIEventTarget* aEventTarget);
 
-  mozilla::ipc::IPCResult
-  RecvStreamReady(const OptionalIPCStream& aStream) override;
+  mozilla::ipc::IPCResult RecvStreamReady(
+      const OptionalIPCStream& aStream) override;
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  void
-  Migrated();
+  void Migrated();
 
-private:
+ private:
   ~IPCBlobInputStreamChild();
 
   // Raw pointers because these streams keep this actor alive. When the last
@@ -98,7 +82,7 @@ private:
   const nsID mID;
   const uint64_t mSize;
 
-  ActorState  mState;
+  ActorState mState;
 
   // This struct and the array are used for creating streams when needed.
   struct PendingOperation
@@ -113,7 +97,7 @@ private:
   UniquePtr<workers::WorkerHolder> mWorkerHolder;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ipc_IPCBlobInputStreamChild_h
+#endif  // mozilla_dom_ipc_IPCBlobInputStreamChild_h

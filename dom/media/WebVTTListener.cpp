@@ -30,23 +30,18 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(WebVTTListener)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebVTTListener)
 
 LazyLogModule gTextTrackLog("TextTrack");
-# define VTT_LOG(...) MOZ_LOG(gTextTrackLog, LogLevel::Debug, (__VA_ARGS__))
+#define VTT_LOG(...) MOZ_LOG(gTextTrackLog, LogLevel::Debug, (__VA_ARGS__))
 
-WebVTTListener::WebVTTListener(HTMLTrackElement* aElement)
-  : mElement(aElement)
+WebVTTListener::WebVTTListener(HTMLTrackElement* aElement) : mElement(aElement)
 {
   MOZ_ASSERT(mElement, "Must pass an element to the callback");
   VTT_LOG("WebVTTListener created.");
 }
 
-WebVTTListener::~WebVTTListener()
-{
-  VTT_LOG("WebVTTListener destroyed.");
-}
+WebVTTListener::~WebVTTListener() { VTT_LOG("WebVTTListener destroyed."); }
 
 NS_IMETHODIMP
-WebVTTListener::GetInterface(const nsIID &aIID,
-                             void** aResult)
+WebVTTListener::GetInterface(const nsIID& aIID, void** aResult)
 {
   return QueryInterface(aIID, aResult);
 }
@@ -83,8 +78,7 @@ WebVTTListener::AsyncOnChannelRedirect(nsIChannel* aOldChannel,
 }
 
 NS_IMETHODIMP
-WebVTTListener::OnStartRequest(nsIRequest* aRequest,
-                               nsISupports* aContext)
+WebVTTListener::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 {
   VTT_LOG("WebVTTListener::OnStartRequest\n");
   return NS_OK;
@@ -111,9 +105,12 @@ WebVTTListener::OnStopRequest(nsIRequest* aRequest,
 }
 
 nsresult
-WebVTTListener::ParseChunk(nsIInputStream* aInStream, void* aClosure,
-                           const char* aFromSegment, uint32_t aToOffset,
-                           uint32_t aCount, uint32_t* aWriteCount)
+WebVTTListener::ParseChunk(nsIInputStream* aInStream,
+                           void* aClosure,
+                           const char* aFromSegment,
+                           uint32_t aToOffset,
+                           uint32_t aCount,
+                           uint32_t* aWriteCount)
 {
   nsCString buffer(aFromSegment, aCount);
   WebVTTListener* listener = static_cast<WebVTTListener*>(aClosure);
@@ -168,7 +165,6 @@ WebVTTListener::OnCue(JS::Handle<JS::Value> aCue, JSContext* aCx)
   return NS_OK;
 }
 
-
 NS_IMETHODIMP
 WebVTTListener::OnRegion(JS::Handle<JS::Value> aRegion, JSContext* aCx)
 {
@@ -187,5 +183,5 @@ WebVTTListener::OnParsingError(int32_t errorCode, JSContext* cx)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

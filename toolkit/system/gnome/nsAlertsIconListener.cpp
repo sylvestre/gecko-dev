@@ -25,33 +25,43 @@ static bool gHasCaps = false;
 
 void* nsAlertsIconListener::libNotifyHandle = nullptr;
 bool nsAlertsIconListener::libNotifyNotAvail = false;
-nsAlertsIconListener::notify_is_initted_t nsAlertsIconListener::notify_is_initted = nullptr;
+nsAlertsIconListener::notify_is_initted_t
+    nsAlertsIconListener::notify_is_initted = nullptr;
 nsAlertsIconListener::notify_init_t nsAlertsIconListener::notify_init = nullptr;
-nsAlertsIconListener::notify_get_server_caps_t nsAlertsIconListener::notify_get_server_caps = nullptr;
-nsAlertsIconListener::notify_notification_new_t nsAlertsIconListener::notify_notification_new = nullptr;
-nsAlertsIconListener::notify_notification_show_t nsAlertsIconListener::notify_notification_show = nullptr;
-nsAlertsIconListener::notify_notification_set_icon_from_pixbuf_t nsAlertsIconListener::notify_notification_set_icon_from_pixbuf = nullptr;
-nsAlertsIconListener::notify_notification_add_action_t nsAlertsIconListener::notify_notification_add_action = nullptr;
-nsAlertsIconListener::notify_notification_close_t nsAlertsIconListener::notify_notification_close = nullptr;
+nsAlertsIconListener::notify_get_server_caps_t
+    nsAlertsIconListener::notify_get_server_caps = nullptr;
+nsAlertsIconListener::notify_notification_new_t
+    nsAlertsIconListener::notify_notification_new = nullptr;
+nsAlertsIconListener::notify_notification_show_t
+    nsAlertsIconListener::notify_notification_show = nullptr;
+nsAlertsIconListener::notify_notification_set_icon_from_pixbuf_t
+    nsAlertsIconListener::notify_notification_set_icon_from_pixbuf = nullptr;
+nsAlertsIconListener::notify_notification_add_action_t
+    nsAlertsIconListener::notify_notification_add_action = nullptr;
+nsAlertsIconListener::notify_notification_close_t
+    nsAlertsIconListener::notify_notification_close = nullptr;
 
-static void notify_action_cb(NotifyNotification *notification,
-                             gchar *action, gpointer user_data)
+static void
+notify_action_cb(NotifyNotification* notification,
+                 gchar* action,
+                 gpointer user_data)
 {
-  nsAlertsIconListener* alert = static_cast<nsAlertsIconListener*> (user_data);
+  nsAlertsIconListener* alert = static_cast<nsAlertsIconListener*>(user_data);
   alert->SendCallback();
 }
 
-static void notify_closed_marshal(GClosure* closure,
-                                  GValue* return_value,
-                                  guint n_param_values,
-                                  const GValue* param_values,
-                                  gpointer invocation_hint,
-                                  gpointer marshal_data)
+static void
+notify_closed_marshal(GClosure* closure,
+                      GValue* return_value,
+                      guint n_param_values,
+                      const GValue* param_values,
+                      gpointer invocation_hint,
+                      gpointer marshal_data)
 {
   MOZ_ASSERT(n_param_values >= 1, "No object in params");
 
   nsAlertsIconListener* alert =
-    static_cast<nsAlertsIconListener*>(closure->data);
+      static_cast<nsAlertsIconListener*>(closure->data);
   alert->SendClosed();
   NS_RELEASE(alert);
 }
@@ -66,19 +76,19 @@ GetPixbufFromImgRequest(imgIRequest* aRequest)
   }
 
   nsCOMPtr<nsIImageToPixbuf> imgToPixbuf =
-    do_GetService("@mozilla.org/widget/image-to-gdk-pixbuf;1");
+      do_GetService("@mozilla.org/widget/image-to-gdk-pixbuf;1");
 
   return imgToPixbuf->ConvertImageToPixbuf(image);
 }
 
-NS_IMPL_ISUPPORTS(nsAlertsIconListener, nsIAlertNotificationImageListener,
-                  nsIObserver, nsISupportsWeakReference)
+NS_IMPL_ISUPPORTS(nsAlertsIconListener,
+                  nsIAlertNotificationImageListener,
+                  nsIObserver,
+                  nsISupportsWeakReference)
 
 nsAlertsIconListener::nsAlertsIconListener(nsSystemAlertsService* aBackend,
                                            const nsAString& aAlertName)
-: mAlertName(aAlertName),
-  mBackend(aBackend),
-  mNotification(nullptr)
+    : mAlertName(aAlertName), mBackend(aBackend), mNotification(nullptr)
 {
   if (!libNotifyHandle && !libNotifyNotAvail) {
     libNotifyHandle = dlopen("libnotify.so.4", RTLD_LAZY);
@@ -90,15 +100,26 @@ nsAlertsIconListener::nsAlertsIconListener(nsSystemAlertsService* aBackend,
       }
     }
 
-    notify_is_initted = (notify_is_initted_t)dlsym(libNotifyHandle, "notify_is_initted");
+    notify_is_initted =
+        (notify_is_initted_t)dlsym(libNotifyHandle, "notify_is_initted");
     notify_init = (notify_init_t)dlsym(libNotifyHandle, "notify_init");
-    notify_get_server_caps = (notify_get_server_caps_t)dlsym(libNotifyHandle, "notify_get_server_caps");
-    notify_notification_new = (notify_notification_new_t)dlsym(libNotifyHandle, "notify_notification_new");
-    notify_notification_show = (notify_notification_show_t)dlsym(libNotifyHandle, "notify_notification_show");
-    notify_notification_set_icon_from_pixbuf = (notify_notification_set_icon_from_pixbuf_t)dlsym(libNotifyHandle, "notify_notification_set_icon_from_pixbuf");
-    notify_notification_add_action = (notify_notification_add_action_t)dlsym(libNotifyHandle, "notify_notification_add_action");
-    notify_notification_close = (notify_notification_close_t)dlsym(libNotifyHandle, "notify_notification_close");
-    if (!notify_is_initted || !notify_init || !notify_get_server_caps || !notify_notification_new || !notify_notification_show || !notify_notification_set_icon_from_pixbuf || !notify_notification_add_action || !notify_notification_close) {
+    notify_get_server_caps = (notify_get_server_caps_t)dlsym(
+        libNotifyHandle, "notify_get_server_caps");
+    notify_notification_new = (notify_notification_new_t)dlsym(
+        libNotifyHandle, "notify_notification_new");
+    notify_notification_show = (notify_notification_show_t)dlsym(
+        libNotifyHandle, "notify_notification_show");
+    notify_notification_set_icon_from_pixbuf =
+        (notify_notification_set_icon_from_pixbuf_t)dlsym(
+            libNotifyHandle, "notify_notification_set_icon_from_pixbuf");
+    notify_notification_add_action = (notify_notification_add_action_t)dlsym(
+        libNotifyHandle, "notify_notification_add_action");
+    notify_notification_close = (notify_notification_close_t)dlsym(
+        libNotifyHandle, "notify_notification_close");
+    if (!notify_is_initted || !notify_init || !notify_get_server_caps ||
+        !notify_notification_new || !notify_notification_show ||
+        !notify_notification_set_icon_from_pixbuf ||
+        !notify_notification_add_action || !notify_notification_close) {
       dlclose(libNotifyHandle);
       libNotifyHandle = nullptr;
     }
@@ -136,30 +157,26 @@ nsAlertsIconListener::OnImageReady(nsISupports*, imgIRequest* aRequest)
 nsresult
 nsAlertsIconListener::ShowAlert(GdkPixbuf* aPixbuf)
 {
-  if (!mBackend->IsActiveListener(mAlertName, this))
-    return NS_OK;
+  if (!mBackend->IsActiveListener(mAlertName, this)) return NS_OK;
 
-  mNotification = notify_notification_new(mAlertTitle.get(), mAlertText.get(),
-                                          nullptr, nullptr);
+  mNotification = notify_notification_new(
+      mAlertTitle.get(), mAlertText.get(), nullptr, nullptr);
 
-  if (!mNotification)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!mNotification) return NS_ERROR_OUT_OF_MEMORY;
 
   nsCOMPtr<nsIObserverService> obsServ =
       do_GetService("@mozilla.org/observer-service;1");
-  if (obsServ)
-    obsServ->AddObserver(this, "quit-application", true);
+  if (obsServ) obsServ->AddObserver(this, "quit-application", true);
 
-  if (aPixbuf)
-    notify_notification_set_icon_from_pixbuf(mNotification, aPixbuf);
+  if (aPixbuf) notify_notification_set_icon_from_pixbuf(mNotification, aPixbuf);
 
   NS_ADDREF(this);
   if (mAlertHasAction) {
     // What we put as the label doesn't matter here, if the action
     // string is "default" then that makes the entire bubble clickable
     // rather than creating a button.
-    notify_notification_add_action(mNotification, "default", "Activate",
-                                   notify_action_cb, this, nullptr);
+    notify_notification_add_action(
+        mNotification, "default", "Activate", notify_action_cb, this, nullptr);
   }
 
   // Fedora 10 calls NotifyNotification "closed" signal handlers with a
@@ -168,7 +185,8 @@ nsAlertsIconListener::ShowAlert(GdkPixbuf* aPixbuf)
   // with a floating reference, which gets sunk by g_signal_connect_closure().
   GClosure* closure = g_closure_new_simple(sizeof(GClosure), this);
   g_closure_set_marshal(closure, notify_closed_marshal);
-  mClosureHandler = g_signal_connect_closure(mNotification, "closed", closure, FALSE);
+  mClosureHandler =
+      g_signal_connect_closure(mNotification, "closed", closure, FALSE);
   GError* error = nullptr;
   if (!notify_notification_show(mNotification, &error)) {
     NS_WARNING(error->message);
@@ -200,15 +218,17 @@ nsAlertsIconListener::SendClosed()
 }
 
 NS_IMETHODIMP
-nsAlertsIconListener::Observe(nsISupports *aSubject, const char *aTopic,
-                              const char16_t *aData) {
+nsAlertsIconListener::Observe(nsISupports* aSubject,
+                              const char* aTopic,
+                              const char16_t* aData)
+{
   // We need to close any open notifications upon application exit, otherwise
   // we will leak since libnotify holds a ref for us.
   if (!nsCRT::strcmp(aTopic, "quit-application") && mNotification) {
     g_signal_handler_disconnect(mNotification, mClosureHandler);
     g_object_unref(mNotification);
     mNotification = nullptr;
-    Release(); // equivalent to NS_RELEASE(this)
+    Release();  // equivalent to NS_RELEASE(this)
   }
   return NS_OK;
 }
@@ -240,13 +260,12 @@ nsresult
 nsAlertsIconListener::InitAlertAsync(nsIAlertNotification* aAlert,
                                      nsIObserver* aAlertListener)
 {
-  if (!libNotifyHandle)
-    return NS_ERROR_FAILURE;
+  if (!libNotifyHandle) return NS_ERROR_FAILURE;
 
   if (!notify_is_initted()) {
     // Give the name of this application to libnotify
     nsCOMPtr<nsIStringBundleService> bundleService =
-      do_GetService(NS_STRINGBUNDLE_CONTRACTID);
+        do_GetService(NS_STRINGBUNDLE_CONTRACTID);
 
     nsAutoCString appShortName;
     if (bundleService) {
@@ -259,21 +278,21 @@ nsAlertsIconListener::InitAlertAsync(nsIAlertNotification* aAlert,
         bundle->GetStringFromName("brandShortName", appName);
         appShortName = NS_ConvertUTF16toUTF8(appName);
       } else {
-        NS_WARNING("brand.properties not present, using default application name");
+        NS_WARNING(
+            "brand.properties not present, using default application name");
         appShortName.AssignLiteral("Mozilla");
       }
     } else {
       appShortName.AssignLiteral("Mozilla");
     }
 
-    if (!notify_init(appShortName.get()))
-      return NS_ERROR_FAILURE;
+    if (!notify_init(appShortName.get())) return NS_ERROR_FAILURE;
 
-    GList *server_caps = notify_get_server_caps();
+    GList* server_caps = notify_get_server_caps();
     if (server_caps) {
       gHasCaps = true;
       for (GList* cap = server_caps; cap != nullptr; cap = cap->next) {
-        if (!strcmp((char*) cap->data, "actions")) {
+        if (!strcmp((char*)cap->data, "actions")) {
           gHasActions = true;
           break;
         }
@@ -292,7 +311,7 @@ nsAlertsIconListener::InitAlertAsync(nsIAlertNotification* aAlert,
   nsresult rv = aAlert->GetTextClickable(&mAlertHasAction);
   NS_ENSURE_SUCCESS(rv, rv);
   if (!gHasActions && mAlertHasAction)
-    return NS_ERROR_FAILURE; // No good, fallback to XUL
+    return NS_ERROR_FAILURE;  // No good, fallback to XUL
 
   nsAutoString title;
   rv = aAlert->GetTitle(title);
@@ -315,11 +334,14 @@ nsAlertsIconListener::InitAlertAsync(nsIAlertNotification* aAlert,
   rv = aAlert->GetCookie(mAlertCookie);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return aAlert->LoadImage(/* aTimeout = */ 0, this, /* aUserData = */ nullptr,
+  return aAlert->LoadImage(/* aTimeout = */ 0,
+                           this,
+                           /* aUserData = */ nullptr,
                            getter_AddRefs(mIconRequest));
 }
 
-void nsAlertsIconListener::NotifyFinished()
+void
+nsAlertsIconListener::NotifyFinished()
 {
   if (mAlertListener)
     mAlertListener->Observe(nullptr, "alertfinished", mAlertCookie.get());

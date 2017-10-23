@@ -47,7 +47,7 @@ typedef media::IntervalSet<int64_t> MediaByteRangeSet;
  */
 class MediaResource
 {
-public:
+ public:
   // Our refcounting is threadsafe, and when our refcount drops to zero
   // we dispatch an event to the main thread to delete the MediaResource.
   // Note that this means it's safe for references to this object to be
@@ -61,8 +61,10 @@ public:
   // aOffset in the stream, seeking to that location initially if
   // it is not the current stream offset. The remaining arguments,
   // results and requirements are the same as per the Read method.
-  virtual nsresult ReadAt(int64_t aOffset, char* aBuffer,
-                          uint32_t aCount, uint32_t* aBytes) = 0;
+  virtual nsresult ReadAt(int64_t aOffset,
+                          char* aBuffer,
+                          uint32_t aCount,
+                          uint32_t* aBytes) = 0;
   // Indicate whether caching data in advance of reads is worth it.
   // E.g. Caching lockless and memory-based MediaResource subclasses would be a
   // waste, but caching lock/IO-bound resources means reducing the impact of
@@ -112,10 +114,10 @@ public:
    */
   virtual nsresult GetCachedRanges(MediaByteRangeSet& aRanges) = 0;
 
-protected:
-  virtual ~MediaResource() {};
+ protected:
+  virtual ~MediaResource(){};
 
-private:
+ private:
   void Destroy();
   mozilla::ThreadSafeAutoRefCnt mRefCnt;
   NS_DECL_OWNINGTHREAD
@@ -128,22 +130,23 @@ private:
  * us.
  */
 template<class T>
-class MOZ_RAII AutoPinned {
+class MOZ_RAII AutoPinned
+{
  public:
-  explicit AutoPinned(T* aResource MOZ_GUARD_OBJECT_NOTIFIER_PARAM) : mResource(aResource) {
+  explicit AutoPinned(T* aResource MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mResource(aResource)
+  {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mResource);
     mResource->Pin();
   }
 
-  ~AutoPinned() {
-    mResource->Unpin();
-  }
+  ~AutoPinned() { mResource->Unpin(); }
 
   operator T*() const { return mResource; }
   T* operator->() const MOZ_NO_ADDREF_RELEASE_ON_RETURN { return mResource; }
 
-private:
+ private:
   T* mResource;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
@@ -157,7 +160,7 @@ private:
  */
 class MediaResourceIndex
 {
-public:
+ public:
   explicit MediaResourceIndex(MediaResource* aResource);
 
   // Read up to aCount bytes from the stream. The buffer must have
@@ -254,7 +257,7 @@ public:
   // the result of GetLength to reflect the data that's actually arriving.
   int64_t GetLength() const;
 
-private:
+ private:
   // If the resource has cached data past the requested range, try to grab it
   // into our local cache.
   // If there is no cached data, or attempting to read it fails, fallback on
@@ -295,6 +298,6 @@ private:
   UniquePtr<char[]> mCachedBlock;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

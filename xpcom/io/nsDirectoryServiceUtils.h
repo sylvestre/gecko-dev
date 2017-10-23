@@ -18,14 +18,14 @@ inline nsresult
 NS_GetSpecialDirectory(const char* aSpecialDirName, nsIFile** aResult)
 {
   nsresult rv;
-  nsCOMPtr<nsIProperties> serv(do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID,
-                                             &rv));
+  nsCOMPtr<nsIProperties> serv(
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv));
   if (NS_FAILED(rv)) {
     return rv;
   }
 
-  return serv->Get(aSpecialDirName, NS_GET_IID(nsIFile),
-                   reinterpret_cast<void**>(aResult));
+  return serv->Get(
+      aSpecialDirName, NS_GET_IID(nsIFile), reinterpret_cast<void**>(aResult));
 }
 
 #endif

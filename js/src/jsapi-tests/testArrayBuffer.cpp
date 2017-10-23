@@ -6,18 +6,17 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testArrayBuffer_bug720949_steal)
-{
-    static const unsigned NUM_TEST_BUFFERS  = 2;
+BEGIN_TEST(testArrayBuffer_bug720949_steal) {
+    static const unsigned NUM_TEST_BUFFERS = 2;
     static const unsigned MAGIC_VALUE_1 = 3;
     static const unsigned MAGIC_VALUE_2 = 17;
 
     JS::RootedObject buf_len1(cx), buf_len200(cx);
     JS::RootedObject tarray_len1(cx), tarray_len200(cx);
 
-    uint32_t sizes[NUM_TEST_BUFFERS] = { sizeof(uint32_t), 200 * sizeof(uint32_t) };
-    JS::HandleObject testBuf[NUM_TEST_BUFFERS] = { buf_len1, buf_len200 };
-    JS::HandleObject testArray[NUM_TEST_BUFFERS] = { tarray_len1, tarray_len200 };
+    uint32_t sizes[NUM_TEST_BUFFERS] = {sizeof(uint32_t), 200 * sizeof(uint32_t)};
+    JS::HandleObject testBuf[NUM_TEST_BUFFERS] = {buf_len1, buf_len200};
+    JS::HandleObject testArray[NUM_TEST_BUFFERS] = {tarray_len1, tarray_len200};
 
     // Single-element ArrayBuffer (uses fixed slots for storage)
     CHECK(buf_len1 = JS_NewArrayBuffer(cx, sizes[0]));
@@ -66,7 +65,7 @@ BEGIN_TEST(testArrayBuffer_bug720949_steal)
         {
             JS::AutoCheckCannotGC nogc;
             bool sharedDummy;
-            (void) JS_GetArrayBufferData(obj, &sharedDummy, nogc);
+            (void)JS_GetArrayBufferData(obj, &sharedDummy, nogc);
         }
 
         JS::RootedObject dstview(cx, JS_NewInt32ArrayWithBuffer(cx, dst, 0, -1));
@@ -89,8 +88,7 @@ BEGIN_TEST(testArrayBuffer_bug720949_steal)
 END_TEST(testArrayBuffer_bug720949_steal)
 
 // Varying number of views of a buffer, to test the detachment weak pointers
-BEGIN_TEST(testArrayBuffer_bug720949_viewList)
-{
+BEGIN_TEST(testArrayBuffer_bug720949_viewList) {
     JS::RootedObject buffer(cx);
 
     // No views
@@ -146,10 +144,9 @@ BEGIN_TEST(testArrayBuffer_bug720949_viewList)
     return true;
 }
 
-static void GC(JSContext* cx)
-{
+static void GC(JSContext* cx) {
     JS_GC(cx);
-    JS_GC(cx); // Trigger another to wait for background finalization to end
+    JS_GC(cx);  // Trigger another to wait for background finalization to end
 }
 
 bool hasDetachedBuffer(JS::HandleObject obj) {
@@ -159,18 +156,17 @@ bool hasDetachedBuffer(JS::HandleObject obj) {
 
 END_TEST(testArrayBuffer_bug720949_viewList)
 
-BEGIN_TEST(testArrayBuffer_externalize)
-{
-    if (!testWithSize(cx, 2))    // ArrayBuffer data stored inline in the object.
+BEGIN_TEST(testArrayBuffer_externalize) {
+    if (!testWithSize(cx, 2))  // ArrayBuffer data stored inline in the object.
         return false;
-    if (!testWithSize(cx, 2000)) // ArrayBuffer data stored out-of-line in a separate heap allocation.
+    if (!testWithSize(cx,
+                      2000))  // ArrayBuffer data stored out-of-line in a separate heap allocation.
         return false;
 
     return true;
 }
 
-bool testWithSize(JSContext* cx, size_t n)
-{
+bool testWithSize(JSContext* cx, size_t n) {
     JS::RootedObject buffer(cx, JS_NewArrayBuffer(cx, n));
     CHECK(buffer != nullptr);
 
@@ -208,18 +204,14 @@ bool testWithSize(JSContext* cx, size_t n)
     return true;
 }
 
-static void GC(JSContext* cx)
-{
+static void GC(JSContext* cx) {
     JS_GC(cx);
-    JS_GC(cx); // Trigger another to wait for background finalization to end
+    JS_GC(cx);  // Trigger another to wait for background finalization to end
 }
 
-static bool
-hasExpectedLength(JSContext* cx, JS::HandleObject obj, uint32_t* len)
-{
+static bool hasExpectedLength(JSContext* cx, JS::HandleObject obj, uint32_t* len) {
     JS::RootedValue v(cx);
-    if (!JS_GetProperty(cx, obj, "byteLength", &v))
-        return false;
+    if (!JS_GetProperty(cx, obj, "byteLength", &v)) return false;
     *len = v.toInt32();
     return true;
 }

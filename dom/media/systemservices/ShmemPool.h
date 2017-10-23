@@ -20,20 +20,24 @@ namespace mozilla {
 
 class ShmemPool;
 
-class ShmemBuffer {
-public:
+class ShmemBuffer
+{
+ public:
   ShmemBuffer() : mInitialized(false) {}
-  explicit ShmemBuffer(mozilla::ipc::Shmem aShmem) {
+  explicit ShmemBuffer(mozilla::ipc::Shmem aShmem)
+  {
     mInitialized = true;
     mShmem = aShmem;
   }
 
-  ShmemBuffer(ShmemBuffer&& rhs) {
+  ShmemBuffer(ShmemBuffer&& rhs)
+  {
     mInitialized = rhs.mInitialized;
     mShmem = Move(rhs.mShmem);
   }
 
-  ShmemBuffer& operator=(ShmemBuffer&& rhs) {
+  ShmemBuffer& operator=(ShmemBuffer&& rhs)
+  {
     MOZ_ASSERT(&rhs != this, "self-moves are prohibited");
     mInitialized = rhs.mInitialized;
     mShmem = Move(rhs.mShmem);
@@ -44,27 +48,22 @@ public:
   ShmemBuffer(const ShmemBuffer&) = delete;
   ShmemBuffer& operator=(const ShmemBuffer&) = delete;
 
-  bool Valid() {
-    return mInitialized;
-  }
+  bool Valid() { return mInitialized; }
 
-  uint8_t * GetBytes() {
-    return mShmem.get<uint8_t>();
-  }
+  uint8_t* GetBytes() { return mShmem.get<uint8_t>(); }
 
-  mozilla::ipc::Shmem& Get() {
-    return mShmem;
-  }
+  mozilla::ipc::Shmem& Get() { return mShmem; }
 
-private:
+ private:
   friend class ShmemPool;
 
   bool mInitialized;
   mozilla::ipc::Shmem mShmem;
 };
 
-class ShmemPool {
-public:
+class ShmemPool
+{
+ public:
   explicit ShmemPool(size_t aPoolSize);
   ~ShmemPool();
   // Get/GetIfAvailable differ in what thread they can run on. GetIfAvailable
@@ -74,7 +73,7 @@ public:
 
   // We need to use the allocation/deallocation functions
   // of a specific IPC child/parent instance.
-  template <class T>
+  template<class T>
   void Cleanup(T* aInstance)
   {
     MutexAutoLock lock(mMutex);
@@ -86,7 +85,7 @@ public:
     }
   }
 
-  template <class T>
+  template<class T>
   ShmemBuffer Get(T* aInstance, size_t aSize)
   {
     MutexAutoLock lock(mMutex);
@@ -101,7 +100,8 @@ public:
 
     if (!res.mInitialized) {
       LOG(("Initializing new Shmem in pool"));
-      if (!aInstance->AllocShmem(aSize, ipc::SharedMemory::TYPE_BASIC, &res.mShmem)) {
+      if (!aInstance->AllocShmem(
+              aSize, ipc::SharedMemory::TYPE_BASIC, &res.mShmem)) {
         LOG(("Failure allocating new Shmem buffer"));
         return ShmemBuffer();
       }
@@ -117,7 +117,8 @@ public:
       aInstance->DeallocShmem(res.mShmem);
       res.mInitialized = false;
       // this may fail; always check return value
-      if (!aInstance->AllocShmem(aSize, ipc::SharedMemory::TYPE_BASIC, &res.mShmem)) {
+      if (!aInstance->AllocShmem(
+              aSize, ipc::SharedMemory::TYPE_BASIC, &res.mShmem)) {
         LOG(("Failure allocating resized Shmem buffer"));
         return ShmemBuffer();
       } else {
@@ -125,7 +126,8 @@ public:
       }
     }
 
-    MOZ_ASSERT(res.mShmem.IsWritable(), "Shmem in Pool is not writable post resize?");
+    MOZ_ASSERT(res.mShmem.IsWritable(),
+               "Shmem in Pool is not writable post resize?");
 
     mPoolFree--;
 #ifdef DEBUG
@@ -138,7 +140,7 @@ public:
     return Move(res);
   }
 
-private:
+ private:
   Mutex mMutex;
   size_t mPoolFree;
 #ifdef DEBUG
@@ -147,7 +149,6 @@ private:
   nsTArray<ShmemBuffer> mShmemPool;
 };
 
-
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif  // mozilla_ShmemPool_h

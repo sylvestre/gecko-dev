@@ -36,8 +36,9 @@ namespace dom {
 // so we can use IsBaseOf to detect dictionary template arguments.
 struct DictionaryBase
 {
-protected:
-  bool ParseJSON(JSContext* aCx, const nsAString& aJSON,
+ protected:
+  bool ParseJSON(JSContext* aCx,
+                 const nsAString& aJSON,
                  JS::MutableHandle<JS::Value> aVal);
 
   bool StringifyToJSON(JSContext* aCx,
@@ -48,38 +49,39 @@ protected:
   // dictionary (via constructing from a pointer to this class).  We're putting
   // it here so that all the dictionaries will have access to it, but outside
   // code will not.
-  struct FastDictionaryInitializer {
+  struct FastDictionaryInitializer
+  {
   };
 
   bool mIsAnyMemberPresent = false;
 
-private:
+ private:
   // aString is expected to actually be an nsAString*.  Should only be
   // called from StringifyToJSON.
   static bool AppendJSONToString(const char16_t* aJSONData,
-                                 uint32_t aDataLength, void* aString);
+                                 uint32_t aDataLength,
+                                 void* aString);
 
-public:
-  bool IsAnyMemberPresent() const
-  {
-    return mIsAnyMemberPresent;
-  }
+ public:
+  bool IsAnyMemberPresent() const { return mIsAnyMemberPresent; }
 };
 
 // Struct that serves as a base class for all typed arrays and array buffers and
 // array buffer views.  Particularly useful so we can use IsBaseOf to detect
 // typed array/buffer/view template arguments.
-struct AllTypedArraysBase {
+struct AllTypedArraysBase
+{
 };
 
 // Struct that serves as a base class for all owning unions.
 // Particularly useful so we can use IsBaseOf to detect owning union
 // template arguments.
-struct AllOwningUnionBase {
+struct AllOwningUnionBase
+{
 };
 
-
-struct EnumEntry {
+struct EnumEntry
+{
   const char* value;
   size_t length;
 };
@@ -88,28 +90,19 @@ enum class CallerType : uint32_t;
 
 class MOZ_STACK_CLASS GlobalObject
 {
-public:
+ public:
   GlobalObject(JSContext* aCx, JSObject* aObject);
 
-  JSObject* Get() const
-  {
-    return mGlobalJSObject;
-  }
+  JSObject* Get() const { return mGlobalJSObject; }
 
   nsISupports* GetAsSupports() const;
 
   // The context that this returns is not guaranteed to be in the compartment of
   // the object returned from Get(), in fact it's generally in the caller's
   // compartment.
-  JSContext* Context() const
-  {
-    return mCx;
-  }
+  JSContext* Context() const { return mCx; }
 
-  bool Failed() const
-  {
-    return !Get();
-  }
+  bool Failed() const { return !Get(); }
 
   // It returns the subjectPrincipal if called on the main-thread, otherwise
   // a nullptr is returned.
@@ -119,27 +112,24 @@ public:
   // had a chance to mess with the JSContext.
   dom::CallerType CallerType() const;
 
-protected:
+ protected:
   JS::Rooted<JSObject*> mGlobalJSObject;
   JSContext* mCx;
-  mutable nsISupports* MOZ_UNSAFE_REF("Valid because GlobalObject is a stack "
-                                      "class, and mGlobalObject points to the "
-                                      "global, so it won't be destroyed as long "
-                                      "as GlobalObject lives on the stack") mGlobalObject;
+  mutable nsISupports* MOZ_UNSAFE_REF(
+      "Valid because GlobalObject is a stack "
+      "class, and mGlobalObject points to the "
+      "global, so it won't be destroyed as long "
+      "as GlobalObject lives on the stack") mGlobalObject;
 };
 
 // Class for representing optional arguments.
 template<typename T, typename InternalType>
 class Optional_base
 {
-public:
-  Optional_base()
-  {}
+ public:
+  Optional_base() {}
 
-  explicit Optional_base(const T& aValue)
-  {
-    mImpl.emplace(aValue);
-  }
+  explicit Optional_base(const T& aValue) { mImpl.emplace(aValue); }
 
   bool operator==(const Optional_base<T, InternalType>& aOther) const
   {
@@ -152,10 +142,7 @@ public:
     mImpl.emplace(aValue1, aValue2);
   }
 
-  bool WasPassed() const
-  {
-    return mImpl.isSome();
-  }
+  bool WasPassed() const { return mImpl.isSome(); }
 
   // Return InternalType here so we can work with it usefully.
   template<typename... Args>
@@ -165,86 +152,63 @@ public:
     return *mImpl;
   }
 
-  void Reset()
-  {
-    mImpl.reset();
-  }
+  void Reset() { mImpl.reset(); }
 
-  const T& Value() const
-  {
-    return *mImpl;
-  }
+  const T& Value() const { return *mImpl; }
 
   // Return InternalType here so we can work with it usefully.
-  InternalType& Value()
-  {
-    return *mImpl;
-  }
+  InternalType& Value() { return *mImpl; }
 
   // And an explicit way to get the InternalType even if we're const.
-  const InternalType& InternalValue() const
-  {
-    return *mImpl;
-  }
+  const InternalType& InternalValue() const { return *mImpl; }
 
   // If we ever decide to add conversion operators for optional arrays
   // like the ones Nullable has, we'll need to ensure that Maybe<> has
   // the boolean before the actual data.
 
-private:
+ private:
   // Forbid copy-construction and assignment
   Optional_base(const Optional_base& other) = delete;
-  const Optional_base &operator=(const Optional_base &other) = delete;
+  const Optional_base& operator=(const Optional_base& other) = delete;
 
-protected:
+ protected:
   Maybe<InternalType> mImpl;
 };
 
 template<typename T>
 class Optional : public Optional_base<T, T>
 {
-public:
-  Optional() :
-    Optional_base<T, T>()
-  {}
+ public:
+  Optional() : Optional_base<T, T>() {}
 
-  explicit Optional(const T& aValue) :
-    Optional_base<T, T>(aValue)
-  {}
+  explicit Optional(const T& aValue) : Optional_base<T, T>(aValue) {}
 };
 
 template<typename T>
-class Optional<JS::Handle<T> > :
-  public Optional_base<JS::Handle<T>, JS::Rooted<T> >
+class Optional<JS::Handle<T> >
+    : public Optional_base<JS::Handle<T>, JS::Rooted<T> >
 {
-public:
-  Optional() :
-    Optional_base<JS::Handle<T>, JS::Rooted<T> >()
-  {}
+ public:
+  Optional() : Optional_base<JS::Handle<T>, JS::Rooted<T> >() {}
 
-  explicit Optional(JSContext* cx) :
-    Optional_base<JS::Handle<T>, JS::Rooted<T> >()
+  explicit Optional(JSContext* cx)
+      : Optional_base<JS::Handle<T>, JS::Rooted<T> >()
   {
     this->Construct(cx);
   }
 
-  Optional(JSContext* cx, const T& aValue) :
-    Optional_base<JS::Handle<T>, JS::Rooted<T> >(cx, aValue)
-  {}
+  Optional(JSContext* cx, const T& aValue)
+      : Optional_base<JS::Handle<T>, JS::Rooted<T> >(cx, aValue)
+  {
+  }
 
   // Override the const Value() to return the right thing so we're not
   // returning references to temporaries.
-  JS::Handle<T> Value() const
-  {
-    return *this->mImpl;
-  }
+  JS::Handle<T> Value() const { return *this->mImpl; }
 
   // And we have to override the non-const one too, since we're
   // shadowing the one on the superclass.
-  JS::Rooted<T>& Value()
-  {
-    return *this->mImpl;
-  }
+  JS::Rooted<T>& Value() { return *this->mImpl; }
 };
 
 // A specialization of Optional for JSObject* to make sure that when someone
@@ -253,14 +217,13 @@ public:
 template<>
 class Optional<JSObject*> : public Optional_base<JSObject*, JSObject*>
 {
-public:
-  Optional() :
-    Optional_base<JSObject*, JSObject*>()
-  {}
+ public:
+  Optional() : Optional_base<JSObject*, JSObject*>() {}
 
-  explicit Optional(JSObject* aValue) :
-    Optional_base<JSObject*, JSObject*>(aValue)
-  {}
+  explicit Optional(JSObject* aValue)
+      : Optional_base<JSObject*, JSObject*>(aValue)
+  {
+  }
 
   // Don't allow us to have an uninitialized JSObject*
   JSObject*& Construct()
@@ -268,10 +231,10 @@ public:
     // The Android compiler sucks and thinks we're trying to construct
     // a JSObject* from an int if we don't cast here.  :(
     return Optional_base<JSObject*, JSObject*>::Construct(
-      static_cast<JSObject*>(nullptr));
+        static_cast<JSObject*>(nullptr));
   }
 
-  template <class T1>
+  template<class T1>
   JSObject*& Construct(const T1& t1)
   {
     return Optional_base<JSObject*, JSObject*>::Construct(t1);
@@ -282,32 +245,27 @@ public:
 template<>
 class Optional<JS::Value>
 {
-private:
+ private:
   Optional() = delete;
 
   explicit Optional(const JS::Value& aValue) = delete;
 };
 
 // A specialization of Optional for NonNull that lets us get a T& from Value()
-template<typename U> class NonNull;
+template<typename U>
+class NonNull;
 template<typename T>
 class Optional<NonNull<T> > : public Optional_base<T, NonNull<T> >
 {
-public:
+ public:
   // We want our Value to actually return a non-const reference, even
   // if we're const.  At least for things that are normally pointer
   // types...
-  T& Value() const
-  {
-    return *this->mImpl->get();
-  }
+  T& Value() const { return *this->mImpl->get(); }
 
   // And we have to override the non-const one too, since we're
   // shadowing the one on the superclass.
-  NonNull<T>& Value()
-  {
-    return *this->mImpl;
-  }
+  NonNull<T>& Value() { return *this->mImpl; }
 };
 
 // A specialization of Optional for OwningNonNull that lets us get a
@@ -315,21 +273,15 @@ public:
 template<typename T>
 class Optional<OwningNonNull<T> > : public Optional_base<T, OwningNonNull<T> >
 {
-public:
+ public:
   // We want our Value to actually return a non-const reference, even
   // if we're const.  At least for things that are normally pointer
   // types...
-  T& Value() const
-  {
-    return *this->mImpl->get();
-  }
+  T& Value() const { return *this->mImpl->get(); }
 
   // And we have to override the non-const one too, since we're
   // shadowing the one on the superclass.
-  OwningNonNull<T>& Value()
-  {
-    return *this->mImpl;
-  }
+  OwningNonNull<T>& Value() { return *this->mImpl; }
 };
 
 // Specialization for strings.
@@ -339,20 +291,15 @@ public:
 
 namespace binding_detail {
 struct FakeString;
-} // namespace binding_detail
+}  // namespace binding_detail
 
 template<>
 class Optional<nsAString>
 {
-public:
-  Optional()
-    : mStr(nullptr)
-  {}
+ public:
+  Optional() : mStr(nullptr) {}
 
-  bool WasPassed() const
-  {
-    return !!mStr;
-  }
+  bool WasPassed() const { return !!mStr; }
 
   void operator=(const nsAString* str)
   {
@@ -374,10 +321,10 @@ public:
     return *mStr;
   }
 
-private:
+ private:
   // Forbid copy-construction and assignment
   Optional(const Optional& other) = delete;
-  const Optional &operator=(const Optional &other) = delete;
+  const Optional& operator=(const Optional& other) = delete;
 
   const nsAString* mStr;
 };
@@ -385,28 +332,33 @@ private:
 template<class T>
 class NonNull
 {
-public:
+ public:
   NonNull()
-    : ptr(nullptr)
+      : ptr(nullptr)
 #ifdef DEBUG
-    , inited(false)
+        ,
+        inited(false)
 #endif
-  {}
+  {
+  }
 
   // This is no worse than get() in terms of const handling.
-  operator T&() const {
+  operator T&() const
+  {
     MOZ_ASSERT(inited);
     MOZ_ASSERT(ptr, "NonNull<T> was set to null");
     return *ptr;
   }
 
-  operator T*() const {
+  operator T*() const
+  {
     MOZ_ASSERT(inited);
     MOZ_ASSERT(ptr, "NonNull<T> was set to null");
     return ptr;
   }
 
-  void operator=(T* t) {
+  void operator=(T* t)
+  {
     ptr = t;
     MOZ_ASSERT(ptr);
 #ifdef DEBUG
@@ -415,7 +367,8 @@ public:
   }
 
   template<typename U>
-  void operator=(U* t) {
+  void operator=(U* t)
+  {
     ptr = t->ToAStringPtr();
     MOZ_ASSERT(ptr);
 #ifdef DEBUG
@@ -423,27 +376,30 @@ public:
 #endif
   }
 
-  T** Slot() {
+  T** Slot()
+  {
 #ifdef DEBUG
     inited = true;
 #endif
     return &ptr;
   }
 
-  T* Ptr() {
+  T* Ptr()
+  {
     MOZ_ASSERT(inited);
     MOZ_ASSERT(ptr, "NonNull<T> was set to null");
     return ptr;
   }
 
   // Make us work with smart-ptr helpers that expect a get()
-  T* get() const {
+  T* get() const
+  {
     MOZ_ASSERT(inited);
     MOZ_ASSERT(ptr);
     return ptr;
   }
 
-protected:
+ protected:
   T* ptr;
 #ifdef DEBUG
   bool inited;
@@ -457,9 +413,8 @@ protected:
 template<typename T>
 class Sequence : public FallibleTArray<T>
 {
-public:
-  Sequence() : FallibleTArray<T>()
-  {}
+ public:
+  Sequence() : FallibleTArray<T>() {}
 };
 
 inline nsWrapperCache*
@@ -476,33 +431,35 @@ GetWrapperCache(void* p)
 
 // Helper template for smart pointers to resolve ambiguity between
 // GetWrappeCache(void*) and GetWrapperCache(const ParentObject&).
-template <template <typename> class SmartPtr, typename T>
+template<template<typename> class SmartPtr, typename T>
 inline nsWrapperCache*
 GetWrapperCache(const SmartPtr<T>& aObject)
 {
   return GetWrapperCache(aObject.get());
 }
 
-struct MOZ_STACK_CLASS ParentObject {
+struct MOZ_STACK_CLASS ParentObject
+{
   template<class T>
-  MOZ_IMPLICIT ParentObject(T* aObject) :
-    mObject(aObject),
-    mWrapperCache(GetWrapperCache(aObject)),
-    mUseXBLScope(false)
-  {}
+  MOZ_IMPLICIT ParentObject(T* aObject)
+      : mObject(aObject),
+        mWrapperCache(GetWrapperCache(aObject)),
+        mUseXBLScope(false)
+  {
+  }
 
   template<class T, template<typename> class SmartPtr>
-  MOZ_IMPLICIT ParentObject(const SmartPtr<T>& aObject) :
-    mObject(aObject.get()),
-    mWrapperCache(GetWrapperCache(aObject.get())),
-    mUseXBLScope(false)
-  {}
+  MOZ_IMPLICIT ParentObject(const SmartPtr<T>& aObject)
+      : mObject(aObject.get()),
+        mWrapperCache(GetWrapperCache(aObject.get())),
+        mUseXBLScope(false)
+  {
+  }
 
-  ParentObject(nsISupports* aObject, nsWrapperCache* aCache) :
-    mObject(aObject),
-    mWrapperCache(aCache),
-    mUseXBLScope(false)
-  {}
+  ParentObject(nsISupports* aObject, nsWrapperCache* aCache)
+      : mObject(aObject), mWrapperCache(aCache), mUseXBLScope(false)
+  {
+  }
 
   // We don't want to make this an nsCOMPtr because of performance reasons, but
   // it's safe because ParentObject is a stack class.
@@ -517,20 +474,21 @@ namespace binding_detail {
 template<typename T>
 class AutoSequence : public AutoTArray<T, 16>
 {
-public:
-  AutoSequence() : AutoTArray<T, 16>()
-  {}
+ public:
+  AutoSequence() : AutoTArray<T, 16>() {}
 
   // Allow converting to const sequences as needed
-  operator const Sequence<T>&() const {
+  operator const Sequence<T>&() const
+  {
     return *reinterpret_cast<const Sequence<T>*>(this);
   }
 };
 
-} // namespace binding_detail
+}  // namespace binding_detail
 
 // Enum to represent a system or non-system caller type.
-enum class CallerType : uint32_t {
+enum class CallerType : uint32_t
+{
   System,
   NonSystem
 };
@@ -538,12 +496,13 @@ enum class CallerType : uint32_t {
 // A class that can be passed (by value or const reference) to indicate that the
 // caller is always a system caller.  This can be used as the type of an
 // argument to force only system callers to call a function.
-class SystemCallerGuarantee {
-public:
+class SystemCallerGuarantee
+{
+ public:
   operator CallerType() const { return CallerType::System; }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_BindingDeclarations_h__
+#endif  // mozilla_dom_BindingDeclarations_h__

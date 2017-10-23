@@ -9,23 +9,23 @@
 
 #include "jit/CacheIR.h"
 #if defined(JS_ION_PERF)
-# include "jit/PerfSpewer.h"
+#include "jit/PerfSpewer.h"
 #endif
 
 #if defined(JS_CODEGEN_X86)
-# include "jit/x86/CodeGenerator-x86.h"
+#include "jit/x86/CodeGenerator-x86.h"
 #elif defined(JS_CODEGEN_X64)
-# include "jit/x64/CodeGenerator-x64.h"
+#include "jit/x64/CodeGenerator-x64.h"
 #elif defined(JS_CODEGEN_ARM)
-# include "jit/arm/CodeGenerator-arm.h"
+#include "jit/arm/CodeGenerator-arm.h"
 #elif defined(JS_CODEGEN_ARM64)
-# include "jit/arm64/CodeGenerator-arm64.h"
+#include "jit/arm64/CodeGenerator-arm64.h"
 #elif defined(JS_CODEGEN_MIPS32)
-# include "jit/mips32/CodeGenerator-mips32.h"
+#include "jit/mips32/CodeGenerator-mips32.h"
 #elif defined(JS_CODEGEN_MIPS64)
-# include "jit/mips64/CodeGenerator-mips64.h"
+#include "jit/mips64/CodeGenerator-mips64.h"
 #elif defined(JS_CODEGEN_NONE)
-# include "jit/none/CodeGenerator-none.h"
+#include "jit/none/CodeGenerator-none.h"
 #else
 #error "Unknown architecture!"
 #endif
@@ -33,12 +33,10 @@
 namespace js {
 namespace jit {
 
-enum class SwitchTableType {
-    Inline,
-    OutOfLine
-};
+enum class SwitchTableType { Inline, OutOfLine };
 
-template <SwitchTableType tableType> class OutOfLineSwitch;
+template <SwitchTableType tableType>
+class OutOfLineSwitch;
 class OutOfLineTestObject;
 class OutOfLineNewArray;
 class OutOfLineNewObject;
@@ -61,18 +59,17 @@ class OutOfLineRegExpInstanceOptimizable;
 class OutOfLineLambdaArrow;
 class OutOfLineNaNToZero;
 
-class CodeGenerator final : public CodeGeneratorSpecific
-{
+class CodeGenerator final : public CodeGeneratorSpecific {
     void generateArgumentsChecks(bool bailout = true);
     MOZ_MUST_USE bool generateBody();
 
     ConstantOrRegister toConstantOrRegister(LInstruction* lir, size_t n, MIRType type);
 
-  public:
+   public:
     CodeGenerator(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm = nullptr);
     ~CodeGenerator();
 
-  public:
+   public:
     MOZ_MUST_USE bool generate();
     MOZ_MUST_USE bool generateWasm(wasm::SigIdDesc sigId, wasm::BytecodeOffset trapOffset,
                                    wasm::FuncOffsets* offsets);
@@ -175,17 +172,16 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitOutOfLineCallPostWriteBarrier(OutOfLineCallPostWriteBarrier* ool);
     void visitOutOfLineCallPostWriteElementBarrier(OutOfLineCallPostWriteElementBarrier* ool);
     void visitCallNative(LCallNative* call);
-    void emitCallInvokeFunction(LInstruction* call, Register callereg,
-                                bool isConstructing, bool ignoresReturnValue,
-                                uint32_t argc, uint32_t unusedStack);
+    void emitCallInvokeFunction(LInstruction* call, Register callereg, bool isConstructing,
+                                bool ignoresReturnValue, uint32_t argc, uint32_t unusedStack);
     void visitCallGeneric(LCallGeneric* call);
-    void emitCallInvokeFunctionShuffleNewTarget(LCallKnown *call,
-                                                Register calleeReg,
-                                                uint32_t numFormals,
-                                                uint32_t unusedStack);
+    void emitCallInvokeFunctionShuffleNewTarget(LCallKnown* call, Register calleeReg,
+                                                uint32_t numFormals, uint32_t unusedStack);
     void visitCallKnown(LCallKnown* call);
-    template<typename T> void emitApplyGeneric(T* apply);
-    template<typename T> void emitCallInvokeFunction(T* apply, Register extraStackSize);
+    template <typename T>
+    void emitApplyGeneric(T* apply);
+    template <typename T>
+    void emitCallInvokeFunction(T* apply, Register extraStackSize);
     void emitAllocateSpaceForApply(Register argcreg, Register extraStackSpace, Label* end);
     void emitCopyValuesForApply(Register argvSrcBase, Register argvIndex, Register copyreg,
                                 size_t argvSrcOffset, size_t argvDstOffset);
@@ -255,12 +251,12 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitLoadFixedSlotT(LLoadFixedSlotT* ins);
     void visitStoreFixedSlotV(LStoreFixedSlotV* ins);
     void visitStoreFixedSlotT(LStoreFixedSlotT* ins);
-    void emitGetPropertyPolymorphic(LInstruction* lir, Register obj,
-                                    Register scratch, const TypedOrValueRegister& output);
+    void emitGetPropertyPolymorphic(LInstruction* lir, Register obj, Register scratch,
+                                    const TypedOrValueRegister& output);
     void visitGetPropertyPolymorphicV(LGetPropertyPolymorphicV* ins);
     void visitGetPropertyPolymorphicT(LGetPropertyPolymorphicT* ins);
-    void emitSetPropertyPolymorphic(LInstruction* lir, Register obj,
-                                    Register scratch, const ConstantOrRegister& value);
+    void emitSetPropertyPolymorphic(LInstruction* lir, Register obj, Register scratch,
+                                    const ConstantOrRegister& value);
     void visitSetPropertyPolymorphicV(LSetPropertyPolymorphicV* ins);
     void visitSetPropertyPolymorphicT(LSetPropertyPolymorphicT* ins);
     void visitAbsI(LAbsI* lir);
@@ -288,7 +284,7 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitFromCharCode(LFromCharCode* lir);
     void visitFromCodePoint(LFromCodePoint* lir);
     void visitStringConvertCase(LStringConvertCase* lir);
-    void visitSinCos(LSinCos *lir);
+    void visitSinCos(LSinCos* lir);
     void visitStringSplit(LStringSplit* lir);
     void visitFunctionEnvironment(LFunctionEnvironment* lir);
     void visitHomeObject(LHomeObject* lir);
@@ -306,7 +302,8 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitToAsyncGen(LToAsyncGen* lir);
     void visitToAsyncIter(LToAsyncIter* lir);
     void visitToIdV(LToIdV* lir);
-    template<typename T> void emitLoadElementT(LLoadElementT* lir, const T& source);
+    template <typename T>
+    void emitLoadElementT(LLoadElementT* lir, const T& source);
     void visitLoadElementT(LLoadElementT* lir);
     void visitLoadElementV(LLoadElementV* load);
     void visitLoadElementHole(LLoadElementHole* lir);
@@ -318,8 +315,10 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitLoadElementFromStateV(LLoadElementFromStateV* lir);
     void visitStoreElementT(LStoreElementT* lir);
     void visitStoreElementV(LStoreElementV* lir);
-    template <typename T> void emitStoreElementHoleT(T* lir);
-    template <typename T> void emitStoreElementHoleV(T* lir);
+    template <typename T>
+    void emitStoreElementHoleT(T* lir);
+    template <typename T>
+    void emitStoreElementHoleV(T* lir);
     void visitStoreElementHoleT(LStoreElementHoleT* lir);
     void visitStoreElementHoleV(LStoreElementHoleV* lir);
     void visitFallibleStoreElementV(LFallibleStoreElementV* lir);
@@ -355,9 +354,9 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitSetFrameArgumentC(LSetFrameArgumentC* lir);
     void visitSetFrameArgumentV(LSetFrameArgumentV* lir);
     void visitRunOncePrologue(LRunOncePrologue* lir);
-    void emitRest(LInstruction* lir, Register array, Register numActuals,
-                  Register temp0, Register temp1, unsigned numFormals,
-                  JSObject* templateObject, bool saveAndRestore, Register resultreg);
+    void emitRest(LInstruction* lir, Register array, Register numActuals, Register temp0,
+                  Register temp1, unsigned numFormals, JSObject* templateObject,
+                  bool saveAndRestore, Register resultreg);
     void visitRest(LRest* lir);
     void visitCallSetProperty(LCallSetProperty* ins);
     void visitCallDeleteProperty(LCallDeleteProperty* lir);
@@ -377,10 +376,7 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitCallDOMNative(LCallDOMNative* lir);
     void visitCallGetIntrinsicValue(LCallGetIntrinsicValue* lir);
     void visitCallBindVar(LCallBindVar* lir);
-    enum CallableOrConstructor {
-        Callable,
-        Constructor
-    };
+    enum CallableOrConstructor { Callable, Constructor };
     template <CallableOrConstructor mode>
     void emitIsCallableOrConstructor(Register object, Register output, Label* failure);
     void visitIsCallableO(LIsCallableO* lir);
@@ -446,7 +442,8 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitAssertResultV(LAssertResultV* ins);
     void visitAssertResultT(LAssertResultT* ins);
     void emitAssertResultV(const ValueOperand output, const TemporaryTypeSet* typeset);
-    void emitAssertObjectOrStringResult(Register input, MIRType type, const TemporaryTypeSet* typeset);
+    void emitAssertObjectOrStringResult(Register input, MIRType type,
+                                        const TemporaryTypeSet* typeset);
 
     void visitInterruptCheck(LInterruptCheck* lir);
     void visitOutOfLineInterruptCheckImplicit(OutOfLineInterruptCheckImplicit* ins);
@@ -469,23 +466,21 @@ class CodeGenerator final : public CodeGeneratorSpecific
         return counts;
     }
 
-  private:
+   private:
     void addGetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs,
                              TypedOrValueRegister value, const ConstantOrRegister& id,
                              TypedOrValueRegister output, Register maybeTemp,
                              GetPropertyResultFlags flags, jsbytecode* profilerLeavePc);
     void addSetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs, Register objReg,
-                             Register temp, FloatRegister tempDouble,
-                             FloatRegister tempF32, const ConstantOrRegister& id,
-                             const ConstantOrRegister& value,
+                             Register temp, FloatRegister tempDouble, FloatRegister tempF32,
+                             const ConstantOrRegister& id, const ConstantOrRegister& value,
                              bool strict, bool needsPostBarrier, bool needsTypeBarrier,
                              bool guardHoles, jsbytecode* profilerLeavePc);
 
     MOZ_MUST_USE bool generateBranchV(const ValueOperand& value, Label* ifTrue, Label* ifFalse,
                                       FloatRegister fr);
 
-    void emitLambdaInit(Register resultReg, Register envChainReg,
-                        const LambdaFunctionInfo& info);
+    void emitLambdaInit(Register resultReg, Register envChainReg, const LambdaFunctionInfo& info);
 
     void emitFilterArgumentsOrEval(LInstruction* lir, Register string, Register temp1,
                                    Register temp2);
@@ -502,53 +497,44 @@ class CodeGenerator final : public CodeGeneratorSpecific
     // choose to let control flow fall through when the object is truthy, as
     // an optimization. Use testValueTruthy when it's required to branch to one
     // of the two labels.
-    void testValueTruthyKernel(const ValueOperand& value,
-                               const LDefinition* scratch1, const LDefinition* scratch2,
-                               FloatRegister fr,
-                               Label* ifTruthy, Label* ifFalsy,
-                               OutOfLineTestObject* ool,
-                               MDefinition* valueMIR);
+    void testValueTruthyKernel(const ValueOperand& value, const LDefinition* scratch1,
+                               const LDefinition* scratch2, FloatRegister fr, Label* ifTruthy,
+                               Label* ifFalsy, OutOfLineTestObject* ool, MDefinition* valueMIR);
 
     // Test whether value is truthy or not and jump to the corresponding label.
     // If the value can be an object that emulates |undefined|, |ool| must be
     // non-null; otherwise it may be null (and the scratch definitions should
     // be bogus), in which case an object encountered here will always be
     // truthy.
-    void testValueTruthy(const ValueOperand& value,
-                         const LDefinition* scratch1, const LDefinition* scratch2,
-                         FloatRegister fr,
-                         Label* ifTruthy, Label* ifFalsy,
-                         OutOfLineTestObject* ool,
-                         MDefinition* valueMIR);
+    void testValueTruthy(const ValueOperand& value, const LDefinition* scratch1,
+                         const LDefinition* scratch2, FloatRegister fr, Label* ifTruthy,
+                         Label* ifFalsy, OutOfLineTestObject* ool, MDefinition* valueMIR);
 
     // This function behaves like testObjectEmulatesUndefined with the exception
     // that it can choose to let control flow fall through when the object
     // doesn't emulate undefined, as an optimization. Use the regular
     // testObjectEmulatesUndefined when it's required to branch to one of the
     // two labels.
-    void testObjectEmulatesUndefinedKernel(Register objreg,
-                                           Label* ifEmulatesUndefined,
-                                           Label* ifDoesntEmulateUndefined,
-                                           Register scratch, OutOfLineTestObject* ool);
+    void testObjectEmulatesUndefinedKernel(Register objreg, Label* ifEmulatesUndefined,
+                                           Label* ifDoesntEmulateUndefined, Register scratch,
+                                           OutOfLineTestObject* ool);
 
     // Test whether an object emulates |undefined|.  If it does, jump to
     // |ifEmulatesUndefined|; the caller is responsible for binding this label.
     // If it doesn't, fall through; the label |ifDoesntEmulateUndefined| (which
     // must be initially unbound) will be bound at this point.
-    void branchTestObjectEmulatesUndefined(Register objreg,
-                                           Label* ifEmulatesUndefined,
-                                           Label* ifDoesntEmulateUndefined,
-                                           Register scratch, OutOfLineTestObject* ool);
+    void branchTestObjectEmulatesUndefined(Register objreg, Label* ifEmulatesUndefined,
+                                           Label* ifDoesntEmulateUndefined, Register scratch,
+                                           OutOfLineTestObject* ool);
 
     // Test whether an object emulates |undefined|, and jump to the
     // corresponding label.
     //
     // This method should be used when subsequent code can't be laid out in a
     // straight line; if it can, branchTest* should be used instead.
-    void testObjectEmulatesUndefined(Register objreg,
-                                     Label* ifEmulatesUndefined,
-                                     Label* ifDoesntEmulateUndefined,
-                                     Register scratch, OutOfLineTestObject* ool);
+    void testObjectEmulatesUndefined(Register objreg, Label* ifEmulatesUndefined,
+                                     Label* ifDoesntEmulateUndefined, Register scratch,
+                                     OutOfLineTestObject* ool);
 
     void emitStoreElementTyped(const LAllocation* value, MIRType valueType, MIRType elementType,
                                Register elements, const LAllocation* index,
@@ -571,8 +557,7 @@ class CodeGenerator final : public CodeGeneratorSpecific
         CodeOffset label;
 
         SharedStub(ICStub::Kind kind, IonICEntry entry, CodeOffset label)
-          : kind(kind), entry(entry), label(label)
-        {}
+            : kind(kind), entry(entry), label(label) {}
     };
 
     Vector<SharedStub, 0, SystemAllocPolicy> sharedStubs_;
@@ -609,7 +594,7 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void captureSimdTemplate(JSContext* cx);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_CodeGenerator_h */

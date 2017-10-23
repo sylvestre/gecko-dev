@@ -14,8 +14,7 @@
 using JS::detail::ToIntWidth;
 using JS::detail::ToUintWidth;
 
-BEGIN_TEST(testToUint8TwiceUint8Range)
-{
+BEGIN_TEST(testToUint8TwiceUint8Range) {
     double d = -256;
     uint8_t expected = 0;
     do {
@@ -28,8 +27,7 @@ BEGIN_TEST(testToUint8TwiceUint8Range)
 }
 END_TEST(testToUint8TwiceUint8Range)
 
-BEGIN_TEST(testToInt8)
-{
+BEGIN_TEST(testToInt8) {
     double d = -128;
     int8_t expected = -128;
     do {
@@ -42,8 +40,7 @@ BEGIN_TEST(testToInt8)
 }
 END_TEST(testToInt8)
 
-BEGIN_TEST(testToUint32Large)
-{
+BEGIN_TEST(testToUint32Large) {
     CHECK(ToUintWidth<uint32_t>(pow(2.0, 83)) == 0);
     CHECK(ToUintWidth<uint32_t>(pow(2.0, 83) + pow(2.0, 31)) == (1U << 31));
     CHECK(ToUintWidth<uint32_t>(pow(2.0, 83) + 2 * pow(2.0, 31)) == 0);
@@ -55,8 +52,7 @@ BEGIN_TEST(testToUint32Large)
 }
 END_TEST(testToUint32Large)
 
-BEGIN_TEST(testToUint64Large)
-{
+BEGIN_TEST(testToUint64Large) {
     CHECK(ToUintWidth<uint64_t>(pow(2.0, 115)) == 0);
     CHECK(ToUintWidth<uint64_t>(pow(2.0, 115) + pow(2.0, 63)) == (1ULL << 63));
     CHECK(ToUintWidth<uint64_t>(pow(2.0, 115) + 2 * pow(2.0, 63)) == 0);

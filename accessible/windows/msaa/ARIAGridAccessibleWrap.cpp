@@ -14,8 +14,7 @@ using namespace mozilla::a11y;
 // ARIAGridAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-NS_IMPL_ISUPPORTS_INHERITED0(ARIAGridAccessibleWrap,
-                             ARIAGridAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(ARIAGridAccessibleWrap, ARIAGridAccessible)
 
 IMPL_IUNKNOWN_INHERITED1(ARIAGridAccessibleWrap,
                          AccessibleWrap,
@@ -32,8 +31,7 @@ ARIAGridAccessibleWrap::Shutdown()
 // ARIAGridCellAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-NS_IMPL_ISUPPORTS_INHERITED0(ARIAGridCellAccessibleWrap,
-                             ARIAGridCellAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(ARIAGridCellAccessibleWrap, ARIAGridCellAccessible)
 
 IMPL_IUNKNOWN_INHERITED1(ARIAGridCellAccessibleWrap,
                          HyperTextAccessibleWrap,

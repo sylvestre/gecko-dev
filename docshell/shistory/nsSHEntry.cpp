@@ -26,43 +26,46 @@ namespace dom = mozilla::dom;
 static uint32_t gEntryID = 0;
 
 nsSHEntry::nsSHEntry()
-  : mShared(new nsSHEntryShared())
-  , mReferrerPolicy(mozilla::net::RP_Unset)
-  , mLoadType(0)
-  , mID(gEntryID++)
-  , mScrollPositionX(0)
-  , mScrollPositionY(0)
-  , mParent(nullptr)
-  , mLoadReplace(false)
-  , mURIWasModified(false)
-  , mIsSrcdocEntry(false)
-  , mScrollRestorationIsManual(false)
-  , mLoadedInThisProcess(false)
+    : mShared(new nsSHEntryShared()),
+      mReferrerPolicy(mozilla::net::RP_Unset),
+      mLoadType(0),
+      mID(gEntryID++),
+      mScrollPositionX(0),
+      mScrollPositionY(0),
+      mParent(nullptr),
+      mLoadReplace(false),
+      mURIWasModified(false),
+      mIsSrcdocEntry(false),
+      mScrollRestorationIsManual(false),
+      mLoadedInThisProcess(false)
 {
 }
 
 nsSHEntry::nsSHEntry(const nsSHEntry& aOther)
-  : mShared(aOther.mShared)
-  , mURI(aOther.mURI)
-  , mOriginalURI(aOther.mOriginalURI)
-  , mResultPrincipalURI(aOther.mResultPrincipalURI)
-  , mReferrerURI(aOther.mReferrerURI)
-  , mReferrerPolicy(aOther.mReferrerPolicy)
-  , mTitle(aOther.mTitle)
-  , mPostData(aOther.mPostData)
-  , mLoadType(0)         // XXX why not copy?
-  , mID(aOther.mID)
-  , mScrollPositionX(0)  // XXX why not copy?
-  , mScrollPositionY(0)  // XXX why not copy?
-  , mParent(aOther.mParent)
-  , mStateData(aOther.mStateData)
-  , mSrcdocData(aOther.mSrcdocData)
-  , mBaseURI(aOther.mBaseURI)
-  , mLoadReplace(aOther.mLoadReplace)
-  , mURIWasModified(aOther.mURIWasModified)
-  , mIsSrcdocEntry(aOther.mIsSrcdocEntry)
-  , mScrollRestorationIsManual(false)
-  , mLoadedInThisProcess(aOther.mLoadedInThisProcess)
+    : mShared(aOther.mShared),
+      mURI(aOther.mURI),
+      mOriginalURI(aOther.mOriginalURI),
+      mResultPrincipalURI(aOther.mResultPrincipalURI),
+      mReferrerURI(aOther.mReferrerURI),
+      mReferrerPolicy(aOther.mReferrerPolicy),
+      mTitle(aOther.mTitle),
+      mPostData(aOther.mPostData),
+      mLoadType(0)  // XXX why not copy?
+      ,
+      mID(aOther.mID),
+      mScrollPositionX(0)  // XXX why not copy?
+      ,
+      mScrollPositionY(0)  // XXX why not copy?
+      ,
+      mParent(aOther.mParent),
+      mStateData(aOther.mStateData),
+      mSrcdocData(aOther.mSrcdocData),
+      mBaseURI(aOther.mBaseURI),
+      mLoadReplace(aOther.mLoadReplace),
+      mURIWasModified(aOther.mURIWasModified),
+      mIsSrcdocEntry(aOther.mIsSrcdocEntry),
+      mScrollRestorationIsManual(false),
+      mLoadedInThisProcess(aOther.mLoadedInThisProcess)
 {
 }
 
@@ -308,7 +311,7 @@ nsSHEntry::SetLayoutHistoryState(nsILayoutHistoryState* aState)
   mShared->mLayoutHistoryState = aState;
   if (mShared->mLayoutHistoryState) {
     mShared->mLayoutHistoryState->SetScrollPositionOnly(
-      !mShared->mSaveLayoutState);
+        !mShared->mSaveLayoutState);
   }
 
   return NS_OK;
@@ -437,17 +440,20 @@ nsSHEntry::SetContentType(const nsACString& aContentType)
 }
 
 NS_IMETHODIMP
-nsSHEntry::Create(nsIURI* aURI, const nsAString& aTitle,
+nsSHEntry::Create(nsIURI* aURI,
+                  const nsAString& aTitle,
                   nsIInputStream* aInputStream,
                   nsILayoutHistoryState* aLayoutHistoryState,
-                  nsISupports* aCacheKey, const nsACString& aContentType,
+                  nsISupports* aCacheKey,
+                  const nsACString& aContentType,
                   nsIPrincipal* aTriggeringPrincipal,
                   nsIPrincipal* aPrincipalToInherit,
                   const nsID& aDocShellID,
                   bool aDynamicCreation)
 {
-  MOZ_ASSERT(aTriggeringPrincipal,
-             "need a valid triggeringPrincipal to create a session history entry");
+  MOZ_ASSERT(
+      aTriggeringPrincipal,
+      "need a valid triggeringPrincipal to create a session history entry");
 
   mURI = aURI;
   mTitle = aTitle;
@@ -768,7 +774,8 @@ nsSHEntry::AddChild(nsISHEntry* aChild, int32_t aOffset)
     if (aOffset < mChildren.Count()) {
       nsISHEntry* oldChild = mChildren[aOffset];
       if (oldChild && oldChild != aChild) {
-        NS_ERROR("Adding a child where we already have a child? This may misbehave");
+        NS_ERROR(
+            "Adding a child where we already have a child? This may misbehave");
         oldChild->SetParent(nullptr);
       }
     }
@@ -878,10 +885,7 @@ nsSHEntry::SetRefreshURIList(nsIMutableArray* aList)
 }
 
 NS_IMETHODIMP
-nsSHEntry::SyncPresentationState()
-{
-  return mShared->SyncPresentationState();
-}
+nsSHEntry::SyncPresentationState() { return mShared->SyncPresentationState(); }
 
 void
 nsSHEntry::RemoveFromBFCacheSync()

@@ -21,7 +21,7 @@ namespace mozilla {
 
 class TypedEventHandler
 {
-public:
+ public:
   enum HandlerType
   {
     eUnset = 0,
@@ -31,25 +31,21 @@ public:
     eTypeBits = 0x3
   };
 
-  TypedEventHandler()
-    : mBits(0)
-  {
-  }
+  TypedEventHandler() : mBits(0) {}
 
-  explicit TypedEventHandler(dom::EventHandlerNonNull* aHandler)
-    : mBits(0)
+  explicit TypedEventHandler(dom::EventHandlerNonNull* aHandler) : mBits(0)
   {
     Assign(aHandler, eNormal);
   }
 
   explicit TypedEventHandler(dom::OnErrorEventHandlerNonNull* aHandler)
-    : mBits(0)
+      : mBits(0)
   {
     Assign(aHandler, eOnError);
   }
 
   explicit TypedEventHandler(dom::OnBeforeUnloadEventHandlerNonNull* aHandler)
-    : mBits(0)
+      : mBits(0)
   {
     Assign(aHandler, eOnBeforeUnload);
   }
@@ -64,20 +60,11 @@ public:
     }
   }
 
-  ~TypedEventHandler()
-  {
-    ReleaseHandler();
-  }
+  ~TypedEventHandler() { ReleaseHandler(); }
 
-  HandlerType Type() const
-  {
-    return HandlerType(mBits & eTypeBits);
-  }
+  HandlerType Type() const { return HandlerType(mBits & eTypeBits); }
 
-  bool HasEventHandler() const
-  {
-    return !!Ptr();
-  }
+  bool HasEventHandler() const { return !!Ptr(); }
 
   void SetHandler(const TypedEventHandler& aHandler)
   {
@@ -130,7 +117,7 @@ public:
     // Have to cast eTypeBits so we don't have to worry about
     // promotion issues after the bitflip.
     return reinterpret_cast<dom::CallbackFunction*>(mBits &
-                                                      ~uintptr_t(eTypeBits));
+                                                    ~uintptr_t(eTypeBits));
   }
 
   void ForgetHandler()
@@ -141,12 +128,12 @@ public:
 
   bool operator==(const TypedEventHandler& aOther) const
   {
-    return
-      Ptr() && aOther.Ptr() &&
-      Ptr()->CallbackPreserveColor() == aOther.Ptr()->CallbackPreserveColor();
+    return Ptr() && aOther.Ptr() &&
+           Ptr()->CallbackPreserveColor() ==
+               aOther.Ptr()->CallbackPreserveColor();
   }
 
-private:
+ private:
   void operator=(const TypedEventHandler&) = delete;
 
   void ReleaseHandler()
@@ -173,16 +160,21 @@ private:
  * is expected to call Disconnect()!
  */
 
-#define NS_JSEVENTHANDLER_IID \
-{ 0x4f486881, 0x1956, 0x4079, \
-  { 0x8c, 0xa0, 0xf3, 0xbd, 0x60, 0x5c, 0xc2, 0x79 } }
+#define NS_JSEVENTHANDLER_IID                        \
+  {                                                  \
+    0x4f486881, 0x1956, 0x4079,                      \
+    {                                                \
+      0x8c, 0xa0, 0xf3, 0xbd, 0x60, 0x5c, 0xc2, 0x79 \
+    }                                                \
+  }
 
 class JSEventHandler : public nsIDOMEventListener
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_JSEVENTHANDLER_IID)
 
-  JSEventHandler(nsISupports* aTarget, nsAtom* aType,
+  JSEventHandler(nsISupports* aTarget,
+                 nsAtom* aType,
                  const TypedEventHandler& aTypedHandler);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -190,30 +182,18 @@ public:
   // nsIDOMEventListener interface
   NS_DECL_NSIDOMEVENTLISTENER
 
-  nsISupports* GetEventTarget() const
-  {
-    return mTarget;
-  }
+  nsISupports* GetEventTarget() const { return mTarget; }
 
-  void Disconnect()
-  {
-    mTarget = nullptr;
-  }
+  void Disconnect() { mTarget = nullptr; }
 
   const TypedEventHandler& GetTypedEventHandler() const
   {
     return mTypedHandler;
   }
 
-  void ForgetHandler()
-  {
-    mTypedHandler.ForgetHandler();
-  }
+  void ForgetHandler() { mTypedHandler.ForgetHandler(); }
 
-  nsAtom* EventName() const
-  {
-    return mEventName;
-  }
+  nsAtom* EventName() const { return mEventName; }
 
   // Set a handler for this event listener.  The handler must already
   // be bound to the right target.
@@ -256,7 +236,7 @@ public:
 
   bool IsBlackForCC();
 
-protected:
+ protected:
   virtual ~JSEventHandler();
 
   nsISupports* mTarget;
@@ -266,16 +246,16 @@ protected:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(JSEventHandler, NS_JSEVENTHANDLER_IID)
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * Factory function.  aHandler must already be bound to aTarget.
  * aContext is allowed to be null if aHandler is already set up.
  */
-nsresult NS_NewJSEventHandler(nsISupports* aTarget,
-                              nsAtom* aType,
-                              const mozilla::TypedEventHandler& aTypedHandler,
-                              mozilla::JSEventHandler** aReturn);
+nsresult
+NS_NewJSEventHandler(nsISupports* aTarget,
+                     nsAtom* aType,
+                     const mozilla::TypedEventHandler& aTypedHandler,
+                     mozilla::JSEventHandler** aReturn);
 
-#endif // mozilla_JSEventHandler_h_
-
+#endif  // mozilla_JSEventHandler_h_

@@ -29,17 +29,19 @@ struct Permission
   uint32_t capability, expireType;
   int64_t expireTime;
 
-  Permission() { }
+  Permission() {}
   Permission(const nsCString& aOrigin,
              const nsCString& aType,
              const uint32_t aCapability,
              const uint32_t aExpireType,
-             const int64_t aExpireTime) : origin(aOrigin),
-                                          type(aType),
-                                          capability(aCapability),
-                                          expireType(aExpireType),
-                                          expireTime(aExpireTime)
-  {}
+             const int64_t aExpireTime)
+      : origin(aOrigin),
+        type(aType),
+        capability(aCapability),
+        expireType(aExpireType),
+        expireTime(aExpireTime)
+  {
+  }
 };
 
 template<>
@@ -54,7 +56,9 @@ struct ParamTraits<Permission>
     WriteParam(aMsg, aParam.expireTime);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, Permission* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   Permission* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->origin) &&
            ReadParam(aMsg, aIter, &aResult->type) &&
@@ -80,7 +84,7 @@ struct ParamTraits<Permission>
 template<>
 struct ParamTraits<mozilla::net::NetAddr>
 {
-  static void Write(Message* aMsg, const mozilla::net::NetAddr &aParam)
+  static void Write(Message* aMsg, const mozilla::net::NetAddr& aParam)
   {
     WriteParam(aMsg, aParam.raw.family);
     if (aParam.raw.family == AF_UNSPEC) {
@@ -97,28 +101,32 @@ struct ParamTraits<mozilla::net::NetAddr>
 #if defined(XP_UNIX)
     } else if (aParam.raw.family == AF_LOCAL) {
       // Train's already off the rails:  let's get a stack trace at least...
-      MOZ_CRASH("Error: please post stack trace to "
-                      "https://bugzilla.mozilla.org/show_bug.cgi?id=661158");
+      MOZ_CRASH(
+          "Error: please post stack trace to "
+          "https://bugzilla.mozilla.org/show_bug.cgi?id=661158");
       aMsg->WriteBytes(aParam.local.path, sizeof(aParam.local.path));
 #endif
     } else {
 #ifdef MOZ_CRASHREPORTER
       if (XRE_IsParentProcess()) {
         nsPrintfCString msg("%d", aParam.raw.family);
-        CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("Unknown NetAddr socket family"), msg);
+        CrashReporter::AnnotateCrashReport(
+            NS_LITERAL_CSTRING("Unknown NetAddr socket family"), msg);
       }
 #endif
       MOZ_CRASH("Unknown socket family");
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, mozilla::net::NetAddr* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   mozilla::net::NetAddr* aResult)
   {
-    if (!ReadParam(aMsg, aIter, &aResult->raw.family))
-      return false;
+    if (!ReadParam(aMsg, aIter, &aResult->raw.family)) return false;
 
     if (aResult->raw.family == AF_UNSPEC) {
-      return aMsg->ReadBytesInto(aIter, &aResult->raw.data, sizeof(aResult->raw.data));
+      return aMsg->ReadBytesInto(
+          aIter, &aResult->raw.data, sizeof(aResult->raw.data));
     } else if (aResult->raw.family == AF_INET) {
       return ReadParam(aMsg, aIter, &aResult->inet.port) &&
              ReadParam(aMsg, aIter, &aResult->inet.ip);
@@ -130,7 +138,8 @@ struct ParamTraits<mozilla::net::NetAddr>
              ReadParam(aMsg, aIter, &aResult->inet6.scope_id);
 #if defined(XP_UNIX)
     } else if (aResult->raw.family == AF_LOCAL) {
-      return aMsg->ReadBytesInto(aIter, &aResult->local.path, sizeof(aResult->local.path));
+      return aMsg->ReadBytesInto(
+          aIter, &aResult->local.path, sizeof(aResult->local.path));
 #endif
     }
 
@@ -142,7 +151,8 @@ struct ParamTraits<mozilla::net::NetAddr>
 template<>
 struct ParamTraits<mozilla::net::ResourceTimingStruct>
 {
-  static void Write(Message* aMsg, const mozilla::net::ResourceTimingStruct& aParam)
+  static void Write(Message* aMsg,
+                    const mozilla::net::ResourceTimingStruct& aParam)
   {
     WriteParam(aMsg, aParam.domainLookupStart);
     WriteParam(aMsg, aParam.domainLookupEnd);
@@ -166,7 +176,9 @@ struct ParamTraits<mozilla::net::ResourceTimingStruct>
     WriteParam(aMsg, aParam.cacheReadEnd);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, mozilla::net::ResourceTimingStruct* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   mozilla::net::ResourceTimingStruct* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->domainLookupStart) &&
            ReadParam(aMsg, aIter, &aResult->domainLookupEnd) &&
@@ -188,6 +200,6 @@ struct ParamTraits<mozilla::net::ResourceTimingStruct>
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_net_NeckoMessageUtils_h
+#endif  // mozilla_net_NeckoMessageUtils_h

@@ -12,16 +12,14 @@
 namespace mozilla {
 namespace layers {
 
-APZCTreeManagerParent::APZCTreeManagerParent(uint64_t aLayersId, RefPtr<APZCTreeManager> aAPZCTreeManager)
-  : mLayersId(aLayersId)
-  , mTreeManager(aAPZCTreeManager)
+APZCTreeManagerParent::APZCTreeManagerParent(
+    uint64_t aLayersId, RefPtr<APZCTreeManager> aAPZCTreeManager)
+    : mLayersId(aLayersId), mTreeManager(aAPZCTreeManager)
 {
   MOZ_ASSERT(aAPZCTreeManager != nullptr);
 }
 
-APZCTreeManagerParent::~APZCTreeManagerParent()
-{
-}
+APZCTreeManagerParent::~APZCTreeManagerParent() {}
 
 void
 APZCTreeManagerParent::ChildAdopted(RefPtr<APZCTreeManager> aAPZCTreeManager)
@@ -40,10 +38,8 @@ APZCTreeManagerParent::RecvReceiveMultiTouchInputEvent(
 {
   MultiTouchInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -59,10 +55,8 @@ APZCTreeManagerParent::RecvReceiveMouseInputEvent(
 {
   MouseInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -78,10 +72,8 @@ APZCTreeManagerParent::RecvReceivePanGestureInputEvent(
 {
   PanGestureInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -97,10 +89,8 @@ APZCTreeManagerParent::RecvReceivePinchGestureInputEvent(
 {
   PinchGestureInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -116,10 +106,8 @@ APZCTreeManagerParent::RecvReceiveTapGestureInputEvent(
 {
   TapGestureInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -135,10 +123,8 @@ APZCTreeManagerParent::RecvReceiveScrollWheelInputEvent(
 {
   ScrollWheelInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -146,18 +132,16 @@ APZCTreeManagerParent::RecvReceiveScrollWheelInputEvent(
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvReceiveKeyboardInputEvent(
-        const KeyboardInput& aEvent,
-        nsEventStatus* aOutStatus,
-        KeyboardInput* aOutEvent,
-        ScrollableLayerGuid* aOutTargetGuid,
-        uint64_t* aOutInputBlockId)
+    const KeyboardInput& aEvent,
+    nsEventStatus* aOutStatus,
+    KeyboardInput* aOutEvent,
+    ScrollableLayerGuid* aOutTargetGuid,
+    uint64_t* aOutInputBlockId)
 {
   KeyboardInput event = aEvent;
 
-  *aOutStatus = mTreeManager->ReceiveInputEvent(
-    event,
-    aOutTargetGuid,
-    aOutInputBlockId);
+  *aOutStatus =
+      mTreeManager->ReceiveInputEvent(event, aOutTargetGuid, aOutInputBlockId);
   *aOutEvent = event;
 
   return IPC_OK();
@@ -172,10 +156,9 @@ APZCTreeManagerParent::RecvSetKeyboardMap(const KeyboardMap& aKeyboardMap)
 }
 
 mozilla::ipc::IPCResult
-APZCTreeManagerParent::RecvZoomToRect(
-    const ScrollableLayerGuid& aGuid,
-    const CSSRect& aRect,
-    const uint32_t& aFlags)
+APZCTreeManagerParent::RecvZoomToRect(const ScrollableLayerGuid& aGuid,
+                                      const CSSRect& aRect,
+                                      const uint32_t& aFlags)
 {
   if (aGuid.mLayersId != mLayersId) {
     // Guard against bad data from hijacked child processes
@@ -189,51 +172,51 @@ APZCTreeManagerParent::RecvZoomToRect(
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvContentReceivedInputBlock(
-    const uint64_t& aInputBlockId,
-    const bool& aPreventDefault)
+    const uint64_t& aInputBlockId, const bool& aPreventDefault)
 {
   APZThreadUtils::RunOnControllerThread(NewRunnableMethod<uint64_t, bool>(
-    "layers::IAPZCTreeManager::ContentReceivedInputBlock",
-    mTreeManager,
-    &IAPZCTreeManager::ContentReceivedInputBlock,
-    aInputBlockId,
-    aPreventDefault));
+      "layers::IAPZCTreeManager::ContentReceivedInputBlock",
+      mTreeManager,
+      &IAPZCTreeManager::ContentReceivedInputBlock,
+      aInputBlockId,
+      aPreventDefault));
 
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvSetTargetAPZC(
-    const uint64_t& aInputBlockId,
-    nsTArray<ScrollableLayerGuid>&& aTargets)
+    const uint64_t& aInputBlockId, nsTArray<ScrollableLayerGuid>&& aTargets)
 {
   for (size_t i = 0; i < aTargets.Length(); i++) {
     if (aTargets[i].mLayersId != mLayersId) {
       // Guard against bad data from hijacked child processes
-      NS_ERROR("Unexpected layers id in RecvSetTargetAPZC; dropping message...");
+      NS_ERROR(
+          "Unexpected layers id in RecvSetTargetAPZC; dropping message...");
       return IPC_FAIL_NO_REASON(this);
     }
   }
   APZThreadUtils::RunOnControllerThread(
-    NewRunnableMethod<uint64_t,
-                      StoreCopyPassByRRef<nsTArray<ScrollableLayerGuid>>>(
-      "layers::IAPZCTreeManager::SetTargetAPZC",
-      mTreeManager,
-      &IAPZCTreeManager::SetTargetAPZC,
-      aInputBlockId,
-      aTargets));
+      NewRunnableMethod<uint64_t,
+                        StoreCopyPassByRRef<nsTArray<ScrollableLayerGuid>>>(
+          "layers::IAPZCTreeManager::SetTargetAPZC",
+          mTreeManager,
+          &IAPZCTreeManager::SetTargetAPZC,
+          aInputBlockId,
+          aTargets));
 
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvUpdateZoomConstraints(
-    const ScrollableLayerGuid& aGuid,
-    const MaybeZoomConstraints& aConstraints)
+    const ScrollableLayerGuid& aGuid, const MaybeZoomConstraints& aConstraints)
 {
   if (aGuid.mLayersId != mLayersId) {
     // Guard against bad data from hijacked child processes
-    NS_ERROR("Unexpected layers id in RecvUpdateZoomConstraints; dropping message...");
+    NS_ERROR(
+        "Unexpected layers id in RecvUpdateZoomConstraints; dropping "
+        "message...");
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -250,47 +233,45 @@ APZCTreeManagerParent::RecvSetDPI(const float& aDpiValue)
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvSetAllowedTouchBehavior(
-    const uint64_t& aInputBlockId,
-    nsTArray<TouchBehaviorFlags>&& aValues)
+    const uint64_t& aInputBlockId, nsTArray<TouchBehaviorFlags>&& aValues)
 {
   APZThreadUtils::RunOnControllerThread(
-    NewRunnableMethod<uint64_t,
-                      StoreCopyPassByRRef<nsTArray<TouchBehaviorFlags>>>(
-      "layers::IAPZCTreeManager::SetAllowedTouchBehavior",
-      mTreeManager,
-      &IAPZCTreeManager::SetAllowedTouchBehavior,
-      aInputBlockId,
-      Move(aValues)));
+      NewRunnableMethod<uint64_t,
+                        StoreCopyPassByRRef<nsTArray<TouchBehaviorFlags>>>(
+          "layers::IAPZCTreeManager::SetAllowedTouchBehavior",
+          mTreeManager,
+          &IAPZCTreeManager::SetAllowedTouchBehavior,
+          aInputBlockId,
+          Move(aValues)));
 
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvStartScrollbarDrag(
-    const ScrollableLayerGuid& aGuid,
-    const AsyncDragMetrics& aDragMetrics)
+    const ScrollableLayerGuid& aGuid, const AsyncDragMetrics& aDragMetrics)
 {
   if (aGuid.mLayersId != mLayersId) {
     // Guard against bad data from hijacked child processes
-    NS_ERROR("Unexpected layers id in RecvStartScrollbarDrag; dropping message...");
+    NS_ERROR(
+        "Unexpected layers id in RecvStartScrollbarDrag; dropping message...");
     return IPC_FAIL_NO_REASON(this);
   }
 
   APZThreadUtils::RunOnControllerThread(
-    NewRunnableMethod<ScrollableLayerGuid, AsyncDragMetrics>(
-      "layers::IAPZCTreeManager::StartScrollbarDrag",
-      mTreeManager,
-      &IAPZCTreeManager::StartScrollbarDrag,
-      aGuid,
-      aDragMetrics));
+      NewRunnableMethod<ScrollableLayerGuid, AsyncDragMetrics>(
+          "layers::IAPZCTreeManager::StartScrollbarDrag",
+          mTreeManager,
+          &IAPZCTreeManager::StartScrollbarDrag,
+          aGuid,
+          aDragMetrics));
 
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-APZCTreeManagerParent::RecvStartAutoscroll(
-    const ScrollableLayerGuid& aGuid,
-    const ScreenPoint& aAnchorLocation)
+APZCTreeManagerParent::RecvStartAutoscroll(const ScrollableLayerGuid& aGuid,
+                                           const ScreenPoint& aAnchorLocation)
 {
   // Unlike RecvStartScrollbarDrag(), this message comes from the parent
   // process (via nsBaseWidget::mAPZC) rather than from the child process
@@ -301,10 +282,11 @@ APZCTreeManagerParent::RecvStartAutoscroll(
 
   APZThreadUtils::RunOnControllerThread(
       NewRunnableMethod<ScrollableLayerGuid, ScreenPoint>(
-        "layers::IAPZCTreeManager::StartAutoscroll",
-        mTreeManager,
-        &IAPZCTreeManager::StartAutoscroll,
-        aGuid, aAnchorLocation));
+          "layers::IAPZCTreeManager::StartAutoscroll",
+          mTreeManager,
+          &IAPZCTreeManager::StartAutoscroll,
+          aGuid,
+          aAnchorLocation));
 
   return IPC_OK();
 }
@@ -314,12 +296,11 @@ APZCTreeManagerParent::RecvStopAutoscroll(const ScrollableLayerGuid& aGuid)
 {
   // See RecvStartAutoscroll() for why we don't check the layers id.
 
-  APZThreadUtils::RunOnControllerThread(
-      NewRunnableMethod<ScrollableLayerGuid>(
-        "layers::IAPZCTreeManager::StopAutoscroll",
-        mTreeManager,
-        &IAPZCTreeManager::StopAutoscroll,
-        aGuid));
+  APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScrollableLayerGuid>(
+      "layers::IAPZCTreeManager::StopAutoscroll",
+      mTreeManager,
+      &IAPZCTreeManager::StopAutoscroll,
+      aGuid));
 
   return IPC_OK();
 }
@@ -332,9 +313,8 @@ APZCTreeManagerParent::RecvSetLongTapEnabled(const bool& aTapGestureEnabled)
 }
 
 mozilla::ipc::IPCResult
-APZCTreeManagerParent::RecvProcessTouchVelocity(
-  const uint32_t& aTimestampMs,
-  const float& aSpeedY)
+APZCTreeManagerParent::RecvProcessTouchVelocity(const uint32_t& aTimestampMs,
+                                                const float& aSpeedY)
 {
   mTreeManager->ProcessTouchVelocity(aTimestampMs, aSpeedY);
   return IPC_OK();
@@ -342,8 +322,7 @@ APZCTreeManagerParent::RecvProcessTouchVelocity(
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvUpdateWheelTransaction(
-        const LayoutDeviceIntPoint& aRefPoint,
-        const EventMessage& aEventMessage)
+    const LayoutDeviceIntPoint& aRefPoint, const EventMessage& aEventMessage)
 {
   mTreeManager->UpdateWheelTransaction(aRefPoint, aEventMessage);
   return IPC_OK();
@@ -351,17 +330,18 @@ APZCTreeManagerParent::RecvUpdateWheelTransaction(
 
 mozilla::ipc::IPCResult
 APZCTreeManagerParent::RecvProcessUnhandledEvent(
-        const LayoutDeviceIntPoint& aRefPoint,
-        LayoutDeviceIntPoint* aOutRefPoint,
-        ScrollableLayerGuid*  aOutTargetGuid,
-        uint64_t*             aOutFocusSequenceNumber)
+    const LayoutDeviceIntPoint& aRefPoint,
+    LayoutDeviceIntPoint* aOutRefPoint,
+    ScrollableLayerGuid* aOutTargetGuid,
+    uint64_t* aOutFocusSequenceNumber)
 {
   LayoutDeviceIntPoint refPoint = aRefPoint;
-  mTreeManager->ProcessUnhandledEvent(&refPoint, aOutTargetGuid, aOutFocusSequenceNumber);
+  mTreeManager->ProcessUnhandledEvent(
+      &refPoint, aOutTargetGuid, aOutFocusSequenceNumber);
   *aOutRefPoint = refPoint;
 
   return IPC_OK();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

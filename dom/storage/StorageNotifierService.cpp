@@ -19,7 +19,7 @@ bool gStorageShuttingDown = false;
 
 StaticRefPtr<StorageNotifierService> gStorageNotifierService;
 
-} // anonymous
+}  // namespace
 
 /* static */ StorageNotifierService*
 StorageNotifierService::GetOrCreate()
@@ -61,8 +61,8 @@ StorageNotifierService::Broadcast(StorageEvent* aEvent,
 
   RefPtr<StorageEvent> event = aEvent;
 
-  nsTObserverArray<RefPtr<StorageNotificationObserver>>::ForwardIterator
-    iter(service->mObservers);
+  nsTObserverArray<RefPtr<StorageNotificationObserver>>::ForwardIterator iter(
+      service->mObservers);
 
   while (iter.HasMore()) {
     RefPtr<StorageNotificationObserver> observer = iter.GetNext();
@@ -85,11 +85,11 @@ StorageNotifierService::Broadcast(StorageEvent* aEvent,
     }
 
     RefPtr<Runnable> r = NS_NewRunnableFunction(
-      "StorageNotifierService::Broadcast",
-      [observer, event, aStorageType, aPrivateBrowsing] () {
-        observer->ObserveStorageNotification(event, aStorageType,
-                                             aPrivateBrowsing);
-      });
+        "StorageNotifierService::Broadcast",
+        [observer, event, aStorageType, aPrivateBrowsing]() {
+          observer->ObserveStorageNotification(
+              event, aStorageType, aPrivateBrowsing);
+        });
 
     if (aImmediateDispatch) {
       r->Run();
@@ -124,5 +124,5 @@ StorageNotifierService::Unregister(StorageNotificationObserver* aObserver)
   mObservers.RemoveElement(aObserver);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

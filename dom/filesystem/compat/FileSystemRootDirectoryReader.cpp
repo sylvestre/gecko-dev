@@ -16,12 +16,12 @@ namespace {
 
 class EntriesCallbackRunnable final : public Runnable
 {
-public:
+ public:
   EntriesCallbackRunnable(FileSystemEntriesCallback* aCallback,
                           const Sequence<RefPtr<FileSystemEntry>>& aEntries)
-    : Runnable("EntriesCallbackRunnable")
-    , mCallback(aCallback)
-    , mEntries(aEntries)
+      : Runnable("EntriesCallbackRunnable"),
+        mCallback(aCallback),
+        mEntries(aEntries)
   {
     MOZ_ASSERT(aCallback);
   }
@@ -40,15 +40,16 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<FileSystemEntriesCallback> mCallback;
   Sequence<RefPtr<FileSystemEntry>> mEntries;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(FileSystemRootDirectoryReader,
-                                   FileSystemDirectoryReader, mEntries)
+                                   FileSystemDirectoryReader,
+                                   mEntries)
 
 NS_IMPL_ADDREF_INHERITED(FileSystemRootDirectoryReader,
                          FileSystemDirectoryReader)
@@ -58,30 +59,32 @@ NS_IMPL_RELEASE_INHERITED(FileSystemRootDirectoryReader,
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FileSystemRootDirectoryReader)
 NS_INTERFACE_MAP_END_INHERITING(FileSystemDirectoryReader)
 
-FileSystemRootDirectoryReader::FileSystemRootDirectoryReader(FileSystemDirectoryEntry* aParentEntry,
-                                                             FileSystem* aFileSystem,
-                                                             const Sequence<RefPtr<FileSystemEntry>>& aEntries)
-  : FileSystemDirectoryReader(aParentEntry, aFileSystem, nullptr)
-  , mEntries(aEntries)
-  , mAlreadyRead(false)
+FileSystemRootDirectoryReader::FileSystemRootDirectoryReader(
+    FileSystemDirectoryEntry* aParentEntry,
+    FileSystem* aFileSystem,
+    const Sequence<RefPtr<FileSystemEntry>>& aEntries)
+    : FileSystemDirectoryReader(aParentEntry, aFileSystem, nullptr),
+      mEntries(aEntries),
+      mAlreadyRead(false)
 {
   MOZ_ASSERT(aParentEntry);
   MOZ_ASSERT(aFileSystem);
 }
 
-FileSystemRootDirectoryReader::~FileSystemRootDirectoryReader()
-{}
+FileSystemRootDirectoryReader::~FileSystemRootDirectoryReader() {}
 
 void
-FileSystemRootDirectoryReader::ReadEntries(FileSystemEntriesCallback& aSuccessCallback,
-                                           const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
-                                           ErrorResult& aRv)
+FileSystemRootDirectoryReader::ReadEntries(
+    FileSystemEntriesCallback& aSuccessCallback,
+    const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
+    ErrorResult& aRv)
 {
   if (mAlreadyRead) {
     RefPtr<EmptyEntriesCallbackRunnable> runnable =
-      new EmptyEntriesCallbackRunnable(&aSuccessCallback);
+        new EmptyEntriesCallbackRunnable(&aSuccessCallback);
 
-    aRv = FileSystemUtils::DispatchRunnable(GetParentObject(), runnable.forget());
+    aRv =
+        FileSystemUtils::DispatchRunnable(GetParentObject(), runnable.forget());
     return;
   }
 
@@ -89,10 +92,10 @@ FileSystemRootDirectoryReader::ReadEntries(FileSystemEntriesCallback& aSuccessCa
   mAlreadyRead = true;
 
   RefPtr<EntriesCallbackRunnable> runnable =
-    new EntriesCallbackRunnable(&aSuccessCallback, mEntries);
+      new EntriesCallbackRunnable(&aSuccessCallback, mEntries);
 
   aRv = FileSystemUtils::DispatchRunnable(GetParentObject(), runnable.forget());
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

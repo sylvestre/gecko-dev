@@ -16,8 +16,9 @@ namespace dom {
 MutationEvent::MutationEvent(EventTarget* aOwner,
                              nsPresContext* aPresContext,
                              InternalMutationEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent : new InternalMutationEvent(false, eVoidEvent))
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent : new InternalMutationEvent(false, eVoidEvent))
 {
   mEventIsInternal = (aEvent == nullptr);
 }
@@ -33,7 +34,7 @@ already_AddRefed<nsINode>
 MutationEvent::GetRelatedNode()
 {
   nsCOMPtr<nsINode> n =
-    do_QueryInterface(mEvent->AsMutationEvent()->mRelatedNode);
+      do_QueryInterface(mEvent->AsMutationEvent()->mRelatedNode);
   return n.forget();
 }
 
@@ -41,7 +42,8 @@ NS_IMETHODIMP
 MutationEvent::GetRelatedNode(nsIDOMNode** aRelatedNode)
 {
   nsCOMPtr<nsINode> relatedNode = GetRelatedNode();
-  nsCOMPtr<nsIDOMNode> relatedDOMNode = relatedNode ? relatedNode->AsDOMNode() : nullptr;
+  nsCOMPtr<nsIDOMNode> relatedDOMNode =
+      relatedNode ? relatedNode->AsDOMNode() : nullptr;
   relatedDOMNode.forget(aRelatedNode);
   return NS_OK;
 }
@@ -50,8 +52,7 @@ NS_IMETHODIMP
 MutationEvent::GetPrevValue(nsAString& aPrevValue)
 {
   InternalMutationEvent* mutation = mEvent->AsMutationEvent();
-  if (mutation->mPrevAttrValue)
-    mutation->mPrevAttrValue->ToString(aPrevValue);
+  if (mutation->mPrevAttrValue) mutation->mPrevAttrValue->ToString(aPrevValue);
   return NS_OK;
 }
 
@@ -59,8 +60,7 @@ NS_IMETHODIMP
 MutationEvent::GetNewValue(nsAString& aNewValue)
 {
   InternalMutationEvent* mutation = mEvent->AsMutationEvent();
-  if (mutation->mNewAttrValue)
-      mutation->mNewAttrValue->ToString(aNewValue);
+  if (mutation->mNewAttrValue) mutation->mNewAttrValue->ToString(aNewValue);
   return NS_OK;
 }
 
@@ -68,8 +68,7 @@ NS_IMETHODIMP
 MutationEvent::GetAttrName(nsAString& aAttrName)
 {
   InternalMutationEvent* mutation = mEvent->AsMutationEvent();
-  if (mutation->mAttrName)
-      mutation->mAttrName->ToString(aAttrName);
+  if (mutation->mAttrName) mutation->mAttrName->ToString(aAttrName);
   return NS_OK;
 }
 
@@ -114,8 +113,8 @@ MutationEvent::InitMutationEvent(const nsAString& aTypeArg,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

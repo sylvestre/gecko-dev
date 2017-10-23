@@ -15,16 +15,19 @@
 
 class nsBaseURLParser : public nsIURLParser
 {
-public:
-    NS_DECL_NSIURLPARSER
+ public:
+  NS_DECL_NSIURLPARSER
 
-    nsBaseURLParser() { }
+  nsBaseURLParser() {}
 
-protected:
-    // implemented by subclasses
-    virtual void ParseAfterScheme(const char *spec, int32_t specLen,
-                                  uint32_t *authPos, int32_t *authLen,
-                                  uint32_t *pathPos, int32_t *pathLen) = 0;
+ protected:
+  // implemented by subclasses
+  virtual void ParseAfterScheme(const char* spec,
+                                int32_t specLen,
+                                uint32_t* authPos,
+                                int32_t* authLen,
+                                uint32_t* pathPos,
+                                int32_t* pathLen) = 0;
 };
 
 //----------------------------------------------------------------------------
@@ -42,27 +45,38 @@ protected:
 
 class nsNoAuthURLParser final : public nsBaseURLParser
 {
-    ~nsNoAuthURLParser() {}
+  ~nsNoAuthURLParser() {}
 
-public:
-    NS_DECL_THREADSAFE_ISUPPORTS
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
 
 #if defined(XP_WIN)
-    NS_IMETHOD ParseFilePath(const char *, int32_t,
-                             uint32_t *, int32_t *,
-                             uint32_t *, int32_t *,
-                             uint32_t *, int32_t *) override;
+  NS_IMETHOD ParseFilePath(const char*,
+                           int32_t,
+                           uint32_t*,
+                           int32_t*,
+                           uint32_t*,
+                           int32_t*,
+                           uint32_t*,
+                           int32_t*) override;
 #endif
 
-    NS_IMETHOD ParseAuthority(const char *auth, int32_t authLen,
-                              uint32_t *usernamePos, int32_t *usernameLen,
-                              uint32_t *passwordPos, int32_t *passwordLen,
-                              uint32_t *hostnamePos, int32_t *hostnameLen,
-                              int32_t *port) override;
+  NS_IMETHOD ParseAuthority(const char* auth,
+                            int32_t authLen,
+                            uint32_t* usernamePos,
+                            int32_t* usernameLen,
+                            uint32_t* passwordPos,
+                            int32_t* passwordLen,
+                            uint32_t* hostnamePos,
+                            int32_t* hostnameLen,
+                            int32_t* port) override;
 
-    void ParseAfterScheme(const char *spec, int32_t specLen,
-                          uint32_t *authPos, int32_t *authLen,
-                          uint32_t *pathPos, int32_t *pathLen) override;
+  void ParseAfterScheme(const char* spec,
+                        int32_t specLen,
+                        uint32_t* authPos,
+                        int32_t* authLen,
+                        uint32_t* pathPos,
+                        int32_t* pathLen) override;
 };
 
 //----------------------------------------------------------------------------
@@ -76,29 +90,41 @@ public:
 
 class nsAuthURLParser : public nsBaseURLParser
 {
-protected:
-    virtual ~nsAuthURLParser() {}
+ protected:
+  virtual ~nsAuthURLParser() {}
 
-public:
-    NS_DECL_THREADSAFE_ISUPPORTS
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
 
-    NS_IMETHOD ParseAuthority(const char *auth, int32_t authLen,
-                              uint32_t *usernamePos, int32_t *usernameLen,
-                              uint32_t *passwordPos, int32_t *passwordLen,
-                              uint32_t *hostnamePos, int32_t *hostnameLen,
-                              int32_t *port) override;
+  NS_IMETHOD ParseAuthority(const char* auth,
+                            int32_t authLen,
+                            uint32_t* usernamePos,
+                            int32_t* usernameLen,
+                            uint32_t* passwordPos,
+                            int32_t* passwordLen,
+                            uint32_t* hostnamePos,
+                            int32_t* hostnameLen,
+                            int32_t* port) override;
 
-    NS_IMETHOD ParseUserInfo(const char *userinfo, int32_t userinfoLen,
-                             uint32_t *usernamePos, int32_t *usernameLen,
-                             uint32_t *passwordPos, int32_t *passwordLen) override;
+  NS_IMETHOD ParseUserInfo(const char* userinfo,
+                           int32_t userinfoLen,
+                           uint32_t* usernamePos,
+                           int32_t* usernameLen,
+                           uint32_t* passwordPos,
+                           int32_t* passwordLen) override;
 
-    NS_IMETHOD ParseServerInfo(const char *serverinfo, int32_t serverinfoLen,
-                               uint32_t *hostnamePos, int32_t *hostnameLen,
-                               int32_t *port) override;
+  NS_IMETHOD ParseServerInfo(const char* serverinfo,
+                             int32_t serverinfoLen,
+                             uint32_t* hostnamePos,
+                             int32_t* hostnameLen,
+                             int32_t* port) override;
 
-    void ParseAfterScheme(const char *spec, int32_t specLen,
-                          uint32_t *authPos, int32_t *authLen,
-                          uint32_t *pathPos, int32_t *pathLen) override;
+  void ParseAfterScheme(const char* spec,
+                        int32_t specLen,
+                        uint32_t* authPos,
+                        int32_t* authLen,
+                        uint32_t* pathPos,
+                        int32_t* pathLen) override;
 };
 
 //----------------------------------------------------------------------------
@@ -113,12 +139,15 @@ public:
 
 class nsStdURLParser : public nsAuthURLParser
 {
-    virtual ~nsStdURLParser() {}
+  virtual ~nsStdURLParser() {}
 
-public:
-    void ParseAfterScheme(const char *spec, int32_t specLen,
-                          uint32_t *authPos, int32_t *authLen,
-                          uint32_t *pathPos, int32_t *pathLen);
+ public:
+  void ParseAfterScheme(const char* spec,
+                        int32_t specLen,
+                        uint32_t* authPos,
+                        int32_t* authLen,
+                        uint32_t* pathPos,
+                        int32_t* pathLen);
 };
 
-#endif // nsURLParsers_h__
+#endif  // nsURLParsers_h__

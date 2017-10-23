@@ -29,8 +29,8 @@ NS_NewStackFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsStackFrame)
 
-nsStackFrame::nsStackFrame(nsStyleContext* aContext):
-  nsBoxFrame(aContext, kClassID)
+nsStackFrame::nsStackFrame(nsStyleContext* aContext)
+    : nsBoxFrame(aContext, kClassID)
 {
   nsCOMPtr<nsBoxLayout> layout;
   NS_NewStackLayout(layout);
@@ -44,18 +44,20 @@ nsStackFrame::nsStackFrame(nsStyleContext* aContext):
 // This could easily be changed back by hacking nsBoxFrame::BuildDisplayListInternal
 // a bit more.
 void
-nsStackFrame::BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
+nsStackFrame::BuildDisplayListForChildren(nsDisplayListBuilder* aBuilder,
                                           const nsDisplayListSet& aLists)
 {
   // BuildDisplayListForChild puts stacking contexts into the PositionedDescendants
   // list. So we need to map that list to aLists.Content(). This is an easy way to
   // do that.
   nsDisplayList* content = aLists.Content();
-  nsDisplayListSet kidLists(content, content, content, content, content, content);
+  nsDisplayListSet kidLists(
+      content, content, content, content, content, content);
   nsIFrame* kid = mFrames.FirstChild();
   while (kid) {
     // Force each child into its own true stacking context.
-    BuildDisplayListForChild(aBuilder, kid, kidLists, DISPLAY_CHILD_FORCE_STACKING_CONTEXT);
+    BuildDisplayListForChild(
+        aBuilder, kid, kidLists, DISPLAY_CHILD_FORCE_STACKING_CONTEXT);
     kid = kid->GetNextSibling();
   }
 }

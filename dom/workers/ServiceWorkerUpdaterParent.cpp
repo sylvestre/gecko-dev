@@ -30,6 +30,6 @@ ServiceWorkerUpdaterParent::ActorDestroy(ActorDestroyReason aWhy)
   }
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

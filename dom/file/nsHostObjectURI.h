@@ -19,24 +19,23 @@
 #include "nsIIPCSerializableURI.h"
 #include "nsWeakReference.h"
 
-
 /**
  * These URIs refer to host objects: Blobs, with scheme "blob",
  * MediaStreams, with scheme "mediastream", and MediaSources, with scheme
  * "mediasource".
  */
-class nsHostObjectURI : public mozilla::net::nsSimpleURI
-                      , public nsIURIWithPrincipal
-                      , public nsIURIWithBlobImpl
-                      , public nsSupportsWeakReference
+class nsHostObjectURI : public mozilla::net::nsSimpleURI,
+                        public nsIURIWithPrincipal,
+                        public nsIURIWithBlobImpl,
+                        public nsSupportsWeakReference
 {
-public:
-  nsHostObjectURI(nsIPrincipal* aPrincipal,
-                  mozilla::dom::BlobImpl* aBlobImpl)
-    : mozilla::net::nsSimpleURI()
-    , mPrincipal(aPrincipal)
-    , mBlobImpl(aBlobImpl)
-  {}
+ public:
+  nsHostObjectURI(nsIPrincipal* aPrincipal, mozilla::dom::BlobImpl* aBlobImpl)
+      : mozilla::net::nsSimpleURI(),
+        mPrincipal(aPrincipal),
+        mBlobImpl(aBlobImpl)
+  {
+  }
 
   // For use only from deserialization
   nsHostObjectURI() : mozilla::net::nsSimpleURI() {}
@@ -48,7 +47,7 @@ public:
   NS_DECL_NSICLASSINFO
   NS_DECL_NSIIPCSERIALIZABLEURI
 
-  NS_IMETHOD SetScheme(const nsACString &aProtocol) override;
+  NS_IMETHOD SetScheme(const nsACString& aProtocol) override;
 
   // Override CloneInternal() and EqualsInternal()
   virtual nsresult CloneInternal(RefHandlingEnum aRefHandlingMode,
@@ -59,8 +58,8 @@ public:
                                   bool* aResult) override;
 
   // Override StartClone to hand back a nsHostObjectURI
-  virtual mozilla::net::nsSimpleURI* StartClone(RefHandlingEnum refHandlingMode,
-                                                const nsACString& newRef) override
+  virtual mozilla::net::nsSimpleURI* StartClone(
+      RefHandlingEnum refHandlingMode, const nsACString& newRef) override
   {
     nsHostObjectURI* url = new nsHostObjectURI();
     SetRefOnClone(url, refHandlingMode, newRef);
@@ -72,12 +71,16 @@ public:
   nsCOMPtr<nsIPrincipal> mPrincipal;
   RefPtr<mozilla::dom::BlobImpl> mBlobImpl;
 
-protected:
+ protected:
   virtual ~nsHostObjectURI() {}
 };
 
-#define NS_HOSTOBJECTURI_CID \
-{ 0xf5475c51, 0x59a7, 0x4757, \
-  { 0xb3, 0xd9, 0xe2, 0x11, 0xa9, 0x41, 0x08, 0x72 } }
+#define NS_HOSTOBJECTURI_CID                         \
+  {                                                  \
+    0xf5475c51, 0x59a7, 0x4757,                      \
+    {                                                \
+      0xb3, 0xd9, 0xe2, 0x11, 0xa9, 0x41, 0x08, 0x72 \
+    }                                                \
+  }
 
 #endif /* nsHostObjectURI_h */

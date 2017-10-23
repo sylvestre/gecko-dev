@@ -35,14 +35,16 @@ using std::vector;
 namespace {
 class nsPluginHangUITelemetry : public mozilla::Runnable
 {
-public:
-  nsPluginHangUITelemetry(int aResponseCode, int aDontAskCode,
-                          uint32_t aResponseTimeMs, uint32_t aTimeoutMs)
-    : Runnable("nsPluginHangUITelemetry"),
-      mResponseCode(aResponseCode),
-      mDontAskCode(aDontAskCode),
-      mResponseTimeMs(aResponseTimeMs),
-      mTimeoutMs(aTimeoutMs)
+ public:
+  nsPluginHangUITelemetry(int aResponseCode,
+                          int aDontAskCode,
+                          uint32_t aResponseTimeMs,
+                          uint32_t aTimeoutMs)
+      : Runnable("nsPluginHangUITelemetry"),
+        mResponseCode(aResponseCode),
+        mDontAskCode(aDontAskCode),
+        mResponseTimeMs(aResponseTimeMs),
+        mTimeoutMs(aTimeoutMs)
   {
   }
 
@@ -50,23 +52,23 @@ public:
   Run() override
   {
     mozilla::Telemetry::Accumulate(
-              mozilla::Telemetry::PLUGIN_HANG_UI_USER_RESPONSE, mResponseCode);
+        mozilla::Telemetry::PLUGIN_HANG_UI_USER_RESPONSE, mResponseCode);
+    mozilla::Telemetry::Accumulate(mozilla::Telemetry::PLUGIN_HANG_UI_DONT_ASK,
+                                   mDontAskCode);
     mozilla::Telemetry::Accumulate(
-              mozilla::Telemetry::PLUGIN_HANG_UI_DONT_ASK, mDontAskCode);
-    mozilla::Telemetry::Accumulate(
-              mozilla::Telemetry::PLUGIN_HANG_UI_RESPONSE_TIME, mResponseTimeMs);
-    mozilla::Telemetry::Accumulate(
-              mozilla::Telemetry::PLUGIN_HANG_TIME, mTimeoutMs + mResponseTimeMs);
+        mozilla::Telemetry::PLUGIN_HANG_UI_RESPONSE_TIME, mResponseTimeMs);
+    mozilla::Telemetry::Accumulate(mozilla::Telemetry::PLUGIN_HANG_TIME,
+                                   mTimeoutMs + mResponseTimeMs);
     return NS_OK;
   }
 
-private:
+ private:
   int mResponseCode;
   int mDontAskCode;
   uint32_t mResponseTimeMs;
   uint32_t mTimeoutMs;
 };
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace plugins {
@@ -74,25 +76,25 @@ namespace plugins {
 PluginHangUIParent::PluginHangUIParent(PluginModuleChromeParent* aModule,
                                        const int32_t aHangUITimeoutPref,
                                        const int32_t aChildTimeoutPref)
-  : mMutex("mozilla::plugins::PluginHangUIParent::mMutex"),
-    mModule(aModule),
-    mTimeoutPrefMs(static_cast<uint32_t>(aHangUITimeoutPref) * 1000U),
-    mIPCTimeoutMs(static_cast<uint32_t>(aChildTimeoutPref) * 1000U),
-    mMainThreadMessageLoop(MessageLoop::current()),
-    mIsShowing(false),
-    mLastUserResponse(0),
-    mHangUIProcessHandle(nullptr),
-    mMainWindowHandle(nullptr),
-    mRegWait(nullptr),
-    mShowEvent(nullptr),
-    mShowTicks(0),
-    mResponseTicks(0)
+    : mMutex("mozilla::plugins::PluginHangUIParent::mMutex"),
+      mModule(aModule),
+      mTimeoutPrefMs(static_cast<uint32_t>(aHangUITimeoutPref) * 1000U),
+      mIPCTimeoutMs(static_cast<uint32_t>(aChildTimeoutPref) * 1000U),
+      mMainThreadMessageLoop(MessageLoop::current()),
+      mIsShowing(false),
+      mLastUserResponse(0),
+      mHangUIProcessHandle(nullptr),
+      mMainWindowHandle(nullptr),
+      mRegWait(nullptr),
+      mShowEvent(nullptr),
+      mShowTicks(0),
+      mResponseTicks(0)
 {
 }
 
 PluginHangUIParent::~PluginHangUIParent()
 {
-  { // Scope for lock
+  {  // Scope for lock
     MutexAutoLock lock(mMutex);
     UnwatchHangUIChildProcess(true);
   }
@@ -136,15 +138,14 @@ PluginHangUIParent::Init(const nsString& aPluginName)
   nsresult rv;
   rv = mMiniShm.Init(this, ::IsDebuggerPresent() ? INFINITE : mIPCTimeoutMs);
   NS_ENSURE_SUCCESS(rv, false);
-  nsCOMPtr<nsIProperties>
-    directoryService(do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
+  nsCOMPtr<nsIProperties> directoryService(
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
   if (!directoryService) {
     return false;
   }
   nsCOMPtr<nsIFile> greDir;
-  rv = directoryService->Get(NS_GRE_DIR,
-                             NS_GET_IID(nsIFile),
-                             getter_AddRefs(greDir));
+  rv = directoryService->Get(
+      NS_GRE_DIR, NS_GET_IID(nsIFile), getter_AddRefs(greDir));
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -156,7 +157,7 @@ PluginHangUIParent::Init(const nsString& aPluginName)
   CommandLine commandLine(exePath.value());
 
   nsAutoString localizedStr;
-  const char16_t* formatParams[] = { aPluginName.get() };
+  const char16_t* formatParams[] = {aPluginName.get()};
   rv = nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
                                              "PluginHangUIMessage",
                                              formatParams,
@@ -166,14 +167,13 @@ PluginHangUIParent::Init(const nsString& aPluginName)
   }
   commandLine.AppendLooseValue(localizedStr.get());
 
-  const char* keys[] = { "PluginHangUITitle",
-                         "PluginHangUIWaitButton",
-                         "PluginHangUIStopButton",
-                         "DontAskAgain" };
+  const char* keys[] = {"PluginHangUITitle",
+                        "PluginHangUIWaitButton",
+                        "PluginHangUIStopButton",
+                        "DontAskAgain"};
   for (unsigned int i = 0; i < ArrayLength(keys); ++i) {
-    rv = nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                            keys[i],
-                                            localizedStr);
+    rv = nsContentUtils::GetLocalizedString(
+        nsContentUtils::eDOM_PROPERTIES, keys[i], localizedStr);
     if (NS_FAILED(rv)) {
       return false;
     }
@@ -188,9 +188,8 @@ PluginHangUIParent::Init(const nsString& aPluginName)
   hwndStr.AppendPrintf("%p", mMainWindowHandle);
   commandLine.AppendLooseValue(hwndStr.get());
 
-  ScopedHandle procHandle(::OpenProcess(SYNCHRONIZE,
-                                        TRUE,
-                                        GetCurrentProcessId()));
+  ScopedHandle procHandle(
+      ::OpenProcess(SYNCHRONIZE, TRUE, GetCurrentProcessId()));
   if (!procHandle.IsValid()) {
     return false;
   }
@@ -233,18 +232,19 @@ PluginHangUIParent::Init(const nsString& aPluginName)
   mShowEvent = showEvent.Get();
 
   MutexAutoLock lock(mMutex);
-  STARTUPINFO startupInfo = { sizeof(STARTUPINFO) };
-  PROCESS_INFORMATION processInfo = { nullptr };
-  BOOL isProcessCreated = ::CreateProcess(exePath.value().c_str(),
-                                          const_cast<wchar_t*>(commandLine.command_line_string().c_str()),
-                                          nullptr,
-                                          nullptr,
-                                          TRUE,
-                                          DETACHED_PROCESS,
-                                          nullptr,
-                                          nullptr,
-                                          &startupInfo,
-                                          &processInfo);
+  STARTUPINFO startupInfo = {sizeof(STARTUPINFO)};
+  PROCESS_INFORMATION processInfo = {nullptr};
+  BOOL isProcessCreated = ::CreateProcess(
+      exePath.value().c_str(),
+      const_cast<wchar_t*>(commandLine.command_line_string().c_str()),
+      nullptr,
+      nullptr,
+      TRUE,
+      DETACHED_PROCESS,
+      nullptr,
+      nullptr,
+      &startupInfo,
+      &processInfo);
   if (isProcessCreated) {
     ::CloseHandle(processInfo.hThread);
     mHangUIProcessHandle = processInfo.hProcess;
@@ -254,8 +254,8 @@ PluginHangUIParent::Init(const nsString& aPluginName)
                                   this,
                                   INFINITE,
                                   WT_EXECUTEDEFAULT | WT_EXECUTEONLYONCE);
-    ::WaitForSingleObject(mShowEvent, ::IsDebuggerPresent() ? INFINITE
-                                                            : mIPCTimeoutMs);
+    ::WaitForSingleObject(mShowEvent,
+                          ::IsDebuggerPresent() ? INFINITE : mIPCTimeoutMs);
     // Setting this to true even if we time out on mShowEvent. This timeout
     // typically occurs when the machine is thrashing so badly that
     // plugin-hang-ui.exe is taking a while to start. If we didn't set
@@ -268,8 +268,8 @@ PluginHangUIParent::Init(const nsString& aPluginName)
 }
 
 // static
-VOID CALLBACK PluginHangUIParent::SOnHangUIProcessExit(PVOID aContext,
-                                                       BOOLEAN aIsTimer)
+VOID CALLBACK
+PluginHangUIParent::SOnHangUIProcessExit(PVOID aContext, BOOLEAN aIsTimer)
 {
   PluginHangUIParent* object = static_cast<PluginHangUIParent*>(aContext);
   MutexAutoLock lock(object->mMutex);
@@ -355,7 +355,7 @@ PluginHangUIParent::RecvUserResponse(const unsigned int& aResponse)
   int responseCode;
   if (aResponse & HANGUI_USER_RESPONSE_STOP) {
     // User clicked Stop
-    std::function<void(bool)> callback = [](bool aResult) { };
+    std::function<void(bool)> callback = [](bool aResult) {};
     mModule->TerminateChildProcess(mMainThreadMessageLoop,
                                    mozilla::ipc::kInvalidProcessId,
                                    NS_LITERAL_CSTRING("ModalHangUI"),
@@ -363,7 +363,7 @@ PluginHangUIParent::RecvUserResponse(const unsigned int& aResponse)
                                    mModule->DummyCallback<bool>(),
                                    /* aAsync = */ false);
     responseCode = 1;
-  } else if(aResponse & HANGUI_USER_RESPONSE_CONTINUE) {
+  } else if (aResponse & HANGUI_USER_RESPONSE_CONTINUE) {
     mModule->OnHangUIContinue();
     // User clicked Continue
     responseCode = 2;
@@ -372,10 +372,8 @@ PluginHangUIParent::RecvUserResponse(const unsigned int& aResponse)
     responseCode = 3;
   }
   int dontAskCode = (aResponse & HANGUI_USER_RESPONSE_DONT_SHOW_AGAIN) ? 1 : 0;
-  nsCOMPtr<nsIRunnable> workItem = new nsPluginHangUITelemetry(responseCode,
-                                                               dontAskCode,
-                                                               LastShowDurationMs(),
-                                                               mTimeoutPrefMs);
+  nsCOMPtr<nsIRunnable> workItem = new nsPluginHangUITelemetry(
+      responseCode, dontAskCode, LastShowDurationMs(), mTimeoutPrefMs);
   NS_DispatchToMainThread(workItem);
   return true;
 }
@@ -386,8 +384,8 @@ PluginHangUIParent::GetHangUIOwnerWindowHandle(NativeWindowHandle& windowHandle)
   windowHandle = nullptr;
 
   nsresult rv;
-  nsCOMPtr<nsIWindowMediator> winMediator(do_GetService(NS_WINDOWMEDIATOR_CONTRACTID,
-                                                        &rv));
+  nsCOMPtr<nsIWindowMediator> winMediator(
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<mozIDOMWindowProxy> navWin;
@@ -404,7 +402,8 @@ PluginHangUIParent::GetHangUIOwnerWindowHandle(NativeWindowHandle& windowHandle)
     return NS_ERROR_FAILURE;
   }
 
-  windowHandle = reinterpret_cast<NativeWindowHandle>(widget->GetNativeData(NS_NATIVE_WINDOW));
+  windowHandle = reinterpret_cast<NativeWindowHandle>(
+      widget->GetNativeData(NS_NATIVE_WINDOW));
   if (!windowHandle) {
     return NS_ERROR_FAILURE;
   }
@@ -413,12 +412,11 @@ PluginHangUIParent::GetHangUIOwnerWindowHandle(NativeWindowHandle& windowHandle)
 }
 
 void
-PluginHangUIParent::OnMiniShmEvent(MiniShmBase *aMiniShmObj)
+PluginHangUIParent::OnMiniShmEvent(MiniShmBase* aMiniShmObj)
 {
   const PluginHangUIResponse* response = nullptr;
   nsresult rv = aMiniShmObj->GetReadPtr(response);
-  NS_ASSERTION(NS_SUCCEEDED(rv),
-               "Couldn't obtain read pointer OnMiniShmEvent");
+  NS_ASSERTION(NS_SUCCEEDED(rv), "Couldn't obtain read pointer OnMiniShmEvent");
   if (NS_SUCCEEDED(rv)) {
     // The child process has returned a response so we shouldn't worry about
     // its state anymore.
@@ -445,5 +443,5 @@ PluginHangUIParent::OnMiniShmConnect(MiniShmBase* aMiniShmObj)
   ::SetEvent(mShowEvent);
 }
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla

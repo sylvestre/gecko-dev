@@ -15,10 +15,9 @@
 namespace mozilla {
 namespace a11y {
 
-class ia2AccessibleEditableText: public IAccessibleEditableText
+class ia2AccessibleEditableText : public IAccessibleEditableText
 {
-public:
-
+ public:
   // IAccessibleEditableText
   virtual HRESULT STDMETHODCALLTYPE copyText(
       /* [in] */ long startOffset,
@@ -30,7 +29,7 @@ public:
 
   virtual HRESULT STDMETHODCALLTYPE insertText(
       /* [in] */ long offset,
-      /* [in] */ BSTR *text);
+      /* [in] */ BSTR* text);
 
   virtual HRESULT STDMETHODCALLTYPE cutText(
       /* [in] */ long startOffset,
@@ -42,15 +41,15 @@ public:
   virtual HRESULT STDMETHODCALLTYPE replaceText(
       /* [in] */ long startOffset,
       /* [in] */ long endOffset,
-      /* [in] */ BSTR *text);
+      /* [in] */ BSTR* text);
 
   virtual HRESULT STDMETHODCALLTYPE setAttributes(
       /* [in] */ long startOffset,
       /* [in] */ long endOffset,
-      /* [in] */ BSTR *attributes);
+      /* [in] */ BSTR* attributes);
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

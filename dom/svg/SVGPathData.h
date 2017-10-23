@@ -21,7 +21,7 @@
 
 #include <string.h>
 
-class nsSVGPathDataParser; // IWYU pragma: keep
+class nsSVGPathDataParser;  // IWYU pragma: keep
 
 struct nsSVGMark;
 
@@ -89,11 +89,11 @@ class SVGPathData
   typedef gfx::Float Float;
   typedef gfx::CapStyle CapStyle;
 
-public:
+ public:
   typedef const float* const_iterator;
 
-  SVGPathData(){}
-  ~SVGPathData(){}
+  SVGPathData() {}
+  ~SVGPathData() {}
 
   // Only methods that don't make/permit modification to this list are public.
   // Only our friend classes can access methods that may change us.
@@ -101,9 +101,7 @@ public:
   /// This may return an incomplete string on OOM, but that's acceptable.
   void GetValueAsString(nsAString& aValue) const;
 
-  bool IsEmpty() const {
-    return mData.IsEmpty();
-  }
+  bool IsEmpty() const { return mData.IsEmpty(); }
 
 #ifdef DEBUG
   /**
@@ -117,47 +115,44 @@ public:
    * Returns the number of *floats* in the encoding array, and NOT the number
    * of segments encoded in this object. (For that, see CountItems() above.)
    */
-  uint32_t Length() const {
-    return mData.Length();
-  }
+  uint32_t Length() const { return mData.Length(); }
 
-  const float& operator[](uint32_t aIndex) const {
-    return mData[aIndex];
-  }
+  const float& operator[](uint32_t aIndex) const { return mData[aIndex]; }
 
   // Used by nsSMILCompositor to check if the cached base val is out of date
-  bool operator==(const SVGPathData& rhs) const {
+  bool operator==(const SVGPathData& rhs) const
+  {
     // We use memcmp so that we don't need to worry that the data encoded in
     // the first float may have the same bit pattern as a NaN.
     return mData.Length() == rhs.mData.Length() &&
-           memcmp(mData.Elements(), rhs.mData.Elements(),
+           memcmp(mData.Elements(),
+                  rhs.mData.Elements(),
                   mData.Length() * sizeof(float)) == 0;
   }
 
-  bool SetCapacity(uint32_t aSize) {
+  bool SetCapacity(uint32_t aSize)
+  {
     return mData.SetCapacity(aSize, fallible);
   }
 
-  void Compact() {
-    mData.Compact();
-  }
-
+  void Compact() { mData.Compact(); }
 
   float GetPathLength() const;
 
   uint32_t GetPathSegAtLength(float aLength) const;
 
-  void GetMarkerPositioningData(nsTArray<nsSVGMark> *aMarks) const;
+  void GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const;
 
   /**
    * Returns true, except on OOM, in which case returns false.
    */
-  bool GetSegmentLengths(nsTArray<double> *aLengths) const;
+  bool GetSegmentLengths(nsTArray<double>* aLengths) const;
 
   /**
    * Returns true, except on OOM, in which case returns false.
    */
-  bool GetDistancesFromOriginToEndsOfVisibleSegments(FallibleTArray<double> *aArray) const;
+  bool GetDistancesFromOriginToEndsOfVisibleSegments(
+      FallibleTArray<double>* aArray) const;
 
   /**
    * This returns a path without the extra little line segments that
@@ -167,8 +162,8 @@ public:
   already_AddRefed<Path> BuildPathForMeasuring() const;
 
   already_AddRefed<Path> BuildPath(PathBuilder* aBuilder,
-                               uint8_t aCapStyle,
-                               Float aStrokeWidth) const;
+                                   uint8_t aCapStyle,
+                                   Float aStrokeWidth) const;
 
   const_iterator begin() const { return mData.Elements(); }
   const_iterator end() const { return mData.Elements() + mData.Length(); }
@@ -184,7 +179,7 @@ public:
   // SVGAnimatedPathSegList and having that class act as an intermediary so it
   // can take care of keeping DOM wrappers in sync.
 
-protected:
+ protected:
   typedef float* iterator;
 
   /**
@@ -193,23 +188,20 @@ protected:
    */
   nsresult CopyFrom(const SVGPathData& rhs);
 
-  float& operator[](uint32_t aIndex) {
-    return mData[aIndex];
-  }
+  float& operator[](uint32_t aIndex) { return mData[aIndex]; }
 
   /**
    * This may fail (return false) on OOM if the internal capacity is being
    * increased, in which case the list will be left unmodified.
    */
-  bool SetLength(uint32_t aLength) {
+  bool SetLength(uint32_t aLength)
+  {
     return mData.SetLength(aLength, fallible);
   }
 
   nsresult SetValueFromString(const nsAString& aValue);
 
-  void Clear() {
-    mData.Clear();
-  }
+  void Clear() { mData.Clear(); }
 
   // Our DOM wrappers have direct access to our mData, so they directly
   // manipulate it rather than us implementing:
@@ -219,14 +211,13 @@ protected:
   // * RemoveItem(uint32_t aDataIndex);
   // * bool AppendItem(uint32_t aType, const float *aArgs);
 
-  nsresult AppendSeg(uint32_t aType, ...); // variable number of float args
+  nsresult AppendSeg(uint32_t aType, ...);  // variable number of float args
 
   iterator begin() { return mData.Elements(); }
   iterator end() { return mData.Elements() + mData.Length(); }
 
   FallibleTArray<float> mData;
 };
-
 
 /**
  * This SVGPathData subclass is for SVGPathSegListSMILType which needs to
@@ -238,21 +229,25 @@ protected:
  */
 class SVGPathDataAndInfo final : public SVGPathData
 {
-public:
-  explicit SVGPathDataAndInfo(nsSVGElement *aElement = nullptr)
-    : mElement(do_GetWeakReference(static_cast<nsINode*>(aElement)))
-  {}
+ public:
+  explicit SVGPathDataAndInfo(nsSVGElement* aElement = nullptr)
+      : mElement(do_GetWeakReference(static_cast<nsINode*>(aElement)))
+  {
+  }
 
-  void SetElement(nsSVGElement *aElement) {
+  void SetElement(nsSVGElement* aElement)
+  {
     mElement = do_GetWeakReference(static_cast<nsINode*>(aElement));
   }
 
-  nsSVGElement* Element() const {
+  nsSVGElement* Element() const
+  {
     nsCOMPtr<nsIContent> e = do_QueryReferent(mElement);
     return static_cast<nsSVGElement*>(e.get());
   }
 
-  nsresult CopyFrom(const SVGPathDataAndInfo& rhs) {
+  nsresult CopyFrom(const SVGPathDataAndInfo& rhs)
+  {
     mElement = rhs.mElement;
     return SVGPathData::CopyFrom(rhs);
   }
@@ -262,7 +257,8 @@ public:
    * of SMIL. In other words, returns true until the initial value set up in
    * SVGPathSegListSMILType::Init() has been changed with a SetElement() call.
    */
-  bool IsIdentity() const {
+  bool IsIdentity() const
+  {
     if (!mElement) {
       MOZ_ASSERT(IsEmpty(), "target element propagation failure");
       return true;
@@ -284,7 +280,7 @@ public:
   using SVGPathData::begin;
   using SVGPathData::end;
 
-private:
+ private:
   // We must keep a weak reference to our element because we may belong to a
   // cached baseVal nsSMILValue. See the comments starting at:
   // https://bugzilla.mozilla.org/show_bug.cgi?id=515116#c15
@@ -292,6 +288,6 @@ private:
   nsWeakPtr mElement;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGPATHDATA_H__
+#endif  // MOZILLA_SVGPATHDATA_H__

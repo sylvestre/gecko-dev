@@ -14,18 +14,19 @@ class NSAutoreleasePool;
 
 namespace mozilla {
 
-class MacAutoreleasePool {
-public:
+class MacAutoreleasePool
+{
+ public:
   MacAutoreleasePool();
   ~MacAutoreleasePool();
 
-private:
-  NSAutoreleasePool *mPool;
+ private:
+  NSAutoreleasePool* mPool;
 
   MacAutoreleasePool(const MacAutoreleasePool&);
   void operator=(const MacAutoreleasePool&);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MacAutoreleasePool_h_
+#endif  // MacAutoreleasePool_h_

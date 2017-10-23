@@ -9,59 +9,51 @@
 namespace mozilla {
 namespace _ipdltest {
 
-
-class TestRacyReentryParent :
-    public PTestRacyReentryParent
+class TestRacyReentryParent : public PTestRacyReentryParent
 {
-public:
-    TestRacyReentryParent();
-    virtual ~TestRacyReentryParent();
+ public:
+  TestRacyReentryParent();
+  virtual ~TestRacyReentryParent();
 
-    static bool RunTestInProcesses() { return true; }
-    static bool RunTestInThreads() { return true; }
+  static bool RunTestInProcesses() { return true; }
+  static bool RunTestInThreads() { return true; }
 
-    void Main();
+  void Main();
 
-protected:
-    virtual mozilla::ipc::IPCResult AnswerE() override;
+ protected:
+  virtual mozilla::ipc::IPCResult AnswerE() override;
 
-    virtual void ActorDestroy(ActorDestroyReason why) override
-    {
-        if (NormalShutdown != why)
-            fail("unexpected destruction!");
-        passed("ok");
-        QuitParent();
-    }
+  virtual void ActorDestroy(ActorDestroyReason why) override
+  {
+    if (NormalShutdown != why) fail("unexpected destruction!");
+    passed("ok");
+    QuitParent();
+  }
 
-    bool mRecvdE;
+  bool mRecvdE;
 };
 
-
-class TestRacyReentryChild :
-    public PTestRacyReentryChild
+class TestRacyReentryChild : public PTestRacyReentryChild
 {
-public:
-    TestRacyReentryChild();
-    virtual ~TestRacyReentryChild();
+ public:
+  TestRacyReentryChild();
+  virtual ~TestRacyReentryChild();
 
-protected:
-    virtual mozilla::ipc::IPCResult RecvStart() override;
+ protected:
+  virtual mozilla::ipc::IPCResult RecvStart() override;
 
-    virtual mozilla::ipc::IPCResult RecvN() override;
+  virtual mozilla::ipc::IPCResult RecvN() override;
 
-    virtual mozilla::ipc::IPCResult AnswerH() override;
+  virtual mozilla::ipc::IPCResult AnswerH() override;
 
-    virtual void ActorDestroy(ActorDestroyReason why) override
-    {
-        if (NormalShutdown != why)
-            fail("unexpected destruction!");
-        QuitChild();
-    }
+  virtual void ActorDestroy(ActorDestroyReason why) override
+  {
+    if (NormalShutdown != why) fail("unexpected destruction!");
+    QuitChild();
+  }
 };
 
+}  // namespace _ipdltest
+}  // namespace mozilla
 
-} // namespace _ipdltest
-} // namespace mozilla
-
-
-#endif // ifndef mozilla__ipdltest_TestRacyReentry_h
+#endif  // ifndef mozilla__ipdltest_TestRacyReentry_h

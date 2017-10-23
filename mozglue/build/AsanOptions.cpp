@@ -5,7 +5,7 @@
 
 #include "mozilla/Attributes.h"
 
-#ifndef _MSC_VER // Not supported by clang-cl yet
+#ifndef _MSC_VER  // Not supported by clang-cl yet
 
 // When running with AddressSanitizer, we need to explicitly set some
 // options specific to our codebase to prevent errors during runtime.
@@ -40,13 +40,14 @@
 //   is only meant to run on Linux and Mac OSX for now, hardcoding /tmp is an
 //   option that should work for most standard environments.
 //
-extern "C" MOZ_ASAN_BLACKLIST
-const char* __asan_default_options() {
-    return "allow_user_segv_handler=1:alloc_dealloc_mismatch=0:detect_leaks=0"
+extern "C" MOZ_ASAN_BLACKLIST const char*
+__asan_default_options()
+{
+  return "allow_user_segv_handler=1:alloc_dealloc_mismatch=0:detect_leaks=0"
 #ifdef MOZ_ASAN_REPORTER
-           ":log_path=/tmp/ff_asan_log"
+         ":log_path=/tmp/ff_asan_log"
 #endif
-           ":allocator_may_return_null=1";
+         ":allocator_may_return_null=1";
 }
 
 #endif

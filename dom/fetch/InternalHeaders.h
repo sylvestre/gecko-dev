@@ -20,28 +20,29 @@ class ErrorResult;
 
 namespace dom {
 
-template<typename K, typename V> class Record;
+template<typename K, typename V>
+class Record;
 class HeadersEntry;
 
 class InternalHeaders final
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(InternalHeaders)
 
-public:
+ public:
   struct Entry
   {
     Entry(const nsACString& aName, const nsACString& aValue)
-      : mName(aName)
-      , mValue(aValue)
-    { }
+        : mName(aName), mValue(aValue)
+    {
+    }
 
-    Entry() { }
+    Entry() {}
 
     nsCString mName;
     nsCString mValue;
   };
 
-private:
+ private:
   HeadersGuardEnum mGuard;
   nsTArray<Entry> mList;
 
@@ -52,16 +53,14 @@ private:
   // iterated.
   bool mListDirty;
 
-public:
+ public:
   explicit InternalHeaders(HeadersGuardEnum aGuard = HeadersGuardEnum::None)
-    : mGuard(aGuard)
-    , mListDirty(false)
+      : mGuard(aGuard), mListDirty(false)
   {
   }
 
   explicit InternalHeaders(const InternalHeaders& aOther)
-    : mGuard(HeadersGuardEnum::None)
-    , mListDirty(true)
+      : mGuard(HeadersGuardEnum::None), mListDirty(true)
   {
     ErrorResult result;
     Fill(aOther, result);
@@ -77,14 +76,16 @@ public:
   InternalHeaders(const nsTArray<HeadersEntry>& aHeadersEntryList,
                   HeadersGuardEnum aGuard);
 
-  void ToIPC(nsTArray<HeadersEntry>& aIPCHeaders,
-             HeadersGuardEnum& aGuard);
+  void ToIPC(nsTArray<HeadersEntry>& aIPCHeaders, HeadersGuardEnum& aGuard);
 
-  void Append(const nsACString& aName, const nsACString& aValue,
+  void Append(const nsACString& aName,
+              const nsACString& aValue,
               ErrorResult& aRv);
   void Delete(const nsACString& aName, ErrorResult& aRv);
   void Get(const nsACString& aName, nsACString& aValue, ErrorResult& aRv) const;
-  void GetFirst(const nsACString& aName, nsACString& aValue, ErrorResult& aRv) const;
+  void GetFirst(const nsACString& aName,
+                nsACString& aValue,
+                ErrorResult& aRv) const;
   bool Has(const nsACString& aName, ErrorResult& aRv) const;
   void Set(const nsACString& aName, const nsACString& aValue, ErrorResult& aRv);
 
@@ -120,18 +121,17 @@ public:
 
   bool HasRevalidationHeaders() const;
 
-  static already_AddRefed<InternalHeaders>
-  BasicHeaders(InternalHeaders* aHeaders);
+  static already_AddRefed<InternalHeaders> BasicHeaders(
+      InternalHeaders* aHeaders);
 
-  static already_AddRefed<InternalHeaders>
-  CORSHeaders(InternalHeaders* aHeaders);
+  static already_AddRefed<InternalHeaders> CORSHeaders(
+      InternalHeaders* aHeaders);
 
-  void
-  GetEntries(nsTArray<InternalHeaders::Entry>& aEntries) const;
+  void GetEntries(nsTArray<InternalHeaders::Entry>& aEntries) const;
 
-  void
-  GetUnsafeHeaders(nsTArray<nsCString>& aNames) const;
-private:
+  void GetUnsafeHeaders(nsTArray<nsCString>& aNames) const;
+
+ private:
   virtual ~InternalHeaders();
 
   static bool IsInvalidName(const nsACString& aName, ErrorResult& aRv);
@@ -143,8 +143,7 @@ private:
                                       const nsACString& aValue) const;
   bool IsForbiddenResponseHeader(const nsACString& aName) const;
 
-  bool IsInvalidMutableHeader(const nsACString& aName,
-                              ErrorResult& aRv) const
+  bool IsInvalidMutableHeader(const nsACString& aName, ErrorResult& aRv) const
   {
     return IsInvalidMutableHeader(aName, EmptyCString(), aRv);
   }
@@ -153,16 +152,13 @@ private:
                               const nsACString& aValue,
                               ErrorResult& aRv) const
   {
-    return IsInvalidName(aName, aRv) ||
-           IsInvalidValue(aValue, aRv) ||
-           IsImmutable(aRv) ||
-           IsForbiddenRequestHeader(aName) ||
+    return IsInvalidName(aName, aRv) || IsInvalidValue(aValue, aRv) ||
+           IsImmutable(aRv) || IsForbiddenRequestHeader(aName) ||
            IsForbiddenRequestNoCorsHeader(aName, aValue) ||
            IsForbiddenResponseHeader(aName);
   }
 
-  static bool IsSimpleHeader(const nsACString& aName,
-                             const nsACString& aValue);
+  static bool IsSimpleHeader(const nsACString& aName, const nsACString& aValue);
 
   static bool IsRevalidationHeader(const nsACString& aName);
 
@@ -170,7 +166,7 @@ private:
   void SetListDirty();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_InternalHeaders_h
+#endif  // mozilla_dom_InternalHeaders_h

@@ -6,11 +6,11 @@
 #ifndef SplitNodeTransaction_h
 #define SplitNodeTransaction_h
 
-#include "mozilla/EditTransactionBase.h" // for EditTxn, etc.
-#include "nsCOMPtr.h"                   // for nsCOMPtr
+#include "mozilla/EditTransactionBase.h"  // for EditTxn, etc.
+#include "nsCOMPtr.h"                     // for nsCOMPtr
 #include "nsCycleCollectionParticipant.h"
-#include "nsISupportsImpl.h"            // for NS_DECL_ISUPPORTS_INHERITED
-#include "nscore.h"                     // for NS_IMETHOD
+#include "nsISupportsImpl.h"  // for NS_DECL_ISUPPORTS_INHERITED
+#include "nscore.h"           // for NS_IMETHOD
 
 class nsIContent;
 class nsINode;
@@ -25,7 +25,7 @@ class EditorBase;
  */
 class SplitNodeTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * @param aEditorBase The provider of core editing operations
    * @param aNode       The node to split
@@ -33,7 +33,8 @@ public:
    *                    refer to children of aNode, or content of aNode.  The
    *                    left node will have child|content 0..aOffset-1.
    */
-  SplitNodeTransaction(EditorBase& aEditorBase, nsIContent& aNode,
+  SplitNodeTransaction(EditorBase& aEditorBase,
+                       nsIContent& aNode,
                        int32_t aOffset);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -46,7 +47,7 @@ public:
 
   nsIContent* GetNewNode();
 
-protected:
+ protected:
   virtual ~SplitNodeTransaction();
 
   RefPtr<EditorBase> mEditorBase;
@@ -66,6 +67,6 @@ protected:
   nsCOMPtr<nsINode> mParent;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef SplitNodeTransaction_h
+#endif  // #ifndef SplitNodeTransaction_h

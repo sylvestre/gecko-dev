@@ -7,10 +7,10 @@
 #include "mozilla/dom/KeyframeEffect.h"
 
 #include "mozilla/dom/KeyframeAnimationOptionsBinding.h"
-  // For UnrestrictedDoubleOrKeyframeAnimationOptions
+// For UnrestrictedDoubleOrKeyframeAnimationOptions
 #include "mozilla/dom/AnimationEffectTiming.h"
 #include "mozilla/dom/KeyframeEffectBinding.h"
-#include "nsDOMMutationObserver.h" // For nsAutoAnimationMutationBatch
+#include "nsDOMMutationObserver.h"  // For nsAutoAnimationMutationBatch
 
 namespace mozilla {
 namespace dom {
@@ -19,15 +19,16 @@ KeyframeEffect::KeyframeEffect(nsIDocument* aDocument,
                                const Maybe<OwningAnimationTarget>& aTarget,
                                const TimingParams& aTiming,
                                const KeyframeEffectParams& aOptions)
-  : KeyframeEffectReadOnly(aDocument, aTarget,
-                           new AnimationEffectTiming(aDocument, aTiming, this),
-                           aOptions)
+    : KeyframeEffectReadOnly(
+          aDocument,
+          aTarget,
+          new AnimationEffectTiming(aDocument, aTiming, this),
+          aOptions)
 {
 }
 
 JSObject*
-KeyframeEffect::WrapObject(JSContext* aCx,
-                           JS::Handle<JSObject*> aGivenProto)
+KeyframeEffect::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return KeyframeEffectBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -40,8 +41,8 @@ KeyframeEffect::Constructor(
     const UnrestrictedDoubleOrKeyframeEffectOptions& aOptions,
     ErrorResult& aRv)
 {
-  return ConstructKeyframeEffect<KeyframeEffect>(aGlobal, aTarget, aKeyframes,
-                                                 aOptions, aRv);
+  return ConstructKeyframeEffect<KeyframeEffect>(
+      aGlobal, aTarget, aKeyframes, aOptions, aRv);
 }
 
 /* static */ already_AddRefed<KeyframeEffect>
@@ -60,8 +61,8 @@ KeyframeEffect::Constructor(
     const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
     ErrorResult& aRv)
 {
-  return ConstructKeyframeEffect<KeyframeEffect>(aGlobal, aTarget, aKeyframes,
-                                                 aOptions, aRv);
+  return ConstructKeyframeEffect<KeyframeEffect>(
+      aGlobal, aTarget, aKeyframes, aOptions, aRv);
 }
 
 void
@@ -132,8 +133,8 @@ KeyframeEffect::SetTarget(const Nullable<ElementOrCSSPseudoElement>& aTarget)
 
 void
 KeyframeEffect::SetIterationComposite(
-  const IterationCompositeOperation& aIterationComposite,
-  CallerType aCallerType)
+    const IterationCompositeOperation& aIterationComposite,
+    CallerType aCallerType)
 {
   // Ignore iterationComposite if the Web Animations API is not enabled,
   // then the default value 'Replace' will be used.
@@ -174,5 +175,5 @@ KeyframeEffect::SetComposite(const CompositeOperation& aComposite)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

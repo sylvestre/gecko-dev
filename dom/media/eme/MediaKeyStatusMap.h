@@ -26,23 +26,23 @@ class ArrayBufferViewOrArrayBuffer;
 // The MediaKeyStatusMap WebIDL interface; maps a keyId to its status.
 // Note that the underlying "map" is stored in an array, since we assume
 // that a MediaKeySession won't have many key statuses to report.
-class MediaKeyStatusMap final : public nsISupports,
-                                public nsWrapperCache
+class MediaKeyStatusMap final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaKeyStatusMap)
 
-public:
+ public:
   explicit MediaKeyStatusMap(nsPIDOMWindowInner* aParent);
 
-protected:
+ protected:
   ~MediaKeyStatusMap();
 
-public:
+ public:
   nsPIDOMWindowInner* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   void Get(JSContext* aCx,
            const ArrayBufferViewOrArrayBuffer& aKey,
@@ -58,21 +58,21 @@ public:
 
   void Update(const nsTArray<CDMCaps::KeyStatus>& keys);
 
-private:
-
+ private:
   nsCOMPtr<nsPIDOMWindowInner> mParent;
 
-  struct KeyStatus {
-    KeyStatus(const nsTArray<uint8_t>& aKeyId,
-              MediaKeyStatus aStatus)
-      : mKeyId(aKeyId)
-      , mStatus(aStatus)
+  struct KeyStatus
+  {
+    KeyStatus(const nsTArray<uint8_t>& aKeyId, MediaKeyStatus aStatus)
+        : mKeyId(aKeyId), mStatus(aStatus)
     {
     }
-    bool operator== (const KeyStatus& aOther) const {
+    bool operator==(const KeyStatus& aOther) const
+    {
       return aOther.mKeyId == mKeyId;
     }
-    bool operator<(const KeyStatus& aOther) const {
+    bool operator<(const KeyStatus& aOther) const
+    {
       // Copy chromium and compare keys' bytes.
       // Update once https://github.com/w3c/encrypted-media/issues/69
       // is resolved.
@@ -92,7 +92,7 @@ private:
   nsTArray<KeyStatus> mStatuses;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

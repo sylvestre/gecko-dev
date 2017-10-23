@@ -50,24 +50,27 @@ class nsXULTemplateResultSetRDF;
  * matched. When an assertion is removed from the graph, this map is consulted
  * to determine which results will no longer match.
  */
-class MemoryElement {
-protected:
-    MemoryElement() { MOZ_COUNT_CTOR(MemoryElement); }
+class MemoryElement
+{
+ protected:
+  MemoryElement() { MOZ_COUNT_CTOR(MemoryElement); }
 
-public:
-    virtual ~MemoryElement() { MOZ_COUNT_DTOR(MemoryElement); }
+ public:
+  virtual ~MemoryElement() { MOZ_COUNT_DTOR(MemoryElement); }
 
-    virtual const char* Type() const = 0;
-    virtual PLHashNumber Hash() const = 0;
-    virtual bool Equals(const MemoryElement& aElement) const = 0;
+  virtual const char* Type() const = 0;
+  virtual PLHashNumber Hash() const = 0;
+  virtual bool Equals(const MemoryElement& aElement) const = 0;
 
-    bool operator==(const MemoryElement& aMemoryElement) const {
-        return Equals(aMemoryElement);
-    }
+  bool operator==(const MemoryElement& aMemoryElement) const
+  {
+    return Equals(aMemoryElement);
+  }
 
-    bool operator!=(const MemoryElement& aMemoryElement) const {
-        return !Equals(aMemoryElement);
-    }
+  bool operator!=(const MemoryElement& aMemoryElement) const
+  {
+    return !Equals(aMemoryElement);
+  }
 };
 
 //----------------------------------------------------------------------
@@ -75,109 +78,133 @@ public:
 /**
  * A collection of memory elements
  */
-class MemoryElementSet {
-public:
-    class ConstIterator;
-    friend class ConstIterator;
+class MemoryElementSet
+{
+ public:
+  class ConstIterator;
+  friend class ConstIterator;
 
-protected:
-    class List {
-    public:
-        List() { MOZ_COUNT_CTOR(MemoryElementSet::List); }
+ protected:
+  class List
+  {
+   public:
+    List() { MOZ_COUNT_CTOR(MemoryElementSet::List); }
 
-    protected:
-        ~List() {
-            MOZ_COUNT_DTOR(MemoryElementSet::List);
-            delete mElement;
-            NS_IF_RELEASE(mNext); }
+   protected:
+    ~List()
+    {
+      MOZ_COUNT_DTOR(MemoryElementSet::List);
+      delete mElement;
+      NS_IF_RELEASE(mNext);
+    }
 
-    public:
-        int32_t AddRef() { return ++mRefCnt; }
+   public:
+    int32_t AddRef() { return ++mRefCnt; }
 
-        int32_t Release() {
-            int32_t refcnt = --mRefCnt;
-            if (refcnt == 0) delete this;
-            return refcnt; }
+    int32_t Release()
+    {
+      int32_t refcnt = --mRefCnt;
+      if (refcnt == 0) delete this;
+      return refcnt;
+    }
 
-        MemoryElement* mElement;
-        int32_t        mRefCnt;
-        List*          mNext;
-    };
+    MemoryElement* mElement;
+    int32_t mRefCnt;
+    List* mNext;
+  };
 
-    List* mElements;
+  List* mElements;
 
-public:
-    MemoryElementSet() : mElements(nullptr) {
-        MOZ_COUNT_CTOR(MemoryElementSet); }
+ public:
+  MemoryElementSet() : mElements(nullptr) { MOZ_COUNT_CTOR(MemoryElementSet); }
 
-    MemoryElementSet(const MemoryElementSet& aSet) : mElements(aSet.mElements) {
-        MOZ_COUNT_CTOR(MemoryElementSet);
-        NS_IF_ADDREF(mElements); }
+  MemoryElementSet(const MemoryElementSet& aSet) : mElements(aSet.mElements)
+  {
+    MOZ_COUNT_CTOR(MemoryElementSet);
+    NS_IF_ADDREF(mElements);
+  }
 
-    MemoryElementSet& operator=(const MemoryElementSet& aSet) {
-        NS_IF_RELEASE(mElements);
-        mElements = aSet.mElements;
-        NS_IF_ADDREF(mElements);
-        return *this; }
+  MemoryElementSet& operator=(const MemoryElementSet& aSet)
+  {
+    NS_IF_RELEASE(mElements);
+    mElements = aSet.mElements;
+    NS_IF_ADDREF(mElements);
+    return *this;
+  }
 
-    ~MemoryElementSet() {
-        MOZ_COUNT_DTOR(MemoryElementSet);
-        NS_IF_RELEASE(mElements); }
+  ~MemoryElementSet()
+  {
+    MOZ_COUNT_DTOR(MemoryElementSet);
+    NS_IF_RELEASE(mElements);
+  }
 
-public:
-    class ConstIterator {
-    public:
-        explicit ConstIterator(List* aElementList) : mCurrent(aElementList) {
-            NS_IF_ADDREF(mCurrent); }
+ public:
+  class ConstIterator
+  {
+   public:
+    explicit ConstIterator(List* aElementList) : mCurrent(aElementList)
+    {
+      NS_IF_ADDREF(mCurrent);
+    }
 
-        ConstIterator(const ConstIterator& aConstIterator)
-            : mCurrent(aConstIterator.mCurrent) {
-            NS_IF_ADDREF(mCurrent); }
+    ConstIterator(const ConstIterator& aConstIterator)
+        : mCurrent(aConstIterator.mCurrent)
+    {
+      NS_IF_ADDREF(mCurrent);
+    }
 
-        ConstIterator& operator=(const ConstIterator& aConstIterator) {
-            NS_IF_RELEASE(mCurrent);
-            mCurrent = aConstIterator.mCurrent;
-            NS_IF_ADDREF(mCurrent);
-            return *this; }
+    ConstIterator& operator=(const ConstIterator& aConstIterator)
+    {
+      NS_IF_RELEASE(mCurrent);
+      mCurrent = aConstIterator.mCurrent;
+      NS_IF_ADDREF(mCurrent);
+      return *this;
+    }
 
-        ~ConstIterator() { NS_IF_RELEASE(mCurrent); }
+    ~ConstIterator() { NS_IF_RELEASE(mCurrent); }
 
-        ConstIterator& operator++() {
-            List* next = mCurrent->mNext;
-            NS_RELEASE(mCurrent);
-            mCurrent = next;
-            NS_IF_ADDREF(mCurrent);
-            return *this; }
+    ConstIterator& operator++()
+    {
+      List* next = mCurrent->mNext;
+      NS_RELEASE(mCurrent);
+      mCurrent = next;
+      NS_IF_ADDREF(mCurrent);
+      return *this;
+    }
 
-        ConstIterator operator++(int) {
-            ConstIterator result(*this);
-            List* next = mCurrent->mNext;
-            NS_RELEASE(mCurrent);
-            mCurrent = next;
-            NS_IF_ADDREF(mCurrent);
-            return result; }
+    ConstIterator operator++(int)
+    {
+      ConstIterator result(*this);
+      List* next = mCurrent->mNext;
+      NS_RELEASE(mCurrent);
+      mCurrent = next;
+      NS_IF_ADDREF(mCurrent);
+      return result;
+    }
 
-        const MemoryElement& operator*() const {
-            return *mCurrent->mElement; }
+    const MemoryElement& operator*() const { return *mCurrent->mElement; }
 
-        const MemoryElement* operator->() const {
-            return mCurrent->mElement; }
+    const MemoryElement* operator->() const { return mCurrent->mElement; }
 
-        bool operator==(const ConstIterator& aConstIterator) const {
-            return mCurrent == aConstIterator.mCurrent; }
+    bool operator==(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent == aConstIterator.mCurrent;
+    }
 
-        bool operator!=(const ConstIterator& aConstIterator) const {
-            return mCurrent != aConstIterator.mCurrent; }
+    bool operator!=(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent != aConstIterator.mCurrent;
+    }
 
-    protected:
-        List* mCurrent;
-    };
+   protected:
+    List* mCurrent;
+  };
 
-    ConstIterator First() const { return ConstIterator(mElements); }
-    ConstIterator Last() const { return ConstIterator(nullptr); }
+  ConstIterator First() const { return ConstIterator(mElements); }
+  ConstIterator Last() const { return ConstIterator(nullptr); }
 
-    // N.B. that the set assumes ownership of the element
-    nsresult Add(MemoryElement* aElement);
+  // N.B. that the set assumes ownership of the element
+  nsresult Add(MemoryElement* aElement);
 };
 
 //----------------------------------------------------------------------
@@ -185,34 +212,42 @@ public:
 /**
  * An assignment of a value to a variable
  */
-class nsAssignment {
-public:
-    const RefPtr<nsAtom> mVariable;
-    nsCOMPtr<nsIRDFNode> mValue;
+class nsAssignment
+{
+ public:
+  const RefPtr<nsAtom> mVariable;
+  nsCOMPtr<nsIRDFNode> mValue;
 
-    nsAssignment(nsAtom* aVariable, nsIRDFNode* aValue)
-        : mVariable(aVariable),
-          mValue(aValue)
-        { MOZ_COUNT_CTOR(nsAssignment); }
+  nsAssignment(nsAtom* aVariable, nsIRDFNode* aValue)
+      : mVariable(aVariable), mValue(aValue)
+  {
+    MOZ_COUNT_CTOR(nsAssignment);
+  }
 
-    nsAssignment(const nsAssignment& aAssignment)
-        : mVariable(aAssignment.mVariable),
-          mValue(aAssignment.mValue)
-        { MOZ_COUNT_CTOR(nsAssignment); }
+  nsAssignment(const nsAssignment& aAssignment)
+      : mVariable(aAssignment.mVariable), mValue(aAssignment.mValue)
+  {
+    MOZ_COUNT_CTOR(nsAssignment);
+  }
 
-    ~nsAssignment() { MOZ_COUNT_DTOR(nsAssignment); }
+  ~nsAssignment() { MOZ_COUNT_DTOR(nsAssignment); }
 
-    bool operator==(const nsAssignment& aAssignment) const {
-        return mVariable == aAssignment.mVariable && mValue == aAssignment.mValue; }
+  bool operator==(const nsAssignment& aAssignment) const
+  {
+    return mVariable == aAssignment.mVariable && mValue == aAssignment.mValue;
+  }
 
-    bool operator!=(const nsAssignment& aAssignment) const {
-        return mVariable != aAssignment.mVariable || mValue != aAssignment.mValue; }
+  bool operator!=(const nsAssignment& aAssignment) const
+  {
+    return mVariable != aAssignment.mVariable || mValue != aAssignment.mValue;
+  }
 
-    PLHashNumber Hash() const {
-        using mozilla::HashGeneric;
-        return HashGeneric(mVariable.get()) ^ HashGeneric(mValue.get()); }
+  PLHashNumber Hash() const
+  {
+    using mozilla::HashGeneric;
+    return HashGeneric(mVariable.get()) ^ HashGeneric(mValue.get());
+  }
 };
-
 
 //----------------------------------------------------------------------
 
@@ -220,146 +255,171 @@ public:
  * A collection of value-to-variable assignments that minimizes
  * copying by sharing subsets when possible.
  */
-class nsAssignmentSet {
-public:
-    class ConstIterator;
-    friend class ConstIterator;
+class nsAssignmentSet
+{
+ public:
+  class ConstIterator;
+  friend class ConstIterator;
 
-protected:
-    class List {
-    public:
-        explicit List(const nsAssignment& aAssignment) : mAssignment(aAssignment) {
-            MOZ_COUNT_CTOR(nsAssignmentSet::List); }
+ protected:
+  class List
+  {
+   public:
+    explicit List(const nsAssignment& aAssignment) : mAssignment(aAssignment)
+    {
+      MOZ_COUNT_CTOR(nsAssignmentSet::List);
+    }
 
-    protected:
-        ~List() {
-            MOZ_COUNT_DTOR(nsAssignmentSet::List);
-            NS_IF_RELEASE(mNext); }
+   protected:
+    ~List()
+    {
+      MOZ_COUNT_DTOR(nsAssignmentSet::List);
+      NS_IF_RELEASE(mNext);
+    }
 
-    public:
+   public:
+    int32_t AddRef() { return ++mRefCnt; }
 
-        int32_t AddRef() { return ++mRefCnt; }
+    int32_t Release()
+    {
+      int32_t refcnt = --mRefCnt;
+      if (refcnt == 0) delete this;
+      return refcnt;
+    }
 
-        int32_t Release() {
-            int32_t refcnt = --mRefCnt;
-            if (refcnt == 0) delete this;
-            return refcnt; }
+    nsAssignment mAssignment;
+    int32_t mRefCnt;
+    List* mNext;
+  };
 
-        nsAssignment mAssignment;
-        int32_t mRefCnt;
-        List*   mNext;
-    };
+  List* mAssignments;
 
-    List* mAssignments;
+ public:
+  nsAssignmentSet() : mAssignments(nullptr) { MOZ_COUNT_CTOR(nsAssignmentSet); }
 
-public:
-    nsAssignmentSet()
-        : mAssignments(nullptr)
-        { MOZ_COUNT_CTOR(nsAssignmentSet); }
+  nsAssignmentSet(const nsAssignmentSet& aSet) : mAssignments(aSet.mAssignments)
+  {
+    MOZ_COUNT_CTOR(nsAssignmentSet);
+    NS_IF_ADDREF(mAssignments);
+  }
 
-    nsAssignmentSet(const nsAssignmentSet& aSet)
-        : mAssignments(aSet.mAssignments) {
-        MOZ_COUNT_CTOR(nsAssignmentSet);
-        NS_IF_ADDREF(mAssignments); }
+  nsAssignmentSet& operator=(const nsAssignmentSet& aSet)
+  {
+    NS_IF_RELEASE(mAssignments);
+    mAssignments = aSet.mAssignments;
+    NS_IF_ADDREF(mAssignments);
+    return *this;
+  }
 
-    nsAssignmentSet& operator=(const nsAssignmentSet& aSet) {
-        NS_IF_RELEASE(mAssignments);
-        mAssignments = aSet.mAssignments;
-        NS_IF_ADDREF(mAssignments);
-        return *this; }
+  ~nsAssignmentSet()
+  {
+    MOZ_COUNT_DTOR(nsAssignmentSet);
+    NS_IF_RELEASE(mAssignments);
+  }
 
-    ~nsAssignmentSet() {
-        MOZ_COUNT_DTOR(nsAssignmentSet);
-        NS_IF_RELEASE(mAssignments); }
+ public:
+  class ConstIterator
+  {
+   public:
+    explicit ConstIterator(List* aAssignmentList) : mCurrent(aAssignmentList)
+    {
+      NS_IF_ADDREF(mCurrent);
+    }
 
-public:
-    class ConstIterator {
-    public:
-        explicit ConstIterator(List* aAssignmentList) : mCurrent(aAssignmentList) {
-            NS_IF_ADDREF(mCurrent); }
+    ConstIterator(const ConstIterator& aConstIterator)
+        : mCurrent(aConstIterator.mCurrent)
+    {
+      NS_IF_ADDREF(mCurrent);
+    }
 
-        ConstIterator(const ConstIterator& aConstIterator)
-            : mCurrent(aConstIterator.mCurrent) {
-            NS_IF_ADDREF(mCurrent); }
+    ConstIterator& operator=(const ConstIterator& aConstIterator)
+    {
+      NS_IF_RELEASE(mCurrent);
+      mCurrent = aConstIterator.mCurrent;
+      NS_IF_ADDREF(mCurrent);
+      return *this;
+    }
 
-        ConstIterator& operator=(const ConstIterator& aConstIterator) {
-            NS_IF_RELEASE(mCurrent);
-            mCurrent = aConstIterator.mCurrent;
-            NS_IF_ADDREF(mCurrent);
-            return *this; }
+    ~ConstIterator() { NS_IF_RELEASE(mCurrent); }
 
-        ~ConstIterator() { NS_IF_RELEASE(mCurrent); }
+    ConstIterator& operator++()
+    {
+      List* next = mCurrent->mNext;
+      NS_RELEASE(mCurrent);
+      mCurrent = next;
+      NS_IF_ADDREF(mCurrent);
+      return *this;
+    }
 
-        ConstIterator& operator++() {
-            List* next = mCurrent->mNext;
-            NS_RELEASE(mCurrent);
-            mCurrent = next;
-            NS_IF_ADDREF(mCurrent);
-            return *this; }
+    ConstIterator operator++(int)
+    {
+      ConstIterator result(*this);
+      List* next = mCurrent->mNext;
+      NS_RELEASE(mCurrent);
+      mCurrent = next;
+      NS_IF_ADDREF(mCurrent);
+      return result;
+    }
 
-        ConstIterator operator++(int) {
-            ConstIterator result(*this);
-            List* next = mCurrent->mNext;
-            NS_RELEASE(mCurrent);
-            mCurrent = next;
-            NS_IF_ADDREF(mCurrent);
-            return result; }
+    const nsAssignment& operator*() const { return mCurrent->mAssignment; }
 
-        const nsAssignment& operator*() const {
-            return mCurrent->mAssignment; }
+    const nsAssignment* operator->() const { return &mCurrent->mAssignment; }
 
-        const nsAssignment* operator->() const {
-            return &mCurrent->mAssignment; }
+    bool operator==(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent == aConstIterator.mCurrent;
+    }
 
-        bool operator==(const ConstIterator& aConstIterator) const {
-            return mCurrent == aConstIterator.mCurrent; }
+    bool operator!=(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent != aConstIterator.mCurrent;
+    }
 
-        bool operator!=(const ConstIterator& aConstIterator) const {
-            return mCurrent != aConstIterator.mCurrent; }
+   protected:
+    List* mCurrent;
+  };
 
-    protected:
-        List* mCurrent;
-    };
+  ConstIterator First() const { return ConstIterator(mAssignments); }
+  ConstIterator Last() const { return ConstIterator(nullptr); }
 
-    ConstIterator First() const { return ConstIterator(mAssignments); }
-    ConstIterator Last() const { return ConstIterator(nullptr); }
-
-public:
-    /**
+ public:
+  /**
      * Add an assignment to the set
      * @param aElement the assigment to add
      * @return NS_OK if all is well, NS_ERROR_OUT_OF_MEMORY if memory
      *   could not be allocated for the addition.
      */
-    nsresult Add(const nsAssignment& aElement);
+  nsresult Add(const nsAssignment& aElement);
 
-    /**
+  /**
      * Determine if the assignment set contains the specified variable
      * to value assignment.
      * @param aVariable the variable for which to lookup the binding
      * @param aValue the value to query
      * @return true if aVariable is bound to aValue; false otherwise.
      */
-    bool HasAssignment(nsAtom* aVariable, nsIRDFNode* aValue) const;
+  bool HasAssignment(nsAtom* aVariable, nsIRDFNode* aValue) const;
 
-    /**
+  /**
      * Determine if the assignment set contains the specified assignment
      * @param aAssignment the assignment to search for
      * @return true if the set contains the assignment, false otherwise.
      */
-    bool HasAssignment(const nsAssignment& aAssignment) const {
-        return HasAssignment(aAssignment.mVariable, aAssignment.mValue); }
+  bool HasAssignment(const nsAssignment& aAssignment) const
+  {
+    return HasAssignment(aAssignment.mVariable, aAssignment.mValue);
+  }
 
-    /**
+  /**
      * Determine whether the assignment set has an assignment for the
      * specified variable.
      * @param aVariable the variable to query
      * @return true if the assignment set has an assignment for the variable,
      *   false otherwise.
      */
-    bool HasAssignmentFor(nsAtom* aVariable) const;
+  bool HasAssignmentFor(nsAtom* aVariable) const;
 
-    /**
+  /**
      * Retrieve the assignment for the specified variable
      * @param aVariable the variable to query
      * @param aValue an out parameter that will receive the value assigned
@@ -367,25 +427,24 @@ public:
      * @return true if the variable has an assignment, false
      *   if there was no assignment for the variable.
      */
-    bool GetAssignmentFor(nsAtom* aVariable, nsIRDFNode** aValue) const;
+  bool GetAssignmentFor(nsAtom* aVariable, nsIRDFNode** aValue) const;
 
-    /**
+  /**
      * Count the number of assignments in the set
      * @return the number of assignments in the set
      */
-    int32_t Count() const;
+  int32_t Count() const;
 
-    /**
+  /**
      * Determine if the set is empty
      * @return true if the assignment set is empty, false otherwise.
      */
-    bool IsEmpty() const { return mAssignments == nullptr; }
+  bool IsEmpty() const { return mAssignments == nullptr; }
 
-    bool Equals(const nsAssignmentSet& aSet) const;
-    bool operator==(const nsAssignmentSet& aSet) const { return Equals(aSet); }
-    bool operator!=(const nsAssignmentSet& aSet) const { return !Equals(aSet); }
+  bool Equals(const nsAssignmentSet& aSet) const;
+  bool operator==(const nsAssignmentSet& aSet) const { return Equals(aSet); }
+  bool operator!=(const nsAssignmentSet& aSet) const { return !Equals(aSet); }
 };
-
 
 //----------------------------------------------------------------------
 
@@ -405,32 +464,36 @@ public:
  */
 class Instantiation
 {
-public:
-    /**
+ public:
+  /**
      * The variable-to-value bindings
      */
-    nsAssignmentSet  mAssignments;
+  nsAssignmentSet mAssignments;
 
-    /**
+  /**
      * The memory elements that support the bindings.
      */
-    MemoryElementSet mSupport;
+  MemoryElementSet mSupport;
 
-    Instantiation() { MOZ_COUNT_CTOR(Instantiation); }
+  Instantiation() { MOZ_COUNT_CTOR(Instantiation); }
 
-    Instantiation(const Instantiation& aInstantiation)
-        : mAssignments(aInstantiation.mAssignments),
-          mSupport(aInstantiation.mSupport) {
-        MOZ_COUNT_CTOR(Instantiation); }
+  Instantiation(const Instantiation& aInstantiation)
+      : mAssignments(aInstantiation.mAssignments),
+        mSupport(aInstantiation.mSupport)
+  {
+    MOZ_COUNT_CTOR(Instantiation);
+  }
 
-    Instantiation& operator=(const Instantiation& aInstantiation) {
-        mAssignments = aInstantiation.mAssignments;
-        mSupport  = aInstantiation.mSupport;
-        return *this; }
+  Instantiation& operator=(const Instantiation& aInstantiation)
+  {
+    mAssignments = aInstantiation.mAssignments;
+    mSupport = aInstantiation.mSupport;
+    return *this;
+  }
 
-    ~Instantiation() { MOZ_COUNT_DTOR(Instantiation); }
+  ~Instantiation() { MOZ_COUNT_DTOR(Instantiation); }
 
-    /**
+  /**
      * Add the specified variable-to-value assignment to the instantiation's
      * set of assignments.
      * @param aVariable the variable to which is being assigned
@@ -438,11 +501,13 @@ public:
      * @return NS_OK if no errors, NS_ERROR_OUT_OF_MEMORY if there
      *   is not enough memory to perform the operation
      */
-    nsresult AddAssignment(nsAtom* aVariable, nsIRDFNode* aValue) {
-        mAssignments.Add(nsAssignment(aVariable, aValue));
-        return NS_OK; }
+  nsresult AddAssignment(nsAtom* aVariable, nsIRDFNode* aValue)
+  {
+    mAssignments.Add(nsAssignment(aVariable, aValue));
+    return NS_OK;
+  }
 
-    /**
+  /**
      * Add a memory element to the set of memory elements that are
      * supporting the instantiation
      * @param aMemoryElement the memory element to add to the
@@ -450,23 +515,30 @@ public:
      * @return NS_OK if no errors occurred, NS_ERROR_OUT_OF_MEMORY
      *   if there is not enough memory to perform the operation.
      */
-    nsresult AddSupportingElement(MemoryElement* aMemoryElement) {
-        mSupport.Add(aMemoryElement);
-        return NS_OK; }
+  nsresult AddSupportingElement(MemoryElement* aMemoryElement)
+  {
+    mSupport.Add(aMemoryElement);
+    return NS_OK;
+  }
 
-    bool Equals(const Instantiation& aInstantiation) const {
-        return mAssignments == aInstantiation.mAssignments; }
+  bool Equals(const Instantiation& aInstantiation) const
+  {
+    return mAssignments == aInstantiation.mAssignments;
+  }
 
-    bool operator==(const Instantiation& aInstantiation) const {
-        return Equals(aInstantiation); }
+  bool operator==(const Instantiation& aInstantiation) const
+  {
+    return Equals(aInstantiation);
+  }
 
-    bool operator!=(const Instantiation& aInstantiation) const {
-        return !Equals(aInstantiation); }
+  bool operator!=(const Instantiation& aInstantiation) const
+  {
+    return !Equals(aInstantiation);
+  }
 
-    static PLHashNumber Hash(const void* aKey);
-    static int Compare(const void* aLeft, const void* aRight);
+  static PLHashNumber Hash(const void* aKey);
+  static int Compare(const void* aLeft, const void* aRight);
 };
-
 
 //----------------------------------------------------------------------
 
@@ -475,138 +547,175 @@ public:
  */
 class InstantiationSet
 {
-public:
-    InstantiationSet();
-    InstantiationSet(const InstantiationSet& aInstantiationSet);
-    InstantiationSet& operator=(const InstantiationSet& aInstantiationSet);
+ public:
+  InstantiationSet();
+  InstantiationSet(const InstantiationSet& aInstantiationSet);
+  InstantiationSet& operator=(const InstantiationSet& aInstantiationSet);
 
-    ~InstantiationSet() {
-        MOZ_COUNT_DTOR(InstantiationSet);
-        Clear(); }
+  ~InstantiationSet()
+  {
+    MOZ_COUNT_DTOR(InstantiationSet);
+    Clear();
+  }
 
-    class ConstIterator;
-    friend class ConstIterator;
+  class ConstIterator;
+  friend class ConstIterator;
 
-    class Iterator;
-    friend class Iterator;
+  class Iterator;
+  friend class Iterator;
 
-    friend class nsXULTemplateResultSetRDF; // so it can get to the List
+  friend class nsXULTemplateResultSetRDF;  // so it can get to the List
 
-protected:
-    class List {
-    public:
-        Instantiation mInstantiation;
-        List*         mNext;
-        List*         mPrev;
+ protected:
+  class List
+  {
+   public:
+    Instantiation mInstantiation;
+    List* mNext;
+    List* mPrev;
 
-        List() { MOZ_COUNT_CTOR(InstantiationSet::List); }
-        ~List() { MOZ_COUNT_DTOR(InstantiationSet::List); }
-    };
+    List() { MOZ_COUNT_CTOR(InstantiationSet::List); }
+    ~List() { MOZ_COUNT_DTOR(InstantiationSet::List); }
+  };
 
-    List mHead;
+  List mHead;
 
-public:
-    class ConstIterator {
-    protected:
-        friend class Iterator; // XXXwaterson so broken.
-        List* mCurrent;
+ public:
+  class ConstIterator
+  {
+   protected:
+    friend class Iterator;  // XXXwaterson so broken.
+    List* mCurrent;
 
-    public:
-        explicit ConstIterator(List* aList) : mCurrent(aList) {}
+   public:
+    explicit ConstIterator(List* aList) : mCurrent(aList) {}
 
-        ConstIterator(const ConstIterator& aConstIterator)
-            : mCurrent(aConstIterator.mCurrent) {}
+    ConstIterator(const ConstIterator& aConstIterator)
+        : mCurrent(aConstIterator.mCurrent)
+    {
+    }
 
-        ConstIterator& operator=(const ConstIterator& aConstIterator) {
-            mCurrent = aConstIterator.mCurrent;
-            return *this; }
+    ConstIterator& operator=(const ConstIterator& aConstIterator)
+    {
+      mCurrent = aConstIterator.mCurrent;
+      return *this;
+    }
 
-        ConstIterator& operator++() {
-            mCurrent = mCurrent->mNext;
-            return *this; }
+    ConstIterator& operator++()
+    {
+      mCurrent = mCurrent->mNext;
+      return *this;
+    }
 
-        ConstIterator operator++(int) {
-            ConstIterator result(*this);
-            mCurrent = mCurrent->mNext;
-            return result; }
+    ConstIterator operator++(int)
+    {
+      ConstIterator result(*this);
+      mCurrent = mCurrent->mNext;
+      return result;
+    }
 
-        ConstIterator& operator--() {
-            mCurrent = mCurrent->mPrev;
-            return *this; }
+    ConstIterator& operator--()
+    {
+      mCurrent = mCurrent->mPrev;
+      return *this;
+    }
 
-        ConstIterator operator--(int) {
-            ConstIterator result(*this);
-            mCurrent = mCurrent->mPrev;
-            return result; }
+    ConstIterator operator--(int)
+    {
+      ConstIterator result(*this);
+      mCurrent = mCurrent->mPrev;
+      return result;
+    }
 
-        const Instantiation& operator*() const {
-            return mCurrent->mInstantiation; }
+    const Instantiation& operator*() const { return mCurrent->mInstantiation; }
 
-        const Instantiation* operator->() const {
-            return &mCurrent->mInstantiation; }
+    const Instantiation* operator->() const
+    {
+      return &mCurrent->mInstantiation;
+    }
 
-        bool operator==(const ConstIterator& aConstIterator) const {
-            return mCurrent == aConstIterator.mCurrent; }
+    bool operator==(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent == aConstIterator.mCurrent;
+    }
 
-        bool operator!=(const ConstIterator& aConstIterator) const {
-            return mCurrent != aConstIterator.mCurrent; }
-    };
+    bool operator!=(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent != aConstIterator.mCurrent;
+    }
+  };
 
-    ConstIterator First() const { return ConstIterator(mHead.mNext); }
-    ConstIterator Last() const { return ConstIterator(const_cast<List*>(&mHead)); }
+  ConstIterator First() const { return ConstIterator(mHead.mNext); }
+  ConstIterator Last() const
+  {
+    return ConstIterator(const_cast<List*>(&mHead));
+  }
 
-    class Iterator : public ConstIterator {
-    public:
-        explicit Iterator(List* aList) : ConstIterator(aList) {}
+  class Iterator : public ConstIterator
+  {
+   public:
+    explicit Iterator(List* aList) : ConstIterator(aList) {}
 
-        Iterator& operator++() {
-            mCurrent = mCurrent->mNext;
-            return *this; }
+    Iterator& operator++()
+    {
+      mCurrent = mCurrent->mNext;
+      return *this;
+    }
 
-        Iterator operator++(int) {
-            Iterator result(*this);
-            mCurrent = mCurrent->mNext;
-            return result; }
+    Iterator operator++(int)
+    {
+      Iterator result(*this);
+      mCurrent = mCurrent->mNext;
+      return result;
+    }
 
-        Iterator& operator--() {
-            mCurrent = mCurrent->mPrev;
-            return *this; }
+    Iterator& operator--()
+    {
+      mCurrent = mCurrent->mPrev;
+      return *this;
+    }
 
-        Iterator operator--(int) {
-            Iterator result(*this);
-            mCurrent = mCurrent->mPrev;
-            return result; }
+    Iterator operator--(int)
+    {
+      Iterator result(*this);
+      mCurrent = mCurrent->mPrev;
+      return result;
+    }
 
-        Instantiation& operator*() const {
-            return mCurrent->mInstantiation; }
+    Instantiation& operator*() const { return mCurrent->mInstantiation; }
 
-        Instantiation* operator->() const {
-            return &mCurrent->mInstantiation; }
+    Instantiation* operator->() const { return &mCurrent->mInstantiation; }
 
-        bool operator==(const ConstIterator& aConstIterator) const {
-            return mCurrent == aConstIterator.mCurrent; }
+    bool operator==(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent == aConstIterator.mCurrent;
+    }
 
-        bool operator!=(const ConstIterator& aConstIterator) const {
-            return mCurrent != aConstIterator.mCurrent; }
+    bool operator!=(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent != aConstIterator.mCurrent;
+    }
 
-        friend class InstantiationSet;
-    };
+    friend class InstantiationSet;
+  };
 
-    Iterator First() { return Iterator(mHead.mNext); }
-    Iterator Last() { return Iterator(&mHead); }
+  Iterator First() { return Iterator(mHead.mNext); }
+  Iterator Last() { return Iterator(&mHead); }
 
-    bool Empty() const { return First() == Last(); }
+  bool Empty() const { return First() == Last(); }
 
-    Iterator Append(const Instantiation& aInstantiation) {
-        return Insert(Last(), aInstantiation); }
+  Iterator Append(const Instantiation& aInstantiation)
+  {
+    return Insert(Last(), aInstantiation);
+  }
 
-    Iterator Insert(Iterator aBefore, const Instantiation& aInstantiation);
+  Iterator Insert(Iterator aBefore, const Instantiation& aInstantiation);
 
-    Iterator Erase(Iterator aElement);
+  Iterator Erase(Iterator aElement);
 
-    void Clear();
+  void Clear();
 
-    bool HasAssignmentFor(nsAtom* aVariable) const;
+  bool HasAssignmentFor(nsAtom* aVariable) const;
 };
 
 //----------------------------------------------------------------------
@@ -616,11 +725,11 @@ public:
  */
 class ReteNode
 {
-public:
-    ReteNode() {}
-    virtual ~ReteNode() {}
+ public:
+  ReteNode() {}
+  virtual ~ReteNode() {}
 
-    /**
+  /**
      * Propagate a set of instantiations "down" through the
      * network. Each instantiation is a partial set of
      * variable-to-value assignments, along with the memory elements
@@ -646,8 +755,9 @@ public:
      *                             the caller owns it.
      * @return NS_OK if no errors occurred.
      */
-    virtual nsresult Propagate(InstantiationSet& aInstantiations,
-                               bool aIsUpdate, bool& aTakenInstantiations) = 0;
+  virtual nsresult Propagate(InstantiationSet& aInstantiations,
+                             bool aIsUpdate,
+                             bool& aTakenInstantiations) = 0;
 };
 
 //----------------------------------------------------------------------
@@ -657,90 +767,108 @@ public:
  */
 class ReteNodeSet
 {
-public:
-    ReteNodeSet();
-    ~ReteNodeSet();
+ public:
+  ReteNodeSet();
+  ~ReteNodeSet();
 
-    nsresult Add(ReteNode* aNode);
-    nsresult Clear();
+  nsresult Add(ReteNode* aNode);
+  nsresult Clear();
 
-    class Iterator;
+  class Iterator;
 
-    class ConstIterator {
-    public:
-        explicit ConstIterator(ReteNode** aNode) : mCurrent(aNode) {}
+  class ConstIterator
+  {
+   public:
+    explicit ConstIterator(ReteNode** aNode) : mCurrent(aNode) {}
 
-        ConstIterator(const ConstIterator& aConstIterator)
-            : mCurrent(aConstIterator.mCurrent) {}
+    ConstIterator(const ConstIterator& aConstIterator)
+        : mCurrent(aConstIterator.mCurrent)
+    {
+    }
 
-        ConstIterator& operator=(const ConstIterator& aConstIterator) {
-            mCurrent = aConstIterator.mCurrent;
-            return *this; }
+    ConstIterator& operator=(const ConstIterator& aConstIterator)
+    {
+      mCurrent = aConstIterator.mCurrent;
+      return *this;
+    }
 
-        ConstIterator& operator++() {
-            ++mCurrent;
-            return *this; }
+    ConstIterator& operator++()
+    {
+      ++mCurrent;
+      return *this;
+    }
 
-        ConstIterator operator++(int) {
-            ConstIterator result(*this);
-            ++mCurrent;
-            return result; }
+    ConstIterator operator++(int)
+    {
+      ConstIterator result(*this);
+      ++mCurrent;
+      return result;
+    }
 
-        const ReteNode* operator*() const {
-            return *mCurrent; }
+    const ReteNode* operator*() const { return *mCurrent; }
 
-        const ReteNode* operator->() const {
-            return *mCurrent; }
+    const ReteNode* operator->() const { return *mCurrent; }
 
-        bool operator==(const ConstIterator& aConstIterator) const {
-            return mCurrent == aConstIterator.mCurrent; }
+    bool operator==(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent == aConstIterator.mCurrent;
+    }
 
-        bool operator!=(const ConstIterator& aConstIterator) const {
-            return mCurrent != aConstIterator.mCurrent; }
+    bool operator!=(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent != aConstIterator.mCurrent;
+    }
 
-    protected:
-        friend class Iterator; // XXXwaterson this is so wrong!
-        ReteNode** mCurrent;
-    };
+   protected:
+    friend class Iterator;  // XXXwaterson this is so wrong!
+    ReteNode** mCurrent;
+  };
 
-    ConstIterator First() const { return ConstIterator(mNodes); }
-    ConstIterator Last() const { return ConstIterator(mNodes + mCount); }
+  ConstIterator First() const { return ConstIterator(mNodes); }
+  ConstIterator Last() const { return ConstIterator(mNodes + mCount); }
 
-    class Iterator : public ConstIterator {
-    public:
-        explicit Iterator(ReteNode** aNode) : ConstIterator(aNode) {}
+  class Iterator : public ConstIterator
+  {
+   public:
+    explicit Iterator(ReteNode** aNode) : ConstIterator(aNode) {}
 
-        Iterator& operator++() {
-            ++mCurrent;
-            return *this; }
+    Iterator& operator++()
+    {
+      ++mCurrent;
+      return *this;
+    }
 
-        Iterator operator++(int) {
-            Iterator result(*this);
-            ++mCurrent;
-            return result; }
+    Iterator operator++(int)
+    {
+      Iterator result(*this);
+      ++mCurrent;
+      return result;
+    }
 
-        ReteNode* operator*() const {
-            return *mCurrent; }
+    ReteNode* operator*() const { return *mCurrent; }
 
-        ReteNode* operator->() const {
-            return *mCurrent; }
+    ReteNode* operator->() const { return *mCurrent; }
 
-        bool operator==(const ConstIterator& aConstIterator) const {
-            return mCurrent == aConstIterator.mCurrent; }
+    bool operator==(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent == aConstIterator.mCurrent;
+    }
 
-        bool operator!=(const ConstIterator& aConstIterator) const {
-            return mCurrent != aConstIterator.mCurrent; }
-    };
+    bool operator!=(const ConstIterator& aConstIterator) const
+    {
+      return mCurrent != aConstIterator.mCurrent;
+    }
+  };
 
-    Iterator First() { return Iterator(mNodes); }
-    Iterator Last() { return Iterator(mNodes + mCount); }
+  Iterator First() { return Iterator(mNodes); }
+  Iterator Last() { return Iterator(mNodes + mCount); }
 
-    int32_t Count() const { return mCount; }
+  int32_t Count() const { return mCount; }
 
-protected:
-    ReteNode** mNodes;
-    int32_t mCount;
-    int32_t mCapacity;
+ protected:
+  ReteNode** mNodes;
+  int32_t mCount;
+  int32_t mCapacity;
 };
 
 //----------------------------------------------------------------------
@@ -755,16 +883,16 @@ protected:
  */
 class TestNode : public ReteNode
 {
-public:
-    explicit TestNode(TestNode* aParent);
+ public:
+  explicit TestNode(TestNode* aParent);
 
-    /**
+  /**
      * Retrieve the test node's parent
      * @return the test node's parent
      */
-    TestNode* GetParent() const { return mParent; }
+  TestNode* GetParent() const { return mParent; }
 
-    /**
+  /**
      * Calls FilterInstantiations() on the instantiation set, and if
      * the resulting set isn't empty, propagates the new set down to
      * each of the test node's children.
@@ -800,10 +928,11 @@ public:
      * If set to false, the caller is still responsible for aInstantiations.
      * aTakenInstantiations will be set properly even if an error occurs.
      */
-    virtual nsresult Propagate(InstantiationSet& aInstantiations,
-                               bool aIsUpdate, bool& aTakenInstantiations) override;
+  virtual nsresult Propagate(InstantiationSet& aInstantiations,
+                             bool aIsUpdate,
+                             bool& aTakenInstantiations) override;
 
-    /**
+  /**
      * This is called by a child node on its parent to allow the
      * parent's constraints to apply to the set of instantiations.
      *
@@ -821,9 +950,9 @@ public:
      *   be constrained
      * @return NS_OK if no errors occurred
      */
-    virtual nsresult Constrain(InstantiationSet& aInstantiations);
+  virtual nsresult Constrain(InstantiationSet& aInstantiations);
 
-    /**
+  /**
      * Given a set of instantiations, filter out any that are
      * inconsistent with the test node's test, and append
      * variable-to-value assignments and memory element support for
@@ -836,26 +965,26 @@ public:
      *        isn't important to the caller.
      * @return NS_OK if no errors occurred.
      */
-    virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
-                                          bool* aCantHandleYet) const = 0;
-    //XXX probably better named "ApplyConstraints" or "Discrminiate" or something
+  virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
+                                        bool* aCantHandleYet) const = 0;
+  //XXX probably better named "ApplyConstraints" or "Discrminiate" or something
 
-    /**
+  /**
      * Add another node as a child of this node.
      * @param aNode the node to add.
      * @return NS_OK if no errors occur.
      */
-    nsresult AddChild(ReteNode* aNode) { return mKids.Add(aNode); }
+  nsresult AddChild(ReteNode* aNode) { return mKids.Add(aNode); }
 
-    /**
+  /**
      * Remove all the children of this node
      * @return NS_OK if no errors occur.
      */
-    nsresult RemoveAllChildren() { return mKids.Clear(); }
+  nsresult RemoveAllChildren() { return mKids.Clear(); }
 
-protected:
-    TestNode* mParent;
-    ReteNodeSet mKids;
+ protected:
+  TestNode* mParent;
+  ReteNodeSet mKids;
 };
 
-#endif // nsRuleNetwork_h__
+#endif  // nsRuleNetwork_h__

@@ -19,8 +19,8 @@ class nsDisplayRangeFocusRing;
 class nsRangeFrame final : public nsContainerFrame,
                            public nsIAnonymousContentCreator
 {
-  friend nsIFrame*
-  NS_NewRangeFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewRangeFrame(nsIPresShell* aPresShell,
+                                    nsStyleContext* aContext);
 
   friend class nsDisplayRangeFocusRing;
 
@@ -30,27 +30,28 @@ class nsRangeFrame final : public nsContainerFrame,
   typedef mozilla::CSSPseudoElementType CSSPseudoElementType;
   typedef mozilla::dom::Element Element;
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsRangeFrame)
 
   // nsIFrame overrides
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
-  void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                         const nsDisplayListSet& aLists) override;
 
-  virtual void Reflow(nsPresContext*           aPresContext,
-                      ReflowOutput&     aDesiredSize,
+  virtual void Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
 #ifdef DEBUG_FRAME_DUMP
-  virtual nsresult GetFrameName(nsAString& aResult) const override {
+  virtual nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("Range"), aResult);
   }
 #endif
@@ -60,31 +61,32 @@ public:
 #endif
 
   // nsIAnonymousContentCreator
-  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements) override;
+  virtual nsresult CreateAnonymousContent(
+      nsTArray<ContentInfo>& aElements) override;
   virtual void AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
                                         uint32_t aFilter) override;
 
-  virtual nsresult AttributeChanged(int32_t  aNameSpaceID,
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
-                                    int32_t  aModType) override;
+                                    int32_t aModType) override;
 
-  virtual mozilla::LogicalSize
-  ComputeAutoSize(gfxContext*                 aRenderingContext,
-                  mozilla::WritingMode        aWM,
-                  const mozilla::LogicalSize& aCBSize,
-                  nscoord                     aAvailableISize,
-                  const mozilla::LogicalSize& aMargin,
-                  const mozilla::LogicalSize& aBorder,
-                  const mozilla::LogicalSize& aPadding,
-                  ComputeSizeFlags            aFlags) override;
+  virtual mozilla::LogicalSize ComputeAutoSize(
+      gfxContext* aRenderingContext,
+      mozilla::WritingMode aWM,
+      const mozilla::LogicalSize& aCBSize,
+      nscoord aAvailableISize,
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorder,
+      const mozilla::LogicalSize& aPadding,
+      ComputeSizeFlags aFlags) override;
 
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  virtual nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsContainerFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
+    return nsContainerFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
   }
 
   nsStyleContext* GetAdditionalStyleContext(int32_t aIndex) const override;
@@ -100,7 +102,8 @@ public:
   /**
    * Returns true if the slider is oriented along the inline axis.
    */
-  bool IsInlineOriented() const {
+  bool IsInlineOriented() const
+  {
     return IsHorizontal() != GetWritingMode().IsVertical();
   }
 
@@ -108,7 +111,8 @@ public:
    * Returns true if the slider's thumb moves right-to-left for increasing
    * values; only relevant when IsHorizontal() is true.
    */
-  bool IsRightToLeft() const {
+  bool IsRightToLeft() const
+  {
     MOZ_ASSERT(IsHorizontal());
     mozilla::WritingMode wm = GetWritingMode();
     return wm.IsVertical() ? wm.IsVerticalRL() : !wm.IsBidiLTR();
@@ -144,19 +148,17 @@ public:
 
   virtual Element* GetPseudoElement(CSSPseudoElementType aType) override;
 
-private:
-
+ private:
   nsresult MakeAnonymousDiv(Element** aResult,
                             CSSPseudoElementType aPseudoType,
                             nsTArray<ContentInfo>& aElements);
 
   // Helper function which reflows the anonymous div frames.
-  void ReflowAnonymousContent(nsPresContext*           aPresContext,
-                              ReflowOutput&     aDesiredSize,
+  void ReflowAnonymousContent(nsPresContext* aPresContext,
+                              ReflowOutput& aDesiredSize,
                               const ReflowInput& aReflowInput);
 
-  void DoUpdateThumbPosition(nsIFrame* aThumbFrame,
-                             const nsSize& aRangeSize);
+  void DoUpdateThumbPosition(nsIFrame* aThumbFrame, const nsSize& aRangeSize);
 
   void DoUpdateRangeProgressFrame(nsIFrame* aProgressFrame,
                                   const nsSize& aRangeSize);
@@ -188,16 +190,13 @@ private:
 
   class DummyTouchListener final : public nsIDOMEventListener
   {
-  private:
+   private:
     ~DummyTouchListener() {}
 
-  public:
+   public:
     NS_DECL_ISUPPORTS
 
-    NS_IMETHOD HandleEvent(nsIDOMEvent* aEvent) override
-    {
-      return NS_OK;
-    }
+    NS_IMETHOD HandleEvent(nsIDOMEvent* aEvent) override { return NS_OK; }
   };
 
   /**

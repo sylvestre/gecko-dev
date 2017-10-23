@@ -32,23 +32,23 @@
 #define ENSURE_TRUE_VOID(x)   \
   do {                        \
     if (MOZ_UNLIKELY(!(x))) { \
-       return;                \
+      return;                 \
     }                         \
-  } while(0)
+  } while (0)
 
 // NS_ENSURE_TRUE() without the warning on the debug build.
 #define ENSURE_TRUE(x, ret)   \
   do {                        \
     if (MOZ_UNLIKELY(!(x))) { \
-       return ret;            \
+      return ret;             \
     }                         \
-  } while(0)
+  } while (0)
 
 namespace mozilla {
 namespace tasktracer {
 
 #define SOURCE_EVENT_NAME(type) \
-  const char* CreateSourceEvent##type () { return "SourceEvent" #type; }
+  const char* CreateSourceEvent##type() { return "SourceEvent" #type; }
 #include "SourceEventTypeMap.h"
 #undef SOURCE_EVENT_NAME
 
@@ -96,11 +96,10 @@ CreateSourceEvent(SourceEventType aType)
   }
 
   uintptr_t* namePtr;
-#define SOURCE_EVENT_NAME(type)         \
-  case SourceEventType::type:           \
-  {                                     \
+#define SOURCE_EVENT_NAME(type)                     \
+  case SourceEventType::type: {                     \
     namePtr = (uintptr_t*)&CreateSourceEvent##type; \
-    break;                              \
+    break;                                          \
   }
 
   switch (aType) {
@@ -156,7 +155,7 @@ SetLogStarted(bool aIsStartLogging)
   }
 }
 
-} // namespace anonymous
+}  // namespace
 
 TraceInfoLogType*
 TraceInfo::AppendLog()
@@ -203,7 +202,7 @@ ShutdownTaskTracer()
     StaticMutexAutoLock lock(sMutex);
     // Make sure all threads are out of holding mutics.
     // See |GetOrCreateTraceInfo()|
-    for (auto& traceinfo: *sTraceInfos) {
+    for (auto& traceinfo : *sTraceInfos) {
       MutexAutoLock lock(traceinfo->mLogsMutex);
     }
     delete sTraceInfos;
@@ -217,14 +216,14 @@ FreeTraceInfo(TraceInfo* aTraceInfo)
   sMutex.AssertCurrentThreadOwns();
   if (aTraceInfo) {
     UniquePtr<TraceInfo> traceinfo(aTraceInfo);
-    mozilla::DebugOnly<bool> removed =
-      sTraceInfos->RemoveElement(traceinfo);
+    mozilla::DebugOnly<bool> removed = sTraceInfos->RemoveElement(traceinfo);
     MOZ_ASSERT(removed);
-    Unused << traceinfo.release(); // A dirty hack to prevent double free.
+    Unused << traceinfo.release();  // A dirty hack to prevent double free.
   }
 }
 
-void FreeTraceInfo()
+void
+FreeTraceInfo()
 {
   StaticMutexAutoLock lock(sMutex);
   if (sTraceInfos) {
@@ -250,9 +249,9 @@ GetOrCreateTraceInfo()
     sTraceInfoTLS.set(info);
   }
 
-  return TraceInfoHolder{info}; // |mLogsMutex| will be held, then
-                                // ||sMutex| will be released for
-                                // efficiency reason.
+  return TraceInfoHolder{info};  // |mLogsMutex| will be held, then
+                                 // ||sMutex| will be released for
+                                 // efficiency reason.
 }
 
 uint64_t
@@ -277,7 +276,8 @@ AutoSaveCurTraceInfoImpl::~AutoSaveCurTraceInfoImpl()
 }
 
 void
-SetCurTraceInfo(uint64_t aSourceEventId, uint64_t aParentTaskId,
+SetCurTraceInfo(uint64_t aSourceEventId,
+                uint64_t aParentTaskId,
                 SourceEventType aSourceEventType)
 {
   TraceInfoHolder info = GetOrCreateTraceInfo();
@@ -289,7 +289,8 @@ SetCurTraceInfo(uint64_t aSourceEventId, uint64_t aParentTaskId,
 }
 
 void
-GetCurTraceInfo(uint64_t* aOutSourceEventId, uint64_t* aOutParentTaskId,
+GetCurTraceInfo(uint64_t* aOutSourceEventId,
+                uint64_t* aOutParentTaskId,
                 SourceEventType* aOutSourceEventType)
 {
   TraceInfoHolder info = GetOrCreateTraceInfo();
@@ -301,23 +302,28 @@ GetCurTraceInfo(uint64_t* aOutSourceEventId, uint64_t* aOutParentTaskId,
 }
 
 void
-LogDispatch(uint64_t aTaskId, uint64_t aParentTaskId, uint64_t aSourceEventId,
+LogDispatch(uint64_t aTaskId,
+            uint64_t aParentTaskId,
+            uint64_t aSourceEventId,
             SourceEventType aSourceEventType)
 {
   LogDispatch(aTaskId, aParentTaskId, aSourceEventId, aSourceEventType, 0);
 }
 
 void
-LogDispatch(uint64_t aTaskId, uint64_t aParentTaskId, uint64_t aSourceEventId,
-            SourceEventType aSourceEventType, int aDelayTimeMs)
+LogDispatch(uint64_t aTaskId,
+            uint64_t aParentTaskId,
+            uint64_t aSourceEventId,
+            SourceEventType aSourceEventType,
+            int aDelayTimeMs)
 {
   TraceInfoHolder info = GetOrCreateTraceInfo();
   ENSURE_TRUE_VOID(info);
 
   // aDelayTimeMs is the expected delay time in milliseconds, thus the dispatch
   // time calculated of it might be slightly off in the real world.
-  uint64_t time = (aDelayTimeMs <= 0) ? GetTimestamp() :
-                  GetTimestamp() + aDelayTimeMs;
+  uint64_t time =
+      (aDelayTimeMs <= 0) ? GetTimestamp() : GetTimestamp() + aDelayTimeMs;
 
   // Log format:
   // [0 taskId dispatchTime sourceEventId sourceEventType parentTaskId]
@@ -348,8 +354,10 @@ LogBegin(uint64_t aTaskId, uint64_t aSourceEventId)
     log->mBegin.mPid = getpid();
     log->mBegin.mTid = Thread::GetCurrentId();
 
-    MOZ_ASSERT(log->mBegin.mPid >= 0, "native process ID is < 0 (signed integer overflow)");
-    MOZ_ASSERT(log->mBegin.mTid >= 0, "native thread ID is < 0  (signed integer overflow)");
+    MOZ_ASSERT(log->mBegin.mPid >= 0,
+               "native process ID is < 0 (signed integer overflow)");
+    MOZ_ASSERT(log->mBegin.mTid >= 0,
+               "native thread ID is < 0  (signed integer overflow)");
   }
 }
 
@@ -410,7 +418,8 @@ AutoScopedLabel::Init(const char* aFormat, va_list& aArgs)
   AddLabel("Begin %s", mLabel);
 }
 
-void DoAddLabel(const char* aFormat, va_list& aArgs)
+void
+DoAddLabel(const char* aFormat, va_list& aArgs)
 {
   TraceInfoHolder info = GetOrCreateTraceInfo();
   ENSURE_TRUE_VOID(info);
@@ -420,7 +429,7 @@ void DoAddLabel(const char* aFormat, va_list& aArgs)
   TraceInfoLogType* log = info->AppendLog();
   if (log) {
     va_list& args = aArgs;
-    nsCString &buffer = *info->mStrs.AppendElement();
+    nsCString& buffer = *info->mStrs.AppendElement();
     buffer.AppendPrintf(aFormat, args);
 
     log->mLabel.mType = ACTION_ADD_LABEL;
@@ -464,55 +473,55 @@ GetLoggedData(TimeStamp aTimeStamp)
       continue;
     }
 
-    nsTArray<nsCString> &strs = info->mStrs;
+    nsTArray<nsCString>& strs = info->mStrs;
     for (TraceInfoLogNode* node = info->mLogsHead; node; node = node->mNext) {
-      TraceInfoLogType &log = node->mLog;
-      nsCString &buffer = *result->AppendElement();
+      TraceInfoLogType& log = node->mLog;
+      nsCString& buffer = *result->AppendElement();
 
       switch (log.mType) {
-      case ACTION_DISPATCH:
-        buffer.AppendPrintf("%d %llu %llu %llu %d %llu",
-                            ACTION_DISPATCH,
-                            (unsigned long long)log.mDispatch.mTaskId,
-                            (unsigned long long)log.mDispatch.mTime,
-                            (unsigned long long)log.mDispatch.mSourceEventId,
-                            log.mDispatch.mSourceEventType,
-                            (unsigned long long)log.mDispatch.mParentTaskId);
-        break;
+        case ACTION_DISPATCH:
+          buffer.AppendPrintf("%d %llu %llu %llu %d %llu",
+                              ACTION_DISPATCH,
+                              (unsigned long long)log.mDispatch.mTaskId,
+                              (unsigned long long)log.mDispatch.mTime,
+                              (unsigned long long)log.mDispatch.mSourceEventId,
+                              log.mDispatch.mSourceEventType,
+                              (unsigned long long)log.mDispatch.mParentTaskId);
+          break;
 
-      case ACTION_BEGIN:
-        buffer.AppendPrintf("%d %llu %llu %d %d",
-                            ACTION_BEGIN,
-                            (unsigned long long)log.mBegin.mTaskId,
-                            (unsigned long long)log.mBegin.mTime,
-                            log.mBegin.mPid,
-                            log.mBegin.mTid);
-        break;
+        case ACTION_BEGIN:
+          buffer.AppendPrintf("%d %llu %llu %d %d",
+                              ACTION_BEGIN,
+                              (unsigned long long)log.mBegin.mTaskId,
+                              (unsigned long long)log.mBegin.mTime,
+                              log.mBegin.mPid,
+                              log.mBegin.mTid);
+          break;
 
-      case ACTION_END:
-        buffer.AppendPrintf("%d %llu %llu",
-                            ACTION_END,
-                            (unsigned long long)log.mEnd.mTaskId,
-                            (unsigned long long)log.mEnd.mTime);
-        break;
+        case ACTION_END:
+          buffer.AppendPrintf("%d %llu %llu",
+                              ACTION_END,
+                              (unsigned long long)log.mEnd.mTaskId,
+                              (unsigned long long)log.mEnd.mTime);
+          break;
 
-      case ACTION_GET_VTABLE:
-        buffer.AppendPrintf("%d %llu %p",
-                            ACTION_GET_VTABLE,
-                            (unsigned long long)log.mVPtr.mTaskId,
-                            (void*)log.mVPtr.mVPtr);
-        break;
+        case ACTION_GET_VTABLE:
+          buffer.AppendPrintf("%d %llu %p",
+                              ACTION_GET_VTABLE,
+                              (unsigned long long)log.mVPtr.mTaskId,
+                              (void*)log.mVPtr.mVPtr);
+          break;
 
-      case ACTION_ADD_LABEL:
-        buffer.AppendPrintf("%d %llu %llu2 \"%s\"",
-                            ACTION_ADD_LABEL,
-                            (unsigned long long)log.mLabel.mTaskId,
-                            (unsigned long long)log.mLabel.mTime,
-                            strs[log.mLabel.mStrIdx].get());
-        break;
+        case ACTION_ADD_LABEL:
+          buffer.AppendPrintf("%d %llu %llu2 \"%s\"",
+                              ACTION_ADD_LABEL,
+                              (unsigned long long)log.mLabel.mTaskId,
+                              (unsigned long long)log.mLabel.mTime,
+                              strs[log.mLabel.mStrIdx].get());
+          break;
 
-      default:
-        MOZ_CRASH("Unknow TaskTracer log type!");
+        default:
+          MOZ_CRASH("Unknow TaskTracer log type!");
       }
     }
   }
@@ -535,5 +544,5 @@ GetJSLabelPrefix()
 #undef ENSURE_TRUE_VOID
 #undef ENSURE_TRUE
 
-} // namespace tasktracer
-} // namespace mozilla
+}  // namespace tasktracer
+}  // namespace mozilla

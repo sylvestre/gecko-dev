@@ -11,8 +11,13 @@
 
 using namespace mozilla::dom;
 
-#define PICOSERVICE_CID \
-  {0x346c4fc8, 0x12fe, 0x459c, {0x81, 0x19, 0x9a, 0xa7, 0x73, 0x37, 0x7f, 0xf4}}
+#define PICOSERVICE_CID                              \
+  {                                                  \
+    0x346c4fc8, 0x12fe, 0x459c,                      \
+    {                                                \
+      0x81, 0x19, 0x9a, 0xa7, 0x73, 0x37, 0x7f, 0xf4 \
+    }                                                \
+  }
 
 #define PICOSERVICE_CONTRACTID "@mozilla.org/synthpico;1"
 
@@ -24,19 +29,14 @@ NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsPicoService,
 NS_DEFINE_NAMED_CID(PICOSERVICE_CID);
 
 static const mozilla::Module::CIDEntry kCIDs[] = {
-  { &kPICOSERVICE_CID, true, nullptr, nsPicoServiceConstructor },
-  { nullptr }
-};
+    {&kPICOSERVICE_CID, true, nullptr, nsPicoServiceConstructor}, {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kContracts[] = {
-  { PICOSERVICE_CONTRACTID, &kPICOSERVICE_CID },
-  { nullptr }
-};
+    {PICOSERVICE_CONTRACTID, &kPICOSERVICE_CID}, {nullptr}};
 
 static const mozilla::Module::CategoryEntry kCategories[] = {
-  { "profile-after-change", "Pico Speech Synth", PICOSERVICE_CONTRACTID },
-  { nullptr }
-};
+    {"profile-after-change", "Pico Speech Synth", PICOSERVICE_CONTRACTID},
+    {nullptr}};
 
 static void
 UnloadPicoModule()
@@ -44,15 +44,13 @@ UnloadPicoModule()
   nsPicoService::Shutdown();
 }
 
-static const mozilla::Module kModule = {
-  mozilla::Module::kVersion,
-  kCIDs,
-  kContracts,
-  kCategories,
-  nullptr,
-  nullptr,
-  UnloadPicoModule
-};
+static const mozilla::Module kModule = {mozilla::Module::kVersion,
+                                        kCIDs,
+                                        kContracts,
+                                        kCategories,
+                                        nullptr,
+                                        nullptr,
+                                        UnloadPicoModule};
 
 NSMODULE_DEFN(synthpico) = &kModule;
 #endif

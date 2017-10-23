@@ -8,7 +8,7 @@
 #include "PaintedLayerMLGPU.h"
 #include "ImageLayerMLGPU.h"
 #include "CanvasLayerMLGPU.h"
-#include "GeckoProfiler.h"              // for profiler_*
+#include "GeckoProfiler.h"  // for profiler_*
 #include "MLGDevice.h"
 #include "RenderPassMLGPU.h"
 #include "RenderViewMLGPU.h"
@@ -41,11 +41,11 @@ static const int kDebugOverlayMaxWidth = 600;
 static const int kDebugOverlayMaxHeight = 96;
 
 LayerManagerMLGPU::LayerManagerMLGPU(widget::CompositorWidget* aWidget)
- : mWidget(aWidget),
-   mDrawDiagnostics(false),
-   mUsingInvalidation(false),
-   mCurrentFrame(nullptr),
-   mDebugFrameNumber(0)
+    : mWidget(aWidget),
+      mDrawDiagnostics(false),
+      mUsingInvalidation(false),
+      mCurrentFrame(nullptr),
+      mDebugFrameNumber(0)
 {
   if (!aWidget) {
     return;
@@ -220,20 +220,17 @@ LayerManagerMLGPU::BeginTransactionWithDrawTarget(gfx::DrawTarget* aTarget,
 // Helper class for making sure textures are unlocked.
 class MOZ_STACK_CLASS AutoUnlockAllTextures
 {
-public:
-  explicit AutoUnlockAllTextures(MLGDevice* aDevice)
-   : mDevice(aDevice)
-  {}
-  ~AutoUnlockAllTextures() {
-    mDevice->UnlockAllTextures();
-  }
+ public:
+  explicit AutoUnlockAllTextures(MLGDevice* aDevice) : mDevice(aDevice) {}
+  ~AutoUnlockAllTextures() { mDevice->UnlockAllTextures(); }
 
-private:
+ private:
   RefPtr<MLGDevice> mDevice;
 };
 
 void
-LayerManagerMLGPU::EndTransaction(const TimeStamp& aTimeStamp, EndTransactionFlags aFlags)
+LayerManagerMLGPU::EndTransaction(const TimeStamp& aTimeStamp,
+                                  EndTransactionFlags aFlags)
 {
   AUTO_PROFILER_LABEL("LayerManager::EndTransaction", GRAPHICS);
 
@@ -257,8 +254,9 @@ LayerManagerMLGPU::EndTransaction(const TimeStamp& aTimeStamp, EndTransactionFla
     // Note: all references to the backbuffer must be cleared.
     mDevice->SetRenderTarget(nullptr);
     if (!mSwapChain->ResizeBuffers(windowSize)) {
-      gfxCriticalNote << "Could not resize the swapchain (" <<
-        hexa(windowSize.width) << "," << hexa(windowSize.height) << ")";
+      gfxCriticalNote << "Could not resize the swapchain ("
+                      << hexa(windowSize.width) << ","
+                      << hexa(windowSize.height) << ")";
       return;
     }
   }
@@ -300,16 +298,18 @@ LayerManagerMLGPU::Composite()
   // earlier, so we don't accidentally cause extra composites.
   Maybe<IntRect> diagnosticRect;
   if (mDrawDiagnostics) {
-    diagnosticRect = Some(IntRect(
-      kDebugOverlayX, kDebugOverlayY,
-      kDebugOverlayMaxWidth, kDebugOverlayMaxHeight));
+    diagnosticRect = Some(IntRect(kDebugOverlayX,
+                                  kDebugOverlayY,
+                                  kDebugOverlayMaxWidth,
+                                  kDebugOverlayMaxHeight));
   }
 
   AL_LOG("Computed invalid region: %s\n", Stringify(mInvalidRegion).c_str());
 
   // Now that we have the final invalid region, give it to the swap chain which
   // will tell us if we still need to render.
-  if (!mSwapChain->ApplyNewInvalidRegion(Move(mInvalidRegion), diagnosticRect)) {
+  if (!mSwapChain->ApplyNewInvalidRegion(Move(mInvalidRegion),
+                                         diagnosticRect)) {
     return;
   }
 
@@ -366,7 +366,8 @@ LayerManagerMLGPU::RenderLayers()
   }
 
   if (mDrawDiagnostics) {
-    mDiagnostics->RecordPrepareTime((TimeStamp::Now() - mCompositionStartTime).ToMilliseconds());
+    mDiagnostics->RecordPrepareTime(
+        (TimeStamp::Now() - mCompositionStartTime).ToMilliseconds());
   }
 
   // Make sure we acquire/release the sync object.
@@ -392,7 +393,8 @@ LayerManagerMLGPU::RenderLayers()
   mCurrentFrame = nullptr;
 
   if (mDrawDiagnostics) {
-    mDiagnostics->RecordCompositeTime((TimeStamp::Now() - start).ToMilliseconds());
+    mDiagnostics->RecordCompositeTime(
+        (TimeStamp::Now() - start).ToMilliseconds());
     mDevice->EndDiagnostics();
   }
 }
@@ -407,31 +409,33 @@ LayerManagerMLGPU::DrawDebugOverlay()
   stats.mScreenPixels = windowSize.width * windowSize.height;
 
   std::string text = mDiagnostics->GetFrameOverlayString(stats);
-  RefPtr<TextureSource> texture = mTextRenderer->RenderText(
-    mTextureSourceProvider,
-    text,
-    30,
-    600,
-    TextRenderer::FontType::FixedWidth);
+  RefPtr<TextureSource> texture =
+      mTextRenderer->RenderText(mTextureSourceProvider,
+                                text,
+                                30,
+                                600,
+                                TextRenderer::FontType::FixedWidth);
   if (!texture) {
     return;
   }
 
   if (mUsingInvalidation &&
       (texture->GetSize().width > kDebugOverlayMaxWidth ||
-       texture->GetSize().height > kDebugOverlayMaxHeight))
-  {
-    gfxCriticalNote << "Diagnostic overlay exceeds invalidation area: %s" << Stringify(texture->GetSize()).c_str();
+       texture->GetSize().height > kDebugOverlayMaxHeight)) {
+    gfxCriticalNote << "Diagnostic overlay exceeds invalidation area: %s"
+                    << Stringify(texture->GetSize()).c_str();
   }
 
-  struct DebugRect {
+  struct DebugRect
+  {
     Rect bounds;
     Rect texCoords;
   };
 
   if (!mDiagnosticVertices) {
     DebugRect rect;
-    rect.bounds = Rect(Point(kDebugOverlayX, kDebugOverlayY), Size(texture->GetSize()));
+    rect.bounds =
+        Rect(Point(kDebugOverlayX, kDebugOverlayY), Size(texture->GetSize()));
     rect.texCoords = Rect(0.0, 0.0, 1.0, 1.0);
 
     VertexStagingBuffer instances;
@@ -439,11 +443,11 @@ LayerManagerMLGPU::DrawDebugOverlay()
       return;
     }
 
-    mDiagnosticVertices = mDevice->CreateBuffer(
-      MLGBufferType::Vertex,
-      instances.NumItems() * instances.SizeOfItem(),
-      MLGUsage::Immutable,
-      instances.GetBufferStart());
+    mDiagnosticVertices =
+        mDevice->CreateBuffer(MLGBufferType::Vertex,
+                              instances.NumItems() * instances.SizeOfItem(),
+                              MLGUsage::Immutable,
+                              instances.GetBufferStart());
     if (!mDiagnosticVertices) {
       return;
     }
@@ -476,7 +480,8 @@ LayerManagerMLGPU::ComputeInvalidRegion()
 
   nsIntRegion changed;
   if (mClonedLayerTreeProperties) {
-    if (!mClonedLayerTreeProperties->ComputeDifferences(mRoot, changed, nullptr)) {
+    if (!mClonedLayerTreeProperties->ComputeDifferences(
+            mRoot, changed, nullptr)) {
       changed = mRenderBounds;
     }
   } else {
@@ -583,5 +588,5 @@ LayerManagerMLGPU::PostRender()
   mWidgetContext = Nothing();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

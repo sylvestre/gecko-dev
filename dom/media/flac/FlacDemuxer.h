@@ -15,25 +15,24 @@ namespace mozilla {
 namespace flac {
 class Frame;
 class FrameParser;
-}
+}  // namespace flac
 class FlacTrackDemuxer;
-
 
 class FlacDemuxer : public MediaDataDemuxer
 {
-public:
+ public:
   // MediaDataDemuxer interface.
   explicit FlacDemuxer(MediaResource* aSource);
   RefPtr<InitPromise> Init() override;
   uint32_t GetNumberTracks(TrackInfo::TrackType aType) const override;
   already_AddRefed<MediaTrackDemuxer> GetTrackDemuxer(
-    TrackInfo::TrackType aType, uint32_t aTrackNumber) override;
+      TrackInfo::TrackType aType, uint32_t aTrackNumber) override;
   bool IsSeekable() const override;
 
   // Return true if a valid flac frame header could be found.
   static bool FlacSniffer(const uint8_t* aData, const uint32_t aLength);
 
-private:
+ private:
   bool InitInternal();
 
   RefPtr<MediaResource> mSource;
@@ -42,7 +41,7 @@ private:
 
 class FlacTrackDemuxer : public MediaTrackDemuxer
 {
-public:
+ public:
   explicit FlacTrackDemuxer(MediaResource* aSource);
 
   // Initializes the track demuxer by reading the first frame for meta data.
@@ -57,11 +56,11 @@ public:
   int64_t GetResourceOffset() const override;
   media::TimeIntervals GetBuffered() override;
   RefPtr<SkipAccessPointPromise> SkipToNextRandomAccessPoint(
-    const media::TimeUnit& aTimeThreshold) override;
+      const media::TimeUnit& aTimeThreshold) override;
 
   bool IsSeekable() const;
 
-private:
+ private:
   // Destructor.
   ~FlacTrackDemuxer();
 
@@ -105,6 +104,6 @@ private:
   UniquePtr<AudioInfo> mInfo;
 };
 
-} // mozilla
+}  // namespace mozilla
 
-#endif // !FLAC_DEMUXER_H_
+#endif  // !FLAC_DEMUXER_H_

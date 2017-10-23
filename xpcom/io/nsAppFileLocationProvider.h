@@ -19,19 +19,17 @@ class nsIFile;
 
 class nsAppFileLocationProvider final : public nsIDirectoryServiceProvider2
 {
-public:
+ public:
   nsAppFileLocationProvider();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIDIRECTORYSERVICEPROVIDER
   NS_DECL_NSIDIRECTORYSERVICEPROVIDER2
 
-private:
-  ~nsAppFileLocationProvider()
-  {
-  }
+ private:
+  ~nsAppFileLocationProvider() {}
 
-protected:
+ protected:
   nsresult CloneMozBinDirectory(nsIFile** aLocalFile);
   /**
   * Get the product directory. This is a user-specific directory for storing
@@ -40,10 +38,8 @@ protected:
   * @param aLocal If true, should try to get a directory that is only stored
   *               locally (ie not transferred with roaming profiles)
   */
-  nsresult GetProductDirectory(nsIFile** aLocalFile,
-                               bool aLocal = false);
-  nsresult GetDefaultUserProfileRoot(nsIFile** aLocalFile,
-                                     bool aLocal = false);
+  nsresult GetProductDirectory(nsIFile** aLocalFile, bool aLocal = false);
+  nsresult GetDefaultUserProfileRoot(nsIFile** aLocalFile, bool aLocal = false);
 
   nsCOMPtr<nsIFile> mMozBinDirectory;
 };

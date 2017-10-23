@@ -17,12 +17,10 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Font)
 namespace mozilla {
 namespace dom {
 
-HTMLFontElement::~HTMLFontElement()
-{
-}
+HTMLFontElement::~HTMLFontElement() {}
 
 JSObject*
-HTMLFontElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLFontElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLFontElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -49,8 +47,8 @@ HTMLFontElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
@@ -70,7 +68,8 @@ HTMLFontElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
     if (!aData->PropertyIsSet(eCSSProperty_font_size)) {
       const nsAttrValue* value = aAttributes->GetAttr(nsGkAtoms::size);
       if (value && value->Type() == nsAttrValue::eInteger)
-        aData->SetKeywordValue(eCSSProperty_font_size, value->GetIntegerValue());
+        aData->SetKeywordValue(eCSSProperty_font_size,
+                               value->GetIntegerValue());
     }
   }
   if (aData->ShouldComputeStyleStruct(NS_STYLE_INHERIT_BIT(Color))) {
@@ -103,20 +102,15 @@ NS_IMETHODIMP_(bool)
 HTMLFontElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::face },
-    { &nsGkAtoms::size },
-    { &nsGkAtoms::color },
-    { nullptr }
-  };
+      {&nsGkAtoms::face}, {&nsGkAtoms::size}, {&nsGkAtoms::color}, {nullptr}};
 
   static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sCommonAttributeMap,
+      attributes,
+      sCommonAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
 }
-
 
 nsMapRuleToAttributesFunc
 HTMLFontElement::GetAttributeMappingFunction() const
@@ -124,5 +118,5 @@ HTMLFontElement::GetAttributeMappingFunction() const
   return &MapAttributesIntoRule;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -11,24 +11,24 @@
 #include "OmxDataDecoder.h"
 #include "OmxPlatformLayer.h"
 
-
 #ifdef LOG
 #undef LOG
 #endif
 
-#define LOG(arg, ...) MOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, ("OmxPromiseLayer(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define LOG(arg, ...)               \
+  MOZ_LOG(sPDMLog,                  \
+          mozilla::LogLevel::Debug, \
+          ("OmxPromiseLayer(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 namespace mozilla {
 
 OmxPromiseLayer::OmxPromiseLayer(TaskQueue* aTaskQueue,
                                  OmxDataDecoder* aDataDecoder,
                                  layers::ImageContainer* aImageContainer)
-  : mTaskQueue(aTaskQueue)
+    : mTaskQueue(aTaskQueue)
 {
-  mPlatformLayer = OmxPlatformLayer::Create(aDataDecoder,
-                                            this,
-                                            aTaskQueue,
-                                            aImageContainer);
+  mPlatformLayer =
+      OmxPlatformLayer::Create(aDataDecoder, this, aTaskQueue, aImageContainer);
   MOZ_ASSERT(!!mPlatformLayer);
 }
 
@@ -44,9 +44,10 @@ OmxPromiseLayer::Init(const TrackInfo* aInfo)
   }
 
   OMX_STATETYPE state = GetState();
-  if (state ==  OMX_StateLoaded) {
+  if (state == OMX_StateLoaded) {
     return OmxCommandPromise::CreateAndResolve(OMX_CommandStateSet, __func__);
-  } if (state == OMX_StateIdle) {
+  }
+  if (state == OMX_StateIdle) {
     return SendCommand(OMX_CommandStateSet, OMX_StateIdle, nullptr);
   }
 
@@ -186,14 +187,17 @@ OmxPromiseLayer::EmptyFillBufferDone(OMX_DIRTYPE aType, BufferData* aData)
 }
 
 void
-OmxPromiseLayer::EmptyFillBufferDone(OMX_DIRTYPE aType, BufferData::BufferID aID)
+OmxPromiseLayer::EmptyFillBufferDone(OMX_DIRTYPE aType,
+                                     BufferData::BufferID aID)
 {
   RefPtr<BufferData> holder = FindAndRemoveBufferHolder(aType, aID);
   EmptyFillBufferDone(aType, holder);
 }
 
 RefPtr<OmxPromiseLayer::OmxCommandPromise>
-OmxPromiseLayer::SendCommand(OMX_COMMANDTYPE aCmd, OMX_U32 aParam1, OMX_PTR aCmdData)
+OmxPromiseLayer::SendCommand(OMX_COMMANDTYPE aCmd,
+                             OMX_U32 aParam1,
+                             OMX_PTR aCmdData)
 {
   if (aCmd == OMX_CommandFlush) {
     // It doesn't support another flush commands before previous one is completed.
@@ -203,8 +207,9 @@ OmxPromiseLayer::SendCommand(OMX_COMMANDTYPE aCmd, OMX_U32 aParam1, OMX_PTR aCmd
     // event with input port and another event for output port.
     // In prupose of better compatibility, we interpret the OMX_ALL to OMX_DirInput
     // and OMX_DirOutput flush separately.
-    OMX_DIRTYPE types[] = {OMX_DIRTYPE::OMX_DirInput, OMX_DIRTYPE::OMX_DirOutput};
-    for(const auto type : types) {
+    OMX_DIRTYPE types[] = {OMX_DIRTYPE::OMX_DirInput,
+                           OMX_DIRTYPE::OMX_DirOutput};
+    for (const auto type : types) {
       if ((aParam1 == type) || (aParam1 == OMX_ALL)) {
         mFlushCommands.AppendElement(FlushCommand({type, aCmdData}));
       }
@@ -219,9 +224,9 @@ OmxPromiseLayer::SendCommand(OMX_COMMANDTYPE aCmd, OMX_U32 aParam1, OMX_PTR aCmd
     // So here we send another flush after receiving the previous flush completed event.
     if (mFlushCommands.Length()) {
       OMX_ERRORTYPE err =
-        mPlatformLayer->SendCommand(OMX_CommandFlush,
-                                    mFlushCommands.ElementAt(0).type,
-                                    mFlushCommands.ElementAt(0).cmd);
+          mPlatformLayer->SendCommand(OMX_CommandFlush,
+                                      mFlushCommands.ElementAt(0).type,
+                                      mFlushCommands.ElementAt(0).cmd);
       if (err != OMX_ErrorNone) {
         OmxCommandFailureHolder failure(OMX_ErrorNotReady, OMX_CommandFlush);
         return OmxCommandPromise::CreateAndReject(failure, __func__);
@@ -259,10 +264,9 @@ OmxPromiseLayer::SendCommand(OMX_COMMANDTYPE aCmd, OMX_U32 aParam1, OMX_PTR aCmd
 bool
 OmxPromiseLayer::Event(OMX_EVENTTYPE aEvent, OMX_U32 aData1, OMX_U32 aData2)
 {
-  OMX_COMMANDTYPE cmd = (OMX_COMMANDTYPE) aData1;
+  OMX_COMMANDTYPE cmd = (OMX_COMMANDTYPE)aData1;
   switch (aEvent) {
-    case OMX_EventCmdComplete:
-    {
+    case OMX_EventCmdComplete: {
       if (cmd == OMX_CommandStateSet) {
         mCommandStatePromise.Resolve(OMX_CommandStateSet, __func__);
       } else if (cmd == OMX_CommandFlush) {
@@ -273,11 +277,12 @@ OmxPromiseLayer::Event(OMX_EVENTTYPE aEvent, OMX_U32 aData1, OMX_U32 aData2)
         // Sending next flush command.
         if (mFlushCommands.Length()) {
           OMX_ERRORTYPE err =
-            mPlatformLayer->SendCommand(OMX_CommandFlush,
-                                        mFlushCommands.ElementAt(0).type,
-                                        mFlushCommands.ElementAt(0).cmd);
+              mPlatformLayer->SendCommand(OMX_CommandFlush,
+                                          mFlushCommands.ElementAt(0).type,
+                                          mFlushCommands.ElementAt(0).cmd);
           if (err != OMX_ErrorNone) {
-            OmxCommandFailureHolder failure(OMX_ErrorNotReady, OMX_CommandFlush);
+            OmxCommandFailureHolder failure(OMX_ErrorNotReady,
+                                            OMX_CommandFlush);
             mFlushPromise.Reject(failure, __func__);
           }
         } else {
@@ -290,27 +295,28 @@ OmxPromiseLayer::Event(OMX_EVENTTYPE aEvent, OMX_U32 aData1, OMX_U32 aData2)
       }
       break;
     }
-    case OMX_EventError:
-    {
+    case OMX_EventError: {
       if (cmd == OMX_CommandStateSet) {
-        OmxCommandFailureHolder failure(OMX_ErrorUndefined, OMX_CommandStateSet);
+        OmxCommandFailureHolder failure(OMX_ErrorUndefined,
+                                        OMX_CommandStateSet);
         mCommandStatePromise.Reject(failure, __func__);
       } else if (cmd == OMX_CommandFlush) {
         OmxCommandFailureHolder failure(OMX_ErrorUndefined, OMX_CommandFlush);
         mFlushPromise.Reject(failure, __func__);
       } else if (cmd == OMX_CommandPortDisable) {
-        OmxCommandFailureHolder failure(OMX_ErrorUndefined, OMX_CommandPortDisable);
+        OmxCommandFailureHolder failure(OMX_ErrorUndefined,
+                                        OMX_CommandPortDisable);
         mPortDisablePromise.Reject(failure, __func__);
       } else if (cmd == OMX_CommandPortEnable) {
-        OmxCommandFailureHolder failure(OMX_ErrorUndefined, OMX_CommandPortEnable);
+        OmxCommandFailureHolder failure(OMX_ErrorUndefined,
+                                        OMX_CommandPortEnable);
         mPortEnablePromise.Reject(failure, __func__);
       } else {
         return false;
       }
       break;
     }
-    default:
-    {
+    default: {
       return false;
     }
   }
@@ -342,9 +348,8 @@ OmxPromiseLayer::GetParameter(OMX_INDEXTYPE aParamIndex,
                               OMX_PTR aComponentParameterStructure,
                               OMX_U32 aComponentParameterSize)
 {
-  return mPlatformLayer->GetParameter(aParamIndex,
-                                      aComponentParameterStructure,
-                                      aComponentParameterSize);
+  return mPlatformLayer->GetParameter(
+      aParamIndex, aComponentParameterStructure, aComponentParameterSize);
 }
 
 OMX_ERRORTYPE
@@ -352,22 +357,15 @@ OmxPromiseLayer::SetParameter(OMX_INDEXTYPE aParamIndex,
                               OMX_PTR aComponentParameterStructure,
                               OMX_U32 aComponentParameterSize)
 {
-  return mPlatformLayer->SetParameter(aParamIndex,
-                                      aComponentParameterStructure,
-                                      aComponentParameterSize);
+  return mPlatformLayer->SetParameter(
+      aParamIndex, aComponentParameterStructure, aComponentParameterSize);
 }
 
 OMX_U32
-OmxPromiseLayer::InputPortIndex()
-{
-  return mPlatformLayer->InputPortIndex();
-}
+OmxPromiseLayer::InputPortIndex() { return mPlatformLayer->InputPortIndex(); }
 
 OMX_U32
-OmxPromiseLayer::OutputPortIndex()
-{
-  return mPlatformLayer->OutputPortIndex();
-}
+OmxPromiseLayer::OutputPortIndex() { return mPlatformLayer->OutputPortIndex(); }
 
 nsresult
 OmxPromiseLayer::Shutdown()
@@ -379,4 +377,4 @@ OmxPromiseLayer::Shutdown()
   return mPlatformLayer->Shutdown();
 }
 
-}
+}  // namespace mozilla

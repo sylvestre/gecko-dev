@@ -7,25 +7,36 @@
 #include <windows.h>
 #include <dbghelp.h>
 
-const DWORD CV_SIGNATURE_RSDS = 0x53445352; // 'SDSR'
+const DWORD CV_SIGNATURE_RSDS = 0x53445352;  // 'SDSR'
 
-struct CV_INFO_PDB70 {
-  DWORD      CvSignature;
-  GUID       Signature;
-  DWORD      Age;
-  BYTE       PdbFileName[1];
+struct CV_INFO_PDB70
+{
+  DWORD CvSignature;
+  GUID Signature;
+  DWORD Age;
+  BYTE PdbFileName[1];
 };
 
-void print_guid(const GUID& guid, DWORD age)
+void
+print_guid(const GUID& guid, DWORD age)
 {
   printf("%08X%04X%04X%02X%02X%02X%02X%02X%02X%02X%02X%X",
-         guid.Data1, guid.Data2, guid.Data3,
-         guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3],
-         guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7],
+         guid.Data1,
+         guid.Data2,
+         guid.Data3,
+         guid.Data4[0],
+         guid.Data4[1],
+         guid.Data4[2],
+         guid.Data4[3],
+         guid.Data4[4],
+         guid.Data4[5],
+         guid.Data4[6],
+         guid.Data4[7],
          age);
 }
 
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
   if (argc != 2) {
     fprintf(stderr, "usage: fileid <file>\n");
@@ -51,11 +62,8 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  uint8_t* base = reinterpret_cast<uint8_t*>(MapViewOfFile(mapFile,
-                                                           FILE_MAP_READ,
-                                                           0,
-                                                           0,
-                                                           0));
+  uint8_t* base = reinterpret_cast<uint8_t*>(
+      MapViewOfFile(mapFile, FILE_MAP_READ, 0, 0, 0));
   if (base == nullptr) {
     fprintf(stderr, "Couldn't map file\n");
     CloseHandle(mapFile);
@@ -65,17 +73,13 @@ int main(int argc, char** argv)
 
   DWORD size;
   PIMAGE_DEBUG_DIRECTORY debug_dir =
-    reinterpret_cast<PIMAGE_DEBUG_DIRECTORY>(
-      ImageDirectoryEntryToDataEx(base,
-                                  FALSE,
-                                  IMAGE_DIRECTORY_ENTRY_DEBUG,
-                                  &size,
-                                  nullptr));
+      reinterpret_cast<PIMAGE_DEBUG_DIRECTORY>(ImageDirectoryEntryToDataEx(
+          base, FALSE, IMAGE_DIRECTORY_ENTRY_DEBUG, &size, nullptr));
 
   bool found = false;
   if (debug_dir->Type == IMAGE_DEBUG_TYPE_CODEVIEW) {
     CV_INFO_PDB70* cv =
-      reinterpret_cast<CV_INFO_PDB70*>(base + debug_dir->PointerToRawData);
+        reinterpret_cast<CV_INFO_PDB70*>(base + debug_dir->PointerToRawData);
     if (cv->CvSignature == CV_SIGNATURE_RSDS) {
       found = true;
       print_guid(cv->Signature, cv->Age);

@@ -24,9 +24,9 @@ using namespace mozilla::a11y;
 // OuterDocAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-OuterDocAccessible::
-  OuterDocAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+OuterDocAccessible::OuterDocAccessible(nsIContent* aContent,
+                                       DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
   mType = eOuterDocType;
 
@@ -41,20 +41,16 @@ OuterDocAccessible::
   nsIDocument* outerDoc = mContent->GetUncomposedDoc();
   if (outerDoc) {
     nsIDocument* innerDoc = outerDoc->GetSubDocumentFor(mContent);
-    if (innerDoc)
-      GetAccService()->GetDocAccessible(innerDoc);
+    if (innerDoc) GetAccService()->GetDocAccessible(innerDoc);
   }
 }
 
-OuterDocAccessible::~OuterDocAccessible()
-{
-}
+OuterDocAccessible::~OuterDocAccessible() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // nsISupports
 
-NS_IMPL_ISUPPORTS_INHERITED0(OuterDocAccessible,
-                             Accessible)
+NS_IMPL_ISUPPORTS_INHERITED0(OuterDocAccessible, Accessible)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Accessible public (DON'T add methods here)
@@ -66,12 +62,13 @@ OuterDocAccessible::NativeRole()
 }
 
 Accessible*
-OuterDocAccessible::ChildAtPoint(int32_t aX, int32_t aY,
+OuterDocAccessible::ChildAtPoint(int32_t aX,
+                                 int32_t aY,
                                  EWhichChildAtPoint aWhichChild)
 {
   nsIntRect docRect = Bounds();
-  if (aX < docRect.x || aX >= docRect.x + docRect.width ||
-      aY < docRect.y || aY >= docRect.y + docRect.height)
+  if (aX < docRect.x || aX >= docRect.x + docRect.width || aY < docRect.y ||
+      aY >= docRect.y + docRect.height)
     return nullptr;
 
   // Always return the inner doc as direct child accessible unless bounds
@@ -91,8 +88,7 @@ void
 OuterDocAccessible::Shutdown()
 {
 #ifdef A11Y_LOG
-  if (logging::IsEnabled(logging::eDocDestroy))
-    logging::OuterDocDestroy(this);
+  if (logging::IsEnabled(logging::eDocDestroy)) logging::OuterDocDestroy(this);
 #endif
 
   Accessible* child = mChildren.SafeElementAt(0, nullptr);
@@ -129,11 +125,9 @@ OuterDocAccessible::InsertChildAt(uint32_t aIdx, Accessible* aAccessible)
   // to avoid weird flashes of default background color.
   // The old viewer will be destroyed after the new one is created.
   // For a11y, it should be safe to shut down the old document now.
-  if (mChildren.Length())
-    mChildren[0]->Shutdown();
+  if (mChildren.Length()) mChildren[0]->Shutdown();
 
-  if (!AccessibleWrap::InsertChildAt(0, aAccessible))
-    return false;
+  if (!AccessibleWrap::InsertChildAt(0, aAccessible)) return false;
 
 #ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocCreate)) {
@@ -158,7 +152,8 @@ OuterDocAccessible::RemoveChild(Accessible* aAccessible)
 #ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eDocDestroy)) {
     logging::DocDestroy("remove document from outerdoc",
-                        child->AsDoc()->DocumentNode(), child->AsDoc());
+                        child->AsDoc()->DocumentNode(),
+                        child->AsDoc());
     logging::Address("outerdoc", this);
   }
 #endif
@@ -211,14 +206,13 @@ OuterDocAccessible::GetChildAt(uint32_t aIndex) const
   return WrapperFor(remoteChild);
 }
 
-#endif // defined(XP_WIN)
+#endif  // defined(XP_WIN)
 
 DocAccessibleParent*
 OuterDocAccessible::RemoteChildDoc() const
 {
   dom::TabParent* tab = dom::TabParent::GetFrom(GetContent());
-  if (!tab)
-    return nullptr;
+  if (!tab) return nullptr;
 
   return tab->GetTopLevelDocAccessible();
 }

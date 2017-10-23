@@ -19,8 +19,7 @@
  * Macro for adding a reference to an interface.
  * @param _ptr The interface pointer.
  */
-#define NS_ADDREF(_ptr) \
-  (_ptr)->AddRef()
+#define NS_ADDREF(_ptr) (_ptr)->AddRef()
 
 /**
  * Macro for adding a reference to this. This macro should be used
@@ -28,9 +27,7 @@
  * from the pointers primary type to nsISupports. This macro sidesteps
  * that entire problem.
  */
-#define NS_ADDREF_THIS() \
-  AddRef()
-
+#define NS_ADDREF_THIS() AddRef()
 
 // Making this a |inline| |template| allows |aExpr| to be evaluated only once,
 // yet still denies you the ability to |AddRef()| an |nsCOMPtr|.
@@ -62,17 +59,16 @@ ns_if_addref(T aExpr)
  * Macro for releasing a reference to an interface.
  * @param _ptr The interface pointer.
  */
-#define NS_RELEASE(_ptr)                                                      \
-  do {                                                                        \
-    (_ptr)->Release();                                                        \
-    (_ptr) = 0;                                                               \
+#define NS_RELEASE(_ptr) \
+  do {                   \
+    (_ptr)->Release();   \
+    (_ptr) = 0;          \
   } while (0)
 
 /**
  * Macro for releasing a reference to this interface.
  */
-#define NS_RELEASE_THIS() \
-    Release()
+#define NS_RELEASE_THIS() Release()
 
 /**
  * Macro for releasing a reference to an interface, except that this
@@ -83,25 +79,25 @@ ns_if_addref(T aExpr)
  * @param _ptr The interface pointer.
  * @param _rc  The reference count.
  */
-#define NS_RELEASE2(_ptr, _rc)                                                \
-  do {                                                                        \
-    _rc = (_ptr)->Release();                                                  \
-    if (0 == (_rc)) (_ptr) = 0;                                               \
+#define NS_RELEASE2(_ptr, _rc)  \
+  do {                          \
+    _rc = (_ptr)->Release();    \
+    if (0 == (_rc)) (_ptr) = 0; \
   } while (0)
 
 /**
  * Macro for releasing a reference to an interface that checks for nullptr;
  * @param _ptr The interface pointer.
  */
-#define NS_IF_RELEASE(_ptr)                                                   \
-  do {                                                                        \
-    if (_ptr) {                                                               \
-      (_ptr)->Release();                                                      \
-      (_ptr) = 0;                                                             \
-    }                                                                         \
+#define NS_IF_RELEASE(_ptr) \
+  do {                      \
+    if (_ptr) {             \
+      (_ptr)->Release();    \
+      (_ptr) = 0;           \
+    }                       \
   } while (0)
 
-/*
+  /*
  * Often you have to cast an implementation pointer, e.g., |this|, to an
  * |nsISupports*|, but because you have multiple inheritance, a simple cast
  * is ambiguous.  One could simply say, e.g., (given a base |nsIBase|),
@@ -124,9 +120,10 @@ CallQueryInterface(T* aSource, DestinationType** aDestination)
 {
   // We permit nsISupports-to-nsISupports here so that one can still obtain
   // the canonical nsISupports pointer with CallQueryInterface.
-  static_assert(!mozilla::IsSame<T, DestinationType>::value ||
-                mozilla::IsSame<DestinationType, nsISupports>::value,
-                "don't use CallQueryInterface for compile-time-determinable casts");
+  static_assert(
+      !mozilla::IsSame<T, DestinationType>::value ||
+          mozilla::IsSame<DestinationType, nsISupports>::value,
+      "don't use CallQueryInterface for compile-time-determinable casts");
 
   NS_PRECONDITION(aSource, "null parameter");
   NS_PRECONDITION(aDestination, "null parameter");
@@ -135,7 +132,7 @@ CallQueryInterface(T* aSource, DestinationType** aDestination)
                                  reinterpret_cast<void**>(aDestination));
 }
 
-template <class SourceType, class DestinationType>
+template<class SourceType, class DestinationType>
 inline nsresult
 CallQueryInterface(RefPtr<SourceType>& aSourcePtr, DestinationType** aDestPtr)
 {

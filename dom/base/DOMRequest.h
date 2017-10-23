@@ -24,16 +24,15 @@ namespace dom {
 class AnyCallback;
 class Promise;
 
-class DOMRequest : public DOMEventTargetHelper,
-                   public nsIDOMDOMRequest
+class DOMRequest : public DOMEventTargetHelper, public nsIDOMDOMRequest
 {
-protected:
+ protected:
   JS::Heap<JS::Value> mResult;
   RefPtr<DOMException> mError;
   RefPtr<Promise> mPromise;
   bool mDone;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMDOMREQUEST
   NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
@@ -42,18 +41,15 @@ public:
                                                          DOMEventTargetHelper)
 
   // WrapperCache
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL Interface
   DOMRequestReadyState ReadyState() const
   {
-    return mDone ? DOMRequestReadyState::Done
-                 : DOMRequestReadyState::Pending;
+    return mDone ? DOMRequestReadyState::Done : DOMRequestReadyState::Pending;
   }
 
   void GetResult(JSContext*, JS::MutableHandle<JS::Value> aRetval) const
@@ -65,19 +61,18 @@ public:
 
   DOMException* GetError() const
   {
-    NS_ASSERTION(mDone || !mError,
-                 "Error should be null when pending");
+    NS_ASSERTION(mDone || !mError, "Error should be null when pending");
     return mError;
   }
 
   IMPL_EVENT_HANDLER(success)
   IMPL_EVENT_HANDLER(error)
 
-  void
-  Then(JSContext* aCx, AnyCallback* aResolveCallback,
-       AnyCallback* aRejectCallback,
-       JS::MutableHandle<JS::Value> aRetval,
-       mozilla::ErrorResult& aRv);
+  void Then(JSContext* aCx,
+            AnyCallback* aResolveCallback,
+            AnyCallback* aRejectCallback,
+            JS::MutableHandle<JS::Value> aRetval,
+            mozilla::ErrorResult& aRv);
 
   void FireSuccess(JS::Handle<JS::Value> aResult);
   void FireError(const nsAString& aError);
@@ -87,7 +82,7 @@ public:
   explicit DOMRequest(nsPIDOMWindowInner* aWindow);
   explicit DOMRequest(nsIGlobalObject* aGlobal);
 
-protected:
+ protected:
   virtual ~DOMRequest();
 
   void FireEvent(const nsAString& aType, bool aBubble, bool aCancelable);
@@ -99,7 +94,7 @@ class DOMRequestService final : public nsIDOMRequestService
 {
   ~DOMRequestService() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMREQUESTSERVICE
 
@@ -112,9 +107,9 @@ public:
   }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #define DOMREQUEST_SERVICE_CONTRACTID "@mozilla.org/dom/dom-request-service;1"
 
-#endif // mozilla_dom_domrequest_h__
+#endif  // mozilla_dom_domrequest_h__

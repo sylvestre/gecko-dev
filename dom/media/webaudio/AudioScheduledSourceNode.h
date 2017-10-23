@@ -17,7 +17,7 @@ class AudioContext;
 
 class AudioScheduledSourceNode : public AudioNode
 {
-public:
+ public:
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
@@ -26,7 +26,7 @@ public:
 
   IMPL_EVENT_HANDLER(ended)
 
-protected:
+ protected:
   AudioScheduledSourceNode(AudioContext* aContext,
                            uint32_t aChannelCount,
                            ChannelCountMode aChannelCountMode,
@@ -34,7 +34,7 @@ protected:
   virtual ~AudioScheduledSourceNode() = default;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

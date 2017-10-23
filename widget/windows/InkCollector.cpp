@@ -16,12 +16,12 @@ StaticAutoPtr<InkCollector> InkCollector::sInkCollector;
 InkCollector::~InkCollector()
 {
   Shutdown();
-  MOZ_ASSERT(!mCookie && !mEnabled && !mComInitialized
-              && !mMarshaller && !mInkCollector
-              && !mConnectionPoint && !mInkCollectorEvent);
+  MOZ_ASSERT(!mCookie && !mEnabled && !mComInitialized && !mMarshaller &&
+             !mInkCollector && !mConnectionPoint && !mInkCollectorEvent);
 }
 
-void InkCollector::Initialize()
+void
+InkCollector::Initialize()
 {
   // Possibly, we can use mConnectionPoint for checking,
   // But if errors exist (perhaps COM object is unavailable),
@@ -39,13 +39,17 @@ void InkCollector::Initialize()
   mInkCollectorEvent = new InkCollectorEvent();
 
   // Set up a free threaded marshaler.
-  if (FAILED(::CoCreateFreeThreadedMarshaler(mInkCollectorEvent, getter_AddRefs(mMarshaller)))) {
+  if (FAILED(::CoCreateFreeThreadedMarshaler(mInkCollectorEvent,
+                                             getter_AddRefs(mMarshaller)))) {
     return;
   }
 
   // Create the ink collector.
-  if (FAILED(::CoCreateInstance(CLSID_InkCollector, NULL, CLSCTX_INPROC_SERVER,
-                                IID_IInkCollector, getter_AddRefs(mInkCollector)))) {
+  if (FAILED(::CoCreateInstance(CLSID_InkCollector,
+                                NULL,
+                                CLSCTX_INPROC_SERVER,
+                                IID_IInkCollector,
+                                getter_AddRefs(mInkCollector)))) {
     return;
   }
 
@@ -53,13 +57,12 @@ void InkCollector::Initialize()
   RefPtr<IConnectionPointContainer> connPointContainer;
 
   // Get the connection point container.
-  if (SUCCEEDED(mInkCollector->QueryInterface(IID_IConnectionPointContainer,
-                                              getter_AddRefs(connPointContainer)))) {
-
+  if (SUCCEEDED(mInkCollector->QueryInterface(
+          IID_IConnectionPointContainer, getter_AddRefs(connPointContainer)))) {
     // Find the connection point for Ink Collector events.
-    if (SUCCEEDED(connPointContainer->FindConnectionPoint(__uuidof(_IInkCollectorEvents),
-                                                          getter_AddRefs(mConnectionPoint)))) {
-
+    if (SUCCEEDED(connPointContainer->FindConnectionPoint(
+            __uuidof(_IInkCollectorEvents),
+            getter_AddRefs(mConnectionPoint)))) {
       // Hook up sink to connection point.
       if (SUCCEEDED(mConnectionPoint->Advise(mInkCollectorEvent, &mCookie))) {
         OnInitialize();
@@ -68,7 +71,8 @@ void InkCollector::Initialize()
   }
 }
 
-void InkCollector::Shutdown()
+void
+InkCollector::Shutdown()
 {
   Enable(false);
   if (mConnectionPoint) {
@@ -88,14 +92,17 @@ void InkCollector::Shutdown()
   }
 }
 
-void InkCollector::OnInitialize()
+void
+InkCollector::OnInitialize()
 {
   // Suppress all events to do not allow performance decreasing.
   // https://msdn.microsoft.com/en-us/library/ms820347.aspx
-  mInkCollector->SetEventInterest(InkCollectorEventInterest::ICEI_AllEvents, VARIANT_FALSE);
+  mInkCollector->SetEventInterest(InkCollectorEventInterest::ICEI_AllEvents,
+                                  VARIANT_FALSE);
 
   // Sets a value that indicates whether an object or control has interest in a specified event.
-  mInkCollector->SetEventInterest(InkCollectorEventInterest::ICEI_CursorOutOfRange, VARIANT_TRUE);
+  mInkCollector->SetEventInterest(
+      InkCollectorEventInterest::ICEI_CursorOutOfRange, VARIANT_TRUE);
 
   // If the MousePointer property is set to IMP_Custom and the MouseIcon property is NULL,
   // Then the ink collector no longer handles mouse cursor settings.
@@ -124,11 +131,13 @@ void InkCollector::OnInitialize()
 // This property must be set to FALSE before setting or
 // calling specific properties and methods of the object.
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms701721.aspx
-void InkCollector::Enable(bool aNewState)
+void
+InkCollector::Enable(bool aNewState)
 {
   if (aNewState != mEnabled) {
     if (mInkCollector) {
-      if (SUCCEEDED(mInkCollector->put_Enabled(aNewState ? VARIANT_TRUE : VARIANT_FALSE))) {
+      if (SUCCEEDED(mInkCollector->put_Enabled(aNewState ? VARIANT_TRUE
+                                                         : VARIANT_FALSE))) {
         mEnabled = aNewState;
       } else {
         NS_WARNING("InkCollector did not change status successfully");
@@ -139,12 +148,14 @@ void InkCollector::Enable(bool aNewState)
   }
 }
 
-HWND InkCollector::GetTarget()
+HWND
+InkCollector::GetTarget()
 {
   return mTargetWindow;
 }
 
-void InkCollector::SetTarget(HWND aTargetWindow)
+void
+InkCollector::SetTarget(HWND aTargetWindow)
 {
   NS_ASSERTION(aTargetWindow, "aTargetWindow should be exist");
   if (aTargetWindow && (aTargetWindow != mTargetWindow)) {
@@ -161,7 +172,8 @@ void InkCollector::SetTarget(HWND aTargetWindow)
   }
 }
 
-void InkCollector::ClearTarget()
+void
+InkCollector::ClearTarget()
 {
   if (mTargetWindow && mInkCollector) {
     Enable(false);
@@ -173,17 +185,20 @@ void InkCollector::ClearTarget()
   }
 }
 
-uint16_t InkCollector::GetPointerId()
+uint16_t
+InkCollector::GetPointerId()
 {
   return mPointerId;
 }
 
-void InkCollector::SetPointerId(uint16_t aPointerId)
+void
+InkCollector::SetPointerId(uint16_t aPointerId)
 {
   mPointerId = aPointerId;
 }
 
-void InkCollector::ClearPointerId()
+void
+InkCollector::ClearPointerId()
 {
   mPointerId = 0;
 }
@@ -193,7 +208,8 @@ void InkCollector::ClearPointerId()
 // The digitizer lists Integrated and HardProximity.
 // When the stylus is in the proximity of the tablet its movements are also detected.
 // An external tablet will only list HardProximity.
-bool InkCollectorEvent::IsHardProximityTablet(IInkTablet* aTablet) const
+bool
+InkCollectorEvent::IsHardProximityTablet(IInkTablet* aTablet) const
 {
   if (aTablet) {
     TabletHardwareCapabilities caps;
@@ -204,7 +220,8 @@ bool InkCollectorEvent::IsHardProximityTablet(IInkTablet* aTablet) const
   return false;
 }
 
-HRESULT __stdcall InkCollectorEvent::QueryInterface(REFIID aRiid, void **aObject)
+HRESULT __stdcall InkCollectorEvent::QueryInterface(REFIID aRiid,
+                                                    void** aObject)
 {
   // Validate the input
   if (!aObject) {
@@ -212,8 +229,7 @@ HRESULT __stdcall InkCollectorEvent::QueryInterface(REFIID aRiid, void **aObject
   }
   HRESULT result = E_NOINTERFACE;
   // This object supports IUnknown/IDispatch/IInkCollectorEvents
-  if ((IID_IUnknown == aRiid) ||
-      (IID_IDispatch == aRiid) ||
+  if ((IID_IUnknown == aRiid) || (IID_IDispatch == aRiid) ||
       (DIID__IInkCollectorEvents == aRiid)) {
     *aObject = this;
     // AddRef should be called when we give info about interface
@@ -223,15 +239,21 @@ HRESULT __stdcall InkCollectorEvent::QueryInterface(REFIID aRiid, void **aObject
   return result;
 }
 
-HRESULT InkCollectorEvent::Invoke(DISPID aDispIdMember, REFIID /*aRiid*/,
-                                  LCID /*aId*/, WORD /*wFlags*/,
-                                  DISPPARAMS* aDispParams, VARIANT* /*aVarResult*/,
-                                  EXCEPINFO* /*aExcepInfo*/, UINT* /*aArgErr*/)
+HRESULT
+InkCollectorEvent::Invoke(DISPID aDispIdMember,
+                          REFIID /*aRiid*/,
+                          LCID /*aId*/,
+                          WORD /*wFlags*/,
+                          DISPPARAMS* aDispParams,
+                          VARIANT* /*aVarResult*/,
+                          EXCEPINFO* /*aExcepInfo*/,
+                          UINT* /*aArgErr*/)
 {
   switch (aDispIdMember) {
     case DISPID_ICECursorOutOfRange: {
       if (aDispParams && aDispParams->cArgs) {
-        CursorOutOfRange(static_cast<IInkCursor*>(aDispParams->rgvarg[0].pdispVal));
+        CursorOutOfRange(
+            static_cast<IInkCursor*>(aDispParams->rgvarg[0].pdispVal));
       }
       break;
     }
@@ -239,7 +261,8 @@ HRESULT InkCollectorEvent::Invoke(DISPID aDispIdMember, REFIID /*aRiid*/,
   return S_OK;
 }
 
-void InkCollectorEvent::CursorOutOfRange(IInkCursor* aCursor) const
+void
+InkCollectorEvent::CursorOutOfRange(IInkCursor* aCursor) const
 {
   IInkTablet* curTablet = nullptr;
   if (FAILED(aCursor->get_Tablet(&curTablet))) {

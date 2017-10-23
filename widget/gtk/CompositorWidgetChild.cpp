@@ -10,18 +10,16 @@
 namespace mozilla {
 namespace widget {
 
-CompositorWidgetChild::CompositorWidgetChild(RefPtr<CompositorVsyncDispatcher> aVsyncDispatcher,
-                                             RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver)
-  : mVsyncDispatcher(aVsyncDispatcher)
-  , mVsyncObserver(aVsyncObserver)
+CompositorWidgetChild::CompositorWidgetChild(
+    RefPtr<CompositorVsyncDispatcher> aVsyncDispatcher,
+    RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver)
+    : mVsyncDispatcher(aVsyncDispatcher), mVsyncObserver(aVsyncObserver)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(!gfxPlatform::IsHeadless());
 }
 
-CompositorWidgetChild::~CompositorWidgetChild()
-{
-}
+CompositorWidgetChild::~CompositorWidgetChild() {}
 
 mozilla::ipc::IPCResult
 CompositorWidgetChild::RecvObserveVsync()
@@ -38,10 +36,11 @@ CompositorWidgetChild::RecvUnobserveVsync()
 }
 
 void
-CompositorWidgetChild::NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize)
+CompositorWidgetChild::NotifyClientSizeChanged(
+    const LayoutDeviceIntSize& aClientSize)
 {
   Unused << SendNotifyClientSizeChanged(aClientSize);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

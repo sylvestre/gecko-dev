@@ -17,22 +17,18 @@
 class nsLayoutHistoryState final : public nsILayoutHistoryState,
                                    public nsSupportsWeakReference
 {
-public:
-  nsLayoutHistoryState()
-    : mScrollPositionOnly(false)
-  {
-  }
+ public:
+  nsLayoutHistoryState() : mScrollPositionOnly(false) {}
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSILAYOUTHISTORYSTATE
 
-private:
+ private:
   ~nsLayoutHistoryState() {}
   bool mScrollPositionOnly;
 
-  nsClassHashtable<nsCStringHashKey,nsPresState> mStates;
+  nsClassHashtable<nsCStringHashKey, nsPresState> mStates;
 };
-
 
 already_AddRefed<nsILayoutHistoryState>
 NS_NewLayoutHistoryState()
@@ -60,7 +56,7 @@ nsLayoutHistoryState::GetKeys(uint32_t* aCount, char*** aKeys)
   }
 
   char** keys =
-    static_cast<char**>(moz_xmalloc(sizeof(char*) * mStates.Count()));
+      static_cast<char**>(moz_xmalloc(sizeof(char*) * mStates.Count()));
   *aCount = mStates.Count();
   *aKeys = keys;
 
@@ -74,9 +70,11 @@ nsLayoutHistoryState::GetKeys(uint32_t* aCount, char*** aKeys)
 
 NS_IMETHODIMP
 nsLayoutHistoryState::GetPresState(const nsACString& aKey,
-                                   float* aScrollX, float* aScrollY,
+                                   float* aScrollX,
+                                   float* aScrollY,
                                    bool* aAllowScrollOriginDowngrade,
-                                   float* aRes, bool* aScaleToRes)
+                                   float* aRes,
+                                   bool* aScaleToRes)
 {
   nsPresState* state = GetState(nsCString(aKey));
 
@@ -95,9 +93,11 @@ nsLayoutHistoryState::GetPresState(const nsACString& aKey,
 
 NS_IMETHODIMP
 nsLayoutHistoryState::AddNewPresState(const nsACString& aKey,
-                                      float aScrollX, float aScrollY,
+                                      float aScrollX,
+                                      float aScrollY,
                                       bool aAllowScrollOriginDowngrade,
-                                      float aRes, bool aScaleToRes)
+                                      float aRes,
+                                      bool aScaleToRes)
 {
   nsPresState* newState = new nsPresState();
   newState->SetScrollState(nsPoint(aScrollX, aScrollY));

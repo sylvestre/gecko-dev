@@ -17,7 +17,7 @@ typedef void (*DBusReplyCallback)(DBusMessage*, void*);
 
 class RawDBusConnection
 {
-public:
+ public:
   RawDBusConnection();
   virtual ~RawDBusConnection();
 
@@ -25,30 +25,33 @@ public:
 
   bool Watch();
 
-  DBusConnection* GetConnection()
-  {
-    return mConnection;
-  }
+  DBusConnection* GetConnection() { return mConnection; }
 
   bool Send(DBusMessage* aMessage);
 
-  bool SendWithReply(DBusReplyCallback aCallback, void* aData,
-                     int aTimeout, DBusMessage* aMessage);
+  bool SendWithReply(DBusReplyCallback aCallback,
+                     void* aData,
+                     int aTimeout,
+                     DBusMessage* aMessage);
 
-  bool SendWithReply(DBusReplyCallback aCallback, void* aData,
+  bool SendWithReply(DBusReplyCallback aCallback,
+                     void* aData,
                      int aTimeout,
                      const char* aDestination,
-                     const char* aPath, const char* aIntf,
-                     const char *aFunc, int aFirstArgType, ...);
+                     const char* aPath,
+                     const char* aIntf,
+                     const char* aFunc,
+                     int aFirstArgType,
+                     ...);
 
-protected:
+ protected:
   RefPtr<DBusConnection> mConnection;
 
-private:
+ private:
   static bool sDBusIsInit;
 };
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif

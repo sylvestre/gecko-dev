@@ -15,10 +15,10 @@ namespace mozilla {
 
 class HTMLEditUtils final
 {
-public:
+ public:
   // from nsHTMLEditRules:
   static bool IsInlineStyle(nsINode* aNode);
-  static bool IsInlineStyle(nsIDOMNode *aNode);
+  static bool IsInlineStyle(nsIDOMNode* aNode);
   static bool IsFormatNode(nsINode* aNode);
   static bool IsFormatNode(nsIDOMNode* aNode);
   static bool IsNodeThatCanOutdent(nsIDOMNode* aNode);
@@ -62,7 +62,6 @@ public:
   static bool IsContainer(int32_t aTag);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef HTMLEditUtils_h
-
+#endif  // #ifndef HTMLEditUtils_h

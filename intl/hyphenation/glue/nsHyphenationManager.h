@@ -18,38 +18,38 @@ class nsIURI;
 
 class nsHyphenationManager
 {
-public:
+ public:
   nsHyphenationManager();
 
-  already_AddRefed<nsHyphenator> GetHyphenator(nsAtom *aLocale);
+  already_AddRefed<nsHyphenator> GetHyphenator(nsAtom* aLocale);
 
-  static nsHyphenationManager *Instance();
+  static nsHyphenationManager* Instance();
 
   static void Shutdown();
 
-private:
+ private:
   ~nsHyphenationManager();
 
-protected:
+ protected:
   class MemoryPressureObserver final : public nsIObserver
   {
-      ~MemoryPressureObserver() {}
+    ~MemoryPressureObserver() {}
 
-  public:
-      NS_DECL_ISUPPORTS
-      NS_DECL_NSIOBSERVER
+   public:
+    NS_DECL_ISUPPORTS
+    NS_DECL_NSIOBSERVER
   };
 
   void LoadPatternList();
   void LoadPatternListFromOmnijar(mozilla::Omnijar::Type aType);
-  void LoadPatternListFromDir(nsIFile *aDir);
+  void LoadPatternListFromDir(nsIFile* aDir);
   void LoadAliases();
 
   nsRefPtrHashtable<nsRefPtrHashKey<nsAtom>, nsAtom> mHyphAliases;
   nsInterfaceHashtable<nsRefPtrHashKey<nsAtom>, nsIURI> mPatternFiles;
   nsRefPtrHashtable<nsRefPtrHashKey<nsAtom>, nsHyphenator> mHyphenators;
 
-  static nsHyphenationManager *sInstance;
+  static nsHyphenationManager* sInstance;
 };
 
-#endif // nsHyphenationManager_h__
+#endif  // nsHyphenationManager_h__

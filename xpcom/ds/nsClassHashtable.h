@@ -21,10 +21,9 @@
  * @see nsInterfaceHashtable, nsClassHashtable
  */
 template<class KeyClass, class T>
-class nsClassHashtable
-  : public nsBaseHashtable<KeyClass, nsAutoPtr<T>, T*>
+class nsClassHashtable : public nsBaseHashtable<KeyClass, nsAutoPtr<T>, T*>
 {
-public:
+ public:
   typedef typename KeyClass::KeyType KeyType;
   typedef T* UserDataType;
   typedef nsBaseHashtable<KeyClass, nsAutoPtr<T>, T*> base_type;
@@ -34,7 +33,7 @@ public:
 
   nsClassHashtable() {}
   explicit nsClassHashtable(uint32_t aInitLength)
-    : nsBaseHashtable<KeyClass, nsAutoPtr<T>, T*>(aInitLength)
+      : nsBaseHashtable<KeyClass, nsAutoPtr<T>, T*>(aInitLength)
   {
   }
 
@@ -109,4 +108,4 @@ nsClassHashtable<KeyClass, T>::Get(KeyType aKey) const
   return ent->mData;
 }
 
-#endif // nsClassHashtable_h__
+#endif  // nsClassHashtable_h__

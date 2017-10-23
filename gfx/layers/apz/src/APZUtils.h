@@ -7,7 +7,7 @@
 #ifndef mozilla_layers_APZUtils_h
 #define mozilla_layers_APZUtils_h
 
-#include <stdint.h>                     // for uint32_t
+#include <stdint.h>  // for uint32_t
 #include "LayersTypes.h"
 #include "UnitTransforms.h"
 #include "mozilla/gfx/Point.h"
@@ -16,7 +16,8 @@
 namespace mozilla {
 namespace layers {
 
-enum HitTestResult {
+enum HitTestResult
+{
   HitNothing,
   HitLayer,
   HitLayerTouchActionNone,
@@ -26,7 +27,8 @@ enum HitTestResult {
   HitDispatchToContentRegion,
 };
 
-enum CancelAnimationFlags : uint32_t {
+enum CancelAnimationFlags : uint32_t
+{
   Default = 0x0,             /* Cancel all animations */
   ExcludeOverscroll = 0x1,   /* Don't clear overscroll */
   ScrollSnap = 0x2,          /* Snap to snap points */
@@ -38,11 +40,12 @@ enum CancelAnimationFlags : uint32_t {
 inline CancelAnimationFlags
 operator|(CancelAnimationFlags a, CancelAnimationFlags b)
 {
-  return static_cast<CancelAnimationFlags>(static_cast<int>(a)
-                                         | static_cast<int>(b));
+  return static_cast<CancelAnimationFlags>(static_cast<int>(a) |
+                                           static_cast<int>(b));
 }
 
-enum class ScrollSource {
+enum class ScrollSource
+{
   // scrollTo() or something similar.
   DOM,
 
@@ -66,11 +69,12 @@ typedef uint32_t TouchBehaviorFlags;
 // isn't too large.
 const float COORDINATE_EPSILON = 0.01f;
 
-template <typename Units>
-static bool IsZero(const gfx::PointTyped<Units>& aPoint)
+template<typename Units>
+static bool
+IsZero(const gfx::PointTyped<Units>& aPoint)
 {
-  return FuzzyEqualsAdditive(aPoint.x, 0.0f, COORDINATE_EPSILON)
-      && FuzzyEqualsAdditive(aPoint.y, 0.0f, COORDINATE_EPSILON);
+  return FuzzyEqualsAdditive(aPoint.x, 0.0f, COORDINATE_EPSILON) &&
+         FuzzyEqualsAdditive(aPoint.y, 0.0f, COORDINATE_EPSILON);
 }
 
 // Deem an AsyncTransformComponentMatrix (obtained by multiplying together
@@ -79,11 +83,11 @@ static bool IsZero(const gfx::PointTyped<Units>& aPoint)
 inline AsyncTransformMatrix
 CompleteAsyncTransform(const AsyncTransformComponentMatrix& aMatrix)
 {
-  return ViewAs<AsyncTransformMatrix>(aMatrix,
-      PixelCastJustification::MultipleAsyncTransforms);
+  return ViewAs<AsyncTransformMatrix>(
+      aMatrix, PixelCastJustification::MultipleAsyncTransforms);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_APZUtils_h
+#endif  // mozilla_layers_APZUtils_h

@@ -25,14 +25,16 @@ class ErrorResult;
 // requests all SourceBuffers to evict data up to approximately the same
 // timepoint.
 
-struct ResourceItem {
+struct ResourceItem
+{
   explicit ResourceItem(MediaByteBuffer* aData);
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const;
   RefPtr<MediaByteBuffer> mData;
 };
 
-class ResourceQueue : private nsDeque {
-public:
+class ResourceQueue : private nsDeque
+{
+ public:
   ResourceQueue();
 
   // Returns the logical byte offset of the start of the data.
@@ -49,8 +51,7 @@ public:
 
   // Tries to evict at least aSizeToEvict from the queue up until
   // aOffset. Returns amount evicted.
-  uint32_t Evict(uint64_t aOffset, uint32_t aSizeToEvict,
-                 ErrorResult& aRv);
+  uint32_t Evict(uint64_t aOffset, uint32_t aSizeToEvict, ErrorResult& aRv);
 
   uint32_t EvictBefore(uint64_t aOffset, ErrorResult& aRv);
 
@@ -62,7 +63,7 @@ public:
   void Dump(const char* aPath);
 #endif
 
-private:
+ private:
   ResourceItem* ResourceAt(uint32_t aIndex) const;
 
   // Returns the index of the resource that contains the given
@@ -70,7 +71,7 @@ private:
   // the resource at the given index returned if it is not null.  If
   // no such resource exists, returns GetSize() and aOffset is
   // untouched.
-  uint32_t GetAtOffset(uint64_t aOffset, uint32_t *aResourceOffset);
+  uint32_t GetAtOffset(uint64_t aOffset, uint32_t* aResourceOffset);
 
   ResourceItem* PopFront();
 
@@ -81,6 +82,6 @@ private:
   uint64_t mOffset;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_RESOURCEQUEUE_H_ */

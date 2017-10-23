@@ -14,14 +14,14 @@ class VariantTraits;
 template<>
 class VariantTraits<mozilla::plugins::PluginInstanceParent>
 {
-public:
+ public:
   typedef mozilla::plugins::PluginScriptableObjectParent ScriptableObjectType;
 };
 
 template<>
 class VariantTraits<mozilla::plugins::PluginInstanceChild>
 {
-public:
+ public:
   typedef mozilla::plugins::PluginScriptableObjectChild ScriptableObjectType;
 };
 
@@ -61,7 +61,8 @@ mozilla::plugins::ConvertToVariant(const Variant& aRemoteVariant,
     case Variant::TnsCString: {
       const nsCString& string = aRemoteVariant.get_nsCString();
       const size_t length = string.Length();
-      NPUTF8* buffer = static_cast<NPUTF8*>(::malloc(sizeof(NPUTF8) * (length + 1)));
+      NPUTF8* buffer =
+          static_cast<NPUTF8*>(::malloc(sizeof(NPUTF8) * (length + 1)));
       if (!buffer) {
         NS_ERROR("Out of memory!");
         return false;
@@ -113,7 +114,7 @@ mozilla::plugins::ConvertToVariant(const Variant& aRemoteVariant,
   return true;
 }
 
-template <class InstanceType>
+template<class InstanceType>
 bool
 mozilla::plugins::ConvertToRemoteVariant(const NPVariant& aVariant,
                                          Variant& aRemoteVariant,
@@ -122,29 +123,23 @@ mozilla::plugins::ConvertToRemoteVariant(const NPVariant& aVariant,
 {
   if (NPVARIANT_IS_VOID(aVariant)) {
     aRemoteVariant = mozilla::void_t();
-  }
-  else if (NPVARIANT_IS_NULL(aVariant)) {
+  } else if (NPVARIANT_IS_NULL(aVariant)) {
     aRemoteVariant = mozilla::null_t();
-  }
-  else if (NPVARIANT_IS_BOOLEAN(aVariant)) {
+  } else if (NPVARIANT_IS_BOOLEAN(aVariant)) {
     aRemoteVariant = NPVARIANT_TO_BOOLEAN(aVariant);
-  }
-  else if (NPVARIANT_IS_INT32(aVariant)) {
+  } else if (NPVARIANT_IS_INT32(aVariant)) {
     aRemoteVariant = NPVARIANT_TO_INT32(aVariant);
-  }
-  else if (NPVARIANT_IS_DOUBLE(aVariant)) {
+  } else if (NPVARIANT_IS_DOUBLE(aVariant)) {
     aRemoteVariant = NPVARIANT_TO_DOUBLE(aVariant);
-  }
-  else if (NPVARIANT_IS_STRING(aVariant)) {
+  } else if (NPVARIANT_IS_STRING(aVariant)) {
     NPString str = NPVARIANT_TO_STRING(aVariant);
     nsCString string(str.UTF8Characters, str.UTF8Length);
     aRemoteVariant = string;
-  }
-  else if (NPVARIANT_IS_OBJECT(aVariant)) {
+  } else if (NPVARIANT_IS_OBJECT(aVariant)) {
     NPObject* object = NPVARIANT_TO_OBJECT(aVariant);
 
     typename VariantTraits<InstanceType>::ScriptableObjectType* actor =
-      aInstance->GetActorForNPObject(object);
+        aInstance->GetActorForNPObject(object);
 
     if (!actor) {
       NS_ERROR("Null actor!");
@@ -156,8 +151,7 @@ mozilla::plugins::ConvertToRemoteVariant(const NPVariant& aVariant,
     }
 
     aRemoteVariant = actor;
-  }
-  else {
+  } else {
     NS_NOTREACHED("Shouldn't get here!");
     return false;
   }

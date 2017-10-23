@@ -19,47 +19,40 @@ namespace jit {
 
 DefaultJitOptions JitOptions;
 
-static void Warn(const char* env, const char* value)
-{
+static void Warn(const char* env, const char* value) {
     fprintf(stderr, "Warning: I didn't understand %s=\"%s\"\n", env, value);
 }
 
-template<typename T> struct IsBool : mozilla::FalseType {};
-template<> struct IsBool<bool> : mozilla::TrueType {};
+template <typename T>
+struct IsBool : mozilla::FalseType {};
+template <>
+struct IsBool<bool> : mozilla::TrueType {};
 
-static Maybe<int>
-ParseInt(const char* str)
-{
+static Maybe<int> ParseInt(const char* str) {
     char* endp;
     int retval = strtol(str, &endp, 0);
-    if (*endp == '\0')
-        return mozilla::Some(retval);
+    if (*endp == '\0') return mozilla::Some(retval);
     return mozilla::Nothing();
 }
 
-template<typename T>
+template <typename T>
 T overrideDefault(const char* param, T dflt) {
     char* str = getenv(param);
-    if (!str)
-        return dflt;
+    if (!str) return dflt;
     if (IsBool<T>::value) {
-        if (strcmp(str, "true") == 0 || strcmp(str, "yes") == 0)
-            return true;
-        if (strcmp(str, "false") == 0 || strcmp(str, "no") == 0)
-            return false;
+        if (strcmp(str, "true") == 0 || strcmp(str, "yes") == 0) return true;
+        if (strcmp(str, "false") == 0 || strcmp(str, "no") == 0) return false;
         Warn(param, str);
     } else {
         Maybe<int> value = ParseInt(str);
-        if (value.isSome())
-            return value.ref();
+        if (value.isSome()) return value.ref();
         Warn(param, str);
     }
     return dflt;
 }
 
 #define SET_DEFAULT(var, dflt) var = overrideDefault("JIT_OPTION_" #var, dflt)
-DefaultJitOptions::DefaultJitOptions()
-{
+DefaultJitOptions::DefaultJitOptions() {
     // Whether to perform expensive graph-consistency DEBUG-only assertions.
     // It can be useful to disable this to reduce DEBUG-compile time of large
     // wasm programs.
@@ -129,13 +122,13 @@ DefaultJitOptions::DefaultJitOptions()
     // Toggles whether shared stubs are used in Ionmonkey.
     SET_DEFAULT(disableSharedStubs, false);
 
-    // Toggles whether sincos optimization is globally disabled.
-    // See bug984018: The MacOS is the only one that has the sincos fast.
-    #if defined(XP_MACOSX)
-        SET_DEFAULT(disableSincos, false);
-    #else
-        SET_DEFAULT(disableSincos, true);
-    #endif
+// Toggles whether sincos optimization is globally disabled.
+// See bug984018: The MacOS is the only one that has the sincos fast.
+#if defined(XP_MACOSX)
+    SET_DEFAULT(disableSincos, false);
+#else
+    SET_DEFAULT(disableSincos, true);
+#endif
 
     // Toggles whether sink code motion is globally disabled.
     SET_DEFAULT(disableSink, true);
@@ -228,8 +221,7 @@ DefaultJitOptions::DefaultJitOptions()
     const char* forcedRegisterAllocatorEnv = "JIT_OPTION_forcedRegisterAllocator";
     if (const char* env = getenv(forcedRegisterAllocatorEnv)) {
         forcedRegisterAllocator = LookupRegisterAllocator(env);
-        if (!forcedRegisterAllocator.isSome())
-            Warn(forcedRegisterAllocatorEnv, env);
+        if (!forcedRegisterAllocator.isSome()) Warn(forcedRegisterAllocatorEnv, env);
     }
 
     // Toggles whether unboxed plain objects can be created by the VM.
@@ -256,21 +248,13 @@ DefaultJitOptions::DefaultJitOptions()
     SET_DEFAULT(ionInterruptWithoutSignals, false);
 }
 
-bool
-DefaultJitOptions::isSmallFunction(JSScript* script) const
-{
+bool DefaultJitOptions::isSmallFunction(JSScript* script) const {
     return script->length() <= smallFunctionMaxBytecodeLength_;
 }
 
-void
-DefaultJitOptions::enableGvn(bool enable)
-{
-    disableGvn = !enable;
-}
+void DefaultJitOptions::enableGvn(bool enable) { disableGvn = !enable; }
 
-void
-DefaultJitOptions::setEagerCompilation()
-{
+void DefaultJitOptions::setEagerCompilation() {
     eagerCompilation = true;
     baselineWarmUpThreshold = 0;
     forcedDefaultIonWarmUpThreshold.reset();
@@ -279,9 +263,7 @@ DefaultJitOptions::setEagerCompilation()
     forcedDefaultIonSmallFunctionWarmUpThreshold.emplace(0);
 }
 
-void
-DefaultJitOptions::setCompilerWarmUpThreshold(uint32_t warmUpThreshold)
-{
+void DefaultJitOptions::setCompilerWarmUpThreshold(uint32_t warmUpThreshold) {
     forcedDefaultIonWarmUpThreshold.reset();
     forcedDefaultIonWarmUpThreshold.emplace(warmUpThreshold);
     forcedDefaultIonSmallFunctionWarmUpThreshold.reset();
@@ -295,9 +277,7 @@ DefaultJitOptions::setCompilerWarmUpThreshold(uint32_t warmUpThreshold)
     }
 }
 
-void
-DefaultJitOptions::resetCompilerWarmUpThreshold()
-{
+void DefaultJitOptions::resetCompilerWarmUpThreshold() {
     forcedDefaultIonWarmUpThreshold.reset();
 
     // Undo eager compilation
@@ -308,5 +288,5 @@ DefaultJitOptions::resetCompilerWarmUpThreshold()
     }
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js

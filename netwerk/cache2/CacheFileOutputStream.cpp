@@ -44,16 +44,17 @@ NS_INTERFACE_MAP_BEGIN(CacheFileOutputStream)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIOutputStream)
 NS_INTERFACE_MAP_END_THREADSAFE
 
-CacheFileOutputStream::CacheFileOutputStream(CacheFile *aFile,
-                                             CacheOutputCloseListener *aCloseListener,
-                                             bool aAlternativeData)
-  : mFile(aFile)
-  , mCloseListener(aCloseListener)
-  , mPos(0)
-  , mClosed(false)
-  , mAlternativeData(aAlternativeData)
-  , mStatus(NS_OK)
-  , mCallbackFlags(0)
+CacheFileOutputStream::CacheFileOutputStream(
+    CacheFile* aFile,
+    CacheOutputCloseListener* aCloseListener,
+    bool aAlternativeData)
+    : mFile(aFile),
+      mCloseListener(aCloseListener),
+      mPos(0),
+      mClosed(false),
+      mAlternativeData(aAlternativeData),
+      mStatus(NS_OK),
+      mCallbackFlags(0)
 {
   LOG(("CacheFileOutputStream::CacheFileOutputStream() [this=%p]", this));
 
@@ -84,23 +85,30 @@ CacheFileOutputStream::Flush()
 }
 
 NS_IMETHODIMP
-CacheFileOutputStream::Write(const char * aBuf, uint32_t aCount,
-                             uint32_t *_retval)
+CacheFileOutputStream::Write(const char* aBuf,
+                             uint32_t aCount,
+                             uint32_t* _retval)
 {
   CacheFileAutoLock lock(mFile);
 
   LOG(("CacheFileOutputStream::Write() [this=%p, count=%d]", this, aCount));
 
   if (mClosed) {
-    LOG(("CacheFileOutputStream::Write() - Stream is closed. [this=%p, "
-         "status=0x%08" PRIx32"]", this, static_cast<uint32_t>(mStatus)));
+    LOG(
+        ("CacheFileOutputStream::Write() - Stream is closed. [this=%p, "
+         "status=0x%08" PRIx32 "]",
+         this,
+         static_cast<uint32_t>(mStatus)));
 
     return NS_FAILED(mStatus) ? mStatus : NS_BASE_STREAM_CLOSED;
   }
 
-  if (!mFile->mSkipSizeCheck && CacheObserver::EntryIsTooBig(mPos + aCount, !mFile->mMemoryOnly)) {
-    LOG(("CacheFileOutputStream::Write() - Entry is too big, failing and "
-         "dooming the entry. [this=%p]", this));
+  if (!mFile->mSkipSizeCheck &&
+      CacheObserver::EntryIsTooBig(mPos + aCount, !mFile->mMemoryOnly)) {
+    LOG(
+        ("CacheFileOutputStream::Write() - Entry is too big, failing and "
+         "dooming the entry. [this=%p]",
+         this));
 
     mFile->DoomLocked(nullptr);
     CloseWithStatusLocked(NS_ERROR_FILE_TOO_BIG);
@@ -110,9 +118,11 @@ CacheFileOutputStream::Write(const char * aBuf, uint32_t aCount,
   // We use 64-bit offset when accessing the file, unfortunately we use 32-bit
   // metadata offset, so we cannot handle data bigger than 4GB.
   if (mPos + aCount > PR_UINT32_MAX) {
-    LOG(("CacheFileOutputStream::Write() - Entry's size exceeds 4GB while it "
+    LOG(
+        ("CacheFileOutputStream::Write() - Entry's size exceeds 4GB while it "
          "isn't too big according to CacheObserver::EntryIsTooBig(). Failing "
-         "and dooming the entry. [this=%p]", this));
+         "and dooming the entry. [this=%p]",
+         this));
 
     mFile->DoomLocked(nullptr);
     CloseWithStatusLocked(NS_ERROR_FILE_TOO_BIG);
@@ -136,7 +146,8 @@ CacheFileOutputStream::Write(const char * aBuf, uint32_t aCount,
     uint32_t canWrite = kChunkSize - chunkOffset;
     uint32_t thisWrite = std::min(static_cast<uint32_t>(canWrite), aCount);
 
-    CacheFileChunkWriteHandle hnd = mChunk->GetWriteHandle(chunkOffset + thisWrite);
+    CacheFileChunkWriteHandle hnd =
+        mChunk->GetWriteHandle(chunkOffset + thisWrite);
     if (!hnd.Buf()) {
       CloseWithStatusLocked(NS_ERROR_OUT_OF_MEMORY);
       return NS_ERROR_OUT_OF_MEMORY;
@@ -153,33 +164,44 @@ CacheFileOutputStream::Write(const char * aBuf, uint32_t aCount,
   EnsureCorrectChunk(true);
 
   LOG(("CacheFileOutputStream::Write() - Wrote %d bytes [this=%p]",
-       *_retval, this));
+       *_retval,
+       this));
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-CacheFileOutputStream::WriteFrom(nsIInputStream *aFromStream, uint32_t aCount,
-                                 uint32_t *_retval)
+CacheFileOutputStream::WriteFrom(nsIInputStream* aFromStream,
+                                 uint32_t aCount,
+                                 uint32_t* _retval)
 {
-  LOG(("CacheFileOutputStream::WriteFrom() - NOT_IMPLEMENTED [this=%p, from=%p"
-       ", count=%d]", this, aFromStream, aCount));
+  LOG(
+      ("CacheFileOutputStream::WriteFrom() - NOT_IMPLEMENTED [this=%p, from=%p"
+       ", count=%d]",
+       this,
+       aFromStream,
+       aCount));
 
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-CacheFileOutputStream::WriteSegments(nsReadSegmentFun aReader, void *aClosure,
-                                     uint32_t aCount, uint32_t *_retval)
+CacheFileOutputStream::WriteSegments(nsReadSegmentFun aReader,
+                                     void* aClosure,
+                                     uint32_t aCount,
+                                     uint32_t* _retval)
 {
-  LOG(("CacheFileOutputStream::WriteSegments() - NOT_IMPLEMENTED [this=%p, "
-       "count=%d]", this, aCount));
+  LOG(
+      ("CacheFileOutputStream::WriteSegments() - NOT_IMPLEMENTED [this=%p, "
+       "count=%d]",
+       this,
+       aCount));
 
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-CacheFileOutputStream::IsNonBlocking(bool *_retval)
+CacheFileOutputStream::IsNonBlocking(bool* _retval)
 {
   *_retval = false;
   return NS_OK;
@@ -191,8 +213,10 @@ CacheFileOutputStream::CloseWithStatus(nsresult aStatus)
 {
   CacheFileAutoLock lock(mFile);
 
-  LOG(("CacheFileOutputStream::CloseWithStatus() [this=%p, aStatus=0x%08" PRIx32 "]",
-       this, static_cast<uint32_t>(aStatus)));
+  LOG(("CacheFileOutputStream::CloseWithStatus() [this=%p, aStatus=0x%08" PRIx32
+       "]",
+       this,
+       static_cast<uint32_t>(aStatus)));
 
   return CloseWithStatusLocked(aStatus);
 }
@@ -200,8 +224,11 @@ CacheFileOutputStream::CloseWithStatus(nsresult aStatus)
 nsresult
 CacheFileOutputStream::CloseWithStatusLocked(nsresult aStatus)
 {
-  LOG(("CacheFileOutputStream::CloseWithStatusLocked() [this=%p, "
-       "aStatus=0x%08" PRIx32 "]", this, static_cast<uint32_t>(aStatus)));
+  LOG(
+      ("CacheFileOutputStream::CloseWithStatusLocked() [this=%p, "
+       "aStatus=0x%08" PRIx32 "]",
+       this,
+       static_cast<uint32_t>(aStatus)));
 
   if (mClosed) {
     MOZ_ASSERT(!mCallback);
@@ -225,27 +252,30 @@ CacheFileOutputStream::CloseWithStatusLocked(nsresult aStatus)
 }
 
 NS_IMETHODIMP
-CacheFileOutputStream::AsyncWait(nsIOutputStreamCallback *aCallback,
+CacheFileOutputStream::AsyncWait(nsIOutputStreamCallback* aCallback,
                                  uint32_t aFlags,
                                  uint32_t aRequestedCount,
-                                 nsIEventTarget *aEventTarget)
+                                 nsIEventTarget* aEventTarget)
 {
   CacheFileAutoLock lock(mFile);
 
-  LOG(("CacheFileOutputStream::AsyncWait() [this=%p, callback=%p, flags=%d, "
-       "requestedCount=%d, eventTarget=%p]", this, aCallback, aFlags,
-       aRequestedCount, aEventTarget));
+  LOG(
+      ("CacheFileOutputStream::AsyncWait() [this=%p, callback=%p, flags=%d, "
+       "requestedCount=%d, eventTarget=%p]",
+       this,
+       aCallback,
+       aFlags,
+       aRequestedCount,
+       aEventTarget));
 
   mCallback = aCallback;
   mCallbackFlags = aFlags;
   mCallbackTarget = aEventTarget;
 
-  if (!mCallback)
-    return NS_OK;
+  if (!mCallback) return NS_OK;
 
   // The stream is blocking so it is writable at any time
-  if (mClosed || !(aFlags & WAIT_CLOSURE_ONLY))
-    NotifyListener();
+  if (mClosed || !(aFlags & WAIT_CLOSURE_ONLY)) NotifyListener();
 
   return NS_OK;
 }
@@ -257,7 +287,9 @@ CacheFileOutputStream::Seek(int32_t whence, int64_t offset)
   CacheFileAutoLock lock(mFile);
 
   LOG(("CacheFileOutputStream::Seek() [this=%p, whence=%d, offset=%" PRId64 "]",
-       this, whence, offset));
+       this,
+       whence,
+       offset));
 
   if (mClosed) {
     LOG(("CacheFileOutputStream::Seek() - Stream is closed. [this=%p]", this));
@@ -293,7 +325,7 @@ CacheFileOutputStream::Seek(int32_t whence, int64_t offset)
 }
 
 NS_IMETHODIMP
-CacheFileOutputStream::Tell(int64_t *_retval)
+CacheFileOutputStream::Tell(int64_t* _retval)
 {
   CacheFileAutoLock lock(mFile);
 
@@ -308,7 +340,9 @@ CacheFileOutputStream::Tell(int64_t *_retval)
     *_retval -= mFile->mAltDataOffset;
   }
 
-  LOG(("CacheFileOutputStream::Tell() [this=%p, retval=%" PRId64 "]", this, *_retval));
+  LOG(("CacheFileOutputStream::Tell() [this=%p, retval=%" PRId64 "]",
+       this,
+       *_retval));
   return NS_OK;
 }
 
@@ -324,44 +358,41 @@ CacheFileOutputStream::SetEOF()
 
 // CacheFileChunkListener
 nsresult
-CacheFileOutputStream::OnChunkRead(nsresult aResult, CacheFileChunk *aChunk)
+CacheFileOutputStream::OnChunkRead(nsresult aResult, CacheFileChunk* aChunk)
 {
   MOZ_CRASH("CacheFileOutputStream::OnChunkRead should not be called!");
   return NS_ERROR_UNEXPECTED;
 }
 
 nsresult
-CacheFileOutputStream::OnChunkWritten(nsresult aResult, CacheFileChunk *aChunk)
+CacheFileOutputStream::OnChunkWritten(nsresult aResult, CacheFileChunk* aChunk)
 {
-  MOZ_CRASH(
-    "CacheFileOutputStream::OnChunkWritten should not be called!");
+  MOZ_CRASH("CacheFileOutputStream::OnChunkWritten should not be called!");
   return NS_ERROR_UNEXPECTED;
 }
 
 nsresult
 CacheFileOutputStream::OnChunkAvailable(nsresult aResult,
                                         uint32_t aChunkIdx,
-                                        CacheFileChunk *aChunk)
+                                        CacheFileChunk* aChunk)
 {
-  MOZ_CRASH(
-    "CacheFileOutputStream::OnChunkAvailable should not be called!");
+  MOZ_CRASH("CacheFileOutputStream::OnChunkAvailable should not be called!");
   return NS_ERROR_UNEXPECTED;
 }
 
 nsresult
-CacheFileOutputStream::OnChunkUpdated(CacheFileChunk *aChunk)
+CacheFileOutputStream::OnChunkUpdated(CacheFileChunk* aChunk)
 {
-  MOZ_CRASH(
-    "CacheFileOutputStream::OnChunkUpdated should not be called!");
+  MOZ_CRASH("CacheFileOutputStream::OnChunkUpdated should not be called!");
   return NS_ERROR_UNEXPECTED;
 }
 
-void CacheFileOutputStream::NotifyCloseListener()
+void
+CacheFileOutputStream::NotifyCloseListener()
 {
   RefPtr<CacheOutputCloseListener> listener;
   listener.swap(mCloseListener);
-  if (!listener)
-    return;
+  if (!listener) return;
 
   listener->OnOutputClosed();
 }
@@ -370,7 +401,8 @@ void
 CacheFileOutputStream::ReleaseChunk()
 {
   LOG(("CacheFileOutputStream::ReleaseChunk() [this=%p, idx=%d]",
-       this, mChunk->Index()));
+       this,
+       mChunk->Index()));
 
   mFile->ReleaseOutsideLock(mChunk.forget());
 }
@@ -381,32 +413,37 @@ CacheFileOutputStream::EnsureCorrectChunk(bool aReleaseOnly)
   mFile->AssertOwnsLock();
 
   LOG(("CacheFileOutputStream::EnsureCorrectChunk() [this=%p, releaseOnly=%d]",
-       this, aReleaseOnly));
+       this,
+       aReleaseOnly));
 
   uint32_t chunkIdx = mPos / kChunkSize;
 
   if (mChunk) {
     if (mChunk->Index() == chunkIdx) {
       // we have a correct chunk
-      LOG(("CacheFileOutputStream::EnsureCorrectChunk() - Have correct chunk "
-           "[this=%p, idx=%d]", this, chunkIdx));
+      LOG(
+          ("CacheFileOutputStream::EnsureCorrectChunk() - Have correct chunk "
+           "[this=%p, idx=%d]",
+           this,
+           chunkIdx));
 
       return;
-    }
-    else {
+    } else {
       ReleaseChunk();
     }
   }
 
-  if (aReleaseOnly)
-    return;
+  if (aReleaseOnly) return;
 
   nsresult rv;
-  rv = mFile->GetChunkLocked(chunkIdx, CacheFile::WRITER, nullptr,
-                             getter_AddRefs(mChunk));
+  rv = mFile->GetChunkLocked(
+      chunkIdx, CacheFile::WRITER, nullptr, getter_AddRefs(mChunk));
   if (NS_FAILED(rv)) {
-    LOG(("CacheFileOutputStream::EnsureCorrectChunk() - GetChunkLocked failed. "
-         "[this=%p, idx=%d, rv=0x%08" PRIx32 "]", this, chunkIdx,
+    LOG(
+        ("CacheFileOutputStream::EnsureCorrectChunk() - GetChunkLocked failed. "
+         "[this=%p, idx=%d, rv=0x%08" PRIx32 "]",
+         this,
+         chunkIdx,
          static_cast<uint32_t>(rv)));
     CloseWithStatusLocked(rv);
   }
@@ -421,11 +458,15 @@ CacheFileOutputStream::FillHole()
   MOZ_ASSERT(mPos / kChunkSize == mChunk->Index());
 
   uint32_t pos = mPos - (mPos / kChunkSize) * kChunkSize;
-  if (mChunk->DataSize() >= pos)
-    return;
+  if (mChunk->DataSize() >= pos) return;
 
-  LOG(("CacheFileOutputStream::FillHole() - Zeroing hole in chunk %d, range "
-       "%d-%d [this=%p]", mChunk->Index(), mChunk->DataSize(), pos - 1, this));
+  LOG(
+      ("CacheFileOutputStream::FillHole() - Zeroing hole in chunk %d, range "
+       "%d-%d [this=%p]",
+       mChunk->Index(),
+       mChunk->DataSize(),
+       pos - 1,
+       this));
 
   CacheFileChunkWriteHandle hnd = mChunk->GetWriteHandle(pos);
   if (!hnd.Buf()) {
@@ -450,14 +491,15 @@ CacheFileOutputStream::NotifyListener()
   if (!mCallbackTarget) {
     mCallbackTarget = CacheFileIOManager::IOTarget();
     if (!mCallbackTarget) {
-      LOG(("CacheFileOutputStream::NotifyListener() - Cannot get Cache I/O "
+      LOG(
+          ("CacheFileOutputStream::NotifyListener() - Cannot get Cache I/O "
            "thread! Using main thread for callback."));
       mCallbackTarget = GetMainThreadEventTarget();
     }
   }
 
   nsCOMPtr<nsIOutputStreamCallback> asyncCallback =
-    NS_NewOutputStreamReadyEvent(mCallback, mCallbackTarget);
+      NS_NewOutputStreamReadyEvent(mCallback, mCallbackTarget);
 
   mCallback = nullptr;
   mCallbackTarget = nullptr;
@@ -468,7 +510,8 @@ CacheFileOutputStream::NotifyListener()
 // Memory reporting
 
 size_t
-CacheFileOutputStream::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const
+CacheFileOutputStream::SizeOfIncludingThis(
+    mozilla::MallocSizeOf mallocSizeOf) const
 {
   // Everything the stream keeps a reference to is already reported somewhere else.
   // mFile reports itself.
@@ -478,5 +521,5 @@ CacheFileOutputStream::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) c
   return mallocSizeOf(this);
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -18,44 +18,167 @@ static const char hexCharsUpper[] = "0123456789ABCDEF";
 static const char hexCharsUpperLower[] = "0123456789ABCDEFabcdef";
 
 static const int netCharType[256] =
-/*  Bit 0       xalpha      -- the alphas
+    /*  Bit 0       xalpha      -- the alphas
 **  Bit 1       xpalpha     -- as xalpha but
 **                             converts spaces to plus and plus to %2B
 **  Bit 3 ...   path        -- as xalphas but doesn't escape '/'
 */
-  /* 0 1 2 3 4 5 6 7 8 9 A B C D E F */
-  {  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   /* 0x */
-     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   /* 1x */
-     0,0,0,0,0,0,0,0,0,0,7,4,0,7,7,4,   /* 2x   !"#$%&'()*+,-./  */
-     7,7,7,7,7,7,7,7,7,7,0,0,0,0,0,0,   /* 3x  0123456789:;<=>?  */
-     0,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,   /* 4x  @ABCDEFGHIJKLMNO  */
-     /* bits for '@' changed from 7 to 0 so '@' can be escaped   */
-     /* in usernames and passwords in publishing.                */
-     7,7,7,7,7,7,7,7,7,7,7,0,0,0,0,7,   /* 5X  PQRSTUVWXYZ[\]^_  */
-     0,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,   /* 6x  `abcdefghijklmno  */
-     7,7,7,7,7,7,7,7,7,7,7,0,0,0,0,0,   /* 7X  pqrstuvwxyz{\}~  DEL */
-     0, };
+    /* 0 1 2 3 4 5 6 7 8 9 A B C D E F */
+    {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0, /* 0x */
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0, /* 1x */
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        7,
+        4,
+        0,
+        7,
+        7,
+        4, /* 2x   !"#$%&'()*+,-./  */
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0, /* 3x  0123456789:;<=>?  */
+        0,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7, /* 4x  @ABCDEFGHIJKLMNO  */
+        /* bits for '@' changed from 7 to 0 so '@' can be escaped   */
+        /* in usernames and passwords in publishing.                */
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        0,
+        0,
+        0,
+        0,
+        7, /* 5X  PQRSTUVWXYZ[\]^_  */
+        0,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7, /* 6x  `abcdefghijklmno  */
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        0,
+        0,
+        0,
+        0,
+        0, /* 7X  pqrstuvwxyz{\}~  DEL */
+        0,
+};
 
 /* decode % escaped hex codes into character values
  */
-#define UNHEX(C) \
-    ((C >= '0' && C <= '9') ? C - '0' : \
-     ((C >= 'A' && C <= 'F') ? C - 'A' + 10 : \
-     ((C >= 'a' && C <= 'f') ? C - 'a' + 10 : 0)))
-
+#define UNHEX(C)                 \
+  ((C >= '0' && C <= '9')        \
+       ? C - '0'                 \
+       : ((C >= 'A' && C <= 'F') \
+              ? C - 'A' + 10     \
+              : ((C >= 'a' && C <= 'f') ? C - 'a' + 10 : 0)))
 
 #define IS_OK(C) (netCharType[((unsigned int)(C))] & (aFlags))
 #define HEX_ESCAPE '%'
 
-static const uint32_t ENCODE_MAX_LEN = 6; // %uABCD
+static const uint32_t ENCODE_MAX_LEN = 6;  // %uABCD
 
 static uint32_t
 AppendPercentHex(char* aBuffer, unsigned char aChar)
 {
   uint32_t i = 0;
   aBuffer[i++] = '%';
-  aBuffer[i++] = hexCharsUpper[aChar >> 4]; // high nibble
-  aBuffer[i++] = hexCharsUpper[aChar & 0xF]; // low nibble
+  aBuffer[i++] = hexCharsUpper[aChar >> 4];   // high nibble
+  aBuffer[i++] = hexCharsUpper[aChar & 0xF];  // low nibble
   return i;
 }
 
@@ -66,17 +189,19 @@ AppendPercentHex(char16_t* aBuffer, char16_t aChar)
   aBuffer[i++] = '%';
   if (aChar & 0xff00) {
     aBuffer[i++] = 'u';
-    aBuffer[i++] = hexCharsUpper[aChar >> 12]; // high-byte high nibble
-    aBuffer[i++] = hexCharsUpper[(aChar >> 8) & 0xF]; // high-byte low nibble
+    aBuffer[i++] = hexCharsUpper[aChar >> 12];         // high-byte high nibble
+    aBuffer[i++] = hexCharsUpper[(aChar >> 8) & 0xF];  // high-byte low nibble
   }
-  aBuffer[i++] = hexCharsUpper[(aChar >> 4) & 0xF]; // low-byte high nibble
-  aBuffer[i++] = hexCharsUpper[aChar & 0xF]; // low-byte low nibble
+  aBuffer[i++] = hexCharsUpper[(aChar >> 4) & 0xF];  // low-byte high nibble
+  aBuffer[i++] = hexCharsUpper[aChar & 0xF];         // low-byte low nibble
   return i;
 }
 
 //----------------------------------------------------------------------------------------
 char*
-nsEscape(const char* aStr, size_t aLength, size_t* aOutputLength,
+nsEscape(const char* aStr,
+         size_t aLength,
+         size_t* aOutputLength,
          nsEscapeMask aFlags)
 //----------------------------------------------------------------------------------------
 {
@@ -123,11 +248,11 @@ nsEscape(const char* aStr, size_t aLength, size_t* aOutputLength,
       if (IS_OK(c)) {
         *dst++ = c;
       } else if (c == ' ') {
-        *dst++ = '+';  /* convert spaces to pluses */
+        *dst++ = '+'; /* convert spaces to pluses */
       } else {
         *dst++ = HEX_ESCAPE;
-        *dst++ = hexCharsUpper[c >> 4];  /* high nibble */
-        *dst++ = hexCharsUpper[c & 0x0f];  /* low nibble */
+        *dst++ = hexCharsUpper[c >> 4];   /* high nibble */
+        *dst++ = hexCharsUpper[c & 0x0f]; /* low nibble */
       }
     }
   } else {
@@ -137,13 +262,13 @@ nsEscape(const char* aStr, size_t aLength, size_t* aOutputLength,
         *dst++ = c;
       } else {
         *dst++ = HEX_ESCAPE;
-        *dst++ = hexCharsUpper[c >> 4];  /* high nibble */
-        *dst++ = hexCharsUpper[c & 0x0f];  /* low nibble */
+        *dst++ = hexCharsUpper[c >> 4];   /* high nibble */
+        *dst++ = hexCharsUpper[c & 0x0f]; /* low nibble */
       }
     }
   }
 
-  *dst = '\0';     /* tack on eos */
+  *dst = '\0'; /* tack on eos */
   if (aOutputLength) {
     *aOutputLength = dst - (unsigned char*)result;
   }
@@ -257,27 +382,38 @@ nsAppendEscapedHTML(const nsACString& aSrc, nsACString& aDst)
 // esc_Ref           =   512
 
 static const uint32_t EscapeChars[256] =
-//   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
-{
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  // 0x
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  // 1x
-     0,1023,   0, 512,1023,   0,1023, 624,1023,1023,1023,1023,1023,1023, 953, 784,  // 2x   !"#$%&'()*+,-./
-  1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1008,1008,   0,1008,   0, 768,  // 3x  0123456789:;<=>?
-  1008,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,  // 4x  @ABCDEFGHIJKLMNO
-  1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1008, 896,1008, 896,1023,  // 5x  PQRSTUVWXYZ[\]^_
-   384,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,  // 6x  `abcdefghijklmno
-  1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023, 896,1012, 896,1023,   0,  // 7x  pqrstuvwxyz{|}~ DEL
-     0                                                                              // 80 to FF are zero
+    //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
+    {
+        0,    0,    0,    0,    0,    0,    0,    0,
+        0,    0,    0,    0,    0,    0,    0,    0,  // 0x
+        0,    0,    0,    0,    0,    0,    0,    0,
+        0,    0,    0,    0,    0,    0,    0,    0,  // 1x
+        0,    1023, 0,    512,  1023, 0,    1023, 624,
+        1023, 1023, 1023, 1023, 1023, 1023, 953,  784,  // 2x   !"#$%&'()*+,-./
+        1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023,
+        1023, 1023, 1008, 1008, 0,    1008, 0,    768,  // 3x  0123456789:;<=>?
+        1008, 1023, 1023, 1023, 1023, 1023, 1023, 1023,
+        1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023,  // 4x  @ABCDEFGHIJKLMNO
+        1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023,
+        1023, 1023, 1023, 1008, 896,  1008, 896,  1023,  // 5x  PQRSTUVWXYZ[\]^_
+        384,  1023, 1023, 1023, 1023, 1023, 1023, 1023,
+        1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023,  // 6x  `abcdefghijklmno
+        1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023,
+        1023, 1023, 1023, 896,  1012, 896,  1023, 0,  // 7x  pqrstuvwxyz{|}~ DEL
+        0                                             // 80 to FF are zero
 };
 
-static uint16_t dontNeedEscape(unsigned char aChar, uint32_t aFlags)
+static uint16_t
+dontNeedEscape(unsigned char aChar, uint32_t aFlags)
 {
   return EscapeChars[(uint32_t)aChar] & aFlags;
 }
-static uint16_t dontNeedEscape(uint16_t aChar, uint32_t aFlags)
+static uint16_t
+dontNeedEscape(uint16_t aChar, uint32_t aFlags)
 {
-  return aChar < mozilla::ArrayLength(EscapeChars) ?
-    (EscapeChars[(uint32_t)aChar]  & aFlags) : 0;
+  return aChar < mozilla::ArrayLength(EscapeChars)
+             ? (EscapeChars[(uint32_t)aChar] & aFlags)
+             : 0;
 }
 
 //----------------------------------------------------------------------------------------
@@ -296,9 +432,12 @@ static uint16_t dontNeedEscape(uint16_t aChar, uint32_t aFlags)
  */
 template<class T>
 static nsresult
-T_EscapeURL(const typename T::char_type* aPart, size_t aPartLen,
-            uint32_t aFlags, const ASCIIMaskArray* aFilterMask,
-            T& aResult, bool& aDidAppend)
+T_EscapeURL(const typename T::char_type* aPart,
+            size_t aPartLen,
+            uint32_t aFlags,
+            const ASCIIMaskArray* aFilterMask,
+            T& aResult,
+            bool& aDidAppend)
 {
   typedef nsCharTraits<typename T::char_type> traits;
   typedef typename traits::unsigned_char_type unsigned_char_type;
@@ -354,11 +493,11 @@ T_EscapeURL(const typename T::char_type* aPart, size_t aPartLen,
     //
     // 0x20..0x7e are the valid ASCII characters. We also escape spaces
     // (0x20) since they are not legal in URLs.
-    if ((dontNeedEscape(c, aFlags) || (c == HEX_ESCAPE && !forced)
-         || (c > 0x7f && ignoreNonAscii)
-         || (c > 0x20 && c < 0x7f && ignoreAscii))
-        && !(c == ':' && colon)
-        && !(previousIsNonASCII && c == '|' && !ignoreNonAscii)) {
+    if ((dontNeedEscape(c, aFlags) || (c == HEX_ESCAPE && !forced) ||
+         (c > 0x7f && ignoreNonAscii) ||
+         (c > 0x20 && c < 0x7f && ignoreAscii)) &&
+        !(c == ':' && colon) &&
+        !(previousIsNonASCII && c == '|' && !ignoreNonAscii)) {
       if (writing) {
         tempBuffer[tempBufferPos++] = c;
       }
@@ -395,7 +534,9 @@ T_EscapeURL(const typename T::char_type* aPart, size_t aPartLen,
 }
 
 bool
-NS_EscapeURL(const char* aPart, int32_t aPartLen, uint32_t aFlags,
+NS_EscapeURL(const char* aPart,
+             int32_t aPartLen,
+             uint32_t aFlags,
              nsACString& aResult)
 {
   if (aPartLen < 0) {
@@ -412,11 +553,14 @@ NS_EscapeURL(const char* aPart, int32_t aPartLen, uint32_t aFlags,
 }
 
 nsresult
-NS_EscapeURL(const nsACString& aStr, uint32_t aFlags, nsACString& aResult,
+NS_EscapeURL(const nsACString& aStr,
+             uint32_t aFlags,
+             nsACString& aResult,
              const mozilla::fallible_t&)
 {
   bool appended = false;
-  nsresult rv = T_EscapeURL(aStr.Data(), aStr.Length(), aFlags, nullptr, aResult, appended);
+  nsresult rv = T_EscapeURL(
+      aStr.Data(), aStr.Length(), aFlags, nullptr, aResult, appended);
   if (NS_FAILED(rv)) {
     aResult.Truncate();
     return rv;
@@ -430,12 +574,15 @@ NS_EscapeURL(const nsACString& aStr, uint32_t aFlags, nsACString& aResult,
 }
 
 nsresult
-NS_EscapeAndFilterURL(const nsACString& aStr, uint32_t aFlags,
+NS_EscapeAndFilterURL(const nsACString& aStr,
+                      uint32_t aFlags,
                       const ASCIIMaskArray* aFilterMask,
-                      nsACString& aResult, const mozilla::fallible_t&)
+                      nsACString& aResult,
+                      const mozilla::fallible_t&)
 {
   bool appended = false;
-  nsresult rv = T_EscapeURL(aStr.Data(), aStr.Length(), aFlags, aFilterMask, aResult, appended);
+  nsresult rv = T_EscapeURL(
+      aStr.Data(), aStr.Length(), aFlags, aFilterMask, aResult, appended);
   if (NS_FAILED(rv)) {
     aResult.Truncate();
     return rv;
@@ -452,7 +599,8 @@ const nsAString&
 NS_EscapeURL(const nsAString& aStr, uint32_t aFlags, nsAString& aResult)
 {
   bool result = false;
-  nsresult rv = T_EscapeURL<nsAString>(aStr.Data(), aStr.Length(), aFlags, nullptr, aResult, result);
+  nsresult rv = T_EscapeURL<nsAString>(
+      aStr.Data(), aStr.Length(), aFlags, nullptr, aResult, result);
 
   if (NS_FAILED(rv)) {
     ::NS_ABORT_OOM(aResult.Length() * sizeof(nsAString::char_type));
@@ -467,8 +615,10 @@ NS_EscapeURL(const nsAString& aStr, uint32_t aFlags, nsAString& aResult)
 // Starting at aStr[aStart] find the first index in aStr that matches any
 // character in aForbidden. Return false if not found.
 static bool
-FindFirstMatchFrom(const nsString& aStr, size_t aStart,
-                   const nsTArray<char16_t>& aForbidden, size_t* aIndex)
+FindFirstMatchFrom(const nsString& aStr,
+                   size_t aStart,
+                   const nsTArray<char16_t>& aForbidden,
+                   size_t* aIndex)
 {
   const size_t len = aForbidden.Length();
   for (size_t j = aStart, l = aStr.Length(); j < l; ++j) {
@@ -482,11 +632,12 @@ FindFirstMatchFrom(const nsString& aStr, size_t aStart,
 }
 
 const nsAString&
-NS_EscapeURL(const nsString& aStr, const nsTArray<char16_t>& aForbidden,
+NS_EscapeURL(const nsString& aStr,
+             const nsTArray<char16_t>& aForbidden,
              nsAString& aResult)
 {
   bool didEscape = false;
-  for (size_t i = 0, strLen = aStr.Length(); i < strLen; ) {
+  for (size_t i = 0, strLen = aStr.Length(); i < strLen;) {
     size_t j;
     if (MOZ_UNLIKELY(FindFirstMatchFrom(aStr, i, aForbidden, &j))) {
       if (i == 0) {
@@ -517,10 +668,12 @@ NS_EscapeURL(const nsString& aStr, const nsTArray<char16_t>& aForbidden,
   return aStr;
 }
 
-#define ISHEX(c) memchr(hexCharsUpperLower, c, sizeof(hexCharsUpperLower)-1)
+#define ISHEX(c) memchr(hexCharsUpperLower, c, sizeof(hexCharsUpperLower) - 1)
 
 bool
-NS_UnescapeURL(const char* aStr, int32_t aLen, uint32_t aFlags,
+NS_UnescapeURL(const char* aStr,
+               int32_t aLen,
+               uint32_t aFlags,
                nsACString& aResult)
 {
   if (!aStr) {

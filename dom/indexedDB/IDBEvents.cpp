@@ -45,7 +45,7 @@ CreateGenericEvent(EventTarget* aOwner,
   return event.forget();
 }
 
-} // namespace indexedDB
+}  // namespace indexedDB
 
 // static
 already_AddRefed<IDBVersionChangeEvent>
@@ -55,7 +55,7 @@ IDBVersionChangeEvent::CreateInternal(EventTarget* aOwner,
                                       const Nullable<uint64_t>& aNewVersion)
 {
   RefPtr<IDBVersionChangeEvent> event =
-    new IDBVersionChangeEvent(aOwner, aOldVersion);
+      new IDBVersionChangeEvent(aOwner, aOldVersion);
   if (!aNewVersion.IsNull()) {
     event->mNewVersion.SetValue(aNewVersion.Value());
   }
@@ -75,10 +75,8 @@ IDBVersionChangeEvent::Constructor(const GlobalObject& aGlobal,
 {
   nsCOMPtr<EventTarget> target = do_QueryInterface(aGlobal.GetAsSupports());
 
-  return CreateInternal(target,
-                        aType,
-                        aOptions.mOldVersion,
-                        aOptions.mNewVersion);
+  return CreateInternal(
+      target, aType, aOptions.mOldVersion, aOptions.mNewVersion);
 }
 
 NS_IMPL_ADDREF_INHERITED(IDBVersionChangeEvent, Event)
@@ -89,10 +87,11 @@ NS_INTERFACE_MAP_BEGIN(IDBVersionChangeEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 JSObject*
-IDBVersionChangeEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+IDBVersionChangeEvent::WrapObjectInternal(JSContext* aCx,
+                                          JS::Handle<JSObject*> aGivenProto)
 {
   return IDBVersionChangeEventBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -55,8 +55,7 @@ GetCyclicCounterText(CounterValue aOrdinal,
                      nsAString& aResult,
                      const nsTArray<nsString>& aSymbols)
 {
-  MOZ_ASSERT(aSymbols.Length() >= 1,
-             "No symbol available for cyclic counter.");
+  MOZ_ASSERT(aSymbols.Length() >= 1, "No symbol available for cyclic counter.");
   auto n = aSymbols.Length();
   CounterValue index = (aOrdinal - 1) % n;
   aResult = aSymbols[index >= 0 ? index : index + n];
@@ -112,8 +111,7 @@ GetAlphabeticCounterText(CounterValue aOrdinal,
                          nsAString& aResult,
                          const nsTArray<nsString>& aSymbols)
 {
-  MOZ_ASSERT(aSymbols.Length() >= 2,
-             "Too few symbols for alphabetic counter.");
+  MOZ_ASSERT(aSymbols.Length() >= 2, "Too few symbols for alphabetic counter.");
   MOZ_ASSERT(aOrdinal >= 0, "Invalid ordinal.");
   if (aOrdinal == 0) {
     return false;
@@ -142,8 +140,7 @@ GetNumericCounterText(CounterValue aOrdinal,
                       nsAString& aResult,
                       const nsTArray<nsString>& aSymbols)
 {
-  MOZ_ASSERT(aSymbols.Length() >= 2,
-             "Too few symbols for numeric counter.");
+  MOZ_ASSERT(aSymbols.Length() >= 2, "Too few symbols for numeric counter.");
   MOZ_ASSERT(aOrdinal >= 0, "Invalid ordinal.");
 
   if (aOrdinal == 0) {
@@ -193,8 +190,7 @@ GetAdditiveCounterText(CounterValue aOrdinal,
       auto symbolLength = symbol.symbol.Length();
       if (symbolLength > 0) {
         length += times * symbolLength;
-        if (times > LENGTH_LIMIT ||
-            symbolLength > LENGTH_LIMIT ||
+        if (times > LENGTH_LIMIT || symbolLength > LENGTH_LIMIT ||
             length > LENGTH_LIMIT) {
           return false;
         }
@@ -215,17 +211,21 @@ DecimalToText(CounterValue aOrdinal, nsAString& aResult)
   return true;
 }
 
-// We know cjk-ideographic need 31 characters to display 99,999,999,999,999,999
-// georgian needs 6 at most
-// armenian needs 12 at most
-// hebrew may need more...
+  // We know cjk-ideographic need 31 characters to display 99,999,999,999,999,999
+  // georgian needs 6 at most
+  // armenian needs 12 at most
+  // hebrew may need more...
 
 #define NUM_BUF_SIZE 34
 
-enum CJKIdeographicLang {
-  CHINESE, KOREAN, JAPANESE
+enum CJKIdeographicLang
+{
+  CHINESE,
+  KOREAN,
+  JAPANESE
 };
-struct CJKIdeographicData {
+struct CJKIdeographicData
+{
   char16_t digit[10];
   char16_t unit[3];
   char16_t unit10K[2];
@@ -233,98 +233,162 @@ struct CJKIdeographicData {
   bool informal;
 };
 static const CJKIdeographicData gDataJapaneseInformal = {
-  {                           // digit
-    0x3007, 0x4e00, 0x4e8c, 0x4e09, 0x56db,
-    0x4e94, 0x516d, 0x4e03, 0x516b, 0x4e5d
-  },
-  { 0x5341, 0x767e, 0x5343 }, // unit
-  { 0x4e07, 0x5104 },         // unit10K
-  JAPANESE,                   // lang
-  true                        // informal
+    {// digit
+     0x3007,
+     0x4e00,
+     0x4e8c,
+     0x4e09,
+     0x56db,
+     0x4e94,
+     0x516d,
+     0x4e03,
+     0x516b,
+     0x4e5d},
+    {0x5341, 0x767e, 0x5343},  // unit
+    {0x4e07, 0x5104},          // unit10K
+    JAPANESE,                  // lang
+    true                       // informal
 };
 static const CJKIdeographicData gDataJapaneseFormal = {
-  {                           // digit
-    0x96f6, 0x58f1, 0x5f10, 0x53c2, 0x56db,
-    0x4f0d, 0x516d, 0x4e03, 0x516b, 0x4e5d
-  },
-  { 0x62fe, 0x767e, 0x9621 }, // unit
-  { 0x842c, 0x5104 },         // unit10K
-  JAPANESE,                   // lang
-  false                       // informal
+    {// digit
+     0x96f6,
+     0x58f1,
+     0x5f10,
+     0x53c2,
+     0x56db,
+     0x4f0d,
+     0x516d,
+     0x4e03,
+     0x516b,
+     0x4e5d},
+    {0x62fe, 0x767e, 0x9621},  // unit
+    {0x842c, 0x5104},          // unit10K
+    JAPANESE,                  // lang
+    false                      // informal
 };
 static const CJKIdeographicData gDataKoreanHangulFormal = {
-  {                           // digit
-    0xc601, 0xc77c, 0xc774, 0xc0bc, 0xc0ac,
-    0xc624, 0xc721, 0xce60, 0xd314, 0xad6c
-  },
-  { 0xc2ed, 0xbc31, 0xcc9c }, // unit
-  { 0xb9cc, 0xc5b5 },         // unit10K
-  KOREAN,                     // lang
-  false                       // informal
+    {// digit
+     0xc601,
+     0xc77c,
+     0xc774,
+     0xc0bc,
+     0xc0ac,
+     0xc624,
+     0xc721,
+     0xce60,
+     0xd314,
+     0xad6c},
+    {0xc2ed, 0xbc31, 0xcc9c},  // unit
+    {0xb9cc, 0xc5b5},          // unit10K
+    KOREAN,                    // lang
+    false                      // informal
 };
 static const CJKIdeographicData gDataKoreanHanjaInformal = {
-  {                           // digit
-    0x96f6, 0x4e00, 0x4e8c, 0x4e09, 0x56db,
-    0x4e94, 0x516d, 0x4e03, 0x516b, 0x4e5d
-  },
-  { 0x5341, 0x767e, 0x5343 }, // unit
-  { 0x842c, 0x5104 },         // unit10K
-  KOREAN,                     // lang
-  true                        // informal
+    {// digit
+     0x96f6,
+     0x4e00,
+     0x4e8c,
+     0x4e09,
+     0x56db,
+     0x4e94,
+     0x516d,
+     0x4e03,
+     0x516b,
+     0x4e5d},
+    {0x5341, 0x767e, 0x5343},  // unit
+    {0x842c, 0x5104},          // unit10K
+    KOREAN,                    // lang
+    true                       // informal
 };
 static const CJKIdeographicData gDataKoreanHanjaFormal = {
-  {                           // digit
-    0x96f6, 0x58f9, 0x8cb3, 0x53c3, 0x56db,
-    0x4e94, 0x516d, 0x4e03, 0x516b, 0x4e5d
-  },
-  { 0x62fe, 0x767e, 0x4edf }, // unit
-  { 0x842c, 0x5104 },         // unit10K
-  KOREAN,                     // lang
-  false                       // informal
+    {// digit
+     0x96f6,
+     0x58f9,
+     0x8cb3,
+     0x53c3,
+     0x56db,
+     0x4e94,
+     0x516d,
+     0x4e03,
+     0x516b,
+     0x4e5d},
+    {0x62fe, 0x767e, 0x4edf},  // unit
+    {0x842c, 0x5104},          // unit10K
+    KOREAN,                    // lang
+    false                      // informal
 };
 static const CJKIdeographicData gDataSimpChineseInformal = {
-  {                           // digit
-    0x96f6, 0x4e00, 0x4e8c, 0x4e09, 0x56db,
-    0x4e94, 0x516d, 0x4e03, 0x516b, 0x4e5d
-  },
-  { 0x5341, 0x767e, 0x5343 }, // unit
-  { 0x4e07, 0x4ebf },         // unit10K
-  CHINESE,                    // lang
-  true                        // informal
+    {// digit
+     0x96f6,
+     0x4e00,
+     0x4e8c,
+     0x4e09,
+     0x56db,
+     0x4e94,
+     0x516d,
+     0x4e03,
+     0x516b,
+     0x4e5d},
+    {0x5341, 0x767e, 0x5343},  // unit
+    {0x4e07, 0x4ebf},          // unit10K
+    CHINESE,                   // lang
+    true                       // informal
 };
 static const CJKIdeographicData gDataSimpChineseFormal = {
-  {                           // digit
-    0x96f6, 0x58f9, 0x8d30, 0x53c1, 0x8086,
-    0x4f0d, 0x9646, 0x67d2, 0x634c, 0x7396
-  },
-  { 0x62fe, 0x4f70, 0x4edf }, // unit
-  { 0x4e07, 0x4ebf },         // unit10K
-  CHINESE,                    // lang
-  false                       // informal
+    {// digit
+     0x96f6,
+     0x58f9,
+     0x8d30,
+     0x53c1,
+     0x8086,
+     0x4f0d,
+     0x9646,
+     0x67d2,
+     0x634c,
+     0x7396},
+    {0x62fe, 0x4f70, 0x4edf},  // unit
+    {0x4e07, 0x4ebf},          // unit10K
+    CHINESE,                   // lang
+    false                      // informal
 };
 static const CJKIdeographicData gDataTradChineseInformal = {
-  {                           // digit
-    0x96f6, 0x4e00, 0x4e8c, 0x4e09, 0x56db,
-    0x4e94, 0x516d, 0x4e03, 0x516b, 0x4e5d
-  },
-  { 0x5341, 0x767e, 0x5343 }, // unit
-  { 0x842c, 0x5104 },         // unit10K
-  CHINESE,                    // lang
-  true                        // informal
+    {// digit
+     0x96f6,
+     0x4e00,
+     0x4e8c,
+     0x4e09,
+     0x56db,
+     0x4e94,
+     0x516d,
+     0x4e03,
+     0x516b,
+     0x4e5d},
+    {0x5341, 0x767e, 0x5343},  // unit
+    {0x842c, 0x5104},          // unit10K
+    CHINESE,                   // lang
+    true                       // informal
 };
 static const CJKIdeographicData gDataTradChineseFormal = {
-  {                           // digit
-    0x96f6, 0x58f9, 0x8cb3, 0x53c3, 0x8086,
-    0x4f0d, 0x9678, 0x67d2, 0x634c, 0x7396
-  },
-  { 0x62fe, 0x4f70, 0x4edf }, // unit
-  { 0x842c, 0x5104 },         // unit10K
-  CHINESE,                    // lang
-  false                       // informal
+    {// digit
+     0x96f6,
+     0x58f9,
+     0x8cb3,
+     0x53c3,
+     0x8086,
+     0x4f0d,
+     0x9678,
+     0x67d2,
+     0x634c,
+     0x7396},
+    {0x62fe, 0x4f70, 0x4edf},  // unit
+    {0x842c, 0x5104},          // unit10K
+    CHINESE,                   // lang
+    false                      // informal
 };
 
 static bool
-CJKIdeographicToText(CounterValue aOrdinal, nsAString& aResult,
+CJKIdeographicToText(CounterValue aOrdinal,
+                     nsAString& aResult,
                      const CJKIdeographicData& data)
 {
   NS_ASSERTION(aOrdinal >= 0, "Only accept non-negative ordinal");
@@ -395,16 +459,33 @@ CJKIdeographicToText(CounterValue aOrdinal, nsAString& aResult,
   return true;
 }
 
-#define HEBREW_GERESH       0x05F3
-static const char16_t gHebrewDigit[22] =
-{
-  //   1       2       3       4       5       6       7       8       9
-  0x05D0, 0x05D1, 0x05D2, 0x05D3, 0x05D4, 0x05D5, 0x05D6, 0x05D7, 0x05D8,
-  //  10      20      30      40      50      60      70      80      90
-  0x05D9, 0x05DB, 0x05DC, 0x05DE, 0x05E0, 0x05E1, 0x05E2, 0x05E4, 0x05E6,
-  // 100     200     300     400
-  0x05E7, 0x05E8, 0x05E9, 0x05EA
-};
+#define HEBREW_GERESH 0x05F3
+static const char16_t gHebrewDigit[22] = {
+    //   1       2       3       4       5       6       7       8       9
+    0x05D0,
+    0x05D1,
+    0x05D2,
+    0x05D3,
+    0x05D4,
+    0x05D5,
+    0x05D6,
+    0x05D7,
+    0x05D8,
+    //  10      20      30      40      50      60      70      80      90
+    0x05D9,
+    0x05DB,
+    0x05DC,
+    0x05DE,
+    0x05E0,
+    0x05E1,
+    0x05E2,
+    0x05E4,
+    0x05E6,
+    // 100     200     300     400
+    0x05E7,
+    0x05E8,
+    0x05E9,
+    0x05EA};
 
 static bool
 HebrewToText(CounterValue aOrdinal, nsAString& aResult)
@@ -419,40 +500,35 @@ HebrewToText(CounterValue aOrdinal, nsAString& aResult)
     thousandsGroup.Truncate();
     int32_t n3 = aOrdinal % 1000;
     // Process digit for 100 - 900
-    for(int32_t n1 = 400; n1 > 0; )
-    {
-      if( n3 >= n1)
-      {
+    for (int32_t n1 = 400; n1 > 0;) {
+      if (n3 >= n1) {
         n3 -= n1;
-        thousandsGroup.Append(gHebrewDigit[(n1/100)-1+18]);
+        thousandsGroup.Append(gHebrewDigit[(n1 / 100) - 1 + 18]);
       } else {
         n1 -= 100;
-      } // if
-    } // for
+      }  // if
+    }    // for
 
     // Process digit for 10 - 90
     int32_t n2;
-    if( n3 >= 10 )
-    {
+    if (n3 >= 10) {
       // Special process for 15 and 16
-      if(( 15 == n3 ) || (16 == n3)) {
+      if ((15 == n3) || (16 == n3)) {
         // Special rule for religious reason...
         // 15 is represented by 9 and 6, not 10 and 5
         // 16 is represented by 9 and 7, not 10 and 6
         n2 = 9;
-        thousandsGroup.Append(gHebrewDigit[ n2 - 1]);
+        thousandsGroup.Append(gHebrewDigit[n2 - 1]);
       } else {
         n2 = n3 - (n3 % 10);
-        thousandsGroup.Append(gHebrewDigit[(n2/10)-1+9]);
-      } // if
+        thousandsGroup.Append(gHebrewDigit[(n2 / 10) - 1 + 9]);
+      }  // if
       n3 -= n2;
-    } // if
+    }  // if
 
     // Process digit for 1 - 9
-    if ( n3 > 0)
-      thousandsGroup.Append(gHebrewDigit[n3-1]);
-    if (outputSep)
-      thousandsGroup.Append((char16_t)HEBREW_GERESH);
+    if (n3 > 0) thousandsGroup.Append(gHebrewDigit[n3 - 1]);
+    if (outputSep) thousandsGroup.Append((char16_t)HEBREW_GERESH);
     if (allText.IsEmpty())
       allText = thousandsGroup;
     else
@@ -470,10 +546,10 @@ HebrewToText(CounterValue aOrdinal, nsAString& aResult)
 // The algorithm used here is based on the pseudo-code put up there by
 // Daniel Yacob <yacob@geez.org>.
 // Another reference is Unicode 3.0 standard section 11.1.
-#define ETHIOPIC_ONE             0x1369
-#define ETHIOPIC_TEN             0x1372
-#define ETHIOPIC_HUNDRED         0x137B
-#define ETHIOPIC_TEN_THOUSAND    0x137C
+#define ETHIOPIC_ONE 0x1369
+#define ETHIOPIC_TEN 0x1372
+#define ETHIOPIC_HUNDRED 0x137B
+#define ETHIOPIC_TEN_THOUSAND 0x137C
 
 static bool
 EthiopicToText(CounterValue aOrdinal, nsAString& aResult)
@@ -482,7 +558,7 @@ EthiopicToText(CounterValue aOrdinal, nsAString& aResult)
     return false;
   }
 
-  nsAutoString asciiNumberString;      // decimal string representation of ordinal
+  nsAutoString asciiNumberString;  // decimal string representation of ordinal
   DecimalToText(aOrdinal, asciiNumberString);
   uint8_t asciiStringLength = asciiNumberString.Length();
 
@@ -504,37 +580,37 @@ EthiopicToText(CounterValue aOrdinal, nsAString& aResult)
   for (uint8_t indexFromLeft = 0, groupIndexFromRight = asciiStringLength >> 1;
        indexFromLeft <= asciiStringLength;
        indexFromLeft += 2, groupIndexFromRight--) {
-    uint8_t tensValue  = asciiNumberString.CharAt(indexFromLeft) & 0x0F;
+    uint8_t tensValue = asciiNumberString.CharAt(indexFromLeft) & 0x0F;
     uint8_t unitsValue = asciiNumberString.CharAt(indexFromLeft + 1) & 0x0F;
     uint8_t groupValue = tensValue * 10 + unitsValue;
 
     bool oddGroup = (groupIndexFromRight & 1);
 
     // we want to clear ETHIOPIC_ONE when it is superfluous
-    if (aOrdinal > 1 &&
-        groupValue == 1 &&                  // one without a leading ten
-        (oddGroup || indexFromLeft == 0)) { // preceding (100) or leading the sequence
+    if (aOrdinal > 1 && groupValue == 1 &&  // one without a leading ten
+        (oddGroup ||
+         indexFromLeft == 0)) {  // preceding (100) or leading the sequence
       unitsValue = 0;
     }
 
     // put it all together...
     if (tensValue) {
       // map onto Ethiopic "tens":
-      aResult.Append((char16_t) (tensValue +  ETHIOPIC_TEN - 1));
+      aResult.Append((char16_t)(tensValue + ETHIOPIC_TEN - 1));
     }
     if (unitsValue) {
       //map onto Ethiopic "units":
-      aResult.Append((char16_t) (unitsValue + ETHIOPIC_ONE - 1));
+      aResult.Append((char16_t)(unitsValue + ETHIOPIC_ONE - 1));
     }
     // Add a separator for all even groups except the last,
     // and for odd groups with non-zero value.
     if (oddGroup) {
       if (groupValue) {
-        aResult.Append((char16_t) ETHIOPIC_HUNDRED);
+        aResult.Append((char16_t)ETHIOPIC_HUNDRED);
       }
     } else {
       if (groupIndexFromRight) {
-        aResult.Append((char16_t) ETHIOPIC_TEN_THOUSAND);
+        aResult.Append((char16_t)ETHIOPIC_TEN_THOUSAND);
       }
     }
   }
@@ -574,10 +650,9 @@ SystemUsesNegativeSign(uint8_t aSystem)
 
 class BuiltinCounterStyle : public CounterStyle
 {
-public:
+ public:
   constexpr BuiltinCounterStyle(int32_t aStyle, nsAtom** aName)
-    : CounterStyle(aStyle)
-    , mName(aName)
+      : CounterStyle(aStyle), mName(aName)
   {
   }
 
@@ -603,14 +678,13 @@ public:
                                      nsAString& aResult,
                                      bool& aIsRTL) override;
 
-protected:
+ protected:
   BuiltinCounterStyle(const BuiltinCounterStyle& aOther)
-    : CounterStyle(aOther.mStyle)
-    , mName(aOther.mName)
+      : CounterStyle(aOther.mStyle), mName(aOther.mName)
   {
   }
 
-private:
+ private:
   // The atom for the name of the builtin counter style.
   // Extra indirection to point to nsGkAtoms members rather than the
   // nsAtom, because members of nsGkAtoms are updated at runtime but
@@ -717,17 +791,11 @@ BuiltinCounterStyle::IsBullet()
 }
 
 static const char16_t gJapaneseNegative[] = {
-  0x30de, 0x30a4, 0x30ca, 0x30b9, 0x0000
-};
+    0x30de, 0x30a4, 0x30ca, 0x30b9, 0x0000};
 static const char16_t gKoreanNegative[] = {
-  0xb9c8, 0xc774, 0xb108, 0xc2a4, 0x0020, 0x0000
-};
-static const char16_t gSimpChineseNegative[] = {
-  0x8d1f, 0x0000
-};
-static const char16_t gTradChineseNegative[] = {
-  0x8ca0, 0x0000
-};
+    0xb9c8, 0xc774, 0xb108, 0xc2a4, 0x0020, 0x0000};
+static const char16_t gSimpChineseNegative[] = {0x8d1f, 0x0000};
+static const char16_t gTradChineseNegative[] = {0x8ca0, 0x0000};
 
 /* virtual */ void
 BuiltinCounterStyle::GetNegative(NegativeType& aResult)
@@ -965,28 +1033,28 @@ static constexpr BuiltinCounterStyle gBuiltinStyleTable[] =
 #else
 static const BuiltinCounterStyle gBuiltinStyleTable[] =
 #endif
-{
+    {
 #define BUILTIN_COUNTER_STYLE(value_, atom_) \
-  { NS_STYLE_LIST_STYLE_ ## value_, &nsGkAtoms::atom_ },
+  {NS_STYLE_LIST_STYLE_##value_, &nsGkAtoms::atom_},
 #include "BuiltinCounterStyleList.h"
 #undef BUILTIN_COUNTER_STYLE
 };
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1910
-#define BUILTIN_COUNTER_STYLE(value_, atom_) \
-  static_assert(gBuiltinStyleTable[NS_STYLE_LIST_STYLE_ ## value_].GetStyle() \
-                == NS_STYLE_LIST_STYLE_ ## value_, "Builtin counter style " \
-                #atom_ " has unmatched index and value.");
+#define BUILTIN_COUNTER_STYLE(value_, atom_)                                   \
+  static_assert(gBuiltinStyleTable[NS_STYLE_LIST_STYLE_##value_].GetStyle() == \
+                    NS_STYLE_LIST_STYLE_##value_,                              \
+                "Builtin counter style " #atom_                                \
+                " has unmatched index and value.");
 #include "BuiltinCounterStyleList.h"
 #undef BUILTIN_COUNTER_STYLE
 #endif
 
 class DependentBuiltinCounterStyle final : public BuiltinCounterStyle
 {
-public:
+ public:
   DependentBuiltinCounterStyle(int32_t aStyle, CounterStyleManager* aManager)
-    : BuiltinCounterStyle(gBuiltinStyleTable[aStyle]),
-      mManager(aManager)
+      : BuiltinCounterStyle(gBuiltinStyleTable[aStyle]), mManager(aManager)
   {
     NS_ASSERTION(IsDependentStyle(), "Not a dependent builtin style");
     MOZ_ASSERT(!IsCustomStyle(), "Not a builtin style");
@@ -1007,7 +1075,7 @@ public:
     shell->FreeByObjectID(eArenaObjectID_DependentBuiltinCounterStyle, this);
   }
 
-private:
+ private:
   ~DependentBuiltinCounterStyle() {}
 
   CounterStyleManager* mManager;
@@ -1039,21 +1107,21 @@ DependentBuiltinCounterStyle::GetFallback()
 
 class CustomCounterStyle final : public CounterStyle
 {
-public:
+ public:
   CustomCounterStyle(nsAtom* aName,
                      CounterStyleManager* aManager,
                      nsCSSCounterStyleRule* aRule)
-    : CounterStyle(NS_STYLE_LIST_STYLE_CUSTOM),
-      mName(aName),
-      mManager(aManager),
-      mRule(aRule),
-      mRuleGeneration(aRule->GetGeneration()),
-      mSystem(aRule->GetSystem()),
-      mFlags(0),
-      mFallback(nullptr),
-      mSpeakAsCounter(nullptr),
-      mExtends(nullptr),
-      mExtendsRoot(nullptr)
+      : CounterStyle(NS_STYLE_LIST_STYLE_CUSTOM),
+        mName(aName),
+        mManager(aManager),
+        mRule(aRule),
+        mRuleGeneration(aRule->GetGeneration()),
+        mSystem(aRule->GetSystem()),
+        mFlags(0),
+        mFallback(nullptr),
+        mSpeakAsCounter(nullptr),
+        mExtends(nullptr),
+        mExtendsRoot(nullptr)
   {
   }
 
@@ -1098,10 +1166,7 @@ public:
                                      nsAString& aResult,
                                      bool& aIsRTL) override;
 
-  bool IsExtendsSystem()
-  {
-    return mSystem == NS_STYLE_COUNTER_SYSTEM_EXTENDS;
-  }
+  bool IsExtendsSystem() { return mSystem == NS_STYLE_COUNTER_SYSTEM_EXTENDS; }
 
   void* operator new(size_t sz, nsPresContext* aPresContext)
   {
@@ -1116,7 +1181,7 @@ public:
     shell->FreeByObjectID(eArenaObjectID_CustomCounterStyle, this);
   }
 
-private:
+ private:
   ~CustomCounterStyle() {}
 
   const nsTArray<nsString>& GetSymbols();
@@ -1130,8 +1195,7 @@ private:
   // 2. eliminate loop, by ComputeSpeakAs.
   // See comments before the definitions of these methods for details.
   uint8_t GetSpeakAsAutoValue();
-  void ComputeRawSpeakAs(uint8_t& aSpeakAs,
-                         CounterStyle*& aSpeakAsCounter);
+  void ComputeRawSpeakAs(uint8_t& aSpeakAs, CounterStyle*& aSpeakAsCounter);
   CounterStyle* ComputeSpeakAs();
 
   CounterStyle* ComputeExtends();
@@ -1152,18 +1216,19 @@ private:
   // GetSpeakAs will ensure that private member mSpeakAs is initialized before used
   MOZ_INIT_OUTSIDE_CTOR uint8_t mSpeakAs;
 
-  enum {
+  enum
+  {
     // loop detection
     FLAG_EXTENDS_VISITED = 1 << 0,
-    FLAG_EXTENDS_LOOP    = 1 << 1,
-    FLAG_SPEAKAS_VISITED  = 1 << 2,
-    FLAG_SPEAKAS_LOOP     = 1 << 3,
+    FLAG_EXTENDS_LOOP = 1 << 1,
+    FLAG_SPEAKAS_VISITED = 1 << 2,
+    FLAG_SPEAKAS_LOOP = 1 << 3,
     // field status
-    FLAG_NEGATIVE_INITED  = 1 << 4,
-    FLAG_PREFIX_INITED    = 1 << 5,
-    FLAG_SUFFIX_INITED    = 1 << 6,
-    FLAG_PAD_INITED       = 1 << 7,
-    FLAG_SPEAKAS_INITED   = 1 << 8,
+    FLAG_NEGATIVE_INITED = 1 << 4,
+    FLAG_PREFIX_INITED = 1 << 5,
+    FLAG_SUFFIX_INITED = 1 << 6,
+    FLAG_PAD_INITED = 1 << 7,
+    FLAG_SPEAKAS_INITED = 1 << 8,
   };
   uint16_t mFlags;
 
@@ -1201,11 +1266,8 @@ CustomCounterStyle::ResetCachedData()
 {
   mSymbols.Clear();
   mAdditiveSymbols.Clear();
-  mFlags &= ~(FLAG_NEGATIVE_INITED |
-              FLAG_PREFIX_INITED |
-              FLAG_SUFFIX_INITED |
-              FLAG_PAD_INITED |
-              FLAG_SPEAKAS_INITED);
+  mFlags &= ~(FLAG_NEGATIVE_INITED | FLAG_PREFIX_INITED | FLAG_SUFFIX_INITED |
+              FLAG_PAD_INITED | FLAG_SPEAKAS_INITED);
   mFallback = nullptr;
   mSpeakAsCounter = nullptr;
   mExtends = nullptr;
@@ -1222,9 +1284,7 @@ CustomCounterStyle::ResetDependentData()
   mExtends = nullptr;
   mExtendsRoot = nullptr;
   if (IsExtendsSystem()) {
-    mFlags &= ~(FLAG_NEGATIVE_INITED |
-                FLAG_PREFIX_INITED |
-                FLAG_SUFFIX_INITED |
+    mFlags &= ~(FLAG_NEGATIVE_INITED | FLAG_PREFIX_INITED | FLAG_SUFFIX_INITED |
                 FLAG_PAD_INITED);
   }
 }
@@ -1346,7 +1406,8 @@ CustomCounterStyle::IsOrdinalInRange(CounterValue aOrdinal)
   const nsCSSValue& value = mRule->GetDesc(eCSSCounterDesc_Range);
   if (value.GetUnit() == eCSSUnit_PairList) {
     for (const nsCSSValuePairList* item = value.GetPairListValue();
-         item != nullptr; item = item->mNext) {
+         item != nullptr;
+         item = item->mNext) {
       const nsCSSValue& lowerBound = item->mXValue;
       const nsCSSValue& upperBound = item->mYValue;
       if ((IsRangeValueInfinite(lowerBound) ||
@@ -1478,8 +1539,8 @@ CustomCounterStyle::GetInitialCounterText(CounterValue aOrdinal,
     case NS_STYLE_COUNTER_SYSTEM_ADDITIVE:
       return GetAdditiveCounterText(aOrdinal, aResult, GetAdditiveSymbols());
     case NS_STYLE_COUNTER_SYSTEM_EXTENDS:
-      return GetExtendsRoot()->
-        GetInitialCounterText(aOrdinal, aWritingMode, aResult, aIsRTL);
+      return GetExtendsRoot()->GetInitialCounterText(
+          aOrdinal, aWritingMode, aResult, aIsRTL);
     default:
       NS_NOTREACHED("Invalid system.");
       return false;
@@ -1491,8 +1552,8 @@ CustomCounterStyle::GetSymbols()
 {
   if (mSymbols.IsEmpty()) {
     const nsCSSValue& values = mRule->GetDesc(eCSSCounterDesc_Symbols);
-    for (const nsCSSValueList* item = values.GetListValue();
-         item; item = item->mNext) {
+    for (const nsCSSValueList* item = values.GetListValue(); item;
+         item = item->mNext) {
       nsString* symbol = mSymbols.AppendElement();
       item->mValue.GetStringValue(*symbol);
     }
@@ -1506,8 +1567,8 @@ CustomCounterStyle::GetAdditiveSymbols()
 {
   if (mAdditiveSymbols.IsEmpty()) {
     const nsCSSValue& values = mRule->GetDesc(eCSSCounterDesc_AdditiveSymbols);
-    for (const nsCSSValuePairList* item = values.GetPairListValue();
-         item; item = item->mNext) {
+    for (const nsCSSValuePairList* item = values.GetPairListValue(); item;
+         item = item->mNext) {
       AdditiveSymbol* symbol = mAdditiveSymbols.AppendElement();
       symbol->weight = item->mXValue.GetIntValue();
       item->mYValue.GetStringValue(symbol->symbol);
@@ -1541,7 +1602,7 @@ CustomCounterStyle::GetSpeakAsAutoValue()
 // fields in the style.)
 void
 CustomCounterStyle::ComputeRawSpeakAs(uint8_t& aSpeakAs,
-                                    CounterStyle*& aSpeakAsCounter)
+                                      CounterStyle*& aSpeakAsCounter)
 {
   NS_ASSERTION(!(mFlags & FLAG_SPEAKAS_INITED),
                "ComputeRawSpeakAs is called with speak-as inited.");
@@ -1568,7 +1629,7 @@ CustomCounterStyle::ComputeRawSpeakAs(uint8_t& aSpeakAs,
           aSpeakAs = extended->GetSpeakAs();
         } else {
           CustomCounterStyle* custom =
-            static_cast<CustomCounterStyle*>(extended);
+              static_cast<CustomCounterStyle*>(extended);
           if (!(custom->mFlags & FLAG_SPEAKAS_INITED)) {
             custom->ComputeRawSpeakAs(aSpeakAs, aSpeakAsCounter);
           } else {
@@ -1618,7 +1679,7 @@ CustomCounterStyle::ComputeSpeakAs()
   } else {
     mFlags |= FLAG_SPEAKAS_VISITED;
     CounterStyle* target =
-      static_cast<CustomCounterStyle*>(speakAsCounter)->ComputeSpeakAs();
+        static_cast<CustomCounterStyle*>(speakAsCounter)->ComputeSpeakAs();
     mFlags &= ~FLAG_SPEAKAS_VISITED;
 
     if (target) {
@@ -1717,9 +1778,9 @@ CustomCounterStyle::GetExtendsRoot()
 }
 
 AnonymousCounterStyle::AnonymousCounterStyle(const nsAString& aContent)
-  : CounterStyle(NS_STYLE_LIST_STYLE_CUSTOM)
-  , mSingleString(true)
-  , mSystem(NS_STYLE_COUNTER_SYSTEM_CYCLIC)
+    : CounterStyle(NS_STYLE_LIST_STYLE_CUSTOM),
+      mSingleString(true),
+      mSystem(NS_STYLE_COUNTER_SYSTEM_CYCLIC)
 {
   mSymbols.SetCapacity(1);
   mSymbols.AppendElement(aContent);
@@ -1737,18 +1798,18 @@ CollectSymbolsFromCSSValueList(const nsCSSValueList* aList)
 }
 
 AnonymousCounterStyle::AnonymousCounterStyle(const nsCSSValue::Array* aParams)
-  : AnonymousCounterStyle(
-      aParams->Item(0).GetIntValue(),
-      CollectSymbolsFromCSSValueList(aParams->Item(1).GetListValue()))
+    : AnonymousCounterStyle(
+          aParams->Item(0).GetIntValue(),
+          CollectSymbolsFromCSSValueList(aParams->Item(1).GetListValue()))
 {
 }
 
 AnonymousCounterStyle::AnonymousCounterStyle(uint8_t aSystem,
                                              nsTArray<nsString> aSymbols)
-  : CounterStyle(NS_STYLE_LIST_STYLE_CUSTOM)
-  , mSingleString(false)
-  , mSystem(aSystem)
-  , mSymbols(Move(aSymbols))
+    : CounterStyle(NS_STYLE_LIST_STYLE_CUSTOM),
+      mSingleString(false),
+      mSystem(aSystem),
+      mSymbols(Move(aSymbols))
 {
 }
 
@@ -1906,11 +1967,10 @@ CounterStyle::GetCounterText(CounterValue aOrdinal,
       ordinal = aOrdinal;
     } else {
       CheckedInt<CounterValue> absolute(Abs(aOrdinal));
-      ordinal = absolute.isValid() ?
-        absolute.value() : std::numeric_limits<CounterValue>::max();
+      ordinal = absolute.isValid() ? absolute.value()
+                                   : std::numeric_limits<CounterValue>::max();
     }
-    success = GetInitialCounterText(
-        ordinal, aWritingMode, initialText, aIsRTL);
+    success = GetInitialCounterText(ordinal, aWritingMode, initialText, aIsRTL);
 
     // add pad & negative, build the final result
     if (success) {
@@ -1918,9 +1978,8 @@ CounterStyle::GetCounterText(CounterValue aOrdinal,
       GetPad(pad);
       // We have to calculate the difference here since suffix part of negative
       // sign may be appended to initialText later.
-      int32_t diff = pad.width -
-        unicode::CountGraphemeClusters(initialText.Data(),
-                                       initialText.Length());
+      int32_t diff = pad.width - unicode::CountGraphemeClusters(
+                                     initialText.Data(), initialText.Length());
       aResult.Truncate();
       if (useNegativeSign && aOrdinal < 0) {
         NegativeType negative;
@@ -1958,7 +2017,7 @@ CounterStyle::GetSpokenCounterText(CounterValue aOrdinal,
                                    nsAString& aResult,
                                    bool& aIsBullet)
 {
-  bool isRTL; // we don't care about direction for spoken text
+  bool isRTL;  // we don't care about direction for spoken text
   aIsBullet = false;
   switch (GetSpeakAs()) {
     case NS_STYLE_COUNTER_SPEAKAS_BULLETS:
@@ -1994,7 +2053,7 @@ CounterStyle::CallFallbackStyle(CounterValue aOrdinal,
 }
 
 CounterStyleManager::CounterStyleManager(nsPresContext* aPresContext)
-  : mPresContext(aPresContext)
+    : mPresContext(aPresContext)
 {
   // Insert the static styles into cache table
   mStyles.Put(nsGkAtoms::none, GetNoneStyle());
@@ -2011,7 +2070,8 @@ void
 CounterStyleManager::DestroyCounterStyle(CounterStyle* aCounterStyle)
 {
   if (aCounterStyle->IsCustomStyle()) {
-    MOZ_ASSERT(!aCounterStyle->AsAnonymous(), "Anonymous counter styles "
+    MOZ_ASSERT(!aCounterStyle->AsAnonymous(),
+               "Anonymous counter styles "
                "are not managed by CounterStyleManager");
     static_cast<CustomCounterStyle*>(aCounterStyle)->Destroy();
   } else if (aCounterStyle->IsDependentStyle()) {
@@ -2056,8 +2116,9 @@ CounterStyleManager::BuildCounterStyle(nsAtom* aName)
       if (item.GetStyleName() == aName) {
         int32_t style = item.GetStyle();
         data = item.IsDependentStyle()
-          ? new (mPresContext) DependentBuiltinCounterStyle(style, this)
-          : GetBuiltinStyle(style);
+                   ? new (mPresContext)
+                         DependentBuiltinCounterStyle(style, this)
+                   : GetBuiltinStyle(style);
         break;
       }
     }
@@ -2098,7 +2159,8 @@ CounterStyleManager::NotifyRuleChanged()
     bool toBeUpdated = false;
     bool toBeRemoved = false;
     StyleSetHandle styleSet = mPresContext->StyleSet();
-    nsCSSCounterStyleRule* newRule = styleSet->CounterStyleRuleForName(iter.Key());
+    nsCSSCounterStyleRule* newRule =
+        styleSet->CounterStyleRuleForName(iter.Key());
     if (!newRule) {
       if (style->IsCustomStyle()) {
         toBeRemoved = true;
@@ -2149,4 +2211,4 @@ CounterStyleManager::CleanRetiredStyles()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

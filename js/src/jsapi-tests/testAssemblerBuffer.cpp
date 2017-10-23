@@ -26,8 +26,7 @@
 //   AssemblerBufferWithConstantPools
 //
 
-BEGIN_TEST(testAssemblerBuffer_BufferOffset)
-{
+BEGIN_TEST(testAssemblerBuffer_BufferOffset) {
     using js::jit::BufferOffset;
 
     BufferOffset off1;
@@ -44,8 +43,7 @@ BEGIN_TEST(testAssemblerBuffer_BufferOffset)
 }
 END_TEST(testAssemblerBuffer_BufferOffset)
 
-BEGIN_TEST(testAssemblerBuffer_AssemblerBuffer)
-{
+BEGIN_TEST(testAssemblerBuffer_AssemblerBuffer) {
     using js::jit::BufferOffset;
     typedef js::jit::AssemblerBuffer<5 * sizeof(uint32_t), uint32_t> AsmBuf;
 
@@ -94,7 +92,7 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBuffer)
     CHECK_EQUAL(*ab.getInst(off5), 1000021u);
 
     // Too much data for one slice.
-    const uint32_t fixdata[] = { 2000036, 2000037, 2000038, 2000039, 2000040, 2000041 };
+    const uint32_t fixdata[] = {2000036, 2000037, 2000038, 2000039, 2000040, 2000041};
 
     // Split payload across multiple slices.
     CHECK_EQUAL(ab.nextOffset().getOffset(), 24);
@@ -111,8 +109,7 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBuffer)
 }
 END_TEST(testAssemblerBuffer_AssemblerBuffer)
 
-BEGIN_TEST(testAssemblerBuffer_BranchDeadlineSet)
-{
+BEGIN_TEST(testAssemblerBuffer_BranchDeadlineSet) {
     typedef js::jit::BranchDeadlineSet<3> DLSet;
     using js::jit::BufferOffset;
 
@@ -120,7 +117,7 @@ BEGIN_TEST(testAssemblerBuffer_BranchDeadlineSet)
     DLSet dls(alloc);
 
     CHECK(dls.empty());
-    CHECK(alloc.isEmpty()); // Constructor must be infallible.
+    CHECK(alloc.isEmpty());  // Constructor must be infallible.
     CHECK_EQUAL(dls.size(), 0u);
     CHECK_EQUAL(dls.maxRangeSize(), 0u);
 
@@ -224,14 +221,14 @@ namespace {
 struct TestAssembler;
 
 typedef js::jit::AssemblerBufferWithConstantPools<
-  /* SliceSize */ 5 * sizeof(uint32_t),
-  /* InstSize */ 4,
-  /* Inst */ uint32_t,
-  /* Asm */ TestAssembler,
-  /* NumShortBranchRanges */ 3> AsmBufWithPool;
+    /* SliceSize */ 5 * sizeof(uint32_t),
+    /* InstSize */ 4,
+    /* Inst */ uint32_t,
+    /* Asm */ TestAssembler,
+    /* NumShortBranchRanges */ 3>
+    AsmBufWithPool;
 
-struct TestAssembler
-{
+struct TestAssembler {
     // Mock instruction set:
     //
     //   0x1111xxxx - align filler instructions.
@@ -248,21 +245,19 @@ struct TestAssembler
 
     static const unsigned BranchRange = 36;
 
-    static void InsertIndexIntoTag(uint8_t* load_, uint32_t index)
-    {
+    static void InsertIndexIntoTag(uint8_t* load_, uint32_t index) {
         uint32_t* load = reinterpret_cast<uint32_t*>(load_);
         MOZ_ASSERT(*load == 0xc0cc0000, "Expected uninitialized constant pool load");
         MOZ_ASSERT(index < 0x10000);
         *load = 0xc1cc0000 + index;
     }
 
-    static void PatchConstantPoolLoad(void* loadAddr, void* constPoolAddr)
-    {
+    static void PatchConstantPoolLoad(void* loadAddr, void* constPoolAddr) {
         uint32_t* load = reinterpret_cast<uint32_t*>(loadAddr);
         uint32_t index = *load & 0xffff;
         MOZ_ASSERT(*load == (0xc1cc0000 | index), "Expected constant pool load(index)");
         ptrdiff_t offset =
-          reinterpret_cast<uint8_t*>(constPoolAddr) - reinterpret_cast<uint8_t*>(loadAddr);
+            reinterpret_cast<uint8_t*>(constPoolAddr) - reinterpret_cast<uint8_t*>(loadAddr);
         offset += index * 4;
         MOZ_ASSERT(offset % 4 == 0, "Unaligned constant pool");
         MOZ_ASSERT(offset > 0 && offset < 0x10000, "Pool out of range");
@@ -270,8 +265,7 @@ struct TestAssembler
     }
 
     static void WritePoolGuard(js::jit::BufferOffset branch, uint32_t* dest,
-                               js::jit::BufferOffset afterPool)
-    {
+                               js::jit::BufferOffset afterPool) {
         MOZ_ASSERT(branch.assigned());
         MOZ_ASSERT(afterPool.assigned());
         size_t branchOff = branch.getOffset();
@@ -281,8 +275,7 @@ struct TestAssembler
         *dest = 0xb0bb0000 + delta;
     }
 
-    static void WritePoolHeader(void* start, js::jit::Pool* p, bool isNatural)
-    {
+    static void WritePoolHeader(void* start, js::jit::Pool* p, bool isNatural) {
         MOZ_ASSERT(!isNatural, "Natural pool guards not implemented.");
         uint32_t* hdr = reinterpret_cast<uint32_t*>(start);
         *hdr = 0xffff0000 + p->getPoolSize();
@@ -290,11 +283,10 @@ struct TestAssembler
 
     static void PatchShortRangeBranchToVeneer(AsmBufWithPool* buffer, unsigned rangeIdx,
                                               js::jit::BufferOffset deadline,
-                                              js::jit::BufferOffset veneer)
-    {
+                                              js::jit::BufferOffset veneer) {
         size_t branchOff = deadline.getOffset() - BranchRange;
         size_t veneerOff = veneer.getOffset();
-        uint32_t *branch = buffer->getInst(js::jit::BufferOffset(branchOff));
+        uint32_t* branch = buffer->getInst(js::jit::BufferOffset(branchOff));
 
         MOZ_ASSERT((*branch & 0xffff0000) == 0xb1bb0000,
                    "Expected short-range branch instruction");
@@ -305,10 +297,9 @@ struct TestAssembler
         *branch = 0xb3bb0000 + (veneerOff - branchOff);
     }
 };
-}
+}  // namespace
 
-BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
-{
+BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools) {
     using js::jit::BufferOffset;
 
     AsmBufWithPool ab(/* guardSize= */ 1,
@@ -327,8 +318,8 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
     CHECK(!ab.bail());
 
     // Each slice holds 5 instructions. Trigger a constant pool inside the slice.
-    uint32_t poolLoad[] = { 0xc0cc0000 };
-    uint32_t poolData[] = { 0xdddd0000, 0xdddd0001, 0xdddd0002, 0xdddd0003 };
+    uint32_t poolLoad[] = {0xc0cc0000};
+    uint32_t poolData[] = {0xdddd0000, 0xdddd0001, 0xdddd0002, 0xdddd0003};
     AsmBufWithPool::PoolEntry pe;
     BufferOffset load = ab.allocEntry(1, 1, (uint8_t*)poolLoad, (uint8_t*)poolData, &pe);
     CHECK_EQUAL(pe.index(), 0u);
@@ -365,9 +356,9 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
 
     // Now try with load and pool data on separate slices.
     load = ab.allocEntry(1, 1, (uint8_t*)poolLoad, (uint8_t*)poolData, &pe);
-    CHECK_EQUAL(pe.index(), 1u); // Global pool entry index.
+    CHECK_EQUAL(pe.index(), 1u);  // Global pool entry index.
     CHECK_EQUAL(load.getOffset(), 24);
-    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000); // Index into current pool.
+    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000);  // Index into current pool.
     ab.putInt(0x22220001);
     ab.putInt(0x22220002);
     CHECK_EQUAL(*ab.getInst(BufferOffset(24)), 0xc2cc0010u);
@@ -380,46 +371,46 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
     // Two adjacent loads to the same pool.
     poolLoad[0] = 0xc0cc0000;
     load = ab.allocEntry(1, 1, (uint8_t*)poolLoad, (uint8_t*)poolData, &pe);
-    CHECK_EQUAL(pe.index(), 2u); // Global pool entry index.
+    CHECK_EQUAL(pe.index(), 2u);  // Global pool entry index.
     CHECK_EQUAL(load.getOffset(), 48);
-    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000); // Index into current pool.
+    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000);  // Index into current pool.
 
     poolLoad[0] = 0xc0cc0000;
     load = ab.allocEntry(1, 1, (uint8_t*)poolLoad, (uint8_t*)(poolData + 1), &pe);
-    CHECK_EQUAL(pe.index(), 3u); // Global pool entry index.
+    CHECK_EQUAL(pe.index(), 3u);  // Global pool entry index.
     CHECK_EQUAL(load.getOffset(), 52);
-    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0001); // Index into current pool.
+    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0001);  // Index into current pool.
 
     ab.putInt(0x22220005);
 
-    CHECK_EQUAL(*ab.getInst(BufferOffset(48)), 0xc2cc0010u); // load pc+16.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(52)), 0xc2cc0010u); // load pc+16.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(56)), 0xb0bb0010u); // guard branch pc+16.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(60)), 0xffff0008u); // header 8 bytes.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(64)), 0xdddd0000u); // datum 1.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(68)), 0xdddd0001u); // datum 2.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(72)), 0x22220005u); // putInt(0x22220005)
+    CHECK_EQUAL(*ab.getInst(BufferOffset(48)), 0xc2cc0010u);  // load pc+16.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(52)), 0xc2cc0010u);  // load pc+16.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(56)), 0xb0bb0010u);  // guard branch pc+16.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(60)), 0xffff0008u);  // header 8 bytes.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(64)), 0xdddd0000u);  // datum 1.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(68)), 0xdddd0001u);  // datum 2.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(72)), 0x22220005u);  // putInt(0x22220005)
 
     // Two loads as above, but the first load has an 8-byte pool entry, and the
     // second load wouldn't be able to reach its data. This must produce two
     // pools.
     poolLoad[0] = 0xc0cc0000;
-    load = ab.allocEntry(1, 2, (uint8_t*)poolLoad, (uint8_t*)(poolData+2), &pe);
-    CHECK_EQUAL(pe.index(), 4u); // Global pool entry index.
+    load = ab.allocEntry(1, 2, (uint8_t*)poolLoad, (uint8_t*)(poolData + 2), &pe);
+    CHECK_EQUAL(pe.index(), 4u);  // Global pool entry index.
     CHECK_EQUAL(load.getOffset(), 76);
-    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000); // Index into current pool.
+    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000);  // Index into current pool.
 
     poolLoad[0] = 0xc0cc0000;
     load = ab.allocEntry(1, 1, (uint8_t*)poolLoad, (uint8_t*)poolData, &pe);
-    CHECK_EQUAL(pe.index(), 6u); // Global pool entry index. (Prev one is two indexes).
+    CHECK_EQUAL(pe.index(), 6u);  // Global pool entry index. (Prev one is two indexes).
     CHECK_EQUAL(load.getOffset(), 96);
-    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000); // Index into current pool.
+    CHECK_EQUAL(*ab.getInst(load), 0xc1cc0000);  // Index into current pool.
 
-    CHECK_EQUAL(*ab.getInst(BufferOffset(76)), 0xc2cc000cu); // load pc+12.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(80)), 0xb0bb0010u); // guard branch pc+16.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(84)), 0xffff0008u); // header 8 bytes.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(88)), 0xdddd0002u); // datum 1.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(92)), 0xdddd0003u); // datum 2.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(76)), 0xc2cc000cu);  // load pc+12.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(80)), 0xb0bb0010u);  // guard branch pc+16.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(84)), 0xffff0008u);  // header 8 bytes.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(88)), 0xdddd0002u);  // datum 1.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(92)), 0xdddd0003u);  // datum 2.
 
     // Second pool is not flushed yet, and there is room for one instruction
     // after the load. Test the keep-together feature.
@@ -428,10 +419,10 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
     ab.putInt(0x22220007);
     ab.leaveNoPool();
 
-    CHECK_EQUAL(*ab.getInst(BufferOffset( 96)), 0xc2cc000cu); // load pc+16.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(100)), 0xb0bb000cu); // guard branch pc+12.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(104)), 0xffff0004u); // header 4 bytes.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(108)), 0xdddd0000u); // datum 1.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(96)), 0xc2cc000cu);   // load pc+16.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(100)), 0xb0bb000cu);  // guard branch pc+12.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(104)), 0xffff0004u);  // header 4 bytes.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(108)), 0xdddd0000u);  // datum 1.
     CHECK_EQUAL(*ab.getInst(BufferOffset(112)), 0x22220006u);
     CHECK_EQUAL(*ab.getInst(BufferOffset(116)), 0x22220007u);
 
@@ -439,8 +430,7 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
 }
 END_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools)
 
-BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools_ShortBranch)
-{
+BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools_ShortBranch) {
     using js::jit::BufferOffset;
 
     AsmBufWithPool ab(/* guardSize= */ 1,
@@ -495,13 +485,13 @@ BEGIN_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools_ShortBranch)
     CHECK_EQUAL(off.getOffset(), 44);
 
     // Now the branch must have been patched.
-    CHECK_EQUAL(*ab.getInst(br1), 0xb3bb0000 + 36);         // br1 pc+36 (patched)
-    CHECK_EQUAL(*ab.getInst(BufferOffset(8)), 0x22220002u);  // 0x22220002 (unpatched)
-    CHECK_EQUAL(*ab.getInst(br2), 0xb3bb0000 + 20);         // br2 pc+20 (patched)
-    CHECK_EQUAL(*ab.getInst(BufferOffset(28)), 0xb0bb0010u); // br pc+16 (guard)
-    CHECK_EQUAL(*ab.getInst(BufferOffset(32)), 0xffff0000u); // pool header 0 bytes.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(36)), 0xb2bb00ccu); // veneer1 w/ original 'cc' offset.
-    CHECK_EQUAL(*ab.getInst(BufferOffset(40)), 0xb2bb0d2du); // veneer2 w/ original 'd2d' offset.
+    CHECK_EQUAL(*ab.getInst(br1), 0xb3bb0000 + 36);           // br1 pc+36 (patched)
+    CHECK_EQUAL(*ab.getInst(BufferOffset(8)), 0x22220002u);   // 0x22220002 (unpatched)
+    CHECK_EQUAL(*ab.getInst(br2), 0xb3bb0000 + 20);           // br2 pc+20 (patched)
+    CHECK_EQUAL(*ab.getInst(BufferOffset(28)), 0xb0bb0010u);  // br pc+16 (guard)
+    CHECK_EQUAL(*ab.getInst(BufferOffset(32)), 0xffff0000u);  // pool header 0 bytes.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(36)), 0xb2bb00ccu);  // veneer1 w/ original 'cc' offset.
+    CHECK_EQUAL(*ab.getInst(BufferOffset(40)), 0xb2bb0d2du);  // veneer2 w/ original 'd2d' offset.
     CHECK_EQUAL(*ab.getInst(BufferOffset(44)), 0x22220007u);
 
     return true;
@@ -513,8 +503,7 @@ END_TEST(testAssemblerBuffer_AssemblerBufferWithConstantPools_ShortBranch)
 
 #include "jit/MacroAssembler-inl.h"
 
-BEGIN_TEST(testAssemblerBuffer_ARM64)
-{
+BEGIN_TEST(testAssemblerBuffer_ARM64) {
     using namespace js::jit;
 
     js::LifoAlloc lifo(4096);
@@ -544,8 +533,7 @@ BEGIN_TEST(testAssemblerBuffer_ARM64)
     masm.bind(&lab2a);
     masm.B(&lab2b);
     // Generate 1,100,000 bytes of NOPs.
-    for (unsigned n = 0; n < 1100000; n += 4)
-        masm.Nop();
+    for (unsigned n = 0; n < 1100000; n += 4) masm.Nop();
     masm.branch(Assembler::LessThan, &lab2b);
     masm.bind(&lab2b);
     CHECK_EQUAL(masm.getInstructionAt(BufferOffset(lab2a.offset()))->InstructionBits(),
@@ -558,8 +546,7 @@ BEGIN_TEST(testAssemblerBuffer_ARM64)
     Label lab3b;
     masm.bind(&lab3a);
     masm.branch(Assembler::LessThan, &lab3b);
-    for (unsigned n = 0; n < 1100000; n += 4)
-        masm.Nop();
+    for (unsigned n = 0; n < 1100000; n += 4) masm.Nop();
     masm.bind(&lab3b);
     masm.B(&lab3a);
     Instruction* bcond3 = masm.getInstructionAt(BufferOffset(lab3a.offset()));

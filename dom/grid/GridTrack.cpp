@@ -21,18 +21,16 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GridTrack)
 NS_INTERFACE_MAP_END
 
 GridTrack::GridTrack(GridTracks* aParent)
-  : mParent(aParent)
-  , mStart(0.0)
-  , mBreadth(0.0)
-  , mType(GridDeclaration::Implicit)
-  , mState(GridTrackState::Static)
+    : mParent(aParent),
+      mStart(0.0),
+      mBreadth(0.0),
+      mType(GridDeclaration::Implicit),
+      mState(GridTrackState::Static)
 {
   MOZ_ASSERT(aParent, "Should never be instantiated with a null GridTracks");
 }
 
-GridTrack::~GridTrack()
-{
-}
+GridTrack::~GridTrack() {}
 
 JSObject*
 GridTrack::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -76,5 +74,5 @@ GridTrack::SetTrackValues(double aStart,
   mState = aState;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

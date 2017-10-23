@@ -16,25 +16,24 @@ namespace jit {
 class OutOfLineTruncate;
 class OutOfLineTruncateFloat32;
 
-class CodeGeneratorX86 : public CodeGeneratorX86Shared
-{
-  private:
-    CodeGeneratorX86* thisFromCtor() {
-        return this;
-    }
+class CodeGeneratorX86 : public CodeGeneratorX86Shared {
+   private:
+    CodeGeneratorX86* thisFromCtor() { return this; }
 
-  protected:
+   protected:
     ValueOperand ToValue(LInstruction* ins, size_t pos);
     ValueOperand ToOutValue(LInstruction* ins);
     ValueOperand ToTempValue(LInstruction* ins, size_t pos);
 
-    template <typename T> void emitWasmLoad(T* ins);
-    template <typename T> void emitWasmStore(T* ins);
+    template <typename T>
+    void emitWasmLoad(T* ins);
+    template <typename T>
+    void emitWasmStore(T* ins);
 
-  public:
+   public:
     CodeGeneratorX86(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
-  public:
+   public:
     void visitBox(LBox* box);
     void visitBoxFloatingPoint(LBoxFloatingPoint* box);
     void visitUnbox(LUnbox* unbox);
@@ -80,13 +79,13 @@ class CodeGeneratorX86 : public CodeGeneratorX86Shared
     void visitInt64ToFloatingPoint(LInt64ToFloatingPoint* lir);
     void visitTestI64AndBranch(LTestI64AndBranch* lir);
 
-  private:
+   private:
     void asmJSAtomicComputeAddress(Register addrTemp, Register ptrReg, Register memoryBase);
 };
 
 typedef CodeGeneratorX86 CodeGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x86_CodeGenerator_x86_h */

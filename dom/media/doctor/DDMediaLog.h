@@ -14,7 +14,7 @@ namespace mozilla {
 
 namespace dom {
 class HTMLMediaElement;
-} // namespace dom
+}  // namespace dom
 
 class DDLifetimes;
 
@@ -38,6 +38,6 @@ struct DDMediaLog
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDMediaLog_h_
+#endif  // DDMediaLog_h_

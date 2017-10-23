@@ -103,4 +103,4 @@ UnshareUserNamespace()
   return true;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

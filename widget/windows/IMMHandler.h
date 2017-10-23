@@ -28,34 +28,21 @@ struct MSGResult;
 
 class IMEContext final
 {
-public:
-  IMEContext()
-    : mWnd(nullptr)
-    , mIMC(nullptr)
-  {
-  }
+ public:
+  IMEContext() : mWnd(nullptr), mIMC(nullptr) {}
 
   explicit IMEContext(HWND aWnd);
   explicit IMEContext(nsWindowBase* aWindowBase);
 
-  ~IMEContext()
-  {
-    Clear();
-  }
+  ~IMEContext() { Clear(); }
 
-  HIMC get() const
-  {
-    return mIMC;
-  }
+  HIMC get() const { return mIMC; }
 
   void Init(HWND aWnd);
   void Init(nsWindowBase* aWindowBase);
   void Clear();
 
-  bool IsValid() const
-  {
-    return !!mIMC;
-  }
+  bool IsValid() const { return !!mIMC; }
 
   void SetOpenState(bool aOpen) const
   {
@@ -99,11 +86,8 @@ public:
     return true;
   }
 
-protected:
-  IMEContext(const IMEContext& aOther)
-  {
-    MOZ_CRASH("Don't copy IMEContext");
-  }
+ protected:
+  IMEContext(const IMEContext& aOther) { MOZ_CRASH("Don't copy IMEContext"); }
 
   HWND mWnd;
   HIMC mIMC;
@@ -111,18 +95,17 @@ protected:
 
 class IMMHandler final
 {
-public:
+ public:
   static void Initialize();
   static void Terminate();
 
   // If Process*() returns true, the caller shouldn't do anything anymore.
-  static bool ProcessMessage(nsWindow* aWindow, UINT msg,
-                             WPARAM& wParam, LPARAM& lParam,
+  static bool ProcessMessage(nsWindow* aWindow,
+                             UINT msg,
+                             WPARAM& wParam,
+                             LPARAM& lParam,
                              MSGResult& aResult);
-  static bool IsComposing()
-  {
-    return IsComposingOnOurEditor();
-  }
+  static bool IsComposing() { return IsComposingOnOurEditor(); }
   static bool IsComposingOn(nsWindow* aWindow)
   {
     return IsComposing() && IsComposingWindow(aWindow);
@@ -159,7 +142,7 @@ public:
 
   static bool IsGoogleJapaneseInputActive();
 
-protected:
+ protected:
   static void EnsureHandlerInstance();
 
   static bool IsComposingOnOurEditor();
@@ -182,60 +165,88 @@ protected:
   static bool IsTopLevelWindowOfComposition(nsWindow* aWindow);
 
   static bool ProcessInputLangChangeMessage(nsWindow* aWindow,
-                                              WPARAM wParam,
-                                              LPARAM lParam,
-                                              MSGResult& aResult);
-  static bool ProcessMessageForPlugin(nsWindow* aWindow, UINT msg,
-                                        WPARAM &wParam, LPARAM &lParam,
-                                        bool &aRet, MSGResult& aResult);
+                                            WPARAM wParam,
+                                            LPARAM lParam,
+                                            MSGResult& aResult);
+  static bool ProcessMessageForPlugin(nsWindow* aWindow,
+                                      UINT msg,
+                                      WPARAM& wParam,
+                                      LPARAM& lParam,
+                                      bool& aRet,
+                                      MSGResult& aResult);
 
   IMMHandler();
   ~IMMHandler();
 
   // On*() methods return true if the caller of message handler shouldn't do
   // anything anymore.  Otherwise, false.
-  static bool OnKeyDownEvent(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  static bool OnKeyDownEvent(nsWindow* aWindow,
+                             WPARAM wParam,
+                             LPARAM lParam,
                              MSGResult& aResult);
 
   bool OnIMEStartComposition(nsWindow* aWindow, MSGResult& aResult);
   void OnIMEStartCompositionOnPlugin(nsWindow* aWindow,
-                                     WPARAM wParam, LPARAM lParam);
-  bool OnIMEComposition(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+                                     WPARAM wParam,
+                                     LPARAM lParam);
+  bool OnIMEComposition(nsWindow* aWindow,
+                        WPARAM wParam,
+                        LPARAM lParam,
                         MSGResult& aResult);
-  void OnIMECompositionOnPlugin(nsWindow* aWindow, WPARAM wParam,
+  void OnIMECompositionOnPlugin(nsWindow* aWindow,
+                                WPARAM wParam,
                                 LPARAM lParam);
   bool OnIMEEndComposition(nsWindow* aWindow, MSGResult& aResult);
-  void OnIMEEndCompositionOnPlugin(nsWindow* aWindow, WPARAM wParam,
+  void OnIMEEndCompositionOnPlugin(nsWindow* aWindow,
+                                   WPARAM wParam,
                                    LPARAM lParam);
-  bool OnIMERequest(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  bool OnIMERequest(nsWindow* aWindow,
+                    WPARAM wParam,
+                    LPARAM lParam,
                     MSGResult& aResult);
-  bool OnIMECharOnPlugin(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  bool OnIMECharOnPlugin(nsWindow* aWindow,
+                         WPARAM wParam,
+                         LPARAM lParam,
                          MSGResult& aResult);
-  bool OnChar(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  bool OnChar(nsWindow* aWindow,
+              WPARAM wParam,
+              LPARAM lParam,
               MSGResult& aResult);
-  bool OnCharOnPlugin(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  bool OnCharOnPlugin(nsWindow* aWindow,
+                      WPARAM wParam,
+                      LPARAM lParam,
                       MSGResult& aResult);
-  void OnInputLangChange(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  void OnInputLangChange(nsWindow* aWindow,
+                         WPARAM wParam,
+                         LPARAM lParam,
                          MSGResult& aResult);
 
   // These message handlers don't use instance members, we should not create
   // the instance by the messages.  So, they should be static.
-  static bool OnIMEChar(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  static bool OnIMEChar(nsWindow* aWindow,
+                        WPARAM wParam,
+                        LPARAM lParam,
                         MSGResult& aResult);
-  static bool OnIMESetContext(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  static bool OnIMESetContext(nsWindow* aWindow,
+                              WPARAM wParam,
+                              LPARAM lParam,
                               MSGResult& aResult);
   static bool OnIMESetContextOnPlugin(nsWindow* aWindow,
-                                      WPARAM wParam, LPARAM lParam,
+                                      WPARAM wParam,
+                                      LPARAM lParam,
                                       MSGResult& aResult);
   static bool OnIMECompositionFull(nsWindow* aWindow, MSGResult& aResult);
-  static bool OnIMENotify(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  static bool OnIMENotify(nsWindow* aWindow,
+                          WPARAM wParam,
+                          LPARAM lParam,
                           MSGResult& aResult);
-  static bool OnIMESelect(nsWindow* aWindow, WPARAM wParam, LPARAM lParam,
+  static bool OnIMESelect(nsWindow* aWindow,
+                          WPARAM wParam,
+                          LPARAM lParam,
                           MSGResult& aResult);
 
   // The result of Handle* method mean "Processed" when it's TRUE.
-  void HandleStartComposition(nsWindow* aWindow,
-                              const IMEContext& aContext);
+  void HandleStartComposition(nsWindow* aWindow, const IMEContext& aContext);
   bool HandleComposition(nsWindow* aWindow,
                          const IMEContext& aContext,
                          LPARAM lParam);
@@ -243,10 +254,11 @@ protected:
   // dispatched data.  Otherwise, commits composition with the value.
   void HandleEndComposition(nsWindow* aWindow,
                             const nsAString* aCommitString = nullptr);
-  bool HandleReconvert(nsWindow* aWindow, LPARAM lParam, LRESULT *oResult);
-  bool HandleQueryCharPosition(nsWindow* aWindow, LPARAM lParam,
-                                 LRESULT *oResult);
-  bool HandleDocumentFeed(nsWindow* aWindow, LPARAM lParam, LRESULT *oResult);
+  bool HandleReconvert(nsWindow* aWindow, LPARAM lParam, LRESULT* oResult);
+  bool HandleQueryCharPosition(nsWindow* aWindow,
+                               LPARAM lParam,
+                               LRESULT* oResult);
+  bool HandleDocumentFeed(nsWindow* aWindow, LPARAM lParam, LRESULT* oResult);
 
   /**
    *  When a window's IME context is activating but we have composition on
@@ -280,11 +292,10 @@ protected:
                           mozilla::LayoutDeviceIntRect& aOutRect);
 
   bool ConvertToANSIString(const nsString& aStr,
-                             UINT aCodePage,
-                             nsACString& aANSIStr);
+                           UINT aCodePage,
+                           nsACString& aANSIStr);
 
-  bool SetIMERelatedWindowsPos(nsWindow* aWindow,
-                               const IMEContext& aContext);
+  bool SetIMERelatedWindowsPos(nsWindow* aWindow, const IMEContext& aContext);
   void SetIMERelatedWindowsPosOnPlugin(nsWindow* aWindow,
                                        const IMEContext& aContext);
   /**
@@ -305,10 +316,10 @@ protected:
    *                        Otherwise, false.
    */
   bool GetCharacterRectOfSelectedTextAt(
-         nsWindow* aWindow,
-         uint32_t aOffset,
-         mozilla::LayoutDeviceIntRect& aCharRect,
-         mozilla::WritingMode* aWritingMode = nullptr);
+      nsWindow* aWindow,
+      uint32_t aOffset,
+      mozilla::LayoutDeviceIntRect& aCharRect,
+      mozilla::WritingMode* aWritingMode = nullptr);
   /**
    * GetCaretRect() returns caret rect at current selection start.
    *
@@ -343,9 +354,9 @@ protected:
    * when there is no composition but the locale is CJK.
    */
   static void MaybeAdjustCompositionFont(
-                nsWindow* aWindow,
-                const mozilla::WritingMode& aWritingMode,
-                bool aForceUpdate = false);
+      nsWindow* aWindow,
+      const mozilla::WritingMode& aWritingMode,
+      bool aForceUpdate = false);
 
   /**
    *  Get the current target clause of composition string.
@@ -359,7 +370,7 @@ protected:
    *  The aOffset value is offset in the contents.  So, when you need offset
    *  in the composition string, you need to subtract mCompositionStart from it.
    */
-  bool GetTargetClauseRange(uint32_t *aOffset, uint32_t *aLength = nullptr);
+  bool GetTargetClauseRange(uint32_t* aOffset, uint32_t* aLength = nullptr);
 
   /**
    * DispatchEvent() dispatches aEvent if aWidget hasn't been destroyed yet.
@@ -393,15 +404,9 @@ protected:
    */
   nsTArray<MSG> mPassedIMEChar;
 
-  bool IsIMECharRecordsEmpty()
-  {
-    return mPassedIMEChar.IsEmpty();
-  }
-  void ResetIMECharRecords()
-  {
-    mPassedIMEChar.Clear();
-  }
-  void DequeueIMECharRecords(WPARAM &wParam, LPARAM &lParam)
+  bool IsIMECharRecordsEmpty() { return mPassedIMEChar.IsEmpty(); }
+  void ResetIMECharRecords() { mPassedIMEChar.Clear(); }
+  void DequeueIMECharRecords(WPARAM& wParam, LPARAM& lParam)
   {
     MSG msg = mPassedIMEChar.ElementAt(0);
     wParam = msg.wParam;
@@ -420,7 +425,7 @@ protected:
 
   nsWindow* mComposingWindow;
   RefPtr<TextEventDispatcher> mDispatcher;
-  nsString  mCompositionString;
+  nsString mCompositionString;
   InfallibleTArray<uint32_t> mClauseArray;
   InfallibleTArray<uint8_t> mAttributeArray;
 
@@ -434,11 +439,7 @@ protected:
     mozilla::WritingMode mWritingMode;
     bool mIsValid;
 
-    Selection()
-      : mOffset(UINT32_MAX)
-      , mIsValid(false)
-    {
-    }
+    Selection() : mOffset(UINT32_MAX), mIsValid(false) {}
 
     void Clear()
     {
@@ -452,9 +453,10 @@ protected:
     bool Update(const IMENotification& aIMENotification);
     bool Init(nsWindow* aWindow);
     bool EnsureValidSelection(nsWindow* aWindow);
-  private:
+
+   private:
     Selection(const Selection& aOther) = delete;
-    void operator =(const Selection& aOther) = delete;
+    void operator=(const Selection& aOther) = delete;
   };
   // mSelection stores the latest selection data only when sHasFocus is true.
   // Don't access mSelection directly.  You should use GetSelection() for
@@ -490,7 +492,7 @@ protected:
   static bool sNativeCaretIsCreatedForPlugin;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // IMMHandler_h_
+#endif  // IMMHandler_h_

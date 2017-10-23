@@ -18,7 +18,7 @@ namespace dom {
 
 class HTMLAudioElement final : public HTMLMediaElement
 {
-public:
+ public:
   typedef mozilla::dom::NodeInfo NodeInfo;
 
   explicit HTMLAudioElement(already_AddRefed<NodeInfo>& aNodeInfo);
@@ -29,7 +29,8 @@ public:
   // nsIDOMHTMLMediaElement
   using HTMLMediaElement::GetPaused;
 
-  virtual nsresult Clone(NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
   virtual nsresult SetAcceptHeader(nsIHttpChannel* aChannel) override;
 
@@ -37,17 +38,19 @@ public:
 
   // WebIDL
 
-  static already_AddRefed<HTMLAudioElement>
-  Audio(const GlobalObject& aGlobal,
-        const Optional<nsAString>& aSrc, ErrorResult& aRv);
+  static already_AddRefed<HTMLAudioElement> Audio(
+      const GlobalObject& aGlobal,
+      const Optional<nsAString>& aSrc,
+      ErrorResult& aRv);
 
-protected:
+ protected:
   virtual ~HTMLAudioElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLAudioElement_h
+#endif  // mozilla_dom_HTMLAudioElement_h

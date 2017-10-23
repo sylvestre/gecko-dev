@@ -32,108 +32,96 @@
 class nsTemplateRule;
 class nsTemplateQuerySet;
 
-class nsTemplateMatch {
-private:
-    // Hide so that only Create() and Destroy() can be used to
-    // allocate and deallocate from the heap
-    void* operator new(size_t) CPP_THROW_NEW { MOZ_ASSERT(0); return nullptr; }
-    void operator delete(void*, size_t) { MOZ_ASSERT(0); }
+class nsTemplateMatch
+{
+ private:
+  // Hide so that only Create() and Destroy() can be used to
+  // allocate and deallocate from the heap
+  void* operator new(size_t) CPP_THROW_NEW
+  {
+    MOZ_ASSERT(0);
+    return nullptr;
+  }
+  void operator delete(void*, size_t) { MOZ_ASSERT(0); }
 
-public:
-    nsTemplateMatch(uint16_t aQuerySetPriority,
-                    nsIXULTemplateResult* aResult,
-                    nsIContent* aContainer)
-        : mRuleIndex(-1),
-          mQuerySetPriority(aQuerySetPriority),
-          mContainer(aContainer),
-          mResult(aResult),
-          mNext(nullptr)
-    {
-      MOZ_COUNT_CTOR(nsTemplateMatch);
-    }
+ public:
+  nsTemplateMatch(uint16_t aQuerySetPriority,
+                  nsIXULTemplateResult* aResult,
+                  nsIContent* aContainer)
+      : mRuleIndex(-1),
+        mQuerySetPriority(aQuerySetPriority),
+        mContainer(aContainer),
+        mResult(aResult),
+        mNext(nullptr)
+  {
+    MOZ_COUNT_CTOR(nsTemplateMatch);
+  }
 
-    ~nsTemplateMatch()
-    {
-      MOZ_COUNT_DTOR(nsTemplateMatch);
-    }
+  ~nsTemplateMatch() { MOZ_COUNT_DTOR(nsTemplateMatch); }
 
-    static nsTemplateMatch*
-    Create(uint16_t aQuerySetPriority,
-           nsIXULTemplateResult* aResult,
-           nsIContent* aContainer) {
-        return ::new nsTemplateMatch(aQuerySetPriority, aResult, aContainer);
-    }
+  static nsTemplateMatch* Create(uint16_t aQuerySetPriority,
+                                 nsIXULTemplateResult* aResult,
+                                 nsIContent* aContainer)
+  {
+    return ::new nsTemplateMatch(aQuerySetPriority, aResult, aContainer);
+  }
 
-    static void Destroy(nsTemplateMatch*& aMatch, bool aRemoveResult);
+  static void Destroy(nsTemplateMatch*& aMatch, bool aRemoveResult);
 
-    // return true if the the match is active, and has generated output
-    bool IsActive() {
-        return mRuleIndex >= 0;
-    }
+  // return true if the the match is active, and has generated output
+  bool IsActive() { return mRuleIndex >= 0; }
 
-    // indicate that a rule is no longer active, used when a query with a
-    // lower priority has overriden the match
-    void SetInactive() {
-        mRuleIndex = -1;
-    }
+  // indicate that a rule is no longer active, used when a query with a
+  // lower priority has overriden the match
+  void SetInactive() { mRuleIndex = -1; }
 
-    // return matching rule index
-    int16_t RuleIndex() {
-        return mRuleIndex;
-    }
+  // return matching rule index
+  int16_t RuleIndex() { return mRuleIndex; }
 
-    // return priority of query set
-    uint16_t QuerySetPriority() {
-        return mQuerySetPriority;
-    }
+  // return priority of query set
+  uint16_t QuerySetPriority() { return mQuerySetPriority; }
 
-    // return container, not addrefed. May be null.
-    nsIContent* GetContainer() {
-        return mContainer;
-    }
+  // return container, not addrefed. May be null.
+  nsIContent* GetContainer() { return mContainer; }
 
-    nsresult RuleMatched(nsTemplateQuerySet* aQuerySet,
-                         nsTemplateRule* aRule,
-                         int16_t aRuleIndex,
-                         nsIXULTemplateResult* aResult);
+  nsresult RuleMatched(nsTemplateQuerySet* aQuerySet,
+                       nsTemplateRule* aRule,
+                       int16_t aRuleIndex,
+                       nsIXULTemplateResult* aResult);
 
-private:
-
-    /**
+ private:
+  /**
      * The index of the rule that matched, or -1 if the match is not active.
      */
-    int16_t mRuleIndex;
+  int16_t mRuleIndex;
 
-    /**
+  /**
      * The priority of the queryset for this rule
      */
-    uint16_t mQuerySetPriority;
+  uint16_t mQuerySetPriority;
 
-    /**
+  /**
      * The container the content generated for the match is inside.
      */
-    nsCOMPtr<nsIContent> mContainer;
+  nsCOMPtr<nsIContent> mContainer;
 
-public:
-
-    /**
+ public:
+  /**
      * The result associated with this match
      */
-    nsCOMPtr<nsIXULTemplateResult> mResult;
+  nsCOMPtr<nsIXULTemplateResult> mResult;
 
-    /**
+  /**
      * Matches are stored in a linked list, in priority order. This first
      * match that has a rule set (mRule) is the active match and generates
      * content. The next match is owned by the builder, which will delete
      * template matches when needed.
      */
-    nsTemplateMatch *mNext;
+  nsTemplateMatch* mNext;
 
-private:
-
-    nsTemplateMatch(const nsTemplateMatch& aMatch) = delete;
-    void operator=(const nsTemplateMatch& aMatch) = delete;
+ private:
+  nsTemplateMatch(const nsTemplateMatch& aMatch) = delete;
+  void operator=(const nsTemplateMatch& aMatch) = delete;
 };
 
-#endif // nsTemplateMatch_h__
-
+#endif  // nsTemplateMatch_h__

@@ -28,11 +28,11 @@ class Connection;
 class StatementParamsHolder;
 class StatementRowHolder;
 
-class Statement final : public mozIStorageStatement
-                      , public mozIStorageValueArray
-                      , public StorageBaseStatementInternal
+class Statement final : public mozIStorageStatement,
+                        public mozIStorageValueArray,
+                        public StorageBaseStatementInternal
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGESTATEMENT
   NS_DECL_MOZISTORAGEBASESTATEMENT
@@ -53,15 +53,14 @@ public:
    * @param aSQLStatement
    *        The SQL statement to prepare that this object will represent.
    */
-  nsresult initialize(Connection *aDBConnection,
+  nsresult initialize(Connection* aDBConnection,
                       sqlite3* aNativeConnection,
-                      const nsACString &aSQLStatement);
-
+                      const nsACString& aSQLStatement);
 
   /**
    * Obtains the native statement pointer.
    */
-  inline sqlite3_stmt *nativeStatement() { return mDBStatement; }
+  inline sqlite3_stmt* nativeStatement() { return mDBStatement; }
 
   /**
    * Obtains and transfers ownership of the array of parameters that are bound
@@ -72,33 +71,33 @@ public:
     return mParamsArray.forget();
   }
 
-private:
-    ~Statement();
+ private:
+  ~Statement();
 
-    sqlite3_stmt *mDBStatement;
-    uint32_t mParamCount;
-    uint32_t mResultColumnCount;
-    nsTArray<nsCString> mColumnNames;
-    bool mExecuting;
+  sqlite3_stmt* mDBStatement;
+  uint32_t mParamCount;
+  uint32_t mResultColumnCount;
+  nsTArray<nsCString> mColumnNames;
+  bool mExecuting;
 
-    /**
+  /**
      * @return a pointer to the BindingParams object to use with our Bind*
      *         method.
      */
-    mozIStorageBindingParams *getParams();
+  mozIStorageBindingParams* getParams();
 
-    /**
+  /**
      * Holds the array of parameters to bind to this statement when we execute
      * it asynchronously.
      */
-    RefPtr<BindingParamsArray> mParamsArray;
+  RefPtr<BindingParamsArray> mParamsArray;
 
-    /**
+  /**
      * The following two members are only used with the JS helper.  They cache
      * the row and params objects.
      */
-    nsMainThreadPtrHandle<StatementParamsHolder> mStatementParamsHolder;
-    nsMainThreadPtrHandle<StatementRowHolder> mStatementRowHolder;
+  nsMainThreadPtrHandle<StatementParamsHolder> mStatementParamsHolder;
+  nsMainThreadPtrHandle<StatementRowHolder> mStatementRowHolder;
 
   /**
    * Internal version of finalize that allows us to tell it if it is being
@@ -119,7 +118,7 @@ ToSupports(Statement* p)
   return NS_ISUPPORTS_CAST(mozIStorageStatement*, p);
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozStorageStatement_h
+#endif  // mozStorageStatement_h

@@ -20,8 +20,9 @@ namespace mozilla {
  */
 class AudioBlock : private AudioChunk
 {
-public:
-  AudioBlock() {
+ public:
+  AudioBlock()
+  {
     mDuration = WEBAUDIO_BLOCK_SIZE;
     mBufferFormat = AUDIO_FORMAT_SILENCE;
   }
@@ -31,27 +32,27 @@ public:
   // The custom copy constructor is required so as not to set
   // mBufferIsDownstreamRef without notifying AudioBlockBuffer.
   AudioBlock(const AudioBlock& aBlock) : AudioChunk(aBlock.AsAudioChunk()) {}
-  explicit AudioBlock(const AudioChunk& aChunk)
-    : AudioChunk(aChunk)
+  explicit AudioBlock(const AudioChunk& aChunk) : AudioChunk(aChunk)
   {
     MOZ_ASSERT(aChunk.mDuration == WEBAUDIO_BLOCK_SIZE);
   }
   ~AudioBlock();
 
-  using AudioChunk::GetDuration;
-  using AudioChunk::IsNull;
   using AudioChunk::ChannelCount;
   using AudioChunk::ChannelData;
-  using AudioChunk::SizeOfExcludingThisIfUnshared;
+  using AudioChunk::GetDuration;
+  using AudioChunk::IsNull;
   using AudioChunk::SizeOfExcludingThis;
+  using AudioChunk::SizeOfExcludingThisIfUnshared;
   // mDuration is not exposed.  Use GetDuration().
   // mBuffer is not exposed.  Use SetBuffer().
+  using AudioChunk::mBufferFormat;
   using AudioChunk::mChannelData;
   using AudioChunk::mVolume;
-  using AudioChunk::mBufferFormat;
 
   const AudioChunk& AsAudioChunk() const { return *this; }
-  AudioChunk* AsMutableChunk() {
+  AudioChunk* AsMutableChunk()
+  {
     ClearDownstreamMark();
     return this;
   }
@@ -74,7 +75,8 @@ public:
   }
 
   void SetBuffer(ThreadSharedObject* aNewBuffer);
-  void SetNull(StreamTime aDuration) {
+  void SetNull(StreamTime aDuration)
+  {
     MOZ_ASSERT(aDuration == WEBAUDIO_BLOCK_SIZE);
     SetBuffer(nullptr);
     mChannelData.Clear();
@@ -82,13 +84,15 @@ public:
     mBufferFormat = AUDIO_FORMAT_SILENCE;
   }
 
-  AudioBlock& operator=(const AudioBlock& aBlock) {
+  AudioBlock& operator=(const AudioBlock& aBlock)
+  {
     // Instead of just copying, mBufferIsDownstreamRef must be first cleared
     // if set.  It is set again for the new mBuffer if possible.  This happens
     // in SetBuffer().
     return *this = aBlock.AsAudioChunk();
   }
-  AudioBlock& operator=(const AudioChunk& aChunk) {
+  AudioBlock& operator=(const AudioChunk& aChunk)
+  {
     MOZ_ASSERT(aChunk.mDuration == WEBAUDIO_BLOCK_SIZE);
     SetBuffer(aChunk.mBuffer);
     mChannelData = aChunk.mChannelData;
@@ -117,7 +121,7 @@ public:
     return true;
   }
 
-private:
+ private:
   void ClearDownstreamMark();
   bool CanWrite();
 
@@ -131,8 +135,8 @@ private:
   bool mBufferIsDownstreamRef = false;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 DECLARE_USE_COPY_CONSTRUCTORS(mozilla::AudioBlock)
 
-#endif // MOZILLA_AUDIOBLOCK_H_
+#endif  // MOZILLA_AUDIOBLOCK_H_

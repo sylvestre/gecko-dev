@@ -41,18 +41,19 @@ namespace gfx {
  * Do not use this class directly. Subclass it, pass that subclass as the
  * Sub parameter, and only use that subclass.
  */
-template <class T, class Sub, class Point, class SizeT, class MarginT>
-struct BaseRect {
+template<class T, class Sub, class Point, class SizeT, class MarginT>
+struct BaseRect
+{
   T x, y, width, height;
 
   // Constructors
   BaseRect() : x(0), y(0), width(0), height(0) {}
-  BaseRect(const Point& aOrigin, const SizeT &aSize) :
-      x(aOrigin.x), y(aOrigin.y), width(aSize.width), height(aSize.height)
+  BaseRect(const Point& aOrigin, const SizeT& aSize)
+      : x(aOrigin.x), y(aOrigin.y), width(aSize.width), height(aSize.height)
   {
   }
-  BaseRect(T aX, T aY, T aWidth, T aHeight) :
-      x(aX), y(aY), width(aWidth), height(aHeight)
+  BaseRect(T aX, T aY, T aWidth, T aHeight)
+      : x(aX), y(aY), width(aWidth), height(aHeight)
   {
   }
 
@@ -64,7 +65,9 @@ struct BaseRect {
   // "Finite" means not inf and not NaN
   bool IsFinite() const
   {
-    typedef typename mozilla::Conditional<mozilla::IsSame<T, float>::value, float, double>::Type FloatType;
+    typedef typename mozilla::Conditional<mozilla::IsSame<T, float>::value,
+                                          float,
+                                          double>::Type FloatType;
     return (mozilla::IsFinite(FloatType(x)) &&
             mozilla::IsFinite(FloatType(y)) &&
             mozilla::IsFinite(FloatType(width)) &&
@@ -76,31 +79,31 @@ struct BaseRect {
   // nonempty but this rect is empty.
   bool Contains(const Sub& aRect) const
   {
-    return aRect.IsEmpty() ||
-           (x <= aRect.x && aRect.XMost() <= XMost() &&
-            y <= aRect.y && aRect.YMost() <= YMost());
+    return aRect.IsEmpty() || (x <= aRect.x && aRect.XMost() <= XMost() &&
+                               y <= aRect.y && aRect.YMost() <= YMost());
   }
   // Returns true if this rectangle contains the point. Points are considered
   // in the rectangle if they are on the left or top edge, but outside if they
   // are on the right or bottom edge.
   bool Contains(T aX, T aY) const
   {
-    return x <= aX && aX < XMost() &&
-           y <= aY && aY < YMost();
+    return x <= aX && aX < XMost() && y <= aY && aY < YMost();
   }
   // Returns true if this rectangle contains the point. Points are considered
   // in the rectangle if they are on the left or top edge, but outside if they
   // are on the right or bottom edge.
-  bool Contains(const Point& aPoint) const { return Contains(aPoint.x, aPoint.y); }
+  bool Contains(const Point& aPoint) const
+  {
+    return Contains(aPoint.x, aPoint.y);
+  }
 
   // Intersection. Returns TRUE if the receiver's area has non-empty
   // intersection with aRect's area, and FALSE otherwise.
   // Always returns false if aRect is empty or 'this' is empty.
   bool Intersects(const Sub& aRect) const
   {
-    return !IsEmpty() && !aRect.IsEmpty() &&
-           x < aRect.XMost() && aRect.x < XMost() &&
-           y < aRect.YMost() && aRect.y < YMost();
+    return !IsEmpty() && !aRect.IsEmpty() && x < aRect.XMost() &&
+           aRect.x < XMost() && y < aRect.YMost() && aRect.y < YMost();
   }
   // Returns the rectangle containing the intersection of the points
   // (including edges) of *this and aRect. If there are no points in that
@@ -111,8 +114,10 @@ struct BaseRect {
     Sub result;
     result.x = std::max<T>(x, aRect.x);
     result.y = std::max<T>(y, aRect.y);
-    result.width = std::min<T>(x - result.x + width, aRect.x - result.x + aRect.width);
-    result.height = std::min<T>(y - result.y + height, aRect.y - result.y + aRect.height);
+    result.width =
+        std::min<T>(x - result.x + width, aRect.x - result.x + aRect.width);
+    result.height =
+        std::min<T>(y - result.y + height, aRect.y - result.y + aRect.height);
     if (result.width < 0 || result.height < 0) {
       result.SizeTo(0, 0);
     }
@@ -200,7 +205,10 @@ struct BaseRect {
 
   void SetRect(T aX, T aY, T aWidth, T aHeight)
   {
-    x = aX; y = aY; width = aWidth; height = aHeight;
+    x = aX;
+    y = aY;
+    width = aWidth;
+    height = aHeight;
   }
   void SetRect(const Point& aPt, const SizeT& aSize)
   {
@@ -208,15 +216,42 @@ struct BaseRect {
   }
   void GetRect(T* aX, T* aY, T* aWidth, T* aHeight)
   {
-    *aX = x; *aY = y; *aWidth = width; *aHeight = height;
+    *aX = x;
+    *aY = y;
+    *aWidth = width;
+    *aHeight = height;
   }
 
-  void MoveTo(T aX, T aY) { x = aX; y = aY; }
-  void MoveTo(const Point& aPoint) { x = aPoint.x; y = aPoint.y; }
-  void MoveBy(T aDx, T aDy) { x += aDx; y += aDy; }
-  void MoveBy(const Point& aPoint) { x += aPoint.x; y += aPoint.y; }
-  void SizeTo(T aWidth, T aHeight) { width = aWidth; height = aHeight; }
-  void SizeTo(const SizeT& aSize) { width = aSize.width; height = aSize.height; }
+  void MoveTo(T aX, T aY)
+  {
+    x = aX;
+    y = aY;
+  }
+  void MoveTo(const Point& aPoint)
+  {
+    x = aPoint.x;
+    y = aPoint.y;
+  }
+  void MoveBy(T aDx, T aDy)
+  {
+    x += aDx;
+    y += aDy;
+  }
+  void MoveBy(const Point& aPoint)
+  {
+    x += aPoint.x;
+    y += aPoint.y;
+  }
+  void SizeTo(T aWidth, T aHeight)
+  {
+    width = aWidth;
+    height = aHeight;
+  }
+  void SizeTo(const SizeT& aSize)
+  {
+    width = aSize.width;
+    height = aSize.height;
+  }
 
   void Inflate(T aD) { Inflate(aD, aD); }
   void Inflate(T aDx, T aDy)
@@ -258,8 +293,8 @@ struct BaseRect {
   // equal (i.e. we care about differences in empty rectangles).
   bool IsEqualEdges(const Sub& aRect) const
   {
-    return x == aRect.x && y == aRect.y &&
-           width == aRect.width && height == aRect.height;
+    return x == aRect.x && y == aRect.y && width == aRect.width &&
+           height == aRect.height;
   }
   // Return true if the rectangles contain the same area of the plane.
   // Use when we do not care about differences in empty rectangles.
@@ -324,34 +359,49 @@ struct BaseRect {
   Point TopRight() const { return Point(XMost(), y); }
   Point BottomLeft() const { return Point(x, YMost()); }
   Point BottomRight() const { return Point(XMost(), YMost()); }
-  Point AtCorner(Corner aCorner) const {
+  Point AtCorner(Corner aCorner) const
+  {
     switch (aCorner) {
-      case eCornerTopLeft: return TopLeft();
-      case eCornerTopRight: return TopRight();
-      case eCornerBottomRight: return BottomRight();
-      case eCornerBottomLeft: return BottomLeft();
+      case eCornerTopLeft:
+        return TopLeft();
+      case eCornerTopRight:
+        return TopRight();
+      case eCornerBottomRight:
+        return BottomRight();
+      case eCornerBottomLeft:
+        return BottomLeft();
     }
     MOZ_CRASH("GFX: Incomplete switch");
   }
-  Point CCWCorner(mozilla::Side side) const {
+  Point CCWCorner(mozilla::Side side) const
+  {
     switch (side) {
-      case eSideTop: return TopLeft();
-      case eSideRight: return TopRight();
-      case eSideBottom: return BottomRight();
-      case eSideLeft: return BottomLeft();
+      case eSideTop:
+        return TopLeft();
+      case eSideRight:
+        return TopRight();
+      case eSideBottom:
+        return BottomRight();
+      case eSideLeft:
+        return BottomLeft();
     }
     MOZ_CRASH("GFX: Incomplete switch");
   }
-  Point CWCorner(mozilla::Side side) const {
+  Point CWCorner(mozilla::Side side) const
+  {
     switch (side) {
-      case eSideTop: return TopRight();
-      case eSideRight: return BottomRight();
-      case eSideBottom: return BottomLeft();
-      case eSideLeft: return TopLeft();
+      case eSideTop:
+        return TopRight();
+      case eSideRight:
+        return BottomRight();
+      case eSideBottom:
+        return BottomLeft();
+      case eSideLeft:
+        return TopLeft();
     }
     MOZ_CRASH("GFX: Incomplete switch");
   }
-  Point Center() const { return Point(x, y) + Point(width, height)/2; }
+  Point Center() const { return Point(x, y) + Point(width, height) / 2; }
   SizeT Size() const { return SizeT(width, height); }
 
   T Area() const { return width * height; }
@@ -372,34 +422,43 @@ struct BaseRect {
   T Edge(mozilla::Side aSide) const
   {
     switch (aSide) {
-      case eSideTop: return Y();
-      case eSideRight: return XMost();
-      case eSideBottom: return YMost();
-      case eSideLeft: return X();
+      case eSideTop:
+        return Y();
+      case eSideRight:
+        return XMost();
+      case eSideBottom:
+        return YMost();
+      case eSideLeft:
+        return X();
     }
     MOZ_CRASH("GFX: Incomplete switch");
   }
 
   // Moves one edge of the rect without moving the opposite edge.
-  void SetLeftEdge(T aX) {
+  void SetLeftEdge(T aX)
+  {
     MOZ_ASSERT(aX <= XMost());
     width = XMost() - aX;
     x = aX;
   }
-  void SetRightEdge(T aXMost) { 
+  void SetRightEdge(T aXMost)
+  {
     MOZ_ASSERT(aXMost >= x);
-    width = aXMost - x; 
+    width = aXMost - x;
   }
-  void SetTopEdge(T aY) {
+  void SetTopEdge(T aY)
+  {
     MOZ_ASSERT(aY <= YMost());
     height = YMost() - aY;
     y = aY;
   }
-  void SetBottomEdge(T aYMost) { 
+  void SetBottomEdge(T aYMost)
+  {
     MOZ_ASSERT(aYMost >= y);
-    height = aYMost - y; 
+    height = aYMost - y;
   }
-  void Swap() {
+  void Swap()
+  {
     std::swap(x, y);
     std::swap(width, height);
   }
@@ -508,7 +567,10 @@ struct BaseRect {
   // Scale 'this' by 1/aScale, converting coordinates to integers so that the result is
   // the smallest integer-coordinate rectangle containing the unrounded result.
   // Note: this can turn an empty rectangle into a non-empty rectangle
-  void ScaleInverseRoundOut(double aScale) { ScaleInverseRoundOut(aScale, aScale); }
+  void ScaleInverseRoundOut(double aScale)
+  {
+    ScaleInverseRoundOut(aScale, aScale);
+  }
   // Scale 'this' by 1/aXScale and 1/aYScale, converting coordinates to integers so
   // that the result is the smallest integer-coordinate rectangle containing the
   // unrounded result.
@@ -524,7 +586,10 @@ struct BaseRect {
   }
   // Scale 'this' by 1/aScale, converting coordinates to integers so that the result is
   // the largest integer-coordinate rectangle contained by the unrounded result.
-  void ScaleInverseRoundIn(double aScale) { ScaleInverseRoundIn(aScale, aScale); }
+  void ScaleInverseRoundIn(double aScale)
+  {
+    ScaleInverseRoundIn(aScale, aScale);
+  }
   // Scale 'this' by 1/aXScale and 1/aYScale, converting coordinates to integers so
   // that the result is the largest integer-coordinate rectangle contained by the
   // unrounded result.
@@ -572,12 +637,10 @@ struct BaseRect {
   // point at 0,0.
   static Sub MaxIntRect()
   {
-    return Sub(
-      static_cast<T>(-std::numeric_limits<int32_t>::max() * 0.5),
-      static_cast<T>(-std::numeric_limits<int32_t>::max() * 0.5),
-      static_cast<T>(std::numeric_limits<int32_t>::max()),
-      static_cast<T>(std::numeric_limits<int32_t>::max())
-    );
+    return Sub(static_cast<T>(-std::numeric_limits<int32_t>::max() * 0.5),
+               static_cast<T>(-std::numeric_limits<int32_t>::max() * 0.5),
+               static_cast<T>(std::numeric_limits<int32_t>::max()),
+               static_cast<T>(std::numeric_limits<int32_t>::max()));
   };
 
   // Returns a point representing the distance, along each dimension, of the
@@ -591,13 +654,15 @@ struct BaseRect {
             DistanceFromInterval(aPoint.y, y, YMost())};
   }
 
-  friend std::ostream& operator<<(std::ostream& stream,
-      const BaseRect<T, Sub, Point, SizeT, MarginT>& aRect) {
-    return stream << '(' << aRect.x << ',' << aRect.y << ','
-                  << aRect.width << ',' << aRect.height << ')';
+  friend std::ostream& operator<<(
+      std::ostream& stream,
+      const BaseRect<T, Sub, Point, SizeT, MarginT>& aRect)
+  {
+    return stream << '(' << aRect.x << ',' << aRect.y << ',' << aRect.width
+                  << ',' << aRect.height << ')';
   }
 
-private:
+ private:
   // Do not use the default operator== or operator!= !
   // Use IsEqualEdges or IsEqualInterior explicitly.
   bool operator==(const Sub& aRect) const { return false; }
@@ -617,7 +682,7 @@ private:
   }
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_BASERECT_H_ */

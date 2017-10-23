@@ -23,8 +23,7 @@ namespace frontend {
 
 class ParseNode;
 
-enum class StatementKind : uint8_t
-{
+enum class StatementKind : uint8_t {
     Label,
     Block,
     If,
@@ -45,31 +44,23 @@ enum class StatementKind : uint8_t
     Spread
 };
 
-static inline bool
-StatementKindIsLoop(StatementKind kind)
-{
-    return kind == StatementKind::ForLoop ||
-           kind == StatementKind::ForInLoop ||
-           kind == StatementKind::ForOfLoop ||
-           kind == StatementKind::DoLoop ||
-           kind == StatementKind::WhileLoop ||
-           kind == StatementKind::Spread;
+static inline bool StatementKindIsLoop(StatementKind kind) {
+    return kind == StatementKind::ForLoop || kind == StatementKind::ForInLoop ||
+           kind == StatementKind::ForOfLoop || kind == StatementKind::DoLoop ||
+           kind == StatementKind::WhileLoop || kind == StatementKind::Spread;
 }
 
-static inline bool
-StatementKindIsUnlabeledBreakTarget(StatementKind kind)
-{
+static inline bool StatementKindIsUnlabeledBreakTarget(StatementKind kind) {
     return StatementKindIsLoop(kind) || kind == StatementKind::Switch;
 }
 
 // These flags apply to both global and function contexts.
-class AnyContextFlags
-{
+class AnyContextFlags {
     // This class's data is all private and so only visible to these friends.
     friend class SharedContext;
 
     // True if "use strict"; appears in the body instead of being inherited.
-    bool hasExplicitUseStrict:1;
+    bool hasExplicitUseStrict : 1;
 
     // The (static) bindings of this script need to support dynamic name
     // read/write access. Here, 'dynamic' means dynamic dictionary lookup on
@@ -88,27 +79,25 @@ class AnyContextFlags
     // taken not to turn off the whole 'arguments' optimization). To answer the
     // more general "is this argument aliased" question, script->needsArgsObj
     // should be tested (see JSScript::argIsAliased).
-    bool bindingsAccessedDynamically:1;
+    bool bindingsAccessedDynamically : 1;
 
     // Whether this script, or any of its inner scripts contains a debugger
     // statement which could potentially read or write anywhere along the
     // scope chain.
-    bool hasDebuggerStatement:1;
+    bool hasDebuggerStatement : 1;
 
     // A direct eval occurs in the body of the script.
-    bool hasDirectEval:1;
+    bool hasDirectEval : 1;
 
-  public:
+   public:
     AnyContextFlags()
-     :  hasExplicitUseStrict(false),
-        bindingsAccessedDynamically(false),
-        hasDebuggerStatement(false),
-        hasDirectEval(false)
-    { }
+        : hasExplicitUseStrict(false),
+          bindingsAccessedDynamically(false),
+          hasDebuggerStatement(false),
+          hasDirectEval(false) {}
 };
 
-class FunctionContextFlags
-{
+class FunctionContextFlags {
     // This class's data is all private and so only visible to these friends.
     friend class FunctionBox;
 
@@ -119,7 +108,7 @@ class FunctionContextFlags
     // This flag is *not* inherited by enclosed or enclosing functions; it
     // applies only to the function in whose flags it appears.
     //
-    bool hasExtensibleScope:1;
+    bool hasExtensibleScope : 1;
 
     // Technically, every function has a binding named 'arguments'. Internally,
     // this binding is only added when 'arguments' is mentioned by the function
@@ -142,7 +131,7 @@ class FunctionContextFlags
     // have no special semantics: the initial value is unconditionally the
     // actual argument (or undefined if nactual < nformal).
     //
-    bool argumentsHasLocalBinding:1;
+    bool argumentsHasLocalBinding : 1;
 
     // In many cases where 'arguments' has a local binding (as described above)
     // we do not need to actually create an arguments object in the function
@@ -153,37 +142,35 @@ class FunctionContextFlags
     // be unsound in several cases. The frontend filters out such cases by
     // setting this flag which eagerly sets script->needsArgsObj to true.
     //
-    bool definitelyNeedsArgsObj:1;
+    bool definitelyNeedsArgsObj : 1;
 
-    bool needsHomeObject:1;
-    bool isDerivedClassConstructor:1;
+    bool needsHomeObject : 1;
+    bool isDerivedClassConstructor : 1;
 
     // Whether this function has a .this binding. If true, we need to emit
     // JSOP_FUNCTIONTHIS in the prologue to initialize it.
-    bool hasThisBinding:1;
+    bool hasThisBinding : 1;
 
     // Whether this function has nested functions.
-    bool hasInnerFunctions:1;
+    bool hasInnerFunctions : 1;
 
-  public:
+   public:
     FunctionContextFlags()
-     :  hasExtensibleScope(false),
-        argumentsHasLocalBinding(false),
-        definitelyNeedsArgsObj(false),
-        needsHomeObject(false),
-        isDerivedClassConstructor(false),
-        hasThisBinding(false),
-        hasInnerFunctions(false)
-    { }
+        : hasExtensibleScope(false),
+          argumentsHasLocalBinding(false),
+          definitelyNeedsArgsObj(false),
+          needsHomeObject(false),
+          isDerivedClassConstructor(false),
+          hasThisBinding(false),
+          hasInnerFunctions(false) {}
 };
 
 // List of directives that may be encountered in a Directive Prologue (ES5 15.1).
-class Directives
-{
+class Directives {
     bool strict_;
     bool asmJS_;
 
-  public:
+   public:
     explicit Directives(bool strict) : strict_(strict), asmJS_(false) {}
     explicit Directives(ParseContext* parent);
 
@@ -201,9 +188,7 @@ class Directives
     bool operator==(const Directives& rhs) const {
         return strict_ == rhs.strict_ && asmJS_ == rhs.asmJS_;
     }
-    bool operator!=(const Directives& rhs) const {
-        return !(*this == rhs);
-    }
+    bool operator!=(const Directives& rhs) const { return !(*this == rhs); }
 };
 
 // The kind of this-binding for the current scope. Note that arrow functions
@@ -221,22 +206,16 @@ class ModuleSharedContext;
  * ParseContext). It stores information that is reused between the parser and
  * the bytecode emitter.
  */
-class SharedContext
-{
-  public:
+class SharedContext {
+   public:
     JSContext* const context;
     AnyContextFlags anyCxFlags;
     bool strictScript;
     bool localStrict;
     bool extraWarnings;
 
-  protected:
-    enum class Kind {
-        FunctionBox,
-        Global,
-        Eval,
-        Module
-    };
+   protected:
+    enum class Kind { FunctionBox, Global, Eval, Module };
 
     Kind kind_;
 
@@ -252,21 +231,20 @@ class SharedContext
     void computeInWith(Scope* scope);
     void computeThisBinding(Scope* scope);
 
-  public:
+   public:
     SharedContext(JSContext* cx, Kind kind, Directives directives, bool extraWarnings)
-      : context(cx),
-        anyCxFlags(),
-        strictScript(directives.strict()),
-        localStrict(false),
-        extraWarnings(extraWarnings),
-        kind_(kind),
-        thisBinding_(ThisBinding::Global),
-        allowNewTarget_(false),
-        allowSuperProperty_(false),
-        allowSuperCall_(false),
-        inWith_(false),
-        needsThisTDZChecks_(false)
-    { }
+        : context(cx),
+          anyCxFlags(),
+          strictScript(directives.strict()),
+          localStrict(false),
+          extraWarnings(extraWarnings),
+          kind_(kind),
+          thisBinding_(ThisBinding::Global),
+          allowNewTarget_(false),
+          allowSuperProperty_(false),
+          allowSuperCall_(false),
+          inWith_(false),
+          needsThisTDZChecks_(false) {}
 
     // If this is the outermost SharedContext, the Scope that encloses
     // it. Otherwise nullptr.
@@ -281,29 +259,27 @@ class SharedContext
     bool isEvalContext() const { return kind_ == Kind::Eval; }
     inline EvalSharedContext* asEvalContext();
 
-    ThisBinding thisBinding()          const { return thisBinding_; }
+    ThisBinding thisBinding() const { return thisBinding_; }
 
-    bool allowNewTarget()              const { return allowNewTarget_; }
-    bool allowSuperProperty()          const { return allowSuperProperty_; }
-    bool allowSuperCall()              const { return allowSuperCall_; }
-    bool inWith()                      const { return inWith_; }
-    bool needsThisTDZChecks()          const { return needsThisTDZChecks_; }
+    bool allowNewTarget() const { return allowNewTarget_; }
+    bool allowSuperProperty() const { return allowSuperProperty_; }
+    bool allowSuperCall() const { return allowSuperCall_; }
+    bool inWith() const { return inWith_; }
+    bool needsThisTDZChecks() const { return needsThisTDZChecks_; }
 
-    bool hasExplicitUseStrict()        const { return anyCxFlags.hasExplicitUseStrict; }
+    bool hasExplicitUseStrict() const { return anyCxFlags.hasExplicitUseStrict; }
     bool bindingsAccessedDynamically() const { return anyCxFlags.bindingsAccessedDynamically; }
-    bool hasDebuggerStatement()        const { return anyCxFlags.hasDebuggerStatement; }
-    bool hasDirectEval()               const { return anyCxFlags.hasDirectEval; }
+    bool hasDebuggerStatement() const { return anyCxFlags.hasDebuggerStatement; }
+    bool hasDirectEval() const { return anyCxFlags.hasDirectEval; }
 
-    void setExplicitUseStrict()           { anyCxFlags.hasExplicitUseStrict        = true; }
+    void setExplicitUseStrict() { anyCxFlags.hasExplicitUseStrict = true; }
     void setBindingsAccessedDynamically() { anyCxFlags.bindingsAccessedDynamically = true; }
-    void setHasDebuggerStatement()        { anyCxFlags.hasDebuggerStatement        = true; }
-    void setHasDirectEval()               { anyCxFlags.hasDirectEval               = true; }
+    void setHasDebuggerStatement() { anyCxFlags.hasDebuggerStatement = true; }
+    void setHasDirectEval() { anyCxFlags.hasDirectEval = true; }
 
     inline bool allBindingsClosedOver();
 
-    bool strict() const {
-        return strictScript || localStrict;
-    }
+    bool strict() const { return strictScript || localStrict; }
     bool setLocalStrictMode(bool strict) {
         bool retVal = localStrict;
         localStrict = strict;
@@ -311,72 +287,56 @@ class SharedContext
     }
 
     // JSOPTION_EXTRA_WARNINGS warnings or strict mode errors.
-    bool needStrictChecks() const {
-        return strict() || extraWarnings;
-    }
+    bool needStrictChecks() const { return strict() || extraWarnings; }
 
     bool isDotVariable(JSAtom* atom) const {
         return atom == context->names().dotGenerator || atom == context->names().dotThis;
     }
 };
 
-class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext
-{
+class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext {
     ScopeKind scopeKind_;
 
-  public:
+   public:
     Rooted<GlobalScope::Data*> bindings;
 
     GlobalSharedContext(JSContext* cx, ScopeKind scopeKind, Directives directives,
                         bool extraWarnings)
-      : SharedContext(cx, Kind::Global, directives, extraWarnings),
-        scopeKind_(scopeKind),
-        bindings(cx)
-    {
+        : SharedContext(cx, Kind::Global, directives, extraWarnings),
+          scopeKind_(scopeKind),
+          bindings(cx) {
         MOZ_ASSERT(scopeKind == ScopeKind::Global || scopeKind == ScopeKind::NonSyntactic);
         thisBinding_ = ThisBinding::Global;
     }
 
-    Scope* compilationEnclosingScope() const override {
-        return nullptr;
-    }
+    Scope* compilationEnclosingScope() const override { return nullptr; }
 
-    ScopeKind scopeKind() const {
-        return scopeKind_;
-    }
+    ScopeKind scopeKind() const { return scopeKind_; }
 };
 
-inline GlobalSharedContext*
-SharedContext::asGlobalContext()
-{
+inline GlobalSharedContext* SharedContext::asGlobalContext() {
     MOZ_ASSERT(isGlobalContext());
     return static_cast<GlobalSharedContext*>(this);
 }
 
-class MOZ_STACK_CLASS EvalSharedContext : public SharedContext
-{
+class MOZ_STACK_CLASS EvalSharedContext : public SharedContext {
     RootedScope enclosingScope_;
 
-  public:
+   public:
     Rooted<EvalScope::Data*> bindings;
 
     EvalSharedContext(JSContext* cx, JSObject* enclosingEnv, Scope* enclosingScope,
                       Directives directives, bool extraWarnings);
 
-    Scope* compilationEnclosingScope() const override {
-        return enclosingScope_;
-    }
+    Scope* compilationEnclosingScope() const override { return enclosingScope_; }
 };
 
-inline EvalSharedContext*
-SharedContext::asEvalContext()
-{
+inline EvalSharedContext* SharedContext::asEvalContext() {
     MOZ_ASSERT(isEvalContext());
     return static_cast<EvalSharedContext*>(this);
 }
 
-class FunctionBox : public ObjectBox, public SharedContext
-{
+class FunctionBox : public ObjectBox, public SharedContext {
     // The parser handles tracing the fields below via the ObjectBox linked
     // list.
 
@@ -394,39 +354,39 @@ class FunctionBox : public ObjectBox, public SharedContext
 
     void initWithEnclosingScope(Scope* enclosingScope);
 
-  public:
-    ParseNode*      functionNode;           /* back pointer used by asm.js for error messages */
-    uint32_t        bufStart;
-    uint32_t        bufEnd;
-    uint32_t        startLine;
-    uint32_t        startColumn;
-    uint32_t        toStringStart;
-    uint32_t        toStringEnd;
-    uint16_t        length;
+   public:
+    ParseNode* functionNode; /* back pointer used by asm.js for error messages */
+    uint32_t bufStart;
+    uint32_t bufEnd;
+    uint32_t startLine;
+    uint32_t startColumn;
+    uint32_t toStringStart;
+    uint32_t toStringEnd;
+    uint16_t length;
 
-    uint8_t         generatorKindBits_;     /* The GeneratorKind of this function. */
-    uint8_t         asyncKindBits_;         /* The FunctionAsyncKind of this function. */
+    uint8_t generatorKindBits_; /* The GeneratorKind of this function. */
+    uint8_t asyncKindBits_;     /* The FunctionAsyncKind of this function. */
 
-    bool            isGenexpLambda:1;       /* lambda from generator expression */
-    bool            hasDestructuringArgs:1; /* parameter list contains destructuring expression */
-    bool            hasParameterExprs:1;    /* parameter list contains expressions */
-    bool            hasDirectEvalInParameterExpr:1; /* parameter list contains direct eval */
-    bool            hasDuplicateParameters:1; /* parameter list contains duplicate names */
-    bool            useAsm:1;               /* see useAsmOrInsideUseAsm */
-    bool            insideUseAsm:1;         /* see useAsmOrInsideUseAsm */
-    bool            isAnnexB:1;             /* need to emit a synthesized Annex B assignment */
-    bool            wasEmitted:1;           /* Bytecode has been emitted for this function. */
+    bool isGenexpLambda : 1;               /* lambda from generator expression */
+    bool hasDestructuringArgs : 1;         /* parameter list contains destructuring expression */
+    bool hasParameterExprs : 1;            /* parameter list contains expressions */
+    bool hasDirectEvalInParameterExpr : 1; /* parameter list contains direct eval */
+    bool hasDuplicateParameters : 1;       /* parameter list contains duplicate names */
+    bool useAsm : 1;                       /* see useAsmOrInsideUseAsm */
+    bool insideUseAsm : 1;                 /* see useAsmOrInsideUseAsm */
+    bool isAnnexB : 1;                     /* need to emit a synthesized Annex B assignment */
+    bool wasEmitted : 1;                   /* Bytecode has been emitted for this function. */
 
     // Fields for use in heuristics.
-    bool            declaredArguments:1;    /* the Parser declared 'arguments' */
-    bool            usesArguments:1;        /* contains a free use of 'arguments' */
-    bool            usesApply:1;            /* contains an f.apply() call */
-    bool            usesThis:1;             /* contains 'this' */
-    bool            usesReturn:1;           /* contains a 'return' statement */
-    bool            hasRest_:1;             /* has rest parameter */
-    bool            isExprBody_:1;          /* arrow function with expression
-                                             * body or expression closure:
-                                             * function(x) x*x */
+    bool declaredArguments : 1; /* the Parser declared 'arguments' */
+    bool usesArguments : 1;     /* contains a free use of 'arguments' */
+    bool usesApply : 1;         /* contains an f.apply() call */
+    bool usesThis : 1;          /* contains 'this' */
+    bool usesReturn : 1;        /* contains a 'return' statement */
+    bool hasRest_ : 1;          /* has rest parameter */
+    bool isExprBody_ : 1;       /* arrow function with expression
+                                 * body or expression closure:
+                                 * function(x) x*x */
 
     FunctionContextFlags funCxFlags;
 
@@ -465,18 +425,13 @@ class FunctionBox : public ObjectBox, public SharedContext
     }
 
     bool needsCallObjectRegardlessOfBindings() const {
-        return hasExtensibleScope() ||
-               needsHomeObject() ||
-               isDerivedClassConstructor() ||
-               isStarGenerator() ||
-               isLegacyGenerator() ||
-               isAsync();
+        return hasExtensibleScope() || needsHomeObject() || isDerivedClassConstructor() ||
+               isStarGenerator() || isLegacyGenerator() || isAsync();
     }
 
     bool hasExtraBodyVarScope() const {
         return hasParameterExprs &&
-               (extraVarScopeBindings_ ||
-                needsExtraBodyVarEnvironmentRegardlessOfBindings());
+               (extraVarScopeBindings_ || needsExtraBodyVarEnvironmentRegardlessOfBindings());
     }
 
     bool needsExtraBodyVarEnvironmentRegardlessOfBindings() const {
@@ -493,28 +448,20 @@ class FunctionBox : public ObjectBox, public SharedContext
     bool isStarGenerator() const { return generatorKind() == StarGenerator; }
     FunctionAsyncKind asyncKind() const { return AsyncKindFromBits(asyncKindBits_); }
 
-    bool needsFinalYield() const {
-        return isStarGenerator() || isLegacyGenerator() || isAsync();
-    }
+    bool needsFinalYield() const { return isStarGenerator() || isLegacyGenerator() || isAsync(); }
     bool needsDotGeneratorName() const {
         return isStarGenerator() || isLegacyGenerator() || isAsync();
     }
-    bool needsIteratorResult() const {
-        return isStarGenerator();
-    }
+    bool needsIteratorResult() const { return isStarGenerator(); }
 
     bool isAsync() const { return asyncKind() == AsyncFunction; }
     bool isArrow() const { return function()->isArrow(); }
 
     bool hasRest() const { return hasRest_; }
-    void setHasRest() {
-        hasRest_ = true;
-    }
+    void setHasRest() { hasRest_ = true; }
 
     bool isExprBody() const { return isExprBody_; }
-    void setIsExprBody() {
-        isExprBody_ = true;
-    }
+    void setIsExprBody() { isExprBody_ = true; }
 
     void setGeneratorKind(GeneratorKind kind) {
         // A generator kind can be set at initialization, or when "yield" is
@@ -524,41 +471,43 @@ class FunctionBox : public ObjectBox, public SharedContext
         generatorKindBits_ = GeneratorKindAsBits(kind);
     }
 
-    bool hasExtensibleScope()        const { return funCxFlags.hasExtensibleScope; }
-    bool hasThisBinding()            const { return funCxFlags.hasThisBinding; }
-    bool argumentsHasLocalBinding()  const { return funCxFlags.argumentsHasLocalBinding; }
-    bool definitelyNeedsArgsObj()    const { return funCxFlags.definitelyNeedsArgsObj; }
-    bool needsHomeObject()           const { return funCxFlags.needsHomeObject; }
+    bool hasExtensibleScope() const { return funCxFlags.hasExtensibleScope; }
+    bool hasThisBinding() const { return funCxFlags.hasThisBinding; }
+    bool argumentsHasLocalBinding() const { return funCxFlags.argumentsHasLocalBinding; }
+    bool definitelyNeedsArgsObj() const { return funCxFlags.definitelyNeedsArgsObj; }
+    bool needsHomeObject() const { return funCxFlags.needsHomeObject; }
     bool isDerivedClassConstructor() const { return funCxFlags.isDerivedClassConstructor; }
-    bool hasInnerFunctions()         const { return funCxFlags.hasInnerFunctions; }
+    bool hasInnerFunctions() const { return funCxFlags.hasInnerFunctions; }
 
-    void setHasExtensibleScope()           { funCxFlags.hasExtensibleScope       = true; }
-    void setHasThisBinding()               { funCxFlags.hasThisBinding           = true; }
-    void setArgumentsHasLocalBinding()     { funCxFlags.argumentsHasLocalBinding = true; }
-    void setDefinitelyNeedsArgsObj()       { MOZ_ASSERT(funCxFlags.argumentsHasLocalBinding);
-                                             funCxFlags.definitelyNeedsArgsObj   = true; }
-    void setNeedsHomeObject()              { MOZ_ASSERT(function()->allowSuperProperty());
-                                             funCxFlags.needsHomeObject          = true; }
-    void setDerivedClassConstructor()      { MOZ_ASSERT(function()->isClassConstructor());
-                                             funCxFlags.isDerivedClassConstructor = true; }
-    void setHasInnerFunctions()            { funCxFlags.hasInnerFunctions         = true; }
+    void setHasExtensibleScope() { funCxFlags.hasExtensibleScope = true; }
+    void setHasThisBinding() { funCxFlags.hasThisBinding = true; }
+    void setArgumentsHasLocalBinding() { funCxFlags.argumentsHasLocalBinding = true; }
+    void setDefinitelyNeedsArgsObj() {
+        MOZ_ASSERT(funCxFlags.argumentsHasLocalBinding);
+        funCxFlags.definitelyNeedsArgsObj = true;
+    }
+    void setNeedsHomeObject() {
+        MOZ_ASSERT(function()->allowSuperProperty());
+        funCxFlags.needsHomeObject = true;
+    }
+    void setDerivedClassConstructor() {
+        MOZ_ASSERT(function()->isClassConstructor());
+        funCxFlags.isDerivedClassConstructor = true;
+    }
+    void setHasInnerFunctions() { funCxFlags.hasInnerFunctions = true; }
 
     bool hasSimpleParameterList() const {
         return !hasRest() && !hasParameterExprs && !hasDestructuringArgs;
     }
 
-    bool hasMappedArgsObj() const {
-        return !strict() && hasSimpleParameterList();
-    }
+    bool hasMappedArgsObj() const { return !strict() && hasSimpleParameterList(); }
 
     // Return whether this or an enclosing function is being parsed and
     // validated as asm.js. Note: if asm.js validation fails, this will be false
     // while the function is being reparsed. This flag can be used to disable
     // certain parsing features that are necessary in general, but unnecessary
     // for validated asm.js.
-    bool useAsmOrInsideUseAsm() const {
-        return useAsm || insideUseAsm;
-    }
+    bool useAsmOrInsideUseAsm() const { return useAsm || insideUseAsm; }
 
     void setStart(const TokenStream& tokenStream) {
         uint32_t offset = tokenStream.currentToken().pos.begin;
@@ -582,19 +531,16 @@ class FunctionBox : public ObjectBox, public SharedContext
     void trace(JSTracer* trc) override;
 };
 
-inline FunctionBox*
-SharedContext::asFunctionBox()
-{
+inline FunctionBox* SharedContext::asFunctionBox() {
     MOZ_ASSERT(isFunctionBox());
     return static_cast<FunctionBox*>(this);
 }
 
-class MOZ_STACK_CLASS ModuleSharedContext : public SharedContext
-{
+class MOZ_STACK_CLASS ModuleSharedContext : public SharedContext {
     RootedModuleObject module_;
     RootedScope enclosingScope_;
 
-  public:
+   public:
     Rooted<ModuleScope::Data*> bindings;
     ModuleBuilder& builder;
 
@@ -605,9 +551,7 @@ class MOZ_STACK_CLASS ModuleSharedContext : public SharedContext
     Scope* compilationEnclosingScope() const override { return enclosingScope_; }
 };
 
-inline ModuleSharedContext*
-SharedContext::asModuleContext()
-{
+inline ModuleSharedContext* SharedContext::asModuleContext() {
     MOZ_ASSERT(isModuleContext());
     return static_cast<ModuleSharedContext*>(this);
 }
@@ -618,17 +562,14 @@ SharedContext::asModuleContext()
 // and invalidate DebugScope proxies for unaliased locals in a generator
 // frame, as the generator frame will be copied out to the heap and released
 // only by GC.
-inline bool
-SharedContext::allBindingsClosedOver()
-{
+inline bool SharedContext::allBindingsClosedOver() {
     return bindingsAccessedDynamically() ||
            (isFunctionBox() &&
-            (asFunctionBox()->isStarGenerator() ||
-             asFunctionBox()->isLegacyGenerator() ||
+            (asFunctionBox()->isStarGenerator() || asFunctionBox()->isLegacyGenerator() ||
              asFunctionBox()->isAsync()));
 }
 
-} // namespace frontend
-} // namespace js
+}  // namespace frontend
+}  // namespace js
 
 #endif /* frontend_SharedContext_h */

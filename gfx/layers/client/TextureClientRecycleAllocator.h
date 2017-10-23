@@ -22,33 +22,37 @@ struct PlanarYCbCrData;
 
 class ITextureClientRecycleAllocator
 {
-protected:
+ protected:
   virtual ~ITextureClientRecycleAllocator() {}
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ITextureClientRecycleAllocator)
 
-protected:
+ protected:
   friend class TextureClient;
   virtual void RecycleTextureClient(TextureClient* aClient) = 0;
 };
 
 class ITextureClientAllocationHelper
 {
-public:
+ public:
   ITextureClientAllocationHelper(gfx::SurfaceFormat aFormat,
                                  gfx::IntSize aSize,
                                  BackendSelector aSelector,
                                  TextureFlags aTextureFlags,
                                  TextureAllocationFlags aAllocationFlags)
-    : mFormat(aFormat)
-    , mSize(aSize)
-    , mSelector(aSelector)
-    , mTextureFlags(aTextureFlags | TextureFlags::RECYCLE) // Set recycle flag
-    , mAllocationFlags(aAllocationFlags)
-  {}
+      : mFormat(aFormat),
+        mSize(aSize),
+        mSelector(aSelector),
+        mTextureFlags(aTextureFlags |
+                      TextureFlags::RECYCLE)  // Set recycle flag
+        ,
+        mAllocationFlags(aAllocationFlags)
+  {
+  }
 
-  virtual already_AddRefed<TextureClient> Allocate(KnowsCompositor* aAllocator) = 0;
+  virtual already_AddRefed<TextureClient> Allocate(
+      KnowsCompositor* aAllocator) = 0;
   virtual bool IsCompatible(TextureClient* aTextureClient) = 0;
 
   const gfx::SurfaceFormat mFormat;
@@ -60,18 +64,18 @@ public:
 
 class YCbCrTextureClientAllocationHelper : public ITextureClientAllocationHelper
 {
-public:
+ public:
   YCbCrTextureClientAllocationHelper(const PlanarYCbCrData& aData,
                                      TextureFlags aTextureFlags);
 
   bool IsCompatible(TextureClient* aTextureClient) override;
 
-  already_AddRefed<TextureClient> Allocate(KnowsCompositor* aAllocator) override;
+  already_AddRefed<TextureClient> Allocate(
+      KnowsCompositor* aAllocator) override;
 
-protected:
+ protected:
   const PlanarYCbCrData& mData;
 };
-
 
 /**
  * TextureClientRecycleAllocator provides TextureClients allocation and
@@ -84,36 +88,36 @@ protected:
  */
 class TextureClientRecycleAllocator : public ITextureClientRecycleAllocator
 {
-protected:
+ protected:
   virtual ~TextureClientRecycleAllocator();
 
-public:
+ public:
   explicit TextureClientRecycleAllocator(KnowsCompositor* aAllocator);
 
   void SetMaxPoolSize(uint32_t aMax);
 
   // Creates and allocates a TextureClient.
-  already_AddRefed<TextureClient>
-  CreateOrRecycle(gfx::SurfaceFormat aFormat,
-                  gfx::IntSize aSize,
-                  BackendSelector aSelector,
-                  TextureFlags aTextureFlags,
-                  TextureAllocationFlags flags = ALLOC_DEFAULT);
+  already_AddRefed<TextureClient> CreateOrRecycle(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags flags = ALLOC_DEFAULT);
 
-  already_AddRefed<TextureClient>
-  CreateOrRecycle(ITextureClientAllocationHelper& aHelper);
+  already_AddRefed<TextureClient> CreateOrRecycle(
+      ITextureClientAllocationHelper& aHelper);
 
   void ShrinkToMinimumSize();
 
   void Destroy();
 
-protected:
-  virtual already_AddRefed<TextureClient>
-  Allocate(gfx::SurfaceFormat aFormat,
-           gfx::IntSize aSize,
-           BackendSelector aSelector,
-           TextureFlags aTextureFlags,
-           TextureAllocationFlags aAllocFlags);
+ protected:
+  virtual already_AddRefed<TextureClient> Allocate(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocFlags);
 
   RefPtr<KnowsCompositor> mSurfaceAllocator;
 
@@ -131,7 +135,7 @@ protected:
   bool mIsDestroyed;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_TEXTURECLIENT_RECYCLE_ALLOCATOR_H */

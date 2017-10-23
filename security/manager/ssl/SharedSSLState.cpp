@@ -20,9 +20,9 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Unused.h"
 
-using mozilla::psm::SyncRunnableBase;
 using mozilla::Atomic;
 using mozilla::Unused;
+using mozilla::psm::SyncRunnableBase;
 
 namespace {
 
@@ -30,10 +30,11 @@ static Atomic<bool> sCertOverrideSvcExists(false);
 
 class MainThreadClearer : public SyncRunnableBase
 {
-public:
+ public:
   MainThreadClearer() : mShouldClearSessionCache(false) {}
 
-  void RunOnTargetThread() {
+  void RunOnTargetThread()
+  {
     // In some cases it's possible to cause PSM/NSS to initialize while XPCOM shutdown
     // is in progress. We want to avoid this, since they do not handle the situation well,
     // hence the flags to avoid instantiating the services if they don't already exist.
@@ -41,11 +42,11 @@ public:
     bool certOverrideSvcExists = sCertOverrideSvcExists.exchange(false);
     if (certOverrideSvcExists) {
       sCertOverrideSvcExists = true;
-      nsCOMPtr<nsICertOverrideService> icos = do_GetService(NS_CERTOVERRIDE_CONTRACTID);
+      nsCOMPtr<nsICertOverrideService> icos =
+          do_GetService(NS_CERTOVERRIDE_CONTRACTID);
       if (icos) {
         icos->ClearValidityOverride(
-          NS_LITERAL_CSTRING("all:temporary-certificates"),
-          0);
+            NS_LITERAL_CSTRING("all:temporary-certificates"), 0);
       }
     }
 
@@ -57,19 +58,20 @@ public:
   bool mShouldClearSessionCache;
 };
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
-void ClearPrivateSSLState()
+void
+ClearPrivateSSLState()
 {
-  // This only works if it is called on the socket transport
-  // service thread immediately after closing all private SSL
-  // connections.
+// This only works if it is called on the socket transport
+// service thread immediately after closing all private SSL
+// connections.
 #ifdef DEBUG
   nsresult rv;
-  nsCOMPtr<nsIEventTarget> sts
-    = do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &rv);
+  nsCOMPtr<nsIEventTarget> sts =
+      do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &rv);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
   bool onSTSThread;
   rv = sts->IsOnCurrentThread(&onSTSThread);
@@ -89,27 +91,30 @@ void ClearPrivateSSLState()
 namespace psm {
 
 namespace {
-class PrivateBrowsingObserver : public nsIObserver {
-public:
+class PrivateBrowsingObserver : public nsIObserver
+{
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
   explicit PrivateBrowsingObserver(SharedSSLState* aOwner) : mOwner(aOwner) {}
-protected:
+
+ protected:
   virtual ~PrivateBrowsingObserver() {}
-private:
+
+ private:
   SharedSSLState* mOwner;
 };
 
 SharedSSLState* gPublicState;
 SharedSSLState* gPrivateState;
-} // namespace
+}  // namespace
 
 NS_IMPL_ISUPPORTS(PrivateBrowsingObserver, nsIObserver)
 
 NS_IMETHODIMP
-PrivateBrowsingObserver::Observe(nsISupports     *aSubject,
-                                 const char      *aTopic,
-                                 const char16_t *aData)
+PrivateBrowsingObserver::Observe(nsISupports* aSubject,
+                                 const char* aTopic,
+                                 const char16_t* aData)
 {
   if (!nsCRT::strcmp(aTopic, "last-pb-context-exited")) {
     mOwner->ResetStoredData();
@@ -118,22 +123,20 @@ PrivateBrowsingObserver::Observe(nsISupports     *aSubject,
 }
 
 SharedSSLState::SharedSSLState(uint32_t aTlsFlags)
-: mIOLayerHelpers(aTlsFlags)
-, mMutex("SharedSSLState::mMutex")
-, mSocketCreated(false)
-, mOCSPStaplingEnabled(false)
-, mOCSPMustStapleEnabled(false)
+    : mIOLayerHelpers(aTlsFlags),
+      mMutex("SharedSSLState::mMutex"),
+      mSocketCreated(false),
+      mOCSPStaplingEnabled(false),
+      mOCSPMustStapleEnabled(false)
 {
   mIOLayerHelpers.Init();
-  if (!aTlsFlags) { // the per socket flags don't need memory
+  if (!aTlsFlags) {  // the per socket flags don't need memory
     mClientAuthRemember = new nsClientAuthRememberService();
     mClientAuthRemember->Init();
   }
 }
 
-SharedSSLState::~SharedSSLState()
-{
-}
+SharedSSLState::~SharedSSLState() {}
 
 void
 SharedSSLState::NotePrivateBrowsingStatus()
@@ -220,5 +223,5 @@ PrivateSSLState()
   return gPrivateState;
 }
 
-} // namespace psm
-} // namespace mozilla
+}  // namespace psm
+}  // namespace mozilla

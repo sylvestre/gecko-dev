@@ -44,28 +44,26 @@ namespace dom {
  * empty string.  If HasStringBuffer() returns false, call AsAString() and get
  * the value from that.
  */
-class MOZ_STACK_CLASS DOMString {
-public:
+class MOZ_STACK_CLASS DOMString
+{
+ public:
   DOMString()
-    : mStringBuffer(nullptr)
-    , mLength(0)
-    , mIsNull(false)
-    , mStringBufferOwned(false)
-  {}
+      : mStringBuffer(nullptr),
+        mLength(0),
+        mIsNull(false),
+        mStringBufferOwned(false)
+  {
+  }
   ~DOMString()
   {
-    MOZ_ASSERT(!mString || !mStringBuffer,
-               "Shouldn't have both present!");
+    MOZ_ASSERT(!mString || !mStringBuffer, "Shouldn't have both present!");
     if (mStringBufferOwned) {
       MOZ_ASSERT(mStringBuffer);
       mStringBuffer->Release();
     }
   }
 
-  operator nsString&()
-  {
-    return AsAString();
-  }
+  operator nsString&() { return AsAString(); }
 
   // It doesn't make any sense to convert a DOMString to a const nsString or
   // nsAString reference; this class is meant for outparams only.
@@ -84,8 +82,7 @@ public:
 
   bool HasStringBuffer() const
   {
-    MOZ_ASSERT(!mString || !mStringBuffer,
-               "Shouldn't have both present!");
+    MOZ_ASSERT(!mString || !mStringBuffer, "Shouldn't have both present!");
     MOZ_ASSERT(!mIsNull, "Caller should have checked IsNull() first");
     return !mString;
   }
@@ -110,7 +107,8 @@ public:
   // HasStringBuffer().
   uint32_t StringBufferLength() const
   {
-    MOZ_ASSERT(HasStringBuffer(), "Don't call this if there is no stringbuffer");
+    MOZ_ASSERT(HasStringBuffer(),
+               "Don't call this if there is no stringbuffer");
     return mLength;
   }
 
@@ -118,7 +116,8 @@ public:
   // caller.  Can only be called if HasStringBuffer().
   void RelinquishBufferOwnership()
   {
-    MOZ_ASSERT(HasStringBuffer(), "Don't call this if there is no stringbuffer");
+    MOZ_ASSERT(HasStringBuffer(),
+               "Don't call this if there is no stringbuffer");
     if (mStringBufferOwned) {
       // Just hand that ref over.
       mStringBufferOwned = false;
@@ -232,21 +231,22 @@ public:
     }
   }
 
-private:
+ private:
   // We need to be able to act like a string as needed
   Maybe<nsAutoString> mString;
 
   // For callees that know we exist, we can be a stringbuffer/length/null-flag
   // triple.
-  nsStringBuffer* MOZ_UNSAFE_REF("The ways in which this can be safe are "
-                                 "documented above and enforced through "
-                                 "assertions") mStringBuffer;
+  nsStringBuffer* MOZ_UNSAFE_REF(
+      "The ways in which this can be safe are "
+      "documented above and enforced through "
+      "assertions") mStringBuffer;
   uint32_t mLength;
   bool mIsNull;
   bool mStringBufferOwned;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_DOMString_h
+#endif  // mozilla_dom_DOMString_h

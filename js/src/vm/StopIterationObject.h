@@ -11,12 +11,11 @@
 
 namespace js {
 
-class StopIterationObject : public JSObject
-{
-  public:
+class StopIterationObject : public JSObject {
+   public:
     static const Class class_;
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_StopIterationObject_h */

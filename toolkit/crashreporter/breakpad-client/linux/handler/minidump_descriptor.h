@@ -45,37 +45,36 @@
 // - Writing a reduced microdump to the console (logcat on Android).
 namespace google_breakpad {
 
-class MinidumpDescriptor {
+class MinidumpDescriptor
+{
  public:
-  struct MicrodumpOnConsole {};
+  struct MicrodumpOnConsole
+  {
+  };
   static const MicrodumpOnConsole kMicrodumpOnConsole;
 
-  MinidumpDescriptor()
-      : mode_(kUninitialized),
-        fd_(-1),
-        size_limit_(-1) {}
+  MinidumpDescriptor() : mode_(kUninitialized), fd_(-1), size_limit_(-1) {}
 
   explicit MinidumpDescriptor(const string& directory)
       : mode_(kWriteMinidumpToFile),
         fd_(-1),
         directory_(directory),
         c_path_(NULL),
-        size_limit_(-1) {
+        size_limit_(-1)
+  {
     assert(!directory.empty());
   }
 
   explicit MinidumpDescriptor(int fd)
-      : mode_(kWriteMinidumpToFd),
-        fd_(fd),
-        c_path_(NULL),
-        size_limit_(-1) {
+      : mode_(kWriteMinidumpToFd), fd_(fd), c_path_(NULL), size_limit_(-1)
+  {
     assert(fd != -1);
   }
 
   explicit MinidumpDescriptor(const MicrodumpOnConsole&)
-      : mode_(kWriteMicrodumpToConsole),
-        fd_(-1),
-        size_limit_(-1) {}
+      : mode_(kWriteMicrodumpToConsole), fd_(-1), size_limit_(-1)
+  {
+  }
 
   explicit MinidumpDescriptor(const MinidumpDescriptor& descriptor);
   MinidumpDescriptor& operator=(const MinidumpDescriptor& descriptor);
@@ -90,7 +89,8 @@ class MinidumpDescriptor {
 
   const char* path() const { return c_path_; }
 
-  bool IsMicrodumpOnConsole() const {
+  bool IsMicrodumpOnConsole() const
+  {
     return mode_ == kWriteMicrodumpToConsole;
   }
 
@@ -101,13 +101,15 @@ class MinidumpDescriptor {
   off_t size_limit() const { return size_limit_; }
   void set_size_limit(off_t limit) { size_limit_ = limit; }
 
-  MicrodumpExtraInfo* microdump_extra_info() {
+  MicrodumpExtraInfo* microdump_extra_info()
+  {
     assert(IsMicrodumpOnConsole());
     return &microdump_extra_info_;
   };
 
  private:
-  enum DumpMode {
+  enum DumpMode
+  {
     kUninitialized = 0,
     kWriteMinidumpToFile,
     kWriteMinidumpToFd,

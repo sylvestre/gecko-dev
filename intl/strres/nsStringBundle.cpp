@@ -42,26 +42,22 @@ static NS_DEFINE_CID(kErrorServiceCID, NS_ERRORSERVICE_CID);
 NS_IMPL_ISUPPORTS(nsStringBundle, nsIStringBundle)
 
 nsStringBundle::nsStringBundle(const char* aURLSpec,
-                               nsIStringBundleOverride* aOverrideStrings) :
-  mPropertiesURL(aURLSpec),
-  mOverrideStrings(aOverrideStrings),
-  mReentrantMonitor("nsStringBundle.mReentrantMonitor"),
-  mAttemptedLoad(false),
-  mLoaded(false)
+                               nsIStringBundleOverride* aOverrideStrings)
+    : mPropertiesURL(aURLSpec),
+      mOverrideStrings(aOverrideStrings),
+      mReentrantMonitor("nsStringBundle.mReentrantMonitor"),
+      mAttemptedLoad(false),
+      mLoaded(false)
 {
 }
 
-nsStringBundle::~nsStringBundle()
-{
-}
+nsStringBundle::~nsStringBundle() {}
 
 NS_IMETHODIMP
 nsStringBundle::AsyncPreload()
 {
-  return NS_IdleDispatchToCurrentThread(
-    NewIdleRunnableMethod("nsStringBundle::LoadProperties",
-                          this,
-                          &nsStringBundle::LoadProperties));
+  return NS_IdleDispatchToCurrentThread(NewIdleRunnableMethod(
+      "nsStringBundle::LoadProperties", this, &nsStringBundle::LoadProperties));
 }
 
 nsresult
@@ -72,8 +68,7 @@ nsStringBundle::LoadProperties()
   // we only want to load once, but if we've tried once and failed,
   // continue to throw an error!
   if (mAttemptedLoad) {
-    if (mLoaded)
-      return NS_OK;
+    if (mLoaded) return NS_OK;
 
     return NS_ERROR_UNEXPECTED;
   }
@@ -160,9 +155,8 @@ nsStringBundle::GetStringFromName(const char* aName, nsAString& aResult)
 
   // try override first
   if (mOverrideStrings) {
-    rv = mOverrideStrings->GetStringFromName(mPropertiesURL,
-                                             nsDependentCString(aName),
-                                             aResult);
+    rv = mOverrideStrings->GetStringFromName(
+        mPropertiesURL, nsDependentCString(aName), aResult);
     if (NS_SUCCEEDED(rv)) return rv;
   }
 
@@ -171,7 +165,7 @@ nsStringBundle::GetStringFromName(const char* aName, nsAString& aResult)
 
 NS_IMETHODIMP
 nsStringBundle::FormatStringFromID(int32_t aID,
-                                   const char16_t **aParams,
+                                   const char16_t** aParams,
                                    uint32_t aLength,
                                    nsAString& aResult)
 {
@@ -183,12 +177,12 @@ nsStringBundle::FormatStringFromID(int32_t aID,
 // this function supports at most 10 parameters.. see below for why
 NS_IMETHODIMP
 nsStringBundle::FormatStringFromAUTF8Name(const nsACString& aName,
-                                          const char16_t **aParams,
+                                          const char16_t** aParams,
                                           uint32_t aLength,
                                           nsAString& aResult)
 {
-  return FormatStringFromName(PromiseFlatCString(aName).get(), aParams,
-                              aLength, aResult);
+  return FormatStringFromName(
+      PromiseFlatCString(aName).get(), aParams, aLength, aResult);
 }
 
 // this function supports at most 10 parameters.. see below for why
@@ -198,7 +192,9 @@ nsStringBundle::FormatStringFromName(const char* aName,
                                      uint32_t aLength,
                                      nsAString& aResult)
 {
-  NS_ASSERTION(aParams && aLength, "FormatStringFromName() without format parameters: use GetStringFromName() instead");
+  NS_ASSERTION(aParams && aLength,
+               "FormatStringFromName() without format parameters: use "
+               "GetStringFromName() instead");
 
   nsAutoString formatStr;
   nsresult rv = GetStringFromName(aName, formatStr);
@@ -208,8 +204,8 @@ nsStringBundle::FormatStringFromName(const char* aName,
 }
 
 nsresult
-nsStringBundle::GetCombinedEnumeration(nsIStringBundleOverride* aOverrideStrings,
-                                       nsISimpleEnumerator** aResult)
+nsStringBundle::GetCombinedEnumeration(
+    nsIStringBundleOverride* aOverrideStrings, nsISimpleEnumerator** aResult)
 {
   nsCOMPtr<nsISupports> supports;
   nsCOMPtr<nsIPropertyElement> propElement;
@@ -217,22 +213,20 @@ nsStringBundle::GetCombinedEnumeration(nsIStringBundleOverride* aOverrideStrings
   nsresult rv;
 
   nsCOMPtr<nsIMutableArray> resultArray =
-    do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
+      do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // first, append the override elements
   nsCOMPtr<nsISimpleEnumerator> overrideEnumerator;
-  rv = aOverrideStrings->EnumerateKeysInBundle(mPropertiesURL,
-                                               getter_AddRefs(overrideEnumerator));
+  rv = aOverrideStrings->EnumerateKeysInBundle(
+      mPropertiesURL, getter_AddRefs(overrideEnumerator));
 
   bool hasMore;
   rv = overrideEnumerator->HasMoreElements(&hasMore);
   NS_ENSURE_SUCCESS(rv, rv);
   while (hasMore) {
-
     rv = overrideEnumerator->GetNext(getter_AddRefs(supports));
-    if (NS_SUCCEEDED(rv))
-      resultArray->AppendElement(supports, false);
+    if (NS_SUCCEEDED(rv)) resultArray->AppendElement(supports, false);
 
     rv = overrideEnumerator->HasMoreElements(&hasMore);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -249,9 +243,7 @@ nsStringBundle::GetCombinedEnumeration(nsIStringBundleOverride* aOverrideStrings
   // second, append all the elements that are in mProps
   do {
     rv = propEnumerator->GetNext(getter_AddRefs(supports));
-    if (NS_SUCCEEDED(rv) &&
-        (propElement = do_QueryInterface(supports, &rv))) {
-
+    if (NS_SUCCEEDED(rv) && (propElement = do_QueryInterface(supports, &rv))) {
       // now check if its in the override bundle
       nsAutoCString key;
       propElement->GetKey(key);
@@ -260,8 +252,7 @@ nsStringBundle::GetCombinedEnumeration(nsIStringBundleOverride* aOverrideStrings
       rv = aOverrideStrings->GetStringFromName(mPropertiesURL, key, value);
 
       // if it isn't there, then it is safe to append
-      if (NS_FAILED(rv))
-        resultArray->AppendElement(propElement, false);
+      if (NS_FAILED(rv)) resultArray->AppendElement(propElement, false);
     }
 
     rv = propEnumerator->HasMoreElements(&hasMore);
@@ -271,29 +262,28 @@ nsStringBundle::GetCombinedEnumeration(nsIStringBundleOverride* aOverrideStrings
   return resultArray->Enumerate(aResult);
 }
 
-
 NS_IMETHODIMP
 nsStringBundle::GetSimpleEnumeration(nsISimpleEnumerator** elements)
 {
-  if (!elements)
-    return NS_ERROR_INVALID_POINTER;
+  if (!elements) return NS_ERROR_INVALID_POINTER;
 
   nsresult rv;
   rv = LoadProperties();
   if (NS_FAILED(rv)) return rv;
 
   if (mOverrideStrings)
-      return GetCombinedEnumeration(mOverrideStrings, elements);
+    return GetCombinedEnumeration(mOverrideStrings, elements);
 
   return mProps->Enumerate(elements);
 }
 
 nsresult
-nsStringBundle::FormatString(const char16_t *aFormatStr,
-                             const char16_t **aParams, uint32_t aLength,
+nsStringBundle::FormatString(const char16_t* aFormatStr,
+                             const char16_t** aParams,
+                             uint32_t aLength,
                              nsAString& aResult)
 {
-  NS_ENSURE_ARG(aLength <= 10); // enforce 10-parameter limit
+  NS_ENSURE_ARG(aLength <= 10);  // enforce 10-parameter limit
 
   // implementation note: you would think you could use vsmprintf
   // to build up an arbitrary length array.. except that there
@@ -301,7 +291,8 @@ nsStringBundle::FormatString(const char16_t *aFormatStr,
   // Don't believe me? See:
   //   http://www.eskimo.com/~scs/C-faq/q15.13.html
   // -alecf
-  nsTextFormatter::ssprintf(aResult, aFormatStr,
+  nsTextFormatter::ssprintf(aResult,
+                            aFormatStr,
                             aLength >= 1 ? aParams[0] : nullptr,
                             aLength >= 2 ? aParams[1] : nullptr,
                             aLength >= 3 ? aParams[2] : nullptr,
@@ -318,19 +309,15 @@ nsStringBundle::FormatString(const char16_t *aFormatStr,
 
 NS_IMPL_ISUPPORTS(nsExtensibleStringBundle, nsIStringBundle)
 
-nsExtensibleStringBundle::nsExtensibleStringBundle()
-{
-  mLoaded = false;
-}
+nsExtensibleStringBundle::nsExtensibleStringBundle() { mLoaded = false; }
 
 nsresult
-nsExtensibleStringBundle::Init(const char * aCategory,
+nsExtensibleStringBundle::Init(const char* aCategory,
                                nsIStringBundleService* aBundleService)
 {
-
   nsresult rv;
   nsCOMPtr<nsICategoryManager> catman =
-    do_GetService(NS_CATEGORYMANAGER_CONTRACTID, &rv);
+      do_GetService(NS_CATEGORYMANAGER_CONTRACTID, &rv);
   if (NS_FAILED(rv)) return rv;
 
   nsCOMPtr<nsISimpleEnumerator> enumerator;
@@ -341,22 +328,18 @@ nsExtensibleStringBundle::Init(const char * aCategory,
   while (NS_SUCCEEDED(enumerator->HasMoreElements(&hasMore)) && hasMore) {
     nsCOMPtr<nsISupports> supports;
     rv = enumerator->GetNext(getter_AddRefs(supports));
-    if (NS_FAILED(rv))
-      continue;
+    if (NS_FAILED(rv)) continue;
 
     nsCOMPtr<nsISupportsCString> supStr = do_QueryInterface(supports, &rv);
-    if (NS_FAILED(rv))
-      continue;
+    if (NS_FAILED(rv)) continue;
 
     nsAutoCString name;
     rv = supStr->GetData(name);
-    if (NS_FAILED(rv))
-      continue;
+    if (NS_FAILED(rv)) continue;
 
     nsCOMPtr<nsIStringBundle> bundle;
     rv = aBundleService->CreateBundle(name.get(), getter_AddRefs(bundle));
-    if (NS_FAILED(rv))
-      continue;
+    if (NS_FAILED(rv)) continue;
 
     mBundles.AppendObject(bundle);
   }
@@ -379,9 +362,7 @@ nsExtensibleStringBundle::AsyncPreload()
   return rv;
 }
 
-nsExtensibleStringBundle::~nsExtensibleStringBundle()
-{
-}
+nsExtensibleStringBundle::~nsExtensibleStringBundle() {}
 
 nsresult
 nsExtensibleStringBundle::GetStringFromID(int32_t aID, nsAString& aResult)
@@ -408,8 +389,7 @@ nsExtensibleStringBundle::GetStringFromName(const char* aName,
     nsIStringBundle* bundle = mBundles[i];
     if (bundle) {
       rv = bundle->GetStringFromName(aName, aResult);
-      if (NS_SUCCEEDED(rv))
-        return NS_OK;
+      if (NS_SUCCEEDED(rv)) return NS_OK;
     }
   }
 
@@ -418,7 +398,7 @@ nsExtensibleStringBundle::GetStringFromName(const char* aName,
 
 NS_IMETHODIMP
 nsExtensibleStringBundle::FormatStringFromID(int32_t aID,
-                                             const char16_t ** aParams,
+                                             const char16_t** aParams,
                                              uint32_t aLength,
                                              nsAString& aResult)
 {
@@ -429,12 +409,12 @@ nsExtensibleStringBundle::FormatStringFromID(int32_t aID,
 
 NS_IMETHODIMP
 nsExtensibleStringBundle::FormatStringFromAUTF8Name(const nsACString& aName,
-                                                    const char16_t ** aParams,
+                                                    const char16_t** aParams,
                                                     uint32_t aLength,
                                                     nsAString& aResult)
 {
-  return FormatStringFromName(PromiseFlatCString(aName).get(),
-                              aParams, aLength, aResult);
+  return FormatStringFromName(
+      PromiseFlatCString(aName).get(), aParams, aLength, aResult);
 }
 
 NS_IMETHODIMP
@@ -446,42 +426,35 @@ nsExtensibleStringBundle::FormatStringFromName(const char* aName,
   nsAutoString formatStr;
   nsresult rv;
   rv = GetStringFromName(aName, formatStr);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
-  return nsStringBundle::FormatString(formatStr.get(), aParams, aLength,
-                                      aResult);
+  return nsStringBundle::FormatString(
+      formatStr.get(), aParams, aLength, aResult);
 }
 
-nsresult nsExtensibleStringBundle::GetSimpleEnumeration(nsISimpleEnumerator ** aResult)
+nsresult
+nsExtensibleStringBundle::GetSimpleEnumeration(nsISimpleEnumerator** aResult)
 {
   // XXX write me
   *aResult = nullptr;
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////
 
 #define MAX_CACHED_BUNDLES 16
 
-struct bundleCacheEntry_t final : public LinkedListElement<bundleCacheEntry_t> {
+struct bundleCacheEntry_t final : public LinkedListElement<bundleCacheEntry_t>
+{
   nsCString mHashKey;
   nsCOMPtr<nsIStringBundle> mBundle;
 
-  bundleCacheEntry_t()
-  {
-    MOZ_COUNT_CTOR(bundleCacheEntry_t);
-  }
+  bundleCacheEntry_t() { MOZ_COUNT_CTOR(bundleCacheEntry_t); }
 
-  ~bundleCacheEntry_t()
-  {
-    MOZ_COUNT_DTOR(bundleCacheEntry_t);
-  }
+  ~bundleCacheEntry_t() { MOZ_COUNT_DTOR(bundleCacheEntry_t); }
 };
 
-
-nsStringBundleService::nsStringBundleService() :
-  mBundleMap(MAX_CACHED_BUNDLES)
+nsStringBundleService::nsStringBundleService() : mBundleMap(MAX_CACHED_BUNDLES)
 {
   mErrorService = do_GetService(kErrorServiceCID);
   NS_ASSERTION(mErrorService, "Couldn't get error service");
@@ -492,10 +465,7 @@ NS_IMPL_ISUPPORTS(nsStringBundleService,
                   nsIObserver,
                   nsISupportsWeakReference)
 
-nsStringBundleService::~nsStringBundleService()
-{
-  flushBundleCache();
-}
+nsStringBundleService::~nsStringBundleService() { flushBundleCache(); }
 
 nsresult
 nsStringBundleService::Init()
@@ -525,13 +495,10 @@ nsStringBundleService::Observe(nsISupports* aSubject,
   if (strcmp("memory-pressure", aTopic) == 0 ||
       strcmp("profile-do-change", aTopic) == 0 ||
       strcmp("chrome-flush-caches", aTopic) == 0 ||
-      strcmp("intl:app-locales-changed", aTopic) == 0)
-  {
+      strcmp("intl:app-locales-changed", aTopic) == 0) {
     flushBundleCache();
-  }
-  else if (strcmp("xpcom-category-entry-added", aTopic) == 0 &&
-           NS_LITERAL_STRING("xpcom-autoregistration").Equals(aSomeData))
-  {
+  } else if (strcmp("xpcom-category-entry-added", aTopic) == 0 &&
+             NS_LITERAL_STRING("xpcom-autoregistration").Equals(aSomeData)) {
     mOverrideStrings = do_GetService(NS_STRINGBUNDLETEXTOVERRIDE_CONTRACTID);
   }
 
@@ -557,8 +524,8 @@ nsStringBundleService::FlushBundles()
 }
 
 void
-nsStringBundleService::getStringBundle(const char *aURLSpec,
-                                       nsIStringBundle **aResult)
+nsStringBundleService::getStringBundle(const char* aURLSpec,
+                                       nsIStringBundle** aResult)
 {
   nsDependentCString key(aURLSpec);
   bundleCacheEntry_t* cacheEntry = mBundleMap.Get(key);
@@ -570,9 +537,9 @@ nsStringBundleService::getStringBundle(const char *aURLSpec,
     cacheEntry->remove();
 
   } else {
-
     // hasn't been cached, so insert it into the hash table
-    RefPtr<nsStringBundle> bundle = new nsStringBundle(aURLSpec, mOverrideStrings);
+    RefPtr<nsStringBundle> bundle =
+        new nsStringBundle(aURLSpec, mOverrideStrings);
     cacheEntry = insertIntoCache(bundle.forget(), key);
   }
 
@@ -586,11 +553,11 @@ nsStringBundleService::getStringBundle(const char *aURLSpec,
   NS_ADDREF(*aResult);
 }
 
-bundleCacheEntry_t *
-nsStringBundleService::insertIntoCache(already_AddRefed<nsIStringBundle> aBundle,
-                                       nsCString &aHashKey)
+bundleCacheEntry_t*
+nsStringBundleService::insertIntoCache(
+    already_AddRefed<nsIStringBundle> aBundle, nsCString& aHashKey)
 {
-  bundleCacheEntry_t *cacheEntry;
+  bundleCacheEntry_t* cacheEntry;
 
   if (mBundleMap.Count() < MAX_CACHED_BUNDLES) {
     // cache not full - create a new entry
@@ -622,7 +589,7 @@ NS_IMETHODIMP
 nsStringBundleService::CreateBundle(const char* aURLSpec,
                                     nsIStringBundle** aResult)
 {
-  getStringBundle(aURLSpec,aResult);
+  getStringBundle(aURLSpec, aResult);
   return NS_OK;
 }
 
@@ -647,15 +614,18 @@ nsStringBundleService::CreateExtensibleBundle(const char* aCategory,
 #define GLOBAL_PROPERTIES "chrome://global/locale/global-strres.properties"
 
 nsresult
-nsStringBundleService::FormatWithBundle(nsIStringBundle* bundle, nsresult aStatus,
-                                        uint32_t argCount, char16_t** argArray,
+nsStringBundleService::FormatWithBundle(nsIStringBundle* bundle,
+                                        nsresult aStatus,
+                                        uint32_t argCount,
+                                        char16_t** argArray,
                                         nsAString& result)
 {
   nsresult rv;
 
   // try looking up the error message with the int key:
   uint16_t code = NS_ERROR_GET_CODE(aStatus);
-  rv = bundle->FormatStringFromID(code, (const char16_t**)argArray, argCount, result);
+  rv = bundle->FormatStringFromID(
+      code, (const char16_t**)argArray, argCount, result);
 
   // If the int key fails, try looking up the default error message. E.g. print:
   //   An unknown error has occurred (0x804B0003).
@@ -688,30 +658,28 @@ nsStringBundleService::FormatStatusMessage(nsresult aStatus,
   }
 
   if (aStatus == NS_OK) {
-    return NS_ERROR_FAILURE;       // no message to format
+    return NS_ERROR_FAILURE;  // no message to format
   }
 
   // format the arguments:
   const nsDependentString args(aStatusArg);
   argCount = args.CountChar(char16_t('\n')) + 1;
-  NS_ENSURE_ARG(argCount <= 10); // enforce 10-parameter limit
+  NS_ENSURE_ARG(argCount <= 10);  // enforce 10-parameter limit
   char16_t* argArray[10];
 
   // convert the aStatusArg into a char16_t array
   if (argCount == 1) {
     // avoid construction for the simple case:
     argArray[0] = (char16_t*)aStatusArg;
-  }
-  else if (argCount > 1) {
+  } else if (argCount > 1) {
     int32_t offset = 0;
     for (i = 0; i < argCount; i++) {
       int32_t pos = args.FindChar('\n', offset);
-      if (pos == -1)
-        pos = args.Length();
+      if (pos == -1) pos = args.Length();
       argArray[i] = ToNewUnicode(Substring(args, offset, pos - offset));
       if (argArray[i] == nullptr) {
         rv = NS_ERROR_OUT_OF_MEMORY;
-        argCount = i - 1; // don't try to free uninitialized memory
+        argCount = i - 1;  // don't try to free uninitialized memory
         goto done;
       }
       offset = pos + 1;
@@ -733,8 +701,7 @@ nsStringBundleService::FormatStatusMessage(nsresult aStatus,
 done:
   if (argCount > 1) {
     for (i = 0; i < argCount; i++) {
-      if (argArray[i])
-        free(argArray[i]);
+      if (argArray[i]) free(argArray[i]);
     }
   }
   return rv;

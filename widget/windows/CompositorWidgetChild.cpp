@@ -13,18 +13,16 @@
 namespace mozilla {
 namespace widget {
 
-CompositorWidgetChild::CompositorWidgetChild(RefPtr<CompositorVsyncDispatcher> aVsyncDispatcher,
-                                             RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver)
- : mVsyncDispatcher(aVsyncDispatcher),
-   mVsyncObserver(aVsyncObserver)
+CompositorWidgetChild::CompositorWidgetChild(
+    RefPtr<CompositorVsyncDispatcher> aVsyncDispatcher,
+    RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver)
+    : mVsyncDispatcher(aVsyncDispatcher), mVsyncObserver(aVsyncObserver)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(!gfxPlatform::IsHeadless());
 }
 
-CompositorWidgetChild::~CompositorWidgetChild()
-{
-}
+CompositorWidgetChild::~CompositorWidgetChild() {}
 
 void
 CompositorWidgetChild::EnterPresentLock()
@@ -76,5 +74,5 @@ CompositorWidgetChild::RecvUnobserveVsync()
   return IPC_OK();
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

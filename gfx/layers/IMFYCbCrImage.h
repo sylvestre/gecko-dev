@@ -16,7 +16,7 @@ namespace layers {
 
 class IMFYCbCrImage : public RecyclingPlanarYCbCrImage
 {
-public:
+ public:
   IMFYCbCrImage(IMFMediaBuffer* aBuffer, IMF2DBuffer* a2DBuffer);
 
   virtual bool IsValid() { return true; }
@@ -24,8 +24,9 @@ public:
   virtual TextureClient* GetTextureClient(KnowsCompositor* aForwarder) override;
 
   static DXGIYCbCrTextureData* GetD3D11TextureData(Data aData,
-                                                  gfx::IntSize aSize);
-protected:
+                                                   gfx::IntSize aSize);
+
+ protected:
   TextureClient* GetD3D11TextureClient(KnowsCompositor* aForwarder);
 
   ~IMFYCbCrImage();
@@ -35,7 +36,7 @@ protected:
   RefPtr<TextureClient> mTextureClient;
 };
 
-} // namepace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_D3DSURFACEIMAGE_H
+#endif  // GFX_D3DSURFACEIMAGE_H

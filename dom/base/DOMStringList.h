@@ -15,21 +15,18 @@
 namespace mozilla {
 namespace dom {
 
-class DOMStringList : public nsISupports,
-                      public nsWrapperCache
+class DOMStringList : public nsISupports, public nsWrapperCache
 {
-protected:
+ protected:
   virtual ~DOMStringList();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMStringList)
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-  nsISupports* GetParentObject()
-  {
-    return nullptr;
-  }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+  nsISupports* GetParentObject() { return nullptr; }
 
   void IndexedGetter(uint32_t aIndex, bool& aFound, nsAString& aResult)
   {
@@ -71,34 +68,23 @@ public:
     return mNames.AppendElement(aName) != nullptr;
   }
 
-  void Clear()
-  {
-    mNames.Clear();
-  }
+  void Clear() { mNames.Clear(); }
 
-  nsTArray<nsString>& StringArray()
-  {
-    return mNames;
-  }
+  nsTArray<nsString>& StringArray() { return mNames; }
 
-  void CopyList(nsTArray<nsString>& aNames)
-  {
-    aNames = mNames;
-  }
+  void CopyList(nsTArray<nsString>& aNames) { aNames = mNames; }
 
-protected:
+ protected:
   // A method that subclasses can override to modify mNames as needed
   // before we index into it or return its length or whatnot.
-  virtual void EnsureFresh()
-  {
-  }
+  virtual void EnsureFresh() {}
 
   // XXXbz we really want this to be a fallible array, but we end up passing it
   // to consumers who declare themselves as taking and nsTArray.  :(
   nsTArray<nsString> mNames;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_DOMStringList_h */

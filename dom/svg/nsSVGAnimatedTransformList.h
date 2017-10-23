@@ -22,7 +22,7 @@ namespace mozilla {
 namespace dom {
 class SVGAnimationElement;
 class SVGTransform;
-} // namespace dom
+}  // namespace dom
 
 /**
  * Class nsSVGAnimatedTransformList
@@ -44,10 +44,11 @@ class nsSVGAnimatedTransformList
   friend class dom::SVGTransform;
   friend class DOMSVGTransformList;
 
-public:
+ public:
   nsSVGAnimatedTransformList()
-    : mIsAttrSet(false),
-      mHadTransformBeforeLastBaseValChange(false) { }
+      : mIsAttrSet(false), mHadTransformBeforeLastBaseValChange(false)
+  {
+  }
 
   /**
    * Because it's so important that mBaseVal and its DOMSVGTransformList wrapper
@@ -56,9 +57,7 @@ public:
    * returns a const reference. Only our friend classes may get mutable
    * references to mBaseVal.
    */
-  const SVGTransformList& GetBaseValue() const {
-    return mBaseVal;
-  }
+  const SVGTransformList& GetBaseValue() const { return mBaseVal; }
 
   nsresult SetBaseValue(const SVGTransformList& aValue);
 
@@ -66,14 +65,15 @@ public:
 
   void ClearBaseValue();
 
-  const SVGTransformList& GetAnimValue() const {
+  const SVGTransformList& GetAnimValue() const
+  {
     return mAnimVal ? *mAnimVal : mBaseVal;
   }
 
   nsresult SetAnimValue(const SVGTransformList& aNewAnimValue,
-                        nsSVGElement *aElement);
+                        nsSVGElement* aElement);
 
-  void ClearAnimValue(nsSVGElement *aElement);
+  void ClearAnimValue(nsSVGElement* aElement);
 
   /**
    * Returns true if the corresponding transform attribute is set (or animated)
@@ -89,11 +89,11 @@ public:
    * or invalid).
    */
   bool HasTransform() const
-    { return (mAnimVal && !mAnimVal->IsEmpty()) || !mBaseVal.IsEmpty(); }
-
-  bool IsAnimating() const {
-    return !!mAnimVal;
+  {
+    return (mAnimVal && !mAnimVal->IsEmpty()) || !mBaseVal.IsEmpty();
   }
+
+  bool IsAnimating() const { return !!mAnimVal; }
 
   /**
    * Returns true iff "HasTransform" returned true just before our most recent
@@ -106,14 +106,14 @@ public:
    * a transform where we previously had none. These cases require a more
    * thorough nsChangeHint.)
    */
-  bool HadTransformBeforeLastBaseValChange() const {
+  bool HadTransformBeforeLastBaseValChange() const
+  {
     return mHadTransformBeforeLastBaseValChange;
   }
 
   mozilla::UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aSVGElement);
 
-private:
-
+ private:
   // mAnimVal is a pointer to allow us to determine if we're being animated or
   // not. Making it a non-pointer member and using mAnimVal.IsEmpty() to check
   // if we're animating is not an option, since that would break animation *to*
@@ -122,32 +122,34 @@ private:
   SVGTransformList mBaseVal;
   nsAutoPtr<SVGTransformList> mAnimVal;
   bool mIsAttrSet;
-   // (See documentation for accessor, HadTransformBeforeLastBaseValChange.)
+  // (See documentation for accessor, HadTransformBeforeLastBaseValChange.)
   bool mHadTransformBeforeLastBaseValChange;
 
   struct SMILAnimatedTransformList : public nsISMILAttr
   {
-  public:
+   public:
     SMILAnimatedTransformList(nsSVGAnimatedTransformList* aVal,
                               nsSVGElement* aSVGElement)
-      : mVal(aVal)
-      , mElement(aSVGElement)
-    {}
+        : mVal(aVal), mElement(aSVGElement)
+    {
+    }
 
     // nsISMILAttr methods
-    virtual nsresult ValueFromString(const nsAString& aStr,
-                                     const dom::SVGAnimationElement* aSrcElement,
-                                     nsSMILValue& aValue,
-                                     bool& aPreventCachingOfSandwich) const override;
+    virtual nsresult ValueFromString(
+        const nsAString& aStr,
+        const dom::SVGAnimationElement* aSrcElement,
+        nsSMILValue& aValue,
+        bool& aPreventCachingOfSandwich) const override;
     virtual nsSMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
     virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
 
-  protected:
+   protected:
     static void ParseValue(const nsAString& aSpec,
                            const nsAtom* aTransformType,
                            nsSMILValue& aResult);
-    static int32_t ParseParameterList(const nsAString& aSpec, float* aVars,
+    static int32_t ParseParameterList(const nsAString& aSpec,
+                                      float* aVars,
                                       int32_t aNVars);
 
     // These will stay alive because a nsISMILAttr only lives as long
@@ -158,6 +160,6 @@ private:
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGANIMATEDTRANSFORMLIST_H__
+#endif  // MOZILLA_SVGANIMATEDTRANSFORMLIST_H__

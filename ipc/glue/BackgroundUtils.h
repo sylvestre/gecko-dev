@@ -32,26 +32,30 @@ struct OriginAttributesParamTraits
     WriteParam(aMsg, suffix);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     nsAutoCString suffix;
     return ReadParam(aMsg, aIter, &suffix) &&
            aResult->PopulateFromSuffix(suffix);
   }
 };
-} // namespace detail
+}  // namespace detail
 
 template<>
 struct ParamTraits<mozilla::OriginAttributes>
-  : public detail::OriginAttributesParamTraits<mozilla::OriginAttributes> {};
+    : public detail::OriginAttributesParamTraits<mozilla::OriginAttributes>
+{
+};
 
-} // namespace IPC
+}  // namespace IPC
 
 namespace mozilla {
 namespace net {
 class OptionalLoadInfoArgs;
 class RedirectHistoryEntryInfo;
-} // namespace net
+}  // namespace net
 
 using namespace mozilla::net;
 
@@ -103,7 +107,7 @@ RHEntryToRHEntryInfo(nsIRedirectHistoryEntry* aRHEntry,
  * Convert a LoadInfo to LoadInfoArgs struct.
  */
 nsresult
-LoadInfoToLoadInfoArgs(nsILoadInfo *aLoadInfo,
+LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
                        OptionalLoadInfoArgs* outOptionalLoadInfoArgs);
 
 /**
@@ -113,7 +117,7 @@ nsresult
 LoadInfoArgsToLoadInfo(const OptionalLoadInfoArgs& aOptionalLoadInfoArgs,
                        nsILoadInfo** outLoadInfo);
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_backgroundutils_h__
+#endif  // mozilla_ipc_backgroundutils_h__

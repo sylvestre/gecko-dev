@@ -13,7 +13,8 @@ namespace dom {
 NS_IMPL_ISUPPORTS_INHERITED0(EmptyBlobImpl, BlobImpl)
 
 already_AddRefed<BlobImpl>
-EmptyBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
+EmptyBlobImpl::CreateSlice(uint64_t aStart,
+                           uint64_t aLength,
                            const nsAString& aContentType,
                            ErrorResult& aRv)
 {
@@ -28,8 +29,7 @@ EmptyBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
 }
 
 void
-EmptyBlobImpl::CreateInputStream(nsIInputStream** aStream,
-                                 ErrorResult& aRv)
+EmptyBlobImpl::CreateInputStream(nsIInputStream** aStream, ErrorResult& aRv)
 {
   if (NS_WARN_IF(!aStream)) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -43,5 +43,5 @@ EmptyBlobImpl::CreateInputStream(nsIInputStream** aStream,
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

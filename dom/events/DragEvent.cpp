@@ -15,14 +15,14 @@ namespace dom {
 DragEvent::DragEvent(EventTarget* aOwner,
                      nsPresContext* aPresContext,
                      WidgetDragEvent* aEvent)
-  : MouseEvent(aOwner, aPresContext,
-               aEvent ? aEvent :
-                        new WidgetDragEvent(false, eVoidEvent, nullptr))
+    : MouseEvent(
+          aOwner,
+          aPresContext,
+          aEvent ? aEvent : new WidgetDragEvent(false, eVoidEvent, nullptr))
 {
   if (aEvent) {
     mEventIsInternal = false;
-  }
-  else {
+  } else {
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
     mEvent->mRefPoint = LayoutDeviceIntPoint(0, 0);
@@ -57,10 +57,21 @@ DragEvent::InitDragEvent(const nsAString& aType,
 {
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
 
-  MouseEvent::InitMouseEvent(aType, aCanBubble, aCancelable,
-                             aView, aDetail, aScreenX, aScreenY,
-                             aClientX, aClientY, aCtrlKey, aAltKey,
-                             aShiftKey, aMetaKey, aButton, aRelatedTarget);
+  MouseEvent::InitMouseEvent(aType,
+                             aCanBubble,
+                             aCancelable,
+                             aView,
+                             aDetail,
+                             aScreenX,
+                             aScreenY,
+                             aClientX,
+                             aClientY,
+                             aCtrlKey,
+                             aAltKey,
+                             aShiftKey,
+                             aMetaKey,
+                             aButton,
+                             aRelatedTarget);
   if (mEventIsInternal) {
     mEvent->AsDragEvent()->mDataTransfer = aDataTransfer;
   }
@@ -105,11 +116,21 @@ DragEvent::Constructor(const GlobalObject& aGlobal,
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<DragEvent> e = new DragEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
-  e->InitDragEvent(aType, aParam.mBubbles, aParam.mCancelable,
-                   aParam.mView, aParam.mDetail, aParam.mScreenX,
-                   aParam.mScreenY, aParam.mClientX, aParam.mClientY,
-                   aParam.mCtrlKey, aParam.mAltKey, aParam.mShiftKey,
-                   aParam.mMetaKey, aParam.mButton, aParam.mRelatedTarget,
+  e->InitDragEvent(aType,
+                   aParam.mBubbles,
+                   aParam.mCancelable,
+                   aParam.mView,
+                   aParam.mDetail,
+                   aParam.mScreenX,
+                   aParam.mScreenY,
+                   aParam.mClientX,
+                   aParam.mClientY,
+                   aParam.mCtrlKey,
+                   aParam.mAltKey,
+                   aParam.mShiftKey,
+                   aParam.mMetaKey,
+                   aParam.mButton,
+                   aParam.mRelatedTarget,
                    aParam.mDataTransfer);
   e->InitializeExtraMouseEventDictionaryMembers(aParam);
   e->SetTrusted(trusted);
@@ -117,8 +138,8 @@ DragEvent::Constructor(const GlobalObject& aGlobal,
   return e.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -128,7 +149,6 @@ NS_NewDOMDragEvent(EventTarget* aOwner,
                    nsPresContext* aPresContext,
                    WidgetDragEvent* aEvent)
 {
-  RefPtr<DragEvent> event =
-    new DragEvent(aOwner, aPresContext, aEvent);
+  RefPtr<DragEvent> event = new DragEvent(aOwner, aPresContext, aEvent);
   return event.forget();
 }

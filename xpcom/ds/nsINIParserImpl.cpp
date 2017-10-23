@@ -11,28 +11,24 @@
 #include "nsTArray.h"
 #include "mozilla/Attributes.h"
 
-class nsINIParserImpl final
-  : public nsIINIParser
+class nsINIParserImpl final : public nsIINIParser
 {
   ~nsINIParserImpl() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIINIPARSER
 
   nsresult Init(nsIFile* aINIFile) { return mParser.Init(aINIFile); }
 
-private:
+ private:
   nsINIParser mParser;
 };
 
-NS_IMPL_ISUPPORTS(nsINIParserFactory,
-                  nsIINIParserFactory,
-                  nsIFactory)
+NS_IMPL_ISUPPORTS(nsINIParserFactory, nsIINIParserFactory, nsIFactory)
 
 NS_IMETHODIMP
-nsINIParserFactory::CreateINIParser(nsIFile* aINIFile,
-                                    nsIINIParser** aResult)
+nsINIParserFactory::CreateINIParser(nsIFile* aINIFile, nsIINIParser** aResult)
 {
   *aResult = nullptr;
 
@@ -64,13 +60,9 @@ nsINIParserFactory::CreateInstance(nsISupports* aOuter,
 }
 
 NS_IMETHODIMP
-nsINIParserFactory::LockFactory(bool aLock)
-{
-  return NS_OK;
-}
+nsINIParserFactory::LockFactory(bool aLock) { return NS_OK; }
 
-NS_IMPL_ISUPPORTS(nsINIParserImpl,
-                  nsIINIParser)
+NS_IMPL_ISUPPORTS(nsINIParserImpl, nsIINIParser)
 
 static bool
 SectionCB(const char* aSection, void* aClosure)
@@ -117,8 +109,8 @@ nsINIParserImpl::GetKeys(const nsACString& aSection,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  nsresult rv = mParser.GetStrings(PromiseFlatCString(aSection).get(),
-                                   KeyCB, strings);
+  nsresult rv =
+      mParser.GetStrings(PromiseFlatCString(aSection).get(), KeyCB, strings);
   if (NS_SUCCEEDED(rv)) {
     rv = NS_NewAdoptingUTF8StringEnumerator(aResult, strings);
   }
@@ -128,7 +120,6 @@ nsINIParserImpl::GetKeys(const nsACString& aSection,
   }
 
   return rv;
-
 }
 
 NS_IMETHODIMP

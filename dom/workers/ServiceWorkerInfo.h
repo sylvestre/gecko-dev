@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_workers_serviceworkerinfo_h
 #define mozilla_dom_workers_serviceworkerinfo_h
 
-#include "mozilla/dom/ServiceWorkerBinding.h" // For ServiceWorkerState
+#include "mozilla/dom/ServiceWorkerBinding.h"  // For ServiceWorkerState
 #include "mozilla/dom/workers/Workers.h"
 #include "nsIServiceWorkerManager.h"
 
@@ -26,7 +26,7 @@ class ServiceWorkerPrivate;
  */
 class ServiceWorkerInfo final : public nsIServiceWorkerInfo
 {
-private:
+ private:
   nsCOMPtr<nsIPrincipal> mPrincipal;
   const nsCString mScope;
   const nsCString mScriptSpec;
@@ -67,7 +67,8 @@ private:
   RefPtr<ServiceWorkerPrivate> mServiceWorkerPrivate;
   bool mSkipWaitingFlag;
 
-  enum {
+  enum
+  {
     Unknown,
     Enabled,
     Disabled
@@ -77,37 +78,23 @@ private:
 
   // Generates a unique id for the service worker, with zero being treated as
   // invalid.
-  uint64_t
-  GetNextID() const;
+  uint64_t GetNextID() const;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISERVICEWORKERINFO
 
-  class ServiceWorkerPrivate*
-  WorkerPrivate() const
+  class ServiceWorkerPrivate* WorkerPrivate() const
   {
     MOZ_ASSERT(mServiceWorkerPrivate);
     return mServiceWorkerPrivate;
   }
 
-  nsIPrincipal*
-  Principal() const
-  {
-    return mPrincipal;
-  }
+  nsIPrincipal* Principal() const { return mPrincipal; }
 
-  const nsCString&
-  ScriptSpec() const
-  {
-    return mScriptSpec;
-  }
+  const nsCString& ScriptSpec() const { return mScriptSpec; }
 
-  const nsCString&
-  Scope() const
-  {
-    return mScope;
-  }
+  const nsCString& Scope() const { return mScope; }
 
   bool SkipWaitingFlag() const
   {
@@ -127,89 +114,58 @@ public:
                     const nsAString& aCacheName,
                     nsLoadFlags aLoadFlags);
 
-  ServiceWorkerState
-  State() const
-  {
-    return mState;
-  }
+  ServiceWorkerState State() const { return mState; }
 
-  const OriginAttributes&
-  GetOriginAttributes() const
+  const OriginAttributes& GetOriginAttributes() const
   {
     return mOriginAttributes;
   }
 
-  const nsString&
-  CacheName() const
-  {
-    return mCacheName;
-  }
+  const nsString& CacheName() const { return mCacheName; }
 
-  nsLoadFlags
-  GetImportsLoadFlags() const
-  {
-    return mImportsLoadFlags;
-  }
+  nsLoadFlags GetImportsLoadFlags() const { return mImportsLoadFlags; }
 
-  uint64_t
-  ID() const
-  {
-    return mServiceWorkerID;
-  }
+  uint64_t ID() const { return mServiceWorkerID; }
 
-  void
-  UpdateState(ServiceWorkerState aState);
+  void UpdateState(ServiceWorkerState aState);
 
   // Only used to set initial state when loading from disk!
-  void
-  SetActivateStateUncheckedWithoutEvent(ServiceWorkerState aState)
+  void SetActivateStateUncheckedWithoutEvent(ServiceWorkerState aState)
   {
     AssertIsOnMainThread();
     mState = aState;
   }
 
-  void
-  SetHandlesFetch(bool aHandlesFetch)
+  void SetHandlesFetch(bool aHandlesFetch)
   {
     AssertIsOnMainThread();
     MOZ_DIAGNOSTIC_ASSERT(mHandlesFetch == Unknown);
     mHandlesFetch = aHandlesFetch ? Enabled : Disabled;
   }
 
-  bool
-  HandlesFetch() const
+  bool HandlesFetch() const
   {
     AssertIsOnMainThread();
     MOZ_DIAGNOSTIC_ASSERT(mHandlesFetch != Unknown);
     return mHandlesFetch != Disabled;
   }
 
-  void
-  AppendWorker(ServiceWorker* aWorker);
+  void AppendWorker(ServiceWorker* aWorker);
 
-  void
-  RemoveWorker(ServiceWorker* aWorker);
+  void RemoveWorker(ServiceWorker* aWorker);
 
-  already_AddRefed<ServiceWorker>
-  GetOrCreateInstance(nsPIDOMWindowInner* aWindow);
+  already_AddRefed<ServiceWorker> GetOrCreateInstance(
+      nsPIDOMWindowInner* aWindow);
 
-  void
-  UpdateInstalledTime();
+  void UpdateInstalledTime();
 
-  void
-  UpdateActivatedTime();
+  void UpdateActivatedTime();
 
-  void
-  UpdateRedundantTime();
+  void UpdateRedundantTime();
 
-  int64_t
-  GetInstalledTime() const
-  {
-    return mInstalledTime;
-  }
+  int64_t GetInstalledTime() const { return mInstalledTime; }
 
-  void
-  SetInstalledTime(const int64_t aTime)
+  void SetInstalledTime(const int64_t aTime)
   {
     if (aTime == 0) {
       return;
@@ -218,14 +174,9 @@ public:
     mInstalledTime = aTime;
   }
 
-  int64_t
-  GetActivatedTime() const
-  {
-    return mActivatedTime;
-  }
+  int64_t GetActivatedTime() const { return mActivatedTime; }
 
-  void
-  SetActivatedTime(const int64_t aTime)
+  void SetActivatedTime(const int64_t aTime)
   {
     if (aTime == 0) {
       return;
@@ -235,8 +186,8 @@ public:
   }
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerinfo_h
+#endif  // mozilla_dom_workers_serviceworkerinfo_h

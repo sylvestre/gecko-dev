@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-#define STAMP_TIMECARD(card,event)                                       \
+#define STAMP_TIMECARD(card, event)                                      \
   do {                                                                   \
     if (card) {                                                          \
       stamp_timecard((card), (event), __FILE__, __LINE__, __FUNCTION__); \
@@ -28,25 +28,27 @@ extern "C" {
  * We do not own them, and should not attempt to deallocate them.
  */
 
-typedef struct {
+typedef struct
+{
   PRTime timestamp;
-  const char *event;
-  const char *file;
+  const char* event;
+  const char* file;
   unsigned int line;
-  const char *function;
+  const char* function;
 } TimecardEntry;
 
-typedef struct Timecard {
+typedef struct Timecard
+{
   size_t curr_entry;
   size_t entries_allocated;
-  TimecardEntry *entries;
+  TimecardEntry* entries;
   PRTime start_time;
 } Timecard;
 
 /**
  * Creates a new Timecard structure for tracking events.
  */
-Timecard *
+Timecard*
 create_timecard();
 
 /**
@@ -54,7 +56,7 @@ create_timecard();
  * timecard pointed to by tc is no longer valid.
  */
 void
-destroy_timecard(Timecard *tc);
+destroy_timecard(Timecard* tc);
 
 /**
  * Records a new event in the indicated timecard. This should not be
@@ -62,17 +64,17 @@ destroy_timecard(Timecard *tc);
  * above.
  */
 void
-stamp_timecard(Timecard *tc,
-               const char *event,
-               const char *file,
+stamp_timecard(Timecard* tc,
+               const char* event,
+               const char* file,
                unsigned int line,
-               const char *function);
+               const char* function);
 
 /**
  * Formats and outputs the contents of a timecard onto stdout.
  */
 void
-print_timecard(Timecard *tc);
+print_timecard(Timecard* tc);
 
 #ifdef __cplusplus
 }

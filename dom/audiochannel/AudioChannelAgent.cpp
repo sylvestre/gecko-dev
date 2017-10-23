@@ -37,18 +37,14 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(AudioChannelAgent)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(AudioChannelAgent)
 
 AudioChannelAgent::AudioChannelAgent()
-  : mInnerWindowID(0)
-  , mIsRegToService(false)
+    : mInnerWindowID(0), mIsRegToService(false)
 {
   // Init service in the begining, it can help us to know whether there is any
   // created media component via AudioChannelService::IsServiceStarted().
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
 }
 
-AudioChannelAgent::~AudioChannelAgent()
-{
-  Shutdown();
-}
+AudioChannelAgent::~AudioChannelAgent() { Shutdown(); }
 
 void
 AudioChannelAgent::Shutdown()
@@ -60,18 +56,18 @@ AudioChannelAgent::Shutdown()
 
 NS_IMETHODIMP
 AudioChannelAgent::Init(mozIDOMWindow* aWindow,
-                        nsIAudioChannelAgentCallback *aCallback)
+                        nsIAudioChannelAgentCallback* aCallback)
 {
-  return InitInternal(nsPIDOMWindowInner::From(aWindow),
-                      aCallback, /* useWeakRef = */ false);
+  return InitInternal(
+      nsPIDOMWindowInner::From(aWindow), aCallback, /* useWeakRef = */ false);
 }
 
 NS_IMETHODIMP
 AudioChannelAgent::InitWithWeakCallback(mozIDOMWindow* aWindow,
-                                        nsIAudioChannelAgentCallback *aCallback)
+                                        nsIAudioChannelAgentCallback* aCallback)
 {
-  return InitInternal(nsPIDOMWindowInner::From(aWindow),
-                      aCallback, /* useWeakRef = */ true);
+  return InitInternal(
+      nsPIDOMWindowInner::From(aWindow), aCallback, /* useWeakRef = */ true);
 }
 
 nsresult
@@ -112,7 +108,7 @@ AudioChannelAgent::FindCorrectWindow(nsPIDOMWindowInner* aWindow)
 
   nsAutoCString systemAppUrl;
   nsresult rv =
-    mozilla::Preferences::GetCString("b2g.system_startup_url", systemAppUrl);
+      mozilla::Preferences::GetCString("b2g.system_startup_url", systemAppUrl);
   if (NS_FAILED(rv)) {
     return NS_OK;
   }
@@ -135,7 +131,7 @@ AudioChannelAgent::FindCorrectWindow(nsPIDOMWindowInner* aWindow)
 
 nsresult
 AudioChannelAgent::InitInternal(nsPIDOMWindowInner* aWindow,
-                                nsIAudioChannelAgentCallback *aCallback,
+                                nsIAudioChannelAgentCallback* aCallback,
                                 bool aUseWeakRef)
 {
   if (NS_WARN_IF(!aWindow)) {
@@ -156,10 +152,13 @@ AudioChannelAgent::InitInternal(nsPIDOMWindowInner* aWindow,
     mCallback = aCallback;
   }
 
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, InitInternal, this = %p, "
-          "owner = %p, hasCallback = %d\n", this,
-          mWindow.get(), (!!mCallback || !!mWeakCallback)));
+  MOZ_LOG(AudioChannelService::GetAudioChannelLog(),
+          LogLevel::Debug,
+          ("AudioChannelAgent, InitInternal, this = %p, "
+           "owner = %p, hasCallback = %d\n",
+           this,
+           mWindow.get(),
+           (!!mCallback || !!mWeakCallback)));
 
   return NS_OK;
 }
@@ -180,17 +179,21 @@ AudioChannelAgent::NotifyStartedPlaying(AudioPlaybackConfig* aConfig,
   MOZ_ASSERT(AudioChannelService::AudibleState::eNotAudible == 0 &&
              AudioChannelService::AudibleState::eMaybeAudible == 1 &&
              AudioChannelService::AudibleState::eAudible == 2);
-  service->RegisterAudioChannelAgent(this,
-    static_cast<AudioChannelService::AudibleState>(aAudible));
+  service->RegisterAudioChannelAgent(
+      this, static_cast<AudioChannelService::AudibleState>(aAudible));
 
   AudioPlaybackConfig config = service->GetMediaConfig(mWindow);
 
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, NotifyStartedPlaying, this = %p, "
-          "audible = %s, mute = %s, volume = %f, suspend = %s\n", this,
-          AudibleStateToStr(static_cast<AudioChannelService::AudibleState>(aAudible)),
-          config.mMuted ? "true" : "false", config.mVolume,
-          SuspendTypeToStr(config.mSuspend)));
+  MOZ_LOG(AudioChannelService::GetAudioChannelLog(),
+          LogLevel::Debug,
+          ("AudioChannelAgent, NotifyStartedPlaying, this = %p, "
+           "audible = %s, mute = %s, volume = %f, suspend = %s\n",
+           this,
+           AudibleStateToStr(
+               static_cast<AudioChannelService::AudibleState>(aAudible)),
+           config.mMuted ? "true" : "false",
+           config.mVolume,
+           SuspendTypeToStr(config.mSuspend)));
 
   aConfig->SetConfig(config.mVolume, config.mMuted, config.mSuspend);
   mIsRegToService = true;
@@ -204,8 +207,9 @@ AudioChannelAgent::NotifyStoppedPlaying()
     return NS_ERROR_FAILURE;
   }
 
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, NotifyStoppedPlaying, this = %p\n", this));
+  MOZ_LOG(AudioChannelService::GetAudioChannelLog(),
+          LogLevel::Debug,
+          ("AudioChannelAgent, NotifyStoppedPlaying, this = %p\n", this));
 
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
   if (service) {
@@ -219,11 +223,16 @@ AudioChannelAgent::NotifyStoppedPlaying()
 NS_IMETHODIMP
 AudioChannelAgent::NotifyStartedAudible(uint8_t aAudible, uint32_t aReason)
 {
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, NotifyStartedAudible, this = %p, "
-          "audible = %s, reason = %s\n", this,
-          AudibleStateToStr(static_cast<AudioChannelService::AudibleState>(aAudible)),
-          AudibleChangedReasonToStr(static_cast<AudioChannelService::AudibleChangedReasons>(aReason))));
+  MOZ_LOG(
+      AudioChannelService::GetAudioChannelLog(),
+      LogLevel::Debug,
+      ("AudioChannelAgent, NotifyStartedAudible, this = %p, "
+       "audible = %s, reason = %s\n",
+       this,
+       AudibleStateToStr(
+           static_cast<AudioChannelService::AudibleState>(aAudible)),
+       AudibleChangedReasonToStr(
+           static_cast<AudioChannelService::AudibleChangedReasons>(aReason))));
 
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
   if (NS_WARN_IF(!service)) {
@@ -231,9 +240,9 @@ AudioChannelAgent::NotifyStartedAudible(uint8_t aAudible, uint32_t aReason)
   }
 
   service->AudioAudibleChanged(
-    this,
-    static_cast<AudioChannelService::AudibleState>(aAudible),
-    static_cast<AudioChannelService::AudibleChangedReasons>(aReason));
+      this,
+      static_cast<AudioChannelService::AudibleState>(aAudible),
+      static_cast<AudioChannelService::AudibleChangedReasons>(aReason));
   return NS_OK;
 }
 
@@ -256,10 +265,13 @@ AudioChannelAgent::WindowVolumeChanged()
   }
 
   AudioPlaybackConfig config = GetMediaConfig();
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, WindowVolumeChanged, this = %p, mute = %s, "
-          "volume = %f\n",
-          this, config.mMuted ? "true" : "false", config.mVolume));
+  MOZ_LOG(AudioChannelService::GetAudioChannelLog(),
+          LogLevel::Debug,
+          ("AudioChannelAgent, WindowVolumeChanged, this = %p, mute = %s, "
+           "volume = %f\n",
+           this,
+           config.mMuted ? "true" : "false",
+           config.mVolume));
 
   callback->WindowVolumeChanged(config.mVolume, config.mMuted);
 }
@@ -276,9 +288,12 @@ AudioChannelAgent::WindowSuspendChanged(nsSuspendedTypes aSuspend)
     aSuspend = GetMediaConfig().mSuspend;
   }
 
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, WindowSuspendChanged, this = %p, "
-          "suspended = %s\n", this, SuspendTypeToStr(aSuspend)));
+  MOZ_LOG(AudioChannelService::GetAudioChannelLog(),
+          LogLevel::Debug,
+          ("AudioChannelAgent, WindowSuspendChanged, this = %p, "
+           "suspended = %s\n",
+           this,
+           SuspendTypeToStr(aSuspend)));
 
   callback->WindowSuspendChanged(aSuspend);
 }
@@ -326,9 +341,12 @@ AudioChannelAgent::WindowAudioCaptureChanged(uint64_t aInnerWindowID,
     return;
   }
 
-  MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-         ("AudioChannelAgent, WindowAudioCaptureChanged, this = %p, "
-          "capture = %d\n", this, aCapture));
+  MOZ_LOG(AudioChannelService::GetAudioChannelLog(),
+          LogLevel::Debug,
+          ("AudioChannelAgent, WindowAudioCaptureChanged, this = %p, "
+           "capture = %d\n",
+           this,
+           aCapture));
 
   callback->WindowAudioCaptureChanged(aCapture);
 }
@@ -342,6 +360,7 @@ AudioChannelAgent::IsPlayingStarted() const
 bool
 AudioChannelAgent::ShouldBlockMedia() const
 {
-  return mWindow ?
-    mWindow->GetMediaSuspend() == nsISuspendedTypes::SUSPENDED_BLOCK : false;
+  return mWindow
+             ? mWindow->GetMediaSuspend() == nsISuspendedTypes::SUSPENDED_BLOCK
+             : false;
 }

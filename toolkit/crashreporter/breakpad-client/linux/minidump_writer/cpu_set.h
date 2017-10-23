@@ -42,21 +42,20 @@ namespace google_breakpad {
 // Helper class used to model a set of CPUs, as read from sysfs
 // files like /sys/devices/system/cpu/present
 // See See http://www.kernel.org/doc/Documentation/cputopology.txt
-class CpuSet {
-public:
+class CpuSet
+{
+ public:
   // The maximum number of supported CPUs.
   static const size_t kMaxCpus = 1024;
 
-  CpuSet() {
-    my_memset(mask_, 0, sizeof(mask_));
-  }
+  CpuSet() { my_memset(mask_, 0, sizeof(mask_)); }
 
   // Parse a sysfs file to extract the corresponding CPU set.
-  bool ParseSysFile(int fd) {
+  bool ParseSysFile(int fd)
+  {
     char buffer[512];
-    int ret = sys_read(fd, buffer, sizeof(buffer)-1);
-    if (ret < 0)
-      return false;
+    int ret = sys_read(fd, buffer, sizeof(buffer) - 1);
+    if (ret < 0) return false;
 
     buffer[ret] = '\0';
 
@@ -72,8 +71,7 @@ public:
     const char* p_end = p + ret;
     while (p < p_end) {
       // Skip leading space, if any
-      while (p < p_end && my_isspace(*p))
-        p++;
+      while (p < p_end && my_isspace(*p)) p++;
 
       // Find start and size of current item.
       const char* item = p;
@@ -89,34 +87,31 @@ public:
       }
 
       // Ignore trailing spaces.
-      while (item_next > item && my_isspace(item_next[-1]))
-        item_next--;
+      while (item_next > item && my_isspace(item_next[-1])) item_next--;
 
       // skip empty items.
-      if (item_next == item)
-        continue;
+      if (item_next == item) continue;
 
       // read first decimal value.
       uintptr_t start = 0;
       const char* next = my_read_decimal_ptr(&start, item);
       uintptr_t end = start;
-      if (*next == '-')
-        my_read_decimal_ptr(&end, next+1);
+      if (*next == '-') my_read_decimal_ptr(&end, next + 1);
 
-      while (start <= end)
-        SetBit(start++);
+      while (start <= end) SetBit(start++);
     }
     return true;
   }
 
   // Intersect this CPU set with another one.
-  void IntersectWith(const CpuSet& other) {
-    for (size_t nn = 0; nn < kMaskWordCount; ++nn)
-      mask_[nn] &= other.mask_[nn];
+  void IntersectWith(const CpuSet& other)
+  {
+    for (size_t nn = 0; nn < kMaskWordCount; ++nn) mask_[nn] &= other.mask_[nn];
   }
 
   // Return the number of CPUs in this set.
-  int GetCount() {
+  int GetCount()
+  {
     int result = 0;
     for (size_t nn = 0; nn < kMaskWordCount; ++nn) {
       result += __builtin_popcount(mask_[nn]);
@@ -124,15 +119,16 @@ public:
     return result;
   }
 
-private:
-  void SetBit(uintptr_t index) {
+ private:
+  void SetBit(uintptr_t index)
+  {
     size_t nn = static_cast<size_t>(index);
     if (nn < kMaxCpus)
       mask_[nn / kMaskWordBits] |= (1U << (nn % kMaskWordBits));
   }
 
   typedef uint32_t MaskWordType;
-  static const size_t kMaskWordBits = 8*sizeof(MaskWordType);
+  static const size_t kMaskWordBits = 8 * sizeof(MaskWordType);
   static const size_t kMaskWordCount =
       (kMaxCpus + kMaskWordBits - 1) / kMaskWordBits;
 

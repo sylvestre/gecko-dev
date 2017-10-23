@@ -14,12 +14,13 @@
 namespace mozilla {
 namespace net {
 
-class ExtensionProtocolHandler final : public nsISubstitutingProtocolHandler,
-                                       public nsIProtocolHandlerWithDynamicFlags,
-                                       public SubstitutingProtocolHandler,
-                                       public nsSupportsWeakReference
+class ExtensionProtocolHandler final
+    : public nsISubstitutingProtocolHandler,
+      public nsIProtocolHandlerWithDynamicFlags,
+      public SubstitutingProtocolHandler,
+      public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIPROTOCOLHANDLERWITHDYNAMICFLAGS
   NS_FORWARD_NSIPROTOCOLHANDLER(SubstitutingProtocolHandler::)
@@ -72,10 +73,10 @@ public:
                              bool* aTerminateSender,
                              NeckoParent::GetExtensionFDResolver& aResolve);
 
-protected:
+ protected:
   ~ExtensionProtocolHandler() {}
 
-private:
+ private:
   explicit ExtensionProtocolHandler();
 
   MOZ_MUST_USE bool ResolveSpecialCases(const nsACString& aHost,
@@ -226,7 +227,7 @@ private:
   bool mUseRemoteFileChannels;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* ExtensionProtocolHandler_h___ */

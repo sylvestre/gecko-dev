@@ -30,55 +30,56 @@
  * arbitrary struct of which the first field is a pointer to an
  * AVClass struct (e.g. AVCodecContext, AVFormatContext etc.).
  */
-typedef struct AVClass {
-    /**
+typedef struct AVClass
+{
+  /**
      * The name of the class; usually it is the same name as the
      * context structure type to which the AVClass is associated.
      */
-    const char* class_name;
+  const char* class_name;
 
-    /**
+  /**
      * A pointer to a function which returns the name of a context
      * instance ctx associated with the class.
      */
-    const char* (*item_name)(void* ctx);
+  const char* (*item_name)(void* ctx);
 
-    /**
+  /**
      * a pointer to the first option specified in the class if any or NULL
      *
      * @see av_set_default_options()
      */
-    const struct AVOption *option;
+  const struct AVOption* option;
 
-    /**
+  /**
      * LIBAVUTIL_VERSION with which this structure was created.
      * This is used to allow fields to be added without requiring major
      * version bumps everywhere.
      */
 
-    int version;
+  int version;
 
-    /**
+  /**
      * Offset in the structure where log_level_offset is stored.
      * 0 means there is no such variable
      */
-    int log_level_offset_offset;
+  int log_level_offset_offset;
 
-    /**
+  /**
      * Offset in the structure where a pointer to the parent context for
      * logging is stored. For example a decoder could pass its AVCodecContext
      * to eval as such a parent context, which an av_log() implementation
      * could then leverage to display the parent context.
      * The offset can be NULL.
      */
-    int parent_log_context_offset;
+  int parent_log_context_offset;
 
-    /**
+  /**
      * Return next AVOptions-enabled child or NULL
      */
-    void* (*child_next)(void *obj, void *prev);
+  void* (*child_next)(void* obj, void* prev);
 
-    /**
+  /**
      * Return an AVClass corresponding to the next potential
      * AVOptions-enabled child.
      *
@@ -86,44 +87,44 @@ typedef struct AVClass {
      * child_next iterates over _already existing_ objects, while
      * child_class_next iterates over _all possible_ children.
      */
-    const struct AVClass* (*child_class_next)(const struct AVClass *prev);
+  const struct AVClass* (*child_class_next)(const struct AVClass* prev);
 } AVClass;
 
 /* av_log API */
 
-#define AV_LOG_QUIET    -8
+#define AV_LOG_QUIET -8
 
 /**
  * Something went really wrong and we will crash now.
  */
-#define AV_LOG_PANIC     0
+#define AV_LOG_PANIC 0
 
 /**
  * Something went wrong and recovery is not possible.
  * For example, no header was found for a format which depends
  * on headers or an illegal combination of parameters is used.
  */
-#define AV_LOG_FATAL     8
+#define AV_LOG_FATAL 8
 
 /**
  * Something went wrong and cannot losslessly be recovered.
  * However, not all future data is affected.
  */
-#define AV_LOG_ERROR    16
+#define AV_LOG_ERROR 16
 
 /**
  * Something somehow does not look correct. This may or may not
  * lead to problems. An example would be the use of '-vstrict -2'.
  */
-#define AV_LOG_WARNING  24
+#define AV_LOG_WARNING 24
 
-#define AV_LOG_INFO     32
-#define AV_LOG_VERBOSE  40
+#define AV_LOG_INFO 32
+#define AV_LOG_VERBOSE 40
 
 /**
  * Stuff which is only useful for libav* developers.
  */
-#define AV_LOG_DEBUG    48
+#define AV_LOG_DEBUG 48
 
 /**
  * Send the specified message to the log if the level is less than or equal
@@ -139,14 +140,21 @@ typedef struct AVClass {
  * subsequent arguments are converted to output.
  * @see av_vlog
  */
-void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
+void
+av_log(void* avcl, int level, const char* fmt, ...) av_printf_format(3, 4);
 
-void av_vlog(void *avcl, int level, const char *fmt, va_list);
-int av_log_get_level(void);
-void av_log_set_level(int);
-void av_log_set_callback(void (*)(void*, int, const char*, va_list));
-void av_log_default_callback(void* ptr, int level, const char* fmt, va_list vl);
-const char* av_default_item_name(void* ctx);
+void
+av_vlog(void* avcl, int level, const char* fmt, va_list);
+int
+av_log_get_level(void);
+void
+av_log_set_level(int);
+void
+av_log_set_callback(void (*)(void*, int, const char*, va_list));
+void
+av_log_default_callback(void* ptr, int level, const char* fmt, va_list vl);
+const char*
+av_default_item_name(void* ctx);
 
 /**
  * av_dlog macros
@@ -154,9 +162,9 @@ const char* av_default_item_name(void* ctx);
  */
 
 #ifdef DEBUG
-#    define av_dlog(pctx, ...) av_log(pctx, AV_LOG_DEBUG, __VA_ARGS__)
+#define av_dlog(pctx, ...) av_log(pctx, AV_LOG_DEBUG, __VA_ARGS__)
 #else
-#    define av_dlog(pctx, ...)
+#define av_dlog(pctx, ...)
 #endif
 
 /**
@@ -168,6 +176,7 @@ const char* av_default_item_name(void* ctx);
  * call av_log(NULL, AV_LOG_QUIET, ""); at the end
  */
 #define AV_LOG_SKIP_REPEATED 1
-void av_log_set_flags(int arg);
+void
+av_log_set_flags(int arg);
 
 #endif /* AVUTIL_LOG_H */

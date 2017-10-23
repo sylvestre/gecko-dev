@@ -18,7 +18,7 @@ namespace mozilla {
 namespace net {
 namespace CacheFileUtils {
 
-extern const char *kAltDataKey;
+extern const char* kAltDataKey;
 
 already_AddRefed<nsILoadContextInfo>
 ParseKey(const nsACString& aKey,
@@ -26,18 +26,21 @@ ParseKey(const nsACString& aKey,
          nsACString* aURISpec = nullptr);
 
 void
-AppendKeyPrefix(nsILoadContextInfo *aInfo, nsACString &_retval);
+AppendKeyPrefix(nsILoadContextInfo* aInfo, nsACString& _retval);
 
 void
-AppendTagWithValue(nsACString& aTarget, char const aTag, const nsACString& aValue);
+AppendTagWithValue(nsACString& aTarget,
+                   char const aTag,
+                   const nsACString& aValue);
 
 nsresult
-KeyMatchesLoadContextInfo(const nsACString &aKey,
-                          nsILoadContextInfo *aInfo,
-                          bool *_retval);
+KeyMatchesLoadContextInfo(const nsACString& aKey,
+                          nsILoadContextInfo* aInfo,
+                          bool* _retval);
 
-class ValidityPair {
-public:
+class ValidityPair
+{
+ public:
   ValidityPair(uint32_t aOffset, uint32_t aLen);
 
   ValidityPair& operator=(const ValidityPair& aOther);
@@ -59,15 +62,16 @@ public:
   void Merge(const ValidityPair& aOther);
 
   uint32_t Offset() const { return mOffset; }
-  uint32_t Len() const    { return mLen; }
+  uint32_t Len() const { return mLen; }
 
-private:
+ private:
   uint32_t mOffset;
   uint32_t mLen;
 };
 
-class ValidityMap {
-public:
+class ValidityMap
+{
+ public:
   // Prints pairs in the map into log.
   void Log() const;
 
@@ -85,33 +89,35 @@ public:
 
   ValidityPair& operator[](uint32_t aIdx);
 
-private:
+ private:
   nsTArray<ValidityPair> mMap;
 };
 
-
-class DetailedCacheHitTelemetry {
-public:
-  enum ERecType {
-    HIT  = 0,
+class DetailedCacheHitTelemetry
+{
+ public:
+  enum ERecType
+  {
+    HIT = 0,
     MISS = 1
   };
 
   static void AddRecord(ERecType aType, TimeStamp aLoadStart);
 
-private:
-  class HitRate {
-  public:
+ private:
+  class HitRate
+  {
+   public:
     HitRate();
 
-    void     AddRecord(ERecType aType);
+    void AddRecord(ERecType aType);
     // Returns the bucket index that the current hit rate falls into according
     // to the given aNumOfBuckets.
     uint32_t GetHitRateBucket(uint32_t aNumOfBuckets) const;
     uint32_t Count();
-    void     Reset();
+    void Reset();
 
-  private:
+   private:
     uint32_t mHitCnt;
     uint32_t mMissCnt;
   };
@@ -147,26 +153,27 @@ private:
   static HitRate sHRStats[kNumOfRanges];
 };
 
-class CachePerfStats {
-public:
+class CachePerfStats
+{
+ public:
   // perfStatTypes in displayRcwnStats() in toolkit/content/aboutNetworking.js
   // must match EDataType
-  enum EDataType {
-    IO_OPEN    = 0,
-    IO_READ    = 1,
-    IO_WRITE   = 2,
+  enum EDataType
+  {
+    IO_OPEN = 0,
+    IO_READ = 1,
+    IO_WRITE = 2,
     ENTRY_OPEN = 3,
-    LAST       = 4
+    LAST = 4
   };
 
-  static void     AddValue(EDataType aType, uint32_t aValue, bool aShortOnly);
+  static void AddValue(EDataType aType, uint32_t aValue, bool aShortOnly);
   static uint32_t GetAverage(EDataType aType, bool aFiltered);
   static uint32_t GetStdDev(EDataType aType, bool aFiltered);
-  static bool     IsCacheSlow();
-  static void     GetSlowStats(uint32_t *aSlow, uint32_t *aNotSlow);
+  static bool IsCacheSlow();
+  static void GetSlowStats(uint32_t* aSlow, uint32_t* aNotSlow);
 
-private:
-
+ private:
   // This class computes average and standard deviation, it returns an
   // arithmetic avg and stddev until total number of values reaches mWeight.
   // Then it returns modified moving average computed as follows:
@@ -178,31 +185,33 @@ private:
   //   where
   //       avgsq is an average of the square of the values
   //       a = 1 / weight
-  class MMA {
-  public:
+  class MMA
+  {
+   public:
     MMA(uint32_t aTotalWeight, bool aFilter);
 
-    void     AddValue(uint32_t aValue);
+    void AddValue(uint32_t aValue);
     uint32_t GetAverage();
     uint32_t GetStdDev();
 
-  private:
+   private:
     uint64_t mSum;
     uint64_t mSumSq;
     uint32_t mCnt;
     uint32_t mWeight;
-    bool     mFilter;
+    bool mFilter;
   };
 
-  class PerfData {
-  public:
+  class PerfData
+  {
+   public:
     PerfData();
 
-    void     AddValue(uint32_t aValue, bool aShortOnly);
+    void AddValue(uint32_t aValue, bool aShortOnly);
     uint32_t GetAverage(bool aFiltered);
     uint32_t GetStdDev(bool aFiltered);
 
-  private:
+   private:
     // Contains filtered data (i.e. times when we think the cache and disk was
     // not busy) for a longer time.
     MMA mFilteredAvg;
@@ -219,16 +228,20 @@ private:
 };
 
 void
-FreeBuffer(void *aBuf);
+FreeBuffer(void* aBuf);
 
 nsresult
-ParseAlternativeDataInfo(const char *aInfo, int64_t *_offset, nsACString *_type);
+ParseAlternativeDataInfo(const char* aInfo,
+                         int64_t* _offset,
+                         nsACString* _type);
 
 void
-BuildAlternativeDataInfo(const char *aInfo, int64_t aOffset, nsACString &_retval);
+BuildAlternativeDataInfo(const char* aInfo,
+                         int64_t aOffset,
+                         nsACString& _retval);
 
-} // namespace CacheFileUtils
-} // namespace net
-} // namespace mozilla
+}  // namespace CacheFileUtils
+}  // namespace net
+}  // namespace mozilla
 
 #endif

@@ -27,7 +27,7 @@ class XMLHttpRequestString final
 {
   friend class XMLHttpRequestStringWriterHelper;
 
-public:
+ public:
   XMLHttpRequestString();
   ~XMLHttpRequestString();
 
@@ -50,7 +50,7 @@ public:
 
   void CreateSnapshot(XMLHttpRequestStringSnapshot& aSnapshot);
 
-private:
+ private:
   XMLHttpRequestString(const XMLHttpRequestString&) = delete;
   XMLHttpRequestString& operator=(const XMLHttpRequestString&) = delete;
   XMLHttpRequestString& operator=(const XMLHttpRequestString&&) = delete;
@@ -61,22 +61,22 @@ private:
 // This class locks the buffer and allows the callee to write data into it.
 class MOZ_STACK_CLASS XMLHttpRequestStringWriterHelper final
 {
-public:
+ public:
   explicit XMLHttpRequestStringWriterHelper(XMLHttpRequestString& aString);
 
-  bool
-  AddCapacity(int32_t aCapacity);
+  bool AddCapacity(int32_t aCapacity);
 
-  char16_t*
-  EndOfExistingData();
+  char16_t* EndOfExistingData();
 
-  void
-  AddLength(int32_t aLength);
+  void AddLength(int32_t aLength);
 
-private:
-  XMLHttpRequestStringWriterHelper(const XMLHttpRequestStringWriterHelper&) = delete;
-  XMLHttpRequestStringWriterHelper& operator=(const XMLHttpRequestStringWriterHelper&) = delete;
-  XMLHttpRequestStringWriterHelper& operator=(const XMLHttpRequestStringWriterHelper&&) = delete;
+ private:
+  XMLHttpRequestStringWriterHelper(const XMLHttpRequestStringWriterHelper&) =
+      delete;
+  XMLHttpRequestStringWriterHelper& operator=(
+      const XMLHttpRequestStringWriterHelper&) = delete;
+  XMLHttpRequestStringWriterHelper& operator=(
+      const XMLHttpRequestStringWriterHelper&&) = delete;
 
   RefPtr<XMLHttpRequestStringBuffer> mBuffer;
   MutexAutoLock mLock;
@@ -91,37 +91,26 @@ class XMLHttpRequestStringSnapshot final
   friend class XMLHttpRequestStringBuffer;
   friend class XMLHttpRequestStringSnapshotReaderHelper;
 
-public:
+ public:
   XMLHttpRequestStringSnapshot();
   ~XMLHttpRequestStringSnapshot();
 
   XMLHttpRequestStringSnapshot& operator=(const XMLHttpRequestStringSnapshot&);
 
-  void Reset()
-  {
-    ResetInternal(false /* isVoid */);
-  }
+  void Reset() { ResetInternal(false /* isVoid */); }
 
-  void SetVoid()
-  {
-    ResetInternal(true /* isVoid */);
-  }
+  void SetVoid() { ResetInternal(true /* isVoid */); }
 
-  bool IsVoid() const
-  {
-    return mVoid;
-  }
+  bool IsVoid() const { return mVoid; }
 
-  bool IsEmpty() const
-  {
-    return !mLength;
-  }
+  bool IsEmpty() const { return !mLength; }
 
   MOZ_MUST_USE bool GetAsString(DOMString& aString) const;
 
-private:
+ private:
   XMLHttpRequestStringSnapshot(const XMLHttpRequestStringSnapshot&) = delete;
-  XMLHttpRequestStringSnapshot& operator=(const XMLHttpRequestStringSnapshot&&) = delete;
+  XMLHttpRequestStringSnapshot& operator=(
+      const XMLHttpRequestStringSnapshot&&) = delete;
 
   void Set(XMLHttpRequestStringBuffer* aBuffer, uint32_t aLength);
 
@@ -135,25 +124,27 @@ private:
 // This class locks the buffer and allows the callee to read data from it.
 class MOZ_STACK_CLASS XMLHttpRequestStringSnapshotReaderHelper final
 {
-public:
-  explicit XMLHttpRequestStringSnapshotReaderHelper(XMLHttpRequestStringSnapshot& aSnapshot);
+ public:
+  explicit XMLHttpRequestStringSnapshotReaderHelper(
+      XMLHttpRequestStringSnapshot& aSnapshot);
 
-  const char16_t*
-  Buffer() const;
+  const char16_t* Buffer() const;
 
-  uint32_t
-  Length() const;
+  uint32_t Length() const;
 
-private:
-  XMLHttpRequestStringSnapshotReaderHelper(const XMLHttpRequestStringSnapshotReaderHelper&) = delete;
-  XMLHttpRequestStringSnapshotReaderHelper& operator=(const XMLHttpRequestStringSnapshotReaderHelper&) = delete;
-  XMLHttpRequestStringSnapshotReaderHelper& operator=(const XMLHttpRequestStringSnapshotReaderHelper&&) = delete;
+ private:
+  XMLHttpRequestStringSnapshotReaderHelper(
+      const XMLHttpRequestStringSnapshotReaderHelper&) = delete;
+  XMLHttpRequestStringSnapshotReaderHelper& operator=(
+      const XMLHttpRequestStringSnapshotReaderHelper&) = delete;
+  XMLHttpRequestStringSnapshotReaderHelper& operator=(
+      const XMLHttpRequestStringSnapshotReaderHelper&&) = delete;
 
   RefPtr<XMLHttpRequestStringBuffer> mBuffer;
   MutexAutoLock mLock;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_XMLHttpRequestString_h
+#endif  // mozilla_dom_XMLHttpRequestString_h

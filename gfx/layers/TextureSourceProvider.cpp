@@ -9,10 +9,7 @@
 namespace mozilla {
 namespace layers {
 
-TextureSourceProvider::~TextureSourceProvider()
-{
-  ReadUnlockTextures();
-}
+TextureSourceProvider::~TextureSourceProvider() { ReadUnlockTextures(); }
 
 void
 TextureSourceProvider::ReadUnlockTextures()
@@ -40,7 +37,9 @@ TextureSourceProvider::NotifyNotUsedAfterComposition(TextureHost* aTextureHost)
   const double thresholdSec = 2.0f;
   if (mNotifyNotUsedAfterComposition.Length() > thresholdCount) {
     TimeStamp lastCompositionEndTime = GetLastCompositionEndTime();
-    TimeDuration duration = lastCompositionEndTime ? TimeStamp::Now() - lastCompositionEndTime : TimeDuration();
+    TimeDuration duration = lastCompositionEndTime
+                                ? TimeStamp::Now() - lastCompositionEndTime
+                                : TimeDuration();
     // Check if we could flush
     if (duration.ToSeconds() > thresholdSec) {
       FlushPendingNotifyNotUsed();
@@ -65,5 +64,5 @@ TextureSourceProvider::Destroy()
   FlushPendingNotifyNotUsed();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

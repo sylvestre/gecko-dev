@@ -20,9 +20,7 @@ MFTDecoder::MFTDecoder()
   memset(&mOutputStreamInfo, 0, sizeof(MFT_OUTPUT_STREAM_INFO));
 }
 
-MFTDecoder::~MFTDecoder()
-{
-}
+MFTDecoder::~MFTDecoder() {}
 
 HRESULT
 MFTDecoder::Create(const GUID& aMFTClsID)
@@ -31,11 +29,11 @@ MFTDecoder::Create(const GUID& aMFTClsID)
   MOZ_ASSERT(mscom::IsCurrentThreadMTA());
   // Create the IMFTransform to do the decoding.
   HRESULT hr;
-  hr = CoCreateInstance(aMFTClsID,
-                        nullptr,
-                        CLSCTX_INPROC_SERVER,
-                        IID_PPV_ARGS(static_cast<IMFTransform**>(
-                          getter_AddRefs(mDecoder))));
+  hr = CoCreateInstance(
+      aMFTClsID,
+      nullptr,
+      CLSCTX_INPROC_SERVER,
+      IID_PPV_ARGS(static_cast<IMFTransform**>(getter_AddRefs(mDecoder))));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   return S_OK;
@@ -52,17 +50,16 @@ CreateCOMObjectFromDll(HMODULE aDLL,
     return E_INVALIDARG;
   }
   using GetClassObject =
-    HRESULT(WINAPI*)(const CLSID& clsid, const IID& iid, void** object);
+      HRESULT(WINAPI*)(const CLSID& clsid, const IID& iid, void** object);
 
   GetClassObject getClassObject = reinterpret_cast<GetClassObject>(
-    GetProcAddress(aDLL, "DllGetClassObject"));
+      GetProcAddress(aDLL, "DllGetClassObject"));
   NS_ENSURE_TRUE(getClassObject, E_FAIL);
 
   RefPtr<IClassFactory> factory;
-  HRESULT hr =
-    getClassObject(aCLSId,
-                   IID_PPV_ARGS(static_cast<IClassFactory**>(
-                     getter_AddRefs(factory))));
+  HRESULT hr = getClassObject(
+      aCLSId,
+      IID_PPV_ARGS(static_cast<IClassFactory**>(getter_AddRefs(factory))));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   hr = factory->CreateInstance(NULL, aIID, aObject);
@@ -73,10 +70,10 @@ HRESULT
 MFTDecoder::Create(HMODULE aDecoderDLL, const GUID& aMFTClsID)
 {
   // Create the IMFTransform to do the decoding.
-  HRESULT hr =
-    CreateCOMObjectFromDll(aDecoderDLL, aMFTClsID,
-                           IID_PPV_ARGS(static_cast<IMFTransform**>(
-                             getter_AddRefs(mDecoder))));
+  HRESULT hr = CreateCOMObjectFromDll(
+      aDecoderDLL,
+      aMFTClsID,
+      IID_PPV_ARGS(static_cast<IMFTransform**>(getter_AddRefs(mDecoder))));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   return S_OK;
@@ -137,7 +134,7 @@ MFTDecoder::SetDecoderOutputType(bool aMatchAllAttributes,
   RefPtr<IMFMediaType> outputType;
   UINT32 typeIndex = 0;
   while (SUCCEEDED(mDecoder->GetOutputAvailableType(
-    0, typeIndex++, getter_AddRefs(outputType)))) {
+      0, typeIndex++, getter_AddRefs(outputType)))) {
     GUID outSubtype = {0};
     hr = outputType->GetGUID(MF_MT_SUBTYPE, &outSubtype);
     NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
@@ -145,8 +142,8 @@ MFTDecoder::SetDecoderOutputType(bool aMatchAllAttributes,
     BOOL resultMatch = currentSubtype == outSubtype;
 
     if (resultMatch && aMatchAllAttributes) {
-      hr = mOutputType->Compare(outputType, MF_ATTRIBUTES_MATCH_OUR_ITEMS,
-                                &resultMatch);
+      hr = mOutputType->Compare(
+          outputType, MF_ATTRIBUTES_MATCH_OUR_ITEMS, &resultMatch);
       NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
     }
     if (resultMatch == TRUE) {
@@ -196,11 +193,11 @@ MFTDecoder::CreateInputSample(const uint8_t* aData,
 
   RefPtr<IMFMediaBuffer> buffer;
   int32_t bufferSize =
-    std::max<uint32_t>(uint32_t(mInputStreamInfo.cbSize), aDataSize);
+      std::max<uint32_t>(uint32_t(mInputStreamInfo.cbSize), aDataSize);
   UINT32 alignment =
-    (mInputStreamInfo.cbAlignment > 1) ? mInputStreamInfo.cbAlignment - 1 : 0;
+      (mInputStreamInfo.cbAlignment > 1) ? mInputStreamInfo.cbAlignment - 1 : 0;
   hr = wmf::MFCreateAlignedMemoryBuffer(
-    bufferSize, alignment, getter_AddRefs(buffer));
+      bufferSize, alignment, getter_AddRefs(buffer));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   DWORD maxLength = 0;
@@ -242,10 +239,11 @@ MFTDecoder::CreateOutputSample(RefPtr<IMFSample>* aOutSample)
 
   RefPtr<IMFMediaBuffer> buffer;
   int32_t bufferSize = mOutputStreamInfo.cbSize;
-  UINT32 alignment =
-    (mOutputStreamInfo.cbAlignment > 1) ? mOutputStreamInfo.cbAlignment - 1 : 0;
+  UINT32 alignment = (mOutputStreamInfo.cbAlignment > 1)
+                         ? mOutputStreamInfo.cbAlignment - 1
+                         : 0;
   hr = wmf::MFCreateAlignedMemoryBuffer(
-    bufferSize, alignment, getter_AddRefs(buffer));
+      bufferSize, alignment, getter_AddRefs(buffer));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   hr = sample->AddBuffer(buffer);
@@ -307,7 +305,7 @@ MFTDecoder::Output(RefPtr<IMFSample>* aOutput)
     mDiscontinuity = false;
   }
 
-  *aOutput = output.pSample; // AddRefs
+  *aOutput = output.pSample;  // AddRefs
   if (mMFTProvidesOutputSamples && !providedSample) {
     // If the MFT is providing samples, we must release the sample here.
     // Typically only the H.264 MFT provides samples when using DXVA,
@@ -321,9 +319,7 @@ MFTDecoder::Output(RefPtr<IMFSample>* aOutput)
 }
 
 HRESULT
-MFTDecoder::Input(const uint8_t* aData,
-                  uint32_t aDataSize,
-                  int64_t aTimestamp)
+MFTDecoder::Input(const uint8_t* aData, uint32_t aDataSize, int64_t aTimestamp)
 {
   MOZ_ASSERT(mscom::IsCurrentThreadMTA());
   NS_ENSURE_TRUE(mDecoder != nullptr, E_POINTER);
@@ -369,4 +365,4 @@ MFTDecoder::GetOutputMediaType(RefPtr<IMFMediaType>& aMediaType)
   return mDecoder->GetOutputCurrentType(0, getter_AddRefs(aMediaType));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

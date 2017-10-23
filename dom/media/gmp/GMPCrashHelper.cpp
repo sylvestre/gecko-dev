@@ -20,11 +20,11 @@ GMPCrashHelper::Destroy()
     delete this;
   } else {
     // Don't addref, as then we'd end up releasing after the detele runs!
-    SystemGroup::Dispatch(TaskCategory::Other,
-                          NewNonOwningRunnableMethod("GMPCrashHelper::Destroy",
-                                                     this,
-                                                     &GMPCrashHelper::Destroy));
+    SystemGroup::Dispatch(
+        TaskCategory::Other,
+        NewNonOwningRunnableMethod(
+            "GMPCrashHelper::Destroy", this, &GMPCrashHelper::Destroy));
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

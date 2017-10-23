@@ -11,18 +11,18 @@
 #ifndef mozilla_image_SurfaceCache_h
 #define mozilla_image_SurfaceCache_h
 
-#include "mozilla/Maybe.h"           // for Maybe
+#include "mozilla/Maybe.h"  // for Maybe
 #include "mozilla/NotNull.h"
-#include "mozilla/MemoryReporting.h" // for MallocSizeOf
-#include "mozilla/HashFunctions.h"   // for HashGeneric and AddToHash
+#include "mozilla/MemoryReporting.h"  // for MallocSizeOf
+#include "mozilla/HashFunctions.h"    // for HashGeneric and AddToHash
 #include "gfx2DGlue.h"
-#include "gfxPoint.h"                // for gfxSize
-#include "nsCOMPtr.h"                // for already_AddRefed
-#include "mozilla/gfx/Point.h"       // for mozilla::gfx::IntSize
-#include "mozilla/gfx/2D.h"          // for SourceSurface
+#include "gfxPoint.h"           // for gfxSize
+#include "nsCOMPtr.h"           // for already_AddRefed
+#include "mozilla/gfx/Point.h"  // for mozilla::gfx::IntSize
+#include "mozilla/gfx/2D.h"     // for SourceSurface
 #include "PlaybackType.h"
 #include "SurfaceFlags.h"
-#include "SVGImageContext.h"         // for SVGImageContext
+#include "SVGImageContext.h"  // for SVGImageContext
 
 namespace mozilla {
 namespace image {
@@ -51,13 +51,11 @@ class SurfaceKey
 {
   typedef gfx::IntSize IntSize;
 
-public:
+ public:
   bool operator==(const SurfaceKey& aOther) const
   {
-    return aOther.mSize == mSize &&
-           aOther.mSVGContext == mSVGContext &&
-           aOther.mPlayback == mPlayback &&
-           aOther.mFlags == mFlags;
+    return aOther.mSize == mSize && aOther.mSVGContext == mSVGContext &&
+           aOther.mPlayback == mPlayback && aOther.mFlags == mFlags;
   }
 
   PLDHashNumber Hash() const
@@ -78,29 +76,33 @@ public:
   PlaybackType Playback() const { return mPlayback; }
   SurfaceFlags Flags() const { return mFlags; }
 
-private:
+ private:
   SurfaceKey(const IntSize& aSize,
              const Maybe<SVGImageContext>& aSVGContext,
              PlaybackType aPlayback,
              SurfaceFlags aFlags)
-    : mSize(aSize)
-    , mSVGContext(aSVGContext)
-    , mPlayback(aPlayback)
-    , mFlags(aFlags)
-  { }
+      : mSize(aSize),
+        mSVGContext(aSVGContext),
+        mPlayback(aPlayback),
+        mFlags(aFlags)
+  {
+  }
 
-  static PLDHashNumber HashSIC(const SVGImageContext& aSIC) {
+  static PLDHashNumber HashSIC(const SVGImageContext& aSIC)
+  {
     return aSIC.Hash();
   }
 
-  friend SurfaceKey RasterSurfaceKey(const IntSize&, SurfaceFlags, PlaybackType);
+  friend SurfaceKey RasterSurfaceKey(const IntSize&,
+                                     SurfaceFlags,
+                                     PlaybackType);
   friend SurfaceKey VectorSurfaceKey(const IntSize&,
                                      const Maybe<SVGImageContext>&);
 
-  IntSize                mSize;
+  IntSize mSize;
   Maybe<SVGImageContext> mSVGContext;
-  PlaybackType           mPlayback;
-  SurfaceFlags           mFlags;
+  PlaybackType mPlayback;
+  SurfaceFlags mFlags;
 };
 
 inline SurfaceKey
@@ -120,10 +122,9 @@ VectorSurfaceKey(const gfx::IntSize& aSize,
   // *does* affect how a VectorImage renders, we'll have to change this.
   // Similarly, we don't accept a PlaybackType parameter because we don't
   // currently cache frames of animated SVG images.
-  return SurfaceKey(aSize, aSVGContext, PlaybackType::eStatic,
-                    DefaultSurfaceFlags());
+  return SurfaceKey(
+      aSize, aSVGContext, PlaybackType::eStatic, DefaultSurfaceFlags());
 }
-
 
 /**
  * AvailabilityState is used to track whether an ISurfaceProvider has a surface
@@ -141,9 +142,12 @@ VectorSurfaceKey(const gfx::IntSize& aSize,
  */
 class AvailabilityState
 {
-public:
+ public:
   static AvailabilityState StartAvailable() { return AvailabilityState(true); }
-  static AvailabilityState StartAsPlaceholder() { return AvailabilityState(false); }
+  static AvailabilityState StartAsPlaceholder()
+  {
+    return AvailabilityState(false);
+  }
 
   bool IsAvailable() const { return mIsAvailable; }
   bool IsPlaceholder() const { return !mIsAvailable; }
@@ -151,13 +155,13 @@ public:
 
   void SetCannotSubstitute() { mCannotSubstitute = true; }
 
-private:
+ private:
   friend class SurfaceCacheImpl;
 
   explicit AvailabilityState(bool aIsAvailable)
-    : mIsAvailable(aIsAvailable)
-    , mCannotSubstitute(false)
-  { }
+      : mIsAvailable(aIsAvailable), mCannotSubstitute(false)
+  {
+  }
 
   void SetAvailable() { mIsAvailable = true; }
 
@@ -165,7 +169,8 @@ private:
   bool mCannotSubstitute : 1;
 };
 
-enum class InsertOutcome : uint8_t {
+enum class InsertOutcome : uint8_t
+{
   SUCCESS,                 // Success (but see Insert documentation).
   FAILURE,                 // Couldn't insert (e.g., for capacity reasons).
   FAILURE_ALREADY_PRESENT  // A surface with the same key is already present.
@@ -231,7 +236,7 @@ struct SurfaceCache
    * @return                a LookupResult which will contain a DrawableSurface
    *                        if the cache entry was found.
    */
-  static LookupResult Lookup(const ImageKey    aImageKey,
+  static LookupResult Lookup(const ImageKey aImageKey,
                              const SurfaceKey& aSurfaceKey);
 
   /**
@@ -250,7 +255,7 @@ struct SurfaceCache
    *                        LookupResult::IsExactMatch() to check whether the
    *                        returned surface exactly matches @aSurfaceKey.
    */
-  static LookupResult LookupBestMatch(const ImageKey    aImageKey,
+  static LookupResult LookupBestMatch(const ImageKey aImageKey,
                                       const SurfaceKey& aSurfaceKey);
 
   /**
@@ -433,9 +438,9 @@ struct SurfaceCache
    *                      be written.
    * @param aMallocSizeOf A fallback malloc memory reporting function.
    */
-  static void CollectSizeOfSurfaces(const ImageKey    aImageKey,
+  static void CollectSizeOfSurfaces(const ImageKey aImageKey,
                                     nsTArray<SurfaceMemoryCounter>& aCounters,
-                                    MallocSizeOf      aMallocSizeOf);
+                                    MallocSizeOf aMallocSizeOf);
 
   /**
    * @return maximum capacity of the SurfaceCache in bytes. This is only exposed
@@ -443,11 +448,11 @@ struct SurfaceCache
    */
   static size_t MaximumCapacity();
 
-private:
+ private:
   virtual ~SurfaceCache() = 0;  // Forbid instantiation.
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_SurfaceCache_h
+#endif  // mozilla_image_SurfaceCache_h

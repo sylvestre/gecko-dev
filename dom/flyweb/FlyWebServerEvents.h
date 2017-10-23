@@ -25,24 +25,22 @@ class FlyWebPublishedServer;
 class InternalRequest;
 class InternalResponse;
 
-class FlyWebFetchEvent : public Event
-                       , public PromiseNativeHandler
+class FlyWebFetchEvent : public Event, public PromiseNativeHandler
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(FlyWebFetchEvent, Event)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(FlyWebFetchEvent,
+                                                         Event)
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  virtual void
-  ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override;
-  virtual void
-  RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override;
+  virtual void ResolvedCallback(JSContext* aCx,
+                                JS::Handle<JS::Value> aValue) override;
+  virtual void RejectedCallback(JSContext* aCx,
+                                JS::Handle<JS::Value> aValue) override;
 
-  class Request* Request() const
-  {
-    return mRequest;
-  }
+  class Request* Request() const { return mRequest; }
 
   void RespondWith(Promise& aArg, ErrorResult& aRv);
 
@@ -50,7 +48,7 @@ public:
                    class Request* aRequest,
                    InternalRequest* aInternalRequest);
 
-protected:
+ protected:
   virtual ~FlyWebFetchEvent();
 
   virtual void NotifyServer(InternalResponse* aResponse);
@@ -64,25 +62,27 @@ protected:
 
 class FlyWebWebSocketEvent final : public FlyWebFetchEvent
 {
-public:
+ public:
   FlyWebWebSocketEvent(FlyWebPublishedServer* aServer,
                        class Request* aRequest,
                        InternalRequest* aInternalRequest)
-    : FlyWebFetchEvent(aServer, aRequest, aInternalRequest)
-  {}
+      : FlyWebFetchEvent(aServer, aRequest, aInternalRequest)
+  {
+  }
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
   already_AddRefed<WebSocket> Accept(const Optional<nsAString>& aProtocol,
                                      ErrorResult& aRv);
 
-private:
-  ~FlyWebWebSocketEvent() {};
+ private:
+  ~FlyWebWebSocketEvent(){};
 
   virtual void NotifyServer(InternalResponse* aResponse) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlyWebFetchEvent_h
+#endif  // mozilla_dom_FlyWebFetchEvent_h

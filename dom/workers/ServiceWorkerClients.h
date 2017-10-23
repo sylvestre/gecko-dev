@@ -19,46 +19,36 @@ namespace mozilla {
 namespace dom {
 namespace workers {
 
-class ServiceWorkerClients final : public nsISupports,
-                                   public nsWrapperCache
+class ServiceWorkerClients final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ServiceWorkerClients)
 
   explicit ServiceWorkerClients(ServiceWorkerGlobalScope* aWorkerScope);
 
-  already_AddRefed<Promise>
-  Get(const nsAString& aClientId, ErrorResult& aRv);
+  already_AddRefed<Promise> Get(const nsAString& aClientId, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  MatchAll(const ClientQueryOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<Promise> MatchAll(const ClientQueryOptions& aOptions,
+                                     ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  OpenWindow(const nsAString& aUrl, ErrorResult& aRv);
+  already_AddRefed<Promise> OpenWindow(const nsAString& aUrl, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  Claim(ErrorResult& aRv);
+  already_AddRefed<Promise> Claim(ErrorResult& aRv);
 
-  JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  ServiceWorkerGlobalScope*
-  GetParentObject() const
-  {
-    return mWorkerScope;
-  }
+  ServiceWorkerGlobalScope* GetParentObject() const { return mWorkerScope; }
 
-private:
-  ~ServiceWorkerClients()
-  {
-  }
+ private:
+  ~ServiceWorkerClients() {}
 
   RefPtr<ServiceWorkerGlobalScope> mWorkerScope;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerclients_h
+#endif  // mozilla_dom_workers_serviceworkerclients_h

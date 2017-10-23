@@ -33,8 +33,8 @@
 #include "nsISerializable.h"
 #include "nsIClassInfo.h"
 #include "nsComponentManagerUtils.h"
-#include "nsIURI.h" // for NS_IURI_IID
-#include "nsIX509Cert.h" // for NS_IX509CERT_IID
+#include "nsIURI.h"       // for NS_IURI_IID
+#include "nsIX509Cert.h"  // for NS_IX509CERT_IID
 
 #include "jsfriendapi.h"
 
@@ -86,7 +86,8 @@ nsBinaryOutputStream::Close()
 }
 
 NS_IMETHODIMP
-nsBinaryOutputStream::Write(const char* aBuf, uint32_t aCount,
+nsBinaryOutputStream::Write(const char* aBuf,
+                            uint32_t aCount,
                             uint32_t* aActualBytes)
 {
   if (NS_WARN_IF(!mOutputStream)) {
@@ -96,7 +97,8 @@ nsBinaryOutputStream::Write(const char* aBuf, uint32_t aCount,
 }
 
 NS_IMETHODIMP
-nsBinaryOutputStream::WriteFrom(nsIInputStream* aInStr, uint32_t aCount,
+nsBinaryOutputStream::WriteFrom(nsIInputStream* aInStr,
+                                uint32_t aCount,
                                 uint32_t* aResult)
 {
   NS_NOTREACHED("WriteFrom");
@@ -104,8 +106,10 @@ nsBinaryOutputStream::WriteFrom(nsIInputStream* aInStr, uint32_t aCount,
 }
 
 NS_IMETHODIMP
-nsBinaryOutputStream::WriteSegments(nsReadSegmentFun aReader, void* aClosure,
-                                    uint32_t aCount, uint32_t* aResult)
+nsBinaryOutputStream::WriteSegments(nsReadSegmentFun aReader,
+                                    void* aClosure,
+                                    uint32_t aCount,
+                                    uint32_t* aResult)
 {
   NS_NOTREACHED("WriteSegments");
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -152,10 +156,7 @@ nsBinaryOutputStream::SetOutputStream(nsIOutputStream* aOutputStream)
 }
 
 NS_IMETHODIMP
-nsBinaryOutputStream::WriteBoolean(bool aBoolean)
-{
-  return Write8(aBoolean);
-}
+nsBinaryOutputStream::WriteBoolean(bool aBoolean) { return Write8(aBoolean); }
 
 NS_IMETHODIMP
 nsBinaryOutputStream::Write8(uint8_t aByte)
@@ -297,15 +298,13 @@ nsBinaryOutputStream::WriteByteArray(uint8_t* aBytes, uint32_t aLength)
 NS_IMETHODIMP
 nsBinaryOutputStream::WriteObject(nsISupports* aObject, bool aIsStrongRef)
 {
-  return WriteCompoundObject(aObject, NS_GET_IID(nsISupports),
-                             aIsStrongRef);
+  return WriteCompoundObject(aObject, NS_GET_IID(nsISupports), aIsStrongRef);
 }
 
 NS_IMETHODIMP
 nsBinaryOutputStream::WriteSingleRefObject(nsISupports* aObject)
 {
-  return WriteCompoundObject(aObject, NS_GET_IID(nsISupports),
-                             true);
+  return WriteCompoundObject(aObject, NS_GET_IID(nsISupports), true);
 }
 
 NS_IMETHODIMP
@@ -443,7 +442,6 @@ nsBinaryInputStream::Read(char* aBuffer, uint32_t aCount, uint32_t* aNumRead)
   return NS_OK;
 }
 
-
 // when forwarding ReadSegments to mInputStream, we need to make sure
 // 'this' is being passed to the writer each time. To do this, we need
 // a thunking function which keeps the real input stream around.
@@ -468,38 +466,39 @@ ReadSegmentForwardingThunk(nsIInputStream* aStream,
                            uint32_t* aWriteCount)
 {
   ReadSegmentsClosure* thunkClosure =
-    reinterpret_cast<ReadSegmentsClosure*>(aClosure);
+      reinterpret_cast<ReadSegmentsClosure*>(aClosure);
 
   NS_ASSERTION(NS_SUCCEEDED(thunkClosure->mRealResult),
                "How did this get to be a failure status?");
 
   thunkClosure->mRealResult =
-    thunkClosure->mRealWriter(thunkClosure->mRealInputStream,
-                              thunkClosure->mRealClosure,
-                              aFromSegment,
-                              thunkClosure->mBytesRead + aToOffset,
-                              aCount, aWriteCount);
+      thunkClosure->mRealWriter(thunkClosure->mRealInputStream,
+                                thunkClosure->mRealClosure,
+                                aFromSegment,
+                                thunkClosure->mBytesRead + aToOffset,
+                                aCount,
+                                aWriteCount);
 
   return thunkClosure->mRealResult;
 }
 
-
 NS_IMETHODIMP
-nsBinaryInputStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                                  uint32_t aCount, uint32_t* aResult)
+nsBinaryInputStream::ReadSegments(nsWriteSegmentFun aWriter,
+                                  void* aClosure,
+                                  uint32_t aCount,
+                                  uint32_t* aResult)
 {
   if (NS_WARN_IF(!mInputStream)) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  ReadSegmentsClosure thunkClosure = { this, aClosure, aWriter, NS_OK, 0 };
+  ReadSegmentsClosure thunkClosure = {this, aClosure, aWriter, NS_OK, 0};
 
   // mInputStream might give us short reads, so deal with that.
   uint32_t bytesRead;
   do {
-    nsresult rv = mInputStream->ReadSegments(ReadSegmentForwardingThunk,
-                                             &thunkClosure,
-                                             aCount, &bytesRead);
+    nsresult rv = mInputStream->ReadSegments(
+        ReadSegmentForwardingThunk, &thunkClosure, aCount, &bytesRead);
 
     if (rv == NS_BASE_STREAM_WOULD_BLOCK && thunkClosure.mBytesRead != 0) {
       // We already read some data.  Return it.
@@ -679,7 +678,6 @@ nsBinaryInputStream::ReadCString(nsACString& aString)
   return NS_OK;
 }
 
-
 // sometimes, WriteSegmentToString will be handed an odd-number of
 // bytes, which means we only have half of the last char16_t
 struct WriteStringClosure
@@ -702,7 +700,6 @@ struct WriteStringClosure
 //                              this gives you an odd length buffer,
 //                              so you have to save the last byte for
 //                              the next carryover
-
 
 // same version of the above, but with correct casting and endian swapping
 static nsresult
@@ -727,7 +724,7 @@ WriteSegmentToString(nsIInputStream* aStream,
   // if the last Write had an odd-number of bytes read, then
   if (closure->mHasCarryoverByte) {
     // re-create the two-byte sequence we want to work with
-    char bytes[2] = { closure->mCarryoverByte, *aFromSegment };
+    char bytes[2] = {closure->mCarryoverByte, *aFromSegment};
     *cursor = *(char16_t*)bytes;
     // Now the little endianness dance
     mozilla::NativeEndian::swapToBigEndianInPlace(cursor, 1);
@@ -744,7 +741,7 @@ WriteSegmentToString(nsIInputStream* aStream,
 
   // this array is possibly unaligned... be careful how we access it!
   const char16_t* unicodeSegment =
-    reinterpret_cast<const char16_t*>(aFromSegment);
+      reinterpret_cast<const char16_t*>(aFromSegment);
 
   // calculate number of full characters in segment (aCount could be odd!)
   uint32_t segmentLength = aCount / sizeof(char16_t);
@@ -768,7 +765,6 @@ WriteSegmentToString(nsIInputStream* aStream,
 
   return NS_OK;
 }
-
 
 NS_IMETHODIMP
 nsBinaryInputStream::ReadString(nsAString& aString)
@@ -798,8 +794,8 @@ nsBinaryInputStream::ReadString(nsAString& aString)
   closure.mWriteCursor = start.get();
   closure.mHasCarryoverByte = false;
 
-  rv = ReadSegments(WriteSegmentToString, &closure,
-                    length * sizeof(char16_t), &bytesRead);
+  rv = ReadSegments(
+      WriteSegmentToString, &closure, length * sizeof(char16_t), &bytesRead);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -848,7 +844,8 @@ nsBinaryInputStream::ReadByteArray(uint32_t aLength, uint8_t** aResult)
 NS_IMETHODIMP
 nsBinaryInputStream::ReadArrayBuffer(uint32_t aLength,
                                      JS::Handle<JS::Value> aBuffer,
-                                     JSContext* aCx, uint32_t* aReadLength)
+                                     JSContext* aCx,
+                                     uint32_t* aReadLength)
 {
   if (!aBuffer.isObject()) {
     return NS_ERROR_FAILURE;
@@ -890,8 +887,9 @@ nsBinaryInputStream::ReadArrayBuffer(uint32_t aLength,
       return NS_ERROR_FAILURE;
     }
 
-    char* data = reinterpret_cast<char*>(JS_GetArrayBufferData(buffer, &isShared, nogc));
-    MOZ_ASSERT(!isShared);      // Implied by JS_GetArrayBufferData()
+    char* data =
+        reinterpret_cast<char*>(JS_GetArrayBufferData(buffer, &isShared, nogc));
+    MOZ_ASSERT(!isShared);  // Implied by JS_GetArrayBufferData()
     if (!data) {
       return NS_ERROR_FAILURE;
     }
@@ -925,32 +923,34 @@ nsBinaryInputStream::ReadObject(bool aIsStrongRef, nsISupports** aObject)
   // (As soon as we drop support for upgrading from pre-gecko6, we can
   // remove this chunk.)
   static const nsIID oldURIiid = {
-    0x7a22cc0, 0xce5, 0x11d3,
-    { 0x93, 0x31, 0x0, 0x10, 0x4b, 0xa0, 0xfd, 0x40 }
-  };
+      0x7a22cc0,
+      0xce5,
+      0x11d3,
+      {0x93, 0x31, 0x0, 0x10, 0x4b, 0xa0, 0xfd, 0x40}};
 
   // hackaround for bug 670542
   static const nsIID oldURIiid2 = {
-    0xd6d04c36, 0x0fa4, 0x4db3,
-    { 0xbe, 0x05, 0x4a, 0x18, 0x39, 0x71, 0x03, 0xe2 }
-  };
+      0xd6d04c36,
+      0x0fa4,
+      0x4db3,
+      {0xbe, 0x05, 0x4a, 0x18, 0x39, 0x71, 0x03, 0xe2}};
 
   // hackaround for bug 682031
   static const nsIID oldURIiid3 = {
-    0x12120b20, 0x0929, 0x40e9,
-    { 0x88, 0xcf, 0x6e, 0x08, 0x76, 0x6e, 0x8b, 0x23 }
-  };
+      0x12120b20,
+      0x0929,
+      0x40e9,
+      {0x88, 0xcf, 0x6e, 0x08, 0x76, 0x6e, 0x8b, 0x23}};
 
   // hackaround for bug 1195415
   static const nsIID oldURIiid4 = {
-    0x395fe045, 0x7d18, 0x4adb,
-    { 0xa3, 0xfd, 0xaf, 0x98, 0xc8, 0xa1, 0xaf, 0x11 }
-  };
+      0x395fe045,
+      0x7d18,
+      0x4adb,
+      {0xa3, 0xfd, 0xaf, 0x98, 0xc8, 0xa1, 0xaf, 0x11}};
 
-  if (iid.Equals(oldURIiid) ||
-      iid.Equals(oldURIiid2) ||
-      iid.Equals(oldURIiid3) ||
-      iid.Equals(oldURIiid4)) {
+  if (iid.Equals(oldURIiid) || iid.Equals(oldURIiid2) ||
+      iid.Equals(oldURIiid3) || iid.Equals(oldURIiid4)) {
     const nsIID newURIiid = NS_IURI_IID;
     iid = newURIiid;
   }
@@ -963,9 +963,10 @@ nsBinaryInputStream::ReadObject(bool aIsStrongRef, nsISupports** aObject)
 
   // hackaround for bug 1247580 (FF45 to FF46 transition)
   static const nsIID oldCertIID = {
-    0xf8ed8364, 0xced9, 0x4c6e,
-    { 0x86, 0xba, 0x48, 0xaf, 0x53, 0xc3, 0x93, 0xe6 }
-  };
+      0xf8ed8364,
+      0xced9,
+      0x4c6e,
+      {0x86, 0xba, 0x48, 0xaf, 0x53, 0xc3, 0x93, 0xe6}};
 
   if (iid.Equals(oldCertIID)) {
     const nsIID newCertIID = NS_IX509CERT_IID;

@@ -31,7 +31,7 @@ spin_events_loop_until_true(const bool* const aCondition)
 
 class UnownedCallback final : public mozIStorageStatementCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   // Whether the object has been destroyed.
@@ -42,22 +42,21 @@ public:
   static bool sError;
 
   explicit UnownedCallback(mozIStorageConnection* aDBConn)
-  : mDBConn(aDBConn)
-  , mCompleted(false)
+      : mDBConn(aDBConn), mCompleted(false)
   {
     sAlive = true;
     sResult = false;
     sError = false;
   }
 
-private:
+ private:
   ~UnownedCallback()
   {
     sAlive = false;
     blocking_async_close(mDBConn);
   }
 
-public:
+ public:
   NS_IMETHOD HandleResult(mozIStorageResultSet* aResultSet) override
   {
     sResult = true;
@@ -84,7 +83,7 @@ public:
     return NS_OK;
   }
 
-protected:
+ protected:
   nsCOMPtr<mozIStorageConnection> mDBConn;
   bool mCompleted;
 };
@@ -98,21 +97,21 @@ bool UnownedCallback::sError = false;
 ////////////////////////////////////////////////////////////////////////////////
 //// Tests
 
-TEST(storage_async_callbacks_with_spun_event_loops, SpinEventsLoopInHandleResult)
+TEST(storage_async_callbacks_with_spun_event_loops,
+     SpinEventsLoopInHandleResult)
 {
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   // Create a test table and populate it.
   nsCOMPtr<mozIStorageStatement> stmt;
-  db->CreateStatement(NS_LITERAL_CSTRING(
-    "CREATE TABLE test (id INTEGER PRIMARY KEY)"
-  ), getter_AddRefs(stmt));
+  db->CreateStatement(
+      NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"),
+      getter_AddRefs(stmt));
   stmt->Execute();
   stmt->Finalize();
 
-  db->CreateStatement(NS_LITERAL_CSTRING(
-    "INSERT INTO test (id) VALUES (?)"
-  ), getter_AddRefs(stmt));
+  db->CreateStatement(NS_LITERAL_CSTRING("INSERT INTO test (id) VALUES (?)"),
+                      getter_AddRefs(stmt));
   for (int32_t i = 0; i < 30; ++i) {
     stmt->BindInt32ByIndex(0, i);
     stmt->Execute();
@@ -120,12 +119,11 @@ TEST(storage_async_callbacks_with_spun_event_loops, SpinEventsLoopInHandleResult
   }
   stmt->Finalize();
 
-  db->CreateStatement(NS_LITERAL_CSTRING(
-    "SELECT * FROM test"
-  ), getter_AddRefs(stmt));
+  db->CreateStatement(NS_LITERAL_CSTRING("SELECT * FROM test"),
+                      getter_AddRefs(stmt));
   nsCOMPtr<mozIStoragePendingStatement> ps;
-  do_check_success(stmt->ExecuteAsync(new UnownedCallback(db),
-                                      getter_AddRefs(ps)));
+  do_check_success(
+      stmt->ExecuteAsync(new UnownedCallback(db), getter_AddRefs(ps)));
   stmt->Finalize();
 
   spin_events_loop_until_true(&UnownedCallback::sResult);
@@ -137,25 +135,23 @@ TEST(storage_async_callbacks_with_spun_event_loops, SpinEventsLoopInHandleError)
 
   // Create a test table and populate it.
   nsCOMPtr<mozIStorageStatement> stmt;
-  db->CreateStatement(NS_LITERAL_CSTRING(
-    "CREATE TABLE test (id INTEGER PRIMARY KEY)"
-  ), getter_AddRefs(stmt));
+  db->CreateStatement(
+      NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"),
+      getter_AddRefs(stmt));
   stmt->Execute();
   stmt->Finalize();
 
-  db->CreateStatement(NS_LITERAL_CSTRING(
-    "INSERT INTO test (id) VALUES (1)"
-  ), getter_AddRefs(stmt));
+  db->CreateStatement(NS_LITERAL_CSTRING("INSERT INTO test (id) VALUES (1)"),
+                      getter_AddRefs(stmt));
   stmt->Execute();
   stmt->Finalize();
 
   // This will cause a constraint error.
-  db->CreateStatement(NS_LITERAL_CSTRING(
-    "INSERT INTO test (id) VALUES (1)"
-  ), getter_AddRefs(stmt));
+  db->CreateStatement(NS_LITERAL_CSTRING("INSERT INTO test (id) VALUES (1)"),
+                      getter_AddRefs(stmt));
   nsCOMPtr<mozIStoragePendingStatement> ps;
-  do_check_success(stmt->ExecuteAsync(new UnownedCallback(db),
-                                      getter_AddRefs(ps)));
+  do_check_success(
+      stmt->ExecuteAsync(new UnownedCallback(db), getter_AddRefs(ps)));
   stmt->Finalize();
 
   spin_events_loop_until_true(&UnownedCallback::sError);

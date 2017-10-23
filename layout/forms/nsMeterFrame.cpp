@@ -38,14 +38,11 @@ NS_NewMeterFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsMeterFrame)
 
 nsMeterFrame::nsMeterFrame(nsStyleContext* aContext)
-  : nsContainerFrame(aContext, kClassID)
-  , mBarDiv(nullptr)
+    : nsContainerFrame(aContext, kClassID), mBarDiv(nullptr)
 {
 }
 
-nsMeterFrame::~nsMeterFrame()
-{
-}
+nsMeterFrame::~nsMeterFrame() {}
 
 void
 nsMeterFrame::DestroyFrom(nsIFrame* aDestructRoot)
@@ -85,16 +82,15 @@ nsMeterFrame::AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
 }
 
 NS_QUERYFRAME_HEAD(nsMeterFrame)
-  NS_QUERYFRAME_ENTRY(nsMeterFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(nsMeterFrame)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
-
 void
-nsMeterFrame::Reflow(nsPresContext*           aPresContext,
-                     ReflowOutput&     aDesiredSize,
+nsMeterFrame::Reflow(nsPresContext* aPresContext,
+                     ReflowOutput& aDesiredSize,
                      const ReflowInput& aReflowInput,
-                     nsReflowStatus&          aStatus)
+                     nsReflowStatus& aStatus)
 {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsMeterFrame");
@@ -122,25 +118,24 @@ nsMeterFrame::Reflow(nsPresContext*           aPresContext,
   ConsiderChildOverflow(aDesiredSize.mOverflowAreas, barFrame);
   FinishAndStoreOverflow(&aDesiredSize);
 
-  aStatus.Reset(); // This type of frame can't be split.
+  aStatus.Reset();  // This type of frame can't be split.
 
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aDesiredSize);
 }
 
 void
-nsMeterFrame::ReflowBarFrame(nsIFrame*                aBarFrame,
-                             nsPresContext*           aPresContext,
+nsMeterFrame::ReflowBarFrame(nsIFrame* aBarFrame,
+                             nsPresContext* aPresContext,
                              const ReflowInput& aReflowInput,
-                             nsReflowStatus&          aStatus)
+                             nsReflowStatus& aStatus)
 {
   bool vertical = ResolvedOrientationIsVertical();
   WritingMode wm = aBarFrame->GetWritingMode();
   LogicalSize availSize = aReflowInput.ComputedSize(wm);
   availSize.BSize(wm) = NS_UNCONSTRAINEDSIZE;
-  ReflowInput reflowInput(aPresContext, aReflowInput,
-                                aBarFrame, availSize);
-  nscoord size = vertical ? aReflowInput.ComputedHeight()
-                          : aReflowInput.ComputedWidth();
+  ReflowInput reflowInput(aPresContext, aReflowInput, aBarFrame, availSize);
+  nscoord size =
+      vertical ? aReflowInput.ComputedHeight() : aReflowInput.ComputedWidth();
   nscoord xoffset = aReflowInput.ComputedPhysicalBorderPadding().left;
   nscoord yoffset = aReflowInput.ComputedPhysicalBorderPadding().top;
 
@@ -180,79 +175,87 @@ nsMeterFrame::ReflowBarFrame(nsIFrame*                aBarFrame,
   yoffset += reflowInput.ComputedPhysicalMargin().top;
 
   ReflowOutput barDesiredSize(reflowInput);
-  ReflowChild(aBarFrame, aPresContext, barDesiredSize, reflowInput, xoffset,
-              yoffset, 0, aStatus);
-  FinishReflowChild(aBarFrame, aPresContext, barDesiredSize, &reflowInput,
-                    xoffset, yoffset, 0);
+  ReflowChild(aBarFrame,
+              aPresContext,
+              barDesiredSize,
+              reflowInput,
+              xoffset,
+              yoffset,
+              0,
+              aStatus);
+  FinishReflowChild(aBarFrame,
+                    aPresContext,
+                    barDesiredSize,
+                    &reflowInput,
+                    xoffset,
+                    yoffset,
+                    0);
 }
 
 nsresult
-nsMeterFrame::AttributeChanged(int32_t  aNameSpaceID,
+nsMeterFrame::AttributeChanged(int32_t aNameSpaceID,
                                nsAtom* aAttribute,
-                               int32_t  aModType)
+                               int32_t aModType)
 {
   NS_ASSERTION(mBarDiv, "Meter bar div must exist!");
 
   if (aNameSpaceID == kNameSpaceID_None &&
-      (aAttribute == nsGkAtoms::value ||
-       aAttribute == nsGkAtoms::max   ||
-       aAttribute == nsGkAtoms::min )) {
+      (aAttribute == nsGkAtoms::value || aAttribute == nsGkAtoms::max ||
+       aAttribute == nsGkAtoms::min)) {
     nsIFrame* barFrame = mBarDiv->GetPrimaryFrame();
     NS_ASSERTION(barFrame, "The meter frame should have a child with a frame!");
-    PresContext()->PresShell()->FrameNeedsReflow(barFrame,
-                                                 nsIPresShell::eResize,
-                                                 NS_FRAME_IS_DIRTY);
+    PresContext()->PresShell()->FrameNeedsReflow(
+        barFrame, nsIPresShell::eResize, NS_FRAME_IS_DIRTY);
     InvalidateFrame();
   }
 
-  return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                            aModType);
+  return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 }
 
 LogicalSize
-nsMeterFrame::ComputeAutoSize(gfxContext*         aRenderingContext,
-                              WritingMode         aWM,
-                              const LogicalSize&  aCBSize,
-                              nscoord             aAvailableISize,
-                              const LogicalSize&  aMargin,
-                              const LogicalSize&  aBorder,
-                              const LogicalSize&  aPadding,
-                              ComputeSizeFlags    aFlags)
+nsMeterFrame::ComputeAutoSize(gfxContext* aRenderingContext,
+                              WritingMode aWM,
+                              const LogicalSize& aCBSize,
+                              nscoord aAvailableISize,
+                              const LogicalSize& aMargin,
+                              const LogicalSize& aBorder,
+                              const LogicalSize& aPadding,
+                              ComputeSizeFlags aFlags)
 {
   RefPtr<nsFontMetrics> fontMet =
-    nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
+      nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
 
   const WritingMode wm = GetWritingMode();
   LogicalSize autoSize(wm);
-  autoSize.BSize(wm) = autoSize.ISize(wm) = fontMet->Font().size; // 1em
+  autoSize.BSize(wm) = autoSize.ISize(wm) = fontMet->Font().size;  // 1em
 
   if (ResolvedOrientationIsVertical() == wm.IsVertical()) {
-    autoSize.ISize(wm) *= 5; // 5em
+    autoSize.ISize(wm) *= 5;  // 5em
   } else {
-    autoSize.BSize(wm) *= 5; // 5em
+    autoSize.BSize(wm) *= 5;  // 5em
   }
 
   return autoSize.ConvertTo(aWM, wm);
 }
 
 nscoord
-nsMeterFrame::GetMinISize(gfxContext *aRenderingContext)
+nsMeterFrame::GetMinISize(gfxContext* aRenderingContext)
 {
   RefPtr<nsFontMetrics> fontMet =
-    nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
+      nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
 
-  nscoord minISize = fontMet->Font().size; // 1em
+  nscoord minISize = fontMet->Font().size;  // 1em
 
   if (ResolvedOrientationIsVertical() == GetWritingMode().IsVertical()) {
     // The orientation is inline
-    minISize *= 5; // 5em
+    minISize *= 5;  // 5em
   }
 
   return minISize;
 }
 
 nscoord
-nsMeterFrame::GetPrefISize(gfxContext *aRenderingContext)
+nsMeterFrame::GetPrefISize(gfxContext* aRenderingContext)
 {
   return GetMinISize(aRenderingContext);
 }
@@ -267,12 +270,14 @@ nsMeterFrame::ShouldUseNativeStyle() const
   // - neither frame has author specified rules setting the border or the
   //   background.
   return StyleDisplay()->mAppearance == NS_THEME_METERBAR &&
-         !PresContext()->HasAuthorSpecifiedRules(this,
-                                                 NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND) &&
+         !PresContext()->HasAuthorSpecifiedRules(
+             this,
+             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND) &&
          barFrame &&
          barFrame->StyleDisplay()->mAppearance == NS_THEME_METERCHUNK &&
-         !PresContext()->HasAuthorSpecifiedRules(barFrame,
-                                                 NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND);
+         !PresContext()->HasAuthorSpecifiedRules(
+             barFrame,
+             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND);
 }
 
 Element*

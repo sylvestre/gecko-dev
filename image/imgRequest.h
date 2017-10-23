@@ -37,8 +37,8 @@ namespace image {
 class Image;
 class ImageURL;
 class ProgressTracker;
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
 struct NewPartResult;
 
@@ -54,7 +54,7 @@ class imgRequest final : public nsIStreamListener,
   typedef mozilla::image::ProgressTracker ProgressTracker;
   typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
 
-public:
+ public:
   imgRequest(imgLoader* aLoader, const ImageCacheKey& aCacheKey);
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -97,9 +97,7 @@ public:
   // Request that we start decoding the image as soon as data becomes available.
   void StartDecoding();
 
-  inline uint64_t InnerWindowID() const {
-    return mInnerWindowId;
-  }
+  inline uint64_t InnerWindowID() const { return mInnerWindowId; }
 
   // Set the cache validation information (expiry time, whether we must
   // validate, etc) on the cache entry based on the request information.
@@ -212,7 +210,7 @@ public:
 
   bool HasConsumers() const;
 
-private:
+ private:
   friend class FinishPreparingForNewPartRunnable;
 
   virtual ~imgRequest();
@@ -300,4 +298,4 @@ private:
   bool mHadInsecureRedirect : 1;
 };
 
-#endif // mozilla_image_imgRequest_h
+#endif  // mozilla_image_imgRequest_h

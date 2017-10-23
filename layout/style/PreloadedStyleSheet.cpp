@@ -17,9 +17,7 @@ namespace mozilla {
 
 PreloadedStyleSheet::PreloadedStyleSheet(nsIURI* aURI,
                                          css::SheetParsingMode aParsingMode)
-  : mLoaded(false)
-  , mURI(aURI)
-  , mParsingMode(aParsingMode)
+    : mLoaded(false), mURI(aURI), mParsingMode(aParsingMode)
 {
 }
 
@@ -31,7 +29,7 @@ PreloadedStyleSheet::Create(nsIURI* aURI,
   *aResult = nullptr;
 
   RefPtr<PreloadedStyleSheet> preloadedSheet =
-    new PreloadedStyleSheet(aURI, aParsingMode);
+      new PreloadedStyleSheet(aURI, aParsingMode);
 
   preloadedSheet.forget(aResult);
   return NS_OK;
@@ -55,7 +53,7 @@ PreloadedStyleSheet::GetSheet(StyleBackendType aType, StyleSheet** aResult)
   MOZ_DIAGNOSTIC_ASSERT(mLoaded);
 
   RefPtr<StyleSheet>& sheet =
-    aType == StyleBackendType::Gecko ? mGecko : mServo;
+      aType == StyleBackendType::Gecko ? mGecko : mServo;
 
   if (!sheet) {
     RefPtr<css::Loader> loader = new css::Loader(aType, nullptr);
@@ -99,7 +97,7 @@ NS_IMPL_ISUPPORTS(PreloadedStyleSheet::StylesheetPreloadObserver,
 
 NS_IMETHODIMP
 PreloadedStyleSheet::StylesheetPreloadObserver::StyleSheetLoaded(
-  StyleSheet* aSheet, bool aWasAlternate, nsresult aStatus)
+    StyleSheet* aSheet, bool aWasAlternate, nsresult aStatus)
 {
   MOZ_DIAGNOSTIC_ASSERT(!mPreloadedSheet->mLoaded);
   mPreloadedSheet->mLoaded = true;
@@ -127,15 +125,14 @@ PreloadedStyleSheet::PreloadAsync(NotNull<dom::Promise*> aPromise)
   auto type = nsLayoutUtils::StyloEnabled() ? StyleBackendType::Servo
                                             : StyleBackendType::Gecko;
 
-  RefPtr<StyleSheet>& sheet =
-    type == StyleBackendType::Gecko ? mGecko : mServo;
+  RefPtr<StyleSheet>& sheet = type == StyleBackendType::Gecko ? mGecko : mServo;
 
   RefPtr<css::Loader> loader = new css::Loader(type, nullptr);
 
   RefPtr<StylesheetPreloadObserver> obs =
-    new StylesheetPreloadObserver(aPromise, this);
+      new StylesheetPreloadObserver(aPromise, this);
 
   return loader->LoadSheet(mURI, mParsingMode, false, obs, &sheet);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

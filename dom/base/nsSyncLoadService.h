@@ -24,8 +24,8 @@ class nsIChannel;
 
 class nsSyncLoadService
 {
-public:
-    /**
+ public:
+  /**
      * Synchronously load the document from the specified URI.
      *
      * @param aURI URI to load the document from.
@@ -39,16 +39,16 @@ public:
      * @param referrerPolicy Referrer policy.
      * @param aResult [out] The document loaded from the URI.
      */
-    static nsresult LoadDocument(nsIURI *aURI,
-                                 nsContentPolicyType aContentPolicyType,
-                                 nsIPrincipal *aLoaderPrincipal,
-                                 nsSecurityFlags aSecurityFlags,
-                                 nsILoadGroup *aLoadGroup,
-                                 bool aForceToXML,
-                                 mozilla::net::ReferrerPolicy aReferrerPolicy,
-                                 nsIDOMDocument** aResult);
+  static nsresult LoadDocument(nsIURI* aURI,
+                               nsContentPolicyType aContentPolicyType,
+                               nsIPrincipal* aLoaderPrincipal,
+                               nsSecurityFlags aSecurityFlags,
+                               nsILoadGroup* aLoadGroup,
+                               bool aForceToXML,
+                               mozilla::net::ReferrerPolicy aReferrerPolicy,
+                               nsIDOMDocument** aResult);
 
-    /**
+  /**
      * Read input stream aIn in chunks and deliver synchronously to aListener.
      *
      * @param aIn The stream to be read. The ownership of this stream is taken.
@@ -57,9 +57,9 @@ public:
      *                  notifications.
      * @param aChannel The channel that aIn was opened from.
      */
-    static nsresult PushSyncStreamToListener(already_AddRefed<nsIInputStream> aIn,
-                                             nsIStreamListener* aListener,
-                                             nsIChannel* aChannel);
+  static nsresult PushSyncStreamToListener(already_AddRefed<nsIInputStream> aIn,
+                                           nsIStreamListener* aListener,
+                                           nsIChannel* aChannel);
 };
 
-#endif // nsSyncLoadService_h__
+#endif  // nsSyncLoadService_h__

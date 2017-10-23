@@ -16,22 +16,27 @@ namespace dom {
 
 class FileBlobImpl : public BaseBlobImpl
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // Create as a file
   explicit FileBlobImpl(nsIFile* aFile);
 
   // Create as a file
-  FileBlobImpl(const nsAString& aName, const nsAString& aContentType,
-               uint64_t aLength, nsIFile* aFile);
+  FileBlobImpl(const nsAString& aName,
+               const nsAString& aContentType,
+               uint64_t aLength,
+               nsIFile* aFile);
 
-  FileBlobImpl(const nsAString& aName, const nsAString& aContentType,
-               uint64_t aLength, nsIFile* aFile,
+  FileBlobImpl(const nsAString& aName,
+               const nsAString& aContentType,
+               uint64_t aLength,
+               nsIFile* aFile,
                int64_t aLastModificationDate);
 
   // Create as a file with custom name
-  FileBlobImpl(nsIFile* aFile, const nsAString& aName,
+  FileBlobImpl(nsIFile* aFile,
+               const nsAString& aName,
                const nsAString& aContentType);
 
   // Overrides
@@ -50,43 +55,34 @@ public:
   virtual bool IsSizeUnknown() const override { return false; }
   virtual bool IsDateUnknown() const override { return false; }
 
-  void SetName(const nsAString& aName)
-  {
-    mName = aName;
-  }
+  void SetName(const nsAString& aName) { mName = aName; }
 
-  void SetType(const nsAString& aType)
-  {
-    mContentType = aType;
-  }
+  void SetType(const nsAString& aType) { mContentType = aType; }
 
-  int64_t GetFileId() override
-  {
-    return mFileId;
-  }
+  int64_t GetFileId() override { return mFileId; }
 
-  void SetFileId(int64_t aFileId)
-  {
-    mFileId = aFileId;
-  }
+  void SetFileId(int64_t aFileId) { mFileId = aFileId; }
 
-protected:
+ protected:
   virtual ~FileBlobImpl() = default;
 
   // Create slice
-  FileBlobImpl(const FileBlobImpl* aOther, uint64_t aStart,
-               uint64_t aLength, const nsAString& aContentType);
+  FileBlobImpl(const FileBlobImpl* aOther,
+               uint64_t aStart,
+               uint64_t aLength,
+               const nsAString& aContentType);
 
-  virtual already_AddRefed<BlobImpl>
-  CreateSlice(uint64_t aStart, uint64_t aLength,
-              const nsAString& aContentType, ErrorResult& aRv) override;
+  virtual already_AddRefed<BlobImpl> CreateSlice(uint64_t aStart,
+                                                 uint64_t aLength,
+                                                 const nsAString& aContentType,
+                                                 ErrorResult& aRv) override;
 
   nsCOMPtr<nsIFile> mFile;
   bool mWholeFile;
   int64_t mFileId;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FileBlobImpl_h
+#endif  // mozilla_dom_FileBlobImpl_h

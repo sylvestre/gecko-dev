@@ -20,14 +20,15 @@ NS_IMPL_ISUPPORTS(PresentationBuilderChild,
 
 PresentationBuilderChild::PresentationBuilderChild(const nsString& aSessionId,
                                                    uint8_t aRole)
-  : mSessionId(aSessionId)
-  , mRole(aRole)
+    : mSessionId(aSessionId), mRole(aRole)
 {
 }
 
-nsresult PresentationBuilderChild::Init()
+nsresult
+PresentationBuilderChild::Init()
 {
-  mBuilder = do_CreateInstance("@mozilla.org/presentation/datachanneltransportbuilder;1");
+  mBuilder = do_CreateInstance(
+      "@mozilla.org/presentation/datachanneltransportbuilder;1");
   if (NS_WARN_IF(!mBuilder)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -35,19 +36,18 @@ nsresult PresentationBuilderChild::Init()
   uint64_t windowId = 0;
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  if (NS_WARN_IF(NS_FAILED(service->GetWindowIdBySessionId(
-                           mSessionId,
-                           mRole,
-                           &windowId)))) {
+  if (NS_WARN_IF(NS_FAILED(
+          service->GetWindowIdBySessionId(mSessionId, mRole, &windowId)))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  nsPIDOMWindowInner* window = nsGlobalWindow::GetInnerWindowWithId(windowId)->AsInner();
+  nsPIDOMWindowInner* window =
+      nsGlobalWindow::GetInnerWindowWithId(windowId)->AsInner();
   if (NS_WARN_IF(!window)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -69,7 +69,7 @@ PresentationBuilderChild::RecvOnOffer(const nsString& aSDP)
     return IPC_FAIL_NO_REASON(this);
   }
   RefPtr<DCPresentationChannelDescription> description =
-    new DCPresentationChannelDescription(aSDP);
+      new DCPresentationChannelDescription(aSDP);
 
   if (NS_WARN_IF(NS_FAILED(mBuilder->OnOffer(description)))) {
     return IPC_FAIL_NO_REASON(this);
@@ -84,7 +84,7 @@ PresentationBuilderChild::RecvOnAnswer(const nsString& aSDP)
     return IPC_FAIL_NO_REASON(this);
   }
   RefPtr<DCPresentationChannelDescription> description =
-    new DCPresentationChannelDescription(aSDP);
+      new DCPresentationChannelDescription(aSDP);
 
   if (NS_WARN_IF(NS_FAILED(mBuilder->OnAnswer(description)))) {
     return IPC_FAIL_NO_REASON(this);
@@ -103,18 +103,20 @@ PresentationBuilderChild::RecvOnIceCandidate(const nsString& aCandidate)
 
 // nsPresentationSessionTransportBuilderListener
 NS_IMETHODIMP
-PresentationBuilderChild::OnSessionTransport(nsIPresentationSessionTransport* aTransport)
+PresentationBuilderChild::OnSessionTransport(
+    nsIPresentationSessionTransport* aTransport)
 {
-  if (NS_WARN_IF(mActorDestroyed || !SendOnSessionTransport())){
+  if (NS_WARN_IF(mActorDestroyed || !SendOnSessionTransport())) {
     return NS_ERROR_FAILURE;
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   NS_WARNING_ASSERTION(service, "no presentation service");
   if (service) {
-    Unused << NS_WARN_IF(NS_FAILED(static_cast<PresentationIPCService*>(service.get())->
-                                     NotifySessionTransport(mSessionId, mRole, aTransport)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(static_cast<PresentationIPCService*>(service.get())
+                      ->NotifySessionTransport(mSessionId, mRole, aTransport)));
   }
   mBuilder = nullptr;
   return NS_OK;
@@ -125,7 +127,7 @@ PresentationBuilderChild::OnError(nsresult reason)
 {
   mBuilder = nullptr;
 
-  if (NS_WARN_IF(mActorDestroyed || !SendOnSessionTransportError(reason))){
+  if (NS_WARN_IF(mActorDestroyed || !SendOnSessionTransportError(reason))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -140,7 +142,7 @@ PresentationBuilderChild::SendOffer(nsIPresentationChannelDescription* aOffer)
     return rv;
   }
 
-  if (NS_WARN_IF(mActorDestroyed || !SendSendOffer(SDP))){
+  if (NS_WARN_IF(mActorDestroyed || !SendSendOffer(SDP))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -155,7 +157,7 @@ PresentationBuilderChild::SendAnswer(nsIPresentationChannelDescription* aAnswer)
     return rv;
   }
 
-  if (NS_WARN_IF(mActorDestroyed || !SendSendAnswer(SDP))){
+  if (NS_WARN_IF(mActorDestroyed || !SendSendAnswer(SDP))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -164,7 +166,8 @@ PresentationBuilderChild::SendAnswer(nsIPresentationChannelDescription* aAnswer)
 NS_IMETHODIMP
 PresentationBuilderChild::SendIceCandidate(const nsAString& candidate)
 {
-  if (NS_WARN_IF(mActorDestroyed || !SendSendIceCandidate(nsString(candidate)))) {
+  if (NS_WARN_IF(mActorDestroyed ||
+                 !SendSendIceCandidate(nsString(candidate)))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -179,6 +182,5 @@ PresentationBuilderChild::Close(nsresult reason)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

@@ -15,11 +15,13 @@ using std::string;
 /**
  * A helper to automatically close internet handles when they go out of scope
  */
-class ScopedHInternet {
-public:
+class ScopedHInternet
+{
+ public:
   explicit ScopedHInternet(HINTERNET handle) : mHandle(handle) {}
 
-  ~ScopedHInternet() {
+  ~ScopedHInternet()
+  {
     if (mHandle) {
       InternetCloseHandle(mHandle);
     }
@@ -28,7 +30,7 @@ public:
   bool empty() { return (mHandle == nullptr); }
   HINTERNET get() { return mHandle; }
 
-private:
+ private:
   HINTERNET mHandle;
 };
 
@@ -85,7 +87,8 @@ Post(const string& url, const string& payload)
   }
 
   ScopedHInternet connection(InternetConnect(internet.get(),
-                                             host, components.nPort,
+                                             host,
+                                             components.nPort,
                                              /* lpszUsername */ NULL,
                                              /* lpszPassword */ NULL,
                                              INTERNET_SERVICE_HTTP,
@@ -99,7 +102,9 @@ Post(const string& url, const string& payload)
 
   DWORD flags = ((strcmp(scheme, "https") == 0) ? INTERNET_FLAG_SECURE : 0) |
                 INTERNET_FLAG_NO_COOKIES;
-  ScopedHInternet request(HttpOpenRequest(connection.get(), "POST", path,
+  ScopedHInternet request(HttpOpenRequest(connection.get(),
+                                          "POST",
+                                          path,
                                           /* lpszVersion */ NULL,
                                           /* lpszReferer */ NULL,
                                           /* lplpszAcceptTypes */ NULL,
@@ -132,22 +137,24 @@ Post(const string& url, const string& payload)
   // of the pingsender, as libcurl already automatically fails on HTTP errors.
   DWORD statusCode = 0;
   DWORD bufferLength = sizeof(DWORD);
-  rv = HttpQueryInfo(request.get(),
-                     /* dwInfoLevel */ HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
-                     /* lpvBuffer */ &statusCode,
-                     /* lpdwBufferLength */ &bufferLength,
-                     /* lpdwIndex */ NULL);
+  rv = HttpQueryInfo(
+      request.get(),
+      /* dwInfoLevel */ HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
+      /* lpvBuffer */ &statusCode,
+      /* lpdwBufferLength */ &bufferLength,
+      /* lpdwIndex */ NULL);
   if (!rv) {
     PINGSENDER_LOG("ERROR: Could not get the HTTP status code\n");
     return false;
   }
 
   if (statusCode != 200) {
-    PINGSENDER_LOG("ERROR: Error submitting the HTTP request: code %u\n", statusCode);
+    PINGSENDER_LOG("ERROR: Error submitting the HTTP request: code %u\n",
+                   statusCode);
     return false;
   }
 
   return rv;
 }
 
-} // namespace PingSender
+}  // namespace PingSender

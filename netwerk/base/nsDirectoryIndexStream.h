@@ -16,34 +16,32 @@ class nsIFile;
 
 class nsDirectoryIndexStream final : public nsIInputStream
 {
-private:
-    nsCString mBuf;
-    int32_t mOffset;
-    nsresult mStatus;
+ private:
+  nsCString mBuf;
+  int32_t mOffset;
+  nsresult mStatus;
 
-    int32_t             mPos;   // position within mArray
-    nsCOMArray<nsIFile> mArray; // file objects within the directory
+  int32_t mPos;                // position within mArray
+  nsCOMArray<nsIFile> mArray;  // file objects within the directory
 
-    nsDirectoryIndexStream();
-    /**
+  nsDirectoryIndexStream();
+  /**
      * aDir will only be used on the calling thread.
      */
-    nsresult Init(nsIFile* aDir);
-    ~nsDirectoryIndexStream();
+  nsresult Init(nsIFile* aDir);
+  ~nsDirectoryIndexStream();
 
-public:
-    /**
+ public:
+  /**
      * aDir will only be used on the calling thread.
      */
-    static nsresult
-    Create(nsIFile* aDir, nsIInputStream** aStreamResult);
+  static nsresult Create(nsIFile* aDir, nsIInputStream** aStreamResult);
 
-    // nsISupportsInterface
-    NS_DECL_THREADSAFE_ISUPPORTS
+  // nsISupportsInterface
+  NS_DECL_THREADSAFE_ISUPPORTS
 
-    // nsIInputStream interface
-    NS_DECL_NSIINPUTSTREAM
+  // nsIInputStream interface
+  NS_DECL_NSIINPUTSTREAM
 };
 
-#endif // nsDirectoryIndexStream_h__
-
+#endif  // nsDirectoryIndexStream_h__

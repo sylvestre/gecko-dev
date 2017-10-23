@@ -17,14 +17,14 @@ namespace storage {
 
 class AsyncStatement;
 
-class AsyncStatementParams final : public nsISupports
-                                 , public nsWrapperCache
+class AsyncStatementParams final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AsyncStatementParams)
 
-  explicit AsyncStatementParams(nsPIDOMWindowInner* aWindow, AsyncStatement* aStatement);
+  explicit AsyncStatementParams(nsPIDOMWindowInner* aWindow,
+                                AsyncStatement* aStatement);
 
   void NamedGetter(JSContext* aCx,
                    const nsAString& aName,
@@ -37,7 +37,8 @@ public:
                    JS::Handle<JS::Value> aValue,
                    mozilla::ErrorResult& aRv);
 
-  uint32_t Length() const {
+  uint32_t Length() const
+  {
     // WebIDL requires a .length property when there's an indexed getter.
     // Unfortunately we don't know how many params there are in the async case,
     // so we have to lie.
@@ -57,14 +58,12 @@ public:
 
   void GetSupportedNames(nsTArray<nsString>& aNames);
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-private:
+ private:
   virtual ~AsyncStatementParams() {}
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
@@ -73,7 +72,7 @@ private:
   friend class AsyncStatementParamsHolder;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozilla_storage_mozStorageAsyncStatementParams_h_
+#endif  // mozilla_storage_mozStorageAsyncStatementParams_h_

@@ -16,21 +16,21 @@
  * Factory function.
  * @return a newly allocated nsRubyFrame (infallible)
  */
-nsContainerFrame* NS_NewRubyFrame(nsIPresShell* aPresShell,
-                                  nsStyleContext* aContext);
+nsContainerFrame*
+NS_NewRubyFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsRubyFrame final : public nsInlineFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsRubyFrame)
   NS_DECL_QUERYFRAME
 
   // nsIFrame overrides
   virtual bool IsFrameOfType(uint32_t aFlags) const override;
-  virtual void AddInlineMinISize(gfxContext *aRenderingContext,
-                                 InlineMinISizeData *aData) override;
-  virtual void AddInlinePrefISize(gfxContext *aRenderingContext,
-                                  InlinePrefISizeData *aData) override;
+  virtual void AddInlineMinISize(gfxContext* aRenderingContext,
+                                 InlineMinISizeData* aData) override;
+  virtual void AddInlinePrefISize(gfxContext* aRenderingContext,
+                                  InlinePrefISizeData* aData) override;
   virtual void Reflow(nsPresContext* aPresContext,
                       ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
@@ -40,16 +40,15 @@ public:
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  mozilla::RubyBlockLeadings GetBlockLeadings() const {
-    return mLeadings;
-  }
+  mozilla::RubyBlockLeadings GetBlockLeadings() const { return mLeadings; }
 
-protected:
+ protected:
   friend nsContainerFrame* NS_NewRubyFrame(nsIPresShell* aPresShell,
                                            nsStyleContext* aContext);
   explicit nsRubyFrame(nsStyleContext* aContext)
-    : nsInlineFrame(aContext, kClassID)
-  {}
+      : nsInlineFrame(aContext, kClassID)
+  {
+  }
 
   void ReflowSegment(nsPresContext* aPresContext,
                      const ReflowInput& aReflowInput,

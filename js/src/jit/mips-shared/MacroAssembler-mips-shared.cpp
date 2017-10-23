@@ -11,22 +11,14 @@
 using namespace js;
 using namespace jit;
 
-void
-MacroAssemblerMIPSShared::ma_move(Register rd, Register rs)
-{
-    as_or(rd, rs, zero);
-}
+void MacroAssemblerMIPSShared::ma_move(Register rd, Register rs) { as_or(rd, rs, zero); }
 
-void
-MacroAssemblerMIPSShared::ma_li(Register dest, ImmGCPtr ptr)
-{
+void MacroAssemblerMIPSShared::ma_li(Register dest, ImmGCPtr ptr) {
     writeDataRelocation(ptr);
     asMasm().ma_liPatchable(dest, ImmPtr(ptr.value));
 }
 
-void
-MacroAssemblerMIPSShared::ma_li(Register dest, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_li(Register dest, Imm32 imm) {
     if (Imm16::IsInSignedRange(imm.value)) {
         as_addiu(dest, zero, imm.value);
     } else if (Imm16::IsInUnsignedRange(imm.value)) {
@@ -42,35 +34,25 @@ MacroAssemblerMIPSShared::ma_li(Register dest, Imm32 imm)
 // This method generates lui and ori instruction pair that can be modified by
 // UpdateLuiOriValue, either during compilation (eg. Assembler::bind), or
 // during execution (eg. jit::PatchJump).
-void
-MacroAssemblerMIPSShared::ma_liPatchable(Register dest, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_liPatchable(Register dest, Imm32 imm) {
     m_buffer.ensureSpace(2 * sizeof(uint32_t));
     as_lui(dest, Imm16::Upper(imm).encode());
     as_ori(dest, dest, Imm16::Lower(imm).encode());
 }
 
 // Shifts
-void
-MacroAssemblerMIPSShared::ma_sll(Register rd, Register rt, Imm32 shift)
-{
+void MacroAssemblerMIPSShared::ma_sll(Register rd, Register rt, Imm32 shift) {
     as_sll(rd, rt, shift.value % 32);
 }
-void
-MacroAssemblerMIPSShared::ma_srl(Register rd, Register rt, Imm32 shift)
-{
+void MacroAssemblerMIPSShared::ma_srl(Register rd, Register rt, Imm32 shift) {
     as_srl(rd, rt, shift.value % 32);
 }
 
-void
-MacroAssemblerMIPSShared::ma_sra(Register rd, Register rt, Imm32 shift)
-{
+void MacroAssemblerMIPSShared::ma_sra(Register rd, Register rt, Imm32 shift) {
     as_sra(rd, rt, shift.value % 32);
 }
 
-void
-MacroAssemblerMIPSShared::ma_ror(Register rd, Register rt, Imm32 shift)
-{
+void MacroAssemblerMIPSShared::ma_ror(Register rd, Register rt, Imm32 shift) {
     if (hasR2()) {
         as_rotr(rd, rt, shift.value % 32);
     } else {
@@ -81,9 +63,7 @@ MacroAssemblerMIPSShared::ma_ror(Register rd, Register rt, Imm32 shift)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_rol(Register rd, Register rt, Imm32 shift)
-{
+void MacroAssemblerMIPSShared::ma_rol(Register rd, Register rt, Imm32 shift) {
     if (hasR2()) {
         as_rotr(rd, rt, (32 - (shift.value % 32)) % 32);
     } else {
@@ -94,27 +74,19 @@ MacroAssemblerMIPSShared::ma_rol(Register rd, Register rt, Imm32 shift)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_sll(Register rd, Register rt, Register shift)
-{
+void MacroAssemblerMIPSShared::ma_sll(Register rd, Register rt, Register shift) {
     as_sllv(rd, rt, shift);
 }
 
-void
-MacroAssemblerMIPSShared::ma_srl(Register rd, Register rt, Register shift)
-{
+void MacroAssemblerMIPSShared::ma_srl(Register rd, Register rt, Register shift) {
     as_srlv(rd, rt, shift);
 }
 
-void
-MacroAssemblerMIPSShared::ma_sra(Register rd, Register rt, Register shift)
-{
+void MacroAssemblerMIPSShared::ma_sra(Register rd, Register rt, Register shift) {
     as_srav(rd, rt, shift);
 }
 
-void
-MacroAssemblerMIPSShared::ma_ror(Register rd, Register rt, Register shift)
-{
+void MacroAssemblerMIPSShared::ma_ror(Register rd, Register rt, Register shift) {
     if (hasR2()) {
         as_rotrv(rd, rt, shift);
     } else {
@@ -126,9 +98,7 @@ MacroAssemblerMIPSShared::ma_ror(Register rd, Register rt, Register shift)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_rol(Register rd, Register rt, Register shift)
-{
+void MacroAssemblerMIPSShared::ma_rol(Register rd, Register rt, Register shift) {
     ScratchRegisterScope scratch(asMasm());
     ma_negu(scratch, shift);
     if (hasR2()) {
@@ -140,21 +110,12 @@ MacroAssemblerMIPSShared::ma_rol(Register rd, Register rt, Register shift)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_negu(Register rd, Register rs)
-{
-    as_subu(rd, zero, rs);
-}
+void MacroAssemblerMIPSShared::ma_negu(Register rd, Register rs) { as_subu(rd, zero, rs); }
 
-void
-MacroAssemblerMIPSShared::ma_not(Register rd, Register rs)
-{
-    as_nor(rd, rs, zero);
-}
+void MacroAssemblerMIPSShared::ma_not(Register rd, Register rs) { as_nor(rd, rs, zero); }
 
 // Bit extract/insert
-void
-MacroAssemblerMIPSShared::ma_ext(Register rt, Register rs, uint16_t pos, uint16_t size) {
+void MacroAssemblerMIPSShared::ma_ext(Register rt, Register rs, uint16_t pos, uint16_t size) {
     MOZ_ASSERT(pos < 32);
     MOZ_ASSERT(pos + size < 33);
 
@@ -170,8 +131,7 @@ MacroAssemblerMIPSShared::ma_ext(Register rt, Register rs, uint16_t pos, uint16_
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_ins(Register rt, Register rs, uint16_t pos, uint16_t size) {
+void MacroAssemblerMIPSShared::ma_ins(Register rt, Register rs, uint16_t pos, uint16_t size) {
     MOZ_ASSERT(pos < 32);
     MOZ_ASSERT(pos + size <= 32);
     MOZ_ASSERT(size != 0);
@@ -193,9 +153,7 @@ MacroAssemblerMIPSShared::ma_ins(Register rt, Register rs, uint16_t pos, uint16_
 }
 
 // Sign extend
-void
-MacroAssemblerMIPSShared::ma_seb(Register rd, Register rt)
-{
+void MacroAssemblerMIPSShared::ma_seb(Register rd, Register rt) {
     if (hasR2()) {
         as_seb(rd, rt);
     } else {
@@ -204,9 +162,7 @@ MacroAssemblerMIPSShared::ma_seb(Register rd, Register rt)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_seh(Register rd, Register rt)
-{
+void MacroAssemblerMIPSShared::ma_seh(Register rd, Register rt) {
     if (hasR2()) {
         as_seh(rd, rt);
     } else {
@@ -216,21 +172,11 @@ MacroAssemblerMIPSShared::ma_seh(Register rd, Register rt)
 }
 
 // And.
-void
-MacroAssemblerMIPSShared::ma_and(Register rd, Register rs)
-{
-    as_and(rd, rd, rs);
-}
+void MacroAssemblerMIPSShared::ma_and(Register rd, Register rs) { as_and(rd, rd, rs); }
 
-void
-MacroAssemblerMIPSShared::ma_and(Register rd, Imm32 imm)
-{
-    ma_and(rd, rd, imm);
-}
+void MacroAssemblerMIPSShared::ma_and(Register rd, Imm32 imm) { ma_and(rd, rd, imm); }
 
-void
-MacroAssemblerMIPSShared::ma_and(Register rd, Register rs, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_and(Register rd, Register rs, Imm32 imm) {
     if (Imm16::IsInUnsignedRange(imm.value)) {
         as_andi(rd, rs, imm.value);
     } else {
@@ -240,21 +186,11 @@ MacroAssemblerMIPSShared::ma_and(Register rd, Register rs, Imm32 imm)
 }
 
 // Or.
-void
-MacroAssemblerMIPSShared::ma_or(Register rd, Register rs)
-{
-    as_or(rd, rd, rs);
-}
+void MacroAssemblerMIPSShared::ma_or(Register rd, Register rs) { as_or(rd, rd, rs); }
 
-void
-MacroAssemblerMIPSShared::ma_or(Register rd, Imm32 imm)
-{
-    ma_or(rd, rd, imm);
-}
+void MacroAssemblerMIPSShared::ma_or(Register rd, Imm32 imm) { ma_or(rd, rd, imm); }
 
-void
-MacroAssemblerMIPSShared::ma_or(Register rd, Register rs, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_or(Register rd, Register rs, Imm32 imm) {
     if (Imm16::IsInUnsignedRange(imm.value)) {
         as_ori(rd, rs, imm.value);
     } else {
@@ -264,21 +200,11 @@ MacroAssemblerMIPSShared::ma_or(Register rd, Register rs, Imm32 imm)
 }
 
 // xor
-void
-MacroAssemblerMIPSShared::ma_xor(Register rd, Register rs)
-{
-    as_xor(rd, rd, rs);
-}
+void MacroAssemblerMIPSShared::ma_xor(Register rd, Register rs) { as_xor(rd, rd, rs); }
 
-void
-MacroAssemblerMIPSShared::ma_xor(Register rd, Imm32 imm)
-{
-    ma_xor(rd, rd, imm);
-}
+void MacroAssemblerMIPSShared::ma_xor(Register rd, Imm32 imm) { ma_xor(rd, rd, imm); }
 
-void
-MacroAssemblerMIPSShared::ma_xor(Register rd, Register rs, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_xor(Register rd, Register rs, Imm32 imm) {
     if (Imm16::IsInUnsignedRange(imm.value)) {
         as_xori(rd, rs, imm.value);
     } else {
@@ -287,9 +213,7 @@ MacroAssemblerMIPSShared::ma_xor(Register rd, Register rs, Imm32 imm)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_ctz(Register rd, Register rs)
-{
+void MacroAssemblerMIPSShared::ma_ctz(Register rd, Register rs) {
     ma_negu(ScratchRegister, rs);
     as_and(rd, ScratchRegister, rs);
     as_clz(rd, rd);
@@ -301,9 +225,7 @@ MacroAssemblerMIPSShared::ma_ctz(Register rd, Register rs)
 // Arithmetic-based ops.
 
 // Add.
-void
-MacroAssemblerMIPSShared::ma_addu(Register rd, Register rs, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_addu(Register rd, Register rs, Imm32 imm) {
     if (Imm16::IsInSignedRange(imm.value)) {
         as_addiu(rd, rs, imm.value);
     } else {
@@ -312,53 +234,37 @@ MacroAssemblerMIPSShared::ma_addu(Register rd, Register rs, Imm32 imm)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_addu(Register rd, Register rs)
-{
-    as_addu(rd, rd, rs);
-}
+void MacroAssemblerMIPSShared::ma_addu(Register rd, Register rs) { as_addu(rd, rd, rs); }
 
-void
-MacroAssemblerMIPSShared::ma_addu(Register rd, Imm32 imm)
-{
-    ma_addu(rd, rd, imm);
-}
+void MacroAssemblerMIPSShared::ma_addu(Register rd, Imm32 imm) { ma_addu(rd, rd, imm); }
 
 template <typename L>
-void
-MacroAssemblerMIPSShared::ma_addTestCarry(Register rd, Register rs, Register rt, L overflow)
-{
+void MacroAssemblerMIPSShared::ma_addTestCarry(Register rd, Register rs, Register rt, L overflow) {
     as_addu(rd, rs, rt);
     as_sltu(SecondScratchReg, rd, rs);
     ma_b(SecondScratchReg, SecondScratchReg, overflow, Assembler::NonZero);
 }
 
-template void
-MacroAssemblerMIPSShared::ma_addTestCarry<Label*>(Register rd, Register rs,
-                                                  Register rt, Label* overflow);
-template void
-MacroAssemblerMIPSShared::ma_addTestCarry<wasm::TrapDesc>(Register rd, Register rs, Register rt,
-                                                          wasm::TrapDesc overflow);
+template void MacroAssemblerMIPSShared::ma_addTestCarry<Label*>(Register rd, Register rs,
+                                                                Register rt, Label* overflow);
+template void MacroAssemblerMIPSShared::ma_addTestCarry<wasm::TrapDesc>(Register rd, Register rs,
+                                                                        Register rt,
+                                                                        wasm::TrapDesc overflow);
 
 template <typename L>
-void
-MacroAssemblerMIPSShared::ma_addTestCarry(Register rd, Register rs, Imm32 imm, L overflow)
-{
+void MacroAssemblerMIPSShared::ma_addTestCarry(Register rd, Register rs, Imm32 imm, L overflow) {
     ma_li(ScratchRegister, imm);
     ma_addTestCarry(rd, rs, ScratchRegister, overflow);
 }
 
-template void
-MacroAssemblerMIPSShared::ma_addTestCarry<Label*>(Register rd, Register rs,
-                                                  Imm32 imm, Label* overflow);
-template void
-MacroAssemblerMIPSShared::ma_addTestCarry<wasm::TrapDesc>(Register rd, Register rs, Imm32 imm,
-                                                          wasm::TrapDesc overflow);
+template void MacroAssemblerMIPSShared::ma_addTestCarry<Label*>(Register rd, Register rs,
+                                                                Imm32 imm, Label* overflow);
+template void MacroAssemblerMIPSShared::ma_addTestCarry<wasm::TrapDesc>(Register rd, Register rs,
+                                                                        Imm32 imm,
+                                                                        wasm::TrapDesc overflow);
 
 // Subtract.
-void
-MacroAssemblerMIPSShared::ma_subu(Register rd, Register rs, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_subu(Register rd, Register rs, Imm32 imm) {
     if (Imm16::IsInSignedRange(-imm.value)) {
         as_addiu(rd, rs, -imm.value);
     } else {
@@ -367,21 +273,12 @@ MacroAssemblerMIPSShared::ma_subu(Register rd, Register rs, Imm32 imm)
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_subu(Register rd, Imm32 imm)
-{
-    ma_subu(rd, rd, imm);
-}
+void MacroAssemblerMIPSShared::ma_subu(Register rd, Imm32 imm) { ma_subu(rd, rd, imm); }
 
-void
-MacroAssemblerMIPSShared::ma_subu(Register rd, Register rs)
-{
-    as_subu(rd, rd, rs);
-}
+void MacroAssemblerMIPSShared::ma_subu(Register rd, Register rs) { as_subu(rd, rd, rs); }
 
-void
-MacroAssemblerMIPSShared::ma_subTestOverflow(Register rd, Register rs, Imm32 imm, Label* overflow)
-{
+void MacroAssemblerMIPSShared::ma_subTestOverflow(Register rd, Register rs, Imm32 imm,
+                                                  Label* overflow) {
     if (imm.value != INT32_MIN) {
         asMasm().ma_addTestOverflow(rd, rs, Imm32(-imm.value), overflow);
     } else {
@@ -390,16 +287,13 @@ MacroAssemblerMIPSShared::ma_subTestOverflow(Register rd, Register rs, Imm32 imm
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_mul(Register rd, Register rs, Imm32 imm)
-{
+void MacroAssemblerMIPSShared::ma_mul(Register rd, Register rs, Imm32 imm) {
     ma_li(ScratchRegister, imm);
     as_mul(rd, rs, ScratchRegister);
 }
 
-void
-MacroAssemblerMIPSShared::ma_mul_branch_overflow(Register rd, Register rs, Register rt, Label* overflow)
-{
+void MacroAssemblerMIPSShared::ma_mul_branch_overflow(Register rd, Register rs, Register rt,
+                                                      Label* overflow) {
     as_mult(rs, rt);
     as_mflo(rd);
     as_sra(ScratchRegister, rd, 31);
@@ -407,33 +301,28 @@ MacroAssemblerMIPSShared::ma_mul_branch_overflow(Register rd, Register rs, Regis
     ma_b(ScratchRegister, SecondScratchReg, overflow, Assembler::NotEqual);
 }
 
-void
-MacroAssemblerMIPSShared::ma_mul_branch_overflow(Register rd, Register rs, Imm32 imm, Label* overflow)
-{
+void MacroAssemblerMIPSShared::ma_mul_branch_overflow(Register rd, Register rs, Imm32 imm,
+                                                      Label* overflow) {
     ma_li(ScratchRegister, imm);
     ma_mul_branch_overflow(rd, rs, ScratchRegister, overflow);
 }
 
-void
-MacroAssemblerMIPSShared::ma_div_branch_overflow(Register rd, Register rs, Register rt, Label* overflow)
-{
+void MacroAssemblerMIPSShared::ma_div_branch_overflow(Register rd, Register rs, Register rt,
+                                                      Label* overflow) {
     as_div(rs, rt);
     as_mfhi(ScratchRegister);
     ma_b(ScratchRegister, ScratchRegister, overflow, Assembler::NonZero);
     as_mflo(rd);
 }
 
-void
-MacroAssemblerMIPSShared::ma_div_branch_overflow(Register rd, Register rs, Imm32 imm, Label* overflow)
-{
+void MacroAssemblerMIPSShared::ma_div_branch_overflow(Register rd, Register rs, Imm32 imm,
+                                                      Label* overflow) {
     ma_li(ScratchRegister, imm);
     ma_div_branch_overflow(rd, rs, ScratchRegister, overflow);
 }
 
-void
-MacroAssemblerMIPSShared::ma_mod_mask(Register src, Register dest, Register hold, Register remain,
-                                      int32_t shift, Label* negZero)
-{
+void MacroAssemblerMIPSShared::ma_mod_mask(Register src, Register dest, Register hold,
+                                           Register remain, int32_t shift, Label* negZero) {
     // MATH:
     // We wish to compute x % (1<<y) - 1 for a known constant, y.
     // First, let b = (1<<y) and C = (1<<y)-1, then think of the 32 bit
@@ -506,10 +395,8 @@ MacroAssemblerMIPSShared::ma_mod_mask(Register src, Register dest, Register hold
 
 // Memory.
 
-void
-MacroAssemblerMIPSShared::ma_load(Register dest, const BaseIndex& src,
-                                  LoadStoreSize size, LoadStoreExtension extension)
-{
+void MacroAssemblerMIPSShared::ma_load(Register dest, const BaseIndex& src, LoadStoreSize size,
+                                       LoadStoreExtension extension) {
     if (isLoongson() && ZeroExtend != extension && Imm8::IsInSignedRange(src.offset)) {
         Register index = src.index;
 
@@ -526,20 +413,20 @@ MacroAssemblerMIPSShared::ma_load(Register dest, const BaseIndex& src,
         }
 
         switch (size) {
-          case SizeByte:
-            as_gslbx(dest, src.base, index, src.offset);
-            break;
-          case SizeHalfWord:
-            as_gslhx(dest, src.base, index, src.offset);
-            break;
-          case SizeWord:
-            as_gslwx(dest, src.base, index, src.offset);
-            break;
-          case SizeDouble:
-            as_gsldx(dest, src.base, index, src.offset);
-            break;
-          default:
-            MOZ_CRASH("Invalid argument for ma_load");
+            case SizeByte:
+                as_gslbx(dest, src.base, index, src.offset);
+                break;
+            case SizeHalfWord:
+                as_gslhx(dest, src.base, index, src.offset);
+                break;
+            case SizeWord:
+                as_gslwx(dest, src.base, index, src.offset);
+                break;
+            case SizeDouble:
+                as_gsldx(dest, src.base, index, src.offset);
+                break;
+            default:
+                MOZ_CRASH("Invalid argument for ma_load");
         }
         return;
     }
@@ -548,10 +435,9 @@ MacroAssemblerMIPSShared::ma_load(Register dest, const BaseIndex& src,
     asMasm().ma_load(dest, Address(SecondScratchReg, src.offset), size, extension);
 }
 
-void
-MacroAssemblerMIPSShared::ma_load_unaligned(Register dest, const BaseIndex& src, Register temp,
-                                            LoadStoreSize size, LoadStoreExtension extension)
-{
+void MacroAssemblerMIPSShared::ma_load_unaligned(Register dest, const BaseIndex& src,
+                                                 Register temp, LoadStoreSize size,
+                                                 LoadStoreExtension extension) {
     int16_t lowOffset, hiOffset;
     Register base;
 
@@ -570,35 +456,32 @@ MacroAssemblerMIPSShared::ma_load_unaligned(Register dest, const BaseIndex& src,
     }
 
     switch (size) {
-      case SizeHalfWord:
-        as_lbu(dest, base, lowOffset);
-        if (extension != ZeroExtend)
-            as_lbu(temp, base, hiOffset);
-        else
-            as_lb(temp, base, hiOffset);
-        ma_ins(dest, temp, 8, 24);
-        break;
-      case SizeWord:
-        as_lwl(dest, base, hiOffset);
-        as_lwr(dest, base, lowOffset);
+        case SizeHalfWord:
+            as_lbu(dest, base, lowOffset);
+            if (extension != ZeroExtend)
+                as_lbu(temp, base, hiOffset);
+            else
+                as_lb(temp, base, hiOffset);
+            ma_ins(dest, temp, 8, 24);
+            break;
+        case SizeWord:
+            as_lwl(dest, base, hiOffset);
+            as_lwr(dest, base, lowOffset);
 #ifdef JS_CODEGEN_MIPS64
-        if (extension != ZeroExtend)
-            as_dext(dest, dest, 0, 32);
+            if (extension != ZeroExtend) as_dext(dest, dest, 0, 32);
 #endif
-        break;
-      case SizeDouble:
-        as_ldl(dest, base, hiOffset);
-        as_ldr(dest, base, lowOffset);
-        break;
-      default:
-        MOZ_CRASH("Invalid argument for ma_load");
+            break;
+        case SizeDouble:
+            as_ldl(dest, base, hiOffset);
+            as_ldr(dest, base, lowOffset);
+            break;
+        default:
+            MOZ_CRASH("Invalid argument for ma_load");
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_store(Register data, const BaseIndex& dest,
-                                   LoadStoreSize size, LoadStoreExtension extension)
-{
+void MacroAssemblerMIPSShared::ma_store(Register data, const BaseIndex& dest, LoadStoreSize size,
+                                        LoadStoreExtension extension) {
     if (isLoongson() && Imm8::IsInSignedRange(dest.offset)) {
         Register index = dest.index;
 
@@ -615,20 +498,20 @@ MacroAssemblerMIPSShared::ma_store(Register data, const BaseIndex& dest,
         }
 
         switch (size) {
-          case SizeByte:
-            as_gssbx(data, dest.base, index, dest.offset);
-            break;
-          case SizeHalfWord:
-            as_gsshx(data, dest.base, index, dest.offset);
-            break;
-          case SizeWord:
-            as_gsswx(data, dest.base, index, dest.offset);
-            break;
-          case SizeDouble:
-            as_gssdx(data, dest.base, index, dest.offset);
-            break;
-          default:
-            MOZ_CRASH("Invalid argument for ma_store");
+            case SizeByte:
+                as_gssbx(data, dest.base, index, dest.offset);
+                break;
+            case SizeHalfWord:
+                as_gsshx(data, dest.base, index, dest.offset);
+                break;
+            case SizeWord:
+                as_gsswx(data, dest.base, index, dest.offset);
+                break;
+            case SizeDouble:
+                as_gssdx(data, dest.base, index, dest.offset);
+                break;
+            default:
+                MOZ_CRASH("Invalid argument for ma_store");
         }
         return;
     }
@@ -637,10 +520,8 @@ MacroAssemblerMIPSShared::ma_store(Register data, const BaseIndex& dest,
     asMasm().ma_store(data, Address(SecondScratchReg, dest.offset), size, extension);
 }
 
-void
-MacroAssemblerMIPSShared::ma_store(Imm32 imm, const BaseIndex& dest,
-                                   LoadStoreSize size, LoadStoreExtension extension)
-{
+void MacroAssemblerMIPSShared::ma_store(Imm32 imm, const BaseIndex& dest, LoadStoreSize size,
+                                        LoadStoreExtension extension) {
     if (isLoongson() && Imm8::IsInSignedRange(dest.offset)) {
         Register data = zero;
         Register index = dest.index;
@@ -665,20 +546,20 @@ MacroAssemblerMIPSShared::ma_store(Imm32 imm, const BaseIndex& dest,
         }
 
         switch (size) {
-          case SizeByte:
-            as_gssbx(data, dest.base, index, dest.offset);
-            break;
-          case SizeHalfWord:
-            as_gsshx(data, dest.base, index, dest.offset);
-            break;
-          case SizeWord:
-            as_gsswx(data, dest.base, index, dest.offset);
-            break;
-          case SizeDouble:
-            as_gssdx(data, dest.base, index, dest.offset);
-            break;
-          default:
-            MOZ_CRASH("Invalid argument for ma_store");
+            case SizeByte:
+                as_gssbx(data, dest.base, index, dest.offset);
+                break;
+            case SizeHalfWord:
+                as_gsshx(data, dest.base, index, dest.offset);
+                break;
+            case SizeWord:
+                as_gsswx(data, dest.base, index, dest.offset);
+                break;
+            case SizeDouble:
+                as_gssdx(data, dest.base, index, dest.offset);
+                break;
+            default:
+                MOZ_CRASH("Invalid argument for ma_store");
         }
         return;
     }
@@ -695,16 +576,16 @@ MacroAssemblerMIPSShared::ma_store(Imm32 imm, const BaseIndex& dest,
     asMasm().ma_store(ScratchRegister, Address(SecondScratchReg, 0), size, extension);
 }
 
-void
-MacroAssemblerMIPSShared::ma_store_unaligned(Register data, const BaseIndex& dest, Register temp,
-                                             LoadStoreSize size, LoadStoreExtension extension)
-{
+void MacroAssemblerMIPSShared::ma_store_unaligned(Register data, const BaseIndex& dest,
+                                                  Register temp, LoadStoreSize size,
+                                                  LoadStoreExtension extension) {
     int16_t lowOffset, hiOffset;
     Register base;
 
     asMasm().computeEffectiveAddress(dest, SecondScratchReg);
 
-    if (Imm16::IsInSignedRange(dest.offset) && Imm16::IsInSignedRange(dest.offset + size / 8 - 1)) {
+    if (Imm16::IsInSignedRange(dest.offset) &&
+        Imm16::IsInSignedRange(dest.offset + size / 8 - 1)) {
         base = SecondScratchReg;
         lowOffset = Imm16(dest.offset).encode();
         hiOffset = Imm16(dest.offset + size / 8 - 1).encode();
@@ -717,59 +598,57 @@ MacroAssemblerMIPSShared::ma_store_unaligned(Register data, const BaseIndex& des
     }
 
     switch (size) {
-      case SizeHalfWord:
-        as_sb(data, base, lowOffset);
-        ma_ext(temp, data, 8, 8);
-        as_sb(temp, base, hiOffset);
-        break;
-      case SizeWord:
-        as_swl(data, base, hiOffset);
-        as_swr(data, base, lowOffset);
-        break;
-      case SizeDouble:
-        as_sdl(data, base, hiOffset);
-        as_sdr(data, base, lowOffset);
-        break;
-      default:
-        MOZ_CRASH("Invalid argument for ma_store");
+        case SizeHalfWord:
+            as_sb(data, base, lowOffset);
+            ma_ext(temp, data, 8, 8);
+            as_sb(temp, base, hiOffset);
+            break;
+        case SizeWord:
+            as_swl(data, base, hiOffset);
+            as_swr(data, base, lowOffset);
+            break;
+        case SizeDouble:
+            as_sdl(data, base, hiOffset);
+            as_sdr(data, base, lowOffset);
+            break;
+        default:
+            MOZ_CRASH("Invalid argument for ma_store");
     }
 }
 
 // Branches when done from within mips-specific code.
-void
-MacroAssemblerMIPSShared::ma_b(Register lhs, Register rhs, Label* label, Condition c, JumpKind jumpKind)
-{
+void MacroAssemblerMIPSShared::ma_b(Register lhs, Register rhs, Label* label, Condition c,
+                                    JumpKind jumpKind) {
     switch (c) {
-      case Equal :
-      case NotEqual:
-        asMasm().branchWithCode(getBranchCode(lhs, rhs, c), label, jumpKind);
-        break;
-      case Always:
-        ma_b(label, jumpKind);
-        break;
-      case Zero:
-      case NonZero:
-      case Signed:
-      case NotSigned:
-        MOZ_ASSERT(lhs == rhs);
-        asMasm().branchWithCode(getBranchCode(lhs, c), label, jumpKind);
-        break;
-      default:
-        Condition cond = ma_cmp(ScratchRegister, lhs, rhs, c);
-        asMasm().branchWithCode(getBranchCode(ScratchRegister, cond), label, jumpKind);
-        break;
+        case Equal:
+        case NotEqual:
+            asMasm().branchWithCode(getBranchCode(lhs, rhs, c), label, jumpKind);
+            break;
+        case Always:
+            ma_b(label, jumpKind);
+            break;
+        case Zero:
+        case NonZero:
+        case Signed:
+        case NotSigned:
+            MOZ_ASSERT(lhs == rhs);
+            asMasm().branchWithCode(getBranchCode(lhs, c), label, jumpKind);
+            break;
+        default:
+            Condition cond = ma_cmp(ScratchRegister, lhs, rhs, c);
+            asMasm().branchWithCode(getBranchCode(ScratchRegister, cond), label, jumpKind);
+            break;
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_b(Register lhs, Imm32 imm, Label* label, Condition c, JumpKind jumpKind)
-{
+void MacroAssemblerMIPSShared::ma_b(Register lhs, Imm32 imm, Label* label, Condition c,
+                                    JumpKind jumpKind) {
     MOZ_ASSERT(c != Overflow);
     if (imm.value == 0) {
         if (c == Always || c == AboveOrEqual)
             ma_b(label, jumpKind);
         else if (c == Below)
-            ; // This condition is always false. No branch required.
+            ;  // This condition is always false. No branch required.
         else
             asMasm().branchWithCode(getBranchCode(lhs, c), label, jumpKind);
     } else {
@@ -779,17 +658,14 @@ MacroAssemblerMIPSShared::ma_b(Register lhs, Imm32 imm, Label* label, Condition 
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_b(Register lhs, ImmPtr imm, Label* l, Condition c, JumpKind jumpKind)
-{
+void MacroAssemblerMIPSShared::ma_b(Register lhs, ImmPtr imm, Label* l, Condition c,
+                                    JumpKind jumpKind) {
     asMasm().ma_b(lhs, ImmWord(uintptr_t(imm.value)), l, c, jumpKind);
 }
 
 template <typename T>
-void
-MacroAssemblerMIPSShared::ma_b(Register lhs, T rhs, wasm::TrapDesc target, Condition c,
-                               JumpKind jumpKind)
-{
+void MacroAssemblerMIPSShared::ma_b(Register lhs, T rhs, wasm::TrapDesc target, Condition c,
+                                    JumpKind jumpKind) {
     Label label;
     ma_b(lhs, rhs, &label, c, jumpKind);
     bindLater(&label, target);
@@ -798,262 +674,250 @@ MacroAssemblerMIPSShared::ma_b(Register lhs, T rhs, wasm::TrapDesc target, Condi
 template void MacroAssemblerMIPSShared::ma_b<Register>(Register lhs, Register rhs,
                                                        wasm::TrapDesc target, Condition c,
                                                        JumpKind jumpKind);
-template void MacroAssemblerMIPSShared::ma_b<Imm32>(Register lhs, Imm32 rhs,
-                                                       wasm::TrapDesc target, Condition c,
-                                                       JumpKind jumpKind);
+template void MacroAssemblerMIPSShared::ma_b<Imm32>(Register lhs, Imm32 rhs, wasm::TrapDesc target,
+                                                    Condition c, JumpKind jumpKind);
 template void MacroAssemblerMIPSShared::ma_b<ImmTag>(Register lhs, ImmTag rhs,
-                                                       wasm::TrapDesc target, Condition c,
-                                                       JumpKind jumpKind);
+                                                     wasm::TrapDesc target, Condition c,
+                                                     JumpKind jumpKind);
 
-void
-MacroAssemblerMIPSShared::ma_b(Label* label, JumpKind jumpKind)
-{
+void MacroAssemblerMIPSShared::ma_b(Label* label, JumpKind jumpKind) {
     asMasm().branchWithCode(getBranchCode(BranchIsJump), label, jumpKind);
 }
 
-void
-MacroAssemblerMIPSShared::ma_b(wasm::TrapDesc target, JumpKind jumpKind)
-{
+void MacroAssemblerMIPSShared::ma_b(wasm::TrapDesc target, JumpKind jumpKind) {
     Label label;
     asMasm().branchWithCode(getBranchCode(BranchIsJump), &label, jumpKind);
     bindLater(&label, target);
 }
 
-Assembler::Condition
-MacroAssemblerMIPSShared::ma_cmp(Register scratch, Register lhs, Register rhs, Condition c)
-{
+Assembler::Condition MacroAssemblerMIPSShared::ma_cmp(Register scratch, Register lhs, Register rhs,
+                                                      Condition c) {
     switch (c) {
-      case Above:
-        // bgtu s,t,label =>
-        //   sltu at,t,s
-        //   bne at,$zero,offs
-        as_sltu(scratch, rhs, lhs);
-        return NotEqual;
-      case AboveOrEqual:
-        // bgeu s,t,label =>
-        //   sltu at,s,t
-        //   beq at,$zero,offs
-        as_sltu(scratch, lhs, rhs);
-        return Equal;
-      case Below:
-        // bltu s,t,label =>
-        //   sltu at,s,t
-        //   bne at,$zero,offs
-        as_sltu(scratch, lhs, rhs);
-        return NotEqual;
-      case BelowOrEqual:
-        // bleu s,t,label =>
-        //   sltu at,t,s
-        //   beq at,$zero,offs
-        as_sltu(scratch, rhs, lhs);
-        return Equal;
-      case GreaterThan:
-        // bgt s,t,label =>
-        //   slt at,t,s
-        //   bne at,$zero,offs
-        as_slt(scratch, rhs, lhs);
-        return NotEqual;
-      case GreaterThanOrEqual:
-        // bge s,t,label =>
-        //   slt at,s,t
-        //   beq at,$zero,offs
-        as_slt(scratch, lhs, rhs);
-        return Equal;
-      case LessThan:
-        // blt s,t,label =>
-        //   slt at,s,t
-        //   bne at,$zero,offs
-        as_slt(scratch, lhs, rhs);
-        return NotEqual;
-      case LessThanOrEqual:
-        // ble s,t,label =>
-        //   slt at,t,s
-        //   beq at,$zero,offs
-        as_slt(scratch, rhs, lhs);
-        return Equal;
-      case Equal :
-      case NotEqual:
-      case Zero:
-      case NonZero:
-      case Always:
-      case Signed:
-      case NotSigned:
-        MOZ_CRASH("There is a better way to compare for equality.");
-        break;
-      case Overflow:
-        MOZ_CRASH("Overflow condition not supported for MIPS.");
-        break;
-      default:
-        MOZ_CRASH("Invalid condition for branch.");
+        case Above:
+            // bgtu s,t,label =>
+            //   sltu at,t,s
+            //   bne at,$zero,offs
+            as_sltu(scratch, rhs, lhs);
+            return NotEqual;
+        case AboveOrEqual:
+            // bgeu s,t,label =>
+            //   sltu at,s,t
+            //   beq at,$zero,offs
+            as_sltu(scratch, lhs, rhs);
+            return Equal;
+        case Below:
+            // bltu s,t,label =>
+            //   sltu at,s,t
+            //   bne at,$zero,offs
+            as_sltu(scratch, lhs, rhs);
+            return NotEqual;
+        case BelowOrEqual:
+            // bleu s,t,label =>
+            //   sltu at,t,s
+            //   beq at,$zero,offs
+            as_sltu(scratch, rhs, lhs);
+            return Equal;
+        case GreaterThan:
+            // bgt s,t,label =>
+            //   slt at,t,s
+            //   bne at,$zero,offs
+            as_slt(scratch, rhs, lhs);
+            return NotEqual;
+        case GreaterThanOrEqual:
+            // bge s,t,label =>
+            //   slt at,s,t
+            //   beq at,$zero,offs
+            as_slt(scratch, lhs, rhs);
+            return Equal;
+        case LessThan:
+            // blt s,t,label =>
+            //   slt at,s,t
+            //   bne at,$zero,offs
+            as_slt(scratch, lhs, rhs);
+            return NotEqual;
+        case LessThanOrEqual:
+            // ble s,t,label =>
+            //   slt at,t,s
+            //   beq at,$zero,offs
+            as_slt(scratch, rhs, lhs);
+            return Equal;
+        case Equal:
+        case NotEqual:
+        case Zero:
+        case NonZero:
+        case Always:
+        case Signed:
+        case NotSigned:
+            MOZ_CRASH("There is a better way to compare for equality.");
+            break;
+        case Overflow:
+            MOZ_CRASH("Overflow condition not supported for MIPS.");
+            break;
+        default:
+            MOZ_CRASH("Invalid condition for branch.");
     }
     return Always;
 }
 
-void
-MacroAssemblerMIPSShared::ma_cmp_set(Register rd, Register rs, Register rt, Condition c)
-{
+void MacroAssemblerMIPSShared::ma_cmp_set(Register rd, Register rs, Register rt, Condition c) {
     switch (c) {
-      case Equal :
-        // seq d,s,t =>
-        //   xor d,s,t
-        //   sltiu d,d,1
-        as_xor(rd, rs, rt);
-        as_sltiu(rd, rd, 1);
-        break;
-      case NotEqual:
-        // sne d,s,t =>
-        //   xor d,s,t
-        //   sltu d,$zero,d
-        as_xor(rd, rs, rt);
-        as_sltu(rd, zero, rd);
-        break;
-      case Above:
-        // sgtu d,s,t =>
-        //   sltu d,t,s
-        as_sltu(rd, rt, rs);
-        break;
-      case AboveOrEqual:
-        // sgeu d,s,t =>
-        //   sltu d,s,t
-        //   xori d,d,1
-        as_sltu(rd, rs, rt);
-        as_xori(rd, rd, 1);
-        break;
-      case Below:
-        // sltu d,s,t
-        as_sltu(rd, rs, rt);
-        break;
-      case BelowOrEqual:
-        // sleu d,s,t =>
-        //   sltu d,t,s
-        //   xori d,d,1
-        as_sltu(rd, rt, rs);
-        as_xori(rd, rd, 1);
-        break;
-      case GreaterThan:
-        // sgt d,s,t =>
-        //   slt d,t,s
-        as_slt(rd, rt, rs);
-        break;
-      case GreaterThanOrEqual:
-        // sge d,s,t =>
-        //   slt d,s,t
-        //   xori d,d,1
-        as_slt(rd, rs, rt);
-        as_xori(rd, rd, 1);
-        break;
-      case LessThan:
-        // slt d,s,t
-        as_slt(rd, rs, rt);
-        break;
-      case LessThanOrEqual:
-        // sle d,s,t =>
-        //   slt d,t,s
-        //   xori d,d,1
-        as_slt(rd, rt, rs);
-        as_xori(rd, rd, 1);
-        break;
-      case Zero:
-        MOZ_ASSERT(rs == rt);
-        // seq d,s,$zero =>
-        //   xor d,s,$zero
-        //   sltiu d,d,1
-        as_xor(rd, rs, zero);
-        as_sltiu(rd, rd, 1);
-        break;
-      case NonZero:
-        // sne d,s,$zero =>
-        //   xor d,s,$zero
-        //   sltu d,$zero,d
-        as_xor(rd, rs, zero);
-        as_sltu(rd, zero, rd);
-        break;
-      case Signed:
-        as_slt(rd, rs, zero);
-        break;
-      case NotSigned:
-        // sge d,s,$zero =>
-        //   slt d,s,$zero
-        //   xori d,d,1
-        as_slt(rd, rs, zero);
-        as_xori(rd, rd, 1);
-        break;
-      default:
-        MOZ_CRASH("Invalid condition for ma_cmp_set.");
+        case Equal:
+            // seq d,s,t =>
+            //   xor d,s,t
+            //   sltiu d,d,1
+            as_xor(rd, rs, rt);
+            as_sltiu(rd, rd, 1);
+            break;
+        case NotEqual:
+            // sne d,s,t =>
+            //   xor d,s,t
+            //   sltu d,$zero,d
+            as_xor(rd, rs, rt);
+            as_sltu(rd, zero, rd);
+            break;
+        case Above:
+            // sgtu d,s,t =>
+            //   sltu d,t,s
+            as_sltu(rd, rt, rs);
+            break;
+        case AboveOrEqual:
+            // sgeu d,s,t =>
+            //   sltu d,s,t
+            //   xori d,d,1
+            as_sltu(rd, rs, rt);
+            as_xori(rd, rd, 1);
+            break;
+        case Below:
+            // sltu d,s,t
+            as_sltu(rd, rs, rt);
+            break;
+        case BelowOrEqual:
+            // sleu d,s,t =>
+            //   sltu d,t,s
+            //   xori d,d,1
+            as_sltu(rd, rt, rs);
+            as_xori(rd, rd, 1);
+            break;
+        case GreaterThan:
+            // sgt d,s,t =>
+            //   slt d,t,s
+            as_slt(rd, rt, rs);
+            break;
+        case GreaterThanOrEqual:
+            // sge d,s,t =>
+            //   slt d,s,t
+            //   xori d,d,1
+            as_slt(rd, rs, rt);
+            as_xori(rd, rd, 1);
+            break;
+        case LessThan:
+            // slt d,s,t
+            as_slt(rd, rs, rt);
+            break;
+        case LessThanOrEqual:
+            // sle d,s,t =>
+            //   slt d,t,s
+            //   xori d,d,1
+            as_slt(rd, rt, rs);
+            as_xori(rd, rd, 1);
+            break;
+        case Zero:
+            MOZ_ASSERT(rs == rt);
+            // seq d,s,$zero =>
+            //   xor d,s,$zero
+            //   sltiu d,d,1
+            as_xor(rd, rs, zero);
+            as_sltiu(rd, rd, 1);
+            break;
+        case NonZero:
+            // sne d,s,$zero =>
+            //   xor d,s,$zero
+            //   sltu d,$zero,d
+            as_xor(rd, rs, zero);
+            as_sltu(rd, zero, rd);
+            break;
+        case Signed:
+            as_slt(rd, rs, zero);
+            break;
+        case NotSigned:
+            // sge d,s,$zero =>
+            //   slt d,s,$zero
+            //   xori d,d,1
+            as_slt(rd, rs, zero);
+            as_xori(rd, rd, 1);
+            break;
+        default:
+            MOZ_CRASH("Invalid condition for ma_cmp_set.");
     }
 }
 
-void
-MacroAssemblerMIPSShared::compareFloatingPoint(FloatFormat fmt, FloatRegister lhs, FloatRegister rhs,
-                                               DoubleCondition c, FloatTestKind* testKind,
-                                               FPConditionBit fcc)
-{
+void MacroAssemblerMIPSShared::compareFloatingPoint(FloatFormat fmt, FloatRegister lhs,
+                                                    FloatRegister rhs, DoubleCondition c,
+                                                    FloatTestKind* testKind, FPConditionBit fcc) {
     switch (c) {
-      case DoubleOrdered:
-        as_cun(fmt, lhs, rhs, fcc);
-        *testKind = TestForFalse;
-        break;
-      case DoubleEqual:
-        as_ceq(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleNotEqual:
-        as_cueq(fmt, lhs, rhs, fcc);
-        *testKind = TestForFalse;
-        break;
-      case DoubleGreaterThan:
-        as_colt(fmt, rhs, lhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleGreaterThanOrEqual:
-        as_cole(fmt, rhs, lhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleLessThan:
-        as_colt(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleLessThanOrEqual:
-        as_cole(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleUnordered:
-        as_cun(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleEqualOrUnordered:
-        as_cueq(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleNotEqualOrUnordered:
-        as_ceq(fmt, lhs, rhs, fcc);
-        *testKind = TestForFalse;
-        break;
-      case DoubleGreaterThanOrUnordered:
-        as_cult(fmt, rhs, lhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleGreaterThanOrEqualOrUnordered:
-        as_cule(fmt, rhs, lhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleLessThanOrUnordered:
-        as_cult(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      case DoubleLessThanOrEqualOrUnordered:
-        as_cule(fmt, lhs, rhs, fcc);
-        *testKind = TestForTrue;
-        break;
-      default:
-        MOZ_CRASH("Invalid DoubleCondition.");
+        case DoubleOrdered:
+            as_cun(fmt, lhs, rhs, fcc);
+            *testKind = TestForFalse;
+            break;
+        case DoubleEqual:
+            as_ceq(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleNotEqual:
+            as_cueq(fmt, lhs, rhs, fcc);
+            *testKind = TestForFalse;
+            break;
+        case DoubleGreaterThan:
+            as_colt(fmt, rhs, lhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleGreaterThanOrEqual:
+            as_cole(fmt, rhs, lhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleLessThan:
+            as_colt(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleLessThanOrEqual:
+            as_cole(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleUnordered:
+            as_cun(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleEqualOrUnordered:
+            as_cueq(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleNotEqualOrUnordered:
+            as_ceq(fmt, lhs, rhs, fcc);
+            *testKind = TestForFalse;
+            break;
+        case DoubleGreaterThanOrUnordered:
+            as_cult(fmt, rhs, lhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleGreaterThanOrEqualOrUnordered:
+            as_cule(fmt, rhs, lhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleLessThanOrUnordered:
+            as_cult(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        case DoubleLessThanOrEqualOrUnordered:
+            as_cule(fmt, lhs, rhs, fcc);
+            *testKind = TestForTrue;
+            break;
+        default:
+            MOZ_CRASH("Invalid DoubleCondition.");
     }
 }
 
-void
-MacroAssemblerMIPSShared::ma_cmp_set_double(Register dest, FloatRegister lhs, FloatRegister rhs,
-                                            DoubleCondition c)
-{
+void MacroAssemblerMIPSShared::ma_cmp_set_double(Register dest, FloatRegister lhs,
+                                                 FloatRegister rhs, DoubleCondition c) {
     ma_li(dest, Imm32(0));
     ma_li(ScratchRegister, Imm32(1));
 
@@ -1066,10 +930,8 @@ MacroAssemblerMIPSShared::ma_cmp_set_double(Register dest, FloatRegister lhs, Fl
         as_movf(dest, ScratchRegister);
 }
 
-void
-MacroAssemblerMIPSShared::ma_cmp_set_float32(Register dest, FloatRegister lhs, FloatRegister rhs,
-                                             DoubleCondition c)
-{
+void MacroAssemblerMIPSShared::ma_cmp_set_float32(Register dest, FloatRegister lhs,
+                                                  FloatRegister rhs, DoubleCondition c) {
     ma_li(dest, Imm32(0));
     ma_li(ScratchRegister, Imm32(1));
 
@@ -1082,34 +944,26 @@ MacroAssemblerMIPSShared::ma_cmp_set_float32(Register dest, FloatRegister lhs, F
         as_movf(dest, ScratchRegister);
 }
 
-void
-MacroAssemblerMIPSShared::ma_cmp_set(Register rd, Register rs, Imm32 imm, Condition c)
-{
+void MacroAssemblerMIPSShared::ma_cmp_set(Register rd, Register rs, Imm32 imm, Condition c) {
     ma_li(ScratchRegister, imm);
     ma_cmp_set(rd, rs, ScratchRegister, c);
 }
 
 // fp instructions
-void
-MacroAssemblerMIPSShared::ma_lis(FloatRegister dest, float value)
-{
+void MacroAssemblerMIPSShared::ma_lis(FloatRegister dest, float value) {
     Imm32 imm(mozilla::BitwiseCast<uint32_t>(value));
 
     ma_li(ScratchRegister, imm);
     moveToFloat32(ScratchRegister, dest);
 }
 
-void
-MacroAssemblerMIPSShared::ma_liNegZero(FloatRegister dest)
-{
+void MacroAssemblerMIPSShared::ma_liNegZero(FloatRegister dest) {
     moveToDoubleLo(zero, dest);
     ma_li(ScratchRegister, Imm32(INT_MIN));
     asMasm().moveToDoubleHi(ScratchRegister, dest);
 }
 
-void
-MacroAssemblerMIPSShared::ma_sd(FloatRegister ft, BaseIndex address)
-{
+void MacroAssemblerMIPSShared::ma_sd(FloatRegister ft, BaseIndex address) {
     if (isLoongson() && Imm8::IsInSignedRange(address.offset)) {
         Register index = address.index;
 
@@ -1133,9 +987,7 @@ MacroAssemblerMIPSShared::ma_sd(FloatRegister ft, BaseIndex address)
     asMasm().ma_sd(ft, Address(SecondScratchReg, address.offset));
 }
 
-void
-MacroAssemblerMIPSShared::ma_ss(FloatRegister ft, BaseIndex address)
-{
+void MacroAssemblerMIPSShared::ma_ss(FloatRegister ft, BaseIndex address) {
     if (isLoongson() && Imm8::IsInSignedRange(address.offset)) {
         Register index = address.index;
 
@@ -1159,33 +1011,26 @@ MacroAssemblerMIPSShared::ma_ss(FloatRegister ft, BaseIndex address)
     asMasm().ma_ss(ft, Address(SecondScratchReg, address.offset));
 }
 
-void
-MacroAssemblerMIPSShared::ma_bc1s(FloatRegister lhs, FloatRegister rhs, Label* label,
-                                  DoubleCondition c, JumpKind jumpKind, FPConditionBit fcc)
-{
+void MacroAssemblerMIPSShared::ma_bc1s(FloatRegister lhs, FloatRegister rhs, Label* label,
+                                       DoubleCondition c, JumpKind jumpKind, FPConditionBit fcc) {
     FloatTestKind testKind;
     compareFloatingPoint(SingleFloat, lhs, rhs, c, &testKind, fcc);
     asMasm().branchWithCode(getBranchCode(testKind, fcc), label, jumpKind);
 }
 
-void
-MacroAssemblerMIPSShared::ma_bc1d(FloatRegister lhs, FloatRegister rhs, Label* label,
-                                  DoubleCondition c, JumpKind jumpKind, FPConditionBit fcc)
-{
+void MacroAssemblerMIPSShared::ma_bc1d(FloatRegister lhs, FloatRegister rhs, Label* label,
+                                       DoubleCondition c, JumpKind jumpKind, FPConditionBit fcc) {
     FloatTestKind testKind;
     compareFloatingPoint(DoubleFloat, lhs, rhs, c, &testKind, fcc);
     asMasm().branchWithCode(getBranchCode(testKind, fcc), label, jumpKind);
 }
 
-void
-MacroAssemblerMIPSShared::minMaxDouble(FloatRegister srcDest, FloatRegister second,
-                                       bool handleNaN, bool isMax)
-{
+void MacroAssemblerMIPSShared::minMaxDouble(FloatRegister srcDest, FloatRegister second,
+                                            bool handleNaN, bool isMax) {
     FloatRegister first = srcDest;
 
-    Assembler::DoubleCondition cond = isMax
-                                      ? Assembler::DoubleLessThanOrEqual
-                                      : Assembler::DoubleGreaterThanOrEqual;
+    Assembler::DoubleCondition cond =
+        isMax ? Assembler::DoubleLessThanOrEqual : Assembler::DoubleGreaterThanOrEqual;
     Label nan, equal, done;
     FloatTestKind moveCondition;
 
@@ -1201,8 +1046,8 @@ MacroAssemblerMIPSShared::minMaxDouble(FloatRegister srcDest, FloatRegister seco
     // Check for zero.
     bind(&equal);
     asMasm().loadConstantDouble(0.0, ScratchDoubleReg);
-    compareFloatingPoint(DoubleFloat, first, ScratchDoubleReg,
-                         Assembler::DoubleEqual, &moveCondition);
+    compareFloatingPoint(DoubleFloat, first, ScratchDoubleReg, Assembler::DoubleEqual,
+                         &moveCondition);
 
     // So now both operands are either -0 or 0.
     if (isMax) {
@@ -1224,15 +1069,12 @@ MacroAssemblerMIPSShared::minMaxDouble(FloatRegister srcDest, FloatRegister seco
     bind(&done);
 }
 
-void
-MacroAssemblerMIPSShared::minMaxFloat32(FloatRegister srcDest, FloatRegister second,
-                                        bool handleNaN, bool isMax)
-{
+void MacroAssemblerMIPSShared::minMaxFloat32(FloatRegister srcDest, FloatRegister second,
+                                             bool handleNaN, bool isMax) {
     FloatRegister first = srcDest;
 
-    Assembler::DoubleCondition cond = isMax
-                                      ? Assembler::DoubleLessThanOrEqual
-                                      : Assembler::DoubleGreaterThanOrEqual;
+    Assembler::DoubleCondition cond =
+        isMax ? Assembler::DoubleLessThanOrEqual : Assembler::DoubleGreaterThanOrEqual;
     Label nan, equal, done;
     FloatTestKind moveCondition;
 
@@ -1248,8 +1090,8 @@ MacroAssemblerMIPSShared::minMaxFloat32(FloatRegister srcDest, FloatRegister sec
     // Check for zero.
     bind(&equal);
     asMasm().loadConstantFloat32(0.0f, ScratchFloat32Reg);
-    compareFloatingPoint(SingleFloat, first, ScratchFloat32Reg,
-                         Assembler::DoubleEqual, &moveCondition);
+    compareFloatingPoint(SingleFloat, first, ScratchFloat32Reg, Assembler::DoubleEqual,
+                         &moveCondition);
 
     // So now both operands are either -0 or 0.
     if (isMax) {
@@ -1271,49 +1113,37 @@ MacroAssemblerMIPSShared::minMaxFloat32(FloatRegister srcDest, FloatRegister sec
     bind(&done);
 }
 
-void
-MacroAssemblerMIPSShared::ma_call(ImmPtr dest)
-{
+void MacroAssemblerMIPSShared::ma_call(ImmPtr dest) {
     asMasm().ma_liPatchable(CallReg, dest);
     as_jalr(CallReg);
     as_nop();
 }
 
-void
-MacroAssemblerMIPSShared::ma_jump(ImmPtr dest)
-{
+void MacroAssemblerMIPSShared::ma_jump(ImmPtr dest) {
     asMasm().ma_liPatchable(ScratchRegister, dest);
     as_jr(ScratchRegister);
     as_nop();
 }
 
-MacroAssembler&
-MacroAssemblerMIPSShared::asMasm()
-{
-    return *static_cast<MacroAssembler*>(this);
-}
+MacroAssembler& MacroAssemblerMIPSShared::asMasm() { return *static_cast<MacroAssembler*>(this); }
 
-const MacroAssembler&
-MacroAssemblerMIPSShared::asMasm() const
-{
+const MacroAssembler& MacroAssemblerMIPSShared::asMasm() const {
     return *static_cast<const MacroAssembler*>(this);
 }
 
-void
-MacroAssemblerMIPSShared::atomicEffectOpMIPSr2(int nbytes, AtomicOp op,
-                                               const Register& value, const Register& addr,
-                                               Register flagTemp, Register valueTemp,
-                                               Register offsetTemp, Register maskTemp)
-{
-    atomicFetchOpMIPSr2(nbytes, false, op, value, addr, flagTemp,
-                        valueTemp, offsetTemp, maskTemp, InvalidReg);
+void MacroAssemblerMIPSShared::atomicEffectOpMIPSr2(int nbytes, AtomicOp op, const Register& value,
+                                                    const Register& addr, Register flagTemp,
+                                                    Register valueTemp, Register offsetTemp,
+                                                    Register maskTemp) {
+    atomicFetchOpMIPSr2(nbytes, false, op, value, addr, flagTemp, valueTemp, offsetTemp, maskTemp,
+                        InvalidReg);
 }
 
-void
-MacroAssemblerMIPSShared::atomicFetchOpMIPSr2(int nbytes, bool signExtend, AtomicOp op, const Register& value,
-                                              const Register& addr, Register flagTemp, Register valueTemp,
-                                              Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicFetchOpMIPSr2(int nbytes, bool signExtend, AtomicOp op,
+                                                   const Register& value, const Register& addr,
+                                                   Register flagTemp, Register valueTemp,
+                                                   Register offsetTemp, Register maskTemp,
+                                                   Register output) {
     Label again;
 
     as_andi(offsetTemp, addr, 3);
@@ -1334,38 +1164,38 @@ MacroAssemblerMIPSShared::atomicFetchOpMIPSr2(int nbytes, bool signExtend, Atomi
         as_srlv(output, output, offsetTemp);
         if (signExtend) {
             switch (nbytes) {
-            case 1:
-                ma_seb(output, output);
-                break;
-            case 2:
-                ma_seh(output, output);
-                break;
-            case 4:
-                break;
-            default:
-                MOZ_CRASH("NYI");
+                case 1:
+                    ma_seb(output, output);
+                    break;
+                case 2:
+                    ma_seh(output, output);
+                    break;
+                case 4:
+                    break;
+                default:
+                    MOZ_CRASH("NYI");
             }
         }
     }
 
     switch (op) {
-    case AtomicFetchAddOp:
-        as_addu(valueTemp, flagTemp, valueTemp);
-        break;
-    case AtomicFetchSubOp:
-        as_subu(valueTemp, flagTemp, valueTemp);
-        break;
-    case AtomicFetchAndOp:
-        as_and(valueTemp, flagTemp, valueTemp);
-        break;
-    case AtomicFetchOrOp:
-        as_or(valueTemp, flagTemp, valueTemp);
-        break;
-    case AtomicFetchXorOp:
-        as_xor(valueTemp, flagTemp, valueTemp);
-        break;
-    default:
-        MOZ_CRASH("NYI");
+        case AtomicFetchAddOp:
+            as_addu(valueTemp, flagTemp, valueTemp);
+            break;
+        case AtomicFetchSubOp:
+            as_subu(valueTemp, flagTemp, valueTemp);
+            break;
+        case AtomicFetchAndOp:
+            as_and(valueTemp, flagTemp, valueTemp);
+            break;
+        case AtomicFetchOrOp:
+            as_or(valueTemp, flagTemp, valueTemp);
+            break;
+        case AtomicFetchXorOp:
+            as_xor(valueTemp, flagTemp, valueTemp);
+            break;
+        default:
+            MOZ_CRASH("NYI");
     }
 
     as_and(valueTemp, valueTemp, maskTemp);
@@ -1380,96 +1210,91 @@ MacroAssemblerMIPSShared::atomicFetchOpMIPSr2(int nbytes, bool signExtend, Atomi
     as_sync(0);
 }
 
-void
-MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Imm32& value,
-                                         const Address& address, Register flagTemp,
-                                         Register valueTemp, Register offsetTemp, Register maskTemp)
-{
+void MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Imm32& value,
+                                              const Address& address, Register flagTemp,
+                                              Register valueTemp, Register offsetTemp,
+                                              Register maskTemp) {
     ma_li(SecondScratchReg, value);
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicEffectOpMIPSr2(nbytes, op, SecondScratchReg, ScratchRegister,
-                         flagTemp, valueTemp, offsetTemp, maskTemp);
+    atomicEffectOpMIPSr2(nbytes, op, SecondScratchReg, ScratchRegister, flagTemp, valueTemp,
+                         offsetTemp, maskTemp);
 }
 
-void
-MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Imm32& value,
-                                         const BaseIndex& address, Register flagTemp,
-                                         Register valueTemp, Register offsetTemp, Register maskTemp)
-{
+void MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Imm32& value,
+                                              const BaseIndex& address, Register flagTemp,
+                                              Register valueTemp, Register offsetTemp,
+                                              Register maskTemp) {
     ma_li(SecondScratchReg, value);
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicEffectOpMIPSr2(nbytes, op, SecondScratchReg, ScratchRegister,
-                         flagTemp, valueTemp, offsetTemp, maskTemp);
+    atomicEffectOpMIPSr2(nbytes, op, SecondScratchReg, ScratchRegister, flagTemp, valueTemp,
+                         offsetTemp, maskTemp);
 }
 
-void
-MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Register& value,
-                                         const Address& address, Register flagTemp,
-                                         Register valueTemp, Register offsetTemp, Register maskTemp)
-{
+void MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Register& value,
+                                              const Address& address, Register flagTemp,
+                                              Register valueTemp, Register offsetTemp,
+                                              Register maskTemp) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicEffectOpMIPSr2(nbytes, op, value, ScratchRegister,
-                         flagTemp, valueTemp, offsetTemp, maskTemp);
+    atomicEffectOpMIPSr2(nbytes, op, value, ScratchRegister, flagTemp, valueTemp, offsetTemp,
+                         maskTemp);
 }
 
-void
-MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Register& value,
-                                         const BaseIndex& address, Register flagTemp,
-                                         Register valueTemp, Register offsetTemp, Register maskTemp)
-{
+void MacroAssemblerMIPSShared::atomicEffectOp(int nbytes, AtomicOp op, const Register& value,
+                                              const BaseIndex& address, Register flagTemp,
+                                              Register valueTemp, Register offsetTemp,
+                                              Register maskTemp) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicEffectOpMIPSr2(nbytes, op, value, ScratchRegister,
-                         flagTemp, valueTemp, offsetTemp, maskTemp);
+    atomicEffectOpMIPSr2(nbytes, op, value, ScratchRegister, flagTemp, valueTemp, offsetTemp,
+                         maskTemp);
 }
 
-void
-MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, const Imm32& value,
-                                        const Address& address, Register flagTemp, Register valueTemp,
-                                        Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op,
+                                             const Imm32& value, const Address& address,
+                                             Register flagTemp, Register valueTemp,
+                                             Register offsetTemp, Register maskTemp,
+                                             Register output) {
     ma_li(SecondScratchReg, value);
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicFetchOpMIPSr2(nbytes, signExtend, op, SecondScratchReg, ScratchRegister,
-                        flagTemp, valueTemp, offsetTemp, maskTemp, output);
+    atomicFetchOpMIPSr2(nbytes, signExtend, op, SecondScratchReg, ScratchRegister, flagTemp,
+                        valueTemp, offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, const Imm32& value,
-                                        const BaseIndex& address, Register flagTemp, Register valueTemp,
-                                        Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op,
+                                             const Imm32& value, const BaseIndex& address,
+                                             Register flagTemp, Register valueTemp,
+                                             Register offsetTemp, Register maskTemp,
+                                             Register output) {
     ma_li(SecondScratchReg, value);
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicFetchOpMIPSr2(nbytes, signExtend, op, SecondScratchReg, ScratchRegister,
-                        flagTemp, valueTemp, offsetTemp, maskTemp, output);
+    atomicFetchOpMIPSr2(nbytes, signExtend, op, SecondScratchReg, ScratchRegister, flagTemp,
+                        valueTemp, offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, const Register& value,
-                                        const Address& address, Register flagTemp, Register valueTemp,
-                                        Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op,
+                                             const Register& value, const Address& address,
+                                             Register flagTemp, Register valueTemp,
+                                             Register offsetTemp, Register maskTemp,
+                                             Register output) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicFetchOpMIPSr2(nbytes, signExtend, op, value, ScratchRegister,
-                        flagTemp, valueTemp, offsetTemp, maskTemp, output);
+    atomicFetchOpMIPSr2(nbytes, signExtend, op, value, ScratchRegister, flagTemp, valueTemp,
+                        offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, const Register& value,
-                                        const BaseIndex& address, Register flagTemp, Register valueTemp,
-                                        Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicFetchOp(int nbytes, bool signExtend, AtomicOp op,
+                                             const Register& value, const BaseIndex& address,
+                                             Register flagTemp, Register valueTemp,
+                                             Register offsetTemp, Register maskTemp,
+                                             Register output) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
-    atomicFetchOpMIPSr2(nbytes, signExtend, op, value, ScratchRegister,
-                        flagTemp, valueTemp, offsetTemp, maskTemp, output);
+    atomicFetchOpMIPSr2(nbytes, signExtend, op, value, ScratchRegister, flagTemp, valueTemp,
+                        offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::compareExchangeMIPSr2(int nbytes, bool signExtend, const Register& addr,
-                                                Register oldval, Register newval, Register flagTemp,
-                                                Register valueTemp, Register offsetTemp, Register maskTemp,
-                                                Register output)
-{
+void MacroAssemblerMIPSShared::compareExchangeMIPSr2(int nbytes, bool signExtend,
+                                                     const Register& addr, Register oldval,
+                                                     Register newval, Register flagTemp,
+                                                     Register valueTemp, Register offsetTemp,
+                                                     Register maskTemp, Register output) {
     Label again, end;
 
     as_andi(offsetTemp, addr, 3);
@@ -1509,55 +1334,52 @@ MacroAssemblerMIPSShared::compareExchangeMIPSr2(int nbytes, bool signExtend, con
     as_srlv(output, output, offsetTemp);
     if (signExtend) {
         switch (nbytes) {
-        case 1:
-            ma_seb(output, output);
-            break;
-        case 2:
-            ma_seh(output, output);
-            break;
-        case 4:
-            break;
-        default:
-            MOZ_CRASH("NYI");
+            case 1:
+                ma_seb(output, output);
+                break;
+            case 2:
+                ma_seh(output, output);
+                break;
+            case 4:
+                break;
+            default:
+                MOZ_CRASH("NYI");
         }
     }
 }
 
-void
-MacroAssemblerMIPSShared::compareExchange(int nbytes, bool signExtend, const Address& address,
-                                          Register oldval, Register newval, Register valueTemp,
-                                          Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::compareExchange(int nbytes, bool signExtend, const Address& address,
+                                               Register oldval, Register newval,
+                                               Register valueTemp, Register offsetTemp,
+                                               Register maskTemp, Register output) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
     compareExchangeMIPSr2(nbytes, signExtend, ScratchRegister, oldval, newval, SecondScratchReg,
                           valueTemp, offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::compareExchange(int nbytes, bool signExtend, const BaseIndex& address,
-                                          Register oldval, Register newval, Register valueTemp,
-                                          Register offsetTemp, Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::compareExchange(int nbytes, bool signExtend,
+                                               const BaseIndex& address, Register oldval,
+                                               Register newval, Register valueTemp,
+                                               Register offsetTemp, Register maskTemp,
+                                               Register output) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
     compareExchangeMIPSr2(nbytes, signExtend, ScratchRegister, oldval, newval, SecondScratchReg,
                           valueTemp, offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::atomicExchange(int nbytes, bool signExtend, const Address& address,
-                                         Register value, Register valueTemp, Register offsetTemp,
-                                         Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicExchange(int nbytes, bool signExtend, const Address& address,
+                                              Register value, Register valueTemp,
+                                              Register offsetTemp, Register maskTemp,
+                                              Register output) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
     compareExchangeMIPSr2(nbytes, signExtend, ScratchRegister, InvalidReg, value, SecondScratchReg,
                           valueTemp, offsetTemp, maskTemp, output);
 }
 
-void
-MacroAssemblerMIPSShared::atomicExchange(int nbytes, bool signExtend, const BaseIndex& address,
-                                         Register value, Register valueTemp, Register offsetTemp,
-                                         Register maskTemp, Register output)
-{
+void MacroAssemblerMIPSShared::atomicExchange(int nbytes, bool signExtend,
+                                              const BaseIndex& address, Register value,
+                                              Register valueTemp, Register offsetTemp,
+                                              Register maskTemp, Register output) {
     asMasm().computeEffectiveAddress(address, ScratchRegister);
     compareExchangeMIPSr2(nbytes, signExtend, ScratchRegister, InvalidReg, value, SecondScratchReg,
                           valueTemp, offsetTemp, maskTemp, output);
@@ -1567,108 +1389,76 @@ MacroAssemblerMIPSShared::atomicExchange(int nbytes, bool signExtend, const Base
 // ===============================================================
 // MacroAssembler high-level usage.
 
-void
-MacroAssembler::flush()
-{
-}
+void MacroAssembler::flush() {}
 
 // ===============================================================
 // Stack manipulation functions.
 
-void
-MacroAssembler::Push(Register reg)
-{
+void MacroAssembler::Push(Register reg) {
     ma_push(reg);
     adjustFrame(int32_t(sizeof(intptr_t)));
 }
 
-void
-MacroAssembler::Push(const Imm32 imm)
-{
+void MacroAssembler::Push(const Imm32 imm) {
     ma_li(ScratchRegister, imm);
     ma_push(ScratchRegister);
     adjustFrame(int32_t(sizeof(intptr_t)));
 }
 
-void
-MacroAssembler::Push(const ImmWord imm)
-{
+void MacroAssembler::Push(const ImmWord imm) {
     ma_li(ScratchRegister, imm);
     ma_push(ScratchRegister);
     adjustFrame(int32_t(sizeof(intptr_t)));
 }
 
-void
-MacroAssembler::Push(const ImmPtr imm)
-{
-    Push(ImmWord(uintptr_t(imm.value)));
-}
+void MacroAssembler::Push(const ImmPtr imm) { Push(ImmWord(uintptr_t(imm.value))); }
 
-void
-MacroAssembler::Push(const ImmGCPtr ptr)
-{
+void MacroAssembler::Push(const ImmGCPtr ptr) {
     ma_li(ScratchRegister, ptr);
     ma_push(ScratchRegister);
     adjustFrame(int32_t(sizeof(intptr_t)));
 }
 
-void
-MacroAssembler::Push(FloatRegister f)
-{
+void MacroAssembler::Push(FloatRegister f) {
     ma_push(f);
     adjustFrame(int32_t(sizeof(double)));
 }
 
-void
-MacroAssembler::Pop(Register reg)
-{
+void MacroAssembler::Pop(Register reg) {
     ma_pop(reg);
     adjustFrame(-int32_t(sizeof(intptr_t)));
 }
 
-void
-MacroAssembler::Pop(FloatRegister f)
-{
+void MacroAssembler::Pop(FloatRegister f) {
     ma_pop(f);
     adjustFrame(-int32_t(sizeof(double)));
 }
 
-void
-MacroAssembler::Pop(const ValueOperand& val)
-{
+void MacroAssembler::Pop(const ValueOperand& val) {
     popValue(val);
     framePushed_ -= sizeof(Value);
 }
 
-void
-MacroAssembler::PopStackPtr()
-{
+void MacroAssembler::PopStackPtr() {
     loadPtr(Address(StackPointer, 0), StackPointer);
     framePushed_ -= sizeof(intptr_t);
 }
 
-
 // ===============================================================
 // Simple call functions.
 
-CodeOffset
-MacroAssembler::call(Register reg)
-{
+CodeOffset MacroAssembler::call(Register reg) {
     as_jalr(reg);
     as_nop();
     return CodeOffset(currentOffset());
 }
 
-CodeOffset
-MacroAssembler::call(Label* label)
-{
+CodeOffset MacroAssembler::call(Label* label) {
     ma_bal(label);
     return CodeOffset(currentOffset());
 }
 
-CodeOffset
-MacroAssembler::callWithPatch()
-{
+CodeOffset MacroAssembler::callWithPatch() {
     as_bal(BOffImm16(3 * sizeof(uint32_t)));
     addPtr(Imm32(5 * sizeof(uint32_t)), ra);
     // Allocate space which will be patched by patchCall().
@@ -1681,9 +1471,7 @@ MacroAssembler::callWithPatch()
     return CodeOffset(currentOffset());
 }
 
-void
-MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset)
-{
+void MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset) {
     BufferOffset call(callerOffset - 7 * sizeof(uint32_t));
 
     BOffImm16 offset = BufferOffset(calleeOffset).diffB<BOffImm16>(call);
@@ -1697,9 +1485,7 @@ MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset)
     }
 }
 
-CodeOffset
-MacroAssembler::farJumpWithPatch()
-{
+CodeOffset MacroAssembler::farJumpWithPatch() {
     ma_move(SecondScratchReg, ra);
     as_bal(BOffImm16(3 * sizeof(uint32_t)));
     as_lw(ScratchRegister, ra, 0);
@@ -1713,116 +1499,72 @@ MacroAssembler::farJumpWithPatch()
     return farJump;
 }
 
-void
-MacroAssembler::patchFarJump(CodeOffset farJump, uint32_t targetOffset)
-{
+void MacroAssembler::patchFarJump(CodeOffset farJump, uint32_t targetOffset) {
     uint32_t* u32 = reinterpret_cast<uint32_t*>(editSrc(BufferOffset(farJump.offset())));
     MOZ_ASSERT(*u32 == UINT32_MAX);
     *u32 = targetOffset - farJump.offset();
 }
 
-void
-MacroAssembler::repatchFarJump(uint8_t* code, uint32_t farJumpOffset, uint32_t targetOffset)
-{
+void MacroAssembler::repatchFarJump(uint8_t* code, uint32_t farJumpOffset, uint32_t targetOffset) {
     uint32_t* u32 = reinterpret_cast<uint32_t*>(code + farJumpOffset);
     *u32 = targetOffset - farJumpOffset;
 }
 
-CodeOffset
-MacroAssembler::nopPatchableToNearJump()
-{
+CodeOffset MacroAssembler::nopPatchableToNearJump() {
     CodeOffset offset(currentOffset());
     as_nop();
     as_nop();
     return offset;
 }
 
-void
-MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target)
-{
+void MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target) {
     new (jump) InstImm(op_beq, zero, zero, BOffImm16(target - jump));
 }
 
-void
-MacroAssembler::patchNearJumpToNop(uint8_t* jump)
-{
-    new (jump) InstNOP();
-}
+void MacroAssembler::patchNearJumpToNop(uint8_t* jump) { new (jump) InstNOP(); }
 
-void
-MacroAssembler::call(wasm::SymbolicAddress target)
-{
+void MacroAssembler::call(wasm::SymbolicAddress target) {
     movePtr(target, CallReg);
     call(CallReg);
 }
 
-void
-MacroAssembler::call(const Address& addr)
-{
+void MacroAssembler::call(const Address& addr) {
     loadPtr(addr, CallReg);
     call(CallReg);
 }
 
-void
-MacroAssembler::call(ImmWord target)
-{
-    call(ImmPtr((void*)target.value));
-}
+void MacroAssembler::call(ImmWord target) { call(ImmPtr((void*)target.value)); }
 
-void
-MacroAssembler::call(ImmPtr target)
-{
+void MacroAssembler::call(ImmPtr target) {
     BufferOffset bo = m_buffer.nextOffset();
     addPendingJump(bo, target, Relocation::HARDCODED);
     ma_call(target);
 }
 
-void
-MacroAssembler::call(JitCode* c)
-{
+void MacroAssembler::call(JitCode* c) {
     BufferOffset bo = m_buffer.nextOffset();
     addPendingJump(bo, ImmPtr(c->raw()), Relocation::JITCODE);
     ma_liPatchable(ScratchRegister, ImmPtr(c->raw()));
     callJitNoProfiler(ScratchRegister);
 }
 
-CodeOffset
-MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc)
-{
+CodeOffset MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc) {
     MOZ_CRASH("NYI");
     return CodeOffset();
 }
 
-void
-MacroAssembler::patchNopToCall(uint8_t* call, uint8_t* target)
-{
-    MOZ_CRASH("NYI");
-}
+void MacroAssembler::patchNopToCall(uint8_t* call, uint8_t* target) { MOZ_CRASH("NYI"); }
 
-void
-MacroAssembler::patchCallToNop(uint8_t* call)
-{
-    MOZ_CRASH("NYI");
-}
+void MacroAssembler::patchCallToNop(uint8_t* call) { MOZ_CRASH("NYI"); }
 
-void
-MacroAssembler::pushReturnAddress()
-{
-    push(ra);
-}
+void MacroAssembler::pushReturnAddress() { push(ra); }
 
-void
-MacroAssembler::popReturnAddress()
-{
-    pop(ra);
-}
+void MacroAssembler::popReturnAddress() { pop(ra); }
 
 // ===============================================================
 // Jit Frames.
 
-uint32_t
-MacroAssembler::pushFakeReturnAddress(Register scratch)
-{
+uint32_t MacroAssembler::pushFakeReturnAddress(Register scratch) {
     CodeLabel cl;
 
     ma_li(scratch, cl.patchAt());
@@ -1834,10 +1576,8 @@ MacroAssembler::pushFakeReturnAddress(Register scratch)
     return retAddr;
 }
 
-void
-MacroAssembler::branchPtrInNurseryChunk(Condition cond, Register ptr, Register temp,
-                                        Label* label)
-{
+void MacroAssembler::branchPtrInNurseryChunk(Condition cond, Register ptr, Register temp,
+                                             Label* label) {
     MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
     MOZ_ASSERT(ptr != temp);
     MOZ_ASSERT(ptr != SecondScratchReg);
@@ -1848,16 +1588,10 @@ MacroAssembler::branchPtrInNurseryChunk(Condition cond, Register ptr, Register t
              Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
 }
 
-void
-MacroAssembler::comment(const char* msg)
-{
-    Assembler::comment(msg);
-}
+void MacroAssembler::comment(const char* msg) { Assembler::comment(msg); }
 
-
-void
-MacroAssembler::wasmTruncateDoubleToInt32(FloatRegister input, Register output, Label* oolEntry)
-{
+void MacroAssembler::wasmTruncateDoubleToInt32(FloatRegister input, Register output,
+                                               Label* oolEntry) {
     as_truncwd(ScratchFloat32Reg, input);
     as_cfc1(ScratchRegister, Assembler::FCSR);
     moveFromFloat32(ScratchFloat32Reg, output);
@@ -1865,10 +1599,8 @@ MacroAssembler::wasmTruncateDoubleToInt32(FloatRegister input, Register output, 
     ma_b(ScratchRegister, Imm32(0), oolEntry, Assembler::NotEqual);
 }
 
-
-void
-MacroAssembler::wasmTruncateFloat32ToInt32(FloatRegister input, Register output, Label* oolEntry)
-{
+void MacroAssembler::wasmTruncateFloat32ToInt32(FloatRegister input, Register output,
+                                                Label* oolEntry) {
     as_truncws(ScratchFloat32Reg, input);
     as_cfc1(ScratchRegister, Assembler::FCSR);
     moveFromFloat32(ScratchFloat32Reg, output);

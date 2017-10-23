@@ -14,9 +14,10 @@ namespace dom {
 CommandEvent::CommandEvent(EventTarget* aOwner,
                            nsPresContext* aPresContext,
                            WidgetCommandEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent :
-                   new WidgetCommandEvent(false, nullptr, nullptr, nullptr))
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent
+                   : new WidgetCommandEvent(false, nullptr, nullptr, nullptr))
 {
   mEvent->mTime = PR_Now();
   if (aEvent) {
@@ -59,8 +60,8 @@ CommandEvent::InitCommandEvent(const nsAString& aTypeArg,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -70,7 +71,6 @@ NS_NewDOMCommandEvent(EventTarget* aOwner,
                       nsPresContext* aPresContext,
                       WidgetCommandEvent* aEvent)
 {
-  RefPtr<CommandEvent> it =
-    new CommandEvent(aOwner, aPresContext, aEvent);
+  RefPtr<CommandEvent> it = new CommandEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

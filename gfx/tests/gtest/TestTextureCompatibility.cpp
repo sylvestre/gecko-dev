@@ -39,11 +39,11 @@ CreateTextureWithBackend(LayersBackend& aLayersBackend,
   aTextureClients.AppendElement(CreateTextureClientWithBackend(aLayersBackend));
 
   aTextureClients.AppendElement(
-    CreateYCbCrTextureClientWithBackend(aLayersBackend));
+      CreateYCbCrTextureClientWithBackend(aLayersBackend));
 
   for (uint32_t i = 0; i < aTextureClients.Length(); i++) {
     aTextureHosts.AppendElement(
-      CreateTextureHostWithBackend(aTextureClients[i], aLayersBackend));
+        CreateTextureHostWithBackend(aTextureClients[i], aLayersBackend));
   }
 }
 
@@ -55,7 +55,7 @@ static void
 GetPlatformBackends(nsTArray<LayersBackend>& aBackends)
 {
   gfxPlatform::GetPlatform()->GetCompositorBackends(
-    gfxConfig::IsEnabled(Feature::HW_COMPOSITING), aBackends);
+      gfxConfig::IsEnabled(Feature::HW_COMPOSITING), aBackends);
 
   if (aBackends.IsEmpty()) {
     aBackends.AppendElement(LayersBackend::LAYERS_BASIC);
@@ -72,9 +72,9 @@ CreateBasicCompositor()
   // Init the platform.
   if (gfxPlatform::GetPlatform()) {
     RefPtr<MockWidget> widget = new MockWidget(256, 256);
-   CompositorOptions options;
-    RefPtr<CompositorWidget> proxy
-      = new InProcessCompositorWidget(options, widget);
+    CompositorOptions options;
+    RefPtr<CompositorWidget> proxy =
+        new InProcessCompositorWidget(options, widget);
     compositor = new BasicCompositor(nullptr, proxy);
   }
   return compositor.forget();

@@ -13,19 +13,22 @@
 
 #define NS_SPELLCHECKER_CONTRACTID "@mozilla.org/spellchecker;1"
 
-#define NS_ISPELLCHECKER_IID                    \
-{ /* 27bff957-b486-40ae-9f5d-af0cdd211868 */    \
-0x27bff957, 0xb486, 0x40ae, \
-  { 0x9f, 0x5d, 0xaf, 0x0c, 0xdd, 0x21, 0x18, 0x68 } }
+#define NS_ISPELLCHECKER_IID                         \
+  { /* 27bff957-b486-40ae-9f5d-af0cdd211868 */       \
+    0x27bff957, 0xb486, 0x40ae,                      \
+    {                                                \
+      0x9f, 0x5d, 0xaf, 0x0c, 0xdd, 0x21, 0x18, 0x68 \
+    }                                                \
+  }
 
 class nsITextServicesDocument;
 
 /**
  * A generic interface for a spelling checker.
  */
-class nsISpellChecker  : public nsISupports{
-public:
-
+class nsISpellChecker : public nsISupports
+{
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ISPELLCHECKER_IID)
 
   /**
@@ -34,7 +37,8 @@ public:
    * @param aFromStartOfDoc If true, start check from beginning of document,
    * if false, start check from current cursor position.
    */
-  NS_IMETHOD SetDocument(nsITextServicesDocument *aDoc, bool aFromStartofDoc) = 0;
+  NS_IMETHOD SetDocument(nsITextServicesDocument* aDoc,
+                         bool aFromStartofDoc) = 0;
 
   /**
    * Selects (hilites) the next misspelled word in the document.
@@ -42,7 +46,8 @@ public:
    * @param aSuggestions is an array of nsStrings, that represent the
    * suggested replacements for the misspelled word.
    */
-  NS_IMETHOD NextMisspelledWord(nsAString &aWord, nsTArray<nsString> *aSuggestions) = 0;
+  NS_IMETHOD NextMisspelledWord(nsAString& aWord,
+                                nsTArray<nsString>* aSuggestions) = 0;
 
   /**
    * Checks if a word is misspelled. No document is required to use this method.
@@ -52,7 +57,9 @@ public:
    * suggested replacements for the misspelled word. The array will be empty
    * if there aren't any suggestions.
    */
-  NS_IMETHOD CheckWord(const nsAString &aWord, bool *aIsMisspelled, nsTArray<nsString> *aSuggestions) = 0;
+  NS_IMETHOD CheckWord(const nsAString& aWord,
+                       bool* aIsMisspelled,
+                       nsTArray<nsString>* aSuggestions) = 0;
 
   /**
    * Replaces the old word with the specified new word.
@@ -62,32 +69,34 @@ public:
    * word, in the document, with new word when it is true. If
    * false, it will replace the 1st occurrence only!
    */
-  NS_IMETHOD Replace(const nsAString &aOldWord, const nsAString &aNewWord, bool aAllOccurrences) = 0;
+  NS_IMETHOD Replace(const nsAString& aOldWord,
+                     const nsAString& aNewWord,
+                     bool aAllOccurrences) = 0;
 
   /**
    * Ignores all occurrences of the specified word in the document.
    * @param aWord is the word to ignore.
    */
-  NS_IMETHOD IgnoreAll(const nsAString &aWord) = 0;
+  NS_IMETHOD IgnoreAll(const nsAString& aWord) = 0;
 
   /**
    * Add a word to the user's personal dictionary.
    * @param aWord is the word to add.
    */
-  NS_IMETHOD AddWordToPersonalDictionary(const nsAString &aWord) = 0;
+  NS_IMETHOD AddWordToPersonalDictionary(const nsAString& aWord) = 0;
 
   /**
    * Remove a word from the user's personal dictionary.
    * @param aWord is the word to remove.
    */
-  NS_IMETHOD RemoveWordFromPersonalDictionary(const nsAString &aWord) = 0;
+  NS_IMETHOD RemoveWordFromPersonalDictionary(const nsAString& aWord) = 0;
 
   /**
    * Returns the list of words in the user's personal dictionary.
    * @param aWordList is an array of nsStrings that represent the
    * list of words in the user's personal dictionary.
    */
-  NS_IMETHOD GetPersonalDictionary(nsTArray<nsString> *aWordList) = 0;
+  NS_IMETHOD GetPersonalDictionary(nsTArray<nsString>* aWordList) = 0;
 
   /**
    * Returns the list of strings representing the dictionaries
@@ -98,7 +107,7 @@ public:
    * @param aDictionaryList is an array of nsStrings that represent the
    * dictionaries supported by the spellchecker.
    */
-  NS_IMETHOD GetDictionaryList(nsTArray<nsString> *aDictionaryList) = 0;
+  NS_IMETHOD GetDictionaryList(nsTArray<nsString>* aDictionaryList) = 0;
 
   /**
    * Returns a string representing the current dictionary.
@@ -106,7 +115,7 @@ public:
    * This name is the same string that is in the list returned
    * by GetDictionaryList().
    */
-  NS_IMETHOD GetCurrentDictionary(nsAString &aDictionary) = 0;
+  NS_IMETHOD GetCurrentDictionary(nsAString& aDictionary) = 0;
 
   /**
    * Tells the spellchecker to use a specific dictionary.
@@ -114,17 +123,16 @@ public:
    * by GetDictionaryList() or an empty string. If aDictionary is
    * empty string, spellchecker will be disabled.
    */
-  NS_IMETHOD SetCurrentDictionary(const nsAString &aDictionary) = 0;
+  NS_IMETHOD SetCurrentDictionary(const nsAString& aDictionary) = 0;
 
   /**
    * Tells the spellchecker to use a specific dictionary from list.
    * @param aList  a preferred dictionary list
    */
   NS_IMETHOD_(RefPtr<mozilla::GenericPromise>)
-    SetCurrentDictionaryFromList(const nsTArray<nsString>& aList) = 0;
+  SetCurrentDictionaryFromList(const nsTArray<nsString>& aList) = 0;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsISpellChecker, NS_ISPELLCHECKER_IID)
 
-#endif // nsISpellChecker_h__
-
+#endif  // nsISpellChecker_h__

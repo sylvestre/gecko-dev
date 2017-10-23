@@ -19,11 +19,10 @@
  * NOTE: This class is a private implementation detail and should never be
  * referenced outside the string code.
  */
-template <typename T>
+template<typename T>
 class nsTSubstringTuple
 {
-public:
-
+ public:
   typedef T char_type;
   typedef nsCharTraits<char_type> char_traits;
 
@@ -31,21 +30,18 @@ public:
   typedef mozilla::detail::nsTStringRepr<char_type> base_string_type;
   typedef uint32_t size_type;
 
-public:
-
+ public:
   nsTSubstringTuple(const base_string_type* aStrA,
                     const base_string_type* aStrB)
-    : mHead(nullptr)
-    , mFragA(aStrA)
-    , mFragB(aStrB)
+      : mHead(nullptr), mFragA(aStrA), mFragB(aStrB)
   {
   }
 
-  nsTSubstringTuple(const self_type& aHead,
-                    const base_string_type* aStrB)
-    : mHead(&aHead)
-    , mFragA(nullptr) // this fragment is ignored when aHead != nullptr
-    , mFragB(aStrB)
+  nsTSubstringTuple(const self_type& aHead, const base_string_type* aStrB)
+      : mHead(&aHead),
+        mFragA(nullptr)  // this fragment is ignored when aHead != nullptr
+        ,
+        mFragB(aStrB)
   {
   }
 
@@ -67,14 +63,13 @@ public:
    */
   bool IsDependentOn(const char_type* aStart, const char_type* aEnd) const;
 
-private:
-
-  const self_type*        const mHead;
+ private:
+  const self_type* const mHead;
   const base_string_type* const mFragA;
   const base_string_type* const mFragB;
 };
 
-template <typename T>
+template<typename T>
 inline const nsTSubstringTuple<T>
 operator+(const mozilla::detail::nsTStringRepr<T>& aStrA,
           const mozilla::detail::nsTStringRepr<T>& aStrB)
@@ -82,7 +77,7 @@ operator+(const mozilla::detail::nsTStringRepr<T>& aStrA,
   return nsTSubstringTuple<T>(&aStrA, &aStrB);
 }
 
-template <typename T>
+template<typename T>
 inline const nsTSubstringTuple<T>
 operator+(const nsTSubstringTuple<T>& aHead,
           const mozilla::detail::nsTStringRepr<T>& aStrB)

@@ -40,8 +40,7 @@ typedef Vector<const CodeSegment*, 0, SystemAllocPolicy> CodeSegmentVector;
 
 Atomic<bool> wasm::CodeExists(false);
 
-class ProcessCodeSegmentMap
-{
+class ProcessCodeSegmentMap {
     // Since writes (insertions or removals) can happen on any background
     // thread at the same time, we need a lock here.
 
@@ -68,15 +67,12 @@ class ProcessCodeSegmentMap
     CodeSegmentVector* mutableCodeSegments_;
     Atomic<const CodeSegmentVector*> readonlyCodeSegments_;
 
-    struct CodeSegmentPC
-    {
+    struct CodeSegmentPC {
         const void* pc;
         explicit CodeSegmentPC(const void* pc) : pc(pc) {}
         int operator()(const CodeSegment* cs) const {
-            if (cs->containsCodePC(pc))
-                return 0;
-            if (pc < cs->base())
-                return -1;
+            if (cs->containsCodePC(pc)) return 0;
+            if (pc < cs->base()) return -1;
             return 1;
         }
     };
@@ -91,9 +87,8 @@ class ProcessCodeSegmentMap
         // soon-to-become-former read-only pointer is used during the lookup,
         // which is valid.
 
-        mutableCodeSegments_ = const_cast<CodeSegmentVector*>(
-            readonlyCodeSegments_.exchange(mutableCodeSegments_)
-        );
+        mutableCodeSegments_ =
+            const_cast<CodeSegmentVector*>(readonlyCodeSegments_.exchange(mutableCodeSegments_));
 
         // If a lookup happens after this instruction, then the updated vector
         // is used, which is valid:
@@ -108,20 +103,18 @@ class ProcessCodeSegmentMap
         // A lookup could have happened on any of the two vectors. Wait for
         // observers to be done using any vector before mutating.
 
-        while (observers_);
+        while (observers_)
+            ;
     }
 
-  public:
+   public:
     ProcessCodeSegmentMap()
-      : mutatorsMutex_(mutexid::WasmCodeSegmentMap),
-        observers_(0),
-        mutableCodeSegments_(&segments1_),
-        readonlyCodeSegments_(&segments2_)
-    {
-    }
+        : mutatorsMutex_(mutexid::WasmCodeSegmentMap),
+          observers_(0),
+          mutableCodeSegments_(&segments1_),
+          readonlyCodeSegments_(&segments2_) {}
 
-    ~ProcessCodeSegmentMap()
-    {
+    ~ProcessCodeSegmentMap() {
         MOZ_ASSERT(segments1_.empty());
         MOZ_ASSERT(segments2_.empty());
     }
@@ -133,8 +126,7 @@ class ProcessCodeSegmentMap
         MOZ_ALWAYS_FALSE(BinarySearchIf(*mutableCodeSegments_, 0, mutableCodeSegments_->length(),
                                         CodeSegmentPC(cs->base()), &index));
 
-        if (!mutableCodeSegments_->insert(mutableCodeSegments_->begin() + index, cs))
-            return false;
+        if (!mutableCodeSegments_->insert(mutableCodeSegments_->begin() + index, cs)) return false;
 
         CodeExists = true;
 
@@ -167,8 +159,7 @@ class ProcessCodeSegmentMap
 
         mutableCodeSegments_->erase(mutableCodeSegments_->begin() + index);
 
-        if (!mutableCodeSegments_->length())
-            CodeExists = false;
+        if (!mutableCodeSegments_->length()) CodeExists = false;
 
         swapAndWait();
 
@@ -183,9 +174,7 @@ class ProcessCodeSegmentMap
     }
 
     const CodeSegment* lookup(const void* pc) {
-        auto decObserver = mozilla::MakeScopeExit([&] {
-            observers_--;
-        });
+        auto decObserver = mozilla::MakeScopeExit([&] { observers_--; });
         observers_++;
 
         // Once atomically-read, the readonly vector is valid as long as
@@ -206,27 +195,15 @@ class ProcessCodeSegmentMap
 
 static ProcessCodeSegmentMap processCodeSegmentMap;
 
-bool
-wasm::RegisterCodeSegment(const CodeSegment* cs)
-{
-    return processCodeSegmentMap.insert(cs);
-}
+bool wasm::RegisterCodeSegment(const CodeSegment* cs) { return processCodeSegmentMap.insert(cs); }
 
-void
-wasm::UnregisterCodeSegment(const CodeSegment* cs)
-{
-    processCodeSegmentMap.remove(cs);
-}
+void wasm::UnregisterCodeSegment(const CodeSegment* cs) { processCodeSegmentMap.remove(cs); }
 
-const CodeSegment*
-wasm::LookupCodeSegment(const void* pc)
-{
+const CodeSegment* wasm::LookupCodeSegment(const void* pc) {
     return processCodeSegmentMap.lookup(pc);
 }
 
-const Code*
-wasm::LookupCode(const void* pc)
-{
+const Code* wasm::LookupCode(const void* pc) {
     const CodeSegment* found = LookupCodeSegment(pc);
     return found ? found->code() : nullptr;
 }

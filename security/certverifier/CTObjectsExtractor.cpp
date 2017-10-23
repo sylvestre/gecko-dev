@@ -16,7 +16,8 @@
 #include "pkix/pkixnss.h"
 #include "pkixutil.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 using namespace mozilla::pkix;
 
@@ -28,30 +29,23 @@ using namespace mozilla::pkix;
 // the final data.
 class Output
 {
-public:
+ public:
   Output(uint8_t* buffer, size_t length)
-    : begin(buffer)
-    , end(buffer + length)
-    , current(buffer, begin, end)
-    , overflowed(false)
+      : begin(buffer),
+        end(buffer + length),
+        current(buffer, begin, end),
+        overflowed(false)
   {
   }
 
-  template <size_t N>
-  explicit Output(uint8_t (&buffer)[N])
-    : Output(buffer, N)
+  template<size_t N>
+  explicit Output(uint8_t (&buffer)[N]) : Output(buffer, N)
   {
   }
 
-  void Write(Input data)
-  {
-    Write(data.UnsafeGetData(), data.GetLength());
-  }
+  void Write(Input data) { Write(data.UnsafeGetData(), data.GetLength()); }
 
-  void Write(uint8_t b)
-  {
-    Write(&b, 1);
-  }
+  void Write(uint8_t b) { Write(&b, 1); }
 
   bool IsOverflowed() const { return overflowed; }
 
@@ -64,7 +58,7 @@ public:
     return input.Init(begin, length);
   }
 
-private:
+ private:
   uint8_t* begin;
   uint8_t* end;
   RangedPtr<uint8_t> current;
@@ -113,13 +107,12 @@ private:
 // python DottedOIDToCode.py id-embeddedSctList 1.3.6.1.4.1.11129.2.4.2
 // See Section 3.3 of RFC 6962.
 static const uint8_t EMBEDDED_SCT_LIST_OID[] = {
-  0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79, 0x02, 0x04, 0x02
-};
+    0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79, 0x02, 0x04, 0x02};
 // Maximum length of DER TLV header
 static const size_t MAX_TLV_HEADER_LENGTH = 4;
 // DER tag of the "extensions [3]" field from TBSCertificate
 static const uint8_t EXTENSIONS_CONTEXT_TAG =
-  der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 3;
+    der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 3;
 
 // Given a leaf certificate, extracts the DER-encoded TBSCertificate component
 // of the corresponding Precertificate.
@@ -130,13 +123,12 @@ static const uint8_t EXTENSIONS_CONTEXT_TAG =
 // See WriteOutput for more details on the parts involved.
 class PrecertTBSExtractor
 {
-public:
+ public:
   // |buffer| is the buffer to be used for writing the output. Since the
   // required buffer size is not generally known in advance, it's best
   // to use at least the size of the input certificate DER.
   PrecertTBSExtractor(Input der, uint8_t* buffer, size_t bufferLength)
-    : mDER(der)
-    , mOutput(buffer, bufferLength)
+      : mDER(der), mOutput(buffer, bufferLength)
   {
   }
 
@@ -164,17 +156,14 @@ public:
 
   // Use to retrieve the result after a successful call to Init.
   // The returned Input points to the buffer supplied in the constructor.
-  Input GetPrecertTBS()
-  {
-    return mPrecertTBS;
-  }
+  Input GetPrecertTBS() { return mPrecertTBS; }
 
-private:
+ private:
   Result GetTBSCertificate(Reader& tbsReader)
   {
     Reader certificateReader;
-    Result rv = der::ExpectTagAndGetValueAtEnd(mDER, der::SEQUENCE,
-                                               certificateReader);
+    Result rv =
+        der::ExpectTagAndGetValueAtEnd(mDER, der::SEQUENCE, certificateReader);
     if (rv != Success) {
       return rv;
     }
@@ -205,16 +194,15 @@ private:
     }
 
     Reader extensionsContextReader;
-    Result rv = der::ExpectTagAndGetValueAtEnd(tbsReader,
-                                               EXTENSIONS_CONTEXT_TAG,
-                                               extensionsContextReader);
+    Result rv = der::ExpectTagAndGetValueAtEnd(
+        tbsReader, EXTENSIONS_CONTEXT_TAG, extensionsContextReader);
     if (rv != Success) {
       return rv;
     }
 
     Reader extensionsReader;
-    rv = der::ExpectTagAndGetValueAtEnd(extensionsContextReader, der::SEQUENCE,
-                                        extensionsReader);
+    rv = der::ExpectTagAndGetValueAtEnd(
+        extensionsContextReader, der::SEQUENCE, extensionsReader);
     if (rv != Success) {
       return rv;
     }
@@ -222,8 +210,8 @@ private:
     while (!extensionsReader.AtEnd()) {
       Reader::Mark extensionTLVBegin = extensionsReader.GetMark();
       Reader extension;
-      rv = der::ExpectTagAndGetValue(extensionsReader, der::SEQUENCE,
-                                     extension);
+      rv =
+          der::ExpectTagAndGetValue(extensionsReader, der::SEQUENCE, extension);
       if (rv != Success) {
         return rv;
       }
@@ -274,14 +262,15 @@ private:
         extensionsValueLength += extensionTLV.GetLength();
       }
 
-      rv = MakeTLVHeader(der::SEQUENCE, extensionsValueLength,
-                         extensionsHeaderBuffer, extensionsHeader);
+      rv = MakeTLVHeader(der::SEQUENCE,
+                         extensionsValueLength,
+                         extensionsHeaderBuffer,
+                         extensionsHeader);
       if (rv != Success) {
         return rv;
       }
-      Input::size_type extensionsContextLength =
-        AssertedCast<Input::size_type>(extensionsHeader.GetLength() +
-                                       extensionsValueLength);
+      Input::size_type extensionsContextLength = AssertedCast<Input::size_type>(
+          extensionsHeader.GetLength() + extensionsValueLength);
       rv = MakeTLVHeader(EXTENSIONS_CONTEXT_TAG,
                          extensionsContextLength,
                          extensionsContextHeaderBuffer,
@@ -289,11 +278,10 @@ private:
       if (rv != Success) {
         return rv;
       }
-      Input::size_type tbsLength =
-        AssertedCast<Input::size_type>(mTLVsBeforeExtensions.GetLength() +
-                                       extensionsContextHeader.GetLength() +
-                                       extensionsHeader.GetLength() +
-                                       extensionsValueLength);
+      Input::size_type tbsLength = AssertedCast<Input::size_type>(
+          mTLVsBeforeExtensions.GetLength() +
+          extensionsContextHeader.GetLength() + extensionsHeader.GetLength() +
+          extensionsValueLength);
       rv = MakeTLVHeader(der::SEQUENCE, tbsLength, tbsHeaderBuffer, tbsHeader);
       if (rv != Success) {
         return rv;
@@ -309,8 +297,10 @@ private:
     } else {
       uint8_t tbsHeaderBuffer[MAX_TLV_HEADER_LENGTH];
       Input tbsHeader;
-      rv = MakeTLVHeader(der::SEQUENCE, mTLVsBeforeExtensions.GetLength(),
-                         tbsHeaderBuffer, tbsHeader);
+      rv = MakeTLVHeader(der::SEQUENCE,
+                         mTLVsBeforeExtensions.GetLength(),
+                         tbsHeaderBuffer,
+                         tbsHeader);
       if (rv != Success) {
         return rv;
       }
@@ -321,7 +311,8 @@ private:
     return mOutput.GetInput(mPrecertTBS);
   }
 
-  Result MakeTLVHeader(uint8_t tag, size_t length,
+  Result MakeTLVHeader(uint8_t tag,
+                       size_t length,
                        uint8_t (&buffer)[MAX_TLV_HEADER_LENGTH],
                        /*out*/ Input& header)
   {
@@ -350,7 +341,8 @@ private:
 };
 
 Result
-GetPrecertLogEntry(Input leafCertificate, Input issuerSubjectPublicKeyInfo,
+GetPrecertLogEntry(Input leafCertificate,
+                   Input issuerSubjectPublicKeyInfo,
                    LogEntry& output)
 {
   MOZ_ASSERT(leafCertificate.GetLength() > 0);
@@ -362,9 +354,8 @@ GetPrecertLogEntry(Input leafCertificate, Input issuerSubjectPublicKeyInfo,
     return Result::FATAL_ERROR_NO_MEMORY;
   }
 
-  PrecertTBSExtractor extractor(leafCertificate,
-                                precertTBSBuffer.begin(),
-                                precertTBSBuffer.length());
+  PrecertTBSExtractor extractor(
+      leafCertificate, precertTBSBuffer.begin(), precertTBSBuffer.length());
   Result rv = extractor.Init();
   if (rv != Success) {
     return rv;
@@ -379,7 +370,8 @@ GetPrecertLogEntry(Input leafCertificate, Input issuerSubjectPublicKeyInfo,
   if (!output.issuerKeyHash.resizeUninitialized(SHA256_LENGTH)) {
     return Result::FATAL_ERROR_NO_MEMORY;
   }
-  return DigestBufNSS(issuerSubjectPublicKeyInfo, DigestAlgorithm::sha256,
+  return DigestBufNSS(issuerSubjectPublicKeyInfo,
+                      DigestAlgorithm::sha256,
                       output.issuerKeyHash.begin(),
                       output.issuerKeyHash.length());
 }
@@ -393,4 +385,5 @@ GetX509LogEntry(Input leafCertificate, LogEntry& output)
   return InputToBuffer(leafCertificate, output.leafCertificate);
 }
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

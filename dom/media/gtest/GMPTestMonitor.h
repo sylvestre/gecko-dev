@@ -11,11 +11,8 @@
 
 class GMPTestMonitor
 {
-public:
-  GMPTestMonitor()
-    : mFinished(false)
-  {
-  }
+ public:
+  GMPTestMonitor() : mFinished(false) {}
 
   void AwaitFinished()
   {
@@ -24,24 +21,25 @@ public:
     mFinished = false;
   }
 
-private:
+ private:
   void MarkFinished()
   {
     MOZ_ASSERT(NS_IsMainThread());
     mFinished = true;
   }
 
-public:
+ public:
   void SetFinished()
   {
     mozilla::SystemGroup::Dispatch(
-      mozilla::TaskCategory::Other,
-      mozilla::NewNonOwningRunnableMethod(
-        "GMPTestMonitor::MarkFinished", this, &GMPTestMonitor::MarkFinished));
+        mozilla::TaskCategory::Other,
+        mozilla::NewNonOwningRunnableMethod("GMPTestMonitor::MarkFinished",
+                                            this,
+                                            &GMPTestMonitor::MarkFinished));
   }
 
-private:
+ private:
   bool mFinished;
 };
 
-#endif // __GMPTestMonitor_h__
+#endif  // __GMPTestMonitor_h__

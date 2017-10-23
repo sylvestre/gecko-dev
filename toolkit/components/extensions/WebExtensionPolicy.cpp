@@ -21,15 +21,18 @@ using namespace dom;
 
 static const char kProto[] = "moz-extension";
 
-static const char kBackgroundPageHTMLStart[] = "<!DOCTYPE html>\n\
+static const char kBackgroundPageHTMLStart[] =
+    "<!DOCTYPE html>\n\
 <html>\n\
   <head><meta charset=\"utf-8\"></head>\n\
   <body>";
 
-static const char kBackgroundPageHTMLScript[] = "\n\
+static const char kBackgroundPageHTMLScript[] =
+    "\n\
     <script type=\"text/javascript\" src=\"%s\"></script>";
 
-static const char kBackgroundPageHTMLEnd[] = "\n\
+static const char kBackgroundPageHTMLEnd[] =
+    "\n\
   <body>\n\
 </html>";
 
@@ -60,7 +63,6 @@ Proto()
   return sHandler;
 }
 
-
 /*****************************************************************************
  * WebExtensionPolicy
  *****************************************************************************/
@@ -68,18 +70,19 @@ Proto()
 WebExtensionPolicy::WebExtensionPolicy(GlobalObject& aGlobal,
                                        const WebExtensionInit& aInit,
                                        ErrorResult& aRv)
-  : mId(NS_AtomizeMainThread(aInit.mId))
-  , mHostname(aInit.mMozExtensionHostname)
-  , mName(aInit.mName)
-  , mContentSecurityPolicy(aInit.mContentSecurityPolicy)
-  , mLocalizeCallback(aInit.mLocalizeCallback)
-  , mPermissions(new AtomSet(aInit.mPermissions))
-  , mHostPermissions(aInit.mAllowedOrigins)
+    : mId(NS_AtomizeMainThread(aInit.mId)),
+      mHostname(aInit.mMozExtensionHostname),
+      mName(aInit.mName),
+      mContentSecurityPolicy(aInit.mContentSecurityPolicy),
+      mLocalizeCallback(aInit.mLocalizeCallback),
+      mPermissions(new AtomSet(aInit.mPermissions)),
+      mHostPermissions(aInit.mAllowedOrigins)
 {
   mWebAccessiblePaths.AppendElements(aInit.mWebAccessibleResources);
 
   if (!aInit.mBackgroundScripts.IsNull()) {
-    mBackgroundScripts.SetValue().AppendElements(aInit.mBackgroundScripts.Value());
+    mBackgroundScripts.SetValue().AppendElements(
+        aInit.mBackgroundScripts.Value());
   }
 
   if (mContentSecurityPolicy.IsVoid()) {
@@ -89,7 +92,7 @@ WebExtensionPolicy::WebExtensionPolicy(GlobalObject& aGlobal,
   mContentScripts.SetCapacity(aInit.mContentScripts.Length());
   for (const auto& scriptInit : aInit.mContentScripts) {
     RefPtr<WebExtensionContentScript> contentScript =
-      new WebExtensionContentScript(*this, scriptInit, aRv);
+        new WebExtensionContentScript(*this, scriptInit, aRv);
     if (aRv.Failed()) {
       return;
     }
@@ -107,17 +110,17 @@ WebExtensionPolicy::Constructor(GlobalObject& aGlobal,
                                 const WebExtensionInit& aInit,
                                 ErrorResult& aRv)
 {
-  RefPtr<WebExtensionPolicy> policy = new WebExtensionPolicy(aGlobal, aInit, aRv);
+  RefPtr<WebExtensionPolicy> policy =
+      new WebExtensionPolicy(aGlobal, aInit, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
   return policy.forget();
 }
 
-
 /* static */ void
-WebExtensionPolicy::GetActiveExtensions(dom::GlobalObject& aGlobal,
-                                        nsTArray<RefPtr<WebExtensionPolicy>>& aResults)
+WebExtensionPolicy::GetActiveExtensions(
+    dom::GlobalObject& aGlobal, nsTArray<RefPtr<WebExtensionPolicy>>& aResults)
 {
   EPS().GetAll(aResults);
 }
@@ -129,7 +132,8 @@ WebExtensionPolicy::GetByID(dom::GlobalObject& aGlobal, const nsAString& aID)
 }
 
 /* static */ already_AddRefed<WebExtensionPolicy>
-WebExtensionPolicy::GetByHostname(dom::GlobalObject& aGlobal, const nsACString& aHostname)
+WebExtensionPolicy::GetByHostname(dom::GlobalObject& aGlobal,
+                                  const nsACString& aHostname)
 {
   return do_AddRef(EPS().GetByHost(aHostname));
 }
@@ -139,7 +143,6 @@ WebExtensionPolicy::GetByURI(dom::GlobalObject& aGlobal, nsIURI* aURI)
 {
   return do_AddRef(EPS().GetByURL(aURI));
 }
-
 
 void
 WebExtensionPolicy::SetActive(bool aActive, ErrorResult& aRv)
@@ -253,7 +256,6 @@ WebExtensionPolicy::Localize(const nsAString& aInput, nsString& aOutput) const
   mLocalizeCallback->Call(aInput, aOutput);
 }
 
-
 JSObject*
 WebExtensionPolicy::WrapObject(JSContext* aCx, JS::HandleObject aGivenProto)
 {
@@ -261,13 +263,14 @@ WebExtensionPolicy::WrapObject(JSContext* aCx, JS::HandleObject aGivenProto)
 }
 
 void
-WebExtensionPolicy::GetContentScripts(nsTArray<RefPtr<WebExtensionContentScript>>& aScripts) const
+WebExtensionPolicy::GetContentScripts(
+    nsTArray<RefPtr<WebExtensionContentScript>>& aScripts) const
 {
   aScripts.AppendElements(mContentScripts);
 }
 
-
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebExtensionPolicy, mParent,
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebExtensionPolicy,
+                                      mParent,
                                       mLocalizeCallback,
                                       mHostPermissions,
                                       mWebAccessiblePaths,
@@ -281,7 +284,6 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WebExtensionPolicy)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebExtensionPolicy)
 
-
 /*****************************************************************************
  * WebExtensionContentScript
  *****************************************************************************/
@@ -292,25 +294,27 @@ WebExtensionContentScript::Constructor(GlobalObject& aGlobal,
                                        const ContentScriptInit& aInit,
                                        ErrorResult& aRv)
 {
-  RefPtr<WebExtensionContentScript> script = new WebExtensionContentScript(aExtension, aInit, aRv);
+  RefPtr<WebExtensionContentScript> script =
+      new WebExtensionContentScript(aExtension, aInit, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
   return script.forget();
 }
 
-WebExtensionContentScript::WebExtensionContentScript(WebExtensionPolicy& aExtension,
-                                                     const ContentScriptInit& aInit,
-                                                     ErrorResult& aRv)
-  : mExtension(&aExtension)
-  , mMatches(aInit.mMatches)
-  , mExcludeMatches(aInit.mExcludeMatches)
-  , mCssPaths(aInit.mCssPaths)
-  , mJsPaths(aInit.mJsPaths)
-  , mRunAt(aInit.mRunAt)
-  , mAllFrames(aInit.mAllFrames)
-  , mFrameID(aInit.mFrameID)
-  , mMatchAboutBlank(aInit.mMatchAboutBlank)
+WebExtensionContentScript::WebExtensionContentScript(
+    WebExtensionPolicy& aExtension,
+    const ContentScriptInit& aInit,
+    ErrorResult& aRv)
+    : mExtension(&aExtension),
+      mMatches(aInit.mMatches),
+      mExcludeMatches(aInit.mExcludeMatches),
+      mCssPaths(aInit.mCssPaths),
+      mJsPaths(aInit.mJsPaths),
+      mRunAt(aInit.mRunAt),
+      mAllFrames(aInit.mAllFrames),
+      mFrameID(aInit.mFrameID),
+      mMatchAboutBlank(aInit.mMatchAboutBlank)
 {
   if (!aInit.mIncludeGlobs.IsNull()) {
     mIncludeGlobs.SetValue().AppendElements(aInit.mIncludeGlobs.Value());
@@ -320,7 +324,6 @@ WebExtensionContentScript::WebExtensionContentScript(WebExtensionPolicy& aExtens
     mExcludeGlobs.SetValue().AppendElements(aInit.mExcludeGlobs.Value());
   }
 }
-
 
 bool
 WebExtensionContentScript::Matches(const DocInfo& aDoc) const
@@ -343,8 +346,8 @@ WebExtensionContentScript::Matches(const DocInfo& aDoc) const
   // matchAboutBlank is true and it has the null principal. In all other
   // cases, we test the URL of the principal that it inherits.
   if (mMatchAboutBlank && aDoc.IsTopLevel() &&
-      aDoc.URL().Spec().EqualsLiteral("about:blank") &&
-      aDoc.Principal() && aDoc.Principal()->GetIsNullPrincipal()) {
+      aDoc.URL().Spec().EqualsLiteral("about:blank") && aDoc.Principal() &&
+      aDoc.Principal()->GetIsNullPrincipal()) {
     return true;
   }
 
@@ -384,17 +387,18 @@ WebExtensionContentScript::MatchesURI(const URLInfo& aURL) const
   return true;
 }
 
-
 JSObject*
-WebExtensionContentScript::WrapObject(JSContext* aCx, JS::HandleObject aGivenProto)
+WebExtensionContentScript::WrapObject(JSContext* aCx,
+                                      JS::HandleObject aGivenProto)
 {
   return WebExtensionContentScriptBinding::Wrap(aCx, this, aGivenProto);
 }
 
-
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebExtensionContentScript,
-                                      mMatches, mExcludeMatches,
-                                      mIncludeGlobs, mExcludeGlobs,
+                                      mMatches,
+                                      mExcludeMatches,
+                                      mIncludeGlobs,
+                                      mExcludeGlobs,
                                       mExtension)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WebExtensionContentScript)
@@ -405,20 +409,19 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WebExtensionContentScript)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebExtensionContentScript)
 
-
 /*****************************************************************************
  * DocInfo
  *****************************************************************************/
 
 DocInfo::DocInfo(const URLInfo& aURL, nsILoadInfo* aLoadInfo)
-  : mURL(aURL)
-  , mObj(AsVariant(aLoadInfo))
-{}
+    : mURL(aURL), mObj(AsVariant(aLoadInfo))
+{
+}
 
 DocInfo::DocInfo(nsPIDOMWindowOuter* aWindow)
-  : mURL(aWindow->GetDocumentURI())
-  , mObj(AsVariant(aWindow))
-{}
+    : mURL(aWindow->GetDocumentURI()), mObj(AsVariant(aWindow))
+{
+}
 
 bool
 DocInfo::IsTopLevel() const
@@ -444,7 +447,10 @@ DocInfo::FrameID() const
       struct Matcher
       {
         uint64_t match(Window aWin) { return aWin->WindowID(); }
-        uint64_t match(LoadInfo aLoadInfo) { return aLoadInfo->GetOuterWindowID(); }
+        uint64_t match(LoadInfo aLoadInfo)
+        {
+          return aLoadInfo->GetOuterWindowID();
+        }
       };
       mFrameID.emplace(mObj.match(Matcher()));
     }
@@ -468,7 +474,8 @@ DocInfo::Principal() const
       }
       nsIPrincipal* match(LoadInfo aLoadInfo)
       {
-        if (!(mThis.URL().InheritsPrincipal() || aLoadInfo->GetForceInheritPrincipal())) {
+        if (!(mThis.URL().InheritsPrincipal() ||
+              aLoadInfo->GetForceInheritPrincipal())) {
           return nullptr;
         }
         if (auto principal = aLoadInfo->PrincipalToInherit()) {
@@ -504,5 +511,5 @@ DocInfo::PrincipalURL() const
   return mPrincipalURL.ref();
 }
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla

@@ -13,18 +13,18 @@
 using namespace mozilla;
 using namespace mozilla::gfx;
 
-VRDisplayPresentation::VRDisplayPresentation(VRDisplayClient *aDisplayClient,
-                                             const nsTArray<mozilla::dom::VRLayer>& aLayers,
-                                             uint32_t aGroup)
-  : mDisplayClient(aDisplayClient)
-  , mDOMLayers(aLayers)
-  , mGroup(aGroup)
+VRDisplayPresentation::VRDisplayPresentation(
+    VRDisplayClient* aDisplayClient,
+    const nsTArray<mozilla::dom::VRLayer>& aLayers,
+    uint32_t aGroup)
+    : mDisplayClient(aDisplayClient), mDOMLayers(aLayers), mGroup(aGroup)
 {
   CreateLayers();
 }
 
 void
-VRDisplayPresentation::UpdateLayers(const nsTArray<mozilla::dom::VRLayer>& aLayers)
+VRDisplayPresentation::UpdateLayers(
+    const nsTArray<mozilla::dom::VRLayer>& aLayers)
 {
   mDOMLayers = aLayers;
   CreateLayers();
@@ -39,7 +39,7 @@ VRDisplayPresentation::GetGroup() const
 void
 VRDisplayPresentation::CreateLayers()
 {
-  VRManagerChild *manager = VRManagerChild::Get();
+  VRManagerChild* manager = VRManagerChild::Get();
   if (!manager) {
     // This should not happen, but let's log it and avoid a crash in case
     // of regression.
@@ -47,7 +47,7 @@ VRDisplayPresentation::CreateLayers()
     return;
   }
 
-  unsigned int iLayer=0;
+  unsigned int iLayer = 0;
   for (dom::VRLayer& layer : mDOMLayers) {
     dom::HTMLCanvasElement* canvasElement = layer.mSource;
     if (!canvasElement) {
@@ -95,8 +95,8 @@ VRDisplayPresentation::CreateLayers()
     if (mLayers.Length() <= iLayer) {
       // Not enough layers, let's add one
       RefPtr<VRLayerChild> vrLayer =
-        static_cast<VRLayerChild*>(manager->CreateVRLayer(mDisplayClient->GetDisplayInfo().GetDisplayID(),
-                                                          target, mGroup));
+          static_cast<VRLayerChild*>(manager->CreateVRLayer(
+              mDisplayClient->GetDisplayInfo().GetDisplayID(), target, mGroup));
       if (!vrLayer) {
         NS_WARNING("CreateVRLayer returned null!");
         continue;
@@ -137,10 +137,11 @@ VRDisplayPresentation::~VRDisplayPresentation()
   mDisplayClient->PresentationDestroyed();
 }
 
-void VRDisplayPresentation::SubmitFrame()
+void
+VRDisplayPresentation::SubmitFrame()
 {
-  for (VRLayerChild *layer : mLayers) {
+  for (VRLayerChild* layer : mLayers) {
     layer->SubmitFrame(mDisplayClient->GetDisplayInfo().GetFrameId());
-    break; // Currently only one layer supported, submit only the first
+    break;  // Currently only one layer supported, submit only the first
   }
 }

@@ -15,11 +15,11 @@ class GfxVarUpdate;
 // updates on gfxVarReceiver.
 class gfxVarReceiver
 {
-public:
+ public:
   virtual void OnVarChanged(const GfxVarUpdate& aVar) = 0;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_config_gfxVarReceiver_h
+#endif  // mozilla_gfx_config_gfxVarReceiver_h

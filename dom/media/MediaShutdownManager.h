@@ -49,8 +49,9 @@ class MediaDecoder;
 //  MediaShutdownManager& instance = MediaShutdownManager::Instance();
 //  instance.Unregister(someDecoder); // Warning! May delete instance!
 //  instance.Register(someOtherDecoder); // BAD! instance may be dangling!
-class MediaShutdownManager : public nsIAsyncShutdownBlocker {
-public:
+class MediaShutdownManager : public nsIAsyncShutdownBlocker
+{
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIASYNCSHUTDOWNBLOCKER
 
@@ -69,7 +70,7 @@ public:
   // xpcom-shutdown listener.
   void Unregister(MediaDecoder* aDecoder);
 
-private:
+ private:
   enum InitPhase
   {
     NotInited,
@@ -93,6 +94,6 @@ private:
   nsTHashtable<nsRefPtrHashKey<MediaDecoder>> mDecoders;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

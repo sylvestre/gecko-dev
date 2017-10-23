@@ -15,19 +15,18 @@
 #include "nsString.h"
 #include "pk11func.h"
 
-class nsPKCS11Slot : public nsIPKCS11Slot,
-                     public nsNSSShutDownObject
+class nsPKCS11Slot : public nsIPKCS11Slot, public nsNSSShutDownObject
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPKCS11SLOT
 
   explicit nsPKCS11Slot(PK11SlotInfo* slot);
 
-protected:
+ protected:
   virtual ~nsPKCS11Slot();
 
-private:
+ private:
   mozilla::UniquePK11SlotInfo mSlot;
   nsCString mSlotDesc;
   nsCString mSlotManufacturerID;
@@ -39,26 +38,25 @@ private:
   void destructorSafeDestroyNSSReference();
   nsresult refreshSlotInfo(const nsNSSShutDownPreventionLock& proofOfLock);
   nsresult GetAttributeHelper(const nsACString& attribute,
-                      /*out*/ nsACString& xpcomOutParam);
+                              /*out*/ nsACString& xpcomOutParam);
 };
 
-class nsPKCS11Module : public nsIPKCS11Module,
-                       public nsNSSShutDownObject
+class nsPKCS11Module : public nsIPKCS11Module, public nsNSSShutDownObject
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPKCS11MODULE
 
   explicit nsPKCS11Module(SECMODModule* module);
 
-protected:
+ protected:
   virtual ~nsPKCS11Module();
 
-private:
+ private:
   mozilla::UniqueSECMODModule mModule;
 
   virtual void virtualDestroyNSSReference() override;
   void destructorSafeDestroyNSSReference();
 };
 
-#endif // nsPKCS11Slot_h
+#endif  // nsPKCS11Slot_h

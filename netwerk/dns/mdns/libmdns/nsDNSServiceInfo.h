@@ -16,17 +16,17 @@ namespace net {
 
 class nsDNSServiceInfo final : public nsIDNSServiceInfo
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDNSSERVICEINFO
 
   explicit nsDNSServiceInfo() = default;
   explicit nsDNSServiceInfo(nsIDNSServiceInfo* aServiceInfo);
 
-private:
+ private:
   virtual ~nsDNSServiceInfo() = default;
 
-private:
+ private:
   nsCString mHost;
   nsCString mAddress;
   uint16_t mPort = 0;
@@ -44,7 +44,7 @@ private:
   bool mIsAttributesSet = false;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_netwerk_dns_mdns_libmdns_nsDNSServiceInfo_h
+#endif  // mozilla_netwerk_dns_mdns_libmdns_nsDNSServiceInfo_h

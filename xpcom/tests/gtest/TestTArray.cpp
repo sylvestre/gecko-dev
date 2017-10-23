@@ -13,10 +13,7 @@ namespace TestTArray {
 
 struct Copyable
 {
-  Copyable()
-    : mDestructionCounter(nullptr)
-  {
-  }
+  Copyable() : mDestructionCounter(nullptr) {}
 
   ~Copyable()
   {
@@ -33,10 +30,7 @@ struct Copyable
 
 struct Movable
 {
-  Movable()
-    : mDestructionCounter(nullptr)
-  {
-  }
+  Movable() : mDestructionCounter(nullptr) {}
 
   ~Movable()
   {
@@ -45,8 +39,7 @@ struct Movable
     }
   }
 
-  Movable(Movable&& aOther)
-    : mDestructionCounter(aOther.mDestructionCounter)
+  Movable(Movable&& aOther) : mDestructionCounter(aOther.mDestructionCounter)
   {
     aOther.mDestructionCounter = nullptr;
   }
@@ -54,7 +47,7 @@ struct Movable
   uint32_t* mDestructionCounter;
 };
 
-} // namespace TestTArray
+}  // namespace TestTArray
 
 template<>
 struct nsTArray_CopyChooser<TestTArray::Copyable>
@@ -70,7 +63,8 @@ struct nsTArray_CopyChooser<TestTArray::Movable>
 
 namespace TestTArray {
 
-const nsTArray<int>& DummyArray()
+const nsTArray<int>&
+DummyArray()
 {
   static nsTArray<int> sArray;
   if (sArray.IsEmpty()) {
@@ -83,7 +77,8 @@ const nsTArray<int>& DummyArray()
 // This returns an invalid nsTArray with a huge length in order to test that
 // fallible operations actually fail.
 #ifdef DEBUG
-const nsTArray<int>& FakeHugeArray()
+const nsTArray<int>&
+FakeHugeArray()
 {
   static nsTArray<int> sArray;
   if (sArray.IsEmpty()) {
@@ -203,4 +198,4 @@ TEST(TArray, CopyOverlappingBackwards)
   }
 }
 
-} // namespace TestTArray
+}  // namespace TestTArray

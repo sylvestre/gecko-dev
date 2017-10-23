@@ -27,21 +27,17 @@
 #include "mozilla/dom/HTMLAreaElement.h"
 #include "mozilla/dom/HTMLLinkElement.h"
 
+using mozilla::ErrorResult;
+using mozilla::dom::Element;
 using mozilla::dom::HTMLAnchorElement;
 using mozilla::dom::HTMLAreaElement;
 using mozilla::dom::HTMLLinkElement;
-using mozilla::dom::Element;
-using mozilla::ErrorResult;
 
 NS_IMPL_ISUPPORTS(nsContextMenuInfo, nsIContextMenuInfo)
 
-nsContextMenuInfo::nsContextMenuInfo()
-{
-}
+nsContextMenuInfo::nsContextMenuInfo() {}
 
-nsContextMenuInfo::~nsContextMenuInfo()
-{
-}
+nsContextMenuInfo::~nsContextMenuInfo() {}
 
 NS_IMETHODIMP
 nsContextMenuInfo::GetMouseEvent(nsIDOMEvent** aEvent)
@@ -67,22 +63,23 @@ nsContextMenuInfo::GetAssociatedLink(nsAString& aHRef)
 
   nsCOMPtr<nsIContent> content(do_QueryInterface(mAssociatedLink));
   nsCOMPtr<nsIContent> linkContent;
-  if (content &&
-      content->IsAnyOfHTMLElements(nsGkAtoms::a,
-                                   nsGkAtoms::area,
-                                   nsGkAtoms::link)) {
+  if (content && content->IsAnyOfHTMLElements(
+                     nsGkAtoms::a, nsGkAtoms::area, nsGkAtoms::link)) {
     bool hasAttr = content->HasAttr(kNameSpaceID_None, nsGkAtoms::href);
     if (hasAttr) {
       linkContent = content;
-      RefPtr<HTMLAnchorElement> anchor = HTMLAnchorElement::FromContent(linkContent);
+      RefPtr<HTMLAnchorElement> anchor =
+          HTMLAnchorElement::FromContent(linkContent);
       if (anchor) {
         anchor->GetHref(aHRef);
       } else {
-        RefPtr<HTMLAreaElement> area = HTMLAreaElement::FromContent(linkContent);
+        RefPtr<HTMLAreaElement> area =
+            HTMLAreaElement::FromContent(linkContent);
         if (area) {
           area->GetHref(aHRef);
         } else {
-          RefPtr<HTMLLinkElement> link = HTMLLinkElement::FromContent(linkContent);
+          RefPtr<HTMLLinkElement> link =
+              HTMLLinkElement::FromContent(linkContent);
           if (link) {
             link->GetHref(aHRef);
           }
@@ -102,12 +99,13 @@ nsContextMenuInfo::GetAssociatedLink(nsAString& aHRef)
         hasAttr = content->HasAttr(kNameSpaceID_None, nsGkAtoms::href);
         if (hasAttr) {
           linkContent = content;
-          RefPtr<HTMLAnchorElement> anchor = HTMLAnchorElement::FromContent(linkContent);
+          RefPtr<HTMLAnchorElement> anchor =
+              HTMLAnchorElement::FromContent(linkContent);
           if (anchor) {
             anchor->GetHref(aHRef);
           }
         } else {
-          linkContent = nullptr; // Links can't be nested.
+          linkContent = nullptr;  // Links can't be nested.
         }
         break;
       }
@@ -204,7 +202,6 @@ nsresult
 nsContextMenuInfo::GetBackgroundImageRequest(nsIDOMNode* aDOMNode,
                                              imgRequestProxy** aRequest)
 {
-
   NS_ENSURE_ARG(aDOMNode);
   NS_ENSURE_ARG_POINTER(aRequest);
 
@@ -274,7 +271,7 @@ nsContextMenuInfo::GetBackgroundImageRequestInternal(nsIDOMNode* aDOMNode,
 
     ErrorResult dummy;
     nsCOMPtr<nsICSSDeclaration> computedStyle =
-      innerWindow->GetComputedStyle(*domElement, EmptyString(), dummy);
+        innerWindow->GetComputedStyle(*domElement, EmptyString(), dummy);
     dummy.SuppressException();
     if (computedStyle) {
       nsCOMPtr<nsIDOMCSSValue> cssValue;
@@ -291,12 +288,22 @@ nsContextMenuInfo::GetBackgroundImageRequestInternal(nsIDOMNode* aDOMNode,
           imgLoader* il = imgLoader::NormalLoader();
           NS_ENSURE_TRUE(il, NS_ERROR_FAILURE);
 
-          return il->LoadImage(bgUri, nullptr, nullptr,
-                               doc->GetReferrerPolicy(), principal, 0, nullptr,
-                               nullptr, nullptr, nullptr, nsIRequest::LOAD_NORMAL,
-                               nullptr, nsIContentPolicy::TYPE_INTERNAL_IMAGE,
+          return il->LoadImage(bgUri,
+                               nullptr,
+                               nullptr,
+                               doc->GetReferrerPolicy(),
+                               principal,
+                               0,
+                               nullptr,
+                               nullptr,
+                               nullptr,
+                               nullptr,
+                               nsIRequest::LOAD_NORMAL,
+                               nullptr,
+                               nsIContentPolicy::TYPE_INTERNAL_IMAGE,
                                EmptyString(),
-                               /* aUseUrgentStartForChannel */ false, aRequest);
+                               /* aUseUrgentStartForChannel */ false,
+                               aRequest);
         }
       }
 

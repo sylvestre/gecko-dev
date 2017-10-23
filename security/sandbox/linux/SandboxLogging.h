@@ -33,8 +33,9 @@
 
 namespace mozilla {
 // Logs the formatted string (marked with "error" severity, if supported).
-void SandboxLogError(const char* aMessage);
-}
+void
+SandboxLogError(const char* aMessage);
+}  // namespace mozilla
 
 #define SANDBOX_LOG_LEN 256
 
@@ -43,10 +44,11 @@ void SandboxLogError(const char* aMessage);
 // Note that SafeSPrintf doesn't accept size modifiers or %u; all
 // decimal integers are %d, because it uses C++11 variadic templates
 // to use the actual argument type.
-#define SANDBOX_LOG_ERROR(fmt, args...) do {                          \
-  char _sandboxLogBuf[SANDBOX_LOG_LEN];                               \
-  ::base::strings::SafeSPrintf(_sandboxLogBuf, fmt, ## args);         \
-  ::mozilla::SandboxLogError(_sandboxLogBuf);                         \
-} while(0)
+#define SANDBOX_LOG_ERROR(fmt, args...)                        \
+  do {                                                         \
+    char _sandboxLogBuf[SANDBOX_LOG_LEN];                      \
+    ::base::strings::SafeSPrintf(_sandboxLogBuf, fmt, ##args); \
+    ::mozilla::SandboxLogError(_sandboxLogBuf);                \
+  } while (0)
 
-#endif // mozilla_SandboxLogging_h
+#endif  // mozilla_SandboxLogging_h

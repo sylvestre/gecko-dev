@@ -54,14 +54,15 @@ ChannelInfo::InitFromChromeGlobal(nsIGlobalObject* aGlobal)
   MOZ_ASSERT(aGlobal);
 
   MOZ_RELEASE_ASSERT(
-    nsContentUtils::IsSystemPrincipal(aGlobal->PrincipalOrNull()));
+      nsContentUtils::IsSystemPrincipal(aGlobal->PrincipalOrNull()));
 
   mSecurityInfo.Truncate();
   mInited = true;
 }
 
 void
-ChannelInfo::InitFromIPCChannelInfo(const mozilla::ipc::IPCChannelInfo& aChannelInfo)
+ChannelInfo::InitFromIPCChannelInfo(
+    const mozilla::ipc::IPCChannelInfo& aChannelInfo)
 {
   MOZ_ASSERT(!mInited, "Cannot initialize the object twice");
 
@@ -76,7 +77,9 @@ ChannelInfo::SetSecurityInfo(nsISupports* aSecurityInfo)
   MOZ_ASSERT(mSecurityInfo.IsEmpty(), "security info should only be set once");
   nsCOMPtr<nsISerializable> serializable = do_QueryInterface(aSecurityInfo);
   if (!serializable) {
-    NS_WARNING("A non-serializable object was passed to InternalResponse::SetSecurityInfo");
+    NS_WARNING(
+        "A non-serializable object was passed to "
+        "InternalResponse::SetSecurityInfo");
     return;
   }
   NS_SerializeToString(serializable, mSecurityInfo);
@@ -94,11 +97,10 @@ ChannelInfo::ResurrectInfoOnChannel(nsIChannel* aChannel)
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
-    nsCOMPtr<nsIHttpChannel> httpChannel =
-      do_QueryInterface(aChannel);
+    nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aChannel);
     MOZ_ASSERT(httpChannel);
     net::HttpBaseChannel* httpBaseChannel =
-      static_cast<net::HttpBaseChannel*>(httpChannel.get());
+        static_cast<net::HttpBaseChannel*>(httpChannel.get());
     rv = httpBaseChannel->OverrideSecurityInfo(infoObj);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;

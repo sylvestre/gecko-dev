@@ -40,23 +40,27 @@
 namespace google_breakpad {
 
 // Name/value pair for custom client information.
-struct CustomInfoEntry {
+struct CustomInfoEntry
+{
   // Maximum length for name and value for client custom info.
   static const int kNameMaxLength = 64;
   static const int kValueMaxLength = 64;
 
-  CustomInfoEntry() {
+  CustomInfoEntry()
+  {
     // Putting name and value in initializer list makes VC++ show warning 4351.
     set_name(NULL);
     set_value(NULL);
   }
 
-  CustomInfoEntry(const wchar_t* name_arg, const wchar_t* value_arg) {
+  CustomInfoEntry(const wchar_t* name_arg, const wchar_t* value_arg)
+  {
     set_name(name_arg);
     set_value(value_arg);
   }
 
-  void set_name(const wchar_t* name_arg) {
+  void set_name(const wchar_t* name_arg)
+  {
     if (!name_arg) {
       name[0] = L'\0';
       return;
@@ -64,7 +68,8 @@ struct CustomInfoEntry {
     WindowsStringUtils::safe_wcscpy(name, kNameMaxLength, name_arg);
   }
 
-  void set_value(const wchar_t* value_arg) {
+  void set_value(const wchar_t* value_arg)
+  {
     if (!value_arg) {
       value[0] = L'\0';
       return;
@@ -73,7 +78,8 @@ struct CustomInfoEntry {
     WindowsStringUtils::safe_wcscpy(value, kValueMaxLength, value_arg);
   }
 
-  void set(const wchar_t* name_arg, const wchar_t* value_arg) {
+  void set(const wchar_t* name_arg, const wchar_t* value_arg)
+  {
     set_name(name_arg);
     set_value(value_arg);
   }
@@ -86,7 +92,8 @@ struct CustomInfoEntry {
 
 // Tags sent with each message indicating the purpose of
 // the message.
-enum MessageTag {
+enum MessageTag
+{
   MESSAGE_TAG_NONE = 0,
   MESSAGE_TAG_REGISTRATION_REQUEST = 1,
   MESSAGE_TAG_REGISTRATION_RESPONSE = 2,
@@ -94,13 +101,15 @@ enum MessageTag {
   MESSAGE_TAG_UPLOAD_REQUEST = 4
 };
 
-struct CustomClientInfo {
+struct CustomClientInfo
+{
   const CustomInfoEntry* entries;
   size_t count;
 };
 
 // Message structure for IPC between crash client and crash server.
-struct ProtocolMessage {
+struct ProtocolMessage
+{
   ProtocolMessage()
       : tag(MESSAGE_TAG_NONE),
         id(0),
@@ -111,7 +120,8 @@ struct ProtocolMessage {
         custom_client_info(),
         dump_request_handle(NULL),
         dump_generated_handle(NULL),
-        server_alive_handle(NULL) {
+        server_alive_handle(NULL)
+  {
   }
 
   // Creates an instance with the given parameters.
@@ -125,16 +135,17 @@ struct ProtocolMessage {
                   HANDLE arg_dump_request_handle,
                   HANDLE arg_dump_generated_handle,
                   HANDLE arg_server_alive)
-    : tag(arg_tag),
-      id(arg_id),
-      dump_type(arg_dump_type),
-      thread_id(arg_thread_id),
-      exception_pointers(arg_exception_pointers),
-      assert_info(arg_assert_info),
-      custom_client_info(custom_info),
-      dump_request_handle(arg_dump_request_handle),
-      dump_generated_handle(arg_dump_generated_handle),
-      server_alive_handle(arg_server_alive) {
+      : tag(arg_tag),
+        id(arg_id),
+        dump_type(arg_dump_type),
+        thread_id(arg_thread_id),
+        exception_pointers(arg_exception_pointers),
+        assert_info(arg_assert_info),
+        custom_client_info(custom_info),
+        dump_request_handle(arg_dump_request_handle),
+        dump_generated_handle(arg_dump_generated_handle),
+        server_alive_handle(arg_server_alive)
+  {
   }
 
   // Tag in the message.

@@ -15,14 +15,14 @@ static const uint64_t kNsPerSec = 1000000000;
 
 namespace {
 
-
-struct SemaphoreData {
+struct SemaphoreData
+{
   sem_t mSemaphore;
   mozilla::Atomic<int32_t> mRefCount;
   uint32_t mInitialValue;
 };
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -99,10 +99,8 @@ CrossProcessSemaphore::Create(CrossProcessSemaphoreHandle aHandle)
   return sem;
 }
 
-
 CrossProcessSemaphore::CrossProcessSemaphore()
-  : mSemaphore(nullptr)
-  , mRefCount(nullptr)
+    : mSemaphore(nullptr), mRefCount(nullptr)
 {
   MOZ_COUNT_CTOR(CrossProcessSemaphore);
 }
@@ -122,7 +120,8 @@ CrossProcessSemaphore::~CrossProcessSemaphore()
 bool
 CrossProcessSemaphore::Wait(const Maybe<TimeDuration>& aWaitTime)
 {
-  MOZ_ASSERT(*mRefCount > 0, "Attempting to wait on a semaphore with zero ref count");
+  MOZ_ASSERT(*mRefCount > 0,
+             "Attempting to wait on a semaphore with zero ref count");
   int ret;
   if (aWaitTime.isSome()) {
     struct timespec ts;
@@ -146,7 +145,8 @@ CrossProcessSemaphore::Wait(const Maybe<TimeDuration>& aWaitTime)
 void
 CrossProcessSemaphore::Signal()
 {
-  MOZ_ASSERT(*mRefCount > 0, "Attempting to signal a semaphore with zero ref count");
+  MOZ_ASSERT(*mRefCount > 0,
+             "Attempting to signal a semaphore with zero ref count");
   sem_post(mSemaphore);
 }
 
@@ -162,4 +162,4 @@ CrossProcessSemaphore::ShareToProcess(base::ProcessId aTargetPid)
   return result;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

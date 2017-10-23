@@ -12,17 +12,17 @@
 
 namespace mozilla {
 
-enum ArenaObjectID {
+enum ArenaObjectID
+{
   eArenaObjectID_DummyBeforeFirstObjectID = nsQueryFrame::NON_FRAME_MARKER - 1,
 
-#define PRES_ARENA_OBJECT(name_) \
-  eArenaObjectID_##name_,
+#define PRES_ARENA_OBJECT(name_) eArenaObjectID_##name_,
 #include "nsPresArenaObjectList.h"
 #undef PRES_ARENA_OBJECT
 
   eArenaObjectID_COUNT
 };
 
-};
+};  // namespace mozilla
 
 #endif

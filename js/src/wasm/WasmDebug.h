@@ -40,15 +40,13 @@ class LinkData;
 // The generated source location for the AST node/expression. The offset field refers
 // an offset in an binary format file.
 
-struct ExprLoc
-{
+struct ExprLoc {
     uint32_t lineno;
     uint32_t column;
     uint32_t offset;
     ExprLoc() : lineno(0), column(0), offset(0) {}
     ExprLoc(uint32_t lineno_, uint32_t column_, uint32_t offset_)
-      : lineno(lineno_), column(column_), offset(offset_)
-    {}
+        : lineno(lineno_), column(column_), offset(offset_) {}
 };
 
 typedef Vector<ExprLoc, 0, SystemAllocPolicy> ExprLocVector;
@@ -57,13 +55,12 @@ typedef Vector<uint32_t, 0, SystemAllocPolicy> ExprLocIndexVector;
 // The generated source map for WebAssembly binary file. This map is generated during
 // building the text buffer (see BinaryToExperimentalText).
 
-class GeneratedSourceMap
-{
+class GeneratedSourceMap {
     ExprLocVector exprlocs_;
     UniquePtr<ExprLocIndexVector> sortedByOffsetExprLocIndices_;
     uint32_t totalLines_;
 
-  public:
+   public:
     explicit GeneratedSourceMap() : totalLines_(0) {}
     ExprLocVector& exprlocs() { return exprlocs_; }
 
@@ -77,32 +74,32 @@ class GeneratedSourceMap
 
 typedef UniquePtr<GeneratedSourceMap> UniqueGeneratedSourceMap;
 typedef HashMap<uint32_t, uint32_t, DefaultHasher<uint32_t>, SystemAllocPolicy> StepModeCounters;
-typedef HashMap<uint32_t, WasmBreakpointSite*, DefaultHasher<uint32_t>, SystemAllocPolicy> WasmBreakpointSiteMap;
+typedef HashMap<uint32_t, WasmBreakpointSite*, DefaultHasher<uint32_t>, SystemAllocPolicy>
+    WasmBreakpointSiteMap;
 
-class DebugState
-{
-    const SharedCode         code_;
-    const SharedBytes        maybeBytecode_;
+class DebugState {
+    const SharedCode code_;
+    const SharedBytes maybeBytecode_;
     UniqueGeneratedSourceMap maybeSourceMap_;
-    bool                     binarySource_;
+    bool binarySource_;
 
     // State maintained when debugging is enabled. In this case, the Code is
     // not actually shared, but is referenced uniquely by the instance that is
     // being debugged.
 
-    uint32_t                 enterAndLeaveFrameTrapsCounter_;
-    WasmBreakpointSiteMap    breakpointSites_;
-    StepModeCounters         stepModeCounters_;
+    uint32_t enterAndLeaveFrameTrapsCounter_;
+    WasmBreakpointSiteMap breakpointSites_;
+    StepModeCounters stepModeCounters_;
 
     void toggleDebugTrap(uint32_t offset, bool enabled);
     bool ensureSourceMap(JSContext* cx);
 
-  public:
-    DebugState(SharedCode code,
-               const ShareableBytes* maybeBytecode,
-               bool binarySource);
+   public:
+    DebugState(SharedCode code, const ShareableBytes* maybeBytecode, bool binarySource);
 
-    const Bytes* maybeBytecode() const { return maybeBytecode_ ? &maybeBytecode_->bytes : nullptr; }
+    const Bytes* maybeBytecode() const {
+        return maybeBytecode_ ? &maybeBytecode_->bytes : nullptr;
+    }
     bool binarySource() const { return binarySource_; }
 
     // If the source bytecode was saved when this Code was constructed, this
@@ -112,7 +109,8 @@ class DebugState
     JSString* createText(JSContext* cx);
     bool getLineOffsets(JSContext* cx, size_t lineno, Vector<uint32_t>* offsets);
     bool getAllColumnOffsets(JSContext* cx, Vector<ExprLoc>* offsets);
-    bool getOffsetLocation(JSContext* cx, uint32_t offset, bool* found, size_t* lineno, size_t* column);
+    bool getOffsetLocation(JSContext* cx, uint32_t offset, bool* found, size_t* lineno,
+                           size_t* column);
     bool totalSourceLines(JSContext* cx, uint32_t* count);
 
     // The Code can track enter/leave frame events. Any such event triggers
@@ -129,7 +127,8 @@ class DebugState
     WasmBreakpointSite* getOrCreateBreakpointSite(JSContext* cx, uint32_t offset);
     bool hasBreakpointSite(uint32_t offset);
     void destroyBreakpointSite(FreeOp* fop, uint32_t offset);
-    bool clearBreakpointsIn(JSContext* cx, WasmInstanceObject* instance, js::Debugger* dbg, JSObject* handler);
+    bool clearBreakpointsIn(JSContext* cx, WasmInstanceObject* instance, js::Debugger* dbg,
+                            JSObject* handler);
 
     // When the Code is debug-enabled, single-stepping mode can be toggled on
     // the granularity of individual functions.
@@ -163,17 +162,14 @@ class DebugState
 
     // about:memory reporting:
 
-    void addSizeOfMisc(MallocSizeOf mallocSizeOf,
-                       Metadata::SeenSet* seenMetadata,
-                       ShareableBytes::SeenSet* seenBytes,
-                       Code::SeenSet* seenCode,
-                       size_t* code,
+    void addSizeOfMisc(MallocSizeOf mallocSizeOf, Metadata::SeenSet* seenMetadata,
+                       ShareableBytes::SeenSet* seenBytes, Code::SeenSet* seenCode, size_t* code,
                        size_t* data) const;
 };
 
 typedef UniquePtr<DebugState> UniqueDebugState;
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_debug_h
+#endif  // wasm_debug_h

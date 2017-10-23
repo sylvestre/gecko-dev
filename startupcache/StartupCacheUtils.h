@@ -17,7 +17,8 @@ namespace mozilla {
 namespace scache {
 
 nsresult
-NewObjectInputStreamFromBuffer(UniquePtr<char[]> buffer, uint32_t len,
+NewObjectInputStreamFromBuffer(UniquePtr<char[]> buffer,
+                               uint32_t len,
                                nsIObjectInputStream** stream);
 
 // We can't retrieve the wrapped stream from the objectOutputStream later,
@@ -27,7 +28,7 @@ NewObjectInputStreamFromBuffer(UniquePtr<char[]> buffer, uint32_t len,
 // This could cause them to be deserialized incorrectly (as multiple copies
 // instead of references).
 nsresult
-NewObjectOutputWrappedStorageStream(nsIObjectOutputStream **wrapperStream,
+NewObjectOutputWrappedStorageStream(nsIObjectOutputStream** wrapperStream,
                                     nsIStorageStream** stream,
                                     bool wantDebugStream);
 
@@ -35,15 +36,16 @@ NewObjectOutputWrappedStorageStream(nsIObjectOutputStream **wrapperStream,
 // allocated with 'new []'.  After calling this function, the caller would
 // typically call nsIStartupCache::PutBuffer with the returned buffer.
 nsresult
-NewBufferFromStorageStream(nsIStorageStream *storageStream,
-                           UniquePtr<char[]>* buffer, uint32_t* len);
+NewBufferFromStorageStream(nsIStorageStream* storageStream,
+                           UniquePtr<char[]>* buffer,
+                           uint32_t* len);
 
 nsresult
-ResolveURI(nsIURI *in, nsIURI **out);
+ResolveURI(nsIURI* in, nsIURI** out);
 
 nsresult
-PathifyURI(nsIURI *in, nsACString &out);
-} // namespace scache
-} // namespace mozilla
+PathifyURI(nsIURI* in, nsACString& out);
+}  // namespace scache
+}  // namespace mozilla
 
-#endif //nsStartupCacheUtils_h_
+#endif  //nsStartupCacheUtils_h_

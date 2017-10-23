@@ -20,10 +20,10 @@
 // used for building may not have them even though the running kernel
 // supports them.
 #ifndef PR_SET_VMA
-#define PR_SET_VMA		0x53564d41
+#define PR_SET_VMA 0x53564d41
 #endif
 #ifndef PR_SET_VMA_ANON_NAME
-#define PR_SET_VMA_ANON_NAME		0
+#define PR_SET_VMA_ANON_NAME 0
 #endif
 
 namespace mozilla {
@@ -56,7 +56,7 @@ GetPageMask()
   return mask;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 int
 MozTaggedMemoryIsSupported(void)
@@ -90,16 +90,20 @@ MozTagAnonymousMemory(const void* aPtr, size_t aLength, const char* aTag)
 }
 
 void*
-MozTaggedAnonymousMmap(void* aAddr, size_t aLength, int aProt, int aFlags,
-                       int aFd, off_t aOffset, const char* aTag)
+MozTaggedAnonymousMmap(void* aAddr,
+                       size_t aLength,
+                       int aProt,
+                       int aFlags,
+                       int aFd,
+                       off_t aOffset,
+                       const char* aTag)
 {
   void* mapped = mmap(aAddr, aLength, aProt, aFlags, aFd, aOffset);
   if (MozTaggedMemoryIsSupported() &&
-      (aFlags & MAP_ANONYMOUS) == MAP_ANONYMOUS &&
-      mapped != MAP_FAILED) {
+      (aFlags & MAP_ANONYMOUS) == MAP_ANONYMOUS && mapped != MAP_FAILED) {
     mozilla::TagAnonymousMemoryAligned(mapped, aLength, aTag);
   }
   return mapped;
 }
 
-#endif // ANDROID
+#endif  // ANDROID

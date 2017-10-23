@@ -25,7 +25,7 @@ CollectMonitors(HMONITOR aMon, HDC hDCScreen, LPRECT, LPARAM ioParam)
   success = ::GetMonitorInfoW(aMon, &info);
   if (!success) {
     MOZ_LOG(sScreenLog, LogLevel::Error, ("GetMonitorInfoW failed"));
-    return TRUE; // continue the enumeration
+    return TRUE;  // continue the enumeration
   }
   double scale = WinUtils::LogToPhysFactor(aMon);
   DesktopToLayoutDeviceScale contentsScaleFactor;
@@ -35,10 +35,12 @@ CollectMonitors(HMONITOR aMon, HDC hDCScreen, LPRECT, LPARAM ioParam)
     contentsScaleFactor.scale = scale;
   }
   CSSToLayoutDeviceScale defaultCssScaleFactor(scale);
-  LayoutDeviceIntRect rect(info.rcMonitor.left, info.rcMonitor.top,
+  LayoutDeviceIntRect rect(info.rcMonitor.left,
+                           info.rcMonitor.top,
                            info.rcMonitor.right - info.rcMonitor.left,
                            info.rcMonitor.bottom - info.rcMonitor.top);
-  LayoutDeviceIntRect availRect(info.rcWork.left, info.rcWork.top,
+  LayoutDeviceIntRect availRect(info.rcWork.left,
+                                info.rcWork.top,
                                 info.rcWork.right - info.rcWork.left,
                                 info.rcWork.bottom - info.rcWork.top);
   uint32_t pixelDepth = ::GetDeviceCaps(hDCScreen, BITSPIXEL);
@@ -49,15 +51,27 @@ CollectMonitors(HMONITOR aMon, HDC hDCScreen, LPRECT, LPARAM ioParam)
     pixelDepth = 24;
   }
   float dpi = WinUtils::MonitorDPI(aMon);
-  MOZ_LOG(sScreenLog, LogLevel::Debug,
-           ("New screen [%d %d %d %d (%d %d %d %d) %d %f %f %f]",
-            rect.x, rect.y, rect.width, rect.height,
-            availRect.x, availRect.y, availRect.width, availRect.height,
-            pixelDepth, contentsScaleFactor.scale, defaultCssScaleFactor.scale,
-            dpi));
-  auto screen = new Screen(rect, availRect,
-                           pixelDepth, pixelDepth,
-                           contentsScaleFactor, defaultCssScaleFactor,
+  MOZ_LOG(sScreenLog,
+          LogLevel::Debug,
+          ("New screen [%d %d %d %d (%d %d %d %d) %d %f %f %f]",
+           rect.x,
+           rect.y,
+           rect.width,
+           rect.height,
+           availRect.x,
+           availRect.y,
+           availRect.width,
+           availRect.height,
+           pixelDepth,
+           contentsScaleFactor.scale,
+           defaultCssScaleFactor.scale,
+           dpi));
+  auto screen = new Screen(rect,
+                           availRect,
+                           pixelDepth,
+                           pixelDepth,
+                           contentsScaleFactor,
+                           defaultCssScaleFactor,
                            dpi);
   if (info.dwFlags & MONITORINFOF_PRIMARY) {
     // The primary monitor must be the first element of the screen list.
@@ -75,10 +89,9 @@ ScreenHelperWin::RefreshScreens()
 
   AutoTArray<RefPtr<Screen>, 4> screens;
   HDC hdc = ::CreateDC(L"DISPLAY", nullptr, nullptr, nullptr);
-  NS_ASSERTION(hdc,"CreateDC Failure");
-  BOOL result = ::EnumDisplayMonitors(hdc, nullptr,
-                                      (MONITORENUMPROC)CollectMonitors,
-                                      (LPARAM)&screens);
+  NS_ASSERTION(hdc, "CreateDC Failure");
+  BOOL result = ::EnumDisplayMonitors(
+      hdc, nullptr, (MONITORENUMPROC)CollectMonitors, (LPARAM)&screens);
   ::DeleteDC(hdc);
   if (!result) {
     NS_WARNING("Unable to EnumDisplayMonitors");
@@ -87,5 +100,5 @@ ScreenHelperWin::RefreshScreens()
   screenManager.Refresh(Move(screens));
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

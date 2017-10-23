@@ -45,16 +45,12 @@ class nsSVGFilterChainObserver;
  */
 class nsSVGRenderingObserver : public nsStubMutationObserver
 {
+ protected:
+  virtual ~nsSVGRenderingObserver() {}
 
-protected:
-  virtual ~nsSVGRenderingObserver()
-    {}
-
-public:
+ public:
   typedef mozilla::dom::Element Element;
-  nsSVGRenderingObserver()
-    : mInObserverList(false)
-    {}
+  nsSVGRenderingObserver() : mInObserverList(false) {}
 
   // nsIMutationObserver
   NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
@@ -90,7 +86,7 @@ public:
 
   virtual bool ObservesReflow() { return true; }
 
-protected:
+ protected:
   void StartObserving();
   void StopObserving();
 
@@ -116,7 +112,6 @@ protected:
   bool mInObserverList;
 };
 
-
 /*
  * SVG elements reference supporting resources by element ID. We need to
  * track when those resources change and when the DOM changes in ways
@@ -129,15 +124,16 @@ protected:
  */
 class nsSVGIDRenderingObserver : public nsSVGRenderingObserver
 {
-public:
+ public:
   typedef mozilla::dom::Element Element;
   typedef mozilla::dom::IDTracker IDTracker;
 
-  nsSVGIDRenderingObserver(nsIURI* aURI, nsIContent* aObservingContent,
-                         bool aReferenceImage);
+  nsSVGIDRenderingObserver(nsIURI* aURI,
+                           nsIContent* aObservingContent,
+                           bool aReferenceImage);
   virtual ~nsSVGIDRenderingObserver();
 
-protected:
+ protected:
   Element* GetTarget() override { return mObservedElementTracker.get(); }
 
   void OnRenderingChange() override;
@@ -149,15 +145,18 @@ protected:
    */
   class ElementTracker final : public IDTracker
   {
-  public:
+   public:
     explicit ElementTracker(nsSVGIDRenderingObserver* aOwningObserver)
-      : mOwningObserver(aOwningObserver)
-    {}
-  protected:
-    virtual void ElementChanged(Element* aFrom, Element* aTo) override {
-      mOwningObserver->StopObserving(); // stop observing the old element
+        : mOwningObserver(aOwningObserver)
+    {
+    }
+
+   protected:
+    virtual void ElementChanged(Element* aFrom, Element* aTo) override
+    {
+      mOwningObserver->StopObserving();  // stop observing the old element
       IDTracker::ElementChanged(aFrom, aTo);
-      mOwningObserver->StartObserving(); // start observing the new element
+      mOwningObserver->StartObserving();  // start observing the new element
       mOwningObserver->OnRenderingChange();
     }
     /**
@@ -165,7 +164,8 @@ protected:
      * for the ID even when it changes.
      */
     virtual bool IsPersistent() override { return true; }
-  private:
+
+   private:
     nsSVGIDRenderingObserver* mOwningObserver;
   };
 
@@ -175,9 +175,9 @@ protected:
 struct nsSVGFrameReferenceFromProperty
 {
   explicit nsSVGFrameReferenceFromProperty(nsIFrame* aFrame)
-    : mFrame(aFrame)
-    , mFramePresShell(aFrame->PresContext()->PresShell())
-  {}
+      : mFrame(aFrame), mFramePresShell(aFrame->PresContext()->PresShell())
+  {
+  }
 
   // Clear our reference to the frame.
   void Detach();
@@ -185,9 +185,9 @@ struct nsSVGFrameReferenceFromProperty
   // null if the frame has become invalid
   nsIFrame* Get();
 
-private:
+ private:
   // The frame that this property is attached to, may be null
-  nsIFrame *mFrame;
+  nsIFrame* mFrame;
   // When a presshell is torn down, we don't delete the properties for
   // each frame until after the frames are destroyed. So here we remember
   // the presshell for the frames we care about and, before we use the frame,
@@ -195,21 +195,23 @@ private:
   // then the frame pointer is not valid and we know the frame has gone away.
   // mFramePresShell may be null, but when mFrame is non-null, mFramePresShell
   // is guaranteed to be non-null, too.
-  nsIPresShell *mFramePresShell;
+  nsIPresShell* mFramePresShell;
 };
 
 class nsSVGRenderingObserverProperty : public nsSVGIDRenderingObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  nsSVGRenderingObserverProperty(nsIURI* aURI, nsIFrame *aFrame,
+  nsSVGRenderingObserverProperty(nsIURI* aURI,
+                                 nsIFrame* aFrame,
                                  bool aReferenceImage)
-    : nsSVGIDRenderingObserver(aURI, aFrame->GetContent(), aReferenceImage)
-    , mFrameReference(aFrame)
-  {}
+      : nsSVGIDRenderingObserver(aURI, aFrame->GetContent(), aReferenceImage),
+        mFrameReference(aFrame)
+  {
+  }
 
-protected:
+ protected:
   virtual ~nsSVGRenderingObserverProperty() {}
 
   virtual void OnRenderingChange() override;
@@ -229,15 +231,15 @@ protected:
  *
  * The nsSVGFilterChainObserver class manages a list of nsSVGFilterReferences.
  */
-class nsSVGFilterReference final : public nsSVGIDRenderingObserver
-                                 , public nsISVGFilterReference
+class nsSVGFilterReference final : public nsSVGIDRenderingObserver,
+                                   public nsISVGFilterReference
 {
-public:
+ public:
   nsSVGFilterReference(nsIURI* aURI,
                        nsIContent* aObservingContent,
                        nsSVGFilterChainObserver* aFilterChainObserver)
-    : nsSVGIDRenderingObserver(aURI, aObservingContent, false)
-    , mFilterChainObserver(aFilterChainObserver)
+      : nsSVGIDRenderingObserver(aURI, aObservingContent, false),
+        mFilterChainObserver(aFilterChainObserver)
   {
   }
 
@@ -248,22 +250,23 @@ public:
   /**
    * @return the filter frame, or null if there is no filter frame
    */
-  nsSVGFilterFrame *GetFilterFrame();
+  nsSVGFilterFrame* GetFilterFrame();
 
   // nsISupports
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsSVGFilterReference, nsSVGIDRenderingObserver)
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsSVGFilterReference,
+                                           nsSVGIDRenderingObserver)
 
   // nsISVGFilterReference
   virtual void Invalidate() override { OnRenderingChange(); };
 
-protected:
+ protected:
   virtual ~nsSVGFilterReference() {}
 
   // nsSVGIDRenderingObserver
   virtual void OnRenderingChange() override;
 
-private:
+ private:
   nsSVGFilterChainObserver* mFilterChainObserver;
 };
 
@@ -279,7 +282,7 @@ private:
  */
 class nsSVGFilterChainObserver : public nsISupports
 {
-public:
+ public:
   nsSVGFilterChainObserver(const nsTArray<nsStyleFilter>& aFilters,
                            nsIContent* aFilteredElement,
                            nsIFrame* aFiltedFrame = nullptr);
@@ -292,13 +295,12 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(nsSVGFilterChainObserver)
 
-protected:
+ protected:
   virtual ~nsSVGFilterChainObserver();
 
   virtual void OnRenderingChange() = 0;
 
-private:
-
+ private:
   void DetachReferences()
   {
     for (uint32_t i = 0; i < mReferences.Length(); i++) {
@@ -311,45 +313,50 @@ private:
 
 class nsSVGFilterProperty : public nsSVGFilterChainObserver
 {
-public:
+ public:
   nsSVGFilterProperty(const nsTArray<nsStyleFilter>& aFilters,
                       nsIFrame* aFilteredFrame)
-    : nsSVGFilterChainObserver(aFilters, aFilteredFrame->GetContent(),
-                               aFilteredFrame)
-    , mFrameReference(aFilteredFrame)
-  {}
+      : nsSVGFilterChainObserver(
+            aFilters, aFilteredFrame->GetContent(), aFilteredFrame),
+        mFrameReference(aFilteredFrame)
+  {
+  }
 
   void DetachFromFrame() { mFrameReference.Detach(); }
 
-protected:
+ protected:
   virtual void OnRenderingChange() override;
 
   nsSVGFrameReferenceFromProperty mFrameReference;
 };
 
-class nsSVGMarkerProperty final: public nsSVGRenderingObserverProperty
+class nsSVGMarkerProperty final : public nsSVGRenderingObserverProperty
 {
-public:
+ public:
   nsSVGMarkerProperty(nsIURI* aURI, nsIFrame* aFrame, bool aReferenceImage)
-    : nsSVGRenderingObserverProperty(aURI, aFrame, aReferenceImage) {}
+      : nsSVGRenderingObserverProperty(aURI, aFrame, aReferenceImage)
+  {
+  }
 
-protected:
+ protected:
   virtual void OnRenderingChange() override;
 };
 
 class nsSVGTextPathProperty final : public nsSVGRenderingObserverProperty
 {
-public:
+ public:
   nsSVGTextPathProperty(nsIURI* aURI, nsIFrame* aFrame, bool aReferenceImage)
-    : nsSVGRenderingObserverProperty(aURI, aFrame, aReferenceImage)
-    , mValid(true) {}
+      : nsSVGRenderingObserverProperty(aURI, aFrame, aReferenceImage),
+        mValid(true)
+  {
+  }
 
   virtual bool ObservesReflow() override { return false; }
 
-protected:
+ protected:
   virtual void OnRenderingChange() override;
 
-private:
+ private:
   /**
    * Returns true if the target of the textPath is the frame of a 'path' element.
    */
@@ -360,17 +367,19 @@ private:
 
 class nsSVGPaintingProperty final : public nsSVGRenderingObserverProperty
 {
-public:
+ public:
   nsSVGPaintingProperty(nsIURI* aURI, nsIFrame* aFrame, bool aReferenceImage)
-    : nsSVGRenderingObserverProperty(aURI, aFrame, aReferenceImage) {}
+      : nsSVGRenderingObserverProperty(aURI, aFrame, aReferenceImage)
+  {
+  }
 
-protected:
+ protected:
   virtual void OnRenderingChange() override;
 };
 
 class nsSVGMaskProperty final : public nsISupports
 {
-public:
+ public:
   explicit nsSVGMaskProperty(nsIFrame* aFrame);
 
   // nsISupports
@@ -383,7 +392,7 @@ public:
 
   void ResolveImage(uint32_t aIndex);
 
-private:
+ private:
   virtual ~nsSVGMaskProperty() {}
   nsTArray<RefPtr<nsSVGPaintingProperty>> mProperties;
   nsIFrame* mFrame;
@@ -407,28 +416,33 @@ private:
  */
 class nsSVGRenderingObserverList
 {
-public:
-  nsSVGRenderingObserverList()
-    : mObservers(4)
+ public:
+  nsSVGRenderingObserverList() : mObservers(4)
   {
     MOZ_COUNT_CTOR(nsSVGRenderingObserverList);
   }
 
-  ~nsSVGRenderingObserverList() {
+  ~nsSVGRenderingObserverList()
+  {
     InvalidateAll();
     MOZ_COUNT_DTOR(nsSVGRenderingObserverList);
   }
 
   void Add(nsSVGRenderingObserver* aObserver)
-  { mObservers.PutEntry(aObserver); }
+  {
+    mObservers.PutEntry(aObserver);
+  }
   void Remove(nsSVGRenderingObserver* aObserver)
-  { mObservers.RemoveEntry(aObserver); }
+  {
+    mObservers.RemoveEntry(aObserver);
+  }
 #ifdef DEBUG
   bool Contains(nsSVGRenderingObserver* aObserver)
-  { return (mObservers.GetEntry(aObserver) != nullptr); }
+  {
+    return (mObservers.GetEntry(aObserver) != nullptr);
+  }
 #endif
-  bool IsEmpty()
-  { return mObservers.Count() == 0; }
+  bool IsEmpty() { return mObservers.Count() == 0; }
 
   /**
    * Drop all our observers, and notify them that we have changed and dropped
@@ -448,21 +462,21 @@ public:
    */
   void RemoveAll();
 
-private:
-  nsTHashtable<nsPtrHashKey<nsSVGRenderingObserver> > mObservers;
+ private:
+  nsTHashtable<nsPtrHashKey<nsSVGRenderingObserver>> mObservers;
 };
 
 class SVGObserverUtils
 {
-public:
+ public:
   typedef mozilla::dom::Element Element;
   typedef nsInterfaceHashtable<nsURIHashKey, nsIMutationObserver>
-    URIObserverHashtable;
+      URIObserverHashtable;
 
   using PaintingPropertyDescriptor =
-    const mozilla::FramePropertyDescriptor<nsSVGPaintingProperty>*;
+      const mozilla::FramePropertyDescriptor<nsSVGPaintingProperty>*;
   using URIObserverHashtablePropertyDescriptor =
-    const mozilla::FramePropertyDescriptor<URIObserverHashtable>*;
+      const mozilla::FramePropertyDescriptor<URIObserverHashtable>*;
 
   static void DestroyFilterProperty(nsSVGFilterProperty* aProp)
   {
@@ -474,12 +488,14 @@ public:
     aProp->Release();
   }
 
-  NS_DECLARE_FRAME_PROPERTY_WITH_DTOR(FilterProperty, nsSVGFilterProperty,
+  NS_DECLARE_FRAME_PROPERTY_WITH_DTOR(FilterProperty,
+                                      nsSVGFilterProperty,
                                       DestroyFilterProperty)
   NS_DECLARE_FRAME_PROPERTY_RELEASABLE(MaskProperty, nsSVGMaskProperty)
   NS_DECLARE_FRAME_PROPERTY_RELEASABLE(ClipPathProperty, nsSVGPaintingProperty)
   NS_DECLARE_FRAME_PROPERTY_RELEASABLE(MarkerBeginProperty, nsSVGMarkerProperty)
-  NS_DECLARE_FRAME_PROPERTY_RELEASABLE(MarkerMiddleProperty, nsSVGMarkerProperty)
+  NS_DECLARE_FRAME_PROPERTY_RELEASABLE(MarkerMiddleProperty,
+                                       nsSVGMarkerProperty)
   NS_DECLARE_FRAME_PROPERTY_RELEASABLE(MarkerEndProperty, nsSVGMarkerProperty)
   NS_DECLARE_FRAME_PROPERTY_RELEASABLE(FillProperty, nsSVGPaintingProperty)
   NS_DECLARE_FRAME_PROPERTY_RELEASABLE(StrokeProperty, nsSVGPaintingProperty)
@@ -493,13 +509,15 @@ public:
   /**
    * Get the paint server for a aTargetFrame.
    */
-  static nsSVGPaintServerFrame *GetPaintServer(nsIFrame* aTargetFrame,
-                                               nsStyleSVGPaint nsStyleSVG::* aPaint,
-                                               PaintingPropertyDescriptor aProperty);
+  static nsSVGPaintServerFrame* GetPaintServer(
+      nsIFrame* aTargetFrame,
+      nsStyleSVGPaint nsStyleSVG::*aPaint,
+      PaintingPropertyDescriptor aProperty);
 
-  struct EffectProperties {
-    nsSVGFilterProperty*   mFilter;
-    nsSVGMaskProperty*     mMask;
+  struct EffectProperties
+  {
+    nsSVGFilterProperty* mFilter;
+    nsSVGMaskProperty* mMask;
     nsSVGPaintingProperty* mClipPath;
 
     /**
@@ -521,9 +539,7 @@ public:
     /*
      * @return true if we have any invalid effect.
      */
-    bool HasInvalidEffects() {
-      return !HasNoOrValidEffects();
-    }
+    bool HasInvalidEffects() { return !HasNoOrValidEffects(); }
 
     /*
      * @return true if we either do not have clip-path or have a valid
@@ -534,9 +550,7 @@ public:
     /*
      * @return true if we have an invalid clip-path.
      */
-    bool HasInvalidClipPath() {
-      return !HasNoOrValidClipPath();
-    }
+    bool HasInvalidClipPath() { return !HasNoOrValidClipPath(); }
 
     /*
      * @return true if we either do not have mask or all masks we have
@@ -547,11 +561,10 @@ public:
     /*
      * @return true if we have an invalid mask.
      */
-    bool HasInvalidMask() {
-      return !HasNoOrValidMask();
-    }
+    bool HasInvalidMask() { return !HasNoOrValidMask(); }
 
-    bool HasValidFilter() {
+    bool HasValidFilter()
+    {
       return mFilter && mFilter->ReferencesValidResources();
     }
 
@@ -559,16 +572,15 @@ public:
      * @return true if we either do not have filter or all filters we have
      * are valid.
      */
-    bool HasNoOrValidFilter() {
+    bool HasNoOrValidFilter()
+    {
       return !mFilter || mFilter->ReferencesValidResources();
     }
 
     /*
      * @return true if we have an invalid filter.
      */
-    bool HasInvalidFilter() {
-      return !HasNoOrValidFilter();
-    }
+    bool HasInvalidFilter() { return !HasNoOrValidFilter(); }
   };
 
   /**
@@ -594,16 +606,18 @@ public:
   /**
    * @param aFrame should be the first continuation
    */
-  static nsSVGFilterProperty *GetFilterProperty(nsIFrame* aFrame);
+  static nsSVGFilterProperty* GetFilterProperty(nsIFrame* aFrame);
 
   /**
    * @param aFrame must be a first-continuation.
    */
-  static void AddRenderingObserver(Element* aElement, nsSVGRenderingObserver *aObserver);
+  static void AddRenderingObserver(Element* aElement,
+                                   nsSVGRenderingObserver* aObserver);
   /**
    * @param aFrame must be a first-continuation.
    */
-  static void RemoveRenderingObserver(Element* aElement, nsSVGRenderingObserver *aObserver);
+  static void RemoveRenderingObserver(Element* aElement,
+                                      nsSVGRenderingObserver* aObserver);
 
   /**
    * Removes all rendering observers from aElement.
@@ -627,7 +641,8 @@ public:
    */
   static void InvalidateRenderingObservers(nsIFrame* aFrame);
 
-  enum {
+  enum
+  {
     INVALIDATE_REFLOW = 1
   };
 
@@ -635,71 +650,74 @@ public:
    * This can be called on any element or frame. Only direct observers of this
    * (frame's) element, if any, are invalidated.
    */
-  static void InvalidateDirectRenderingObservers(Element* aElement, uint32_t aFlags = 0);
-  static void InvalidateDirectRenderingObservers(nsIFrame* aFrame, uint32_t aFlags = 0);
+  static void InvalidateDirectRenderingObservers(Element* aElement,
+                                                 uint32_t aFlags = 0);
+  static void InvalidateDirectRenderingObservers(nsIFrame* aFrame,
+                                                 uint32_t aFlags = 0);
 
   /**
    * Get an nsSVGMarkerProperty for the frame, creating a fresh one if necessary
    */
-  static nsSVGMarkerProperty *
-  GetMarkerProperty(nsIURI* aURI, nsIFrame* aFrame,
-    const mozilla::FramePropertyDescriptor<nsSVGMarkerProperty>* aProperty);
+  static nsSVGMarkerProperty* GetMarkerProperty(
+      nsIURI* aURI,
+      nsIFrame* aFrame,
+      const mozilla::FramePropertyDescriptor<nsSVGMarkerProperty>* aProperty);
   /**
    * Get an nsSVGTextPathProperty for the frame, creating a fresh one if necessary
    */
-  static nsSVGTextPathProperty *
-  GetTextPathProperty(nsIURI* aURI, nsIFrame* aFrame,
-    const mozilla::FramePropertyDescriptor<nsSVGTextPathProperty>* aProperty);
+  static nsSVGTextPathProperty* GetTextPathProperty(
+      nsIURI* aURI,
+      nsIFrame* aFrame,
+      const mozilla::FramePropertyDescriptor<nsSVGTextPathProperty>* aProperty);
   /**
    * Get an nsSVGPaintingProperty for the frame, creating a fresh one if necessary
    */
-  static nsSVGPaintingProperty*
-  GetPaintingProperty(nsIURI* aURI, nsIFrame* aFrame,
+  static nsSVGPaintingProperty* GetPaintingProperty(
+      nsIURI* aURI,
+      nsIFrame* aFrame,
       const mozilla::FramePropertyDescriptor<nsSVGPaintingProperty>* aProperty);
   /**
    * Get an nsSVGPaintingProperty for the frame for that URI, creating a fresh
    * one if necessary
    */
-  static nsSVGPaintingProperty*
-  GetPaintingPropertyForURI(nsIURI* aURI, nsIFrame* aFrame,
-                            URIObserverHashtablePropertyDescriptor aProp);
+  static nsSVGPaintingProperty* GetPaintingPropertyForURI(
+      nsIURI* aURI,
+      nsIFrame* aFrame,
+      URIObserverHashtablePropertyDescriptor aProp);
 
   /**
    * A helper function to resolve marker's URL.
    */
-  static already_AddRefed<nsIURI>
-  GetMarkerURI(nsIFrame* aFrame,
-               RefPtr<mozilla::css::URLValue> nsStyleSVG::* aMarker);
+  static already_AddRefed<nsIURI> GetMarkerURI(
+      nsIFrame* aFrame, RefPtr<mozilla::css::URLValue> nsStyleSVG::*aMarker);
 
   /**
    * A helper function to resolve clip-path URL.
    */
-  static already_AddRefed<nsIURI>
-  GetClipPathURI(nsIFrame* aFrame);
+  static already_AddRefed<nsIURI> GetClipPathURI(nsIFrame* aFrame);
 
   /**
    * A helper function to resolve filter URL.
    */
-  static already_AddRefed<nsIURI>
-  GetFilterURI(nsIFrame* aFrame, uint32_t aIndex);
+  static already_AddRefed<nsIURI> GetFilterURI(nsIFrame* aFrame,
+                                               uint32_t aIndex);
 
   /**
    * A helper function to resolve filter URL.
    */
-  static already_AddRefed<nsIURI>
-  GetFilterURI(nsIFrame* aFrame, const nsStyleFilter& aFilter);
+  static already_AddRefed<nsIURI> GetFilterURI(nsIFrame* aFrame,
+                                               const nsStyleFilter& aFilter);
 
   /**
    * A helper function to resolve paint-server URL.
    */
-  static already_AddRefed<nsIURI>
-  GetPaintURI(nsIFrame* aFrame, nsStyleSVGPaint nsStyleSVG::* aPaint);
+  static already_AddRefed<nsIURI> GetPaintURI(
+      nsIFrame* aFrame, nsStyleSVGPaint nsStyleSVG::*aPaint);
 
   /**
    * A helper function to resolve SVG mask URL.
    */
-  static already_AddRefed<nsIURI>
-  GetMaskURI(nsIFrame* aFrame, uint32_t aIndex);
+  static already_AddRefed<nsIURI> GetMaskURI(nsIFrame* aFrame, uint32_t aIndex);
 
   /**
    * Return a baseURL for resolving a local-ref URL.
@@ -710,8 +728,8 @@ public:
    *                   <circle clip-path=url(#foo)>
    *                   <use xlink:href="#foo">
    */
-  static already_AddRefed<nsIURI>
-  GetBaseURLForLocalRef(nsIContent* aContent, nsIURI* aDocURI);
+  static already_AddRefed<nsIURI> GetBaseURLForLocalRef(nsIContent* aContent,
+                                                        nsIURI* aDocURI);
 };
 
 #endif /*NSSVGEFFECTS_H_*/

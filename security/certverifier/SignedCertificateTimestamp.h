@@ -13,14 +13,15 @@
 #include "pkix/Result.h"
 
 // Structures related to Certificate Transparency (RFC 6962).
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // LogEntry struct in RFC 6962, Section 3.1.
 struct LogEntry
 {
-
   // LogEntryType enum in RFC 6962, Section 3.1.
-  enum class Type {
+  enum class Type
+  {
     X509 = 0,
     Precert = 1
   };
@@ -41,7 +42,8 @@ struct LogEntry
 // Sections 4.7 and 7.4.1.4.1 of RFC 5246.
 struct DigitallySigned
 {
-  enum class HashAlgorithm {
+  enum class HashAlgorithm
+  {
     None = 0,
     MD5 = 1,
     SHA1 = 2,
@@ -51,7 +53,8 @@ struct DigitallySigned
     SHA512 = 6,
   };
 
-  enum class SignatureAlgorithm {
+  enum class SignatureAlgorithm
+  {
     Anonymous = 0,
     RSA = 1,
     DSA = 2,
@@ -73,7 +76,8 @@ struct DigitallySigned
 struct SignedCertificateTimestamp
 {
   // Version enum in RFC 6962, Section 3.2.
-  enum class Version {
+  enum class Version
+  {
     V1 = 0,
   };
 
@@ -86,7 +90,8 @@ struct SignedCertificateTimestamp
   DigitallySigned signature;
 };
 
-inline pkix::Result BufferToInput(const Buffer& buffer, pkix::Input& input)
+inline pkix::Result
+BufferToInput(const Buffer& buffer, pkix::Input& input)
 {
   if (buffer.length() == 0) {
     return pkix::Result::FATAL_ERROR_LIBRARY_FAILURE;
@@ -94,7 +99,8 @@ inline pkix::Result BufferToInput(const Buffer& buffer, pkix::Input& input)
   return input.Init(buffer.begin(), buffer.length());
 }
 
-inline pkix::Result InputToBuffer(pkix::Input input, Buffer& buffer)
+inline pkix::Result
+InputToBuffer(pkix::Input input, Buffer& buffer)
 {
   buffer.clear();
   if (!buffer.append(input.UnsafeGetData(), input.GetLength())) {
@@ -103,6 +109,7 @@ inline pkix::Result InputToBuffer(pkix::Input input, Buffer& buffer)
   return pkix::Success;
 }
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
-#endif // SignedCertificateTimestamp_h
+#endif  // SignedCertificateTimestamp_h

@@ -10,6 +10,4 @@ using namespace js;
 using namespace js::jit;
 
 BaselineCompilerX64::BaselineCompilerX64(JSContext* cx, TempAllocator& alloc, JSScript* script)
-  : BaselineCompilerX86Shared(cx, alloc, script)
-{
-}
+    : BaselineCompilerX86Shared(cx, alloc, script) {}

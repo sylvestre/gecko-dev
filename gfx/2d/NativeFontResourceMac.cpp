@@ -21,7 +21,7 @@ namespace gfx {
 
 /* static */
 already_AddRefed<NativeFontResourceMac>
-NativeFontResourceMac::Create(uint8_t *aFontData, uint32_t aDataLength)
+NativeFontResourceMac::Create(uint8_t* aFontData, uint32_t aDataLength)
 {
   // copy font data
   CFDataRef data = CFDataCreate(kCFAllocatorDefault, aFontData, aDataLength);
@@ -47,7 +47,7 @@ NativeFontResourceMac::Create(uint8_t *aFontData, uint32_t aDataLength)
 
   // passes ownership of fontRef to the NativeFontResourceMac instance
   RefPtr<NativeFontResourceMac> fontResource =
-    new NativeFontResourceMac(fontRef);
+      new NativeFontResourceMac(fontRef);
 
   return fontResource.forget();
 }
@@ -62,5 +62,5 @@ NativeFontResourceMac::CreateUnscaledFont(uint32_t aIndex,
   return unscaledFont.forget();
 }
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -28,15 +28,19 @@ const ThreadPriorityToNiceValuePair kThreadPriorityToNiceValueMap[4] = {
     {ThreadPriority::REALTIME_AUDIO, -10},
 };
 
-bool SetCurrentThreadPriorityForPlatform(ThreadPriority priority) {
+bool
+SetCurrentThreadPriorityForPlatform(ThreadPriority priority)
+{
   MOZ_CRASH();
 }
 
-bool GetCurrentThreadPriorityForPlatform(ThreadPriority* priority) {
+bool
+GetCurrentThreadPriorityForPlatform(ThreadPriority* priority)
+{
   int maybe_sched_rr = 0;
   struct sched_param maybe_realtime_prio = {0};
-  if (pthread_getschedparam(pthread_self(), &maybe_sched_rr,
-                            &maybe_realtime_prio) == 0 &&
+  if (pthread_getschedparam(
+          pthread_self(), &maybe_sched_rr, &maybe_realtime_prio) == 0 &&
       maybe_sched_rr == SCHED_RR &&
       maybe_realtime_prio.sched_priority == kRealTimePrio.sched_priority) {
     *priority = ThreadPriority::REALTIME_AUDIO;
@@ -47,11 +51,19 @@ bool GetCurrentThreadPriorityForPlatform(ThreadPriority* priority) {
 
 }  // namespace internal
 
-void InitThreading() {}
+void
+InitThreading()
+{
+}
 
-void TerminateOnThread() {}
+void
+TerminateOnThread()
+{
+}
 
-size_t GetDefaultThreadStackSize(const pthread_attr_t& attributes) {
+size_t
+GetDefaultThreadStackSize(const pthread_attr_t& attributes)
+{
 #if !defined(THREAD_SANITIZER)
   return 0;
 #else

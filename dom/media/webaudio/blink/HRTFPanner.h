@@ -31,7 +31,7 @@
 
 namespace mozilla {
 class AudioBlock;
-} // namespace mozilla
+}  // namespace mozilla
 
 namespace WebCore {
 
@@ -41,77 +41,84 @@ class HRTFDatabaseLoader;
 
 using mozilla::AudioBlock;
 
-class HRTFPanner {
-public:
-    HRTFPanner(float sampleRate, already_AddRefed<HRTFDatabaseLoader> databaseLoader);
-    ~HRTFPanner();
+class HRTFPanner
+{
+ public:
+  HRTFPanner(float sampleRate,
+             already_AddRefed<HRTFDatabaseLoader> databaseLoader);
+  ~HRTFPanner();
 
-    // chunk durations must be 128
-    void pan(double azimuth, double elevation, const AudioBlock* inputBus, AudioBlock* outputBus);
-    void reset();
+  // chunk durations must be 128
+  void pan(double azimuth,
+           double elevation,
+           const AudioBlock* inputBus,
+           AudioBlock* outputBus);
+  void reset();
 
-    size_t fftSize() const { return m_convolverL1.fftSize(); }
+  size_t fftSize() const { return m_convolverL1.fftSize(); }
 
-    float sampleRate() const { return m_sampleRate; }
+  float sampleRate() const { return m_sampleRate; }
 
-    int maxTailFrames() const;
+  int maxTailFrames() const;
 
-    size_t sizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
+  size_t sizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
-    // Given an azimuth angle in the range -180 -> +180, returns the corresponding azimuth index for the database,
-    // and azimuthBlend which is an interpolation value from 0 -> 1.
-    int calculateDesiredAzimuthIndexAndBlend(double azimuth, double& azimuthBlend);
+ private:
+  // Given an azimuth angle in the range -180 -> +180, returns the corresponding azimuth index for the database,
+  // and azimuthBlend which is an interpolation value from 0 -> 1.
+  int calculateDesiredAzimuthIndexAndBlend(double azimuth,
+                                           double& azimuthBlend);
 
-    RefPtr<HRTFDatabaseLoader> m_databaseLoader;
+  RefPtr<HRTFDatabaseLoader> m_databaseLoader;
 
-    float m_sampleRate;
+  float m_sampleRate;
 
-    // We maintain two sets of convolvers for smooth cross-faded interpolations when
-    // then azimuth and elevation are dynamically changing.
-    // When the azimuth and elevation are not changing, we simply process with one of the two sets.
-    // Initially we use CrossfadeSelection1 corresponding to m_convolverL1 and m_convolverR1.
-    // Whenever the azimuth or elevation changes, a crossfade is initiated to transition
-    // to the new position. So if we're currently processing with CrossfadeSelection1, then
-    // we transition to CrossfadeSelection2 (and vice versa).
-    // If we're in the middle of a transition, then we wait until it is complete before
-    // initiating a new transition.
+  // We maintain two sets of convolvers for smooth cross-faded interpolations when
+  // then azimuth and elevation are dynamically changing.
+  // When the azimuth and elevation are not changing, we simply process with one of the two sets.
+  // Initially we use CrossfadeSelection1 corresponding to m_convolverL1 and m_convolverR1.
+  // Whenever the azimuth or elevation changes, a crossfade is initiated to transition
+  // to the new position. So if we're currently processing with CrossfadeSelection1, then
+  // we transition to CrossfadeSelection2 (and vice versa).
+  // If we're in the middle of a transition, then we wait until it is complete before
+  // initiating a new transition.
 
-    // Selects either the convolver set (m_convolverL1, m_convolverR1) or (m_convolverL2, m_convolverR2).
-    enum CrossfadeSelection {
-        CrossfadeSelection1,
-        CrossfadeSelection2
-    };
+  // Selects either the convolver set (m_convolverL1, m_convolverR1) or (m_convolverL2, m_convolverR2).
+  enum CrossfadeSelection
+  {
+    CrossfadeSelection1,
+    CrossfadeSelection2
+  };
 
-    CrossfadeSelection m_crossfadeSelection;
+  CrossfadeSelection m_crossfadeSelection;
 
-    // azimuth/elevation for CrossfadeSelection1.
-    int m_azimuthIndex1;
-    double m_elevation1;
+  // azimuth/elevation for CrossfadeSelection1.
+  int m_azimuthIndex1;
+  double m_elevation1;
 
-    // azimuth/elevation for CrossfadeSelection2.
-    int m_azimuthIndex2;
-    double m_elevation2;
+  // azimuth/elevation for CrossfadeSelection2.
+  int m_azimuthIndex2;
+  double m_elevation2;
 
-    // A crossfade value 0 <= m_crossfadeX <= 1.
-    float m_crossfadeX;
+  // A crossfade value 0 <= m_crossfadeX <= 1.
+  float m_crossfadeX;
 
-    // Per-sample-frame crossfade value increment.
-    float m_crossfadeIncr;
+  // Per-sample-frame crossfade value increment.
+  float m_crossfadeIncr;
 
-    FFTConvolver m_convolverL1;
-    FFTConvolver m_convolverR1;
-    FFTConvolver m_convolverL2;
-    FFTConvolver m_convolverR2;
+  FFTConvolver m_convolverL1;
+  FFTConvolver m_convolverR1;
+  FFTConvolver m_convolverL2;
+  FFTConvolver m_convolverR2;
 
-    mozilla::DelayBuffer m_delayLine;
+  mozilla::DelayBuffer m_delayLine;
 
-    AudioFloatArray m_tempL1;
-    AudioFloatArray m_tempR1;
-    AudioFloatArray m_tempL2;
-    AudioFloatArray m_tempR2;
+  AudioFloatArray m_tempL1;
+  AudioFloatArray m_tempR1;
+  AudioFloatArray m_tempL2;
+  AudioFloatArray m_tempR2;
 };
 
-} // namespace WebCore
+}  // namespace WebCore
 
-#endif // HRTFPanner_h
+#endif  // HRTFPanner_h

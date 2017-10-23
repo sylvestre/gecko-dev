@@ -14,16 +14,17 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Unknown)
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_ISUPPORTS_INHERITED(HTMLUnknownElement, nsGenericHTMLElement,
+NS_IMPL_ISUPPORTS_INHERITED(HTMLUnknownElement,
+                            nsGenericHTMLElement,
                             HTMLUnknownElement)
 
 JSObject*
-HTMLUnknownElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLUnknownElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLUnknownElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
 NS_IMPL_ELEMENT_CLONE(HTMLUnknownElement)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

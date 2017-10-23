@@ -41,7 +41,7 @@
 #include "nsStringFwd.h"
 #include "nsUnicharUtils.h"
 #include "nscore.h"
-#include "nsContentUtils.h" // for nsAutoScriptBlocker
+#include "nsContentUtils.h"  // for nsAutoScriptBlocker
 
 class nsIDOMEventListener;
 class nsISelection;
@@ -51,8 +51,8 @@ namespace mozilla {
 using namespace dom;
 
 // retrieve an integer stored into a CSS computed float value
-static int32_t GetCSSFloatValue(nsIDOMCSSStyleDeclaration * aDecl,
-                                const nsAString & aProperty)
+static int32_t
+GetCSSFloatValue(nsIDOMCSSStyleDeclaration* aDecl, const nsAString& aProperty)
 {
   MOZ_ASSERT(aDecl);
 
@@ -92,23 +92,23 @@ static int32_t GetCSSFloatValue(nsIDOMCSSStyleDeclaration * aDecl,
     }
   }
 
-  return (int32_t) f;
+  return (int32_t)f;
 }
 
 class ElementDeletionObserver final : public nsStubMutationObserver
 {
-public:
+ public:
   ElementDeletionObserver(nsIContent* aNativeAnonNode,
                           nsIContent* aObservedNode)
-    : mNativeAnonNode(aNativeAnonNode)
-    , mObservedNode(aObservedNode)
-  {}
+      : mNativeAnonNode(aNativeAnonNode), mObservedNode(aObservedNode)
+  {
+  }
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMUTATIONOBSERVER_PARENTCHAINCHANGED
   NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED
 
-protected:
+ protected:
   ~ElementDeletionObserver() {}
   nsIContent* mNativeAnonNode;
   nsIContent* mObservedNode;
@@ -139,8 +139,8 @@ ElementDeletionObserver::ParentChainChanged(nsIContent* aContent)
     // We're staying in the same document, just rebind the native anonymous
     // node so that the subtree root points to the right object etc.
     mNativeAnonNode->UnbindFromTree();
-    mNativeAnonNode->BindToTree(mObservedNode->GetUncomposedDoc(), mObservedNode,
-                                mObservedNode, true);
+    mNativeAnonNode->BindToTree(
+        mObservedNode->GetUncomposedDoc(), mObservedNode, mObservedNode, true);
   }
 }
 
@@ -194,9 +194,10 @@ HTMLEditor::CreateAnonymousElement(nsAtom* aTag,
 
   // add the "hidden" class if needed
   if (aIsCreatedHidden) {
-    nsresult rv =
-      newContentRaw->SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
-                             NS_LITERAL_STRING("hidden"), true);
+    nsresult rv = newContentRaw->SetAttr(kNameSpaceID_None,
+                                         nsGkAtoms::_class,
+                                         NS_LITERAL_STRING("hidden"),
+                                         true);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return nullptr;
     }
@@ -204,9 +205,8 @@ HTMLEditor::CreateAnonymousElement(nsAtom* aTag,
 
   // add an _moz_anonclass attribute if needed
   if (!aAnonClass.IsEmpty()) {
-    nsresult rv =
-      newContentRaw->SetAttr(kNameSpaceID_None, nsGkAtoms::_moz_anonclass,
-                             aAnonClass, true);
+    nsresult rv = newContentRaw->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::_moz_anonclass, aAnonClass, true);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return nullptr;
     }
@@ -218,7 +218,7 @@ HTMLEditor::CreateAnonymousElement(nsAtom* aTag,
     // establish parenthood of the element
     newContentRaw->SetIsNativeAnonymousRoot();
     nsresult rv =
-      newContentRaw->BindToTree(doc, &aParentContent, &aParentContent, true);
+        newContentRaw->BindToTree(doc, &aParentContent, &aParentContent, true);
     if (NS_FAILED(rv)) {
       newContentRaw->UnbindFromTree();
       return nullptr;
@@ -238,8 +238,8 @@ HTMLEditor::CreateAnonymousElement(nsAtom* aTag,
   }
 
   ElementDeletionObserver* observer =
-    new ElementDeletionObserver(newContent, &aParentContent);
-  NS_ADDREF(observer); // NodeWillBeDestroyed releases.
+      new ElementDeletionObserver(newContent, &aParentContent);
+  NS_ADDREF(observer);  // NodeWillBeDestroyed releases.
   aParentContent.AddMutationObserver(observer);
   newContent->AddMutationObserver(observer);
 
@@ -249,8 +249,8 @@ HTMLEditor::CreateAnonymousElement(nsAtom* aTag,
   // tree ordering right).  But for us the ordering doesn't matter so this is
   // sort of ok.
   newContent->SetProperty(nsGkAtoms::restylableAnonymousNode,
-			  reinterpret_cast<void*>(true));
-#endif // DEBUG
+                          reinterpret_cast<void*>(true));
+#endif  // DEBUG
 
   // display the element
   ps->PostRecreateFramesFor(newContent);
@@ -308,7 +308,8 @@ HTMLEditor::DeleteRefToAnonymousNode(ManualNACPtr aContent,
       }
 
       docObserver->ContentRemoved(aContent->GetComposedDoc(),
-                                  parentContent, aContent,
+                                  parentContent,
+                                  aContent,
                                   aContent->GetPreviousSibling());
       if (document) {
         docObserver->EndUpdate(document, UPDATE_CONTENT_MODEL);
@@ -329,9 +330,9 @@ HTMLEditor::CheckSelectionStateForAnonymousButtons(nsISelection* aSelection)
   NS_ENSURE_ARG_POINTER(aSelection);
 
   // early way out if all contextual UI extensions are disabled
-  NS_ENSURE_TRUE(mIsObjectResizingEnabled ||
-      mIsAbsolutelyPositioningEnabled ||
-      mIsInlineTableEditingEnabled, NS_OK);
+  NS_ENSURE_TRUE(mIsObjectResizingEnabled || mIsAbsolutelyPositioningEnabled ||
+                     mIsInlineTableEditingEnabled,
+                 NS_OK);
 
   // Don't change selection state if we're moving.
   if (mIsMoving) {
@@ -358,8 +359,8 @@ HTMLEditor::CheckSelectionStateForAnonymousButtons(nsISelection* aSelection)
   if (mIsAbsolutelyPositioningEnabled) {
     // Absolute Positioning support is enabled, is the selection contained
     // in an absolutely positioned element ?
-    rv =
-      GetAbsolutelyPositionedSelectionContainer(getter_AddRefs(absPosElement));
+    rv = GetAbsolutelyPositionedSelectionContainer(
+        getter_AddRefs(absPosElement));
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -367,9 +368,8 @@ HTMLEditor::CheckSelectionStateForAnonymousButtons(nsISelection* aSelection)
   if (mIsObjectResizingEnabled || mIsInlineTableEditingEnabled) {
     // Resizing or Inline Table Editing is enabled, we need to check if the
     // selection is contained in a table cell
-    rv = GetElementOrParentByTagName(NS_LITERAL_STRING("td"),
-                                     nullptr,
-                                     getter_AddRefs(cellElement));
+    rv = GetElementOrParentByTagName(
+        NS_LITERAL_STRING("td"), nullptr, getter_AddRefs(cellElement));
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -492,12 +492,12 @@ HTMLEditor::GetPositionAndDimensions(Element& aElement,
 {
   // Is the element positioned ? let's check the cheap way first...
   bool isPositioned =
-    aElement.HasAttr(kNameSpaceID_None, nsGkAtoms::_moz_abspos);
+      aElement.HasAttr(kNameSpaceID_None, nsGkAtoms::_moz_abspos);
   if (!isPositioned) {
     // hmmm... the expensive way now...
     nsAutoString positionStr;
-    mCSSEditUtils->GetComputedProperty(aElement, *nsGkAtoms::position,
-                                       positionStr);
+    mCSSEditUtils->GetComputedProperty(
+        aElement, *nsGkAtoms::position, positionStr);
     isPositioned = positionStr.EqualsLiteral("absolute");
   }
 
@@ -507,18 +507,20 @@ HTMLEditor::GetPositionAndDimensions(Element& aElement,
 
     // Get the all the computed css styles attached to the element node
     RefPtr<nsComputedDOMStyle> cssDecl =
-      mCSSEditUtils->GetComputedStyle(&aElement);
+        mCSSEditUtils->GetComputedStyle(&aElement);
     NS_ENSURE_STATE(cssDecl);
 
-    aBorderLeft = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("border-left-width"));
-    aBorderTop  = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("border-top-width"));
+    aBorderLeft =
+        GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("border-left-width"));
+    aBorderTop =
+        GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("border-top-width"));
     aMarginLeft = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("margin-left"));
-    aMarginTop  = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("margin-top"));
+    aMarginTop = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("margin-top"));
 
-    aX = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("left")) +
-         aMarginLeft + aBorderLeft;
-    aY = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("top")) +
-         aMarginTop + aBorderTop;
+    aX = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("left")) + aMarginLeft +
+         aBorderLeft;
+    aY = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("top")) + aMarginTop +
+         aBorderTop;
     aW = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("width"));
     aH = GetCSSFloatValue(cssDecl, NS_LITERAL_STRING("height"));
   } else {
@@ -535,7 +537,7 @@ HTMLEditor::GetPositionAndDimensions(Element& aElement,
     }
 
     aBorderLeft = 0;
-    aBorderTop  = 0;
+    aBorderTop = 0;
     aMarginLeft = 0;
     aMarginTop = 0;
   }
@@ -552,4 +554,4 @@ HTMLEditor::SetAnonymousElementPosition(int32_t aX,
   mCSSEditUtils->SetCSSPropertyPixels(*aElement, *nsGkAtoms::top, aY);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

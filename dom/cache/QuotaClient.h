@@ -55,8 +55,8 @@ RestorePaddingFile(nsIFile* aBaseDir, mozIStorageConnection* aConn);
 
 nsresult
 WipePaddingFile(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir);
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_QuotaClient_h
+#endif  // mozilla_dom_cache_QuotaClient_h

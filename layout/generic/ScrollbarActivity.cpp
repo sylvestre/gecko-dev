@@ -29,8 +29,9 @@ GetForceAlwaysVisiblePref()
   static bool sForceAlwaysVisible;
   static bool sForceAlwaysVisiblePrefCached = false;
   if (!sForceAlwaysVisiblePrefCached) {
-    Preferences::AddBoolVarCache(&sForceAlwaysVisible,
-                                 "layout.testing.overlay-scrollbars.always-visible");
+    Preferences::AddBoolVarCache(
+        &sForceAlwaysVisible,
+        "layout.testing.overlay-scrollbars.always-visible");
     sForceAlwaysVisiblePrefCached = true;
   }
   return sForceAlwaysVisible;
@@ -41,13 +42,13 @@ ScrollbarActivity::QueryLookAndFeelVals()
 {
   // Fade animation constants
   mScrollbarFadeBeginDelay =
-    LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarFadeBeginDelay);
+      LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarFadeBeginDelay);
   mScrollbarFadeDuration =
-    LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarFadeDuration);
+      LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarFadeDuration);
   // Controls whether we keep the mouse move listener so we can display the
   // scrollbars whenever the user moves the mouse within the scroll area.
   mDisplayOnMouseMove =
-    LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarDisplayOnMouseMove);
+      LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarDisplayOnMouseMove);
 }
 
 void
@@ -108,8 +109,7 @@ ScrollbarActivity::ActivityStopped()
 NS_IMETHODIMP
 ScrollbarActivity::HandleEvent(nsIDOMEvent* aEvent)
 {
-  if (!mDisplayOnMouseMove && !mIsActive)
-    return NS_OK;
+  if (!mDisplayOnMouseMove && !mIsActive) return NS_OK;
 
   nsAutoString type;
   aEvent->GetType(type);
@@ -125,10 +125,10 @@ ScrollbarActivity::HandleEvent(nsIDOMEvent* aEvent)
   aEvent->GetOriginalTarget(getter_AddRefs(target));
   nsCOMPtr<nsIContent> targetContent = do_QueryInterface(target);
 
-  HandleEventForScrollbar(type, targetContent, GetHorizontalScrollbar(),
-                          &mHScrollbarHovered);
-  HandleEventForScrollbar(type, targetContent, GetVerticalScrollbar(),
-                          &mVScrollbarHovered);
+  HandleEventForScrollbar(
+      type, targetContent, GetHorizontalScrollbar(), &mHScrollbarHovered);
+  HandleEventForScrollbar(
+      type, targetContent, GetVerticalScrollbar(), &mVScrollbarHovered);
 
   return NS_OK;
 }
@@ -137,7 +137,9 @@ void
 ScrollbarActivity::WillRefresh(TimeStamp aTime)
 {
   NS_ASSERTION(mIsActive, "should only fade while scrollbars are visible");
-  NS_ASSERTION(!IsActivityOngoing(), "why weren't we unregistered from the refresh driver when scrollbar activity started?");
+  NS_ASSERTION(!IsActivityOngoing(),
+               "why weren't we unregistered from the refresh driver when "
+               "scrollbar activity started?");
   NS_ASSERTION(mIsFading, "should only animate fading during fade");
 
   if (!UpdateOpacity(aTime)) {
@@ -187,8 +189,7 @@ ScrollbarActivity::HandleEventForScrollbar(const nsAString& aType,
 void
 ScrollbarActivity::StartListeningForScrollbarEvents()
 {
-  if (mListeningForScrollbarEvents)
-    return;
+  if (mListeningForScrollbarEvents) return;
 
   mHorizontalScrollbar = do_QueryInterface(GetHorizontalScrollbar());
   mVerticalScrollbar = do_QueryInterface(GetVerticalScrollbar());
@@ -202,8 +203,7 @@ ScrollbarActivity::StartListeningForScrollbarEvents()
 void
 ScrollbarActivity::StopListeningForScrollbarEvents()
 {
-  if (!mListeningForScrollbarEvents)
-    return;
+  if (!mListeningForScrollbarEvents) return;
 
   RemoveScrollbarEventListeners(mHorizontalScrollbar);
   RemoveScrollbarEventListeners(mVerticalScrollbar);
@@ -216,15 +216,14 @@ ScrollbarActivity::StopListeningForScrollbarEvents()
 void
 ScrollbarActivity::StartListeningForScrollAreaEvents()
 {
-  if (mListeningForScrollAreaEvents)
-    return;
+  if (mListeningForScrollAreaEvents) return;
 
   nsIFrame* scrollArea = do_QueryFrame(mScrollableFrame);
-  nsCOMPtr<nsIDOMEventTarget> scrollAreaTarget
-    = do_QueryInterface(scrollArea->GetContent());
+  nsCOMPtr<nsIDOMEventTarget> scrollAreaTarget =
+      do_QueryInterface(scrollArea->GetContent());
   if (scrollAreaTarget) {
-    scrollAreaTarget->AddEventListener(NS_LITERAL_STRING("mousemove"), this,
-                                       true);
+    scrollAreaTarget->AddEventListener(
+        NS_LITERAL_STRING("mousemove"), this, true);
   }
   mListeningForScrollAreaEvents = true;
 }
@@ -232,13 +231,14 @@ ScrollbarActivity::StartListeningForScrollAreaEvents()
 void
 ScrollbarActivity::StopListeningForScrollAreaEvents()
 {
-  if (!mListeningForScrollAreaEvents)
-    return;
+  if (!mListeningForScrollAreaEvents) return;
 
   nsIFrame* scrollArea = do_QueryFrame(mScrollableFrame);
-  nsCOMPtr<nsIDOMEventTarget> scrollAreaTarget = do_QueryInterface(scrollArea->GetContent());
+  nsCOMPtr<nsIDOMEventTarget> scrollAreaTarget =
+      do_QueryInterface(scrollArea->GetContent());
   if (scrollAreaTarget) {
-    scrollAreaTarget->RemoveEventListener(NS_LITERAL_STRING("mousemove"), this, true);
+    scrollAreaTarget->RemoveEventListener(
+        NS_LITERAL_STRING("mousemove"), this, true);
   }
   mListeningForScrollAreaEvents = false;
 }
@@ -269,7 +269,9 @@ void
 ScrollbarActivity::BeginFade()
 {
   NS_ASSERTION(mIsActive, "can't begin fade when we're already inactive");
-  NS_ASSERTION(!IsActivityOngoing(), "why wasn't the fade begin timer cancelled when scrollbar activity started?");
+  NS_ASSERTION(!IsActivityOngoing(),
+               "why wasn't the fade begin timer cancelled when scrollbar "
+               "activity started?");
   NS_ASSERTION(!mIsFading, "shouldn't be fading just yet");
 
   CancelFadeBeginTimer();
@@ -287,7 +289,9 @@ void
 ScrollbarActivity::EndFade()
 {
   NS_ASSERTION(mIsActive, "still need to be active at this point");
-  NS_ASSERTION(!IsActivityOngoing(), "why wasn't the fade end timer cancelled when scrollbar activity started?");
+  NS_ASSERTION(!IsActivityOngoing(),
+               "why wasn't the fade end timer cancelled when scrollbar "
+               "activity started?");
 
   if (!SetIsFading(false)) {
     return;
@@ -326,8 +330,8 @@ SetBooleanAttribute(nsIContent* aContent, nsAtom* aAttribute, bool aValue)
 {
   if (aContent) {
     if (aValue) {
-      aContent->SetAttr(kNameSpaceID_None, aAttribute,
-                        NS_LITERAL_STRING("true"), true);
+      aContent->SetAttr(
+          kNameSpaceID_None, aAttribute, NS_LITERAL_STRING("true"), true);
     } else {
       aContent->UnsetAttr(kNameSpaceID_None, aAttribute, true);
     }
@@ -337,8 +341,7 @@ SetBooleanAttribute(nsIContent* aContent, nsAtom* aAttribute, bool aValue)
 void
 ScrollbarActivity::SetIsActive(bool aNewActive)
 {
-  if (mIsActive == aNewActive)
-    return;
+  if (mIsActive == aNewActive) return;
 
   mIsActive = aNewActive;
   if (!mIsActive) {
@@ -353,8 +356,7 @@ ScrollbarActivity::SetIsActive(bool aNewActive)
 static void
 SetOpacityOnElement(nsIContent* aContent, double aOpacity)
 {
-  nsCOMPtr<nsStyledElement> inlineStyleContent =
-    do_QueryInterface(aContent);
+  nsCOMPtr<nsStyledElement> inlineStyleContent = do_QueryInterface(aContent);
   if (inlineStyleContent) {
     nsICSSDeclaration* decl = inlineStyleContent->Style();
     nsAutoString str;
@@ -369,8 +371,8 @@ ScrollbarActivity::UpdateOpacity(TimeStamp aTime)
   // Avoid division by zero if mScrollbarFadeDuration is zero, just jump
   // to the end of the fade animation
   double progress = mScrollbarFadeDuration
-    ? ((aTime - mFadeBeginTime) / FadeDuration())
-    : 1.0;
+                        ? ((aTime - mFadeBeginTime) / FadeDuration())
+                        : 1.0;
   double opacity = 1.0 - std::max(0.0, std::min(1.0, progress));
 
   // 'this' may be getting destroyed during SetOpacityOnElement calls.
@@ -389,8 +391,7 @@ ScrollbarActivity::UpdateOpacity(TimeStamp aTime)
 static void
 UnsetOpacityOnElement(nsIContent* aContent)
 {
-  nsCOMPtr<nsStyledElement> inlineStyleContent =
-    do_QueryInterface(aContent);
+  nsCOMPtr<nsStyledElement> inlineStyleContent = do_QueryInterface(aContent);
   if (inlineStyleContent) {
     nsICSSDeclaration* decl = inlineStyleContent->Style();
     nsAutoString dummy;
@@ -401,8 +402,7 @@ UnsetOpacityOnElement(nsIContent* aContent)
 bool
 ScrollbarActivity::SetIsFading(bool aNewFading)
 {
-  if (mIsFading == aNewFading)
-    return true;
+  if (mIsFading == aNewFading) return true;
 
   mIsFading = aNewFading;
   if (!mIsFading) {
@@ -431,8 +431,11 @@ ScrollbarActivity::StartFadeBeginTimer()
     mFadeBeginTimer = NS_NewTimer();
   }
   mFadeBeginTimer->InitWithNamedFuncCallback(
-    FadeBeginTimerFired, this, mScrollbarFadeBeginDelay,
-    nsITimer::TYPE_ONE_SHOT, "ScrollbarActivity::FadeBeginTimerFired");
+      FadeBeginTimerFired,
+      this,
+      mScrollbarFadeBeginDelay,
+      nsITimer::TYPE_ONE_SHOT,
+      "ScrollbarActivity::FadeBeginTimerFired");
 }
 
 void
@@ -465,5 +468,5 @@ ScrollbarActivity::GetScrollbarContent(bool aVertical)
   return box ? box->GetContent() : nullptr;
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla

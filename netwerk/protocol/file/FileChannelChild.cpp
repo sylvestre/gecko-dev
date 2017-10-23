@@ -15,9 +15,8 @@ namespace net {
 
 NS_IMPL_ISUPPORTS_INHERITED(FileChannelChild, nsFileChannel, nsIChildChannel)
 
-FileChannelChild::FileChannelChild(nsIURI *uri)
-  : nsFileChannel(uri)
-  , mIPCOpen(false)
+FileChannelChild::FileChannelChild(nsIURI* uri)
+    : nsFileChannel(uri), mIPCOpen(false)
 {
 }
 
@@ -25,7 +24,7 @@ NS_IMETHODIMP
 FileChannelChild::ConnectParent(uint32_t id)
 {
   mozilla::dom::ContentChild* cc =
-    static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
+      static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
   if (cc->IsShuttingDown()) {
     return NS_ERROR_FAILURE;
   }
@@ -39,8 +38,8 @@ FileChannelChild::ConnectParent(uint32_t id)
 }
 
 NS_IMETHODIMP
-FileChannelChild::CompleteRedirectSetup(nsIStreamListener *listener,
-                                        nsISupports *ctx)
+FileChannelChild::CompleteRedirectSetup(nsIStreamListener* listener,
+                                        nsISupports* ctx)
 {
   nsresult rv;
 
@@ -77,5 +76,5 @@ FileChannelChild::ActorDestroy(ActorDestroyReason why)
   Release();
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

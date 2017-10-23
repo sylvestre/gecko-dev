@@ -17,26 +17,27 @@ namespace mozilla {
 namespace gfx {
 
 static inline bool
-IsOperatorBoundByMask(CompositionOp aOp) {
+IsOperatorBoundByMask(CompositionOp aOp)
+{
   switch (aOp) {
-  case CompositionOp::OP_IN:
-  case CompositionOp::OP_OUT:
-  case CompositionOp::OP_DEST_IN:
-  case CompositionOp::OP_DEST_ATOP:
-  case CompositionOp::OP_SOURCE:
-    return false;
-  default:
-    return true;
+    case CompositionOp::OP_IN:
+    case CompositionOp::OP_OUT:
+    case CompositionOp::OP_DEST_IN:
+    case CompositionOp::OP_DEST_ATOP:
+    case CompositionOp::OP_SOURCE:
+      return false;
+    default:
+      return true;
   }
 }
 
-template <class T>
+template<class T>
 struct ClassStorage
 {
   char bytes[sizeof(T)];
 
-  const T *addr() const { return (const T *)bytes; }
-  T *addr() { return (T *)(void *)bytes; }
+  const T* addr() const { return (const T*)bytes; }
+  T* addr() { return (T*)(void*)bytes; }
 };
 
 static inline bool
@@ -49,7 +50,7 @@ FuzzyEqual(Float aA, Float aB, Float aErr)
 }
 
 static inline void
-NudgeToInteger(float *aVal)
+NudgeToInteger(float* aVal)
 {
   float r = floorf(*aVal + 0.5f);
   // The error threshold should be proportional to the rounded value. This
@@ -57,13 +58,13 @@ NudgeToInteger(float *aVal)
   // when the rounded value is 0, the error threshold can't be proportional
   // to the rounded value (we'd never round), so we just choose the same
   // threshold as for a rounded value of 1.
-  if (FuzzyEqual(r, *aVal, r == 0.0f ? 1e-6f : fabs(r*1e-6f))) {
+  if (FuzzyEqual(r, *aVal, r == 0.0f ? 1e-6f : fabs(r * 1e-6f))) {
     *aVal = r;
   }
 }
 
 static inline void
-NudgeToInteger(float *aVal, float aErr)
+NudgeToInteger(float* aVal, float aErr)
 {
   float r = floorf(*aVal + 0.5f);
   if (FuzzyEqual(r, *aVal, aErr)) {
@@ -72,7 +73,7 @@ NudgeToInteger(float *aVal, float aErr)
 }
 
 static inline void
-NudgeToInteger(double *aVal)
+NudgeToInteger(double* aVal)
 {
   float f = float(*aVal);
   NudgeToInteger(&f);
@@ -89,21 +90,21 @@ static inline int
 BytesPerPixel(SurfaceFormat aFormat)
 {
   switch (aFormat) {
-  case SurfaceFormat::A8:
-    return 1;
-  case SurfaceFormat::R5G6B5_UINT16:
-  case SurfaceFormat::A16:
-    return 2;
-  case SurfaceFormat::R8G8B8:
-  case SurfaceFormat::B8G8R8:
-    return 3;
-  case SurfaceFormat::HSV:
-  case SurfaceFormat::Lab:
-    return 3 * sizeof(float);
-  case SurfaceFormat::Depth:
-    return sizeof(uint16_t);
-  default:
-    return 4;
+    case SurfaceFormat::A8:
+      return 1;
+    case SurfaceFormat::R5G6B5_UINT16:
+    case SurfaceFormat::A16:
+      return 2;
+    case SurfaceFormat::R8G8B8:
+    case SurfaceFormat::B8G8R8:
+      return 3;
+    case SurfaceFormat::HSV:
+    case SurfaceFormat::Lab:
+      return 3 * sizeof(float);
+    case SurfaceFormat::Depth:
+      return sizeof(uint16_t);
+    default:
+      return 4;
   }
 }
 
@@ -112,8 +113,7 @@ SurfaceFormatForAlphaBitDepth(uint32_t aBitDepth)
 {
   if (aBitDepth == 8) {
     return SurfaceFormat::A8;
-  } else if (aBitDepth == 10 ||
-             aBitDepth == 12) {
+  } else if (aBitDepth == 10 || aBitDepth == 12) {
     return SurfaceFormat::A16;
   }
   MOZ_ASSERT_UNREACHABLE("Unsupported alpha bit depth");
@@ -121,7 +121,8 @@ SurfaceFormatForAlphaBitDepth(uint32_t aBitDepth)
 }
 
 static inline bool
-IsOpaqueFormat(SurfaceFormat aFormat) {
+IsOpaqueFormat(SurfaceFormat aFormat)
+{
   switch (aFormat) {
     case SurfaceFormat::B8G8R8X8:
     case SurfaceFormat::R8G8B8X8:
@@ -141,23 +142,15 @@ struct AlignedArray
 {
   typedef T value_type;
 
-  AlignedArray()
-    : mPtr(nullptr)
-    , mStorage(nullptr)
-  {
-  }
+  AlignedArray() : mPtr(nullptr), mStorage(nullptr) {}
 
   explicit MOZ_ALWAYS_INLINE AlignedArray(size_t aCount, bool aZero = false)
-    : mStorage(nullptr)
-    , mCount(0)
+      : mStorage(nullptr), mCount(0)
   {
     Realloc(aCount, aZero);
   }
 
-  MOZ_ALWAYS_INLINE ~AlignedArray()
-  {
-    Dealloc();
-  }
+  MOZ_ALWAYS_INLINE ~AlignedArray() { Dealloc(); }
 
   void Dealloc()
   {
@@ -186,7 +179,7 @@ struct AlignedArray
   {
     free(mStorage);
     CheckedInt32 storageByteCount =
-      CheckedInt32(sizeof(T)) * aCount + (alignment - 1);
+        CheckedInt32(sizeof(T)) * aCount + (alignment - 1);
     if (!storageByteCount.isValid()) {
       mStorage = nullptr;
       mPtr = nullptr;
@@ -198,9 +191,9 @@ struct AlignedArray
     if (aZero) {
       // calloc can be more efficient than new[] for large chunks,
       // so we use calloc/malloc/free for everything.
-      mStorage = static_cast<uint8_t *>(calloc(1, storageByteCount.value()));
+      mStorage = static_cast<uint8_t*>(calloc(1, storageByteCount.value()));
     } else {
-      mStorage = static_cast<uint8_t *>(malloc(storageByteCount.value()));
+      mStorage = static_cast<uint8_t*>(malloc(storageByteCount.value()));
     }
     if (!mStorage) {
       mStorage = nullptr;
@@ -210,7 +203,8 @@ struct AlignedArray
     }
     if (uintptr_t(mStorage) % alignment) {
       // Our storage does not start at a <alignment>-byte boundary. Make sure mPtr does!
-      mPtr = (T*)(uintptr_t(mStorage) + alignment - (uintptr_t(mStorage) % alignment));
+      mPtr = (T*)(uintptr_t(mStorage) + alignment -
+                  (uintptr_t(mStorage) % alignment));
     } else {
       mPtr = (T*)(mStorage);
     }
@@ -229,15 +223,12 @@ struct AlignedArray
     mozilla::Swap(mCount, aOther.mCount);
   }
 
-  MOZ_ALWAYS_INLINE operator T*()
-  {
-    return mPtr;
-  }
+  MOZ_ALWAYS_INLINE operator T*() { return mPtr; }
 
-  T *mPtr;
+  T* mPtr;
 
-private:
-  uint8_t *mStorage;
+ private:
+  uint8_t* mStorage;
   size_t mCount;
 };
 
@@ -250,19 +241,21 @@ private:
  * implementation.
  */
 template<int alignment>
-int32_t GetAlignedStride(int32_t aWidth, int32_t aBytesPerPixel)
+int32_t
+GetAlignedStride(int32_t aWidth, int32_t aBytesPerPixel)
 {
-  static_assert(alignment > 0 && (alignment & (alignment-1)) == 0,
+  static_assert(alignment > 0 && (alignment & (alignment - 1)) == 0,
                 "This implementation currently require power-of-two alignment");
   const int32_t mask = alignment - 1;
-  CheckedInt32 stride = CheckedInt32(aWidth) * CheckedInt32(aBytesPerPixel) + CheckedInt32(mask);
+  CheckedInt32 stride =
+      CheckedInt32(aWidth) * CheckedInt32(aBytesPerPixel) + CheckedInt32(mask);
   if (stride.isValid()) {
     return stride.value() & ~mask;
   }
   return 0;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_TOOLS_H_ */

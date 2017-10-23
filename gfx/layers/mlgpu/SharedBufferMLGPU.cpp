@@ -12,16 +12,18 @@ using namespace std;
 namespace mozilla {
 namespace layers {
 
-SharedBufferMLGPU::SharedBufferMLGPU(MLGDevice* aDevice, MLGBufferType aType, size_t aDefaultSize)
- : mDevice(aDevice),
-   mType(aType),
-   mDefaultSize(aDefaultSize),
-   mCanUseOffsetAllocation(true),
-   mCurrentPosition(0),
-   mMaxSize(0),
-   mMapped(false),
-   mBytesUsedThisFrame(0),
-   mNumSmallFrames(0)
+SharedBufferMLGPU::SharedBufferMLGPU(MLGDevice* aDevice,
+                                     MLGBufferType aType,
+                                     size_t aDefaultSize)
+    : mDevice(aDevice),
+      mType(aType),
+      mDefaultSize(aDefaultSize),
+      mCanUseOffsetAllocation(true),
+      mCurrentPosition(0),
+      mMaxSize(0),
+      mMapped(false),
+      mBytesUsedThisFrame(0),
+      mNumSmallFrames(0)
 {
   MOZ_COUNT_CTOR(SharedBufferMLGPU);
 }
@@ -59,10 +61,8 @@ SharedBufferMLGPU::Reset()
   // discard the buffer. This is to prevent having to perform large
   // pointless uploads after visiting a single havy page - it also
   // lessens ping-ponging between large and small buffers.
-  if (mBuffer &&
-      (mBuffer->GetSize() > mDefaultSize * 4) &&
-      mNumSmallFrames >= 10)
-  {
+  if (mBuffer && (mBuffer->GetSize() > mDefaultSize * 4) &&
+      mNumSmallFrames >= 10) {
     mBuffer = nullptr;
   }
 
@@ -159,7 +159,9 @@ SharedBufferMLGPU::Unmap()
 }
 
 uint8_t*
-SharedBufferMLGPU::GetBufferPointer(size_t aBytes, ptrdiff_t* aOutOffset, RefPtr<MLGBuffer>* aOutBuffer)
+SharedBufferMLGPU::GetBufferPointer(size_t aBytes,
+                                    ptrdiff_t* aOutOffset,
+                                    RefPtr<MLGBuffer>* aOutBuffer)
 {
   if (!EnsureMappedBuffer(aBytes)) {
     return nullptr;
@@ -177,13 +179,15 @@ SharedBufferMLGPU::GetBufferPointer(size_t aBytes, ptrdiff_t* aOutOffset, RefPtr
 }
 
 VertexBufferSection::VertexBufferSection()
- : mOffset(-1),
-   mNumVertices(0),
-   mStride(0)
-{}
+    : mOffset(-1), mNumVertices(0), mStride(0)
+{
+}
 
 void
-VertexBufferSection::Init(MLGBuffer* aBuffer, ptrdiff_t aOffset, size_t aNumVertices, size_t aStride)
+VertexBufferSection::Init(MLGBuffer* aBuffer,
+                          ptrdiff_t aOffset,
+                          size_t aNumVertices,
+                          size_t aStride)
 {
   mBuffer = aBuffer;
   mOffset = aOffset;
@@ -191,12 +195,13 @@ VertexBufferSection::Init(MLGBuffer* aBuffer, ptrdiff_t aOffset, size_t aNumVert
   mStride = aStride;
 }
 
-ConstantBufferSection::ConstantBufferSection()
- : mOffset(-1)
-{}
+ConstantBufferSection::ConstantBufferSection() : mOffset(-1) {}
 
 void
-ConstantBufferSection::Init(MLGBuffer* aBuffer, ptrdiff_t aOffset, size_t aBytes, size_t aNumItems)
+ConstantBufferSection::Init(MLGBuffer* aBuffer,
+                            ptrdiff_t aOffset,
+                            size_t aBytes,
+                            size_t aNumItems)
 {
   mBuffer = aBuffer;
   mOffset = aOffset;
@@ -205,7 +210,7 @@ ConstantBufferSection::Init(MLGBuffer* aBuffer, ptrdiff_t aOffset, size_t aBytes
 }
 
 SharedVertexBuffer::SharedVertexBuffer(MLGDevice* aDevice, size_t aDefaultSize)
- : SharedBufferMLGPU(aDevice, MLGBufferType::Vertex, aDefaultSize)
+    : SharedBufferMLGPU(aDevice, MLGBufferType::Vertex, aDefaultSize)
 {
 }
 
@@ -228,10 +233,7 @@ SharedVertexBuffer::Allocate(VertexBufferSection* aHolder,
   return true;
 }
 
-AutoBufferUploadBase::AutoBufferUploadBase()
-  : mPtr(nullptr)
-{
-}
+AutoBufferUploadBase::AutoBufferUploadBase() : mPtr(nullptr) {}
 
 AutoBufferUploadBase::~AutoBufferUploadBase()
 {
@@ -249,8 +251,9 @@ AutoBufferUploadBase::Init(void* aPtr, MLGDevice* aDevice, MLGBuffer* aBuffer)
   mBuffer = aBuffer;
 }
 
-SharedConstantBuffer::SharedConstantBuffer(MLGDevice* aDevice, size_t aDefaultSize)
- : SharedBufferMLGPU(aDevice, MLGBufferType::Constant, aDefaultSize)
+SharedConstantBuffer::SharedConstantBuffer(MLGDevice* aDevice,
+                                           size_t aDefaultSize)
+    : SharedBufferMLGPU(aDevice, MLGBufferType::Constant, aDefaultSize)
 {
   mMaxConstantBufferBindSize = aDevice->GetMaxConstantBufferBindSize();
   mCanUseOffsetAllocation = aDevice->CanUseConstantBufferOffsetBinding();
@@ -266,7 +269,8 @@ SharedConstantBuffer::Allocate(ConstantBufferSection* aHolder,
 
   size_t bytes = aNumItems * aSizeOfItem;
   if (bytes > mMaxConstantBufferBindSize) {
-    gfxWarning() << "Attempted to allocate too many bytes into a constant buffer";
+    gfxWarning()
+        << "Attempted to allocate too many bytes into a constant buffer";
     return false;
   }
 
@@ -281,13 +285,16 @@ SharedConstantBuffer::Allocate(ConstantBufferSection* aHolder,
 }
 
 uint8_t*
-SharedConstantBuffer::AllocateNewBuffer(size_t aBytes, ptrdiff_t* aOutOffset, RefPtr<MLGBuffer>* aOutBuffer)
+SharedConstantBuffer::AllocateNewBuffer(size_t aBytes,
+                                        ptrdiff_t* aOutOffset,
+                                        RefPtr<MLGBuffer>* aOutBuffer)
 {
   RefPtr<MLGBuffer> buffer;
   if (BufferCache* cache = mDevice->GetConstantBufferCache()) {
     buffer = cache->GetOrCreateBuffer(aBytes);
   } else {
-    buffer = mDevice->CreateBuffer(MLGBufferType::Constant, aBytes, MLGUsage::Dynamic);
+    buffer = mDevice->CreateBuffer(
+        MLGBufferType::Constant, aBytes, MLGUsage::Dynamic);
   }
   if (!buffer) {
     return nullptr;
@@ -310,5 +317,5 @@ AutoBufferUploadBase::UnmapBuffer()
   mDevice->Unmap(mBuffer);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

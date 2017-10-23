@@ -29,13 +29,15 @@
 using namespace mozilla;
 
 namespace {
-class ShortTermURISpecCache : public Runnable {
-public:
-  ShortTermURISpecCache()
-   : Runnable("ShortTermURISpecCache")
-   , mPending(false) {}
+class ShortTermURISpecCache : public Runnable
+{
+ public:
+  ShortTermURISpecCache() : Runnable("ShortTermURISpecCache"), mPending(false)
+  {
+  }
 
-  nsString const& GetSpec(nsIURI* aURI) {
+  nsString const& GetSpec(nsIURI* aURI)
+  {
     if (mURI != aURI) {
       mURI = aURI;
 
@@ -51,26 +53,27 @@ public:
   void SetPending() { mPending = true; }
 
   // When invoked as a runnable, zap the cache.
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     mURI = nullptr;
     mSpec.Truncate();
     mPending = false;
     return NS_OK;
   }
 
-private:
+ private:
   nsCOMPtr<nsIURI> mURI;
   nsString mSpec;
   bool mPending;
 };
 
-} // namespace
+}  // namespace
 
 static bool sReportErrors;
-static nsIConsoleService *sConsoleService;
-static nsIFactory *sScriptErrorFactory;
-static nsIStringBundle *sStringBundle;
-static ShortTermURISpecCache *sSpecCache;
+static nsIConsoleService* sConsoleService;
+static nsIFactory* sScriptErrorFactory;
+static nsIStringBundle* sStringBundle;
+static ShortTermURISpecCache* sSpecCache;
 
 #define CSS_ERRORS_PREF "layout.css.report_errors"
 
@@ -80,8 +83,8 @@ InitGlobals()
   MOZ_ASSERT(!sConsoleService && !sScriptErrorFactory && !sStringBundle,
              "should not have been called");
 
-  if (NS_FAILED(Preferences::AddBoolVarCache(&sReportErrors, CSS_ERRORS_PREF,
-                                             true))) {
+  if (NS_FAILED(Preferences::AddBoolVarCache(
+          &sReportErrors, CSS_ERRORS_PREF, true))) {
     return false;
   }
 
@@ -141,18 +144,28 @@ ErrorReporter::ErrorReporter(const nsCSSScanner& aScanner,
                              const StyleSheet* aSheet,
                              const Loader* aLoader,
                              nsIURI* aURI)
-  : mScanner(&aScanner), mSheet(aSheet), mLoader(aLoader), mURI(aURI),
-    mInnerWindowID(0), mErrorLineNumber(0), mPrevErrorLineNumber(0),
-    mErrorColNumber(0)
+    : mScanner(&aScanner),
+      mSheet(aSheet),
+      mLoader(aLoader),
+      mURI(aURI),
+      mInnerWindowID(0),
+      mErrorLineNumber(0),
+      mPrevErrorLineNumber(0),
+      mErrorColNumber(0)
 {
 }
 
 ErrorReporter::ErrorReporter(const ServoStyleSheet* aSheet,
                              const Loader* aLoader,
                              nsIURI* aURI)
-  : mScanner(nullptr), mSheet(aSheet), mLoader(aLoader), mURI(aURI),
-    mInnerWindowID(0), mErrorLineNumber(0), mPrevErrorLineNumber(0),
-    mErrorColNumber(0)
+    : mScanner(nullptr),
+      mSheet(aSheet),
+      mLoader(aLoader),
+      mURI(aURI),
+      mInnerWindowID(0),
+      mErrorLineNumber(0),
+      mPrevErrorLineNumber(0),
+      mErrorColNumber(0)
 {
 }
 
@@ -163,8 +176,7 @@ ErrorReporter::~ErrorReporter()
   // short-term caching.
   if (sSpecCache && sSpecCache->IsInUse() && !sSpecCache->IsPending()) {
     nsCOMPtr<nsIRunnable> runnable(sSpecCache);
-    nsresult rv =
-      SystemGroup::Dispatch(TaskCategory::Other, runnable.forget());
+    nsresult rv = SystemGroup::Dispatch(TaskCategory::Other, runnable.forget());
     if (NS_FAILED(rv)) {
       // Peform the "deferred" cleanup immediately if the dispatch fails.
       sSpecCache->Run();
@@ -215,7 +227,7 @@ ErrorReporter::OutputError()
 
   nsresult rv;
   nsCOMPtr<nsIScriptError> errorObject =
-    do_CreateInstance(sScriptErrorFactory, &rv);
+      do_CreateInstance(sScriptErrorFactory, &rv);
 
   if (NS_SUCCEEDED(rv)) {
     // It is safe to used InitWithSanitizedSource because mFileName is
@@ -281,7 +293,7 @@ ErrorReporter::ClearError()
 }
 
 void
-ErrorReporter::AddToError(const nsString &aErrorText)
+ErrorReporter::AddToError(const nsString& aErrorText)
 {
   if (!ShouldReportErrors()) return;
 
@@ -311,7 +323,7 @@ ErrorReporter::AddToError(const nsString &aErrorText)
 }
 
 void
-ErrorReporter::ReportUnexpected(const char *aMessage)
+ErrorReporter::ReportUnexpected(const char* aMessage)
 {
   if (!ShouldReportErrors()) return;
 
@@ -321,38 +333,36 @@ ErrorReporter::ReportUnexpected(const char *aMessage)
 }
 
 void
-ErrorReporter::ReportUnexpected(const char *aMessage,
-                                const nsString &aParam)
+ErrorReporter::ReportUnexpected(const char* aMessage, const nsString& aParam)
 {
   if (!ShouldReportErrors()) return;
 
   nsAutoString qparam;
   nsStyleUtil::AppendEscapedCSSIdent(aParam, qparam);
-  const char16_t *params[1] = { qparam.get() };
+  const char16_t* params[1] = {qparam.get()};
 
   nsAutoString str;
-  sStringBundle->FormatStringFromName(aMessage, params, ArrayLength(params),
-                                      str);
+  sStringBundle->FormatStringFromName(
+      aMessage, params, ArrayLength(params), str);
   AddToError(str);
 }
 
 void
-ErrorReporter::ReportUnexpectedUnescaped(const char *aMessage,
+ErrorReporter::ReportUnexpectedUnescaped(const char* aMessage,
                                          const nsAutoString& aParam)
 {
   if (!ShouldReportErrors()) return;
 
-  const char16_t *params[1] = { aParam.get() };
+  const char16_t* params[1] = {aParam.get()};
 
   nsAutoString str;
-  sStringBundle->FormatStringFromName(aMessage, params, ArrayLength(params),
-                                      str);
+  sStringBundle->FormatStringFromName(
+      aMessage, params, ArrayLength(params), str);
   AddToError(str);
 }
 
 void
-ErrorReporter::ReportUnexpected(const char *aMessage,
-                                const nsCSSToken &aToken)
+ErrorReporter::ReportUnexpected(const char* aMessage, const nsCSSToken& aToken)
 {
   if (!ShouldReportErrors()) return;
 
@@ -362,52 +372,52 @@ ErrorReporter::ReportUnexpected(const char *aMessage,
 }
 
 void
-ErrorReporter::ReportUnexpected(const char *aMessage,
-                                const nsCSSToken &aToken,
+ErrorReporter::ReportUnexpected(const char* aMessage,
+                                const nsCSSToken& aToken,
                                 char16_t aChar)
 {
   if (!ShouldReportErrors()) return;
 
   nsAutoString tokenString;
   aToken.AppendToString(tokenString);
-  const char16_t charStr[2] = { aChar, 0 };
-  const char16_t *params[2] = { tokenString.get(), charStr };
+  const char16_t charStr[2] = {aChar, 0};
+  const char16_t* params[2] = {tokenString.get(), charStr};
 
   nsAutoString str;
-  sStringBundle->FormatStringFromName(aMessage, params, ArrayLength(params),
-                                      str);
+  sStringBundle->FormatStringFromName(
+      aMessage, params, ArrayLength(params), str);
   AddToError(str);
 }
 
 void
-ErrorReporter::ReportUnexpected(const char *aMessage,
-                                const nsString &aParam,
-                                const nsString &aValue)
+ErrorReporter::ReportUnexpected(const char* aMessage,
+                                const nsString& aParam,
+                                const nsString& aValue)
 {
   if (!ShouldReportErrors()) return;
 
   nsAutoString qparam;
   nsStyleUtil::AppendEscapedCSSIdent(aParam, qparam);
-  const char16_t *params[2] = { qparam.get(), aValue.get() };
+  const char16_t* params[2] = {qparam.get(), aValue.get()};
 
   nsAutoString str;
-  sStringBundle->FormatStringFromName(aMessage, params, ArrayLength(params),
-                                      str);
+  sStringBundle->FormatStringFromName(
+      aMessage, params, ArrayLength(params), str);
   AddToError(str);
 }
 
 void
-ErrorReporter::ReportUnexpectedEOF(const char *aMessage)
+ErrorReporter::ReportUnexpectedEOF(const char* aMessage)
 {
   if (!ShouldReportErrors()) return;
 
   nsAutoString innerStr;
   sStringBundle->GetStringFromName(aMessage, innerStr);
-  const char16_t *params[1] = { innerStr.get() };
+  const char16_t* params[1] = {innerStr.get()};
 
   nsAutoString str;
-  sStringBundle->FormatStringFromName("PEUnexpEOF2", params,
-                                      ArrayLength(params), str);
+  sStringBundle->FormatStringFromName(
+      "PEUnexpEOF2", params, ArrayLength(params), str);
   AddToError(str);
 }
 
@@ -417,13 +427,12 @@ ErrorReporter::ReportUnexpectedEOF(char16_t aExpected)
   if (!ShouldReportErrors()) return;
 
   const char16_t expectedStr[] = {
-    char16_t('\''), aExpected, char16_t('\''), char16_t(0)
-  };
-  const char16_t *params[1] = { expectedStr };
+      char16_t('\''), aExpected, char16_t('\''), char16_t(0)};
+  const char16_t* params[1] = {expectedStr};
 
   nsAutoString str;
-  sStringBundle->FormatStringFromName("PEUnexpEOF2", params,
-                                      ArrayLength(params), str);
+  sStringBundle->FormatStringFromName(
+      "PEUnexpEOF2", params, ArrayLength(params), str);
   AddToError(str);
 }
 
@@ -433,7 +442,7 @@ ErrorReporter::IsServo() const
   return !mScanner;
 }
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 #endif

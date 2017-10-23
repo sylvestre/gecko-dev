@@ -41,35 +41,28 @@ class ParserBase;
 // Step 3 is implemented by UsedNameTracker::noteUsedInScope.
 // Step 4 is implemented by UsedNameTracker::noteBoundInScope and
 // Parser::propagateFreeNamesAndMarkClosedOverBindings.
-class UsedNameTracker
-{
-  public:
-    struct Use
-    {
+class UsedNameTracker {
+   public:
+    struct Use {
         uint32_t scriptId;
         uint32_t scopeId;
     };
 
-    class UsedNameInfo
-    {
+    class UsedNameInfo {
         friend class UsedNameTracker;
 
         Vector<Use, 6> uses_;
 
         void resetToScope(uint32_t scriptId, uint32_t scopeId);
 
-      public:
-        explicit UsedNameInfo(JSContext* cx)
-          : uses_(cx)
-        { }
+       public:
+        explicit UsedNameInfo(JSContext* cx) : uses_(cx) {}
 
-        UsedNameInfo(UsedNameInfo&& other)
-          : uses_(mozilla::Move(other.uses_))
-        { }
+        UsedNameInfo(UsedNameInfo&& other) : uses_(mozilla::Move(other.uses_)) {}
 
         bool noteUsedInScope(uint32_t scriptId, uint32_t scopeId) {
             if (uses_.empty() || uses_.back().scopeId < scopeId)
-                return uses_.append(Use { scriptId, scopeId });
+                return uses_.append(Use{scriptId, scopeId});
             return true;
         }
 
@@ -77,10 +70,8 @@ class UsedNameTracker
             *closedOver = false;
             while (!uses_.empty()) {
                 Use& innermost = uses_.back();
-                if (innermost.scopeId < scopeId)
-                    break;
-                if (innermost.scriptId > scriptId)
-                    *closedOver = true;
+                if (innermost.scopeId < scopeId) break;
+                if (innermost.scriptId > scriptId) *closedOver = true;
                 uses_.popBack();
             }
         }
@@ -90,11 +81,9 @@ class UsedNameTracker
         }
     };
 
-    using UsedNameMap = HashMap<JSAtom*,
-                                UsedNameInfo,
-                                DefaultHasher<JSAtom*>>;
+    using UsedNameMap = HashMap<JSAtom*, UsedNameInfo, DefaultHasher<JSAtom*>>;
 
-  private:
+   private:
     // The map of names to chains of uses.
     UsedNameMap map_;
 
@@ -104,16 +93,10 @@ class UsedNameTracker
     // Monotonically increasing id for all nested scopes.
     uint32_t scopeCounter_;
 
-  public:
-    explicit UsedNameTracker(JSContext* cx)
-      : map_(cx),
-        scriptCounter_(0),
-        scopeCounter_(0)
-    { }
+   public:
+    explicit UsedNameTracker(JSContext* cx) : map_(cx), scriptCounter_(0), scopeCounter_(0) {}
 
-    MOZ_MUST_USE bool init() {
-        return map_.init();
-    }
+    MOZ_MUST_USE bool init() { return map_.init(); }
 
     uint32_t nextScriptId() {
         MOZ_ASSERT(scriptCounter_ != UINT32_MAX,
@@ -126,16 +109,12 @@ class UsedNameTracker
         return scopeCounter_++;
     }
 
-    UsedNameMap::Ptr lookup(JSAtom* name) const {
-        return map_.lookup(name);
-    }
+    UsedNameMap::Ptr lookup(JSAtom* name) const { return map_.lookup(name); }
 
-    MOZ_MUST_USE bool noteUse(JSContext* cx, JSAtom* name,
-                              uint32_t scriptId, uint32_t scopeId);
+    MOZ_MUST_USE bool noteUse(JSContext* cx, JSAtom* name, uint32_t scriptId, uint32_t scopeId);
 
-    struct RewindToken
-    {
-      private:
+    struct RewindToken {
+       private:
         friend class UsedNameTracker;
         uint32_t scriptId;
         uint32_t scopeId;
@@ -169,33 +148,29 @@ class UsedNameTracker
  * parsed. When the parser encounters a function definition, it creates a new
  * ParseContext, makes it the new current context.
  */
-class ParseContext : public Nestable<ParseContext>
-{
-  public:
+class ParseContext : public Nestable<ParseContext> {
+   public:
     // The intra-function statement stack.
     //
     // Used for early error checking that depend on the nesting structure of
     // statements, such as continue/break targets, labels, and unbraced
     // lexical declarations.
-    class Statement : public Nestable<Statement>
-    {
+    class Statement : public Nestable<Statement> {
         StatementKind kind_;
 
-      public:
+       public:
         using Nestable<Statement>::enclosing;
         using Nestable<Statement>::findNearest;
 
         Statement(ParseContext* pc, StatementKind kind)
-          : Nestable<Statement>(&pc->innermostStatement_),
-            kind_(kind)
-        { }
+            : Nestable<Statement>(&pc->innermostStatement_), kind_(kind) {}
 
-        template <typename T> inline bool is() const;
-        template <typename T> inline T& as();
+        template <typename T>
+        inline bool is() const;
+        template <typename T>
+        inline T& as();
 
-        StatementKind kind() const {
-            return kind_;
-        }
+        StatementKind kind() const { return kind_; }
 
         void refineForKind(StatementKind newForKind) {
             MOZ_ASSERT(kind_ == StatementKind::ForLoop);
@@ -205,36 +180,27 @@ class ParseContext : public Nestable<ParseContext>
         }
     };
 
-    class LabelStatement : public Statement
-    {
+    class LabelStatement : public Statement {
         RootedAtom label_;
 
-      public:
+       public:
         LabelStatement(ParseContext* pc, JSAtom* label)
-          : Statement(pc, StatementKind::Label),
-            label_(pc->sc_->context, label)
-        { }
+            : Statement(pc, StatementKind::Label), label_(pc->sc_->context, label) {}
 
-        HandleAtom label() const {
-            return label_;
-        }
+        HandleAtom label() const { return label_; }
     };
 
-    struct ClassStatement : public Statement
-    {
+    struct ClassStatement : public Statement {
         FunctionBox* constructorBox;
 
         explicit ClassStatement(ParseContext* pc)
-          : Statement(pc, StatementKind::Class),
-            constructorBox(nullptr)
-        { }
+            : Statement(pc, StatementKind::Class), constructorBox(nullptr) {}
     };
 
     // The intra-function scope stack.
     //
     // Tracks declared and used names within a scope.
-    class Scope : public Nestable<Scope>
-    {
+    class Scope : public Nestable<Scope> {
         // Names declared in this scope. Corresponds to the union of
         // VarDeclaredNames and LexicallyDeclaredNames in the ES spec.
         //
@@ -254,12 +220,11 @@ class ParseContext : public Nestable<ParseContext>
         uint32_t id_;
 
         bool maybeReportOOM(ParseContext* pc, bool result) {
-            if (!result)
-                ReportOutOfMemory(pc->sc()->context);
+            if (!result) ReportOutOfMemory(pc->sc()->context);
             return result;
         }
 
-      public:
+       public:
         using DeclaredNamePtr = DeclaredNameMap::Ptr;
         using AddDeclaredNamePtr = DeclaredNameMap::AddPtr;
 
@@ -270,9 +235,7 @@ class ParseContext : public Nestable<ParseContext>
 
         void dump(ParseContext* pc);
 
-        uint32_t id() const {
-            return id_;
-        }
+        uint32_t id() const { return id_; }
 
         MOZ_MUST_USE bool init(ParseContext* pc) {
             if (id_ == UINT32_MAX) {
@@ -283,17 +246,14 @@ class ParseContext : public Nestable<ParseContext>
             return declared_.acquire(pc->sc()->context);
         }
 
-        DeclaredNamePtr lookupDeclaredName(JSAtom* name) {
-            return declared_->lookup(name);
-        }
+        DeclaredNamePtr lookupDeclaredName(JSAtom* name) { return declared_->lookup(name); }
 
         AddDeclaredNamePtr lookupDeclaredNameForAdd(JSAtom* name) {
             return declared_->lookupForAdd(name);
         }
 
         MOZ_MUST_USE bool addDeclaredName(ParseContext* pc, AddDeclaredNamePtr& p, JSAtom* name,
-                                          DeclarationKind kind, uint32_t pos)
-        {
+                                          DeclarationKind kind, uint32_t pos) {
             return maybeReportOOM(pc, declared_->add(p, name, DeclaredNameInfo(kind, pos)));
         }
 
@@ -317,8 +277,7 @@ class ParseContext : public Nestable<ParseContext>
         // An iterator for the set of names a scope binds: the set of all
         // declared names for 'var' scopes, and the set of lexically declared
         // names for non-'var' scopes.
-        class BindingIter
-        {
+        class BindingIter {
             friend class Scope;
 
             DeclaredNameMap::Range declaredRange_;
@@ -326,36 +285,27 @@ class ParseContext : public Nestable<ParseContext>
             bool isVarScope_;
 
             BindingIter(Scope& scope, bool isVarScope)
-              : declaredRange_(scope.declared_->all()),
-                count_(0),
-                isVarScope_(isVarScope)
-            {
+                : declaredRange_(scope.declared_->all()), count_(0), isVarScope_(isVarScope) {
                 settle();
             }
 
             void settle() {
                 // Both var and lexically declared names are binding in a var
                 // scope.
-                if (isVarScope_)
-                    return;
+                if (isVarScope_) return;
 
                 // Otherwise, pop only lexically declared names are
                 // binding. Pop the range until we find such a name.
                 while (!declaredRange_.empty()) {
-                    if (BindingKindIsLexical(kind()))
-                        break;
+                    if (BindingKindIsLexical(kind())) break;
                     declaredRange_.popFront();
                 }
             }
 
-          public:
-            bool done() const {
-                return declaredRange_.empty();
-            }
+           public:
+            bool done() const { return declaredRange_.empty(); }
 
-            explicit operator bool() const {
-                return !done();
-            }
+            explicit operator bool() const { return !done(); }
 
             JSAtom* name() {
                 MOZ_ASSERT(!done());
@@ -367,9 +317,7 @@ class ParseContext : public Nestable<ParseContext>
                 return declaredRange_.front().value()->kind();
             }
 
-            BindingKind kind() {
-                return DeclarationKindToBindingKind(declarationKind());
-            }
+            BindingKind kind() { return DeclarationKindToBindingKind(declarationKind()); }
 
             bool closedOver() {
                 MOZ_ASSERT(!done());
@@ -392,13 +340,12 @@ class ParseContext : public Nestable<ParseContext>
         inline BindingIter bindings(ParseContext* pc);
     };
 
-    class VarScope : public Scope
-    {
-      public:
+    class VarScope : public Scope {
+       public:
         explicit inline VarScope(ParserBase* parser);
     };
 
-  private:
+   private:
     // Trace logging of parsing time.
     AutoFrontendTraceLog traceLog_;
 
@@ -452,7 +399,7 @@ class ParseContext : public Nestable<ParseContext>
     // the nearest super scope as needing a home object.
     bool superScopeNeedsHomeObject_;
 
-  public:
+   public:
     // lastYieldOffset stores the offset of the last yield that was parsed.
     // NoYieldOffset is its initial value.
     static const uint32_t NoYieldOffset = UINT32_MAX;
@@ -461,7 +408,7 @@ class ParseContext : public Nestable<ParseContext>
     // lastAwaitOffset stores the offset of the last await that was parsed.
     // NoAwaitOffset is its initial value.
     static const uint32_t NoAwaitOffset = UINT32_MAX;
-    uint32_t         lastAwaitOffset;
+    uint32_t lastAwaitOffset;
 
     // All inner functions in this context. Only used when syntax parsing.
     Rooted<GCVector<JSFunction*, 8>> innerFunctionsForLazy;
@@ -479,32 +426,29 @@ class ParseContext : public Nestable<ParseContext>
     // Set when parsing a function and it has 'return;'
     bool funHasReturnVoid;
 
-  public:
-    inline ParseContext(JSContext* cx, ParseContext*& parent, SharedContext* sc, ErrorReporter& errorReporter,
-        class UsedNameTracker& usedNames, Directives* newDirectives, bool isFull)
-      : Nestable<ParseContext>(&parent),
-        traceLog_(sc->context,
-                  isFull
-                  ? TraceLogger_ParsingFull
-                  : TraceLogger_ParsingSyntax,
-                  errorReporter),
-        sc_(sc),
-        errorReporter_(errorReporter),
-        innermostStatement_(nullptr),
-        innermostScope_(nullptr),
-        varScope_(nullptr),
-        positionalFormalParameterNames_(cx->frontendCollectionPool()),
-        closedOverBindingsForLazy_(cx->frontendCollectionPool()),
-        scriptId_(usedNames.nextScriptId()),
-        isStandaloneFunctionBody_(false),
-        superScopeNeedsHomeObject_(false),
-        lastYieldOffset(NoYieldOffset),
-        lastAwaitOffset(NoAwaitOffset),
-        innerFunctionsForLazy(cx, GCVector<JSFunction*, 8>(cx)),
-        newDirectives(newDirectives),
-        funHasReturnExpr(false),
-        funHasReturnVoid(false)
-    {
+   public:
+    inline ParseContext(JSContext* cx, ParseContext*& parent, SharedContext* sc,
+                        ErrorReporter& errorReporter, class UsedNameTracker& usedNames,
+                        Directives* newDirectives, bool isFull)
+        : Nestable<ParseContext>(&parent),
+          traceLog_(sc->context, isFull ? TraceLogger_ParsingFull : TraceLogger_ParsingSyntax,
+                    errorReporter),
+          sc_(sc),
+          errorReporter_(errorReporter),
+          innermostStatement_(nullptr),
+          innermostScope_(nullptr),
+          varScope_(nullptr),
+          positionalFormalParameterNames_(cx->frontendCollectionPool()),
+          closedOverBindingsForLazy_(cx->frontendCollectionPool()),
+          scriptId_(usedNames.nextScriptId()),
+          isStandaloneFunctionBody_(false),
+          superScopeNeedsHomeObject_(false),
+          lastYieldOffset(NoYieldOffset),
+          lastAwaitOffset(NoAwaitOffset),
+          innerFunctionsForLazy(cx, GCVector<JSFunction*, 8>(cx)),
+          newDirectives(newDirectives),
+          funHasReturnExpr(false),
+          funHasReturnVoid(false) {
         if (isFunctionBox()) {
             if (functionBox()->function()->isNamedLambda())
                 namedLambdaScope_.emplace(cx, parent, usedNames);
@@ -514,21 +458,13 @@ class ParseContext : public Nestable<ParseContext>
 
     MOZ_MUST_USE bool init();
 
-    SharedContext* sc() {
-        return sc_;
-    }
+    SharedContext* sc() { return sc_; }
 
-    bool isFunctionBox() const {
-        return sc_->isFunctionBox();
-    }
+    bool isFunctionBox() const { return sc_->isFunctionBox(); }
 
-    FunctionBox* functionBox() {
-        return sc_->asFunctionBox();
-    }
+    FunctionBox* functionBox() { return sc_->asFunctionBox(); }
 
-    Statement* innermostStatement() {
-        return innermostStatement_;
-    }
+    Statement* innermostStatement() { return innermostStatement_; }
 
     Scope* innermostScope() {
         // There is always at least one scope: the 'var' scope.
@@ -571,13 +507,9 @@ class ParseContext : public Nestable<ParseContext>
         return Statement::findNearest<T>(innermostStatement_);
     }
 
-    AtomVector& positionalFormalParameterNames() {
-        return *positionalFormalParameterNames_;
-    }
+    AtomVector& positionalFormalParameterNames() { return *positionalFormalParameterNames_; }
 
-    AtomVector& closedOverBindingsForLazy() {
-        return *closedOverBindingsForLazy_;
-    }
+    AtomVector& closedOverBindingsForLazy() { return *closedOverBindingsForLazy_; }
 
     // True if we are at the topmost level of a entire script or function body.
     // For example, while parsing this code we would encounter f1 and f2 at
@@ -586,35 +518,23 @@ class ParseContext : public Nestable<ParseContext>
     //   function f1() { function f2() { } }
     //   if (cond) { function f3() { if (cond) { function f4() { } } } }
     //
-    bool atBodyLevel() {
-        return !innermostStatement_;
-    }
+    bool atBodyLevel() { return !innermostStatement_; }
 
-    bool atGlobalLevel() {
-        return atBodyLevel() && sc_->isGlobalContext();
-    }
+    bool atGlobalLevel() { return atBodyLevel() && sc_->isGlobalContext(); }
 
     // True if we are at the topmost level of a module only.
-    bool atModuleLevel() {
-        return atBodyLevel() && sc_->isModuleContext();
-    }
+    bool atModuleLevel() { return atBodyLevel() && sc_->isModuleContext(); }
 
-    void setIsStandaloneFunctionBody() {
-        isStandaloneFunctionBody_ = true;
-    }
+    void setIsStandaloneFunctionBody() { isStandaloneFunctionBody_ = true; }
 
-    bool isStandaloneFunctionBody() const {
-        return isStandaloneFunctionBody_;
-    }
+    bool isStandaloneFunctionBody() const { return isStandaloneFunctionBody_; }
 
     void setSuperScopeNeedsHomeObject() {
         MOZ_ASSERT(sc_->allowSuperProperty());
         superScopeNeedsHomeObject_ = true;
     }
 
-    bool superScopeNeedsHomeObject() const {
-        return superScopeNeedsHomeObject_;
-    }
+    bool superScopeNeedsHomeObject() const { return superScopeNeedsHomeObject_; }
 
     bool useAsmOrInsideUseAsm() const {
         return sc_->isFunctionBox() && sc_->asFunctionBox()->useAsmOrInsideUseAsm();
@@ -627,25 +547,17 @@ class ParseContext : public Nestable<ParseContext>
         return sc_->isFunctionBox() ? sc_->asFunctionBox()->generatorKind() : NotGenerator;
     }
 
-    bool isLegacyGenerator() const {
-        return generatorKind() == LegacyGenerator;
-    }
+    bool isLegacyGenerator() const { return generatorKind() == LegacyGenerator; }
 
-    bool isStarGenerator() const {
-        return generatorKind() == StarGenerator;
-    }
+    bool isStarGenerator() const { return generatorKind() == StarGenerator; }
 
-    bool isAsync() const {
-        return sc_->isFunctionBox() && sc_->asFunctionBox()->isAsync();
-    }
+    bool isAsync() const { return sc_->isFunctionBox() && sc_->asFunctionBox()->isAsync(); }
 
     bool needsDotGeneratorName() const {
         return isStarGenerator() || isLegacyGenerator() || isAsync();
     }
 
-    FunctionAsyncKind asyncKind() const {
-        return isAsync() ? AsyncFunction : SyncFunction;
-    }
+    FunctionAsyncKind asyncKind() const { return isAsync() ? AsyncFunction : SyncFunction; }
 
     bool isArrowFunction() const {
         return sc_->isFunctionBox() && sc_->asFunctionBox()->function()->isArrow();
@@ -660,16 +572,14 @@ class ParseContext : public Nestable<ParseContext>
                                         sc_->asFunctionBox()->function()->isSetter());
     }
 
-    uint32_t scriptId() const {
-        return scriptId_;
-    }
+    uint32_t scriptId() const { return scriptId_; }
 
     bool annexBAppliesToLexicalFunctionInInnermostScope(FunctionBox* funbox);
 
     bool tryDeclareVar(HandlePropertyName name, DeclarationKind kind, uint32_t beginPos,
                        mozilla::Maybe<DeclarationKind>* redeclaredKind, uint32_t* prevPos);
 
-  private:
+   private:
     mozilla::Maybe<DeclarationKind> isVarRedeclaredInInnermostScope(HandlePropertyName name,
                                                                     DeclarationKind kind);
     mozilla::Maybe<DeclarationKind> isVarRedeclaredInEval(HandlePropertyName name,
@@ -679,11 +589,10 @@ class ParseContext : public Nestable<ParseContext>
     template <DryRunOption dryRunOption>
     bool tryDeclareVarHelper(HandlePropertyName name, DeclarationKind kind, uint32_t beginPos,
                              mozilla::Maybe<DeclarationKind>* redeclaredKind, uint32_t* prevPos);
-
 };
 
-} // namespace frontend
+}  // namespace frontend
 
-} // namespace js
+}  // namespace js
 
-#endif // frontend_ParseContext_h
+#endif  // frontend_ParseContext_h

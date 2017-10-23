@@ -34,11 +34,13 @@ NS_lround(double aNum)
   return aNum >= 0.0 ? int32_t(aNum + 0.5) : int32_t(aNum - 0.5);
 }
 
-/* NS_roundup30 rounds towards infinity for positive and       */
-/* negative numbers.                                           */
+  /* NS_roundup30 rounds towards infinity for positive and       */
+  /* negative numbers.                                           */
 
-#if defined(XP_WIN32) && defined(_M_IX86) && !defined(__GNUC__) && !defined(__clang__)
-inline int32_t NS_lroundup30(float x)
+#if defined(XP_WIN32) && defined(_M_IX86) && !defined(__GNUC__) && \
+    !defined(__clang__)
+inline int32_t
+NS_lroundup30(float x)
 {
   /* Code derived from Laurent de Soras' paper at             */
   /* http://ldesoras.free.fr/doc/articles/rounding_en.pdf     */
@@ -66,7 +68,7 @@ inline int32_t NS_lroundup30(float x)
     fadd    round_to_nearest    ; add the rounding factor
     fistp   dword ptr i         ; convert the result to int
   }
-  return i >> 1;                /* divide by 2 */
+  return i >> 1; /* divide by 2 */
 }
 #endif /* XP_WIN32 && _M_IX86 && !__GNUC__ */
 

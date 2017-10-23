@@ -15,18 +15,19 @@ namespace dom {
 
 class ContainerBoxObject final : public BoxObject
 {
-public:
+ public:
   ContainerBoxObject();
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   already_AddRefed<nsIDocShell> GetDocShell();
 
-private:
+ private:
   ~ContainerBoxObject();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ContainerBoxObject_h
+#endif  // mozilla_dom_ContainerBoxObject_h

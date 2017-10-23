@@ -4,29 +4,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ImageLayers.h"
-#include "ImageContainer.h"             // for ImageContainer
-#include "gfxRect.h"                    // for gfxRect
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for ImageContainer::Release, etc
+#include "ImageContainer.h"   // for ImageContainer
+#include "gfxRect.h"          // for gfxRect
+#include "nsDebug.h"          // for NS_ASSERTION
+#include "nsISupportsImpl.h"  // for ImageContainer::Release, etc
 #include "gfx2DGlue.h"
 
 namespace mozilla {
 namespace layers {
 
 ImageLayer::ImageLayer(LayerManager* aManager, void* aImplData)
-: Layer(aManager, aImplData), mSamplingFilter(gfx::SamplingFilter::GOOD)
-, mScaleMode(ScaleMode::SCALE_NONE)
-{}
+    : Layer(aManager, aImplData),
+      mSamplingFilter(gfx::SamplingFilter::GOOD),
+      mScaleMode(ScaleMode::SCALE_NONE)
+{
+}
 
-ImageLayer::~ImageLayer()
-{}
+ImageLayer::~ImageLayer() {}
 
-void ImageLayer::SetContainer(ImageContainer* aContainer) 
+void
+ImageLayer::SetContainer(ImageContainer* aContainer)
 {
   mContainer = aContainer;
 }
 
-void ImageLayer::ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSurface)
+void
+ImageLayer::ComputeEffectiveTransforms(
+    const gfx::Matrix4x4& aTransformToSurface)
 {
   gfx::Matrix4x4 local = GetLocalTransform();
 
@@ -39,16 +43,16 @@ void ImageLayer::ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSu
   // This makes our snapping equivalent to what would happen if our content
   // was drawn into a PaintedLayer (gfxContext would snap using the local
   // transform, then we'd snap again when compositing the PaintedLayer).
-  mEffectiveTransform =
-      SnapTransform(local, sourceRect, nullptr) *
-      SnapTransformTranslation(aTransformToSurface, nullptr);
+  mEffectiveTransform = SnapTransform(local, sourceRect, nullptr) *
+                        SnapTransformTranslation(aTransformToSurface, nullptr);
 
-  if (mScaleMode != ScaleMode::SCALE_NONE &&
-      sourceRect.Width() != 0.0 && sourceRect.Height() != 0.0) {
+  if (mScaleMode != ScaleMode::SCALE_NONE && sourceRect.Width() != 0.0 &&
+      sourceRect.Height() != 0.0) {
     NS_ASSERTION(mScaleMode == ScaleMode::STRETCH,
                  "No other scalemodes than stretch and none supported yet.");
     local.PreScale(mScaleToSize.width / sourceRect.Width(),
-                   mScaleToSize.height / sourceRect.Height(), 1.0);
+                   mScaleToSize.height / sourceRect.Height(),
+                   1.0);
 
     mEffectiveTransformForBuffer =
         SnapTransform(local, sourceRect, nullptr) *
@@ -60,5 +64,5 @@ void ImageLayer::ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSu
   ComputeEffectiveTransformForMaskLayers(aTransformToSurface);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

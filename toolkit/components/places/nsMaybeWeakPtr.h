@@ -18,12 +18,16 @@
 template<class T>
 class nsMaybeWeakPtr
 {
-public:
+ public:
   MOZ_IMPLICIT nsMaybeWeakPtr(nsISupports* aRef) : mPtr(aRef) {}
-  MOZ_IMPLICIT nsMaybeWeakPtr(const nsCOMPtr<nsIWeakReference>& aRef) : mPtr(aRef) {}
+  MOZ_IMPLICIT nsMaybeWeakPtr(const nsCOMPtr<nsIWeakReference>& aRef)
+      : mPtr(aRef)
+  {
+  }
   MOZ_IMPLICIT nsMaybeWeakPtr(const nsCOMPtr<T>& aRef) : mPtr(aRef) {}
 
-  bool operator==(const nsMaybeWeakPtr<T> &other) const {
+  bool operator==(const nsMaybeWeakPtr<T>& other) const
+  {
     return mPtr == other.mPtr;
   }
 
@@ -31,7 +35,7 @@ public:
 
   const nsCOMPtr<T> GetValue() const;
 
-private:
+ private:
   nsCOMPtr<nsISupports> mPtr;
 };
 
@@ -44,7 +48,7 @@ class nsMaybeWeakPtrArray : public nsTArray<nsMaybeWeakPtr<T>>
 {
   typedef nsTArray<nsMaybeWeakPtr<T>> MaybeWeakArray;
 
-public:
+ public:
   nsresult AppendWeakElement(T* aElement, bool aOwnsWeak)
   {
     nsCOMPtr<nsISupports> ref;
@@ -111,14 +115,14 @@ nsMaybeWeakPtr<T>::GetValue() const
   return nullptr;
 }
 
-template <typename T>
+template<typename T>
 inline void
 ImplCycleCollectionUnlink(nsMaybeWeakPtrArray<T>& aField)
 {
   aField.Clear();
 }
 
-template <typename E>
+template<typename E>
 inline void
 ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
                             nsMaybeWeakPtrArray<E>& aField,
@@ -132,14 +136,13 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
   }
 }
 
-// Call a method on each element in the array, but only if the element is
-// non-null.
+  // Call a method on each element in the array, but only if the element is
+  // non-null.
 
-#define ENUMERATE_WEAKARRAY(array, type, method)                           \
-  for (uint32_t array_idx = 0; array_idx < array.Length(); ++array_idx) {  \
-    const nsCOMPtr<type> &e = array.ElementAt(array_idx).GetValue();       \
-    if (e)                                                                 \
-      e->method;                                                           \
+#define ENUMERATE_WEAKARRAY(array, type, method)                          \
+  for (uint32_t array_idx = 0; array_idx < array.Length(); ++array_idx) { \
+    const nsCOMPtr<type>& e = array.ElementAt(array_idx).GetValue();      \
+    if (e) e->method;                                                     \
   }
 
 #endif

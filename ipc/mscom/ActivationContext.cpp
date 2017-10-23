@@ -14,13 +14,13 @@ namespace mozilla {
 namespace mscom {
 
 ActivationContext::ActivationContext(WORD aResourceId)
-  : ActivationContext(reinterpret_cast<HMODULE>(GetContainingModuleHandle()),
-                      aResourceId)
+    : ActivationContext(reinterpret_cast<HMODULE>(GetContainingModuleHandle()),
+                        aResourceId)
 {
 }
 
 ActivationContext::ActivationContext(HMODULE aLoadFromModule, WORD aResourceId)
-  : mActCtx(INVALID_HANDLE_VALUE)
+    : mActCtx(INVALID_HANDLE_VALUE)
 {
   ACTCTX actCtx = {sizeof(actCtx)};
   actCtx.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_HMODULE_VALID;
@@ -48,7 +48,7 @@ ActivationContext::AddRef()
 }
 
 ActivationContext::ActivationContext(ActivationContext&& aOther)
-  : mActCtx(aOther.mActCtx)
+    : mActCtx(aOther.mActCtx)
 {
   aOther.mActCtx = INVALID_HANDLE_VALUE;
 }
@@ -64,7 +64,7 @@ ActivationContext::operator=(ActivationContext&& aOther)
 }
 
 ActivationContext::ActivationContext(const ActivationContext& aOther)
-  : mActCtx(aOther.mActCtx)
+    : mActCtx(aOther.mActCtx)
 {
   AddRef();
 }
@@ -88,19 +88,16 @@ ActivationContext::Release()
   mActCtx = INVALID_HANDLE_VALUE;
 }
 
-ActivationContext::~ActivationContext()
-{
-  Release();
-}
+ActivationContext::~ActivationContext() { Release(); }
 
 #if defined(MOZILLA_INTERNAL_API)
 
-/* static */ Result<uintptr_t,HRESULT>
+/* static */ Result<uintptr_t, HRESULT>
 ActivationContext::GetCurrent()
 {
   HANDLE actCtx;
   if (!::GetCurrentActCtx(&actCtx)) {
-    return Result<uintptr_t,HRESULT>(HRESULT_FROM_WIN32(::GetLastError()));
+    return Result<uintptr_t, HRESULT>(HRESULT_FROM_WIN32(::GetLastError()));
   }
 
   return reinterpret_cast<uintptr_t>(actCtx);
@@ -112,9 +109,13 @@ ActivationContext::GetCurrentManifestPath(nsAString& aOutManifestPath)
   aOutManifestPath.Truncate();
 
   SIZE_T bytesNeeded;
-  BOOL ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX, nullptr,
-                           nullptr, ActivationContextDetailedInformation,
-                           nullptr, 0, &bytesNeeded);
+  BOOL ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX,
+                           nullptr,
+                           nullptr,
+                           ActivationContextDetailedInformation,
+                           nullptr,
+                           0,
+                           &bytesNeeded);
   if (!ok) {
     DWORD err = ::GetLastError();
     if (err != ERROR_INSUFFICIENT_BUFFER) {
@@ -124,23 +125,30 @@ ActivationContext::GetCurrentManifestPath(nsAString& aOutManifestPath)
 
   auto ctxBuf = MakeUnique<BYTE[]>(bytesNeeded);
 
-  ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX, nullptr, nullptr,
-                      ActivationContextDetailedInformation, ctxBuf.get(),
-                      bytesNeeded, nullptr);
+  ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX,
+                      nullptr,
+                      nullptr,
+                      ActivationContextDetailedInformation,
+                      ctxBuf.get(),
+                      bytesNeeded,
+                      nullptr);
   if (!ok) {
     return HRESULT_FROM_WIN32(::GetLastError());
   }
 
   auto ctxInfo =
-    reinterpret_cast<ACTIVATION_CONTEXT_DETAILED_INFORMATION*>(ctxBuf.get());
+      reinterpret_cast<ACTIVATION_CONTEXT_DETAILED_INFORMATION*>(ctxBuf.get());
 
   // assemblyIndex is 1-based, and we want the last index, so we can just copy
   // ctxInfo->ulAssemblyCount directly.
   DWORD assemblyIndex = ctxInfo->ulAssemblyCount;
-  ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX, nullptr,
+  ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX,
+                      nullptr,
                       &assemblyIndex,
-                      AssemblyDetailedInformationInActivationContext, nullptr,
-                      0, &bytesNeeded);
+                      AssemblyDetailedInformationInActivationContext,
+                      nullptr,
+                      0,
+                      &bytesNeeded);
   if (!ok) {
     DWORD err = ::GetLastError();
     if (err != ERROR_INSUFFICIENT_BUFFER) {
@@ -150,32 +158,34 @@ ActivationContext::GetCurrentManifestPath(nsAString& aOutManifestPath)
 
   auto assemblyBuf = MakeUnique<BYTE[]>(bytesNeeded);
 
-  ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX, nullptr,
+  ok = ::QueryActCtxW(QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX,
+                      nullptr,
                       &assemblyIndex,
                       AssemblyDetailedInformationInActivationContext,
-                      assemblyBuf.get(), bytesNeeded, &bytesNeeded);
+                      assemblyBuf.get(),
+                      bytesNeeded,
+                      &bytesNeeded);
   if (!ok) {
     return HRESULT_FROM_WIN32(::GetLastError());
   }
 
   auto assemblyInfo =
-    reinterpret_cast<ACTIVATION_CONTEXT_ASSEMBLY_DETAILED_INFORMATION*>(assemblyBuf.get());
-  aOutManifestPath = nsDependentString(assemblyInfo->lpAssemblyManifestPath,
-                                       (assemblyInfo->ulManifestPathLength + 1) / sizeof(wchar_t));
+      reinterpret_cast<ACTIVATION_CONTEXT_ASSEMBLY_DETAILED_INFORMATION*>(
+          assemblyBuf.get());
+  aOutManifestPath = nsDependentString(
+      assemblyInfo->lpAssemblyManifestPath,
+      (assemblyInfo->ulManifestPathLength + 1) / sizeof(wchar_t));
 
   return S_OK;
 }
 
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
-ActivationContextRegion::ActivationContextRegion()
-  : mActCookie(0)
-{
-}
+ActivationContextRegion::ActivationContextRegion() : mActCookie(0) {}
 
-ActivationContextRegion::ActivationContextRegion(const ActivationContext& aActCtx)
-  : mActCtx(aActCtx)
-  , mActCookie(0)
+ActivationContextRegion::ActivationContextRegion(
+    const ActivationContext& aActCtx)
+    : mActCtx(aActCtx), mActCookie(0)
 {
   Activate();
 }
@@ -190,8 +200,7 @@ ActivationContextRegion::operator=(const ActivationContext& aActCtx)
 }
 
 ActivationContextRegion::ActivationContextRegion(ActivationContext&& aActCtx)
-  : mActCtx(Move(aActCtx))
-  , mActCookie(0)
+    : mActCtx(Move(aActCtx)), mActCookie(0)
 {
   Activate();
 }
@@ -206,8 +215,7 @@ ActivationContextRegion::operator=(ActivationContext&& aActCtx)
 }
 
 ActivationContextRegion::ActivationContextRegion(ActivationContextRegion&& aRgn)
-  : mActCtx(Move(aRgn.mActCtx))
-  , mActCookie(aRgn.mActCookie)
+    : mActCtx(Move(aRgn.mActCtx)), mActCookie(aRgn.mActCookie)
 {
   aRgn.mActCookie = 0;
 }
@@ -249,10 +257,7 @@ ActivationContextRegion::Deactivate()
   return !!deactivated;
 }
 
-ActivationContextRegion::~ActivationContextRegion()
-{
-  Deactivate();
-}
+ActivationContextRegion::~ActivationContextRegion() { Deactivate(); }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

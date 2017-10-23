@@ -19,7 +19,7 @@ namespace storage {
 
 class Row final : public mozIStorageRow
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEROW
   NS_DECL_MOZISTORAGEVALUEARRAY
@@ -33,9 +33,9 @@ public:
    * @param aStatement
    *        The sqlite statement to pull results from.
    */
-  nsresult initialize(sqlite3_stmt *aStatement);
+  nsresult initialize(sqlite3_stmt* aStatement);
 
-private:
+ private:
   ~Row() {}
 
   /**
@@ -54,7 +54,7 @@ private:
   nsDataHashtable<nsCStringHashKey, uint32_t> mNameHashtable;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozStorageRow_h
+#endif  // mozStorageRow_h

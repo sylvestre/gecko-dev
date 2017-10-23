@@ -12,10 +12,10 @@ namespace mozilla {
 namespace dom {
 
 MessagePortParent::MessagePortParent(const nsID& aUUID)
-  : mService(MessagePortService::GetOrCreate())
-  , mUUID(aUUID)
-  , mEntangled(false)
-  , mCanSendData(true)
+    : mService(MessagePortService::GetOrCreate()),
+      mUUID(aUUID),
+      mEntangled(false),
+      mCanSendData(true)
 {
   MOZ_ASSERT(mService);
 }
@@ -45,9 +45,8 @@ MessagePortParent::RecvPostMessages(nsTArray<ClonedMessageData>&& aMessages)
 {
   // This converts the object in a data struct where we have BlobImpls.
   FallibleTArray<RefPtr<SharedMessagePortMessage>> messages;
-  if (NS_WARN_IF(
-      !SharedMessagePortMessage::FromMessagesToSharedParent(aMessages,
-                                                            messages))) {
+  if (NS_WARN_IF(!SharedMessagePortMessage::FromMessagesToSharedParent(
+          aMessages, messages))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -75,9 +74,8 @@ MessagePortParent::RecvDisentangle(nsTArray<ClonedMessageData>&& aMessages)
 {
   // This converts the object in a data struct where we have BlobImpls.
   FallibleTArray<RefPtr<SharedMessagePortMessage>> messages;
-  if (NS_WARN_IF(
-      !SharedMessagePortMessage::FromMessagesToSharedParent(aMessages,
-                                                            messages))) {
+  if (NS_WARN_IF(!SharedMessagePortMessage::FromMessagesToSharedParent(
+          aMessages, messages))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -167,14 +165,15 @@ MessagePortParent::ForceClose(const nsID& aUUID,
                               const nsID& aDestinationUUID,
                               const uint32_t& aSequenceID)
 {
-  MessagePortService* service =  MessagePortService::Get();
+  MessagePortService* service = MessagePortService::Get();
   if (!service) {
-    NS_WARNING("The service must exist if we want to close an existing MessagePort.");
+    NS_WARNING(
+        "The service must exist if we want to close an existing MessagePort.");
     return false;
   }
 
   return service->ForceClose(aUUID, aDestinationUUID, aSequenceID);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

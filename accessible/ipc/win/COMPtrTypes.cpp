@@ -39,8 +39,8 @@ CreateHolderFromAccessible(NotNull<Accessible*> aAccToWrap)
   }
 
   static const bool useHandler =
-    Preferences::GetBool("accessibility.handler.enabled", false) &&
-    IsHandlerRegistered();
+      Preferences::GetBool("accessibility.handler.enabled", false) &&
+      IsHandlerRegistered();
 
   RefPtr<HandlerProvider> payload;
   if (useHandler) {
@@ -49,8 +49,10 @@ CreateHolderFromAccessible(NotNull<Accessible*> aAccToWrap)
   }
 
   ProxyUniquePtr<IAccessible> intercepted;
-  HRESULT hr = MainThreadHandoff::WrapInterface(Move(iaToProxy), payload,
-                                                (IAccessible**) mscom::getter_AddRefs(intercepted));
+  HRESULT hr = MainThreadHandoff::WrapInterface(
+      Move(iaToProxy),
+      payload,
+      (IAccessible**)mscom::getter_AddRefs(intercepted));
   MOZ_DIAGNOSTIC_ASSERT(SUCCEEDED(hr));
   if (FAILED(hr)) {
     return nullptr;
@@ -60,7 +62,8 @@ CreateHolderFromAccessible(NotNull<Accessible*> aAccToWrap)
 }
 
 IHandlerControlHolder
-CreateHolderFromHandlerControl(mscom::ProxyUniquePtr<IHandlerControl> aHandlerControl)
+CreateHolderFromHandlerControl(
+    mscom::ProxyUniquePtr<IHandlerControl> aHandlerControl)
 {
   MOZ_ASSERT(aHandlerControl);
   MOZ_ASSERT(XRE_IsContentProcess());
@@ -72,5 +75,5 @@ CreateHolderFromHandlerControl(mscom::ProxyUniquePtr<IHandlerControl> aHandlerCo
   return IHandlerControlHolder(Move(aHandlerControl));
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

@@ -12,38 +12,30 @@
 namespace mozilla {
 namespace dom {
 
-class CredentialsContainer final : public nsISupports
-                                 , public nsWrapperCache
+class CredentialsContainer final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CredentialsContainer)
 
   explicit CredentialsContainer(nsPIDOMWindowInner* aParent);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mParent;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mParent; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  already_AddRefed<Promise>
-  Get(const CredentialRequestOptions& aOptions);
-  already_AddRefed<Promise>
-  Create(const CredentialCreationOptions& aOptions);
-  already_AddRefed<Promise>
-  Store(const Credential& aCredential);
+  already_AddRefed<Promise> Get(const CredentialRequestOptions& aOptions);
+  already_AddRefed<Promise> Create(const CredentialCreationOptions& aOptions);
+  already_AddRefed<Promise> Store(const Credential& aCredential);
 
-private:
+ private:
   ~CredentialsContainer();
 
   nsCOMPtr<nsPIDOMWindowInner> mParent;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CredentialsContainer_h
+#endif  // mozilla_dom_CredentialsContainer_h

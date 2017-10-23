@@ -20,31 +20,24 @@
 
 namespace wmf {
 
-WMFH264Decoder::WMFH264Decoder()
-  : mDecoder(nullptr)
+WMFH264Decoder::WMFH264Decoder() : mDecoder(nullptr)
 {
   memset(&mInputStreamInfo, 0, sizeof(MFT_INPUT_STREAM_INFO));
   memset(&mOutputStreamInfo, 0, sizeof(MFT_OUTPUT_STREAM_INFO));
 }
 
-WMFH264Decoder::~WMFH264Decoder()
-{
-}
+WMFH264Decoder::~WMFH264Decoder() {}
 
 HRESULT
 WMFH264Decoder::Init(int32_t aCoreCount)
 {
   HRESULT hr;
 
-  hr = CreateMFT(__uuidof(CMSH264DecoderMFT),
-                 WMFDecoderDllName(),
-                 mDecoder);
+  hr = CreateMFT(__uuidof(CMSH264DecoderMFT), WMFDecoderDllName(), mDecoder);
   if (FAILED(hr)) {
     // Windows 7 Enterprise Server N (which is what Mozilla's mochitests run
     // on) need a different CLSID to instantiate the H.264 decoder.
-    hr = CreateMFT(CLSID_CMSH264DecMFT,
-                   WMFDecoderDllName(),
-                   mDecoder);
+    hr = CreateMFT(CLSID_CMSH264DecMFT, WMFDecoderDllName(), mDecoder);
   }
   ENSURE(SUCCEEDED(hr), hr);
 
@@ -103,10 +96,15 @@ WMFH264Decoder::ConfigureVideoFrameGeometry(IMFMediaType* aMediaType)
   mVideoHeight = height;
   mPictureRegion = pictureRegion;
 
-  LOG("WMFH264Decoder frame geometry frame=(%u,%u) stride=%u picture=(%d, %d, %d, %d)\n",
-      width, height,
+  LOG("WMFH264Decoder frame geometry frame=(%u,%u) stride=%u picture=(%d, %d, "
+      "%d, %d)\n",
+      width,
+      height,
       mStride,
-      mPictureRegion.x, mPictureRegion.y, mPictureRegion.width, mPictureRegion.height);
+      mPictureRegion.x,
+      mPictureRegion.y,
+      mPictureRegion.width,
+      mPictureRegion.height);
 
   return S_OK;
 }
@@ -144,7 +142,8 @@ WMFH264Decoder::SetDecoderInputType()
   hr = type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
   ENSURE(SUCCEEDED(hr), hr);
 
-  hr = type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_MixedInterlaceOrProgressive);
+  hr = type->SetUINT32(MF_MT_INTERLACE_MODE,
+                       MFVideoInterlace_MixedInterlaceOrProgressive);
   ENSURE(SUCCEEDED(hr), hr);
 
   hr = mDecoder->SetInputType(0, type, 0);
@@ -161,7 +160,8 @@ WMFH264Decoder::SetDecoderOutputType()
   CComPtr<IMFMediaType> type;
 
   UINT32 typeIndex = 0;
-  while (type = nullptr, SUCCEEDED(mDecoder->GetOutputAvailableType(0, typeIndex++, &type))) {
+  while (type = nullptr,
+         SUCCEEDED(mDecoder->GetOutputAvailableType(0, typeIndex++, &type))) {
     GUID subtype;
     hr = type->GetGUID(MF_MT_SUBTYPE, &subtype);
     if (FAILED(hr)) {
@@ -205,8 +205,10 @@ WMFH264Decoder::CreateInputSample(const uint8_t* aData,
   ENSURE(SUCCEEDED(hr), hr);
 
   CComPtr<IMFMediaBuffer> buffer;
-  int32_t bufferSize = std::max<uint32_t>(uint32_t(mInputStreamInfo.cbSize), aDataSize);
-  UINT32 alignment = (mInputStreamInfo.cbAlignment > 1) ? mInputStreamInfo.cbAlignment - 1 : 0;
+  int32_t bufferSize =
+      std::max<uint32_t>(uint32_t(mInputStreamInfo.cbSize), aDataSize);
+  UINT32 alignment =
+      (mInputStreamInfo.cbAlignment > 1) ? mInputStreamInfo.cbAlignment - 1 : 0;
   hr = MFCreateAlignedMemoryBuffer(bufferSize, alignment, &buffer);
   ENSURE(SUCCEEDED(hr), hr);
 
@@ -246,7 +248,9 @@ WMFH264Decoder::CreateOutputSample(IMFSample** aOutSample)
 
   CComPtr<IMFMediaBuffer> buffer;
   int32_t bufferSize = mOutputStreamInfo.cbSize;
-  UINT32 alignment = (mOutputStreamInfo.cbAlignment > 1) ? mOutputStreamInfo.cbAlignment - 1 : 0;
+  UINT32 alignment = (mOutputStreamInfo.cbAlignment > 1)
+                         ? mOutputStreamInfo.cbAlignment - 1
+                         : 0;
   hr = MFCreateAlignedMemoryBuffer(bufferSize, alignment, &buffer);
   ENSURE(SUCCEEDED(hr), hr);
 
@@ -257,7 +261,6 @@ WMFH264Decoder::CreateOutputSample(IMFSample** aOutSample)
 
   return S_OK;
 }
-
 
 HRESULT
 WMFH264Decoder::GetOutputSample(IMFSample** aOutSample)
@@ -275,7 +278,7 @@ WMFH264Decoder::GetOutputSample(IMFSample** aOutSample)
   DWORD status = 0;
   hr = mDecoder->ProcessOutput(0, 1, &output, &status);
   //LOG(L"WMFH264Decoder::GetOutputSample() ProcessOutput returned 0x%x\n", hr);
-  CComPtr<IMFCollection> events = output.pEvents; // Ensure this is released.
+  CComPtr<IMFCollection> events = output.pEvents;  // Ensure this is released.
 
   if (hr == MF_E_TRANSFORM_STREAM_CHANGE) {
     // Type change. Probably geometric apperature change.
@@ -292,7 +295,7 @@ WMFH264Decoder::GetOutputSample(IMFSample** aOutSample)
   assert(sample);
 
   // output.pSample
-  *aOutSample = sample.Detach(); // AddRefs
+  *aOutSample = sample.Detach();  // AddRefs
   return S_OK;
 }
 
@@ -304,7 +307,7 @@ WMFH264Decoder::Input(const uint8_t* aData,
   HRESULT hr;
   CComPtr<IMFSample> input = nullptr;
   hr = CreateInputSample(aData, aDataSize, aTimestamp, &input);
-  ENSURE(SUCCEEDED(hr) && input!=nullptr, hr);
+  ENSURE(SUCCEEDED(hr) && input != nullptr, hr);
 
   hr = mDecoder->ProcessInput(0, input, 0);
   if (hr == MF_E_NOTACCEPTING) {
@@ -352,4 +355,4 @@ WMFH264Decoder::Drain()
   return S_OK;
 }
 
-} // namespace wmf
+}  // namespace wmf

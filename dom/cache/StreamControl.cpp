@@ -100,6 +100,6 @@ StreamControl::HasEverBeenRead() const
   return false;
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

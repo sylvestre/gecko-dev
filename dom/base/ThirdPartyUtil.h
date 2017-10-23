@@ -17,20 +17,20 @@ class nsIURI;
 
 class ThirdPartyUtil final : public mozIThirdPartyUtil
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_MOZITHIRDPARTYUTIL
 
   nsresult Init();
 
-private:
+ private:
   ~ThirdPartyUtil() {}
 
   nsresult IsThirdPartyInternal(const nsCString& aFirstDomain,
-    nsIURI* aSecondURI, bool* aResult);
+                                nsIURI* aSecondURI,
+                                bool* aResult);
 
   nsCOMPtr<nsIEffectiveTLDService> mTLDService;
 };
 
 #endif
-

@@ -14,10 +14,7 @@ using namespace cdm;
 namespace mozilla {
 
 WidevineVideoFrame::WidevineVideoFrame()
-  : mFormat(kUnknownVideoFormat)
-  , mSize(0,0)
-  , mBuffer(nullptr)
-  , mTimestamp(0)
+    : mFormat(kUnknownVideoFormat), mSize(0, 0), mBuffer(nullptr), mTimestamp(0)
 {
   GMP_LOG("WidevineVideoFrame::WidevineVideoFrame() this=%p", this);
   memset(mPlaneOffsets, 0, sizeof(mPlaneOffsets));
@@ -25,15 +22,16 @@ WidevineVideoFrame::WidevineVideoFrame()
 }
 
 WidevineVideoFrame::WidevineVideoFrame(WidevineVideoFrame&& aOther)
-  : mFormat(aOther.mFormat)
-  , mSize(aOther.mSize)
-  , mBuffer(aOther.mBuffer)
-  , mTimestamp(aOther.mTimestamp)
+    : mFormat(aOther.mFormat),
+      mSize(aOther.mSize),
+      mBuffer(aOther.mBuffer),
+      mTimestamp(aOther.mTimestamp)
 {
-  GMP_LOG("WidevineVideoFrame::WidevineVideoFrame(WidevineVideoFrame&&) "
-          "this=%p, other=%p",
-          this,
-          &aOther);
+  GMP_LOG(
+      "WidevineVideoFrame::WidevineVideoFrame(WidevineVideoFrame&&) "
+      "this=%p, other=%p",
+      this,
+      &aOther);
   memcpy(mPlaneOffsets, aOther.mPlaneOffsets, sizeof(mPlaneOffsets));
   memcpy(mPlaneStrides, aOther.mPlaneStrides, sizeof(mPlaneStrides));
   aOther.mBuffer = nullptr;
@@ -92,7 +90,8 @@ WidevineVideoFrame::FrameBuffer()
 }
 
 void
-WidevineVideoFrame::SetPlaneOffset(cdm::VideoFrame::VideoPlane aPlane, uint32_t aOffset)
+WidevineVideoFrame::SetPlaneOffset(cdm::VideoFrame::VideoPlane aPlane,
+                                   uint32_t aOffset)
 {
   GMP_LOG("WidevineVideoFrame::SetPlaneOffset(%d, %" PRIu32 ") this=%p",
           aPlane,
@@ -108,10 +107,13 @@ WidevineVideoFrame::PlaneOffset(cdm::VideoFrame::VideoPlane aPlane)
 }
 
 void
-WidevineVideoFrame::SetStride(cdm::VideoFrame::VideoPlane aPlane, uint32_t aStride)
+WidevineVideoFrame::SetStride(cdm::VideoFrame::VideoPlane aPlane,
+                              uint32_t aStride)
 {
-  GMP_LOG(
-    "WidevineVideoFrame::SetStride(%d, %" PRIu32 ") this=%p", aPlane, aStride, this);
+  GMP_LOG("WidevineVideoFrame::SetStride(%d, %" PRIu32 ") this=%p",
+          aPlane,
+          aStride,
+          this);
   mPlaneStrides[aPlane] = aStride;
 }
 
@@ -125,7 +127,7 @@ void
 WidevineVideoFrame::SetTimestamp(int64_t timestamp)
 {
   GMP_LOG(
-    "WidevineVideoFrame::SetTimestamp(%" PRId64 ") this=%p", timestamp, this);
+      "WidevineVideoFrame::SetTimestamp(%" PRId64 ") this=%p", timestamp, this);
   mTimestamp = timestamp;
 }
 
@@ -136,7 +138,9 @@ WidevineVideoFrame::Timestamp() const
 }
 
 bool
-WidevineVideoFrame::InitToBlack(uint32_t aWidth, uint32_t aHeight, int64_t aTimeStamp)
+WidevineVideoFrame::InitToBlack(uint32_t aWidth,
+                                uint32_t aHeight,
+                                int64_t aTimeStamp)
 {
   CheckedInt<size_t> ySizeChk = aWidth;
   ySizeChk *= aHeight;
@@ -170,4 +174,4 @@ WidevineVideoFrame::InitToBlack(uint32_t aWidth, uint32_t aHeight, int64_t aTime
   return true;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

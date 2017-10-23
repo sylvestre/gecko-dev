@@ -64,16 +64,19 @@ const MozRefCountType DEAD = 0xffffdead;
 #ifdef MOZ_REFCOUNTED_LEAK_CHECKING
 class RefCountLogger
 {
-public:
-  static void logAddRef(const void* aPointer, MozRefCountType aRefCount,
-                        const char* aTypeName, uint32_t aInstanceSize)
+ public:
+  static void logAddRef(const void* aPointer,
+                        MozRefCountType aRefCount,
+                        const char* aTypeName,
+                        uint32_t aInstanceSize)
   {
     MOZ_ASSERT(aRefCount != DEAD);
-    NS_LogAddRef(const_cast<void*>(aPointer), aRefCount, aTypeName,
-                 aInstanceSize);
+    NS_LogAddRef(
+        const_cast<void*>(aPointer), aRefCount, aTypeName, aInstanceSize);
   }
 
-  static void logRelease(const void* aPointer, MozRefCountType aRefCount,
+  static void logRelease(const void* aPointer,
+                         MozRefCountType aRefCount,
                          const char* aTypeName)
   {
     MOZ_ASSERT(aRefCount != DEAD);
@@ -92,11 +95,11 @@ enum RefCountAtomicity
 template<typename T, RefCountAtomicity Atomicity>
 class RefCounted
 {
-protected:
+ protected:
   RefCounted() : mRefCnt(0) {}
   ~RefCounted() { MOZ_ASSERT(mRefCnt == detail::DEAD); }
 
-public:
+ public:
   // Compatibility with nsRefPtr.
   void AddRef() const
   {
@@ -128,10 +131,10 @@ public:
     detail::RefCountLogger::logRelease(ptr, cnt, type);
 #endif
     if (0 == cnt) {
-      // Because we have atomically decremented the refcount above, only
-      // one thread can get a 0 count here, so as long as we can assume that
-      // everything else in the system is accessing this object through
-      // RefPtrs, it's safe to access |this| here.
+    // Because we have atomically decremented the refcount above, only
+    // one thread can get a 0 count here, so as long as we can assume that
+    // everything else in the system is accessing this object through
+    // RefPtrs, it's safe to access |this| here.
 #ifdef DEBUG
       mRefCnt = detail::DEAD;
 #endif
@@ -149,7 +152,7 @@ public:
     return mRefCnt == 1;
   }
 
-private:
+ private:
   mutable typename Conditional<Atomicity == AtomicRefCount,
                                Atomic<MozRefCountType>,
                                MozRefCountType>::Type mRefCnt;
@@ -158,7 +161,7 @@ private:
 #ifdef MOZ_REFCOUNTED_LEAK_CHECKING
 // Passing override for the optional argument marks the typeName and
 // typeSize functions defined by this macro as overrides.
-#define MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(T, ...) \
+#define MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(T, ...)           \
   virtual const char* typeName() const __VA_ARGS__ { return #T; } \
   virtual size_t typeSize() const __VA_ARGS__ { return sizeof(*this); }
 #else
@@ -168,16 +171,16 @@ private:
 // Note that this macro is expanded unconditionally because it declares only
 // two small inline functions which will hopefully get eliminated by the linker
 // in non-leak-checking builds.
-#define MOZ_DECLARE_REFCOUNTED_TYPENAME(T) \
+#define MOZ_DECLARE_REFCOUNTED_TYPENAME(T)    \
   const char* typeName() const { return #T; } \
   size_t typeSize() const { return sizeof(*this); }
 
-} // namespace detail
+}  // namespace detail
 
 template<typename T>
 class RefCounted : public detail::RefCounted<T, detail::NonAtomicRefCount>
 {
-public:
+ public:
   ~RefCounted()
   {
     static_assert(IsBaseOf<RefCounted, T>::value,
@@ -195,10 +198,10 @@ namespace external {
  * instead.
  */
 template<typename T>
-class AtomicRefCounted :
-  public mozilla::detail::RefCounted<T, mozilla::detail::AtomicRefCount>
+class AtomicRefCounted
+    : public mozilla::detail::RefCounted<T, mozilla::detail::AtomicRefCount>
 {
-public:
+ public:
   ~AtomicRefCounted()
   {
     static_assert(IsBaseOf<AtomicRefCounted, T>::value,
@@ -206,8 +209,8 @@ public:
   }
 };
 
-} // namespace external
+}  // namespace external
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_RefCounted_h
+#endif  // mozilla_RefCounted_h

@@ -24,7 +24,7 @@ class Relation;
  */
 class nsAccessibleRelation final : public nsIAccessibleRelation
 {
-public:
+ public:
   nsAccessibleRelation(uint32_t aType, Relation* aRel);
 
   nsAccessibleRelation(uint32_t aType,
@@ -33,18 +33,18 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIACCESSIBLERELATION
 
-private:
+ private:
   nsAccessibleRelation();
   ~nsAccessibleRelation();
 
   nsAccessibleRelation(const nsAccessibleRelation&);
-  nsAccessibleRelation& operator = (const nsAccessibleRelation&);
+  nsAccessibleRelation& operator=(const nsAccessibleRelation&);
 
   uint32_t mType;
   nsCOMPtr<nsIMutableArray> mTargets;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

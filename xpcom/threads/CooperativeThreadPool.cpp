@@ -15,7 +15,8 @@
 using namespace mozilla;
 
 static bool gCooperativeSchedulingEnabled;
-MOZ_THREAD_LOCAL(CooperativeThreadPool::CooperativeThread*) CooperativeThreadPool::sTlsCurrentThread;
+MOZ_THREAD_LOCAL(CooperativeThreadPool::CooperativeThread*)
+CooperativeThreadPool::sTlsCurrentThread;
 
 // Windows silliness. winbase.h defines an empty no-argument Yield macro.
 #undef Yield
@@ -23,13 +24,13 @@ MOZ_THREAD_LOCAL(CooperativeThreadPool::CooperativeThread*) CooperativeThreadPoo
 CooperativeThreadPool::CooperativeThreadPool(size_t aNumThreads,
                                              Mutex& aMutex,
                                              Controller& aController)
-  : mMutex(aMutex)
-  , mShutdownCondition(mMutex, "CoopShutdown")
-  , mRunning(false)
-  , mNumThreads(std::min(aNumThreads, kMaxThreads))
-  , mRunningThreads(0)
-  , mController(aController)
-  , mSelectedThread(size_t(0))
+    : mMutex(aMutex),
+      mShutdownCondition(mMutex, "CoopShutdown"),
+      mRunning(false),
+      mNumThreads(std::min(aNumThreads, kMaxThreads)),
+      mRunningThreads(0),
+      mController(aController),
+      mSelectedThread(size_t(0))
 {
   MOZ_ASSERT(aNumThreads < kMaxThreads);
 
@@ -46,10 +47,7 @@ CooperativeThreadPool::CooperativeThreadPool(size_t aNumThreads,
   }
 }
 
-CooperativeThreadPool::~CooperativeThreadPool()
-{
-  MOZ_ASSERT(!mRunning);
-}
+CooperativeThreadPool::~CooperativeThreadPool() { MOZ_ASSERT(!mRunning); }
 
 const size_t CooperativeThreadPool::kMaxThreads;
 
@@ -103,7 +101,8 @@ CooperativeThreadPool::RecheckBlockers(const MutexAutoLock& aProofOfLock)
 }
 
 /* static */ void
-CooperativeThreadPool::Yield(Resource* aBlocker, const MutexAutoLock& aProofOfLock)
+CooperativeThreadPool::Yield(Resource* aBlocker,
+                             const MutexAutoLock& aProofOfLock)
 {
   if (!gCooperativeSchedulingEnabled) {
     return;
@@ -125,23 +124,28 @@ CooperativeThreadPool::IsCooperativeThread()
 }
 
 CooperativeThreadPool::SelectedThread
-CooperativeThreadPool::CurrentThreadIndex(const MutexAutoLock& aProofOfLock) const
+CooperativeThreadPool::CurrentThreadIndex(
+    const MutexAutoLock& aProofOfLock) const
 {
   aProofOfLock.AssertOwns(mMutex);
   return mSelectedThread;
 }
 
-CooperativeThreadPool::CooperativeThread::CooperativeThread(CooperativeThreadPool* aPool,
-                                                            size_t aIndex)
-  : mPool(aPool)
-  , mCondVar(aPool->mMutex, "CooperativeThreadPool")
-  , mBlocker(nullptr)
-  , mIndex(aIndex)
-  , mRunning(true)
+CooperativeThreadPool::CooperativeThread::CooperativeThread(
+    CooperativeThreadPool* aPool, size_t aIndex)
+    : mPool(aPool),
+      mCondVar(aPool->mMutex, "CooperativeThreadPool"),
+      mBlocker(nullptr),
+      mIndex(aIndex),
+      mRunning(true)
 {
-  mThread = PR_CreateThread(PR_USER_THREAD, ThreadFunc, this,
-                            PR_PRIORITY_NORMAL, PR_GLOBAL_THREAD,
-                            PR_JOINABLE_THREAD, 0);
+  mThread = PR_CreateThread(PR_USER_THREAD,
+                            ThreadFunc,
+                            this,
+                            PR_PRIORITY_NORMAL,
+                            PR_GLOBAL_THREAD,
+                            PR_JOINABLE_THREAD,
+                            0);
   MOZ_RELEASE_ASSERT(mThread);
 }
 
@@ -217,7 +221,8 @@ CooperativeThreadPool::CooperativeThread::EndShutdown()
 }
 
 bool
-CooperativeThreadPool::CooperativeThread::IsBlocked(const MutexAutoLock& aProofOfLock)
+CooperativeThreadPool::CooperativeThread::IsBlocked(
+    const MutexAutoLock& aProofOfLock)
 {
   if (!mBlocker) {
     return false;
@@ -227,7 +232,8 @@ CooperativeThreadPool::CooperativeThread::IsBlocked(const MutexAutoLock& aProofO
 }
 
 void
-CooperativeThreadPool::CooperativeThread::Yield(const MutexAutoLock& aProofOfLock)
+CooperativeThreadPool::CooperativeThread::Yield(
+    const MutexAutoLock& aProofOfLock)
 {
   aProofOfLock.AssertOwns(mPool->mMutex);
 
@@ -239,8 +245,8 @@ CooperativeThreadPool::CooperativeThread::Yield(const MutexAutoLock& aProofOfLoc
       selected = 0;
     }
 
-    if (mPool->mThreads[selected]->mRunning
-        && !mPool->mThreads[selected]->IsBlocked(aProofOfLock)) {
+    if (mPool->mThreads[selected]->mRunning &&
+        !mPool->mThreads[selected]->IsBlocked(aProofOfLock)) {
       found = true;
       break;
     }

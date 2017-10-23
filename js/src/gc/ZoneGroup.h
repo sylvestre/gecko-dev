@@ -15,7 +15,9 @@
 
 namespace js {
 
-namespace jit { class JitZoneGroup; }
+namespace jit {
+class JitZoneGroup;
+}
 
 class AutoKeepAtoms;
 
@@ -29,12 +31,11 @@ typedef Vector<JS::Zone*, 4, SystemAllocPolicy> ZoneVector;
 // compartments, GC things and so forth may only be used by the thread that has
 // entered the zone group.
 
-class ZoneGroup
-{
-  public:
+class ZoneGroup {
+   public:
     JSRuntime* const runtime;
 
-  private:
+   private:
     // The context with exclusive access to this zone group.
     UnprotectedData<CooperatingContext> ownerContext_;
 
@@ -45,7 +46,7 @@ class ZoneGroup
     // group. Blocking happens using JSContext::yieldToEmbedding.
     UnprotectedData<bool> useExclusiveLocking_;
 
-  public:
+   public:
     CooperatingContext& ownerContext() { return ownerContext_.ref(); }
     void* addressOfOwnerContext() { return &ownerContext_.ref().cx; }
 
@@ -54,30 +55,22 @@ class ZoneGroup
     bool ownedByCurrentThread();
 
     // All zones in the group.
-  private:
+   private:
     ZoneGroupOrGCTaskData<ZoneVector> zones_;
-  public:
+
+   public:
     ZoneVector& zones() { return zones_.ref(); }
 
-  private:
-    enum class HelperThreadUse : uint32_t
-    {
-        None,
-        Pending,
-        Active
-    };
+   private:
+    enum class HelperThreadUse : uint32_t { None, Pending, Active };
 
     mozilla::Atomic<HelperThreadUse> helperThreadUse;
 
-  public:
+   public:
     // Whether a zone in this group was created for use by a helper thread.
-    bool createdForHelperThread() const {
-        return helperThreadUse != HelperThreadUse::None;
-    }
+    bool createdForHelperThread() const { return helperThreadUse != HelperThreadUse::None; }
     // Whether a zone in this group is currently in use by a helper thread.
-    bool usedByHelperThread() const {
-        return helperThreadUse == HelperThreadUse::Active;
-    }
+    bool usedByHelperThread() const { return helperThreadUse == HelperThreadUse::Active; }
     void setCreatedForHelperThread() {
         MOZ_ASSERT(helperThreadUse == HelperThreadUse::None);
         helperThreadUse = HelperThreadUse::Pending;
@@ -110,27 +103,26 @@ class ZoneGroup
     void deleteEmptyZone(Zone* zone);
 
 #ifdef DEBUG
-  private:
+   private:
     // The number of possible bailing places encounters before forcefully bailing
     // in that place. Zero means inactive.
     ZoneGroupData<uint32_t> ionBailAfter_;
 
-  public:
+   public:
     void* addressOfIonBailAfter() { return &ionBailAfter_; }
 
     // Set after how many bailing places we should forcefully bail.
     // Zero disables this feature.
-    void setIonBailAfter(uint32_t after) {
-        ionBailAfter_ = after;
-    }
+    void setIonBailAfter(uint32_t after) { ionBailAfter_ = after; }
 #endif
 
     ZoneGroupData<jit::JitZoneGroup*> jitZoneGroup;
 
-  private:
+   private:
     /* Linked list of all Debugger objects in the group. */
     ZoneGroupData<mozilla::LinkedList<js::Debugger>> debuggerList_;
-  public:
+
+   public:
     mozilla::LinkedList<js::Debugger>& debuggerList() { return debuggerList_.ref(); }
 
     // Number of Ion compilations which were finished off thread and are
@@ -138,24 +130,22 @@ class ZoneGroup
     // thread state lock, but may be read from at other times.
     mozilla::Atomic<size_t> numFinishedBuilders;
 
-  private:
+   private:
     /* List of Ion compilation waiting to get linked. */
     typedef mozilla::LinkedList<js::jit::IonBuilder> IonBuilderList;
 
     js::HelperThreadLockData<IonBuilderList> ionLazyLinkList_;
     js::HelperThreadLockData<size_t> ionLazyLinkListSize_;
 
-  public:
+   public:
     IonBuilderList& ionLazyLinkList();
 
-    size_t ionLazyLinkListSize() {
-        return ionLazyLinkListSize_;
-    }
+    size_t ionLazyLinkListSize() { return ionLazyLinkListSize_; }
 
     void ionLazyLinkListRemove(js::jit::IonBuilder* builder);
     void ionLazyLinkListAdd(js::jit::IonBuilder* builder);
 };
 
-} // namespace js
+}  // namespace js
 
-#endif // gc_Zone_h
+#endif  // gc_Zone_h

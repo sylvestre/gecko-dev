@@ -18,7 +18,8 @@ class GMPPlaneData;
 class GMPPlaneImpl : public GMPPlane
 {
   friend struct IPC::ParamTraits<mozilla::gmp::GMPPlaneImpl>;
-public:
+
+ public:
   explicit GMPPlaneImpl(GMPVideoHostImpl* aHost);
   GMPPlaneImpl(const GMPPlaneData& aPlaneData, GMPVideoHostImpl* aHost);
   virtual ~GMPPlaneImpl();
@@ -38,9 +39,7 @@ public:
                           int32_t aStride,
                           int32_t aPlaneSize) override;
   GMPErr Copy(const GMPPlane& aPlane) override;
-  GMPErr Copy(int32_t aSize,
-              int32_t aStride,
-              const uint8_t* aBuffer) override;
+  GMPErr Copy(int32_t aSize, int32_t aStride, const uint8_t* aBuffer) override;
   void Swap(GMPPlane& aPlane) override;
   int32_t AllocatedSize() const override;
   void ResetSize() override;
@@ -50,7 +49,7 @@ public:
   uint8_t* Buffer() override;
   void Destroy() override;
 
-private:
+ private:
   GMPErr MaybeResize(int32_t aNewSize);
   void DestroyBuffer();
 
@@ -60,7 +59,7 @@ private:
   GMPVideoHostImpl* mHost;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPVideoPlaneImpl_h_
+#endif  // GMPVideoPlaneImpl_h_

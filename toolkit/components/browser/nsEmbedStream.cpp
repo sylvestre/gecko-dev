@@ -16,14 +16,9 @@
 
 NS_IMPL_ISUPPORTS0(nsEmbedStream)
 
-nsEmbedStream::nsEmbedStream()
-{
-  mOwner = nullptr;
-}
+nsEmbedStream::nsEmbedStream() { mOwner = nullptr; }
 
-nsEmbedStream::~nsEmbedStream()
-{
-}
+nsEmbedStream::~nsEmbedStream() {}
 
 void
 nsEmbedStream::InitOwner(nsIWebBrowser* aOwner)
@@ -51,15 +46,19 @@ nsEmbedStream::OpenStream(nsIURI* aBaseURI, const nsACString& aContentType)
 
   nsCOMPtr<nsIAsyncInputStream> inputStream;
   nsCOMPtr<nsIAsyncOutputStream> outputStream;
-  rv = NS_NewPipe2(getter_AddRefs(inputStream), getter_AddRefs(outputStream),
-                   true, false, 0, UINT32_MAX);
+  rv = NS_NewPipe2(getter_AddRefs(inputStream),
+                   getter_AddRefs(outputStream),
+                   true,
+                   false,
+                   0,
+                   UINT32_MAX);
   if (NS_FAILED(rv)) {
     return rv;
   }
 
   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(mOwner);
-  rv = docShell->LoadStream(inputStream, aBaseURI, aContentType,
-                            EmptyCString(), nullptr);
+  rv = docShell->LoadStream(
+      inputStream, aBaseURI, aContentType, EmptyCString(), nullptr);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -75,8 +74,8 @@ nsEmbedStream::AppendToStream(const uint8_t* aData, uint32_t aLen)
   NS_ENSURE_STATE(mOutputStream);
 
   uint32_t bytesWritten = 0;
-  rv = mOutputStream->Write(reinterpret_cast<const char*>(aData),
-                            aLen, &bytesWritten);
+  rv = mOutputStream->Write(
+      reinterpret_cast<const char*>(aData), aLen, &bytesWritten);
   if (NS_FAILED(rv)) {
     return rv;
   }

@@ -38,6 +38,6 @@ enum class LoadTainting : uint8_t
   Opaque = 2
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_LoadTainting_h
+#endif  // mozilla_LoadTainting_h

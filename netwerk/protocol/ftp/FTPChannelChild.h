@@ -34,16 +34,16 @@ namespace net {
 // nsBaseChannel and have a new class that has only the common logic for
 // nsFTPChannel/FTPChannelChild.
 
-class FTPChannelChild final : public PFTPChannelChild
-                            , public nsBaseChannel
-                            , public nsIFTPChannel
-                            , public nsIUploadChannel
-                            , public nsIResumableChannel
-                            , public nsIProxiedChannel
-                            , public nsIChildChannel
-                            , public nsIDivertableChannel
+class FTPChannelChild final : public PFTPChannelChild,
+                              public nsBaseChannel,
+                              public nsIFTPChannel,
+                              public nsIUploadChannel,
+                              public nsIResumableChannel,
+                              public nsIProxiedChannel,
+                              public nsIChildChannel,
+                              public nsIDivertableChannel
 {
-public:
+ public:
   typedef ::nsIStreamListener nsIStreamListener;
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -63,7 +63,8 @@ public:
   void AddIPDLReference();
   void ReleaseIPDLReference();
 
-  NS_IMETHOD AsyncOpen(nsIStreamListener* listener, nsISupports* aContext) override;
+  NS_IMETHOD AsyncOpen(nsIStreamListener* listener,
+                       nsISupports* aContext) override;
 
   // Note that we handle this ourselves, overriding the nsBaseChannel
   // default behavior, in order to be e10s-friendly.
@@ -77,7 +78,7 @@ public:
 
   void FlushedForDiversion();
 
-protected:
+ protected:
   virtual ~FTPChannelChild();
 
   mozilla::ipc::IPCResult RecvOnStartRequest(const nsresult& aChannelStatus,
@@ -91,9 +92,10 @@ protected:
                                               const uint64_t& offset,
                                               const uint32_t& count) override;
   mozilla::ipc::IPCResult RecvOnStopRequest(const nsresult& channelStatus,
-                                            const nsCString &aErrorMsg,
-                                            const bool &aUseUTF8) override;
-  mozilla::ipc::IPCResult RecvFailedAsyncOpen(const nsresult& statusCode) override;
+                                            const nsCString& aErrorMsg,
+                                            const bool& aUseUTF8) override;
+  mozilla::ipc::IPCResult RecvFailedAsyncOpen(
+      const nsresult& statusCode) override;
   mozilla::ipc::IPCResult RecvFlushedForDiversion() override;
   mozilla::ipc::IPCResult RecvDivertMessages() override;
   mozilla::ipc::IPCResult RecvDeleteSelf() override;
@@ -113,7 +115,7 @@ protected:
                          const uint32_t& count);
   void MaybeDivertOnStop(const nsresult& statusCode);
   void DoOnStopRequest(const nsresult& statusCode,
-                       const nsCString &aErrorMsg,
+                       const nsCString& aErrorMsg,
                        bool aUseUTF8);
   void DoFailedAsyncOpen(const nsresult& statusCode);
   void DoDeleteSelf();
@@ -130,7 +132,7 @@ protected:
   friend class FTPDeleteSelfEvent;
   friend class NeckoTargetChannelEvent<FTPChannelChild>;
 
-private:
+ private:
   nsCOMPtr<nsIInputStream> mUploadStream;
 
   bool mIPCOpen;
@@ -166,7 +168,7 @@ FTPChannelChild::IsSuspended()
   return mSuspendCount != 0;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_FTPChannelChild_h
+#endif  // mozilla_net_FTPChannelChild_h

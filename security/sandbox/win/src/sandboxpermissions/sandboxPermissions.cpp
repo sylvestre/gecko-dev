@@ -8,21 +8,23 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/sandboxing/permissionsService.h"
 
-namespace mozilla
-{
+namespace mozilla {
 
-sandboxing::PermissionsService* SandboxPermissions::sPermissionsService = nullptr;
+sandboxing::PermissionsService* SandboxPermissions::sPermissionsService =
+    nullptr;
 
 void
-SandboxPermissions::Initialize(sandboxing::PermissionsService* aPermissionsService,
-                               FileAccessViolationFunc aFileAccessViolationFunc)
+SandboxPermissions::Initialize(
+    sandboxing::PermissionsService* aPermissionsService,
+    FileAccessViolationFunc aFileAccessViolationFunc)
 {
   sPermissionsService = aPermissionsService;
   sPermissionsService->SetFileAccessViolationFunc(aFileAccessViolationFunc);
 }
 
 void
-SandboxPermissions::GrantFileAccess(uint32_t aProcessId, const wchar_t* aFilename,
+SandboxPermissions::GrantFileAccess(uint32_t aProcessId,
+                                    const wchar_t* aFilename,
                                     bool aPermitWrite)
 {
   MOZ_ASSERT(sPermissionsService, "Must initialize sandbox PermissionsService");
@@ -33,7 +35,7 @@ void
 SandboxPermissions::RemovePermissionsForProcess(uint32_t aProcessId)
 {
   if (!sPermissionsService) {
-    return;   // No permissions service was initialized
+    return;  // No permissions service was initialized
   }
   sPermissionsService->RemovePermissionsForProcess(aProcessId);
 }

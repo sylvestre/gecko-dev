@@ -2,7 +2,7 @@
   * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-     
+
 #include "DrawTargetDual.h"
 #include "Tools.h"
 #include "Logging.h"
@@ -12,8 +12,8 @@ namespace gfx {
 
 class DualSurface
 {
-public:
-  inline explicit DualSurface(SourceSurface *aSurface)
+ public:
+  inline explicit DualSurface(SourceSurface* aSurface)
   {
     if (!aSurface) {
       mA = mB = nullptr;
@@ -25,14 +25,13 @@ public:
       return;
     }
 
-    SourceSurfaceDual *ssDual =
-      static_cast<SourceSurfaceDual*>(aSurface);
+    SourceSurfaceDual* ssDual = static_cast<SourceSurfaceDual*>(aSurface);
     mA = ssDual->mA;
     mB = ssDual->mB;
   }
 
-  SourceSurface *mA;
-  SourceSurface *mB;
+  SourceSurface* mA;
+  SourceSurface* mB;
 };
 
 /* This only needs to split patterns up for SurfacePatterns. Only in that
@@ -41,29 +40,31 @@ public:
  */
 class DualPattern
 {
-public:
-  inline explicit DualPattern(const Pattern &aPattern)
-    : mPatternsInitialized(false)
+ public:
+  inline explicit DualPattern(const Pattern& aPattern)
+      : mPatternsInitialized(false)
   {
     if (aPattern.GetType() != PatternType::SURFACE) {
       mA = mB = &aPattern;
       return;
     }
 
-    const SurfacePattern *surfPat =
-      static_cast<const SurfacePattern*>(&aPattern);
+    const SurfacePattern* surfPat =
+        static_cast<const SurfacePattern*>(&aPattern);
 
     if (surfPat->mSurface->GetType() != SurfaceType::DUAL_DT) {
       mA = mB = &aPattern;
       return;
     }
 
-    const SourceSurfaceDual *ssDual =
-      static_cast<const SourceSurfaceDual*>(surfPat->mSurface.get());
-    mA = new (mSurfPatA.addr()) SurfacePattern(ssDual->mA, surfPat->mExtendMode,
+    const SourceSurfaceDual* ssDual =
+        static_cast<const SourceSurfaceDual*>(surfPat->mSurface.get());
+    mA = new (mSurfPatA.addr()) SurfacePattern(ssDual->mA,
+                                               surfPat->mExtendMode,
                                                surfPat->mMatrix,
                                                surfPat->mSamplingFilter);
-    mB = new (mSurfPatB.addr()) SurfacePattern(ssDual->mB, surfPat->mExtendMode,
+    mB = new (mSurfPatB.addr()) SurfacePattern(ssDual->mB,
+                                               surfPat->mExtendMode,
                                                surfPat->mMatrix,
                                                surfPat->mSamplingFilter);
     mPatternsInitialized = true;
@@ -80,8 +81,8 @@ public:
   ClassStorage<SurfacePattern> mSurfPatA;
   ClassStorage<SurfacePattern> mSurfPatB;
 
-  const Pattern *mA;
-  const Pattern *mB;
+  const Pattern* mA;
+  const Pattern* mB;
 
   bool mPatternsInitialized;
 };
@@ -94,8 +95,11 @@ DrawTargetDual::DetachAllSnapshots()
 }
 
 void
-DrawTargetDual::DrawSurface(SourceSurface *aSurface, const Rect &aDest, const Rect &aSource,
-                            const DrawSurfaceOptions &aSurfOptions, const DrawOptions &aOptions)
+DrawTargetDual::DrawSurface(SourceSurface* aSurface,
+                            const Rect& aDest,
+                            const Rect& aSource,
+                            const DrawSurfaceOptions& aSurfOptions,
+                            const DrawOptions& aOptions)
 {
   DualSurface surface(aSurface);
   mA->DrawSurface(surface.mA, aDest, aSource, aSurfOptions, aOptions);
@@ -103,9 +107,12 @@ DrawTargetDual::DrawSurface(SourceSurface *aSurface, const Rect &aDest, const Re
 }
 
 void
-DrawTargetDual::DrawSurfaceWithShadow(SourceSurface *aSurface, const Point &aDest,
-                                      const Color &aColor, const Point &aOffset,
-                                      Float aSigma, CompositionOp aOp)
+DrawTargetDual::DrawSurfaceWithShadow(SourceSurface* aSurface,
+                                      const Point& aDest,
+                                      const Color& aColor,
+                                      const Point& aOffset,
+                                      Float aSigma,
+                                      CompositionOp aOp)
 {
   DualSurface surface(aSurface);
   mA->DrawSurfaceWithShadow(surface.mA, aDest, aColor, aOffset, aSigma, aOp);
@@ -113,10 +120,10 @@ DrawTargetDual::DrawSurfaceWithShadow(SourceSurface *aSurface, const Point &aDes
 }
 
 void
-DrawTargetDual::MaskSurface(const Pattern &aSource,
-                           SourceSurface *aMask,
-                           Point aOffset,
-                           const DrawOptions &aOptions)
+DrawTargetDual::MaskSurface(const Pattern& aSource,
+                            SourceSurface* aMask,
+                            Point aOffset,
+                            const DrawOptions& aOptions)
 {
   DualPattern source(aSource);
   DualSurface mask(aMask);
@@ -125,8 +132,9 @@ DrawTargetDual::MaskSurface(const Pattern &aSource,
 }
 
 void
-DrawTargetDual::CopySurface(SourceSurface *aSurface, const IntRect &aSourceRect,
-                            const IntPoint &aDestination)
+DrawTargetDual::CopySurface(SourceSurface* aSurface,
+                            const IntRect& aSourceRect,
+                            const IntPoint& aDestination)
 {
   DualSurface surface(aSurface);
   mA->CopySurface(surface.mA, aSourceRect, aDestination);
@@ -134,7 +142,9 @@ DrawTargetDual::CopySurface(SourceSurface *aSurface, const IntRect &aSourceRect,
 }
 
 void
-DrawTargetDual::FillRect(const Rect &aRect, const Pattern &aPattern, const DrawOptions &aOptions)
+DrawTargetDual::FillRect(const Rect& aRect,
+                         const Pattern& aPattern,
+                         const DrawOptions& aOptions)
 {
   DualPattern pattern(aPattern);
   mA->FillRect(aRect, *pattern.mA, aOptions);
@@ -142,8 +152,10 @@ DrawTargetDual::FillRect(const Rect &aRect, const Pattern &aPattern, const DrawO
 }
 
 void
-DrawTargetDual::StrokeRect(const Rect &aRect, const Pattern &aPattern,
-                           const StrokeOptions &aStrokeOptions, const DrawOptions &aOptions)
+DrawTargetDual::StrokeRect(const Rect& aRect,
+                           const Pattern& aPattern,
+                           const StrokeOptions& aStrokeOptions,
+                           const DrawOptions& aOptions)
 {
   DualPattern pattern(aPattern);
   mA->StrokeRect(aRect, *pattern.mA, aStrokeOptions, aOptions);
@@ -151,8 +163,11 @@ DrawTargetDual::StrokeRect(const Rect &aRect, const Pattern &aPattern,
 }
 
 void
-DrawTargetDual::StrokeLine(const Point &aStart, const Point &aEnd, const Pattern &aPattern,
-                           const StrokeOptions &aStrokeOptions, const DrawOptions &aOptions)
+DrawTargetDual::StrokeLine(const Point& aStart,
+                           const Point& aEnd,
+                           const Pattern& aPattern,
+                           const StrokeOptions& aStrokeOptions,
+                           const DrawOptions& aOptions)
 {
   DualPattern pattern(aPattern);
   mA->StrokeLine(aStart, aEnd, *pattern.mA, aStrokeOptions, aOptions);
@@ -160,8 +175,10 @@ DrawTargetDual::StrokeLine(const Point &aStart, const Point &aEnd, const Pattern
 }
 
 void
-DrawTargetDual::Stroke(const Path *aPath, const Pattern &aPattern,
-                       const StrokeOptions &aStrokeOptions, const DrawOptions &aOptions)
+DrawTargetDual::Stroke(const Path* aPath,
+                       const Pattern& aPattern,
+                       const StrokeOptions& aStrokeOptions,
+                       const DrawOptions& aOptions)
 {
   DualPattern pattern(aPattern);
   mA->Stroke(aPath, *pattern.mA, aStrokeOptions, aOptions);
@@ -169,7 +186,9 @@ DrawTargetDual::Stroke(const Path *aPath, const Pattern &aPattern,
 }
 
 void
-DrawTargetDual::Fill(const Path *aPath, const Pattern &aPattern, const DrawOptions &aOptions)
+DrawTargetDual::Fill(const Path* aPath,
+                     const Pattern& aPattern,
+                     const DrawOptions& aOptions)
 {
   DualPattern pattern(aPattern);
   mA->Fill(aPath, *pattern.mA, aOptions);
@@ -177,17 +196,23 @@ DrawTargetDual::Fill(const Path *aPath, const Pattern &aPattern, const DrawOptio
 }
 
 void
-DrawTargetDual::FillGlyphs(ScaledFont *aScaledFont, const GlyphBuffer &aBuffer,
-                           const Pattern &aPattern, const DrawOptions &aOptions,
-                           const GlyphRenderingOptions *aRenderingOptions)
+DrawTargetDual::FillGlyphs(ScaledFont* aScaledFont,
+                           const GlyphBuffer& aBuffer,
+                           const Pattern& aPattern,
+                           const DrawOptions& aOptions,
+                           const GlyphRenderingOptions* aRenderingOptions)
 {
   DualPattern pattern(aPattern);
-  mA->FillGlyphs(aScaledFont, aBuffer, *pattern.mA, aOptions, aRenderingOptions);
-  mB->FillGlyphs(aScaledFont, aBuffer, *pattern.mB, aOptions, aRenderingOptions);
+  mA->FillGlyphs(
+      aScaledFont, aBuffer, *pattern.mA, aOptions, aRenderingOptions);
+  mB->FillGlyphs(
+      aScaledFont, aBuffer, *pattern.mB, aOptions, aRenderingOptions);
 }
 
 void
-DrawTargetDual::Mask(const Pattern &aSource, const Pattern &aMask, const DrawOptions &aOptions)
+DrawTargetDual::Mask(const Pattern& aSource,
+                     const Pattern& aMask,
+                     const DrawOptions& aOptions)
 {
   DualPattern source(aSource);
   DualPattern mask(aMask);
@@ -196,22 +221,28 @@ DrawTargetDual::Mask(const Pattern &aSource, const Pattern &aMask, const DrawOpt
 }
 
 void
-DrawTargetDual::PushLayer(bool aOpaque, Float aOpacity, SourceSurface* aMask,
-                          const Matrix& aMaskTransform, const IntRect& aBounds,
+DrawTargetDual::PushLayer(bool aOpaque,
+                          Float aOpacity,
+                          SourceSurface* aMask,
+                          const Matrix& aMaskTransform,
+                          const IntRect& aBounds,
                           bool aCopyBackground)
 {
   DualSurface mask(aMask);
-  mA->PushLayer(aOpaque, aOpacity, mask.mA, aMaskTransform, aBounds, aCopyBackground);
-  mB->PushLayer(aOpaque, aOpacity, mask.mB, aMaskTransform, aBounds, aCopyBackground);
+  mA->PushLayer(
+      aOpaque, aOpacity, mask.mA, aMaskTransform, aBounds, aCopyBackground);
+  mB->PushLayer(
+      aOpaque, aOpacity, mask.mB, aMaskTransform, aBounds, aCopyBackground);
 }
 
 already_AddRefed<DrawTarget>
-DrawTargetDual::CreateSimilarDrawTarget(const IntSize &aSize, SurfaceFormat aFormat) const
+DrawTargetDual::CreateSimilarDrawTarget(const IntSize& aSize,
+                                        SurfaceFormat aFormat) const
 {
   /* Now that we have PushLayer there a very few cases where a user of DrawTargetDual
    * wants to have a DualTarget when creating a similar one. */
   return mA->CreateSimilarDrawTarget(aSize, aFormat);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

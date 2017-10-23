@@ -19,7 +19,7 @@ namespace mozilla {
 
 class SandboxTarget
 {
-public:
+ public:
   /**
    * Obtains a pointer to the singleton instance
    */
@@ -51,20 +51,18 @@ public:
    * Used to duplicate handles via the broker process. The permission for the
    * handle type and target process has to have been set on the sandbox policy.
    */
-  bool BrokerDuplicateHandle(HANDLE aSourceHandle, DWORD aTargetProcessId,
-                             HANDLE* aTargetHandle, DWORD aDesiredAccess,
+  bool BrokerDuplicateHandle(HANDLE aSourceHandle,
+                             DWORD aTargetProcessId,
+                             HANDLE* aTargetHandle,
+                             DWORD aDesiredAccess,
                              DWORD aOptions);
 
-protected:
-  SandboxTarget() :
-    mTargetServices(nullptr)
-  {
-  }
+ protected:
+  SandboxTarget() : mTargetServices(nullptr) {}
 
   sandbox::TargetServices* mTargetServices;
 };
 
-
-} // mozilla
+}  // namespace mozilla
 
 #endif

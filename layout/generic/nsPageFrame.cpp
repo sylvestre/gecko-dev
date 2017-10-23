@@ -15,15 +15,15 @@
 #include "nsIPresShell.h"
 #include "nsPageContentFrame.h"
 #include "nsDisplayList.h"
-#include "nsLayoutUtils.h" // for function BinarySearchForPosition
-#include "nsSimplePageSequenceFrame.h" // for nsSharedPageData
-#include "nsTextFormatter.h" // for page number localization formatting
+#include "nsLayoutUtils.h"              // for function BinarySearchForPosition
+#include "nsSimplePageSequenceFrame.h"  // for nsSharedPageData
+#include "nsTextFormatter.h"  // for page number localization formatting
 #include "nsBidiUtils.h"
 #include "nsIPrintSettings.h"
 
 #include "mozilla/Logging.h"
 extern mozilla::LazyLogModule gLayoutPrintingLog;
-#define PR_PL(_p1)  MOZ_LOG(gLayoutPrintingLog, mozilla::LogLevel::Debug, _p1)
+#define PR_PL(_p1) MOZ_LOG(gLayoutPrintingLog, mozilla::LogLevel::Debug, _p1)
 
 using namespace mozilla;
 using namespace mozilla::gfx;
@@ -37,32 +37,30 @@ NS_NewPageFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsPageFrame)
 
 NS_QUERYFRAME_HEAD(nsPageFrame)
-  NS_QUERYFRAME_ENTRY(nsPageFrame)
+NS_QUERYFRAME_ENTRY(nsPageFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 nsPageFrame::nsPageFrame(nsStyleContext* aContext)
-  : nsContainerFrame(aContext, kClassID)
+    : nsContainerFrame(aContext, kClassID)
 {
 }
 
-nsPageFrame::~nsPageFrame()
-{
-}
+nsPageFrame::~nsPageFrame() {}
 
 void
-nsPageFrame::Reflow(nsPresContext*           aPresContext,
-                                  ReflowOutput&     aDesiredSize,
-                                  const ReflowInput& aReflowInput,
-                                  nsReflowStatus&          aStatus)
+nsPageFrame::Reflow(nsPresContext* aPresContext,
+                    ReflowOutput& aDesiredSize,
+                    const ReflowInput& aReflowInput,
+                    nsReflowStatus& aStatus)
 {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsPageFrame");
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
 
-  NS_ASSERTION(mFrames.FirstChild() &&
-               mFrames.FirstChild()->IsPageContentFrame(),
-               "pageFrame must have a pageContentFrame child");
+  NS_ASSERTION(
+      mFrames.FirstChild() && mFrames.FirstChild()->IsPageContentFrame(),
+      "pageFrame must have a pageContentFrame child");
 
   // Resize our frame allowing it only to be as big as we are
   // XXX Pay attention to the page's border and padding...
@@ -77,7 +75,7 @@ nsPageFrame::Reflow(nsPresContext*           aPresContext,
     } else {
       avHeight = mPD->mReflowSize.height;
     }
-    nsSize  maxSize(mPD->mReflowSize.width, avHeight);
+    nsSize maxSize(mPD->mReflowSize.width, avHeight);
     float scale = aPresContext->GetPageScale();
     maxSize.width = NSToCoordCeil(maxSize.width / scale);
     if (maxSize.height != NS_UNCONSTRAINEDSIZE) {
@@ -94,23 +92,25 @@ nsPageFrame::Reflow(nsPresContext*           aPresContext,
       return;
     }
 
-    ReflowInput kidReflowInput(aPresContext, aReflowInput, frame,
-                                     LogicalSize(frame->GetWritingMode(),
-                                                 maxSize));
+    ReflowInput kidReflowInput(aPresContext,
+                               aReflowInput,
+                               frame,
+                               LogicalSize(frame->GetWritingMode(), maxSize));
     kidReflowInput.mFlags.mIsTopOfPage = true;
     kidReflowInput.mFlags.mTableIsSplittable = true;
 
     // Use the margins given in the @page rule.
     // If a margin is 'auto', use the margin from the print settings for that side.
     const nsStyleSides& marginStyle = kidReflowInput.mStyleMargin->mMargin;
-    NS_FOR_CSS_SIDES(side) {
+    NS_FOR_CSS_SIDES(side)
+    {
       if (marginStyle.GetUnit(side) == eStyleUnit_Auto) {
         mPageContentMargin.Side(side) = mPD->mReflowMargin.Side(side);
       } else {
-        mPageContentMargin.Side(side) = kidReflowInput.ComputedPhysicalMargin().Side(side);
+        mPageContentMargin.Side(side) =
+            kidReflowInput.ComputedPhysicalMargin().Side(side);
       }
     }
-
 
     nscoord maxWidth = maxSize.width - mPageContentMargin.LeftRight() / scale;
     nscoord maxHeight;
@@ -123,8 +123,9 @@ nsPageFrame::Reflow(nsPresContext*           aPresContext,
     // Check the width and height, if they're too small we reset the margins
     // back to the default.
     if (maxWidth < onePixelInTwips ||
-       (maxHeight != NS_UNCONSTRAINEDSIZE && maxHeight < onePixelInTwips)) {
-      NS_FOR_CSS_SIDES(side) {
+        (maxHeight != NS_UNCONSTRAINEDSIZE && maxHeight < onePixelInTwips)) {
+      NS_FOR_CSS_SIDES(side)
+      {
         mPageContentMargin.Side(side) = mPD->mReflowMargin.Side(side);
       }
       maxWidth = maxSize.width - mPageContentMargin.LeftRight() / scale;
@@ -141,17 +142,22 @@ nsPageFrame::Reflow(nsPresContext*           aPresContext,
     nscoord yc = mPageContentMargin.top;
 
     // Get the child's desired size
-    ReflowChild(frame, aPresContext, aDesiredSize, kidReflowInput, xc, yc, 0, aStatus);
+    ReflowChild(
+        frame, aPresContext, aDesiredSize, kidReflowInput, xc, yc, 0, aStatus);
 
     // Place and size the child
-    FinishReflowChild(frame, aPresContext, aDesiredSize, &kidReflowInput, xc, yc, 0);
+    FinishReflowChild(
+        frame, aPresContext, aDesiredSize, &kidReflowInput, xc, yc, 0);
 
-    NS_ASSERTION(!aStatus.IsFullyComplete() ||
-                 !frame->GetNextInFlow(), "bad child flow list");
+    NS_ASSERTION(!aStatus.IsFullyComplete() || !frame->GetNextInFlow(),
+                 "bad child flow list");
   }
   PR_PL(("PageFrame::Reflow %p ", this));
-  PR_PL(("[%d,%d][%d,%d]\n", aDesiredSize.Width(), aDesiredSize.Height(),
-         aReflowInput.AvailableWidth(), aReflowInput.AvailableHeight()));
+  PR_PL(("[%d,%d][%d,%d]\n",
+         aDesiredSize.Width(),
+         aDesiredSize.Height(),
+         aReflowInput.AvailableWidth(),
+         aReflowInput.AvailableHeight()));
 
   // Return our desired size
   WritingMode wm = aReflowInput.GetWritingMode();
@@ -164,7 +170,9 @@ nsPageFrame::Reflow(nsPresContext*           aPresContext,
   FinishAndStoreOverflow(&aDesiredSize);
 
   PR_PL(("PageFrame::Reflow %p ", this));
-  PR_PL(("[%d,%d]\n", aReflowInput.AvailableWidth(), aReflowInput.AvailableHeight()));
+  PR_PL(("[%d,%d]\n",
+         aReflowInput.AvailableWidth(),
+         aReflowInput.AvailableHeight()));
 
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aDesiredSize);
 }
@@ -180,7 +188,6 @@ nsPageFrame::GetFrameName(nsAString& aResult) const
 void
 nsPageFrame::ProcessSpecialCodes(const nsString& aStr, nsString& aNewStr)
 {
-
   aNewStr = aStr;
 
   // Search to see if the &D code is in the string
@@ -198,8 +205,8 @@ nsPageFrame::ProcessSpecialCodes(const nsString& aStr, nsString& aNewStr)
   NS_NAMED_LITERAL_STRING(kPageAndTotal, "&PT");
   if (aStr.Find(kPageAndTotal) != kNotFound) {
     nsAutoString uStr;
-    nsTextFormatter::ssprintf(uStr, mPD->mPageNumAndTotalsFormat.get(),
-                              mPageNum, mTotNumPages);
+    nsTextFormatter::ssprintf(
+        uStr, mPD->mPageNumAndTotalsFormat.get(), mPageNum, mTotNumPages);
     aNewStr.ReplaceSubstring(kPageAndTotal, uStr);
   }
 
@@ -230,17 +237,16 @@ nsPageFrame::ProcessSpecialCodes(const nsString& aStr, nsString& aNewStr)
   }
 }
 
-
 //------------------------------------------------------------------------------
-nscoord nsPageFrame::GetXPosition(gfxContext&          aRenderingContext,
-                                  nsFontMetrics&       aFontMetrics,
-                                  const nsRect&        aRect,
-                                  int32_t              aJust,
-                                  const nsString&      aStr)
+nscoord
+nsPageFrame::GetXPosition(gfxContext& aRenderingContext,
+                          nsFontMetrics& aFontMetrics,
+                          const nsRect& aRect,
+                          int32_t aJust,
+                          const nsString& aStr)
 {
-  nscoord width = nsLayoutUtils::AppUnitWidthOfStringBidi(aStr, this,
-                                                          aFontMetrics,
-                                                          aRenderingContext);
+  nscoord width = nsLayoutUtils::AppUnitWidthOfStringBidi(
+      aStr, this, aFontMetrics, aRenderingContext);
   nscoord x = aRect.x;
   switch (aJust) {
     case nsIPrintSettings::kJustLeft:
@@ -254,7 +260,7 @@ nscoord nsPageFrame::GetXPosition(gfxContext&          aRenderingContext,
     case nsIPrintSettings::kJustRight:
       x += aRect.width - width - mPD->mEdgePaperMargin.right;
       break;
-  } // switch
+  }  // switch
 
   return x;
 }
@@ -269,15 +275,15 @@ nscoord nsPageFrame::GetXPosition(gfxContext&          aRenderingContext,
 // @param aAscent - the ascent of the font
 // @param aHeight - the height of the font
 void
-nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
-                              nsFontMetrics&       aFontMetrics,
-                              nsHeaderFooterEnum   aHeaderFooter,
-                              const nsString&      aStrLeft,
-                              const nsString&      aStrCenter,
-                              const nsString&      aStrRight,
-                              const nsRect&        aRect,
-                              nscoord              aAscent,
-                              nscoord              aHeight)
+nsPageFrame::DrawHeaderFooter(gfxContext& aRenderingContext,
+                              nsFontMetrics& aFontMetrics,
+                              nsHeaderFooterEnum aHeaderFooter,
+                              const nsString& aStrLeft,
+                              const nsString& aStrCenter,
+                              const nsString& aStrRight,
+                              const nsRect& aRect,
+                              nscoord aAscent,
+                              nscoord aHeight)
 {
   int32_t numStrs = 0;
   if (!aStrLeft.IsEmpty()) numStrs++;
@@ -288,19 +294,37 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
   nscoord strSpace = aRect.width / numStrs;
 
   if (!aStrLeft.IsEmpty()) {
-    DrawHeaderFooter(aRenderingContext, aFontMetrics, aHeaderFooter,
-                     nsIPrintSettings::kJustLeft, aStrLeft, aRect, aAscent,
-                     aHeight, strSpace);
+    DrawHeaderFooter(aRenderingContext,
+                     aFontMetrics,
+                     aHeaderFooter,
+                     nsIPrintSettings::kJustLeft,
+                     aStrLeft,
+                     aRect,
+                     aAscent,
+                     aHeight,
+                     strSpace);
   }
   if (!aStrCenter.IsEmpty()) {
-    DrawHeaderFooter(aRenderingContext, aFontMetrics, aHeaderFooter,
-                     nsIPrintSettings::kJustCenter, aStrCenter, aRect, aAscent,
-                     aHeight, strSpace);
+    DrawHeaderFooter(aRenderingContext,
+                     aFontMetrics,
+                     aHeaderFooter,
+                     nsIPrintSettings::kJustCenter,
+                     aStrCenter,
+                     aRect,
+                     aAscent,
+                     aHeight,
+                     strSpace);
   }
   if (!aStrRight.IsEmpty()) {
-    DrawHeaderFooter(aRenderingContext, aFontMetrics, aHeaderFooter,
-                     nsIPrintSettings::kJustRight, aStrRight, aRect, aAscent,
-                     aHeight, strSpace);
+    DrawHeaderFooter(aRenderingContext,
+                     aFontMetrics,
+                     aHeaderFooter,
+                     nsIPrintSettings::kJustRight,
+                     aStrRight,
+                     aRect,
+                     aAscent,
+                     aHeight,
+                     strSpace);
   }
 }
 
@@ -314,18 +338,18 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
 // @param aAscent - the ascent of the font
 // @param aWidth - available width for the string
 void
-nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
-                              nsFontMetrics&       aFontMetrics,
-                              nsHeaderFooterEnum   aHeaderFooter,
-                              int32_t              aJust,
-                              const nsString&      aStr,
-                              const nsRect&        aRect,
-                              nscoord              aAscent,
-                              nscoord              aHeight,
-                              nscoord              aWidth)
+nsPageFrame::DrawHeaderFooter(gfxContext& aRenderingContext,
+                              nsFontMetrics& aFontMetrics,
+                              nsHeaderFooterEnum aHeaderFooter,
+                              int32_t aJust,
+                              const nsString& aStr,
+                              const nsRect& aRect,
+                              nscoord aAscent,
+                              nscoord aHeight,
+                              nscoord aWidth)
 {
-
-  nscoord contentWidth = aWidth - (mPD->mEdgePaperMargin.left + mPD->mEdgePaperMargin.right);
+  nscoord contentWidth =
+      aWidth - (mPD->mEdgePaperMargin.left + mPD->mEdgePaperMargin.right);
 
   DrawTarget* drawTarget = aRenderingContext.GetDrawTarget();
 
@@ -340,14 +364,20 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
 
     int32_t len = (int32_t)str.Length();
     if (len == 0) {
-      return; // bail is empty string
+      return;  // bail is empty string
     }
     // find how much text fits, the "position" is the size of the available area
-    if (nsLayoutUtils::BinarySearchForPosition(drawTarget, aFontMetrics, text,
-                                               0, 0, 0, len,
-                                               int32_t(contentWidth), indx,
+    if (nsLayoutUtils::BinarySearchForPosition(drawTarget,
+                                               aFontMetrics,
+                                               text,
+                                               0,
+                                               0,
+                                               0,
+                                               len,
+                                               int32_t(contentWidth),
+                                               indx,
                                                textWidth)) {
-      if (indx < len-1 ) {
+      if (indx < len - 1) {
         // we can't fit in all the text
         if (indx > 3) {
           // But we can fit in at least 4 chars.  Show all but 3 of them, then
@@ -356,7 +386,7 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
           // middle of a codepoint!  Also, we have no guarantees that the three
           // dots will fit in the space the three chars we removed took up with
           // these font metrics!
-          str.Truncate(indx-3);
+          str.Truncate(indx - 3);
           str.AppendLiteral("...");
         } else {
           // We can only fit 3 or fewer chars.  Just show nothing
@@ -364,7 +394,7 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
         }
       }
     } else {
-      return; // bail if couldn't find the correct length
+      return;  // bail if couldn't find the correct length
     }
 
     if (HasRTLChars(str)) {
@@ -372,7 +402,8 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
     }
 
     // cacl the x and y positions of the text
-    nscoord x = GetXPosition(aRenderingContext, aFontMetrics, aRect, aJust, str);
+    nscoord x =
+        GetXPosition(aRenderingContext, aFontMetrics, aRect, aJust, str);
     nscoord y;
     if (aHeaderFooter == eHeader) {
       y = aRect.y + mPD->mEdgePaperMargin.top;
@@ -382,11 +413,14 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
 
     // set up new clip and draw the text
     aRenderingContext.Save();
-    aRenderingContext.Clip(
-      NSRectToSnappedRect(aRect, PresContext()->AppUnitsPerDevPixel(), *drawTarget));
+    aRenderingContext.Clip(NSRectToSnappedRect(
+        aRect, PresContext()->AppUnitsPerDevPixel(), *drawTarget));
     aRenderingContext.SetColor(Color(0.f, 0.f, 0.f));
-    nsLayoutUtils::DrawString(this, aFontMetrics, &aRenderingContext,
-                              str.get(), str.Length(),
+    nsLayoutUtils::DrawString(this,
+                              aFontMetrics,
+                              &aRenderingContext,
+                              str.get(),
+                              str.Length(),
                               nsPoint(x, y + aAscent),
                               nullptr,
                               DrawStringFlags::eForceHorizontal);
@@ -403,15 +437,15 @@ nsPageFrame::DrawHeaderFooter(gfxContext&          aRenderingContext,
  */
 static void
 PruneDisplayListForExtraPage(nsDisplayListBuilder* aBuilder,
-                             nsPageFrame* aPage, nsIFrame* aExtraPage,
+                             nsPageFrame* aPage,
+                             nsIFrame* aExtraPage,
                              nsDisplayList* aList)
 {
   nsDisplayList newList(aBuilder);
 
   while (true) {
     nsDisplayItem* i = aList->RemoveBottom();
-    if (!i)
-      break;
+    if (!i) break;
     nsDisplayList* subList = i->GetSameCoordinateSystemChildren();
     if (subList) {
       PruneDisplayListForExtraPage(aBuilder, aPage, aExtraPage, subList);
@@ -432,7 +466,8 @@ PruneDisplayListForExtraPage(nsDisplayListBuilder* aBuilder,
 
 static void
 BuildDisplayListForExtraPage(nsDisplayListBuilder* aBuilder,
-                             nsPageFrame* aPage, nsIFrame* aExtraPage,
+                             nsPageFrame* aPage,
+                             nsIFrame* aExtraPage,
                              nsDisplayList* aList)
 {
   // The only content in aExtraPage we care about is out-of-flow content whose
@@ -456,8 +491,7 @@ GetNextPage(nsIFrame* aPageContentFrame)
   NS_ASSERTION(pageFrame->IsPageFrame(),
                "pageContentFrame has unexpected parent");
   nsIFrame* nextPageFrame = pageFrame->GetNextSibling();
-  if (!nextPageFrame)
-    return nullptr;
+  if (!nextPageFrame) return nullptr;
   NS_ASSERTION(nextPageFrame->IsPageFrame(),
                "pageFrame's sibling is not a page frame...");
   nsIFrame* f = nextPageFrame->PrincipalChildList().FirstChild();
@@ -467,37 +501,38 @@ GetNextPage(nsIFrame* aPageContentFrame)
   return f;
 }
 
-static gfx::Matrix4x4 ComputePageTransform(nsIFrame* aFrame, float aAppUnitsPerPixel)
+static gfx::Matrix4x4
+ComputePageTransform(nsIFrame* aFrame, float aAppUnitsPerPixel)
 {
   float scale = aFrame->PresContext()->GetPageScale();
   return gfx::Matrix4x4::Scaling(scale, scale, 1);
 }
 
-class nsDisplayHeaderFooter : public nsDisplayItem {
-public:
-  nsDisplayHeaderFooter(nsDisplayListBuilder* aBuilder, nsPageFrame *aFrame)
-    : nsDisplayItem(aBuilder, aFrame)
+class nsDisplayHeaderFooter : public nsDisplayItem
+{
+ public:
+  nsDisplayHeaderFooter(nsDisplayListBuilder* aBuilder, nsPageFrame* aFrame)
+      : nsDisplayItem(aBuilder, aFrame)
   {
     MOZ_COUNT_CTOR(nsDisplayHeaderFooter);
   }
 #ifdef NS_BUILD_REFCNT_LOGGING
-  virtual ~nsDisplayHeaderFooter() {
-    MOZ_COUNT_DTOR(nsDisplayHeaderFooter);
-  }
+  virtual ~nsDisplayHeaderFooter() { MOZ_COUNT_DTOR(nsDisplayHeaderFooter); }
 #endif
 
-  virtual void Paint(nsDisplayListBuilder* aBuilder,
-                     gfxContext* aCtx) override {
+  virtual void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override
+  {
 #ifdef DEBUG
     nsPageFrame* pageFrame = do_QueryFrame(mFrame);
     MOZ_ASSERT(pageFrame, "We should have an nsPageFrame");
 #endif
-    static_cast<nsPageFrame*>(mFrame)->
-      PaintHeaderFooter(*aCtx, ToReferenceFrame(), mDisableSubpixelAA);
+    static_cast<nsPageFrame*>(mFrame)->PaintHeaderFooter(
+        *aCtx, ToReferenceFrame(), mDisableSubpixelAA);
   }
   NS_DISPLAY_DECL_NAME("HeaderFooter", TYPE_HEADER_FOOTER)
 
-  virtual nsRect GetComponentAlphaBounds(nsDisplayListBuilder* aBuilder) const override
+  virtual nsRect GetComponentAlphaBounds(
+      nsDisplayListBuilder* aBuilder) const override
   {
     bool snap;
     return GetBounds(aBuilder, &snap);
@@ -506,7 +541,7 @@ public:
 
 //------------------------------------------------------------------------------
 void
-nsPageFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsPageFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                               const nsDisplayListSet& aLists)
 {
   nsDisplayListCollection set(aBuilder);
@@ -515,7 +550,7 @@ nsPageFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     DisplayBorderBackgroundOutline(aBuilder, aLists);
   }
 
-  nsIFrame *child = mFrames.FirstChild();
+  nsIFrame* child = mFrames.FirstChild();
   float scale = PresContext()->GetPageScale();
   nsRect clipRect(nsPoint(0, 0), child->GetSize());
   // Note: this computation matches how we compute maxSize.height
@@ -529,8 +564,8 @@ nsPageFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     // y-value matches the top edge of the current page.  So, to clip to the
     // current page's content (in coordinates *relative* to the page content
     // frame), we just negate its y-position and add the top margin.
-    clipRect.y = NSToCoordCeil((-child->GetRect().y +
-                                mPD->mReflowMargin.top) / scale);
+    clipRect.y =
+        NSToCoordCeil((-child->GetRect().y + mPD->mReflowMargin.top) / scale);
     clipRect.height = expectedPageContentHeight;
     NS_ASSERTION(clipRect.y < child->GetSize().height,
                  "Should be clipping to region inside the page content bounds");
@@ -547,9 +582,12 @@ nsPageFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     clipState.ClipContainingBlockDescendants(clipRect, nullptr);
 
     nsRect visibleRect = child->GetVisualOverflowRectRelativeToSelf();
-    nsDisplayListBuilder::AutoBuildingDisplayList
-      buildingForChild(aBuilder, child, visibleRect, visibleRect,
-                       aBuilder->IsAtRootOfPseudoStackingContext());
+    nsDisplayListBuilder::AutoBuildingDisplayList buildingForChild(
+        aBuilder,
+        child,
+        visibleRect,
+        visibleRect,
+        aBuilder->IsAtRootOfPseudoStackingContext());
     child->BuildDisplayListForStackingContext(aBuilder, &content);
 
     // We may need to paint out-of-flow frames whose placeholders are
@@ -563,36 +601,43 @@ nsPageFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     while ((page = GetNextPage(page)) != nullptr) {
       nsRect childVisible = visibleRect + child->GetOffsetTo(page);
 
-      nsDisplayListBuilder::AutoBuildingDisplayList
-        buildingForChild(aBuilder, page, childVisible, childVisible,
-                         aBuilder->IsAtRootOfPseudoStackingContext());
+      nsDisplayListBuilder::AutoBuildingDisplayList buildingForChild(
+          aBuilder,
+          page,
+          childVisible,
+          childVisible,
+          aBuilder->IsAtRootOfPseudoStackingContext());
       BuildDisplayListForExtraPage(aBuilder, this, page, &content);
     }
 
     // Invoke AutoBuildingDisplayList to ensure that the correct visibleRect
     // is used to compute the visible rect if AddCanvasBackgroundColorItem
     // creates a display item.
-    nsDisplayListBuilder::AutoBuildingDisplayList
-      building(aBuilder, child, visibleRect, visibleRect, true);
+    nsDisplayListBuilder::AutoBuildingDisplayList building(
+        aBuilder, child, visibleRect, visibleRect, true);
 
     // Add the canvas background color to the bottom of the list. This
     // happens after we've built the list so that AddCanvasBackgroundColorItem
     // can monkey with the contents if necessary.
     nsRect backgroundRect =
-      nsRect(aBuilder->ToReferenceFrame(child), child->GetSize());
+        nsRect(aBuilder->ToReferenceFrame(child), child->GetSize());
 
     PresContext()->GetPresShell()->AddCanvasBackgroundColorItem(
-      *aBuilder, content, child, backgroundRect, NS_RGBA(0,0,0,0));
+        *aBuilder, content, child, backgroundRect, NS_RGBA(0, 0, 0, 0));
   }
 
-  content.AppendNewToTop(new (aBuilder) nsDisplayTransform(aBuilder, child,
-      &content, content.GetVisibleRect(), ::ComputePageTransform));
+  content.AppendNewToTop(new (aBuilder)
+                             nsDisplayTransform(aBuilder,
+                                                child,
+                                                &content,
+                                                content.GetVisibleRect(),
+                                                ::ComputePageTransform));
 
   set.Content()->AppendToTop(&content);
 
   if (PresContext()->IsRootPaginatedDocument()) {
     set.Content()->AppendNewToTop(new (aBuilder)
-        nsDisplayHeaderFooter(aBuilder, this));
+                                      nsDisplayHeaderFooter(aBuilder, this));
   }
 
   set.MoveTo(aLists);
@@ -602,36 +647,35 @@ nsPageFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
 void
 nsPageFrame::SetPageNumInfo(int32_t aPageNumber, int32_t aTotalPages)
 {
-  mPageNum     = aPageNumber;
+  mPageNum = aPageNumber;
   mTotNumPages = aTotalPages;
 }
 
-
 void
 nsPageFrame::PaintHeaderFooter(gfxContext& aRenderingContext,
-                               nsPoint aPt, bool aDisableSubpixelAA)
+                               nsPoint aPt,
+                               bool aDisableSubpixelAA)
 {
   nsPresContext* pc = PresContext();
 
   if (!mPD->mPrintSettings) {
     if (pc->Type() == nsPresContext::eContext_PrintPreview || pc->IsDynamic())
       mPD->mPrintSettings = pc->GetPrintSettings();
-    if (!mPD->mPrintSettings)
-      return;
+    if (!mPD->mPrintSettings) return;
   }
 
   nsRect rect(aPt, mRect.Size());
   aRenderingContext.SetColor(Color(0.f, 0.f, 0.f));
 
-  DrawTargetAutoDisableSubpixelAntialiasing
-    disable(aRenderingContext.GetDrawTarget(), aDisableSubpixelAA);
+  DrawTargetAutoDisableSubpixelAntialiasing disable(
+      aRenderingContext.GetDrawTarget(), aDisableSubpixelAA);
 
   // Get the FontMetrics to determine width.height of strings
   nsFontMetrics::Params params;
   params.userFontSet = pc->GetUserFontSet();
   params.textPerf = pc->GetTextPerfMetrics();
   RefPtr<nsFontMetrics> fontMet =
-    pc->DeviceContext()->GetMetricsFor(mPD->mHeadFootFont, params);
+      pc->DeviceContext()->GetMetricsFor(mPD->mHeadFootFont, params);
 
   nscoord ascent = 0;
   nscoord visibleHeight = 0;
@@ -645,17 +689,29 @@ nsPageFrame::PaintHeaderFooter(gfxContext& aRenderingContext,
   mPD->mPrintSettings->GetHeaderStrLeft(headerLeft);
   mPD->mPrintSettings->GetHeaderStrCenter(headerCenter);
   mPD->mPrintSettings->GetHeaderStrRight(headerRight);
-  DrawHeaderFooter(aRenderingContext, *fontMet, eHeader,
-                   headerLeft, headerCenter, headerRight,
-                   rect, ascent, visibleHeight);
+  DrawHeaderFooter(aRenderingContext,
+                   *fontMet,
+                   eHeader,
+                   headerLeft,
+                   headerCenter,
+                   headerRight,
+                   rect,
+                   ascent,
+                   visibleHeight);
 
   nsString footerLeft, footerCenter, footerRight;
   mPD->mPrintSettings->GetFooterStrLeft(footerLeft);
   mPD->mPrintSettings->GetFooterStrCenter(footerCenter);
   mPD->mPrintSettings->GetFooterStrRight(footerRight);
-  DrawHeaderFooter(aRenderingContext, *fontMet, eFooter,
-                   footerLeft, footerCenter, footerRight,
-                   rect, ascent, visibleHeight);
+  DrawHeaderFooter(aRenderingContext,
+                   *fontMet,
+                   eFooter,
+                   footerLeft,
+                   footerCenter,
+                   footerRight,
+                   rect,
+                   ascent,
+                   visibleHeight);
 }
 
 void
@@ -663,18 +719,17 @@ nsPageFrame::SetSharedPageData(nsSharedPageData* aPD)
 {
   mPD = aPD;
   // Set the shared data into the page frame before reflow
-  nsPageContentFrame * pcf = static_cast<nsPageContentFrame*>(mFrames.FirstChild());
+  nsPageContentFrame* pcf =
+      static_cast<nsPageContentFrame*>(mFrames.FirstChild());
   if (pcf) {
     pcf->SetSharedPageData(mPD);
   }
-
 }
 
 void
 nsPageFrame::AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult)
 {
-  MOZ_ASSERT(mFrames.FirstChild() &&
-             mFrames.FirstChild()->IsPageContentFrame(),
+  MOZ_ASSERT(mFrames.FirstChild() && mFrames.FirstChild()->IsPageContentFrame(),
              "pageFrame must have a pageContentFrame child");
   aResult.AppendElement(mFrames.FirstChild());
 }
@@ -684,7 +739,8 @@ NS_NewPageBreakFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   NS_PRECONDITION(aPresShell, "null PresShell");
   //check that we are only creating page break frames when printing
-  NS_ASSERTION(aPresShell->GetPresContext()->IsPaginated(), "created a page break frame while not printing");
+  NS_ASSERTION(aPresShell->GetPresContext()->IsPaginated(),
+               "created a page break frame while not printing");
 
   return new (aPresShell) nsPageBreakFrame(aContext);
 }
@@ -692,14 +748,11 @@ NS_NewPageBreakFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsPageBreakFrame)
 
 nsPageBreakFrame::nsPageBreakFrame(nsStyleContext* aContext)
-  : nsLeafFrame(aContext, kClassID)
-  , mHaveReflowed(false)
+    : nsLeafFrame(aContext, kClassID), mHaveReflowed(false)
 {
 }
 
-nsPageBreakFrame::~nsPageBreakFrame()
-{
-}
+nsPageBreakFrame::~nsPageBreakFrame() {}
 
 nscoord
 nsPageBreakFrame::GetIntrinsicISize()
@@ -714,10 +767,10 @@ nsPageBreakFrame::GetIntrinsicBSize()
 }
 
 void
-nsPageBreakFrame::Reflow(nsPresContext*           aPresContext,
-                         ReflowOutput&     aDesiredSize,
+nsPageBreakFrame::Reflow(nsPresContext* aPresContext,
+                         ReflowOutput& aDesiredSize,
                          const ReflowInput& aReflowInput,
-                         nsReflowStatus&          aStatus)
+                         nsReflowStatus& aStatus)
 {
   DO_GLOBAL_REFLOW_COUNT("nsPageBreakFrame");
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
@@ -726,12 +779,14 @@ nsPageBreakFrame::Reflow(nsPresContext*           aPresContext,
   // Override reflow, since we don't want to deal with what our
   // computed values are.
   WritingMode wm = aReflowInput.GetWritingMode();
-  LogicalSize finalSize(wm, GetIntrinsicISize(),
-                        aReflowInput.AvailableBSize() == NS_UNCONSTRAINEDSIZE ?
-                          0 : aReflowInput.AvailableBSize());
+  LogicalSize finalSize(wm,
+                        GetIntrinsicISize(),
+                        aReflowInput.AvailableBSize() == NS_UNCONSTRAINEDSIZE
+                            ? 0
+                            : aReflowInput.AvailableBSize());
   // round the height down to the nearest pixel
   finalSize.BSize(wm) -=
-    finalSize.BSize(wm) % nsPresContext::CSSPixelsToAppUnits(1);
+      finalSize.BSize(wm) % nsPresContext::CSSPixelsToAppUnits(1);
   aDesiredSize.SetSize(wm, finalSize);
 
   // Note: not using NS_FRAME_FIRST_REFLOW here, since it's not clear whether

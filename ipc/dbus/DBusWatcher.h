@@ -15,21 +15,21 @@ namespace ipc {
 
 class DBusWatcher : public MessageLoopForIO::Watcher
 {
-public:
+ public:
   DBusWatcher(DBusConnection* aConnection, DBusWatch* aWatch);
   ~DBusWatcher();
 
   void StartWatching();
   void StopWatching();
 
-  static void        FreeFunction(void* aData);
+  static void FreeFunction(void* aData);
   static dbus_bool_t AddWatchFunction(DBusWatch* aWatch, void* aData);
-  static void        RemoveWatchFunction(DBusWatch* aWatch, void* aData);
-  static void        ToggleWatchFunction(DBusWatch* aWatch, void* aData);
+  static void RemoveWatchFunction(DBusWatch* aWatch, void* aData);
+  static void ToggleWatchFunction(DBusWatch* aWatch, void* aData);
 
   DBusConnection* GetConnection();
 
-private:
+ private:
   void OnFileCanReadWithoutBlocking(int aFd);
   void OnFileCanWriteWithoutBlocking(int aFd);
 
@@ -44,7 +44,7 @@ private:
   DBusWatch* mWatch;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_DBusWatcher_h
+#endif  // mozilla_ipc_DBusWatcher_h

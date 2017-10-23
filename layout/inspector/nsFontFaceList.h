@@ -16,19 +16,20 @@ class gfxTextRun;
 
 class nsFontFaceList : public nsIDOMFontFaceList
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMFONTFACELIST
 
   nsFontFaceList();
 
   nsresult AddFontsFromTextRun(gfxTextRun* aTextRun,
-                               uint32_t aOffset, uint32_t aLength);
+                               uint32_t aOffset,
+                               uint32_t aLength);
 
-protected:
+ protected:
   virtual ~nsFontFaceList();
 
-  nsInterfaceHashtable<nsPtrHashKey<gfxFontEntry>,nsIDOMFontFace> mFontFaces;
+  nsInterfaceHashtable<nsPtrHashKey<gfxFontEntry>, nsIDOMFontFace> mFontFaces;
 };
 
-#endif // __nsFontFaceList_h__
+#endif  // __nsFontFaceList_h__

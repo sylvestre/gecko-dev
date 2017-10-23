@@ -20,13 +20,14 @@ namespace gfx {
 ScaledFontCairo::ScaledFontCairo(cairo_scaled_font_t* aScaledFont,
                                  const RefPtr<UnscaledFont>& aUnscaledFont,
                                  Float aSize)
-  : ScaledFontBase(aUnscaledFont, aSize)
+    : ScaledFontBase(aUnscaledFont, aSize)
 {
   SetCairoScaledFont(aScaledFont);
 }
 
 #if defined(USE_SKIA) && defined(MOZ_ENABLE_FREETYPE)
-SkTypeface* ScaledFontCairo::GetSkTypeface()
+SkTypeface*
+ScaledFontCairo::GetSkTypeface()
 {
   if (!mTypeface) {
     mTypeface = SkCreateTypefaceFromCairoFTFont(mScaledFont);
@@ -36,5 +37,5 @@ SkTypeface* ScaledFontCairo::GetSkTypeface()
 }
 #endif
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

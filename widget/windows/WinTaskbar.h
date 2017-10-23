@@ -10,7 +10,7 @@
 
 #include <windows.h>
 #include <shobjidl.h>
-#undef LogSeverity // SetupAPI.h #defines this as DWORD
+#undef LogSeverity  // SetupAPI.h #defines this as DWORD
 #include "nsIWinTaskbar.h"
 #include "mozilla/Attributes.h"
 
@@ -21,7 +21,7 @@ class WinTaskbar final : public nsIWinTaskbar
 {
   ~WinTaskbar();
 
-public: 
+ public:
   WinTaskbar();
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -30,17 +30,17 @@ public:
   // Registers the global app user model id for the instance.
   // See comments in WinTaskbar.cpp for more information.
   static bool RegisterAppUserModelID();
-  static bool GetAppUserModelID(nsAString & aDefaultGroupId);
+  static bool GetAppUserModelID(nsAString& aDefaultGroupId);
 
-private:
+ private:
   bool Initialize();
 
-  typedef HRESULT (WINAPI * SetCurrentProcessExplicitAppUserModelIDPtr)(PCWSTR AppID);
-  ITaskbarList4 *mTaskbar;
+  typedef HRESULT(WINAPI* SetCurrentProcessExplicitAppUserModelIDPtr)(
+      PCWSTR AppID);
+  ITaskbarList4* mTaskbar;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif /* __WinTaskbar_h__ */
-

@@ -6,7 +6,7 @@
 #ifndef MOZILLA_GFX_SYNCHRONOUSTASK_H
 #define MOZILLA_GFX_SYNCHRONOUSTASK_H
 
-#include "mozilla/ReentrantMonitor.h"   // for ReentrantMonitor, etc
+#include "mozilla/ReentrantMonitor.h"  // for ReentrantMonitor, etc
 
 namespace mozilla {
 namespace layers {
@@ -17,26 +17,27 @@ class MOZ_STACK_CLASS SynchronousTask
 {
   friend class AutoCompleteTask;
 
-public:
+ public:
   explicit SynchronousTask(const char* name)
-   : mMonitor(name),
-     mAutoEnter(mMonitor),
-     mDone(false)
-  {}
+      : mMonitor(name), mAutoEnter(mMonitor), mDone(false)
+  {
+  }
 
-  void Wait() {
+  void Wait()
+  {
     while (!mDone) {
       mMonitor.Wait();
     }
   }
 
-private:
-  void Complete() {
+ private:
+  void Complete()
+  {
     mDone = true;
     mMonitor.NotifyAll();
   }
 
-private:
+ private:
   ReentrantMonitor mMonitor;
   ReentrantMonitorAutoEnter mAutoEnter;
   bool mDone;
@@ -44,22 +45,19 @@ private:
 
 class MOZ_STACK_CLASS AutoCompleteTask
 {
-public:
+ public:
   explicit AutoCompleteTask(SynchronousTask* aTask)
-   : mTask(aTask),
-     mAutoEnter(aTask->mMonitor)
+      : mTask(aTask), mAutoEnter(aTask->mMonitor)
   {
   }
-  ~AutoCompleteTask() {
-    mTask->Complete();
-  }
+  ~AutoCompleteTask() { mTask->Complete(); }
 
-private:
+ private:
   SynchronousTask* mTask;
   ReentrantMonitorAutoEnter mAutoEnter;
 };
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

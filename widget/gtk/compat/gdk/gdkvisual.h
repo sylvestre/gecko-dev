@@ -10,7 +10,7 @@
 #undef gdk_visual_get_depth
 
 static inline gint
-gdk_visual_get_depth(GdkVisual *visual)
+gdk_visual_get_depth(GdkVisual* visual)
 {
   return visual->depth;
 }

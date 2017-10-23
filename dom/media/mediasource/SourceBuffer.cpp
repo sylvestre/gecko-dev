@@ -32,12 +32,35 @@
 struct JSContext;
 class JSObject;
 
-extern mozilla::LogModule* GetMediaSourceLog();
-extern mozilla::LogModule* GetMediaSourceAPILog();
+extern mozilla::LogModule*
+GetMediaSourceLog();
+extern mozilla::LogModule*
+GetMediaSourceAPILog();
 
-#define MSE_DEBUG(arg, ...) MOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Debug, ("SourceBuffer(%p:%s)::%s: " arg, this, mType.OriginalString().Data(), __func__, ##__VA_ARGS__))
-#define MSE_DEBUGV(arg, ...) MOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Verbose, ("SourceBuffer(%p:%s)::%s: " arg, this, mType.OriginalString().Data(), __func__, ##__VA_ARGS__))
-#define MSE_API(arg, ...) MOZ_LOG(GetMediaSourceAPILog(), mozilla::LogLevel::Debug, ("SourceBuffer(%p:%s)::%s: " arg, this, mType.OriginalString().Data(), __func__, ##__VA_ARGS__))
+#define MSE_DEBUG(arg, ...)                 \
+  MOZ_LOG(GetMediaSourceLog(),              \
+          mozilla::LogLevel::Debug,         \
+          ("SourceBuffer(%p:%s)::%s: " arg, \
+           this,                            \
+           mType.OriginalString().Data(),   \
+           __func__,                        \
+           ##__VA_ARGS__))
+#define MSE_DEBUGV(arg, ...)                \
+  MOZ_LOG(GetMediaSourceLog(),              \
+          mozilla::LogLevel::Verbose,       \
+          ("SourceBuffer(%p:%s)::%s: " arg, \
+           this,                            \
+           mType.OriginalString().Data(),   \
+           __func__,                        \
+           ##__VA_ARGS__))
+#define MSE_API(arg, ...)                   \
+  MOZ_LOG(GetMediaSourceAPILog(),           \
+          mozilla::LogLevel::Debug,         \
+          ("SourceBuffer(%p:%s)::%s: " arg, \
+           this,                            \
+           mType.OriginalString().Data(),   \
+           __func__,                        \
+           ##__VA_ARGS__))
 
 namespace mozilla {
 
@@ -64,7 +87,8 @@ SourceBuffer::SetMode(SourceBufferAppendMode aMode, ErrorResult& aRv)
   if (mMediaSource->ReadyState() == MediaSourceReadyState::Ended) {
     mMediaSource->SetReadyState(MediaSourceReadyState::Open);
   }
-  if (mCurrentAttributes.GetAppendState() == AppendState::PARSING_MEDIA_SEGMENT){
+  if (mCurrentAttributes.GetAppendState() ==
+      AppendState::PARSING_MEDIA_SEGMENT) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return;
   }
@@ -90,13 +114,15 @@ SourceBuffer::SetTimestampOffset(double aTimestampOffset, ErrorResult& aRv)
   if (mMediaSource->ReadyState() == MediaSourceReadyState::Ended) {
     mMediaSource->SetReadyState(MediaSourceReadyState::Open);
   }
-  if (mCurrentAttributes.GetAppendState() == AppendState::PARSING_MEDIA_SEGMENT){
+  if (mCurrentAttributes.GetAppendState() ==
+      AppendState::PARSING_MEDIA_SEGMENT) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return;
   }
   mCurrentAttributes.SetApparentTimestampOffset(aTimestampOffset);
   if (mCurrentAttributes.GetAppendMode() == SourceBufferAppendMode::Sequence) {
-    mCurrentAttributes.SetGroupStartTimestamp(mCurrentAttributes.GetTimestampOffset());
+    mCurrentAttributes.SetGroupStartTimestamp(
+        mCurrentAttributes.GetTimestampOffset());
   }
 }
 
@@ -239,9 +265,8 @@ SourceBuffer::Remove(double aStart, double aEnd, ErrorResult& aRv)
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return;
   }
-  if (IsNaN(mMediaSource->Duration()) ||
-      aStart < 0 || aStart > mMediaSource->Duration() ||
-      aEnd <= aStart || IsNaN(aEnd)) {
+  if (IsNaN(mMediaSource->Duration()) || aStart < 0 ||
+      aStart > mMediaSource->Duration() || aEnd <= aStart || IsNaN(aEnd)) {
     aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
     return;
   }
@@ -258,10 +283,11 @@ SourceBuffer::RangeRemoval(double aStart, double aEnd)
   StartUpdating();
 
   RefPtr<SourceBuffer> self = this;
-    mTrackBuffersManager->RangeRemoval(TimeUnit::FromSeconds(aStart),
-                                       TimeUnit::FromSeconds(aEnd))
-      ->Then(mAbstractMainThread, __func__,
-             [self] (bool) {
+  mTrackBuffersManager
+      ->RangeRemoval(TimeUnit::FromSeconds(aStart), TimeUnit::FromSeconds(aEnd))
+      ->Then(mAbstractMainThread,
+             __func__,
+             [self](bool) {
                self->mPendingRemoval.Complete();
                self->StopUpdating();
              },
@@ -281,7 +307,7 @@ SourceBuffer::Detach()
   AbortBufferAppend();
   if (mTrackBuffersManager) {
     mMediaSource->GetDecoder()->GetDemuxer()->DetachSourceBuffer(
-      mTrackBuffersManager);
+        mTrackBuffersManager);
     mTrackBuffersManager->Detach();
   }
   mTrackBuffersManager = nullptr;
@@ -299,23 +325,22 @@ SourceBuffer::Ended()
 
 SourceBuffer::SourceBuffer(MediaSource* aMediaSource,
                            const MediaContainerType& aType)
-  : DOMEventTargetHelper(aMediaSource->GetParentObject())
-  , mMediaSource(aMediaSource)
-  , mAbstractMainThread(aMediaSource->AbstractMainThread())
-  , mCurrentAttributes(aType.Type() == MEDIAMIMETYPE("audio/mpeg") ||
-                       aType.Type() == MEDIAMIMETYPE("audio/aac"))
-  , mUpdating(false)
-  , mActive(false)
-  , mType(aType)
+    : DOMEventTargetHelper(aMediaSource->GetParentObject()),
+      mMediaSource(aMediaSource),
+      mAbstractMainThread(aMediaSource->AbstractMainThread()),
+      mCurrentAttributes(aType.Type() == MEDIAMIMETYPE("audio/mpeg") ||
+                         aType.Type() == MEDIAMIMETYPE("audio/aac")),
+      mUpdating(false),
+      mActive(false),
+      mType(aType)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aMediaSource);
 
   mTrackBuffersManager =
-    new TrackBuffersManager(aMediaSource->GetDecoder(), aType);
+      new TrackBuffersManager(aMediaSource->GetDecoder(), aType);
 
-  MSE_DEBUG("Create mTrackBuffersManager=%p",
-            mTrackBuffersManager.get());
+  MSE_DEBUG("Create mTrackBuffersManager=%p", mTrackBuffersManager.get());
 
   ErrorResult dummy;
   if (mCurrentAttributes.mGenerateTimestamps) {
@@ -324,7 +349,7 @@ SourceBuffer::SourceBuffer(MediaSource* aMediaSource,
     SetMode(SourceBufferAppendMode::Segments, dummy);
   }
   mMediaSource->GetDecoder()->GetDemuxer()->AttachSourceBuffer(
-    mTrackBuffersManager);
+      mTrackBuffersManager);
 }
 
 SourceBuffer::~SourceBuffer()
@@ -407,7 +432,9 @@ SourceBuffer::CheckEndTime()
 }
 
 void
-SourceBuffer::AppendData(const uint8_t* aData, uint32_t aLength, ErrorResult& aRv)
+SourceBuffer::AppendData(const uint8_t* aData,
+                         uint32_t aLength,
+                         ErrorResult& aRv)
 {
   MSE_DEBUG("AppendData(aLength=%u)", aLength);
 
@@ -418,14 +445,17 @@ SourceBuffer::AppendData(const uint8_t* aData, uint32_t aLength, ErrorResult& aR
   StartUpdating();
 
   mTrackBuffersManager->AppendData(data.forget(), mCurrentAttributes)
-    ->Then(mAbstractMainThread, __func__, this,
-           &SourceBuffer::AppendDataCompletedWithSuccess,
-           &SourceBuffer::AppendDataErrored)
-    ->Track(mPendingAppend);
+      ->Then(mAbstractMainThread,
+             __func__,
+             this,
+             &SourceBuffer::AppendDataCompletedWithSuccess,
+             &SourceBuffer::AppendDataErrored)
+      ->Track(mPendingAppend);
 }
 
 void
-SourceBuffer::AppendDataCompletedWithSuccess(const SourceBufferTask::AppendBufferResult& aResult)
+SourceBuffer::AppendDataCompletedWithSuccess(
+    const SourceBufferTask::AppendBufferResult& aResult)
 {
   MOZ_ASSERT(mUpdating);
   mPendingAppend.Complete();
@@ -436,13 +466,14 @@ SourceBuffer::AppendDataCompletedWithSuccess(const SourceBufferTask::AppendBuffe
       MSE_DEBUG("Init segment received");
       RefPtr<SourceBuffer> self = this;
       mMediaSource->SourceBufferIsActive(this)
-        ->Then(mAbstractMainThread, __func__,
-               [self, this]() {
-                 MSE_DEBUG("Complete AppendBuffer operation");
-                 mCompletionPromise.Complete();
-                 StopUpdating();
-               })
-        ->Track(mCompletionPromise);
+          ->Then(mAbstractMainThread,
+                 __func__,
+                 [self, this]() {
+                   MSE_DEBUG("Complete AppendBuffer operation");
+                   mCompletionPromise.Complete();
+                   StopUpdating();
+                 })
+          ->Track(mCompletionPromise);
     }
   }
   if (mActive) {
@@ -495,7 +526,9 @@ SourceBuffer::AppendError(const MediaResult& aDecodeError)
 }
 
 already_AddRefed<MediaByteBuffer>
-SourceBuffer::PrepareAppend(const uint8_t* aData, uint32_t aLength, ErrorResult& aRv)
+SourceBuffer::PrepareAppend(const uint8_t* aData,
+                            uint32_t aLength,
+                            ErrorResult& aRv)
 {
   typedef TrackBuffersManager::EvictDataResult Result;
 
@@ -522,9 +555,9 @@ SourceBuffer::PrepareAppend(const uint8_t* aData, uint32_t aLength, ErrorResult&
   // TODO: Drive evictions off memory pressure notifications.
   // TODO: Consider a global eviction threshold  rather than per TrackBuffer.
   // Give a chance to the TrackBuffersManager to evict some data if needed.
-  Result evicted =
-    mTrackBuffersManager->EvictData(TimeUnit::FromSeconds(mMediaSource->GetDecoder()->GetCurrentTime()),
-                                    aLength);
+  Result evicted = mTrackBuffersManager->EvictData(
+      TimeUnit::FromSeconds(mMediaSource->GetDecoder()->GetCurrentTime()),
+      aLength);
 
   // See if we have enough free space to append our new data.
   if (evicted == Result::BUFFER_FULL) {
@@ -563,8 +596,8 @@ SourceBuffer::HighestStartTime()
 {
   MOZ_ASSERT(NS_IsMainThread());
   return mTrackBuffersManager
-         ? mTrackBuffersManager->HighestStartTime().ToSeconds()
-         : 0.0;
+             ? mTrackBuffersManager->HighestStartTime().ToSeconds()
+             : 0.0;
 }
 
 double
@@ -572,8 +605,8 @@ SourceBuffer::HighestEndTime()
 {
   MOZ_ASSERT(NS_IsMainThread());
   return mTrackBuffersManager
-         ? mTrackBuffersManager->HighestEndTime().ToSeconds()
-         : 0.0;
+             ? mTrackBuffersManager->HighestEndTime().ToSeconds()
+             : 0.0;
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(SourceBuffer)
@@ -600,6 +633,6 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 #undef MSE_DEBUGV
 #undef MSE_API
 
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla

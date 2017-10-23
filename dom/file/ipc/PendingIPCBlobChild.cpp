@@ -15,8 +15,7 @@ PendingIPCBlobChild::PendingIPCBlobChild(const IPCBlob& aBlob)
   MOZ_ASSERT(mBlobImpl);
 }
 
-PendingIPCBlobChild::~PendingIPCBlobChild()
-{}
+PendingIPCBlobChild::~PendingIPCBlobChild() {}
 
 already_AddRefed<BlobImpl>
 PendingIPCBlobChild::SetPendingInfoAndDeleteActor(const nsString& aName,
@@ -51,5 +50,5 @@ PendingIPCBlobChild::SetPendingInfoAndDeleteActor(const nsString& aContentType,
   return blobImpl.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

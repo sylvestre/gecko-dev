@@ -14,7 +14,7 @@ namespace mozilla {
 
 class WaveDataDecoder : public MediaDataDecoder
 {
-public:
+ public:
   explicit WaveDataDecoder(const CreateDecoderParams& aParams);
 
   // Return true if mimetype is Wave
@@ -30,11 +30,11 @@ public:
     return NS_LITERAL_CSTRING("wave audio decoder");
   }
 
-private:
+ private:
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
   const AudioInfo& mInfo;
   const RefPtr<TaskQueue> mTaskQueue;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 #endif

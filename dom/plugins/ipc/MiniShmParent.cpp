@@ -17,23 +17,20 @@ namespace plugins {
 const unsigned int MiniShmParent::kDefaultMiniShmSectionSize = 0x1000;
 
 MiniShmParent::MiniShmParent()
-  : mSectionSize(0),
-    mParentEvent(nullptr),
-    mParentGuard(nullptr),
-    mChildEvent(nullptr),
-    mChildGuard(nullptr),
-    mRegWait(nullptr),
-    mFileMapping(nullptr),
-    mView(nullptr),
-    mIsConnected(false),
-    mTimeout(INFINITE)
+    : mSectionSize(0),
+      mParentEvent(nullptr),
+      mParentGuard(nullptr),
+      mChildEvent(nullptr),
+      mChildGuard(nullptr),
+      mRegWait(nullptr),
+      mFileMapping(nullptr),
+      mView(nullptr),
+      mIsConnected(false),
+      mTimeout(INFINITE)
 {
 }
 
-MiniShmParent::~MiniShmParent()
-{
-  CleanUp();
-}
+MiniShmParent::~MiniShmParent() { CleanUp(); }
 
 void
 MiniShmParent::CleanUp()
@@ -69,7 +66,8 @@ MiniShmParent::CleanUp()
 }
 
 nsresult
-MiniShmParent::Init(MiniShmObserver* aObserver, const DWORD aTimeout,
+MiniShmParent::Init(MiniShmObserver* aObserver,
+                    const DWORD aTimeout,
                     const unsigned int aSectionSize)
 {
   if (!aObserver || !aSectionSize || (aSectionSize % 0x1000) || !aTimeout) {
@@ -78,34 +76,25 @@ MiniShmParent::Init(MiniShmObserver* aObserver, const DWORD aTimeout,
   if (mFileMapping) {
     return NS_ERROR_ALREADY_INITIALIZED;
   }
-  SECURITY_ATTRIBUTES securityAttributes = {sizeof(securityAttributes),
-                                            nullptr,
-                                            TRUE};
-  ScopedHandle parentEvent(::CreateEvent(&securityAttributes,
-                                         FALSE,
-                                         FALSE,
-                                         nullptr));
+  SECURITY_ATTRIBUTES securityAttributes = {
+      sizeof(securityAttributes), nullptr, TRUE};
+  ScopedHandle parentEvent(
+      ::CreateEvent(&securityAttributes, FALSE, FALSE, nullptr));
   if (!parentEvent.IsValid()) {
     return NS_ERROR_FAILURE;
   }
-  ScopedHandle parentGuard(::CreateEvent(&securityAttributes,
-                                         FALSE,
-                                         TRUE,
-                                         nullptr));
+  ScopedHandle parentGuard(
+      ::CreateEvent(&securityAttributes, FALSE, TRUE, nullptr));
   if (!parentGuard.IsValid()) {
     return NS_ERROR_FAILURE;
   }
-  ScopedHandle childEvent(::CreateEvent(&securityAttributes,
-                                        FALSE,
-                                        FALSE,
-                                        nullptr));
+  ScopedHandle childEvent(
+      ::CreateEvent(&securityAttributes, FALSE, FALSE, nullptr));
   if (!childEvent.IsValid()) {
     return NS_ERROR_FAILURE;
   }
-  ScopedHandle childGuard(::CreateEvent(&securityAttributes,
-                                        FALSE,
-                                        TRUE,
-                                        nullptr));
+  ScopedHandle childGuard(
+      ::CreateEvent(&securityAttributes, FALSE, TRUE, nullptr));
   if (!childGuard.IsValid()) {
     return NS_ERROR_FAILURE;
   }
@@ -118,9 +107,7 @@ MiniShmParent::Init(MiniShmObserver* aObserver, const DWORD aTimeout,
   if (!mapping.IsValid()) {
     return NS_ERROR_FAILURE;
   }
-  ScopedMappedFileView view(::MapViewOfFile(mapping,
-                                            FILE_MAP_WRITE,
-                                            0, 0, 0));
+  ScopedMappedFileView view(::MapViewOfFile(mapping, FILE_MAP_WRITE, 0, 0, 0));
   if (!view.IsValid()) {
     return NS_ERROR_FAILURE;
   }
@@ -213,6 +200,5 @@ MiniShmParent::FinalizeConnection()
   }
 }
 
-} // namespace plugins
-} // namespace mozilla
-
+}  // namespace plugins
+}  // namespace mozilla

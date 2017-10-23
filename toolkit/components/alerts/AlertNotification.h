@@ -22,7 +22,7 @@ class AlertImageRequest final : public imgINotificationObserver,
                                 public nsITimerCallback,
                                 public nsINamed
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(AlertImageRequest,
                                            imgINotificationObserver)
@@ -31,14 +31,16 @@ public:
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
 
-  AlertImageRequest(nsIURI* aURI, nsIPrincipal* aPrincipal,
-                    bool aInPrivateBrowsing, uint32_t aTimeout,
+  AlertImageRequest(nsIURI* aURI,
+                    nsIPrincipal* aPrincipal,
+                    bool aInPrivateBrowsing,
+                    uint32_t aTimeout,
                     nsIAlertNotificationImageListener* aListener,
                     nsISupports* aUserData);
 
   nsresult Start();
 
-private:
+ private:
   virtual ~AlertImageRequest();
 
   nsresult NotifyMissing();
@@ -56,15 +58,15 @@ private:
 
 class AlertNotification final : public nsIAlertNotification
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIALERTNOTIFICATION
   AlertNotification();
 
-protected:
+ protected:
   virtual ~AlertNotification();
 
-private:
+ private:
   nsString mName;
   nsString mImageURL;
   nsString mTitle;
@@ -79,6 +81,6 @@ private:
   bool mInPrivateBrowsing;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_AlertNotification_h__ */

@@ -18,12 +18,12 @@ SetCurrentThreadPriority(ThreadPriority aPriority)
 }
 
 void
-SetThreadPriority(PlatformThreadId aThreadId,
-                  ThreadPriority aPriority)
+SetThreadPriority(PlatformThreadId aThreadId, ThreadPriority aPriority)
 {
   HAL_LOG("FallbackThreadPriority - SetThreadPriority(%d, %s)\n",
-          aThreadId, ThreadPriorityToString(aPriority));
+          aThreadId,
+          ThreadPriorityToString(aPriority));
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

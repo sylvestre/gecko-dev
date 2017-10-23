@@ -42,7 +42,8 @@ using namespace JS;
 namespace mozilla {
 namespace extensions {
 
-#define CHANNELWRAPPER_PROP_KEY NS_LITERAL_STRING("ChannelWrapper::CachedInstance")
+#define CHANNELWRAPPER_PROP_KEY \
+  NS_LITERAL_STRING("ChannelWrapper::CachedInstance")
 
 /*****************************************************************************
  * Initialization
@@ -70,8 +71,7 @@ ChannelWrapper::Get(const GlobalObject& global, nsIChannel* channel)
   if (!wrapper) {
     wrapper = new ChannelWrapper(global.GetAsSupports(), channel);
     if (props) {
-      Unused << props->SetPropertyAsInterface(CHANNELWRAPPER_PROP_KEY,
-                                              wrapper);
+      Unused << props->SetPropertyAsInterface(CHANNELWRAPPER_PROP_KEY, wrapper);
     }
   }
 
@@ -165,7 +165,6 @@ ChannelWrapper::SetContentType(const nsACString& aContentType)
   }
 }
 
-
 /*****************************************************************************
  * Headers
  *****************************************************************************/
@@ -174,18 +173,19 @@ namespace {
 
 class MOZ_STACK_CLASS HeaderVisitor final : public nsIHttpHeaderVisitor
 {
-public:
+ public:
   NS_DECL_NSIHTTPHEADERVISITOR
 
   explicit HeaderVisitor(nsTArray<dom::MozHTTPHeader>& aHeaders)
-    : mHeaders(aHeaders)
-  {}
+      : mHeaders(aHeaders)
+  {
+  }
 
   HeaderVisitor(nsTArray<dom::MozHTTPHeader>& aHeaders,
                 const nsCString& aContentTypeHdr)
-    : mHeaders(aHeaders)
-    , mContentTypeHdr(aContentTypeHdr)
-  {}
+      : mHeaders(aHeaders), mContentTypeHdr(aContentTypeHdr)
+  {
+  }
 
   void VisitRequestHeaders(nsIHttpChannel* aChannel, ErrorResult& aRv)
   {
@@ -210,12 +210,9 @@ public:
     return --mRefCnt;
   }
 
-  virtual ~HeaderVisitor()
-  {
-    MOZ_DIAGNOSTIC_ASSERT(mRefCnt == 0);
-  }
+  virtual ~HeaderVisitor() { MOZ_DIAGNOSTIC_ASSERT(mRefCnt == 0); }
 
-private:
+ private:
   bool CheckResult(nsresult aNSRv, ErrorResult& aRv)
   {
     if (NS_FAILED(aNSRv)) {
@@ -240,7 +237,8 @@ HeaderVisitor::VisitHeader(const nsACString& aHeader, const nsACString& aValue)
   }
   dict->mName = aHeader;
 
-  if (!mContentTypeHdr.IsVoid() && aHeader.LowerCaseEqualsLiteral("content-type")) {
+  if (!mContentTypeHdr.IsVoid() &&
+      aHeader.LowerCaseEqualsLiteral("content-type")) {
     dict->mValue = mContentTypeHdr;
   } else {
     dict->mValue = aValue;
@@ -251,11 +249,11 @@ HeaderVisitor::VisitHeader(const nsACString& aHeader, const nsACString& aValue)
 
 NS_IMPL_QUERY_INTERFACE(HeaderVisitor, nsIHttpHeaderVisitor)
 
-} // anonymous namespace
-
+}  // anonymous namespace
 
 void
-ChannelWrapper::GetRequestHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal, ErrorResult& aRv) const
+ChannelWrapper::GetRequestHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal,
+                                  ErrorResult& aRv) const
 {
   if (nsCOMPtr<nsIHttpChannel> chan = MaybeHttpChannel()) {
     HeaderVisitor visitor(aRetVal);
@@ -266,7 +264,8 @@ ChannelWrapper::GetRequestHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal, ErrorRe
 }
 
 void
-ChannelWrapper::GetResponseHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal, ErrorResult& aRv) const
+ChannelWrapper::GetResponseHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal,
+                                   ErrorResult& aRv) const
 {
   if (nsCOMPtr<nsIHttpChannel> chan = MaybeHttpChannel()) {
     HeaderVisitor visitor(aRetVal, mContentTypeHdr);
@@ -277,7 +276,9 @@ ChannelWrapper::GetResponseHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal, ErrorR
 }
 
 void
-ChannelWrapper::SetRequestHeader(const nsCString& aHeader, const nsCString& aValue, ErrorResult& aRv)
+ChannelWrapper::SetRequestHeader(const nsCString& aHeader,
+                                 const nsCString& aValue,
+                                 ErrorResult& aRv)
 {
   nsresult rv = NS_ERROR_UNEXPECTED;
   if (nsCOMPtr<nsIHttpChannel> chan = MaybeHttpChannel()) {
@@ -289,7 +290,9 @@ ChannelWrapper::SetRequestHeader(const nsCString& aHeader, const nsCString& aVal
 }
 
 void
-ChannelWrapper::SetResponseHeader(const nsCString& aHeader, const nsCString& aValue, ErrorResult& aRv)
+ChannelWrapper::SetResponseHeader(const nsCString& aHeader,
+                                  const nsCString& aValue,
+                                  ErrorResult& aRv)
 {
   nsresult rv = NS_ERROR_UNEXPECTED;
   if (nsCOMPtr<nsIHttpChannel> chan = MaybeHttpChannel()) {
@@ -383,7 +386,7 @@ ChannelWrapper::GetCanModify(ErrorResult& aRv) const
       if (prin->GetIsCodebasePrincipal() &&
           (NS_FAILED(prin->GetURI(getter_AddRefs(uri))) ||
            AddonManagerWebAPI::IsValidSite(uri))) {
-          return false;
+        return false;
       }
     }
   }
@@ -418,7 +421,6 @@ ChannelWrapper::GetDocumentURI() const
   return uri.forget();
 }
 
-
 void
 ChannelWrapper::GetOriginURL(nsCString& aRetVal) const
 {
@@ -435,7 +437,6 @@ ChannelWrapper::GetDocumentURL(nsCString& aRetVal) const
   }
 }
 
-
 const URLInfo&
 ChannelWrapper::FinalURLInfo() const
 {
@@ -449,8 +450,7 @@ ChannelWrapper::FinalURLInfo() const
     // ws: or wss:, as appropriate.
     auto& url = mFinalURLInfo.ref();
     if (Type() == MozContentPolicyType::Websocket &&
-        (url.Scheme() == nsGkAtoms::http ||
-         url.Scheme() == nsGkAtoms::https)) {
+        (url.Scheme() == nsGkAtoms::http || url.Scheme() == nsGkAtoms::https)) {
       nsAutoCString spec(url.CSpec());
       spec.Replace(0, 4, NS_LITERAL_CSTRING("ws"));
 
@@ -476,7 +476,6 @@ ChannelWrapper::DocumentURLInfo() const
   return &mDocumentURLInfo.ref();
 }
 
-
 bool
 ChannelWrapper::Matches(const dom::MozRequestFilter& aFilter,
                         const WebExtensionPolicy* aExtension,
@@ -500,7 +499,8 @@ ChannelWrapper::Matches(const dom::MozRequestFilter& aFilter,
       return false;
     }
 
-    bool isProxy = aOptions.mIsProxy && aExtension->HasPermission(nsGkAtoms::proxy);
+    bool isProxy =
+        aOptions.mIsProxy && aExtension->HasPermission(nsGkAtoms::proxy);
     if (!isProxy && IsSystemLoad()) {
       return false;
     }
@@ -509,8 +509,7 @@ ChannelWrapper::Matches(const dom::MozRequestFilter& aFilter,
       nsAutoCString baseURL;
       aExtension->GetBaseURL(baseURL);
 
-      if (!isProxy &&
-          !StringBeginsWith(origin->CSpec(), baseURL) &&
+      if (!isProxy && !StringBeginsWith(origin->CSpec(), baseURL) &&
           !aExtension->CanAccessURI(*origin)) {
         return false;
       }
@@ -519,8 +518,6 @@ ChannelWrapper::Matches(const dom::MozRequestFilter& aFilter,
 
   return true;
 }
-
-
 
 int64_t
 NormalizeWindowID(nsILoadInfo* aLoadInfo, uint64_t windowID)
@@ -570,7 +567,9 @@ ChannelWrapper::ParentWindowId() const
 }
 
 void
-ChannelWrapper::GetFrameAncestors(dom::Nullable<nsTArray<dom::MozFrameAncestorInfo>>& aFrameAncestors, ErrorResult& aRv) const
+ChannelWrapper::GetFrameAncestors(
+    dom::Nullable<nsTArray<dom::MozFrameAncestorInfo>>& aFrameAncestors,
+    ErrorResult& aRv) const
 {
   nsCOMPtr<nsILoadInfo> loadInfo = GetLoadInfo();
   if (!loadInfo || WindowId(loadInfo) == 0) {
@@ -585,17 +584,22 @@ ChannelWrapper::GetFrameAncestors(dom::Nullable<nsTArray<dom::MozFrameAncestorIn
 }
 
 nsresult
-ChannelWrapper::GetFrameAncestors(nsILoadInfo* aLoadInfo, nsTArray<dom::MozFrameAncestorInfo>& aFrameAncestors) const
+ChannelWrapper::GetFrameAncestors(
+    nsILoadInfo* aLoadInfo,
+    nsTArray<dom::MozFrameAncestorInfo>& aFrameAncestors) const
 {
-  const nsTArray<nsCOMPtr<nsIPrincipal>>& ancestorPrincipals = aLoadInfo->AncestorPrincipals();
-  const nsTArray<uint64_t>& ancestorOuterWindowIDs = aLoadInfo->AncestorOuterWindowIDs();
+  const nsTArray<nsCOMPtr<nsIPrincipal>>& ancestorPrincipals =
+      aLoadInfo->AncestorPrincipals();
+  const nsTArray<uint64_t>& ancestorOuterWindowIDs =
+      aLoadInfo->AncestorOuterWindowIDs();
   uint32_t size = ancestorPrincipals.Length();
   MOZ_DIAGNOSTIC_ASSERT(size == ancestorOuterWindowIDs.Length());
   if (size != ancestorOuterWindowIDs.Length()) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  bool subFrame = aLoadInfo->GetExternalContentPolicyType() == nsIContentPolicy::TYPE_SUBDOCUMENT;
+  bool subFrame = aLoadInfo->GetExternalContentPolicyType() ==
+                  nsIContentPolicy::TYPE_SUBDOCUMENT;
   if (!aFrameAncestors.SetCapacity(subFrame ? size : size + 1, fallible)) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -618,7 +622,8 @@ ChannelWrapper::GetFrameAncestors(nsILoadInfo* aLoadInfo, nsTArray<dom::MozFrame
       return NS_ERROR_UNEXPECTED;
     }
     MOZ_TRY(uri->GetSpec(ancestor->mUrl));
-    ancestor->mFrameId = NormalizeWindowID(aLoadInfo, ancestorOuterWindowIDs[i]);
+    ancestor->mFrameId =
+        NormalizeWindowID(aLoadInfo, ancestorOuterWindowIDs[i]);
   }
   return NS_OK;
 }
@@ -628,7 +633,8 @@ ChannelWrapper::GetFrameAncestors(nsILoadInfo* aLoadInfo, nsTArray<dom::MozFrame
  *****************************************************************************/
 
 void
-ChannelWrapper::RegisterTraceableChannel(const WebExtensionPolicy& aAddon, nsITabParent* aTabParent)
+ChannelWrapper::RegisterTraceableChannel(const WebExtensionPolicy& aAddon,
+                                         nsITabParent* aTabParent)
 {
   // We can't attach new listeners after the response has started, so don't
   // bother registering anything.
@@ -644,7 +650,8 @@ ChannelWrapper::RegisterTraceableChannel(const WebExtensionPolicy& aAddon, nsITa
 }
 
 already_AddRefed<nsITraceableChannel>
-ChannelWrapper::GetTraceableChannel(nsAtom* aAddonId, dom::nsIContentParent* aContentParent) const
+ChannelWrapper::GetTraceableChannel(nsAtom* aAddonId,
+                                    dom::nsIContentParent* aContentParent) const
 {
   nsCOMPtr<nsITabParent> tabParent;
   if (mAddonEntries.Get(aAddonId, getter_AddRefs(tabParent))) {
@@ -672,49 +679,49 @@ GetContentPolicyType(uint32_t aType)
   // Note: Please keep this function in sync with the external types in
   // nsIContentPolicy.idl
   switch (aType) {
-  case nsIContentPolicy::TYPE_DOCUMENT:
-    return MozContentPolicyType::Main_frame;
-  case nsIContentPolicy::TYPE_SUBDOCUMENT:
-    return MozContentPolicyType::Sub_frame;
-  case nsIContentPolicy::TYPE_STYLESHEET:
-    return MozContentPolicyType::Stylesheet;
-  case nsIContentPolicy::TYPE_SCRIPT:
-    return MozContentPolicyType::Script;
-  case nsIContentPolicy::TYPE_IMAGE:
-    return MozContentPolicyType::Image;
-  case nsIContentPolicy::TYPE_OBJECT:
-    return MozContentPolicyType::Object;
-  case nsIContentPolicy::TYPE_OBJECT_SUBREQUEST:
-    return MozContentPolicyType::Object_subrequest;
-  case nsIContentPolicy::TYPE_XMLHTTPREQUEST:
-    return MozContentPolicyType::Xmlhttprequest;
-  // TYPE_FETCH returns xmlhttprequest for cross-browser compatibility.
-  case nsIContentPolicy::TYPE_FETCH:
-    return MozContentPolicyType::Xmlhttprequest;
-  case nsIContentPolicy::TYPE_XBL:
-    return MozContentPolicyType::Xbl;
-  case nsIContentPolicy::TYPE_XSLT:
-    return MozContentPolicyType::Xslt;
-  case nsIContentPolicy::TYPE_PING:
-    return MozContentPolicyType::Ping;
-  case nsIContentPolicy::TYPE_BEACON:
-    return MozContentPolicyType::Beacon;
-  case nsIContentPolicy::TYPE_DTD:
-    return MozContentPolicyType::Xml_dtd;
-  case nsIContentPolicy::TYPE_FONT:
-    return MozContentPolicyType::Font;
-  case nsIContentPolicy::TYPE_MEDIA:
-    return MozContentPolicyType::Media;
-  case nsIContentPolicy::TYPE_WEBSOCKET:
-    return MozContentPolicyType::Websocket;
-  case nsIContentPolicy::TYPE_CSP_REPORT:
-    return MozContentPolicyType::Csp_report;
-  case nsIContentPolicy::TYPE_IMAGESET:
-    return MozContentPolicyType::Imageset;
-  case nsIContentPolicy::TYPE_WEB_MANIFEST:
-    return MozContentPolicyType::Web_manifest;
-  default:
-    return MozContentPolicyType::Other;
+    case nsIContentPolicy::TYPE_DOCUMENT:
+      return MozContentPolicyType::Main_frame;
+    case nsIContentPolicy::TYPE_SUBDOCUMENT:
+      return MozContentPolicyType::Sub_frame;
+    case nsIContentPolicy::TYPE_STYLESHEET:
+      return MozContentPolicyType::Stylesheet;
+    case nsIContentPolicy::TYPE_SCRIPT:
+      return MozContentPolicyType::Script;
+    case nsIContentPolicy::TYPE_IMAGE:
+      return MozContentPolicyType::Image;
+    case nsIContentPolicy::TYPE_OBJECT:
+      return MozContentPolicyType::Object;
+    case nsIContentPolicy::TYPE_OBJECT_SUBREQUEST:
+      return MozContentPolicyType::Object_subrequest;
+    case nsIContentPolicy::TYPE_XMLHTTPREQUEST:
+      return MozContentPolicyType::Xmlhttprequest;
+    // TYPE_FETCH returns xmlhttprequest for cross-browser compatibility.
+    case nsIContentPolicy::TYPE_FETCH:
+      return MozContentPolicyType::Xmlhttprequest;
+    case nsIContentPolicy::TYPE_XBL:
+      return MozContentPolicyType::Xbl;
+    case nsIContentPolicy::TYPE_XSLT:
+      return MozContentPolicyType::Xslt;
+    case nsIContentPolicy::TYPE_PING:
+      return MozContentPolicyType::Ping;
+    case nsIContentPolicy::TYPE_BEACON:
+      return MozContentPolicyType::Beacon;
+    case nsIContentPolicy::TYPE_DTD:
+      return MozContentPolicyType::Xml_dtd;
+    case nsIContentPolicy::TYPE_FONT:
+      return MozContentPolicyType::Font;
+    case nsIContentPolicy::TYPE_MEDIA:
+      return MozContentPolicyType::Media;
+    case nsIContentPolicy::TYPE_WEBSOCKET:
+      return MozContentPolicyType::Websocket;
+    case nsIContentPolicy::TYPE_CSP_REPORT:
+      return MozContentPolicyType::Csp_report;
+    case nsIContentPolicy::TYPE_IMAGESET:
+      return MozContentPolicyType::Imageset;
+    case nsIContentPolicy::TYPE_WEB_MANIFEST:
+      return MozContentPolicyType::Web_manifest;
+    default:
+      return MozContentPolicyType::Other;
   }
 }
 
@@ -734,7 +741,6 @@ ChannelWrapper::GetMethod(nsCString& aMethod) const
     Unused << chan->GetRequestMethod(aMethod);
   }
 }
-
 
 /*****************************************************************************
  * ...
@@ -765,8 +771,8 @@ ChannelWrapper::GetStatusLine(nsCString& aRetVal) const
       return;
     }
 
-    aRetVal = nsPrintfCString("HTTP/%u.%u %u %s",
-                              major, minor, status, statusText.get());
+    aRetVal = nsPrintfCString(
+        "HTTP/%u.%u %u %s", major, minor, status, statusText.get());
   }
 }
 
@@ -797,7 +803,7 @@ ChannelWrapper::GetFinalURL(nsString& aRetVal) const
  *****************************************************************************/
 
 nsresult
-FillProxyInfo(MozProxyInfo &aDict, nsIProxyInfo* aProxyInfo)
+FillProxyInfo(MozProxyInfo& aDict, nsIProxyInfo* aProxyInfo)
 {
   MOZ_TRY(aProxyInfo->GetHost(aDict.mHost));
   MOZ_TRY(aProxyInfo->GetPort(&aDict.mPort));
@@ -813,7 +819,8 @@ FillProxyInfo(MozProxyInfo &aDict, nsIProxyInfo* aProxyInfo)
 }
 
 void
-ChannelWrapper::GetProxyInfo(dom::Nullable<MozProxyInfo>& aRetVal, ErrorResult& aRv) const
+ChannelWrapper::GetProxyInfo(dom::Nullable<MozProxyInfo>& aRetVal,
+                             ErrorResult& aRv) const
 {
   nsCOMPtr<nsIProxyInfo> proxyInfo;
   if (nsCOMPtr<nsIProxiedChannel> proxied = QueryChannel()) {
@@ -850,11 +857,12 @@ ChannelWrapper::GetErrorString(nsString& aRetVal) const
   if (nsCOMPtr<nsIChannel> chan = MaybeChannel()) {
     nsCOMPtr<nsISupports> securityInfo;
     Unused << chan->GetSecurityInfo(getter_AddRefs(securityInfo));
-    if (nsCOMPtr<nsITransportSecurityInfo> tsi = do_QueryInterface(securityInfo)) {
+    if (nsCOMPtr<nsITransportSecurityInfo> tsi =
+            do_QueryInterface(securityInfo)) {
       auto errorCode = tsi->GetErrorCode();
       if (psm::IsNSSErrorCode(errorCode)) {
         nsCOMPtr<nsINSSErrorsService> nsserr =
-          do_GetService(NS_NSS_ERRORS_SERVICE_CONTRACTID);
+            do_GetService(NS_NSS_ERRORS_SERVICE_CONTRACTID);
 
         nsresult rv = psm::GetXPCOMFromNSSError(errorCode);
         if (nsserr && NS_SUCCEEDED(nsserr->GetErrorMessage(rv, aRetVal))) {
@@ -900,7 +908,8 @@ NS_IMPL_ISUPPORTS(ChannelWrapper::RequestListener,
                   nsIRequestObserver,
                   nsIThreadRetargetableStreamListener)
 
-ChannelWrapper::RequestListener::~RequestListener() {
+ChannelWrapper::RequestListener::~RequestListener()
+{
   NS_ReleaseOnMainThreadSystemGroup("RequestListener::mChannelWrapper",
                                     mChannelWrapper.forget());
 }
@@ -915,7 +924,8 @@ ChannelWrapper::RequestListener::Init()
 }
 
 NS_IMETHODIMP
-ChannelWrapper::RequestListener::OnStartRequest(nsIRequest *request, nsISupports * aCtxt)
+ChannelWrapper::RequestListener::OnStartRequest(nsIRequest* request,
+                                                nsISupports* aCtxt)
 {
   MOZ_ASSERT(mOrigStreamListener, "Should have mOrigStreamListener");
 
@@ -928,7 +938,8 @@ ChannelWrapper::RequestListener::OnStartRequest(nsIRequest *request, nsISupports
 }
 
 NS_IMETHODIMP
-ChannelWrapper::RequestListener::OnStopRequest(nsIRequest *request, nsISupports *aCtxt,
+ChannelWrapper::RequestListener::OnStopRequest(nsIRequest* request,
+                                               nsISupports* aCtxt,
                                                nsresult aStatus)
 {
   MOZ_ASSERT(mOrigStreamListener, "Should have mOrigStreamListener");
@@ -941,25 +952,28 @@ ChannelWrapper::RequestListener::OnStopRequest(nsIRequest *request, nsISupports 
 }
 
 NS_IMETHODIMP
-ChannelWrapper::RequestListener::OnDataAvailable(nsIRequest *request, nsISupports * aCtxt,
-                                             nsIInputStream * inStr,
-                                             uint64_t sourceOffset, uint32_t count)
+ChannelWrapper::RequestListener::OnDataAvailable(nsIRequest* request,
+                                                 nsISupports* aCtxt,
+                                                 nsIInputStream* inStr,
+                                                 uint64_t sourceOffset,
+                                                 uint32_t count)
 {
   MOZ_ASSERT(mOrigStreamListener, "Should have mOrigStreamListener");
-  return mOrigStreamListener->OnDataAvailable(request, aCtxt, inStr, sourceOffset, count);
+  return mOrigStreamListener->OnDataAvailable(
+      request, aCtxt, inStr, sourceOffset, count);
 }
 
 NS_IMETHODIMP
 ChannelWrapper::RequestListener::CheckListenerChain()
 {
-    MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread!");
-    nsresult rv;
-    nsCOMPtr<nsIThreadRetargetableStreamListener> retargetableListener =
-        do_QueryInterface(mOrigStreamListener, &rv);
-    if (retargetableListener) {
-        return retargetableListener->CheckListenerChain();
-    }
-    return rv;
+  MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread!");
+  nsresult rv;
+  nsCOMPtr<nsIThreadRetargetableStreamListener> retargetableListener =
+      do_QueryInterface(mOrigStreamListener, &rv);
+  if (retargetableListener) {
+    return retargetableListener->CheckListenerChain();
+  }
+  return rv;
 }
 
 /*****************************************************************************
@@ -983,10 +997,10 @@ ChannelWrapper::FireEvent(const nsAString& aType)
 void
 ChannelWrapper::CheckEventListeners()
 {
-  if (!mAddedStreamListener && (HasListenersFor(nsGkAtoms::onerror) ||
-                                HasListenersFor(nsGkAtoms::onstart) ||
-                                HasListenersFor(nsGkAtoms::onstop) ||
-                                mChannelEntry)) {
+  if (!mAddedStreamListener &&
+      (HasListenersFor(nsGkAtoms::onerror) ||
+       HasListenersFor(nsGkAtoms::onstart) ||
+       HasListenersFor(nsGkAtoms::onstop) || mChannelEntry)) {
     auto listener = MakeRefPtr<RequestListener>(this);
     if (!NS_WARN_IF(NS_FAILED(listener->Init()))) {
       mAddedStreamListener = true;
@@ -1022,20 +1036,22 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ChannelWrapper)
   NS_INTERFACE_MAP_ENTRY(ChannelWrapper)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(ChannelWrapper, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(ChannelWrapper,
+                                                DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ChannelWrapper, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ChannelWrapper,
+                                                  DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParent)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(ChannelWrapper, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(ChannelWrapper,
+                                               DOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_ADDREF_INHERITED(ChannelWrapper, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(ChannelWrapper, DOMEventTargetHelper)
 
-} // namespace extensions
-} // namespace mozilla
-
+}  // namespace extensions
+}  // namespace mozilla

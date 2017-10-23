@@ -15,7 +15,7 @@ using namespace mozilla;
 
 class nsThreadSafeAutoRefCntRunner final : public nsIRunnable
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   NS_IMETHOD Run() final
@@ -35,7 +35,7 @@ public:
   static Atomic<uint32_t, Relaxed> sIncToOne;
   static Atomic<uint32_t, Relaxed> sDecToZero;
 
-private:
+ private:
   ~nsThreadSafeAutoRefCntRunner() {}
 };
 

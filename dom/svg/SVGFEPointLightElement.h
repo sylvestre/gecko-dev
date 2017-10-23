@@ -10,8 +10,9 @@
 #include "nsSVGFilters.h"
 #include "nsSVGNumber2.h"
 
-nsresult NS_NewSVGFEPointLightElement(nsIContent **aResult,
-                                      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGFEPointLightElement(
+    nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 namespace dom {
@@ -20,21 +21,27 @@ typedef SVGFELightElement SVGFEPointLightElementBase;
 
 class SVGFEPointLightElement : public SVGFEPointLightElementBase
 {
-  friend nsresult (::NS_NewSVGFEPointLightElement(nsIContent **aResult,
-                                                  already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
-protected:
-  explicit SVGFEPointLightElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGFEPointLightElementBase(aNodeInfo)
+  friend nsresult(::NS_NewSVGFEPointLightElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+
+ protected:
+  explicit SVGFEPointLightElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGFEPointLightElementBase(aNodeInfo)
   {
   }
-  virtual JSObject* WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* cx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
-  virtual AttributeMap ComputeLightAttributes(nsSVGFilterInstance* aInstance) override;
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const override;
+ public:
+  virtual AttributeMap ComputeLightAttributes(
+      nsSVGFilterInstance* aInstance) override;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL
@@ -42,15 +49,20 @@ public:
   already_AddRefed<SVGAnimatedNumber> Y();
   already_AddRefed<SVGAnimatedNumber> Z();
 
-protected:
+ protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
 
-  enum { ATTR_X, ATTR_Y, ATTR_Z };
+  enum
+  {
+    ATTR_X,
+    ATTR_Y,
+    ATTR_Z
+  };
   nsSVGNumber2 mNumberAttributes[3];
   static NumberInfo sNumberInfo[3];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGFEPointLightElement_h
+#endif  // mozilla_dom_SVGFEPointLightElement_h

@@ -19,12 +19,10 @@ namespace dom {
 // http://lxr.mozilla.org/classic/source/lib/layout/laytable.c#46
 #define MAX_COLSPAN 1000
 
-HTMLTableColElement::~HTMLTableColElement()
-{
-}
+HTMLTableColElement::~HTMLTableColElement() {}
 
 JSObject*
-HTMLTableColElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLTableColElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLTableColElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -58,13 +56,13 @@ HTMLTableColElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
-HTMLTableColElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
-                                           GenericSpecifiedValues* aData)
+HTMLTableColElement::MapAttributesIntoRule(
+    const nsMappedAttributes* aAttributes, GenericSpecifiedValues* aData)
 {
   if (aData->ShouldComputeStyleStruct(NS_STYLE_INHERIT_BIT(Table))) {
     if (!aData->PropertyIsSet(eCSSProperty__x_span)) {
@@ -91,22 +89,19 @@ HTMLTableColElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes
 NS_IMETHODIMP_(bool)
 HTMLTableColElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
-  static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::width },
-    { &nsGkAtoms::align },
-    { &nsGkAtoms::valign },
-    { &nsGkAtoms::span },
-    { nullptr }
-  };
+  static const MappedAttributeEntry attributes[] = {{&nsGkAtoms::width},
+                                                    {&nsGkAtoms::align},
+                                                    {&nsGkAtoms::valign},
+                                                    {&nsGkAtoms::span},
+                                                    {nullptr}};
 
   static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sCommonAttributeMap,
+      attributes,
+      sCommonAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
 }
-
 
 nsMapRuleToAttributesFunc
 HTMLTableColElement::GetAttributeMappingFunction() const
@@ -114,5 +109,5 @@ HTMLTableColElement::GetAttributeMappingFunction() const
   return &MapAttributesIntoRule;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

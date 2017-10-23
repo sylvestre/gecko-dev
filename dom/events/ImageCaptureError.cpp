@@ -21,15 +21,11 @@ NS_INTERFACE_MAP_END
 ImageCaptureError::ImageCaptureError(nsISupports* aParent,
                                      uint16_t aCode,
                                      const nsAString& aMessage)
-  : mParent(aParent)
-  , mMessage(aMessage)
-  , mCode(aCode)
+    : mParent(aParent), mMessage(aMessage), mCode(aCode)
 {
 }
 
-ImageCaptureError::~ImageCaptureError()
-{
-}
+ImageCaptureError::~ImageCaptureError() {}
 
 nsISupports*
 ImageCaptureError::GetParentObject() const
@@ -55,5 +51,5 @@ ImageCaptureError::GetMessage(nsAString& retval) const
   retval = mMessage;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

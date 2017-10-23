@@ -18,10 +18,14 @@
 namespace mozilla {
 
 extern LazyLogModule gMediaDecoderLog;
-#define SINK_LOG(msg, ...) \
-  MOZ_LOG(gMediaDecoderLog, LogLevel::Debug, ("AudioSink=%p " msg, this, ##__VA_ARGS__))
+#define SINK_LOG(msg, ...)  \
+  MOZ_LOG(gMediaDecoderLog, \
+          LogLevel::Debug,  \
+          ("AudioSink=%p " msg, this, ##__VA_ARGS__))
 #define SINK_LOG_V(msg, ...) \
-  MOZ_LOG(gMediaDecoderLog, LogLevel::Verbose, ("AudioSink=%p " msg, this, ##__VA_ARGS__))
+  MOZ_LOG(gMediaDecoderLog,  \
+          LogLevel::Verbose, \
+          ("AudioSink=%p " msg, this, ##__VA_ARGS__))
 
 namespace media {
 
@@ -35,18 +39,18 @@ AudioSink::AudioSink(AbstractThread* aThread,
                      MediaQueue<AudioData>& aAudioQueue,
                      const TimeUnit& aStartTime,
                      const AudioInfo& aInfo)
-  : mStartTime(aStartTime)
-  , mInfo(aInfo)
-  , mPlaying(true)
-  , mMonitor("AudioSink")
-  , mWritten(0)
-  , mErrored(false)
-  , mPlaybackComplete(false)
-  , mOwnerThread(aThread)
-  , mProcessedQueueLength(0)
-  , mFramesParsed(0)
-  , mIsAudioDataAudible(false)
-  , mAudioQueue(aAudioQueue)
+    : mStartTime(aStartTime),
+      mInfo(aInfo),
+      mPlaying(true),
+      mMonitor("AudioSink"),
+      mWritten(0),
+      mErrored(false),
+      mPlaybackComplete(false),
+      mOwnerThread(aThread),
+      mProcessedQueueLength(0),
+      mFramesParsed(0),
+      mIsAudioDataAudible(false),
+      mAudioQueue(aAudioQueue)
 {
   bool resampling = MediaPrefs::AudioSinkResampling();
 
@@ -67,14 +71,12 @@ AudioSink::AudioSink(AbstractThread* aThread,
   bool monoAudioEnabled = MediaPrefs::MonoAudio();
 
   mOutputChannels =
-    monoAudioEnabled
-    ? 1
-    : (MediaPrefs::AudioSinkForceStereo() ? 2 : mInfo.mChannels);
+      monoAudioEnabled
+          ? 1
+          : (MediaPrefs::AudioSinkForceStereo() ? 2 : mInfo.mChannels);
 }
 
-AudioSink::~AudioSink()
-{
-}
+AudioSink::~AudioSink() {}
 
 RefPtr<GenericPromise>
 AudioSink::Init(const PlaybackParams& aParams)
@@ -82,11 +84,11 @@ AudioSink::Init(const PlaybackParams& aParams)
   MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
 
   mAudioQueueListener = mAudioQueue.PushEvent().Connect(
-    mOwnerThread, this, &AudioSink::OnAudioPushed);
+      mOwnerThread, this, &AudioSink::OnAudioPushed);
   mAudioQueueFinishListener = mAudioQueue.FinishEvent().Connect(
-    mOwnerThread, this, &AudioSink::NotifyAudioNeeded);
+      mOwnerThread, this, &AudioSink::NotifyAudioNeeded);
   mProcessedQueueListener = mProcessedQueue.PopEvent().Connect(
-    mOwnerThread, this, &AudioSink::OnAudioPopped);
+      mOwnerThread, this, &AudioSink::OnAudioPopped);
 
   // To ensure at least one audio packet will be popped from AudioQueue and
   // ready to be played.
@@ -103,8 +105,7 @@ TimeUnit
 AudioSink::GetPosition()
 {
   int64_t tmp;
-  if (mAudioStream &&
-      (tmp = mAudioStream->GetPosition()) >= 0) {
+  if (mAudioStream && (tmp = mAudioStream->GetPosition()) >= 0) {
     TimeUnit pos = TimeUnit::FromMicroseconds(tmp);
     NS_ASSERTION(pos >= mLastGoodPosition,
                  "AudioStream position shouldn't go backward");
@@ -160,7 +161,8 @@ AudioSink::SetVolume(double aVolume)
 void
 AudioSink::SetPlaybackRate(double aPlaybackRate)
 {
-  MOZ_ASSERT(aPlaybackRate != 0, "Don't set the playbackRate to 0 on AudioStream");
+  MOZ_ASSERT(aPlaybackRate != 0,
+             "Don't set the playbackRate to 0 on AudioStream");
   if (mAudioStream) {
     mAudioStream->SetPlaybackRate(aPlaybackRate);
   }
@@ -195,9 +197,9 @@ AudioSink::InitializeAudioStream(const PlaybackParams& aParams)
   mAudioStream = new AudioStream(*this);
   // When AudioQueue is empty, there is no way to know the channel layout of
   // the coming audio data, so we use the predefined channel map instead.
-  uint32_t channelMap = mConverter
-                        ? mConverter->OutputConfig().Layout().Map()
-                        : AudioStream::GetPreferredChannelMap(mOutputChannels);
+  uint32_t channelMap =
+      mConverter ? mConverter->OutputConfig().Layout().Map()
+                 : AudioStream::GetPreferredChannelMap(mOutputChannels);
   // The layout map used here is already processed by mConverter with
   // mOutputChannels into SMPTE format, so there is no need to worry if
   // MediaPrefs::MonoAudio() or MediaPrefs::AudioSinkForceStereo() is applied.
@@ -239,17 +241,21 @@ AudioSink::GetEndTime() const
 UniquePtr<AudioStream::Chunk>
 AudioSink::PopFrames(uint32_t aFrames)
 {
-  class Chunk : public AudioStream::Chunk {
-  public:
+  class Chunk : public AudioStream::Chunk
+  {
+   public:
     Chunk(AudioData* aBuffer, uint32_t aFrames, AudioDataValue* aData)
-      : mBuffer(aBuffer), mFrames(aFrames), mData(aData) {}
+        : mBuffer(aBuffer), mFrames(aFrames), mData(aData)
+    {
+    }
     Chunk() : mFrames(0), mData(nullptr) {}
     const AudioDataValue* Data() const { return mData; }
     uint32_t Frames() const { return mFrames; }
-    uint32_t Channels() const { return mBuffer ? mBuffer->mChannels: 0; }
+    uint32_t Channels() const { return mBuffer ? mBuffer->mChannels : 0; }
     uint32_t Rate() const { return mBuffer ? mBuffer->mRate : 0; }
     AudioDataValue* GetWritable() const { return mData; }
-  private:
+
+   private:
     const RefPtr<AudioData> mBuffer;
     const uint32_t mFrames;
     AudioDataValue* const mData;
@@ -277,17 +283,18 @@ AudioSink::PopFrames(uint32_t aFrames)
     }
     MOZ_ASSERT(mCurrentData->mFrames > 0);
     mProcessedQueueLength -=
-      FramesToUsecs(mCurrentData->mFrames, mOutputRate).value();
+        FramesToUsecs(mCurrentData->mFrames, mOutputRate).value();
   }
 
   auto framesToPop = std::min(aFrames, mCursor->Available());
 
   SINK_LOG_V("playing audio at time=%" PRId64 " offset=%u length=%u",
              mCurrentData->mTime.ToMicroseconds(),
-             mCurrentData->mFrames - mCursor->Available(), framesToPop);
+             mCurrentData->mFrames - mCursor->Available(),
+             framesToPop);
 
   UniquePtr<AudioStream::Chunk> chunk =
-    MakeUnique<Chunk>(mCurrentData, framesToPop, mCursor->Ptr());
+      MakeUnique<Chunk>(mCurrentData, framesToPop, mCursor->Ptr());
 
   {
     MonitorAutoLock mon(mMonitor);
@@ -360,9 +367,9 @@ AudioSink::NotifyAudioNeeded()
 
   // Always ensure we have two processed frames pending to allow for processing
   // latency.
-  while (mAudioQueue.GetSize() && (mAudioQueue.IsFinished() ||
-                                    mProcessedQueueLength < LOW_AUDIO_USECS ||
-                                    mProcessedQueue.GetSize() < 2)) {
+  while (mAudioQueue.GetSize() &&
+         (mAudioQueue.IsFinished() || mProcessedQueueLength < LOW_AUDIO_USECS ||
+          mProcessedQueue.GetSize() < 2)) {
     RefPtr<AudioData> data = mAudioQueue.PopFront();
 
     // Ignore the element with 0 frames and try next.
@@ -374,9 +381,10 @@ AudioSink::NotifyAudioNeeded()
         (data->mRate != mConverter->InputConfig().Rate() ||
          data->mChannels != mConverter->InputConfig().Channels())) {
       SINK_LOG_V("Audio format changed from %u@%uHz to %u@%uHz",
-                 mConverter? mConverter->InputConfig().Channels() : 0,
+                 mConverter ? mConverter->InputConfig().Channels() : 0,
                  mConverter ? mConverter->InputConfig().Rate() : 0,
-                 data->mChannels, data->mRate);
+                 data->mChannels,
+                 data->mRate);
 
       DrainConverter();
 
@@ -396,9 +404,8 @@ AudioSink::NotifyAudioNeeded()
       }
 
       mConverter =
-        MakeUnique<AudioConverter>(
-          AudioConfig(data->mChannels, data->mRate),
-          AudioConfig(mOutputChannels, mOutputRate));
+          MakeUnique<AudioConverter>(AudioConfig(data->mChannels, data->mRate),
+                                     AudioConfig(mOutputChannels, mOutputRate));
     }
 
     // See if there's a gap in the audio. If there is, push silence into the
@@ -406,7 +413,7 @@ AudioSink::NotifyAudioNeeded()
     // Calculate the timestamp of the next chunk of audio in numbers of
     // samples.
     CheckedInt64 sampleTime =
-      TimeUnitToFrames(data->mTime - mStartTime, data->mRate);
+        TimeUnitToFrames(data->mTime - mStartTime, data->mRate);
     // Calculate the number of frames that have been pushed onto the audio hardware.
     CheckedInt64 missingFrames = sampleTime - mFramesParsed;
 
@@ -426,14 +433,15 @@ AudioSink::NotifyAudioNeeded()
 
       RefPtr<AudioData> silenceData;
       AlignedAudioBuffer silenceBuffer(missingFrames.value() * data->mChannels);
-       if (!silenceBuffer) {
-         NS_WARNING("OOM in AudioSink");
-         mErrored = true;
-         return;
-       }
+      if (!silenceBuffer) {
+        NS_WARNING("OOM in AudioSink");
+        mErrored = true;
+        return;
+      }
       if (mConverter->InputConfig() != mConverter->OutputConfig()) {
         AlignedAudioBuffer convertedData =
-          mConverter->Process(AudioSampleBuffer(Move(silenceBuffer))).Forget();
+            mConverter->Process(AudioSampleBuffer(Move(silenceBuffer)))
+                .Forget();
         silenceData = CreateAudioFromBuffer(Move(convertedData), data);
       } else {
         silenceData = CreateAudioFromBuffer(Move(silenceBuffer), data);
@@ -451,7 +459,7 @@ AudioSink::NotifyAudioNeeded()
       buffer.SetLength(size_t(data->mFrames) * data->mChannels);
 
       AlignedAudioBuffer convertedData =
-        mConverter->Process(AudioSampleBuffer(Move(buffer))).Forget();
+          mConverter->Process(AudioSampleBuffer(Move(buffer))).Forget();
       data = CreateAudioFromBuffer(Move(convertedData), data);
     }
     if (PushProcessedAudio(data)) {
@@ -491,14 +499,13 @@ AudioSink::CreateAudioFromBuffer(AlignedAudioBuffer&& aBuffer,
     mErrored = true;
     return nullptr;
   }
-  RefPtr<AudioData> data =
-    new AudioData(aReference->mOffset,
-                  aReference->mTime,
-                  duration,
-                  frames,
-                  Move(aBuffer),
-                  mOutputChannels,
-                  mOutputRate);
+  RefPtr<AudioData> data = new AudioData(aReference->mOffset,
+                                         aReference->mTime,
+                                         duration,
+                                         frames,
+                                         Move(aBuffer),
+                                         mOutputChannels,
+                                         mOutputRate);
   return data.forget();
 }
 
@@ -517,17 +524,18 @@ AudioSink::DrainConverter(uint32_t aMaxFrames)
 
   // To drain we simply provide an empty packet to the audio converter.
   AlignedAudioBuffer convertedData =
-    mConverter->Process(AudioSampleBuffer(AlignedAudioBuffer())).Forget();
+      mConverter->Process(AudioSampleBuffer(AlignedAudioBuffer())).Forget();
 
   uint32_t frames = convertedData.Length() / mOutputChannels;
-  if (!convertedData.SetLength(std::min(frames, aMaxFrames) * mOutputChannels)) {
+  if (!convertedData.SetLength(std::min(frames, aMaxFrames) *
+                               mOutputChannels)) {
     // This can never happen as we were reducing the length of convertData.
     mErrored = true;
     return 0;
   }
 
   RefPtr<AudioData> data =
-    CreateAudioFromBuffer(Move(convertedData), lastPacket);
+      CreateAudioFromBuffer(Move(convertedData), lastPacket);
   if (!data) {
     return 0;
   }
@@ -535,5 +543,5 @@ AudioSink::DrainConverter(uint32_t aMaxFrames)
   return data->mFrames;
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla

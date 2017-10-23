@@ -29,7 +29,7 @@ class nsCCUncollectableMarker final : public nsIObserver
     return aGeneration && aGeneration == sGeneration;
   }
 
-  template <class CCCallback>
+  template<class CCCallback>
   static bool InGeneration(CCCallback& aCb, uint32_t aGeneration)
   {
     return InGeneration(aGeneration) && !aCb.WantAllTraces();
@@ -37,15 +37,16 @@ class nsCCUncollectableMarker final : public nsIObserver
 
   static uint32_t sGeneration;
 
-private:
+ private:
   nsCCUncollectableMarker() {}
   ~nsCCUncollectableMarker() {}
 };
 
 namespace mozilla {
 namespace dom {
-void TraceBlackJS(JSTracer* aTrc, uint32_t aGCNumber, bool aIsShutdownGC);
-} // namespace dom
-} // namespace mozilla
+void
+TraceBlackJS(JSTracer* aTrc, uint32_t aGCNumber, bool aIsShutdownGC);
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

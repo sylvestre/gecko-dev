@@ -27,6 +27,6 @@ ToString(const T& aValue)
   return stream.str();
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_ToString_h */

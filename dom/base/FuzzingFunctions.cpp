@@ -26,5 +26,5 @@ FuzzingFunctions::CycleCollect(const GlobalObject&)
   nsJSContext::CycleCollectNow();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

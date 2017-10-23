@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <time.h> // for clockid_t
+#include <time.h>  // for clockid_t
 
 #include "mozilla/Assertions.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -35,11 +35,11 @@ namespace mozilla {
 StaticAutoPtr<SandboxReporter> SandboxReporter::sSingleton;
 
 SandboxReporter::SandboxReporter()
-  : mClientFd(-1)
-  , mServerFd(-1)
-  , mMutex("SandboxReporter")
-  , mBuffer(MakeUnique<SandboxReport[]>(kSandboxReporterBufferSize))
-  , mCount(0)
+    : mClientFd(-1),
+      mServerFd(-1),
+      mMutex("SandboxReporter"),
+      mBuffer(MakeUnique<SandboxReport[]>(kSandboxReporterBufferSize)),
+      mCount(0)
 {
 }
 
@@ -50,7 +50,7 @@ SandboxReporter::Init()
 
   if (0 != socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, fds)) {
     SANDBOX_LOG_ERROR("SandboxReporter: socketpair failed: %s",
-		      strerror(errno));
+                      strerror(errno));
     return false;
   }
   mClientFd = fds[0];
@@ -101,7 +101,7 @@ SandboxReporter::Singleton()
     // non-main XPCOM threads will also be shut down, and currently
     // the only other user is the main-thread-only Troubleshoot.jsm.
     NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "SandboxReporter::Singleton", [] { ClearOnShutdown(&sSingleton); }));
+        "SandboxReporter::Singleton", [] { ClearOnShutdown(&sSingleton); }));
   }
   return sSingleton.get();
 }
@@ -133,92 +133,92 @@ SubmitToTelemetry(const SandboxReport& aReport)
   // * "content:clock_gettime:4"  (bug 1334687)
 
   switch (aReport.mProcType) {
-  case SandboxReport::ProcType::CONTENT:
-    key.AppendLiteral("content");
-    break;
-  case SandboxReport::ProcType::MEDIA_PLUGIN:
-    key.AppendLiteral("gmp");
-    break;
-  case SandboxReport::ProcType::FILE:
-    key.AppendLiteral("file");
-    break;
-  default:
-    MOZ_ASSERT(false);
+    case SandboxReport::ProcType::CONTENT:
+      key.AppendLiteral("content");
+      break;
+    case SandboxReport::ProcType::MEDIA_PLUGIN:
+      key.AppendLiteral("gmp");
+      break;
+    case SandboxReport::ProcType::FILE:
+      key.AppendLiteral("file");
+      break;
+    default:
+      MOZ_ASSERT(false);
   }
   key.Append(':');
 
-  switch(aReport.mSyscall) {
-    // Syscalls that are filtered by arguments in one or more of the
-    // policies in SandboxFilter.cpp should generally have those
-    // arguments included here, but don't include irrelevant
-    // information that would cause large numbers of distinct keys for
-    // the same issue -- for example, pids or pointers.  When in
-    // doubt, include arguments only if they would typically be
-    // constants (or asm immediates) in the code making the syscall.
-    //
-    // Also, keep in mind that this is opt-out data collection and
-    // privacy is critical.  While it's unlikely that information in
-    // the register values alone could personally identify a user
-    // (see also crash reports, where register contents are public),
-    // and the guidelines in the previous paragraph should rule out
-    // any value that's capable of holding PII, please be careful.
-    //
-    // When making changes here, please consult with a data steward
-    // (https://wiki.mozilla.org/Firefox/Data_Collection) and ask for
-    // a review if you are unsure about anything.
+  switch (aReport.mSyscall) {
+  // Syscalls that are filtered by arguments in one or more of the
+  // policies in SandboxFilter.cpp should generally have those
+  // arguments included here, but don't include irrelevant
+  // information that would cause large numbers of distinct keys for
+  // the same issue -- for example, pids or pointers.  When in
+  // doubt, include arguments only if they would typically be
+  // constants (or asm immediates) in the code making the syscall.
+  //
+  // Also, keep in mind that this is opt-out data collection and
+  // privacy is critical.  While it's unlikely that information in
+  // the register values alone could personally identify a user
+  // (see also crash reports, where register contents are public),
+  // and the guidelines in the previous paragraph should rule out
+  // any value that's capable of holding PII, please be careful.
+  //
+  // When making changes here, please consult with a data steward
+  // (https://wiki.mozilla.org/Firefox/Data_Collection) and ask for
+  // a review if you are unsure about anything.
 
-    // This macro includes one argument as a decimal number; it should
-    // be enough for most cases.
-#define ARG_DECIMAL(name, idx)           \
-    case __NR_##name:                    \
-      key.AppendLiteral(#name ":");      \
-      key.AppendInt(aReport.mArgs[idx]); \
-      break
+  // This macro includes one argument as a decimal number; it should
+  // be enough for most cases.
+#define ARG_DECIMAL(name, idx)         \
+  case __NR_##name:                    \
+    key.AppendLiteral(#name ":");      \
+    key.AppendInt(aReport.mArgs[idx]); \
+    break
 
-    // This may be more convenient if the argument is a set of bit flags.
-#define ARG_HEX(name, idx)                    \
-    case __NR_##name:                         \
-      key.AppendLiteral(#name ":0x");         \
-      key.AppendInt(aReport.mArgs[idx], 16);  \
-      break
+  // This may be more convenient if the argument is a set of bit flags.
+#define ARG_HEX(name, idx)                 \
+  case __NR_##name:                        \
+    key.AppendLiteral(#name ":0x");        \
+    key.AppendInt(aReport.mArgs[idx], 16); \
+    break
 
-    // clockid_t is annoying: there are a small set of fixed timers,
-    // but it can also encode a pid/tid (or a fd for a hardware clock
-    // device); in this case the value is negative.
-#define ARG_CLOCKID(name, idx)                              \
-    case __NR_##name:                                       \
-      key.AppendLiteral(#name ":");                         \
-      if (static_cast<clockid_t>(aReport.mArgs[idx]) < 0) { \
-        key.AppendLiteral("dynamic");                       \
-      } else {                                              \
-        key.AppendInt(aReport.mArgs[idx]);                  \
-      }                                                     \
-      break
+  // clockid_t is annoying: there are a small set of fixed timers,
+  // but it can also encode a pid/tid (or a fd for a hardware clock
+  // device); in this case the value is negative.
+#define ARG_CLOCKID(name, idx)                            \
+  case __NR_##name:                                       \
+    key.AppendLiteral(#name ":");                         \
+    if (static_cast<clockid_t>(aReport.mArgs[idx]) < 0) { \
+      key.AppendLiteral("dynamic");                       \
+    } else {                                              \
+      key.AppendInt(aReport.mArgs[idx]);                  \
+    }                                                     \
+    break
 
     // The syscalls handled specially:
 
-    ARG_HEX(clone, 0); // flags
-    ARG_DECIMAL(prctl, 0); // option
-    ARG_HEX(ioctl, 1); // request
-    ARG_DECIMAL(fcntl, 1); // cmd
-    ARG_DECIMAL(madvise, 2); // advice
-    ARG_CLOCKID(clock_gettime, 0); // clk_id
+    ARG_HEX(clone, 0);              // flags
+    ARG_DECIMAL(prctl, 0);          // option
+    ARG_HEX(ioctl, 1);              // request
+    ARG_DECIMAL(fcntl, 1);          // cmd
+    ARG_DECIMAL(madvise, 2);        // advice
+    ARG_CLOCKID(clock_gettime, 0);  // clk_id
 
 #ifdef __NR_socketcall
-    ARG_DECIMAL(socketcall, 0); // call
+    ARG_DECIMAL(socketcall, 0);  // call
 #endif
 #ifdef __NR_ipc
-    ARG_DECIMAL(ipc, 0); // call
+    ARG_DECIMAL(ipc, 0);  // call
 #endif
 
 #undef ARG_DECIMAL
 #undef ARG_HEX
 #undef ARG_CLOCKID
 
-  default:
-    // Otherwise just use the number, with the arch name to disambiguate.
-    key.Append(SANDBOX_ARCH_NAME "/");
-    key.AppendInt(aReport.mSyscall);
+    default:
+      // Otherwise just use the number, with the arch name to disambiguate.
+      key.Append(SANDBOX_ARCH_NAME "/");
+      key.AppendInt(aReport.mSyscall);
   }
 
   Telemetry::Accumulate(Telemetry::SANDBOX_REJECTED_SYSCALLS, key);
@@ -251,7 +251,7 @@ SandboxReporter::ThreadMain(void)
     const auto recvd = recvmsg(mServerFd, &msg, 0);
     if (recvd < 0) {
       if (errno == EINTR) {
-	continue;
+        continue;
       }
       SANDBOX_LOG_ERROR("SandboxReporter: recvmsg: %s", strerror(errno));
     }
@@ -260,8 +260,8 @@ SandboxReporter::ThreadMain(void)
     }
 
     if (static_cast<size_t>(recvd) < sizeof(rep)) {
-      SANDBOX_LOG_ERROR("SandboxReporter: packet too short (%d < %d)",
-			recvd, sizeof(rep));
+      SANDBOX_LOG_ERROR(
+          "SandboxReporter: packet too short (%d < %d)", recvd, sizeof(rep));
       continue;
     }
     if (msg.msg_flags & MSG_TRUNC) {
@@ -296,4 +296,4 @@ SandboxReporter::GetSnapshot()
   return Move(snapshot);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

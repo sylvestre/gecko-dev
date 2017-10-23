@@ -25,9 +25,11 @@ class HTMLTableAccessibleWrap : public HTMLTableAccessible,
 {
   ~HTMLTableAccessibleWrap() {}
 
-public:
-  HTMLTableAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc) :
-    HTMLTableAccessible(aContent, aDoc), ia2AccessibleTable(this)  {}
+ public:
+  HTMLTableAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : HTMLTableAccessible(aContent, aDoc), ia2AccessibleTable(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -37,7 +39,6 @@ public:
 
   virtual void Shutdown() override;
 };
-
 
 /**
  * IA2 wrapper class for HTMLTableCellAccessible implementing
@@ -48,9 +49,11 @@ class HTMLTableCellAccessibleWrap : public HTMLTableCellAccessible,
 {
   ~HTMLTableCellAccessibleWrap() {}
 
-public:
-  HTMLTableCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc) :
-    HTMLTableCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this) {}
+ public:
+  HTMLTableCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : HTMLTableCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -60,7 +63,6 @@ public:
 
   virtual void Shutdown() override;
 };
-
 
 /**
  * IA2 wrapper class for HTMLTableHeaderCellAccessible implementing
@@ -71,11 +73,12 @@ class HTMLTableHeaderCellAccessibleWrap : public HTMLTableHeaderCellAccessible,
 {
   ~HTMLTableHeaderCellAccessibleWrap() {}
 
-public:
-  HTMLTableHeaderCellAccessibleWrap(nsIContent* aContent,
-                                    DocAccessible* aDoc) :
-    HTMLTableHeaderCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this)
-  {}
+ public:
+  HTMLTableHeaderCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : HTMLTableHeaderCellAccessible(aContent, aDoc),
+        ia2AccessibleTableCell(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -86,8 +89,7 @@ public:
   virtual void Shutdown() override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

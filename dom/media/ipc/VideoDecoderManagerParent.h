@@ -15,13 +15,15 @@ class VideoDecoderManagerThreadHolder;
 
 class VideoDecoderManagerParent final : public PVideoDecoderManagerParent
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VideoDecoderManagerParent)
 
-  static bool CreateForContent(Endpoint<PVideoDecoderManagerParent>&& aEndpoint);
+  static bool CreateForContent(
+      Endpoint<PVideoDecoderManagerParent>&& aEndpoint);
 
   // Can be called from any thread
-  SurfaceDescriptorGPUVideo StoreImage(layers::Image* aImage, layers::TextureClient* aTexture);
+  SurfaceDescriptorGPUVideo StoreImage(layers::Image* aImage,
+                                       layers::TextureClient* aTexture);
 
   static void StartupThreads();
   static void ShutdownThreads();
@@ -30,25 +32,29 @@ public:
 
   bool OnManagerThread();
 
-protected:
-  PVideoDecoderParent* AllocPVideoDecoderParent(const VideoInfo& aVideoInfo,
-                                                const float& aFramerate,
-                                                const layers::TextureFactoryIdentifier& aIdentifier,
-                                                bool* aSuccess,
-                                                nsCString* aBlacklistedD3D11Driver,
-                                                nsCString* aBlacklistedD3D9Driver,
-                                                nsCString* aErrorDescription) override;
+ protected:
+  PVideoDecoderParent* AllocPVideoDecoderParent(
+      const VideoInfo& aVideoInfo,
+      const float& aFramerate,
+      const layers::TextureFactoryIdentifier& aIdentifier,
+      bool* aSuccess,
+      nsCString* aBlacklistedD3D11Driver,
+      nsCString* aBlacklistedD3D9Driver,
+      nsCString* aErrorDescription) override;
   bool DeallocPVideoDecoderParent(PVideoDecoderParent* actor) override;
 
-  mozilla::ipc::IPCResult RecvReadback(const SurfaceDescriptorGPUVideo& aSD, SurfaceDescriptor* aResult) override;
-  mozilla::ipc::IPCResult RecvDeallocateSurfaceDescriptorGPUVideo(const SurfaceDescriptorGPUVideo& aSD) override;
+  mozilla::ipc::IPCResult RecvReadback(const SurfaceDescriptorGPUVideo& aSD,
+                                       SurfaceDescriptor* aResult) override;
+  mozilla::ipc::IPCResult RecvDeallocateSurfaceDescriptorGPUVideo(
+      const SurfaceDescriptorGPUVideo& aSD) override;
 
   void ActorDestroy(mozilla::ipc::IProtocol::ActorDestroyReason) override;
 
   void DeallocPVideoDecoderManagerParent() override;
 
-private:
-  explicit VideoDecoderManagerParent(VideoDecoderManagerThreadHolder* aThreadHolder);
+ private:
+  explicit VideoDecoderManagerParent(
+      VideoDecoderManagerThreadHolder* aThreadHolder);
   ~VideoDecoderManagerParent();
 
   void Open(Endpoint<PVideoDecoderManagerParent>&& aEndpoint);
@@ -59,7 +65,7 @@ private:
   RefPtr<VideoDecoderManagerThreadHolder> mThreadHolder;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // include_dom_ipc_VideoDecoderManagerParent_h
+#endif  // include_dom_ipc_VideoDecoderManagerParent_h

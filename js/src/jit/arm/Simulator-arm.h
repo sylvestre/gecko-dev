@@ -56,10 +56,10 @@ typedef void (*SingleStepCallback)(void* arg, Simulator* sim, void* pc);
 
 // VFP rounding modes. See ARM DDI 0406B Page A2-29.
 enum VFPRoundingMode {
-    SimRN = 0 << 22,   // Round to Nearest.
-    SimRP = 1 << 22,   // Round towards Plus Infinity.
-    SimRM = 2 << 22,   // Round towards Minus Infinity.
-    SimRZ = 3 << 22,   // Round towards zero.
+    SimRN = 0 << 22,  // Round to Nearest.
+    SimRP = 1 << 22,  // Round towards Plus Infinity.
+    SimRM = 2 << 22,  // Round towards Minus Infinity.
+    SimRZ = 3 << 22,  // Round towards zero.
 
     // Aliases.
     kRoundToNearest = SimRN,
@@ -74,32 +74,115 @@ typedef int32_t Instr;
 class SimInstruction;
 
 // Per thread simulator state.
-class Simulator
-{
-  public:
+class Simulator {
+   public:
     friend class ArmDebugger;
     enum Register {
         no_reg = -1,
-        r0 = 0, r1, r2, r3, r4, r5, r6, r7,
-        r8, r9, r10, r11, r12, r13, r14, r15,
+        r0 = 0,
+        r1,
+        r2,
+        r3,
+        r4,
+        r5,
+        r6,
+        r7,
+        r8,
+        r9,
+        r10,
+        r11,
+        r12,
+        r13,
+        r14,
+        r15,
         num_registers,
         fp = 11,
         ip = 12,
         sp = 13,
         lr = 14,
         pc = 15,
-        s0 = 0, s1, s2, s3, s4, s5, s6, s7,
-        s8, s9, s10, s11, s12, s13, s14, s15,
-        s16, s17, s18, s19, s20, s21, s22, s23,
-        s24, s25, s26, s27, s28, s29, s30, s31,
+        s0 = 0,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        s8,
+        s9,
+        s10,
+        s11,
+        s12,
+        s13,
+        s14,
+        s15,
+        s16,
+        s17,
+        s18,
+        s19,
+        s20,
+        s21,
+        s22,
+        s23,
+        s24,
+        s25,
+        s26,
+        s27,
+        s28,
+        s29,
+        s30,
+        s31,
         num_s_registers = 32,
-        d0 = 0, d1, d2, d3, d4, d5, d6, d7,
-        d8, d9, d10, d11, d12, d13, d14, d15,
-        d16, d17, d18, d19, d20, d21, d22, d23,
-        d24, d25, d26, d27, d28, d29, d30, d31,
+        d0 = 0,
+        d1,
+        d2,
+        d3,
+        d4,
+        d5,
+        d6,
+        d7,
+        d8,
+        d9,
+        d10,
+        d11,
+        d12,
+        d13,
+        d14,
+        d15,
+        d16,
+        d17,
+        d18,
+        d19,
+        d20,
+        d21,
+        d22,
+        d23,
+        d24,
+        d25,
+        d26,
+        d27,
+        d28,
+        d29,
+        d30,
+        d31,
         num_d_registers = 32,
-        q0 = 0, q1, q2, q3, q4, q5, q6, q7,
-        q8, q9, q10, q11, q12, q13, q14, q15,
+        q0 = 0,
+        q1,
+        q2,
+        q3,
+        q4,
+        q5,
+        q6,
+        q7,
+        q8,
+        q9,
+        q10,
+        q11,
+        q12,
+        q13,
+        q14,
+        q15,
         num_q_registers = 16
     };
 
@@ -116,9 +199,7 @@ class Simulator
     // for each native thread.
     static Simulator* Current();
 
-    static inline uintptr_t StackLimit() {
-        return Simulator::Current()->stackLimit();
-    }
+    static inline uintptr_t StackLimit() { return Simulator::Current()->stackLimit(); }
 
     // Disassemble some instructions starting at instr and print them
     // on stdout.  Useful for working within GDB after a MOZ_CRASH(),
@@ -192,7 +273,9 @@ class Simulator
     int32_t get_pc() const;
 
     template <typename T>
-    T get_pc_as() const { return reinterpret_cast<T>(get_pc()); }
+    T get_pc_as() const {
+        return reinterpret_cast<T>(get_pc());
+    }
 
     void trigger_wasm_interrupt() {
         // This can be called several times if a single interrupt isn't caught
@@ -209,7 +292,7 @@ class Simulator
     bool overRecursedWithExtra(uint32_t extra) const;
 
     // Executes ARM instructions until the PC reaches end_sim_pc.
-    template<bool EnableStopSimAt>
+    template <bool EnableStopSimAt>
     void execute();
 
     // Sets up the simulator state and grabs the result on return.
@@ -223,7 +306,7 @@ class Simulator
     // below (bad_lr, end_sim_pc).
     bool has_bad_pc() const;
 
-  private:
+   private:
     enum special_values {
         // Known bad pc value to ensure that the simulator does not execute
         // without being properly setup.
@@ -244,10 +327,7 @@ class Simulator
     // there is an additional constraint that the alignment attribute in the
     // instruction must be set to "default alignment".
 
-    enum UnalignedPolicy {
-        ForbidUnaligned,
-        AllowUnaligned
-    };
+    enum UnalignedPolicy { ForbidUnaligned, AllowUnaligned };
 
     bool init();
 
@@ -315,10 +395,13 @@ class Simulator
     inline int32_t writeExH(int32_t addr, uint16_t value, SimInstruction* instr);
 
     inline int readW(int32_t addr, SimInstruction* instr, UnalignedPolicy f = ForbidUnaligned);
-    inline void writeW(int32_t addr, int value, SimInstruction* instr, UnalignedPolicy f = ForbidUnaligned);
+    inline void writeW(int32_t addr, int value, SimInstruction* instr,
+                       UnalignedPolicy f = ForbidUnaligned);
 
-    inline uint64_t readQ(int32_t addr, SimInstruction* instr, UnalignedPolicy f = ForbidUnaligned);
-    inline void writeQ(int32_t addr, uint64_t value, SimInstruction* instr, UnalignedPolicy f = ForbidUnaligned);
+    inline uint64_t readQ(int32_t addr, SimInstruction* instr,
+                          UnalignedPolicy f = ForbidUnaligned);
+    inline void writeQ(int32_t addr, uint64_t value, SimInstruction* instr,
+                       UnalignedPolicy f = ForbidUnaligned);
 
     inline int readExW(int32_t addr, SimInstruction* instr);
     inline int writeExW(int32_t addr, int value, SimInstruction* instr);
@@ -356,7 +439,7 @@ class Simulator
     // Executes one instruction.
     void instructionDecode(SimInstruction* instr);
 
-  public:
+   public:
     static int64_t StopSimAt;
 
     // For testing the MoveResolver code, a MoveResolver is set up, and
@@ -369,7 +452,7 @@ class Simulator
     // Runtime call support.
     static void* RedirectNativeFunction(void* nativeFunction, ABIFunctionType type);
 
-  private:
+   private:
     // Handle arguments and return value for runtime FP functions.
     void getFpArgs(double* x, double* y, int32_t* z);
     void getFpFromStack(int32_t* stack, double* x1);
@@ -378,10 +461,10 @@ class Simulator
     void setCallResult(int64_t res);
     void scratchVolatileRegisters(bool scratchFloat = true);
 
-    template<class ReturnType, int register_size>
+    template <class ReturnType, int register_size>
     void getFromVFPRegister(int reg_index, ReturnType* out);
 
-    template<class InputType, int register_size>
+    template <class InputType, int register_size>
     void setVFPRegister(int reg_index, const InputType& value);
 
     void callInternal(uint8_t* entry);
@@ -454,12 +537,10 @@ class Simulator
     };
     StopCountAndDesc watched_stops_[kNumOfWatchedStops];
 
-  public:
-    int64_t icount() {
-        return icount_;
-    }
+   public:
+    int64_t icount() { return icount_; }
 
-  private:
+   private:
     // Exclusive access monitor
     void exclusiveMonitorSet(uint64_t value);
     uint64_t exclusiveMonitorGetAndClear(bool* held);
@@ -470,12 +551,11 @@ class Simulator
 };
 
 // Process wide simulator state.
-class SimulatorProcess
-{
+class SimulatorProcess {
     friend class Redirection;
     friend class AutoLockSimulatorCache;
 
-  private:
+   private:
     // ICache checking.
     struct ICacheHasher {
         typedef void* Key;
@@ -484,7 +564,7 @@ class SimulatorProcess
         static bool match(const Key& k, const Lookup& l);
     };
 
-  public:
+   public:
     typedef HashMap<void*, CachePage*, ICacheHasher, SystemAllocPolicy> ICacheMap;
 
     static mozilla::Atomic<size_t, mozilla::ReleaseAcquire> ICacheCheckingDisableCount;
@@ -510,7 +590,7 @@ class SimulatorProcess
     SimulatorProcess();
     ~SimulatorProcess();
 
-  private:
+   private:
     bool init();
 
     static SimulatorProcess* singleton_;
@@ -523,7 +603,7 @@ class SimulatorProcess
     Redirection* redirection_;
     ICacheMap icache_;
 
-  public:
+   public:
     static ICacheMap& icache() {
         // Technically we need the lock to access the innards of the
         // icache, not to take its address, but the latter condition
@@ -543,8 +623,8 @@ class SimulatorProcess
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* JS_SIMULATOR_ARM */
 

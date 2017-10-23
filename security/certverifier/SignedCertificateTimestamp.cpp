@@ -6,7 +6,8 @@
 
 #include "SignedCertificateTimestamp.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 void
 LogEntry::Reset()
@@ -18,11 +19,12 @@ LogEntry::Reset()
 }
 
 bool
-DigitallySigned::SignatureParametersMatch(HashAlgorithm aHashAlgorithm,
-  SignatureAlgorithm aSignatureAlgorithm) const
+DigitallySigned::SignatureParametersMatch(
+    HashAlgorithm aHashAlgorithm, SignatureAlgorithm aSignatureAlgorithm) const
 {
   return (hashAlgorithm == aHashAlgorithm) &&
          (signatureAlgorithm == aSignatureAlgorithm);
 }
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla

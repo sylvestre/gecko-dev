@@ -6,16 +6,16 @@
 #ifndef MOZILLA_GFX_BUFFERCLIENT_H
 #define MOZILLA_GFX_BUFFERCLIENT_H
 
-#include <stdint.h>                     // for uint64_t
-#include <vector>                       // for vector
-#include <map>                          // for map
-#include "mozilla/Assertions.h"         // for MOZ_CRASH
-#include "mozilla/RefPtr.h"             // for already_AddRefed, RefCounted
-#include "mozilla/gfx/Types.h"          // for SurfaceFormat
+#include <stdint.h>              // for uint64_t
+#include <vector>                // for vector
+#include <map>                   // for map
+#include "mozilla/Assertions.h"  // for MOZ_CRASH
+#include "mozilla/RefPtr.h"      // for already_AddRefed, RefCounted
+#include "mozilla/gfx/Types.h"   // for SurfaceFormat
 #include "mozilla/layers/CompositorTypes.h"
-#include "mozilla/layers/LayersTypes.h"  // for LayersBackend, TextureDumpMode
+#include "mozilla/layers/LayersTypes.h"    // for LayersBackend, TextureDumpMode
 #include "mozilla/layers/TextureClient.h"  // for TextureClient
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
+#include "nsISupportsImpl.h"               // for MOZ_COUNT_CTOR, etc
 
 namespace mozilla {
 namespace layers {
@@ -68,41 +68,42 @@ class ContentClientRemote;
  */
 class CompositableClient
 {
-protected:
+ protected:
   virtual ~CompositableClient();
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositableClient)
 
-  explicit CompositableClient(CompositableForwarder* aForwarder, TextureFlags aFlags = TextureFlags::NO_FLAGS);
+  explicit CompositableClient(CompositableForwarder* aForwarder,
+                              TextureFlags aFlags = TextureFlags::NO_FLAGS);
 
   virtual void Dump(std::stringstream& aStream,
-                    const char* aPrefix="",
-                    bool aDumpHtml=false,
-                    TextureDumpMode aCompress=TextureDumpMode::Compress) {};
+                    const char* aPrefix = "",
+                    bool aDumpHtml = false,
+                    TextureDumpMode aCompress = TextureDumpMode::Compress){};
 
   virtual TextureInfo GetTextureInfo() const = 0;
 
   LayersBackend GetCompositorBackendType() const;
 
-  already_AddRefed<TextureClient>
-  CreateBufferTextureClient(gfx::SurfaceFormat aFormat,
-                            gfx::IntSize aSize,
-                            gfx::BackendType aMoz2dBackend = gfx::BackendType::NONE,
-                            TextureFlags aFlags = TextureFlags::DEFAULT);
+  already_AddRefed<TextureClient> CreateBufferTextureClient(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      gfx::BackendType aMoz2dBackend = gfx::BackendType::NONE,
+      TextureFlags aFlags = TextureFlags::DEFAULT);
 
-  already_AddRefed<TextureClient>
-  CreateTextureClientForDrawing(gfx::SurfaceFormat aFormat,
-                                gfx::IntSize aSize,
-                                BackendSelector aSelector,
-                                TextureFlags aTextureFlags,
-                                TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT);
+  already_AddRefed<TextureClient> CreateTextureClientForDrawing(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT);
 
-  already_AddRefed<TextureClient>
-  CreateTextureClientFromSurface(gfx::SourceSurface* aSurface,
-                                 BackendSelector aSelector,
-                                 TextureFlags aTextureFlags,
-                                 TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT);
+  already_AddRefed<TextureClient> CreateTextureClientFromSurface(
+      gfx::SourceSurface* aSurface,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT);
 
   /**
    * Establishes the connection with compositor side through IPDL
@@ -113,10 +114,7 @@ public:
 
   bool IsConnected() const;
 
-  CompositableForwarder* GetForwarder() const
-  {
-    return mForwarder;
-  }
+  CompositableForwarder* GetForwarder() const { return mForwarder; }
 
   /**
    * This identifier is what lets us attach async compositables with a shadow
@@ -131,9 +129,7 @@ public:
   /**
    * Handle for IPDL communication.
    */
-  CompositableHandle GetIPCHandle() const {
-    return mHandle;
-  }
+  CompositableHandle GetIPCHandle() const { return mHandle; }
 
   /**
    * Tells the Compositor to create a TextureHost for this TextureClient.
@@ -178,7 +174,8 @@ public:
   static void DumpTextureClient(std::stringstream& aStream,
                                 TextureClient* aTexture,
                                 TextureDumpMode aCompress);
-protected:
+
+ protected:
   RefPtr<CompositableForwarder> mForwarder;
   // Some layers may want to enforce some flags to all their textures
   // (like disallowing tiling)
@@ -198,18 +195,19 @@ struct AutoRemoveTexture
 {
   explicit AutoRemoveTexture(CompositableClient* aCompositable,
                              TextureClient* aTexture = nullptr)
-    : mTexture(aTexture)
-    , mCompositable(aCompositable)
-  {}
+      : mTexture(aTexture), mCompositable(aCompositable)
+  {
+  }
 
   ~AutoRemoveTexture();
 
   RefPtr<TextureClient> mTexture;
-private:
+
+ private:
   CompositableClient* mCompositable;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

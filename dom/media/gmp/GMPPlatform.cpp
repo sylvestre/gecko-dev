@@ -30,14 +30,10 @@ IsOnChildMainThread()
 // We just need a refcounted wrapper for GMPTask objects.
 class GMPRunnable final
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPRunnable)
 
-  explicit GMPRunnable(GMPTask* aTask)
-  : mTask(aTask)
-  {
-    MOZ_ASSERT(mTask);
-  }
+  explicit GMPRunnable(GMPTask* aTask) : mTask(aTask) { MOZ_ASSERT(mTask); }
 
   void Run()
   {
@@ -46,24 +42,22 @@ public:
     mTask = nullptr;
   }
 
-private:
-  ~GMPRunnable()
-  {
-  }
+ private:
+  ~GMPRunnable() {}
 
   GMPTask* mTask;
 };
 
 class GMPSyncRunnable final
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPSyncRunnable)
 
   GMPSyncRunnable(GMPTask* aTask, MessageLoop* aMessageLoop)
-  : mDone(false)
-  , mTask(aTask)
-  , mMessageLoop(aMessageLoop)
-  , mMonitor("GMPSyncRunnable")
+      : mDone(false),
+        mTask(aTask),
+        mMessageLoop(aMessageLoop),
+        mMonitor("GMPSyncRunnable")
   {
     MOZ_ASSERT(mTask);
     MOZ_ASSERT(mMessageLoop);
@@ -78,7 +72,7 @@ public:
     MOZ_ASSERT(!IsOnChildMainThread());
 
     mMessageLoop->PostTask(NewRunnableMethod(
-      "gmp::GMPSyncRunnable::Run", this, &GMPSyncRunnable::Run));
+        "gmp::GMPSyncRunnable::Run", this, &GMPSyncRunnable::Run));
     MonitorAutoLock lock(mMonitor);
     while (!mDone) {
       lock.Wait();
@@ -95,10 +89,8 @@ public:
     lock.Notify();
   }
 
-private:
-  ~GMPSyncRunnable()
-  {
-  }
+ private:
+  ~GMPSyncRunnable() {}
 
   bool mDone;
   GMPTask* mTask;
@@ -108,7 +100,7 @@ private:
 
 class GMPThreadImpl : public GMPThread
 {
-public:
+ public:
   GMPThreadImpl();
   virtual ~GMPThreadImpl();
 
@@ -116,7 +108,7 @@ public:
   void Post(GMPTask* aTask) override;
   void Join() override;
 
-private:
+ private:
   Mutex mMutex;
   base::Thread mThread;
 };
@@ -142,7 +134,7 @@ RunOnMainThread(GMPTask* aTask)
 
   RefPtr<GMPRunnable> r = new GMPRunnable(aTask);
   sMainLoop->PostTask(
-    NewRunnableMethod("gmp::GMPRunnable::Run", r, &GMPRunnable::Run));
+      NewRunnableMethod("gmp::GMPRunnable::Run", r, &GMPRunnable::Run));
 
   return GMPNoErr;
 }
@@ -163,7 +155,7 @@ SyncRunOnMainThread(GMPTask* aTask)
 
 class GMPMutexImpl : public GMPMutex
 {
-public:
+ public:
   GMPMutexImpl();
   virtual ~GMPMutexImpl();
 
@@ -172,7 +164,7 @@ public:
   void Release() override;
   void Destroy() override;
 
-private:
+ private:
   ReentrantMonitor mMonitor;
 };
 
@@ -194,8 +186,7 @@ CreateRecord(const char* aRecordName,
              GMPRecord** aOutRecord,
              GMPRecordClient* aClient)
 {
-  if (aRecordNameSize > GMP_MAX_RECORD_NAME_SIZE ||
-      aRecordNameSize == 0) {
+  if (aRecordNameSize > GMP_MAX_RECORD_NAME_SIZE || aRecordNameSize == 0) {
     NS_WARNING("GMP tried to CreateRecord with too long or 0 record name");
     return GMPGenericErr;
   }
@@ -204,9 +195,8 @@ CreateRecord(const char* aRecordName,
     return GMPGenericErr;
   }
   MOZ_ASSERT(storage);
-  return storage->CreateRecord(nsDependentCString(aRecordName, aRecordNameSize),
-                               aOutRecord,
-                               aClient);
+  return storage->CreateRecord(
+      nsDependentCString(aRecordName, aRecordNameSize), aOutRecord, aClient);
 }
 
 GMPErr
@@ -227,7 +217,7 @@ GetClock(GMPTimestamp* aOutTime)
     return GMPGenericErr;
   }
   *aOutTime = base::Time::Now().ToDoubleT() * 1000.0;
- return GMPNoErr;
+  return GMPNoErr;
 }
 
 void
@@ -250,17 +240,12 @@ InitPlatformAPI(GMPPlatformAPI& aPlatformAPI, GMPChild* aChild)
   aPlatformAPI.getcurrenttime = &GetClock;
 }
 
-GMPThreadImpl::GMPThreadImpl()
-: mMutex("GMPThreadImpl"),
-  mThread("GMPThread")
+GMPThreadImpl::GMPThreadImpl() : mMutex("GMPThreadImpl"), mThread("GMPThread")
 {
   MOZ_COUNT_CTOR(GMPThread);
 }
 
-GMPThreadImpl::~GMPThreadImpl()
-{
-  MOZ_COUNT_DTOR(GMPThread);
-}
+GMPThreadImpl::~GMPThreadImpl() { MOZ_COUNT_DTOR(GMPThread); }
 
 void
 GMPThreadImpl::Post(GMPTask* aTask)
@@ -277,7 +262,7 @@ GMPThreadImpl::Post(GMPTask* aTask)
 
   RefPtr<GMPRunnable> r = new GMPRunnable(aTask);
   mThread.message_loop()->PostTask(
-    NewRunnableMethod("gmp::GMPRunnable::Run", r.get(), &GMPRunnable::Run));
+      NewRunnableMethod("gmp::GMPRunnable::Run", r.get(), &GMPRunnable::Run));
 }
 
 void
@@ -292,16 +277,12 @@ GMPThreadImpl::Join()
   delete this;
 }
 
-GMPMutexImpl::GMPMutexImpl()
-: mMonitor("gmp-mutex")
+GMPMutexImpl::GMPMutexImpl() : mMonitor("gmp-mutex")
 {
   MOZ_COUNT_CTOR(GMPMutexImpl);
 }
 
-GMPMutexImpl::~GMPMutexImpl()
-{
-  MOZ_COUNT_DTOR(GMPMutexImpl);
-}
+GMPMutexImpl::~GMPMutexImpl() { MOZ_COUNT_DTOR(GMPMutexImpl); }
 
 void
 GMPMutexImpl::Destroy()
@@ -326,27 +307,20 @@ NewGMPTask(std::function<void()>&& aFunction)
 {
   class Task : public GMPTask
   {
-  public:
+   public:
     explicit Task(std::function<void()>&& aFunction)
-      : mFunction(Move(aFunction))
+        : mFunction(Move(aFunction))
     {
     }
-    void Destroy() override
-    {
-      delete this;
-    }
-    ~Task() override
-    {
-    }
-    void Run() override
-    {
-      mFunction();
-    }
-  private:
+    void Destroy() override { delete this; }
+    ~Task() override {}
+    void Run() override { mFunction(); }
+
+   private:
     std::function<void()> mFunction;
   };
   return new Task(Move(aFunction));
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

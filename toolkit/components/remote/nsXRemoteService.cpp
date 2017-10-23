@@ -37,34 +37,32 @@
 
 using namespace mozilla;
 
-#define MOZILLA_VERSION_PROP   "_MOZILLA_VERSION"
-#define MOZILLA_LOCK_PROP      "_MOZILLA_LOCK"
-#define MOZILLA_RESPONSE_PROP  "_MOZILLA_RESPONSE"
-#define MOZILLA_USER_PROP      "_MOZILLA_USER"
-#define MOZILLA_PROFILE_PROP   "_MOZILLA_PROFILE"
-#define MOZILLA_PROGRAM_PROP   "_MOZILLA_PROGRAM"
+#define MOZILLA_VERSION_PROP "_MOZILLA_VERSION"
+#define MOZILLA_LOCK_PROP "_MOZILLA_LOCK"
+#define MOZILLA_RESPONSE_PROP "_MOZILLA_RESPONSE"
+#define MOZILLA_USER_PROP "_MOZILLA_USER"
+#define MOZILLA_PROFILE_PROP "_MOZILLA_PROFILE"
+#define MOZILLA_PROGRAM_PROP "_MOZILLA_PROGRAM"
 #define MOZILLA_COMMANDLINE_PROP "_MOZILLA_COMMANDLINE"
 
 const unsigned char kRemoteVersion[] = "5.1";
 
 #ifdef IS_BIG_ENDIAN
-#define TO_LITTLE_ENDIAN32(x) \
-    ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >> 8) | \
-    (((x) & 0x0000ff00) << 8) | (((x) & 0x000000ff) << 24))
+#define TO_LITTLE_ENDIAN32(x)                           \
+  ((((x)&0xff000000) >> 24) | (((x)&0x00ff0000) >> 8) | \
+   (((x)&0x0000ff00) << 8) | (((x)&0x000000ff) << 24))
 #else
 #define TO_LITTLE_ENDIAN32(x) (x)
 #endif
 
 // Minimize the roundtrips to the X server by getting all the atoms at once
-static const char *XAtomNames[] = {
-  MOZILLA_VERSION_PROP,
-  MOZILLA_LOCK_PROP,
-  MOZILLA_RESPONSE_PROP,
-  MOZILLA_USER_PROP,
-  MOZILLA_PROFILE_PROP,
-  MOZILLA_PROGRAM_PROP,
-  MOZILLA_COMMANDLINE_PROP
-};
+static const char* XAtomNames[] = {MOZILLA_VERSION_PROP,
+                                   MOZILLA_LOCK_PROP,
+                                   MOZILLA_RESPONSE_PROP,
+                                   MOZILLA_USER_PROP,
+                                   MOZILLA_PROFILE_PROP,
+                                   MOZILLA_PROGRAM_PROP,
+                                   MOZILLA_COMMANDLINE_PROP};
 static Atom XAtoms[MOZ_ARRAY_LENGTH(XAtomNames)];
 
 Atom nsXRemoteService::sMozVersionAtom;
@@ -75,8 +73,7 @@ Atom nsXRemoteService::sMozProfileAtom;
 Atom nsXRemoteService::sMozProgramAtom;
 Atom nsXRemoteService::sMozCommandLineAtom;
 
-nsXRemoteService * nsXRemoteService::sRemoteImplementation = 0;
-
+nsXRemoteService* nsXRemoteService::sRemoteImplementation = 0;
 
 static bool
 FindExtensionParameterInCommand(const char* aParameterName,
@@ -92,8 +89,7 @@ FindExtensionParameterInCommand(const char* aParameterName,
   nsACString::const_iterator start, end;
   aCommand.BeginReading(start);
   aCommand.EndReading(end);
-  if (!FindInReadable(searchFor, start, end))
-    return false;
+  if (!FindInReadable(searchFor, start, end)) return false;
 
   nsACString::const_iterator charStart, charEnd;
   charStart = end;
@@ -108,58 +104,80 @@ FindExtensionParameterInCommand(const char* aParameterName,
   return true;
 }
 
-
 nsXRemoteService::nsXRemoteService() = default;
 
 void
-nsXRemoteService::XRemoteBaseStartup(const char *aAppName, const char *aProfileName)
+nsXRemoteService::XRemoteBaseStartup(const char* aAppName,
+                                     const char* aProfileName)
 {
-    EnsureAtoms();
+  EnsureAtoms();
 
-    mAppName = aAppName;
-    ToLowerCase(mAppName);
+  mAppName = aAppName;
+  ToLowerCase(mAppName);
 
-    mProfileName = aProfileName;
+  mProfileName = aProfileName;
 
-    nsCOMPtr<nsIObserverService> obs(do_GetService("@mozilla.org/observer-service;1"));
-    if (obs) {
-      obs->AddObserver(this, "xpcom-shutdown", false);
-      obs->AddObserver(this, "quit-application", false);
-    }
+  nsCOMPtr<nsIObserverService> obs(
+      do_GetService("@mozilla.org/observer-service;1"));
+  if (obs) {
+    obs->AddObserver(this, "xpcom-shutdown", false);
+    obs->AddObserver(this, "quit-application", false);
+  }
 }
 
 void
 nsXRemoteService::HandleCommandsFor(Window aWindowId)
 {
   // set our version
-  XChangeProperty(mozilla::DefaultXDisplay(), aWindowId, sMozVersionAtom, XA_STRING,
-                  8, PropModeReplace, kRemoteVersion, sizeof(kRemoteVersion) - 1);
+  XChangeProperty(mozilla::DefaultXDisplay(),
+                  aWindowId,
+                  sMozVersionAtom,
+                  XA_STRING,
+                  8,
+                  PropModeReplace,
+                  kRemoteVersion,
+                  sizeof(kRemoteVersion) - 1);
 
   // get our username
-  unsigned char *logname;
-  logname = (unsigned char*) PR_GetEnv("LOGNAME");
+  unsigned char* logname;
+  logname = (unsigned char*)PR_GetEnv("LOGNAME");
   if (logname) {
     // set the property on the window if it's available
-    XChangeProperty(mozilla::DefaultXDisplay(), aWindowId, sMozUserAtom, XA_STRING,
-                    8, PropModeReplace, logname, strlen((char*) logname));
+    XChangeProperty(mozilla::DefaultXDisplay(),
+                    aWindowId,
+                    sMozUserAtom,
+                    XA_STRING,
+                    8,
+                    PropModeReplace,
+                    logname,
+                    strlen((char*)logname));
   }
 
-  XChangeProperty(mozilla::DefaultXDisplay(), aWindowId, sMozProgramAtom, XA_STRING,
-                  8, PropModeReplace, (unsigned char*) mAppName.get(), mAppName.Length());
+  XChangeProperty(mozilla::DefaultXDisplay(),
+                  aWindowId,
+                  sMozProgramAtom,
+                  XA_STRING,
+                  8,
+                  PropModeReplace,
+                  (unsigned char*)mAppName.get(),
+                  mAppName.Length());
 
   if (!mProfileName.IsEmpty()) {
     XChangeProperty(mozilla::DefaultXDisplay(),
-                    aWindowId, sMozProfileAtom, XA_STRING,
-                    8, PropModeReplace,
-                    (unsigned char*) mProfileName.get(), mProfileName.Length());
+                    aWindowId,
+                    sMozProfileAtom,
+                    XA_STRING,
+                    8,
+                    PropModeReplace,
+                    (unsigned char*)mProfileName.get(),
+                    mProfileName.Length());
   }
-
 }
 
 NS_IMETHODIMP
 nsXRemoteService::Observe(nsISupports* aSubject,
-                          const char *aTopic,
-                          const char16_t *aData)
+                          const char* aTopic,
+                          const char16_t* aData)
 {
   // This can be xpcom-shutdown or quit-application, but it's the same either
   // way.
@@ -168,13 +186,13 @@ nsXRemoteService::Observe(nsISupports* aSubject,
 }
 
 bool
-nsXRemoteService::HandleNewProperty(XID aWindowId, Display* aDisplay,
+nsXRemoteService::HandleNewProperty(XID aWindowId,
+                                    Display* aDisplay,
                                     Time aEventTime,
                                     Atom aChangedAtom,
                                     nsIWeakReference* aDomWindow)
 {
-
-  nsCOMPtr<nsIDOMWindow> window (do_QueryReferent(aDomWindow));
+  nsCOMPtr<nsIDOMWindow> window(do_QueryReferent(aDomWindow));
 
   if (aChangedAtom == sMozCommandLineAtom) {
     // We got a new command atom.
@@ -182,40 +200,42 @@ nsXRemoteService::HandleNewProperty(XID aWindowId, Display* aDisplay,
     Atom actual_type;
     int actual_format;
     unsigned long nitems, bytes_after;
-    char *data = 0;
+    char* data = 0;
 
-    result = XGetWindowProperty (aDisplay,
-                                 aWindowId,
-                                 aChangedAtom,
-                                 0,                        /* long_offset */
-                                 (65536 / sizeof (long)),  /* long_length */
-                                 True,                     /* atomic delete after */
-                                 XA_STRING,                /* req_type */
-                                 &actual_type,             /* actual_type return */
-                                 &actual_format,           /* actual_format_return */
-                                 &nitems,                  /* nitems_return */
-                                 &bytes_after,             /* bytes_after_return */
-                                 (unsigned char **)&data); /* prop_return
+    result = XGetWindowProperty(aDisplay,
+                                aWindowId,
+                                aChangedAtom,
+                                0,                      /* long_offset */
+                                (65536 / sizeof(long)), /* long_length */
+                                True,           /* atomic delete after */
+                                XA_STRING,      /* req_type */
+                                &actual_type,   /* actual_type return */
+                                &actual_format, /* actual_format_return */
+                                &nitems,        /* nitems_return */
+                                &bytes_after,   /* bytes_after_return */
+                                (unsigned char**)&data); /* prop_return
                                                               (we only care
                                                               about the first ) */
 
     // Failed to get property off the window?
-    if (result != Success)
-      return false;
+    if (result != Success) return false;
 
     // Failed to get the data off the window or it was the wrong type?
     if (!data || !TO_LITTLE_ENDIAN32(*reinterpret_cast<int32_t*>(data)))
       return false;
 
     // cool, we got the property data.
-    const char *response = HandleCommandLine(data, window, aEventTime);
+    const char* response = HandleCommandLine(data, window, aEventTime);
 
     // put the property onto the window as the response
-    XChangeProperty (aDisplay, aWindowId,
-                     sMozResponseAtom, XA_STRING,
-                     8, PropModeReplace,
-                     (const unsigned char *)response,
-                     strlen (response));
+    XChangeProperty(aDisplay,
+                    aWindowId,
+                    sMozResponseAtom,
+                    XA_STRING,
+                    8,
+                    PropModeReplace,
+                    (const unsigned char*)response,
+                    strlen(response));
     XFree(data);
     return true;
   }
@@ -234,15 +254,15 @@ nsXRemoteService::HandleNewProperty(XID aWindowId, Display* aDisplay,
 }
 
 const char*
-nsXRemoteService::HandleCommandLine(char* aBuffer, nsIDOMWindow* aWindow,
+nsXRemoteService::HandleCommandLine(char* aBuffer,
+                                    nsIDOMWindow* aWindow,
                                     uint32_t aTimestamp)
 {
   nsresult rv;
 
-  nsCOMPtr<nsICommandLineRunner> cmdline
-    (do_CreateInstance("@mozilla.org/toolkit/command-line;1", &rv));
-  if (NS_FAILED(rv))
-    return "509 internal error";
+  nsCOMPtr<nsICommandLineRunner> cmdline(
+      do_CreateInstance("@mozilla.org/toolkit/command-line;1", &rv));
+  if (NS_FAILED(rv)) return "509 internal error";
 
   // the commandline property is constructed as an array of int32_t
   // followed by a series of null-terminated strings:
@@ -251,52 +271,47 @@ nsXRemoteService::HandleCommandLine(char* aBuffer, nsIDOMWindow* aWindow,
   // (offset is from the beginning of the buffer)
 
   int32_t argc = TO_LITTLE_ENDIAN32(*reinterpret_cast<int32_t*>(aBuffer));
-  char *wd   = aBuffer + ((argc + 1) * sizeof(int32_t));
+  char* wd = aBuffer + ((argc + 1) * sizeof(int32_t));
 
   nsCOMPtr<nsIFile> lf;
-  rv = NS_NewNativeLocalFile(nsDependentCString(wd), true,
-                             getter_AddRefs(lf));
-  if (NS_FAILED(rv))
-    return "509 internal error";
+  rv = NS_NewNativeLocalFile(nsDependentCString(wd), true, getter_AddRefs(lf));
+  if (NS_FAILED(rv)) return "509 internal error";
 
   nsAutoCString desktopStartupID;
 
-  char **argv = (char**) malloc(sizeof(char*) * argc);
+  char** argv = (char**)malloc(sizeof(char*) * argc);
   if (!argv) return "509 internal error";
 
-  int32_t  *offset = reinterpret_cast<int32_t*>(aBuffer) + 1;
+  int32_t* offset = reinterpret_cast<int32_t*>(aBuffer) + 1;
 
   for (int i = 0; i < argc; ++i) {
     argv[i] = aBuffer + TO_LITTLE_ENDIAN32(offset[i]);
 
     if (i == 0) {
       nsDependentCString cmd(argv[0]);
-      FindExtensionParameterInCommand("DESKTOP_STARTUP_ID",
-                                      cmd, ' ',
-                                      &desktopStartupID);
+      FindExtensionParameterInCommand(
+          "DESKTOP_STARTUP_ID", cmd, ' ', &desktopStartupID);
     }
   }
 
   rv = cmdline->Init(argc, argv, lf, nsICommandLine::STATE_REMOTE_AUTO);
 
-  free (argv);
+  free(argv);
   if (NS_FAILED(rv)) {
     return "509 internal error";
   }
 
-  if (aWindow)
-    cmdline->SetWindowContext(aWindow);
+  if (aWindow) cmdline->SetWindowContext(aWindow);
 
   if (sRemoteImplementation)
-    sRemoteImplementation->SetDesktopStartupIDOrTimestamp(desktopStartupID, aTimestamp);
+    sRemoteImplementation->SetDesktopStartupIDOrTimestamp(desktopStartupID,
+                                                          aTimestamp);
 
   rv = cmdline->Run();
 
-  if (NS_ERROR_ABORT == rv)
-    return "500 command not parseable";
+  if (NS_ERROR_ABORT == rv) return "500 command not parseable";
 
-  if (NS_FAILED(rv))
-    return "509 internal error";
+  if (NS_FAILED(rv)) return "509 internal error";
 
   return "200 executed command";
 }
@@ -304,18 +319,20 @@ nsXRemoteService::HandleCommandLine(char* aBuffer, nsIDOMWindow* aWindow,
 void
 nsXRemoteService::EnsureAtoms(void)
 {
-  if (sMozVersionAtom)
-    return;
+  if (sMozVersionAtom) return;
 
-  XInternAtoms(mozilla::DefaultXDisplay(), const_cast<char**>(XAtomNames),
-               ArrayLength(XAtomNames), False, XAtoms);
+  XInternAtoms(mozilla::DefaultXDisplay(),
+               const_cast<char**>(XAtomNames),
+               ArrayLength(XAtomNames),
+               False,
+               XAtoms);
 
   int i = 0;
-  sMozVersionAtom     = XAtoms[i++];
-  sMozLockAtom        = XAtoms[i++];
-  sMozResponseAtom    = XAtoms[i++];
-  sMozUserAtom        = XAtoms[i++];
-  sMozProfileAtom     = XAtoms[i++];
-  sMozProgramAtom     = XAtoms[i++];
+  sMozVersionAtom = XAtoms[i++];
+  sMozLockAtom = XAtoms[i++];
+  sMozResponseAtom = XAtoms[i++];
+  sMozUserAtom = XAtoms[i++];
+  sMozProfileAtom = XAtoms[i++];
+  sMozProgramAtom = XAtoms[i++];
   sMozCommandLineAtom = XAtoms[i++];
 }

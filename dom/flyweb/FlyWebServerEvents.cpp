@@ -18,7 +18,6 @@
 namespace mozilla {
 namespace dom {
 
-
 NS_IMPL_CYCLE_COLLECTION_CLASS(FlyWebFetchEvent)
 
 NS_IMPL_ADDREF_INHERITED(FlyWebFetchEvent, Event)
@@ -41,23 +40,22 @@ NS_INTERFACE_MAP_END_INHERITING(Event)
 FlyWebFetchEvent::FlyWebFetchEvent(FlyWebPublishedServer* aServer,
                                    class Request* aRequest,
                                    InternalRequest* aInternalRequest)
-  : Event(aServer, nullptr, nullptr)
-  , mRequest(aRequest)
-  , mInternalRequest(aInternalRequest)
-  , mServer(aServer)
-  , mResponded(false)
+    : Event(aServer, nullptr, nullptr),
+      mRequest(aRequest),
+      mInternalRequest(aInternalRequest),
+      mServer(aServer),
+      mResponded(false)
 {
   MOZ_ASSERT(aServer);
   MOZ_ASSERT(aRequest);
   MOZ_ASSERT(aInternalRequest);
 }
 
-FlyWebFetchEvent::~FlyWebFetchEvent()
-{
-}
+FlyWebFetchEvent::~FlyWebFetchEvent() {}
 
 JSObject*
-FlyWebFetchEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+FlyWebFetchEvent::WrapObjectInternal(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto)
 {
   return FlyWebFetchEventBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -118,7 +116,8 @@ FlyWebFetchEvent::RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue)
 }
 
 JSObject*
-FlyWebWebSocketEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+FlyWebWebSocketEvent::WrapObjectInternal(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto)
 {
   return FlyWebWebSocketEventBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -137,13 +136,11 @@ FlyWebWebSocketEvent::Accept(const Optional<nsAString>& aProtocol,
   return mServer->OnWebSocketAccept(mInternalRequest, aProtocol, aRv);
 }
 
-
 void
 FlyWebWebSocketEvent::NotifyServer(InternalResponse* aResponse)
 {
   mServer->OnWebSocketResponse(mInternalRequest, aResponse);
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

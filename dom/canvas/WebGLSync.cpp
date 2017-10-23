@@ -14,28 +14,25 @@ namespace mozilla {
 WebGLSync::WebGLSync(WebGLContext* webgl, GLenum condition, GLbitfield flags)
     : WebGLRefCountedObject(webgl)
 {
-   mContext->mSyncs.insertBack(this);
-   mGLName = mContext->gl->fFenceSync(condition, flags);
+  mContext->mSyncs.insertBack(this);
+  mGLName = mContext->gl->fFenceSync(condition, flags);
 }
 
-WebGLSync::~WebGLSync()
-{
-    DeleteOnce();
-}
+WebGLSync::~WebGLSync() { DeleteOnce(); }
 
 void
 WebGLSync::Delete()
 {
-    mContext->MakeContextCurrent();
-    mContext->gl->fDeleteSync(mGLName);
-    mGLName = 0;
-    LinkedListElement<WebGLSync>::removeFrom(mContext->mSyncs);
+  mContext->MakeContextCurrent();
+  mContext->gl->fDeleteSync(mGLName);
+  mGLName = 0;
+  LinkedListElement<WebGLSync>::removeFrom(mContext->mSyncs);
 }
 
 WebGLContext*
 WebGLSync::GetParentObject() const
 {
-    return mContext;
+  return mContext;
 }
 
 // -------------------------------------------------------------------------
@@ -43,11 +40,11 @@ WebGLSync::GetParentObject() const
 JSObject*
 WebGLSync::WrapObject(JSContext* cx, JS::Handle<JSObject*> givenProto)
 {
-    return dom::WebGLSyncBinding::Wrap(cx, this, givenProto);
+  return dom::WebGLSyncBinding::Wrap(cx, this, givenProto);
 }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLSync)
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebGLSync, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebGLSync, Release);
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -25,7 +25,7 @@ struct D3D11Checks
   static bool DoesNV12Work(ID3D11Device* device);
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_thebes_D3D11Checks_h
+#endif  // mozilla_gfx_thebes_D3D11Checks_h

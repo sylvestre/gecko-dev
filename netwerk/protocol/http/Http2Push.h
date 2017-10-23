@@ -28,10 +28,10 @@ class Http2PushTransactionBuffer;
 
 class Http2PushedStream final : public Http2Stream
 {
-public:
-  Http2PushedStream(Http2PushTransactionBuffer *aTransaction,
-                    Http2Session *aSession,
-                    Http2Stream *aAssociatedStream,
+ public:
+  Http2PushedStream(Http2PushTransactionBuffer* aTransaction,
+                    Http2Session* aSession,
+                    Http2Stream* aAssociatedStream,
                     uint32_t aID,
                     uint64_t aCurrentForegroundTabOuterContentWindowId);
   virtual ~Http2PushedStream() {}
@@ -39,53 +39,59 @@ public:
   bool GetPushComplete();
 
   // The consumer stream is the synthetic pull stream hooked up to this push
-  virtual Http2Stream *GetConsumerStream() override { return mConsumerStream; };
+  virtual Http2Stream* GetConsumerStream() override { return mConsumerStream; };
 
-  void SetConsumerStream(Http2Stream *aStream);
-  MOZ_MUST_USE bool GetHashKey(nsCString &key);
+  void SetConsumerStream(Http2Stream* aStream);
+  MOZ_MUST_USE bool GetHashKey(nsCString& key);
 
   // override of Http2Stream
-  MOZ_MUST_USE nsresult ReadSegments(nsAHttpSegmentReader *,
-                                     uint32_t, uint32_t *) override;
-  MOZ_MUST_USE nsresult WriteSegments(nsAHttpSegmentWriter *,
-                                      uint32_t, uint32_t *) override;
+  MOZ_MUST_USE nsresult ReadSegments(nsAHttpSegmentReader*,
+                                     uint32_t,
+                                     uint32_t*) override;
+  MOZ_MUST_USE nsresult WriteSegments(nsAHttpSegmentWriter*,
+                                      uint32_t,
+                                      uint32_t*) override;
   void AdjustInitialWindow() override;
 
-  nsIRequestContext *RequestContext() override { return mRequestContext; };
-  void ConnectPushedStream(Http2Stream *consumer);
+  nsIRequestContext* RequestContext() override { return mRequestContext; };
+  void ConnectPushedStream(Http2Stream* consumer);
 
   MOZ_MUST_USE bool TryOnPush();
-  static MOZ_MUST_USE bool TestOnPush(Http2Stream *consumer);
+  static MOZ_MUST_USE bool TestOnPush(Http2Stream* consumer);
 
   virtual bool DeferCleanup(nsresult status) override;
   void SetDeferCleanupOnSuccess(bool val) { mDeferCleanupOnSuccess = val; }
 
   bool IsOrphaned(TimeStamp now);
-  void OnPushFailed() { mDeferCleanupOnPush = false; mOnPushFailed = true; }
+  void OnPushFailed()
+  {
+    mDeferCleanupOnPush = false;
+    mOnPushFailed = true;
+  }
 
-  MOZ_MUST_USE nsresult GetBufferedData(char *buf, uint32_t count,
-                                        uint32_t *countWritten);
+  MOZ_MUST_USE nsresult GetBufferedData(char* buf,
+                                        uint32_t count,
+                                        uint32_t* countWritten);
 
   // overload of Http2Stream
   virtual bool HasSink() override { return !!mConsumerStream; }
 
-  nsCString &GetRequestString() { return mRequestString; }
+  nsCString& GetRequestString() { return mRequestString; }
 
-private:
-
-  Http2Stream *mConsumerStream; // paired request stream that consumes from
-                                // real http/2 one.. null until a match is made.
+ private:
+  Http2Stream* mConsumerStream;  // paired request stream that consumes from
+  // real http/2 one.. null until a match is made.
 
   nsCOMPtr<nsIRequestContext> mRequestContext;
 
-  nsAHttpTransaction *mAssociatedTransaction;
+  nsAHttpTransaction* mAssociatedTransaction;
 
-  Http2PushTransactionBuffer *mBufferedPush;
+  Http2PushTransactionBuffer* mBufferedPush;
   mozilla::TimeStamp mLastRead;
 
   nsCString mHashKey;
   nsresult mStatus;
-  bool mPushCompleted; // server push FIN received
+  bool mPushCompleted;  // server push FIN received
   bool mDeferCleanupOnSuccess;
 
   // mDeferCleanupOnPush prevents Http2Session::CleanupStream() from
@@ -97,30 +103,30 @@ private:
   bool mDeferCleanupOnPush;
   bool mOnPushFailed;
   nsCString mRequestString;
-
 };
 
 class Http2PushTransactionBuffer final : public nsAHttpTransaction
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSAHTTPTRANSACTION
 
   Http2PushTransactionBuffer();
 
-  MOZ_MUST_USE nsresult GetBufferedData(char *buf, uint32_t count,
-                                        uint32_t *countWritten);
-  void SetPushStream(Http2PushedStream *stream) { mPushStream = stream; }
+  MOZ_MUST_USE nsresult GetBufferedData(char* buf,
+                                        uint32_t count,
+                                        uint32_t* countWritten);
+  void SetPushStream(Http2PushedStream* stream) { mPushStream = stream; }
 
-private:
+ private:
   virtual ~Http2PushTransactionBuffer();
   uint64_t Available();
 
   const static uint32_t kDefaultBufferSize = 4096;
 
   nsresult mStatus;
-  nsHttpRequestHead *mRequestHead;
-  Http2PushedStream *mPushStream;
+  nsHttpRequestHead* mRequestHead;
+  Http2PushedStream* mPushStream;
   bool mIsDone;
 
   UniquePtr<char[]> mBufferedHTTP1;
@@ -129,7 +135,7 @@ private:
   uint32_t mBufferedHTTP1Consumed;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_Http2Push_Internal_h
+#endif  // mozilla_net_Http2Push_Internal_h

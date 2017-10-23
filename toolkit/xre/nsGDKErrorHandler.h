@@ -4,5 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if (MOZ_WIDGET_GTK == 3)
-void InstallGdkErrorHandler();
+void
+InstallGdkErrorHandler();
 #endif

@@ -11,40 +11,33 @@
 using namespace js;
 using namespace JS;
 
-class CustomProxyHandler : public Wrapper
-{
-  public:
+class CustomProxyHandler : public Wrapper {
+   public:
     CustomProxyHandler() : Wrapper(0) {}
 
     bool getPropertyDescriptor(JSContext* cx, HandleObject proxy, HandleId id,
-                               MutableHandle<PropertyDescriptor> desc) const override
-    {
+                               MutableHandle<PropertyDescriptor> desc) const override {
         return impl(cx, proxy, id, desc, false);
     }
 
     bool getOwnPropertyDescriptor(JSContext* cx, HandleObject proxy, HandleId id,
-                                  MutableHandle<PropertyDescriptor> desc) const override
-    {
+                                  MutableHandle<PropertyDescriptor> desc) const override {
         return impl(cx, proxy, id, desc, true);
     }
 
     bool set(JSContext* cx, HandleObject proxy, HandleId id, HandleValue v, HandleValue receiver,
-             ObjectOpResult& result) const override
-    {
+             ObjectOpResult& result) const override {
         Rooted<PropertyDescriptor> desc(cx);
-        if (!Wrapper::getPropertyDescriptor(cx, proxy, id, &desc))
-            return false;
+        if (!Wrapper::getPropertyDescriptor(cx, proxy, id, &desc)) return false;
         return SetPropertyIgnoringNamedGetter(cx, proxy, id, v, receiver, desc, result);
     }
 
-  private:
+   private:
     bool impl(JSContext* cx, HandleObject proxy, HandleId id,
-              MutableHandle<PropertyDescriptor> desc, bool ownOnly) const
-    {
+              MutableHandle<PropertyDescriptor> desc, bool ownOnly) const {
         if (JSID_IS_STRING(id)) {
             bool match;
-            if (!JS_StringEqualsAscii(cx, JSID_TO_STRING(id), "phantom", &match))
-                return false;
+            if (!JS_StringEqualsAscii(cx, JSID_TO_STRING(id), "phantom", &match)) return false;
             if (match) {
                 desc.object().set(proxy);
                 desc.attributesRef() = JSPROP_ENUMERATE;
@@ -53,26 +46,22 @@ class CustomProxyHandler : public Wrapper
             }
         }
 
-        if (ownOnly)
-            return Wrapper::getOwnPropertyDescriptor(cx, proxy, id, desc);
+        if (ownOnly) return Wrapper::getOwnPropertyDescriptor(cx, proxy, id, desc);
         return Wrapper::getPropertyDescriptor(cx, proxy, id, desc);
     }
-
 };
 
 const CustomProxyHandler customProxyHandler;
 
-
-BEGIN_TEST(testSetPropertyIgnoringNamedGetter_direct)
-{
+BEGIN_TEST(testSetPropertyIgnoringNamedGetter_direct) {
     RootedValue protov(cx);
     EVAL("Object.prototype", &protov);
 
     RootedValue targetv(cx);
     EVAL("({})", &targetv);
 
-    RootedObject proxyObj(cx, NewProxyObject(cx, &customProxyHandler, targetv,
-                                             &protov.toObject(), ProxyOptions()));
+    RootedObject proxyObj(
+        cx, NewProxyObject(cx, &customProxyHandler, targetv, &protov.toObject(), ProxyOptions()));
     CHECK(proxyObj);
 
     CHECK(JS_DefineProperty(cx, global, "target", targetv, 0));

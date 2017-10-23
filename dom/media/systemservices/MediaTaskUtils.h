@@ -23,14 +23,13 @@ namespace media {
 template<typename OnRunType>
 class LambdaTask : public Runnable
 {
-public:
+ public:
   explicit LambdaTask(OnRunType&& aOnRun)
-    : Runnable("media::LambdaTask")
-    , mOnRun(Move(aOnRun))
+      : Runnable("media::LambdaTask"), mOnRun(Move(aOnRun))
   {
   }
 
-private:
+ private:
   NS_IMETHOD
   Run() override
   {
@@ -49,7 +48,7 @@ NewTaskFrom(OnRunType&& aOnRun)
   return lambda.forget();
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif // mozilla_MediaTaskUtils_h
+#endif  // mozilla_MediaTaskUtils_h

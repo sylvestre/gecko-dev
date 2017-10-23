@@ -18,7 +18,7 @@ namespace a11y {
  */
 class XULSelectControlAccessible : public AccessibleWrap
 {
-public:
+ public:
   XULSelectControlAccessible(nsIContent* aContent, DocAccessible* aDoc);
   virtual ~XULSelectControlAccessible() {}
 
@@ -39,14 +39,13 @@ public:
   virtual Accessible* CurrentItem() override;
   virtual void SetCurrentItem(Accessible* aItem) override;
 
-protected:
+ protected:
   // nsIDOMXULMultiSelectControlElement inherits from this, so we'll always have
   // one of these if the widget is valid and not defunct
   nsCOMPtr<nsIDOMXULSelectControlElement> mSelectControl;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

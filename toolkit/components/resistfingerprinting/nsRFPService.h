@@ -13,18 +13,18 @@
 
 // Defines regarding spoofed values of Navigator object. These spoofed values
 // are returned when 'privacy.resistFingerprinting' is true.
-#define SPOOFED_APPNAME    "Netscape"
+#define SPOOFED_APPNAME "Netscape"
 #define SPOOFED_APPVERSION "5.0 (Windows)"
-#define SPOOFED_OSCPU      "Windows NT 6.1; Win64; x64"
-#define SPOOFED_PLATFORM   "Win64"
+#define SPOOFED_OSCPU "Windows NT 6.1; Win64; x64"
+#define SPOOFED_PLATFORM "Win64"
 
-#define LEGACY_BUILD_ID    "20100101"
+#define LEGACY_BUILD_ID "20100101"
 
 namespace mozilla {
 
 class nsRFPService final : public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -46,13 +46,17 @@ public:
   // Methods for getting spoofed media statistics and the return value will
   // depend on the video resolution.
   static uint32_t GetSpoofedTotalFrames(double aTime);
-  static uint32_t GetSpoofedDroppedFrames(double aTime, uint32_t aWidth, uint32_t aHeight);
-  static uint32_t GetSpoofedPresentedFrames(double aTime, uint32_t aWidth, uint32_t aHeight);
+  static uint32_t GetSpoofedDroppedFrames(double aTime,
+                                          uint32_t aWidth,
+                                          uint32_t aHeight);
+  static uint32_t GetSpoofedPresentedFrames(double aTime,
+                                            uint32_t aWidth,
+                                            uint32_t aHeight);
 
   // This method generates the spoofed value of User Agent.
-  static nsresult GetSpoofedUserAgent(nsACString &userAgent);
+  static nsresult GetSpoofedUserAgent(nsACString& userAgent);
 
-private:
+ private:
   nsresult Init();
 
   nsRFPService() {}
@@ -67,6 +71,6 @@ private:
   nsCString mInitialTZValue;
 };
 
-} // mozilla namespace
+}  // namespace mozilla
 
 #endif /* __nsRFPService_h__ */

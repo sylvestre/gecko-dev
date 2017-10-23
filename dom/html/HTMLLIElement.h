@@ -16,9 +16,9 @@ namespace dom {
 
 class HTMLLIElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLLIElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -26,43 +26,40 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL API
-  void GetType(DOMString& aType)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aType);
-  }
+  void GetType(DOMString& aType) { GetHTMLAttr(nsGkAtoms::type, aType); }
   void SetType(const nsAString& aType, mozilla::ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::type, aType, rv);
   }
-  int32_t Value() const
-  {
-    return GetIntAttr(nsGkAtoms::value, 0);
-  }
+  int32_t Value() const { return GetIntAttr(nsGkAtoms::value, 0); }
   void SetValue(int32_t aValue, mozilla::ErrorResult& rv)
   {
     SetHTMLIntAttr(nsGkAtoms::value, aValue, rv);
   }
 
-protected:
+ protected:
   virtual ~HTMLLIElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLLIElement_h
+#endif  // mozilla_dom_HTMLLIElement_h

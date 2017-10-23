@@ -19,7 +19,7 @@ class EncodedFrame;
  */
 class EncodedFrameContainer
 {
-public:
+ public:
   // Append encoded frame data
   void AppendEncodedFrame(EncodedFrame* aEncodedFrame)
   {
@@ -30,7 +30,8 @@ public:
   {
     return mEncodedFrames;
   }
-private:
+
+ private:
   // This container is used to store the video or audio encoded packets.
   // Muxer should check mFrameType and get the encoded data type from mEncodedFrames.
   nsTArray<RefPtr<EncodedFrame> > mEncodedFrames;
@@ -40,28 +41,25 @@ private:
 class EncodedFrame final
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(EncodedFrame)
-public:
-  EncodedFrame() :
-    mTimeStamp(0),
-    mDuration(0),
-    mFrameType(UNKNOWN)
-  {}
-  enum FrameType {
-    VP8_I_FRAME,      // VP8 intraframe
-    VP8_P_FRAME,      // VP8 predicted frame
-    OPUS_AUDIO_FRAME, // Opus audio frame
+ public:
+  EncodedFrame() : mTimeStamp(0), mDuration(0), mFrameType(UNKNOWN) {}
+  enum FrameType
+  {
+    VP8_I_FRAME,       // VP8 intraframe
+    VP8_P_FRAME,       // VP8 predicted frame
+    OPUS_AUDIO_FRAME,  // Opus audio frame
     VORBIS_AUDIO_FRAME,
     AVC_I_FRAME,
     AVC_P_FRAME,
     AVC_B_FRAME,
-    AVC_CSD,          // AVC codec specific data
+    AVC_CSD,  // AVC codec specific data
     AAC_AUDIO_FRAME,
-    AAC_CSD,          // AAC codec specific data
+    AAC_CSD,  // AAC codec specific data
     AMR_AUDIO_CSD,
     AMR_AUDIO_FRAME,
     EVRC_AUDIO_CSD,
     EVRC_AUDIO_FRAME,
-    UNKNOWN           // FrameType not set
+    UNKNOWN  // FrameType not set
   };
   void SwapInFrameData(nsTArray<uint8_t>& aData)
   {
@@ -77,10 +75,7 @@ public:
     }
     return NS_ERROR_FAILURE;
   }
-  const nsTArray<uint8_t>& GetFrameData() const
-  {
-    return mFrameData;
-  }
+  const nsTArray<uint8_t>& GetFrameData() const { return mFrameData; }
   uint64_t GetTimeStamp() const { return mTimeStamp; }
   void SetTimeStamp(uint64_t aTimeStamp) { mTimeStamp = aTimeStamp; }
 
@@ -89,11 +84,10 @@ public:
 
   FrameType GetFrameType() const { return mFrameType; }
   void SetFrameType(FrameType aFrameType) { mFrameType = aFrameType; }
-private:
+
+ private:
   // Private destructor, to discourage deletion outside of Release():
-  ~EncodedFrame()
-  {
-  }
+  ~EncodedFrame() {}
 
   // Encoded data
   nsTArray<uint8_t> mFrameData;
@@ -104,6 +98,6 @@ private:
   FrameType mFrameType;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

@@ -12,15 +12,13 @@
 using namespace js;
 using namespace js::jit;
 
-BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
-                                   BailoutStack* bailout)
-  : machine_(bailout->machineState())
-{
+BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations, BailoutStack* bailout)
+    : machine_(bailout->machineState()) {
     uint8_t* sp = bailout->parentStackPointer();
     framePointer_ = sp + bailout->frameSize();
     topFrameSize_ = framePointer_ - sp;
 
-    JSScript* script = ScriptFromCalleeToken(((JitFrameLayout*) framePointer_)->calleeToken());
+    JSScript* script = ScriptFromCalleeToken(((JitFrameLayout*)framePointer_)->calleeToken());
     topIonScript_ = script->ionScript();
 
     attachOnJitActivation(activations);

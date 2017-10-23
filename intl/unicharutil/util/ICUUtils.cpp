@@ -22,7 +22,8 @@ using mozilla::intl::LocaleService;
  * user from typing in a number and using grouping separators.
  */
 static bool gLocaleNumberGroupingEnabled;
-static const char LOCALE_NUMBER_GROUPING_PREF_STR[] = "dom.forms.number.grouping";
+static const char LOCALE_NUMBER_GROUPING_PREF_STR[] =
+    "dom.forms.number.grouping";
 
 static bool
 LocaleNumberGroupingIsEnabled()
@@ -31,9 +32,8 @@ LocaleNumberGroupingIsEnabled()
 
   if (!sInitialized) {
     /* check and register ourselves with the pref */
-    Preferences::AddBoolVarCache(&gLocaleNumberGroupingEnabled,
-                                 LOCALE_NUMBER_GROUPING_PREF_STR,
-                                 false);
+    Preferences::AddBoolVarCache(
+        &gLocaleNumberGroupingEnabled, LOCALE_NUMBER_GROUPING_PREF_STR, false);
     sInitialized = true;
   }
 
@@ -80,7 +80,7 @@ ICUUtils::LanguageTagIterForContent::GetNext(nsACString& aBCP47LangTag)
   // TODO: Probably not worth it, but maybe have a fourth fallback to using
   // the OS locale?
 
-  aBCP47LangTag.Truncate(); // Signal iterator exhausted
+  aBCP47LangTag.Truncate();  // Signal iterator exhausted
 }
 
 /* static */ bool
@@ -98,19 +98,18 @@ ICUUtils::LocalizeNumber(double aValue,
   aLangTags.GetNext(langTag);
   while (!langTag.IsEmpty()) {
     UErrorCode status = U_ZERO_ERROR;
-    AutoCloseUNumberFormat format(unum_open(UNUM_DECIMAL, nullptr, 0,
-                                            langTag.get(), nullptr, &status));
-    unum_setAttribute(format, UNUM_GROUPING_USED,
-                      LocaleNumberGroupingIsEnabled());
+    AutoCloseUNumberFormat format(
+        unum_open(UNUM_DECIMAL, nullptr, 0, langTag.get(), nullptr, &status));
+    unum_setAttribute(
+        format, UNUM_GROUPING_USED, LocaleNumberGroupingIsEnabled());
     // ICU default is a maximum of 3 significant fractional digits. We don't
     // want that limit, so we set it to the maximum that a double can represent
     // (14-16 decimal fractional digits).
     unum_setAttribute(format, UNUM_MAX_FRACTION_DIGITS, 16);
-    int32_t length = unum_formatDouble(format, aValue, buffer, kBufferSize,
-                                       nullptr, &status);
-    NS_ASSERTION(length < kBufferSize &&
-                 status != U_BUFFER_OVERFLOW_ERROR &&
-                 status != U_STRING_NOT_TERMINATED_WARNING,
+    int32_t length = unum_formatDouble(
+        format, aValue, buffer, kBufferSize, nullptr, &status);
+    NS_ASSERTION(length < kBufferSize && status != U_BUFFER_OVERFLOW_ERROR &&
+                     status != U_STRING_NOT_TERMINATED_WARNING,
                  "Need a bigger buffer?!");
     if (U_SUCCESS(status)) {
       ICUUtils::AssignUCharArrayToString(buffer, length, aLocalizedValue);
@@ -122,8 +121,7 @@ ICUUtils::LocalizeNumber(double aValue,
 }
 
 /* static */ double
-ICUUtils::ParseNumber(nsAString& aValue,
-                      LanguageTagIterForContent& aLangTags)
+ICUUtils::ParseNumber(nsAString& aValue, LanguageTagIterForContent& aLangTags)
 {
   MOZ_ASSERT(aLangTags.IsAtStart(), "Don't call Next() before passing");
 
@@ -137,14 +135,16 @@ ICUUtils::ParseNumber(nsAString& aValue,
   aLangTags.GetNext(langTag);
   while (!langTag.IsEmpty()) {
     UErrorCode status = U_ZERO_ERROR;
-    AutoCloseUNumberFormat format(unum_open(UNUM_DECIMAL, nullptr, 0,
-                                            langTag.get(), nullptr, &status));
+    AutoCloseUNumberFormat format(
+        unum_open(UNUM_DECIMAL, nullptr, 0, langTag.get(), nullptr, &status));
     int32_t parsePos = 0;
     static_assert(sizeof(UChar) == 2 && sizeof(nsAString::char_type) == 2,
                   "Unexpected character size - the following cast is unsafe");
     double val = unum_parseDouble(format,
                                   (const UChar*)PromiseFlatString(aValue).get(),
-                                  length, &parsePos, &status);
+                                  length,
+                                  &parsePos,
+                                  &status);
     if (U_SUCCESS(status) && parsePos == (int32_t)length) {
       return val;
     }
@@ -176,7 +176,7 @@ ICUUtils::UErrorToNsResult(const UErrorCode aErrorCode)
     return NS_OK;
   }
 
-  switch(aErrorCode) {
+  switch (aErrorCode) {
     case U_ILLEGAL_ARGUMENT_ERROR:
       return NS_ERROR_INVALID_ARG;
 
@@ -274,4 +274,3 @@ ICUUtils::ToICUString(nsAString& aMozString, UnicodeString& aICUString)
 #endif
 
 #endif /* MOZILLA_INTERNAL_API */
-

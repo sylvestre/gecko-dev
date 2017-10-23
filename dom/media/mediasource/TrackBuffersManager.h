@@ -34,18 +34,15 @@ class SourceBufferResource;
 
 class SourceBufferTaskQueue
 {
-public:
-  SourceBufferTaskQueue() { }
+ public:
+  SourceBufferTaskQueue() {}
 
   ~SourceBufferTaskQueue()
   {
     MOZ_ASSERT(mQueue.IsEmpty(), "All tasks must have been processed");
   }
 
-  void Push(SourceBufferTask* aTask)
-  {
-    mQueue.AppendElement(aTask);
-  }
+  void Push(SourceBufferTask* aTask) { mQueue.AppendElement(aTask); }
 
   already_AddRefed<SourceBufferTask> Pop()
   {
@@ -61,13 +58,14 @@ public:
   {
     return mQueue.Length();
   }
-private:
+
+ private:
   nsTArray<RefPtr<SourceBufferTask>> mQueue;
 };
 
 class TrackBuffersManager
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(TrackBuffersManager);
 
   enum class EvictDataResult : int8_t
@@ -105,13 +103,14 @@ public:
   // Queue a task to run the MSE range removal algorithm.
   // http://w3c.github.io/media-source/#sourcebuffer-coded-frame-removal
   RefPtr<RangeRemovalPromise> RangeRemoval(media::TimeUnit aStart,
-                                             media::TimeUnit aEnd);
+                                           media::TimeUnit aEnd);
 
   // Schedule data eviction if necessary as the next call to AppendData will
   // add aSize bytes.
   // Eviction is done in two steps, first remove data up to aPlaybackTime
   // and if still more space is needed remove from the end.
-  EvictDataResult EvictData(const media::TimeUnit& aPlaybackTime, int64_t aSize);
+  EvictDataResult EvictData(const media::TimeUnit& aPlaybackTime,
+                            int64_t aSize);
 
   // Returns the buffered range currently managed.
   // This may be called on any thread.
@@ -137,10 +136,7 @@ public:
   const media::TimeIntervals& Buffered(TrackInfo::TrackType) const;
   const media::TimeUnit& HighestStartTime(TrackInfo::TrackType) const;
   media::TimeIntervals SafeBuffered(TrackInfo::TrackType) const;
-  bool IsEnded() const
-  {
-    return mEnded;
-  }
+  bool IsEnded() const { return mEnded; }
   uint32_t Evictable(TrackInfo::TrackType aTrack) const;
   media::TimeUnit Seek(TrackInfo::TrackType aTrack,
                        const media::TimeUnit& aTime,
@@ -160,8 +156,9 @@ public:
 
   void AddSizeOfResources(MediaSourceDecoder::ResourceSizes* aSizes) const;
 
-private:
-  typedef MozPromise<bool, MediaResult, /* IsExclusive = */ true> CodedFrameProcessingPromise;
+ private:
+  typedef MozPromise<bool, MediaResult, /* IsExclusive = */ true>
+      CodedFrameProcessingPromise;
 
   // for MediaSourceDemuxer::GetMozDebugReaderData
   friend class MediaSourceDemuxer;
@@ -183,19 +180,13 @@ private:
   void CompleteCodedFrameProcessing();
   // Called by ResetParserState.
   void CompleteResetParserState();
-  RefPtr<RangeRemovalPromise>
-    CodedFrameRemovalWithPromise(media::TimeInterval aInterval);
+  RefPtr<RangeRemovalPromise> CodedFrameRemovalWithPromise(
+      media::TimeInterval aInterval);
   bool CodedFrameRemoval(media::TimeInterval aInterval);
   void SetAppendState(SourceBufferAttributes::AppendState aAppendState);
 
-  bool HasVideo() const
-  {
-    return mVideoTracks.mNumTracks > 0;
-  }
-  bool HasAudio() const
-  {
-    return mAudioTracks.mNumTracks > 0;
-  }
+  bool HasVideo() const { return mVideoTracks.mNumTracks > 0; }
+  bool HasAudio() const { return mAudioTracks.mNumTracks > 0; }
 
   // The input buffer as per http://w3c.github.io/media-source/index.html#sourcebuffer-input-buffer
   RefPtr<MediaByteBuffer> mInputBuffer;
@@ -254,17 +245,13 @@ private:
   // Dispatches an "encrypted" event is any sample in array has initData
   // present.
   void MaybeDispatchEncryptedEvent(
-    const nsTArray<RefPtr<MediaRawData>>& aSamples);
+      const nsTArray<RefPtr<MediaRawData>>& aSamples);
 
   void DoEvictData(const media::TimeUnit& aPlaybackTime, int64_t aSizeToEvict);
 
   struct TrackData
   {
-    TrackData()
-      : mNumTracks(0)
-      , mNeedRandomAccessPoint(true)
-      , mSizeBuffer(0)
-    {}
+    TrackData() : mNumTracks(0), mNeedRandomAccessPoint(true), mSizeBuffer(0) {}
     uint32_t mNumTracks;
     // Definition of variables:
     // https://w3c.github.io/media-source/#track-buffers
@@ -428,7 +415,7 @@ private:
   nsTArray<TrackData*> GetTracksList();
   TrackData& GetTracksData(TrackType aTrack)
   {
-    switch(aTrack) {
+    switch (aTrack) {
       case TrackType::kVideoTrack:
         return mVideoTracks;
       case TrackType::kAudioTrack:
@@ -438,7 +425,7 @@ private:
   }
   const TrackData& GetTracksData(TrackType aTrack) const
   {
-    switch(aTrack) {
+    switch (aTrack) {
       case TrackType::kVideoTrack:
         return mVideoTracks;
       case TrackType::kAudioTrack:
@@ -496,7 +483,8 @@ private:
 
   // Return public highest end time across all aTracks.
   // Monitor must be held.
-  media::TimeUnit HighestEndTime(nsTArray<const media::TimeIntervals*>& aTracks) const;
+  media::TimeUnit HighestEndTime(
+      nsTArray<const media::TimeIntervals*>& aTracks) const;
 
   // Set to true if mediasource state changed to ended.
   Atomic<bool> mEnded;
@@ -526,6 +514,6 @@ private:
   MediaInfo mInfo;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_TRACKBUFFERSMANAGER_H_ */

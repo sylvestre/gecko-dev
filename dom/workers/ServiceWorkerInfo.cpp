@@ -10,18 +10,30 @@
 
 BEGIN_WORKERS_NAMESPACE
 
-static_assert(nsIServiceWorkerInfo::STATE_INSTALLING == static_cast<uint16_t>(ServiceWorkerState::Installing),
-              "ServiceWorkerState enumeration value should match state values from nsIServiceWorkerInfo.");
-static_assert(nsIServiceWorkerInfo::STATE_INSTALLED == static_cast<uint16_t>(ServiceWorkerState::Installed),
-              "ServiceWorkerState enumeration value should match state values from nsIServiceWorkerInfo.");
-static_assert(nsIServiceWorkerInfo::STATE_ACTIVATING == static_cast<uint16_t>(ServiceWorkerState::Activating),
-              "ServiceWorkerState enumeration value should match state values from nsIServiceWorkerInfo.");
-static_assert(nsIServiceWorkerInfo::STATE_ACTIVATED == static_cast<uint16_t>(ServiceWorkerState::Activated),
-              "ServiceWorkerState enumeration value should match state values from nsIServiceWorkerInfo.");
-static_assert(nsIServiceWorkerInfo::STATE_REDUNDANT == static_cast<uint16_t>(ServiceWorkerState::Redundant),
-              "ServiceWorkerState enumeration value should match state values from nsIServiceWorkerInfo.");
-static_assert(nsIServiceWorkerInfo::STATE_UNKNOWN == static_cast<uint16_t>(ServiceWorkerState::EndGuard_),
-              "ServiceWorkerState enumeration value should match state values from nsIServiceWorkerInfo.");
+static_assert(nsIServiceWorkerInfo::STATE_INSTALLING ==
+                  static_cast<uint16_t>(ServiceWorkerState::Installing),
+              "ServiceWorkerState enumeration value should match state values "
+              "from nsIServiceWorkerInfo.");
+static_assert(nsIServiceWorkerInfo::STATE_INSTALLED ==
+                  static_cast<uint16_t>(ServiceWorkerState::Installed),
+              "ServiceWorkerState enumeration value should match state values "
+              "from nsIServiceWorkerInfo.");
+static_assert(nsIServiceWorkerInfo::STATE_ACTIVATING ==
+                  static_cast<uint16_t>(ServiceWorkerState::Activating),
+              "ServiceWorkerState enumeration value should match state values "
+              "from nsIServiceWorkerInfo.");
+static_assert(nsIServiceWorkerInfo::STATE_ACTIVATED ==
+                  static_cast<uint16_t>(ServiceWorkerState::Activated),
+              "ServiceWorkerState enumeration value should match state values "
+              "from nsIServiceWorkerInfo.");
+static_assert(nsIServiceWorkerInfo::STATE_REDUNDANT ==
+                  static_cast<uint16_t>(ServiceWorkerState::Redundant),
+              "ServiceWorkerState enumeration value should match state values "
+              "from nsIServiceWorkerInfo.");
+static_assert(nsIServiceWorkerInfo::STATE_UNKNOWN ==
+                  static_cast<uint16_t>(ServiceWorkerState::EndGuard_),
+              "ServiceWorkerState enumeration value should match state values "
+              "from nsIServiceWorkerInfo.");
 
 NS_IMPL_ISUPPORTS(ServiceWorkerInfo, nsIServiceWorkerInfo)
 
@@ -141,11 +153,10 @@ namespace {
 
 class ChangeStateUpdater final : public Runnable
 {
-public:
+ public:
   ChangeStateUpdater(const nsTArray<ServiceWorker*>& aInstances,
                      ServiceWorkerState aState)
-    : Runnable("dom::workers::ChangeStateUpdater")
-    , mState(aState)
+      : Runnable("dom::workers::ChangeStateUpdater"), mState(aState)
   {
     for (size_t i = 0; i < aInstances.Length(); ++i) {
       mInstances.AppendElement(aInstances[i]);
@@ -167,12 +178,12 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   AutoTArray<RefPtr<ServiceWorker>, 1> mInstances;
   ServiceWorkerState mState;
 };
 
-}
+}  // namespace
 
 void
 ServiceWorkerInfo::UpdateState(ServiceWorkerState aState)
@@ -182,13 +193,18 @@ ServiceWorkerInfo::UpdateState(ServiceWorkerState aState)
   // Any state can directly transition to redundant, but everything else is
   // ordered.
   if (aState != ServiceWorkerState::Redundant) {
-    MOZ_ASSERT_IF(mState == ServiceWorkerState::EndGuard_, aState == ServiceWorkerState::Installing);
-    MOZ_ASSERT_IF(mState == ServiceWorkerState::Installing, aState == ServiceWorkerState::Installed);
-    MOZ_ASSERT_IF(mState == ServiceWorkerState::Installed, aState == ServiceWorkerState::Activating);
-    MOZ_ASSERT_IF(mState == ServiceWorkerState::Activating, aState == ServiceWorkerState::Activated);
+    MOZ_ASSERT_IF(mState == ServiceWorkerState::EndGuard_,
+                  aState == ServiceWorkerState::Installing);
+    MOZ_ASSERT_IF(mState == ServiceWorkerState::Installing,
+                  aState == ServiceWorkerState::Installed);
+    MOZ_ASSERT_IF(mState == ServiceWorkerState::Installed,
+                  aState == ServiceWorkerState::Activating);
+    MOZ_ASSERT_IF(mState == ServiceWorkerState::Activating,
+                  aState == ServiceWorkerState::Activated);
   }
   // Activated can only go to redundant.
-  MOZ_ASSERT_IF(mState == ServiceWorkerState::Activated, aState == ServiceWorkerState::Redundant);
+  MOZ_ASSERT_IF(mState == ServiceWorkerState::Activated,
+                aState == ServiceWorkerState::Redundant);
 #endif
   // Flush any pending functional events to the worker when it transitions to the
   // activated state.
@@ -210,21 +226,21 @@ ServiceWorkerInfo::ServiceWorkerInfo(nsIPrincipal* aPrincipal,
                                      const nsACString& aScriptSpec,
                                      const nsAString& aCacheName,
                                      nsLoadFlags aImportsLoadFlags)
-  : mPrincipal(aPrincipal)
-  , mScope(aScope)
-  , mScriptSpec(aScriptSpec)
-  , mCacheName(aCacheName)
-  , mState(ServiceWorkerState::EndGuard_)
-  , mImportsLoadFlags(aImportsLoadFlags)
-  , mServiceWorkerID(GetNextID())
-  , mCreationTime(PR_Now())
-  , mCreationTimeStamp(TimeStamp::Now())
-  , mInstalledTime(0)
-  , mActivatedTime(0)
-  , mRedundantTime(0)
-  , mServiceWorkerPrivate(new ServiceWorkerPrivate(this))
-  , mSkipWaitingFlag(false)
-  , mHandlesFetch(Unknown)
+    : mPrincipal(aPrincipal),
+      mScope(aScope),
+      mScriptSpec(aScriptSpec),
+      mCacheName(aCacheName),
+      mState(ServiceWorkerState::EndGuard_),
+      mImportsLoadFlags(aImportsLoadFlags),
+      mServiceWorkerID(GetNextID()),
+      mCreationTime(PR_Now()),
+      mCreationTimeStamp(TimeStamp::Now()),
+      mInstalledTime(0),
+      mActivatedTime(0),
+      mRedundantTime(0),
+      mServiceWorkerPrivate(new ServiceWorkerPrivate(this)),
+      mSkipWaitingFlag(false),
+      mHandlesFetch(Unknown)
 {
   MOZ_ASSERT(mPrincipal);
   // cache origin attributes so we can use them off main thread
@@ -236,7 +252,8 @@ ServiceWorkerInfo::ServiceWorkerInfo(nsIPrincipal* aPrincipal,
   // Scripts of a service worker should always be loaded bypass service workers.
   // Otherwise, we might not be able to update a service worker correctly, if
   // there is a service worker generating the script.
-  MOZ_DIAGNOSTIC_ASSERT(mImportsLoadFlags & nsIChannel::LOAD_BYPASS_SERVICE_WORKER);
+  MOZ_DIAGNOSTIC_ASSERT(mImportsLoadFlags &
+                        nsIChannel::LOAD_BYPASS_SERVICE_WORKER);
 }
 
 ServiceWorkerInfo::~ServiceWorkerInfo()
@@ -283,8 +300,9 @@ ServiceWorkerInfo::UpdateInstalledTime()
   MOZ_ASSERT(mInstalledTime == 0);
 
   mInstalledTime =
-    mCreationTime + static_cast<PRTime>((TimeStamp::Now() -
-                                         mCreationTimeStamp).ToMicroseconds());
+      mCreationTime +
+      static_cast<PRTime>(
+          (TimeStamp::Now() - mCreationTimeStamp).ToMicroseconds());
 }
 
 void
@@ -294,8 +312,9 @@ ServiceWorkerInfo::UpdateActivatedTime()
   MOZ_ASSERT(mActivatedTime == 0);
 
   mActivatedTime =
-    mCreationTime + static_cast<PRTime>((TimeStamp::Now() -
-                                         mCreationTimeStamp).ToMicroseconds());
+      mCreationTime +
+      static_cast<PRTime>(
+          (TimeStamp::Now() - mCreationTimeStamp).ToMicroseconds());
 }
 
 void
@@ -305,8 +324,9 @@ ServiceWorkerInfo::UpdateRedundantTime()
   MOZ_ASSERT(mRedundantTime == 0);
 
   mRedundantTime =
-    mCreationTime + static_cast<PRTime>((TimeStamp::Now() -
-                                         mCreationTimeStamp).ToMicroseconds());
+      mCreationTime +
+      static_cast<PRTime>(
+          (TimeStamp::Now() - mCreationTimeStamp).ToMicroseconds());
 }
 
 END_WORKERS_NAMESPACE

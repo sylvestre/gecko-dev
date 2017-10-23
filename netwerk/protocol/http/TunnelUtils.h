@@ -85,7 +85,8 @@ the encrypted text available in mOutputData
 
 struct PRSocketOptionData;
 
-namespace mozilla { namespace net {
+namespace mozilla {
+namespace net {
 
 class nsHttpRequestHead;
 class NullHttpTransaction;
@@ -93,21 +94,22 @@ class TLSFilterTransaction;
 
 class NudgeTunnelCallback : public nsISupports
 {
-public:
-  virtual void OnTunnelNudged(TLSFilterTransaction *) = 0;
+ public:
+  virtual void OnTunnelNudged(TLSFilterTransaction*) = 0;
 };
 
-#define NS_DECL_NUDGETUNNELCALLBACK void OnTunnelNudged(TLSFilterTransaction *) override;
+#define NS_DECL_NUDGETUNNELCALLBACK \
+  void OnTunnelNudged(TLSFilterTransaction*) override;
 
-class TLSFilterTransaction final
-  : public nsAHttpTransaction
-  , public nsAHttpSegmentReader
-  , public nsAHttpSegmentWriter
-  , public nsITimerCallback
-  , public nsINamed
+class TLSFilterTransaction final : public nsAHttpTransaction,
+                                   public nsAHttpSegmentReader,
+                                   public nsAHttpSegmentWriter,
+                                   public nsITimerCallback,
+                                   public nsINamed
 {
   ~TLSFilterTransaction();
-public:
+
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSAHTTPTRANSACTION
   NS_DECL_NSAHTTPSEGMENTREADER
@@ -115,46 +117,54 @@ public:
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
 
-  TLSFilterTransaction(nsAHttpTransaction *aWrappedTransaction,
-                       const char *tlsHost, int32_t tlsPort,
-                       nsAHttpSegmentReader *reader,
-                       nsAHttpSegmentWriter *writer);
+  TLSFilterTransaction(nsAHttpTransaction* aWrappedTransaction,
+                       const char* tlsHost,
+                       int32_t tlsPort,
+                       nsAHttpSegmentReader* reader,
+                       nsAHttpSegmentWriter* writer);
 
-  const nsAHttpTransaction *Transaction() const { return mTransaction.get(); }
+  const nsAHttpTransaction* Transaction() const { return mTransaction.get(); }
   MOZ_MUST_USE nsresult CommitToSegmentSize(uint32_t size,
                                             bool forceCommitment) override;
-  MOZ_MUST_USE nsresult GetTransactionSecurityInfo(nsISupports **) override;
-  MOZ_MUST_USE nsresult NudgeTunnel(NudgeTunnelCallback *callback);
-  MOZ_MUST_USE nsresult SetProxiedTransaction(nsAHttpTransaction *aTrans);
-  void     newIODriver(nsIAsyncInputStream *aSocketIn,
-                       nsIAsyncOutputStream *aSocketOut,
-                       nsIAsyncInputStream **outSocketIn,
-                       nsIAsyncOutputStream **outSocketOut);
+  MOZ_MUST_USE nsresult GetTransactionSecurityInfo(nsISupports**) override;
+  MOZ_MUST_USE nsresult NudgeTunnel(NudgeTunnelCallback* callback);
+  MOZ_MUST_USE nsresult SetProxiedTransaction(nsAHttpTransaction* aTrans);
+  void newIODriver(nsIAsyncInputStream* aSocketIn,
+                   nsIAsyncOutputStream* aSocketOut,
+                   nsIAsyncInputStream** outSocketIn,
+                   nsIAsyncOutputStream** outSocketOut);
 
   // nsAHttpTransaction overloads
   bool IsNullTransaction() override;
-  NullHttpTransaction *QueryNullTransaction() override;
-  nsHttpTransaction *QueryHttpTransaction() override;
-  SpdyConnectTransaction *QuerySpdyConnectTransaction() override;
+  NullHttpTransaction* QueryNullTransaction() override;
+  nsHttpTransaction* QueryHttpTransaction() override;
+  SpdyConnectTransaction* QuerySpdyConnectTransaction() override;
 
-private:
+ private:
   MOZ_MUST_USE nsresult StartTimerCallback();
   void Cleanup();
-  int32_t FilterOutput(const char *aBuf, int32_t aAmount);
-  int32_t FilterInput(char *aBuf, int32_t aAmount);
+  int32_t FilterOutput(const char* aBuf, int32_t aAmount);
+  int32_t FilterInput(char* aBuf, int32_t aAmount);
 
-  static PRStatus GetPeerName(PRFileDesc *fd, PRNetAddr*addr);
-  static PRStatus GetSocketOption(PRFileDesc *fd, PRSocketOptionData *data);
-  static PRStatus SetSocketOption(PRFileDesc *fd, const PRSocketOptionData *data);
-  static int32_t FilterWrite(PRFileDesc *fd, const void *buf, int32_t amount);
-  static int32_t FilterRead(PRFileDesc *fd, void *buf, int32_t amount);
-  static int32_t FilterSend(PRFileDesc *fd, const void *buf, int32_t amount, int flags,
-                             PRIntervalTime timeout);
-  static int32_t FilterRecv(PRFileDesc *fd, void *buf, int32_t amount, int flags,
-                             PRIntervalTime timeout);
-  static PRStatus FilterClose(PRFileDesc *fd);
+  static PRStatus GetPeerName(PRFileDesc* fd, PRNetAddr* addr);
+  static PRStatus GetSocketOption(PRFileDesc* fd, PRSocketOptionData* data);
+  static PRStatus SetSocketOption(PRFileDesc* fd,
+                                  const PRSocketOptionData* data);
+  static int32_t FilterWrite(PRFileDesc* fd, const void* buf, int32_t amount);
+  static int32_t FilterRead(PRFileDesc* fd, void* buf, int32_t amount);
+  static int32_t FilterSend(PRFileDesc* fd,
+                            const void* buf,
+                            int32_t amount,
+                            int flags,
+                            PRIntervalTime timeout);
+  static int32_t FilterRecv(PRFileDesc* fd,
+                            void* buf,
+                            int32_t amount,
+                            int flags,
+                            PRIntervalTime timeout);
+  static PRStatus FilterClose(PRFileDesc* fd);
 
-private:
+ private:
   RefPtr<nsAHttpTransaction> mTransaction;
   nsCOMPtr<nsISupports> mSecInfo;
   nsCOMPtr<nsITimer> mTimer;
@@ -165,9 +175,9 @@ private:
   uint32_t mEncryptedTextUsed;
   uint32_t mEncryptedTextSize;
 
-  PRFileDesc *mFD;
-  nsAHttpSegmentReader *mSegmentReader;
-  nsAHttpSegmentWriter *mSegmentWriter;
+  PRFileDesc* mFD;
+  nsAHttpSegmentReader* mSegmentReader;
+  nsAHttpSegmentWriter* mSegmentWriter;
 
   nsresult mFilterReadCode;
   bool mForce;
@@ -182,74 +192,77 @@ class nsHttpConnection;
 
 class SpdyConnectTransaction final : public NullHttpTransaction
 {
-public:
-  SpdyConnectTransaction(nsHttpConnectionInfo *ci,
-                         nsIInterfaceRequestor *callbacks,
+ public:
+  SpdyConnectTransaction(nsHttpConnectionInfo* ci,
+                         nsIInterfaceRequestor* callbacks,
                          uint32_t caps,
-                         nsHttpTransaction *trans,
-                         nsAHttpConnection *session);
+                         nsHttpTransaction* trans,
+                         nsAHttpConnection* session);
   ~SpdyConnectTransaction();
 
-  SpdyConnectTransaction *QuerySpdyConnectTransaction() override { return this; }
+  SpdyConnectTransaction* QuerySpdyConnectTransaction() override
+  {
+    return this;
+  }
 
   // A transaction is forced into plaintext when it is intended to be used as a CONNECT
   // tunnel but the setup fails. The plaintext only carries the CONNECT error.
   void ForcePlainText();
-  void MapStreamToHttpConnection(nsISocketTransport *aTransport,
-                                 nsHttpConnectionInfo *aConnInfo);
+  void MapStreamToHttpConnection(nsISocketTransport* aTransport,
+                                 nsHttpConnectionInfo* aConnInfo);
 
-  MOZ_MUST_USE nsresult ReadSegments(nsAHttpSegmentReader *reader,
+  MOZ_MUST_USE nsresult ReadSegments(nsAHttpSegmentReader* reader,
                                      uint32_t count,
-                                     uint32_t *countRead) override final;
-  MOZ_MUST_USE nsresult WriteSegments(nsAHttpSegmentWriter *writer,
+                                     uint32_t* countRead) override final;
+  MOZ_MUST_USE nsresult WriteSegments(nsAHttpSegmentWriter* writer,
                                       uint32_t count,
-                                      uint32_t *countWritten) override final;
-  nsHttpRequestHead *RequestHead() override final;
+                                      uint32_t* countWritten) override final;
+  nsHttpRequestHead* RequestHead() override final;
   void Close(nsresult reason) override final;
 
   // ConnectedReadyForInput() tests whether the spdy connect transaction is attached to
   // an nsHttpConnection that can properly deal with flow control, etc..
   bool ConnectedReadyForInput();
 
-private:
+ private:
   friend class InputStreamShim;
   friend class OutputStreamShim;
 
-  MOZ_MUST_USE nsresult Flush(uint32_t count, uint32_t *countRead);
+  MOZ_MUST_USE nsresult Flush(uint32_t count, uint32_t* countRead);
   void CreateShimError(nsresult code);
 
-  nsCString             mConnectString;
-  uint32_t              mConnectStringOffset;
+  nsCString mConnectString;
+  uint32_t mConnectStringOffset;
 
-  nsAHttpConnection    *mSession;
-  nsAHttpSegmentReader *mSegmentReader;
+  nsAHttpConnection* mSession;
+  nsAHttpSegmentReader* mSegmentReader;
 
-  UniquePtr<char[]>   mInputData;
-  uint32_t             mInputDataSize;
-  uint32_t             mInputDataUsed;
-  uint32_t             mInputDataOffset;
+  UniquePtr<char[]> mInputData;
+  uint32_t mInputDataSize;
+  uint32_t mInputDataUsed;
+  uint32_t mInputDataOffset;
 
-  UniquePtr<char[]>    mOutputData;
-  uint32_t             mOutputDataSize;
-  uint32_t             mOutputDataUsed;
-  uint32_t             mOutputDataOffset;
+  UniquePtr<char[]> mOutputData;
+  uint32_t mOutputDataSize;
+  uint32_t mOutputDataUsed;
+  uint32_t mOutputDataOffset;
 
-  bool                           mForcePlainText;
-  TimeStamp                      mTimestampSyn;
+  bool mForcePlainText;
+  TimeStamp mTimestampSyn;
   RefPtr<nsHttpConnectionInfo> mConnInfo;
 
   // mTunneledConn, mTunnelTransport, mTunnelStreamIn, mTunnelStreamOut
   // are the connectors to the "real" http connection. They are created
   // together when the tunnel setup is complete and a static reference is held
   // for the lifetime of the tunnel.
-  RefPtr<nsHttpConnection>     mTunneledConn;
-  RefPtr<SocketTransportShim>  mTunnelTransport;
-  RefPtr<InputStreamShim>      mTunnelStreamIn;
-  RefPtr<OutputStreamShim>     mTunnelStreamOut;
-  RefPtr<nsHttpTransaction>    mDrivingTransaction;
+  RefPtr<nsHttpConnection> mTunneledConn;
+  RefPtr<SocketTransportShim> mTunnelTransport;
+  RefPtr<InputStreamShim> mTunnelStreamIn;
+  RefPtr<OutputStreamShim> mTunnelStreamOut;
+  RefPtr<nsHttpTransaction> mDrivingTransaction;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_TLSFilterTransaction_h
+#endif  // mozilla_net_TLSFilterTransaction_h

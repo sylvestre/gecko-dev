@@ -58,19 +58,23 @@
  *
  */
 
-#define AV_DICT_MATCH_CASE      1
-#define AV_DICT_IGNORE_SUFFIX   2
-#define AV_DICT_DONT_STRDUP_KEY 4   /**< Take ownership of a key that's been
+#define AV_DICT_MATCH_CASE 1
+#define AV_DICT_IGNORE_SUFFIX 2
+#define AV_DICT_DONT_STRDUP_KEY \
+  4 /**< Take ownership of a key that's been
                                          allocated with av_malloc() and children. */
-#define AV_DICT_DONT_STRDUP_VAL 8   /**< Take ownership of a value that's been
+#define AV_DICT_DONT_STRDUP_VAL \
+  8                                /**< Take ownership of a value that's been
                                          allocated with av_malloc() and chilren. */
-#define AV_DICT_DONT_OVERWRITE 16   ///< Don't overwrite existing entries.
-#define AV_DICT_APPEND         32   /**< If the entry already exists, append to it.  Note that no
+#define AV_DICT_DONT_OVERWRITE 16  ///< Don't overwrite existing entries.
+#define AV_DICT_APPEND \
+  32 /**< If the entry already exists, append to it.  Note that no
                                       delimiter is added, the strings are simply concatenated. */
 
-typedef struct AVDictionaryEntry {
-    char *key;
-    char *value;
+typedef struct AVDictionaryEntry
+{
+  char* key;
+  char* value;
 } AVDictionaryEntry;
 
 typedef struct AVDictionary AVDictionary;
@@ -83,8 +87,11 @@ typedef struct AVDictionary AVDictionary;
  * @param flags Allows case as well as suffix-insensitive comparisons.
  * @return Found entry or NULL, changing key or value leads to undefined behavior.
  */
-AVDictionaryEntry *
-av_dict_get(AVDictionary *m, const char *key, const AVDictionaryEntry *prev, int flags);
+AVDictionaryEntry*
+av_dict_get(AVDictionary* m,
+            const char* key,
+            const AVDictionaryEntry* prev,
+            int flags);
 
 /**
  * Get number of entries in dictionary.
@@ -92,7 +99,8 @@ av_dict_get(AVDictionary *m, const char *key, const AVDictionaryEntry *prev, int
  * @param m dictionary
  * @return  number of entries in dictionary
  */
-int av_dict_count(const AVDictionary *m);
+int
+av_dict_count(const AVDictionary* m);
 
 /**
  * Set the given entry in *pm, overwriting an existing entry.
@@ -104,7 +112,8 @@ int av_dict_count(const AVDictionary *m);
  *        Passing a NULL value will cause an existing entry to be deleted.
  * @return >= 0 on success otherwise an error code <0
  */
-int av_dict_set(AVDictionary **pm, const char *key, const char *value, int flags);
+int
+av_dict_set(AVDictionary** pm, const char* key, const char* value, int flags);
 
 /**
  * Copy entries from one AVDictionary struct into another.
@@ -114,13 +123,15 @@ int av_dict_set(AVDictionary **pm, const char *key, const char *value, int flags
  * @param flags flags to use when setting entries in *dst
  * @note metadata is read using the AV_DICT_IGNORE_SUFFIX flag
  */
-void av_dict_copy(AVDictionary **dst, AVDictionary *src, int flags);
+void
+av_dict_copy(AVDictionary** dst, AVDictionary* src, int flags);
 
 /**
  * Free all the memory allocated for an AVDictionary struct
  * and all keys and values.
  */
-void av_dict_free(AVDictionary **m);
+void
+av_dict_free(AVDictionary** m);
 
 /**
  * @}

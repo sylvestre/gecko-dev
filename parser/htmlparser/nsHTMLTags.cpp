@@ -29,23 +29,23 @@ PLHashTable* nsHTMLTags::gTagAtomTable;
 
 // char16_t* -> id hash
 static PLHashNumber
-HTMLTagsHashCodeUCPtr(const void *key)
+HTMLTagsHashCodeUCPtr(const void* key)
 {
   return HashString(static_cast<const char16_t*>(key));
 }
 
 static int
-HTMLTagsKeyCompareUCPtr(const void *key1, const void *key2)
+HTMLTagsKeyCompareUCPtr(const void* key1, const void* key2)
 {
-  const char16_t *str1 = (const char16_t *)key1;
-  const char16_t *str2 = (const char16_t *)key2;
+  const char16_t* str1 = (const char16_t*)key1;
+  const char16_t* str2 = (const char16_t*)key2;
 
   return nsCRT::strcmp(str1, str2) == 0;
 }
 
 // nsAtom* -> id hash
 static PLHashNumber
-HTMLTagsHashCodeAtom(const void *key)
+HTMLTagsHashCodeAtom(const void* key)
 {
   return NS_PTR_TO_INT32(key) >> 2;
 }
@@ -67,12 +67,12 @@ nsHTMLTags::RegisterAtoms(void)
 {
   // This would use NS_STATIC_ATOM_SETUP if it wasn't an array.
   static const nsStaticAtomSetup sTagAtomSetup[] = {
-    #define HTML_TAG(_tag, _classname, _interfacename) \
-      { _tag##_buffer, &nsHTMLTags::sTagAtomTable[eHTMLTag_##_tag - 1] },
-    #define HTML_OTHER(_tag)
-    #include "nsHTMLTagList.h"
-    #undef HTML_TAG
-    #undef HTML_OTHER
+#define HTML_TAG(_tag, _classname, _interfacename) \
+  {_tag##_buffer, &nsHTMLTags::sTagAtomTable[eHTMLTag_##_tag - 1]},
+#define HTML_OTHER(_tag)
+#include "nsHTMLTagList.h"
+#undef HTML_TAG
+#undef HTML_OTHER
   };
 
   NS_RegisterStaticAtoms(sTagAtomSetup);
@@ -114,14 +114,20 @@ nsHTMLTags::AddRefTable(void)
   if (gTableRefCount++ == 0) {
     NS_ASSERTION(!gTagTable && !gTagAtomTable, "pre existing hash!");
 
-    gTagTable = PL_NewHashTable(64, HTMLTagsHashCodeUCPtr,
-                                HTMLTagsKeyCompareUCPtr, PL_CompareValues,
-                                nullptr, nullptr);
+    gTagTable = PL_NewHashTable(64,
+                                HTMLTagsHashCodeUCPtr,
+                                HTMLTagsKeyCompareUCPtr,
+                                PL_CompareValues,
+                                nullptr,
+                                nullptr);
     NS_ENSURE_TRUE(gTagTable, NS_ERROR_OUT_OF_MEMORY);
 
-    gTagAtomTable = PL_NewHashTable(64, HTMLTagsHashCodeAtom,
-                                    PL_CompareValues, PL_CompareValues,
-                                    nullptr, nullptr);
+    gTagAtomTable = PL_NewHashTable(64,
+                                    HTMLTagsHashCodeAtom,
+                                    PL_CompareValues,
+                                    PL_CompareValues,
+                                    nullptr,
+                                    nullptr);
     NS_ENSURE_TRUE(gTagAtomTable, NS_ERROR_OUT_OF_MEMORY);
 
     // Fill in gTagTable with the above static char16_t strings as
@@ -130,11 +136,9 @@ nsHTMLTags::AddRefTable(void)
 
     int32_t i;
     for (i = 0; i < NS_HTML_TAG_MAX; ++i) {
-      PL_HashTableAdd(gTagTable, sTagUnicodeTable[i],
-                      NS_INT32_TO_PTR(i + 1));
+      PL_HashTableAdd(gTagTable, sTagUnicodeTable[i], NS_INT32_TO_PTR(i + 1));
 
-      PL_HashTableAdd(gTagAtomTable, sTagAtomTable[i],
-                      NS_INT32_TO_PTR(i + 1));
+      PL_HashTableAdd(gTagAtomTable, sTagAtomTable[i], NS_INT32_TO_PTR(i + 1));
     }
   }
 
@@ -182,10 +186,10 @@ nsHTMLTags::StringTagToId(const nsAString& aTagName)
     c = *iter;
 
     if (c <= 'Z' && c >= 'A') {
-      c |= 0x20; // Lowercase the ASCII character.
+      c |= 0x20;  // Lowercase the ASCII character.
     }
 
-    buf[i] = c; // Copy ASCII character.
+    buf[i] = c;  // Copy ASCII character.
 
     ++i;
     ++iter;
@@ -200,41 +204,41 @@ nsHTMLTags::StringTagToId(const nsAString& aTagName)
 void
 nsHTMLTags::TestTagTable()
 {
-     const char16_t *tag;
-     nsHTMLTag id;
-     RefPtr<nsAtom> atom;
+  const char16_t* tag;
+  nsHTMLTag id;
+  RefPtr<nsAtom> atom;
 
-     nsHTMLTags::AddRefTable();
-     // Make sure we can find everything we are supposed to
-     for (int i = 0; i < NS_HTML_TAG_MAX; ++i) {
-       tag = sTagUnicodeTable[i];
-       id = StringTagToId(nsDependentString(tag));
-       NS_ASSERTION(id != eHTMLTag_userdefined, "can't find tag id");
+  nsHTMLTags::AddRefTable();
+  // Make sure we can find everything we are supposed to
+  for (int i = 0; i < NS_HTML_TAG_MAX; ++i) {
+    tag = sTagUnicodeTable[i];
+    id = StringTagToId(nsDependentString(tag));
+    NS_ASSERTION(id != eHTMLTag_userdefined, "can't find tag id");
 
-       nsAutoString uname(tag);
-       ToUpperCase(uname);
-       NS_ASSERTION(id == StringTagToId(uname), "wrong id");
+    nsAutoString uname(tag);
+    ToUpperCase(uname);
+    NS_ASSERTION(id == StringTagToId(uname), "wrong id");
 
-       NS_ASSERTION(id == CaseSensitiveStringTagToId(tag), "wrong id");
+    NS_ASSERTION(id == CaseSensitiveStringTagToId(tag), "wrong id");
 
-       atom = NS_Atomize(tag);
-       NS_ASSERTION(id == CaseSensitiveAtomTagToId(atom), "wrong id");
-     }
+    atom = NS_Atomize(tag);
+    NS_ASSERTION(id == CaseSensitiveAtomTagToId(atom), "wrong id");
+  }
 
-     // Make sure we don't find things that aren't there
-     id = StringTagToId(NS_LITERAL_STRING("@"));
-     NS_ASSERTION(id == eHTMLTag_userdefined, "found @");
-     id = StringTagToId(NS_LITERAL_STRING("zzzzz"));
-     NS_ASSERTION(id == eHTMLTag_userdefined, "found zzzzz");
+  // Make sure we don't find things that aren't there
+  id = StringTagToId(NS_LITERAL_STRING("@"));
+  NS_ASSERTION(id == eHTMLTag_userdefined, "found @");
+  id = StringTagToId(NS_LITERAL_STRING("zzzzz"));
+  NS_ASSERTION(id == eHTMLTag_userdefined, "found zzzzz");
 
-     atom = NS_Atomize("@");
-     id = CaseSensitiveAtomTagToId(atom);
-     NS_ASSERTION(id == eHTMLTag_userdefined, "found @");
-     atom = NS_Atomize("zzzzz");
-     id = CaseSensitiveAtomTagToId(atom);
-     NS_ASSERTION(id == eHTMLTag_userdefined, "found zzzzz");
+  atom = NS_Atomize("@");
+  id = CaseSensitiveAtomTagToId(atom);
+  NS_ASSERTION(id == eHTMLTag_userdefined, "found @");
+  atom = NS_Atomize("zzzzz");
+  id = CaseSensitiveAtomTagToId(atom);
+  NS_ASSERTION(id == eHTMLTag_userdefined, "found zzzzz");
 
-     ReleaseTable();
+  ReleaseTable();
 }
 
-#endif // DEBUG
+#endif  // DEBUG

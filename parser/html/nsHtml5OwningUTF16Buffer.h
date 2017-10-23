@@ -10,60 +10,59 @@
 
 class nsHtml5OwningUTF16Buffer : public nsHtml5UTF16Buffer
 {
-  private:
-
-    /**
+ private:
+  /**
      * Passes a buffer and its length to the superclass constructor.
      */
-    explicit nsHtml5OwningUTF16Buffer(char16_t* aBuffer);
+  explicit nsHtml5OwningUTF16Buffer(char16_t* aBuffer);
 
-  public:
-
-    /**
+ public:
+  /**
      * Constructor for a parser key placeholder. (No actual buffer.)
      * @param aKey a parser key
      */
-    explicit nsHtml5OwningUTF16Buffer(void* aKey);
+  explicit nsHtml5OwningUTF16Buffer(void* aKey);
 
-protected:
-    /**
+ protected:
+  /**
      * Takes care of releasing the owned buffer.
      */
-    ~nsHtml5OwningUTF16Buffer();
+  ~nsHtml5OwningUTF16Buffer();
 
-public:
-    /**
+ public:
+  /**
      * The next buffer in a queue.
      */
-    RefPtr<nsHtml5OwningUTF16Buffer> next;
+  RefPtr<nsHtml5OwningUTF16Buffer> next;
 
-    /**
+  /**
      * A parser key.
      */
-    void* key;
+  void* key;
 
-    static already_AddRefed<nsHtml5OwningUTF16Buffer>
-    FalliblyCreate(int32_t aLength);
+  static already_AddRefed<nsHtml5OwningUTF16Buffer> FalliblyCreate(
+      int32_t aLength);
 
-    /**
+  /**
      * Swap start, end and buffer fields with another object.
      */
-    void Swap(nsHtml5OwningUTF16Buffer* aOther);
+  void Swap(nsHtml5OwningUTF16Buffer* aOther);
 
-    /**
+  /**
      * Return a span from `end` to `aBufferSize`.
      */
-    mozilla::Span<char16_t> TailAsSpan(int32_t aBufferSize);
+  mozilla::Span<char16_t> TailAsSpan(int32_t aBufferSize);
 
-    /**
+  /**
      * Add the argument to `end`.
      */
-    void AdvanceEnd(int32_t aNumberOfCodeUnits);
+  void AdvanceEnd(int32_t aNumberOfCodeUnits);
 
-    nsrefcnt AddRef();
-    nsrefcnt Release();
-  private:
-    nsAutoRefCnt mRefCnt;
+  nsrefcnt AddRef();
+  nsrefcnt Release();
+
+ private:
+  nsAutoRefCnt mRefCnt;
 };
 
-#endif // nsHtml5OwningUTF16Buffer_h
+#endif  // nsHtml5OwningUTF16Buffer_h

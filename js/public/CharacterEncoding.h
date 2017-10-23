@@ -24,19 +24,24 @@ namespace JS {
  */
 class Latin1Chars : public mozilla::Range<Latin1Char>
 {
-    typedef mozilla::Range<Latin1Char> Base;
+  typedef mozilla::Range<Latin1Char> Base;
 
-  public:
-    using CharT = Latin1Char;
+ public:
+  using CharT = Latin1Char;
 
-    Latin1Chars() : Base() {}
-    Latin1Chars(char* aBytes, size_t aLength) : Base(reinterpret_cast<Latin1Char*>(aBytes), aLength) {}
-    Latin1Chars(const Latin1Char* aBytes, size_t aLength)
+  Latin1Chars() : Base() {}
+  Latin1Chars(char* aBytes, size_t aLength)
+      : Base(reinterpret_cast<Latin1Char*>(aBytes), aLength)
+  {
+  }
+  Latin1Chars(const Latin1Char* aBytes, size_t aLength)
       : Base(const_cast<Latin1Char*>(aBytes), aLength)
-    {}
-    Latin1Chars(const char* aBytes, size_t aLength)
+  {
+  }
+  Latin1Chars(const char* aBytes, size_t aLength)
       : Base(reinterpret_cast<Latin1Char*>(const_cast<char*>(aBytes)), aLength)
-    {}
+  {
+  }
 };
 
 /*
@@ -44,44 +49,46 @@ class Latin1Chars : public mozilla::Range<Latin1Char>
  */
 class Latin1CharsZ : public mozilla::RangedPtr<Latin1Char>
 {
-    typedef mozilla::RangedPtr<Latin1Char> Base;
+  typedef mozilla::RangedPtr<Latin1Char> Base;
 
-  public:
-    using CharT = Latin1Char;
+ public:
+  using CharT = Latin1Char;
 
-    Latin1CharsZ() : Base(nullptr, 0) {}
+  Latin1CharsZ() : Base(nullptr, 0) {}
 
-    Latin1CharsZ(char* aBytes, size_t aLength)
+  Latin1CharsZ(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<Latin1Char*>(aBytes), aLength)
-    {
-        MOZ_ASSERT(aBytes[aLength] == '\0');
-    }
+  {
+    MOZ_ASSERT(aBytes[aLength] == '\0');
+  }
 
-    Latin1CharsZ(Latin1Char* aBytes, size_t aLength)
-      : Base(aBytes, aLength)
-    {
-        MOZ_ASSERT(aBytes[aLength] == '\0');
-    }
+  Latin1CharsZ(Latin1Char* aBytes, size_t aLength) : Base(aBytes, aLength)
+  {
+    MOZ_ASSERT(aBytes[aLength] == '\0');
+  }
 
-    using Base::operator=;
+  using Base::operator=;
 
-    char* c_str() { return reinterpret_cast<char*>(get()); }
+  char* c_str() { return reinterpret_cast<char*>(get()); }
 };
 
 class UTF8Chars : public mozilla::Range<unsigned char>
 {
-    typedef mozilla::Range<unsigned char> Base;
+  typedef mozilla::Range<unsigned char> Base;
 
-  public:
-    using CharT = unsigned char;
+ public:
+  using CharT = unsigned char;
 
-    UTF8Chars() : Base() {}
-    UTF8Chars(char* aBytes, size_t aLength)
+  UTF8Chars() : Base() {}
+  UTF8Chars(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<unsigned char*>(aBytes), aLength)
-    {}
-    UTF8Chars(const char* aBytes, size_t aLength)
-      : Base(reinterpret_cast<unsigned char*>(const_cast<char*>(aBytes)), aLength)
-    {}
+  {
+  }
+  UTF8Chars(const char* aBytes, size_t aLength)
+      : Base(reinterpret_cast<unsigned char*>(const_cast<char*>(aBytes)),
+             aLength)
+  {
+  }
 };
 
 /*
@@ -89,28 +96,27 @@ class UTF8Chars : public mozilla::Range<unsigned char>
  */
 class UTF8CharsZ : public mozilla::RangedPtr<unsigned char>
 {
-    typedef mozilla::RangedPtr<unsigned char> Base;
+  typedef mozilla::RangedPtr<unsigned char> Base;
 
-  public:
-    using CharT = unsigned char;
+ public:
+  using CharT = unsigned char;
 
-    UTF8CharsZ() : Base(nullptr, 0) {}
+  UTF8CharsZ() : Base(nullptr, 0) {}
 
-    UTF8CharsZ(char* aBytes, size_t aLength)
+  UTF8CharsZ(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<unsigned char*>(aBytes), aLength)
-    {
-        MOZ_ASSERT(aBytes[aLength] == '\0');
-    }
+  {
+    MOZ_ASSERT(aBytes[aLength] == '\0');
+  }
 
-    UTF8CharsZ(unsigned char* aBytes, size_t aLength)
-      : Base(aBytes, aLength)
-    {
-        MOZ_ASSERT(aBytes[aLength] == '\0');
-    }
+  UTF8CharsZ(unsigned char* aBytes, size_t aLength) : Base(aBytes, aLength)
+  {
+    MOZ_ASSERT(aBytes[aLength] == '\0');
+  }
 
-    using Base::operator=;
+  using Base::operator=;
 
-    char* c_str() { return reinterpret_cast<char*>(get()); }
+  char* c_str() { return reinterpret_cast<char*>(get()); }
 };
 
 /*
@@ -121,32 +127,30 @@ class UTF8CharsZ : public mozilla::RangedPtr<unsigned char>
  */
 class JS_PUBLIC_API(ConstUTF8CharsZ)
 {
-    const char* data_;
+  const char* data_;
 
-  public:
-    using CharT = unsigned char;
+ public:
+  using CharT = unsigned char;
 
-    ConstUTF8CharsZ() : data_(nullptr)
-    {}
+  ConstUTF8CharsZ() : data_(nullptr) {}
 
-    ConstUTF8CharsZ(const char* aBytes, size_t aLength)
-      : data_(aBytes)
-    {
-        MOZ_ASSERT(aBytes[aLength] == '\0');
+  ConstUTF8CharsZ(const char* aBytes, size_t aLength) : data_(aBytes)
+  {
+    MOZ_ASSERT(aBytes[aLength] == '\0');
 #ifdef DEBUG
-        validate(aLength);
+    validate(aLength);
 #endif
-    }
+  }
 
-    const void* get() const { return data_; }
+  const void* get() const { return data_; }
 
-    const char* c_str() const { return data_; }
+  const char* c_str() const { return data_; }
 
-    explicit operator bool() const { return data_ != nullptr; }
+  explicit operator bool() const { return data_ != nullptr; }
 
-  private:
+ private:
 #ifdef DEBUG
-    void validate(size_t aLength);
+  void validate(size_t aLength);
 #endif
 };
 
@@ -160,14 +164,17 @@ class JS_PUBLIC_API(ConstUTF8CharsZ)
  */
 class TwoByteChars : public mozilla::Range<char16_t>
 {
-    typedef mozilla::Range<char16_t> Base;
+  typedef mozilla::Range<char16_t> Base;
 
-  public:
-    using CharT = char16_t;
+ public:
+  using CharT = char16_t;
 
-    TwoByteChars() : Base() {}
-    TwoByteChars(char16_t* aChars, size_t aLength) : Base(aChars, aLength) {}
-    TwoByteChars(const char16_t* aChars, size_t aLength) : Base(const_cast<char16_t*>(aChars), aLength) {}
+  TwoByteChars() : Base() {}
+  TwoByteChars(char16_t* aChars, size_t aLength) : Base(aChars, aLength) {}
+  TwoByteChars(const char16_t* aChars, size_t aLength)
+      : Base(const_cast<char16_t*>(aChars), aLength)
+  {
+  }
 };
 
 /*
@@ -175,20 +182,19 @@ class TwoByteChars : public mozilla::Range<char16_t>
  */
 class TwoByteCharsZ : public mozilla::RangedPtr<char16_t>
 {
-    typedef mozilla::RangedPtr<char16_t> Base;
+  typedef mozilla::RangedPtr<char16_t> Base;
 
-  public:
-    using CharT = char16_t;
+ public:
+  using CharT = char16_t;
 
-    TwoByteCharsZ() : Base(nullptr, 0) {}
+  TwoByteCharsZ() : Base(nullptr, 0) {}
 
-    TwoByteCharsZ(char16_t* chars, size_t length)
-      : Base(chars, length)
-    {
-        MOZ_ASSERT(chars[length] == '\0');
-    }
+  TwoByteCharsZ(char16_t* chars, size_t length) : Base(chars, length)
+  {
+    MOZ_ASSERT(chars[length] == '\0');
+  }
 
-    using Base::operator=;
+  using Base::operator=;
 };
 
 typedef mozilla::RangedPtr<const char16_t> ConstCharPtr;
@@ -198,13 +204,16 @@ typedef mozilla::RangedPtr<const char16_t> ConstCharPtr;
  */
 class ConstTwoByteChars : public mozilla::Range<const char16_t>
 {
-    typedef mozilla::Range<const char16_t> Base;
+  typedef mozilla::Range<const char16_t> Base;
 
-  public:
-    using CharT = char16_t;
+ public:
+  using CharT = char16_t;
 
-    ConstTwoByteChars() : Base() {}
-    ConstTwoByteChars(const char16_t* aChars, size_t aLength) : Base(aChars, aLength) {}
+  ConstTwoByteChars() : Base() {}
+  ConstTwoByteChars(const char16_t* aChars, size_t aLength)
+      : Base(aChars, aLength)
+  {
+  }
 };
 
 /*
@@ -218,17 +227,19 @@ class ConstTwoByteChars : public mozilla::Range<const char16_t>
  * This method cannot trigger GC.
  */
 extern Latin1CharsZ
-LossyTwoByteCharsToNewLatin1CharsZ(JSContext* cx,
-                                   const mozilla::Range<const char16_t> tbchars);
+LossyTwoByteCharsToNewLatin1CharsZ(
+    JSContext* cx, const mozilla::Range<const char16_t> tbchars);
 
 inline Latin1CharsZ
-LossyTwoByteCharsToNewLatin1CharsZ(JSContext* cx, const char16_t* begin, size_t length)
+LossyTwoByteCharsToNewLatin1CharsZ(JSContext* cx,
+                                   const char16_t* begin,
+                                   size_t length)
 {
-    const mozilla::Range<const char16_t> tbchars(begin, length);
-    return JS::LossyTwoByteCharsToNewLatin1CharsZ(cx, tbchars);
+  const mozilla::Range<const char16_t> tbchars(begin, length);
+  return JS::LossyTwoByteCharsToNewLatin1CharsZ(cx, tbchars);
 }
 
-template <typename CharT>
+template<typename CharT>
 extern UTF8CharsZ
 CharsToNewUTF8CharsZ(JSContext* maybeCx, const mozilla::Range<CharT> chars);
 
@@ -242,13 +253,17 @@ Utf8ToOneUcs4Char(const uint8_t* utf8Buffer, int utf8Length);
  *   its length;  the length value excludes the trailing null.
  */
 extern JS_PUBLIC_API(TwoByteCharsZ)
-UTF8CharsToNewTwoByteCharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+    UTF8CharsToNewTwoByteCharsZ(JSContext* cx,
+                                const UTF8Chars utf8,
+                                size_t* outlen);
 
 /*
  * Like UTF8CharsToNewTwoByteCharsZ, but for ConstUTF8CharsZ.
  */
 extern JS_PUBLIC_API(TwoByteCharsZ)
-UTF8CharsToNewTwoByteCharsZ(JSContext* cx, const ConstUTF8CharsZ& utf8, size_t* outlen);
+    UTF8CharsToNewTwoByteCharsZ(JSContext* cx,
+                                const ConstUTF8CharsZ& utf8,
+                                size_t* outlen);
 
 /*
  * The same as UTF8CharsToNewTwoByteCharsZ(), except that any malformed UTF-8 characters
@@ -256,10 +271,14 @@ UTF8CharsToNewTwoByteCharsZ(JSContext* cx, const ConstUTF8CharsZ& utf8, size_t* 
  * input.
  */
 extern JS_PUBLIC_API(TwoByteCharsZ)
-LossyUTF8CharsToNewTwoByteCharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+    LossyUTF8CharsToNewTwoByteCharsZ(JSContext* cx,
+                                     const UTF8Chars utf8,
+                                     size_t* outlen);
 
 extern JS_PUBLIC_API(TwoByteCharsZ)
-LossyUTF8CharsToNewTwoByteCharsZ(JSContext* cx, const ConstUTF8CharsZ& utf8, size_t* outlen);
+    LossyUTF8CharsToNewTwoByteCharsZ(JSContext* cx,
+                                     const ConstUTF8CharsZ& utf8,
+                                     size_t* outlen);
 
 /*
  * Returns the length of the char buffer required to encode |s| as UTF8.
@@ -281,17 +300,20 @@ GetDeflatedUTF8StringLength(JSFlatString* s);
  * is fully encoded).
  */
 JS_PUBLIC_API(void)
-DeflateStringToUTF8Buffer(JSFlatString* src, mozilla::RangedPtr<char> dst,
-                          size_t* dstlenp = nullptr, size_t* numcharsp = nullptr);
+DeflateStringToUTF8Buffer(JSFlatString* src,
+                          mozilla::RangedPtr<char> dst,
+                          size_t* dstlenp = nullptr,
+                          size_t* numcharsp = nullptr);
 
 /*
  * The smallest character encoding capable of fully representing a particular
  * string.
  */
-enum class SmallestEncoding {
-    ASCII,
-    Latin1,
-    UTF16
+enum class SmallestEncoding
+{
+  ASCII,
+  Latin1,
+  UTF16
 };
 
 /*
@@ -309,7 +331,9 @@ FindSmallestEncoding(UTF8Chars utf8);
   * Latin1CharsZ() on failure.
  */
 extern JS_PUBLIC_API(Latin1CharsZ)
-UTF8CharsToNewLatin1CharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+    UTF8CharsToNewLatin1CharsZ(JSContext* cx,
+                               const UTF8Chars utf8,
+                               size_t* outlen);
 
 /*
  * Return a null-terminated Latin-1 string copied from the input string,
@@ -317,25 +341,33 @@ UTF8CharsToNewLatin1CharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen);
  * codepoints are replaced by '?'.  Returns Latin1CharsZ() on failure.
  */
 extern JS_PUBLIC_API(Latin1CharsZ)
-LossyUTF8CharsToNewLatin1CharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+    LossyUTF8CharsToNewLatin1CharsZ(JSContext* cx,
+                                    const UTF8Chars utf8,
+                                    size_t* outlen);
 
 /*
  * Returns true if all characters in the given null-terminated string are
  * ASCII, i.e. < 0x80, false otherwise.
  */
-extern JS_PUBLIC_API(bool)
-StringIsASCII(const char* s);
+extern JS_PUBLIC_API(bool) StringIsASCII(const char* s);
 
 /*
  * Returns true if the given length-delimited string is a valid UTF-8 string,
  * false otherwise.
  */
-extern JS_PUBLIC_API(bool)
-StringIsUTF8(const uint8_t* s, uint32_t length);
+extern JS_PUBLIC_API(bool) StringIsUTF8(const uint8_t* s, uint32_t length);
 
-} // namespace JS
+}  // namespace JS
 
-inline void JS_free(JS::Latin1CharsZ& ptr) { js_free((void*)ptr.get()); }
-inline void JS_free(JS::UTF8CharsZ& ptr) { js_free((void*)ptr.get()); }
+inline void
+JS_free(JS::Latin1CharsZ& ptr)
+{
+  js_free((void*)ptr.get());
+}
+inline void
+JS_free(JS::UTF8CharsZ& ptr)
+{
+  js_free((void*)ptr.get());
+}
 
 #endif /* js_CharacterEncoding_h */

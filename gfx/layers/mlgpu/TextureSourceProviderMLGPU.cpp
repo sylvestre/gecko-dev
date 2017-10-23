@@ -7,21 +7,19 @@
 #include "LayerManagerMLGPU.h"
 #include "MLGDevice.h"
 #ifdef XP_WIN
-# include "mozilla/layers/MLGDeviceD3D11.h"
+#include "mozilla/layers/MLGDeviceD3D11.h"
 #endif
 
 namespace mozilla {
 namespace layers {
 
-TextureSourceProviderMLGPU::TextureSourceProviderMLGPU(LayerManagerMLGPU* aLayerManager, MLGDevice* aDevice)
- : mLayerManager(aLayerManager),
-   mDevice(aDevice)
+TextureSourceProviderMLGPU::TextureSourceProviderMLGPU(
+    LayerManagerMLGPU* aLayerManager, MLGDevice* aDevice)
+    : mLayerManager(aLayerManager), mDevice(aDevice)
 {
 }
 
-TextureSourceProviderMLGPU::~TextureSourceProviderMLGPU()
-{
-}
+TextureSourceProviderMLGPU::~TextureSourceProviderMLGPU() {}
 
 int32_t
 TextureSourceProviderMLGPU::GetMaxTextureSize() const
@@ -36,10 +34,10 @@ bool
 TextureSourceProviderMLGPU::SupportsEffect(EffectTypes aEffect)
 {
   switch (aEffect) {
-  case EffectTypes::YCBCR:
-    return true;
-  default:
-    MOZ_ASSERT_UNREACHABLE("NYI");
+    case EffectTypes::YCBCR:
+      return true;
+    default:
+      MOZ_ASSERT_UNREACHABLE("NYI");
   }
   return false;
 }
@@ -86,7 +84,8 @@ TextureSourceProviderMLGPU::CreateDataTextureSource(TextureFlags aFlags)
 }
 
 already_AddRefed<DataTextureSource>
-TextureSourceProviderMLGPU::CreateDataTextureSourceAround(gfx::DataSourceSurface* aSurface)
+TextureSourceProviderMLGPU::CreateDataTextureSourceAround(
+    gfx::DataSourceSurface* aSurface)
 {
   MOZ_ASSERT_UNREACHABLE("NYI");
   return nullptr;
@@ -105,7 +104,8 @@ TextureSourceProviderMLGPU::UnlockAfterComposition(TextureHost* aTexture)
 }
 
 bool
-TextureSourceProviderMLGPU::NotifyNotUsedAfterComposition(TextureHost* aTextureHost)
+TextureSourceProviderMLGPU::NotifyNotUsedAfterComposition(
+    TextureHost* aTextureHost)
 {
   if (!IsValid()) {
     return false;
@@ -113,5 +113,5 @@ TextureSourceProviderMLGPU::NotifyNotUsedAfterComposition(TextureHost* aTextureH
   return TextureSourceProvider::NotifyNotUsedAfterComposition(aTextureHost);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

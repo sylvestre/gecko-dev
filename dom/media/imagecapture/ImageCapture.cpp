@@ -18,7 +18,8 @@
 
 namespace mozilla {
 
-LogModule* GetICLog()
+LogModule*
+GetICLog()
 {
   static LazyLogModule log("ImageCapture");
   return log;
@@ -26,7 +27,8 @@ LogModule* GetICLog()
 
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(ImageCapture, DOMEventTargetHelper,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(ImageCapture,
+                                   DOMEventTargetHelper,
                                    mVideoStreamTrack)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ImageCapture)
@@ -37,7 +39,7 @@ NS_IMPL_RELEASE_INHERITED(ImageCapture, DOMEventTargetHelper)
 
 ImageCapture::ImageCapture(VideoStreamTrack* aVideoStreamTrack,
                            nsPIDOMWindowInner* aOwnerWindow)
-  : DOMEventTargetHelper(aOwnerWindow)
+    : DOMEventTargetHelper(aOwnerWindow)
 {
   MOZ_ASSERT(aOwnerWindow);
   MOZ_ASSERT(aVideoStreamTrack);
@@ -45,10 +47,7 @@ ImageCapture::ImageCapture(VideoStreamTrack* aVideoStreamTrack,
   mVideoStreamTrack = aVideoStreamTrack;
 }
 
-ImageCapture::~ImageCapture()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-}
+ImageCapture::~ImageCapture() { MOZ_ASSERT(NS_IsMainThread()); }
 
 already_AddRefed<ImageCapture>
 ImageCapture::Constructor(const GlobalObject& aGlobal,
@@ -80,11 +79,12 @@ ImageCapture::TakePhotoByMediaEngine()
   class TakePhotoCallback : public MediaEnginePhotoCallback,
                             public PrincipalChangeObserver<MediaStreamTrack>
   {
-  public:
-    TakePhotoCallback(VideoStreamTrack* aVideoTrack, ImageCapture* aImageCapture)
-      : mVideoTrack(aVideoTrack)
-      , mImageCapture(aImageCapture)
-      , mPrincipalChanged(false)
+   public:
+    TakePhotoCallback(VideoStreamTrack* aVideoTrack,
+                      ImageCapture* aImageCapture)
+        : mVideoTrack(aVideoTrack),
+          mImageCapture(aImageCapture),
+          mPrincipalChanged(false)
     {
       MOZ_ASSERT(NS_IsMainThread());
       mVideoTrack->AddPrincipalChangeObserver(this);
@@ -110,7 +110,7 @@ ImageCapture::TakePhotoByMediaEngine()
       return mImageCapture->PostErrorEvent(ImageCaptureError::PHOTO_ERROR, aRv);
     }
 
-  protected:
+   protected:
     ~TakePhotoCallback()
     {
       MOZ_ASSERT(NS_IsMainThread());
@@ -123,7 +123,7 @@ ImageCapture::TakePhotoByMediaEngine()
   };
 
   RefPtr<MediaEnginePhotoCallback> callback =
-    new TakePhotoCallback(mVideoStreamTrack, this);
+      new TakePhotoCallback(mVideoStreamTrack, this);
   return mVideoStreamTrack->GetSource().TakePhoto(callback);
 }
 
@@ -146,7 +146,9 @@ ImageCapture::TakePhoto(ErrorResult& aResult)
   // It falls back to MediaStreamGraph image capture if MediaEngine doesn't
   // support TakePhoto().
   if (rv == NS_ERROR_NOT_IMPLEMENTED) {
-    IC_LOG("MediaEngine doesn't support TakePhoto(), it falls back to MediaStreamGraph.");
+    IC_LOG(
+        "MediaEngine doesn't support TakePhoto(), it falls back to "
+        "MediaStreamGraph.");
     RefPtr<CaptureTask> task = new CaptureTask(this);
 
     // It adds itself into MediaStreamGraph, so ImageCapture doesn't need to hold
@@ -161,7 +163,8 @@ ImageCapture::PostBlobEvent(Blob* aBlob)
   MOZ_ASSERT(NS_IsMainThread());
   if (!CheckPrincipal()) {
     // Media is not same-origin, don't allow the data out.
-    return PostErrorEvent(ImageCaptureError::PHOTO_ERROR, NS_ERROR_DOM_SECURITY_ERR);
+    return PostErrorEvent(ImageCaptureError::PHOTO_ERROR,
+                          NS_ERROR_DOM_SECURITY_ERR);
   }
 
   BlobEventInit init;
@@ -170,7 +173,7 @@ ImageCapture::PostBlobEvent(Blob* aBlob)
   init.mData = aBlob;
 
   RefPtr<BlobEvent> blob_event =
-    BlobEvent::Constructor(this, NS_LITERAL_STRING("photo"), init);
+      BlobEvent::Constructor(this, NS_LITERAL_STRING("photo"), init);
 
   return DispatchTrustedEvent(blob_event);
 }
@@ -192,15 +195,15 @@ ImageCapture::PostErrorEvent(uint16_t aErrorCode, nsresult aReason)
   }
 
   RefPtr<ImageCaptureError> error =
-    new ImageCaptureError(this, aErrorCode, errorMsg);
+      new ImageCaptureError(this, aErrorCode, errorMsg);
 
   ImageCaptureErrorEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
   init.mImageCaptureError = error;
 
-  nsCOMPtr<nsIDOMEvent> event =
-    ImageCaptureErrorEvent::Constructor(this, NS_LITERAL_STRING("error"), init);
+  nsCOMPtr<nsIDOMEvent> event = ImageCaptureErrorEvent::Constructor(
+      this, NS_LITERAL_STRING("error"), init);
 
   return DispatchTrustedEvent(event);
 }
@@ -228,5 +231,5 @@ ImageCapture::CheckPrincipal()
   return subsumes;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

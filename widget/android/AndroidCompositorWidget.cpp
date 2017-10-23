@@ -34,5 +34,5 @@ AndroidCompositorWidget::GetPresentationANativeWindow()
   return (ANativeWindow*)mWidget->GetNativeData(NS_PRESENTATION_WINDOW);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

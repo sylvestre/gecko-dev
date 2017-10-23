@@ -17,9 +17,8 @@
 
 namespace js {
 
-class AtomicsObject : public JSObject
-{
-  public:
+class AtomicsObject : public JSObject {
+   public:
     static const Class class_;
     static JSObject* initClass(JSContext* cx, Handle<GlobalObject*> global);
     static MOZ_MUST_USE bool toString(JSContext* cx, unsigned int argc, Value* vp);
@@ -39,20 +38,22 @@ MOZ_MUST_USE bool atomics_wait(JSContext* cx, unsigned argc, Value* vp);
 MOZ_MUST_USE bool atomics_wake(JSContext* cx, unsigned argc, Value* vp);
 
 /* asm.js callouts */
-namespace wasm { class Instance; }
+namespace wasm {
+class Instance;
+}
 int32_t atomics_add_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
 int32_t atomics_sub_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
 int32_t atomics_and_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
 int32_t atomics_or_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
 int32_t atomics_xor_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
-int32_t atomics_cmpxchg_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t oldval, int32_t newval);
+int32_t atomics_cmpxchg_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t oldval,
+                                    int32_t newval);
 int32_t atomics_xchg_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
 
-class FutexThread
-{
+class FutexThread {
     friend class AutoLockFutexAPI;
 
-public:
+   public:
     static MOZ_MUST_USE bool initialize();
     static void destroy();
 
@@ -65,15 +66,12 @@ public:
 
     // Parameters to wake().
     enum WakeReason {
-        WakeExplicit,           // Being asked to wake up by another thread
-        WakeForJSInterrupt      // Interrupt requested
+        WakeExplicit,       // Being asked to wake up by another thread
+        WakeForJSInterrupt  // Interrupt requested
     };
 
     // Result code from wait().
-    enum WaitResult {
-        FutexOK,
-        FutexTimedOut
-    };
+    enum WaitResult { FutexOK, FutexTimedOut };
 
     // Block the calling thread and wait.
     //
@@ -111,24 +109,20 @@ public:
 
     // If canWait() returns false (the default) then wait() is disabled
     // on the thread to which the FutexThread belongs.
-    bool canWait() {
-        return canWait_;
-    }
+    bool canWait() { return canWait_; }
 
-    void setCanWait(bool flag) {
-        canWait_ = flag;
-    }
+    void setCanWait(bool flag) { canWait_ = flag; }
 
-  private:
+   private:
     enum FutexState {
-        Idle,                        // We are not waiting or woken
-        Waiting,                     // We are waiting, nothing has happened yet
-        WaitingNotifiedForInterrupt, // We are waiting, but have been interrupted,
-                                     //   and have not yet started running the
-                                     //   interrupt handler
-        WaitingInterrupted,          // We are waiting, but have been interrupted
-                                     //   and are running the interrupt handler
-        Woken                        // Woken by a script call to Atomics.wake
+        Idle,                         // We are not waiting or woken
+        Waiting,                      // We are waiting, nothing has happened yet
+        WaitingNotifiedForInterrupt,  // We are waiting, but have been interrupted,
+                                      //   and have not yet started running the
+                                      //   interrupt handler
+        WaitingInterrupted,           // We are waiting, but have been interrupted
+                                      //   and are running the interrupt handler
+        Woken                         // Woken by a script call to Atomics.wake
     };
 
     // Condition variable that this runtime will wait on.
@@ -148,9 +142,8 @@ public:
     ThreadLocalData<bool> canWait_;
 };
 
-JSObject*
-InitAtomicsClass(JSContext* cx, HandleObject obj);
+JSObject* InitAtomicsClass(JSContext* cx, HandleObject obj);
 
-}  /* namespace js */
+} /* namespace js */
 
 #endif /* builtin_AtomicsObject_h */

@@ -77,14 +77,11 @@ namespace detail {
  */
 class GuardObjectNotifier
 {
-private:
+ private:
   bool* mStatementDone;
 
-public:
-  GuardObjectNotifier()
-    : mStatementDone(reinterpret_cast<bool*>(MOZ_POISON))
-  {
-  }
+ public:
+  GuardObjectNotifier() : mStatementDone(reinterpret_cast<bool*>(MOZ_POISON)) {}
 
   ~GuardObjectNotifier()
   {
@@ -104,19 +101,21 @@ public:
 
 class GuardObjectNotificationReceiver
 {
-private:
+ private:
   bool mStatementDone;
 
-public:
-  GuardObjectNotificationReceiver() : mStatementDone(false) { }
+ public:
+  GuardObjectNotificationReceiver() : mStatementDone(false) {}
 
-  ~GuardObjectNotificationReceiver() {
+  ~GuardObjectNotificationReceiver()
+  {
     /*
      * Assert that the guard object was not used as a temporary.  (Note that
      * this assert might also fire if init is not called because the guard
      * object's implementation is not using the above macros correctly.)
      */
-    MOZ_ASSERT(mStatementDone, "Guard object should not be used as a temporary.");
+    MOZ_ASSERT(mStatementDone,
+               "Guard object should not be used as a temporary.");
   }
 
   void init(GuardObjectNotifier& aNotifier)
@@ -133,33 +132,36 @@ public:
 #endif /* DEBUG */
 
 #ifdef DEBUG
-#  define MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER \
-     ::mozilla::detail::GuardObjectNotificationReceiver _mCheckNotUsedAsTemporary;
-#  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM \
-     , ::mozilla::detail::GuardObjectNotifier&& _notifier = \
-         ::mozilla::detail::GuardObjectNotifier()
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM \
-     ::mozilla::detail::GuardObjectNotifier&& _notifier = \
-         ::mozilla::detail::GuardObjectNotifier()
-#  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL \
-     , ::mozilla::detail::GuardObjectNotifier&& _notifier
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL \
-     ::mozilla::detail::GuardObjectNotifier&& _notifier
-#  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT \
-     , ::mozilla::Move(_notifier)
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT \
-       ::mozilla::Move(_notifier)
-#  define MOZ_GUARD_OBJECT_NOTIFIER_INIT \
-     do { _mCheckNotUsedAsTemporary.init(_notifier); } while (0)
+#define MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER \
+  ::mozilla::detail::GuardObjectNotificationReceiver _mCheckNotUsedAsTemporary;
+#define MOZ_GUARD_OBJECT_NOTIFIER_PARAM                  \
+  , ::mozilla::detail::GuardObjectNotifier&& _notifier = \
+        ::mozilla::detail::GuardObjectNotifier()
+#define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM           \
+  ::mozilla::detail::GuardObjectNotifier&& _notifier = \
+      ::mozilla::detail::GuardObjectNotifier()
+#define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL \
+  , ::mozilla::detail::GuardObjectNotifier&& _notifier
+#define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL \
+  ::mozilla::detail::GuardObjectNotifier&& _notifier
+#define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT , ::mozilla::Move(_notifier)
+#define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT \
+  ::mozilla::Move(_notifier)
+#define MOZ_GUARD_OBJECT_NOTIFIER_INIT         \
+  do {                                         \
+    _mCheckNotUsedAsTemporary.init(_notifier); \
+  } while (0)
 #else
-#  define MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-#  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM
-#  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT
-#  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT
-#  define MOZ_GUARD_OBJECT_NOTIFIER_INIT do { } while (0)
+#define MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+#define MOZ_GUARD_OBJECT_NOTIFIER_PARAM
+#define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM
+#define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL
+#define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL
+#define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT
+#define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT
+#define MOZ_GUARD_OBJECT_NOTIFIER_INIT \
+  do {                                 \
+  } while (0)
 #endif
 
 #endif /* __cplusplus */

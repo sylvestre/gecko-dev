@@ -14,34 +14,36 @@
 
 #include "mozilla/Monitor.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/dom/MediaKeyStatusMapBinding.h" // For MediaKeyStatus
-#include "mozilla/dom/BindingDeclarations.h" // For Optional
+#include "mozilla/dom/MediaKeyStatusMapBinding.h"  // For MediaKeyStatus
+#include "mozilla/dom/BindingDeclarations.h"       // For Optional
 
 namespace mozilla {
 
 // CDM capabilities; what keys a CDMProxy can use.
 // Must be locked to access state.
-class CDMCaps {
-public:
+class CDMCaps
+{
+ public:
   CDMCaps();
   ~CDMCaps();
 
-  struct KeyStatus {
+  struct KeyStatus
+  {
     KeyStatus(const CencKeyId& aId,
               const nsString& aSessionId,
               dom::MediaKeyStatus aStatus)
-      : mId(aId)
-      , mSessionId(aSessionId)
-      , mStatus(aStatus)
-    {}
+        : mId(aId), mSessionId(aSessionId), mStatus(aStatus)
+    {
+    }
     KeyStatus(const KeyStatus& aOther)
-      : mId(aOther.mId)
-      , mSessionId(aOther.mSessionId)
-      , mStatus(aOther.mStatus)
-    {}
-    bool operator==(const KeyStatus& aOther) const {
-      return mId == aOther.mId &&
-             mSessionId == aOther.mSessionId;
+        : mId(aOther.mId),
+          mSessionId(aOther.mSessionId),
+          mStatus(aOther.mStatus)
+    {
+    }
+    bool operator==(const KeyStatus& aOther) const
+    {
+      return mId == aOther.mId && mSessionId == aOther.mSessionId;
     };
 
     CencKeyId mId;
@@ -51,8 +53,9 @@ public:
 
   // Locks the CDMCaps. It must be locked to access its shared state.
   // Threadsafe when locked.
-  class MOZ_STACK_CLASS AutoLock {
-  public:
+  class MOZ_STACK_CLASS AutoLock
+  {
+   public:
     explicit AutoLock(CDMCaps& aKeyCaps);
     ~AutoLock();
 
@@ -77,21 +80,22 @@ public:
     // Notifies the SamplesWaitingForKey when key become usable.
     void NotifyWhenKeyIdUsable(const CencKeyId& aKey,
                                SamplesWaitingForKey* aSamplesWaiting);
-  private:
+
+   private:
     // Not taking a strong ref, since this should be allocated on the stack.
     CDMCaps& mData;
   };
 
-private:
+ private:
   void Lock();
   void Unlock();
 
-  struct WaitForKeys {
-    WaitForKeys(const CencKeyId& aKeyId,
-                SamplesWaitingForKey* aListener)
-      : mKeyId(aKeyId)
-      , mListener(aListener)
-    {}
+  struct WaitForKeys
+  {
+    WaitForKeys(const CencKeyId& aKeyId, SamplesWaitingForKey* aListener)
+        : mKeyId(aKeyId), mListener(aListener)
+    {
+    }
     CencKeyId mKeyId;
     RefPtr<SamplesWaitingForKey> mListener;
   };
@@ -107,6 +111,6 @@ private:
   CDMCaps& operator=(const CDMCaps&) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

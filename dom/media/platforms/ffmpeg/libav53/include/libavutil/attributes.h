@@ -27,72 +27,73 @@
 #define AVUTIL_ATTRIBUTES_H
 
 #ifdef __GNUC__
-#    define AV_GCC_VERSION_AT_LEAST(x,y) (__GNUC__ > x || __GNUC__ == x && __GNUC_MINOR__ >= y)
+#define AV_GCC_VERSION_AT_LEAST(x, y) \
+  (__GNUC__ > x || __GNUC__ == x && __GNUC_MINOR__ >= y)
 #else
-#    define AV_GCC_VERSION_AT_LEAST(x,y) 0
+#define AV_GCC_VERSION_AT_LEAST(x, y) 0
 #endif
 
 #ifndef av_always_inline
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-#    define av_always_inline __attribute__((always_inline)) inline
+#if AV_GCC_VERSION_AT_LEAST(3, 1)
+#define av_always_inline __attribute__((always_inline)) inline
 #else
-#    define av_always_inline inline
+#define av_always_inline inline
 #endif
 #endif
 
 #ifndef av_noinline
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-#    define av_noinline __attribute__((noinline))
+#if AV_GCC_VERSION_AT_LEAST(3, 1)
+#define av_noinline __attribute__((noinline))
 #else
-#    define av_noinline
+#define av_noinline
 #endif
 #endif
 
 #ifndef av_pure
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-#    define av_pure __attribute__((pure))
+#if AV_GCC_VERSION_AT_LEAST(3, 1)
+#define av_pure __attribute__((pure))
 #else
-#    define av_pure
+#define av_pure
 #endif
 #endif
 
 #ifndef av_const
-#if AV_GCC_VERSION_AT_LEAST(2,6)
-#    define av_const __attribute__((const))
+#if AV_GCC_VERSION_AT_LEAST(2, 6)
+#define av_const __attribute__((const))
 #else
-#    define av_const
+#define av_const
 #endif
 #endif
 
 #ifndef av_cold
-#if AV_GCC_VERSION_AT_LEAST(4,3)
-#    define av_cold __attribute__((cold))
+#if AV_GCC_VERSION_AT_LEAST(4, 3)
+#define av_cold __attribute__((cold))
 #else
-#    define av_cold
+#define av_cold
 #endif
 #endif
 
 #ifndef av_flatten
-#if AV_GCC_VERSION_AT_LEAST(4,1)
-#    define av_flatten __attribute__((flatten))
+#if AV_GCC_VERSION_AT_LEAST(4, 1)
+#define av_flatten __attribute__((flatten))
 #else
-#    define av_flatten
+#define av_flatten
 #endif
 #endif
 
 #ifndef attribute_deprecated
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-#    define attribute_deprecated __attribute__((deprecated))
+#if AV_GCC_VERSION_AT_LEAST(3, 1)
+#define attribute_deprecated __attribute__((deprecated))
 #else
-#    define attribute_deprecated
+#define attribute_deprecated
 #endif
 #endif
 
 #ifndef av_unused
 #if defined(__GNUC__)
-#    define av_unused __attribute__((unused))
+#define av_unused __attribute__((unused))
 #else
-#    define av_unused
+#define av_unused
 #endif
 #endif
 
@@ -102,35 +103,36 @@
  * assembler without the compiler being aware.
  */
 #ifndef av_used
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-#    define av_used __attribute__((used))
+#if AV_GCC_VERSION_AT_LEAST(3, 1)
+#define av_used __attribute__((used))
 #else
-#    define av_used
+#define av_used
 #endif
 #endif
 
 #ifndef av_alias
-#if AV_GCC_VERSION_AT_LEAST(3,3)
-#   define av_alias __attribute__((may_alias))
+#if AV_GCC_VERSION_AT_LEAST(3, 3)
+#define av_alias __attribute__((may_alias))
 #else
-#   define av_alias
+#define av_alias
 #endif
 #endif
 
 #ifndef av_uninit
 #if defined(__GNUC__) && !defined(__ICC)
-#    define av_uninit(x) x=x
+#define av_uninit(x) x = x
 #else
-#    define av_uninit(x) x
+#define av_uninit(x) x
 #endif
 #endif
 
 #ifdef __GNUC__
-#    define av_builtin_constant_p __builtin_constant_p
-#    define av_printf_format(fmtpos, attrpos) __attribute__((__format__(__printf__, fmtpos, attrpos)))
+#define av_builtin_constant_p __builtin_constant_p
+#define av_printf_format(fmtpos, attrpos) \
+  __attribute__((__format__(__printf__, fmtpos, attrpos)))
 #else
-#    define av_builtin_constant_p(x) 0
-#    define av_printf_format(fmtpos, attrpos)
+#define av_builtin_constant_p(x) 0
+#define av_printf_format(fmtpos, attrpos)
 #endif
 
 #endif /* AVUTIL_ATTRIBUTES_H */

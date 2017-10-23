@@ -16,28 +16,27 @@ class OwningArrayBufferViewOrArrayBuffer;
 
 class PushUtil final
 {
-private:
+ private:
   PushUtil() = delete;
 
-public:
-  static bool
-  CopyArrayBufferToArray(const ArrayBuffer& aBuffer,
-                         nsTArray<uint8_t>& aArray);
+ public:
+  static bool CopyArrayBufferToArray(const ArrayBuffer& aBuffer,
+                                     nsTArray<uint8_t>& aArray);
 
-  static bool
-  CopyArrayBufferViewToArray(const ArrayBufferView& aView,
-                             nsTArray<uint8_t>& aArray);
+  static bool CopyArrayBufferViewToArray(const ArrayBufferView& aView,
+                                         nsTArray<uint8_t>& aArray);
 
-  static bool
-  CopyBufferSourceToArray(const OwningArrayBufferViewOrArrayBuffer& aSource,
-                          nsTArray<uint8_t>& aArray);
+  static bool CopyBufferSourceToArray(
+      const OwningArrayBufferViewOrArrayBuffer& aSource,
+      nsTArray<uint8_t>& aArray);
 
-  static void
-  CopyArrayToArrayBuffer(JSContext* aCx, const nsTArray<uint8_t>& aArray,
-                         JS::MutableHandle<JSObject*> aValue, ErrorResult& aRv);
+  static void CopyArrayToArrayBuffer(JSContext* aCx,
+                                     const nsTArray<uint8_t>& aArray,
+                                     JS::MutableHandle<JSObject*> aValue,
+                                     ErrorResult& aRv);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PushUtil_h
+#endif  // mozilla_dom_PushUtil_h

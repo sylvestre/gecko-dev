@@ -29,36 +29,39 @@ namespace dom {
 struct AudioTimelineEvent;
 
 namespace WebAudioUtils {
-  // 32 is the minimum required by the spec for createBuffer() and
-  // createScriptProcessor() and matches what is used by Blink.  The limit
-  // protects against large memory allocations.
-  const size_t MaxChannelCount = 32;
-  // AudioContext::CreateBuffer() "must support sample-rates in at least the
-  // range 22050 to 96000."
-  const uint32_t MinSampleRate = 8000;
-  const uint32_t MaxSampleRate = 192000;
+// 32 is the minimum required by the spec for createBuffer() and
+// createScriptProcessor() and matches what is used by Blink.  The limit
+// protects against large memory allocations.
+const size_t MaxChannelCount = 32;
+// AudioContext::CreateBuffer() "must support sample-rates in at least the
+// range 22050 to 96000."
+const uint32_t MinSampleRate = 8000;
+const uint32_t MaxSampleRate = 192000;
 
-  inline bool FuzzyEqual(float v1, float v2)
-  {
-    using namespace std;
-    return fabsf(v1 - v2) < 1e-7f;
-  }
-  inline bool FuzzyEqual(double v1, double v2)
-  {
-    using namespace std;
-    return fabs(v1 - v2) < 1e-7;
-  }
+inline bool
+FuzzyEqual(float v1, float v2)
+{
+  using namespace std;
+  return fabsf(v1 - v2) < 1e-7f;
+}
+inline bool
+FuzzyEqual(double v1, double v2)
+{
+  using namespace std;
+  return fabs(v1 - v2) < 1e-7;
+}
 
-  /**
+/**
    * Computes an exponential smoothing rate for a time based variable
    * over aDuration seconds.
    */
-  inline double ComputeSmoothingRate(double aDuration, double aSampleRate)
-  {
-    return 1.0 - std::exp(-1.0 / (aDuration * aSampleRate));
-  }
+inline double
+ComputeSmoothingRate(double aDuration, double aSampleRate)
+{
+  return 1.0 - std::exp(-1.0 / (aDuration * aSampleRate));
+}
 
-  /**
+/**
    * Converts an AudioTimelineEvent's floating point time values to tick values
    * with respect to a destination AudioNodeStream.
    *
@@ -67,52 +70,59 @@ namespace WebAudioUtils {
    * received.  This means that such engines need to be aware of their
    * destination streams as well.
    */
-  void ConvertAudioTimelineEventToTicks(AudioTimelineEvent& aEvent,
-                                        AudioNodeStream* aDest);
+void
+ConvertAudioTimelineEventToTicks(AudioTimelineEvent& aEvent,
+                                 AudioNodeStream* aDest);
 
-  /**
+/**
    * Converts a linear value to decibels.  Returns aMinDecibels if the linear
    * value is 0.
    */
-  inline float ConvertLinearToDecibels(float aLinearValue, float aMinDecibels)
-  {
-    return aLinearValue ? 20.0f * std::log10(aLinearValue) : aMinDecibels;
-  }
+inline float
+ConvertLinearToDecibels(float aLinearValue, float aMinDecibels)
+{
+  return aLinearValue ? 20.0f * std::log10(aLinearValue) : aMinDecibels;
+}
 
-  /**
+/**
    * Converts a decibel value to a linear value.
    */
-  inline float ConvertDecibelsToLinear(float aDecibels)
-  {
-    return std::pow(10.0f, 0.05f * aDecibels);
-  }
+inline float
+ConvertDecibelsToLinear(float aDecibels)
+{
+  return std::pow(10.0f, 0.05f * aDecibels);
+}
 
-  /**
+/**
    * Converts a decibel to a linear value.
    */
-  inline float ConvertDecibelToLinear(float aDecibel)
-  {
-    return std::pow(10.0f, 0.05f * aDecibel);
-  }
+inline float
+ConvertDecibelToLinear(float aDecibel)
+{
+  return std::pow(10.0f, 0.05f * aDecibel);
+}
 
-  inline void FixNaN(double& aDouble)
-  {
-    if (IsNaN(aDouble) || IsInfinite(aDouble)) {
-      aDouble = 0.0;
-    }
+inline void
+FixNaN(double& aDouble)
+{
+  if (IsNaN(aDouble) || IsInfinite(aDouble)) {
+    aDouble = 0.0;
   }
+}
 
-  inline double DiscreteTimeConstantForSampleRate(double timeConstant, double sampleRate)
-  {
-    return 1.0 - std::exp(-1.0 / (sampleRate * timeConstant));
-  }
+inline double
+DiscreteTimeConstantForSampleRate(double timeConstant, double sampleRate)
+{
+  return 1.0 - std::exp(-1.0 / (sampleRate * timeConstant));
+}
 
-  inline bool IsTimeValid(double aTime)
-  {
-    return aTime >= 0 && aTime <= (MEDIA_TIME_MAX >> TRACK_RATE_MAX_BITS);
-  }
+inline bool
+IsTimeValid(double aTime)
+{
+  return aTime >= 0 && aTime <= (MEDIA_TIME_MAX >> TRACK_RATE_MAX_BITS);
+}
 
-  /**
+/**
    * Converts a floating point value to an integral type in a safe and
    * platform agnostic way.  The following program demonstrates the kinds
    * of ways things can go wrong depending on the CPU architecture you're
@@ -174,67 +184,74 @@ namespace WebAudioUtils {
    * passed to this function is not a NaN.  This function will abort if
    * it sees a NaN.
    */
-  template <typename IntType, typename FloatType>
-  IntType TruncateFloatToInt(FloatType f)
-  {
-    using namespace std;
+template<typename IntType, typename FloatType>
+IntType
+TruncateFloatToInt(FloatType f)
+{
+  using namespace std;
 
-    static_assert(mozilla::IsIntegral<IntType>::value == true,
-                  "IntType must be an integral type");
-    static_assert(mozilla::IsFloatingPoint<FloatType>::value == true,
-                  "FloatType must be a floating point type");
+  static_assert(mozilla::IsIntegral<IntType>::value == true,
+                "IntType must be an integral type");
+  static_assert(mozilla::IsFloatingPoint<FloatType>::value == true,
+                "FloatType must be a floating point type");
 
-    if (mozilla::IsNaN(f)) {
-      // It is the responsibility of the caller to deal with NaN values.
-      // If we ever get to this point, we have a serious bug to fix.
-      MOZ_CRASH("We should never see a NaN here");
-    }
-
-    // If the floating point value is outside of the range of maximum
-    // integral value for this type, just clamp to the maximum value.
-    // The equality case must also return max() due to loss of precision when
-    // converting max() to float.
-    if (f >= FloatType(numeric_limits<IntType>::max())) {
-      return numeric_limits<IntType>::max();
-    }
-
-    if (f <= FloatType(numeric_limits<IntType>::min())) {
-      // If the floating point value is outside of the range of minimum
-      // integral value for this type, just clamp to the minimum value.
-      return numeric_limits<IntType>::min();
-    }
-
-    // Otherwise, this conversion must be well defined.
-    return IntType(f);
+  if (mozilla::IsNaN(f)) {
+    // It is the responsibility of the caller to deal with NaN values.
+    // If we ever get to this point, we have a serious bug to fix.
+    MOZ_CRASH("We should never see a NaN here");
   }
 
-  void Shutdown();
+  // If the floating point value is outside of the range of maximum
+  // integral value for this type, just clamp to the maximum value.
+  // The equality case must also return max() due to loss of precision when
+  // converting max() to float.
+  if (f >= FloatType(numeric_limits<IntType>::max())) {
+    return numeric_limits<IntType>::max();
+  }
 
-  int
-  SpeexResamplerProcess(SpeexResamplerState* aResampler,
-                        uint32_t aChannel,
-                        const float* aIn, uint32_t* aInLen,
-                        float* aOut, uint32_t* aOutLen);
+  if (f <= FloatType(numeric_limits<IntType>::min())) {
+    // If the floating point value is outside of the range of minimum
+    // integral value for this type, just clamp to the minimum value.
+    return numeric_limits<IntType>::min();
+  }
 
-  int
-  SpeexResamplerProcess(SpeexResamplerState* aResampler,
-                        uint32_t aChannel,
-                        const int16_t* aIn, uint32_t* aInLen,
-                        float* aOut, uint32_t* aOutLen);
+  // Otherwise, this conversion must be well defined.
+  return IntType(f);
+}
 
-  int
-  SpeexResamplerProcess(SpeexResamplerState* aResampler,
-                        uint32_t aChannel,
-                        const int16_t* aIn, uint32_t* aInLen,
-                        int16_t* aOut, uint32_t* aOutLen);
+void
+Shutdown();
 
-  void
-  LogToDeveloperConsole(uint64_t aWindowID, const char* aKey);
+int
+SpeexResamplerProcess(SpeexResamplerState* aResampler,
+                      uint32_t aChannel,
+                      const float* aIn,
+                      uint32_t* aInLen,
+                      float* aOut,
+                      uint32_t* aOutLen);
 
-  } // namespace WebAudioUtils
+int
+SpeexResamplerProcess(SpeexResamplerState* aResampler,
+                      uint32_t aChannel,
+                      const int16_t* aIn,
+                      uint32_t* aInLen,
+                      float* aOut,
+                      uint32_t* aOutLen);
 
-} // namespace dom
-} // namespace mozilla
+int
+SpeexResamplerProcess(SpeexResamplerState* aResampler,
+                      uint32_t aChannel,
+                      const int16_t* aIn,
+                      uint32_t* aInLen,
+                      int16_t* aOut,
+                      uint32_t* aOutLen);
+
+void
+LogToDeveloperConsole(uint64_t aWindowID, const char* aKey);
+
+}  // namespace WebAudioUtils
+
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-

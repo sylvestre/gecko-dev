@@ -14,15 +14,17 @@ namespace mozilla {
  * fsyncs to the IOInterposerObserver. It is only safe to call this from the
  * main-thread when no other threads are running.
  */
-void InitNSPRIOInterposing();
+void
+InitNSPRIOInterposing();
 
 /**
  * Removes interception of NSPR IO methods as setup by InitNSPRIOInterposing.
  * Note, that it is only safe to call this on the main-thread when all other
  * threads have stopped. Which is typically the case at shutdown.
  */
-void ClearNSPRIOInterposing();
+void
+ClearNSPRIOInterposing();
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // NSPRINTERPOSER_H_
+#endif  // NSPRINTERPOSER_H_

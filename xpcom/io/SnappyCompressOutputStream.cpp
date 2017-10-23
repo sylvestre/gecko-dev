@@ -15,16 +15,15 @@ namespace mozilla {
 NS_IMPL_ISUPPORTS(SnappyCompressOutputStream, nsIOutputStream);
 
 // static
-const size_t
-SnappyCompressOutputStream::kMaxBlockSize = snappy::kBlockSize;
+const size_t SnappyCompressOutputStream::kMaxBlockSize = snappy::kBlockSize;
 
-SnappyCompressOutputStream::SnappyCompressOutputStream(nsIOutputStream* aBaseStream,
-                                                       size_t aBlockSize)
- : mBaseStream(aBaseStream)
- , mBlockSize(std::min(aBlockSize, kMaxBlockSize))
- , mNextByte(0)
- , mCompressedBufferLength(0)
- , mStreamIdentifierWritten(false)
+SnappyCompressOutputStream::SnappyCompressOutputStream(
+    nsIOutputStream* aBaseStream, size_t aBlockSize)
+    : mBaseStream(aBaseStream),
+      mBlockSize(std::min(aBlockSize, kMaxBlockSize)),
+      mNextByte(0),
+      mCompressedBufferLength(0),
+      mStreamIdentifierWritten(false)
 {
   MOZ_ASSERT(mBlockSize > 0);
 
@@ -54,7 +53,9 @@ SnappyCompressOutputStream::Close()
   }
 
   nsresult rv = Flush();
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   mBaseStream->Close();
   mBaseStream = nullptr;
@@ -73,7 +74,9 @@ SnappyCompressOutputStream::Flush()
   }
 
   nsresult rv = FlushToBaseStream();
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   mBaseStream->Flush();
 
@@ -81,11 +84,12 @@ SnappyCompressOutputStream::Flush()
 }
 
 NS_IMETHODIMP
-SnappyCompressOutputStream::Write(const char* aBuf, uint32_t aCount,
+SnappyCompressOutputStream::Write(const char* aBuf,
+                                  uint32_t aCount,
                                   uint32_t* aResultOut)
 {
-  return WriteSegments(NS_CopySegmentToBuffer, const_cast<char*>(aBuf), aCount,
-                       aResultOut);
+  return WriteSegments(
+      NS_CopySegmentToBuffer, const_cast<char*>(aBuf), aCount, aResultOut);
 }
 
 NS_IMETHODIMP
@@ -121,7 +125,9 @@ SnappyCompressOutputStream::WriteSegments(nsReadSegmentFun aReader,
     // If it is full, then compress and flush the data to the base stream.
     if (remaining == 0) {
       nsresult rv = FlushToBaseStream();
-      if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return rv;
+      }
 
       // Now the entire buffer should be available for copying.
       MOZ_ASSERT(!mNextByte);
@@ -131,8 +137,12 @@ SnappyCompressOutputStream::WriteSegments(nsReadSegmentFun aReader,
     uint32_t numToRead = std::min(remaining, aCount);
     uint32_t numRead = 0;
 
-    nsresult rv = aReader(this, aClosure, &mBuffer[mNextByte],
-                          *aBytesWrittenOut, numToRead, &numRead);
+    nsresult rv = aReader(this,
+                          aClosure,
+                          &mBuffer[mNextByte],
+                          *aBytesWrittenOut,
+                          numToRead,
+                          &numRead);
 
     // As defined in nsIOutputStream.idl, do not pass reader func errors.
     if (NS_FAILED(rv)) {
@@ -159,10 +169,7 @@ SnappyCompressOutputStream::IsNonBlocking(bool* aNonBlockingOut)
   return NS_OK;
 }
 
-SnappyCompressOutputStream::~SnappyCompressOutputStream()
-{
-  Close();
-}
+SnappyCompressOutputStream::~SnappyCompressOutputStream() { Close(); }
 
 nsresult
 SnappyCompressOutputStream::FlushToBaseStream()
@@ -183,13 +190,20 @@ SnappyCompressOutputStream::FlushToBaseStream()
   // The first chunk must be a StreamIdentifier chunk.  Write it out
   // if we have not done so already.
   nsresult rv = MaybeFlushStreamIdentifier();
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   // Compress the data to our internal compressed buffer.
   size_t compressedLength;
-  rv = WriteCompressedData(mCompressedBuffer.get(), mCompressedBufferLength,
-                           mBuffer.get(), mNextByte, &compressedLength);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  rv = WriteCompressedData(mCompressedBuffer.get(),
+                           mCompressedBufferLength,
+                           mBuffer.get(),
+                           mNextByte,
+                           &compressedLength);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
   MOZ_ASSERT(compressedLength > 0);
 
   mNextByte = 0;
@@ -197,7 +211,9 @@ SnappyCompressOutputStream::FlushToBaseStream()
   // Write the compressed buffer out to the base stream.
   uint32_t numWritten = 0;
   rv = WriteAll(mCompressedBuffer.get(), compressedLength, &numWritten);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
   MOZ_ASSERT(compressedLength == numWritten);
 
   return NS_OK;
@@ -214,15 +230,18 @@ SnappyCompressOutputStream::MaybeFlushStreamIdentifier()
 
   // Build the StreamIdentifier in our compressed buffer.
   size_t compressedLength;
-  nsresult rv = WriteStreamIdentifier(mCompressedBuffer.get(),
-                                      mCompressedBufferLength,
-                                      &compressedLength);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  nsresult rv = WriteStreamIdentifier(
+      mCompressedBuffer.get(), mCompressedBufferLength, &compressedLength);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   // Write the compressed buffer out to the base stream.
   uint32_t numWritten = 0;
   rv = WriteAll(mCompressedBuffer.get(), compressedLength, &numWritten);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
   MOZ_ASSERT(compressedLength == numWritten);
 
   mStreamIdentifierWritten = true;
@@ -231,7 +250,8 @@ SnappyCompressOutputStream::MaybeFlushStreamIdentifier()
 }
 
 nsresult
-SnappyCompressOutputStream::WriteAll(const char* aBuf, uint32_t aCount,
+SnappyCompressOutputStream::WriteAll(const char* aBuf,
+                                     uint32_t aCount,
                                      uint32_t* aBytesWrittenOut)
 {
   *aBytesWrittenOut = 0;
@@ -244,7 +264,9 @@ SnappyCompressOutputStream::WriteAll(const char* aBuf, uint32_t aCount,
   while (aCount > 0) {
     uint32_t numWritten = 0;
     nsresult rv = mBaseStream->Write(aBuf + offset, aCount, &numWritten);
-    if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
     offset += numWritten;
     aCount -= numWritten;
     *aBytesWrittenOut += numWritten;
@@ -253,4 +275,4 @@ SnappyCompressOutputStream::WriteAll(const char* aBuf, uint32_t aCount,
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

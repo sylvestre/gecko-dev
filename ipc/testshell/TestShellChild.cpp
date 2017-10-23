@@ -4,12 +4,12 @@
 
 #include "TestShellChild.h"
 
-using mozilla::ipc::TestShellChild;
 using mozilla::ipc::PTestShellCommandChild;
+using mozilla::ipc::TestShellChild;
 using mozilla::ipc::XPCShellEnvironment;
 
 TestShellChild::TestShellChild()
-: mXPCShell(XPCShellEnvironment::CreateEnvironment())
+    : mXPCShell(XPCShellEnvironment::CreateEnvironment())
 {
 }
 
@@ -59,4 +59,3 @@ TestShellChild::RecvPTestShellCommandConstructor(PTestShellCommandChild* aActor,
   }
   return IPC_OK();
 }
-

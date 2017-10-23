@@ -22,7 +22,7 @@
 #include "prio.h"
 
 #ifdef XP_WIN
-#define NS_T(str) L ## str
+#define NS_T(str) L##str
 #define NS_SLASH "\\"
 #include <fcntl.h>
 #include <io.h>
@@ -44,9 +44,8 @@ using namespace mozilla;
 // computes the sha1 of the data that passes through it.
 class SHA1Stream
 {
-public:
-  explicit SHA1Stream(FILE* aStream)
-    : mFile(aStream)
+ public:
+  explicit SHA1Stream(FILE* aStream) : mFile(aStream)
   {
     MozillaRegisterDebugFILE(mFile);
   }
@@ -71,7 +70,8 @@ public:
     mSHA1.finish(aHash);
     mFile = nullptr;
   }
-private:
+
+ private:
   FILE* mFile;
   SHA1Sum mSHA1;
 };
@@ -80,7 +80,7 @@ static void
 RecordStackWalker(uint32_t aFrameNumber, void* aPC, void* aSP, void* aClosure)
 {
   std::vector<uintptr_t>* stack =
-    static_cast<std::vector<uintptr_t>*>(aClosure);
+      static_cast<std::vector<uintptr_t>*>(aClosure);
   stack->push_back(reinterpret_cast<uintptr_t>(aPC));
 }
 
@@ -92,9 +92,9 @@ RecordStackWalker(uint32_t aFrameNumber, void* aPC, void* aSP, void* aClosure)
  */
 class LateWriteObserver final : public IOInterposeObserver
 {
-public:
+ public:
   explicit LateWriteObserver(const char* aProfileDirectory)
-    : mProfileDirectory(PL_strdup(aProfileDirectory))
+      : mProfileDirectory(PL_strdup(aProfileDirectory))
   {
   }
   ~LateWriteObserver()
@@ -104,7 +104,8 @@ public:
   }
 
   void Observe(IOInterposeObserver::Observation& aObservation);
-private:
+
+ private:
   char* mProfileDirectory;
 };
 
@@ -125,12 +126,12 @@ LateWriteObserver::Observe(IOInterposeObserver::Observation& aOb)
   // concurrently from many writes, so we use multiple temporary files.
   std::vector<uintptr_t> rawStack;
 
-  MozStackWalk(RecordStackWalker, /* skipFrames */ 0, /* maxFrames */ 0,
-               &rawStack);
+  MozStackWalk(
+      RecordStackWalker, /* skipFrames */ 0, /* maxFrames */ 0, &rawStack);
   Telemetry::ProcessedStack stack = Telemetry::GetStackAndModules(rawStack);
 
-  nsPrintfCString nameAux("%s%s%s", mProfileDirectory,
-                          NS_SLASH, "Telemetry.LateWriteTmpXXXXXX");
+  nsPrintfCString nameAux(
+      "%s%s%s", mProfileDirectory, NS_SLASH, "Telemetry.LateWriteTmpXXXXXX");
   char* name;
   nameAux.GetMutableData(&name);
 
@@ -142,8 +143,13 @@ LateWriteObserver::Observe(IOInterposeObserver::Observation& aOb)
   do {
     // mkstemp isn't supported so keep trying until we get a file
     _mktemp_s(name, strlen(name) + 1);
-    hFile = CreateFileA(name, GENERIC_WRITE, 0, nullptr, CREATE_NEW,
-                        FILE_ATTRIBUTE_NORMAL, nullptr);
+    hFile = CreateFileA(name,
+                        GENERIC_WRITE,
+                        0,
+                        nullptr,
+                        CREATE_NEW,
+                        FILE_ATTRIBUTE_NORMAL,
+                        nullptr);
   } while (GetLastError() == ERROR_FILE_EXISTS);
 
   if (hFile == INVALID_HANDLE_VALUE) {
@@ -171,7 +177,8 @@ LateWriteObserver::Observe(IOInterposeObserver::Observation& aOb)
   sha1Stream.Printf("%u\n", (unsigned)numModules);
   for (size_t i = 0; i < numModules; ++i) {
     Telemetry::ProcessedStack::Module module = stack.GetModule(i);
-    sha1Stream.Printf("%s %s\n", module.mBreakpadId.c_str(),
+    sha1Stream.Printf("%s %s\n",
+                      module.mBreakpadId.c_str(),
                       NS_ConvertUTF16toUTF8(module.mName).get());
   }
 
@@ -201,8 +208,8 @@ LateWriteObserver::Observe(IOInterposeObserver::Observation& aOb)
 
   // We append the sha1 of the contents to the file name. This provides a simple
   // client side deduplication.
-  nsPrintfCString finalName("%s%s", mProfileDirectory,
-                            "/Telemetry.LateWriteFinal-");
+  nsPrintfCString finalName(
+      "%s%s", mProfileDirectory, "/Telemetry.LateWriteFinal-");
   for (int i = 0; i < 20; ++i) {
     finalName.AppendPrintf("%02x", sha1[i]);
   }
@@ -234,10 +241,8 @@ void
 BeginLateWriteChecks()
 {
   if (sLateWriteObserver) {
-    IOInterposer::Register(
-      IOInterposeObserver::OpWriteFSync,
-      sLateWriteObserver
-    );
+    IOInterposer::Register(IOInterposeObserver::OpWriteFSync,
+                           sLateWriteObserver);
   }
 }
 
@@ -245,14 +250,11 @@ void
 StopLateWriteChecks()
 {
   if (sLateWriteObserver) {
-    IOInterposer::Unregister(
-      IOInterposeObserver::OpAll,
-      sLateWriteObserver
-    );
+    IOInterposer::Unregister(IOInterposeObserver::OpAll, sLateWriteObserver);
     // Deallocation would not be thread-safe, and StopLateWriteChecks() is
     // called at shutdown and only in special cases.
     // sLateWriteObserver = nullptr;
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

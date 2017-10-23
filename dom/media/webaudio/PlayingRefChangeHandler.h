@@ -15,12 +15,16 @@ namespace dom {
 
 class PlayingRefChangeHandler final : public Runnable
 {
-public:
-  enum ChangeType { ADDREF, RELEASE };
+ public:
+  enum ChangeType
+  {
+    ADDREF,
+    RELEASE
+  };
   PlayingRefChangeHandler(AudioNodeStream* aStream, ChangeType aChange)
-    : Runnable("dom::PlayingRefChangeHandler")
-    , mStream(aStream)
-    , mChange(aChange)
+      : Runnable("dom::PlayingRefChangeHandler"),
+        mStream(aStream),
+        mChange(aChange)
   {
   }
 
@@ -37,13 +41,12 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<AudioNodeStream> mStream;
   ChangeType mChange;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-

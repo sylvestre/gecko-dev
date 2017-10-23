@@ -25,9 +25,9 @@ using namespace mozilla::a11y;
 // HTMLImageMapAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLImageMapAccessible::
-  HTMLImageMapAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  ImageAccessibleWrap(aContent, aDoc)
+HTMLImageMapAccessible::HTMLImageMapAccessible(nsIContent* aContent,
+                                               DocAccessible* aDoc)
+    : ImageAccessibleWrap(aContent, aDoc)
 {
   mType = eImageMapType;
 
@@ -67,8 +67,7 @@ already_AddRefed<nsIURI>
 HTMLImageMapAccessible::AnchorURIAt(uint32_t aAnchorIndex)
 {
   Accessible* area = GetChildAt(aAnchorIndex);
-  if (!area)
-    return nullptr;
+  if (!area) return nullptr;
 
   nsIContent* linkContent = area->GetContent();
   return linkContent ? linkContent->GetHrefURI() : nullptr;
@@ -84,16 +83,14 @@ HTMLImageMapAccessible::UpdateChildAreas(bool aDoFireEvents)
 
   // If image map is not initialized yet then we trigger one time more later.
   nsImageMap* imageMapObj = imageFrame->GetExistingImageMap();
-  if (!imageMapObj)
-    return;
+  if (!imageMapObj) return;
 
   TreeMutation mt(this, TreeMutation::kNoEvents & !aDoFireEvents);
 
   // Remove areas that are not a valid part of the image map anymore.
   for (int32_t childIdx = mChildren.Length() - 1; childIdx >= 0; childIdx--) {
     Accessible* area = mChildren.ElementAt(childIdx);
-    if (area->GetContent()->GetPrimaryFrame())
-      continue;
+    if (area->GetContent()->GetPrimaryFrame()) continue;
 
     mt.BeforeRemoval(area);
     RemoveChild(area);
@@ -126,8 +123,7 @@ HTMLImageMapAccessible::GetChildAccessibleFor(const nsINode* aNode) const
   uint32_t length = mChildren.Length();
   for (uint32_t i = 0; i < length; i++) {
     Accessible* area = mChildren[i];
-    if (area->GetContent() == aNode)
-      return area;
+    if (area->GetContent() == aNode) return area;
   }
 
   return nullptr;
@@ -137,9 +133,9 @@ HTMLImageMapAccessible::GetChildAccessibleFor(const nsINode* aNode) const
 // HTMLAreaAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLAreaAccessible::
-  HTMLAreaAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HTMLLinkAccessible(aContent, aDoc)
+HTMLAreaAccessible::HTMLAreaAccessible(nsIContent* aContent,
+                                       DocAccessible* aDoc)
+    : HTMLLinkAccessible(aContent, aDoc)
 {
   // Make HTML area DOM element not accessible. HTML image map accessible
   // manages its tree itself.
@@ -153,8 +149,7 @@ ENameValueFlag
 HTMLAreaAccessible::NativeName(nsString& aName)
 {
   ENameValueFlag nameFlag = Accessible::NativeName(aName);
-  if (!aName.IsEmpty())
-    return nameFlag;
+  if (!aName.IsEmpty()) return nameFlag;
 
   if (!mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::alt, aName))
     Value(aName);
@@ -169,15 +164,15 @@ HTMLAreaAccessible::Description(nsString& aDescription)
 
   // Still to do - follow IE's standard here
   RefPtr<HTMLAreaElement> area = HTMLAreaElement::FromContentOrNull(mContent);
-  if (area)
-    area->GetShape(aDescription);
+  if (area) area->GetShape(aDescription);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLAreaAccessible: Accessible public
 
 Accessible*
-HTMLAreaAccessible::ChildAtPoint(int32_t aX, int32_t aY,
+HTMLAreaAccessible::ChildAtPoint(int32_t aX,
+                                 int32_t aY,
                                  EWhichChildAtPoint aWhichChild)
 {
   // Don't walk into area accessibles.
@@ -208,16 +203,14 @@ nsRect
 HTMLAreaAccessible::RelativeBounds(nsIFrame** aBoundingFrame) const
 {
   nsIFrame* frame = GetFrame();
-  if (!frame)
-    return nsRect();
+  if (!frame) return nsRect();
 
   nsImageFrame* imageFrame = do_QueryFrame(frame);
   nsImageMap* map = imageFrame->GetImageMap();
 
   nsRect bounds;
   nsresult rv = map->GetBoundsForAreaContent(mContent, bounds);
-  if (NS_FAILED(rv))
-    return nsRect();
+  if (NS_FAILED(rv)) return nsRect();
 
   // XXX Areas are screwy; they return their rects as a pair of points, one pair
   // stored into the width and height.

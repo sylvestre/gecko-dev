@@ -12,13 +12,15 @@
 #include "prio.h"
 #include "prinrval.h"
 
-namespace mozilla { namespace net {
+namespace mozilla {
+namespace net {
 
 class NetworkActivityMonitor
 {
-public:
-  enum Direction {
-    kUpload   = 0,
+ public:
+  enum Direction
+  {
+    kUpload = 0,
     kDownload = 1
   };
 
@@ -28,19 +30,19 @@ public:
   static nsresult Init(int32_t blipInterval);
   static nsresult Shutdown();
 
-  static nsresult AttachIOLayer(PRFileDesc *fd);
+  static nsresult AttachIOLayer(PRFileDesc* fd);
   static nsresult DataInOut(Direction direction);
 
-private:
+ private:
   nsresult Init_Internal(int32_t blipInterval);
   void PostNotification(Direction direction);
 
-  static NetworkActivityMonitor * gInstance;
-  PRIntervalTime                  mBlipInterval;
-  PRIntervalTime                  mLastNotificationTime[2];
+  static NetworkActivityMonitor* gInstance;
+  PRIntervalTime mBlipInterval;
+  PRIntervalTime mLastNotificationTime[2];
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* NetworkActivityMonitor_h___ */

@@ -14,7 +14,7 @@
 namespace js {
 
 // Replacement for mozilla::UniquePtr that defaults to JS::DeletePolicy.
-template <typename T, typename D = JS::DeletePolicy<T>>
+template<typename T, typename D = JS::DeletePolicy<T>>
 using UniquePtr = mozilla::UniquePtr<T, D>;
 
 namespace detail {
@@ -37,7 +37,7 @@ struct UniqueSelector<T[N]>
   typedef UniquePtr<T[N]> KnownBound;
 };
 
-} // namespace detail
+}  // namespace detail
 
 // Replacement for mozilla::MakeUnique that correctly calls js_new and produces
 // a js::UniquePtr.
@@ -56,6 +56,6 @@ template<typename T, typename... Args>
 typename detail::UniqueSelector<T>::KnownBound
 MakeUnique(Args&&... aArgs) = delete;
 
-} // namespace js
+}  // namespace js
 
 #endif /* js_UniquePtr_h */

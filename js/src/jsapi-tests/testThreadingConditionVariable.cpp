@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -16,12 +16,8 @@ struct TestState {
     bool flag;
     js::Thread testThread;
 
-    explicit TestState(bool createThread = true)
-      : mutex(js::mutexid::TestMutex),
-        flag(false)
-    {
-        if (createThread)
-            MOZ_RELEASE_ASSERT(testThread.init(setFlag, this));
+    explicit TestState(bool createThread = true) : mutex(js::mutexid::TestMutex), flag(false) {
+        if (createThread) MOZ_RELEASE_ASSERT(testThread.init(setFlag, this));
     }
 
     static void setFlag(TestState* state) {
@@ -30,18 +26,14 @@ struct TestState {
         state->condition.notify_one();
     }
 
-    void join() {
-        testThread.join();
-    }
+    void join() { testThread.join(); }
 };
 
-BEGIN_TEST(testThreadingConditionVariable)
-{
+BEGIN_TEST(testThreadingConditionVariable) {
     auto state = mozilla::MakeUnique<TestState>();
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
-        while (!state->flag)
-            state->condition.wait(lock);
+        while (!state->flag) state->condition.wait(lock);
     }
     state->join();
 
@@ -51,12 +43,11 @@ BEGIN_TEST(testThreadingConditionVariable)
 }
 END_TEST(testThreadingConditionVariable)
 
-BEGIN_TEST(testThreadingConditionVariablePredicate)
-{
+BEGIN_TEST(testThreadingConditionVariablePredicate) {
     auto state = mozilla::MakeUnique<TestState>();
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
-        state->condition.wait(lock, [&state]() {return state->flag;});
+        state->condition.wait(lock, [&state]() { return state->flag; });
     }
     state->join();
 
@@ -66,8 +57,7 @@ BEGIN_TEST(testThreadingConditionVariablePredicate)
 }
 END_TEST(testThreadingConditionVariablePredicate)
 
-BEGIN_TEST(testThreadingConditionVariableUntilOkay)
-{
+BEGIN_TEST(testThreadingConditionVariableUntilOkay) {
     auto state = mozilla::MakeUnique<TestState>();
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
@@ -85,16 +75,14 @@ BEGIN_TEST(testThreadingConditionVariableUntilOkay)
 }
 END_TEST(testThreadingConditionVariableUntilOkay)
 
-BEGIN_TEST(testThreadingConditionVariableUntilTimeout)
-{
+BEGIN_TEST(testThreadingConditionVariableUntilTimeout) {
     auto state = mozilla::MakeUnique<TestState>(false);
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
         while (!state->flag) {
             auto to = mozilla::TimeStamp::Now() + mozilla::TimeDuration::FromMilliseconds(10);
             js::CVStatus res = state->condition.wait_until(lock, to);
-            if (res == js::CVStatus::Timeout)
-                break;
+            if (res == js::CVStatus::Timeout) break;
         }
     }
     CHECK(!state->flag);
@@ -111,13 +99,12 @@ BEGIN_TEST(testThreadingConditionVariableUntilTimeout)
 }
 END_TEST(testThreadingConditionVariableUntilTimeout)
 
-BEGIN_TEST(testThreadingConditionVariableUntilOkayPredicate)
-{
+BEGIN_TEST(testThreadingConditionVariableUntilOkayPredicate) {
     auto state = mozilla::MakeUnique<TestState>();
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
         auto to = mozilla::TimeStamp::Now() + mozilla::TimeDuration::FromSeconds(600);
-        bool res = state->condition.wait_until(lock, to, [&state](){return state->flag;});
+        bool res = state->condition.wait_until(lock, to, [&state]() { return state->flag; });
         CHECK(res);
     }
     state->join();
@@ -128,13 +115,12 @@ BEGIN_TEST(testThreadingConditionVariableUntilOkayPredicate)
 }
 END_TEST(testThreadingConditionVariableUntilOkayPredicate)
 
-BEGIN_TEST(testThreadingConditionVariableUntilTimeoutPredicate)
-{
+BEGIN_TEST(testThreadingConditionVariableUntilTimeoutPredicate) {
     auto state = mozilla::MakeUnique<TestState>(false);
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
         auto to = mozilla::TimeStamp::Now() + mozilla::TimeDuration::FromMilliseconds(10);
-        bool res = state->condition.wait_until(lock, to, [&state](){return state->flag;});
+        bool res = state->condition.wait_until(lock, to, [&state]() { return state->flag; });
         CHECK(!res);
     }
     CHECK(!state->flag);
@@ -143,8 +129,7 @@ BEGIN_TEST(testThreadingConditionVariableUntilTimeoutPredicate)
 }
 END_TEST(testThreadingConditionVariableUntilTimeoutPredicate)
 
-BEGIN_TEST(testThreadingConditionVariableForOkay)
-{
+BEGIN_TEST(testThreadingConditionVariableForOkay) {
     auto state = mozilla::MakeUnique<TestState>();
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
@@ -162,16 +147,14 @@ BEGIN_TEST(testThreadingConditionVariableForOkay)
 }
 END_TEST(testThreadingConditionVariableForOkay)
 
-BEGIN_TEST(testThreadingConditionVariableForTimeout)
-{
+BEGIN_TEST(testThreadingConditionVariableForTimeout) {
     auto state = mozilla::MakeUnique<TestState>(false);
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
         while (!state->flag) {
             auto duration = mozilla::TimeDuration::FromMilliseconds(10);
             js::CVStatus res = state->condition.wait_for(lock, duration);
-            if (res == js::CVStatus::Timeout)
-                break;
+            if (res == js::CVStatus::Timeout) break;
         }
     }
     CHECK(!state->flag);
@@ -188,13 +171,12 @@ BEGIN_TEST(testThreadingConditionVariableForTimeout)
 }
 END_TEST(testThreadingConditionVariableForTimeout)
 
-BEGIN_TEST(testThreadingConditionVariableForOkayPredicate)
-{
+BEGIN_TEST(testThreadingConditionVariableForOkayPredicate) {
     auto state = mozilla::MakeUnique<TestState>();
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
         auto duration = mozilla::TimeDuration::FromSeconds(600);
-        bool res = state->condition.wait_for(lock, duration, [&state](){return state->flag;});
+        bool res = state->condition.wait_for(lock, duration, [&state]() { return state->flag; });
         CHECK(res);
     }
     state->join();
@@ -205,13 +187,12 @@ BEGIN_TEST(testThreadingConditionVariableForOkayPredicate)
 }
 END_TEST(testThreadingConditionVariableForOkayPredicate)
 
-BEGIN_TEST(testThreadingConditionVariableForTimeoutPredicate)
-{
+BEGIN_TEST(testThreadingConditionVariableForTimeoutPredicate) {
     auto state = mozilla::MakeUnique<TestState>(false);
     {
         js::UniqueLock<js::Mutex> lock(state->mutex);
         auto duration = mozilla::TimeDuration::FromMilliseconds(10);
-        bool res = state->condition.wait_for(lock, duration, [&state](){return state->flag;});
+        bool res = state->condition.wait_for(lock, duration, [&state]() { return state->flag; });
         CHECK(!res);
     }
     CHECK(!state->flag);

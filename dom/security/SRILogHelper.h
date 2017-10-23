@@ -14,7 +14,7 @@ namespace dom {
 
 class SRILogHelper final
 {
-public:
+ public:
   static LogModule* GetSriLog()
   {
     static LazyLogModule gSriPRLog("SRI");
@@ -22,7 +22,7 @@ public:
   }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SRILogHelper_h
+#endif  // mozilla_dom_SRILogHelper_h

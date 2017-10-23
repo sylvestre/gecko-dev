@@ -8,7 +8,7 @@ TEST(SafebrowsingHash, ToFromUint32)
   // typedef SafebrowsingHash<PREFIX_SIZE, PrefixComparator> Prefix;
   // typedef nsTArray<Prefix> PrefixArray;
 
-  const char PREFIX_RAW[4] = { 0x1, 0x2, 0x3, 0x4 };
+  const char PREFIX_RAW[4] = {0x1, 0x2, 0x3, 0x4};
   uint32_t PREFIX_UINT32;
   memcpy(&PREFIX_UINT32, PREFIX_RAW, 4);
 

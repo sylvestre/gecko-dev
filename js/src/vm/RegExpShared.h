@@ -40,27 +40,23 @@ using RootedRegExpShared = JS::Rooted<RegExpShared*>;
 using HandleRegExpShared = JS::Handle<RegExpShared*>;
 using MutableHandleRegExpShared = JS::MutableHandle<RegExpShared*>;
 
-enum RegExpFlag : uint8_t
-{
-    IgnoreCaseFlag  = 0x01,
-    GlobalFlag      = 0x02,
-    MultilineFlag   = 0x04,
-    StickyFlag      = 0x08,
-    UnicodeFlag     = 0x10,
+enum RegExpFlag : uint8_t {
+    IgnoreCaseFlag = 0x01,
+    GlobalFlag = 0x02,
+    MultilineFlag = 0x04,
+    StickyFlag = 0x08,
+    UnicodeFlag = 0x10,
 
-    NoFlags         = 0x00,
-    AllFlags        = 0x1f
+    NoFlags = 0x00,
+    AllFlags = 0x1f
 };
 
-static_assert(IgnoreCaseFlag == REGEXP_IGNORECASE_FLAG &&
-              GlobalFlag == REGEXP_GLOBAL_FLAG &&
-              MultilineFlag == REGEXP_MULTILINE_FLAG &&
-              StickyFlag == REGEXP_STICKY_FLAG &&
-              UnicodeFlag == REGEXP_UNICODE_FLAG,
+static_assert(IgnoreCaseFlag == REGEXP_IGNORECASE_FLAG && GlobalFlag == REGEXP_GLOBAL_FLAG &&
+                  MultilineFlag == REGEXP_MULTILINE_FLAG && StickyFlag == REGEXP_STICKY_FLAG &&
+                  UnicodeFlag == REGEXP_UNICODE_FLAG,
               "Flag values should be in sync with self-hosted JS");
 
-enum RegExpRunStatus
-{
+enum RegExpRunStatus {
     RegExpRunStatus_Error,
     RegExpRunStatus_Success,
     RegExpRunStatus_Success_NotFound
@@ -83,28 +79,20 @@ enum RegExpRunStatus
  * objects when we are preserving jitcode in their zone, to avoid the same
  * recompilation inefficiencies as normal Ion and baseline compilation.
  */
-class RegExpShared : public gc::TenuredCell
-{
-  public:
-    enum CompilationMode {
-        Normal,
-        MatchOnly
-    };
+class RegExpShared : public gc::TenuredCell {
+   public:
+    enum CompilationMode { Normal, MatchOnly };
 
-    enum ForceByteCodeEnum {
-        DontForceByteCode,
-        ForceByteCode
-    };
+    enum ForceByteCodeEnum { DontForceByteCode, ForceByteCode };
 
     using JitCodeTable = UniquePtr<uint8_t[], JS::FreePolicy>;
     using JitCodeTables = Vector<JitCodeTable, 0, SystemAllocPolicy>;
 
-  private:
+   private:
     friend class RegExpStatics;
     friend class RegExpZone;
 
-    struct RegExpCompilation
-    {
+    struct RegExpCompilation {
         ReadBarriered<jit::JitCode*> jitCode;
         uint8_t* byteCode;
 
@@ -116,18 +104,20 @@ class RegExpShared : public gc::TenuredCell
     };
 
     /* Source to the RegExp, for lazy compilation. */
-    GCPtr<JSAtom*>     source;
+    GCPtr<JSAtom*> source;
 
-    RegExpFlag         flags;
-    bool               canStringMatch;
-    size_t             parenCount;
+    RegExpFlag flags;
+    bool canStringMatch;
+    size_t parenCount;
 
-    RegExpCompilation  compilationArray[4];
+    RegExpCompilation compilationArray[4];
 
     static int CompilationIndex(CompilationMode mode, bool latin1) {
         switch (mode) {
-          case Normal:    return latin1 ? 0 : 1;
-          case MatchOnly: return latin1 ? 2 : 3;
+            case Normal:
+                return latin1 ? 0 : 1;
+            case MatchOnly:
+                return latin1 ? 2 : 3;
         }
         MOZ_CRASH();
     }
@@ -155,7 +145,7 @@ class RegExpShared : public gc::TenuredCell
         return compilationArray[CompilationIndex(mode, latin1)];
     }
 
-  public:
+   public:
     ~RegExpShared() = delete;
 
     // Execute this RegExp on input starting from searchIndex, filling in
@@ -165,9 +155,7 @@ class RegExpShared : public gc::TenuredCell
                                    MatchPairs* matches, size_t* endIndex);
 
     // Register a table with this RegExpShared, and take ownership.
-    bool addTable(JitCodeTable table) {
-        return tables.append(Move(table));
-    }
+    bool addTable(JitCodeTable table) { return tables.append(Move(table)); }
 
     /* Accessors */
 
@@ -177,50 +165,44 @@ class RegExpShared : public gc::TenuredCell
     }
 
     /* Accounts for the "0" (whole match) pair. */
-    size_t pairCount() const            { return getParenCount() + 1; }
+    size_t pairCount() const { return getParenCount() + 1; }
 
-    JSAtom* getSource() const           { return source; }
-    RegExpFlag getFlags() const         { return flags; }
-    bool ignoreCase() const             { return flags & IgnoreCaseFlag; }
-    bool global() const                 { return flags & GlobalFlag; }
-    bool multiline() const              { return flags & MultilineFlag; }
-    bool sticky() const                 { return flags & StickyFlag; }
-    bool unicode() const                { return flags & UnicodeFlag; }
+    JSAtom* getSource() const { return source; }
+    RegExpFlag getFlags() const { return flags; }
+    bool ignoreCase() const { return flags & IgnoreCaseFlag; }
+    bool global() const { return flags & GlobalFlag; }
+    bool multiline() const { return flags & MultilineFlag; }
+    bool sticky() const { return flags & StickyFlag; }
+    bool unicode() const { return flags & UnicodeFlag; }
 
     bool isCompiled(CompilationMode mode, bool latin1,
                     ForceByteCodeEnum force = DontForceByteCode) const {
         return compilation(mode, latin1).compiled(force);
     }
     bool isCompiled() const {
-        return isCompiled(Normal, true) || isCompiled(Normal, false)
-            || isCompiled(MatchOnly, true) || isCompiled(MatchOnly, false);
+        return isCompiled(Normal, true) || isCompiled(Normal, false) ||
+               isCompiled(MatchOnly, true) || isCompiled(MatchOnly, false);
     }
 
     void traceChildren(JSTracer* trc);
     void discardJitCode();
     void finalize(FreeOp* fop);
 
-    static size_t offsetOfSource() {
-        return offsetof(RegExpShared, source);
-    }
+    static size_t offsetOfSource() { return offsetof(RegExpShared, source); }
 
-    static size_t offsetOfFlags() {
-        return offsetof(RegExpShared, flags);
-    }
+    static size_t offsetOfFlags() { return offsetof(RegExpShared, flags); }
 
-    static size_t offsetOfParenCount() {
-        return offsetof(RegExpShared, parenCount);
-    }
+    static size_t offsetOfParenCount() { return offsetof(RegExpShared, parenCount); }
 
     static size_t offsetOfLatin1JitCode(CompilationMode mode) {
-        return offsetof(RegExpShared, compilationArray)
-             + (CompilationIndex(mode, true) * sizeof(RegExpCompilation))
-             + offsetof(RegExpCompilation, jitCode);
+        return offsetof(RegExpShared, compilationArray) +
+               (CompilationIndex(mode, true) * sizeof(RegExpCompilation)) +
+               offsetof(RegExpCompilation, jitCode);
     }
     static size_t offsetOfTwoByteJitCode(CompilationMode mode) {
-        return offsetof(RegExpShared, compilationArray)
-             + (CompilationIndex(mode, false) * sizeof(RegExpCompilation))
-             + offsetof(RegExpCompilation, jitCode);
+        return offsetof(RegExpShared, compilationArray) +
+               (CompilationIndex(mode, false) * sizeof(RegExpCompilation)) +
+               offsetof(RegExpCompilation, jitCode);
     }
 
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
@@ -231,29 +213,23 @@ class RegExpShared : public gc::TenuredCell
 #endif
 };
 
-class RegExpZone
-{
+class RegExpZone {
     struct Key {
         JSAtom* atom;
         uint16_t flag;
 
         Key() {}
-        Key(JSAtom* atom, RegExpFlag flag)
-          : atom(atom), flag(flag)
-        { }
+        Key(JSAtom* atom, RegExpFlag flag) : atom(atom), flag(flag) {}
         MOZ_IMPLICIT Key(const ReadBarriered<RegExpShared*>& shared)
-          : atom(shared.unbarrieredGet()->getSource()),
-            flag(shared.unbarrieredGet()->getFlags())
-        { }
+            : atom(shared.unbarrieredGet()->getSource()),
+              flag(shared.unbarrieredGet()->getFlags()) {}
 
         typedef Key Lookup;
         static HashNumber hash(const Lookup& l) {
             HashNumber hash = DefaultHasher<JSAtom*>::hash(l.atom);
             return mozilla::AddToHash(hash, l.flag);
         }
-        static bool match(Key l, Key r) {
-            return l.atom == r.atom && l.flag == r.flag;
-        }
+        static bool match(Key l, Key r) { return l.atom == r.atom && l.flag == r.flag; }
     };
 
     /*
@@ -263,12 +239,10 @@ class RegExpZone
     using Set = JS::WeakCache<JS::GCHashSet<ReadBarriered<RegExpShared*>, Key, ZoneAllocPolicy>>;
     Set set_;
 
-  public:
+   public:
     explicit RegExpZone(Zone* zone);
 
-    ~RegExpZone() {
-        MOZ_ASSERT_IF(set_.initialized(), set_.empty());
-    }
+    ~RegExpZone() { MOZ_ASSERT_IF(set_.initialized(), set_.empty()); }
 
     bool init();
 
@@ -286,8 +260,7 @@ class RegExpZone
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
 };
 
-class RegExpCompartment
-{
+class RegExpCompartment {
     /*
      * This is the template object where the result of re.exec() is based on,
      * if there is a result. This is used in CreateRegExpMatchResult to set
@@ -318,27 +291,22 @@ class RegExpCompartment
 
     ArrayObject* createMatchResultTemplateObject(JSContext* cx);
 
-  public:
+   public:
     explicit RegExpCompartment(Zone* zone);
 
     void sweep(JSRuntime* rt);
 
     /* Get or create template object used to base the result of .exec() on. */
     ArrayObject* getOrCreateMatchResultTemplateObject(JSContext* cx) {
-        if (matchResultTemplateObject_)
-            return matchResultTemplateObject_;
+        if (matchResultTemplateObject_) return matchResultTemplateObject_;
         return createMatchResultTemplateObject(cx);
     }
 
-    Shape* getOptimizableRegExpPrototypeShape() {
-        return optimizableRegExpPrototypeShape_;
-    }
+    Shape* getOptimizableRegExpPrototypeShape() { return optimizableRegExpPrototypeShape_; }
     void setOptimizableRegExpPrototypeShape(Shape* shape) {
         optimizableRegExpPrototypeShape_ = shape;
     }
-    Shape* getOptimizableRegExpInstanceShape() {
-        return optimizableRegExpInstanceShape_;
-    }
+    Shape* getOptimizableRegExpInstanceShape() { return optimizableRegExpInstanceShape_; }
     void setOptimizableRegExpInstanceShape(Shape* shape) {
         optimizableRegExpInstanceShape_ = shape;
     }
@@ -357,15 +325,12 @@ namespace JS {
 namespace ubi {
 
 template <>
-class Concrete<js::RegExpShared> : TracerConcrete<js::RegExpShared>
-{
-  protected:
-    explicit Concrete(js::RegExpShared* ptr) : TracerConcrete<js::RegExpShared>(ptr) { }
+class Concrete<js::RegExpShared> : TracerConcrete<js::RegExpShared> {
+   protected:
+    explicit Concrete(js::RegExpShared* ptr) : TracerConcrete<js::RegExpShared>(ptr) {}
 
-  public:
-    static void construct(void* storage, js::RegExpShared* ptr) {
-        new (storage) Concrete(ptr);
-    }
+   public:
+    static void construct(void* storage, js::RegExpShared* ptr) { new (storage) Concrete(ptr); }
 
     CoarseType coarseType() const final { return CoarseType::Other; }
 
@@ -375,7 +340,7 @@ class Concrete<js::RegExpShared> : TracerConcrete<js::RegExpShared>
     static const char16_t concreteTypeName[];
 };
 
-} // namespace ubi
-} // namespace JS
+}  // namespace ubi
+}  // namespace JS
 
 #endif /* vm_RegExpShared_h */

@@ -15,7 +15,7 @@ class MP3TrackDemuxer;
 
 class MP3Demuxer : public MediaDataDemuxer
 {
-public:
+ public:
   // MediaDataDemuxer interface.
   explicit MP3Demuxer(MediaResource* aSource);
   RefPtr<InitPromise> Init() override;
@@ -26,7 +26,7 @@ public:
   void NotifyDataArrived() override;
   void NotifyDataRemoved() override;
 
-private:
+ private:
   // Synchronous initialization.
   bool InitInternal();
 
@@ -38,7 +38,7 @@ private:
 // MPEG streams.
 class MP3TrackDemuxer : public MediaTrackDemuxer
 {
-public:
+ public:
   // Constructor, expecting a valid media resource.
   explicit MP3TrackDemuxer(MediaResource* aSource);
 
@@ -71,11 +71,11 @@ public:
   RefPtr<SamplesPromise> GetSamples(int32_t aNumSamples = 1) override;
   void Reset() override;
   RefPtr<SkipAccessPointPromise> SkipToNextRandomAccessPoint(
-    const media::TimeUnit& aTimeThreshold) override;
+      const media::TimeUnit& aTimeThreshold) override;
   int64_t GetResourceOffset() const override;
   media::TimeIntervals GetBuffered() override;
 
-private:
+ private:
   // Destructor.
   ~MP3TrackDemuxer() {}
 
@@ -155,6 +155,6 @@ private:
   UniquePtr<AudioInfo> mInfo;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

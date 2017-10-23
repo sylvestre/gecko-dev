@@ -12,7 +12,8 @@
 #include "nsServiceManagerUtils.h"
 #include "mozilla/Sprintf.h"
 
-struct testcaseLine {
+struct testcaseLine
+{
   wchar_t* c1;
   wchar_t* c2;
   wchar_t* c3;
@@ -22,10 +23,9 @@ struct testcaseLine {
 };
 
 #ifdef DEBUG_smontagu
-#define DEBUG_NAMED_TESTCASE(t, s) \
-  printf(t ": "); \
-  for (uint32_t i = 0; i < s.Length(); ++i) \
-    printf("%x ", s.CharAt(i)); \
+#define DEBUG_NAMED_TESTCASE(t, s)                                      \
+  printf(t ": ");                                                       \
+  for (uint32_t i = 0; i < s.Length(); ++i) printf("%x ", s.CharAt(i)); \
   printf("\n")
 #else
 #define DEBUG_NAMED_TESTCASE(t, s)
@@ -33,27 +33,29 @@ struct testcaseLine {
 
 #define DEBUG_TESTCASE(x) DEBUG_NAMED_TESTCASE(#x, x)
 
-#define NORMALIZE_AND_COMPARE(base, comparison, form, description) \
-   normalized.Truncate();\
-   normalizer->NormalizeUnicode##form(comparison, normalized);\
-   DEBUG_NAMED_TESTCASE(#form "(" #comparison ")", normalized);\
-   if (!base.Equals(normalized)) {\
-     rv = false;\
-     showError(description, #base " != " #form "(" #comparison ")\n");\
-   }
+#define NORMALIZE_AND_COMPARE(base, comparison, form, description)    \
+  normalized.Truncate();                                              \
+  normalizer->NormalizeUnicode##form(comparison, normalized);         \
+  DEBUG_NAMED_TESTCASE(#form "(" #comparison ")", normalized);        \
+  if (!base.Equals(normalized)) {                                     \
+    rv = false;                                                       \
+    showError(description, #base " != " #form "(" #comparison ")\n"); \
+  }
 
 NS_DEFINE_CID(kUnicodeNormalizerCID, NS_UNICODE_NORMALIZER_CID);
 
-nsIUnicodeNormalizer *normalizer;
+nsIUnicodeNormalizer* normalizer;
 
 #include "NormalizationData.h"
 
-void showError(const char* description, const char* errorText)
+void
+showError(const char* description, const char* errorText)
 {
   printf("%s failed: %s", description, errorText);
 }
 
-bool TestInvariants(testcaseLine* testLine)
+bool
+TestInvariants(testcaseLine* testLine)
 {
   nsAutoString c1, c2, c3, c4, c5, normalized;
   c1 = nsDependentString((char16_t*)testLine->c1);
@@ -121,18 +123,19 @@ bool TestInvariants(testcaseLine* testLine)
   return rv;
 }
 
-uint32_t UTF32CodepointFromTestcase(testcaseLine* testLine)
+uint32_t
+UTF32CodepointFromTestcase(testcaseLine* testLine)
 {
-  if (!IS_SURROGATE(testLine->c1[0]))
-    return testLine->c1[0];
+  if (!IS_SURROGATE(testLine->c1[0])) return testLine->c1[0];
 
   NS_ASSERTION(NS_IS_HIGH_SURROGATE(testLine->c1[0]) &&
-               NS_IS_LOW_SURROGATE(testLine->c1[1]),
+                   NS_IS_LOW_SURROGATE(testLine->c1[1]),
                "Test data neither in BMP nor legal surrogate pair");
   return SURROGATE_TO_UCS4(testLine->c1[0], testLine->c1[1]);
 }
 
-bool TestUnspecifiedCodepoint(uint32_t codepoint)
+bool
+TestUnspecifiedCodepoint(uint32_t codepoint)
 {
   bool rv = true;
   char16_t unicharArray[3];
@@ -142,8 +145,7 @@ bool TestUnspecifiedCodepoint(uint32_t codepoint)
     unicharArray[0] = codepoint;
     unicharArray[1] = 0;
     X = nsDependentString(unicharArray);
-  }
-  else {
+  } else {
     unicharArray[0] = H_SURROGATE(codepoint);
     unicharArray[1] = L_SURROGATE(codepoint);
     unicharArray[2] = 0;
@@ -169,7 +171,8 @@ bool TestUnspecifiedCodepoint(uint32_t codepoint)
   return rv;
 }
 
-void TestPart0()
+void
+TestPart0()
 {
   printf("Test Part0: Specific cases\n");
 
@@ -187,7 +190,8 @@ void TestPart0()
   EXPECT_EQ(0u, numFailed);
 }
 
-void TestPart1()
+void
+TestPart1()
 {
   printf("Test Part1: Character by character test\n");
 
@@ -215,7 +219,8 @@ void TestPart1()
   EXPECT_EQ(0u, numFailed);
 }
 
-void TestPart2()
+void
+TestPart2()
 {
   printf("Test Part2: Canonical Order Test\n");
 
@@ -233,7 +238,8 @@ void TestPart2()
   EXPECT_EQ(0u, numFailed);
 }
 
-void TestPart3()
+void
+TestPart3()
 {
   printf("Test Part3: PRI #29 Test\n");
 
@@ -251,7 +257,8 @@ void TestPart3()
   EXPECT_EQ(0u, numFailed);
 }
 
-TEST(NormalizationTest, Main) {
+TEST(NormalizationTest, Main)
+{
   if (sizeof(wchar_t) != 2) {
     printf("This test can only be run where sizeof(wchar_t) == 2\n");
     return;

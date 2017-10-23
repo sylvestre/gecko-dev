@@ -17,13 +17,11 @@
 nsListItemFrame::nsListItemFrame(nsStyleContext* aContext,
                                  bool aIsRoot,
                                  nsBoxLayout* aLayoutManager)
-  : nsGridRowLeafFrame(aContext, aIsRoot, aLayoutManager, kClassID)
+    : nsGridRowLeafFrame(aContext, aIsRoot, aLayoutManager, kClassID)
 {
 }
 
-nsListItemFrame::~nsListItemFrame()
-{
-}
+nsListItemFrame::~nsListItemFrame() {}
 
 nsSize
 nsListItemFrame::GetXULPrefSize(nsBoxLayoutState& aState)
@@ -38,12 +36,14 @@ nsListItemFrame::GetXULPrefSize(nsBoxLayoutState& aState)
 }
 
 void
-nsListItemFrame::BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
+nsListItemFrame::BuildDisplayListForChildren(nsDisplayListBuilder* aBuilder,
                                              const nsDisplayListSet& aLists)
 {
   if (aBuilder->IsForEventDelivery()) {
-    if (!mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::allowevents,
-                               nsGkAtoms::_true, eCaseMatters))
+    if (!mContent->AttrValueIs(kNameSpaceID_None,
+                               nsGkAtoms::allowevents,
+                               nsGkAtoms::_true,
+                               eCaseMatters))
       return;
   }
 
@@ -52,7 +52,8 @@ nsListItemFrame::BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
 
 // Creation Routine ///////////////////////////////////////////////////////////////////////
 
-already_AddRefed<nsBoxLayout> NS_NewGridRowLeafLayout();
+already_AddRefed<nsBoxLayout>
+NS_NewGridRowLeafLayout();
 
 nsIFrame*
 NS_NewListItemFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)

@@ -24,12 +24,14 @@ static const int kSandboxReporterFileDesc = 5;
 
 // This struct represents a system call that was rejected by a
 // seccomp-bpf policy.
-struct SandboxReport {
+struct SandboxReport
+{
   // In the future this may include finer distinctions than
   // GeckoProcessType -- e.g., whether a content process can load
   // file:/// URLs, or if it's reserved for content with certain
   // user-granted permissions.
-  enum class ProcType : uint8_t {
+  enum class ProcType : uint8_t
+  {
     CONTENT,
     FILE,
     MEDIA_PLUGIN,
@@ -54,10 +56,10 @@ struct SandboxReport {
   ULong mSyscall;
   ULong mArgs[kSandboxSyscallArguments];
 
-  SandboxReport() : mPid(0) { }
+  SandboxReport() : mPid(0) {}
   bool IsValid() const { return mPid > 0; }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxReporterCommon_h
+#endif  // mozilla_SandboxReporterCommon_h

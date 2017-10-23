@@ -22,12 +22,13 @@ namespace {
 
 class FetchStreamReaderWorkerHolder final : public WorkerHolder
 {
-public:
+ public:
   explicit FetchStreamReaderWorkerHolder(FetchStreamReader* aReader)
-    : WorkerHolder(WorkerHolder::Behavior::AllowIdleShutdownStart)
-    , mReader(aReader)
-    , mWasNotified(false)
-  {}
+      : WorkerHolder(WorkerHolder::Behavior::AllowIdleShutdownStart),
+        mReader(aReader),
+        mWasNotified(false)
+  {
+  }
 
   bool Notify(Status aStatus) override
   {
@@ -39,12 +40,12 @@ public:
     return true;
   }
 
-private:
+ private:
   RefPtr<FetchStreamReader> mReader;
   bool mWasNotified;
 };
 
-} // anonymous
+}  // namespace
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(FetchStreamReader)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(FetchStreamReader)
@@ -69,7 +70,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FetchStreamReader)
 NS_INTERFACE_MAP_END
 
 /* static */ nsresult
-FetchStreamReader::Create(JSContext* aCx, nsIGlobalObject* aGlobal,
+FetchStreamReader::Create(JSContext* aCx,
+                          nsIGlobalObject* aGlobal,
                           FetchStreamReader** aStreamReader,
                           nsIInputStream** aInputStream)
 {
@@ -84,7 +86,10 @@ FetchStreamReader::Create(JSContext* aCx, nsIGlobalObject* aGlobal,
 
   nsresult rv = NS_NewPipe2(getter_AddRefs(pipeIn),
                             getter_AddRefs(streamReader->mPipeOut),
-                            true, true, 0, 0);
+                            true,
+                            true,
+                            0,
+                            0);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -95,7 +100,7 @@ FetchStreamReader::Create(JSContext* aCx, nsIGlobalObject* aGlobal,
 
     // We need to know when the worker goes away.
     UniquePtr<FetchStreamReaderWorkerHolder> holder(
-      new FetchStreamReaderWorkerHolder(streamReader));
+        new FetchStreamReaderWorkerHolder(streamReader));
     if (NS_WARN_IF(!holder->HoldWorker(workerPrivate, Closing))) {
       streamReader->mPipeOut->CloseWithStatus(NS_ERROR_DOM_INVALID_STATE_ERR);
       return NS_ERROR_DOM_INVALID_STATE_ERR;
@@ -112,11 +117,11 @@ FetchStreamReader::Create(JSContext* aCx, nsIGlobalObject* aGlobal,
 }
 
 FetchStreamReader::FetchStreamReader(nsIGlobalObject* aGlobal)
-  : mGlobal(aGlobal)
-  , mOwningEventTarget(mGlobal->EventTargetFor(TaskCategory::Other))
-  , mBufferRemaining(0)
-  , mBufferOffset(0)
-  , mStreamClosed(false)
+    : mGlobal(aGlobal),
+      mOwningEventTarget(mGlobal->EventTargetFor(TaskCategory::Other)),
+      mBufferRemaining(0),
+      mBufferOffset(0),
+      mStreamClosed(false)
 {
   MOZ_ASSERT(aGlobal);
 }
@@ -160,9 +165,10 @@ FetchStreamReader::StartConsuming(JSContext* aCx,
   MOZ_DIAGNOSTIC_ASSERT(!mReader);
   MOZ_DIAGNOSTIC_ASSERT(aStream);
 
-  JS::Rooted<JSObject*> reader(aCx,
-                               JS::ReadableStreamGetReader(aCx, aStream,
-                                                           JS::ReadableStreamReaderMode::Default));
+  JS::Rooted<JSObject*> reader(
+      aCx,
+      JS::ReadableStreamGetReader(
+          aCx, aStream, JS::ReadableStreamReaderMode::Default));
   if (!reader) {
     aRv.StealExceptionFromJSContext(aCx);
     CloseAndRelease(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -200,9 +206,8 @@ FetchStreamReader::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
   AutoEntryScript aes(mGlobal, "ReadableStreamReader.read", !mWorkerHolder);
 
   JS::Rooted<JSObject*> reader(aes.cx(), mReader);
-  JS::Rooted<JSObject*> promise(aes.cx(),
-                                JS::ReadableStreamDefaultReaderRead(aes.cx(),
-                                                                    reader));
+  JS::Rooted<JSObject*> promise(
+      aes.cx(), JS::ReadableStreamDefaultReaderRead(aes.cx(), reader));
   if (NS_WARN_IF(!promise)) {
     // Let's close the stream.
     CloseAndRelease(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -250,7 +255,7 @@ FetchStreamReader::ResolvedCallback(JSContext* aCx,
   }
 
   UniquePtr<FetchReadableStreamReadDataArray> value(
-    new FetchReadableStreamReadDataArray);
+      new FetchReadableStreamReadDataArray);
   if (!value->Init(aCx, aValue) || !value->mValue.WasPassed()) {
     JS_ClearPendingException(aCx);
     CloseAndRelease(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -288,7 +293,7 @@ FetchStreamReader::WriteBuffer()
   while (1) {
     uint32_t written = 0;
     nsresult rv =
-      mPipeOut->Write(data + mBufferOffset, mBufferRemaining, &written);
+        mPipeOut->Write(data + mBufferOffset, mBufferRemaining, &written);
 
     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
       break;
@@ -335,8 +340,8 @@ FetchStreamReader::ReportErrorToConsole(JSContext* aCx,
   uint32_t column = 0;
   nsString valueString;
 
-  nsContentUtils::ExtractErrorValues(aCx, aValue, sourceSpec, &line,
-                                     &column, valueString);
+  nsContentUtils::ExtractErrorValues(
+      aCx, aValue, sourceSpec, &line, &column, valueString);
 
   nsTArray<nsString> params;
   params.AppendElement(valueString);
@@ -345,7 +350,9 @@ FetchStreamReader::ReportErrorToConsole(JSContext* aCx,
   reporter->AddConsoleReport(nsIScriptError::errorFlag,
                              NS_LITERAL_CSTRING("ReadableStreamReader.read"),
                              nsContentUtils::eDOM_PROPERTIES,
-                             sourceSpec, line, column,
+                             sourceSpec,
+                             line,
+                             column,
                              NS_LITERAL_CSTRING("ReadableStreamReadingFailed"),
                              params);
 
@@ -366,13 +373,12 @@ FetchStreamReader::ReportErrorToConsole(JSContext* aCx,
   }
 
   RefPtr<Runnable> r = NS_NewRunnableFunction(
-    "FetchStreamReader::ReportErrorToConsole",
-    [reporter, innerWindowId] () {
-      reporter->FlushReportsToConsole(innerWindowId);
-    });
+      "FetchStreamReader::ReportErrorToConsole", [reporter, innerWindowId]() {
+        reporter->FlushReportsToConsole(innerWindowId);
+      });
 
   workerPrivate->DispatchToMainThread(r.forget());
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

@@ -15,7 +15,8 @@ namespace mozilla {
 /**
  * Sides represents a set of physical sides.
  */
-struct Sides final {
+struct Sides final
+{
   Sides() : mBits(0) {}
   explicit Sides(SideBits aSideBits)
   {
@@ -23,10 +24,10 @@ struct Sides final {
     mBits = aSideBits;
   }
   bool IsEmpty() const { return mBits == 0; }
-  bool Top()     const { return (mBits & eSideBitsTop) != 0; }
-  bool Right()   const { return (mBits & eSideBitsRight) != 0; }
-  bool Bottom()  const { return (mBits & eSideBitsBottom) != 0; }
-  bool Left()    const { return (mBits & eSideBitsLeft) != 0; }
+  bool Top() const { return (mBits & eSideBitsTop) != 0; }
+  bool Right() const { return (mBits & eSideBitsRight) != 0; }
+  bool Bottom() const { return (mBits & eSideBitsBottom) != 0; }
+  bool Left() const { return (mBits & eSideBitsLeft) != 0; }
   bool Contains(SideBits aSideBits) const
   {
     MOZ_ASSERT((aSideBits & ~eSideBitsAll) == 0, "illegal side bits");
@@ -36,29 +37,17 @@ struct Sides final {
   {
     return Sides(SideBits(mBits | aOther.mBits));
   }
-  Sides operator|(SideBits aSideBits) const
-  {
-    return *this | Sides(aSideBits);
-  }
+  Sides operator|(SideBits aSideBits) const { return *this | Sides(aSideBits); }
   Sides& operator|=(Sides aOther)
   {
     mBits |= aOther.mBits;
     return *this;
   }
-  Sides& operator|=(SideBits aSideBits)
-  {
-    return *this |= Sides(aSideBits);
-  }
-  bool operator==(Sides aOther) const
-  {
-    return mBits == aOther.mBits;
-  }
-  bool operator!=(Sides aOther) const
-  {
-    return !(*this == aOther);
-  }
+  Sides& operator|=(SideBits aSideBits) { return *this |= Sides(aSideBits); }
+  bool operator==(Sides aOther) const { return mBits == aOther.mBits; }
+  bool operator!=(Sides aOther) const { return !(*this == aOther); }
 
-private:
+ private:
   uint8_t mBits;
 };
 
@@ -68,9 +57,10 @@ namespace gfx {
  * Do not use this class directly. Subclass it, pass that subclass as the
  * Sub parameter, and only use that subclass.
  */
-template <class T, class Sub>
-struct BaseMargin {
-  typedef mozilla::Side SideT; // because we have a method named Side
+template<class T, class Sub>
+struct BaseMargin
+{
+  typedef mozilla::Side SideT;  // because we have a method named Side
 
   // Do not change the layout of these members; the Side() methods below
   // depend on this order.
@@ -78,22 +68,29 @@ struct BaseMargin {
 
   // Constructors
   BaseMargin() : top(0), right(0), bottom(0), left(0) {}
-  BaseMargin(T aTop, T aRight, T aBottom, T aLeft) :
-      top(aTop), right(aRight), bottom(aBottom), left(aLeft) {}
+  BaseMargin(T aTop, T aRight, T aBottom, T aLeft)
+      : top(aTop), right(aRight), bottom(aBottom), left(aLeft)
+  {
+  }
 
   void SizeTo(T aTop, T aRight, T aBottom, T aLeft)
   {
-    top = aTop; right = aRight; bottom = aBottom; left = aLeft;
+    top = aTop;
+    right = aRight;
+    bottom = aBottom;
+    left = aLeft;
   }
 
   T LeftRight() const { return left + right; }
   T TopBottom() const { return top + bottom; }
 
-  T& Side(SideT aSide) {
+  T& Side(SideT aSide)
+  {
     // This is ugly!
     return *(&top + int(aSide));
   }
-  T Side(SideT aSide) const {
+  T Side(SideT aSide) const
+  {
     // This is ugly!
     return *(&top + int(aSide));
   }
@@ -116,22 +113,28 @@ struct BaseMargin {
 
   // Overloaded operators. Note that '=' isn't defined so we'll get the
   // compiler generated default assignment operator
-  bool operator==(const Sub& aMargin) const {
+  bool operator==(const Sub& aMargin) const
+  {
     return top == aMargin.top && right == aMargin.right &&
            bottom == aMargin.bottom && left == aMargin.left;
   }
-  bool operator!=(const Sub& aMargin) const {
-    return !(*this == aMargin);
+  bool operator!=(const Sub& aMargin) const { return !(*this == aMargin); }
+  Sub operator+(const Sub& aMargin) const
+  {
+    return Sub(top + aMargin.top,
+               right + aMargin.right,
+               bottom + aMargin.bottom,
+               left + aMargin.left);
   }
-  Sub operator+(const Sub& aMargin) const {
-    return Sub(top + aMargin.top, right + aMargin.right,
-               bottom + aMargin.bottom, left + aMargin.left);
+  Sub operator-(const Sub& aMargin) const
+  {
+    return Sub(top - aMargin.top,
+               right - aMargin.right,
+               bottom - aMargin.bottom,
+               left - aMargin.left);
   }
-  Sub operator-(const Sub& aMargin) const {
-    return Sub(top - aMargin.top, right - aMargin.right,
-               bottom - aMargin.bottom, left - aMargin.left);
-  }
-  Sub& operator+=(const Sub& aMargin) {
+  Sub& operator+=(const Sub& aMargin)
+  {
     top += aMargin.top;
     right += aMargin.right;
     bottom += aMargin.bottom;
@@ -140,13 +143,14 @@ struct BaseMargin {
   }
 
   friend std::ostream& operator<<(std::ostream& aStream,
-      const BaseMargin& aMargin) {
+                                  const BaseMargin& aMargin)
+  {
     return aStream << '(' << aMargin.top << ',' << aMargin.right << ','
-                  << aMargin.bottom << ',' << aMargin.left << ')';
+                   << aMargin.bottom << ',' << aMargin.left << ')';
   }
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_BASEMARGIN_H_ */

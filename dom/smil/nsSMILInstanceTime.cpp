@@ -16,14 +16,14 @@ nsSMILInstanceTime::nsSMILInstanceTime(const nsSMILTimeValue& aTime,
                                        nsSMILInstanceTimeSource aSource,
                                        nsSMILTimeValueSpec* aCreator,
                                        nsSMILInterval* aBaseInterval)
-  : mTime(aTime),
-    mFlags(0),
-    mVisited(false),
-    mFixedEndpointRefCnt(0),
-    mSerial(0),
-    mCreator(aCreator),
-    mBaseInterval(nullptr) // This will get set to aBaseInterval in a call to
-                          // SetBaseInterval() at end of constructor
+    : mTime(aTime),
+      mFlags(0),
+      mVisited(false),
+      mFixedEndpointRefCnt(0),
+      mSerial(0),
+      mCreator(aCreator),
+      mBaseInterval(nullptr)  // This will get set to aBaseInterval in a call to
+                              // SetBaseInterval() at end of constructor
 {
   switch (aSource) {
     case SOURCE_NONE:
@@ -76,8 +76,7 @@ nsSMILInstanceTime::HandleChangedInterval(
   // be updated and then deleted. Furthermore, the delete might happen whilst
   // we're still in the queue to be notified of the change. In any case, if we
   // don't have a base interval, just ignore the change.
-  if (!mBaseInterval)
-    return;
+  if (!mBaseInterval) return;
 
   MOZ_ASSERT(mCreator, "Base interval is set but creator is not.");
 
@@ -87,15 +86,15 @@ nsSMILInstanceTime::HandleChangedInterval(
     return;
   }
 
-  bool objectChanged = mCreator->DependsOnBegin() ? aBeginObjectChanged :
-                                                      aEndObjectChanged;
+  bool objectChanged =
+      mCreator->DependsOnBegin() ? aBeginObjectChanged : aEndObjectChanged;
 
   RefPtr<nsSMILInstanceTime> deathGrip(this);
   mozilla::AutoRestore<bool> setVisited(mVisited);
   mVisited = true;
 
-  mCreator->HandleChangedInstanceTime(*GetBaseTime(), aSrcContainer, *this,
-                                      objectChanged);
+  mCreator->HandleChangedInstanceTime(
+      *GetBaseTime(), aSrcContainer, *this, objectChanged);
 }
 
 void
@@ -107,7 +106,7 @@ nsSMILInstanceTime::HandleDeletedInterval()
   MOZ_ASSERT(mCreator, "Base interval is set but creator is not");
 
   mBaseInterval = nullptr;
-  mFlags &= ~kMayUpdate; // Can't update without a base interval
+  mFlags &= ~kMayUpdate;  // Can't update without a base interval
 
   RefPtr<nsSMILInstanceTime> deathGrip(this);
   mCreator->HandleDeletedInstanceTime(*this);
@@ -122,7 +121,7 @@ nsSMILInstanceTime::HandleFilteredInterval()
              "time");
 
   mBaseInterval = nullptr;
-  mFlags &= ~kMayUpdate; // Can't update without a base interval
+  mFlags &= ~kMayUpdate;  // Can't update without a base interval
   mCreator = nullptr;
 }
 
@@ -144,7 +143,7 @@ nsSMILInstanceTime::AddRefFixedEndpoint()
   MOZ_ASSERT(mFixedEndpointRefCnt < UINT16_MAX,
              "Fixed endpoint reference count upper limit reached");
   ++mFixedEndpointRefCnt;
-  mFlags &= ~kMayUpdate; // Once fixed, always fixed
+  mFlags &= ~kMayUpdate;  // Once fixed, always fixed
 }
 
 void
@@ -160,15 +159,12 @@ nsSMILInstanceTime::ReleaseFixedEndpoint()
 bool
 nsSMILInstanceTime::IsDependentOn(const nsSMILInstanceTime& aOther) const
 {
-  if (mVisited)
-    return false;
+  if (mVisited) return false;
 
   const nsSMILInstanceTime* myBaseTime = GetBaseTime();
-  if (!myBaseTime)
-    return false;
+  if (!myBaseTime) return false;
 
-  if (myBaseTime == &aOther)
-    return true;
+  if (myBaseTime == &aOther) return true;
 
   mozilla::AutoRestore<bool> setVisited(mVisited);
   mVisited = true;
@@ -187,8 +183,8 @@ nsSMILInstanceTime::GetBaseTime() const
     return nullptr;
   }
 
-  return mCreator->DependsOnBegin() ? mBaseInterval->Begin() :
-                                      mBaseInterval->End();
+  return mCreator->DependsOnBegin() ? mBaseInterval->Begin()
+                                    : mBaseInterval->End();
 }
 
 void
@@ -202,8 +198,7 @@ nsSMILInstanceTime::SetBaseInterval(nsSMILInterval* aBaseInterval)
     MOZ_ASSERT(mCreator,
                "Attempting to create a dependent instance time without "
                "reference to the creating nsSMILTimeValueSpec object.");
-    if (!mCreator)
-      return;
+    if (!mCreator) return;
 
     aBaseInterval->AddDependentTime(*this);
   }

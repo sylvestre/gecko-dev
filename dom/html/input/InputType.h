@@ -25,8 +25,8 @@ NS_floorModulo(mozilla::Decimal x, mozilla::Decimal y)
 namespace mozilla {
 namespace dom {
 class HTMLInputElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 struct DoNotDelete;
 class nsIFrame;
@@ -36,10 +36,11 @@ class nsIFrame;
  */
 class InputType
 {
-public:
-  static mozilla::UniquePtr<InputType, DoNotDelete>
-  Create(mozilla::dom::HTMLInputElement* aInputElement, uint8_t aType,
-         void* aMemory);
+ public:
+  static mozilla::UniquePtr<InputType, DoNotDelete> Create(
+      mozilla::dom::HTMLInputElement* aInputElement,
+      uint8_t aType,
+      void* aMemory);
 
   virtual ~InputType() {}
 
@@ -61,8 +62,9 @@ public:
   virtual bool HasStepMismatch(bool aUseZeroIfValueNaN) const;
   virtual bool HasBadInput() const;
 
-  nsresult GetValidationMessage(nsAString& aValidationMessage,
-                                nsIConstraintValidation::ValidityStateType aType);
+  nsresult GetValidationMessage(
+      nsAString& aValidationMessage,
+      nsIConstraintValidation::ValidityStateType aType);
   virtual nsresult GetValueMissingMessage(nsAString& aMessage);
   virtual nsresult GetTypeMismatchMessage(nsAString& aMessage);
   virtual nsresult GetRangeOverflowMessage(nsAString& aMessage);
@@ -97,10 +99,11 @@ public:
   virtual bool ConvertNumberToString(mozilla::Decimal aValue,
                                      nsAString& aResultString) const;
 
-protected:
+ protected:
   explicit InputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : mInputElement(aInputElement)
-  {}
+      : mInputElement(aInputElement)
+  {
+  }
 
   /**
    * Get the mutable state of the element.
@@ -223,7 +226,9 @@ protected:
    * This methods returns the day of the week given a date. If @isoWeek is true,
    * 7=Sunday, otherwise, 0=Sunday.
    */
-  uint32_t DayOfWeek(uint32_t aYear, uint32_t aMonth, uint32_t aDay,
+  uint32_t DayOfWeek(uint32_t aYear,
+                     uint32_t aMonth,
+                     uint32_t aDay,
                      bool isoWeek) const;
 
   /**
@@ -237,6 +242,9 @@ protected:
 
 // Custom deleter for UniquePtr<InputType> to avoid freeing memory pre-allocated
 // for InputType, but we still need to call the destructor explictly.
-struct DoNotDelete { void operator()(::InputType* p) { p->~InputType(); } };
+struct DoNotDelete
+{
+  void operator()(::InputType* p) { p->~InputType(); }
+};
 
 #endif /* InputType_h__ */

@@ -19,16 +19,20 @@ namespace dom {
 
 class HTMLMeterElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLMeterElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLMeterElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   virtual EventStates IntrinsicState() const override;
 
-  nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                 nsINode** aResult,
                  bool aPreallocateChildren) const override;
 
-  bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
-                      const nsAString& aValue, nsAttrValue& aResult) override;
+  bool ParseAttribute(int32_t aNamespaceID,
+                      nsAtom* aAttribute,
+                      const nsAString& aValue,
+                      nsAttrValue& aResult) override;
 
   // WebIDL
 
@@ -74,13 +78,13 @@ public:
     SetDoubleAttr(nsGkAtoms::optimum, aValue, aRv);
   }
 
-protected:
+ protected:
   virtual ~HTMLMeterElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
-
+ private:
   static const double kDefaultValue;
   static const double kDefaultMin;
   static const double kDefaultMax;
@@ -96,7 +100,7 @@ private:
   EventStates GetOptimumState() const;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLMeterElement_h
+#endif  // mozilla_dom_HTMLMeterElement_h

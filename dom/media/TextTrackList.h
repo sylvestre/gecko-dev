@@ -22,22 +22,21 @@ class TrackEventRunner;
 
 class TextTrackList final : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TextTrackList, DOMEventTargetHelper)
 
   explicit TextTrackList(nsPIDOMWindowInner* aOwnerWindow);
-  TextTrackList(nsPIDOMWindowInner* aOwnerWindow, TextTrackManager* aTextTrackManager);
+  TextTrackList(nsPIDOMWindowInner* aOwnerWindow,
+                TextTrackManager* aTextTrackManager);
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  uint32_t Length() const
-  {
-    return mTextTracks.Length();
-  }
+  uint32_t Length() const { return mTextTracks.Length(); }
 
   // Get all the current active cues.
-  void GetShowingCues(nsTArray<RefPtr<TextTrackCue> >& aCues);
+  void GetShowingCues(nsTArray<RefPtr<TextTrackCue>>& aCues);
 
   TextTrack* IndexedGetter(uint32_t aIndex, bool& aFound);
   TextTrack* operator[](uint32_t aIndex);
@@ -72,17 +71,17 @@ public:
 
   bool mPendingTextTrackChange = false;
 
-private:
+ private:
   ~TextTrackList();
 
-  nsTArray< RefPtr<TextTrack> > mTextTracks;
+  nsTArray<RefPtr<TextTrack>> mTextTracks;
   RefPtr<TextTrackManager> mTextTrackManager;
 
   void CreateAndDispatchTrackEventRunner(TextTrack* aTrack,
                                          const nsAString& aEventName);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TextTrackList_h
+#endif  // mozilla_dom_TextTrackList_h

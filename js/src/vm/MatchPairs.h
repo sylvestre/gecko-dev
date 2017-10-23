@@ -22,22 +22,20 @@
 
 namespace js {
 
-struct MatchPair
-{
+struct MatchPair {
     int32_t start;
     int32_t limit;
 
-    MatchPair()
-      : start(-1), limit(-1)
-    { }
+    MatchPair() : start(-1), limit(-1) {}
 
-    MatchPair(int32_t start, int32_t limit)
-      : start(start), limit(limit)
-    { }
+    MatchPair(int32_t start, int32_t limit) : start(start), limit(limit) {}
 
-    size_t length()      const { MOZ_ASSERT(!isUndefined()); return limit - start; }
-    bool isEmpty()       const { return length() == 0; }
-    bool isUndefined()   const { return start < 0; }
+    size_t length() const {
+        MOZ_ASSERT(!isUndefined());
+        return limit - start;
+    }
+    bool isEmpty() const { return length() == 0; }
+    bool isUndefined() const { return start < 0; }
 
     void displace(size_t amount) {
         start += (start < 0) ? 0 : amount;
@@ -53,22 +51,19 @@ struct MatchPair
 };
 
 /* Base class for RegExp execution output. */
-class MatchPairs
-{
-  protected:
+class MatchPairs {
+   protected:
     /* Length of pairs_. */
     uint32_t pairCount_;
 
     /* Raw pointer into an allocated MatchPair buffer. */
     MatchPair* pairs_;
 
-  protected:
+   protected:
     /* Not used directly: use ScopedMatchPairs or VectorMatchPairs. */
-    MatchPairs()
-      : pairCount_(0), pairs_(nullptr)
-    { }
+    MatchPairs() : pairCount_(0), pairs_(nullptr) {}
 
-  protected:
+   protected:
     /* Functions used by friend classes. */
     friend class RegExpShared;
     friend class RegExpStatics;
@@ -84,25 +79,27 @@ class MatchPairs
         for (size_t i = 0; i < pairCount_; i++) {
             const MatchPair& p = (*this)[i];
             MOZ_ASSERT(p.check());
-            if (p.isUndefined())
-                continue;
+            if (p.isUndefined()) continue;
             MOZ_ASSERT(size_t(p.limit) <= inputLength);
         }
 #endif
     }
 
-  public:
+   public:
     /* Querying functions in the style of RegExpStatics. */
-    bool   empty() const           { return pairCount_ == 0; }
-    size_t pairCount() const       { MOZ_ASSERT(pairCount_ > 0); return pairCount_; }
-    size_t parenCount() const      { return pairCount_ - 1; }
+    bool empty() const { return pairCount_ == 0; }
+    size_t pairCount() const {
+        MOZ_ASSERT(pairCount_ > 0);
+        return pairCount_;
+    }
+    size_t parenCount() const { return pairCount_ - 1; }
 
     static size_t offsetOfPairs() { return offsetof(MatchPairs, pairs_); }
     static size_t offsetOfPairCount() { return offsetof(MatchPairs, pairCount_); }
 
     int32_t* pairsRaw() { return reinterpret_cast<int32_t*>(pairs_); }
 
-  public:
+   public:
     size_t length() const { return pairCount_; }
 
     const MatchPair& operator[](size_t i) const {
@@ -116,17 +113,14 @@ class MatchPairs
 };
 
 /* MatchPairs allocated into temporary storage, removed when out of scope. */
-class ScopedMatchPairs : public MatchPairs
-{
+class ScopedMatchPairs : public MatchPairs {
     LifoAllocScope lifoScope_;
 
-  public:
+   public:
     /* Constructs an implicit LifoAllocScope. */
-    explicit ScopedMatchPairs(LifoAlloc* lifoAlloc)
-      : lifoScope_(lifoAlloc)
-    { }
+    explicit ScopedMatchPairs(LifoAlloc* lifoAlloc) : lifoScope_(lifoAlloc) {}
 
-  protected:
+   protected:
     bool allocOrExpandArray(size_t pairCount);
 };
 
@@ -134,16 +128,13 @@ class ScopedMatchPairs : public MatchPairs
  * MatchPairs allocated into permanent storage, for RegExpStatics.
  * The Vector of MatchPairs is reusable by Vector expansion.
  */
-class VectorMatchPairs : public MatchPairs
-{
+class VectorMatchPairs : public MatchPairs {
     Vector<MatchPair, 10, SystemAllocPolicy> vec_;
 
-  public:
-    VectorMatchPairs() {
-        vec_.clear();
-    }
+   public:
+    VectorMatchPairs() { vec_.clear(); }
 
-  protected:
+   protected:
     friend class RegExpStatics;
     bool allocOrExpandArray(size_t pairCount);
 };

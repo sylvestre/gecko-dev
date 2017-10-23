@@ -16,20 +16,22 @@
 #include "JpCntx.h"
 #include "CharDistribution.h"
 
-
-class nsSJISProber: public nsCharSetProber {
-public:
+class nsSJISProber : public nsCharSetProber
+{
+ public:
   nsSJISProber()
-  {mCodingSM = new nsCodingStateMachine(&SJISSMModel);
-    Reset();}
-  virtual ~nsSJISProber(void){delete mCodingSM;}
+  {
+    mCodingSM = new nsCodingStateMachine(&SJISSMModel);
+    Reset();
+  }
+  virtual ~nsSJISProber(void) { delete mCodingSM; }
   nsProbingState HandleData(const char* aBuf, uint32_t aLen);
-  const char* GetCharSetName() {return "Shift_JIS";}
-  nsProbingState GetState(void) {return mState;}
-  void      Reset(void);
-  float     GetConfidence(void);
+  const char* GetCharSetName() { return "Shift_JIS"; }
+  nsProbingState GetState(void) { return mState; }
+  void Reset(void);
+  float GetConfidence(void);
 
-protected:
+ protected:
   nsCodingStateMachine* mCodingSM;
   nsProbingState mState;
 
@@ -39,6 +41,4 @@ protected:
   char mLastChar[2];
 };
 
-
 #endif /* nsSJISProber_h__ */
-

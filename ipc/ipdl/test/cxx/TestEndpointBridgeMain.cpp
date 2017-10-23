@@ -4,14 +4,13 @@
 #include "TestEndpointBridgeMain.h"
 
 #include "base/task.h"
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 #include "IPDLUnitTestSubprocess.h"
 
 using namespace std;
 
 namespace mozilla {
 namespace _ipdltest {
-
 
 //-----------------------------------------------------------------------------
 // main process
@@ -24,7 +23,8 @@ TestEndpointBridgeMainParent::Main()
 }
 
 mozilla::ipc::IPCResult
-TestEndpointBridgeMainParent::RecvBridged(Endpoint<PTestEndpointBridgeMainSubParent>&& endpoint)
+TestEndpointBridgeMainParent::RecvBridged(
+    Endpoint<PTestEndpointBridgeMainSubParent>&& endpoint)
 {
   TestEndpointBridgeMainSubParent* a = new TestEndpointBridgeMainSubParent();
   if (!endpoint.Bind(a)) {
@@ -78,7 +78,7 @@ TestEndpointBridgeMainSubParent::ActorDestroy(ActorDestroyReason why)
   // which needs the top-level actor (this) to stay alive a little
   // longer so other things can be cleaned up.
   MessageLoop::current()->PostTask(
-    do_AddRef(new DeleteTask<TestEndpointBridgeMainSubParent>(this)));
+      do_AddRef(new DeleteTask<TestEndpointBridgeMainSubParent>(this)));
 }
 
 //-----------------------------------------------------------------------------
@@ -86,7 +86,7 @@ TestEndpointBridgeMainSubParent::ActorDestroy(ActorDestroyReason why)
 TestEndpointBridgeMainChild* gEndpointBridgeMainChild;
 
 TestEndpointBridgeMainChild::TestEndpointBridgeMainChild()
- : mSubprocess(nullptr)
+    : mSubprocess(nullptr)
 {
   gEndpointBridgeMainChild = this;
 }
@@ -122,7 +122,7 @@ TestEndpointBridgeMainChild::ActorDestroy(ActorDestroyReason why)
   }
   // NB: this is kosher because QuitChild() joins with the IO thread
   XRE_GetIOMessageLoop()->PostTask(
-    do_AddRef(new DeleteTask<IPDLUnitTestSubprocess>(mSubprocess)));
+      do_AddRef(new DeleteTask<IPDLUnitTestSubprocess>(mSubprocess)));
   QuitChild();
 }
 
@@ -141,8 +141,7 @@ TestEndpointBridgeSubParent::RecvBridgeEm()
   Endpoint<PTestEndpointBridgeMainSubChild> child;
   nsresult rv;
   rv = PTestEndpointBridgeMainSub::CreateEndpoints(
-    gEndpointBridgeMainChild->OtherPid(), OtherPid(),
-    &parent, &child);
+      gEndpointBridgeMainChild->OtherPid(), OtherPid(), &parent, &child);
   if (NS_FAILED(rv)) {
     fail("opening PTestEndpointOpensOpened");
   }
@@ -169,7 +168,7 @@ TestEndpointBridgeSubParent::ActorDestroy(ActorDestroyReason why)
   // which needs the top-level actor (this) to stay alive a little
   // longer so other things can be cleaned up.
   MessageLoop::current()->PostTask(
-    do_AddRef(new DeleteTask<TestEndpointBridgeSubParent>(this)));
+      do_AddRef(new DeleteTask<TestEndpointBridgeSubParent>(this)));
 }
 
 //-----------------------------------------------------------------------------
@@ -179,7 +178,7 @@ static TestEndpointBridgeSubChild* gBridgeSubChild;
 
 TestEndpointBridgeSubChild::TestEndpointBridgeSubChild()
 {
-    gBridgeSubChild = this;
+  gBridgeSubChild = this;
 }
 
 mozilla::ipc::IPCResult
@@ -192,7 +191,8 @@ TestEndpointBridgeSubChild::RecvPing()
 }
 
 mozilla::ipc::IPCResult
-TestEndpointBridgeSubChild::RecvBridged(Endpoint<PTestEndpointBridgeMainSubChild>&& endpoint)
+TestEndpointBridgeSubChild::RecvBridged(
+    Endpoint<PTestEndpointBridgeMainSubChild>&& endpoint)
 {
   TestEndpointBridgeMainSubChild* a = new TestEndpointBridgeMainSubChild();
 
@@ -232,16 +232,16 @@ TestEndpointBridgeMainSubChild::RecvHi()
   // Need to close the channel without message-processing frames on
   // the C++ stack
   MessageLoop::current()->PostTask(
-    NewNonOwningRunnableMethod("ipc::IToplevelProtocol::Close",
-                               this,
-                               &TestEndpointBridgeMainSubChild::Close));
+      NewNonOwningRunnableMethod("ipc::IToplevelProtocol::Close",
+                                 this,
+                                 &TestEndpointBridgeMainSubChild::Close));
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestEndpointBridgeMainSubChild::AnswerHiRpc()
 {
-  mGotHi = true;              // d00d
+  mGotHi = true;  // d00d
   return IPC_OK();
 }
 
@@ -258,8 +258,8 @@ TestEndpointBridgeMainSubChild::ActorDestroy(ActorDestroyReason why)
   // which needs the top-level actor (this) to stay alive a little
   // longer so other things can be cleaned up.
   MessageLoop::current()->PostTask(
-    do_AddRef(new DeleteTask<TestEndpointBridgeMainSubChild>(this)));
+      do_AddRef(new DeleteTask<TestEndpointBridgeMainSubChild>(this)));
 }
 
-} // namespace mozilla
-} // namespace _ipdltest
+}  // namespace _ipdltest
+}  // namespace mozilla

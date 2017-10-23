@@ -12,7 +12,7 @@ namespace mozilla {
 namespace gfx {
 
 static cairo_status_t
-write_func(void *closure, const unsigned char *data, unsigned int length)
+write_func(void* closure, const unsigned char* data, unsigned int length)
 {
   nsCOMPtr<nsIOutputStream> out = reinterpret_cast<nsIOutputStream*>(closure);
   do {
@@ -20,7 +20,8 @@ write_func(void *closure, const unsigned char *data, unsigned int length)
     if (NS_FAILED(out->Write((const char*)data, length, &wrote))) {
       break;
     }
-    data += wrote; length -= wrote;
+    data += wrote;
+    length -= wrote;
   } while (length > 0);
   NS_ASSERTION(length == 0, "not everything was written to the file");
   return CAIRO_STATUS_SUCCESS;
@@ -28,9 +29,8 @@ write_func(void *closure, const unsigned char *data, unsigned int length)
 
 PrintTargetPDF::PrintTargetPDF(cairo_surface_t* aCairoSurface,
                                const IntSize& aSize,
-                               nsIOutputStream *aStream)
-  : PrintTarget(aCairoSurface, aSize)
-  , mStream(aStream)
+                               nsIOutputStream* aStream)
+    : PrintTarget(aCairoSurface, aSize), mStream(aStream)
 {
 }
 
@@ -47,20 +47,18 @@ PrintTargetPDF::~PrintTargetPDF()
 }
 
 /* static */ already_AddRefed<PrintTargetPDF>
-PrintTargetPDF::CreateOrNull(nsIOutputStream *aStream,
+PrintTargetPDF::CreateOrNull(nsIOutputStream* aStream,
                              const IntSize& aSizeInPoints)
 {
-  cairo_surface_t* surface =
-    cairo_pdf_surface_create_for_stream(write_func, (void*)aStream,
-                                        aSizeInPoints.width,
-                                        aSizeInPoints.height);
+  cairo_surface_t* surface = cairo_pdf_surface_create_for_stream(
+      write_func, (void*)aStream, aSizeInPoints.width, aSizeInPoints.height);
   if (cairo_surface_status(surface)) {
     return nullptr;
   }
 
   // The new object takes ownership of our surface reference.
-  RefPtr<PrintTargetPDF> target = new PrintTargetPDF(surface, aSizeInPoints,
-                                                     aStream);
+  RefPtr<PrintTargetPDF> target =
+      new PrintTargetPDF(surface, aSizeInPoints, aStream);
   return target.forget();
 }
 
@@ -75,11 +73,11 @@ void
 PrintTargetPDF::Finish()
 {
   if (mIsFinished) {
-    return; // We don't want to call Close() on mStream more than once
+    return;  // We don't want to call Close() on mStream more than once
   }
   PrintTarget::Finish();
   mStream->Close();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -8,8 +8,9 @@ namespace mozilla {
 namespace gl {
 
 void
-AndroidSurfaceTexture::GetTransformMatrix(java::sdk::SurfaceTexture::LocalRef aSurfaceTexture,
-                                          gfx::Matrix4x4& aMatrix)
+AndroidSurfaceTexture::GetTransformMatrix(
+    java::sdk::SurfaceTexture::LocalRef aSurfaceTexture,
+    gfx::Matrix4x4& aMatrix)
 {
   JNIEnv* const env = jni::GetEnvForThread();
 
@@ -41,6 +42,6 @@ AndroidSurfaceTexture::GetTransformMatrix(java::sdk::SurfaceTexture::LocalRef aS
   env->ReleaseFloatArrayElements(jarray.Get(), array, 0);
 }
 
-} // gl
-} // mozilla
-#endif // MOZ_WIDGET_ANDROID
+}  // namespace gl
+}  // namespace mozilla
+#endif  // MOZ_WIDGET_ANDROID

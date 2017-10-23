@@ -18,16 +18,20 @@ namespace dom {
 
 class HTMLProgressElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLProgressElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLProgressElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   EventStates IntrinsicState() const override;
 
-  nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                 nsINode** aResult,
                  bool aPreallocateChildren) const override;
 
-  bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
-                        const nsAString& aValue, nsAttrValue& aResult) override;
+  bool ParseAttribute(int32_t aNamespaceID,
+                      nsAtom* aAttribute,
+                      const nsAString& aValue,
+                      nsAttrValue& aResult) override;
 
   // WebIDL
   double Value() const;
@@ -42,12 +46,13 @@ public:
   }
   double Position() const;
 
-protected:
+ protected:
   virtual ~HTMLProgressElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   /**
    * Returns whethem the progress element is in the indeterminate state.
    * A progress element is in the indeterminate state if its value is ommited
@@ -62,7 +67,7 @@ protected:
   static const double kDefaultMax;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLProgressElement_h
+#endif  // mozilla_dom_HTMLProgressElement_h

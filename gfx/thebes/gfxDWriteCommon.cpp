@@ -17,7 +17,7 @@ IDWriteFontFileLoader* gfxDWriteFontFileLoader::mInstance = nullptr;
 
 class gfxDWriteFontFileStream final : public IDWriteFontFileStream
 {
-public:
+ public:
   /**
   * Used by the FontFileLoader to create a new font stream,
   * this font stream is created from data in memory. The memory
@@ -26,7 +26,7 @@ public:
   *
   * @param aData Font data
   */
-  gfxDWriteFontFileStream(FallibleTArray<uint8_t> *aData,
+  gfxDWriteFontFileStream(FallibleTArray<uint8_t>* aData,
                           uint64_t aFontFileKey);
   ~gfxDWriteFontFileStream();
 
@@ -36,12 +36,10 @@ public:
     if (iid == __uuidof(IDWriteFontFileStream)) {
       *ppObject = static_cast<IDWriteFontFileStream*>(this);
       return S_OK;
-    }
-    else if (iid == __uuidof(IUnknown)) {
+    } else if (iid == __uuidof(IUnknown)) {
       *ppObject = static_cast<IUnknown*>(this);
       return S_OK;
-    }
-    else {
+    } else {
       return E_NOINTERFACE;
     }
   }
@@ -65,10 +63,11 @@ public:
   }
 
   // IDWriteFontFileStream methods
-  virtual HRESULT STDMETHODCALLTYPE ReadFileFragment(void const** fragmentStart,
-                                                     UINT64 fileOffset,
-                                                     UINT64 fragmentSize,
-                                                     OUT void** fragmentContext);
+  virtual HRESULT STDMETHODCALLTYPE
+  ReadFileFragment(void const** fragmentStart,
+                   UINT64 fileOffset,
+                   UINT64 fragmentSize,
+                   OUT void** fragmentContext);
 
   virtual void STDMETHODCALLTYPE ReleaseFileFragment(void* fragmentContext);
 
@@ -76,15 +75,15 @@ public:
 
   virtual HRESULT STDMETHODCALLTYPE GetLastWriteTime(OUT UINT64* lastWriteTime);
 
-private:
+ private:
   FallibleTArray<uint8_t> mData;
   nsAutoRefCnt mRefCnt;
   uint64_t mFontFileKey;
 };
 
-gfxDWriteFontFileStream::gfxDWriteFontFileStream(FallibleTArray<uint8_t> *aData,
+gfxDWriteFontFileStream::gfxDWriteFontFileStream(FallibleTArray<uint8_t>* aData,
                                                  uint64_t aFontFileKey)
-  : mFontFileKey(aFontFileKey)
+    : mFontFileKey(aFontFileKey)
 {
   mData.SwapElements(*aData);
 }
@@ -95,23 +94,23 @@ gfxDWriteFontFileStream::~gfxDWriteFontFileStream()
 }
 
 HRESULT STDMETHODCALLTYPE
-gfxDWriteFontFileStream::GetFileSize(UINT64 *fileSize)
+gfxDWriteFontFileStream::GetFileSize(UINT64* fileSize)
 {
   *fileSize = mData.Length();
   return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE
-gfxDWriteFontFileStream::GetLastWriteTime(UINT64 *lastWriteTime)
+gfxDWriteFontFileStream::GetLastWriteTime(UINT64* lastWriteTime)
 {
   return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE
-gfxDWriteFontFileStream::ReadFileFragment(const void **fragmentStart,
+gfxDWriteFontFileStream::ReadFileFragment(const void** fragmentStart,
                                           UINT64 fileOffset,
                                           UINT64 fragmentSize,
-                                          void **fragmentContext)
+                                          void** fragmentContext)
 {
   // We are required to do bounds checking.
   if (fileOffset + fragmentSize > (UINT64)mData.Length()) {
@@ -124,52 +123,57 @@ gfxDWriteFontFileStream::ReadFileFragment(const void **fragmentStart,
 }
 
 void STDMETHODCALLTYPE
-gfxDWriteFontFileStream::ReleaseFileFragment(void *fragmentContext)
+gfxDWriteFontFileStream::ReleaseFileFragment(void* fragmentContext)
 {
 }
 
 HRESULT STDMETHODCALLTYPE
-gfxDWriteFontFileLoader::CreateStreamFromKey(const void *fontFileReferenceKey, 
-                                             UINT32 fontFileReferenceKeySize, 
-                                             IDWriteFontFileStream **fontFileStream)
+gfxDWriteFontFileLoader::CreateStreamFromKey(
+    const void* fontFileReferenceKey,
+    UINT32 fontFileReferenceKeySize,
+    IDWriteFontFileStream** fontFileStream)
 {
-    if (!fontFileReferenceKey || !fontFileStream) {
-        return E_POINTER;
-    }
+  if (!fontFileReferenceKey || !fontFileStream) {
+    return E_POINTER;
+  }
 
-    uint64_t fontFileKey = *static_cast<const uint64_t*>(fontFileReferenceKey);
-    auto found = sFontFileStreams.find(fontFileKey);
-    if (found == sFontFileStreams.end()) {
-      *fontFileStream = nullptr;
-      return E_FAIL;
-    }
+  uint64_t fontFileKey = *static_cast<const uint64_t*>(fontFileReferenceKey);
+  auto found = sFontFileStreams.find(fontFileKey);
+  if (found == sFontFileStreams.end()) {
+    *fontFileStream = nullptr;
+    return E_FAIL;
+  }
 
-    found->second->AddRef();
-    *fontFileStream = found->second;
-    return S_OK;
+  found->second->AddRef();
+  *fontFileStream = found->second;
+  return S_OK;
 }
 
 /* static */
 HRESULT
-gfxDWriteFontFileLoader::CreateCustomFontFile(FallibleTArray<uint8_t>& aFontData,
-                                              IDWriteFontFile** aFontFile,
-                                              IDWriteFontFileStream** aFontFileStream)
+gfxDWriteFontFileLoader::CreateCustomFontFile(
+    FallibleTArray<uint8_t>& aFontData,
+    IDWriteFontFile** aFontFile,
+    IDWriteFontFileStream** aFontFileStream)
 {
   MOZ_ASSERT(aFontFile);
   MOZ_ASSERT(aFontFileStream);
 
   RefPtr<IDWriteFactory> factory = mozilla::gfx::Factory::GetDWriteFactory();
   if (!factory) {
-    gfxCriticalError() << "Failed to get DWrite Factory in CreateCustomFontFile.";
+    gfxCriticalError()
+        << "Failed to get DWrite Factory in CreateCustomFontFile.";
     return E_FAIL;
   }
 
   uint64_t fontFileKey = sNextFontFileKey++;
-  RefPtr<IDWriteFontFileStream> ffsRef = new gfxDWriteFontFileStream(&aFontData, fontFileKey);
+  RefPtr<IDWriteFontFileStream> ffsRef =
+      new gfxDWriteFontFileStream(&aFontData, fontFileKey);
   sFontFileStreams[fontFileKey] = ffsRef;
 
   RefPtr<IDWriteFontFile> fontFile;
-  HRESULT hr = factory->CreateCustomFontFileReference(&fontFileKey, sizeof(fontFileKey), Instance(), getter_AddRefs(fontFile));
+  HRESULT hr = factory->CreateCustomFontFileReference(
+      &fontFileKey, sizeof(fontFileKey), Instance(), getter_AddRefs(fontFile));
   if (FAILED(hr)) {
     NS_WARNING("Failed to load font file from data!");
     return hr;

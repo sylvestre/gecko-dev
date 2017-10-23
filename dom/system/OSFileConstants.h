@@ -21,7 +21,8 @@ namespace mozilla {
  *
  * The function is idempotent.
  */
-nsresult InitOSFileConstants();
+nsresult
+InitOSFileConstants();
 
 /**
  * Perform cleanup of this module.
@@ -32,7 +33,8 @@ nsresult InitOSFileConstants();
  *
  * The function is idempotent.
  */
-void CleanupOSFileConstants();
+void
+CleanupOSFileConstants();
 
 /**
  * Define OS-specific constants.
@@ -40,7 +42,8 @@ void CleanupOSFileConstants();
  * This function creates or uses JS object |OS.Constants| to store
  * all its constants.
  */
-bool DefineOSFileConstants(JSContext *cx, JS::Handle<JSObject*> global);
+bool
+DefineOSFileConstants(JSContext* cx, JS::Handle<JSObject*> global);
 
 /**
  * XPConnect initializer, for use in the main thread.
@@ -51,10 +54,11 @@ class OSFileConstantsService final : public nsIOSFileConstantsService
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOSFILECONSTANTSSERVICE
   OSFileConstantsService();
-private:
+
+ private:
   ~OSFileConstantsService();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_osfileconstants_h__
+#endif  // mozilla_osfileconstants_h__

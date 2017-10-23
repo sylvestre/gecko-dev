@@ -19,52 +19,42 @@ class nsSVGElement;
 
 namespace mozilla {
 
-#define CHECK_ARG_COUNT_IN_SYNC(segType)                                      \
-  MOZ_ASSERT(ArrayLength(mArgs) ==                                            \
-               SVGPathSegUtils::ArgCountForType(uint32_t(segType)) ||         \
-             uint32_t(segType) == PATHSEG_CLOSEPATH,                          \
+#define CHECK_ARG_COUNT_IN_SYNC(segType)                                    \
+  MOZ_ASSERT(ArrayLength(mArgs) ==                                          \
+                     SVGPathSegUtils::ArgCountForType(uint32_t(segType)) || \
+                 uint32_t(segType) == PATHSEG_CLOSEPATH,                    \
              "Arg count/array size out of sync")
 
 #define IMPL_SVGPATHSEG_SUBCLASS_COMMON(segName, segType)                     \
-  explicit DOMSVGPathSeg##segName(const float *aArgs)                         \
-    : DOMSVGPathSeg()                                                         \
+  explicit DOMSVGPathSeg##segName(const float* aArgs) : DOMSVGPathSeg()       \
   {                                                                           \
     CHECK_ARG_COUNT_IN_SYNC(segType);                                         \
-    memcpy(mArgs, aArgs,                                                      \
+    memcpy(                                                                   \
+        mArgs,                                                                \
+        aArgs,                                                                \
         SVGPathSegUtils::ArgCountForType(uint32_t(segType)) * sizeof(float)); \
   }                                                                           \
-  DOMSVGPathSeg##segName(DOMSVGPathSegList *aList,                            \
-                         uint32_t aListIndex,                                 \
-                         bool aIsAnimValItem)                                 \
-    : DOMSVGPathSeg(aList, aListIndex, aIsAnimValItem)                        \
+  DOMSVGPathSeg##segName(                                                     \
+      DOMSVGPathSegList* aList, uint32_t aListIndex, bool aIsAnimValItem)     \
+      : DOMSVGPathSeg(aList, aListIndex, aIsAnimValItem)                      \
   {                                                                           \
     CHECK_ARG_COUNT_IN_SYNC(segType);                                         \
   }                                                                           \
   /* From DOMSVGPathSeg: */                                                   \
-  virtual uint32_t                                                            \
-  Type() const override                                                       \
-  {                                                                           \
-    return segType;                                                           \
-  }                                                                           \
-  virtual DOMSVGPathSeg*                                                      \
-  Clone() override                                                            \
+  virtual uint32_t Type() const override { return segType; }                  \
+  virtual DOMSVGPathSeg* Clone() override                                     \
   {                                                                           \
     /* InternalItem() + 1, because we're skipping the encoded seg type */     \
-    float *args = IsInList() ? InternalItem() + 1 : mArgs;                    \
+    float* args = IsInList() ? InternalItem() + 1 : mArgs;                    \
     return new DOMSVGPathSeg##segName(args);                                  \
   }                                                                           \
-  virtual float*                                                              \
-  PtrToMemberArgs() override                                                  \
-  {                                                                           \
-    return mArgs;                                                             \
-  }                                                                           \
+  virtual float* PtrToMemberArgs() override { return mArgs; }                 \
                                                                               \
-  virtual JSObject*                                                           \
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override      \
+  virtual JSObject* WrapObject(JSContext* aCx,                                \
+                               JS::Handle<JSObject*> aGivenProto) override    \
   {                                                                           \
     return dom::SVGPathSeg##segName##Binding::Wrap(aCx, this, aGivenProto);   \
   }
-
 
 /**
  * Class DOMSVGPathSeg
@@ -88,7 +78,7 @@ class DOMSVGPathSeg : public nsWrapperCache
 {
   friend class AutoChangePathSegNotifier;
 
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(DOMSVGPathSeg)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(DOMSVGPathSeg)
 
@@ -97,7 +87,7 @@ public:
    * creating instances of this class directly). This factory method in exposed
    * instead to take care of creating instances of the correct sub-class.
    */
-  static DOMSVGPathSeg *CreateFor(DOMSVGPathSegList *aList,
+  static DOMSVGPathSeg* CreateFor(DOMSVGPathSegList* aList,
                                   uint32_t aListIndex,
                                   bool aIsAnimValItem);
 
@@ -107,17 +97,13 @@ public:
    */
   virtual DOMSVGPathSeg* Clone() = 0;
 
-  bool IsInList() const {
-    return !!mList;
-  }
+  bool IsInList() const { return !!mList; }
 
   /**
    * In future, if this class is used for non-list segments, this will be
    * different to IsInList().
    */
-  bool HasOwner() const {
-    return !!mList;
-  }
+  bool HasOwner() const { return !!mList; }
 
   /**
    * This method is called to notify this DOM object that it is being inserted
@@ -128,18 +114,17 @@ public:
    * lists - it can - it's just that the logic to handle that (and send out
    * the necessary notifications) is located elsewhere (in DOMSVGPathSegList).)
    */
-  void InsertingIntoList(DOMSVGPathSegList *aList,
+  void InsertingIntoList(DOMSVGPathSegList* aList,
                          uint32_t aListIndex,
                          bool aIsAnimValItem);
 
-  static uint32_t MaxListIndex() {
+  static uint32_t MaxListIndex()
+  {
     return (1U << MOZ_SVG_LIST_INDEX_BIT_COUNT) - 1;
   }
 
   /// This method is called to notify this object that its list index changed.
-  void UpdateListIndex(uint32_t aListIndex) {
-    mListIndex = aListIndex;
-  }
+  void UpdateListIndex(uint32_t aListIndex) { mListIndex = aListIndex; }
 
   /**
    * This method is called to notify this DOM object that it is about to be
@@ -155,7 +140,7 @@ public:
    * encoded into a float, followed by its arguments in the same order as they
    * are given in the <path> element's 'd' attribute).
    */
-  void ToSVGPathSegEncodedData(float *aData);
+  void ToSVGPathSegEncodedData(float* aData);
 
   /**
    * The type of this path segment.
@@ -165,16 +150,18 @@ public:
   // WebIDL
   DOMSVGPathSegList* GetParentObject() { return mList; }
   uint16_t PathSegType() const { return Type(); }
-  void GetPathSegTypeAsLetter(nsAString &aPathSegTypeAsLetter)
-    { aPathSegTypeAsLetter = SVGPathSegUtils::GetPathSegTypeAsLetter(Type()); }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override = 0;
+  void GetPathSegTypeAsLetter(nsAString& aPathSegTypeAsLetter)
+  {
+    aPathSegTypeAsLetter = SVGPathSegUtils::GetPathSegTypeAsLetter(Type());
+  }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override = 0;
 
-protected:
-
+ protected:
   /**
    * Generic ctor for DOMSVGPathSeg objects that are created for an attribute.
    */
-  DOMSVGPathSeg(DOMSVGPathSegList *aList,
+  DOMSVGPathSeg(DOMSVGPathSegList* aList,
                 uint32_t aListIndex,
                 bool aIsAnimValItem);
 
@@ -185,7 +172,8 @@ protected:
    */
   DOMSVGPathSeg();
 
-  virtual ~DOMSVGPathSeg() {
+  virtual ~DOMSVGPathSeg()
+  {
     // Our mList's weak ref to us must be nulled out when we die. If GC has
     // unlinked us using the cycle collector code, then that has already
     // happened, and mList is null.
@@ -194,9 +182,7 @@ protected:
     }
   }
 
-  nsSVGElement* Element() {
-    return mList->Element();
-  }
+  nsSVGElement* Element() { return mList->Element(); }
 
   /**
    * Get a reference to the internal SVGPathSeg list item that this DOM wrapper
@@ -220,34 +206,28 @@ protected:
   // Bounds for the following are checked in the ctor, so be sure to update
   // that if you change the capacity of any of the following.
 
-  uint32_t mListIndex:MOZ_SVG_LIST_INDEX_BIT_COUNT;
-  uint32_t mIsAnimValItem:1; // uint32_t because MSVC won't pack otherwise
+  uint32_t mListIndex : MOZ_SVG_LIST_INDEX_BIT_COUNT;
+  uint32_t mIsAnimValItem : 1;  // uint32_t because MSVC won't pack otherwise
 };
 
-class DOMSVGPathSegClosePath
-  : public DOMSVGPathSeg
+class DOMSVGPathSegClosePath : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegClosePath()
-    : DOMSVGPathSeg()
-  {
-  }
+ public:
+  DOMSVGPathSegClosePath() : DOMSVGPathSeg() {}
 
   IMPL_SVGPATHSEG_SUBCLASS_COMMON(ClosePath, PATHSEG_CLOSEPATH)
 
-protected:
+ protected:
   // To allow IMPL_SVGPATHSEG_SUBCLASS_COMMON above to compile we need an
   // mArgs, but since C++ doesn't allow zero-sized arrays we need to give it
   // one (unused) element.
   float mArgs[1];
 };
 
-class DOMSVGPathSegMovetoAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegMovetoAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegMovetoAbs(float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegMovetoAbs(float x, float y) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
     mArgs[1] = y;
@@ -260,16 +240,14 @@ public:
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[2];
 };
 
-class DOMSVGPathSegMovetoRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegMovetoRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegMovetoRel(float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegMovetoRel(float x, float y) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
     mArgs[1] = y;
@@ -282,16 +260,14 @@ public:
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[2];
 };
 
-class DOMSVGPathSegLinetoAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegLinetoAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegLinetoAbs(float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegLinetoAbs(float x, float y) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
     mArgs[1] = y;
@@ -304,16 +280,14 @@ public:
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[2];
 };
 
-class DOMSVGPathSegLinetoRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegLinetoRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegLinetoRel(float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegLinetoRel(float x, float y) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
     mArgs[1] = y;
@@ -326,18 +300,16 @@ public:
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[2];
 };
 
-class DOMSVGPathSegCurvetoCubicAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoCubicAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoCubicAbs(float x1, float y1,
-                               float x2, float y2,
-                               float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoCubicAbs(
+      float x1, float y1, float x2, float y2, float x, float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = x1;
     mArgs[1] = y1;
@@ -362,18 +334,16 @@ public:
 
   IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoCubicAbs, PATHSEG_CURVETO_CUBIC_ABS)
 
-protected:
+ protected:
   float mArgs[6];
 };
 
-class DOMSVGPathSegCurvetoCubicRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoCubicRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoCubicRel(float x1, float y1,
-                               float x2, float y2,
-                               float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoCubicRel(
+      float x1, float y1, float x2, float y2, float x, float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = x1;
     mArgs[1] = y1;
@@ -398,17 +368,15 @@ public:
   float Y2();
   void SetY2(float aY2, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[6];
 };
 
-class DOMSVGPathSegCurvetoQuadraticAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoQuadraticAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoQuadraticAbs(float x1, float y1,
-                                   float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoQuadraticAbs(float x1, float y1, float x, float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = x1;
     mArgs[1] = y1;
@@ -416,7 +384,8 @@ public:
     mArgs[3] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticAbs, PATHSEG_CURVETO_QUADRATIC_ABS)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticAbs,
+                                  PATHSEG_CURVETO_QUADRATIC_ABS)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
@@ -427,17 +396,15 @@ public:
   float Y1();
   void SetY1(float aY1, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[4];
 };
 
-class DOMSVGPathSegCurvetoQuadraticRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoQuadraticRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoQuadraticRel(float x1, float y1,
-                                   float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoQuadraticRel(float x1, float y1, float x, float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = x1;
     mArgs[1] = y1;
@@ -445,7 +412,8 @@ public:
     mArgs[3] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticRel, PATHSEG_CURVETO_QUADRATIC_REL)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticRel,
+                                  PATHSEG_CURVETO_QUADRATIC_REL)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
@@ -456,18 +424,21 @@ public:
   float Y1();
   void SetY1(float aY1, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[4];
 };
 
-class DOMSVGPathSegArcAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegArcAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegArcAbs(float r1, float r2, float angle,
-                      bool largeArcFlag, bool sweepFlag,
-                      float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegArcAbs(float r1,
+                      float r2,
+                      float angle,
+                      bool largeArcFlag,
+                      bool sweepFlag,
+                      float x,
+                      float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = r1;
     mArgs[1] = r2;
@@ -495,18 +466,21 @@ public:
   bool SweepFlag();
   void SetSweepFlag(bool aFlag, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[7];
 };
 
-class DOMSVGPathSegArcRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegArcRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegArcRel(float r1, float r2, float angle,
-                      bool largeArcFlag, bool sweepFlag,
-                      float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegArcRel(float r1,
+                      float r2,
+                      float angle,
+                      bool largeArcFlag,
+                      bool sweepFlag,
+                      float x,
+                      float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = r1;
     mArgs[1] = r2;
@@ -534,93 +508,87 @@ public:
   bool SweepFlag();
   void SetSweepFlag(bool aFlag, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[7];
 };
 
-class DOMSVGPathSegLinetoHorizontalAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegLinetoHorizontalAbs : public DOMSVGPathSeg
 {
-public:
-  explicit DOMSVGPathSegLinetoHorizontalAbs(float x)
-    : DOMSVGPathSeg()
+ public:
+  explicit DOMSVGPathSegLinetoHorizontalAbs(float x) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoHorizontalAbs, PATHSEG_LINETO_HORIZONTAL_ABS)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoHorizontalAbs,
+                                  PATHSEG_LINETO_HORIZONTAL_ABS)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[1];
 };
 
-class DOMSVGPathSegLinetoHorizontalRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegLinetoHorizontalRel : public DOMSVGPathSeg
 {
-public:
-  explicit DOMSVGPathSegLinetoHorizontalRel(float x)
-    : DOMSVGPathSeg()
+ public:
+  explicit DOMSVGPathSegLinetoHorizontalRel(float x) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoHorizontalRel, PATHSEG_LINETO_HORIZONTAL_REL)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoHorizontalRel,
+                                  PATHSEG_LINETO_HORIZONTAL_REL)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[1];
 };
 
-class DOMSVGPathSegLinetoVerticalAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegLinetoVerticalAbs : public DOMSVGPathSeg
 {
-public:
-  explicit DOMSVGPathSegLinetoVerticalAbs(float y)
-    : DOMSVGPathSeg()
+ public:
+  explicit DOMSVGPathSegLinetoVerticalAbs(float y) : DOMSVGPathSeg()
   {
     mArgs[0] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoVerticalAbs, PATHSEG_LINETO_VERTICAL_ABS)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoVerticalAbs,
+                                  PATHSEG_LINETO_VERTICAL_ABS)
 
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[1];
 };
 
-class DOMSVGPathSegLinetoVerticalRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegLinetoVerticalRel : public DOMSVGPathSeg
 {
-public:
-  explicit DOMSVGPathSegLinetoVerticalRel(float y)
-    : DOMSVGPathSeg()
+ public:
+  explicit DOMSVGPathSegLinetoVerticalRel(float y) : DOMSVGPathSeg()
   {
     mArgs[0] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoVerticalRel, PATHSEG_LINETO_VERTICAL_REL)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(LinetoVerticalRel,
+                                  PATHSEG_LINETO_VERTICAL_REL)
 
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[1];
 };
 
-class DOMSVGPathSegCurvetoCubicSmoothAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoCubicSmoothAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoCubicSmoothAbs(float x2, float y2,
-                                     float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoCubicSmoothAbs(float x2, float y2, float x, float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = x2;
     mArgs[1] = y2;
@@ -628,7 +596,8 @@ public:
     mArgs[3] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoCubicSmoothAbs, PATHSEG_CURVETO_CUBIC_SMOOTH_ABS)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoCubicSmoothAbs,
+                                  PATHSEG_CURVETO_CUBIC_SMOOTH_ABS)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
@@ -639,17 +608,15 @@ public:
   float Y2();
   void SetY2(float aY2, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[4];
 };
 
-class DOMSVGPathSegCurvetoCubicSmoothRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoCubicSmoothRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoCubicSmoothRel(float x2, float y2,
-                                     float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoCubicSmoothRel(float x2, float y2, float x, float y)
+      : DOMSVGPathSeg()
   {
     mArgs[0] = x2;
     mArgs[1] = y2;
@@ -657,7 +624,8 @@ public:
     mArgs[3] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoCubicSmoothRel, PATHSEG_CURVETO_CUBIC_SMOOTH_REL)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoCubicSmoothRel,
+                                  PATHSEG_CURVETO_CUBIC_SMOOTH_REL)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
@@ -668,56 +636,54 @@ public:
   float Y2();
   void SetY2(float aY2, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[4];
 };
 
-class DOMSVGPathSegCurvetoQuadraticSmoothAbs
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoQuadraticSmoothAbs : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoQuadraticSmoothAbs(float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoQuadraticSmoothAbs(float x, float y) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
     mArgs[1] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticSmoothAbs, PATHSEG_CURVETO_QUADRATIC_SMOOTH_ABS)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticSmoothAbs,
+                                  PATHSEG_CURVETO_QUADRATIC_SMOOTH_ABS)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[2];
 };
 
-class DOMSVGPathSegCurvetoQuadraticSmoothRel
-  : public DOMSVGPathSeg
+class DOMSVGPathSegCurvetoQuadraticSmoothRel : public DOMSVGPathSeg
 {
-public:
-  DOMSVGPathSegCurvetoQuadraticSmoothRel(float x, float y)
-    : DOMSVGPathSeg()
+ public:
+  DOMSVGPathSegCurvetoQuadraticSmoothRel(float x, float y) : DOMSVGPathSeg()
   {
     mArgs[0] = x;
     mArgs[1] = y;
   }
 
-  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticSmoothRel, PATHSEG_CURVETO_QUADRATIC_SMOOTH_REL)
+  IMPL_SVGPATHSEG_SUBCLASS_COMMON(CurvetoQuadraticSmoothRel,
+                                  PATHSEG_CURVETO_QUADRATIC_SMOOTH_REL)
 
   float X();
   void SetX(float aX, ErrorResult& rv);
   float Y();
   void SetY(float aY, ErrorResult& rv);
 
-protected:
+ protected:
   float mArgs[2];
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #undef MOZ_SVG_LIST_INDEX_BIT_COUNT
 
-#endif // MOZILLA_DOMSVGPATHSEG_H__
+#endif  // MOZILLA_DOMSVGPATHSEG_H__

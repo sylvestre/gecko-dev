@@ -21,12 +21,11 @@ namespace js {
  * initializer.  The *only* initializer whose value should ever change is
  * DeprecatedLanguageExtension::Count.
  */
-enum class DeprecatedLanguageExtension
-{
-    ForEach = 0, // JS 1.6+
+enum class DeprecatedLanguageExtension {
+    ForEach = 0,  // JS 1.6+
     // NO LONGER USING 1
-    LegacyGenerator = 2, // JS 1.7+
-    ExpressionClosure = 3, // Added in JS 1.8
+    LegacyGenerator = 2,    // JS 1.7+
+    ExpressionClosure = 3,  // Added in JS 1.8
     // NO LONGER USING 4
     // NO LONGER USING 5
     // NO LONGER USING 6
@@ -40,6 +39,6 @@ enum class DeprecatedLanguageExtension
     Count
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* frontend_LanguageExtensions_h */

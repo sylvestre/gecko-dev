@@ -17,14 +17,12 @@ namespace mozilla {
 using namespace dom;
 
 PlaceholderTransaction::PlaceholderTransaction(
-                          EditorBase& aEditorBase,
-                          nsAtom* aName,
-                          Maybe<SelectionState>&& aSelState)
-  : mAbsorb(true)
-  , mForwarding(nullptr)
-  , mCompositionTransaction(nullptr)
-  , mCommitted(false)
-  , mEditorBase(&aEditorBase)
+    EditorBase& aEditorBase, nsAtom* aName, Maybe<SelectionState>&& aSelState)
+    : mAbsorb(true),
+      mForwarding(nullptr),
+      mCompositionTransaction(nullptr),
+      mCommitted(false),
+      mEditorBase(&aEditorBase)
 {
   // Make sure to move aSelState into a local variable to null out the original
   // Maybe<SelectionState> variable.
@@ -33,9 +31,7 @@ PlaceholderTransaction::PlaceholderTransaction(
   mName = aName;
 }
 
-PlaceholderTransaction::~PlaceholderTransaction()
-{
-}
+PlaceholderTransaction::~PlaceholderTransaction() {}
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PlaceholderTransaction)
 
@@ -61,10 +57,7 @@ NS_IMPL_ADDREF_INHERITED(PlaceholderTransaction, EditAggregateTransaction)
 NS_IMPL_RELEASE_INHERITED(PlaceholderTransaction, EditAggregateTransaction)
 
 NS_IMETHODIMP
-PlaceholderTransaction::DoTransaction()
-{
-  return NS_OK;
-}
+PlaceholderTransaction::DoTransaction() { return NS_OK; }
 
 NS_IMETHODIMP
 PlaceholderTransaction::UndoTransaction()
@@ -100,18 +93,17 @@ PlaceholderTransaction::RedoTransaction()
   return mEndSel.RestoreSelection(selection);
 }
 
-
 NS_IMETHODIMP
-PlaceholderTransaction::Merge(nsITransaction* aTransaction,
-                              bool* aDidMerge)
+PlaceholderTransaction::Merge(nsITransaction* aTransaction, bool* aDidMerge)
 {
   NS_ENSURE_TRUE(aDidMerge && aTransaction, NS_ERROR_NULL_POINTER);
 
   // set out param default value
-  *aDidMerge=false;
+  *aDidMerge = false;
 
   if (mForwarding) {
-    NS_NOTREACHED("tried to merge into a placeholder that was in forwarding mode!");
+    NS_NOTREACHED(
+        "tried to merge into a placeholder that was in forwarding mode!");
     return NS_ERROR_FAILURE;
   }
 
@@ -121,18 +113,18 @@ PlaceholderTransaction::Merge(nsITransaction* aTransaction,
   // don't know what it does.
 
   nsCOMPtr<nsPIEditorTransaction> pTxn = do_QueryInterface(aTransaction);
-  NS_ENSURE_TRUE(pTxn, NS_OK); // it's foreign so just bail!
+  NS_ENSURE_TRUE(pTxn, NS_OK);  // it's foreign so just bail!
 
   // XXX: hack, not safe!  need nsIEditTransaction!
   EditTransactionBase* editTransactionBase = (EditTransactionBase*)aTransaction;
   // determine if this incoming txn is a placeholder txn
   nsCOMPtr<nsIAbsorbingTransaction> absorbingTransaction =
-    do_QueryObject(editTransactionBase);
+      do_QueryObject(editTransactionBase);
 
   // We are absorbing all transactions if mAbsorb is lit.
   if (mAbsorb) {
     RefPtr<CompositionTransaction> otherTransaction =
-      do_QueryObject(aTransaction);
+        do_QueryObject(aTransaction);
     if (otherTransaction) {
       // special handling for CompositionTransaction's: they need to merge with
       // any previous CompositionTransaction in this placeholder, if possible.
@@ -157,15 +149,16 @@ PlaceholderTransaction::Merge(nsITransaction* aTransaction,
       AppendChild(editTransactionBase);
     }
     *aDidMerge = true;
-//  RememberEndingSelection();
-//  efficiency hack: no need to remember selection here, as we haven't yet
-//  finished the initial batch and we know we will be told when the batch ends.
-//  we can remeber the selection then.
+    //  RememberEndingSelection();
+    //  efficiency hack: no need to remember selection here, as we haven't yet
+    //  finished the initial batch and we know we will be told when the batch ends.
+    //  we can remeber the selection then.
   } else {
     // merge typing or IME or deletion transactions if the selection matches
     if ((mName.get() == nsGkAtoms::TypingTxnName ||
-         mName.get() == nsGkAtoms::IMETxnName    ||
-         mName.get() == nsGkAtoms::DeleteTxnName) && !mCommitted) {
+         mName.get() == nsGkAtoms::IMETxnName ||
+         mName.get() == nsGkAtoms::DeleteTxnName) &&
+        !mCommitted) {
       if (absorbingTransaction) {
         RefPtr<nsAtom> atom;
         absorbingTransaction->GetTxnName(getter_AddRefs(atom));
@@ -207,10 +200,7 @@ PlaceholderTransaction::GetTxnDescription(nsAString& aString)
 }
 
 NS_IMETHODIMP
-PlaceholderTransaction::GetTxnName(nsAtom** aName)
-{
-  return GetName(aName);
-}
+PlaceholderTransaction::GetTxnName(nsAtom** aName) { return GetName(aName); }
 
 NS_IMETHODIMP
 PlaceholderTransaction::StartSelectionEquals(SelectionState* aSelState,
@@ -244,7 +234,7 @@ PlaceholderTransaction::EndPlaceHolderBatch()
 
 NS_IMETHODIMP
 PlaceholderTransaction::ForwardEndBatchTo(
-                          nsIAbsorbingTransaction* aForwardingAddress)
+    nsIAbsorbingTransaction* aForwardingAddress)
 {
   mForwarding = do_GetWeakReference(aForwardingAddress);
   return NS_OK;
@@ -270,4 +260,4 @@ PlaceholderTransaction::RememberEndingSelection()
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

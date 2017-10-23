@@ -13,7 +13,7 @@
 
 class nsBaseScreen : public nsIScreen
 {
-public:
+ public:
   nsBaseScreen();
 
   NS_DECL_ISUPPORTS
@@ -23,10 +23,14 @@ public:
   // These simply forward to the device-pixel versions;
   // implementations where desktop pixels may not correspond
   // to per-screen device pixels must override.
-  NS_IMETHOD GetRectDisplayPix(int32_t *outLeft,  int32_t *outTop,
-                               int32_t *outWidth, int32_t *outHeight) override;
-  NS_IMETHOD GetAvailRectDisplayPix(int32_t *outLeft,  int32_t *outTop,
-                                    int32_t *outWidth, int32_t *outHeight) override;
+  NS_IMETHOD GetRectDisplayPix(int32_t* outLeft,
+                               int32_t* outTop,
+                               int32_t* outWidth,
+                               int32_t* outHeight) override;
+  NS_IMETHOD GetAvailRectDisplayPix(int32_t* outLeft,
+                                    int32_t* outTop,
+                                    int32_t* outWidth,
+                                    int32_t* outHeight) override;
 
   NS_IMETHOD GetContentsScaleFactor(double* aContentsScaleFactor) override;
 
@@ -34,8 +38,8 @@ public:
 
   NS_IMETHOD GetDpi(float* aDPI) override;
 
-protected:
+ protected:
   virtual ~nsBaseScreen();
 };
 
-#endif // nsBaseScreen_h
+#endif  // nsBaseScreen_h

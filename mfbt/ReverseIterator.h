@@ -19,14 +19,17 @@ namespace mozilla {
 template<typename IteratorT>
 class ReverseIterator
 {
-public:
+ public:
   template<typename Iterator>
-  explicit ReverseIterator(Iterator aIter)
-    : mCurrent(aIter) { }
+  explicit ReverseIterator(Iterator aIter) : mCurrent(aIter)
+  {
+  }
 
   template<typename Iterator>
   MOZ_IMPLICIT ReverseIterator(const ReverseIterator<Iterator>& aOther)
-    : mCurrent(aOther.mCurrent) { }
+      : mCurrent(aOther.mCurrent)
+  {
+  }
 
   decltype(*DeclVal<IteratorT>()) operator*() const
   {
@@ -36,10 +39,28 @@ public:
 
   /* Increments and decrements operators */
 
-  ReverseIterator& operator++() { --mCurrent; return *this; }
-  ReverseIterator& operator--() { ++mCurrent; return *this; }
-  ReverseIterator operator++(int) { auto ret = *this; mCurrent--; return ret; }
-  ReverseIterator operator--(int) { auto ret = *this; mCurrent++; return ret; }
+  ReverseIterator& operator++()
+  {
+    --mCurrent;
+    return *this;
+  }
+  ReverseIterator& operator--()
+  {
+    ++mCurrent;
+    return *this;
+  }
+  ReverseIterator operator++(int)
+  {
+    auto ret = *this;
+    mCurrent--;
+    return ret;
+  }
+  ReverseIterator operator--(int)
+  {
+    auto ret = *this;
+    mCurrent++;
+    return ret;
+  }
 
   /* Comparison operators */
 
@@ -62,7 +83,7 @@ public:
   friend bool operator>=(const ReverseIterator<Iterator1>& aIter1,
                          const ReverseIterator<Iterator2>& aIter2);
 
-private:
+ private:
   IteratorT mCurrent;
 };
 
@@ -119,7 +140,7 @@ namespace detail {
 template<typename IteratorT>
 class IteratorRange
 {
-public:
+ public:
   typedef IteratorT iterator;
   typedef IteratorT const_iterator;
   typedef ReverseIterator<IteratorT> reverse_iterator;
@@ -127,11 +148,15 @@ public:
 
   template<typename Iterator1, typename Iterator2>
   MOZ_IMPLICIT IteratorRange(Iterator1 aIterBegin, Iterator2 aIterEnd)
-    : mIterBegin(aIterBegin), mIterEnd(aIterEnd) { }
+      : mIterBegin(aIterBegin), mIterEnd(aIterEnd)
+  {
+  }
 
   template<typename Iterator>
   MOZ_IMPLICIT IteratorRange(const IteratorRange<Iterator>& aOther)
-    : mIterBegin(aOther.mIterBegin), mIterEnd(aOther.mIterEnd) { }
+      : mIterBegin(aOther.mIterBegin), mIterEnd(aOther.mIterEnd)
+  {
+  }
 
   iterator begin() const { return mIterBegin; }
   const_iterator cbegin() const { return begin(); }
@@ -142,12 +167,12 @@ public:
   reverse_iterator rend() const { return reverse_iterator(mIterBegin); }
   const_reverse_iterator crend() const { return rend(); }
 
-private:
+ private:
   IteratorT mIterBegin;
   IteratorT mIterEnd;
 };
 
-} // namespace detail
+}  // namespace detail
 
 template<typename Range>
 detail::IteratorRange<typename Range::reverse_iterator>
@@ -163,6 +188,6 @@ Reversed(const Range& aRange)
   return {aRange.rbegin(), aRange.rend()};
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ReverseIterator_h
+#endif  // mozilla_ReverseIterator_h

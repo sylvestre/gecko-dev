@@ -28,14 +28,14 @@ class ChannelMediaDecoder : public MediaDecoder
     // to be at most once per 500ms.
     static const uint32_t sDelay = 500;
 
-  public:
+   public:
     explicit ResourceCallback(AbstractThread* aMainThread);
     // Start to receive notifications from ResourceCallback.
     void Connect(ChannelMediaDecoder* aDecoder);
     // Called upon shutdown to stop receiving notifications.
     void Disconnect();
 
-  private:
+   private:
     /* MediaResourceCallback functions */
     AbstractThread* AbstractMainThread() const override;
     MediaDecoderOwner* GetMediaOwner() const override;
@@ -55,7 +55,7 @@ class ChannelMediaDecoder : public MediaDecoder
     const RefPtr<AbstractThread> mAbstractMainThread;
   };
 
-protected:
+ protected:
   void OnPlaybackEvent(MediaEventType aEvent) override;
   void DurationChanged() override;
   void DownloadProgressed() override;
@@ -68,14 +68,12 @@ protected:
 
   explicit ChannelMediaDecoder(MediaDecoderInit& aInit);
 
-public:
-
+ public:
   // Create a decoder for the given aType. Returns null if we were unable
   // to create the decoder, for example because the requested MIME type in
   // the init struct was unsupported.
   static already_AddRefed<ChannelMediaDecoder> Create(
-    MediaDecoderInit& aInit,
-    DecoderDoctorDiagnostics* aDiagnostics);
+      MediaDecoderInit& aInit, DecoderDoctorDiagnostics* aDiagnostics);
 
   void Shutdown() override;
 
@@ -95,7 +93,7 @@ public:
   void Suspend() override;
   void Resume() override;
 
-private:
+ private:
   void PinForSeek() override;
   void UnpinForSeek() override;
 
@@ -158,6 +156,6 @@ private:
   bool mPinnedForSeek = false;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ChannelMediaDecoder_h_
+#endif  // ChannelMediaDecoder_h_

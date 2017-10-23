@@ -29,4 +29,3 @@ SynchronizedEventQueue::EventObservers()
 {
   return mEventObservers;
 }
-

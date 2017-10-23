@@ -37,8 +37,8 @@ enum pref_initPhase
 };
 #define SET_PREF_PHASE(p) Preferences::SetInitPhase(p)
 #else
-#define SET_PREF_PHASE(p)                                                      \
-  do {                                                                         \
+#define SET_PREF_PHASE(p) \
+  do {                    \
   } while (0)
 #endif
 
@@ -51,15 +51,14 @@ class Result;
 
 namespace dom {
 class PrefSetting;
-} // namespace dom
+}  // namespace dom
 
-class Preferences final
-  : public nsIPrefService
-  , public nsIObserver
-  , public nsIPrefBranch
-  , public nsSupportsWeakReference
+class Preferences final : public nsIPrefService,
+                          public nsIObserver,
+                          public nsIPrefBranch,
+                          public nsSupportsWeakReference
 {
-public:
+ public:
   typedef mozilla::dom::PrefSetting PrefSetting;
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -301,7 +300,7 @@ public:
   static uint32_t GetDefaultUint(const char* aPref, uint32_t aFailedResult)
   {
     return static_cast<uint32_t>(
-      GetDefaultInt(aPref, static_cast<int32_t>(aFailedResult)));
+        GetDefaultInt(aPref, static_cast<int32_t>(aFailedResult)));
   }
 
   // Gets the default value of the char type pref.
@@ -332,7 +331,7 @@ public:
 #endif
 
   static int64_t SizeOfIncludingThisAndOtherStuff(
-    mozilla::MallocSizeOf aMallocSizeOf);
+      mozilla::MallocSizeOf aMallocSizeOf);
 
   static void DirtyCallback();
 
@@ -343,7 +342,7 @@ public:
   nsresult SavePrefFileBlocking();
   nsresult SavePrefFileAsynchronous();
 
-protected:
+ protected:
   virtual ~Preferences();
 
   nsresult NotifyServiceObservers(const char* aSubject);
@@ -373,7 +372,7 @@ protected:
 
   // Helpers for implementing
   // Register(Prefix)Callback/Unregister(Prefix)Callback.
-public:
+ public:
   // Public so the ValueObserver classes can use it.
   enum MatchKind
   {
@@ -381,7 +380,7 @@ public:
     ExactMatch,
   };
 
-protected:
+ protected:
   static nsresult RegisterCallback(PrefChangedFunc aCallback,
                                    const char* aPref,
                                    void* aClosure,
@@ -395,7 +394,7 @@ protected:
                                           void* aClosure,
                                           MatchKind aMatchKind);
 
-private:
+ private:
   nsCOMPtr<nsIFile> mCurrentFile;
   bool mDirty = false;
   bool mProfileShutdown = false;
@@ -412,6 +411,6 @@ private:
   static bool InitStaticMembers();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Preferences_h
+#endif  // mozilla_Preferences_h

@@ -10,10 +10,11 @@
 
 using namespace mozilla;
 
-nsIThread *gThread = nullptr;
+nsIThread* gThread = nullptr;
 
-class TestRunnable : public Runnable {
-public:
+class TestRunnable : public Runnable
+{
+ public:
   TestRunnable() : Runnable("TestRunnable"), ran_(false) {}
 
   NS_IMETHOD Run() override
@@ -25,12 +26,13 @@ public:
 
   bool ran() const { return ran_; }
 
-private:
+ private:
   bool ran_;
 };
 
-class TestSyncRunnable : public ::testing::Test {
-public:
+class TestSyncRunnable : public ::testing::Test
+{
+ public:
   static void SetUpTestCase()
   {
     nsresult rv = NS_NewNamedThread("thread", &gThread);
@@ -39,8 +41,7 @@ public:
 
   static void TearDownTestCase()
   {
-    if (gThread)
-      gThread->Shutdown();
+    if (gThread) gThread->Shutdown();
   }
 };
 

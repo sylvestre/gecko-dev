@@ -44,4 +44,4 @@ struct nsHtml5ViewSourcePolicy
   }
 };
 
-#endif // nsHtml5TokenizerLoopPolicies_h
+#endif  // nsHtml5TokenizerLoopPolicies_h

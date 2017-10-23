@@ -24,8 +24,9 @@ class nsPrintfCString : public nsAutoCStringN<16>
 {
   typedef nsCString string_type;
 
-public:
-  explicit nsPrintfCString(const char_type* aFormat, ...) MOZ_FORMAT_PRINTF(2, 3)
+ public:
+  explicit nsPrintfCString(const char_type* aFormat, ...)
+      MOZ_FORMAT_PRINTF(2, 3)
   {
     va_list ap;
     va_start(ap, aFormat);
@@ -34,4 +35,4 @@ public:
   }
 };
 
-#endif // !defined(nsPrintfCString_h___)
+#endif  // !defined(nsPrintfCString_h___)

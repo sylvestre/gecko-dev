@@ -20,10 +20,10 @@ namespace image {
  */
 enum class DecoderFlags : uint8_t
 {
-  FIRST_FRAME_ONLY               = 1 << 0,
-  IS_REDECODE                    = 1 << 1,
-  IMAGE_IS_TRANSIENT             = 1 << 2,
-  ASYNC_NOTIFY                   = 1 << 3,
+  FIRST_FRAME_ONLY = 1 << 0,
+  IS_REDECODE = 1 << 1,
+  IMAGE_IS_TRANSIENT = 1 << 2,
+  ASYNC_NOTIFY = 1 << 3,
 
   /**
    * By default, a surface is considered substitutable. That means callers are
@@ -31,7 +31,7 @@ enum class DecoderFlags : uint8_t
    * a specific size and won't accept alternatives, then this flag should be
    * set.
    */
-  CANNOT_SUBSTITUTE              = 1 << 4
+  CANNOT_SUBSTITUTE = 1 << 4
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(DecoderFlags)
 
@@ -44,7 +44,7 @@ DefaultDecoderFlags()
   return DecoderFlags();
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_DecoderFlags_h
+#endif  // mozilla_image_DecoderFlags_h

@@ -67,24 +67,25 @@ struct MOZ_STACK_CLASS MediaDecoderInit
                    bool aHasSuspendTaint,
                    bool aLooping,
                    const MediaContainerType& aContainerType)
-    : mOwner(aOwner)
-    , mVolume(aVolume)
-    , mPreservesPitch(aPreservesPitch)
-    , mPlaybackRate(aPlaybackRate)
-    , mMinimizePreroll(aMinimizePreroll)
-    , mHasSuspendTaint(aHasSuspendTaint)
-    , mLooping(aLooping)
-    , mContainerType(aContainerType)
+      : mOwner(aOwner),
+        mVolume(aVolume),
+        mPreservesPitch(aPreservesPitch),
+        mPlaybackRate(aPlaybackRate),
+        mMinimizePreroll(aMinimizePreroll),
+        mHasSuspendTaint(aHasSuspendTaint),
+        mLooping(aLooping),
+        mContainerType(aContainerType)
   {
   }
 };
 
 class MediaDecoder
 {
-public:
-  typedef MozPromise<bool /* aIgnored */, bool /* aIgnored */,
+ public:
+  typedef MozPromise<bool /* aIgnored */,
+                     bool /* aIgnored */,
                      /* IsExclusive = */ true>
-    SeekPromise;
+      SeekPromise;
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaDecoder)
 
@@ -249,35 +250,24 @@ public:
     typedef MozPromise<size_t, size_t, true> SizeOfPromise;
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ResourceSizes)
     explicit ResourceSizes(MallocSizeOf aMallocSizeOf)
-      : mMallocSizeOf(aMallocSizeOf)
-      , mByteSize(0)
-      , mCallback()
+        : mMallocSizeOf(aMallocSizeOf), mByteSize(0), mCallback()
     {
     }
 
     mozilla::MallocSizeOf mMallocSizeOf;
     mozilla::Atomic<size_t> mByteSize;
 
-    RefPtr<SizeOfPromise> Promise()
-    {
-      return mCallback.Ensure(__func__);
-    }
+    RefPtr<SizeOfPromise> Promise() { return mCallback.Ensure(__func__); }
 
-private:
-    ~ResourceSizes()
-    {
-      mCallback.ResolveIfExists(mByteSize, __func__);
-    }
+   private:
+    ~ResourceSizes() { mCallback.ResolveIfExists(mByteSize, __func__); }
 
     MozPromiseHolder<SizeOfPromise> mCallback;
   };
 
   virtual void AddSizeOfResources(ResourceSizes* aSizes) = 0;
 
-  VideoFrameContainer* GetVideoFrameContainer()
-  {
-    return mVideoFrameContainer;
-  }
+  VideoFrameContainer* GetVideoFrameContainer() { return mVideoFrameContainer; }
 
   layers::ImageContainer* GetImageContainer();
 
@@ -350,10 +340,7 @@ private:
 
   MediaDecoderOwner* GetOwner() const;
 
-  AbstractThread* AbstractMainThread() const
-  {
-    return mAbstractMainThread;
-  }
+  AbstractThread* AbstractMainThread() const { return mAbstractMainThread; }
 
   void SetCDMProxy(CDMProxy* aProxy);
 
@@ -394,7 +381,7 @@ private:
   using DebugInfoPromise = MozPromise<nsCString, bool, true>;
   RefPtr<DebugInfoPromise> RequestDebugInfo();
 
-protected:
+ protected:
   virtual ~MediaDecoder();
 
   // Called when the first audio and/or video from the media file has been loaded
@@ -447,10 +434,7 @@ protected:
   // This corresponds to the "current position" in HTML5.
   // We allow omx subclasses to substitute an alternative current position for
   // usage with the audio offload player.
-  virtual media::TimeUnit CurrentPosition()
-  {
-    return mCurrentPosition.Ref();
-  }
+  virtual media::TimeUnit CurrentPosition() { return mCurrentPosition.Ref(); }
 
   already_AddRefed<layers::KnowsCompositor> GetCompositor();
 
@@ -467,9 +451,9 @@ protected:
   // the next frame is available.
   // An arbitrary value of 250ms is used.
   static constexpr auto DEFAULT_NEXT_FRAME_AVAILABLE_BUFFERED =
-    media::TimeUnit::FromMicroseconds(250000);
+      media::TimeUnit::FromMicroseconds(250000);
 
-private:
+ private:
   // Ensures our media resource has been pinned.
   virtual void PinForSeek() = 0;
 
@@ -485,10 +469,7 @@ private:
 
   void OnDecoderDoctorEvent(DecoderDoctorEvent aEvent);
 
-  void OnMediaNotSeekable()
-  {
-    mMediaSeekable = false;
-  }
+  void OnMediaNotSeekable() { mMediaSeekable = false; }
 
   void OnNextFrameStatus(MediaDecoderOwner::NextFrameStatus);
 
@@ -509,7 +490,7 @@ private:
   // Explicitly prievate to force access via accessors.
   RefPtr<MediaDecoderStateMachine> mDecoderStateMachine;
 
-protected:
+ protected:
   void NotifyDataArrivedInternal();
   void DiscardOngoingSeekIfExists();
   virtual void CallSeek(const SeekTarget& aTarget);
@@ -578,7 +559,7 @@ protected:
   bool mHasSuspendTaint;
 
   MediaDecoderOwner::NextFrameStatus mNextFrameStatus =
-    MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE;
+      MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE;
 
   // A listener to receive metadata updates from MDSM.
   MediaEventListener mTimedMetadataListener;
@@ -595,7 +576,7 @@ protected:
   MediaEventListener mOnDecodeWarning;
   MediaEventListener mOnNextFrameStatus;
 
-protected:
+ protected:
   // PlaybackRate and pitch preservation status we should start at.
   double mPlaybackRate;
 
@@ -664,16 +645,13 @@ protected:
   // back again.
   int64_t mDecoderPosition = 0;
 
-public:
+ public:
   AbstractCanonical<double>* CanonicalVolume() { return &mVolume; }
   AbstractCanonical<bool>* CanonicalPreservesPitch()
   {
     return &mPreservesPitch;
   }
-  AbstractCanonical<bool>* CanonicalLooping()
-  {
-    return &mLooping;
-  }
+  AbstractCanonical<bool>* CanonicalLooping() { return &mLooping; }
   AbstractCanonical<PlayState>* CanonicalPlayState() { return &mPlayState; }
   AbstractCanonical<bool>* CanonicalLogicallySeeking()
   {
@@ -688,7 +666,7 @@ public:
     return &mMediaPrincipalHandle;
   }
 
-private:
+ private:
   // Notify owner when the audible state changed
   void NotifyAudibleStateChanged();
 
@@ -697,6 +675,6 @@ private:
   bool mCanPlayThrough = false;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

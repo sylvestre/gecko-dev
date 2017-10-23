@@ -15,12 +15,13 @@
  * Factory function.
  * @return a newly allocated nsRubyTextContainerFrame (infallible)
  */
-nsContainerFrame* NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
-                                               nsStyleContext* aContext);
+nsContainerFrame*
+NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
+                             nsStyleContext* aContext);
 
 class nsRubyTextContainerFrame final : public nsContainerFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsRubyTextContainerFrame)
   NS_DECL_QUERYFRAME
 
@@ -40,25 +41,24 @@ public:
                                    nsFrameList& aChildList) override;
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
-  virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
                             nsFrameList& aFrameList) override;
-  virtual void RemoveFrame(ChildListID aListID,
-                           nsIFrame* aOldFrame) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
   bool IsSpanContainer() const
   {
     return GetStateBits() & NS_RUBY_TEXT_CONTAINER_IS_SPAN;
   }
 
-protected:
-  friend nsContainerFrame*
-    NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
-                                 nsStyleContext* aContext);
+ protected:
+  friend nsContainerFrame* NS_NewRubyTextContainerFrame(
+      nsIPresShell* aPresShell, nsStyleContext* aContext);
 
   explicit nsRubyTextContainerFrame(nsStyleContext* aContext)
-    : nsContainerFrame(aContext, kClassID)
-    , mISize(0)
-  {}
+      : nsContainerFrame(aContext, kClassID), mISize(0)
+  {
+  }
 
   void UpdateSpanFlag();
 

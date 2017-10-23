@@ -32,7 +32,8 @@
 
 namespace google_breakpad {
 
-struct MicrodumpExtraInfo {
+struct MicrodumpExtraInfo
+{
   // Strings pointed to by this struct are not copied, and are
   // expected to remain valid for the lifetime of the process.
   const char* build_fingerprint;
@@ -44,9 +45,11 @@ struct MicrodumpExtraInfo {
       : build_fingerprint(NULL),
         product_info(NULL),
         gpu_fingerprint(NULL),
-        process_type(NULL) {}
+        process_type(NULL)
+  {
+  }
 };
 
-}
+}  // namespace google_breakpad
 
 #endif  // CLIENT_LINUX_HANDLER_MICRODUMP_EXTRA_INFO_H_

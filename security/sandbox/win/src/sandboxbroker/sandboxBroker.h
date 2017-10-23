@@ -13,15 +13,15 @@
 #include "nsXULAppAPI.h"
 
 namespace sandbox {
-  class BrokerServices;
-  class TargetPolicy;
-}
+class BrokerServices;
+class TargetPolicy;
+}  // namespace sandbox
 
 namespace mozilla {
 
 class SandboxBroker
 {
-public:
+ public:
   SandboxBroker();
 
   static void Initialize(sandbox::BrokerServices* aBrokerServices);
@@ -32,11 +32,11 @@ public:
    */
   static void CacheRulesDirectories();
 
-  bool LaunchApp(const wchar_t *aPath,
-                 const wchar_t *aArguments,
+  bool LaunchApp(const wchar_t* aPath,
+                 const wchar_t* aArguments,
                  GeckoProcessType aProcessType,
                  const bool aEnableLogging,
-                 void **aProcessHandle);
+                 void** aProcessHandle);
   virtual ~SandboxBroker();
 
   // Security levels for different types of processes
@@ -48,14 +48,15 @@ public:
   void SetSecurityLevelForGPUProcess(int32_t aSandboxLevel);
 
   bool SetSecurityLevelForPluginProcess(int32_t aSandboxLevel);
-  enum SandboxLevel {
+  enum SandboxLevel
+  {
     LockDown,
     Restricted
   };
   bool SetSecurityLevelForGMPlugin(SandboxLevel aLevel);
 
   // File system permissions
-  bool AllowReadFile(wchar_t const *file);
+  bool AllowReadFile(wchar_t const* file);
 
   // Exposes AddTargetPeer from broker services, so that none sandboxed
   // processes can be added as handle duplication targets.
@@ -64,12 +65,12 @@ public:
   // Set up dummy interceptions via the broker, so we can log calls.
   void ApplyLoggingPolicy();
 
-private:
-  static sandbox::BrokerServices *sBrokerService;
+ private:
+  static sandbox::BrokerServices* sBrokerService;
   static bool sRunningFromNetworkDrive;
-  sandbox::TargetPolicy *mPolicy;
+  sandbox::TargetPolicy* mPolicy;
 };
 
-} // mozilla
+}  // namespace mozilla
 
 #endif

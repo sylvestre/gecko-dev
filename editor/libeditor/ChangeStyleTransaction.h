@@ -6,10 +6,10 @@
 #ifndef mozilla_ChangeStyleTransaction_h
 #define mozilla_ChangeStyleTransaction_h
 
-#include "mozilla/EditTransactionBase.h"  // base class
-#include "nsCOMPtr.h"                     // nsCOMPtr members
-#include "nsCycleCollectionParticipant.h" // various macros
-#include "nsString.h"                     // nsString members
+#include "mozilla/EditTransactionBase.h"   // base class
+#include "nsCOMPtr.h"                      // nsCOMPtr members
+#include "nsCycleCollectionParticipant.h"  // various macros
+#include "nsString.h"                      // nsString members
 
 class nsAtom;
 
@@ -17,7 +17,7 @@ namespace mozilla {
 
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 /**
  * A transaction that changes the value of a CSS inline style of a content
@@ -25,7 +25,7 @@ class Element;
  */
 class ChangeStyleTransaction final : public EditTransactionBase
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ChangeStyleTransaction,
                                            EditTransactionBase)
 
@@ -35,7 +35,11 @@ public:
 
   NS_IMETHOD RedoTransaction() override;
 
-  enum EChangeType { eSet, eRemove };
+  enum EChangeType
+  {
+    eSet,
+    eRemove
+  };
 
   /**
    * @param aNode           [IN] the node whose style attribute will be changed
@@ -58,7 +62,7 @@ public:
   static bool ValueIncludes(const nsAString& aValueList,
                             const nsAString& aValue);
 
-private:
+ private:
   virtual ~ChangeStyleTransaction();
 
   /*
@@ -117,6 +121,6 @@ private:
   bool mRedoAttributeWasSet;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef mozilla_ChangeStyleTransaction_h
+#endif  // #ifndef mozilla_ChangeStyleTransaction_h

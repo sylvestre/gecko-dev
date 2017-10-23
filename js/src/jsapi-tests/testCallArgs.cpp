@@ -4,9 +4,7 @@
 
 #include "jsapi-tests/tests.h"
 
-static bool
-CustomNative(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool CustomNative(JSContext* cx, unsigned argc, JS::Value* vp) {
     JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
     MOZ_RELEASE_ASSERT(!JS_IsExceptionPending(cx));
@@ -18,17 +16,14 @@ CustomNative(JSContext* cx, unsigned argc, JS::Value* vp)
     return true;
 }
 
-static bool
-TryConstruct(JSContext* cx, const char* code, const char* filename, decltype(__LINE__) lineno,
-             JS::MutableHandleValue vp)
-{
+static bool TryConstruct(JSContext* cx, const char* code, const char* filename,
+                         decltype(__LINE__) lineno, JS::MutableHandleValue vp) {
     JS::CompileOptions opts(cx);
     opts.setFileAndLine(filename, lineno);
     return JS::Evaluate(cx, opts, code, strlen(code), vp);
 }
 
-BEGIN_TEST(testCallArgs_isConstructing_native)
-{
+BEGIN_TEST(testCallArgs_isConstructing_native) {
     CHECK(JS_DefineFunction(cx, global, "customNative", CustomNative, 0, 0));
 
     JS::RootedValue result(cx);
@@ -44,17 +39,14 @@ BEGIN_TEST(testCallArgs_isConstructing_native)
 }
 END_TEST(testCallArgs_isConstructing_native)
 
-static bool
-CustomConstructor(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool CustomConstructor(JSContext* cx, unsigned argc, JS::Value* vp) {
     JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
     MOZ_RELEASE_ASSERT(!JS_IsExceptionPending(cx));
 
     if (args.isConstructing()) {
         JSObject* obj = JS_NewPlainObject(cx);
-        if (!obj)
-            return false;
+        if (!obj) return false;
 
         args.rval().setObject(*obj);
 
@@ -68,8 +60,7 @@ CustomConstructor(JSContext* cx, unsigned argc, JS::Value* vp)
     return true;
 }
 
-BEGIN_TEST(testCallArgs_isConstructing_constructor)
-{
+BEGIN_TEST(testCallArgs_isConstructing_constructor) {
     CHECK(JS_DefineFunction(cx, global, "customConstructor", CustomConstructor, 0,
                             JSFUN_CONSTRUCTOR));
 

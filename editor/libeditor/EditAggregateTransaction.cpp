@@ -5,21 +5,17 @@
 
 #include "EditAggregateTransaction.h"
 #include "nsAString.h"
-#include "nsCOMPtr.h"                   // for nsCOMPtr
-#include "nsError.h"                    // for NS_OK, etc.
-#include "nsISupportsUtils.h"           // for NS_ADDREF
-#include "nsITransaction.h"             // for nsITransaction
-#include "nsString.h"                   // for nsAutoString
+#include "nsCOMPtr.h"          // for nsCOMPtr
+#include "nsError.h"           // for NS_OK, etc.
+#include "nsISupportsUtils.h"  // for NS_ADDREF
+#include "nsITransaction.h"    // for nsITransaction
+#include "nsString.h"          // for nsAutoString
 
 namespace mozilla {
 
-EditAggregateTransaction::EditAggregateTransaction()
-{
-}
+EditAggregateTransaction::EditAggregateTransaction() {}
 
-EditAggregateTransaction::~EditAggregateTransaction()
-{
-}
+EditAggregateTransaction::~EditAggregateTransaction() {}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(EditAggregateTransaction,
                                    EditTransactionBase,
@@ -35,7 +31,7 @@ EditAggregateTransaction::DoTransaction()
 {
   // FYI: It's legal (but not very useful) to have an empty child list.
   for (uint32_t i = 0, length = mChildren.Length(); i < length; ++i) {
-    nsITransaction *txn = mChildren[i];
+    nsITransaction* txn = mChildren[i];
     if (!txn) {
       return NS_ERROR_NULL_POINTER;
     }
@@ -52,8 +48,8 @@ EditAggregateTransaction::UndoTransaction()
 {
   // FYI: It's legal (but not very useful) to have an empty child list.
   // Undo goes through children backwards.
-  for (uint32_t i = mChildren.Length(); i--; ) {
-    nsITransaction *txn = mChildren[i];
+  for (uint32_t i = mChildren.Length(); i--;) {
+    nsITransaction* txn = mChildren[i];
     if (!txn) {
       return NS_ERROR_NULL_POINTER;
     }
@@ -70,7 +66,7 @@ EditAggregateTransaction::RedoTransaction()
 {
   // It's legal (but not very useful) to have an empty child list.
   for (uint32_t i = 0, length = mChildren.Length(); i < length; ++i) {
-    nsITransaction *txn = mChildren[i];
+    nsITransaction* txn = mChildren[i];
     if (!txn) {
       return NS_ERROR_NULL_POINTER;
     }
@@ -83,8 +79,7 @@ EditAggregateTransaction::RedoTransaction()
 }
 
 NS_IMETHODIMP
-EditAggregateTransaction::Merge(nsITransaction* aTransaction,
-                                bool* aDidMerge)
+EditAggregateTransaction::Merge(nsITransaction* aTransaction, bool* aDidMerge)
 {
   if (aDidMerge) {
     *aDidMerge = false;
@@ -94,7 +89,7 @@ EditAggregateTransaction::Merge(nsITransaction* aTransaction,
   }
   // FIXME: Is this really intended not to loop?  It looks like the code
   // that used to be here sort of intended to loop, but didn't.
-  nsITransaction *txn = mChildren[0];
+  nsITransaction* txn = mChildren[0];
   if (!txn) {
     return NS_ERROR_NULL_POINTER;
   }
@@ -142,4 +137,4 @@ EditAggregateTransaction::GetName(nsAtom** aName)
   return NS_ERROR_NULL_POINTER;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

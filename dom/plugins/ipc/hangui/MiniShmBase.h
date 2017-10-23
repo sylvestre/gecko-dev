@@ -22,20 +22,12 @@ namespace plugins {
  */
 class ScopedMappedFileView
 {
-public:
-  explicit
-  ScopedMappedFileView(LPVOID aView)
-    : mView(aView)
-  {
-  }
+ public:
+  explicit ScopedMappedFileView(LPVOID aView) : mView(aView) {}
 
-  ~ScopedMappedFileView()
-  {
-    Close();
-  }
+  ~ScopedMappedFileView() { Close(); }
 
-  void
-  Close()
+  void Close()
   {
     if (mView) {
       ::UnmapViewOfFile(mView);
@@ -43,18 +35,14 @@ public:
     }
   }
 
-  void
-  Set(LPVOID aView)
+  void Set(LPVOID aView)
   {
     Close();
     mView = aView;
   }
 
   LPVOID
-  Get() const
-  {
-    return mView;
-  }
+  Get() const { return mView; }
 
   LPVOID
   Take()
@@ -64,18 +52,11 @@ public:
     return result;
   }
 
-  operator LPVOID()
-  {
-    return mView;
-  }
+  operator LPVOID() { return mView; }
 
-  bool
-  IsValid() const
-  {
-    return (mView);
-  }
+  bool IsValid() const { return (mView); }
 
-private:
+ private:
   DISALLOW_COPY_AND_ASSIGN(ScopedMappedFileView);
 
   LPVOID mView;
@@ -85,13 +66,13 @@ class MiniShmBase;
 
 class MiniShmObserver
 {
-public:
+ public:
   /**
    * This function is called whenever there is a new shared memory request.
    * @param aMiniShmObj MiniShmBase object that may be used to read and
    *                    write from shared memory.
    */
-  virtual void OnMiniShmEvent(MiniShmBase *aMiniShmObj) = 0;
+  virtual void OnMiniShmEvent(MiniShmBase* aMiniShmObj) = 0;
   /**
    * This function is called once when a MiniShmParent and a MiniShmChild
    * object have successfully negotiated a connection.
@@ -99,7 +80,7 @@ public:
    * @param aMiniShmObj MiniShmBase object that may be used to read and
    *                    write from shared memory.
    */
-  virtual void OnMiniShmConnect(MiniShmBase *aMiniShmObj) { }
+  virtual void OnMiniShmConnect(MiniShmBase* aMiniShmObj) {}
 };
 
 /**
@@ -108,7 +89,7 @@ public:
  */
 class MiniShmBase
 {
-public:
+ public:
   /**
    * Obtains a writable pointer into shared memory of type T.
    * typename T must be plain-old-data and contain an unsigned integral
@@ -123,14 +104,13 @@ public:
    *         NS_ERROR_NOT_INITIALIZED if there is no valid MiniShm connection.
    *         NS_ERROR_NOT_AVAILABLE if the memory is not safe to write.
    */
-  template<typename T> nsresult
-  GetWritePtr(T*& aPtr)
+  template<typename T>
+  nsresult GetWritePtr(T*& aPtr)
   {
     if (!mWriteHeader || !mGuard) {
       return NS_ERROR_NOT_INITIALIZED;
     }
-    if (sizeof(T) > mPayloadMaxLen ||
-        T::identifier <= RESERVED_CODE_LAST) {
+    if (sizeof(T) > mPayloadMaxLen || T::identifier <= RESERVED_CODE_LAST) {
       return NS_ERROR_ILLEGAL_VALUE;
     }
     if (::WaitForSingleObject(mGuard, mTimeout) != WAIT_OBJECT_0) {
@@ -157,8 +137,8 @@ public:
    *                                stored in shared memory.
    *         NS_ERROR_NOT_INITIALIZED if there is no valid MiniShm connection.
    */
-  template<typename T> nsresult
-  GetReadPtr(const T*& aPtr)
+  template<typename T>
+  nsresult GetReadPtr(const T*& aPtr)
   {
     if (!mReadHeader) {
       return NS_ERROR_NOT_INITIALIZED;
@@ -176,10 +156,9 @@ public:
    *
    * @return Should return NS_OK if the send was successful.
    */
-  virtual nsresult
-  Send() = 0;
+  virtual nsresult Send() = 0;
 
-protected:
+ protected:
   /**
    * MiniShm reserves some identifier codes for its own use. Any
    * identifiers used by MiniShm protocol implementations must be
@@ -194,8 +173,8 @@ protected:
 
   struct MiniShmHeader
   {
-    unsigned int  mId;
-    unsigned int  mPayloadLen;
+    unsigned int mId;
+    unsigned int mPayloadLen;
   };
 
   struct MiniShmInit
@@ -204,10 +183,10 @@ protected:
     {
       identifier = RESERVED_CODE_INIT
     };
-    HANDLE    mParentEvent;
-    HANDLE    mParentGuard;
-    HANDLE    mChildEvent;
-    HANDLE    mChildGuard;
+    HANDLE mParentEvent;
+    HANDLE mParentGuard;
+    HANDLE mChildEvent;
+    HANDLE mChildGuard;
   };
 
   struct MiniShmInitComplete
@@ -216,39 +195,35 @@ protected:
     {
       identifier = RESERVED_CODE_INIT_COMPLETE
     };
-    bool      mSucceeded;
+    bool mSucceeded;
   };
 
   MiniShmBase()
-    : mObserver(nullptr),
-      mWriteHeader(nullptr),
-      mReadHeader(nullptr),
-      mPayloadMaxLen(0),
-      mGuard(nullptr),
-      mTimeout(INFINITE)
+      : mObserver(nullptr),
+        mWriteHeader(nullptr),
+        mReadHeader(nullptr),
+        mPayloadMaxLen(0),
+        mGuard(nullptr),
+        mTimeout(INFINITE)
   {
   }
-  virtual ~MiniShmBase()
-  { }
+  virtual ~MiniShmBase() {}
 
-  virtual void
-  OnEvent()
+  virtual void OnEvent()
   {
     if (mObserver) {
       mObserver->OnMiniShmEvent(this);
     }
   }
 
-  virtual void
-  OnConnect()
+  virtual void OnConnect()
   {
     if (mObserver) {
       mObserver->OnMiniShmConnect(this);
     }
   }
 
-  nsresult
-  SetView(LPVOID aView, const unsigned int aSize, bool aIsChild)
+  nsresult SetView(LPVOID aView, const unsigned int aSize, bool aIsChild)
   {
     if (!aView || aSize <= 2 * sizeof(MiniShmHeader)) {
       return NS_ERROR_ILLEGAL_VALUE;
@@ -256,19 +231,18 @@ protected:
     // Divide the region into halves for parent and child
     if (aIsChild) {
       mReadHeader = static_cast<MiniShmHeader*>(aView);
-      mWriteHeader = reinterpret_cast<MiniShmHeader*>(static_cast<char*>(aView)
-                                                      + aSize / 2U);
+      mWriteHeader = reinterpret_cast<MiniShmHeader*>(
+          static_cast<char*>(aView) + aSize / 2U);
     } else {
       mWriteHeader = static_cast<MiniShmHeader*>(aView);
-      mReadHeader = reinterpret_cast<MiniShmHeader*>(static_cast<char*>(aView)
-                                                     + aSize / 2U);
+      mReadHeader = reinterpret_cast<MiniShmHeader*>(static_cast<char*>(aView) +
+                                                     aSize / 2U);
     }
     mPayloadMaxLen = aSize / 2U - sizeof(MiniShmHeader);
     return NS_OK;
   }
 
-  nsresult
-  SetGuard(HANDLE aGuard, DWORD aTimeout)
+  nsresult SetGuard(HANDLE aGuard, DWORD aTimeout)
   {
     if (!aGuard || !aTimeout) {
       return NS_ERROR_ILLEGAL_VALUE;
@@ -278,8 +252,7 @@ protected:
     return NS_OK;
   }
 
-  inline void
-  SetObserver(MiniShmObserver *aObserver) { mObserver = aObserver; }
+  inline void SetObserver(MiniShmObserver* aObserver) { mObserver = aObserver; }
 
   /**
    * Obtains a writable pointer into shared memory of type T. This version
@@ -293,14 +266,13 @@ protected:
    *         NS_ERROR_ILLEGAL_VALUE if type T not an internal MiniShm struct.
    *         NS_ERROR_NOT_INITIALIZED if there is no valid MiniShm connection.
    */
-  template<typename T> nsresult
-  GetWritePtrInternal(T*& aPtr)
+  template<typename T>
+  nsresult GetWritePtrInternal(T*& aPtr)
   {
     if (!mWriteHeader) {
       return NS_ERROR_NOT_INITIALIZED;
     }
-    if (sizeof(T) > mPayloadMaxLen ||
-        T::identifier > RESERVED_CODE_LAST) {
+    if (sizeof(T) > mPayloadMaxLen || T::identifier > RESERVED_CODE_LAST) {
       return NS_ERROR_ILLEGAL_VALUE;
     }
     mWriteHeader->mId = T::identifier;
@@ -309,26 +281,24 @@ protected:
     return NS_OK;
   }
 
-  static VOID CALLBACK
-  SOnEvent(PVOID aContext, BOOLEAN aIsTimer)
+  static VOID CALLBACK SOnEvent(PVOID aContext, BOOLEAN aIsTimer)
   {
     MiniShmBase* object = static_cast<MiniShmBase*>(aContext);
     object->OnEvent();
   }
 
-private:
-  MiniShmObserver*  mObserver;
-  MiniShmHeader*    mWriteHeader;
-  MiniShmHeader*    mReadHeader;
-  unsigned int      mPayloadMaxLen;
-  HANDLE            mGuard;
-  DWORD             mTimeout;
+ private:
+  MiniShmObserver* mObserver;
+  MiniShmHeader* mWriteHeader;
+  MiniShmHeader* mReadHeader;
+  unsigned int mPayloadMaxLen;
+  HANDLE mGuard;
+  DWORD mTimeout;
 
   DISALLOW_COPY_AND_ASSIGN(MiniShmBase);
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
-#endif // mozilla_plugins_MiniShmBase_h
-
+#endif  // mozilla_plugins_MiniShmBase_h

@@ -6,10 +6,10 @@
 #ifndef GFX_READBACKPROCESSOR_H
 #define GFX_READBACKPROCESSOR_H
 
-#include <stdint.h>                     // for uint64_t
-#include "nsRect.h"                     // for mozilla::gfx::IntRect
-#include "nsRegionFwd.h"                // for nsIntRegion
-#include "nsTArray.h"                   // for nsTArray
+#include <stdint.h>       // for uint64_t
+#include "nsRect.h"       // for mozilla::gfx::IntRect
+#include "nsRegionFwd.h"  // for nsIntRegion
+#include "nsTArray.h"     // for nsTArray
 
 namespace mozilla {
 namespace layers {
@@ -18,8 +18,9 @@ class ContainerLayer;
 class ReadbackLayer;
 class PaintedLayer;
 
-class ReadbackProcessor {
-public:
+class ReadbackProcessor
+{
+ public:
   /**
    * Called by the container before processing any child layers. Call this
    * if any child layer might have changed in any way (other than content-only
@@ -34,7 +35,8 @@ public:
    */
   void BuildUpdates(ContainerLayer* aContainer);
 
-  struct Update {
+  struct Update
+  {
     /**
      * The layer a PaintedLayer should send its contents to.
      */
@@ -45,11 +47,11 @@ public:
      * visible region. Translate it to mLayer's coordinate system
      * by adding mLayer->GetBackgroundLayerOffset().
      */
-    gfx::IntRect      mUpdateRect;
+    gfx::IntRect mUpdateRect;
     /**
      * The sequence counter value to use when calling DoUpdate
      */
-    uint64_t       mSequenceCounter;
+    uint64_t mSequenceCounter;
   };
   /**
    * Appends any ReadbackLayers that need to be updated, and the rects that
@@ -63,18 +65,18 @@ public:
    * of the mUpdateRects.
    */
   void GetPaintedLayerUpdates(PaintedLayer* aLayer,
-                             nsTArray<Update>* aUpdates,
-                             nsIntRegion* aUpdateRegion = nullptr);
+                              nsTArray<Update>* aUpdates,
+                              nsIntRegion* aUpdateRegion = nullptr);
 
   ~ReadbackProcessor();
 
-protected:
+ protected:
   void BuildUpdatesForLayer(ReadbackLayer* aLayer);
 
   nsTArray<Update> mAllUpdates;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_READBACKPROCESSOR_H */

@@ -15,19 +15,21 @@ namespace dom {
 
 class HTMLMetaElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLMetaElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
 
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -35,13 +37,11 @@ public:
 
   void CreateAndDispatchEvent(nsIDocument* aDoc, const nsAString& aEventName);
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-  void GetName(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::name, aValue);
-  }
+  void GetName(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::name, aValue); }
   void SetName(const nsAString& aName, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::name, aName, aRv);
@@ -63,25 +63,23 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::content, aContent, aRv);
   }
-  void GetScheme(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::scheme, aValue);
-  }
+  void GetScheme(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::scheme, aValue); }
   void SetScheme(const nsAString& aScheme, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::scheme, aScheme, aRv);
   }
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   virtual ~HTMLMetaElement();
 
-private:
+ private:
   nsresult SetMetaReferrer(nsIDocument* aDocument);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLMetaElement_h
+#endif  // mozilla_dom_HTMLMetaElement_h

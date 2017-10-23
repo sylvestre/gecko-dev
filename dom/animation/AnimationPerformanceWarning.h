@@ -18,7 +18,8 @@ namespace mozilla {
 // Represents the reason why we can't run the CSS property on the compositor.
 struct AnimationPerformanceWarning
 {
-  enum class Type : uint8_t {
+  enum class Type : uint8_t
+  {
     ContentTooLarge,
     ContentTooLargeArea,
     TransformBackfaceVisibilityHidden,
@@ -31,18 +32,17 @@ struct AnimationPerformanceWarning
     HasRenderingObserver,
   };
 
-  explicit AnimationPerformanceWarning(Type aType)
-    : mType(aType) { }
+  explicit AnimationPerformanceWarning(Type aType) : mType(aType) {}
 
   AnimationPerformanceWarning(Type aType,
                               std::initializer_list<int32_t> aParams)
-    : mType(aType)
+      : mType(aType)
   {
     // FIXME:  Once std::initializer_list::size() become a constexpr function,
     // we should use static_assert here.
     MOZ_ASSERT(aParams.size() <= kMaxParamsForLocalization,
-      "The length of parameters should be less than "
-      "kMaxParamsForLocalization");
+               "The length of parameters should be less than "
+               "kMaxParamsForLocalization");
     mParams.emplace(aParams);
   }
 
@@ -63,13 +63,12 @@ struct AnimationPerformanceWarning
 
   bool ToLocalizedString(nsAString& aLocalizedString) const;
   template<uint32_t N>
-  nsresult ToLocalizedStringWithIntParams(
-    const char* aKey, nsAString& aLocalizedString) const;
+  nsresult ToLocalizedStringWithIntParams(const char* aKey,
+                                          nsAString& aLocalizedString) const;
 
   bool operator==(const AnimationPerformanceWarning& aOther) const
   {
-    return mType == aOther.mType &&
-           mParams == aOther.mParams;
+    return mType == aOther.mType && mParams == aOther.mParams;
   }
   bool operator!=(const AnimationPerformanceWarning& aOther) const
   {
@@ -77,6 +76,6 @@ struct AnimationPerformanceWarning
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_dom_AnimationPerformanceWarning_h
+#endif  // mozilla_dom_AnimationPerformanceWarning_h

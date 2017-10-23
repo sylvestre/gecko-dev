@@ -24,7 +24,7 @@ using namespace gfx;
 RenderViewMLGPU::RenderViewMLGPU(FrameBuilder* aBuilder,
                                  MLGRenderTarget* aTarget,
                                  const nsIntRegion& aInvalidRegion)
- : RenderViewMLGPU(aBuilder, nullptr)
+    : RenderViewMLGPU(aBuilder, nullptr)
 {
   mTarget = aTarget;
   mInvalidBounds = aInvalidRegion.GetBounds();
@@ -39,19 +39,20 @@ RenderViewMLGPU::RenderViewMLGPU(FrameBuilder* aBuilder,
 
   // Since the post-clear will occlude everything, we include it in the final
   // opaque area.
-  mOccludedRegion.OrWith(
-    ViewAs<LayerPixel>(mPostClearRegion, PixelCastJustification::RenderTargetIsParentLayerForRoot));
+  mOccludedRegion.OrWith(ViewAs<LayerPixel>(
+      mPostClearRegion,
+      PixelCastJustification::RenderTargetIsParentLayerForRoot));
 
   AL_LOG("RenderView %p root with invalid area %s, clear area %s\n",
-    this,
-    Stringify(mInvalidBounds).c_str(),
-    Stringify(mPostClearRegion).c_str());
+         this,
+         Stringify(mInvalidBounds).c_str(),
+         Stringify(mPostClearRegion).c_str());
 }
 
 RenderViewMLGPU::RenderViewMLGPU(FrameBuilder* aBuilder,
                                  ContainerLayerMLGPU* aContainer,
                                  RenderViewMLGPU* aParent)
- : RenderViewMLGPU(aBuilder, aParent)
+    : RenderViewMLGPU(aBuilder, aParent)
 {
   mContainer = aContainer;
   mTargetOffset = aContainer->GetTargetOffset();
@@ -59,25 +60,26 @@ RenderViewMLGPU::RenderViewMLGPU(FrameBuilder* aBuilder,
   MOZ_ASSERT(!mInvalidBounds.IsEmpty());
 
   AL_LOG("RenderView %p starting with container %p and invalid area %s\n",
-    this,
-    aContainer->GetLayer(),
-    Stringify(mInvalidBounds).c_str());
+         this,
+         aContainer->GetLayer(),
+         Stringify(mInvalidBounds).c_str());
 
   mContainer->SetRenderView(this);
 }
 
-RenderViewMLGPU::RenderViewMLGPU(FrameBuilder* aBuilder, RenderViewMLGPU* aParent)
- : mBuilder(aBuilder),
-   mDevice(aBuilder->GetDevice()),
-   mParent(aParent),
-   mContainer(nullptr),
-   mFinishedBuilding(false),
-   mCurrentLayerBufferIndex(kInvalidResourceIndex),
-   mCurrentMaskRectBufferIndex(kInvalidResourceIndex),
-   mCurrentDepthMode(MLGDepthTestMode::Disabled),
-   mNextSortIndex(1),
-   mUseDepthBuffer(gfxPrefs::AdvancedLayersEnableDepthBuffer()),
-   mDepthBufferNeedsClear(false)
+RenderViewMLGPU::RenderViewMLGPU(FrameBuilder* aBuilder,
+                                 RenderViewMLGPU* aParent)
+    : mBuilder(aBuilder),
+      mDevice(aBuilder->GetDevice()),
+      mParent(aParent),
+      mContainer(nullptr),
+      mFinishedBuilding(false),
+      mCurrentLayerBufferIndex(kInvalidResourceIndex),
+      mCurrentMaskRectBufferIndex(kInvalidResourceIndex),
+      mCurrentDepthMode(MLGDepthTestMode::Disabled),
+      mNextSortIndex(1),
+      mUseDepthBuffer(gfxPrefs::AdvancedLayersEnableDepthBuffer()),
+      mDepthBufferNeedsClear(false)
 {
   if (aParent) {
     aParent->AddChild(this);
@@ -168,8 +170,8 @@ RenderViewMLGPU::AddItem(LayerMLGPU* aItem,
   // If the item is not visible at all, skip it.
   if (aItem->GetComputedOpacity() == 0.0f) {
     AL_LOG("RenderView %p culling item %p with no opacity\n",
-      this,
-      aItem->GetLayer());
+           this,
+           aItem->GetLayer());
     return;
   }
 
@@ -182,7 +184,8 @@ RenderViewMLGPU::AddItem(LayerMLGPU* aItem,
   // Note that we do not use 0 as a sorting index (when depth-testing is
   // enabled) because this would result in a z-value of 1.0, which would be
   // culled.
-  ItemInfo info(mBuilder, this, aItem, mNextSortIndex++, aRect, Move(aGeometry));
+  ItemInfo info(
+      mBuilder, this, aItem, mNextSortIndex++, aRect, Move(aGeometry));
 
   // If the item is not visible, or we can't add it to the layer constant
   // buffer for some reason, bail out.
@@ -208,10 +211,8 @@ RenderViewMLGPU::UpdateVisibleRegion(ItemInfo& aItem)
   // simple occlusion test and move on. We using a depth buffer we skip
   // CPU-based occlusion culling as well, since the GPU will do most of our
   // culling work for us.
-  if (mUseDepthBuffer ||
-      !aItem.translation ||
-      !gfxPrefs::AdvancedLayersEnableCPUOcclusion())
-  {
+  if (mUseDepthBuffer || !aItem.translation ||
+      !gfxPrefs::AdvancedLayersEnableCPUOcclusion()) {
     // Update the render region even if we won't compute visibility, since some
     // layer types (like Canvas and Image) need to have the visible region
     // clamped.
@@ -219,9 +220,9 @@ RenderViewMLGPU::UpdateVisibleRegion(ItemInfo& aItem)
     aItem.layer->SetRenderRegion(Move(region));
 
     AL_LOG("RenderView %p simple occlusion test, bounds=%s, translation?=%d\n",
-      this,
-      Stringify(aItem.bounds).c_str(),
-      aItem.translation ? 1 : 0);
+           this,
+           Stringify(aItem.bounds).c_str(),
+           aItem.translation ? 1 : 0);
     return mInvalidBounds.Intersects(aItem.bounds);
   }
 
@@ -231,8 +232,8 @@ RenderViewMLGPU::UpdateVisibleRegion(ItemInfo& aItem)
   AL_LOG("  occluded=%s\n", Stringify(mOccludedRegion).c_str());
 
   // Compute the translation into render target space.
-  LayerIntPoint translation =
-    LayerIntPoint::FromUnknownPoint(aItem.translation.value() - mTargetOffset);
+  LayerIntPoint translation = LayerIntPoint::FromUnknownPoint(
+      aItem.translation.value() - mTargetOffset);
   AL_LOG("  translation=%s\n", Stringify(translation).c_str());
 
   IntRect clip = aItem.layer->GetComputedClipRect().ToUnknownRect();
@@ -289,7 +290,10 @@ RenderViewMLGPU::AddItemFrontToBack(LayerMLGPU* aLayer, ItemInfo& aItem)
     RenderPassMLGPU* pass = (*iter);
     if (pass->IsCompatible(aItem) && pass->AcceptItem(aItem)) {
       AL_LOG("RenderView %p added layer %p to pass %p (%d)\n",
-        this, aLayer->GetLayer(), pass, int(pass->GetType()));
+             this,
+             aLayer->GetLayer(),
+             pass,
+             int(pass->GetType()));
       return;
     }
     if (++iterations > kMaxSearch) {
@@ -303,7 +307,10 @@ RenderViewMLGPU::AddItemFrontToBack(LayerMLGPU* aLayer, ItemInfo& aItem)
     return;
   }
   AL_LOG("RenderView %p added layer %p to new pass %p (%d)\n",
-    this, aLayer->GetLayer(), pass.get(), int(pass->GetType()));
+         this,
+         aLayer->GetLayer(),
+         pass.get(),
+         int(pass->GetType()));
 
   mFrontToBack.push_back(pass);
 }
@@ -327,7 +334,10 @@ RenderViewMLGPU::AddItemBackToFront(LayerMLGPU* aLayer, ItemInfo& aItem)
     RenderPassMLGPU* pass = (*iter);
     if (pass->IsCompatible(aItem) && pass->AcceptItem(aItem)) {
       AL_LOG("RenderView %p added layer %p to pass %p (%d)\n",
-        this, aLayer->GetLayer(), pass, int(pass->GetType()));
+             this,
+             aLayer->GetLayer(),
+             pass,
+             int(pass->GetType()));
       return;
     }
     if (pass->Intersects(aItem)) {
@@ -344,7 +354,10 @@ RenderViewMLGPU::AddItemBackToFront(LayerMLGPU* aLayer, ItemInfo& aItem)
     return;
   }
   AL_LOG("RenderView %p added layer %p to new pass %p (%d)\n",
-    this, aLayer->GetLayer(), pass.get(), int(pass->GetType()));
+         this,
+         aLayer->GetLayer(),
+         pass.get(),
+         int(pass->GetType()));
 
   mBackToFront.push_front(pass);
 }
@@ -380,7 +393,8 @@ RenderViewMLGPU::Prepare()
     memcpy(vsConstants.projection, &projection._11, 64);
     vsConstants.targetOffset = Point(mTargetOffset);
     vsConstants.sortIndexOffset = PrepareDepthBuffer();
-    vsConstants.debugFrameNumber = mBuilder->GetManager()->GetDebugFrameNumber();
+    vsConstants.debugFrameNumber =
+        mBuilder->GetManager()->GetDebugFrameNumber();
 
     SharedConstantBuffer* shared = mDevice->GetSharedVSBuffer();
     if (!shared->Allocate(&mWorldConstants, vsConstants)) {
@@ -467,17 +481,18 @@ RenderViewMLGPU::ExecutePass(RenderPassMLGPU* aPass)
   if (aPass->GetLayerBufferIndex() != mCurrentLayerBufferIndex) {
     mCurrentLayerBufferIndex = aPass->GetLayerBufferIndex();
 
-    ConstantBufferSection section = mBuilder->GetLayerBufferByIndex(mCurrentLayerBufferIndex);
+    ConstantBufferSection section =
+        mBuilder->GetLayerBufferByIndex(mCurrentLayerBufferIndex);
     mDevice->SetVSConstantBuffer(kLayerBufferSlot, &section);
   }
 
   // Change the mask rect buffer if needed.
   if (aPass->GetMaskRectBufferIndex() &&
-      aPass->GetMaskRectBufferIndex().value() != mCurrentMaskRectBufferIndex)
-  {
+      aPass->GetMaskRectBufferIndex().value() != mCurrentMaskRectBufferIndex) {
     mCurrentMaskRectBufferIndex = aPass->GetMaskRectBufferIndex().value();
 
-    ConstantBufferSection section = mBuilder->GetMaskRectBufferByIndex(mCurrentMaskRectBufferIndex);
+    ConstantBufferSection section =
+        mBuilder->GetMaskRectBufferByIndex(mCurrentMaskRectBufferIndex);
     mDevice->SetVSConstantBuffer(kMaskBufferSlot, &section);
   }
 
@@ -588,5 +603,5 @@ RenderViewMLGPU::PrepareClears()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

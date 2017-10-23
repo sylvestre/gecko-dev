@@ -34,13 +34,14 @@ namespace dom {
  * |PresentationControllingInfo| (sender side) or |PresentationPresentingInfo|
  * (receiver side) in PresentationSessionInfo.cpp.
  */
-class PresentationTCPSessionTransport final : public nsIPresentationSessionTransport
-                                            , public nsIPresentationTCPSessionTransportBuilder
-                                            , public nsITransportEventSink
-                                            , public nsIInputStreamCallback
-                                            , public nsIStreamListener
+class PresentationTCPSessionTransport final
+    : public nsIPresentationSessionTransport,
+      public nsIPresentationTCPSessionTransportBuilder,
+      public nsITransportEventSink,
+      public nsIInputStreamCallback,
+      public nsIStreamListener
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(PresentationTCPSessionTransport,
                                            nsIPresentationSessionTransport)
@@ -57,7 +58,7 @@ public:
 
   void NotifyCopyComplete(nsresult aStatus);
 
-private:
+ private:
   ~PresentationTCPSessionTransport();
 
   nsresult CreateStream();
@@ -66,7 +67,8 @@ private:
 
   void EnsureCopying();
 
-  enum class ReadyState {
+  enum class ReadyState
+  {
     CONNECTING,
     OPEN,
     CLOSING,
@@ -104,7 +106,7 @@ private:
   nsCOMPtr<nsIPresentationSessionTransportBuilderListener> mListener;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationSessionTransport_h
+#endif  // mozilla_dom_PresentationSessionTransport_h

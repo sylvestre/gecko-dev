@@ -18,29 +18,22 @@ namespace js {
 // This variable exists solely to provide a unique address for use as an identifier.
 extern const char sWrapperFamily;
 
-class WrapperObject : public ProxyObject
-{
-};
+class WrapperObject : public ProxyObject {};
 
-class CrossCompartmentWrapperObject : public WrapperObject
-{
-  public:
+class CrossCompartmentWrapperObject : public WrapperObject {
+   public:
     static const unsigned GrayLinkReservedSlot = 1;
 };
 
-} // namespace js
+}  // namespace js
 
-template<>
-inline bool
-JSObject::is<js::WrapperObject>() const
-{
+template <>
+inline bool JSObject::is<js::WrapperObject>() const {
     return js::IsWrapper(const_cast<JSObject*>(this));
 }
 
-template<>
-inline bool
-JSObject::is<js::CrossCompartmentWrapperObject>() const
-{
+template <>
+inline bool JSObject::is<js::CrossCompartmentWrapperObject>() const {
     return js::IsCrossCompartmentWrapper(const_cast<JSObject*>(this));
 }
 

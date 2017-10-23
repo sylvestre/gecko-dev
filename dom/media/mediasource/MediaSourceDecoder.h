@@ -19,11 +19,11 @@ namespace dom {
 
 class MediaSource;
 
-} // namespace dom
+}  // namespace dom
 
 class MediaSourceDecoder : public MediaDecoder
 {
-public:
+ public:
   explicit MediaSourceDecoder(MediaDecoderInit& aInit);
 
   nsresult Load(nsIPrincipal* aPrincipal);
@@ -43,10 +43,7 @@ public:
   void SetInitialDuration(int64_t aDuration);
   void SetMediaSourceDuration(double aDuration);
 
-  MediaSourceDemuxer* GetDemuxer()
-  {
-    return mDemuxer;
-  }
+  MediaSourceDemuxer* GetDemuxer() { return mDemuxer; }
 
   already_AddRefed<nsIPrincipal> GetCurrentPrincipal() override;
 
@@ -64,7 +61,7 @@ public:
 
   void NotifyInitDataArrived();
 
-private:
+ private:
   void PinForSeek() override {}
   void UnpinForSeek() override {}
   MediaDecoderStateMachine* CreateStateMachine();
@@ -84,6 +81,6 @@ private:
   bool mEnded;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_MEDIASOURCEDECODER_H_ */

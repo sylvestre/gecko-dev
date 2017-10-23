@@ -24,13 +24,14 @@ class CloseFileRunnable final : public nsIRunnable
 
   FileDescriptor mFileDescriptor;
 
-public:
+ public:
   explicit CloseFileRunnable(const FileDescriptor& aFileDescriptor)
 #ifdef DEBUG
-  ;
+      ;
 #else
-  : mFileDescriptor(aFileDescriptor)
-  { }
+      : mFileDescriptor(aFileDescriptor)
+  {
+  }
 #endif
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -38,7 +39,7 @@ public:
 
   void Dispatch();
 
-private:
+ private:
   ~CloseFileRunnable();
 
   void CloseFile();
@@ -47,15 +48,16 @@ private:
 // On failure, FileDescriptorToFILE returns nullptr; on success,
 // returns duplicated FILE*.
 // This is meant for use with FileDescriptors received over IPC.
-FILE* FileDescriptorToFILE(const FileDescriptor& aDesc,
-                           const char* aOpenMode);
+FILE*
+FileDescriptorToFILE(const FileDescriptor& aDesc, const char* aOpenMode);
 
 // FILEToFileDescriptor does not consume the given FILE*; it must be
 // fclose()d as normal, and this does not invalidate the returned
 // FileDescriptor.
-FileDescriptor FILEToFileDescriptor(FILE* aStream);
+FileDescriptor
+FILEToFileDescriptor(FILE* aStream);
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_FileDescriptorUtils_h
+#endif  // mozilla_ipc_FileDescriptorUtils_h

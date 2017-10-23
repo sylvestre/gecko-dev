@@ -9,10 +9,10 @@
 #define MOZILLA_GFX_VR_VRMANAGERCHILD_H
 
 #include "mozilla/gfx/PVRManagerChild.h"
-#include "mozilla/ipc/SharedMemory.h"   // for SharedMemory, etc
+#include "mozilla/ipc/SharedMemory.h"  // for SharedMemory, etc
 #include "ThreadSafeRefcountingWithMainThreadDestruction.h"
 #include "mozilla/layers/ISurfaceAllocator.h"  // for ISurfaceAllocator
-#include "mozilla/layers/LayersTypes.h"  // for LayersBackend
+#include "mozilla/layers/LayersTypes.h"        // for LayersBackend
 #include "mozilla/layers/TextureForwarder.h"
 
 namespace mozilla {
@@ -23,18 +23,18 @@ class Navigator;
 class VRDisplay;
 class VREventObserver;
 class VRMockDisplay;
-} // namespace dom
+}  // namespace dom
 namespace layers {
 class SyncObjectClient;
 class TextureClient;
-}
+}  // namespace layers
 namespace gfx {
 class VRLayerChild;
 class VRDisplayClient;
 
 class VRManagerChild : public PVRManagerChild
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRManagerChild);
 
   static VRManagerChild* Get();
@@ -44,12 +44,13 @@ public:
   // Indicate that an observer should no longer receive VR events.
   void RemoveListener(dom::VREventObserver* aObserver);
 
-  bool GetVRDisplays(nsTArray<RefPtr<VRDisplayClient> >& aDisplays);
+  bool GetVRDisplays(nsTArray<RefPtr<VRDisplayClient>>& aDisplays);
   bool RefreshVRDisplaysWithCallback(uint64_t aWindowId);
   void AddPromise(const uint32_t& aID, dom::Promise* aPromise);
 
   void CreateVRServiceTestDisplay(const nsCString& aID, dom::Promise* aPromise);
-  void CreateVRServiceTestController(const nsCString& aID, dom::Promise* aPromise);
+  void CreateVRServiceTestController(const nsCString& aID,
+                                     dom::Promise* aPromise);
 
   static void InitSameProcess();
   static void InitWithGPUProcess(Endpoint<PVRManagerChild>&& aEndpoint);
@@ -63,12 +64,13 @@ public:
                                nsIEventTarget* aTarget,
                                uint32_t aGroup);
 
-  static void IdentifyTextureHost(const layers::TextureFactoryIdentifier& aIdentifier);
+  static void IdentifyTextureHost(
+      const layers::TextureFactoryIdentifier& aIdentifier);
   layers::LayersBackend GetBackendType() const;
   layers::SyncObjectClient* GetSyncObject() { return mSyncObject; }
 
-  nsresult ScheduleFrameRequestCallback(mozilla::dom::FrameRequestCallback& aCallback,
-    int32_t *aHandle);
+  nsresult ScheduleFrameRequestCallback(
+      mozilla::dom::FrameRequestCallback& aCallback, int32_t* aHandle);
   void CancelFrameRequestCallback(int32_t aHandle);
   void RunFrameRequestCallbacks();
 
@@ -79,9 +81,10 @@ public:
   void FireDOMVRDisplayDisconnectEvent(uint32_t aDisplayID);
   void FireDOMVRDisplayPresentChangeEvent(uint32_t aDisplayID);
 
-  virtual void HandleFatalError(const char* aName, const char* aMsg) const override;
+  virtual void HandleFatalError(const char* aName,
+                                const char* aMsg) const override;
 
-protected:
+ protected:
   explicit VRManagerChild();
   ~VRManagerChild();
   void Destroy();
@@ -91,26 +94,31 @@ protected:
                                             const uint32_t& aGroup) override;
   virtual bool DeallocPVRLayerChild(PVRLayerChild* actor) override;
 
-  virtual mozilla::ipc::IPCResult RecvUpdateDisplayInfo(nsTArray<VRDisplayInfo>&& aDisplayUpdates) override;
+  virtual mozilla::ipc::IPCResult RecvUpdateDisplayInfo(
+      nsTArray<VRDisplayInfo>&& aDisplayUpdates) override;
 
-  virtual mozilla::ipc::IPCResult RecvParentAsyncMessages(InfallibleTArray<AsyncParentMessageData>&& aMessages) override;
+  virtual mozilla::ipc::IPCResult RecvParentAsyncMessages(
+      InfallibleTArray<AsyncParentMessageData>&& aMessages) override;
 
-  virtual mozilla::ipc::IPCResult RecvDispatchSubmitFrameResult(const uint32_t& aDisplayID, const VRSubmitFrameResultInfo& aResult) override;
-  virtual mozilla::ipc::IPCResult RecvGamepadUpdate(const GamepadChangeEvent& aGamepadEvent) override;
-  virtual mozilla::ipc::IPCResult RecvReplyGamepadVibrateHaptic(const uint32_t& aPromiseID) override;
+  virtual mozilla::ipc::IPCResult RecvDispatchSubmitFrameResult(
+      const uint32_t& aDisplayID,
+      const VRSubmitFrameResultInfo& aResult) override;
+  virtual mozilla::ipc::IPCResult RecvGamepadUpdate(
+      const GamepadChangeEvent& aGamepadEvent) override;
+  virtual mozilla::ipc::IPCResult RecvReplyGamepadVibrateHaptic(
+      const uint32_t& aPromiseID) override;
 
-  virtual mozilla::ipc::IPCResult RecvReplyCreateVRServiceTestDisplay(const nsCString& aID,
-                                                                      const uint32_t& aPromiseID,
-                                                                      const uint32_t& aDeviceID) override;
-  virtual mozilla::ipc::IPCResult RecvReplyCreateVRServiceTestController(const nsCString& aID,
-                                                                         const uint32_t& aPromiseID,
-                                                                         const uint32_t& aDeviceID) override;
-  bool IsSameProcess() const
-  {
-    return OtherPid() == base::GetCurrentProcId();
-  }
-private:
+  virtual mozilla::ipc::IPCResult RecvReplyCreateVRServiceTestDisplay(
+      const nsCString& aID,
+      const uint32_t& aPromiseID,
+      const uint32_t& aDeviceID) override;
+  virtual mozilla::ipc::IPCResult RecvReplyCreateVRServiceTestController(
+      const nsCString& aID,
+      const uint32_t& aPromiseID,
+      const uint32_t& aDeviceID) override;
+  bool IsSameProcess() const { return OtherPid() == base::GetCurrentProcId(); }
 
+ private:
   void FireDOMVRDisplayMountedEventInternal(uint32_t aDisplayID);
   void FireDOMVRDisplayUnmountedEventInternal(uint32_t aDisplayID);
   void FireDOMVRDisplayConnectEventInternal(uint32_t aDisplayID);
@@ -122,7 +130,7 @@ private:
   */
   void NotifyNotUsed(uint64_t aTextureId, uint64_t aFwdTransactionId);
 
-  nsTArray<RefPtr<VRDisplayClient> > mDisplays;
+  nsTArray<RefPtr<VRDisplayClient>> mDisplays;
   bool mDisplaysInitialized;
   nsTArray<uint64_t> mNavigatorCallbacks;
 
@@ -143,11 +151,13 @@ private:
   * Hold TextureClients refs until end of their usages on host side.
   * It defer calling of TextureClient recycle callback.
   */
-  nsDataHashtable<nsUint64HashKey, RefPtr<layers::TextureClient> > mTexturesWaitingRecycled;
+  nsDataHashtable<nsUint64HashKey, RefPtr<layers::TextureClient>>
+      mTexturesWaitingRecycled;
 
   layers::LayersBackend mBackend;
   RefPtr<layers::SyncObjectClient> mSyncObject;
-  nsRefPtrHashtable<nsUint32HashKey, dom::Promise> mGamepadPromiseList; // TODO: check if it can merge into one list?
+  nsRefPtrHashtable<nsUint32HashKey, dom::Promise>
+      mGamepadPromiseList;  // TODO: check if it can merge into one list?
   uint32_t mPromiseID;
   nsRefPtrHashtable<nsUint32HashKey, dom::Promise> mPromiseList;
   RefPtr<dom::VRMockDisplay> mVRMockDisplay;
@@ -155,7 +165,7 @@ private:
   DISALLOW_COPY_AND_ASSIGN(VRManagerChild);
 };
 
-} // namespace mozilla
-} // namespace gfx
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_VR_VRMANAGERCHILD_H
+#endif  // MOZILLA_GFX_VR_VRMANAGERCHILD_H

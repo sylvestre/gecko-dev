@@ -39,23 +39,24 @@ class FFTBlock final
     kiss_fft_cpx c;
 #endif
     float f[2];
-    struct {
+    struct
+    {
       float r;
       float i;
     };
   };
 
-public:
+ public:
   explicit FFTBlock(uint32_t aFFTSize)
 #if defined(MOZ_LIBAV_FFT)
-    : mAvRDFT(nullptr)
-    , mAvIRDFT(nullptr)
+      : mAvRDFT(nullptr), mAvIRDFT(nullptr)
 #else
-    : mKissFFT(nullptr)
-    , mKissIFFT(nullptr)
+      : mKissFFT(nullptr),
+        mKissIFFT(nullptr)
 #ifdef BUILD_ARM_NEON
-    , mOmxFFT(nullptr)
-    , mOmxIFFT(nullptr)
+        ,
+        mOmxFFT(nullptr),
+        mOmxIFFT(nullptr)
 #endif
 #endif
   {
@@ -70,9 +71,9 @@ public:
 
   // Return a new FFTBlock with frequency components interpolated between
   // |block0| and |block1| with |interp| between 0.0 and 1.0.
-  static FFTBlock*
-  CreateInterpolatedBlock(const FFTBlock& block0,
-                          const FFTBlock& block1, double interp);
+  static FFTBlock* CreateInterpolatedBlock(const FFTBlock& block0,
+                                           const FFTBlock& block1,
+                                           double interp);
 
   // Transform FFTSize() points of aData and store the result internally.
   void PerformFFT(const float* aData)
@@ -113,15 +114,16 @@ public:
       // Even though this function doesn't scale, the libav forward transform
       // gives a value that needs scaling by 2 in order for things to turn out
       // similar to how we expect from kissfft/openmax.
-      AudioBufferCopyWithScale(mOutputBuffer.Elements()->f, 2.0f,
-                               aDataOut, mFFTSize);
-      aDataOut[1] = 2.0f * mOutputBuffer[mFFTSize/2].r; // Packed Nyquist
+      AudioBufferCopyWithScale(
+          mOutputBuffer.Elements()->f, 2.0f, aDataOut, mFFTSize);
+      aDataOut[1] = 2.0f * mOutputBuffer[mFFTSize / 2].r;  // Packed Nyquist
       av_rdft_calc(mAvIRDFT, aDataOut);
     }
 #else
 #ifdef BUILD_ARM_NEON
     if (mozilla::supports_neon()) {
-      omxSP_FFTInv_CCSToR_F32_Sfs_unscaled(mOutputBuffer.Elements()->f, aDataOut, mOmxIFFT);
+      omxSP_FFTInv_CCSToR_F32_Sfs_unscaled(
+          mOutputBuffer.Elements()->f, aDataOut, mOmxIFFT);
     } else
 #endif
     {
@@ -155,8 +157,8 @@ public:
     MOZ_ASSERT(dataSize <= FFTSize());
     AlignedTArray<float> paddedData;
     paddedData.SetLength(FFTSize());
-    AudioBufferCopyWithScale(aData, 1.0f / FFTSize(),
-                             paddedData.Elements(), dataSize);
+    AudioBufferCopyWithScale(
+        aData, 1.0f / FFTSize(), paddedData.Elements(), dataSize);
     PodZero(paddedData.Elements() + dataSize, mFFTSize - dataSize);
     PerformFFT(paddedData.Elements());
   }
@@ -172,26 +174,11 @@ public:
   // Return the average group delay and removes this from the frequency data.
   double ExtractAverageGroupDelay();
 
-  uint32_t FFTSize() const
-  {
-    return mFFTSize;
-  }
-  float RealData(uint32_t aIndex) const
-  {
-    return mOutputBuffer[aIndex].r;
-  }
-  float& RealData(uint32_t aIndex)
-  {
-    return mOutputBuffer[aIndex].r;
-  }
-  float ImagData(uint32_t aIndex) const
-  {
-    return mOutputBuffer[aIndex].i;
-  }
-  float& ImagData(uint32_t aIndex)
-  {
-    return mOutputBuffer[aIndex].i;
-  }
+  uint32_t FFTSize() const { return mFFTSize; }
+  float RealData(uint32_t aIndex) const { return mOutputBuffer[aIndex].r; }
+  float& RealData(uint32_t aIndex) { return mOutputBuffer[aIndex].r; }
+  float ImagData(uint32_t aIndex) const { return mOutputBuffer[aIndex].i; }
+  float& ImagData(uint32_t aIndex) { return mOutputBuffer[aIndex].i; }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
   {
@@ -212,7 +199,7 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   FFTBlock(const FFTBlock& other) = delete;
   void operator=(const FFTBlock& other) = delete;
 
@@ -220,7 +207,7 @@ private:
   {
 #if defined(MOZ_LIBAV_FFT)
     if (!mAvRDFT) {
-      mAvRDFT = av_rdft_init(log((double)mFFTSize)/M_LN2, DFT_R2C);
+      mAvRDFT = av_rdft_init(log((double)mFFTSize) / M_LN2, DFT_R2C);
     }
 #else
 #ifdef BUILD_ARM_NEON
@@ -241,7 +228,7 @@ private:
   {
 #if defined(MOZ_LIBAV_FFT)
     if (!mAvIRDFT) {
-      mAvIRDFT = av_rdft_init(log((double)mFFTSize)/M_LN2, IDFT_C2R);
+      mAvIRDFT = av_rdft_init(log((double)mFFTSize) / M_LN2, IDFT_C2R);
     }
 #else
 #ifdef BUILD_ARM_NEON
@@ -262,13 +249,14 @@ private:
 #ifdef BUILD_ARM_NEON
   static OMXFFTSpec_R_F32* createOmxFFT(uint32_t aFFTSize)
   {
-    MOZ_ASSERT((aFFTSize & (aFFTSize-1)) == 0);
+    MOZ_ASSERT((aFFTSize & (aFFTSize - 1)) == 0);
     OMX_INT bufSize;
-    OMX_INT order = log((double)aFFTSize)/M_LN2;
-    MOZ_ASSERT(aFFTSize>>order == 1);
+    OMX_INT order = log((double)aFFTSize) / M_LN2;
+    MOZ_ASSERT(aFFTSize >> order == 1);
     OMXResult status = omxSP_FFTGetBufSize_R_F32(order, &bufSize);
     if (status == OMX_Sts_NoErr) {
-      OMXFFTSpec_R_F32* context = static_cast<OMXFFTSpec_R_F32*>(malloc(bufSize));
+      OMXFFTSpec_R_F32* context =
+          static_cast<OMXFFTSpec_R_F32*>(malloc(bufSize));
       if (omxSP_FFTInit_R_F32(context, order) != OMX_Sts_NoErr) {
         return nullptr;
       }
@@ -297,10 +285,11 @@ private:
   }
   void AddConstantGroupDelay(double sampleFrameDelay);
   void InterpolateFrequencyComponents(const FFTBlock& block0,
-                                      const FFTBlock& block1, double interp);
+                                      const FFTBlock& block1,
+                                      double interp);
 #if defined(MOZ_LIBAV_FFT)
-  RDFTContext *mAvRDFT;
-  RDFTContext *mAvIRDFT;
+  RDFTContext* mAvRDFT;
+  RDFTContext* mAvIRDFT;
 #else
   kiss_fftr_cfg mKissFFT;
   kiss_fftr_cfg mKissIFFT;
@@ -313,7 +302,6 @@ private:
   uint32_t mFFTSize;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif
-

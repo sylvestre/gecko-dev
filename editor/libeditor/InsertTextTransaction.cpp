@@ -5,14 +5,14 @@
 
 #include "InsertTextTransaction.h"
 
-#include "mozilla/EditorBase.h"         // mEditorBase
-#include "mozilla/SelectionState.h"     // RangeUpdater
-#include "mozilla/dom/Selection.h"      // Selection local var
-#include "mozilla/dom/Text.h"           // mTextNode
-#include "nsAString.h"                  // nsAString parameter
-#include "nsDebug.h"                    // for NS_ASSERTION, etc.
-#include "nsError.h"                    // for NS_OK, etc.
-#include "nsQueryObject.h"              // for do_QueryObject
+#include "mozilla/EditorBase.h"      // mEditorBase
+#include "mozilla/SelectionState.h"  // RangeUpdater
+#include "mozilla/dom/Selection.h"   // Selection local var
+#include "mozilla/dom/Text.h"        // mTextNode
+#include "nsAString.h"               // nsAString parameter
+#include "nsDebug.h"                 // for NS_ASSERTION, etc.
+#include "nsError.h"                 // for NS_OK, etc.
+#include "nsQueryObject.h"           // for do_QueryObject
 
 namespace mozilla {
 
@@ -23,19 +23,18 @@ InsertTextTransaction::InsertTextTransaction(Text& aTextNode,
                                              const nsAString& aStringToInsert,
                                              EditorBase& aEditorBase,
                                              RangeUpdater* aRangeUpdater)
-  : mTextNode(&aTextNode)
-  , mOffset(aOffset)
-  , mStringToInsert(aStringToInsert)
-  , mEditorBase(&aEditorBase)
-  , mRangeUpdater(aRangeUpdater)
+    : mTextNode(&aTextNode),
+      mOffset(aOffset),
+      mStringToInsert(aStringToInsert),
+      mEditorBase(&aEditorBase),
+      mRangeUpdater(aRangeUpdater)
 {
 }
 
-InsertTextTransaction::~InsertTextTransaction()
-{
-}
+InsertTextTransaction::~InsertTextTransaction() {}
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(InsertTextTransaction, EditTransactionBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(InsertTextTransaction,
+                                   EditTransactionBase,
                                    mEditorBase,
                                    mTextNode)
 
@@ -46,7 +45,6 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(InsertTextTransaction)
     foundInterface = static_cast<nsITransaction*>(this);
   } else
 NS_INTERFACE_MAP_END_INHERITING(EditTransactionBase)
-
 
 NS_IMETHODIMP
 InsertTextTransaction::DoTransaction()
@@ -63,7 +61,7 @@ InsertTextTransaction::DoTransaction()
     RefPtr<Selection> selection = mEditorBase->GetSelection();
     NS_ENSURE_TRUE(selection, NS_ERROR_NULL_POINTER);
     DebugOnly<nsresult> rv =
-      selection->Collapse(mTextNode, mOffset + mStringToInsert.Length());
+        selection->Collapse(mTextNode, mOffset + mStringToInsert.Length());
     NS_ASSERTION(NS_SUCCEEDED(rv),
                  "Selection could not be collapsed after insert");
   } else {
@@ -81,8 +79,7 @@ InsertTextTransaction::UndoTransaction()
 }
 
 NS_IMETHODIMP
-InsertTextTransaction::Merge(nsITransaction* aTransaction,
-                             bool* aDidMerge)
+InsertTextTransaction::Merge(nsITransaction* aTransaction, bool* aDidMerge)
 {
   if (!aTransaction || !aDidMerge) {
     return NS_OK;
@@ -121,10 +118,10 @@ InsertTextTransaction::GetData(nsString& aResult)
 
 bool
 InsertTextTransaction::IsSequentialInsert(
-                         InsertTextTransaction& aOtherTransaction)
+    InsertTextTransaction& aOtherTransaction)
 {
   return aOtherTransaction.mTextNode == mTextNode &&
          aOtherTransaction.mOffset == mOffset + mStringToInsert.Length();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

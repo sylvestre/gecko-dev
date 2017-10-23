@@ -31,9 +31,9 @@ PermissionStatus::Create(nsPIDOMWindowInner* aWindow,
 
 PermissionStatus::PermissionStatus(nsPIDOMWindowInner* aWindow,
                                    PermissionName aName)
-  : DOMEventTargetHelper(aWindow)
-  , mName(aName)
-  , mState(PermissionState::Denied)
+    : DOMEventTargetHelper(aWindow),
+      mName(aName),
+      mState(PermissionState::Denied)
 {
 }
 
@@ -82,9 +82,8 @@ PermissionStatus::UpdateState()
   }
 
   uint32_t action = nsIPermissionManager::DENY_ACTION;
-  nsresult rv = permMgr->TestPermissionFromWindow(window,
-                                                  PermissionNameToType(mName),
-                                                  &action);
+  nsresult rv = permMgr->TestPermissionFromWindow(
+      window, PermissionNameToType(mName), &action);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -107,7 +106,8 @@ PermissionStatus::GetPrincipal() const
   }
 
   nsCOMPtr<nsIPrincipal> principal =
-    mozilla::BasePrincipal::Cast(doc->NodePrincipal())->CloneStrippingUserContextIdAndFirstPartyDomain();
+      mozilla::BasePrincipal::Cast(doc->NodePrincipal())
+          ->CloneStrippingUserContextIdAndFirstPartyDomain();
   NS_ENSURE_TRUE(principal, nullptr);
 
   return principal.forget();
@@ -120,10 +120,10 @@ PermissionStatus::PermissionChanged()
   UpdateState();
   if (mState != oldState) {
     RefPtr<AsyncEventDispatcher> eventDispatcher =
-      new AsyncEventDispatcher(this, NS_LITERAL_STRING("change"), false);
+        new AsyncEventDispatcher(this, NS_LITERAL_STRING("change"), false);
     eventDispatcher->PostDOMEvent();
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

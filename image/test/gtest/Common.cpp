@@ -41,7 +41,8 @@ AutoInitializeImageLib::AutoInitializeImageLib()
   Preferences::SetBool("gfx.color_management.force_srgb", true);
 
   // Ensure that ImageLib services are initialized.
-  nsCOMPtr<imgITools> imgTools = do_CreateInstance("@mozilla.org/image/tools;1");
+  nsCOMPtr<imgITools> imgTools =
+      do_CreateInstance("@mozilla.org/image/tools;1");
   EXPECT_TRUE(imgTools != nullptr);
 
   // Ensure gfxPlatform is initialized.
@@ -103,13 +104,13 @@ LoadFile(const char* aRelativePath)
   nsresult rv;
 
   nsCOMPtr<nsIProperties> dirService =
-    do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID);
   ASSERT_TRUE_OR_RETURN(dirService != nullptr, nullptr);
 
   // Retrieve the current working directory.
   nsCOMPtr<nsIFile> file;
-  rv = dirService->Get(NS_OS_CURRENT_WORKING_DIR,
-                       NS_GET_IID(nsIFile), getter_AddRefs(file));
+  rv = dirService->Get(
+      NS_OS_CURRENT_WORKING_DIR, NS_GET_IID(nsIFile), getter_AddRefs(file));
   ASSERT_TRUE_OR_RETURN(NS_SUCCEEDED(rv), nullptr);
 
   // Construct the final path by appending the working path to the current
@@ -124,8 +125,8 @@ LoadFile(const char* aRelativePath)
   // Ensure the resulting input stream is buffered.
   if (!NS_InputStreamIsBuffered(inputStream)) {
     nsCOMPtr<nsIInputStream> bufStream;
-    rv = NS_NewBufferedInputStream(getter_AddRefs(bufStream),
-                                   inputStream.forget(), 1024);
+    rv = NS_NewBufferedInputStream(
+        getter_AddRefs(bufStream), inputStream.forget(), 1024);
     ASSERT_TRUE_OR_RETURN(NS_SUCCEEDED(rv), nullptr);
     inputStream = bufStream;
   }
@@ -134,13 +135,11 @@ LoadFile(const char* aRelativePath)
 }
 
 bool
-IsSolidColor(SourceSurface* aSurface,
-             BGRAColor aColor,
-             uint8_t aFuzz /* = 0 */)
+IsSolidColor(SourceSurface* aSurface, BGRAColor aColor, uint8_t aFuzz /* = 0 */)
 {
   IntSize size = aSurface->GetSize();
-  return RectIsSolidColor(aSurface, IntRect(0, 0, size.width, size.height),
-                          aColor, aFuzz);
+  return RectIsSolidColor(
+      aSurface, IntRect(0, 0, size.width, size.height), aColor, aFuzz);
 }
 
 bool
@@ -158,8 +157,8 @@ RowsAreSolidColor(SourceSurface* aSurface,
                   uint8_t aFuzz /* = 0 */)
 {
   IntSize size = aSurface->GetSize();
-  return RectIsSolidColor(aSurface, IntRect(0, aStartRow, size.width, aRowCount),
-                          aColor, aFuzz);
+  return RectIsSolidColor(
+      aSurface, IntRect(0, aStartRow, size.width, aRowCount), aColor, aFuzz);
 }
 
 bool
@@ -182,7 +181,7 @@ RectIsSolidColor(SourceSurface* aSurface,
 {
   IntSize surfaceSize = aSurface->GetSize();
   IntRect rect =
-    aRect.Intersect(IntRect(0, 0, surfaceSize.width, surfaceSize.height));
+      aRect.Intersect(IntRect(0, 0, surfaceSize.width, surfaceSize.height));
 
   RefPtr<DataSourceSurface> dataSurface = aSurface->GetDataSurface();
   ASSERT_TRUE_OR_RETURN(dataSurface != nullptr, false);
@@ -206,9 +205,9 @@ RectIsSolidColor(SourceSurface* aSurface,
         ASSERT_LE_OR_RETURN(abs(aColor.mRed - data[i + 2]), aFuzz, false);
         ASSERT_LE_OR_RETURN(abs(aColor.mAlpha - data[i + 3]), aFuzz, false);
       } else {
-        ASSERT_EQ_OR_RETURN(aColor.mBlue,  data[i + 0], false);
+        ASSERT_EQ_OR_RETURN(aColor.mBlue, data[i + 0], false);
         ASSERT_EQ_OR_RETURN(aColor.mGreen, data[i + 1], false);
-        ASSERT_EQ_OR_RETURN(aColor.mRed,   data[i + 2], false);
+        ASSERT_EQ_OR_RETURN(aColor.mRed, data[i + 2], false);
         ASSERT_EQ_OR_RETURN(aColor.mAlpha, data[i + 3], false);
       }
     }
@@ -218,7 +217,9 @@ RectIsSolidColor(SourceSurface* aSurface,
 }
 
 bool
-PalettedRectIsSolidColor(Decoder* aDecoder, const IntRect& aRect, uint8_t aColor)
+PalettedRectIsSolidColor(Decoder* aDecoder,
+                         const IntRect& aRect,
+                         uint8_t aColor)
 {
   RawAccessFrameRef currentFrame = aDecoder->GetCurrentFrameRef();
   uint8_t* imageData;
@@ -280,15 +281,14 @@ RowHasPixels(SourceSurface* aSurface,
   int32_t rowLength = dataSurface->Stride();
   for (int32_t col = 0; col < surfaceSize.width; ++col) {
     int32_t i = aRow * rowLength + col * 4;
-    ASSERT_EQ_OR_RETURN(aPixels[col].mBlue,  data[i + 0], false);
+    ASSERT_EQ_OR_RETURN(aPixels[col].mBlue, data[i + 0], false);
     ASSERT_EQ_OR_RETURN(aPixels[col].mGreen, data[i + 1], false);
-    ASSERT_EQ_OR_RETURN(aPixels[col].mRed,   data[i + 2], false);
+    ASSERT_EQ_OR_RETURN(aPixels[col].mRed, data[i + 2], false);
     ASSERT_EQ_OR_RETURN(aPixels[col].mAlpha, data[i + 3], false);
   }
 
   return true;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // SurfacePipe Helpers
@@ -300,9 +300,8 @@ CreateTrivialDecoder()
   gfxPrefs::GetSingleton();
   DecoderType decoderType = DecoderFactory::GetDecoderType("image/gif");
   auto sourceBuffer = MakeNotNull<RefPtr<SourceBuffer>>();
-  RefPtr<Decoder> decoder =
-    DecoderFactory::CreateAnonymousDecoder(decoderType, sourceBuffer, Nothing(),
-                                           DefaultSurfaceFlags());
+  RefPtr<Decoder> decoder = DecoderFactory::CreateAnonymousDecoder(
+      decoderType, sourceBuffer, Nothing(), DefaultSurfaceFlags());
   return decoder.forget();
 }
 
@@ -345,24 +344,30 @@ CheckGeneratedImage(Decoder* aDecoder,
   // Check that the area above the output rect is transparent. (Region 'A'.)
   EXPECT_TRUE(RectIsSolidColor(surface,
                                IntRect(0, 0, surfaceSize.width, aRect.y),
-                               BGRAColor::Transparent(), aFuzz));
+                               BGRAColor::Transparent(),
+                               aFuzz));
 
   // Check that the area to the left of the output rect is transparent. (Region 'B'.)
   EXPECT_TRUE(RectIsSolidColor(surface,
                                IntRect(0, aRect.y, aRect.x, aRect.YMost()),
-                               BGRAColor::Transparent(), aFuzz));
+                               BGRAColor::Transparent(),
+                               aFuzz));
 
   // Check that the area to the right of the output rect is transparent. (Region 'D'.)
   const int32_t widthOnRight = surfaceSize.width - aRect.XMost();
-  EXPECT_TRUE(RectIsSolidColor(surface,
-                               IntRect(aRect.XMost(), aRect.y, widthOnRight, aRect.YMost()),
-                               BGRAColor::Transparent(), aFuzz));
+  EXPECT_TRUE(RectIsSolidColor(
+      surface,
+      IntRect(aRect.XMost(), aRect.y, widthOnRight, aRect.YMost()),
+      BGRAColor::Transparent(),
+      aFuzz));
 
   // Check that the area below the output rect is transparent. (Region 'E'.)
   const int32_t heightBelow = surfaceSize.height - aRect.YMost();
-  EXPECT_TRUE(RectIsSolidColor(surface,
-                               IntRect(0, aRect.YMost(), surfaceSize.width, heightBelow),
-                               BGRAColor::Transparent(), aFuzz));
+  EXPECT_TRUE(RectIsSolidColor(
+      surface,
+      IntRect(0, aRect.YMost(), surfaceSize.width, heightBelow),
+      BGRAColor::Transparent(),
+      aFuzz));
 }
 
 void
@@ -387,26 +392,24 @@ CheckGeneratedPalettedImage(Decoder* aDecoder, const IntRect& aRect)
   EXPECT_TRUE(PalettedRectIsSolidColor(aDecoder, aRect, 255));
 
   // Check that the area above the output rect is all 0's. (Region 'A'.)
-  EXPECT_TRUE(PalettedRectIsSolidColor(aDecoder,
-                                       IntRect(0, 0, imageSize.width, aRect.y),
-                                       0));
+  EXPECT_TRUE(PalettedRectIsSolidColor(
+      aDecoder, IntRect(0, 0, imageSize.width, aRect.y), 0));
 
   // Check that the area to the left of the output rect is all 0's. (Region 'B'.)
-  EXPECT_TRUE(PalettedRectIsSolidColor(aDecoder,
-                                       IntRect(0, aRect.y, aRect.x, aRect.YMost()),
-                                       0));
+  EXPECT_TRUE(PalettedRectIsSolidColor(
+      aDecoder, IntRect(0, aRect.y, aRect.x, aRect.YMost()), 0));
 
   // Check that the area to the right of the output rect is all 0's. (Region 'D'.)
   const int32_t widthOnRight = imageSize.width - aRect.XMost();
-  EXPECT_TRUE(PalettedRectIsSolidColor(aDecoder,
-                                       IntRect(aRect.XMost(), aRect.y, widthOnRight, aRect.YMost()),
-                                       0));
+  EXPECT_TRUE(PalettedRectIsSolidColor(
+      aDecoder,
+      IntRect(aRect.XMost(), aRect.y, widthOnRight, aRect.YMost()),
+      0));
 
   // Check that the area below the output rect is transparent. (Region 'E'.)
   const int32_t heightBelow = imageSize.height - aRect.YMost();
-  EXPECT_TRUE(PalettedRectIsSolidColor(aDecoder,
-                                       IntRect(0, aRect.YMost(), imageSize.width, heightBelow),
-                                       0));
+  EXPECT_TRUE(PalettedRectIsSolidColor(
+      aDecoder, IntRect(0, aRect.YMost(), imageSize.width, heightBelow), 0));
 }
 
 void
@@ -457,13 +460,14 @@ CheckWritePixels(Decoder* aDecoder,
 }
 
 void
-CheckPalettedWritePixels(Decoder* aDecoder,
-                         SurfaceFilter* aFilter,
-                         const Maybe<IntRect>& aOutputRect /* = Nothing() */,
-                         const Maybe<IntRect>& aInputRect /* = Nothing() */,
-                         const Maybe<IntRect>& aInputWriteRect /* = Nothing() */,
-                         const Maybe<IntRect>& aOutputWriteRect /* = Nothing() */,
-                         uint8_t aFuzz /* = 0 */)
+CheckPalettedWritePixels(
+    Decoder* aDecoder,
+    SurfaceFilter* aFilter,
+    const Maybe<IntRect>& aOutputRect /* = Nothing() */,
+    const Maybe<IntRect>& aInputRect /* = Nothing() */,
+    const Maybe<IntRect>& aInputWriteRect /* = Nothing() */,
+    const Maybe<IntRect>& aOutputWriteRect /* = Nothing() */,
+    uint8_t aFuzz /* = 0 */)
 {
   IntRect outputRect = aOutputRect.valueOr(IntRect(0, 0, 100, 100));
   IntRect inputRect = aInputRect.valueOr(IntRect(0, 0, 100, 100));
@@ -505,144 +509,182 @@ CheckPalettedWritePixels(Decoder* aDecoder,
   uint32_t imageLength;
   currentFrame->GetImageData(&imageData, &imageLength);
   ASSERT_TRUE(imageData != nullptr);
-  ASSERT_EQ(outputWriteRect.Width() * outputWriteRect.Height(), int32_t(imageLength));
+  ASSERT_EQ(outputWriteRect.Width() * outputWriteRect.Height(),
+            int32_t(imageLength));
   for (uint32_t i = 0; i < imageLength; ++i) {
     ASSERT_EQ(uint8_t(255), imageData[i]);
   }
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Test Data
 ///////////////////////////////////////////////////////////////////////////////
 
-ImageTestCase GreenPNGTestCase()
+ImageTestCase
+GreenPNGTestCase()
 {
   return ImageTestCase("green.png", "image/png", IntSize(100, 100));
 }
 
-ImageTestCase GreenGIFTestCase()
+ImageTestCase
+GreenGIFTestCase()
 {
   return ImageTestCase("green.gif", "image/gif", IntSize(100, 100));
 }
 
-ImageTestCase GreenJPGTestCase()
+ImageTestCase
+GreenJPGTestCase()
 {
-  return ImageTestCase("green.jpg", "image/jpeg", IntSize(100, 100),
-                       TEST_CASE_IS_FUZZY);
+  return ImageTestCase(
+      "green.jpg", "image/jpeg", IntSize(100, 100), TEST_CASE_IS_FUZZY);
 }
 
-ImageTestCase GreenBMPTestCase()
+ImageTestCase
+GreenBMPTestCase()
 {
   return ImageTestCase("green.bmp", "image/bmp", IntSize(100, 100));
 }
 
-ImageTestCase GreenICOTestCase()
+ImageTestCase
+GreenICOTestCase()
 {
   // This ICO contains a 32-bit BMP, and we use a BMP's alpha data by default
   // when the BMP is embedded in an ICO, so it's transparent.
-  return ImageTestCase("green.ico", "image/x-icon", IntSize(100, 100),
-                       TEST_CASE_IS_TRANSPARENT);
+  return ImageTestCase(
+      "green.ico", "image/x-icon", IntSize(100, 100), TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase GreenIconTestCase()
+ImageTestCase
+GreenIconTestCase()
 {
-  return ImageTestCase("green.icon", "image/icon", IntSize(100, 100),
-                       TEST_CASE_IS_TRANSPARENT);
+  return ImageTestCase(
+      "green.icon", "image/icon", IntSize(100, 100), TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase GreenFirstFrameAnimatedGIFTestCase()
+ImageTestCase
+GreenFirstFrameAnimatedGIFTestCase()
 {
-  return ImageTestCase("first-frame-green.gif", "image/gif", IntSize(100, 100),
+  return ImageTestCase("first-frame-green.gif",
+                       "image/gif",
+                       IntSize(100, 100),
                        TEST_CASE_IS_ANIMATED);
 }
 
-ImageTestCase GreenFirstFrameAnimatedPNGTestCase()
+ImageTestCase
+GreenFirstFrameAnimatedPNGTestCase()
 {
-  return ImageTestCase("first-frame-green.png", "image/png", IntSize(100, 100),
+  return ImageTestCase("first-frame-green.png",
+                       "image/png",
+                       IntSize(100, 100),
                        TEST_CASE_IS_TRANSPARENT | TEST_CASE_IS_ANIMATED);
 }
 
-ImageTestCase CorruptTestCase()
+ImageTestCase
+CorruptTestCase()
 {
-  return ImageTestCase("corrupt.jpg", "image/jpeg", IntSize(100, 100),
-                       TEST_CASE_HAS_ERROR);
+  return ImageTestCase(
+      "corrupt.jpg", "image/jpeg", IntSize(100, 100), TEST_CASE_HAS_ERROR);
 }
 
-ImageTestCase CorruptBMPWithTruncatedHeader()
+ImageTestCase
+CorruptBMPWithTruncatedHeader()
 {
   // This BMP has a header which is truncated right between the BIH and the
   // bitfields, which is a particularly error-prone place w.r.t. the BMP decoder
   // state machine.
-  return ImageTestCase("invalid-truncated-metadata.bmp", "image/bmp",
-                       IntSize(100, 100), TEST_CASE_HAS_ERROR);
+  return ImageTestCase("invalid-truncated-metadata.bmp",
+                       "image/bmp",
+                       IntSize(100, 100),
+                       TEST_CASE_HAS_ERROR);
 }
 
-ImageTestCase CorruptICOWithBadBMPWidthTestCase()
+ImageTestCase
+CorruptICOWithBadBMPWidthTestCase()
 {
   // This ICO contains a BMP icon which has a width that doesn't match the size
   // listed in the corresponding ICO directory entry.
-  return ImageTestCase("corrupt-with-bad-bmp-width.ico", "image/x-icon",
-                       IntSize(100, 100), TEST_CASE_HAS_ERROR);
+  return ImageTestCase("corrupt-with-bad-bmp-width.ico",
+                       "image/x-icon",
+                       IntSize(100, 100),
+                       TEST_CASE_HAS_ERROR);
 }
 
-ImageTestCase CorruptICOWithBadBMPHeightTestCase()
+ImageTestCase
+CorruptICOWithBadBMPHeightTestCase()
 {
   // This ICO contains a BMP icon which has a height that doesn't match the size
   // listed in the corresponding ICO directory entry.
-  return ImageTestCase("corrupt-with-bad-bmp-height.ico", "image/x-icon",
-                       IntSize(100, 100), TEST_CASE_HAS_ERROR);
+  return ImageTestCase("corrupt-with-bad-bmp-height.ico",
+                       "image/x-icon",
+                       IntSize(100, 100),
+                       TEST_CASE_HAS_ERROR);
 }
 
-ImageTestCase CorruptICOWithBadBppTestCase()
+ImageTestCase
+CorruptICOWithBadBppTestCase()
 {
   // This test case is an ICO with a BPP (15) in the ICO header which differs
   // from that in the BMP header itself (1). It should ignore the ICO BPP when
   // the BMP BPP is available and thus correctly decode the image.
-  return ImageTestCase("corrupt-with-bad-ico-bpp.ico", "image/x-icon",
-                       IntSize(100, 100), TEST_CASE_IS_TRANSPARENT);
-}
-
-ImageTestCase TransparentPNGTestCase()
-{
-  return ImageTestCase("transparent.png", "image/png", IntSize(32, 32),
+  return ImageTestCase("corrupt-with-bad-ico-bpp.ico",
+                       "image/x-icon",
+                       IntSize(100, 100),
                        TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase TransparentGIFTestCase()
+ImageTestCase
+TransparentPNGTestCase()
 {
-  return ImageTestCase("transparent.gif", "image/gif", IntSize(16, 16),
+  return ImageTestCase("transparent.png",
+                       "image/png",
+                       IntSize(32, 32),
                        TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase FirstFramePaddingGIFTestCase()
+ImageTestCase
+TransparentGIFTestCase()
 {
-  return ImageTestCase("transparent.gif", "image/gif", IntSize(16, 16),
+  return ImageTestCase("transparent.gif",
+                       "image/gif",
+                       IntSize(16, 16),
                        TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase TransparentIfWithinICOBMPTestCase(TestCaseFlags aFlags)
+ImageTestCase
+FirstFramePaddingGIFTestCase()
+{
+  return ImageTestCase("transparent.gif",
+                       "image/gif",
+                       IntSize(16, 16),
+                       TEST_CASE_IS_TRANSPARENT);
+}
+
+ImageTestCase
+TransparentIfWithinICOBMPTestCase(TestCaseFlags aFlags)
 {
   // This is a BMP that is only transparent when decoded as if it is within an
   // ICO file. (Note: aFlags needs to be set to TEST_CASE_DEFAULT_FLAGS or
   // TEST_CASE_IS_TRANSPARENT accordingly.)
-  return ImageTestCase("transparent-if-within-ico.bmp", "image/bmp",
-                       IntSize(32, 32), aFlags);
+  return ImageTestCase(
+      "transparent-if-within-ico.bmp", "image/bmp", IntSize(32, 32), aFlags);
 }
 
-ImageTestCase RLE4BMPTestCase()
+ImageTestCase
+RLE4BMPTestCase()
 {
-  return ImageTestCase("rle4.bmp", "image/bmp", IntSize(320, 240),
-                       TEST_CASE_IS_TRANSPARENT);
+  return ImageTestCase(
+      "rle4.bmp", "image/bmp", IntSize(320, 240), TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase RLE8BMPTestCase()
+ImageTestCase
+RLE8BMPTestCase()
 {
-  return ImageTestCase("rle8.bmp", "image/bmp", IntSize(32, 32),
-                       TEST_CASE_IS_TRANSPARENT);
+  return ImageTestCase(
+      "rle8.bmp", "image/bmp", IntSize(32, 32), TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase NoFrameDelayGIFTestCase()
+ImageTestCase
+NoFrameDelayGIFTestCase()
 {
   // This is an invalid (or at least, questionably valid) GIF that's animated
   // even though it specifies a frame delay of zero. It's animated, but it's not
@@ -651,86 +693,111 @@ ImageTestCase NoFrameDelayGIFTestCase()
   return ImageTestCase("no-frame-delay.gif", "image/gif", IntSize(100, 100));
 }
 
-ImageTestCase ExtraImageSubBlocksAnimatedGIFTestCase()
+ImageTestCase
+ExtraImageSubBlocksAnimatedGIFTestCase()
 {
   // This is a corrupt GIF that has extra image sub blocks between the first and
   // second frame.
-  return ImageTestCase("animated-with-extra-image-sub-blocks.gif", "image/gif",
+  return ImageTestCase("animated-with-extra-image-sub-blocks.gif",
+                       "image/gif",
                        IntSize(100, 100));
 }
 
-ImageTestCase DownscaledPNGTestCase()
+ImageTestCase
+DownscaledPNGTestCase()
 {
   // This testcase (and all the other "downscaled") testcases) consists of 25
   // lines of green, followed by 25 lines of red, followed by 25 lines of green,
   // followed by 25 more lines of red. It's intended that tests downscale it
   // from 100x100 to 20x20, so we specify a 20x20 output size.
-  return ImageTestCase("downscaled.png", "image/png", IntSize(100, 100),
-                       IntSize(20, 20));
+  return ImageTestCase(
+      "downscaled.png", "image/png", IntSize(100, 100), IntSize(20, 20));
 }
 
-ImageTestCase DownscaledGIFTestCase()
+ImageTestCase
+DownscaledGIFTestCase()
 {
-  return ImageTestCase("downscaled.gif", "image/gif", IntSize(100, 100),
-                       IntSize(20, 20));
+  return ImageTestCase(
+      "downscaled.gif", "image/gif", IntSize(100, 100), IntSize(20, 20));
 }
 
-ImageTestCase DownscaledJPGTestCase()
+ImageTestCase
+DownscaledJPGTestCase()
 {
-  return ImageTestCase("downscaled.jpg", "image/jpeg", IntSize(100, 100),
-                       IntSize(20, 20));
+  return ImageTestCase(
+      "downscaled.jpg", "image/jpeg", IntSize(100, 100), IntSize(20, 20));
 }
 
-ImageTestCase DownscaledBMPTestCase()
+ImageTestCase
+DownscaledBMPTestCase()
 {
-  return ImageTestCase("downscaled.bmp", "image/bmp", IntSize(100, 100),
-                       IntSize(20, 20));
+  return ImageTestCase(
+      "downscaled.bmp", "image/bmp", IntSize(100, 100), IntSize(20, 20));
 }
 
-ImageTestCase DownscaledICOTestCase()
+ImageTestCase
+DownscaledICOTestCase()
 {
-  return ImageTestCase("downscaled.ico", "image/x-icon", IntSize(100, 100),
-                       IntSize(20, 20), TEST_CASE_IS_TRANSPARENT);
+  return ImageTestCase("downscaled.ico",
+                       "image/x-icon",
+                       IntSize(100, 100),
+                       IntSize(20, 20),
+                       TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase DownscaledIconTestCase()
+ImageTestCase
+DownscaledIconTestCase()
 {
-  return ImageTestCase("downscaled.icon", "image/icon", IntSize(100, 100),
-                       IntSize(20, 20), TEST_CASE_IS_TRANSPARENT);
+  return ImageTestCase("downscaled.icon",
+                       "image/icon",
+                       IntSize(100, 100),
+                       IntSize(20, 20),
+                       TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase DownscaledTransparentICOWithANDMaskTestCase()
+ImageTestCase
+DownscaledTransparentICOWithANDMaskTestCase()
 {
   // This test case is an ICO with AND mask transparency. We want to ensure that
   // we can downscale it without crashing or triggering ASAN failures, but its
   // content isn't simple to verify, so for now we don't check the output.
-  return ImageTestCase("transparent-ico-with-and-mask.ico", "image/x-icon",
-                       IntSize(32, 32), IntSize(20, 20),
+  return ImageTestCase("transparent-ico-with-and-mask.ico",
+                       "image/x-icon",
+                       IntSize(32, 32),
+                       IntSize(20, 20),
                        TEST_CASE_IS_TRANSPARENT | TEST_CASE_IGNORE_OUTPUT);
 }
 
-ImageTestCase TruncatedSmallGIFTestCase()
+ImageTestCase
+TruncatedSmallGIFTestCase()
 {
   return ImageTestCase("green-1x1-truncated.gif", "image/gif", IntSize(1, 1));
 }
 
-ImageTestCase LargeICOWithBMPTestCase()
+ImageTestCase
+LargeICOWithBMPTestCase()
 {
-  return ImageTestCase("green-large-bmp.ico", "image/x-icon", IntSize(256, 256),
+  return ImageTestCase("green-large-bmp.ico",
+                       "image/x-icon",
+                       IntSize(256, 256),
                        TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase LargeICOWithPNGTestCase()
+ImageTestCase
+LargeICOWithPNGTestCase()
 {
-  return ImageTestCase("green-large-png.ico", "image/x-icon", IntSize(512, 512),
+  return ImageTestCase("green-large-png.ico",
+                       "image/x-icon",
+                       IntSize(512, 512),
                        TEST_CASE_IS_TRANSPARENT);
 }
 
-ImageTestCase GreenMultipleSizesICOTestCase()
+ImageTestCase
+GreenMultipleSizesICOTestCase()
 {
-  return ImageTestCase("green-multiple-sizes.ico", "image/x-icon",
-                       IntSize(256, 256));
+  return ImageTestCase(
+      "green-multiple-sizes.ico", "image/x-icon", IntSize(256, 256));
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

@@ -23,8 +23,9 @@ namespace layers {
  * and stop of these two sets, and this class manages accumulating the union
  * of the various durations.
  */
-class PotentialCheckerboardDurationTracker {
-public:
+class PotentialCheckerboardDurationTracker
+{
+ public:
   PotentialCheckerboardDurationTracker();
 
   /**
@@ -44,17 +45,17 @@ public:
    */
   void InTransform(bool aInTransform);
 
-private:
+ private:
   bool Tracking() const;
 
-private:
+ private:
   bool mInCheckerboard;
   bool mInTransform;
 
   TimeStamp mCurrentPeriodStart;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_PotentialCheckerboardDurationTracker_h
+#endif  // mozilla_layers_PotentialCheckerboardDurationTracker_h

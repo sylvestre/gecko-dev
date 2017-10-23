@@ -42,18 +42,18 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TCPServerSocket)
   NS_INTERFACE_MAP_ENTRY(nsIServerSocketListener)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-TCPServerSocket::TCPServerSocket(nsIGlobalObject* aGlobal, uint16_t aPort,
-                                 bool aUseArrayBuffers, uint16_t aBacklog)
-  : DOMEventTargetHelper(aGlobal)
-  , mPort(aPort)
-  , mBacklog(aBacklog)
-  , mUseArrayBuffers(aUseArrayBuffers)
+TCPServerSocket::TCPServerSocket(nsIGlobalObject* aGlobal,
+                                 uint16_t aPort,
+                                 bool aUseArrayBuffers,
+                                 uint16_t aBacklog)
+    : DOMEventTargetHelper(aGlobal),
+      mPort(aPort),
+      mBacklog(aBacklog),
+      mUseArrayBuffers(aUseArrayBuffers)
 {
 }
 
-TCPServerSocket::~TCPServerSocket()
-{
-}
+TCPServerSocket::~TCPServerSocket() {}
 
 nsresult
 TCPServerSocket::Init()
@@ -68,13 +68,14 @@ TCPServerSocket::Init()
     if (nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal()) {
       target = global->EventTargetFor(TaskCategory::Other);
     }
-    mServerBridgeChild =
-      new TCPServerSocketChild(this, mPort, mBacklog, mUseArrayBuffers, target);
+    mServerBridgeChild = new TCPServerSocketChild(
+        this, mPort, mBacklog, mUseArrayBuffers, target);
     return NS_OK;
   }
 
   nsresult rv;
-  mServerSocket = do_CreateInstance("@mozilla.org/network/server-socket;1", &rv);
+  mServerSocket =
+      do_CreateInstance("@mozilla.org/network/server-socket;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
   rv = mServerSocket->Init(mPort, false, mBacklog);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -97,8 +98,10 @@ TCPServerSocket::Constructor(const GlobalObject& aGlobal,
     aRv = NS_ERROR_FAILURE;
     return nullptr;
   }
-  bool useArrayBuffers = aOptions.mBinaryType == TCPSocketBinaryType::Arraybuffer;
-  RefPtr<TCPServerSocket> socket = new TCPServerSocket(global, aPort, useArrayBuffers, aBacklog);
+  bool useArrayBuffers =
+      aOptions.mBinaryType == TCPSocketBinaryType::Arraybuffer;
+  RefPtr<TCPServerSocket> socket =
+      new TCPServerSocket(global, aPort, useArrayBuffers, aBacklog);
   nsresult rv = socket->Init();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv = NS_ERROR_FAILURE;
@@ -144,10 +147,12 @@ TCPServerSocket::FireEvent(const nsAString& aType, TCPSocket* aSocket)
 }
 
 NS_IMETHODIMP
-TCPServerSocket::OnSocketAccepted(nsIServerSocket* aServer, nsISocketTransport* aTransport)
+TCPServerSocket::OnSocketAccepted(nsIServerSocket* aServer,
+                                  nsISocketTransport* aTransport)
 {
   nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal();
-  RefPtr<TCPSocket> socket = TCPSocket::CreateAcceptedSocket(global, aTransport, mUseArrayBuffers);
+  RefPtr<TCPSocket> socket =
+      TCPSocket::CreateAcceptedSocket(global, aTransport, mUseArrayBuffers);
   FireEvent(NS_LITERAL_STRING("connect"), socket);
   return NS_OK;
 }
@@ -174,7 +179,8 @@ TCPServerSocket::AcceptChildSocket(TCPSocketChild* aSocketChild)
 {
   nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal();
   NS_ENSURE_TRUE(global, NS_ERROR_FAILURE);
-  RefPtr<TCPSocket> socket = TCPSocket::CreateAcceptedSocket(global, aSocketChild, mUseArrayBuffers);
+  RefPtr<TCPSocket> socket =
+      TCPSocket::CreateAcceptedSocket(global, aSocketChild, mUseArrayBuffers);
   NS_ENSURE_TRUE(socket, NS_ERROR_FAILURE);
   FireEvent(NS_LITERAL_STRING("connect"), socket);
   return NS_OK;

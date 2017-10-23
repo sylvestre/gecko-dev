@@ -13,8 +13,9 @@
 
 namespace mozilla {
 
-class WidevineVideoFrame : public cdm::VideoFrame {
-public:
+class WidevineVideoFrame : public cdm::VideoFrame
+{
+ public:
   WidevineVideoFrame();
   WidevineVideoFrame(WidevineVideoFrame&& other);
   ~WidevineVideoFrame();
@@ -28,7 +29,8 @@ public:
   void SetFrameBuffer(cdm::Buffer* aFrameBuffer) override;
   cdm::Buffer* FrameBuffer() override;
 
-  void SetPlaneOffset(cdm::VideoFrame::VideoPlane aPlane, uint32_t aOffset) override;
+  void SetPlaneOffset(cdm::VideoFrame::VideoPlane aPlane,
+                      uint32_t aOffset) override;
   uint32_t PlaneOffset(cdm::VideoFrame::VideoPlane aPlane) override;
 
   void SetStride(cdm::VideoFrame::VideoPlane aPlane, uint32_t aStride) override;
@@ -37,9 +39,11 @@ public:
   void SetTimestamp(int64_t aTimestamp) override;
   int64_t Timestamp() const override;
 
-  MOZ_MUST_USE bool InitToBlack(uint32_t aWidth, uint32_t aHeight, int64_t aTimeStamp);
+  MOZ_MUST_USE bool InitToBlack(uint32_t aWidth,
+                                uint32_t aHeight,
+                                int64_t aTimeStamp);
 
-protected:
+ protected:
   cdm::VideoFormat mFormat;
   cdm::Size mSize;
   cdm::Buffer* mBuffer;
@@ -48,6 +52,6 @@ protected:
   int64_t mTimestamp;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

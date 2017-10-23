@@ -20,9 +20,10 @@ EnsureLongPath(nsAString& aDosPath)
   uint32_t aDosPathOriginalLen = aDosPath.Length();
   auto inputPath = PromiseFlatString(aDosPath);
   // Try to get the long path, or else get the required length of the long path
-  DWORD longPathLen = GetLongPathNameW(inputPath.get(),
-                                       reinterpret_cast<wchar_t*>(aDosPath.BeginWriting()),
-                                       aDosPathOriginalLen);
+  DWORD longPathLen =
+      GetLongPathNameW(inputPath.get(),
+                       reinterpret_cast<wchar_t*>(aDosPath.BeginWriting()),
+                       aDosPathOriginalLen);
   if (longPathLen == 0) {
     return false;
   }
@@ -32,8 +33,10 @@ EnsureLongPath(nsAString& aDosPath)
     return true;
   }
   // Now we have a large enough buffer, get the actual string
-  longPathLen = GetLongPathNameW(inputPath.get(),
-                                 reinterpret_cast<wchar_t*>(aDosPath.BeginWriting()), aDosPath.Length());
+  longPathLen =
+      GetLongPathNameW(inputPath.get(),
+                       reinterpret_cast<wchar_t*>(aDosPath.BeginWriting()),
+                       aDosPath.Length());
   if (longPathLen == 0) {
     return false;
   }
@@ -70,7 +73,7 @@ NtPathToDosPath(const nsAString& aNtPath, nsAString& aDosPath)
   DWORD len = 0;
   while (true) {
     len = GetLogicalDriveStringsW(
-      len, reinterpret_cast<wchar_t*>(logicalDrives.BeginWriting()));
+        len, reinterpret_cast<wchar_t*>(logicalDrives.BeginWriting()));
     if (!len) {
       return false;
     } else if (len > logicalDrives.Length()) {
@@ -91,9 +94,10 @@ NtPathToDosPath(const nsAString& aNtPath, nsAString& aDosPath)
     DWORD targetPathLen = 0;
     SetLastError(ERROR_SUCCESS);
     while (true) {
-      targetPathLen = QueryDosDeviceW(driveTemplate,
-                                      reinterpret_cast<wchar_t*>(targetPath.BeginWriting()),
-                                      targetPath.Length());
+      targetPathLen =
+          QueryDosDeviceW(driveTemplate,
+                          reinterpret_cast<wchar_t*>(targetPath.BeginWriting()),
+                          targetPath.Length());
       if (targetPathLen || GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
         break;
       }
@@ -102,9 +106,10 @@ NtPathToDosPath(const nsAString& aNtPath, nsAString& aDosPath)
     if (targetPathLen) {
       // Need to use wcslen here because targetPath contains embedded NULL chars
       size_t firstTargetPathLen = wcslen(targetPath.get());
-      const char16_t* pathComponent = aNtPath.BeginReading() +
-                                      firstTargetPathLen;
-      bool found = _wcsnicmp(char16ptr_t(aNtPath.BeginReading()), targetPath.get(),
+      const char16_t* pathComponent =
+          aNtPath.BeginReading() + firstTargetPathLen;
+      bool found = _wcsnicmp(char16ptr_t(aNtPath.BeginReading()),
+                             targetPath.get(),
                              firstTargetPathLen) == 0 &&
                    *pathComponent == L'\\';
       if (found) {
@@ -114,7 +119,8 @@ NtPathToDosPath(const nsAString& aNtPath, nsAString& aDosPath)
       }
     }
     // Advance to the next NUL character in logicalDrives
-    while (*cur++);
+    while (*cur++)
+      ;
   } while (cur != end);
   // Try to handle UNC paths. NB: This must happen after we've checked drive
   // mappings in case a UNC path is mapped to a drive!
@@ -136,9 +142,10 @@ NtPathToDosPath(const nsAString& aNtPath, nsAString& aDosPath)
 }
 
 bool
-HandleToFilename(HANDLE aHandle, const LARGE_INTEGER& aOffset,
+HandleToFilename(HANDLE aHandle,
+                 const LARGE_INTEGER& aOffset,
                  nsAString& aFilename);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_FileUtilsWin_h
+#endif  // mozilla_FileUtilsWin_h

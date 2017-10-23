@@ -11,7 +11,8 @@ namespace mozilla {
 // Return the current sandbox level. This is the
 // "security.sandbox.content.level" preference, but rounded up to the current
 // minimum allowed level.
-int GetEffectiveContentSandboxLevel();
+int
+GetEffectiveContentSandboxLevel();
 
-}
-#endif // mozilla_SandboxPolicies_h
+}  // namespace mozilla
+#endif  // mozilla_SandboxPolicies_h

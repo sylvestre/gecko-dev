@@ -9,17 +9,13 @@
 #include "nsThreadUtils.h"
 #include "nsHostObjectProtocolHandler.h"
 
-nsIGlobalObject::~nsIGlobalObject()
-{
-  UnlinkHostObjectURIs();
-}
+nsIGlobalObject::~nsIGlobalObject() { UnlinkHostObjectURIs(); }
 
 nsIPrincipal*
 nsIGlobalObject::PrincipalOrNull()
 {
-  JSObject *global = GetGlobalJSObject();
-  if (NS_WARN_IF(!global))
-    return nullptr;
+  JSObject* global = GetGlobalJSObject();
+  if (NS_WARN_IF(!global)) return nullptr;
 
   return nsContentUtils::ObjectPrincipal(global);
 }
@@ -41,9 +37,9 @@ namespace {
 
 class UnlinkHostObjectURIsRunnable final : public mozilla::Runnable
 {
-public:
+ public:
   explicit UnlinkHostObjectURIsRunnable(nsTArray<nsCString>& aURIs)
-    : mozilla::Runnable("UnlinkHostObjectURIsRunnable")
+      : mozilla::Runnable("UnlinkHostObjectURIsRunnable")
   {
     mURIs.SwapElements(aURIs);
   }
@@ -59,13 +55,13 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   ~UnlinkHostObjectURIsRunnable() {}
 
   nsTArray<nsCString> mURIs;
 };
 
-} // namespace
+}  // namespace
 
 void
 nsIGlobalObject::UnlinkHostObjectURIs()
@@ -86,7 +82,7 @@ nsIGlobalObject::UnlinkHostObjectURIs()
   // nsHostObjectProtocolHandler is main-thread only.
 
   RefPtr<UnlinkHostObjectURIsRunnable> runnable =
-    new UnlinkHostObjectURIsRunnable(mHostObjectURIs);
+      new UnlinkHostObjectURIsRunnable(mHostObjectURIs);
   MOZ_ASSERT(mHostObjectURIs.IsEmpty());
 
   nsresult rv = NS_DispatchToMainThread(runnable);
@@ -96,7 +92,7 @@ nsIGlobalObject::UnlinkHostObjectURIs()
 }
 
 void
-nsIGlobalObject::TraverseHostObjectURIs(nsCycleCollectionTraversalCallback &aCb)
+nsIGlobalObject::TraverseHostObjectURIs(nsCycleCollectionTraversalCallback& aCb)
 {
   if (mHostObjectURIs.IsEmpty()) {
     return;

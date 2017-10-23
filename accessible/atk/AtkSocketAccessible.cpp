@@ -16,14 +16,18 @@ using namespace mozilla::a11y;
 AtkSocketEmbedType AtkSocketAccessible::g_atk_socket_embed = nullptr;
 GType AtkSocketAccessible::g_atk_socket_type = G_TYPE_INVALID;
 const char* AtkSocketAccessible::sATKSocketEmbedSymbol = "atk_socket_embed";
-const char* AtkSocketAccessible::sATKSocketGetTypeSymbol = "atk_socket_get_type";
+const char* AtkSocketAccessible::sATKSocketGetTypeSymbol =
+    "atk_socket_get_type";
 
 bool AtkSocketAccessible::gCanEmbed = FALSE;
 
-extern "C" void mai_atk_component_iface_init(AtkComponentIface* aIface);
+extern "C" void
+mai_atk_component_iface_init(AtkComponentIface* aIface);
 
-G_DEFINE_TYPE_EXTENDED(MaiAtkSocket, mai_atk_socket,
-                       AtkSocketAccessible::g_atk_socket_type, 0,
+G_DEFINE_TYPE_EXTENDED(MaiAtkSocket,
+                       mai_atk_socket,
+                       AtkSocketAccessible::g_atk_socket_type,
+                       0,
                        G_IMPLEMENT_INTERFACE(ATK_TYPE_COMPONENT,
                                              mai_atk_component_iface_init))
 
@@ -52,26 +56,35 @@ mai_atk_socket_new(AccessibleWrap* aAccWrap)
 
 extern "C" {
 static AtkObject*
-RefAccessibleAtPoint(AtkComponent* aComponent, gint aX, gint aY,
+RefAccessibleAtPoint(AtkComponent* aComponent,
+                     gint aX,
+                     gint aY,
                      AtkCoordType aCoordType)
 {
   NS_ENSURE_TRUE(MAI_IS_ATK_SOCKET(aComponent), nullptr);
 
-  return refAccessibleAtPointHelper(ATK_OBJECT(MAI_ATK_SOCKET(aComponent)),
-                                    aX, aY, aCoordType);
+  return refAccessibleAtPointHelper(
+      ATK_OBJECT(MAI_ATK_SOCKET(aComponent)), aX, aY, aCoordType);
 }
 
 static void
-GetExtents(AtkComponent* aComponent, gint* aX, gint* aY, gint* aWidth,
-           gint* aHeight, AtkCoordType aCoordType)
+GetExtents(AtkComponent* aComponent,
+           gint* aX,
+           gint* aY,
+           gint* aWidth,
+           gint* aHeight,
+           AtkCoordType aCoordType)
 {
   *aX = *aY = *aWidth = *aHeight = 0;
 
-  if (!MAI_IS_ATK_SOCKET(aComponent))
-    return;
+  if (!MAI_IS_ATK_SOCKET(aComponent)) return;
 
   getExtentsHelper(ATK_OBJECT(MAI_ATK_SOCKET(aComponent)),
-                   aX, aY, aWidth, aHeight, aCoordType);
+                   aX,
+                   aY,
+                   aWidth,
+                   aHeight,
+                   aCoordType);
 }
 }
 
@@ -79,8 +92,7 @@ void
 mai_atk_component_iface_init(AtkComponentIface* aIface)
 {
   NS_ASSERTION(aIface, "Invalid Interface");
-  if (MOZ_UNLIKELY(!aIface))
-    return;
+  if (MOZ_UNLIKELY(!aIface)) return;
 
   aIface->ref_accessible_at_point = RefAccessibleAtPoint;
   aIface->get_extents = GetExtents;
@@ -88,12 +100,11 @@ mai_atk_component_iface_init(AtkComponentIface* aIface)
 
 AtkSocketAccessible::AtkSocketAccessible(nsIContent* aContent,
                                          DocAccessible* aDoc,
-                                         const nsCString& aPlugId) :
-  AccessibleWrap(aContent, aDoc)
+                                         const nsCString& aPlugId)
+    : AccessibleWrap(aContent, aDoc)
 {
   mAtkObject = mai_atk_socket_new(this);
-  if (!mAtkObject)
-    return;
+  if (!mAtkObject) return;
 
   // Embeds the children of an AtkPlug, specified by plugId, as the children of
   // this socket.
@@ -102,7 +113,7 @@ AtkSocketAccessible::AtkSocketAccessible(nsIContent* aContent,
   if (gCanEmbed && G_TYPE_CHECK_INSTANCE_TYPE(mAtkObject, g_atk_socket_type) &&
       !aPlugId.IsVoid()) {
     AtkSocket* accSocket =
-      G_TYPE_CHECK_INSTANCE_CAST(mAtkObject, g_atk_socket_type, AtkSocket);
+        G_TYPE_CHECK_INSTANCE_CAST(mAtkObject, g_atk_socket_type, AtkSocket);
     g_atk_socket_embed(accSocket, (gchar*)aPlugId.get());
   }
 }

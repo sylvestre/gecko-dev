@@ -109,7 +109,7 @@ struct MakeIndexSequenceImpl<N, IndexTuple<Indices...>>
   typedef IndexSequence<Indices...> Type;
 };
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * A utility for building an IndexSequence of consecutive indices.
@@ -120,8 +120,9 @@ struct MakeIndexSequenceImpl<N, IndexTuple<Indices...>>
 template<size_t N>
 struct MakeIndexSequence
 {
-  typedef typename detail::MakeIndexSequenceImpl<N,
-    typename detail::BuildIndexTuple<N>::Type>::Type Type;
+  typedef typename detail::MakeIndexSequenceImpl<
+      N,
+      typename detail::BuildIndexTuple<N>::Type>::Type Type;
 };
 
 /**
@@ -138,6 +139,6 @@ struct IndexSequenceFor
   typedef typename MakeIndexSequence<sizeof...(Types)>::Type Type;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_IndexSequence_h */

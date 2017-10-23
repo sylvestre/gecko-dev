@@ -8,7 +8,6 @@
 namespace mozilla {
 namespace gfx {
 
-
 extern BYTE sSystemTextQuality;
 
 static BYTE
@@ -31,19 +30,19 @@ UpdateSystemTextQuality()
   }
 
   if (font_smoothing) {
-      if (!SystemParametersInfo(SPI_GETFONTSMOOTHINGTYPE,
-                                0, &smoothing_type, 0)) {
-        sSystemTextQuality = DEFAULT_QUALITY;
-        return;
-      }
-
-      if (smoothing_type == FE_FONTSMOOTHINGCLEARTYPE) {
-        sSystemTextQuality = CLEARTYPE_QUALITY;
-        return;
-      }
-
-      sSystemTextQuality = ANTIALIASED_QUALITY;
+    if (!SystemParametersInfo(
+            SPI_GETFONTSMOOTHINGTYPE, 0, &smoothing_type, 0)) {
+      sSystemTextQuality = DEFAULT_QUALITY;
       return;
+    }
+
+    if (smoothing_type == FE_FONTSMOOTHINGCLEARTYPE) {
+      sSystemTextQuality = CLEARTYPE_QUALITY;
+      return;
+    }
+
+    sSystemTextQuality = ANTIALIASED_QUALITY;
+    return;
   }
 
   sSystemTextQuality = DEFAULT_QUALITY;
@@ -58,19 +57,19 @@ GetSystemDefaultAAMode()
   }
 
   switch (GetSystemTextQuality()) {
-  case CLEARTYPE_QUALITY:
-    defaultMode = AntialiasMode::SUBPIXEL;
-    break;
-  case ANTIALIASED_QUALITY:
-    defaultMode = AntialiasMode::GRAY;
-    break;
-  case DEFAULT_QUALITY:
-    defaultMode = AntialiasMode::NONE;
-    break;
+    case CLEARTYPE_QUALITY:
+      defaultMode = AntialiasMode::SUBPIXEL;
+      break;
+    case ANTIALIASED_QUALITY:
+      defaultMode = AntialiasMode::GRAY;
+      break;
+    case DEFAULT_QUALITY:
+      defaultMode = AntialiasMode::NONE;
+      break;
   }
 
   return defaultMode;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

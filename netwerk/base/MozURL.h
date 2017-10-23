@@ -32,8 +32,9 @@ namespace net {
 // Also note that for now, MozURL only supports the UTF-8 charset.
 class MozURL final
 {
-public:
-  static nsresult Init(MozURL** aURL, const nsACString& aSpec,
+ public:
+  static nsresult Init(MozURL** aURL,
+                       const nsACString& aSpec,
                        const MozURL* aBaseURL = nullptr);
 
   nsresult GetScheme(nsACString& aScheme);
@@ -49,11 +50,8 @@ public:
   nsresult GetQuery(nsACString& aQuery);
   nsresult GetRef(nsACString& aRef);
 
-private:
-  explicit MozURL(rusturl* rawPtr)
-    : mURL(rawPtr)
-  {
-  }
+ private:
+  explicit MozURL(rusturl* rawPtr) : mURL(rawPtr) {}
   virtual ~MozURL() {}
   struct FreeRustURL
   {
@@ -61,10 +59,10 @@ private:
   };
   mozilla::UniquePtr<rusturl, FreeRustURL> mURL;
 
-public:
+ public:
   class MOZ_STACK_CLASS Mutator
   {
-  public:
+   public:
     // Calling this method will result in the creation of a new MozURL that
     // adopts the mutator's mURL.
     // If any of the setters failed with an error code, that error code will be
@@ -104,11 +102,12 @@ public:
     // }
     // if (NS_SUCCEEDED(rv)) { /* use url2 */ }
     nsresult GetStatus() { return mStatus; }
-  private:
+
+   private:
     explicit Mutator(MozURL* url)
-      : mURL(rusturl_clone(url->mURL.get()))
-      , mFinalized(false)
-      , mStatus(NS_OK)
+        : mURL(rusturl_clone(url->mURL.get())),
+          mFinalized(false),
+          mStatus(NS_OK)
     {
     }
     mozilla::UniquePtr<rusturl, FreeRustURL> mURL;
@@ -119,17 +118,18 @@ public:
 
   Mutator Mutate() { return Mutator(this); }
 
-// These are used to avoid inheriting from nsISupports
-public:
+  // These are used to avoid inheriting from nsISupports
+ public:
   NS_IMETHOD_(MozExternalRefCountType) AddRef(void);
   NS_IMETHOD_(MozExternalRefCountType) Release(void);
   typedef mozilla::TrueType HasThreadSafeRefCnt;
-protected:
+
+ protected:
   ::mozilla::ThreadSafeAutoRefCnt mRefCnt;
   NS_DECL_OWNINGTHREAD
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozURL_h__
+#endif  // mozURL_h__

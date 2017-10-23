@@ -18,7 +18,7 @@ namespace workers {
 
 mozilla::ipc::IPCResult
 ServiceWorkerManagerChild::RecvNotifyRegister(
-                                     const ServiceWorkerRegistrationData& aData)
+    const ServiceWorkerRegistrationData& aData)
 {
   if (mShuttingDown) {
     return IPC_OK();
@@ -34,8 +34,7 @@ ServiceWorkerManagerChild::RecvNotifyRegister(
 
 mozilla::ipc::IPCResult
 ServiceWorkerManagerChild::RecvNotifySoftUpdate(
-                                      const OriginAttributes& aOriginAttributes,
-                                      const nsString& aScope)
+    const OriginAttributes& aOriginAttributes, const nsString& aScope)
 {
   if (mShuttingDown) {
     return IPC_OK();
@@ -50,8 +49,8 @@ ServiceWorkerManagerChild::RecvNotifySoftUpdate(
 }
 
 mozilla::ipc::IPCResult
-ServiceWorkerManagerChild::RecvNotifyUnregister(const PrincipalInfo& aPrincipalInfo,
-                                                const nsString& aScope)
+ServiceWorkerManagerChild::RecvNotifyUnregister(
+    const PrincipalInfo& aPrincipalInfo, const nsString& aScope)
 {
   if (mShuttingDown) {
     return IPC_OK();
@@ -104,19 +103,20 @@ ServiceWorkerManagerChild::RecvNotifyRemoveAll()
 }
 
 PServiceWorkerUpdaterChild*
-ServiceWorkerManagerChild::AllocPServiceWorkerUpdaterChild(const OriginAttributes& aOriginAttributes,
-                                                           const nsCString& aScope)
+ServiceWorkerManagerChild::AllocPServiceWorkerUpdaterChild(
+    const OriginAttributes& aOriginAttributes, const nsCString& aScope)
 {
   MOZ_CRASH("Do no use ServiceWorkerUpdaterChild IPC CTOR.");
 }
 
 bool
-ServiceWorkerManagerChild::DeallocPServiceWorkerUpdaterChild(PServiceWorkerUpdaterChild* aActor)
+ServiceWorkerManagerChild::DeallocPServiceWorkerUpdaterChild(
+    PServiceWorkerUpdaterChild* aActor)
 {
   delete aActor;
   return true;
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

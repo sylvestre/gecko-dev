@@ -41,8 +41,8 @@ struct FloatTypeTraits
   static const unsigned kExponentBias = 127;
   static const unsigned kExponentShift = 23;
 
-  static const Bits kSignBit         = 0x80000000UL;
-  static const Bits kExponentBits    = 0x7F800000UL;
+  static const Bits kSignBit = 0x80000000UL;
+  static const Bits kExponentBits = 0x7F800000UL;
   static const Bits kSignificandBits = 0x007FFFFFUL;
 };
 
@@ -53,14 +53,21 @@ struct DoubleTypeTraits
   static const unsigned kExponentBias = 1023;
   static const unsigned kExponentShift = 52;
 
-  static const Bits kSignBit         = 0x8000000000000000ULL;
-  static const Bits kExponentBits    = 0x7ff0000000000000ULL;
+  static const Bits kSignBit = 0x8000000000000000ULL;
+  static const Bits kExponentBits = 0x7ff0000000000000ULL;
   static const Bits kSignificandBits = 0x000fffffffffffffULL;
 };
 
-template<typename T> struct SelectTrait;
-template<> struct SelectTrait<float> : public FloatTypeTraits {};
-template<> struct SelectTrait<double> : public DoubleTypeTraits {};
+template<typename T>
+struct SelectTrait;
+template<>
+struct SelectTrait<float> : public FloatTypeTraits
+{
+};
+template<>
+struct SelectTrait<double> : public DoubleTypeTraits
+{
+};
 
 /*
  *  This struct contains details regarding the encoding of floating-point
@@ -101,8 +108,8 @@ struct FloatingPoint : public SelectTrait<T>
   static_assert((Base::kExponentBits & Base::kSignificandBits) == 0,
                 "exponent bits shouldn't overlap significand bits");
 
-  static_assert((Base::kSignBit | Base::kExponentBits | Base::kSignificandBits) ==
-                ~Bits(0),
+  static_assert((Base::kSignBit | Base::kExponentBits |
+                 Base::kSignificandBits) == ~Bits(0),
                 "all bits accounted for");
 
   /*
@@ -126,7 +133,8 @@ IsNaN(T aValue)
    */
   typedef FloatingPoint<T> Traits;
   typedef typename Traits::Bits Bits;
-  return (BitwiseCast<Bits>(aValue) & Traits::kExponentBits) == Traits::kExponentBits &&
+  return (BitwiseCast<Bits>(aValue) & Traits::kExponentBits) ==
+             Traits::kExponentBits &&
          (BitwiseCast<Bits>(aValue) & Traits::kSignificandBits) != 0;
 }
 
@@ -226,7 +234,8 @@ ExponentComponent(T aValue)
   typedef FloatingPoint<T> Traits;
   typedef typename Traits::Bits Bits;
   Bits bits = BitwiseCast<Bits>(aValue);
-  return int_fast16_t((bits & Traits::kExponentBits) >> Traits::kExponentShift) -
+  return int_fast16_t((bits & Traits::kExponentBits) >>
+                      Traits::kExponentShift) -
          int_fast16_t(Traits::kExponentBias);
 }
 
@@ -260,9 +269,7 @@ NegativeInfinity()
  * Computes the bit pattern for a NaN with the specified sign bit and
  * significand bits.
  */
-template<typename T,
-         int SignBit,
-         typename FloatingPoint<T>::Bits Significand>
+template<typename T, int SignBit, typename FloatingPoint<T>::Bits Significand>
 struct SpecificNaNBits
 {
   using Traits = FloatingPoint<T>;
@@ -274,7 +281,7 @@ struct SpecificNaNBits
                 "significand must be nonzero");
 
   static constexpr typename Traits::Bits value =
-    (SignBit * Traits::kSignBit) | Traits::kExponentBits | Significand;
+      (SignBit * Traits::kSignBit) | Traits::kExponentBits | Significand;
 };
 
 /**
@@ -302,10 +309,9 @@ SpecificNaN(int signbit, typename FloatingPoint<T>::Bits significand, T* result)
   MOZ_ASSERT((significand & ~Traits::kSignificandBits) == 0);
   MOZ_ASSERT(significand & Traits::kSignificandBits);
 
-  BitwiseCast<T>((signbit ? Traits::kSignBit : 0) |
-                  Traits::kExponentBits |
-                  significand,
-                  result);
+  BitwiseCast<T>(
+      (signbit ? Traits::kSignBit : 0) | Traits::kExponentBits | significand,
+      result);
   MOZ_ASSERT(IsNaN(*result));
 }
 
@@ -416,7 +422,7 @@ struct FuzzyEqualsEpsilon<double>
   static double value() { return 1.0 / (1LL << 40); }
 };
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * Compare two floating point values for equality, modulo rounding error. That
@@ -432,7 +438,8 @@ struct FuzzyEqualsEpsilon<double>
  */
 template<typename T>
 static MOZ_ALWAYS_INLINE bool
-FuzzyEqualsAdditive(T aValue1, T aValue2,
+FuzzyEqualsAdditive(T aValue1,
+                    T aValue2,
                     T aEpsilon = detail::FuzzyEqualsEpsilon<T>::value())
 {
   static_assert(IsFloatingPoint<T>::value, "floating point type required");
@@ -453,7 +460,8 @@ FuzzyEqualsAdditive(T aValue1, T aValue2,
  */
 template<typename T>
 static MOZ_ALWAYS_INLINE bool
-FuzzyEqualsMultiplicative(T aValue1, T aValue2,
+FuzzyEqualsMultiplicative(T aValue1,
+                          T aValue2,
                           T aEpsilon = detail::FuzzyEqualsEpsilon<T>::value())
 {
   static_assert(IsFloatingPoint<T>::value, "floating point type required");

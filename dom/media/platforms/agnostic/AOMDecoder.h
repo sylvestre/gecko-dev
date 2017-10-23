@@ -16,7 +16,7 @@ namespace mozilla {
 
 class AOMDecoder : public MediaDataDecoder
 {
-public:
+ public:
   explicit AOMDecoder(const CreateDecoderParams& aParams);
 
   RefPtr<InitPromise> Init() override;
@@ -42,7 +42,7 @@ public:
   // Return the frame dimensions for a sample.
   static gfx::IntSize GetFrameSize(Span<const uint8_t> aBuffer);
 
-private:
+ private:
   ~AOMDecoder();
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
 
@@ -55,6 +55,6 @@ private:
   const VideoInfo& mInfo;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // AOMDecoder_h_
+#endif  // AOMDecoder_h_

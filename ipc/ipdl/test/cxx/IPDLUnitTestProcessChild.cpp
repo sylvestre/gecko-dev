@@ -18,15 +18,13 @@ namespace _ipdltest {
 bool
 IPDLUnitTestProcessChild::Init(int aArgc, char* aArgv[])
 {
-    IPDLUnitTestChildInit(IOThreadChild::channel(),
-                          ParentPid(),
-                          IOThreadChild::message_loop());
+  IPDLUnitTestChildInit(
+      IOThreadChild::channel(), ParentPid(), IOThreadChild::message_loop());
 
-    if (NS_FAILED(nsRegion::InitStatic()))
-      return false;
+  if (NS_FAILED(nsRegion::InitStatic())) return false;
 
-    return true;
+  return true;
 }
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

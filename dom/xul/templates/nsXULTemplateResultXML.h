@@ -19,41 +19,37 @@
  */
 class nsXULTemplateResultXML final : public nsIXULTemplateResult
 {
-public:
-    NS_DECL_ISUPPORTS
+ public:
+  NS_DECL_ISUPPORTS
 
-    NS_DECL_NSIXULTEMPLATERESULT
+  NS_DECL_NSIXULTEMPLATERESULT
 
-    nsXULTemplateResultXML(nsXMLQuery* aQuery,
-                           nsIContent* aNode,
-                           nsXMLBindingSet* aBindings);
+  nsXULTemplateResultXML(nsXMLQuery* aQuery,
+                         nsIContent* aNode,
+                         nsXMLBindingSet* aBindings);
 
-    nsIContent* Node()
-    {
-        return mNode;
-    }
+  nsIContent* Node() { return mNode; }
 
-protected:
+ protected:
+  ~nsXULTemplateResultXML() {}
 
-    ~nsXULTemplateResultXML() {}
+  // ID used for persisting data. It is constructed using the mNode's
+  // base uri plus the node's id to form 'baseuri#id'. If the node has no
+  // id, then an id of the form 'row<some number>' is generated. In the
+  // latter case, persistence will not work as there won't be a unique id.
+  nsAutoString mId;
 
-    // ID used for persisting data. It is constructed using the mNode's
-    // base uri plus the node's id to form 'baseuri#id'. If the node has no
-    // id, then an id of the form 'row<some number>' is generated. In the
-    // latter case, persistence will not work as there won't be a unique id.
-    nsAutoString mId;
+  // query that generated the result
+  nsCOMPtr<nsXMLQuery> mQuery;
 
-    // query that generated the result
-    nsCOMPtr<nsXMLQuery> mQuery;
+  // context node in datasource
+  nsCOMPtr<nsIContent> mNode;
 
-    // context node in datasource
-    nsCOMPtr<nsIContent> mNode;
+  // assignments in query
+  nsXMLBindingValues mRequiredValues;
 
-    // assignments in query
-    nsXMLBindingValues mRequiredValues;
-
-    // extra assignments made by rules (<binding> tags)
-    nsXMLBindingValues mOptionalValues;
+  // extra assignments made by rules (<binding> tags)
+  nsXMLBindingValues mOptionalValues;
 };
 
-#endif // nsXULTemplateResultXML_h__
+#endif  // nsXULTemplateResultXML_h__

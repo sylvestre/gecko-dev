@@ -18,14 +18,13 @@ namespace {
 
 class PaymentRequestEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISIMPLEENUMERATOR
 
-  PaymentRequestEnumerator()
-    : mIndex(0)
-  {}
-private:
+  PaymentRequestEnumerator() : mIndex(0) {}
+
+ private:
   ~PaymentRequestEnumerator() = default;
   uint32_t mIndex;
 };
@@ -53,7 +52,7 @@ PaymentRequestEnumerator::GetNext(nsISupports** aItem)
     return NS_ERROR_FAILURE;
   }
   nsCOMPtr<nsIPaymentRequest> request =
-    gPaymentService->GetPaymentRequestByIndex(mIndex);
+      gPaymentService->GetPaymentRequestByIndex(mIndex);
   if (NS_WARN_IF(!request)) {
     return NS_ERROR_FAILURE;
   }
@@ -66,12 +65,11 @@ PaymentRequestEnumerator::GetNext(nsISupports** aItem)
   return NS_OK;
 }
 
-} // end of anonymous namespace
+}  // end of anonymous namespace
 
 /* PaymentRequestService */
 
-NS_IMPL_ISUPPORTS(PaymentRequestService,
-                  nsIPaymentRequestService)
+NS_IMPL_ISUPPORTS(PaymentRequestService, nsIPaymentRequestService)
 
 already_AddRefed<PaymentRequestService>
 PaymentRequestService::GetSingleton()
@@ -148,7 +146,8 @@ PaymentRequestService::SetTestingUIService(nsIPaymentUIService* aUIService)
 }
 
 nsresult
-PaymentRequestService::LaunchUIAction(const nsAString& aRequestId, uint32_t aActionType)
+PaymentRequestService::LaunchUIAction(const nsAString& aRequestId,
+                                      uint32_t aActionType)
 {
   nsCOMPtr<nsIPaymentUIService> uiService;
   nsresult rv;
@@ -177,7 +176,7 @@ PaymentRequestService::LaunchUIAction(const nsAString& aRequestId, uint32_t aAct
       rv = uiService->UpdatePayment(aRequestId);
       break;
     }
-    default : {
+    default: {
       return NS_ERROR_FAILURE;
     }
   }
@@ -231,7 +230,7 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
   switch (type) {
     case nsIPaymentActionRequest::CREATE_ACTION: {
       nsCOMPtr<nsIPaymentCreateActionRequest> request =
-        do_QueryInterface(aRequest);
+          do_QueryInterface(aRequest);
       MOZ_ASSERT(request);
       uint64_t tabId;
       rv = request->GetTabId(&tabId);
@@ -253,9 +252,8 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
       rv = request->GetOptions(getter_AddRefs(options));
       NS_ENSURE_SUCCESS(rv, rv);
 
-      nsCOMPtr<nsIPaymentRequest> payment =
-        new payments::PaymentRequest(tabId, requestId, topLevelPrincipal,
-                                     methodData, details, options);
+      nsCOMPtr<nsIPaymentRequest> payment = new payments::PaymentRequest(
+          tabId, requestId, topLevelPrincipal, methodData, details, options);
 
       if (!mRequestQueue.AppendElement(payment, mozilla::fallible)) {
         return NS_ERROR_OUT_OF_MEMORY;
@@ -264,7 +262,7 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
     }
     case nsIPaymentActionRequest::CANMAKE_ACTION: {
       nsCOMPtr<nsIPaymentCanMakeActionResponse> canMakeResponse =
-        do_CreateInstance(NS_PAYMENT_CANMAKE_ACTION_RESPONSE_CONTRACT_ID);
+          do_CreateInstance(NS_PAYMENT_CANMAKE_ACTION_RESPONSE_CONTRACT_ID);
       MOZ_ASSERT(canMakeResponse);
       if (CanMakePayment(requestId)) {
         rv = canMakeResponse->Init(requestId, true);
@@ -274,7 +272,8 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
-      nsCOMPtr<nsIPaymentActionResponse> response = do_QueryInterface(canMakeResponse);
+      nsCOMPtr<nsIPaymentActionResponse> response =
+          do_QueryInterface(canMakeResponse);
       MOZ_ASSERT(response);
       rv = RespondPayment(response);
       if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -291,7 +290,7 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
           responseStatus = nsIPaymentActionResponse::PAYMENT_NOTSUPPORTED;
         }
         nsCOMPtr<nsIPaymentShowActionResponse> showResponse =
-          do_CreateInstance(NS_PAYMENT_SHOW_ACTION_RESPONSE_CONTRACT_ID);
+            do_CreateInstance(NS_PAYMENT_SHOW_ACTION_RESPONSE_CONTRACT_ID);
         MOZ_ASSERT(showResponse);
         rv = showResponse->Init(requestId,
                                 responseStatus,
@@ -300,7 +299,8 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
                                 EmptyString(),
                                 EmptyString(),
                                 EmptyString());
-        nsCOMPtr<nsIPaymentActionResponse> response = do_QueryInterface(showResponse);
+        nsCOMPtr<nsIPaymentActionResponse> response =
+            do_QueryInterface(showResponse);
         MOZ_ASSERT(response);
         rv = RespondPayment(response);
         if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -327,7 +327,8 @@ PaymentRequestService::RequestPayment(nsIPaymentActionRequest* aRequest)
       break;
     }
     case nsIPaymentActionRequest::UPDATE_ACTION: {
-      nsCOMPtr<nsIPaymentUpdateActionRequest> request = do_QueryInterface(aRequest);
+      nsCOMPtr<nsIPaymentUpdateActionRequest> request =
+          do_QueryInterface(aRequest);
       MOZ_ASSERT(request);
 
       nsCOMPtr<nsIPaymentDetails> details;
@@ -392,7 +393,7 @@ PaymentRequestService::RespondPayment(nsIPaymentActionResponse* aResponse)
   switch (type) {
     case nsIPaymentActionResponse::ABORT_ACTION: {
       nsCOMPtr<nsIPaymentAbortActionResponse> response =
-        do_QueryInterface(aResponse);
+          do_QueryInterface(aResponse);
       MOZ_ASSERT(response);
       bool isSucceeded;
       rv = response->IsSucceeded(&isSucceeded);
@@ -405,7 +406,7 @@ PaymentRequestService::RespondPayment(nsIPaymentActionResponse* aResponse)
     }
     case nsIPaymentActionResponse::SHOW_ACTION: {
       nsCOMPtr<nsIPaymentShowActionResponse> response =
-        do_QueryInterface(aResponse);
+          do_QueryInterface(aResponse);
       MOZ_ASSERT(response);
       uint32_t acceptStatus;
       rv = response->GetAcceptStatus(&acceptStatus);
@@ -528,5 +529,5 @@ PaymentRequestService::IsBasicCardPayment(const nsAString& aRequestId)
   return false;
 }
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla

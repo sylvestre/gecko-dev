@@ -21,8 +21,8 @@ nsMappedAttributeElement::SetAndSwapMappedAttribute(nsAtom* aName,
                                                     nsresult* aRetval)
 {
   nsHTMLStyleSheet* sheet = OwnerDoc()->GetAttributeStyleSheet();
-  *aRetval = mAttrsAndChildren.SetAndSwapMappedAttr(aName, aValue,
-                                                    this, sheet, aValueWasSet);
+  *aRetval = mAttrsAndChildren.SetAndSwapMappedAttr(
+      aName, aValue, this, sheet, aValueWasSet);
   return true;
 }
 
@@ -33,8 +33,9 @@ nsMappedAttributeElement::GetAttributeMappingFunction() const
 }
 
 void
-nsMappedAttributeElement::MapNoAttributesInto(const nsMappedAttributes* aAttributes,
-                                              mozilla::GenericSpecifiedValues* aGenericData)
+nsMappedAttributeElement::MapNoAttributesInto(
+    const nsMappedAttributes* aAttributes,
+    mozilla::GenericSpecifiedValues* aGenericData)
 {
 }
 

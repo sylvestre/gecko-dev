@@ -41,7 +41,7 @@ class IDecodingTask;
  */
 class DecodePool : public nsIObserver
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -84,7 +84,7 @@ public:
    */
   already_AddRefed<nsIEventTarget> GetIOEventTarget();
 
-private:
+ private:
   friend class DecodePoolWorker;
 
   DecodePool();
@@ -96,12 +96,12 @@ private:
   RefPtr<DecodePoolImpl> mImpl;
 
   // mMutex protects mThreads and mIOThread.
-  Mutex                         mMutex;
+  Mutex mMutex;
   nsTArray<nsCOMPtr<nsIThread>> mThreads;
-  nsCOMPtr<nsIThread>           mIOThread;
+  nsCOMPtr<nsIThread> mIOThread;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_DecodePool_h
+#endif  // mozilla_image_DecodePool_h

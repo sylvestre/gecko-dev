@@ -12,29 +12,23 @@
 
 #include "jsscriptinlines.h"
 
-static bool
-GetBuildId(JS::BuildIdCharVector* buildId)
-{
+static bool GetBuildId(JS::BuildIdCharVector* buildId) {
     const char buildid[] = "testXDR";
     return buildId->append(buildid, sizeof(buildid));
 }
 
-static JSScript*
-FreezeThaw(JSContext* cx, JS::HandleScript script)
-{
+static JSScript* FreezeThaw(JSContext* cx, JS::HandleScript script) {
     JS::SetBuildIdOp(cx, GetBuildId);
 
     // freeze
     JS::TranscodeBuffer buffer;
     JS::TranscodeResult rs = JS::EncodeScript(cx, buffer, script);
-    if (rs != JS::TranscodeResult_Ok)
-        return nullptr;
+    if (rs != JS::TranscodeResult_Ok) return nullptr;
 
     // thaw
     JS::RootedScript script2(cx);
     rs = JS::DecodeScript(cx, buffer, &script2);
-    if (rs != JS::TranscodeResult_Ok)
-        return nullptr;
+    if (rs != JS::TranscodeResult_Ok) return nullptr;
     return script2;
 }
 
@@ -46,8 +40,7 @@ enum TestCase {
     TEST_END
 };
 
-BEGIN_TEST(testXDR_bug506491)
-{
+BEGIN_TEST(testXDR_bug506491) {
     const char* s =
         "function makeClosure(s, name, value) {\n"
         "    eval(s);\n"
@@ -82,8 +75,7 @@ BEGIN_TEST(testXDR_bug506491)
 }
 END_TEST(testXDR_bug506491)
 
-BEGIN_TEST(testXDR_bug516827)
-{
+BEGIN_TEST(testXDR_bug516827) {
     // compile an empty script
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
@@ -100,14 +92,18 @@ BEGIN_TEST(testXDR_bug516827)
 }
 END_TEST(testXDR_bug516827)
 
-BEGIN_TEST(testXDR_source)
-{
+BEGIN_TEST(testXDR_source) {
     const char* samples[] = {
         // This can't possibly fail to compress well, can it?
-        "function f(x) { return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x }",
-        "short",
-        nullptr
-    };
+        "function f(x) { return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x "
+        "+ x }",
+        "short", nullptr};
     for (const char** s = samples; *s; s++) {
         JS::CompileOptions options(cx);
         options.setFileAndLine(__FILE__, __LINE__);
@@ -126,13 +122,9 @@ BEGIN_TEST(testXDR_source)
 }
 END_TEST(testXDR_source)
 
-BEGIN_TEST(testXDR_sourceMap)
-{
-    const char* sourceMaps[] = {
-        "http://example.com/source-map.json",
-        "file:///var/source-map.json",
-        nullptr
-    };
+BEGIN_TEST(testXDR_sourceMap) {
+    const char* sourceMaps[] = {"http://example.com/source-map.json",
+                                "file:///var/source-map.json", nullptr};
     JS::RootedScript script(cx);
     for (const char** sm = sourceMaps; *sm; sm++) {
         JS::CompileOptions options(cx);

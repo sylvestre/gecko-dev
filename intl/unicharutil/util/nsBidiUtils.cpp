@@ -7,31 +7,35 @@
 
 namespace mozilla {
 static const uint32_t kMinRTLChar = 0x0590;
-} // namespace mozilla;
+}  // namespace mozilla
 
-#define ARABIC_TO_HINDI_DIGIT_INCREMENT (START_HINDI_DIGITS - START_ARABIC_DIGITS)
-#define PERSIAN_TO_HINDI_DIGIT_INCREMENT (START_HINDI_DIGITS - START_FARSI_DIGITS)
-#define ARABIC_TO_PERSIAN_DIGIT_INCREMENT (START_FARSI_DIGITS - START_ARABIC_DIGITS)
-#define NUM_TO_ARABIC(c) \
-  ((((c)>=START_HINDI_DIGITS) && ((c)<=END_HINDI_DIGITS)) ? \
-   ((c) - (uint16_t)ARABIC_TO_HINDI_DIGIT_INCREMENT) : \
-   ((((c)>=START_FARSI_DIGITS) && ((c)<=END_FARSI_DIGITS)) ? \
-    ((c) - (uint16_t)ARABIC_TO_PERSIAN_DIGIT_INCREMENT) : \
-     (c)))
-#define NUM_TO_HINDI(c) \
-  ((((c)>=START_ARABIC_DIGITS) && ((c)<=END_ARABIC_DIGITS)) ? \
-   ((c) + (uint16_t)ARABIC_TO_HINDI_DIGIT_INCREMENT): \
-   ((((c)>=START_FARSI_DIGITS) && ((c)<=END_FARSI_DIGITS)) ? \
-    ((c) + (uint16_t)PERSIAN_TO_HINDI_DIGIT_INCREMENT) : \
-     (c)))
-#define NUM_TO_PERSIAN(c) \
-  ((((c)>=START_HINDI_DIGITS) && ((c)<=END_HINDI_DIGITS)) ? \
-   ((c) - (uint16_t)PERSIAN_TO_HINDI_DIGIT_INCREMENT) : \
-   ((((c)>=START_ARABIC_DIGITS) && ((c)<=END_ARABIC_DIGITS)) ? \
-    ((c) + (uint16_t)ARABIC_TO_PERSIAN_DIGIT_INCREMENT) : \
-     (c)))
+#define ARABIC_TO_HINDI_DIGIT_INCREMENT \
+  (START_HINDI_DIGITS - START_ARABIC_DIGITS)
+#define PERSIAN_TO_HINDI_DIGIT_INCREMENT \
+  (START_HINDI_DIGITS - START_FARSI_DIGITS)
+#define ARABIC_TO_PERSIAN_DIGIT_INCREMENT \
+  (START_FARSI_DIGITS - START_ARABIC_DIGITS)
+#define NUM_TO_ARABIC(c)                                             \
+  ((((c) >= START_HINDI_DIGITS) && ((c) <= END_HINDI_DIGITS))        \
+       ? ((c) - (uint16_t)ARABIC_TO_HINDI_DIGIT_INCREMENT)           \
+       : ((((c) >= START_FARSI_DIGITS) && ((c) <= END_FARSI_DIGITS)) \
+              ? ((c) - (uint16_t)ARABIC_TO_PERSIAN_DIGIT_INCREMENT)  \
+              : (c)))
+#define NUM_TO_HINDI(c)                                              \
+  ((((c) >= START_ARABIC_DIGITS) && ((c) <= END_ARABIC_DIGITS))      \
+       ? ((c) + (uint16_t)ARABIC_TO_HINDI_DIGIT_INCREMENT)           \
+       : ((((c) >= START_FARSI_DIGITS) && ((c) <= END_FARSI_DIGITS)) \
+              ? ((c) + (uint16_t)PERSIAN_TO_HINDI_DIGIT_INCREMENT)   \
+              : (c)))
+#define NUM_TO_PERSIAN(c)                                              \
+  ((((c) >= START_HINDI_DIGITS) && ((c) <= END_HINDI_DIGITS))          \
+       ? ((c) - (uint16_t)PERSIAN_TO_HINDI_DIGIT_INCREMENT)            \
+       : ((((c) >= START_ARABIC_DIGITS) && ((c) <= END_ARABIC_DIGITS)) \
+              ? ((c) + (uint16_t)ARABIC_TO_PERSIAN_DIGIT_INCREMENT)    \
+              : (c)))
 
-char16_t HandleNumberInChar(char16_t aChar, bool aPrevCharArabic, uint32_t aNumFlag)
+char16_t
+HandleNumberInChar(char16_t aChar, bool aPrevCharArabic, uint32_t aNumFlag)
 {
   // IBMBIDI_NUMERAL_NOMINAL *
   // IBMBIDI_NUMERAL_REGULAR
@@ -56,8 +60,7 @@ char16_t HandleNumberInChar(char16_t aChar, bool aPrevCharArabic, uint32_t aNumF
           return NUM_TO_PERSIAN(aChar);
         else
           return NUM_TO_HINDI(aChar);
-      }
-      else
+      } else
         return NUM_TO_ARABIC(aChar);
     case IBMBIDI_NUMERAL_NOMINAL:
     default:
@@ -65,7 +68,8 @@ char16_t HandleNumberInChar(char16_t aChar, bool aPrevCharArabic, uint32_t aNumF
   }
 }
 
-nsresult HandleNumbers(char16_t* aBuffer, uint32_t aSize, uint32_t aNumFlag)
+nsresult
+HandleNumbers(char16_t* aBuffer, uint32_t aSize, uint32_t aNumFlag)
 {
   uint32_t i;
 
@@ -76,8 +80,9 @@ nsresult HandleNumbers(char16_t* aBuffer, uint32_t aSize, uint32_t aNumFlag)
     case IBMBIDI_NUMERAL_REGULAR:
     case IBMBIDI_NUMERAL_HINDICONTEXT:
     case IBMBIDI_NUMERAL_PERSIANCONTEXT:
-      for (i=0;i<aSize;i++)
-        aBuffer[i] = HandleNumberInChar(aBuffer[i], !!(i>0 ? aBuffer[i-1] : 0), aNumFlag);
+      for (i = 0; i < aSize; i++)
+        aBuffer[i] = HandleNumberInChar(
+            aBuffer[i], !!(i > 0 ? aBuffer[i - 1] : 0), aNumFlag);
       break;
     case IBMBIDI_NUMERAL_NOMINAL:
     default:
@@ -86,7 +91,8 @@ nsresult HandleNumbers(char16_t* aBuffer, uint32_t aSize, uint32_t aNumFlag)
   return NS_OK;
 }
 
-bool HasRTLChars(const char16_t* aText, uint32_t aLength)
+bool
+HasRTLChars(const char16_t* aText, uint32_t aLength)
 {
   // This is used to determine whether a string has right-to-left characters
   // that mean it will require bidi processing.

@@ -23,9 +23,10 @@ class TextureReadLock;
 
 class TextureClientAllocator
 {
-protected:
+ protected:
   virtual ~TextureClientAllocator() {}
-public:
+
+ public:
   NS_INLINE_DECL_REFCOUNTING(TextureClientAllocator)
 
   virtual already_AddRefed<TextureClient> GetTextureClient() = 0;
@@ -34,7 +35,7 @@ public:
    * Return a TextureClient that is not yet ready to be reused, but will be
    * imminently.
    */
-  virtual void ReturnTextureClientDeferred(TextureClient *aClient) = 0;
+  virtual void ReturnTextureClientDeferred(TextureClient* aClient) = 0;
 
   virtual void ReportClientLost() = 0;
 };
@@ -43,7 +44,7 @@ class TextureClientPool final : public TextureClientAllocator
 {
   ~TextureClientPool();
 
-public:
+ public:
   TextureClientPool(LayersBackend aBackend,
                     int32_t aMaxTextureSize,
                     gfx::SurfaceFormat aFormat,
@@ -70,13 +71,13 @@ public:
    * Return a TextureClient that is no longer being used and is ready for
    * immediate re-use or destruction.
    */
-  void ReturnTextureClient(TextureClient *aClient);
+  void ReturnTextureClient(TextureClient* aClient);
 
   /**
    * Return a TextureClient that is not yet ready to be reused, but will be
    * imminently.
    */
-  void ReturnTextureClientDeferred(TextureClient *aClient) override;
+  void ReturnTextureClientDeferred(TextureClient* aClient) override;
 
   /**
    * Return any clients to the pool that were previously returned in
@@ -112,7 +113,7 @@ public:
    */
   void Destroy();
 
-private:
+ private:
   void ReturnUnlockedClients();
 
   /// Allocate a single TextureClient to be returned from the pool.
@@ -157,7 +158,7 @@ private:
   /// existence is always mOutstandingClients + the size of mTextureClients.
   uint32_t mOutstandingClients;
 
-  std::stack<RefPtr<TextureClient> > mTextureClients;
+  std::stack<RefPtr<TextureClient>> mTextureClients;
 
   std::list<RefPtr<TextureClient>> mTextureClientsDeferred;
   RefPtr<nsITimer> mShrinkTimer;
@@ -171,7 +172,7 @@ private:
   bool mDestroyed;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_TEXTURECLIENTPOOL_H */

@@ -16,7 +16,8 @@ static mozilla::LazyLogModule sLogger("AudioNotificationReceiver");
 #undef ANR_LOG
 #define ANR_LOG(...) MOZ_LOG(sLogger, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #undef ANR_LOGW
-#define ANR_LOGW(...) MOZ_LOG(sLogger, mozilla::LogLevel::Warning, (__VA_ARGS__))
+#define ANR_LOGW(...) \
+  MOZ_LOG(sLogger, mozilla::LogLevel::Warning, (__VA_ARGS__))
 
 namespace mozilla {
 namespace audio {
@@ -46,7 +47,8 @@ AudioNotificationReceiver::Register(DeviceChangeListener* aDeviceChangeListener)
 }
 
 /* static */ void
-AudioNotificationReceiver::Unregister(DeviceChangeListener* aDeviceChangeListener)
+AudioNotificationReceiver::Unregister(
+    DeviceChangeListener* aDeviceChangeListener)
 {
   MOZ_ASSERT(XRE_IsContentProcess());
 
@@ -76,11 +78,13 @@ AudioNotificationReceiver::NotifyDefaultDeviceChanged()
   }
 
   for (DeviceChangeListener* stream : *sSubscribers) {
-    ANR_LOG("Notify the DeviceChangeListener: %p "
-            "that the default device has been changed.", stream);
+    ANR_LOG(
+        "Notify the DeviceChangeListener: %p "
+        "that the default device has been changed.",
+        stream);
     stream->ResetDefaultDevice();
   }
 }
 
-} // namespace audio
-} // namespace mozilla
+}  // namespace audio
+}  // namespace mozilla

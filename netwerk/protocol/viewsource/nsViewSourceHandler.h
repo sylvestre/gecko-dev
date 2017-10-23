@@ -17,29 +17,29 @@ namespace net {
 
 class nsViewSourceHandler final : public nsIProtocolHandler
 {
-public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIPROTOCOLHANDLER
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIPROTOCOLHANDLER
 
-    nsViewSourceHandler();
+  nsViewSourceHandler();
 
-    // Creates a new nsViewSourceChannel to view the source of an about:srcdoc
-    // URI with contents specified by srcdoc.
-    MOZ_MUST_USE nsresult NewSrcdocChannel(nsIURI *aURI,
-                                           nsIURI *aBaseURI,
-                                           const nsAString &aSrcdoc,
-                                           nsILoadInfo *aLoadInfo,
-                                           nsIChannel** outChannel);
+  // Creates a new nsViewSourceChannel to view the source of an about:srcdoc
+  // URI with contents specified by srcdoc.
+  MOZ_MUST_USE nsresult NewSrcdocChannel(nsIURI* aURI,
+                                         nsIURI* aBaseURI,
+                                         const nsAString& aSrcdoc,
+                                         nsILoadInfo* aLoadInfo,
+                                         nsIChannel** outChannel);
 
-    static nsViewSourceHandler* GetInstance();
+  static nsViewSourceHandler* GetInstance();
 
-private:
-    ~nsViewSourceHandler();
+ private:
+  ~nsViewSourceHandler();
 
-    static nsViewSourceHandler* gInstance;
+  static nsViewSourceHandler* gInstance;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* !defined( nsViewSourceHandler_h___ ) */

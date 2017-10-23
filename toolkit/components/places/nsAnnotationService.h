@@ -22,15 +22,17 @@ namespace places {
 
 class AnnotatedResult final : public mozIAnnotatedResult
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_MOZIANNOTATEDRESULT
 
-  AnnotatedResult(const nsCString& aGUID, nsIURI* aURI, int64_t aItemd,
+  AnnotatedResult(const nsCString& aGUID,
+                  nsIURI* aURI,
+                  int64_t aItemd,
                   const nsACString& aAnnotationName,
                   nsIVariant* aAnnotationValue);
 
-private:
+ private:
   ~AnnotatedResult();
 
   const nsCString mGUID;
@@ -40,14 +42,14 @@ private:
   nsCOMPtr<nsIVariant> mAnnotationValue;
 };
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla
 
-class nsAnnotationService final : public nsIAnnotationService
-                                , public nsIObserver
-                                , public nsSupportsWeakReference
+class nsAnnotationService final : public nsIAnnotationService,
+                                  public nsIObserver,
+                                  public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIANNOTATIONSERVICE
   NS_DECL_NSIOBSERVER
@@ -72,7 +74,7 @@ public:
   {
     if (!gAnnotationService) {
       nsCOMPtr<nsIAnnotationService> serv =
-        do_GetService(NS_ANNOTATIONSERVICE_CONTRACTID);
+          do_GetService(NS_ANNOTATIONSERVICE_CONTRACTID);
       NS_ENSURE_TRUE(serv, nullptr);
       NS_ASSERTION(gAnnotationService,
                    "Should have static instance pointer now");
@@ -80,10 +82,10 @@ public:
     return gAnnotationService;
   }
 
-private:
+ private:
   ~nsAnnotationService();
 
-protected:
+ protected:
   RefPtr<mozilla::places::Database> mDB;
 
   nsCOMArray<nsIAnnotationObserver> mObservers;
@@ -148,7 +150,7 @@ protected:
                                     int64_t aItemId,
                                     const nsACString& aName);
 
-public:
+ public:
   nsresult GetPagesWithAnnotationCOMArray(const nsACString& aName,
                                           nsCOMArray<nsIURI>* _results);
   nsresult GetItemsWithAnnotationTArray(const nsACString& aName,

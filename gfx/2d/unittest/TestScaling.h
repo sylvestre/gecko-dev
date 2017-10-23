@@ -9,7 +9,7 @@
 
 class TestScaling : public TestBase
 {
-public:
+ public:
   TestScaling();
 
   void BasicHalfScale();

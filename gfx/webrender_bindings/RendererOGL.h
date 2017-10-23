@@ -42,10 +42,14 @@ class RenderTextureHost;
 /// on the render thread instead of the compositor thread.
 class RendererOGL
 {
-  friend wr::WrExternalImage LockExternalImage(void* aObj, wr::WrExternalImageId aId, uint8_t aChannelIndex);
-  friend void UnlockExternalImage(void* aObj, wr::WrExternalImageId aId, uint8_t aChannelIndex);
+  friend wr::WrExternalImage LockExternalImage(void* aObj,
+                                               wr::WrExternalImageId aId,
+                                               uint8_t aChannelIndex);
+  friend void UnlockExternalImage(void* aObj,
+                                  wr::WrExternalImageId aId,
+                                  uint8_t aChannelIndex);
 
-public:
+ public:
   wr::WrExternalImageHandler GetExternalImageHandler();
 
   /// This can be called on the render thread only.
@@ -90,7 +94,7 @@ public:
 
   wr::Renderer* GetRenderer() { return mRenderer; }
 
-protected:
+ protected:
   void NotifyWebRenderError(WebRenderError aError);
 
   RefPtr<RenderThread> mThread;
@@ -104,7 +108,7 @@ protected:
   wr::DebugFlags mDebugFlags;
 };
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
 #endif

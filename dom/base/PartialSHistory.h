@@ -24,7 +24,7 @@ class PartialSHistory final : public nsIPartialSHistory,
                               public nsIPartialSHistoryListener,
                               public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(PartialSHistory, nsIPartialSHistory)
   NS_DECL_NSIPARTIALSHISTORY
@@ -37,7 +37,7 @@ public:
    */
   explicit PartialSHistory(nsIFrameLoader* aOwnerFrameLoader);
 
-private:
+ private:
   ~PartialSHistory() {}
   already_AddRefed<nsISHistory> GetSessionHistory();
   already_AddRefed<TabParent> GetTabParent();
@@ -66,7 +66,7 @@ private:
   nsCOMPtr<nsIGroupedSHistory> mGroupedSHistory;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* PartialSHistory_h */

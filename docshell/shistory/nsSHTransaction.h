@@ -14,16 +14,16 @@ class nsISHEntry;
 
 class nsSHTransaction : public nsISHTransaction
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISHTRANSACTION
 
   nsSHTransaction();
 
-protected:
+ protected:
   virtual ~nsSHTransaction();
 
-protected:
+ protected:
   nsISHTransaction* mPrev;  // Weak Reference
   nsCOMPtr<nsISHTransaction> mNext;
   nsCOMPtr<nsISHEntry> mSHEntry;

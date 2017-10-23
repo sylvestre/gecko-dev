@@ -19,16 +19,15 @@ using namespace mozilla::a11y;
 STDMETHODIMP
 ia2AccessibleHypertext::get_nHyperlinks(long* aHyperlinkCount)
 {
-  if (!aHyperlinkCount)
-    return E_INVALIDARG;
+  if (!aHyperlinkCount) return E_INVALIDARG;
 
   *aHyperlinkCount = 0;
 
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
-  HyperTextAccessibleWrap* hyperText = static_cast<HyperTextAccessibleWrap*>(this);
-  if (hyperText->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  HyperTextAccessibleWrap* hyperText =
+      static_cast<HyperTextAccessibleWrap*>(this);
+  if (hyperText->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   *aHyperlinkCount = hyperText->LinkCount();
   return S_OK;
@@ -38,44 +37,41 @@ STDMETHODIMP
 ia2AccessibleHypertext::get_hyperlink(long aLinkIndex,
                                       IAccessibleHyperlink** aHyperlink)
 {
-  if (!aHyperlink)
-    return E_INVALIDARG;
+  if (!aHyperlink) return E_INVALIDARG;
 
   *aHyperlink = nullptr;
 
   AccessibleWrap* hyperLink;
   MOZ_ASSERT(!HyperTextProxyFor(this));
-  HyperTextAccessibleWrap* hyperText = static_cast<HyperTextAccessibleWrap*>(this);
+  HyperTextAccessibleWrap* hyperText =
+      static_cast<HyperTextAccessibleWrap*>(this);
   if (hyperText->IsDefunct()) {
     return CO_E_OBJNOTCONNECTED;
   }
 
   hyperLink = static_cast<AccessibleWrap*>(hyperText->LinkAt(aLinkIndex));
 
-  if (!hyperLink)
-    return E_FAIL;
+  if (!hyperLink) return E_FAIL;
 
-  *aHyperlink =
-    static_cast<IAccessibleHyperlink*>(hyperLink);
+  *aHyperlink = static_cast<IAccessibleHyperlink*>(hyperLink);
   (*aHyperlink)->AddRef();
   return S_OK;
 }
 
 STDMETHODIMP
-ia2AccessibleHypertext::get_hyperlinkIndex(long aCharIndex, long* aHyperlinkIndex)
+ia2AccessibleHypertext::get_hyperlinkIndex(long aCharIndex,
+                                           long* aHyperlinkIndex)
 {
-  if (!aHyperlinkIndex)
-    return E_INVALIDARG;
+  if (!aHyperlinkIndex) return E_INVALIDARG;
 
   *aHyperlinkIndex = 0;
 
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
-  HyperTextAccessibleWrap* hyperAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (hyperAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  HyperTextAccessibleWrap* hyperAcc =
+      static_cast<HyperTextAccessibleWrap*>(this);
+  if (hyperAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   *aHyperlinkIndex = hyperAcc->LinkIndexAtOffset(aCharIndex);
   return S_OK;
 }
-

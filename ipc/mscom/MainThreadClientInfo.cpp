@@ -24,8 +24,7 @@ MainThreadClientInfo::Create(MainThreadClientInfo** aOutObj)
   RefPtr<MainThreadClientInfo> obj(new MainThreadClientInfo());
 
   RefPtr<IMessageFilter> prevFilter;
-  HRESULT hr = ::CoRegisterMessageFilter(obj.get(),
-                                         getter_AddRefs(prevFilter));
+  HRESULT hr = ::CoRegisterMessageFilter(obj.get(), getter_AddRefs(prevFilter));
   if (FAILED(hr)) {
     return hr;
   }
@@ -82,7 +81,8 @@ MainThreadClientInfo::Release()
 }
 
 DWORD
-MainThreadClientInfo::HandleInComingCall(DWORD aCallType, HTASK aCallerTid,
+MainThreadClientInfo::HandleInComingCall(DWORD aCallType,
+                                         HTASK aCallerTid,
                                          DWORD aTickCount,
                                          LPINTERFACEINFO aInterfaceInfo)
 {
@@ -91,18 +91,19 @@ MainThreadClientInfo::HandleInComingCall(DWORD aCallType, HTASK aCallerTid,
   // aCallerTid is an HTASK for historical reasons but is actually just a
   // regular DWORD Thread ID.
   mLastRemoteCallTid =
-    static_cast<DWORD>(reinterpret_cast<uintptr_t>(aCallerTid));
+      static_cast<DWORD>(reinterpret_cast<uintptr_t>(aCallerTid));
 
   if (!mPrevFilter) {
     return SERVERCALL_ISHANDLED;
   }
 
-  return mPrevFilter->HandleInComingCall(aCallType, aCallerTid, aTickCount,
-                                         aInterfaceInfo);
+  return mPrevFilter->HandleInComingCall(
+      aCallType, aCallerTid, aTickCount, aInterfaceInfo);
 }
 
 DWORD
-MainThreadClientInfo::RetryRejectedCall(HTASK aCalleeTid, DWORD aTickCount,
+MainThreadClientInfo::RetryRejectedCall(HTASK aCalleeTid,
+                                        DWORD aTickCount,
                                         DWORD aRejectType)
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -115,7 +116,8 @@ MainThreadClientInfo::RetryRejectedCall(HTASK aCalleeTid, DWORD aTickCount,
 }
 
 DWORD
-MainThreadClientInfo::MessagePending(HTASK aCalleeTid, DWORD aTickCount,
+MainThreadClientInfo::MessagePending(HTASK aCalleeTid,
+                                     DWORD aTickCount,
                                      DWORD aPendingType)
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -127,9 +129,7 @@ MainThreadClientInfo::MessagePending(HTASK aCalleeTid, DWORD aTickCount,
   return mPrevFilter->MessagePending(aCalleeTid, aTickCount, aPendingType);
 }
 
-MainThreadClientInfo::MainThreadClientInfo()
-  : mRefCnt(0)
-  , mLastRemoteCallTid(0)
+MainThreadClientInfo::MainThreadClientInfo() : mRefCnt(0), mLastRemoteCallTid(0)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
@@ -142,5 +142,5 @@ MainThreadClientInfo::Detach()
   mPrevFilter = nullptr;
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

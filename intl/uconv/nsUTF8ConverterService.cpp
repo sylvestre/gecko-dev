@@ -19,8 +19,7 @@ ToUTF8(const nsACString& aString,
        bool aAllowSubstitution,
        nsACString& aResult)
 {
-  if (!aCharset || !*aCharset)
-    return NS_ERROR_INVALID_ARG;
+  if (!aCharset || !*aCharset) return NS_ERROR_INVALID_ARG;
 
   auto encoding = Encoding::ForLabelNoReplacement(MakeStringSpan(aCharset));
   if (!encoding) {
@@ -106,4 +105,3 @@ nsUTF8ConverterService::ConvertURISpecToUTF8(const nsACString& aSpec,
 
   return ToUTF8(unescapedSpec, aCharset, true, aUTF8Spec);
 }
-

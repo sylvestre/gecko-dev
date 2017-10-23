@@ -6,22 +6,18 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testOOM)
-{
+BEGIN_TEST(testOOM) {
     JS::RootedValue v(cx, JS::Int32Value(9));
     JS::RootedString jsstr(cx, JS::ToString(cx, v));
     char16_t ch;
-    if (!JS_GetStringCharAt(cx, jsstr, 0, &ch))
-        return false;
+    if (!JS_GetStringCharAt(cx, jsstr, 0, &ch)) return false;
     MOZ_RELEASE_ASSERT(ch == '9');
     return true;
 }
 
-virtual JSContext* createContext() override
-{
+virtual JSContext* createContext() override {
     JSContext* cx = JS_NewContext(0);
-    if (!cx)
-        return nullptr;
+    if (!cx) return nullptr;
     JS_SetGCParameter(cx, JSGC_MAX_BYTES, (uint32_t)-1);
     setNativeStackQuota(cx);
     return cx;
@@ -32,33 +28,30 @@ END_TEST(testOOM)
 
 const uint32_t maxAllocsPerTest = 100;
 
-#define START_OOM_TEST(name)                                                  \
-    testName = name;                                                          \
-    printf("Test %s: started\n", testName);                                   \
-    for (oomAfter = 1; oomAfter < maxAllocsPerTest; ++oomAfter) {             \
-    js::oom::SimulateOOMAfter(oomAfter, js::THREAD_TYPE_COOPERATING, true)
+#define START_OOM_TEST(name)                                      \
+    testName = name;                                              \
+    printf("Test %s: started\n", testName);                       \
+    for (oomAfter = 1; oomAfter < maxAllocsPerTest; ++oomAfter) { \
+        js::oom::SimulateOOMAfter(oomAfter, js::THREAD_TYPE_COOPERATING, true)
 
-#define OOM_TEST_FINISHED                                                     \
-    {                                                                         \
-        printf("Test %s: finished with %" PRIu64 " allocations\n",            \
-               testName, oomAfter - 1);                                       \
-        break;                                                                \
+#define OOM_TEST_FINISHED                                                                   \
+    {                                                                                       \
+        printf("Test %s: finished with %" PRIu64 " allocations\n", testName, oomAfter - 1); \
+        break;                                                                              \
     }
 
-#define END_OOM_TEST                                                          \
-    }                                                                         \
-    js::oom::ResetSimulatedOOM();                                             \
+#define END_OOM_TEST              \
+    }                             \
+    js::oom::ResetSimulatedOOM(); \
     CHECK(oomAfter != maxAllocsPerTest)
 
-BEGIN_TEST(testNewContext)
-{
-    uninit(); // Get rid of test harness' original JSContext.
+BEGIN_TEST(testNewContext) {
+    uninit();  // Get rid of test harness' original JSContext.
 
     JSContext* cx;
     START_OOM_TEST("new context");
     cx = JS_NewContext(8L * 1024 * 1024);
-    if (cx)
-        OOM_TEST_FINISHED;
+    if (cx) OOM_TEST_FINISHED;
     CHECK(!JSRuntime::hasLiveRuntimes());
     END_OOM_TEST;
     JS_DestroyContext(cx);

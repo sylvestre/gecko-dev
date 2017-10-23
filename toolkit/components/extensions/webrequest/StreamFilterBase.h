@@ -15,12 +15,13 @@ namespace extensions {
 
 class StreamFilterBase
 {
-public:
+ public:
   typedef nsTArray<uint8_t> Data;
 
-protected:
-  class BufferedData : public LinkedListElement<BufferedData> {
-  public:
+ protected:
+  class BufferedData : public LinkedListElement<BufferedData>
+  {
+   public:
     explicit BufferedData(Data&& aData) : mData(Move(aData)) {}
 
     Data mData;
@@ -28,13 +29,13 @@ protected:
 
   LinkedList<BufferedData> mBufferedData;
 
-  inline void
-  BufferData(Data&& aData) {
+  inline void BufferData(Data&& aData)
+  {
     mBufferedData.insertBack(new BufferedData(Move(aData)));
   };
 };
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla
 
-#endif // mozilla_extensions_StreamFilterBase_h
+#endif  // mozilla_extensions_StreamFilterBase_h

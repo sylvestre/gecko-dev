@@ -38,7 +38,7 @@ class nsFormFillController final : public nsIFormFillController,
                                    public nsIFormAutoCompleteObserver,
                                    public nsIMutationObserver
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_NSIFORMFILLCONTROLLER
   NS_DECL_NSIAUTOCOMPLETESEARCH
@@ -47,7 +47,8 @@ public:
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIMUTATIONOBSERVER
 
-  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsFormFillController, nsIFormFillController)
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsFormFillController,
+                                           nsIFormFillController)
 
   nsresult Focus(nsIDOMEvent* aEvent);
   nsresult KeyPress(nsIDOMEvent* aKeyEvent);
@@ -55,7 +56,7 @@ public:
 
   nsFormFillController();
 
-protected:
+ protected:
   virtual ~nsFormFillController();
 
   void AddWindowListeners(nsPIDOMWindowOuter* aWindow);
@@ -64,7 +65,7 @@ protected:
   void AddKeyListener(nsINode* aInput);
   void RemoveKeyListener();
 
-  void StartControllingInput(nsIDOMHTMLInputElement *aInput);
+  void StartControllingInput(nsIDOMHTMLInputElement* aInput);
   void StopControllingInput();
   /**
    * Checks that aElement is a type of element we want to fill, then calls
@@ -76,16 +77,19 @@ protected:
                                         nsIAutoCompleteResult** aResult);
 
   void RevalidateDataList();
-  bool RowMatch(nsFormHistory *aHistory, uint32_t aIndex, const nsAString &aInputName, const nsAString &aInputValue);
+  bool RowMatch(nsFormHistory* aHistory,
+                uint32_t aIndex,
+                const nsAString& aInputName,
+                const nsAString& aInputValue);
 
-  inline nsIDocShell *GetDocShellForInput(nsIDOMHTMLInputElement *aInput);
-  inline nsPIDOMWindowOuter *GetWindowForDocShell(nsIDocShell *aDocShell);
-  inline int32_t GetIndexOfDocShell(nsIDocShell *aDocShell);
+  inline nsIDocShell* GetDocShellForInput(nsIDOMHTMLInputElement* aInput);
+  inline nsPIDOMWindowOuter* GetWindowForDocShell(nsIDocShell* aDocShell);
+  inline int32_t GetIndexOfDocShell(nsIDocShell* aDocShell);
 
   void MaybeRemoveMutationObserver(nsINode* aNode);
 
   void RemoveForDocument(nsIDocument* aDoc);
-  bool IsEventTrusted(nsIDOMEvent *aEvent);
+  bool IsEventTrusted(nsIDOMEvent* aEvent);
 
   bool IsTextControl(nsINode* aNode);
 
@@ -127,4 +131,4 @@ protected:
   bool mSuppressOnInput;
 };
 
-#endif // __nsFormFillController__
+#endif  // __nsFormFillController__

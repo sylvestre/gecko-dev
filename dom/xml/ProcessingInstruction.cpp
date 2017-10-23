@@ -13,7 +13,7 @@
 #include "nsContentUtils.h"
 
 already_AddRefed<mozilla::dom::ProcessingInstruction>
-NS_NewXMLProcessingInstruction(nsNodeInfoManager *aNodeInfoManager,
+NS_NewXMLProcessingInstruction(nsNodeInfoManager* aNodeInfoManager,
                                const nsAString& aTarget,
                                const nsAString& aData)
 {
@@ -27,18 +27,19 @@ NS_NewXMLProcessingInstruction(nsNodeInfoManager *aNodeInfoManager,
 
   if (target == nsGkAtoms::xml_stylesheet) {
     RefPtr<XMLStylesheetProcessingInstruction> pi =
-      new XMLStylesheetProcessingInstruction(aNodeInfoManager, aData);
+        new XMLStylesheetProcessingInstruction(aNodeInfoManager, aData);
     return pi.forget();
   }
 
   RefPtr<mozilla::dom::NodeInfo> ni;
   ni = aNodeInfoManager->GetNodeInfo(nsGkAtoms::processingInstructionTagName,
-                                     nullptr, kNameSpaceID_None,
+                                     nullptr,
+                                     kNameSpaceID_None,
                                      nsIDOMNode::PROCESSING_INSTRUCTION_NODE,
                                      target);
 
   RefPtr<ProcessingInstruction> instance =
-    new ProcessingInstruction(ni.forget(), aData);
+      new ProcessingInstruction(ni.forget(), aData);
 
   return instance.forget();
 }
@@ -46,28 +47,32 @@ NS_NewXMLProcessingInstruction(nsNodeInfoManager *aNodeInfoManager,
 namespace mozilla {
 namespace dom {
 
-ProcessingInstruction::ProcessingInstruction(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
-                                             const nsAString& aData)
-  : nsGenericDOMDataNode(Move(aNodeInfo))
+ProcessingInstruction::ProcessingInstruction(
+    already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
+    const nsAString& aData)
+    : nsGenericDOMDataNode(Move(aNodeInfo))
 {
   MOZ_ASSERT(mNodeInfo->NodeType() == nsIDOMNode::PROCESSING_INSTRUCTION_NODE,
              "Bad NodeType in aNodeInfo");
 
-  SetTextInternal(0, mText.GetLength(),
-                  aData.BeginReading(), aData.Length(),
+  SetTextInternal(0,
+                  mText.GetLength(),
+                  aData.BeginReading(),
+                  aData.Length(),
                   false);  // Don't notify (bug 420429).
 }
 
-ProcessingInstruction::~ProcessingInstruction()
-{
-}
+ProcessingInstruction::~ProcessingInstruction() {}
 
-NS_IMPL_ISUPPORTS_INHERITED(ProcessingInstruction, nsGenericDOMDataNode,
-                            nsIDOMNode, nsIDOMCharacterData,
+NS_IMPL_ISUPPORTS_INHERITED(ProcessingInstruction,
+                            nsGenericDOMDataNode,
+                            nsIDOMNode,
+                            nsIDOMCharacterData,
                             nsIDOMProcessingInstruction)
 
 JSObject*
-ProcessingInstruction::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+ProcessingInstruction::WrapNode(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return ProcessingInstructionBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -81,7 +86,7 @@ ProcessingInstruction::GetTarget(nsAString& aTarget)
 }
 
 bool
-ProcessingInstruction::GetAttrValue(nsAtom *aName, nsAString& aValue)
+ProcessingInstruction::GetAttrValue(nsAtom* aName, nsAString& aValue)
 {
   nsAutoString data;
 
@@ -96,7 +101,7 @@ ProcessingInstruction::IsNodeOfType(uint32_t aFlags) const
 }
 
 nsGenericDOMDataNode*
-ProcessingInstruction::CloneDataNode(mozilla::dom::NodeInfo *aNodeInfo,
+ProcessingInstruction::CloneDataNode(mozilla::dom::NodeInfo* aNodeInfo,
                                      bool aCloneText) const
 {
   nsAutoString data;
@@ -110,7 +115,7 @@ void
 ProcessingInstruction::List(FILE* out, int32_t aIndent) const
 {
   int32_t index;
-  for (index = aIndent; --index >= 0; ) fputs("  ", out);
+  for (index = aIndent; --index >= 0;) fputs("  ", out);
 
   fprintf(out, "Processing instruction refcount=%" PRIuPTR "<", mRefCnt.get());
 
@@ -123,11 +128,12 @@ ProcessingInstruction::List(FILE* out, int32_t aIndent) const
 }
 
 void
-ProcessingInstruction::DumpContent(FILE* out, int32_t aIndent,
+ProcessingInstruction::DumpContent(FILE* out,
+                                   int32_t aIndent,
                                    bool aDumpAll) const
 {
 }
 #endif
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

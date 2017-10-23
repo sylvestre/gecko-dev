@@ -17,7 +17,7 @@ class OriginAttributes;
 
 namespace ipc {
 class PrincipalInfo;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 
@@ -30,7 +30,7 @@ class ServiceWorkerUpdaterParent;
 
 class ServiceWorkerManagerService final
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(ServiceWorkerManagerService)
 
   static already_AddRefed<ServiceWorkerManagerService> Get();
@@ -61,7 +61,7 @@ public:
 
   void UpdaterActorDestroyed(ServiceWorkerUpdaterParent* aActor);
 
-private:
+ private:
   ServiceWorkerManagerService();
   ~ServiceWorkerManagerService();
 
@@ -77,8 +77,8 @@ private:
   nsTArray<PendingUpdaterActor> mPendingUpdaterActors;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ServiceWorkerManagerService_h
+#endif  // mozilla_dom_ServiceWorkerManagerService_h

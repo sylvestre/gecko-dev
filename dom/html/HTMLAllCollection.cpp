@@ -15,14 +15,12 @@ namespace mozilla {
 namespace dom {
 
 HTMLAllCollection::HTMLAllCollection(nsHTMLDocument* aDocument)
-  : mDocument(aDocument)
+    : mDocument(aDocument)
 {
   MOZ_ASSERT(mDocument);
 }
 
-HTMLAllCollection::~HTMLAllCollection()
-{
-}
+HTMLAllCollection::~HTMLAllCollection() {}
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(HTMLAllCollection,
                                       mDocument,
@@ -86,7 +84,9 @@ IsAllNamedElement(nsIContent* aContent)
 }
 
 static bool
-DocAllResultMatch(Element* aElement, int32_t aNamespaceID, nsAtom* aAtom,
+DocAllResultMatch(Element* aElement,
+                  int32_t aNamespaceID,
+                  nsAtom* aAtom,
                   void* aData)
 {
   if (aElement->GetID() == aAtom) {
@@ -110,12 +110,11 @@ DocAllResultMatch(Element* aElement, int32_t aNamespaceID, nsAtom* aAtom,
 nsContentList*
 HTMLAllCollection::GetDocumentAllList(const nsAString& aID)
 {
-  return mNamedMap.LookupForAdd(aID).OrInsert(
-    [this, &aID] () {
-      RefPtr<nsAtom> id = NS_Atomize(aID);
-      return new nsContentList(mDocument, DocAllResultMatch, nullptr,
-                               nullptr, true, id);
-    });
+  return mNamedMap.LookupForAdd(aID).OrInsert([this, &aID]() {
+    RefPtr<nsAtom> id = NS_Atomize(aID);
+    return new nsContentList(
+        mDocument, DocAllResultMatch, nullptr, nullptr, true, id);
+  });
 }
 
 void
@@ -163,11 +162,10 @@ HTMLAllCollection::GetSupportedNames(nsTArray<nsString>& aNames)
   // but has to check IsAllNamedElement for the name case.
   AutoTArray<nsAtom*, 8> atoms;
   for (uint32_t i = 0; i < Length(); ++i) {
-    nsIContent *content = Item(i);
+    nsIContent* content = Item(i);
     if (content->HasID()) {
       nsAtom* id = content->GetID();
-      MOZ_ASSERT(id != nsGkAtoms::_empty,
-                 "Empty ids don't get atomized");
+      MOZ_ASSERT(id != nsGkAtoms::_empty, "Empty ids don't get atomized");
       if (!atoms.Contains(id)) {
         atoms.AppendElement(id);
       }
@@ -181,8 +179,7 @@ HTMLAllCollection::GetSupportedNames(nsTArray<nsString>& aNames)
       if (val && val->Type() == nsAttrValue::eAtom &&
           IsAllNamedElement(content)) {
         nsAtom* name = val->GetAtomValue();
-        MOZ_ASSERT(name != nsGkAtoms::_empty,
-                   "Empty names don't get atomized");
+        MOZ_ASSERT(name != nsGkAtoms::_empty, "Empty names don't get atomized");
         if (!atoms.Contains(name)) {
           atoms.AppendElement(name);
         }
@@ -197,12 +194,11 @@ HTMLAllCollection::GetSupportedNames(nsTArray<nsString>& aNames)
   }
 }
 
-
 JSObject*
 HTMLAllCollection::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLAllCollectionBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -15,15 +15,12 @@ namespace jit {
 class OutOfLineBailout;
 class OutOfLineTableSwitch;
 
-class CodeGeneratorMIPSShared : public CodeGeneratorShared
-{
+class CodeGeneratorMIPSShared : public CodeGeneratorShared {
     friend class MoveResolverMIPS;
 
-    CodeGeneratorMIPSShared* thisFromCtor() {
-        return this;
-    }
+    CodeGeneratorMIPSShared* thisFromCtor() { return this; }
 
-  protected:
+   protected:
     NonAssertingLabel deoptLabel_;
 
     Operand ToOperand(const LAllocation& a);
@@ -44,7 +41,7 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
         masm.branch32(c, lhs, rhs, &bail);
         bailoutFrom(&bail, snapshot);
     }
-    template<typename T>
+    template <typename T>
     void bailoutTest32(Assembler::Condition c, Register lhs, T rhs, LSnapshot* snapshot) {
         Label bail;
         masm.branchTest32(c, lhs, rhs, &bail);
@@ -70,12 +67,11 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
     void bailoutFrom(Label* label, LSnapshot* snapshot);
     void bailout(LSnapshot* snapshot);
 
-  protected:
+   protected:
     bool generateOutOfLineCode();
 
     template <typename T>
-    void branchToBlock(Register lhs, T rhs, MBasicBlock* mir, Assembler::Condition cond)
-    {
+    void branchToBlock(Register lhs, T rhs, MBasicBlock* mir, Assembler::Condition cond) {
         mir = skipTrivialBlocks(mir);
 
         Label* label = mir->lir()->label();
@@ -103,9 +99,8 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
     // Emits a branch that directs control flow to the true block if |cond| is
     // true, and the false block if |cond| is false.
     template <typename T>
-    void emitBranch(Register lhs, T rhs, Assembler::Condition cond,
-                    MBasicBlock* mirTrue, MBasicBlock* mirFalse)
-    {
+    void emitBranch(Register lhs, T rhs, Assembler::Condition cond, MBasicBlock* mirTrue,
+                    MBasicBlock* mirFalse) {
         if (isNextBlock(mirFalse->lir())) {
             branchToBlock(lhs, rhs, mirTrue, cond);
         } else {
@@ -113,9 +108,8 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
             jumpToBlock(mirTrue);
         }
     }
-    void testZeroEmitBranch(Assembler::Condition cond, Register reg,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+    void testZeroEmitBranch(Assembler::Condition cond, Register reg, MBasicBlock* ifTrue,
+                            MBasicBlock* ifFalse) {
         emitBranch(reg, Imm32(0), cond, ifTrue, ifFalse);
     }
 
@@ -124,7 +118,7 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
     template <typename T>
     void emitWasmStore(T* ins);
 
-  public:
+   public:
     // Instruction visitors.
     virtual void visitMinMaxD(LMinMaxD* ins);
     virtual void visitMinMaxF(LMinMaxF* ins);
@@ -194,10 +188,10 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
     void visitCopySignD(LCopySignD* ins);
     void visitCopySignF(LCopySignF* ins);
 
-  protected:
+   protected:
     virtual ValueOperand ToOutValue(LInstruction* ins) = 0;
 
-  public:
+   public:
     CodeGeneratorMIPSShared(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
     void visitValue(LValue* value);
@@ -239,23 +233,23 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
     void generateInvalidateEpilogue();
 
     // Generating a result.
-    template<typename S, typename T>
+    template <typename S, typename T>
     void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value,
                                     const T& mem, Register flagTemp, Register outTemp,
                                     Register valueTemp, Register offsetTemp, Register maskTemp,
                                     AnyRegister output);
 
     // Generating no result.
-    template<typename S, typename T>
+    template <typename S, typename T>
     void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value,
                                     const T& mem, Register flagTemp, Register valueTemp,
                                     Register offsetTemp, Register maskTemp);
 
-  protected:
+   protected:
     void visitEffectiveAddress(LEffectiveAddress* ins);
     void visitUDivOrMod(LUDivOrMod* ins);
 
-  public:
+   public:
     // Unimplemented SIMD instructions
     void visitSimdSplatX4(LSimdSplatX4* lir) { MOZ_CRASH("NYI"); }
     void visitSimd128Int(LSimd128Int* ins) { MOZ_CRASH("NYI"); }
@@ -273,25 +267,20 @@ class CodeGeneratorMIPSShared : public CodeGeneratorShared
 };
 
 // An out-of-line bailout thunk.
-class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorMIPSShared>
-{
+class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorMIPSShared> {
     LSnapshot* snapshot_;
     uint32_t frameSize_;
 
-  public:
+   public:
     OutOfLineBailout(LSnapshot* snapshot, uint32_t frameSize)
-      : snapshot_(snapshot),
-        frameSize_(frameSize)
-    { }
+        : snapshot_(snapshot), frameSize_(frameSize) {}
 
     void accept(CodeGeneratorMIPSShared* codegen);
 
-    LSnapshot* snapshot() const {
-        return snapshot_;
-    }
+    LSnapshot* snapshot() const { return snapshot_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips_shared_CodeGenerator_mips_shared_h */

@@ -20,7 +20,7 @@ namespace mozilla {
 
 namespace dom {
 class SVGAnimationElement;
-} // namespace dom
+}  // namespace dom
 
 /**
  * Class SVGAnimatedNumberList
@@ -42,7 +42,7 @@ class SVGAnimatedNumberList
   friend class DOMSVGNumber;
   friend class DOMSVGNumberList;
 
-public:
+ public:
   SVGAnimatedNumberList() {}
 
   /**
@@ -52,42 +52,36 @@ public:
    * returns a const reference. Only our friend classes may get mutable
    * references to mBaseVal.
    */
-  const SVGNumberList& GetBaseValue() const {
-    return mBaseVal;
-  }
+  const SVGNumberList& GetBaseValue() const { return mBaseVal; }
 
   nsresult SetBaseValueString(const nsAString& aValue);
 
   void ClearBaseValue(uint32_t aAttrEnum);
 
-  const SVGNumberList& GetAnimValue() const {
+  const SVGNumberList& GetAnimValue() const
+  {
     return mAnimVal ? *mAnimVal : mBaseVal;
   }
 
   nsresult SetAnimValue(const SVGNumberList& aValue,
-                        nsSVGElement *aElement,
+                        nsSVGElement* aElement,
                         uint32_t aAttrEnum);
 
-  void ClearAnimValue(nsSVGElement *aElement,
-                      uint32_t aAttrEnum);
+  void ClearAnimValue(nsSVGElement* aElement, uint32_t aAttrEnum);
 
   // Returns true if the animated value of this list has been explicitly
   // set (either by animation, or by taking on the base value which has been
   // explicitly set by markup or a DOM call), false otherwise.
   // If this returns false, the animated value is still valid, that is,
   // useable, and represents the default base value of the attribute.
-  bool IsExplicitlySet() const
-    { return !!mAnimVal || mIsBaseSet; }
+  bool IsExplicitlySet() const { return !!mAnimVal || mIsBaseSet; }
 
-  bool IsAnimating() const {
-    return !!mAnimVal;
-  }
+  bool IsAnimating() const { return !!mAnimVal; }
 
   UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aSVGElement,
                                     uint8_t aAttrEnum);
 
-private:
-
+ private:
   // mAnimVal is a pointer to allow us to determine if we're being animated or
   // not. Making it a non-pointer member and using mAnimVal.IsEmpty() to check
   // if we're animating is not an option, since that would break animation *to*
@@ -99,14 +93,13 @@ private:
 
   struct SMILAnimatedNumberList : public nsISMILAttr
   {
-  public:
+   public:
     SMILAnimatedNumberList(SVGAnimatedNumberList* aVal,
                            nsSVGElement* aSVGElement,
                            uint8_t aAttrEnum)
-      : mVal(aVal)
-      , mElement(aSVGElement)
-      , mAttrEnum(aAttrEnum)
-    {}
+        : mVal(aVal), mElement(aSVGElement), mAttrEnum(aAttrEnum)
+    {
+    }
 
     // These will stay alive because a nsISMILAttr only lives as long
     // as the Compositing step, and DOM elements don't get a chance to
@@ -116,16 +109,17 @@ private:
     uint8_t mAttrEnum;
 
     // nsISMILAttr methods
-    virtual nsresult ValueFromString(const nsAString& aStr,
-                                     const dom::SVGAnimationElement* aSrcElement,
-                                     nsSMILValue& aValue,
-                                     bool& aPreventCachingOfSandwich) const override;
+    virtual nsresult ValueFromString(
+        const nsAString& aStr,
+        const dom::SVGAnimationElement* aSrcElement,
+        nsSMILValue& aValue,
+        bool& aPreventCachingOfSandwich) const override;
     virtual nsSMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
     virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGANIMATEDNUMBERLIST_H__
+#endif  // MOZILLA_SVGANIMATEDNUMBERLIST_H__

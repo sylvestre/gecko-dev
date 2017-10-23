@@ -12,30 +12,30 @@ namespace mozilla {
 namespace net {
 class nsCookieKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const nsCookieKey& KeyType;
   typedef const nsCookieKey* KeyTypePointer;
 
-  nsCookieKey()
-  {}
+  nsCookieKey() {}
 
-  nsCookieKey(const nsCString &baseDomain, const OriginAttributes &attrs)
-    : mBaseDomain(baseDomain)
-    , mOriginAttributes(attrs)
-  {}
+  nsCookieKey(const nsCString& baseDomain, const OriginAttributes& attrs)
+      : mBaseDomain(baseDomain), mOriginAttributes(attrs)
+  {
+  }
 
   explicit nsCookieKey(KeyTypePointer other)
-    : mBaseDomain(other->mBaseDomain)
-    , mOriginAttributes(other->mOriginAttributes)
-  {}
+      : mBaseDomain(other->mBaseDomain),
+        mOriginAttributes(other->mOriginAttributes)
+  {
+  }
 
   nsCookieKey(KeyType other)
-    : mBaseDomain(other.mBaseDomain)
-    , mOriginAttributes(other.mOriginAttributes)
-  {}
+      : mBaseDomain(other.mBaseDomain),
+        mOriginAttributes(other.mOriginAttributes)
+  {
+  }
 
-  ~nsCookieKey()
-  {}
+  ~nsCookieKey() {}
 
   bool KeyEquals(KeyTypePointer other) const
   {
@@ -43,10 +43,7 @@ public:
            mOriginAttributes == other->mOriginAttributes;
   }
 
-  static KeyTypePointer KeyToPointer(KeyType aKey)
-  {
-    return &aKey;
-  }
+  static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
 
   static PLDHashNumber HashKey(KeyTypePointer aKey)
   {
@@ -63,12 +60,15 @@ public:
     return mBaseDomain.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
   }
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-  nsCString        mBaseDomain;
+  nsCString mBaseDomain;
   OriginAttributes mOriginAttributes;
 };
 
-} // net
-} // mozilla
-#endif // mozilla_net_nsCookieKey_h
+}  // namespace net
+}  // namespace mozilla
+#endif  // mozilla_net_nsCookieKey_h

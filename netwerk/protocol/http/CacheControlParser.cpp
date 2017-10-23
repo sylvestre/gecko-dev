@@ -9,16 +9,16 @@
 namespace mozilla {
 namespace net {
 
-CacheControlParser::CacheControlParser(nsACString const &aHeader)
-  : Tokenizer(aHeader, nullptr, "-_")
-  , mMaxAgeSet(false)
-  , mMaxAge(0)
-  , mMaxStaleSet(false)
-  , mMaxStale(0)
-  , mMinFreshSet(false)
-  , mMinFresh(0)
-  , mNoCache(false)
-  , mNoStore(false)
+CacheControlParser::CacheControlParser(nsACString const& aHeader)
+    : Tokenizer(aHeader, nullptr, "-_"),
+      mMaxAgeSet(false),
+      mMaxAge(0),
+      mMaxStaleSet(false),
+      mMaxStale(0),
+      mMinFreshSet(false),
+      mMinFresh(0),
+      mNoCache(false),
+      mNoStore(false)
 {
   SkipWhites();
   if (!CheckEOF()) {
@@ -26,11 +26,12 @@ CacheControlParser::CacheControlParser(nsACString const &aHeader)
   }
 }
 
-void CacheControlParser::Directive()
+void
+CacheControlParser::Directive()
 {
   if (CheckWord("no-cache")) {
     mNoCache = true;
-    IgnoreDirective(); // ignore any optionally added values
+    IgnoreDirective();  // ignore any optionally added values
   } else if (CheckWord("no-store")) {
     mNoStore = true;
   } else if (CheckWord("max-age")) {
@@ -56,7 +57,8 @@ void CacheControlParser::Directive()
   NS_WARNING("Unexpected input in Cache-control header value");
 }
 
-bool CacheControlParser::SecondsValue(uint32_t *seconds, uint32_t defaultVal)
+bool
+CacheControlParser::SecondsValue(uint32_t* seconds, uint32_t defaultVal)
 {
   SkipWhites();
   if (!CheckChar('=')) {
@@ -73,7 +75,8 @@ bool CacheControlParser::SecondsValue(uint32_t *seconds, uint32_t defaultVal)
   return true;
 }
 
-void CacheControlParser::IgnoreDirective()
+void
+CacheControlParser::IgnoreDirective()
 {
   Token t;
   while (Next(t)) {
@@ -84,40 +87,46 @@ void CacheControlParser::IgnoreDirective()
     if (t.Equals(Token::Char('"'))) {
       SkipUntil(Token::Char('"'));
       if (!CheckChar('"')) {
-        NS_WARNING("Missing quoted string expansion in Cache-control header value");
+        NS_WARNING(
+            "Missing quoted string expansion in Cache-control header value");
         break;
       }
     }
   }
 }
 
-bool CacheControlParser::MaxAge(uint32_t *seconds)
+bool
+CacheControlParser::MaxAge(uint32_t* seconds)
 {
   *seconds = mMaxAge;
   return mMaxAgeSet;
 }
 
-bool CacheControlParser::MaxStale(uint32_t *seconds)
+bool
+CacheControlParser::MaxStale(uint32_t* seconds)
 {
   *seconds = mMaxStale;
   return mMaxStaleSet;
 }
 
-bool CacheControlParser::MinFresh(uint32_t *seconds)
+bool
+CacheControlParser::MinFresh(uint32_t* seconds)
 {
   *seconds = mMinFresh;
   return mMinFreshSet;
 }
 
-bool CacheControlParser::NoCache()
+bool
+CacheControlParser::NoCache()
 {
   return mNoCache;
 }
 
-bool CacheControlParser::NoStore()
+bool
+CacheControlParser::NoStore()
 {
   return mNoStore;
 }
 
-} // net
-} // mozilla
+}  // namespace net
+}  // namespace mozilla

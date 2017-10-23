@@ -20,15 +20,15 @@ NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WorkerLocation, Release)
 WorkerLocation::Create(workers::WorkerPrivate::LocationInfo& aInfo)
 {
   RefPtr<WorkerLocation> location =
-    new WorkerLocation(NS_ConvertUTF8toUTF16(aInfo.mHref),
-                       NS_ConvertUTF8toUTF16(aInfo.mProtocol),
-                       NS_ConvertUTF8toUTF16(aInfo.mHost),
-                       NS_ConvertUTF8toUTF16(aInfo.mHostname),
-                       NS_ConvertUTF8toUTF16(aInfo.mPort),
-                       NS_ConvertUTF8toUTF16(aInfo.mPathname),
-                       NS_ConvertUTF8toUTF16(aInfo.mSearch),
-                       NS_ConvertUTF8toUTF16(aInfo.mHash),
-                       aInfo.mOrigin);
+      new WorkerLocation(NS_ConvertUTF8toUTF16(aInfo.mHref),
+                         NS_ConvertUTF8toUTF16(aInfo.mProtocol),
+                         NS_ConvertUTF8toUTF16(aInfo.mHost),
+                         NS_ConvertUTF8toUTF16(aInfo.mHostname),
+                         NS_ConvertUTF8toUTF16(aInfo.mPort),
+                         NS_ConvertUTF8toUTF16(aInfo.mPathname),
+                         NS_ConvertUTF8toUTF16(aInfo.mSearch),
+                         NS_ConvertUTF8toUTF16(aInfo.mHash),
+                         aInfo.mOrigin);
 
   return location.forget();
 }
@@ -39,5 +39,5 @@ WorkerLocation::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return WorkerLocationBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -12,7 +12,7 @@
 
 class nsSAXLocator final : public nsISAXLocator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISAXLOCATOR
 
@@ -21,7 +21,7 @@ public:
                int32_t aLineNumber,
                int32_t aColumnNumber);
 
-private:
+ private:
   ~nsSAXLocator() {}
 
   nsString mPublicId;
@@ -30,4 +30,4 @@ private:
   int32_t mColumnNumber;
 };
 
-#endif //nsSAXLocator_h__
+#endif  //nsSAXLocator_h__

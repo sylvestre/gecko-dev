@@ -17,26 +17,29 @@ namespace gfx {
 
 class NativeFontResourceFontconfig final : public NativeFontResource
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(NativeFontResourceFontconfig)
 
-  static already_AddRefed<NativeFontResourceFontconfig>
-    Create(uint8_t *aFontData, uint32_t aDataLength, FT_Library aFTLibrary = nullptr);
+  static already_AddRefed<NativeFontResourceFontconfig> Create(
+      uint8_t* aFontData,
+      uint32_t aDataLength,
+      FT_Library aFTLibrary = nullptr);
 
-  already_AddRefed<UnscaledFont>
-    CreateUnscaledFont(uint32_t aIndex,
-                       const uint8_t* aInstanceData, uint32_t aInstanceDataLength) final;
+  already_AddRefed<UnscaledFont> CreateUnscaledFont(
+      uint32_t aIndex,
+      const uint8_t* aInstanceData,
+      uint32_t aInstanceDataLength) final;
 
   ~NativeFontResourceFontconfig();
 
-private:
+ private:
   NativeFontResourceFontconfig(UniquePtr<uint8_t[]>&& aFontData, FT_Face aFace);
 
   UniquePtr<uint8_t[]> mFontData;
   FT_Face mFace;
 };
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_NativeFontResourceFontconfig_h
+#endif  // mozilla_gfx_NativeFontResourceFontconfig_h

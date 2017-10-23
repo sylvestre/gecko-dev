@@ -35,10 +35,8 @@ using mozilla::Maybe;
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 16-25.
  */
-bool
-js::CreateRegExpMatchResult(JSContext* cx, HandleString input, const MatchPairs& matches,
-                            MutableHandleValue rval)
-{
+bool js::CreateRegExpMatchResult(JSContext* cx, HandleString input, const MatchPairs& matches,
+                                 MutableHandleValue rval) {
     MOZ_ASSERT(input);
 
     /*
@@ -53,16 +51,15 @@ js::CreateRegExpMatchResult(JSContext* cx, HandleString input, const MatchPairs&
 
     /* Get the templateObject that defines the shape and type of the output object */
     JSObject* templateObject = cx->compartment()->regExps.getOrCreateMatchResultTemplateObject(cx);
-    if (!templateObject)
-        return false;
+    if (!templateObject) return false;
 
     size_t numPairs = matches.length();
     MOZ_ASSERT(numPairs > 0);
 
     /* Step 17. */
-    RootedArrayObject arr(cx, NewDenseFullyAllocatedArrayWithTemplate(cx, numPairs, templateObject));
-    if (!arr)
-        return false;
+    RootedArrayObject arr(cx,
+                          NewDenseFullyAllocatedArrayWithTemplate(cx, numPairs, templateObject));
+    if (!arr) return false;
 
     /* Steps 22-24.
      * Store a Value for each pair. */
@@ -75,8 +72,7 @@ js::CreateRegExpMatchResult(JSContext* cx, HandleString input, const MatchPairs&
             arr->initDenseElement(i, UndefinedValue());
         } else {
             JSLinearString* str = NewDependentString(cx, input, pair.start, pair.length());
-            if (!str)
-                return false;
+            if (!str) return false;
             arr->setDenseInitializedLength(i + 1);
             arr->initDenseElement(i, StringValue(str));
         }
@@ -93,12 +89,10 @@ js::CreateRegExpMatchResult(JSContext* cx, HandleString input, const MatchPairs&
 #ifdef DEBUG
     RootedValue test(cx);
     RootedId id(cx, NameToId(cx->names().index));
-    if (!NativeGetProperty(cx, arr, id, &test))
-        return false;
+    if (!NativeGetProperty(cx, arr, id, &test)) return false;
     MOZ_ASSERT(test == arr->getSlot(0));
     id = NameToId(cx->names().input);
-    if (!NativeGetProperty(cx, arr, id, &test))
-        return false;
+    if (!NativeGetProperty(cx, arr, id, &test)) return false;
     MOZ_ASSERT(test == arr->getSlot(1));
 #endif
 
@@ -107,9 +101,7 @@ js::CreateRegExpMatchResult(JSContext* cx, HandleString input, const MatchPairs&
     return true;
 }
 
-static int32_t
-CreateRegExpSearchResult(JSContext* cx, const MatchPairs& matches)
-{
+static int32_t CreateRegExpSearchResult(JSContext* cx, const MatchPairs& matches) {
     /* Fit the start and limit of match into a int32_t. */
     uint32_t position = matches[0].start;
     uint32_t lastIndex = matches[0].limit;
@@ -122,18 +114,16 @@ CreateRegExpSearchResult(JSContext* cx, const MatchPairs& matches)
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 9-14, except 12.a.i, 12.c.i.1.
  */
-static RegExpRunStatus
-ExecuteRegExpImpl(JSContext* cx, RegExpStatics* res, MutableHandleRegExpShared re,
-                  HandleLinearString input, size_t searchIndex, MatchPairs* matches,
-                  size_t* endIndex)
-{
+static RegExpRunStatus ExecuteRegExpImpl(JSContext* cx, RegExpStatics* res,
+                                         MutableHandleRegExpShared re, HandleLinearString input,
+                                         size_t searchIndex, MatchPairs* matches,
+                                         size_t* endIndex) {
     RegExpRunStatus status = RegExpShared::execute(cx, re, input, searchIndex, matches, endIndex);
 
     /* Out of spec: Update RegExpStatics. */
     if (status == RegExpRunStatus_Success && res) {
         if (matches) {
-            if (!res->updateFromMatchPairs(cx, input, *matches))
-                return RegExpRunStatus_Error;
+            if (!res->updateFromMatchPairs(cx, input, *matches)) return RegExpRunStatus_Error;
         } else {
             res->updateLazily(cx, input, re, searchIndex);
         }
@@ -142,21 +132,17 @@ ExecuteRegExpImpl(JSContext* cx, RegExpStatics* res, MutableHandleRegExpShared r
 }
 
 /* Legacy ExecuteRegExp behavior is baked into the JSAPI. */
-bool
-js::ExecuteRegExpLegacy(JSContext* cx, RegExpStatics* res, Handle<RegExpObject*> reobj,
-                        HandleLinearString input, size_t* lastIndex, bool test,
-                        MutableHandleValue rval)
-{
+bool js::ExecuteRegExpLegacy(JSContext* cx, RegExpStatics* res, Handle<RegExpObject*> reobj,
+                             HandleLinearString input, size_t* lastIndex, bool test,
+                             MutableHandleValue rval) {
     RootedRegExpShared shared(cx, RegExpObject::getShared(cx, reobj));
-    if (!shared)
-        return false;
+    if (!shared) return false;
 
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
 
-    RegExpRunStatus status = ExecuteRegExpImpl(cx, res, &shared, input, *lastIndex,
-                                               &matches, nullptr);
-    if (status == RegExpRunStatus_Error)
-        return false;
+    RegExpRunStatus status =
+        ExecuteRegExpImpl(cx, res, &shared, input, *lastIndex, &matches, nullptr);
+    if (status == RegExpRunStatus_Error) return false;
 
     if (status == RegExpRunStatus_Success_NotFound) {
         /* ExecuteRegExp() previously returned an array or null. */
@@ -175,19 +161,14 @@ js::ExecuteRegExpLegacy(JSContext* cx, RegExpStatics* res, Handle<RegExpObject*>
     return CreateRegExpMatchResult(cx, input, matches, rval);
 }
 
-static bool
-CheckPatternSyntax(JSContext* cx, HandleAtom pattern, RegExpFlag flags)
-{
+static bool CheckPatternSyntax(JSContext* cx, HandleAtom pattern, RegExpFlag flags) {
     CompileOptions options(cx);
     frontend::TokenStream dummyTokenStream(cx, options, nullptr, 0, nullptr);
     return irregexp::ParsePatternSyntax(dummyTokenStream, cx->tempLifoAlloc(), pattern,
                                         flags & UnicodeFlag);
 }
 
-enum RegExpSharedUse {
-    UseRegExpShared,
-    DontUseRegExpShared
-};
+enum RegExpSharedUse { UseRegExpShared, DontUseRegExpShared };
 
 /*
  * ES 2016 draft Mar 25, 2016 21.2.3.2.2.
@@ -204,11 +185,9 @@ enum RegExpSharedUse {
  * Because this function only ever returns a user-provided |obj| in the spec,
  * we omit it and just return the usual success/failure.
  */
-static bool
-RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
-                                  HandleValue patternValue, HandleValue flagsValue,
-                                  RegExpSharedUse sharedUse = DontUseRegExpShared)
-{
+static bool RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
+                                              HandleValue patternValue, HandleValue flagsValue,
+                                              RegExpSharedUse sharedUse = DontUseRegExpShared) {
     RootedAtom pattern(cx);
     if (patternValue.isUndefined()) {
         /* Step 1. */
@@ -216,8 +195,7 @@ RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
     } else {
         /* Step 2. */
         pattern = ToAtom<CanGC>(cx, patternValue);
-        if (!pattern)
-            return false;
+        if (!pattern) return false;
     }
 
     /* Step 3. */
@@ -225,19 +203,16 @@ RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
     if (!flagsValue.isUndefined()) {
         /* Step 4. */
         RootedString flagStr(cx, ToString<CanGC>(cx, flagsValue));
-        if (!flagStr)
-            return false;
+        if (!flagStr) return false;
 
         /* Step 5. */
-        if (!ParseRegExpFlags(cx, flagStr, &flags))
-            return false;
+        if (!ParseRegExpFlags(cx, flagStr, &flags)) return false;
     }
 
     if (sharedUse == UseRegExpShared) {
         /* Steps 7-8. */
         RegExpShared* re = cx->zone()->regExps.get(cx, pattern, flags);
-        if (!re)
-            return false;
+        if (!re) return false;
 
         /* Steps 9-12. */
         obj->initIgnoringLastIndex(pattern, flags);
@@ -245,8 +220,7 @@ RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
         obj->setShared(*re);
     } else {
         /* Steps 7-8. */
-        if (!CheckPatternSyntax(cx, pattern, flags))
-            return false;
+        if (!CheckPatternSyntax(cx, pattern, flags)) return false;
 
         /* Steps 9-12. */
         obj->initIgnoringLastIndex(pattern, flags);
@@ -256,14 +230,11 @@ RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
 }
 
 /* ES 2016 draft Mar 25, 2016 21.2.3.2.3. */
-bool
-js::RegExpCreate(JSContext* cx, HandleValue patternValue, HandleValue flagsValue,
-                 MutableHandleValue rval)
-{
+bool js::RegExpCreate(JSContext* cx, HandleValue patternValue, HandleValue flagsValue,
+                      MutableHandleValue rval) {
     /* Step 1. */
     Rooted<RegExpObject*> regexp(cx, RegExpAlloc(cx, GenericObject));
-    if (!regexp)
-         return false;
+    if (!regexp) return false;
 
     /* Step 2. */
     if (!RegExpInitializeIgnoringLastIndex(cx, regexp, patternValue, flagsValue, UseRegExpShared))
@@ -274,16 +245,12 @@ js::RegExpCreate(JSContext* cx, HandleValue patternValue, HandleValue flagsValue
     return true;
 }
 
-MOZ_ALWAYS_INLINE bool
-IsRegExpObject(HandleValue v)
-{
+MOZ_ALWAYS_INLINE bool IsRegExpObject(HandleValue v) {
     return v.isObject() && v.toObject().is<RegExpObject>();
 }
 
 /* ES6 draft rc3 7.2.8. */
-bool
-js::IsRegExp(JSContext* cx, HandleValue value, bool* result)
-{
+bool js::IsRegExp(JSContext* cx, HandleValue value, bool* result) {
     /* Step 1. */
     if (!value.isObject()) {
         *result = false;
@@ -294,8 +261,7 @@ js::IsRegExp(JSContext* cx, HandleValue value, bool* result)
     /* Steps 2-3. */
     RootedValue isRegExp(cx);
     RootedId matchId(cx, SYMBOL_TO_JSID(cx->wellKnownSymbols().match));
-    if (!GetProperty(cx, obj, obj, matchId, &isRegExp))
-        return false;
+    if (!GetProperty(cx, obj, obj, matchId, &isRegExp)) return false;
 
     /* Step 4. */
     if (!isRegExp.isUndefined()) {
@@ -305,17 +271,14 @@ js::IsRegExp(JSContext* cx, HandleValue value, bool* result)
 
     /* Steps 5-6. */
     ESClass cls;
-    if (!GetClassOfValue(cx, value, &cls))
-        return false;
+    if (!GetClassOfValue(cx, value, &cls)) return false;
 
     *result = cls == ESClass::RegExp;
     return true;
 }
 
 /* ES6 B.2.5.1. */
-MOZ_ALWAYS_INLINE bool
-regexp_compile_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_compile_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     Rooted<RegExpObject*> regexp(cx, &args.thisv().toObject().as<RegExpObject>());
@@ -323,8 +286,7 @@ regexp_compile_impl(JSContext* cx, const CallArgs& args)
     // Step 3.
     RootedValue patternValue(cx, args.get(0));
     ESClass cls;
-    if (!GetClassOfValue(cx, patternValue, &cls))
-        return false;
+    if (!GetClassOfValue(cx, patternValue, &cls)) return false;
     if (cls == ESClass::RegExp) {
         // Step 3a.
         if (args.hasDefined(1)) {
@@ -342,8 +304,7 @@ regexp_compile_impl(JSContext* cx, const CallArgs& args)
         {
             // Step 3b.
             RegExpShared* shared = RegExpToShared(cx, patternObj);
-            if (!shared)
-                return false;
+            if (!shared) return false;
 
             sourceAtom = shared->getSource();
             flags = shared->getFlags();
@@ -357,8 +318,7 @@ regexp_compile_impl(JSContext* cx, const CallArgs& args)
         RootedValue F(cx, args.get(1));
 
         // Step 5, minus lastIndex zeroing.
-        if (!RegExpInitializeIgnoringLastIndex(cx, regexp, P, F))
-            return false;
+        if (!RegExpInitializeIgnoringLastIndex(cx, regexp, P, F)) return false;
     }
 
     // The final niggling bit of step 5.
@@ -369,17 +329,14 @@ regexp_compile_impl(JSContext* cx, const CallArgs& args)
         regexp->zeroLastIndex(cx);
     } else {
         RootedValue zero(cx, Int32Value(0));
-        if (!SetProperty(cx, regexp, cx->names().lastIndex, zero))
-            return false;
+        if (!SetProperty(cx, regexp, cx->names().lastIndex, zero)) return false;
     }
 
     args.rval().setObject(*regexp);
     return true;
 }
 
-static bool
-regexp_compile(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool regexp_compile(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     /* Steps 1-2. */
@@ -389,15 +346,12 @@ regexp_compile(JSContext* cx, unsigned argc, Value* vp)
 /*
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.3.1.
  */
-bool
-js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::regexp_construct(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Steps 1.
     bool patternIsRegExp;
-    if (!IsRegExp(cx, args.get(0), &patternIsRegExp))
-        return false;
+    if (!IsRegExp(cx, args.get(0), &patternIsRegExp)) return false;
 
     // We can delay step 3 and step 4a until later, during
     // GetPrototypeFromBuiltinConstructor calls. Accessing the new.target
@@ -409,7 +363,8 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
 
             // Step 3.b.i.
             RootedValue patternConstructor(cx);
-            if (!GetProperty(cx, patternObj, patternObj, cx->names().constructor, &patternConstructor))
+            if (!GetProperty(cx, patternObj, patternObj, cx->names().constructor,
+                             &patternConstructor))
                 return false;
 
             // Step 3.b.ii.
@@ -424,8 +379,7 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
 
     // Step 4.
     ESClass cls;
-    if (!GetClassOfValue(cx, patternValue, &cls))
-        return false;
+    if (!GetClassOfValue(cx, patternValue, &cls)) return false;
     if (cls == ESClass::RegExp) {
         // Beware!  |patternObj| might be a proxy into another compartment, so
         // don't assume |patternObj.is<RegExpObject>()|.  For the same reason,
@@ -437,8 +391,7 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
         {
             // Step 4.a.
             RegExpShared* shared = RegExpToShared(cx, patternObj);
-            if (!shared)
-                return false;
+            if (!shared) return false;
             sourceAtom = shared->getSource();
 
             // Step 4.b.
@@ -448,30 +401,25 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
 
         // Step 7.
         RootedObject proto(cx);
-        if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
-            return false;
+        if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto)) return false;
 
         Rooted<RegExpObject*> regexp(cx, RegExpAlloc(cx, GenericObject, proto));
-        if (!regexp)
-            return false;
+        if (!regexp) return false;
 
         // Step 8.
         if (args.hasDefined(1)) {
             // Step 4.c / 21.2.3.2.2 RegExpInitialize step 4.
             RegExpFlag flagsArg = RegExpFlag(0);
             RootedString flagStr(cx, ToString<CanGC>(cx, args[1]));
-            if (!flagStr)
-                return false;
-            if (!ParseRegExpFlags(cx, flagStr, &flagsArg))
-                return false;
+            if (!flagStr) return false;
+            if (!ParseRegExpFlags(cx, flagStr, &flagsArg)) return false;
 
             if (!(flags & UnicodeFlag) && flagsArg & UnicodeFlag) {
                 // Have to check syntax again when adding 'u' flag.
 
                 // ES 2017 draft rev 9b49a888e9dfe2667008a01b2754c3662059ae56
                 // 21.2.3.2.2 step 7.
-                if (!CheckPatternSyntax(cx, sourceAtom, flagsArg))
-                    return false;
+                if (!CheckPatternSyntax(cx, sourceAtom, flagsArg)) return false;
             }
             flags = flagsArg;
         }
@@ -490,14 +438,12 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
         RootedObject patternObj(cx, &patternValue.toObject());
 
         // Step 5.a.
-        if (!GetProperty(cx, patternObj, patternObj, cx->names().source, &P))
-            return false;
+        if (!GetProperty(cx, patternObj, patternObj, cx->names().source, &P)) return false;
 
         // Step 5.b.
         F = args.get(1);
         if (F.isUndefined()) {
-            if (!GetProperty(cx, patternObj, patternObj, cx->names().flags, &F))
-                return false;
+            if (!GetProperty(cx, patternObj, patternObj, cx->names().flags, &F)) return false;
         }
     } else {
         // Steps 6.a-b.
@@ -507,16 +453,13 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
 
     // Step 7.
     RootedObject proto(cx);
-    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
-        return false;
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto)) return false;
 
     Rooted<RegExpObject*> regexp(cx, RegExpAlloc(cx, GenericObject, proto));
-    if (!regexp)
-        return false;
+    if (!regexp) return false;
 
     // Step 8.
-    if (!RegExpInitializeIgnoringLastIndex(cx, regexp, P, F))
-        return false;
+    if (!RegExpInitializeIgnoringLastIndex(cx, regexp, P, F)) return false;
     regexp->zeroLastIndex(cx);
 
     args.rval().setObject(*regexp);
@@ -527,25 +470,21 @@ js::regexp_construct(JSContext* cx, unsigned argc, Value* vp)
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.3.1
  * steps 4, 7-8.
  */
-bool
-js::regexp_construct_raw_flags(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::regexp_construct_raw_flags(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 2);
     MOZ_ASSERT(!args.isConstructing());
 
     // Step 4.a.
     RootedAtom sourceAtom(cx, AtomizeString(cx, args[0].toString()));
-    if (!sourceAtom)
-        return false;
+    if (!sourceAtom) return false;
 
     // Step 4.c.
     int32_t flags = int32_t(args[1].toNumber());
 
     // Step 7.
     RegExpObject* regexp = RegExpAlloc(cx, GenericObject);
-    if (!regexp)
-        return false;
+    if (!regexp) return false;
 
     // Step 8.
     regexp->initAndZeroLastIndex(sourceAtom, RegExpFlag(flags), cx);
@@ -553,20 +492,15 @@ js::regexp_construct_raw_flags(JSContext* cx, unsigned argc, Value* vp)
     return true;
 }
 
-MOZ_ALWAYS_INLINE bool
-IsRegExpPrototype(HandleValue v)
-{
-    if (IsRegExpObject(v) || !v.isObject())
-        return false;
+MOZ_ALWAYS_INLINE bool IsRegExpPrototype(HandleValue v) {
+    if (IsRegExpObject(v) || !v.isObject()) return false;
 
     // Note: The prototype shares its JSClass with instances.
     return StandardProtoKeyOrNull(&v.toObject()) == JSProto_RegExp;
 }
 
 // ES 2017 draft 21.2.5.4.
-MOZ_ALWAYS_INLINE bool
-regexp_global_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_global_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     // Steps 4-6.
@@ -575,9 +509,7 @@ regexp_global_impl(JSContext* cx, const CallArgs& args)
     return true;
 }
 
-bool
-js::regexp_global(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+bool js::regexp_global(JSContext* cx, unsigned argc, JS::Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 3.a.
@@ -591,9 +523,7 @@ js::regexp_global(JSContext* cx, unsigned argc, JS::Value* vp)
 }
 
 // ES 2017 draft 21.2.5.5.
-MOZ_ALWAYS_INLINE bool
-regexp_ignoreCase_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_ignoreCase_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     // Steps 4-6.
@@ -602,9 +532,7 @@ regexp_ignoreCase_impl(JSContext* cx, const CallArgs& args)
     return true;
 }
 
-bool
-js::regexp_ignoreCase(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+bool js::regexp_ignoreCase(JSContext* cx, unsigned argc, JS::Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 3.a.
@@ -618,9 +546,7 @@ js::regexp_ignoreCase(JSContext* cx, unsigned argc, JS::Value* vp)
 }
 
 // ES 2017 draft 21.2.5.7.
-MOZ_ALWAYS_INLINE bool
-regexp_multiline_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_multiline_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     // Steps 4-6.
@@ -629,9 +555,7 @@ regexp_multiline_impl(JSContext* cx, const CallArgs& args)
     return true;
 }
 
-bool
-js::regexp_multiline(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+bool js::regexp_multiline(JSContext* cx, unsigned argc, JS::Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 3.a.
@@ -645,29 +569,23 @@ js::regexp_multiline(JSContext* cx, unsigned argc, JS::Value* vp)
 }
 
 // ES 2017 draft 21.2.5.10.
-MOZ_ALWAYS_INLINE bool
-regexp_source_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_source_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     // Step 5.
     RegExpObject* reObj = &args.thisv().toObject().as<RegExpObject>();
     RootedAtom src(cx, reObj->getSource());
-    if (!src)
-        return false;
+    if (!src) return false;
 
     // Step 7.
     JSString* str = EscapeRegExpPattern(cx, src);
-    if (!str)
-        return false;
+    if (!str) return false;
 
     args.rval().setString(str);
     return true;
 }
 
-static bool
-regexp_source(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool regexp_source(JSContext* cx, unsigned argc, JS::Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 3.a.
@@ -681,9 +599,7 @@ regexp_source(JSContext* cx, unsigned argc, JS::Value* vp)
 }
 
 // ES 2017 draft 21.2.5.12.
-MOZ_ALWAYS_INLINE bool
-regexp_sticky_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_sticky_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     // Steps 4-6.
@@ -692,9 +608,7 @@ regexp_sticky_impl(JSContext* cx, const CallArgs& args)
     return true;
 }
 
-bool
-js::regexp_sticky(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+bool js::regexp_sticky(JSContext* cx, unsigned argc, JS::Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 3.a.
@@ -708,9 +622,7 @@ js::regexp_sticky(JSContext* cx, unsigned argc, JS::Value* vp)
 }
 
 // ES 2017 draft 21.2.5.15.
-MOZ_ALWAYS_INLINE bool
-regexp_unicode_impl(JSContext* cx, const CallArgs& args)
-{
+MOZ_ALWAYS_INLINE bool regexp_unicode_impl(JSContext* cx, const CallArgs& args) {
     MOZ_ASSERT(IsRegExpObject(args.thisv()));
 
     // Steps 4-6.
@@ -719,9 +631,7 @@ regexp_unicode_impl(JSContext* cx, const CallArgs& args)
     return true;
 }
 
-bool
-js::regexp_unicode(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+bool js::regexp_unicode(JSContext* cx, unsigned argc, JS::Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     // Step 3.a.
@@ -742,29 +652,25 @@ const JSPropertySpec js::regexp_properties[] = {
     JS_PSG("source", regexp_source, 0),
     JS_PSG("sticky", regexp_sticky, 0),
     JS_PSG("unicode", regexp_unicode, 0),
-    JS_PS_END
-};
+    JS_PS_END};
 
 const JSFunctionSpec js::regexp_methods[] = {
 #if JS_HAS_TOSOURCE
     JS_SELF_HOSTED_FN(js_toSource_str, "RegExpToString", 0, 0),
 #endif
     JS_SELF_HOSTED_FN(js_toString_str, "RegExpToString", 0, 0),
-    JS_FN("compile",        regexp_compile,     2,0),
-    JS_SELF_HOSTED_FN("exec", "RegExp_prototype_Exec", 1,0),
-    JS_SELF_HOSTED_FN("test", "RegExpTest" ,    1,0),
-    JS_SELF_HOSTED_SYM_FN(match, "RegExpMatch", 1,0),
-    JS_SELF_HOSTED_SYM_FN(replace, "RegExpReplace", 2,0),
-    JS_SELF_HOSTED_SYM_FN(search, "RegExpSearch", 1,0),
-    JS_SELF_HOSTED_SYM_FN(split, "RegExpSplit", 2,0),
-    JS_FS_END
-};
+    JS_FN("compile", regexp_compile, 2, 0),
+    JS_SELF_HOSTED_FN("exec", "RegExp_prototype_Exec", 1, 0),
+    JS_SELF_HOSTED_FN("test", "RegExpTest", 1, 0),
+    JS_SELF_HOSTED_SYM_FN(match, "RegExpMatch", 1, 0),
+    JS_SELF_HOSTED_SYM_FN(replace, "RegExpReplace", 2, 0),
+    JS_SELF_HOSTED_SYM_FN(search, "RegExpSearch", 1, 0),
+    JS_SELF_HOSTED_SYM_FN(split, "RegExpSplit", 2, 0),
+    JS_FS_END};
 
-#define STATIC_PAREN_GETTER_CODE(parenNum)                                      \
-    if (!res->createParen(cx, parenNum, args.rval()))                           \
-        return false;                                                           \
-    if (args.rval().isUndefined())                                              \
-        args.rval().setString(cx->runtime()->emptyString);                      \
+#define STATIC_PAREN_GETTER_CODE(parenNum)                                            \
+    if (!res->createParen(cx, parenNum, args.rval())) return false;                   \
+    if (args.rval().isUndefined()) args.rval().setString(cx->runtime()->emptyString); \
     return true
 
 /*
@@ -779,55 +685,45 @@ const JSFunctionSpec js::regexp_methods[] = {
  *  RegExp.rightContext         $'
  */
 
-#define DEFINE_STATIC_GETTER(name, code)                                        \
-    static bool                                                                 \
-    name(JSContext* cx, unsigned argc, Value* vp)                               \
-    {                                                                           \
-        CallArgs args = CallArgsFromVp(argc, vp);                               \
-        RegExpStatics* res = GlobalObject::getRegExpStatics(cx, cx->global());  \
-        if (!res)                                                               \
-            return false;                                                       \
-        code;                                                                   \
+#define DEFINE_STATIC_GETTER(name, code)                                       \
+    static bool name(JSContext* cx, unsigned argc, Value* vp) {                \
+        CallArgs args = CallArgsFromVp(argc, vp);                              \
+        RegExpStatics* res = GlobalObject::getRegExpStatics(cx, cx->global()); \
+        if (!res) return false;                                                \
+        code;                                                                  \
     }
 
-DEFINE_STATIC_GETTER(static_input_getter,        return res->createPendingInput(cx, args.rval()))
-DEFINE_STATIC_GETTER(static_lastMatch_getter,    return res->createLastMatch(cx, args.rval()))
-DEFINE_STATIC_GETTER(static_lastParen_getter,    return res->createLastParen(cx, args.rval()))
-DEFINE_STATIC_GETTER(static_leftContext_getter,  return res->createLeftContext(cx, args.rval()))
+DEFINE_STATIC_GETTER(static_input_getter, return res->createPendingInput(cx, args.rval()))
+DEFINE_STATIC_GETTER(static_lastMatch_getter, return res->createLastMatch(cx, args.rval()))
+DEFINE_STATIC_GETTER(static_lastParen_getter, return res->createLastParen(cx, args.rval()))
+DEFINE_STATIC_GETTER(static_leftContext_getter, return res->createLeftContext(cx, args.rval()))
 DEFINE_STATIC_GETTER(static_rightContext_getter, return res->createRightContext(cx, args.rval()))
 
-DEFINE_STATIC_GETTER(static_paren1_getter,       STATIC_PAREN_GETTER_CODE(1))
-DEFINE_STATIC_GETTER(static_paren2_getter,       STATIC_PAREN_GETTER_CODE(2))
-DEFINE_STATIC_GETTER(static_paren3_getter,       STATIC_PAREN_GETTER_CODE(3))
-DEFINE_STATIC_GETTER(static_paren4_getter,       STATIC_PAREN_GETTER_CODE(4))
-DEFINE_STATIC_GETTER(static_paren5_getter,       STATIC_PAREN_GETTER_CODE(5))
-DEFINE_STATIC_GETTER(static_paren6_getter,       STATIC_PAREN_GETTER_CODE(6))
-DEFINE_STATIC_GETTER(static_paren7_getter,       STATIC_PAREN_GETTER_CODE(7))
-DEFINE_STATIC_GETTER(static_paren8_getter,       STATIC_PAREN_GETTER_CODE(8))
-DEFINE_STATIC_GETTER(static_paren9_getter,       STATIC_PAREN_GETTER_CODE(9))
+DEFINE_STATIC_GETTER(static_paren1_getter, STATIC_PAREN_GETTER_CODE(1))
+DEFINE_STATIC_GETTER(static_paren2_getter, STATIC_PAREN_GETTER_CODE(2))
+DEFINE_STATIC_GETTER(static_paren3_getter, STATIC_PAREN_GETTER_CODE(3))
+DEFINE_STATIC_GETTER(static_paren4_getter, STATIC_PAREN_GETTER_CODE(4))
+DEFINE_STATIC_GETTER(static_paren5_getter, STATIC_PAREN_GETTER_CODE(5))
+DEFINE_STATIC_GETTER(static_paren6_getter, STATIC_PAREN_GETTER_CODE(6))
+DEFINE_STATIC_GETTER(static_paren7_getter, STATIC_PAREN_GETTER_CODE(7))
+DEFINE_STATIC_GETTER(static_paren8_getter, STATIC_PAREN_GETTER_CODE(8))
+DEFINE_STATIC_GETTER(static_paren9_getter, STATIC_PAREN_GETTER_CODE(9))
 
-#define DEFINE_STATIC_SETTER(name, code)                                        \
-    static bool                                                                 \
-    name(JSContext* cx, unsigned argc, Value* vp)                               \
-    {                                                                           \
-        RegExpStatics* res = GlobalObject::getRegExpStatics(cx, cx->global());  \
-        if (!res)                                                               \
-            return false;                                                       \
-        code;                                                                   \
-        return true;                                                            \
+#define DEFINE_STATIC_SETTER(name, code)                                       \
+    static bool name(JSContext* cx, unsigned argc, Value* vp) {                \
+        RegExpStatics* res = GlobalObject::getRegExpStatics(cx, cx->global()); \
+        if (!res) return false;                                                \
+        code;                                                                  \
+        return true;                                                           \
     }
 
-static bool
-static_input_setter(JSContext* cx, unsigned argc, Value* vp)
-{
+static bool static_input_setter(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     RegExpStatics* res = GlobalObject::getRegExpStatics(cx, cx->global());
-    if (!res)
-        return false;
+    if (!res) return false;
 
     RootedString str(cx, ToString<CanGC>(cx, args.get(0)));
-    if (!str)
-        return false;
+    if (!str) return false;
 
     res->setPendingInput(str);
     args.rval().setString(str);
@@ -839,7 +735,7 @@ const JSPropertySpec js::regexp_static_props[] = {
             JSPROP_PERMANENT | JSPROP_ENUMERATE),
     JS_PSG("lastMatch", static_lastMatch_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
     JS_PSG("lastParen", static_lastParen_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
-    JS_PSG("leftContext",  static_leftContext_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
+    JS_PSG("leftContext", static_leftContext_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
     JS_PSG("rightContext", static_rightContext_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
     JS_PSG("$1", static_paren1_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
     JS_PSG("$2", static_paren2_getter, JSPROP_PERMANENT | JSPROP_ENUMERATE),
@@ -856,13 +752,10 @@ const JSPropertySpec js::regexp_static_props[] = {
     JS_PSG("$`", static_leftContext_getter, JSPROP_PERMANENT),
     JS_PSG("$'", static_rightContext_getter, JSPROP_PERMANENT),
     JS_SELF_HOSTED_SYM_GET(species, "RegExpSpecies", 0),
-    JS_PS_END
-};
+    JS_PS_END};
 
 template <typename CharT>
-static bool
-IsTrailSurrogateWithLeadSurrogateImpl(HandleLinearString input, size_t index)
-{
+static bool IsTrailSurrogateWithLeadSurrogateImpl(HandleLinearString input, size_t index) {
     JS::AutoCheckCannotGC nogc;
     MOZ_ASSERT(index > 0 && index < input->length());
     const CharT* inputChars = input->chars<CharT>(nogc);
@@ -871,26 +764,21 @@ IsTrailSurrogateWithLeadSurrogateImpl(HandleLinearString input, size_t index)
            unicode::IsLeadSurrogate(inputChars[index - 1]);
 }
 
-static bool
-IsTrailSurrogateWithLeadSurrogate(HandleLinearString input, int32_t index)
-{
-    if (index <= 0 || size_t(index) >= input->length())
-        return false;
+static bool IsTrailSurrogateWithLeadSurrogate(HandleLinearString input, int32_t index) {
+    if (index <= 0 || size_t(index) >= input->length()) return false;
 
     return input->hasLatin1Chars()
-           ? IsTrailSurrogateWithLeadSurrogateImpl<Latin1Char>(input, index)
-           : IsTrailSurrogateWithLeadSurrogateImpl<char16_t>(input, index);
+               ? IsTrailSurrogateWithLeadSurrogateImpl<Latin1Char>(input, index)
+               : IsTrailSurrogateWithLeadSurrogateImpl<char16_t>(input, index);
 }
 
 /*
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 9-14, except 12.a.i, 12.c.i.1.
  */
-static RegExpRunStatus
-ExecuteRegExp(JSContext* cx, HandleObject regexp, HandleString string,
-              int32_t lastIndex,
-              MatchPairs* matches, size_t* endIndex, RegExpStaticsUpdate staticsUpdate)
-{
+static RegExpRunStatus ExecuteRegExp(JSContext* cx, HandleObject regexp, HandleString string,
+                                     int32_t lastIndex, MatchPairs* matches, size_t* endIndex,
+                                     RegExpStaticsUpdate staticsUpdate) {
     /*
      * WARNING: Despite the presence of spec step comment numbers, this
      *          algorithm isn't consistent with any ES6 version, draft or
@@ -901,21 +789,18 @@ ExecuteRegExp(JSContext* cx, HandleObject regexp, HandleString string,
     Handle<RegExpObject*> reobj = regexp.as<RegExpObject>();
 
     RootedRegExpShared re(cx, RegExpObject::getShared(cx, reobj));
-    if (!re)
-        return RegExpRunStatus_Error;
+    if (!re) return RegExpRunStatus_Error;
 
     RegExpStatics* res;
     if (staticsUpdate == UpdateRegExpStatics) {
         res = GlobalObject::getRegExpStatics(cx, cx->global());
-        if (!res)
-            return RegExpRunStatus_Error;
+        if (!res) return RegExpRunStatus_Error;
     } else {
         res = nullptr;
     }
 
     RootedLinearString input(cx, string->ensureLinear(cx));
-    if (!input)
-        return RegExpRunStatus_Error;
+    if (!input) return RegExpRunStatus_Error;
 
     /* Handled by caller */
     MOZ_ASSERT(lastIndex >= 0 && size_t(lastIndex) <= input->length());
@@ -946,14 +831,12 @@ ExecuteRegExp(JSContext* cx, HandleObject regexp, HandleString string,
          * However, the spec will change to match our implementation's
          * behavior. See https://github.com/tc39/ecma262/issues/128.
          */
-        if (IsTrailSurrogateWithLeadSurrogate(input, lastIndex))
-            lastIndex--;
+        if (IsTrailSurrogateWithLeadSurrogate(input, lastIndex)) lastIndex--;
     }
 
     /* Steps 3, 11-14, except 12.a.i, 12.c.i.1. */
     RegExpRunStatus status = ExecuteRegExpImpl(cx, res, &re, input, lastIndex, matches, endIndex);
-    if (status == RegExpRunStatus_Error)
-        return RegExpRunStatus_Error;
+    if (status == RegExpRunStatus_Error) return RegExpRunStatus_Error;
 
     /* Steps 12.a.i, 12.c.i.i, 15 are done by Self-hosted function. */
 
@@ -964,18 +847,16 @@ ExecuteRegExp(JSContext* cx, HandleObject regexp, HandleString string,
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 9-25, except 12.a.i, 12.c.i.1, 15.
  */
-static bool
-RegExpMatcherImpl(JSContext* cx, HandleObject regexp, HandleString string,
-                  int32_t lastIndex, RegExpStaticsUpdate staticsUpdate, MutableHandleValue rval)
-{
+static bool RegExpMatcherImpl(JSContext* cx, HandleObject regexp, HandleString string,
+                              int32_t lastIndex, RegExpStaticsUpdate staticsUpdate,
+                              MutableHandleValue rval) {
     /* Execute regular expression and gather matches. */
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
 
     /* Steps 3, 9-14, except 12.a.i, 12.c.i.1. */
-    RegExpRunStatus status = ExecuteRegExp(cx, regexp, string, lastIndex,
-                                           &matches, nullptr, staticsUpdate);
-    if (status == RegExpRunStatus_Error)
-        return false;
+    RegExpRunStatus status =
+        ExecuteRegExp(cx, regexp, string, lastIndex, &matches, nullptr, staticsUpdate);
+    if (status == RegExpRunStatus_Error) return false;
 
     /* Steps 12.a, 12.c. */
     if (status == RegExpRunStatus_Success_NotFound) {
@@ -991,9 +872,7 @@ RegExpMatcherImpl(JSContext* cx, HandleObject regexp, HandleString string,
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 9-25, except 12.a.i, 12.c.i.1, 15.
  */
-bool
-js::RegExpMatcher(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::RegExpMatcher(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 3);
     MOZ_ASSERT(IsRegExpObject(args[0]));
@@ -1007,27 +886,22 @@ js::RegExpMatcher(JSContext* cx, unsigned argc, Value* vp)
     MOZ_ALWAYS_TRUE(ToInt32(cx, args[2], &lastIndex));
 
     /* Steps 3, 9-25, except 12.a.i, 12.c.i.1, 15. */
-    return RegExpMatcherImpl(cx, regexp, string, lastIndex,
-                             UpdateRegExpStatics, args.rval());
+    return RegExpMatcherImpl(cx, regexp, string, lastIndex, UpdateRegExpStatics, args.rval());
 }
 
 /*
  * Separate interface for use by IonMonkey.
  * This code cannot re-enter Ion code.
  */
-bool
-js::RegExpMatcherRaw(JSContext* cx, HandleObject regexp, HandleString input,
-                     int32_t lastIndex,
-                     MatchPairs* maybeMatches, MutableHandleValue output)
-{
+bool js::RegExpMatcherRaw(JSContext* cx, HandleObject regexp, HandleString input,
+                          int32_t lastIndex, MatchPairs* maybeMatches, MutableHandleValue output) {
     MOZ_ASSERT(lastIndex >= 0);
 
     // The MatchPairs will always be passed in, but RegExp execution was
     // successful only if the pairs have actually been filled in.
     if (maybeMatches && maybeMatches->pairsRaw()[0] >= 0)
         return CreateRegExpMatchResult(cx, input, *maybeMatches, output);
-    return RegExpMatcherImpl(cx, regexp, input, lastIndex,
-                             UpdateRegExpStatics, output);
+    return RegExpMatcherImpl(cx, regexp, input, lastIndex, UpdateRegExpStatics, output);
 }
 
 /*
@@ -1036,18 +910,16 @@ js::RegExpMatcherRaw(JSContext* cx, HandleObject regexp, HandleString input,
  * This code is inlined in CodeGenerator.cpp generateRegExpSearcherStub,
  * changes to this code need to get reflected in there too.
  */
-static bool
-RegExpSearcherImpl(JSContext* cx, HandleObject regexp, HandleString string,
-                   int32_t lastIndex, RegExpStaticsUpdate staticsUpdate, int32_t* result)
-{
+static bool RegExpSearcherImpl(JSContext* cx, HandleObject regexp, HandleString string,
+                               int32_t lastIndex, RegExpStaticsUpdate staticsUpdate,
+                               int32_t* result) {
     /* Execute regular expression and gather matches. */
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
 
     /* Steps 3, 9-14, except 12.a.i, 12.c.i.1. */
-    RegExpRunStatus status = ExecuteRegExp(cx, regexp, string, lastIndex,
-                                           &matches, nullptr, staticsUpdate);
-    if (status == RegExpRunStatus_Error)
-        return false;
+    RegExpRunStatus status =
+        ExecuteRegExp(cx, regexp, string, lastIndex, &matches, nullptr, staticsUpdate);
+    if (status == RegExpRunStatus_Error) return false;
 
     /* Steps 12.a, 12.c. */
     if (status == RegExpRunStatus_Success_NotFound) {
@@ -1064,9 +936,7 @@ RegExpSearcherImpl(JSContext* cx, HandleObject regexp, HandleString string,
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 9-25, except 12.a.i, 12.c.i.1, 15.
  */
-bool
-js::RegExpSearcher(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::RegExpSearcher(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 3);
     MOZ_ASSERT(IsRegExpObject(args[0]));
@@ -1092,10 +962,8 @@ js::RegExpSearcher(JSContext* cx, unsigned argc, Value* vp)
  * Separate interface for use by IonMonkey.
  * This code cannot re-enter Ion code.
  */
-bool
-js::RegExpSearcherRaw(JSContext* cx, HandleObject regexp, HandleString input,
-                      int32_t lastIndex, MatchPairs* maybeMatches, int32_t* result)
-{
+bool js::RegExpSearcherRaw(JSContext* cx, HandleObject regexp, HandleString input,
+                           int32_t lastIndex, MatchPairs* maybeMatches, int32_t* result) {
     MOZ_ASSERT(lastIndex >= 0);
 
     // The MatchPairs will always be passed in, but RegExp execution was
@@ -1104,13 +972,10 @@ js::RegExpSearcherRaw(JSContext* cx, HandleObject regexp, HandleString input,
         *result = CreateRegExpSearchResult(cx, *maybeMatches);
         return true;
     }
-    return RegExpSearcherImpl(cx, regexp, input, lastIndex,
-                              UpdateRegExpStatics, result);
+    return RegExpSearcherImpl(cx, regexp, input, lastIndex, UpdateRegExpStatics, result);
 }
 
-bool
-js::regexp_exec_no_statics(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::regexp_exec_no_statics(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 2);
     MOZ_ASSERT(IsRegExpObject(args[0]));
@@ -1119,17 +984,14 @@ js::regexp_exec_no_statics(JSContext* cx, unsigned argc, Value* vp)
     RootedObject regexp(cx, &args[0].toObject());
     RootedString string(cx, args[1].toString());
 
-    return RegExpMatcherImpl(cx, regexp, string, 0,
-                             DontUpdateRegExpStatics, args.rval());
+    return RegExpMatcherImpl(cx, regexp, string, 0, DontUpdateRegExpStatics, args.rval());
 }
 
 /*
  * ES 2017 draft rev 6a13789aa9e7c6de4e96b7d3e24d9e6eba6584ad 21.2.5.2.2
  * steps 3, 9-14, except 12.a.i, 12.c.i.1.
  */
-bool
-js::RegExpTester(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::RegExpTester(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 3);
     MOZ_ASSERT(IsRegExpObject(args[0]));
@@ -1144,11 +1006,10 @@ js::RegExpTester(JSContext* cx, unsigned argc, Value* vp)
 
     /* Steps 3, 9-14, except 12.a.i, 12.c.i.1. */
     size_t endIndex = 0;
-    RegExpRunStatus status = ExecuteRegExp(cx, regexp, string, lastIndex,
-                                           nullptr, &endIndex, UpdateRegExpStatics);
+    RegExpRunStatus status =
+        ExecuteRegExp(cx, regexp, string, lastIndex, nullptr, &endIndex, UpdateRegExpStatics);
 
-    if (status == RegExpRunStatus_Error)
-        return false;
+    if (status == RegExpRunStatus_Error) return false;
 
     if (status == RegExpRunStatus_Success) {
         MOZ_ASSERT(endIndex <= INT32_MAX);
@@ -1163,15 +1024,13 @@ js::RegExpTester(JSContext* cx, unsigned argc, Value* vp)
  * Separate interface for use by IonMonkey.
  * This code cannot re-enter Ion code.
  */
-bool
-js::RegExpTesterRaw(JSContext* cx, HandleObject regexp, HandleString input,
-                    int32_t lastIndex, int32_t* endIndex)
-{
+bool js::RegExpTesterRaw(JSContext* cx, HandleObject regexp, HandleString input, int32_t lastIndex,
+                         int32_t* endIndex) {
     MOZ_ASSERT(lastIndex >= 0);
 
     size_t endIndexTmp = 0;
-    RegExpRunStatus status = ExecuteRegExp(cx, regexp, input, lastIndex,
-                                           nullptr, &endIndexTmp, UpdateRegExpStatics);
+    RegExpRunStatus status =
+        ExecuteRegExp(cx, regexp, input, lastIndex, nullptr, &endIndexTmp, UpdateRegExpStatics);
 
     if (status == RegExpRunStatus_Success) {
         MOZ_ASSERT(endIndexTmp <= INT32_MAX);
@@ -1186,9 +1045,7 @@ js::RegExpTesterRaw(JSContext* cx, HandleObject regexp, HandleString input,
     return false;
 }
 
-bool
-js::regexp_test_no_statics(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::regexp_test_no_statics(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 2);
     MOZ_ASSERT(IsRegExpObject(args[0]));
@@ -1198,19 +1055,18 @@ js::regexp_test_no_statics(JSContext* cx, unsigned argc, Value* vp)
     RootedString string(cx, args[1].toString());
 
     size_t ignored = 0;
-    RegExpRunStatus status = ExecuteRegExp(cx, regexp, string, 0,
-                                           nullptr, &ignored, DontUpdateRegExpStatics);
+    RegExpRunStatus status =
+        ExecuteRegExp(cx, regexp, string, 0, nullptr, &ignored, DontUpdateRegExpStatics);
     args.rval().setBoolean(status == RegExpRunStatus_Success);
     return status != RegExpRunStatus_Error;
 }
 
 using CapturesVector = GCVector<Value, 4>;
 
-struct JSSubString
-{
+struct JSSubString {
     JSLinearString* base;
-    size_t          offset;
-    size_t          length;
+    size_t offset;
+    size_t length;
 
     JSSubString() { mozilla::PodZero(this); }
 
@@ -1225,9 +1081,7 @@ struct JSSubString
     }
 };
 
-static void
-GetParen(JSLinearString* matched, const JS::Value& capture, JSSubString* out)
-{
+static void GetParen(JSLinearString* matched, const JS::Value& capture, JSSubString* out) {
     if (capture.isUndefined()) {
         out->initEmpty(matched);
         return;
@@ -1237,18 +1091,15 @@ GetParen(JSLinearString* matched, const JS::Value& capture, JSSubString* out)
 }
 
 template <typename CharT>
-static bool
-InterpretDollar(JSLinearString* matched, JSLinearString* string, size_t position, size_t tailPos,
-                Handle<CapturesVector> captures, JSLinearString* replacement,
-                const CharT* replacementBegin, const CharT* currentDollar,
-                const CharT* replacementEnd,
-                JSSubString* out, size_t* skip)
-{
+static bool InterpretDollar(JSLinearString* matched, JSLinearString* string, size_t position,
+                            size_t tailPos, Handle<CapturesVector> captures,
+                            JSLinearString* replacement, const CharT* replacementBegin,
+                            const CharT* currentDollar, const CharT* replacementEnd,
+                            JSSubString* out, size_t* skip) {
     MOZ_ASSERT(*currentDollar == '$');
 
     /* If there is only a dollar, bail now. */
-    if (currentDollar + 1 >= replacementEnd)
-        return false;
+    if (currentDollar + 1 >= replacementEnd) return false;
 
     /* ES 2016 draft Mar 25, 2016 Table 46. */
     char16_t c = currentDollar[1];
@@ -1284,43 +1135,43 @@ InterpretDollar(JSLinearString* matched, JSLinearString* string, size_t position
 
         MOZ_ASSERT(num <= captures.length());
 
-        GetParen(matched, captures[num -1], out);
+        GetParen(matched, captures[num - 1], out);
         return true;
     }
 
     *skip = 2;
     switch (c) {
-      default:
-        return false;
-      case '$':
-        out->init(replacement, currentDollar - replacementBegin, 1);
-        break;
-      case '&':
-        out->init(matched, 0, matched->length());
-        break;
-      case '+':
-        // SpiderMonkey extension
-        if (captures.length() == 0)
-            out->initEmpty(matched);
-        else
-            GetParen(matched, captures[captures.length() - 1], out);
-        break;
-      case '`':
-        out->init(string, 0, position);
-        break;
-      case '\'':
-        out->init(string, tailPos, string->length() - tailPos);
-        break;
+        default:
+            return false;
+        case '$':
+            out->init(replacement, currentDollar - replacementBegin, 1);
+            break;
+        case '&':
+            out->init(matched, 0, matched->length());
+            break;
+        case '+':
+            // SpiderMonkey extension
+            if (captures.length() == 0)
+                out->initEmpty(matched);
+            else
+                GetParen(matched, captures[captures.length() - 1], out);
+            break;
+        case '`':
+            out->init(string, 0, position);
+            break;
+        case '\'':
+            out->init(string, tailPos, string->length() - tailPos);
+            break;
     }
     return true;
 }
 
 template <typename CharT>
-static bool
-FindReplaceLengthString(JSContext* cx, HandleLinearString matched, HandleLinearString string,
-                        size_t position, size_t tailPos, Handle<CapturesVector> captures,
-                        HandleLinearString replacement, size_t firstDollarIndex, size_t* sizep)
-{
+static bool FindReplaceLengthString(JSContext* cx, HandleLinearString matched,
+                                    HandleLinearString string, size_t position, size_t tailPos,
+                                    Handle<CapturesVector> captures,
+                                    HandleLinearString replacement, size_t firstDollarIndex,
+                                    size_t* sizep) {
     CheckedInt<uint32_t> replen = replacement->length();
 
     JS::AutoCheckCannotGC nogc;
@@ -1332,8 +1183,7 @@ FindReplaceLengthString(JSContext* cx, HandleLinearString matched, HandleLinearS
         JSSubString sub;
         size_t skip;
         if (InterpretDollar(matched, string, position, tailPos, captures, replacement,
-                            replacementBegin, currentDollar, replacementEnd, &sub, &skip))
-        {
+                            replacementBegin, currentDollar, replacementEnd, &sub, &skip)) {
             if (sub.length > skip)
                 replen += sub.length - skip;
             else
@@ -1355,16 +1205,16 @@ FindReplaceLengthString(JSContext* cx, HandleLinearString matched, HandleLinearS
     return true;
 }
 
-static bool
-FindReplaceLength(JSContext* cx, HandleLinearString matched, HandleLinearString string,
-                  size_t position, size_t tailPos, Handle<CapturesVector> captures,
-                  HandleLinearString replacement, size_t firstDollarIndex, size_t* sizep)
-{
+static bool FindReplaceLength(JSContext* cx, HandleLinearString matched, HandleLinearString string,
+                              size_t position, size_t tailPos, Handle<CapturesVector> captures,
+                              HandleLinearString replacement, size_t firstDollarIndex,
+                              size_t* sizep) {
     return replacement->hasLatin1Chars()
-           ? FindReplaceLengthString<Latin1Char>(cx, matched, string, position, tailPos, captures,
-                                                 replacement, firstDollarIndex, sizep)
-           : FindReplaceLengthString<char16_t>(cx, matched, string, position, tailPos, captures,
-                                               replacement, firstDollarIndex, sizep);
+               ? FindReplaceLengthString<Latin1Char>(cx, matched, string, position, tailPos,
+                                                     captures, replacement, firstDollarIndex,
+                                                     sizep)
+               : FindReplaceLengthString<char16_t>(cx, matched, string, position, tailPos,
+                                                   captures, replacement, firstDollarIndex, sizep);
 }
 
 /*
@@ -1373,11 +1223,9 @@ FindReplaceLength(JSContext* cx, HandleLinearString matched, HandleLinearString 
  * necessary.
  */
 template <typename CharT>
-static void
-DoReplace(HandleLinearString matched, HandleLinearString string,
-          size_t position, size_t tailPos, Handle<CapturesVector> captures,
-          HandleLinearString replacement, size_t firstDollarIndex, StringBuffer &sb)
-{
+static void DoReplace(HandleLinearString matched, HandleLinearString string, size_t position,
+                      size_t tailPos, Handle<CapturesVector> captures,
+                      HandleLinearString replacement, size_t firstDollarIndex, StringBuffer& sb) {
     JS::AutoCheckCannotGC nogc;
     const CharT* replacementBegin = replacement->chars<CharT>(nogc);
     const CharT* currentChar = replacementBegin;
@@ -1394,8 +1242,7 @@ DoReplace(HandleLinearString matched, HandleLinearString string,
         JSSubString sub;
         size_t skip;
         if (InterpretDollar(matched, string, position, tailPos, captures, replacement,
-                            replacementBegin, currentDollar, replacementEnd, &sub, &skip))
-        {
+                            replacementBegin, currentDollar, replacementEnd, &sub, &skip)) {
             sb.infallibleAppendSubstring(sub.base, sub.offset, sub.length);
             currentChar += skip;
             currentDollar += skip;
@@ -1408,34 +1255,26 @@ DoReplace(HandleLinearString matched, HandleLinearString string,
     sb.infallibleAppend(currentChar, replacement->length() - (currentChar - replacementBegin));
 }
 
-static bool
-NeedTwoBytes(HandleLinearString string, HandleLinearString replacement,
-             HandleLinearString matched, Handle<CapturesVector> captures)
-{
-    if (string->hasTwoByteChars())
-        return true;
-    if (replacement->hasTwoByteChars())
-        return true;
-    if (matched->hasTwoByteChars())
-        return true;
+static bool NeedTwoBytes(HandleLinearString string, HandleLinearString replacement,
+                         HandleLinearString matched, Handle<CapturesVector> captures) {
+    if (string->hasTwoByteChars()) return true;
+    if (replacement->hasTwoByteChars()) return true;
+    if (matched->hasTwoByteChars()) return true;
 
     for (size_t i = 0, len = captures.length(); i < len; i++) {
         const Value& capture = captures[i];
-        if (capture.isUndefined())
-            continue;
-        if (capture.toString()->hasTwoByteChars())
-            return true;
+        if (capture.isUndefined()) continue;
+        if (capture.toString()->hasTwoByteChars()) return true;
     }
 
     return false;
 }
 
 /* ES 2016 draft Mar 25, 2016 21.1.3.14.1. */
-bool
-js::RegExpGetSubstitution(JSContext* cx, HandleArrayObject matchResult, HandleLinearString string,
-                          size_t position, HandleLinearString replacement,
-                          size_t firstDollarIndex, MutableHandleValue rval)
-{
+bool js::RegExpGetSubstitution(JSContext* cx, HandleArrayObject matchResult,
+                               HandleLinearString string, size_t position,
+                               HandleLinearString replacement, size_t firstDollarIndex,
+                               MutableHandleValue rval) {
     MOZ_ASSERT(firstDollarIndex < replacement->length());
 
     // Step 1 (skipped).
@@ -1447,8 +1286,7 @@ js::RegExpGetSubstitution(JSContext* cx, HandleArrayObject matchResult, HandleLi
 
     const Value& matchedValue = matchResult->getDenseElement(0);
     RootedLinearString matched(cx, matchedValue.toString()->ensureLinear(cx));
-    if (!matched)
-        return false;
+    if (!matched) return false;
 
     // Step 2.
     size_t matchLength = matched->length();
@@ -1460,8 +1298,7 @@ js::RegExpGetSubstitution(JSContext* cx, HandleArrayObject matchResult, HandleLi
 
     uint32_t nCaptures = matchResultLength - 1;
     Rooted<CapturesVector> captures(cx, CapturesVector(cx));
-    if (!captures.reserve(nCaptures))
-        return false;
+    if (!captures.reserve(nCaptures)) return false;
 
     // Step 7.
     for (uint32_t i = 1; i <= nCaptures; i++) {
@@ -1473,8 +1310,7 @@ js::RegExpGetSubstitution(JSContext* cx, HandleArrayObject matchResult, HandleLi
         }
 
         JSLinearString* captureLinear = capture.toString()->ensureLinear(cx);
-        if (!captureLinear)
-            return false;
+        if (!captureLinear) return false;
         captures.infallibleAppend(StringValue(captureLinear));
     }
 
@@ -1493,40 +1329,34 @@ js::RegExpGetSubstitution(JSContext* cx, HandleArrayObject matchResult, HandleLi
     // Step 11.
     size_t reserveLength;
     if (!FindReplaceLength(cx, matched, string, position, tailPos, captures, replacement,
-                           firstDollarIndex, &reserveLength))
-    {
+                           firstDollarIndex, &reserveLength)) {
         return false;
     }
 
     StringBuffer result(cx);
     if (NeedTwoBytes(string, replacement, matched, captures)) {
-        if (!result.ensureTwoByteChars())
-            return false;
+        if (!result.ensureTwoByteChars()) return false;
     }
 
-    if (!result.reserve(reserveLength))
-        return false;
+    if (!result.reserve(reserveLength)) return false;
 
     if (replacement->hasLatin1Chars()) {
-        DoReplace<Latin1Char>(matched, string, position, tailPos, captures,
-                              replacement, firstDollarIndex, result);
+        DoReplace<Latin1Char>(matched, string, position, tailPos, captures, replacement,
+                              firstDollarIndex, result);
     } else {
-        DoReplace<char16_t>(matched, string, position, tailPos, captures,
-                            replacement, firstDollarIndex, result);
+        DoReplace<char16_t>(matched, string, position, tailPos, captures, replacement,
+                            firstDollarIndex, result);
     }
 
     // Step 12.
     JSString* resultString = result.finishString();
-    if (!resultString)
-        return false;
+    if (!resultString) return false;
 
     rval.setString(resultString);
     return true;
 }
 
-bool
-js::GetFirstDollarIndex(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::GetFirstDollarIndex(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 1);
     JSString* str = args[0].toString();
@@ -1535,51 +1365,39 @@ js::GetFirstDollarIndex(JSContext* cx, unsigned argc, Value* vp)
     MOZ_ASSERT(str->length() != 0);
 
     int32_t index = -1;
-    if (!GetFirstDollarIndexRaw(cx, str, &index))
-        return false;
+    if (!GetFirstDollarIndexRaw(cx, str, &index)) return false;
 
     args.rval().setInt32(index);
     return true;
 }
 
 template <typename TextChar>
-static MOZ_ALWAYS_INLINE int
-GetFirstDollarIndexImpl(const TextChar* text, uint32_t textLen)
-{
+static MOZ_ALWAYS_INLINE int GetFirstDollarIndexImpl(const TextChar* text, uint32_t textLen) {
     const TextChar* end = text + textLen;
     for (const TextChar* c = text; c != end; ++c) {
-        if (*c == '$')
-            return c - text;
+        if (*c == '$') return c - text;
     }
     return -1;
 }
 
-int32_t
-js::GetFirstDollarIndexRawFlat(JSLinearString* text)
-{
+int32_t js::GetFirstDollarIndexRawFlat(JSLinearString* text) {
     uint32_t len = text->length();
 
     JS::AutoCheckCannotGC nogc;
-    if (text->hasLatin1Chars())
-        return GetFirstDollarIndexImpl(text->latin1Chars(nogc), len);
+    if (text->hasLatin1Chars()) return GetFirstDollarIndexImpl(text->latin1Chars(nogc), len);
 
     return GetFirstDollarIndexImpl(text->twoByteChars(nogc), len);
 }
 
-bool
-js::GetFirstDollarIndexRaw(JSContext* cx, JSString* str, int32_t* index)
-{
+bool js::GetFirstDollarIndexRaw(JSContext* cx, JSString* str, int32_t* index) {
     JSLinearString* text = str->ensureLinear(cx);
-    if (!text)
-        return false;
+    if (!text) return false;
 
     *index = GetFirstDollarIndexRawFlat(text);
     return true;
 }
 
-bool
-js::RegExpPrototypeOptimizable(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::RegExpPrototypeOptimizable(JSContext* cx, unsigned argc, Value* vp) {
     // This can only be called from self-hosted code.
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 1);
@@ -1588,119 +1406,95 @@ js::RegExpPrototypeOptimizable(JSContext* cx, unsigned argc, Value* vp)
     return true;
 }
 
-bool
-js::RegExpPrototypeOptimizableRaw(JSContext* cx, JSObject* proto)
-{
+bool js::RegExpPrototypeOptimizableRaw(JSContext* cx, JSObject* proto) {
     AutoUnsafeCallWithABI unsafe;
     AutoAssertNoPendingException aanpe(cx);
-    if (!proto->isNative())
-        return false;
+    if (!proto->isNative()) return false;
 
     NativeObject* nproto = static_cast<NativeObject*>(proto);
 
     Shape* shape = cx->compartment()->regExps.getOptimizableRegExpPrototypeShape();
-    if (shape == nproto->lastProperty())
-        return true;
+    if (shape == nproto->lastProperty()) return true;
 
     JSFunction* flagsGetter;
-    if (!GetOwnGetterPure(cx, proto, NameToId(cx->names().flags), &flagsGetter))
-        return false;
+    if (!GetOwnGetterPure(cx, proto, NameToId(cx->names().flags), &flagsGetter)) return false;
 
-    if (!flagsGetter)
-        return false;
+    if (!flagsGetter) return false;
 
-    if (!IsSelfHostedFunctionWithName(flagsGetter, cx->names().RegExpFlagsGetter))
-        return false;
+    if (!IsSelfHostedFunctionWithName(flagsGetter, cx->names().RegExpFlagsGetter)) return false;
 
     JSNative globalGetter;
     if (!GetOwnNativeGetterPure(cx, proto, NameToId(cx->names().global), &globalGetter))
         return false;
 
-    if (globalGetter != regexp_global)
-        return false;
+    if (globalGetter != regexp_global) return false;
 
     JSNative ignoreCaseGetter;
     if (!GetOwnNativeGetterPure(cx, proto, NameToId(cx->names().ignoreCase), &ignoreCaseGetter))
         return false;
 
-    if (ignoreCaseGetter != regexp_ignoreCase)
-        return false;
+    if (ignoreCaseGetter != regexp_ignoreCase) return false;
 
     JSNative multilineGetter;
     if (!GetOwnNativeGetterPure(cx, proto, NameToId(cx->names().multiline), &multilineGetter))
         return false;
 
-    if (multilineGetter != regexp_multiline)
-        return false;
+    if (multilineGetter != regexp_multiline) return false;
 
     JSNative stickyGetter;
     if (!GetOwnNativeGetterPure(cx, proto, NameToId(cx->names().sticky), &stickyGetter))
         return false;
 
-    if (stickyGetter != regexp_sticky)
-        return false;
+    if (stickyGetter != regexp_sticky) return false;
 
     JSNative unicodeGetter;
     if (!GetOwnNativeGetterPure(cx, proto, NameToId(cx->names().unicode), &unicodeGetter))
         return false;
 
-    if (unicodeGetter != regexp_unicode)
-        return false;
+    if (unicodeGetter != regexp_unicode) return false;
 
     // Check if @@match, @@search, and exec are own data properties,
     // those values should be tested in selfhosted JS.
     bool has = false;
     if (!HasOwnDataPropertyPure(cx, proto, SYMBOL_TO_JSID(cx->wellKnownSymbols().match), &has))
         return false;
-    if (!has)
-        return false;
+    if (!has) return false;
 
     if (!HasOwnDataPropertyPure(cx, proto, SYMBOL_TO_JSID(cx->wellKnownSymbols().search), &has))
         return false;
-    if (!has)
-        return false;
+    if (!has) return false;
 
-    if (!HasOwnDataPropertyPure(cx, proto, NameToId(cx->names().exec), &has))
-        return false;
-    if (!has)
-        return false;
+    if (!HasOwnDataPropertyPure(cx, proto, NameToId(cx->names().exec), &has)) return false;
+    if (!has) return false;
 
     cx->compartment()->regExps.setOptimizableRegExpPrototypeShape(nproto->lastProperty());
     return true;
 }
 
-bool
-js::RegExpInstanceOptimizable(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::RegExpInstanceOptimizable(JSContext* cx, unsigned argc, Value* vp) {
     // This can only be called from self-hosted code.
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 2);
 
-    args.rval().setBoolean(RegExpInstanceOptimizableRaw(cx, &args[0].toObject(),
-                                                        &args[1].toObject()));
+    args.rval().setBoolean(
+        RegExpInstanceOptimizableRaw(cx, &args[0].toObject(), &args[1].toObject()));
     return true;
 }
 
-bool
-js::RegExpInstanceOptimizableRaw(JSContext* cx, JSObject* obj, JSObject* proto)
-{
+bool js::RegExpInstanceOptimizableRaw(JSContext* cx, JSObject* obj, JSObject* proto) {
     AutoUnsafeCallWithABI unsafe;
     AutoAssertNoPendingException aanpe(cx);
 
     RegExpObject* rx = &obj->as<RegExpObject>();
 
     Shape* shape = cx->compartment()->regExps.getOptimizableRegExpInstanceShape();
-    if (shape == rx->lastProperty())
-        return true;
+    if (shape == rx->lastProperty()) return true;
 
-    if (!rx->hasStaticPrototype())
-        return false;
+    if (!rx->hasStaticPrototype()) return false;
 
-    if (rx->staticPrototype() != proto)
-        return false;
+    if (rx->staticPrototype() != proto) return false;
 
-    if (!RegExpObject::isInitialShape(rx))
-        return false;
+    if (!RegExpObject::isInitialShape(rx)) return false;
 
     cx->compartment()->regExps.setOptimizableRegExpInstanceShape(rx->lastProperty());
     return true;
@@ -1713,9 +1507,7 @@ js::RegExpInstanceOptimizableRaw(JSContext* cx, JSObject* obj, JSObject* proto)
  * Dean Edwards packer) to efficiently encode large scripts. We only handle the
  * code patterns generated by such packers here.
  */
-bool
-js::intrinsic_GetElemBaseForLambda(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::intrinsic_GetElemBaseForLambda(JSContext* cx, unsigned argc, Value* vp) {
     // This can only be called from self-hosted code.
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 1);
@@ -1723,16 +1515,13 @@ js::intrinsic_GetElemBaseForLambda(JSContext* cx, unsigned argc, Value* vp)
     JSObject& lambda = args[0].toObject();
     args.rval().setUndefined();
 
-    if (!lambda.is<JSFunction>())
-        return true;
+    if (!lambda.is<JSFunction>()) return true;
 
     RootedFunction fun(cx, &lambda.as<JSFunction>());
-    if (!fun->isInterpreted() || fun->isClassConstructor())
-        return true;
+    if (!fun->isInterpreted() || fun->isClassConstructor()) return true;
 
     JSScript* script = JSFunction::getOrCreateScript(cx, fun);
-    if (!script)
-        return false;
+    if (!script) return false;
 
     jsbytecode* pc = script->code();
 
@@ -1741,8 +1530,7 @@ js::intrinsic_GetElemBaseForLambda(JSContext* cx, unsigned argc, Value* vp)
      * Rule out the (unlikely) possibility of a function with environment
      * objects since it would make our environment walk off.
      */
-    if (JSOp(*pc) != JSOP_GETALIASEDVAR || fun->needsSomeEnvironmentObject())
-        return true;
+    if (JSOp(*pc) != JSOP_GETALIASEDVAR || fun->needsSomeEnvironmentObject()) return true;
     EnvironmentCoordinate ec(pc);
     EnvironmentObject* env = &fun->environment()->as<EnvironmentObject>();
     for (unsigned i = 0; i < ec.hops(); ++i)
@@ -1751,22 +1539,18 @@ js::intrinsic_GetElemBaseForLambda(JSContext* cx, unsigned argc, Value* vp)
     pc += JSOP_GETALIASEDVAR_LENGTH;
 
     /* Look for 'a' to be the lambda's first argument. */
-    if (JSOp(*pc) != JSOP_GETARG || GET_ARGNO(pc) != 0)
-        return true;
+    if (JSOp(*pc) != JSOP_GETARG || GET_ARGNO(pc) != 0) return true;
     pc += JSOP_GETARG_LENGTH;
 
     /* 'b[a]' */
-    if (JSOp(*pc) != JSOP_GETELEM)
-        return true;
+    if (JSOp(*pc) != JSOP_GETELEM) return true;
     pc += JSOP_GETELEM_LENGTH;
 
     /* 'return b[a]' */
-    if (JSOp(*pc) != JSOP_RETURN)
-        return true;
+    if (JSOp(*pc) != JSOP_RETURN) return true;
 
     /* 'b' must behave like a normal object. */
-    if (!b.isObject())
-        return true;
+    if (!b.isObject()) return true;
 
     JSObject& bobj = b.toObject();
     const Class* clasp = bobj.getClass();
@@ -1782,9 +1566,7 @@ js::intrinsic_GetElemBaseForLambda(JSContext* cx, unsigned argc, Value* vp)
  * It returns the property value only if the property is data property and the
  * property value is a string.  Otherwise it returns undefined.
  */
-bool
-js::intrinsic_GetStringDataProperty(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::intrinsic_GetStringDataProperty(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     MOZ_ASSERT(args.length() == 2);
 
@@ -1798,8 +1580,7 @@ js::intrinsic_GetStringDataProperty(JSContext* cx, unsigned argc, Value* vp)
     }
 
     JSAtom* atom = AtomizeString(cx, args[1].toString());
-    if (!atom)
-        return false;
+    if (!atom) return false;
 
     Value v;
     if (GetPropertyPure(cx, obj, AtomToId(atom), &v) && v.isString())

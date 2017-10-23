@@ -42,18 +42,12 @@ class RollingNumber
   static_assert(!std::numeric_limits<T>::is_signed,
                 "RollingNumber only accepts unsigned number types");
 
-public:
+ public:
   using ValueType = T;
 
-  RollingNumber()
-    : mIndex(0)
-  {
-  }
+  RollingNumber() : mIndex(0) {}
 
-  explicit RollingNumber(ValueType aIndex)
-    : mIndex(aIndex)
-  {
-  }
+  explicit RollingNumber(ValueType aIndex) : mIndex(aIndex) {}
 
   RollingNumber(const RollingNumber&) = default;
   RollingNumber& operator=(const RollingNumber&) = default;
@@ -68,7 +62,7 @@ public:
     return *this;
   }
 
-  RollingNumber operator++(int) { return RollingNumber{ mIndex++ }; }
+  RollingNumber operator++(int) { return RollingNumber{mIndex++}; }
 
   RollingNumber& operator--()
   {
@@ -76,7 +70,7 @@ public:
     return *this;
   }
 
-  RollingNumber operator--(int) { return RollingNumber{ mIndex-- }; }
+  RollingNumber operator--(int) { return RollingNumber{mIndex--}; }
 
   RollingNumber& operator+=(const ValueType& aIncrement)
   {
@@ -164,7 +158,7 @@ public:
     return greaterThanOther;
   }
 
-private:
+ private:
   // MidWay is used to split the type range in two, to decide how two numbers
   // are ordered.
   static const T MidWay = std::numeric_limits<T>::max() / 2;
@@ -177,6 +171,6 @@ private:
   ValueType mIndex;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_RollingNumber_h_
+#endif  // mozilla_RollingNumber_h_

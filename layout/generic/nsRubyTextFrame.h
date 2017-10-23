@@ -15,12 +15,12 @@
  * Factory function.
  * @return a newly allocated nsRubyTextFrame (infallible)
  */
-nsContainerFrame* NS_NewRubyTextFrame(nsIPresShell* aPresShell,
-                                      nsStyleContext* aContext);
+nsContainerFrame*
+NS_NewRubyTextFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsRubyTextFrame final : public nsRubyContentFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsRubyTextFrame)
   NS_DECL_QUERYFRAME
 
@@ -31,7 +31,7 @@ public:
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   virtual void Reflow(nsPresContext* aPresContext,
@@ -44,12 +44,13 @@ public:
     return GetStateBits() & NS_RUBY_TEXT_FRAME_AUTOHIDE;
   }
 
-protected:
+ protected:
   friend nsContainerFrame* NS_NewRubyTextFrame(nsIPresShell* aPresShell,
                                                nsStyleContext* aContext);
   explicit nsRubyTextFrame(nsStyleContext* aContext)
-    : nsRubyContentFrame(aContext, kClassID)
-  {}
+      : nsRubyContentFrame(aContext, kClassID)
+  {
+  }
 };
 
 #endif /* nsRubyTextFrame_h___ */

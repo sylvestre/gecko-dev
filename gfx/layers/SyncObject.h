@@ -17,19 +17,19 @@ namespace layers {
 typedef void* SyncHandle;
 #else
 typedef uintptr_t SyncHandle;
-#endif // XP_WIN
+#endif  // XP_WIN
 
 class SyncObjectHost : public RefCounted<SyncObjectHost>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SyncObjectHost)
-  virtual ~SyncObjectHost() { }
+  virtual ~SyncObjectHost() {}
 
   static already_AddRefed<SyncObjectHost> CreateSyncObjectHost(
 #ifdef XP_WIN
-                                                                       ID3D11Device* aDevice = nullptr
+      ID3D11Device* aDevice = nullptr
 #endif
-                                                                      );
+  );
 
   virtual bool Init() = 0;
 
@@ -37,23 +37,26 @@ public:
 
   virtual bool Synchronize() = 0;
 
-protected:
-  SyncObjectHost() { }
+ protected:
+  SyncObjectHost() {}
 };
 
 class SyncObjectClient : public external::AtomicRefCounted<SyncObjectClient>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SyncObjectClient)
-  virtual ~SyncObjectClient() { }
+  virtual ~SyncObjectClient() {}
 
-  static already_AddRefed<SyncObjectClient> CreateSyncObjectClient(SyncHandle aHandle
+  static already_AddRefed<SyncObjectClient> CreateSyncObjectClient(
+      SyncHandle aHandle
 #ifdef XP_WIN
-                                                                     , ID3D11Device* aDevice = nullptr
+      ,
+      ID3D11Device* aDevice = nullptr
 #endif
-                                                                    );
+  );
 
-  enum class SyncType {
+  enum class SyncType
+  {
     D3D11,
   };
 
@@ -63,11 +66,11 @@ public:
 
   virtual bool IsSyncObjectValid() = 0;
 
-protected:
-  SyncObjectClient() { }
+ protected:
+  SyncObjectClient() {}
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif //MOZILLA_GFX_LAYERS_SYNCOBJECT_H
+#endif  //MOZILLA_GFX_LAYERS_SYNCOBJECT_H

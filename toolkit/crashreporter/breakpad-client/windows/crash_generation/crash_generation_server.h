@@ -48,7 +48,8 @@ class ClientInfo;
 // register. In response, it hands them event handles that the client can
 // signal to request dump generation. When the clients request dump
 // generation in this way, the server generates Windows minidump files.
-class CrashGenerationServer {
+class CrashGenerationServer
+{
  public:
   typedef void (*OnClientConnectedCallback)(void* context,
                                             const ClientInfo* client_info);
@@ -103,7 +104,8 @@ class CrashGenerationServer {
   // Returns true if initialization is successful; false otherwise.
   bool Start();
 
-  void pre_fetch_custom_info(bool do_pre_fetch) {
+  void pre_fetch_custom_info(bool do_pre_fetch)
+  {
     pre_fetch_custom_info_ = do_pre_fetch;
   }
 
@@ -115,7 +117,8 @@ class CrashGenerationServer {
  private:
   // Various states the client can be in during the handshake with
   // the server.
-  enum IPCServerState {
+  enum IPCServerState
+  {
     // Server starts in this state.
     IPC_SERVER_STATE_UNINITIALIZED,
 

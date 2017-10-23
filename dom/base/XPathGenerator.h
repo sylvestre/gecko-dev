@@ -11,7 +11,7 @@
 
 class XPathGenerator
 {
-public:
+ public:
   /**
    * Return a properly quoted string to insert into an XPath
    * */

@@ -30,26 +30,25 @@ Deserialize(const IPCBlob& aIPCBlob)
 
   const IPCBlobStream& stream = aIPCBlob.inputStream();
   switch (stream.type()) {
+    // Parent to child: when an nsIInputStream is sent from parent to child, the
+    // child receives a IPCBlobInputStream actor.
+    case IPCBlobStream::TPIPCBlobInputStreamChild: {
+      IPCBlobInputStreamChild* actor = static_cast<IPCBlobInputStreamChild*>(
+          stream.get_PIPCBlobInputStreamChild());
+      inputStream = actor->CreateStream();
+      break;
+    }
 
-  // Parent to child: when an nsIInputStream is sent from parent to child, the
-  // child receives a IPCBlobInputStream actor.
-  case IPCBlobStream::TPIPCBlobInputStreamChild: {
-    IPCBlobInputStreamChild* actor =
-      static_cast<IPCBlobInputStreamChild*>(stream.get_PIPCBlobInputStreamChild());
-    inputStream = actor->CreateStream();
-    break;
-  }
+    // Child to Parent: when a blob is created on the content process send it's
+    // sent to the parent, we have an IPCStream object.
+    case IPCBlobStream::TIPCStream:
+      MOZ_ASSERT(XRE_IsParentProcess());
+      inputStream = DeserializeIPCStream(stream.get_IPCStream());
+      break;
 
-  // Child to Parent: when a blob is created on the content process send it's
-  // sent to the parent, we have an IPCStream object.
-  case IPCBlobStream::TIPCStream:
-    MOZ_ASSERT(XRE_IsParentProcess());
-    inputStream = DeserializeIPCStream(stream.get_IPCStream());
-    break;
-
-  default:
-    MOZ_CRASH("Unknown type.");
-    break;
+    default:
+      MOZ_CRASH("Unknown type.");
+      break;
   }
 
   MOZ_ASSERT(inputStream);
@@ -57,9 +56,8 @@ Deserialize(const IPCBlob& aIPCBlob)
   RefPtr<StreamBlobImpl> blobImpl;
 
   if (aIPCBlob.file().type() == IPCFileUnion::Tvoid_t) {
-    blobImpl = StreamBlobImpl::Create(inputStream,
-                                      aIPCBlob.type(),
-                                      aIPCBlob.size());
+    blobImpl =
+        StreamBlobImpl::Create(inputStream, aIPCBlob.type(), aIPCBlob.size());
   } else {
     const IPCFile& file = aIPCBlob.file().get_IPCFile();
     blobImpl = StreamBlobImpl::Create(inputStream,
@@ -79,23 +77,24 @@ Deserialize(const IPCBlob& aIPCBlob)
 
 template<typename M>
 nsresult
-SerializeInputStreamParent(nsIInputStream* aInputStream, uint64_t aSize,
-                           uint64_t aChildID, IPCBlob& aIPCBlob, M* aManager)
+SerializeInputStreamParent(nsIInputStream* aInputStream,
+                           uint64_t aSize,
+                           uint64_t aChildID,
+                           IPCBlob& aIPCBlob,
+                           M* aManager)
 {
   // Parent to Child we always send a IPCBlobInputStream.
   MOZ_ASSERT(XRE_IsParentProcess());
 
   nsresult rv;
-  IPCBlobInputStreamParent* parentActor =
-    IPCBlobInputStreamParent::Create(aInputStream, aSize, aChildID, &rv,
-                                     aManager);
+  IPCBlobInputStreamParent* parentActor = IPCBlobInputStreamParent::Create(
+      aInputStream, aSize, aChildID, &rv, aManager);
   if (!parentActor) {
     return rv;
   }
 
-  if (!aManager->SendPIPCBlobInputStreamConstructor(parentActor,
-                                                    parentActor->ID(),
-                                                    parentActor->Size())) {
+  if (!aManager->SendPIPCBlobInputStreamConstructor(
+          parentActor, parentActor->ID(), parentActor->Size())) {
     return NS_ERROR_FAILURE;
   }
 
@@ -105,7 +104,8 @@ SerializeInputStreamParent(nsIInputStream* aInputStream, uint64_t aSize,
 
 template<typename M>
 nsresult
-SerializeInputStreamChild(nsIInputStream* aInputStream, IPCBlob& aIPCBlob,
+SerializeInputStreamChild(nsIInputStream* aInputStream,
+                          IPCBlob& aIPCBlob,
                           M* aManager)
 {
   AutoIPCStream ipcStream(true /* delayed start */);
@@ -118,34 +118,42 @@ SerializeInputStreamChild(nsIInputStream* aInputStream, IPCBlob& aIPCBlob,
 }
 
 nsresult
-SerializeInputStream(nsIInputStream* aInputStream, uint64_t aSize,
-                     uint64_t aChildID, IPCBlob& aIPCBlob,
+SerializeInputStream(nsIInputStream* aInputStream,
+                     uint64_t aSize,
+                     uint64_t aChildID,
+                     IPCBlob& aIPCBlob,
                      nsIContentParent* aManager)
 {
-  return SerializeInputStreamParent(aInputStream, aSize, aChildID, aIPCBlob,
-                                    aManager);
+  return SerializeInputStreamParent(
+      aInputStream, aSize, aChildID, aIPCBlob, aManager);
 }
 
 nsresult
-SerializeInputStream(nsIInputStream* aInputStream, uint64_t aSize,
-                     uint64_t aChildID, IPCBlob& aIPCBlob,
+SerializeInputStream(nsIInputStream* aInputStream,
+                     uint64_t aSize,
+                     uint64_t aChildID,
+                     IPCBlob& aIPCBlob,
                      PBackgroundParent* aManager)
 {
-  return SerializeInputStreamParent(aInputStream, aSize, aChildID, aIPCBlob,
-                                    aManager);
+  return SerializeInputStreamParent(
+      aInputStream, aSize, aChildID, aIPCBlob, aManager);
 }
 
 nsresult
-SerializeInputStream(nsIInputStream* aInputStream, uint64_t aSize,
-                     uint64_t aChildID, IPCBlob& aIPCBlob,
+SerializeInputStream(nsIInputStream* aInputStream,
+                     uint64_t aSize,
+                     uint64_t aChildID,
+                     IPCBlob& aIPCBlob,
                      nsIContentChild* aManager)
 {
   return SerializeInputStreamChild(aInputStream, aIPCBlob, aManager);
 }
 
 nsresult
-SerializeInputStream(nsIInputStream* aInputStream, uint64_t aSize,
-                     uint64_t aChildID, IPCBlob& aIPCBlob,
+SerializeInputStream(nsIInputStream* aInputStream,
+                     uint64_t aSize,
+                     uint64_t aChildID,
+                     IPCBlob& aIPCBlob,
                      PBackgroundChild* aManager)
 {
   return SerializeInputStreamChild(aInputStream, aIPCBlob, aManager);
@@ -226,8 +234,11 @@ SerializeInternal(BlobImpl* aBlobImpl, M* aManager, IPCBlob& aIPCBlob)
     return rv.StealNSResult();
   }
 
-  rv = SerializeInputStream(inputStream, aIPCBlob.size(),
-                            ChildIDFromManager(aManager), aIPCBlob, aManager);
+  rv = SerializeInputStream(inputStream,
+                            aIPCBlob.size(),
+                            ChildIDFromManager(aManager),
+                            aIPCBlob,
+                            aManager);
   if (NS_WARN_IF(rv.Failed())) {
     return rv.StealNSResult();
   }
@@ -259,6 +270,6 @@ Serialize(BlobImpl* aBlobImpl, PBackgroundParent* aManager, IPCBlob& aIPCBlob)
   return SerializeInternal(aBlobImpl, aManager, aIPCBlob);
 }
 
-} // IPCBlobUtils namespace
-} // dom namespace
-} // mozilla namespace
+}  // namespace IPCBlobUtils
+}  // namespace dom
+}  // namespace mozilla

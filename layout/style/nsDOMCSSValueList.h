@@ -14,9 +14,10 @@
 class nsDOMCSSValueList final : public mozilla::dom::CSSValue,
                                 public nsIDOMCSSValueList
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsDOMCSSValueList, mozilla::dom::CSSValue)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsDOMCSSValueList,
+                                                         mozilla::dom::CSSValue)
 
   // nsIDOMCSSValue
   NS_DECL_NSIDOMCSSVALUE
@@ -29,8 +30,8 @@ public:
    */
   void AppendCSSValue(already_AddRefed<CSSValue> aValue);
 
-  virtual void GetCssText(nsString& aText, mozilla::ErrorResult& aRv)
-    override final;
+  virtual void GetCssText(nsString& aText,
+                          mozilla::ErrorResult& aRv) override final;
   virtual void SetCssText(const nsAString& aText,
                           mozilla::ErrorResult& aRv) override final;
   virtual uint16_t CssValueType() const override final;
@@ -46,26 +47,21 @@ public:
     return mCSSValues.SafeElementAt(aIndex);
   }
 
-  uint32_t Length() const
-  {
-    return mCSSValues.Length();
-  }
+  uint32_t Length() const { return mCSSValues.Length(); }
 
-  nsISupports* GetParentObject()
-  {
-    return nullptr;
-  }
+  nsISupports* GetParentObject() { return nullptr; }
 
-  virtual JSObject *WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   ~nsDOMCSSValueList();
 
-  bool                        mCommaDelimited;  // some value lists use a comma
-                                                // as the delimiter, some just use
-                                                // spaces.
+  bool mCommaDelimited;  // some value lists use a comma
+                         // as the delimiter, some just use
+                         // spaces.
 
-  bool                        mReadonly;    // Are we read-only?
+  bool mReadonly;  // Are we read-only?
 
   InfallibleTArray<RefPtr<CSSValue> > mCSSValues;
 };

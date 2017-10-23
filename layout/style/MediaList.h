@@ -33,10 +33,9 @@ namespace dom {
 //     directly. We may want to determine in the future whether the
 //     above is correct.
 
-class MediaList : public nsIDOMMediaList
-                , public nsWrapperCache
+class MediaList : public nsIDOMMediaList, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaList)
 
@@ -66,7 +65,8 @@ public:
   // WebIDL
   // XPCOM GetMediaText and SetMediaText are fine.
   virtual uint32_t Length() = 0;
-  virtual void IndexedGetter(uint32_t aIndex, bool& aFound,
+  virtual void IndexedGetter(uint32_t aIndex,
+                             bool& aFound,
                              nsAString& aReturn) = 0;
   // XPCOM Item is fine.
   void DeleteMedium(const nsAString& aMedium, ErrorResult& aRv)
@@ -78,7 +78,7 @@ public:
     aRv = AppendMedium(aMedium);
   }
 
-protected:
+ protected:
   virtual nsresult Delete(const nsAString& aOldMedium) = 0;
   virtual nsresult Append(const nsAString& aNewMedium) = 0;
 
@@ -89,12 +89,12 @@ protected:
   // medialist changes
   StyleSheet* mStyleSheet = nullptr;
 
-private:
+ private:
   template<typename Func>
   inline nsresult DoMediaChange(Func aCallback);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MediaList_h
+#endif  // mozilla_dom_MediaList_h

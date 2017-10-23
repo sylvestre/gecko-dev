@@ -49,11 +49,11 @@ PendingAnimationTracker::IsWaiting(const dom::Animation& aAnimation,
 }
 
 void
-PendingAnimationTracker::TriggerPendingAnimationsOnNextTick(const TimeStamp&
-                                                        aReadyTime)
+PendingAnimationTracker::TriggerPendingAnimationsOnNextTick(
+    const TimeStamp& aReadyTime)
 {
-  auto triggerAnimationsAtReadyTime = [aReadyTime](AnimationSet& aAnimationSet)
-  {
+  auto triggerAnimationsAtReadyTime = [aReadyTime](
+                                          AnimationSet& aAnimationSet) {
     for (auto iter = aAnimationSet.Iter(); !iter.Done(); iter.Next()) {
       dom::Animation* animation = iter.Get()->GetKey();
       dom::AnimationTimeline* timeline = animation->GetTimeline();
@@ -86,9 +86,8 @@ PendingAnimationTracker::TriggerPendingAnimationsOnNextTick(const TimeStamp&
   triggerAnimationsAtReadyTime(mPlayPendingSet);
   triggerAnimationsAtReadyTime(mPausePendingSet);
 
-  mHasPlayPendingGeometricAnimations = mPlayPendingSet.Count()
-                                       ? CheckState::Indeterminate
-                                       : CheckState::Absent;
+  mHasPlayPendingGeometricAnimations =
+      mPlayPendingSet.Count() ? CheckState::Indeterminate : CheckState::Absent;
 }
 
 void
@@ -176,4 +175,4 @@ PendingAnimationTracker::EnsurePaintIsScheduled()
   rootFrame->SchedulePaintWithoutInvalidatingObservers();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

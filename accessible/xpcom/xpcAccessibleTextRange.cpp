@@ -79,7 +79,7 @@ xpcAccessibleTextRange::GetEmbeddedChildren(nsIArray** aList)
 {
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMutableArray> xpcList =
-    do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
+      do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsTArray<Accessible*> objects;
@@ -87,7 +87,8 @@ xpcAccessibleTextRange::GetEmbeddedChildren(nsIArray** aList)
 
   uint32_t len = objects.Length();
   for (uint32_t idx = 0; idx < len; idx++)
-    xpcList->AppendElement(static_cast<nsIAccessible*>(ToXPC(objects[idx])), false);
+    xpcList->AppendElement(static_cast<nsIAccessible*>(ToXPC(objects[idx])),
+                           false);
 
   xpcList.forget(aList);
 
@@ -98,10 +99,8 @@ NS_IMETHODIMP
 xpcAccessibleTextRange::Compare(nsIAccessibleTextRange* aOtherRange,
                                 bool* aResult)
 {
-
   RefPtr<xpcAccessibleTextRange> xpcRange(do_QueryObject(aOtherRange));
-  if (!xpcRange || !aResult)
-    return NS_ERROR_INVALID_ARG;
+  if (!xpcRange || !aResult) return NS_ERROR_INVALID_ARG;
 
   *aResult = (mRange == xpcRange->mRange);
   return NS_OK;
@@ -114,13 +113,13 @@ xpcAccessibleTextRange::CompareEndPoints(uint32_t aEndPoint,
                                          int32_t* aResult)
 {
   RefPtr<xpcAccessibleTextRange> xpcRange(do_QueryObject(aOtherRange));
-  if (!xpcRange || !aResult)
-    return NS_ERROR_INVALID_ARG;
+  if (!xpcRange || !aResult) return NS_ERROR_INVALID_ARG;
 
-  TextPoint p = (aEndPoint == EndPoint_Start) ?
-    mRange.StartPoint() : mRange.EndPoint();
-  TextPoint otherPoint = (aOtherRangeEndPoint == EndPoint_Start) ?
-    xpcRange->mRange.StartPoint() : xpcRange->mRange.EndPoint();
+  TextPoint p =
+      (aEndPoint == EndPoint_Start) ? mRange.StartPoint() : mRange.EndPoint();
+  TextPoint otherPoint = (aOtherRangeEndPoint == EndPoint_Start)
+                             ? xpcRange->mRange.StartPoint()
+                             : xpcRange->mRange.EndPoint();
 
   if (p == otherPoint)
     *aResult = 0;
@@ -141,16 +140,10 @@ xpcAccessibleTextRange::GetText(nsAString& aText)
 }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::GetBounds(nsIArray** aRectList)
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::GetBounds(nsIArray** aRectList) { return NS_OK; }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::Move(uint32_t aUnit, int32_t aCount)
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::Move(uint32_t aUnit, int32_t aCount) { return NS_OK; }
 
 NS_IMETHODIMP
 xpcAccessibleTextRange::MoveStart(uint32_t aUnit, int32_t aCount)
@@ -165,10 +158,7 @@ xpcAccessibleTextRange::MoveEnd(uint32_t aUnit, int32_t aCount)
 }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::Normalize(uint32_t aUnit)
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::Normalize(uint32_t aUnit) { return NS_OK; }
 
 NS_IMETHODIMP
 xpcAccessibleTextRange::Crop(nsIAccessible* aContainer, bool* aSuccess)
@@ -181,7 +171,8 @@ xpcAccessibleTextRange::Crop(nsIAccessible* aContainer, bool* aSuccess)
 }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::FindText(const nsAString& aText, bool aIsBackward,
+xpcAccessibleTextRange::FindText(const nsAString& aText,
+                                 bool aIsBackward,
                                  bool aIsIgnoreCase,
                                  nsIAccessibleTextRange** aRange)
 {
@@ -189,7 +180,8 @@ xpcAccessibleTextRange::FindText(const nsAString& aText, bool aIsBackward,
 }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::FindAttr(uint32_t aAttr, nsIVariant* aVal,
+xpcAccessibleTextRange::FindAttr(uint32_t aAttr,
+                                 nsIVariant* aVal,
                                  bool aIsBackward,
                                  nsIAccessibleTextRange** aRange)
 {
@@ -197,25 +189,13 @@ xpcAccessibleTextRange::FindAttr(uint32_t aAttr, nsIVariant* aVal,
 }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::AddToSelection()
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::AddToSelection() { return NS_OK; }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::RemoveFromSelection()
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::RemoveFromSelection() { return NS_OK; }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::Select()
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::Select() { return NS_OK; }
 
 NS_IMETHODIMP
-xpcAccessibleTextRange::ScrollIntoView(uint32_t aHow)
-{
-  return NS_OK;
-}
+xpcAccessibleTextRange::ScrollIntoView(uint32_t aHow) { return NS_OK; }

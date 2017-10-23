@@ -32,12 +32,12 @@ DOMRectReadOnly::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 
 NS_IMPL_ISUPPORTS_INHERITED(DOMRect, DOMRectReadOnly, nsIDOMClientRect)
 
-#define FORWARD_GETTER(_name)                                                   \
-  NS_IMETHODIMP                                                                 \
-  DOMRect::Get ## _name(float* aResult)                                         \
-  {                                                                             \
-    *aResult = float(_name());                                                  \
-    return NS_OK;                                                               \
+#define FORWARD_GETTER(_name)         \
+  NS_IMETHODIMP                       \
+  DOMRect::Get##_name(float* aResult) \
+  {                                   \
+    *aResult = float(_name());        \
+    return NS_OK;                     \
   }
 
 FORWARD_GETTER(Left)
@@ -58,16 +58,20 @@ already_AddRefed<DOMRect>
 DOMRect::Constructor(const GlobalObject& aGlobal, ErrorResult& aRV)
 {
   RefPtr<DOMRect> obj =
-    new DOMRect(aGlobal.GetAsSupports(), 0.0, 0.0, 0.0, 0.0);
+      new DOMRect(aGlobal.GetAsSupports(), 0.0, 0.0, 0.0, 0.0);
   return obj.forget();
 }
 
 already_AddRefed<DOMRect>
-DOMRect::Constructor(const GlobalObject& aGlobal, double aX, double aY,
-                     double aWidth, double aHeight, ErrorResult& aRV)
+DOMRect::Constructor(const GlobalObject& aGlobal,
+                     double aX,
+                     double aY,
+                     double aWidth,
+                     double aHeight,
+                     ErrorResult& aRV)
 {
   RefPtr<DOMRect> obj =
-    new DOMRect(aGlobal.GetAsSupports(), aX, aY, aWidth, aHeight);
+      new DOMRect(aGlobal.GetAsSupports(), aX, aY, aWidth, aHeight);
   return obj.forget();
 }
 
@@ -84,7 +88,6 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMRectList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMRectList)
 
-
 NS_IMETHODIMP
 DOMRectList::GetLength(uint32_t* aLength)
 {
@@ -100,7 +103,7 @@ DOMRectList::Item(uint32_t aIndex, nsIDOMClientRect** aReturn)
 }
 
 JSObject*
-DOMRectList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+DOMRectList::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::DOMRectListBinding::Wrap(cx, this, aGivenProto);
 }
@@ -117,10 +120,12 @@ DOMRect::SetLayoutRect(const nsRect& aLayoutRect)
   double scale = 65536.0;
   // Round to the nearest 1/scale units. We choose scale so it can be represented
   // exactly by machine floating point.
-  double scaleInv = 1/scale;
-  double t2pScaled = scale/nsPresContext::AppUnitsPerCSSPixel();
-  double x = RoundFloat(aLayoutRect.x*t2pScaled)*scaleInv;
-  double y = RoundFloat(aLayoutRect.y*t2pScaled)*scaleInv;
-  SetRect(x, y, RoundFloat(aLayoutRect.XMost()*t2pScaled)*scaleInv - x,
-          RoundFloat(aLayoutRect.YMost()*t2pScaled)*scaleInv - y);
+  double scaleInv = 1 / scale;
+  double t2pScaled = scale / nsPresContext::AppUnitsPerCSSPixel();
+  double x = RoundFloat(aLayoutRect.x * t2pScaled) * scaleInv;
+  double y = RoundFloat(aLayoutRect.y * t2pScaled) * scaleInv;
+  SetRect(x,
+          y,
+          RoundFloat(aLayoutRect.XMost() * t2pScaled) * scaleInv - x,
+          RoundFloat(aLayoutRect.YMost() * t2pScaled) * scaleInv - y);
 }

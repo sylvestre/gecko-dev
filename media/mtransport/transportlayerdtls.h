@@ -30,46 +30,60 @@ namespace mozilla {
 
 struct Packet;
 
-class TransportLayerNSPRAdapter {
+class TransportLayerNSPRAdapter
+{
  public:
-  explicit TransportLayerNSPRAdapter(TransportLayer *output) :
-  output_(output),
-  input_(),
-  enabled_(true) {}
+  explicit TransportLayerNSPRAdapter(TransportLayer* output)
+      : output_(output), input_(), enabled_(true)
+  {
+  }
 
-  void PacketReceived(const void *data, int32_t len);
-  int32_t Recv(void *buf, int32_t buflen);
-  int32_t Write(const void *buf, int32_t length);
+  void PacketReceived(const void* data, int32_t len);
+  int32_t Recv(void* buf, int32_t buflen);
+  int32_t Write(const void* buf, int32_t length);
   void SetEnabled(bool enabled) { enabled_ = enabled; }
 
  private:
   DISALLOW_COPY_ASSIGN(TransportLayerNSPRAdapter);
 
-  TransportLayer *output_;
-  std::queue<Packet *> input_;
+  TransportLayer* output_;
+  std::queue<Packet*> input_;
   bool enabled_;
 };
 
-class TransportLayerDtls final : public TransportLayer {
+class TransportLayerDtls final : public TransportLayer
+{
  public:
-  TransportLayerDtls() :
-      role_(CLIENT),
-      verification_mode_(VERIFY_UNSET),
-      ssl_fd_(nullptr),
-      auth_hook_called_(false),
-      cert_ok_(false) {}
+  TransportLayerDtls()
+      : role_(CLIENT),
+        verification_mode_(VERIFY_UNSET),
+        ssl_fd_(nullptr),
+        auth_hook_called_(false),
+        cert_ok_(false)
+  {
+  }
 
   virtual ~TransportLayerDtls();
 
-  enum Role { CLIENT, SERVER};
-  enum Verification { VERIFY_UNSET, VERIFY_ALLOW_ALL, VERIFY_DIGEST};
+  enum Role
+  {
+    CLIENT,
+    SERVER
+  };
+  enum Verification
+  {
+    VERIFY_UNSET,
+    VERIFY_ALLOW_ALL,
+    VERIFY_DIGEST
+  };
   const static size_t kMaxDigestLength = HASH_LENGTH_MAX;
 
   // DTLS-specific operations
-  void SetRole(Role role) { role_ = role;}
+  void SetRole(Role role) { role_ = role; }
   Role role() { return role_; }
 
-  void SetIdentity(const RefPtr<DtlsIdentity>& identity) {
+  void SetIdentity(const RefPtr<DtlsIdentity>& identity)
+  {
     identity_ = identity;
   }
   nsresult SetAlpn(const std::set<std::string>& allowedAlpn,
@@ -78,46 +92,54 @@ class TransportLayerDtls final : public TransportLayer {
 
   nsresult SetVerificationAllowAll();
   nsresult SetVerificationDigest(const std::string digest_algorithm,
-                                 const unsigned char *digest_value,
+                                 const unsigned char* digest_value,
                                  size_t digest_len);
 
   nsresult GetCipherSuite(uint16_t* cipherSuite) const;
 
   nsresult SetSrtpCiphers(std::vector<uint16_t> ciphers);
-  nsresult GetSrtpCipher(uint16_t *cipher) const;
+  nsresult GetSrtpCipher(uint16_t* cipher) const;
 
   nsresult ExportKeyingMaterial(const std::string& label,
                                 bool use_context,
                                 const std::string& context,
-                                unsigned char *out,
+                                unsigned char* out,
                                 unsigned int outlen);
 
   // Transport layer overrides.
   nsresult InitInternal() override;
   void WasInserted() override;
-  TransportResult SendPacket(const unsigned char *data, size_t len) override;
+  TransportResult SendPacket(const unsigned char* data, size_t len) override;
 
   // Signals
-  void StateChange(TransportLayer *layer, State state);
-  void PacketReceived(TransportLayer* layer, const unsigned char *data,
+  void StateChange(TransportLayer* layer, State state);
+  void PacketReceived(TransportLayer* layer,
+                      const unsigned char* data,
                       size_t len);
 
   // For testing use only.  Returns the fd.
-  PRFileDesc* internal_fd() { CheckThread(); return ssl_fd_.get(); }
+  PRFileDesc* internal_fd()
+  {
+    CheckThread();
+    return ssl_fd_.get();
+  }
 
   TRANSPORT_LAYER_ID("dtls")
 
-  protected:
-  void SetState(State state, const char *file, unsigned line) override;
+ protected:
+  void SetState(State state, const char* file, unsigned line) override;
 
-  private:
+ private:
   DISALLOW_COPY_ASSIGN(TransportLayerDtls);
 
   // A single digest to check
-  class VerificationDigest {
+  class VerificationDigest
+  {
    public:
     VerificationDigest(std::string algorithm,
-                       const unsigned char *value, size_t len) {
+                       const unsigned char* value,
+                       size_t len)
+    {
       MOZ_ASSERT(len <= sizeof(value_));
 
       algorithm_ = algorithm;
@@ -136,7 +158,6 @@ class TransportLayerDtls final : public TransportLayer {
     DISALLOW_COPY_ASSIGN(VerificationDigest);
   };
 
-
   bool Setup();
   bool SetupCipherSuites(UniquePRFileDesc& ssl_fd) const;
   bool SetupAlpn(UniquePRFileDesc& ssl_fd) const;
@@ -144,19 +165,20 @@ class TransportLayerDtls final : public TransportLayer {
 
   bool CheckAlpn();
 
-  static SECStatus GetClientAuthDataHook(void *arg, PRFileDesc *fd,
-                                         CERTDistNames *caNames,
-                                         CERTCertificate **pRetCert,
-                                         SECKEYPrivateKey **pRetKey);
-  static SECStatus AuthCertificateHook(void *arg,
-                                       PRFileDesc *fd,
+  static SECStatus GetClientAuthDataHook(void* arg,
+                                         PRFileDesc* fd,
+                                         CERTDistNames* caNames,
+                                         CERTCertificate** pRetCert,
+                                         SECKEYPrivateKey** pRetKey);
+  static SECStatus AuthCertificateHook(void* arg,
+                                       PRFileDesc* fd,
                                        PRBool checksig,
                                        PRBool isServer);
-  SECStatus AuthCertificateHook(PRFileDesc *fd,
+  SECStatus AuthCertificateHook(PRFileDesc* fd,
                                 PRBool checksig,
                                 PRBool isServer);
 
-  static void TimerCallback(nsITimer *timer, void *arg);
+  static void TimerCallback(nsITimer* timer, void* arg);
 
   SECStatus CheckDigest(const RefPtr<VerificationDigest>& digest,
                         UniqueCERTCertificate& cert) const;
@@ -188,6 +210,5 @@ class TransportLayerDtls final : public TransportLayer {
   TimeStamp handshake_started_;
 };
 
-
-}  // close namespace
+}  // namespace mozilla
 #endif

@@ -37,30 +37,31 @@
 /**
  *  This structure is used to store a decoded frame information and data.
  */
-typedef struct vda_frame {
-    /**
+typedef struct vda_frame
+{
+  /**
     * The PTS of the frame.
     *
     * - encoding: unused
     * - decoding: Set/Unset by libavcodec.
     */
-    int64_t             pts;
+  int64_t pts;
 
-    /**
+  /**
     * The CoreVideo buffer that contains the decoded data.
     *
     * - encoding: unused
     * - decoding: Set/Unset by libavcodec.
     */
-    CVPixelBufferRef    cv_buffer;
+  CVPixelBufferRef cv_buffer;
 
-    /**
+  /**
     * A pointer to the next frame.
     *
     * - encoding: unused
     * - decoding: Set/Unset by libavcodec.
     */
-    struct vda_frame    *next_frame;
+  struct vda_frame* next_frame;
 } vda_frame;
 
 /**
@@ -69,76 +70,81 @@ typedef struct vda_frame {
  *
  * The application must make it available as AVCodecContext.hwaccel_context.
  */
-struct vda_context {
-    /**
+struct vda_context
+{
+  /**
     * VDA decoder object.
     *
     * - encoding: unused
     * - decoding: Set/Unset by libavcodec.
     */
-    VDADecoder          decoder;
+  VDADecoder decoder;
 
-    /**
+  /**
     * VDA frames queue ordered by presentation timestamp.
     *
     * - encoding: unused
     * - decoding: Set/Unset by libavcodec.
     */
-    vda_frame           *queue;
+  vda_frame* queue;
 
-    /**
+  /**
     * Mutex for locking queue operations.
     *
     * - encoding: unused
     * - decoding: Set/Unset by libavcodec.
     */
-    pthread_mutex_t     queue_mutex;
+  pthread_mutex_t queue_mutex;
 
-    /**
+  /**
     * The frame width.
     *
     * - encoding: unused
     * - decoding: Set/Unset by user.
     */
-    int                 width;
+  int width;
 
-    /**
+  /**
     * The frame height.
     *
     * - encoding: unused
     * - decoding: Set/Unset by user.
     */
-    int                 height;
+  int height;
 
-    /**
+  /**
     * The frame format.
     *
     * - encoding: unused
     * - decoding: Set/Unset by user.
     */
-    int                 format;
+  int format;
 
-    /**
+  /**
     * The pixel format for output image buffers.
     *
     * - encoding: unused
     * - decoding: Set/Unset by user.
     */
-    OSType              cv_pix_fmt_type;
+  OSType cv_pix_fmt_type;
 };
 
 /** Create the video decoder. */
-int ff_vda_create_decoder(struct vda_context *vda_ctx,
-                          uint8_t *extradata,
-                          int extradata_size);
+int
+ff_vda_create_decoder(struct vda_context* vda_ctx,
+                      uint8_t* extradata,
+                      int extradata_size);
 
 /** Destroy the video decoder. */
-int ff_vda_destroy_decoder(struct vda_context *vda_ctx);
+int
+ff_vda_destroy_decoder(struct vda_context* vda_ctx);
 
 /** Return the top frame of the queue. */
-vda_frame *ff_vda_queue_pop(struct vda_context *vda_ctx);
+vda_frame*
+ff_vda_queue_pop(struct vda_context* vda_ctx);
 
 /** Release the given frame. */
-void ff_vda_release_vda_frame(vda_frame *frame);
+void
+ff_vda_release_vda_frame(vda_frame* frame);
 
 #endif /* AVCODEC_VDA_H */

@@ -15,8 +15,8 @@ GamepadTestChannelParent::RecvGamepadTestEvent(const uint32_t& aID,
                                                const GamepadChangeEvent& aEvent)
 {
   mozilla::ipc::AssertIsOnBackgroundThread();
-  RefPtr<GamepadPlatformService>  service =
-    GamepadPlatformService::GetParentService();
+  RefPtr<GamepadPlatformService> service =
+      GamepadPlatformService::GetParentService();
   MOZ_ASSERT(service);
   const uint32_t index = aEvent.index();
   const GamepadChangeEventBody& body = aEvent.body();
@@ -24,12 +24,13 @@ GamepadTestChannelParent::RecvGamepadTestEvent(const uint32_t& aID,
     const GamepadAdded& a = body.get_GamepadAdded();
     nsCString gamepadID;
     LossyCopyUTF16toASCII(a.id(), gamepadID);
-    uint32_t index = service->AddGamepad(gamepadID.get(),
-                                         static_cast<GamepadMappingType>(a.mapping()),
-                                         a.hand(),
-                                         a.num_buttons(),
-                                         a.num_axes(),
-                                         a.num_haptics());
+    uint32_t index =
+        service->AddGamepad(gamepadID.get(),
+                            static_cast<GamepadMappingType>(a.mapping()),
+                            a.hand(),
+                            a.num_buttons(),
+                            a.num_axes(),
+                            a.num_haptics());
     if (!mShuttingdown) {
       Unused << SendReplyGamepadIndex(aID, index);
     }
@@ -41,8 +42,8 @@ GamepadTestChannelParent::RecvGamepadTestEvent(const uint32_t& aID,
   }
   if (body.type() == GamepadChangeEventBody::TGamepadButtonInformation) {
     const GamepadButtonInformation& a = body.get_GamepadButtonInformation();
-    service->NewButtonEvent(index, a.button(), a.pressed(), a.touched(),
-                            a.value());
+    service->NewButtonEvent(
+        index, a.button(), a.pressed(), a.touched(), a.value());
     return IPC_OK();
   }
   if (body.type() == GamepadChangeEventBody::TGamepadAxisInformation) {
@@ -68,5 +69,5 @@ GamepadTestChannelParent::RecvShutdownChannel()
   return IPC_OK();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

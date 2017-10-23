@@ -24,17 +24,15 @@ CallGetInterface(T* aSource, DestinationType** aDestination)
 
 class MOZ_STACK_CLASS nsGetInterface final : public nsCOMPtr_helper
 {
-public:
+ public:
   nsGetInterface(nsISupports* aSource, nsresult* aError)
-    : mSource(aSource)
-    , mErrorPtr(aError)
+      : mSource(aSource), mErrorPtr(aError)
   {
   }
 
-  virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const
-    override;
+  virtual nsresult NS_FASTCALL operator()(const nsIID&, void**) const override;
 
-private:
+ private:
   nsISupports* MOZ_NON_OWNING_REF mSource;
   nsresult* mErrorPtr;
 };
@@ -45,5 +43,4 @@ do_GetInterface(nsISupports* aSource, nsresult* aError = 0)
   return nsGetInterface(aSource, aError);
 }
 
-#endif // __nsInterfaceRequestorUtils_h
-
+#endif  // __nsInterfaceRequestorUtils_h

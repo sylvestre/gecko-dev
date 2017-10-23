@@ -28,67 +28,77 @@
 namespace {
 
 // Internal flags and constants
-static const float   ANIMATION_DURATION = 0.15f; // How many seconds the complete animation should span
-static const int32_t MOVE_TOOLBAR_DOWN  =  1;    // Multiplier to move the toolbar down
-static const int32_t MOVE_TOOLBAR_UP    = -1;    // Multiplier to move the toolbar up
-static const float   SHRINK_FACTOR      = 0.95f; // Amount to shrink the either the full content for small pages or the amount left
-                                                 // See: PageTooSmallEnsureToolbarVisible()
-} // namespace
+static const float ANIMATION_DURATION =
+    0.15f;  // How many seconds the complete animation should span
+static const int32_t MOVE_TOOLBAR_DOWN =
+    1;  // Multiplier to move the toolbar down
+static const int32_t MOVE_TOOLBAR_UP = -1;  // Multiplier to move the toolbar up
+static const float SHRINK_FACTOR =
+    0.95f;  // Amount to shrink the either the full content for small pages or the amount left
+            // See: PageTooSmallEnsureToolbarVisible()
+}  // namespace
 
 namespace mozilla {
 namespace layers {
 
 AndroidDynamicToolbarAnimator::AndroidDynamicToolbarAnimator()
-  : mRootLayerTreeId(0)
-  // Read/Write Compositor Thread, Read only Controller thread
-  , mToolbarState(eToolbarVisible)
-  , mPinnedFlags(0)
-  // Controller thread only
-  , mControllerScrollingRootContent(false)
-  , mControllerDragThresholdReached(false)
-  , mControllerCancelTouchTracking(false)
-  , mControllerDragChangedDirection(false)
-  , mControllerResetOnNextMove(false)
-  , mControllerStartTouch(0)
-  , mControllerPreviousTouch(0)
-  , mControllerTotalDistance(0)
-  , mControllerMaxToolbarHeight(0)
-  , mControllerToolbarHeight(0)
-  , mControllerSurfaceHeight(0)
-  , mControllerCompositionHeight(0)
-  , mControllerRootScrollY(0.0f)
-  , mControllerLastDragDirection(0)
-  , mControllerTouchCount(0)
-  , mControllerLastEventTimeStamp(0)
-  , mControllerState(eNothingPending)
-  // Compositor thread only
-  , mCompositorShutdown(false)
-  , mCompositorAnimationDeferred(false)
-  , mCompositorLayersUpdateEnabled(false)
-  , mCompositorAnimationStarted(false)
-  , mCompositorReceivedFirstPaint(false)
-  , mCompositorWaitForPageResize(false)
-  , mCompositorToolbarShowRequested(false)
-  , mCompositorSendResponseForSnapshotUpdate(false)
-  , mCompositorAnimationStyle(eAnimate)
-  , mCompositorMaxToolbarHeight(0)
-  , mCompositorToolbarHeight(0)
-  , mCompositorSurfaceHeight(0)
-  , mCompositorAnimationDirection(0)
-  , mCompositorAnimationStartHeight(0)
-{}
+    : mRootLayerTreeId(0)
+      // Read/Write Compositor Thread, Read only Controller thread
+      ,
+      mToolbarState(eToolbarVisible),
+      mPinnedFlags(0)
+      // Controller thread only
+      ,
+      mControllerScrollingRootContent(false),
+      mControllerDragThresholdReached(false),
+      mControllerCancelTouchTracking(false),
+      mControllerDragChangedDirection(false),
+      mControllerResetOnNextMove(false),
+      mControllerStartTouch(0),
+      mControllerPreviousTouch(0),
+      mControllerTotalDistance(0),
+      mControllerMaxToolbarHeight(0),
+      mControllerToolbarHeight(0),
+      mControllerSurfaceHeight(0),
+      mControllerCompositionHeight(0),
+      mControllerRootScrollY(0.0f),
+      mControllerLastDragDirection(0),
+      mControllerTouchCount(0),
+      mControllerLastEventTimeStamp(0),
+      mControllerState(eNothingPending)
+      // Compositor thread only
+      ,
+      mCompositorShutdown(false),
+      mCompositorAnimationDeferred(false),
+      mCompositorLayersUpdateEnabled(false),
+      mCompositorAnimationStarted(false),
+      mCompositorReceivedFirstPaint(false),
+      mCompositorWaitForPageResize(false),
+      mCompositorToolbarShowRequested(false),
+      mCompositorSendResponseForSnapshotUpdate(false),
+      mCompositorAnimationStyle(eAnimate),
+      mCompositorMaxToolbarHeight(0),
+      mCompositorToolbarHeight(0),
+      mCompositorSurfaceHeight(0),
+      mCompositorAnimationDirection(0),
+      mCompositorAnimationStartHeight(0)
+{
+}
 
 void
 AndroidDynamicToolbarAnimator::Initialize(uint64_t aRootLayerTreeId)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   mRootLayerTreeId = aRootLayerTreeId;
-  RefPtr<UiCompositorControllerParent> uiController = UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
+  RefPtr<UiCompositorControllerParent> uiController =
+      UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
   MOZ_ASSERT(uiController);
   uiController->RegisterAndroidDynamicToolbarAnimator(this);
 
   // Send queued messages that were posted before Initialize() was called.
-  for (QueuedMessage* message = mCompositorQueuedMessages.getFirst(); message != nullptr; message = message->getNext()) {
+  for (QueuedMessage* message = mCompositorQueuedMessages.getFirst();
+       message != nullptr;
+       message = message->getNext()) {
     uiController->ToolbarAnimatorMessageFromCompositor(message->mMessage);
   }
   mCompositorQueuedMessages.clear();
@@ -107,7 +117,8 @@ GetTouchY(MultiTouchInput& multiTouch, ScreenIntCoord* value)
 }
 
 nsEventStatus
-AndroidDynamicToolbarAnimator::ReceiveInputEvent(InputData& aEvent, const ScreenPoint& aScrollOffset)
+AndroidDynamicToolbarAnimator::ReceiveInputEvent(
+    InputData& aEvent, const ScreenPoint& aScrollOffset)
 {
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
 
@@ -126,15 +137,15 @@ AndroidDynamicToolbarAnimator::ReceiveInputEvent(InputData& aEvent, const Screen
   }
 
   switch (multiTouch.mType) {
-  case MultiTouchInput::MULTITOUCH_START:
-    mControllerTouchCount = multiTouch.mTouches.Length();
-    break;
-  case MultiTouchInput::MULTITOUCH_END:
-  case MultiTouchInput::MULTITOUCH_CANCEL:
-    mControllerTouchCount -= multiTouch.mTouches.Length();
-    break;
-  case MultiTouchInput::MULTITOUCH_MOVE:
-    break;
+    case MultiTouchInput::MULTITOUCH_START:
+      mControllerTouchCount = multiTouch.mTouches.Length();
+      break;
+    case MultiTouchInput::MULTITOUCH_END:
+    case MultiTouchInput::MULTITOUCH_CANCEL:
+      mControllerTouchCount -= multiTouch.mTouches.Length();
+      break;
+    case MultiTouchInput::MULTITOUCH_MOVE:
+      break;
   }
 
   if (mControllerTouchCount > 1) {
@@ -154,55 +165,61 @@ AndroidDynamicToolbarAnimator::ReceiveInputEvent(InputData& aEvent, const Screen
 
   const StaticToolbarState currentToolbarState = mToolbarState;
   switch (multiTouch.mType) {
-  case MultiTouchInput::MULTITOUCH_START:
-    mControllerCancelTouchTracking = false;
-    mControllerStartTouch = mControllerPreviousTouch = currentTouch;
-    // We don't want to stop the animation if we are near the bottom of the page.
-    if (!ScrollOffsetNearBottom() && (currentToolbarState == eToolbarAnimating)) {
-      StopCompositorAnimation();
-    }
-    break;
-  case MultiTouchInput::MULTITOUCH_MOVE: {
-    CheckForResetOnNextMove(currentTouch);
-    if ((mControllerState != eAnimationStartPending) &&
-        (mControllerState != eAnimationStopPending) &&
-        (currentToolbarState != eToolbarAnimating) &&
-        !mControllerCancelTouchTracking) {
-
-      // Don't move the toolbar if we are near the page bottom
-      // and the toolbar is not in transition
-      if (ScrollOffsetNearBottom() && !ToolbarInTransition()) {
-        ShowToolbarIfNotVisible(currentToolbarState);
-        break;
+    case MultiTouchInput::MULTITOUCH_START:
+      mControllerCancelTouchTracking = false;
+      mControllerStartTouch = mControllerPreviousTouch = currentTouch;
+      // We don't want to stop the animation if we are near the bottom of the page.
+      if (!ScrollOffsetNearBottom() &&
+          (currentToolbarState == eToolbarAnimating)) {
+        StopCompositorAnimation();
       }
-
-      ScreenIntCoord delta = currentTouch - mControllerPreviousTouch;
-      mControllerPreviousTouch = currentTouch;
-      mControllerTotalDistance += delta;
-      if (delta != 0) {
-        ScreenIntCoord direction = (delta > 0 ? MOVE_TOOLBAR_DOWN : MOVE_TOOLBAR_UP);
-        if (mControllerLastDragDirection && (direction != mControllerLastDragDirection)) {
-          mControllerDragChangedDirection = true;
+      break;
+    case MultiTouchInput::MULTITOUCH_MOVE: {
+      CheckForResetOnNextMove(currentTouch);
+      if ((mControllerState != eAnimationStartPending) &&
+          (mControllerState != eAnimationStopPending) &&
+          (currentToolbarState != eToolbarAnimating) &&
+          !mControllerCancelTouchTracking) {
+        // Don't move the toolbar if we are near the page bottom
+        // and the toolbar is not in transition
+        if (ScrollOffsetNearBottom() && !ToolbarInTransition()) {
+          ShowToolbarIfNotVisible(currentToolbarState);
+          break;
         }
-        mControllerLastDragDirection = direction;
+
+        ScreenIntCoord delta = currentTouch - mControllerPreviousTouch;
+        mControllerPreviousTouch = currentTouch;
+        mControllerTotalDistance += delta;
+        if (delta != 0) {
+          ScreenIntCoord direction =
+              (delta > 0 ? MOVE_TOOLBAR_DOWN : MOVE_TOOLBAR_UP);
+          if (mControllerLastDragDirection &&
+              (direction != mControllerLastDragDirection)) {
+            mControllerDragChangedDirection = true;
+          }
+          mControllerLastDragDirection = direction;
+        }
+        // NOTE: gfxPrefs::ToolbarScrollThreshold() returns a percentage as an int32_t. So multiply it by 0.01f to convert.
+        const uint32_t dragThreshold =
+            Abs(std::lround(0.01f * gfxPrefs::ToolbarScrollThreshold() *
+                            mControllerCompositionHeight));
+        if ((Abs(mControllerTotalDistance.value) > dragThreshold) &&
+            (delta != 0)) {
+          mControllerDragThresholdReached = true;
+          status =
+              ProcessTouchDelta(currentToolbarState, delta, multiTouch.mTime);
+        }
+        mControllerLastEventTimeStamp = multiTouch.mTime;
       }
-      // NOTE: gfxPrefs::ToolbarScrollThreshold() returns a percentage as an int32_t. So multiply it by 0.01f to convert.
-      const uint32_t dragThreshold = Abs(std::lround(0.01f * gfxPrefs::ToolbarScrollThreshold() * mControllerCompositionHeight));
-      if ((Abs(mControllerTotalDistance.value) > dragThreshold) && (delta != 0)) {
-        mControllerDragThresholdReached = true;
-        status = ProcessTouchDelta(currentToolbarState, delta, multiTouch.mTime);
+      break;
+    }
+    case MultiTouchInput::MULTITOUCH_END:
+    case MultiTouchInput::MULTITOUCH_CANCEL:
+      // last finger was lifted
+      if (mControllerTouchCount == 0) {
+        HandleTouchEnd(currentToolbarState, currentTouch);
       }
-      mControllerLastEventTimeStamp = multiTouch.mTime;
-    }
-    break;
-  }
-  case MultiTouchInput::MULTITOUCH_END:
-  case MultiTouchInput::MULTITOUCH_CANCEL:
-    // last finger was lifted
-    if (mControllerTouchCount == 0) {
-      HandleTouchEnd(currentToolbarState, currentTouch);
-    }
-    break;
+      break;
   }
 
   TranslateTouchEvent(multiTouch);
@@ -248,7 +265,8 @@ AndroidDynamicToolbarAnimator::GetCurrentToolbarHeight() const
 }
 
 ScreenIntCoord
-AndroidDynamicToolbarAnimator::GetCurrentContentOffset() const {
+AndroidDynamicToolbarAnimator::GetCurrentContentOffset() const
+{
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   if (mCompositorAnimationStarted && (mToolbarState == eToolbarAnimating)) {
     return 0;
@@ -282,51 +300,57 @@ void
 AndroidDynamicToolbarAnimator::ToolbarAnimatorMessageFromUI(int32_t aMessage)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  switch(aMessage) {
-  case STATIC_TOOLBAR_NEEDS_UPDATE:
-    break;
-  case STATIC_TOOLBAR_READY:
-    break;
-  case TOOLBAR_HIDDEN:
-    // If the toolbar is animating, then it is already unlocked.
-    if (mToolbarState != eToolbarAnimating) {
-      mToolbarState = eToolbarUnlocked;
-      if (mCompositorAnimationDeferred) {
-        StartCompositorAnimation(mCompositorAnimationDirection, mCompositorAnimationStyle, mCompositorToolbarHeight, mCompositorWaitForPageResize);
+  switch (aMessage) {
+    case STATIC_TOOLBAR_NEEDS_UPDATE:
+      break;
+    case STATIC_TOOLBAR_READY:
+      break;
+    case TOOLBAR_HIDDEN:
+      // If the toolbar is animating, then it is already unlocked.
+      if (mToolbarState != eToolbarAnimating) {
+        mToolbarState = eToolbarUnlocked;
+        if (mCompositorAnimationDeferred) {
+          StartCompositorAnimation(mCompositorAnimationDirection,
+                                   mCompositorAnimationStyle,
+                                   mCompositorToolbarHeight,
+                                   mCompositorWaitForPageResize);
+        }
+      } else {
+        // Animation already running so just make sure it is going the right direction.
+        StartCompositorAnimation(MOVE_TOOLBAR_UP,
+                                 mCompositorAnimationStyle,
+                                 mCompositorToolbarHeight,
+                                 mCompositorWaitForPageResize);
       }
-    } else {
-      // Animation already running so just make sure it is going the right direction.
-      StartCompositorAnimation(MOVE_TOOLBAR_UP, mCompositorAnimationStyle, mCompositorToolbarHeight, mCompositorWaitForPageResize);
-    }
-    break;
-  case TOOLBAR_VISIBLE:
-    // If we are currently animating, let the animation finish.
-    if (mToolbarState != eToolbarAnimating) {
+      break;
+    case TOOLBAR_VISIBLE:
+      // If we are currently animating, let the animation finish.
+      if (mToolbarState != eToolbarAnimating) {
+        mToolbarState = eToolbarVisible;
+      }
+      break;
+    case TOOLBAR_SHOW:
+      break;
+    case FIRST_PAINT:
+      break;
+    case REQUEST_SHOW_TOOLBAR_IMMEDIATELY:
+      NotifyControllerPendingAnimation(MOVE_TOOLBAR_DOWN, eImmediate);
+      break;
+    case REQUEST_SHOW_TOOLBAR_ANIMATED:
+      NotifyControllerPendingAnimation(MOVE_TOOLBAR_DOWN, eAnimate);
+      break;
+    case REQUEST_HIDE_TOOLBAR_IMMEDIATELY:
+      NotifyControllerPendingAnimation(MOVE_TOOLBAR_UP, eImmediate);
+      break;
+    case REQUEST_HIDE_TOOLBAR_ANIMATED:
+      NotifyControllerPendingAnimation(MOVE_TOOLBAR_UP, eAnimate);
+      break;
+    case TOOLBAR_SNAPSHOT_FAILED:
       mToolbarState = eToolbarVisible;
-    }
-    break;
-  case TOOLBAR_SHOW:
-    break;
-  case FIRST_PAINT:
-    break;
-  case REQUEST_SHOW_TOOLBAR_IMMEDIATELY:
-    NotifyControllerPendingAnimation(MOVE_TOOLBAR_DOWN, eImmediate);
-    break;
-  case REQUEST_SHOW_TOOLBAR_ANIMATED:
-    NotifyControllerPendingAnimation(MOVE_TOOLBAR_DOWN, eAnimate);
-    break;
-  case REQUEST_HIDE_TOOLBAR_IMMEDIATELY:
-    NotifyControllerPendingAnimation(MOVE_TOOLBAR_UP, eImmediate);
-    break;
-  case REQUEST_HIDE_TOOLBAR_ANIMATED:
-    NotifyControllerPendingAnimation(MOVE_TOOLBAR_UP, eAnimate);
-    break;
-  case TOOLBAR_SNAPSHOT_FAILED:
-    mToolbarState = eToolbarVisible;
-    NotifyControllerSnapshotFailed();
-    break;
-  default:
-    break;
+      NotifyControllerSnapshotFailed();
+      break;
+    default:
+      break;
   }
 }
 
@@ -338,7 +362,9 @@ AndroidDynamicToolbarAnimator::UpdateAnimation(const TimeStamp& aCurrentFrame)
     return false;
   }
 
-  CompositorBridgeParent* parent = CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(mRootLayerTreeId);
+  CompositorBridgeParent* parent =
+      CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(
+          mRootLayerTreeId);
   if (!parent) {
     return false;
   }
@@ -356,7 +382,8 @@ AndroidDynamicToolbarAnimator::UpdateAnimation(const TimeStamp& aCurrentFrame)
       return true;
     }
   } else if (!mCompositorAnimationStarted) {
-    parent->GetAPZCTreeManager()->AdjustScrollForSurfaceShift(ScreenPoint(0.0f, (float)(-mCompositorToolbarHeight)));
+    parent->GetAPZCTreeManager()->AdjustScrollForSurfaceShift(
+        ScreenPoint(0.0f, (float)(-mCompositorToolbarHeight)));
     manager->SetFixedLayerMargins(mCompositorToolbarHeight, 0);
     mCompositorAnimationStarted = true;
     mCompositorReceivedFirstPaint = false;
@@ -376,16 +403,21 @@ AndroidDynamicToolbarAnimator::UpdateAnimation(const TimeStamp& aCurrentFrame)
       mCompositorToolbarHeight = 0;
     }
   } else if (mCompositorAnimationStyle == eAnimate) {
-    const float rate = ((float)mCompositorMaxToolbarHeight) / ANIMATION_DURATION;
-    float deltaTime = (aCurrentFrame - mCompositorAnimationStartTimeStamp).ToSeconds();
+    const float rate =
+        ((float)mCompositorMaxToolbarHeight) / ANIMATION_DURATION;
+    float deltaTime =
+        (aCurrentFrame - mCompositorAnimationStartTimeStamp).ToSeconds();
     // This animation was started in the future!
     if (deltaTime < 0.0f) {
       deltaTime = 0.0f;
     }
-    mCompositorToolbarHeight = mCompositorAnimationStartHeight + ((int32_t)(rate * deltaTime) * mCompositorAnimationDirection);
+    mCompositorToolbarHeight =
+        mCompositorAnimationStartHeight +
+        ((int32_t)(rate * deltaTime) * mCompositorAnimationDirection);
   }
 
-  if ((mCompositorAnimationDirection == MOVE_TOOLBAR_DOWN) && (mCompositorToolbarHeight >= mCompositorMaxToolbarHeight)) {
+  if ((mCompositorAnimationDirection == MOVE_TOOLBAR_DOWN) &&
+      (mCompositorToolbarHeight >= mCompositorMaxToolbarHeight)) {
     // if the toolbar is being animated and the page is at the end, the animation needs to wait for
     // the page to resize before ending the animation so that the page may be scrolled
     if (!mCompositorReceivedFirstPaint && mCompositorWaitForPageResize) {
@@ -400,7 +432,8 @@ AndroidDynamicToolbarAnimator::UpdateAnimation(const TimeStamp& aCurrentFrame)
       mCompositorToolbarShowRequested = true;
     }
     mCompositorToolbarHeight = mCompositorMaxToolbarHeight;
-  } else if ((mCompositorAnimationDirection == MOVE_TOOLBAR_UP) && (mCompositorToolbarHeight <= 0)) {
+  } else if ((mCompositorAnimationDirection == MOVE_TOOLBAR_UP) &&
+             (mCompositorToolbarHeight <= 0)) {
     continueAnimating = false;
     mToolbarState = eToolbarUnlocked;
     mCompositorToolbarHeight = 0;
@@ -411,7 +444,8 @@ AndroidDynamicToolbarAnimator::UpdateAnimation(const TimeStamp& aCurrentFrame)
   } else {
     if (mCompositorAnimationDirection == MOVE_TOOLBAR_DOWN) {
       if (!mCompositorReceivedFirstPaint) {
-        parent->GetAPZCTreeManager()->AdjustScrollForSurfaceShift(ScreenPoint(0.0f, (float)mCompositorMaxToolbarHeight));
+        parent->GetAPZCTreeManager()->AdjustScrollForSurfaceShift(
+            ScreenPoint(0.0f, (float)mCompositorMaxToolbarHeight));
       }
       manager->SetFixedLayerMargins(0, GetFixedLayerMarginsBottom());
     } else {
@@ -437,10 +471,12 @@ AndroidDynamicToolbarAnimator::FirstPaint()
 }
 
 void
-AndroidDynamicToolbarAnimator::UpdateRootFrameMetrics(const FrameMetrics& aMetrics)
+AndroidDynamicToolbarAnimator::UpdateRootFrameMetrics(
+    const FrameMetrics& aMetrics)
 {
-  CSSToScreenScale scale = ViewTargetAs<ScreenPixel>(aMetrics.GetZoom().ToScaleFactor(),
-                                                     PixelCastJustification::ScreenIsParentLayerForRoot);
+  CSSToScreenScale scale = ViewTargetAs<ScreenPixel>(
+      aMetrics.GetZoom().ToScaleFactor(),
+      PixelCastJustification::ScreenIsParentLayerForRoot);
   ScreenPoint scrollOffset = aMetrics.GetScrollOffset() * scale;
   CSSRect cssPageRect = aMetrics.GetScrollableRect();
 
@@ -448,12 +484,15 @@ AndroidDynamicToolbarAnimator::UpdateRootFrameMetrics(const FrameMetrics& aMetri
 }
 
 void
-AndroidDynamicToolbarAnimator::MaybeUpdateCompositionSizeAndRootFrameMetrics(const FrameMetrics& aMetrics)
+AndroidDynamicToolbarAnimator::MaybeUpdateCompositionSizeAndRootFrameMetrics(
+    const FrameMetrics& aMetrics)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  CSSToScreenScale scale = ViewTargetAs<ScreenPixel>(aMetrics.GetZoom().ToScaleFactor(),
-                                                     PixelCastJustification::ScreenIsParentLayerForRoot);
-  ScreenIntSize size = ScreenIntSize::Round(aMetrics.GetRootCompositionSize() * scale);
+  CSSToScreenScale scale = ViewTargetAs<ScreenPixel>(
+      aMetrics.GetZoom().ToScaleFactor(),
+      PixelCastJustification::ScreenIsParentLayerForRoot);
+  ScreenIntSize size =
+      ScreenIntSize::Round(aMetrics.GetRootCompositionSize() * scale);
 
   if (mCompositorCompositionSize == size) {
     return;
@@ -494,7 +533,8 @@ AndroidDynamicToolbarAnimator::NotifyLayersUpdated()
 }
 
 void
-AndroidDynamicToolbarAnimator::AdoptToolbarPixels(mozilla::ipc::Shmem&& aMem, const ScreenIntSize& aSize)
+AndroidDynamicToolbarAnimator::AdoptToolbarPixels(mozilla::ipc::Shmem&& aMem,
+                                                  const ScreenIntSize& aSize)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   mCompositorToolbarPixels = Some(Move(aMem));
@@ -511,11 +551,13 @@ AndroidDynamicToolbarAnimator::UpdateToolbarSnapshotTexture(CompositorOGL* gl)
   }
 
   if (mCompositorToolbarPixels) {
-    RefPtr<gfx::DataSourceSurface> surface = gfx::Factory::CreateWrappingDataSourceSurface(
-        mCompositorToolbarPixels.ref().get<uint8_t>(),
-        mCompositorToolbarPixelsSize.width * 4,
-        gfx::IntSize(mCompositorToolbarPixelsSize.width, mCompositorToolbarPixelsSize.height),
-        gfx::SurfaceFormat::B8G8R8A8);
+    RefPtr<gfx::DataSourceSurface> surface =
+        gfx::Factory::CreateWrappingDataSourceSurface(
+            mCompositorToolbarPixels.ref().get<uint8_t>(),
+            mCompositorToolbarPixelsSize.width * 4,
+            gfx::IntSize(mCompositorToolbarPixelsSize.width,
+                         mCompositorToolbarPixelsSize.height),
+            gfx::SurfaceFormat::B8G8R8A8);
 
     if (!mCompositorToolbarTexture) {
       mCompositorToolbarTexture = gl->CreateDataTextureSource();
@@ -527,14 +569,17 @@ AndroidDynamicToolbarAnimator::UpdateToolbarSnapshotTexture(CompositorOGL* gl)
       mCompositorToolbarTexture = nullptr;
     }
 
-    RefPtr<UiCompositorControllerParent> uiController = UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
+    RefPtr<UiCompositorControllerParent> uiController =
+        UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
     uiController->DeallocShmem(mCompositorToolbarPixels.ref());
     mCompositorToolbarPixels.reset();
     // Send notification that texture is ready after the current composition has completed.
     if (mCompositorToolbarTexture && mCompositorSendResponseForSnapshotUpdate) {
       mCompositorSendResponseForSnapshotUpdate = false;
-      CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod("AndroidDynamicToolbarAnimator::PostToolbarReady",
-                                                                 this, &AndroidDynamicToolbarAnimator::PostToolbarReady));
+      CompositorThreadHolder::Loop()->PostTask(
+          NewRunnableMethod("AndroidDynamicToolbarAnimator::PostToolbarReady",
+                            this,
+                            &AndroidDynamicToolbarAnimator::PostToolbarReady));
     }
   }
 }
@@ -550,10 +595,12 @@ AndroidDynamicToolbarAnimator::GetToolbarEffect()
 
   if (mCompositorToolbarTexture) {
     if (!mCompositorToolbarEffect) {
-      mCompositorToolbarEffect = new EffectRGB(mCompositorToolbarTexture, true, gfx::SamplingFilter::LINEAR);
+      mCompositorToolbarEffect = new EffectRGB(
+          mCompositorToolbarTexture, true, gfx::SamplingFilter::LINEAR);
     }
 
-    float ratioVisible = (float)mCompositorToolbarHeight / (float)mCompositorMaxToolbarHeight;
+    float ratioVisible =
+        (float)mCompositorToolbarHeight / (float)mCompositorMaxToolbarHeight;
     mCompositorToolbarEffect->mTextureCoords.y = 1.0f - ratioVisible;
     mCompositorToolbarEffect->mTextureCoords.height = ratioVisible;
   }
@@ -570,14 +617,18 @@ AndroidDynamicToolbarAnimator::Shutdown()
   mCompositorToolbarTexture = nullptr;
   mCompositorQueuedMessages.clear();
   if (mCompositorToolbarPixels) {
-    RefPtr<UiCompositorControllerParent> uiController = UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
+    RefPtr<UiCompositorControllerParent> uiController =
+        UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
     uiController->DeallocShmem(mCompositorToolbarPixels.ref());
     mCompositorToolbarPixels.reset();
   }
 }
 
 nsEventStatus
-AndroidDynamicToolbarAnimator::ProcessTouchDelta(StaticToolbarState aCurrentToolbarState, ScreenIntCoord aDelta, uint32_t aTimeStamp)
+AndroidDynamicToolbarAnimator::ProcessTouchDelta(
+    StaticToolbarState aCurrentToolbarState,
+    ScreenIntCoord aDelta,
+    uint32_t aTimeStamp)
 {
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
   nsEventStatus status = nsEventStatus_eIgnore;
@@ -603,19 +654,22 @@ AndroidDynamicToolbarAnimator::ProcessTouchDelta(StaticToolbarState aCurrentTool
     return status;
   }
 
-  if ((mControllerState != eUnlockPending) && (mControllerState != eNothingPending)) {
+  if ((mControllerState != eUnlockPending) &&
+      (mControllerState != eNothingPending)) {
     return status;
   }
 
   mControllerState = eNothingPending;
   if ((tryingToHideToolbar && (mControllerToolbarHeight > 0)) ||
-      (!tryingToHideToolbar && (mControllerToolbarHeight < mControllerMaxToolbarHeight))) {
+      (!tryingToHideToolbar &&
+       (mControllerToolbarHeight < mControllerMaxToolbarHeight))) {
     ScreenIntCoord deltaRemainder = 0;
     mControllerToolbarHeight += aDelta;
-    if (tryingToHideToolbar && (mControllerToolbarHeight <= 0 )) {
+    if (tryingToHideToolbar && (mControllerToolbarHeight <= 0)) {
       deltaRemainder = mControllerToolbarHeight;
       mControllerToolbarHeight = 0;
-    } else if (!tryingToHideToolbar && (mControllerToolbarHeight >= mControllerMaxToolbarHeight)) {
+    } else if (!tryingToHideToolbar &&
+               (mControllerToolbarHeight >= mControllerMaxToolbarHeight)) {
       deltaRemainder = mControllerToolbarHeight - mControllerMaxToolbarHeight;
       mControllerToolbarHeight = mControllerMaxToolbarHeight;
       mControllerState = eShowPending;
@@ -632,7 +686,9 @@ AndroidDynamicToolbarAnimator::ProcessTouchDelta(StaticToolbarState aCurrentTool
     uint32_t timeDelta = aTimeStamp - mControllerLastEventTimeStamp;
     if (mControllerLastEventTimeStamp && timeDelta && aDelta) {
       float speed = -(float)aDelta / (float)timeDelta;
-      CompositorBridgeParent* parent = CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(mRootLayerTreeId);
+      CompositorBridgeParent* parent =
+          CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(
+              mRootLayerTreeId);
       if (parent) {
         parent->GetAPZCTreeManager()->ProcessTouchVelocity(aTimeStamp, speed);
       }
@@ -643,7 +699,8 @@ AndroidDynamicToolbarAnimator::ProcessTouchDelta(StaticToolbarState aCurrentTool
 }
 
 void
-AndroidDynamicToolbarAnimator::HandleTouchEnd(StaticToolbarState aCurrentToolbarState, ScreenIntCoord aCurrentTouch)
+AndroidDynamicToolbarAnimator::HandleTouchEnd(
+    StaticToolbarState aCurrentToolbarState, ScreenIntCoord aCurrentTouch)
 {
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
   // If there was no move before the reset flag was set and the touch ended, check for it here.
@@ -658,7 +715,10 @@ AndroidDynamicToolbarAnimator::HandleTouchEnd(StaticToolbarState aCurrentToolbar
 
   // If the drag direction changed and the toolbar is partially visible, hide in the direction with the least distance to travel.
   if (dragChangedDirection && ToolbarInTransition()) {
-    direction = ((float)mControllerToolbarHeight / (float)mControllerMaxToolbarHeight) < 0.5f ? MOVE_TOOLBAR_UP : MOVE_TOOLBAR_DOWN;
+    direction = ((float)mControllerToolbarHeight /
+                 (float)mControllerMaxToolbarHeight) < 0.5f
+                    ? MOVE_TOOLBAR_UP
+                    : MOVE_TOOLBAR_DOWN;
   }
 
   // If the last touch didn't have a drag direction, use start of touch to find direction
@@ -668,7 +728,9 @@ AndroidDynamicToolbarAnimator::HandleTouchEnd(StaticToolbarState aCurrentToolbar
     } else if (mControllerToolbarHeight == 0) {
       direction = MOVE_TOOLBAR_UP;
     } else {
-      direction = ((aCurrentTouch - mControllerStartTouch) > 0 ? MOVE_TOOLBAR_DOWN : MOVE_TOOLBAR_UP);
+      direction =
+          ((aCurrentTouch - mControllerStartTouch) > 0 ? MOVE_TOOLBAR_DOWN
+                                                       : MOVE_TOOLBAR_UP);
     }
     // If there still isn't a direction, default to show just to be safe
     if (!direction) {
@@ -702,7 +764,8 @@ AndroidDynamicToolbarAnimator::HandleTouchEnd(StaticToolbarState aCurrentToolbar
   }
 
   // The toolbar is already where it needs to be so just return.
-  if (((direction == MOVE_TOOLBAR_DOWN) && (mControllerToolbarHeight == mControllerMaxToolbarHeight)) ||
+  if (((direction == MOVE_TOOLBAR_DOWN) &&
+       (mControllerToolbarHeight == mControllerMaxToolbarHeight)) ||
       ((direction == MOVE_TOOLBAR_UP) && (mControllerToolbarHeight == 0))) {
     ShowToolbarIfNotVisible(aCurrentToolbarState);
     return;
@@ -711,8 +774,8 @@ AndroidDynamicToolbarAnimator::HandleTouchEnd(StaticToolbarState aCurrentToolbar
   // Don't animate up if not scrolling root content. Even though ShowToolbarIfNotVisible checks if
   // snapshot toolbar is completely visible before showing, we don't want to enter this if block
   // if the snapshot toolbar isn't completely visible to avoid early return.
-  if (!isRoot &&
-      ((direction == MOVE_TOOLBAR_UP) && (mControllerToolbarHeight == mControllerMaxToolbarHeight))) {
+  if (!isRoot && ((direction == MOVE_TOOLBAR_UP) &&
+                  (mControllerToolbarHeight == mControllerMaxToolbarHeight))) {
     ShowToolbarIfNotVisible(aCurrentToolbarState);
     return;
   }
@@ -728,11 +791,13 @@ AndroidDynamicToolbarAnimator::HandleTouchEnd(StaticToolbarState aCurrentToolbar
     }
   }
 
-  StartCompositorAnimation(direction, eAnimate, mControllerToolbarHeight, ScrollOffsetNearBottom());
+  StartCompositorAnimation(
+      direction, eAnimate, mControllerToolbarHeight, ScrollOffsetNearBottom());
 }
 
 void
-AndroidDynamicToolbarAnimator::PostMessage(int32_t aMessage) {
+AndroidDynamicToolbarAnimator::PostMessage(int32_t aMessage)
+{
   // if the root layer tree id is zero then Initialize() has not been called yet
   // so queue the message until Initialize() is called.
   if (mRootLayerTreeId == 0) {
@@ -740,7 +805,8 @@ AndroidDynamicToolbarAnimator::PostMessage(int32_t aMessage) {
     return;
   }
 
-  RefPtr<UiCompositorControllerParent> uiController = UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
+  RefPtr<UiCompositorControllerParent> uiController =
+      UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
   if (!uiController) {
     // Looks like IPC may be shutdown.
     return;
@@ -751,11 +817,15 @@ AndroidDynamicToolbarAnimator::PostMessage(int32_t aMessage) {
 }
 
 void
-AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight(ScreenIntCoord aHeight)
+AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight(
+    ScreenIntCoord aHeight)
 {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod<ScreenIntCoord>("AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight",
-                                                                               this, &AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight, aHeight));
+    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod<ScreenIntCoord>(
+        "AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight",
+        this,
+        &AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight,
+        aHeight));
     return;
   }
 
@@ -764,11 +834,17 @@ AndroidDynamicToolbarAnimator::UpdateCompositorToolbarHeight(ScreenIntCoord aHei
 }
 
 void
-AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight(ScreenIntCoord aHeight, ScreenIntCoord aMaxHeight)
+AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight(
+    ScreenIntCoord aHeight, ScreenIntCoord aMaxHeight)
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord, ScreenIntCoord>("AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight",
-                                                                                            this, &AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight, aHeight, aMaxHeight));
+    APZThreadUtils::RunOnControllerThread(
+        NewRunnableMethod<ScreenIntCoord, ScreenIntCoord>(
+            "AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight",
+            this,
+            &AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight,
+            aHeight,
+            aMaxHeight));
     return;
   }
 
@@ -779,11 +855,15 @@ AndroidDynamicToolbarAnimator::UpdateControllerToolbarHeight(ScreenIntCoord aHei
 }
 
 void
-AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight(ScreenIntCoord aHeight)
+AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight(
+    ScreenIntCoord aHeight)
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord>("AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight",
-                                                                            this, &AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight, aHeight));
+    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord>(
+        "AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight",
+        this,
+        &AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight,
+        aHeight));
     return;
   }
 
@@ -791,11 +871,15 @@ AndroidDynamicToolbarAnimator::UpdateControllerSurfaceHeight(ScreenIntCoord aHei
 }
 
 void
-AndroidDynamicToolbarAnimator::UpdateControllerCompositionHeight(ScreenIntCoord aHeight)
+AndroidDynamicToolbarAnimator::UpdateControllerCompositionHeight(
+    ScreenIntCoord aHeight)
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord>("AndroidDynamicToolbarAnimator::UpdateControllerCompositionHeight",
-                                                                            this, &AndroidDynamicToolbarAnimator::UpdateControllerCompositionHeight, aHeight));
+    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord>(
+        "AndroidDynamicToolbarAnimator::UpdateControllerCompositionHeight",
+        this,
+        &AndroidDynamicToolbarAnimator::UpdateControllerCompositionHeight,
+        aHeight));
     return;
   }
 
@@ -810,7 +894,9 @@ AndroidDynamicToolbarAnimator::UpdateFixedLayerMargins()
   if (mCompositorShutdown) {
     return;
   }
-  CompositorBridgeParent* parent = CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(mRootLayerTreeId);
+  CompositorBridgeParent* parent =
+      CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(
+          mRootLayerTreeId);
   if (parent) {
     ScreenIntCoord surfaceHeight = parent->GetEGLSurfaceSize().height;
     if (surfaceHeight != mCompositorSurfaceHeight) {
@@ -829,39 +915,60 @@ AndroidDynamicToolbarAnimator::UpdateFixedLayerMargins()
 }
 
 void
-AndroidDynamicToolbarAnimator::NotifyControllerPendingAnimation(int32_t aDirection, AnimationStyle aAnimationStyle)
+AndroidDynamicToolbarAnimator::NotifyControllerPendingAnimation(
+    int32_t aDirection, AnimationStyle aAnimationStyle)
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<int32_t, AnimationStyle>("AndroidDynamicToolbarAnimator::NotifyControllerPendingAnimation",
-                                                                                     this, &AndroidDynamicToolbarAnimator::NotifyControllerPendingAnimation, aDirection, aAnimationStyle));
+    APZThreadUtils::RunOnControllerThread(
+        NewRunnableMethod<int32_t, AnimationStyle>(
+            "AndroidDynamicToolbarAnimator::NotifyControllerPendingAnimation",
+            this,
+            &AndroidDynamicToolbarAnimator::NotifyControllerPendingAnimation,
+            aDirection,
+            aAnimationStyle));
     return;
   }
 
   mControllerCancelTouchTracking = true;
 
   // If the toolbar is already where it needs to be, just abort the request.
-  if (((mControllerToolbarHeight == mControllerMaxToolbarHeight) && (aDirection == MOVE_TOOLBAR_DOWN)) ||
+  if (((mControllerToolbarHeight == mControllerMaxToolbarHeight) &&
+       (aDirection == MOVE_TOOLBAR_DOWN)) ||
       ((mControllerToolbarHeight == 0) && (aDirection == MOVE_TOOLBAR_UP))) {
     // We received a show request but the real toolbar is hidden, so tell it to show now.
-    if ((aDirection == MOVE_TOOLBAR_DOWN) && (mToolbarState == eToolbarUnlocked)) {
+    if ((aDirection == MOVE_TOOLBAR_DOWN) &&
+        (mToolbarState == eToolbarUnlocked)) {
       PostMessage(TOOLBAR_SHOW);
     }
     return;
   }
 
   // NOTE: StartCompositorAnimation will set mControllerState to eAnimationStartPending
-  StartCompositorAnimation(aDirection, aAnimationStyle, mControllerToolbarHeight, ScrollOffsetNearBottom());
+  StartCompositorAnimation(aDirection,
+                           aAnimationStyle,
+                           mControllerToolbarHeight,
+                           ScrollOffsetNearBottom());
   MOZ_ASSERT(mControllerState == eAnimationStartPending);
 }
 
 void
-AndroidDynamicToolbarAnimator::StartCompositorAnimation(int32_t aDirection, AnimationStyle aAnimationStyle, ScreenIntCoord aHeight, bool aWaitForPageResize)
+AndroidDynamicToolbarAnimator::StartCompositorAnimation(
+    int32_t aDirection,
+    AnimationStyle aAnimationStyle,
+    ScreenIntCoord aHeight,
+    bool aWaitForPageResize)
 {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
     mControllerState = eAnimationStartPending;
-    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod<int32_t, AnimationStyle, ScreenIntCoord, bool>(
-      "AndroidDynamicToolbarAnimator::StartCompositorAnimation",
-      this, &AndroidDynamicToolbarAnimator::StartCompositorAnimation, aDirection, aAnimationStyle, aHeight, aWaitForPageResize));
+    CompositorThreadHolder::Loop()->PostTask(
+        NewRunnableMethod<int32_t, AnimationStyle, ScreenIntCoord, bool>(
+            "AndroidDynamicToolbarAnimator::StartCompositorAnimation",
+            this,
+            &AndroidDynamicToolbarAnimator::StartCompositorAnimation,
+            aDirection,
+            aAnimationStyle,
+            aHeight,
+            aWaitForPageResize));
     return;
   }
 
@@ -874,7 +981,8 @@ AndroidDynamicToolbarAnimator::StartCompositorAnimation(int32_t aDirection, Anim
   mCompositorWaitForPageResize = aWaitForPageResize;
   // If the snapshot is not unlocked, request the UI thread update the snapshot
   // and defer animation until it has been unlocked
-  if ((initialToolbarState != eToolbarUnlocked) && (initialToolbarState != eToolbarAnimating)) {
+  if ((initialToolbarState != eToolbarUnlocked) &&
+      (initialToolbarState != eToolbarAnimating)) {
     mCompositorAnimationDeferred = true;
     mCompositorSendResponseForSnapshotUpdate = true;
     PostMessage(STATIC_TOOLBAR_NEEDS_UPDATE);
@@ -889,9 +997,12 @@ AndroidDynamicToolbarAnimator::StartCompositorAnimation(int32_t aDirection, Anim
     NotifyControllerAnimationStarted();
     // Only reset the time stamp and start compositor animation if not already animating.
     if (initialToolbarState != eToolbarAnimating) {
-      CompositorBridgeParent* parent = CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(mRootLayerTreeId);
+      CompositorBridgeParent* parent =
+          CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(
+              mRootLayerTreeId);
       if (parent) {
-        mCompositorAnimationStartTimeStamp = parent->GetAPZCTreeManager()->GetFrameTime();
+        mCompositorAnimationStartTimeStamp =
+            parent->GetAPZCTreeManager()->GetFrameTime();
       }
       // Kick the compositor to start the animation if we aren't already animating.
       RequestComposite();
@@ -903,8 +1014,10 @@ void
 AndroidDynamicToolbarAnimator::NotifyControllerAnimationStarted()
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod("AndroidDynamicToolbarAnimator::NotifyControllerAnimationStarted",
-                                                            this, &AndroidDynamicToolbarAnimator::NotifyControllerAnimationStarted));
+    APZThreadUtils::RunOnControllerThread(NewRunnableMethod(
+        "AndroidDynamicToolbarAnimator::NotifyControllerAnimationStarted",
+        this,
+        &AndroidDynamicToolbarAnimator::NotifyControllerAnimationStarted));
     return;
   }
 
@@ -920,20 +1033,26 @@ AndroidDynamicToolbarAnimator::StopCompositorAnimation()
 {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
     mControllerState = eAnimationStopPending;
-    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod("AndroidDynamicToolbarAnimator::StopCompositorAnimation",
-                                                               this, &AndroidDynamicToolbarAnimator::StopCompositorAnimation));
+    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod(
+        "AndroidDynamicToolbarAnimator::StopCompositorAnimation",
+        this,
+        &AndroidDynamicToolbarAnimator::StopCompositorAnimation));
     return;
   }
 
   if (mToolbarState == eToolbarAnimating) {
     if (mCompositorAnimationStarted) {
       mCompositorAnimationStarted = false;
-      CompositorBridgeParent* parent = CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(mRootLayerTreeId);
+      CompositorBridgeParent* parent =
+          CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(
+              mRootLayerTreeId);
       if (parent) {
-        AsyncCompositionManager* manager = parent->GetCompositionManager(nullptr);
+        AsyncCompositionManager* manager =
+            parent->GetCompositionManager(nullptr);
         if (manager) {
-            parent->GetAPZCTreeManager()->AdjustScrollForSurfaceShift(ScreenPoint(0.0f, (float)(mCompositorToolbarHeight)));
-            RequestComposite();
+          parent->GetAPZCTreeManager()->AdjustScrollForSurfaceShift(
+              ScreenPoint(0.0f, (float)(mCompositorToolbarHeight)));
+          RequestComposite();
         }
       }
     }
@@ -944,11 +1063,15 @@ AndroidDynamicToolbarAnimator::StopCompositorAnimation()
 }
 
 void
-AndroidDynamicToolbarAnimator::NotifyControllerAnimationStopped(ScreenIntCoord aHeight)
+AndroidDynamicToolbarAnimator::NotifyControllerAnimationStopped(
+    ScreenIntCoord aHeight)
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord>("AndroidDynamicToolbarAnimator::NotifyControllerAnimationStopped",
-                                                                            this, &AndroidDynamicToolbarAnimator::NotifyControllerAnimationStopped, aHeight));
+    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenIntCoord>(
+        "AndroidDynamicToolbarAnimator::NotifyControllerAnimationStopped",
+        this,
+        &AndroidDynamicToolbarAnimator::NotifyControllerAnimationStopped,
+        aHeight));
     return;
   }
 
@@ -963,8 +1086,10 @@ void
 AndroidDynamicToolbarAnimator::RequestComposite()
 {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod("AndroidDynamicToolbarAnimator::RequestComposite",
-                                                               this, &AndroidDynamicToolbarAnimator::RequestComposite));
+    CompositorThreadHolder::Loop()->PostTask(
+        NewRunnableMethod("AndroidDynamicToolbarAnimator::RequestComposite",
+                          this,
+                          &AndroidDynamicToolbarAnimator::RequestComposite));
     return;
   }
 
@@ -972,7 +1097,9 @@ AndroidDynamicToolbarAnimator::RequestComposite()
     return;
   }
 
-  CompositorBridgeParent* parent = CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(mRootLayerTreeId);
+  CompositorBridgeParent* parent =
+      CompositorBridgeParent::GetCompositorBridgeParentFromLayersId(
+          mRootLayerTreeId);
   if (parent) {
     AsyncCompositionManager* manager = parent->GetCompositionManager(nullptr);
     if (manager) {
@@ -1011,28 +1138,45 @@ AndroidDynamicToolbarAnimator::UpdateFrameMetrics(ScreenPoint aScrollOffset,
                                                   CSSRect aCssPageRect)
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod<ScreenPoint, CSSToScreenScale, CSSRect>("AndroidDynamicToolbarAnimator::UpdateFrameMetrics",
-                                                                                                    this, &AndroidDynamicToolbarAnimator::UpdateFrameMetrics, aScrollOffset, aScale, aCssPageRect));
+    APZThreadUtils::RunOnControllerThread(
+        NewRunnableMethod<ScreenPoint, CSSToScreenScale, CSSRect>(
+            "AndroidDynamicToolbarAnimator::UpdateFrameMetrics",
+            this,
+            &AndroidDynamicToolbarAnimator::UpdateFrameMetrics,
+            aScrollOffset,
+            aScale,
+            aCssPageRect));
     return;
   }
 
   mControllerRootScrollY = aScrollOffset.y;
 
   if (mControllerFrameMetrics.Update(aScrollOffset, aScale, aCssPageRect)) {
-    if (FuzzyEqualsMultiplicative(mControllerFrameMetrics.mPageRect.YMost(), mControllerCompositionHeight + mControllerFrameMetrics.mScrollOffset.y) &&
-        (mControllerFrameMetrics.mPageRect.YMost() > (mControllerSurfaceHeight * 2)) &&
+    if (FuzzyEqualsMultiplicative(
+            mControllerFrameMetrics.mPageRect.YMost(),
+            mControllerCompositionHeight +
+                mControllerFrameMetrics.mScrollOffset.y) &&
+        (mControllerFrameMetrics.mPageRect.YMost() >
+         (mControllerSurfaceHeight * 2)) &&
         (mControllerToolbarHeight != mControllerMaxToolbarHeight) &&
         !mPinnedFlags) {
       // The end of the page has been reached, the page is twice the height of the visible height,
       // and the toolbar is not completely visible so animate it into view.
-      StartCompositorAnimation(MOVE_TOOLBAR_DOWN, eAnimate, mControllerToolbarHeight, /* wait for page resize */ true);
+      StartCompositorAnimation(MOVE_TOOLBAR_DOWN,
+                               eAnimate,
+                               mControllerToolbarHeight,
+                               /* wait for page resize */ true);
     }
-    RefPtr<UiCompositorControllerParent> uiController = UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
+    RefPtr<UiCompositorControllerParent> uiController =
+        UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeId);
     MOZ_ASSERT(uiController);
-    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod<ScreenPoint, CSSToScreenScale>(
-                                               "UiCompositorControllerParent::SendRootFrameMetrics",
-                                               uiController, &UiCompositorControllerParent::SendRootFrameMetrics,
-                                               aScrollOffset, aScale));
+    CompositorThreadHolder::Loop()->PostTask(
+        NewRunnableMethod<ScreenPoint, CSSToScreenScale>(
+            "UiCompositorControllerParent::SendRootFrameMetrics",
+            uiController,
+            &UiCompositorControllerParent::SendRootFrameMetrics,
+            aScrollOffset,
+            aScale));
   }
 }
 
@@ -1041,11 +1185,15 @@ AndroidDynamicToolbarAnimator::PageTooSmallEnsureToolbarVisible()
 {
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
   // if the page is too small then the toolbar can not be hidden
-  if ((float)mControllerSurfaceHeight >= (mControllerFrameMetrics.mPageRect.YMost() * SHRINK_FACTOR)) {
+  if ((float)mControllerSurfaceHeight >=
+      (mControllerFrameMetrics.mPageRect.YMost() * SHRINK_FACTOR)) {
     if (!mPinnedFlags) {
       // If the toolbar is partial hidden, show it.
       if (mControllerToolbarHeight != mControllerMaxToolbarHeight) {
-        StartCompositorAnimation(MOVE_TOOLBAR_DOWN, eImmediate, mControllerToolbarHeight, /* wait for page resize */ true);
+        StartCompositorAnimation(MOVE_TOOLBAR_DOWN,
+                                 eImmediate,
+                                 mControllerToolbarHeight,
+                                 /* wait for page resize */ true);
       } else {
         // If the static snapshot is visible, then make sure the real toolbar is visible
         ShowToolbarIfNotVisible(mToolbarState);
@@ -1058,7 +1206,8 @@ AndroidDynamicToolbarAnimator::PageTooSmallEnsureToolbarVisible()
 }
 
 void
-AndroidDynamicToolbarAnimator::ShowToolbarIfNotVisible(StaticToolbarState aCurrentToolbarState)
+AndroidDynamicToolbarAnimator::ShowToolbarIfNotVisible(
+    StaticToolbarState aCurrentToolbarState)
 {
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
   if ((mControllerToolbarHeight == mControllerMaxToolbarHeight) &&
@@ -1070,9 +1219,10 @@ AndroidDynamicToolbarAnimator::ShowToolbarIfNotVisible(StaticToolbarState aCurre
 }
 
 bool
-AndroidDynamicToolbarAnimator::FrameMetricsState::Update(const ScreenPoint& aScrollOffset,
-                                                         const CSSToScreenScale& aScale,
-                                                         const CSSRect& aCssPageRect)
+AndroidDynamicToolbarAnimator::FrameMetricsState::Update(
+    const ScreenPoint& aScrollOffset,
+    const CSSToScreenScale& aScale,
+    const CSSRect& aCssPageRect)
 {
   if (!FuzzyEqualsMultiplicative(aScrollOffset.x, mScrollOffset.x) ||
       !FuzzyEqualsMultiplicative(aScrollOffset.y, mScrollOffset.y) ||
@@ -1104,15 +1254,18 @@ ScreenIntCoord
 AndroidDynamicToolbarAnimator::GetFixedLayerMarginsBottom()
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  return mCompositorToolbarHeight - (mCompositorSurfaceHeight - mCompositorCompositionSize.height);
+  return mCompositorToolbarHeight -
+         (mCompositorSurfaceHeight - mCompositorCompositionSize.height);
 }
 
 void
 AndroidDynamicToolbarAnimator::NotifyControllerSnapshotFailed()
 {
   if (!APZThreadUtils::IsControllerThread()) {
-    APZThreadUtils::RunOnControllerThread(NewRunnableMethod("AndroidDynamicToolbarAnimator::NotifyControllerSnapshotFailed",
-                                                            this, &AndroidDynamicToolbarAnimator::NotifyControllerSnapshotFailed));
+    APZThreadUtils::RunOnControllerThread(NewRunnableMethod(
+        "AndroidDynamicToolbarAnimator::NotifyControllerSnapshotFailed",
+        this,
+        &AndroidDynamicToolbarAnimator::NotifyControllerSnapshotFailed));
     return;
   }
 
@@ -1122,7 +1275,9 @@ AndroidDynamicToolbarAnimator::NotifyControllerSnapshotFailed()
 }
 
 void
-AndroidDynamicToolbarAnimator::CheckForResetOnNextMove(ScreenIntCoord aCurrentTouch) {
+AndroidDynamicToolbarAnimator::CheckForResetOnNextMove(
+    ScreenIntCoord aCurrentTouch)
+{
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
   if (mControllerResetOnNextMove) {
     mControllerTotalDistance = 0;
@@ -1138,7 +1293,9 @@ AndroidDynamicToolbarAnimator::ScrollOffsetNearBottom() const
 {
   MOZ_ASSERT(APZThreadUtils::IsControllerThread());
   // Twice the toolbar's height is considered near the bottom of the page.
-  if ((mControllerToolbarHeight * 2) >= (mControllerFrameMetrics.mPageRect.YMost() - (mControllerRootScrollY + ScreenCoord(mControllerCompositionHeight)))) {
+  if ((mControllerToolbarHeight * 2) >=
+      (mControllerFrameMetrics.mPageRect.YMost() -
+       (mControllerRootScrollY + ScreenCoord(mControllerCompositionHeight)))) {
     return true;
   }
   return false;
@@ -1148,19 +1305,24 @@ bool
 AndroidDynamicToolbarAnimator::ToolbarInTransition()
 {
   if (APZThreadUtils::IsControllerThread()) {
-    return (mControllerToolbarHeight != mControllerMaxToolbarHeight) && (mControllerToolbarHeight != 0);
+    return (mControllerToolbarHeight != mControllerMaxToolbarHeight) &&
+           (mControllerToolbarHeight != 0);
   }
 
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  return (mCompositorToolbarHeight != mCompositorMaxToolbarHeight) && (mCompositorToolbarHeight != 0);
+  return (mCompositorToolbarHeight != mCompositorMaxToolbarHeight) &&
+         (mCompositorToolbarHeight != 0);
 }
 
 void
 AndroidDynamicToolbarAnimator::QueueMessage(int32_t aMessage)
 {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod<int32_t>("AndroidDynamicToolbarAnimator::QueueMessage",
-                                                                        this, &AndroidDynamicToolbarAnimator::QueueMessage, aMessage));
+    CompositorThreadHolder::Loop()->PostTask(NewRunnableMethod<int32_t>(
+        "AndroidDynamicToolbarAnimator::QueueMessage",
+        this,
+        &AndroidDynamicToolbarAnimator::QueueMessage,
+        aMessage));
     return;
   }
 
@@ -1174,5 +1336,5 @@ AndroidDynamicToolbarAnimator::QueueMessage(int32_t aMessage)
   mCompositorQueuedMessages.insertBack(new QueuedMessage(aMessage));
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

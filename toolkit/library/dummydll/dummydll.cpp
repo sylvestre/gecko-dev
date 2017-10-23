@@ -4,11 +4,8 @@
 
 #include <windows.h>
 
-BOOL WINAPI DllMain(
-  HANDLE hModule,
-  DWORD dwReason,
-  LPVOID lpvReserved
-)
+BOOL WINAPI
+DllMain(HANDLE hModule, DWORD dwReason, LPVOID lpvReserved)
 {
   if (dwReason == DLL_PROCESS_ATTACH) {
     ::DisableThreadLibraryCalls((HMODULE)hModule);

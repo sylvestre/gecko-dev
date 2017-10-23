@@ -11,56 +11,58 @@
 class nsCookie;
 class nsICookie;
 class nsCookieService;
-namespace mozilla { class OriginAttributes; }
+namespace mozilla {
+class OriginAttributes;
+}
 
 namespace mozilla {
 namespace net {
 
 class CookieServiceParent : public PCookieServiceParent
 {
-public:
+ public:
   CookieServiceParent();
   virtual ~CookieServiceParent();
 
-  void TrackCookieLoad(nsIChannel *aChannel);
+  void TrackCookieLoad(nsIChannel* aChannel);
 
-  void RemoveBatchDeletedCookies(nsIArray *aCookieList);
+  void RemoveBatchDeletedCookies(nsIArray* aCookieList);
 
   void RemoveAll();
 
-  void RemoveCookie(nsICookie *aCookie);
+  void RemoveCookie(nsICookie* aCookie);
 
-  void AddCookie(nsICookie *aCookie);
+  void AddCookie(nsICookie* aCookie);
 
-protected:
+ protected:
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult RecvGetCookieString(const URIParams& aHost,
-                                                      const bool& aIsForeign,
-                                                      const OriginAttributes& aAttrs,
-                                                      nsCString* aResult) override;
+  virtual mozilla::ipc::IPCResult RecvGetCookieString(
+      const URIParams& aHost,
+      const bool& aIsForeign,
+      const OriginAttributes& aAttrs,
+      nsCString* aResult) override;
 
-  virtual mozilla::ipc::IPCResult RecvSetCookieString(const URIParams& aHost,
-                                                      const bool& aIsForeign,
-                                                      const nsCString& aCookieString,
-                                                      const nsCString& aServerTime,
-                                                      const OriginAttributes& aAttrs,
-                                                      const bool& aFromHttp) override;
-  virtual
-  mozilla::ipc::IPCResult RecvPrepareCookieList(const URIParams &aHost,
-                                                const bool &aIsForeign,
-                                                const OriginAttributes &aAttrs) override;
+  virtual mozilla::ipc::IPCResult RecvSetCookieString(
+      const URIParams& aHost,
+      const bool& aIsForeign,
+      const nsCString& aCookieString,
+      const nsCString& aServerTime,
+      const OriginAttributes& aAttrs,
+      const bool& aFromHttp) override;
+  virtual mozilla::ipc::IPCResult RecvPrepareCookieList(
+      const URIParams& aHost,
+      const bool& aIsForeign,
+      const OriginAttributes& aAttrs) override;
 
-  void
-  SerialializeCookieList(const nsTArray<nsCookie*> &aFoundCookieList,
-                         nsTArray<CookieStruct> &aCookiesList,
-                         nsIURI *aHostURI);
+  void SerialializeCookieList(const nsTArray<nsCookie*>& aFoundCookieList,
+                              nsTArray<CookieStruct>& aCookiesList,
+                              nsIURI* aHostURI);
 
   RefPtr<nsCookieService> mCookieService;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_CookieServiceParent_h
-
+#endif  // mozilla_net_CookieServiceParent_h

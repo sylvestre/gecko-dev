@@ -42,20 +42,18 @@ class nsIContent;
  */
 class nsIdentifierMapEntry : public PLDHashEntryHdr
 {
-public:
+ public:
   struct AtomOrString
   {
     MOZ_IMPLICIT AtomOrString(nsAtom* aAtom) : mAtom(aAtom) {}
     MOZ_IMPLICIT AtomOrString(const nsAString& aString) : mString(aString) {}
     AtomOrString(const AtomOrString& aOther)
-      : mAtom(aOther.mAtom)
-      , mString(aOther.mString)
+        : mAtom(aOther.mAtom), mString(aOther.mString)
     {
     }
 
     AtomOrString(AtomOrString&& aOther)
-      : mAtom(aOther.mAtom.forget())
-      , mString(aOther.mString)
+        : mAtom(aOther.mAtom.forget()), mString(aOther.mString)
     {
     }
 
@@ -69,20 +67,17 @@ public:
   typedef mozilla::dom::Element Element;
   typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
 
-  explicit nsIdentifierMapEntry(const AtomOrString& aKey)
-    : mKey(aKey)
-  {
-  }
+  explicit nsIdentifierMapEntry(const AtomOrString& aKey) : mKey(aKey) {}
   explicit nsIdentifierMapEntry(const AtomOrString* aKey)
-    : mKey(aKey ? *aKey : nullptr)
+      : mKey(aKey ? *aKey : nullptr)
   {
   }
-  nsIdentifierMapEntry(nsIdentifierMapEntry&& aOther) :
-    mKey(mozilla::Move(aOther.mKey)),
-    mIdContentList(mozilla::Move(aOther.mIdContentList)),
-    mNameContentList(aOther.mNameContentList.forget()),
-    mChangeCallbacks(aOther.mChangeCallbacks.forget()),
-    mImageElement(aOther.mImageElement.forget())
+  nsIdentifierMapEntry(nsIdentifierMapEntry&& aOther)
+      : mKey(mozilla::Move(aOther.mKey)),
+        mIdContentList(mozilla::Move(aOther.mIdContentList)),
+        mNameContentList(aOther.mNameContentList.forget()),
+        mChangeCallbacks(aOther.mChangeCallbacks.forget()),
+        mImageElement(aOther.mImageElement.forget())
   {
   }
   ~nsIdentifierMapEntry();
@@ -117,19 +112,21 @@ public:
 
   static PLDHashNumber HashKey(const KeyTypePointer aKey)
   {
-    return aKey->mAtom ?
-      aKey->mAtom->hash() : mozilla::HashString(aKey->mString);
+    return aKey->mAtom ? aKey->mAtom->hash()
+                       : mozilla::HashString(aKey->mString);
   }
 
-  enum { ALLOW_MEMMOVE = false };
+  enum
+  {
+    ALLOW_MEMMOVE = false
+  };
 
   void AddNameElement(nsINode* aDocument, Element* aElement);
   void RemoveNameElement(Element* aElement);
   bool IsEmpty();
-  nsBaseContentList* GetNameContentList() {
-    return mNameContentList;
-  }
-  bool HasNameElement() const {
+  nsBaseContentList* GetNameContentList() { return mNameContentList; }
+  bool HasNameElement() const
+  {
     return mNameContentList && mNameContentList->Length() != 0;
   }
 
@@ -141,9 +138,7 @@ public:
   /**
    * Returns the list of all elements associated with this id.
    */
-  const nsTArray<Element*>& GetIdElements() const {
-    return mIdContentList;
-  }
+  const nsTArray<Element*>& GetIdElements() const { return mIdContentList; }
   /**
    * If this entry has a non-null image element set (using SetImageElement),
    * the image element will be returned, otherwise the same as GetIdElement().
@@ -172,31 +167,35 @@ public:
 
   bool HasContentChangeCallback() { return mChangeCallbacks != nullptr; }
   void AddContentChangeCallback(nsIDocument::IDTargetObserver aCallback,
-                                void* aData, bool aForImage);
+                                void* aData,
+                                bool aForImage);
   void RemoveContentChangeCallback(nsIDocument::IDTargetObserver aCallback,
-                                void* aData, bool aForImage);
+                                   void* aData,
+                                   bool aForImage);
 
   void Traverse(nsCycleCollectionTraversalCallback* aCallback);
 
-  struct ChangeCallback {
+  struct ChangeCallback
+  {
     nsIDocument::IDTargetObserver mCallback;
     void* mData;
     bool mForImage;
   };
 
-  struct ChangeCallbackEntry : public PLDHashEntryHdr {
+  struct ChangeCallbackEntry : public PLDHashEntryHdr
+  {
     typedef const ChangeCallback KeyType;
     typedef const ChangeCallback* KeyTypePointer;
 
-    explicit ChangeCallbackEntry(const ChangeCallback* aKey) :
-      mKey(*aKey) { }
-    ChangeCallbackEntry(const ChangeCallbackEntry& toCopy) :
-      mKey(toCopy.mKey) { }
+    explicit ChangeCallbackEntry(const ChangeCallback* aKey) : mKey(*aKey) {}
+    ChangeCallbackEntry(const ChangeCallbackEntry& toCopy) : mKey(toCopy.mKey)
+    {
+    }
 
     KeyType GetKey() const { return mKey; }
-    bool KeyEquals(KeyTypePointer aKey) const {
-      return aKey->mCallback == mKey.mCallback &&
-             aKey->mData == mKey.mData &&
+    bool KeyEquals(KeyTypePointer aKey) const
+    {
+      return aKey->mCallback == mKey.mCallback && aKey->mData == mKey.mData &&
              aKey->mForImage == mKey.mForImage;
     }
 
@@ -205,18 +204,22 @@ public:
     {
       return mozilla::HashGeneric(aKey->mCallback, aKey->mData);
     }
-    enum { ALLOW_MEMMOVE = true };
+    enum
+    {
+      ALLOW_MEMMOVE = true
+    };
 
     ChangeCallback mKey;
   };
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   nsIdentifierMapEntry(const nsIdentifierMapEntry& aOther) = delete;
   nsIdentifierMapEntry& operator=(const nsIdentifierMapEntry& aOther) = delete;
 
-  void FireChangeCallbacks(Element* aOldElement, Element* aNewElement,
+  void FireChangeCallbacks(Element* aOldElement,
+                           Element* aNewElement,
                            bool aImageOnly = false);
 
   AtomOrString mKey;
@@ -228,4 +231,4 @@ private:
   RefPtr<Element> mImageElement;
 };
 
-#endif // #ifndef nsIdentifierMapEntry_h
+#endif  // #ifndef nsIdentifierMapEntry_h

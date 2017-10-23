@@ -12,8 +12,9 @@ namespace layers {
 
 using namespace mozilla::gfx;
 
-X11TextureSourceBasic::X11TextureSourceBasic(BasicCompositor* aCompositor, gfxXlibSurface* aSurface)
- : mSurface(aSurface)
+X11TextureSourceBasic::X11TextureSourceBasic(BasicCompositor* aCompositor,
+                                             gfxXlibSurface* aSurface)
+    : mSurface(aSurface)
 {
 }
 
@@ -34,9 +35,8 @@ SourceSurface*
 X11TextureSourceBasic::GetSurface(DrawTarget* aTarget)
 {
   if (!mSourceSurface) {
-    mSourceSurface =
-        Factory::CreateSourceSurfaceForCairoSurface(mSurface->CairoSurface(),
-                                                    GetSize(), GetFormat());
+    mSourceSurface = Factory::CreateSourceSurfaceForCairoSurface(
+        mSurface->CairoSurface(), GetSize(), GetFormat());
   }
   return mSourceSurface;
 }
@@ -56,5 +56,5 @@ X11TextureSourceBasic::ContentTypeToSurfaceFormat(gfxContentType aType)
   }
 }
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla

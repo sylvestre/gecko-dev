@@ -30,25 +30,24 @@ DoUpdateExpirationTime(nsHttpChannel* aSelf,
                        nsHttpResponseHead* aResponseHead,
                        uint32_t& aExpirationTime);
 extern nsresult
-DoAddCacheEntryHeaders(nsHttpChannel *self,
-                       nsICacheEntry *entry,
-                       nsHttpRequestHead *requestHead,
-                       nsHttpResponseHead *responseHead,
-                       nsISupports *securityInfo);
+DoAddCacheEntryHeaders(nsHttpChannel* self,
+                       nsICacheEntry* entry,
+                       nsHttpRequestHead* requestHead,
+                       nsHttpResponseHead* responseHead,
+                       nsISupports* securityInfo);
 
 NS_IMPL_ISUPPORTS(InterceptedChannelBase, nsIInterceptedChannel)
 
-InterceptedChannelBase::InterceptedChannelBase(nsINetworkInterceptController* aController)
-  : mController(aController)
-  , mReportCollector(new ConsoleReportCollector())
-  , mClosed(false)
-  , mSynthesizedOrReset(Invalid)
+InterceptedChannelBase::InterceptedChannelBase(
+    nsINetworkInterceptController* aController)
+    : mController(aController),
+      mReportCollector(new ConsoleReportCollector()),
+      mClosed(false),
+      mSynthesizedOrReset(Invalid)
 {
 }
 
-InterceptedChannelBase::~InterceptedChannelBase()
-{
-}
+InterceptedChannelBase::~InterceptedChannelBase() {}
 
 void
 InterceptedChannelBase::EnsureSynthesizedResponse()
@@ -61,54 +60,57 @@ InterceptedChannelBase::EnsureSynthesizedResponse()
 void
 InterceptedChannelBase::DoNotifyController()
 {
-    nsresult rv = NS_OK;
+  nsresult rv = NS_OK;
 
-    if (NS_WARN_IF(!mController)) {
-      rv = ResetInterception();
-      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "Failed to resume intercepted network request");
-      return;
-    }
+  if (NS_WARN_IF(!mController)) {
+    rv = ResetInterception();
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "Failed to resume intercepted network request");
+    return;
+  }
 
-    rv = mController->ChannelIntercepted(this);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      rv = ResetInterception();
-      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "Failed to resume intercepted network request");
-    }
-    mController = nullptr;
+  rv = mController->ChannelIntercepted(this);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    rv = ResetInterception();
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "Failed to resume intercepted network request");
+  }
+  mController = nullptr;
 }
 
 nsresult
-InterceptedChannelBase::DoSynthesizeStatus(uint16_t aStatus, const nsACString& aReason)
+InterceptedChannelBase::DoSynthesizeStatus(uint16_t aStatus,
+                                           const nsACString& aReason)
 {
-    EnsureSynthesizedResponse();
+  EnsureSynthesizedResponse();
 
-    // Always assume HTTP 1.1 for synthesized responses.
-    nsAutoCString statusLine;
-    statusLine.AppendLiteral("HTTP/1.1 ");
-    statusLine.AppendInt(aStatus);
-    statusLine.AppendLiteral(" ");
-    statusLine.Append(aReason);
+  // Always assume HTTP 1.1 for synthesized responses.
+  nsAutoCString statusLine;
+  statusLine.AppendLiteral("HTTP/1.1 ");
+  statusLine.AppendInt(aStatus);
+  statusLine.AppendLiteral(" ");
+  statusLine.Append(aReason);
 
-    (*mSynthesizedResponseHead)->ParseStatusLine(statusLine);
-    return NS_OK;
+  (*mSynthesizedResponseHead)->ParseStatusLine(statusLine);
+  return NS_OK;
 }
 
 nsresult
-InterceptedChannelBase::DoSynthesizeHeader(const nsACString& aName, const nsACString& aValue)
+InterceptedChannelBase::DoSynthesizeHeader(const nsACString& aName,
+                                           const nsACString& aValue)
 {
-    EnsureSynthesizedResponse();
+  EnsureSynthesizedResponse();
 
-    nsAutoCString header = aName + NS_LITERAL_CSTRING(": ") + aValue;
-    // Overwrite any existing header.
-    nsresult rv = (*mSynthesizedResponseHead)->ParseHeaderLine(header);
-    NS_ENSURE_SUCCESS(rv, rv);
-    return NS_OK;
+  nsAutoCString header = aName + NS_LITERAL_CSTRING(": ") + aValue;
+  // Overwrite any existing header.
+  nsresult rv = (*mSynthesizedResponseHead)->ParseHeaderLine(header);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-InterceptedChannelBase::GetConsoleReportCollector(nsIConsoleReportCollector** aCollectorOut)
+InterceptedChannelBase::GetConsoleReportCollector(
+    nsIConsoleReportCollector** aCollectorOut)
 {
   MOZ_ASSERT(aCollectorOut);
   nsCOMPtr<nsIConsoleReportCollector> ref = mReportCollector;
@@ -137,8 +139,7 @@ InterceptedChannelBase::SaveTimeStamps()
   nsresult rv = GetChannel(getter_AddRefs(underlyingChannel));
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
-  nsCOMPtr<nsITimedChannel> timedChannel =
-    do_QueryInterface(underlyingChannel);
+  nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(underlyingChannel);
   MOZ_ASSERT(timedChannel);
 
   rv = timedChannel->SetLaunchServiceWorkerStart(mLaunchServiceWorkerStart);
@@ -165,29 +166,40 @@ InterceptedChannelBase::SaveTimeStamps()
     return NS_ERROR_FAILURE;
   }
 
-  nsCString navigationOrSubresource = nsContentUtils::IsNonSubresourceRequest(channel) ?
-    NS_LITERAL_CSTRING("navigation") : NS_LITERAL_CSTRING("subresource");
+  nsCString navigationOrSubresource =
+      nsContentUtils::IsNonSubresourceRequest(channel)
+          ? NS_LITERAL_CSTRING("navigation")
+          : NS_LITERAL_CSTRING("subresource");
 
   // We may have null timestamps if the fetch dispatch runnable was cancelled
   // and we defaulted to resuming the request.
   if (!mFinishResponseStart.IsNull() && !mFinishResponseEnd.IsNull()) {
     MOZ_ASSERT(mSynthesizedOrReset != Invalid);
 
-    Telemetry::HistogramID id = (mSynthesizedOrReset == Synthesized) ?
-      Telemetry::SERVICE_WORKER_FETCH_EVENT_FINISH_SYNTHESIZED_RESPONSE_MS :
-      Telemetry::SERVICE_WORKER_FETCH_EVENT_CHANNEL_RESET_MS;
-    Telemetry::Accumulate(id, navigationOrSubresource,
-      static_cast<uint32_t>((mFinishResponseEnd - mFinishResponseStart).ToMilliseconds()));
+    Telemetry::HistogramID id =
+        (mSynthesizedOrReset == Synthesized)
+            ? Telemetry::
+                  SERVICE_WORKER_FETCH_EVENT_FINISH_SYNTHESIZED_RESPONSE_MS
+            : Telemetry::SERVICE_WORKER_FETCH_EVENT_CHANNEL_RESET_MS;
+    Telemetry::Accumulate(
+        id,
+        navigationOrSubresource,
+        static_cast<uint32_t>(
+            (mFinishResponseEnd - mFinishResponseStart).ToMilliseconds()));
   }
 
-  Telemetry::Accumulate(Telemetry::SERVICE_WORKER_FETCH_EVENT_DISPATCH_MS,
-    navigationOrSubresource,
-    static_cast<uint32_t>((mHandleFetchEventStart - mDispatchFetchEventStart).ToMilliseconds()));
+  Telemetry::Accumulate(
+      Telemetry::SERVICE_WORKER_FETCH_EVENT_DISPATCH_MS,
+      navigationOrSubresource,
+      static_cast<uint32_t>((mHandleFetchEventStart - mDispatchFetchEventStart)
+                                .ToMilliseconds()));
 
   if (!mFinishResponseEnd.IsNull()) {
-    Telemetry::Accumulate(Telemetry::SERVICE_WORKER_FETCH_INTERCEPTION_DURATION_MS,
-      navigationOrSubresource,
-      static_cast<uint32_t>((mFinishResponseEnd - mDispatchFetchEventStart).ToMilliseconds()));
+    Telemetry::Accumulate(
+        Telemetry::SERVICE_WORKER_FETCH_INTERCEPTION_DURATION_MS,
+        navigationOrSubresource,
+        static_cast<uint32_t>(
+            (mFinishResponseEnd - mDispatchFetchEventStart).ToMilliseconds()));
   }
 
   return rv;
@@ -208,14 +220,15 @@ InterceptedChannelBase::SecureUpgradeChannelURI(nsIChannel* aChannel)
   return upgradedURI.forget();
 }
 
-InterceptedChannelContent::InterceptedChannelContent(HttpChannelChild* aChannel,
-                                                     nsINetworkInterceptController* aController,
-                                                     InterceptStreamListener* aListener,
-                                                     bool aSecureUpgrade)
-: InterceptedChannelBase(aController)
-, mChannel(aChannel)
-, mStreamListener(aListener)
-, mSecureUpgrade(aSecureUpgrade)
+InterceptedChannelContent::InterceptedChannelContent(
+    HttpChannelChild* aChannel,
+    nsINetworkInterceptController* aController,
+    InterceptStreamListener* aListener,
+    bool aSecureUpgrade)
+    : InterceptedChannelBase(aController),
+      mChannel(aChannel),
+      mStreamListener(aListener),
+      mSecureUpgrade(aSecureUpgrade)
 {
 }
 
@@ -249,7 +262,8 @@ InterceptedChannelContent::ResetInterception()
 }
 
 NS_IMETHODIMP
-InterceptedChannelContent::SynthesizeStatus(uint16_t aStatus, const nsACString& aReason)
+InterceptedChannelContent::SynthesizeStatus(uint16_t aStatus,
+                                            const nsACString& aReason)
 {
   if (mClosed) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -259,7 +273,8 @@ InterceptedChannelContent::SynthesizeStatus(uint16_t aStatus, const nsACString& 
 }
 
 NS_IMETHODIMP
-InterceptedChannelContent::SynthesizeHeader(const nsACString& aName, const nsACString& aValue)
+InterceptedChannelContent::SynthesizeHeader(const nsACString& aName,
+                                            const nsACString& aValue)
 {
   if (mClosed) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -269,9 +284,10 @@ InterceptedChannelContent::SynthesizeHeader(const nsACString& aName, const nsACS
 }
 
 NS_IMETHODIMP
-InterceptedChannelContent::StartSynthesizedResponse(nsIInputStream* aBody,
-                                                    nsIInterceptedBodyCallback* aBodyCallback,
-                                                    const nsACString& aFinalURLSpec)
+InterceptedChannelContent::StartSynthesizedResponse(
+    nsIInputStream* aBody,
+    nsIInterceptedBodyCallback* aBodyCallback,
+    const nsACString& aFinalURLSpec)
 {
   if (NS_WARN_IF(mClosed)) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -287,8 +303,8 @@ InterceptedChannelContent::StartSynthesizedResponse(nsIInputStream* aBody,
     nsresult rv = NS_NewURI(getter_AddRefs(responseURI), aFinalURLSpec);
     NS_ENSURE_SUCCESS(rv, rv);
   } else if (mSecureUpgrade) {
-    nsresult rv = NS_GetSecureUpgradedURI(originalURI,
-                                          getter_AddRefs(responseURI));
+    nsresult rv =
+        NS_GetSecureUpgradedURI(originalURI, getter_AddRefs(responseURI));
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
     responseURI = originalURI;
@@ -300,9 +316,8 @@ InterceptedChannelContent::StartSynthesizedResponse(nsIInputStream* aBody,
     mChannel->ForceIntercepted(aBody, aBodyCallback);
     mChannel->BeginNonIPCRedirect(responseURI, *mSynthesizedResponseHead.ptr());
   } else {
-    mChannel->OverrideWithSynthesizedResponse(mSynthesizedResponseHead.ref(),
-                                              aBody, aBodyCallback,
-                                              mStreamListener);
+    mChannel->OverrideWithSynthesizedResponse(
+        mSynthesizedResponseHead.ref(), aBody, aBodyCallback, mStreamListener);
   }
 
   return NS_OK;
@@ -352,7 +367,8 @@ InterceptedChannelContent::SetChannelInfo(dom::ChannelInfo* aChannelInfo)
 }
 
 NS_IMETHODIMP
-InterceptedChannelContent::GetInternalContentPolicyType(nsContentPolicyType* aPolicyType)
+InterceptedChannelContent::GetInternalContentPolicyType(
+    nsContentPolicyType* aPolicyType)
 {
   NS_ENSURE_ARG(aPolicyType);
 
@@ -383,5 +399,5 @@ InterceptedChannelContent::GetSecureUpgradedChannelURI(nsIURI** aURI)
   return NS_ERROR_FAILURE;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -351,6 +351,6 @@ static const char contentSandboxRules[] = R"(
   (allow file-read* (regex #"\.fontvault/"))
 )";
 
-}
+}  // namespace mozilla
 
-#endif // mozilla_SandboxPolicies_h
+#endif  // mozilla_SandboxPolicies_h

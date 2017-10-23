@@ -17,25 +17,21 @@
 #include "nsContentUtils.h"
 
 using mozilla::dom::AnyCallback;
+using mozilla::dom::AutoJSAPI;
+using mozilla::dom::DOMCursor;
 using mozilla::dom::DOMException;
 using mozilla::dom::DOMRequest;
 using mozilla::dom::DOMRequestService;
-using mozilla::dom::DOMCursor;
 using mozilla::dom::Promise;
-using mozilla::dom::AutoJSAPI;
 using mozilla::dom::RootingCx;
 
 DOMRequest::DOMRequest(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mResult(JS::UndefinedValue())
-  , mDone(false)
+    : DOMEventTargetHelper(aWindow), mResult(JS::UndefinedValue()), mDone(false)
 {
 }
 
 DOMRequest::DOMRequest(nsIGlobalObject* aGlobal)
-  : DOMEventTargetHelper(aGlobal)
-  , mResult(JS::UndefinedValue())
-  , mDone(false)
+    : DOMEventTargetHelper(aGlobal), mResult(JS::UndefinedValue()), mDone(false)
 {
 }
 
@@ -60,8 +56,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(DOMRequest,
   tmp->mResult.setUndefined();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(DOMRequest,
-                                               DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(DOMRequest, DOMEventTargetHelper)
   // Don't need NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER because
   // DOMEventTargetHelper does it for us.
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mResult)
@@ -208,7 +203,8 @@ DOMRequest::RootResultVal()
 }
 
 void
-DOMRequest::Then(JSContext* aCx, AnyCallback* aResolveCallback,
+DOMRequest::Then(JSContext* aCx,
+                 AnyCallback* aResolveCallback,
                  AnyCallback* aRejectCallback,
                  JS::MutableHandle<JS::Value> aRetval,
                  mozilla::ErrorResult& aRv)
@@ -290,32 +286,29 @@ DOMRequestService::FireDetailedError(nsIDOMDOMRequest* aRequest,
   NS_ENSURE_STATE(aRequest);
   nsCOMPtr<nsIException> err = do_QueryInterface(aError);
   NS_ENSURE_STATE(err);
-  static_cast<DOMRequest*>(aRequest)->FireDetailedError(static_cast<DOMException*>(err.get()));
+  static_cast<DOMRequest*>(aRequest)->FireDetailedError(
+      static_cast<DOMException*>(err.get()));
 
   return NS_OK;
 }
 
 class FireSuccessAsyncTask : public mozilla::Runnable
 {
-
   FireSuccessAsyncTask(DOMRequest* aRequest, const JS::Value& aResult)
-    : mozilla::Runnable("FireSuccessAsyncTask")
-    , mReq(aRequest)
-    , mResult(RootingCx(), aResult)
+      : mozilla::Runnable("FireSuccessAsyncTask"),
+        mReq(aRequest),
+        mResult(RootingCx(), aResult)
   {
   }
 
-public:
-
+ public:
   // Due to the fact that initialization can fail during shutdown (since we
   // can't fetch a js context), set up an initiatization function to make sure
   // we can return the failure appropriately
-  static nsresult
-  Dispatch(DOMRequest* aRequest,
-           const JS::Value& aResult)
+  static nsresult Dispatch(DOMRequest* aRequest, const JS::Value& aResult)
   {
     RefPtr<FireSuccessAsyncTask> asyncTask =
-      new FireSuccessAsyncTask(aRequest, aResult);
+        new FireSuccessAsyncTask(aRequest, aResult);
     MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(asyncTask));
     return NS_OK;
   }
@@ -323,22 +316,21 @@ public:
   NS_IMETHOD
   Run() override
   {
-    mReq->FireSuccess(JS::Handle<JS::Value>::fromMarkedLocation(mResult.address()));
+    mReq->FireSuccess(
+        JS::Handle<JS::Value>::fromMarkedLocation(mResult.address()));
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<DOMRequest> mReq;
   JS::PersistentRooted<JS::Value> mResult;
 };
 
 class FireErrorAsyncTask : public mozilla::Runnable
 {
-public:
+ public:
   FireErrorAsyncTask(DOMRequest* aRequest, const nsAString& aError)
-    : mozilla::Runnable("FireErrorAsyncTask")
-    , mReq(aRequest)
-    , mError(aError)
+      : mozilla::Runnable("FireErrorAsyncTask"), mReq(aRequest), mError(aError)
   {
   }
 
@@ -348,7 +340,8 @@ public:
     mReq->FireError(mError);
     return NS_OK;
   }
-private:
+
+ private:
   RefPtr<DOMRequest> mReq;
   nsString mError;
 };
@@ -358,7 +351,8 @@ DOMRequestService::FireSuccessAsync(nsIDOMDOMRequest* aRequest,
                                     JS::Handle<JS::Value> aResult)
 {
   NS_ENSURE_STATE(aRequest);
-  return FireSuccessAsyncTask::Dispatch(static_cast<DOMRequest*>(aRequest), aResult);
+  return FireSuccessAsyncTask::Dispatch(static_cast<DOMRequest*>(aRequest),
+                                        aResult);
 }
 
 NS_IMETHODIMP
@@ -367,13 +361,14 @@ DOMRequestService::FireErrorAsync(nsIDOMDOMRequest* aRequest,
 {
   NS_ENSURE_STATE(aRequest);
   nsCOMPtr<nsIRunnable> asyncTask =
-    new FireErrorAsyncTask(static_cast<DOMRequest*>(aRequest), aError);
+      new FireErrorAsyncTask(static_cast<DOMRequest*>(aRequest), aError);
   MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(asyncTask));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMRequestService::FireDone(nsIDOMDOMCursor* aCursor) {
+DOMRequestService::FireDone(nsIDOMDOMCursor* aCursor)
+{
   NS_ENSURE_STATE(aCursor);
   static_cast<DOMCursor*>(aCursor)->FireDone();
 

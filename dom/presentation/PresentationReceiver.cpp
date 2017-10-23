@@ -42,15 +42,12 @@ PresentationReceiver::Create(nsPIDOMWindowInner* aWindow)
 }
 
 PresentationReceiver::PresentationReceiver(nsPIDOMWindowInner* aWindow)
-  : mOwner(aWindow)
+    : mOwner(aWindow)
 {
   MOZ_ASSERT(aWindow);
 }
 
-PresentationReceiver::~PresentationReceiver()
-{
-  Shutdown();
-}
+PresentationReceiver::~PresentationReceiver() { Shutdown(); }
 
 bool
 PresentationReceiver::Init()
@@ -67,19 +64,20 @@ PresentationReceiver::Init()
   return !mUrl.IsEmpty();
 }
 
-void PresentationReceiver::Shutdown()
+void
+PresentationReceiver::Shutdown()
 {
   PRES_DEBUG("receiver shutdown:windowId[%" PRId64 "]\n", mWindowId);
 
   // Unregister listener for incoming sessions.
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return;
   }
 
-  Unused <<
-    NS_WARN_IF(NS_FAILED(service->UnregisterRespondingListener(mWindowId)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(service->UnregisterRespondingListener(mWindowId)));
 }
 
 /* virtual */ JSObject*
@@ -94,7 +92,8 @@ PresentationReceiver::NotifySessionConnect(uint64_t aWindowId,
                                            const nsAString& aSessionId)
 {
   PRES_DEBUG("receiver session connect:id[%s], windowId[%" PRIx64 "]\n",
-             NS_ConvertUTF16toUTF8(aSessionId).get(), aWindowId);
+             NS_ConvertUTF16toUTF8(aSessionId).get(),
+             aWindowId);
 
   if (NS_WARN_IF(!mOwner)) {
     return NS_ERROR_FAILURE;
@@ -109,9 +108,11 @@ PresentationReceiver::NotifySessionConnect(uint64_t aWindowId,
   }
 
   RefPtr<PresentationConnection> connection =
-    PresentationConnection::Create(mOwner, aSessionId, mUrl,
-                                   nsIPresentationService::ROLE_RECEIVER,
-                                   mConnectionList);
+      PresentationConnection::Create(mOwner,
+                                     aSessionId,
+                                     mUrl,
+                                     nsIPresentationService::ROLE_RECEIVER,
+                                     mConnectionList);
   if (NS_WARN_IF(!connection)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -136,8 +137,8 @@ PresentationReceiver::GetConnectionList(ErrorResult& aRv)
 
     RefPtr<PresentationReceiver> self = this;
     nsresult rv = NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "dom::PresentationReceiver::GetConnectionList",
-      [self]() -> void { self->CreateConnectionList(); }));
+        "dom::PresentationReceiver::GetConnectionList",
+        [self]() -> void { self->CreateConnectionList(); }));
     if (NS_FAILED(rv)) {
       aRv.Throw(rv);
       return nullptr;
@@ -160,12 +161,12 @@ PresentationReceiver::CreateConnectionList()
     return;
   }
 
-  mConnectionList = new PresentationConnectionList(mOwner,
-                                                   mGetConnectionListPromise);
+  mConnectionList =
+      new PresentationConnectionList(mOwner, mGetConnectionListPromise);
 
   // Register listener for incoming sessions.
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     mGetConnectionListPromise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
     return;
@@ -177,5 +178,5 @@ PresentationReceiver::CreateConnectionList()
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

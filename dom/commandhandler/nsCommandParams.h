@@ -14,13 +14,13 @@
 
 class nsCommandParams : public nsICommandParams
 {
-public:
+ public:
   nsCommandParams();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSICOMMANDPARAMS
 
-protected:
+ protected:
   virtual ~nsCommandParams();
 
   struct HashEntry : public PLDHashEntryHdr
@@ -28,8 +28,7 @@ protected:
     nsCString mEntryName;
 
     uint8_t mEntryType;
-    union
-    {
+    union {
       bool mBoolean;
       int32_t mLong;
       double mDouble;
@@ -40,14 +39,12 @@ protected:
     nsCOMPtr<nsISupports> mISupports;
 
     HashEntry(uint8_t aType, const char* aEntryName)
-      : mEntryName(aEntryName)
-      , mEntryType(aType)
+        : mEntryName(aEntryName), mEntryType(aType)
     {
       Reset(mEntryType);
     }
 
-    HashEntry(const HashEntry& aRHS)
-      : mEntryType(aRHS.mEntryType)
+    HashEntry(const HashEntry& aRHS) : mEntryType(aRHS.mEntryType)
     {
       Reset(mEntryType);
       switch (mEntryType) {
@@ -113,12 +110,13 @@ protected:
   HashEntry* GetNamedEntry(const char* aName);
   HashEntry* GetOrMakeEntry(const char* aName, uint8_t aEntryType);
 
-protected:
+ protected:
   static PLDHashNumber HashKey(const void* aKey);
 
   static bool HashMatchEntry(const PLDHashEntryHdr* aEntry, const void* aKey);
 
-  static void HashMoveEntry(PLDHashTable* aTable, const PLDHashEntryHdr* aFrom,
+  static void HashMoveEntry(PLDHashTable* aTable,
+                            const PLDHashEntryHdr* aFrom,
                             PLDHashEntryHdr* aTo);
 
   static void HashClearEntry(PLDHashTable* aTable, PLDHashEntryHdr* aEntry);
@@ -128,4 +126,4 @@ protected:
   static const PLDHashTableOps sHashOps;
 };
 
-#endif // nsCommandParams_h__
+#endif  // nsCommandParams_h__

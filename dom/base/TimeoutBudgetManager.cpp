@@ -93,5 +93,5 @@ TimeoutBudgetManager::MaybeCollectTelemetry(const TimeStamp& aNow)
   mLastCollection = aNow;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

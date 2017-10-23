@@ -32,7 +32,7 @@
 #include "mozilla/XorShift128PlusRNG.h"
 
 #include <limits>
-#include <stddef.h> // for ptrdiff_t
+#include <stddef.h>  // for ptrdiff_t
 
 #include "jsalloc.h"
 
@@ -52,23 +52,21 @@
 
 #if defined(__sparc__)
 #ifdef __linux__  // bugzilla 502369
-static void sync_instruction_memory(caddr_t v, u_int len)
-{
+static void sync_instruction_memory(caddr_t v, u_int len) {
     caddr_t end = v + len;
     caddr_t p = v;
     while (p < end) {
-        asm("flush %0" : : "r" (p));
+        asm("flush %0" : : "r"(p));
         p += 32;
     }
 }
 #else
-extern  "C" void sync_instruction_memory(caddr_t v, u_int len);
+extern "C" void sync_instruction_memory(caddr_t v, u_int len);
 #endif
 #endif
 
-#if defined(__linux__) &&                                             \
-     (defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)) &&    \
-     (!defined(JS_SIMULATOR_MIPS32) && !defined(JS_SIMULATOR_MIPS64))
+#if defined(__linux__) && (defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)) && \
+    (!defined(JS_SIMULATOR_MIPS32) && !defined(JS_SIMULATOR_MIPS64))
 #include <sys/cachectl.h>
 #endif
 
@@ -77,8 +75,8 @@ extern  "C" void sync_instruction_memory(caddr_t v, u_int len);
 #endif
 
 namespace JS {
-    struct CodeSizes;
-} // namespace JS
+struct CodeSizes;
+}  // namespace JS
 
 namespace js {
 namespace jit {
@@ -89,11 +87,10 @@ class ExecutableAllocator;
 class JitRuntime;
 
 // These are reference-counted. A new one starts with a count of 1.
-class ExecutablePool
-{
+class ExecutablePool {
     friend class ExecutableAllocator;
 
-  private:
+   private:
     struct Allocation {
         char* pages;
         size_t size;
@@ -105,10 +102,10 @@ class ExecutablePool
     Allocation m_allocation;
 
     // Reference count for automatic reclamation.
-    unsigned m_refCount:31;
+    unsigned m_refCount : 31;
 
     // Flag that can be used by algorithms operating on pools.
-    bool m_mark:1;
+    bool m_mark : 1;
 
     // Number of bytes currently used for Method and Regexp JIT code.
     size_t m_ionCodeBytes;
@@ -116,17 +113,23 @@ class ExecutablePool
     size_t m_regexpCodeBytes;
     size_t m_otherCodeBytes;
 
-  public:
+   public:
     void release(bool willDestroy = false);
     void release(size_t n, CodeKind kind);
 
     void addRef();
 
     ExecutablePool(ExecutableAllocator* allocator, Allocation a)
-      : m_allocator(allocator), m_freePtr(a.pages), m_end(m_freePtr + a.size), m_allocation(a),
-        m_refCount(1), m_mark(false), m_ionCodeBytes(0), m_baselineCodeBytes(0),
-        m_regexpCodeBytes(0), m_otherCodeBytes(0)
-    { }
+        : m_allocator(allocator),
+          m_freePtr(a.pages),
+          m_end(m_freePtr + a.size),
+          m_allocation(a),
+          m_refCount(1),
+          m_mark(false),
+          m_ionCodeBytes(0),
+          m_baselineCodeBytes(0),
+          m_regexpCodeBytes(0),
+          m_otherCodeBytes(0) {}
 
     ~ExecutablePool();
 
@@ -138,11 +141,9 @@ class ExecutablePool
         MOZ_ASSERT(m_mark);
         m_mark = false;
     }
-    bool isMarked() const {
-        return m_mark;
-    }
+    bool isMarked() const { return m_mark; }
 
-  private:
+   private:
     ExecutablePool(const ExecutablePool&) = delete;
     void operator=(const ExecutablePool&) = delete;
 
@@ -151,24 +152,21 @@ class ExecutablePool
     size_t available() const;
 };
 
-struct JitPoisonRange
-{
+struct JitPoisonRange {
     jit::ExecutablePool* pool;
     void* start;
     size_t size;
 
     JitPoisonRange(jit::ExecutablePool* pool, void* start, size_t size)
-      : pool(pool), start(start), size(size)
-    {}
+        : pool(pool), start(start), size(size) {}
 };
 
 typedef Vector<JitPoisonRange, 0, SystemAllocPolicy> JitPoisonRangeVector;
 
-class ExecutableAllocator
-{
+class ExecutableAllocator {
     JSRuntime* rt_;
 
-  public:
+   public:
     explicit ExecutableAllocator(JSRuntime* rt);
     ~ExecutableAllocator();
 
@@ -183,7 +181,7 @@ class ExecutableAllocator
 
     void addSizeOfCode(JS::CodeSizes* sizes) const;
 
-  private:
+   private:
     static const size_t OVERSIZE_ALLOCATION = size_t(-1);
 
     static size_t roundUpAllocationSize(size_t request, size_t granularity);
@@ -197,45 +195,36 @@ class ExecutableAllocator
 
     static void reprotectPool(JSRuntime* rt, ExecutablePool* pool, ProtectionSetting protection);
 
-  public:
+   public:
     MOZ_MUST_USE
-    static bool makeWritable(void* start, size_t size)
-    {
+    static bool makeWritable(void* start, size_t size) {
         return ReprotectRegion(start, size, ProtectionSetting::Writable);
     }
 
     MOZ_MUST_USE
-    static bool makeExecutable(void* start, size_t size)
-    {
+    static bool makeExecutable(void* start, size_t size) {
         return ReprotectRegion(start, size, ProtectionSetting::Executable);
     }
 
-    void makeAllWritable() {
-        reprotectAll(ProtectionSetting::Writable);
-    }
-    void makeAllExecutable() {
-        reprotectAll(ProtectionSetting::Executable);
-    }
+    void makeAllWritable() { reprotectAll(ProtectionSetting::Writable); }
+    void makeAllExecutable() { reprotectAll(ProtectionSetting::Executable); }
 
     static void poisonCode(JSRuntime* rt, JitPoisonRangeVector& ranges);
 
-#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64) || defined(JS_SIMULATOR_ARM64) || defined(JS_CODEGEN_NONE)
-    static void cacheFlush(void*, size_t)
-    {
-    }
+#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64) || defined(JS_SIMULATOR_ARM64) || \
+    defined(JS_CODEGEN_NONE)
+    static void cacheFlush(void*, size_t) {}
 #elif defined(JS_SIMULATOR_ARM) || defined(JS_SIMULATOR_MIPS32) || defined(JS_SIMULATOR_MIPS64)
-    static void cacheFlush(void* code, size_t size)
-    {
+    static void cacheFlush(void* code, size_t size) {
         js::jit::SimulatorProcess::FlushICache(code, size);
     }
 #elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
-    static void cacheFlush(void* code, size_t size)
-    {
+    static void cacheFlush(void* code, size_t size) {
 #if defined(_MIPS_ARCH_LOONGSON3A)
         // On Loongson3-CPUs, The cache flushed automatically
         // by hardware. Just need to execute an instruction hazard.
         uintptr_t tmp;
-        asm volatile (
+        asm volatile(
             ".set   push \n"
             ".set   noreorder \n"
             "move   %[tmp], $ra \n"
@@ -245,8 +234,7 @@ class ExecutableAllocator
             "jr.hb  $ra \n"
             "move   $ra, %[tmp] \n"
             ".set   pop\n"
-            :[tmp]"=&r"(tmp)
-        );
+            : [tmp] "=&r"(tmp));
 #elif defined(__GNUC__)
         intptr_t end = reinterpret_cast<intptr_t>(code) + size;
         __builtin___clear_cache(reinterpret_cast<char*>(code), reinterpret_cast<char*>(end));
@@ -255,20 +243,15 @@ class ExecutableAllocator
 #endif
     }
 #elif defined(JS_CODEGEN_ARM) && (defined(__FreeBSD__) || defined(__NetBSD__))
-    static void cacheFlush(void* code, size_t size)
-    {
+    static void cacheFlush(void* code, size_t size) {
         __clear_cache(code, reinterpret_cast<char*>(code) + size);
     }
 #elif (defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64)) && defined(XP_IOS)
-    static void cacheFlush(void* code, size_t size)
-    {
-        sys_icache_invalidate(code, size);
-    }
+    static void cacheFlush(void* code, size_t size) { sys_icache_invalidate(code, size); }
 #elif defined(JS_CODEGEN_ARM) && (defined(__linux__) || defined(ANDROID)) && defined(__GNUC__)
-    static void cacheFlush(void* code, size_t size)
-    {
+    static void cacheFlush(void* code, size_t size) {
         void* end = (void*)(reinterpret_cast<char*>(code) + size);
-        asm volatile (
+        asm volatile(
             "push    {r7}\n"
             "mov     r0, %0\n"
             "mov     r1, %1\n"
@@ -278,12 +261,12 @@ class ExecutableAllocator
             "svc     0x0\n"
             "pop     {r7}\n"
             :
-            : "r" (code), "r" (end)
+            : "r"(code), "r"(end)
             : "r0", "r1", "r2");
 
         if (ForceDoubleCacheFlush()) {
             void* start = (void*)((uintptr_t)code + 1);
-            asm volatile (
+            asm volatile(
                 "push    {r7}\n"
                 "mov     r0, %0\n"
                 "mov     r1, %1\n"
@@ -293,23 +276,21 @@ class ExecutableAllocator
                 "svc     0x0\n"
                 "pop     {r7}\n"
                 :
-                : "r" (start), "r" (end)
+                : "r"(start), "r"(end)
                 : "r0", "r1", "r2");
         }
     }
 #elif defined(JS_CODEGEN_ARM64)
-    static void cacheFlush(void* code, size_t size)
-    {
+    static void cacheFlush(void* code, size_t size) {
         vixl::CPU::EnsureIAndDCacheCoherency(code, size);
     }
 #elif defined(__sparc__)
-    static void cacheFlush(void* code, size_t size)
-    {
+    static void cacheFlush(void* code, size_t size) {
         sync_instruction_memory((caddr_t)code, size);
     }
 #endif
 
-  private:
+   private:
     ExecutableAllocator(const ExecutableAllocator&) = delete;
     void operator=(const ExecutableAllocator&) = delete;
 
@@ -324,11 +305,11 @@ class ExecutableAllocator
     // weak references;  they don't keep pools alive.  When a pool is destroyed
     // its reference is removed from m_pools.
     typedef js::HashSet<ExecutablePool*, js::DefaultHasher<ExecutablePool*>, js::SystemAllocPolicy>
-            ExecPoolHashSet;
-    ExecPoolHashSet m_pools;    // All pools, just for stats purposes.
+        ExecPoolHashSet;
+    ExecPoolHashSet m_pools;  // All pools, just for stats purposes.
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_ExecutableAllocator_h */

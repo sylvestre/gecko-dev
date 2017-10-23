@@ -7,9 +7,9 @@
 #ifndef MOZILLA_LAYERS_RENDERTHREAD_H
 #define MOZILLA_LAYERS_RENDERTHREAD_H
 
-#include "base/basictypes.h"            // for DISALLOW_EVIL_CONSTRUCTORS
-#include "base/platform_thread.h"       // for PlatformThreadId
-#include "base/thread.h"                // for Thread
+#include "base/basictypes.h"       // for DISALLOW_EVIL_CONSTRUCTORS
+#include "base/platform_thread.h"  // for PlatformThreadId
+#include "base/thread.h"           // for Thread
 #include "base/message_loop.h"
 #include "nsISupportsImpl.h"
 #include "nsRefPtrHashtable.h"
@@ -28,18 +28,18 @@ class RenderTextureHost;
 class RenderThread;
 
 /// A rayon thread pool that is shared by all WebRender instances within a process.
-class WebRenderThreadPool {
-public:
+class WebRenderThreadPool
+{
+ public:
   WebRenderThreadPool();
 
   ~WebRenderThreadPool();
 
   wr::WrThreadPool* Raw() { return mThreadPool; }
 
-protected:
+ protected:
   wr::WrThreadPool* mThreadPool;
 };
-
 
 /// Base class for an event that can be scheduled to run on the render thread.
 ///
@@ -47,7 +47,7 @@ protected:
 /// to preserve ordering.
 class RendererEvent
 {
-public:
+ public:
   virtual ~RendererEvent() {}
   virtual void Run(RenderThread& aRenderThread, wr::WindowId aWindow) = 0;
 };
@@ -71,9 +71,10 @@ public:
 /// that keeps the door open to removing the singleton bits.
 class RenderThread final
 {
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING_WITH_MAIN_THREAD_DESTRUCTION(RenderThread)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING_WITH_MAIN_THREAD_DESTRUCTION(
+      RenderThread)
 
-public:
+ public:
   /// Can be called from any thread.
   static RenderThread* Get();
 
@@ -107,7 +108,10 @@ public:
   void NewFrameReady(wr::WindowId aWindowId);
 
   /// Automatically forwarded to the render thread.
-  void PipelineSizeChanged(wr::WindowId aWindowId, uint64_t aPipelineId, float aWidth, float aHeight);
+  void PipelineSizeChanged(wr::WindowId aWindowId,
+                           uint64_t aPipelineId,
+                           float aWidth,
+                           float aHeight);
 
   /// Automatically forwarded to the render thread.
   void RunEvent(wr::WindowId aWindowId, UniquePtr<RendererEvent> aCallBack);
@@ -119,7 +123,8 @@ public:
   bool Resume(wr::WindowId aWindowId);
 
   /// Can be called from any thread.
-  void RegisterExternalImage(uint64_t aExternalImageId, already_AddRefed<RenderTextureHost> aTexture);
+  void RegisterExternalImage(uint64_t aExternalImageId,
+                             already_AddRefed<RenderTextureHost> aTexture);
 
   /// Can be called from any thread.
   void UnregisterExternalImage(uint64_t aExternalImageId);
@@ -137,7 +142,7 @@ public:
   /// Can be called from any thread.
   WebRenderThreadPool& ThreadPool() { return mThreadPool; }
 
-private:
+ private:
   explicit RenderThread(base::Thread* aThread);
 
   void DeferredRenderTextureHostDestroy(RefPtr<RenderTextureHost> aTexture);
@@ -159,7 +164,7 @@ private:
   bool mHasShutdown;
 };
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
 #endif

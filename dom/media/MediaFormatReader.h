@@ -38,8 +38,7 @@ struct WaitForDataRejectValue
   };
 
   WaitForDataRejectValue(MediaData::Type aType, Reason aReason)
-    : mType(aType)
-    , mReason(aReason)
+      : mType(aType), mReason(aReason)
   {
   }
   MediaData::Type mType;
@@ -49,18 +48,15 @@ struct WaitForDataRejectValue
 struct SeekRejectValue
 {
   MOZ_IMPLICIT SeekRejectValue(const MediaResult& aError)
-    : mType(MediaData::NULL_DATA)
-    , mError(aError)
+      : mType(MediaData::NULL_DATA), mError(aError)
   {
   }
   MOZ_IMPLICIT SeekRejectValue(nsresult aResult)
-    : mType(MediaData::NULL_DATA)
-    , mError(aResult)
+      : mType(MediaData::NULL_DATA), mError(aResult)
   {
   }
   SeekRejectValue(MediaData::Type aType, const MediaResult& aError)
-    : mType(aType)
-    , mError(aError)
+      : mType(aType), mError(aError)
   {
   }
   MediaData::Type mType;
@@ -94,7 +90,7 @@ class MediaFormatReader final
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaFormatReader)
 
-public:
+ public:
   using TrackSet = EnumSet<TrackInfo::TrackType>;
   using MetadataPromise = MozPromise<MetadataHolder, MediaResult, IsExclusive>;
 
@@ -110,7 +106,7 @@ public:
   // so we mark it that way to verify our assumptions. If you have a use-case
   // for multiple WaitForData consumers, feel free to flip the exclusivity here.
   using WaitForDataPromise =
-    MozPromise<MediaData::Type, WaitForDataRejectValue, IsExclusive>;
+      MozPromise<MediaData::Type, WaitForDataRejectValue, IsExclusive>;
 
   MediaFormatReader(MediaFormatReaderInit& aInit, MediaDataDemuxer* aDemuxer);
 
@@ -123,7 +119,7 @@ public:
 
   // Requests one video sample from the reader.
   RefPtr<VideoDataPromise> RequestVideoData(
-    const media::TimeUnit& aTimeThreshold);
+      const media::TimeUnit& aTimeThreshold);
 
   // Requests one audio sample from the reader.
   //
@@ -146,11 +142,11 @@ public:
   // mBuffered should be recalculated and updated accordingly.
   void NotifyDataArrived();
 
-protected:
+ protected:
   // Recomputes mBuffered.
   void UpdateBuffered();
 
-public:
+ public:
   // Called by MDSM in dormant state to release resources allocated by this
   // reader. The reader can resume decoding by calling Seek() to a specific
   // position.
@@ -256,7 +252,7 @@ public:
 
   MediaEventSource<MediaResult>& OnDecodeWarning() { return mOnDecodeWarning; }
 
-private:
+ private:
   ~MediaFormatReader();
 
   bool HasVideo() const { return mVideo.mTrackDemuxer; }
@@ -282,16 +278,15 @@ private:
   void HandleDemuxedSamples(TrackType aTrack,
                             FrameStatistics::AutoNotifyDecoded& aA);
   // Decode any pending already demuxed samples.
-  void DecodeDemuxedSamples(TrackType aTrack,
-                            MediaRawData* aSample);
+  void DecodeDemuxedSamples(TrackType aTrack, MediaRawData* aSample);
 
   struct InternalSeekTarget
   {
     InternalSeekTarget(const media::TimeInterval& aTime, bool aDropTarget)
-      : mTime(aTime)
-      , mDropTarget(aDropTarget)
-      , mWaiting(false)
-      , mHasSeeked(false)
+        : mTime(aTime),
+          mDropTarget(aDropTarget),
+          mWaiting(false),
+          mHasSeeked(false)
     {
     }
 
@@ -350,8 +345,8 @@ private:
   class SharedShutdownPromiseHolder : public MozPromiseHolder<ShutdownPromise>
   {
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedShutdownPromiseHolder)
-  private:
-    ~SharedShutdownPromiseHolder() { }
+   private:
+    ~SharedShutdownPromiseHolder() {}
   };
 
   struct DecoderData
@@ -359,29 +354,29 @@ private:
     DecoderData(MediaFormatReader* aOwner,
                 MediaData::Type aType,
                 uint32_t aNumOfMaxError)
-      : mOwner(aOwner)
-      , mType(aType)
-      , mMutex("DecoderData")
-      , mDescription("shutdown")
-      , mUpdateScheduled(false)
-      , mDemuxEOS(false)
-      , mWaitingForData(false)
-      , mWaitingForKey(false)
-      , mReceivedNewData(false)
-      , mFlushing(false)
-      , mFlushed(true)
-      , mDrainState(DrainState::None)
-      , mNumOfConsecutiveError(0)
-      , mMaxConsecutiveError(aNumOfMaxError)
-      , mFirstFrameTime(Some(media::TimeUnit::Zero()))
-      , mNumSamplesInput(0)
-      , mNumSamplesOutput(0)
-      , mNumSamplesOutputTotal(0)
-      , mNumSamplesSkippedTotal(0)
-      , mSizeOfQueue(0)
-      , mIsHardwareAccelerated(false)
-      , mLastStreamSourceID(UINT32_MAX)
-      , mIsNullDecode(false)
+        : mOwner(aOwner),
+          mType(aType),
+          mMutex("DecoderData"),
+          mDescription("shutdown"),
+          mUpdateScheduled(false),
+          mDemuxEOS(false),
+          mWaitingForData(false),
+          mWaitingForKey(false),
+          mReceivedNewData(false),
+          mFlushing(false),
+          mFlushed(true),
+          mDrainState(DrainState::None),
+          mNumOfConsecutiveError(0),
+          mMaxConsecutiveError(aNumOfMaxError),
+          mFirstFrameTime(Some(media::TimeUnit::Zero())),
+          mNumSamplesInput(0),
+          mNumSamplesOutput(0),
+          mNumSamplesOutputTotal(0),
+          mNumSamplesSkippedTotal(0),
+          mSizeOfQueue(0),
+          mIsHardwareAccelerated(false),
+          mLastStreamSourceID(UINT32_MAX),
+          mIsNullDecode(false)
     {
     }
 
@@ -429,17 +424,14 @@ private:
 
     // MediaDataDecoder handler's variables.
     MozPromiseRequestHolder<MediaDataDecoder::DecodePromise> mDecodeRequest;
-    bool mFlushing; // True if flush is in action.
+    bool mFlushing;  // True if flush is in action.
     // Set to true if the last operation run on the decoder was a flush.
     bool mFlushed;
     RefPtr<SharedShutdownPromiseHolder> mShutdownPromise;
 
     MozPromiseRequestHolder<MediaDataDecoder::DecodePromise> mDrainRequest;
     DrainState mDrainState;
-    bool HasPendingDrain() const
-    {
-      return mDrainState != DrainState::None;
-    }
+    bool HasPendingDrain() const { return mDrainState != DrainState::None; }
     bool HasCompletedDrain() const
     {
       return mDrainState == DrainState::DrainCompleted ||
@@ -447,8 +439,8 @@ private:
     }
     void RequestDrain()
     {
-        MOZ_RELEASE_ASSERT(mDrainState == DrainState::None);
-        mDrainState = DrainState::DrainRequested;
+      MOZ_RELEASE_ASSERT(mDrainState == DrainState::None);
+      mDrainState = DrainState::DrainRequested;
     }
 
     uint32_t mNumOfConsecutiveError;
@@ -577,7 +569,7 @@ private:
 
     class
     {
-    public:
+     public:
       float Mean() const { return mMean; }
 
       void Update(const media::TimeUnit& aValue)
@@ -594,28 +586,24 @@ private:
         mCount = 0;
       }
 
-    private:
+     private:
       float mMean = 0;
       uint64_t mCount = 0;
     } mMeanRate;
   };
 
-  template <typename Type>
+  template<typename Type>
   class DecoderDataWithPromise : public DecoderData
   {
-  public:
+   public:
     DecoderDataWithPromise(MediaFormatReader* aOwner,
                            MediaData::Type aType,
                            uint32_t aNumOfMaxError)
-      : DecoderData(aOwner, aType, aNumOfMaxError)
-      , mHasPromise(false)
+        : DecoderData(aOwner, aType, aNumOfMaxError), mHasPromise(false)
     {
     }
 
-    bool HasPromise() const override
-    {
-      return mHasPromise;
-    }
+    bool HasPromise() const override { return mHasPromise; }
 
     RefPtr<DataPromise<Type>> EnsurePromise(const char* aMethodName)
     {
@@ -639,7 +627,7 @@ private:
       mHasPromise = false;
     }
 
-  private:
+   private:
     MozPromiseHolder<DataPromise<Type>> mPromise;
     Atomic<bool> mHasPromise;
   };
@@ -664,7 +652,7 @@ private:
   MozPromiseRequestHolder<MediaDataDemuxer::InitPromise> mDemuxerInitRequest;
   MozPromiseRequestHolder<NotifyDataArrivedPromise> mNotifyDataArrivedPromise;
   bool mPendingNotifyDataArrived;
-  void OnDemuxFailed(TrackType aTrack, const MediaResult &aError);
+  void OnDemuxFailed(TrackType aTrack, const MediaResult& aError);
 
   void DoDemuxVideo();
   void OnVideoDemuxCompleted(RefPtr<MediaTrackDemuxer::SamplesHolder> aSamples);
@@ -681,7 +669,8 @@ private:
   }
 
   void SkipVideoDemuxToNextKeyFrame(media::TimeUnit aTimeThreshold);
-  MozPromiseRequestHolder<MediaTrackDemuxer::SkipAccessPointPromise> mSkipRequest;
+  MozPromiseRequestHolder<MediaTrackDemuxer::SkipAccessPointPromise>
+      mSkipRequest;
   void VideoSkipReset(uint32_t aSkipped);
   void OnVideoSkipCompleted(uint32_t aSkipped);
   void OnVideoSkipFailed(MediaTrackDemuxer::SkipFailureHolder aFailure);
@@ -753,7 +742,8 @@ private:
   void OnFirstDemuxCompleted(TrackInfo::TrackType aType,
                              RefPtr<MediaTrackDemuxer::SamplesHolder> aSamples);
 
-  void OnFirstDemuxFailed(TrackInfo::TrackType aType, const MediaResult& aError);
+  void OnFirstDemuxFailed(TrackInfo::TrackType aType,
+                          const MediaResult& aError);
 
   void MaybeResolveMetadataPromise();
 
@@ -794,6 +784,6 @@ private:
   const MediaDecoderOwnerID mMediaDecoderOwnerID;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

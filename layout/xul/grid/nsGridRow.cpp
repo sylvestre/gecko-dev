@@ -14,19 +14,20 @@
 #include "nsBoxLayoutState.h"
 #include "nsIFrame.h"
 
-nsGridRow::nsGridRow():mIsBogus(false),
-                       mBox(nullptr),
-                       mFlex(-1),
-                       mPref(-1),
-                       mMin(-1),
-                       mMax(-1),
-                       mTop(-1),
-                       mBottom(-1),
-                       mTopMargin(0),
-                       mBottomMargin(0)
+nsGridRow::nsGridRow()
+    : mIsBogus(false),
+      mBox(nullptr),
+      mFlex(-1),
+      mPref(-1),
+      mMin(-1),
+      mMax(-1),
+      mTop(-1),
+      mBottom(-1),
+      mTopMargin(0),
+      mBottomMargin(0)
 
 {
-    MOZ_COUNT_CTOR(nsGridRow);
+  MOZ_COUNT_CTOR(nsGridRow);
 }
 
 void
@@ -44,14 +45,10 @@ nsGridRow::Init(nsIFrame* aBox, bool aIsBogus)
   mBottomMargin = 0;
 }
 
-nsGridRow::~nsGridRow()
-{
-   MOZ_COUNT_DTOR(nsGridRow);
-}
+nsGridRow::~nsGridRow() { MOZ_COUNT_DTOR(nsGridRow); }
 
 bool
 nsGridRow::IsXULCollapsed()
 {
   return mBox && mBox->IsXULCollapsed();
 }
-

@@ -20,21 +20,19 @@ class OwningFileOrDirectory;
 
 class GetDirectoryListingTaskChild final : public FileSystemTaskChildBase
 {
-public:
-  static already_AddRefed<GetDirectoryListingTaskChild>
-  Create(FileSystemBase* aFileSystem,
-         Directory* aDirectory,
-         nsIFile* aTargetPath,
-         const nsAString& aFilters,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<GetDirectoryListingTaskChild> Create(
+      FileSystemBase* aFileSystem,
+      Directory* aDirectory,
+      nsIFile* aTargetPath,
+      const nsAString& aFilters,
+      ErrorResult& aRv);
 
-  virtual
-  ~GetDirectoryListingTaskChild();
+  virtual ~GetDirectoryListingTaskChild();
 
-  already_AddRefed<Promise>
-  GetPromise();
+  already_AddRefed<Promise> GetPromise();
 
-private:
+ private:
   // If aDirectoryOnly is set, we should ensure that the target is a directory.
   GetDirectoryListingTaskChild(nsIGlobalObject* aGlobalObject,
                                FileSystemBase* aFileSystem,
@@ -42,16 +40,13 @@ private:
                                nsIFile* aTargetPath,
                                const nsAString& aFilters);
 
-  virtual FileSystemParams
-  GetRequestParams(const nsString& aSerializedDOMPath,
-                   ErrorResult& aRv) const override;
+  virtual FileSystemParams GetRequestParams(const nsString& aSerializedDOMPath,
+                                            ErrorResult& aRv) const override;
 
-  virtual void
-  SetSuccessRequestResult(const FileSystemResponseValue& aValue,
-                          ErrorResult& aRv) override;
+  virtual void SetSuccessRequestResult(const FileSystemResponseValue& aValue,
+                                       ErrorResult& aRv) override;
 
-  virtual void
-  HandlerCallback() override;
+  virtual void HandlerCallback() override;
 
   RefPtr<Promise> mPromise;
   RefPtr<Directory> mDirectory;
@@ -63,26 +58,25 @@ private:
 
 class GetDirectoryListingTaskParent final : public FileSystemTaskParentBase
 {
-public:
-  static already_AddRefed<GetDirectoryListingTaskParent>
-  Create(FileSystemBase* aFileSystem,
-         const FileSystemGetDirectoryListingParams& aParam,
-         FileSystemRequestParent* aParent,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<GetDirectoryListingTaskParent> Create(
+      FileSystemBase* aFileSystem,
+      const FileSystemGetDirectoryListingParams& aParam,
+      FileSystemRequestParent* aParent,
+      ErrorResult& aRv);
 
-  nsresult
-  GetTargetPath(nsAString& aPath) const override;
+  nsresult GetTargetPath(nsAString& aPath) const override;
 
-private:
-  GetDirectoryListingTaskParent(FileSystemBase* aFileSystem,
-                                const FileSystemGetDirectoryListingParams& aParam,
-                                FileSystemRequestParent* aParent);
+ private:
+  GetDirectoryListingTaskParent(
+      FileSystemBase* aFileSystem,
+      const FileSystemGetDirectoryListingParams& aParam,
+      FileSystemRequestParent* aParent);
 
-  virtual FileSystemResponseValue
-  GetSuccessRequestResult(ErrorResult& aRv) const override;
+  virtual FileSystemResponseValue GetSuccessRequestResult(
+      ErrorResult& aRv) const override;
 
-  virtual nsresult
-  IOWork() override;
+  virtual nsresult IOWork() override;
 
   nsCOMPtr<nsIFile> mTargetPath;
   nsString mDOMPath;
@@ -92,7 +86,8 @@ private:
   {
     nsString mPath;
 
-    enum {
+    enum
+    {
       eFilePath,
       eDirectoryPath
     } mType;
@@ -101,7 +96,7 @@ private:
   FallibleTArray<FileOrDirectoryPath> mTargetData;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_GetDirectoryListing_h
+#endif  // mozilla_dom_GetDirectoryListing_h

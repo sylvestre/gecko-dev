@@ -44,7 +44,7 @@
 
 class nsWebBrowserInitInfo
 {
-public:
+ public:
   // nsIBaseWindow Stuff
   int32_t x;
   int32_t y;
@@ -57,7 +57,7 @@ public:
 
 class nsWebBrowserListenerState
 {
-public:
+ public:
   bool Equals(nsIWeakReference* aListener, const nsIID& aID)
   {
     return mWeakPtr.get() == aListener && mID.Equals(aID);
@@ -68,9 +68,13 @@ public:
 };
 
 //  {cda5863a-aa9c-411e-be49-ea0d525ab4b5} -
-#define NS_WEBBROWSER_CID \
-  { 0xcda5863a, 0xaa9c, 0x411e, { 0xbe, 0x49, 0xea, 0x0d, 0x52, 0x5a, 0xb4, 0xb5 } }
-
+#define NS_WEBBROWSER_CID                            \
+  {                                                  \
+    0xcda5863a, 0xaa9c, 0x411e,                      \
+    {                                                \
+      0xbe, 0x49, 0xea, 0x0d, 0x52, 0x5a, 0xb4, 0xb5 \
+    }                                                \
+  }
 
 class nsWebBrowser final : public nsIWebBrowser,
                            public nsIWebNavigation,
@@ -89,7 +93,7 @@ class nsWebBrowser final : public nsIWebBrowser,
 {
   friend class nsDocShellTreeOwner;
 
-public:
+ public:
   nsWebBrowser();
 
   NS_DECL_ISUPPORTS
@@ -108,7 +112,7 @@ public:
   NS_DECL_NSIWEBBROWSERSTREAM
   NS_DECL_NSIWEBPROGRESSLISTENER
 
-protected:
+ protected:
   virtual ~nsWebBrowser();
   NS_IMETHOD InternalDestroy();
 
@@ -125,7 +129,7 @@ protected:
   virtual bool PaintWindow(nsIWidget* aWidget,
                            mozilla::LayoutDeviceIntRegion aRegion) override;
 
-protected:
+ protected:
   RefPtr<nsDocShellTreeOwner> mDocShellTreeOwner;
   nsCOMPtr<nsIDocShell> mDocShell;
   nsCOMPtr<nsIInterfaceRequestor> mDocShellAsReq;

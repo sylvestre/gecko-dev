@@ -18,7 +18,7 @@ GetCurrentScreenConfiguration(hal::ScreenConfiguration* aScreenConfiguration)
 {
   nsresult rv;
   nsCOMPtr<nsIScreenManager> screenMgr =
-    do_GetService("@mozilla.org/gfx/screenmanager;1", &rv);
+      do_GetService("@mozilla.org/gfx/screenmanager;1", &rv);
   if (NS_FAILED(rv)) {
     NS_ERROR("Can't find nsIScreenManager!");
     return;
@@ -34,14 +34,14 @@ GetCurrentScreenConfiguration(hal::ScreenConfiguration* aScreenConfiguration)
   screen->GetColorDepth(&colorDepth);
   screen->GetPixelDepth(&pixelDepth);
   orientation = rect.width >= rect.height
-                ? dom::eScreenOrientation_LandscapePrimary
-                : dom::eScreenOrientation_PortraitPrimary;
+                    ? dom::eScreenOrientation_LandscapePrimary
+                    : dom::eScreenOrientation_PortraitPrimary;
 
   *aScreenConfiguration =
       hal::ScreenConfiguration(rect, orientation, 0, colorDepth, pixelDepth);
 }
 
-}
-}
+}  // namespace fallback
+}  // namespace mozilla
 
-#endif // mozilla_fallback_FallbackScreenConfiguration_h
+#endif  // mozilla_fallback_FallbackScreenConfiguration_h

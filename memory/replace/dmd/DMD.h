@@ -70,7 +70,7 @@ struct DMDFuncs
   // and a simple value check becomes a function call.
   static DMDFuncs* Get() { return sSingleton.Get(); }
 
-private:
+ private:
   // Wrapper class keeping a pointer to the DMD functions. It is statically
   // initialized because it needs to be set early enough.
   // Debug builds also check that it's never accessed before the static
@@ -78,13 +78,15 @@ private:
   // static initializer ended up calling into DMD.
   class Singleton
   {
-  public:
+   public:
     Singleton()
-      : mValue(ReplaceMalloc::GetDMDFuncs())
+        : mValue(ReplaceMalloc::GetDMDFuncs())
 #ifdef DEBUG
-      , mInitialized(true)
+          ,
+          mInitialized(true)
 #endif
-    {}
+    {
+    }
 
     DMDFuncs* Get()
     {
@@ -92,7 +94,7 @@ private:
       return mValue;
     }
 
-  private:
+   private:
     DMDFuncs* mValue;
 #ifdef DEBUG
     bool mInitialized;
@@ -101,7 +103,7 @@ private:
 
   // This singleton pointer must be defined on the program side. In Gecko,
   // this is done in xpcom/base/nsMemoryInfoDumper.cpp.
-  static /* DMDFuncs:: */Singleton sSingleton;
+  static /* DMDFuncs:: */ Singleton sSingleton;
 #endif
 };
 
@@ -250,7 +252,7 @@ ClearReports()
 // double-conversion.h, which ends up breaking various things built with
 // -Werror for various reasons.
 //
-template <typename JSONWriteFunc>
+template<typename JSONWriteFunc>
 inline void
 Analyze(UniquePtr<JSONWriteFunc> aWriteFunc)
 {
@@ -305,7 +307,7 @@ ResetEverything(const char* aOptions)
 }
 #endif
 
-} // namespace dmd
-} // namespace mozilla
+}  // namespace dmd
+}  // namespace mozilla
 
 #endif /* DMD_h___ */

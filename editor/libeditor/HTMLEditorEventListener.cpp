@@ -83,7 +83,7 @@ HTMLEditorEventListener::MouseDown(nsIDOMMouseEvent* aMouseEvent)
   }
 
   WidgetMouseEvent* mousedownEvent =
-    aMouseEvent->AsEvent()->WidgetEventPtr()->AsMouseEvent();
+      aMouseEvent->AsEvent()->WidgetEventPtr()->AsMouseEvent();
 
   HTMLEditor* htmlEditor = mEditorBase->AsHTMLEditor();
   MOZ_ASSERT(htmlEditor);
@@ -109,7 +109,8 @@ HTMLEditorEventListener::MouseDown(nsIDOMMouseEvent* aMouseEvent)
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIDOMEventTarget> target;
-  rv = aMouseEvent->AsEvent()->GetExplicitOriginalTarget(getter_AddRefs(target));
+  rv =
+      aMouseEvent->AsEvent()->GetExplicitOriginalTarget(getter_AddRefs(target));
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(target, NS_ERROR_NULL_POINTER);
   nsCOMPtr<nsIDOMElement> element = do_QueryInterface(target);
@@ -158,8 +159,7 @@ HTMLEditorEventListener::MouseDown(nsIDOMMouseEvent* aMouseEvent)
           // Get enclosing link if in text so we can select the link
           nsCOMPtr<nsIDOMElement> linkElement;
           rv = htmlEditor->GetElementOrParentByTagName(
-                             NS_LITERAL_STRING("href"), node,
-                             getter_AddRefs(linkElement));
+              NS_LITERAL_STRING("href"), node, getter_AddRefs(linkElement));
           NS_ENSURE_SUCCESS(rv, rv);
           if (linkElement) {
             element = linkElement;
@@ -225,4 +225,4 @@ HTMLEditorEventListener::MouseClick(nsIDOMMouseEvent* aMouseEvent)
   return EditorEventListener::MouseClick(aMouseEvent);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

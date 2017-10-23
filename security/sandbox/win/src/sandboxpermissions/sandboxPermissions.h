@@ -13,7 +13,7 @@
 namespace mozilla {
 
 namespace sandboxing {
-  class PermissionsService;
+class PermissionsService;
 }
 
 /*
@@ -22,7 +22,7 @@ namespace sandboxing {
  */
 class SandboxPermissions
 {
-public:
+ public:
   /*
    * Type of callback function that the sandbox uses to report file
    * accesses that were denied.
@@ -40,7 +40,8 @@ public:
   /*
    * Allow future access to aFilename by the process with the given ID.
    */
-  void GrantFileAccess(uint32_t aProcessId, const wchar_t* aFilename,
+  void GrantFileAccess(uint32_t aProcessId,
+                       const wchar_t* aFilename,
                        bool aPermitWrite);
 
   /*
@@ -48,10 +49,10 @@ public:
    */
   void RemovePermissionsForProcess(uint32_t aProcessId);
 
-private:
+ private:
   static sandboxing::PermissionsService* sPermissionsService;
 };
 
-} // mozilla
+}  // namespace mozilla
 
 #endif  // mozilla_sandboxing_sandboxPermissions_h

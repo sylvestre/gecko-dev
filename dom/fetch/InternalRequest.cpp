@@ -21,11 +21,14 @@ namespace mozilla {
 namespace dom {
 // The global is used to extract the principal.
 already_AddRefed<InternalRequest>
-InternalRequest::GetRequestConstructorCopy(nsIGlobalObject* aGlobal, ErrorResult& aRv) const
+InternalRequest::GetRequestConstructorCopy(nsIGlobalObject* aGlobal,
+                                           ErrorResult& aRv) const
 {
-  MOZ_RELEASE_ASSERT(!mURLList.IsEmpty(), "Internal Request's urlList should not be empty when copied from constructor.");
-  RefPtr<InternalRequest> copy = new InternalRequest(mURLList.LastElement(),
-                                                     mFragment);
+  MOZ_RELEASE_ASSERT(!mURLList.IsEmpty(),
+                     "Internal Request's urlList should not be empty when "
+                     "copied from constructor.");
+  RefPtr<InternalRequest> copy =
+      new InternalRequest(mURLList.LastElement(), mFragment);
   copy->SetMethod(mMethod);
   copy->mHeaders = new InternalHeaders(*mHeaders);
   copy->SetUnsafeRequest();
@@ -42,9 +45,9 @@ InternalRequest::GetRequestConstructorCopy(nsIGlobalObject* aGlobal, ErrorResult
   copy->mEnvironmentReferrerPolicy = mEnvironmentReferrerPolicy;
   copy->mIntegrity = mIntegrity;
 
-  copy->mContentPolicyType = mContentPolicyTypeOverridden ?
-                             mContentPolicyType :
-                             nsIContentPolicy::TYPE_FETCH;
+  copy->mContentPolicyType = mContentPolicyTypeOverridden
+                                 ? mContentPolicyType
+                                 : nsIContentPolicy::TYPE_FETCH;
   copy->mMode = mMode;
   copy->mCredentialsMode = mCredentialsMode;
   copy->mCacheMode = mCacheMode;
@@ -66,9 +69,11 @@ InternalRequest::Clone()
   nsCOMPtr<nsIInputStream> clonedBody;
   nsCOMPtr<nsIInputStream> replacementBody;
 
-  nsresult rv = NS_CloneInputStream(mBodyStream, getter_AddRefs(clonedBody),
-                                    getter_AddRefs(replacementBody));
-  if (NS_WARN_IF(NS_FAILED(rv))) { return nullptr; }
+  nsresult rv = NS_CloneInputStream(
+      mBodyStream, getter_AddRefs(clonedBody), getter_AddRefs(replacementBody));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return nullptr;
+  }
 
   clone->mBodyStream.swap(clonedBody);
   if (replacementBody) {
@@ -78,30 +83,31 @@ InternalRequest::Clone()
 }
 InternalRequest::InternalRequest(const nsACString& aURL,
                                  const nsACString& aFragment)
-  : mMethod("GET")
-  , mHeaders(new InternalHeaders(HeadersGuardEnum::None))
-  , mBodyLength(InternalResponse::UNKNOWN_BODY_SIZE)
-  , mContentPolicyType(nsIContentPolicy::TYPE_FETCH)
-  , mReferrer(NS_LITERAL_STRING(kFETCH_CLIENT_REFERRER_STR))
-  , mReferrerPolicy(ReferrerPolicy::_empty)
-  , mEnvironmentReferrerPolicy(net::RP_Unset)
-  , mMode(RequestMode::No_cors)
-  , mCredentialsMode(RequestCredentials::Omit)
-  , mResponseTainting(LoadTainting::Basic)
-  , mCacheMode(RequestCache::Default)
-  , mRedirectMode(RequestRedirect::Follow)
-  , mAuthenticationFlag(false)
-  , mForceOriginHeader(false)
-  , mPreserveContentCodings(false)
-    // FIXME(nsm): This should be false by default, but will lead to the
-    // algorithm never loading data: URLs right now. See Bug 1018872 about
-    // how certain contexts will override it to set it to true. Fetch
-    // specification does not handle this yet.
-  , mSameOriginDataURL(true)
-  , mSkipServiceWorker(false)
-  , mSynchronous(false)
-  , mUnsafeRequest(false)
-  , mUseURLCredentials(false)
+    : mMethod("GET"),
+      mHeaders(new InternalHeaders(HeadersGuardEnum::None)),
+      mBodyLength(InternalResponse::UNKNOWN_BODY_SIZE),
+      mContentPolicyType(nsIContentPolicy::TYPE_FETCH),
+      mReferrer(NS_LITERAL_STRING(kFETCH_CLIENT_REFERRER_STR)),
+      mReferrerPolicy(ReferrerPolicy::_empty),
+      mEnvironmentReferrerPolicy(net::RP_Unset),
+      mMode(RequestMode::No_cors),
+      mCredentialsMode(RequestCredentials::Omit),
+      mResponseTainting(LoadTainting::Basic),
+      mCacheMode(RequestCache::Default),
+      mRedirectMode(RequestRedirect::Follow),
+      mAuthenticationFlag(false),
+      mForceOriginHeader(false),
+      mPreserveContentCodings(false)
+      // FIXME(nsm): This should be false by default, but will lead to the
+      // algorithm never loading data: URLs right now. See Bug 1018872 about
+      // how certain contexts will override it to set it to true. Fetch
+      // specification does not handle this yet.
+      ,
+      mSameOriginDataURL(true),
+      mSkipServiceWorker(false),
+      mSynchronous(false),
+      mUnsafeRequest(false),
+      mUseURLCredentials(false)
 {
   MOZ_ASSERT(!aURL.IsEmpty());
   AddURL(aURL, aFragment);
@@ -118,80 +124,79 @@ InternalRequest::InternalRequest(const nsACString& aURL,
                                  ReferrerPolicy aReferrerPolicy,
                                  nsContentPolicyType aContentPolicyType,
                                  const nsAString& aIntegrity)
-  : mMethod(aMethod)
-  , mHeaders(aHeaders)
-  , mContentPolicyType(aContentPolicyType)
-  , mReferrer(aReferrer)
-  , mReferrerPolicy(aReferrerPolicy)
-  , mEnvironmentReferrerPolicy(net::RP_Unset)
-  , mMode(aMode)
-  , mCredentialsMode(aRequestCredentials)
-  , mResponseTainting(LoadTainting::Basic)
-  , mCacheMode(aCacheMode)
-  , mRedirectMode(aRequestRedirect)
-  , mIntegrity(aIntegrity)
-  , mAuthenticationFlag(false)
-  , mForceOriginHeader(false)
-  , mPreserveContentCodings(false)
-    // FIXME See the above comment in the default constructor.
-  , mSameOriginDataURL(true)
-  , mSkipServiceWorker(false)
-  , mSynchronous(false)
-  , mUnsafeRequest(false)
-  , mUseURLCredentials(false)
+    : mMethod(aMethod),
+      mHeaders(aHeaders),
+      mContentPolicyType(aContentPolicyType),
+      mReferrer(aReferrer),
+      mReferrerPolicy(aReferrerPolicy),
+      mEnvironmentReferrerPolicy(net::RP_Unset),
+      mMode(aMode),
+      mCredentialsMode(aRequestCredentials),
+      mResponseTainting(LoadTainting::Basic),
+      mCacheMode(aCacheMode),
+      mRedirectMode(aRequestRedirect),
+      mIntegrity(aIntegrity),
+      mAuthenticationFlag(false),
+      mForceOriginHeader(false),
+      mPreserveContentCodings(false)
+      // FIXME See the above comment in the default constructor.
+      ,
+      mSameOriginDataURL(true),
+      mSkipServiceWorker(false),
+      mSynchronous(false),
+      mUnsafeRequest(false),
+      mUseURLCredentials(false)
 {
   MOZ_ASSERT(!aURL.IsEmpty());
   AddURL(aURL, aFragment);
 }
 InternalRequest::InternalRequest(const InternalRequest& aOther)
-  : mMethod(aOther.mMethod)
-  , mURLList(aOther.mURLList)
-  , mHeaders(new InternalHeaders(*aOther.mHeaders))
-  , mBodyLength(InternalResponse::UNKNOWN_BODY_SIZE)
-  , mContentPolicyType(aOther.mContentPolicyType)
-  , mReferrer(aOther.mReferrer)
-  , mReferrerPolicy(aOther.mReferrerPolicy)
-  , mEnvironmentReferrerPolicy(aOther.mEnvironmentReferrerPolicy)
-  , mMode(aOther.mMode)
-  , mCredentialsMode(aOther.mCredentialsMode)
-  , mResponseTainting(aOther.mResponseTainting)
-  , mCacheMode(aOther.mCacheMode)
-  , mRedirectMode(aOther.mRedirectMode)
-  , mIntegrity(aOther.mIntegrity)
-  , mFragment(aOther.mFragment)
-  , mAuthenticationFlag(aOther.mAuthenticationFlag)
-  , mForceOriginHeader(aOther.mForceOriginHeader)
-  , mPreserveContentCodings(aOther.mPreserveContentCodings)
-  , mSameOriginDataURL(aOther.mSameOriginDataURL)
-  , mSkipServiceWorker(aOther.mSkipServiceWorker)
-  , mSynchronous(aOther.mSynchronous)
-  , mUnsafeRequest(aOther.mUnsafeRequest)
-  , mUseURLCredentials(aOther.mUseURLCredentials)
-  , mCreatedByFetchEvent(aOther.mCreatedByFetchEvent)
-  , mContentPolicyTypeOverridden(aOther.mContentPolicyTypeOverridden)
+    : mMethod(aOther.mMethod),
+      mURLList(aOther.mURLList),
+      mHeaders(new InternalHeaders(*aOther.mHeaders)),
+      mBodyLength(InternalResponse::UNKNOWN_BODY_SIZE),
+      mContentPolicyType(aOther.mContentPolicyType),
+      mReferrer(aOther.mReferrer),
+      mReferrerPolicy(aOther.mReferrerPolicy),
+      mEnvironmentReferrerPolicy(aOther.mEnvironmentReferrerPolicy),
+      mMode(aOther.mMode),
+      mCredentialsMode(aOther.mCredentialsMode),
+      mResponseTainting(aOther.mResponseTainting),
+      mCacheMode(aOther.mCacheMode),
+      mRedirectMode(aOther.mRedirectMode),
+      mIntegrity(aOther.mIntegrity),
+      mFragment(aOther.mFragment),
+      mAuthenticationFlag(aOther.mAuthenticationFlag),
+      mForceOriginHeader(aOther.mForceOriginHeader),
+      mPreserveContentCodings(aOther.mPreserveContentCodings),
+      mSameOriginDataURL(aOther.mSameOriginDataURL),
+      mSkipServiceWorker(aOther.mSkipServiceWorker),
+      mSynchronous(aOther.mSynchronous),
+      mUnsafeRequest(aOther.mUnsafeRequest),
+      mUseURLCredentials(aOther.mUseURLCredentials),
+      mCreatedByFetchEvent(aOther.mCreatedByFetchEvent),
+      mContentPolicyTypeOverridden(aOther.mContentPolicyTypeOverridden)
 {
   // NOTE: does not copy body stream... use the fallible Clone() for that
 }
 
 InternalRequest::InternalRequest(const IPCInternalRequest& aIPCRequest)
-  : mMethod(aIPCRequest.method())
-  , mURLList(aIPCRequest.urls())
-  , mHeaders(new InternalHeaders(aIPCRequest.headers(),
-                                 aIPCRequest.headersGuard()))
-  , mContentPolicyType(aIPCRequest.contentPolicyType())
-  , mReferrer(aIPCRequest.referrer())
-  , mReferrerPolicy(aIPCRequest.referrerPolicy())
-  , mMode(aIPCRequest.mode())
-  , mCredentialsMode(aIPCRequest.credentials())
-  , mCacheMode(aIPCRequest.requestCache())
-  , mRedirectMode(aIPCRequest.requestRedirect())
+    : mMethod(aIPCRequest.method()),
+      mURLList(aIPCRequest.urls()),
+      mHeaders(new InternalHeaders(aIPCRequest.headers(),
+                                   aIPCRequest.headersGuard())),
+      mContentPolicyType(aIPCRequest.contentPolicyType()),
+      mReferrer(aIPCRequest.referrer()),
+      mReferrerPolicy(aIPCRequest.referrerPolicy()),
+      mMode(aIPCRequest.mode()),
+      mCredentialsMode(aIPCRequest.credentials()),
+      mCacheMode(aIPCRequest.requestCache()),
+      mRedirectMode(aIPCRequest.requestRedirect())
 {
   MOZ_ASSERT(!mURLList.IsEmpty());
 }
 
-InternalRequest::~InternalRequest()
-{
-}
+InternalRequest::~InternalRequest() {}
 
 void
 InternalRequest::ToIPC(IPCInternalRequest* aIPCRequest)
@@ -219,7 +224,8 @@ InternalRequest::SetContentPolicyType(nsContentPolicyType aContentPolicyType)
 }
 
 void
-InternalRequest::OverrideContentPolicyType(nsContentPolicyType aContentPolicyType)
+InternalRequest::OverrideContentPolicyType(
+    nsContentPolicyType aContentPolicyType)
 {
   SetContentPolicyType(aContentPolicyType);
   mContentPolicyTypeOverridden = true;
@@ -227,113 +233,115 @@ InternalRequest::OverrideContentPolicyType(nsContentPolicyType aContentPolicyTyp
 
 /* static */
 RequestContext
-InternalRequest::MapContentPolicyTypeToRequestContext(nsContentPolicyType aContentPolicyType)
+InternalRequest::MapContentPolicyTypeToRequestContext(
+    nsContentPolicyType aContentPolicyType)
 {
   RequestContext context = RequestContext::Internal;
   switch (aContentPolicyType) {
-  case nsIContentPolicy::TYPE_OTHER:
-    context = RequestContext::Internal;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_SCRIPT:
-  case nsIContentPolicy::TYPE_INTERNAL_SCRIPT_PRELOAD:
-  case nsIContentPolicy::TYPE_INTERNAL_SERVICE_WORKER:
-  case nsIContentPolicy::TYPE_INTERNAL_WORKER_IMPORT_SCRIPTS:
-    context = RequestContext::Script;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_WORKER:
-    context = RequestContext::Worker;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_SHARED_WORKER:
-    context = RequestContext::Sharedworker;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_IMAGE:
-  case nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD:
-  case nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON:
-    context = RequestContext::Image;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_STYLESHEET:
-  case nsIContentPolicy::TYPE_INTERNAL_STYLESHEET_PRELOAD:
-    context = RequestContext::Style;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_OBJECT:
-    context = RequestContext::Object;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_EMBED:
-    context = RequestContext::Embed;
-    break;
-  case nsIContentPolicy::TYPE_DOCUMENT:
-    context = RequestContext::Internal;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_IFRAME:
-    context = RequestContext::Iframe;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_FRAME:
-    context = RequestContext::Frame;
-    break;
-  case nsIContentPolicy::TYPE_REFRESH:
-    context = RequestContext::Internal;
-    break;
-  case nsIContentPolicy::TYPE_XBL:
-    context = RequestContext::Internal;
-    break;
-  case nsIContentPolicy::TYPE_PING:
-    context = RequestContext::Ping;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_XMLHTTPREQUEST:
-    context = RequestContext::Xmlhttprequest;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_EVENTSOURCE:
-    context = RequestContext::Eventsource;
-    break;
-  case nsIContentPolicy::TYPE_OBJECT_SUBREQUEST:
-    context = RequestContext::Plugin;
-    break;
-  case nsIContentPolicy::TYPE_DTD:
-    context = RequestContext::Internal;
-    break;
-  case nsIContentPolicy::TYPE_FONT:
-    context = RequestContext::Font;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_AUDIO:
-    context = RequestContext::Audio;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_VIDEO:
-    context = RequestContext::Video;
-    break;
-  case nsIContentPolicy::TYPE_INTERNAL_TRACK:
-    context = RequestContext::Track;
-    break;
-  case nsIContentPolicy::TYPE_WEBSOCKET:
-    context = RequestContext::Internal;
-    break;
-  case nsIContentPolicy::TYPE_CSP_REPORT:
-    context = RequestContext::Cspreport;
-    break;
-  case nsIContentPolicy::TYPE_XSLT:
-    context = RequestContext::Xslt;
-    break;
-  case nsIContentPolicy::TYPE_BEACON:
-    context = RequestContext::Beacon;
-    break;
-  case nsIContentPolicy::TYPE_FETCH:
-    context = RequestContext::Fetch;
-    break;
-  case nsIContentPolicy::TYPE_IMAGESET:
-    context = RequestContext::Imageset;
-    break;
-  case nsIContentPolicy::TYPE_WEB_MANIFEST:
-    context = RequestContext::Manifest;
-    break;
-  default:
-    MOZ_ASSERT(false, "Unhandled nsContentPolicyType value");
-    break;
+    case nsIContentPolicy::TYPE_OTHER:
+      context = RequestContext::Internal;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_SCRIPT:
+    case nsIContentPolicy::TYPE_INTERNAL_SCRIPT_PRELOAD:
+    case nsIContentPolicy::TYPE_INTERNAL_SERVICE_WORKER:
+    case nsIContentPolicy::TYPE_INTERNAL_WORKER_IMPORT_SCRIPTS:
+      context = RequestContext::Script;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_WORKER:
+      context = RequestContext::Worker;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_SHARED_WORKER:
+      context = RequestContext::Sharedworker;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_IMAGE:
+    case nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD:
+    case nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON:
+      context = RequestContext::Image;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_STYLESHEET:
+    case nsIContentPolicy::TYPE_INTERNAL_STYLESHEET_PRELOAD:
+      context = RequestContext::Style;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_OBJECT:
+      context = RequestContext::Object;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_EMBED:
+      context = RequestContext::Embed;
+      break;
+    case nsIContentPolicy::TYPE_DOCUMENT:
+      context = RequestContext::Internal;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_IFRAME:
+      context = RequestContext::Iframe;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_FRAME:
+      context = RequestContext::Frame;
+      break;
+    case nsIContentPolicy::TYPE_REFRESH:
+      context = RequestContext::Internal;
+      break;
+    case nsIContentPolicy::TYPE_XBL:
+      context = RequestContext::Internal;
+      break;
+    case nsIContentPolicy::TYPE_PING:
+      context = RequestContext::Ping;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_XMLHTTPREQUEST:
+      context = RequestContext::Xmlhttprequest;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_EVENTSOURCE:
+      context = RequestContext::Eventsource;
+      break;
+    case nsIContentPolicy::TYPE_OBJECT_SUBREQUEST:
+      context = RequestContext::Plugin;
+      break;
+    case nsIContentPolicy::TYPE_DTD:
+      context = RequestContext::Internal;
+      break;
+    case nsIContentPolicy::TYPE_FONT:
+      context = RequestContext::Font;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_AUDIO:
+      context = RequestContext::Audio;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_VIDEO:
+      context = RequestContext::Video;
+      break;
+    case nsIContentPolicy::TYPE_INTERNAL_TRACK:
+      context = RequestContext::Track;
+      break;
+    case nsIContentPolicy::TYPE_WEBSOCKET:
+      context = RequestContext::Internal;
+      break;
+    case nsIContentPolicy::TYPE_CSP_REPORT:
+      context = RequestContext::Cspreport;
+      break;
+    case nsIContentPolicy::TYPE_XSLT:
+      context = RequestContext::Xslt;
+      break;
+    case nsIContentPolicy::TYPE_BEACON:
+      context = RequestContext::Beacon;
+      break;
+    case nsIContentPolicy::TYPE_FETCH:
+      context = RequestContext::Fetch;
+      break;
+    case nsIContentPolicy::TYPE_IMAGESET:
+      context = RequestContext::Imageset;
+      break;
+    case nsIContentPolicy::TYPE_WEB_MANIFEST:
+      context = RequestContext::Manifest;
+      break;
+    default:
+      MOZ_ASSERT(false, "Unhandled nsContentPolicyType value");
+      break;
   }
   return context;
 }
 
 // static
 bool
-InternalRequest::IsNavigationContentPolicy(nsContentPolicyType aContentPolicyType)
+InternalRequest::IsNavigationContentPolicy(
+    nsContentPolicyType aContentPolicyType)
 {
   // https://fetch.spec.whatwg.org/#navigation-request-context
   //
@@ -409,7 +417,7 @@ InternalRequest::MapChannelToRequestMode(nsIChannel* aChannel)
 
   uint32_t securityMode = loadInfo->GetSecurityMode();
 
-  switch(securityMode) {
+  switch (securityMode) {
     case nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_INHERITS:
     case nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_IS_BLOCKED:
       return RequestMode::Same_origin;
@@ -472,10 +480,11 @@ InternalRequest::MaybeSkipCacheIfPerformingRevalidation()
 }
 
 void
-InternalRequest::SetPrincipalInfo(UniquePtr<mozilla::ipc::PrincipalInfo> aPrincipalInfo)
+InternalRequest::SetPrincipalInfo(
+    UniquePtr<mozilla::ipc::PrincipalInfo> aPrincipalInfo)
 {
   mPrincipalInfo = Move(aPrincipalInfo);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

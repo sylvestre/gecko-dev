@@ -14,17 +14,17 @@ namespace jsdebugger {
 
 class JSDebugger final : public IJSDebugger
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_IJSDEBUGGER
 
   JSDebugger();
 
-private:
+ private:
   ~JSDebugger();
 };
 
-} // namespace jsdebugger
-} // namespace mozilla
+}  // namespace jsdebugger
+}  // namespace mozilla
 
 #endif /* JSDebugger_h */

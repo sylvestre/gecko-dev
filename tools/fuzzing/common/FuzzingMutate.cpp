@@ -32,5 +32,5 @@ FuzzingMutate::ChangeByte(uint8_t* aData, size_t aLength)
   aData[offset] = RandomInteger<unsigned char>();
 }
 
-} // namespace fuzzing
-} // namespace mozilla
+}  // namespace fuzzing
+}  // namespace mozilla

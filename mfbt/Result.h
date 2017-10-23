@@ -23,29 +23,34 @@ namespace mozilla {
  * For example, if you declare another empty struct `struct OutOfMemory {};`,
  * then `Result<Ok, OutOfMemory>` represents either success or OOM.
  */
-struct Ok {};
+struct Ok
+{
+};
 
-template <typename E> class GenericErrorResult;
-template <typename V, typename E> class Result;
+template<typename E>
+class GenericErrorResult;
+template<typename V, typename E>
+class Result;
 
 namespace detail {
 
-enum class PackingStrategy {
+enum class PackingStrategy
+{
   Variant,
   NullIsOk,
   LowBitTagIsError,
   PackedVariant,
 };
 
-template <typename V, typename E, PackingStrategy Strategy>
+template<typename V, typename E, PackingStrategy Strategy>
 class ResultImplementation;
 
-template <typename V, typename E>
+template<typename V, typename E>
 class ResultImplementation<V, E, PackingStrategy::Variant>
 {
   mozilla::Variant<V, E> mStorage;
 
-public:
+ public:
   explicit ResultImplementation(V aValue) : mStorage(aValue) {}
   explicit ResultImplementation(E aErrorValue) : mStorage(aErrorValue) {}
 
@@ -62,12 +67,12 @@ public:
  * mozilla::Variant doesn't like storing a reference. This is a specialization
  * to store E as pointer if it's a reference.
  */
-template <typename V, typename E>
+template<typename V, typename E>
 class ResultImplementation<V, E&, PackingStrategy::Variant>
 {
   mozilla::Variant<V, E*> mStorage;
 
-public:
+ public:
   explicit ResultImplementation(V aValue) : mStorage(aValue) {}
   explicit ResultImplementation(E& aErrorValue) : mStorage(&aErrorValue) {}
 
@@ -80,12 +85,12 @@ public:
  * Specialization for when the success type is Ok (or another empty class) and
  * the error type is a reference.
  */
-template <typename V, typename E>
+template<typename V, typename E>
 class ResultImplementation<V, E&, PackingStrategy::NullIsOk>
 {
   E* mErrorValue;
 
-public:
+ public:
   explicit ResultImplementation(V) : mErrorValue(nullptr) {}
   explicit ResultImplementation(E& aErrorValue) : mErrorValue(&aErrorValue) {}
 
@@ -100,14 +105,14 @@ public:
  * the error type is a value type which can never have the value 0 (as
  * determined by UnusedZero<>).
  */
-template <typename V, typename E>
+template<typename V, typename E>
 class ResultImplementation<V, E, PackingStrategy::NullIsOk>
 {
   static constexpr E NullValue = E(0);
 
   E mErrorValue;
 
-public:
+ public:
   explicit ResultImplementation(V) : mErrorValue(NullValue) {}
   explicit ResultImplementation(E aErrorValue) : mErrorValue(aErrorValue)
   {
@@ -120,25 +125,24 @@ public:
   E unwrapErr() const { return mErrorValue; }
 };
 
-
 /**
  * Specialization for when alignment permits using the least significant bit as
  * a tag bit.
  */
-template <typename V, typename E>
+template<typename V, typename E>
 class ResultImplementation<V*, E&, PackingStrategy::LowBitTagIsError>
 {
   uintptr_t mBits;
 
-public:
+ public:
   explicit ResultImplementation(V* aValue)
-    : mBits(reinterpret_cast<uintptr_t>(aValue))
+      : mBits(reinterpret_cast<uintptr_t>(aValue))
   {
     MOZ_ASSERT((uintptr_t(aValue) % MOZ_ALIGNOF(V)) == 0,
                "Result value pointers must not be misaligned");
   }
   explicit ResultImplementation(E& aErrorValue)
-    : mBits(reinterpret_cast<uintptr_t>(&aErrorValue) | 1)
+      : mBits(reinterpret_cast<uintptr_t>(&aErrorValue) | 1)
   {
     MOZ_ASSERT((uintptr_t(&aErrorValue) % MOZ_ALIGNOF(E)) == 0,
                "Result errors must not be misaligned");
@@ -154,19 +158,22 @@ public:
 template<typename V, typename E>
 struct IsPackableVariant
 {
-  struct VEbool {
-      V v;
-      E e;
-      bool ok;
+  struct VEbool
+  {
+    V v;
+    E e;
+    bool ok;
   };
-  struct EVbool {
-      E e;
-      V v;
-      bool ok;
+  struct EVbool
+  {
+    E e;
+    V v;
+    bool ok;
   };
 
   using Impl = typename Conditional<sizeof(VEbool) <= sizeof(EVbool),
-                                    VEbool, EVbool>::Type;
+                                    VEbool,
+                                    EVbool>::Type;
 
   static const bool value = sizeof(Impl) <= sizeof(uintptr_t);
 };
@@ -175,13 +182,13 @@ struct IsPackableVariant
  * Specialization for when both type are not using all the bytes, in order to
  * use one byte as a tag.
  */
-template <typename V, typename E>
+template<typename V, typename E>
 class ResultImplementation<V, E, PackingStrategy::PackedVariant>
 {
   using Impl = typename IsPackableVariant<V, E>::Impl;
   Impl data;
 
-public:
+ public:
   explicit ResultImplementation(V aValue)
   {
     data.v = aValue;
@@ -219,51 +226,63 @@ struct UnusedZero<T&>
 // A bit of help figuring out which of the above specializations to use.
 //
 // We begin by safely assuming types don't have a spare bit.
-template <typename T> struct HasFreeLSB { static const bool value = false; };
+template<typename T>
+struct HasFreeLSB
+{
+  static const bool value = false;
+};
 
 // The lowest bit of a properly-aligned pointer is always zero if the pointee
 // type is greater than byte-aligned. That bit is free to use if it's masked
 // out of such pointers before they're dereferenced.
-template <typename T> struct HasFreeLSB<T*> {
+template<typename T>
+struct HasFreeLSB<T*>
+{
   static const bool value = (MOZ_ALIGNOF(T) & 1) == 0;
 };
 
 // We store references as pointers, so they have a free bit if a pointer would
 // have one.
-template <typename T> struct HasFreeLSB<T&> {
+template<typename T>
+struct HasFreeLSB<T&>
+{
   static const bool value = HasFreeLSB<T*>::value;
 };
 
 // Select one of the previous result implementation based on the properties of
 // the V and E types.
-template <typename V, typename E>
+template<typename V, typename E>
 struct SelectResultImpl
 {
   static const PackingStrategy value =
       (IsEmpty<V>::value && UnusedZero<E>::value)
-    ? PackingStrategy::NullIsOk
-    : (detail::HasFreeLSB<V>::value && detail::HasFreeLSB<E>::value)
-    ? PackingStrategy::LowBitTagIsError
-    : (IsDefaultConstructible<V>::value && IsDefaultConstructible<E>::value &&
-       IsPackableVariant<V, E>::value)
-    ? PackingStrategy::PackedVariant
-    : PackingStrategy::Variant;
+          ? PackingStrategy::NullIsOk
+          : (detail::HasFreeLSB<V>::value && detail::HasFreeLSB<E>::value)
+                ? PackingStrategy::LowBitTagIsError
+                : (IsDefaultConstructible<V>::value &&
+                   IsDefaultConstructible<E>::value &&
+                   IsPackableVariant<V, E>::value)
+                      ? PackingStrategy::PackedVariant
+                      : PackingStrategy::Variant;
 
   using Type = detail::ResultImplementation<V, E, value>;
 };
 
-template <typename T>
-struct IsResult : FalseType { };
+template<typename T>
+struct IsResult : FalseType
+{
+};
 
-template <typename V, typename E>
-struct IsResult<Result<V, E>> : TrueType { };
+template<typename V, typename E>
+struct IsResult<Result<V, E>> : TrueType
+{
+};
 
-} // namespace detail
+}  // namespace detail
 
-template <typename V, typename E>
+template<typename V, typename E>
 auto
-ToResult(Result<V, E>&& aValue)
-  -> decltype(Forward<Result<V, E>>(aValue))
+ToResult(Result<V, E>&& aValue) -> decltype(Forward<Result<V, E>>(aValue))
 {
   return Forward<Result<V, E>>(aValue);
 }
@@ -294,14 +313,14 @@ ToResult(Result<V, E>&& aValue)
  * What screwups? See <https://bugzilla.mozilla.org/show_bug.cgi?id=912928> for
  * a partial list.
  */
-template <typename V, typename E>
+template<typename V, typename E>
 class MOZ_MUST_USE_TYPE Result final
 {
   using Impl = typename detail::SelectResultImpl<V, E>::Type;
 
   Impl mImpl;
 
-public:
+ public:
   /**
    * Create a success result.
    */
@@ -316,9 +335,9 @@ public:
    * Implementation detail of MOZ_TRY().
    * Create an error result from another error result.
    */
-  template <typename E2>
+  template<typename E2>
   MOZ_IMPLICIT Result(const GenericErrorResult<E2>& aErrorResult)
-    : mImpl(aErrorResult.mErrorValue)
+      : mImpl(aErrorResult.mErrorValue)
   {
     static_assert(mozilla::IsConvertible<E2, E>::value,
                   "E2 must be convertible to E");
@@ -335,13 +354,15 @@ public:
   bool isErr() const { return !mImpl.isOk(); }
 
   /** Get the success value from this Result, which must be a success result. */
-  V unwrap() const {
+  V unwrap() const
+  {
     MOZ_ASSERT(isOk());
     return mImpl.unwrap();
   }
 
   /** Get the error value from this Result, which must be an error result. */
-  E unwrapErr() const {
+  E unwrapErr() const
+  {
     MOZ_ASSERT(isErr());
     return mImpl.unwrapErr();
   }
@@ -372,9 +393,10 @@ public:
    *     MOZ_ASSERT(res2.unwrapErr() == 5);
    */
   template<typename F>
-  auto map(F f) const -> Result<decltype(f(*((V*) nullptr))), E> {
-      using RetResult = Result<decltype(f(*((V*) nullptr))), E>;
-      return isOk() ? RetResult(f(unwrap())) : RetResult(unwrapErr());
+  auto map(F f) const -> Result<decltype(f(*((V*)nullptr))), E>
+  {
+    using RetResult = Result<decltype(f(*((V*)nullptr))), E>;
+    return isOk() ? RetResult(f(unwrap())) : RetResult(unwrapErr());
   }
 
   /**
@@ -405,14 +427,12 @@ public:
    *     MOZ_ASSERT(res2.isErr());
    *     MOZ_ASSERT(res.unwrapErr() == res2.unwrapErr());
    */
-  template<
-      typename F,
-      typename = typename EnableIf<
-          detail::IsResult<decltype((*((F*) nullptr))(*((V*) nullptr)))>::value
-      >::Type
-  >
-  auto andThen(F f) const -> decltype(f(*((V*) nullptr))) {
-      return isOk() ? f(unwrap()) : GenericErrorResult<E>(unwrapErr());
+  template<typename F,
+           typename = typename EnableIf<detail::IsResult<
+               decltype((*((F*)nullptr))(*((V*)nullptr)))>::value>::Type>
+  auto andThen(F f) const -> decltype(f(*((V*)nullptr)))
+  {
+    return isOk() ? f(unwrap()) : GenericErrorResult<E>(unwrapErr());
   }
 };
 
@@ -422,25 +442,26 @@ public:
  * an error--functions designed to build and populate error objects. It's also
  * useful in error-handling macros; see MOZ_TRY for an example.
  */
-template <typename E>
+template<typename E>
 class MOZ_MUST_USE_TYPE GenericErrorResult
 {
   E mErrorValue;
 
-  template<typename V, typename E2> friend class Result;
+  template<typename V, typename E2>
+  friend class Result;
 
-public:
+ public:
   explicit GenericErrorResult(E aErrorValue) : mErrorValue(aErrorValue) {}
 };
 
-template <typename E>
+template<typename E>
 inline GenericErrorResult<E>
 Err(E&& aErrorValue)
 {
   return GenericErrorResult<E>(aErrorValue);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * MOZ_TRY(expr) is the C++ equivalent of Rust's `try!(expr);`. First, it
@@ -448,12 +469,12 @@ Err(E&& aErrorValue)
  * discards the result altogether. On error, it immediately returns an error
  * Result from the enclosing function.
  */
-#define MOZ_TRY(expr) \
-  do { \
-    auto mozTryTempResult_ = ::mozilla::ToResult(expr); \
-    if (mozTryTempResult_.isErr()) { \
+#define MOZ_TRY(expr)                                       \
+  do {                                                      \
+    auto mozTryTempResult_ = ::mozilla::ToResult(expr);     \
+    if (mozTryTempResult_.isErr()) {                        \
       return ::mozilla::Err(mozTryTempResult_.unwrapErr()); \
-    } \
+    }                                                       \
   } while (0)
 
 /**
@@ -463,14 +484,13 @@ Err(E&& aErrorValue)
  * On error, immediately returns the error result.
  * |target| must evaluate to a reference without any side effects.
  */
-#define MOZ_TRY_VAR(target, expr) \
-  do { \
-    auto mozTryVarTempResult_ = (expr); \
-    if (mozTryVarTempResult_.isErr()) { \
-      return ::mozilla::Err( \
-          mozTryVarTempResult_.unwrapErr()); \
-    } \
-    (target) = mozTryVarTempResult_.unwrap(); \
+#define MOZ_TRY_VAR(target, expr)                              \
+  do {                                                         \
+    auto mozTryVarTempResult_ = (expr);                        \
+    if (mozTryVarTempResult_.isErr()) {                        \
+      return ::mozilla::Err(mozTryVarTempResult_.unwrapErr()); \
+    }                                                          \
+    (target) = mozTryVarTempResult_.unwrap();                  \
   } while (0)
 
-#endif // mozilla_Result_h
+#endif  // mozilla_Result_h

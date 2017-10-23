@@ -19,12 +19,12 @@ class TestGMPVideoDecoder;
 
 class MediaKeySystemAccessManager final : public nsIObserver
 {
-public:
-
+ public:
   explicit MediaKeySystemAccessManager(nsPIDOMWindowInner* aWindow);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(MediaKeySystemAccessManager, nsIObserver)
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(MediaKeySystemAccessManager,
+                                           nsIObserver)
   NS_DECL_NSIOBSERVER
 
   void Request(DetailedPromise* aPromise,
@@ -33,7 +33,8 @@ public:
 
   void Shutdown();
 
-  struct PendingRequest {
+  struct PendingRequest
+  {
     PendingRequest(DetailedPromise* aPromise,
                    const nsAString& aKeySystem,
                    const Sequence<MediaKeySystemConfiguration>& aConfig,
@@ -49,9 +50,9 @@ public:
     nsCOMPtr<nsITimer> mTimer;
   };
 
-private:
-
-  enum RequestType {
+ private:
+  enum RequestType
+  {
     Initial,
     Subsequent
   };
@@ -77,7 +78,7 @@ private:
   bool mAddedObservers;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

@@ -18,7 +18,7 @@ using namespace mozilla;
 
 /* Original IO methods */
 PRCloseFN sCloseFn = nullptr;
-PRReadFN  sReadFn  = nullptr;
+PRReadFN sReadFn = nullptr;
 PRWriteFN sWriteFn = nullptr;
 PRFsyncFN sFSyncFn = nullptr;
 PRFileInfoFN sFileInfoFn = nullptr;
@@ -30,16 +30,13 @@ PRFileInfo64FN sFileInfo64Fn = nullptr;
  */
 class NSPRIOAutoObservation : public IOInterposeObserver::Observation
 {
-public:
+ public:
   explicit NSPRIOAutoObservation(IOInterposeObserver::Operation aOp)
-    : IOInterposeObserver::Observation(aOp, "NSPRIOInterposer")
+      : IOInterposeObserver::Observation(aOp, "NSPRIOInterposer")
   {
   }
 
-  ~NSPRIOAutoObservation() override
-  {
-    Report();
-  }
+  ~NSPRIOAutoObservation() override { Report(); }
 };
 
 PRStatus PR_CALLBACK
@@ -102,7 +99,7 @@ interposedFileInfo64(PRFileDesc* aFd, PRFileInfo64* aInfo)
   return sFileInfo64Fn(aFd, aInfo);
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -129,19 +126,19 @@ InitNSPRIOInterposing()
   }
 
   // Store original functions
-  sCloseFn      = methods->close;
-  sReadFn       = methods->read;
-  sWriteFn      = methods->write;
-  sFSyncFn      = methods->fsync;
-  sFileInfoFn   = methods->fileInfo;
+  sCloseFn = methods->close;
+  sReadFn = methods->read;
+  sWriteFn = methods->write;
+  sFSyncFn = methods->fsync;
+  sFileInfoFn = methods->fileInfo;
   sFileInfo64Fn = methods->fileInfo64;
 
   // Overwrite with our interposed functions
-  methods->close      = &interposedClose;
-  methods->read       = &interposedRead;
-  methods->write      = &interposedWrite;
-  methods->fsync      = &interposedFSync;
-  methods->fileInfo   = &interposedFileInfo;
+  methods->close = &interposedClose;
+  methods->read = &interposedRead;
+  methods->write = &interposedWrite;
+  methods->fsync = &interposedFSync;
+  methods->fileInfo = &interposedFileInfo;
   methods->fileInfo64 = &interposedFileInfo64;
 }
 
@@ -165,21 +162,20 @@ ClearNSPRIOInterposing()
   }
 
   // Restore original functions
-  methods->close      = sCloseFn;
-  methods->read       = sReadFn;
-  methods->write      = sWriteFn;
-  methods->fsync      = sFSyncFn;
-  methods->fileInfo   = sFileInfoFn;
+  methods->close = sCloseFn;
+  methods->read = sReadFn;
+  methods->write = sWriteFn;
+  methods->fsync = sFSyncFn;
+  methods->fileInfo = sFileInfoFn;
   methods->fileInfo64 = sFileInfo64Fn;
 
   // Forget about original functions
-  sCloseFn      = nullptr;
-  sReadFn       = nullptr;
-  sWriteFn      = nullptr;
-  sFSyncFn      = nullptr;
-  sFileInfoFn   = nullptr;
+  sCloseFn = nullptr;
+  sReadFn = nullptr;
+  sWriteFn = nullptr;
+  sFSyncFn = nullptr;
+  sFileInfoFn = nullptr;
   sFileInfo64Fn = nullptr;
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

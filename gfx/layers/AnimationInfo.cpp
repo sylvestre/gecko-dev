@@ -12,17 +12,15 @@
 namespace mozilla {
 namespace layers {
 
-AnimationInfo::AnimationInfo(LayerManager* aManager) :
-  mManager(aManager),
-  mCompositorAnimationsId(0),
-  mAnimationGeneration(0),
-  mMutated(false)
+AnimationInfo::AnimationInfo(LayerManager* aManager)
+    : mManager(aManager),
+      mCompositorAnimationsId(0),
+      mAnimationGeneration(0),
+      mMutated(false)
 {
 }
 
-AnimationInfo::~AnimationInfo()
-{
-}
+AnimationInfo::~AnimationInfo() {}
 
 void
 AnimationInfo::EnsureAnimationsId()
@@ -86,35 +84,33 @@ AnimationInfo::ClearAnimationsForNextTransaction()
 }
 
 void
-AnimationInfo::SetCompositorAnimations(const CompositorAnimations& aCompositorAnimations)
+AnimationInfo::SetCompositorAnimations(
+    const CompositorAnimations& aCompositorAnimations)
 {
   mAnimations = aCompositorAnimations.animations();
   mCompositorAnimationsId = aCompositorAnimations.id();
   mAnimationData.Clear();
-  AnimationHelper::SetAnimations(mAnimations,
-                                 mAnimationData,
-                                 mBaseAnimationStyle);
+  AnimationHelper::SetAnimations(
+      mAnimations, mAnimationData, mBaseAnimationStyle);
 }
 
 bool
 AnimationInfo::StartPendingAnimations(const TimeStamp& aReadyTime)
 {
   bool updated = false;
-  for (size_t animIdx = 0, animEnd = mAnimations.Length();
-       animIdx < animEnd; animIdx++) {
+  for (size_t animIdx = 0, animEnd = mAnimations.Length(); animIdx < animEnd;
+       animIdx++) {
     Animation& anim = mAnimations[animIdx];
 
     // If the animation is play-pending, resolve the start time.
     // This mirrors the calculation in Animation::StartTimeFromReadyTime.
     if (anim.startTime().type() == MaybeTimeDuration::Tnull_t &&
-        !anim.originTime().IsNull() &&
-        !anim.isNotPlaying()) {
+        !anim.originTime().IsNull() && !anim.isNotPlaying()) {
       TimeDuration readyTime = aReadyTime - anim.originTime();
-      anim.startTime() =
-        anim.playbackRate() == 0
-        ? readyTime
-        : readyTime - anim.holdTime().MultDouble(1.0 /
-                                                 anim.playbackRate());
+      anim.startTime() = anim.playbackRate() == 0
+                             ? readyTime
+                             : readyTime - anim.holdTime().MultDouble(
+                                               1.0 / anim.playbackRate());
       updated = true;
     }
   }
@@ -164,5 +160,5 @@ AnimationInfo::HasTransformAnimation() const
   return false;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

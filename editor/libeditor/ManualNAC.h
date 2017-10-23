@@ -24,11 +24,10 @@ typedef AutoTArray<RefPtr<dom::Element>, 16> ManualNACArray;
  */
 class ManualNACPtr final
 {
-public:
+ public:
   ManualNACPtr() {}
   MOZ_IMPLICIT ManualNACPtr(decltype(nullptr)) {}
-  explicit ManualNACPtr(already_AddRefed<Element> aNewNAC)
-    : mPtr(aNewNAC)
+  explicit ManualNACPtr(already_AddRefed<Element> aNewNAC) : mPtr(aNewNAC)
   {
     if (!mPtr) {
       return;
@@ -40,7 +39,8 @@ public:
         parentContent->GetProperty(nsGkAtoms::manualNACProperty));
     if (!nac) {
       nac = new ManualNACArray();
-      parentContent->SetProperty(nsGkAtoms::manualNACProperty, nac,
+      parentContent->SetProperty(nsGkAtoms::manualNACProperty,
+                                 nac,
                                  nsINode::DeleteProperty<ManualNACArray>);
     }
     nac->AppendElement(mPtr);
@@ -88,16 +88,13 @@ public:
 
   Element* get() const { return mPtr.get(); }
   Element* operator->() const { return get(); }
-  operator Element*() const &
-  {
-    return get();
-  }
+  operator Element*() const & { return get(); }
 
-private:
+ private:
   RefPtr<Element> mPtr;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 inline void
 ImplCycleCollectionUnlink(mozilla::ManualNACPtr& field)
@@ -114,4 +111,4 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& callback,
   CycleCollectionNoteChild(callback, field.get(), name, flags);
 }
 
-#endif // #ifndef mozilla_ManualNAC_h
+#endif  // #ifndef mozilla_ManualNAC_h

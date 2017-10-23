@@ -74,4 +74,4 @@ NS_DispatchEventualMemoryPressure(MemoryPressureState aState);
 nsresult
 NS_DispatchMemoryPressure(MemoryPressureState aState);
 
-#endif // nsMemoryPressure_h__
+#endif  // nsMemoryPressure_h__

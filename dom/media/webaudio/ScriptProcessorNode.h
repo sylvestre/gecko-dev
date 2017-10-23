@@ -17,7 +17,7 @@ class SharedBuffers;
 
 class ScriptProcessorNode final : public AudioNode
 {
-public:
+ public:
   ScriptProcessorNode(AudioContext* aContext,
                       uint32_t aBufferSize,
                       uint32_t aNumberOfInputChannels,
@@ -33,10 +33,13 @@ public:
   using EventTarget::EventListenerRemoved;
   void EventListenerRemoved(nsAtom* aType) override;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  AudioNode* Connect(AudioNode& aDestination, uint32_t aOutput,
-                     uint32_t aInput, ErrorResult& aRv) override
+  AudioNode* Connect(AudioNode& aDestination,
+                     uint32_t aOutput,
+                     uint32_t aInput,
+                     ErrorResult& aRv) override
   {
     AudioNode* node = AudioNode::Connect(aDestination, aOutput, aInput, aRv);
     if (!aRv.Failed()) {
@@ -45,7 +48,8 @@ public:
     return node;
   }
 
-  void Connect(AudioParam& aDestination, uint32_t aOutput,
+  void Connect(AudioParam& aDestination,
+               uint32_t aOutput,
                ErrorResult& aRv) override
   {
     AudioNode::Connect(aDestination, aOutput, aRv);
@@ -63,10 +67,7 @@ public:
     AudioNode::Disconnect(aOutput, aRv);
     UpdateConnectedStatus();
   }
-  void NotifyInputsChanged() override
-  {
-    UpdateConnectedStatus();
-  }
+  void NotifyInputsChanged() override { UpdateConnectedStatus(); }
   void NotifyHasPhantomInput() override
   {
     mHasPhantomInput = true;
@@ -78,12 +79,17 @@ public:
     AudioNode::Disconnect(aDestination, aRv);
     UpdateConnectedStatus();
   }
-  void Disconnect(AudioNode& aDestination, uint32_t aOutput, ErrorResult& aRv) override
+  void Disconnect(AudioNode& aDestination,
+                  uint32_t aOutput,
+                  ErrorResult& aRv) override
   {
     AudioNode::Disconnect(aDestination, aOutput, aRv);
     UpdateConnectedStatus();
   }
-  void Disconnect(AudioNode& aDestination, uint32_t aOutput, uint32_t aInput, ErrorResult& aRv) override
+  void Disconnect(AudioNode& aDestination,
+                  uint32_t aOutput,
+                  uint32_t aInput,
+                  ErrorResult& aRv) override
   {
     AudioNode::Disconnect(aDestination, aOutput, aInput, aRv);
     UpdateConnectedStatus();
@@ -93,7 +99,9 @@ public:
     AudioNode::Disconnect(aDestination, aRv);
     UpdateConnectedStatus();
   }
-  void Disconnect(AudioParam& aDestination, uint32_t aOutput, ErrorResult& aRv) override
+  void Disconnect(AudioParam& aDestination,
+                  uint32_t aOutput,
+                  ErrorResult& aRv) override
   {
     AudioNode::Disconnect(aDestination, aOutput, aRv);
     UpdateConnectedStatus();
@@ -104,34 +112,26 @@ public:
       aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
     }
   }
-  void SetChannelCountModeValue(ChannelCountMode aMode, ErrorResult& aRv) override
+  void SetChannelCountModeValue(ChannelCountMode aMode,
+                                ErrorResult& aRv) override
   {
     if (aMode != ChannelCountMode::Explicit) {
       aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
     }
   }
 
-  uint32_t BufferSize() const
-  {
-    return mBufferSize;
-  }
+  uint32_t BufferSize() const { return mBufferSize; }
 
-  uint32_t NumberOfOutputChannels() const
-  {
-    return mNumberOfOutputChannels;
-  }
+  uint32_t NumberOfOutputChannels() const { return mNumberOfOutputChannels; }
 
   using DOMEventTargetHelper::DispatchTrustedEvent;
 
-  const char* NodeType() const override
-  {
-    return "ScriptProcessorNode";
-  }
+  const char* NodeType() const override { return "ScriptProcessorNode"; }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   virtual ~ScriptProcessorNode();
 
   void UpdateConnectedStatus();
@@ -141,8 +141,7 @@ private:
   bool mHasPhantomInput = false;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-

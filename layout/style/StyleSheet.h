@@ -36,21 +36,21 @@ class CSSImportRule;
 class CSSRuleList;
 class MediaList;
 class SRIMetadata;
-} // namespace dom
+}  // namespace dom
 
 namespace css {
 class GroupRule;
 class Rule;
-}
+}  // namespace css
 
 /**
  * Superclass for data common to CSSStyleSheet and ServoStyleSheet.
  */
-class StyleSheet : public nsIDOMCSSStyleSheet
-                 , public nsICSSLoaderObserver
-                 , public nsWrapperCache
+class StyleSheet : public nsIDOMCSSStyleSheet,
+                   public nsICSSLoaderObserver,
+                   public nsWrapperCache
 {
-protected:
+ protected:
   StyleSheet(StyleBackendType aType, css::SheetParsingMode aParsingMode);
   StyleSheet(const StyleSheet& aCopy,
              StyleSheet* aParentToUse,
@@ -59,7 +59,7 @@ protected:
              nsINode* aOwningNodeToUse);
   virtual ~StyleSheet();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(StyleSheet,
                                                          nsIDOMCSSStyleSheet)
@@ -70,7 +70,8 @@ public:
    * Used by the StyleSets in order to handle more efficiently some kinds of
    * changes.
    */
-  enum class ChangeType {
+  enum class ChangeType
+  {
     Added,
     Removed,
     ApplicableStateChanged,
@@ -79,10 +80,7 @@ public:
     RuleChanged,
   };
 
-  void SetOwningNode(nsINode* aOwningNode)
-  {
-    mOwningNode = aOwningNode;
-  }
+  void SetOwningNode(nsINode* aOwningNode) { mOwningNode = aOwningNode; }
 
   css::SheetParsingMode ParsingMode() const { return mParsingMode; }
   mozilla::dom::CSSStyleSheetParsingMode ParsingModeDOM();
@@ -119,7 +117,8 @@ public:
    * SetURIs may only be called while the sheet is 1) incomplete and 2)
    * has no rules in it
    */
-  inline void SetURIs(nsIURI* aSheetURI, nsIURI* aOriginalSheetURI,
+  inline void SetURIs(nsIURI* aSheetURI,
+                      nsIURI* aOriginalSheetURI,
                       nsIURI* aBaseURI);
 
   /**
@@ -131,10 +130,11 @@ public:
   inline bool IsApplicable() const;
   inline bool HasRules() const;
 
-  virtual already_AddRefed<StyleSheet> Clone(StyleSheet* aCloneParent,
-                                             dom::CSSImportRule* aCloneOwnerRule,
-                                             nsIDocument* aCloneDocument,
-                                             nsINode* aCloneOwningNode) const = 0;
+  virtual already_AddRefed<StyleSheet> Clone(
+      StyleSheet* aCloneParent,
+      dom::CSSImportRule* aCloneOwnerRule,
+      nsIDocument* aCloneDocument,
+      nsINode* aCloneOwningNode) const = 0;
 
   bool IsModified() const { return mDirty; }
 
@@ -145,7 +145,8 @@ public:
   void AppendAllChildSheets(nsTArray<StyleSheet*>& aArray);
 
   // style sheet owner info
-  enum DocumentAssociationMode : uint8_t {
+  enum DocumentAssociationMode : uint8_t
+  {
     // OwnedByDocument means mDocument owns us (possibly via a chain of other
     // stylesheets).
     OwnedByDocument,
@@ -154,7 +155,8 @@ public:
     NotOwnedByDocument
   };
   nsIDocument* GetAssociatedDocument() const { return mDocument; }
-  bool IsOwnedByDocument() const {
+  bool IsOwnedByDocument() const
+  {
     return mDocumentAssociationMode == OwnedByDocument;
   }
   // aDocument must not be null.
@@ -164,7 +166,8 @@ public:
   nsINode* GetOwnerNode() const { return mOwningNode; }
   inline StyleSheet* GetParentSheet() const { return mParent; }
 
-  void SetOwnerRule(dom::CSSImportRule* aOwnerRule) {
+  void SetOwnerRule(dom::CSSImportRule* aOwnerRule)
+  {
     mOwnerRule = aOwnerRule; /* Not ref counted */
   }
   dom::CSSImportRule* GetOwnerRule() const { return mOwnerRule; }
@@ -175,7 +178,8 @@ public:
   void PrependStyleSheetSilently(StyleSheet* aSheet);
 
   StyleSheet* GetFirstChild() const;
-  StyleSheet* GetMostRecentlyAddedChildSheet() const {
+  StyleSheet* GetMostRecentlyAddedChildSheet() const
+  {
     // New child sheet can only be prepended into the linked list of
     // child sheets, so the most recently added one is always the first.
     return GetFirstChild();
@@ -227,7 +231,8 @@ public:
   css::Rule* GetDOMOwnerRule() const;
   dom::CSSRuleList* GetCssRules(nsIPrincipal& aSubjectPrincipal,
                                 ErrorResult& aRv);
-  uint32_t InsertRule(const nsAString& aRule, uint32_t aIndex,
+  uint32_t InsertRule(const nsAString& aRule,
+                      uint32_t aIndex,
                       nsIPrincipal& aSubjectPrincipal,
                       ErrorResult& aRv);
   void DeleteRule(uint32_t aIndex,
@@ -251,8 +256,9 @@ public:
   // nsIDOMCSSStyleSheet
   NS_IMETHOD GetOwnerRule(nsIDOMCSSRule** aOwnerRule) final;
   NS_IMETHOD GetCssRules(nsIDOMCSSRuleList** aCssRules) final;
-  NS_IMETHOD InsertRule(const nsAString& aRule, uint32_t aIndex,
-                      uint32_t* aReturn) final;
+  NS_IMETHOD InsertRule(const nsAString& aRule,
+                        uint32_t aIndex,
+                        uint32_t* aReturn) final;
   NS_IMETHOD DeleteRule(uint32_t aIndex) final;
 
   // Changes to sheets should be inside of a WillDirty-DidDirty pair.
@@ -266,19 +272,21 @@ public:
 
   nsresult DeleteRuleFromGroup(css::GroupRule* aGroup, uint32_t aIndex);
   nsresult InsertRuleIntoGroup(const nsAString& aRule,
-                               css::GroupRule* aGroup, uint32_t aIndex);
+                               css::GroupRule* aGroup,
+                               uint32_t aIndex);
 
   // Find the ID of the owner inner window.
   uint64_t FindOwningWindowInnerID() const;
 
   template<typename Func>
-  void EnumerateChildSheets(Func aCallback) {
+  void EnumerateChildSheets(Func aCallback)
+  {
     for (StyleSheet* child = GetFirstChild(); child; child = child->mNext) {
       aCallback(child);
     }
   }
 
-private:
+ private:
   // Get a handle to the various stylesheet bits which live on the 'inner' for
   // gecko stylesheets and live on the StyleSheet for Servo stylesheets.
   inline StyleSheetInfo& SheetInfo();
@@ -288,11 +296,11 @@ private:
   // It does the security check as well as whether the rules have been
   // completely loaded. aRv will have an exception set if this function
   // returns false.
-  bool AreRulesAvailable(nsIPrincipal& aSubjectPrincipal,
-                         ErrorResult& aRv);
+  bool AreRulesAvailable(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv);
 
-protected:
-  struct ChildSheetListBuilder {
+ protected:
+  struct ChildSheetListBuilder
+  {
     RefPtr<StyleSheet>* sheetSlot;
     StyleSheet* parent;
 
@@ -322,17 +330,17 @@ protected:
   // Unlink our inner, if needed, for cycle collection
   virtual void UnlinkInner();
   // Traverse our inner, if needed, for cycle collection
-  virtual void TraverseInner(nsCycleCollectionTraversalCallback &);
+  virtual void TraverseInner(nsCycleCollectionTraversalCallback&);
 
   // Return whether the given @import rule has pending child sheet.
   static bool RuleHasPendingChildSheet(css::Rule* aRule);
 
-  StyleSheet*           mParent;    // weak ref
+  StyleSheet* mParent;  // weak ref
 
-  nsString              mTitle;
-  nsIDocument*          mDocument; // weak ref; parents maintain this for their children
-  nsINode*              mOwningNode; // weak ref
-  dom::CSSImportRule*   mOwnerRule; // weak ref
+  nsString mTitle;
+  nsIDocument* mDocument;  // weak ref; parents maintain this for their children
+  nsINode* mOwningNode;    // weak ref
+  dom::CSSImportRule* mOwnerRule;  // weak ref
 
   RefPtr<dom::MediaList> mMedia;
 
@@ -344,9 +352,9 @@ protected:
   css::SheetParsingMode mParsingMode;
 
   const StyleBackendType mType;
-  bool                  mDisabled;
+  bool mDisabled;
 
-  bool mDirty; // has been modified
+  bool mDirty;  // has been modified
 
   // mDocumentAssociationMode determines whether mDocument directly owns us (in
   // the sense that if it's known-live then we're known-live).  Always
@@ -373,6 +381,6 @@ protected:
   friend struct mozilla::CSSStyleSheetInner;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_StyleSheet_h
+#endif  // mozilla_StyleSheet_h

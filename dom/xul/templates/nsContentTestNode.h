@@ -21,28 +21,26 @@ class nsXULTemplateQueryProcessorRDF;
  */
 class nsContentTestNode : public TestNode
 {
-public:
-    nsContentTestNode(nsXULTemplateQueryProcessorRDF* aProcessor,
-                      nsAtom* aContentVariable);
+ public:
+  nsContentTestNode(nsXULTemplateQueryProcessorRDF* aProcessor,
+                    nsAtom* aContentVariable);
 
-    virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
-                                          bool* aCantHandleYet) const override;
+  virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
+                                        bool* aCantHandleYet) const override;
 
-    nsresult
-    Constrain(InstantiationSet& aInstantiations) override;
+  nsresult Constrain(InstantiationSet& aInstantiations) override;
 
-    void SetTag(nsAtom* aTag, nsIDOMDocument* aDocument)
-    {
-        mTag = aTag;
-        mDocument = aDocument;
-    }
+  void SetTag(nsAtom* aTag, nsIDOMDocument* aDocument)
+  {
+    mTag = aTag;
+    mDocument = aDocument;
+  }
 
-protected:
-    nsXULTemplateQueryProcessorRDF *mProcessor;
-    nsIDOMDocument* mDocument;
-    RefPtr<nsAtom> mRefVariable;
-    RefPtr<nsAtom> mTag;
+ protected:
+  nsXULTemplateQueryProcessorRDF* mProcessor;
+  nsIDOMDocument* mDocument;
+  RefPtr<nsAtom> mRefVariable;
+  RefPtr<nsAtom> mTag;
 };
 
-#endif // nsContentTestNode_h__
-
+#endif  // nsContentTestNode_h__

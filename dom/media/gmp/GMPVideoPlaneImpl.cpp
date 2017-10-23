@@ -12,19 +12,18 @@ namespace mozilla {
 namespace gmp {
 
 GMPPlaneImpl::GMPPlaneImpl(GMPVideoHostImpl* aHost)
-: mSize(0),
-  mStride(0),
-  mHost(aHost)
+    : mSize(0), mStride(0), mHost(aHost)
 {
   MOZ_ASSERT(mHost);
   mHost->PlaneCreated(this);
 }
 
-GMPPlaneImpl::GMPPlaneImpl(const GMPPlaneData& aPlaneData, GMPVideoHostImpl* aHost)
-: mBuffer(aPlaneData.mBuffer()),
-  mSize(aPlaneData.mSize()),
-  mStride(aPlaneData.mStride()),
-  mHost(aHost)
+GMPPlaneImpl::GMPPlaneImpl(const GMPPlaneData& aPlaneData,
+                           GMPVideoHostImpl* aHost)
+    : mBuffer(aPlaneData.mBuffer()),
+      mSize(aPlaneData.mSize()),
+      mStride(aPlaneData.mStride()),
+      mHost(aHost)
 {
   MOZ_ASSERT(mHost);
   mHost->PlaneCreated(this);
@@ -74,7 +73,8 @@ GMPPlaneImpl::InitPlaneData(GMPPlaneData& aPlaneData)
 }
 
 GMPErr
-GMPPlaneImpl::MaybeResize(int32_t aNewSize) {
+GMPPlaneImpl::MaybeResize(int32_t aNewSize)
+{
   if (aNewSize <= AllocatedSize()) {
     return GMPNoErr;
   }
@@ -84,8 +84,10 @@ GMPPlaneImpl::MaybeResize(int32_t aNewSize) {
   }
 
   ipc::Shmem new_mem;
-  if (!mHost->SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPFrameData, aNewSize,
-                                            ipc::SharedMemory::TYPE_BASIC, &new_mem) ||
+  if (!mHost->SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPFrameData,
+                                            aNewSize,
+                                            ipc::SharedMemory::TYPE_BASIC,
+                                            &new_mem) ||
       !new_mem.get<uint8_t>()) {
     return GMPAllocErr;
   }
@@ -105,13 +107,16 @@ void
 GMPPlaneImpl::DestroyBuffer()
 {
   if (mHost && mBuffer.IsWritable()) {
-    mHost->SharedMemMgr()->MgrDeallocShmem(GMPSharedMem::kGMPFrameData, mBuffer);
+    mHost->SharedMemMgr()->MgrDeallocShmem(GMPSharedMem::kGMPFrameData,
+                                           mBuffer);
   }
   mBuffer = ipc::Shmem();
 }
 
 GMPErr
-GMPPlaneImpl::CreateEmptyPlane(int32_t aAllocatedSize, int32_t aStride, int32_t aPlaneSize)
+GMPPlaneImpl::CreateEmptyPlane(int32_t aAllocatedSize,
+                               int32_t aStride,
+                               int32_t aPlaneSize)
 {
   if (aAllocatedSize < 1 || aStride < 1 || aPlaneSize < 1) {
     return GMPGenericErr;
@@ -221,5 +226,5 @@ GMPPlaneImpl::Destroy()
   delete this;
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

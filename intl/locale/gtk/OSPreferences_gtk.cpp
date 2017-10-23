@@ -58,8 +58,7 @@ static get_value_fn_t
 FindGetValueFunction()
 {
   get_value_fn_t fn = reinterpret_cast<get_value_fn_t>(
-    dlsym(RTLD_DEFAULT, "g_settings_get_user_value")
-  );
+      dlsym(RTLD_DEFAULT, "g_settings_get_user_value"));
   return fn ? fn : &g_settings_get_value;
 }
 
@@ -139,7 +138,8 @@ HourCycle()
 bool
 OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
                                    DateTimeFormatStyle aTimeStyle,
-                                   const nsACString& aLocale, nsAString& aRetVal)
+                                   const nsACString& aLocale,
+                                   nsAString& aRetVal)
 {
   nsAutoString skeleton;
   if (!GetDateTimeSkeletonForStyle(aDateStyle, aTimeStyle, aLocale, skeleton)) {
@@ -152,7 +152,7 @@ OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
       // If skeleton contains 'H' or 'k', replace with 'h' or 'K' respectively,
       // and add 'a' unless already present.
       if (skeleton.FindChar('H') == -1 && skeleton.FindChar('k') == -1) {
-        break; // nothing to do
+        break;  // nothing to do
       }
       bool foundA = false;
       for (size_t i = 0; i < skeleton.Length(); ++i) {
@@ -177,7 +177,7 @@ OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
       // If skeleton contains 'h' or 'K', replace with 'H' or 'k' respectively,
       // and delete 'a' if present.
       if (skeleton.FindChar('h') == -1 && skeleton.FindChar('K') == -1) {
-        break; // nothing to do
+        break;  // nothing to do
       }
       for (int32_t i = 0; i < int32_t(skeleton.Length()); ++i) {
         switch (skeleton[i]) {
@@ -202,4 +202,3 @@ OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
 
   return true;
 }
-

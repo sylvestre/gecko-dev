@@ -20,40 +20,41 @@
 namespace mozilla {
 namespace layers {
 
-InputQueue::InputQueue()
-{
-}
+InputQueue::InputQueue() {}
 
-InputQueue::~InputQueue() {
-  mQueuedInputs.Clear();
-}
+InputQueue::~InputQueue() { mQueuedInputs.Clear(); }
 
 nsEventStatus
 InputQueue::ReceiveInputEvent(const RefPtr<AsyncPanZoomController>& aTarget,
                               bool aTargetConfirmed,
                               const InputData& aEvent,
-                              uint64_t* aOutInputBlockId) {
+                              uint64_t* aOutInputBlockId)
+{
   APZThreadUtils::AssertOnControllerThread();
 
   switch (aEvent.mInputType) {
     case MULTITOUCH_INPUT: {
       const MultiTouchInput& event = aEvent.AsMultiTouchInput();
-      return ReceiveTouchInput(aTarget, aTargetConfirmed, event, aOutInputBlockId);
+      return ReceiveTouchInput(
+          aTarget, aTargetConfirmed, event, aOutInputBlockId);
     }
 
     case SCROLLWHEEL_INPUT: {
       const ScrollWheelInput& event = aEvent.AsScrollWheelInput();
-      return ReceiveScrollWheelInput(aTarget, aTargetConfirmed, event, aOutInputBlockId);
+      return ReceiveScrollWheelInput(
+          aTarget, aTargetConfirmed, event, aOutInputBlockId);
     }
 
     case PANGESTURE_INPUT: {
       const PanGestureInput& event = aEvent.AsPanGestureInput();
-      return ReceivePanGestureInput(aTarget, aTargetConfirmed, event, aOutInputBlockId);
+      return ReceivePanGestureInput(
+          aTarget, aTargetConfirmed, event, aOutInputBlockId);
     }
 
     case MOUSE_INPUT: {
       const MouseInput& event = aEvent.AsMouseInput();
-      return ReceiveMouseInput(aTarget, aTargetConfirmed, event, aOutInputBlockId);
+      return ReceiveMouseInput(
+          aTarget, aTargetConfirmed, event, aOutInputBlockId);
     }
 
     case KEYBOARD_INPUT: {
@@ -77,7 +78,8 @@ nsEventStatus
 InputQueue::ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
                               bool aTargetConfirmed,
                               const MultiTouchInput& aEvent,
-                              uint64_t* aOutInputBlockId) {
+                              uint64_t* aOutInputBlockId)
+{
   TouchBlockState* block = nullptr;
   if (aEvent.mType == MultiTouchInput::MULTITOUCH_START) {
     nsTArray<TouchBehaviorFlags> currentBehaviors;
@@ -85,7 +87,8 @@ InputQueue::ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
     if (!gfxPrefs::TouchActionEnabled()) {
       haveBehaviors = true;
     } else if (mActiveTouchBlock) {
-      haveBehaviors = mActiveTouchBlock->GetAllowedTouchBehaviors(currentBehaviors);
+      haveBehaviors =
+          mActiveTouchBlock->GetAllowedTouchBehaviors(currentBehaviors);
       // If the behaviours aren't set, but the main-thread response timer on
       // the block is expired we still treat it as though it has behaviors,
       // because in that case we still want to interrupt the fast-fling and
@@ -95,13 +98,14 @@ InputQueue::ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
 
     block = StartNewTouchBlock(aTarget, aTargetConfirmed, false);
     INPQ_LOG("started new touch block %p id %" PRIu64 " for target %p\n",
-        block, block->GetBlockId(), aTarget.get());
+             block,
+             block->GetBlockId(),
+             aTarget.get());
 
     // XXX using the chain from |block| here may be wrong in cases where the
     // target isn't confirmed and the real target turns out to be something
     // else. For now assume this is rare enough that it's not an issue.
-    if (mQueuedInputs.IsEmpty() &&
-        aEvent.mTouches.Length() == 1 &&
+    if (mQueuedInputs.IsEmpty() && aEvent.mTouches.Length() == 1 &&
         block->GetOverscrollHandoffChain()->HasFastFlungApzc() &&
         haveBehaviors) {
       // If we're already in a fast fling, and a single finger goes down, then
@@ -110,7 +114,8 @@ InputQueue::ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
       // from a fast fling to a pinch state (i.e. second finger goes down while
       // the first finger is moving).
       block->SetDuringFastFling();
-      block->SetConfirmedTargetApzc(aTarget,
+      block->SetConfirmedTargetApzc(
+          aTarget,
           InputBlockState::TargetConfirmationState::eConfirmed,
           nullptr /* the block was just created so it has no events */);
       if (gfxPrefs::TouchActionEnabled()) {
@@ -125,7 +130,8 @@ InputQueue::ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
   } else {
     block = mActiveTouchBlock.get();
     if (!block) {
-      NS_WARNING("Received a non-start touch event while no touch blocks active!");
+      NS_WARNING(
+          "Received a non-start touch event while no touch blocks active!");
       return nsEventStatus_eIgnore;
     }
 
@@ -150,7 +156,8 @@ InputQueue::ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
   if (block->IsDuringFastFling()) {
     INPQ_LOG("dropping event due to block %p being in fast motion\n", block);
     result = nsEventStatus_eConsumeNoDefault;
-  } else if (target && target->ArePointerEventsConsumable(block, aEvent.mTouches.Length())) {
+  } else if (target && target->ArePointerEventsConsumable(
+                           block, aEvent.mTouches.Length())) {
     if (block->UpdateSlopState(aEvent, true)) {
       INPQ_LOG("dropping event due to block %p being in slop\n", block);
       result = nsEventStatus_eConsumeNoDefault;
@@ -170,7 +177,8 @@ nsEventStatus
 InputQueue::ReceiveMouseInput(const RefPtr<AsyncPanZoomController>& aTarget,
                               bool aTargetConfirmed,
                               const MouseInput& aEvent,
-                              uint64_t* aOutInputBlockId) {
+                              uint64_t* aOutInputBlockId)
+{
   // On a new mouse down we can have a new target so we must force a new block
   // with a new target.
   bool newBlock = DragTracker::StartsDrag(aEvent);
@@ -184,7 +192,9 @@ InputQueue::ReceiveMouseInput(const RefPtr<AsyncPanZoomController>& aTarget,
     // If there's no current drag block, but we're getting a move with a button
     // down, we need to start a new drag block because we're obviously already
     // in the middle of a drag (it probably got interrupted by something else).
-    INPQ_LOG("got a drag event outside a drag block, need to create a block to hold it\n");
+    INPQ_LOG(
+        "got a drag event outside a drag block, need to create a block to hold "
+        "it\n");
     newBlock = true;
   }
 
@@ -200,8 +210,12 @@ InputQueue::ReceiveMouseInput(const RefPtr<AsyncPanZoomController>& aTarget,
     MOZ_ASSERT(newBlock);
     block = new DragBlockState(aTarget, aTargetConfirmed, aEvent);
 
-    INPQ_LOG("started new drag block %p id %" PRIu64 " for %sconfirmed target %p\n",
-        block, block->GetBlockId(), aTargetConfirmed ? "" : "un", aTarget.get());
+    INPQ_LOG("started new drag block %p id %" PRIu64
+             " for %sconfirmed target %p\n",
+             block,
+             block->GetBlockId(),
+             aTargetConfirmed ? "" : "un",
+             aTarget.get());
 
     mActiveDragBlock = block;
 
@@ -226,17 +240,17 @@ InputQueue::ReceiveMouseInput(const RefPtr<AsyncPanZoomController>& aTarget,
 }
 
 nsEventStatus
-InputQueue::ReceiveScrollWheelInput(const RefPtr<AsyncPanZoomController>& aTarget,
-                                    bool aTargetConfirmed,
-                                    const ScrollWheelInput& aEvent,
-                                    uint64_t* aOutInputBlockId) {
+InputQueue::ReceiveScrollWheelInput(
+    const RefPtr<AsyncPanZoomController>& aTarget,
+    bool aTargetConfirmed,
+    const ScrollWheelInput& aEvent,
+    uint64_t* aOutInputBlockId)
+{
   WheelBlockState* block = mActiveWheelBlock.get();
   // If the block is not accepting new events we'll create a new input block
   // (and therefore a new wheel transaction).
   if (block &&
-      (!block->ShouldAcceptNewEvent() ||
-       block->MaybeTimeout(aEvent)))
-  {
+      (!block->ShouldAcceptNewEvent() || block->MaybeTimeout(aEvent))) {
     block = nullptr;
   }
 
@@ -245,7 +259,9 @@ InputQueue::ReceiveScrollWheelInput(const RefPtr<AsyncPanZoomController>& aTarge
   if (!block) {
     block = new WheelBlockState(aTarget, aTargetConfirmed, aEvent);
     INPQ_LOG("started new scroll wheel block %p id %" PRIu64 " for target %p\n",
-        block, block->GetBlockId(), aTarget.get());
+             block,
+             block->GetBlockId(),
+             aTarget.get());
 
     mActiveWheelBlock = block;
 
@@ -279,7 +295,8 @@ InputQueue::ReceiveScrollWheelInput(const RefPtr<AsyncPanZoomController>& aTarge
 nsEventStatus
 InputQueue::ReceiveKeyboardInput(const RefPtr<AsyncPanZoomController>& aTarget,
                                  const KeyboardInput& aEvent,
-                                 uint64_t* aOutInputBlockId) {
+                                 uint64_t* aOutInputBlockId)
+{
   KeyboardBlockState* block = mActiveKeyboardBlock.get();
 
   // If the block is targeting a different Apzc than this keyboard event then
@@ -291,7 +308,9 @@ InputQueue::ReceiveKeyboardInput(const RefPtr<AsyncPanZoomController>& aTarget,
   if (!block) {
     block = new KeyboardBlockState(aTarget);
     INPQ_LOG("started new keyboard block %p id %" PRIu64 " for target %p\n",
-        block, block->GetBlockId(), aTarget.get());
+             block,
+             block->GetBlockId(),
+             aTarget.get());
 
     mActiveKeyboardBlock = block;
   } else {
@@ -308,8 +327,9 @@ InputQueue::ReceiveKeyboardInput(const RefPtr<AsyncPanZoomController>& aTarget,
 
   // If APZ is allowing passive listeners then we must dispatch the event to
   // content, otherwise we can consume the event.
-  return gfxPrefs::APZKeyboardPassiveListeners() ? nsEventStatus_eConsumeDoDefault
-                                                 : nsEventStatus_eConsumeNoDefault;
+  return gfxPrefs::APZKeyboardPassiveListeners()
+             ? nsEventStatus_eConsumeDoDefault
+             : nsEventStatus_eConsumeNoDefault;
 }
 
 static bool
@@ -319,15 +339,19 @@ CanScrollTargetHorizontally(const PanGestureInput& aInitialEvent,
   PanGestureInput horizontalComponent = aInitialEvent;
   horizontalComponent.mPanDisplacement.y = 0;
   RefPtr<AsyncPanZoomController> horizontallyScrollableAPZC =
-    aBlock->GetOverscrollHandoffChain()->FindFirstScrollable(horizontalComponent);
-  return horizontallyScrollableAPZC && horizontallyScrollableAPZC == aBlock->GetTargetApzc();
+      aBlock->GetOverscrollHandoffChain()->FindFirstScrollable(
+          horizontalComponent);
+  return horizontallyScrollableAPZC &&
+         horizontallyScrollableAPZC == aBlock->GetTargetApzc();
 }
 
 nsEventStatus
-InputQueue::ReceivePanGestureInput(const RefPtr<AsyncPanZoomController>& aTarget,
-                                   bool aTargetConfirmed,
-                                   const PanGestureInput& aEvent,
-                                   uint64_t* aOutInputBlockId) {
+InputQueue::ReceivePanGestureInput(
+    const RefPtr<AsyncPanZoomController>& aTarget,
+    bool aTargetConfirmed,
+    const PanGestureInput& aEvent,
+    uint64_t* aOutInputBlockId)
+{
   if (aEvent.mType == PanGestureInput::PANGESTURE_MAYSTART ||
       aEvent.mType == PanGestureInput::PANGESTURE_CANCELLED) {
     // Ignore these events for now.
@@ -347,16 +371,20 @@ InputQueue::ReceivePanGestureInput(const RefPtr<AsyncPanZoomController>& aTarget
       // Only PANGESTURE_START events are allowed to start a new pan gesture
       // block, but we really want to start a new block here, so we magically
       // turn this input into a PANGESTURE_START.
-      INPQ_LOG("transmogrifying pan input %d to PANGESTURE_START for new block\n",
+      INPQ_LOG(
+          "transmogrifying pan input %d to PANGESTURE_START for new block\n",
           event.mType);
       event.mType = PanGestureInput::PANGESTURE_START;
     }
     block = new PanGestureBlockState(aTarget, aTargetConfirmed, event);
     INPQ_LOG("started new pan gesture block %p id %" PRIu64 " for target %p\n",
-        block, block->GetBlockId(), aTarget.get());
+             block,
+             block->GetBlockId(),
+             aTarget.get());
 
     if (aTargetConfirmed &&
-        event.mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection &&
+        event
+            .mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection &&
         !CanScrollTargetHorizontally(event, block)) {
       // This event may trigger a swipe gesture, depending on what our caller
       // wants to do it. We need to suspend handling of this block until we get
@@ -409,8 +437,8 @@ InputQueue::CancelAnimationsForNewBlock(InputBlockState* aBlock,
 }
 
 void
-InputQueue::MaybeRequestContentResponse(const RefPtr<AsyncPanZoomController>& aTarget,
-                                        CancelableBlockState* aBlock)
+InputQueue::MaybeRequestContentResponse(
+    const RefPtr<AsyncPanZoomController>& aTarget, CancelableBlockState* aBlock)
 {
   bool waitForMainThread = false;
   if (aBlock->IsTargetConfirmed()) {
@@ -441,11 +469,14 @@ InputQueue::MaybeRequestContentResponse(const RefPtr<AsyncPanZoomController>& aT
 uint64_t
 InputQueue::InjectNewTouchBlock(AsyncPanZoomController* aTarget)
 {
-  TouchBlockState* block = StartNewTouchBlock(aTarget,
-    /* aTargetConfirmed = */ true,
-    /* aCopyPropertiesFromCurrent = */ true);
+  TouchBlockState* block =
+      StartNewTouchBlock(aTarget,
+                         /* aTargetConfirmed = */ true,
+                         /* aCopyPropertiesFromCurrent = */ true);
   INPQ_LOG("injecting new touch block %p with id %" PRIu64 " and target %p\n",
-    block, block->GetBlockId(), aTarget);
+           block,
+           block->GetBlockId(),
+           aTarget);
   ScheduleMainThreadTimeout(aTarget, block);
   return block->GetBlockId();
 }
@@ -455,8 +486,8 @@ InputQueue::StartNewTouchBlock(const RefPtr<AsyncPanZoomController>& aTarget,
                                bool aTargetConfirmed,
                                bool aCopyPropertiesFromCurrent)
 {
-  TouchBlockState* newBlock = new TouchBlockState(aTarget, aTargetConfirmed,
-      mTouchCounter);
+  TouchBlockState* newBlock =
+      new TouchBlockState(aTarget, aTargetConfirmed, mTouchCounter);
   if (aCopyPropertiesFromCurrent) {
     // We should never enter here without a current touch block, because this
     // codepath is invoked from the OnLongPress handler in
@@ -526,8 +557,8 @@ bool
 InputQueue::HasReadyTouchBlock() const
 {
   return !mQueuedInputs.IsEmpty() &&
-      mQueuedInputs[0]->Block()->AsTouchBlock() &&
-      mQueuedInputs[0]->Block()->AsTouchBlock()->IsReadyForHandling();
+         mQueuedInputs[0]->Block()->AsTouchBlock() &&
+         mQueuedInputs[0]->Block()->AsTouchBlock()->IsReadyForHandling();
 }
 
 bool
@@ -559,21 +590,21 @@ InputQueue::IsDragOnScrollbar(bool aHitScrollbar)
 }
 
 void
-InputQueue::ScheduleMainThreadTimeout(const RefPtr<AsyncPanZoomController>& aTarget,
-                                      CancelableBlockState* aBlock) {
+InputQueue::ScheduleMainThreadTimeout(
+    const RefPtr<AsyncPanZoomController>& aTarget, CancelableBlockState* aBlock)
+{
   INPQ_LOG("scheduling main thread timeout for target %p\n", aTarget.get());
   aBlock->StartContentResponseTimer();
   aTarget->PostDelayedTask(
-    NewRunnableMethod<uint64_t>("layers::InputQueue::MainThreadTimeout",
-                                this,
-                                &InputQueue::MainThreadTimeout,
-                                aBlock->GetBlockId()),
-    gfxPrefs::APZContentResponseTimeout());
+      NewRunnableMethod<uint64_t>("layers::InputQueue::MainThreadTimeout",
+                                  this,
+                                  &InputQueue::MainThreadTimeout,
+                                  aBlock->GetBlockId()),
+      gfxPrefs::APZContentResponseTimeout());
 }
 
 InputBlockState*
-InputQueue::FindBlockForId(uint64_t aInputBlockId,
-                           InputData** aOutFirstInput)
+InputQueue::FindBlockForId(uint64_t aInputBlockId, InputData** aOutFirstInput)
 {
   for (const auto& queuedInput : mQueuedInputs) {
     if (queuedInput->Block()->GetBlockId() == aInputBlockId) {
@@ -587,13 +618,17 @@ InputQueue::FindBlockForId(uint64_t aInputBlockId,
   InputBlockState* block = nullptr;
   if (mActiveTouchBlock && mActiveTouchBlock->GetBlockId() == aInputBlockId) {
     block = mActiveTouchBlock.get();
-  } else if (mActiveWheelBlock && mActiveWheelBlock->GetBlockId() == aInputBlockId) {
+  } else if (mActiveWheelBlock &&
+             mActiveWheelBlock->GetBlockId() == aInputBlockId) {
     block = mActiveWheelBlock.get();
-  } else if (mActiveDragBlock && mActiveDragBlock->GetBlockId() == aInputBlockId) {
+  } else if (mActiveDragBlock &&
+             mActiveDragBlock->GetBlockId() == aInputBlockId) {
     block = mActiveDragBlock.get();
-  } else if (mActivePanGestureBlock && mActivePanGestureBlock->GetBlockId() == aInputBlockId) {
+  } else if (mActivePanGestureBlock &&
+             mActivePanGestureBlock->GetBlockId() == aInputBlockId) {
     block = mActivePanGestureBlock.get();
-  } else if (mActiveKeyboardBlock && mActiveKeyboardBlock->GetBlockId() == aInputBlockId) {
+  } else if (mActiveKeyboardBlock &&
+             mActiveKeyboardBlock->GetBlockId() == aInputBlockId) {
     block = mActiveKeyboardBlock.get();
   }
   // Since we didn't encounter this block while iterating through mQueuedInputs,
@@ -605,7 +640,8 @@ InputQueue::FindBlockForId(uint64_t aInputBlockId,
 }
 
 void
-InputQueue::MainThreadTimeout(uint64_t aInputBlockId) {
+InputQueue::MainThreadTimeout(uint64_t aInputBlockId)
+{
   APZThreadUtils::AssertOnControllerThread();
 
   INPQ_LOG("got a main thread timeout; block=%" PRIu64 "\n", aInputBlockId);
@@ -631,7 +667,9 @@ InputQueue::MainThreadTimeout(uint64_t aInputBlockId) {
 }
 
 void
-InputQueue::ContentReceivedInputBlock(uint64_t aInputBlockId, bool aPreventDefault) {
+InputQueue::ContentReceivedInputBlock(uint64_t aInputBlockId,
+                                      bool aPreventDefault)
+{
   APZThreadUtils::AssertOnControllerThread();
 
   INPQ_LOG("got a content response; block=%" PRIu64 "\n", aInputBlockId);
@@ -650,17 +688,21 @@ InputQueue::ContentReceivedInputBlock(uint64_t aInputBlockId, bool aPreventDefau
 }
 
 void
-InputQueue::SetConfirmedTargetApzc(uint64_t aInputBlockId, const RefPtr<AsyncPanZoomController>& aTargetApzc) {
+InputQueue::SetConfirmedTargetApzc(
+    uint64_t aInputBlockId, const RefPtr<AsyncPanZoomController>& aTargetApzc)
+{
   APZThreadUtils::AssertOnControllerThread();
 
   INPQ_LOG("got a target apzc; block=%" PRIu64 " guid=%s\n",
-    aInputBlockId, aTargetApzc ? Stringify(aTargetApzc->GetGuid()).c_str() : "");
+           aInputBlockId,
+           aTargetApzc ? Stringify(aTargetApzc->GetGuid()).c_str() : "");
   bool success = false;
   InputData* firstInput = nullptr;
   InputBlockState* inputBlock = FindBlockForId(aInputBlockId, &firstInput);
   if (inputBlock && inputBlock->AsCancelableBlock()) {
     CancelableBlockState* block = inputBlock->AsCancelableBlock();
-    success = block->SetConfirmedTargetApzc(aTargetApzc,
+    success = block->SetConfirmedTargetApzc(
+        aTargetApzc,
         InputBlockState::TargetConfirmationState::eConfirmed,
         firstInput);
     block->RecordContentResponseTime();
@@ -673,20 +715,23 @@ InputQueue::SetConfirmedTargetApzc(uint64_t aInputBlockId, const RefPtr<AsyncPan
 }
 
 void
-InputQueue::ConfirmDragBlock(uint64_t aInputBlockId, const RefPtr<AsyncPanZoomController>& aTargetApzc,
-                                   const AsyncDragMetrics& aDragMetrics)
+InputQueue::ConfirmDragBlock(uint64_t aInputBlockId,
+                             const RefPtr<AsyncPanZoomController>& aTargetApzc,
+                             const AsyncDragMetrics& aDragMetrics)
 {
   APZThreadUtils::AssertOnControllerThread();
 
   INPQ_LOG("got a target apzc; block=%" PRIu64 " guid=%s\n",
-    aInputBlockId, aTargetApzc ? Stringify(aTargetApzc->GetGuid()).c_str() : "");
+           aInputBlockId,
+           aTargetApzc ? Stringify(aTargetApzc->GetGuid()).c_str() : "");
   bool success = false;
   InputData* firstInput = nullptr;
   InputBlockState* inputBlock = FindBlockForId(aInputBlockId, &firstInput);
   if (inputBlock && inputBlock->AsDragBlock()) {
     DragBlockState* block = inputBlock->AsDragBlock();
     block->SetDragMetrics(aDragMetrics);
-    success = block->SetConfirmedTargetApzc(aTargetApzc,
+    success = block->SetConfirmedTargetApzc(
+        aTargetApzc,
         InputBlockState::TargetConfirmationState::eConfirmed,
         firstInput);
     block->RecordContentResponseTime();
@@ -697,7 +742,9 @@ InputQueue::ConfirmDragBlock(uint64_t aInputBlockId, const RefPtr<AsyncPanZoomCo
 }
 
 void
-InputQueue::SetAllowedTouchBehavior(uint64_t aInputBlockId, const nsTArray<TouchBehaviorFlags>& aBehaviors) {
+InputQueue::SetAllowedTouchBehavior(
+    uint64_t aInputBlockId, const nsTArray<TouchBehaviorFlags>& aBehaviors)
+{
   APZThreadUtils::AssertOnControllerThread();
 
   INPQ_LOG("got allowed touch behaviours; block=%" PRIu64 "\n", aInputBlockId);
@@ -716,7 +763,8 @@ InputQueue::SetAllowedTouchBehavior(uint64_t aInputBlockId, const nsTArray<Touch
 }
 
 void
-InputQueue::ProcessQueue() {
+InputQueue::ProcessQueue()
+{
   APZThreadUtils::AssertOnControllerThread();
 
   while (!mQueuedInputs.IsEmpty()) {
@@ -727,8 +775,9 @@ InputQueue::ProcessQueue() {
     }
 
     INPQ_LOG("processing input from block %p; preventDefault %d target %p\n",
-        curBlock, cancelable && cancelable->IsDefaultPrevented(),
-        curBlock->GetTargetApzc().get());
+             curBlock,
+             cancelable && cancelable->IsDefaultPrevented(),
+             curBlock->GetTargetApzc().get());
     RefPtr<AsyncPanZoomController> target = curBlock->GetTargetApzc();
     // target may be null here if the initial target was unconfirmed and then
     // we later got a confirmed null target. in that case drop the events.
@@ -766,7 +815,8 @@ bool
 InputQueue::CanDiscardBlock(InputBlockState* aBlock)
 {
   if (!aBlock ||
-      (aBlock->AsCancelableBlock() && !aBlock->AsCancelableBlock()->IsReadyForHandling()) ||
+      (aBlock->AsCancelableBlock() &&
+       !aBlock->AsCancelableBlock()->IsReadyForHandling()) ||
       aBlock->MustStayActive()) {
     return false;
   }
@@ -781,9 +831,10 @@ InputQueue::CanDiscardBlock(InputBlockState* aBlock)
 }
 
 void
-InputQueue::UpdateActiveApzc(const RefPtr<AsyncPanZoomController>& aNewActive) {
-  if (mLastActiveApzc && mLastActiveApzc != aNewActive
-      && mTouchCounter.GetActiveTouchCount() > 0) {
+InputQueue::UpdateActiveApzc(const RefPtr<AsyncPanZoomController>& aNewActive)
+{
+  if (mLastActiveApzc && mLastActiveApzc != aNewActive &&
+      mTouchCounter.GetActiveTouchCount() > 0) {
     mLastActiveApzc->ResetTouchInputState();
   }
   mLastActiveApzc = aNewActive;
@@ -803,5 +854,5 @@ InputQueue::Clear()
   mLastActiveApzc = nullptr;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

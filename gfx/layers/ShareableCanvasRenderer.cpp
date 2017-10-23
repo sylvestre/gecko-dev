@@ -5,9 +5,9 @@
 
 #include "ShareableCanvasRenderer.h"
 
-#include "GLContext.h"                  // for GLContext
-#include "GLScreenBuffer.h"             // for GLScreenBuffer
-#include "SharedSurfaceGL.h"            // for SurfaceFactory_GLTexture, etc
+#include "GLContext.h"        // for GLContext
+#include "GLScreenBuffer.h"   // for GLScreenBuffer
+#include "SharedSurfaceGL.h"  // for SurfaceFactory_GLTexture, etc
 #include "mozilla/layers/AsyncCanvasRenderer.h"
 #include "mozilla/layers/TextureClientSharedSurface.h"
 
@@ -15,9 +15,7 @@ namespace mozilla {
 namespace layers {
 
 ShareableCanvasRenderer::ShareableCanvasRenderer()
-  : mCanvasClient(nullptr)
-  , mFactory(nullptr)
-  , mFlags(TextureFlags::NO_FLAGS)
+    : mCanvasClient(nullptr), mFactory(nullptr), mFlags(TextureFlags::NO_FLAGS)
 {
   MOZ_COUNT_CTOR(ShareableCanvasRenderer);
 }
@@ -36,8 +34,7 @@ ShareableCanvasRenderer::Initialize(const CanvasInitializeData& aData)
 
   mCanvasClient = nullptr;
 
-  if (!mGLContext)
-    return;
+  if (!mGLContext) return;
 
   gl::GLScreenBuffer* screen = mGLContext->Screen();
 
@@ -60,7 +57,7 @@ ShareableCanvasRenderer::Initialize(const CanvasInitializeData& aData)
   }
 
   UniquePtr<gl::SurfaceFactory> factory =
-    gl::GLScreenBuffer::CreateFactory(mGLContext, caps, forwarder, mFlags);
+      gl::GLScreenBuffer::CreateFactory(mGLContext, caps, forwarder, mFlags);
 
   if (mGLFrontbuffer) {
     // We're using a source other than the one in the default screen.
@@ -71,8 +68,7 @@ ShareableCanvasRenderer::Initialize(const CanvasInitializeData& aData)
       mFactory = MakeUnique<gl::SurfaceFactory_Basic>(mGLContext, caps, mFlags);
     }
   } else {
-    if (factory)
-      screen->Morph(Move(factory));
+    if (factory) screen->Morph(Move(factory));
   }
 }
 
@@ -123,9 +119,8 @@ ShareableCanvasRenderer::UpdateTarget(DrawTarget* aDestTarget)
       return false;
     }
 
-    aDestTarget->CopySurface(surface,
-                             IntRect(0, 0, mSize.width, mSize.height),
-                             IntPoint(0, 0));
+    aDestTarget->CopySurface(
+        surface, IntRect(0, 0, mSize.width, mSize.height), IntPoint(0, 0));
     return true;
   }
 
@@ -147,7 +142,7 @@ ShareableCanvasRenderer::UpdateTarget(DrawTarget* aDestTarget)
 
   IntSize readSize(frontbuffer->mSize);
   SurfaceFormat format =
-    mOpaque ? SurfaceFormat::B8G8R8X8 : SurfaceFormat::B8G8R8A8;
+      mOpaque ? SurfaceFormat::B8G8R8X8 : SurfaceFormat::B8G8R8A8;
   bool needsPremult = frontbuffer->mHasAlpha && !mIsAlphaPremultiplied;
 
   // Try to read back directly into aDestTarget's output buffer
@@ -157,8 +152,8 @@ ShareableCanvasRenderer::UpdateTarget(DrawTarget* aDestTarget)
   SurfaceFormat destFormat;
   if (aDestTarget->LockBits(&destData, &destSize, &destStride, &destFormat)) {
     if (destSize == readSize && destFormat == format) {
-      RefPtr<DataSourceSurface> data =
-        Factory::CreateWrappingDataSourceSurface(destData, destStride, destSize, destFormat);
+      RefPtr<DataSourceSurface> data = Factory::CreateWrappingDataSourceSurface(
+          destData, destStride, destSize, destFormat);
       if (!mGLContext->Readback(frontbuffer, data)) {
         aDestTarget->ReleaseBits(destData);
         return false;
@@ -239,5 +234,5 @@ ShareableCanvasRenderer::UpdateCompositableClient()
   mCanvasClient->Updated();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

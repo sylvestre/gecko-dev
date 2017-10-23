@@ -105,8 +105,9 @@ mozilla::fallocate(PRFileDesc* aFD, int64_t aLength)
     return false;
   }
 
-  int nWrite; // Return value from write()
-  int64_t iWrite = ((buf.st_size + 2 * nBlk - 1) / nBlk) * nBlk - 1; // Next offset to write to
+  int nWrite;  // Return value from write()
+  int64_t iWrite = ((buf.st_size + 2 * nBlk - 1) / nBlk) * nBlk -
+                   1;  // Next offset to write to
   while (iWrite < aLength) {
     nWrite = 0;
     if (PR_Seek64(aFD, iWrite, PR_SEEK_SET) == iWrite) {
@@ -143,8 +144,10 @@ mozilla::ReadAheadLib(nsIFile* aFile)
 }
 
 void
-mozilla::ReadAheadFile(nsIFile* aFile, const size_t aOffset,
-                       const size_t aCount, mozilla::filedesc_t* aOutFd)
+mozilla::ReadAheadFile(nsIFile* aFile,
+                       const size_t aOffset,
+                       const size_t aCount,
+                       mozilla::filedesc_t* aOutFd)
 {
 #if defined(XP_WIN)
   nsAutoString path;
@@ -161,7 +164,7 @@ mozilla::ReadAheadFile(nsIFile* aFile, const size_t aOffset,
 #endif
 }
 
-#endif // !defined(XPCOM_GLUE)
+#endif  // !defined(XPCOM_GLUE)
 
 #if defined(LINUX) && !defined(ANDROID)
 
@@ -206,9 +209,8 @@ static const uint32_t CPU_TYPE = CPU_TYPE_POWERPC64;
 
 class ScopedMMap
 {
-public:
-  explicit ScopedMMap(const char* aFilePath)
-    : buf(nullptr)
+ public:
+  explicit ScopedMMap(const char* aFilePath) : buf(nullptr)
   {
     fd = open(aFilePath, O_RDONLY);
     if (fd < 0) {
@@ -232,7 +234,8 @@ public:
   }
   operator char*() { return buf; }
   int getFd() { return fd; }
-private:
+
+ private:
   int fd;
   char* buf;
   size_t size;
@@ -240,7 +243,8 @@ private:
 #endif
 
 void
-mozilla::ReadAhead(mozilla::filedesc_t aFd, const size_t aOffset,
+mozilla::ReadAhead(mozilla::filedesc_t aFd,
+                   const size_t aOffset,
                    const size_t aCount)
 {
 #if defined(XP_WIN)
@@ -318,8 +322,7 @@ mozilla::ReadAheadLib(mozilla::pathstr_t aFilePath)
     return;
   }
 
-  union
-  {
+  union {
     char buf[bufsize];
     Elf_Ehdr ehdr;
   } elf;
@@ -327,14 +330,14 @@ mozilla::ReadAheadLib(mozilla::pathstr_t aFilePath)
   // We check that the ELF magic is found, that the ELF class matches
   // our own, and that the program header table as defined in the ELF
   // headers fits in the buffer we read.
-  if ((read(fd, elf.buf, bufsize) <= 0) ||
-      (memcmp(elf.buf, ELFMAG, 4)) ||
+  if ((read(fd, elf.buf, bufsize) <= 0) || (memcmp(elf.buf, ELFMAG, 4)) ||
       (elf.ehdr.e_ident[EI_CLASS] != ELFCLASS) ||
       // Upcast e_phentsize so the multiplication is done in the same precision
       // as the subsequent addition, to satisfy static analyzers and avoid
       // issues with abnormally large program header tables.
-      (elf.ehdr.e_phoff + (static_cast<Elf_Off>(elf.ehdr.e_phentsize) *
-                           elf.ehdr.e_phnum) >= bufsize)) {
+      (elf.ehdr.e_phoff +
+           (static_cast<Elf_Off>(elf.ehdr.e_phentsize) * elf.ehdr.e_phnum) >=
+       bufsize)) {
     close(fd);
     return;
   }
@@ -346,8 +349,7 @@ mozilla::ReadAheadLib(mozilla::pathstr_t aFilePath)
   Elf_Phdr* phdr = (Elf_Phdr*)&elf.buf[elf.ehdr.e_phoff];
   Elf_Off end = 0;
   for (int phnum = elf.ehdr.e_phnum; phnum; phdr++, phnum--) {
-    if ((phdr->p_type == PT_LOAD) &&
-        (end < phdr->p_offset + phdr->p_filesz)) {
+    if ((phdr->p_type == PT_LOAD) && (end < phdr->p_offset + phdr->p_filesz)) {
       end = phdr->p_offset + phdr->p_filesz;
     }
   }
@@ -417,8 +419,10 @@ mozilla::ReadAheadLib(mozilla::pathstr_t aFilePath)
 }
 
 void
-mozilla::ReadAheadFile(mozilla::pathstr_t aFilePath, const size_t aOffset,
-                       const size_t aCount, mozilla::filedesc_t* aOutFd)
+mozilla::ReadAheadFile(mozilla::pathstr_t aFilePath,
+                       const size_t aOffset,
+                       const size_t aCount,
+                       mozilla::filedesc_t* aOutFd)
 {
 #if defined(XP_WIN)
   if (!aFilePath) {
@@ -427,8 +431,13 @@ mozilla::ReadAheadFile(mozilla::pathstr_t aFilePath, const size_t aOffset,
     }
     return;
   }
-  HANDLE fd = CreateFileW(aFilePath, GENERIC_READ, FILE_SHARE_READ, nullptr,
-                          OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+  HANDLE fd = CreateFileW(aFilePath,
+                          GENERIC_READ,
+                          FILE_SHARE_READ,
+                          nullptr,
+                          OPEN_EXISTING,
+                          FILE_FLAG_SEQUENTIAL_SCAN,
+                          nullptr);
   if (aOutFd) {
     *aOutFd = fd;
   }
@@ -472,4 +481,3 @@ mozilla::ReadAheadFile(mozilla::pathstr_t aFilePath, const size_t aOffset,
   }
 #endif
 }
-

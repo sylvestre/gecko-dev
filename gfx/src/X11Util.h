@@ -11,15 +11,15 @@
 // Utilities common to all X clients, regardless of UI toolkit.
 
 #if defined(MOZ_WIDGET_GTK)
-#  include <gdk/gdk.h>
-#  include <gdk/gdkx.h>
-#  include "X11UndefineNone.h"
+#include <gdk/gdk.h>
+#include <gdk/gdkx.h>
+#include "X11UndefineNone.h"
 #else
-#  error Unknown toolkit
+#error Unknown toolkit
 #endif
 
-#include <string.h>                     // for memset
-#include "mozilla/Scoped.h"             // for SCOPED_TEMPLATE
+#include <string.h>          // for memset
+#include "mozilla/Scoped.h"  // for SCOPED_TEMPLATE
 
 namespace mozilla {
 
@@ -41,9 +41,10 @@ DefaultXDisplay()
  * non-nullptr.
  */
 void
-FindVisualAndDepth(Display* aDisplay, VisualID aVisualID,
-                   Visual** aVisual, int* aDepth);
-
+FindVisualAndDepth(Display* aDisplay,
+                   VisualID aVisualID,
+                   Visual** aVisual,
+                   int* aDepth);
 
 /**
  * Ensure that all X requests have been processed.
@@ -61,12 +62,15 @@ FinishX(Display* aDisplay);
  * Invoke XFree() on a pointer to memory allocated by Xlib (if the
  * pointer is nonnull) when this class goes out of scope.
  */
-template <typename T>
+template<typename T>
 struct ScopedXFreePtrTraits
 {
-  typedef T *type;
-  static T *empty() { return nullptr; }
-  static void release(T *ptr) { if (ptr != nullptr) XFree(ptr); }
+  typedef T* type;
+  static T* empty() { return nullptr; }
+  static void release(T* ptr)
+  {
+    if (ptr != nullptr) XFree(ptr);
+  }
 };
 SCOPED_TEMPLATE(ScopedXFree, ScopedXFreePtrTraits)
 
@@ -87,62 +91,53 @@ SCOPED_TEMPLATE(ScopedXFree, ScopedXFreePtrTraits)
  */
 class ScopedXErrorHandler
 {
-public:
-    // trivial wrapper around XErrorEvent, just adding ctor initializing by zero.
-    struct ErrorEvent
-    {
-        XErrorEvent mError;
+ public:
+  // trivial wrapper around XErrorEvent, just adding ctor initializing by zero.
+  struct ErrorEvent
+  {
+    XErrorEvent mError;
 
-        ErrorEvent()
-        {
-            memset(this, 0, sizeof(ErrorEvent));
-        }
-    };
+    ErrorEvent() { memset(this, 0, sizeof(ErrorEvent)); }
+  };
 
-private:
+ private:
+  // this ScopedXErrorHandler's ErrorEvent object
+  ErrorEvent mXError;
 
-    // this ScopedXErrorHandler's ErrorEvent object
-    ErrorEvent mXError;
+  // static pointer for use by the error handler
+  static ErrorEvent* sXErrorPtr;
 
-    // static pointer for use by the error handler
-    static ErrorEvent* sXErrorPtr;
+  // what to restore sXErrorPtr to on destruction
+  ErrorEvent* mOldXErrorPtr;
 
-    // what to restore sXErrorPtr to on destruction
-    ErrorEvent* mOldXErrorPtr;
+  // what to restore the error handler to on destruction
+  int (*mOldErrorHandler)(Display*, XErrorEvent*);
 
-    // what to restore the error handler to on destruction
-    int (*mOldErrorHandler)(Display *, XErrorEvent *);
+ public:
+  static int ErrorHandler(Display*, XErrorEvent* ev);
 
-public:
-
-    static int
-    ErrorHandler(Display *, XErrorEvent *ev);
-
-    /**
+  /**
      * @param aAllowOffMainThread whether to warn if used off main thread
      */
-    explicit ScopedXErrorHandler(bool aAllowOffMainThread = false);
+  explicit ScopedXErrorHandler(bool aAllowOffMainThread = false);
 
-    ~ScopedXErrorHandler();
+  ~ScopedXErrorHandler();
 
-    /** \returns true if a X error occurred since the last time this method was called on this ScopedXErrorHandler object,
+  /** \returns true if a X error occurred since the last time this method was called on this ScopedXErrorHandler object,
      *           or since the creation of this ScopedXErrorHandler object if this method was never called on it.
      *
      * \param ev this optional parameter, if set, will be filled with the XErrorEvent object. If multiple errors occurred,
      *           the first one will be returned.
      */
-    bool SyncAndGetError(Display *dpy, XErrorEvent *ev = nullptr);
+  bool SyncAndGetError(Display* dpy, XErrorEvent* ev = nullptr);
 };
 
 class OffMainThreadScopedXErrorHandler : public ScopedXErrorHandler
 {
-public:
-  OffMainThreadScopedXErrorHandler()
-    : ScopedXErrorHandler(true)
-  {
-  }
+ public:
+  OffMainThreadScopedXErrorHandler() : ScopedXErrorHandler(true) {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif  // mozilla_X11Util_h

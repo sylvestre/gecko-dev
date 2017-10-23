@@ -24,9 +24,10 @@
  * @param aClosure      Extra data passed in from MozStackWalk() or
  *                      MozStackWalkThread().
  */
-typedef void
-(*MozWalkStackCallback)(uint32_t aFrameNumber, void* aPC, void* aSP,
-                        void* aClosure);
+typedef void (*MozWalkStackCallback)(uint32_t aFrameNumber,
+                                     void* aPC,
+                                     void* aSP,
+                                     void* aClosure);
 
 /**
  * Call aCallback for each stack frame on the current thread, from
@@ -43,8 +44,10 @@ typedef void
  * generation.
  */
 MFBT_API void
-MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-             uint32_t aMaxFrames, void* aClosure);
+MozStackWalk(MozWalkStackCallback aCallback,
+             uint32_t aSkipFrames,
+             uint32_t aMaxFrames,
+             void* aClosure);
 
 #if defined(_WIN32) && \
     (defined(_M_IX86) || defined(_M_AMD64) || defined(_M_IA64))
@@ -69,9 +72,12 @@ MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
  *                     null, the CONTEXT will be re-obtained.
  */
 MFBT_API void
-MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-                   uint32_t aMaxFrames, void* aClosure,
-                   HANDLE aThread, CONTEXT* aContext);
+MozStackWalkThread(MozWalkStackCallback aCallback,
+                   uint32_t aSkipFrames,
+                   uint32_t aMaxFrames,
+                   void* aClosure,
+                   HANDLE aThread,
+                   CONTEXT* aContext);
 
 #else
 
@@ -140,10 +146,15 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails);
  * @param aLineNo      The line number. Possibly zero.
  */
 MFBT_API void
-MozFormatCodeAddress(char* aBuffer, uint32_t aBufferSize, uint32_t aFrameNumber,
-                     const void* aPC, const char* aFunction,
-                     const char* aLibrary, ptrdiff_t aLOffset,
-                     const char* aFileName, uint32_t aLineNo);
+MozFormatCodeAddress(char* aBuffer,
+                     uint32_t aBufferSize,
+                     uint32_t aFrameNumber,
+                     const void* aPC,
+                     const char* aFunction,
+                     const char* aLibrary,
+                     ptrdiff_t aLOffset,
+                     const char* aFileName,
+                     uint32_t aLineNo);
 
 /**
  * Format the information about a code address in the same fashion as
@@ -161,17 +172,22 @@ MozFormatCodeAddress(char* aBuffer, uint32_t aBufferSize, uint32_t aFrameNumber,
  * @param aDetails     The value filled in by MozDescribeCodeAddress(aPC).
  */
 MFBT_API void
-MozFormatCodeAddressDetails(char* aBuffer, uint32_t aBufferSize,
-                            uint32_t aFrameNumber, void* aPC,
+MozFormatCodeAddressDetails(char* aBuffer,
+                            uint32_t aBufferSize,
+                            uint32_t aFrameNumber,
+                            void* aPC,
                             const MozCodeAddressDetails* aDetails);
 
 namespace mozilla {
 
 MFBT_API void
-FramePointerStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-                      uint32_t aMaxFrames, void* aClosure, void** aBp,
+FramePointerStackWalk(MozWalkStackCallback aCallback,
+                      uint32_t aSkipFrames,
+                      uint32_t aMaxFrames,
+                      void* aClosure,
+                      void** aBp,
                       void* aStackEnd);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

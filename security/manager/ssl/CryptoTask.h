@@ -41,30 +41,25 @@ namespace mozilla {
  * Dispatch or Skip.
  *
  */
-class CryptoTask : public Runnable,
-                   public nsNSSShutDownObject
+class CryptoTask : public Runnable, public nsNSSShutDownObject
 {
-public:
-  template <size_t LEN>
+ public:
+  template<size_t LEN>
   nsresult Dispatch(const char (&taskThreadName)[LEN])
   {
-    static_assert(LEN <= 15,
-                  "Thread name must be no more than 15 characters");
+    static_assert(LEN <= 15, "Thread name must be no more than 15 characters");
     return Dispatch(nsDependentCString(taskThreadName, LEN - 1));
   }
 
   nsresult Dispatch(const nsACString& taskThreadName);
 
-  void Skip()
-  {
-    virtualDestroyNSSReference();
-  }
+  void Skip() { virtualDestroyNSSReference(); }
 
-protected:
+ protected:
   CryptoTask()
-    : Runnable("CryptoTask")
-    , mRv(NS_ERROR_NOT_INITIALIZED)
-    , mReleasedNSSResources(false)
+      : Runnable("CryptoTask"),
+        mRv(NS_ERROR_NOT_INITIALIZED),
+        mReleasedNSSResources(false)
   {
   }
 
@@ -91,7 +86,7 @@ protected:
    */
   virtual void CallCallback(nsresult rv) = 0;
 
-private:
+ private:
   NS_IMETHOD Run() override final;
   virtual void virtualDestroyNSSReference() override final;
 
@@ -101,6 +96,6 @@ private:
   nsCOMPtr<nsIThread> mThread;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla__CryptoTask_h
+#endif  // mozilla__CryptoTask_h

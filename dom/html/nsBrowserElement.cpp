@@ -49,7 +49,8 @@ nsBrowserElement::InitBrowserElementAPI()
   }
 
   if (!mBrowserElementAPI) {
-    mBrowserElementAPI = do_CreateInstance("@mozilla.org/dom/browser-element-api;1");
+    mBrowserElementAPI =
+        do_CreateInstance("@mozilla.org/dom/browser-element-api;1");
     if (NS_WARN_IF(!mBrowserElementAPI)) {
       return;
     }
@@ -77,12 +78,8 @@ nsBrowserElement::SendMouseEvent(const nsAString& aType,
 {
   NS_ENSURE_TRUE_VOID(IsBrowserElementOrThrow(aRv));
 
-  nsresult rv = mBrowserElementAPI->SendMouseEvent(aType,
-                                                   aX,
-                                                   aY,
-                                                   aButton,
-                                                   aClickCount,
-                                                   aModifiers);
+  nsresult rv = mBrowserElementAPI->SendMouseEvent(
+      aType, aX, aY, aButton, aClickCount, aModifiers);
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -104,12 +101,9 @@ nsBrowserElement::SendTouchEvent(const nsAString& aType,
 {
   NS_ENSURE_TRUE_VOID(IsBrowserElementOrThrow(aRv));
 
-  if (aIdentifiers.Length() != aCount ||
-      aXs.Length() != aCount ||
-      aYs.Length() != aCount ||
-      aRxs.Length() != aCount ||
-      aRys.Length() != aCount ||
-      aRotationAngles.Length() != aCount ||
+  if (aIdentifiers.Length() != aCount || aXs.Length() != aCount ||
+      aYs.Length() != aCount || aRxs.Length() != aCount ||
+      aRys.Length() != aCount || aRotationAngles.Length() != aCount ||
       aForces.Length() != aCount) {
     aRv.Throw(NS_ERROR_DOM_INVALID_ACCESS_ERR);
     return;
@@ -187,7 +181,8 @@ nsBrowserElement::Download(const nsAString& aUrl,
   NS_ENSURE_TRUE(IsBrowserElementOrThrow(aRv), nullptr);
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsCOMPtr<nsIXPConnectWrappedJS> wrappedObj = do_QueryInterface(mBrowserElementAPI);
+  nsCOMPtr<nsIXPConnectWrappedJS> wrappedObj =
+      do_QueryInterface(mBrowserElementAPI);
   MOZ_ASSERT(wrappedObj, "Failed to get wrapped JS from XPCOM component.");
   AutoJSAPI jsapi;
   if (!jsapi.Init(wrappedObj->GetJSObject())) {
@@ -201,7 +196,8 @@ nsBrowserElement::Download(const nsAString& aUrl,
     aRv.StealExceptionFromJSContext(cx);
     return nullptr;
   }
-  nsresult rv = mBrowserElementAPI->Download(aUrl, options, getter_AddRefs(req));
+  nsresult rv =
+      mBrowserElementAPI->Download(aUrl, options, getter_AddRefs(req));
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -236,8 +232,8 @@ nsBrowserElement::GetScreenshot(uint32_t aWidth,
   NS_ENSURE_TRUE(IsBrowserElementOrThrow(aRv), nullptr);
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsresult rv = mBrowserElementAPI->GetScreenshot(aWidth, aHeight, aMimeType,
-                                                  getter_AddRefs(req));
+  nsresult rv = mBrowserElementAPI->GetScreenshot(
+      aWidth, aHeight, aMimeType, getter_AddRefs(req));
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     if (rv == NS_ERROR_INVALID_ARG) {
@@ -333,8 +329,7 @@ nsBrowserElement::FindAll(const nsAString& aSearchString,
 }
 
 void
-nsBrowserElement::FindNext(BrowserFindDirection aDirection,
-                          ErrorResult& aRv)
+nsBrowserElement::FindNext(BrowserFindDirection aDirection, ErrorResult& aRv)
 {
   NS_ENSURE_TRUE_VOID(IsBrowserElementOrThrow(aRv));
 
@@ -365,14 +360,16 @@ nsBrowserElement::ClearMatch(ErrorResult& aRv)
 }
 
 void
-nsBrowserElement::AddNextPaintListener(BrowserElementNextPaintEventCallback& aListener,
-                                       ErrorResult& aRv)
+nsBrowserElement::AddNextPaintListener(
+    BrowserElementNextPaintEventCallback& aListener, ErrorResult& aRv)
 {
   NS_ENSURE_TRUE_VOID(IsBrowserElementOrThrow(aRv));
 
   CallbackObjectHolder<BrowserElementNextPaintEventCallback,
-                       nsIBrowserElementNextPaintListener> holder(&aListener);
-  nsCOMPtr<nsIBrowserElementNextPaintListener> listener = holder.ToXPCOMCallback();
+                       nsIBrowserElementNextPaintListener>
+      holder(&aListener);
+  nsCOMPtr<nsIBrowserElementNextPaintListener> listener =
+      holder.ToXPCOMCallback();
 
   nsresult rv = mBrowserElementAPI->AddNextPaintListener(listener);
 
@@ -382,14 +379,16 @@ nsBrowserElement::AddNextPaintListener(BrowserElementNextPaintEventCallback& aLi
 }
 
 void
-nsBrowserElement::RemoveNextPaintListener(BrowserElementNextPaintEventCallback& aListener,
-                                          ErrorResult& aRv)
+nsBrowserElement::RemoveNextPaintListener(
+    BrowserElementNextPaintEventCallback& aListener, ErrorResult& aRv)
 {
   NS_ENSURE_TRUE_VOID(IsBrowserElementOrThrow(aRv));
 
   CallbackObjectHolder<BrowserElementNextPaintEventCallback,
-                       nsIBrowserElementNextPaintListener> holder(&aListener);
-  nsCOMPtr<nsIBrowserElementNextPaintListener> listener = holder.ToXPCOMCallback();
+                       nsIBrowserElementNextPaintListener>
+      holder(&aListener);
+  nsCOMPtr<nsIBrowserElementNextPaintListener> listener =
+      holder.ToXPCOMCallback();
 
   nsresult rv = mBrowserElementAPI->RemoveNextPaintListener(listener);
 
@@ -399,14 +398,16 @@ nsBrowserElement::RemoveNextPaintListener(BrowserElementNextPaintEventCallback& 
 }
 
 already_AddRefed<DOMRequest>
-nsBrowserElement::ExecuteScript(const nsAString& aScript,
-                                const BrowserElementExecuteScriptOptions& aOptions,
-                                ErrorResult& aRv)
+nsBrowserElement::ExecuteScript(
+    const nsAString& aScript,
+    const BrowserElementExecuteScriptOptions& aOptions,
+    ErrorResult& aRv)
 {
   NS_ENSURE_TRUE(IsBrowserElementOrThrow(aRv), nullptr);
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsCOMPtr<nsIXPConnectWrappedJS> wrappedObj = do_QueryInterface(mBrowserElementAPI);
+  nsCOMPtr<nsIXPConnectWrappedJS> wrappedObj =
+      do_QueryInterface(mBrowserElementAPI);
   MOZ_ASSERT(wrappedObj, "Failed to get wrapped JS from XPCOM component.");
   AutoJSAPI jsapi;
   if (!jsapi.Init(wrappedObj->GetJSObject())) {
@@ -421,7 +422,8 @@ nsBrowserElement::ExecuteScript(const nsAString& aScript,
     return nullptr;
   }
 
-  nsresult rv = mBrowserElementAPI->ExecuteScript(aScript, options, getter_AddRefs(req));
+  nsresult rv =
+      mBrowserElementAPI->ExecuteScript(aScript, options, getter_AddRefs(req));
 
   if (NS_FAILED(rv)) {
     if (rv == NS_ERROR_INVALID_ARG) {
@@ -451,6 +453,4 @@ nsBrowserElement::GetWebManifest(ErrorResult& aRv)
   return req.forget().downcast<DOMRequest>();
 }
 
-
-
-} // namespace mozilla
+}  // namespace mozilla

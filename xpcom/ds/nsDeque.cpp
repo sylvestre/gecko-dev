@@ -13,7 +13,7 @@
 
 #include "mozilla/CheckedInt.h"
 
-#define modulus(x,y) ((x)%(y))
+#define modulus(x, y) ((x) % (y))
 
 /**
  * Standard constructor
@@ -24,7 +24,7 @@ nsDeque::nsDeque(nsDequeFunctor* aDeallocator)
   MOZ_COUNT_CTOR(nsDeque);
   mDeallocator = aDeallocator;
   mOrigin = mSize = 0;
-  mData = mBuffer; // don't allocate space until you must
+  mData = mBuffer;  // don't allocate space until you must
   mCapacity = sizeof(mBuffer) / sizeof(mBuffer[0]);
   memset(mData, 0, mCapacity * sizeof(mBuffer[0]));
 }
@@ -42,17 +42,39 @@ nsDeque::~nsDeque()
 
   static int mCaps[15] = {0};
   switch (mCapacity) {
-    case 4:     mCaps[0]++; break;
-    case 8:     mCaps[1]++; break;
-    case 16:    mCaps[2]++; break;
-    case 32:    mCaps[3]++; break;
-    case 64:    mCaps[4]++; break;
-    case 128:   mCaps[5]++; break;
-    case 256:   mCaps[6]++; break;
-    case 512:   mCaps[7]++; break;
-    case 1024:  mCaps[8]++; break;
-    case 2048:  mCaps[9]++; break;
-    case 4096:  mCaps[10]++; break;
+    case 4:
+      mCaps[0]++;
+      break;
+    case 8:
+      mCaps[1]++;
+      break;
+    case 16:
+      mCaps[2]++;
+      break;
+    case 32:
+      mCaps[3]++;
+      break;
+    case 64:
+      mCaps[4]++;
+      break;
+    case 128:
+      mCaps[5]++;
+      break;
+    case 256:
+      mCaps[6]++;
+      break;
+    case 512:
+      mCaps[7]++;
+      break;
+    case 1024:
+      mCaps[8]++;
+      break;
+    case 2048:
+      mCaps[9]++;
+      break;
+    case 4096:
+      mCaps[10]++;
+      break;
     default:
       break;
   }
@@ -170,7 +192,7 @@ nsDeque::GrowCapacity()
   }
 
   mCapacity = newCapacity.value();
-  mOrigin = 0; //now realign the origin...
+  mOrigin = 0;  //now realign the origin...
   mData = temp;
 
   return true;
@@ -229,7 +251,6 @@ nsDeque::Push(void* aItem, const fallible_t&)
 bool
 nsDeque::PushFront(void* aItem, const fallible_t&)
 {
-
   if (mOrigin == 0) {
     mOrigin = mCapacity - 1;
   } else {
@@ -282,7 +303,7 @@ nsDeque::PopFront()
   if (mSize > 0) {
     NS_ASSERTION(mOrigin < mCapacity, "Error: Bad origin");
     result = mData[mOrigin];
-    mData[mOrigin++] = 0;   //zero it out for debugging purposes.
+    mData[mOrigin++] = 0;  //zero it out for debugging purposes.
     mSize--;
     // Cycle around if we pop off the end
     // and reset origin if when we pop the last element

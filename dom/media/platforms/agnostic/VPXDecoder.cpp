@@ -16,14 +16,18 @@
 #include <algorithm>
 
 #undef LOG
-#define LOG(arg, ...) MOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, ("VPXDecoder(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define LOG(arg, ...)               \
+  MOZ_LOG(sPDMLog,                  \
+          mozilla::LogLevel::Debug, \
+          ("VPXDecoder(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 namespace mozilla {
 
 using namespace gfx;
 using namespace layers;
 
-static VPXDecoder::Codec MimeTypeToCodec(const nsACString& aMimeType)
+static VPXDecoder::Codec
+MimeTypeToCodec(const nsACString& aMimeType)
 {
   if (aMimeType.EqualsLiteral("video/vp8")) {
     return VPXDecoder::Codec::VP8;
@@ -43,13 +47,11 @@ InitContext(vpx_codec_ctx_t* aCtx,
   vpx_codec_iface_t* dx = nullptr;
   if (aCodec == VPXDecoder::Codec::VP8) {
     dx = vpx_codec_vp8_dx();
-  }
-  else if (aCodec == VPXDecoder::Codec::VP9) {
+  } else if (aCodec == VPXDecoder::Codec::VP9) {
     dx = vpx_codec_vp9_dx();
     if (aInfo.mDisplay.width >= 2048) {
       decode_threads = 8;
-    }
-    else if (aInfo.mDisplay.width >= 1024) {
+    } else if (aInfo.mDisplay.width >= 1024) {
       decode_threads = 4;
     }
   }
@@ -57,7 +59,7 @@ InitContext(vpx_codec_ctx_t* aCtx,
 
   vpx_codec_dec_cfg_t config;
   config.threads = decode_threads;
-  config.w = config.h = 0; // set after decode
+  config.w = config.h = 0;  // set after decode
 
   if (!dx || vpx_codec_dec_init(aCtx, dx, &config, 0)) {
     return NS_ERROR_FAILURE;
@@ -66,21 +68,18 @@ InitContext(vpx_codec_ctx_t* aCtx,
 }
 
 VPXDecoder::VPXDecoder(const CreateDecoderParams& aParams)
-  : mImageContainer(aParams.mImageContainer)
-  , mImageAllocator(aParams.mKnowsCompositor)
-  , mTaskQueue(aParams.mTaskQueue)
-  , mInfo(aParams.VideoConfig())
-  , mCodec(MimeTypeToCodec(aParams.VideoConfig().mMimeType))
+    : mImageContainer(aParams.mImageContainer),
+      mImageAllocator(aParams.mKnowsCompositor),
+      mTaskQueue(aParams.mTaskQueue),
+      mInfo(aParams.VideoConfig()),
+      mCodec(MimeTypeToCodec(aParams.VideoConfig().mMimeType))
 {
   MOZ_COUNT_CTOR(VPXDecoder);
   PodZero(&mVPX);
   PodZero(&mVPXAlpha);
 }
 
-VPXDecoder::~VPXDecoder()
-{
-  MOZ_COUNT_DTOR(VPXDecoder);
-}
+VPXDecoder::~VPXDecoder() { MOZ_COUNT_DTOR(VPXDecoder); }
 
 RefPtr<ShutdownPromise>
 VPXDecoder::Shutdown()
@@ -97,13 +96,13 @@ RefPtr<MediaDataDecoder::InitPromise>
 VPXDecoder::Init()
 {
   if (NS_FAILED(InitContext(&mVPX, mInfo, mCodec))) {
-    return VPXDecoder::InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                                                    __func__);
+    return VPXDecoder::InitPromise::CreateAndReject(
+        NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
   if (mInfo.HasAlpha()) {
     if (NS_FAILED(InitContext(&mVPXAlpha, mInfo, mCodec))) {
-      return VPXDecoder::InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                                                      __func__);
+      return VPXDecoder::InitPromise::CreateAndReject(
+          NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
     }
   }
   return VPXDecoder::InitPromise::CreateAndResolve(TrackInfo::kVideoTrack,
@@ -123,29 +122,29 @@ VPXDecoder::ProcessDecode(MediaRawData* aSample)
 {
   MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
 
-  if (vpx_codec_err_t r = vpx_codec_decode(&mVPX, aSample->Data(), aSample->Size(), nullptr, 0)) {
+  if (vpx_codec_err_t r = vpx_codec_decode(
+          &mVPX, aSample->Data(), aSample->Size(), nullptr, 0)) {
     LOG("VPX Decode error: %s", vpx_codec_err_to_string(r));
     return DecodePromise::CreateAndReject(
-      MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
-                  RESULT_DETAIL("VPX error: %s", vpx_codec_err_to_string(r))),
-      __func__);
+        MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                    RESULT_DETAIL("VPX error: %s", vpx_codec_err_to_string(r))),
+        __func__);
   }
 
   vpx_codec_iter_t iter = nullptr;
-  vpx_image_t *img;
-  vpx_image_t *img_alpha = nullptr;
+  vpx_image_t* img;
+  vpx_image_t* img_alpha = nullptr;
   bool alpha_decoded = false;
   DecodedData results;
 
   while ((img = vpx_codec_get_frame(&mVPX, &iter))) {
-    NS_ASSERTION(img->fmt == VPX_IMG_FMT_I420 ||
-                 img->fmt == VPX_IMG_FMT_I444,
+    NS_ASSERTION(img->fmt == VPX_IMG_FMT_I420 || img->fmt == VPX_IMG_FMT_I444,
                  "WebM image format not I420 or I444");
     NS_ASSERTION(!alpha_decoded,
                  "Multiple frames per packet that contains alpha");
 
     if (aSample->AlphaSize() > 0) {
-      if (!alpha_decoded){
+      if (!alpha_decoded) {
         MediaResult rv = DecodeAlpha(&img_alpha, aSample);
         if (NS_FAILED(rv)) {
           return DecodePromise::CreateAndReject(rv, __func__);
@@ -184,24 +183,24 @@ VPXDecoder::ProcessDecode(MediaRawData* aSample)
     } else {
       LOG("VPX Unknown image format");
       return DecodePromise::CreateAndReject(
-        MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
-                    RESULT_DETAIL("VPX Unknown image format")),
-        __func__);
+          MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                      RESULT_DETAIL("VPX Unknown image format")),
+          __func__);
     }
 
     RefPtr<VideoData> v;
     if (!img_alpha) {
-      v = VideoData::CreateAndCopyData(mInfo,
-                                       mImageContainer,
-                                       aSample->mOffset,
-                                       aSample->mTime,
-                                       aSample->mDuration,
-                                       b,
-                                       aSample->mKeyframe,
-                                       aSample->mTimecode,
-                                       mInfo.ScaledImageRect(img->d_w,
-                                                             img->d_h),
-                                       mImageAllocator);
+      v = VideoData::CreateAndCopyData(
+          mInfo,
+          mImageContainer,
+          aSample->mOffset,
+          aSample->mTime,
+          aSample->mDuration,
+          b,
+          aSample->mKeyframe,
+          aSample->mTimecode,
+          mInfo.ScaledImageRect(img->d_w, img->d_h),
+          mImageAllocator);
     } else {
       VideoData::YCbCrBuffer::Plane alpha_plane;
       alpha_plane.mData = img_alpha->planes[0];
@@ -209,27 +208,29 @@ VPXDecoder::ProcessDecode(MediaRawData* aSample)
       alpha_plane.mHeight = img_alpha->d_h;
       alpha_plane.mWidth = img_alpha->d_w;
       alpha_plane.mOffset = alpha_plane.mSkip = 0;
-      v = VideoData::CreateAndCopyData(mInfo,
-                                       mImageContainer,
-                                       aSample->mOffset,
-                                       aSample->mTime,
-                                       aSample->mDuration,
-                                       b,
-                                       alpha_plane,
-                                       aSample->mKeyframe,
-                                       aSample->mTimecode,
-                                       mInfo.ScaledImageRect(img->d_w,
-                                                             img->d_h));
-
+      v = VideoData::CreateAndCopyData(
+          mInfo,
+          mImageContainer,
+          aSample->mOffset,
+          aSample->mTime,
+          aSample->mDuration,
+          b,
+          alpha_plane,
+          aSample->mKeyframe,
+          aSample->mTimecode,
+          mInfo.ScaledImageRect(img->d_w, img->d_h));
     }
 
     if (!v) {
-      LOG(
-        "Image allocation error source %ux%u display %ux%u picture %ux%u",
-        img->d_w, img->d_h, mInfo.mDisplay.width, mInfo.mDisplay.height,
-        mInfo.mImage.width, mInfo.mImage.height);
+      LOG("Image allocation error source %ux%u display %ux%u picture %ux%u",
+          img->d_w,
+          img->d_h,
+          mInfo.mDisplay.width,
+          mInfo.mDisplay.height,
+          mInfo.mImage.width,
+          mInfo.mImage.height);
       return DecodePromise::CreateAndReject(
-        MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__), __func__);
+          MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__), __func__);
     }
     results.AppendElement(Move(v));
   }
@@ -239,8 +240,8 @@ VPXDecoder::ProcessDecode(MediaRawData* aSample)
 RefPtr<MediaDataDecoder::DecodePromise>
 VPXDecoder::Decode(MediaRawData* aSample)
 {
-  return InvokeAsync<MediaRawData*>(mTaskQueue, this, __func__,
-                                    &VPXDecoder::ProcessDecode, aSample);
+  return InvokeAsync<MediaRawData*>(
+      mTaskQueue, this, __func__, &VPXDecoder::ProcessDecode, aSample);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -254,23 +255,20 @@ VPXDecoder::Drain()
 MediaResult
 VPXDecoder::DecodeAlpha(vpx_image_t** aImgAlpha, const MediaRawData* aSample)
 {
-  vpx_codec_err_t r = vpx_codec_decode(&mVPXAlpha,
-                                       aSample->AlphaData(),
-                                       aSample->AlphaSize(),
-                                       nullptr,
-                                       0);
+  vpx_codec_err_t r = vpx_codec_decode(
+      &mVPXAlpha, aSample->AlphaData(), aSample->AlphaSize(), nullptr, 0);
   if (r) {
     LOG("VPX decode alpha error: %s", vpx_codec_err_to_string(r));
-    return MediaResult(
-      NS_ERROR_DOM_MEDIA_DECODE_ERR,
-      RESULT_DETAIL("VPX decode alpha error: %s", vpx_codec_err_to_string(r)));
+    return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                       RESULT_DETAIL("VPX decode alpha error: %s",
+                                     vpx_codec_err_to_string(r)));
   }
 
   vpx_codec_iter_t iter = nullptr;
 
   *aImgAlpha = vpx_codec_get_frame(&mVPXAlpha, &iter);
   NS_ASSERTION((*aImgAlpha)->fmt == VPX_IMG_FMT_I420 ||
-               (*aImgAlpha)->fmt == VPX_IMG_FMT_I444,
+                   (*aImgAlpha)->fmt == VPX_IMG_FMT_I444,
                "WebM image format not I420 or I444");
 
   return NS_OK;
@@ -309,10 +307,12 @@ VPXDecoder::IsKeyframe(Span<const uint8_t> aBuffer, Codec aCodec)
   si.sz = sizeof(si);
 
   if (aCodec == Codec::VP8) {
-    vpx_codec_peek_stream_info(vpx_codec_vp8_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
+    vpx_codec_peek_stream_info(
+        vpx_codec_vp8_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
     return bool(si.is_kf);
   } else if (aCodec == Codec::VP9) {
-    vpx_codec_peek_stream_info(vpx_codec_vp9_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
+    vpx_codec_peek_stream_info(
+        vpx_codec_vp9_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
     return bool(si.is_kf);
   }
 
@@ -328,12 +328,14 @@ VPXDecoder::GetFrameSize(Span<const uint8_t> aBuffer, Codec aCodec)
   si.sz = sizeof(si);
 
   if (aCodec == Codec::VP8) {
-    vpx_codec_peek_stream_info(vpx_codec_vp8_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
+    vpx_codec_peek_stream_info(
+        vpx_codec_vp8_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
   } else if (aCodec == Codec::VP9) {
-    vpx_codec_peek_stream_info(vpx_codec_vp9_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
+    vpx_codec_peek_stream_info(
+        vpx_codec_vp9_dx(), aBuffer.Elements(), aBuffer.Length(), &si);
   }
 
   return gfx::IntSize(si.w, si.h);
 }
-} // namespace mozilla
+}  // namespace mozilla
 #undef LOG

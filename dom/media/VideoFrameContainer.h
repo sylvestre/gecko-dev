@@ -20,7 +20,7 @@ namespace mozilla {
 
 namespace dom {
 class HTMLMediaElement;
-} // namespace dom
+}  // namespace dom
 
 /**
  * This object is used in the decoder backend threads and the main thread
@@ -31,10 +31,11 @@ class HTMLMediaElement;
  * element itself ... well, maybe we could, but it could be risky and/or
  * confusing.
  */
-class VideoFrameContainer : public MediaStreamVideoSink {
+class VideoFrameContainer : public MediaStreamVideoSink
+{
   virtual ~VideoFrameContainer();
 
-public:
+ public:
   typedef layers::ImageContainer ImageContainer;
   typedef layers::Image Image;
 
@@ -44,7 +45,8 @@ public:
   // Call on any thread
   virtual void SetCurrentFrames(const VideoSegment& aSegment) override;
   virtual void ClearFrames() override;
-  void SetCurrentFrame(const gfx::IntSize& aIntrinsicSize, Image* aImage,
+  void SetCurrentFrame(const gfx::IntSize& aIntrinsicSize,
+                       Image* aImage,
                        const TimeStamp& aTargetTime);
   // Returns the last principalHandle we notified mElement about.
   PrincipalHandle GetLastPrincipalHandle();
@@ -54,13 +56,16 @@ public:
   // aFrameID is ignored if aPrincipalHandle already is our pending principalHandle.
   void UpdatePrincipalHandleForFrameID(const PrincipalHandle& aPrincipalHandle,
                                        const ImageContainer::FrameID& aFrameID);
-  void UpdatePrincipalHandleForFrameIDLocked(const PrincipalHandle& aPrincipalHandle,
-                                             const ImageContainer::FrameID& aFrameID);
-  void SetCurrentFrames(const gfx::IntSize& aIntrinsicSize,
-                        const nsTArray<ImageContainer::NonOwningImage>& aImages);
+  void UpdatePrincipalHandleForFrameIDLocked(
+      const PrincipalHandle& aPrincipalHandle,
+      const ImageContainer::FrameID& aFrameID);
+  void SetCurrentFrames(
+      const gfx::IntSize& aIntrinsicSize,
+      const nsTArray<ImageContainer::NonOwningImage>& aImages);
   void ClearCurrentFrame(const gfx::IntSize& aIntrinsicSize)
   {
-    SetCurrentFrames(aIntrinsicSize, nsTArray<ImageContainer::NonOwningImage>());
+    SetCurrentFrames(aIntrinsicSize,
+                     nsTArray<ImageContainer::NonOwningImage>());
   }
   VideoFrameContainer* AsVideoFrameContainer() override { return this; }
 
@@ -79,13 +84,11 @@ public:
   // Returns a new frame ID for SetCurrentFrames().  The client must either
   // call this on only one thread or provide barriers.  Do not use together
   // with SetCurrentFrame().
-  ImageContainer::FrameID NewFrameID()
-  {
-    return ++mFrameID;
-  }
+  ImageContainer::FrameID NewFrameID() { return ++mFrameID; }
 
   // Call on main thread
-  enum {
+  enum
+  {
     INVALIDATE_DEFAULT,
     INVALIDATE_FORCE
   };
@@ -94,11 +97,15 @@ public:
   ImageContainer* GetImageContainer();
   void ForgetElement() { mElement = nullptr; }
 
-  uint32_t GetDroppedImageCount() { return mImageContainer->GetDroppedImageCount(); }
+  uint32_t GetDroppedImageCount()
+  {
+    return mImageContainer->GetDroppedImageCount();
+  }
 
-protected:
-  void SetCurrentFramesLocked(const gfx::IntSize& aIntrinsicSize,
-                              const nsTArray<ImageContainer::NonOwningImage>& aImages);
+ protected:
+  void SetCurrentFramesLocked(
+      const gfx::IntSize& aIntrinsicSize,
+      const nsTArray<ImageContainer::NonOwningImage>& aImages);
 
   // Non-addreffed pointer to the element. The element calls ForgetElement
   // to clear this reference when the element is destroyed.
@@ -150,6 +157,6 @@ protected:
   const RefPtr<AbstractThread> mMainThread;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* VIDEOFRAMECONTAINER_H_ */

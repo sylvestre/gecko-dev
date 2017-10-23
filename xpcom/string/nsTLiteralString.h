@@ -23,8 +23,7 @@
 template<typename T>
 class nsTLiteralString : public mozilla::detail::nsTStringRepr<T>
 {
-public:
-
+ public:
   typedef nsTLiteralString<T> self_type;
 
 #ifdef __clang__
@@ -33,7 +32,8 @@ public:
 #else
   // On the other hand msvc chokes on the using statement. It seems others
   // don't care either way so we lump them in here.
-  typedef typename mozilla::detail::nsTStringRepr<T>::base_string_type base_string_type;
+  typedef typename mozilla::detail::nsTStringRepr<T>::base_string_type
+      base_string_type;
 #endif
 
   typedef typename base_string_type::char_type char_type;
@@ -41,17 +41,17 @@ public:
   typedef typename base_string_type::DataFlags DataFlags;
   typedef typename base_string_type::ClassFlags ClassFlags;
 
-public:
-
+ public:
   /**
    * constructor
    */
 
   template<size_type N>
   explicit constexpr nsTLiteralString(const char_type (&aStr)[N])
-    : base_string_type(const_cast<char_type*>(aStr), N - 1,
-                       DataFlags::TERMINATED | DataFlags::LITERAL,
-                       ClassFlags::NULL_TERMINATED)
+      : base_string_type(const_cast<char_type*>(aStr),
+                         N - 1,
+                         DataFlags::TERMINATED | DataFlags::LITERAL,
+                         ClassFlags::NULL_TERMINATED)
   {
   }
 
@@ -65,15 +65,20 @@ public:
     return *reinterpret_cast<const nsTString<T>*>(this);
   }
 
-  operator const nsTString<T>&() const
-  {
-    return AsString();
-  }
+  operator const nsTString<T>&() const { return AsString(); }
 
-  template<typename N, typename Dummy> struct raw_type { typedef N* type; };
+  template<typename N, typename Dummy>
+  struct raw_type
+  {
+    typedef N* type;
+  };
 
 #ifdef MOZ_USE_CHAR16_WRAPPER
-  template<typename Dummy> struct raw_type<char16_t, Dummy> { typedef char16ptr_t type; };
+  template<typename Dummy>
+  struct raw_type<char16_t, Dummy>
+  {
+    typedef char16ptr_t type;
+  };
 #endif
 
   /**
@@ -81,13 +86,9 @@ public:
    * These should be written as just "x", using a string literal directly.
    */
   const typename raw_type<T, int>::type get() const && = delete;
-  const typename raw_type<T, int>::type get() const &
-  {
-    return this->mData;
-  }
+  const typename raw_type<T, int>::type get() const & { return this->mData; }
 
-private:
-
+ private:
   // NOT TO BE IMPLEMENTED
   template<size_type N>
   nsTLiteralString(char_type (&aStr)[N]) = delete;

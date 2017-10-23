@@ -26,7 +26,7 @@
 // row.
 class nsGridRowLeafFrame : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsGridRowLeafFrame)
 
   friend nsIFrame* NS_NewGridRowLeafFrame(nsIPresShell* aPresShell,
@@ -35,21 +35,20 @@ public:
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
   {
-      return MakeFrameName(NS_LITERAL_STRING("nsGridRowLeaf"), aResult);
+    return MakeFrameName(NS_LITERAL_STRING("nsGridRowLeaf"), aResult);
   }
 #endif
 
   nsGridRowLeafFrame(nsStyleContext* aContext,
                      bool aIsRoot,
                      nsBoxLayout* aLayoutManager,
-                     ClassID aID = kClassID) :
-    nsBoxFrame(aContext, aID, aIsRoot, aLayoutManager) {}
+                     ClassID aID = kClassID)
+      : nsBoxFrame(aContext, aID, aIsRoot, aLayoutManager)
+  {
+  }
 
   virtual nsresult GetXULBorderAndPadding(nsMargin& aBorderAndPadding) override;
 
-}; // class nsGridRowLeafFrame
-
-
+};  // class nsGridRowLeafFrame
 
 #endif
-

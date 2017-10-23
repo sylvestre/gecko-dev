@@ -18,8 +18,8 @@
 
 #include <string>
 
-using std::vector;
 using std::string;
+using std::vector;
 
 using mozilla::gmp::GMPProcessParent;
 using mozilla::ipc::GeckoChildProcessHost;
@@ -28,16 +28,12 @@ namespace mozilla {
 namespace gmp {
 
 GMPProcessParent::GMPProcessParent(const std::string& aGMPPath)
-: GeckoChildProcessHost(GeckoProcessType_GMPlugin),
-  mGMPPath(aGMPPath)
+    : GeckoChildProcessHost(GeckoProcessType_GMPlugin), mGMPPath(aGMPPath)
 {
   MOZ_COUNT_CTOR(GMPProcessParent);
 }
 
-GMPProcessParent::~GMPProcessParent()
-{
-  MOZ_COUNT_DTOR(GMPProcessParent);
-}
+GMPProcessParent::~GMPProcessParent() { MOZ_COUNT_DTOR(GMPProcessParent); }
 
 bool
 GMPProcessParent::Launch(int32_t aTimeoutMs)
@@ -85,7 +81,7 @@ GMPProcessParent::Delete(nsCOMPtr<nsIRunnable> aCallback)
 {
   mDeletedCallback = aCallback;
   XRE_GetIOMessageLoop()->PostTask(NewNonOwningRunnableMethod(
-    "gmp::GMPProcessParent::DoDelete", this, &GMPProcessParent::DoDelete));
+      "gmp::GMPProcessParent::DoDelete", this, &GMPProcessParent::DoDelete));
 }
 
 void
@@ -101,5 +97,5 @@ GMPProcessParent::DoDelete()
   delete this;
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

@@ -39,9 +39,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TypeInState)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-TypeInState::TypeInState()
-  : mRelativeFontSize(0)
-  , mLastSelectionOffset(0)
+TypeInState::TypeInState() : mRelativeFontSize(0), mLastSelectionOffset(0)
 {
   Reset();
 }
@@ -64,10 +62,10 @@ TypeInState::UpdateSelState(Selection* aSelection)
   }
 
   return EditorBase::GetStartNodeAndOffset(
-                       aSelection, getter_AddRefs(mLastSelectionContainer),
-                       &mLastSelectionOffset);
+      aSelection,
+      getter_AddRefs(mLastSelectionContainer),
+      &mLastSelectionOffset);
 }
-
 
 NS_IMETHODIMP
 TypeInState::NotifySelectionChanged(nsIDOMDocument* aDOMDocument,
@@ -84,7 +82,7 @@ TypeInState::NotifySelectionChanged(nsIDOMDocument* aDOMDocument,
   // XXX: This code temporarily fixes the problem where clicking the mouse in
   // XXX: the same location clears the type-in-state.
   RefPtr<Selection> selection =
-    aSelection ? aSelection->AsSelection() : nullptr;
+      aSelection ? aSelection->AsSelection() : nullptr;
 
   if (aSelection) {
     int32_t rangeCount = selection->RangeCount();
@@ -93,14 +91,12 @@ TypeInState::NotifySelectionChanged(nsIDOMDocument* aDOMDocument,
       nsCOMPtr<nsIDOMNode> selNode;
       int32_t selOffset = 0;
 
-      nsresult rv =
-        EditorBase::GetStartNodeAndOffset(selection, getter_AddRefs(selNode),
-                                          &selOffset);
+      nsresult rv = EditorBase::GetStartNodeAndOffset(
+          selection, getter_AddRefs(selNode), &selOffset);
 
       NS_ENSURE_SUCCESS(rv, rv);
 
-      if (selNode &&
-          selNode == mLastSelectionContainer &&
+      if (selNode && selNode == mLastSelectionContainer &&
           selOffset == mLastSelectionOffset) {
         // We got a bogus selection changed notification!
         return NS_OK;
@@ -131,7 +127,6 @@ TypeInState::Reset()
   mSetArray.Clear();
 }
 
-
 void
 TypeInState::SetProp(nsAtom* aProp,
                      const nsAString& aAttr,
@@ -161,7 +156,6 @@ TypeInState::SetProp(nsAtom* aProp,
   RemovePropFromClearedList(aProp, aAttr);
 }
 
-
 void
 TypeInState::ClearAllProps()
 {
@@ -170,8 +164,7 @@ TypeInState::ClearAllProps()
 }
 
 void
-TypeInState::ClearProp(nsAtom* aProp,
-                       const nsAString& aAttr)
+TypeInState::ClearProp(nsAtom* aProp, const nsAString& aAttr)
 {
   // if it's already cleared we are done
   if (IsPropCleared(aProp, aAttr)) {
@@ -188,7 +181,6 @@ TypeInState::ClearProp(nsAtom* aProp,
   mClearedArray.AppendElement(item);
 }
 
-
 /**
  * TakeClearProperty() hands back next property item on the clear list.
  * Caller assumes ownership of PropItem and must delete it.
@@ -201,7 +193,7 @@ TypeInState::TakeClearProperty()
     return nullptr;
   }
 
-  --count; // indices are zero based
+  --count;  // indices are zero based
   PropItem* propItem = mClearedArray[count];
   mClearedArray.RemoveElementAt(count);
   return UniquePtr<PropItem>(propItem);
@@ -218,7 +210,7 @@ TypeInState::TakeSetProperty()
   if (!count) {
     return nullptr;
   }
-  count--; // indices are zero based
+  count--;  // indices are zero based
   PropItem* propItem = mSetArray[count];
   mSetArray.RemoveElementAt(count);
   return UniquePtr<PropItem>(propItem);
@@ -237,9 +229,7 @@ TypeInState::TakeRelativeFontSize()
 }
 
 void
-TypeInState::GetTypingState(bool& isSet,
-                            bool& theSetting,
-                            nsAtom* aProp)
+TypeInState::GetTypingState(bool& isSet, bool& theSetting, nsAtom* aProp)
 {
   GetTypingState(isSet, theSetting, aProp, EmptyString(), nullptr);
 }
@@ -263,8 +253,7 @@ TypeInState::GetTypingState(bool& isSet,
 }
 
 void
-TypeInState::RemovePropFromSetList(nsAtom* aProp,
-                                   const nsAString& aAttr)
+TypeInState::RemovePropFromSetList(nsAtom* aProp, const nsAString& aAttr)
 {
   int32_t index;
   if (!aProp) {
@@ -273,7 +262,7 @@ TypeInState::RemovePropFromSetList(nsAtom* aProp,
       delete mSetArray[i];
     }
     mSetArray.Clear();
-    mRelativeFontSize=0;
+    mRelativeFontSize = 0;
   } else if (FindPropInList(aProp, aAttr, nullptr, mSetArray, index)) {
     delete mSetArray[index];
     mSetArray.RemoveElementAt(index);
@@ -281,8 +270,7 @@ TypeInState::RemovePropFromSetList(nsAtom* aProp,
 }
 
 void
-TypeInState::RemovePropFromClearedList(nsAtom* aProp,
-                                       const nsAString& aAttr)
+TypeInState::RemovePropFromClearedList(nsAtom* aProp, const nsAString& aAttr)
 {
   int32_t index;
   if (FindPropInList(aProp, aAttr, nullptr, mClearedArray, index)) {
@@ -309,7 +297,7 @@ TypeInState::IsPropSet(nsAtom* aProp,
   // linear search.  list should be short.
   size_t count = mSetArray.Length();
   for (size_t i = 0; i < count; i++) {
-    PropItem *item = mSetArray[i];
+    PropItem* item = mSetArray[i];
     if (item->tag == aProp && item->attr == aAttr) {
       if (outValue) {
         *outValue = item->value;
@@ -321,15 +309,12 @@ TypeInState::IsPropSet(nsAtom* aProp,
   return false;
 }
 
-
 bool
-TypeInState::IsPropCleared(nsAtom* aProp,
-                           const nsAString& aAttr)
+TypeInState::IsPropCleared(nsAtom* aProp, const nsAString& aAttr)
 {
   int32_t i;
   return IsPropCleared(aProp, aAttr, i);
 }
-
 
 bool
 TypeInState::IsPropCleared(nsAtom* aProp,
@@ -357,7 +342,7 @@ TypeInState::FindPropInList(nsAtom* aProp,
   // linear search.  list should be short.
   size_t count = aList.Length();
   for (size_t i = 0; i < count; i++) {
-    PropItem *item = aList[i];
+    PropItem* item = aList[i];
     if (item->tag == aProp && item->attr == aAttr) {
       if (outValue) {
         *outValue = item->value;
@@ -373,25 +358,16 @@ TypeInState::FindPropInList(nsAtom* aProp,
  * mozilla::PropItem: helper struct for mozilla::TypeInState
  *******************************************************************/
 
-PropItem::PropItem()
-  : tag(nullptr)
-{
-  MOZ_COUNT_CTOR(PropItem);
-}
+PropItem::PropItem() : tag(nullptr) { MOZ_COUNT_CTOR(PropItem); }
 
 PropItem::PropItem(nsAtom* aTag,
                    const nsAString& aAttr,
-                   const nsAString &aValue)
-  : tag(aTag)
-  , attr(aAttr)
-  , value(aValue)
+                   const nsAString& aValue)
+    : tag(aTag), attr(aAttr), value(aValue)
 {
   MOZ_COUNT_CTOR(PropItem);
 }
 
-PropItem::~PropItem()
-{
-  MOZ_COUNT_DTOR(PropItem);
-}
+PropItem::~PropItem() { MOZ_COUNT_DTOR(PropItem); }
 
-} // namespace mozilla
+}  // namespace mozilla

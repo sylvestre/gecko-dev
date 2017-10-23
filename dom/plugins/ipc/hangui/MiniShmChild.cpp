@@ -13,15 +13,16 @@ namespace mozilla {
 namespace plugins {
 
 MiniShmChild::MiniShmChild()
-  : mParentEvent(nullptr),
-    mParentGuard(nullptr),
-    mChildEvent(nullptr),
-    mChildGuard(nullptr),
-    mFileMapping(nullptr),
-    mRegWait(nullptr),
-    mView(nullptr),
-    mTimeout(INFINITE)
-{}
+    : mParentEvent(nullptr),
+      mParentGuard(nullptr),
+      mChildEvent(nullptr),
+      mChildGuard(nullptr),
+      mFileMapping(nullptr),
+      mRegWait(nullptr),
+      mView(nullptr),
+      mTimeout(INFINITE)
+{
+}
 
 MiniShmChild::~MiniShmChild()
 {
@@ -51,7 +52,8 @@ MiniShmChild::~MiniShmChild()
 }
 
 nsresult
-MiniShmChild::Init(MiniShmObserver* aObserver, const std::wstring& aCookie,
+MiniShmChild::Init(MiniShmObserver* aObserver,
+                   const std::wstring& aCookie,
                    const DWORD aTimeout)
 {
   if (aCookie.empty() || !aTimeout) {
@@ -66,9 +68,8 @@ MiniShmChild::Init(MiniShmObserver* aObserver, const std::wstring& aCookie,
   if (!iss) {
     return NS_ERROR_ILLEGAL_VALUE;
   }
-  ScopedMappedFileView view(::MapViewOfFile(mapHandle,
-                                            FILE_MAP_WRITE,
-                                            0, 0, 0));
+  ScopedMappedFileView view(
+      ::MapViewOfFile(mapHandle, FILE_MAP_WRITE, 0, 0, 0));
   if (!view.IsValid()) {
     return NS_ERROR_FAILURE;
   }
@@ -168,6 +169,5 @@ MiniShmChild::OnEvent()
   ::SetEvent(mChildGuard);
 }
 
-} // namespace plugins
-} // namespace mozilla
-
+}  // namespace plugins
+}  // namespace mozilla

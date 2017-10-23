@@ -12,7 +12,7 @@
 #include "mozilla/gfx/2D.h"
 #include "Units.h"
 
-#include <X11/Xlib.h> // for Window, Display, Visual, etc.
+#include <X11/Xlib.h>  // for Window, Display, Visual, etc.
 
 namespace mozilla {
 namespace widget {
@@ -24,7 +24,7 @@ namespace widget {
  */
 class WindowSurfaceProvider final
 {
-public:
+ public:
   WindowSurfaceProvider();
 
   /**
@@ -33,11 +33,10 @@ public:
    * own the Display, Window, etc, and they must continue to exist
    * while WindowSurfaceProvider is used.
    */
-  void Initialize(
-      Display* aDisplay,
-      Window aWindow,
-      Visual* aVisual,
-      int aDepth);
+  void Initialize(Display* aDisplay,
+                  Window aWindow,
+                  Visual* aVisual,
+                  int aDepth);
 
   /**
    * Releases any surfaces created by this provider.
@@ -46,19 +45,18 @@ public:
    */
   void CleanupResources();
 
-  already_AddRefed<gfx::DrawTarget>
-  StartRemoteDrawingInRegion(LayoutDeviceIntRegion& aInvalidRegion,
-                             layers::BufferMode* aBufferMode);
+  already_AddRefed<gfx::DrawTarget> StartRemoteDrawingInRegion(
+      LayoutDeviceIntRegion& aInvalidRegion, layers::BufferMode* aBufferMode);
   void EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
                                 LayoutDeviceIntRegion& aInvalidRegion);
 
-private:
+ private:
   UniquePtr<WindowSurface> CreateWindowSurface();
 
-  Display*  mXDisplay;
-  Window    mXWindow;
-  Visual*   mXVisual;
-  int       mXDepth;
+  Display* mXDisplay;
+  Window mXWindow;
+  Visual* mXVisual;
+  int mXDepth;
 
   UniquePtr<WindowSurface> mWindowSurface;
 };
@@ -66,4 +64,4 @@ private:
 }  // namespace widget
 }  // namespace mozilla
 
-#endif // _MOZILLA_WIDGET_GTK_WINDOW_SURFACE_PROVIDER_H
+#endif  // _MOZILLA_WIDGET_GTK_WINDOW_SURFACE_PROVIDER_H

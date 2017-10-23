@@ -22,18 +22,19 @@ class Layer;
 /**
  * Represents a layer that might have a non-rectangular geometry.
  */
-struct LayerPolygon {
-  explicit LayerPolygon(Layer* aLayer)
-    : layer(aLayer) {}
+struct LayerPolygon
+{
+  explicit LayerPolygon(Layer* aLayer) : layer(aLayer) {}
 
-  LayerPolygon(Layer* aLayer,
-               gfx::Polygon&& aGeometry)
-    : layer(aLayer), geometry(Some(Move(aGeometry))) {}
+  LayerPolygon(Layer* aLayer, gfx::Polygon&& aGeometry)
+      : layer(aLayer), geometry(Some(Move(aGeometry)))
+  {
+  }
 
   LayerPolygon(Layer* aLayer,
                nsTArray<gfx::Point4D>&& aPoints,
                const gfx::Point4D& aNormal)
-    : layer(aLayer)
+      : layer(aLayer)
   {
     geometry.emplace(Move(aPoints), aNormal);
   }
@@ -60,9 +61,10 @@ typedef std::list<LayerPolygon> LayerList;
  * associated geometry that is used as a splitting plane, and at most two child
  * nodes that represent the splitting planes that further subdivide the space.
  */
-struct BSPTreeNode {
+struct BSPTreeNode
+{
   explicit BSPTreeNode(nsTArray<LayerList*>& aListPointers)
-    : front(nullptr), back(nullptr)
+      : front(nullptr), back(nullptr)
   {
     // Store the layer list pointer to free memory when BSPTree is destroyed.
     aListPointers.AppendElement(&layers);
@@ -94,8 +96,9 @@ struct BSPTreeNode {
  * https://en.wikipedia.org/wiki/Binary_space_partitioning
  * ftp://ftp.sgi.com/other/bspfaq/faq/bspfaq.html
  */
-class BSPTree {
-public:
+class BSPTree
+{
+ public:
   /**
    * The constructor modifies layers in the given list.
    */
@@ -106,7 +109,6 @@ public:
     mRoot = new (mPool) BSPTreeNode(mListPointers);
     BuildTree(mRoot, aLayers);
   }
-
 
   ~BSPTree()
   {
@@ -125,7 +127,7 @@ public:
     return layers;
   }
 
-private:
+ private:
   BSPTreeArena mPool;
   BSPTreeNode* mRoot;
   nsTArray<LayerList*> mListPointers;
@@ -137,11 +139,10 @@ private:
   void BuildDrawOrder(BSPTreeNode* aNode,
                       nsTArray<LayerPolygon>& aLayers) const;
 
-  void BuildTree(BSPTreeNode* aRoot,
-                 std::list<LayerPolygon>& aLayers);
+  void BuildTree(BSPTreeNode* aRoot, std::list<LayerPolygon>& aLayers);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* MOZILLA_LAYERS_BSPTREE_H */

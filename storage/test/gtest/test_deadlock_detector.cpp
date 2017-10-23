@@ -23,31 +23,23 @@ using namespace mozilla;
  */
 class TestMutex : public mozilla::storage::SQLiteMutex
 {
-public:
-    explicit TestMutex(const char* aName)
-    : mozilla::storage::SQLiteMutex(aName)
-    , mInner(sqlite3_mutex_alloc(SQLITE_MUTEX_FAST))
-    {
-        NS_ASSERTION(mInner, "could not allocate a sqlite3_mutex");
-        initWithMutex(mInner);
-    }
+ public:
+  explicit TestMutex(const char* aName)
+      : mozilla::storage::SQLiteMutex(aName),
+        mInner(sqlite3_mutex_alloc(SQLITE_MUTEX_FAST))
+  {
+    NS_ASSERTION(mInner, "could not allocate a sqlite3_mutex");
+    initWithMutex(mInner);
+  }
 
-    ~TestMutex()
-    {
-        sqlite3_mutex_free(mInner);
-    }
+  ~TestMutex() { sqlite3_mutex_free(mInner); }
 
-    void Lock()
-    {
-        lock();
-    }
+  void Lock() { lock(); }
 
-    void Unlock()
-    {
-        unlock();
-    }
-private:
-  sqlite3_mutex *mInner;
+  void Unlock() { unlock(); }
+
+ private:
+  sqlite3_mutex* mInner;
 };
 
 // This global variable is defined in toolkit/xre/nsSigHandlers.cpp.
@@ -64,4 +56,3 @@ extern unsigned int _gdb_sleep_duration;
 namespace storage {
 #include "../../../xpcom/tests/gtest/TestDeadlockDetector.cpp"
 }
-

@@ -13,9 +13,8 @@ namespace mozilla {
 namespace net {
 
 StunAddrsRequestChild::StunAddrsRequestChild(
-                                         StunAddrsListener* listener,
-                                         nsIEventTarget* mainThreadEventTarget)
-  : mListener(listener)
+    StunAddrsListener* listener, nsIEventTarget* mainThreadEventTarget)
+    : mListener(listener)
 {
   if (mainThreadEventTarget) {
     gNeckoChild->SetEventTargetForActor(this, mainThreadEventTarget);
@@ -47,5 +46,5 @@ NS_IMPL_RELEASE(StunAddrsRequestChild)
 NS_IMPL_ADDREF(StunAddrsListener)
 NS_IMPL_RELEASE(StunAddrsListener)
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

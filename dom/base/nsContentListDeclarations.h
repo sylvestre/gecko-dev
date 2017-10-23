@@ -19,8 +19,8 @@ class nsINode;
 namespace mozilla {
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 // Magic namespace id that means "match all namespaces".  This is
 // negative so it won't collide with actual namespace constants.
@@ -63,4 +63,4 @@ GetFuncStringContentList(nsINode* aRootNode,
                          nsFuncStringContentListDataAllocator aDataAllocator,
                          const nsAString& aString);
 
-#endif // nsContentListDeclarations_h
+#endif  // nsContentListDeclarations_h

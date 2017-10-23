@@ -13,55 +13,63 @@ namespace widget {
 
 NS_IMPL_ISUPPORTS(Screen, nsIScreen)
 
-Screen::Screen(LayoutDeviceIntRect aRect, LayoutDeviceIntRect aAvailRect,
-               uint32_t aPixelDepth, uint32_t aColorDepth,
+Screen::Screen(LayoutDeviceIntRect aRect,
+               LayoutDeviceIntRect aAvailRect,
+               uint32_t aPixelDepth,
+               uint32_t aColorDepth,
                DesktopToLayoutDeviceScale aContentsScale,
                CSSToLayoutDeviceScale aDefaultCssScale,
                float aDPI)
-  : mRect(aRect)
-  , mAvailRect(aAvailRect)
-  , mRectDisplayPix(RoundedToInt(aRect / aContentsScale))
-  , mAvailRectDisplayPix(RoundedToInt(aAvailRect / aContentsScale))
-  , mPixelDepth(aPixelDepth)
-  , mColorDepth(aColorDepth)
-  , mContentsScale(aContentsScale)
-  , mDefaultCssScale(aDefaultCssScale)
-  , mDPI(aDPI)
+    : mRect(aRect),
+      mAvailRect(aAvailRect),
+      mRectDisplayPix(RoundedToInt(aRect / aContentsScale)),
+      mAvailRectDisplayPix(RoundedToInt(aAvailRect / aContentsScale)),
+      mPixelDepth(aPixelDepth),
+      mColorDepth(aColorDepth),
+      mContentsScale(aContentsScale),
+      mDefaultCssScale(aDefaultCssScale),
+      mDPI(aDPI)
 {
 }
 
 Screen::Screen(const mozilla::dom::ScreenDetails& aScreen)
-  : mRect(aScreen.rect())
-  , mAvailRect(aScreen.availRect())
-  , mRectDisplayPix(aScreen.rectDisplayPix())
-  , mAvailRectDisplayPix(aScreen.availRectDisplayPix())
-  , mPixelDepth(aScreen.pixelDepth())
-  , mColorDepth(aScreen.colorDepth())
-  , mContentsScale(aScreen.contentsScaleFactor())
-  , mDefaultCssScale(aScreen.defaultCSSScaleFactor())
-  , mDPI(aScreen.dpi())
+    : mRect(aScreen.rect()),
+      mAvailRect(aScreen.availRect()),
+      mRectDisplayPix(aScreen.rectDisplayPix()),
+      mAvailRectDisplayPix(aScreen.availRectDisplayPix()),
+      mPixelDepth(aScreen.pixelDepth()),
+      mColorDepth(aScreen.colorDepth()),
+      mContentsScale(aScreen.contentsScaleFactor()),
+      mDefaultCssScale(aScreen.defaultCSSScaleFactor()),
+      mDPI(aScreen.dpi())
 {
 }
 
 Screen::Screen(const Screen& aOther)
-  : mRect(aOther.mRect)
-  , mAvailRect(aOther.mAvailRect)
-  , mRectDisplayPix(aOther.mRectDisplayPix)
-  , mAvailRectDisplayPix(aOther.mAvailRectDisplayPix)
-  , mPixelDepth(aOther.mPixelDepth)
-  , mColorDepth(aOther.mColorDepth)
-  , mContentsScale(aOther.mContentsScale)
-  , mDefaultCssScale(aOther.mDefaultCssScale)
-  , mDPI(aOther.mDPI)
+    : mRect(aOther.mRect),
+      mAvailRect(aOther.mAvailRect),
+      mRectDisplayPix(aOther.mRectDisplayPix),
+      mAvailRectDisplayPix(aOther.mAvailRectDisplayPix),
+      mPixelDepth(aOther.mPixelDepth),
+      mColorDepth(aOther.mColorDepth),
+      mContentsScale(aOther.mContentsScale),
+      mDefaultCssScale(aOther.mDefaultCssScale),
+      mDPI(aOther.mDPI)
 {
 }
 
 mozilla::dom::ScreenDetails
 Screen::ToScreenDetails()
 {
-  return mozilla::dom::ScreenDetails(
-    mRect, mRectDisplayPix, mAvailRect, mAvailRectDisplayPix,
-    mPixelDepth, mColorDepth, mContentsScale, mDefaultCssScale, mDPI);
+  return mozilla::dom::ScreenDetails(mRect,
+                                     mRectDisplayPix,
+                                     mAvailRect,
+                                     mAvailRectDisplayPix,
+                                     mPixelDepth,
+                                     mColorDepth,
+                                     mContentsScale,
+                                     mDefaultCssScale,
+                                     mDPI);
 }
 
 NS_IMETHODIMP
@@ -131,14 +139,14 @@ Screen::GetColorDepth(int32_t* aColorDepth)
 }
 
 NS_IMETHODIMP
-Screen::GetContentsScaleFactor(double *aOutScale)
+Screen::GetContentsScaleFactor(double* aOutScale)
 {
   *aOutScale = mContentsScale.scale;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-Screen::GetDefaultCSSScaleFactor(double *aOutScale)
+Screen::GetDefaultCSSScaleFactor(double* aOutScale)
 {
   double scale = nsIWidget::DefaultScaleOverride();
   if (scale > 0.0) {
@@ -156,5 +164,5 @@ Screen::GetDpi(float* aDPI)
   return NS_OK;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

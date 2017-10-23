@@ -18,8 +18,7 @@ namespace js {
 //
 // See ES 12.2.9.3.
 
-struct TemplateRegistryHashPolicy
-{
+struct TemplateRegistryHashPolicy {
     // For use as HashPolicy. Expects keys as arrays of atoms.
     using Key = JSObject*;
     using Lookup = JSObject*;
@@ -28,11 +27,9 @@ struct TemplateRegistryHashPolicy
     static bool match(const Key& key, const Lookup& lookup);
 };
 
-using TemplateRegistry = JS::GCHashMap<JSObject*,
-                                       JSObject*,
-                                       TemplateRegistryHashPolicy,
-                                       SystemAllocPolicy>;
+using TemplateRegistry =
+    JS::GCHashMap<JSObject*, JSObject*, TemplateRegistryHashPolicy, SystemAllocPolicy>;
 
-} // namespace js
+}  // namespace js
 
-#endif // vm_TemplateRegistery_h
+#endif  // vm_TemplateRegistery_h

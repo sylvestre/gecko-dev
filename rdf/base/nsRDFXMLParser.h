@@ -15,17 +15,17 @@
 /**
  * A helper class that is used to parse RDF/XML.
  */
-class nsRDFXMLParser : public nsIRDFXMLParser {
-public:
-    static nsresult
-    Create(nsISupports* aOuter, REFNSIID aIID, void** aResult);
+class nsRDFXMLParser : public nsIRDFXMLParser
+{
+ public:
+  static nsresult Create(nsISupports* aOuter, REFNSIID aIID, void** aResult);
 
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIRDFXMLPARSER
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIRDFXMLPARSER
 
-protected:
-    nsRDFXMLParser();
-    virtual ~nsRDFXMLParser();
+ protected:
+  nsRDFXMLParser();
+  virtual ~nsRDFXMLParser();
 };
 
-#endif // nsRDFParser_h__
+#endif  // nsRDFParser_h__

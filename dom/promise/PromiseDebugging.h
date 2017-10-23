@@ -18,7 +18,7 @@ class ErrorResult;
 namespace dom {
 namespace workers {
 class WorkerPrivate;
-} // namespace workers
+}  // namespace workers
 
 class Promise;
 struct PromiseDebuggingStateHolder;
@@ -26,25 +26,31 @@ class GlobalObject;
 class UncaughtRejectionObserver;
 class FlushRejections;
 
-void TriggerFlushRejections();
+void
+TriggerFlushRejections();
 
 class PromiseDebugging
 {
-public:
+ public:
   static void Init();
   static void Shutdown();
 
-  static void GetState(GlobalObject&, JS::Handle<JSObject*> aPromise,
+  static void GetState(GlobalObject&,
+                       JS::Handle<JSObject*> aPromise,
                        PromiseDebuggingStateHolder& aState,
                        ErrorResult& aRv);
 
-  static void GetPromiseID(GlobalObject&, JS::Handle<JSObject*>, nsString&,
+  static void GetPromiseID(GlobalObject&,
+                           JS::Handle<JSObject*>,
+                           nsString&,
                            ErrorResult&);
 
-  static void GetAllocationStack(GlobalObject&, JS::Handle<JSObject*> aPromise,
+  static void GetAllocationStack(GlobalObject&,
+                                 JS::Handle<JSObject*> aPromise,
                                  JS::MutableHandle<JSObject*> aStack,
                                  ErrorResult& aRv);
-  static void GetRejectionStack(GlobalObject&, JS::Handle<JSObject*> aPromise,
+  static void GetRejectionStack(GlobalObject&,
+                                JS::Handle<JSObject*> aPromise,
                                 JS::MutableHandle<JSObject*> aStack,
                                 ErrorResult& aRv);
   static void GetFullfillmentStack(GlobalObject&,
@@ -53,10 +59,10 @@ public:
                                    ErrorResult& aRv);
 
   // Mechanism for watching uncaught instances of Promise.
-  static void AddUncaughtRejectionObserver(GlobalObject&,
-                                           UncaughtRejectionObserver& aObserver);
-  static bool RemoveUncaughtRejectionObserver(GlobalObject&,
-                                              UncaughtRejectionObserver& aObserver);
+  static void AddUncaughtRejectionObserver(
+      GlobalObject&, UncaughtRejectionObserver& aObserver);
+  static bool RemoveUncaughtRejectionObserver(
+      GlobalObject&, UncaughtRejectionObserver& aObserver);
 
   // Mark a Promise as having been left uncaught at script completion.
   static void AddUncaughtRejection(JS::HandleObject);
@@ -67,11 +73,12 @@ public:
   // and AddConsumedRejection to observers.
   static void FlushUncaughtRejections();
 
-protected:
+ protected:
   static void FlushUncaughtRejectionsInternal();
   friend class FlushRejections;
   friend class mozilla::dom::workers::WorkerPrivate;
-private:
+
+ private:
   // Identity of the process.
   // This property is:
   // - set during initialization of the layout module,
@@ -82,7 +89,7 @@ private:
   static nsString sIDPrefix;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PromiseDebugging_h
+#endif  // mozilla_dom_PromiseDebugging_h

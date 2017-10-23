@@ -23,59 +23,55 @@
 namespace js {
 namespace jit {
 
-static constexpr Register zero { Registers::zero };
-static constexpr Register at { Registers::at };
-static constexpr Register v0 { Registers::v0 };
-static constexpr Register v1 { Registers::v1 };
-static constexpr Register a0 { Registers::a0 };
-static constexpr Register a1 { Registers::a1 };
-static constexpr Register a2 { Registers::a2 };
-static constexpr Register a3 { Registers::a3 };
-static constexpr Register a4 { Registers::ta0 };
-static constexpr Register a5 { Registers::ta1 };
-static constexpr Register a6 { Registers::ta2 };
-static constexpr Register a7 { Registers::ta3 };
-static constexpr Register t0 { Registers::t0 };
-static constexpr Register t1 { Registers::t1 };
-static constexpr Register t2 { Registers::t2 };
-static constexpr Register t3 { Registers::t3 };
-static constexpr Register t4 { Registers::ta0 };
-static constexpr Register t5 { Registers::ta1 };
-static constexpr Register t6 { Registers::ta2 };
-static constexpr Register t7 { Registers::ta3 };
-static constexpr Register s0 { Registers::s0 };
-static constexpr Register s1 { Registers::s1 };
-static constexpr Register s2 { Registers::s2 };
-static constexpr Register s3 { Registers::s3 };
-static constexpr Register s4 { Registers::s4 };
-static constexpr Register s5 { Registers::s5 };
-static constexpr Register s6 { Registers::s6 };
-static constexpr Register s7 { Registers::s7 };
-static constexpr Register t8 { Registers::t8 };
-static constexpr Register t9 { Registers::t9 };
-static constexpr Register k0 { Registers::k0 };
-static constexpr Register k1 { Registers::k1 };
-static constexpr Register gp { Registers::gp };
-static constexpr Register sp { Registers::sp };
-static constexpr Register fp { Registers::fp };
-static constexpr Register ra { Registers::ra };
+static constexpr Register zero{Registers::zero};
+static constexpr Register at{Registers::at};
+static constexpr Register v0{Registers::v0};
+static constexpr Register v1{Registers::v1};
+static constexpr Register a0{Registers::a0};
+static constexpr Register a1{Registers::a1};
+static constexpr Register a2{Registers::a2};
+static constexpr Register a3{Registers::a3};
+static constexpr Register a4{Registers::ta0};
+static constexpr Register a5{Registers::ta1};
+static constexpr Register a6{Registers::ta2};
+static constexpr Register a7{Registers::ta3};
+static constexpr Register t0{Registers::t0};
+static constexpr Register t1{Registers::t1};
+static constexpr Register t2{Registers::t2};
+static constexpr Register t3{Registers::t3};
+static constexpr Register t4{Registers::ta0};
+static constexpr Register t5{Registers::ta1};
+static constexpr Register t6{Registers::ta2};
+static constexpr Register t7{Registers::ta3};
+static constexpr Register s0{Registers::s0};
+static constexpr Register s1{Registers::s1};
+static constexpr Register s2{Registers::s2};
+static constexpr Register s3{Registers::s3};
+static constexpr Register s4{Registers::s4};
+static constexpr Register s5{Registers::s5};
+static constexpr Register s6{Registers::s6};
+static constexpr Register s7{Registers::s7};
+static constexpr Register t8{Registers::t8};
+static constexpr Register t9{Registers::t9};
+static constexpr Register k0{Registers::k0};
+static constexpr Register k1{Registers::k1};
+static constexpr Register gp{Registers::gp};
+static constexpr Register sp{Registers::sp};
+static constexpr Register fp{Registers::fp};
+static constexpr Register ra{Registers::ra};
 
 static constexpr Register ScratchRegister = at;
 static constexpr Register SecondScratchReg = t8;
 
 // Helper classes for ScratchRegister usage. Asserts that only one piece
 // of code thinks it has exclusive ownership of each scratch register.
-struct ScratchRegisterScope : public AutoRegisterScope
-{
+struct ScratchRegisterScope : public AutoRegisterScope {
     explicit ScratchRegisterScope(MacroAssembler& masm)
-      : AutoRegisterScope(masm, ScratchRegister)
-    { }
+        : AutoRegisterScope(masm, ScratchRegister) {}
 };
-struct SecondScratchRegisterScope : public AutoRegisterScope
-{
+struct SecondScratchRegisterScope : public AutoRegisterScope {
     explicit SecondScratchRegisterScope(MacroAssembler& masm)
-      : AutoRegisterScope(masm, SecondScratchReg)
-    { }
+        : AutoRegisterScope(masm, SecondScratchReg) {}
 };
 
 // Use arg reg from EnterJIT function as OsrFrameReg.
@@ -93,12 +89,12 @@ static constexpr Register IntArgReg4 = a4;
 static constexpr Register IntArgReg5 = a5;
 static constexpr Register IntArgReg6 = a6;
 static constexpr Register IntArgReg7 = a7;
-static constexpr Register GlobalReg = s6; // used by Odin
-static constexpr Register HeapReg = s7; // used by Odin
+static constexpr Register GlobalReg = s6;  // used by Odin
+static constexpr Register HeapReg = s7;    // used by Odin
 
 static constexpr Register PreBarrierReg = a1;
 
-static constexpr Register InvalidReg { Registers::invalid_reg };
+static constexpr Register InvalidReg{Registers::invalid_reg};
 static constexpr FloatRegister InvalidFloatReg;
 
 static constexpr Register StackPointer = sp;
@@ -196,7 +192,6 @@ static const uint32_t FBtrueBits = 1;
 static const uint32_t FccMask = 0x7;
 static const uint32_t FccShift = 2;
 
-
 // MIPS instruction  field bit masks.
 static const uint32_t OpcodeMask = ((1 << OpcodeBits) - 1) << OpcodeShift;
 static const uint32_t Imm16Mask = ((1 << Imm16Bits) - 1) << Imm16Shift;
@@ -229,255 +224,254 @@ uint32_t RZ(FloatRegister r);
 uint32_t SA(uint32_t value);
 uint32_t SA(FloatRegister r);
 
-Register toRS (Instruction& i);
-Register toRT (Instruction& i);
-Register toRD (Instruction& i);
-Register toR (Instruction& i);
+Register toRS(Instruction& i);
+Register toRT(Instruction& i);
+Register toRD(Instruction& i);
+Register toR(Instruction& i);
 
 // MIPS enums for instruction fields
 enum Opcode {
-    op_special  = 0 << OpcodeShift,
-    op_regimm   = 1 << OpcodeShift,
+    op_special = 0 << OpcodeShift,
+    op_regimm = 1 << OpcodeShift,
 
-    op_j        = 2 << OpcodeShift,
-    op_jal      = 3 << OpcodeShift,
-    op_beq      = 4 << OpcodeShift,
-    op_bne      = 5 << OpcodeShift,
-    op_blez     = 6 << OpcodeShift,
-    op_bgtz     = 7 << OpcodeShift,
+    op_j = 2 << OpcodeShift,
+    op_jal = 3 << OpcodeShift,
+    op_beq = 4 << OpcodeShift,
+    op_bne = 5 << OpcodeShift,
+    op_blez = 6 << OpcodeShift,
+    op_bgtz = 7 << OpcodeShift,
 
-    op_addi     = 8 << OpcodeShift,
-    op_addiu    = 9 << OpcodeShift,
-    op_slti     = 10 << OpcodeShift,
-    op_sltiu    = 11 << OpcodeShift,
-    op_andi     = 12 << OpcodeShift,
-    op_ori      = 13 << OpcodeShift,
-    op_xori     = 14 << OpcodeShift,
-    op_lui      = 15 << OpcodeShift,
+    op_addi = 8 << OpcodeShift,
+    op_addiu = 9 << OpcodeShift,
+    op_slti = 10 << OpcodeShift,
+    op_sltiu = 11 << OpcodeShift,
+    op_andi = 12 << OpcodeShift,
+    op_ori = 13 << OpcodeShift,
+    op_xori = 14 << OpcodeShift,
+    op_lui = 15 << OpcodeShift,
 
-    op_cop1     = 17 << OpcodeShift,
-    op_cop1x    = 19 << OpcodeShift,
+    op_cop1 = 17 << OpcodeShift,
+    op_cop1x = 19 << OpcodeShift,
 
-    op_beql     = 20 << OpcodeShift,
-    op_bnel     = 21 << OpcodeShift,
-    op_blezl    = 22 << OpcodeShift,
-    op_bgtzl    = 23 << OpcodeShift,
+    op_beql = 20 << OpcodeShift,
+    op_bnel = 21 << OpcodeShift,
+    op_blezl = 22 << OpcodeShift,
+    op_bgtzl = 23 << OpcodeShift,
 
-    op_daddi    = 24 << OpcodeShift,
-    op_daddiu   = 25 << OpcodeShift,
+    op_daddi = 24 << OpcodeShift,
+    op_daddiu = 25 << OpcodeShift,
 
-    op_ldl      = 26 << OpcodeShift,
-    op_ldr      = 27 << OpcodeShift,
+    op_ldl = 26 << OpcodeShift,
+    op_ldr = 27 << OpcodeShift,
 
     op_special2 = 28 << OpcodeShift,
     op_special3 = 31 << OpcodeShift,
 
-    op_lb       = 32 << OpcodeShift,
-    op_lh       = 33 << OpcodeShift,
-    op_lwl      = 34 << OpcodeShift,
-    op_lw       = 35 << OpcodeShift,
-    op_lbu      = 36 << OpcodeShift,
-    op_lhu      = 37 << OpcodeShift,
-    op_lwr      = 38 << OpcodeShift,
-    op_lwu      = 39 << OpcodeShift,
-    op_sb       = 40 << OpcodeShift,
-    op_sh       = 41 << OpcodeShift,
-    op_swl      = 42 << OpcodeShift,
-    op_sw       = 43 << OpcodeShift,
-    op_sdl      = 44 << OpcodeShift,
-    op_sdr      = 45 << OpcodeShift,
-    op_swr      = 46 << OpcodeShift,
+    op_lb = 32 << OpcodeShift,
+    op_lh = 33 << OpcodeShift,
+    op_lwl = 34 << OpcodeShift,
+    op_lw = 35 << OpcodeShift,
+    op_lbu = 36 << OpcodeShift,
+    op_lhu = 37 << OpcodeShift,
+    op_lwr = 38 << OpcodeShift,
+    op_lwu = 39 << OpcodeShift,
+    op_sb = 40 << OpcodeShift,
+    op_sh = 41 << OpcodeShift,
+    op_swl = 42 << OpcodeShift,
+    op_sw = 43 << OpcodeShift,
+    op_sdl = 44 << OpcodeShift,
+    op_sdr = 45 << OpcodeShift,
+    op_swr = 46 << OpcodeShift,
 
-    op_ll       = 48 << OpcodeShift,
-    op_lwc1     = 49 << OpcodeShift,
-    op_lwc2     = 50 << OpcodeShift,
-    op_ldc1     = 53 << OpcodeShift,
-    op_ldc2     = 54 << OpcodeShift,
-    op_ld       = 55 << OpcodeShift,
+    op_ll = 48 << OpcodeShift,
+    op_lwc1 = 49 << OpcodeShift,
+    op_lwc2 = 50 << OpcodeShift,
+    op_ldc1 = 53 << OpcodeShift,
+    op_ldc2 = 54 << OpcodeShift,
+    op_ld = 55 << OpcodeShift,
 
-    op_sc       = 56 << OpcodeShift,
-    op_swc1     = 57 << OpcodeShift,
-    op_swc2     = 58 << OpcodeShift,
-    op_sdc1     = 61 << OpcodeShift,
-    op_sdc2     = 62 << OpcodeShift,
-    op_sd       = 63 << OpcodeShift,
+    op_sc = 56 << OpcodeShift,
+    op_swc1 = 57 << OpcodeShift,
+    op_swc2 = 58 << OpcodeShift,
+    op_sdc1 = 61 << OpcodeShift,
+    op_sdc2 = 62 << OpcodeShift,
+    op_sd = 63 << OpcodeShift,
 };
 
 enum RSField {
-    rs_zero  = 0 << RSShift,
+    rs_zero = 0 << RSShift,
     // cop1 encoding of RS field.
-    rs_mfc1  = 0 << RSShift,
-    rs_one   = 1 << RSShift,
+    rs_mfc1 = 0 << RSShift,
+    rs_one = 1 << RSShift,
     rs_dmfc1 = 1 << RSShift,
-    rs_cfc1  = 2 << RSShift,
+    rs_cfc1 = 2 << RSShift,
     rs_mfhc1 = 3 << RSShift,
-    rs_mtc1  = 4 << RSShift,
+    rs_mtc1 = 4 << RSShift,
     rs_dmtc1 = 5 << RSShift,
-    rs_ctc1  = 6 << RSShift,
+    rs_ctc1 = 6 << RSShift,
     rs_mthc1 = 7 << RSShift,
-    rs_bc1   = 8 << RSShift,
-    rs_s     = 16 << RSShift,
-    rs_d     = 17 << RSShift,
-    rs_w     = 20 << RSShift,
-    rs_l     = 21 << RSShift,
-    rs_ps    = 22 << RSShift
+    rs_bc1 = 8 << RSShift,
+    rs_s = 16 << RSShift,
+    rs_d = 17 << RSShift,
+    rs_w = 20 << RSShift,
+    rs_l = 21 << RSShift,
+    rs_ps = 22 << RSShift
 };
 
 enum RTField {
-    rt_zero   = 0 << RTShift,
+    rt_zero = 0 << RTShift,
     // regimm  encoding of RT field.
-    rt_bltz   = 0 << RTShift,
-    rt_bgez   = 1 << RTShift,
+    rt_bltz = 0 << RTShift,
+    rt_bgez = 1 << RTShift,
     rt_bltzal = 16 << RTShift,
     rt_bgezal = 17 << RTShift
 };
 
 enum FunctionField {
     // special encoding of function field.
-    ff_sll         = 0,
-    ff_movci       = 1,
-    ff_srl         = 2,
-    ff_sra         = 3,
-    ff_sllv        = 4,
-    ff_srlv        = 6,
-    ff_srav        = 7,
+    ff_sll = 0,
+    ff_movci = 1,
+    ff_srl = 2,
+    ff_sra = 3,
+    ff_sllv = 4,
+    ff_srlv = 6,
+    ff_srav = 7,
 
-    ff_jr          = 8,
-    ff_jalr        = 9,
-    ff_movz        = 10,
-    ff_movn        = 11,
-    ff_break       = 13,
-    ff_sync        = 15,
+    ff_jr = 8,
+    ff_jalr = 9,
+    ff_movz = 10,
+    ff_movn = 11,
+    ff_break = 13,
+    ff_sync = 15,
 
-    ff_mfhi        = 16,
-    ff_mflo        = 18,
+    ff_mfhi = 16,
+    ff_mflo = 18,
 
-    ff_dsllv       = 20,
-    ff_dsrlv       = 22,
-    ff_dsrav       = 23,
+    ff_dsllv = 20,
+    ff_dsrlv = 22,
+    ff_dsrav = 23,
 
-    ff_mult        = 24,
-    ff_multu       = 25,
-    ff_div         = 26,
-    ff_divu        = 27,
-    ff_dmult       = 28,
-    ff_dmultu      = 29,
-    ff_ddiv        = 30,
-    ff_ddivu       = 31,
+    ff_mult = 24,
+    ff_multu = 25,
+    ff_div = 26,
+    ff_divu = 27,
+    ff_dmult = 28,
+    ff_dmultu = 29,
+    ff_ddiv = 30,
+    ff_ddivu = 31,
 
-    ff_add         = 32,
-    ff_addu        = 33,
-    ff_sub         = 34,
-    ff_subu        = 35,
-    ff_and         = 36,
-    ff_or          = 37,
-    ff_xor         = 38,
-    ff_nor         = 39,
+    ff_add = 32,
+    ff_addu = 33,
+    ff_sub = 34,
+    ff_subu = 35,
+    ff_and = 36,
+    ff_or = 37,
+    ff_xor = 38,
+    ff_nor = 39,
 
-    ff_slt         = 42,
-    ff_sltu        = 43,
-    ff_dadd        = 44,
-    ff_daddu       = 45,
-    ff_dsub        = 46,
-    ff_dsubu       = 47,
+    ff_slt = 42,
+    ff_sltu = 43,
+    ff_dadd = 44,
+    ff_daddu = 45,
+    ff_dsub = 46,
+    ff_dsubu = 47,
 
-    ff_tge         = 48,
-    ff_tgeu        = 49,
-    ff_tlt         = 50,
-    ff_tltu        = 51,
-    ff_teq         = 52,
-    ff_tne         = 54,
-    ff_dsll        = 56,
-    ff_dsrl        = 58,
-    ff_dsra        = 59,
-    ff_dsll32      = 60,
-    ff_dsrl32      = 62,
-    ff_dsra32      = 63,
+    ff_tge = 48,
+    ff_tgeu = 49,
+    ff_tlt = 50,
+    ff_tltu = 51,
+    ff_teq = 52,
+    ff_tne = 54,
+    ff_dsll = 56,
+    ff_dsrl = 58,
+    ff_dsra = 59,
+    ff_dsll32 = 60,
+    ff_dsrl32 = 62,
+    ff_dsra32 = 63,
 
     // special2 encoding of function field.
-    ff_mul         = 2,
-    ff_clz         = 32,
-    ff_clo         = 33,
-    ff_dclz        = 36,
+    ff_mul = 2,
+    ff_clz = 32,
+    ff_clo = 33,
+    ff_dclz = 36,
 
     // special3 encoding of function field.
-    ff_ext         = 0,
-    ff_dextm       = 1,
-    ff_dextu       = 2,
-    ff_dext        = 3,
-    ff_ins         = 4,
-    ff_dinsm       = 5,
-    ff_dinsu       = 6,
-    ff_dins        = 7,
-    ff_bshfl       = 32,
+    ff_ext = 0,
+    ff_dextm = 1,
+    ff_dextu = 2,
+    ff_dext = 3,
+    ff_ins = 4,
+    ff_dinsm = 5,
+    ff_dinsu = 6,
+    ff_dins = 7,
+    ff_bshfl = 32,
 
     // cop1 encoding of function field.
-    ff_add_fmt     = 0,
-    ff_sub_fmt     = 1,
-    ff_mul_fmt     = 2,
-    ff_div_fmt     = 3,
-    ff_sqrt_fmt    = 4,
-    ff_abs_fmt     = 5,
-    ff_mov_fmt     = 6,
-    ff_neg_fmt     = 7,
+    ff_add_fmt = 0,
+    ff_sub_fmt = 1,
+    ff_mul_fmt = 2,
+    ff_div_fmt = 3,
+    ff_sqrt_fmt = 4,
+    ff_abs_fmt = 5,
+    ff_mov_fmt = 6,
+    ff_neg_fmt = 7,
 
     ff_round_l_fmt = 8,
     ff_trunc_l_fmt = 9,
-    ff_ceil_l_fmt  = 10,
+    ff_ceil_l_fmt = 10,
     ff_floor_l_fmt = 11,
 
     ff_round_w_fmt = 12,
     ff_trunc_w_fmt = 13,
-    ff_ceil_w_fmt  = 14,
+    ff_ceil_w_fmt = 14,
     ff_floor_w_fmt = 15,
 
-    ff_movf_fmt    = 17,
-    ff_movz_fmt    = 18,
-    ff_movn_fmt    = 19,
+    ff_movf_fmt = 17,
+    ff_movz_fmt = 18,
+    ff_movn_fmt = 19,
 
-    ff_cvt_s_fmt   = 32,
-    ff_cvt_d_fmt   = 33,
-    ff_cvt_w_fmt   = 36,
-    ff_cvt_l_fmt   = 37,
-    ff_cvt_ps_s    = 38,
+    ff_cvt_s_fmt = 32,
+    ff_cvt_d_fmt = 33,
+    ff_cvt_w_fmt = 36,
+    ff_cvt_l_fmt = 37,
+    ff_cvt_ps_s = 38,
 
-    ff_c_f_fmt     = 48,
-    ff_c_un_fmt    = 49,
-    ff_c_eq_fmt    = 50,
-    ff_c_ueq_fmt   = 51,
-    ff_c_olt_fmt   = 52,
-    ff_c_ult_fmt   = 53,
-    ff_c_ole_fmt   = 54,
-    ff_c_ule_fmt   = 55,
+    ff_c_f_fmt = 48,
+    ff_c_un_fmt = 49,
+    ff_c_eq_fmt = 50,
+    ff_c_ueq_fmt = 51,
+    ff_c_olt_fmt = 52,
+    ff_c_ult_fmt = 53,
+    ff_c_ole_fmt = 54,
+    ff_c_ule_fmt = 55,
 
-    ff_madd_s      = 32,
-    ff_madd_d      = 33,
+    ff_madd_s = 32,
+    ff_madd_d = 33,
 
     // Loongson encoding of function field.
-    ff_gsxbx       = 0,
-    ff_gsxhx       = 1,
-    ff_gsxwx       = 2,
-    ff_gsxdx       = 3,
-    ff_gsxwlc1     = 4,
-    ff_gsxwrc1     = 5,
-    ff_gsxdlc1     = 6,
-    ff_gsxdrc1     = 7,
-    ff_gsxwxc1     = 6,
-    ff_gsxdxc1     = 7,
-    ff_gsxq        = 0x20,
-    ff_gsxqc1      = 0x8020,
+    ff_gsxbx = 0,
+    ff_gsxhx = 1,
+    ff_gsxwx = 2,
+    ff_gsxdx = 3,
+    ff_gsxwlc1 = 4,
+    ff_gsxwrc1 = 5,
+    ff_gsxdlc1 = 6,
+    ff_gsxdrc1 = 7,
+    ff_gsxwxc1 = 6,
+    ff_gsxdxc1 = 7,
+    ff_gsxq = 0x20,
+    ff_gsxqc1 = 0x8020,
 
-    ff_null        = 0
+    ff_null = 0
 };
 
 class Operand;
 
 // A BOffImm16 is a 16 bit immediate that is used for branches.
-class BOffImm16
-{
+class BOffImm16 {
     uint32_t data;
 
-  public:
+   public:
     uint32_t encode() {
         MOZ_ASSERT(!isInvalid());
         return data;
@@ -487,38 +481,29 @@ class BOffImm16
         return (int32_t(data << 18) >> 16) + 4;
     }
 
-    explicit BOffImm16(int offset)
-      : data ((offset - 4) >> 2 & Imm16Mask)
-    {
+    explicit BOffImm16(int offset) : data((offset - 4) >> 2 & Imm16Mask) {
         MOZ_ASSERT((offset & 0x3) == 0);
         MOZ_ASSERT(IsInRange(offset));
     }
     static bool IsInRange(int offset) {
-        if ((offset - 4) < int(unsigned(INT16_MIN) << 2))
-            return false;
-        if ((offset - 4) > (INT16_MAX << 2))
-            return false;
+        if ((offset - 4) < int(unsigned(INT16_MIN) << 2)) return false;
+        if ((offset - 4) > (INT16_MAX << 2)) return false;
         return true;
     }
     static const uint32_t INVALID = 0x00020000;
-    BOffImm16()
-      : data(INVALID)
-    { }
+    BOffImm16() : data(INVALID) {}
 
-    bool isInvalid() {
-        return data == INVALID;
-    }
+    bool isInvalid() { return data == INVALID; }
     Instruction* getDest(Instruction* src) const;
 
     BOffImm16(InstImm inst);
 };
 
 // A JOffImm26 is a 26 bit immediate that is used for unconditional jumps.
-class JOffImm26
-{
+class JOffImm26 {
     uint32_t data;
 
-  public:
+   public:
     uint32_t encode() {
         MOZ_ASSERT(!isInvalid());
         return data;
@@ -528,156 +513,87 @@ class JOffImm26
         return (int32_t(data << 8) >> 6) + 4;
     }
 
-    explicit JOffImm26(int offset)
-      : data ((offset - 4) >> 2 & Imm26Mask)
-    {
+    explicit JOffImm26(int offset) : data((offset - 4) >> 2 & Imm26Mask) {
         MOZ_ASSERT((offset & 0x3) == 0);
         MOZ_ASSERT(IsInRange(offset));
     }
     static bool IsInRange(int offset) {
-        if ((offset - 4) < -536870912)
-            return false;
-        if ((offset - 4) > 536870908)
-            return false;
+        if ((offset - 4) < -536870912) return false;
+        if ((offset - 4) > 536870908) return false;
         return true;
     }
     static const uint32_t INVALID = 0x20000000;
-    JOffImm26()
-      : data(INVALID)
-    { }
+    JOffImm26() : data(INVALID) {}
 
-    bool isInvalid() {
-        return data == INVALID;
-    }
+    bool isInvalid() { return data == INVALID; }
     Instruction* getDest(Instruction* src);
-
 };
 
-class Imm16
-{
+class Imm16 {
     uint16_t value;
 
-  public:
+   public:
     Imm16();
-    Imm16(uint32_t imm)
-      : value(imm)
-    { }
-    uint32_t encode() {
-        return value;
-    }
-    int32_t decodeSigned() {
-        return value;
-    }
-    uint32_t decodeUnsigned() {
-        return value;
-    }
-    static bool IsInSignedRange(int32_t imm) {
-        return imm >= INT16_MIN  && imm <= INT16_MAX;
-    }
-    static bool IsInUnsignedRange(uint32_t imm) {
-        return imm <= UINT16_MAX ;
-    }
-    static Imm16 Lower (Imm32 imm) {
-        return Imm16(imm.value & 0xffff);
-    }
-    static Imm16 Upper (Imm32 imm) {
-        return Imm16((imm.value >> 16) & 0xffff);
-    }
+    Imm16(uint32_t imm) : value(imm) {}
+    uint32_t encode() { return value; }
+    int32_t decodeSigned() { return value; }
+    uint32_t decodeUnsigned() { return value; }
+    static bool IsInSignedRange(int32_t imm) { return imm >= INT16_MIN && imm <= INT16_MAX; }
+    static bool IsInUnsignedRange(uint32_t imm) { return imm <= UINT16_MAX; }
+    static Imm16 Lower(Imm32 imm) { return Imm16(imm.value & 0xffff); }
+    static Imm16 Upper(Imm32 imm) { return Imm16((imm.value >> 16) & 0xffff); }
 };
 
-class Imm8
-{
+class Imm8 {
     uint8_t value;
 
-  public:
+   public:
     Imm8();
-    Imm8(uint32_t imm)
-      : value(imm)
-    { }
-    uint32_t encode(uint32_t shift) {
-        return value << shift;
-    }
-    int32_t decodeSigned() {
-        return value;
-    }
-    uint32_t decodeUnsigned() {
-        return value;
-    }
-    static bool IsInSignedRange(int32_t imm) {
-        return imm >= INT8_MIN  && imm <= INT8_MAX;
-    }
-    static bool IsInUnsignedRange(uint32_t imm) {
-        return imm <= UINT8_MAX ;
-    }
-    static Imm8 Lower (Imm16 imm) {
-        return Imm8(imm.decodeSigned() & 0xff);
-    }
-    static Imm8 Upper (Imm16 imm) {
-        return Imm8((imm.decodeSigned() >> 8) & 0xff);
-    }
+    Imm8(uint32_t imm) : value(imm) {}
+    uint32_t encode(uint32_t shift) { return value << shift; }
+    int32_t decodeSigned() { return value; }
+    uint32_t decodeUnsigned() { return value; }
+    static bool IsInSignedRange(int32_t imm) { return imm >= INT8_MIN && imm <= INT8_MAX; }
+    static bool IsInUnsignedRange(uint32_t imm) { return imm <= UINT8_MAX; }
+    static Imm8 Lower(Imm16 imm) { return Imm8(imm.decodeSigned() & 0xff); }
+    static Imm8 Upper(Imm16 imm) { return Imm8((imm.decodeSigned() >> 8) & 0xff); }
 };
 
-class GSImm13
-{
+class GSImm13 {
     uint16_t value;
 
-  public:
+   public:
     GSImm13();
-    GSImm13(uint32_t imm)
-      : value(imm & ~0xf)
-    { }
-    uint32_t encode(uint32_t shift) {
-        return ((value >> 4) & 0x1f) << shift;
-    }
-    int32_t decodeSigned() {
-        return value;
-    }
-    uint32_t decodeUnsigned() {
-        return value;
-    }
+    GSImm13(uint32_t imm) : value(imm & ~0xf) {}
+    uint32_t encode(uint32_t shift) { return ((value >> 4) & 0x1f) << shift; }
+    int32_t decodeSigned() { return value; }
+    uint32_t decodeUnsigned() { return value; }
     static bool IsInRange(int32_t imm) {
         return imm >= int32_t(uint32_t(-256) << 4) && imm <= (255 << 4);
     }
 };
 
-class Operand
-{
-  public:
-    enum Tag {
-        REG,
-        FREG,
-        MEM
-    };
+class Operand {
+   public:
+    enum Tag { REG, FREG, MEM };
 
-  private:
+   private:
     Tag tag : 3;
     uint32_t reg : 5;
     int32_t offset;
 
-  public:
-    Operand (Register reg_)
-      : tag(REG), reg(reg_.code())
-    { }
+   public:
+    Operand(Register reg_) : tag(REG), reg(reg_.code()) {}
 
-    Operand (FloatRegister freg)
-      : tag(FREG), reg(freg.code())
-    { }
+    Operand(FloatRegister freg) : tag(FREG), reg(freg.code()) {}
 
-    Operand (Register base, Imm32 off)
-      : tag(MEM), reg(base.code()), offset(off.value)
-    { }
+    Operand(Register base, Imm32 off) : tag(MEM), reg(base.code()), offset(off.value) {}
 
-    Operand (Register base, int32_t off)
-      : tag(MEM), reg(base.code()), offset(off)
-    { }
+    Operand(Register base, int32_t off) : tag(MEM), reg(base.code()), offset(off) {}
 
-    Operand (const Address& addr)
-      : tag(MEM), reg(addr.base.code()), offset(addr.offset)
-    { }
+    Operand(const Address& addr) : tag(MEM), reg(addr.base.code()), offset(addr.offset) {}
 
-    Tag getTag() const {
-        return tag;
-    }
+    Tag getTag() const { return tag; }
 
     Register toReg() const {
         MOZ_ASSERT(tag == REG);
@@ -713,34 +629,23 @@ class Operand
     }
 };
 
-inline Imm32
-Imm64::firstHalf() const
-{
-    return low();
-}
+inline Imm32 Imm64::firstHalf() const { return low(); }
 
-inline Imm32
-Imm64::secondHalf() const
-{
-    return hi();
-}
+inline Imm32 Imm64::secondHalf() const { return hi(); }
 
-void
-PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
-          ReprotectCode reprotect = DontReprotect);
+void PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
+               ReprotectCode reprotect = DontReprotect);
 
-void
-PatchBackedge(CodeLocationJump& jump_, CodeLocationLabel label, JitZoneGroup::BackedgeTarget target);
+void PatchBackedge(CodeLocationJump& jump_, CodeLocationLabel label,
+                   JitZoneGroup::BackedgeTarget target);
 
 static constexpr int32_t SliceSize = 1024;
 typedef js::jit::AssemblerBuffer<SliceSize, Instruction> MIPSBuffer;
 
-class MIPSBufferWithExecutableCopy : public MIPSBuffer
-{
-  public:
+class MIPSBufferWithExecutableCopy : public MIPSBuffer {
+   public:
     void executableCopy(uint8_t* buffer) {
-        if (this->oom())
-            return;
+        if (this->oom()) return;
 
         for (Slice* cur = head; cur != nullptr; cur = cur->getNext()) {
             memcpy(buffer, &cur->instructions, cur->length());
@@ -749,8 +654,7 @@ class MIPSBufferWithExecutableCopy : public MIPSBuffer
     }
 
     bool appendRawCode(const uint8_t* code, size_t numBytes) {
-        if (this->oom())
-            return false;
+        if (this->oom()) return false;
         while (numBytes > SliceSize) {
             this->putBytes(SliceSize, code);
             numBytes -= SliceSize;
@@ -761,13 +665,11 @@ class MIPSBufferWithExecutableCopy : public MIPSBuffer
     }
 };
 
-class AssemblerMIPSShared : public AssemblerShared
-{
+class AssemblerMIPSShared : public AssemblerShared {
 #ifdef JS_JITSPEW
-   Sprinter* printer;
+    Sprinter* printer;
 #endif
-  public:
-
+   public:
     enum Condition {
         Equal,
         NotEqual,
@@ -808,61 +710,32 @@ class AssemblerMIPSShared : public AssemblerShared
         DoubleLessThanOrEqualOrUnordered
     };
 
-    enum FPConditionBit {
-        FCC0 = 0,
-        FCC1,
-        FCC2,
-        FCC3,
-        FCC4,
-        FCC5,
-        FCC6,
-        FCC7
-    };
+    enum FPConditionBit { FCC0 = 0, FCC1, FCC2, FCC3, FCC4, FCC5, FCC6, FCC7 };
 
-    enum FPControl {
-        FIR  = 0,
-        UFR,
-        UNFR = 4,
-        FCCR = 25,
-        FEXR,
-        FENR = 28,
-        FCSR = 31
-    };
+    enum FPControl { FIR = 0, UFR, UNFR = 4, FCCR = 25, FEXR, FENR = 28, FCSR = 31 };
 
-    enum FloatFormat {
-        SingleFloat,
-        DoubleFloat
-    };
+    enum FloatFormat { SingleFloat, DoubleFloat };
 
-    enum JumpOrCall {
-        BranchIsJump,
-        BranchIsCall
-    };
+    enum JumpOrCall { BranchIsJump, BranchIsCall };
 
-    enum FloatTestKind {
-        TestForTrue,
-        TestForFalse
-    };
+    enum FloatTestKind { TestForTrue, TestForFalse };
 
     // :( this should be protected, but since CodeGenerator
     // wants to use it, It needs to go out here :(
 
-    BufferOffset nextOffset() {
-        return m_buffer.nextOffset();
-    }
+    BufferOffset nextOffset() { return m_buffer.nextOffset(); }
 
-  protected:
-    Instruction * editSrc (BufferOffset bo) {
-        return m_buffer.getInst(bo);
-    }
-  public:
+   protected:
+    Instruction* editSrc(BufferOffset bo) { return m_buffer.getInst(bo); }
+
+   public:
     uint32_t actualIndex(uint32_t) const;
     static uint8_t* PatchableJumpAddress(JitCode* code, uint32_t index);
-  protected:
+
+   protected:
     // structure for fixing up pc-relative loads/jumps when a the machine code
     // gets moved (executable copy, gc, etc.)
-    struct RelativePatch
-    {
+    struct RelativePatch {
         // the offset within the code buffer where the value is loaded that
         // we want to fix-up
         BufferOffset offset;
@@ -870,10 +743,7 @@ class AssemblerMIPSShared : public AssemblerShared
         Relocation::Kind kind;
 
         RelativePatch(BufferOffset offset, void* target, Relocation::Kind kind)
-          : offset(offset),
-            target(target),
-            kind(kind)
-        { }
+            : offset(offset), target(target), kind(kind) {}
     };
 
     js::Vector<RelativePatch, 8, SystemAllocPolicy> jumps_;
@@ -884,38 +754,35 @@ class AssemblerMIPSShared : public AssemblerShared
 
     MIPSBufferWithExecutableCopy m_buffer;
 
-  public:
+   public:
     AssemblerMIPSShared()
-      : m_buffer(),
+        : m_buffer(),
 #ifdef JS_JITSPEW
-       printer(nullptr),
+          printer(nullptr),
 #endif
-       isFinished(false)
-    { }
+          isFinished(false) {
+    }
 
     static Condition InvertCondition(Condition cond);
     static DoubleCondition InvertCondition(DoubleCondition cond);
 
-    void writeRelocation(BufferOffset src) {
-        jumpRelocations_.writeUnsigned(src.getOffset());
-    }
+    void writeRelocation(BufferOffset src) { jumpRelocations_.writeUnsigned(src.getOffset()); }
 
     // As opposed to x86/x64 version, the data relocation has to be executed
     // before to recover the pointer, and not after.
     void writeDataRelocation(ImmGCPtr ptr) {
         if (ptr.value) {
-            if (gc::IsInsideNursery(ptr.value))
-                embedsNurseryPointers_ = true;
+            if (gc::IsInsideNursery(ptr.value)) embedsNurseryPointers_ = true;
             dataRelocations_.writeUnsigned(nextOffset().getOffset());
         }
     }
 
-  public:
+   public:
     bool oom() const;
 
     void setPrinter(Sprinter* sp) {
 #ifdef JS_JITSPEW
-            printer = sp;
+        printer = sp;
 #endif
     }
 
@@ -931,8 +798,7 @@ class AssemblerMIPSShared : public AssemblerShared
 
     void decodeBranchInstAndSpew(InstImm branch);
 #else
-    MOZ_ALWAYS_INLINE void spew(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3) {
-    }
+    MOZ_ALWAYS_INLINE void spew(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3) {}
 #endif
 
 #ifdef JS_JITSPEW
@@ -943,20 +809,18 @@ class AssemblerMIPSShared : public AssemblerShared
 
         int i = VsprintfLiteral(buf, fmt, va);
         if (i > -1) {
-            if (printer)
-                printer->printf("%s\n", buf);
+            if (printer) printer->printf("%s\n", buf);
             js::jit::JitSpew(js::jit::JitSpew_Codegen, "%s", buf);
         }
     }
 #endif
 
-    static const Register getStackPointer() {
-        return StackPointer;
-    }
+    static const Register getStackPointer() { return StackPointer; }
 
-  protected:
+   protected:
     bool isFinished;
-  public:
+
+   public:
     void finish();
     bool appendRawCode(const uint8_t* code, size_t numBytes);
     bool reserve(size_t size);
@@ -984,7 +848,7 @@ class AssemblerMIPSShared : public AssemblerShared
     // object at all. Normally, you would use the dummy (nullptr) object.
     static void WriteInstStatic(uint32_t x, uint32_t* dest);
 
-  public:
+   public:
     BufferOffset haltingAlign(int alignment);
     BufferOffset nopAlign(int alignment);
     BufferOffset as_nop();
@@ -1162,7 +1026,7 @@ class AssemblerMIPSShared : public AssemblerShared
     BufferOffset as_dmtc1(Register rt, FloatRegister fs);
     BufferOffset as_dmfc1(Register rt, FloatRegister fs);
 
-  public:
+   public:
     // FP convert instructions
     BufferOffset as_ceilws(FloatRegister fd, FloatRegister fs);
     BufferOffset as_floorws(FloatRegister fd, FloatRegister fs);
@@ -1235,15 +1099,9 @@ class AssemblerMIPSShared : public AssemblerShared
     void bind(Label* label, BufferOffset boff = BufferOffset());
     void bindLater(Label* label, wasm::TrapDesc target);
     virtual void bind(InstImm* inst, uintptr_t branch, uintptr_t target) = 0;
-    void bind(CodeOffset* label) {
-        label->bind(currentOffset());
-    }
-    void use(CodeOffset* label) {
-        label->bind(currentOffset());
-    }
-    uint32_t currentOffset() {
-        return nextOffset().getOffset();
-    }
+    void bind(CodeOffset* label) { label->bind(currentOffset()); }
+    void use(CodeOffset* label) { label->bind(currentOffset()); }
+    uint32_t currentOffset() { return nextOffset().getOffset(); }
     void retarget(Label* label, Label* target);
 
     void call(Label* label);
@@ -1252,7 +1110,7 @@ class AssemblerMIPSShared : public AssemblerShared
     void as_break(uint32_t code);
     void as_sync(uint32_t stype = 0);
 
-  public:
+   public:
     static bool SupportsFloatingPoint() {
 #if (defined(__mips_hard_float) && !defined(__mips_single_float)) || \
     defined(JS_SIMULATOR_MIPS32) || defined(JS_SIMULATOR_MIPS64)
@@ -1261,51 +1119,33 @@ class AssemblerMIPSShared : public AssemblerShared
         return false;
 #endif
     }
-    static bool SupportsUnalignedAccesses() {
-        return true;
-    }
-    static bool SupportsSimd() {
-        return js::jit::SupportsSimd;
-    }
+    static bool SupportsUnalignedAccesses() { return true; }
+    static bool SupportsSimd() { return js::jit::SupportsSimd; }
 
-    static bool HasRoundInstruction(RoundingMode mode) {
-        return false;
-    }
+    static bool HasRoundInstruction(RoundingMode mode) { return false; }
 
-  protected:
+   protected:
     InstImm invertBranch(InstImm branch, BOffImm16 skipOffset);
     void addPendingJump(BufferOffset src, ImmPtr target, Relocation::Kind kind) {
         enoughMemory_ &= jumps_.append(RelativePatch(src, target.value, kind));
-        if (kind == Relocation::JITCODE)
-            writeRelocation(src);
+        if (kind == Relocation::JITCODE) writeRelocation(src);
     }
 
-    void addLongJump(BufferOffset src) {
-        enoughMemory_ &= longJumps_.append(src.getOffset());
-    }
+    void addLongJump(BufferOffset src) { enoughMemory_ &= longJumps_.append(src.getOffset()); }
 
-  public:
-    size_t numLongJumps() const {
-        return longJumps_.length();
-    }
-    uint32_t longJump(size_t i) {
-        return longJumps_[i];
-    }
+   public:
+    size_t numLongJumps() const { return longJumps_.length(); }
+    uint32_t longJump(size_t i) { return longJumps_[i]; }
 
-    void flushBuffer() {
-    }
+    void flushBuffer() {}
 
-    void comment(const char* msg) {
-        spew("; %s", msg);
-    }
+    void comment(const char* msg) { spew("; %s", msg); }
 
     static uint32_t NopSize() { return 4; }
 
     static void PatchWrite_Imm32(CodeLocationLabel label, Imm32 imm);
 
-    static uint32_t AlignDoubleArg(uint32_t offset) {
-        return (offset + 1U) &~ 1U;
-    }
+    static uint32_t AlignDoubleArg(uint32_t offset) { return (offset + 1U) & ~1U; }
 
     static uint8_t* NextInstruction(uint8_t* instruction, uint32_t* count = nullptr);
 
@@ -1314,68 +1154,52 @@ class AssemblerMIPSShared : public AssemblerShared
 
     static void UpdateLuiOriValue(Instruction* inst0, Instruction* inst1, uint32_t value);
 
-    bool bailed() {
-        return m_buffer.bail();
-    }
+    bool bailed() { return m_buffer.bail(); }
 
     void verifyHeapAccessDisassembly(uint32_t begin, uint32_t end,
-                                     const Disassembler::HeapAccess& heapAccess)
-    {
+                                     const Disassembler::HeapAccess& heapAccess) {
         // Implement this if we implement a disassembler.
     }
-}; // AssemblerMIPSShared
+};  // AssemblerMIPSShared
 
 // sll zero, zero, 0
 const uint32_t NopInst = 0x00000000;
 
 // An Instruction is a structure for both encoding and decoding any and all
 // MIPS instructions.
-class Instruction
-{
-  protected:
+class Instruction {
+   protected:
     uint32_t data;
 
     // Standard constructor
-    Instruction (uint32_t data_) : data(data_) { }
+    Instruction(uint32_t data_) : data(data_) {}
 
     // You should never create an instruction directly.  You should create a
     // more specific instruction which will eventually call one of these
     // constructors for you.
-  public:
-    uint32_t encode() const {
-        return data;
-    }
+   public:
+    uint32_t encode() const { return data; }
 
-    void makeNop() {
-        data = NopInst;
-    }
+    void makeNop() { data = NopInst; }
 
-    void setData(uint32_t data) {
-        this->data = data;
-    }
+    void setData(uint32_t data) { this->data = data; }
 
-    const Instruction & operator=(const Instruction& src) {
+    const Instruction& operator=(const Instruction& src) {
         data = src.data;
         return *this;
     }
 
     // Extract the one particular bit.
-    uint32_t extractBit(uint32_t bit) {
-        return (encode() >> bit) & 1;
-    }
+    uint32_t extractBit(uint32_t bit) { return (encode() >> bit) & 1; }
     // Extract a bit field out of the instruction
     uint32_t extractBitField(uint32_t hi, uint32_t lo) {
         return (encode() >> lo) & ((2 << (hi - lo)) - 1);
     }
     // Since all MIPS instructions have opcode, the opcode
     // extractor resides in the base class.
-    uint32_t extractOpcode() {
-        return extractBitField(OpcodeShift + OpcodeBits - 1, OpcodeShift);
-    }
+    uint32_t extractOpcode() { return extractBitField(OpcodeShift + OpcodeBits - 1, OpcodeShift); }
     // Return the fields at their original place in the instruction encoding.
-    Opcode OpcodeFieldRaw() const {
-        return static_cast<Opcode>(encode() & OpcodeMask);
-    }
+    Opcode OpcodeFieldRaw() const { return static_cast<Opcode>(encode() & OpcodeMask); }
 
     // Get the next instruction in the instruction stream.
     // This does neat things like ignoreconstant pools and their guards.
@@ -1385,123 +1209,80 @@ class Instruction
     // an instruction.  raw() just coerces this into a pointer to a uint32_t
     const uint32_t* raw() const { return &data; }
     uint32_t size() const { return 4; }
-}; // Instruction
+};  // Instruction
 
 // make sure that it is the right size
 static_assert(sizeof(Instruction) == 4, "Size of Instruction class has to be 4 bytes.");
 
-class InstNOP : public Instruction
-{
-  public:
-    InstNOP()
-      : Instruction(NopInst)
-    { }
-
+class InstNOP : public Instruction {
+   public:
+    InstNOP() : Instruction(NopInst) {}
 };
 
 // Class for register type instructions.
-class InstReg : public Instruction
-{
-  public:
-    InstReg(Opcode op, Register rd, FunctionField ff)
-      : Instruction(op | RD(rd) | ff)
-    { }
+class InstReg : public Instruction {
+   public:
+    InstReg(Opcode op, Register rd, FunctionField ff) : Instruction(op | RD(rd) | ff) {}
     InstReg(Opcode op, Register rs, Register rt, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | ff)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | ff) {}
     InstReg(Opcode op, Register rs, Register rt, Register rd, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | RD(rd) | ff)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | RD(rd) | ff) {}
     InstReg(Opcode op, Register rs, Register rt, Register rd, uint32_t sa, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | RD(rd) | SA(sa) | ff)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | RD(rd) | SA(sa) | ff) {}
     InstReg(Opcode op, RSField rs, Register rt, Register rd, uint32_t sa, FunctionField ff)
-      : Instruction(op | rs | RT(rt) | RD(rd) | SA(sa) | ff)
-    { }
+        : Instruction(op | rs | RT(rt) | RD(rd) | SA(sa) | ff) {}
     InstReg(Opcode op, Register rs, RTField rt, Register rd, uint32_t sa, FunctionField ff)
-      : Instruction(op | RS(rs) | rt | RD(rd) | SA(sa) | ff)
-    { }
+        : Instruction(op | RS(rs) | rt | RD(rd) | SA(sa) | ff) {}
     InstReg(Opcode op, Register rs, uint32_t cc, Register rd, uint32_t sa, FunctionField ff)
-      : Instruction(op | RS(rs) | cc | RD(rd) | SA(sa) | ff)
-    { }
-    InstReg(Opcode op, uint32_t code, FunctionField ff)
-      : Instruction(op | code | ff)
-    { }
+        : Instruction(op | RS(rs) | cc | RD(rd) | SA(sa) | ff) {}
+    InstReg(Opcode op, uint32_t code, FunctionField ff) : Instruction(op | code | ff) {}
     // for float point
     InstReg(Opcode op, RSField rs, Register rt, FloatRegister rd)
-      : Instruction(op | rs | RT(rt) | RD(rd))
-    { }
+        : Instruction(op | rs | RT(rt) | RD(rd)) {}
     InstReg(Opcode op, RSField rs, Register rt, FloatRegister rd, uint32_t sa, FunctionField ff)
-      : Instruction(op | rs | RT(rt) | RD(rd) | SA(sa) | ff)
-    { }
-    InstReg(Opcode op, RSField rs, Register rt, FloatRegister fs, FloatRegister fd, FunctionField ff)
-      : Instruction(op | rs | RT(rt) | RD(fs) | SA(fd) | ff)
-    { }
-    InstReg(Opcode op, RSField rs, FloatRegister ft, FloatRegister fs, FloatRegister fd, FunctionField ff)
-      : Instruction(op | rs | RT(ft) | RD(fs) | SA(fd) | ff)
-    { }
-    InstReg(Opcode op, RSField rs, FloatRegister ft, FloatRegister fd, uint32_t sa, FunctionField ff)
-      : Instruction(op | rs | RT(ft) | RD(fd) | SA(sa) | ff)
-    { }
+        : Instruction(op | rs | RT(rt) | RD(rd) | SA(sa) | ff) {}
+    InstReg(Opcode op, RSField rs, Register rt, FloatRegister fs, FloatRegister fd,
+            FunctionField ff)
+        : Instruction(op | rs | RT(rt) | RD(fs) | SA(fd) | ff) {}
+    InstReg(Opcode op, RSField rs, FloatRegister ft, FloatRegister fs, FloatRegister fd,
+            FunctionField ff)
+        : Instruction(op | rs | RT(ft) | RD(fs) | SA(fd) | ff) {}
+    InstReg(Opcode op, RSField rs, FloatRegister ft, FloatRegister fd, uint32_t sa,
+            FunctionField ff)
+        : Instruction(op | rs | RT(ft) | RD(fd) | SA(sa) | ff) {}
 
-    uint32_t extractRS () {
-        return extractBitField(RSShift + RSBits - 1, RSShift);
-    }
-    uint32_t extractRT () {
-        return extractBitField(RTShift + RTBits - 1, RTShift);
-    }
-    uint32_t extractRD () {
-        return extractBitField(RDShift + RDBits - 1, RDShift);
-    }
-    uint32_t extractSA () {
-        return extractBitField(SAShift + SABits - 1, SAShift);
-    }
-    uint32_t extractFunctionField () {
+    uint32_t extractRS() { return extractBitField(RSShift + RSBits - 1, RSShift); }
+    uint32_t extractRT() { return extractBitField(RTShift + RTBits - 1, RTShift); }
+    uint32_t extractRD() { return extractBitField(RDShift + RDBits - 1, RDShift); }
+    uint32_t extractSA() { return extractBitField(SAShift + SABits - 1, SAShift); }
+    uint32_t extractFunctionField() {
         return extractBitField(FunctionShift + FunctionBits - 1, FunctionShift);
     }
 };
 
 // Class for branch, load and store instructions with immediate offset.
-class InstImm : public Instruction
-{
-  public:
+class InstImm : public Instruction {
+   public:
     void extractImm16(BOffImm16* dest);
 
     InstImm(Opcode op, Register rs, Register rt, BOffImm16 off)
-      : Instruction(op | RS(rs) | RT(rt) | off.encode())
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | off.encode()) {}
     InstImm(Opcode op, Register rs, RTField rt, BOffImm16 off)
-      : Instruction(op | RS(rs) | rt | off.encode())
-    { }
+        : Instruction(op | RS(rs) | rt | off.encode()) {}
     InstImm(Opcode op, RSField rs, uint32_t cc, BOffImm16 off)
-      : Instruction(op | rs | cc | off.encode())
-    { }
+        : Instruction(op | rs | cc | off.encode()) {}
     InstImm(Opcode op, Register rs, Register rt, Imm16 off)
-      : Instruction(op | RS(rs) | RT(rt) | off.encode())
-    { }
-    InstImm(uint32_t raw)
-      : Instruction(raw)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | off.encode()) {}
+    InstImm(uint32_t raw) : Instruction(raw) {}
     // For floating-point loads and stores.
     InstImm(Opcode op, Register rs, FloatRegister rt, Imm16 off)
-      : Instruction(op | RS(rs) | RT(rt) | off.encode())
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | off.encode()) {}
 
-    uint32_t extractOpcode() {
-        return extractBitField(OpcodeShift + OpcodeBits - 1, OpcodeShift);
-    }
-    void setOpcode(Opcode op) {
-        data = (data & ~OpcodeMask) | op;
-    }
-    uint32_t extractRS() {
-        return extractBitField(RSShift + RSBits - 1, RSShift);
-    }
-    uint32_t extractRT() {
-        return extractBitField(RTShift + RTBits - 1, RTShift);
-    }
-    void setRT(RTField rt) {
-        data = (data & ~RTMask) | rt;
-    }
+    uint32_t extractOpcode() { return extractBitField(OpcodeShift + OpcodeBits - 1, OpcodeShift); }
+    void setOpcode(Opcode op) { data = (data & ~OpcodeMask) | op; }
+    uint32_t extractRS() { return extractBitField(RSShift + RSBits - 1, RSShift); }
+    uint32_t extractRT() { return extractBitField(RTShift + RTBits - 1, RTShift); }
+    void setRT(RTField rt) { data = (data & ~RTMask) | rt; }
     uint32_t extractImm16Value() {
         return extractBitField(Imm16Shift + Imm16Bits - 1, Imm16Shift);
     }
@@ -1516,12 +1297,9 @@ class InstImm : public Instruction
 };
 
 // Class for Jump type instructions.
-class InstJump : public Instruction
-{
-  public:
-    InstJump(Opcode op, JOffImm26 off)
-      : Instruction(op | off.encode())
-    { }
+class InstJump : public Instruction {
+   public:
+    InstJump(Opcode op, JOffImm26 off) : Instruction(op | off.encode()) {}
 
     uint32_t extractImm26Value() {
         return extractBitField(Imm26Shift + Imm26Bits - 1, Imm26Shift);
@@ -1529,39 +1307,30 @@ class InstJump : public Instruction
 };
 
 // Class for Loongson-specific instructions
-class InstGS : public Instruction
-{
-  public:
+class InstGS : public Instruction {
+   public:
     // For indexed loads and stores.
     InstGS(Opcode op, Register rs, Register rt, Register rd, Imm8 off, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | RD(rd) | off.encode(3) | ff)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | RD(rd) | off.encode(3) | ff) {}
     InstGS(Opcode op, Register rs, FloatRegister rt, Register rd, Imm8 off, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | RD(rd) | off.encode(3) | ff)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | RD(rd) | off.encode(3) | ff) {}
     // For quad-word loads and stores.
     InstGS(Opcode op, Register rs, Register rt, Register rz, GSImm13 off, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | RZ(rz) | off.encode(6) | ff)
-    { }
-    InstGS(Opcode op, Register rs, FloatRegister rt, FloatRegister rz, GSImm13 off, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | RZ(rz) | off.encode(6) | ff)
-    { }
-    InstGS(uint32_t raw)
-      : Instruction(raw)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | RZ(rz) | off.encode(6) | ff) {}
+    InstGS(Opcode op, Register rs, FloatRegister rt, FloatRegister rz, GSImm13 off,
+           FunctionField ff)
+        : Instruction(op | RS(rs) | RT(rt) | RZ(rz) | off.encode(6) | ff) {}
+    InstGS(uint32_t raw) : Instruction(raw) {}
     // For floating-point unaligned loads and stores.
     InstGS(Opcode op, Register rs, FloatRegister rt, Imm8 off, FunctionField ff)
-      : Instruction(op | RS(rs) | RT(rt) | off.encode(6) | ff)
-    { }
+        : Instruction(op | RS(rs) | RT(rt) | off.encode(6) | ff) {}
 };
 
-inline bool
-IsUnaligned(const wasm::MemoryAccessDesc& access)
-{
+inline bool IsUnaligned(const wasm::MemoryAccessDesc& access) {
     return access.align() && access.align() < access.byteSize();
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips_shared_Assembler_mips_shared_h */

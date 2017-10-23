@@ -11,9 +11,10 @@ namespace gl {
 using namespace mozilla::widget;
 
 already_AddRefed<GLContext>
-GLContextProviderNull::CreateForCompositorWidget(CompositorWidget* aCompositorWidget, bool aForceAccelerated)
+GLContextProviderNull::CreateForCompositorWidget(
+    CompositorWidget* aCompositorWidget, bool aForceAccelerated)
 {
-    return nullptr;
+  return nullptr;
 }
 
 already_AddRefed<GLContext>
@@ -21,13 +22,13 @@ GLContextProviderNull::CreateForWindow(nsIWidget* aWidget,
                                        bool aWebRender,
                                        bool aForceAccelerated)
 {
-    return nullptr;
+  return nullptr;
 }
 
 already_AddRefed<GLContext>
 GLContextProviderNull::CreateWrappingExisting(void*, void*)
 {
-    return nullptr;
+  return nullptr;
 }
 
 already_AddRefed<GLContext>
@@ -36,21 +37,22 @@ GLContextProviderNull::CreateOffscreen(const gfx::IntSize&,
                                        CreateContextFlags,
                                        nsACString* const out_failureId)
 {
-    *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_NULL");
-    return nullptr;
+  *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_NULL");
+  return nullptr;
 }
 
 already_AddRefed<GLContext>
-GLContextProviderNull::CreateHeadless(CreateContextFlags, nsACString* const out_failureId)
+GLContextProviderNull::CreateHeadless(CreateContextFlags,
+                                      nsACString* const out_failureId)
 {
-    *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_NULL");
-    return nullptr;
+  *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_NULL");
+  return nullptr;
 }
 
 GLContext*
 GLContextProviderNull::GetGlobalContext()
 {
-    return nullptr;
+  return nullptr;
 }
 
 void

@@ -67,20 +67,24 @@ class RangedPtr
 
   uintptr_t asUintptr() const { return reinterpret_cast<uintptr_t>(mPtr); }
 
-public:
+ public:
   RangedPtr(T* aPtr, T* aStart, T* aEnd)
-    : mPtr(aPtr)
+      : mPtr(aPtr)
 #ifdef DEBUG
-    , mRangeStart(aStart), mRangeEnd(aEnd)
+        ,
+        mRangeStart(aStart),
+        mRangeEnd(aEnd)
 #endif
   {
     MOZ_ASSERT(mRangeStart <= mRangeEnd);
     checkSanity();
   }
   RangedPtr(T* aPtr, T* aStart, size_t aLength)
-    : mPtr(aPtr)
+      : mPtr(aPtr)
 #ifdef DEBUG
-    , mRangeStart(aStart), mRangeEnd(aStart + aLength)
+        ,
+        mRangeStart(aStart),
+        mRangeEnd(aStart + aLength)
 #endif
   {
     MOZ_ASSERT(aLength <= size_t(-1) / sizeof(T));
@@ -91,9 +95,11 @@ public:
 
   /* Equivalent to RangedPtr(aPtr, aPtr, aLength). */
   RangedPtr(T* aPtr, size_t aLength)
-    : mPtr(aPtr)
+      : mPtr(aPtr)
 #ifdef DEBUG
-    , mRangeStart(aPtr), mRangeEnd(aPtr + aLength)
+        ,
+        mRangeStart(aPtr),
+        mRangeEnd(aPtr + aLength)
 #endif
   {
     MOZ_ASSERT(aLength <= size_t(-1) / sizeof(T));
@@ -105,9 +111,11 @@ public:
   /* Equivalent to RangedPtr(aArr, aArr, N). */
   template<size_t N>
   explicit RangedPtr(T (&aArr)[N])
-    : mPtr(aArr)
+      : mPtr(aArr)
 #ifdef DEBUG
-    , mRangeStart(aArr), mRangeEnd(aArr + N)
+        ,
+        mRangeStart(aArr),
+        mRangeEnd(aArr + N)
 #endif
   {
     checkSanity();
@@ -159,14 +167,14 @@ public:
    * You can assign a raw pointer into a RangedPtr if the raw pointer is
    * within the range specified at creation.
    */
-  template <typename U>
+  template<typename U>
   RangedPtr<T>& operator=(U* aPtr)
   {
     *this = create(aPtr);
     return *this;
   }
 
-  template <typename U>
+  template<typename U>
   RangedPtr<T>& operator=(const RangedPtr<U>& aPtr)
   {
     MOZ_ASSERT(mRangeStart <= aPtr.mPtr);
@@ -176,10 +184,7 @@ public:
     return *this;
   }
 
-  RangedPtr<T>& operator++()
-  {
-    return (*this += 1);
-  }
+  RangedPtr<T>& operator++() { return (*this += 1); }
 
   RangedPtr<T> operator++(int)
   {
@@ -188,10 +193,7 @@ public:
     return rcp;
   }
 
-  RangedPtr<T>& operator--()
-  {
-    return (*this -= 1);
-  }
+  RangedPtr<T>& operator--() { return (*this -= 1); }
 
   RangedPtr<T> operator--(int)
   {
@@ -232,12 +234,12 @@ public:
     return mPtr;
   }
 
-  template <typename U>
+  template<typename U>
   bool operator==(const RangedPtr<U>& aOther) const
   {
     return mPtr == aOther.mPtr;
   }
-  template <typename U>
+  template<typename U>
   bool operator!=(const RangedPtr<U>& aOther) const
   {
     return !(*this == aOther);
@@ -254,23 +256,23 @@ public:
     return !(*this == u);
   }
 
-  template <typename U>
+  template<typename U>
   bool operator<(const RangedPtr<U>& aOther) const
   {
     return mPtr < aOther.mPtr;
   }
-  template <typename U>
+  template<typename U>
   bool operator<=(const RangedPtr<U>& aOther) const
   {
     return mPtr <= aOther.mPtr;
   }
 
-  template <typename U>
+  template<typename U>
   bool operator>(const RangedPtr<U>& aOther) const
   {
     return mPtr > aOther.mPtr;
   }
-  template <typename U>
+  template<typename U>
   bool operator>=(const RangedPtr<U>& aOther) const
   {
     return mPtr >= aOther.mPtr;
@@ -282,7 +284,7 @@ public:
     return PointerRangeSize(aOther.mPtr, mPtr);
   }
 
-private:
+ private:
   RangedPtr() = delete;
 };
 

@@ -20,4 +20,4 @@ mozilla::RestyleTracker::LoggingDepth()
 }
 #endif
 
-#endif // !defined(mozilla_RestyleTrackerInlines_h)
+#endif  // !defined(mozilla_RestyleTrackerInlines_h)

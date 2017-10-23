@@ -21,18 +21,14 @@ namespace wr {
 static StaticRefPtr<RenderThread> sRenderThread;
 
 RenderThread::RenderThread(base::Thread* aThread)
-  : mThread(aThread)
-  , mPendingFrameCountMapLock("RenderThread.mPendingFrameCountMapLock")
-  , mRenderTextureMapLock("RenderThread.mRenderTextureMapLock")
-  , mHasShutdown(false)
+    : mThread(aThread),
+      mPendingFrameCountMapLock("RenderThread.mPendingFrameCountMapLock"),
+      mRenderTextureMapLock("RenderThread.mRenderTextureMapLock"),
+      mHasShutdown(false)
 {
-
 }
 
-RenderThread::~RenderThread()
-{
-  delete mThread;
-}
+RenderThread::~RenderThread() { delete mThread; }
 
 // static
 RenderThread*
@@ -74,10 +70,10 @@ RenderThread::ShutDown()
   }
 
   layers::SynchronousTask task("RenderThread");
-  RefPtr<Runnable> runnable = WrapRunnable(
-    RefPtr<RenderThread>(sRenderThread.get()),
-    &RenderThread::ShutDownTask,
-    &task);
+  RefPtr<Runnable> runnable =
+      WrapRunnable(RefPtr<RenderThread>(sRenderThread.get()),
+                   &RenderThread::ShutDownTask,
+                   &task);
   sRenderThread->Loop()->PostTask(runnable.forget());
   task.Wait();
 
@@ -102,11 +98,13 @@ RenderThread::Loop()
 bool
 RenderThread::IsInRenderThread()
 {
-  return sRenderThread && sRenderThread->mThread->thread_id() == PlatformThread::CurrentId();
+  return sRenderThread &&
+         sRenderThread->mThread->thread_id() == PlatformThread::CurrentId();
 }
 
 void
-RenderThread::AddRenderer(wr::WindowId aWindowId, UniquePtr<RendererOGL> aRenderer)
+RenderThread::AddRenderer(wr::WindowId aWindowId,
+                          UniquePtr<RendererOGL> aRenderer)
 {
   MOZ_ASSERT(IsInRenderThread());
 
@@ -159,10 +157,10 @@ RenderThread::NewFrameReady(wr::WindowId aWindowId)
 
   if (!IsInRenderThread()) {
     Loop()->PostTask(
-      NewRunnableMethod<wr::WindowId>("wr::RenderThread::NewFrameReady",
-                                      this,
-                                      &RenderThread::NewFrameReady,
-                                      aWindowId));
+        NewRunnableMethod<wr::WindowId>("wr::RenderThread::NewFrameReady",
+                                        this,
+                                        &RenderThread::NewFrameReady,
+                                        aWindowId));
     return;
   }
 
@@ -175,12 +173,12 @@ RenderThread::RunEvent(wr::WindowId aWindowId, UniquePtr<RendererEvent> aEvent)
 {
   if (!IsInRenderThread()) {
     Loop()->PostTask(
-      NewRunnableMethod<wr::WindowId, UniquePtr<RendererEvent>&&>(
-        "wr::RenderThread::RunEvent",
-        this,
-        &RenderThread::RunEvent,
-        aWindowId,
-        Move(aEvent)));
+        NewRunnableMethod<wr::WindowId, UniquePtr<RendererEvent>&&>(
+            "wr::RenderThread::RunEvent",
+            this,
+            &RenderThread::RunEvent,
+            aWindowId,
+            Move(aEvent)));
     return;
   }
 
@@ -229,11 +227,7 @@ RenderThread::UpdateAndRender(wr::WindowId aWindowId)
 
   auto epochs = renderer->FlushRenderedEpochs();
   layers::CompositorThreadHolder::Loop()->PostTask(NewRunnableFunction(
-    &NotifyDidRender,
-    renderer->GetCompositorBridge(),
-    epochs,
-    start, end
-  ));
+      &NotifyDidRender, renderer->GetCompositorBridge(), epochs, start, end));
 }
 
 void
@@ -307,7 +301,8 @@ RenderThread::DecPendingFrameCount(wr::WindowId aWindowId)
 }
 
 void
-RenderThread::RegisterExternalImage(uint64_t aExternalImageId, already_AddRefed<RenderTextureHost> aTexture)
+RenderThread::RegisterExternalImage(
+    uint64_t aExternalImageId, already_AddRefed<RenderTextureHost> aTexture)
 {
   MutexAutoLock lock(mRenderTextureMapLock);
 
@@ -337,16 +332,16 @@ RenderThread::UnregisterExternalImage(uint64_t aExternalImageId)
     RefPtr<RenderTextureHost> texture;
     mRenderTextures.Remove(aExternalImageId, getter_AddRefs(texture));
     Loop()->PostTask(NewRunnableMethod<RefPtr<RenderTextureHost>>(
-      "RenderThread::DeferredRenderTextureHostDestroy",
-      this, &RenderThread::DeferredRenderTextureHostDestroy, Move(texture)
-    ));
+        "RenderThread::DeferredRenderTextureHostDestroy",
+        this,
+        &RenderThread::DeferredRenderTextureHostDestroy,
+        Move(texture)));
   } else {
     mRenderTextures.Remove(aExternalImageId);
   }
 }
 
-void
-RenderThread::DeferredRenderTextureHostDestroy(RefPtr<RenderTextureHost>)
+void RenderThread::DeferredRenderTextureHostDestroy(RefPtr<RenderTextureHost>)
 {
   // Do nothing. Just decrease the ref-count of RenderTextureHost.
 }
@@ -371,17 +366,21 @@ WebRenderThreadPool::~WebRenderThreadPool()
   wr_thread_pool_delete(mThreadPool);
 }
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
 extern "C" {
 
-void wr_notifier_new_frame_ready(mozilla::wr::WrWindowId aWindowId)
+void
+wr_notifier_new_frame_ready(mozilla::wr::WrWindowId aWindowId)
 {
-  mozilla::wr::RenderThread::Get()->NewFrameReady(mozilla::wr::WindowId(aWindowId));
+  mozilla::wr::RenderThread::Get()->NewFrameReady(
+      mozilla::wr::WindowId(aWindowId));
 }
 
-void wr_notifier_new_scroll_frame_ready(mozilla::wr::WrWindowId aWindowId, bool aCompositeNeeded)
+void
+wr_notifier_new_scroll_frame_ready(mozilla::wr::WrWindowId aWindowId,
+                                   bool aCompositeNeeded)
 {
   // It is not necessary to update rendering with new_scroll_frame_ready.
   // WebRenderBridgeParent::CompositeToTarget() is implemented to call
@@ -389,12 +388,13 @@ void wr_notifier_new_scroll_frame_ready(mozilla::wr::WrWindowId aWindowId, bool 
   // See Bug 1377688.
 }
 
-void wr_notifier_external_event(mozilla::wr::WrWindowId aWindowId, size_t aRawEvent)
+void
+wr_notifier_external_event(mozilla::wr::WrWindowId aWindowId, size_t aRawEvent)
 {
   mozilla::UniquePtr<mozilla::wr::RendererEvent> evt(
-    reinterpret_cast<mozilla::wr::RendererEvent*>(aRawEvent));
+      reinterpret_cast<mozilla::wr::RendererEvent*>(aRawEvent));
   mozilla::wr::RenderThread::Get()->RunEvent(mozilla::wr::WindowId(aWindowId),
                                              mozilla::Move(evt));
 }
 
-} // extern C
+}  // extern C

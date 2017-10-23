@@ -20,23 +20,23 @@ class nsIURI;
 
 namespace mozilla {
 class CSSStyleSheet;
-} // namespace mozilla
+}  // namespace mozilla
 
 namespace mozilla {
 namespace css {
 
 // Enum defining how error should be handled.
-enum FailureAction {
+enum FailureAction
+{
   eCrash = 0,
   eLogToConsole
 };
 
-}
-}
+}  // namespace css
+}  // namespace mozilla
 
-class nsLayoutStylesheetCache final
- : public nsIObserver
- , public nsIMemoryReporter
+class nsLayoutStylesheetCache final : public nsIObserver,
+                                      public nsIMemoryReporter
 {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
@@ -82,7 +82,7 @@ class nsLayoutStylesheetCache final
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   explicit nsLayoutStylesheetCache(mozilla::StyleBackendType aImpl);
   ~nsLayoutStylesheetCache();
 
@@ -96,7 +96,8 @@ private:
                      RefPtr<mozilla::StyleSheet>* aSheet,
                      mozilla::css::SheetParsingMode aParsingMode,
                      mozilla::css::FailureAction aFailureAction);
-  void LoadSheet(nsIURI* aURI, RefPtr<mozilla::StyleSheet>* aSheet,
+  void LoadSheet(nsIURI* aURI,
+                 RefPtr<mozilla::StyleSheet>* aSheet,
                  mozilla::css::SheetParsingMode aParsingMode,
                  mozilla::css::FailureAction aFailureAction);
   static void InvalidateSheet(RefPtr<mozilla::StyleSheet>* aGeckoSheet,

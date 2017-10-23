@@ -9,7 +9,8 @@
 #include "mozilla/TypedEnumBits.h"
 
 // Options for how the text should be drawn
-enum class DrawMode : int {
+enum class DrawMode : int
+{
   // GLYPH_FILL and GLYPH_STROKE draw into the current context
   //  and may be used together with bitwise OR.
   GLYPH_FILL = 1 << 0,

@@ -16,27 +16,28 @@ class nsIThread;
 /**
  * A class with utility methods for shutting down nsIThreads easily.
   */
-class nsShutdownThread : public mozilla::Runnable {
-public:
-  explicit nsShutdownThread(nsIThread *aThread);
+class nsShutdownThread : public mozilla::Runnable
+{
+ public:
+  explicit nsShutdownThread(nsIThread* aThread);
   ~nsShutdownThread();
 
   NS_IMETHOD Run();
 
-/**
+  /**
  * Shutdown ensures that aThread->Shutdown() is called on a main thread
  */
-  static nsresult Shutdown(nsIThread *aThread);
+  static nsresult Shutdown(nsIThread* aThread);
 
-/**
+  /**
  * BlockingShutdown ensures that by the time it returns, aThread->Shutdown() has
  * been called and no pending events have been processed on the current thread.
  */
-  static nsresult BlockingShutdown(nsIThread *aThread);
+  static nsresult BlockingShutdown(nsIThread* aThread);
 
-private:
-  mozilla::Monitor    mMonitor;
-  bool                mShuttingDown;
+ private:
+  mozilla::Monitor mMonitor;
+  bool mShuttingDown;
   nsCOMPtr<nsIThread> mThread;
 };
 

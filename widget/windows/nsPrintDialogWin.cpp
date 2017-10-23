@@ -23,7 +23,7 @@
 #include "nsQueryObject.h"
 
 static const char* kPageSetupDialogURL =
-  "chrome://global/content/printPageSetup.xul";
+    "chrome://global/content/printPageSetup.xul";
 
 using namespace mozilla;
 using namespace mozilla::widget;
@@ -34,8 +34,7 @@ using namespace mozilla::widget;
 
 class ParamBlock
 {
-
-public:
+ public:
   ParamBlock() { mBlock = 0; }
   ~ParamBlock() { NS_IF_RELEASE(mBlock); }
   nsresult Init()
@@ -48,7 +47,7 @@ public:
   }
   operator nsIDialogParamBlock* const() { return mBlock; }
 
-private:
+ private:
   nsIDialogParamBlock* mBlock;
 };
 
@@ -87,8 +86,7 @@ nsPrintDialogServiceWin::ShowPageSetup(nsPIDOMWindowOuter* aParent,
 
   ParamBlock block;
   nsresult rv = block.Init();
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   block->SetInt(0, 0);
   rv = DoDialog(aParent, block, aNSSettings, kPageSetupDialogURL);
@@ -114,8 +112,7 @@ nsPrintDialogServiceWin::DoDialog(mozIDOMWindowProxy* aParent,
   NS_ENSURE_ARG(aPS);
   NS_ENSURE_ARG(aChromeURL);
 
-  if (!mWatcher)
-    return NS_ERROR_FAILURE;
+  if (!mWatcher) return NS_ERROR_FAILURE;
 
   // get a parent, if at all possible
   // (though we'd rather this didn't fail, it's OK if it does. so there's
@@ -179,27 +176,22 @@ nsPrintDialogServiceWin::GetHWNDForDOMWindow(mozIDOMWindowProxy* aWindow)
   nsCOMPtr<nsPIDOMWindowOuter> window = nsPIDOMWindowOuter::From(aWindow);
 
   nsCOMPtr<nsIDocShellTreeItem> treeItem =
-    do_QueryInterface(window->GetDocShell());
-  if (!treeItem)
-    return nullptr;
+      do_QueryInterface(window->GetDocShell());
+  if (!treeItem) return nullptr;
 
   nsCOMPtr<nsIDocShellTreeOwner> treeOwner;
   treeItem->GetTreeOwner(getter_AddRefs(treeOwner));
-  if (!treeOwner)
-    return nullptr;
+  if (!treeOwner) return nullptr;
 
   nsCOMPtr<nsIWebBrowserChrome> webBrowserChrome(do_GetInterface(treeOwner));
-  if (!webBrowserChrome)
-    return nullptr;
+  if (!webBrowserChrome) return nullptr;
 
   nsCOMPtr<nsIBaseWindow> baseWin(do_QueryInterface(webBrowserChrome));
-  if (!baseWin)
-    return nullptr;
+  if (!baseWin) return nullptr;
 
   nsCOMPtr<nsIWidget> widget;
   baseWin->GetMainWidget(getter_AddRefs(widget));
-  if (!widget)
-    return nullptr;
+  if (!widget) return nullptr;
 
   return (HWND)widget->GetNativeData(NS_NATIVE_TMP_WINDOW);
 }

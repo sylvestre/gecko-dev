@@ -21,16 +21,16 @@
  */
 template<class KeyClass, class PtrType>
 class nsRefPtrHashtable
-  : public nsBaseHashtable<KeyClass, RefPtr<PtrType>, PtrType*>
+    : public nsBaseHashtable<KeyClass, RefPtr<PtrType>, PtrType*>
 {
-public:
+ public:
   typedef typename KeyClass::KeyType KeyType;
   typedef PtrType* UserDataType;
   typedef nsBaseHashtable<KeyClass, RefPtr<PtrType>, PtrType*> base_type;
 
   nsRefPtrHashtable() {}
   explicit nsRefPtrHashtable(uint32_t aInitLength)
-    : nsBaseHashtable<KeyClass, RefPtr<PtrType>, PtrType*>(aInitLength)
+      : nsBaseHashtable<KeyClass, RefPtr<PtrType>, PtrType*>(aInitLength)
   {
   }
 
@@ -59,7 +59,8 @@ public:
 
   void Put(KeyType aKey, already_AddRefed<PtrType> aData);
 
-  MOZ_MUST_USE bool Put(KeyType aKey, already_AddRefed<PtrType> aData,
+  MOZ_MUST_USE bool Put(KeyType aKey,
+                        already_AddRefed<PtrType> aData,
                         const mozilla::fallible_t&);
 
   /**
@@ -206,4 +207,4 @@ nsRefPtrHashtable<KeyClass, PtrType>::Remove(KeyType aKey,
   return false;
 }
 
-#endif // nsRefPtrHashtable_h__
+#endif  // nsRefPtrHashtable_h__

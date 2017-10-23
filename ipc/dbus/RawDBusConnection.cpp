@@ -18,15 +18,12 @@ namespace ipc {
 
 bool RawDBusConnection::sDBusIsInit(false);
 
-RawDBusConnection::RawDBusConnection()
-{
-}
+RawDBusConnection::RawDBusConnection() {}
 
-RawDBusConnection::~RawDBusConnection()
-{
-}
+RawDBusConnection::~RawDBusConnection() {}
 
-nsresult RawDBusConnection::EstablishDBusConnection()
+nsresult
+RawDBusConnection::EstablishDBusConnection()
 {
   if (!sDBusIsInit) {
     dbus_bool_t success = dbus_threads_init_default();
@@ -38,7 +35,7 @@ nsresult RawDBusConnection::EstablishDBusConnection()
   dbus_error_init(&err);
 
   mConnection = already_AddRefed<DBusConnection>(
-    dbus_bus_get_private(DBUS_BUS_SYSTEM, &err));
+      dbus_bus_get_private(DBUS_BUS_SYSTEM, &err));
 
   if (dbus_error_is_set(&err)) {
     dbus_error_free(&err);
@@ -50,14 +47,16 @@ nsresult RawDBusConnection::EstablishDBusConnection()
   return NS_OK;
 }
 
-bool RawDBusConnection::Watch()
+bool
+RawDBusConnection::Watch()
 {
   MOZ_ASSERT(MessageLoop::current());
 
   return NS_SUCCEEDED(DBusWatchConnection(mConnection));
 }
 
-bool RawDBusConnection::Send(DBusMessage* aMessage)
+bool
+RawDBusConnection::Send(DBusMessage* aMessage)
 {
   MOZ_ASSERT(MessageLoop::current());
 
@@ -71,15 +70,16 @@ bool RawDBusConnection::Send(DBusMessage* aMessage)
   return true;
 }
 
-bool RawDBusConnection::SendWithReply(DBusReplyCallback aCallback,
-                                      void* aData,
-                                      int aTimeout,
-                                      DBusMessage* aMessage)
+bool
+RawDBusConnection::SendWithReply(DBusReplyCallback aCallback,
+                                 void* aData,
+                                 int aTimeout,
+                                 DBusMessage* aMessage)
 {
   MOZ_ASSERT(MessageLoop::current());
 
-  auto rv = DBusSendMessageWithReply(mConnection, aCallback, aData, aTimeout,
-                                     aMessage);
+  auto rv = DBusSendMessageWithReply(
+      mConnection, aCallback, aData, aTimeout, aMessage);
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -89,26 +89,34 @@ bool RawDBusConnection::SendWithReply(DBusReplyCallback aCallback,
   return true;
 }
 
-bool RawDBusConnection::SendWithReply(DBusReplyCallback aCallback,
-                                      void* aData,
-                                      int aTimeout,
-                                      const char* aDestination,
-                                      const char* aPath,
-                                      const char* aIntf,
-                                      const char* aFunc,
-                                      int aFirstArgType,
-                                      ...)
+bool
+RawDBusConnection::SendWithReply(DBusReplyCallback aCallback,
+                                 void* aData,
+                                 int aTimeout,
+                                 const char* aDestination,
+                                 const char* aPath,
+                                 const char* aIntf,
+                                 const char* aFunc,
+                                 int aFirstArgType,
+                                 ...)
 {
   va_list args;
   va_start(args, aFirstArgType);
 
-  auto rv = DBusSendMessageWithReply(mConnection, aCallback, aData,
-                                     aTimeout, aDestination, aPath, aIntf,
-                                     aFunc, aFirstArgType, args);
+  auto rv = DBusSendMessageWithReply(mConnection,
+                                     aCallback,
+                                     aData,
+                                     aTimeout,
+                                     aDestination,
+                                     aPath,
+                                     aIntf,
+                                     aFunc,
+                                     aFirstArgType,
+                                     args);
   va_end(args);
 
   return NS_SUCCEEDED(rv);
 }
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla

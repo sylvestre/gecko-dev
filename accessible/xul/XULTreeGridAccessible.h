@@ -20,20 +20,24 @@ class XULTreeGridCellAccessible;
 /**
  * Represents accessible for XUL tree in the case when it has multiple columns.
  */
-class XULTreeGridAccessible : public XULTreeAccessible,
-                              public TableAccessible
+class XULTreeGridAccessible : public XULTreeAccessible, public TableAccessible
 {
-public:
-  XULTreeGridAccessible(nsIContent* aContent, DocAccessible* aDoc,
-                        nsTreeBodyFrame* aTreeFrame) :
-    XULTreeAccessible(aContent, aDoc, aTreeFrame)
-    { mGenericTypes |= eTable; }
+ public:
+  XULTreeGridAccessible(nsIContent* aContent,
+                        DocAccessible* aDoc,
+                        nsTreeBodyFrame* aTreeFrame)
+      : XULTreeAccessible(aContent, aDoc, aTreeFrame)
+  {
+    mGenericTypes |= eTable;
+  }
 
   // TableAccessible
   virtual uint32_t ColCount() override;
   virtual uint32_t RowCount() override;
-  virtual Accessible* CellAt(uint32_t aRowIndex, uint32_t aColumnIndex) override;
-  virtual void ColDescription(uint32_t aColIdx, nsString& aDescription) override;
+  virtual Accessible* CellAt(uint32_t aRowIndex,
+                             uint32_t aColumnIndex) override;
+  virtual void ColDescription(uint32_t aColIdx,
+                              nsString& aDescription) override;
   virtual bool IsColSelected(uint32_t aColIdx) override;
   virtual bool IsRowSelected(uint32_t aRowIdx) override;
   virtual bool IsCellSelected(uint32_t aRowIdx, uint32_t aColIdx) override;
@@ -52,14 +56,13 @@ public:
   virtual TableAccessible* AsTable() override { return this; }
   virtual a11y::role NativeRole() override;
 
-protected:
+ protected:
   virtual ~XULTreeGridAccessible();
 
   // XULTreeAccessible
-  virtual already_AddRefed<Accessible>
-    CreateTreeItemAccessible(int32_t aRow) const override;
+  virtual already_AddRefed<Accessible> CreateTreeItemAccessible(
+      int32_t aRow) const override;
 };
-
 
 /**
  * Represents accessible for XUL tree item in the case when XUL tree has
@@ -67,12 +70,15 @@ protected:
  */
 class XULTreeGridRowAccessible final : public XULTreeItemAccessibleBase
 {
-public:
+ public:
   using Accessible::GetChildAt;
 
-  XULTreeGridRowAccessible(nsIContent* aContent, DocAccessible* aDoc,
-                           Accessible* aParent, nsITreeBoxObject* aTree,
-                           nsITreeView* aTreeView, int32_t aRow);
+  XULTreeGridRowAccessible(nsIContent* aContent,
+                           DocAccessible* aDoc,
+                           Accessible* aParent,
+                           nsITreeBoxObject* aTree,
+                           nsITreeView* aTreeView,
+                           int32_t aRow);
 
   // nsISupports and cycle collection
   NS_DECL_ISUPPORTS_INHERITED
@@ -83,25 +89,26 @@ public:
   virtual void Shutdown() override;
   virtual a11y::role NativeRole() override;
   virtual ENameValueFlag Name(nsString& aName) override;
-  virtual Accessible* ChildAtPoint(int32_t aX, int32_t aY,
+  virtual Accessible* ChildAtPoint(int32_t aX,
+                                   int32_t aY,
                                    EWhichChildAtPoint aWhichChild) override;
 
   virtual Accessible* GetChildAt(uint32_t aIndex) const override;
   virtual uint32_t ChildCount() const override;
 
   // XULTreeItemAccessibleBase
-  virtual XULTreeGridCellAccessible* GetCellAccessible(nsITreeColumn* aColumn)
-    const override final;
-  virtual void RowInvalidated(int32_t aStartColIdx, int32_t aEndColIdx) override;
+  virtual XULTreeGridCellAccessible* GetCellAccessible(
+      nsITreeColumn* aColumn) const override final;
+  virtual void RowInvalidated(int32_t aStartColIdx,
+                              int32_t aEndColIdx) override;
 
-protected:
+ protected:
   virtual ~XULTreeGridRowAccessible();
 
   // XULTreeItemAccessibleBase
   mutable nsRefPtrHashtable<nsPtrHashKey<const void>, XULTreeGridCellAccessible>
-    mAccessibleCache;
+      mAccessibleCache;
 };
-
 
 /**
  * Represents an accessible for XUL tree cell in the case when XUL tree has
@@ -111,12 +118,14 @@ protected:
 class XULTreeGridCellAccessible : public LeafAccessible,
                                   public TableCellAccessible
 {
-public:
-
-  XULTreeGridCellAccessible(nsIContent* aContent, DocAccessible* aDoc,
+ public:
+  XULTreeGridCellAccessible(nsIContent* aContent,
+                            DocAccessible* aDoc,
                             XULTreeGridRowAccessible* aRowAcc,
-                            nsITreeBoxObject* aTree, nsITreeView* aTreeView,
-                            int32_t aRow, nsITreeColumn* aColumn);
+                            nsITreeBoxObject* aTree,
+                            nsITreeView* aTreeView,
+                            int32_t aRow,
+                            nsITreeColumn* aColumn);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -146,7 +155,7 @@ public:
   virtual uint32_t ColIdx() const override;
   virtual uint32_t RowIdx() const override;
   virtual void ColHeaderCells(nsTArray<Accessible*>* aHeaderCells) override;
-  virtual void RowHeaderCells(nsTArray<Accessible*>* aCells) override { }
+  virtual void RowHeaderCells(nsTArray<Accessible*>* aCells) override {}
   virtual bool Selected() override;
 
   /**
@@ -156,13 +165,14 @@ public:
    */
   bool CellInvalidated();
 
-protected:
+ protected:
   virtual ~XULTreeGridCellAccessible();
 
   // Accessible
-  virtual Accessible* GetSiblingAtOffset(int32_t aOffset,
-                                         nsresult* aError = nullptr) const override;
-  virtual void DispatchClickEvent(nsIContent* aContent, uint32_t aActionIndex) override;
+  virtual Accessible* GetSiblingAtOffset(
+      int32_t aOffset, nsresult* aError = nullptr) const override;
+  virtual void DispatchClickEvent(nsIContent* aContent,
+                                  uint32_t aActionIndex) override;
 
   // XULTreeGridCellAccessible
 
@@ -171,7 +181,10 @@ protected:
    */
   bool IsEditable() const;
 
-  enum { eAction_Click = 0 };
+  enum
+  {
+    eAction_Click = 0
+  };
 
   nsCOMPtr<nsITreeBoxObject> mTree;
   nsITreeView* mTreeView;
@@ -182,7 +195,7 @@ protected:
   nsString mCachedTextEquiv;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

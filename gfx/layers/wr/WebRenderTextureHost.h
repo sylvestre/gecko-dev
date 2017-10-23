@@ -22,7 +22,7 @@ class SurfaceDescriptor;
 // RenderXXXTextureHost used by RendererOGL at RenderThread.
 class WebRenderTextureHost : public TextureHost
 {
-public:
+ public:
   WebRenderTextureHost(const SurfaceDescriptor& aDesc,
                        TextureFlags aFlags,
                        TextureHost* aTexture,
@@ -31,7 +31,8 @@ public:
 
   virtual void DeallocateDeviceData() override {}
 
-  virtual void SetTextureSourceProvider(TextureSourceProvider* aProvider) override;
+  virtual void SetTextureSourceProvider(
+      TextureSourceProvider* aProvider) override;
 
   virtual bool Lock() override;
 
@@ -45,7 +46,8 @@ public:
   // Please check TextureHost::GetReadFormat().
   virtual gfx::SurfaceFormat GetReadFormat() const override;
 
-  virtual bool BindTextureSource(CompositableTextureSourceRef& aTexture) override;
+  virtual bool BindTextureSource(
+      CompositableTextureSourceRef& aTexture) override;
 
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
 
@@ -57,7 +59,10 @@ public:
   virtual const char* Name() override { return "WebRenderTextureHost"; }
 #endif
 
-  virtual WebRenderTextureHost* AsWebRenderTextureHost() override { return this; }
+  virtual WebRenderTextureHost* AsWebRenderTextureHost() override
+  {
+    return this;
+  }
 
   wr::ExternalImageId GetExternalImageKey() { return mExternalImageId; }
 
@@ -76,14 +81,15 @@ public:
                                 wr::ImageRendering aFilter,
                                 const Range<wr::ImageKey>& aImageKeys) override;
 
-protected:
-  void CreateRenderTextureHost(const SurfaceDescriptor& aDesc, TextureHost* aTexture);
+ protected:
+  void CreateRenderTextureHost(const SurfaceDescriptor& aDesc,
+                               TextureHost* aTexture);
 
   RefPtr<TextureHost> mWrappedTextureHost;
   wr::ExternalImageId mExternalImageId;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_WEBRENDERTEXTUREHOST_H
+#endif  // MOZILLA_GFX_WEBRENDERTEXTUREHOST_H

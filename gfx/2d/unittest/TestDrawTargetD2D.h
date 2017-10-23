@@ -11,9 +11,9 @@
 
 class TestDrawTargetD2D : public TestDrawTargetBase
 {
-public:
+ public:
   TestDrawTargetD2D();
 
-private:
+ private:
   RefPtr<ID3D10Device1> mDevice;
 };

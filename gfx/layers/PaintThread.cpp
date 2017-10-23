@@ -28,12 +28,13 @@ PlatformThreadId PaintThread::sThreadId;
 // when we paint async.
 struct MOZ_STACK_CLASS AutoCapturedPaintSetup
 {
-  AutoCapturedPaintSetup(CapturedPaintState* aState, CompositorBridgeChild* aBridge)
-  : mState(aState)
-  , mTarget(aState->mTarget)
-  , mRestorePermitsSubpixelAA(mTarget->GetPermitSubpixelAA())
-  , mOldTransform(mTarget->GetTransform())
-  , mBridge(aBridge)
+  AutoCapturedPaintSetup(CapturedPaintState* aState,
+                         CompositorBridgeChild* aBridge)
+      : mState(aState),
+        mTarget(aState->mTarget),
+        mRestorePermitsSubpixelAA(mTarget->GetPermitSubpixelAA()),
+        mOldTransform(mTarget->GetTransform()),
+        mBridge(aBridge)
   {
     mTarget->SetTransform(aState->mCapture->GetTransform());
     mTarget->SetPermitSubpixelAA(aState->mCapture->GetPermitSubpixelAA());
@@ -89,9 +90,8 @@ PaintThread::Init()
   }
   sThread = thread;
 
-  nsCOMPtr<nsIRunnable> paintInitTask =
-    NewRunnableMethod("PaintThread::InitOnPaintThread",
-                      this, &PaintThread::InitOnPaintThread);
+  nsCOMPtr<nsIRunnable> paintInitTask = NewRunnableMethod(
+      "PaintThread::InitOnPaintThread", this, &PaintThread::InitOnPaintThread);
   SyncRunnable::DispatchToThread(sThread, paintInitTask);
   return true;
 }
@@ -163,13 +163,11 @@ PaintThread::PaintContents(CapturedPaintState* aState,
   RefPtr<DrawTargetCapture> capture(aState->mCapture);
 
   RefPtr<PaintThread> self = this;
-  RefPtr<Runnable> task = NS_NewRunnableFunction("PaintThread::PaintContents",
-    [self, cbc, capture, state, aCallback]() -> void
-  {
-    self->AsyncPaintContents(cbc,
-                             state,
-                             aCallback);
-  });
+  RefPtr<Runnable> task =
+      NS_NewRunnableFunction("PaintThread::PaintContents",
+                             [self, cbc, capture, state, aCallback]() -> void {
+                               self->AsyncPaintContents(cbc, state, aCallback);
+                             });
 
   if (cbc) {
     sThread->Dispatch(task.forget());
@@ -205,7 +203,8 @@ PaintThread::AsyncPaintContents(CompositorBridgeChild* aBridge,
     // This should ensure the capture drawtarget, which may hold on to UnscaledFont objects,
     // gets destroyed on the main thread (See bug 1404742). This assumes (unflushed) target
     // DrawTargets do not themselves hold on to UnscaledFonts.
-    NS_ReleaseOnMainThreadSystemGroup("CapturePaintState::DrawTargetCapture", aState->mCapture.forget());
+    NS_ReleaseOnMainThreadSystemGroup("CapturePaintState::DrawTargetCapture",
+                                      aState->mCapture.forget());
   }
 }
 
@@ -215,11 +214,9 @@ PaintThread::EndLayer()
   MOZ_ASSERT(NS_IsMainThread());
 
   RefPtr<PaintThread> self = this;
-  RefPtr<Runnable> task = NS_NewRunnableFunction("PaintThread::AsyncEndLayer",
-  [self]() -> void
-  {
-    self->AsyncEndLayer();
-  });
+  RefPtr<Runnable> task =
+      NS_NewRunnableFunction("PaintThread::AsyncEndLayer",
+                             [self]() -> void { self->AsyncEndLayer(); });
 
   if (!gfxPrefs::LayersOMTPForceSync()) {
     sThread->Dispatch(task.forget());
@@ -255,11 +252,11 @@ PaintThread::EndLayerTransaction(SyncObjectClient* aSyncObject)
 
   RefPtr<SyncObjectClient> syncObject(aSyncObject);
   RefPtr<PaintThread> self = this;
-  RefPtr<Runnable> task = NS_NewRunnableFunction("PaintThread::AsyncEndLayerTransaction",
-    [self, cbc, syncObject]() -> void
-  {
-    self->AsyncEndLayerTransaction(cbc, syncObject);
-  });
+  RefPtr<Runnable> task =
+      NS_NewRunnableFunction("PaintThread::AsyncEndLayerTransaction",
+                             [self, cbc, syncObject]() -> void {
+                               self->AsyncEndLayerTransaction(cbc, syncObject);
+                             });
 
   if (cbc) {
     sThread->Dispatch(task.forget());
@@ -283,5 +280,5 @@ PaintThread::AsyncEndLayerTransaction(CompositorBridgeChild* aBridge,
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

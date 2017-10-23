@@ -29,8 +29,7 @@ mozilla::ipc::IPCResult
 DocAccessibleParent::RecvShowEvent(const ShowEventData& aData,
                                    const bool& aFromUser)
 {
-  if (mShutdown)
-    return IPC_OK();
+  if (mShutdown) return IPC_OK();
 
   MOZ_ASSERT(CheckDocTree());
 
@@ -95,8 +94,8 @@ DocAccessibleParent::RecvShowEvent(const ShowEventData& aData,
   xpcAccessibleGeneric* xpcAcc = GetXPCAccessible(target);
   xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
   nsIDOMNode* node = nullptr;
-  RefPtr<xpcAccEvent> event = new xpcAccEvent(type, xpcAcc, doc, node,
-                                              aFromUser);
+  RefPtr<xpcAccEvent> event =
+      new xpcAccEvent(type, xpcAcc, doc, node, aFromUser);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
@@ -105,7 +104,8 @@ DocAccessibleParent::RecvShowEvent(const ShowEventData& aData,
 uint32_t
 DocAccessibleParent::AddSubtree(ProxyAccessible* aParent,
                                 const nsTArray<a11y::AccessibleData>& aNewTree,
-                                uint32_t aIdx, uint32_t aIdxInParent)
+                                uint32_t aIdx,
+                                uint32_t aIdxInParent)
 {
   if (aNewTree.Length() <= aIdx) {
     NS_ERROR("bad index in serialized tree!");
@@ -125,9 +125,8 @@ DocAccessibleParent::AddSubtree(ProxyAccessible* aParent,
 
   auto role = static_cast<a11y::role>(newChild.Role());
 
-  ProxyAccessible* newProxy =
-    new ProxyAccessible(newChild.ID(), aParent, this, role,
-                        newChild.Interfaces());
+  ProxyAccessible* newProxy = new ProxyAccessible(
+      newChild.ID(), aParent, this, role, newChild.Interfaces());
 
   aParent->AddChildAt(aIdxInParent, newProxy);
   mAccessibles.PutEntry(newChild.ID())->mProxy = newProxy;
@@ -141,8 +140,7 @@ DocAccessibleParent::AddSubtree(ProxyAccessible* aParent,
   uint32_t kids = newChild.ChildrenCount();
   for (uint32_t i = 0; i < kids; i++) {
     uint32_t consumed = AddSubtree(newProxy, aNewTree, aIdx + accessibles, i);
-    if (!consumed)
-      return 0;
+    if (!consumed) return 0;
 
     accessibles += consumed;
   }
@@ -156,8 +154,7 @@ mozilla::ipc::IPCResult
 DocAccessibleParent::RecvHideEvent(const uint64_t& aRootID,
                                    const bool& aFromUser)
 {
-  if (mShutdown)
-    return IPC_OK();
+  if (mShutdown) return IPC_OK();
 
   MOZ_ASSERT(CheckDocTree());
 
@@ -193,8 +190,8 @@ DocAccessibleParent::RecvHideEvent(const uint64_t& aRootID,
     xpcAccessibleGeneric* xpcPrev = prev ? GetXPCAccessible(prev) : nullptr;
     xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
     nsIDOMNode* node = nullptr;
-    event = new xpcAccHideEvent(type, xpcAcc, doc, node, aFromUser, xpcParent,
-                                xpcNext, xpcPrev);
+    event = new xpcAccHideEvent(
+        type, xpcAcc, doc, node, aFromUser, xpcParent, xpcNext, xpcPrev);
   }
 
   parent->RemoveChild(root);
@@ -231,9 +228,9 @@ DocAccessibleParent::RecvEvent(const uint64_t& aID, const uint32_t& aEventType)
   xpcAccessibleGeneric* xpcAcc = GetXPCAccessible(proxy);
   xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
   nsIDOMNode* node = nullptr;
-  bool fromUser = true; // XXX fix me
-  RefPtr<xpcAccEvent> event = new xpcAccEvent(aEventType, xpcAcc, doc, node,
-                                              fromUser);
+  bool fromUser = true;  // XXX fix me
+  RefPtr<xpcAccEvent> event =
+      new xpcAccEvent(aEventType, xpcAcc, doc, node, fromUser);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
@@ -265,11 +262,10 @@ DocAccessibleParent::RecvStateChangeEvent(const uint64_t& aID,
   uint32_t type = nsIAccessibleEvent::EVENT_STATE_CHANGE;
   bool extra;
   uint32_t state = nsAccUtils::To32States(aState, &extra);
-  bool fromUser = true; // XXX fix this
-  nsIDOMNode* node = nullptr; // XXX can we do better?
-  RefPtr<xpcAccStateChangeEvent> event =
-    new xpcAccStateChangeEvent(type, xpcAcc, doc, node, fromUser, state, extra,
-                               aEnabled);
+  bool fromUser = true;        // XXX fix this
+  nsIDOMNode* node = nullptr;  // XXX can we do better?
+  RefPtr<xpcAccStateChangeEvent> event = new xpcAccStateChangeEvent(
+      type, xpcAcc, doc, node, fromUser, state, extra, aEnabled);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
@@ -279,7 +275,7 @@ mozilla::ipc::IPCResult
 DocAccessibleParent::RecvCaretMoveEvent(const uint64_t& aID,
 #if defined(XP_WIN)
                                         const LayoutDeviceIntRect& aCaretRect,
-#endif // defined (XP_WIN)
+#endif  // defined (XP_WIN)
                                         const int32_t& aOffset)
 {
   if (mShutdown) {
@@ -305,10 +301,10 @@ DocAccessibleParent::RecvCaretMoveEvent(const uint64_t& aID,
   xpcAccessibleGeneric* xpcAcc = GetXPCAccessible(proxy);
   xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
   nsIDOMNode* node = nullptr;
-  bool fromUser = true; // XXX fix me
+  bool fromUser = true;  // XXX fix me
   uint32_t type = nsIAccessibleEvent::EVENT_TEXT_CARET_MOVED;
   RefPtr<xpcAccCaretMoveEvent> event =
-    new xpcAccCaretMoveEvent(type, xpcAcc, doc, node, fromUser, aOffset);
+      new xpcAccCaretMoveEvent(type, xpcAcc, doc, node, fromUser, aOffset);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
@@ -340,12 +336,11 @@ DocAccessibleParent::RecvTextChangeEvent(const uint64_t& aID,
 
   xpcAccessibleGeneric* xpcAcc = GetXPCAccessible(target);
   xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
-  uint32_t type = aIsInsert ? nsIAccessibleEvent::EVENT_TEXT_INSERTED :
-                              nsIAccessibleEvent::EVENT_TEXT_REMOVED;
+  uint32_t type = aIsInsert ? nsIAccessibleEvent::EVENT_TEXT_INSERTED
+                            : nsIAccessibleEvent::EVENT_TEXT_REMOVED;
   nsIDOMNode* node = nullptr;
-  RefPtr<xpcAccTextChangeEvent> event =
-    new xpcAccTextChangeEvent(type, xpcAcc, doc, node, aFromUser, aStart, aLen,
-                              aIsInsert, aStr);
+  RefPtr<xpcAccTextChangeEvent> event = new xpcAccTextChangeEvent(
+      type, xpcAcc, doc, node, aFromUser, aStart, aLen, aIsInsert, aStr);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
@@ -364,7 +359,7 @@ DocAccessibleParent::RecvSyncTextChangeEvent(const uint64_t& aID,
   return RecvTextChangeEvent(aID, aStr, aStart, aLen, aIsInsert, aFromUser);
 }
 
-#endif // defined(XP_WIN)
+#endif  // defined(XP_WIN)
 
 mozilla::ipc::IPCResult
 DocAccessibleParent::RecvSelectionEvent(const uint64_t& aID,
@@ -388,8 +383,8 @@ DocAccessibleParent::RecvSelectionEvent(const uint64_t& aID,
   }
   xpcAccessibleGeneric* xpcTarget = GetXPCAccessible(target);
   xpcAccessibleDocument* xpcDoc = GetAccService()->GetXPCDocument(this);
-  RefPtr<xpcAccEvent> event = new xpcAccEvent(aType, xpcTarget, xpcDoc,
-                                              nullptr, false);
+  RefPtr<xpcAccEvent> event =
+      new xpcAccEvent(aType, xpcTarget, xpcDoc, nullptr, false);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
@@ -402,22 +397,22 @@ DocAccessibleParent::RecvRoleChangedEvent(const uint32_t& aRole)
     return IPC_OK();
   }
 
- if (aRole > roles::LAST_ROLE) {
-   return IPC_FAIL(this, "Child sent bad role in RoleChangedEvent");
- }
+  if (aRole > roles::LAST_ROLE) {
+    return IPC_FAIL(this, "Child sent bad role in RoleChangedEvent");
+  }
 
- mRole = static_cast<a11y::role>(aRole);
- return IPC_OK();
+  mRole = static_cast<a11y::role>(aRole);
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-DocAccessibleParent::RecvBindChildDoc(PDocAccessibleParent* aChildDoc, const uint64_t& aID)
+DocAccessibleParent::RecvBindChildDoc(PDocAccessibleParent* aChildDoc,
+                                      const uint64_t& aID)
 {
   // One document should never directly be the child of another.
   // We should always have at least an outer doc accessible in between.
   MOZ_ASSERT(aID);
-  if (!aID)
-    return IPC_FAIL(this, "ID is 0!");
+  if (!aID) return IPC_FAIL(this, "ID is 0!");
 
   if (mShutdown) {
     return IPC_OK();
@@ -443,7 +438,8 @@ DocAccessibleParent::RecvBindChildDoc(PDocAccessibleParent* aChildDoc, const uin
 
 ipc::IPCResult
 DocAccessibleParent::AddChildDoc(DocAccessibleParent* aChildDoc,
-                                 uint64_t aParentID, bool aCreating)
+                                 uint64_t aParentID,
+                                 bool aCreating)
 {
   // We do not use GetAccessible here because we want to be sure to not get the
   // document it self.
@@ -580,8 +576,7 @@ DocAccessibleParent::CheckDocTree() const
   size_t childDocs = mChildDocs.Length();
   for (size_t i = 0; i < childDocs; i++) {
     const DocAccessibleParent* childDoc = ChildDocAt(i);
-    if (!childDoc || childDoc->ParentDoc() != this)
-      return false;
+    if (!childDoc || childDoc->ParentDoc() != this) return false;
 
     if (!childDoc->CheckDocTree()) {
       return false;
@@ -638,23 +633,27 @@ DocAccessibleParent::MaybeInitWindowEmulation()
     SetEmulatedWindowHandle(aHwnd);
 
     RefPtr<IAccessible> hwndAcc;
-    if (SUCCEEDED(::AccessibleObjectFromWindow(aHwnd, OBJID_WINDOW,
-                                               IID_IAccessible,
-                                               getter_AddRefs(hwndAcc)))) {
-      RefPtr<IDispatch> wrapped(mscom::PassthruProxy::Wrap<IDispatch>(WrapNotNull(hwndAcc)));
-      hWndAccHolder.Set(IDispatchHolder::COMPtrType(mscom::ToProxyUniquePtr(Move(wrapped))));
+    if (SUCCEEDED(::AccessibleObjectFromWindow(
+            aHwnd, OBJID_WINDOW, IID_IAccessible, getter_AddRefs(hwndAcc)))) {
+      RefPtr<IDispatch> wrapped(
+          mscom::PassthruProxy::Wrap<IDispatch>(WrapNotNull(hwndAcc)));
+      hWndAccHolder.Set(
+          IDispatchHolder::COMPtrType(mscom::ToProxyUniquePtr(Move(wrapped))));
     }
 
-    Unused << SendEmulatedWindow(reinterpret_cast<uintptr_t>(mEmulatedWindowHandle),
-                                 hWndAccHolder);
+    Unused << SendEmulatedWindow(
+        reinterpret_cast<uintptr_t>(mEmulatedWindowHandle), hWndAccHolder);
   });
 
   HWND parentWnd = reinterpret_cast<HWND>(rootDocument->GetNativeWindow());
   DebugOnly<HWND> hWnd = nsWinUtils::CreateNativeWindow(kClassNameTabContent,
                                                         parentWnd,
-                                                        rect.x, rect.y,
-                                                        rect.width, rect.height,
-                                                        isActive, &onCreate);
+                                                        rect.x,
+                                                        rect.y,
+                                                        rect.width,
+                                                        rect.height,
+                                                        isActive,
+                                                        &onCreate);
   MOZ_ASSERT(hWnd);
 }
 
@@ -680,7 +679,8 @@ DocAccessibleParent::SendParentCOMProxy()
   outerDoc->GetNativeInterface(getter_AddRefs(nativeAcc));
   MOZ_ASSERT(nativeAcc);
 
-  RefPtr<IDispatch> wrapped(mscom::PassthruProxy::Wrap<IDispatch>(WrapNotNull(nativeAcc)));
+  RefPtr<IDispatch> wrapped(
+      mscom::PassthruProxy::Wrap<IDispatch>(WrapNotNull(nativeAcc)));
 
   IDispatchHolder::COMPtrType ptr(mscom::ToProxyUniquePtr(Move(wrapped)));
   IDispatchHolder holder(Move(ptr));
@@ -690,7 +690,7 @@ DocAccessibleParent::SendParentCOMProxy()
 
 #if defined(MOZ_CONTENT_SANDBOX)
   mParentProxyStream = Move(holder.GetPreservedStream());
-#endif // defined(MOZ_CONTENT_SANDBOX)
+#endif  // defined(MOZ_CONTENT_SANDBOX)
 }
 
 void
@@ -704,7 +704,7 @@ DocAccessibleParent::SetEmulatedWindowHandle(HWND aWindowHandle)
 
 mozilla::ipc::IPCResult
 DocAccessibleParent::RecvGetWindowedPluginIAccessible(
-      const WindowsHandle& aHwnd, IAccessibleHolder* aPluginCOMProxy)
+    const WindowsHandle& aHwnd, IAccessibleHolder* aPluginCOMProxy)
 {
 #if defined(MOZ_CONTENT_SANDBOX)
   // We don't actually want the accessible object for aHwnd, but rather the
@@ -717,9 +717,8 @@ DocAccessibleParent::RecvGetWindowedPluginIAccessible(
   }
 
   IAccessible* rawAccPlugin = nullptr;
-  HRESULT hr = ::AccessibleObjectFromWindow(childWnd, OBJID_WINDOW,
-                                            IID_IAccessible,
-                                            (void**)&rawAccPlugin);
+  HRESULT hr = ::AccessibleObjectFromWindow(
+      childWnd, OBJID_WINDOW, IID_IAccessible, (void**)&rawAccPlugin);
   if (FAILED(hr)) {
     // This might happen if the plugin doesn't handle WM_GETOBJECT properly.
     // We should not consider that a failure.
@@ -757,15 +756,15 @@ DocAccessibleParent::RecvFocusEvent(const uint64_t& aID,
   xpcAccessibleGeneric* xpcAcc = GetXPCAccessible(proxy);
   xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
   nsIDOMNode* node = nullptr;
-  bool fromUser = true; // XXX fix me
-  RefPtr<xpcAccEvent> event = new xpcAccEvent(nsIAccessibleEvent::EVENT_FOCUS,
-                                              xpcAcc, doc, node, fromUser);
+  bool fromUser = true;  // XXX fix me
+  RefPtr<xpcAccEvent> event = new xpcAccEvent(
+      nsIAccessibleEvent::EVENT_FOCUS, xpcAcc, doc, node, fromUser);
   nsCoreUtils::DispatchAccEvent(Move(event));
 
   return IPC_OK();
 }
 
-#endif // defined(XP_WIN)
+#endif  // defined(XP_WIN)
 
-} // a11y
-} // mozilla
+}  // namespace a11y
+}  // namespace mozilla

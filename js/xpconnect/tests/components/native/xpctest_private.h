@@ -20,64 +20,66 @@
 
 extern const mozilla::Module kXPCTestModule;
 
-class xpcTestObjectReadOnly final : public nsIXPCTestObjectReadOnly {
+class xpcTestObjectReadOnly final : public nsIXPCTestObjectReadOnly
+{
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIXPCTESTOBJECTREADONLY
   xpcTestObjectReadOnly();
 
  private:
-    ~xpcTestObjectReadOnly() {}
+  ~xpcTestObjectReadOnly() {}
 
-    bool    boolProperty;
-    int16_t shortProperty;
-    int32_t longProperty;
-    float   floatProperty;
-    char    charProperty;
-    PRTime  timeProperty;
+  bool boolProperty;
+  int16_t shortProperty;
+  int32_t longProperty;
+  float floatProperty;
+  char charProperty;
+  PRTime timeProperty;
 };
 
-class xpcTestObjectReadWrite final : public nsIXPCTestObjectReadWrite {
-  public:
+class xpcTestObjectReadWrite final : public nsIXPCTestObjectReadWrite
+{
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIXPCTESTOBJECTREADWRITE
 
   xpcTestObjectReadWrite();
 
  private:
-     ~xpcTestObjectReadWrite();
+  ~xpcTestObjectReadWrite();
 
-     bool boolProperty;
-     int16_t shortProperty;
-     int32_t longProperty;
-     float floatProperty;
-     char charProperty;
-     char* stringProperty;
-     PRTime timeProperty;
+  bool boolProperty;
+  int16_t shortProperty;
+  int32_t longProperty;
+  float floatProperty;
+  char charProperty;
+  char* stringProperty;
+  PRTime timeProperty;
 };
 
 class nsXPCTestParams final : public nsIXPCTestParams
 {
-public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIXPCTESTPARAMS
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIXPCTESTPARAMS
 
-    nsXPCTestParams();
+  nsXPCTestParams();
 
-private:
-    ~nsXPCTestParams();
+ private:
+  ~nsXPCTestParams();
 };
 
 class nsXPCTestReturnCodeParent final : public nsIXPCTestReturnCodeParent
 {
-public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIXPCTESTRETURNCODEPARENT
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIXPCTESTRETURNCODEPARENT
 
-    nsXPCTestReturnCodeParent();
+  nsXPCTestReturnCodeParent();
 
-private:
-    ~nsXPCTestReturnCodeParent();
+ private:
+  ~nsXPCTestReturnCodeParent();
 };
 
 #endif /* xpctest_private_h___ */

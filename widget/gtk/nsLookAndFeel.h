@@ -16,75 +16,75 @@ struct _GtkStyle;
 
 class nsLookAndFeel final : public nsXPLookAndFeel
 {
-public:
-    nsLookAndFeel();
-    virtual ~nsLookAndFeel();
+ public:
+  nsLookAndFeel();
+  virtual ~nsLookAndFeel();
 
-    virtual nsresult NativeGetColor(ColorID aID, nscolor &aResult);
-    virtual void NativeInit() final;
-    virtual nsresult GetIntImpl(IntID aID, int32_t &aResult);
-    virtual nsresult GetFloatImpl(FloatID aID, float &aResult);
-    virtual bool GetFontImpl(FontID aID, nsString& aFontName,
-                             gfxFontStyle& aFontStyle,
-                             float aDevPixPerCSSPixel);
+  virtual nsresult NativeGetColor(ColorID aID, nscolor& aResult);
+  virtual void NativeInit() final;
+  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
+  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
+  virtual bool GetFontImpl(FontID aID,
+                           nsString& aFontName,
+                           gfxFontStyle& aFontStyle,
+                           float aDevPixPerCSSPixel);
 
-    virtual void RefreshImpl();
-    virtual char16_t GetPasswordCharacterImpl();
-    virtual bool GetEchoPasswordImpl();
+  virtual void RefreshImpl();
+  virtual char16_t GetPasswordCharacterImpl();
+  virtual bool GetEchoPasswordImpl();
 
-protected:
+ protected:
+  // Cached fonts
+  bool mDefaultFontCached;
+  bool mButtonFontCached;
+  bool mFieldFontCached;
+  bool mMenuFontCached;
+  nsString mDefaultFontName;
+  nsString mButtonFontName;
+  nsString mFieldFontName;
+  nsString mMenuFontName;
+  gfxFontStyle mDefaultFontStyle;
+  gfxFontStyle mButtonFontStyle;
+  gfxFontStyle mFieldFontStyle;
+  gfxFontStyle mMenuFontStyle;
 
-    // Cached fonts
-    bool mDefaultFontCached;
-    bool mButtonFontCached;
-    bool mFieldFontCached;
-    bool mMenuFontCached;
-    nsString mDefaultFontName;
-    nsString mButtonFontName;
-    nsString mFieldFontName;
-    nsString mMenuFontName;
-    gfxFontStyle mDefaultFontStyle;
-    gfxFontStyle mButtonFontStyle;
-    gfxFontStyle mFieldFontStyle;
-    gfxFontStyle mMenuFontStyle;
+  // Cached colors
+  nscolor sInfoBackground;
+  nscolor sInfoText;
+  nscolor sMenuBackground;
+  nscolor sMenuBarText;
+  nscolor sMenuBarHoverText;
+  nscolor sMenuText;
+  nscolor sMenuTextInactive;
+  nscolor sMenuHover;
+  nscolor sMenuHoverText;
+  nscolor sButtonDefault;
+  nscolor sButtonText;
+  nscolor sButtonHoverText;
+  nscolor sButtonHoverFace;
+  nscolor sFrameOuterLightBorder;
+  nscolor sFrameInnerDarkBorder;
+  nscolor sOddCellBackground;
+  nscolor sNativeHyperLinkText;
+  nscolor sComboBoxText;
+  nscolor sComboBoxBackground;
+  nscolor sMozFieldText;
+  nscolor sMozFieldBackground;
+  nscolor sMozWindowText;
+  nscolor sMozWindowBackground;
+  nscolor sMozWindowActiveBorder;
+  nscolor sMozWindowInactiveBorder;
+  nscolor sMozWindowInactiveCaption;
+  nscolor sTextSelectedText;
+  nscolor sTextSelectedBackground;
+  nscolor sMozScrollbar;
+  nscolor sInfoBarText;
+  char16_t sInvisibleCharacter;
+  float sCaretRatio;
+  bool sMenuSupportsDrag;
+  bool mInitialized;
 
-    // Cached colors
-    nscolor sInfoBackground;
-    nscolor sInfoText;
-    nscolor sMenuBackground;
-    nscolor sMenuBarText;
-    nscolor sMenuBarHoverText;
-    nscolor sMenuText;
-    nscolor sMenuTextInactive;
-    nscolor sMenuHover;
-    nscolor sMenuHoverText;
-    nscolor sButtonDefault;
-    nscolor sButtonText;
-    nscolor sButtonHoverText;
-    nscolor sButtonHoverFace;
-    nscolor sFrameOuterLightBorder;
-    nscolor sFrameInnerDarkBorder;
-    nscolor sOddCellBackground;
-    nscolor sNativeHyperLinkText;
-    nscolor sComboBoxText;
-    nscolor sComboBoxBackground;
-    nscolor sMozFieldText;
-    nscolor sMozFieldBackground;
-    nscolor sMozWindowText;
-    nscolor sMozWindowBackground;
-    nscolor sMozWindowActiveBorder;
-    nscolor sMozWindowInactiveBorder;
-    nscolor sMozWindowInactiveCaption;
-    nscolor sTextSelectedText;
-    nscolor sTextSelectedBackground;
-    nscolor sMozScrollbar;
-    nscolor sInfoBarText;
-    char16_t sInvisibleCharacter;
-    float   sCaretRatio;
-    bool    sMenuSupportsDrag;
-    bool    mInitialized;
-
-    void EnsureInit();
+  void EnsureInit();
 };
 
 #endif

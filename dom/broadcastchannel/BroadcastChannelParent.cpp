@@ -19,9 +19,10 @@ using namespace ipc;
 
 namespace dom {
 
-BroadcastChannelParent::BroadcastChannelParent(const nsAString& aOriginChannelKey)
-  : mService(BroadcastChannelService::GetOrCreate())
-  , mOriginChannelKey(aOriginChannelKey)
+BroadcastChannelParent::BroadcastChannelParent(
+    const nsAString& aOriginChannelKey)
+    : mService(BroadcastChannelService::GetOrCreate()),
+      mOriginChannelKey(aOriginChannelKey)
 {
   AssertIsOnBackgroundThread();
   mService->RegisterActor(this, mOriginChannelKey);
@@ -74,5 +75,5 @@ BroadcastChannelParent::ActorDestroy(ActorDestroyReason aWhy)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

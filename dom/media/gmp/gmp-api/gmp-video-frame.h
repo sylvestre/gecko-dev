@@ -36,16 +36,18 @@
 
 #include "gmp-video-plane.h"
 
-enum GMPVideoFrameFormat {
+enum GMPVideoFrameFormat
+{
   kGMPEncodedVideoFrame = 0,
   kGMPI420VideoFrame = 1
 };
 
-class GMPVideoFrame {
-public:
+class GMPVideoFrame
+{
+ public:
   virtual GMPVideoFrameFormat GetFrameFormat() = 0;
   // MAIN THREAD ONLY IF OWNING PROCESS
   virtual void Destroy() = 0;
 };
 
-#endif // GMP_VIDEO_FRAME_h_
+#endif  // GMP_VIDEO_FRAME_h_

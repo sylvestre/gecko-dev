@@ -24,7 +24,8 @@ namespace mozilla {
 #undef LOG
 #endif
 
-extern LogModule* GetGMPLog();
+extern LogModule*
+GetGMPLog();
 
 #define LOGD(msg) MOZ_LOG(GetGMPLog(), mozilla::LogLevel::Debug, msg)
 #define LOG(level, msg) MOZ_LOG(GetGMPLog(), (level), msg)
@@ -43,7 +44,7 @@ GetGMPStorageDir(nsIFile** aTempDir,
   }
 
   nsCOMPtr<mozIGeckoMediaPluginChromeService> mps =
-    do_GetService("@mozilla.org/gecko-media-plugin-service;1");
+      do_GetService("@mozilla.org/gecko-media-plugin-service;1");
   if (NS_WARN_IF(!mps)) {
     return NS_ERROR_FAILURE;
   }
@@ -96,16 +97,16 @@ GetGMPStorageDir(nsIFile** aTempDir,
 //   4 byte, uint32_t $recordNameLength, in little-endian byte order,
 //   record name (i.e. $recordNameLength bytes, no null terminator)
 //   record bytes (entire remainder of file)
-class GMPDiskStorage : public GMPStorage {
-public:
-  explicit GMPDiskStorage(const nsCString& aNodeId,
-                          const nsString& aGMPName)
-    : mNodeId(aNodeId)
-    , mGMPName(aGMPName)
+class GMPDiskStorage : public GMPStorage
+{
+ public:
+  explicit GMPDiskStorage(const nsCString& aNodeId, const nsString& aGMPName)
+      : mNodeId(aNodeId), mGMPName(aGMPName)
   {
   }
 
-  ~GMPDiskStorage() {
+  ~GMPDiskStorage()
+  {
     // Close all open file handles.
     for (auto iter = mRecords.ConstIter(); !iter.Done(); iter.Next()) {
       Record* record = iter.UserData();
@@ -116,10 +117,12 @@ public:
     }
   }
 
-  nsresult Init() {
+  nsresult Init()
+  {
     // Build our index of records on disk.
     nsCOMPtr<nsIFile> storageDir;
-    nsresult rv = GetGMPStorageDir(getter_AddRefs(storageDir), mGMPName, mNodeId);
+    nsresult rv =
+        GetGMPStorageDir(getter_AddRefs(storageDir), mGMPName, mNodeId);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return NS_ERROR_FAILURE;
     }
@@ -128,7 +131,7 @@ public:
     for (nsCOMPtr<nsIFile> dirEntry; (dirEntry = iter.Next()) != nullptr;) {
       PRFileDesc* fd = nullptr;
       if (NS_WARN_IF(
-            NS_FAILED(dirEntry->OpenNSPRFileDesc(PR_RDONLY, 0, &fd)))) {
+              NS_FAILED(dirEntry->OpenNSPRFileDesc(PR_RDONLY, 0, &fd)))) {
         continue;
       }
       int32_t recordLength = 0;
@@ -186,7 +189,8 @@ public:
     return GMPNoErr;
   }
 
-  bool IsOpen(const nsCString& aRecordName) const override {
+  bool IsOpen(const nsCString& aRecordName) const override
+  {
     // We are open if we have a record indexed, and it has a valid
     // file descriptor.
     const Record* record = mRecords.Get(aRecordName);
@@ -202,7 +206,7 @@ public:
 
     Record* record = nullptr;
     mRecords.Get(aRecordName, &record);
-    MOZ_ASSERT(record && !!record->mFileDesc); // IsOpen() guarantees this.
+    MOZ_ASSERT(record && !!record->mFileDesc);  // IsOpen() guarantees this.
 
     // Our error strategy is to report records with invalid contents as
     // containing 0 bytes. Zero length records are considered "deleted" by
@@ -211,9 +215,8 @@ public:
 
     int32_t recordLength = 0;
     nsCString recordName;
-    nsresult err = ReadRecordMetadata(record->mFileDesc,
-                                      recordLength,
-                                      recordName);
+    nsresult err =
+        ReadRecordMetadata(record->mFileDesc, recordLength, recordName);
     if (NS_WARN_IF(NS_FAILED(err) || recordLength == 0)) {
       // We failed to read the record metadata. Or the record is 0 length.
       // Treat damaged records as empty.
@@ -235,7 +238,8 @@ public:
     }
 
     aOutBytes.SetLength(recordLength);
-    int32_t bytesRead = PR_Read(record->mFileDesc, aOutBytes.Elements(), recordLength);
+    int32_t bytesRead =
+        PR_Read(record->mFileDesc, aOutBytes.Elements(), recordLength);
     return (bytesRead == recordLength) ? GMPNoErr : GMPRecordCorrupted;
   }
 
@@ -248,7 +252,7 @@ public:
 
     Record* record = nullptr;
     mRecords.Get(aRecordName, &record);
-    MOZ_ASSERT(record && !!record->mFileDesc); // IsOpen() guarantees this.
+    MOZ_ASSERT(record && !!record->mFileDesc);  // IsOpen() guarantees this.
 
     // Write operations overwrite the entire record. So close it now.
     PR_Close(record->mFileDesc);
@@ -266,8 +270,8 @@ public:
 
     // Write operations overwrite the entire record. So re-open the file
     // in truncate mode, to clear its contents.
-    if (NS_WARN_IF(NS_FAILED(
-          OpenStorageFile(record->mFilename, Truncate, &record->mFileDesc)))) {
+    if (NS_WARN_IF(NS_FAILED(OpenStorageFile(
+            record->mFilename, Truncate, &record->mFileDesc)))) {
       return GMPGenericErr;
     }
 
@@ -281,15 +285,15 @@ public:
       NS_WARNING("Failed to write GMPStorage record name length.");
       return GMPRecordCorrupted;
     }
-    bytesWritten = PR_Write(record->mFileDesc,
-                            aRecordName.get(),
-                            aRecordName.Length());
+    bytesWritten =
+        PR_Write(record->mFileDesc, aRecordName.get(), aRecordName.Length());
     if (bytesWritten != (int32_t)aRecordName.Length()) {
       NS_WARNING("Failed to write GMPStorage record name.");
       return GMPRecordCorrupted;
     }
 
-    bytesWritten = PR_Write(record->mFileDesc, aBytes.Elements(), aBytes.Length());
+    bytesWritten =
+        PR_Write(record->mFileDesc, aBytes.Elements(), aBytes.Length());
     if (bytesWritten != (int32_t)aBytes.Length()) {
       NS_WARNING("Failed to write GMPStorage record data.");
       return GMPRecordCorrupted;
@@ -313,8 +317,7 @@ public:
     MOZ_ASSERT(!IsOpen(aRecordName));
   }
 
-private:
-
+ private:
   // We store records in a file which is a hash of the record name.
   // If there is a hash collision, we just keep adding 1 to the hash
   // code, until we find a free slot.
@@ -322,7 +325,8 @@ private:
                              nsString& aOutFilename)
   {
     nsCOMPtr<nsIFile> storageDir;
-    nsresult rv = GetGMPStorageDir(getter_AddRefs(storageDir), mGMPName, mNodeId);
+    nsresult rv =
+        GetGMPStorageDir(getter_AddRefs(storageDir), mGMPName, mNodeId);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -358,7 +362,11 @@ private:
     return NS_ERROR_FAILURE;
   }
 
-  enum OpenFileMode  { ReadWrite, Truncate };
+  enum OpenFileMode
+  {
+    ReadWrite,
+    Truncate
+  };
 
   nsresult OpenStorageFile(const nsAString& aFileLeafName,
                            const OpenFileMode aMode,
@@ -407,11 +415,10 @@ private:
 
     // Read length, and convert to host byte order.
     uint32_t recordNameLength = 0;
-    char buf[sizeof(recordNameLength)] = { 0 };
+    char buf[sizeof(recordNameLength)] = {0};
     int32_t bytesRead = PR_Read(aFd, &buf, sizeof(recordNameLength));
     recordNameLength = LittleEndian::readUint32(buf);
-    if (sizeof(recordNameLength) != bytesRead ||
-        recordNameLength == 0 ||
+    if (sizeof(recordNameLength) != bytesRead || recordNameLength == 0 ||
         recordNameLength + sizeof(recordNameLength) > fileLength ||
         recordNameLength > GMP_MAX_RECORD_NAME_SIZE) {
       // Record file has invalid contents. Fail.
@@ -427,13 +434,15 @@ private:
     }
 
     MOZ_ASSERT(fileLength >= sizeof(recordNameLength) + recordNameLength);
-    int32_t recordLength = fileLength - (sizeof(recordNameLength) + recordNameLength);
+    int32_t recordLength =
+        fileLength - (sizeof(recordNameLength) + recordNameLength);
 
     aOutRecordLength = recordLength;
     aOutRecordName = recordName;
 
     // Read cursor should be positioned after the record name, before the record contents.
-    if (PR_Seek(aFd, 0, PR_SEEK_CUR) != (int32_t)(sizeof(recordNameLength) + recordNameLength)) {
+    if (PR_Seek(aFd, 0, PR_SEEK_CUR) !=
+        (int32_t)(sizeof(recordNameLength) + recordNameLength)) {
       NS_WARNING("Read cursor mismatch after ReadRecordMetadata()");
       return NS_ERROR_FAILURE;
     }
@@ -455,16 +464,13 @@ private:
     return f->Remove(/* bool recursive= */ false);
   }
 
-  struct Record {
-    Record(const nsAString& aFilename,
-           const nsACString& aRecordName)
-      : mFilename(aFilename)
-      , mRecordName(aRecordName)
-      , mFileDesc(0)
-    {}
-    ~Record() {
-      MOZ_ASSERT(!mFileDesc);
+  struct Record
+  {
+    Record(const nsAString& aFilename, const nsACString& aRecordName)
+        : mFilename(aFilename), mRecordName(aRecordName), mFileDesc(0)
+    {
     }
+    ~Record() { MOZ_ASSERT(!mFileDesc); }
     nsString mFilename;
     nsCString mRecordName;
     PRFileDesc* mFileDesc;
@@ -476,8 +482,8 @@ private:
   const nsString mGMPName;
 };
 
-already_AddRefed<GMPStorage> CreateGMPDiskStorage(const nsCString& aNodeId,
-                                                  const nsString& aGMPName)
+already_AddRefed<GMPStorage>
+CreateGMPDiskStorage(const nsCString& aNodeId, const nsString& aGMPName)
 {
   RefPtr<GMPDiskStorage> storage(new GMPDiskStorage(aNodeId, aGMPName));
   if (NS_FAILED(storage->Init())) {
@@ -487,5 +493,5 @@ already_AddRefed<GMPStorage> CreateGMPDiskStorage(const nsCString& aNodeId,
   return storage.forget();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

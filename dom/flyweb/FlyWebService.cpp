@@ -37,38 +37,43 @@ struct FlyWebPublishOptions;
 
 static LazyLogModule gFlyWebServiceLog("FlyWebService");
 #undef LOG_I
-#define LOG_I(...) MOZ_LOG(mozilla::dom::gFlyWebServiceLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define LOG_I(...)                         \
+  MOZ_LOG(mozilla::dom::gFlyWebServiceLog, \
+          mozilla::LogLevel::Debug,        \
+          (__VA_ARGS__))
 
 #undef LOG_E
-#define LOG_E(...) MOZ_LOG(mozilla::dom::gFlyWebServiceLog, mozilla::LogLevel::Error, (__VA_ARGS__))
+#define LOG_E(...)                         \
+  MOZ_LOG(mozilla::dom::gFlyWebServiceLog, \
+          mozilla::LogLevel::Error,        \
+          (__VA_ARGS__))
 
 #undef LOG_TEST_I
-#define LOG_TEST_I(...) MOZ_LOG_TEST(mozilla::dom::gFlyWebServiceLog, mozilla::LogLevel::Debug)
+#define LOG_TEST_I(...) \
+  MOZ_LOG_TEST(mozilla::dom::gFlyWebServiceLog, mozilla::LogLevel::Debug)
 
 class FlyWebPublishServerPermissionCheck final
-  : public nsIContentPermissionRequest
-  , public nsIRunnable
+    : public nsIContentPermissionRequest,
+      public nsIRunnable
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  FlyWebPublishServerPermissionCheck(const nsCString& aServiceName, uint64_t aWindowID,
+  FlyWebPublishServerPermissionCheck(const nsCString& aServiceName,
+                                     uint64_t aWindowID,
                                      FlyWebPublishedServer* aServer)
-    : mServiceName(aServiceName)
-    , mWindowID(aWindowID)
-    , mServer(aServer)
-  {}
-
-  uint64_t WindowID() const
+      : mServiceName(aServiceName), mWindowID(aWindowID), mServer(aServer)
   {
-    return mWindowID;
   }
+
+  uint64_t WindowID() const { return mWindowID; }
 
   NS_IMETHOD Run() override
   {
     MOZ_ASSERT(NS_IsMainThread());
 
-    nsGlobalWindow* globalWindow = nsGlobalWindow::GetInnerWindowWithId(mWindowID);
+    nsGlobalWindow* globalWindow =
+        nsGlobalWindow::GetInnerWindowWithId(mWindowID);
     if (!globalWindow) {
       return Cancel();
     }
@@ -105,8 +110,11 @@ public:
   NS_IMETHOD GetTypes(nsIArray** aTypes) override
   {
     nsTArray<nsString> emptyOptions;
-    return nsContentPermissionUtils::CreatePermissionArray(NS_LITERAL_CSTRING("flyweb-publish-server"),
-                                                           NS_LITERAL_CSTRING("unused"), emptyOptions, aTypes);
+    return nsContentPermissionUtils::CreatePermissionArray(
+        NS_LITERAL_CSTRING("flyweb-publish-server"),
+        NS_LITERAL_CSTRING("unused"),
+        emptyOptions,
+        aTypes);
   }
 
   NS_IMETHOD GetRequester(nsIContentPermissionRequester** aRequester) override
@@ -135,11 +143,8 @@ public:
     return NS_OK;
   }
 
-private:
-  void Resolve(bool aResolve)
-  {
-    mServer->PermissionGranted(aResolve);
-  }
+ private:
+  void Resolve(bool aResolve) { mServer->PermissionGranted(aResolve); }
 
   virtual ~FlyWebPublishServerPermissionCheck() = default;
 
@@ -155,24 +160,24 @@ NS_IMPL_ISUPPORTS(FlyWebPublishServerPermissionCheck,
                   nsIContentPermissionRequest,
                   nsIRunnable)
 
-class FlyWebMDNSService final
-  : public nsIDNSServiceDiscoveryListener
-  , public nsIDNSServiceResolveListener
-  , public nsIDNSRegistrationListener
-  , public nsITimerCallback
-  , public nsINamed
+class FlyWebMDNSService final : public nsIDNSServiceDiscoveryListener,
+                                public nsIDNSServiceResolveListener,
+                                public nsIDNSRegistrationListener,
+                                public nsITimerCallback,
+                                public nsINamed
 {
   friend class FlyWebService;
 
-private:
-  enum DiscoveryState {
+ private:
+  enum DiscoveryState
+  {
     DISCOVERY_IDLE,
     DISCOVERY_STARTING,
     DISCOVERY_RUNNING,
     DISCOVERY_STOPPING
   };
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDNSSERVICEDISCOVERYLISTENER
   NS_DECL_NSIDNSSERVICERESOLVELISTENER
@@ -188,7 +193,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   virtual ~FlyWebMDNSService() = default;
 
   nsresult Init();
@@ -286,13 +291,17 @@ LogDNSInfo(nsIDNSServiceInfo* aServiceInfo, const char* aFunc)
       nsAutoCString str;
       nsresult rv = value->GetAsACString(str);
       if (NS_SUCCEEDED(rv)) {
-        LOG_I("%s: attribute name=%s value=%s", aFunc,
-              NS_ConvertUTF16toUTF8(name).get(), str.get());
+        LOG_I("%s: attribute name=%s value=%s",
+              aFunc,
+              NS_ConvertUTF16toUTF8(name).get(),
+              str.get());
       } else {
         uint16_t type;
         MOZ_ALWAYS_SUCCEEDS(value->GetDataType(&type));
-        LOG_I("%s: attribute *unstringifiable* name=%s type=%d", aFunc,
-              NS_ConvertUTF16toUTF8(name).get(), (int)type);
+        LOG_I("%s: attribute *unstringifiable* name=%s type=%d",
+              aFunc,
+              NS_ConvertUTF16toUTF8(name).get(),
+              (int)type);
       }
     }
 
@@ -307,15 +316,15 @@ NS_IMPL_ISUPPORTS(FlyWebMDNSService,
                   nsITimerCallback,
                   nsINamed)
 
-FlyWebMDNSService::FlyWebMDNSService(
-        FlyWebService* aService,
-        const nsACString& aServiceType)
-  : mService(aService)
-  , mServiceType(aServiceType)
-  , mDiscoveryActive(false)
-  , mNumConsecutiveStartDiscoveryFailures(0)
-  , mDiscoveryState(DISCOVERY_IDLE)
-{}
+FlyWebMDNSService::FlyWebMDNSService(FlyWebService* aService,
+                                     const nsACString& aServiceType)
+    : mService(aService),
+      mServiceType(aServiceType),
+      mDiscoveryActive(false),
+      mNumConsecutiveStartDiscoveryFailures(0),
+      mDiscoveryState(DISCOVERY_IDLE)
+{
+}
 
 nsresult
 FlyWebMDNSService::OnDiscoveryStarted(const nsACString& aServiceType)
@@ -325,7 +334,8 @@ FlyWebMDNSService::OnDiscoveryStarted(const nsACString& aServiceType)
   // Reset consecutive start discovery failures.
   mNumConsecutiveStartDiscoveryFailures = 0;
   LOG_I("===========================================");
-  LOG_I("MDNSService::OnDiscoveryStarted(%s)", PromiseFlatCString(aServiceType).get());
+  LOG_I("MDNSService::OnDiscoveryStarted(%s)",
+        PromiseFlatCString(aServiceType).get());
   LOG_I("===========================================");
 
   // Clear the new service array.
@@ -334,12 +344,14 @@ FlyWebMDNSService::OnDiscoveryStarted(const nsACString& aServiceType)
   // If service discovery is inactive, then stop network discovery immediately.
   if (!mDiscoveryActive) {
     // Set the stop timer to fire immediately.
-    Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStopTimer->InitWithCallback(this, 0, nsITimer::TYPE_ONE_SHOT)));
+    Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStopTimer->InitWithCallback(
+        this, 0, nsITimer::TYPE_ONE_SHOT)));
     return NS_OK;
   }
 
   // Otherwise, set the stop timer to fire in 5 seconds.
-  Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStopTimer->InitWithCallback(this, 5 * 1000, nsITimer::TYPE_ONE_SHOT)));
+  Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStopTimer->InitWithCallback(
+      this, 5 * 1000, nsITimer::TYPE_ONE_SHOT)));
 
   return NS_OK;
 }
@@ -348,7 +360,8 @@ nsresult
 FlyWebMDNSService::OnDiscoveryStopped(const nsACString& aServiceType)
 {
   LOG_I("///////////////////////////////////////////");
-  LOG_I("MDNSService::OnDiscoveryStopped(%s)", PromiseFlatCString(aServiceType).get());
+  LOG_I("MDNSService::OnDiscoveryStopped(%s)",
+        PromiseFlatCString(aServiceType).get());
   LOG_I("///////////////////////////////////////////");
   MOZ_ASSERT(mDiscoveryState == DISCOVERY_STOPPING);
   mDiscoveryState = DISCOVERY_IDLE;
@@ -373,7 +386,8 @@ FlyWebMDNSService::OnDiscoveryStopped(const nsACString& aServiceType)
   mService->NotifyDiscoveredServicesChanged();
 
   // Start discovery again immediately.
-  Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStartTimer->InitWithCallback(this, 0, nsITimer::TYPE_ONE_SHOT)));
+  Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStartTimer->InitWithCallback(
+      this, 0, nsITimer::TYPE_ONE_SHOT)));
 
   return NS_OK;
 }
@@ -405,9 +419,12 @@ FlyWebMDNSService::OnServiceLost(nsIDNSServiceInfo* aServiceInfo)
 }
 
 nsresult
-FlyWebMDNSService::OnStartDiscoveryFailed(const nsACString& aServiceType, int32_t aErrorCode)
+FlyWebMDNSService::OnStartDiscoveryFailed(const nsACString& aServiceType,
+                                          int32_t aErrorCode)
 {
-  LOG_E("MDNSService::OnStartDiscoveryFailed(%s): %d", PromiseFlatCString(aServiceType).get(), (int) aErrorCode);
+  LOG_E("MDNSService::OnStartDiscoveryFailed(%s): %d",
+        PromiseFlatCString(aServiceType).get(),
+        (int)aErrorCode);
 
   MOZ_ASSERT(mDiscoveryState == DISCOVERY_STARTING);
   mDiscoveryState = DISCOVERY_IDLE;
@@ -415,22 +432,26 @@ FlyWebMDNSService::OnStartDiscoveryFailed(const nsACString& aServiceType, int32_
 
   // If discovery is active, and the number of consecutive failures is < 3, try starting again.
   if (mDiscoveryActive && mNumConsecutiveStartDiscoveryFailures < 3) {
-    Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStartTimer->InitWithCallback(this, 0, nsITimer::TYPE_ONE_SHOT)));
+    Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStartTimer->InitWithCallback(
+        this, 0, nsITimer::TYPE_ONE_SHOT)));
   }
 
   return NS_OK;
 }
 
 nsresult
-FlyWebMDNSService::OnStopDiscoveryFailed(const nsACString& aServiceType, int32_t aErrorCode)
+FlyWebMDNSService::OnStopDiscoveryFailed(const nsACString& aServiceType,
+                                         int32_t aErrorCode)
 {
-  LOG_E("MDNSService::OnStopDiscoveryFailed(%s)", PromiseFlatCString(aServiceType).get());
+  LOG_E("MDNSService::OnStopDiscoveryFailed(%s)",
+        PromiseFlatCString(aServiceType).get());
   MOZ_ASSERT(mDiscoveryState == DISCOVERY_STOPPING);
   mDiscoveryState = DISCOVERY_IDLE;
 
   // If discovery is active, start discovery again immediately.
   if (mDiscoveryActive) {
-    Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStartTimer->InitWithCallback(this, 0, nsITimer::TYPE_ONE_SHOT)));
+    Unused << NS_WARN_IF(NS_FAILED(mDiscoveryStartTimer->InitWithCallback(
+        this, 0, nsITimer::TYPE_ONE_SHOT)));
   }
 
   return NS_OK;
@@ -475,8 +496,7 @@ FlyWebMDNSService::OnServiceResolved(nsIDNSServiceInfo* aServiceInfo)
   UniquePtr<DiscoveredInfo> svc(new DiscoveredInfo(aServiceInfo));
   mNewServiceSet.PutEntry(svc->mService.mServiceId);
 
-  DiscoveredInfo* existingSvc =
-    mServiceMap.Get(svc->mService.mServiceId);
+  DiscoveredInfo* existingSvc = mServiceMap.Get(svc->mService.mServiceId);
   if (existingSvc) {
     // Update the underlying DNS service info, but leave the old object in place.
     existingSvc->mDNSServiceInfo = aServiceInfo;
@@ -491,8 +511,9 @@ FlyWebMDNSService::OnServiceResolved(nsIDNSServiceInfo* aServiceInfo)
   return NS_OK;
 }
 
-FlyWebMDNSService::DiscoveredInfo::DiscoveredInfo(nsIDNSServiceInfo* aDNSServiceInfo)
-  : mDNSServiceInfo(aDNSServiceInfo)
+FlyWebMDNSService::DiscoveredInfo::DiscoveredInfo(
+    nsIDNSServiceInfo* aDNSServiceInfo)
+    : mDNSServiceInfo(aDNSServiceInfo)
 {
   nsCString tmp;
   DebugOnly<nsresult> drv = aDNSServiceInfo->GetServiceName(tmp);
@@ -528,21 +549,16 @@ FlyWebMDNSService::DiscoveredInfo::DiscoveredInfo(nsIDNSServiceInfo* aDNSService
   nsAutoString portStr;
   portStr.AppendInt(port, 10);
 
-  mService.mServiceId =
-    NS_ConvertUTF8toUTF16(cAddress) +
-    NS_LITERAL_STRING(":") +
-    portStr +
-    NS_LITERAL_STRING("|") +
-    mService.mServiceType +
-    NS_LITERAL_STRING("|") +
-    NS_ConvertUTF8toUTF16(cHost) +
-    NS_LITERAL_STRING("|") +
-    mService.mDisplayName;
+  mService.mServiceId = NS_ConvertUTF8toUTF16(cAddress) +
+                        NS_LITERAL_STRING(":") + portStr +
+                        NS_LITERAL_STRING("|") + mService.mServiceType +
+                        NS_LITERAL_STRING("|") + NS_ConvertUTF8toUTF16(cHost) +
+                        NS_LITERAL_STRING("|") + mService.mDisplayName;
 }
 
-
 nsresult
-FlyWebMDNSService::OnResolveFailed(nsIDNSServiceInfo* aServiceInfo, int32_t aErrorCode)
+FlyWebMDNSService::OnResolveFailed(nsIDNSServiceInfo* aServiceInfo,
+                                   int32_t aErrorCode)
 {
   LogDNSInfo(aServiceInfo, "FlyWebMDNSService::OnResolveFailed");
 
@@ -561,7 +577,7 @@ FlyWebMDNSService::OnServiceRegistered(nsIDNSServiceInfo* aServiceInfo)
 
   nsString name = NS_ConvertUTF8toUTF16(cName);
   RefPtr<FlyWebPublishedServer> existingServer =
-    FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
+      FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
   if (!existingServer) {
     return NS_ERROR_FAILURE;
   }
@@ -583,18 +599,20 @@ FlyWebMDNSService::OnServiceUnregistered(nsIDNSServiceInfo* aServiceInfo)
 
   nsString name = NS_ConvertUTF8toUTF16(cName);
   RefPtr<FlyWebPublishedServer> existingServer =
-    FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
+      FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
   if (!existingServer) {
     return NS_ERROR_FAILURE;
   }
 
-  LOG_I("OnServiceRegistered(MDNS): De-advertised server with name %s.", cName.get());
+  LOG_I("OnServiceRegistered(MDNS): De-advertised server with name %s.",
+        cName.get());
 
   return NS_OK;
 }
 
 nsresult
-FlyWebMDNSService::OnRegistrationFailed(nsIDNSServiceInfo* aServiceInfo, int32_t errorCode)
+FlyWebMDNSService::OnRegistrationFailed(nsIDNSServiceInfo* aServiceInfo,
+                                        int32_t errorCode)
 {
   LogDNSInfo(aServiceInfo, "FlyWebMDNSService::OnRegistrationFailed");
 
@@ -605,12 +623,14 @@ FlyWebMDNSService::OnRegistrationFailed(nsIDNSServiceInfo* aServiceInfo, int32_t
 
   nsString name = NS_ConvertUTF8toUTF16(cName);
   RefPtr<FlyWebPublishedServer> existingServer =
-    FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
+      FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
   if (!existingServer) {
     return NS_ERROR_FAILURE;
   }
 
-  LOG_I("OnServiceRegistered(MDNS): Registration of server with name %s failed.", cName.get());
+  LOG_I(
+      "OnServiceRegistered(MDNS): Registration of server with name %s failed.",
+      cName.get());
 
   // Remove the nsICancelable from the published server.
   existingServer->PublishedServerStarted(NS_ERROR_FAILURE);
@@ -618,7 +638,8 @@ FlyWebMDNSService::OnRegistrationFailed(nsIDNSServiceInfo* aServiceInfo, int32_t
 }
 
 nsresult
-FlyWebMDNSService::OnUnregistrationFailed(nsIDNSServiceInfo* aServiceInfo, int32_t errorCode)
+FlyWebMDNSService::OnUnregistrationFailed(nsIDNSServiceInfo* aServiceInfo,
+                                          int32_t errorCode)
 {
   LogDNSInfo(aServiceInfo, "FlyWebMDNSService::OnUnregistrationFailed");
 
@@ -629,12 +650,15 @@ FlyWebMDNSService::OnUnregistrationFailed(nsIDNSServiceInfo* aServiceInfo, int32
 
   nsString name = NS_ConvertUTF8toUTF16(cName);
   RefPtr<FlyWebPublishedServer> existingServer =
-    FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
+      FlyWebService::GetOrCreate()->FindPublishedServerByName(name);
   if (!existingServer) {
     return NS_ERROR_FAILURE;
   }
 
-  LOG_I("OnServiceRegistered(MDNS): Un-Advertisement of server with name %s failed.", cName.get());
+  LOG_I(
+      "OnServiceRegistered(MDNS): Un-Advertisement of server with name %s "
+      "failed.",
+      cName.get());
   return NS_OK;
 }
 
@@ -709,8 +733,8 @@ FlyWebMDNSService::StartDiscovery()
   mDiscoveryState = DISCOVERY_STARTING;
 
   // start the discovery.
-  rv = mDNSServiceDiscovery->StartDiscovery(mServiceType, this,
-                                            getter_AddRefs(mCancelDiscovery));
+  rv = mDNSServiceDiscovery->StartDiscovery(
+      mServiceType, this, getter_AddRefs(mCancelDiscovery));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     LOG_E("FlyWeb failed to start DNS service discovery.");
     return rv;
@@ -756,7 +780,8 @@ FlyWebMDNSService::StopDiscovery()
 }
 
 void
-FlyWebMDNSService::ListDiscoveredServices(nsTArray<FlyWebDiscoveredService>& aServices)
+FlyWebMDNSService::ListDiscoveredServices(
+    nsTArray<FlyWebDiscoveredService>& aServices)
 {
   for (auto iter = mServiceMap.Iter(); !iter.Done(); iter.Next()) {
     aServices.AppendElement(iter.UserData()->mService);
@@ -777,7 +802,7 @@ FlyWebMDNSService::PairWithService(const nsAString& aServiceId,
 
   nsresult rv;
   nsCOMPtr<nsIUUIDGenerator> uuidgen =
-    do_GetService("@mozilla.org/uuid-generator;1", &rv);
+      do_GetService("@mozilla.org/uuid-generator;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsID id;
@@ -826,9 +851,8 @@ FlyWebMDNSService::PairWithService(const nsAString& aServiceId,
 nsresult
 FlyWebMDNSService::StartDiscoveryOf(FlyWebPublishedServerImpl* aServer)
 {
-
   RefPtr<FlyWebPublishedServer> existingServer =
-    FlyWebService::GetOrCreate()->FindPublishedServerByName(aServer->Name());
+      FlyWebService::GetOrCreate()->FindPublishedServerByName(aServer->Name());
   MOZ_ASSERT(existingServer);
 
   // Advertise the service via mdns.
@@ -854,15 +878,16 @@ FlyWebMDNSService::StartDiscoveryOf(FlyWebPublishedServerImpl* aServer)
   }
 
   nsCString cstrName = NS_ConvertUTF16toUTF8(aServer->Name());
-  LOG_I("MDNSService::StartDiscoveryOf() advertising service %s", cstrName.get());
+  LOG_I("MDNSService::StartDiscoveryOf() advertising service %s",
+        cstrName.get());
   serviceInfo->SetServiceName(cstrName);
 
   LogDNSInfo(serviceInfo, "FlyWebMDNSService::StartDiscoveryOf");
 
   // Advertise the service.
   nsCOMPtr<nsICancelable> cancelRegister;
-  nsresult rv = mDNSServiceDiscovery->
-    RegisterService(serviceInfo, this, getter_AddRefs(cancelRegister));
+  nsresult rv = mDNSServiceDiscovery->RegisterService(
+      serviceInfo, this, getter_AddRefs(cancelRegister));
   NS_ENSURE_SUCCESS(rv, rv);
 
   // All done.
@@ -896,8 +921,7 @@ static StaticRefPtr<FlyWebService> gFlyWebService;
 
 NS_IMPL_ISUPPORTS(FlyWebService, nsIObserver)
 
-FlyWebService::FlyWebService()
-  : mMonitor("FlyWebService::mMonitor")
+FlyWebService::FlyWebService() : mMonitor("FlyWebService::mMonitor")
 {
   MOZ_ASSERT(NS_IsMainThread());
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -906,9 +930,7 @@ FlyWebService::FlyWebService()
   }
 }
 
-FlyWebService::~FlyWebService()
-{
-}
+FlyWebService::~FlyWebService() {}
 
 FlyWebService*
 FlyWebService::GetExisting()
@@ -944,7 +966,8 @@ FlyWebService::Init()
 
   MOZ_ASSERT(NS_IsMainThread());
   if (!mMDNSHttpService) {
-    mMDNSHttpService = new FlyWebMDNSService(this, NS_LITERAL_CSTRING("_http._tcp."));
+    mMDNSHttpService =
+        new FlyWebMDNSService(this, NS_LITERAL_CSTRING("_http._tcp."));
     ErrorResult rv;
 
     rv = mMDNSHttpService->Init();
@@ -956,7 +979,8 @@ FlyWebService::Init()
   }
 
   if (!mMDNSFlywebService) {
-    mMDNSFlywebService = new FlyWebMDNSService(this, NS_LITERAL_CSTRING("_flyweb._tcp."));
+    mMDNSFlywebService =
+        new FlyWebMDNSService(this, NS_LITERAL_CSTRING("_flyweb._tcp."));
     ErrorResult rv;
 
     rv = mMDNSFlywebService->Init();
@@ -973,10 +997,10 @@ FlyWebService::Init()
 static already_AddRefed<FlyWebPublishPromise>
 MakeRejectionPromise(const char* name)
 {
-    MozPromiseHolder<FlyWebPublishPromise> holder;
-    RefPtr<FlyWebPublishPromise> promise = holder.Ensure(name);
-    holder.Reject(NS_ERROR_FAILURE, name);
-    return promise.forget();
+  MozPromiseHolder<FlyWebPublishPromise> holder;
+  RefPtr<FlyWebPublishPromise> promise = holder.Ensure(name);
+  holder.Reject(NS_ERROR_FAILURE, name);
+  return promise.forget();
 }
 
 static bool
@@ -990,7 +1014,7 @@ CheckForFlyWebAddon(const nsACString& uriString)
     return false;
   }
 
-  JSAddonId *addonId = MapURIToAddonID(uri);
+  JSAddonId* addonId = MapURIToAddonID(uri);
   if (!addonId) {
     return false;
   }
@@ -1014,10 +1038,12 @@ FlyWebService::PublishServer(const nsAString& aName,
   // Scan uiUrl for illegal characters
 
   RefPtr<FlyWebPublishedServer> existingServer =
-    FlyWebService::GetOrCreate()->FindPublishedServerByName(aName);
+      FlyWebService::GetOrCreate()->FindPublishedServerByName(aName);
   if (existingServer) {
-    LOG_I("PublishServer: Trying to publish server with already-existing name %s.",
-          NS_ConvertUTF16toUTF8(aName).get());
+    LOG_I(
+        "PublishServer: Trying to publish server with already-existing name "
+        "%s.",
+        NS_ConvertUTF16toUTF8(aName).get());
     return MakeRejectionPromise(__func__);
   }
 
@@ -1028,9 +1054,10 @@ FlyWebService::PublishServer(const nsAString& aName,
     server = new FlyWebPublishedServerImpl(aWindow, aName, aOptions);
 
     // Before proceeding, ensure that the FlyWeb system addon exists.
-    if (!CheckForFlyWebAddon(NS_LITERAL_CSTRING("chrome://flyweb/skin/icon-64.png")) &&
-        !CheckForFlyWebAddon(NS_LITERAL_CSTRING("chrome://flyweb/content/icon-64.png")))
-    {
+    if (!CheckForFlyWebAddon(
+            NS_LITERAL_CSTRING("chrome://flyweb/skin/icon-64.png")) &&
+        !CheckForFlyWebAddon(
+            NS_LITERAL_CSTRING("chrome://flyweb/content/icon-64.png"))) {
       LOG_E("PublishServer: Failed to find FlyWeb system addon.");
       return MakeRejectionPromise(__func__);
     }
@@ -1041,11 +1068,12 @@ FlyWebService::PublishServer(const nsAString& aName,
 
     MOZ_ASSERT(NS_IsMainThread());
     rv = NS_DispatchToCurrentThread(
-      MakeAndAddRef<FlyWebPublishServerPermissionCheck>(
-        NS_ConvertUTF16toUTF8(aName), aWindow->WindowID(), server));
+        MakeAndAddRef<FlyWebPublishServerPermissionCheck>(
+            NS_ConvertUTF16toUTF8(aName), aWindow->WindowID(), server));
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      LOG_E("PublishServer: Failed to dispatch permission check runnable for %s",
-            NS_ConvertUTF16toUTF8(aName).get());
+      LOG_E(
+          "PublishServer: Failed to dispatch permission check runnable for %s",
+          NS_ConvertUTF16toUTF8(aName).get());
       return MakeRejectionPromise(__func__);
     }
   } else {
@@ -1062,8 +1090,7 @@ FlyWebService::PublishServer(const nsAString& aName,
 }
 
 already_AddRefed<FlyWebPublishedServer>
-FlyWebService::FindPublishedServerByName(
-        const nsAString& aName)
+FlyWebService::FindPublishedServerByName(const nsAString& aName)
 {
   MOZ_ASSERT(NS_IsMainThread());
   for (FlyWebPublishedServer* publishedServer : mServers) {
@@ -1076,7 +1103,8 @@ FlyWebService::FindPublishedServerByName(
 }
 
 void
-FlyWebService::RegisterDiscoveryManager(FlyWebDiscoveryManager* aDiscoveryManager)
+FlyWebService::RegisterDiscoveryManager(
+    FlyWebDiscoveryManager* aDiscoveryManager)
 {
   MOZ_ASSERT(NS_IsMainThread());
   mDiscoveryManagerTable.PutEntry(aDiscoveryManager);
@@ -1089,7 +1117,8 @@ FlyWebService::RegisterDiscoveryManager(FlyWebDiscoveryManager* aDiscoveryManage
 }
 
 void
-FlyWebService::UnregisterDiscoveryManager(FlyWebDiscoveryManager* aDiscoveryManager)
+FlyWebService::UnregisterDiscoveryManager(
+    FlyWebDiscoveryManager* aDiscoveryManager)
 {
   MOZ_ASSERT(NS_IsMainThread());
   mDiscoveryManagerTable.RemoveEntry(aDiscoveryManager);
@@ -1104,7 +1133,8 @@ FlyWebService::UnregisterDiscoveryManager(FlyWebDiscoveryManager* aDiscoveryMana
 }
 
 NS_IMETHODIMP
-FlyWebService::Observe(nsISupports* aSubject, const char* aTopic,
+FlyWebService::Observe(nsISupports* aSubject,
+                       const char* aTopic,
                        const char16_t* aData)
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -1167,7 +1197,8 @@ FlyWebService::NotifyDiscoveredServicesChanged()
 }
 
 void
-FlyWebService::ListDiscoveredServices(nsTArray<FlyWebDiscoveredService>& aServices)
+FlyWebService::ListDiscoveredServices(
+    nsTArray<FlyWebDiscoveredService>& aServices)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (mMDNSHttpService) {
@@ -1222,9 +1253,8 @@ FlyWebService::PairWithService(const nsAString& aServiceId,
 
   if (!pairInfo) {
     ErrorResult res;
-    const nsAString& reason = notFound ?
-      NS_LITERAL_STRING("No such service.") :
-      NS_LITERAL_STRING("Error pairing.");
+    const nsAString& reason = notFound ? NS_LITERAL_STRING("No such service.")
+                                       : NS_LITERAL_STRING("Error pairing.");
     aCallback.PairingFailed(reason, res);
     ENSURE_SUCCESS_VOID(res);
     return;
@@ -1233,16 +1263,17 @@ FlyWebService::PairWithService(const nsAString& aServiceId,
   // Add fingerprint to certificate override database.
   if (!pairInfo->mService.mDiscoveredService.mCert.IsEmpty()) {
     nsCOMPtr<nsICertOverrideService> override =
-      do_GetService("@mozilla.org/security/certoverride;1");
+        do_GetService("@mozilla.org/security/certoverride;1");
     if (!override ||
         NS_FAILED(override->RememberTemporaryValidityOverrideUsingFingerprint(
-          NS_ConvertUTF16toUTF8(pairInfo->mService.mHostname),
-          -1,
-          NS_ConvertUTF16toUTF8(pairInfo->mService.mDiscoveredService.mCert),
-          nsICertOverrideService::ERROR_UNTRUSTED |
-          nsICertOverrideService::ERROR_MISMATCH))) {
+            NS_ConvertUTF16toUTF8(pairInfo->mService.mHostname),
+            -1,
+            NS_ConvertUTF16toUTF8(pairInfo->mService.mDiscoveredService.mCert),
+            nsICertOverrideService::ERROR_UNTRUSTED |
+                nsICertOverrideService::ERROR_MISMATCH))) {
       ErrorResult res;
-      aCallback.PairingFailed(NS_LITERAL_STRING("Error adding certificate override."), res);
+      aCallback.PairingFailed(
+          NS_LITERAL_STRING("Error adding certificate override."), res);
       ENSURE_SUCCESS_VOID(res);
       return;
     }
@@ -1255,7 +1286,7 @@ FlyWebService::PairWithService(const nsAString& aServiceId,
   {
     ReentrantMonitorAutoEnter pairedMapLock(mMonitor);
     mPairedServiceTable.Put(
-      NS_ConvertUTF16toUTF8(pairInfoWeak->mService.mHostname), pairInfoWeak);
+        NS_ConvertUTF16toUTF8(pairInfoWeak->mService.mHostname), pairInfoWeak);
   }
 
   ErrorResult er;
@@ -1264,14 +1295,14 @@ FlyWebService::PairWithService(const nsAString& aServiceId,
 }
 
 nsresult
-FlyWebService::CreateTransportForHost(const char **types,
+FlyWebService::CreateTransportForHost(const char** types,
                                       uint32_t typeCount,
-                                      const nsACString &host,
+                                      const nsACString& host,
                                       int32_t port,
-                                      const nsACString &hostRoute,
+                                      const nsACString& hostRoute,
                                       int32_t portRoute,
-                                      nsIProxyInfo *proxyInfo,
-                                      nsISocketTransport **result)
+                                      nsIProxyInfo* proxyInfo,
+                                      nsISocketTransport** result)
 {
   // This might be called on background threads
 
@@ -1304,9 +1335,10 @@ FlyWebService::CreateTransportForHost(const char **types,
   PRNetAddrToNetAddr(&prNetAddr, &netAddr);
   netAddr.inet.port = htons(discPort);
 
-  RefPtr<mozilla::net::nsSocketTransport> trans = new mozilla::net::nsSocketTransport();
+  RefPtr<mozilla::net::nsSocketTransport> trans =
+      new mozilla::net::nsSocketTransport();
   nsresult rv = trans->InitPreResolved(
-    types, typeCount, host, port, hostRoute, portRoute, proxyInfo, &netAddr);
+      types, typeCount, host, port, hostRoute, portRoute, proxyInfo, &netAddr);
   NS_ENSURE_SUCCESS(rv, rv);
 
   trans.forget(result);
@@ -1317,14 +1349,14 @@ void
 FlyWebService::StartDiscoveryOf(FlyWebPublishedServerImpl* aServer)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  nsresult rv = mMDNSFlywebService ?
-    mMDNSFlywebService->StartDiscoveryOf(aServer) :
-    NS_ERROR_FAILURE;
+  nsresult rv = mMDNSFlywebService
+                    ? mMDNSFlywebService->StartDiscoveryOf(aServer)
+                    : NS_ERROR_FAILURE;
 
   if (NS_FAILED(rv)) {
     aServer->PublishedServerStarted(rv);
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

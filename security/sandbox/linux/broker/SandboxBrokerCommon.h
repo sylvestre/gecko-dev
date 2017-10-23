@@ -23,9 +23,11 @@ struct iovec;
 
 namespace mozilla {
 
-class SandboxBrokerCommon {
-public:
-  enum Operation {
+class SandboxBrokerCommon
+{
+ public:
+  enum Operation
+  {
     SANDBOX_FILE_OPEN,
     SANDBOX_FILE_ACCESS,
     SANDBOX_FILE_STAT,
@@ -41,7 +43,8 @@ public:
   // String versions of the above
   static const char* OperationDescription[];
 
-  struct Request {
+  struct Request
+  {
     Operation mOp;
     // For open, flags; for access, "mode"; for stat, O_NOFOLLOW for lstat.
     int mFlags;
@@ -51,7 +54,8 @@ public:
     // SCM_RIGHTS for response socket attached.
   };
 
-  struct Response {
+  struct Response
+  {
     // Syscall result, -errno if failure, or 0 for no error
     int mError;
     // Followed by struct stat for stat/lstat.
@@ -63,12 +67,16 @@ public:
   // to size a stack-allocated buffer.)
   static const size_t kMaxPathLen = 4096;
 
-  static ssize_t RecvWithFd(int aFd, const iovec* aIO, size_t aNumIO,
+  static ssize_t RecvWithFd(int aFd,
+                            const iovec* aIO,
+                            size_t aNumIO,
                             int* aPassedFdPtr);
-  static ssize_t SendWithFd(int aFd, const iovec* aIO, size_t aNumIO,
+  static ssize_t SendWithFd(int aFd,
+                            const iovec* aIO,
+                            size_t aNumIO,
                             int aPassedFd);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxBrokerCommon_h
+#endif  // mozilla_SandboxBrokerCommon_h

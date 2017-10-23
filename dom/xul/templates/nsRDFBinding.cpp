@@ -13,50 +13,50 @@
 
 RDFBindingSet::~RDFBindingSet()
 {
-    while (mFirst) {
-        RDFBinding* doomed = mFirst;
-        mFirst = mFirst->mNext;
-        delete doomed;
-    }
+  while (mFirst) {
+    RDFBinding* doomed = mFirst;
+    mFirst = mFirst->mNext;
+    delete doomed;
+  }
 
-    MOZ_COUNT_DTOR(RDFBindingSet);
+  MOZ_COUNT_DTOR(RDFBindingSet);
 }
 
 nsresult
-RDFBindingSet::AddBinding(nsAtom* aVar, nsAtom* aRef, nsIRDFResource* aPredicate)
+RDFBindingSet::AddBinding(nsAtom* aVar,
+                          nsAtom* aRef,
+                          nsIRDFResource* aPredicate)
 {
-    RDFBinding* newbinding = new RDFBinding(aRef, aPredicate, aVar);
-    if (mFirst) {
-        RDFBinding* binding = mFirst;
+  RDFBinding* newbinding = new RDFBinding(aRef, aPredicate, aVar);
+  if (mFirst) {
+    RDFBinding* binding = mFirst;
 
-        while (binding) {
-            // the binding is dependant on the calculation of a previous binding
-            if (binding->mSubjectVariable == aVar)
-                newbinding->mHasDependency = true;
+    while (binding) {
+      // the binding is dependant on the calculation of a previous binding
+      if (binding->mSubjectVariable == aVar) newbinding->mHasDependency = true;
 
-            // if the target variable is already used in a binding, ignore it
-            // since it won't be useful for anything
-            if (binding->mTargetVariable == aVar) {
-                delete newbinding;
-                return NS_OK;
-            }
+      // if the target variable is already used in a binding, ignore it
+      // since it won't be useful for anything
+      if (binding->mTargetVariable == aVar) {
+        delete newbinding;
+        return NS_OK;
+      }
 
-            // add the binding at the end of the list
-            if (! binding->mNext) {
-                binding->mNext = newbinding;
-                break;
-            }
+      // add the binding at the end of the list
+      if (!binding->mNext) {
+        binding->mNext = newbinding;
+        break;
+      }
 
-            binding = binding->mNext;
-        }
+      binding = binding->mNext;
     }
-    else {
-        mFirst = newbinding;
-    }
+  } else {
+    mFirst = newbinding;
+  }
 
-    mCount++;
+  mCount++;
 
-    return NS_OK;
+  return NS_OK;
 }
 
 bool
@@ -67,151 +67,145 @@ RDFBindingSet::SyncAssignments(nsIRDFResource* aSubject,
                                nsXULTemplateResultRDF* aResult,
                                nsBindingValues& aBindingValues)
 {
-    NS_ASSERTION(aBindingValues.GetBindingSet() == this,
-                 "nsBindingValues not for this RDFBindingSet");
-    NS_PRECONDITION(aResult, "Must have result");
+  NS_ASSERTION(aBindingValues.GetBindingSet() == this,
+               "nsBindingValues not for this RDFBindingSet");
+  NS_PRECONDITION(aResult, "Must have result");
 
-    bool needSync = false;
-    nsCOMPtr<nsIRDFNode>* valuesArray = aBindingValues.ValuesArray();
-    if (!valuesArray)
-        return false;
+  bool needSync = false;
+  nsCOMPtr<nsIRDFNode>* valuesArray = aBindingValues.ValuesArray();
+  if (!valuesArray) return false;
 
-    RDFBinding* binding = mFirst;
-    int32_t count = 0;
+  RDFBinding* binding = mFirst;
+  int32_t count = 0;
 
-    // QI for proper comparisons just to be safe
-    nsCOMPtr<nsIRDFNode> subjectnode = do_QueryInterface(aSubject);
+  // QI for proper comparisons just to be safe
+  nsCOMPtr<nsIRDFNode> subjectnode = do_QueryInterface(aSubject);
 
-    // iterate through the bindings looking for ones that would match the RDF
-    // nodes that were involved in a change
-    nsCOMPtr<nsIRDFNode> value;
-    while (binding) {
-        if (aPredicate == binding->mPredicate) {
-            // if the source of the binding is the member variable, optimize
-            if (binding->mSubjectVariable == aMemberVariable) {
-                valuesArray[count] = aTarget;
-                needSync = true;
-            }
-            else {
-                aResult->GetAssignment(binding->mSubjectVariable, getter_AddRefs(value));
-                if (value == subjectnode) {
-                    valuesArray[count] = aTarget;
-                    needSync = true;
-                }
-            }
+  // iterate through the bindings looking for ones that would match the RDF
+  // nodes that were involved in a change
+  nsCOMPtr<nsIRDFNode> value;
+  while (binding) {
+    if (aPredicate == binding->mPredicate) {
+      // if the source of the binding is the member variable, optimize
+      if (binding->mSubjectVariable == aMemberVariable) {
+        valuesArray[count] = aTarget;
+        needSync = true;
+      } else {
+        aResult->GetAssignment(binding->mSubjectVariable,
+                               getter_AddRefs(value));
+        if (value == subjectnode) {
+          valuesArray[count] = aTarget;
+          needSync = true;
         }
-
-        binding = binding->mNext;
-        count++;
+      }
     }
 
-    return needSync;
+    binding = binding->mNext;
+    count++;
+  }
+
+  return needSync;
 }
 
 void
 RDFBindingSet::AddDependencies(nsIRDFResource* aSubject,
                                nsXULTemplateResultRDF* aResult)
 {
-    NS_PRECONDITION(aResult, "Must have result");
+  NS_PRECONDITION(aResult, "Must have result");
 
-    // iterate through the bindings and add binding dependencies to the
-    // processor
+  // iterate through the bindings and add binding dependencies to the
+  // processor
 
-    nsXULTemplateQueryProcessorRDF* processor = aResult->GetProcessor();
-    if (! processor)
-        return;
+  nsXULTemplateQueryProcessorRDF* processor = aResult->GetProcessor();
+  if (!processor) return;
 
-    nsCOMPtr<nsIRDFNode> value;
+  nsCOMPtr<nsIRDFNode> value;
 
-    RDFBinding* binding = mFirst;
-    while (binding) {
-        aResult->GetAssignment(binding->mSubjectVariable, getter_AddRefs(value));
+  RDFBinding* binding = mFirst;
+  while (binding) {
+    aResult->GetAssignment(binding->mSubjectVariable, getter_AddRefs(value));
 
-        nsCOMPtr<nsIRDFResource> valueres = do_QueryInterface(value);
-        if (valueres)
-            processor->AddBindingDependency(aResult, valueres);
+    nsCOMPtr<nsIRDFResource> valueres = do_QueryInterface(value);
+    if (valueres) processor->AddBindingDependency(aResult, valueres);
 
-        binding = binding->mNext;
-    }
+    binding = binding->mNext;
+  }
 }
 
 void
 RDFBindingSet::RemoveDependencies(nsIRDFResource* aSubject,
                                   nsXULTemplateResultRDF* aResult)
 {
-    NS_PRECONDITION(aResult, "Must have result");
+  NS_PRECONDITION(aResult, "Must have result");
 
-    // iterate through the bindings and remove binding dependencies from the
-    // processor
+  // iterate through the bindings and remove binding dependencies from the
+  // processor
 
-    nsXULTemplateQueryProcessorRDF* processor = aResult->GetProcessor();
-    if (! processor)
-        return;
+  nsXULTemplateQueryProcessorRDF* processor = aResult->GetProcessor();
+  if (!processor) return;
 
-    nsCOMPtr<nsIRDFNode> value;
+  nsCOMPtr<nsIRDFNode> value;
 
-    RDFBinding* binding = mFirst;
-    while (binding) {
-        aResult->GetAssignment(binding->mSubjectVariable, getter_AddRefs(value));
+  RDFBinding* binding = mFirst;
+  while (binding) {
+    aResult->GetAssignment(binding->mSubjectVariable, getter_AddRefs(value));
 
-        nsCOMPtr<nsIRDFResource> valueres = do_QueryInterface(value);
-        if (valueres)
-            processor->RemoveBindingDependency(aResult, valueres);
+    nsCOMPtr<nsIRDFResource> valueres = do_QueryInterface(value);
+    if (valueres) processor->RemoveBindingDependency(aResult, valueres);
 
-        binding = binding->mNext;
-    }
+    binding = binding->mNext;
+  }
 }
 
 int32_t
 RDFBindingSet::LookupTargetIndex(nsAtom* aTargetVariable, RDFBinding** aBinding)
 {
-    int32_t idx = 0;
-    RDFBinding* binding = mFirst;
+  int32_t idx = 0;
+  RDFBinding* binding = mFirst;
 
-    while (binding) {
-        if (binding->mTargetVariable == aTargetVariable) {
-            *aBinding = binding;
-            return idx;
-        }
-        idx++;
-        binding = binding->mNext;
+  while (binding) {
+    if (binding->mTargetVariable == aTargetVariable) {
+      *aBinding = binding;
+      return idx;
     }
+    idx++;
+    binding = binding->mNext;
+  }
 
-    return -1;
+  return -1;
 }
 
 nsBindingValues::~nsBindingValues()
 {
-    ClearBindingSet();
-    MOZ_COUNT_DTOR(nsBindingValues);
+  ClearBindingSet();
+  MOZ_COUNT_DTOR(nsBindingValues);
 }
 
 void
 nsBindingValues::ClearBindingSet()
 {
-    if (mBindings && mValues) {
-        delete [] mValues;
-        mValues = nullptr;
-    }
+  if (mBindings && mValues) {
+    delete[] mValues;
+    mValues = nullptr;
+  }
 
-    mBindings = nullptr;
+  mBindings = nullptr;
 }
 
 nsresult
 nsBindingValues::SetBindingSet(RDFBindingSet* aBindings)
 {
-    ClearBindingSet();
+  ClearBindingSet();
 
-    int32_t count = aBindings->Count();
-    if (count) {
-        mValues = new nsCOMPtr<nsIRDFNode>[count];
-        mBindings = aBindings;
-    }
-    else {
-        mValues = nullptr;
-    }
+  int32_t count = aBindings->Count();
+  if (count) {
+    mValues = new nsCOMPtr<nsIRDFNode>[count];
+    mBindings = aBindings;
+  } else {
+    mValues = nullptr;
+  }
 
-    return NS_OK;
+  return NS_OK;
 }
 
 void
@@ -219,47 +213,42 @@ nsBindingValues::GetAssignmentFor(nsXULTemplateResultRDF* aResult,
                                   nsAtom* aVar,
                                   nsIRDFNode** aValue)
 {
-    *aValue = nullptr;
+  *aValue = nullptr;
 
-    // assignments are calculated lazily when asked for. The only issue is
-    // when a binding has no value in the RDF graph, it will be checked again
-    // every time.
+  // assignments are calculated lazily when asked for. The only issue is
+  // when a binding has no value in the RDF graph, it will be checked again
+  // every time.
 
-    if (mBindings && mValues) {
-        RDFBinding* binding;
-        int32_t idx = mBindings->LookupTargetIndex(aVar, &binding);
-        if (idx >= 0) {
-            *aValue = mValues[idx];
-            if (*aValue) {
-                NS_ADDREF(*aValue);
-            }
-            else {
-                nsXULTemplateQueryProcessorRDF* processor = aResult->GetProcessor();
-                if (! processor)
-                    return;
+  if (mBindings && mValues) {
+    RDFBinding* binding;
+    int32_t idx = mBindings->LookupTargetIndex(aVar, &binding);
+    if (idx >= 0) {
+      *aValue = mValues[idx];
+      if (*aValue) {
+        NS_ADDREF(*aValue);
+      } else {
+        nsXULTemplateQueryProcessorRDF* processor = aResult->GetProcessor();
+        if (!processor) return;
 
-                nsIRDFDataSource* ds = processor->GetDataSource();
-                if (! ds)
-                    return;
+        nsIRDFDataSource* ds = processor->GetDataSource();
+        if (!ds) return;
 
-                nsCOMPtr<nsIRDFNode> subjectValue;
-                aResult->GetAssignment(binding->mSubjectVariable,
-                                       getter_AddRefs(subjectValue));
-                if (subjectValue) {
-                    nsCOMPtr<nsIRDFResource> subject = do_QueryInterface(subjectValue);
-                    ds->GetTarget(subject, binding->mPredicate, true, aValue);
-                    if (*aValue)
-                        mValues[idx] = *aValue;
-                }
-            }
+        nsCOMPtr<nsIRDFNode> subjectValue;
+        aResult->GetAssignment(binding->mSubjectVariable,
+                               getter_AddRefs(subjectValue));
+        if (subjectValue) {
+          nsCOMPtr<nsIRDFResource> subject = do_QueryInterface(subjectValue);
+          ds->GetTarget(subject, binding->mPredicate, true, aValue);
+          if (*aValue) mValues[idx] = *aValue;
         }
+      }
     }
+  }
 }
 
 void
 nsBindingValues::RemoveDependencies(nsIRDFResource* aSubject,
                                     nsXULTemplateResultRDF* aResult)
 {
-    if (mBindings)
-        mBindings->RemoveDependencies(aSubject, aResult);
+  if (mBindings) mBindings->RemoveDependencies(aSubject, aResult);
 }

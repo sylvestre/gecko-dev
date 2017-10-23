@@ -14,18 +14,20 @@ using namespace mozilla::safebrowsing;
 #define GTEST_TABLE NS_LITERAL_CSTRING("gtest-malware-proto")
 
 template<typename Function>
-void RunTestInNewThread(Function&& aFunction) {
+void
+RunTestInNewThread(Function&& aFunction)
+{
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-    "RunTestInNewThread", mozilla::Forward<Function>(aFunction));
+      "RunTestInNewThread", mozilla::Forward<Function>(aFunction));
   nsCOMPtr<nsIThread> testingThread;
   nsresult rv =
-    NS_NewNamedThread("Testing Thread", getter_AddRefs(testingThread), r);
+      NS_NewNamedThread("Testing Thread", getter_AddRefs(testingThread), r);
   ASSERT_EQ(rv, NS_OK);
   testingThread->Shutdown();
 }
 
-nsresult SyncApplyUpdates(Classifier* aClassifier,
-                          nsTArray<TableUpdate*>* aUpdates)
+nsresult
+SyncApplyUpdates(Classifier* aClassifier, nsTArray<TableUpdate*>* aUpdates)
 {
   // We need to spin a new thread specifically because the callback
   // will be on the caller thread. If we call Classifier::AsyncApplyUpdates
@@ -37,10 +39,10 @@ nsresult SyncApplyUpdates(Classifier* aClassifier,
     // We are on the "ApplyUpdate" thread. Post an event to main thread
     // so that we can avoid busy waiting on the main thread.
     nsCOMPtr<nsIRunnable> r =
-      NS_NewRunnableFunction("SyncApplyUpdates", [&done, &ret, rv] {
-        ret = rv;
-        done = true;
-      });
+        NS_NewRunnableFunction("SyncApplyUpdates", [&done, &ret, rv] {
+          ret = rv;
+          done = true;
+        });
     NS_DispatchToMainThread(r);
   };
 
@@ -73,7 +75,8 @@ already_AddRefed<nsIFile>
 GetFile(const nsTArray<nsString>& path)
 {
   nsCOMPtr<nsIFile> file;
-  nsresult rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(file));
+  nsresult rv =
+      NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(file));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return nullptr;
   }
@@ -84,7 +87,8 @@ GetFile(const nsTArray<nsString>& path)
   return file.forget();
 }
 
-void ApplyUpdate(nsTArray<TableUpdate*>& updates)
+void
+ApplyUpdate(nsTArray<TableUpdate*>& updates)
 {
   nsCOMPtr<nsIFile> file;
   NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(file));
@@ -98,16 +102,17 @@ void ApplyUpdate(nsTArray<TableUpdate*>& updates)
     // in gtest.
     nsresult rv;
     nsCOMPtr<nsIUrlClassifierUtils> dummy =
-      do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID, &rv);
-      ASSERT_TRUE(NS_SUCCEEDED(rv));
+        do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID, &rv);
+    ASSERT_TRUE(NS_SUCCEEDED(rv));
   }
 
   SyncApplyUpdates(classifier.get(), &updates);
 }
 
-void ApplyUpdate(TableUpdate* update)
+void
+ApplyUpdate(TableUpdate* update)
 {
-  nsTArray<TableUpdate*> updates = { update };
+  nsTArray<TableUpdate*> updates = {update};
   ApplyUpdate(updates);
 }
 
@@ -133,10 +138,11 @@ PrefixArrayToAddPrefixArrayV2(const nsTArray<nsCString>& prefixArray,
   for (size_t i = 0; i < prefixArray.Length(); i++) {
     // Create prefix hash from string
     Prefix hash;
-    static_assert(sizeof(hash.buf) == PREFIX_SIZE, "Prefix must be 4 bytes length");
+    static_assert(sizeof(hash.buf) == PREFIX_SIZE,
+                  "Prefix must be 4 bytes length");
     memcpy(hash.buf, prefixArray[i].BeginReading(), PREFIX_SIZE);
 
-    AddPrefix *add = out.AppendElement(fallible);
+    AddPrefix* add = out.AppendElement(fallible);
     if (!add) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
@@ -155,7 +161,7 @@ GeneratePrefix(const nsCString& aFragment, uint8_t aLength)
   complete.FromPlaintext(aFragment);
 
   nsCString hash;
-  hash.Assign((const char *)complete.buf, aLength);
+  hash.Assign((const char*)complete.buf, aLength);
   return hash;
 }
 

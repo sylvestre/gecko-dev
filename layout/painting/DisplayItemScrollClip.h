@@ -36,17 +36,18 @@ class DisplayItemClip;
  * bounds of a container item for a frame that contains an async-scrollable
  * scroll frame.
  */
-class DisplayItemScrollClip {
-public:
+class DisplayItemScrollClip
+{
+ public:
   DisplayItemScrollClip(const DisplayItemScrollClip* aParent,
                         nsIScrollableFrame* aScrollableFrame,
                         const DisplayItemClip* aClip,
                         bool aIsAsyncScrollable)
-    : mParent(aParent)
-    , mScrollableFrame(aScrollableFrame)
-    , mClip(aClip)
-    , mIsAsyncScrollable(aIsAsyncScrollable)
-    , mDepth(aParent ? aParent->mDepth + 1 : 1)
+      : mParent(aParent),
+        mScrollableFrame(aScrollableFrame),
+        mClip(aClip),
+        mIsAsyncScrollable(aIsAsyncScrollable),
+        mDepth(aParent ? aParent->mDepth + 1 : 1)
   {
     MOZ_ASSERT(mScrollableFrame);
   }
@@ -58,24 +59,21 @@ public:
    * the descendant.
    * Both aClip1 and aClip2 are allowed to be null.
    */
-  static const DisplayItemScrollClip*
-  PickDescendant(const DisplayItemScrollClip* aClip1,
-                const DisplayItemScrollClip* aClip2)
+  static const DisplayItemScrollClip* PickDescendant(
+      const DisplayItemScrollClip* aClip1, const DisplayItemScrollClip* aClip2)
   {
     MOZ_ASSERT(IsAncestor(aClip1, aClip2) || IsAncestor(aClip2, aClip1),
                "one of the scroll clips must be an ancestor of the other");
     return Depth(aClip1) > Depth(aClip2) ? aClip1 : aClip2;
   }
 
-  static const DisplayItemScrollClip*
-  PickAncestor(const DisplayItemScrollClip* aClip1,
-                const DisplayItemScrollClip* aClip2)
+  static const DisplayItemScrollClip* PickAncestor(
+      const DisplayItemScrollClip* aClip1, const DisplayItemScrollClip* aClip2)
   {
     MOZ_ASSERT(IsAncestor(aClip1, aClip2) || IsAncestor(aClip2, aClip1),
                "one of the scroll clips must be an ancestor of the other");
     return Depth(aClip1) < Depth(aClip2) ? aClip1 : aClip2;
   }
-
 
   /**
    * Returns whether aAncestor is an ancestor scroll clip of aDescendant.
@@ -114,13 +112,15 @@ public:
    */
   bool mIsAsyncScrollable;
 
-private:
+ private:
   static uint32_t Depth(const DisplayItemScrollClip* aSC)
-  { return aSC ? aSC->mDepth : 0; }
+  {
+    return aSC ? aSC->mDepth : 0;
+  }
 
   const uint32_t mDepth;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* DISPLAYITEMSCROLLCLIP_H_ */

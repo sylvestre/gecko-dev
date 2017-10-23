@@ -40,9 +40,7 @@ FilePickerParent::FilePickerShownCallback::Destroy()
   mFilePickerParent = nullptr;
 }
 
-FilePickerParent::~FilePickerParent()
-{
-}
+FilePickerParent::~FilePickerParent() {}
 
 // We run code in three places:
 // 1. The main thread calls Dispatch() to start the runnable.
@@ -52,9 +50,9 @@ FilePickerParent::~FilePickerParent()
 FilePickerParent::IORunnable::IORunnable(FilePickerParent* aFPParent,
                                          nsTArray<nsCOMPtr<nsIFile>>& aFiles,
                                          bool aIsDirectory)
-  : mozilla::Runnable("dom::FilePickerParent::IORunnable")
-  , mFilePickerParent(aFPParent)
-  , mIsDirectory(aIsDirectory)
+    : mozilla::Runnable("dom::FilePickerParent::IORunnable"),
+      mFilePickerParent(aFPParent),
+      mIsDirectory(aIsDirectory)
 {
   mFiles.SwapElements(aFiles);
   MOZ_ASSERT_IF(aIsDirectory, mFiles.Length() == 1);
@@ -140,7 +138,8 @@ FilePickerParent::IORunnable::Destroy()
 }
 
 void
-FilePickerParent::SendFilesOrDirectories(const nsTArray<BlobImplOrString>& aData)
+FilePickerParent::SendFilesOrDirectories(
+    const nsTArray<BlobImplOrString>& aData)
 {
   nsIContentParent* parent = TabParent::GetFrom(Manager())->Manager();
 
@@ -224,7 +223,8 @@ FilePickerParent::Done(int16_t aResult)
   }
 
   MOZ_ASSERT(!mRunnable);
-  mRunnable = new IORunnable(this, files, mMode == nsIFilePicker::modeGetFolder);
+  mRunnable =
+      new IORunnable(this, files, mMode == nsIFilePicker::modeGetFolder);
 
   // Dispatch to background thread to do I/O:
   if (!mRunnable->Dispatch()) {

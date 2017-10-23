@@ -17,35 +17,40 @@
 #include "nsIDOMHTMLScriptElement.h"
 #include "mozilla/CORSMode.h"
 
-#define NS_ISCRIPTELEMENT_IID \
-{ 0xe60fca9b, 0x1b96, 0x4e4e, \
- { 0xa9, 0xb4, 0xdc, 0x98, 0x4f, 0x88, 0x3f, 0x9c } }
+#define NS_ISCRIPTELEMENT_IID                        \
+  {                                                  \
+    0xe60fca9b, 0x1b96, 0x4e4e,                      \
+    {                                                \
+      0xa9, 0xb4, 0xdc, 0x98, 0x4f, 0x88, 0x3f, 0x9c \
+    }                                                \
+  }
 
 /**
  * Internal interface implemented by script elements
  */
 class nsIScriptElement : public nsIScriptLoaderObserver
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ISCRIPTELEMENT_IID)
 
   explicit nsIScriptElement(mozilla::dom::FromParser aFromParser)
-    : mLineNumber(1),
-      mAlreadyStarted(false),
-      mMalformed(false),
-      mDoneAddingChildren(aFromParser == mozilla::dom::NOT_FROM_PARSER ||
-                          aFromParser == mozilla::dom::FROM_PARSER_FRAGMENT),
-      mForceAsync(aFromParser == mozilla::dom::NOT_FROM_PARSER ||
-                  aFromParser == mozilla::dom::FROM_PARSER_FRAGMENT),
-      mFrozen(false),
-      mDefer(false),
-      mAsync(false),
-      mExternal(false),
-      mParserCreated(aFromParser == mozilla::dom::FROM_PARSER_FRAGMENT ?
-                     mozilla::dom::NOT_FROM_PARSER : aFromParser),
-                     // Fragment parser-created scripts (if executable)
-                     // behave like script-created scripts.
-      mCreatorParser(nullptr)
+      : mLineNumber(1),
+        mAlreadyStarted(false),
+        mMalformed(false),
+        mDoneAddingChildren(aFromParser == mozilla::dom::NOT_FROM_PARSER ||
+                            aFromParser == mozilla::dom::FROM_PARSER_FRAGMENT),
+        mForceAsync(aFromParser == mozilla::dom::NOT_FROM_PARSER ||
+                    aFromParser == mozilla::dom::FROM_PARSER_FRAGMENT),
+        mFrozen(false),
+        mDefer(false),
+        mAsync(false),
+        mExternal(false),
+        mParserCreated(aFromParser == mozilla::dom::FROM_PARSER_FRAGMENT
+                           ? mozilla::dom::NOT_FROM_PARSER
+                           : aFromParser),
+        // Fragment parser-created scripts (if executable)
+        // behave like script-created scripts.
+        mCreatorParser(nullptr)
   {
   }
 
@@ -116,35 +121,17 @@ public:
   /**
    * Returns how the element was created.
    */
-  mozilla::dom::FromParser GetParserCreated()
-  {
-    return mParserCreated;
-  }
+  mozilla::dom::FromParser GetParserCreated() { return mParserCreated; }
 
-  void SetScriptLineNumber(uint32_t aLineNumber)
-  {
-    mLineNumber = aLineNumber;
-  }
+  void SetScriptLineNumber(uint32_t aLineNumber) { mLineNumber = aLineNumber; }
 
-  uint32_t GetScriptLineNumber()
-  {
-    return mLineNumber;
-  }
+  uint32_t GetScriptLineNumber() { return mLineNumber; }
 
-  void SetIsMalformed()
-  {
-    mMalformed = true;
-  }
+  void SetIsMalformed() { mMalformed = true; }
 
-  bool IsMalformed()
-  {
-    return mMalformed;
-  }
+  bool IsMalformed() { return mMalformed; }
 
-  void PreventExecution()
-  {
-    mAlreadyStarted = true;
-  }
+  void PreventExecution() { mAlreadyStarted = true; }
 
   void LoseParserInsertedness()
   {
@@ -251,7 +238,7 @@ public:
    */
   virtual nsresult FireErrorEvent() = 0;
 
-protected:
+ protected:
   /**
    * Processes the script if it's in the document-tree and links to or
    * contains a script. Once it has been evaluated there is no way to make it
@@ -340,4 +327,4 @@ protected:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIScriptElement, NS_ISCRIPTELEMENT_IID)
 
-#endif // nsIScriptElement_h___
+#endif  // nsIScriptElement_h___

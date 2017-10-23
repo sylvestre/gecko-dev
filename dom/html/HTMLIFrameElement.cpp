@@ -20,22 +20,20 @@ namespace mozilla {
 namespace dom {
 
 // static
-const DOMTokenListSupportedToken HTMLIFrameElement::sSupportedSandboxTokens[] = {
+const DOMTokenListSupportedToken HTMLIFrameElement::sSupportedSandboxTokens[] =
+    {
 #define SANDBOX_KEYWORD(string, atom, flags) string,
 #include "IframeSandboxKeywordList.h"
 #undef SANDBOX_KEYWORD
-  nullptr
-};
+        nullptr};
 
-HTMLIFrameElement::HTMLIFrameElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                                     FromParser aFromParser)
-  : nsGenericHTMLFrameElement(aNodeInfo, aFromParser)
+HTMLIFrameElement::HTMLIFrameElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo, FromParser aFromParser)
+    : nsGenericHTMLFrameElement(aNodeInfo, aFromParser)
 {
 }
 
-HTMLIFrameElement::~HTMLIFrameElement()
-{
-}
+HTMLIFrameElement::~HTMLIFrameElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLIFrameElement, nsGenericHTMLFrameElement)
 
@@ -75,8 +73,8 @@ HTMLIFrameElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLFrameElement::ParseAttribute(aNamespaceID, aAttribute,
-                                                   aValue, aResult);
+  return nsGenericHTMLFrameElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
@@ -90,8 +88,7 @@ HTMLIFrameElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
     const nsAttrValue* value = aAttributes->GetAttr(nsGkAtoms::frameborder);
     if (value && value->Type() == nsAttrValue::eEnum) {
       int32_t frameborder = value->GetEnumValue();
-      if (NS_STYLE_FRAME_0 == frameborder ||
-          NS_STYLE_FRAME_NO == frameborder ||
+      if (NS_STYLE_FRAME_0 == frameborder || NS_STYLE_FRAME_NO == frameborder ||
           NS_STYLE_FRAME_OFF == frameborder) {
         aData->SetPixelValueIfUnset(eCSSProperty_border_top_width, 0.0f);
         aData->SetPixelValueIfUnset(eCSSProperty_border_right_width, 0.0f);
@@ -110,22 +107,20 @@ NS_IMETHODIMP_(bool)
 HTMLIFrameElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::width },
-    { &nsGkAtoms::height },
-    { &nsGkAtoms::frameborder },
-    { nullptr },
+      {&nsGkAtoms::width},
+      {&nsGkAtoms::height},
+      {&nsGkAtoms::frameborder},
+      {nullptr},
   };
 
   static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sImageAlignAttributeMap,
-    sCommonAttributeMap,
+      attributes,
+      sImageAlignAttributeMap,
+      sCommonAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
 }
-
-
 
 nsMapRuleToAttributesFunc
 HTMLIFrameElement::GetAttributeMappingFunction() const
@@ -134,7 +129,8 @@ HTMLIFrameElement::GetAttributeMappingFunction() const
 }
 
 nsresult
-HTMLIFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLIFrameElement::AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
@@ -152,21 +148,20 @@ HTMLIFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
       }
     }
   }
-  return nsGenericHTMLFrameElement::AfterSetAttr(aNameSpaceID, aName,
-                                                 aValue, aOldValue,
-                                                 aMaybeScriptedPrincipal,
-                                                 aNotify);
+  return nsGenericHTMLFrameElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aMaybeScriptedPrincipal, aNotify);
 }
 
 nsresult
-HTMLIFrameElement::OnAttrSetButNotChanged(int32_t aNamespaceID, nsAtom* aName,
+HTMLIFrameElement::OnAttrSetButNotChanged(int32_t aNamespaceID,
+                                          nsAtom* aName,
                                           const nsAttrValueOrString& aValue,
                                           bool aNotify)
 {
   AfterMaybeChangeAttr(aNamespaceID, aName, aNotify);
 
-  return nsGenericHTMLFrameElement::OnAttrSetButNotChanged(aNamespaceID, aName,
-                                                           aValue, aNotify);
+  return nsGenericHTMLFrameElement::OnAttrSetButNotChanged(
+      aNamespaceID, aName, aValue, aNotify);
 }
 
 void
@@ -200,5 +195,5 @@ HTMLIFrameElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLIFrameElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

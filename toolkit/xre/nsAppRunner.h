@@ -46,10 +46,10 @@ extern nsXREDirProvider* gDirServiceProvider;
 extern const mozilla::XREAppData* gAppData;
 extern bool gSafeMode;
 
-extern int    gArgc;
-extern char **gArgv;
-extern int    gRestartArgc;
-extern char **gRestartArgv;
+extern int gArgc;
+extern char** gArgv;
+extern int gRestartArgc;
+extern char** gRestartArgv;
 extern bool gLogConsoleErrors;
 extern nsString gAbsoluteArgv0Path;
 
@@ -60,13 +60,14 @@ extern bool gIsGtest;
  *
  * @note XPCOMInit has not happened yet.
  */
-nsresult NS_CreateNativeAppSupport(nsINativeAppSupport* *aResult);
+nsresult
+NS_CreateNativeAppSupport(nsINativeAppSupport** aResult);
 
 nsresult
-NS_NewToolkitProfileService(nsIToolkitProfileService* *aResult);
+NS_NewToolkitProfileService(nsIToolkitProfileService** aResult);
 
 nsresult
-NS_NewToolkitProfileFactory(nsIFactory* *aResult);
+NS_NewToolkitProfileFactory(nsIFactory** aResult);
 
 /**
  * Try to acquire exclusive access to the specified profile directory.
@@ -86,8 +87,10 @@ NS_NewToolkitProfileFactory(nsIFactory* *aResult);
  *         directory cannot be unlocked.
  */
 nsresult
-NS_LockProfilePath(nsIFile* aPath, nsIFile* aTempPath,
-                   nsIProfileUnlocker* *aUnlocker, nsIProfileLock* *aResult);
+NS_LockProfilePath(nsIFile* aPath,
+                   nsIFile* aTempPath,
+                   nsIProfileUnlocker** aUnlocker,
+                   nsIProfileLock** aResult);
 
 void
 WriteConsoleLog();
@@ -107,30 +110,36 @@ void
 UseParentConsole();
 
 BOOL
-WinLaunchChild(const wchar_t *exePath, int argc,
-               char **argv, HANDLE userToken = nullptr,
-               HANDLE *hProcess = nullptr);
+WinLaunchChild(const wchar_t* exePath,
+               int argc,
+               char** argv,
+               HANDLE userToken = nullptr,
+               HANDLE* hProcess = nullptr);
 #endif
 
-#define NS_NATIVEAPPSUPPORT_CONTRACTID "@mozilla.org/toolkit/native-app-support;1"
+#define NS_NATIVEAPPSUPPORT_CONTRACTID \
+  "@mozilla.org/toolkit/native-app-support;1"
 
 namespace mozilla {
 namespace startup {
 extern GeckoProcessType sChildProcessType;
-} // namespace startup
+}  // namespace startup
 
-const char* PlatformBuildID();
+const char*
+PlatformBuildID();
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * Set up platform specific error handling such as suppressing DLL load dialog
  * and the JIT debugger on Windows, and install unix signal handlers.
  */
-void SetupErrorHandling(const char* progname);
+void
+SetupErrorHandling(const char* progname);
 
 #ifdef MOZ_WIDGET_GTK
-const char* DetectDisplay();
+const char*
+DetectDisplay();
 #endif
 
-#endif // nsAppRunner_h__
+#endif  // nsAppRunner_h__

@@ -17,23 +17,31 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGCircleElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGCircleElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGCircleElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGCircleElement::sLengthInfo[3] =
-{
-  { &nsGkAtoms::cx, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::cy, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::r, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::XY }
-};
+nsSVGElement::LengthInfo SVGCircleElement::sLengthInfo[3] = {
+    {&nsGkAtoms::cx,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::cy,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::r,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::XY}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGCircleElement::SVGCircleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGCircleElementBase(aNodeInfo)
+SVGCircleElement::SVGCircleElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGCircleElementBase(aNodeInfo)
 {
 }
 
@@ -75,8 +83,8 @@ SVGCircleElement::HasValidDimensions() const
 nsSVGElement::LengthAttributesInfo
 SVGCircleElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 //----------------------------------------------------------------------
@@ -105,9 +113,11 @@ SVGCircleElement::GetGeometryBounds(Rect* aBounds,
         if (aToNonScalingStrokeSpace->IsRectilinear()) {
           MOZ_ASSERT(!aToNonScalingStrokeSpace->IsSingular());
           Rect userBounds(x - r, y - r, 2 * r, 2 * r);
-          SVGContentUtils::RectilinearGetStrokeBounds(
-            userBounds, aToBoundsSpace, *aToNonScalingStrokeSpace,
-            aStrokeOptions.mLineWidth, aBounds);
+          SVGContentUtils::RectilinearGetStrokeBounds(userBounds,
+                                                      aToBoundsSpace,
+                                                      *aToNonScalingStrokeSpace,
+                                                      aStrokeOptions.mLineWidth,
+                                                      aBounds);
           return true;
         }
         return false;
@@ -132,10 +142,10 @@ SVGCircleElement::BuildPath(PathBuilder* aBuilder)
     return nullptr;
   }
 
-  aBuilder->Arc(Point(x, y), r, 0, Float(2*M_PI));
+  aBuilder->Arc(Point(x, y), r, 0, Float(2 * M_PI));
 
   return aBuilder->Finish();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

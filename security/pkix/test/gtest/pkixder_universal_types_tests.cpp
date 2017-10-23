@@ -34,14 +34,16 @@ using namespace mozilla::pkix::der;
 using namespace mozilla::pkix::test;
 using namespace std;
 
-class pkixder_universal_types_tests : public ::testing::Test { };
+class pkixder_universal_types_tests : public ::testing::Test
+{
+};
 
 TEST_F(pkixder_universal_types_tests, BooleanTrue01)
 {
   const uint8_t DER_BOOLEAN_TRUE_01[] = {
-    0x01,                       // BOOLEAN
-    0x01,                       // length
-    0x01                        // invalid
+      0x01,  // BOOLEAN
+      0x01,  // length
+      0x01   // invalid
   };
   Input input(DER_BOOLEAN_TRUE_01);
   Reader reader(input);
@@ -52,9 +54,9 @@ TEST_F(pkixder_universal_types_tests, BooleanTrue01)
 TEST_F(pkixder_universal_types_tests, BooleanTrue42)
 {
   const uint8_t DER_BOOLEAN_TRUE_42[] = {
-    0x01,                       // BOOLEAN
-    0x01,                       // length
-    0x42                        // invalid
+      0x01,  // BOOLEAN
+      0x01,  // length
+      0x42   // invalid
   };
   Input input(DER_BOOLEAN_TRUE_42);
   Reader reader(input);
@@ -63,9 +65,9 @@ TEST_F(pkixder_universal_types_tests, BooleanTrue42)
 }
 
 static const uint8_t DER_BOOLEAN_TRUE[] = {
-  0x01,                       // BOOLEAN
-  0x01,                       // length
-  0xff                        // true
+    0x01,  // BOOLEAN
+    0x01,  // length
+    0xff   // true
 };
 
 TEST_F(pkixder_universal_types_tests, BooleanTrueFF)
@@ -80,9 +82,9 @@ TEST_F(pkixder_universal_types_tests, BooleanTrueFF)
 TEST_F(pkixder_universal_types_tests, BooleanFalse)
 {
   const uint8_t DER_BOOLEAN_FALSE[] = {
-    0x01,                       // BOOLEAN
-    0x01,                       // length
-    0x00                        // false
+      0x01,  // BOOLEAN
+      0x01,  // length
+      0x00   // false
   };
   Input input(DER_BOOLEAN_FALSE);
   Reader reader(input);
@@ -95,9 +97,10 @@ TEST_F(pkixder_universal_types_tests, BooleanFalse)
 TEST_F(pkixder_universal_types_tests, BooleanInvalidLength)
 {
   const uint8_t DER_BOOLEAN_INVALID_LENGTH[] = {
-    0x01,                       // BOOLEAN
-    0x02,                       // length
-    0x42, 0x42                  // invalid
+      0x01,  // BOOLEAN
+      0x02,  // length
+      0x42,
+      0x42  // invalid
   };
   Input input(DER_BOOLEAN_INVALID_LENGTH);
   Reader reader(input);
@@ -109,8 +112,8 @@ TEST_F(pkixder_universal_types_tests, BooleanInvalidLength)
 TEST_F(pkixder_universal_types_tests, BooleanInvalidZeroLength)
 {
   const uint8_t DER_BOOLEAN_INVALID_ZERO_LENGTH[] = {
-    0x01,                       // BOOLEAN
-    0x00                        // length
+      0x01,  // BOOLEAN
+      0x00   // length
   };
   Input input(DER_BOOLEAN_INVALID_ZERO_LENGTH);
   Reader reader(input);
@@ -128,31 +131,30 @@ TEST_F(pkixder_universal_types_tests, OptionalBooleanValidEncodings)
 {
   {
     const uint8_t DER_OPTIONAL_BOOLEAN_PRESENT_TRUE[] = {
-      0x01,                       // BOOLEAN
-      0x01,                       // length
-      0xff                        // true
+        0x01,  // BOOLEAN
+        0x01,  // length
+        0xff   // true
     };
     Input input(DER_OPTIONAL_BOOLEAN_PRESENT_TRUE);
     Reader reader(input);
     bool value = false;
-    ASSERT_EQ(Success, OptionalBoolean(reader, value)) <<
-      "Should accept the only valid encoding of a present OPTIONAL BOOLEAN";
+    ASSERT_EQ(Success, OptionalBoolean(reader, value))
+        << "Should accept the only valid encoding of a present OPTIONAL "
+           "BOOLEAN";
     ASSERT_TRUE(value);
     ASSERT_TRUE(reader.AtEnd());
   }
 
   {
     // The OPTIONAL BOOLEAN is omitted in this data.
-    const uint8_t DER_INTEGER_05[] = {
-      0x02,                       // INTEGER
-      0x01,                       // length
-      0x05
-    };
+    const uint8_t DER_INTEGER_05[] = {0x02,  // INTEGER
+                                      0x01,  // length
+                                      0x05};
     Input input(DER_INTEGER_05);
     Reader reader(input);
     bool value = true;
-    ASSERT_EQ(Success, OptionalBoolean(reader, value)) <<
-      "Should accept a valid encoding of an omitted OPTIONAL BOOLEAN";
+    ASSERT_EQ(Success, OptionalBoolean(reader, value))
+        << "Should accept a valid encoding of an omitted OPTIONAL BOOLEAN";
     ASSERT_FALSE(value);
     ASSERT_FALSE(reader.AtEnd());
   }
@@ -162,8 +164,9 @@ TEST_F(pkixder_universal_types_tests, OptionalBooleanValidEncodings)
     ASSERT_EQ(Success, input.Init(reinterpret_cast<const uint8_t*>(""), 0));
     Reader reader(input);
     bool value = true;
-    ASSERT_EQ(Success, OptionalBoolean(reader, value)) <<
-      "Should accept another valid encoding of an omitted OPTIONAL BOOLEAN";
+    ASSERT_EQ(Success, OptionalBoolean(reader, value))
+        << "Should accept another valid encoding of an omitted OPTIONAL "
+           "BOOLEAN";
     ASSERT_FALSE(value);
     ASSERT_TRUE(reader.AtEnd());
   }
@@ -172,42 +175,43 @@ TEST_F(pkixder_universal_types_tests, OptionalBooleanValidEncodings)
 TEST_F(pkixder_universal_types_tests, OptionalBooleanInvalidEncodings)
 {
   const uint8_t DER_OPTIONAL_BOOLEAN_PRESENT_FALSE[] = {
-    0x01,                       // BOOLEAN
-    0x01,                       // length
-    0x00                        // false
+      0x01,  // BOOLEAN
+      0x01,  // length
+      0x00   // false
   };
 
   {
     Input input(DER_OPTIONAL_BOOLEAN_PRESENT_FALSE);
     Reader reader(input);
     bool value = true;
-    ASSERT_EQ(Success, OptionalBoolean(reader, value)) <<
-      "Should accept an invalid, default-value encoding of OPTIONAL BOOLEAN";
+    ASSERT_EQ(Success, OptionalBoolean(reader, value))
+        << "Should accept an invalid, default-value encoding of OPTIONAL "
+           "BOOLEAN";
     ASSERT_FALSE(value);
     ASSERT_TRUE(reader.AtEnd());
   }
 
   const uint8_t DER_OPTIONAL_BOOLEAN_PRESENT_42[] = {
-    0x01,                       // BOOLEAN
-    0x01,                       // length
-    0x42                        // (invalid value for a BOOLEAN)
+      0x01,  // BOOLEAN
+      0x01,  // length
+      0x42   // (invalid value for a BOOLEAN)
   };
 
   {
     Input input(DER_OPTIONAL_BOOLEAN_PRESENT_42);
     Reader reader(input);
     bool value;
-    ASSERT_EQ(Result::ERROR_BAD_DER, OptionalBoolean(reader, value)) <<
-      "Should reject an invalid-valued encoding of OPTIONAL BOOLEAN";
+    ASSERT_EQ(Result::ERROR_BAD_DER, OptionalBoolean(reader, value))
+        << "Should reject an invalid-valued encoding of OPTIONAL BOOLEAN";
   }
 }
 
 TEST_F(pkixder_universal_types_tests, Enumerated)
 {
   const uint8_t DER_ENUMERATED[] = {
-    0x0a,                       // ENUMERATED
-    0x01,                       // length
-    0x42                        // value
+      0x0a,  // ENUMERATED
+      0x01,  // length
+      0x42   // value
   };
   Input input(DER_ENUMERATED);
   Reader reader(input);
@@ -220,9 +224,10 @@ TEST_F(pkixder_universal_types_tests, Enumerated)
 TEST_F(pkixder_universal_types_tests, EnumeratedNotShortestPossibleDER)
 {
   const uint8_t DER_ENUMERATED[] = {
-    0x0a,                       // ENUMERATED
-    0x02,                       // length
-    0x00, 0x01                  // value
+      0x0a,  // ENUMERATED
+      0x02,  // length
+      0x00,
+      0x01  // value
   };
   Input input(DER_ENUMERATED);
   Reader reader(input);
@@ -238,9 +243,10 @@ TEST_F(pkixder_universal_types_tests, EnumeratedOutOfAcceptedRange)
   // ENUMERATED values in X.509 certs or OCSP this large, and we're trying to
   // keep the parser simple and fast.
   const uint8_t DER_ENUMERATED_INVALID_LENGTH[] = {
-    0x0a,                       // ENUMERATED
-    0x02,                       // length
-    0x12, 0x34                  // value
+      0x0a,  // ENUMERATED
+      0x02,  // length
+      0x12,
+      0x34  // value
   };
   Input input(DER_ENUMERATED_INVALID_LENGTH);
   Reader reader(input);
@@ -252,8 +258,8 @@ TEST_F(pkixder_universal_types_tests, EnumeratedOutOfAcceptedRange)
 TEST_F(pkixder_universal_types_tests, EnumeratedInvalidZeroLength)
 {
   const uint8_t DER_ENUMERATED_INVALID_ZERO_LENGTH[] = {
-    0x0a,                       // ENUMERATED
-    0x00                        // length
+      0x0a,  // ENUMERATED
+      0x00   // length
   };
   Input input(DER_ENUMERATED_INVALID_ZERO_LENGTH);
   Reader reader(input);
@@ -284,21 +290,20 @@ TEST_F(pkixder_universal_types_tests, EnumeratedInvalidZeroLength)
 // other encodings is actually encouraged.
 
 // e.g. TWO_CHARS(53) => '5', '3'
-#define TWO_CHARS(t) \
+#define TWO_CHARS(t)                                           \
   static_cast<uint8_t>('0' + (static_cast<uint8_t>(t) / 10u)), \
-  static_cast<uint8_t>('0' + (static_cast<uint8_t>(t) % 10u))
+      static_cast<uint8_t>('0' + (static_cast<uint8_t>(t) % 10u))
 
 // Calls TimeChoice on the UTCTime variant of the given generalized time.
-template <uint16_t LENGTH>
+template<uint16_t LENGTH>
 Result
 TimeChoiceForEquivalentUTCTime(const uint8_t (&generalizedTimeDER)[LENGTH],
                                /*out*/ Time& value)
 {
-  static_assert(LENGTH >= 4,
-                "TimeChoiceForEquivalentUTCTime input too small");
+  static_assert(LENGTH >= 4, "TimeChoiceForEquivalentUTCTime input too small");
   uint8_t utcTimeDER[LENGTH - 2];
-  utcTimeDER[0] = 0x17; // tag UTCTime
-  utcTimeDER[1] = LENGTH - 1/*tag*/ - 1/*value*/ - 2/*century*/;
+  utcTimeDER[0] = 0x17;  // tag UTCTime
+  utcTimeDER[1] = LENGTH - 1 /*tag*/ - 1 /*value*/ - 2 /*century*/;
   // Copy the value except for the first two digits of the year
   for (size_t i = 2; i < LENGTH - 2; ++i) {
     utcTimeDER[i] = generalizedTimeDER[i + 2];
@@ -309,10 +314,9 @@ TimeChoiceForEquivalentUTCTime(const uint8_t (&generalizedTimeDER)[LENGTH],
   return TimeChoice(reader, value);
 }
 
-template <uint16_t LENGTH>
+template<uint16_t LENGTH>
 void
-ExpectGoodTime(Time expectedValue,
-               const uint8_t (&generalizedTimeDER)[LENGTH])
+ExpectGoodTime(Time expectedValue, const uint8_t (&generalizedTimeDER)[LENGTH])
 {
   // GeneralizedTime
   {
@@ -341,7 +345,7 @@ ExpectGoodTime(Time expectedValue,
   }
 }
 
-template <uint16_t LENGTH>
+template<uint16_t LENGTH>
 void
 ExpectBadTime(const uint8_t (&generalizedTimeDER)[LENGTH])
 {
@@ -372,30 +376,41 @@ ExpectBadTime(const uint8_t (&generalizedTimeDER)[LENGTH])
 // Control value: a valid time
 TEST_F(pkixder_universal_types_tests, ValidControl)
 {
-  const uint8_t GT_DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '1', '9', '9', '1', '0', '5', '0', '6', '1', '6', '4', '5', '4', '0', 'Z'
-  };
+  const uint8_t GT_DER[] = {0x18,  // Generalized Time
+                            15,    // Length = 15
+                            '1',
+                            '9',
+                            '9',
+                            '1',
+                            '0',
+                            '5',
+                            '0',
+                            '6',
+                            '1',
+                            '6',
+                            '4',
+                            '5',
+                            '4',
+                            '0',
+                            'Z'};
   ExpectGoodTime(YMDHMS(1991, 5, 6, 16, 45, 40), GT_DER);
 }
 
 TEST_F(pkixder_universal_types_tests, TimeTimeZoneOffset)
 {
   const uint8_t DER_GENERALIZED_TIME_OFFSET[] = {
-    0x18,                           // Generalized Time
-    19,                             // Length = 19
-    '1', '9', '9', '1', '0', '5', '0', '6', '1', '6', '4', '5', '4', '0', '-',
-    '0', '7', '0', '0'
-  };
+      0x18,  // Generalized Time
+      19,    // Length = 19
+      '1',  '9', '9', '1', '0', '5', '0', '6', '1', '6',
+      '4',  '5', '4', '0', '-', '0', '7', '0', '0'};
   ExpectBadTime(DER_GENERALIZED_TIME_OFFSET);
 }
 
 TEST_F(pkixder_universal_types_tests, TimeInvalidZeroLength)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_ZERO_LENGTH[] = {
-    0x18,                           // GeneralizedTime
-    0x00                            // Length = 0
+      0x18,  // GeneralizedTime
+      0x00   // Length = 0
   };
 
   Time value(Time::uninitialized);
@@ -412,8 +427,8 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidZeroLength)
 
   // TimeChoice: UTCTime
   const uint8_t DER_UTCTIME_INVALID_ZERO_LENGTH[] = {
-    0x17, // UTCTime
-    0x00  // Length = 0
+      0x17,  // UTCTime
+      0x00   // Length = 0
   };
   Input tc_utc_buf(DER_UTCTIME_INVALID_ZERO_LENGTH);
   Reader tc_utc(tc_utc_buf);
@@ -424,10 +439,22 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidZeroLength)
 TEST_F(pkixder_universal_types_tests, TimeInvalidLocal)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_LOCAL[] = {
-    0x18,                           // Generalized Time
-    14,                             // Length = 14
-    '1', '9', '9', '1', '0', '5', '0', '6', '1', '6', '4', '5', '4', '0'
-  };
+      0x18,  // Generalized Time
+      14,    // Length = 14
+      '1',
+      '9',
+      '9',
+      '1',
+      '0',
+      '5',
+      '0',
+      '6',
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0'};
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_LOCAL);
 }
 
@@ -435,40 +462,88 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidLocal)
 TEST_F(pkixder_universal_types_tests, TimeInvalidTruncated)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_TRUNCATED[] = {
-    0x18,                           // Generalized Time
-    12,                             // Length = 12
-    '1', '9', '9', '1', '0', '5', '0', '6', '1', '6', '4', '5'
-  };
+      0x18,  // Generalized Time
+      12,    // Length = 12
+      '1',
+      '9',
+      '9',
+      '1',
+      '0',
+      '5',
+      '0',
+      '6',
+      '1',
+      '6',
+      '4',
+      '5'};
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_TRUNCATED);
 }
 
 TEST_F(pkixder_universal_types_tests, TimeNoSeconds)
 {
-  const uint8_t DER_GENERALIZED_TIME_NO_SECONDS[] = {
-    0x18,                           // Generalized Time
-    13,                             // Length = 13
-    '1', '9', '9', '1', '0', '5', '0', '6', '1', '6', '4', '5', 'Z'
-  };
+  const uint8_t DER_GENERALIZED_TIME_NO_SECONDS[] = {0x18,  // Generalized Time
+                                                     13,    // Length = 13
+                                                     '1',
+                                                     '9',
+                                                     '9',
+                                                     '1',
+                                                     '0',
+                                                     '5',
+                                                     '0',
+                                                     '6',
+                                                     '1',
+                                                     '6',
+                                                     '4',
+                                                     '5',
+                                                     'Z'};
   ExpectBadTime(DER_GENERALIZED_TIME_NO_SECONDS);
 }
 
 TEST_F(pkixder_universal_types_tests, TimeInvalidPrefixedYear)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_PREFIXED_YEAR[] = {
-    0x18,                           // Generalized Time
-    16,                             // Length = 16
-    ' ', '1', '9', '9', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', 'Z'
-  };
+      0x18,  // Generalized Time
+      16,    // Length = 16
+      ' ',
+      '1',
+      '9',
+      '9',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      'Z'};
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_PREFIXED_YEAR);
 }
 
 TEST_F(pkixder_universal_types_tests, TimeTooManyDigits)
 {
   const uint8_t DER_GENERALIZED_TIME_TOO_MANY_DIGITS[] = {
-    0x18,                           // Generalized Time
-    16,                             // Length = 16
-    '1', '1', '1', '1', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', 'Z'
-  };
+      0x18,  // Generalized Time
+      16,    // Length = 16
+      '1',
+      '1',
+      '1',
+      '1',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',
+      'Z'};
   ExpectBadTime(DER_GENERALIZED_TIME_TOO_MANY_DIGITS);
 }
 
@@ -482,11 +557,21 @@ TEST_F(pkixder_universal_types_tests, GeneralizedTimeYearValidRange)
 
   for (uint16_t i = 1970; i <= 9999; ++i) {
     const uint8_t DER[] = {
-      0x18,                           // Generalized Time
-      15,                             // Length = 15
-      TWO_CHARS(i / 100), TWO_CHARS(i % 100), // YYYY
-      '1', '2', '3', '1', // 12-31
-      '2', '3', '5', '9', '5', '9', 'Z' // 23:59:59Z
+        0x18,  // Generalized Time
+        15,    // Length = 15
+        TWO_CHARS(i / 100),
+        TWO_CHARS(i % 100),  // YYYY
+        '1',
+        '2',
+        '3',
+        '1',  // 12-31
+        '2',
+        '3',
+        '5',
+        '9',
+        '5',
+        '9',
+        'Z'  // 23:59:59Z
     };
 
     Time expectedValue = YMDHMS(i, 12, 31, 23, 59, 59);
@@ -527,28 +612,41 @@ TEST_F(pkixder_universal_types_tests, GeneralizedTimeYearValidRange)
 TEST_F(pkixder_universal_types_tests, TimeYearInvalid1969)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '1', '9', '6', '9', '1', '2', '3', '1', // !!!1969!!!-12-31
-    '2', '3', '5', '9', '5', '9', 'Z' // 23:59:59Z
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '1',
+      '9',
+      '6',
+      '9',
+      '1',
+      '2',
+      '3',
+      '1',  // !!!1969!!!-12-31
+      '2',
+      '3',
+      '5',
+      '9',
+      '5',
+      '9',
+      'Z'  // 23:59:59Z
   };
   ExpectBadTime(DER);
 }
 
 static const uint8_t DAYS_IN_MONTH[] = {
-  0,  // unused
-  31, // January
-  28, // February (leap years tested separately)
-  31, // March
-  30, // April
-  31, // May
-  30, // Jun
-  31, // July
-  31, // August
-  30, // September
-  31, // October
-  30, // November
-  31, // December
+    0,   // unused
+    31,  // January
+    28,  // February (leap years tested separately)
+    31,  // March
+    30,  // April
+    31,  // May
+    30,  // Jun
+    31,  // July
+    31,  // August
+    30,  // September
+    31,  // October
+    30,  // November
+    31,  // December
 };
 
 TEST_F(pkixder_universal_types_tests, TimeMonthDaysValidRange)
@@ -556,10 +654,21 @@ TEST_F(pkixder_universal_types_tests, TimeMonthDaysValidRange)
   for (uint16_t month = 1; month <= 12; ++month) {
     for (uint8_t day = 1; day <= DAYS_IN_MONTH[month]; ++day) {
       const uint8_t DER[] = {
-        0x18,                           // Generalized Time
-        15,                             // Length = 15
-        '2', '0', '1', '5', TWO_CHARS(month), TWO_CHARS(day), // (2015-mm-dd)
-        '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+          0x18,  // Generalized Time
+          15,    // Length = 15
+          '2',
+          '0',
+          '1',
+          '5',
+          TWO_CHARS(month),
+          TWO_CHARS(day),  // (2015-mm-dd)
+          '1',
+          '6',
+          '4',
+          '5',
+          '4',
+          '0',
+          'Z'  // 16:45:40
       };
       ExpectGoodTime(YMDHMS(2015, month, day, 16, 45, 40), DER);
     }
@@ -569,10 +678,23 @@ TEST_F(pkixder_universal_types_tests, TimeMonthDaysValidRange)
 TEST_F(pkixder_universal_types_tests, TimeMonthInvalid0)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '5', '0', '0', '1', '5', // 2015-!!!00!!!-15
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '5',
+      '0',
+      '0',
+      '1',
+      '5',  // 2015-!!!00!!!-15
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
   ExpectBadTime(DER);
 }
@@ -580,22 +702,46 @@ TEST_F(pkixder_universal_types_tests, TimeMonthInvalid0)
 TEST_F(pkixder_universal_types_tests, TimeMonthInvalid13)
 {
   const uint8_t DER_GENERALIZED_TIME_13TH_MONTH[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '1', '9', '9', '1', //YYYY (1991)
-    '1', '3', //MM 13th month of the year
-    '0', '6', '1', '6', '4', '5', '4', '0', 'Z'
-  };
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '1',
+      '9',
+      '9',
+      '1',  //YYYY (1991)
+      '1',
+      '3',  //MM 13th month of the year
+      '0',
+      '6',
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'};
   ExpectBadTime(DER_GENERALIZED_TIME_13TH_MONTH);
 }
 
 TEST_F(pkixder_universal_types_tests, TimeDayInvalid0)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '5', '0', '1', '0', '0', // 2015-01-!!!00!!!
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '5',
+      '0',
+      '1',
+      '0',
+      '0',  // 2015-01-!!!00!!!
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
   ExpectBadTime(DER);
 }
@@ -604,12 +750,21 @@ TEST_F(pkixder_universal_types_tests, TimeMonthDayInvalidPastEndOfMonth)
 {
   for (int16_t month = 1; month <= 12; ++month) {
     const uint8_t DER[] = {
-      0x18,                           // Generalized Time
-      15,                             // Length = 15
-      '1', '9', '9', '1', // YYYY 1991
-      TWO_CHARS(month), // MM
-      TWO_CHARS(1 + (month == 2 ? 29 : DAYS_IN_MONTH[month])), // !!!DD!!!
-      '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+        0x18,  // Generalized Time
+        15,    // Length = 15
+        '1',
+        '9',
+        '9',
+        '1',                                                      // YYYY 1991
+        TWO_CHARS(month),                                         // MM
+        TWO_CHARS(1 + (month == 2 ? 29 : DAYS_IN_MONTH[month])),  // !!!DD!!!
+        '1',
+        '6',
+        '4',
+        '5',
+        '4',
+        '0',
+        'Z'  // 16:45:40
     };
     ExpectBadTime(DER);
   }
@@ -618,10 +773,23 @@ TEST_F(pkixder_universal_types_tests, TimeMonthDayInvalidPastEndOfMonth)
 TEST_F(pkixder_universal_types_tests, TimeMonthFebLeapYear2016)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '6', '0', '2', '2', '9', // 2016-02-29
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '6',
+      '0',
+      '2',
+      '2',
+      '9',  // 2016-02-29
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
   ExpectGoodTime(YMDHMS(2016, 2, 29, 16, 45, 40), DER);
 }
@@ -629,10 +797,23 @@ TEST_F(pkixder_universal_types_tests, TimeMonthFebLeapYear2016)
 TEST_F(pkixder_universal_types_tests, TimeMonthFebLeapYear2000)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '0', '0', '0', '2', '2', '9', // 2000-02-29
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '0',
+      '0',
+      '0',
+      '2',
+      '2',
+      '9',  // 2000-02-29
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
   ExpectGoodTime(YMDHMS(2000, 2, 29, 16, 45, 40), DER);
 }
@@ -640,10 +821,23 @@ TEST_F(pkixder_universal_types_tests, TimeMonthFebLeapYear2000)
 TEST_F(pkixder_universal_types_tests, TimeMonthFebLeapYear2400)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '4', '0', '0', '0', '2', '2', '9', // 2400-02-29
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '4',
+      '0',
+      '0',
+      '0',
+      '2',
+      '2',
+      '9',  // 2400-02-29
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
 
   // We don't use ExpectGoodTime here because UTCTime can't represent 2400.
@@ -672,10 +866,23 @@ TEST_F(pkixder_universal_types_tests, TimeMonthFebLeapYear2400)
 TEST_F(pkixder_universal_types_tests, TimeMonthFebNotLeapYear2014)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '4', '0', '2', '2', '9', // 2014-02-29
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '4',
+      '0',
+      '2',
+      '2',
+      '9',  // 2014-02-29
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
   ExpectBadTime(DER);
 }
@@ -683,10 +890,23 @@ TEST_F(pkixder_universal_types_tests, TimeMonthFebNotLeapYear2014)
 TEST_F(pkixder_universal_types_tests, TimeMonthFebNotLeapYear2100)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '1', '0', '0', '0', '2', '2', '9', // 2100-02-29
-    '1', '6', '4', '5', '4', '0', 'Z' // 16:45:40
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '1',
+      '0',
+      '0',
+      '0',
+      '2',
+      '2',
+      '9',  // 2100-02-29
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // 16:45:40
   };
 
   // We don't use ExpectBadTime here because UTCTime can't represent 2100.
@@ -712,10 +932,22 @@ TEST_F(pkixder_universal_types_tests, TimeHoursValidRange)
 {
   for (uint8_t i = 0; i <= 23; ++i) {
     const uint8_t DER[] = {
-      0x18,                           // Generalized Time
-      15,                             // Length = 15
-      '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-      TWO_CHARS(i), '5', '9', '0', '1', 'Z' // HHMMSSZ (!!!!ii!!!!:59:01 Zulu)
+        0x18,  // Generalized Time
+        15,    // Length = 15
+        '2',
+        '0',
+        '1',
+        '2',
+        '0',
+        '6',
+        '3',
+        '0',  // YYYYMMDD (2012-06-30)
+        TWO_CHARS(i),
+        '5',
+        '9',
+        '0',
+        '1',
+        'Z'  // HHMMSSZ (!!!!ii!!!!:59:01 Zulu)
     };
     ExpectGoodTime(YMDHMS(2012, 6, 30, i, 59, 1), DER);
   }
@@ -724,10 +956,23 @@ TEST_F(pkixder_universal_types_tests, TimeHoursValidRange)
 TEST_F(pkixder_universal_types_tests, TimeHoursInvalid_24_00_00)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-    '2', '4', '0', '0', '0', '0', 'Z' // HHMMSSZ (!!24!!:00:00 Zulu)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '2',
+      '0',
+      '6',
+      '3',
+      '0',  // YYYYMMDD (2012-06-30)
+      '2',
+      '4',
+      '0',
+      '0',
+      '0',
+      '0',
+      'Z'  // HHMMSSZ (!!24!!:00:00 Zulu)
   };
   ExpectBadTime(DER);
 }
@@ -736,10 +981,22 @@ TEST_F(pkixder_universal_types_tests, TimeMinutesValidRange)
 {
   for (uint8_t i = 0; i <= 59; ++i) {
     const uint8_t DER[] = {
-      0x18,                           // Generalized Time
-      15,                             // Length = 15
-      '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-      '2', '3', TWO_CHARS(i), '0', '1', 'Z' // HHMMSSZ (23:!!!!ii!!!!:01 Zulu)
+        0x18,  // Generalized Time
+        15,    // Length = 15
+        '2',
+        '0',
+        '1',
+        '2',
+        '0',
+        '6',
+        '3',
+        '0',  // YYYYMMDD (2012-06-30)
+        '2',
+        '3',
+        TWO_CHARS(i),
+        '0',
+        '1',
+        'Z'  // HHMMSSZ (23:!!!!ii!!!!:01 Zulu)
     };
     ExpectGoodTime(YMDHMS(2012, 6, 30, 23, i, 1), DER);
   }
@@ -748,10 +1005,23 @@ TEST_F(pkixder_universal_types_tests, TimeMinutesValidRange)
 TEST_F(pkixder_universal_types_tests, TimeMinutesInvalid60)
 {
   const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-    '2', '3', '6', '0', '5', '9', 'Z' // HHMMSSZ (23:!!!60!!!:01 Zulu)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '2',
+      '0',
+      '6',
+      '3',
+      '0',  // YYYYMMDD (2012-06-30)
+      '2',
+      '3',
+      '6',
+      '0',
+      '5',
+      '9',
+      'Z'  // HHMMSSZ (23:!!!60!!!:01 Zulu)
   };
   ExpectBadTime(DER);
 }
@@ -760,10 +1030,22 @@ TEST_F(pkixder_universal_types_tests, TimeSecondsValidRange)
 {
   for (uint8_t i = 0; i <= 59; ++i) {
     const uint8_t DER[] = {
-      0x18,                           // Generalized Time
-      15,                             // Length = 15
-      '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-      '2', '3', '5', '9', TWO_CHARS(i), 'Z' // HHMMSSZ (23:59:!!!!ii!!!! Zulu)
+        0x18,  // Generalized Time
+        15,    // Length = 15
+        '2',
+        '0',
+        '1',
+        '2',
+        '0',
+        '6',
+        '3',
+        '0',  // YYYYMMDD (2012-06-30)
+        '2',
+        '3',
+        '5',
+        '9',
+        TWO_CHARS(i),
+        'Z'  // HHMMSSZ (23:59:!!!!ii!!!! Zulu)
     };
     ExpectGoodTime(YMDHMS(2012, 6, 30, 23, 59, i), DER);
   }
@@ -773,10 +1055,23 @@ TEST_F(pkixder_universal_types_tests, TimeSecondsValidRange)
 TEST_F(pkixder_universal_types_tests, TimeSecondsInvalid60)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-    '2', '3', '5', '9', '6', '0', 'Z' // HHMMSSZ (23:59:!!!!60!!!! Zulu)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '2',
+      '0',
+      '6',
+      '3',
+      '0',  // YYYYMMDD (2012-06-30)
+      '2',
+      '3',
+      '5',
+      '9',
+      '6',
+      '0',
+      'Z'  // HHMMSSZ (23:59:!!!!60!!!! Zulu)
   };
   ExpectBadTime(DER);
 }
@@ -785,10 +1080,23 @@ TEST_F(pkixder_universal_types_tests, TimeSecondsInvalid60)
 TEST_F(pkixder_universal_types_tests, TimeSecondsInvalid61)
 {
   static const uint8_t DER[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-    '2', '3', '5', '9', '6', '1', 'Z' // HHMMSSZ (23:59:!!!!61!!!! Zulu)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '2',
+      '0',
+      '6',
+      '3',
+      '0',  // YYYYMMDD (2012-06-30)
+      '2',
+      '3',
+      '5',
+      '9',
+      '6',
+      '1',
+      'Z'  // HHMMSSZ (23:59:!!!!61!!!! Zulu)
   };
   ExpectBadTime(DER);
 }
@@ -796,10 +1104,23 @@ TEST_F(pkixder_universal_types_tests, TimeSecondsInvalid61)
 TEST_F(pkixder_universal_types_tests, TimeInvalidZulu)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_ZULU[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-    '2', '3', '5', '9', '5', '9', 'z' // HHMMSSZ (23:59:59 !!!z!!!) should be Z
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '2',
+      '0',
+      '1',
+      '2',
+      '0',
+      '6',
+      '3',
+      '0',  // YYYYMMDD (2012-06-30)
+      '2',
+      '3',
+      '5',
+      '9',
+      '5',
+      '9',
+      'z'  // HHMMSSZ (23:59:59 !!!z!!!) should be Z
   };
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_ZULU);
 }
@@ -807,11 +1128,24 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidZulu)
 TEST_F(pkixder_universal_types_tests, TimeInvalidExtraData)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_EXTRA_DATA[] = {
-    0x18,                           // Generalized Time
-    16,                             // Length = 16
-    '2', '0', '1', '2', '0', '6', '3', '0', // YYYYMMDD (2012-06-30)
-    '2', '3', '5', '9', '5', '9', 'Z', // HHMMSSZ (23:59:59Z)
-    0 // Extra null character
+      0x18,  // Generalized Time
+      16,    // Length = 16
+      '2',
+      '0',
+      '1',
+      '2',
+      '0',
+      '6',
+      '3',
+      '0',  // YYYYMMDD (2012-06-30)
+      '2',
+      '3',
+      '5',
+      '9',
+      '5',
+      '9',
+      'Z',  // HHMMSSZ (23:59:59Z)
+      0     // Extra null character
   };
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_EXTRA_DATA);
 }
@@ -819,10 +1153,23 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidExtraData)
 TEST_F(pkixder_universal_types_tests, TimeInvalidCenturyChar)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_CENTURY_CHAR[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    'X', '9', '9', '1', '1', '2', '0', '6', // YYYYMMDD (X991-12-06)
-    '1', '6', '4', '5', '4', '0', 'Z' // HHMMSSZ (16:45:40Z)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      'X',
+      '9',
+      '9',
+      '1',
+      '1',
+      '2',
+      '0',
+      '6',  // YYYYMMDD (X991-12-06)
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // HHMMSSZ (16:45:40Z)
   };
 
   // We can't use ExpectBadTime here, because ExpectBadTime requires
@@ -851,10 +1198,23 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidCenturyChar)
 TEST_F(pkixder_universal_types_tests, TimeInvalidYearChar)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_YEAR_CHAR[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '1', '9', '9', 'I', '0', '1', '0', '6', // YYYYMMDD (199I-12-06)
-    '1', '6', '4', '5', '4', '0', 'Z' // HHMMSSZ (16:45:40Z)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '1',
+      '9',
+      '9',
+      'I',
+      '0',
+      '1',
+      '0',
+      '6',  // YYYYMMDD (199I-12-06)
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // HHMMSSZ (16:45:40Z)
   };
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_YEAR_CHAR);
 }
@@ -862,10 +1222,23 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidYearChar)
 TEST_F(pkixder_universal_types_tests, GeneralizedTimeInvalidMonthChar)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_MONTH_CHAR[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '1', '9', '9', '1', '0', 'I', '0', '6', // YYYYMMDD (1991-0I-06)
-    '1', '6', '4', '5', '4', '0', 'Z' // HHMMSSZ (16:45:40Z)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '1',
+      '9',
+      '9',
+      '1',
+      '0',
+      'I',
+      '0',
+      '6',  // YYYYMMDD (1991-0I-06)
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // HHMMSSZ (16:45:40Z)
   };
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_MONTH_CHAR);
 }
@@ -873,10 +1246,23 @@ TEST_F(pkixder_universal_types_tests, GeneralizedTimeInvalidMonthChar)
 TEST_F(pkixder_universal_types_tests, TimeInvalidDayChar)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_DAY_CHAR[] = {
-    0x18,                           // Generalized Time
-    15,                             // Length = 15
-    '1', '9', '9', '1', '0', '1', '0', 'S', // YYYYMMDD (1991-01-0S)
-    '1', '6', '4', '5', '4', '0', 'Z' // HHMMSSZ (16:45:40Z)
+      0x18,  // Generalized Time
+      15,    // Length = 15
+      '1',
+      '9',
+      '9',
+      '1',
+      '0',
+      '1',
+      '0',
+      'S',  // YYYYMMDD (1991-01-0S)
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      'Z'  // HHMMSSZ (16:45:40Z)
   };
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_DAY_CHAR);
 }
@@ -884,10 +1270,25 @@ TEST_F(pkixder_universal_types_tests, TimeInvalidDayChar)
 TEST_F(pkixder_universal_types_tests, TimeInvalidFractionalSeconds)
 {
   const uint8_t DER_GENERALIZED_TIME_INVALID_FRACTIONAL_SECONDS[] = {
-    0x18,                           // Generalized Time
-    17,                             // Length = 17
-    '1', '9', '9', '1', '0', '1', '0', '1', // YYYYMMDD (1991-01-01)
-    '1', '6', '4', '5', '4', '0', '.', '3', 'Z' // HHMMSS.FFF (16:45:40.3Z)
+      0x18,  // Generalized Time
+      17,    // Length = 17
+      '1',
+      '9',
+      '9',
+      '1',
+      '0',
+      '1',
+      '0',
+      '1',  // YYYYMMDD (1991-01-01)
+      '1',
+      '6',
+      '4',
+      '5',
+      '4',
+      '0',
+      '.',
+      '3',
+      'Z'  // HHMMSS.FFF (16:45:40.3Z)
   };
   ExpectBadTime(DER_GENERALIZED_TIME_INVALID_FRACTIONAL_SECONDS);
 }
@@ -908,163 +1309,163 @@ struct IntegerTestParams
 };
 
 class pkixder_universal_types_tests_Integer
-  : public ::testing::Test
-  , public ::testing::WithParamInterface<IntegerTestParams>
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<IntegerTestParams>
 {
 };
 
-::std::ostream& operator<<(::std::ostream& os, const IntegerTestParams&)
+::std::ostream&
+operator<<(::std::ostream& os, const IntegerTestParams&)
 {
   return os << "TODO (bug 1318770)";
 }
 
 #define INVALID 0xFF
 
-static const IntegerTestParams INTEGER_TEST_PARAMS[] =
-{
-  // Zero is encoded with one value byte of 0x00.
-  { TLV(2, ByteString()),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x00"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Success, 0 } },
+static const IntegerTestParams INTEGER_TEST_PARAMS[] = {
+    // Zero is encoded with one value byte of 0x00.
+    {TLV(2, ByteString()),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x00"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Success, 0}},
 
-  // Positive single-byte values
-  { TLV(2, "\x01"), { Success, 1 }, { Success, 1} },
-  { TLV(2, "\x02"), { Success, 1 }, { Success, 2} },
-  { TLV(2, "\x7e"), { Success, 1 }, { Success, 0x7e} },
-  { TLV(2, "\x7f"), { Success, 1 }, { Success, 0x7f} },
+    // Positive single-byte values
+    {TLV(2, "\x01"), {Success, 1}, {Success, 1}},
+    {TLV(2, "\x02"), {Success, 1}, {Success, 2}},
+    {TLV(2, "\x7e"), {Success, 1}, {Success, 0x7e}},
+    {TLV(2, "\x7f"), {Success, 1}, {Success, 0x7f}},
 
-  // Negative single-byte values
-  { TLV(2, "\x80"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x81"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\xFE"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\xFF"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // Negative single-byte values
+    {TLV(2, "\x80"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x81"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\xFE"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\xFF"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // Positive two-byte values not starting with 0x00
-  { TLV(2, "\x7F\x00"),
-    { Success, 2 },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x01\x00"),
-    { Success, 2 },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x01\x02"),
-    { Success, 2 },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // Positive two-byte values not starting with 0x00
+    {TLV(2, "\x7F\x00"),
+     {Success, 2},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x01\x00"),
+     {Success, 2},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x01\x02"),
+     {Success, 2},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // Negative two-byte values not starting with 0xFF
-  { TLV(2, "\x80\x00"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x80\x7F"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x80\x80"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x80\xFF"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // Negative two-byte values not starting with 0xFF
+    {TLV(2, "\x80\x00"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x80\x7F"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x80\x80"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x80\xFF"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // The leading zero is necessary.
-  { TLV(2, "\x00\x80"),
-    { Success, 1},
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x00\x81"),
-    { Success, 1},
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x00\xFF"),
-    { Success, 1},
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // The leading zero is necessary.
+    {TLV(2, "\x00\x80"),
+     {Success, 1},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x00\x81"),
+     {Success, 1},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x00\xFF"),
+     {Success, 1},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // The leading zero is unnecessary.
-  { TLV(2, "\x00\x01"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\x00\x7F"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // The leading zero is unnecessary.
+    {TLV(2, "\x00\x01"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\x00\x7F"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // The leading 0xFF is necessary.
-  { TLV(2, "\xFF\x00"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\xFF\x7F"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // The leading 0xFF is necessary.
+    {TLV(2, "\xFF\x00"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\xFF\x7F"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // The leading 0xFF is unnecessary.
-  { TLV(2, "\xFF\x80"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2, "\xFF\xFF"),
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+    // The leading 0xFF is unnecessary.
+    {TLV(2, "\xFF\x80"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2, "\xFF\xFF"),
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 
-  // Truncated values
-  { TLV(2, 1, ByteString(/*missing value*/)),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
-  { TLV(2, 3, "\x11\x22" /*truncated*/),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
-  { TLV(2, 4, "\x11\x22" /*truncated*/),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
-  { TLV(2, 2, "\x00" /*truncated*/),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
-  { TLV(2, 2, "\xFF" /*truncated*/),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
-  { TLV(2, 3, "\x00\x80" /*truncated*/),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
-  { TLV(2, 3, "\xFF\x00" /*truncated*/),
-    { Result::ERROR_BAD_DER, INVALID },
-    { Result::ERROR_BAD_DER, INVALID } },
+    // Truncated values
+    {TLV(2, 1, ByteString(/*missing value*/)),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
+    {TLV(2, 3, "\x11\x22" /*truncated*/),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
+    {TLV(2, 4, "\x11\x22" /*truncated*/),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
+    {TLV(2, 2, "\x00" /*truncated*/),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
+    {TLV(2, 2, "\xFF" /*truncated*/),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
+    {TLV(2, 3, "\x00\x80" /*truncated*/),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
+    {TLV(2, 3, "\xFF\x00" /*truncated*/),
+     {Result::ERROR_BAD_DER, INVALID},
+     {Result::ERROR_BAD_DER, INVALID}},
 
-  // Misc. larger values
-  { TLV(2, 4, "\x11\x22\x33\x44"),
-    { Success, 4 },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
-  { TLV(2,
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+    // Misc. larger values
+    {TLV(2, 4, "\x11\x22\x33\x44"),
+     {Success, 4},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
+    {TLV(2,
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
 
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
-        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"),
-    { Success, 256 },
-    { Result::ERROR_INVALID_INTEGER_ENCODING, INVALID } },
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"
+         "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00"),
+     {Success, 256},
+     {Result::ERROR_INVALID_INTEGER_ENCODING, INVALID}},
 };
 
 TEST_P(pkixder_universal_types_tests_Integer, Integer)
 {
   const IntegerTestParams& params(GetParam());
   Input input;
-  ASSERT_EQ(Success, input.Init(params.encoded.data(),
-                                params.encoded.length()));
+  ASSERT_EQ(Success,
+            input.Init(params.encoded.data(), params.encoded.length()));
   Reader reader(input);
   Result expectedResult = params.smallNonnegativeInteger.expectedResult;
   uint8_t value;
@@ -1080,8 +1481,8 @@ TEST_P(pkixder_universal_types_tests_Integer,
 {
   const IntegerTestParams& params(GetParam());
   Input input;
-  ASSERT_EQ(Success, input.Init(params.encoded.data(),
-                                params.encoded.length()));
+  ASSERT_EQ(Success,
+            input.Init(params.encoded.data(), params.encoded.length()));
   Reader reader(input);
   Result expectedResult = params.positiveInteger.expectedResult;
   Input value;
@@ -1089,8 +1490,8 @@ TEST_P(pkixder_universal_types_tests_Integer,
   if (expectedResult == Success) {
     Reader anotherReader(input);
     Input expectedValue;
-    ASSERT_EQ(Success, ExpectTagAndGetValue(anotherReader,
-                                            der::INTEGER, expectedValue));
+    ASSERT_EQ(Success,
+              ExpectTagAndGetValue(anotherReader, der::INTEGER, expectedValue));
     ASSERT_TRUE(InputsAreEqual(expectedValue, value));
     ASSERT_TRUE(reader.AtEnd());
   }
@@ -1101,23 +1502,22 @@ TEST_P(pkixder_universal_types_tests_Integer,
 {
   const IntegerTestParams& params(GetParam());
   Input input;
-  ASSERT_EQ(Success, input.Init(params.encoded.data(),
-                                params.encoded.length()));
+  ASSERT_EQ(Success,
+            input.Init(params.encoded.data(), params.encoded.length()));
   Reader reader(input);
   Result expectedResult = params.positiveInteger.expectedResult;
   Input value;
   Input::size_type significantBytes = INVALID;
-  ASSERT_EQ(expectedResult, der::PositiveInteger(reader, value,
-                                                 &significantBytes));
+  ASSERT_EQ(expectedResult,
+            der::PositiveInteger(reader, value, &significantBytes));
   if (expectedResult == Success) {
     ASSERT_NE(INVALID, params.positiveInteger.significantBytesIfValid);
-    ASSERT_EQ(params.positiveInteger.significantBytesIfValid,
-              significantBytes);
+    ASSERT_EQ(params.positiveInteger.significantBytesIfValid, significantBytes);
 
     Reader anotherReader(input);
     Input expectedValue;
-    ASSERT_EQ(Success, ExpectTagAndGetValue(anotherReader,
-                                            der::INTEGER, expectedValue));
+    ASSERT_EQ(Success,
+              ExpectTagAndGetValue(anotherReader, der::INTEGER, expectedValue));
     ASSERT_TRUE(InputsAreEqual(expectedValue, value));
     ASSERT_TRUE(reader.AtEnd());
   }
@@ -1151,7 +1551,8 @@ TEST_F(pkixder_universal_types_tests, OptionalIntegerUnsupportedDefault)
   Reader reader(input);
 
   long value;
-  ASSERT_EQ(Result::FATAL_ERROR_INVALID_ARGS, OptionalInteger(reader, 0, value));
+  ASSERT_EQ(Result::FATAL_ERROR_INVALID_ARGS,
+            OptionalInteger(reader, 0, value));
 }
 
 TEST_F(pkixder_universal_types_tests, OptionalIntegerSupportedDefaultAtEnd)
@@ -1168,11 +1569,9 @@ TEST_F(pkixder_universal_types_tests, OptionalIntegerSupportedDefaultAtEnd)
 
 TEST_F(pkixder_universal_types_tests, OptionalIntegerNonDefaultValue)
 {
-  static const uint8_t DER[] = {
-    0x02, // INTEGER
-    0x01, // length
-    0x00
-  };
+  static const uint8_t DER[] = {0x02,  // INTEGER
+                                0x01,  // length
+                                0x00};
   Input input(DER);
   Reader reader(input);
 
@@ -1184,10 +1583,7 @@ TEST_F(pkixder_universal_types_tests, OptionalIntegerNonDefaultValue)
 
 TEST_F(pkixder_universal_types_tests, Null)
 {
-  const uint8_t DER_NUL[] = {
-    0x05,
-    0x00
-  };
+  const uint8_t DER_NUL[] = {0x05, 0x00};
   Input input(DER_NUL);
   Reader reader(input);
 
@@ -1196,11 +1592,7 @@ TEST_F(pkixder_universal_types_tests, Null)
 
 TEST_F(pkixder_universal_types_tests, NullWithBadLength)
 {
-  const uint8_t DER_NULL_BAD_LENGTH[] = {
-    0x05,
-    0x01,
-    0x00
-  };
+  const uint8_t DER_NULL_BAD_LENGTH[] = {0x05, 0x01, 0x00};
   Input input(DER_NULL_BAD_LENGTH);
   Reader reader(input);
 
@@ -1210,16 +1602,12 @@ TEST_F(pkixder_universal_types_tests, NullWithBadLength)
 TEST_F(pkixder_universal_types_tests, OID)
 {
   const uint8_t DER_VALID_OID[] = {
-    0x06,
-    0x09,
-    0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01
-  };
+      0x06, 0x09, 0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01};
   Input input(DER_VALID_OID);
   Reader reader(input);
 
   const uint8_t expectedOID[] = {
-    0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01
-  };
+      0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01};
 
   ASSERT_EQ(Success, OID(reader, expectedOID));
 }

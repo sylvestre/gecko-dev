@@ -29,11 +29,12 @@ namespace dom {
 namespace {
 StaticRefPtr<U2FManager> gU2FManager;
 static mozilla::LazyLogModule gU2FManagerLog("u2fmanager");
-}
+}  // namespace
 
 NS_NAMED_LITERAL_STRING(kVisibilityChange, "visibilitychange");
 
-NS_IMPL_ISUPPORTS(U2FManager, nsIIPCBackgroundChildCreateCallback,
+NS_IMPL_ISUPPORTS(U2FManager,
+                  nsIIPCBackgroundChildCreateCallback,
                   nsIDOMEventListener);
 
 /***********************************************************************
@@ -41,8 +42,7 @@ NS_IMPL_ISUPPORTS(U2FManager, nsIIPCBackgroundChildCreateCallback,
  **********************************************************************/
 
 static void
-ListenForVisibilityEvents(nsPIDOMWindowInner* aParent,
-                          U2FManager* aListener)
+ListenForVisibilityEvents(nsPIDOMWindowInner* aParent, U2FManager* aListener)
 {
   MOZ_ASSERT(aParent);
   MOZ_ASSERT(aListener);
@@ -52,7 +52,8 @@ ListenForVisibilityEvents(nsPIDOMWindowInner* aParent,
     return;
   }
 
-  nsresult rv = doc->AddSystemEventListener(kVisibilityChange, aListener,
+  nsresult rv = doc->AddSystemEventListener(kVisibilityChange,
+                                            aListener,
                                             /* use capture */ true,
                                             /* wants untrusted */ false);
   Unused << NS_WARN_IF(NS_FAILED(rv));
@@ -70,7 +71,8 @@ StopListeningForVisibilityEvents(nsPIDOMWindowInner* aParent,
     return;
   }
 
-  nsresult rv = doc->RemoveSystemEventListener(kVisibilityChange, aListener,
+  nsresult rv = doc->RemoveSystemEventListener(kVisibilityChange,
+                                               aListener,
                                                /* use capture */ true);
   Unused << NS_WARN_IF(NS_FAILED(rv));
 }
@@ -92,10 +94,7 @@ ConvertNSResultToErrorCode(const nsresult& aError)
  * U2FManager Implementation
  **********************************************************************/
 
-U2FManager::U2FManager()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-}
+U2FManager::U2FManager() { MOZ_ASSERT(NS_IsMainThread()); }
 
 void
 U2FManager::ClearTransaction()
@@ -148,9 +147,9 @@ U2FManager::GetOrCreateBackgroundActor()
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  PBackgroundChild *actor = BackgroundChild::GetForCurrentThread();
+  PBackgroundChild* actor = BackgroundChild::GetForCurrentThread();
   RefPtr<U2FManager::BackgroundActorPromise> promise =
-    mPBackgroundCreationPromise.Ensure(__func__);
+      mPBackgroundCreationPromise.Ensure(__func__);
 
   if (actor) {
     ActorCreated(actor);
@@ -195,7 +194,7 @@ U2FManager::BuildTransactionHashes(const nsCString& aRpId,
 {
   nsresult srv;
   nsCOMPtr<nsICryptoHash> hashService =
-    do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID, &srv);
+      do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID, &srv);
   if (NS_FAILED(srv)) {
     return srv;
   }
@@ -220,31 +219,36 @@ U2FManager::BuildTransactionHashes(const nsCString& aRpId,
     nsString base64;
     Unused << NS_WARN_IF(NS_FAILED(aRpIdHash.ToJwkBase64(base64)));
 
-    MOZ_LOG(gU2FLog, LogLevel::Debug,
-            ("dom::U2FManager::RpID: %s", aRpId.get()));
+    MOZ_LOG(
+        gU2FLog, LogLevel::Debug, ("dom::U2FManager::RpID: %s", aRpId.get()));
 
-    MOZ_LOG(gU2FLog, LogLevel::Debug,
+    MOZ_LOG(gU2FLog,
+            LogLevel::Debug,
             ("dom::U2FManager::Rp ID Hash (base64): %s",
-              NS_ConvertUTF16toUTF8(base64).get()));
+             NS_ConvertUTF16toUTF8(base64).get()));
 
     Unused << NS_WARN_IF(NS_FAILED(aClientDataHash.ToJwkBase64(base64)));
 
-    MOZ_LOG(gU2FLog, LogLevel::Debug,
+    MOZ_LOG(gU2FLog,
+            LogLevel::Debug,
             ("dom::U2FManager::Client Data JSON: %s", aClientDataJSON.get()));
 
-    MOZ_LOG(gU2FLog, LogLevel::Debug,
+    MOZ_LOG(gU2FLog,
+            LogLevel::Debug,
             ("dom::U2FManager::Client Data Hash (base64): %s",
-              NS_ConvertUTF16toUTF8(base64).get()));
+             NS_ConvertUTF16toUTF8(base64).get()));
   }
 
   return NS_OK;
 }
 
 already_AddRefed<U2FPromise>
-U2FManager::Register(nsPIDOMWindowInner* aParent, const nsCString& aRpId,
-               const nsCString& aClientDataJSON,
-               const uint32_t& aTimeoutMillis,
-               const nsTArray<WebAuthnScopedCredentialDescriptor>& aExcludeList)
+U2FManager::Register(
+    nsPIDOMWindowInner* aParent,
+    const nsCString& aRpId,
+    const nsCString& aClientDataJSON,
+    const uint32_t& aTimeoutMillis,
+    const nsTArray<WebAuthnScopedCredentialDescriptor>& aExcludeList)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aParent);
@@ -254,13 +258,16 @@ U2FManager::Register(nsPIDOMWindowInner* aParent, const nsCString& aRpId,
   }
 
   CryptoBuffer rpIdHash, clientDataHash;
-  if (NS_FAILED(BuildTransactionHashes(aRpId, aClientDataJSON,
-                                       rpIdHash, clientDataHash))) {
-    return U2FPromise::CreateAndReject(ErrorCode::OTHER_ERROR, __func__).forget();
+  if (NS_FAILED(BuildTransactionHashes(
+          aRpId, aClientDataJSON, rpIdHash, clientDataHash))) {
+    return U2FPromise::CreateAndReject(ErrorCode::OTHER_ERROR, __func__)
+        .forget();
   }
 
-  RefPtr<MozPromise<nsresult, nsresult, false>> p = GetOrCreateBackgroundActor();
-  p->Then(GetMainThreadSerialEventTarget(), __func__,
+  RefPtr<MozPromise<nsresult, nsresult, false>> p =
+      GetOrCreateBackgroundActor();
+  p->Then(GetMainThreadSerialEventTarget(),
+          __func__,
           []() {
             U2FManager* mgr = U2FManager::Get();
             if (mgr && mgr->mChild && mgr->mTransaction.isSome()) {
@@ -277,11 +284,8 @@ U2FManager::Register(nsPIDOMWindowInner* aParent, const nsCString& aRpId,
   // Always blank for U2F
   nsTArray<WebAuthnExtension> extensions;
 
-  WebAuthnTransactionInfo info(rpIdHash,
-                               clientDataHash,
-                               aTimeoutMillis,
-                               aExcludeList,
-                               extensions);
+  WebAuthnTransactionInfo info(
+      rpIdHash, clientDataHash, aTimeoutMillis, aExcludeList, extensions);
 
   MOZ_ASSERT(mTransaction.isNothing());
   mTransaction = Some(U2FTransaction(aParent, Move(info), aClientDataJSON));
@@ -303,13 +307,16 @@ U2FManager::Sign(nsPIDOMWindowInner* aParent,
   }
 
   CryptoBuffer rpIdHash, clientDataHash;
-  if (NS_FAILED(BuildTransactionHashes(aRpId, aClientDataJSON,
-                                       rpIdHash, clientDataHash))) {
-    return U2FPromise::CreateAndReject(ErrorCode::OTHER_ERROR, __func__).forget();
+  if (NS_FAILED(BuildTransactionHashes(
+          aRpId, aClientDataJSON, rpIdHash, clientDataHash))) {
+    return U2FPromise::CreateAndReject(ErrorCode::OTHER_ERROR, __func__)
+        .forget();
   }
 
-  RefPtr<MozPromise<nsresult, nsresult, false>> p = GetOrCreateBackgroundActor();
-  p->Then(GetMainThreadSerialEventTarget(), __func__,
+  RefPtr<MozPromise<nsresult, nsresult, false>> p =
+      GetOrCreateBackgroundActor();
+  p->Then(GetMainThreadSerialEventTarget(),
+          __func__,
           []() {
             U2FManager* mgr = U2FManager::Get();
             if (mgr && mgr->mChild && mgr->mTransaction.isSome()) {
@@ -326,11 +333,8 @@ U2FManager::Sign(nsPIDOMWindowInner* aParent,
   // Always blank for U2F
   nsTArray<WebAuthnExtension> extensions;
 
-  WebAuthnTransactionInfo info(rpIdHash,
-                               clientDataHash,
-                               aTimeoutMillis,
-                               aAllowList,
-                               extensions);
+  WebAuthnTransactionInfo info(
+      rpIdHash, clientDataHash, aTimeoutMillis, aAllowList, extensions);
 
   MOZ_ASSERT(mTransaction.isNothing());
   mTransaction = Some(U2FTransaction(aParent, Move(info), aClientDataJSON));
@@ -425,7 +429,7 @@ U2FManager::FinishSign(nsTArray<uint8_t>& aCredentialId,
   nsresult rvKeyHandle = credBuf.ToJwkBase64(keyHandleBase64);
   if (NS_WARN_IF(NS_FAILED(rvClientData)) ||
       NS_WARN_IF(NS_FAILED(rvSignatureData) ||
-      NS_WARN_IF(NS_FAILED(rvKeyHandle)))) {
+                 NS_WARN_IF(NS_FAILED(rvKeyHandle)))) {
     RejectTransaction(NS_ERROR_ABORT);
     return;
   }
@@ -470,11 +474,12 @@ U2FManager::HandleEvent(nsIDOMEvent* aEvent)
   }
 
   nsCOMPtr<nsIDocument> doc =
-    do_QueryInterface(aEvent->InternalDOMEvent()->GetTarget());
+      do_QueryInterface(aEvent->InternalDOMEvent()->GetTarget());
   MOZ_ASSERT(doc);
 
   if (doc && doc->Hidden()) {
-    MOZ_LOG(gU2FManagerLog, LogLevel::Debug,
+    MOZ_LOG(gU2FManagerLog,
+            LogLevel::Debug,
             ("Visibility change: U2F window is hidden, cancelling job."));
 
     CancelTransaction(NS_ERROR_ABORT);
@@ -495,7 +500,7 @@ U2FManager::ActorCreated(PBackgroundChild* aActor)
 
   RefPtr<U2FTransactionChild> mgr(new U2FTransactionChild());
   PWebAuthnTransactionChild* constructedMgr =
-    aActor->SendPWebAuthnTransactionConstructor(mgr);
+      aActor->SendPWebAuthnTransactionConstructor(mgr);
 
   if (NS_WARN_IF(!constructedMgr)) {
     ActorFailed();
@@ -518,5 +523,5 @@ U2FManager::ActorFailed()
   MOZ_CRASH("We shouldn't be here!");
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

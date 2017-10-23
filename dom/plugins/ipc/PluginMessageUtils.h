@@ -24,12 +24,16 @@
 #include "mozilla/Logging.h"
 #include "nsHashKeys.h"
 #ifdef MOZ_CRASHREPORTER
-#  include "nsExceptionHandler.h"
+#include "nsExceptionHandler.h"
 #endif
 #ifdef XP_MACOSX
 #include "PluginInterposeOSX.h"
 #else
-namespace mac_plugin_interposing { class NSCursorInfo { }; }
+namespace mac_plugin_interposing {
+class NSCursorInfo
+{
+};
+}  // namespace mac_plugin_interposing
 #endif
 using mac_plugin_interposing::NSCursorInfo;
 #ifdef XP_WIN
@@ -56,7 +60,8 @@ MungePluginDsoPath(const std::string& path);
 std::string
 UnmungePluginDsoPath(const std::string& munged);
 
-extern mozilla::LogModule* GetPluginLog();
+extern mozilla::LogModule*
+GetPluginLog();
 
 #if defined(_MSC_VER)
 #define FULLFUNCTION __FUNCSIG__
@@ -66,9 +71,14 @@ extern mozilla::LogModule* GetPluginLog();
 #define FULLFUNCTION __FUNCTION__
 #endif
 
-#define PLUGIN_LOG_DEBUG(args) MOZ_LOG(GetPluginLog(), mozilla::LogLevel::Debug, args)
-#define PLUGIN_LOG_DEBUG_FUNCTION MOZ_LOG(GetPluginLog(), mozilla::LogLevel::Debug, ("%s", FULLFUNCTION))
-#define PLUGIN_LOG_DEBUG_METHOD MOZ_LOG(GetPluginLog(), mozilla::LogLevel::Debug, ("%s [%p]", FULLFUNCTION, (void*) this))
+#define PLUGIN_LOG_DEBUG(args) \
+  MOZ_LOG(GetPluginLog(), mozilla::LogLevel::Debug, args)
+#define PLUGIN_LOG_DEBUG_FUNCTION \
+  MOZ_LOG(GetPluginLog(), mozilla::LogLevel::Debug, ("%s", FULLFUNCTION))
+#define PLUGIN_LOG_DEBUG_METHOD     \
+  MOZ_LOG(GetPluginLog(),           \
+          mozilla::LogLevel::Debug, \
+          ("%s [%p]", FULLFUNCTION, (void*)this))
 
 /**
  * This is NPByteRange without the linked list.
@@ -118,7 +128,7 @@ typedef HWND NativeWindowHandle;
 #elif defined(MOZ_X11)
 typedef XID NativeWindowHandle;
 #elif defined(XP_DARWIN) || defined(ANDROID)
-typedef intptr_t NativeWindowHandle; // never actually used, will always be 0
+typedef intptr_t NativeWindowHandle;  // never actually used, will always be 0
 #else
 #error Need NativeWindowHandle for this platform
 #endif
@@ -128,7 +138,11 @@ typedef base::SharedMemoryHandle WindowsSharedMemoryHandle;
 typedef HANDLE DXGISharedSurfaceHandle;
 
 // Values indicate GetOpenFileNameW and GetSaveFileNameW.
-enum GetFileNameFunc { OPEN_FUNC, SAVE_FUNC };
+enum GetFileNameFunc
+{
+  OPEN_FUNC,
+  SAVE_FUNC
+};
 
 // IPC-capable version of the Windows OPENFILENAMEW struct.
 typedef struct _OpenFileNameIPC
@@ -141,7 +155,8 @@ typedef struct _OpenFileNameIPC
   void CopyFromOfn(LPOPENFILENAMEW aLpofn);
 
   NativeWindowHandle mHwndOwner;
-  std::wstring mFilter;    // Double-NULL terminated (i.e. L"\0\0") if mHasFilter is true
+  std::wstring
+      mFilter;  // Double-NULL terminated (i.e. L"\0\0") if mHasFilter is true
   bool mHasFilter;
   std::wstring mCustomFilterIn;
   bool mHasCustomFilter;
@@ -168,7 +183,7 @@ typedef struct _OpenFileNameRetIPC
   void AddToOfn(LPOPENFILENAMEW aLpofn) const;
 
   std::wstring mCustomFilterOut;
-  std::wstring mFile;    // Double-NULL terminated (i.e. L"\0\0")
+  std::wstring mFile;  // Double-NULL terminated (i.e. L"\0\0")
   std::wstring mFileTitle;
   uint16_t mFileOffset;
   uint16_t mFileExtension;
@@ -183,122 +198,131 @@ typedef mozilla::null_t OpenFileNameRetIPC;
 
 // XXX maybe not the best place for these. better one?
 
-#define VARSTR(v_)  case v_: return #v_
+#define VARSTR(v_) \
+  case v_:         \
+    return #v_
 inline const char*
 NPPVariableToString(NPPVariable aVar)
 {
-    switch (aVar) {
-        VARSTR(NPPVpluginNameString);
-        VARSTR(NPPVpluginDescriptionString);
-        VARSTR(NPPVpluginWindowBool);
-        VARSTR(NPPVpluginTransparentBool);
-        VARSTR(NPPVjavaClass);
-        VARSTR(NPPVpluginWindowSize);
-        VARSTR(NPPVpluginTimerInterval);
+  switch (aVar) {
+    VARSTR(NPPVpluginNameString);
+    VARSTR(NPPVpluginDescriptionString);
+    VARSTR(NPPVpluginWindowBool);
+    VARSTR(NPPVpluginTransparentBool);
+    VARSTR(NPPVjavaClass);
+    VARSTR(NPPVpluginWindowSize);
+    VARSTR(NPPVpluginTimerInterval);
 
-        VARSTR(NPPVpluginScriptableInstance);
-        VARSTR(NPPVpluginScriptableIID);
+    VARSTR(NPPVpluginScriptableInstance);
+    VARSTR(NPPVpluginScriptableIID);
 
-        VARSTR(NPPVjavascriptPushCallerBool);
+    VARSTR(NPPVjavascriptPushCallerBool);
 
-        VARSTR(NPPVpluginKeepLibraryInMemory);
-        VARSTR(NPPVpluginNeedsXEmbed);
+    VARSTR(NPPVpluginKeepLibraryInMemory);
+    VARSTR(NPPVpluginNeedsXEmbed);
 
-        VARSTR(NPPVpluginScriptableNPObject);
+    VARSTR(NPPVpluginScriptableNPObject);
 
-        VARSTR(NPPVformValue);
+    VARSTR(NPPVformValue);
 
-        VARSTR(NPPVpluginUrlRequestsDisplayedBool);
+    VARSTR(NPPVpluginUrlRequestsDisplayedBool);
 
-        VARSTR(NPPVpluginWantsAllNetworkStreams);
+    VARSTR(NPPVpluginWantsAllNetworkStreams);
 
 #ifdef XP_MACOSX
-        VARSTR(NPPVpluginDrawingModel);
-        VARSTR(NPPVpluginEventModel);
+    VARSTR(NPPVpluginDrawingModel);
+    VARSTR(NPPVpluginEventModel);
 #endif
 
 #ifdef XP_WIN
-        VARSTR(NPPVpluginRequiresAudioDeviceChanges);
+    VARSTR(NPPVpluginRequiresAudioDeviceChanges);
 #endif
 
-    default: return "???";
-    }
+    default:
+      return "???";
+  }
 }
 
 inline const char*
 NPNVariableToString(NPNVariable aVar)
 {
-    switch(aVar) {
-        VARSTR(NPNVxDisplay);
-        VARSTR(NPNVxtAppContext);
-        VARSTR(NPNVnetscapeWindow);
-        VARSTR(NPNVjavascriptEnabledBool);
-        VARSTR(NPNVasdEnabledBool);
-        VARSTR(NPNVisOfflineBool);
+  switch (aVar) {
+    VARSTR(NPNVxDisplay);
+    VARSTR(NPNVxtAppContext);
+    VARSTR(NPNVnetscapeWindow);
+    VARSTR(NPNVjavascriptEnabledBool);
+    VARSTR(NPNVasdEnabledBool);
+    VARSTR(NPNVisOfflineBool);
 
-        VARSTR(NPNVserviceManager);
-        VARSTR(NPNVDOMElement);
-        VARSTR(NPNVDOMWindow);
-        VARSTR(NPNVToolkit);
-        VARSTR(NPNVSupportsXEmbedBool);
+    VARSTR(NPNVserviceManager);
+    VARSTR(NPNVDOMElement);
+    VARSTR(NPNVDOMWindow);
+    VARSTR(NPNVToolkit);
+    VARSTR(NPNVSupportsXEmbedBool);
 
-        VARSTR(NPNVWindowNPObject);
+    VARSTR(NPNVWindowNPObject);
 
-        VARSTR(NPNVPluginElementNPObject);
+    VARSTR(NPNVPluginElementNPObject);
 
-        VARSTR(NPNVSupportsWindowless);
+    VARSTR(NPNVSupportsWindowless);
 
-        VARSTR(NPNVprivateModeBool);
-        VARSTR(NPNVdocumentOrigin);
+    VARSTR(NPNVprivateModeBool);
+    VARSTR(NPNVdocumentOrigin);
 
 #ifdef XP_WIN
-        VARSTR(NPNVaudioDeviceChangeDetails);
+    VARSTR(NPNVaudioDeviceChangeDetails);
 #endif
 
-    default: return "???";
-    }
+    default:
+      return "???";
+  }
 }
 #undef VARSTR
 
-inline bool IsPluginThread()
+inline bool
+IsPluginThread()
 {
   MessageLoop* loop = MessageLoop::current();
-  if (!loop)
-      return false;
+  if (!loop) return false;
   return (loop->type() == MessageLoop::TYPE_UI);
 }
 
-inline void AssertPluginThread()
+inline void
+AssertPluginThread()
 {
-  MOZ_RELEASE_ASSERT(IsPluginThread(), "Should be on the plugin's main thread!");
+  MOZ_RELEASE_ASSERT(IsPluginThread(),
+                     "Should be on the plugin's main thread!");
 }
 
-#define ENSURE_PLUGIN_THREAD(retval) \
-  PR_BEGIN_MACRO \
-    if (!IsPluginThread()) { \
-      NS_WARNING("Not running on the plugin's main thread!"); \
-      return (retval); \
-    } \
+#define ENSURE_PLUGIN_THREAD(retval)                        \
+  PR_BEGIN_MACRO                                            \
+  if (!IsPluginThread()) {                                  \
+    NS_WARNING("Not running on the plugin's main thread!"); \
+    return (retval);                                        \
+  }                                                         \
   PR_END_MACRO
 
-#define ENSURE_PLUGIN_THREAD_VOID() \
-  PR_BEGIN_MACRO \
-    if (!IsPluginThread()) { \
-      NS_WARNING("Not running on the plugin's main thread!"); \
-      return; \
-    } \
+#define ENSURE_PLUGIN_THREAD_VOID()                         \
+  PR_BEGIN_MACRO                                            \
+  if (!IsPluginThread()) {                                  \
+    NS_WARNING("Not running on the plugin's main thread!"); \
+    return;                                                 \
+  }                                                         \
   PR_END_MACRO
 
-void DeferNPObjectLastRelease(const NPNetscapeFuncs* f, NPObject* o);
-void DeferNPVariantLastRelease(const NPNetscapeFuncs* f, NPVariant* v);
+void
+DeferNPObjectLastRelease(const NPNetscapeFuncs* f, NPObject* o);
+void
+DeferNPVariantLastRelease(const NPNetscapeFuncs* f, NPVariant* v);
 
-inline bool IsDrawingModelDirect(int16_t aModel)
+inline bool
+IsDrawingModelDirect(int16_t aModel)
 {
-    return aModel == NPDrawingModelAsyncBitmapSurface
+  return aModel == NPDrawingModelAsyncBitmapSurface
 #if defined(XP_WIN)
-           || aModel == NPDrawingModelAsyncWindowsDXGISurface
+         || aModel == NPDrawingModelAsyncWindowsDXGISurface
 #endif
-           ;
+      ;
 }
 
 // in NPAPI, char* == nullptr is sometimes meaningful.  the following is
@@ -306,17 +330,16 @@ inline bool IsDrawingModelDirect(int16_t aModel)
 inline nsCString
 NullableString(const char* aString)
 {
-    if (!aString) {
-        return VoidCString();
-    }
-    return nsCString(aString);
+  if (!aString) {
+    return VoidCString();
+  }
+  return nsCString(aString);
 }
 
 inline const char*
 NullableStringGet(const nsCString& str)
 {
-  if (str.IsVoid())
-    return nullptr;
+  if (str.IsVoid()) return nullptr;
 
   return str.get();
 }
@@ -324,9 +347,9 @@ NullableStringGet(const nsCString& str)
 struct DeletingObjectEntry : public nsPtrHashKey<NPObject>
 {
   explicit DeletingObjectEntry(const NPObject* key)
-    : nsPtrHashKey<NPObject>(key)
-    , mDeleted(false)
-  { }
+      : nsPtrHashKey<NPObject>(key), mDeleted(false)
+  {
+  }
 
   bool mDeleted;
 };
@@ -337,7 +360,7 @@ struct DeletingObjectEntry : public nsPtrHashKey<NPObject>
 
 namespace IPC {
 
-template <>
+template<>
 struct ParamTraits<NPRect>
 {
   typedef NPRect paramType;
@@ -350,13 +373,13 @@ struct ParamTraits<NPRect>
     WriteParam(aMsg, aParam.right);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     uint16_t top, left, bottom, right;
-    if (ReadParam(aMsg, aIter, &top) &&
-        ReadParam(aMsg, aIter, &left) &&
-        ReadParam(aMsg, aIter, &bottom) &&
-        ReadParam(aMsg, aIter, &right)) {
+    if (ReadParam(aMsg, aIter, &top) && ReadParam(aMsg, aIter, &left) &&
+        ReadParam(aMsg, aIter, &bottom) && ReadParam(aMsg, aIter, &right)) {
       aResult->top = top;
       aResult->left = left;
       aResult->bottom = bottom;
@@ -368,12 +391,15 @@ struct ParamTraits<NPRect>
 
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
-    aLog->append(StringPrintf(L"[%u, %u, %u, %u]", aParam.top, aParam.left,
-                              aParam.bottom, aParam.right));
+    aLog->append(StringPrintf(L"[%u, %u, %u, %u]",
+                              aParam.top,
+                              aParam.left,
+                              aParam.bottom,
+                              aParam.right));
   }
 };
 
-template <>
+template<>
 struct ParamTraits<NPWindowType>
 {
   typedef NPWindowType paramType;
@@ -383,7 +409,9 @@ struct ParamTraits<NPWindowType>
     aMsg->WriteInt16(int16_t(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     int16_t result;
     if (aMsg->ReadInt16(aIter, &result)) {
@@ -399,7 +427,7 @@ struct ParamTraits<NPWindowType>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::NPRemoteWindow>
 {
   typedef mozilla::plugins::NPRemoteWindow paramType;
@@ -422,20 +450,19 @@ struct ParamTraits<mozilla::plugins::NPRemoteWindow>
 #endif
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     uint64_t window;
     int32_t x, y;
     uint32_t width, height;
     NPRect clipRect;
     NPWindowType type;
-    if (!(aMsg->ReadUInt64(aIter, &window) &&
-          ReadParam(aMsg, aIter, &x) &&
-          ReadParam(aMsg, aIter, &y) &&
-          ReadParam(aMsg, aIter, &width) &&
+    if (!(aMsg->ReadUInt64(aIter, &window) && ReadParam(aMsg, aIter, &x) &&
+          ReadParam(aMsg, aIter, &y) && ReadParam(aMsg, aIter, &width) &&
           ReadParam(aMsg, aIter, &height) &&
-          ReadParam(aMsg, aIter, &clipRect) &&
-          ReadParam(aMsg, aIter, &type)))
+          ReadParam(aMsg, aIter, &clipRect) && ReadParam(aMsg, aIter, &type)))
       return false;
 
 #if defined(MOZ_X11) && defined(XP_UNIX) && !defined(XP_MACOSX)
@@ -448,8 +475,7 @@ struct ParamTraits<mozilla::plugins::NPRemoteWindow>
 
 #if defined(XP_MACOSX) || defined(XP_WIN)
     double contentsScaleFactor;
-    if (!aMsg->ReadDouble(aIter, &contentsScaleFactor))
-      return false;
+    if (!aMsg->ReadDouble(aIter, &contentsScaleFactor)) return false;
 #endif
 
     aResult->window = window;
@@ -473,13 +499,16 @@ struct ParamTraits<mozilla::plugins::NPRemoteWindow>
   {
     aLog->append(StringPrintf(L"[%u, %d, %d, %u, %u, %d",
                               (unsigned long)aParam.window,
-                              aParam.x, aParam.y, aParam.width,
-                              aParam.height, (long)aParam.type));
+                              aParam.x,
+                              aParam.y,
+                              aParam.width,
+                              aParam.height,
+                              (long)aParam.type));
   }
 };
 
 #ifdef XP_MACOSX
-template <>
+template<>
 struct ParamTraits<NPNSString*>
 {
   typedef NPNSString* paramType;
@@ -504,16 +533,19 @@ struct ParamTraits<NPNSString*>
 
     // Attempt to get characters without any allocation/conversion.
     if (::CFStringGetCharactersPtr(cfString)) {
-      aMsg->WriteBytes(::CFStringGetCharactersPtr(cfString), length * sizeof(UniChar));
+      aMsg->WriteBytes(::CFStringGetCharactersPtr(cfString),
+                       length * sizeof(UniChar));
     } else {
-      UniChar *buffer = (UniChar*)moz_xmalloc(length * sizeof(UniChar));
+      UniChar* buffer = (UniChar*)moz_xmalloc(length * sizeof(UniChar));
       ::CFStringGetCharacters(cfString, ::CFRangeMake(0, length), buffer);
       aMsg->WriteBytes(buffer, length * sizeof(UniChar));
       free(buffer);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     bool haveString = false;
     if (!aMsg->ReadBool(aIter, &haveString)) {
@@ -541,9 +573,11 @@ struct ParamTraits<NPNSString*>
       }
     }
 
-    *aResult = (NPNSString*)::CFStringCreateWithBytes(kCFAllocatorDefault, (UInt8*)chars.get(),
+    *aResult = (NPNSString*)::CFStringCreateWithBytes(kCFAllocatorDefault,
+                                                      (UInt8*)chars.get(),
                                                       length * sizeof(UniChar),
-                                                      kCFStringEncodingUTF16, false);
+                                                      kCFStringEncodingUTF16,
+                                                      false);
     if (!*aResult) {
       return false;
     }
@@ -554,7 +588,7 @@ struct ParamTraits<NPNSString*>
 #endif
 
 #ifdef XP_MACOSX
-template <>
+template<>
 struct ParamTraits<NSCursorInfo>
 {
   typedef NSCursorInfo paramType;
@@ -581,7 +615,9 @@ struct ParamTraits<NSCursorInfo>
     free(buffer);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     NSCursorInfo::Type type;
     if (!aMsg->ReadInt(aIter, (int*)&type)) {
@@ -629,7 +665,11 @@ struct ParamTraits<NSCursorInfo>
     uint8_t* data = aParam.GetCustomImageData();
 
     aLog->append(StringPrintf(L"[%s, (%i %i), %u, %p]",
-                              typeName, hotSpotX, hotSpotY, dataLength, data));
+                              typeName,
+                              hotSpotX,
+                              hotSpotY,
+                              dataLength,
+                              data));
   }
 };
 #else
@@ -637,17 +677,21 @@ template<>
 struct ParamTraits<NSCursorInfo>
 {
   typedef NSCursorInfo paramType;
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
     MOZ_CRASH("NSCursorInfo isn't meaningful on this platform");
   }
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult) {
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
+  {
     MOZ_CRASH("NSCursorInfo isn't meaningful on this platform");
     return false;
   }
 };
-#endif // #ifdef XP_MACOSX
+#endif  // #ifdef XP_MACOSX
 
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::IPCByteRange>
 {
   typedef mozilla::plugins::IPCByteRange paramType;
@@ -658,7 +702,9 @@ struct ParamTraits<mozilla::plugins::IPCByteRange>
     WriteParam(aMsg, aParam.length);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     paramType p;
     if (ReadParam(aMsg, aIter, &p.offset) &&
@@ -670,7 +716,7 @@ struct ParamTraits<mozilla::plugins::IPCByteRange>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<NPNVariable>
 {
   typedef NPNVariable paramType;
@@ -680,7 +726,9 @@ struct ParamTraits<NPNVariable>
     WriteParam(aMsg, int(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     int intval;
     if (ReadParam(aMsg, aIter, &intval)) {
@@ -701,18 +749,18 @@ struct ParamTraits<NPNURLVariable>
     WriteParam(aMsg, int(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     int intval;
-    if (ReadParam(aMsg, aIter, &intval) &&
-        intval == NPNURLVProxy) {
+    if (ReadParam(aMsg, aIter, &intval) && intval == NPNURLVProxy) {
       *aResult = paramType(intval);
       return true;
     }
     return false;
   }
 };
-
 
 template<>
 struct ParamTraits<NPCoordinateSpace>
@@ -724,25 +772,27 @@ struct ParamTraits<NPCoordinateSpace>
     WriteParam(aMsg, int32_t(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     int32_t intval;
     if (ReadParam(aMsg, aIter, &intval)) {
       switch (intval) {
-      case NPCoordinateSpacePlugin:
-      case NPCoordinateSpaceWindow:
-      case NPCoordinateSpaceFlippedWindow:
-      case NPCoordinateSpaceScreen:
-      case NPCoordinateSpaceFlippedScreen:
-        *aResult = paramType(intval);
-        return true;
+        case NPCoordinateSpacePlugin:
+        case NPCoordinateSpaceWindow:
+        case NPCoordinateSpaceFlippedWindow:
+        case NPCoordinateSpaceScreen:
+        case NPCoordinateSpaceFlippedScreen:
+          *aResult = paramType(intval);
+          return true;
       }
     }
     return false;
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::NPAudioDeviceChangeDetailsIPC>
 {
   typedef mozilla::plugins::NPAudioDeviceChangeDetailsIPC paramType;
@@ -754,12 +804,13 @@ struct ParamTraits<mozilla::plugins::NPAudioDeviceChangeDetailsIPC>
     WriteParam(aMsg, aParam.defaultDevice);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     int32_t flow, role;
     std::wstring defaultDevice;
-    if (ReadParam(aMsg, aIter, &flow) &&
-        ReadParam(aMsg, aIter, &role) &&
+    if (ReadParam(aMsg, aIter, &flow) && ReadParam(aMsg, aIter, &role) &&
         ReadParam(aMsg, aIter, &defaultDevice)) {
       aResult->flow = flow;
       aResult->role = role;
@@ -771,13 +822,15 @@ struct ParamTraits<mozilla::plugins::NPAudioDeviceChangeDetailsIPC>
 
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
-    aLog->append(StringPrintf(L"[%d, %d, %S]", aParam.flow, aParam.role,
+    aLog->append(StringPrintf(L"[%d, %d, %S]",
+                              aParam.flow,
+                              aParam.role,
                               aParam.defaultDevice.c_str()));
   }
 };
 
 #ifdef XP_WIN
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::_OpenFileNameIPC>
 {
   typedef mozilla::plugins::_OpenFileNameIPC paramType;
@@ -804,7 +857,9 @@ struct ParamTraits<mozilla::plugins::_OpenFileNameIPC>
     WriteParam(aMsg, aParam.mFlagsEx);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (ReadParam(aMsg, aIter, &aResult->mHwndOwner) &&
         ReadParam(aMsg, aIter, &aResult->mFilter) &&
@@ -831,13 +886,15 @@ struct ParamTraits<mozilla::plugins::_OpenFileNameIPC>
 
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
-    aLog->append(StringPrintf(L"[%S, %S, %S, %S]", aParam.mFilter.c_str(),
-                              aParam.mCustomFilterIn.c_str(), aParam.mFile.c_str(),
+    aLog->append(StringPrintf(L"[%S, %S, %S, %S]",
+                              aParam.mFilter.c_str(),
+                              aParam.mCustomFilterIn.c_str(),
+                              aParam.mFile.c_str(),
                               aParam.mTitle.c_str()));
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::_OpenFileNameRetIPC>
 {
   typedef mozilla::plugins::_OpenFileNameRetIPC paramType;
@@ -851,7 +908,9 @@ struct ParamTraits<mozilla::plugins::_OpenFileNameRetIPC>
     WriteParam(aMsg, aParam.mFileExtension);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (ReadParam(aMsg, aIter, &aResult->mCustomFilterOut) &&
         ReadParam(aMsg, aIter, &aResult->mFile) &&
@@ -865,13 +924,16 @@ struct ParamTraits<mozilla::plugins::_OpenFileNameRetIPC>
 
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
-    aLog->append(StringPrintf(L"[%S, %S, %S, %d, %d]", aParam.mCustomFilterOut.c_str(),
-                              aParam.mFile.c_str(), aParam.mFileTitle.c_str(),
-                              aParam.mFileOffset, aParam.mFileExtension));
+    aLog->append(StringPrintf(L"[%S, %S, %S, %d, %d]",
+                              aParam.mCustomFilterOut.c_str(),
+                              aParam.mFile.c_str(),
+                              aParam.mFileTitle.c_str(),
+                              aParam.mFileOffset,
+                              aParam.mFileExtension));
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::GetFileNameFunc>
 {
   typedef mozilla::plugins::GetFileNameFunc paramType;
@@ -881,7 +943,9 @@ struct ParamTraits<mozilla::plugins::GetFileNameFunc>
     WriteParam(aMsg, static_cast<uint32_t>(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     uint32_t result;
     if (ReadParam(aMsg, aIter, &result)) {
@@ -894,13 +958,14 @@ struct ParamTraits<mozilla::plugins::GetFileNameFunc>
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
     aLog->append(StringPrintf(L"[%S]",
-                 aParam == mozilla::plugins::OPEN_FUNC ? "GetOpenFileName" : "GetSaveFileName"));
+                              aParam == mozilla::plugins::OPEN_FUNC
+                                  ? "GetOpenFileName"
+                                  : "GetSaveFileName"));
   }
 };
 #endif  // XP_WIN
 
 } /* namespace IPC */
-
 
 // Serializing NPEvents is completely platform-specific and can be rather
 // intricate depending on the platform.  So for readability we split it
@@ -909,15 +974,15 @@ struct ParamTraits<mozilla::plugins::GetFileNameFunc>
 // NB: these guards are based on those where struct NPEvent is defined
 // in npapi.h.  They should be kept in sync.
 #if defined(XP_MACOSX)
-#  include "mozilla/plugins/NPEventOSX.h"
+#include "mozilla/plugins/NPEventOSX.h"
 #elif defined(XP_WIN)
-#  include "mozilla/plugins/NPEventWindows.h"
+#include "mozilla/plugins/NPEventWindows.h"
 #elif defined(ANDROID)
-#  include "mozilla/plugins/NPEventAndroid.h"
+#include "mozilla/plugins/NPEventAndroid.h"
 #elif defined(XP_UNIX)
-#  include "mozilla/plugins/NPEventUnix.h"
+#include "mozilla/plugins/NPEventUnix.h"
 #else
-#  error Unsupported platform
+#error Unsupported platform
 #endif
 
 #endif /* DOM_PLUGINS_PLUGINMESSAGEUTILS_H */

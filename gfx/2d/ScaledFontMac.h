@@ -22,39 +22,48 @@ namespace gfx {
 
 class GlyphRenderingOptionsCG : public GlyphRenderingOptions
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(GlyphRenderingOptionsCG, override)
 
-  explicit GlyphRenderingOptionsCG(const Color &aFontSmoothingBackgroundColor)
-    : mFontSmoothingBackgroundColor(aFontSmoothingBackgroundColor)
-  {}
+  explicit GlyphRenderingOptionsCG(const Color& aFontSmoothingBackgroundColor)
+      : mFontSmoothingBackgroundColor(aFontSmoothingBackgroundColor)
+  {
+  }
 
-  const Color &FontSmoothingBackgroundColor() const { return mFontSmoothingBackgroundColor; }
+  const Color& FontSmoothingBackgroundColor() const
+  {
+    return mFontSmoothingBackgroundColor;
+  }
 
   virtual FontType GetType() const override { return FontType::MAC; }
 
-private:
+ private:
   Color mFontSmoothingBackgroundColor;
 };
 
 class ScaledFontMac : public ScaledFontBase
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(ScaledFontMac, override)
-  ScaledFontMac(CGFontRef aFont, const RefPtr<UnscaledFont>& aUnscaledFont, Float aSize, bool aOwnsFont = false);
+  ScaledFontMac(CGFontRef aFont,
+                const RefPtr<UnscaledFont>& aUnscaledFont,
+                Float aSize,
+                bool aOwnsFont = false);
   ~ScaledFontMac();
 
   FontType GetType() const override { return FontType::MAC; }
 #ifdef USE_SKIA
   SkTypeface* GetSkTypeface() override;
 #endif
-  already_AddRefed<Path> GetPathForGlyphs(const GlyphBuffer &aBuffer, const DrawTarget *aTarget) override;
+  already_AddRefed<Path> GetPathForGlyphs(const GlyphBuffer& aBuffer,
+                                          const DrawTarget* aTarget) override;
 
   bool GetFontInstanceData(FontInstanceDataOutput aCb, void* aBaton) override;
 
-  bool GetWRFontInstanceOptions(Maybe<wr::FontInstanceOptions>* aOutOptions,
-                                Maybe<wr::FontInstancePlatformOptions>* aOutPlatformOptions,
-                                std::vector<FontVariation>* aOutVariations) override;
+  bool GetWRFontInstanceOptions(
+      Maybe<wr::FontInstanceOptions>* aOutOptions,
+      Maybe<wr::FontInstancePlatformOptions>* aOutPlatformOptions,
+      std::vector<FontVariation>* aOutVariations) override;
 
   bool CanSerialize() override { return true; }
 
@@ -62,25 +71,25 @@ public:
   cairo_font_face_t* GetCairoFontFace() override;
 #endif
 
-private:
+ private:
   friend class DrawTargetSkia;
   CGFontRef mFont;
-  CTFontRef mCTFont; // only created if CTFontDrawGlyphs is available, otherwise null
+  CTFontRef
+      mCTFont;  // only created if CTFontDrawGlyphs is available, otherwise null
 
-  typedef void (CTFontDrawGlyphsFuncT)(CTFontRef,
-                                       const CGGlyph[], const CGPoint[],
-                                       size_t, CGContextRef);
+  typedef void(CTFontDrawGlyphsFuncT)(
+      CTFontRef, const CGGlyph[], const CGPoint[], size_t, CGContextRef);
 
   static bool sSymbolLookupDone;
 
-public:
+ public:
   // function pointer for CTFontDrawGlyphs, if available;
   // initialized the first time a ScaledFontMac is created,
   // so it will be valid by the time DrawTargetCG wants to use it
   static CTFontDrawGlyphsFuncT* CTFontDrawGlyphsPtr;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SCALEDFONTMAC_H_ */

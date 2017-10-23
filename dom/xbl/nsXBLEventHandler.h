@@ -18,36 +18,33 @@ class nsXBLPrototypeHandler;
 
 namespace mozilla {
 struct IgnoreModifierState;
-} // namespace mozilla
+}  // namespace mozilla
 
 class nsXBLEventHandler : public nsIDOMEventListener
 {
-public:
+ public:
   explicit nsXBLEventHandler(nsXBLPrototypeHandler* aHandler);
 
   NS_DECL_ISUPPORTS
 
   NS_DECL_NSIDOMEVENTLISTENER
 
-protected:
+ protected:
   virtual ~nsXBLEventHandler();
   nsXBLPrototypeHandler* mProtoHandler;
 
-private:
+ private:
   nsXBLEventHandler();
-  virtual bool EventMatched(nsIDOMEvent* aEvent)
-  {
-    return true;
-  }
+  virtual bool EventMatched(nsIDOMEvent* aEvent) { return true; }
 };
 
 class nsXBLMouseEventHandler : public nsXBLEventHandler
 {
-public:
+ public:
   explicit nsXBLMouseEventHandler(nsXBLPrototypeHandler* aHandler);
   virtual ~nsXBLMouseEventHandler();
 
-private:
+ private:
   bool EventMatched(nsIDOMEvent* aEvent) override;
 };
 
@@ -55,7 +52,7 @@ class nsXBLKeyEventHandler : public nsIDOMEventListener
 {
   typedef mozilla::IgnoreModifierState IgnoreModifierState;
 
-public:
+ public:
   nsXBLKeyEventHandler(nsAtom* aEventType, uint8_t aPhase, uint8_t aType);
 
   NS_DECL_ISUPPORTS
@@ -72,20 +69,11 @@ public:
     return (mEventType == aEventType && mPhase == aPhase && mType == aType);
   }
 
-  void GetEventName(nsAString& aString) const
-  {
-    mEventType->ToString(aString);
-  }
+  void GetEventName(nsAString& aString) const { mEventType->ToString(aString); }
 
-  uint8_t GetPhase() const
-  {
-    return mPhase;
-  }
+  uint8_t GetPhase() const { return mPhase; }
 
-  uint8_t GetType() const
-  {
-    return mType;
-  }
+  uint8_t GetType() const { return mType; }
 
   void SetIsBoundToChrome(bool aIsBoundToChrome)
   {
@@ -97,11 +85,12 @@ public:
     mUsingContentXBLScope = aUsingContentXBLScope;
   }
 
-private:
+ private:
   nsXBLKeyEventHandler();
   virtual ~nsXBLKeyEventHandler();
 
-  bool ExecuteMatchedHandlers(nsIDOMKeyEvent* aEvent, uint32_t aCharCode,
+  bool ExecuteMatchedHandlers(nsIDOMKeyEvent* aEvent,
+                              uint32_t aCharCode,
                               const IgnoreModifierState& aIgnoreModifierState);
 
   nsTArray<nsXBLPrototypeHandler*> mProtoHandlers;
@@ -113,7 +102,6 @@ private:
 };
 
 already_AddRefed<nsXBLEventHandler>
-NS_NewXBLEventHandler(nsXBLPrototypeHandler* aHandler,
-                      nsAtom* aEventType);
+NS_NewXBLEventHandler(nsXBLPrototypeHandler* aHandler, nsAtom* aEventType);
 
 #endif

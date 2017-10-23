@@ -6,7 +6,8 @@
 
 #include "mozilla/Array.h"
 
-void TestInitialValueByConstructor()
+void
+TestInitialValueByConstructor()
 {
   using namespace mozilla;
   // Style 1

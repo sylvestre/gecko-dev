@@ -23,8 +23,9 @@ using namespace mozilla;
 using namespace mozilla::layers;
 
 #ifdef DEBUG
-class nsLayoutDebugger : public nsILayoutDebugger {
-public:
+class nsLayoutDebugger : public nsILayoutDebugger
+{
+ public:
   nsLayoutDebugger();
 
   NS_DECL_ISUPPORTS
@@ -37,7 +38,7 @@ public:
 
   NS_IMETHOD GetShowEventTargetFrameBorder(bool* aResult) override;
 
-protected:
+ protected:
   virtual ~nsLayoutDebugger();
 };
 
@@ -52,13 +53,9 @@ NS_NewLayoutDebugger(nsILayoutDebugger** aResult)
   return it->QueryInterface(NS_GET_IID(nsILayoutDebugger), (void**)aResult);
 }
 
-nsLayoutDebugger::nsLayoutDebugger()
-{
-}
+nsLayoutDebugger::nsLayoutDebugger() {}
 
-nsLayoutDebugger::~nsLayoutDebugger()
-{
-}
+nsLayoutDebugger::~nsLayoutDebugger() {}
 
 NS_IMPL_ISUPPORTS(nsLayoutDebugger, nsILayoutDebugger)
 
@@ -92,18 +89,27 @@ nsLayoutDebugger::GetShowEventTargetFrameBorder(bool* aResult)
 
 #endif
 
-std::ostream& operator<<(std::ostream& os, const nsPrintfCString& rhs) {
+std::ostream&
+operator<<(std::ostream& os, const nsPrintfCString& rhs)
+{
   os << rhs.get();
   return os;
 }
 
 static void
-PrintDisplayListTo(nsDisplayListBuilder* aBuilder, const nsDisplayList& aList,
-                   std::stringstream& aStream, uint32_t aIndent, bool aDumpHtml);
+PrintDisplayListTo(nsDisplayListBuilder* aBuilder,
+                   const nsDisplayList& aList,
+                   std::stringstream& aStream,
+                   uint32_t aIndent,
+                   bool aDumpHtml);
 
 static void
-PrintDisplayItemTo(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem,
-                   std::stringstream& aStream, uint32_t aIndent, bool aDumpSublist, bool aDumpHtml)
+PrintDisplayItemTo(nsDisplayListBuilder* aBuilder,
+                   nsDisplayItem* aItem,
+                   std::stringstream& aStream,
+                   uint32_t aIndent,
+                   bool aDumpSublist,
+                   bool aDumpHtml)
 {
   std::stringstream ss;
 
@@ -125,8 +131,8 @@ PrintDisplayItemTo(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem,
       contentData.AppendLiteral(" id:");
       contentData.Append(tmp);
     }
-    const nsAttrValue* classes = content->IsElement() ?
-      content->AsElement()->GetClasses() : nullptr;
+    const nsAttrValue* classes =
+        content->IsElement() ? content->AsElement()->GetClasses() : nullptr;
     if (classes) {
       classes->ToString(tmp);
       contentData.AppendLiteral(" class:");
@@ -135,7 +141,8 @@ PrintDisplayItemTo(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem,
   }
   bool snap;
   nsRect rect = aItem->GetBounds(aBuilder, &snap);
-  nsRect layerRect = rect - (*aItem->GetAnimatedGeometryRoot())->GetOffsetToCrossDoc(aItem->ReferenceFrame());
+  nsRect layerRect = rect - (*aItem->GetAnimatedGeometryRoot())
+                                ->GetOffsetToCrossDoc(aItem->ReferenceFrame());
   nsRect vis = aItem->GetVisibleRect();
   nsRect component = aItem->GetComponentAlphaBounds(aBuilder);
   nsDisplayList* list = aItem->GetChildren();
@@ -147,26 +154,49 @@ PrintDisplayItemTo(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem,
     nsCString string(aItem->Name());
     string.Append('-');
     string.AppendInt((uint64_t)aItem);
-    aStream << nsPrintfCString("<a href=\"javascript:ViewImage('%s')\">", string.BeginReading());
+    aStream << nsPrintfCString("<a href=\"javascript:ViewImage('%s')\">",
+                               string.BeginReading());
   }
 #endif
 
-  aStream << nsPrintfCString("%s p=0x%p f=0x%p(%s) key=%d %sbounds(%d,%d,%d,%d) layerBounds(%d,%d,%d,%d) visible(%d,%d,%d,%d) componentAlpha(%d,%d,%d,%d) clip(%s) asr(%s) clipChain(%s)%s ref=0x%p agr=0x%p",
-          aItem->Name(), aItem, (void*)f, NS_ConvertUTF16toUTF8(contentData).get(), aItem->GetPerFrameKey(),
-          (aItem->ZIndex() ? nsPrintfCString("z=%d ", aItem->ZIndex()).get() : ""),
-          rect.x, rect.y, rect.width, rect.height,
-          layerRect.x, layerRect.y, layerRect.width, layerRect.height,
-          vis.x, vis.y, vis.width, vis.height,
-          component.x, component.y, component.width, component.height,
-          clip.ToString().get(),
-          ActiveScrolledRoot::ToString(aItem->GetActiveScrolledRoot()).get(),
-          DisplayItemClipChain::ToString(aItem->GetClipChain()).get(),
-          aItem->IsUniform(aBuilder) ? " uniform" : "",
-          aItem->ReferenceFrame(), aItem->GetAnimatedGeometryRoot()->mFrame);
+  aStream << nsPrintfCString(
+      "%s p=0x%p f=0x%p(%s) key=%d %sbounds(%d,%d,%d,%d) "
+      "layerBounds(%d,%d,%d,%d) visible(%d,%d,%d,%d) "
+      "componentAlpha(%d,%d,%d,%d) clip(%s) asr(%s) clipChain(%s)%s ref=0x%p "
+      "agr=0x%p",
+      aItem->Name(),
+      aItem,
+      (void*)f,
+      NS_ConvertUTF16toUTF8(contentData).get(),
+      aItem->GetPerFrameKey(),
+      (aItem->ZIndex() ? nsPrintfCString("z=%d ", aItem->ZIndex()).get() : ""),
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+      layerRect.x,
+      layerRect.y,
+      layerRect.width,
+      layerRect.height,
+      vis.x,
+      vis.y,
+      vis.width,
+      vis.height,
+      component.x,
+      component.y,
+      component.width,
+      component.height,
+      clip.ToString().get(),
+      ActiveScrolledRoot::ToString(aItem->GetActiveScrolledRoot()).get(),
+      DisplayItemClipChain::ToString(aItem->GetClipChain()).get(),
+      aItem->IsUniform(aBuilder) ? " uniform" : "",
+      aItem->ReferenceFrame(),
+      aItem->GetAnimatedGeometryRoot()->mFrame);
 
   for (auto iter = opaque.RectIter(); !iter.Done(); iter.Next()) {
     const nsRect& r = iter.Get();
-    aStream << nsPrintfCString(" (opaque %d,%d,%d,%d)", r.x, r.y, r.width, r.height);
+    aStream << nsPrintfCString(
+        " (opaque %d,%d,%d,%d)", r.x, r.y, r.width, r.height);
   }
 
   const auto& willChange = aItem->Frame()->StyleDisplay()->mWillChange;
@@ -193,7 +223,8 @@ PrintDisplayItemTo(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem,
   DisplayItemData* data = mozilla::FrameLayerBuilder::GetOldDataFor(aItem);
   if (data && data->GetLayer()) {
     if (aDumpHtml) {
-      aStream << nsPrintfCString(" <a href=\"#%p\">layer=%p</a>", data->GetLayer(), data->GetLayer());
+      aStream << nsPrintfCString(
+          " <a href=\"#%p\">layer=%p</a>", data->GetLayer(), data->GetLayer());
     } else {
       aStream << nsPrintfCString(" layer=0x%p", data->GetLayer());
     }
@@ -222,13 +253,16 @@ PrintDisplayItemTo(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem,
 #endif
 
   if (aDumpSublist && list) {
-    PrintDisplayListTo(aBuilder, *list, aStream, aIndent+1, aDumpHtml);
+    PrintDisplayListTo(aBuilder, *list, aStream, aIndent + 1, aDumpHtml);
   }
 }
 
 static void
-PrintDisplayListTo(nsDisplayListBuilder* aBuilder, const nsDisplayList& aList,
-                   std::stringstream& aStream, uint32_t aIndent, bool aDumpHtml)
+PrintDisplayListTo(nsDisplayListBuilder* aBuilder,
+                   const nsDisplayList& aList,
+                   std::stringstream& aStream,
+                   uint32_t aIndent,
+                   bool aDumpHtml)
 {
   if (aDumpHtml) {
     aStream << "<ul>";
@@ -270,7 +304,8 @@ PrintDisplayItemToStdout(nsDisplayListBuilder* aBuilder, nsDisplayItem* aItem)
 }
 
 void
-PrintDisplayListToStdout(nsDisplayListBuilder* aBuilder, const nsDisplayList& aList)
+PrintDisplayListToStdout(nsDisplayListBuilder* aBuilder,
+                         const nsDisplayList& aList)
 {
   std::stringstream stream;
   PrintDisplayListTo(aBuilder, aList, stream, 0, false);
@@ -304,12 +339,27 @@ nsFrame::PrintDisplayListSet(nsDisplayListBuilder* aBuilder,
   if (aDumpHtml) {
     aStream << "<ul>";
   }
-  PrintDisplayListSetItem(aBuilder, "[BorderBackground]", *(aSet.BorderBackground()), aStream, aDumpHtml);
-  PrintDisplayListSetItem(aBuilder, "[BlockBorderBackgrounds]", *(aSet.BlockBorderBackgrounds()), aStream, aDumpHtml);
-  PrintDisplayListSetItem(aBuilder, "[Floats]", *(aSet.Floats()), aStream, aDumpHtml);
-  PrintDisplayListSetItem(aBuilder, "[PositionedDescendants]", *(aSet.PositionedDescendants()), aStream, aDumpHtml);
-  PrintDisplayListSetItem(aBuilder, "[Outlines]", *(aSet.Outlines()), aStream, aDumpHtml);
-  PrintDisplayListSetItem(aBuilder, "[Content]", *(aSet.Content()), aStream, aDumpHtml);
+  PrintDisplayListSetItem(aBuilder,
+                          "[BorderBackground]",
+                          *(aSet.BorderBackground()),
+                          aStream,
+                          aDumpHtml);
+  PrintDisplayListSetItem(aBuilder,
+                          "[BlockBorderBackgrounds]",
+                          *(aSet.BlockBorderBackgrounds()),
+                          aStream,
+                          aDumpHtml);
+  PrintDisplayListSetItem(
+      aBuilder, "[Floats]", *(aSet.Floats()), aStream, aDumpHtml);
+  PrintDisplayListSetItem(aBuilder,
+                          "[PositionedDescendants]",
+                          *(aSet.PositionedDescendants()),
+                          aStream,
+                          aDumpHtml);
+  PrintDisplayListSetItem(
+      aBuilder, "[Outlines]", *(aSet.Outlines()), aStream, aDumpHtml);
+  PrintDisplayListSetItem(
+      aBuilder, "[Content]", *(aSet.Content()), aStream, aDumpHtml);
   if (aDumpHtml) {
     aStream << "</ul>";
   }

@@ -14,9 +14,9 @@
 #include "xpcpublic.h"
 
 using namespace mozilla;
-using mozilla::ipc::TestShellParent;
-using mozilla::ipc::TestShellCommandParent;
 using mozilla::ipc::PTestShellCommandParent;
+using mozilla::ipc::TestShellCommandParent;
+using mozilla::ipc::TestShellParent;
 
 void
 TestShellParent::ActorDestroy(ActorDestroyReason aWhy)
@@ -42,15 +42,14 @@ TestShellParent::CommandDone(TestShellCommandParent* command,
                              const nsString& aResponse)
 {
   // XXX what should happen if the callback fails?
-  /*bool ok = */command->RunCallback(aResponse);
+  /*bool ok = */ command->RunCallback(aResponse);
   command->ReleaseCallback();
 
   return true;
 }
 
 bool
-TestShellCommandParent::SetCallback(JSContext* aCx,
-                                    const JS::Value& aCallback)
+TestShellCommandParent::SetCallback(JSContext* aCx, const JS::Value& aCallback)
 {
   if (!mCallback.initialized()) {
     mCallback.init(aCx, aCallback);
@@ -80,7 +79,8 @@ TestShellCommandParent::RunCallback(const nsString& aResponse)
 
   JS::Rooted<JS::Value> rval(cx);
   JS::Rooted<JS::Value> callback(cx, mCallback);
-  bool ok = JS_CallFunctionValue(cx, global, callback, JS::HandleValueArray(strVal), &rval);
+  bool ok = JS_CallFunctionValue(
+      cx, global, callback, JS::HandleValueArray(strVal), &rval);
   NS_ENSURE_TRUE(ok, false);
 
   return true;
@@ -95,8 +95,7 @@ TestShellCommandParent::ReleaseCallback()
 bool
 TestShellCommandParent::ExecuteCallback(const nsString& aResponse)
 {
-  return static_cast<TestShellParent*>(Manager())->CommandDone(
-      this, aResponse);
+  return static_cast<TestShellParent*>(Manager())->CommandDone(this, aResponse);
 }
 
 void

@@ -32,21 +32,20 @@
 #include "jscompartmentinlines.h"
 
 #ifndef JIT_SPEW_DIR
-# if defined(_WIN32)
-#  define JIT_SPEW_DIR "."
-# elif defined(__ANDROID__)
-#  define JIT_SPEW_DIR "/data/local/tmp"
-# else
-#  define JIT_SPEW_DIR "/tmp"
-# endif
+#if defined(_WIN32)
+#define JIT_SPEW_DIR "."
+#elif defined(__ANDROID__)
+#define JIT_SPEW_DIR "/data/local/tmp"
+#else
+#define JIT_SPEW_DIR "/tmp"
+#endif
 #endif
 
 using namespace js;
 using namespace js::jit;
 
-class IonSpewer
-{
-  private:
+class IonSpewer {
+   private:
     Mutex outputLock_;
     Fprinter c1Output_;
     Fprinter jsonOutput_;
@@ -56,27 +55,20 @@ class IonSpewer
 
     void release();
 
-  public:
+   public:
     IonSpewer()
-      : outputLock_(mutexid::IonSpewer),
-        firstFunction_(false),
-        asyncLogging_(false),
-        inited_(false)
-    { }
+        : outputLock_(mutexid::IonSpewer),
+          firstFunction_(false),
+          asyncLogging_(false),
+          inited_(false) {}
 
     // File output is terminated safely upon destruction.
     ~IonSpewer();
 
     bool init();
-    bool isEnabled() {
-        return inited_;
-    }
-    void setAsyncLogging(bool incremental) {
-        asyncLogging_ = incremental;
-    }
-    bool getAsyncLogging() {
-        return asyncLogging_;
-    }
+    bool isEnabled() { return inited_; }
+    void setAsyncLogging(bool incremental) { asyncLogging_ = incremental; }
+    bool getAsyncLogging() { return asyncLogging_; }
 
     void beginFunction();
     void spewPass(GraphSpewer* gs);
@@ -91,32 +83,26 @@ static_assert(JitSpew_Terminator <= 64, "Increase the size of the LoggingBits gl
 static uint64_t LoggingBits = 0;
 static mozilla::Atomic<uint32_t, mozilla::Relaxed> filteredOutCompilations(0);
 
-static const char * const ChannelNames[] =
-{
+static const char* const ChannelNames[] = {
 #define JITSPEW_CHANNEL(name) #name,
     JITSPEW_CHANNEL_LIST(JITSPEW_CHANNEL)
 #undef JITSPEW_CHANNEL
 };
 
-static size_t ChannelIndentLevel[] =
-{
+static size_t ChannelIndentLevel[] = {
 #define JITSPEW_CHANNEL(name) 0,
     JITSPEW_CHANNEL_LIST(JITSPEW_CHANNEL)
 #undef JITSPEW_CHANNEL
 };
 
-static bool
-FilterContainsLocation(JSScript* function)
-{
+static bool FilterContainsLocation(JSScript* function) {
     static const char* filter = getenv("IONFILTER");
 
     // If there is no filter we accept all outputs.
-    if (!filter || !filter[0])
-        return true;
+    if (!filter || !filter[0]) return true;
 
     // Disable wasm output when filter is set.
-    if (!function)
-        return false;
+    if (!function) return false;
 
     const char* filename = function->filename();
     const size_t line = function->lineno();
@@ -124,12 +110,10 @@ FilterContainsLocation(JSScript* function)
     const char* index = strstr(filter, filename);
     while (index) {
         if (index == filter || index[-1] == ',') {
-            if (index[filelen] == 0 || index[filelen] == ',')
-                return true;
+            if (index[filelen] == 0 || index[filelen] == ',') return true;
             if (index[filelen] == ':' && line != size_t(-1)) {
                 size_t read_line = strtoul(&index[filelen + 1], nullptr, 10);
-                if (read_line == line)
-                    return true;
+                if (read_line == line) return true;
             }
         }
         index = strstr(index + filelen, filename);
@@ -137,42 +121,31 @@ FilterContainsLocation(JSScript* function)
     return false;
 }
 
-void
-jit::EnableIonDebugSyncLogging()
-{
+void jit::EnableIonDebugSyncLogging() {
     ionspewer.init();
     ionspewer.setAsyncLogging(false);
     EnableChannel(JitSpew_IonSyncLogs);
 }
 
-void
-jit::EnableIonDebugAsyncLogging()
-{
+void jit::EnableIonDebugAsyncLogging() {
     ionspewer.init();
     ionspewer.setAsyncLogging(true);
 }
 
-void
-IonSpewer::release()
-{
-    if (c1Output_.isInitialized())
-        c1Output_.finish();
-    if (jsonOutput_.isInitialized())
-        jsonOutput_.finish();
+void IonSpewer::release() {
+    if (c1Output_.isInitialized()) c1Output_.finish();
+    if (jsonOutput_.isInitialized()) jsonOutput_.finish();
     inited_ = false;
 }
 
-bool
-IonSpewer::init()
-{
-    if (inited_)
-        return true;
+bool IonSpewer::init() {
+    if (inited_) return true;
 
     const size_t bufferLength = 256;
     char c1Buffer[bufferLength];
     char jsonBuffer[bufferLength];
-    const char *c1Filename = JIT_SPEW_DIR "/ion.cfg";
-    const char *jsonFilename = JIT_SPEW_DIR "/ion.json";
+    const char* c1Filename = JIT_SPEW_DIR "/ion.cfg";
+    const char* jsonFilename = JIT_SPEW_DIR "/ion.json";
 
     const char* usePid = getenv("ION_SPEW_BY_PID");
     if (usePid && *usePid != 0) {
@@ -193,9 +166,7 @@ IonSpewer::init()
         c1Filename = c1Buffer;
     }
 
-    if (!c1Output_.init(c1Filename) ||
-        !jsonOutput_.init(jsonFilename))
-    {
+    if (!c1Output_.init(c1Filename) || !jsonOutput_.init(jsonFilename)) {
         release();
         return false;
     }
@@ -207,62 +178,48 @@ IonSpewer::init()
     return true;
 }
 
-void
-IonSpewer::beginFunction()
-{
+void IonSpewer::beginFunction() {
     // If we are doing a synchronous logging then we spew everything as we go,
     // as this is useful in case of failure during the compilation. On the other
     // hand, it is recommended to disable off thread compilation.
     if (!getAsyncLogging() && !firstFunction_) {
         LockGuard<Mutex> guard(outputLock_);
-        jsonOutput_.put(","); // separate functions
+        jsonOutput_.put(",");  // separate functions
     }
 }
 
-void
-IonSpewer::spewPass(GraphSpewer* gs)
-{
+void IonSpewer::spewPass(GraphSpewer* gs) {
     if (!getAsyncLogging()) {
         LockGuard<Mutex> guard(outputLock_);
         gs->dump(c1Output_, jsonOutput_);
     }
 }
 
-void
-IonSpewer::endFunction(GraphSpewer* gs)
-{
+void IonSpewer::endFunction(GraphSpewer* gs) {
     LockGuard<Mutex> guard(outputLock_);
-    if (getAsyncLogging() && !firstFunction_)
-        jsonOutput_.put(","); // separate functions
+    if (getAsyncLogging() && !firstFunction_) jsonOutput_.put(",");  // separate functions
 
     gs->dump(c1Output_, jsonOutput_);
     firstFunction_ = false;
 }
 
-IonSpewer::~IonSpewer()
-{
-    if (!inited_)
-        return;
+IonSpewer::~IonSpewer() {
+    if (!inited_) return;
 
     jsonOutput_.printf("\n]}\n");
     release();
 }
 
-GraphSpewer::GraphSpewer(TempAllocator *alloc)
-  : graph_(nullptr),
-    c1Printer_(alloc->lifoAlloc()),
-    jsonPrinter_(alloc->lifoAlloc()),
-    c1Spewer_(c1Printer_),
-    jsonSpewer_(jsonPrinter_)
-{
-}
+GraphSpewer::GraphSpewer(TempAllocator* alloc)
+    : graph_(nullptr),
+      c1Printer_(alloc->lifoAlloc()),
+      jsonPrinter_(alloc->lifoAlloc()),
+      c1Spewer_(c1Printer_),
+      jsonSpewer_(jsonPrinter_) {}
 
-void
-GraphSpewer::init(MIRGraph* graph, JSScript* function)
-{
+void GraphSpewer::init(MIRGraph* graph, JSScript* function) {
     MOZ_ASSERT(!isSpewing());
-    if (!ionspewer.isEnabled())
-        return;
+    if (!ionspewer.isEnabled()) return;
 
     if (!FilterContainsLocation(function)) {
         // filter out logs during the compilation.
@@ -275,11 +232,8 @@ GraphSpewer::init(MIRGraph* graph, JSScript* function)
     MOZ_ASSERT(isSpewing());
 }
 
-void
-GraphSpewer::beginFunction(JSScript* function)
-{
-    if (!isSpewing())
-        return;
+void GraphSpewer::beginFunction(JSScript* function) {
+    if (!isSpewing()) return;
 
     c1Spewer_.beginFunction(graph_, function);
     jsonSpewer_.beginFunction(function);
@@ -287,11 +241,8 @@ GraphSpewer::beginFunction(JSScript* function)
     ionspewer.beginFunction();
 }
 
-void
-GraphSpewer::spewPass(const char* pass)
-{
-    if (!isSpewing())
-        return;
+void GraphSpewer::spewPass(const char* pass) {
+    if (!isSpewing()) return;
 
     c1Spewer_.spewPass(pass);
 
@@ -310,11 +261,8 @@ GraphSpewer::spewPass(const char* pass)
         oomUnsafe.crash("Could not ensure enough ballast space after spewing graph information.");
 }
 
-void
-GraphSpewer::spewPass(const char* pass, BacktrackingAllocator* ra)
-{
-    if (!isSpewing())
-        return;
+void GraphSpewer::spewPass(const char* pass, BacktrackingAllocator* ra) {
+    if (!isSpewing()) return;
 
     c1Spewer_.spewPass(pass);
     c1Spewer_.spewRanges(pass, ra);
@@ -328,11 +276,8 @@ GraphSpewer::spewPass(const char* pass, BacktrackingAllocator* ra)
     ionspewer.spewPass(this);
 }
 
-void
-GraphSpewer::endFunction()
-{
-    if (!ionspewer.isEnabled())
-        return;
+void GraphSpewer::endFunction() {
+    if (!ionspewer.isEnabled()) return;
 
     if (!isSpewing()) {
         MOZ_ASSERT(filteredOutCompilations != 0);
@@ -347,9 +292,7 @@ GraphSpewer::endFunction()
     graph_ = nullptr;
 }
 
-void
-GraphSpewer::dump(Fprinter& c1Out, Fprinter& jsonOut)
-{
+void GraphSpewer::dump(Fprinter& c1Out, Fprinter& jsonOut) {
     if (!c1Printer_.hadOutOfMemory()) {
         c1Printer_.exportInto(c1Out);
         c1Out.flush();
@@ -364,30 +307,20 @@ GraphSpewer::dump(Fprinter& c1Out, Fprinter& jsonOut)
     jsonPrinter_.clear();
 }
 
-void
-jit::SpewBeginFunction(MIRGenerator* mir, JSScript* function)
-{
+void jit::SpewBeginFunction(MIRGenerator* mir, JSScript* function) {
     MIRGraph* graph = &mir->graph();
     mir->graphSpewer().init(graph, function);
     mir->graphSpewer().beginFunction(function);
 }
 
-AutoSpewEndFunction::~AutoSpewEndFunction()
-{
-    mir_->graphSpewer().endFunction();
-}
+AutoSpewEndFunction::~AutoSpewEndFunction() { mir_->graphSpewer().endFunction(); }
 
-Fprinter&
-jit::JitSpewPrinter()
-{
+Fprinter& jit::JitSpewPrinter() {
     static Fprinter out;
     return out;
 }
 
-
-static bool
-ContainsFlag(const char* str, const char* flag)
-{
+static bool ContainsFlag(const char* str, const char* flag) {
     size_t flaglen = strlen(flag);
     const char* index = strstr(str, flag);
     while (index) {
@@ -398,15 +331,11 @@ ContainsFlag(const char* str, const char* flag)
     return false;
 }
 
-void
-jit::CheckLogging()
-{
-    if (LoggingChecked)
-        return;
+void jit::CheckLogging() {
+    if (LoggingChecked) return;
     LoggingChecked = true;
     const char* env = getenv("IONFLAGS");
-    if (!env)
-        return;
+    if (!env) return;
     if (strstr(env, "help")) {
         fflush(nullptr);
         printf(
@@ -439,10 +368,11 @@ jit::CheckLogging()
             "  range         Range Analysis\n"
             "  unroll        Loop unrolling\n"
             "  logs          C1 and JSON visualization logging\n"
-            "  logs-sync     Same as logs, but flushes between each pass (sync. compiled functions only).\n"
+            "  logs-sync     Same as logs, but flushes between each pass (sync. compiled "
+            "functions only).\n"
             "  profiling     Profiling-related information\n"
             "  trackopts     Optimization tracking information gathered by the Gecko profiler. "
-                            "(Note: call enableGeckoProfiling() in your script to enable it).\n"
+            "(Note: call enableGeckoProfiling() in your script to enable it).\n"
             "  trackopts-ext Encoding information about optimization tracking\n"
             "  dump-mir-expr Dump the MIR expressions\n"
             "  cfg           Control flow graph generation\n"
@@ -457,96 +387,55 @@ jit::CheckLogging()
             "  bl-bails      Baseline bailouts\n"
             "  bl-dbg-osr    Baseline debug mode on stack recompile messages\n"
             "  bl-all        All baseline spew\n"
-            "\n"
-        );
+            "\n");
         exit(0);
         /*NOTREACHED*/
     }
-    if (ContainsFlag(env, "aborts"))
-        EnableChannel(JitSpew_IonAbort);
-    if (ContainsFlag(env, "prune"))
-        EnableChannel(JitSpew_Prune);
-    if (ContainsFlag(env, "escape"))
-        EnableChannel(JitSpew_Escape);
-    if (ContainsFlag(env, "alias"))
-        EnableChannel(JitSpew_Alias);
-    if (ContainsFlag(env, "alias-sum"))
-        EnableChannel(JitSpew_AliasSummaries);
-    if (ContainsFlag(env, "scripts"))
-        EnableChannel(JitSpew_IonScripts);
-    if (ContainsFlag(env, "mir"))
-        EnableChannel(JitSpew_IonMIR);
-    if (ContainsFlag(env, "gvn"))
-        EnableChannel(JitSpew_GVN);
-    if (ContainsFlag(env, "range"))
-        EnableChannel(JitSpew_Range);
-    if (ContainsFlag(env, "unroll"))
-        EnableChannel(JitSpew_Unrolling);
-    if (ContainsFlag(env, "licm"))
-        EnableChannel(JitSpew_LICM);
-    if (ContainsFlag(env, "flac"))
-        EnableChannel(JitSpew_FLAC);
-    if (ContainsFlag(env, "eaa"))
-        EnableChannel(JitSpew_EAA);
-    if (ContainsFlag(env, "sincos"))
-        EnableChannel(JitSpew_Sincos);
-    if (ContainsFlag(env, "sink"))
-        EnableChannel(JitSpew_Sink);
-    if (ContainsFlag(env, "regalloc"))
-        EnableChannel(JitSpew_RegAlloc);
-    if (ContainsFlag(env, "inline"))
-        EnableChannel(JitSpew_Inlining);
-    if (ContainsFlag(env, "snapshots"))
-        EnableChannel(JitSpew_IonSnapshots);
-    if (ContainsFlag(env, "codegen"))
-        EnableChannel(JitSpew_Codegen);
-    if (ContainsFlag(env, "bailouts"))
-        EnableChannel(JitSpew_IonBailouts);
-    if (ContainsFlag(env, "osi"))
-        EnableChannel(JitSpew_IonInvalidate);
-    if (ContainsFlag(env, "caches"))
-        EnableChannel(JitSpew_IonIC);
-    if (ContainsFlag(env, "safepoints"))
-        EnableChannel(JitSpew_Safepoints);
-    if (ContainsFlag(env, "pools"))
-        EnableChannel(JitSpew_Pools);
-    if (ContainsFlag(env, "cacheflush"))
-        EnableChannel(JitSpew_CacheFlush);
-    if (ContainsFlag(env, "logs"))
-        EnableIonDebugAsyncLogging();
-    if (ContainsFlag(env, "logs-sync"))
-        EnableIonDebugSyncLogging();
-    if (ContainsFlag(env, "profiling"))
-        EnableChannel(JitSpew_Profiling);
+    if (ContainsFlag(env, "aborts")) EnableChannel(JitSpew_IonAbort);
+    if (ContainsFlag(env, "prune")) EnableChannel(JitSpew_Prune);
+    if (ContainsFlag(env, "escape")) EnableChannel(JitSpew_Escape);
+    if (ContainsFlag(env, "alias")) EnableChannel(JitSpew_Alias);
+    if (ContainsFlag(env, "alias-sum")) EnableChannel(JitSpew_AliasSummaries);
+    if (ContainsFlag(env, "scripts")) EnableChannel(JitSpew_IonScripts);
+    if (ContainsFlag(env, "mir")) EnableChannel(JitSpew_IonMIR);
+    if (ContainsFlag(env, "gvn")) EnableChannel(JitSpew_GVN);
+    if (ContainsFlag(env, "range")) EnableChannel(JitSpew_Range);
+    if (ContainsFlag(env, "unroll")) EnableChannel(JitSpew_Unrolling);
+    if (ContainsFlag(env, "licm")) EnableChannel(JitSpew_LICM);
+    if (ContainsFlag(env, "flac")) EnableChannel(JitSpew_FLAC);
+    if (ContainsFlag(env, "eaa")) EnableChannel(JitSpew_EAA);
+    if (ContainsFlag(env, "sincos")) EnableChannel(JitSpew_Sincos);
+    if (ContainsFlag(env, "sink")) EnableChannel(JitSpew_Sink);
+    if (ContainsFlag(env, "regalloc")) EnableChannel(JitSpew_RegAlloc);
+    if (ContainsFlag(env, "inline")) EnableChannel(JitSpew_Inlining);
+    if (ContainsFlag(env, "snapshots")) EnableChannel(JitSpew_IonSnapshots);
+    if (ContainsFlag(env, "codegen")) EnableChannel(JitSpew_Codegen);
+    if (ContainsFlag(env, "bailouts")) EnableChannel(JitSpew_IonBailouts);
+    if (ContainsFlag(env, "osi")) EnableChannel(JitSpew_IonInvalidate);
+    if (ContainsFlag(env, "caches")) EnableChannel(JitSpew_IonIC);
+    if (ContainsFlag(env, "safepoints")) EnableChannel(JitSpew_Safepoints);
+    if (ContainsFlag(env, "pools")) EnableChannel(JitSpew_Pools);
+    if (ContainsFlag(env, "cacheflush")) EnableChannel(JitSpew_CacheFlush);
+    if (ContainsFlag(env, "logs")) EnableIonDebugAsyncLogging();
+    if (ContainsFlag(env, "logs-sync")) EnableIonDebugSyncLogging();
+    if (ContainsFlag(env, "profiling")) EnableChannel(JitSpew_Profiling);
     if (ContainsFlag(env, "trackopts")) {
         JitOptions.disableOptimizationTracking = false;
         EnableChannel(JitSpew_OptimizationTracking);
     }
-    if (ContainsFlag(env, "trackopts-ext"))
-        EnableChannel(JitSpew_OptimizationTrackingExtended);
-    if (ContainsFlag(env, "dump-mir-expr"))
-        EnableChannel(JitSpew_MIRExpressions);
-    if (ContainsFlag(env, "cfg"))
-        EnableChannel(JitSpew_CFG);
-    if (ContainsFlag(env, "all"))
-        LoggingBits = uint64_t(-1);
+    if (ContainsFlag(env, "trackopts-ext")) EnableChannel(JitSpew_OptimizationTrackingExtended);
+    if (ContainsFlag(env, "dump-mir-expr")) EnableChannel(JitSpew_MIRExpressions);
+    if (ContainsFlag(env, "cfg")) EnableChannel(JitSpew_CFG);
+    if (ContainsFlag(env, "all")) LoggingBits = uint64_t(-1);
 
-    if (ContainsFlag(env, "bl-aborts"))
-        EnableChannel(JitSpew_BaselineAbort);
-    if (ContainsFlag(env, "bl-scripts"))
-        EnableChannel(JitSpew_BaselineScripts);
-    if (ContainsFlag(env, "bl-op"))
-        EnableChannel(JitSpew_BaselineOp);
-    if (ContainsFlag(env, "bl-ic"))
-        EnableChannel(JitSpew_BaselineIC);
-    if (ContainsFlag(env, "bl-ic-fb"))
-        EnableChannel(JitSpew_BaselineICFallback);
-    if (ContainsFlag(env, "bl-osr"))
-        EnableChannel(JitSpew_BaselineOSR);
-    if (ContainsFlag(env, "bl-bails"))
-        EnableChannel(JitSpew_BaselineBailouts);
-    if (ContainsFlag(env, "bl-dbg-osr"))
-        EnableChannel(JitSpew_BaselineDebugModeOSR);
+    if (ContainsFlag(env, "bl-aborts")) EnableChannel(JitSpew_BaselineAbort);
+    if (ContainsFlag(env, "bl-scripts")) EnableChannel(JitSpew_BaselineScripts);
+    if (ContainsFlag(env, "bl-op")) EnableChannel(JitSpew_BaselineOp);
+    if (ContainsFlag(env, "bl-ic")) EnableChannel(JitSpew_BaselineIC);
+    if (ContainsFlag(env, "bl-ic-fb")) EnableChannel(JitSpew_BaselineICFallback);
+    if (ContainsFlag(env, "bl-osr")) EnableChannel(JitSpew_BaselineOSR);
+    if (ContainsFlag(env, "bl-bails")) EnableChannel(JitSpew_BaselineBailouts);
+    if (ContainsFlag(env, "bl-dbg-osr")) EnableChannel(JitSpew_BaselineDebugModeOSR);
     if (ContainsFlag(env, "bl-all")) {
         EnableChannel(JitSpew_BaselineAbort);
         EnableChannel(JitSpew_BaselineScripts);
@@ -563,74 +452,53 @@ jit::CheckLogging()
     if (filename && *filename) {
         spewfh = fopen(filename, "w");
         MOZ_RELEASE_ASSERT(spewfh);
-        setbuf(spewfh, nullptr); // Make unbuffered
+        setbuf(spewfh, nullptr);  // Make unbuffered
     }
     JitSpewPrinter().init(spewfh);
 }
 
-JitSpewIndent::JitSpewIndent(JitSpewChannel channel)
-  : channel_(channel)
-{
+JitSpewIndent::JitSpewIndent(JitSpewChannel channel) : channel_(channel) {
     ChannelIndentLevel[channel]++;
 }
 
-JitSpewIndent::~JitSpewIndent()
-{
-    ChannelIndentLevel[channel_]--;
-}
+JitSpewIndent::~JitSpewIndent() { ChannelIndentLevel[channel_]--; }
 
-void
-jit::JitSpewStartVA(JitSpewChannel channel, const char* fmt, va_list ap)
-{
-    if (!JitSpewEnabled(channel))
-        return;
+void jit::JitSpewStartVA(JitSpewChannel channel, const char* fmt, va_list ap) {
+    if (!JitSpewEnabled(channel)) return;
 
     JitSpewHeader(channel);
     Fprinter& out = JitSpewPrinter();
     out.vprintf(fmt, ap);
 }
 
-void
-jit::JitSpewContVA(JitSpewChannel channel, const char* fmt, va_list ap)
-{
-    if (!JitSpewEnabled(channel))
-        return;
+void jit::JitSpewContVA(JitSpewChannel channel, const char* fmt, va_list ap) {
+    if (!JitSpewEnabled(channel)) return;
 
     Fprinter& out = JitSpewPrinter();
     out.vprintf(fmt, ap);
 }
 
-void
-jit::JitSpewFin(JitSpewChannel channel)
-{
-    if (!JitSpewEnabled(channel))
-        return;
+void jit::JitSpewFin(JitSpewChannel channel) {
+    if (!JitSpewEnabled(channel)) return;
 
     Fprinter& out = JitSpewPrinter();
     out.put("\n");
 }
 
-void
-jit::JitSpewVA(JitSpewChannel channel, const char* fmt, va_list ap)
-{
+void jit::JitSpewVA(JitSpewChannel channel, const char* fmt, va_list ap) {
     JitSpewStartVA(channel, fmt, ap);
     JitSpewFin(channel);
 }
 
-void
-jit::JitSpew(JitSpewChannel channel, const char* fmt, ...)
-{
+void jit::JitSpew(JitSpewChannel channel, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     JitSpewVA(channel, fmt, ap);
     va_end(ap);
 }
 
-void
-jit::JitSpewDef(JitSpewChannel channel, const char* str, MDefinition* def)
-{
-    if (!JitSpewEnabled(channel))
-        return;
+void jit::JitSpewDef(JitSpewChannel channel, const char* str, MDefinition* def) {
+    if (!JitSpewEnabled(channel)) return;
 
     JitSpewHeader(channel);
     Fprinter& out = JitSpewPrinter();
@@ -639,55 +507,40 @@ jit::JitSpewDef(JitSpewChannel channel, const char* str, MDefinition* def)
     def->dumpLocation(out);
 }
 
-void
-jit::JitSpewStart(JitSpewChannel channel, const char* fmt, ...)
-{
+void jit::JitSpewStart(JitSpewChannel channel, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     JitSpewStartVA(channel, fmt, ap);
     va_end(ap);
 }
-void
-jit::JitSpewCont(JitSpewChannel channel, const char* fmt, ...)
-{
+void jit::JitSpewCont(JitSpewChannel channel, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     JitSpewContVA(channel, fmt, ap);
     va_end(ap);
 }
 
-void
-jit::JitSpewHeader(JitSpewChannel channel)
-{
-    if (!JitSpewEnabled(channel))
-        return;
+void jit::JitSpewHeader(JitSpewChannel channel) {
+    if (!JitSpewEnabled(channel)) return;
 
     Fprinter& out = JitSpewPrinter();
     out.printf("[%s] ", ChannelNames[channel]);
-    for (size_t i = ChannelIndentLevel[channel]; i != 0; i--)
-        out.put("  ");
+    for (size_t i = ChannelIndentLevel[channel]; i != 0; i--) out.put("  ");
 }
 
-bool
-jit::JitSpewEnabled(JitSpewChannel channel)
-{
+bool jit::JitSpewEnabled(JitSpewChannel channel) {
     MOZ_ASSERT(LoggingChecked);
     return (LoggingBits & (uint64_t(1) << uint32_t(channel))) && !filteredOutCompilations;
 }
 
-void
-jit::EnableChannel(JitSpewChannel channel)
-{
+void jit::EnableChannel(JitSpewChannel channel) {
     MOZ_ASSERT(LoggingChecked);
     LoggingBits |= uint64_t(1) << uint32_t(channel);
 }
 
-void
-jit::DisableChannel(JitSpewChannel channel)
-{
+void jit::DisableChannel(JitSpewChannel channel) {
     MOZ_ASSERT(LoggingChecked);
     LoggingBits &= ~(uint64_t(1) << uint32_t(channel));
 }
 
 #endif /* JS_JITSPEW */
-

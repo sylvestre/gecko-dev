@@ -13,7 +13,12 @@
 namespace JS {
 namespace detail {
 
-enum class InitState { Uninitialized = 0, Running, ShutDown };
+enum class InitState
+{
+  Uninitialized = 0,
+  Running,
+  ShutDown
+};
 
 /**
  * SpiderMonkey's initialization status is tracked here, and it controls things
@@ -22,14 +27,12 @@ enum class InitState { Uninitialized = 0, Running, ShutDown };
  * manner, so this (internal -- embedders, don't use!) variable doesn't need to
  * be atomic.
  */
-extern JS_PUBLIC_DATA(InitState)
-libraryInitState;
+extern JS_PUBLIC_DATA(InitState) libraryInitState;
 
-extern JS_PUBLIC_API(const char*)
-InitWithFailureDiagnostic(bool isDebugBuild);
+extern JS_PUBLIC_API(const char*) InitWithFailureDiagnostic(bool isDebugBuild);
 
-} // namespace detail
-} // namespace JS
+}  // namespace detail
+}  // namespace JS
 
 // These are equivalent to ICU's |UMemAllocFn|, |UMemReallocFn|, and
 // |UMemFreeFn| types.  The first argument (called |context| in the ICU docs)
@@ -43,10 +46,9 @@ typedef void (*JS_ICUFreeFn)(const void*, void* p);
  * *must* be called before JS_Init.  Don't use it unless you know what you're
  * doing!
  */
-extern JS_PUBLIC_API(bool)
-JS_SetICUMemoryFunctions(JS_ICUAllocFn allocFn,
-                         JS_ICUReallocFn reallocFn,
-                         JS_ICUFreeFn freeFn);
+extern JS_PUBLIC_API(bool) JS_SetICUMemoryFunctions(JS_ICUAllocFn allocFn,
+                                                    JS_ICUReallocFn reallocFn,
+                                                    JS_ICUFreeFn freeFn);
 
 /**
  * Initialize SpiderMonkey, returning true only if initialization succeeded.
@@ -65,9 +67,9 @@ inline bool
 JS_Init(void)
 {
 #ifdef DEBUG
-    return !JS::detail::InitWithFailureDiagnostic(true);
+  return !JS::detail::InitWithFailureDiagnostic(true);
 #else
-    return !JS::detail::InitWithFailureDiagnostic(false);
+  return !JS::detail::InitWithFailureDiagnostic(false);
 #endif
 }
 
@@ -80,9 +82,9 @@ inline const char*
 JS_InitWithFailureDiagnostic(void)
 {
 #ifdef DEBUG
-    return JS::detail::InitWithFailureDiagnostic(true);
+  return JS::detail::InitWithFailureDiagnostic(true);
 #else
-    return JS::detail::InitWithFailureDiagnostic(false);
+  return JS::detail::InitWithFailureDiagnostic(false);
 #endif
 }
 
@@ -119,7 +121,6 @@ JS_IsInitialized(void)
  * is, calling JS_Init/JSAPI methods/JS_ShutDown in that order, then doing so
  * again).  This restriction may eventually be lifted.
  */
-extern JS_PUBLIC_API(void)
-JS_ShutDown(void);
+extern JS_PUBLIC_API(void) JS_ShutDown(void);
 
 #endif /* js_Initialization_h */

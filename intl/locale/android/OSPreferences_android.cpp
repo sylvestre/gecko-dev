@@ -39,7 +39,8 @@ OSPreferences::ReadRegionalPrefsLocales(nsTArray<nsCString>& aLocaleList)
 bool
 OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
                                    DateTimeFormatStyle aTimeStyle,
-                                   const nsACString& aLocale, nsAString& aRetVal)
+                                   const nsACString& aLocale,
+                                   nsAString& aRetVal)
 {
   return false;
 }

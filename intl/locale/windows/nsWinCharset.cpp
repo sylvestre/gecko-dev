@@ -26,18 +26,17 @@ nsPlatformCharset::nsPlatformCharset()
   MapToCharset(acpKey, mCharset);
 }
 
-nsPlatformCharset::~nsPlatformCharset()
-{
-}
+nsPlatformCharset::~nsPlatformCharset() {}
 
 nsresult
-nsPlatformCharset::MapToCharset(nsAString& inANSICodePage, nsACString& outCharset)
+nsPlatformCharset::MapToCharset(nsAString& inANSICodePage,
+                                nsACString& outCharset)
 {
   nsAutoCString key;
   LossyCopyUTF16toASCII(inANSICodePage, key);
 
-  nsresult rv = nsUConvPropertySearch::SearchPropertyValue(kWinCharsets,
-      ArrayLength(kWinCharsets), key, outCharset);
+  nsresult rv = nsUConvPropertySearch::SearchPropertyValue(
+      kWinCharsets, ArrayLength(kWinCharsets), key, outCharset);
   if (NS_FAILED(rv)) {
     outCharset.AssignLiteral("windows-1252");
     return NS_SUCCESS_USING_FALLBACK_LOCALE;
@@ -54,19 +53,16 @@ nsPlatformCharset::GetCharset(nsPlatformCharsetSel selector,
 }
 
 NS_IMETHODIMP
-nsPlatformCharset::Init()
+nsPlatformCharset::Init() { return NS_OK; }
+
+nsresult
+nsPlatformCharset::InitGetCharset(nsACString& oString)
 {
   return NS_OK;
 }
 
 nsresult
-nsPlatformCharset::InitGetCharset(nsACString &oString)
-{
-  return NS_OK;
-}
-
-nsresult
-nsPlatformCharset::VerifyCharset(nsCString &aCharset)
+nsPlatformCharset::VerifyCharset(nsCString& aCharset)
 {
   return NS_OK;
 }

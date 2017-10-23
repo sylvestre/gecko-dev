@@ -30,8 +30,8 @@ gfxVars::SetValuesForInitialize(const nsTArray<GfxVarUpdate>& aInitUpdates)
       ApplyUpdate(varUpdate);
     }
   } else {
-      // Save the values for Initialize call
-      gGfxVarInitUpdates = new nsTArray<GfxVarUpdate>(aInitUpdates);
+    // Save the values for Initialize call
+    gGfxVarInitUpdates = new nsTArray<GfxVarUpdate>(aInitUpdates);
   }
 }
 
@@ -39,7 +39,9 @@ void
 gfxVars::Initialize()
 {
   if (sInstance) {
-    MOZ_RELEASE_ASSERT(!gGfxVarInitUpdates, "Initial updates should not be present after any gfxVars operation");
+    MOZ_RELEASE_ASSERT(
+        !gGfxVarInitUpdates,
+        "Initial updates should not be present after any gfxVars operation");
     return;
   }
 
@@ -51,7 +53,8 @@ gfxVars::Initialize()
   // Note the GPU process is not handled here - it cannot send sync
   // messages, so instead the initial data is pushed down.
   if (XRE_IsContentProcess()) {
-    MOZ_ASSERT(gGfxVarInitUpdates, "Initial updates should be provided in content process");
+    MOZ_ASSERT(gGfxVarInitUpdates,
+               "Initial updates should be provided in content process");
     if (!gGfxVarInitUpdates) {
       // No provided initial updates, sync-request them from parent.
       InfallibleTArray<GfxVarUpdate> initUpdates;
@@ -65,9 +68,7 @@ gfxVars::Initialize()
   }
 }
 
-gfxVars::gfxVars()
-{
-}
+gfxVars::gfxVars() {}
 
 void
 gfxVars::Shutdown()
@@ -156,5 +157,5 @@ gfxVars::NotifyReceivers(VarBase* aVar)
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

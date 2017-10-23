@@ -19,10 +19,7 @@ namespace {
 struct ScopedMappedViewTraits
 {
   typedef void* type;
-  static void* empty()
-  {
-    return nullptr;
-  }
+  static void* empty() { return nullptr; }
   static void release(void* aPtr)
   {
     if (aPtr) {
@@ -32,12 +29,13 @@ struct ScopedMappedViewTraits
 };
 typedef mozilla::Scoped<ScopedMappedViewTraits> ScopedMappedView;
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
 bool
-HandleToFilename(HANDLE aHandle, const LARGE_INTEGER& aOffset,
+HandleToFilename(HANDLE aHandle,
+                 const LARGE_INTEGER& aOffset,
                  nsAString& aFilename)
 {
   AUTO_PROFILER_LABEL("HandletoFilename", NETWORK);
@@ -45,13 +43,13 @@ HandleToFilename(HANDLE aHandle, const LARGE_INTEGER& aOffset,
   aFilename.Truncate();
   // This implementation is nice because it uses fully documented APIs that
   // are available on all Windows versions that we support.
-  nsAutoHandle fileMapping(CreateFileMapping(aHandle, nullptr, PAGE_READONLY,
-                                             0, 1, nullptr));
+  nsAutoHandle fileMapping(
+      CreateFileMapping(aHandle, nullptr, PAGE_READONLY, 0, 1, nullptr));
   if (!fileMapping) {
     return false;
   }
-  ScopedMappedView view(MapViewOfFile(fileMapping, FILE_MAP_READ,
-                                      aOffset.HighPart, aOffset.LowPart, 1));
+  ScopedMappedView view(MapViewOfFile(
+      fileMapping, FILE_MAP_READ, aOffset.HighPart, aOffset.LowPart, 1));
   if (!view) {
     return false;
   }
@@ -60,7 +58,8 @@ HandleToFilename(HANDLE aHandle, const LARGE_INTEGER& aOffset,
   SetLastError(ERROR_SUCCESS);
   do {
     mappedFilename.SetLength(mappedFilename.Length() + MAX_PATH);
-    len = GetMappedFileNameW(GetCurrentProcess(), view,
+    len = GetMappedFileNameW(GetCurrentProcess(),
+                             view,
                              mappedFilename.get(),
                              mappedFilename.Length());
   } while (!len && GetLastError() == ERROR_INSUFFICIENT_BUFFER);
@@ -71,5 +70,4 @@ HandleToFilename(HANDLE aHandle, const LARGE_INTEGER& aOffset,
   return NtPathToDosPath(mappedFilename, aFilename);
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "gtest/MozGTestBench.h" // For MOZ_GTEST_BENCH
+#include "gtest/MozGTestBench.h"  // For MOZ_GTEST_BENCH
 
 #include "nsCOMPtr.h"
 #include "../../base/MozURL.h"
@@ -52,17 +52,20 @@ TEST(TestMozURL, MutatorChain)
   nsAutoCString out;
 
   RefPtr<MozURL> url2;
-  ASSERT_EQ(url->Mutate().SetScheme(NS_LITERAL_CSTRING("https"))
-                         .SetUsername(NS_LITERAL_CSTRING("newuser"))
-                         .SetPassword(NS_LITERAL_CSTRING("newpass"))
-                         .SetHostname(NS_LITERAL_CSTRING("test"))
-                         .SetFilePath(NS_LITERAL_CSTRING("new/file/path"))
-                         .SetQuery(NS_LITERAL_CSTRING("bla"))
-                         .SetRef(NS_LITERAL_CSTRING("huh"))
-                         .Finalize(getter_AddRefs(url2)), NS_OK);
+  ASSERT_EQ(url->Mutate()
+                .SetScheme(NS_LITERAL_CSTRING("https"))
+                .SetUsername(NS_LITERAL_CSTRING("newuser"))
+                .SetPassword(NS_LITERAL_CSTRING("newpass"))
+                .SetHostname(NS_LITERAL_CSTRING("test"))
+                .SetFilePath(NS_LITERAL_CSTRING("new/file/path"))
+                .SetQuery(NS_LITERAL_CSTRING("bla"))
+                .SetRef(NS_LITERAL_CSTRING("huh"))
+                .Finalize(getter_AddRefs(url2)),
+            NS_OK);
 
   ASSERT_EQ(url2->GetSpec(out), NS_OK);
-  ASSERT_TRUE(out.EqualsLiteral("https://newuser:newpass@test/new/file/path?bla#huh"));
+  ASSERT_TRUE(
+      out.EqualsLiteral("https://newuser:newpass@test/new/file/path?bla#huh"));
 }
 
 TEST(TestMozURL, MutatorFinalizeTwice)
@@ -74,10 +77,11 @@ TEST(TestMozURL, MutatorFinalizeTwice)
 
   RefPtr<MozURL> url2;
   MozURL::Mutator mut = url->Mutate();
-  mut.SetScheme(NS_LITERAL_CSTRING("https")); // Change the scheme to https
+  mut.SetScheme(NS_LITERAL_CSTRING("https"));  // Change the scheme to https
   ASSERT_EQ(mut.Finalize(getter_AddRefs(url2)), NS_OK);
   ASSERT_EQ(url2->GetSpec(out), NS_OK);
-  ASSERT_TRUE(out.EqualsLiteral("https://user:pass@example.com/path?query#ref"));
+  ASSERT_TRUE(
+      out.EqualsLiteral("https://user:pass@example.com/path?query#ref"));
 
   // Test that a second call to Finalize will result in an error code
   url2 = nullptr;
@@ -113,8 +117,9 @@ TEST(TestMozURL, InitWithBase)
   ASSERT_TRUE(out.EqualsLiteral("https://example.net/a/b.html"));
 
   RefPtr<MozURL> url2;
-  ASSERT_EQ(MozURL::Init(getter_AddRefs(url2), NS_LITERAL_CSTRING("c.png"),
-                         url), NS_OK);
+  ASSERT_EQ(
+      MozURL::Init(getter_AddRefs(url2), NS_LITERAL_CSTRING("c.png"), url),
+      NS_OK);
 
   ASSERT_EQ(url2->GetSpec(out), NS_OK);
   ASSERT_TRUE(out.EqualsLiteral("https://example.net/a/c.png"));

@@ -34,20 +34,25 @@ class APZEventState;
  */
 class ChromeProcessController : public mozilla::layers::GeckoContentController
 {
-protected:
+ protected:
   typedef mozilla::layers::FrameMetrics FrameMetrics;
   typedef mozilla::layers::ScrollableLayerGuid ScrollableLayerGuid;
 
-public:
-  explicit ChromeProcessController(nsIWidget* aWidget, APZEventState* aAPZEventState, IAPZCTreeManager* aAPZCTreeManager);
+ public:
+  explicit ChromeProcessController(nsIWidget* aWidget,
+                                   APZEventState* aAPZEventState,
+                                   IAPZCTreeManager* aAPZCTreeManager);
   ~ChromeProcessController();
   virtual void Destroy() override;
 
   // GeckoContentController interface
-  virtual void RequestContentRepaint(const FrameMetrics& aFrameMetrics) override;
-  virtual void PostDelayedTask(already_AddRefed<Runnable> aTask, int aDelayMs) override;
+  virtual void RequestContentRepaint(
+      const FrameMetrics& aFrameMetrics) override;
+  virtual void PostDelayedTask(already_AddRefed<Runnable> aTask,
+                               int aDelayMs) override;
   virtual bool IsRepaintThread() override;
-  virtual void DispatchToRepaintThread(already_AddRefed<Runnable> aTask) override;
+  virtual void DispatchToRepaintThread(
+      already_AddRefed<Runnable> aTask) override;
   virtual void HandleTap(TapType aType,
                          const mozilla::LayoutDevicePoint& aPoint,
                          Modifiers aModifiers,
@@ -63,10 +68,13 @@ public:
   virtual void NotifyMozMouseScrollEvent(const FrameMetrics::ViewID& aScrollId,
                                          const nsString& aEvent) override;
   virtual void NotifyFlushComplete() override;
-  virtual void NotifyAsyncScrollbarDragRejected(const FrameMetrics::ViewID& aScrollId) override;
-  virtual void NotifyAsyncAutoscrollRejected(const FrameMetrics::ViewID& aScrollId) override;
+  virtual void NotifyAsyncScrollbarDragRejected(
+      const FrameMetrics::ViewID& aScrollId) override;
+  virtual void NotifyAsyncAutoscrollRejected(
+      const FrameMetrics::ViewID& aScrollId) override;
   virtual void CancelAutoscroll(const ScrollableLayerGuid& aGuid) override;
-private:
+
+ private:
   nsCOMPtr<nsIWidget> mWidget;
   RefPtr<APZEventState> mAPZEventState;
   RefPtr<IAPZCTreeManager> mAPZCTreeManager;
@@ -75,12 +83,14 @@ private:
   void InitializeRoot();
   nsIPresShell* GetPresShell() const;
   nsIDocument* GetRootDocument() const;
-  nsIDocument* GetRootContentDocument(const FrameMetrics::ViewID& aScrollId) const;
-  void HandleDoubleTap(const mozilla::CSSPoint& aPoint, Modifiers aModifiers,
+  nsIDocument* GetRootContentDocument(
+      const FrameMetrics::ViewID& aScrollId) const;
+  void HandleDoubleTap(const mozilla::CSSPoint& aPoint,
+                       Modifiers aModifiers,
                        const ScrollableLayerGuid& aGuid);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_ChromeProcessController_h */

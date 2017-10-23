@@ -35,15 +35,13 @@ class OutOfLineCallVM;
 class OutOfLineTruncateSlow;
 class OutOfLineWasmTruncateCheck;
 
-struct PatchableBackedgeInfo
-{
+struct PatchableBackedgeInfo {
     CodeOffsetJump backedge;
     Label* loopHeader;
     Label* interruptCheck;
 
     PatchableBackedgeInfo(CodeOffsetJump backedge, Label* loopHeader, Label* interruptCheck)
-      : backedge(backedge), loopHeader(loopHeader), interruptCheck(interruptCheck)
-    {}
+        : backedge(backedge), loopHeader(loopHeader), interruptCheck(interruptCheck) {}
 };
 
 struct ReciprocalMulConstants {
@@ -54,25 +52,23 @@ struct ReciprocalMulConstants {
 // This should be nested in CodeGeneratorShared, but it is used in
 // optimization tracking implementation and nested classes cannot be
 // forward-declared.
-struct NativeToTrackedOptimizations
-{
+struct NativeToTrackedOptimizations {
     // [startOffset, endOffset]
     CodeOffset startOffset;
     CodeOffset endOffset;
     const TrackedOptimizations* optimizations;
 };
 
-class CodeGeneratorShared : public LElementVisitor
-{
+class CodeGeneratorShared : public LElementVisitor {
     js::Vector<OutOfLineCode*, 0, SystemAllocPolicy> outOfLineCode_;
 
     MacroAssembler& ensureMasm(MacroAssembler* masm);
     mozilla::Maybe<MacroAssembler> maybeMasm_;
 
-  public:
+   public:
     MacroAssembler& masm;
 
-  protected:
+   protected:
     MIRGenerator* gen;
     LIRGraph& graph;
     LBlock* current;
@@ -118,22 +114,20 @@ class CodeGeneratorShared : public LElementVisitor
     struct PatchableTLEvent {
         CodeOffset offset;
         const char* event;
-        PatchableTLEvent(CodeOffset offset, const char* event)
-            : offset(offset), event(event)
-        {}
+        PatchableTLEvent(CodeOffset offset, const char* event) : offset(offset), event(event) {}
     };
     js::Vector<PatchableTLEvent, 0, SystemAllocPolicy> patchableTLEvents_;
     js::Vector<CodeOffset, 0, SystemAllocPolicy> patchableTLScripts_;
 #endif
 
-  public:
+   public:
     struct NativeToBytecode {
         CodeOffset nativeOffset;
         InlineScriptTree* tree;
         jsbytecode* pc;
     };
 
-  protected:
+   protected:
     js::Vector<NativeToBytecode, 0, SystemAllocPolicy> nativeToBytecodeList_;
     uint8_t* nativeToBytecodeMap_;
     uint32_t nativeToBytecodeMapSize_;
@@ -143,9 +137,7 @@ class CodeGeneratorShared : public LElementVisitor
     JSScript** nativeToBytecodeScriptList_;
     uint32_t nativeToBytecodeScriptListLength_;
 
-    bool isProfilerInstrumentationEnabled() {
-        return gen->isProfilerInstrumentationEnabled();
-    }
+    bool isProfilerInstrumentationEnabled() { return gen->isProfilerInstrumentationEnabled(); }
 
     js::Vector<NativeToTrackedOptimizations, 0, SystemAllocPolicy> trackedOptimizations_;
     uint8_t* trackedOptimizationsMap_;
@@ -154,26 +146,20 @@ class CodeGeneratorShared : public LElementVisitor
     uint32_t trackedOptimizationsTypesTableOffset_;
     uint32_t trackedOptimizationsAttemptsTableOffset_;
 
-    bool isOptimizationTrackingEnabled() {
-        return gen->isOptimizationTrackingEnabled();
-    }
+    bool isOptimizationTrackingEnabled() { return gen->isOptimizationTrackingEnabled(); }
 
-  protected:
+   protected:
     // The offset of the first instruction of the OSR entry block from the
     // beginning of the code buffer.
     size_t osrEntryOffset_;
 
-    TempAllocator& alloc() const {
-        return graph.mir().alloc();
-    }
+    TempAllocator& alloc() const { return graph.mir().alloc(); }
 
     inline void setOsrEntryOffset(size_t offset) {
         MOZ_ASSERT(osrEntryOffset_ == 0);
         osrEntryOffset_ = offset;
     }
-    inline size_t getOsrEntryOffset() const {
-        return osrEntryOffset_;
-    }
+    inline size_t getOsrEntryOffset() const { return osrEntryOffset_; }
 
     // The offset of the first instruction of the body.
     // This skips the arguments type checks.
@@ -183,13 +169,11 @@ class CodeGeneratorShared : public LElementVisitor
         MOZ_ASSERT(skipArgCheckEntryOffset_ == 0);
         skipArgCheckEntryOffset_ = offset;
     }
-    inline size_t getSkipArgCheckEntryOffset() const {
-        return skipArgCheckEntryOffset_;
-    }
+    inline size_t getSkipArgCheckEntryOffset() const { return skipArgCheckEntryOffset_; }
 
     typedef js::Vector<SafepointIndex, 8, SystemAllocPolicy> SafepointIndices;
 
-  protected:
+   protected:
 #ifdef CHECK_OSIPOINT_REGISTERS
     // See JitOptions.checkOsiPointRegisters. We set this here to avoid
     // races when enableOsiPointRegisterChecks is called while we're generating
@@ -229,7 +213,7 @@ class CodeGeneratorShared : public LElementVisitor
         return frameClass_ == FrameSizeClass::None() ? frameDepth_ : frameClass_.frameSize();
     }
 
-  protected:
+   protected:
 #ifdef CHECK_OSIPOINT_REGISTERS
     void resetOsiPointRegs(LSafepoint* safepoint);
     bool shouldVerifyOsiPointRegs(LSafepoint* safepoint);
@@ -243,37 +227,28 @@ class CodeGeneratorShared : public LElementVisitor
     bool addTrackedOptimizationsEntry(const TrackedOptimizations* optimizations);
     void extendTrackedOptimizationsEntry(const TrackedOptimizations* optimizations);
 
-  public:
-    MIRGenerator& mirGen() const {
-        return *gen;
-    }
+   public:
+    MIRGenerator& mirGen() const { return *gen; }
 
     // When appending to runtimeData_, the vector might realloc, leaving pointers
     // int the origianl vector stale and unusable. DataPtr acts like a pointer,
     // but allows safety in the face of potentially realloc'ing vector appends.
     friend class DataPtr;
     template <typename T>
-    class DataPtr
-    {
+    class DataPtr {
         CodeGeneratorShared* cg_;
         size_t index_;
 
-        T* lookup() {
-            return reinterpret_cast<T*>(&cg_->runtimeData_[index_]);
-        }
-      public:
-        DataPtr(CodeGeneratorShared* cg, size_t index)
-          : cg_(cg), index_(index) { }
+        T* lookup() { return reinterpret_cast<T*>(&cg_->runtimeData_[index_]); }
 
-        T * operator ->() {
-            return lookup();
-        }
-        T * operator*() {
-            return lookup();
-        }
+       public:
+        DataPtr(CodeGeneratorShared* cg, size_t index) : cg_(cg), index_(index) {}
+
+        T* operator->() { return lookup(); }
+        T* operator*() { return lookup(); }
     };
 
-  protected:
+   protected:
     MOZ_MUST_USE
     bool allocateData(size_t size, size_t* offset) {
         MOZ_ASSERT(size % sizeof(void*) == 0);
@@ -289,15 +264,14 @@ class CodeGeneratorShared : public LElementVisitor
         masm.propagateOOM(allocateData(sizeof(mozilla::AlignedStorage2<T>), &index));
         masm.propagateOOM(icList_.append(index));
         masm.propagateOOM(icInfo_.append(CompileTimeICInfo()));
-        if (masm.oom())
-            return SIZE_MAX;
+        if (masm.oom()) return SIZE_MAX;
         // Use the copy constructor on the allocated space.
         MOZ_ASSERT(index == icList_.back());
         new (&runtimeData_[index]) T(cache);
         return index;
     }
 
-  protected:
+   protected:
     // Encodes an LSnapshot into the compressed snapshot buffer.
     void encode(LRecoverInfo* recover);
     void encode(LSnapshot* snapshot);
@@ -373,17 +347,15 @@ class CodeGeneratorShared : public LElementVisitor
     inline bool isNextBlock(LBlock* block) {
         uint32_t target = skipTrivialBlocks(block->mir())->id();
         uint32_t i = current->mir()->id() + 1;
-        if (target < i)
-            return false;
+        if (target < i) return false;
         // Trivial blocks can be crossed via fallthrough.
         for (; i != target; ++i) {
-            if (!graph.getBlock(i)->isTrivial())
-                return false;
+            if (!graph.getBlock(i)->isTrivial()) return false;
         }
         return true;
     }
 
-  public:
+   public:
     // Save and restore all volatile registers to/from the stack, excluding the
     // specified register(s), before a function call made using callWithABI and
     // after storing the function call's return value to an output register.
@@ -419,12 +391,8 @@ class CodeGeneratorShared : public LElementVisitor
     void restoreVolatile(LiveRegisterSet temps) {
         masm.PopRegsInMask(LiveRegisterSet(RegisterSet::VolatileNot(temps.set())));
     }
-    void saveVolatile() {
-        masm.PushRegsInMask(LiveRegisterSet(RegisterSet::Volatile()));
-    }
-    void restoreVolatile() {
-        masm.PopRegsInMask(LiveRegisterSet(RegisterSet::Volatile()));
-    }
+    void saveVolatile() { masm.PushRegsInMask(LiveRegisterSet(RegisterSet::Volatile())); }
+    void restoreVolatile() { masm.PopRegsInMask(LiveRegisterSet(RegisterSet::Volatile())); }
 
     // These functions have to be called before and after any callVM and before
     // any modifications of the stack.  Modification of the stack made after
@@ -454,13 +422,9 @@ class CodeGeneratorShared : public LElementVisitor
         return masm.PushWithPatch(t);
     }
 
-    void storeResultTo(Register reg) {
-        masm.storeCallWordResult(reg);
-    }
+    void storeResultTo(Register reg) { masm.storeCallWordResult(reg); }
 
-    void storeFloatResultTo(FloatRegister reg) {
-        masm.storeCallFloatResult(reg);
-    }
+    void storeFloatResultTo(FloatRegister reg) { masm.storeCallFloatResult(reg); }
 
     template <typename T>
     void storeResultValueTo(const T& t) {
@@ -477,7 +441,7 @@ class CodeGeneratorShared : public LElementVisitor
 
     ReciprocalMulConstants computeDivisionConstants(uint32_t d, int maxLog);
 
-  protected:
+   protected:
     bool generatePrologue();
     bool generateEpilogue();
 
@@ -507,13 +471,13 @@ class CodeGeneratorShared : public LElementVisitor
         return wasm::TrapDesc(mir->bytecodeOffset(), trap, masm.framePushed());
     }
 
-  private:
+   private:
     void generateInvalidateEpilogue();
 
-  public:
+   public:
     CodeGeneratorShared(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
-  public:
+   public:
     template <class ArgSeq, class StoreOutputTo>
     void visitOutOfLineCallVM(OutOfLineCallVM<ArgSeq, StoreOutputTo>* ool);
 
@@ -526,34 +490,26 @@ class CodeGeneratorShared : public LElementVisitor
     bool omitOverRecursedCheck() const;
 
 #ifdef JS_TRACE_LOGGING
-  protected:
+   protected:
     void emitTracelogScript(bool isStart);
     void emitTracelogTree(bool isStart, uint32_t textId);
     void emitTracelogTree(bool isStart, const char* text, TraceLoggerTextId enabledTextId);
 #endif
 
-  public:
+   public:
 #ifdef JS_TRACE_LOGGING
-    void emitTracelogScriptStart() {
-        emitTracelogScript(/* isStart =*/ true);
-    }
-    void emitTracelogScriptStop() {
-        emitTracelogScript(/* isStart =*/ false);
-    }
-    void emitTracelogStartEvent(uint32_t textId) {
-        emitTracelogTree(/* isStart =*/ true, textId);
-    }
-    void emitTracelogStopEvent(uint32_t textId) {
-        emitTracelogTree(/* isStart =*/ false, textId);
-    }
+    void emitTracelogScriptStart() { emitTracelogScript(/* isStart =*/true); }
+    void emitTracelogScriptStop() { emitTracelogScript(/* isStart =*/false); }
+    void emitTracelogStartEvent(uint32_t textId) { emitTracelogTree(/* isStart =*/true, textId); }
+    void emitTracelogStopEvent(uint32_t textId) { emitTracelogTree(/* isStart =*/false, textId); }
     // Log an arbitrary text. The TraceloggerTextId is used to toggle the
     // logging on and off.
     // Note: the text is not copied and need to be kept alive until linking.
     void emitTracelogStartEvent(const char* text, TraceLoggerTextId enabledTextId) {
-        emitTracelogTree(/* isStart =*/ true, text, enabledTextId);
+        emitTracelogTree(/* isStart =*/true, text, enabledTextId);
     }
     void emitTracelogStopEvent(const char* text, TraceLoggerTextId enabledTextId) {
-        emitTracelogTree(/* isStart =*/ false, text, enabledTextId);
+        emitTracelogTree(/* isStart =*/false, text, enabledTextId);
     }
     void emitTracelogIonStart() {
         emitTracelogScriptStart();
@@ -574,13 +530,13 @@ class CodeGeneratorShared : public LElementVisitor
     void emitTracelogIonStop() {}
 #endif
 
-  protected:
+   protected:
     inline void verifyHeapAccessDisassembly(uint32_t begin, uint32_t end, bool isLoad,
                                             Scalar::Type type, Operand mem, LAllocation alloc);
 
-  public:
-    inline void verifyLoadDisassembly(uint32_t begin, uint32_t end, Scalar::Type type,
-                                      Operand mem, LAllocation alloc);
+   public:
+    inline void verifyLoadDisassembly(uint32_t begin, uint32_t end, Scalar::Type type, Operand mem,
+                                      LAllocation alloc);
     inline void verifyStoreDisassembly(uint32_t begin, uint32_t end, Scalar::Type type,
                                        Operand mem, LAllocation alloc);
 
@@ -588,60 +544,35 @@ class CodeGeneratorShared : public LElementVisitor
 };
 
 // An out-of-line path is generated at the end of the function.
-class OutOfLineCode : public TempObject
-{
+class OutOfLineCode : public TempObject {
     Label entry_;
     Label rejoin_;
     uint32_t framePushed_;
     const BytecodeSite* site_;
 
-  public:
-    OutOfLineCode()
-      : framePushed_(0),
-        site_()
-    { }
+   public:
+    OutOfLineCode() : framePushed_(0), site_() {}
 
     virtual void generate(CodeGeneratorShared* codegen) = 0;
 
-    Label* entry() {
-        return &entry_;
-    }
-    virtual void bind(MacroAssembler* masm) {
-        masm->bind(entry());
-    }
-    Label* rejoin() {
-        return &rejoin_;
-    }
-    void setFramePushed(uint32_t framePushed) {
-        framePushed_ = framePushed;
-    }
-    uint32_t framePushed() const {
-        return framePushed_;
-    }
-    void setBytecodeSite(const BytecodeSite* site) {
-        site_ = site;
-    }
-    const BytecodeSite* bytecodeSite() const {
-        return site_;
-    }
-    jsbytecode* pc() const {
-        return site_->pc();
-    }
-    JSScript* script() const {
-        return site_->script();
-    }
+    Label* entry() { return &entry_; }
+    virtual void bind(MacroAssembler* masm) { masm->bind(entry()); }
+    Label* rejoin() { return &rejoin_; }
+    void setFramePushed(uint32_t framePushed) { framePushed_ = framePushed; }
+    uint32_t framePushed() const { return framePushed_; }
+    void setBytecodeSite(const BytecodeSite* site) { site_ = site; }
+    const BytecodeSite* bytecodeSite() const { return site_; }
+    jsbytecode* pc() const { return site_->pc(); }
+    JSScript* script() const { return site_->script(); }
 };
 
 // For OOL paths that want a specific-typed code generator.
 template <typename T>
-class OutOfLineCodeBase : public OutOfLineCode
-{
-  public:
-    virtual void generate(CodeGeneratorShared* codegen) {
-        accept(static_cast<T*>(codegen));
-    }
+class OutOfLineCodeBase : public OutOfLineCode {
+   public:
+    virtual void generate(CodeGeneratorShared* codegen) { accept(static_cast<T*>(codegen)); }
 
-  public:
+   public:
     virtual void accept(T* codegen) = 0;
 };
 
@@ -665,28 +596,24 @@ template <typename... ArgTypes>
 class ArgSeq;
 
 template <>
-class ArgSeq<>
-{
-  public:
-    ArgSeq() { }
+class ArgSeq<> {
+   public:
+    ArgSeq() {}
 
-    inline void generate(CodeGeneratorShared* codegen) const {
-    }
+    inline void generate(CodeGeneratorShared* codegen) const {}
 };
 
 template <typename HeadType, typename... TailTypes>
-class ArgSeq<HeadType, TailTypes...> : public ArgSeq<TailTypes...>
-{
-  private:
+class ArgSeq<HeadType, TailTypes...> : public ArgSeq<TailTypes...> {
+   private:
     using RawHeadType = typename mozilla::RemoveReference<HeadType>::Type;
     RawHeadType head_;
 
-  public:
+   public:
     template <typename ProvidedHead, typename... ProvidedTail>
     explicit ArgSeq(ProvidedHead&& head, ProvidedTail&&... tail)
-      : ArgSeq<TailTypes...>(mozilla::Forward<ProvidedTail>(tail)...),
-        head_(mozilla::Forward<ProvidedHead>(head))
-    { }
+        : ArgSeq<TailTypes...>(mozilla::Forward<ProvidedTail>(tail)...),
+          head_(mozilla::Forward<ProvidedHead>(head)) {}
 
     // Arguments are pushed in reverse order, from last argument to first
     // argument.
@@ -697,36 +624,27 @@ class ArgSeq<HeadType, TailTypes...> : public ArgSeq<TailTypes...>
 };
 
 template <typename... ArgTypes>
-inline ArgSeq<ArgTypes...>
-ArgList(ArgTypes&&... args)
-{
+inline ArgSeq<ArgTypes...> ArgList(ArgTypes&&... args) {
     return ArgSeq<ArgTypes...>(mozilla::Forward<ArgTypes>(args)...);
 }
 
 // Store wrappers, to generate the right move of data after the VM call.
 
-struct StoreNothing
-{
-    inline void generate(CodeGeneratorShared* codegen) const {
-    }
+struct StoreNothing {
+    inline void generate(CodeGeneratorShared* codegen) const {}
     inline LiveRegisterSet clobbered() const {
-        return LiveRegisterSet(); // No register gets clobbered
+        return LiveRegisterSet();  // No register gets clobbered
     }
 };
 
-class StoreRegisterTo
-{
-  private:
+class StoreRegisterTo {
+   private:
     Register out_;
 
-  public:
-    explicit StoreRegisterTo(Register out)
-      : out_(out)
-    { }
+   public:
+    explicit StoreRegisterTo(Register out) : out_(out) {}
 
-    inline void generate(CodeGeneratorShared* codegen) const {
-        codegen->storeResultTo(out_);
-    }
+    inline void generate(CodeGeneratorShared* codegen) const { codegen->storeResultTo(out_); }
     inline LiveRegisterSet clobbered() const {
         LiveRegisterSet set;
         set.add(out_);
@@ -734,19 +652,14 @@ class StoreRegisterTo
     }
 };
 
-class StoreFloatRegisterTo
-{
-  private:
+class StoreFloatRegisterTo {
+   private:
     FloatRegister out_;
 
-  public:
-    explicit StoreFloatRegisterTo(FloatRegister out)
-      : out_(out)
-    { }
+   public:
+    explicit StoreFloatRegisterTo(FloatRegister out) : out_(out) {}
 
-    inline void generate(CodeGeneratorShared* codegen) const {
-        codegen->storeFloatResultTo(out_);
-    }
+    inline void generate(CodeGeneratorShared* codegen) const { codegen->storeFloatResultTo(out_); }
     inline LiveRegisterSet clobbered() const {
         LiveRegisterSet set;
         set.add(out_);
@@ -755,19 +668,14 @@ class StoreFloatRegisterTo
 };
 
 template <typename Output>
-class StoreValueTo_
-{
-  private:
+class StoreValueTo_ {
+   private:
     Output out_;
 
-  public:
-    explicit StoreValueTo_(const Output& out)
-      : out_(out)
-    { }
+   public:
+    explicit StoreValueTo_(const Output& out) : out_(out) {}
 
-    inline void generate(CodeGeneratorShared* codegen) const {
-        codegen->storeResultValueTo(out_);
-    }
+    inline void generate(CodeGeneratorShared* codegen) const { codegen->storeResultValueTo(out_); }
     inline LiveRegisterSet clobbered() const {
         LiveRegisterSet set;
         set.add(out_);
@@ -776,32 +684,24 @@ class StoreValueTo_
 };
 
 template <typename Output>
-StoreValueTo_<Output> StoreValueTo(const Output& out)
-{
+StoreValueTo_<Output> StoreValueTo(const Output& out) {
     return StoreValueTo_<Output>(out);
 }
 
 template <class ArgSeq, class StoreOutputTo>
-class OutOfLineCallVM : public OutOfLineCodeBase<CodeGeneratorShared>
-{
-  private:
+class OutOfLineCallVM : public OutOfLineCodeBase<CodeGeneratorShared> {
+   private:
     LInstruction* lir_;
     const VMFunction& fun_;
     ArgSeq args_;
     StoreOutputTo out_;
 
-  public:
+   public:
     OutOfLineCallVM(LInstruction* lir, const VMFunction& fun, const ArgSeq& args,
                     const StoreOutputTo& out)
-      : lir_(lir),
-        fun_(fun),
-        args_(args),
-        out_(out)
-    { }
+        : lir_(lir), fun_(fun), args_(args), out_(out) {}
 
-    void accept(CodeGeneratorShared* codegen) {
-        codegen->visitOutOfLineCallVM(this);
-    }
+    void accept(CodeGeneratorShared* codegen) { codegen->visitOutOfLineCallVM(this); }
 
     LInstruction* lir() const { return lir_; }
     const VMFunction& function() const { return fun_; }
@@ -810,22 +710,19 @@ class OutOfLineCallVM : public OutOfLineCodeBase<CodeGeneratorShared>
 };
 
 template <class ArgSeq, class StoreOutputTo>
-inline OutOfLineCode*
-CodeGeneratorShared::oolCallVM(const VMFunction& fun, LInstruction* lir, const ArgSeq& args,
-                               const StoreOutputTo& out)
-{
+inline OutOfLineCode* CodeGeneratorShared::oolCallVM(const VMFunction& fun, LInstruction* lir,
+                                                     const ArgSeq& args,
+                                                     const StoreOutputTo& out) {
     MOZ_ASSERT(lir->mirRaw());
     MOZ_ASSERT(lir->mirRaw()->isInstruction());
 
-    OutOfLineCode* ool = new(alloc()) OutOfLineCallVM<ArgSeq, StoreOutputTo>(lir, fun, args, out);
+    OutOfLineCode* ool = new (alloc()) OutOfLineCallVM<ArgSeq, StoreOutputTo>(lir, fun, args, out);
     addOutOfLineCode(ool, lir->mirRaw()->toInstruction());
     return ool;
 }
 
 template <class ArgSeq, class StoreOutputTo>
-void
-CodeGeneratorShared::visitOutOfLineCallVM(OutOfLineCallVM<ArgSeq, StoreOutputTo>* ool)
-{
+void CodeGeneratorShared::visitOutOfLineCallVM(OutOfLineCallVM<ArgSeq, StoreOutputTo>* ool) {
     LInstruction* lir = ool->lir();
 
     saveLive(lir);
@@ -836,28 +733,29 @@ CodeGeneratorShared::visitOutOfLineCallVM(OutOfLineCallVM<ArgSeq, StoreOutputTo>
     masm.jump(ool->rejoin());
 }
 
-class OutOfLineWasmTruncateCheck : public OutOfLineCodeBase<CodeGeneratorShared>
-{
+class OutOfLineWasmTruncateCheck : public OutOfLineCodeBase<CodeGeneratorShared> {
     MIRType fromType_;
     MIRType toType_;
     FloatRegister input_;
     bool isUnsigned_;
     wasm::BytecodeOffset bytecodeOffset_;
 
-  public:
+   public:
     OutOfLineWasmTruncateCheck(MWasmTruncateToInt32* mir, FloatRegister input)
-      : fromType_(mir->input()->type()), toType_(MIRType::Int32), input_(input),
-        isUnsigned_(mir->isUnsigned()), bytecodeOffset_(mir->bytecodeOffset())
-    { }
+        : fromType_(mir->input()->type()),
+          toType_(MIRType::Int32),
+          input_(input),
+          isUnsigned_(mir->isUnsigned()),
+          bytecodeOffset_(mir->bytecodeOffset()) {}
 
     OutOfLineWasmTruncateCheck(MWasmTruncateToInt64* mir, FloatRegister input)
-      : fromType_(mir->input()->type()), toType_(MIRType::Int64), input_(input),
-        isUnsigned_(mir->isUnsigned()), bytecodeOffset_(mir->bytecodeOffset())
-    { }
+        : fromType_(mir->input()->type()),
+          toType_(MIRType::Int64),
+          input_(input),
+          isUnsigned_(mir->isUnsigned()),
+          bytecodeOffset_(mir->bytecodeOffset()) {}
 
-    void accept(CodeGeneratorShared* codegen) {
-        codegen->visitOutOfLineWasmTruncateCheck(this);
-    }
+    void accept(CodeGeneratorShared* codegen) { codegen->visitOutOfLineWasmTruncateCheck(this); }
 
     FloatRegister input() const { return input_; }
     MIRType toType() const { return toType_; }
@@ -866,7 +764,7 @@ class OutOfLineWasmTruncateCheck : public OutOfLineCodeBase<CodeGeneratorShared>
     wasm::BytecodeOffset bytecodeOffset() const { return bytecodeOffset_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_shared_CodeGenerator_shared_h */

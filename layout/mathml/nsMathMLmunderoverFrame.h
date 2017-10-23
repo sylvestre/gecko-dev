@@ -14,15 +14,14 @@
 // <munderover> -- attach an underscript-overscript pair to a base
 //
 
-class nsMathMLmunderoverFrame final
-  : public nsMathMLContainerFrame
-  , public nsIReflowCallback
+class nsMathMLmunderoverFrame final : public nsMathMLContainerFrame,
+                                      public nsIReflowCallback
 {
-
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmunderoverFrame)
 
-  friend nsIFrame* NS_NewMathMLmunderoverFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewMathMLmunderoverFrame(nsIPresShell* aPresShell,
+                                               nsStyleContext* aContext);
 
   nsresult Place(DrawTarget* aDrawTarget,
                  bool aPlaceOrigin,
@@ -47,16 +46,17 @@ public:
   bool ReflowFinished() override;
   void ReflowCallbackCanceled() override;
 
-protected:
+ protected:
   explicit nsMathMLmunderoverFrame(nsStyleContext* aContext)
-    : nsMathMLContainerFrame(aContext, kClassID)
-    , mIncrementUnder(false)
-    , mIncrementOver(false)
-  {}
+      : nsMathMLContainerFrame(aContext, kClassID),
+        mIncrementUnder(false),
+        mIncrementOver(false)
+  {
+  }
 
   virtual ~nsMathMLmunderoverFrame();
 
-private:
+ private:
   // Helper to set the "increment script level" flag on the element belonging
   // to a child frame given by aChildIndex.
   //
@@ -82,8 +82,7 @@ private:
   };
 
   nsTArray<SetIncrementScriptLevelCommand>
-    mPostReflowIncrementScriptLevelCommands;
+      mPostReflowIncrementScriptLevelCommands;
 };
-
 
 #endif /* nsMathMLmunderoverFrame_h___ */

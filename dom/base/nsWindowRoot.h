@@ -21,23 +21,23 @@ class nsIGlobalObject;
 
 class nsWindowRoot final : public nsPIWindowRoot
 {
-public:
+ public:
   explicit nsWindowRoot(nsPIDOMWindowOuter* aWindow);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_NSIDOMEVENTTARGET
 
-  virtual mozilla::EventListenerManager*
-    GetExistingListenerManager() const override;
-  virtual mozilla::EventListenerManager*
-    GetOrCreateListenerManager() override;
+  virtual mozilla::EventListenerManager* GetExistingListenerManager()
+      const override;
+  virtual mozilla::EventListenerManager* GetOrCreateListenerManager() override;
 
   using mozilla::dom::EventTarget::RemoveEventListener;
-  virtual void AddEventListener(const nsAString& aType,
-                                mozilla::dom::EventListener* aListener,
-                                const mozilla::dom::AddEventListenerOptionsOrBoolean& aOptions,
-                                const mozilla::dom::Nullable<bool>& aWantsUntrusted,
-                                mozilla::ErrorResult& aRv) override;
+  virtual void AddEventListener(
+      const nsAString& aType,
+      mozilla::dom::EventListener* aListener,
+      const mozilla::dom::AddEventListenerOptionsOrBoolean& aOptions,
+      const mozilla::dom::Nullable<bool>& aWantsUntrusted,
+      mozilla::ErrorResult& aRv) override;
 
   // nsPIWindowRoot
 
@@ -45,12 +45,13 @@ public:
 
   virtual nsresult GetControllers(bool aForVisibleWindow,
                                   nsIControllers** aResult) override;
-  virtual nsresult GetControllerForCommand(const char * aCommand,
+  virtual nsresult GetControllerForCommand(const char* aCommand,
                                            bool aForVisibleWindow,
                                            nsIController** _retval) override;
 
-  virtual void GetEnabledDisabledCommands(nsTArray<nsCString>& aEnabledCommands,
-                                          nsTArray<nsCString>& aDisabledCommands) override;
+  virtual void GetEnabledDisabledCommands(
+      nsTArray<nsCString>& aEnabledCommands,
+      nsTArray<nsCString>& aDisabledCommands) override;
 
   virtual nsIDOMNode* GetPopupNode() override;
   virtual void SetPopupNode(nsIDOMNode* aNode) override;
@@ -59,30 +60,29 @@ public:
   {
     mParent = aTarget;
   }
-  virtual mozilla::dom::EventTarget* GetParentTarget() override { return mParent; }
+  virtual mozilla::dom::EventTarget* GetParentTarget() override
+  {
+    return mParent;
+  }
   virtual nsPIDOMWindowOuter* GetOwnerGlobalForBindings() override;
   virtual nsIGlobalObject* GetOwnerGlobal() const override;
 
   nsIGlobalObject* GetParentObject();
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsWindowRoot,
                                                          nsIDOMEventTarget)
 
   virtual void AddBrowser(mozilla::dom::TabParent* aBrowser) override;
   virtual void RemoveBrowser(mozilla::dom::TabParent* aBrowser) override;
-  virtual void EnumerateBrowsers(BrowserEnumerator aEnumFunc, void *aArg) override;
+  virtual void EnumerateBrowsers(BrowserEnumerator aEnumFunc,
+                                 void* aArg) override;
 
-  virtual bool ShowAccelerators() override
-  {
-    return mShowAccelerators;
-  }
+  virtual bool ShowAccelerators() override { return mShowAccelerators; }
 
-  virtual bool ShowFocusRings() override
-  {
-    return mShowFocusRings;
-  }
+  virtual bool ShowFocusRings() override { return mShowFocusRings; }
 
   virtual void SetShowAccelerators(bool aEnable) override
   {
@@ -94,18 +94,19 @@ public:
     mShowFocusRings = aEnable;
   }
 
-protected:
+ protected:
   virtual ~nsWindowRoot();
 
-  void GetEnabledDisabledCommandsForControllers(nsIControllers* aControllers,
-                                                nsTHashtable<nsCharPtrHashKey>& aCommandsHandled,
-                                                nsTArray<nsCString>& aEnabledCommands,
-                                                nsTArray<nsCString>& aDisabledCommands);
+  void GetEnabledDisabledCommandsForControllers(
+      nsIControllers* aControllers,
+      nsTHashtable<nsCharPtrHashKey>& aCommandsHandled,
+      nsTArray<nsCString>& aEnabledCommands,
+      nsTArray<nsCString>& aDisabledCommands);
 
   // Members
   nsCOMPtr<nsPIDOMWindowOuter> mWindow;
   // We own the manager, which owns event listeners attached to us.
-  RefPtr<mozilla::EventListenerManager> mListenerManager; // [Strong]
+  RefPtr<mozilla::EventListenerManager> mListenerManager;  // [Strong]
   nsWeakPtr mPopupNode;
 
   // True if focus rings and accelerators are enabled for this

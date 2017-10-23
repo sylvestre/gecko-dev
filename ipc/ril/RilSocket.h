@@ -18,9 +18,9 @@ namespace workers {
 
 class WorkerCrossThreadDispatcher;
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
 namespace mozilla {
 namespace ipc {
@@ -31,7 +31,7 @@ class UnixSocketConnector;
 
 class RilSocket final : public ConnectionOrientedSocket
 {
-public:
+ public:
   /**
    * Constructs an instance of |RilSocket|.
    *
@@ -40,7 +40,8 @@ public:
    * @param aIndex An arbitrary index.
    */
   RilSocket(mozilla::dom::workers::WorkerCrossThreadDispatcher* aDispatcher,
-            RilSocketConsumer* aConsumer, int aIndex);
+            RilSocketConsumer* aConsumer,
+            int aIndex);
 
   /**
    * Method to be called whenever data is received. RIL-worker only.
@@ -60,8 +61,10 @@ public:
    * @param aIOLoop The socket's I/O thread.
    * @return NS_OK on success, or an XPCOM error code otherwise.
    */
-  nsresult Connect(UnixSocketConnector* aConnector, int aDelayMs,
-                   MessageLoop* aConsumerLoop, MessageLoop* aIOLoop);
+  nsresult Connect(UnixSocketConnector* aConnector,
+                   int aDelayMs,
+                   MessageLoop* aConsumerLoop,
+                   MessageLoop* aIOLoop);
 
   /**
    * Starts a task on the socket that will try to connect to a socket in a
@@ -94,17 +97,17 @@ public:
   void OnConnectError() override;
   void OnDisconnect() override;
 
-protected:
+ protected:
   virtual ~RilSocket();
 
-private:
+ private:
   RilSocketIO* mIO;
   RefPtr<mozilla::dom::workers::WorkerCrossThreadDispatcher> mDispatcher;
   RilSocketConsumer* mConsumer;
   int mIndex;
 };
 
-} // namespace ipc
-} // namepsace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_RilSocket_h
+#endif  // mozilla_ipc_RilSocket_h

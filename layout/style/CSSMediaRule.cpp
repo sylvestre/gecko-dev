@@ -31,7 +31,8 @@ CSSMediaRule::GetCssRules(nsIDOMCSSRuleList** aRuleList)
 
 NS_IMETHODIMP
 CSSMediaRule::InsertRule(const nsAString& aRule,
-                         uint32_t aIndex, uint32_t* _retval)
+                         uint32_t aIndex,
+                         uint32_t* _retval)
 {
   return GroupRule::InsertRule(aRule, aIndex, _retval);
 }
@@ -44,7 +45,7 @@ CSSMediaRule::DeleteRule(uint32_t aIndex)
 
 // nsIDOMCSSMediaRule methods
 NS_IMETHODIMP
-CSSMediaRule::GetMedia(nsIDOMMediaList* *aMedia)
+CSSMediaRule::GetMedia(nsIDOMMediaList** aMedia)
 {
   NS_ENSURE_ARG_POINTER(aMedia);
   NS_IF_ADDREF(*aMedia = Media());
@@ -55,8 +56,8 @@ void
 CSSMediaRule::SetConditionText(const nsAString& aConditionText,
                                ErrorResult& aRv)
 {
-  nsresult rv = static_cast<nsIDOMCSSConditionRule*>(this)->
-    SetConditionText(aConditionText);
+  nsresult rv = static_cast<nsIDOMCSSConditionRule*>(this)->SetConditionText(
+      aConditionText);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
   }
@@ -68,5 +69,5 @@ CSSMediaRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return CSSMediaRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

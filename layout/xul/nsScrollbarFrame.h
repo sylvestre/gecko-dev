@@ -15,23 +15,26 @@
 
 class nsIScrollbarMediator;
 
-nsIFrame* NS_NewScrollbarFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+nsIFrame*
+NS_NewScrollbarFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsScrollbarFrame final : public nsBoxFrame
 {
-public:
+ public:
   explicit nsScrollbarFrame(nsStyleContext* aContext)
-    : nsBoxFrame(aContext, kClassID)
-    , mIncrement(0)
-    , mSmoothScroll(false)
-    , mScrollbarMediator(nullptr)
-  {}
+      : nsBoxFrame(aContext, kClassID),
+        mIncrement(0),
+        mSmoothScroll(false),
+        mScrollbarMediator(nullptr)
+  {
+  }
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsScrollbarFrame)
 
 #ifdef DEBUG_FRAME_DUMP
-  virtual nsresult GetFrameName(nsAString& aResult) const override {
+  virtual nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("ScrollbarFrame"), aResult);
   }
 #endif
@@ -58,14 +61,14 @@ public:
                            mozilla::WidgetGUIEvent* aEvent,
                            nsEventStatus* aEventStatus) override;
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual void Reflow(nsPresContext*           aPresContext,
-                      ReflowOutput&     aDesiredSize,
+  virtual void Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
   void SetScrollbarMediatorContent(nsIContent* aMediator);
   nsIScrollbarMediator* GetScrollbarMediator();
@@ -99,12 +102,12 @@ public:
   int32_t MoveToNewPosition();
   int32_t GetIncrement() { return mIncrement; }
 
-protected:
-  int32_t mIncrement; // Amount to scroll, in CSSPixels
+ protected:
+  int32_t mIncrement;  // Amount to scroll, in CSSPixels
   bool mSmoothScroll;
 
-private:
+ private:
   nsCOMPtr<nsIContent> mScrollbarMediator;
-}; // class nsScrollbarFrame
+};  // class nsScrollbarFrame
 
 #endif

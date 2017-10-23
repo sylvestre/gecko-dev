@@ -31,14 +31,11 @@ class TimeStampValue
 
   struct _SomethingVeryRandomHere;
   constexpr MOZ_IMPLICIT TimeStampValue(_SomethingVeryRandomHere* aNullValue)
-    : mGTC(0)
-    , mQPC(0)
-    , mHasQPC(false)
-    , mIsNull(true)
+      : mGTC(0), mQPC(0), mHasQPC(false), mIsNull(true)
   {
   }
 
-public:
+ public:
   MFBT_API uint64_t operator-(const TimeStampValue& aOther) const;
 
   TimeStampValue operator+(const int64_t aOther) const
@@ -78,6 +75,6 @@ public:
   }
 };
 
-}
+}  // namespace mozilla
 
 #endif /* mozilla_TimeStamp_h */

@@ -22,13 +22,13 @@ class nsContextMenuInfo : public nsIContextMenuInfo
 {
   friend class ChromeContextMenuListener;
 
-public:
+ public:
   nsContextMenuInfo();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSICONTEXTMENUINFO
 
-private:
+ private:
   virtual ~nsContextMenuInfo();
 
   void SetMouseEvent(nsIDOMEvent* aEvent) { mMouseEvent = aEvent; }
@@ -45,10 +45,10 @@ private:
   nsresult GetBackgroundImageRequestInternal(nsIDOMNode* aDOMNode,
                                              imgRequestProxy** aRequest);
 
-private:
+ private:
   nsCOMPtr<nsIDOMEvent> mMouseEvent;
   nsCOMPtr<nsIDOMNode> mDOMNode;
   nsCOMPtr<nsIDOMNode> mAssociatedLink;
 };
 
-#endif // nsContextMenuInfo_h__
+#endif  // nsContextMenuInfo_h__

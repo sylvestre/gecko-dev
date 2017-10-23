@@ -25,25 +25,25 @@ class ServoStyleRule;
 
 class ServoStyleRuleDeclaration final : public nsDOMCSSDeclaration
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_IMETHOD GetParentRule(nsIDOMCSSRule** aParent) final;
   nsINode* GetParentObject() final;
 
-protected:
+ protected:
   DeclarationBlock* GetCSSDeclaration(Operation aOperation) final;
   nsresult SetCSSDeclaration(DeclarationBlock* aDecl) final;
   nsIDocument* DocToUpdate() final;
   void GetCSSParsingEnvironment(CSSParsingEnvironment& aCSSParseEnv) final;
   ServoCSSParsingEnvironment GetServoCSSParsingEnvironment() const final;
 
-private:
+ private:
   // For accessing the constructor.
   friend class ServoStyleRule;
 
   explicit ServoStyleRuleDeclaration(
-    already_AddRefed<RawServoDeclarationBlock> aDecls);
+      already_AddRefed<RawServoDeclarationBlock> aDecls);
   ~ServoStyleRuleDeclaration();
 
   inline ServoStyleRule* Rule();
@@ -52,13 +52,14 @@ private:
   RefPtr<ServoDeclarationBlock> mDecls;
 };
 
-class ServoStyleRule final : public BindingStyleRule
-                           , public nsICSSStyleRuleDOMWrapper
-                           , public SupportsWeakPtr<ServoStyleRule>
+class ServoStyleRule final : public BindingStyleRule,
+                             public nsICSSStyleRuleDOMWrapper,
+                             public SupportsWeakPtr<ServoStyleRule>
 {
-public:
+ public:
   ServoStyleRule(already_AddRefed<RawServoStyleRule> aRawRule,
-                 uint32_t aLine, uint32_t aColumn);
+                 uint32_t aLine,
+                 uint32_t aColumn);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(ServoStyleRule,
@@ -69,11 +70,10 @@ public:
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(ServoStyleRule)
 
   // nsICSSStyleRuleDOMWrapper
-  NS_IMETHOD GetCSSStyleRule(BindingStyleRule **aResult) override;
+  NS_IMETHOD GetCSSStyleRule(BindingStyleRule** aResult) override;
 
   uint32_t GetSelectorCount() override;
-  nsresult GetSelectorText(uint32_t aSelectorIndex,
-                           nsAString& aText) override;
+  nsresult GetSelectorText(uint32_t aSelectorIndex, nsAString& aText) override;
   nsresult GetSpecificity(uint32_t aSelectorIndex,
                           uint64_t* aSpecificity) override;
   nsresult SelectorMatchesElement(dom::Element* aElement,
@@ -98,7 +98,7 @@ public:
   void List(FILE* out = stdout, int32_t aIndent = 0) const final;
 #endif
 
-private:
+ private:
   ~ServoStyleRule() {}
 
   // For computing the offset of mDecls.
@@ -111,17 +111,18 @@ private:
 ServoStyleRule*
 ServoStyleRuleDeclaration::Rule()
 {
-  return reinterpret_cast<ServoStyleRule*>(
-    reinterpret_cast<uint8_t*>(this) - offsetof(ServoStyleRule, mDecls));
+  return reinterpret_cast<ServoStyleRule*>(reinterpret_cast<uint8_t*>(this) -
+                                           offsetof(ServoStyleRule, mDecls));
 }
 
 const ServoStyleRule*
 ServoStyleRuleDeclaration::Rule() const
 {
   return reinterpret_cast<const ServoStyleRule*>(
-    reinterpret_cast<const uint8_t*>(this) - offsetof(ServoStyleRule, mDecls));
+      reinterpret_cast<const uint8_t*>(this) -
+      offsetof(ServoStyleRule, mDecls));
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoStyleRule_h
+#endif  // mozilla_ServoStyleRule_h

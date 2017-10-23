@@ -18,11 +18,11 @@ class nsIFormControl;
  */
 class nsRadioVisitor : public nsIRadioVisitor
 {
-protected:
-  virtual ~nsRadioVisitor() { }
+ protected:
+  virtual ~nsRadioVisitor() {}
 
-public:
-  nsRadioVisitor() { }
+ public:
+  nsRadioVisitor() {}
 
   NS_DECL_ISUPPORTS
 
@@ -39,14 +39,15 @@ public:
  */
 class nsRadioSetCheckedChangedVisitor : public nsRadioVisitor
 {
-public:
+ public:
   explicit nsRadioSetCheckedChangedVisitor(bool aCheckedChanged)
-    : mCheckedChanged(aCheckedChanged)
-    { }
+      : mCheckedChanged(aCheckedChanged)
+  {
+  }
 
   virtual bool Visit(nsIFormControl* aRadio) override;
 
-protected:
+ protected:
   bool mCheckedChanged;
 };
 
@@ -57,16 +58,16 @@ protected:
  */
 class nsRadioGetCheckedChangedVisitor : public nsRadioVisitor
 {
-public:
+ public:
   nsRadioGetCheckedChangedVisitor(bool* aCheckedChanged,
                                   nsIFormControl* aExcludeElement)
-    : mCheckedChanged(aCheckedChanged)
-    , mExcludeElement(aExcludeElement)
-    { }
+      : mCheckedChanged(aCheckedChanged), mExcludeElement(aExcludeElement)
+  {
+  }
 
   virtual bool Visit(nsIFormControl* aRadio) override;
 
-protected:
+ protected:
   bool* mCheckedChanged;
   nsIFormControl* mExcludeElement;
 };
@@ -78,17 +79,17 @@ protected:
  */
 class nsRadioSetValueMissingState : public nsRadioVisitor
 {
-public:
+ public:
   nsRadioSetValueMissingState(nsIFormControl* aExcludeElement,
-                              bool aValidity, bool aNotify)
-    : mExcludeElement(aExcludeElement)
-    , mValidity(aValidity)
-    , mNotify(aNotify)
-    { }
+                              bool aValidity,
+                              bool aNotify)
+      : mExcludeElement(aExcludeElement), mValidity(aValidity), mNotify(aNotify)
+  {
+  }
 
   virtual bool Visit(nsIFormControl* aRadio) override;
 
-protected:
+ protected:
   nsIFormControl* mExcludeElement;
   bool mValidity;
   bool mNotify;
@@ -96,16 +97,16 @@ protected:
 
 class nsRadioUpdateStateVisitor : public nsRadioVisitor
 {
-public:
+ public:
   explicit nsRadioUpdateStateVisitor(nsIFormControl* aExcludeElement)
-    : mExcludeElement(aExcludeElement)
-    { }
+      : mExcludeElement(aExcludeElement)
+  {
+  }
 
   virtual bool Visit(nsIFormControl* aRadio) override;
 
-protected:
+ protected:
   nsIFormControl* mExcludeElement;
 };
 
-#endif // _nsRadioVisitor_h__
-
+#endif  // _nsRadioVisitor_h__

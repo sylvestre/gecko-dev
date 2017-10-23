@@ -27,7 +27,8 @@
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "wmcodecdspuuid")
 
-void LOG(const char* format, ...)
+void
+LOG(const char* format, ...)
 {
 #ifdef WMF_DECODER_LOG
   va_list args;
@@ -36,13 +37,22 @@ void LOG(const char* format, ...)
 #endif
 }
 
-DEFINE_GUID(CLSID_CMSH264DecMFT, 0x62CE7E72, 0x4C71, 0x4d20, 0xB1, 0x5D, 0x45, 0x28, 0x31, 0xA8, 0x7D, 0x9D);
+DEFINE_GUID(CLSID_CMSH264DecMFT,
+            0x62CE7E72,
+            0x4C71,
+            0x4d20,
+            0xB1,
+            0x5D,
+            0x45,
+            0x28,
+            0x31,
+            0xA8,
+            0x7D,
+            0x9D);
 
 namespace wmf {
 
-
-#define MFPLAT_FUNC(_func, _dllname) \
-  decltype(::_func)* _func;
+#define MFPLAT_FUNC(_func, _dllname) decltype(::_func)* _func;
 #include "WMFSymbols.h"
 #undef MFPLAT_FUNC
 
@@ -55,11 +65,11 @@ LinkMfplat()
     sInitDone = true;
     HMODULE handle;
 
-#define MFPLAT_FUNC(_func, _dllname) \
-      handle = GetModuleHandleA(_dllname); \
-      if (!(_func = (decltype(_func))(GetProcAddress(handle, #_func)))) { \
-        return false; \
-      }
+#define MFPLAT_FUNC(_func, _dllname)                                  \
+  handle = GetModuleHandleA(_dllname);                                \
+  if (!(_func = (decltype(_func))(GetProcAddress(handle, #_func)))) { \
+    return false;                                                     \
+  }
 
 #include "WMFSymbols.h"
 #undef MFPLAT_FUNC
@@ -75,12 +85,10 @@ WMFDecoderDllName()
   // and mfh264dec.dll on Vista.
   if (IsWindows7OrGreater()) {
     return "msmpeg2vdec.dll";
-  }
-  else {
+  } else {
     return "mfh264dec.dll";
   }
 }
-
 
 bool
 EnsureLibs()
@@ -88,8 +96,7 @@ EnsureLibs()
   static bool sInitDone = false;
   static bool sInitOk = false;
   if (!sInitDone) {
-    sInitOk = LinkMfplat() &&
-              !!GetModuleHandleA(WMFDecoderDllName());
+    sInitOk = LinkMfplat() && !!GetModuleHandleA(WMFDecoderDllName());
     sInitDone = true;
   }
   return sInitOk;
@@ -108,17 +115,16 @@ GetPictureRegion(IMFMediaType* aMediaType, IntRect& aOutPictureRegion)
 {
   // Determine if "pan and scan" is enabled for this media. If it is, we
   // only display a region of the video frame, not the entire frame.
-  BOOL panScan = MFGetAttributeUINT32(aMediaType, MF_MT_PAN_SCAN_ENABLED, FALSE);
+  BOOL panScan =
+      MFGetAttributeUINT32(aMediaType, MF_MT_PAN_SCAN_ENABLED, FALSE);
 
   // If pan and scan mode is enabled. Try to get the display region.
   HRESULT hr = E_FAIL;
   MFVideoArea videoArea;
   memset(&videoArea, 0, sizeof(MFVideoArea));
   if (panScan) {
-    hr = aMediaType->GetBlob(MF_MT_PAN_SCAN_APERTURE,
-                             (UINT8*)&videoArea,
-                             sizeof(MFVideoArea),
-                             NULL);
+    hr = aMediaType->GetBlob(
+        MF_MT_PAN_SCAN_APERTURE, (UINT8*)&videoArea, sizeof(MFVideoArea), NULL);
   }
 
   // If we're not in pan-and-scan mode, or the pan-and-scan region is not set,
@@ -161,9 +167,8 @@ GetPictureRegion(IMFMediaType* aMediaType, IntRect& aOutPictureRegion)
   return S_OK;
 }
 
-
 HRESULT
-GetDefaultStride(IMFMediaType *aType, uint32_t* aOutStride)
+GetDefaultStride(IMFMediaType* aType, uint32_t* aOutStride)
 {
   // Try to get the default stride from the media type.
   UINT32 stride = 0;
@@ -197,7 +202,8 @@ GetDefaultStride(IMFMediaType *aType, uint32_t* aOutStride)
   return hr;
 }
 
-void dump(const uint8_t* data, uint32_t len, const char* filename)
+void
+dump(const uint8_t* data, uint32_t len, const char* filename)
 {
   FILE* f = 0;
   fopen_s(&f, filename, "wb");
@@ -216,29 +222,31 @@ CreateMFT(const CLSID& clsid,
     return E_FAIL;
   }
 
-  typedef HRESULT (WINAPI* DllGetClassObjectFnPtr)(const CLSID& clsid,
-                                                   const IID& iid,
-                                                   void** object);
+  typedef HRESULT(WINAPI * DllGetClassObjectFnPtr)(
+      const CLSID& clsid, const IID& iid, void** object);
 
   DllGetClassObjectFnPtr GetClassObjPtr =
-    reinterpret_cast<DllGetClassObjectFnPtr>(GetProcAddress(module, "DllGetClassObject"));
+      reinterpret_cast<DllGetClassObjectFnPtr>(
+          GetProcAddress(module, "DllGetClassObject"));
   if (!GetClassObjPtr) {
     LOG("Failed to get DllGetClassObject\n");
     return E_FAIL;
   }
 
   CComPtr<IClassFactory> classFactory;
-  HRESULT hr = GetClassObjPtr(clsid,
-                              __uuidof(IClassFactory),
-                              reinterpret_cast<void**>(static_cast<IClassFactory**>(&classFactory)));
+  HRESULT hr = GetClassObjPtr(
+      clsid,
+      __uuidof(IClassFactory),
+      reinterpret_cast<void**>(static_cast<IClassFactory**>(&classFactory)));
   if (FAILED(hr)) {
     LOG("Failed to get H264 IClassFactory\n");
     return E_FAIL;
   }
 
-  hr = classFactory->CreateInstance(NULL,
-                                    __uuidof(IMFTransform),
-                                    reinterpret_cast<void**>(static_cast<IMFTransform**>(&aOutMFT)));
+  hr = classFactory->CreateInstance(
+      NULL,
+      __uuidof(IMFTransform),
+      reinterpret_cast<void**>(static_cast<IMFTransform**>(&aOutMFT)));
   if (FAILED(hr)) {
     LOG("Failed to get create MFT\n");
     return E_FAIL;
@@ -253,4 +261,4 @@ GetNumThreads(int32_t aCoreCount)
   return aCoreCount > 4 ? -1 : (std::max)(aCoreCount - 1, 1);
 }
 
-} // namespace
+}  // namespace

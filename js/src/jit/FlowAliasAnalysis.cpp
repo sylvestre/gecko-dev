@@ -25,36 +25,25 @@ using mozilla::Array;
 namespace js {
 namespace jit {
 
-class LoopInfo : public TempObject
-{
-  private:
+class LoopInfo : public TempObject {
+   private:
     LoopInfo* outer_;
     MBasicBlock* loopHeader_;
     MDefinitionVector loopinvariant_;
 
-  public:
+   public:
     LoopInfo(TempAllocator& alloc, LoopInfo* outer, MBasicBlock* loopHeader)
-      : outer_(outer), loopHeader_(loopHeader), loopinvariant_(alloc)
-    { }
+        : outer_(outer), loopHeader_(loopHeader), loopinvariant_(alloc) {}
 
-    MBasicBlock* loopHeader() const {
-        return loopHeader_;
-    }
-    LoopInfo* outer() const {
-        return outer_;
-    }
-    MDefinitionVector& loopinvariant() {
-        return loopinvariant_;
-    }
+    MBasicBlock* loopHeader() const { return loopHeader_; }
+    LoopInfo* outer() const { return outer_; }
+    MDefinitionVector& loopinvariant() { return loopinvariant_; }
 };
 
-static bool
-KeepBlock(MBasicBlock *block)
-{
+static bool KeepBlock(MBasicBlock* block) {
     // Any block that is predecessor to a loopheader need to be kept.
     // We need it to process possible loop invariant loads.
-    if (block->numSuccessors() == 1 && block->getSuccessor(0)->isLoopHeader())
-        return true;
+    if (block->numSuccessors() == 1 && block->getSuccessor(0)->isLoopHeader()) return true;
 
 #ifdef DEBUG
     // We assume a predecessor to a loopheader has one successor.
@@ -65,8 +54,7 @@ KeepBlock(MBasicBlock *block)
     return false;
 }
 
-class GraphStoreInfo : public TempObject
-{
+class GraphStoreInfo : public TempObject {
     // The current BlockStoreInfo while iterating the block untill,
     // it contains the store info at the end of the block.
     BlockStoreInfo* current_;
@@ -78,34 +66,24 @@ class GraphStoreInfo : public TempObject
     // All BlockStoreInfo's that aren't needed anymore and can be reused.
     GraphStoreVector empty_;
 
-  public:
+   public:
     explicit GraphStoreInfo(TempAllocator& alloc)
-      : current_(nullptr),
-        stores_(alloc),
-        empty_(alloc)
-    { }
+        : current_(nullptr), stores_(alloc), empty_(alloc) {}
 
-    bool reserve(size_t num) {
-        return stores_.appendN(nullptr, num);
-    }
+    bool reserve(size_t num) { return stores_.appendN(nullptr, num); }
 
-    BlockStoreInfo& current() {
-        return *current_;
-    }
+    BlockStoreInfo& current() { return *current_; }
 
-    void unsetCurrent() {
-        current_ = nullptr;
-    }
+    void unsetCurrent() { current_ = nullptr; }
 
     BlockStoreInfo* newCurrent(TempAllocator& alloc, MBasicBlock* block) {
-        BlockStoreInfo *info = nullptr;
+        BlockStoreInfo* info = nullptr;
         if (empty_.length() != 0) {
             info = empty_.popCopy();
         } else {
-            info = (BlockStoreInfo*) alloc.allocate(sizeof(BlockStoreInfo));
-            if (!info)
-                return nullptr;
-            new(info) BlockStoreInfo(alloc);
+            info = (BlockStoreInfo*)alloc.allocate(sizeof(BlockStoreInfo));
+            if (!info) return nullptr;
+            new (info) BlockStoreInfo(alloc);
         }
 
         stores_[block->id()] = info;
@@ -124,11 +102,9 @@ class GraphStoreInfo : public TempObject
     }
 
     bool maybeFreePredecessorBlocks(MBasicBlock* block) {
-        for (size_t i=0; i < block->numPredecessors(); i++) {
-
+        for (size_t i = 0; i < block->numPredecessors(); i++) {
             // For some blocks we cannot free the store info.
-            if (KeepBlock(block->getPredecessor(i)))
-                continue;
+            if (KeepBlock(block->getPredecessor(i))) continue;
 
             // Check the given block is the last successor.
             bool release = true;
@@ -139,9 +115,8 @@ class GraphStoreInfo : public TempObject
                 }
             }
             if (release) {
-                BlockStoreInfo *info = stores_[block->getPredecessor(i)->id()];
-                if (!empty_.append(info))
-                    return false;
+                BlockStoreInfo* info = stores_[block->getPredecessor(i)->id()];
+                if (!empty_.append(info)) return false;
                 info->clear();
 
                 stores_[block->getPredecessor(i)->id()] = nullptr;
@@ -156,30 +131,24 @@ class GraphStoreInfo : public TempObject
     }
 };
 
-} // namespace jit
-} // namespace js
-
+}  // namespace jit
+}  // namespace js
 
 FlowAliasAnalysis::FlowAliasAnalysis(MIRGenerator* mir, MIRGraph& graph)
-  : AliasAnalysisShared(mir, graph),
-    loop_(nullptr),
-    output_(graph_.alloc()),
-    worklist_(graph_.alloc())
-{
-    stores_ = new(graph_.alloc()) GraphStoreInfo(graph_.alloc());
+    : AliasAnalysisShared(mir, graph),
+      loop_(nullptr),
+      output_(graph_.alloc()),
+      worklist_(graph_.alloc()) {
+    stores_ = new (graph_.alloc()) GraphStoreInfo(graph_.alloc());
 }
 
 template <typename T>
-static bool
-AppendToWorklist(MDefinitionVector& worklist, T& stores)
-{
-    if (!worklist.reserve(worklist.length() + stores.length()))
-        return false;
+static bool AppendToWorklist(MDefinitionVector& worklist, T& stores) {
+    if (!worklist.reserve(worklist.length() + stores.length())) return false;
 
     for (size_t j = 0; j < stores.length(); j++) {
         MOZ_ASSERT(stores[j]);
-        if (stores[j]->isInWorklist())
-            continue;
+        if (stores[j]->isInWorklist()) continue;
 
         worklist.infallibleAppend(stores[j]);
         stores[j]->setInWorklist();
@@ -187,49 +156,38 @@ AppendToWorklist(MDefinitionVector& worklist, T& stores)
     return true;
 }
 
-static void
-SetNotInWorkList(MDefinitionVector& worklist)
-{
+static void SetNotInWorkList(MDefinitionVector& worklist) {
     for (size_t item = 0; item < worklist.length(); item++)
         worklist[item]->setNotInWorklistUnchecked();
 }
 
-static bool
-LoadAliasesStore(MDefinition* load, MDefinition* store)
-{
+static bool LoadAliasesStore(MDefinition* load, MDefinition* store) {
     // Always alias first instruction of graph.
-    if (store->id() == 0)
-        return true;
+    if (store->id() == 0) return true;
 
     // Default to alias control instructions which indicates loops.
     // Control instructions are special, since we need to determine
     // if it aliases anything in the full loop. Which we do lateron.
-    if (store->isControlInstruction())
-        return true;
+    if (store->isControlInstruction()) return true;
 
     // Check if the alias categories alias eachother.
-    if ((load->getAliasSet() & store->getAliasSet()).isNone())
-        return false;
+    if ((load->getAliasSet() & store->getAliasSet()).isNone()) return false;
 
     // On any operation that has a specific alias category we can use TI to know
     // the objects operating on don't intersect.
     MDefinition::AliasType mightAlias = AliasAnalysisShared::genericMightAlias(load, store);
-    if (mightAlias == MDefinition::AliasType::NoAlias)
-        return false;
+    if (mightAlias == MDefinition::AliasType::NoAlias) return false;
 
     // Check if the instruction might alias eachother.
     mightAlias = load->mightAlias(store);
-    if (mightAlias == MDefinition::AliasType::NoAlias)
-        return false;
+    if (mightAlias == MDefinition::AliasType::NoAlias) return false;
 
     return true;
 }
 
 #ifdef JS_JITSPEW
-static void
-DumpAliasSet(AliasSet set)
-{
-    Fprinter &print = JitSpewPrinter();
+static void DumpAliasSet(AliasSet set) {
+    Fprinter& print = JitSpewPrinter();
 
     if (set.flags() == AliasSet::Any) {
         print.printf("Any");
@@ -238,8 +196,7 @@ DumpAliasSet(AliasSet set)
 
     bool first = true;
     for (AliasSetIterator iter(set); iter; iter++) {
-        if (!first)
-            print.printf(", ");
+        if (!first) print.printf(", ");
         print.printf("%s", AliasSet::Name(*iter));
         first = false;
     }
@@ -247,24 +204,20 @@ DumpAliasSet(AliasSet set)
 #endif
 
 #ifdef JS_JITSPEW
-static void
-DumpStoreList(BlockStoreInfo& stores)
-{
-    Fprinter &print = JitSpewPrinter();
+static void DumpStoreList(BlockStoreInfo& stores) {
+    Fprinter& print = JitSpewPrinter();
     if (stores.length() == 0) {
         print.printf("empty");
         return;
     }
     bool first = true;
     for (size_t i = 0; i < stores.length(); i++) {
-        if (!first)
-            print.printf(", ");
+        if (!first) print.printf(", ");
         if (!stores[i]) {
             print.printf("nullptr");
             continue;
         }
-        MOZ_ASSERT(stores[i]->isControlInstruction() ||
-                   stores[i]->getAliasSet().isStore() ||
+        MOZ_ASSERT(stores[i]->isControlInstruction() || stores[i]->getAliasSet().isStore() ||
                    stores[i]->id() == 0);
         MDefinition::PrintOpcodeName(print, stores[i]->op());
         print.printf("%d", stores[i]->id());
@@ -273,25 +226,21 @@ DumpStoreList(BlockStoreInfo& stores)
 }
 #endif
 
-static void
-DumpAnalyzeStart()
-{
+static void DumpAnalyzeStart() {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias) || JitSpewEnabled(JitSpew_AliasSummaries)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpewEnabled(JitSpew_Alias) ? JitSpew_Alias : JitSpew_AliasSummaries);
         print.printf("Running Alias Analysis on graph\n");
     }
 #endif
 }
 
-static void
-DumpBlockStart(MBasicBlock* block)
-{
+static void DumpBlockStart(MBasicBlock* block) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias) || JitSpewEnabled(JitSpew_AliasSummaries)) {
-        Fprinter &print = JitSpewPrinter();
-        JitSpewHeader(JitSpewEnabled(JitSpew_Alias)?JitSpew_Alias:JitSpew_AliasSummaries);
+        Fprinter& print = JitSpewPrinter();
+        JitSpewHeader(JitSpewEnabled(JitSpew_Alias) ? JitSpew_Alias : JitSpew_AliasSummaries);
         if (block->isLoopHeader())
             print.printf(" Visiting block %d (loopheader)\n", block->id());
         else
@@ -300,24 +249,20 @@ DumpBlockStart(MBasicBlock* block)
 #endif
 }
 
-static void
-DumpProcessingDeferredLoads(MBasicBlock* loopHeader)
-{
+static void DumpProcessingDeferredLoads(MBasicBlock* loopHeader) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_Alias);
         print.printf(" Process deferred loads of loop %d\n", loopHeader->id());
     }
 #endif
 }
 
-static void
-DumpBlockSummary(MBasicBlock* block, BlockStoreInfo& blockInfo)
-{
+static void DumpBlockSummary(MBasicBlock* block, BlockStoreInfo& blockInfo) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_AliasSummaries)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_AliasSummaries);
         print.printf("  Store at end of block: ");
         DumpStoreList(blockInfo);
@@ -326,12 +271,10 @@ DumpBlockSummary(MBasicBlock* block, BlockStoreInfo& blockInfo)
 #endif
 }
 
-static void
-DumpStore(MDefinition* store)
-{
+static void DumpStore(MDefinition* store) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_Alias);
         print.printf("  Store ");
         store->PrintOpcodeName(print, store->op());
@@ -342,12 +285,10 @@ DumpStore(MDefinition* store)
 #endif
 }
 
-static void
-DumpLoad(MDefinition* load)
-{
+static void DumpLoad(MDefinition* load) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_Alias);
         print.printf("  Load ");
         load->PrintOpcodeName(print, load->op());
@@ -359,35 +300,31 @@ DumpLoad(MDefinition* load)
 #endif
 }
 
-static void
-DumpLoadOutcome(MDefinition* load, MDefinitionVector& stores, bool defer)
-{
+static void DumpLoadOutcome(MDefinition* load, MDefinitionVector& stores, bool defer) {
 #ifdef JS_JITSPEW
     // Spew what we did.
     if (JitSpewEnabled(JitSpew_Alias)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_Alias);
         print.printf("   Marked depending on ");
         DumpStoreList(stores);
-        if (defer)
-            print.printf(" deferred");
+        if (defer) print.printf(" deferred");
         print.printf("\n");
     }
 #endif
 }
 
-static void
-DumpLoopInvariant(MDefinition* load, MBasicBlock* loopheader, bool loopinvariant,
-                  MDefinitionVector& loopInvariantDependency)
-{
+static void DumpLoopInvariant(MDefinition* load, MBasicBlock* loopheader, bool loopinvariant,
+                              MDefinitionVector& loopInvariantDependency) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_Alias);
         if (!loopinvariant) {
             print.printf("   Determine not loop invariant to loop %d.\n", loopheader->id());
         } else {
-            print.printf("   Determine loop invariant to loop %d. Dependendy is now: ", loopheader->id());
+            print.printf("   Determine loop invariant to loop %d. Dependendy is now: ",
+                         loopheader->id());
             DumpStoreList(loopInvariantDependency);
             print.printf("\n");
         }
@@ -395,12 +332,11 @@ DumpLoopInvariant(MDefinition* load, MBasicBlock* loopheader, bool loopinvariant
 #endif
 }
 
-static void
-DumpImprovement(MDefinition *load, MDefinitionVector& input, MDefinitionVector& output)
-{
+static void DumpImprovement(MDefinition* load, MDefinitionVector& input,
+                            MDefinitionVector& output) {
 #ifdef JS_JITSPEW
     if (JitSpewEnabled(JitSpew_Alias)) {
-        Fprinter &print = JitSpewPrinter();
+        Fprinter& print = JitSpewPrinter();
         JitSpewHeader(JitSpew_Alias);
         print.printf("   Improve dependency from %d", load->id());
         DumpStoreList(input);
@@ -440,28 +376,22 @@ DumpImprovement(MDefinition *load, MDefinitionVector& input, MDefinitionVector& 
 // The algorithm depends on the invariant that both control instructions and effectful
 // instructions (stores) are never hoisted.
 
-bool
-FlowAliasAnalysis::analyze()
-{
+bool FlowAliasAnalysis::analyze() {
     DumpAnalyzeStart();
 
     // Type analysis may have inserted new instructions. Since this pass depends
     // on the instruction number ordering, all instructions are renumbered.
     uint32_t newId = 0;
 
-    if (!stores_->reserve(graph_.numBlocks()))
-        return false;
+    if (!stores_->reserve(graph_.numBlocks())) return false;
 
     for (ReversePostorderIterator block(graph_.rpoBegin()); block != graph_.rpoEnd(); block++) {
-        if (mir->shouldCancel("Alias Analysis (main loop)"))
-            return false;
+        if (mir->shouldCancel("Alias Analysis (main loop)")) return false;
 
         DumpBlockStart(*block);
 
-        if (!computeBlockStores(*block))
-            return false;
-        if (!stores_->maybeFreePredecessorBlocks(*block))
-            return false;
+        if (!computeBlockStores(*block)) return false;
+        if (!stores_->maybeFreePredecessorBlocks(*block)) return false;
 
         for (MPhiIterator def(block->phisBegin()), end(block->phisEnd()); def != end; ++def)
             def->setId(newId++);
@@ -471,31 +401,24 @@ FlowAliasAnalysis::analyze()
         // When the store dependencies is empty it means we have a disconnected
         // graph. Those blocks will never get reached but it is only fixed up
         // after GVN. Don't run AA on those blocks.
-        if (blockInfo.length() == 0)
-            continue;
+        if (blockInfo.length() == 0) continue;
 
-        if (block->isLoopHeader())
-            loop_ = new(alloc()) LoopInfo(alloc(), loop_, *block);
+        if (block->isLoopHeader()) loop_ = new (alloc()) LoopInfo(alloc(), loop_, *block);
 
         for (MInstructionIterator def(block->begin()), end(block->begin(block->lastIns()));
-                def != end;
-                ++def)
-        {
+             def != end; ++def) {
             def->setId(newId++);
 
             // For the purposes of alias analysis, all recoverable operations
             // are treated as effect free as the memory represented by these
             // operations cannot be aliased by others.
-            if (def->canRecoverOnBailout())
-                continue;
+            if (def->canRecoverOnBailout()) continue;
 
             AliasSet set = def->getAliasSet();
             if (set.isStore()) {
-                if (!processStore(blockInfo, *def))
-                    return false;
+                if (!processStore(blockInfo, *def)) return false;
             } else if (set.isLoad()) {
-                if (!processLoad(blockInfo, *def))
-                    return false;
+                if (!processLoad(blockInfo, *def)) return false;
             }
         }
 
@@ -507,8 +430,7 @@ FlowAliasAnalysis::analyze()
             LoopInfo* info = loop_;
             loop_ = loop_->outer();
 
-            if (!processDeferredLoads(info))
-                return false;
+            if (!processDeferredLoads(info)) return false;
         }
 
         DumpBlockSummary(*block, blockInfo);
@@ -518,38 +440,30 @@ FlowAliasAnalysis::analyze()
     return true;
 }
 
-bool
-FlowAliasAnalysis::processStore(BlockStoreInfo& blockInfo, MDefinition* store)
-{
+bool FlowAliasAnalysis::processStore(BlockStoreInfo& blockInfo, MDefinition* store) {
     // Compute and set dependency information.
-    if (!saveStoreDependency(store, blockInfo))
-        return false;
+    if (!saveStoreDependency(store, blockInfo)) return false;
 
     // Update the block store dependency vector.
     blockInfo.clear();
-    if (!blockInfo.append(store))
-        return false;
+    if (!blockInfo.append(store)) return false;
 
     // Spew what we did.
     DumpStore(store);
     return true;
 }
 
-bool
-FlowAliasAnalysis::processLoad(BlockStoreInfo& blockInfo, MDefinition* load)
-{
+bool FlowAliasAnalysis::processLoad(BlockStoreInfo& blockInfo, MDefinition* load) {
     DumpLoad(load);
 
     // Compute dependency information.
     MDefinitionVector& dependencies = blockInfo;
-    if (!improveDependency(load, dependencies, output_))
-        return false;
+    if (!improveDependency(load, dependencies, output_)) return false;
     saveLoadDependency(load, output_);
 
     // If possible defer when better loop information is present.
     if (deferImproveDependency(output_)) {
-        if (!loop_->loopinvariant().append(load))
-            return false;
+        if (!loop_->loopinvariant().append(load)) return false;
 
         DumpLoadOutcome(load, output_, /* defer = */ true);
         return true;
@@ -559,9 +473,7 @@ FlowAliasAnalysis::processLoad(BlockStoreInfo& blockInfo, MDefinition* load)
     return true;
 }
 
-bool
-FlowAliasAnalysis::processDeferredLoads(LoopInfo* info)
-{
+bool FlowAliasAnalysis::processDeferredLoads(LoopInfo* info) {
     DumpProcessingDeferredLoads(info->loopHeader());
     MOZ_ASSERT(loopIsFinished(info->loopHeader()));
 
@@ -573,8 +485,7 @@ FlowAliasAnalysis::processDeferredLoads(LoopInfo* info)
         // Defer load again when this loop still isn't finished yet.
         if (!loopIsFinished(load->dependency()->block())) {
             MOZ_ASSERT(loop_);
-            if (!loop_->loopinvariant().append(load))
-                return false;
+            if (!loop_->loopinvariant().append(load)) return false;
 
             DumpLoadOutcome(load, output_, /* defer = */ true);
             continue;
@@ -587,9 +498,8 @@ FlowAliasAnalysis::processDeferredLoads(LoopInfo* info)
         // Test if this load is loop invariant and if it is,
         // take the dependencies of non-backedge predecessors of the loop header.
         bool loopinvariant;
-        if (!isLoopInvariant(load, store, &loopinvariant))
-            return false;
-        MDefinitionVector &loopInvariantDependency =
+        if (!isLoopInvariant(load, store, &loopinvariant)) return false;
+        MDefinitionVector& loopInvariantDependency =
             stores_->get(store->block()->loopPredecessor());
 
         DumpLoopInvariant(load, info->loopHeader(), /* loopinvariant = */ loopinvariant,
@@ -604,14 +514,12 @@ FlowAliasAnalysis::processDeferredLoads(LoopInfo* info)
         }
 
         if (loopinvariant) {
-            if (!improveDependency(load, loopInvariantDependency, output_))
-                return false;
+            if (!improveDependency(load, loopInvariantDependency, output_)) return false;
             saveLoadDependency(load, output_);
 
             // If possible defer when better loop information is present.
             if (deferImproveDependency(output_)) {
-                if (!loop_->loopinvariant().append(load))
-                    return false;
+                if (!loop_->loopinvariant().append(load)) return false;
 
                 DumpLoadOutcome(load, output_, /* defer = */ true);
             } else {
@@ -623,56 +531,44 @@ FlowAliasAnalysis::processDeferredLoads(LoopInfo* info)
 
 #ifdef JS_JITSPEW
             output_.clear();
-            if (!output_.append(store))
-                return false;
+            if (!output_.append(store)) return false;
             DumpLoadOutcome(load, output_, /* defer = */ false);
 #endif
         }
-
     }
     return true;
 }
 
 // Given a load instruction and an initial store dependency list,
 // find the most accurate store dependency list.
-bool
-FlowAliasAnalysis::improveDependency(MDefinition* load, MDefinitionVector& inputStores,
-                                     MDefinitionVector& outputStores)
-{
+bool FlowAliasAnalysis::improveDependency(MDefinition* load, MDefinitionVector& inputStores,
+                                          MDefinitionVector& outputStores) {
     MOZ_ASSERT(inputStores.length() > 0);
     outputStores.clear();
-    if (!outputStores.appendAll(inputStores))
-        return false;
+    if (!outputStores.appendAll(inputStores)) return false;
 
     bool improved = false;
     bool adjusted = true;
     while (adjusted) {
         adjusted = false;
-        if (!improveNonAliasedStores(load, outputStores, outputStores, &improved))
-            return false;
+        if (!improveNonAliasedStores(load, outputStores, outputStores, &improved)) return false;
         MOZ_ASSERT(outputStores.length() != 0);
-        if (!improveStoresInFinishedLoops(load, outputStores, &adjusted))
-            return false;
-        if (adjusted)
-            improved = true;
+        if (!improveStoresInFinishedLoops(load, outputStores, &adjusted)) return false;
+        if (adjusted) improved = true;
     }
 
-    if (improved)
-        DumpImprovement(load, inputStores, outputStores);
+    if (improved) DumpImprovement(load, inputStores, outputStores);
 
     return true;
 }
 
 // For every real store dependencies, follow the chain of stores to find the
 // unique set of 'might alias' store dependencies.
-bool
-FlowAliasAnalysis::improveNonAliasedStores(MDefinition* load, MDefinitionVector& inputStores,
-                                           MDefinitionVector& outputStores, bool* improved,
-                                           bool onlyControlInstructions)
-{
+bool FlowAliasAnalysis::improveNonAliasedStores(MDefinition* load, MDefinitionVector& inputStores,
+                                                MDefinitionVector& outputStores, bool* improved,
+                                                bool onlyControlInstructions) {
     MOZ_ASSERT(worklist_.length() == 0);
-    if (!AppendToWorklist(worklist_, inputStores))
-        return false;
+    if (!AppendToWorklist(worklist_, inputStores)) return false;
     outputStores.clear();
 
     for (size_t i = 0; i < worklist_.length(); i++) {
@@ -683,8 +579,7 @@ FlowAliasAnalysis::improveNonAliasedStores(MDefinition* load, MDefinitionVector&
             MOZ_ASSERT(dep);
             MOZ_ASSERT(dep->get().length() > 0);
 
-            if (!AppendToWorklist(worklist_, dep->get()))
-                return false;
+            if (!AppendToWorklist(worklist_, dep->get())) return false;
 
             *improved = true;
             continue;
@@ -694,8 +589,7 @@ FlowAliasAnalysis::improveNonAliasedStores(MDefinition* load, MDefinitionVector&
             outputStores.clear();
             break;
         }
-        if (!outputStores.append(worklist_[i]))
-            return false;
+        if (!outputStores.append(worklist_[i])) return false;
     }
 
     SetNotInWorkList(worklist_);
@@ -707,33 +601,25 @@ FlowAliasAnalysis::improveNonAliasedStores(MDefinition* load, MDefinitionVector&
 // find the most accurate store dependency list with only control instructions.
 // Returns an empty output list, when there was a non control instructions
 // that couldn't get improved to a control instruction.
-bool
-FlowAliasAnalysis::improveLoopDependency(MDefinition* load, MDefinitionVector& inputStores,
-                                         MDefinitionVector& outputStores)
-{
+bool FlowAliasAnalysis::improveLoopDependency(MDefinition* load, MDefinitionVector& inputStores,
+                                              MDefinitionVector& outputStores) {
     outputStores.clear();
-    if (!outputStores.appendAll(inputStores))
-        return false;
+    if (!outputStores.appendAll(inputStores)) return false;
 
     bool improved = false;
     bool adjusted = true;
     while (adjusted) {
         adjusted = false;
         if (!improveNonAliasedStores(load, outputStores, outputStores, &improved,
-                                      /* onlyControlInstructions = */ true))
-        {
+                                     /* onlyControlInstructions = */ true)) {
             return false;
         }
-        if (outputStores.length() == 0)
-            return true;
-        if (!improveStoresInFinishedLoops(load, outputStores, &adjusted))
-            return false;
-        if (adjusted)
-            improved = true;
+        if (outputStores.length() == 0) return true;
+        if (!improveStoresInFinishedLoops(load, outputStores, &adjusted)) return false;
+        if (adjusted) improved = true;
     }
 
-    if (improved)
-        DumpImprovement(load, inputStores, outputStores);
+    if (improved) DumpImprovement(load, inputStores, outputStores);
 
     return true;
 }
@@ -741,29 +627,21 @@ FlowAliasAnalysis::improveLoopDependency(MDefinition* load, MDefinitionVector& i
 // For every control instruction in the output we find out if the load is loop
 // invariant to that loop. When it is, improve the output dependency store,
 // by pointing to the stores before the loop.
-bool
-FlowAliasAnalysis::improveStoresInFinishedLoops(MDefinition* load, MDefinitionVector& stores,
-                                                bool* improved)
-{
+bool FlowAliasAnalysis::improveStoresInFinishedLoops(MDefinition* load, MDefinitionVector& stores,
+                                                     bool* improved) {
     for (size_t i = 0; i < stores.length(); i++) {
-        if (!stores[i]->isControlInstruction())
-            continue;
-        if (!stores[i]->block()->isLoopHeader())
-            continue;
+        if (!stores[i]->isControlInstruction()) continue;
+        if (!stores[i]->block()->isLoopHeader()) continue;
 
         MOZ_ASSERT(!stores[i]->storeDependency());
 
-        if (!loopIsFinished(stores[i]->block()))
-            continue;
+        if (!loopIsFinished(stores[i]->block())) continue;
 
-        if (load->dependency() == stores[i])
-            continue;
+        if (load->dependency() == stores[i]) continue;
 
         bool loopinvariant;
-        if (!isLoopInvariant(load, stores[i], &loopinvariant))
-            return false;
-        if (!loopinvariant)
-            continue;
+        if (!isLoopInvariant(load, stores[i], &loopinvariant)) return false;
+        if (!loopinvariant) continue;
 
         MBasicBlock* pred = stores[i]->block()->loopPredecessor();
         BlockStoreInfo& predInfo = stores_->get(pred);
@@ -771,8 +649,7 @@ FlowAliasAnalysis::improveStoresInFinishedLoops(MDefinition* load, MDefinitionVe
         MOZ_ASSERT(predInfo.length() > 0);
         stores[i] = predInfo[0];
         for (size_t j = 1; j < predInfo.length(); j++) {
-            if (!stores.append(predInfo[j]))
-                return false;
+            if (!stores.append(predInfo[j])) return false;
         }
 
         *improved = true;
@@ -781,20 +658,14 @@ FlowAliasAnalysis::improveStoresInFinishedLoops(MDefinition* load, MDefinitionVe
     return true;
 }
 
-bool
-FlowAliasAnalysis::deferImproveDependency(MDefinitionVector& stores)
-{
+bool FlowAliasAnalysis::deferImproveDependency(MDefinitionVector& stores) {
     // Look if the store depends only on 1 non finished loop.
     // In that case we will defer until that loop has finished.
-    return loop_ && stores.length() == 1 &&
-           stores[0]->isControlInstruction() &&
-           stores[0]->block()->isLoopHeader() &&
-           !loopIsFinished(stores[0]->block());
+    return loop_ && stores.length() == 1 && stores[0]->isControlInstruction() &&
+           stores[0]->block()->isLoopHeader() && !loopIsFinished(stores[0]->block());
 }
 
-void
-FlowAliasAnalysis::saveLoadDependency(MDefinition* load, MDefinitionVector& dependencies)
-{
+void FlowAliasAnalysis::saveLoadDependency(MDefinition* load, MDefinitionVector& dependencies) {
     MOZ_ASSERT(dependencies.length() > 0);
 
     // For now we only save the last store before the load for other passes.
@@ -803,11 +674,9 @@ FlowAliasAnalysis::saveLoadDependency(MDefinition* load, MDefinitionVector& depe
     MDefinition* maxNonControl = nullptr;
     for (size_t i = 0; i < dependencies.length(); i++) {
         MDefinition* ins = dependencies[i];
-        if (max->id() < ins->id())
-            max = ins;
+        if (max->id() < ins->id()) max = ins;
         if (!ins->isControlInstruction()) {
-            if (!maxNonControl || maxNonControl->id() < ins->id())
-                maxNonControl = ins;
+            if (!maxNonControl || maxNonControl->id() < ins->id()) maxNonControl = ins;
         }
     }
 
@@ -817,24 +686,19 @@ FlowAliasAnalysis::saveLoadDependency(MDefinition* load, MDefinitionVector& depe
     // Fix for dependency on item in loopheader, but before the "test".
     // Which would assume it depends on the loop itself.
     if (maxNonControl != max && maxNonControl) {
-        if (maxNonControl->block() == max->block())
-            max = maxNonControl;
+        if (maxNonControl->block() == max->block()) max = maxNonControl;
     }
 
     load->setDependency(max);
 }
 
-bool
-FlowAliasAnalysis::saveStoreDependency(MDefinition* ins, BlockStoreInfo& prevStores)
-{
+bool FlowAliasAnalysis::saveStoreDependency(MDefinition* ins, BlockStoreInfo& prevStores) {
     // To form a store dependency chain, we store the previous last dependencies
     // in the current store.
 
-    StoreDependency* dependency = new(alloc().fallible()) StoreDependency(alloc());
-    if (!dependency)
-        return false;
-    if (!dependency->init(prevStores))
-        return false;
+    StoreDependency* dependency = new (alloc().fallible()) StoreDependency(alloc());
+    if (!dependency) return false;
+    if (!dependency->init(prevStores)) return false;
 
     ins->setStoreDependency(dependency);
     return true;
@@ -842,18 +706,13 @@ FlowAliasAnalysis::saveStoreDependency(MDefinition* ins, BlockStoreInfo& prevSto
 
 // Returns if loop has been processed
 // and has complete backedge stores information.
-bool
-FlowAliasAnalysis::loopIsFinished(MBasicBlock* loopheader)
-{
+bool FlowAliasAnalysis::loopIsFinished(MBasicBlock* loopheader) {
     MOZ_ASSERT(loopheader->isLoopHeader());
 
-    if (!loop_)
-        return true;
+    if (!loop_) return true;
 
-    return loopheader->backedge()->id() <
-           loop_->loopHeader()->backedge()->id();
+    return loopheader->backedge()->id() < loop_->loopHeader()->backedge()->id();
 }
-
 
 // Determines if a load is loop invariant.
 //
@@ -862,9 +721,8 @@ FlowAliasAnalysis::loopIsFinished(MBasicBlock* loopheader)
 // aliased stores is only the loop control instruction or control instructions
 // of loops it is also loop invariant. Only in that case the load is
 // definitely loop invariant.
-bool
-FlowAliasAnalysis::isLoopInvariant(MDefinition* load, MDefinition* store, bool* loopinvariant)
-{
+bool FlowAliasAnalysis::isLoopInvariant(MDefinition* load, MDefinition* store,
+                                        bool* loopinvariant) {
     MOZ_ASSERT(store->isControlInstruction());
     MOZ_ASSERT(!store->storeDependency());
     MOZ_ASSERT(store->block()->isLoopHeader());
@@ -878,24 +736,18 @@ FlowAliasAnalysis::isLoopInvariant(MDefinition* load, MDefinition* store, bool* 
     // set the loop control instruction as dependency.
     MDefinition* olddep = load->dependency();
     load->setDependency(store);
-    if (!improveLoopDependency(load, stores_->get(backedge), output))
-        return false;
+    if (!improveLoopDependency(load, stores_->get(backedge), output)) return false;
     load->setDependency(olddep);
 
-    if (output.length() == 0)
-        return true;
+    if (output.length() == 0) return true;
 
     for (size_t i = 0; i < output.length(); i++) {
-        if (output[i]->storeDependency())
-            return true;
+        if (output[i]->storeDependency()) return true;
 
-        if (!output[i]->isControlInstruction())
-            return true;
-        if (!output[i]->block()->isLoopHeader())
-            return true;
+        if (!output[i]->isControlInstruction()) return true;
+        if (!output[i]->block()->isLoopHeader()) return true;
 
-        if (output[i] == store)
-            continue;
+        if (output[i] == store) continue;
 
         return true;
     }
@@ -905,29 +757,23 @@ FlowAliasAnalysis::isLoopInvariant(MDefinition* load, MDefinition* store, bool* 
 }
 
 // Compute the store dependencies at the start of this MBasicBlock.
-bool
-FlowAliasAnalysis::computeBlockStores(MBasicBlock* block)
-{
+bool FlowAliasAnalysis::computeBlockStores(MBasicBlock* block) {
     BlockStoreInfo* blockInfo = stores_->newCurrent(alloc(), block);
-    if (!blockInfo)
-        return false;
+    if (!blockInfo) return false;
 
     // First and osr block depends on the first instruction.
     if (block == graph_.entryBlock() || block == graph_.osrBlock()) {
         MDefinition* firstIns = *block->begin();
-        if (!blockInfo->append(firstIns))
-            return false;
+        if (!blockInfo->append(firstIns)) return false;
         return true;
     }
 
     // For loopheaders we take the loopheaders control instruction.
     // That is not moveable and easy is to detect.
     if (block->isLoopHeader()) {
-        if (!blockInfo->append(block->lastIns()))
-            return false;
+        if (!blockInfo->append(block->lastIns())) return false;
         return true;
     }
-
 
     // Optimization for consecutive blocks.
     if (block->numPredecessors() == 1) {
@@ -936,7 +782,7 @@ FlowAliasAnalysis::computeBlockStores(MBasicBlock* block)
             stores_->swap(block, pred);
             return true;
         }
-        MOZ_ASSERT (pred->numSuccessors() > 1);
+        MOZ_ASSERT(pred->numSuccessors() > 1);
         BlockStoreInfo& predInfo = stores_->get(pred);
         return blockInfo->appendAll(predInfo);
     }
@@ -947,16 +793,14 @@ FlowAliasAnalysis::computeBlockStores(MBasicBlock* block)
     // For simplicity we take an non-dominant always existing instruction.
     // That way we cannot accidentally move instructions depending on it.
     if (block->numPredecessors() > 5) {
-        if (!blockInfo->append(block->getPredecessor(0)->lastIns()))
-            return false;
+        if (!blockInfo->append(block->getPredecessor(0)->lastIns())) return false;
         return true;
     }
 
     // Merging of multiple predecessors.
     for (size_t pred = 0; pred < block->numPredecessors(); pred++) {
         BlockStoreInfo& predInfo = stores_->get(block->getPredecessor(pred));
-        if (!AppendToWorklist(*blockInfo, predInfo))
-            return false;
+        if (!AppendToWorklist(*blockInfo, predInfo)) return false;
     }
     SetNotInWorkList(*blockInfo);
 

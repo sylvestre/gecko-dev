@@ -46,7 +46,8 @@ using namespace mozilla;
 
 NS_IMPL_ADDREF(nsConsoleService)
 NS_IMPL_RELEASE(nsConsoleService)
-NS_IMPL_CLASSINFO(nsConsoleService, nullptr,
+NS_IMPL_CLASSINFO(nsConsoleService,
+                  nullptr,
                   nsIClassInfo::THREADSAFE | nsIClassInfo::SINGLETON,
                   NS_CONSOLESERVICE_CID)
 NS_IMPL_QUERY_INTERFACE_CI(nsConsoleService, nsIConsoleService, nsIObserver)
@@ -56,16 +57,14 @@ static bool sLoggingEnabled = true;
 static bool sLoggingBuffered = true;
 #if defined(ANDROID)
 static bool sLoggingLogcat = true;
-#endif // defined(ANDROID)
+#endif  // defined(ANDROID)
 
-nsConsoleService::MessageElement::~MessageElement()
-{
-}
+nsConsoleService::MessageElement::~MessageElement() {}
 
 nsConsoleService::nsConsoleService()
-  : mCurrentSize(0)
-  , mDeliveringMessage(false)
-  , mLock("nsConsoleService.mLock")
+    : mCurrentSize(0),
+      mDeliveringMessage(false),
+      mLock("nsConsoleService.mLock")
 {
   // XXX grab this from a pref!
   // hm, but worry about circularity, bc we want to be able to report
@@ -73,14 +72,13 @@ nsConsoleService::nsConsoleService()
   mMaximumSize = 250;
 }
 
-
 void
 nsConsoleService::ClearMessagesForWindowID(const uint64_t innerID)
 {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   MutexAutoLock lock(mLock);
 
-  for (MessageElement* e = mMessages.getFirst(); e != nullptr; ) {
+  for (MessageElement* e = mMessages.getFirst(); e != nullptr;) {
     // Only messages implementing nsIScriptError interface expose the
     // inner window ID.
     nsCOMPtr<nsIScriptError> scriptError = do_QueryInterface(e->Get());
@@ -126,20 +124,22 @@ nsConsoleService::~nsConsoleService()
 
 class AddConsolePrefWatchers : public Runnable
 {
-public:
+ public:
   explicit AddConsolePrefWatchers(nsConsoleService* aConsole)
-    : mozilla::Runnable("AddConsolePrefWatchers")
-    , mConsole(aConsole)
+      : mozilla::Runnable("AddConsolePrefWatchers"), mConsole(aConsole)
   {
   }
 
   NS_IMETHOD Run() override
   {
-    Preferences::AddBoolVarCache(&sLoggingEnabled, "consoleservice.enabled", true);
-    Preferences::AddBoolVarCache(&sLoggingBuffered, "consoleservice.buffered", true);
+    Preferences::AddBoolVarCache(
+        &sLoggingEnabled, "consoleservice.enabled", true);
+    Preferences::AddBoolVarCache(
+        &sLoggingBuffered, "consoleservice.buffered", true);
 #if defined(ANDROID)
-    Preferences::AddBoolVarCache(&sLoggingLogcat, "consoleservice.logcat", true);
-#endif // defined(ANDROID)
+    Preferences::AddBoolVarCache(
+        &sLoggingLogcat, "consoleservice.logcat", true);
+#endif  // defined(ANDROID)
 
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
     MOZ_ASSERT(obs);
@@ -152,7 +152,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<nsConsoleService> mConsole;
 };
 
@@ -168,16 +168,17 @@ namespace {
 
 class LogMessageRunnable : public Runnable
 {
-public:
+ public:
   LogMessageRunnable(nsIConsoleMessage* aMessage, nsConsoleService* aService)
-    : mozilla::Runnable("LogMessageRunnable")
-    , mMessage(aMessage)
-    , mService(aService)
-  { }
+      : mozilla::Runnable("LogMessageRunnable"),
+        mMessage(aMessage),
+        mService(aService)
+  {
+  }
 
   NS_DECL_NSIRUNNABLE
 
-private:
+ private:
   nsCOMPtr<nsIConsoleMessage> mMessage;
   RefPtr<nsConsoleService> mService;
 };
@@ -203,7 +204,7 @@ LogMessageRunnable::Run()
   return NS_OK;
 }
 
-} // namespace
+}  // namespace
 
 // nsIConsoleService methods
 NS_IMETHODIMP
@@ -228,9 +229,13 @@ nsConsoleService::LogMessageWithMode(nsIConsoleMessage* aMessage,
   if (NS_IsMainThread() && mDeliveringMessage) {
     nsCString msg;
     aMessage->ToString(msg);
-    NS_WARNING(nsPrintfCString("Reentrancy error: some client attempted "
-      "to display a message to the console while in a console listener. "
-      "The following message was discarded: \"%s\"", msg.get()).get());
+    NS_WARNING(
+        nsPrintfCString(
+            "Reentrancy error: some client attempted "
+            "to display a message to the console while in a console listener. "
+            "The following message was discarded: \"%s\"",
+            msg.get())
+            .get());
     return NS_ERROR_FAILURE;
   }
 
@@ -323,8 +328,8 @@ nsConsoleService::LogMessageWithMode(nsIConsoleMessage* aMessage,
     // Release |retiredMessage| on the main thread in case it is an instance of
     // a mainthread-only class like nsScriptErrorWithStack and we're off the
     // main thread.
-    NS_ReleaseOnMainThreadSystemGroup(
-      "nsConsoleService::retiredMessage", retiredMessage.forget());
+    NS_ReleaseOnMainThreadSystemGroup("nsConsoleService::retiredMessage",
+                                      retiredMessage.forget());
   }
 
   if (r) {
@@ -340,7 +345,7 @@ nsConsoleService::LogMessageWithMode(nsIConsoleMessage* aMessage,
 
 void
 nsConsoleService::CollectCurrentListeners(
-  nsCOMArray<nsIConsoleListener>& aListeners)
+    nsCOMArray<nsIConsoleListener>& aListeners)
 {
   MutexAutoLock lock(mLock);
   for (auto iter = mListeners.Iter(); !iter.Done(); iter.Next()) {
@@ -374,8 +379,8 @@ nsConsoleService::GetMessageArray(uint32_t* aCount,
      * and return a count of 0.  This should result in a 0-length
      * array object when called from script.
      */
-    nsIConsoleMessage** messageArray = (nsIConsoleMessage**)
-      moz_xmalloc(sizeof(nsIConsoleMessage*));
+    nsIConsoleMessage** messageArray =
+        (nsIConsoleMessage**)moz_xmalloc(sizeof(nsIConsoleMessage*));
     *messageArray = nullptr;
     *aMessages = messageArray;
     *aCount = 0;
@@ -384,12 +389,12 @@ nsConsoleService::GetMessageArray(uint32_t* aCount,
   }
 
   MOZ_ASSERT(mCurrentSize <= mMaximumSize);
-  nsIConsoleMessage** messageArray =
-    static_cast<nsIConsoleMessage**>(moz_xmalloc(sizeof(nsIConsoleMessage*)
-                                                 * mCurrentSize));
+  nsIConsoleMessage** messageArray = static_cast<nsIConsoleMessage**>(
+      moz_xmalloc(sizeof(nsIConsoleMessage*) * mCurrentSize));
 
   uint32_t i = 0;
-  for (MessageElement* e = mMessages.getFirst(); e != nullptr; e = e->getNext()) {
+  for (MessageElement* e = mMessages.getFirst(); e != nullptr;
+       e = e->getNext()) {
     nsCOMPtr<nsIConsoleMessage> m = e->Get();
     m.forget(&messageArray[i]);
     i++;
@@ -457,7 +462,8 @@ nsConsoleService::Reset()
 }
 
 NS_IMETHODIMP
-nsConsoleService::Observe(nsISupports* aSubject, const char* aTopic,
+nsConsoleService::Observe(nsISupports* aSubject,
+                          const char* aTopic,
                           const char16_t* aData)
 {
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {

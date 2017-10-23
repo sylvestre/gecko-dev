@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef mozilla_dom_HTMLHRElement_h
 #define mozilla_dom_HTMLHRElement_h
 
@@ -18,7 +17,7 @@ namespace dom {
 
 class HTMLHRElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLHRElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
@@ -29,8 +28,10 @@ public:
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL API
@@ -52,10 +53,7 @@ public:
     SetHTMLAttr(nsGkAtoms::color, aColor, aError);
   }
 
-  bool NoShade() const
-  {
-   return GetBoolAttr(nsGkAtoms::noshade);
-  }
+  bool NoShade() const { return GetBoolAttr(nsGkAtoms::noshade); }
   void SetNoShade(bool aNoShade, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::noshade, aNoShade, aError);
@@ -79,17 +77,18 @@ public:
     SetHTMLAttr(nsGkAtoms::width, aWidth, aError);
   }
 
-protected:
+ protected:
   virtual ~HTMLHRElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLHRElement_h
+#endif  // mozilla_dom_HTMLHRElement_h

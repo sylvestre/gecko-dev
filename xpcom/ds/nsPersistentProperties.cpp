@@ -26,11 +26,11 @@ struct PropertyTableEntry : public PLDHashEntryHdr
 };
 
 static const struct PLDHashTableOps property_HashTableOps = {
-  PLDHashTable::HashStringKey,
-  PLDHashTable::MatchStringKey,
-  PLDHashTable::MoveEntryStub,
-  PLDHashTable::ClearEntryStub,
-  nullptr,
+    PLDHashTable::HashStringKey,
+    PLDHashTable::MatchStringKey,
+    PLDHashTable::MoveEntryStub,
+    PLDHashTable::ClearEntryStub,
+    nullptr,
 };
 
 //
@@ -47,18 +47,16 @@ enum EParserState
 
 enum EParserSpecial
 {
-  eParserSpecial_None,          // not parsing a special character
-  eParserSpecial_Escaped,       // awaiting a special character
-  eParserSpecial_Unicode        // parsing a \Uxxx value
+  eParserSpecial_None,     // not parsing a special character
+  eParserSpecial_Escaped,  // awaiting a special character
+  eParserSpecial_Unicode   // parsing a \Uxxx value
 };
 
 class MOZ_STACK_CLASS nsPropertiesParser
 {
-public:
+ public:
   explicit nsPropertiesParser(nsIPersistentProperties* aProps)
-    : mHaveMultiLine(false)
-    , mState(eParserState_AwaitingKey)
-    , mProps(aProps)
+      : mHaveMultiLine(false), mState(eParserState_AwaitingKey), mProps(aProps)
   {
   }
 
@@ -95,21 +93,19 @@ public:
 
   nsresult ParseBuffer(const char16_t* aBuffer, uint32_t aBufferLength);
 
-private:
+ private:
   bool ParseValueCharacter(
-    char16_t aChar,               // character that is just being parsed
-    const char16_t* aCur,         // pointer to character aChar in the buffer
-    const char16_t*& aTokenStart, // string copying is done in blocks as big as
-                                  // possible, aTokenStart points to the beginning
-                                  // of this block
-    nsAString& aOldValue);        // when duplicate property is found, new value
-                                  // is stored into hashtable and the old one is
-                                  // placed in this variable
+      char16_t aChar,        // character that is just being parsed
+      const char16_t* aCur,  // pointer to character aChar in the buffer
+      const char16_t*&
+          aTokenStart,        // string copying is done in blocks as big as
+                              // possible, aTokenStart points to the beginning
+                              // of this block
+      nsAString& aOldValue);  // when duplicate property is found, new value
+                              // is stored into hashtable and the old one is
+                              // placed in this variable
 
-  void WaitForKey()
-  {
-    mState = eParserState_AwaitingKey;
-  }
+  void WaitForKey() { mState = eParserState_AwaitingKey; }
 
   void EnterKeyState()
   {
@@ -117,10 +113,7 @@ private:
     mState = eParserState_Key;
   }
 
-  void WaitForValue()
-  {
-    mState = eParserState_AwaitingValue;
-  }
+  void WaitForValue() { mState = eParserState_AwaitingValue; }
 
   void EnterValueState()
   {
@@ -130,25 +123,22 @@ private:
     mSpecialState = eParserSpecial_None;
   }
 
-  void EnterCommentState()
-  {
-    mState = eParserState_Comment;
-  }
+  void EnterCommentState() { mState = eParserState_Comment; }
 
   nsAutoString mKey;
   nsAutoString mValue;
 
-  uint32_t  mUnicodeValuesRead; // should be 4!
-  char16_t mUnicodeValue;      // currently parsed unicode value
-  bool      mHaveMultiLine;     // is TRUE when last processed characters form
+  uint32_t mUnicodeValuesRead;  // should be 4!
+  char16_t mUnicodeValue;       // currently parsed unicode value
+  bool mHaveMultiLine;          // is TRUE when last processed characters form
                                 // any of following sequences:
                                 //  - "\\\r"
                                 //  - "\\\n"
                                 //  - "\\\r\n"
                                 //  - any sequence above followed by any
                                 //    combination of ' ' and '\t'
-  bool      mMultiLineCanSkipN; // TRUE if "\\\r" was detected
-  uint32_t  mMinLength;         // limit right trimming at the end to not trim
+  bool mMultiLineCanSkipN;      // TRUE if "\\\r" was detected
+  uint32_t mMinLength;          // limit right trimming at the end to not trim
                                 // escaped whitespaces
   EParserState mState;
   // if we see a '\' then we enter this special state
@@ -159,8 +149,8 @@ private:
 inline bool
 IsWhiteSpace(char16_t aChar)
 {
-  return (aChar == ' ') || (aChar == '\t') ||
-         (aChar == '\r') || (aChar == '\n');
+  return (aChar == ' ') || (aChar == '\t') || (aChar == '\r') ||
+         (aChar == '\n');
 }
 
 inline bool
@@ -169,9 +159,9 @@ IsEOL(char16_t aChar)
   return (aChar == '\r') || (aChar == '\n');
 }
 
-
 bool
-nsPropertiesParser::ParseValueCharacter(char16_t aChar, const char16_t* aCur,
+nsPropertiesParser::ParseValueCharacter(char16_t aChar,
+                                        const char16_t* aCur,
                                         const char16_t*& aTokenStart,
                                         nsAString& aOldValue)
 {
@@ -228,9 +218,9 @@ nsPropertiesParser::ParseValueCharacter(char16_t aChar, const char16_t* aCur,
             mHaveMultiLine = false;
             aTokenStart = aCur;
           }
-          break; // from switch on (aChar)
+          break;  // from switch on (aChar)
       }
-      break; // from switch on (mSpecialState)
+      break;  // from switch on (mSpecialState)
 
     // saw a \ character, so parse the character after that
     case eParserSpecial_Escaped:
@@ -284,14 +274,11 @@ nsPropertiesParser::ParseValueCharacter(char16_t aChar, const char16_t* aCur,
     // like \u5f39
     case eParserSpecial_Unicode:
       if ('0' <= aChar && aChar <= '9') {
-        mUnicodeValue =
-          (mUnicodeValue << 4) | (aChar - '0');
+        mUnicodeValue = (mUnicodeValue << 4) | (aChar - '0');
       } else if ('a' <= aChar && aChar <= 'f') {
-        mUnicodeValue =
-          (mUnicodeValue << 4) | (aChar - 'a' + 0x0a);
+        mUnicodeValue = (mUnicodeValue << 4) | (aChar - 'a' + 0x0a);
       } else if ('A' <= aChar && aChar <= 'F') {
-        mUnicodeValue =
-          (mUnicodeValue << 4) | (aChar - 'A' + 0x0a);
+        mUnicodeValue = (mUnicodeValue << 4) | (aChar - 'A' + 0x0a);
       } else {
         // non-hex character. Append what we have, and move on.
         mValue += mUnicodeValue;
@@ -334,8 +321,7 @@ nsPropertiesParser::SegmentWriter(nsIUnicharInputStream* aStream,
 }
 
 nsresult
-nsPropertiesParser::ParseBuffer(const char16_t* aBuffer,
-                                uint32_t aBufferLength)
+nsPropertiesParser::ParseBuffer(const char16_t* aBuffer, uint32_t aBufferLength)
 {
   const char16_t* cur = aBuffer;
   const char16_t* end = aBuffer + aBufferLength;
@@ -345,15 +331,13 @@ nsPropertiesParser::ParseBuffer(const char16_t* aBuffer,
 
   // if we're in the middle of parsing a key or value, make sure
   // the current token points to the beginning of the current buffer
-  if (mState == eParserState_Key ||
-      mState == eParserState_Value) {
+  if (mState == eParserState_Key || mState == eParserState_Value) {
     tokenStart = aBuffer;
   }
 
   nsAutoString oldValue;
 
   while (cur != end) {
-
     char16_t c = *cur;
 
     switch (mState) {
@@ -434,18 +418,17 @@ nsPropertiesParser::ParseBuffer(const char16_t* aBuffer,
 }
 
 nsPersistentProperties::nsPersistentProperties()
-  : mIn(nullptr)
-  , mTable(&property_HashTableOps, sizeof(PropertyTableEntry), 16)
-  , mArena()
+    : mIn(nullptr),
+      mTable(&property_HashTableOps, sizeof(PropertyTableEntry), 16),
+      mArena()
 {
 }
 
-nsPersistentProperties::~nsPersistentProperties()
-{
-}
+nsPersistentProperties::~nsPersistentProperties() {}
 
 nsresult
-nsPersistentProperties::Create(nsISupports* aOuter, REFNSIID aIID,
+nsPersistentProperties::Create(nsISupports* aOuter,
+                               REFNSIID aIID,
                                void** aResult)
 {
   if (aOuter) {
@@ -455,7 +438,9 @@ nsPersistentProperties::Create(nsISupports* aOuter, REFNSIID aIID,
   return props->QueryInterface(aIID, aResult);
 }
 
-NS_IMPL_ISUPPORTS(nsPersistentProperties, nsIPersistentProperties, nsIProperties)
+NS_IMPL_ISUPPORTS(nsPersistentProperties,
+                  nsIPersistentProperties,
+                  nsIProperties)
 
 NS_IMETHODIMP
 nsPersistentProperties::Load(nsIInputStream* aIn)
@@ -473,8 +458,11 @@ nsPersistentProperties::Load(nsIInputStream* aIn)
   // If this 4096 is changed to some other value, make sure to adjust
   // the bug121341.properties test file accordingly.
   while (NS_SUCCEEDED(rv = mIn->ReadSegments(nsPropertiesParser::SegmentWriter,
-                                             &parser, 4096, &nProcessed)) &&
-         nProcessed != 0);
+                                             &parser,
+                                             4096,
+                                             &nProcessed)) &&
+         nProcessed != 0)
+    ;
   mIn = nullptr;
   if (NS_FAILED(rv)) {
     return rv;
@@ -496,13 +484,12 @@ nsPersistentProperties::SetStringProperty(const nsACString& aKey,
                                           nsAString& aOldValue)
 {
   const nsCString& flatKey = PromiseFlatCString(aKey);
-  auto entry = static_cast<PropertyTableEntry*>
-                          (mTable.Add(flatKey.get()));
+  auto entry = static_cast<PropertyTableEntry*>(mTable.Add(flatKey.get()));
 
   if (entry->mKey) {
     aOldValue = entry->mValue;
-    NS_WARNING(nsPrintfCString("the property %s already exists",
-                               flatKey.get()).get());
+    NS_WARNING(
+        nsPrintfCString("the property %s already exists", flatKey.get()).get());
   } else {
     aOldValue.Truncate();
   }
@@ -546,9 +533,8 @@ nsPersistentProperties::Enumerate(nsISimpleEnumerator** aResult)
   for (auto iter = mTable.Iter(); !iter.Done(); iter.Next()) {
     auto entry = static_cast<PropertyTableEntry*>(iter.Get());
 
-    RefPtr<nsPropertyElement> element =
-      new nsPropertyElement(nsDependentCString(entry->mKey),
-                            nsDependentString(entry->mValue));
+    RefPtr<nsPropertyElement> element = new nsPropertyElement(
+        nsDependentCString(entry->mKey), nsDependentString(entry->mValue));
 
     if (!props.AppendObject(element)) {
       return NS_ERROR_OUT_OF_MEMORY;
@@ -563,7 +549,8 @@ nsPersistentProperties::Enumerate(nsISimpleEnumerator** aResult)
 // nsIProperties, but until now...
 
 NS_IMETHODIMP
-nsPersistentProperties::Get(const char* aProp, const nsIID& aUUID,
+nsPersistentProperties::Get(const char* aProp,
+                            const nsIID& aUUID,
                             void** aResult)
 {
   return NS_ERROR_NOT_IMPLEMENTED;

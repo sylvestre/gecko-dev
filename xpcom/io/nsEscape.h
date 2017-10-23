@@ -19,10 +19,13 @@
  * in sync.
  */
 typedef enum {
-  url_All       = 0,       // %-escape every byte unconditionally
-  url_XAlphas   = 1u << 0, // Normal escape - leave alphas intact, escape the rest
-  url_XPAlphas  = 1u << 1, // As url_XAlphas, but convert spaces (0x20) to '+' and plus to %2B
-  url_Path      = 1u << 2  // As url_XAlphas, but don't escape slash ('/')
+  url_All = 0,  // %-escape every byte unconditionally
+  url_XAlphas =
+      1u << 0,  // Normal escape - leave alphas intact, escape the rest
+  url_XPAlphas =
+      1u
+      << 1,  // As url_XAlphas, but convert spaces (0x20) to '+' and plus to %2B
+  url_Path = 1u << 2  // As url_XAlphas, but don't escape slash ('/')
 } nsEscapeMask;
 
 #ifdef __cplusplus
@@ -40,20 +43,25 @@ extern "C" {
  *         nsCRT::free, or null on failure
  * @note: Please, don't use this function. Use NS_Escape instead!
  */
-char* nsEscape(const char* aStr, size_t aLength, size_t* aOutputLen,
-               nsEscapeMask aMask);
+char*
+nsEscape(const char* aStr,
+         size_t aLength,
+         size_t* aOutputLen,
+         nsEscapeMask aMask);
 
 /**
  * Decodes '%'-escaped hex codes into character values, modifies the parameter,
  * returns the same buffer
  */
-char* nsUnescape(char* aStr);
+char*
+nsUnescape(char* aStr);
 
 /**
  * Decodes '%'-escaped hex codes into character values, modifies the parameter
  * buffer, returns the length of the result (result may contain \0's).
  */
-int32_t nsUnescapeCount(char* aStr);
+int32_t
+nsUnescapeCount(char* aStr);
 
 #ifdef __cplusplus
 }
@@ -63,7 +71,8 @@ int32_t nsUnescapeCount(char* aStr);
  * Infallibly append aSrc to aDst, escaping chars that are problematic for HTML
  * display.
  */
-void nsAppendEscapedHTML(const nsACString& aSrc, nsACString& aDst);
+void
+nsAppendEscapedHTML(const nsACString& aSrc, nsACString& aDst);
 
 /**
  * NS_EscapeURL/NS_UnescapeURL constants for |flags| parameter:
@@ -71,29 +80,32 @@ void nsAppendEscapedHTML(const nsACString& aSrc, nsACString& aDst);
  * Note: These values are copied to nsINetUtil.idl
  *       Any changes should be kept in sync
  */
-enum EscapeMask {
+enum EscapeMask
+{
   /** url components **/
-  esc_Scheme         = 1u << 0,
-  esc_Username       = 1u << 1,
-  esc_Password       = 1u << 2,
-  esc_Host           = 1u << 3,
-  esc_Directory      = 1u << 4,
-  esc_FileBaseName   = 1u << 5,
-  esc_FileExtension  = 1u << 6,
-  esc_FilePath       = esc_Directory | esc_FileBaseName | esc_FileExtension,
-  esc_Param          = 1u << 7,
-  esc_Query          = 1u << 8,
-  esc_Ref            = 1u << 9,
+  esc_Scheme = 1u << 0,
+  esc_Username = 1u << 1,
+  esc_Password = 1u << 2,
+  esc_Host = 1u << 3,
+  esc_Directory = 1u << 4,
+  esc_FileBaseName = 1u << 5,
+  esc_FileExtension = 1u << 6,
+  esc_FilePath = esc_Directory | esc_FileBaseName | esc_FileExtension,
+  esc_Param = 1u << 7,
+  esc_Query = 1u << 8,
+  esc_Ref = 1u << 9,
   /** special flags **/
-  esc_Minimal        = esc_Scheme | esc_Username | esc_Password | esc_Host | esc_FilePath | esc_Param | esc_Query | esc_Ref,
-  esc_Forced         = 1u << 10, /* forces escaping of existing escape sequences */
-  esc_OnlyASCII      = 1u << 11, /* causes non-ascii octets to be skipped */
-  esc_OnlyNonASCII   = 1u << 12, /* causes _graphic_ ascii octets (0x20-0x7E)
+  esc_Minimal = esc_Scheme | esc_Username | esc_Password | esc_Host |
+                esc_FilePath | esc_Param | esc_Query | esc_Ref,
+  esc_Forced = 1u << 10,    /* forces escaping of existing escape sequences */
+  esc_OnlyASCII = 1u << 11, /* causes non-ascii octets to be skipped */
+  esc_OnlyNonASCII = 1u << 12, /* causes _graphic_ ascii octets (0x20-0x7E)
                                     * to be skipped when escaping. causes all
                                     * ascii octets (<= 0x7F) to be skipped when unescaping */
-  esc_AlwaysCopy     = 1u << 13, /* copy input to result buf even if escaping is unnecessary */
-  esc_Colon          = 1u << 14, /* forces escape of colon */
-  esc_SkipControl    = 1u << 15  /* skips C0 and DEL from unescaping */
+  esc_AlwaysCopy =
+      1u << 13, /* copy input to result buf even if escaping is unnecessary */
+  esc_Colon = 1u << 14,      /* forces escape of colon */
+  esc_SkipControl = 1u << 15 /* skips C0 and DEL from unescaping */
 };
 
 /**
@@ -114,10 +126,11 @@ enum EscapeMask {
  * @return true if aResult was written to (i.e. at least one character was
  *              escaped or esc_AlwaysCopy was requested), false otherwise.
  */
-bool NS_EscapeURL(const char* aStr,
-                  int32_t aLen,
-                  uint32_t aFlags,
-                  nsACString& aResult);
+bool
+NS_EscapeURL(const char* aStr,
+             int32_t aLen,
+             uint32_t aFlags,
+             nsACString& aResult);
 
 /**
  * Expands URL escape sequences... beware embedded null bytes!
@@ -132,10 +145,11 @@ bool NS_EscapeURL(const char* aStr,
  * @return true if aResult was written to (i.e. at least one character was
  *              unescaped or esc_AlwaysCopy was requested), false otherwise.
  */
-bool NS_UnescapeURL(const char* aStr,
-                    int32_t aLen,
-                    uint32_t aFlags,
-                    nsACString& aResult);
+bool
+NS_UnescapeURL(const char* aStr,
+               int32_t aLen,
+               uint32_t aFlags,
+               nsACString& aResult);
 
 /** returns resultant string length **/
 inline int32_t
@@ -161,7 +175,9 @@ NS_EscapeURL(const nsACString& aStr, uint32_t aFlags, nsACString& aResult)
  * the original string or an escaped copy.
  */
 nsresult
-NS_EscapeURL(const nsACString& aStr, uint32_t aFlags, nsACString& aResult,
+NS_EscapeURL(const nsACString& aStr,
+             uint32_t aFlags,
+             nsACString& aResult,
              const mozilla::fallible_t&);
 
 // Forward declaration for nsASCIIMask.h
@@ -172,10 +188,11 @@ typedef std::array<bool, 128> ASCIIMaskArray;
  * aFilterMask.
  */
 nsresult
-NS_EscapeAndFilterURL(const nsACString& aStr, uint32_t aFlags,
+NS_EscapeAndFilterURL(const nsACString& aStr,
+                      uint32_t aFlags,
                       const ASCIIMaskArray* aFilterMask,
-                      nsACString& aResult, const mozilla::fallible_t&);
-
+                      nsACString& aResult,
+                      const mozilla::fallible_t&);
 
 inline const nsACString&
 NS_UnescapeURL(const nsACString& aStr, uint32_t aFlags, nsACString& aResult)
@@ -198,7 +215,8 @@ NS_EscapeURL(const nsAString& aStr, uint32_t aFlags, nsAString& aResult);
  *         is unmodified in that case)
  */
 const nsAString&
-NS_EscapeURL(const nsString& aStr, const nsTArray<char16_t>& aForbidden,
+NS_EscapeURL(const nsString& aStr,
+             const nsTArray<char16_t>& aForbidden,
              nsAString& aResult);
 
 /**
@@ -206,13 +224,12 @@ NS_EscapeURL(const nsString& aStr, const nsTArray<char16_t>& aForbidden,
  * on out of memory. To reverse this function, use NS_UnescapeURL.
  */
 inline bool
-NS_Escape(const nsACString& aOriginal, nsACString& aEscaped,
-          nsEscapeMask aMask)
+NS_Escape(const nsACString& aOriginal, nsACString& aEscaped, nsEscapeMask aMask)
 {
   size_t escLen = 0;
-  char* esc = nsEscape(aOriginal.BeginReading(), aOriginal.Length(), &escLen,
-                       aMask);
-  if (! esc) {
+  char* esc =
+      nsEscape(aOriginal.BeginReading(), aOriginal.Length(), &escLen, aMask);
+  if (!esc) {
     return false;
   }
   aEscaped.Adopt(esc, escLen);
@@ -229,4 +246,4 @@ NS_UnescapeURL(nsACString& aStr)
   return aStr;
 }
 
-#endif //  _ESCAPE_H_
+#endif  //  _ESCAPE_H_

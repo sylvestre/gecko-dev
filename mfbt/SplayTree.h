@@ -23,22 +23,17 @@ class SplayTree;
 template<typename T>
 class SplayTreeNode
 {
-public:
+ public:
   template<class A, class B>
   friend class SplayTree;
 
-  SplayTreeNode()
-    : mLeft(nullptr)
-    , mRight(nullptr)
-    , mParent(nullptr)
-  {}
+  SplayTreeNode() : mLeft(nullptr), mRight(nullptr), mParent(nullptr) {}
 
-private:
+ private:
   T* mLeft;
   T* mRight;
   T* mParent;
 };
-
 
 /**
  * Class which represents a splay tree.
@@ -55,15 +50,10 @@ class SplayTree
 {
   T* mRoot;
 
-public:
-  constexpr SplayTree()
-    : mRoot(nullptr)
-  {}
+ public:
+  constexpr SplayTree() : mRoot(nullptr) {}
 
-  bool empty() const
-  {
-    return !mRoot;
-  }
+  bool empty() const { return !mRoot; }
 
   T* find(const T& aValue)
   {
@@ -163,12 +153,9 @@ public:
   }
 
   // For testing purposes only.
-  void checkCoherency()
-  {
-    checkCoherency(mRoot, nullptr);
-  }
+  void checkCoherency() { checkCoherency(mRoot, nullptr); }
 
-private:
+ private:
   /**
    * Returns the node in this comparing equal to |aValue|, or a node just
    * greater or just less than |aValue| if there is no such node.
@@ -324,6 +311,6 @@ SplayTree<T, Comparator>::findOrInsert(const T& aValue)
   return t;
 }
 
-}  /* namespace mozilla */
+} /* namespace mozilla */
 
 #endif /* mozilla_SplayTree_h */

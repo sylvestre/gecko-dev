@@ -85,45 +85,43 @@
 
 namespace mozilla {
 
-template <typename ExitFunction>
-class MOZ_STACK_CLASS ScopeExit {
+template<typename ExitFunction>
+class MOZ_STACK_CLASS ScopeExit
+{
   ExitFunction mExitFunction;
   bool mExecuteOnDestruction;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 
-public:
-  explicit ScopeExit(ExitFunction&& cleanup
-                     MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-   : mExitFunction(cleanup)
-   , mExecuteOnDestruction(true)
+ public:
+  explicit ScopeExit(ExitFunction&& cleanup MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mExitFunction(cleanup), mExecuteOnDestruction(true)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   }
 
   ScopeExit(ScopeExit&& rhs)
-   : mExitFunction(mozilla::Move(rhs.mExitFunction))
-   , mExecuteOnDestruction(rhs.mExecuteOnDestruction)
+      : mExitFunction(mozilla::Move(rhs.mExitFunction)),
+        mExecuteOnDestruction(rhs.mExecuteOnDestruction)
   {
     rhs.release();
   }
 
-  ~ScopeExit() {
+  ~ScopeExit()
+  {
     if (mExecuteOnDestruction) {
       mExitFunction();
     }
   }
 
-  void release() {
-    mExecuteOnDestruction = false;
-  }
+  void release() { mExecuteOnDestruction = false; }
 
-private:
+ private:
   explicit ScopeExit(const ScopeExit&) = delete;
   ScopeExit& operator=(const ScopeExit&) = delete;
   ScopeExit& operator=(ScopeExit&&) = delete;
 };
 
-template <typename ExitFunction>
+template<typename ExitFunction>
 ScopeExit<ExitFunction>
 MakeScopeExit(ExitFunction&& exitFunction)
 {

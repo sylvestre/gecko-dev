@@ -14,8 +14,9 @@ namespace mozilla {
 // This class is instantiated in child processes in Sandbox.cpp to
 // send reports from the SIGSYS handler to the SandboxReporter
 // instance in the parent.
-class SandboxReporterClient {
-public:
+class SandboxReporterClient
+{
+ public:
   // Note: this does not take ownership of the file descriptor; if
   // it's not kSandboxReporterFileDesc (e.g., for unit testing), the
   // caller will need to close it to avoid leaks.
@@ -28,16 +29,18 @@ public:
 
   void SendReport(const SandboxReport& aReport);
 
-  SandboxReport MakeReportAndSend(const void* aContext) {
+  SandboxReport MakeReportAndSend(const void* aContext)
+  {
     SandboxReport report = MakeReport(aContext);
     SendReport(report);
     return report;
   }
-private:
+
+ private:
   SandboxReport::ProcType mProcType;
   int mFd;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxReporterClient_h
+#endif  // mozilla_SandboxReporterClient_h

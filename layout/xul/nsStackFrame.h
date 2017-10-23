@@ -19,7 +19,7 @@
 
 class nsStackFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsStackFrame)
 
   friend nsIFrame* NS_NewStackFrame(nsIPresShell* aPresShell,
@@ -32,14 +32,11 @@ public:
   }
 #endif
 
-  virtual void BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
-                                           const nsDisplayListSet& aLists) override;
+  virtual void BuildDisplayListForChildren(
+      nsDisplayListBuilder* aBuilder, const nsDisplayListSet& aLists) override;
 
-protected:
+ protected:
   explicit nsStackFrame(nsStyleContext* aContext);
-}; // class nsStackFrame
-
-
+};  // class nsStackFrame
 
 #endif
-

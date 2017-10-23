@@ -13,12 +13,18 @@ namespace gfx {
 
 DWORD __stdcall ThreadCallback(void* threadData);
 
-class WorkerThreadWin32 : public WorkerThread {
-public:
+class WorkerThreadWin32 : public WorkerThread
+{
+ public:
   explicit WorkerThreadWin32(MultiThreadedJobQueue* aJobQueue)
-  : WorkerThread(aJobQueue)
+      : WorkerThread(aJobQueue)
   {
-    mThread = ::CreateThread(nullptr, 0, ThreadCallback, static_cast<WorkerThread*>(this), 0, nullptr);
+    mThread = ::CreateThread(nullptr,
+                             0,
+                             ThreadCallback,
+                             static_cast<WorkerThread*>(this),
+                             0,
+                             nullptr);
   }
 
   ~WorkerThreadWin32()
@@ -27,7 +33,7 @@ public:
     ::CloseHandle(mThread);
   }
 
-protected:
+ protected:
   HANDLE mThread;
 };
 
@@ -56,7 +62,7 @@ MultiThreadedJobQueue::PopJob(Job*& aOutJob, AccessType aAccess)
         }
       }
 
-      HANDLE handles[] = { mAvailableEvent, mShutdownEvent };
+      HANDLE handles[] = {mAvailableEvent, mShutdownEvent};
       ::WaitForMultipleObjects(2, handles, FALSE, INFINITE);
     }
 
@@ -144,5 +150,5 @@ MultiThreadedJobQueue::UnregisterThread()
   }
 }
 
-} // namespace
-} // namespace
+}  // namespace gfx
+}  // namespace mozilla

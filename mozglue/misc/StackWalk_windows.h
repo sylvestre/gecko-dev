@@ -21,6 +21,6 @@ RegisterJitCodeRegion(uint8_t* aStart, size_t size);
 
 MFBT_API void
 UnregisterJitCodeRegion(uint8_t* aStart, size_t size);
-#endif // _M_AMD64
+#endif  // _M_AMD64
 
-#endif // mozilla_StackWalk_windows_h
+#endif  // mozilla_StackWalk_windows_h

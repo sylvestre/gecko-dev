@@ -26,14 +26,17 @@ class WebrtcGlobalInformation;
 // * The global PeerConnectionImpl table and its associated lock.
 // * Stats report objects for PCs that are gone
 // * GMP related state
-class PeerConnectionCtx {
+class PeerConnectionCtx
+{
  public:
-  static nsresult InitializeGlobal(nsIThread *mainThread, nsIEventTarget *stsThread);
+  static nsresult InitializeGlobal(nsIThread* mainThread,
+                                   nsIEventTarget* stsThread);
   static PeerConnectionCtx* GetInstance();
   static bool isActive();
   static void Destroy();
 
-  bool isReady() {
+  bool isReady()
+  {
     // If mGMPService is not set, we aren't using GMP.
     if (mGMPService) {
       return mGMPReady;
@@ -56,14 +59,15 @@ class PeerConnectionCtx {
   // WebrtcGlobalInformation uses this; we put it here so we don't need to
   // create another shutdown observer class.
   mozilla::dom::Sequence<mozilla::dom::RTCStatsReportInternal>
-    mStatsForClosedPeerConnections;
+      mStatsForClosedPeerConnections;
 
-  const std::map<const std::string, PeerConnectionImpl *>& mGetPeerConnections();
+  const std::map<const std::string, PeerConnectionImpl*>& mGetPeerConnections();
+
  private:
   // We could make these available only via accessors but it's too much trouble.
-  std::map<const std::string, PeerConnectionImpl *> mPeerConnections;
+  std::map<const std::string, PeerConnectionImpl*> mPeerConnections;
 
-  PeerConnectionCtx() :  mGMPReady(false) {}
+  PeerConnectionCtx() : mGMPReady(false) {}
   // This is a singleton, so don't copy construct it, etc.
   PeerConnectionCtx(const PeerConnectionCtx& other) = delete;
   void operator=(const PeerConnectionCtx& other) = delete;
@@ -74,17 +78,16 @@ class PeerConnectionCtx {
 
   void initGMP();
 
-  static void
-  EverySecondTelemetryCallback_m(nsITimer* timer, void *);
+  static void EverySecondTelemetryCallback_m(nsITimer* timer, void*);
 
   nsCOMPtr<nsITimer> mTelemetryTimer;
 
-public:
+ public:
   // TODO(jib): If we ever enable move semantics on std::map...
   //std::map<nsString,nsAutoPtr<mozilla::dom::RTCStatsReportInternal>> mLastReports;
   nsTArray<nsAutoPtr<mozilla::dom::RTCStatsReportInternal>> mLastReports;
-private:
 
+ private:
   // We cannot form offers/answers properly until the Gecko Media Plugin stuff
   // has been initted, which is a complicated mess of thread dispatches,
   // including sync dispatches to main. So, we need to be able to queue up
@@ -94,12 +97,14 @@ private:
   bool mGMPReady;
   nsTArray<nsCOMPtr<nsIRunnable>> mQueuedJSEPOperations;
 
-  static PeerConnectionCtx *gInstance;
-public:
-  static nsIThread *gMainThread;
-  static mozilla::StaticRefPtr<mozilla::PeerConnectionCtxObserver> gPeerConnectionCtxObserver;
+  static PeerConnectionCtx* gInstance;
+
+ public:
+  static nsIThread* gMainThread;
+  static mozilla::StaticRefPtr<mozilla::PeerConnectionCtxObserver>
+      gPeerConnectionCtxObserver;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

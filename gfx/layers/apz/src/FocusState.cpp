@@ -12,12 +12,12 @@ namespace mozilla {
 namespace layers {
 
 FocusState::FocusState()
-  : mLastAPZProcessedEvent(1)
-  , mLastContentProcessedEvent(0)
-  , mFocusHasKeyEventListeners(false)
-  , mFocusLayersId(0)
-  , mFocusHorizontalTarget(FrameMetrics::NULL_SCROLL_ID)
-  , mFocusVerticalTarget(FrameMetrics::NULL_SCROLL_ID)
+    : mLastAPZProcessedEvent(1),
+      mLastContentProcessedEvent(0),
+      mFocusHasKeyEventListeners(false),
+      mFocusLayersId(0),
+      mFocusHorizontalTarget(FrameMetrics::NULL_SCROLL_ID),
+      mFocusVerticalTarget(FrameMetrics::NULL_SCROLL_ID)
 {
 }
 
@@ -78,12 +78,13 @@ FocusState::Update(uint64_t aRootLayerTreeId,
     // The match functions return true or false depending on whether the
     // enclosing method, FocusState::Update, should return or continue to the
     // next iteration of the while loop, respectively.
-    struct FocusTargetDataMatcher {
-
+    struct FocusTargetDataMatcher
+    {
       FocusState& mFocusState;
       const uint64_t mSequenceNumber;
 
-      bool match(const FocusTarget::NoFocusTarget& aNoFocusTarget) {
+      bool match(const FocusTarget::NoFocusTarget& aNoFocusTarget)
+      {
         FS_LOG("Setting target to nil (reached a nil target)\n");
 
         // Mark what sequence number this target has for debugging purposes so
@@ -92,12 +93,15 @@ FocusState::Update(uint64_t aRootLayerTreeId,
         return true;
       }
 
-      bool match(const FocusTarget::RefLayerId aRefLayerId) {
+      bool match(const FocusTarget::RefLayerId aRefLayerId)
+      {
         // Guard against infinite loops
         MOZ_ASSERT(mFocusState.mFocusLayersId != aRefLayerId);
         if (mFocusState.mFocusLayersId == aRefLayerId) {
-          FS_LOG("Setting target to nil (bailing out of infinite loop, lt=%" PRIu64 ")\n",
-                 mFocusState.mFocusLayersId);
+          FS_LOG(
+              "Setting target to nil (bailing out of infinite loop, lt=%" PRIu64
+              ")\n",
+              mFocusState.mFocusLayersId);
           return true;
         }
 
@@ -108,8 +112,10 @@ FocusState::Update(uint64_t aRootLayerTreeId,
         return false;
       }
 
-      bool match(const FocusTarget::ScrollTargets& aScrollTargets) {
-        FS_LOG("Setting target to h=%" PRIu64 ", v=%" PRIu64 ", and seq=%" PRIu64 "\n",
+      bool match(const FocusTarget::ScrollTargets& aScrollTargets)
+      {
+        FS_LOG("Setting target to h=%" PRIu64 ", v=%" PRIu64
+               ", and seq=%" PRIu64 "\n",
                aScrollTargets.mHorizontal,
                aScrollTargets.mVertical,
                mSequenceNumber);
@@ -126,14 +132,17 @@ FocusState::Update(uint64_t aRootLayerTreeId,
         // events then us, then assume we were recreated and sync focus sequence
         // numbers.
         if (mFocusState.mLastAPZProcessedEvent == 1 &&
-            mFocusState.mLastContentProcessedEvent > mFocusState.mLastAPZProcessedEvent) {
-          mFocusState.mLastAPZProcessedEvent = mFocusState.mLastContentProcessedEvent;
+            mFocusState.mLastContentProcessedEvent >
+                mFocusState.mLastAPZProcessedEvent) {
+          mFocusState.mLastAPZProcessedEvent =
+              mFocusState.mLastContentProcessedEvent;
         }
         return true;
       }
-    }; // struct FocusTargetDataMatcher
+    };  // struct FocusTargetDataMatcher
 
-    if (target.mData.match(FocusTargetDataMatcher{*this, target.mSequenceNumber})) {
+    if (target.mData.match(
+            FocusTargetDataMatcher{*this, target.mSequenceNumber})) {
       return;
     }
   }
@@ -165,8 +174,7 @@ FocusState::GetHorizontalTarget() const
   //   1. We aren't current
   //   2. There are event listeners that could change the focus
   //   3. The target has not been layerized
-  if (!IsCurrent() ||
-      mFocusHasKeyEventListeners ||
+  if (!IsCurrent() || mFocusHasKeyEventListeners ||
       mFocusHorizontalTarget == FrameMetrics::NULL_SCROLL_ID) {
     return Nothing();
   }
@@ -180,13 +188,12 @@ FocusState::GetVerticalTarget() const
   //   1. We aren't current
   //   2. There are event listeners that could change the focus
   //   3. The target has not been layerized
-  if (!IsCurrent() ||
-      mFocusHasKeyEventListeners ||
+  if (!IsCurrent() || mFocusHasKeyEventListeners ||
       mFocusVerticalTarget == FrameMetrics::NULL_SCROLL_ID) {
     return Nothing();
   }
   return Some(ScrollableLayerGuid(mFocusLayersId, 0, mFocusVerticalTarget));
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

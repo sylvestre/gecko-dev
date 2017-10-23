@@ -21,7 +21,7 @@ class RenderTextureHost
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(RenderTextureHost)
 
-public:
+ public:
   RenderTextureHost();
 
   virtual bool Lock() = 0;
@@ -30,11 +30,11 @@ public:
   virtual RenderBufferTextureHost* AsBufferTextureHost() { return nullptr; }
   virtual RenderTextureHostOGL* AsTextureHostOGL() { return nullptr; }
 
-protected:
+ protected:
   virtual ~RenderTextureHost();
 };
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_RENDERTEXTUREHOST_H
+#endif  // MOZILLA_GFX_RENDERTEXTUREHOST_H

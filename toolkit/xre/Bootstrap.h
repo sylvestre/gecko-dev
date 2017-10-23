@@ -19,8 +19,11 @@
 #ifdef MOZ_WIDGET_ANDROID
 #include "jni.h"
 
-extern "C" NS_EXPORT
-void GeckoStart(JNIEnv* aEnv, char** argv, int argc, const mozilla::StaticXREAppData& aAppData);
+extern "C" NS_EXPORT void
+GeckoStart(JNIEnv* aEnv,
+           char** argv,
+           int argc,
+           const mozilla::StaticXREAppData& aAppData);
 #endif
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
@@ -60,12 +63,12 @@ struct BootstrapConfig
  */
 class Bootstrap
 {
-protected:
-  Bootstrap() { }
+ protected:
+  Bootstrap() {}
 
   // Because of allocator mismatches, code outside libxul shouldn't delete a
   // Bootstrap instance. Use Dispose().
-  virtual ~Bootstrap() { }
+  virtual ~Bootstrap() {}
 
   /**
    * Destroy and deallocate this Bootstrap instance.
@@ -77,15 +80,12 @@ protected:
    */
   class BootstrapDelete
   {
-  public:
-    constexpr BootstrapDelete() { }
-    void operator()(Bootstrap* aPtr) const
-    {
-      aPtr->Dispose();
-    }
+   public:
+    constexpr BootstrapDelete() {}
+    void operator()(Bootstrap* aPtr) const { aPtr->Dispose(); }
   };
 
-public:
+ public:
   typedef mozilla::UniquePtr<Bootstrap, BootstrapDelete> UniquePtr;
 
   virtual void NS_LogInit() = 0;
@@ -94,26 +94,39 @@ public:
 
   virtual void XRE_TelemetryAccumulate(int aID, uint32_t aSample) = 0;
 
-  virtual void XRE_StartupTimelineRecord(int aEvent, mozilla::TimeStamp aWhen) = 0;
+  virtual void XRE_StartupTimelineRecord(int aEvent,
+                                         mozilla::TimeStamp aWhen) = 0;
 
-  virtual int XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) = 0;
+  virtual int XRE_main(int argc,
+                       char* argv[],
+                       const BootstrapConfig& aConfig) = 0;
 
   virtual void XRE_StopLateWriteChecks() = 0;
 
-  virtual int XRE_XPCShellMain(int argc, char** argv, char** envp, const XREShellData* aShellData) = 0;
+  virtual int XRE_XPCShellMain(int argc,
+                               char** argv,
+                               char** envp,
+                               const XREShellData* aShellData) = 0;
 
   virtual GeckoProcessType XRE_GetProcessType() = 0;
 
   virtual void XRE_SetProcessType(const char* aProcessTypeString) = 0;
 
-  virtual nsresult XRE_InitChildProcess(int argc, char* argv[], const XREChildData* aChildData) = 0;
+  virtual nsresult XRE_InitChildProcess(int argc,
+                                        char* argv[],
+                                        const XREChildData* aChildData) = 0;
 
   virtual void XRE_EnableSameExecutableForContentProc() = 0;
 
 #ifdef MOZ_WIDGET_ANDROID
-  virtual void GeckoStart(JNIEnv* aEnv, char** argv, int argc, const StaticXREAppData& aAppData) = 0;
+  virtual void GeckoStart(JNIEnv* aEnv,
+                          char** argv,
+                          int argc,
+                          const StaticXREAppData& aAppData) = 0;
 
-  virtual void XRE_SetAndroidChildFds(JNIEnv* aEnv, int aCrashFd, int aIPCFd) = 0;
+  virtual void XRE_SetAndroidChildFds(JNIEnv* aEnv,
+                                      int aCrashFd,
+                                      int aIPCFd) = 0;
 #endif
 
 #ifdef LIBFUZZER
@@ -121,7 +134,7 @@ public:
 #endif
 
 #ifdef MOZ_IPDL_TESTS
-  virtual int XRE_RunIPDLTest(int argc, char **argv) = 0;
+  virtual int XRE_RunIPDLTest(int argc, char** argv) = 0;
 #endif
 };
 
@@ -134,19 +147,21 @@ public:
  */
 #ifdef XPCOM_GLUE
 typedef void (*GetBootstrapType)(Bootstrap::UniquePtr&);
-Bootstrap::UniquePtr GetBootstrap(const char* aXPCOMFile=nullptr);
+Bootstrap::UniquePtr
+GetBootstrap(const char* aXPCOMFile = nullptr);
 #else
 extern "C" NS_EXPORT void NS_FROZENCALL
 XRE_GetBootstrap(Bootstrap::UniquePtr& b);
 
 inline Bootstrap::UniquePtr
-GetBootstrap(const char* aXPCOMFile=nullptr) {
+GetBootstrap(const char* aXPCOMFile = nullptr)
+{
   Bootstrap::UniquePtr bootstrap;
   XRE_GetBootstrap(bootstrap);
   return bootstrap;
 }
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Bootstrap_h
+#endif  // mozilla_Bootstrap_h

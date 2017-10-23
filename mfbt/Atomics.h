@@ -57,7 +57,8 @@ namespace mozilla {
  * the modes we provide below, or not relevant for the CPUs we support
  * in Gecko.  These three modes are confusing enough as it is!
  */
-enum MemoryOrdering {
+enum MemoryOrdering
+{
   /*
    * Relaxed ordering is the simplest memory ordering: none at all.
    * When the result of a write is observed, nothing may be inferred
@@ -147,7 +148,8 @@ namespace detail {
  * We provide CompareExchangeFailureOrder to work around a bug in some
  * versions of GCC's <atomic> header.  See bug 898491.
  */
-template<MemoryOrdering Order> struct AtomicOrderConstraints;
+template<MemoryOrdering Order>
+struct AtomicOrderConstraints;
 
 template<>
 struct AtomicOrderConstraints<Relaxed>
@@ -156,7 +158,7 @@ struct AtomicOrderConstraints<Relaxed>
   static const std::memory_order LoadOrder = std::memory_order_relaxed;
   static const std::memory_order StoreOrder = std::memory_order_relaxed;
   static const std::memory_order CompareExchangeFailureOrder =
-    std::memory_order_relaxed;
+      std::memory_order_relaxed;
 };
 
 template<>
@@ -166,7 +168,7 @@ struct AtomicOrderConstraints<ReleaseAcquire>
   static const std::memory_order LoadOrder = std::memory_order_acquire;
   static const std::memory_order StoreOrder = std::memory_order_release;
   static const std::memory_order CompareExchangeFailureOrder =
-    std::memory_order_acquire;
+      std::memory_order_acquire;
 };
 
 template<>
@@ -176,7 +178,7 @@ struct AtomicOrderConstraints<SequentiallyConsistent>
   static const std::memory_order LoadOrder = std::memory_order_seq_cst;
   static const std::memory_order StoreOrder = std::memory_order_seq_cst;
   static const std::memory_order CompareExchangeFailureOrder =
-    std::memory_order_seq_cst;
+      std::memory_order_seq_cst;
 };
 
 template<typename T, MemoryOrdering Order>
@@ -207,11 +209,14 @@ struct IntrinsicMemoryOps : public IntrinsicBase<T, Order>
   }
 
   static bool compareExchange(typename Base::ValueType& aPtr,
-                              T aOldVal, T aNewVal)
+                              T aOldVal,
+                              T aNewVal)
   {
-    return aPtr.compare_exchange_strong(aOldVal, aNewVal,
-                                        Base::OrderedOp::AtomicRMWOrder,
-                                        Base::OrderedOp::CompareExchangeFailureOrder);
+    return aPtr.compare_exchange_strong(
+        aOldVal,
+        aNewVal,
+        Base::OrderedOp::AtomicRMWOrder,
+        Base::OrderedOp::CompareExchangeFailureOrder);
   }
 };
 
@@ -286,15 +291,15 @@ struct AtomicIntrinsics : public IntrinsicMemoryOps<T, Order>,
 };
 
 template<typename T, MemoryOrdering Order>
-struct AtomicIntrinsics<T*, Order>
-  : public IntrinsicMemoryOps<T*, Order>, public IntrinsicIncDec<T*, Order>
+struct AtomicIntrinsics<T*, Order> : public IntrinsicMemoryOps<T*, Order>,
+                                     public IntrinsicIncDec<T*, Order>
 {
 };
 
 template<typename T>
 struct ToStorageTypeArgument
 {
-  static constexpr T convert (T aT) { return aT; }
+  static constexpr T convert(T aT) { return aT; }
 };
 
 template<typename T, MemoryOrdering Order>
@@ -303,16 +308,17 @@ class AtomicBase
   static_assert(sizeof(T) == 4 || sizeof(T) == 8,
                 "mozilla/Atomics.h only supports 32-bit and 64-bit types");
 
-protected:
+ protected:
   typedef typename detail::AtomicIntrinsics<T, Order> Intrinsics;
   typedef typename Intrinsics::ValueType ValueType;
   ValueType mValue;
 
-public:
+ public:
   constexpr AtomicBase() : mValue() {}
   explicit constexpr AtomicBase(T aInit)
-    : mValue(ToStorageTypeArgument<T>::convert(aInit))
-  {}
+      : mValue(ToStorageTypeArgument<T>::convert(aInit))
+  {
+  }
 
   // Note: we can't provide operator T() here because Atomic<bool> inherits
   // from AtomcBase with T=uint32_t and not T=bool. If we implemented
@@ -329,10 +335,7 @@ public:
    * Performs an atomic swap operation.  aVal is stored and the previous
    * value of this variable is returned.
    */
-  T exchange(T aVal)
-  {
-    return Intrinsics::exchange(mValue, aVal);
-  }
+  T exchange(T aVal) { return Intrinsics::exchange(mValue, aVal); }
 
   /**
    * Performs an atomic compare-and-swap operation and returns true if it
@@ -350,7 +353,7 @@ public:
     return Intrinsics::compareExchange(mValue, aOldValue, aNewValue);
   }
 
-private:
+ private:
   template<MemoryOrdering AnyOrder>
   AtomicBase(const AtomicBase<T, AnyOrder>& aCopy) = delete;
 };
@@ -360,7 +363,7 @@ class AtomicBaseIncDec : public AtomicBase<T, Order>
 {
   typedef typename detail::AtomicBase<T, Order> Base;
 
-public:
+ public:
   constexpr AtomicBaseIncDec() : Base() {}
   explicit constexpr AtomicBaseIncDec(T aInit) : Base(aInit) {}
 
@@ -372,12 +375,12 @@ public:
   T operator++() { return Base::Intrinsics::inc(Base::mValue) + 1; }
   T operator--() { return Base::Intrinsics::dec(Base::mValue) - 1; }
 
-private:
+ private:
   template<MemoryOrdering AnyOrder>
   AtomicBaseIncDec(const AtomicBaseIncDec<T, AnyOrder>& aCopy) = delete;
 };
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * A wrapper for a type that enforces that all memory accesses are atomic.
@@ -410,13 +413,15 @@ class Atomic;
  * swap method is provided.
  */
 template<typename T, MemoryOrdering Order>
-class Atomic<T, Order, typename EnableIf<IsIntegral<T>::value &&
-                       !IsSame<T, bool>::value>::Type>
-  : public detail::AtomicBaseIncDec<T, Order>
+class Atomic<
+    T,
+    Order,
+    typename EnableIf<IsIntegral<T>::value && !IsSame<T, bool>::value>::Type>
+    : public detail::AtomicBaseIncDec<T, Order>
 {
   typedef typename detail::AtomicBaseIncDec<T, Order> Base;
 
-public:
+ public:
   constexpr Atomic() : Base() {}
   explicit constexpr Atomic(T aInit) : Base(aInit) {}
 
@@ -447,7 +452,7 @@ public:
     return Base::Intrinsics::and_(Base::mValue, aVal) & aVal;
   }
 
-private:
+ private:
   Atomic(Atomic<T, Order>& aOther) = delete;
 };
 
@@ -464,7 +469,7 @@ class Atomic<T*, Order> : public detail::AtomicBaseIncDec<T*, Order>
 {
   typedef typename detail::AtomicBaseIncDec<T*, Order> Base;
 
-public:
+ public:
   constexpr Atomic() : Base() {}
   explicit constexpr Atomic(T* aInit) : Base(aInit) {}
 
@@ -480,7 +485,7 @@ public:
     return Base::Intrinsics::sub(Base::mValue, aDelta) - aDelta;
   }
 
-private:
+ private:
   Atomic(Atomic<T*, Order>& aOther) = delete;
 };
 
@@ -491,11 +496,11 @@ private:
  */
 template<typename T, MemoryOrdering Order>
 class Atomic<T, Order, typename EnableIf<IsEnum<T>::value>::Type>
-  : public detail::AtomicBase<T, Order>
+    : public detail::AtomicBase<T, Order>
 {
   typedef typename detail::AtomicBase<T, Order> Base;
 
-public:
+ public:
   constexpr Atomic() : Base() {}
   explicit constexpr Atomic(T aInit) : Base(aInit) {}
 
@@ -503,7 +508,7 @@ public:
 
   using Base::operator=;
 
-private:
+ private:
   Atomic(Atomic<T, Order>& aOther) = delete;
 };
 
@@ -524,12 +529,11 @@ private:
  *   Atomic<bool> with an underlying type of uint32_t.
  */
 template<MemoryOrdering Order>
-class Atomic<bool, Order>
-  : protected detail::AtomicBase<uint32_t, Order>
+class Atomic<bool, Order> : protected detail::AtomicBase<uint32_t, Order>
 {
   typedef typename detail::AtomicBase<uint32_t, Order> Base;
 
-public:
+ public:
   constexpr Atomic() : Base() {}
   explicit constexpr Atomic(bool aInit) : Base(aInit) {}
 
@@ -539,22 +543,16 @@ public:
     return Base::Intrinsics::load(Base::mValue);
   }
 
-  bool operator=(bool aVal)
-  {
-    return Base::operator=(aVal);
-  }
+  bool operator=(bool aVal) { return Base::operator=(aVal); }
 
-  bool exchange(bool aVal)
-  {
-    return Base::exchange(aVal);
-  }
+  bool exchange(bool aVal) { return Base::exchange(aVal); }
 
   bool compareExchange(bool aOldValue, bool aNewValue)
   {
     return Base::compareExchange(aOldValue, aNewValue);
   }
 
-private:
+ private:
   Atomic(Atomic<bool, Order>& aOther) = delete;
 };
 
@@ -563,6 +561,6 @@ template<typename T, MemoryOrdering Order>
 void
 Swap(Atomic<T, Order>&, Atomic<T, Order>&) = delete;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_Atomics_h */

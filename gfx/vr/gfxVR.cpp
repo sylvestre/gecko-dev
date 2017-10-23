@@ -10,7 +10,7 @@
 #include "mozilla/dom/GamepadBinding.h"
 
 #ifndef M_PI
-# define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 using namespace mozilla;
@@ -32,7 +32,8 @@ VRSystemManager::AllocateControllerID()
 }
 
 Matrix4x4
-VRFieldOfView::ConstructProjectionMatrix(float zNear, float zFar,
+VRFieldOfView::ConstructProjectionMatrix(float zNear,
+                                         float zFar,
                                          bool rightHanded) const
 {
   float upTan = tan(upDegrees * M_PI / 180.0);
@@ -48,19 +49,19 @@ VRFieldOfView::ConstructProjectionMatrix(float zNear, float zFar,
   float pyoffset = (upTan - downTan) * pyscale * 0.5;
 
   Matrix4x4 mobj;
-  float *m = &mobj._11;
+  float* m = &mobj._11;
 
-  m[0*4+0] = pxscale;
-  m[2*4+0] = pxoffset * handednessScale;
+  m[0 * 4 + 0] = pxscale;
+  m[2 * 4 + 0] = pxoffset * handednessScale;
 
-  m[1*4+1] = pyscale;
-  m[2*4+1] = -pyoffset * handednessScale;
+  m[1 * 4 + 1] = pyscale;
+  m[2 * 4 + 1] = -pyoffset * handednessScale;
 
-  m[2*4+2] = zFar / (zNear - zFar) * -handednessScale;
-  m[3*4+2] = (zFar * zNear) / (zNear - zFar);
+  m[2 * 4 + 2] = zFar / (zNear - zFar) * -handednessScale;
+  m[3 * 4 + 2] = (zFar * zNear) / (zNear - zFar);
 
-  m[2*4+3] = handednessScale;
-  m[3*4+3] = 0.0f;
+  m[2 * 4 + 3] = handednessScale;
+  m[3 * 4 + 3] = 0.0f;
 
   return mobj;
 }
@@ -90,8 +91,11 @@ VRSystemManager::RemoveGamepad(uint32_t aIndex)
 }
 
 void
-VRSystemManager::NewButtonEvent(uint32_t aIndex, uint32_t aButton,
-                                bool aPressed, bool aTouched, double aValue)
+VRSystemManager::NewButtonEvent(uint32_t aIndex,
+                                uint32_t aButton,
+                                bool aPressed,
+                                bool aTouched,
+                                double aValue)
 {
   dom::GamepadButtonInformation a(aButton, aValue, aPressed, aTouched);
 
@@ -100,8 +104,7 @@ VRSystemManager::NewButtonEvent(uint32_t aIndex, uint32_t aButton,
 }
 
 void
-VRSystemManager::NewAxisMove(uint32_t aIndex, uint32_t aAxis,
-                             double aValue)
+VRSystemManager::NewAxisMove(uint32_t aIndex, uint32_t aAxis, double aValue)
 {
   dom::GamepadAxisInformation a(aAxis, aValue);
 
@@ -128,4 +131,3 @@ VRSystemManager::NewHandChangeEvent(uint32_t aIndex,
   VRManager* vm = VRManager::Get();
   vm->NotifyGamepadChange<dom::GamepadHandInformation>(aIndex, a);
 }
-

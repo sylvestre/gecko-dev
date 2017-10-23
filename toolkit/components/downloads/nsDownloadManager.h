@@ -15,25 +15,23 @@
 
 class nsDownloadManager final : public nsIDownloadManager
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOWNLOADMANAGER
 
   nsresult Init();
 
-  static nsDownloadManager *GetSingleton();
+  static nsDownloadManager* GetSingleton();
 
-  nsDownloadManager()
-  {
-  }
+  nsDownloadManager() {}
 
-protected:
+ protected:
   virtual ~nsDownloadManager();
 
-private:
+ private:
   nsCOMPtr<nsIStringBundle> mBundle;
 
-  static nsDownloadManager *gDownloadManagerService;
+  static nsDownloadManager* gDownloadManagerService;
 };
 
 #endif

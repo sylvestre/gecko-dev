@@ -24,26 +24,22 @@ class ServiceWorkerJobQueue final
 
   ~ServiceWorkerJobQueue();
 
-  void
-  JobFinished(ServiceWorkerJob* aJob);
+  void JobFinished(ServiceWorkerJob* aJob);
 
-  void
-  RunJob();
+  void RunJob();
 
-public:
+ public:
   ServiceWorkerJobQueue();
 
-  void
-  ScheduleJob(ServiceWorkerJob* aJob);
+  void ScheduleJob(ServiceWorkerJob* aJob);
 
-  void
-  CancelAll();
+  void CancelAll();
 
   NS_INLINE_DECL_REFCOUNTING(ServiceWorkerJobQueue)
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerjobqueue_h
+#endif  // mozilla_dom_workers_serviceworkerjobqueue_h

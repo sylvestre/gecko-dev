@@ -11,7 +11,7 @@
 typedef struct _cairo_surface cairo_surface_t;
 typedef struct _cairo_user_data_key cairo_user_data_key_t;
 
-typedef void (*thebes_destroy_func_t) (void *data);
+typedef void (*thebes_destroy_func_t)(void* data);
 
 /**
  * Currently needs to be 'double' for Cairo compatibility. Could
@@ -38,23 +38,25 @@ typedef double gfxFloat;
  * @see gfxTextRun::BreakAndMeasureText
  * @see nsLineLayout::NotifyOptionalBreakPosition
  */
-enum class gfxBreakPriority {
-  eNoBreak       = 0,
+enum class gfxBreakPriority
+{
+  eNoBreak = 0,
   eWordWrapBreak,
   eNormalBreak
 };
 
-enum class gfxSurfaceType {
+enum class gfxSurfaceType
+{
   Image,
   PDF,
   PS,
   Xlib,
   Xcb,
-  Glitz,           // unused, but needed for cairo parity
+  Glitz,  // unused, but needed for cairo parity
   Quartz,
   Win32,
   BeOS,
-  DirectFB,        // unused, but needed for cairo parity
+  DirectFB,  // unused, but needed for cairo parity
   SVG,
   OS2,
   Win32Printing,
@@ -72,14 +74,16 @@ enum class gfxSurfaceType {
   Max
 };
 
-enum class gfxContentType {
-  COLOR       = 0x1000,
-  ALPHA       = 0x2000,
+enum class gfxContentType
+{
+  COLOR = 0x1000,
+  ALPHA = 0x2000,
   COLOR_ALPHA = 0x3000,
-  SENTINEL    = 0xffff
+  SENTINEL = 0xffff
 };
 
-enum class gfxAlphaType {
+enum class gfxAlphaType
+{
   Opaque,
   Premult,
   NonPremult,

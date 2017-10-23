@@ -17,7 +17,7 @@ class MutableBlobStorage;
 
 class TemporaryIPCBlobChildCallback
 {
-public:
+ public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
   virtual void OperationSucceeded(BlobImpl* aBlobImpl) = 0;
@@ -26,33 +26,30 @@ public:
 
 class TemporaryIPCBlobChild final : public mozilla::ipc::PTemporaryIPCBlobChild
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(TemporaryIPCBlobChild)
 
   explicit TemporaryIPCBlobChild(MutableBlobStorage* aMutableBlobStorage);
 
-  void
-  AskForBlob(TemporaryIPCBlobChildCallback* aCallback,
-             const nsACString& aContentType);
+  void AskForBlob(TemporaryIPCBlobChildCallback* aCallback,
+                  const nsACString& aContentType);
 
-private:
+ private:
   ~TemporaryIPCBlobChild();
 
-  mozilla::ipc::IPCResult
-  RecvFileDesc(const FileDescriptor& aFD) override;
+  mozilla::ipc::IPCResult RecvFileDesc(const FileDescriptor& aFD) override;
 
-  mozilla::ipc::IPCResult
-  Recv__delete__(const IPCBlobOrError& aBlobOrError) override;
+  mozilla::ipc::IPCResult Recv__delete__(
+      const IPCBlobOrError& aBlobOrError) override;
 
-  void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
   RefPtr<MutableBlobStorage> mMutableBlobStorage;
   RefPtr<TemporaryIPCBlobChildCallback> mCallback;
   bool mActive;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ipc_TemporaryIPCBlobChild_h
+#endif  // mozilla_dom_ipc_TemporaryIPCBlobChild_h

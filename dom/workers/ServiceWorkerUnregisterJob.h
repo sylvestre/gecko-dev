@@ -15,31 +15,28 @@ namespace workers {
 
 class ServiceWorkerUnregisterJob final : public ServiceWorkerJob
 {
-public:
+ public:
   ServiceWorkerUnregisterJob(nsIPrincipal* aPrincipal,
                              const nsACString& aScope,
                              bool aSendToParent);
 
-  bool
-  GetResult() const;
+  bool GetResult() const;
 
-private:
+ private:
   class PushUnsubscribeCallback;
 
   virtual ~ServiceWorkerUnregisterJob();
 
-  virtual void
-  AsyncExecute() override;
+  virtual void AsyncExecute() override;
 
-  void
-  Unregister();
+  void Unregister();
 
   bool mResult;
   bool mSendToParent;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerunregisterjob_h
+#endif  // mozilla_dom_workers_serviceworkerunregisterjob_h

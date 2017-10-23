@@ -26,14 +26,11 @@ namespace js {
 //  - Must be even.
 // AllocPolicy:
 //  - see "Allocation policies" in AllocPolicy.h
-template <typename T,
-          size_t MinInlineCapacity = 0,
-          class AllocPolicy = TempAllocPolicy>
-class Fifo
-{
+template <typename T, size_t MinInlineCapacity = 0, class AllocPolicy = TempAllocPolicy>
+class Fifo {
     static_assert(MinInlineCapacity % 2 == 0, "MinInlineCapacity must be even!");
 
-  protected:
+   protected:
     // An element A is "younger" than an element B if B was inserted into the
     // |Fifo| before A was.
     //
@@ -45,7 +42,7 @@ class Fifo
     Vector<T, MinInlineCapacity / 2, AllocPolicy> front_;
     Vector<T, MinInlineCapacity / 2, AllocPolicy> rear_;
 
-  private:
+   private:
     // Maintain invariants after adding or removing entries.
     void fixup() {
         if (front_.empty() && !rear_.empty()) {
@@ -54,16 +51,10 @@ class Fifo
         }
     }
 
-  public:
-    explicit Fifo(AllocPolicy alloc = AllocPolicy())
-        : front_(alloc)
-        , rear_(alloc)
-    { }
+   public:
+    explicit Fifo(AllocPolicy alloc = AllocPolicy()) : front_(alloc), rear_(alloc) {}
 
-    Fifo(Fifo&& rhs)
-        : front_(mozilla::Move(rhs.front_))
-        , rear_(mozilla::Move(rhs.rear_))
-    { }
+    Fifo(Fifo&& rhs) : front_(mozilla::Move(rhs.front_)), rear_(mozilla::Move(rhs.rear_)) {}
 
     Fifo& operator=(Fifo&& rhs) {
         MOZ_ASSERT(&rhs != this, "self-move disallowed");
@@ -76,12 +67,12 @@ class Fifo
     Fifo& operator=(const Fifo&) = delete;
 
     size_t length() const {
-        MOZ_ASSERT_IF(rear_.length() > 0, front_.length() > 0); // Invariant 4.
+        MOZ_ASSERT_IF(rear_.length() > 0, front_.length() > 0);  // Invariant 4.
         return front_.length() + rear_.length();
     }
 
     bool empty() const {
-        MOZ_ASSERT_IF(rear_.length() > 0, front_.length() > 0); // Invariant 4.
+        MOZ_ASSERT_IF(rear_.length() > 0, front_.length() > 0);  // Invariant 4.
         return front_.empty();
     }
 
@@ -89,8 +80,7 @@ class Fifo
     // |const T&| or a |T&&|.
     template <typename U>
     MOZ_MUST_USE bool pushBack(U&& u) {
-        if (!rear_.append(mozilla::Forward<U>(u)))
-            return false;
+        if (!rear_.append(mozilla::Forward<U>(u))) return false;
         fixup();
         return true;
     }
@@ -98,8 +88,7 @@ class Fifo
     // Construct a T in-place at the back of the queue.
     template <typename... Args>
     MOZ_MUST_USE bool emplaceBack(Args&&... args) {
-        if (!rear_.emplaceBack(mozilla::Forward<Args>(args)...))
-            return false;
+        if (!rear_.emplaceBack(mozilla::Forward<Args>(args)...)) return false;
         fixup();
         return true;
     }
@@ -144,6 +133,6 @@ class Fifo
     }
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* js_Fifo_h */

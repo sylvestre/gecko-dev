@@ -17,28 +17,27 @@ namespace ipc {
 
 class DocumentRendererParent : public PDocumentRendererParent
 {
-public:
-    DocumentRendererParent();
-    virtual ~DocumentRendererParent();
+ public:
+  DocumentRendererParent();
+  virtual ~DocumentRendererParent();
 
-    void SetCanvasContext(nsICanvasRenderingContextInternal* aCanvas,
-			  gfxContext* ctx);
-    void DrawToCanvas(const nsIntSize& renderedSize,
-		      const nsCString& aData);
+  void SetCanvasContext(nsICanvasRenderingContextInternal* aCanvas,
+                        gfxContext* ctx);
+  void DrawToCanvas(const nsIntSize& renderedSize, const nsCString& aData);
 
-    virtual void ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-    virtual mozilla::ipc::IPCResult Recv__delete__(const nsIntSize& renderedSize,
-                                                   const nsCString& data) override;
+  virtual mozilla::ipc::IPCResult Recv__delete__(
+      const nsIntSize& renderedSize, const nsCString& data) override;
 
-private:
-    nsCOMPtr<nsICanvasRenderingContextInternal> mCanvas;
-    RefPtr<gfxContext> mCanvasContext;
+ private:
+  nsCOMPtr<nsICanvasRenderingContextInternal> mCanvas;
+  RefPtr<gfxContext> mCanvasContext;
 
-    DISALLOW_EVIL_CONSTRUCTORS(DocumentRendererParent);
+  DISALLOW_EVIL_CONSTRUCTORS(DocumentRendererParent);
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif

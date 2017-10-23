@@ -21,16 +21,19 @@ NS_INTERFACE_MAP_END
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(GamepadHapticActuator, mParent)
 
-GamepadHapticActuator::GamepadHapticActuator(nsISupports* aParent, uint32_t aGamepadId,
+GamepadHapticActuator::GamepadHapticActuator(nsISupports* aParent,
+                                             uint32_t aGamepadId,
                                              uint32_t aIndex)
-  : mParent(aParent), mGamepadId(aGamepadId),
-    mType(GamepadHapticActuatorType::Vibration), mIndex(aIndex)
+    : mParent(aParent),
+      mGamepadId(aGamepadId),
+      mType(GamepadHapticActuatorType::Vibration),
+      mIndex(aIndex)
 {
-
 }
 
 /* virtual */ JSObject*
-GamepadHapticActuator::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+GamepadHapticActuator::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return GamepadHapticActuatorBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -41,8 +44,7 @@ GamepadHapticActuator::GetParentObject() const
   return mParent;
 }
 
-#define CLAMP(f, min, max) \
-          (((f) < min)? min : (((f) > max) ? max : (f)))
+#define CLAMP(f, min, max) (((f) < min) ? min : (((f) > max) ? max : (f)))
 
 already_AddRefed<Promise>
 GamepadHapticActuator::Pulse(double aValue, double aDuration, ErrorResult& aRv)
@@ -59,18 +61,15 @@ GamepadHapticActuator::Pulse(double aValue, double aDuration, ErrorResult& aRv)
   double duration = CLAMP(aDuration, 0, aDuration);
 
   switch (mType) {
-    case GamepadHapticActuatorType::Vibration:
-    {
-      RefPtr<Promise> promise =
-        gamepadManager->VibrateHaptic(
+    case GamepadHapticActuatorType::Vibration: {
+      RefPtr<Promise> promise = gamepadManager->VibrateHaptic(
           mGamepadId, mIndex, value, duration, global, aRv);
       if (!promise) {
         return nullptr;
       }
       return promise.forget();
     }
-    default:
-    {
+    default: {
       // We need to implement other types of haptic
       MOZ_ASSERT(false);
       return nullptr;
@@ -85,11 +84,12 @@ GamepadHapticActuator::Type() const
 }
 
 void
-GamepadHapticActuator::Set(const GamepadHapticActuator* aOther) {
+GamepadHapticActuator::Set(const GamepadHapticActuator* aOther)
+{
   mGamepadId = aOther->mGamepadId;
   mType = aOther->mType;
   mIndex = aOther->mIndex;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

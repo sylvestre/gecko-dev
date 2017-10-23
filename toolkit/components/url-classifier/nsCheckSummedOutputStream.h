@@ -17,7 +17,7 @@
 
 class nsCheckSummedOutputStream : public nsBufferedOutputStream
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // Size of MD5 hash in bytes
@@ -27,10 +27,10 @@ public:
   nsCheckSummedOutputStream() {}
 
   NS_IMETHOD Finish() override;
-  NS_IMETHOD Write(const char *buf, uint32_t count, uint32_t *result) override;
+  NS_IMETHOD Write(const char* buf, uint32_t count, uint32_t* result) override;
   NS_IMETHOD Init(nsIOutputStream* stream, uint32_t bufferSize) override;
 
-protected:
+ protected:
   virtual ~nsCheckSummedOutputStream() { nsBufferedOutputStream::Close(); }
 
   nsCOMPtr<nsICryptoHash> mHash;
@@ -39,20 +39,21 @@ protected:
 
 // returns a file output stream which can be QI'ed to nsIFileOutputStream.
 inline nsresult
-NS_NewCheckSummedOutputStream(nsIOutputStream **result,
-                              nsIFile         *file)
+NS_NewCheckSummedOutputStream(nsIOutputStream** result, nsIFile* file)
 {
-    nsCOMPtr<nsIOutputStream> localOutFile;
-    nsresult rv = NS_NewSafeLocalFileOutputStream(getter_AddRefs(localOutFile), file,
-                                                  PR_WRONLY | PR_TRUNCATE | PR_CREATE_FILE);
-    NS_ENSURE_SUCCESS(rv, rv);
+  nsCOMPtr<nsIOutputStream> localOutFile;
+  nsresult rv =
+      NS_NewSafeLocalFileOutputStream(getter_AddRefs(localOutFile),
+                                      file,
+                                      PR_WRONLY | PR_TRUNCATE | PR_CREATE_FILE);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-    nsCOMPtr<nsIBufferedOutputStream> out = new nsCheckSummedOutputStream();
-    rv = out->Init(localOutFile, nsCheckSummedOutputStream::CHECKSUM_SIZE);
-    if (NS_SUCCEEDED(rv)) {
-      out.forget(result);
-    }
-    return rv;
+  nsCOMPtr<nsIBufferedOutputStream> out = new nsCheckSummedOutputStream();
+  rv = out->Init(localOutFile, nsCheckSummedOutputStream::CHECKSUM_SIZE);
+  if (NS_SUCCEEDED(rv)) {
+    out.forget(result);
+  }
+  return rv;
 }
 
 #endif

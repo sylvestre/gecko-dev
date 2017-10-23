@@ -13,14 +13,16 @@
 
 class nsContentHandlerApp : public nsIHandlerApp
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIHANDLERAPP
 
-  nsContentHandlerApp(nsString aName, nsCString aType, ContentAction::Action& aAction);
-  virtual ~nsContentHandlerApp() { }
+  nsContentHandlerApp(nsString aName,
+                      nsCString aType,
+                      ContentAction::Action& aAction);
+  virtual ~nsContentHandlerApp() {}
 
-protected:
+ protected:
   nsString mName;
   nsCString mType;
   nsString mDetailedDescription;

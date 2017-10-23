@@ -36,11 +36,11 @@ struct ShutdownTracker
    */
   static bool ShutdownHasStarted();
 
-private:
+ private:
   virtual ~ShutdownTracker() = 0;  // Forbid instantiation.
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ShutdownTracker_h
+#endif  // mozilla_image_ShutdownTracker_h

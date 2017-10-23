@@ -38,52 +38,51 @@ class DOMSVGNumber;
  *
  * Our DOM items are created lazily on demand as and when script requests them.
  */
-class DOMSVGNumberList final : public nsISupports,
-                               public nsWrapperCache
+class DOMSVGNumberList final : public nsISupports, public nsWrapperCache
 {
   friend class AutoChangeNumberListNotifier;
   friend class DOMSVGNumber;
 
-  ~DOMSVGNumberList() {
+  ~DOMSVGNumberList()
+  {
     // Our mAList's weak ref to us must be nulled out when we die. If GC has
     // unlinked us using the cycle collector code, then that has already
     // happened, and mAList is null.
     if (mAList) {
-      ( IsAnimValList() ? mAList->mAnimVal : mAList->mBaseVal ) = nullptr;
+      (IsAnimValList() ? mAList->mAnimVal : mAList->mBaseVal) = nullptr;
     }
   }
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGNumberList)
 
-  DOMSVGNumberList(DOMSVGAnimatedNumberList *aAList,
-                   const SVGNumberList &aInternalList)
-    : mAList(aAList)
+  DOMSVGNumberList(DOMSVGAnimatedNumberList* aAList,
+                   const SVGNumberList& aInternalList)
+      : mAList(aAList)
   {
     // aInternalList must be passed in explicitly because we can't use
     // InternalList() here. (Because it depends on IsAnimValList, which depends
     // on this object having been assigned to aAList's mBaseVal or mAnimVal,
     // which hasn't happend yet.)
 
-    InternalListLengthWillChange(aInternalList.Length()); // Sync mItems
+    InternalListLengthWillChange(aInternalList.Length());  // Sync mItems
   }
 
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  nsISupports* GetParentObject()
-  {
-    return static_cast<nsIContent*>(Element());
-  }
+  nsISupports* GetParentObject() { return static_cast<nsIContent*>(Element()); }
 
   /**
    * This will normally be the same as InternalList().Length(), except if we've
    * hit OOM in which case our length will be zero.
    */
-  uint32_t LengthNoFlush() const {
-    MOZ_ASSERT(mItems.Length() == 0 ||
-               mItems.Length() == InternalList().Length(),
-               "DOM wrapper's list length is out of sync");
+  uint32_t LengthNoFlush() const
+  {
+    MOZ_ASSERT(
+        mItems.Length() == 0 || mItems.Length() == InternalList().Length(),
+        "DOM wrapper's list length is out of sync");
     return mItems.Length();
   }
 
@@ -94,13 +93,12 @@ public:
    * Returns true if our attribute is animating (in which case our animVal is
    * not simply a mirror of our baseVal).
    */
-  bool IsAnimating() const {
-    return mAList->IsAnimating();
-  }
+  bool IsAnimating() const { return mAList->IsAnimating(); }
   /**
    * Returns true if there is an animated list mirroring the base list.
    */
-  bool AnimListMirrorsBaseList() const {
+  bool AnimListMirrorsBaseList() const
+  {
     return mAList->mAnimVal && !mAList->IsAnimating();
   }
 
@@ -115,36 +113,31 @@ public:
   already_AddRefed<DOMSVGNumber> Initialize(DOMSVGNumber& newItem,
                                             ErrorResult& error);
   already_AddRefed<DOMSVGNumber> GetItem(uint32_t index, ErrorResult& error);
-  already_AddRefed<DOMSVGNumber> IndexedGetter(uint32_t index, bool& found,
+  already_AddRefed<DOMSVGNumber> IndexedGetter(uint32_t index,
+                                               bool& found,
                                                ErrorResult& error);
   already_AddRefed<DOMSVGNumber> InsertItemBefore(DOMSVGNumber& newItem,
-                                                  uint32_t index, ErrorResult& error);
-  already_AddRefed<DOMSVGNumber> ReplaceItem(DOMSVGNumber& newItem, uint32_t index,
+                                                  uint32_t index,
+                                                  ErrorResult& error);
+  already_AddRefed<DOMSVGNumber> ReplaceItem(DOMSVGNumber& newItem,
+                                             uint32_t index,
                                              ErrorResult& error);
-  already_AddRefed<DOMSVGNumber> RemoveItem(uint32_t index,
-                                            ErrorResult& error);
+  already_AddRefed<DOMSVGNumber> RemoveItem(uint32_t index, ErrorResult& error);
   already_AddRefed<DOMSVGNumber> AppendItem(DOMSVGNumber& newItem,
                                             ErrorResult& error)
   {
     return InsertItemBefore(newItem, LengthNoFlush(), error);
   }
-  uint32_t Length() const
-  {
-    return NumberOfItems();
-  }
+  uint32_t Length() const { return NumberOfItems(); }
 
-private:
+ private:
+  nsSVGElement* Element() const { return mAList->mElement; }
 
-  nsSVGElement* Element() const {
-    return mAList->mElement;
-  }
-
-  uint8_t AttrEnum() const {
-    return mAList->mAttrEnum;
-  }
+  uint8_t AttrEnum() const { return mAList->mAttrEnum; }
 
   /// Used to determine if this list is the baseVal or animVal list.
-  bool IsAnimValList() const {
+  bool IsAnimValList() const
+  {
     MOZ_ASSERT(this == mAList->mBaseVal || this == mAList->mAnimVal,
                "Calling IsAnimValList() too early?!");
     return this == mAList->mAnimVal;
@@ -173,6 +166,6 @@ private:
   RefPtr<DOMSVGAnimatedNumberList> mAList;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_DOMSVGNUMBERLIST_H__
+#endif  // MOZILLA_DOMSVGNUMBERLIST_H__

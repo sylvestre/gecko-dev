@@ -22,21 +22,15 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechGrammarList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-SpeechGrammarList::SpeechGrammarList(nsISupports* aParent)
-  : mParent(aParent)
-{
-}
+SpeechGrammarList::SpeechGrammarList(nsISupports* aParent) : mParent(aParent) {}
 
-SpeechGrammarList::~SpeechGrammarList()
-{
-}
+SpeechGrammarList::~SpeechGrammarList() {}
 
 already_AddRefed<SpeechGrammarList>
-SpeechGrammarList::Constructor(const GlobalObject& aGlobal,
-                               ErrorResult& aRv)
+SpeechGrammarList::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
   RefPtr<SpeechGrammarList> speechGrammarList =
-    new SpeechGrammarList(aGlobal.GetAsSupports());
+      new SpeechGrammarList(aGlobal.GetAsSupports());
   return speechGrammarList.forget();
 }
 
@@ -84,7 +78,8 @@ SpeechGrammarList::AddFromString(const nsAString& aString,
 }
 
 already_AddRefed<SpeechGrammar>
-SpeechGrammarList::IndexedGetter(uint32_t aIndex, bool& aPresent,
+SpeechGrammarList::IndexedGetter(uint32_t aIndex,
+                                 bool& aPresent,
                                  ErrorResult& aRv)
 {
   if (aIndex >= Length()) {
@@ -96,5 +91,5 @@ SpeechGrammarList::IndexedGetter(uint32_t aIndex, bool& aPresent,
   return Item(aIndex, rv);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

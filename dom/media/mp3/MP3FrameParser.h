@@ -18,11 +18,11 @@ namespace mozilla {
 // For more details see http://id3.org/id3v2.3.0.
 class ID3Parser
 {
-public:
+ public:
   // Holds the ID3 header and its parsing state.
   class ID3Header
   {
-  public:
+   public:
     // The header size is static, see class comment.
     static const int SIZE = 10;
 
@@ -60,7 +60,7 @@ public:
     // Returns whether the byte creates a valid sequence up to this point.
     bool ParseNext(uint8_t c);
 
-  private:
+   private:
     // Updates the parser state machine with the provided next byte.
     // Returns whether the provided byte is a valid next byte in the sequence.
     bool Update(uint8_t c);
@@ -88,7 +88,7 @@ public:
   // Resets the state to allow for a new parsing session.
   void Reset();
 
-private:
+ private:
   // The currently parsed ID3 header. Reset via Reset, updated via Parse.
   ID3Header mHeader;
 };
@@ -112,11 +112,11 @@ private:
 //   HH         - Emphasis (0->none, 1->50/15 ms, 2->reserved, 3->CCIT J.17)
 class FrameParser
 {
-public:
+ public:
   // Holds the frame header and its parsing state.
   class FrameHeader
   {
-  public:
+   public:
     // The header size is static, see class comments.
     static const int SIZE = 4;
 
@@ -167,7 +167,7 @@ public:
     // Returns whether the byte creates a valid sequence up to this point.
     bool ParseNext(const uint8_t c);
 
-  private:
+   private:
     // Updates the parser state machine with the provided next byte.
     // Returns whether the provided byte is a valid next byte in the sequence.
     bool Update(const uint8_t c);
@@ -184,7 +184,7 @@ public:
   // this class to parse them and access this info.
   class VBRHeader
   {
-  public:
+   public:
     // Synchronize with vbr_header TYPE_STR on change.
     enum VBRHeaderType
     {
@@ -229,7 +229,7 @@ public:
     // frame begin. Returns whether a valid VBR header was found in the range.
     bool Parse(mp4_demuxer::ByteReader* aReader);
 
-  private:
+   private:
     // Parses contents of given ByteReader for a valid Xing header.
     // The initial ByteReader offset will be preserved.
     // Returns whether a valid Xing header was found in the range.
@@ -261,7 +261,7 @@ public:
   // Frame meta container used to parse and hold a frame header and side info.
   class Frame
   {
-  public:
+   public:
     // Returns the length of the frame excluding the header in bytes.
     int32_t Length() const;
 
@@ -275,7 +275,7 @@ public:
     // Returns whether the byte creates a valid sequence up to this point.
     bool ParseNext(uint8_t c);
 
-  private:
+   private:
     // The currently parsed frame header.
     FrameHeader mHeader;
   };
@@ -323,7 +323,7 @@ public:
   // begin. Returns whether a valid VBR header was found.
   bool ParseVBRHeader(mp4_demuxer::ByteReader* aReader);
 
-private:
+ private:
   // ID3 header parser.
   ID3Parser mID3Parser;
 
@@ -337,6 +337,6 @@ private:
   Frame mPrevFrame;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

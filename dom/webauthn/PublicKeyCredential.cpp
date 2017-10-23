@@ -13,8 +13,7 @@ namespace mozilla {
 namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PublicKeyCredential)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PublicKeyCredential,
-                                                Credential)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PublicKeyCredential, Credential)
   tmp->mRawIdCachedObj = nullptr;
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -23,7 +22,8 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(PublicKeyCredential, Credential)
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mRawIdCachedObj)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PublicKeyCredential, Credential)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PublicKeyCredential,
+                                                  Credential)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ADDREF_INHERITED(PublicKeyCredential, Credential)
@@ -33,16 +33,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PublicKeyCredential)
 NS_INTERFACE_MAP_END_INHERITING(Credential)
 
 PublicKeyCredential::PublicKeyCredential(nsPIDOMWindowInner* aParent)
-  : Credential(aParent)
-  , mRawIdCachedObj(nullptr)
+    : Credential(aParent), mRawIdCachedObj(nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
 
-PublicKeyCredential::~PublicKeyCredential()
-{
-  mozilla::DropJSObjects(this);
-}
+PublicKeyCredential::~PublicKeyCredential() { mozilla::DropJSObjects(this); }
 
 JSObject*
 PublicKeyCredential::WrapObject(JSContext* aCx,
@@ -87,14 +83,14 @@ PublicKeyCredential::SetResponse(RefPtr<AuthenticatorResponse> aResponse)
 PublicKeyCredential::IsPlatformAuthenticatorAvailable(GlobalObject& aGlobal)
 {
   nsIGlobalObject* globalObject =
-    xpc::NativeGlobal(JS::CurrentGlobalOrNull(aGlobal.Context()));
+      xpc::NativeGlobal(JS::CurrentGlobalOrNull(aGlobal.Context()));
   if (NS_WARN_IF(!globalObject)) {
     return nullptr;
   }
 
   ErrorResult rv;
   RefPtr<Promise> promise = Promise::Create(globalObject, rv);
-  if(rv.Failed()) {
+  if (rv.Failed()) {
     return nullptr;
   }
 
@@ -106,6 +102,5 @@ PublicKeyCredential::IsPlatformAuthenticatorAvailable(GlobalObject& aGlobal)
   return promise.forget();
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

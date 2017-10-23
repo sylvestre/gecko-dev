@@ -30,21 +30,23 @@
  * which will call back in jemalloc, through the zone allocator so just use it.
  */
 #ifndef XP_DARWIN
-MOZ_MEMORY_API size_t malloc_good_size_impl(size_t size);
+MOZ_MEMORY_API size_t
+malloc_good_size_impl(size_t size);
 
 /* Note: the MOZ_GLUE_IN_PROGRAM ifdef below is there to avoid -Werror turning
  * the protective if into errors. MOZ_GLUE_IN_PROGRAM is what triggers MFBT_API
  * to use weak imports. */
 
-static inline size_t _malloc_good_size(size_t size) {
-#  if defined(MOZ_GLUE_IN_PROGRAM) && !defined(IMPL_MFBT)
-  if (!malloc_good_size)
-    return size;
-#  endif
+static inline size_t
+_malloc_good_size(size_t size)
+{
+#if defined(MOZ_GLUE_IN_PROGRAM) && !defined(IMPL_MFBT)
+  if (!malloc_good_size) return size;
+#endif
   return malloc_good_size_impl(size);
 }
 
-#  define malloc_good_size _malloc_good_size
+#define malloc_good_size _malloc_good_size
 #endif
 
 #define MALLOC_DECL(name, return_type, ...) \

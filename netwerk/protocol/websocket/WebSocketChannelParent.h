@@ -26,6 +26,7 @@ class WebSocketChannelParent : public PWebSocketParent,
                                public nsIInterfaceRequestor
 {
   ~WebSocketChannelParent();
+
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWEBSOCKETLISTENER
@@ -37,23 +38,25 @@ class WebSocketChannelParent : public PWebSocketParent,
                          uint32_t aSerial);
 
  private:
-  mozilla::ipc::IPCResult RecvAsyncOpen(const OptionalURIParams& aURI,
-                                        const nsCString& aOrigin,
-                                        const uint64_t& aInnerWindowID,
-                                        const nsCString& aProtocol,
-                                        const bool& aSecure,
-                                        const uint32_t& aPingInterval,
-                                        const bool& aClientSetPingInterval,
-                                        const uint32_t& aPingTimeout,
-                                        const bool& aClientSetPingTimeout,
-                                        const OptionalLoadInfoArgs& aLoadInfoArgs,
-                                        const OptionalTransportProvider& aTransportProvider,
-                                        const nsCString& aNegotiatedExtensions) override;
-  mozilla::ipc::IPCResult RecvClose(const uint16_t & code, const nsCString & reason) override;
+  mozilla::ipc::IPCResult RecvAsyncOpen(
+      const OptionalURIParams& aURI,
+      const nsCString& aOrigin,
+      const uint64_t& aInnerWindowID,
+      const nsCString& aProtocol,
+      const bool& aSecure,
+      const uint32_t& aPingInterval,
+      const bool& aClientSetPingInterval,
+      const uint32_t& aPingTimeout,
+      const bool& aClientSetPingTimeout,
+      const OptionalLoadInfoArgs& aLoadInfoArgs,
+      const OptionalTransportProvider& aTransportProvider,
+      const nsCString& aNegotiatedExtensions) override;
+  mozilla::ipc::IPCResult RecvClose(const uint16_t& code,
+                                    const nsCString& reason) override;
   mozilla::ipc::IPCResult RecvSendMsg(const nsCString& aMsg) override;
   mozilla::ipc::IPCResult RecvSendBinaryMsg(const nsCString& aMsg) override;
-  mozilla::ipc::IPCResult RecvSendBinaryStream(const IPCStream& aStream,
-                                               const uint32_t& aLength) override;
+  mozilla::ipc::IPCResult RecvSendBinaryStream(
+      const IPCStream& aStream, const uint32_t& aLength) override;
   mozilla::ipc::IPCResult RecvDeleteSelf() override;
 
   void ActorDestroy(ActorDestroyReason why) override;
@@ -66,7 +69,7 @@ class WebSocketChannelParent : public PWebSocketParent,
   uint32_t mSerial;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_WebSocketChannelParent_h
+#endif  // mozilla_net_WebSocketChannelParent_h

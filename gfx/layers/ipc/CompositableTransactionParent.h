@@ -8,10 +8,10 @@
 #ifndef MOZILLA_LAYERS_COMPOSITABLETRANSACTIONPARENT_H
 #define MOZILLA_LAYERS_COMPOSITABLETRANSACTIONPARENT_H
 
-#include <vector>                       // for vector
-#include "mozilla/Attributes.h"         // for override
+#include <vector>                              // for vector
+#include "mozilla/Attributes.h"                // for override
 #include "mozilla/layers/ISurfaceAllocator.h"  // for ISurfaceAllocator
-#include "mozilla/layers/LayersMessages.h"  // for EditReply, etc
+#include "mozilla/layers/LayersMessages.h"     // for EditReply, etc
 #include "mozilla/layers/TextureClient.h"
 #include "CompositableHost.h"
 
@@ -24,7 +24,7 @@ namespace layers {
 // through this interface.
 class CompositableParentManager : public HostIPCAllocator
 {
-public:
+ public:
   typedef InfallibleTArray<ReadLockInit> ReadLockArray;
 
   CompositableParentManager() {}
@@ -39,16 +39,15 @@ public:
 
   uint64_t GetFwdTransactionId() { return mFwdTransactionId; }
 
-  RefPtr<CompositableHost> AddCompositable(
-    const CompositableHandle& aHandle,
-    const TextureInfo& aInfo,
-    bool aUseWebRender);
+  RefPtr<CompositableHost> AddCompositable(const CompositableHandle& aHandle,
+                                           const TextureInfo& aInfo,
+                                           bool aUseWebRender);
   RefPtr<CompositableHost> FindCompositable(const CompositableHandle& aHandle);
 
   bool AddReadLocks(ReadLockArray&& aReadLocks);
   TextureReadLock* FindReadLock(const ReadLockHandle& aLockHandle);
 
-protected:
+ protected:
   /**
    * Handle the IPDL messages that affect PCompositable actors.
    */
@@ -63,24 +62,23 @@ protected:
    */
   std::map<uint64_t, RefPtr<CompositableHost>> mCompositables;
   std::map<uint64_t, RefPtr<TextureReadLock>> mReadLocks;
-
 };
 
-struct AutoClearReadLocks {
-  explicit AutoClearReadLocks(std::map<uint64_t, RefPtr<TextureReadLock>>& aReadLocks)
-    : mReadLocks(aReadLocks)
+struct AutoClearReadLocks
+{
+  explicit AutoClearReadLocks(
+      std::map<uint64_t, RefPtr<TextureReadLock>>& aReadLocks)
+      : mReadLocks(aReadLocks)
 
-  {}
-
-  ~AutoClearReadLocks()
   {
-    mReadLocks.clear();
   }
+
+  ~AutoClearReadLocks() { mReadLocks.clear(); }
 
   std::map<uint64_t, RefPtr<TextureReadLock>>& mReadLocks;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

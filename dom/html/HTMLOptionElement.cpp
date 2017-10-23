@@ -36,25 +36,24 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Option)
 namespace mozilla {
 namespace dom {
 
-HTMLOptionElement::HTMLOptionElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo),
-    mSelectedChanged(false),
-    mIsSelected(false),
-    mIsInSetDefaultSelected(false)
+HTMLOptionElement::HTMLOptionElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo),
+      mSelectedChanged(false),
+      mIsSelected(false),
+      mIsInSetDefaultSelected(false)
 {
   // We start off enabled
   AddStatesSilently(NS_EVENT_STATE_ENABLED);
 }
 
-HTMLOptionElement::~HTMLOptionElement()
-{
-}
+HTMLOptionElement::~HTMLOptionElement() {}
 
-NS_IMPL_ISUPPORTS_INHERITED(HTMLOptionElement, nsGenericHTMLElement,
+NS_IMPL_ISUPPORTS_INHERITED(HTMLOptionElement,
+                            nsGenericHTMLElement,
                             nsIDOMHTMLOptionElement)
 
 NS_IMPL_ELEMENT_CLONE(HTMLOptionElement)
-
 
 NS_IMETHODIMP
 HTMLOptionElement::GetForm(nsIDOMHTMLFormElement** aForm)
@@ -199,20 +198,20 @@ HTMLOptionElement::GetAttributeChangeHint(const nsAtom* aAttribute,
   nsChangeHint retval =
       nsGenericHTMLElement::GetAttributeChangeHint(aAttribute, aModType);
 
-  if (aAttribute == nsGkAtoms::label ||
-      aAttribute == nsGkAtoms::text) {
+  if (aAttribute == nsGkAtoms::label || aAttribute == nsGkAtoms::text) {
     retval |= NS_STYLE_HINT_REFLOW;
   }
   return retval;
 }
 
 nsresult
-HTMLOptionElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLOptionElement::BeforeSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify)
 {
-  nsresult rv = nsGenericHTMLElement::BeforeSetAttr(aNamespaceID, aName,
-                                                    aValue, aNotify);
+  nsresult rv =
+      nsGenericHTMLElement::BeforeSetAttr(aNamespaceID, aName, aValue, aNotify);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (aNamespaceID != kNameSpaceID_None || aName != nsGkAtoms::selected ||
@@ -263,7 +262,8 @@ HTMLOptionElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
 }
 
 nsresult
-HTMLOptionElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLOptionElement::AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -285,8 +285,8 @@ HTMLOptionElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName,
-                                            aValue, aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 NS_IMETHODIMP
@@ -322,13 +322,13 @@ HTMLOptionElement::SetText(const nsAString& aText)
 }
 
 nsresult
-HTMLOptionElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+HTMLOptionElement::BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Our new parent might change :disabled/:enabled state.
@@ -397,16 +397,17 @@ HTMLOptionElement::Option(const GlobalObject& aGlobal,
   }
 
   already_AddRefed<mozilla::dom::NodeInfo> nodeInfo =
-    doc->NodeInfoManager()->GetNodeInfo(nsGkAtoms::option, nullptr,
-                                        kNameSpaceID_XHTML,
-                                        nsIDOMNode::ELEMENT_NODE);
+      doc->NodeInfoManager()->GetNodeInfo(nsGkAtoms::option,
+                                          nullptr,
+                                          kNameSpaceID_XHTML,
+                                          nsIDOMNode::ELEMENT_NODE);
 
   RefPtr<HTMLOptionElement> option = new HTMLOptionElement(nodeInfo);
 
   if (!aText.IsEmpty()) {
     // Create a new text node and append it to the option
     RefPtr<nsTextNode> textContent =
-      new nsTextNode(option->NodeInfo()->NodeInfoManager());
+        new nsTextNode(option->NodeInfo()->NodeInfoManager());
 
     textContent->SetText(aText, false);
 
@@ -419,8 +420,8 @@ HTMLOptionElement::Option(const GlobalObject& aGlobal,
   if (aValue.WasPassed()) {
     // Set the value attribute for this element. We're calling SetAttr
     // directly because we want to pass aNotify == false.
-    aError = option->SetAttr(kNameSpaceID_None, nsGkAtoms::value,
-                             aValue.Value(), false);
+    aError = option->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::value, aValue.Value(), false);
     if (aError.Failed()) {
       return nullptr;
     }
@@ -429,8 +430,8 @@ HTMLOptionElement::Option(const GlobalObject& aGlobal,
   if (aDefaultSelected) {
     // We're calling SetAttr directly because we want to pass
     // aNotify == false.
-    aError = option->SetAttr(kNameSpaceID_None, nsGkAtoms::selected,
-                             EmptyString(), false);
+    aError = option->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::selected, EmptyString(), false);
     if (aError.Failed()) {
       return nullptr;
     }
@@ -464,5 +465,5 @@ HTMLOptionElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLOptionElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

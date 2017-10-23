@@ -17,7 +17,8 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFESpecularLightingElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFESpecularLightingElement::WrapNode(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFESpecularLightingElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -55,24 +56,25 @@ already_AddRefed<SVGAnimatedNumber>
 SVGFESpecularLightingElement::KernelUnitLengthX()
 {
   return mNumberPairAttributes[KERNEL_UNIT_LENGTH].ToDOMAnimatedNumber(
-    nsSVGNumberPair::eFirst, this);
+      nsSVGNumberPair::eFirst, this);
 }
 
 already_AddRefed<SVGAnimatedNumber>
 SVGFESpecularLightingElement::KernelUnitLengthY()
 {
   return mNumberPairAttributes[KERNEL_UNIT_LENGTH].ToDOMAnimatedNumber(
-    nsSVGNumberPair::eSecond, this);
+      nsSVGNumberPair::eSecond, this);
 }
 
 //----------------------------------------------------------------------
 // nsSVGElement methods
 
 FilterPrimitiveDescription
-SVGFESpecularLightingElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                                      const IntRect& aFilterSubregion,
-                                                      const nsTArray<bool>& aInputsAreTainted,
-                                                      nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFESpecularLightingElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   float specularExponent = mNumberAttributes[SPECULAR_EXPONENT].GetAnimValue();
   float specularConstant = mNumberAttributes[SPECULAR_CONSTANT].GetAnimValue();
@@ -89,14 +91,15 @@ SVGFESpecularLightingElement::GetPrimitiveDescription(nsSVGFilterInstance* aInst
 }
 
 bool
-SVGFESpecularLightingElement::AttributeAffectsRendering(int32_t aNameSpaceID,
-                                                        nsAtom* aAttribute) const
+SVGFESpecularLightingElement::AttributeAffectsRendering(
+    int32_t aNameSpaceID, nsAtom* aAttribute) const
 {
-  return SVGFESpecularLightingElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
+  return SVGFESpecularLightingElementBase::AttributeAffectsRendering(
+             aNameSpaceID, aAttribute) ||
          (aNameSpaceID == kNameSpaceID_None &&
           (aAttribute == nsGkAtoms::specularConstant ||
            aAttribute == nsGkAtoms::specularExponent));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

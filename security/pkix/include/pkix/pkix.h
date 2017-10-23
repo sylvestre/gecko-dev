@@ -27,7 +27,8 @@
 
 #include "pkixtypes.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 // ----------------------------------------------------------------------------
 // LIMITED SUPPORT FOR CERTIFICATE POLICIES
@@ -103,12 +104,15 @@ namespace mozilla { namespace pkix {
 //  requiredPolicy:
 //         This is the policy to apply; typically included in EV certificates.
 //         If there is no policy, pass in CertPolicyId::anyPolicy.
-Result BuildCertChain(TrustDomain& trustDomain, Input cert,
-                      Time time, EndEntityOrCA endEntityOrCA,
-                      KeyUsage requiredKeyUsageIfPresent,
-                      KeyPurposeId requiredEKUIfPresent,
-                      const CertPolicyId& requiredPolicy,
-                      /*optional*/ const Input* stapledOCSPResponse);
+Result
+BuildCertChain(TrustDomain& trustDomain,
+               Input cert,
+               Time time,
+               EndEntityOrCA endEntityOrCA,
+               KeyUsage requiredKeyUsageIfPresent,
+               KeyPurposeId requiredEKUIfPresent,
+               const CertPolicyId& requiredPolicy,
+               /*optional*/ const Input* stapledOCSPResponse);
 
 // Verify that the given end-entity cert, which is assumed to have been already
 // validated with BuildCertChain, is valid for the given hostname. The matching
@@ -116,16 +120,19 @@ Result BuildCertChain(TrustDomain& trustDomain, Input cert,
 // - IP addresses are out of scope of RFC 6125, but this method accepts them for
 //   backward compatibility (see SearchNames in pkixnames.cpp)
 // - A wildcard in a DNS-ID may only appear as the entirety of the first label.
-Result CheckCertHostname(Input cert, Input hostname,
-                         NameMatchingPolicy& nameMatchingPolicy);
+Result
+CheckCertHostname(Input cert,
+                  Input hostname,
+                  NameMatchingPolicy& nameMatchingPolicy);
 
 // Construct an RFC-6960-encoded OCSP request, ready for submission to a
 // responder, for the provided CertID. The request has no extensions.
 static const size_t OCSP_REQUEST_MAX_LENGTH = 127;
-Result CreateEncodedOCSPRequest(TrustDomain& trustDomain,
-                                const CertID& certID,
-                                /*out*/ uint8_t (&out)[OCSP_REQUEST_MAX_LENGTH],
-                                /*out*/ size_t& outLen);
+Result
+CreateEncodedOCSPRequest(TrustDomain& trustDomain,
+                         const CertID& certID,
+                         /*out*/ uint8_t (&out)[OCSP_REQUEST_MAX_LENGTH],
+                         /*out*/ size_t& outLen);
 
 // The out parameter expired will be true if the response has expired. If the
 // response also indicates a revoked or unknown certificate, that error
@@ -140,22 +147,25 @@ Result CreateEncodedOCSPRequest(TrustDomain& trustDomain,
 // which the encoded response is considered trustworthy (that is, as long as
 // the given time at which to validate is less than or equal to validThrough,
 // the response will be considered trustworthy).
-Result VerifyEncodedOCSPResponse(TrustDomain& trustDomain,
-                                 const CertID& certID, Time time,
-                                 uint16_t maxLifetimeInDays,
-                                 Input encodedResponse,
-                       /* out */ bool& expired,
-              /* optional out */ Time* thisUpdate = nullptr,
-              /* optional out */ Time* validThrough = nullptr);
+Result
+VerifyEncodedOCSPResponse(TrustDomain& trustDomain,
+                          const CertID& certID,
+                          Time time,
+                          uint16_t maxLifetimeInDays,
+                          Input encodedResponse,
+                          /* out */ bool& expired,
+                          /* optional out */ Time* thisUpdate = nullptr,
+                          /* optional out */ Time* validThrough = nullptr);
 
 // Check that the TLSFeature extensions in a given end-entity cert (which is
 // assumed to have been already validated with BuildCertChain) are satisfied.
 // The only feature which we cancurrently process a requirement for is
 // status_request (OCSP stapling) so we reject any extension that specifies a
 // requirement for another value. Empty extensions are also rejected.
-Result CheckTLSFeaturesAreSatisfied(Input& cert,
-                                    const Input* stapledOCSPResponse);
+Result
+CheckTLSFeaturesAreSatisfied(Input& cert, const Input* stapledOCSPResponse);
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_pkix_h
+#endif  // mozilla_pkix_pkix_h

@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testForOfIterator_basicNonIterable)
-{
+BEGIN_TEST(testForOfIterator_basicNonIterable) {
     JS::RootedValue v(cx);
     // Hack to make it simple to produce an object that has a property
     // named Symbol.iterator.
@@ -21,8 +20,7 @@ BEGIN_TEST(testForOfIterator_basicNonIterable)
 }
 END_TEST(testForOfIterator_basicNonIterable)
 
-BEGIN_TEST(testForOfIterator_bug515273_part1)
-{
+BEGIN_TEST(testForOfIterator_bug515273_part1) {
     JS::RootedValue v(cx);
 
     // Hack to make it simple to produce an object that has a property
@@ -37,8 +35,7 @@ BEGIN_TEST(testForOfIterator_bug515273_part1)
 }
 END_TEST(testForOfIterator_bug515273_part1)
 
-BEGIN_TEST(testForOfIterator_bug515273_part2)
-{
+BEGIN_TEST(testForOfIterator_bug515273_part2) {
     JS::RootedObject obj(cx, JS_NewPlainObject(cx));
     CHECK(obj);
     JS::RootedValue v(cx, JS::ObjectValue(*obj));

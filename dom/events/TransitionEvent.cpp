@@ -14,13 +14,13 @@ namespace dom {
 TransitionEvent::TransitionEvent(EventTarget* aOwner,
                                  nsPresContext* aPresContext,
                                  InternalTransitionEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent : new InternalTransitionEvent(false, eVoidEvent))
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent : new InternalTransitionEvent(false, eVoidEvent))
 {
   if (aEvent) {
     mEventIsInternal = false;
-  }
-  else {
+  } else {
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
   }
@@ -83,8 +83,8 @@ TransitionEvent::GetPseudoElement(nsAString& aPseudoElement)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -95,6 +95,6 @@ NS_NewDOMTransitionEvent(EventTarget* aOwner,
                          InternalTransitionEvent* aEvent)
 {
   RefPtr<TransitionEvent> it =
-    new TransitionEvent(aOwner, aPresContext, aEvent);
+      new TransitionEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

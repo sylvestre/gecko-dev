@@ -24,16 +24,14 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GridDimension)
 NS_INTERFACE_MAP_END
 
 GridDimension::GridDimension(Grid* aParent)
-  : mParent(aParent)
-  , mLines(new GridLines(this))
-  , mTracks(new GridTracks(this))
+    : mParent(aParent),
+      mLines(new GridLines(this)),
+      mTracks(new GridTracks(this))
 {
   MOZ_ASSERT(aParent, "Should never be instantiated with a null Grid");
 }
 
-GridDimension::~GridDimension()
-{
-}
+GridDimension::~GridDimension() {}
 
 JSObject*
 GridDimension::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -68,5 +66,5 @@ GridDimension::SetLineInfo(const ComputedGridTrackInfo* aTrackInfo,
   mLines->SetLineInfo(aTrackInfo, aLineInfo, aAreas, aIsRow);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

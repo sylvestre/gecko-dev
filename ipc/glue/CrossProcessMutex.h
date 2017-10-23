@@ -19,7 +19,7 @@
 namespace IPC {
 template<typename T>
 struct ParamTraits;
-} // namespace IPC
+}  // namespace IPC
 
 //
 // Provides:
@@ -44,7 +44,7 @@ typedef uintptr_t CrossProcessMutexHandle;
 
 class CrossProcessMutex
 {
-public:
+ public:
   /**
    * CrossProcessMutex
    * @param name A name which can reference this lock (currently unused)
@@ -91,12 +91,12 @@ public:
    */
   CrossProcessMutexHandle ShareToProcess(base::ProcessId aTargetPid);
 
-private:
+ private:
   friend struct IPC::ParamTraits<CrossProcessMutex>;
 
   CrossProcessMutex();
   CrossProcessMutex(const CrossProcessMutex&);
-  CrossProcessMutex &operator=(const CrossProcessMutex&);
+  CrossProcessMutex& operator=(const CrossProcessMutex&);
 
 #if defined(OS_WIN)
   HANDLE mMutex;
@@ -110,6 +110,6 @@ private:
 typedef BaseAutoLock<CrossProcessMutex> CrossProcessMutexAutoLock;
 typedef BaseAutoUnlock<CrossProcessMutex> CrossProcessMutexAutoUnlock;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

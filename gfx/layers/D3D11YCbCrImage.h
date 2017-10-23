@@ -23,11 +23,10 @@ class DXGIYCbCrTextureData;
 
 class D3D11YCbCrRecycleAllocator : public TextureClientRecycleAllocator
 {
-public:
+ public:
   explicit D3D11YCbCrRecycleAllocator(KnowsCompositor* aAllocator,
                                       ID3D11Device* aDevice)
-    : TextureClientRecycleAllocator(aAllocator)
-    , mDevice(aDevice)
+      : TextureClientRecycleAllocator(aAllocator), mDevice(aDevice)
   {
   }
 
@@ -35,13 +34,13 @@ public:
   KnowsCompositor* GetAllocator() { return mSurfaceAllocator; }
   void SetSizes(const gfx::IntSize& aYSize, const gfx::IntSize& aCbCrSize);
 
-protected:
-  already_AddRefed<TextureClient>
-  Allocate(gfx::SurfaceFormat aFormat,
-           gfx::IntSize aSize,
-           BackendSelector aSelector,
-           TextureFlags aTextureFlags,
-           TextureAllocationFlags aAllocFlags) override;
+ protected:
+  already_AddRefed<TextureClient> Allocate(
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocFlags) override;
 
   RefPtr<ID3D11Device> mDevice;
   Maybe<gfx::IntSize> mYSize;
@@ -51,7 +50,8 @@ protected:
 class D3D11YCbCrImage : public Image
 {
   friend class gl::GLBlitHelper;
-public:
+
+ public:
   D3D11YCbCrImage();
   virtual ~D3D11YCbCrImage();
 
@@ -69,7 +69,7 @@ public:
 
   gfx::IntRect GetPictureRect() override { return mPictureRect; }
 
-private:
+ private:
   const DXGIYCbCrTextureData* GetData() const;
 
   gfx::IntSize mYSize;
@@ -79,7 +79,7 @@ private:
   RefPtr<TextureClient> mTextureClient;
 };
 
-} // namepace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_D3D11_YCBCR_IMAGE_H
+#endif  // GFX_D3D11_YCBCR_IMAGE_H

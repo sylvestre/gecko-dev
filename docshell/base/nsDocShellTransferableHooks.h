@@ -14,15 +14,15 @@ class nsIClipboardDragDropHooks;
 
 class nsTransferableHookData : public nsIClipboardDragDropHookList
 {
-public:
+ public:
   nsTransferableHookData();
   NS_DECL_ISUPPORTS
   NS_DECL_NSICLIPBOARDDRAGDROPHOOKLIST
 
-protected:
+ protected:
   virtual ~nsTransferableHookData();
 
   nsCOMArray<nsIClipboardDragDropHooks> mHookList;
 };
 
-#endif // nsDocShellTransferableHooks_h__
+#endif  // nsDocShellTransferableHooks_h__

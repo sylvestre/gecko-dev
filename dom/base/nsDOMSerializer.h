@@ -14,10 +14,9 @@
 
 class nsINode;
 
-class nsDOMSerializer final : public nsIDOMSerializer,
-                              public nsWrapperCache
+class nsDOMSerializer final : public nsIDOMSerializer, public nsWrapperCache
 {
-public:
+ public:
   nsDOMSerializer();
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -27,33 +26,32 @@ public:
   NS_DECL_NSIDOMSERIALIZER
 
   // WebIDL API
-  static already_AddRefed<nsDOMSerializer>
-  Constructor(const mozilla::dom::GlobalObject& aOwner,
-              mozilla::ErrorResult& rv)
+  static already_AddRefed<nsDOMSerializer> Constructor(
+      const mozilla::dom::GlobalObject& aOwner, mozilla::ErrorResult& rv)
   {
-    RefPtr<nsDOMSerializer> domSerializer = new nsDOMSerializer(aOwner.GetAsSupports());
+    RefPtr<nsDOMSerializer> domSerializer =
+        new nsDOMSerializer(aOwner.GetAsSupports());
     return domSerializer.forget();
   }
 
-  void
-  SerializeToString(nsINode& aRoot, nsAString& aStr,
-                    mozilla::ErrorResult& rv);
+  void SerializeToString(nsINode& aRoot,
+                         nsAString& aStr,
+                         mozilla::ErrorResult& rv);
 
-  void
-  SerializeToStream(nsINode& aRoot, nsIOutputStream* aStream,
-                    const nsAString& aCharset, mozilla::ErrorResult& rv);
+  void SerializeToStream(nsINode& aRoot,
+                         nsIOutputStream* aStream,
+                         const nsAString& aCharset,
+                         mozilla::ErrorResult& rv);
 
-  nsISupports* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsISupports* GetParentObject() const { return mOwner; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override
   {
     return mozilla::dom::XMLSerializerBinding::Wrap(aCx, this, aGivenProto);
   }
 
-private:
+ private:
   virtual ~nsDOMSerializer();
 
   explicit nsDOMSerializer(nsISupports* aOwner) : mOwner(aOwner)
@@ -64,6 +62,4 @@ private:
   nsCOMPtr<nsISupports> mOwner;
 };
 
-
 #endif
-

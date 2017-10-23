@@ -23,8 +23,8 @@ namespace mozilla {
 class ErrorResult;
 
 namespace ipc {
-  class PrincipalInfo;
-} // namespace ipc
+class PrincipalInfo;
+}  // namespace ipc
 
 namespace dom {
 
@@ -32,52 +32,60 @@ enum class CacheStorageNamespace : uint8_t;
 class Promise;
 
 namespace workers {
-  class WorkerPrivate;
-} // namespace workers
+class WorkerPrivate;
+}  // namespace workers
 
 namespace cache {
 
 class CacheStorageChild;
 class CacheWorkerHolder;
 
-class CacheStorage final : public nsIIPCBackgroundChildCreateCallback
-                         , public nsWrapperCache
-                         , public TypeUtils
+class CacheStorage final : public nsIIPCBackgroundChildCreateCallback,
+                           public nsWrapperCache,
+                           public TypeUtils
 {
   typedef mozilla::ipc::PBackgroundChild PBackgroundChild;
 
-public:
-  static already_AddRefed<CacheStorage>
-  CreateOnMainThread(Namespace aNamespace, nsIGlobalObject* aGlobal,
-                     nsIPrincipal* aPrincipal, bool aStorageDisabled,
-                     bool aForceTrustedOrigin, ErrorResult& aRv);
+ public:
+  static already_AddRefed<CacheStorage> CreateOnMainThread(
+      Namespace aNamespace,
+      nsIGlobalObject* aGlobal,
+      nsIPrincipal* aPrincipal,
+      bool aStorageDisabled,
+      bool aForceTrustedOrigin,
+      ErrorResult& aRv);
 
-  static already_AddRefed<CacheStorage>
-  CreateOnWorker(Namespace aNamespace, nsIGlobalObject* aGlobal,
-                 workers::WorkerPrivate* aWorkerPrivate, ErrorResult& aRv);
+  static already_AddRefed<CacheStorage> CreateOnWorker(
+      Namespace aNamespace,
+      nsIGlobalObject* aGlobal,
+      workers::WorkerPrivate* aWorkerPrivate,
+      ErrorResult& aRv);
 
-  static bool
-  DefineCaches(JSContext* aCx, JS::Handle<JSObject*> aGlobal);
+  static bool DefineCaches(JSContext* aCx, JS::Handle<JSObject*> aGlobal);
 
   // webidl interface methods
-  already_AddRefed<Promise>
-  Match(JSContext* aCx, const RequestOrUSVString& aRequest,
-        const CacheQueryOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<Promise> Match(JSContext* aCx,
+                                  const RequestOrUSVString& aRequest,
+                                  const CacheQueryOptions& aOptions,
+                                  ErrorResult& aRv);
   already_AddRefed<Promise> Has(const nsAString& aKey, ErrorResult& aRv);
   already_AddRefed<Promise> Open(const nsAString& aKey, ErrorResult& aRv);
   already_AddRefed<Promise> Delete(const nsAString& aKey, ErrorResult& aRv);
   already_AddRefed<Promise> Keys(ErrorResult& aRv);
 
   // chrome-only webidl interface methods
-  static already_AddRefed<CacheStorage>
-  Constructor(const GlobalObject& aGlobal, CacheStorageNamespace aNamespace,
-              nsIPrincipal* aPrincipal, ErrorResult& aRv);
+  static already_AddRefed<CacheStorage> Constructor(
+      const GlobalObject& aGlobal,
+      CacheStorageNamespace aNamespace,
+      nsIPrincipal* aPrincipal,
+      ErrorResult& aRv);
 
   // binding methods
   static bool PrefEnabled(JSContext* aCx, JSObject* aObj);
 
   nsISupports* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aContext, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aContext,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // nsIIPCbackgroundChildCreateCallback methods
   virtual void ActorCreated(PBackgroundChild* aActor) override;
@@ -92,11 +100,11 @@ public:
   virtual void AssertOwningThread() const override;
 #endif
 
-  virtual mozilla::ipc::PBackgroundChild*
-  GetIPCManager() override;
+  virtual mozilla::ipc::PBackgroundChild* GetIPCManager() override;
 
-private:
-  CacheStorage(Namespace aNamespace, nsIGlobalObject* aGlobal,
+ private:
+  CacheStorage(Namespace aNamespace,
+               nsIGlobalObject* aGlobal,
                const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
                CacheWorkerHolder* aWorkerHolder);
   explicit CacheStorage(nsresult aFailureResult);
@@ -104,8 +112,7 @@ private:
 
   void MaybeRunPendingRequests();
 
-  OpenMode
-  GetOpenMode() const;
+  OpenMode GetOpenMode() const;
 
   const Namespace mNamespace;
   nsCOMPtr<nsIGlobalObject> mGlobal;
@@ -120,14 +127,14 @@ private:
 
   nsresult mStatus;
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(CacheStorage,
-                                           nsIIPCBackgroundChildCreateCallback)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(
+      CacheStorage, nsIIPCBackgroundChildCreateCallback)
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_CacheStorage_h
+#endif  // mozilla_dom_cache_CacheStorage_h

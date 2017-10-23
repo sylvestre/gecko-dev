@@ -14,8 +14,9 @@ const char kAdditionalWordChars[] = "_-";
 namespace mozilla {
 
 void
-NSPRLogModulesParser(const char* aLogModules,
-                     const std::function<void(const char*, LogLevel, int32_t)>& aCallback)
+NSPRLogModulesParser(
+    const char* aLogModules,
+    const std::function<void(const char*, LogLevel, int32_t)>& aCallback)
 {
   if (!aLogModules) {
     return;
@@ -51,4 +52,4 @@ NSPRLogModulesParser(const char* aLogModules,
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

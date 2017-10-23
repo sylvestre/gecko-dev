@@ -29,10 +29,10 @@ class Connection;
 class ResultSet;
 class StatementData;
 
-class AsyncExecuteStatements final : public nsIRunnable
-                                   , public mozIStoragePendingStatement
+class AsyncExecuteStatements final : public nsIRunnable,
+                                     public mozIStoragePendingStatement
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIRUNNABLE
   NS_DECL_MOZISTORAGEPENDINGSTATEMENT
@@ -40,7 +40,8 @@ public:
   /**
    * Describes the state of execution.
    */
-  enum ExecutionState {
+  enum ExecutionState
+  {
     PENDING = -1,
     COMPLETED = mozIStorageStatementCallback::REASON_FINISHED,
     CANCELED = mozIStorageStatementCallback::REASON_CANCELED,
@@ -65,11 +66,11 @@ public:
    * @param _stmt
    *        The handle to control the execution of the statements.
    */
-  static nsresult execute(StatementDataArray &aStatements,
-                          Connection *aConnection,
-                          sqlite3 *aNativeConnection,
-                          mozIStorageStatementCallback *aCallback,
-                          mozIStoragePendingStatement **_stmt);
+  static nsresult execute(StatementDataArray& aStatements,
+                          Connection* aConnection,
+                          sqlite3* aNativeConnection,
+                          mozIStorageStatementCallback* aCallback,
+                          mozIStoragePendingStatement** _stmt);
 
   /**
    * Indicates when events on the calling thread should run or not.  Certain
@@ -87,14 +88,14 @@ public:
    * the calling thread.
    */
   nsresult notifyCompleteOnCallingThread();
-  nsresult notifyErrorOnCallingThread(mozIStorageError *aError);
-  nsresult notifyResultsOnCallingThread(ResultSet *aResultSet);
+  nsresult notifyErrorOnCallingThread(mozIStorageError* aError);
+  nsresult notifyResultsOnCallingThread(ResultSet* aResultSet);
 
-private:
-  AsyncExecuteStatements(StatementDataArray &aStatements,
-                         Connection *aConnection,
-                         sqlite3 *aNativeConnection,
-                         mozIStorageStatementCallback *aCallback);
+ private:
+  AsyncExecuteStatements(StatementDataArray& aStatements,
+                         Connection* aConnection,
+                         sqlite3* aNativeConnection,
+                         mozIStorageStatementCallback* aCallback);
   ~AsyncExecuteStatements();
 
   /**
@@ -111,7 +112,7 @@ private:
    *        to set the proper state.
    * @returns true if we should continue to process statements, false otherwise.
    */
-  bool bindExecuteAndProcessStatement(StatementData &aData,
+  bool bindExecuteAndProcessStatement(StatementData& aData,
                                       bool aLastStatement);
 
   /**
@@ -127,7 +128,7 @@ private:
    *        to set the proper state.
    * @returns true if we should continue to process statements, false otherwise.
    */
-  bool executeAndProcessStatement(sqlite3_stmt *aStatement,
+  bool executeAndProcessStatement(sqlite3_stmt* aStatement,
                                   bool aLastStatement);
 
   /**
@@ -139,7 +140,7 @@ private:
    *        The statement to execute to completion.
    * @returns true if results were obtained, false otherwise.
    */
-  bool executeStatement(sqlite3_stmt *aStatement);
+  bool executeStatement(sqlite3_stmt* aStatement);
 
   /**
    * Builds a result set up with a row from a given statement.  If we meet the
@@ -150,7 +151,7 @@ private:
    * @param aStatement
    *        The statement to get the row data from.
    */
-  nsresult buildAndNotifyResults(sqlite3_stmt *aStatement);
+  nsresult buildAndNotifyResults(sqlite3_stmt* aStatement);
 
   /**
    * Notifies callback about completion, and does any necessary cleanup.
@@ -172,8 +173,8 @@ private:
    * @param aError
    *        The error object to notify the caller with.
    */
-  nsresult notifyError(int32_t aErrorCode, const char *aMessage);
-  nsresult notifyError(mozIStorageError *aError);
+  nsresult notifyError(int32_t aErrorCode, const char* aMessage);
+  nsresult notifyError(mozIStorageError* aError);
 
   /**
    * Notifies the callback about a result set.
@@ -192,7 +193,7 @@ private:
 
   StatementDataArray mStatements;
   RefPtr<Connection> mConnection;
-  sqlite3 *mNativeConnection;
+  sqlite3* mNativeConnection;
   bool mHasTransaction;
   // Note, this may not be a threadsafe object - never addref/release off
   // the calling thread.  We take a reference when this is created, and
@@ -229,7 +230,7 @@ private:
    *     held.  It is always read from within the lock on the background thread,
    *     but not on the calling thread (see shouldNotify for why).
    */
-  Mutex &mMutex;
+  Mutex& mMutex;
 
   /**
    * The wrapped SQLite recursive connection mutex.  We use it whenever we call
@@ -237,7 +238,7 @@ private:
    * prior to the call and holding it until the point where we no longer care
    * about the error message, the user gets reliable error messages.
    */
-  SQLiteMutex &mDBMutex;
+  SQLiteMutex& mDBMutex;
 
   /**
    * The instant at which the request was started.
@@ -247,7 +248,7 @@ private:
   TimeStamp mRequestStartDate;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozStorageAsyncStatementExecution_h
+#endif  // mozStorageAsyncStatementExecution_h

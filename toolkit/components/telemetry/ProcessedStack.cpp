@@ -7,30 +7,32 @@
 #include "ProcessedStack.h"
 #if defined(MOZ_GECKO_PROFILER)
 #include "shared-libraries.h"
-#endif // MOZ_GECKO_PROFILER
+#endif  // MOZ_GECKO_PROFILER
 
 namespace {
 
 struct StackFrame
 {
-  uintptr_t mPC;      // The program counter at this position in the call stack.
-  uint16_t mIndex;    // The number of this frame in the call stack.
-  uint16_t mModIndex; // The index of module that has this program counter.
+  uintptr_t mPC;    // The program counter at this position in the call stack.
+  uint16_t mIndex;  // The number of this frame in the call stack.
+  uint16_t mModIndex;  // The index of module that has this program counter.
 };
 
 #ifdef MOZ_GECKO_PROFILER
-static bool CompareByPC(const StackFrame &a, const StackFrame &b)
+static bool
+CompareByPC(const StackFrame& a, const StackFrame& b)
 {
   return a.mPC < b.mPC;
 }
 
-static bool CompareByIndex(const StackFrame &a, const StackFrame &b)
+static bool
+CompareByIndex(const StackFrame& a, const StackFrame& b)
 {
   return a.mIndex < b.mIndex;
 }
 #endif
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace Telemetry {
@@ -39,44 +41,53 @@ const size_t kMaxChromeStackDepth = 50;
 
 ProcessedStack::ProcessedStack() = default;
 
-size_t ProcessedStack::GetStackSize() const
+size_t
+ProcessedStack::GetStackSize() const
 {
   return mStack.size();
 }
 
-size_t ProcessedStack::GetNumModules() const
+size_t
+ProcessedStack::GetNumModules() const
 {
   return mModules.size();
 }
 
-bool ProcessedStack::Module::operator==(const Module& aOther) const {
-  return  mName == aOther.mName &&
-    mBreakpadId == aOther.mBreakpadId;
+bool
+ProcessedStack::Module::operator==(const Module& aOther) const
+{
+  return mName == aOther.mName && mBreakpadId == aOther.mBreakpadId;
 }
 
-const ProcessedStack::Frame &ProcessedStack::GetFrame(unsigned aIndex) const
+const ProcessedStack::Frame&
+ProcessedStack::GetFrame(unsigned aIndex) const
 {
   MOZ_ASSERT(aIndex < mStack.size());
   return mStack[aIndex];
 }
 
-void ProcessedStack::AddFrame(const Frame &aFrame)
+void
+ProcessedStack::AddFrame(const Frame& aFrame)
 {
   mStack.push_back(aFrame);
 }
 
-const ProcessedStack::Module &ProcessedStack::GetModule(unsigned aIndex) const
+const ProcessedStack::Module&
+ProcessedStack::GetModule(unsigned aIndex) const
 {
   MOZ_ASSERT(aIndex < mModules.size());
   return mModules[aIndex];
 }
 
-void ProcessedStack::AddModule(const Module &aModule)
+void
+ProcessedStack::AddModule(const Module& aModule)
 {
   mModules.push_back(aModule);
 }
 
-void ProcessedStack::Clear() {
+void
+ProcessedStack::Clear()
+{
   mModules.clear();
   mStack.clear();
 }
@@ -88,7 +99,8 @@ GetStackAndModules(const std::vector<uintptr_t>& aPCs)
   auto stackEnd = aPCs.begin() + std::min(aPCs.size(), kMaxChromeStackDepth);
   for (auto i = aPCs.begin(); i != stackEnd; ++i) {
     uintptr_t aPC = *i;
-    StackFrame Frame = {aPC, static_cast<uint16_t>(rawStack.size()),
+    StackFrame Frame = {aPC,
+                        static_cast<uint16_t>(rawStack.size()),
                         std::numeric_limits<uint16_t>::max()};
     rawStack.push_back(Frame);
   }
@@ -111,10 +123,9 @@ GetStackAndModules(const std::vector<uintptr_t>& aPCs)
     // the interval is [moduleStart, moduleEnd)
 
     bool moduleReferenced = false;
-    for (;stackIndex < stackSize; ++stackIndex) {
+    for (; stackIndex < stackSize; ++stackIndex) {
       uintptr_t pc = rawStack[stackIndex].mPC;
-      if (pc >= moduleEnd)
-        break;
+      if (pc >= moduleEnd) break;
 
       if (pc >= moduleStart) {
         // If the current PC is within the current module, mark
@@ -126,8 +137,7 @@ GetStackAndModules(const std::vector<uintptr_t>& aPCs)
         // PC does not belong to any module. It is probably from
         // the JIT. Use a fixed mPC so that we don't get different
         // stacks on different runs.
-        rawStack[stackIndex].mPC =
-          std::numeric_limits<uintptr_t>::max();
+        rawStack[stackIndex].mPC = std::numeric_limits<uintptr_t>::max();
       }
     }
 
@@ -139,7 +149,7 @@ GetStackAndModules(const std::vector<uintptr_t>& aPCs)
     }
   }
 
-  for (;stackIndex < stackSize; ++stackIndex) {
+  for (; stackIndex < stackSize; ++stackIndex) {
     // These PCs are past the last module.
     rawStack[stackIndex].mPC = std::numeric_limits<uintptr_t>::max();
   }
@@ -149,18 +159,17 @@ GetStackAndModules(const std::vector<uintptr_t>& aPCs)
 
   // Copy the information to the return value.
   ProcessedStack Ret;
-  for (auto & rawFrame : rawStack) {
-    mozilla::Telemetry::ProcessedStack::Frame frame = { rawFrame.mPC, rawFrame.mModIndex };
+  for (auto& rawFrame : rawStack) {
+    mozilla::Telemetry::ProcessedStack::Frame frame = {rawFrame.mPC,
+                                                       rawFrame.mModIndex};
     Ret.AddFrame(frame);
   }
 
 #ifdef MOZ_GECKO_PROFILER
   for (unsigned i = 0, n = rawModules.GetSize(); i != n; ++i) {
-    const SharedLibrary &info = rawModules.GetEntry(i);
-    mozilla::Telemetry::ProcessedStack::Module module = {
-      info.GetDebugName(),
-      info.GetBreakpadId()
-    };
+    const SharedLibrary& info = rawModules.GetEntry(i);
+    mozilla::Telemetry::ProcessedStack::Module module = {info.GetDebugName(),
+                                                         info.GetBreakpadId()};
     Ret.AddModule(module);
   }
 #endif
@@ -168,5 +177,5 @@ GetStackAndModules(const std::vector<uintptr_t>& aPCs)
   return Ret;
 }
 
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Telemetry
+}  // namespace mozilla

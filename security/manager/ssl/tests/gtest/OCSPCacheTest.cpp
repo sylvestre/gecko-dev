@@ -21,9 +21,9 @@ using namespace mozilla::pkix::test;
 
 using mozilla::OriginAttributes;
 
-template <size_t N>
+template<size_t N>
 inline Input
-LiteralInput(const char(&valueString)[N])
+LiteralInput(const char (&valueString)[N])
 {
   // Ideally we would use mozilla::BitwiseCast() here rather than
   // reinterpret_cast for better type checking, but the |N - 1| part trips
@@ -35,20 +35,19 @@ const int MaxCacheEntries = 1024;
 
 class psm_OCSPCacheTest : public ::testing::Test
 {
-protected:
-  psm_OCSPCacheTest() : now(Now()) { }
+ protected:
+  psm_OCSPCacheTest() : now(Now()) {}
 
-  static void SetUpTestCase()
-  {
-    NSS_NoDB_Init(nullptr);
-  }
+  static void SetUpTestCase() { NSS_NoDB_Init(nullptr); }
 
   const Time now;
   mozilla::psm::OCSPCache cache;
 };
 
 static void
-PutAndGet(mozilla::psm::OCSPCache& cache, const CertID& certID, Result result,
+PutAndGet(mozilla::psm::OCSPCache& cache,
+          const CertID& certID,
+          Result result,
           Time time,
           const OriginAttributes& originAttributes = OriginAttributes())
 {
@@ -78,12 +77,14 @@ TEST_F(psm_OCSPCacheTest, TestPutAndGet)
   Input fakeSerial001(LiteralInput("001"));
 
   SCOPED_TRACE("");
-  PutAndGet(cache, CertID(fakeIssuer1, fakeKey000, fakeSerial001),
-            Success, now);
+  PutAndGet(
+      cache, CertID(fakeIssuer1, fakeKey000, fakeSerial001), Success, now);
   Result resultOut;
   Time timeOut(Time::uninitialized);
   ASSERT_FALSE(cache.Get(CertID(fakeIssuer1, fakeKey001, fakeSerial000),
-                         OriginAttributes(), resultOut, timeOut));
+                         OriginAttributes(),
+                         resultOut,
+                         timeOut));
 }
 
 TEST_F(psm_OCSPCacheTest, TestVariousGets)
@@ -91,14 +92,16 @@ TEST_F(psm_OCSPCacheTest, TestVariousGets)
   SCOPED_TRACE("");
   for (int i = 0; i < MaxCacheEntries; i++) {
     uint8_t serialBuf[8];
-    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf), sizeof(serialBuf),
-             "%04d", i);
+    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf),
+             sizeof(serialBuf),
+             "%04d",
+             i);
     Input fakeSerial;
     ASSERT_EQ(Success, fakeSerial.Init(serialBuf, 4));
     Time timeIn(now);
     ASSERT_EQ(Success, timeIn.AddSeconds(i));
-    PutAndGet(cache, CertID(fakeIssuer1, fakeKey000, fakeSerial),
-              Success, timeIn);
+    PutAndGet(
+        cache, CertID(fakeIssuer1, fakeKey000, fakeSerial), Success, timeIn);
   }
 
   Time timeIn(now);
@@ -131,7 +134,9 @@ TEST_F(psm_OCSPCacheTest, TestVariousGets)
   // We've never seen this certificate
   static const Input fakeSerial1111(LiteralInput("1111"));
   ASSERT_FALSE(cache.Get(CertID(fakeIssuer1, fakeKey000, fakeSerial1111),
-                         OriginAttributes(), resultOut, timeOut));
+                         OriginAttributes(),
+                         resultOut,
+                         timeOut));
 }
 
 TEST_F(psm_OCSPCacheTest, TestEviction)
@@ -141,20 +146,24 @@ TEST_F(psm_OCSPCacheTest, TestEviction)
   // we cause the least recently used entry to be evicted.
   for (int i = 0; i < MaxCacheEntries + 1; i++) {
     uint8_t serialBuf[8];
-    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf), sizeof(serialBuf),
-             "%04d", i);
+    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf),
+             sizeof(serialBuf),
+             "%04d",
+             i);
     Input fakeSerial;
     ASSERT_EQ(Success, fakeSerial.Init(serialBuf, 4));
     Time timeIn(now);
     ASSERT_EQ(Success, timeIn.AddSeconds(i));
-    PutAndGet(cache, CertID(fakeIssuer1, fakeKey000, fakeSerial),
-              Success, timeIn);
+    PutAndGet(
+        cache, CertID(fakeIssuer1, fakeKey000, fakeSerial), Success, timeIn);
   }
 
   Result resultOut;
   Time timeOut(Time::uninitialized);
   ASSERT_FALSE(cache.Get(CertID(fakeIssuer1, fakeKey001, fakeSerial0000),
-                         OriginAttributes(), resultOut, timeOut));
+                         OriginAttributes(),
+                         resultOut,
+                         timeOut));
 }
 
 TEST_F(psm_OCSPCacheTest, TestNoEvictionForRevokedResponses)
@@ -167,14 +176,16 @@ TEST_F(psm_OCSPCacheTest, TestNoEvictionForRevokedResponses)
   // we cause the least recently used entry that isn't revoked to be evicted.
   for (int i = 1; i < MaxCacheEntries + 1; i++) {
     uint8_t serialBuf[8];
-    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf), sizeof(serialBuf),
-             "%04d", i);
+    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf),
+             sizeof(serialBuf),
+             "%04d",
+             i);
     Input fakeSerial;
     ASSERT_EQ(Success, fakeSerial.Init(serialBuf, 4));
     Time timeIn(now);
     ASSERT_EQ(Success, timeIn.AddSeconds(i));
-    PutAndGet(cache, CertID(fakeIssuer1, fakeKey000, fakeSerial),
-              Success, timeIn);
+    PutAndGet(
+        cache, CertID(fakeIssuer1, fakeKey000, fakeSerial), Success, timeIn);
   }
   Result resultOut;
   Time timeOut(Time::uninitialized);
@@ -194,14 +205,18 @@ TEST_F(psm_OCSPCacheTest, TestEverythingIsRevoked)
   // Fill up the cache with revoked responses.
   for (int i = 0; i < MaxCacheEntries; i++) {
     uint8_t serialBuf[8];
-    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf), sizeof(serialBuf),
-             "%04d", i);
+    snprintf(mozilla::BitwiseCast<char*, uint8_t*>(serialBuf),
+             sizeof(serialBuf),
+             "%04d",
+             i);
     Input fakeSerial;
     ASSERT_EQ(Success, fakeSerial.Init(serialBuf, 4));
     Time timeIn(now);
     ASSERT_EQ(Success, timeIn.AddSeconds(i));
-    PutAndGet(cache, CertID(fakeIssuer1, fakeKey000, fakeSerial),
-              Result::ERROR_REVOKED_CERTIFICATE, timeIn);
+    PutAndGet(cache,
+              CertID(fakeIssuer1, fakeKey000, fakeSerial),
+              Result::ERROR_REVOKED_CERTIFICATE,
+              timeIn);
   }
   static const Input fakeSerial1025(LiteralInput("1025"));
   CertID good(fakeIssuer1, fakeKey000, fakeSerial1025);
@@ -211,8 +226,8 @@ TEST_F(psm_OCSPCacheTest, TestEverythingIsRevoked)
   ASSERT_EQ(Success, timeInPlus1025.AddSeconds(1025));
   Time timeInPlus1025Minus50(timeInPlus1025);
   ASSERT_EQ(Success, timeInPlus1025Minus50.SubtractSeconds(50));
-  Result result = cache.Put(good, OriginAttributes(), Success, timeInPlus1025Minus50,
-                            timeInPlus1025);
+  Result result = cache.Put(
+      good, OriginAttributes(), Success, timeInPlus1025Minus50, timeInPlus1025);
   ASSERT_EQ(Success, result);
   Result resultOut;
   Time timeOut(Time::uninitialized);
@@ -225,8 +240,11 @@ TEST_F(psm_OCSPCacheTest, TestEverythingIsRevoked)
   ASSERT_EQ(Success, timeInPlus1026.AddSeconds(1026));
   Time timeInPlus1026Minus50(timeInPlus1026);
   ASSERT_EQ(Success, timeInPlus1026Minus50.SubtractSeconds(50));
-  result = cache.Put(revoked, OriginAttributes(), Result::ERROR_REVOKED_CERTIFICATE,
-                     timeInPlus1026Minus50, timeInPlus1026);
+  result = cache.Put(revoked,
+                     OriginAttributes(),
+                     Result::ERROR_REVOKED_CERTIFICATE,
+                     timeInPlus1026Minus50,
+                     timeInPlus1026);
   ASSERT_EQ(Result::ERROR_REVOKED_CERTIFICATE, result);
 }
 
@@ -245,22 +263,30 @@ TEST_F(psm_OCSPCacheTest, VariousIssuers)
   ASSERT_EQ(timeIn, timeOut);
   // Test that we don't match a different issuer DN
   ASSERT_FALSE(cache.Get(CertID(fakeIssuer2, fakeKey000, fakeSerial001),
-                         OriginAttributes(), resultOut, timeOut));
+                         OriginAttributes(),
+                         resultOut,
+                         timeOut));
   // Test that we don't match a different issuer key
   ASSERT_FALSE(cache.Get(CertID(fakeIssuer1, fakeKey001, fakeSerial001),
-                         OriginAttributes(), resultOut, timeOut));
+                         OriginAttributes(),
+                         resultOut,
+                         timeOut));
 }
 
 TEST_F(psm_OCSPCacheTest, Times)
 {
   SCOPED_TRACE("");
   CertID certID(fakeIssuer1, fakeKey000, fakeSerial0000);
-  PutAndGet(cache, certID, Result::ERROR_OCSP_UNKNOWN_CERT,
+  PutAndGet(cache,
+            certID,
+            Result::ERROR_OCSP_UNKNOWN_CERT,
             TimeFromElapsedSecondsAD(100));
   PutAndGet(cache, certID, Success, TimeFromElapsedSecondsAD(200));
   // This should not override the more recent entry.
   ASSERT_EQ(Success,
-            cache.Put(certID, OriginAttributes(), Result::ERROR_OCSP_UNKNOWN_CERT,
+            cache.Put(certID,
+                      OriginAttributes(),
+                      Result::ERROR_OCSP_UNKNOWN_CERT,
                       TimeFromElapsedSecondsAD(100),
                       TimeFromElapsedSecondsAD(100)));
   Result resultOut;
@@ -271,7 +297,9 @@ TEST_F(psm_OCSPCacheTest, Times)
   ASSERT_EQ(TimeFromElapsedSecondsAD(200), timeOut);
 
   // Result::ERROR_REVOKED_CERTIFICATE overrides everything
-  PutAndGet(cache, certID, Result::ERROR_REVOKED_CERTIFICATE,
+  PutAndGet(cache,
+            certID,
+            Result::ERROR_REVOKED_CERTIFICATE,
             TimeFromElapsedSecondsAD(50));
 }
 
@@ -279,12 +307,16 @@ TEST_F(psm_OCSPCacheTest, NetworkFailure)
 {
   SCOPED_TRACE("");
   CertID certID(fakeIssuer1, fakeKey000, fakeSerial0000);
-  PutAndGet(cache, certID, Result::ERROR_CONNECT_REFUSED,
+  PutAndGet(cache,
+            certID,
+            Result::ERROR_CONNECT_REFUSED,
             TimeFromElapsedSecondsAD(100));
   PutAndGet(cache, certID, Success, TimeFromElapsedSecondsAD(200));
   // This should not override the already present entry.
   ASSERT_EQ(Success,
-            cache.Put(certID, OriginAttributes(), Result::ERROR_CONNECT_REFUSED,
+            cache.Put(certID,
+                      OriginAttributes(),
+                      Result::ERROR_CONNECT_REFUSED,
                       TimeFromElapsedSecondsAD(300),
                       TimeFromElapsedSecondsAD(350)));
   Result resultOut;
@@ -293,22 +325,30 @@ TEST_F(psm_OCSPCacheTest, NetworkFailure)
   ASSERT_EQ(Success, resultOut);
   ASSERT_EQ(TimeFromElapsedSecondsAD(200), timeOut);
 
-  PutAndGet(cache, certID, Result::ERROR_OCSP_UNKNOWN_CERT,
+  PutAndGet(cache,
+            certID,
+            Result::ERROR_OCSP_UNKNOWN_CERT,
             TimeFromElapsedSecondsAD(400));
   // This should not override the already present entry.
   ASSERT_EQ(Success,
-            cache.Put(certID, OriginAttributes(), Result::ERROR_CONNECT_REFUSED,
+            cache.Put(certID,
+                      OriginAttributes(),
+                      Result::ERROR_CONNECT_REFUSED,
                       TimeFromElapsedSecondsAD(500),
                       TimeFromElapsedSecondsAD(550)));
   ASSERT_TRUE(cache.Get(certID, OriginAttributes(), resultOut, timeOut));
   ASSERT_EQ(Result::ERROR_OCSP_UNKNOWN_CERT, resultOut);
   ASSERT_EQ(TimeFromElapsedSecondsAD(400), timeOut);
 
-  PutAndGet(cache, certID, Result::ERROR_REVOKED_CERTIFICATE,
+  PutAndGet(cache,
+            certID,
+            Result::ERROR_REVOKED_CERTIFICATE,
             TimeFromElapsedSecondsAD(600));
   // This should not override the already present entry.
   ASSERT_EQ(Success,
-            cache.Put(certID, OriginAttributes(), Result::ERROR_CONNECT_REFUSED,
+            cache.Put(certID,
+                      OriginAttributes(),
+                      Result::ERROR_CONNECT_REFUSED,
                       TimeFromElapsedSecondsAD(700),
                       TimeFromElapsedSecondsAD(750)));
   ASSERT_TRUE(cache.Get(certID, OriginAttributes(), resultOut, timeOut));

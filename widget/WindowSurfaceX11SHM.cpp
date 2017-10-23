@@ -9,8 +9,10 @@
 namespace mozilla {
 namespace widget {
 
-WindowSurfaceX11SHM::WindowSurfaceX11SHM(Display* aDisplay, Drawable aWindow,
-                                         Visual* aVisual, unsigned int aDepth)
+WindowSurfaceX11SHM::WindowSurfaceX11SHM(Display* aDisplay,
+                                         Drawable aWindow,
+                                         Visual* aVisual,
+                                         unsigned int aDepth)
 {
   mFrontImage = new nsShmImage(aDisplay, aWindow, aVisual, aDepth);
   mBackImage = new nsShmImage(aDisplay, aWindow, aVisual, aDepth);
@@ -29,5 +31,5 @@ WindowSurfaceX11SHM::Commit(const LayoutDeviceIntRegion& aInvalidRegion)
   mBackImage->Put(aInvalidRegion);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

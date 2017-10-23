@@ -13,7 +13,8 @@ namespace layers {
  * An enumeration that lists various input methods used to trigger scrolling.
  * Used as the values for the SCROLL_INPUT_METHODS telemetry histogram.
  */
-enum class ScrollInputMethod {
+enum class ScrollInputMethod
+{
 
   // === Driven by APZ ===
 
@@ -39,7 +40,7 @@ enum class ScrollInputMethod {
                                   // after moving the caret via the keyboard
 
   // Touch
-  MainThreadTouch,            // touch events
+  MainThreadTouch,  // touch events
 
   // Scrollbar
   MainThreadScrollbarDrag,         // dragging the scrollbar
@@ -49,7 +50,7 @@ enum class ScrollInputMethod {
                                    // below the thumb
 
   // Autoscrolling
-  MainThreadAutoscrolling,    // autoscrolling
+  MainThreadAutoscrolling,  // autoscrolling
 
   // === Additional input methods implemented in APZ ===
 
@@ -71,7 +72,7 @@ enum class ScrollInputMethod {
   // of the existing enumerators.
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_ScrollInputMethods_h */

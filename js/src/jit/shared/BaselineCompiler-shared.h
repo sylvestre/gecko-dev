@@ -15,9 +15,8 @@
 namespace js {
 namespace jit {
 
-class BaselineCompilerShared
-{
-  protected:
+class BaselineCompilerShared {
+   protected:
     JSContext* cx;
     JSScript* script;
     jsbytecode* pc;
@@ -34,8 +33,7 @@ class BaselineCompilerShared
     js::Vector<BaselineICEntry, 16, SystemAllocPolicy> icEntries_;
 
     // Stores the native code offset for a bytecode pc.
-    struct PCMappingEntry
-    {
+    struct PCMappingEntry {
         uint32_t pcOffset;
         uint32_t nativeOffset;
         PCMappingSlotInfo slotInfo;
@@ -72,8 +70,7 @@ class BaselineCompilerShared
     BaselineCompilerShared(JSContext* cx, TempAllocator& alloc, JSScript* script);
 
     BaselineICEntry* allocateICEntry(ICStub* stub, ICEntry::Kind kind) {
-        if (!stub)
-            return nullptr;
+        if (!stub) return nullptr;
 
         // Create the entry and add it to the vector.
         if (!icEntries_.append(BaselineICEntry(script->pcToOffset(pc), kind))) {
@@ -118,21 +115,21 @@ class BaselineCompilerShared
         return script->functionNonDelazifying();
     }
 
-    ModuleObject* module() const {
-        return script->module();
-    }
+    ModuleObject* module() const { return script->module(); }
 
     PCMappingSlotInfo getStackTopSlotInfo() {
         MOZ_ASSERT(frame.numUnsyncedSlots() <= 2);
         switch (frame.numUnsyncedSlots()) {
-          case 0:
-            return PCMappingSlotInfo::MakeSlotInfo();
-          case 1:
-            return PCMappingSlotInfo::MakeSlotInfo(PCMappingSlotInfo::ToSlotLocation(frame.peek(-1)));
-          case 2:
-          default:
-            return PCMappingSlotInfo::MakeSlotInfo(PCMappingSlotInfo::ToSlotLocation(frame.peek(-1)),
-                                                   PCMappingSlotInfo::ToSlotLocation(frame.peek(-2)));
+            case 0:
+                return PCMappingSlotInfo::MakeSlotInfo();
+            case 1:
+                return PCMappingSlotInfo::MakeSlotInfo(
+                    PCMappingSlotInfo::ToSlotLocation(frame.peek(-1)));
+            case 2:
+            default:
+                return PCMappingSlotInfo::MakeSlotInfo(
+                    PCMappingSlotInfo::ToSlotLocation(frame.peek(-1)),
+                    PCMappingSlotInfo::ToSlotLocation(frame.peek(-2)));
         }
     }
 
@@ -142,31 +139,22 @@ class BaselineCompilerShared
     }
     void prepareVMCall();
 
-    enum CallVMPhase {
-        POST_INITIALIZE,
-        PRE_INITIALIZE,
-        CHECK_OVER_RECURSED
-    };
-    bool callVM(const VMFunction& fun, CallVMPhase phase=POST_INITIALIZE);
+    enum CallVMPhase { POST_INITIALIZE, PRE_INITIALIZE, CHECK_OVER_RECURSED };
+    bool callVM(const VMFunction& fun, CallVMPhase phase = POST_INITIALIZE);
 
-    bool callVMNonOp(const VMFunction& fun, CallVMPhase phase=POST_INITIALIZE) {
-        if (!callVM(fun, phase))
-            return false;
+    bool callVMNonOp(const VMFunction& fun, CallVMPhase phase = POST_INITIALIZE) {
+        if (!callVM(fun, phase)) return false;
         icEntries_.back().setFakeKind(ICEntry::Kind_NonOpCallVM);
         return true;
     }
 
-  public:
-    BytecodeAnalysis& analysis() {
-        return analysis_;
-    }
+   public:
+    BytecodeAnalysis& analysis() { return analysis_; }
 
-    void setCompileDebugInstrumentation() {
-        compileDebugInstrumentation_ = true;
-    }
+    void setCompileDebugInstrumentation() { compileDebugInstrumentation_ = true; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_shared_BaselineCompiler_shared_h */

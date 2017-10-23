@@ -25,19 +25,20 @@ class AudioNode;
 class AudioStreamTrack;
 class MediaStreamTrack;
 class VideoStreamTrack;
-}
+}  // namespace dom
 
 class MediaEncoder;
 
 class MediaEncoderListener
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaEncoderListener)
   virtual void Initialized() = 0;
   virtual void DataAvailable() = 0;
   virtual void Error() = 0;
   virtual void Shutdown() = 0;
-protected:
+
+ protected:
   virtual ~MediaEncoderListener() {}
 };
 
@@ -100,12 +101,12 @@ protected:
  */
 class MediaEncoder
 {
-private:
+ private:
   class AudioTrackListener;
   class VideoTrackListener;
   class EncoderListener;
 
-public :
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaEncoder)
 
   MediaEncoder(TaskQueue* aEncoderThread,
@@ -147,13 +148,13 @@ public :
    * to create the encoder. For now, default aMIMEType to "audio/ogg" and use
    * Ogg+Opus if it is empty.
    */
-  static already_AddRefed<MediaEncoder>
-  CreateEncoder(TaskQueue* aEncoderThread,
-                const nsAString& aMIMEType,
-                uint32_t aAudioBitrate,
-                uint32_t aVideoBitrate,
-                uint8_t aTrackTypes,
-                TrackRate aTrackRate);
+  static already_AddRefed<MediaEncoder> CreateEncoder(
+      TaskQueue* aEncoderThread,
+      const nsAString& aMIMEType,
+      uint32_t aAudioBitrate,
+      uint32_t aVideoBitrate,
+      uint8_t aTrackTypes,
+      TrackRate aTrackRate);
 
   /**
    * Encodes raw metadata for all tracks to aOutputBufs. aMIMEType is the valid
@@ -164,7 +165,7 @@ public :
    * the metadata, or if metadata has already been encoded, we return an error
    * and the output arguments are undefined. Otherwise we return NS_OK.
    */
-  nsresult GetEncodedMetadata(nsTArray<nsTArray<uint8_t> >* aOutputBufs,
+  nsresult GetEncodedMetadata(nsTArray<nsTArray<uint8_t>>* aOutputBufs,
                               nsAString& aMIMEType);
   /**
    * Encodes raw data for all tracks to aOutputBufs. The buffer of container
@@ -174,7 +175,7 @@ public :
    * encoders are still active. Should either implication break, we return an
    * error and the output argument is undefined. Otherwise we return NS_OK.
    */
-  nsresult GetEncodedData(nsTArray<nsTArray<uint8_t> >* aOutputBufs);
+  nsresult GetEncodedData(nsTArray<nsTArray<uint8_t>>* aOutputBufs);
 
   /**
    * Return true if MediaEncoder has been shutdown. Reasons are encoding
@@ -224,10 +225,10 @@ public :
    */
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf);
 
-protected:
+ protected:
   ~MediaEncoder();
 
-private:
+ private:
   /**
    * Shuts down the MediaEncoder and cleans up track encoders.
    * Listeners will be notified of the shutdown unless we were Cancel()ed first.
@@ -241,7 +242,7 @@ private:
   void SetError();
 
   // Get encoded data from trackEncoder and write to muxer
-  nsresult WriteEncodedDataToMuxer(TrackEncoder *aTrackEncoder);
+  nsresult WriteEncodedDataToMuxer(TrackEncoder* aTrackEncoder);
   // Get metadata from trackEncoder and copy to muxer
   nsresult CopyMetadataToMuxer(TrackEncoder* aTrackEncoder);
 
@@ -287,6 +288,6 @@ private:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

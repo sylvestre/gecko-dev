@@ -27,34 +27,38 @@ class nsIChannel;
 
 class nsNPAPIStreamWrapper
 {
-public:
-  nsNPAPIStreamWrapper(nsIOutputStream *outputStream,
-                       nsNPAPIPluginStreamListener *streamListener);
+ public:
+  nsNPAPIStreamWrapper(nsIOutputStream* outputStream,
+                       nsNPAPIPluginStreamListener* streamListener);
   ~nsNPAPIStreamWrapper();
 
   nsIOutputStream* GetOutputStream() { return mOutputStream.get(); }
   nsNPAPIPluginStreamListener* GetStreamListener() { return mStreamListener; }
 
-  NPStream                              mNPStream;
-protected:
-  nsCOMPtr<nsIOutputStream>             mOutputStream; // only valid if not browser initiated
-  nsNPAPIPluginStreamListener*          mStreamListener; // only valid if browser initiated
+  NPStream mNPStream;
+
+ protected:
+  nsCOMPtr<nsIOutputStream>
+      mOutputStream;  // only valid if not browser initiated
+  nsNPAPIPluginStreamListener*
+      mStreamListener;  // only valid if browser initiated
 };
 
 class nsNPAPIPluginStreamListener : public nsITimerCallback,
                                     public nsIHTTPHeaderListener,
                                     public nsINamed
 {
-private:
+ private:
   typedef mozilla::PluginLibrary PluginLibrary;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSIHTTPHEADERLISTENER
   NS_DECL_NSINAMED
 
-  nsNPAPIPluginStreamListener(nsNPAPIPluginInstance* inst, void* notifyData,
+  nsNPAPIPluginStreamListener(nsNPAPIPluginInstance* inst,
+                              void* notifyData,
                               const char* aURL);
 
   nsresult OnStartBinding(nsPluginStreamListenerPeer* streamPeer);
@@ -77,21 +81,27 @@ public:
   bool PluginInitJSLoadInProgress();
 
   void* GetNotifyData();
-  nsPluginStreamListenerPeer* GetStreamListenerPeer() { return mStreamListenerPeer; }
-  void SetStreamListenerPeer(nsPluginStreamListenerPeer* aPeer) { mStreamListenerPeer = aPeer; }
+  nsPluginStreamListenerPeer* GetStreamListenerPeer()
+  {
+    return mStreamListenerPeer;
+  }
+  void SetStreamListenerPeer(nsPluginStreamListenerPeer* aPeer)
+  {
+    mStreamListenerPeer = aPeer;
+  }
 
   // Returns true if the redirect will be handled by NPAPI, false otherwise.
-  bool HandleRedirectNotification(nsIChannel *oldChannel, nsIChannel *newChannel,
+  bool HandleRedirectNotification(nsIChannel* oldChannel,
+                                  nsIChannel* newChannel,
                                   nsIAsyncVerifyRedirectCallback* callback);
   void URLRedirectResponse(NPBool allow);
 
-protected:
-
+ protected:
   enum StreamState
   {
-    eStreamStopped = 0, // The stream is stopped
-    eNewStreamCalled,   // NPP_NewStream was called but has not completed yet
-    eStreamTypeSet      // The stream is fully initialized
+    eStreamStopped = 0,  // The stream is stopped
+    eNewStreamCalled,    // NPP_NewStream was called but has not completed yet
+    eStreamTypeSet       // The stream is fully initialized
   };
 
   enum StreamStopMode
@@ -107,7 +117,7 @@ protected:
   char* mStreamBuffer;
   char* mNotifyURL;
   RefPtr<nsNPAPIPluginInstance> mInst;
-  nsNPAPIStreamWrapper *mNPStreamWrapper;
+  nsNPAPIStreamWrapper* mNPStreamWrapper;
   uint32_t mStreamBufferSize;
   int32_t mStreamBufferByteCount;
   StreamState mStreamState;
@@ -123,8 +133,8 @@ protected:
   StreamStopMode mStreamStopMode;
   nsresult mPendingStopBindingStatus;
 
-public:
+ public:
   RefPtr<nsPluginStreamListenerPeer> mStreamListenerPeer;
 };
 
-#endif // nsNPAPIPluginStreamListener_h_
+#endif  // nsNPAPIPluginStreamListener_h_

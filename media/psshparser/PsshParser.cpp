@@ -28,16 +28,13 @@
 // easier to link into ClearKey DLL and gtest.
 class ByteReader
 {
-public:
+ public:
   ByteReader(const uint8_t* aData, size_t aSize)
-    : mPtr(aData), mRemaining(aSize), mLength(aSize)
+      : mPtr(aData), mRemaining(aSize), mLength(aSize)
   {
   }
 
-  size_t Offset() const
-  {
-    return mLength - mRemaining;
-  }
+  size_t Offset() const { return mLength - mRemaining; }
 
   size_t Remaining() const { return mRemaining; }
 
@@ -93,20 +90,32 @@ public:
     return mPtr;
   }
 
-private:
+ private:
   const uint8_t* mPtr;
   size_t mRemaining;
   const size_t mLength;
 };
 
-#define FOURCC(a,b,c,d) ((a << 24) + (b << 16) + (c << 8) + d)
+#define FOURCC(a, b, c, d) ((a << 24) + (b << 16) + (c << 8) + d)
 
- // System ID identifying the cenc v2 pssh box format; specified at:
- // https://dvcs.w3.org/hg/html-media/raw-file/tip/encrypted-media/cenc-format.html
-const uint8_t kSystemID[] = {
-  0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02,
-  0xac, 0xe3, 0x3c, 0x1e, 0x52, 0xe2, 0xfb, 0x4b
-};
+// System ID identifying the cenc v2 pssh box format; specified at:
+// https://dvcs.w3.org/hg/html-media/raw-file/tip/encrypted-media/cenc-format.html
+const uint8_t kSystemID[] = {0x10,
+                             0x77,
+                             0xef,
+                             0xec,
+                             0xc0,
+                             0xb2,
+                             0x4d,
+                             0x02,
+                             0xac,
+                             0xe3,
+                             0x3c,
+                             0x1e,
+                             0x52,
+                             0xe2,
+                             0xfb,
+                             0x4b};
 
 bool
 ParseCENCInitData(const uint8_t* aInitData,
@@ -136,7 +145,7 @@ ParseCENCInitData(const uint8_t* aInitData,
       return false;
     }
     uint32_t box = reader.ReadU32();
-    if (box != FOURCC('p','s','s','h')) {
+    if (box != FOURCC('p', 's', 's', 'h')) {
       return false;
     }
 
@@ -150,7 +159,7 @@ ParseCENCInitData(const uint8_t* aInitData,
       reader.Seek(std::max<size_t>(reader.Offset(), end));
       continue;
     }
-    reader.Read(3); // skip flags.
+    reader.Read(3);  // skip flags.
 
     // SystemID
     const uint8_t* sid = reader.Read(sizeof(kSystemID));

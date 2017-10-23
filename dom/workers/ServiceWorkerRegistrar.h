@@ -28,18 +28,18 @@ namespace mozilla {
 
 namespace ipc {
 class PrincipalInfo;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 
 class ServiceWorkerRegistrationData;
 
-class ServiceWorkerRegistrar : public nsIObserver
-                             , public nsIAsyncShutdownBlocker
+class ServiceWorkerRegistrar : public nsIObserver,
+                               public nsIAsyncShutdownBlocker
 {
   friend class ServiceWorkerRegistrarSaveDataRunnable;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIASYNCSHUTDOWNBLOCKER
@@ -55,11 +55,12 @@ public:
   void GetRegistrations(nsTArray<ServiceWorkerRegistrationData>& aValues);
 
   void RegisterServiceWorker(const ServiceWorkerRegistrationData& aData);
-  void UnregisterServiceWorker(const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
-                               const nsACString& aScope);
+  void UnregisterServiceWorker(
+      const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
+      const nsACString& aScope);
   void RemoveAll();
 
-protected:
+ protected:
   // These methods are protected because we test this class using gTest
   // subclassing it.
   void LoadData();
@@ -69,12 +70,13 @@ protected:
   nsresult WriteData();
   void DeleteData();
 
-  void RegisterServiceWorkerInternal(const ServiceWorkerRegistrationData& aData);
+  void RegisterServiceWorkerInternal(
+      const ServiceWorkerRegistrationData& aData);
 
   ServiceWorkerRegistrar();
   virtual ~ServiceWorkerRegistrar();
 
-private:
+ private:
   void ProfileStarted();
   void ProfileStopped();
 
@@ -88,7 +90,7 @@ private:
 
   mozilla::Monitor mMonitor;
 
-protected:
+ protected:
   // protected by mMonitor.
   nsCOMPtr<nsIFile> mProfileDir;
   nsTArray<ServiceWorkerRegistrationData> mData;
@@ -99,7 +101,7 @@ protected:
   uint32_t mRunnableCounter;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_ServiceWorkerRegistrar_h
+#endif  // mozilla_dom_workers_ServiceWorkerRegistrar_h

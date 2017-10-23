@@ -24,7 +24,7 @@ namespace mozilla {
 
 namespace dom {
 class CPOWManagerGetter;
-} // namespace dom
+}  // namespace dom
 
 namespace jsipc {
 
@@ -33,30 +33,30 @@ class PJavaScriptChild;
 
 class CPOWManager
 {
-  public:
-    virtual bool Unwrap(JSContext* cx,
-                        const InfallibleTArray<CpowEntry>& aCpows,
-                        JS::MutableHandleObject objp) = 0;
+ public:
+  virtual bool Unwrap(JSContext* cx,
+                      const InfallibleTArray<CpowEntry>& aCpows,
+                      JS::MutableHandleObject objp) = 0;
 
-    virtual bool Wrap(JSContext* cx,
-                      JS::HandleObject aObj,
-                      InfallibleTArray<CpowEntry>* outCpows) = 0;
+  virtual bool Wrap(JSContext* cx,
+                    JS::HandleObject aObj,
+                    InfallibleTArray<CpowEntry>* outCpows) = 0;
 };
 
 class CrossProcessCpowHolder : public CpowHolder
 {
-  public:
-    CrossProcessCpowHolder(dom::CPOWManagerGetter* managerGetter,
-                           const InfallibleTArray<CpowEntry>& cpows);
+ public:
+  CrossProcessCpowHolder(dom::CPOWManagerGetter* managerGetter,
+                         const InfallibleTArray<CpowEntry>& cpows);
 
-    ~CrossProcessCpowHolder();
+  ~CrossProcessCpowHolder();
 
-    bool ToObject(JSContext* cx, JS::MutableHandleObject objp);
+  bool ToObject(JSContext* cx, JS::MutableHandleObject objp);
 
-  private:
-    CPOWManager* js_;
-    const InfallibleTArray<CpowEntry>& cpows_;
-    bool unwrapped_;
+ private:
+  CPOWManager* js_;
+  const InfallibleTArray<CpowEntry>& cpows_;
+  bool unwrapped_;
 };
 
 CPOWManager*
@@ -75,7 +75,8 @@ nsresult
 InstanceOf(JSObject* obj, const nsID* id, bool* bp);
 
 bool
-DOMInstanceOf(JSContext* cx, JSObject* obj, int prototypeID, int depth, bool* bp);
+DOMInstanceOf(
+    JSContext* cx, JSObject* obj, int prototypeID, int depth, bool* bp);
 
 void
 GetWrappedCPOWTag(JSObject* obj, nsACString& out);
@@ -95,7 +96,7 @@ ReleaseJavaScriptChild(PJavaScriptChild* child);
 void
 AfterProcessTask();
 
-} // namespace jsipc
-} // namespace mozilla
+}  // namespace jsipc
+}  // namespace mozilla
 
-#endif // mozilla_jsipc_CrossProcessObjectWrappers_h__
+#endif  // mozilla_jsipc_CrossProcessObjectWrappers_h__

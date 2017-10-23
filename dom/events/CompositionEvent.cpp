@@ -14,12 +14,12 @@ namespace dom {
 CompositionEvent::CompositionEvent(EventTarget* aOwner,
                                    nsPresContext* aPresContext,
                                    WidgetCompositionEvent* aEvent)
-  : UIEvent(aOwner, aPresContext,
-            aEvent ? aEvent :
-                     new WidgetCompositionEvent(false, eVoidEvent, nullptr))
+    : UIEvent(aOwner,
+              aPresContext,
+              aEvent ? aEvent
+                     : new WidgetCompositionEvent(false, eVoidEvent, nullptr))
 {
-  NS_ASSERTION(mEvent->mClass == eCompositionEventClass,
-               "event type mismatch");
+  NS_ASSERTION(mEvent->mClass == eCompositionEventClass, "event type mismatch");
 
   if (aEvent) {
     mEventIsInternal = false;
@@ -41,23 +41,26 @@ CompositionEvent::CompositionEvent(EventTarget* aOwner,
 // static
 already_AddRefed<CompositionEvent>
 CompositionEvent::Constructor(const GlobalObject& aGlobal,
-                     const nsAString& aType,
-                     const CompositionEventInit& aParam,
-                     ErrorResult& aRv)
+                              const nsAString& aType,
+                              const CompositionEventInit& aParam,
+                              ErrorResult& aRv)
 {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<CompositionEvent> e = new CompositionEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
-  e->InitCompositionEvent(aType, aParam.mBubbles, aParam.mCancelable,
-                          aParam.mView, aParam.mData, EmptyString());
+  e->InitCompositionEvent(aType,
+                          aParam.mBubbles,
+                          aParam.mCancelable,
+                          aParam.mView,
+                          aParam.mData,
+                          EmptyString());
   e->mDetail = aParam.mDetail;
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(CompositionEvent, UIEvent,
-                                   mRanges)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(CompositionEvent, UIEvent, mRanges)
 
 NS_IMPL_ADDREF_INHERITED(CompositionEvent, UIEvent)
 NS_IMPL_RELEASE_INHERITED(CompositionEvent, UIEvent)
@@ -113,8 +116,8 @@ CompositionEvent::GetRanges(TextClauseArray& aRanges)
   aRanges = mRanges;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -125,6 +128,6 @@ NS_NewDOMCompositionEvent(EventTarget* aOwner,
                           WidgetCompositionEvent* aEvent)
 {
   RefPtr<CompositionEvent> event =
-    new CompositionEvent(aOwner, aPresContext, aEvent);
+      new CompositionEvent(aOwner, aPresContext, aEvent);
   return event.forget();
 }

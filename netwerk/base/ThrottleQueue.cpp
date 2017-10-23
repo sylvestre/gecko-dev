@@ -15,12 +15,10 @@ namespace net {
 
 //-----------------------------------------------------------------------------
 
-class ThrottleInputStream final
-  : public nsIAsyncInputStream
-  , public nsISeekableStream
+class ThrottleInputStream final : public nsIAsyncInputStream,
+                                  public nsISeekableStream
 {
-public:
-
+ public:
   ThrottleInputStream(nsIInputStream* aStream, ThrottleQueue* aQueue);
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -30,8 +28,7 @@ public:
 
   void AllowInput();
 
-private:
-
+ private:
   ~ThrottleInputStream();
 
   nsCOMPtr<nsIInputStream> mStream;
@@ -42,20 +39,19 @@ private:
   nsCOMPtr<nsIEventTarget> mEventTarget;
 };
 
-NS_IMPL_ISUPPORTS(ThrottleInputStream, nsIAsyncInputStream, nsIInputStream, nsISeekableStream)
+NS_IMPL_ISUPPORTS(ThrottleInputStream,
+                  nsIAsyncInputStream,
+                  nsIInputStream,
+                  nsISeekableStream)
 
-ThrottleInputStream::ThrottleInputStream(nsIInputStream *aStream, ThrottleQueue* aQueue)
-  : mStream(aStream)
-  , mQueue(aQueue)
-  , mClosedStatus(NS_OK)
+ThrottleInputStream::ThrottleInputStream(nsIInputStream* aStream,
+                                         ThrottleQueue* aQueue)
+    : mStream(aStream), mQueue(aQueue), mClosedStatus(NS_OK)
 {
   MOZ_ASSERT(aQueue != nullptr);
 }
 
-ThrottleInputStream::~ThrottleInputStream()
-{
-  Close();
-}
+ThrottleInputStream::~ThrottleInputStream() { Close(); }
 
 NS_IMETHODIMP
 ThrottleInputStream::Close()
@@ -107,8 +103,10 @@ ThrottleInputStream::Read(char* aBuf, uint32_t aCount, uint32_t* aResult)
 }
 
 NS_IMETHODIMP
-ThrottleInputStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                                  uint32_t aCount, uint32_t* aResult)
+ThrottleInputStream::ReadSegments(nsWriteSegmentFun aWriter,
+                                  void* aClosure,
+                                  uint32_t aCount,
+                                  uint32_t* aResult)
 {
   if (NS_FAILED(mClosedStatus)) {
     return mClosedStatus;
@@ -202,10 +200,10 @@ ThrottleInputStream::CloseWithStatus(nsresult aStatus)
 }
 
 NS_IMETHODIMP
-ThrottleInputStream::AsyncWait(nsIInputStreamCallback *aCallback,
+ThrottleInputStream::AsyncWait(nsIInputStreamCallback* aCallback,
                                uint32_t aFlags,
                                uint32_t aRequestedCount,
-                               nsIEventTarget *aEventTarget)
+                               nsIEventTarget* aEventTarget)
 {
   if (aFlags != 0) {
     return NS_ERROR_ILLEGAL_VALUE;
@@ -225,9 +223,8 @@ void
 ThrottleInputStream::AllowInput()
 {
   MOZ_ASSERT(mCallback);
-  nsCOMPtr<nsIInputStreamCallback> callbackEvent =
-    NS_NewInputStreamReadyEvent("ThrottleInputStream::AllowInput",
-                                mCallback, mEventTarget);
+  nsCOMPtr<nsIInputStreamCallback> callbackEvent = NS_NewInputStreamReadyEvent(
+      "ThrottleInputStream::AllowInput", mCallback, mEventTarget);
   mCallback = nullptr;
   mEventTarget = nullptr;
   callbackEvent->OnInputStreamReady(this);
@@ -235,21 +232,23 @@ ThrottleInputStream::AllowInput()
 
 //-----------------------------------------------------------------------------
 
-NS_IMPL_ISUPPORTS(ThrottleQueue, nsIInputChannelThrottleQueue, nsITimerCallback, nsINamed)
+NS_IMPL_ISUPPORTS(ThrottleQueue,
+                  nsIInputChannelThrottleQueue,
+                  nsITimerCallback,
+                  nsINamed)
 
 ThrottleQueue::ThrottleQueue()
-  : mMeanBytesPerSecond(0)
-  , mMaxBytesPerSecond(0)
-  , mBytesProcessed(0)
-  , mTimerArmed(false)
+    : mMeanBytesPerSecond(0),
+      mMaxBytesPerSecond(0),
+      mBytesProcessed(0),
+      mTimerArmed(false)
 {
   nsresult rv;
   nsCOMPtr<nsIEventTarget> sts;
   nsCOMPtr<nsIIOService> ioService = do_GetIOService(&rv);
   if (NS_SUCCEEDED(rv))
     sts = do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &rv);
-  if (NS_SUCCEEDED(rv))
-    mTimer = NS_NewTimer(sts);
+  if (NS_SUCCEEDED(rv)) mTimer = NS_NewTimer(sts);
 }
 
 ThrottleQueue::~ThrottleQueue()
@@ -295,8 +294,8 @@ ThrottleQueue::Available(uint32_t aRemaining, uint32_t* aAvailable)
 
   uint32_t spread = mMaxBytesPerSecond - mMeanBytesPerSecond;
   double prob = static_cast<double>(rand()) / RAND_MAX;
-  uint32_t thisSliceBytes = mMeanBytesPerSecond - spread +
-    static_cast<uint32_t>(2 * spread * prob);
+  uint32_t thisSliceBytes =
+      mMeanBytesPerSecond - spread + static_cast<uint32_t>(2 * spread * prob);
 
   if (totalBytes >= thisSliceBytes) {
     *aAvailable = 0;
@@ -310,7 +309,8 @@ NS_IMETHODIMP
 ThrottleQueue::Init(uint32_t aMeanBytesPerSecond, uint32_t aMaxBytesPerSecond)
 {
   // Can be called on any thread.
-  if (aMeanBytesPerSecond == 0 || aMaxBytesPerSecond == 0 || aMaxBytesPerSecond < aMeanBytesPerSecond) {
+  if (aMeanBytesPerSecond == 0 || aMaxBytesPerSecond == 0 ||
+      aMaxBytesPerSecond < aMeanBytesPerSecond) {
     return NS_ERROR_ILLEGAL_VALUE;
   }
 
@@ -327,9 +327,11 @@ ThrottleQueue::BytesProcessed(uint64_t* aResult)
 }
 
 NS_IMETHODIMP
-ThrottleQueue::WrapStream(nsIInputStream* aInputStream, nsIAsyncInputStream** aResult)
+ThrottleQueue::WrapStream(nsIInputStream* aInputStream,
+                          nsIAsyncInputStream** aResult)
 {
-  nsCOMPtr<nsIAsyncInputStream> result = new ThrottleInputStream(aInputStream, this);
+  nsCOMPtr<nsIAsyncInputStream> result =
+      new ThrottleInputStream(aInputStream, this);
   result.forget(aResult);
   return NS_OK;
 }
@@ -380,7 +382,8 @@ ThrottleQueue::QueueStream(ThrottleInputStream* aStream)
         }
       }
 
-      if (NS_SUCCEEDED(mTimer->InitWithCallback(this, ms, nsITimer::TYPE_ONE_SHOT))) {
+      if (NS_SUCCEEDED(
+              mTimer->InitWithCallback(this, ms, nsITimer::TYPE_ONE_SHOT))) {
         mTimerArmed = true;
       }
     }
@@ -394,5 +397,5 @@ ThrottleQueue::DequeueStream(ThrottleInputStream* aStream)
   mAsyncEvents.RemoveElement(aStream);
 }
 
-}
-}
+}  // namespace net
+}  // namespace mozilla

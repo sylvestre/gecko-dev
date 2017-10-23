@@ -18,58 +18,41 @@ struct DynamicsCompressorOptions;
 
 class DynamicsCompressorNode final : public AudioNode
 {
-public:
-  static already_AddRefed<DynamicsCompressorNode>
-  Create(AudioContext& aAudioContext, const DynamicsCompressorOptions& aOptions,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<DynamicsCompressorNode> Create(
+      AudioContext& aAudioContext,
+      const DynamicsCompressorOptions& aOptions,
+      ErrorResult& aRv);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(DynamicsCompressorNode, AudioNode)
 
-  static already_AddRefed<DynamicsCompressorNode>
-  Constructor(const GlobalObject& aGlobal, AudioContext& aAudioContext,
-              const DynamicsCompressorOptions& aOptions, ErrorResult& aRv)
+  static already_AddRefed<DynamicsCompressorNode> Constructor(
+      const GlobalObject& aGlobal,
+      AudioContext& aAudioContext,
+      const DynamicsCompressorOptions& aOptions,
+      ErrorResult& aRv)
   {
     return Create(aAudioContext, aOptions, aRv);
   }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  AudioParam* Threshold() const
-  {
-    return mThreshold;
-  }
+  AudioParam* Threshold() const { return mThreshold; }
 
-  AudioParam* Knee() const
-  {
-    return mKnee;
-  }
+  AudioParam* Knee() const { return mKnee; }
 
-  AudioParam* Ratio() const
-  {
-    return mRatio;
-  }
+  AudioParam* Ratio() const { return mRatio; }
 
-  AudioParam* Attack() const
-  {
-    return mAttack;
-  }
+  AudioParam* Attack() const { return mAttack; }
 
   // Called GetRelease to prevent clashing with the nsISupports::Release name
-  AudioParam* GetRelease() const
-  {
-    return mRelease;
-  }
+  AudioParam* GetRelease() const { return mRelease; }
 
-  float Reduction() const
-  {
-    return mReduction;
-  }
+  float Reduction() const { return mReduction; }
 
-  const char* NodeType() const override
-  {
-    return "DynamicsCompressorNode";
-  }
+  const char* NodeType() const override { return "DynamicsCompressorNode"; }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
@@ -80,7 +63,7 @@ public:
     mReduction = aReduction;
   }
 
-private:
+ private:
   explicit DynamicsCompressorNode(AudioContext* aContext);
   ~DynamicsCompressorNode() = default;
 
@@ -92,7 +75,7 @@ private:
   RefPtr<AudioParam> mRelease;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

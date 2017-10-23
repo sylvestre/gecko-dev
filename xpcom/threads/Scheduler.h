@@ -54,7 +54,7 @@ class SynchronizedEventQueue;
 // this. This is useful for debugging.
 class Scheduler
 {
-public:
+ public:
   static already_AddRefed<nsThread> Init(nsIIdlePeriod* aIdlePeriod);
   static void Start();
   static void Shutdown();
@@ -76,7 +76,7 @@ public:
 
   class MOZ_RAII EventLoopActivation
   {
-  public:
+   public:
     using EventGroups = nsILabelableRunnable::SchedulerGroupSet;
     EventLoopActivation();
     ~EventLoopActivation();
@@ -91,7 +91,7 @@ public:
     bool IsLabeled() { return mIsLabeled; }
     EventGroups& EventGroupsAffected() { return mEventGroups; }
 
-  private:
+   private:
     EventLoopActivation* mPrev;
     bool mProcessingEvent;
     bool mIsLabeled;
@@ -101,11 +101,11 @@ public:
     static MOZ_THREAD_LOCAL(EventLoopActivation*) sTopActivation;
   };
 
-private:
+ private:
   friend class SchedulerImpl;
   static UniquePtr<SchedulerImpl> sScheduler;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Scheduler_h
+#endif  // mozilla_Scheduler_h

@@ -18,18 +18,17 @@ namespace hal_impl {
 
 static RefPtr<ISensor> sAccelerometer;
 
-class SensorEvent final : public ISensorEvents {
-public:
-  SensorEvent() : mCount(0) {
-  }
+class SensorEvent final : public ISensorEvents
+{
+ public:
+  SensorEvent() : mCount(0) {}
 
   // IUnknown interface
 
-  STDMETHODIMP_(ULONG) AddRef() {
-    return InterlockedIncrement(&mCount);
-  }
+  STDMETHODIMP_(ULONG) AddRef() { return InterlockedIncrement(&mCount); }
 
-  STDMETHODIMP_(ULONG) Release() {
+  STDMETHODIMP_(ULONG) Release()
+  {
     ULONG count = InterlockedDecrement(&mCount);
     if (!count) {
       delete this;
@@ -38,7 +37,8 @@ public:
     return count;
   }
 
-  STDMETHODIMP QueryInterface(REFIID iid, void** ppv) {
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppv)
+  {
     if (iid == IID_IUnknown) {
       *ppv = static_cast<IUnknown*>(this);
     } else if (iid == IID_ISensorEvents) {
@@ -52,19 +52,22 @@ public:
 
   // ISensorEvents interface
 
-  STDMETHODIMP OnEvent(ISensor *aSensor, REFGUID aId, IPortableDeviceValues *aData) {
+  STDMETHODIMP OnEvent(ISensor* aSensor,
+                       REFGUID aId,
+                       IPortableDeviceValues* aData)
+  {
     return S_OK;
   }
 
-  STDMETHODIMP OnLeave(REFSENSOR_ID aId) {
+  STDMETHODIMP OnLeave(REFSENSOR_ID aId) { return S_OK; }
+
+  STDMETHODIMP OnStateChanged(ISensor* aSensor, SensorState state)
+  {
     return S_OK;
   }
 
-  STDMETHODIMP OnStateChanged(ISensor *aSensor, SensorState state) {
-    return S_OK;
-  }
-
-  STDMETHODIMP OnDataUpdated(ISensor *aSensor, ISensorDataReport *aReport) {
+  STDMETHODIMP OnDataUpdated(ISensor* aSensor, ISensorDataReport* aReport)
+  {
     PROPVARIANT v;
     HRESULT hr;
     InfallibleTArray<float> values;
@@ -99,7 +102,7 @@ public:
     return S_OK;
   }
 
-private:
+ private:
   ULONG mCount;
 };
 
@@ -115,7 +118,8 @@ EnableSensorNotifications(SensorType aSensor)
   }
 
   RefPtr<ISensorManager> manager;
-  if (FAILED(CoCreateInstance(CLSID_SensorManager, nullptr,
+  if (FAILED(CoCreateInstance(CLSID_SensorManager,
+                              nullptr,
                               CLSCTX_INPROC_SERVER,
                               IID_ISensorManager,
                               getter_AddRefs(manager)))) {
@@ -145,13 +149,13 @@ EnableSensorNotifications(SensorType aSensor)
   // Set report interval to 100ms if possible.
   // Default value depends on drivers.
   RefPtr<IPortableDeviceValues> values;
-  if (SUCCEEDED(CoCreateInstance(CLSID_PortableDeviceValues, nullptr,
+  if (SUCCEEDED(CoCreateInstance(CLSID_PortableDeviceValues,
+                                 nullptr,
                                  CLSCTX_INPROC_SERVER,
                                  IID_IPortableDeviceValues,
                                  getter_AddRefs(values)))) {
     if (SUCCEEDED(values->SetUnsignedIntegerValue(
-                    SENSOR_PROPERTY_CURRENT_REPORT_INTERVAL,
-                    DEFAULT_SENSOR_POLL))) {
+            SENSOR_PROPERTY_CURRENT_REPORT_INTERVAL, DEFAULT_SENSOR_POLL))) {
       RefPtr<IPortableDeviceValues> returns;
       sensor->SetProperties(values, getter_AddRefs(returns));
     }
@@ -180,5 +184,5 @@ DisableSensorNotifications(SensorType aSensor)
   }
 }
 
-} // hal_impl
-} // mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

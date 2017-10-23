@@ -66,20 +66,17 @@ struct nsXBLResource
 
 nsXBLResourceLoader::nsXBLResourceLoader(nsXBLPrototypeBinding* aBinding,
                                          nsXBLPrototypeResources* aResources)
-:mBinding(aBinding),
- mResources(aResources),
- mResourceList(nullptr),
- mLastResource(nullptr),
- mLoadingResources(false),
- mInLoadResourcesFunc(false),
- mPendingSheets(0)
+    : mBinding(aBinding),
+      mResources(aResources),
+      mResourceList(nullptr),
+      mLastResource(nullptr),
+      mLoadingResources(false),
+      mInLoadResourcesFunc(false),
+      mPendingSheets(0)
 {
 }
 
-nsXBLResourceLoader::~nsXBLResourceLoader()
-{
-  delete mResourceList;
-}
+nsXBLResourceLoader::~nsXBLResourceLoader() { delete mResourceList; }
 
 bool
 nsXBLResourceLoader::LoadResources(nsIContent* aBoundElement)
@@ -98,22 +95,24 @@ nsXBLResourceLoader::LoadResources(nsIContent* aBoundElement)
   mBoundDocument = aBoundElement->OwnerDoc();
 
   mozilla::css::Loader* cssLoader = doc->CSSLoader();
-  MOZ_ASSERT(cssLoader->GetDocument() &&
-             cssLoader->GetDocument()->GetStyleBackendType()
-               == mBoundDocument->GetStyleBackendType(),
-             "The style backends of the loader and bound document are mismatched!");
+  MOZ_ASSERT(
+      cssLoader->GetDocument() &&
+          cssLoader->GetDocument()->GetStyleBackendType() ==
+              mBoundDocument->GetStyleBackendType(),
+      "The style backends of the loader and bound document are mismatched!");
 
-  nsIURI *docURL = doc->GetDocumentURI();
+  nsIURI* docURL = doc->GetDocumentURI();
   nsIPrincipal* docPrincipal = doc->NodePrincipal();
 
   nsCOMPtr<nsIURI> url;
 
   for (nsXBLResource* curr = mResourceList; curr; curr = curr->mNext) {
-    if (curr->mSrc.IsEmpty())
-      continue;
+    if (curr->mSrc.IsEmpty()) continue;
 
-    if (NS_FAILED(NS_NewURI(getter_AddRefs(url), curr->mSrc,
-                            doc->GetDocumentCharacterSet(), docURL)))
+    if (NS_FAILED(NS_NewURI(getter_AddRefs(url),
+                            curr->mSrc,
+                            doc->GetDocumentCharacterSet(),
+                            docURL)))
       continue;
 
     if (curr->mType == nsGkAtoms::image) {
@@ -121,39 +120,40 @@ nsXBLResourceLoader::LoadResources(nsIContent* aBoundElement)
       // Passing nullptr for pretty much everything -- cause we don't care!
       // XXX: initialDocumentURI is nullptr!
       RefPtr<imgRequestProxy> req;
-      nsContentUtils::LoadImage(url, doc, doc, docPrincipal, 0, docURL,
-                                doc->GetReferrerPolicy(), nullptr,
-                                nsIRequest::LOAD_BACKGROUND, EmptyString(),
+      nsContentUtils::LoadImage(url,
+                                doc,
+                                doc,
+                                docPrincipal,
+                                0,
+                                docURL,
+                                doc->GetReferrerPolicy(),
+                                nullptr,
+                                nsIRequest::LOAD_BACKGROUND,
+                                EmptyString(),
                                 getter_AddRefs(req));
-    }
-    else if (curr->mType == nsGkAtoms::stylesheet) {
+    } else if (curr->mType == nsGkAtoms::stylesheet) {
       // Kick off the load of the stylesheet.
 
       // Always load chrome synchronously
       // XXXbz should that still do a content policy check?
       bool chrome;
       nsresult rv;
-      if (NS_SUCCEEDED(url->SchemeIs("chrome", &chrome)) && chrome)
-      {
-        rv = nsContentUtils::GetSecurityManager()->
-          CheckLoadURIWithPrincipal(docPrincipal, url,
-                                    nsIScriptSecurityManager::ALLOW_CHROME);
+      if (NS_SUCCEEDED(url->SchemeIs("chrome", &chrome)) && chrome) {
+        rv = nsContentUtils::GetSecurityManager()->CheckLoadURIWithPrincipal(
+            docPrincipal, url, nsIScriptSecurityManager::ALLOW_CHROME);
         if (NS_SUCCEEDED(rv)) {
           RefPtr<StyleSheet> sheet;
           rv = cssLoader->LoadSheetSync(url, &sheet);
           NS_ASSERTION(NS_SUCCEEDED(rv), "Load failed!!!");
-          if (NS_SUCCEEDED(rv))
-          {
+          if (NS_SUCCEEDED(rv)) {
             rv = StyleSheetLoaded(sheet, false, NS_OK);
-            NS_ASSERTION(NS_SUCCEEDED(rv), "Processing the style sheet failed!!!");
+            NS_ASSERTION(NS_SUCCEEDED(rv),
+                         "Processing the style sheet failed!!!");
           }
         }
-      }
-      else
-      {
+      } else {
         rv = cssLoader->LoadSheet(url, false, docPrincipal, nullptr, this);
-        if (NS_SUCCEEDED(rv))
-          ++mPendingSheets;
+        if (NS_SUCCEEDED(rv)) ++mPendingSheets;
       }
     }
   }
@@ -180,8 +180,7 @@ nsXBLResourceLoader::StyleSheetLoaded(StyleSheet* aSheet,
 
   mResources->AppendStyleSheet(aSheet);
 
-  if (!mInLoadResourcesFunc)
-    mPendingSheets--;
+  if (!mInLoadResourcesFunc) mPendingSheets--;
 
   if (mPendingSheets == 0) {
     // All stylesheets are loaded.
@@ -189,12 +188,11 @@ nsXBLResourceLoader::StyleSheetLoaded(StyleSheet* aSheet,
       mResources->GatherRuleProcessor();
     } else {
       mResources->ComputeServoStyleSet(
-        mBoundDocument->GetShell()->GetPresContext());
+          mBoundDocument->GetShell()->GetPresContext());
     }
 
     // XXX Check for mPendingScripts when scripts also come online.
-    if (!mInLoadResourcesFunc)
-      NotifyBoundElements();
+    if (!mInLoadResourcesFunc) NotifyBoundElements();
   }
   return NS_OK;
 }
@@ -223,8 +221,7 @@ void
 nsXBLResourceLoader::NotifyBoundElements()
 {
   nsXBLService* xblService = nsXBLService::GetInstance();
-  if (!xblService)
-    return;
+  if (!xblService) return;
 
   nsIURI* bindingURI = mBinding->BindingURI();
 
@@ -254,13 +251,13 @@ nsXBLResourceLoader::NotifyBoundElements()
         // has a primary frame and whether it's in the undisplayed map
         // before sending a ContentInserted notification, or bad things
         // will happen.
-        nsIPresShell *shell = doc->GetShell();
+        nsIPresShell* shell = doc->GetShell();
         if (shell) {
           nsIFrame* childFrame = content->GetPrimaryFrame();
           if (!childFrame) {
             // Check if it's in the display:none or display:contents maps.
             nsStyleContext* sc =
-              shell->FrameManager()->GetDisplayNoneStyleFor(content);
+                shell->FrameManager()->GetDisplayNoneStyleFor(content);
 
             if (!sc) {
               sc = shell->FrameManager()->GetDisplayContentsStyleFor(content);

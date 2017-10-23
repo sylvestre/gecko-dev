@@ -35,8 +35,7 @@ namespace js {
 
 namespace irregexp {
 
-char16_t
-ConvertNonLatin1ToLatin1(char16_t c, bool unicode);
+char16_t ConvertNonLatin1ToLatin1(char16_t c, bool unicode);
 
 // -------------------------------------------------------------------
 // CharacterRange
@@ -89,6 +88,7 @@ extern const int kLineTerminatorRangeCount;
 extern const int kLineTerminatorAndSurrogateRanges[];
 extern const int kLineTerminatorAndSurrogateRangeCount;
 
-} } // namespace js::irregexp
+}  // namespace irregexp
+}  // namespace js
 
-#endif // V8_JSREGEXPCHARACTERS_H_
+#endif  // V8_JSREGEXPCHARACTERS_H_

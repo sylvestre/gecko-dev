@@ -14,7 +14,7 @@ namespace dom {
 
 class PerformanceMainThread final : public Performance
 {
-public:
+ public:
   PerformanceMainThread(nsPIDOMWindowInner* aWindow,
                         nsDOMNavigationTiming* aDOMTiming,
                         nsITimedChannel* aChannel);
@@ -34,7 +34,7 @@ public:
 
   DOMHighResTimeStamp CreationTime() const override;
 
-  virtual void GetMozMemory(JSContext *aCx,
+  virtual void GetMozMemory(JSContext* aCx,
                             JS::MutableHandle<JSObject*> aObj) override;
 
   virtual nsDOMNavigationTiming* GetDOMTiming() const override
@@ -42,29 +42,28 @@ public:
     return mDOMTiming;
   }
 
-  virtual nsITimedChannel* GetChannel() const override
-  {
-    return mChannel;
-  }
+  virtual nsITimedChannel* GetChannel() const override { return mChannel; }
 
   // The GetEntries* methods need to be overriden in order to add the
   // the document entry of type navigation.
   virtual void GetEntries(nsTArray<RefPtr<PerformanceEntry>>& aRetval) override;
-  virtual void GetEntriesByType(const nsAString& aEntryType,
-                                nsTArray<RefPtr<PerformanceEntry>>& aRetval) override;
-  virtual void GetEntriesByName(const nsAString& aName,
-                                const Optional<nsAString>& aEntryType,
-                                nsTArray<RefPtr<PerformanceEntry>>& aRetval) override;
+  virtual void GetEntriesByType(
+      const nsAString& aEntryType,
+      nsTArray<RefPtr<PerformanceEntry>>& aRetval) override;
+  virtual void GetEntriesByName(
+      const nsAString& aName,
+      const Optional<nsAString>& aEntryType,
+      nsTArray<RefPtr<PerformanceEntry>>& aRetval) override;
 
-protected:
+ protected:
   ~PerformanceMainThread();
 
   void InsertUserEntry(PerformanceEntry* aEntry) override;
 
   bool IsPerformanceTimingAttribute(const nsAString& aName) override;
 
-  DOMHighResTimeStamp
-  GetPerformanceTimingFromString(const nsAString& aTimingName) override;
+  DOMHighResTimeStamp GetPerformanceTimingFromString(
+      const nsAString& aTimingName) override;
 
   void DispatchBufferFullEvent() override;
   void EnsureDocEntry();
@@ -77,7 +76,7 @@ protected:
   JS::Heap<JSObject*> mMozMemory;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PerformanceMainThread_h
+#endif  // mozilla_dom_PerformanceMainThread_h

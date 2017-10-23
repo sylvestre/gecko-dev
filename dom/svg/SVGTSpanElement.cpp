@@ -13,37 +13,35 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGTSpanElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGTSpanElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGTSpanElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-
 //----------------------------------------------------------------------
 // Implementation
 
-SVGTSpanElement::SVGTSpanElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGTSpanElementBase(aNodeInfo)
+SVGTSpanElement::SVGTSpanElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGTSpanElementBase(aNodeInfo)
 {
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGTSpanElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 nsSVGElement::LengthAttributesInfo
 SVGTSpanElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
-
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGTSpanElement)
 
@@ -53,17 +51,15 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGTSpanElement)
 NS_IMETHODIMP_(bool)
 SVGTSpanElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sColorMap,
-    sFillStrokeMap,
-    sFontSpecificationMap,
-    sGraphicsMap,
-    sTextContentElementsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sColorMap,
+                                                    sFillStrokeMap,
+                                                    sFontSpecificationMap,
+                                                    sGraphicsMap,
+                                                    sTextContentElementsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGTSpanElementBase::IsAttributeMapped(name);
+         SVGTSpanElementBase::IsAttributeMapped(name);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

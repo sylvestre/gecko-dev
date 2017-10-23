@@ -22,19 +22,13 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TimeRanges)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-TimeRanges::TimeRanges()
-  : mParent(nullptr)
-{
-}
+TimeRanges::TimeRanges() : mParent(nullptr) {}
 
-TimeRanges::TimeRanges(nsISupports* aParent)
-  : mParent(aParent)
-{
-}
+TimeRanges::TimeRanges(nsISupports* aParent) : mParent(aParent) {}
 
 TimeRanges::TimeRanges(nsISupports* aParent,
                        const media::TimeIntervals& aTimeIntervals)
-  : TimeRanges(aParent)
+    : TimeRanges(aParent)
 {
   if (aTimeIntervals.IsInvalid()) {
     return;
@@ -45,7 +39,7 @@ TimeRanges::TimeRanges(nsISupports* aParent,
 }
 
 TimeRanges::TimeRanges(const media::TimeIntervals& aTimeIntervals)
-  : TimeRanges(nullptr, aTimeIntervals)
+    : TimeRanges(nullptr, aTimeIntervals)
 {
 }
 
@@ -61,9 +55,7 @@ TimeRanges::ToTimeIntervals() const
   return t;
 }
 
-TimeRanges::~TimeRanges()
-{
-}
+TimeRanges::~TimeRanges() {}
 
 NS_IMETHODIMP
 TimeRanges::GetLength(uint32_t* aLength)
@@ -117,7 +109,7 @@ TimeRanges::Add(double aStart, double aEnd)
     NS_WARNING("Can't add a range if the end is older that the start.");
     return;
   }
-  mRanges.AppendElement(TimeRange(aStart,aEnd));
+  mRanges.AppendElement(TimeRange(aStart, aEnd));
 }
 
 double
@@ -142,7 +134,7 @@ void
 TimeRanges::Normalize(double aTolerance)
 {
   if (mRanges.Length() >= 2) {
-    AutoTArray<TimeRange,4> normalized;
+    AutoTArray<TimeRange, 4> normalized;
 
     mRanges.Sort(CompareTimeRanges());
 
@@ -177,10 +169,11 @@ TimeRanges::Union(const TimeRanges* aOtherRanges, double aTolerance)
 void
 TimeRanges::Intersection(const TimeRanges* aOtherRanges)
 {
-  AutoTArray<TimeRange,4> intersection;
+  AutoTArray<TimeRange, 4> intersection;
 
   const nsTArray<TimeRange>& otherRanges = aOtherRanges->mRanges;
-  for (index_type i = 0, j = 0; i < mRanges.Length() && j < otherRanges.Length();) {
+  for (index_type i = 0, j = 0;
+       i < mRanges.Length() && j < otherRanges.Length();) {
     double start = std::max(mRanges[i].mStart, otherRanges[j].mStart);
     double end = std::min(mRanges[i].mEnd, otherRanges[j].mEnd);
     if (start < end) {
@@ -228,5 +221,5 @@ TimeRanges::Shift(double aOffset)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

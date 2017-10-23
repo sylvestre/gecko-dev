@@ -18,10 +18,10 @@ using namespace mozilla::dom;
 namespace mozilla {
 namespace css {
 
-#define CALL_INNER(inner_, call_)               \
-  ((inner_).is<GeckoGroupRuleRules>()           \
-    ? (inner_).as<GeckoGroupRuleRules>().call_  \
-    : (inner_).as<ServoGroupRuleRules>().call_)
+#define CALL_INNER(inner_, call_)                 \
+  ((inner_).is<GeckoGroupRuleRules>()             \
+       ? (inner_).as<GeckoGroupRuleRules>().call_ \
+       : (inner_).as<ServoGroupRuleRules>().call_)
 
 // -------------------------------
 // Style Rule List for group rules
@@ -29,35 +29,31 @@ namespace css {
 
 class GroupRuleRuleList final : public dom::CSSRuleList
 {
-public:
-  explicit GroupRuleRuleList(GroupRule *aGroupRule);
+ public:
+  explicit GroupRuleRuleList(GroupRule* aGroupRule);
 
   virtual CSSStyleSheet* GetParentObject() override;
 
-  virtual Rule*
-  IndexedGetter(uint32_t aIndex, bool& aFound) override;
-  virtual uint32_t
-  Length() override;
+  virtual Rule* IndexedGetter(uint32_t aIndex, bool& aFound) override;
+  virtual uint32_t Length() override;
 
   void DropReference() { mGroupRule = nullptr; }
 
-private:
+ private:
   ~GroupRuleRuleList();
 
-private:
+ private:
   GroupRule* mGroupRule;
 };
 
-GroupRuleRuleList::GroupRuleRuleList(GroupRule *aGroupRule)
+GroupRuleRuleList::GroupRuleRuleList(GroupRule* aGroupRule)
 {
   // Not reference counted to avoid circular references.
   // The rule will tell us when its going away.
   mGroupRule = aGroupRule;
 }
 
-GroupRuleRuleList::~GroupRuleRuleList()
-{
-}
+GroupRuleRuleList::~GroupRuleRuleList() {}
 
 CSSStyleSheet*
 GroupRuleRuleList::GetParentObject()
@@ -99,13 +95,10 @@ GroupRuleRuleList::IndexedGetter(uint32_t aIndex, bool& aFound)
 // GeckoGroupRuleRules
 //
 
-GeckoGroupRuleRules::GeckoGroupRuleRules()
-{
-}
+GeckoGroupRuleRules::GeckoGroupRuleRules() {}
 
 GeckoGroupRuleRules::GeckoGroupRuleRules(GeckoGroupRuleRules&& aOther)
-  : mRules(Move(aOther.mRules))
-  , mRuleCollection(Move(aOther.mRuleCollection))
+    : mRules(Move(aOther.mRules)), mRuleCollection(Move(aOther.mRuleCollection))
 {
 }
 
@@ -194,9 +187,9 @@ GeckoGroupRuleRules::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
   return n;
 }
 
-// -------------------------------
-// ServoGroupRuleRules
-//
+  // -------------------------------
+  // ServoGroupRuleRules
+  //
 
 #ifdef DEBUG
 void
@@ -218,22 +211,20 @@ ServoGroupRuleRules::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
 //
 
 GroupRule::GroupRule(uint32_t aLineNumber, uint32_t aColumnNumber)
-  : Rule(aLineNumber, aColumnNumber)
-  , mInner(GeckoGroupRuleRules())
+    : Rule(aLineNumber, aColumnNumber), mInner(GeckoGroupRuleRules())
 {
 }
 
 GroupRule::GroupRule(already_AddRefed<ServoCssRules> aRules,
-                     uint32_t aLineNumber, uint32_t aColumnNumber)
-  : Rule(aLineNumber, aColumnNumber)
-  , mInner(ServoGroupRuleRules(Move(aRules)))
+                     uint32_t aLineNumber,
+                     uint32_t aColumnNumber)
+    : Rule(aLineNumber, aColumnNumber),
+      mInner(ServoGroupRuleRules(Move(aRules)))
 {
   mInner.as<ServoGroupRuleRules>().SetParentRule(this);
 }
 
-GroupRule::GroupRule(const GroupRule& aCopy)
-  : Rule(aCopy)
-  , mInner(aCopy.mInner)
+GroupRule::GroupRule(const GroupRule& aCopy) : Rule(aCopy), mInner(aCopy.mInner)
 {
   CALL_INNER(mInner, SetParentRule(this));
 }
@@ -302,7 +293,7 @@ GroupRule::AppendStyleRule(Rule* aRule)
 }
 
 bool
-GroupRule::EnumerateRulesForwards(RuleEnumFunc aFunc, void * aData) const
+GroupRule::EnumerateRulesForwards(RuleEnumFunc aFunc, void* aData) const
 {
   for (const Rule* rule : GeckoRules()) {
     if (!aFunc(const_cast<Rule*>(rule), aData)) {
@@ -339,7 +330,7 @@ GroupRule::AppendRulesToCssText(nsAString& aCssText) const
 
 // nsIDOMCSSMediaRule or nsIDOMCSSMozDocumentRule methods
 nsresult
-GroupRule::GetCssRules(nsIDOMCSSRuleList* *aRuleList)
+GroupRule::GetCssRules(nsIDOMCSSRuleList** aRuleList)
 {
   NS_ADDREF(*aRuleList = CssRules());
   return NS_OK;
@@ -352,7 +343,9 @@ GroupRule::CssRules()
 }
 
 nsresult
-GroupRule::InsertRule(const nsAString & aRule, uint32_t aIndex, uint32_t* _retval)
+GroupRule::InsertRule(const nsAString& aRule,
+                      uint32_t aIndex,
+                      uint32_t* _retval)
 {
   ErrorResult rv;
   *_retval = InsertRule(aRule, aIndex, rv);
@@ -417,5 +410,5 @@ GroupRule::DeleteRule(uint32_t aIndex, ErrorResult& aRv)
 
 #undef CALL_INNER
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla

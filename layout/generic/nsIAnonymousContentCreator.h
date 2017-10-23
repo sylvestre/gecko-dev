@@ -26,13 +26,12 @@ class nsIFrame;
  */
 class nsIAnonymousContentCreator
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIAnonymousContentCreator)
 
-  struct ContentInfo {
-    explicit ContentInfo(nsIContent* aContent) :
-      mContent(aContent)
-    {}
+  struct ContentInfo
+  {
+    explicit ContentInfo(nsIContent* aContent) : mContent(aContent) {}
 
     nsIContent* mContent;
     nsTArray<ContentInfo> mChildren;
@@ -55,7 +54,7 @@ public:
    *       hook them up to any parent since frame construction takes care of
    *       that.
    */
-  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements)=0;
+  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements) = 0;
 
   /**
    * Appends "native" anonymous children created by CreateAnonymousContent()
@@ -70,4 +69,3 @@ public:
 };
 
 #endif
-

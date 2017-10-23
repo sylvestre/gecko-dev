@@ -15,12 +15,14 @@
 // a particular value to make sure we receive the correct
 // result through this API.
 
-TEST(GfxPrefs, Singleton) {
+TEST(GfxPrefs, Singleton)
+{
   gfxPrefs::GetSingleton();
   ASSERT_TRUE(gfxPrefs::SingletonExists());
 }
 
-TEST(GfxPrefs, LiveValues) {
+TEST(GfxPrefs, LiveValues)
+{
   gfxPrefs::GetSingleton();
   ASSERT_TRUE(gfxPrefs::SingletonExists());
 
@@ -34,7 +36,8 @@ TEST(GfxPrefs, LiveValues) {
   ASSERT_TRUE(gfxPrefs::MSAALevel() == 2);
 }
 
-TEST(GfxPrefs, OnceValues) {
+TEST(GfxPrefs, OnceValues)
+{
   gfxPrefs::GetSingleton();
   ASSERT_TRUE(gfxPrefs::SingletonExists());
 
@@ -54,7 +57,8 @@ TEST(GfxPrefs, OnceValues) {
   ASSERT_TRUE(gfxPrefs::APZMaxVelocity() == -1.0f);
 }
 
-TEST(GfxPrefs, Set) {
+TEST(GfxPrefs, Set)
+{
   gfxPrefs::GetSingleton();
   ASSERT_TRUE(gfxPrefs::SingletonExists());
 
@@ -82,25 +86,28 @@ TEST(GfxPrefs, Set) {
 
 #ifdef MOZ_CRASHREPORTER
 // Randomly test the function we use in nsExceptionHandler.cpp here:
-extern bool SimpleNoCLibDtoA(double aValue, char* aBuffer, int aBufferLength);
+extern bool
+SimpleNoCLibDtoA(double aValue, char* aBuffer, int aBufferLength);
 TEST(GfxPrefs, StringUtility)
 {
   char testBuffer[64];
-  double testVal[] = {13.4,
-                      3324243.42,
-                      0.332424342,
-                      864.0,
-                      86400 * 100000000.0 * 10000000000.0 * 10000000000.0 * 100.0,
-                      86400.0 * 366.0 * 100.0 + 14243.44332};
-  for (size_t i=0; i<mozilla::ArrayLength(testVal); i++) {
+  double testVal[] = {
+      13.4,
+      3324243.42,
+      0.332424342,
+      864.0,
+      86400 * 100000000.0 * 10000000000.0 * 10000000000.0 * 100.0,
+      86400.0 * 366.0 * 100.0 + 14243.44332};
+  for (size_t i = 0; i < mozilla::ArrayLength(testVal); i++) {
     ASSERT_TRUE(SimpleNoCLibDtoA(testVal[i], testBuffer, sizeof(testBuffer)));
-    ASSERT_TRUE(fabs(1.0 - atof(testBuffer)/testVal[i]) < 0.0001);
+    ASSERT_TRUE(fabs(1.0 - atof(testBuffer) / testVal[i]) < 0.0001);
   }
 
   // We do not like negative numbers (random limitation)
   ASSERT_FALSE(SimpleNoCLibDtoA(-864.0, testBuffer, sizeof(testBuffer)));
 
   // It won't fit into 32:
-  ASSERT_FALSE(SimpleNoCLibDtoA(testVal[4], testBuffer, sizeof(testBuffer)/2));
+  ASSERT_FALSE(
+      SimpleNoCLibDtoA(testVal[4], testBuffer, sizeof(testBuffer) / 2));
 }
 #endif

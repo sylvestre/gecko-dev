@@ -34,19 +34,20 @@ class RasterImage;
 
 class nsIconDecoder : public Decoder
 {
-public:
+ public:
   virtual ~nsIconDecoder();
 
   LexerResult DoDecode(SourceBufferIterator& aIterator,
                        IResumable* aOnResume) override;
 
-private:
+ private:
   friend class DecoderFactory;
 
   // Decoders should only be instantiated via DecoderFactory.
   explicit nsIconDecoder(RasterImage* aImage);
 
-  enum class State {
+  enum class State
+  {
     HEADER,
     ROW_OF_PIXELS,
     FINISH
@@ -61,7 +62,7 @@ private:
   uint32_t mBytesPerRow;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_decoders_nsIconDecoder_h
+#endif  // mozilla_image_decoders_nsIconDecoder_h

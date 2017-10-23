@@ -21,15 +21,17 @@ StaticRefPtr<SapiService> SapiService::sSingleton;
 
 class SapiCallback final : public nsISpeechTaskCallback
 {
-public:
-  SapiCallback(nsISpeechTask* aTask, ISpVoice* aSapiClient,
-               uint32_t aTextOffset, uint32_t aSpeakTextLen)
-    : mTask(aTask)
-    , mSapiClient(aSapiClient)
-    , mTextOffset(aTextOffset)
-    , mSpeakTextLen(aSpeakTextLen)
-    , mCurrentIndex(0)
-    , mStreamNum(0)
+ public:
+  SapiCallback(nsISpeechTask* aTask,
+               ISpVoice* aSapiClient,
+               uint32_t aTextOffset,
+               uint32_t aSpeakTextLen)
+      : mTask(aTask),
+        mSapiClient(aSapiClient),
+        mTextOffset(aTextOffset),
+        mSpeakTextLen(aSpeakTextLen),
+        mCurrentIndex(0),
+        mStreamNum(0)
   {
     mStartingTime = GetTickCount();
   }
@@ -44,8 +46,8 @@ public:
 
   void OnSpeechEvent(const SPEVENT& speechEvent);
 
-private:
-  ~SapiCallback() { }
+ private:
+  ~SapiCallback() {}
 
   // This pointer is used to dispatch events
   nsCOMPtr<nsISpeechTask> mTask;
@@ -125,44 +127,50 @@ void
 SapiCallback::OnSpeechEvent(const SPEVENT& speechEvent)
 {
   switch (speechEvent.eEventId) {
-  case SPEI_START_INPUT_STREAM:
-    mTask->DispatchStart();
-    break;
-  case SPEI_END_INPUT_STREAM:
-    if (mSpeakTextLen) {
-      mCurrentIndex = mSpeakTextLen;
-    }
-    mTask->DispatchEnd(GetTickCount() - mStartingTime, mCurrentIndex);
-    mTask = nullptr;
-    break;
-  case SPEI_TTS_BOOKMARK:
-    mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
-    mTask->DispatchBoundary(NS_LITERAL_STRING("mark"),
-                            GetTickCount() - mStartingTime, mCurrentIndex, 0, 0);
-    break;
-  case SPEI_WORD_BOUNDARY:
-    mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
-    mTask->DispatchBoundary(NS_LITERAL_STRING("word"),
-                            GetTickCount() - mStartingTime, mCurrentIndex,
-                            static_cast<ULONG>(speechEvent.wParam), 1);
-    break;
-  case SPEI_SENTENCE_BOUNDARY:
-    mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
-    mTask->DispatchBoundary(NS_LITERAL_STRING("sentence"),
-                            GetTickCount() - mStartingTime, mCurrentIndex,
-                            static_cast<ULONG>(speechEvent.wParam), 1);
-    break;
-  default:
-    break;
+    case SPEI_START_INPUT_STREAM:
+      mTask->DispatchStart();
+      break;
+    case SPEI_END_INPUT_STREAM:
+      if (mSpeakTextLen) {
+        mCurrentIndex = mSpeakTextLen;
+      }
+      mTask->DispatchEnd(GetTickCount() - mStartingTime, mCurrentIndex);
+      mTask = nullptr;
+      break;
+    case SPEI_TTS_BOOKMARK:
+      mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
+      mTask->DispatchBoundary(NS_LITERAL_STRING("mark"),
+                              GetTickCount() - mStartingTime,
+                              mCurrentIndex,
+                              0,
+                              0);
+      break;
+    case SPEI_WORD_BOUNDARY:
+      mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
+      mTask->DispatchBoundary(NS_LITERAL_STRING("word"),
+                              GetTickCount() - mStartingTime,
+                              mCurrentIndex,
+                              static_cast<ULONG>(speechEvent.wParam),
+                              1);
+      break;
+    case SPEI_SENTENCE_BOUNDARY:
+      mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
+      mTask->DispatchBoundary(NS_LITERAL_STRING("sentence"),
+                              GetTickCount() - mStartingTime,
+                              mCurrentIndex,
+                              static_cast<ULONG>(speechEvent.wParam),
+                              1);
+      break;
+    default:
+      break;
   }
 }
 
 // static
-void __stdcall
-SapiService::SpeechEventCallback(WPARAM aWParam, LPARAM aLParam)
+void __stdcall SapiService::SpeechEventCallback(WPARAM aWParam, LPARAM aLParam)
 {
-  RefPtr<ISpVoice> spVoice = (ISpVoice*) aWParam;
-  RefPtr<SapiService> service = (SapiService*) aLParam;
+  RefPtr<ISpVoice> spVoice = (ISpVoice*)aWParam;
+  RefPtr<SapiService> service = (SapiService*)aLParam;
 
   SPEVENT speechEvent;
   while (spVoice->GetEvents(1, &speechEvent, nullptr) == S_OK) {
@@ -188,14 +196,9 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(SapiService)
 NS_IMPL_RELEASE(SapiService)
 
-SapiService::SapiService()
-  : mInitialized(false)
-{
-}
+SapiService::SapiService() : mInitialized(false) {}
 
-SapiService::~SapiService()
-{
-}
+SapiService::~SapiService() {}
 
 bool
 SapiService::Init()
@@ -223,18 +226,19 @@ already_AddRefed<ISpVoice>
 SapiService::InitSapiInstance()
 {
   RefPtr<ISpVoice> spVoice;
-  if (FAILED(CoCreateInstance(CLSID_SpVoice, nullptr, CLSCTX_ALL, IID_ISpVoice,
+  if (FAILED(CoCreateInstance(CLSID_SpVoice,
+                              nullptr,
+                              CLSCTX_ALL,
+                              IID_ISpVoice,
                               getter_AddRefs(spVoice)))) {
     return nullptr;
   }
 
   // Set interest for all the events we are interested in
-  ULONGLONG eventMask =
-    SPFEI(SPEI_START_INPUT_STREAM) |
-    SPFEI(SPEI_TTS_BOOKMARK) |
-    SPFEI(SPEI_WORD_BOUNDARY) |
-    SPFEI(SPEI_SENTENCE_BOUNDARY) |
-    SPFEI(SPEI_END_INPUT_STREAM);
+  ULONGLONG eventMask = SPFEI(SPEI_START_INPUT_STREAM) |
+                        SPFEI(SPEI_TTS_BOOKMARK) | SPFEI(SPEI_WORD_BOUNDARY) |
+                        SPFEI(SPEI_SENTENCE_BOUNDARY) |
+                        SPFEI(SPEI_END_INPUT_STREAM);
 
   if (FAILED(spVoice->SetInterest(eventMask, eventMask))) {
     return nullptr;
@@ -242,8 +246,9 @@ SapiService::InitSapiInstance()
 
   // Set the callback function for receiving the events
   spVoice->SetNotifyCallbackFunction(
-    (SPNOTIFYCALLBACK*) SapiService::SpeechEventCallback,
-    (WPARAM) spVoice.get(), (LPARAM) this);
+      (SPNOTIFYCALLBACK*)SapiService::SpeechEventCallback,
+      (WPARAM)spVoice.get(),
+      (LPARAM)this);
 
   return spVoice.forget();
 }
@@ -254,13 +259,15 @@ SapiService::RegisterVoices()
   nsresult rv;
 
   nsCOMPtr<nsISynthVoiceRegistry> registry =
-    do_GetService(NS_SYNTHVOICEREGISTRY_CONTRACTID);
+      do_GetService(NS_SYNTHVOICEREGISTRY_CONTRACTID);
   if (!registry) {
     return false;
   }
 
   RefPtr<ISpObjectTokenCategory> category;
-  if (FAILED(CoCreateInstance(CLSID_SpObjectTokenCategory, nullptr, CLSCTX_ALL,
+  if (FAILED(CoCreateInstance(CLSID_SpObjectTokenCategory,
+                              nullptr,
+                              CLSCTX_ALL,
                               IID_ISpObjectTokenCategory,
                               getter_AddRefs(category)))) {
     return false;
@@ -270,8 +277,8 @@ SapiService::RegisterVoices()
   }
 
   RefPtr<IEnumSpObjectTokens> voiceTokens;
-  if (FAILED(category->EnumTokens(nullptr, nullptr,
-                                  getter_AddRefs(voiceTokens)))) {
+  if (FAILED(category->EnumTokens(
+          nullptr, nullptr, getter_AddRefs(voiceTokens)))) {
     return false;
   }
 
@@ -283,8 +290,8 @@ SapiService::RegisterVoices()
     }
 
     RefPtr<ISpDataKey> attributes;
-    if (FAILED(voiceToken->OpenKey(L"Attributes",
-                                   getter_AddRefs(attributes)))) {
+    if (FAILED(
+            voiceToken->OpenKey(L"Attributes", getter_AddRefs(attributes)))) {
       continue;
     }
 
@@ -298,8 +305,8 @@ SapiService::RegisterVoices()
     nsAutoString hexLcid;
     LCID lcid = wcstol(language, nullptr, 16);
     CoTaskMemFree(language);
-    if (NS_WARN_IF(!LCIDToLocaleName(lcid, locale,
-                                     LOCALE_NAME_MAX_LENGTH, 0))) {
+    if (NS_WARN_IF(
+            !LCIDToLocaleName(lcid, locale, LOCALE_NAME_MAX_LENGTH, 0))) {
       continue;
     }
 
@@ -317,9 +324,12 @@ SapiService::RegisterVoices()
     // This service can only speak one utterance at a time, se we set
     // aQueuesUtterances to true in order to track global state and schedule
     // access to this service.
-    rv = registry->AddVoice(this, uri, nsDependentString(description),
+    rv = registry->AddVoice(this,
+                            uri,
+                            nsDependentString(description),
                             nsDependentString(locale),
-                            true, true);
+                            true,
+                            true);
     CoTaskMemFree(description);
     if (NS_FAILED(rv)) {
       continue;
@@ -334,8 +344,11 @@ SapiService::RegisterVoices()
 }
 
 NS_IMETHODIMP
-SapiService::Speak(const nsAString& aText, const nsAString& aUri,
-                   float aVolume, float aRate, float aPitch,
+SapiService::Speak(const nsAString& aText,
+                   const nsAString& aUri,
+                   float aVolume,
+                   float aRate,
+                   float aPitch,
                    nsISpeechTask* aTask)
 {
   NS_ENSURE_TRUE(mInitialized, NS_ERROR_NOT_AVAILABLE);
@@ -399,7 +412,7 @@ SapiService::Speak(const nsAString& aText, const nsAString& aUri,
   xml.AppendLiteral("</pitch>");
 
   RefPtr<SapiCallback> callback =
-    new SapiCallback(aTask, spVoice, textOffset, aText.Length());
+      new SapiCallback(aTask, spVoice, textOffset, aText.Length());
 
   // The last three parameters doesn't matter for an indirect service
   nsresult rv = aTask->Setup(callback, 0, 0, 0);
@@ -430,7 +443,8 @@ SapiService::GetServiceType(SpeechServiceType* aServiceType)
 }
 
 NS_IMETHODIMP
-SapiService::Observe(nsISupports* aSubject, const char* aTopic,
+SapiService::Observe(nsISupports* aSubject,
+                     const char* aTopic,
                      const char16_t* aData)
 {
   return NS_OK;
@@ -441,8 +455,7 @@ SapiService::GetInstance()
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (XRE_GetProcessType() != GeckoProcessType_Default) {
-    MOZ_ASSERT(false,
-               "SapiService can only be started on main gecko process");
+    MOZ_ASSERT(false, "SapiService can only be started on main gecko process");
     return nullptr;
   }
 
@@ -471,5 +484,5 @@ SapiService::Shutdown()
   sSingleton = nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

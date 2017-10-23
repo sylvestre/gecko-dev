@@ -4,9 +4,8 @@
 namespace js {
 namespace frontend {
 
-class ErrorReporter
-{
-  public:
+class ErrorReporter {
+   public:
     virtual const ReadOnlyCompileOptions& options() const = 0;
     virtual void lineNumAndColumnIndex(size_t offset, uint32_t* line, uint32_t* column) const = 0;
     virtual size_t offset() const = 0;
@@ -15,7 +14,7 @@ class ErrorReporter
     virtual const char* getFilename() const = 0;
 };
 
-} // namespace frontend
-} // namespace js
+}  // namespace frontend
+}  // namespace js
 
-#endif // frontend_ErrorReporter_h
+#endif  // frontend_ErrorReporter_h

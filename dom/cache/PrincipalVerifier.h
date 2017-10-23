@@ -14,8 +14,8 @@
 namespace mozilla {
 
 namespace ipc {
-  class PBackgroundParent;
-} // namespace ipc
+class PBackgroundParent;
+}  // namespace ipc
 
 namespace dom {
 namespace cache {
@@ -24,20 +24,21 @@ class ManagerId;
 
 class PrincipalVerifier final : public Runnable
 {
-public:
+ public:
   // An interface to be implemented by code wishing to use the
   // PrincipalVerifier.  Note, the Listener implementation is responsible
   // for calling RemoveListener() on the PrincipalVerifier to clear the
   // weak reference.
   class Listener
   {
-  public:
+   public:
     virtual void OnPrincipalVerified(nsresult aRv, ManagerId* aManagerId) = 0;
   };
 
-  static already_AddRefed<PrincipalVerifier>
-  CreateAndDispatch(Listener* aListener, mozilla::ipc::PBackgroundParent* aActor,
-                    const mozilla::ipc::PrincipalInfo& aPrincipalInfo);
+  static already_AddRefed<PrincipalVerifier> CreateAndDispatch(
+      Listener* aListener,
+      mozilla::ipc::PBackgroundParent* aActor,
+      const mozilla::ipc::PrincipalInfo& aPrincipalInfo);
 
   void AddListener(Listener* aListener);
 
@@ -45,8 +46,9 @@ public:
   // called or when the Listener is destroyed.
   void RemoveListener(Listener* aListener);
 
-private:
-  PrincipalVerifier(Listener* aListener, mozilla::ipc::PBackgroundParent* aActor,
+ private:
+  PrincipalVerifier(Listener* aListener,
+                    mozilla::ipc::PBackgroundParent* aActor,
                     const mozilla::ipc::PrincipalInfo& aPrincipalInfo);
   virtual ~PrincipalVerifier();
 
@@ -68,12 +70,12 @@ private:
   nsresult mResult;
   RefPtr<ManagerId> mManagerId;
 
-public:
+ public:
   NS_DECL_NSIRUNNABLE
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_PrincipalVerifier_h
+#endif  // mozilla_dom_cache_PrincipalVerifier_h

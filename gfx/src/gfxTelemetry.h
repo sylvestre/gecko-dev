@@ -58,17 +58,21 @@ enum class FeatureStatus
   LAST
 };
 
-const char* FeatureStatusToString(FeatureStatus aStatus);
-bool IsFeatureStatusFailure(FeatureStatus aStatus);
-bool IsFeatureStatusSuccess(FeatureStatus aStatus);
+const char*
+FeatureStatusToString(FeatureStatus aStatus);
+bool
+IsFeatureStatusFailure(FeatureStatus aStatus);
+bool
+IsFeatureStatusSuccess(FeatureStatus aStatus);
 
-enum class TelemetryDeviceCode : uint32_t {
+enum class TelemetryDeviceCode : uint32_t
+{
   Content = 0,
   Image = 1,
   D2D1 = 2
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // gfx_src_gfxTelemetry_h__
+#endif  // gfx_src_gfxTelemetry_h__

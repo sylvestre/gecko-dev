@@ -15,7 +15,7 @@ class OriginAttributes;
 
 namespace ipc {
 class BackgroundParentImpl;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 namespace workers {
@@ -26,47 +26,46 @@ class ServiceWorkerManagerParent final : public PServiceWorkerManagerParent
 {
   friend class mozilla::ipc::BackgroundParentImpl;
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ServiceWorkerManagerParent)
 
-  uint64_t ID() const
-  {
-    return mID;
-  }
+  uint64_t ID() const { return mID; }
 
-private:
+ private:
   ServiceWorkerManagerParent();
   ~ServiceWorkerManagerParent();
 
   virtual mozilla::ipc::IPCResult RecvRegister(
-    const ServiceWorkerRegistrationData& aData) override;
+      const ServiceWorkerRegistrationData& aData) override;
 
-  virtual mozilla::ipc::IPCResult RecvUnregister(const PrincipalInfo& aPrincipalInfo,
-                                                 const nsString& aScope) override;
+  virtual mozilla::ipc::IPCResult RecvUnregister(
+      const PrincipalInfo& aPrincipalInfo, const nsString& aScope) override;
 
-  virtual mozilla::ipc::IPCResult RecvPropagateSoftUpdate(const OriginAttributes& aOriginAttributes,
-                                                          const nsString& aScope) override;
+  virtual mozilla::ipc::IPCResult RecvPropagateSoftUpdate(
+      const OriginAttributes& aOriginAttributes,
+      const nsString& aScope) override;
 
-  virtual mozilla::ipc::IPCResult RecvPropagateUnregister(const PrincipalInfo& aPrincipalInfo,
-                                                          const nsString& aScope) override;
+  virtual mozilla::ipc::IPCResult RecvPropagateUnregister(
+      const PrincipalInfo& aPrincipalInfo, const nsString& aScope) override;
 
-  virtual mozilla::ipc::IPCResult RecvPropagateRemove(const nsCString& aHost) override;
+  virtual mozilla::ipc::IPCResult RecvPropagateRemove(
+      const nsCString& aHost) override;
 
   virtual mozilla::ipc::IPCResult RecvPropagateRemoveAll() override;
 
   virtual mozilla::ipc::IPCResult RecvShutdown() override;
 
-  virtual PServiceWorkerUpdaterParent*
-  AllocPServiceWorkerUpdaterParent(const OriginAttributes& aOriginAttributes,
-                                   const nsCString& aScope) override;
+  virtual PServiceWorkerUpdaterParent* AllocPServiceWorkerUpdaterParent(
+      const OriginAttributes& aOriginAttributes,
+      const nsCString& aScope) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvPServiceWorkerUpdaterConstructor(PServiceWorkerUpdaterParent* aActor,
-                                       const OriginAttributes& aOriginAttributes,
-                                       const nsCString& aScope) override;
+  virtual mozilla::ipc::IPCResult RecvPServiceWorkerUpdaterConstructor(
+      PServiceWorkerUpdaterParent* aActor,
+      const OriginAttributes& aOriginAttributes,
+      const nsCString& aScope) override;
 
-  virtual bool
-  DeallocPServiceWorkerUpdaterParent(PServiceWorkerUpdaterParent* aActor) override;
+  virtual bool DeallocPServiceWorkerUpdaterParent(
+      PServiceWorkerUpdaterParent* aActor) override;
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
@@ -77,8 +76,8 @@ private:
   uint64_t mID;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ServiceWorkerManagerParent_h
+#endif  // mozilla_dom_ServiceWorkerManagerParent_h

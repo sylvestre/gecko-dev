@@ -43,7 +43,8 @@ BaseBlobImpl::GetMozFullPath(nsAString& aFileName,
 }
 
 void
-BaseBlobImpl::GetMozFullPathInternal(nsAString& aFileName, ErrorResult& aRv) const
+BaseBlobImpl::GetMozFullPathInternal(nsAString& aFileName,
+                                     ErrorResult& aRv) const
 {
   if (!mIsFile) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -83,8 +84,10 @@ BaseBlobImpl::GetFileId()
 }
 
 nsresult
-BaseBlobImpl::GetSendInfo(nsIInputStream** aBody, uint64_t* aContentLength,
-                          nsACString& aContentType, nsACString& aCharset)
+BaseBlobImpl::GetSendInfo(nsIInputStream** aBody,
+                          uint64_t* aContentLength,
+                          nsACString& aContentType,
+                          nsACString& aCharset)
 {
   MOZ_ASSERT(aContentLength);
 
@@ -153,5 +156,5 @@ BaseBlobImpl::NextSerialNumber()
   return nextSerialNumber++;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

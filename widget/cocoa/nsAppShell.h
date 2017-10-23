@@ -17,8 +17,7 @@
 // GeckoNSApplication
 //
 // Subclass of NSApplication for filtering out certain events.
-@interface GeckoNSApplication : NSApplication
-{
+@interface GeckoNSApplication : NSApplication {
 }
 @end
 
@@ -26,7 +25,7 @@
 
 class nsAppShell : public nsBaseAppShell
 {
-public:
+ public:
   NS_IMETHOD ResumeNative(void);
 
   nsAppShell();
@@ -35,14 +34,14 @@ public:
 
   NS_IMETHOD Run(void);
   NS_IMETHOD Exit(void);
-  NS_IMETHOD OnProcessNextEvent(nsIThreadInternal *aThread, bool aMayWait);
-  NS_IMETHOD AfterProcessNextEvent(nsIThreadInternal *aThread,
+  NS_IMETHOD OnProcessNextEvent(nsIThreadInternal* aThread, bool aMayWait);
+  NS_IMETHOD AfterProcessNextEvent(nsIThreadInternal* aThread,
                                    bool aEventWasProcessed);
 
   // public only to be visible to Objective-C code that must call it
   void WillTerminate();
 
-protected:
+ protected:
   virtual ~nsAppShell();
 
   virtual void ScheduleNativeEventCallback();
@@ -50,22 +49,22 @@ protected:
 
   static void ProcessGeckoEvents(void* aInfo);
 
-protected:
-  CFMutableArrayRef  mAutoreleasePools;
+ protected:
+  CFMutableArrayRef mAutoreleasePools;
 
-  AppShellDelegate*  mDelegate;
-  CFRunLoopRef       mCFRunLoop;
+  AppShellDelegate* mDelegate;
+  CFRunLoopRef mCFRunLoop;
   CFRunLoopSourceRef mCFRunLoopSource;
 
-  bool               mRunningEventLoop;
-  bool               mStarted;
-  bool               mTerminated;
-  bool               mSkippedNativeCallback;
-  bool               mRunningCocoaEmbedded;
+  bool mRunningEventLoop;
+  bool mStarted;
+  bool mTerminated;
+  bool mSkippedNativeCallback;
+  bool mRunningCocoaEmbedded;
 
-  int32_t            mNativeEventCallbackDepth;
+  int32_t mNativeEventCallbackDepth;
   // Can be set from different threads, so must be modified atomically
-  int32_t            mNativeEventScheduledDepth;
+  int32_t mNativeEventScheduledDepth;
 };
 
-#endif // nsAppShell_h_
+#endif  // nsAppShell_h_

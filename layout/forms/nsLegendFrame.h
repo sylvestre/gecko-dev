@@ -11,13 +11,14 @@
 
 class nsLegendFrame final : public nsBlockFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsLegendFrame)
 
   explicit nsLegendFrame(nsStyleContext* aContext)
-    : nsBlockFrame(aContext, kClassID)
-  {}
+      : nsBlockFrame(aContext, kClassID)
+  {
+  }
 
   virtual void Reflow(nsPresContext* aPresContext,
                       ReflowOutput& aDesiredSize,
@@ -33,5 +34,4 @@ public:
   int32_t GetLogicalAlign(mozilla::WritingMode aCBWM);
 };
 
-
-#endif // guard
+#endif  // guard

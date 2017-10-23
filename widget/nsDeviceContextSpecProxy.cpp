@@ -35,7 +35,7 @@ nsDeviceContextSpecProxy::Init(nsIWidget* aWidget,
 {
   nsresult rv;
   mRealDeviceContextSpec =
-    do_CreateInstance("@mozilla.org/gfx/devicecontextspec;1", &rv);
+      do_CreateInstance("@mozilla.org/gfx/devicecontextspec;1", &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -95,9 +95,10 @@ nsDeviceContextSpecProxy::MakePrintTarget()
   width /= TWIPS_PER_POINT_FLOAT;
   height /= TWIPS_PER_POINT_FLOAT;
 
-  RefPtr<gfxASurface> surface = gfxPlatform::GetPlatform()->
-    CreateOffscreenSurface(mozilla::gfx::IntSize::Truncate(width, height),
-                           mozilla::gfx::SurfaceFormat::A8R8G8B8_UINT32);
+  RefPtr<gfxASurface> surface =
+      gfxPlatform::GetPlatform()->CreateOffscreenSurface(
+          mozilla::gfx::IntSize::Truncate(width, height),
+          mozilla::gfx::SurfaceFormat::A8R8G8B8_UINT32);
   if (!surface) {
     return nullptr;
   }
@@ -120,7 +121,8 @@ nsDeviceContextSpecProxy::MakePrintTarget()
 }
 
 NS_IMETHODIMP
-nsDeviceContextSpecProxy::GetDrawEventRecorder(mozilla::gfx::DrawEventRecorder** aDrawEventRecorder)
+nsDeviceContextSpecProxy::GetDrawEventRecorder(
+    mozilla::gfx::DrawEventRecorder** aDrawEventRecorder)
 {
   MOZ_ASSERT(aDrawEventRecorder);
   RefPtr<mozilla::gfx::DrawEventRecorder> result = mRecorder;
@@ -147,12 +149,12 @@ nsDeviceContextSpecProxy::GetPrintingScale()
 NS_IMETHODIMP
 nsDeviceContextSpecProxy::BeginDocument(const nsAString& aTitle,
                                         const nsAString& aPrintToFileName,
-                                        int32_t aStartPage, int32_t aEndPage)
+                                        int32_t aStartPage,
+                                        int32_t aEndPage)
 {
   mRecorder = new mozilla::layout::DrawEventRecorderPRFileDesc();
-  return mRemotePrintJob->InitializePrint(nsString(aTitle),
-                                          nsString(aPrintToFileName),
-                                          aStartPage, aEndPage);
+  return mRemotePrintJob->InitializePrint(
+      nsString(aTitle), nsString(aPrintToFileName), aStartPage, aEndPage);
 }
 
 NS_IMETHODIMP

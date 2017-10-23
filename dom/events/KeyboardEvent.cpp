@@ -14,16 +14,16 @@ namespace dom {
 KeyboardEvent::KeyboardEvent(EventTarget* aOwner,
                              nsPresContext* aPresContext,
                              WidgetKeyboardEvent* aEvent)
-  : UIEvent(aOwner, aPresContext,
-            aEvent ? aEvent :
-                     new WidgetKeyboardEvent(false, eVoidEvent, nullptr))
-  , mInitializedByCtor(false)
-  , mInitializedWhichValue(0)
+    : UIEvent(aOwner,
+              aPresContext,
+              aEvent ? aEvent
+                     : new WidgetKeyboardEvent(false, eVoidEvent, nullptr)),
+      mInitializedByCtor(false),
+      mInitializedWhichValue(0)
 {
   if (aEvent) {
     mEventIsInternal = false;
-  }
-  else {
+  } else {
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
     mEvent->AsKeyboardEvent()->mKeyNameIndex = KEY_NAME_INDEX_USE_STRING;
@@ -114,8 +114,7 @@ KeyboardEvent::IsComposing()
 }
 
 NS_IMETHODIMP
-KeyboardEvent::GetModifierState(const nsAString& aKey,
-                                bool* aState)
+KeyboardEvent::GetModifierState(const nsAString& aKey, bool* aState)
 {
   NS_ENSURE_ARG_POINTER(aState);
 
@@ -136,7 +135,8 @@ KeyboardEvent::GetCode(nsAString& aCodeName)
   mEvent->AsKeyboardEvent()->GetDOMCodeName(aCodeName);
 }
 
-void KeyboardEvent::GetInitDict(KeyboardEventInit& aParam)
+void
+KeyboardEvent::GetInitDict(KeyboardEventInit& aParam)
 {
   GetKey(aParam.mKey);
   GetCode(aParam.mCode);
@@ -167,7 +167,7 @@ void KeyboardEvent::GetInitDict(KeyboardEventInit& aParam)
   aParam.mModifierSymbolLock = internalEvent->IsSymbolLocked();
 
   // EventInit
-  aParam.mBubbles =  internalEvent->mFlags.mBubbles;
+  aParam.mBubbles = internalEvent->mFlags.mBubbles;
   aParam.mCancelable = internalEvent->mFlags.mCancelable;
 }
 
@@ -188,16 +188,16 @@ KeyboardEvent::CharCode()
   }
 
   switch (mEvent->mMessage) {
-  case eKeyDown:
-  case eKeyDownOnPlugin:
-  case eKeyUp:
-  case eKeyUpOnPlugin:
-    return 0;
-  case eKeyPress:
-  case eAccessKeyNotFound:
-    return mEvent->AsKeyboardEvent()->mCharCode;
-  default:
-    break;
+    case eKeyDown:
+    case eKeyDownOnPlugin:
+    case eKeyUp:
+    case eKeyUpOnPlugin:
+      return 0;
+    case eKeyPress:
+    case eAccessKeyNotFound:
+      return mEvent->AsKeyboardEvent()->mCharCode;
+    default:
+      break;
   }
   return 0;
 }
@@ -278,8 +278,7 @@ KeyboardEvent::Constructor(const GlobalObject& aGlobal,
                            ErrorResult& aRv)
 {
   nsCOMPtr<EventTarget> target = do_QueryInterface(aGlobal.GetAsSupports());
-  RefPtr<KeyboardEvent> newEvent =
-    new KeyboardEvent(target, nullptr, nullptr);
+  RefPtr<KeyboardEvent> newEvent = new KeyboardEvent(target, nullptr, nullptr);
   newEvent->InitWithKeyboardEventInit(target, aType, aParam, aRv);
 
   return newEvent.forget();
@@ -292,9 +291,16 @@ KeyboardEvent::InitWithKeyboardEventInit(EventTarget* aOwner,
                                          ErrorResult& aRv)
 {
   bool trusted = Init(aOwner);
-  InitKeyEvent(aType, aParam.mBubbles, aParam.mCancelable,
-               aParam.mView, false, false, false, false,
-               aParam.mKeyCode, aParam.mCharCode);
+  InitKeyEvent(aType,
+               aParam.mBubbles,
+               aParam.mCancelable,
+               aParam.mView,
+               false,
+               false,
+               false,
+               false,
+               aParam.mKeyCode,
+               aParam.mCharCode);
   InitModifiers(aParam);
   SetTrusted(trusted);
   mDetail = aParam.mDetail;
@@ -306,12 +312,12 @@ KeyboardEvent::InitWithKeyboardEventInit(EventTarget* aOwner,
   internalEvent->mIsRepeat = aParam.mRepeat;
   internalEvent->mIsComposing = aParam.mIsComposing;
   internalEvent->mKeyNameIndex =
-    WidgetKeyboardEvent::GetKeyNameIndex(aParam.mKey);
+      WidgetKeyboardEvent::GetKeyNameIndex(aParam.mKey);
   if (internalEvent->mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
     internalEvent->mKeyValue = aParam.mKey;
   }
   internalEvent->mCodeNameIndex =
-    WidgetKeyboardEvent::GetCodeNameIndex(aParam.mCode);
+      WidgetKeyboardEvent::GetCodeNameIndex(aParam.mCode);
   if (internalEvent->mCodeNameIndex == CODE_NAME_INDEX_USE_STRING) {
     internalEvent->mCodeValue = aParam.mCode;
   }
@@ -365,8 +371,8 @@ KeyboardEvent::InitKeyboardEvent(const nsAString& aType,
   keyEvent->mKeyValue = aKey;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

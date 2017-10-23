@@ -19,20 +19,19 @@ namespace layers {
 class MLGDevice;
 
 // A StagingBuffer is a writable memory buffer for arbitrary contents.
-template <size_t Alignment = 0>
+template<size_t Alignment = 0>
 class StagingBuffer
 {
-public:
-  StagingBuffer()
-   : StagingBuffer(0)
-  {}
+ public:
+  StagingBuffer() : StagingBuffer(0) {}
 
   // By default, staging buffers operate in "forward" mode: items are added to
   // the end of the buffer. In "reverse" mode the cursor is at the end of the
   // buffer, and items are added to the beginning.
   //
   // This must be called before the buffer is written.
-  void SetReversed() {
+  void SetReversed()
+  {
     MOZ_ASSERT(IsEmpty());
     mReversed = true;
   }
@@ -43,8 +42,9 @@ public:
   //
   // This directs to either AppendItem or PrependItem depending on the buffer
   // state.
-  template <typename T>
-  bool AddItem(const T& aItem) {
+  template<typename T>
+  bool AddItem(const T& aItem)
+  {
     if (mReversed) {
       return PrependItem(aItem);
     }
@@ -52,8 +52,9 @@ public:
   }
 
   // Helper for adding a single item as two components.
-  template <typename T1, typename T2>
-  bool AddItem(const T1& aItem1, const T2& aItem2) {
+  template<typename T1, typename T2>
+  bool AddItem(const T1& aItem1, const T2& aItem2)
+  {
     if (mReversed) {
       return PrependItem(aItem1, aItem2);
     }
@@ -61,8 +62,9 @@ public:
   }
 
   // This may only be called on forward buffers.
-  template <typename T>
-  bool AppendItem(const T& aItem) {
+  template<typename T>
+  bool AppendItem(const T& aItem)
+  {
     MOZ_ASSERT(!mReversed);
 
     size_t alignedBytes = AlignUp<Alignment>::calc(sizeof(aItem));
@@ -87,12 +89,14 @@ public:
   }
 
   // Append an item in two stages.
-  template <typename T1, typename T2>
-  bool AppendItem(const T1& aFirst, const T2& aSecond) {
-    struct Combined {
+  template<typename T1, typename T2>
+  bool AppendItem(const T1& aFirst, const T2& aSecond)
+  {
+    struct Combined
+    {
       T1 first;
       T2 second;
-    } value = { aFirst, aSecond };
+    } value = {aFirst, aSecond};
 
     // The combined value must be packed.
     static_assert(sizeof(value) == sizeof(aFirst) + sizeof(aSecond),
@@ -101,8 +105,9 @@ public:
   }
 
   // This may only be called on reversed buffers.
-  template <typename T>
-  bool PrependItem(const T& aItem) {
+  template<typename T>
+  bool PrependItem(const T& aItem)
+  {
     MOZ_ASSERT(mReversed);
 
     size_t alignedBytes = AlignUp<Alignment>::calc(sizeof(aItem));
@@ -127,12 +132,14 @@ public:
   }
 
   // Prepend an item in two stages.
-  template <typename T1, typename T2>
-  bool PrependItem(const T1& aFirst, const T2& aSecond) {
-    struct Combined {
+  template<typename T1, typename T2>
+  bool PrependItem(const T1& aFirst, const T2& aSecond)
+  {
+    struct Combined
+    {
       T1 first;
       T2 second;
-    } value = { aFirst, aSecond };
+    } value = {aFirst, aSecond};
 
     // The combined value must be packed.
     static_assert(sizeof(value) == sizeof(aFirst) + sizeof(aSecond),
@@ -140,24 +147,16 @@ public:
     return PrependItem(value);
   }
 
-  size_t NumBytes() const {
-    return mReversed
-           ? mEnd - mPos
-           : mPos - mBuffer.get();
+  size_t NumBytes() const
+  {
+    return mReversed ? mEnd - mPos : mPos - mBuffer.get();
   }
-  uint8_t* GetBufferStart() const {
-    return mReversed
-           ? mPos
-           : mBuffer.get();
-  }
-  size_t SizeOfItem() const {
-    return mUniformSize;
-  }
-  size_t NumItems() const {
-    return mNumItems;
-  }
+  uint8_t* GetBufferStart() const { return mReversed ? mPos : mBuffer.get(); }
+  size_t SizeOfItem() const { return mUniformSize; }
+  size_t NumItems() const { return mNumItems; }
 
-  void Reset() {
+  void Reset()
+  {
     mPos = mReversed ? mEnd : mBuffer.get();
     mUniformSize = 0;
     mNumItems = 0;
@@ -165,11 +164,10 @@ public:
 
   // RestorePosition must only be called with a previous call to
   // GetPosition.
-  typedef std::pair<size_t,size_t> Position;
-  Position GetPosition() const {
-    return std::make_pair(NumBytes(), mNumItems);
-  }
-  void RestorePosition(const Position& aPosition) {
+  typedef std::pair<size_t, size_t> Position;
+  Position GetPosition() const { return std::make_pair(NumBytes(), mNumItems); }
+  void RestorePosition(const Position& aPosition)
+  {
     mPos = mBuffer.get() + aPosition.first;
     mNumItems = aPosition.second;
     if (mNumItems == 0) {
@@ -181,37 +179,39 @@ public:
     MOZ_ASSERT(mNumItems * mUniformSize == NumBytes());
   }
 
-  bool IsEmpty() const {
-    return mNumItems == 0;
-  }
+  bool IsEmpty() const { return mNumItems == 0; }
 
-protected:
+ protected:
   explicit StagingBuffer(size_t aMaxSize)
-   : mPos(nullptr),
-     mEnd(nullptr),
-     mUniformSize(0),
-     mNumItems(0),
-     mMaxSize(aMaxSize),
-     mReversed(false)
-  {}
+      : mPos(nullptr),
+        mEnd(nullptr),
+        mUniformSize(0),
+        mNumItems(0),
+        mMaxSize(aMaxSize),
+        mReversed(false)
+  {
+  }
 
   static const size_t kDefaultSize = 8;
 
-  bool EnsureForwardRoomFor(size_t aAlignedBytes) {
+  bool EnsureForwardRoomFor(size_t aAlignedBytes)
+  {
     if (size_t(mEnd - mPos) < aAlignedBytes) {
       return GrowBuffer(aAlignedBytes);
     }
     return true;
   }
 
-  bool EnsureBackwardRoomFor(size_t aAlignedBytes) {
+  bool EnsureBackwardRoomFor(size_t aAlignedBytes)
+  {
     if (size_t(mPos - mBuffer.get()) < aAlignedBytes) {
       return GrowBuffer(aAlignedBytes);
     }
     return true;
   }
 
-  bool GrowBuffer(size_t aAlignedBytes) {
+  bool GrowBuffer(size_t aAlignedBytes)
+  {
     // We should not be writing items that are potentially bigger than the
     // maximum constant buffer size, that's crazy. An assert should be good
     // enough since the size of writes is static - and shader compilers
@@ -267,7 +267,7 @@ protected:
     return true;
   }
 
-protected:
+ protected:
   UniquePtr<uint8_t[]> mBuffer;
   uint8_t* mPos;
   uint8_t* mEnd;
@@ -283,7 +283,7 @@ class ConstantStagingBuffer : public StagingBuffer<16>
   explicit ConstantStagingBuffer(MLGDevice* aDevice);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_StagingBuffer_h
+#endif  // mozilla_gfx_layers_mlgpu_StagingBuffer_h

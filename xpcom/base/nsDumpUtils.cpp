@@ -14,7 +14,7 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Unused.h"
 
-#ifdef XP_UNIX // {
+#ifdef XP_UNIX  // {
 #include "mozilla/Preferences.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -50,7 +50,7 @@ using namespace mozilla;
 static Atomic<int> sDumpPipeWriteFd(-1);
 
 const char* const FifoWatcher::kPrefName =
-  "memory_info_dumper.watch_fifo.enabled";
+    "memory_info_dumper.watch_fifo.enabled";
 
 static void
 DumpSignalHandler(int aSignum)
@@ -75,7 +75,7 @@ FdWatcher::Init()
   os->AddObserver(this, "xpcom-shutdown", /* ownsWeak = */ false);
 
   XRE_GetIOMessageLoop()->PostTask(NewRunnableMethod(
-    "FdWatcher::StartWatching", this, &FdWatcher::StartWatching));
+      "FdWatcher::StartWatching", this, &FdWatcher::StartWatching));
 }
 
 // Implementations may call this function multiple times if they ensure that
@@ -93,10 +93,11 @@ FdWatcher::StartWatching()
     return;
   }
 
-  MessageLoopForIO::current()->WatchFileDescriptor(
-    mFd, /* persistent = */ true,
-    MessageLoopForIO::WATCH_READ,
-    &mReadWatcher, this);
+  MessageLoopForIO::current()->WatchFileDescriptor(mFd,
+                                                   /* persistent = */ true,
+                                                   MessageLoopForIO::WATCH_READ,
+                                                   &mReadWatcher,
+                                                   this);
 }
 
 // Since implementations can call StartWatching() multiple times, they can of
@@ -127,8 +128,7 @@ SignalPipeWatcher::GetSingleton()
 }
 
 void
-SignalPipeWatcher::RegisterCallback(uint8_t aSignal,
-                                    PipeCallback aCallback)
+SignalPipeWatcher::RegisterCallback(uint8_t aSignal, PipeCallback aCallback)
 {
   MutexAutoLock lock(mSignalInfoLock);
 
@@ -138,7 +138,7 @@ SignalPipeWatcher::RegisterCallback(uint8_t aSignal,
       return;
     }
   }
-  SignalInfo signalInfo = { aSignal, aCallback };
+  SignalInfo signalInfo = {aSignal, aCallback};
   mSignalInfo.AppendElement(signalInfo);
   RegisterSignalHandler(signalInfo.mSignal);
 }
@@ -160,7 +160,8 @@ SignalPipeWatcher::RegisterSignalHandler(uint8_t aSignal)
     for (SignalInfoArray::index_type i = 0; i < mSignalInfo.Length(); i++) {
       if (sigaction(mSignalInfo[i].mSignal, &action, nullptr)) {
         LOG("SignalPipeWatcher failed to register signal(%d) "
-            "dump signal handler.", mSignalInfo[i].mSignal);
+            "dump signal handler.",
+            mSignalInfo[i].mSignal);
       }
     }
   }
@@ -289,13 +290,11 @@ FifoWatcher::RegisterCallback(const nsCString& aCommand, FifoCallback aCallback)
       return;
     }
   }
-  FifoInfo aFifoInfo = { aCommand, aCallback };
+  FifoInfo aFifoInfo = {aCommand, aCallback};
   mFifoInfo.AppendElement(aFifoInfo);
 }
 
-FifoWatcher::~FifoWatcher()
-{
-}
+FifoWatcher::~FifoWatcher() {}
 
 int
 FifoWatcher::OpenFd()
@@ -335,7 +334,8 @@ FifoWatcher::OpenFd()
   // try to mkfifo or open the file.
   if (unlink(path.get())) {
     LOG("FifoWatcher::OpenFifo unlink failed; errno=%d.  "
-        "Continuing despite error.", errno);
+        "Continuing despite error.",
+        errno);
   }
 
   if (mkfifo(path.get(), 0766)) {
@@ -426,14 +426,16 @@ FifoWatcher::OnFileCanReadWithoutBlocking(int aFd)
   LOG("Got unexpected value from fifo; ignoring it.");
 }
 
-#endif // XP_UNIX }
+#endif  // XP_UNIX }
 
 // In Android case, this function will open a file named aFilename under
 // /data/local/tmp/"aFoldername".
 // Otherwise, it will open a file named aFilename under "NS_OS_TEMP_DIR".
 /* static */ nsresult
-nsDumpUtils::OpenTempFile(const nsACString& aFilename, nsIFile** aFile,
-                          const nsACString& aFoldername, Mode aMode)
+nsDumpUtils::OpenTempFile(const nsACString& aFilename,
+                          nsIFile** aFile,
+                          const nsACString& aFoldername,
+                          Mode aMode)
 {
 #ifdef ANDROID
   // For Android, first try the downloads directory which is world-readable

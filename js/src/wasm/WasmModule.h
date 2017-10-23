@@ -40,8 +40,7 @@ struct CompileArgs;
 // destroyed by the Module since it is not needed after instantiation; Metadata
 // is needed at runtime.
 
-struct LinkDataTierCacheablePod
-{
+struct LinkDataTierCacheablePod {
     uint32_t interruptOffset;
     uint32_t outOfBoundsOffset;
     uint32_t unalignedAccessOffset;
@@ -49,8 +48,7 @@ struct LinkDataTierCacheablePod
     LinkDataTierCacheablePod() { mozilla::PodZero(this); }
 };
 
-struct LinkDataTier : LinkDataTierCacheablePod
-{
+struct LinkDataTier : LinkDataTierCacheablePod {
     const Tier tier;
 
     explicit LinkDataTier(Tier tier) : tier(tier) {}
@@ -64,25 +62,25 @@ struct LinkDataTier : LinkDataTierCacheablePod
     };
     typedef Vector<InternalLink, 0, SystemAllocPolicy> InternalLinkVector;
 
-    struct SymbolicLinkArray : EnumeratedArray<SymbolicAddress, SymbolicAddress::Limit, Uint32Vector> {
+    struct SymbolicLinkArray
+        : EnumeratedArray<SymbolicAddress, SymbolicAddress::Limit, Uint32Vector> {
         WASM_DECLARE_SERIALIZABLE(SymbolicLinkArray)
     };
 
-    InternalLinkVector  internalLinks;
-    SymbolicLinkArray   symbolicLinks;
+    InternalLinkVector internalLinks;
+    SymbolicLinkArray symbolicLinks;
 
     WASM_DECLARE_SERIALIZABLE(LinkData)
 };
 
 typedef UniquePtr<LinkDataTier> UniqueLinkDataTier;
 
-class LinkData
-{
-    SharedMetadata             metadata_;
-    UniqueLinkDataTier         linkData1_;     // Always present
-    mutable UniqueLinkDataTier linkData2_;     // Access only if hasTier2() is true
+class LinkData {
+    SharedMetadata metadata_;
+    UniqueLinkDataTier linkData1_;          // Always present
+    mutable UniqueLinkDataTier linkData2_;  // Access only if hasTier2() is true
 
-  public:
+   public:
     bool initTier1(Tier tier, const Metadata& metadata);
 
     bool hasTier2() const { return metadata_->hasTier2(); }
@@ -105,12 +103,14 @@ class LinkData
 // background tier-2 compilation in progress and, if so, the list of listeners
 // waiting for the tier-2 compilation to complete.
 
-struct Tiering
-{
+struct Tiering {
     typedef Vector<RefPtr<JS::WasmModuleListener>, 0, SystemAllocPolicy> ListenerVector;
 
     Tiering() : active(false) {}
-    ~Tiering() { MOZ_ASSERT(listeners.empty()); MOZ_ASSERT(!active); }
+    ~Tiering() {
+        MOZ_ASSERT(listeners.empty());
+        MOZ_ASSERT(!active);
+    }
 
     ListenerVector listeners;
     bool active;
@@ -131,65 +131,56 @@ typedef ExclusiveWaitableData<Tiering> ExclusiveTiering;
 // first instance; it then instantiates new Code objects from a copy of the
 // unlinked code that it keeps around for that purpose.
 
-class Module : public JS::WasmModule
-{
-    const Assumptions       assumptions_;
-    const SharedCode        code_;
-    const UniqueConstBytes  unlinkedCodeForDebugging_;
-    const LinkData          linkData_;
-    const ImportVector      imports_;
-    const ExportVector      exports_;
+class Module : public JS::WasmModule {
+    const Assumptions assumptions_;
+    const SharedCode code_;
+    const UniqueConstBytes unlinkedCodeForDebugging_;
+    const LinkData linkData_;
+    const ImportVector imports_;
+    const ExportVector exports_;
     const DataSegmentVector dataSegments_;
     const ElemSegmentVector elemSegments_;
-    const SharedBytes       bytecode_;
-    ExclusiveTiering        tiering_;
+    const SharedBytes bytecode_;
+    ExclusiveTiering tiering_;
 
     // `codeIsBusy_` is set to false initially and then to true when `code_` is
     // already being used for an instance and can't be shared because it may be
     // patched by the debugger. Subsequent instances must then create copies
     // by linking the `unlinkedCodeForDebugging_`.
 
-    mutable Atomic<bool>    codeIsBusy_;
+    mutable Atomic<bool> codeIsBusy_;
 
     bool instantiateFunctions(JSContext* cx, Handle<FunctionVector> funcImports) const;
     bool instantiateMemory(JSContext* cx, MutableHandleWasmMemoryObject memory) const;
-    bool instantiateTable(JSContext* cx,
-                          MutableHandleWasmTableObject table,
+    bool instantiateTable(JSContext* cx, MutableHandleWasmTableObject table,
                           SharedTableVector* tables) const;
-    bool initSegments(JSContext* cx,
-                      HandleWasmInstanceObject instance,
-                      Handle<FunctionVector> funcImports,
-                      HandleWasmMemoryObject memory,
+    bool initSegments(JSContext* cx, HandleWasmInstanceObject instance,
+                      Handle<FunctionVector> funcImports, HandleWasmMemoryObject memory,
                       const ValVector& globalImports) const;
 
     class Tier2GeneratorTaskImpl;
     void notifyCompilationListeners();
 
-  public:
-    Module(Assumptions&& assumptions,
-           const Code& code,
-           UniqueConstBytes unlinkedCodeForDebugging,
-           LinkData&& linkData,
-           ImportVector&& imports,
-           ExportVector&& exports,
-           DataSegmentVector&& dataSegments,
-           ElemSegmentVector&& elemSegments,
+   public:
+    Module(Assumptions&& assumptions, const Code& code, UniqueConstBytes unlinkedCodeForDebugging,
+           LinkData&& linkData, ImportVector&& imports, ExportVector&& exports,
+           DataSegmentVector&& dataSegments, ElemSegmentVector&& elemSegments,
            const ShareableBytes& bytecode)
-      : assumptions_(Move(assumptions)),
-        code_(&code),
-        unlinkedCodeForDebugging_(Move(unlinkedCodeForDebugging)),
-        linkData_(Move(linkData)),
-        imports_(Move(imports)),
-        exports_(Move(exports)),
-        dataSegments_(Move(dataSegments)),
-        elemSegments_(Move(elemSegments)),
-        bytecode_(&bytecode),
-        tiering_(mutexid::WasmModuleTieringLock),
-        codeIsBusy_(false)
-    {
+        : assumptions_(Move(assumptions)),
+          code_(&code),
+          unlinkedCodeForDebugging_(Move(unlinkedCodeForDebugging)),
+          linkData_(Move(linkData)),
+          imports_(Move(imports)),
+          exports_(Move(exports)),
+          dataSegments_(Move(dataSegments)),
+          elemSegments_(Move(elemSegments)),
+          bytecode_(&bytecode),
+          tiering_(mutexid::WasmModuleTieringLock),
+          codeIsBusy_(false) {
         MOZ_ASSERT_IF(metadata().debugEnabled, unlinkedCodeForDebugging_);
     }
-    ~Module() override { /* Note: can be called on any thread */ }
+    ~Module() override { /* Note: can be called on any thread */
+    }
 
     const Code& code() const { return *code_; }
     const CodeSegment& codeSegment(Tier t) const { return code_->segment(t); }
@@ -204,12 +195,9 @@ class Module : public JS::WasmModule
 
     // Instantiate this module with the given imports:
 
-    bool instantiate(JSContext* cx,
-                     Handle<FunctionVector> funcImports,
-                     HandleWasmTableObject tableImport,
-                     HandleWasmMemoryObject memoryImport,
-                     const ValVector& globalImports,
-                     HandleObject instanceProto,
+    bool instantiate(JSContext* cx, Handle<FunctionVector> funcImports,
+                     HandleWasmTableObject tableImport, HandleWasmMemoryObject memoryImport,
+                     const ValVector& globalImports, HandleObject instanceProto,
                      MutableHandleWasmInstanceObject instanceObj) const;
 
     // Tier-2 compilation may be initiated after the Module is constructed at
@@ -241,11 +229,9 @@ class Module : public JS::WasmModule
 
     // about:memory reporting:
 
-    void addSizeOfMisc(MallocSizeOf mallocSizeOf,
-                       Metadata::SeenSet* seenMetadata,
-                       ShareableBytes::SeenSet* seenBytes,
-                       Code::SeenSet* seenCode,
-                       size_t* code, size_t* data) const;
+    void addSizeOfMisc(MallocSizeOf mallocSizeOf, Metadata::SeenSet* seenMetadata,
+                       ShareableBytes::SeenSet* seenBytes, Code::SeenSet* seenCode, size_t* code,
+                       size_t* data) const;
 
     // Generated code analysis support:
 
@@ -256,14 +242,13 @@ typedef RefPtr<Module> SharedModule;
 
 // JS API implementations:
 
-bool
-CompiledModuleAssumptionsMatch(PRFileDesc* compiled, JS::BuildIdCharVector&& buildId);
+bool CompiledModuleAssumptionsMatch(PRFileDesc* compiled, JS::BuildIdCharVector&& buildId);
 
-SharedModule
-DeserializeModule(PRFileDesc* bytecode, PRFileDesc* maybeCompiled, JS::BuildIdCharVector&& buildId,
-                  UniqueChars filename, unsigned line, unsigned column);
+SharedModule DeserializeModule(PRFileDesc* bytecode, PRFileDesc* maybeCompiled,
+                               JS::BuildIdCharVector&& buildId, UniqueChars filename,
+                               unsigned line, unsigned column);
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_module_h
+#endif  // wasm_module_h

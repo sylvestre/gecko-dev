@@ -14,22 +14,22 @@ class nsGlobalWindow;
 namespace mozilla {
 namespace dom {
 
-class WindowOrientationObserver final :
-  public mozilla::hal::ScreenConfigurationObserver
+class WindowOrientationObserver final
+    : public mozilla::hal::ScreenConfigurationObserver
 {
-public:
+ public:
   explicit WindowOrientationObserver(nsGlobalWindow* aGlobalWindow);
   ~WindowOrientationObserver();
   void Notify(const mozilla::hal::ScreenConfiguration& aConfiguration) override;
   static int16_t OrientationAngle();
 
-private:
+ private:
   // Weak pointer, instance is owned by mWindow.
   nsGlobalWindow* MOZ_NON_OWNING_REF mWindow;
   uint16_t mAngle;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WindowOrientationObserver_h
+#endif  // mozilla_dom_WindowOrientationObserver_h

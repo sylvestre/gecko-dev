@@ -17,8 +17,8 @@
 
 using namespace mozilla;
 using namespace mozilla::gfx;
-using mozilla::layers::LayerManager;
 using mozilla::layers::ImageContainer;
+using mozilla::layers::LayerManager;
 
 namespace mozilla {
 namespace image {
@@ -47,11 +47,13 @@ DynamicImage::CollectSizeOfSurfaces(nsTArray<SurfaceMemoryCounter>& aCounters,
 
 void
 DynamicImage::IncrementAnimationConsumers()
-{ }
+{
+}
 
 void
 DynamicImage::DecrementAnimationConsumers()
-{ }
+{
+}
 
 #ifdef DEBUG
 uint32_t
@@ -82,11 +84,13 @@ DynamicImage::OnImageDataComplete(nsIRequest* aRequest,
 
 void
 DynamicImage::OnSurfaceDiscarded(const SurfaceKey& aSurfaceKey)
-{ }
+{
+}
 
 void
 DynamicImage::SetInnerWindowID(uint64_t aInnerWindowId)
-{ }
+{
+}
 
 uint64_t
 DynamicImage::InnerWindowID() const
@@ -102,7 +106,8 @@ DynamicImage::HasError()
 
 void
 DynamicImage::SetHasError()
-{ }
+{
+}
 
 ImageURL*
 DynamicImage::GetURI()
@@ -157,10 +162,7 @@ DynamicImage::GetIntrinsicRatio(nsSize* aSize)
 }
 
 NS_IMETHODIMP_(Orientation)
-DynamicImage::GetOrientation()
-{
-  return Orientation();
-}
+DynamicImage::GetOrientation() { return Orientation(); }
 
 NS_IMETHODIMP
 DynamicImage::GetType(uint16_t* aType)
@@ -177,13 +179,10 @@ DynamicImage::GetAnimated(bool* aAnimated)
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
-DynamicImage::GetFrame(uint32_t aWhichFrame,
-                       uint32_t aFlags)
+DynamicImage::GetFrame(uint32_t aWhichFrame, uint32_t aFlags)
 {
   IntSize size(mDrawable->Size());
-  return GetFrameAtSize(IntSize(size.width, size.height),
-                        aWhichFrame,
-                        aFlags);
+  return GetFrameAtSize(IntSize(size.width, size.height), aWhichFrame, aFlags);
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
@@ -191,28 +190,31 @@ DynamicImage::GetFrameAtSize(const IntSize& aSize,
                              uint32_t aWhichFrame,
                              uint32_t aFlags)
 {
-  RefPtr<DrawTarget> dt = gfxPlatform::GetPlatform()->
-    CreateOffscreenContentDrawTarget(aSize, SurfaceFormat::B8G8R8A8);
+  RefPtr<DrawTarget> dt =
+      gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
+          aSize, SurfaceFormat::B8G8R8A8);
   if (!dt || !dt->IsValid()) {
-    gfxWarning() <<
-      "DynamicImage::GetFrame failed in CreateOffscreenContentDrawTarget";
+    gfxWarning()
+        << "DynamicImage::GetFrame failed in CreateOffscreenContentDrawTarget";
     return nullptr;
   }
   RefPtr<gfxContext> context = gfxContext::CreateOrNull(dt);
-  MOZ_ASSERT(context); // already checked the draw target above
+  MOZ_ASSERT(context);  // already checked the draw target above
 
-  auto result = Draw(context, aSize, ImageRegion::Create(aSize),
-                     aWhichFrame, SamplingFilter::POINT, Nothing(), aFlags,
+  auto result = Draw(context,
+                     aSize,
+                     ImageRegion::Create(aSize),
+                     aWhichFrame,
+                     SamplingFilter::POINT,
+                     Nothing(),
+                     aFlags,
                      1.0);
 
   return result == DrawResult::SUCCESS ? dt->Snapshot() : nullptr;
 }
 
 NS_IMETHODIMP_(bool)
-DynamicImage::WillDrawOpaqueNow()
-{
-  return false;
-}
+DynamicImage::WillDrawOpaqueNow() { return false; }
 
 NS_IMETHODIMP_(bool)
 DynamicImage::IsImageContainerAvailable(LayerManager* aManager, uint32_t aFlags)
@@ -241,8 +243,12 @@ DynamicImage::Draw(gfxContext* aContext,
   IntSize drawableSize(mDrawable->Size());
 
   if (aSize == drawableSize) {
-    gfxUtils::DrawPixelSnapped(aContext, mDrawable, SizeDouble(drawableSize), aRegion,
-                               SurfaceFormat::B8G8R8A8, aSamplingFilter,
+    gfxUtils::DrawPixelSnapped(aContext,
+                               mDrawable,
+                               SizeDouble(drawableSize),
+                               aRegion,
+                               SurfaceFormat::B8G8R8A8,
+                               aSamplingFilter,
                                aOpacity);
     return DrawResult::SUCCESS;
   }
@@ -256,17 +262,18 @@ DynamicImage::Draw(gfxContext* aContext,
   gfxContextMatrixAutoSaveRestore saveMatrix(aContext);
   aContext->Multiply(gfxMatrix::Scaling(scale.width, scale.height));
 
-  gfxUtils::DrawPixelSnapped(aContext, mDrawable, SizeDouble(drawableSize), region,
-                             SurfaceFormat::B8G8R8A8, aSamplingFilter,
+  gfxUtils::DrawPixelSnapped(aContext,
+                             mDrawable,
+                             SizeDouble(drawableSize),
+                             region,
+                             SurfaceFormat::B8G8R8A8,
+                             aSamplingFilter,
                              aOpacity);
   return DrawResult::SUCCESS;
 }
 
 NS_IMETHODIMP
-DynamicImage::StartDecoding(uint32_t aFlags)
-{
-  return NS_OK;
-}
+DynamicImage::StartDecoding(uint32_t aFlags) { return NS_OK; }
 
 bool
 DynamicImage::StartDecodingWithResult(uint32_t aFlags)
@@ -281,26 +288,16 @@ DynamicImage::RequestDecodeForSize(const nsIntSize& aSize, uint32_t aFlags)
 }
 
 NS_IMETHODIMP
-DynamicImage::LockImage()
-{
-  return NS_OK;
-}
+DynamicImage::LockImage() { return NS_OK; }
 
 NS_IMETHODIMP
-DynamicImage::UnlockImage()
-{
-  return NS_OK;
-}
+DynamicImage::UnlockImage() { return NS_OK; }
 
 NS_IMETHODIMP
-DynamicImage::RequestDiscard()
-{
-  return NS_OK;
-}
+DynamicImage::RequestDiscard() { return NS_OK; }
 
 NS_IMETHODIMP_(void)
-DynamicImage::RequestRefresh(const mozilla::TimeStamp& aTime)
-{ }
+DynamicImage::RequestRefresh(const mozilla::TimeStamp& aTime) {}
 
 NS_IMETHODIMP
 DynamicImage::GetAnimationMode(uint16_t* aAnimationMode)
@@ -310,32 +307,19 @@ DynamicImage::GetAnimationMode(uint16_t* aAnimationMode)
 }
 
 NS_IMETHODIMP
-DynamicImage::SetAnimationMode(uint16_t aAnimationMode)
-{
-  return NS_OK;
-}
+DynamicImage::SetAnimationMode(uint16_t aAnimationMode) { return NS_OK; }
 
 NS_IMETHODIMP
-DynamicImage::ResetAnimation()
-{
-  return NS_OK;
-}
+DynamicImage::ResetAnimation() { return NS_OK; }
 
 NS_IMETHODIMP_(float)
-DynamicImage::GetFrameIndex(uint32_t aWhichFrame)
-{
-  return 0;
-}
+DynamicImage::GetFrameIndex(uint32_t aWhichFrame) { return 0; }
 
 NS_IMETHODIMP_(int32_t)
-DynamicImage::GetFirstFrameDelay()
-{
-  return 0;
-}
+DynamicImage::GetFirstFrameDelay() { return 0; }
 
 NS_IMETHODIMP_(void)
-DynamicImage::SetAnimationStartTime(const mozilla::TimeStamp& aTime)
-{ }
+DynamicImage::SetAnimationStartTime(const mozilla::TimeStamp& aTime) {}
 
 nsIntSize
 DynamicImage::OptimalImageSizeForDest(const gfxSize& aDest,
@@ -366,5 +350,5 @@ DynamicImage::PropagateUseCounters(nsIDocument*)
   // No use counters.
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

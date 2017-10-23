@@ -18,22 +18,22 @@
 #include <gtk/gtkversion.h>
 
 static inline void
-gtk_widget_set_mapped(GtkWidget *widget, gboolean mapped)
+gtk_widget_set_mapped(GtkWidget* widget, gboolean mapped)
 {
   if (mapped)
-    GTK_WIDGET_SET_FLAGS (widget, GTK_MAPPED);
+    GTK_WIDGET_SET_FLAGS(widget, GTK_MAPPED);
   else
-    GTK_WIDGET_UNSET_FLAGS (widget, GTK_MAPPED);
+    GTK_WIDGET_UNSET_FLAGS(widget, GTK_MAPPED);
 }
 
 static inline gboolean
-gtk_widget_get_mapped(GtkWidget *widget)
+gtk_widget_get_mapped(GtkWidget* widget)
 {
-  return GTK_WIDGET_MAPPED (widget);
+  return GTK_WIDGET_MAPPED(widget);
 }
 
 static inline void
-gtk_widget_set_realized(GtkWidget *widget, gboolean realized)
+gtk_widget_set_realized(GtkWidget* widget, gboolean realized)
 {
   if (realized)
     GTK_WIDGET_SET_FLAGS(widget, GTK_REALIZED);
@@ -42,9 +42,9 @@ gtk_widget_set_realized(GtkWidget *widget, gboolean realized)
 }
 
 static inline gboolean
-gtk_widget_get_realized(GtkWidget *widget)
+gtk_widget_get_realized(GtkWidget* widget)
 {
-  return GTK_WIDGET_REALIZED (widget);
+  return GTK_WIDGET_REALIZED(widget);
 }
 
 #endif /* GTKWIDGET_WRAPPER_H */

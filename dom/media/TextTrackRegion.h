@@ -20,42 +20,29 @@ namespace dom {
 class GlobalObject;
 class TextTrack;
 
-class TextTrackRegion final : public nsISupports,
-                              public nsWrapperCache
+class TextTrackRegion final : public nsISupports, public nsWrapperCache
 {
-public:
-
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TextTrackRegion)
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  nsISupports* GetParentObject() const
-  {
-    return mParent;
-  }
+  nsISupports* GetParentObject() const { return mParent; }
 
   explicit TextTrackRegion(nsISupports* aGlobal);
 
   /** WebIDL Methods. */
 
-  static already_AddRefed<TextTrackRegion>
-  Constructor(const GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<TextTrackRegion> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
 
-  double Lines() const
-  {
-    return mLines;
-  }
+  double Lines() const { return mLines; }
 
-  void SetLines(double aLines)
-  {
-    mLines = aLines;
-  }
+  void SetLines(double aLines) { mLines = aLines; }
 
-  double Width() const
-  {
-    return mWidth;
-  }
+  double Width() const { return mWidth; }
 
   void SetWidth(double aWidth, ErrorResult& aRv)
   {
@@ -64,10 +51,7 @@ public:
     }
   }
 
-  double RegionAnchorX() const
-  {
-    return mRegionAnchorX;
-  }
+  double RegionAnchorX() const { return mRegionAnchorX; }
 
   void SetRegionAnchorX(double aVal, ErrorResult& aRv)
   {
@@ -76,10 +60,7 @@ public:
     }
   }
 
-  double RegionAnchorY() const
-  {
-    return mRegionAnchorY;
-  }
+  double RegionAnchorY() const { return mRegionAnchorY; }
 
   void SetRegionAnchorY(double aVal, ErrorResult& aRv)
   {
@@ -88,10 +69,7 @@ public:
     }
   }
 
-  double ViewportAnchorX() const
-  {
-    return mViewportAnchorX;
-  }
+  double ViewportAnchorX() const { return mViewportAnchorX; }
 
   void SetViewportAnchorX(double aVal, ErrorResult& aRv)
   {
@@ -100,10 +78,7 @@ public:
     }
   }
 
-  double ViewportAnchorY() const
-  {
-    return mViewportAnchorY;
-  }
+  double ViewportAnchorY() const { return mViewportAnchorY; }
 
   void SetViewportAnchorY(double aVal, ErrorResult& aRv)
   {
@@ -112,10 +87,7 @@ public:
     }
   }
 
-  void GetScroll(nsAString& aScroll) const
-  {
-    aScroll = mScroll;
-  }
+  void GetScroll(nsAString& aScroll) const { aScroll = mScroll; }
 
   void SetScroll(const nsAString& aScroll, ErrorResult& aRv)
   {
@@ -129,18 +101,14 @@ public:
 
   /** end WebIDL Methods. */
 
-
   // Helper to aid copying of a given TextTrackRegion's width, lines,
   // anchor, viewport and scroll values.
   void CopyValues(TextTrackRegion& aRegion);
 
   // -----helpers-------
-  const nsAString& Scroll() const
-  {
-    return mScroll;
-  }
+  const nsAString& Scroll() const { return mScroll; }
 
-private:
+ private:
   ~TextTrackRegion() {}
 
   nsCOMPtr<nsISupports> mParent;
@@ -156,17 +124,16 @@ private:
   // an IndexSizeError otherwise.
   inline bool InvalidValue(double aValue, ErrorResult& aRv)
   {
-    if(aValue < 0.0  || aValue > 100.0) {
+    if (aValue < 0.0 || aValue > 100.0) {
       aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
       return true;
     }
 
     return false;
   }
-
 };
 
-} //namespace dom
-} //namespace mozilla
+}  //namespace dom
+}  //namespace mozilla
 
-#endif //mozilla_dom_TextTrackRegion_h
+#endif  //mozilla_dom_TextTrackRegion_h

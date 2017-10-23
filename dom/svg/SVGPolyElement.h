@@ -20,12 +20,12 @@ typedef SVGGeometryElement SVGPolyElementBase;
 
 class SVGPolyElement : public SVGPolyElementBase
 {
-protected:
+ protected:
   explicit SVGPolyElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   virtual ~SVGPolyElement();
 
-public:
+ public:
   //interfaces
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -33,10 +33,12 @@ public:
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* name) const override;
 
-  virtual SVGAnimatedPointList* GetAnimatedPointList() override {
+  virtual SVGAnimatedPointList* GetAnimatedPointList() override
+  {
     return &mPoints;
   }
-  virtual nsAtom* GetPointListAttrName() const override {
+  virtual nsAtom* GetPointListAttrName() const override
+  {
     return nsGkAtoms::points;
   }
 
@@ -44,22 +46,24 @@ public:
   virtual bool HasValidDimensions() const override;
 
   // SVGGeometryElement methods:
-  virtual bool AttributeDefinesGeometry(const nsAtom *aName) override;
+  virtual bool AttributeDefinesGeometry(const nsAtom* aName) override;
   virtual bool IsMarkable() override { return true; }
-  virtual void GetMarkPoints(nsTArray<nsSVGMark> *aMarks) override;
-  virtual bool GetGeometryBounds(Rect* aBounds, const StrokeOptions& aStrokeOptions,
-                                 const Matrix& aToBoundsSpace,
-                                 const Matrix* aToNonScalingStrokeSpace = nullptr) override;
+  virtual void GetMarkPoints(nsTArray<nsSVGMark>* aMarks) override;
+  virtual bool GetGeometryBounds(
+      Rect* aBounds,
+      const StrokeOptions& aStrokeOptions,
+      const Matrix& aToBoundsSpace,
+      const Matrix* aToNonScalingStrokeSpace = nullptr) override;
 
   // WebIDL
   already_AddRefed<mozilla::DOMSVGPointList> Points();
   already_AddRefed<mozilla::DOMSVGPointList> AnimatedPoints();
 
-protected:
+ protected:
   SVGAnimatedPointList mPoints;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //NS_SVGPOLYELEMENT_H_
+#endif  //NS_SVGPOLYELEMENT_H_

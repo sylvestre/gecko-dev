@@ -5,20 +5,12 @@
 
 #include "WindowsEMF.h"
 
-
 namespace mozilla {
 namespace widget {
 
-WindowsEMF::WindowsEMF()
-  : mEmf(nullptr)
-  , mDC(nullptr)
-{
-}
+WindowsEMF::WindowsEMF() : mEmf(nullptr), mDC(nullptr) {}
 
-WindowsEMF::~WindowsEMF()
-{
-  ReleaseAllResource();
-}
+WindowsEMF::~WindowsEMF() { ReleaseAllResource(); }
 
 bool
 WindowsEMF::InitForDrawing(const wchar_t* aMetafilePath /* = nullptr */)
@@ -43,8 +35,8 @@ bool
 WindowsEMF::FinishDocument()
 {
   if (mDC) {
-     mEmf = ::CloseEnhMetaFile(mDC);
-     mDC = nullptr;
+    mEmf = ::CloseEnhMetaFile(mDC);
+    mDC = nullptr;
   }
   return !!mEmf;
 }
@@ -85,5 +77,5 @@ WindowsEMF::SaveToFile()
   return true;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

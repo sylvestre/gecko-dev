@@ -25,7 +25,8 @@
 namespace mozilla {
 namespace layers {
 
-void WebRenderCommandBuilder::Destroy()
+void
+WebRenderCommandBuilder::Destroy()
 {
   mLastCanvasDatas.Clear();
   RemoveUnusedAndResetWebRenderUserData();
@@ -49,14 +50,15 @@ WebRenderCommandBuilder::NeedsEmptyTransaction()
 }
 
 void
-WebRenderCommandBuilder::BuildWebRenderCommands(wr::DisplayListBuilder& aBuilder,
-                                                wr::IpcResourceUpdateQueue& aResourceUpdates,
-                                                nsDisplayList* aDisplayList,
-                                                nsDisplayListBuilder* aDisplayListBuilder,
-                                                WebRenderScrollData& aScrollData,
-                                                wr::LayoutSize& aContentSize)
+WebRenderCommandBuilder::BuildWebRenderCommands(
+    wr::DisplayListBuilder& aBuilder,
+    wr::IpcResourceUpdateQueue& aResourceUpdates,
+    nsDisplayList* aDisplayList,
+    nsDisplayListBuilder* aDisplayListBuilder,
+    WebRenderScrollData& aScrollData,
+    wr::LayoutSize& aContentSize)
 {
-  { // scoping for StackingContextHelper RAII
+  {  // scoping for StackingContextHelper RAII
 
     StackingContextHelper sc;
     mParentCommands.Clear();
@@ -67,30 +69,40 @@ WebRenderCommandBuilder::BuildWebRenderCommands(wr::DisplayListBuilder& aBuilder
 
     {
       StackingContextHelper pageRootSc(sc, aBuilder);
-      CreateWebRenderCommandsFromDisplayList(aDisplayList, aDisplayListBuilder,
-                                             pageRootSc, aBuilder, aResourceUpdates);
+      CreateWebRenderCommandsFromDisplayList(aDisplayList,
+                                             aDisplayListBuilder,
+                                             pageRootSc,
+                                             aBuilder,
+                                             aResourceUpdates);
     }
 
     // Make a "root" layer data that has everything else as descendants
     mLayerScrollData.emplace_back();
     mLayerScrollData.back().InitializeRoot(mLayerScrollData.size() - 1);
     if (aDisplayListBuilder->IsBuildingLayerEventRegions()) {
-      nsIPresShell* shell = aDisplayListBuilder->RootReferenceFrame()->PresContext()->PresShell();
+      nsIPresShell* shell =
+          aDisplayListBuilder->RootReferenceFrame()->PresContext()->PresShell();
       if (nsLayoutUtils::HasDocumentLevelListenersForApzAwareEvents(shell)) {
-        mLayerScrollData.back().SetEventRegionsOverride(EventRegionsOverride::ForceDispatchToContent);
+        mLayerScrollData.back().SetEventRegionsOverride(
+            EventRegionsOverride::ForceDispatchToContent);
       }
     }
     auto callback = [&aScrollData](FrameMetrics::ViewID aScrollId) -> bool {
       return aScrollData.HasMetadataFor(aScrollId);
     };
-    if (Maybe<ScrollMetadata> rootMetadata = nsLayoutUtils::GetRootMetadata(
-          aDisplayListBuilder, nullptr, ContainerLayerParameters(), callback)) {
-      mLayerScrollData.back().AppendScrollMetadata(aScrollData, rootMetadata.ref());
+    if (Maybe<ScrollMetadata> rootMetadata =
+            nsLayoutUtils::GetRootMetadata(aDisplayListBuilder,
+                                           nullptr,
+                                           ContainerLayerParameters(),
+                                           callback)) {
+      mLayerScrollData.back().AppendScrollMetadata(aScrollData,
+                                                   rootMetadata.ref());
     }
     // Append the WebRenderLayerScrollData items into WebRenderScrollData
     // in reverse order, from topmost to bottommost. This is in keeping with
     // the semantics of WebRenderScrollData.
-    for (auto i = mLayerScrollData.crbegin(); i != mLayerScrollData.crend(); i++) {
+    for (auto i = mLayerScrollData.crbegin(); i != mLayerScrollData.crend();
+         i++) {
       aScrollData.AddLayerData(*i);
     }
     mLayerScrollData.clear();
@@ -105,11 +117,12 @@ WebRenderCommandBuilder::BuildWebRenderCommands(wr::DisplayListBuilder& aBuilder
 }
 
 void
-WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* aDisplayList,
-                                                                nsDisplayListBuilder* aDisplayListBuilder,
-                                                                const StackingContextHelper& aSc,
-                                                                wr::DisplayListBuilder& aBuilder,
-                                                                wr::IpcResourceUpdateQueue& aResources)
+WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
+    nsDisplayList* aDisplayList,
+    nsDisplayListBuilder* aDisplayListBuilder,
+    const StackingContextHelper& aSc,
+    wr::DisplayListBuilder& aBuilder,
+    wr::IpcResourceUpdateQueue& aResources)
 {
   bool apzEnabled = mManager->AsyncPanZoomEnabled();
   EventRegions eventRegions;
@@ -123,7 +136,7 @@ WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* a
     // then we should just throw it out
     if (itemType == DisplayItemType::TYPE_LAYER_EVENT_REGIONS) {
       nsDisplayLayerEventRegions* eventRegions =
-        static_cast<nsDisplayLayerEventRegions*>(item);
+          static_cast<nsDisplayLayerEventRegions*>(item);
       if (eventRegions->IsEmpty()) {
         continue;
       }
@@ -188,14 +201,21 @@ WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* a
       if (itemType == DisplayItemType::TYPE_LAYER_EVENT_REGIONS) {
         nsDisplayLayerEventRegions* regionsItem =
             static_cast<nsDisplayLayerEventRegions*>(item);
-        int32_t auPerDevPixel = item->Frame()->PresContext()->AppUnitsPerDevPixel();
+        int32_t auPerDevPixel =
+            item->Frame()->PresContext()->AppUnitsPerDevPixel();
         EventRegions regions(
-            regionsItem->HitRegion().ScaleToOutsidePixels(1.0f, 1.0f, auPerDevPixel),
-            regionsItem->MaybeHitRegion().ScaleToOutsidePixels(1.0f, 1.0f, auPerDevPixel),
-            regionsItem->DispatchToContentHitRegion().ScaleToOutsidePixels(1.0f, 1.0f, auPerDevPixel),
-            regionsItem->NoActionRegion().ScaleToOutsidePixels(1.0f, 1.0f, auPerDevPixel),
-            regionsItem->HorizontalPanRegion().ScaleToOutsidePixels(1.0f, 1.0f, auPerDevPixel),
-            regionsItem->VerticalPanRegion().ScaleToOutsidePixels(1.0f, 1.0f, auPerDevPixel));
+            regionsItem->HitRegion().ScaleToOutsidePixels(
+                1.0f, 1.0f, auPerDevPixel),
+            regionsItem->MaybeHitRegion().ScaleToOutsidePixels(
+                1.0f, 1.0f, auPerDevPixel),
+            regionsItem->DispatchToContentHitRegion().ScaleToOutsidePixels(
+                1.0f, 1.0f, auPerDevPixel),
+            regionsItem->NoActionRegion().ScaleToOutsidePixels(
+                1.0f, 1.0f, auPerDevPixel),
+            regionsItem->HorizontalPanRegion().ScaleToOutsidePixels(
+                1.0f, 1.0f, auPerDevPixel),
+            regionsItem->VerticalPanRegion().ScaleToOutsidePixels(
+                1.0f, 1.0f, auPerDevPixel));
 
         eventRegions.OrWith(regions);
         if (mLayerScrollData.empty()) {
@@ -213,13 +233,13 @@ WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* a
       }
     }
 
-    { // ensure the scope of ScrollingLayersHelper is maintained
+    {  // ensure the scope of ScrollingLayersHelper is maintained
       ScrollingLayersHelper clip(item, aBuilder, aSc, mClipIdCache, apzEnabled);
 
       // Note: this call to CreateWebRenderCommands can recurse back into
       // this function if the |item| is a wrapper for a sublist.
-      if (!item->CreateWebRenderCommands(aBuilder, aResources, aSc, mManager,
-                                         aDisplayListBuilder)) {
+      if (!item->CreateWebRenderCommands(
+              aBuilder, aResources, aSc, mManager, aDisplayListBuilder)) {
         PushItemAsImage(item, aBuilder, aResources, aSc, aDisplayListBuilder);
       }
     }
@@ -232,10 +252,12 @@ WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* a
         const ActiveScrolledRoot* stopAtAsr =
             mAsrStack.empty() ? nullptr : mAsrStack.back();
 
-        int32_t descendants = mLayerScrollData.size() - layerCountBeforeRecursing;
+        int32_t descendants =
+            mLayerScrollData.size() - layerCountBeforeRecursing;
 
         mLayerScrollData.emplace_back();
-        mLayerScrollData.back().Initialize(mManager->GetScrollData(), item, descendants, stopAtAsr);
+        mLayerScrollData.back().Initialize(
+            mManager->GetScrollData(), item, descendants, stopAtAsr);
       } else if (mLayerScrollData.size() != layerCountBeforeRecursing &&
                  !eventRegions.IsEmpty()) {
         // We are not forcing a new layer for |item|, but we did create some
@@ -245,7 +267,8 @@ WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* a
         // end up on the layer that was mLayerScrollData.back() prior to the
         // recursion.
         MOZ_ASSERT(layerCountBeforeRecursing > 0);
-        mLayerScrollData[layerCountBeforeRecursing - 1].AddEventRegions(eventRegions);
+        mLayerScrollData[layerCountBeforeRecursing - 1].AddEventRegions(
+            eventRegions);
         eventRegions.SetEmpty();
       }
     }
@@ -263,15 +286,17 @@ WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(nsDisplayList* a
 }
 
 Maybe<wr::ImageKey>
-WebRenderCommandBuilder::CreateImageKey(nsDisplayItem* aItem,
-                                        ImageContainer* aContainer,
-                                        mozilla::wr::DisplayListBuilder& aBuilder,
-                                        mozilla::wr::IpcResourceUpdateQueue& aResources,
-                                        const StackingContextHelper& aSc,
-                                        gfx::IntSize& aSize,
-                                        const Maybe<LayoutDeviceRect>& aAsyncImageBounds)
+WebRenderCommandBuilder::CreateImageKey(
+    nsDisplayItem* aItem,
+    ImageContainer* aContainer,
+    mozilla::wr::DisplayListBuilder& aBuilder,
+    mozilla::wr::IpcResourceUpdateQueue& aResources,
+    const StackingContextHelper& aSc,
+    gfx::IntSize& aSize,
+    const Maybe<LayoutDeviceRect>& aAsyncImageBounds)
 {
-  RefPtr<WebRenderImageData> imageData = CreateOrRecycleWebRenderUserData<WebRenderImageData>(aItem);
+  RefPtr<WebRenderImageData> imageData =
+      CreateOrRecycleWebRenderUserData<WebRenderImageData>(aItem);
   MOZ_ASSERT(imageData);
 
   if (aContainer->IsAsync()) {
@@ -310,17 +335,17 @@ WebRenderCommandBuilder::CreateImageKey(nsDisplayItem* aItem,
 }
 
 bool
-WebRenderCommandBuilder::PushImage(nsDisplayItem* aItem,
-                                   ImageContainer* aContainer,
-                                   mozilla::wr::DisplayListBuilder& aBuilder,
-                                   mozilla::wr::IpcResourceUpdateQueue& aResources,
-                                   const StackingContextHelper& aSc,
-                                   const LayoutDeviceRect& aRect)
+WebRenderCommandBuilder::PushImage(
+    nsDisplayItem* aItem,
+    ImageContainer* aContainer,
+    mozilla::wr::DisplayListBuilder& aBuilder,
+    mozilla::wr::IpcResourceUpdateQueue& aResources,
+    const StackingContextHelper& aSc,
+    const LayoutDeviceRect& aRect)
 {
   gfx::IntSize size;
-  Maybe<wr::ImageKey> key = CreateImageKey(aItem, aContainer,
-                                           aBuilder, aResources,
-                                           aSc, size, Some(aRect));
+  Maybe<wr::ImageKey> key = CreateImageKey(
+      aItem, aContainer, aBuilder, aResources, aSc, size, Some(aRect));
   if (aContainer->IsAsync()) {
     // Async ImageContainer does not create ImageKey, instead it uses Pipeline.
     MOZ_ASSERT(key.isNothing());
@@ -331,8 +356,13 @@ WebRenderCommandBuilder::PushImage(nsDisplayItem* aItem,
   }
 
   auto r = aSc.ToRelativeLayoutRect(aRect);
-  gfx::SamplingFilter sampleFilter = nsLayoutUtils::GetSamplingFilterForFrame(aItem->Frame());
-  aBuilder.PushImage(r, r, !aItem->BackfaceIsHidden(), wr::ToImageRendering(sampleFilter), key.value());
+  gfx::SamplingFilter sampleFilter =
+      nsLayoutUtils::GetSamplingFilterForFrame(aItem->Frame());
+  aBuilder.PushImage(r,
+                     r,
+                     !aItem->BackfaceIsHidden(),
+                     wr::ToImageRendering(sampleFilter),
+                     key.value());
 
   return true;
 }
@@ -353,14 +383,16 @@ PaintItemByDrawTarget(nsDisplayItem* aItem,
   RefPtr<gfxContext> context = gfxContext::CreateOrNull(aDT);
   MOZ_ASSERT(context);
 
-  context->SetMatrix(context->CurrentMatrix().PreScale(aScale.width, aScale.height).PreTranslate(-aOffset.x, -aOffset.y));
+  context->SetMatrix(context->CurrentMatrix()
+                         .PreScale(aScale.width, aScale.height)
+                         .PreTranslate(-aOffset.x, -aOffset.y));
 
   switch (aItem->GetType()) {
-  case DisplayItemType::TYPE_MASK:
-    static_cast<nsDisplayMask*>(aItem)->PaintMask(aDisplayListBuilder, context);
-    break;
-  case DisplayItemType::TYPE_FILTER:
-    {
+    case DisplayItemType::TYPE_MASK:
+      static_cast<nsDisplayMask*>(aItem)->PaintMask(aDisplayListBuilder,
+                                                    context);
+      break;
+    case DisplayItemType::TYPE_FILTER: {
       if (aManager == nullptr) {
         aManager = new BasicLayerManager(BasicLayerManager::BLM_INACTIVE);
       }
@@ -372,9 +404,8 @@ PaintItemByDrawTarget(nsDisplayItem* aItem,
       aManager->BeginTransactionWithTarget(context);
 
       ContainerLayerParameters param;
-      RefPtr<Layer> layer =
-        static_cast<nsDisplayFilter*>(aItem)->BuildLayer(aDisplayListBuilder,
-                                                         aManager, param);
+      RefPtr<Layer> layer = static_cast<nsDisplayFilter*>(aItem)->BuildLayer(
+          aDisplayListBuilder, aManager, param);
 
       if (layer) {
         UniquePtr<LayerProperties> props;
@@ -383,16 +414,22 @@ PaintItemByDrawTarget(nsDisplayItem* aItem,
         aManager->SetRoot(layer);
         layerBuilder->WillEndTransaction();
 
-        static_cast<nsDisplayFilter*>(aItem)->PaintAsLayer(aDisplayListBuilder,
-                                                           context, aManager);
+        static_cast<nsDisplayFilter*>(aItem)->PaintAsLayer(
+            aDisplayListBuilder, context, aManager);
       }
 
 #ifdef MOZ_DUMP_PAINTING
       if (gfxUtils::DumpDisplayList() || gfxEnv::DumpPaint()) {
-        fprintf_stderr(gfxUtils::sDumpPaintFile, "Basic layer tree for painting contents of display item %s(%p):\n", aItem->Name(), aItem->Frame());
+        fprintf_stderr(
+            gfxUtils::sDumpPaintFile,
+            "Basic layer tree for painting contents of display item %s(%p):\n",
+            aItem->Name(),
+            aItem->Frame());
         std::stringstream stream;
         aManager->Dump(stream, "", gfxEnv::DumpPaintToFile());
-        fprint_stderr(gfxUtils::sDumpPaintFile, stream);  // not a typo, fprint_stderr declared in LayersLogging.h
+        fprint_stderr(
+            gfxUtils::sDumpPaintFile,
+            stream);  // not a typo, fprint_stderr declared in LayersLogging.h
       }
 #endif
 
@@ -402,33 +439,37 @@ PaintItemByDrawTarget(nsDisplayItem* aItem,
       aManager->SetTarget(nullptr);
       break;
     }
-  default:
-    aItem->Paint(aDisplayListBuilder, context);
-    break;
+    default:
+      aItem->Paint(aDisplayListBuilder, context);
+      break;
   }
 
   if (gfxPrefs::WebRenderHighlightPaintedLayers()) {
     aDT->SetTransform(gfx::Matrix());
-    aDT->FillRect(gfx::Rect(0, 0, aImageRect.Width(), aImageRect.Height()), gfx::ColorPattern(gfx::Color(1.0, 0.0, 0.0, 0.5)));
+    aDT->FillRect(gfx::Rect(0, 0, aImageRect.Width(), aImageRect.Height()),
+                  gfx::ColorPattern(gfx::Color(1.0, 0.0, 0.0, 0.5)));
   }
   if (aItem->Frame()->PresContext()->GetPaintFlashing()) {
     aDT->SetTransform(gfx::Matrix());
     float r = float(rand()) / RAND_MAX;
     float g = float(rand()) / RAND_MAX;
     float b = float(rand()) / RAND_MAX;
-    aDT->FillRect(gfx::Rect(0, 0, aImageRect.Width(), aImageRect.Height()), gfx::ColorPattern(gfx::Color(r, g, b, 0.5)));
+    aDT->FillRect(gfx::Rect(0, 0, aImageRect.Width(), aImageRect.Height()),
+                  gfx::ColorPattern(gfx::Color(r, g, b, 0.5)));
   }
 }
 
 already_AddRefed<WebRenderFallbackData>
-WebRenderCommandBuilder::GenerateFallbackData(nsDisplayItem* aItem,
-                                              wr::DisplayListBuilder& aBuilder,
-                                              wr::IpcResourceUpdateQueue& aResources,
-                                              const StackingContextHelper& aSc,
-                                              nsDisplayListBuilder* aDisplayListBuilder,
-                                              LayoutDeviceRect& aImageRect)
+WebRenderCommandBuilder::GenerateFallbackData(
+    nsDisplayItem* aItem,
+    wr::DisplayListBuilder& aBuilder,
+    wr::IpcResourceUpdateQueue& aResources,
+    const StackingContextHelper& aSc,
+    nsDisplayListBuilder* aDisplayListBuilder,
+    LayoutDeviceRect& aImageRect)
 {
-  RefPtr<WebRenderFallbackData> fallbackData = CreateOrRecycleWebRenderUserData<WebRenderFallbackData>(aItem);
+  RefPtr<WebRenderFallbackData> fallbackData =
+      CreateOrRecycleWebRenderUserData<WebRenderFallbackData>(aItem);
 
   bool snap;
   nsRect itemBounds = aItem->GetBounds(aDisplayListBuilder, &snap);
@@ -448,20 +489,24 @@ WebRenderCommandBuilder::GenerateFallbackData(nsDisplayItem* aItem,
   nsRegion visibleRegion(clippedBounds);
   aItem->RecomputeVisibility(aDisplayListBuilder, &visibleRegion);
 
-  const int32_t appUnitsPerDevPixel = aItem->Frame()->PresContext()->AppUnitsPerDevPixel();
-  LayoutDeviceRect bounds = LayoutDeviceRect::FromAppUnits(clippedBounds, appUnitsPerDevPixel);
+  const int32_t appUnitsPerDevPixel =
+      aItem->Frame()->PresContext()->AppUnitsPerDevPixel();
+  LayoutDeviceRect bounds =
+      LayoutDeviceRect::FromAppUnits(clippedBounds, appUnitsPerDevPixel);
 
   gfx::Size scale = aSc.GetInheritedScale();
   // XXX not sure if paintSize should be in layer or layoutdevice pixels, it
   // has some sort of scaling applied.
-  LayerIntSize paintSize = RoundedToInt(LayerSize(bounds.width * scale.width, bounds.height * scale.height));
+  LayerIntSize paintSize = RoundedToInt(
+      LayerSize(bounds.width * scale.width, bounds.height * scale.height));
   if (paintSize.width == 0 || paintSize.height == 0) {
     return nullptr;
   }
 
   bool needPaint = true;
   LayoutDeviceIntPoint offset = RoundedToInt(bounds.TopLeft());
-  aImageRect = LayoutDeviceRect(offset, LayoutDeviceSize(RoundedToInt(bounds.Size())));
+  aImageRect =
+      LayoutDeviceRect(offset, LayoutDeviceSize(RoundedToInt(bounds.Size())));
   LayerRect paintRect = LayerRect(LayerPoint(0, 0), LayerSize(paintSize));
   nsAutoPtr<nsDisplayItemGeometry> geometry = fallbackData->GetGeometry();
 
@@ -478,7 +523,8 @@ WebRenderCommandBuilder::GenerateFallbackData(nsDisplayItem* aItem,
     } else {
       nsPoint shift = itemBounds.TopLeft() - geometry->mBounds.TopLeft();
       geometry->MoveBy(shift);
-      aItem->ComputeInvalidationRegion(aDisplayListBuilder, geometry, &invalidRegion);
+      aItem->ComputeInvalidationRegion(
+          aDisplayListBuilder, geometry, &invalidRegion);
 
       nsRect lastBounds = fallbackData->GetBounds();
       lastBounds.MoveBy(shift);
@@ -492,23 +538,35 @@ WebRenderCommandBuilder::GenerateFallbackData(nsDisplayItem* aItem,
   }
 
   if (needPaint || !fallbackData->GetKey()) {
-    gfx::SurfaceFormat format = aItem->GetType() == DisplayItemType::TYPE_MASK ?
-                                                      gfx::SurfaceFormat::A8 : gfx::SurfaceFormat::B8G8R8A8;
+    gfx::SurfaceFormat format = aItem->GetType() == DisplayItemType::TYPE_MASK
+                                    ? gfx::SurfaceFormat::A8
+                                    : gfx::SurfaceFormat::B8G8R8A8;
     if (gfxPrefs::WebRenderBlobImages()) {
       bool snapped;
-      bool isOpaque = aItem->GetOpaqueRegion(aDisplayListBuilder, &snapped).Contains(clippedBounds);
+      bool isOpaque = aItem->GetOpaqueRegion(aDisplayListBuilder, &snapped)
+                          .Contains(clippedBounds);
 
-      RefPtr<gfx::DrawEventRecorderMemory> recorder = MakeAndAddRef<gfx::DrawEventRecorderMemory>();
-      RefPtr<gfx::DrawTarget> dummyDt =
-        gfx::Factory::CreateDrawTarget(gfx::BackendType::SKIA, gfx::IntSize(1, 1), format);
-      RefPtr<gfx::DrawTarget> dt = gfx::Factory::CreateRecordingDrawTarget(recorder, dummyDt, paintSize.ToUnknownSize());
-      PaintItemByDrawTarget(aItem, dt, paintRect, offset, aDisplayListBuilder,
-                            fallbackData->mBasicLayerManager, mManager, scale);
+      RefPtr<gfx::DrawEventRecorderMemory> recorder =
+          MakeAndAddRef<gfx::DrawEventRecorderMemory>();
+      RefPtr<gfx::DrawTarget> dummyDt = gfx::Factory::CreateDrawTarget(
+          gfx::BackendType::SKIA, gfx::IntSize(1, 1), format);
+      RefPtr<gfx::DrawTarget> dt = gfx::Factory::CreateRecordingDrawTarget(
+          recorder, dummyDt, paintSize.ToUnknownSize());
+      PaintItemByDrawTarget(aItem,
+                            dt,
+                            paintRect,
+                            offset,
+                            aDisplayListBuilder,
+                            fallbackData->mBasicLayerManager,
+                            mManager,
+                            scale);
       recorder->Finish();
 
-      Range<uint8_t> bytes((uint8_t*)recorder->mOutputStream.mData, recorder->mOutputStream.mLength);
+      Range<uint8_t> bytes((uint8_t*)recorder->mOutputStream.mData,
+                           recorder->mOutputStream.mLength);
       wr::ImageKey key = mManager->WrBridge()->GetNextImageKey();
-      wr::ImageDescriptor descriptor(paintSize.ToUnknownSize(), 0, dt->GetFormat(), isOpaque);
+      wr::ImageDescriptor descriptor(
+          paintSize.ToUnknownSize(), 0, dt->GetFormat(), isOpaque);
       if (!aResources.AddBlobImage(key, descriptor, bytes)) {
         return nullptr;
       }
@@ -516,18 +574,25 @@ WebRenderCommandBuilder::GenerateFallbackData(nsDisplayItem* aItem,
     } else {
       fallbackData->CreateImageClientIfNeeded();
       RefPtr<ImageClient> imageClient = fallbackData->GetImageClient();
-      RefPtr<ImageContainer> imageContainer = LayerManager::CreateImageContainer();
+      RefPtr<ImageContainer> imageContainer =
+          LayerManager::CreateImageContainer();
 
       {
-        UpdateImageHelper helper(imageContainer, imageClient, paintSize.ToUnknownSize(), format);
+        UpdateImageHelper helper(
+            imageContainer, imageClient, paintSize.ToUnknownSize(), format);
         {
           RefPtr<gfx::DrawTarget> dt = helper.GetDrawTarget();
           if (!dt) {
             return nullptr;
           }
-          PaintItemByDrawTarget(aItem, dt, paintRect, offset,
+          PaintItemByDrawTarget(aItem,
+                                dt,
+                                paintRect,
+                                offset,
                                 aDisplayListBuilder,
-                                fallbackData->mBasicLayerManager, mManager, scale);
+                                fallbackData->mBasicLayerManager,
+                                mManager,
+                                scale);
         }
         if (!helper.UpdateImage()) {
           return nullptr;
@@ -557,17 +622,17 @@ WebRenderCommandBuilder::GenerateFallbackData(nsDisplayItem* aItem,
 }
 
 Maybe<wr::WrImageMask>
-WebRenderCommandBuilder::BuildWrMaskImage(nsDisplayItem* aItem,
-                                          wr::DisplayListBuilder& aBuilder,
-                                          wr::IpcResourceUpdateQueue& aResources,
-                                          const StackingContextHelper& aSc,
-                                          nsDisplayListBuilder* aDisplayListBuilder,
-                                          const LayoutDeviceRect& aBounds)
+WebRenderCommandBuilder::BuildWrMaskImage(
+    nsDisplayItem* aItem,
+    wr::DisplayListBuilder& aBuilder,
+    wr::IpcResourceUpdateQueue& aResources,
+    const StackingContextHelper& aSc,
+    nsDisplayListBuilder* aDisplayListBuilder,
+    const LayoutDeviceRect& aBounds)
 {
   LayoutDeviceRect imageRect;
-  RefPtr<WebRenderFallbackData> fallbackData = GenerateFallbackData(aItem, aBuilder, aResources,
-                                                                    aSc, aDisplayListBuilder,
-                                                                    imageRect);
+  RefPtr<WebRenderFallbackData> fallbackData = GenerateFallbackData(
+      aItem, aBuilder, aResources, aSc, aDisplayListBuilder, imageRect);
   if (!fallbackData) {
     return Nothing();
   }
@@ -580,22 +645,23 @@ WebRenderCommandBuilder::BuildWrMaskImage(nsDisplayItem* aItem,
 }
 
 bool
-WebRenderCommandBuilder::PushItemAsImage(nsDisplayItem* aItem,
-                                         wr::DisplayListBuilder& aBuilder,
-                                         wr::IpcResourceUpdateQueue& aResources,
-                                         const StackingContextHelper& aSc,
-                                         nsDisplayListBuilder* aDisplayListBuilder)
+WebRenderCommandBuilder::PushItemAsImage(
+    nsDisplayItem* aItem,
+    wr::DisplayListBuilder& aBuilder,
+    wr::IpcResourceUpdateQueue& aResources,
+    const StackingContextHelper& aSc,
+    nsDisplayListBuilder* aDisplayListBuilder)
 {
   LayoutDeviceRect imageRect;
-  RefPtr<WebRenderFallbackData> fallbackData = GenerateFallbackData(aItem, aBuilder, aResources,
-                                                                    aSc, aDisplayListBuilder,
-                                                                    imageRect);
+  RefPtr<WebRenderFallbackData> fallbackData = GenerateFallbackData(
+      aItem, aBuilder, aResources, aSc, aDisplayListBuilder, imageRect);
   if (!fallbackData) {
     return false;
   }
 
   wr::LayoutRect dest = aSc.ToRelativeLayoutRect(imageRect);
-  gfx::SamplingFilter sampleFilter = nsLayoutUtils::GetSamplingFilterForFrame(aItem->Frame());
+  gfx::SamplingFilter sampleFilter =
+      nsLayoutUtils::GetSamplingFilterForFrame(aItem->Frame());
   aBuilder.PushImage(dest,
                      dest,
                      !aItem->BackfaceIsHidden(),
@@ -615,7 +681,7 @@ WebRenderCommandBuilder::RemoveUnusedAndResetWebRenderUserData()
       MOZ_ASSERT(frame->HasProperty(nsIFrame::WebRenderUserDataProperty()));
 
       nsIFrame::WebRenderUserDataTable* userDataTable =
-        frame->GetProperty(nsIFrame::WebRenderUserDataProperty());
+          frame->GetProperty(nsIFrame::WebRenderUserDataProperty());
 
       MOZ_ASSERT(userDataTable->Count());
 
@@ -646,5 +712,5 @@ WebRenderCommandBuilder::ClearCachedResources()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

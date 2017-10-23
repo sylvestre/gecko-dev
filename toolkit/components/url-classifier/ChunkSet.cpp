@@ -63,11 +63,13 @@ bool
 ChunkSet::Has(uint32_t aChunk) const
 {
   size_t idx;
-  return BinarySearchIf(mRanges, 0, mRanges.Length(),
+  return BinarySearchIf(mRanges,
+                        0,
+                        mRanges.Length(),
                         Range::IntersectionComparator(Range(aChunk, aChunk)),
                         &idx);
-                        // IntersectionComparator works because we create a
-                        // single-chunk range.
+  // IntersectionComparator works because we create a
+  // single-chunk range.
 }
 
 nsresult
@@ -113,7 +115,6 @@ nsresult
 ChunkSet::Remove(const ChunkSet& aOther)
 {
   for (const Range& removalRange : aOther.mRanges) {
-
     if (mRanges.Length() == 0) {
       return NS_OK;
     }
@@ -124,9 +125,11 @@ ChunkSet::Remove(const ChunkSet& aOther)
     }
 
     size_t intersectionIdx;
-    while (BinarySearchIf(mRanges, 0, mRanges.Length(),
-           Range::IntersectionComparator(removalRange), &intersectionIdx)) {
-
+    while (BinarySearchIf(mRanges,
+                          0,
+                          mRanges.Length(),
+                          Range::IntersectionComparator(removalRange),
+                          &intersectionIdx)) {
       ChunkSet remains;
       nsresult rv = mRanges[intersectionIdx].Remove(removalRange, remains);
 
@@ -135,8 +138,8 @@ ChunkSet::Remove(const ChunkSet& aOther)
       }
 
       mRanges.RemoveElementAt(intersectionIdx);
-      if (!mRanges.InsertElementsAt(intersectionIdx, remains.mRanges,
-                                    fallible)) {
+      if (!mRanges.InsertElementsAt(
+              intersectionIdx, remains.mRanges, fallible)) {
         return NS_ERROR_OUT_OF_MEMORY;
       }
     }
@@ -189,7 +192,8 @@ ChunkSet::Read(nsIInputStream* aIn, uint32_t aNumElements)
   while (aNumElements != 0) {
     chunks.Clear();
 
-    uint32_t numToRead = aNumElements > IO_BUFFER_SIZE ? IO_BUFFER_SIZE : aNumElements;
+    uint32_t numToRead =
+        aNumElements > IO_BUFFER_SIZE ? IO_BUFFER_SIZE : aNumElements;
 
     nsresult rv = ReadTArray(aIn, &chunks, numToRead);
 
@@ -272,5 +276,5 @@ ChunkSet::Range::FoldLeft(const Range& aRange)
   return false;
 }
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla

@@ -19,7 +19,7 @@ ReportException(EXCEPTION_POINTERS* aExceptionInfo)
 {
 #ifdef MOZ_CRASHREPORTER
   nsCOMPtr<nsICrashReporter> cr =
-    do_GetService("@mozilla.org/toolkit/crash-reporter;1");
+      do_GetService("@mozilla.org/toolkit/crash-reporter;1");
   if (cr) {
     cr->WriteMinidumpForException(aExceptionInfo);
   }
@@ -28,17 +28,15 @@ ReportException(EXCEPTION_POINTERS* aExceptionInfo)
 }
 
 XPCOM_API(LRESULT)
-CallWindowProcCrashProtected(WNDPROC aWndProc, HWND aHWnd, UINT aMsg,
-                             WPARAM aWParam, LPARAM aLParam)
+CallWindowProcCrashProtected(
+    WNDPROC aWndProc, HWND aHWnd, UINT aMsg, WPARAM aWParam, LPARAM aLParam)
 {
-  MOZ_SEH_TRY {
-    return aWndProc(aHWnd, aMsg, aWParam, aLParam);
-  }
-  MOZ_SEH_EXCEPT(ReportException(GetExceptionInformation())) {
+  MOZ_SEH_TRY { return aWndProc(aHWnd, aMsg, aWParam, aLParam); }
+  MOZ_SEH_EXCEPT(ReportException(GetExceptionInformation()))
+  {
     ::TerminateProcess(::GetCurrentProcess(), 253);
   }
-  return 0; // not reached
+  return 0;  // not reached
 }
 
-}
-
+}  // namespace mozilla

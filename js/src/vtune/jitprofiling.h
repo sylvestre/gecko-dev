@@ -222,36 +222,34 @@
 /**
  * @brief Enumerator for the types of notifications
  */
-typedef enum iJIT_jvm_event
-{
-    iJVM_EVENT_TYPE_SHUTDOWN = 2,               /**<\brief Send this to shutdown the agent.
-                                                 * Use NULL for event data. */
+typedef enum iJIT_jvm_event {
+    iJVM_EVENT_TYPE_SHUTDOWN = 2, /**<\brief Send this to shutdown the agent.
+                                   * Use NULL for event data. */
 
-    iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED = 13,  /**<\brief Send when dynamic code is
-                                                 * JIT compiled and loaded into
-                                                 * memory by the JIT engine, but
-                                                 * before the code is executed.
-                                                 * Use iJIT_Method_Load as event
-                                                 * data. */
-/** @cond exclude_from_documentation */
-    iJVM_EVENT_TYPE_METHOD_UNLOAD_START,    /**<\brief Send when compiled dynamic
-                                             * code is being unloaded from memory.
-                                             * Use iJIT_Method_Load as event data.*/
-/** @endcond */
+    iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED = 13, /**<\brief Send when dynamic code is
+                                                * JIT compiled and loaded into
+                                                * memory by the JIT engine, but
+                                                * before the code is executed.
+                                                * Use iJIT_Method_Load as event
+                                                * data. */
+                                               /** @cond exclude_from_documentation */
+    iJVM_EVENT_TYPE_METHOD_UNLOAD_START,       /**<\brief Send when compiled dynamic
+                                                * code is being unloaded from memory.
+                                                * Use iJIT_Method_Load as event data.*/
+                                               /** @endcond */
 
-    iJVM_EVENT_TYPE_METHOD_UPDATE,   /**<\brief Send to provide new content for
-                                      * a previously reported dynamic code.
-                                      * The previous content will be invalidated
-                                      * starting from the time of the notification.
-                                      * Use iJIT_Method_Load as event data but
-                                      * required fields are following:
-                                      * - method_id    identify the code to update.
-                                      * - method_load_address    specify start address
-                                      *                          within identified code range
-                                      *                          where update should be started.
-                                      * - method_size            specify length of updated code
-                                      *                          range. */
-
+    iJVM_EVENT_TYPE_METHOD_UPDATE, /**<\brief Send to provide new content for
+                                    * a previously reported dynamic code.
+                                    * The previous content will be invalidated
+                                    * starting from the time of the notification.
+                                    * Use iJIT_Method_Load as event data but
+                                    * required fields are following:
+                                    * - method_id    identify the code to update.
+                                    * - method_load_address    specify start address
+                                    *                          within identified code range
+                                    *                          where update should be started.
+                                    * - method_size            specify length of updated code
+                                    *                          range. */
 
     iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED, /**<\brief Send when an inline dynamic
                                                   * code is JIT compiled and loaded
@@ -260,9 +258,9 @@ typedef enum iJIT_jvm_event
                                                   * starts executing.
                                                   * Use iJIT_Method_Inline_Load as event data.*/
 
-/** @cond exclude_from_documentation */
+    /** @cond exclude_from_documentation */
     iJVM_EVENT_TYPE_METHOD_UPDATE_V2,
-/** @endcond */
+    /** @endcond */
 
     iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V2 = 21, /**<\brief Send when a dynamic code is
                                                    * JIT compiled and loaded into
@@ -270,23 +268,22 @@ typedef enum iJIT_jvm_event
                                                    * before the code is executed.
                                                    * Use iJIT_Method_Load_V2 as event data. */
 
-    iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V3       /**<\brief Send when a dynamic code is
-                                                   * JIT compiled and loaded into
-                                                   * memory by the JIT engine, but
-                                                   * before the code is executed.
-                                                   * Use iJIT_Method_Load_V3 as event data. */
+    iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V3 /**<\brief Send when a dynamic code is
+                                             * JIT compiled and loaded into
+                                             * memory by the JIT engine, but
+                                             * before the code is executed.
+                                             * Use iJIT_Method_Load_V3 as event data. */
 } iJIT_JVM_EVENT;
 
 /**
  * @brief Enumerator for the agent's mode
  */
-typedef enum _iJIT_IsProfilingActiveFlags
-{
-    iJIT_NOTHING_RUNNING           = 0x0000,    /**<\brief The agent is not running;
-                                                 * iJIT_NotifyEvent calls will
-                                                 * not be processed. */
-    iJIT_SAMPLING_ON               = 0x0001,    /**<\brief The agent is running and
-                                                 * ready to process notifications. */
+typedef enum _iJIT_IsProfilingActiveFlags {
+    iJIT_NOTHING_RUNNING = 0x0000, /**<\brief The agent is not running;
+                                    * iJIT_NotifyEvent calls will
+                                    * not be processed. */
+    iJIT_SAMPLING_ON = 0x0001,     /**<\brief The agent is running and
+                                    * ready to process notifications. */
 } iJIT_IsProfilingActiveFlags;
 
 /**
@@ -314,23 +311,22 @@ typedef enum _iJIT_IsProfilingActiveFlags
  *      18-21           30
  * @endcode
  */
-typedef struct _LineNumberInfo
-{
-    unsigned int Offset;     /**<\brief Offset from the begining of the code region. */
-    unsigned int LineNumber; /**<\brief Matching source line number offset (from beginning of source file). */
+typedef struct _LineNumberInfo {
+    unsigned int Offset; /**<\brief Offset from the begining of the code region. */
+    unsigned int
+        LineNumber; /**<\brief Matching source line number offset (from beginning of source file). */
 
-} *pLineNumberInfo, LineNumberInfo;
+} * pLineNumberInfo, LineNumberInfo;
 
 /**
  * @brief Enumerator for the code architecture.
  */
-typedef enum _iJIT_CodeArchitecture
-{
+typedef enum _iJIT_CodeArchitecture {
     iJIT_CA_NATIVE = 0, /**<\brief Native to the process architecture that is calling it. */
 
-    iJIT_CA_32,         /**<\brief 32-bit machine code. */
+    iJIT_CA_32, /**<\brief 32-bit machine code. */
 
-    iJIT_CA_64          /**<\brief 64-bit machine code. */
+    iJIT_CA_64 /**<\brief 64-bit machine code. */
 
 } iJIT_CodeArchitecture;
 
@@ -342,8 +338,7 @@ typedef enum _iJIT_CodeArchitecture
  *  the JIT compiled method, use iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED
  *  as an event type to report it.
  */
-typedef struct _iJIT_Method_Load
-{
+typedef struct _iJIT_Method_Load {
     unsigned int method_id; /**<\brief Unique method ID. Cannot be 0.
                              *  You must either use the API function
                              *  iJIT_GetNewMethodID to get a valid and unique
@@ -381,7 +376,7 @@ typedef struct _iJIT_Method_Load
 
     char* source_file_name; /**<\brief Source file name. Can be NULL.*/
 
-} *piJIT_Method_Load, iJIT_Method_Load;
+} * piJIT_Method_Load, iJIT_Method_Load;
 
 /**
  * @brief Description of a JIT-compiled method
@@ -389,8 +384,7 @@ typedef struct _iJIT_Method_Load
  *  the JIT compiled method, use iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V2
  *  as an event type to report it.
  */
-typedef struct _iJIT_Method_Load_V2
-{
+typedef struct _iJIT_Method_Load_V2 {
     unsigned int method_id; /**<\brief Unique method ID. Cannot be 0.
                              *  You must either use the API function
                              *  iJIT_GetNewMethodID to get a valid and unique
@@ -431,7 +425,7 @@ typedef struct _iJIT_Method_Load_V2
                            different JIT engines. VTune Amplifier will display
                            reported methods grouped by specific module. */
 
-} *piJIT_Method_Load_V2, iJIT_Method_Load_V2;
+} * piJIT_Method_Load_V2, iJIT_Method_Load_V2;
 
 /**
  * @brief Description of a JIT-compiled method
@@ -441,8 +435,7 @@ typedef struct _iJIT_Method_Load_V2
  *  the JIT compiled method, use iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V3
  *  as an event type to report it.
  */
-typedef struct _iJIT_Method_Load_V3
-{
+typedef struct _iJIT_Method_Load_V3 {
     unsigned int method_id; /**<\brief Unique method ID. Cannot be 0.
                              *  You must either use the API function
                              *  iJIT_GetNewMethodID to get a valid and unique
@@ -496,7 +489,7 @@ typedef struct _iJIT_Method_Load_V3
                                         *  modifies the original name provided with a 64-bit method
                                         *  version by ending it with '(64)' */
 
-} *piJIT_Method_Load_V3, iJIT_Method_Load_V3;
+} * piJIT_Method_Load_V3, iJIT_Method_Load_V3;
 
 /**
  * @brief Description of an inline JIT-compiled method
@@ -504,8 +497,7 @@ typedef struct _iJIT_Method_Load_V3
  *  the JIT compiled method, use iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED
  *  as an event type to report it.
  */
-typedef struct _iJIT_Method_Inline_Load
-{
+typedef struct _iJIT_Method_Inline_Load {
     unsigned int method_id; /**<\brief Unique method ID. Cannot be 0.
                              *  You must either use the API function
                              *  iJIT_GetNewMethodID to get a valid and unique
@@ -523,9 +515,9 @@ typedef struct _iJIT_Method_Inline_Load
                         *  prefixed with its class name and appended with
                         *  its complete signature. Can't be NULL. */
 
-    void* method_load_address;  /** <\brief The virtual address on which the method
-                                 *  is inlined. If NULL, then data provided with
-                                 *  the event are not accepted. */
+    void* method_load_address; /** <\brief The virtual address on which the method
+                                *  is inlined. If NULL, then data provided with
+                                *  the event are not accepted. */
 
     unsigned int method_size; /**<\brief The code size of the method in memory.
                                *  If 0, then data provided with the event are not
@@ -545,7 +537,7 @@ typedef struct _iJIT_Method_Inline_Load
 
     char* source_file_name; /**<\brief Source file name. Can be NULL.*/
 
-} *piJIT_Method_Inline_Load, iJIT_Method_Inline_Load;
+} * piJIT_Method_Inline_Load, iJIT_Method_Inline_Load;
 
 /** @cond exclude_from_documentation */
 /**
@@ -554,22 +546,21 @@ typedef struct _iJIT_Method_Inline_Load
  * with the iJVM_EVENT_TYPE_METHOD_UPDATE_V2 event to be applied to
  * a certain code trace.
  */
-typedef enum _iJIT_SegmentType
-{
+typedef enum _iJIT_SegmentType {
     iJIT_CT_UNKNOWN = 0,
 
-    iJIT_CT_CODE,           /**<\brief Executable code. */
+    iJIT_CT_CODE, /**<\brief Executable code. */
 
-    iJIT_CT_DATA,           /**<\brief Data (not executable code).
-                             * VTune Amplifier uses the format string
-                             * (see iJIT_Method_Update) to represent
-                             * this data in the VTune Amplifier GUI */
+    iJIT_CT_DATA, /**<\brief Data (not executable code).
+                   * VTune Amplifier uses the format string
+                   * (see iJIT_Method_Update) to represent
+                   * this data in the VTune Amplifier GUI */
 
-    iJIT_CT_KEEP,           /**<\brief Use the previous markup for the trace.
-                             * Can be used for the following
-                             * iJVM_EVENT_TYPE_METHOD_UPDATE_V2 events,
-                             * if the type of the previously reported segment
-                             * type is the same. */
+    iJIT_CT_KEEP, /**<\brief Use the previous markup for the trace.
+                   * Can be used for the following
+                   * iJVM_EVENT_TYPE_METHOD_UPDATE_V2 events,
+                   * if the type of the previously reported segment
+                   * type is the same. */
     iJIT_CT_EOF
 } iJIT_SegmentType;
 
@@ -610,20 +601,19 @@ typedef enum _iJIT_SegmentType
  * @endcode
  */
 
-typedef struct _iJIT_Method_Update
-{
-    void* load_address;         /**<\brief Start address of the update within a method */
+typedef struct _iJIT_Method_Update {
+    void* load_address; /**<\brief Start address of the update within a method */
 
-    unsigned int size;          /**<\brief The update size */
+    unsigned int size; /**<\brief The update size */
 
-    iJIT_SegmentType type;      /**<\brief Type of the update */
+    iJIT_SegmentType type; /**<\brief Type of the update */
 
-    const char* data_format;    /**<\brief C string that contains a format string
-                                 * that follows the same specifications as format in printf.
-                                 * The format string is used for iJIT_CT_CODE only
-                                 * and cannot be NULL.
-                                 * Format can be changed on the fly. */
-} *piJIT_Method_Update, iJIT_Method_Update;
+    const char* data_format; /**<\brief C string that contains a format string
+                              * that follows the same specifications as format in printf.
+                              * The format string is used for iJIT_CT_CODE only
+                              * and cannot be NULL.
+                              * Format can be changed on the fly. */
+} * piJIT_Method_Update, iJIT_Method_Update;
 
 /** @endcond */
 
@@ -635,16 +625,16 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifndef JITAPI_CDECL
-#  if defined WIN32 || defined _WIN32
-#    define JITAPI_CDECL __cdecl
-#  else /* defined WIN32 || defined _WIN32 */
-#    if defined _M_IX86 || defined __i386__
-#      define JITAPI_CDECL __attribute__ ((cdecl))
-#    else  /* _M_IX86 || __i386__ */
-#      define JITAPI_CDECL /* actual only on x86_64 platform */
-#    endif /* _M_IX86 || __i386__ */
-#  endif /* defined WIN32 || defined _WIN32 */
-#endif /* JITAPI_CDECL */
+#if defined WIN32 || defined _WIN32
+#define JITAPI_CDECL __cdecl
+#else /* defined WIN32 || defined _WIN32 */
+#if defined _M_IX86 || defined __i386__
+#define JITAPI_CDECL __attribute__((cdecl))
+#else                /* _M_IX86 || __i386__ */
+#define JITAPI_CDECL /* actual only on x86_64 platform */
+#endif               /* _M_IX86 || __i386__ */
+#endif               /* defined WIN32 || defined _WIN32 */
+#endif               /* JITAPI_CDECL */
 
 #define JITAPI JITAPI_CDECL
 /** @endcond */
@@ -681,10 +671,10 @@ int loadiJIT_Funcs(void);
  *
  * @param[in] event_type - type of the data sent to the agent
  * @param[in] EventSpecificData - pointer to event-specific data
- * 
+ *
  * @returns 1 on success, otherwise 0.
  */
-int JITAPI iJIT_NotifyEvent(iJIT_JVM_EVENT event_type, void *EventSpecificData);
+int JITAPI iJIT_NotifyEvent(iJIT_JVM_EVENT event_type, void* EventSpecificData);
 
 #ifdef __cplusplus
 }

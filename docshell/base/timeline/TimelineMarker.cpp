@@ -11,7 +11,7 @@ namespace mozilla {
 TimelineMarker::TimelineMarker(const char* aName,
                                MarkerTracingType aTracingType,
                                MarkerStackRequest aStackRequest)
-  : AbstractTimelineMarker(aName, aTracingType)
+    : AbstractTimelineMarker(aName, aTracingType)
 {
   CaptureStackIfNecessary(aTracingType, aStackRequest);
 }
@@ -20,7 +20,7 @@ TimelineMarker::TimelineMarker(const char* aName,
                                const TimeStamp& aTime,
                                MarkerTracingType aTracingType,
                                MarkerStackRequest aStackRequest)
-  : AbstractTimelineMarker(aName, aTime, aTracingType)
+    : AbstractTimelineMarker(aName, aTime, aTracingType)
 {
   CaptureStackIfNecessary(aTracingType, aStackRequest);
 }
@@ -62,10 +62,10 @@ TimelineMarker::CaptureStackIfNecessary(MarkerTracingType aTracingType,
                                         MarkerStackRequest aStackRequest)
 {
   if ((aTracingType == MarkerTracingType::START ||
-      aTracingType == MarkerTracingType::TIMESTAMP) &&
+       aTracingType == MarkerTracingType::TIMESTAMP) &&
       aStackRequest != MarkerStackRequest::NO_STACK) {
     CaptureStack();
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

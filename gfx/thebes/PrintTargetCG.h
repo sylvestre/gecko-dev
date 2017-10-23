@@ -17,12 +17,12 @@ namespace gfx {
  */
 class PrintTargetCG final : public PrintTarget
 {
-public:
-  static already_AddRefed<PrintTargetCG>
-  CreateOrNull(PMPrintSession aPrintSession,
-               PMPageFormat aPageFormat,
-               PMPrintSettings aPrintSettings,
-               const IntSize& aSize);
+ public:
+  static already_AddRefed<PrintTargetCG> CreateOrNull(
+      PMPrintSession aPrintSession,
+      PMPageFormat aPageFormat,
+      PMPrintSettings aPrintSettings,
+      const IntSize& aSize);
 
   virtual nsresult BeginPrinting(const nsAString& aTitle,
                                  const nsAString& aPrintToFileName,
@@ -33,10 +33,10 @@ public:
   virtual nsresult BeginPage() final;
   virtual nsresult EndPage() final;
 
-  virtual already_AddRefed<DrawTarget>
-  GetReferenceDrawTarget(DrawEventRecorder* aRecorder) final;
+  virtual already_AddRefed<DrawTarget> GetReferenceDrawTarget(
+      DrawEventRecorder* aRecorder) final;
 
-private:
+ private:
   PrintTargetCG(PMPrintSession aPrintSession,
                 PMPageFormat aPageFormat,
                 PMPrintSettings aPrintSettings,
@@ -48,7 +48,7 @@ private:
   PMPrintSettings mPrintSettings;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_PRINTTARGETCG_H */

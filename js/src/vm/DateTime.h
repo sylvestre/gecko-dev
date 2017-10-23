@@ -45,11 +45,9 @@ const unsigned SecondsPerDay = SecondsPerHour * 24;
 const double StartOfTime = -8.64e15;
 const double EndOfTime = 8.64e15;
 
-extern bool
-InitDateTimeState();
+extern bool InitDateTimeState();
 
-extern void
-FinishDateTimeState();
+extern void FinishDateTimeState();
 
 /*
  * Stores date/time information, particularly concerning the current local
@@ -97,8 +95,7 @@ FinishDateTimeState();
  * that accommodates near-DST-change dates better; we don't believe the
  * potential win from better caching offsets the loss from extra complexity.)
  */
-class DateTimeInfo
-{
+class DateTimeInfo {
     static ExclusiveData<DateTimeInfo>* instance;
     friend class ExclusiveData<DateTimeInfo>;
 
@@ -107,7 +104,7 @@ class DateTimeInfo
 
     DateTimeInfo();
 
-  public:
+   public:
     // The spec implicitly assumes DST and time zone adjustment information
     // never change in the course of a function -- sometimes even across
     // reentrancy.  So make critical sections as narrow as possible.
@@ -129,7 +126,7 @@ class DateTimeInfo
         return guard->localTZA_;
     }
 
-  private:
+   private:
     // We don't want anyone accidentally calling *only*
     // DateTimeInfo::updateTimeZoneAdjustment() to respond to a system time
     // zone change (missing the necessary poking of ICU as well), so ensure
@@ -162,10 +159,10 @@ class DateTimeInfo
     int64_t computeDSTOffsetMilliseconds(int64_t utcSeconds);
 
     int64_t offsetMilliseconds;
-    int64_t rangeStartSeconds, rangeEndSeconds; // UTC-based
+    int64_t rangeStartSeconds, rangeEndSeconds;  // UTC-based
 
     int64_t oldOffsetMilliseconds;
-    int64_t oldRangeStartSeconds, oldRangeEndSeconds; // UTC-based
+    int64_t oldRangeStartSeconds, oldRangeEndSeconds;  // UTC-based
 
     /*
      * Cached offset in seconds from the current UTC time to the current
@@ -185,8 +182,7 @@ class DateTimeInfo
 
 enum class IcuTimeZoneStatus { Valid, NeedsUpdate };
 
-extern ExclusiveData<IcuTimeZoneStatus>*
-IcuTimeZoneState;
+extern ExclusiveData<IcuTimeZoneStatus>* IcuTimeZoneState;
 
 /**
  * ICU's default time zone, used for various date/time formatting operations
@@ -195,9 +191,8 @@ IcuTimeZoneState;
  * default time zone is required, to resync ICU's default time zone with
  * reality.
  */
-extern void
-ResyncICUDefaultTimeZone();
+extern void ResyncICUDefaultTimeZone();
 
-}  /* namespace js */
+} /* namespace js */
 
 #endif /* vm_DateTime_h */

@@ -14,7 +14,6 @@
 #include <algorithm>
 #include "mozilla/Unused.h"
 
-
 namespace mozilla {
 namespace net {
 namespace CacheFileUtils {
@@ -22,7 +21,7 @@ namespace CacheFileUtils {
 // This designates the format for the "alt-data" metadata.
 // When the format changes we need to update the version.
 static uint32_t const kAltDataVersion = 1;
-const char *kAltDataKey = "alt-data";
+const char* kAltDataKey = "alt-data";
 
 namespace {
 
@@ -31,16 +30,17 @@ namespace {
  */
 class KeyParser : protected Tokenizer
 {
-public:
+ public:
   explicit KeyParser(nsACString const& aInput)
-    : Tokenizer(aInput)
-    , isAnonymous(false)
-    // Initialize the cache key to a zero length by default
-    , lastTag(0)
+      : Tokenizer(aInput),
+        isAnonymous(false)
+        // Initialize the cache key to a zero length by default
+        ,
+        lastTag(0)
   {
   }
 
-private:
+ private:
   // Results
   OriginAttributes originAttribs;
   bool isAnonymous;
@@ -51,10 +51,7 @@ private:
   char lastTag;
 
   // Classifier for the 'tag' character valid range
-  static bool TagChar(const char aChar)
-  {
-    return aChar >= ' ' && aChar <= '~';
-  }
+  static bool TagChar(const char aChar) { return aChar >= ' ' && aChar <= '~'; }
 
   bool ParseTags()
   {
@@ -75,45 +72,46 @@ private:
     lastTag = tag;
 
     switch (tag) {
-    case ':':
-      // last possible tag, when present there is the cacheKey following,
-      // not terminated with ',' and no need to unescape.
-      cacheKey.Rebind(mCursor, mEnd - mCursor);
-      return true;
-    case 'O': {
-      nsAutoCString originSuffix;
-      if (!ParseValue(&originSuffix) || !originAttribs.PopulateFromSuffix(originSuffix)) {
-        return false;
+      case ':':
+        // last possible tag, when present there is the cacheKey following,
+        // not terminated with ',' and no need to unescape.
+        cacheKey.Rebind(mCursor, mEnd - mCursor);
+        return true;
+      case 'O': {
+        nsAutoCString originSuffix;
+        if (!ParseValue(&originSuffix) ||
+            !originAttribs.PopulateFromSuffix(originSuffix)) {
+          return false;
+        }
+        break;
       }
-      break;
-    }
-    case 'p':
-      originAttribs.SyncAttributesWithPrivateBrowsing(true);
-      break;
-    case 'b':
-      // Leaving to be able to read and understand oldformatted entries
-      originAttribs.mInIsolatedMozBrowser = true;
-      break;
-    case 'a':
-      isAnonymous = true;
-      break;
-    case 'i': {
-      // Leaving to be able to read and understand oldformatted entries
-      if (!ReadInteger(&originAttribs.mAppId)) {
-        return false; // not a valid 32-bit integer
+      case 'p':
+        originAttribs.SyncAttributesWithPrivateBrowsing(true);
+        break;
+      case 'b':
+        // Leaving to be able to read and understand oldformatted entries
+        originAttribs.mInIsolatedMozBrowser = true;
+        break;
+      case 'a':
+        isAnonymous = true;
+        break;
+      case 'i': {
+        // Leaving to be able to read and understand oldformatted entries
+        if (!ReadInteger(&originAttribs.mAppId)) {
+          return false;  // not a valid 32-bit integer
+        }
+        break;
       }
-      break;
-    }
-    case '~':
-      if (!ParseValue(&idEnhance)) {
-        return false;
-      }
-      break;
-    default:
-      if (!ParseValue()) { // skip any tag values, optional
-        return false;
-      }
-      break;
+      case '~':
+        if (!ParseValue(&idEnhance)) {
+          return false;
+        }
+        break;
+      default:
+        if (!ParseValue()) {  // skip any tag values, optional
+          return false;
+        }
+        break;
     }
 
     // We expect a comma after every tag
@@ -125,7 +123,7 @@ private:
     return ParseTags();
   }
 
-  bool ParseValue(nsACString *result = nullptr)
+  bool ParseValue(nsACString* result = nullptr)
   {
     // If at the end, fail since we expect a comma ; value may be empty tho
     if (CheckEOF()) {
@@ -157,7 +155,7 @@ private:
     return false;
   }
 
-public:
+ public:
   already_AddRefed<LoadContextInfo> Parse()
   {
     RefPtr<LoadContextInfo> info;
@@ -168,39 +166,29 @@ public:
     return info.forget();
   }
 
-  void URISpec(nsACString &result)
-  {
-    result.Assign(cacheKey);
-  }
+  void URISpec(nsACString& result) { result.Assign(cacheKey); }
 
-  void IdEnhance(nsACString &result)
-  {
-    result.Assign(idEnhance);
-  }
+  void IdEnhance(nsACString& result) { result.Assign(idEnhance); }
 };
 
-} // namespace
+}  // namespace
 
 already_AddRefed<nsILoadContextInfo>
-ParseKey(const nsACString& aKey,
-         nsACString* aIdEnhance,
-         nsACString* aURISpec)
+ParseKey(const nsACString& aKey, nsACString* aIdEnhance, nsACString* aURISpec)
 {
   KeyParser parser(aKey);
   RefPtr<LoadContextInfo> info = parser.Parse();
 
   if (info) {
-    if (aIdEnhance)
-      parser.IdEnhance(*aIdEnhance);
-    if (aURISpec)
-      parser.URISpec(*aURISpec);
+    if (aIdEnhance) parser.IdEnhance(*aIdEnhance);
+    if (aURISpec) parser.URISpec(*aURISpec);
   }
 
   return info.forget();
 }
 
 void
-AppendKeyPrefix(nsILoadContextInfo* aInfo, nsACString &_retval)
+AppendKeyPrefix(nsILoadContextInfo* aInfo, nsACString& _retval)
 {
   /**
    * This key is used to salt file hashes.  When form of the key is changed
@@ -210,7 +198,7 @@ AppendKeyPrefix(nsILoadContextInfo* aInfo, nsACString &_retval)
    * Keep the attributes list sorted according their ASCII code.
    */
 
-  OriginAttributes const *oa = aInfo->OriginAttributesPtr();
+  OriginAttributes const* oa = aInfo->OriginAttributesPtr();
   nsAutoCString suffix;
   oa->CreateSuffix(suffix);
   if (!suffix.IsEmpty()) {
@@ -227,7 +215,9 @@ AppendKeyPrefix(nsILoadContextInfo* aInfo, nsACString &_retval)
 }
 
 void
-AppendTagWithValue(nsACString& aTarget, char const aTag, const nsACString& aValue)
+AppendTagWithValue(nsACString& aTarget,
+                   char const aTag,
+                   const nsACString& aValue)
 {
   aTarget.Append(aTag);
 
@@ -239,8 +229,8 @@ AppendTagWithValue(nsACString& aTarget, char const aTag, const nsACString& aValu
       aTarget.Append(aValue);
     } else {
       nsAutoCString escapedValue(aValue);
-      escapedValue.ReplaceSubstring(
-        NS_LITERAL_CSTRING(","), NS_LITERAL_CSTRING(",,"));
+      escapedValue.ReplaceSubstring(NS_LITERAL_CSTRING(","),
+                                    NS_LITERAL_CSTRING(",,"));
       aTarget.Append(escapedValue);
     }
   }
@@ -249,8 +239,9 @@ AppendTagWithValue(nsACString& aTarget, char const aTag, const nsACString& aValu
 }
 
 nsresult
-KeyMatchesLoadContextInfo(const nsACString &aKey, nsILoadContextInfo *aInfo,
-                          bool *_retval)
+KeyMatchesLoadContextInfo(const nsACString& aKey,
+                          nsILoadContextInfo* aInfo,
+                          bool* _retval)
 {
   nsCOMPtr<nsILoadContextInfo> info = ParseKey(aKey);
 
@@ -263,8 +254,9 @@ KeyMatchesLoadContextInfo(const nsACString &aKey, nsILoadContextInfo *aInfo,
 }
 
 ValidityPair::ValidityPair(uint32_t aOffset, uint32_t aLen)
-  : mOffset(aOffset), mLen(aLen)
-{}
+    : mOffset(aOffset), mLen(aLen)
+{
+}
 
 ValidityPair&
 ValidityPair::operator=(const ValidityPair& aOther)
@@ -319,7 +311,7 @@ void
 ValidityMap::Log() const
 {
   LOG(("ValidityMap::Log() - number of pairs: %zu", mMap.Length()));
-  for (uint32_t i=0; i<mMap.Length(); i++) {
+  for (uint32_t i = 0; i < mMap.Length(); i++) {
     LOG(("    (%u, %u)", mMap[i].Offset() + 0, mMap[i].Len() + 0));
   }
 }
@@ -343,7 +335,7 @@ ValidityMap::AddPair(uint32_t aOffset, uint32_t aLen)
   // Find out where to place this pair into the map, it can overlap only with
   // one preceding pair and all subsequent pairs.
   uint32_t pos = 0;
-  for (pos = mMap.Length(); pos > 0; ) {
+  for (pos = mMap.Length(); pos > 0;) {
     --pos;
 
     if (mMap[pos].LessThan(pair)) {
@@ -394,20 +386,17 @@ ValidityMap::SizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const
   return mMap.ShallowSizeOfExcludingThis(mallocSizeOf);
 }
 
-ValidityPair&
-ValidityMap::operator[](uint32_t aIdx)
+ValidityPair& ValidityMap::operator[](uint32_t aIdx)
 {
   return mMap.ElementAt(aIdx);
 }
 
 StaticMutex DetailedCacheHitTelemetry::sLock;
 uint32_t DetailedCacheHitTelemetry::sRecordCnt = 0;
-DetailedCacheHitTelemetry::HitRate DetailedCacheHitTelemetry::sHRStats[kNumOfRanges];
+DetailedCacheHitTelemetry::HitRate
+    DetailedCacheHitTelemetry::sHRStats[kNumOfRanges];
 
-DetailedCacheHitTelemetry::HitRate::HitRate()
-{
-  Reset();
-}
+DetailedCacheHitTelemetry::HitRate::HitRate() { Reset(); }
 
 void
 DetailedCacheHitTelemetry::HitRate::AddRecord(ERecType aType)
@@ -420,10 +409,12 @@ DetailedCacheHitTelemetry::HitRate::AddRecord(ERecType aType)
 }
 
 uint32_t
-DetailedCacheHitTelemetry::HitRate::GetHitRateBucket(uint32_t aNumOfBuckets) const
+DetailedCacheHitTelemetry::HitRate::GetHitRateBucket(
+    uint32_t aNumOfBuckets) const
 {
   uint32_t bucketIdx = (aNumOfBuckets * mHitCnt) / (mHitCnt + mMissCnt);
-  if (bucketIdx == aNumOfBuckets) { // make sure 100% falls into the last bucket
+  if (bucketIdx ==
+      aNumOfBuckets) {  // make sure 100% falls into the last bucket
     --bucketIdx;
   }
 
@@ -461,12 +452,12 @@ DetailedCacheHitTelemetry::AddRecord(ERecType aType, TimeStamp aLoadStart)
   }
 
   uint32_t rangeIdx = entryCount / kRangeSize;
-  if (rangeIdx >= kNumOfRanges) { // The last range has no upper limit.
+  if (rangeIdx >= kNumOfRanges) {  // The last range has no upper limit.
     rangeIdx = kNumOfRanges - 1;
   }
 
-  uint32_t hitMissValue = 2 * rangeIdx; // 2 values per range
-  if (aType == MISS) { // The order is HIT, MISS
+  uint32_t hitMissValue = 2 * rangeIdx;  // 2 values per range
+  if (aType == MISS) {                   // The order is HIT, MISS
     ++hitMissValue;
   }
 
@@ -474,12 +465,10 @@ DetailedCacheHitTelemetry::AddRecord(ERecType aType, TimeStamp aLoadStart)
 
   if (aType == MISS) {
     mozilla::Telemetry::AccumulateTimeDelta(
-      mozilla::Telemetry::NETWORK_CACHE_V2_MISS_TIME_MS,
-      aLoadStart);
+        mozilla::Telemetry::NETWORK_CACHE_V2_MISS_TIME_MS, aLoadStart);
   } else {
     mozilla::Telemetry::AccumulateTimeDelta(
-      mozilla::Telemetry::NETWORK_CACHE_V2_HIT_TIME_MS,
-      aLoadStart);
+        mozilla::Telemetry::NETWORK_CACHE_V2_HIT_TIME_MS, aLoadStart);
   }
 
   Telemetry::Accumulate(Telemetry::NETWORK_CACHE_HIT_MISS_STAT_PER_CACHE_SIZE,
@@ -500,8 +489,8 @@ DetailedCacheHitTelemetry::AddRecord(ERecType aType, TimeStamp aLoadStart)
       // Telemetry value : 0,1,2,3, ... ,19,20,21,22, ... ,398,399
       // Hit rate bucket : 0,0,0,0, ... , 0, 1, 1, 1, ... , 19, 19
       // Cache size range: 0,1,2,3, ... ,19, 0, 1, 2, ... , 18, 19
-      uint32_t bucketOffset = sHRStats[i].GetHitRateBucket(kHitRateBuckets) *
-                              kNumOfRanges;
+      uint32_t bucketOffset =
+          sHRStats[i].GetHitRateBucket(kHitRateBuckets) * kNumOfRanges;
 
       Telemetry::Accumulate(Telemetry::NETWORK_CACHE_HIT_RATE_PER_CACHE_SIZE,
                             bucketOffset + i);
@@ -516,11 +505,7 @@ uint32_t CachePerfStats::sCacheSlowCnt = 0;
 uint32_t CachePerfStats::sCacheNotSlowCnt = 0;
 
 CachePerfStats::MMA::MMA(uint32_t aTotalWeight, bool aFilter)
-  : mSum(0)
-  , mSumSq(0)
-  , mCnt(0)
-  , mWeight(aTotalWeight)
-  , mFilter(aFilter)
+    : mSum(0), mSumSq(0), mCnt(0), mWeight(aTotalWeight), mFilter(aFilter)
 {
 }
 
@@ -542,7 +527,7 @@ CachePerfStats::MMA::AddValue(uint32_t aValue)
     CheckedInt<uint64_t> newSumSq = CheckedInt<uint64_t>(aValue) * aValue;
     newSumSq += mSumSq;
     if (!newSumSq.isValid()) {
-      return; // ignore this value
+      return;  // ignore this value
     }
     mSumSq = newSumSq.value();
     mSum += aValue;
@@ -551,7 +536,7 @@ CachePerfStats::MMA::AddValue(uint32_t aValue)
     CheckedInt<uint64_t> newSumSq = mSumSq - mSumSq / mCnt;
     newSumSq += static_cast<uint64_t>(aValue) * aValue;
     if (!newSumSq.isValid()) {
-      return; // ignore this value
+      return;  // ignore this value
     }
     mSumSq = newSumSq.value();
 
@@ -595,8 +580,7 @@ CachePerfStats::MMA::GetStdDev()
 }
 
 CachePerfStats::PerfData::PerfData()
-  : mFilteredAvg(50, true)
-  , mShortAvg(3, false)
+    : mFilteredAvg(50, true), mShortAvg(3, false)
 {
 }
 
@@ -671,9 +655,13 @@ CachePerfStats::IsCacheSlow()
     uint32_t maxdiff = avgLong + (3 * stddevLong);
 
     if (avgShort > avgLong + maxdiff) {
-      LOG(("CachePerfStats::IsCacheSlow() - result is slow based on perf "
-           "type %u [avgShort=%u, avgLong=%u, stddevLong=%u]", i, avgShort,
-           avgLong, stddevLong));
+      LOG(
+          ("CachePerfStats::IsCacheSlow() - result is slow based on perf "
+           "type %u [avgShort=%u, avgLong=%u, stddevLong=%u]",
+           i,
+           avgShort,
+           avgLong,
+           stddevLong));
       ++sCacheSlowCnt;
       return true;
     }
@@ -685,14 +673,15 @@ CachePerfStats::IsCacheSlow()
 
 //static
 void
-CachePerfStats::GetSlowStats(uint32_t *aSlow, uint32_t *aNotSlow)
+CachePerfStats::GetSlowStats(uint32_t* aSlow, uint32_t* aNotSlow)
 {
   *aSlow = sCacheSlowCnt;
   *aNotSlow = sCacheNotSlowCnt;
 }
 
 void
-FreeBuffer(void *aBuf) {
+FreeBuffer(void* aBuf)
+{
 #ifndef NS_FREE_PERMANENT_DATA
   if (CacheObserver::ShuttingDown()) {
     return;
@@ -703,7 +692,7 @@ FreeBuffer(void *aBuf) {
 }
 
 nsresult
-ParseAlternativeDataInfo(const char *aInfo, int64_t *_offset, nsACString *_type)
+ParseAlternativeDataInfo(const char* aInfo, int64_t* _offset, nsACString* _type)
 {
   // The format is: "1;12345,javascript/binary"
   //         <version>;<offset>,<type>
@@ -712,15 +701,16 @@ ParseAlternativeDataInfo(const char *aInfo, int64_t *_offset, nsACString *_type)
   int64_t altDataOffset = -1;
 
   // The metadata format has a wrong version number.
-  if (!p.ReadInteger(&altDataVersion) ||
-      altDataVersion != kAltDataVersion) {
-    LOG(("ParseAlternativeDataInfo() - altDataVersion=%u, "
-         "expectedVersion=%u", altDataVersion, kAltDataVersion));
+  if (!p.ReadInteger(&altDataVersion) || altDataVersion != kAltDataVersion) {
+    LOG(
+        ("ParseAlternativeDataInfo() - altDataVersion=%u, "
+         "expectedVersion=%u",
+         altDataVersion,
+         kAltDataVersion));
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  if (!p.CheckChar(';') ||
-      !p.ReadInteger(&altDataOffset) ||
+  if (!p.CheckChar(';') || !p.ReadInteger(&altDataOffset) ||
       !p.CheckChar(',')) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -742,7 +732,9 @@ ParseAlternativeDataInfo(const char *aInfo, int64_t *_offset, nsACString *_type)
 }
 
 void
-BuildAlternativeDataInfo(const char *aInfo, int64_t aOffset, nsACString &_retval)
+BuildAlternativeDataInfo(const char* aInfo,
+                         int64_t aOffset,
+                         nsACString& _retval)
 {
   _retval.Truncate();
   _retval.AppendInt(kAltDataVersion);
@@ -752,6 +744,6 @@ BuildAlternativeDataInfo(const char *aInfo, int64_t aOffset, nsACString &_retval
   _retval.Append(aInfo);
 }
 
-} // namespace CacheFileUtils
-} // namespace net
-} // namespace mozilla
+}  // namespace CacheFileUtils
+}  // namespace net
+}  // namespace mozilla

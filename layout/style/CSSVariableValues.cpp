@@ -11,10 +11,7 @@
 
 namespace mozilla {
 
-CSSVariableValues::CSSVariableValues()
-{
-  MOZ_COUNT_CTOR(CSSVariableValues);
-}
+CSSVariableValues::CSSVariableValues() { MOZ_COUNT_CTOR(CSSVariableValues); }
 
 CSSVariableValues::CSSVariableValues(const CSSVariableValues& aOther)
 {
@@ -23,10 +20,7 @@ CSSVariableValues::CSSVariableValues(const CSSVariableValues& aOther)
 }
 
 #ifdef DEBUG
-CSSVariableValues::~CSSVariableValues()
-{
-  MOZ_COUNT_DTOR(CSSVariableValues);
-}
+CSSVariableValues::~CSSVariableValues() { MOZ_COUNT_DTOR(CSSVariableValues); }
 #endif
 
 CSSVariableValues&
@@ -144,4 +138,4 @@ CSSVariableValues::AddVariablesToResolver(CSSVariableResolver* aResolver) const
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -23,31 +23,33 @@ using namespace mozilla;
 #undef CSS_ANON_BOX
 
 static const nsStaticAtomSetup sCSSAnonBoxAtomSetup[] = {
-  // Put the non-inheriting anon boxes first, so we can index into them easily.
-  #define CSS_ANON_BOX(name_, value_) /* nothing */
-  #define CSS_NON_INHERITING_ANON_BOX(name_, value_) \
-    NS_STATIC_ATOM_SUBCLASS_SETUP(nsCSSAnonBoxes, name_)
-  #include "nsCSSAnonBoxList.h"
-  #undef CSS_NON_INHERITING_ANON_BOX
-  #undef CSS_ANON_BOX
+// Put the non-inheriting anon boxes first, so we can index into them easily.
+#define CSS_ANON_BOX(name_, value_) /* nothing */
+#define CSS_NON_INHERITING_ANON_BOX(name_, value_) \
+  NS_STATIC_ATOM_SUBCLASS_SETUP(nsCSSAnonBoxes, name_)
+#include "nsCSSAnonBoxList.h"
+#undef CSS_NON_INHERITING_ANON_BOX
+#undef CSS_ANON_BOX
 
-  #define CSS_ANON_BOX(name_, value_) \
-    NS_STATIC_ATOM_SUBCLASS_SETUP(nsCSSAnonBoxes, name_)
-  #define CSS_NON_INHERITING_ANON_BOX(name_, value_) /* nothing */
-  #include "nsCSSAnonBoxList.h"
-  #undef CSS_NON_INHERITING_ANON_BOX
-  #undef CSS_ANON_BOX
+#define CSS_ANON_BOX(name_, value_) \
+  NS_STATIC_ATOM_SUBCLASS_SETUP(nsCSSAnonBoxes, name_)
+#define CSS_NON_INHERITING_ANON_BOX(name_, value_) /* nothing */
+#include "nsCSSAnonBoxList.h"
+#undef CSS_NON_INHERITING_ANON_BOX
+#undef CSS_ANON_BOX
 };
 
-void nsCSSAnonBoxes::AddRefAtoms()
+void
+nsCSSAnonBoxes::AddRefAtoms()
 {
   NS_RegisterStaticAtoms(sCSSAnonBoxAtomSetup);
 }
 
-bool nsCSSAnonBoxes::IsAnonBox(nsAtom *aAtom)
+bool
+nsCSSAnonBoxes::IsAnonBox(nsAtom* aAtom)
 {
-  return nsAtomListUtils::IsMember(aAtom, sCSSAnonBoxAtomSetup,
-                                   ArrayLength(sCSSAnonBoxAtomSetup));
+  return nsAtomListUtils::IsMember(
+      aAtom, sCSSAnonBoxAtomSetup, ArrayLength(sCSSAnonBoxAtomSetup));
 }
 
 #ifdef MOZ_XUL

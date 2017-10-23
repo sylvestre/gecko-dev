@@ -18,8 +18,7 @@ namespace js {
 // coordinate has two dimensions:
 //  - hops: the number of environment objects on the scope chain to skip
 //  - slot: the slot on the environment object holding the variable's value
-class EnvironmentCoordinate
-{
+class EnvironmentCoordinate {
     uint32_t hops_;
     uint32_t slot_;
 
@@ -29,10 +28,9 @@ class EnvironmentCoordinate
     static_assert(ENVCOORD_HOPS_BITS <= 32, "We have enough bits below");
     static_assert(ENVCOORD_SLOT_BITS <= 32, "We have enough bits below");
 
-  public:
+   public:
     explicit inline EnvironmentCoordinate(jsbytecode* pc)
-      : hops_(GET_ENVCOORD_HOPS(pc)), slot_(GET_ENVCOORD_SLOT(pc + ENVCOORD_HOPS_LEN))
-    {
+        : hops_(GET_ENVCOORD_HOPS(pc)), slot_(GET_ENVCOORD_SLOT(pc + ENVCOORD_HOPS_LEN)) {
         MOZ_ASSERT(JOF_OPTYPE(JSOp(*pc)) == JOF_ENVCOORD);
     }
 
@@ -67,8 +65,7 @@ namespace frontend {
 
 // A detailed kind used for tracking declarations in the Parser. Used for
 // specific early error semantics and better error messages.
-enum class DeclarationKind : uint8_t
-{
+enum class DeclarationKind : uint8_t {
     PositionalFormalParameter,
     FormalParameter,
     CoverArrowParameter,
@@ -86,48 +83,43 @@ enum class DeclarationKind : uint8_t
     CatchParameter
 };
 
-static inline BindingKind
-DeclarationKindToBindingKind(DeclarationKind kind)
-{
+static inline BindingKind DeclarationKindToBindingKind(DeclarationKind kind) {
     switch (kind) {
-      case DeclarationKind::PositionalFormalParameter:
-      case DeclarationKind::FormalParameter:
-      case DeclarationKind::CoverArrowParameter:
-        return BindingKind::FormalParameter;
+        case DeclarationKind::PositionalFormalParameter:
+        case DeclarationKind::FormalParameter:
+        case DeclarationKind::CoverArrowParameter:
+            return BindingKind::FormalParameter;
 
-      case DeclarationKind::Var:
-      case DeclarationKind::BodyLevelFunction:
-      case DeclarationKind::ModuleBodyLevelFunction:
-      case DeclarationKind::VarForAnnexBLexicalFunction:
-      case DeclarationKind::ForOfVar:
-        return BindingKind::Var;
+        case DeclarationKind::Var:
+        case DeclarationKind::BodyLevelFunction:
+        case DeclarationKind::ModuleBodyLevelFunction:
+        case DeclarationKind::VarForAnnexBLexicalFunction:
+        case DeclarationKind::ForOfVar:
+            return BindingKind::Var;
 
-      case DeclarationKind::Let:
-      case DeclarationKind::LexicalFunction:
-      case DeclarationKind::SloppyLexicalFunction:
-      case DeclarationKind::SimpleCatchParameter:
-      case DeclarationKind::CatchParameter:
-        return BindingKind::Let;
+        case DeclarationKind::Let:
+        case DeclarationKind::LexicalFunction:
+        case DeclarationKind::SloppyLexicalFunction:
+        case DeclarationKind::SimpleCatchParameter:
+        case DeclarationKind::CatchParameter:
+            return BindingKind::Let;
 
-      case DeclarationKind::Const:
-        return BindingKind::Const;
+        case DeclarationKind::Const:
+            return BindingKind::Const;
 
-      case DeclarationKind::Import:
-        return BindingKind::Import;
+        case DeclarationKind::Import:
+            return BindingKind::Import;
     }
 
     MOZ_CRASH("Bad DeclarationKind");
 }
 
-static inline bool
-DeclarationKindIsLexical(DeclarationKind kind)
-{
+static inline bool DeclarationKindIsLexical(DeclarationKind kind) {
     return BindingKindIsLexical(DeclarationKindToBindingKind(kind));
 }
 
 // Used in Parser to track declared names.
-class DeclaredNameInfo
-{
+class DeclaredNameInfo {
     uint32_t pos_;
     DeclarationKind kind_;
 
@@ -136,45 +128,30 @@ class DeclaredNameInfo
     // (i.e., a 'var' declared name in a non-var scope).
     bool closedOver_;
 
-  public:
+   public:
     explicit DeclaredNameInfo(DeclarationKind kind, uint32_t pos)
-      : pos_(pos),
-        kind_(kind),
-        closedOver_(false)
-    { }
+        : pos_(pos), kind_(kind), closedOver_(false) {}
 
     // Needed for InlineMap.
     DeclaredNameInfo() = default;
 
-    DeclarationKind kind() const {
-        return kind_;
-    }
+    DeclarationKind kind() const { return kind_; }
 
     static const uint32_t npos = uint32_t(-1);
 
-    uint32_t pos() const {
-        return pos_;
-    }
+    uint32_t pos() const { return pos_; }
 
-    void alterKind(DeclarationKind kind) {
-        kind_ = kind;
-    }
+    void alterKind(DeclarationKind kind) { kind_ = kind; }
 
-    void setClosedOver() {
-        closedOver_ = true;
-    }
+    void setClosedOver() { closedOver_ = true; }
 
-    bool closedOver() const {
-        return closedOver_;
-    }
+    bool closedOver() const { return closedOver_; }
 };
 
 // Used in BytecodeEmitter to map names to locations.
-class NameLocation
-{
-  public:
-    enum class Kind : uint8_t
-    {
+class NameLocation {
+   public:
+    enum class Kind : uint8_t {
         // Cannot statically determine where the name lives. Needs to walk the
         // environment chain to search for the name.
         Dynamic,
@@ -208,7 +185,7 @@ class NameLocation
         DynamicAnnexBVar
     };
 
-  private:
+   private:
     // Where the name lives.
     Kind kind_;
 
@@ -233,30 +210,22 @@ class NameLocation
     static_assert(LOCALNO_BITS == ENVCOORD_SLOT_BITS,
                   "Frame and environment slots must be same sized.");
 
-    NameLocation(Kind kind, BindingKind bindingKind,
-                 uint8_t hops = UINT8_MAX, uint32_t slot = ENVCOORD_SLOT_LIMIT)
-      : kind_(kind),
-        bindingKind_(bindingKind),
-        hops_(hops),
-        slot_(slot)
-    { }
+    NameLocation(Kind kind, BindingKind bindingKind, uint8_t hops = UINT8_MAX,
+                 uint32_t slot = ENVCOORD_SLOT_LIMIT)
+        : kind_(kind), bindingKind_(bindingKind), hops_(hops), slot_(slot) {}
 
-  public:
+   public:
     // Default constructor for InlineMap.
     NameLocation() = default;
 
-    static NameLocation Dynamic() {
-        return NameLocation();
-    }
+    static NameLocation Dynamic() { return NameLocation(); }
 
     static NameLocation Global(BindingKind bindKind) {
         MOZ_ASSERT(bindKind != BindingKind::FormalParameter);
         return NameLocation(Kind::Global, bindKind);
     }
 
-    static NameLocation Intrinsic() {
-        return NameLocation(Kind::Intrinsic, BindingKind::Var);
-    }
+    static NameLocation Intrinsic() { return NameLocation(Kind::Intrinsic, BindingKind::Var); }
 
     static NameLocation NamedLambdaCallee() {
         return NameLocation(Kind::NamedLambdaCallee, BindingKind::NamedLambdaCallee);
@@ -276,9 +245,7 @@ class NameLocation
         return NameLocation(Kind::EnvironmentCoordinate, bindKind, hops, slot);
     }
 
-    static NameLocation Import() {
-        return NameLocation(Kind::Import, BindingKind::Import);
-    }
+    static NameLocation Import() { return NameLocation(Kind::Import, BindingKind::Import); }
 
     static NameLocation DynamicAnnexBVar() {
         return NameLocation(Kind::DynamicAnnexBVar, BindingKind::Var);
@@ -286,18 +253,18 @@ class NameLocation
 
     static NameLocation fromBinding(BindingKind bindKind, const BindingLocation& bl) {
         switch (bl.kind()) {
-          case BindingLocation::Kind::Global:
-            return Global(bindKind);
-          case BindingLocation::Kind::Argument:
-            return ArgumentSlot(bl.argumentSlot());
-          case BindingLocation::Kind::Frame:
-            return FrameSlot(bindKind, bl.slot());
-          case BindingLocation::Kind::Environment:
-            return EnvironmentCoordinate(bindKind, 0, bl.slot());
-          case BindingLocation::Kind::Import:
-            return Import();
-          case BindingLocation::Kind::NamedLambdaCallee:
-            return NamedLambdaCallee();
+            case BindingLocation::Kind::Global:
+                return Global(bindKind);
+            case BindingLocation::Kind::Argument:
+                return ArgumentSlot(bl.argumentSlot());
+            case BindingLocation::Kind::Frame:
+                return FrameSlot(bindKind, bl.slot());
+            case BindingLocation::Kind::Environment:
+                return EnvironmentCoordinate(bindKind, 0, bl.slot());
+            case BindingLocation::Kind::Import:
+                return Import();
+            case BindingLocation::Kind::NamedLambdaCallee:
+                return NamedLambdaCallee();
         }
         MOZ_CRASH("Bad BindingKind");
     }
@@ -307,13 +274,9 @@ class NameLocation
                hops_ == other.hops_ && slot_ == other.slot_;
     }
 
-    bool operator!=(const NameLocation& other) const {
-        return !(*this == other);
-    }
+    bool operator!=(const NameLocation& other) const { return !(*this == other); }
 
-    Kind kind() const {
-        return kind_;
-    }
+    Kind kind() const { return kind_; }
 
     uint16_t argumentSlot() const {
         MOZ_ASSERT(kind_ == Kind::ArgumentSlot);
@@ -344,17 +307,12 @@ class NameLocation
         return bindingKind_;
     }
 
-    bool isLexical() const {
-        return BindingKindIsLexical(bindingKind());
-    }
+    bool isLexical() const { return BindingKindIsLexical(bindingKind()); }
 
-    bool isConst() const {
-        return bindingKind() == BindingKind::Const;
-    }
+    bool isConst() const { return bindingKind() == BindingKind::Const; }
 
     bool hasKnownSlot() const {
-        return kind_ == Kind::ArgumentSlot ||
-               kind_ == Kind::FrameSlot ||
+        return kind_ == Kind::ArgumentSlot || kind_ == Kind::FrameSlot ||
                kind_ == Kind::EnvironmentCoordinate;
     }
 };
@@ -362,8 +320,8 @@ class NameLocation
 // This type is declared here for LazyScript::Create.
 using AtomVector = Vector<JSAtom*, 24, SystemAllocPolicy>;
 
-} // namespace frontend
-} // namespace js
+}  // namespace frontend
+}  // namespace js
 
 namespace mozilla {
 
@@ -373,6 +331,6 @@ struct IsPod<js::frontend::DeclaredNameInfo> : TrueType {};
 template <>
 struct IsPod<js::frontend::NameLocation> : TrueType {};
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // frontend_NameAnalysis_h
+#endif  // frontend_NameAnalysis_h

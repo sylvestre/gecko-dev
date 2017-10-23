@@ -37,8 +37,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-enum { kGMPPayloadNameSize = 32};
-enum { kGMPMaxSimulcastStreams = 4};
+enum
+{
+  kGMPPayloadNameSize = 32
+};
+enum
+{
+  kGMPMaxSimulcastStreams = 4
+};
 
 enum GMPVideoCodecComplexity
 {
@@ -46,19 +52,20 @@ enum GMPVideoCodecComplexity
   kGMPComplexityHigh = 1,
   kGMPComplexityHigher = 2,
   kGMPComplexityMax = 3,
-  kGMPComplexityInvalid // Should always be last
+  kGMPComplexityInvalid  // Should always be last
 };
 
-enum GMPVP8ResilienceMode {
-  kResilienceOff,    // The stream produced by the encoder requires a
-                     // recovery frame (typically a key frame) to be
-                     // decodable after a packet loss.
-  kResilientStream,  // A stream produced by the encoder is resilient to
-                     // packet losses, but packets within a frame subsequent
-                     // to a loss can't be decoded.
-  kResilientFrames,  // Same as kResilientStream but with added resilience
-                     // within a frame.
-  kResilienceInvalid // Should always be last.
+enum GMPVP8ResilienceMode
+{
+  kResilienceOff,     // The stream produced by the encoder requires a
+                      // recovery frame (typically a key frame) to be
+                      // decodable after a packet loss.
+  kResilientStream,   // A stream produced by the encoder is resilient to
+                      // packet losses, but packets within a frame subsequent
+                      // to a loss can't be decoded.
+  kResilientFrames,   // Same as kResilientStream but with added resilience
+                      // within a frame.
+  kResilienceInvalid  // Should always be last.
 };
 
 // VP8 specific
@@ -80,15 +87,16 @@ struct GMPVideoCodecVP8
 // Note: the mSPS at the end of this structure is variable length.
 struct GMPVideoCodecH264AVCC
 {
-  uint8_t        mVersion; // == 0x01
-  uint8_t        mProfile; // these 3 are profile_level_id
-  uint8_t        mConstraints;
-  uint8_t        mLevel;
-  uint8_t        mLengthSizeMinusOne; // lower 2 bits (== GMPBufferType-1). Top 6 reserved (1's)
+  uint8_t mVersion;  // == 0x01
+  uint8_t mProfile;  // these 3 are profile_level_id
+  uint8_t mConstraints;
+  uint8_t mLevel;
+  uint8_t
+      mLengthSizeMinusOne;  // lower 2 bits (== GMPBufferType-1). Top 6 reserved (1's)
 
   // SPS/PPS will not generally be present for interactive use unless SDP
   // parameter-sets are used.
-  uint8_t        mNumSPS; // lower 5 bits; top 5 reserved (1's)
+  uint8_t mNumSPS;  // lower 5 bits; top 5 reserved (1's)
 
   /*** uint8_t   mSPS[];  (Not defined due to compiler warnings and warnings-as-errors ...) **/
   // Following mNumSPS is a variable number of bytes, which is the SPS and PPS.
@@ -101,8 +109,9 @@ struct GMPVideoCodecH264AVCC
 // GMPVideoEncoder::InitEncode() to this structure.
 struct GMPVideoCodecH264
 {
-  uint8_t        mPacketizationMode; // 0 or 1
-  struct GMPVideoCodecH264AVCC mAVCC; // holds a variable-sized struct GMPVideoCodecH264AVCC mAVCC;
+  uint8_t mPacketizationMode;  // 0 or 1
+  struct GMPVideoCodecH264AVCC
+      mAVCC;  // holds a variable-sized struct GMPVideoCodecH264AVCC mAVCC;
 };
 
 enum GMPVideoCodecType
@@ -114,7 +123,7 @@ enum GMPVideoCodecType
   // is the AVCC extra data (in AVCC format).
   kGMPVideoCodecH264,
   kGMPVideoCodecVP9,
-  kGMPVideoCodecInvalid // Should always be last.
+  kGMPVideoCodecInvalid  // Should always be last.
 };
 
 // Simulcast is when the same stream is encoded multiple times with different
@@ -124,21 +133,24 @@ struct GMPSimulcastStream
   uint32_t mWidth;
   uint32_t mHeight;
   uint32_t mNumberOfTemporalLayers;
-  uint32_t mMaxBitrate; // kilobits/sec.
-  uint32_t mTargetBitrate; // kilobits/sec.
-  uint32_t mMinBitrate; // kilobits/sec.
-  uint32_t mQPMax; // minimum quality
+  uint32_t mMaxBitrate;     // kilobits/sec.
+  uint32_t mTargetBitrate;  // kilobits/sec.
+  uint32_t mMinBitrate;     // kilobits/sec.
+  uint32_t mQPMax;          // minimum quality
 };
 
-enum GMPVideoCodecMode {
+enum GMPVideoCodecMode
+{
   kGMPRealtimeVideo,
   kGMPScreensharing,
   kGMPStreamingVideo,
-  kGMPCodecModeInvalid // Should always be last.
+  kGMPCodecModeInvalid  // Should always be last.
 };
 
-enum GMPApiVersion {
-  kGMPVersion32 = 1, // leveraging that V32 had mCodecType first, and only supported H264
+enum GMPApiVersion
+{
+  kGMPVersion32 =
+      1,  // leveraging that V32 had mCodecType first, and only supported H264
   kGMPVersion33 = 33,
 };
 
@@ -147,15 +159,15 @@ struct GMPVideoCodec
   uint32_t mGMPApiVersion;
 
   GMPVideoCodecType mCodecType;
-  char mPLName[kGMPPayloadNameSize]; // Must be NULL-terminated!
+  char mPLName[kGMPPayloadNameSize];  // Must be NULL-terminated!
   uint32_t mPLType;
 
   uint32_t mWidth;
   uint32_t mHeight;
 
-  uint32_t mStartBitrate; // kilobits/sec.
-  uint32_t mMaxBitrate; // kilobits/sec.
-  uint32_t mMinBitrate; // kilobits/sec.
+  uint32_t mStartBitrate;  // kilobits/sec.
+  uint32_t mMaxBitrate;    // kilobits/sec.
+  uint32_t mMinBitrate;    // kilobits/sec.
   uint32_t mMaxFramerate;
 
   bool mFrameDroppingOn;
@@ -172,7 +184,8 @@ struct GMPVideoCodec
 // bit lengths, all with the same timestamp.  Note there is no final 0-length
 // entry; one should check the overall end-of-buffer against where the next
 // length would be.
-enum GMPBufferType {
+enum GMPBufferType
+{
   GMP_BufferSingle = 0,
   GMP_BufferLength8,
   GMP_BufferLength16,
@@ -181,11 +194,13 @@ enum GMPBufferType {
   GMP_BufferInvalid,
 };
 
-struct GMPCodecSpecificInfoGeneric {
+struct GMPCodecSpecificInfoGeneric
+{
   uint8_t mSimulcastIdx;
 };
 
-struct GMPCodecSpecificInfoH264 {
+struct GMPCodecSpecificInfoH264
+{
   uint8_t mSimulcastIdx;
 };
 
@@ -197,17 +212,16 @@ struct GMPCodecSpecificInfoVP8
   uint8_t mPictureIdSLI;
   bool mHasReceivedRPSI;
   uint64_t mPictureIdRPSI;
-  int16_t mPictureId; // negative value to skip pictureId
+  int16_t mPictureId;  // negative value to skip pictureId
   bool mNonReference;
   uint8_t mSimulcastIdx;
   uint8_t mTemporalIdx;
   bool mLayerSync;
-  int32_t mTL0PicIdx; // negative value to skip tl0PicIdx
-  int8_t mKeyIdx; // negative value to skip keyIdx
+  int32_t mTL0PicIdx;  // negative value to skip tl0PicIdx
+  int8_t mKeyIdx;      // negative value to skip keyIdx
 };
 
-union GMPCodecSpecificInfoUnion
-{
+union GMPCodecSpecificInfoUnion {
   GMPCodecSpecificInfoGeneric mGeneric;
   GMPCodecSpecificInfoVP8 mVP8;
   GMPCodecSpecificInfoH264 mH264;
@@ -223,4 +237,4 @@ struct GMPCodecSpecificInfo
   GMPCodecSpecificInfoUnion mCodecSpecific;
 };
 
-#endif // GMP_VIDEO_CODEC_h_
+#endif  // GMP_VIDEO_CODEC_h_

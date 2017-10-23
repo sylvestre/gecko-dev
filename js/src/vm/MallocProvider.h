@@ -46,22 +46,19 @@
 
 namespace js {
 
-template<class Client>
-struct MallocProvider
-{
+template <class Client>
+struct MallocProvider {
     template <class T>
     T* maybe_pod_malloc(size_t numElems) {
         T* p = js_pod_malloc<T>(numElems);
-        if (MOZ_LIKELY(p))
-            client()->updateMallocCounter(numElems * sizeof(T));
+        if (MOZ_LIKELY(p)) client()->updateMallocCounter(numElems * sizeof(T));
         return p;
     }
 
     template <class T>
     T* maybe_pod_calloc(size_t numElems) {
         T* p = js_pod_calloc<T>(numElems);
-        if (MOZ_LIKELY(p))
-            client()->updateMallocCounter(numElems * sizeof(T));
+        if (MOZ_LIKELY(p)) client()->updateMallocCounter(numElems * sizeof(T));
         return p;
     }
 
@@ -71,8 +68,7 @@ struct MallocProvider
         if (MOZ_LIKELY(p)) {
             // For compatibility we do not account for realloc that decreases
             // previously allocated memory.
-            if (newSize > oldSize)
-                client()->updateMallocCounter((newSize - oldSize) * sizeof(T));
+            if (newSize > oldSize) client()->updateMallocCounter((newSize - oldSize) * sizeof(T));
         }
         return p;
     }
@@ -85,16 +81,14 @@ struct MallocProvider
     template <class T>
     T* pod_malloc(size_t numElems) {
         T* p = maybe_pod_malloc<T>(numElems);
-        if (MOZ_LIKELY(p))
-            return p;
+        if (MOZ_LIKELY(p)) return p;
         size_t bytes;
         if (MOZ_UNLIKELY(!CalculateAllocSize<T>(numElems, &bytes))) {
             client()->reportAllocationOverflow();
             return nullptr;
         }
         p = (T*)client()->onOutOfMemory(AllocFunction::Malloc, bytes);
-        if (p)
-            client()->updateMallocCounter(bytes);
+        if (p) client()->updateMallocCounter(bytes);
         return p;
     }
 
@@ -111,14 +105,12 @@ struct MallocProvider
             return p;
         }
         p = (T*)client()->onOutOfMemory(AllocFunction::Malloc, bytes);
-        if (p)
-            client()->updateMallocCounter(bytes);
+        if (p) client()->updateMallocCounter(bytes);
         return p;
     }
 
     template <class T>
-    UniquePtr<T[], JS::FreePolicy>
-    make_pod_array(size_t numElems) {
+    UniquePtr<T[], JS::FreePolicy> make_pod_array(size_t numElems) {
         return UniquePtr<T[], JS::FreePolicy>(pod_malloc<T>(numElems));
     }
 
@@ -130,16 +122,14 @@ struct MallocProvider
     template <class T>
     T* pod_calloc(size_t numElems) {
         T* p = maybe_pod_calloc<T>(numElems);
-        if (MOZ_LIKELY(p))
-            return p;
+        if (MOZ_LIKELY(p)) return p;
         size_t bytes;
         if (MOZ_UNLIKELY(!CalculateAllocSize<T>(numElems, &bytes))) {
             client()->reportAllocationOverflow();
             return nullptr;
         }
         p = (T*)client()->onOutOfMemory(AllocFunction::Calloc, bytes);
-        if (p)
-            client()->updateMallocCounter(bytes);
+        if (p) client()->updateMallocCounter(bytes);
         return p;
     }
 
@@ -156,38 +146,33 @@ struct MallocProvider
             return p;
         }
         p = (T*)client()->onOutOfMemory(AllocFunction::Calloc, bytes);
-        if (p)
-            client()->updateMallocCounter(bytes);
+        if (p) client()->updateMallocCounter(bytes);
         return p;
     }
 
     template <class T>
-    UniquePtr<T[], JS::FreePolicy>
-    make_zeroed_pod_array(size_t numElems)
-    {
+    UniquePtr<T[], JS::FreePolicy> make_zeroed_pod_array(size_t numElems) {
         return UniquePtr<T[], JS::FreePolicy>(pod_calloc<T>(numElems));
     }
 
     template <class T>
     T* pod_realloc(T* prior, size_t oldSize, size_t newSize) {
         T* p = maybe_pod_realloc(prior, oldSize, newSize);
-        if (MOZ_LIKELY(p))
-            return p;
+        if (MOZ_LIKELY(p)) return p;
         size_t bytes;
         if (MOZ_UNLIKELY(!CalculateAllocSize<T>(newSize, &bytes))) {
             client()->reportAllocationOverflow();
             return nullptr;
         }
         p = (T*)client()->onOutOfMemory(AllocFunction::Realloc, bytes, prior);
-        if (p && newSize > oldSize)
-            client()->updateMallocCounter((newSize - oldSize) * sizeof(T));
+        if (p && newSize > oldSize) client()->updateMallocCounter((newSize - oldSize) * sizeof(T));
         return p;
     }
 
     JS_DECLARE_NEW_METHODS(new_, pod_malloc<uint8_t>, MOZ_ALWAYS_INLINE)
     JS_DECLARE_MAKE_METHODS(make_unique, new_, MOZ_ALWAYS_INLINE)
 
-  private:
+   private:
     Client* client() { return static_cast<Client*>(this); }
 };
 

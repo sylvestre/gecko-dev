@@ -25,55 +25,63 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGImageElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGImageElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGImageElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGImageElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::x, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::y, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::width, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::height, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGImageElement::sLengthInfo[4] = {
+    {&nsGkAtoms::x,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::width,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::height,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
 };
 
-nsSVGElement::StringInfo SVGImageElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::href, kNameSpaceID_None, true },
-  { &nsGkAtoms::href, kNameSpaceID_XLink, true }
-};
+nsSVGElement::StringInfo SVGImageElement::sStringInfo[2] = {
+    {&nsGkAtoms::href, kNameSpaceID_None, true},
+    {&nsGkAtoms::href, kNameSpaceID_XLink, true}};
 
 //----------------------------------------------------------------------
 // nsISupports methods
 
-NS_IMPL_ISUPPORTS_INHERITED(SVGImageElement, SVGImageElementBase,
-                            nsIDOMNode, nsIDOMElement,
+NS_IMPL_ISUPPORTS_INHERITED(SVGImageElement,
+                            SVGImageElementBase,
+                            nsIDOMNode,
+                            nsIDOMElement,
                             nsIDOMSVGElement,
                             imgINotificationObserver,
-                            nsIImageLoadingContent, imgIOnloadBlocker)
+                            nsIImageLoadingContent,
+                            imgIOnloadBlocker)
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGImageElement::SVGImageElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGImageElementBase(aNodeInfo)
+SVGImageElement::SVGImageElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGImageElementBase(aNodeInfo)
 {
   // We start out broken
   AddStatesSilently(NS_EVENT_STATE_BROKEN);
 }
 
-SVGImageElement::~SVGImageElement()
-{
-  DestroyImageLoadingContent();
-}
+SVGImageElement::~SVGImageElement() { DestroyImageLoadingContent(); }
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGImageElement)
-
 
 //----------------------------------------------------------------------
 
@@ -111,8 +119,8 @@ already_AddRefed<SVGAnimatedString>
 SVGImageElement::Href()
 {
   return mStringAttributes[HREF].IsExplicitlySet()
-         ? mStringAttributes[HREF].ToDOMAnimatedString(this)
-         : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
+             ? mStringAttributes[HREF].ToDOMAnimatedString(this)
+             : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
 }
 
 //----------------------------------------------------------------------
@@ -131,8 +139,7 @@ SVGImageElement::LoadSVGImage(bool aForce, bool aNotify)
   }
   href.Trim(" \t\n\r");
 
-  if (baseURI && !href.IsEmpty())
-    NS_MakeAbsoluteURI(href, href, baseURI);
+  if (baseURI && !href.IsEmpty()) NS_MakeAbsoluteURI(href, href, baseURI);
 
   // Mark channel as urgent-start before load image if the image load is
   // initaiated by a user interaction.
@@ -154,25 +161,23 @@ SVGImageElement::AsyncEventRunning(AsyncEventDispatcher* aEvent)
 // nsIContent methods:
 
 nsresult
-SVGImageElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+SVGImageElement::AfterSetAttr(int32_t aNamespaceID,
+                              nsAtom* aName,
                               const nsAttrValue* aValue,
                               const nsAttrValue* aOldValue,
                               nsIPrincipal* aSubjectPrincipal,
                               bool aNotify)
 {
-  if (aName == nsGkAtoms::href &&
-      (aNamespaceID == kNameSpaceID_None ||
-       aNamespaceID == kNameSpaceID_XLink)) {
-
+  if (aName == nsGkAtoms::href && (aNamespaceID == kNameSpaceID_None ||
+                                   aNamespaceID == kNameSpaceID_XLink)) {
     if (aValue) {
       LoadSVGImage(true, aNotify);
     } else {
       CancelImageRequests(aNotify);
     }
   }
-  return SVGImageElementBase::AfterSetAttr(aNamespaceID, aName,
-                                           aValue, aOldValue,
-                                           aSubjectPrincipal, aNotify);
+  return SVGImageElementBase::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 void
@@ -180,24 +185,23 @@ SVGImageElement::MaybeLoadSVGImage()
 {
   if ((mStringAttributes[HREF].IsExplicitlySet() ||
        mStringAttributes[XLINK_HREF].IsExplicitlySet()) &&
-      (NS_FAILED(LoadSVGImage(false, true)) ||
-       !LoadingEnabled())) {
+      (NS_FAILED(LoadSVGImage(false, true)) || !LoadingEnabled())) {
     CancelImageRequests(true);
   }
 }
 
 nsresult
-SVGImageElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+SVGImageElement::BindToTree(nsIDocument* aDocument,
+                            nsIContent* aParent,
                             nsIContent* aBindingParent,
                             bool aCompileEventHandlers)
 {
-  nsresult rv = SVGImageElementBase::BindToTree(aDocument, aParent,
-                                                aBindingParent,
-                                                aCompileEventHandlers);
+  nsresult rv = SVGImageElementBase::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsImageLoadingContent::BindToTree(aDocument, aParent, aBindingParent,
-                                    aCompileEventHandlers);
+  nsImageLoadingContent::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
 
   if (mStringAttributes[HREF].IsExplicitlySet() ||
       mStringAttributes[XLINK_HREF].IsExplicitlySet()) {
@@ -206,9 +210,9 @@ SVGImageElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
     ClearBrokenState();
     RemoveStatesSilently(NS_EVENT_STATE_BROKEN);
     nsContentUtils::AddScriptRunner(
-      NewRunnableMethod("dom::SVGImageElement::MaybeLoadSVGImage",
-                        this,
-                        &SVGImageElement::MaybeLoadSVGImage));
+        NewRunnableMethod("dom::SVGImageElement::MaybeLoadSVGImage",
+                          this,
+                          &SVGImageElement::MaybeLoadSVGImage));
   }
 
   return rv;
@@ -225,18 +229,18 @@ EventStates
 SVGImageElement::IntrinsicState() const
 {
   return SVGImageElementBase::IntrinsicState() |
-    nsImageLoadingContent::ImageState();
+         nsImageLoadingContent::ImageState();
 }
 
 NS_IMETHODIMP_(bool)
 SVGImageElement::IsAttributeMapped(const nsAtom* name) const
 {
   static const MappedAttributeEntry* const map[] = {
-    sViewportsMap,
+      sViewportsMap,
   };
 
   return FindAttributeDependence(name, map) ||
-    SVGImageElementBase::IsAttributeMapped(name);
+         SVGImageElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -251,12 +255,11 @@ SVGImageElement::GetGeometryBounds(Rect* aBounds,
                                    const Matrix* aToNonScalingStrokeSpace)
 {
   Rect rect;
-  GetAnimatedLengthValues(&rect.x, &rect.y, &rect.width,
-                          &rect.height, nullptr);
+  GetAnimatedLengthValues(&rect.x, &rect.y, &rect.width, &rect.height, nullptr);
 
   if (rect.IsEmpty()) {
     // Rendering of the element disabled
-    rect.SetEmpty(); // Make sure width/height are zero and not negative
+    rect.SetEmpty();  // Make sure width/height are zero and not negative
   }
 
   *aBounds = aToBoundsSpace.TransformBounds(rect);
@@ -301,11 +304,11 @@ SVGImageElement::HasValidDimensions() const
 nsSVGElement::LengthAttributesInfo
 SVGImageElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
-SVGAnimatedPreserveAspectRatio *
+SVGAnimatedPreserveAspectRatio*
 SVGImageElement::GetPreserveAspectRatio()
 {
   return &mPreserveAspectRatio;
@@ -314,8 +317,8 @@ SVGImageElement::GetPreserveAspectRatio()
 nsSVGElement::StringAttributesInfo
 SVGImageElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
 nsresult
@@ -327,6 +330,5 @@ SVGImageElement::CopyInnerTo(Element* aDest, bool aPreallocateChildren)
   return SVGImageElementBase::CopyInnerTo(aDest, aPreallocateChildren);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

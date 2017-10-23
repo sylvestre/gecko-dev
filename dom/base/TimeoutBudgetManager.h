@@ -17,7 +17,7 @@ class Timeout;
 
 class TimeoutBudgetManager
 {
-public:
+ public:
   static TimeoutBudgetManager& Get();
   void StartRecording(const TimeStamp& aNow);
   void StopRecording();
@@ -25,7 +25,8 @@ public:
                                const Timeout* aTimeout,
                                bool aIsBackground);
   void MaybeCollectTelemetry(const TimeStamp& aNow);
-private:
+
+ private:
   TimeoutBudgetManager() : mLastCollection(TimeStamp::Now()) {}
   struct TelemetryData
   {
@@ -42,7 +43,7 @@ private:
   TimeStamp mLastCollection;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_timeoutbudgetmanager_h
+#endif  // mozilla_dom_timeoutbudgetmanager_h

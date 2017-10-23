@@ -22,7 +22,7 @@ class nsParserBase;
  */
 class nsHtml5OplessBuilder : public nsHtml5DocumentBuilder
 {
-public:
+ public:
   nsHtml5OplessBuilder();
   ~nsHtml5OplessBuilder();
   void Start();
@@ -30,4 +30,4 @@ public:
   void SetParser(nsParserBase* aParser);
 };
 
-#endif // nsHtml5OplessBuilder_h
+#endif  // nsHtml5OplessBuilder_h

@@ -85,7 +85,7 @@ OSFileSystem::Unlink()
 }
 
 void
-OSFileSystem::Traverse(nsCycleCollectionTraversalCallback &cb)
+OSFileSystem::Traverse(nsCycleCollectionTraversalCallback& cb)
 {
   AssertIsOnOwningThread();
 
@@ -109,5 +109,5 @@ OSFileSystemParent::OSFileSystemParent(const nsAString& aRootDir)
   mLocalRootPath = aRootDir;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

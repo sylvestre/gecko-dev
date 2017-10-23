@@ -15,12 +15,13 @@ struct FontVariation
   uint32_t mTag;
   float mValue;
 
-  bool operator==(const FontVariation& aOther) const {
+  bool operator==(const FontVariation& aOther) const
+  {
     return mTag == aOther.mTag && mValue == aOther.mValue;
   }
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_FONTVARIATION_H_ */

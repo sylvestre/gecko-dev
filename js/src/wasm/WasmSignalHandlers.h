@@ -22,7 +22,7 @@
 #include "mozilla/Attributes.h"
 
 #if defined(XP_DARWIN)
-# include <mach/mach.h>
+#include <mach/mach.h>
 #endif
 #include "threading/Thread.h"
 
@@ -32,28 +32,24 @@ struct JSRuntime;
 namespace js {
 
 // Force any currently-executing asm.js/ion code to call HandleExecutionInterrupt.
-extern void
-InterruptRunningJitCode(JSContext* cx);
+extern void InterruptRunningJitCode(JSContext* cx);
 
 namespace wasm {
 
 // Ensure the given JSRuntime is set up to use signals. Failure to enable signal
 // handlers indicates some catastrophic failure and creation of the runtime must
 // fail.
-MOZ_MUST_USE bool
-EnsureSignalHandlers(JSContext* cx);
+MOZ_MUST_USE bool EnsureSignalHandlers(JSContext* cx);
 
 // Return whether signals can be used in this process for interrupts or
 // asm.js/wasm out-of-bounds.
-bool
-HaveSignalHandlers();
+bool HaveSignalHandlers();
 
 class CodeSegment;
 
 // Returns true if wasm code is on top of the activation stack (and fills out
 // the code segment outparam in this case), or false otherwise.
-bool
-InInterruptibleCode(JSContext* cx, uint8_t* pc, const CodeSegment** cs);
+bool InInterruptibleCode(JSContext* cx, uint8_t* pc, const CodeSegment** cs);
 
 #if defined(XP_DARWIN)
 // On OSX we are forced to use the lower-level Mach exception mechanism instead
@@ -62,15 +58,14 @@ InInterruptibleCode(JSContext* cx, uint8_t* pc, const CodeSegment** cs);
 // per JSContext (upon the first use of wasm in the JSContext). This thread
 // and related resources are owned by AsmJSMachExceptionHandler which is owned
 // by JSContext.
-class MachExceptionHandler
-{
+class MachExceptionHandler {
     bool installed_;
     js::Thread thread_;
     mach_port_t port_;
 
     void uninstall();
 
-  public:
+   public:
     MachExceptionHandler();
     ~MachExceptionHandler() { uninstall(); }
     mach_port_t port() const { return port_; }
@@ -79,7 +74,7 @@ class MachExceptionHandler
 };
 #endif
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_signal_handlers_h
+#endif  // wasm_signal_handlers_h

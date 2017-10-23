@@ -19,23 +19,23 @@ namespace mozilla {
 
 using namespace dom;
 
-DeleteTextTransaction::DeleteTextTransaction(
-                         EditorBase& aEditorBase,
-                         nsGenericDOMDataNode& aCharData,
-                         uint32_t aOffset,
-                         uint32_t aNumCharsToDelete,
-                         RangeUpdater* aRangeUpdater)
-  : mEditorBase(&aEditorBase)
-  , mCharData(&aCharData)
-  , mOffset(aOffset)
-  , mNumCharsToDelete(aNumCharsToDelete)
-  , mRangeUpdater(aRangeUpdater)
+DeleteTextTransaction::DeleteTextTransaction(EditorBase& aEditorBase,
+                                             nsGenericDOMDataNode& aCharData,
+                                             uint32_t aOffset,
+                                             uint32_t aNumCharsToDelete,
+                                             RangeUpdater* aRangeUpdater)
+    : mEditorBase(&aEditorBase),
+      mCharData(&aCharData),
+      mOffset(aOffset),
+      mNumCharsToDelete(aNumCharsToDelete),
+      mRangeUpdater(aRangeUpdater)
 {
   NS_ASSERTION(mCharData->Length() >= aOffset + aNumCharsToDelete,
                "Trying to delete more characters than in node");
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(DeleteTextTransaction, EditTransactionBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(DeleteTextTransaction,
+                                   EditTransactionBase,
                                    mEditorBase,
                                    mCharData)
 
@@ -59,8 +59,8 @@ DeleteTextTransaction::DoTransaction()
   }
 
   // Get the text that we're about to delete
-  nsresult rv = mCharData->SubstringData(mOffset, mNumCharsToDelete,
-                                         mDeletedText);
+  nsresult rv =
+      mCharData->SubstringData(mOffset, mNumCharsToDelete, mDeletedText);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
   rv = mCharData->DeleteData(mOffset, mNumCharsToDelete);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -101,4 +101,4 @@ DeleteTextTransaction::GetTxnDescription(nsAString& aString)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

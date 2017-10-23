@@ -16,18 +16,18 @@ class nsIPlaintextEditor;
 
 class TextEditorTest
 {
-public:
-
-  void Run(nsIEditor *aEditor, int32_t *outNumTests, int32_t *outNumTestsFailed);
+ public:
+  void Run(nsIEditor* aEditor,
+           int32_t* outNumTests,
+           int32_t* outNumTestsFailed);
   TextEditorTest();
   ~TextEditorTest();
 
-protected:
-
+ protected:
   /** create an empty document */
   nsresult InitDoc();
 
-  nsresult RunUnitTest(int32_t *outNumTests, int32_t *outNumTestsFailed);
+  nsresult RunUnitTest(int32_t* outNumTests, int32_t* outNumTestsFailed);
 
   nsresult TestInsertBreak();
 

@@ -19,28 +19,21 @@ namespace jit {
 // Optimized stubs are allocated per-compartment and are always purged when
 // JIT-code is discarded. Fallback stubs are allocated per BaselineScript and
 // are only destroyed when the BaselineScript is destroyed.
-class ICStubSpace
-{
-  protected:
+class ICStubSpace {
+   protected:
     LifoAlloc allocator_;
 
-    explicit ICStubSpace(size_t chunkSize)
-      : allocator_(chunkSize)
-    {}
+    explicit ICStubSpace(size_t chunkSize) : allocator_(chunkSize) {}
 
-  public:
-    inline void* alloc(size_t size) {
-        return allocator_.alloc(size);
-    }
+   public:
+    inline void* alloc(size_t size) { return allocator_.alloc(size); }
 
     JS_DECLARE_NEW_METHODS(allocate, alloc, inline)
 
     void freeAllAfterMinorGC(JS::Zone* zone);
 
 #ifdef DEBUG
-    bool isEmpty() const {
-        return allocator_.isEmpty();
-    }
+    bool isEmpty() const { return allocator_.isEmpty(); }
 #endif
 
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
@@ -50,33 +43,25 @@ class ICStubSpace
 
 // Space for optimized stubs. Every JitCompartment has a single
 // OptimizedICStubSpace.
-struct OptimizedICStubSpace : public ICStubSpace
-{
+struct OptimizedICStubSpace : public ICStubSpace {
     static const size_t STUB_DEFAULT_CHUNK_SIZE = 4096;
 
-  public:
-    OptimizedICStubSpace()
-      : ICStubSpace(STUB_DEFAULT_CHUNK_SIZE)
-    {}
+   public:
+    OptimizedICStubSpace() : ICStubSpace(STUB_DEFAULT_CHUNK_SIZE) {}
 };
 
 // Space for fallback stubs. Every BaselineScript has a
 // FallbackICStubSpace.
-struct FallbackICStubSpace : public ICStubSpace
-{
+struct FallbackICStubSpace : public ICStubSpace {
     static const size_t STUB_DEFAULT_CHUNK_SIZE = 4096;
 
-  public:
-    FallbackICStubSpace()
-      : ICStubSpace(STUB_DEFAULT_CHUNK_SIZE)
-    {}
+   public:
+    FallbackICStubSpace() : ICStubSpace(STUB_DEFAULT_CHUNK_SIZE) {}
 
-    inline void adoptFrom(FallbackICStubSpace* other) {
-        allocator_.steal(&(other->allocator_));
-    }
+    inline void adoptFrom(FallbackICStubSpace* other) { allocator_.steal(&(other->allocator_)); }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_ICStubSpace_h */

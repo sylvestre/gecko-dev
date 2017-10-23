@@ -36,14 +36,17 @@
 
 namespace mozilla {
 
-class SandboxChroot final {
-public:
+class SandboxChroot final
+{
+ public:
   SandboxChroot();
   ~SandboxChroot();
   bool Prepare();
   void Invoke();
-private:
-  enum Command {
+
+ private:
+  enum Command
+  {
     NO_THREAD,
     NO_COMMAND,
     DO_CHROOT,
@@ -61,6 +64,6 @@ private:
   bool SendCommand(Command aComm);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxChroot_h
+#endif  // mozilla_SandboxChroot_h

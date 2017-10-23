@@ -17,29 +17,24 @@ using namespace js;
 
 namespace details {
 
-template<typename T>
-struct DataType
-{
-};
+template <typename T>
+struct DataType {};
 
-template<>
-struct DataType<JSObject*>
-{
+template <>
+struct DataType<JSObject*> {
     using BarrieredType = HeapPtr<JSObject*>;
     using HasherType = MovableCellHasher<BarrieredType>;
     static JSObject* NullValue() { return nullptr; }
 };
 
-template<>
-struct DataType<JS::Value>
-{
+template <>
+struct DataType<JS::Value> {
     using BarrieredType = HeapPtr<Value>;
     static JS::Value NullValue() { return JS::UndefinedValue(); }
 };
 
 template <typename K, typename V>
-struct Utils
-{
+struct Utils {
     typedef typename DataType<K>::BarrieredType KeyType;
     typedef typename DataType<K>::HasherType HasherType;
     typedef typename DataType<V>::BarrieredType ValueType;
@@ -48,61 +43,47 @@ struct Utils
     static PtrType cast(void* ptr) { return static_cast<PtrType>(ptr); }
 };
 
-} /* namespace */
+}  // namespace details
 
 template <typename K, typename V>
-void
-JS::WeakMapPtr<K, V>::destroy()
-{
+void JS::WeakMapPtr<K, V>::destroy() {
     MOZ_ASSERT(initialized());
     js_delete(details::Utils<K, V>::cast(ptr));
     ptr = nullptr;
 }
 
 template <typename K, typename V>
-bool
-JS::WeakMapPtr<K, V>::init(JSContext* cx)
-{
+bool JS::WeakMapPtr<K, V>::init(JSContext* cx) {
     MOZ_ASSERT(!initialized());
     typename details::Utils<K, V>::PtrType map =
-        cx->zone()->new_<typename details::Utils<K,V>::Type>(cx);
-    if (!map || !map->init())
-        return false;
+        cx->zone()->new_<typename details::Utils<K, V>::Type>(cx);
+    if (!map || !map->init()) return false;
     ptr = map;
     return true;
 }
 
 template <typename K, typename V>
-void
-JS::WeakMapPtr<K, V>::trace(JSTracer* trc)
-{
+void JS::WeakMapPtr<K, V>::trace(JSTracer* trc) {
     MOZ_ASSERT(initialized());
     return details::Utils<K, V>::cast(ptr)->trace(trc);
 }
 
 template <typename K, typename V>
-V
-JS::WeakMapPtr<K, V>::lookup(const K& key)
-{
+V JS::WeakMapPtr<K, V>::lookup(const K& key) {
     MOZ_ASSERT(initialized());
     typename details::Utils<K, V>::Type::Ptr result = details::Utils<K, V>::cast(ptr)->lookup(key);
-    if (!result)
-        return details::DataType<V>::NullValue();
+    if (!result) return details::DataType<V>::NullValue();
     return result->value();
 }
 
 template <typename K, typename V>
-bool
-JS::WeakMapPtr<K, V>::put(JSContext* cx, const K& key, const V& value)
-{
+bool JS::WeakMapPtr<K, V>::put(JSContext* cx, const K& key, const V& value) {
     MOZ_ASSERT(initialized());
     return details::Utils<K, V>::cast(ptr)->put(key, value);
 }
 
 template <typename K, typename V>
-V
-JS::WeakMapPtr<K, V>::removeValue(const K& key)
-{
+V JS::WeakMapPtr<K, V>::removeValue(const K& key) {
     typedef typename details::Utils<K, V>::Type Map;
     typedef typename Map::Ptr Ptr;
 

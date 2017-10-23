@@ -21,7 +21,7 @@
 #include "vm/HelperThreads.h"
 
 #ifdef WIN32
-#    include "jswin.h"
+#include "jswin.h"
 #endif
 
 #include "js/Utility.h"
@@ -55,30 +55,17 @@ JS_PUBLIC_DATA(uint64_t) maxInterruptChecks = UINT64_MAX;
 JS_PUBLIC_DATA(uint64_t) interruptCheckCounter = 0;
 JS_PUBLIC_DATA(bool) interruptCheckFailAlways = true;
 
-bool
-InitThreadType(void) {
-    return threadType.init();
-}
+bool InitThreadType(void) { return threadType.init(); }
 
-void
-SetThreadType(ThreadType type) {
-    threadType.set(type);
-}
+void SetThreadType(ThreadType type) { threadType.set(type); }
 
-uint32_t
-GetThreadType(void) {
-    return threadType.get();
-}
+uint32_t GetThreadType(void) { return threadType.get(); }
 
-static inline bool
-IsHelperThreadType(uint32_t thread)
-{
+static inline bool IsHelperThreadType(uint32_t thread) {
     return thread != THREAD_TYPE_NONE && thread != THREAD_TYPE_COOPERATING;
 }
 
-void
-SimulateOOMAfter(uint64_t allocations, uint32_t thread, bool always)
-{
+void SimulateOOMAfter(uint64_t allocations, uint32_t thread, bool always) {
     Maybe<AutoLockHelperThreadState> lock;
     if (IsHelperThreadType(targetThread) || IsHelperThreadType(thread)) {
         lock.emplace();
@@ -92,9 +79,7 @@ SimulateOOMAfter(uint64_t allocations, uint32_t thread, bool always)
     failAlways = always;
 }
 
-void
-ResetSimulatedOOM()
-{
+void ResetSimulatedOOM() {
     Maybe<AutoLockHelperThreadState> lock;
     if (IsHelperThreadType(targetThread)) {
         lock.emplace();
@@ -106,9 +91,7 @@ ResetSimulatedOOM()
     failAlways = false;
 }
 
-void
-SimulateStackOOMAfter(uint64_t checks, uint32_t thread, bool always)
-{
+void SimulateStackOOMAfter(uint64_t checks, uint32_t thread, bool always) {
     Maybe<AutoLockHelperThreadState> lock;
     if (IsHelperThreadType(stackTargetThread) || IsHelperThreadType(thread)) {
         lock.emplace();
@@ -122,9 +105,7 @@ SimulateStackOOMAfter(uint64_t checks, uint32_t thread, bool always)
     stackCheckFailAlways = always;
 }
 
-void
-ResetSimulatedStackOOM()
-{
+void ResetSimulatedStackOOM() {
     Maybe<AutoLockHelperThreadState> lock;
     if (IsHelperThreadType(stackTargetThread)) {
         lock.emplace();
@@ -136,9 +117,7 @@ ResetSimulatedStackOOM()
     stackCheckFailAlways = false;
 }
 
-void
-SimulateInterruptAfter(uint64_t checks, uint32_t thread, bool always)
-{
+void SimulateInterruptAfter(uint64_t checks, uint32_t thread, bool always) {
     Maybe<AutoLockHelperThreadState> lock;
     if (IsHelperThreadType(interruptTargetThread) || IsHelperThreadType(thread)) {
         lock.emplace();
@@ -152,9 +131,7 @@ SimulateInterruptAfter(uint64_t checks, uint32_t thread, bool always)
     interruptCheckFailAlways = always;
 }
 
-void
-ResetSimulatedInterrupt()
-{
+void ResetSimulatedInterrupt() {
     Maybe<AutoLockHelperThreadState> lock;
     if (IsHelperThreadType(interruptTargetThread)) {
         lock.emplace();
@@ -166,13 +143,12 @@ ResetSimulatedInterrupt()
     interruptCheckFailAlways = false;
 }
 
-} // namespace oom
-} // namespace js
-#endif // defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
+}  // namespace oom
+}  // namespace js
+#endif  // defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
 
 JS_PUBLIC_API(void)
-JS_Assert(const char* s, const char* file, int ln)
-{
+JS_Assert(const char* s, const char* file, int ln) {
     MOZ_ReportAssertionFailure(s, file, ln);
     MOZ_CRASH();
 }
@@ -187,39 +163,31 @@ namespace js {
 // This function calls all the vanilla heap allocation functions.  It is never
 // called, and exists purely to help config/check_vanilla_allocations.py.  See
 // that script for more details.
-extern MOZ_COLD void
-AllTheNonBasicVanillaNewAllocations()
-{
+extern MOZ_COLD void AllTheNonBasicVanillaNewAllocations() {
     // posix_memalign and aligned_alloc aren't available on all Linux
     // configurations.
     // valloc was deprecated in Android 5.0
     //char* q;
     //posix_memalign((void**)&q, 16, 16);
 
-    intptr_t p =
-        intptr_t(malloc(16)) +
-        intptr_t(calloc(1, 16)) +
-        intptr_t(realloc(nullptr, 16)) +
-        intptr_t(new char) +
-        intptr_t(new char) +
-        intptr_t(new char) +
-        intptr_t(new char[16]) +
-        intptr_t(memalign(16, 16)) +
-        //intptr_t(q) +
-        //intptr_t(aligned_alloc(16, 16)) +
-        //intptr_t(valloc(4096)) +
-        intptr_t(strdup("dummy"));
+    intptr_t p = intptr_t(malloc(16)) + intptr_t(calloc(1, 16)) + intptr_t(realloc(nullptr, 16)) +
+                 intptr_t(new char) + intptr_t(new char) + intptr_t(new char) +
+                 intptr_t(new char[16]) + intptr_t(memalign(16, 16)) +
+                 //intptr_t(q) +
+                 //intptr_t(aligned_alloc(16, 16)) +
+                 //intptr_t(valloc(4096)) +
+                 intptr_t(strdup("dummy"));
 
     printf("%u\n", uint32_t(p));  // make sure |p| is not optimized away
 
-    free((int*)p);      // this would crash if ever actually called
+    free((int*)p);  // this would crash if ever actually called
 
     MOZ_CRASH();
 }
 
-} // namespace js
+}  // namespace js
 
-#endif // __linux__
+#endif  // __linux__
 
 #ifdef JS_BASIC_STATS
 
@@ -234,43 +202,30 @@ AllTheNonBasicVanillaNewAllocations()
  *
  * We wish to count occurrences of 0 and 1 values separately, always.
  */
-static uint32_t
-BinToVal(unsigned logscale, unsigned bin)
-{
+static uint32_t BinToVal(unsigned logscale, unsigned bin) {
     MOZ_ASSERT(bin <= 10);
-    if (bin <= 1 || logscale == 0)
-        return bin;
+    if (bin <= 1 || logscale == 0) return bin;
     --bin;
-    if (logscale == 2)
-        return JS_BIT(bin);
+    if (logscale == 2) return JS_BIT(bin);
     MOZ_ASSERT(logscale == 10);
-    return uint32_t(pow(10.0, (double) bin));
+    return uint32_t(pow(10.0, (double)bin));
 }
 
-static unsigned
-ValToBin(unsigned logscale, uint32_t val)
-{
+static unsigned ValToBin(unsigned logscale, uint32_t val) {
     unsigned bin;
 
-    if (val <= 1)
-        return val;
-    bin = (logscale == 10)
-        ? (unsigned) ceil(log10((double) val))
-        : (logscale == 2)
-        ? (unsigned) CeilingLog2Size(val)
-        : val;
+    if (val <= 1) return val;
+    bin = (logscale == 10) ? (unsigned)ceil(log10((double)val))
+                           : (logscale == 2) ? (unsigned)CeilingLog2Size(val) : val;
     return Min(bin, 10U);
 }
 
-void
-JS_BasicStatsAccum(JSBasicStats* bs, uint32_t val)
-{
+void JS_BasicStatsAccum(JSBasicStats* bs, uint32_t val) {
     unsigned oldscale, newscale, bin;
     double mean;
 
     ++bs->num;
-    if (bs->max < val)
-        bs->max = val;
+    if (bs->max < val) bs->max = val;
     bs->sum += val;
     bs->sqsum += (double)val * val;
 
@@ -297,9 +252,7 @@ JS_BasicStatsAccum(JSBasicStats* bs, uint32_t val)
     ++bs->hist[bin];
 }
 
-double
-JS_MeanAndStdDev(uint32_t num, double sum, double sqsum, double* sigma)
-{
+double JS_MeanAndStdDev(uint32_t num, double sum, double sqsum, double* sigma) {
     double var;
 
     if (num == 0 || sum == 0) {
@@ -318,28 +271,23 @@ JS_MeanAndStdDev(uint32_t num, double sum, double sqsum, double* sigma)
     return sum / num;
 }
 
-void
-JS_DumpBasicStats(JSBasicStats* bs, const char* title, FILE* fp)
-{
+void JS_DumpBasicStats(JSBasicStats* bs, const char* title, FILE* fp) {
     double mean, sigma;
 
     mean = JS_MeanAndStdDevBS(bs, &sigma);
-    fprintf(fp, "\nmean %s %g, std. deviation %g, max %lu\n",
-            title, mean, sigma, (unsigned long) bs->max);
+    fprintf(fp, "\nmean %s %g, std. deviation %g, max %lu\n", title, mean, sigma,
+            (unsigned long)bs->max);
     JS_DumpHistogram(bs, fp);
 }
 
-void
-JS_DumpHistogram(JSBasicStats* bs, FILE* fp)
-{
+void JS_DumpHistogram(JSBasicStats* bs, FILE* fp) {
     unsigned bin;
     uint32_t cnt, max;
     double sum, mean;
 
     for (bin = 0, max = 0, sum = 0; bin <= 10; bin++) {
         cnt = bs->hist[bin];
-        if (max < cnt)
-            max = cnt;
+        if (max < cnt) max = cnt;
         sum += cnt;
     }
     mean = sum / cnt;
@@ -356,11 +304,10 @@ JS_DumpHistogram(JSBasicStats* bs, FILE* fp)
         fprintf(fp, ": %8u ", cnt);
         if (cnt != 0) {
             if (max > 1e6 && mean > 1e3)
-                cnt = uint32_t(ceil(log10((double) cnt)));
+                cnt = uint32_t(ceil(log10((double)cnt)));
             else if (max > 16 && mean > 8)
                 cnt = CeilingLog2Size(cnt);
-            for (unsigned i = 0; i < cnt; i++)
-                putc('*', fp);
+            for (unsigned i = 0; i < cnt; i++) putc('*', fp);
         }
         putc('\n', fp);
     }

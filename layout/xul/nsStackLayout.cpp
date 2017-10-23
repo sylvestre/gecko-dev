@@ -46,9 +46,7 @@ nsStackLayout::Shutdown()
   NS_IF_RELEASE(gInstance);
 }
 
-nsStackLayout::nsStackLayout()
-{
-}
+nsStackLayout::nsStackLayout() {}
 
 /*
  * Sizing: we are as wide as the widest child plus its left offset
@@ -61,7 +59,7 @@ nsStackLayout::nsStackLayout()
 nsSize
 nsStackLayout::GetXULPrefSize(nsIFrame* aBox, nsBoxLayoutState& aState)
 {
-  nsSize prefSize (0, 0);
+  nsSize prefSize(0, 0);
 
   nsIFrame* child = nsBox::GetChildXULBox(aBox);
   while (child) {
@@ -96,7 +94,7 @@ nsStackLayout::GetXULPrefSize(nsIFrame* aBox, nsBoxLayoutState& aState)
 nsSize
 nsStackLayout::GetXULMinSize(nsIFrame* aBox, nsBoxLayoutState& aState)
 {
-  nsSize minSize (0, 0);
+  nsSize minSize(0, 0);
 
   nsIFrame* child = nsBox::GetChildXULBox(aBox);
   while (child) {
@@ -131,7 +129,7 @@ nsStackLayout::GetXULMinSize(nsIFrame* aBox, nsBoxLayoutState& aState)
 nsSize
 nsStackLayout::GetXULMaxSize(nsIFrame* aBox, nsBoxLayoutState& aState)
 {
-  nsSize maxSize (NS_INTRINSICSIZE, NS_INTRINSICSIZE);
+  nsSize maxSize(NS_INTRINSICSIZE, NS_INTRINSICSIZE);
 
   nsIFrame* child = nsBox::GetChildXULBox(aBox);
   while (child) {
@@ -166,7 +164,6 @@ nsStackLayout::GetXULMaxSize(nsIFrame* aBox, nsBoxLayoutState& aState)
   return maxSize;
 }
 
-
 nscoord
 nsStackLayout::GetAscent(nsIFrame* aBox, nsBoxLayoutState& aState)
 {
@@ -178,8 +175,7 @@ nsStackLayout::GetAscent(nsIFrame* aBox, nsBoxLayoutState& aState)
     nsMargin margin;
     child->GetXULMargin(margin);
     ascent += margin.top;
-    if (ascent > vAscent)
-      vAscent = ascent;
+    if (ascent > vAscent) vAscent = ascent;
 
     child = nsBox::GetNextXULBox(child);
   }
@@ -212,11 +208,11 @@ nsStackLayout::GetOffset(nsIFrame* aChild, nsMargin& aOffset)
       value.Trim("%");
       if (ltr) {
         aOffset.left =
-          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+            nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
         offsetSpecified |= SPECIFIED_LEFT;
       } else {
         aOffset.right =
-          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+            nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
         offsetSpecified |= SPECIFIED_RIGHT;
       }
     }
@@ -226,11 +222,11 @@ nsStackLayout::GetOffset(nsIFrame* aChild, nsMargin& aOffset)
       value.Trim("%");
       if (ltr) {
         aOffset.right =
-          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+            nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
         offsetSpecified |= SPECIFIED_RIGHT;
       } else {
         aOffset.left =
-          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+            nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
         offsetSpecified |= SPECIFIED_LEFT;
       }
     }
@@ -239,7 +235,7 @@ nsStackLayout::GetOffset(nsIFrame* aChild, nsMargin& aOffset)
     if (!value.IsEmpty()) {
       value.Trim("%");
       aOffset.left =
-        nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
       offsetSpecified |= SPECIFIED_LEFT;
     }
 
@@ -247,15 +243,14 @@ nsStackLayout::GetOffset(nsIFrame* aChild, nsMargin& aOffset)
     if (!value.IsEmpty()) {
       value.Trim("%");
       aOffset.right =
-        nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
       offsetSpecified |= SPECIFIED_RIGHT;
     }
 
     content->GetAttr(kNameSpaceID_None, nsGkAtoms::top, value);
     if (!value.IsEmpty()) {
       value.Trim("%");
-      aOffset.top =
-        nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+      aOffset.top = nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
       offsetSpecified |= SPECIFIED_TOP;
     }
 
@@ -263,7 +258,7 @@ nsStackLayout::GetOffset(nsIFrame* aChild, nsMargin& aOffset)
     if (!value.IsEmpty()) {
       value.Trim("%");
       aOffset.bottom =
-        nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
+          nsPresContext::CSSPixelsToAppUnits(value.ToInteger(&error));
       offsetSpecified |= SPECIFIED_BOTTOM;
     }
   }
@@ -277,7 +272,6 @@ nsStackLayout::GetOffset(nsIFrame* aChild, nsMargin& aOffset)
   return offsetSpecified;
 }
 
-
 NS_IMETHODIMP
 nsStackLayout::XULLayout(nsIFrame* aBox, nsBoxLayoutState& aState)
 {
@@ -290,126 +284,119 @@ nsStackLayout::XULLayout(nsIFrame* aBox, nsBoxLayoutState& aState)
     nsIFrame* child = nsBox::GetChildXULBox(aBox);
     grow = false;
 
-    while (child)
-    {
+    while (child) {
       nsMargin margin;
       child->GetXULMargin(margin);
       nsRect childRect(clientRect);
       childRect.Deflate(margin);
 
-      if (childRect.width < 0)
-        childRect.width = 0;
+      if (childRect.width < 0) childRect.width = 0;
 
-      if (childRect.height < 0)
-        childRect.height = 0;
+      if (childRect.height < 0) childRect.height = 0;
 
       nsRect oldRect(child->GetRect());
       bool sizeChanged = !oldRect.IsEqualEdges(childRect);
 
       // only lay out dirty children or children whose sizes have changed
       if (sizeChanged || NS_SUBTREE_DIRTY(child)) {
-          // add in the child's margin
-          nsMargin margin;
-          child->GetXULMargin(margin);
+        // add in the child's margin
+        nsMargin margin;
+        child->GetXULMargin(margin);
 
-          // obtain our offset from the top left border of the stack's content box.
-          nsMargin offset;
-          uint8_t offsetSpecified = GetOffset(child, offset);
+        // obtain our offset from the top left border of the stack's content box.
+        nsMargin offset;
+        uint8_t offsetSpecified = GetOffset(child, offset);
 
-          // Set the position and size based on which offsets have been specified:
-          //   left only - offset from left edge, preferred width
-          //   right only - offset from right edge, preferred width
-          //   left and right - offset from left and right edges, width in between this
-          //   neither - no offset, full width of stack
-          // Vertical direction is similar.
-          //
-          // Margins on the child are also included in the edge offsets
-          if (offsetSpecified) {
-            nsSize min = child->GetXULMinSize(aState);
-            nsSize max = child->GetXULMaxSize(aState);
-            if (offsetSpecified & SPECIFIED_LEFT) {
-              childRect.x = clientRect.x + offset.left + margin.left;
-              if (offsetSpecified & SPECIFIED_RIGHT) {
-                nscoord width = clientRect.width - offset.LeftRight() - margin.LeftRight();
-                childRect.width = clamped(width, min.width, max.width);
-              }
-              else {
-                nscoord width = child->GetXULPrefSize(aState).width;
-                childRect.width = clamped(width, min.width, max.width);
-              }
-            }
-            else if (offsetSpecified & SPECIFIED_RIGHT) {
+        // Set the position and size based on which offsets have been specified:
+        //   left only - offset from left edge, preferred width
+        //   right only - offset from right edge, preferred width
+        //   left and right - offset from left and right edges, width in between this
+        //   neither - no offset, full width of stack
+        // Vertical direction is similar.
+        //
+        // Margins on the child are also included in the edge offsets
+        if (offsetSpecified) {
+          nsSize min = child->GetXULMinSize(aState);
+          nsSize max = child->GetXULMaxSize(aState);
+          if (offsetSpecified & SPECIFIED_LEFT) {
+            childRect.x = clientRect.x + offset.left + margin.left;
+            if (offsetSpecified & SPECIFIED_RIGHT) {
+              nscoord width =
+                  clientRect.width - offset.LeftRight() - margin.LeftRight();
+              childRect.width = clamped(width, min.width, max.width);
+            } else {
               nscoord width = child->GetXULPrefSize(aState).width;
               childRect.width = clamped(width, min.width, max.width);
-              childRect.x = clientRect.XMost() - offset.right - margin.right - childRect.width;
             }
+          } else if (offsetSpecified & SPECIFIED_RIGHT) {
+            nscoord width = child->GetXULPrefSize(aState).width;
+            childRect.width = clamped(width, min.width, max.width);
+            childRect.x = clientRect.XMost() - offset.right - margin.right -
+                          childRect.width;
+          }
 
-            if (offsetSpecified & SPECIFIED_TOP) {
-              childRect.y = clientRect.y + offset.top + margin.top;
-              if (offsetSpecified & SPECIFIED_BOTTOM) {
-                nscoord height = clientRect.height - offset.TopBottom() - margin.TopBottom();
-                childRect.height = clamped(height, min.height, max.height);
-              }
-              else {
-                nscoord height = child->GetXULPrefSize(aState).height;
-                childRect.height = clamped(height, min.height, max.height);
-              }
-            }
-            else if (offsetSpecified & SPECIFIED_BOTTOM) {
+          if (offsetSpecified & SPECIFIED_TOP) {
+            childRect.y = clientRect.y + offset.top + margin.top;
+            if (offsetSpecified & SPECIFIED_BOTTOM) {
+              nscoord height =
+                  clientRect.height - offset.TopBottom() - margin.TopBottom();
+              childRect.height = clamped(height, min.height, max.height);
+            } else {
               nscoord height = child->GetXULPrefSize(aState).height;
               childRect.height = clamped(height, min.height, max.height);
-              childRect.y = clientRect.YMost() - offset.bottom - margin.bottom - childRect.height;
             }
+          } else if (offsetSpecified & SPECIFIED_BOTTOM) {
+            nscoord height = child->GetXULPrefSize(aState).height;
+            childRect.height = clamped(height, min.height, max.height);
+            childRect.y = clientRect.YMost() - offset.bottom - margin.bottom -
+                          childRect.height;
+          }
+        }
+
+        // Now place the child.
+        child->SetXULBounds(aState, childRect);
+
+        // Flow the child.
+        child->XULLayout(aState);
+
+        // Get the child's new rect.
+        childRect = child->GetRect();
+        childRect.Inflate(margin);
+
+        auto stackSizing = child->StyleXUL()->mStackSizing;
+        if (stackSizing != StyleStackSizing::Ignore) {
+          // Did the child push back on us and get bigger?
+          if (offset.LeftRight() + childRect.width > clientRect.width &&
+              stackSizing != StyleStackSizing::IgnoreHorizontal) {
+            clientRect.width = childRect.width + offset.LeftRight();
+            grow = true;
           }
 
-          // Now place the child.
-          child->SetXULBounds(aState, childRect);
-
-          // Flow the child.
-          child->XULLayout(aState);
-
-          // Get the child's new rect.
-          childRect = child->GetRect();
-          childRect.Inflate(margin);
-
-          auto stackSizing = child->StyleXUL()->mStackSizing;
-          if (stackSizing != StyleStackSizing::Ignore) {
-            // Did the child push back on us and get bigger?
-            if (offset.LeftRight() + childRect.width > clientRect.width &&
-                stackSizing != StyleStackSizing::IgnoreHorizontal) {
-              clientRect.width = childRect.width + offset.LeftRight();
-              grow = true;
-            }
-
-            if (offset.TopBottom() + childRect.height > clientRect.height &&
-                stackSizing != StyleStackSizing::IgnoreVertical) {
-              clientRect.height = childRect.height + offset.TopBottom();
-              grow = true;
-            }
+          if (offset.TopBottom() + childRect.height > clientRect.height &&
+              stackSizing != StyleStackSizing::IgnoreVertical) {
+            clientRect.height = childRect.height + offset.TopBottom();
+            grow = true;
           }
-       }
+        }
+      }
 
-       child = nsBox::GetNextXULBox(child);
-     }
-   } while (grow);
+      child = nsBox::GetNextXULBox(child);
+    }
+  } while (grow);
 
-   // if some HTML inside us got bigger we need to force ourselves to
-   // get bigger
-   nsRect bounds(aBox->GetRect());
-   nsMargin bp;
-   aBox->GetXULBorderAndPadding(bp);
-   clientRect.Inflate(bp);
+  // if some HTML inside us got bigger we need to force ourselves to
+  // get bigger
+  nsRect bounds(aBox->GetRect());
+  nsMargin bp;
+  aBox->GetXULBorderAndPadding(bp);
+  clientRect.Inflate(bp);
 
-   if (clientRect.width > bounds.width || clientRect.height > bounds.height)
-   {
-     if (clientRect.width > bounds.width)
-       bounds.width = clientRect.width;
-     if (clientRect.height > bounds.height)
-       bounds.height = clientRect.height;
+  if (clientRect.width > bounds.width || clientRect.height > bounds.height) {
+    if (clientRect.width > bounds.width) bounds.width = clientRect.width;
+    if (clientRect.height > bounds.height) bounds.height = clientRect.height;
 
-     aBox->SetXULBounds(aState, bounds);
-   }
+    aBox->SetXULBounds(aState, bounds);
+  }
 
-   return NS_OK;
+  return NS_OK;
 }
-

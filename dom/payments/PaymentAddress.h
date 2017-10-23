@@ -13,10 +13,9 @@
 namespace mozilla {
 namespace dom {
 
-class PaymentAddress final : public nsISupports,
-                             public nsWrapperCache
+class PaymentAddress final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(PaymentAddress)
 
@@ -33,10 +32,7 @@ public:
                  const nsAString& aRecipient,
                  const nsAString& aPhone);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -64,7 +60,7 @@ public:
 
   void GetPhone(nsAString& aRetVal) const;
 
-private:
+ private:
   ~PaymentAddress();
 
   nsString mCountry;
@@ -82,7 +78,7 @@ private:
   nsCOMPtr<nsPIDOMWindowInner> mOwner;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PaymentAddress_h
+#endif  // mozilla_dom_PaymentAddress_h

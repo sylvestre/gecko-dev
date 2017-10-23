@@ -14,21 +14,22 @@
 class nsCSSCounterStyleRule final : public mozilla::css::Rule,
                                     public nsIDOMCSSCounterStyleRule
 {
-public:
+ public:
   explicit nsCSSCounterStyleRule(nsAtom* aName,
-                                 uint32_t aLineNumber, uint32_t aColumnNumber)
-    : mozilla::css::Rule(aLineNumber, aColumnNumber)
-    , mName(aName)
-    , mGeneration(0)
+                                 uint32_t aLineNumber,
+                                 uint32_t aColumnNumber)
+      : mozilla::css::Rule(aLineNumber, aColumnNumber),
+        mName(aName),
+        mGeneration(0)
   {
     MOZ_ASSERT(aName, "Must have non-null name");
   }
 
-private:
+ private:
   nsCSSCounterStyleRule(const nsCSSCounterStyleRule& aCopy);
   ~nsCSSCounterStyleRule();
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   virtual bool IsCCLeaf() const override;
 
@@ -90,12 +91,13 @@ public:
 
   void SetDesc(nsCSSCounterDesc aDescID, const nsCSSValue& aValue);
 
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   typedef decltype(&nsCSSCounterStyleRule::GetSymbols) Getter;
   static const Getter kGetters[];
 
@@ -104,7 +106,7 @@ private:
 
   RefPtr<nsAtom> mName;
   nsCSSValue mValues[eCSSCounterDesc_COUNT];
-  uint32_t   mGeneration;
+  uint32_t mGeneration;
 };
 
-#endif // nsCSSCounterStyleRule_h
+#endif  // nsCSSCounterStyleRule_h

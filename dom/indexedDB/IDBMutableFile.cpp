@@ -40,12 +40,12 @@ IDBMutableFile::IDBMutableFile(IDBDatabase* aDatabase,
                                BackgroundMutableFileChild* aActor,
                                const nsAString& aName,
                                const nsAString& aType)
-  : DOMEventTargetHelper(aDatabase)
-  , mDatabase(aDatabase)
-  , mBackgroundActor(aActor)
-  , mName(aName)
-  , mType(aType)
-  , mInvalidated(false)
+    : DOMEventTargetHelper(aDatabase),
+      mDatabase(aDatabase),
+      mBackgroundActor(aActor),
+      mName(aName),
+      mType(aType),
+      mInvalidated(false)
 {
   MOZ_ASSERT(aDatabase);
   aDatabase->AssertIsOnOwningThread();
@@ -75,7 +75,7 @@ IDBMutableFile::AssertIsOnOwningThread() const
   mDatabase->AssertIsOnOwningThread();
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 int64_t
 IDBMutableFile::GetFileId() const
@@ -131,9 +131,9 @@ IDBMutableFile::AbortFileHandles()
 
   class MOZ_STACK_CLASS Helper final
   {
-  public:
-    static void
-    AbortFileHandles(nsTHashtable<nsPtrHashKey<IDBFileHandle>>& aTable)
+   public:
+    static void AbortFileHandles(
+        nsTHashtable<nsPtrHashKey<IDBFileHandle>>& aTable)
     {
       if (!aTable.Count()) {
         return;
@@ -182,15 +182,12 @@ IDBMutableFile::Open(FileMode aMode, ErrorResult& aError)
 {
   AssertIsOnOwningThread();
 
-  if (QuotaManager::IsShuttingDown() ||
-      mDatabase->IsClosed() ||
-      !GetOwner()) {
+  if (QuotaManager::IsShuttingDown() || mDatabase->IsClosed() || !GetOwner()) {
     aError.Throw(NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
     return nullptr;
   }
 
-  RefPtr<IDBFileHandle> fileHandle =
-    IDBFileHandle::Create(this, aMode);
+  RefPtr<IDBFileHandle> fileHandle = IDBFileHandle::Create(this, aMode);
   if (NS_WARN_IF(!fileHandle)) {
     aError.Throw(NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
     return nullptr;
@@ -199,7 +196,7 @@ IDBMutableFile::Open(FileMode aMode, ErrorResult& aError)
   BackgroundFileHandleChild* actor = new BackgroundFileHandleChild(fileHandle);
 
   MOZ_ALWAYS_TRUE(
-    mBackgroundActor->SendPBackgroundFileHandleConstructor(actor, aMode));
+      mBackgroundActor->SendPBackgroundFileHandleConstructor(actor, aMode));
 
   fileHandle->SetBackgroundActor(actor);
 
@@ -217,7 +214,7 @@ IDBMutableFile::GetFile(ErrorResult& aError)
   FileRequestGetFileParams params;
 
   RefPtr<IDBFileRequest> request =
-    IDBFileRequest::Create(fileHandle, /* aWrapAsDOMRequest */ true);
+      IDBFileRequest::Create(fileHandle, /* aWrapAsDOMRequest */ true);
 
   fileHandle->StartRequest(request, params);
 
@@ -251,5 +248,5 @@ IDBMutableFile::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return IDBMutableFileBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

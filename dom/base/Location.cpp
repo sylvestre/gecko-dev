@@ -39,8 +39,8 @@
 namespace mozilla {
 namespace dom {
 
-Location::Location(nsPIDOMWindowInner* aWindow, nsIDocShell *aDocShell)
-  : mInnerWindow(aWindow)
+Location::Location(nsPIDOMWindowInner* aWindow, nsIDocShell* aDocShell)
+    : mInnerWindow(aWindow)
 {
   MOZ_ASSERT(mInnerWindow->IsInnerWindow());
 
@@ -48,9 +48,7 @@ Location::Location(nsPIDOMWindowInner* aWindow, nsIDocShell *aDocShell)
   mDocShell = do_GetWeakReference(aDocShell);
 }
 
-Location::~Location()
-{
-}
+Location::~Location() {}
 
 // QueryInterface implementation for Location
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Location)
@@ -75,7 +73,7 @@ Location::CheckURL(nsIURI* aURI, nsIDocShellLoadInfo** aLoadInfo)
   nsCOMPtr<nsIURI> sourceURI;
   net::ReferrerPolicy referrerPolicy = net::RP_Unset;
 
-  if (JSContext *cx = nsContentUtils::GetCurrentJSContext()) {
+  if (JSContext* cx = nsContentUtils::GetCurrentJSContext()) {
     // No cx means that there's no JS running, or at least no JS that
     // was run through code that properly pushed a context onto the
     // context stack (as all code that runs JS off of web pages
@@ -106,7 +104,7 @@ Location::CheckURL(nsIURI* aURI, nsIDocShellLoadInfo** aLoadInfo)
     // after the document was loaded.
 
     nsCOMPtr<nsPIDOMWindowInner> incumbent =
-      do_QueryInterface(mozilla::dom::GetIncumbentGlobal());
+        do_QueryInterface(mozilla::dom::GetIncumbentGlobal());
     nsCOMPtr<nsIDocument> doc = incumbent ? incumbent->GetDoc() : nullptr;
 
     if (doc) {
@@ -125,8 +123,7 @@ Location::CheckURL(nsIURI* aURI, nsIDocShellLoadInfo** aLoadInfo)
       }
       if (urisEqual) {
         sourceURI = docCurrentURI;
-      }
-      else {
+      } else {
         // Use principalURI as long as it is not an NullPrincipalURI.  We
         // could add a method such as GetReferrerURI to principals to make this
         // cleaner, but given that we need to start using Source Browsing
@@ -135,14 +132,13 @@ Location::CheckURL(nsIURI* aURI, nsIDocShellLoadInfo** aLoadInfo)
         if (principalURI) {
           bool isNullPrincipalScheme;
           rv = principalURI->SchemeIs(NS_NULLPRINCIPAL_SCHEME,
-                                     &isNullPrincipalScheme);
+                                      &isNullPrincipalScheme);
           if (NS_SUCCEEDED(rv) && !isNullPrincipalScheme) {
             sourceURI = principalURI;
           }
         }
       }
-    }
-    else {
+    } else {
       // No document; determine triggeringPrincipal by quering the
       // subjectPrincipal, wich is the principal of the current JS
       // compartment, or a null principal in case there is no
@@ -236,7 +232,7 @@ Location::SetURI(nsIURI* aURI, bool aReplace)
   if (docShell) {
     nsCOMPtr<nsIDocShellLoadInfo> loadInfo;
 
-    if(NS_FAILED(CheckURL(aURI, getter_AddRefs(loadInfo))))
+    if (NS_FAILED(CheckURL(aURI, getter_AddRefs(loadInfo))))
       return NS_ERROR_FAILURE;
 
     if (aReplace) {
@@ -247,13 +243,13 @@ Location::SetURI(nsIURI* aURI, bool aReplace)
 
     // Get the incumbent script's browsing context to set as source.
     nsCOMPtr<nsPIDOMWindowInner> sourceWindow =
-      do_QueryInterface(mozilla::dom::GetIncumbentGlobal());
+        do_QueryInterface(mozilla::dom::GetIncumbentGlobal());
     if (sourceWindow) {
       loadInfo->SetSourceDocShell(sourceWindow->GetDocShell());
     }
 
-    return docShell->LoadURI(aURI, loadInfo,
-                             nsIWebNavigation::LOAD_FLAGS_NONE, true);
+    return docShell->LoadURI(
+        aURI, loadInfo, nsIWebNavigation::LOAD_FLAGS_NONE, true);
   }
 
   return NS_OK;
@@ -445,7 +441,7 @@ Location::SetHref(const nsAString& aHref,
                   nsIPrincipal& aSubjectPrincipal,
                   ErrorResult& aRv)
 {
-  JSContext *cx = nsContentUtils::GetCurrentJSContext();
+  JSContext* cx = nsContentUtils::GetCurrentJSContext();
   if (cx) {
     aRv = SetHrefWithContext(cx, aHref, false);
     return;
@@ -470,7 +466,8 @@ Location::SetHref(const nsAString& aHref,
 }
 
 nsresult
-Location::SetHrefWithContext(JSContext* cx, const nsAString& aHref,
+Location::SetHrefWithContext(JSContext* cx,
+                             const nsAString& aHref,
                              bool aReplace)
 {
   nsCOMPtr<nsIURI> base;
@@ -486,8 +483,7 @@ Location::SetHrefWithContext(JSContext* cx, const nsAString& aHref,
 }
 
 nsresult
-Location::SetHrefWithBase(const nsAString& aHref, nsIURI* aBase,
-                          bool aReplace)
+Location::SetHrefWithBase(const nsAString& aHref, nsIURI* aBase, bool aReplace)
 {
   nsresult result;
   nsCOMPtr<nsIURI> newUri;
@@ -495,8 +491,8 @@ Location::SetHrefWithBase(const nsAString& aHref, nsIURI* aBase,
   nsCOMPtr<nsIDocShell> docShell(do_QueryReferent(mDocShell));
 
   if (nsIDocument* doc = GetEntryDocument()) {
-    result = NS_NewURI(getter_AddRefs(newUri), aHref,
-                       doc->GetDocumentCharacterSet(), aBase);
+    result = NS_NewURI(
+        getter_AddRefs(newUri), aHref, doc->GetDocumentCharacterSet(), aBase);
   } else {
     result = NS_NewURI(getter_AddRefs(newUri), aHref, nullptr, aBase);
   }
@@ -524,7 +520,7 @@ Location::SetHrefWithBase(const nsAString& aHref, nsIURI* aBase,
         // since we only want to replace if the location is set by a
         // <script> tag in the same window.  See bug 178729.
         nsCOMPtr<nsIScriptGlobalObject> ourGlobal =
-          docShell ? docShell->GetScriptGlobalObject() : nullptr;
+            docShell ? docShell->GetScriptGlobalObject() : nullptr;
         inScriptTag = (ourGlobal == scriptContext->GetGlobalObject());
       }
     }
@@ -658,14 +654,13 @@ Location::SetPort(const nsAString& aPort,
 
   // perhaps use nsReadingIterators at some point?
   NS_ConvertUTF16toUTF8 portStr(aPort);
-  const char *buf = portStr.get();
+  const char* buf = portStr.get();
   int32_t port = -1;
 
   if (!portStr.IsEmpty() && buf) {
     if (*buf == ':') {
-      port = atol(buf+1);
-    }
-    else {
+      port = atol(buf + 1);
+    } else {
       port = atol(buf);
     }
   }
@@ -839,8 +834,8 @@ Location::Reload(bool aForceget)
 {
   nsCOMPtr<nsIDocShell> docShell(do_QueryReferent(mDocShell));
   nsCOMPtr<nsIWebNavigation> webNav(do_QueryInterface(docShell));
-  nsCOMPtr<nsPIDOMWindowOuter> window = docShell ? docShell->GetWindow()
-                                                 : nullptr;
+  nsCOMPtr<nsPIDOMWindowOuter> window =
+      docShell ? docShell->GetWindow() : nullptr;
 
   if (window && window->IsHandlingResizeEvent()) {
     // location.reload() was called on a window that is handling a
@@ -852,8 +847,8 @@ Location::Reload(bool aForceget)
 
     nsCOMPtr<nsIDocument> doc = window->GetExtantDoc();
 
-    nsIPresShell *shell;
-    nsPresContext *pcx;
+    nsIPresShell* shell;
+    nsPresContext* pcx;
     if (doc && (shell = doc->GetShell()) && (pcx = shell->GetPresContext())) {
       pcx->RebuildAllStyleData(NS_STYLE_HINT_REFLOW, eRestyle_Subtree);
     }
@@ -888,7 +883,7 @@ Location::Replace(const nsAString& aUrl,
                   nsIPrincipal& aSubjectPrincipal,
                   ErrorResult& aRv)
 {
-  if (JSContext *cx = nsContentUtils::GetCurrentJSContext()) {
+  if (JSContext* cx = nsContentUtils::GetCurrentJSContext()) {
     aRv = SetHrefWithContext(cx, aUrl, true);
     return;
   }
@@ -919,7 +914,7 @@ Location::Assign(const nsAString& aUrl,
     return;
   }
 
-  if (JSContext *cx = nsContentUtils::GetCurrentJSContext()) {
+  if (JSContext* cx = nsContentUtils::GetCurrentJSContext()) {
     aRv = SetHrefWithContext(cx, aUrl, false);
     return;
   }
@@ -955,7 +950,7 @@ Location::GetSourceBaseURL(JSContext* cx, nsIURI** sourceURL)
   nsCOMPtr<nsIDocShell> docShell(do_QueryReferent(mDocShell));
   if (!doc && docShell) {
     nsCOMPtr<nsPIDOMWindowOuter> docShellWin =
-      do_QueryInterface(docShell->GetScriptGlobalObject());
+        do_QueryInterface(docShell->GetScriptGlobalObject());
     if (docShellWin) {
       doc = docShellWin->GetDoc();
     }
@@ -976,13 +971,11 @@ Location::CallerSubsumes(nsIPrincipal* aSubjectPrincipal)
   // even though we only allow limited cross-origin access to Location objects
   // in general.
   nsCOMPtr<nsPIDOMWindowOuter> outer = mInnerWindow->GetOuterWindow();
-  if (MOZ_UNLIKELY(!outer))
-    return false;
+  if (MOZ_UNLIKELY(!outer)) return false;
   nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(outer);
   bool subsumes = false;
-  nsresult rv =
-    aSubjectPrincipal->SubsumesConsideringDomain(sop->GetPrincipal(),
-                                                 &subsumes);
+  nsresult rv = aSubjectPrincipal->SubsumesConsideringDomain(
+      sop->GetPrincipal(), &subsumes);
   NS_ENSURE_SUCCESS(rv, false);
   return subsumes;
 }
@@ -993,5 +986,5 @@ Location::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return LocationBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

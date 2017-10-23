@@ -12,47 +12,45 @@
 #include "nsIObserver.h"
 #include <gtk/gtk.h>
 
-class nsClipboard : public nsIClipboard,
-                    public nsIObserver
+class nsClipboard : public nsIClipboard, public nsIObserver
 {
-public:
-    nsClipboard();
-    
-    NS_DECL_ISUPPORTS
-    
-    NS_DECL_NSICLIPBOARD
-    NS_DECL_NSIOBSERVER
+ public:
+  nsClipboard();
 
-    // Make sure we are initialized, called from the factory
-    // constructor
-    nsresult  Init              (void);
+  NS_DECL_ISUPPORTS
 
-    // Someone requested the selection
-    void   SelectionGetEvent    (GtkClipboard     *aGtkClipboard,
-                                 GtkSelectionData *aSelectionData);
-    void   SelectionClearEvent  (GtkClipboard     *aGtkClipboard);
+  NS_DECL_NSICLIPBOARD
+  NS_DECL_NSIOBSERVER
 
-private:
-    virtual ~nsClipboard();
+  // Make sure we are initialized, called from the factory
+  // constructor
+  nsresult Init(void);
 
-    // Utility methods
-    static GdkAtom               GetSelectionAtom (int32_t aWhichClipboard);
-    static GtkSelectionData     *GetTargets       (GdkAtom aWhichClipboard);
+  // Someone requested the selection
+  void SelectionGetEvent(GtkClipboard* aGtkClipboard,
+                         GtkSelectionData* aSelectionData);
+  void SelectionClearEvent(GtkClipboard* aGtkClipboard);
 
-    // Save global clipboard content to gtk
-    nsresult                     Store            (void);
+ private:
+  virtual ~nsClipboard();
 
-    // Get our hands on the correct transferable, given a specific
-    // clipboard
-    nsITransferable             *GetTransferable  (int32_t aWhichClipboard);
+  // Utility methods
+  static GdkAtom GetSelectionAtom(int32_t aWhichClipboard);
+  static GtkSelectionData* GetTargets(GdkAtom aWhichClipboard);
 
-    // Hang on to our owners and transferables so we can transfer data
-    // when asked.
-    nsCOMPtr<nsIClipboardOwner>  mSelectionOwner;
-    nsCOMPtr<nsIClipboardOwner>  mGlobalOwner;
-    nsCOMPtr<nsITransferable>    mSelectionTransferable;
-    nsCOMPtr<nsITransferable>    mGlobalTransferable;
+  // Save global clipboard content to gtk
+  nsresult Store(void);
 
+  // Get our hands on the correct transferable, given a specific
+  // clipboard
+  nsITransferable* GetTransferable(int32_t aWhichClipboard);
+
+  // Hang on to our owners and transferables so we can transfer data
+  // when asked.
+  nsCOMPtr<nsIClipboardOwner> mSelectionOwner;
+  nsCOMPtr<nsIClipboardOwner> mGlobalOwner;
+  nsCOMPtr<nsITransferable> mSelectionTransferable;
+  nsCOMPtr<nsITransferable> mGlobalTransferable;
 };
 
 #endif /* __nsClipboard_h_ */

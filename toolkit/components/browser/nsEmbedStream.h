@@ -14,7 +14,7 @@
 
 class nsEmbedStream : public nsISupports
 {
-public:
+ public:
   nsEmbedStream();
 
   void InitOwner(nsIWebBrowser* aOwner);
@@ -26,12 +26,12 @@ public:
 
   NS_DECL_ISUPPORTS
 
-protected:
+ protected:
   virtual ~nsEmbedStream();
 
-private:
+ private:
   nsIWebBrowser* mOwner;
   nsCOMPtr<nsIOutputStream> mOutputStream;
 };
 
-#endif // nsEmbedStream_h__
+#endif  // nsEmbedStream_h__

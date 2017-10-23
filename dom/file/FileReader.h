@@ -47,9 +47,8 @@ class FileReader final : public DOMEventTargetHelper,
 {
   friend class FileReaderDecreaseBusyCounter;
 
-public:
-  FileReader(nsIGlobalObject* aGlobal,
-             workers::WorkerPrivate* aWorkerPrivate);
+ public:
+  FileReader(nsIGlobalObject* aGlobal, workers::WorkerPrivate* aWorkerPrivate);
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -65,14 +64,15 @@ public:
                                JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL
-  static already_AddRefed<FileReader>
-  Constructor(const GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<FileReader> Constructor(const GlobalObject& aGlobal,
+                                                  ErrorResult& aRv);
   void ReadAsArrayBuffer(JSContext* aCx, Blob& aBlob, ErrorResult& aRv)
   {
     ReadFileContent(aBlob, EmptyString(), FILE_AS_ARRAYBUFFER, aRv);
   }
 
-  void ReadAsText(Blob& aBlob, const Optional<nsAString>& aLabel,
+  void ReadAsText(Blob& aBlob,
+                  const Optional<nsAString>& aLabel,
                   ErrorResult& aRv)
   {
     if (aLabel.WasPassed()) {
@@ -89,17 +89,12 @@ public:
 
   void Abort();
 
-  uint16_t ReadyState() const
-  {
-    return static_cast<uint16_t>(mReadyState);
-  }
+  uint16_t ReadyState() const { return static_cast<uint16_t>(mReadyState); }
 
-  DOMException* GetError() const
-  {
-    return mError;
-  }
+  DOMException* GetError() const { return mError; }
 
-  void GetResult(JSContext* aCx, JS::MutableHandle<JS::Value> aResult,
+  void GetResult(JSContext* aCx,
+                 JS::MutableHandle<JS::Value> aResult,
                  ErrorResult& aRv);
 
   IMPL_EVENT_HANDLER(loadstart)
@@ -117,17 +112,19 @@ public:
   // WorkerHolder
   bool Notify(workers::Status) override;
 
-private:
+ private:
   virtual ~FileReader();
 
   // This must be in sync with dom/webidl/FileReader.webidl
-  enum eReadyState {
+  enum eReadyState
+  {
     EMPTY = 0,
     LOADING = 1,
     DONE = 2
   };
 
-  enum eDataFormat {
+  enum eDataFormat
+  {
     FILE_AS_ARRAYBUFFER,
     FILE_AS_BINARY,
     FILE_AS_TEXT,
@@ -137,13 +134,18 @@ private:
   void RootResultArrayBuffer();
 
   void ReadFileContent(Blob& aBlob,
-                       const nsAString &aCharset, eDataFormat aDataFormat,
+                       const nsAString& aCharset,
+                       eDataFormat aDataFormat,
                        ErrorResult& aRv);
-  nsresult GetAsText(Blob *aBlob, const nsACString &aCharset,
-                     const char *aFileData, uint32_t aDataLen,
-                     nsAString &aResult);
-  nsresult GetAsDataURL(Blob *aBlob, const char *aFileData,
-                        uint32_t aDataLen, nsAString &aResult);
+  nsresult GetAsText(Blob* aBlob,
+                     const nsACString& aCharset,
+                     const char* aFileData,
+                     uint32_t aDataLen,
+                     nsAString& aResult);
+  nsresult GetAsDataURL(Blob* aBlob,
+                        const char* aFileData,
+                        uint32_t aDataLen,
+                        nsAString& aResult);
 
   nsresult OnLoadEnd(nsresult aStatus);
 
@@ -172,7 +174,7 @@ private:
 
   void Shutdown();
 
-  char *mFileData;
+  char* mFileData;
   RefPtr<Blob> mBlob;
   nsCString mCharset;
   uint32_t mDataLen;
@@ -204,7 +206,7 @@ private:
   workers::WorkerPrivate* mWorkerPrivate;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FileReader_h
+#endif  // mozilla_dom_FileReader_h

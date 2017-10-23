@@ -25,87 +25,77 @@ namespace dom {
 
 class TreeWalker final : public nsIDOMTreeWalker, public nsTraversal
 {
-    virtual ~TreeWalker();
+  virtual ~TreeWalker();
 
-public:
-    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-    NS_DECL_NSIDOMTREEWALKER
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_NSIDOMTREEWALKER
 
-    TreeWalker(nsINode *aRoot,
-               uint32_t aWhatToShow,
-               NodeFilterHolder aFilter);
+  TreeWalker(nsINode* aRoot, uint32_t aWhatToShow, NodeFilterHolder aFilter);
 
-    NS_DECL_CYCLE_COLLECTION_CLASS(TreeWalker)
+  NS_DECL_CYCLE_COLLECTION_CLASS(TreeWalker)
 
-    // WebIDL API
-    nsINode* Root() const
-    {
-        return mRoot;
-    }
-    uint32_t WhatToShow() const
-    {
-        return mWhatToShow;
-    }
-    already_AddRefed<NodeFilter> GetFilter()
-    {
-        return mFilter.ToWebIDLCallback();
-    }
-    nsINode* CurrentNode() const
-    {
-        return mCurrentNode;
-    }
-    void SetCurrentNode(nsINode& aNode, ErrorResult& aResult);
-    // All our traversal methods return strong refs because filtering can
-    // remove nodes from the tree.
-    already_AddRefed<nsINode> ParentNode(ErrorResult& aResult);
-    already_AddRefed<nsINode> FirstChild(ErrorResult& aResult);
-    already_AddRefed<nsINode> LastChild(ErrorResult& aResult);
-    already_AddRefed<nsINode> PreviousSibling(ErrorResult& aResult);
-    already_AddRefed<nsINode> NextSibling(ErrorResult& aResult);
-    already_AddRefed<nsINode> PreviousNode(ErrorResult& aResult);
-    already_AddRefed<nsINode> NextNode(ErrorResult& aResult);
+  // WebIDL API
+  nsINode* Root() const { return mRoot; }
+  uint32_t WhatToShow() const { return mWhatToShow; }
+  already_AddRefed<NodeFilter> GetFilter()
+  {
+    return mFilter.ToWebIDLCallback();
+  }
+  nsINode* CurrentNode() const { return mCurrentNode; }
+  void SetCurrentNode(nsINode& aNode, ErrorResult& aResult);
+  // All our traversal methods return strong refs because filtering can
+  // remove nodes from the tree.
+  already_AddRefed<nsINode> ParentNode(ErrorResult& aResult);
+  already_AddRefed<nsINode> FirstChild(ErrorResult& aResult);
+  already_AddRefed<nsINode> LastChild(ErrorResult& aResult);
+  already_AddRefed<nsINode> PreviousSibling(ErrorResult& aResult);
+  already_AddRefed<nsINode> NextSibling(ErrorResult& aResult);
+  already_AddRefed<nsINode> PreviousNode(ErrorResult& aResult);
+  already_AddRefed<nsINode> NextNode(ErrorResult& aResult);
 
-    bool WrapObject(JSContext *aCx, JS::Handle<JSObject*> aGivenProto, JS::MutableHandle<JSObject*> aReflector);
+  bool WrapObject(JSContext* aCx,
+                  JS::Handle<JSObject*> aGivenProto,
+                  JS::MutableHandle<JSObject*> aReflector);
 
-private:
-    nsCOMPtr<nsINode> mCurrentNode;
+ private:
+  nsCOMPtr<nsINode> mCurrentNode;
 
-    /*
+  /*
      * Implements FirstChild and LastChild which only vary in which direction
      * they search.
      * @param aReversed Controls whether we search forwards or backwards
      * @param aResult   Whether we threw or not.
      * @returns         The desired node. Null if no child is found
      */
-    already_AddRefed<nsINode> FirstChildInternal(bool aReversed,
-                                                 ErrorResult& aResult);
+  already_AddRefed<nsINode> FirstChildInternal(bool aReversed,
+                                               ErrorResult& aResult);
 
-    /*
+  /*
      * Implements NextSibling and PreviousSibling which only vary in which
      * direction they search.
      * @param aReversed Controls whether we search forwards or backwards
      * @param aResult   Whether we threw or not.
      * @returns         The desired node. Null if no child is found
      */
-    already_AddRefed<nsINode> NextSiblingInternal(bool aReversed,
-                                                  ErrorResult& aResult);
+  already_AddRefed<nsINode> NextSiblingInternal(bool aReversed,
+                                                ErrorResult& aResult);
 
-    // Implementation for our various XPCOM getters
-    typedef already_AddRefed<nsINode> (TreeWalker::*NodeGetter)(ErrorResult&);
-    inline nsresult ImplNodeGetter(NodeGetter aGetter, nsIDOMNode** aRetval)
-    {
-        mozilla::ErrorResult rv;
-        nsCOMPtr<nsINode> node = (this->*aGetter)(rv);
-        if (rv.Failed()) {
-            return rv.StealNSResult();
-        }
-        *aRetval = node ? node.forget().take()->AsDOMNode() : nullptr;
-        return NS_OK;
+  // Implementation for our various XPCOM getters
+  typedef already_AddRefed<nsINode> (TreeWalker::*NodeGetter)(ErrorResult&);
+  inline nsresult ImplNodeGetter(NodeGetter aGetter, nsIDOMNode** aRetval)
+  {
+    mozilla::ErrorResult rv;
+    nsCOMPtr<nsINode> node = (this->*aGetter)(rv);
+    if (rv.Failed()) {
+      return rv.StealNSResult();
     }
+    *aRetval = node ? node.forget().take()->AsDOMNode() : nullptr;
+    return NS_OK;
+  }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TreeWalker_h
-
+#endif  // mozilla_dom_TreeWalker_h

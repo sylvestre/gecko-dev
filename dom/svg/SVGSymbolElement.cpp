@@ -13,7 +13,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGSymbolElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGSymbolElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGSymbolElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -21,21 +21,23 @@ SVGSymbolElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // nsISupports methods
 
-NS_IMPL_ISUPPORTS_INHERITED(SVGSymbolElement, SVGSymbolElementBase,
-                            nsIDOMNode, nsIDOMElement,
-                            nsIDOMSVGElement, mozilla::dom::SVGTests)
+NS_IMPL_ISUPPORTS_INHERITED(SVGSymbolElement,
+                            SVGSymbolElementBase,
+                            nsIDOMNode,
+                            nsIDOMElement,
+                            nsIDOMSVGElement,
+                            mozilla::dom::SVGTests)
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGSymbolElement::SVGSymbolElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGSymbolElementBase(aNodeInfo)
+SVGSymbolElement::SVGSymbolElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGSymbolElementBase(aNodeInfo)
 {
 }
 
-SVGSymbolElement::~SVGSymbolElement()
-{
-}
+SVGSymbolElement::~SVGSymbolElement() {}
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -51,5 +53,5 @@ SVGSymbolElement::IsInChromeDoc() const
   return nsContentUtils::IsChromeDoc(OwnerDoc());
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

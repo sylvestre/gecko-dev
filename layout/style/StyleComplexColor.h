@@ -30,29 +30,31 @@ struct StyleComplexColor
   // represents the actual used color of this value.
   bool mIsAuto;
 
-  static StyleComplexColor FromColor(nscolor aColor) {
+  static StyleComplexColor FromColor(nscolor aColor)
+  {
     return {aColor, 0, false};
   }
-  static StyleComplexColor CurrentColor() {
+  static StyleComplexColor CurrentColor()
+  {
     return {NS_RGBA(0, 0, 0, 0), 255, false};
   }
-  static StyleComplexColor Auto() {
-    return {NS_RGBA(0, 0, 0, 0), 255, true};
-  }
+  static StyleComplexColor Auto() { return {NS_RGBA(0, 0, 0, 0), 255, true}; }
 
   bool IsNumericColor() const { return mForegroundRatio == 0; }
   bool IsCurrentColor() const { return mForegroundRatio == 255; }
 
-  bool operator==(const StyleComplexColor& aOther) const {
+  bool operator==(const StyleComplexColor& aOther) const
+  {
     return mForegroundRatio == aOther.mForegroundRatio &&
            (IsCurrentColor() || mColor == aOther.mColor) &&
            mIsAuto == aOther.mIsAuto;
   }
-  bool operator!=(const StyleComplexColor& aOther) const {
+  bool operator!=(const StyleComplexColor& aOther) const
+  {
     return !(*this == aOther);
   }
 };
 
-}
+}  // namespace mozilla
 
-#endif // mozilla_StyleComplexColor_h_
+#endif  // mozilla_StyleComplexColor_h_

@@ -7,9 +7,9 @@
 #ifndef mozilla_AbstractTimelineMarker_h_
 #define mozilla_AbstractTimelineMarker_h_
 
-#include "TimelineMarkerEnums.h" // for MarkerTracingType
-#include "nsDOMNavigationTiming.h" // for DOMHighResTimeStamp
-#include "nsXULAppAPI.h" // for GeckoProcessType
+#include "TimelineMarkerEnums.h"    // for MarkerTracingType
+#include "nsDOMNavigationTiming.h"  // for DOMHighResTimeStamp
+#include "nsXULAppAPI.h"            // for GeckoProcessType
 #include "mozilla/UniquePtr.h"
 
 struct JSContext;
@@ -24,14 +24,13 @@ struct ProfileTimelineMarker;
 
 class AbstractTimelineMarker
 {
-private:
+ private:
   AbstractTimelineMarker() = delete;
   AbstractTimelineMarker(const AbstractTimelineMarker& aOther) = delete;
   void operator=(const AbstractTimelineMarker& aOther) = delete;
 
-public:
-  AbstractTimelineMarker(const char* aName,
-                         MarkerTracingType aTracingType);
+ public:
+  AbstractTimelineMarker(const char* aName, MarkerTracingType aTracingType);
 
   AbstractTimelineMarker(const char* aName,
                          const TimeStamp& aTime,
@@ -42,7 +41,8 @@ public:
   virtual UniquePtr<AbstractTimelineMarker> Clone();
   virtual bool Equals(const AbstractTimelineMarker& aOther);
 
-  virtual void AddDetails(JSContext* aCx, dom::ProfileTimelineMarker& aMarker) = 0;
+  virtual void AddDetails(JSContext* aCx,
+                          dom::ProfileTimelineMarker& aMarker) = 0;
   virtual JSObject* GetStack() = 0;
 
   const char* GetName() const { return mName; }
@@ -52,15 +52,15 @@ public:
   uint8_t GetProcessType() const { return mProcessType; };
   bool IsOffMainThread() const { return mIsOffMainThread; };
 
-private:
+ private:
   const char* mName;
   DOMHighResTimeStamp mTime;
   MarkerTracingType mTracingType;
 
-  uint8_t mProcessType; // @see `enum GeckoProcessType`.
+  uint8_t mProcessType;  // @see `enum GeckoProcessType`.
   bool mIsOffMainThread;
 
-protected:
+ protected:
   void SetCurrentTime();
   void SetCustomTime(const TimeStamp& aTime);
   void SetCustomTime(DOMHighResTimeStamp aTime);
@@ -68,6 +68,6 @@ protected:
   void SetOffMainThread(bool aIsOffMainThread);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_AbstractTimelineMarker_h_ */

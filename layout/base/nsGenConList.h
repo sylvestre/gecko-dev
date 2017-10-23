@@ -16,7 +16,8 @@
 
 class nsGenConList;
 
-struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
+struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode>
+{
   // The wrapper frame for all of the pseudo-element's content.  This
   // frame generally has useful style data and has the
   // NS_FRAME_GENERATED_CONTENT bit set (so we use it to track removal),
@@ -33,8 +34,7 @@ struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
   RefPtr<nsTextNode> mText;
 
   explicit nsGenConNode(int32_t aContentIndex)
-    : mPseudoFrame(nullptr)
-    , mContentIndex(aContentIndex)
+      : mPseudoFrame(nullptr), mContentIndex(aContentIndex)
   {
   }
 
@@ -50,7 +50,8 @@ struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
    * @param aTextFrame the textframe where the node contents will render
    * @return true iff this marked the list dirty
    */
-  virtual bool InitTextFrame(nsGenConList* aList, nsIFrame* aPseudoFrame,
+  virtual bool InitTextFrame(nsGenConList* aList,
+                             nsIFrame* aPseudoFrame,
                              nsIFrame* aTextFrame)
   {
     mPseudoFrame = aPseudoFrame;
@@ -58,42 +59,46 @@ struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
     return false;
   }
 
-  virtual ~nsGenConNode() {} // XXX Avoid, perhaps?
+  virtual ~nsGenConNode() {}  // XXX Avoid, perhaps?
 
-protected:
-  void CheckFrameAssertions() {
-    NS_ASSERTION(mContentIndex <
-                   int32_t(mPseudoFrame->StyleContent()->ContentCount()),
-                 "index out of range");
-      // We allow negative values of mContentIndex for 'counter-reset' and
-      // 'counter-increment'.
+ protected:
+  void CheckFrameAssertions()
+  {
+    NS_ASSERTION(
+        mContentIndex < int32_t(mPseudoFrame->StyleContent()->ContentCount()),
+        "index out of range");
+    // We allow negative values of mContentIndex for 'counter-reset' and
+    // 'counter-increment'.
 
     NS_ASSERTION(mContentIndex < 0 ||
-                 mPseudoFrame->StyleContext()->GetPseudo() ==
-                   nsCSSPseudoElements::before ||
-                 mPseudoFrame->StyleContext()->GetPseudo() ==
-                   nsCSSPseudoElements::after,
+                     mPseudoFrame->StyleContext()->GetPseudo() ==
+                         nsCSSPseudoElements::before ||
+                     mPseudoFrame->StyleContext()->GetPseudo() ==
+                         nsCSSPseudoElements::after,
                  "not :before/:after generated content and not counter change");
     NS_ASSERTION(mContentIndex < 0 ||
-                 mPseudoFrame->GetStateBits() & NS_FRAME_GENERATED_CONTENT,
+                     mPseudoFrame->GetStateBits() & NS_FRAME_GENERATED_CONTENT,
                  "not generated content and not counter change");
   }
 };
 
-class nsGenConList {
-protected:
+class nsGenConList
+{
+ protected:
   mozilla::LinkedList<nsGenConNode> mList;
   uint32_t mSize;
 
-public:
+ public:
   nsGenConList() : mSize(0), mLastInserted(nullptr) {}
   ~nsGenConList() { Clear(); }
   void Clear();
-  static nsGenConNode* Next(nsGenConNode* aNode) {
+  static nsGenConNode* Next(nsGenConNode* aNode)
+  {
     MOZ_ASSERT(aNode, "aNode cannot be nullptr!");
     return aNode->getNext();
   }
-  static nsGenConNode* Prev(nsGenConNode* aNode) {
+  static nsGenConNode* Prev(nsGenConNode* aNode)
+  {
     MOZ_ASSERT(aNode, "aNode cannot be nullptr!");
     return aNode->getPrevious();
   }
@@ -104,20 +109,21 @@ public:
   bool DestroyNodesFor(nsIFrame* aFrame);
 
   // Return true if |aNode1| is after |aNode2|.
-  static bool NodeAfter(const nsGenConNode* aNode1,
-                        const nsGenConNode* aNode2);
+  static bool NodeAfter(const nsGenConNode* aNode1, const nsGenConNode* aNode2);
 
-  bool IsFirst(nsGenConNode* aNode) {
+  bool IsFirst(nsGenConNode* aNode)
+  {
     MOZ_ASSERT(aNode, "aNode cannot be nullptr!");
     return aNode == mList.getFirst();
   }
 
-  bool IsLast(nsGenConNode* aNode) {
+  bool IsLast(nsGenConNode* aNode)
+  {
     MOZ_ASSERT(aNode, "aNode cannot be nullptr!");
     return aNode == mList.getLast();
   }
 
-private:
+ private:
   void Destroy(nsGenConNode* aNode)
   {
     MOZ_ASSERT(aNode, "aNode cannot be nullptr!");

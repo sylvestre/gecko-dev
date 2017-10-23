@@ -44,11 +44,10 @@ CSSImportRule::GetStyleSheet(nsIDOMCSSStyleSheet** aStyleSheet)
 }
 
 /* virtual */ JSObject*
-CSSImportRule::WrapObject(JSContext* aCx,
-                          JS::Handle<JSObject*> aGivenProto)
+CSSImportRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return CSSImportRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

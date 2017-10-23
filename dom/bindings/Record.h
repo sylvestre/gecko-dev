@@ -25,15 +25,12 @@ namespace binding_detail {
 template<typename KeyType, typename ValueType>
 class RecordEntry
 {
-public:
-  RecordEntry()
-  {
-  }
+ public:
+  RecordEntry() {}
 
   // Move constructor so we can do Records of Records.
   RecordEntry(RecordEntry<KeyType, ValueType>&& aOther)
-    : mKey(Move(aOther.mKey)),
-      mValue(Move(aOther.mValue))
+      : mKey(Move(aOther.mKey)), mValue(Move(aOther.mValue))
   {
   }
 
@@ -41,46 +38,35 @@ public:
   ValueType mValue;
 };
 
-} // namespace binding_detail
+}  // namespace binding_detail
 
 template<typename KeyType, typename ValueType>
 class Record
 {
-public:
+ public:
   typedef typename binding_detail::RecordEntry<KeyType, ValueType> EntryType;
   typedef Record<KeyType, ValueType> SelfType;
 
-  Record()
-  {
-  }
+  Record() {}
 
   // Move constructor so we can do Record of Record.
-  Record(SelfType&& aOther) :
-    mEntries(Move(aOther.mEntries))
-  {
-  }
+  Record(SelfType&& aOther) : mEntries(Move(aOther.mEntries)) {}
 
-  const nsTArray<EntryType>& Entries() const
-  {
-    return mEntries;
-  }
+  const nsTArray<EntryType>& Entries() const { return mEntries; }
 
-  nsTArray<EntryType>& Entries()
-  {
-    return mEntries;
-  }
+  nsTArray<EntryType>& Entries() { return mEntries; }
 
-private:
+ private:
   nsTArray<EntryType> mEntries;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 template<typename K, typename V>
 class nsDefaultComparator<mozilla::dom::binding_detail::RecordEntry<K, V>, K>
 {
-public:
+ public:
   bool Equals(const mozilla::dom::binding_detail::RecordEntry<K, V>& aEntry,
               const K& aKey) const
   {
@@ -88,4 +74,4 @@ public:
   }
 };
 
-#endif // mozilla_dom_Record_h
+#endif  // mozilla_dom_Record_h

@@ -65,8 +65,11 @@ namespace mozilla {
 
 template<typename Container, typename Comparator>
 bool
-BinarySearchIf(const Container& aContainer, size_t aBegin, size_t aEnd,
-               const Comparator& aCompare, size_t* aMatchOrInsertionPoint)
+BinarySearchIf(const Container& aContainer,
+               size_t aBegin,
+               size_t aEnd,
+               const Comparator& aCompare,
+               size_t* aMatchOrInsertionPoint)
 {
   MOZ_ASSERT(aBegin <= aEnd);
 
@@ -100,13 +103,12 @@ namespace detail {
 template<class T>
 class BinarySearchDefaultComparator
 {
-public:
-  explicit BinarySearchDefaultComparator(const T& aTarget)
-    : mTarget(aTarget)
-  {}
+ public:
+  explicit BinarySearchDefaultComparator(const T& aTarget) : mTarget(aTarget) {}
 
-  template <class U>
-  int operator()(const U& aVal) const {
+  template<class U>
+  int operator()(const U& aVal) const
+  {
     if (mTarget == aVal) {
       return 0;
     }
@@ -118,22 +120,27 @@ public:
     return 1;
   }
 
-private:
+ private:
   const T& mTarget;
 };
 
-} // namespace detail
+}  // namespace detail
 
-template <typename Container, typename T>
+template<typename Container, typename T>
 bool
-BinarySearch(const Container& aContainer, size_t aBegin, size_t aEnd,
-             T aTarget, size_t* aMatchOrInsertionPoint)
+BinarySearch(const Container& aContainer,
+             size_t aBegin,
+             size_t aEnd,
+             T aTarget,
+             size_t* aMatchOrInsertionPoint)
 {
-  return BinarySearchIf(aContainer, aBegin, aEnd,
+  return BinarySearchIf(aContainer,
+                        aBegin,
+                        aEnd,
                         detail::BinarySearchDefaultComparator<T>(aTarget),
                         aMatchOrInsertionPoint);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_BinarySearch_h
+#endif  // mozilla_BinarySearch_h

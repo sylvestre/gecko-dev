@@ -14,10 +14,10 @@ namespace mozilla {
 
 AbstractTimelineMarker::AbstractTimelineMarker(const char* aName,
                                                MarkerTracingType aTracingType)
-  : mName(aName)
-  , mTracingType(aTracingType)
-  , mProcessType(XRE_GetProcessType())
-  , mIsOffMainThread(!NS_IsMainThread())
+    : mName(aName),
+      mTracingType(aTracingType),
+      mProcessType(XRE_GetProcessType()),
+      mIsOffMainThread(!NS_IsMainThread())
 {
   MOZ_COUNT_CTOR(AbstractTimelineMarker);
   SetCurrentTime();
@@ -26,10 +26,10 @@ AbstractTimelineMarker::AbstractTimelineMarker(const char* aName,
 AbstractTimelineMarker::AbstractTimelineMarker(const char* aName,
                                                const TimeStamp& aTime,
                                                MarkerTracingType aTracingType)
-  : mName(aName)
-  , mTracingType(aTracingType)
-  , mProcessType(XRE_GetProcessType())
-  , mIsOffMainThread(!NS_IsMainThread())
+    : mName(aName),
+      mTracingType(aTracingType),
+      mProcessType(XRE_GetProcessType()),
+      mIsOffMainThread(!NS_IsMainThread())
 {
   MOZ_COUNT_CTOR(AbstractTimelineMarker);
   SetCustomTime(aTime);
@@ -86,4 +86,4 @@ AbstractTimelineMarker::SetOffMainThread(bool aIsOffMainThread)
   mIsOffMainThread = aIsOffMainThread;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

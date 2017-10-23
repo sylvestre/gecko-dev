@@ -22,17 +22,15 @@ namespace dom {
 
 MediaQueryList::MediaQueryList(nsIDocument* aDocument,
                                const nsAString& aMediaQueryList)
-  : mDocument(aDocument)
-  , mMatchesValid(false)
+    : mDocument(aDocument), mMatchesValid(false)
 {
   mMediaList =
-    MediaList::Create(aDocument->GetStyleBackendType(), aMediaQueryList);
+      MediaList::Create(aDocument->GetStyleBackendType(), aMediaQueryList);
 
   KeepAliveIfHasListenersFor(ONCHANGE_STRING);
 }
 
-MediaQueryList::~MediaQueryList()
-{}
+MediaQueryList::~MediaQueryList() {}
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(MediaQueryList)
 
@@ -58,7 +56,7 @@ NS_IMPL_ADDREF_INHERITED(MediaQueryList, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(MediaQueryList, DOMEventTargetHelper)
 
 void
-MediaQueryList::GetMedia(nsAString &aMedia)
+MediaQueryList::GetMedia(nsAString& aMedia)
 {
   mMediaList->GetText(aMedia);
 }
@@ -89,11 +87,12 @@ MediaQueryList::AddListener(EventListener* aListener, ErrorResult& aRv)
 }
 
 void
-MediaQueryList::AddEventListener(const nsAString& aType,
-                                 EventListener* aCallback,
-                                 const AddEventListenerOptionsOrBoolean& aOptions,
-                                 const dom::Nullable<bool>& aWantsUntrusted,
-                                 ErrorResult& aRv)
+MediaQueryList::AddEventListener(
+    const nsAString& aType,
+    EventListener* aCallback,
+    const AddEventListenerOptionsOrBoolean& aOptions,
+    const dom::Nullable<bool>& aWantsUntrusted,
+    ErrorResult& aRv)
 {
   if (!mMatchesValid) {
     MOZ_ASSERT(!HasListeners(),
@@ -101,8 +100,8 @@ MediaQueryList::AddEventListener(const nsAString& aType,
     RecomputeMatches();
   }
 
-  DOMEventTargetHelper::AddEventListener(aType, aCallback, aOptions,
-                                         aWantsUntrusted, aRv);
+  DOMEventTargetHelper::AddEventListener(
+      aType, aCallback, aOptions, aWantsUntrusted, aRv);
 }
 
 void
@@ -142,7 +141,8 @@ MediaQueryList::RecomputeMatches()
   if (mDocument->GetParentDocument()) {
     // Flush frames on the parent so our prescontext will get
     // recreated as needed.
-    mDocument->GetParentDocument()->FlushPendingNotifications(FlushType::Frames);
+    mDocument->GetParentDocument()->FlushPendingNotifications(
+        FlushType::Frames);
     // That might have killed our document, so recheck that.
     if (!mDocument) {
       return;
@@ -201,12 +201,12 @@ MediaQueryList::MaybeNotify()
   mMediaList->GetText(init.mMedia);
 
   RefPtr<MediaQueryListEvent> event =
-    MediaQueryListEvent::Constructor(this, ONCHANGE_STRING, init);
+      MediaQueryListEvent::Constructor(this, ONCHANGE_STRING, init);
   event->SetTrusted(true);
 
   bool dummy;
   DispatchEvent(event, &dummy);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

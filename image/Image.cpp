@@ -17,7 +17,7 @@ namespace image {
 ImageMemoryCounter::ImageMemoryCounter(Image* aImage,
                                        SizeOfState& aState,
                                        bool aIsUsed)
-  : mIsUsed(aIsUsed)
+    : mIsUsed(aIsUsed)
 {
   MOZ_ASSERT(aImage);
 
@@ -45,21 +45,21 @@ ImageMemoryCounter::ImageMemoryCounter(Image* aImage,
   }
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Image Base Types
 ///////////////////////////////////////////////////////////////////////////////
 
 // Constructor
-ImageResource::ImageResource(ImageURL* aURI) :
-  mURI(aURI),
-  mInnerWindowId(0),
-  mAnimationConsumers(0),
-  mAnimationMode(kNormalAnimMode),
-  mInitialized(false),
-  mAnimating(false),
-  mError(false)
-{ }
+ImageResource::ImageResource(ImageURL* aURI)
+    : mURI(aURI),
+      mInnerWindowId(0),
+      mAnimationConsumers(0),
+      mAnimationMode(kNormalAnimMode),
+      mInitialized(false),
+      mAnimating(false),
+      mError(false)
+{
+}
 
 ImageResource::~ImageResource()
 {
@@ -70,18 +70,19 @@ ImageResource::~ImageResource()
 void
 ImageResource::IncrementAnimationConsumers()
 {
-  MOZ_ASSERT(NS_IsMainThread(), "Main thread only to encourage serialization "
-                                "with DecrementAnimationConsumers");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "Main thread only to encourage serialization "
+             "with DecrementAnimationConsumers");
   mAnimationConsumers++;
 }
 
 void
 ImageResource::DecrementAnimationConsumers()
 {
-  MOZ_ASSERT(NS_IsMainThread(), "Main thread only to encourage serialization "
-                                "with IncrementAnimationConsumers");
-  MOZ_ASSERT(mAnimationConsumers >= 1,
-             "Invalid no. of animation consumers!");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "Main thread only to encourage serialization "
+             "with IncrementAnimationConsumers");
+  MOZ_ASSERT(mAnimationConsumers >= 1, "Invalid no. of animation consumers!");
   mAnimationConsumers--;
 }
 
@@ -106,8 +107,8 @@ ImageResource::SetAnimationModeInternal(uint16_t aAnimationMode)
   }
 
   NS_ASSERTION(aAnimationMode == kNormalAnimMode ||
-               aAnimationMode == kDontAnimMode ||
-               aAnimationMode == kLoopOnceAnimMode,
+                   aAnimationMode == kDontAnimMode ||
+                   aAnimationMode == kLoopOnceAnimMode,
                "Wrong Animation Mode is being set!");
 
   mAnimationMode = aAnimationMode;
@@ -159,15 +160,15 @@ ImageResource::SendOnUnlockedDraw(uint32_t aFlags)
     NotNull<RefPtr<ImageResource>> image = WrapNotNull(this);
     nsCOMPtr<nsIEventTarget> eventTarget = mProgressTracker->GetEventTarget();
     nsCOMPtr<nsIRunnable> ev = NS_NewRunnableFunction(
-      "image::ImageResource::SendOnUnlockedDraw", [=]() -> void {
-        RefPtr<ProgressTracker> tracker = image->GetProgressTracker();
-        if (tracker) {
-          tracker->OnUnlockedDraw();
-        }
-      });
+        "image::ImageResource::SendOnUnlockedDraw", [=]() -> void {
+          RefPtr<ProgressTracker> tracker = image->GetProgressTracker();
+          if (tracker) {
+            tracker->OnUnlockedDraw();
+          }
+        });
     eventTarget->Dispatch(ev.forget(), NS_DISPATCH_NORMAL);
   }
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

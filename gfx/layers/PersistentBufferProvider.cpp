@@ -18,7 +18,7 @@ using namespace gfx;
 namespace layers {
 
 PersistentBufferProviderBasic::PersistentBufferProviderBasic(DrawTarget* aDt)
-: mDrawTarget(aDt)
+    : mDrawTarget(aDt)
 {
   MOZ_COUNT_CTOR(PersistentBufferProviderBasic);
 }
@@ -29,7 +29,8 @@ PersistentBufferProviderBasic::~PersistentBufferProviderBasic()
 }
 
 already_AddRefed<gfx::DrawTarget>
-PersistentBufferProviderBasic::BorrowDrawTarget(const gfx::IntRect& aPersistedRect)
+PersistentBufferProviderBasic::BorrowDrawTarget(
+    const gfx::IntRect& aPersistedRect)
 {
   MOZ_ASSERT(!mSnapshot);
   RefPtr<gfx::DrawTarget> dt(mDrawTarget);
@@ -37,7 +38,8 @@ PersistentBufferProviderBasic::BorrowDrawTarget(const gfx::IntRect& aPersistedRe
 }
 
 bool
-PersistentBufferProviderBasic::ReturnDrawTarget(already_AddRefed<gfx::DrawTarget> aDT)
+PersistentBufferProviderBasic::ReturnDrawTarget(
+    already_AddRefed<gfx::DrawTarget> aDT)
 {
   RefPtr<gfx::DrawTarget> dt(aDT);
   MOZ_ASSERT(mDrawTarget == dt);
@@ -58,7 +60,8 @@ PersistentBufferProviderBasic::BorrowSnapshot()
 }
 
 void
-PersistentBufferProviderBasic::ReturnSnapshot(already_AddRefed<gfx::SourceSurface> aSnapshot)
+PersistentBufferProviderBasic::ReturnSnapshot(
+    already_AddRefed<gfx::SourceSurface> aSnapshot)
 {
   RefPtr<SourceSurface> snapshot = aSnapshot;
   MOZ_ASSERT(!snapshot || snapshot == mSnapshot);
@@ -67,21 +70,23 @@ PersistentBufferProviderBasic::ReturnSnapshot(already_AddRefed<gfx::SourceSurfac
 
 //static
 already_AddRefed<PersistentBufferProviderBasic>
-PersistentBufferProviderBasic::Create(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+PersistentBufferProviderBasic::Create(gfx::IntSize aSize,
+                                      gfx::SurfaceFormat aFormat,
                                       gfx::BackendType aBackend)
 {
-  RefPtr<DrawTarget> dt = gfxPlatform::GetPlatform()->CreateDrawTargetForBackend(aBackend, aSize, aFormat);
+  RefPtr<DrawTarget> dt =
+      gfxPlatform::GetPlatform()->CreateDrawTargetForBackend(
+          aBackend, aSize, aFormat);
 
   if (!dt) {
     return nullptr;
   }
 
   RefPtr<PersistentBufferProviderBasic> provider =
-    new PersistentBufferProviderBasic(dt);
+      new PersistentBufferProviderBasic(dt);
 
   return provider.forget();
 }
-
 
 //static
 already_AddRefed<PersistentBufferProviderShared>
@@ -93,31 +98,30 @@ PersistentBufferProviderShared::Create(gfx::IntSize aSize,
     return nullptr;
   }
 
-  RefPtr<TextureClient> texture = TextureClient::CreateForDrawing(
-    aFwd, aFormat, aSize,
-    BackendSelector::Canvas,
-    TextureFlags::DEFAULT,
-    TextureAllocationFlags::ALLOC_DEFAULT
-  );
+  RefPtr<TextureClient> texture =
+      TextureClient::CreateForDrawing(aFwd,
+                                      aFormat,
+                                      aSize,
+                                      BackendSelector::Canvas,
+                                      TextureFlags::DEFAULT,
+                                      TextureAllocationFlags::ALLOC_DEFAULT);
 
   if (!texture) {
     return nullptr;
   }
 
   RefPtr<PersistentBufferProviderShared> provider =
-    new PersistentBufferProviderShared(aSize, aFormat, aFwd, texture);
+      new PersistentBufferProviderShared(aSize, aFormat, aFwd, texture);
   return provider.forget();
 }
 
-PersistentBufferProviderShared::PersistentBufferProviderShared(gfx::IntSize aSize,
-                                                               gfx::SurfaceFormat aFormat,
-                                                               ShadowLayerForwarder* aFwd,
-                                                               RefPtr<TextureClient>& aTexture)
+PersistentBufferProviderShared::PersistentBufferProviderShared(
+    gfx::IntSize aSize,
+    gfx::SurfaceFormat aFormat,
+    ShadowLayerForwarder* aFwd,
+    RefPtr<TextureClient>& aTexture)
 
-: mSize(aSize)
-, mFormat(aFormat)
-, mFwd(aFwd)
-, mFront(Nothing())
+    : mSize(aSize), mFormat(aFormat), mFwd(aFwd), mFront(Nothing())
 {
   if (mTextures.append(aTexture)) {
     mBack = Some<uint32_t>(0);
@@ -167,11 +171,12 @@ PersistentBufferProviderShared::SetForwarder(ShadowLayerForwarder* aFwd)
 
     if (prevTexture) {
       RefPtr<TextureClient> newTexture = TextureClient::CreateForDrawing(
-        aFwd, mFormat, mSize,
-        BackendSelector::Canvas,
-        TextureFlags::DEFAULT,
-        TextureAllocationFlags::ALLOC_DEFAULT
-      );
+          aFwd,
+          mFormat,
+          mSize,
+          BackendSelector::Canvas,
+          TextureFlags::DEFAULT,
+          TextureAllocationFlags::ALLOC_DEFAULT);
 
       MOZ_ASSERT(newTexture);
       if (!newTexture) {
@@ -192,7 +197,8 @@ PersistentBufferProviderShared::SetForwarder(ShadowLayerForwarder* aFwd)
         return false;
       }
 
-      bool success = prevTexture->CopyToTextureClient(newTexture, nullptr, nullptr);
+      bool success =
+          prevTexture->CopyToTextureClient(newTexture, nullptr, nullptr);
 
       prevTexture->Unlock();
       newTexture->Unlock();
@@ -224,7 +230,8 @@ PersistentBufferProviderShared::GetTexture(const Maybe<uint32_t>& aIndex)
 }
 
 already_AddRefed<gfx::DrawTarget>
-PersistentBufferProviderShared::BorrowDrawTarget(const gfx::IntRect& aPersistedRect)
+PersistentBufferProviderShared::BorrowDrawTarget(
+    const gfx::IntRect& aPersistedRect)
 {
   if (!mFwd->GetTextureForwarder()->IPCOpen()) {
     return nullptr;
@@ -298,12 +305,13 @@ PersistentBufferProviderShared::BorrowDrawTarget(const gfx::IntRect& aPersistedR
       }
     }
 
-    RefPtr<TextureClient> newTexture = TextureClient::CreateForDrawing(
-      mFwd, mFormat, mSize,
-      BackendSelector::Canvas,
-      TextureFlags::DEFAULT,
-      TextureAllocationFlags::ALLOC_DEFAULT
-    );
+    RefPtr<TextureClient> newTexture =
+        TextureClient::CreateForDrawing(mFwd,
+                                        mFormat,
+                                        mSize,
+                                        BackendSelector::Canvas,
+                                        TextureFlags::DEFAULT,
+                                        TextureAllocationFlags::ALLOC_DEFAULT);
 
     MOZ_ASSERT(newTexture);
     if (newTexture) {
@@ -321,7 +329,8 @@ PersistentBufferProviderShared::BorrowDrawTarget(const gfx::IntRect& aPersistedR
   if (mBack != previousBackBuffer && !aPersistedRect.IsEmpty()) {
     TextureClient* previous = GetTexture(previousBackBuffer);
     if (previous && previous->Lock(OpenMode::OPEN_READ)) {
-      DebugOnly<bool> success = previous->CopyToTextureClient(tex, &aPersistedRect, nullptr);
+      DebugOnly<bool> success =
+          previous->CopyToTextureClient(tex, &aPersistedRect, nullptr);
       MOZ_ASSERT(success);
 
       previous->Unlock();
@@ -335,7 +344,8 @@ PersistentBufferProviderShared::BorrowDrawTarget(const gfx::IntRect& aPersistedR
 }
 
 bool
-PersistentBufferProviderShared::ReturnDrawTarget(already_AddRefed<gfx::DrawTarget> aDT)
+PersistentBufferProviderShared::ReturnDrawTarget(
+    already_AddRefed<gfx::DrawTarget> aDT)
 {
   RefPtr<gfx::DrawTarget> dt(aDT);
   MOZ_ASSERT(mDrawTarget == dt);
@@ -365,7 +375,8 @@ PersistentBufferProviderShared::GetTextureClient()
   if (texture) {
     texture->EnableReadLock();
   } else {
-    gfxCriticalNote << "PersistentBufferProviderShared: front buffer unavailable";
+    gfxCriticalNote
+        << "PersistentBufferProviderShared: front buffer unavailable";
   }
   return texture;
 }
@@ -399,7 +410,8 @@ PersistentBufferProviderShared::BorrowSnapshot()
 }
 
 void
-PersistentBufferProviderShared::ReturnSnapshot(already_AddRefed<gfx::SourceSurface> aSnapshot)
+PersistentBufferProviderShared::ReturnSnapshot(
+    already_AddRefed<gfx::SourceSurface> aSnapshot)
 {
   RefPtr<SourceSurface> snapshot = aSnapshot;
   MOZ_ASSERT(!snapshot || snapshot == mSnapshot);
@@ -461,5 +473,5 @@ PersistentBufferProviderShared::Destroy()
   mTextures.clear();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

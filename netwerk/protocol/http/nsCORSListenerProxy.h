@@ -30,8 +30,8 @@ namespace mozilla {
 namespace net {
 class HttpChannelParent;
 class nsHttpChannel;
-}
-}
+}  // namespace net
+}  // namespace mozilla
 
 enum class DataURIHandling
 {
@@ -50,7 +50,7 @@ class nsCORSListenerProxy final : public nsIStreamListener,
                                   public nsIChannelEventSink,
                                   public nsIThreadRetargetableStreamListener
 {
-public:
+ public:
   nsCORSListenerProxy(nsIStreamListener* aOuter,
                       nsIPrincipal* aRequestingPrincipal,
                       bool aWithCredentials);
@@ -70,13 +70,15 @@ public:
   MOZ_MUST_USE nsresult Init(nsIChannel* aChannel,
                              DataURIHandling aAllowDataURI);
 
-  void SetInterceptController(nsINetworkInterceptController* aInterceptController);
+  void SetInterceptController(
+      nsINetworkInterceptController* aInterceptController);
 
   // When CORS blocks a request, log the message to the web console, or the
   // browser console if no valid inner window ID is found.
   static void LogBlockedCORSRequest(uint64_t aInnerWindowID,
                                     const nsAString& aMessage);
-private:
+
+ private:
   // Only HttpChannelParent can call RemoveFromCorsPreflightCache
   friend class mozilla::net::HttpChannelParent;
   // Only nsHttpChannel can invoke CORS preflights

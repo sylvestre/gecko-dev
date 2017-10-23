@@ -14,24 +14,18 @@
 const static uint8_t NumThreads = 64;
 const static bool ShowDiagnostics = false;
 
-struct CounterAndBit
-{
+struct CounterAndBit {
     uint8_t bit;
     const js::ExclusiveData<uint64_t>& counter;
 
     CounterAndBit(uint8_t bit, const js::ExclusiveData<uint64_t>& counter)
-      : bit(bit)
-      , counter(counter)
-    {
+        : bit(bit), counter(counter) {
         MOZ_ASSERT(bit < NumThreads);
     }
 };
 
-void
-printDiagnosticMessage(uint8_t bit, uint64_t seen)
-{
-    if (!ShowDiagnostics)
-        return;
+void printDiagnosticMessage(uint8_t bit, uint64_t seen) {
+    if (!ShowDiagnostics) return;
 
     fprintf(stderr, "Thread %d saw ", bit);
     for (auto i : mozilla::IntegerRange(NumThreads)) {
@@ -43,9 +37,7 @@ printDiagnosticMessage(uint8_t bit, uint64_t seen)
     fprintf(stderr, "\n");
 }
 
-void
-setBitAndCheck(CounterAndBit* counterAndBit)
-{
+void setBitAndCheck(CounterAndBit* counterAndBit) {
     while (true) {
         {
             // Set our bit. Repeatedly setting it is idempotent.
@@ -67,8 +59,7 @@ setBitAndCheck(CounterAndBit* counterAndBit)
     }
 }
 
-BEGIN_TEST(testExclusiveData)
-{
+BEGIN_TEST(testExclusiveData) {
     js::ExclusiveData<uint64_t> counter(js::mutexid::TestMutex, 0);
 
     js::Vector<js::Thread> threads(cx);
@@ -81,8 +72,7 @@ BEGIN_TEST(testExclusiveData)
         CHECK(threads.back().init(setBitAndCheck, counterAndBit));
     }
 
-    for (auto& thread : threads)
-        thread.join();
+    for (auto& thread : threads) thread.join();
 
     return true;
 }

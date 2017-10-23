@@ -21,7 +21,8 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(AnimationEffectTimingReadOnly, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(AnimationEffectTimingReadOnly, Release)
 
 JSObject*
-AnimationEffectTimingReadOnly::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+AnimationEffectTimingReadOnly::WrapObject(JSContext* aCx,
+                                          JS::Handle<JSObject*> aGivenProto)
 {
   return AnimationEffectTimingReadOnlyBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -47,5 +48,5 @@ AnimationEffectTimingReadOnly::GetEasing(nsString& aRetVal) const
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -26,14 +26,9 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(Permissions)
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Permissions, mWindow)
 
-Permissions::Permissions(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
-{
-}
+Permissions::Permissions(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {}
 
-Permissions::~Permissions()
-{
-}
+Permissions::~Permissions() {}
 
 JSObject*
 Permissions::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -70,7 +65,7 @@ CreatePermissionStatus(JSContext* aCx,
   }
 }
 
-} // namespace
+}  // namespace
 
 already_AddRefed<Promise>
 Permissions::Query(JSContext* aCx,
@@ -84,7 +79,7 @@ Permissions::Query(JSContext* aCx,
   }
 
   RefPtr<PermissionStatus> status =
-    CreatePermissionStatus(aCx, aPermission, mWindow, aRv);
+      CreatePermissionStatus(aCx, aPermission, mWindow, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     MOZ_ASSERT(!status);
     return nullptr;
@@ -101,7 +96,8 @@ Permissions::Query(JSContext* aCx,
 }
 
 /* static */ nsresult
-Permissions::RemovePermission(nsIPrincipal* aPrincipal, const char* aPermissionType)
+Permissions::RemovePermission(nsIPrincipal* aPrincipal,
+                              const char* aPermissionType)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
 
@@ -158,7 +154,9 @@ Permissions::Revoke(JSContext* aCx,
     // to the parent; `ContentParent::RecvRemovePermission` will call
     // `RemovePermission`.
     ContentChild::GetSingleton()->SendRemovePermission(
-      IPC::Principal(document->NodePrincipal()), nsDependentCString(permissionType), &rv);
+        IPC::Principal(document->NodePrincipal()),
+        nsDependentCString(permissionType),
+        &rv);
   }
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -167,7 +165,7 @@ Permissions::Revoke(JSContext* aCx,
   }
 
   RefPtr<PermissionStatus> status =
-    CreatePermissionStatus(aCx, aPermission, mWindow, aRv);
+      CreatePermissionStatus(aCx, aPermission, mWindow, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     MOZ_ASSERT(!status);
     return nullptr;
@@ -178,5 +176,5 @@ Permissions::Revoke(JSContext* aCx,
   return promise.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

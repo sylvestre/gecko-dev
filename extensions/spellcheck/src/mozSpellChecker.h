@@ -21,11 +21,11 @@
 
 namespace mozilla {
 class RemoteSpellcheckEngineChild;
-} // namespace mozilla
+}  // namespace mozilla
 
 class mozSpellChecker : public nsISpellChecker
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(mozSpellChecker)
 
@@ -34,46 +34,51 @@ public:
   nsresult Init();
 
   // nsISpellChecker
-  NS_IMETHOD SetDocument(nsITextServicesDocument *aDoc, bool aFromStartofDoc) override;
-  NS_IMETHOD NextMisspelledWord(nsAString &aWord, nsTArray<nsString> *aSuggestions) override;
-  NS_IMETHOD CheckWord(const nsAString &aWord, bool *aIsMisspelled, nsTArray<nsString> *aSuggestions) override;
-  NS_IMETHOD Replace(const nsAString &aOldWord, const nsAString &aNewWord, bool aAllOccurrences) override;
-  NS_IMETHOD IgnoreAll(const nsAString &aWord) override;
+  NS_IMETHOD SetDocument(nsITextServicesDocument* aDoc,
+                         bool aFromStartofDoc) override;
+  NS_IMETHOD NextMisspelledWord(nsAString& aWord,
+                                nsTArray<nsString>* aSuggestions) override;
+  NS_IMETHOD CheckWord(const nsAString& aWord,
+                       bool* aIsMisspelled,
+                       nsTArray<nsString>* aSuggestions) override;
+  NS_IMETHOD Replace(const nsAString& aOldWord,
+                     const nsAString& aNewWord,
+                     bool aAllOccurrences) override;
+  NS_IMETHOD IgnoreAll(const nsAString& aWord) override;
 
-  NS_IMETHOD AddWordToPersonalDictionary(const nsAString &aWord) override;
-  NS_IMETHOD RemoveWordFromPersonalDictionary(const nsAString &aWord) override;
-  NS_IMETHOD GetPersonalDictionary(nsTArray<nsString> *aWordList) override;
+  NS_IMETHOD AddWordToPersonalDictionary(const nsAString& aWord) override;
+  NS_IMETHOD RemoveWordFromPersonalDictionary(const nsAString& aWord) override;
+  NS_IMETHOD GetPersonalDictionary(nsTArray<nsString>* aWordList) override;
 
-  NS_IMETHOD GetDictionaryList(nsTArray<nsString> *aDictionaryList) override;
-  NS_IMETHOD GetCurrentDictionary(nsAString &aDictionary) override;
-  NS_IMETHOD SetCurrentDictionary(const nsAString &aDictionary) override;
+  NS_IMETHOD GetDictionaryList(nsTArray<nsString>* aDictionaryList) override;
+  NS_IMETHOD GetCurrentDictionary(nsAString& aDictionary) override;
+  NS_IMETHOD SetCurrentDictionary(const nsAString& aDictionary) override;
   NS_IMETHOD_(RefPtr<mozilla::GenericPromise>)
-    SetCurrentDictionaryFromList(const nsTArray<nsString>& aList) override;
+  SetCurrentDictionaryFromList(const nsTArray<nsString>& aList) override;
 
-  void DeleteRemoteEngine() {
-    mEngine = nullptr;
-  }
+  void DeleteRemoteEngine() { mEngine = nullptr; }
 
-protected:
+ protected:
   virtual ~mozSpellChecker();
 
   nsCOMPtr<mozISpellI18NUtil> mConverter;
   nsCOMPtr<nsITextServicesDocument> mTsDoc;
   nsCOMPtr<mozIPersonalDictionary> mPersonalDictionary;
 
-  nsCOMPtr<mozISpellCheckingEngine>  mSpellCheckingEngine;
+  nsCOMPtr<mozISpellCheckingEngine> mSpellCheckingEngine;
   bool mFromStart;
 
   nsString mCurrentDictionary;
 
-  nsresult SetupDoc(int32_t *outBlockOffset);
+  nsresult SetupDoc(int32_t* outBlockOffset);
 
-  nsresult GetCurrentBlockIndex(nsITextServicesDocument *aDoc, int32_t *outBlockIndex);
+  nsresult GetCurrentBlockIndex(nsITextServicesDocument* aDoc,
+                                int32_t* outBlockIndex);
 
-  nsresult GetEngineList(nsCOMArray<mozISpellCheckingEngine> *aDictionaryList);
+  nsresult GetEngineList(nsCOMArray<mozISpellCheckingEngine>* aDictionaryList);
 
-  mozilla::RemoteSpellcheckEngineChild *mEngine;
+  mozilla::RemoteSpellcheckEngineChild* mEngine;
 
   friend class mozilla::RemoteSpellcheckEngineChild;
 };
-#endif // mozSpellChecker_h__
+#endif  // mozSpellChecker_h__

@@ -36,17 +36,19 @@ struct TreeMatchContext;
  * quickly tell that a particular selector is not relevant to a given
  * element.
  */
-class MOZ_STACK_CLASS AncestorFilter {
+class MOZ_STACK_CLASS AncestorFilter
+{
   friend struct TreeMatchContext;
+
  public:
   /* Maintenance of our ancestor state */
-  void PushAncestor(mozilla::dom::Element *aElement);
+  void PushAncestor(mozilla::dom::Element* aElement);
   void PopAncestor();
 
   /* Check whether we might have an ancestor matching one of the given
      atom hashes.  |hashes| must have length hashListLength */
   template<size_t hashListLength>
-    bool MightHaveMatchingAncestor(const uint32_t* aHashes) const
+  bool MightHaveMatchingAncestor(const uint32_t* aHashes) const
   {
     MOZ_ASSERT(mFilter);
     for (size_t i = 0; i < hashListLength && aHashes[i]; ++i) {
@@ -61,7 +63,7 @@ class MOZ_STACK_CLASS AncestorFilter {
   bool HasFilter() const { return mFilter; }
 
 #ifdef DEBUG
-  void AssertHasAllAncestors(mozilla::dom::Element *aElement) const;
+  void AssertHasAllAncestors(mozilla::dom::Element* aElement) const;
 #endif
 
  private:
@@ -108,15 +110,18 @@ class MOZ_STACK_CLASS AncestorFilter {
  * ResetForVisitedMatching() and ResetForUnvisitedMatching() as
  * needed.
  */
-struct MOZ_STACK_CLASS TreeMatchContext {
+struct MOZ_STACK_CLASS TreeMatchContext
+{
   // Reset this context for matching for the style-if-:visited.
-  void ResetForVisitedMatching() {
+  void ResetForVisitedMatching()
+  {
     NS_PRECONDITION(mForStyling, "Why is this being called?");
     mHaveRelevantLink = false;
     mVisitedHandling = nsRuleWalker::eRelevantLinkVisited;
   }
 
-  void ResetForUnvisitedMatching() {
+  void ResetForUnvisitedMatching()
+  {
     NS_PRECONDITION(mForStyling, "Why is this being called?");
     mHaveRelevantLink = false;
     mVisitedHandling = nsRuleWalker::eRelevantLinkUnvisited;
@@ -130,20 +135,18 @@ struct MOZ_STACK_CLASS TreeMatchContext {
     return mVisitedHandling;
   }
 
-  void AddScopeElement(mozilla::dom::Element* aElement) {
+  void AddScopeElement(mozilla::dom::Element* aElement)
+  {
     NS_PRECONDITION(mHaveSpecifiedScope,
                     "Should be set before calling AddScopeElement()");
     mScopes.AppendElement(aElement);
   }
-  bool IsScopeElement(mozilla::dom::Element* aElement) const {
+  bool IsScopeElement(mozilla::dom::Element* aElement) const
+  {
     return mScopes.Contains(aElement);
   }
-  void SetHasSpecifiedScope() {
-    mHaveSpecifiedScope = true;
-  }
-  bool HasSpecifiedScope() const {
-    return mHaveSpecifiedScope;
-  }
+  void SetHasSpecifiedScope() { mHaveSpecifiedScope = true; }
+  bool HasSpecifiedScope() const { return mHaveSpecifiedScope; }
 
   /**
    * Initialize the ancestor filter and list of style scopes.  If aElement is
@@ -151,7 +154,7 @@ struct MOZ_STACK_CLASS TreeMatchContext {
    * mAncestorFilter.PushAncestor and PushStyleScope, starting from the root and
    * going down the tree.  Must only be called for elements in a document.
    */
-  void InitAncestors(mozilla::dom::Element *aElement);
+  void InitAncestors(mozilla::dom::Element* aElement);
 
   /**
    * Like InitAncestors, but only initializes the style scope list, not the
@@ -177,8 +180,9 @@ struct MOZ_STACK_CLASS TreeMatchContext {
 
   bool PopStyleScopeForSelectorMatching(mozilla::dom::Element* aElement)
   {
-    NS_ASSERTION(mForScopedStyle, "only call PopStyleScopeForSelectorMatching "
-                                  "when mForScopedStyle is true");
+    NS_ASSERTION(mForScopedStyle,
+                 "only call PopStyleScopeForSelectorMatching "
+                 "when mForScopedStyle is true");
 
     if (!mCurrentStyleScope) {
       return false;
@@ -231,8 +235,9 @@ struct MOZ_STACK_CLASS TreeMatchContext {
 
   bool IsWithinStyleScopeForSelectorMatching() const
   {
-    NS_ASSERTION(mForScopedStyle, "only call IsWithinScopeForSelectorMatching "
-                                  "when mForScopedStyle is true");
+    NS_ASSERTION(mForScopedStyle,
+                 "only call IsWithinScopeForSelectorMatching "
+                 "when mForScopedStyle is true");
     return mCurrentStyleScope;
   }
 
@@ -242,19 +247,21 @@ struct MOZ_STACK_CLASS TreeMatchContext {
    * This class does nothing if aTreeMatchContext is null, which is the case for
    * the Servo style system.
    */
-  class MOZ_RAII AutoAncestorPusher {
-  public:
-    explicit AutoAncestorPusher(TreeMatchContext* aTreeMatchContext
-                                MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mPushedAncestor(false)
-      , mPushedStyleScope(false)
-      , mTreeMatchContext(aTreeMatchContext)
-      , mElement(nullptr)
+  class MOZ_RAII AutoAncestorPusher
+  {
+   public:
+    explicit AutoAncestorPusher(
+        TreeMatchContext* aTreeMatchContext MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+        : mPushedAncestor(false),
+          mPushedStyleScope(false),
+          mTreeMatchContext(aTreeMatchContext),
+          mElement(nullptr)
     {
       MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     }
 
-    void PushAncestorAndStyleScope(mozilla::dom::Element* aElement) {
+    void PushAncestorAndStyleScope(mozilla::dom::Element* aElement)
+    {
       if (!mTreeMatchContext) {
         MOZ_ASSERT(!aElement || aElement->IsStyledByServo());
         return;
@@ -270,7 +277,8 @@ struct MOZ_STACK_CLASS TreeMatchContext {
       }
     }
 
-    void PushAncestorAndStyleScope(nsIContent* aContent) {
+    void PushAncestorAndStyleScope(nsIContent* aContent)
+    {
       if (!mTreeMatchContext) {
         MOZ_ASSERT(!aContent || aContent->IsStyledByServo());
         return;
@@ -281,7 +289,8 @@ struct MOZ_STACK_CLASS TreeMatchContext {
       }
     }
 
-    void PushStyleScope(mozilla::dom::Element* aElement) {
+    void PushStyleScope(mozilla::dom::Element* aElement)
+    {
       if (!mTreeMatchContext) {
         MOZ_ASSERT(!aElement || aElement->IsStyledByServo());
         return;
@@ -295,7 +304,8 @@ struct MOZ_STACK_CLASS TreeMatchContext {
       }
     }
 
-    void PushStyleScope(nsIContent* aContent) {
+    void PushStyleScope(nsIContent* aContent)
+    {
       if (!mTreeMatchContext) {
         MOZ_ASSERT(!aContent || aContent->IsStyledByServo());
         return;
@@ -306,7 +316,8 @@ struct MOZ_STACK_CLASS TreeMatchContext {
       }
     }
 
-    ~AutoAncestorPusher() {
+    ~AutoAncestorPusher()
+    {
       if (mPushedAncestor) {
         mTreeMatchContext->mAncestorFilter.PopAncestor();
       }
@@ -315,7 +326,7 @@ struct MOZ_STACK_CLASS TreeMatchContext {
       }
     }
 
-  private:
+   private:
     bool mPushedAncestor;
     bool mPushedStyleScope;
     TreeMatchContext* mTreeMatchContext;
@@ -332,12 +343,14 @@ struct MOZ_STACK_CLASS TreeMatchContext {
    * in cases where we may or may not want to be skipping flex/grid-item
    * style fixup for a particular chunk of code).
    */
-  class MOZ_RAII AutoParentDisplayBasedStyleFixupSkipper {
-  public:
-    explicit AutoParentDisplayBasedStyleFixupSkipper(TreeMatchContext& aTreeMatchContext,
-                                                     bool aSkipParentDisplayBasedStyleFixup = true
-                                                     MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mAutoRestorer(aTreeMatchContext.mSkippingParentDisplayBasedStyleFixup)
+  class MOZ_RAII AutoParentDisplayBasedStyleFixupSkipper
+  {
+   public:
+    explicit AutoParentDisplayBasedStyleFixupSkipper(
+        TreeMatchContext& aTreeMatchContext,
+        bool aSkipParentDisplayBasedStyleFixup =
+            true MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+        : mAutoRestorer(aTreeMatchContext.mSkippingParentDisplayBasedStyleFixup)
     {
       MOZ_GUARD_OBJECT_NOTIFIER_INIT;
       if (aSkipParentDisplayBasedStyleFixup) {
@@ -345,7 +358,7 @@ struct MOZ_STACK_CLASS TreeMatchContext {
       }
     }
 
-  private:
+   private:
     mozilla::AutoRestore<bool> mAutoRestorer;
     MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
   };
@@ -373,6 +386,7 @@ struct MOZ_STACK_CLASS TreeMatchContext {
 
   // For matching :scope
   AutoTArray<mozilla::dom::Element*, 1> mScopes;
+
  public:
   // The document we're working with.
   nsIDocument* const mDocument;
@@ -412,7 +426,8 @@ struct MOZ_STACK_CLASS TreeMatchContext {
   // constructor and ResetForVisitedMatching() will never be called).
   // eMatchVisitedDefault doesn't communicate any information about the current
   // or future VisitedHandlingType of this TreeMatchContext.
-  enum MatchVisited {
+  enum MatchVisited
+  {
     eNeverMatchVisited,
     eMatchVisitedDefault
   };
@@ -429,17 +444,17 @@ struct MOZ_STACK_CLASS TreeMatchContext {
                    nsRuleWalker::VisitedHandlingType aVisitedHandling,
                    nsIDocument* aDocument,
                    MatchVisited aMatchVisited = eMatchVisitedDefault)
-    : mForStyling(aForStyling)
-    , mHaveRelevantLink(false)
-    , mHaveSpecifiedScope(false)
-    , mVisitedHandling(aVisitedHandling)
-    , mDocument(aDocument)
-    , mIsHTMLDocument(aDocument->IsHTMLDocument())
-    , mCompatMode(aDocument->GetCompatibilityMode())
-    , mUsingPrivateBrowsing(false)
-    , mSkippingParentDisplayBasedStyleFixup(false)
-    , mForScopedStyle(false)
-    , mCurrentStyleScope(nullptr)
+      : mForStyling(aForStyling),
+        mHaveRelevantLink(false),
+        mHaveSpecifiedScope(false),
+        mVisitedHandling(aVisitedHandling),
+        mDocument(aDocument),
+        mIsHTMLDocument(aDocument->IsHTMLDocument()),
+        mCompatMode(aDocument->GetCompatibilityMode()),
+        mUsingPrivateBrowsing(false),
+        mSkippingParentDisplayBasedStyleFixup(false),
+        mForScopedStyle(false),
+        mCurrentStyleScope(nullptr)
   {
     if (aMatchVisited != eNeverMatchVisited) {
       nsILoadContext* loadContext = mDocument->GetLoadContext();
@@ -452,37 +467,40 @@ struct MOZ_STACK_CLASS TreeMatchContext {
     }
   }
 
-  enum ForFrameConstructionTag { ForFrameConstruction };
+  enum ForFrameConstructionTag
+  {
+    ForFrameConstruction
+  };
 
   TreeMatchContext(nsIDocument* aDocument, ForFrameConstructionTag)
-    : TreeMatchContext(true, nsRuleWalker::eRelevantLinkUnvisited, aDocument)
-  {}
+      : TreeMatchContext(true, nsRuleWalker::eRelevantLinkUnvisited, aDocument)
+  {
+  }
 };
 
-struct MOZ_STACK_CLASS RuleProcessorData {
-  RuleProcessorData(nsPresContext* aPresContext,
-                    nsRuleWalker* aRuleWalker)
-    : mPresContext(aPresContext),
-      mRuleWalker(aRuleWalker),
-      mScope(nullptr)
+struct MOZ_STACK_CLASS RuleProcessorData
+{
+  RuleProcessorData(nsPresContext* aPresContext, nsRuleWalker* aRuleWalker)
+      : mPresContext(aPresContext), mRuleWalker(aRuleWalker), mScope(nullptr)
   {
     NS_PRECONDITION(mPresContext, "Must have prescontext");
   }
 
   nsPresContext* const mPresContext;
-  nsRuleWalker* const mRuleWalker; // Used to add rules to our results.
+  nsRuleWalker* const mRuleWalker;  // Used to add rules to our results.
   mozilla::dom::Element* mScope;
 };
 
-struct MOZ_STACK_CLASS ElementDependentRuleProcessorData :
-                          public RuleProcessorData {
+struct MOZ_STACK_CLASS ElementDependentRuleProcessorData
+    : public RuleProcessorData
+{
   ElementDependentRuleProcessorData(nsPresContext* aPresContext,
                                     mozilla::dom::Element* aElement,
                                     nsRuleWalker* aRuleWalker,
                                     TreeMatchContext& aTreeMatchContext)
-    : RuleProcessorData(aPresContext, aRuleWalker)
-    , mElement(aElement)
-    , mTreeMatchContext(aTreeMatchContext)
+      : RuleProcessorData(aPresContext, aRuleWalker),
+        mElement(aElement),
+        mTreeMatchContext(aTreeMatchContext)
   {
     NS_ASSERTION(aElement, "null element leaked into SelectorMatches");
     NS_ASSERTION(aElement->OwnerDoc(), "Document-less node here?");
@@ -490,36 +508,38 @@ struct MOZ_STACK_CLASS ElementDependentRuleProcessorData :
                     "Should be styling if and only if we have a rule walker");
   }
 
-  mozilla::dom::Element* const mElement; // weak ref, must not be null
+  mozilla::dom::Element* const mElement;  // weak ref, must not be null
   TreeMatchContext& mTreeMatchContext;
 };
 
-struct MOZ_STACK_CLASS ElementRuleProcessorData :
-                          public ElementDependentRuleProcessorData {
+struct MOZ_STACK_CLASS ElementRuleProcessorData
+    : public ElementDependentRuleProcessorData
+{
   ElementRuleProcessorData(nsPresContext* aPresContext,
                            mozilla::dom::Element* aElement,
                            nsRuleWalker* aRuleWalker,
                            TreeMatchContext& aTreeMatchContext)
-    : ElementDependentRuleProcessorData(aPresContext, aElement, aRuleWalker,
-                                        aTreeMatchContext)
+      : ElementDependentRuleProcessorData(
+            aPresContext, aElement, aRuleWalker, aTreeMatchContext)
   {
     NS_PRECONDITION(aTreeMatchContext.mForStyling, "Styling here!");
     NS_PRECONDITION(aRuleWalker, "Must have rule walker");
   }
 };
 
-struct MOZ_STACK_CLASS PseudoElementRuleProcessorData :
-                          public ElementDependentRuleProcessorData {
+struct MOZ_STACK_CLASS PseudoElementRuleProcessorData
+    : public ElementDependentRuleProcessorData
+{
   PseudoElementRuleProcessorData(nsPresContext* aPresContext,
                                  mozilla::dom::Element* aParentElement,
                                  nsRuleWalker* aRuleWalker,
                                  mozilla::CSSPseudoElementType aPseudoType,
                                  TreeMatchContext& aTreeMatchContext,
                                  mozilla::dom::Element* aPseudoElement)
-    : ElementDependentRuleProcessorData(aPresContext, aParentElement, aRuleWalker,
-                                        aTreeMatchContext),
-      mPseudoType(aPseudoType),
-      mPseudoElement(aPseudoElement)
+      : ElementDependentRuleProcessorData(
+            aPresContext, aParentElement, aRuleWalker, aTreeMatchContext),
+        mPseudoType(aPseudoType),
+        mPseudoElement(aPseudoElement)
   {
     NS_PRECONDITION(aPseudoType < mozilla::CSSPseudoElementType::Count,
                     "invalid aPseudoType value");
@@ -528,15 +548,15 @@ struct MOZ_STACK_CLASS PseudoElementRuleProcessorData :
   }
 
   mozilla::CSSPseudoElementType mPseudoType;
-  mozilla::dom::Element* const mPseudoElement; // weak ref
+  mozilla::dom::Element* const mPseudoElement;  // weak ref
 };
 
-struct MOZ_STACK_CLASS AnonBoxRuleProcessorData : public RuleProcessorData {
+struct MOZ_STACK_CLASS AnonBoxRuleProcessorData : public RuleProcessorData
+{
   AnonBoxRuleProcessorData(nsPresContext* aPresContext,
                            nsAtom* aPseudoTag,
                            nsRuleWalker* aRuleWalker)
-    : RuleProcessorData(aPresContext, aRuleWalker),
-      mPseudoTag(aPseudoTag)
+      : RuleProcessorData(aPresContext, aRuleWalker), mPseudoTag(aPseudoTag)
   {
     NS_PRECONDITION(aPseudoTag, "Must have pseudo tag");
     NS_PRECONDITION(aRuleWalker, "Must have rule walker");
@@ -546,38 +566,40 @@ struct MOZ_STACK_CLASS AnonBoxRuleProcessorData : public RuleProcessorData {
 };
 
 #ifdef MOZ_XUL
-struct MOZ_STACK_CLASS XULTreeRuleProcessorData :
-                          public ElementDependentRuleProcessorData {
+struct MOZ_STACK_CLASS XULTreeRuleProcessorData
+    : public ElementDependentRuleProcessorData
+{
   XULTreeRuleProcessorData(nsPresContext* aPresContext,
                            mozilla::dom::Element* aParentElement,
                            nsRuleWalker* aRuleWalker,
                            nsAtom* aPseudoTag,
                            const mozilla::AtomArray& aInputWord,
                            TreeMatchContext& aTreeMatchContext)
-    : ElementDependentRuleProcessorData(aPresContext, aParentElement,
-                                        aRuleWalker, aTreeMatchContext),
-      mPseudoTag(aPseudoTag),
-      mInputWord(aInputWord)
+      : ElementDependentRuleProcessorData(
+            aPresContext, aParentElement, aRuleWalker, aTreeMatchContext),
+        mPseudoTag(aPseudoTag),
+        mInputWord(aInputWord)
   {
     NS_PRECONDITION(aPseudoTag, "null pointer");
     NS_PRECONDITION(aRuleWalker, "Must have rule walker");
     NS_PRECONDITION(aTreeMatchContext.mForStyling, "Styling here!");
   }
 
-  nsAtom*                 mPseudoTag;
+  nsAtom* mPseudoTag;
   const mozilla::AtomArray& mInputWord;
 };
 #endif
 
-struct MOZ_STACK_CLASS StateRuleProcessorData :
-                          public ElementDependentRuleProcessorData {
+struct MOZ_STACK_CLASS StateRuleProcessorData
+    : public ElementDependentRuleProcessorData
+{
   StateRuleProcessorData(nsPresContext* aPresContext,
                          mozilla::dom::Element* aElement,
                          mozilla::EventStates aStateMask,
                          TreeMatchContext& aTreeMatchContext)
-    : ElementDependentRuleProcessorData(aPresContext, aElement, nullptr,
-                                        aTreeMatchContext),
-      mStateMask(aStateMask)
+      : ElementDependentRuleProcessorData(
+            aPresContext, aElement, nullptr, aTreeMatchContext),
+        mStateMask(aStateMask)
   {
     NS_PRECONDITION(!aTreeMatchContext.mForStyling, "Not styling here!");
   }
@@ -586,18 +608,19 @@ struct MOZ_STACK_CLASS StateRuleProcessorData :
   const mozilla::EventStates mStateMask;
 };
 
-struct MOZ_STACK_CLASS PseudoElementStateRuleProcessorData :
-                          public StateRuleProcessorData {
+struct MOZ_STACK_CLASS PseudoElementStateRuleProcessorData
+    : public StateRuleProcessorData
+{
   PseudoElementStateRuleProcessorData(nsPresContext* aPresContext,
                                       mozilla::dom::Element* aElement,
                                       mozilla::EventStates aStateMask,
                                       mozilla::CSSPseudoElementType aPseudoType,
                                       TreeMatchContext& aTreeMatchContext,
                                       mozilla::dom::Element* aPseudoElement)
-    : StateRuleProcessorData(aPresContext, aElement, aStateMask,
-                             aTreeMatchContext),
-      mPseudoType(aPseudoType),
-      mPseudoElement(aPseudoElement)
+      : StateRuleProcessorData(
+            aPresContext, aElement, aStateMask, aTreeMatchContext),
+        mPseudoType(aPseudoType),
+        mPseudoElement(aPseudoElement)
   {
     NS_PRECONDITION(!aTreeMatchContext.mForStyling, "Not styling here!");
   }
@@ -606,11 +629,12 @@ struct MOZ_STACK_CLASS PseudoElementStateRuleProcessorData :
   // PseudoElementRuleProcessorData.  Instead we've just copied those
   // members from PseudoElementRuleProcessorData to this struct.
   mozilla::CSSPseudoElementType mPseudoType;
-  mozilla::dom::Element* const mPseudoElement; // weak ref
+  mozilla::dom::Element* const mPseudoElement;  // weak ref
 };
 
-struct MOZ_STACK_CLASS AttributeRuleProcessorData :
-                          public ElementDependentRuleProcessorData {
+struct MOZ_STACK_CLASS AttributeRuleProcessorData
+    : public ElementDependentRuleProcessorData
+{
   AttributeRuleProcessorData(nsPresContext* aPresContext,
                              mozilla::dom::Element* aElement,
                              int32_t aNameSpaceID,
@@ -619,22 +643,22 @@ struct MOZ_STACK_CLASS AttributeRuleProcessorData :
                              bool aAttrHasChanged,
                              const nsAttrValue* aOtherValue,
                              TreeMatchContext& aTreeMatchContext)
-    : ElementDependentRuleProcessorData(aPresContext, aElement, nullptr,
-                                        aTreeMatchContext),
-      mNameSpaceID(aNameSpaceID),
-      mAttribute(aAttribute),
-      mOtherValue(aOtherValue),
-      mModType(aModType),
-      mAttrHasChanged(aAttrHasChanged)
+      : ElementDependentRuleProcessorData(
+            aPresContext, aElement, nullptr, aTreeMatchContext),
+        mNameSpaceID(aNameSpaceID),
+        mAttribute(aAttribute),
+        mOtherValue(aOtherValue),
+        mModType(aModType),
+        mAttrHasChanged(aAttrHasChanged)
   {
     NS_PRECONDITION(!aTreeMatchContext.mForStyling, "Not styling here!");
   }
-  int32_t mNameSpaceID; // Namespace of the attribute involved.
-  nsAtom* mAttribute; // |HasAttributeDependentStyle| for which attribute?
+  int32_t mNameSpaceID;  // Namespace of the attribute involved.
+  nsAtom* mAttribute;    // |HasAttributeDependentStyle| for which attribute?
   // non-null if we have the value.
   const nsAttrValue* mOtherValue;
-  int32_t mModType;    // The type of modification (see nsIDOMMutationEvent).
-  bool mAttrHasChanged; // Whether the attribute has already changed.
+  int32_t mModType;      // The type of modification (see nsIDOMMutationEvent).
+  bool mAttrHasChanged;  // Whether the attribute has already changed.
 };
 
 #endif /* !defined(nsRuleProcessorData_h_) */

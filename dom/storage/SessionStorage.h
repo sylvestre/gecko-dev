@@ -19,7 +19,7 @@ class SessionStorageManager;
 
 class SessionStorage final : public Storage
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SessionStorage, Storage)
 
@@ -36,8 +36,7 @@ public:
 
   SessionStorageCache* Cache() const { return mCache; }
 
-  already_AddRefed<SessionStorage>
-  Clone() const;
+  already_AddRefed<SessionStorage> Clone() const;
 
   int64_t GetOriginQuotaUsage() const override;
 
@@ -47,17 +46,20 @@ public:
   uint32_t GetLength(nsIPrincipal& aSubjectPrincipal,
                      ErrorResult& aRv) override;
 
-  void Key(uint32_t aIndex, nsAString& aResult,
+  void Key(uint32_t aIndex,
+           nsAString& aResult,
            nsIPrincipal& aSubjectPrincipal,
            ErrorResult& aRv) override;
 
-  void GetItem(const nsAString& aKey, nsAString& aResult,
+  void GetItem(const nsAString& aKey,
+               nsAString& aResult,
                nsIPrincipal& aSubjectPrincipal,
                ErrorResult& aRv) override;
 
   void GetSupportedNames(nsTArray<nsString>& aKeys) override;
 
-  void SetItem(const nsAString& aKey, const nsAString& aValue,
+  void SetItem(const nsAString& aKey,
+               const nsAString& aValue,
                nsIPrincipal& aSubjectPrincipal,
                ErrorResult& aRv) override;
 
@@ -65,18 +67,16 @@ public:
                   nsIPrincipal& aSubjectPrincipal,
                   ErrorResult& aRv) override;
 
-  void Clear(nsIPrincipal& aSubjectPrincipal,
-             ErrorResult& aRv) override;
+  void Clear(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) override;
 
-private:
+ private:
   ~SessionStorage();
 
   bool ProcessUsageDelta(int64_t aDelta);
 
-  void
-  BroadcastChangeNotification(const nsAString& aKey,
-                              const nsAString& aOldValue,
-                              const nsAString& aNewValue);
+  void BroadcastChangeNotification(const nsAString& aKey,
+                                   const nsAString& aOldValue,
+                                   const nsAString& aNewValue);
 
   RefPtr<SessionStorageCache> mCache;
   RefPtr<SessionStorageManager> mManager;
@@ -85,7 +85,7 @@ private:
   bool mIsPrivate;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_SessionStorage_h
+#endif  //mozilla_dom_SessionStorage_h

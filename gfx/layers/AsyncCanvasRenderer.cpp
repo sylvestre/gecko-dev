@@ -23,14 +23,14 @@ namespace mozilla {
 namespace layers {
 
 AsyncCanvasRenderer::AsyncCanvasRenderer()
-  : mHTMLCanvasElement(nullptr)
-  , mContext(nullptr)
-  , mGLContext(nullptr)
-  , mIsAlphaPremultiplied(true)
-  , mWidth(0)
-  , mHeight(0)
-  , mCanvasClient(nullptr)
-  , mMutex("AsyncCanvasRenderer::mMutex")
+    : mHTMLCanvasElement(nullptr),
+      mContext(nullptr),
+      mGLContext(nullptr),
+      mIsAlphaPremultiplied(true),
+      mWidth(0),
+      mHeight(0),
+      mCanvasClient(nullptr),
+      mMutex("AsyncCanvasRenderer::mMutex")
 {
   MOZ_COUNT_CTOR(AsyncCanvasRenderer);
 }
@@ -45,11 +45,11 @@ AsyncCanvasRenderer::NotifyElementAboutAttributesChanged()
 {
   class Runnable final : public mozilla::Runnable
   {
-  public:
+   public:
     explicit Runnable(AsyncCanvasRenderer* aRenderer)
-      : mozilla::Runnable("Runnable")
-      , mRenderer(aRenderer)
-    {}
+        : mozilla::Runnable("Runnable"), mRenderer(aRenderer)
+    {
+    }
 
     NS_IMETHOD Run() override
     {
@@ -60,7 +60,7 @@ AsyncCanvasRenderer::NotifyElementAboutAttributesChanged()
       return NS_OK;
     }
 
-  private:
+   private:
     RefPtr<AsyncCanvasRenderer> mRenderer;
   };
 
@@ -76,11 +76,11 @@ AsyncCanvasRenderer::NotifyElementAboutInvalidation()
 {
   class Runnable final : public mozilla::Runnable
   {
-  public:
+   public:
     explicit Runnable(AsyncCanvasRenderer* aRenderer)
-      : mozilla::Runnable("Runnable")
-      , mRenderer(aRenderer)
-    {}
+        : mozilla::Runnable("Runnable"), mRenderer(aRenderer)
+    {
+    }
 
     NS_IMETHOD Run() override
     {
@@ -91,7 +91,7 @@ AsyncCanvasRenderer::NotifyElementAboutInvalidation()
       return NS_OK;
     }
 
-  private:
+   private:
     RefPtr<AsyncCanvasRenderer> mRenderer;
   };
 
@@ -155,12 +155,12 @@ AsyncCanvasRenderer::CopyFromTextureClient(TextureClient* aTextureClient)
   // B8G8R8A8 format here.
   const gfx::SurfaceFormat format = gfx::SurfaceFormat::B8G8R8A8;
   // Avoid to create buffer every time.
-  if (!mSurfaceForBasic ||
-      size != mSurfaceForBasic->GetSize() ||
-      format != mSurfaceForBasic->GetFormat())
-  {
-    uint32_t stride = gfx::GetAlignedStride<8>(size.width, BytesPerPixel(format));
-    mSurfaceForBasic = gfx::Factory::CreateDataSourceSurfaceWithStride(size, format, stride);
+  if (!mSurfaceForBasic || size != mSurfaceForBasic->GetSize() ||
+      format != mSurfaceForBasic->GetFormat()) {
+    uint32_t stride =
+        gfx::GetAlignedStride<8>(size.width, BytesPerPixel(format));
+    mSurfaceForBasic =
+        gfx::Factory::CreateDataSourceSurfaceWithStride(size, format, stride);
   }
 
   MappedTextureData mapped;
@@ -176,7 +176,9 @@ AsyncCanvasRenderer::CopyFromTextureClient(TextureClient* aTextureClient)
   }
 
   MOZ_ASSERT(map.GetStride() == mapped.stride);
-  memcpy(map.GetData(), lockedBytes, map.GetStride() * mSurfaceForBasic->GetSize().height);
+  memcpy(map.GetData(),
+         lockedBytes,
+         map.GetStride() * mSurfaceForBasic->GetSize().height);
 
   if (mSurfaceForBasic->GetFormat() == gfx::SurfaceFormat::R8G8B8A8 ||
       mSurfaceForBasic->GetFormat() == gfx::SurfaceFormat::R8G8B8X8) {
@@ -212,8 +214,7 @@ AsyncCanvasRenderer::UpdateTarget()
   const gfx::SurfaceFormat format = gfx::SurfaceFormat::B8G8R8A8;
   uint32_t stride = gfx::GetAlignedStride<8>(size.width, BytesPerPixel(format));
   RefPtr<gfx::DataSourceSurface> surface =
-    gfx::Factory::CreateDataSourceSurfaceWithStride(size, format, stride);
-
+      gfx::Factory::CreateDataSourceSurfaceWithStride(size, format, stride);
 
   if (NS_WARN_IF(!surface)) {
     return nullptr;
@@ -239,15 +240,17 @@ AsyncCanvasRenderer::GetSurface()
   if (mSurfaceForBasic) {
     // Since SourceSurface isn't thread-safe, we need copy to a new SourceSurface.
     RefPtr<gfx::DataSourceSurface> result =
-      gfx::Factory::CreateDataSourceSurfaceWithStride(mSurfaceForBasic->GetSize(),
-                                                      mSurfaceForBasic->GetFormat(),
-                                                      mSurfaceForBasic->Stride());
+        gfx::Factory::CreateDataSourceSurfaceWithStride(
+            mSurfaceForBasic->GetSize(),
+            mSurfaceForBasic->GetFormat(),
+            mSurfaceForBasic->Stride());
 
-    gfx::DataSourceSurface::ScopedMap srcMap(mSurfaceForBasic, gfx::DataSourceSurface::READ);
-    gfx::DataSourceSurface::ScopedMap dstMap(result, gfx::DataSourceSurface::WRITE);
+    gfx::DataSourceSurface::ScopedMap srcMap(mSurfaceForBasic,
+                                             gfx::DataSourceSurface::READ);
+    gfx::DataSourceSurface::ScopedMap dstMap(result,
+                                             gfx::DataSourceSurface::WRITE);
 
-    if (NS_WARN_IF(!srcMap.IsMapped()) ||
-        NS_WARN_IF(!dstMap.IsMapped())) {
+    if (NS_WARN_IF(!srcMap.IsMapped()) || NS_WARN_IF(!dstMap.IsMapped())) {
       return nullptr;
     }
 
@@ -261,9 +264,9 @@ AsyncCanvasRenderer::GetSurface()
 }
 
 nsresult
-AsyncCanvasRenderer::GetInputStream(const char *aMimeType,
-                                    const char16_t *aEncoderOptions,
-                                    nsIInputStream **aStream)
+AsyncCanvasRenderer::GetInputStream(const char* aMimeType,
+                                    const char16_t* aEncoderOptions,
+                                    nsIInputStream** aStream)
 {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<gfx::DataSourceSurface> surface = GetSurface();
@@ -274,8 +277,9 @@ AsyncCanvasRenderer::GetInputStream(const char *aMimeType,
   // Handle y flip.
   RefPtr<gfx::DataSourceSurface> dataSurf = gl::YInvertImageSurface(surface);
 
-  return gfxUtils::GetInputStream(dataSurf, false, aMimeType, aEncoderOptions, aStream);
+  return gfxUtils::GetInputStream(
+      dataSurf, false, aMimeType, aEncoderOptions, aStream);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

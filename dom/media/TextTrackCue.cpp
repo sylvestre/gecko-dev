@@ -50,15 +50,16 @@ TextTrackCue::TextTrackCue(nsPIDOMWindowInner* aOwnerWindow,
                            double aEndTime,
                            const nsAString& aText,
                            ErrorResult& aRv)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mText(aText)
-  , mStartTime(aStartTime)
-  , mEndTime(aEndTime)
-  , mPosition(0.0)
-  , mLine(0.0)
-  , mReset(false, "TextTrackCue::mReset")
-  , mHaveStartedWatcher(false)
-  , mWatchManager(this, GetOwnerGlobal()->AbstractMainThreadFor(TaskCategory::Other))
+    : DOMEventTargetHelper(aOwnerWindow),
+      mText(aText),
+      mStartTime(aStartTime),
+      mEndTime(aEndTime),
+      mPosition(0.0),
+      mLine(0.0),
+      mReset(false, "TextTrackCue::mReset"),
+      mHaveStartedWatcher(false),
+      mWatchManager(
+          this, GetOwnerGlobal()->AbstractMainThreadFor(TaskCategory::Other))
 {
   SetDefaultCueSettings();
   MOZ_ASSERT(aOwnerWindow);
@@ -73,16 +74,17 @@ TextTrackCue::TextTrackCue(nsPIDOMWindowInner* aOwnerWindow,
                            const nsAString& aText,
                            HTMLTrackElement* aTrackElement,
                            ErrorResult& aRv)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mText(aText)
-  , mStartTime(aStartTime)
-  , mEndTime(aEndTime)
-  , mTrackElement(aTrackElement)
-  , mPosition(0.0)
-  , mLine(0.0)
-  , mReset(false, "TextTrackCue::mReset")
-  , mHaveStartedWatcher(false)
-  , mWatchManager(this, GetOwnerGlobal()->AbstractMainThreadFor(TaskCategory::Other))
+    : DOMEventTargetHelper(aOwnerWindow),
+      mText(aText),
+      mStartTime(aStartTime),
+      mEndTime(aEndTime),
+      mTrackElement(aTrackElement),
+      mPosition(0.0),
+      mLine(0.0),
+      mReset(false, "TextTrackCue::mReset"),
+      mHaveStartedWatcher(false),
+      mWatchManager(
+          this, GetOwnerGlobal()->AbstractMainThreadFor(TaskCategory::Other))
 {
   SetDefaultCueSettings();
   MOZ_ASSERT(aOwnerWindow);
@@ -91,9 +93,7 @@ TextTrackCue::TextTrackCue(nsPIDOMWindowInner* aOwnerWindow,
   }
 }
 
-TextTrackCue::~TextTrackCue()
-{
-}
+TextTrackCue::~TextTrackCue() {}
 
 /** Save a reference to our creating document so we don't have to
  *  keep getting it from our window.
@@ -124,7 +124,7 @@ TextTrackCue::GetCueAsHTML()
   if (!sParserWrapper) {
     nsresult rv;
     nsCOMPtr<nsIWebVTTParserWrapper> parserWrapper =
-      do_CreateInstance(NS_WEBVTTPARSERWRAPPER_CONTRACTID, &rv);
+        do_CreateInstance(NS_WEBVTTPARSERWRAPPER_CONTRACTID, &rv);
     if (NS_FAILED(rv)) {
       return mDocument->CreateDocumentFragment();
     }
@@ -138,8 +138,7 @@ TextTrackCue::GetCueAsHTML()
   }
 
   nsCOMPtr<nsIDOMDocumentFragment> frag;
-  sParserWrapper->ConvertCueToDOMTree(window, this,
-                                      getter_AddRefs(frag));
+  sParserWrapper->ConvertCueToDOMTree(window, this, getter_AddRefs(frag));
   if (!frag) {
     return mDocument->CreateDocumentFragment();
   }
@@ -178,15 +177,13 @@ double
 TextTrackCue::ComputedLine()
 {
   // See spec https://w3c.github.io/webvtt/#cue-computed-line
-  if (!mLineIsAutoKeyword && !mSnapToLines &&
-      (mLine < 0.0 || mLine > 100.0)) {
+  if (!mLineIsAutoKeyword && !mSnapToLines && (mLine < 0.0 || mLine > 100.0)) {
     return 100.0;
   } else if (!mLineIsAutoKeyword) {
     return mLine;
   } else if (mLineIsAutoKeyword && !mSnapToLines) {
     return 100.0;
-  } else if (!mTrack ||
-             !mTrack->GetTextTrackList() ||
+  } else if (!mTrack || !mTrack->GetTextTrackList() ||
              !mTrack->GetTextTrackList()->GetMediaElement()) {
     return -1.0;
   }
@@ -243,14 +240,15 @@ TextTrackCue::NotifyDisplayStatesChanged()
     return;
   }
 
-  if (!mTrack ||
-      !mTrack->GetTextTrackList() ||
+  if (!mTrack || !mTrack->GetTextTrackList() ||
       !mTrack->GetTextTrackList()->GetMediaElement()) {
     return;
   }
 
-  mTrack->GetTextTrackList()->GetMediaElement()->NotifyCueDisplayStatesChanged();
+  mTrack->GetTextTrackList()
+      ->GetMediaElement()
+      ->NotifyCueDisplayStatesChanged();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

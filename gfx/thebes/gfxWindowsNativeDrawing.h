@@ -11,32 +11,33 @@
 #include "gfxContext.h"
 #include "gfxWindowsSurface.h"
 
-class gfxWindowsNativeDrawing {
-public:
-
-    /* Flags for notifying this class what kind of operations the native
+class gfxWindowsNativeDrawing
+{
+ public:
+  /* Flags for notifying this class what kind of operations the native
      * drawing supports
      */
 
-    enum {
-        /* Whether the native drawing can draw to a surface of content COLOR_ALPHA */
-        CAN_DRAW_TO_COLOR_ALPHA    = 1 << 0,
-        CANNOT_DRAW_TO_COLOR_ALPHA = 0 << 0,
+  enum
+  {
+    /* Whether the native drawing can draw to a surface of content COLOR_ALPHA */
+    CAN_DRAW_TO_COLOR_ALPHA = 1 << 0,
+    CANNOT_DRAW_TO_COLOR_ALPHA = 0 << 0,
 
-        /* Whether the native drawing can be scaled using SetWorldTransform */
-        CAN_AXIS_ALIGNED_SCALE     = 1 << 1,
-        CANNOT_AXIS_ALIGNED_SCALE  = 0 << 1,
+    /* Whether the native drawing can be scaled using SetWorldTransform */
+    CAN_AXIS_ALIGNED_SCALE = 1 << 1,
+    CANNOT_AXIS_ALIGNED_SCALE = 0 << 1,
 
-        /* Whether the native drawing can be both scaled and rotated arbitrarily using SetWorldTransform */
-        CAN_COMPLEX_TRANSFORM      = 1 << 2,
-        CANNOT_COMPLEX_TRANSFORM   = 0 << 2,
+    /* Whether the native drawing can be both scaled and rotated arbitrarily using SetWorldTransform */
+    CAN_COMPLEX_TRANSFORM = 1 << 2,
+    CANNOT_COMPLEX_TRANSFORM = 0 << 2,
 
-        /* If we have to do transforms with cairo, should we use nearest-neighbour filtering? */
-        DO_NEAREST_NEIGHBOR_FILTERING = 1 << 3,
-        DO_BILINEAR_FILTERING         = 0 << 3
-    };
+    /* If we have to do transforms with cairo, should we use nearest-neighbour filtering? */
+    DO_NEAREST_NEIGHBOR_FILTERING = 1 << 3,
+    DO_BILINEAR_FILTERING = 0 << 3
+  };
 
-    /* Create native win32 drawing for a rectangle bounded by
+  /* Create native win32 drawing for a rectangle bounded by
      * nativeRect.
      *
      * Typical usage looks like:
@@ -56,61 +57,61 @@ public:
      *   } while (nativeDraw.ShouldRenderAgain());
      *   nativeDraw.PaintToContext();
      */
-    gfxWindowsNativeDrawing(gfxContext *ctx,
-                            const gfxRect& nativeRect,
-                            uint32_t nativeDrawFlags = CANNOT_DRAW_TO_COLOR_ALPHA |
-                                                       CANNOT_AXIS_ALIGNED_SCALE |
-                                                       CANNOT_COMPLEX_TRANSFORM |
-                                                       DO_BILINEAR_FILTERING);
+  gfxWindowsNativeDrawing(gfxContext* ctx,
+                          const gfxRect& nativeRect,
+                          uint32_t nativeDrawFlags =
+                              CANNOT_DRAW_TO_COLOR_ALPHA |
+                              CANNOT_AXIS_ALIGNED_SCALE |
+                              CANNOT_COMPLEX_TRANSFORM | DO_BILINEAR_FILTERING);
 
-    /* Returns a HDC which may be used for native drawing.  This HDC is valid
+  /* Returns a HDC which may be used for native drawing.  This HDC is valid
      * until EndNativeDrawing is called; if it is used for drawing after that time,
      * the result is undefined. */
-    HDC BeginNativeDrawing();
+  HDC BeginNativeDrawing();
 
-    /* Transform the native rect into something valid for rendering
+  /* Transform the native rect into something valid for rendering
      * to the HDC.  This may or may not change RECT, depending on
      * whether SetWorldTransform is used or not. */
-    void TransformToNativeRect(const gfxRect& r, RECT& rout);
+  void TransformToNativeRect(const gfxRect& r, RECT& rout);
 
-    /* Marks the end of native drawing */
-    void EndNativeDrawing();
+  /* Marks the end of native drawing */
+  void EndNativeDrawing();
 
-    /* Returns true if the native drawing should be executed again */
-    bool ShouldRenderAgain();
+  /* Returns true if the native drawing should be executed again */
+  bool ShouldRenderAgain();
 
-    /* Places the result to the context, if necessary */
-    void PaintToContext();
+  /* Places the result to the context, if necessary */
+  void PaintToContext();
 
-private:
+ private:
+  RefPtr<gfxContext> mContext;
+  gfxRect mNativeRect;
+  uint32_t mNativeDrawFlags;
 
-    RefPtr<gfxContext> mContext;
-    gfxRect mNativeRect;
-    uint32_t mNativeDrawFlags;
+  // what state the rendering is in
+  uint8_t mRenderState;
 
-    // what state the rendering is in
-    uint8_t mRenderState;
+  mozilla::gfx::Point mDeviceOffset;
+  RefPtr<gfxPattern> mBlackPattern, mWhitePattern;
 
-    mozilla::gfx::Point mDeviceOffset;
-    RefPtr<gfxPattern> mBlackPattern, mWhitePattern;
+  enum TransformType
+  {
+    TRANSLATION_ONLY,
+    AXIS_ALIGNED_SCALE,
+    COMPLEX
+  };
 
-    enum TransformType {
-        TRANSLATION_ONLY,
-        AXIS_ALIGNED_SCALE,
-        COMPLEX
-    };
+  TransformType mTransformType;
+  gfxPoint mTranslation;
+  gfxSize mScale;
+  XFORM mWorldTransform;
 
-    TransformType mTransformType;
-    gfxPoint mTranslation;
-    gfxSize mScale;
-    XFORM mWorldTransform;
-
-    // saved state
-    RefPtr<gfxWindowsSurface> mWinSurface, mBlackSurface, mWhiteSurface;
-    HDC mDC;
-    XFORM mOldWorldTransform;
-    POINT mOrigViewportOrigin;
-    mozilla::gfx::IntSize mTempSurfaceSize;
+  // saved state
+  RefPtr<gfxWindowsSurface> mWinSurface, mBlackSurface, mWhiteSurface;
+  HDC mDC;
+  XFORM mOldWorldTransform;
+  POINT mOrigViewportOrigin;
+  mozilla::gfx::IntSize mTempSurfaceSize;
 };
 
 #endif

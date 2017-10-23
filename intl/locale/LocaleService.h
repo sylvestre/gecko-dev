@@ -72,7 +72,7 @@ class LocaleService : public mozILocaleService,
                       public nsIObserver,
                       public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
   NS_DECL_MOZILOCALESERVICE
@@ -83,7 +83,8 @@ public:
    * See the mozILocaleService.idl for detailed description of the
    * strategies.
    */
-  enum class LangNegStrategy {
+  enum class LangNegStrategy
+  {
     Filtering,
     Matching,
     Lookup
@@ -127,7 +128,6 @@ public:
    */
   void GetAppLocalesAsLangTags(nsTArray<nsCString>& aRetVal);
   void GetAppLocalesAsBCP47(nsTArray<nsCString>& aRetVal);
-
 
   /**
    * Returns a list of locales to use for any regional specific operations
@@ -252,7 +252,7 @@ public:
 
   bool IsServer();
 
-private:
+ private:
   /**
    * Locale object, a BCP47-style tag decomposed into subtags for
    * matching purposes.
@@ -262,7 +262,7 @@ private:
    */
   class Locale
   {
-  public:
+   public:
     Locale(const nsCString& aLocale, bool aRange);
 
     bool Matches(const Locale& aLocale) const;
@@ -275,11 +275,10 @@ private:
     bool AddLikelySubtags();
     bool AddLikelySubtagsWithoutRegion();
 
-    const nsCString& AsString() const {
-      return mLocaleStr;
-    }
+    const nsCString& AsString() const { return mLocaleStr; }
 
-    bool operator== (const Locale& aOther) {
+    bool operator==(const Locale& aOther)
+    {
       const auto& cmp = nsCaseInsensitiveCStringComparator();
       return mLanguage.Equals(aOther.mLanguage, cmp) &&
              mScript.Equals(aOther.mScript, cmp) &&
@@ -287,7 +286,7 @@ private:
              mVariant.Equals(aOther.mVariant, cmp);
     }
 
-  private:
+   private:
     const nsCString& mLocaleStr;
     nsCString mLanguage;
     nsCString mScript;
@@ -306,7 +305,7 @@ private:
 
   virtual ~LocaleService();
 
-  nsAutoCStringN<16>  mDefaultLocale;
+  nsAutoCStringN<16> mDefaultLocale;
   nsTArray<nsCString> mAppLocales;
   nsTArray<nsCString> mRequestedLocales;
   nsTArray<nsCString> mAvailableLocales;
@@ -314,7 +313,7 @@ private:
 
   static StaticRefPtr<LocaleService> sInstance;
 };
-} // intl
-} // namespace mozilla
+}  // namespace intl
+}  // namespace mozilla
 
 #endif /* mozilla_intl_LocaleService_h__ */

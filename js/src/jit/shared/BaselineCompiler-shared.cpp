@@ -15,34 +15,33 @@
 using namespace js;
 using namespace js::jit;
 
-BaselineCompilerShared::BaselineCompilerShared(JSContext* cx, TempAllocator& alloc, JSScript* script)
-  : cx(cx),
-    script(script),
-    pc(script->code()),
-    ionCompileable_(jit::IsIonEnabled(cx) && CanIonCompileScript(cx, script, false)),
-    ionOSRCompileable_(jit::IsIonEnabled(cx) && CanIonCompileScript(cx, script, true)),
-    compileDebugInstrumentation_(script->isDebuggee()),
-    alloc_(alloc),
-    analysis_(alloc, script),
-    frame(script, masm),
-    stubSpace_(),
-    icEntries_(),
-    pcMappingEntries_(),
-    icLoadLabels_(),
-    pushedBeforeCall_(0),
+BaselineCompilerShared::BaselineCompilerShared(JSContext* cx, TempAllocator& alloc,
+                                               JSScript* script)
+    : cx(cx),
+      script(script),
+      pc(script->code()),
+      ionCompileable_(jit::IsIonEnabled(cx) && CanIonCompileScript(cx, script, false)),
+      ionOSRCompileable_(jit::IsIonEnabled(cx) && CanIonCompileScript(cx, script, true)),
+      compileDebugInstrumentation_(script->isDebuggee()),
+      alloc_(alloc),
+      analysis_(alloc, script),
+      frame(script, masm),
+      stubSpace_(),
+      icEntries_(),
+      pcMappingEntries_(),
+      icLoadLabels_(),
+      pushedBeforeCall_(0),
 #ifdef DEBUG
-    inCall_(false),
+      inCall_(false),
 #endif
-    profilerPushToggleOffset_(),
-    profilerEnterFrameToggleOffset_(),
-    profilerExitFrameToggleOffset_(),
-    traceLoggerToggleOffsets_(cx),
-    traceLoggerScriptTextIdOffset_()
-{ }
+      profilerPushToggleOffset_(),
+      profilerEnterFrameToggleOffset_(),
+      profilerExitFrameToggleOffset_(),
+      traceLoggerToggleOffsets_(cx),
+      traceLoggerScriptTextIdOffset_() {
+}
 
-void
-BaselineCompilerShared::prepareVMCall()
-{
+void BaselineCompilerShared::prepareVMCall() {
     pushedBeforeCall_ = masm.framePushed();
 #ifdef DEBUG
     inCall_ = true;
@@ -55,12 +54,9 @@ BaselineCompilerShared::prepareVMCall()
     masm.Push(BaselineFrameReg);
 }
 
-bool
-BaselineCompilerShared::callVM(const VMFunction& fun, CallVMPhase phase)
-{
+bool BaselineCompilerShared::callVM(const VMFunction& fun, CallVMPhase phase) {
     JitCode* code = cx->runtime()->jitRuntime()->getVMWrapper(fun);
-    if (!code)
-        return false;
+    if (!code) return false;
 
 #ifdef DEBUG
     // Assert prepareVMCall() has been called.
@@ -106,10 +102,8 @@ BaselineCompilerShared::callVM(const VMFunction& fun, CallVMPhase phase)
         Label writePostInitialize;
 
         // If OVER_RECURSED is set, then frame locals haven't been pushed yet.
-        masm.branchTest32(Assembler::Zero,
-                          frame.addressOfFlags(),
-                          Imm32(BaselineFrame::OVER_RECURSED),
-                          &writePostInitialize);
+        masm.branchTest32(Assembler::Zero, frame.addressOfFlags(),
+                          Imm32(BaselineFrame::OVER_RECURSED), &writePostInitialize);
 
         masm.move32(Imm32(frameBaseSize), ICTailCallReg);
         masm.jump(&afterWrite);

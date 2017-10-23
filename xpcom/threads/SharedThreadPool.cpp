@@ -25,25 +25,27 @@ static StaticAutoPtr<ReentrantMonitor> sMonitor;
 
 // Hashtable, maps thread pool name to SharedThreadPool instance.
 // Modified only on the main thread.
-static StaticAutoPtr<nsDataHashtable<nsCStringHashKey, SharedThreadPool*>> sPools;
+static StaticAutoPtr<nsDataHashtable<nsCStringHashKey, SharedThreadPool*>>
+    sPools;
 
 static already_AddRefed<nsIThreadPool>
 CreateThreadPool(const nsCString& aName);
 
 class SharedThreadPoolShutdownObserver : public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
-protected:
+ protected:
   virtual ~SharedThreadPoolShutdownObserver() {}
 };
 
 NS_IMPL_ISUPPORTS(SharedThreadPoolShutdownObserver, nsIObserver, nsISupports)
 
 NS_IMETHODIMP
-SharedThreadPoolShutdownObserver::Observe(nsISupports* aSubject, const char *aTopic,
-                                          const char16_t *aData)
+SharedThreadPoolShutdownObserver::Observe(nsISupports* aSubject,
+                                          const char* aTopic,
+                                          const char16_t* aData)
 {
   MOZ_RELEASE_ASSERT(!strcmp(aTopic, "xpcom-shutdown-threads"));
   SharedThreadPool::SpinUntilEmpty();
@@ -59,7 +61,8 @@ SharedThreadPool::InitStatics()
   MOZ_ASSERT(!sMonitor && !sPools);
   sMonitor = new ReentrantMonitor("SharedThreadPool");
   sPools = new nsDataHashtable<nsCStringHashKey, SharedThreadPool*>();
-  nsCOMPtr<nsIObserverService> obsService = mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> obsService =
+      mozilla::services::GetObserverService();
   nsCOMPtr<nsIObserver> obs = new SharedThreadPoolShutdownObserver();
   obsService->AddObserver(obs, "xpcom-shutdown-threads", false);
 }
@@ -78,8 +81,8 @@ SharedThreadPool::SpinUntilEmpty()
 {
   MOZ_ASSERT(NS_IsMainThread());
   SpinEventLoopUntil([]() -> bool {
-      sMonitor->AssertNotCurrentThreadIn();
-      return IsEmpty();
+    sMonitor->AssertNotCurrentThreadIn();
+    return IsEmpty();
   });
 }
 
@@ -99,7 +102,7 @@ SharedThreadPool::Get(const nsCString& aName, uint32_t aThreadLimit)
   } else {
     nsCOMPtr<nsIThreadPool> threadPool(CreateThreadPool(aName));
     if (NS_WARN_IF(!threadPool)) {
-      sPools->Remove(aName); // XXX entry.Remove()
+      sPools->Remove(aName);  // XXX entry.Remove()
       return nullptr;
     }
     pool = new SharedThreadPool(aName, threadPool);
@@ -111,17 +114,17 @@ SharedThreadPool::Get(const nsCString& aName, uint32_t aThreadLimit)
     // behaviour.
     rv = pool->SetThreadLimit(aThreadLimit);
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      sPools->Remove(aName); // XXX entry.Remove()
+      sPools->Remove(aName);  // XXX entry.Remove()
       return nullptr;
     }
 
     rv = pool->SetIdleThreadLimit(aThreadLimit);
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      sPools->Remove(aName); // XXX entry.Remove()
+      sPools->Remove(aName);  // XXX entry.Remove()
       return nullptr;
     }
 
-    entry.OrInsert([pool] () { return pool; });
+    entry.OrInsert([pool]() { return pool; });
   }
 
   MOZ_ASSERT(pool);
@@ -157,7 +160,7 @@ NS_IMETHODIMP_(MozExternalRefCountType) SharedThreadPool::Release(void)
   // the nsIThreadPool. The Runnable here will add a refcount to the pool,
   // and when the Runnable releases the nsIThreadPool it will be deleted.
   NS_DispatchToMainThread(NewRunnableMethod(
-    "nsIThreadPool::Shutdown", mPool, &nsIThreadPool::Shutdown));
+      "nsIThreadPool::Shutdown", mPool, &nsIThreadPool::Shutdown));
 
   // Stabilize refcount, so that if something in the dtor QIs, it won't explode.
   mRefCnt = 1;
@@ -167,18 +170,13 @@ NS_IMETHODIMP_(MozExternalRefCountType) SharedThreadPool::Release(void)
 
 NS_IMPL_QUERY_INTERFACE(SharedThreadPool, nsIThreadPool, nsIEventTarget)
 
-SharedThreadPool::SharedThreadPool(const nsCString& aName,
-                                   nsIThreadPool* aPool)
-  : mName(aName)
-  , mPool(aPool)
-  , mRefCnt(0)
+SharedThreadPool::SharedThreadPool(const nsCString& aName, nsIThreadPool* aPool)
+    : mName(aName), mPool(aPool), mRefCnt(0)
 {
   mEventTarget = do_QueryInterface(aPool);
 }
 
-SharedThreadPool::~SharedThreadPool()
-{
-}
+SharedThreadPool::~SharedThreadPool() {}
 
 nsresult
 SharedThreadPool::EnsureThreadLimitIsAtLeast(uint32_t aLimit)
@@ -214,7 +212,8 @@ static already_AddRefed<nsIThreadPool>
 CreateThreadPool(const nsCString& aName)
 {
   nsresult rv;
-  nsCOMPtr<nsIThreadPool> pool = do_CreateInstance(NS_THREADPOOL_CONTRACTID, &rv);
+  nsCOMPtr<nsIThreadPool> pool =
+      do_CreateInstance(NS_THREADPOOL_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, nullptr);
 
   rv = pool->SetName(aName);
@@ -233,4 +232,4 @@ CreateThreadPool(const nsCString& aName)
   return pool.forget();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

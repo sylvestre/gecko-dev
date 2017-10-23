@@ -53,31 +53,37 @@ class TextEditRules;
 class TypeInState;
 class WSRunObject;
 struct PropItem;
-template<class T> class OwningNonNull;
+template<class T>
+class OwningNonNull;
 namespace dom {
 class DocumentFragment;
-} // namespace dom
+}  // namespace dom
 namespace widget {
 struct IMEState;
-} // namespace widget
+}  // namespace widget
 
-enum class ParagraphSeparator { div, p, br };
+enum class ParagraphSeparator
+{
+  div,
+  p,
+  br
+};
 
 /**
  * The HTML editor implementation.<br>
  * Use to edit HTML document represented as a DOM tree.
  */
-class HTMLEditor final : public TextEditor
-                       , public nsIHTMLEditor
-                       , public nsIHTMLObjectResizer
-                       , public nsIHTMLAbsPosEditor
-                       , public nsITableEditor
-                       , public nsIHTMLInlineTableEditor
-                       , public nsIEditorStyleSheets
-                       , public nsICSSLoaderObserver
-                       , public nsStubMutationObserver
+class HTMLEditor final : public TextEditor,
+                         public nsIHTMLEditor,
+                         public nsIHTMLObjectResizer,
+                         public nsIHTMLAbsPosEditor,
+                         public nsITableEditor,
+                         public nsIHTMLInlineTableEditor,
+                         public nsIEditorStyleSheets,
+                         public nsICSSLoaderObserver,
+                         public nsStubMutationObserver
 {
-private:
+ private:
   enum BlockTransformationType
   {
     eNoOp,
@@ -87,12 +93,12 @@ private:
 
   const char16_t kNBSP = 160;
 
-public:
+ public:
   enum ResizingRequestID
   {
-    kX      = 0,
-    kY      = 1,
-    kWidth  = 2,
+    kX = 0,
+    kY = 1,
+    kWidth = 2,
     kHeight = 3
   };
 
@@ -110,21 +116,21 @@ public:
   // TextEditor overrides
   NS_IMETHOD BeginningOfDocument() override;
   virtual nsresult HandleKeyPressEvent(
-                     WidgetKeyboardEvent* aKeyboardEvent) override;
+      WidgetKeyboardEvent* aKeyboardEvent) override;
   virtual already_AddRefed<nsIContent> GetFocusedContent() override;
   virtual already_AddRefed<nsIContent> GetFocusedContentForIME() override;
   virtual bool IsActiveInDOMWindow() override;
   virtual already_AddRefed<dom::EventTarget> GetDOMEventTarget() override;
   virtual Element* GetEditorRoot() override;
   virtual already_AddRefed<nsIContent> FindSelectionRoot(
-                                         nsINode *aNode) override;
+      nsINode* aNode) override;
   virtual bool IsAcceptableInputEvent(WidgetGUIEvent* aGUIEvent) override;
   virtual already_AddRefed<nsIContent> GetInputEventTargetContent() override;
   using EditorBase::IsEditable;
   virtual nsresult RemoveAttributeOrEquivalent(
-                     Element* aElement,
-                     nsAtom* aAttribute,
-                     bool aSuppressTransaction) override;
+      Element* aElement,
+      nsAtom* aAttribute,
+      bool aSuppressTransaction) override;
   virtual nsresult SetAttributeOrEquivalent(Element* aElement,
                                             nsAtom* aAttribute,
                                             const nsAString& aValue,
@@ -158,7 +164,8 @@ public:
 
   nsresult LoadHTML(const nsAString& aInputString);
 
-  nsresult GetCSSBackgroundColorState(bool* aMixed, nsAString& aOutColor,
+  nsresult GetCSSBackgroundColorState(bool* aMixed,
+                                      nsAString& aOutColor,
                                       bool aBlockLevel);
   NS_IMETHOD GetHTMLBackgroundColorState(bool* aMixed, nsAString& outColor);
 
@@ -171,8 +178,7 @@ public:
   // nsITableEditor methods
   NS_DECL_NSITABLEEDITOR
 
-  nsresult GetLastCellInRow(nsIDOMNode* aRowNode,
-                            nsIDOMNode** aCellNode);
+  nsresult GetLastCellInRow(nsIDOMNode* aRowNode, nsIDOMNode** aCellNode);
 
   nsresult GetCellFromRange(nsRange* aRange, nsIDOMElement** aCell);
 
@@ -206,8 +212,10 @@ public:
   // Overrides of EditorBase interface methods
   virtual nsresult EndUpdateViewBatch() override;
 
-  NS_IMETHOD Init(nsIDOMDocument* aDoc, nsIContent* aRoot,
-                  nsISelectionController* aSelCon, uint32_t aFlags,
+  NS_IMETHOD Init(nsIDOMDocument* aDoc,
+                  nsIContent* aRoot,
+                  nsISelectionController* aSelCon,
+                  uint32_t aFlags,
                   const nsAString& aValue) override;
   NS_IMETHOD PreDestroy(bool aDestroyingFrames) override;
 
@@ -215,7 +223,7 @@ public:
    * @param aElement        Must not be null.
    */
   static bool NodeIsBlockStatic(const nsINode* aElement);
-  static nsresult NodeIsBlockStatic(nsIDOMNode *aNode, bool *aIsBlock);
+  static nsresult NodeIsBlockStatic(nsIDOMNode* aNode, bool* aIsBlock);
 
   // non-virtual methods of interface methods
   bool AbsolutePositioningEnabled() const
@@ -223,10 +231,7 @@ public:
     return mIsAbsolutelyPositioningEnabled;
   }
   nsresult GetAbsolutelyPositionedSelectionContainer(nsINode** aContainer);
-  Element* GetPositionedElement() const
-  {
-    return mAbsolutelyPositionedObject;
-  }
+  Element* GetPositionedElement() const { return mAbsolutelyPositionedObject; }
   nsresult GetElementZIndex(Element* aElement, int32_t* aZindex);
 
   nsresult SetInlineProperty(nsAtom* aProperty,
@@ -245,15 +250,15 @@ public:
                                           bool* aAny,
                                           bool* aAll,
                                           nsAString& outValue);
-  nsresult RemoveInlineProperty(nsAtom* aProperty,
-                                const nsAString& aAttribute);
-protected:
+  nsresult RemoveInlineProperty(nsAtom* aProperty, const nsAString& aAttribute);
+
+ protected:
   virtual ~HTMLEditor();
 
   using EditorBase::IsBlockNode;
-  virtual bool IsBlockNode(nsINode *aNode) override;
+  virtual bool IsBlockNode(nsINode* aNode) override;
 
-public:
+ public:
   // XXX Why don't we move following methods above for grouping by the origins?
   NS_IMETHOD SetFlags(uint32_t aFlags) override;
 
@@ -283,8 +288,7 @@ public:
   /**
    * returns true if aParentTag can contain a child of type aChildTag.
    */
-  virtual bool TagCanContainTag(nsAtom& aParentTag,
-                                nsAtom& aChildTag) override;
+  virtual bool TagCanContainTag(nsAtom& aParentTag, nsAtom& aChildTag) override;
 
   /**
    * Returns true if aNode is a container.
@@ -309,7 +313,8 @@ public:
                                  EStripWrappers aStripWrappers) override;
   nsresult DeleteNode(nsINode* aNode);
   NS_IMETHOD DeleteNode(nsIDOMNode* aNode) override;
-  nsresult DeleteText(nsGenericDOMDataNode& aTextNode, uint32_t aOffset,
+  nsresult DeleteText(nsGenericDOMDataNode& aTextNode,
+                      uint32_t aOffset,
                       uint32_t aLength);
   virtual nsresult InsertTextImpl(const nsAString& aStringToInsert,
                                   nsCOMPtr<nsINode>* aInOutNode,
@@ -323,7 +328,8 @@ public:
 
   // nsICSSLoaderObserver
   NS_IMETHOD StyleSheetLoaded(StyleSheet* aSheet,
-                              bool aWasAlternate, nsresult aStatus) override;
+                              bool aWasAlternate,
+                              nsresult aStatus) override;
 
   // Utility Routines, not part of public API
   NS_IMETHOD TypedText(const nsAString& aString,
@@ -352,11 +358,13 @@ public:
   nsresult IsVisTextNode(nsIContent* aNode,
                          bool* outIsEmptyNode,
                          bool aSafeToAskFrames);
-  nsresult IsEmptyNode(nsIDOMNode* aNode, bool* outIsEmptyBlock,
+  nsresult IsEmptyNode(nsIDOMNode* aNode,
+                       bool* outIsEmptyBlock,
                        bool aMozBRDoesntCount = false,
                        bool aListOrCellNotEmpty = false,
                        bool aSafeToAskFrames = false);
-  nsresult IsEmptyNode(nsINode* aNode, bool* outIsEmptyBlock,
+  nsresult IsEmptyNode(nsINode* aNode,
+                       bool* outIsEmptyBlock,
                        bool aMozBRDoesntCount = false,
                        bool aListOrCellNotEmpty = false,
                        bool aSafeToAskFrames = false);
@@ -376,15 +384,14 @@ public:
    * Dealing with the internal style sheet lists.
    */
   StyleSheet* GetStyleSheetForURL(const nsAString& aURL);
-  void GetURLForStyleSheet(StyleSheet* aStyleSheet,
-                           nsAString& aURL);
+  void GetURLForStyleSheet(StyleSheet* aStyleSheet, nsAString& aURL);
 
   /**
    * Add a url + known style sheet to the internal lists.
    */
-  nsresult AddNewStyleSheetToList(const nsAString &aURL,
+  nsresult AddNewStyleSheetToList(const nsAString& aURL,
                                   StyleSheet* aStyleSheet);
-  nsresult RemoveStyleSheetFromList(const nsAString &aURL);
+  nsresult RemoveStyleSheetFromList(const nsAString& aURL);
 
   bool IsCSSEnabled()
   {
@@ -410,22 +417,23 @@ public:
     mDefaultParagraphSeparator = aSep;
   }
 
-protected:
+ protected:
   class BlobReader final : public nsIEditorBlobListener
   {
-  public:
-    BlobReader(dom::BlobImpl* aBlob, HTMLEditor* aHTMLEditor,
-               bool aIsSafe, nsIDOMDocument* aSourceDoc,
-               nsIDOMNode* aDestinationNode, int32_t aDestOffset,
+   public:
+    BlobReader(dom::BlobImpl* aBlob,
+               HTMLEditor* aHTMLEditor,
+               bool aIsSafe,
+               nsIDOMDocument* aSourceDoc,
+               nsIDOMNode* aDestinationNode,
+               int32_t aDestOffset,
                bool aDoDeleteSelection);
 
     NS_DECL_ISUPPORTS
     NS_DECL_NSIEDITORBLOBLISTENER
 
-  private:
-    ~BlobReader()
-    {
-    }
+   private:
+    ~BlobReader() {}
 
     RefPtr<dom::BlobImpl> mBlob;
     RefPtr<HTMLEditor> mHTMLEditor;
@@ -459,12 +467,14 @@ protected:
   bool SetCaretInTableCell(nsIDOMElement* aElement);
 
   nsresult TabInTable(bool inIsShift, bool* outHandled);
-  already_AddRefed<Element> CreateBR(nsINode* aNode, int32_t aOffset,
+  already_AddRefed<Element> CreateBR(nsINode* aNode,
+                                     int32_t aOffset,
                                      EDirection aSelect = eNone);
   NS_IMETHOD CreateBR(
-               nsIDOMNode* aNode, int32_t aOffset,
-               nsCOMPtr<nsIDOMNode>* outBRNode,
-               nsIEditor::EDirection aSelect = nsIEditor::eNone) override;
+      nsIDOMNode* aNode,
+      int32_t aOffset,
+      nsCOMPtr<nsIDOMNode>* outBRNode,
+      nsIEditor::EDirection aSelect = nsIEditor::eNone) override;
 
   nsresult InsertBR(nsCOMPtr<nsIDOMNode>* outBRNode);
 
@@ -476,8 +486,11 @@ protected:
    * of course)
    * This doesn't change or use the current selection.
    */
-  NS_IMETHOD InsertCell(nsIDOMElement* aCell, int32_t aRowSpan,
-                        int32_t aColSpan, bool aAfter, bool aIsHeader,
+  NS_IMETHOD InsertCell(nsIDOMElement* aCell,
+                        int32_t aRowSpan,
+                        int32_t aColSpan,
+                        bool aAfter,
+                        bool aIsHeader,
                         nsIDOMElement** aNewCell);
 
   /**
@@ -513,9 +526,11 @@ protected:
   /**
    * Test if all cells in row or column at given index are selected.
    */
-  bool AllCellsInRowSelected(nsIDOMElement* aTable, int32_t aRowIndex,
+  bool AllCellsInRowSelected(nsIDOMElement* aTable,
+                             int32_t aRowIndex,
                              int32_t aNumberOfColumns);
-  bool AllCellsInColumnSelected(nsIDOMElement* aTable, int32_t aColIndex,
+  bool AllCellsInColumnSelected(nsIDOMElement* aTable,
+                                int32_t aColIndex,
                                 int32_t aNumberOfRows);
 
   bool IsEmptyCell(Element* aCell);
@@ -529,23 +544,33 @@ protected:
    * Returns NS_EDITOR_ELEMENT_NOT_FOUND if cell is not found even if aCell is
    * null.
    */
-  nsresult GetCellContext(Selection** aSelection, nsIDOMElement** aTable,
-                          nsIDOMElement** aCell, nsIDOMNode** aCellParent,
-                          int32_t* aCellOffset, int32_t* aRowIndex,
+  nsresult GetCellContext(Selection** aSelection,
+                          nsIDOMElement** aTable,
+                          nsIDOMElement** aCell,
+                          nsIDOMNode** aCellParent,
+                          int32_t* aCellOffset,
+                          int32_t* aRowIndex,
                           int32_t* aColIndex);
 
-  NS_IMETHOD GetCellSpansAt(nsIDOMElement* aTable, int32_t aRowIndex,
-                            int32_t aColIndex, int32_t& aActualRowSpan,
+  NS_IMETHOD GetCellSpansAt(nsIDOMElement* aTable,
+                            int32_t aRowIndex,
+                            int32_t aColIndex,
+                            int32_t& aActualRowSpan,
                             int32_t& aActualColSpan);
 
-  NS_IMETHOD SplitCellIntoColumns(nsIDOMElement* aTable, int32_t aRowIndex,
-                                  int32_t aColIndex, int32_t aColSpanLeft,
+  NS_IMETHOD SplitCellIntoColumns(nsIDOMElement* aTable,
+                                  int32_t aRowIndex,
+                                  int32_t aColIndex,
+                                  int32_t aColSpanLeft,
                                   int32_t aColSpanRight,
                                   nsIDOMElement** aNewCell);
 
-  NS_IMETHOD SplitCellIntoRows(nsIDOMElement* aTable, int32_t aRowIndex,
-                               int32_t aColIndex, int32_t aRowSpanAbove,
-                               int32_t aRowSpanBelow, nsIDOMElement** aNewCell);
+  NS_IMETHOD SplitCellIntoRows(nsIDOMElement* aTable,
+                               int32_t aRowIndex,
+                               int32_t aColIndex,
+                               int32_t aRowSpanAbove,
+                               int32_t aRowSpanBelow,
+                               nsIDOMElement** aNewCell);
 
   nsresult CopyCellBackgroundColor(nsIDOMElement* destCell,
                                    nsIDOMElement* sourceCell);
@@ -553,9 +578,11 @@ protected:
   /**
    * Reduce rowspan/colspan when cells span into nonexistent rows/columns.
    */
-  NS_IMETHOD FixBadRowSpan(nsIDOMElement* aTable, int32_t aRowIndex,
+  NS_IMETHOD FixBadRowSpan(nsIDOMElement* aTable,
+                           int32_t aRowIndex,
                            int32_t& aNewRowCount);
-  NS_IMETHOD FixBadColSpan(nsIDOMElement* aTable, int32_t aColIndex,
+  NS_IMETHOD FixBadColSpan(nsIDOMElement* aTable,
+                           int32_t aColIndex,
                            int32_t& aNewColCount);
 
   /**
@@ -610,7 +637,8 @@ protected:
                                         bool aAddCites,
                                         nsIDOMNode** aNodeInserted);
 
-  nsresult InsertObject(const nsACString& aType, nsISupports* aObject,
+  nsresult InsertObject(const nsACString& aType,
+                        nsISupports* aObject,
                         bool aIsSafe,
                         nsIDOMDocument* aSourceDoc,
                         nsIDOMNode* aDestinationNode,
@@ -622,21 +650,22 @@ protected:
   NS_IMETHOD PrepareTransferable(nsITransferable** transferable) override;
   nsresult PrepareHTMLTransferable(nsITransferable** transferable);
   nsresult InsertFromTransferable(nsITransferable* transferable,
-                                    nsIDOMDocument* aSourceDoc,
-                                    const nsAString& aContextStr,
-                                    const nsAString& aInfoStr,
-                                    bool havePrivateHTMLFlavor,
-                                    nsIDOMNode *aDestinationNode,
-                                    int32_t aDestinationOffset,
-                                    bool aDoDeleteSelection);
+                                  nsIDOMDocument* aSourceDoc,
+                                  const nsAString& aContextStr,
+                                  const nsAString& aInfoStr,
+                                  bool havePrivateHTMLFlavor,
+                                  nsIDOMNode* aDestinationNode,
+                                  int32_t aDestinationOffset,
+                                  bool aDoDeleteSelection);
   virtual nsresult InsertFromDataTransfer(dom::DataTransfer* aDataTransfer,
                                           int32_t aIndex,
                                           nsIDOMDocument* aSourceDoc,
                                           nsIDOMNode* aDestinationNode,
                                           int32_t aDestOffset,
                                           bool aDoDeleteSelection) override;
-  bool HavePrivateHTMLFlavor(nsIClipboard* clipboard );
-  nsresult ParseCFHTML(nsCString& aCfhtml, char16_t** aStuffToPaste,
+  bool HavePrivateHTMLFlavor(nsIClipboard* clipboard);
+  nsresult ParseCFHTML(nsCString& aCfhtml,
+                       char16_t** aStuffToPaste,
                        char16_t** aCfcontext);
   nsresult DoContentFilterCallback(const nsAString& aFlavor,
                                    nsIDOMDocument* aSourceDoc,
@@ -661,33 +690,38 @@ protected:
                                       int32_t* outStartOffset,
                                       int32_t* outEndOffset,
                                       bool aTrustedInput);
-  nsresult ParseFragment(const nsAString& aStr, nsAtom* aContextLocalName,
+  nsresult ParseFragment(const nsAString& aStr,
+                         nsAtom* aContextLocalName,
                          nsIDocument* aTargetDoc,
-                         dom::DocumentFragment** aFragment, bool aTrustedInput);
+                         dom::DocumentFragment** aFragment,
+                         bool aTrustedInput);
   void CreateListOfNodesToPaste(dom::DocumentFragment& aFragment,
                                 nsTArray<OwningNonNull<nsINode>>& outNodeList,
                                 nsINode* aStartContainer,
                                 int32_t aStartOffset,
                                 nsINode* aEndContainer,
                                 int32_t aEndOffset);
-  nsresult CreateTagStack(nsTArray<nsString>& aTagStack,
-                          nsIDOMNode* aNode);
-  enum class StartOrEnd { start, end };
+  nsresult CreateTagStack(nsTArray<nsString>& aTagStack, nsIDOMNode* aNode);
+  enum class StartOrEnd
+  {
+    start,
+    end
+  };
   void GetListAndTableParents(StartOrEnd aStartOrEnd,
                               nsTArray<OwningNonNull<nsINode>>& aNodeList,
                               nsTArray<OwningNonNull<Element>>& outArray);
   int32_t DiscoverPartialListsAndTables(
-            nsTArray<OwningNonNull<nsINode>>& aPasteNodes,
-            nsTArray<OwningNonNull<Element>>& aListsAndTables);
+      nsTArray<OwningNonNull<nsINode>>& aPasteNodes,
+      nsTArray<OwningNonNull<Element>>& aListsAndTables);
   nsINode* ScanForListAndTableStructure(
-             StartOrEnd aStartOrEnd,
-             nsTArray<OwningNonNull<nsINode>>& aNodes,
-             Element& aListOrTable);
+      StartOrEnd aStartOrEnd,
+      nsTArray<OwningNonNull<nsINode>>& aNodes,
+      Element& aListOrTable);
   void ReplaceOrphanedStructure(
-         StartOrEnd aStartOrEnd,
-         nsTArray<OwningNonNull<nsINode>>& aNodeArray,
-         nsTArray<OwningNonNull<Element>>& aListAndTableArray,
-         int32_t aHighWaterMark);
+      StartOrEnd aStartOrEnd,
+      nsTArray<OwningNonNull<nsINode>>& aNodeArray,
+      nsTArray<OwningNonNull<Element>>& aListAndTableArray,
+      int32_t aHighWaterMark);
 
   /**
    * Small utility routine to test if a break node is visible to user.
@@ -711,7 +745,11 @@ protected:
   /**
    * Increase/decrease the font size of selection.
    */
-  enum class FontSize { incr, decr };
+  enum class FontSize
+  {
+    incr,
+    decr
+  };
   nsresult RelativeFontChange(FontSize aDir);
 
   /**
@@ -743,7 +781,8 @@ protected:
   nsresult SplitStyleAboveRange(nsRange* aRange,
                                 nsAtom* aProperty,
                                 const nsAString* aAttribute);
-  nsresult SplitStyleAbovePoint(nsCOMPtr<nsINode>* aNode, int32_t* aOffset,
+  nsresult SplitStyleAbovePoint(nsCOMPtr<nsINode>* aNode,
+                                int32_t* aOffset,
                                 nsAtom* aProperty,
                                 const nsAString* aAttribute,
                                 nsIContent** aOutLeftNode = nullptr,
@@ -767,12 +806,14 @@ protected:
   nsIContent* GetNextHTMLSibling(nsINode* aNode);
 
   nsIContent* GetPriorHTMLNode(nsINode* aNode, bool aNoBlockCrossing = false);
-  nsIContent* GetPriorHTMLNode(nsINode* aParent, int32_t aOffset,
+  nsIContent* GetPriorHTMLNode(nsINode* aParent,
+                               int32_t aOffset,
                                nsINode* aChildAtOffset,
                                bool aNoBlockCrossing = false);
 
   nsIContent* GetNextHTMLNode(nsINode* aNode, bool aNoBlockCrossing = false);
-  nsIContent* GetNextHTMLNode(nsINode* aParent, int32_t aOffset,
+  nsIContent* GetNextHTMLNode(nsINode* aParent,
+                              int32_t aOffset,
                               nsINode* aChildAtOffset,
                               bool aNoBlockCrossing = false);
 
@@ -822,8 +863,10 @@ protected:
                                    bool aTrustedInput,
                                    bool aClearStyle = true);
 
-  nsresult ClearStyle(nsCOMPtr<nsINode>* aNode, int32_t* aOffset,
-                      nsAtom* aProperty, const nsAString* aAttribute);
+  nsresult ClearStyle(nsCOMPtr<nsINode>* aNode,
+                      int32_t* aOffset,
+                      nsAtom* aProperty,
+                      const nsAString* aAttribute);
 
   void SetElementPosition(Element& aElement, int32_t aX, int32_t aY);
 
@@ -848,10 +891,12 @@ protected:
    *                    insure we reset the caret in a table-editing method.
    */
   void SetSelectionAfterTableEdit(nsIDOMElement* aTable,
-                                  int32_t aRow, int32_t aCol,
-                                  int32_t aDirection, bool aSelected);
+                                  int32_t aRow,
+                                  int32_t aCol,
+                                  int32_t aDirection,
+                                  bool aSelected);
 
-protected:
+ protected:
   nsTArray<OwningNonNull<nsIContentFilter>> mContentFilters;
 
   RefPtr<TypeInState> mTypeInState;
@@ -862,7 +907,7 @@ protected:
   UniquePtr<CSSEditUtils> mCSSEditUtils;
 
   // Used by GetFirstSelectedCell and GetNextSelectedCell
-  int32_t  mSelectedCellIndex;
+  int32_t mSelectedCellIndex;
 
   nsString mLastStyleSheetURL;
   nsString mLastOverrideStyleSheetURL;
@@ -871,26 +916,26 @@ protected:
   nsTArray<nsString> mStyleSheetURLs;
   nsTArray<RefPtr<StyleSheet>> mStyleSheets;
 
-protected:
+ protected:
   // ANONYMOUS UTILS
   void RemoveListenerAndDeleteRef(const nsAString& aEvent,
                                   nsIDOMEventListener* aListener,
                                   bool aUseCapture,
                                   ManualNACPtr aElement,
                                   nsIPresShell* aShell);
-  void DeleteRefToAnonymousNode(ManualNACPtr aContent,
-                                nsIPresShell* aShell);
+  void DeleteRefToAnonymousNode(ManualNACPtr aContent, nsIPresShell* aShell);
 
   nsresult ShowResizersInner(Element& aResizedElement);
 
   /**
    * Returns the offset of an element's frame to its absolute containing block.
    */
-  nsresult GetElementOrigin(Element& aElement,
-                            int32_t& aX, int32_t& aY);
+  nsresult GetElementOrigin(Element& aElement, int32_t& aX, int32_t& aY);
   nsresult GetPositionAndDimensions(Element& aElement,
-                                    int32_t& aX, int32_t& aY,
-                                    int32_t& aW, int32_t& aH,
+                                    int32_t& aX,
+                                    int32_t& aY,
+                                    int32_t& aW,
+                                    int32_t& aH,
                                     int32_t& aBorderLeft,
                                     int32_t& aBorderTop,
                                     int32_t& aMarginLeft,
@@ -937,9 +982,9 @@ protected:
 
   nsCOMPtr<Element> mResizedObject;
 
-  nsCOMPtr<nsIDOMEventListener>  mMouseMotionListenerP;
+  nsCOMPtr<nsIDOMEventListener> mMouseMotionListenerP;
   nsCOMPtr<nsISelectionListener> mSelectionListenerP;
-  nsCOMPtr<nsIDOMEventListener>  mResizeEventListenerP;
+  nsCOMPtr<nsIDOMEventListener> mResizeEventListenerP;
 
   int32_t mOriginalX;
   int32_t mOriginalY;
@@ -959,24 +1004,26 @@ protected:
   int32_t mWidthIncrementFactor;
   int32_t mHeightIncrementFactor;
 
-  int8_t  mInfoXIncrement;
-  int8_t  mInfoYIncrement;
+  int8_t mInfoXIncrement;
+  int8_t mInfoYIncrement;
 
   nsresult SetAllResizersPosition();
 
   ManualNACPtr CreateResizer(int16_t aLocation, nsIContent& aParentContent);
-  void SetAnonymousElementPosition(int32_t aX, int32_t aY,
-                                   Element* aResizer);
+  void SetAnonymousElementPosition(int32_t aX, int32_t aY, Element* aResizer);
 
   ManualNACPtr CreateShadow(nsIContent& aParentContent,
                             Element& aOriginalObject);
-  nsresult SetShadowPosition(Element* aShadow, Element* aOriginalObject,
+  nsresult SetShadowPosition(Element* aShadow,
+                             Element* aOriginalObject,
                              int32_t aOriginalObjectX,
                              int32_t aOriginalObjectY);
 
   ManualNACPtr CreateResizingInfo(nsIContent& aParentContent);
-  nsresult SetResizingInfoPosition(int32_t aX, int32_t aY,
-                                   int32_t aW, int32_t aH);
+  nsresult SetResizingInfoPosition(int32_t aX,
+                                   int32_t aY,
+                                   int32_t aW,
+                                   int32_t aH);
 
   int32_t GetNewResizingIncrement(int32_t aX, int32_t aY, int32_t aID);
   nsresult StartResizing(nsIDOMElement* aHandle);
@@ -986,8 +1033,8 @@ protected:
   int32_t GetNewResizingHeight(int32_t aX, int32_t aY);
   void HideShadowAndInfo();
   void SetFinalSize(int32_t aX, int32_t aY);
-  void SetResizeIncrements(int32_t aX, int32_t aY, int32_t aW, int32_t aH,
-                           bool aPreserveRatio);
+  void SetResizeIncrements(
+      int32_t aX, int32_t aY, int32_t aW, int32_t aH, bool aPreserveRatio);
   void HideAnonymousEditingUIs();
 
   // absolute positioning
@@ -1035,14 +1082,14 @@ protected:
 
   ParagraphSeparator mDefaultParagraphSeparator;
 
-public:
+ public:
   friend class AutoSelectionSetterAfterTableEdit;
   friend class HTMLEditorEventListener;
   friend class HTMLEditRules;
   friend class TextEditRules;
   friend class WSRunObject;
 
-private:
+ private:
   bool IsSimpleModifiableNode(nsIContent* aContent,
                               nsAtom* aProperty,
                               const nsAString* aAttribute,
@@ -1052,13 +1099,14 @@ private:
                                        const nsAString* aAttribute,
                                        const nsAString& aValue);
   typedef enum { eInserted, eAppended } InsertedOrAppended;
-  void DoContentInserted(nsIDocument* aDocument, nsIContent* aContainer,
+  void DoContentInserted(nsIDocument* aDocument,
+                         nsIContent* aContainer,
                          nsIContent* aChild,
                          InsertedOrAppended aInsertedOrAppended);
   already_AddRefed<Element> GetElementOrParentByTagName(
-                              const nsAString& aTagName, nsINode* aNode);
+      const nsAString& aTagName, nsINode* aNode);
   already_AddRefed<Element> CreateElementWithDefaults(
-                              const nsAString& aTagName);
+      const nsAString& aTagName);
   /**
    * Returns an anonymous Element of type aTag,
    * child of aParentContent. If aIsCreatedHidden is true, the class
@@ -1079,20 +1127,22 @@ private:
                                       bool aIsCreatedHidden);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 mozilla::HTMLEditor*
 nsIEditor::AsHTMLEditor()
 {
-  return static_cast<mozilla::EditorBase*>(this)->mIsHTMLEditorClass ?
-           static_cast<mozilla::HTMLEditor*>(this) : nullptr;
+  return static_cast<mozilla::EditorBase*>(this)->mIsHTMLEditorClass
+             ? static_cast<mozilla::HTMLEditor*>(this)
+             : nullptr;
 }
 
 const mozilla::HTMLEditor*
 nsIEditor::AsHTMLEditor() const
 {
-  return static_cast<const mozilla::EditorBase*>(this)->mIsHTMLEditorClass ?
-           static_cast<const mozilla::HTMLEditor*>(this) : nullptr;
+  return static_cast<const mozilla::EditorBase*>(this)->mIsHTMLEditorClass
+             ? static_cast<const mozilla::HTMLEditor*>(this)
+             : nullptr;
 }
 
-#endif // #ifndef mozilla_HTMLEditor_h
+#endif  // #ifndef mozilla_HTMLEditor_h

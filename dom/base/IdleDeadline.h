@@ -23,15 +23,15 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace dom {
 
-class IdleDeadline final
-  : public nsISupports
-  , public nsWrapperCache
+class IdleDeadline final : public nsISupports, public nsWrapperCache
 {
-public:
-  IdleDeadline(nsPIDOMWindowInner* aWindow, bool aDidTimeout,
+ public:
+  IdleDeadline(nsPIDOMWindowInner* aWindow,
+               bool aDidTimeout,
                DOMHighResTimeStamp aDeadline);
 
-  IdleDeadline(nsIGlobalObject* aGlobal, bool aDidTimeout,
+  IdleDeadline(nsIGlobalObject* aGlobal,
+               bool aDidTimeout,
                DOMHighResTimeStamp aDeadline);
 
   nsIGlobalObject* GetParentObject() const { return mGlobal; }
@@ -45,7 +45,7 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IdleDeadline)
 
-private:
+ private:
   ~IdleDeadline();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
@@ -54,7 +54,7 @@ private:
   const DOMHighResTimeStamp mDeadline;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_IdleDeadline_h
+#endif  // mozilla_dom_IdleDeadline_h

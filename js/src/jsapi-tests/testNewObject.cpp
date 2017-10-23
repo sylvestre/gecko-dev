@@ -7,9 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-static bool
-constructHook(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool constructHook(JSContext* cx, unsigned argc, JS::Value* vp) {
     JS::CallArgs args = CallArgsFromVp(argc, vp);
 
     // Check that arguments were passed properly from JS_New.
@@ -39,8 +37,7 @@ constructHook(JSContext* cx, unsigned argc, JS::Value* vp)
     // Perform a side-effect to indicate that this hook was actually called.
     JS::RootedValue value(cx, args[0]);
     JS::RootedObject callee(cx, &args.callee());
-    if (!JS_SetElement(cx, callee, 0, value))
-        return false;
+    if (!JS_SetElement(cx, callee, 0, value)) return false;
 
     args.rval().setObject(*obj);
 
@@ -52,8 +49,7 @@ constructHook(JSContext* cx, unsigned argc, JS::Value* vp)
     return true;
 }
 
-BEGIN_TEST(testNewObject_1)
-{
+BEGIN_TEST(testNewObject_1) {
     static const size_t N = 1000;
     JS::AutoValueVector argv(cx);
     CHECK(argv.resize(N));
@@ -85,8 +81,7 @@ BEGIN_TEST(testNewObject_1)
     CHECK_EQUAL(len, 4u);
 
     // With N arguments.
-    for (size_t i = 0; i < N; i++)
-        argv[i].setInt32(i);
+    for (size_t i = 0; i < N; i++) argv[i].setInt32(i);
     obj = JS_New(cx, Array, JS::HandleValueArray::subarray(argv, 0, N));
     CHECK(obj);
     rt = JS::ObjectValue(*obj);
@@ -98,16 +93,9 @@ BEGIN_TEST(testNewObject_1)
     CHECK(v.isInt32(N - 1));
 
     // With JSClass.construct.
-    static const JSClassOps clsOps = {
-        nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr,
-        nullptr, constructHook
-    };
-    static const JSClass cls = {
-        "testNewObject_1",
-        0,
-        &clsOps
-    };
+    static const JSClassOps clsOps = {nullptr, nullptr, nullptr, nullptr, nullptr,
+                                      nullptr, nullptr, nullptr, nullptr, constructHook};
+    static const JSClass cls = {"testNewObject_1", 0, &clsOps};
     JS::RootedObject ctor(cx, JS_NewObject(cx, &cls));
     CHECK(ctor);
     JS::RootedValue rt2(cx, JS::ObjectValue(*ctor));

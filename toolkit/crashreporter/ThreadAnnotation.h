@@ -12,14 +12,18 @@
 // Thread annotation interfaces for the crash reporter.
 namespace CrashReporter {
 
-void InitThreadAnnotation();
+void
+InitThreadAnnotation();
 
-void ShutdownThreadAnnotation();
+void
+ShutdownThreadAnnotation();
 
-void GetFlatThreadAnnotation(const std::function<void(const char*)>& aCallback);
+void
+GetFlatThreadAnnotation(const std::function<void(const char*)>& aCallback);
 
-class InitThreadAnnotationRAII {
-public:
+class InitThreadAnnotationRAII
+{
+ public:
   InitThreadAnnotationRAII()
   {
     if (GetEnabled()) {
@@ -27,13 +31,14 @@ public:
     }
   }
 
-  ~InitThreadAnnotationRAII() {
+  ~InitThreadAnnotationRAII()
+  {
     if (GetEnabled()) {
       ShutdownThreadAnnotation();
     }
   }
 };
 
-}
+}  // namespace CrashReporter
 
 #endif

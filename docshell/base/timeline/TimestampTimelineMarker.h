@@ -14,13 +14,15 @@ namespace mozilla {
 
 class TimestampTimelineMarker : public TimelineMarker
 {
-public:
+ public:
   explicit TimestampTimelineMarker(const nsAString& aCause)
-    : TimelineMarker("TimeStamp", MarkerTracingType::TIMESTAMP)
-    , mCause(aCause)
-  {}
+      : TimelineMarker("TimeStamp", MarkerTracingType::TIMESTAMP),
+        mCause(aCause)
+  {
+  }
 
-  virtual void AddDetails(JSContext* aCx, dom::ProfileTimelineMarker& aMarker) override
+  virtual void AddDetails(JSContext* aCx,
+                          dom::ProfileTimelineMarker& aMarker) override
   {
     TimelineMarker::AddDetails(aCx, aMarker);
 
@@ -29,10 +31,10 @@ public:
     }
   }
 
-private:
+ private:
   nsString mCause;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_TimestampTimelineMarker_h_
+#endif  // mozilla_TimestampTimelineMarker_h_

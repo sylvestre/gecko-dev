@@ -17,12 +17,13 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(TestInterfaceMaplikeObject)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(TestInterfaceMaplikeObject)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TestInterfaceMaplikeObject)
-NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-TestInterfaceMaplikeObject::TestInterfaceMaplikeObject(nsPIDOMWindowInner* aParent)
-: mParent(aParent)
+TestInterfaceMaplikeObject::TestInterfaceMaplikeObject(
+    nsPIDOMWindowInner* aParent)
+    : mParent(aParent)
 {
 }
 
@@ -31,14 +32,14 @@ already_AddRefed<TestInterfaceMaplikeObject>
 TestInterfaceMaplikeObject::Constructor(const GlobalObject& aGlobal,
                                         ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  RefPtr<TestInterfaceMaplikeObject> r =
-    new TestInterfaceMaplikeObject(window);
+  RefPtr<TestInterfaceMaplikeObject> r = new TestInterfaceMaplikeObject(window);
   return r.forget();
 }
 
@@ -74,7 +75,8 @@ bool
 TestInterfaceMaplikeObject::DeleteInternal(const nsAString& aKey)
 {
   ErrorResult rv;
-  return TestInterfaceMaplikeObjectBinding::MaplikeHelpers::Delete(this, aKey, rv);
+  return TestInterfaceMaplikeObjectBinding::MaplikeHelpers::Delete(
+      this, aKey, rv);
 }
 
 bool
@@ -84,5 +86,5 @@ TestInterfaceMaplikeObject::HasInternal(const nsAString& aKey)
   return TestInterfaceMaplikeObjectBinding::MaplikeHelpers::Has(this, aKey, rv);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -16,8 +16,9 @@ namespace wr {
 
 /// ShmSegmentsWriter pushes bytes in a sequence of fixed size shmems for small
 /// allocations and creates dedicated shmems for large allocations.
-class ShmSegmentsWriter {
-public:
+class ShmSegmentsWriter
+{
+ public:
   ShmSegmentsWriter(ipc::IShmemAllocator* aAllocator, size_t aChunkSize);
   ~ShmSegmentsWriter();
 
@@ -26,14 +27,16 @@ public:
   template<typename T>
   layers::OffsetRange WriteAsBytes(Range<T> aValues)
   {
-    return Write(Range<uint8_t>((uint8_t*)aValues.begin().get(), aValues.length() * sizeof(T)));
+    return Write(Range<uint8_t>((uint8_t*)aValues.begin().get(),
+                                aValues.length() * sizeof(T)));
   }
 
-  void Flush(nsTArray<ipc::Shmem>& aSmallAllocs, nsTArray<ipc::Shmem>& aLargeAllocs);
+  void Flush(nsTArray<ipc::Shmem>& aSmallAllocs,
+             nsTArray<ipc::Shmem>& aLargeAllocs);
 
   void Clear();
 
-protected:
+ protected:
   bool AllocChunk();
   layers::OffsetRange AllocLargeChunk(size_t aSize);
 
@@ -44,14 +47,15 @@ protected:
   size_t mChunkSize;
 };
 
-class ShmSegmentsReader {
-public:
+class ShmSegmentsReader
+{
+ public:
   ShmSegmentsReader(const nsTArray<ipc::Shmem>& aSmallShmems,
                     const nsTArray<ipc::Shmem>& aLargeShmems);
 
   bool Read(const layers::OffsetRange& aRange, wr::Vec_u8& aInto);
 
-protected:
+ protected:
   bool ReadLarge(const layers::OffsetRange& aRange, wr::Vec_u8& aInto);
 
   const nsTArray<ipc::Shmem>& mSmallAllocs;
@@ -59,13 +63,15 @@ protected:
   size_t mChunkSize;
 };
 
-class IpcResourceUpdateQueue {
-public:
+class IpcResourceUpdateQueue
+{
+ public:
   // Because we are using shmems, the size should be a multiple of the page size.
   // Each shmem has two guard pages, and the minimum shmem size (at least one Windows)
   // is 64k which is already quite large for a lot of the resources we use here.
   // So we pick 64k - 2 * 4k = 57344 bytes as the defautl alloc
-  explicit IpcResourceUpdateQueue(ipc::IShmemAllocator* aAllocator, size_t aChunkSize = 57344);
+  explicit IpcResourceUpdateQueue(ipc::IShmemAllocator* aAllocator,
+                                  size_t aChunkSize = 57344);
 
   bool AddImage(wr::ImageKey aKey,
                 const ImageDescriptor& aDescriptor,
@@ -112,12 +118,12 @@ public:
              nsTArray<ipc::Shmem>& aSmallAllocs,
              nsTArray<ipc::Shmem>& aLargeAllocs);
 
-protected:
+ protected:
   ShmSegmentsWriter mWriter;
   nsTArray<layers::OpUpdateResource> mUpdates;
 };
 
-} // namespace
-} // namespace
+}  // namespace wr
+}  // namespace mozilla
 
 #endif

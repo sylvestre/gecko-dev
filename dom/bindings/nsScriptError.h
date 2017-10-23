@@ -17,15 +17,18 @@
 #include "nsIScriptError.h"
 #include "nsString.h"
 
-class nsScriptErrorNote final : public nsIScriptErrorNote {
+class nsScriptErrorNote final : public nsIScriptErrorNote
+{
  public:
   nsScriptErrorNote();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISCRIPTERRORNOTE
 
-  void Init(const nsAString& message, const nsAString& sourceName,
-            uint32_t lineNumber, uint32_t columnNumber);
+  void Init(const nsAString& message,
+            const nsAString& sourceName,
+            uint32_t lineNumber,
+            uint32_t columnNumber);
 
  private:
   virtual ~nsScriptErrorNote();
@@ -38,8 +41,9 @@ class nsScriptErrorNote final : public nsIScriptErrorNote {
 };
 
 // Definition of nsScriptError..
-class nsScriptErrorBase : public nsIScriptError {
-public:
+class nsScriptErrorBase : public nsIScriptError
+{
+ public:
   nsScriptErrorBase();
 
   NS_DECL_NSICONSOLEMESSAGE
@@ -47,15 +51,16 @@ public:
 
   void AddNote(nsIScriptErrorNote* note);
 
-protected:
+ protected:
   virtual ~nsScriptErrorBase();
 
-  void
-  InitializeOnMainThread();
+  void InitializeOnMainThread();
 
   void InitializationHelper(const nsAString& message,
-                            const nsAString& sourceLine, uint32_t lineNumber,
-                            uint32_t columnNumber, uint32_t flags,
+                            const nsAString& sourceLine,
+                            uint32_t lineNumber,
+                            uint32_t columnNumber,
+                            uint32_t flags,
                             const nsACString& category,
                             uint64_t aInnerWindowID);
 
@@ -78,17 +83,19 @@ protected:
   bool mIsFromPrivateWindow;
 };
 
-class nsScriptError final : public nsScriptErrorBase {
-public:
+class nsScriptError final : public nsScriptErrorBase
+{
+ public:
   nsScriptError() {}
   NS_DECL_THREADSAFE_ISUPPORTS
 
-private:
+ private:
   virtual ~nsScriptError() {}
 };
 
-class nsScriptErrorWithStack : public nsScriptErrorBase {
-public:
+class nsScriptErrorWithStack : public nsScriptErrorBase
+{
+ public:
   explicit nsScriptErrorWithStack(JS::HandleObject);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -105,11 +112,11 @@ public:
   NS_IMETHOD GetStack(JS::MutableHandleValue) override;
   NS_IMETHOD ToString(nsACString& aResult) override;
 
-private:
+ private:
   virtual ~nsScriptErrorWithStack();
   // Complete stackframe where the error happened.
   // Must be SavedFrame object.
-  JS::Heap<JSObject*>  mStack;
+  JS::Heap<JSObject*> mStack;
 };
 
 #endif /* mozilla_dom_nsScriptError_h */

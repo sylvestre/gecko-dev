@@ -6,37 +6,42 @@
 #ifndef GFX_LAYERSTYPES_H
 #define GFX_LAYERSTYPES_H
 
-#include <stdint.h>                     // for uint32_t
+#include <stdint.h>  // for uint32_t
 
 #include "Units.h"
-#include "mozilla/DefineEnum.h"         // for MOZ_DEFINE_ENUM
-#include "mozilla/gfx/Point.h"          // for IntPoint
+#include "mozilla/DefineEnum.h"  // for MOZ_DEFINE_ENUM
+#include "mozilla/gfx/Point.h"   // for IntPoint
 #include "mozilla/Maybe.h"
 #include "mozilla/TypedEnumBits.h"
 #include "nsRegion.h"
 
 #include <stdio.h>            // FILE
-#include "mozilla/Logging.h"            // for PR_LOG
+#include "mozilla/Logging.h"  // for PR_LOG
 
 #ifndef MOZ_LAYERS_HAVE_LOG
-#  define MOZ_LAYERS_HAVE_LOG
+#define MOZ_LAYERS_HAVE_LOG
 #endif
-#define MOZ_LAYERS_LOG(_args)                             \
+#define MOZ_LAYERS_LOG(_args) \
   MOZ_LOG(LayerManager::GetLog(), LogLevel::Debug, _args)
-#define MOZ_LAYERS_LOG_IF_SHADOWABLE(layer, _args)         \
-  do { if (layer->AsShadowableLayer()) { MOZ_LOG(LayerManager::GetLog(), LogLevel::Debug, _args); } } while (0)
+#define MOZ_LAYERS_LOG_IF_SHADOWABLE(layer, _args)             \
+  do {                                                         \
+    if (layer->AsShadowableLayer()) {                          \
+      MOZ_LOG(LayerManager::GetLog(), LogLevel::Debug, _args); \
+    }                                                          \
+  } while (0)
 
 #define INVALID_OVERLAY -1
 
 //#define ENABLE_FRAME_LATENCY_LOG
 
 namespace IPC {
-template <typename T> struct ParamTraits;
-} // namespace IPC
+template<typename T>
+struct ParamTraits;
+}  // namespace IPC
 
 namespace android {
 class MOZ_EXPORT GraphicBuffer;
-} // namespace android
+}  // namespace android
 
 namespace mozilla {
 namespace layers {
@@ -46,7 +51,8 @@ class TextureHost;
 #undef NONE
 #undef OPAQUE
 
-enum class LayersBackend : int8_t {
+enum class LayersBackend : int8_t
+{
   LAYERS_NONE = 0,
   LAYERS_BASIC,
   LAYERS_OPENGL,
@@ -56,17 +62,20 @@ enum class LayersBackend : int8_t {
   LAYERS_LAST
 };
 
-enum class BufferMode : int8_t {
+enum class BufferMode : int8_t
+{
   BUFFER_NONE,
   BUFFERED
 };
 
-enum class DrawRegionClip : int8_t {
+enum class DrawRegionClip : int8_t
+{
   DRAW,
   NONE
 };
 
-enum class SurfaceMode : int8_t {
+enum class SurfaceMode : int8_t
+{
   SURFACE_NONE = 0,
   SURFACE_OPAQUE,
   SURFACE_SINGLE_CHANNEL_ALPHA,
@@ -74,13 +83,14 @@ enum class SurfaceMode : int8_t {
 };
 
 MOZ_DEFINE_ENUM_CLASS_WITH_BASE(
-  ScaleMode, int8_t, (
-    SCALE_NONE,
-    STRETCH
-// Unimplemented - PRESERVE_ASPECT_RATIO_CONTAIN
-));
+    ScaleMode,
+    int8_t,
+    (SCALE_NONE, STRETCH
+     // Unimplemented - PRESERVE_ASPECT_RATIO_CONTAIN
+     ));
 
-struct EventRegions {
+struct EventRegions
+{
   // The hit region for a layer contains all areas on the layer that are
   // sensitive to events. This region is an over-approximation and may
   // contain regions that are not actually sensitive, but any such regions
@@ -99,14 +109,9 @@ struct EventRegions {
   nsIntRegion mHorizontalPanRegion;
   nsIntRegion mVerticalPanRegion;
 
-  EventRegions()
-  {
-  }
+  EventRegions() {}
 
-  explicit EventRegions(nsIntRegion aHitRegion)
-    : mHitRegion(aHitRegion)
-  {
-  }
+  explicit EventRegions(nsIntRegion aHitRegion) : mHitRegion(aHitRegion) {}
 
   // This constructor takes the maybe-hit region and uses it to update the
   // hit region and dispatch-to-content region. It is useful from converting
@@ -121,7 +126,8 @@ struct EventRegions {
   bool operator==(const EventRegions& aRegions) const
   {
     return mHitRegion == aRegions.mHitRegion &&
-           mDispatchToContentHitRegion == aRegions.mDispatchToContentHitRegion &&
+           mDispatchToContentHitRegion ==
+               aRegions.mDispatchToContentHitRegion &&
            mNoActionRegion == aRegions.mNoActionRegion &&
            mHorizontalPanRegion == aRegions.mHorizontalPanRegion &&
            mVerticalPanRegion == aRegions.mVerticalPanRegion;
@@ -131,7 +137,10 @@ struct EventRegions {
     return !(*this == aRegions);
   }
 
-  void ApplyTranslationAndScale(float aXTrans, float aYTrans, float aXScale, float aYScale)
+  void ApplyTranslationAndScale(float aXTrans,
+                                float aYTrans,
+                                float aXScale,
+                                float aYScale)
   {
     mHitRegion.ScaleRoundOut(aXScale, aYScale);
     mDispatchToContentHitRegion.ScaleRoundOut(aXScale, aYScale);
@@ -162,8 +171,8 @@ struct EventRegions {
     // See the comment in nsDisplayList::AddFrame, where the touch action regions
     // are handled. The same thing applies here.
     bool alreadyHadRegions = !mNoActionRegion.IsEmpty() ||
-        !mHorizontalPanRegion.IsEmpty() ||
-        !mVerticalPanRegion.IsEmpty();
+                             !mHorizontalPanRegion.IsEmpty() ||
+                             !mVerticalPanRegion.IsEmpty();
     mNoActionRegion.OrWith(aOther.mNoActionRegion);
     mHorizontalPanRegion.OrWith(aOther.mHorizontalPanRegion);
     mVerticalPanRegion.OrWith(aOther.mVerticalPanRegion);
@@ -177,11 +186,9 @@ struct EventRegions {
 
   bool IsEmpty() const
   {
-    return mHitRegion.IsEmpty()
-        && mDispatchToContentHitRegion.IsEmpty()
-        && mNoActionRegion.IsEmpty()
-        && mHorizontalPanRegion.IsEmpty()
-        && mVerticalPanRegion.IsEmpty();
+    return mHitRegion.IsEmpty() && mDispatchToContentHitRegion.IsEmpty() &&
+           mNoActionRegion.IsEmpty() && mHorizontalPanRegion.IsEmpty() &&
+           mVerticalPanRegion.IsEmpty();
   }
 
   void SetEmpty()
@@ -206,15 +213,16 @@ struct EventRegions {
 // event regions in the entire subtree below. This is needed for propagating
 // various flags across processes since the child-process layout code doesn't
 // know about parent-process listeners or CSS rules.
-enum EventRegionsOverride {
+enum EventRegionsOverride
+{
   // The default, no flags set
-  NoOverride             = 0,
+  NoOverride = 0,
   // Treat all hit regions in the subtree as dispatch-to-content
   ForceDispatchToContent = (1 << 0),
   // Treat all hit regions in the subtree as empty
-  ForceEmptyHitRegion    = (1 << 1),
+  ForceEmptyHitRegion = (1 << 1),
   // OR union of all valid bit flags, for use in BitFlagsEnumSerializer
-  ALL_BITS               = (1 << 2) - 1
+  ALL_BITS = (1 << 2) - 1
 };
 
 MOZ_ALWAYS_INLINE EventRegionsOverride
@@ -231,13 +239,15 @@ operator|=(EventRegionsOverride& a, EventRegionsOverride b)
 }
 
 // Flags used as an argument to functions that dump textures.
-enum TextureDumpMode {
+enum TextureDumpMode
+{
   Compress,      // dump texture with LZ4 compression
   DoNotCompress  // dump texture uncompressed
 };
 
 // Some specialized typedefs of Matrix4x4Typed.
-typedef gfx::Matrix4x4Typed<LayerPixel, CSSTransformedLayerPixel> CSSTransformMatrix;
+typedef gfx::Matrix4x4Typed<LayerPixel, CSSTransformedLayerPixel>
+    CSSTransformMatrix;
 // Several different async transforms can contribute to a layer's transform
 // (specifically, an async animation can contribute a transform, and each APZC
 // that scrolls a layer can contribute async scroll/zoom and overscroll
@@ -249,8 +259,10 @@ typedef gfx::Matrix4x4Typed<LayerPixel, CSSTransformedLayerPixel> CSSTransformMa
 // AsyncTransformMatrix). To create an AsyncTransformMatrix from component
 // matrices, a ViewAs operation is needed. A MultipleAsyncTransforms
 // PixelCastJustification is provided for this purpose.
-typedef gfx::Matrix4x4Typed<ParentLayerPixel, ParentLayerPixel> AsyncTransformComponentMatrix;
-typedef gfx::Matrix4x4Typed<CSSTransformedLayerPixel, ParentLayerPixel> AsyncTransformMatrix;
+typedef gfx::Matrix4x4Typed<ParentLayerPixel, ParentLayerPixel>
+    AsyncTransformComponentMatrix;
+typedef gfx::Matrix4x4Typed<CSSTransformedLayerPixel, ParentLayerPixel>
+    AsyncTransformMatrix;
 
 typedef Array<gfx::Color, 4> BorderColors;
 typedef Array<LayerSize, 4> BorderCorners;
@@ -265,26 +277,20 @@ typedef Maybe<LayerRect> MaybeLayerRect;
 class LayerHandle
 {
   friend struct IPC::ParamTraits<mozilla::layers::LayerHandle>;
-public:
-  LayerHandle() : mHandle(0)
-  {}
-  LayerHandle(const LayerHandle& aOther) : mHandle(aOther.mHandle)
-  {}
-  explicit LayerHandle(uint64_t aHandle) : mHandle(aHandle)
-  {}
-  bool IsValid() const {
-    return mHandle != 0;
-  }
-  explicit operator bool() const {
-    return IsValid();
-  }
-  bool operator ==(const LayerHandle& aOther) const {
+
+ public:
+  LayerHandle() : mHandle(0) {}
+  LayerHandle(const LayerHandle& aOther) : mHandle(aOther.mHandle) {}
+  explicit LayerHandle(uint64_t aHandle) : mHandle(aHandle) {}
+  bool IsValid() const { return mHandle != 0; }
+  explicit operator bool() const { return IsValid(); }
+  bool operator==(const LayerHandle& aOther) const
+  {
     return mHandle == aOther.mHandle;
   }
-  uint64_t Value() const {
-    return mHandle;
-  }
-private:
+  uint64_t Value() const { return mHandle; }
+
+ private:
   uint64_t mHandle;
 };
 
@@ -295,62 +301,50 @@ private:
 class CompositableHandle
 {
   friend struct IPC::ParamTraits<mozilla::layers::CompositableHandle>;
-public:
-  CompositableHandle() : mHandle(0)
-  {}
+
+ public:
+  CompositableHandle() : mHandle(0) {}
   CompositableHandle(const CompositableHandle& aOther) : mHandle(aOther.mHandle)
-  {}
-  explicit CompositableHandle(uint64_t aHandle) : mHandle(aHandle)
-  {}
-  bool IsValid() const {
-    return mHandle != 0;
+  {
   }
-  explicit operator bool() const {
-    return IsValid();
-  }
-  bool operator ==(const CompositableHandle& aOther) const {
+  explicit CompositableHandle(uint64_t aHandle) : mHandle(aHandle) {}
+  bool IsValid() const { return mHandle != 0; }
+  explicit operator bool() const { return IsValid(); }
+  bool operator==(const CompositableHandle& aOther) const
+  {
     return mHandle == aOther.mHandle;
   }
-  uint64_t Value() const {
-    return mHandle;
-  }
-private:
+  uint64_t Value() const { return mHandle; }
+
+ private:
   uint64_t mHandle;
 };
 
 class ReadLockHandle
 {
   friend struct IPC::ParamTraits<mozilla::layers::ReadLockHandle>;
-public:
-  ReadLockHandle() : mHandle(0)
-  {}
-  ReadLockHandle(const ReadLockHandle& aOther) : mHandle(aOther.mHandle)
-  {}
-  explicit ReadLockHandle(uint64_t aHandle) : mHandle(aHandle)
-  {}
-  bool IsValid() const {
-    return mHandle != 0;
-  }
-  explicit operator bool() const {
-    return IsValid();
-  }
-  bool operator ==(const ReadLockHandle& aOther) const {
+
+ public:
+  ReadLockHandle() : mHandle(0) {}
+  ReadLockHandle(const ReadLockHandle& aOther) : mHandle(aOther.mHandle) {}
+  explicit ReadLockHandle(uint64_t aHandle) : mHandle(aHandle) {}
+  bool IsValid() const { return mHandle != 0; }
+  explicit operator bool() const { return IsValid(); }
+  bool operator==(const ReadLockHandle& aOther) const
+  {
     return mHandle == aOther.mHandle;
   }
-  uint64_t Value() const {
-    return mHandle;
-  }
-private:
+  uint64_t Value() const { return mHandle; }
+
+ private:
   uint64_t mHandle;
 };
 
-MOZ_DEFINE_ENUM_CLASS_WITH_BASE(ScrollDirection, uint32_t, (
-  NONE,
-  VERTICAL,
-  HORIZONTAL
-));
+MOZ_DEFINE_ENUM_CLASS_WITH_BASE(ScrollDirection,
+                                uint32_t,
+                                (NONE, VERTICAL, HORIZONTAL));
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_LAYERSTYPES_H */

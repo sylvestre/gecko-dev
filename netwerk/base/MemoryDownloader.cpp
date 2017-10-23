@@ -11,18 +11,13 @@
 namespace mozilla {
 namespace net {
 
-NS_IMPL_ISUPPORTS(MemoryDownloader,
-		  nsIStreamListener,
-		  nsIRequestObserver)
+NS_IMPL_ISUPPORTS(MemoryDownloader, nsIStreamListener, nsIRequestObserver)
 
-MemoryDownloader::MemoryDownloader(IObserver* aObserver)
-: mObserver(aObserver)
+MemoryDownloader::MemoryDownloader(IObserver* aObserver) : mObserver(aObserver)
 {
 }
 
-MemoryDownloader::~MemoryDownloader()
-{
-}
+MemoryDownloader::~MemoryDownloader() {}
 
 NS_IMETHODIMP
 MemoryDownloader::OnStartRequest(nsIRequest* aRequest, nsISupports* aCtxt)
@@ -44,8 +39,8 @@ MemoryDownloader::OnStopRequest(nsIRequest* aRequest,
   data.swap(mData);
   RefPtr<IObserver> observer;
   observer.swap(mObserver);
-  observer->OnDownloadComplete(this, aRequest, aCtxt, aStatus,
-                               mozilla::Move(data));
+  observer->OnDownloadComplete(
+      this, aRequest, aCtxt, aStatus, mozilla::Move(data));
   return NS_OK;
 }
 
@@ -88,5 +83,5 @@ MemoryDownloader::OnDataAvailable(nsIRequest* aRequest,
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

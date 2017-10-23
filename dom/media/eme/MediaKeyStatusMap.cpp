@@ -23,13 +23,11 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MediaKeyStatusMap, mParent)
 
 MediaKeyStatusMap::MediaKeyStatusMap(nsPIDOMWindowInner* aParent)
-  : mParent(aParent)
+    : mParent(aParent)
 {
 }
 
-MediaKeyStatusMap::~MediaKeyStatusMap()
-{
-}
+MediaKeyStatusMap::~MediaKeyStatusMap() {}
 
 JSObject*
 MediaKeyStatusMap::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -125,5 +123,5 @@ MediaKeyStatusMap::Update(const nsTArray<CDMCaps::KeyStatus>& aKeys)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

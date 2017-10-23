@@ -18,20 +18,18 @@ namespace dom {
 class Promise;
 class PromiseReturner;
 
-class TestFunctions : public NonRefcountedDOMObject {
-public:
+class TestFunctions : public NonRefcountedDOMObject
+{
+ public:
   static TestFunctions* Constructor(GlobalObject& aGlobal, ErrorResult& aRv);
 
-  static void
-  ThrowUncatchableException(GlobalObject& aGlobal, ErrorResult& aRv);
+  static void ThrowUncatchableException(GlobalObject& aGlobal,
+                                        ErrorResult& aRv);
 
-  static Promise*
-  PassThroughPromise(GlobalObject& aGlobal, Promise& aPromise);
+  static Promise* PassThroughPromise(GlobalObject& aGlobal, Promise& aPromise);
 
-  static already_AddRefed<Promise>
-  PassThroughCallbackPromise(GlobalObject& aGlobal,
-                             PromiseReturner& aCallback,
-                             ErrorResult& aRv);
+  static already_AddRefed<Promise> PassThroughCallbackPromise(
+      GlobalObject& aGlobal, PromiseReturner& aCallback, ErrorResult& aRv);
 
   void SetStringData(const nsAString& aString);
 
@@ -40,13 +38,15 @@ public:
   void GetStringDataAsDOMString(const Optional<uint32_t>& aLength,
                                 DOMString& aString);
 
-  bool WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto,
+  bool WrapObject(JSContext* aCx,
+                  JS::Handle<JSObject*> aGivenProto,
                   JS::MutableHandle<JSObject*> aWrapper);
-private:
+
+ private:
   nsString mStringData;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TestFunctions_h
+#endif  // mozilla_dom_TestFunctions_h

@@ -20,7 +20,7 @@
 // this binary through the installer.
 #pragma comment(linker, "/SUBSYSTEM:windows")
 
-SERVICE_STATUS gSvcStatus = { 0 };
+SERVICE_STATUS gSvcStatus = {0};
 SERVICE_STATUS_HANDLE gSvcStatusHandle = nullptr;
 HANDLE gWorkDoneEvent = nullptr;
 HANDLE gThread = nullptr;
@@ -29,10 +29,11 @@ bool gServiceControlStopping = false;
 // logs are pretty small, about 20 lines, so 10 seems reasonable.
 #define LOGS_TO_KEEP 10
 
-BOOL GetLogDirectoryPath(WCHAR *path);
+BOOL
+GetLogDirectoryPath(WCHAR* path);
 
 int
-wmain(int argc, WCHAR **argv)
+wmain(int argc, WCHAR** argv)
 {
   // If command-line parameter is "install", install the service
   // or upgrade if already installed
@@ -108,9 +109,7 @@ wmain(int argc, WCHAR **argv)
   }
 
   SERVICE_TABLE_ENTRYW DispatchTable[] = {
-    { SVC_NAME, (LPSERVICE_MAIN_FUNCTIONW) SvcMain },
-    { nullptr, nullptr }
-  };
+      {SVC_NAME, (LPSERVICE_MAIN_FUNCTIONW)SvcMain}, {nullptr, nullptr}};
 
   // This call returns when the service has stopped.
   // The process should simply terminate when the call returns.
@@ -128,7 +127,7 @@ wmain(int argc, WCHAR **argv)
  * @return TRUE if successful.
  */
 BOOL
-GetLogDirectoryPath(WCHAR *path)
+GetLogDirectoryPath(WCHAR* path)
 {
   if (!GetModuleFileNameW(nullptr, path, MAX_PATH)) {
     return FALSE;
@@ -156,14 +155,17 @@ GetLogDirectoryPath(WCHAR *path)
 BOOL
 GetBackupLogPath(LPWSTR path, LPCWSTR basePath, int logNumber)
 {
-  WCHAR logName[64] = { L'\0' };
+  WCHAR logName[64] = {L'\0'};
   wcsncpy(path, basePath, sizeof(logName) / sizeof(logName[0]) - 1);
   if (logNumber <= 0) {
-    swprintf(logName, sizeof(logName) / sizeof(logName[0]),
+    swprintf(logName,
+             sizeof(logName) / sizeof(logName[0]),
              L"maintenanceservice.log");
   } else {
-    swprintf(logName, sizeof(logName) / sizeof(logName[0]),
-             L"maintenanceservice-%d.log", logNumber);
+    swprintf(logName,
+             sizeof(logName) / sizeof(logName[0]),
+             L"maintenanceservice-%d.log",
+             logNumber);
   }
   return PathAppendSafe(path, logName);
 }
@@ -185,7 +187,7 @@ BackupOldLogs(LPCWSTR basePath, int numLogsToKeep)
   WCHAR oldPath[MAX_PATH + 1];
   WCHAR newPath[MAX_PATH + 1];
   for (int i = numLogsToKeep; i >= 1; i--) {
-    if (!GetBackupLogPath(oldPath, basePath, i -1)) {
+    if (!GetBackupLogPath(oldPath, basePath, i - 1)) {
       continue;
     }
 
@@ -213,8 +215,7 @@ BackupOldLogs(LPCWSTR basePath, int numLogsToKeep)
  * forcefully terminate the process ourselves since all work is done once we
  * start this thread.
 */
-DWORD WINAPI
-EnsureProcessTerminatedThread(LPVOID)
+DWORD WINAPI EnsureProcessTerminatedThread(LPVOID)
 {
   Sleep(5000);
   exit(0);
@@ -226,8 +227,8 @@ StartTerminationThread()
 {
   // If the process does not self terminate like it should, this thread
   // will terminate the process after 5 seconds.
-  HANDLE thread = CreateThread(nullptr, 0, EnsureProcessTerminatedThread,
-                               nullptr, 0, nullptr);
+  HANDLE thread = CreateThread(
+      nullptr, 0, EnsureProcessTerminatedThread, nullptr, 0, nullptr);
   if (thread) {
     CloseHandle(thread);
   }
@@ -237,7 +238,7 @@ StartTerminationThread()
  * Main entry point when running as a service.
  */
 void WINAPI
-SvcMain(DWORD argc, LPWSTR *argv)
+SvcMain(DWORD argc, LPWSTR* argv)
 {
   // Setup logging, and backup the old logs
   WCHAR updatePath[MAX_PATH + 1];
@@ -304,9 +305,7 @@ SvcMain(DWORD argc, LPWSTR *argv)
  * @param waitHint      Estimated time for pending operation in milliseconds
  */
 void
-ReportSvcStatus(DWORD currentState,
-                DWORD exitCode,
-                DWORD waitHint)
+ReportSvcStatus(DWORD currentState, DWORD exitCode, DWORD waitHint)
 {
   static DWORD dwCheckPoint = 1;
 
@@ -318,12 +317,11 @@ ReportSvcStatus(DWORD currentState,
       SERVICE_STOP_PENDING == currentState) {
     gSvcStatus.dwControlsAccepted = 0;
   } else {
-    gSvcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP |
-                                    SERVICE_ACCEPT_SHUTDOWN;
+    gSvcStatus.dwControlsAccepted =
+        SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
   }
 
-  if ((SERVICE_RUNNING == currentState) ||
-      (SERVICE_STOPPED == currentState)) {
+  if ((SERVICE_RUNNING == currentState) || (SERVICE_STOPPED == currentState)) {
     gSvcStatus.dwCheckPoint = 0;
   } else {
     gSvcStatus.dwCheckPoint = dwCheckPoint++;
@@ -337,12 +335,11 @@ ReportSvcStatus(DWORD currentState,
  * Since the SvcCtrlHandler should only spend at most 30 seconds before
  * returning, this function does the service stop work for the SvcCtrlHandler.
 */
-DWORD WINAPI
-StopServiceAndWaitForCommandThread(LPVOID)
+DWORD WINAPI StopServiceAndWaitForCommandThread(LPVOID)
 {
   do {
     ReportSvcStatus(SERVICE_STOP_PENDING, NO_ERROR, 1000);
-  } while(WaitForSingleObject(gWorkDoneEvent, 100) == WAIT_TIMEOUT);
+  } while (WaitForSingleObject(gWorkDoneEvent, 100) == WAIT_TIMEOUT);
   CloseHandle(gWorkDoneEvent);
   gWorkDoneEvent = nullptr;
   ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
@@ -364,17 +361,16 @@ SvcCtrlHandler(DWORD dwCtrl)
   }
 
   // Handle the requested control code.
-  switch(dwCtrl) {
-  case SERVICE_CONTROL_SHUTDOWN:
-  case SERVICE_CONTROL_STOP: {
+  switch (dwCtrl) {
+    case SERVICE_CONTROL_SHUTDOWN:
+    case SERVICE_CONTROL_STOP: {
       gServiceControlStopping = true;
       ReportSvcStatus(SERVICE_STOP_PENDING, NO_ERROR, 1000);
 
       // The SvcCtrlHandler thread should not spend more than 30 seconds in
       // shutdown so we spawn a new thread for stopping the service
-      HANDLE thread = CreateThread(nullptr, 0,
-                                   StopServiceAndWaitForCommandThread,
-                                   nullptr, 0, nullptr);
+      HANDLE thread = CreateThread(
+          nullptr, 0, StopServiceAndWaitForCommandThread, nullptr, 0, nullptr);
       if (thread) {
         CloseHandle(thread);
       } else {
@@ -383,9 +379,8 @@ SvcCtrlHandler(DWORD dwCtrl)
         // get an error.
         StopServiceAndWaitForCommandThread(nullptr);
       }
-    }
-    break;
-  default:
-    break;
+    } break;
+    default:
+      break;
   }
 }

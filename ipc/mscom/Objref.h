@@ -51,8 +51,7 @@ GetOBJREFSize(NotNull<IStream*> aStream);
 bool
 SetIID(NotNull<IStream*> aStream, const uint64_t aStart, REFIID aNewIid);
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_Objref_h
-
+#endif  // mozilla_mscom_Objref_h

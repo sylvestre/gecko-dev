@@ -16,13 +16,15 @@ using namespace mozilla::dom;
 
 namespace mozilla {
 
-nsDataHashtable<nsUint32HashKey, TouchManager::TouchInfo>* TouchManager::sCaptureTouchList;
+nsDataHashtable<nsUint32HashKey, TouchManager::TouchInfo>*
+    TouchManager::sCaptureTouchList;
 
 /*static*/ void
 TouchManager::InitializeStatics()
 {
   NS_ASSERTION(!sCaptureTouchList, "InitializeStatics called multiple times!");
-  sCaptureTouchList = new nsDataHashtable<nsUint32HashKey, TouchManager::TouchInfo>;
+  sCaptureTouchList =
+      new nsDataHashtable<nsUint32HashKey, TouchManager::TouchInfo>;
 }
 
 /*static*/ void
@@ -91,9 +93,7 @@ TouchManager::EvictTouchPoint(RefPtr<Touch>& aTouch,
 /*static*/ void
 TouchManager::AppendToTouchList(WidgetTouchEvent::TouchArray* aTouchList)
 {
-  for (auto iter = sCaptureTouchList->Iter();
-       !iter.Done();
-       iter.Next()) {
+  for (auto iter = sCaptureTouchList->Iter(); !iter.Done(); iter.Next()) {
     RefPtr<Touch>& touch = iter.Data().mTouch;
     touch->mChanged = false;
     aTouchList->AppendElement(touch);
@@ -140,8 +140,7 @@ TouchManager::PreHandleEvent(WidgetEvent* aEvent,
           touch->mChanged = true;
         }
         touch->mMessage = aEvent->mMessage;
-        TouchInfo info = { touch, GetNonAnonymousAncestor(touch->mTarget),
-                           true };
+        TouchInfo info = {touch, GetNonAnonymousAncestor(touch->mTarget), true};
         sCaptureTouchList->Put(id, info);
       }
       break;
@@ -151,7 +150,7 @@ TouchManager::PreHandleEvent(WidgetEvent* aEvent,
       WidgetTouchEvent* touchEvent = aEvent->AsTouchEvent();
       WidgetTouchEvent::TouchArray& touches = touchEvent->mTouches;
       bool haveChanged = false;
-      for (int32_t i = touches.Length(); i; ) {
+      for (int32_t i = touches.Length(); i;) {
         --i;
         Touch* touch = touches[i];
         if (!touch) {
@@ -331,4 +330,4 @@ TouchManager::ShouldConvertTouchToPointer(const Touch* aTouch,
   return info.mConvertToPointer;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

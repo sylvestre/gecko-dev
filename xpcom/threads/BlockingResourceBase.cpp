@@ -27,9 +27,9 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #include "GeckoProfiler.h"
-#endif //MOZILLA_INTERNAL_API
+#endif  //MOZILLA_INTERNAL_API
 
-#endif // ifdef DEBUG
+#endif  // ifdef DEBUG
 
 namespace mozilla {
 //
@@ -38,9 +38,11 @@ namespace mozilla {
 
 // static members
 const char* const BlockingResourceBase::kResourceTypeName[] = {
-  // needs to be kept in sync with BlockingResourceType
-  "Mutex", "ReentrantMonitor", "CondVar", "RecursiveMutex"
-};
+    // needs to be kept in sync with BlockingResourceType
+    "Mutex",
+    "ReentrantMonitor",
+    "CondVar",
+    "RecursiveMutex"};
 
 #ifdef DEBUG
 
@@ -48,10 +50,11 @@ PRCallOnceType BlockingResourceBase::sCallOnce;
 unsigned BlockingResourceBase::sResourceAcqnChainFrontTPI = (unsigned)-1;
 BlockingResourceBase::DDT* BlockingResourceBase::sDeadlockDetector;
 
-
 void
-BlockingResourceBase::StackWalkCallback(uint32_t aFrameNumber, void* aPc,
-                                        void* aSp, void* aClosure)
+BlockingResourceBase::StackWalkCallback(uint32_t aFrameNumber,
+                                        void* aPc,
+                                        void* aSp,
+                                        void* aClosure)
 {
 #ifndef MOZ_CALLSTACK_DISABLED
   AcquisitionState* state = (AcquisitionState*)aClosure;
@@ -100,14 +103,14 @@ PrintCycle(const BlockingResourceBase::DDT::ResourceAcquisitionArray* aCycle,
   aOut += "Cyclical dependency starts at\n";
 
   const BlockingResourceBase::DDT::ResourceAcquisitionArray::elem_type res =
-    aCycle->ElementAt(0);
+      aCycle->ElementAt(0);
   maybeImminent &= res->Print(aOut);
 
   BlockingResourceBase::DDT::ResourceAcquisitionArray::index_type i;
   BlockingResourceBase::DDT::ResourceAcquisitionArray::size_type len =
-    aCycle->Length();
+      aCycle->Length();
   const BlockingResourceBase::DDT::ResourceAcquisitionArray::elem_type* it =
-    1 + aCycle->Elements();
+      1 + aCycle->Elements();
   for (i = 1; i < len - 1; ++i, ++it) {
     fputs("\n--- Next dependency:\n", stderr);
     aOut += "\nNext dependency:\n";
@@ -125,8 +128,8 @@ PrintCycle(const BlockingResourceBase::DDT::ResourceAcquisitionArray* aCycle,
 #ifndef MOZ_CALLSTACK_DISABLED
 struct CodeAddressServiceLock final
 {
-  static void Unlock() { }
-  static void Lock() { }
+  static void Unlock() {}
+  static void Lock() {}
   static bool IsLocked() { return true; }
 };
 
@@ -138,7 +141,7 @@ struct CodeAddressServiceStringAlloc final
 
 class CodeAddressServiceStringTable final
 {
-public:
+ public:
   CodeAddressServiceStringTable() : mSet(32) {}
 
   const char* Intern(const char* aString)
@@ -152,21 +155,21 @@ public:
     return mSet.SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   typedef nsTHashtable<nsCharPtrHashKey> StringSet;
   StringSet mSet;
 };
 
 typedef CodeAddressService<CodeAddressServiceStringTable,
                            CodeAddressServiceStringAlloc,
-                           CodeAddressServiceLock> WalkTheStackCodeAddressService;
+                           CodeAddressServiceLock>
+    WalkTheStackCodeAddressService;
 #endif
 
 bool
 BlockingResourceBase::Print(nsACString& aOut) const
 {
-  fprintf(stderr, "--- %s : %s",
-          kResourceTypeName[mType], mName);
+  fprintf(stderr, "--- %s : %s", kResourceTypeName[mType], mName);
   aOut += BlockingResourceBase::kResourceTypeName[mType];
   aOut += " : ";
   aOut += mName;
@@ -202,16 +205,16 @@ BlockingResourceBase::Print(nsACString& aOut) const
   return acquired;
 }
 
-
 BlockingResourceBase::BlockingResourceBase(
-    const char* aName,
-    BlockingResourceBase::BlockingResourceType aType)
-  : mName(aName)
-  , mType(aType)
+    const char* aName, BlockingResourceBase::BlockingResourceType aType)
+    : mName(aName),
+      mType(aType)
 #ifdef MOZ_CALLSTACK_DISABLED
-  , mAcquired(false)
+      ,
+      mAcquired(false)
 #else
-  , mAcquired()
+      ,
+      mAcquired()
 #endif
 {
   MOZ_ASSERT(mName, "Name must be nonnull");
@@ -225,27 +228,25 @@ BlockingResourceBase::BlockingResourceBase(
   sDeadlockDetector->Add(this);
 }
 
-
 BlockingResourceBase::~BlockingResourceBase()
 {
   // we don't check for really obviously bad things like freeing
   // Mutexes while they're still locked.  it is assumed that the
   // base class, or its underlying primitive, will check for such
   // stupid mistakes.
-  mChainPrev = 0;             // racy only for stupidly buggy client code
+  mChainPrev = 0;  // racy only for stupidly buggy client code
   if (sDeadlockDetector) {
     sDeadlockDetector->Remove(this);
   }
 }
 
-
 size_t
 BlockingResourceBase::SizeOfDeadlockDetector(MallocSizeOf aMallocSizeOf)
 {
-  return sDeadlockDetector ?
-      sDeadlockDetector->SizeOfIncludingThis(aMallocSizeOf) : 0;
+  return sDeadlockDetector
+             ? sDeadlockDetector->SizeOfIncludingThis(aMallocSizeOf)
+             : 0;
 }
-
 
 PRStatus
 BlockingResourceBase::InitStatics()
@@ -258,7 +259,6 @@ BlockingResourceBase::InitStatics()
   return PR_SUCCESS;
 }
 
-
 void
 BlockingResourceBase::Shutdown()
 {
@@ -266,20 +266,18 @@ BlockingResourceBase::Shutdown()
   sDeadlockDetector = 0;
 }
 
-
 void
 BlockingResourceBase::CheckAcquire()
 {
   if (mType == eCondVar) {
     NS_NOTYETIMPLEMENTED(
-      "FIXME bug 456272: annots. to allow CheckAcquire()ing condvars");
+        "FIXME bug 456272: annots. to allow CheckAcquire()ing condvars");
     return;
   }
 
   BlockingResourceBase* chainFront = ResourceChainFront();
   nsAutoPtr<DDT::ResourceAcquisitionArray> cycle(
-    sDeadlockDetector->CheckAcquisition(
-      chainFront ? chainFront : 0, this));
+      sDeadlockDetector->CheckAcquisition(chainFront ? chainFront : 0, this));
   if (!cycle) {
     return;
   }
@@ -297,8 +295,7 @@ BlockingResourceBase::CheckAcquire()
     fputs("\n###!!! Deadlock may happen NOW!\n\n", stderr);
     out.AppendLiteral("\n###!!! Deadlock may happen NOW!\n\n");
   } else {
-    fputs("\nDeadlock may happen for some other execution\n\n",
-          stderr);
+    fputs("\nDeadlock may happen for some other execution\n\n", stderr);
     out.AppendLiteral("\nDeadlock may happen for some other execution\n\n");
   }
 
@@ -310,17 +307,15 @@ BlockingResourceBase::CheckAcquire()
   }
 }
 
-
 void
 BlockingResourceBase::Acquire()
 {
   if (mType == eCondVar) {
     NS_NOTYETIMPLEMENTED(
-      "FIXME bug 456272: annots. to allow Acquire()ing condvars");
+        "FIXME bug 456272: annots. to allow Acquire()ing condvars");
     return;
   }
-  NS_ASSERTION(!IsAcquired(),
-               "reacquiring already acquired resource");
+  NS_ASSERTION(!IsAcquired(), "reacquiring already acquired resource");
 
   ResourceChainAppend(ResourceChainFront());
 
@@ -335,13 +330,12 @@ BlockingResourceBase::Acquire()
 #endif
 }
 
-
 void
 BlockingResourceBase::Release()
 {
   if (mType == eCondVar) {
     NS_NOTYETIMPLEMENTED(
-      "FIXME bug 456272: annots. to allow Release()ing condvars");
+        "FIXME bug 456272: annots. to allow Release()ing condvars");
     return;
   }
 
@@ -374,7 +368,6 @@ BlockingResourceBase::Release()
 
   ClearAcquisitionState();
 }
-
 
 //
 // Debug implementation of (OffTheBooks)Mutex
@@ -458,12 +451,11 @@ ReentrantMonitor::Enter()
   // this is sort of a hack around not recording the thread that
   // owns this monitor
   if (chainFront) {
-    for (BlockingResourceBase* br = ResourceChainPrev(chainFront);
-         br;
+    for (BlockingResourceBase* br = ResourceChainPrev(chainFront); br;
          br = ResourceChainPrev(br)) {
       if (br == this) {
         NS_WARNING(
-          "Re-entering ReentrantMonitor after acquiring other resources.");
+            "Re-entering ReentrantMonitor after acquiring other resources.");
 
         // show the caller why this is potentially bad
         CheckAcquire();
@@ -478,7 +470,7 @@ ReentrantMonitor::Enter()
   CheckAcquire();
   PR_EnterMonitor(mReentrantMonitor);
   NS_ASSERTION(mEntryCount == 0, "ReentrantMonitor isn't free!");
-  Acquire();       // protected by mReentrantMonitor
+  Acquire();  // protected by mReentrantMonitor
   mEntryCount = 1;
 }
 
@@ -486,7 +478,7 @@ void
 ReentrantMonitor::Exit()
 {
   if (--mEntryCount == 0) {
-    Release();              // protected by mReentrantMonitor
+    Release();  // protected by mReentrantMonitor
   }
   PRStatus status = PR_ExitMonitor(mReentrantMonitor);
   NS_ASSERTION(PR_SUCCESS == status, "bad ReentrantMonitor::Exit()");
@@ -511,8 +503,8 @@ ReentrantMonitor::Wait(PRIntervalTime aInterval)
     AUTO_PROFILER_THREAD_SLEEP;
 #endif
     // give up the monitor until we're back from Wait()
-    rv = PR_Wait(mReentrantMonitor, aInterval) == PR_SUCCESS ? NS_OK :
-                                                               NS_ERROR_FAILURE;
+    rv = PR_Wait(mReentrantMonitor, aInterval) == PR_SUCCESS ? NS_OK
+                                                             : NS_ERROR_FAILURE;
   }
 
   // restore saved state
@@ -522,7 +514,6 @@ ReentrantMonitor::Wait(PRIntervalTime aInterval)
 
   return rv;
 }
-
 
 //
 // Debug implementation of RecursiveMutex
@@ -543,12 +534,11 @@ RecursiveMutex::Lock()
   // this is sort of a hack around not recording the thread that
   // owns this monitor
   if (chainFront) {
-    for (BlockingResourceBase* br = ResourceChainPrev(chainFront);
-         br;
+    for (BlockingResourceBase* br = ResourceChainPrev(chainFront); br;
          br = ResourceChainPrev(br)) {
       if (br == this) {
         NS_WARNING(
-          "Re-entering RecursiveMutex after acquiring other resources.");
+            "Re-entering RecursiveMutex after acquiring other resources.");
 
         // show the caller why this is potentially bad
         CheckAcquire();
@@ -563,7 +553,7 @@ RecursiveMutex::Lock()
   CheckAcquire();
   LockInternal();
   NS_ASSERTION(mEntryCount == 0, "RecursiveMutex isn't free!");
-  Acquire();       // protected by us
+  Acquire();  // protected by us
   mOwningThread = PR_GetCurrentThread();
   mEntryCount = 1;
 }
@@ -572,7 +562,7 @@ void
 RecursiveMutex::Unlock()
 {
   if (--mEntryCount == 0) {
-    Release();              // protected by us
+    Release();  // protected by us
     mOwningThread = nullptr;
   }
   UnlockInternal();
@@ -614,7 +604,6 @@ CondVar::Wait(PRIntervalTime aInterval)
   return NS_OK;
 }
 
-#endif // ifdef DEBUG
+#endif  // ifdef DEBUG
 
-
-} // namespace mozilla
+}  // namespace mozilla

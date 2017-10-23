@@ -20,7 +20,7 @@ namespace mozilla {
 
 namespace dom {
 class SVGAnimationElement;
-} // namespace dom
+}  // namespace dom
 
 /**
  * Class SVGAnimatedPointList
@@ -43,7 +43,7 @@ class SVGAnimatedPointList
   friend class DOMSVGPoint;
   friend class DOMSVGPointList;
 
-public:
+ public:
   SVGAnimatedPointList() {}
 
   /**
@@ -52,9 +52,7 @@ public:
    * DOMSVGPointList::InternalListWillChangeTo), this method returns a const
    * reference. Only our friend classes may get mutable references to mBaseVal.
    */
-  const SVGPointList& GetBaseValue() const {
-    return mBaseVal;
-  }
+  const SVGPointList& GetBaseValue() const { return mBaseVal; }
 
   nsresult SetBaseValueString(const nsAString& aValue);
 
@@ -63,34 +61,27 @@ public:
   /**
    * const! See comment for GetBaseValue!
    */
-  const SVGPointList& GetAnimValue() const {
+  const SVGPointList& GetAnimValue() const
+  {
     return mAnimVal ? *mAnimVal : mBaseVal;
   }
 
-  nsresult SetAnimValue(const SVGPointList& aValue,
-                        nsSVGElement *aElement);
+  nsresult SetAnimValue(const SVGPointList& aValue, nsSVGElement* aElement);
 
-  void ClearAnimValue(nsSVGElement *aElement);
+  void ClearAnimValue(nsSVGElement* aElement);
 
   /**
    * Needed for correct DOM wrapper construction since GetAnimValue may
    * actually return the baseVal!
    */
-  void *GetBaseValKey() const {
-    return (void*)&mBaseVal;
-  }
-  void *GetAnimValKey() const {
-    return (void*)&mAnimVal;
-  }
+  void* GetBaseValKey() const { return (void*)&mBaseVal; }
+  void* GetAnimValKey() const { return (void*)&mAnimVal; }
 
-  bool IsAnimating() const {
-    return !!mAnimVal;
-  }
+  bool IsAnimating() const { return !!mAnimVal; }
 
   UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aElement);
 
-private:
-
+ private:
   // mAnimVal is a pointer to allow us to determine if we're being animated or
   // not. Making it a non-pointer member and using mAnimVal.IsEmpty() to check
   // if we're animating is not an option, since that would break animation *to*
@@ -101,30 +92,30 @@ private:
 
   struct SMILAnimatedPointList : public nsISMILAttr
   {
-  public:
-    SMILAnimatedPointList(SVGAnimatedPointList* aVal,
-                          nsSVGElement* aElement)
-      : mVal(aVal)
-      , mElement(aElement)
-    {}
+   public:
+    SMILAnimatedPointList(SVGAnimatedPointList* aVal, nsSVGElement* aElement)
+        : mVal(aVal), mElement(aElement)
+    {
+    }
 
     // These will stay alive because a nsISMILAttr only lives as long
     // as the Compositing step, and DOM elements don't get a chance to
     // die during that.
-    SVGAnimatedPointList *mVal;
-    nsSVGElement *mElement;
+    SVGAnimatedPointList* mVal;
+    nsSVGElement* mElement;
 
     // nsISMILAttr methods
-    virtual nsresult ValueFromString(const nsAString& aStr,
-                                     const dom::SVGAnimationElement* aSrcElement,
-                                     nsSMILValue& aValue,
-                                     bool& aPreventCachingOfSandwich) const override;
+    virtual nsresult ValueFromString(
+        const nsAString& aStr,
+        const dom::SVGAnimationElement* aSrcElement,
+        nsSMILValue& aValue,
+        bool& aPreventCachingOfSandwich) const override;
     virtual nsSMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
     virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGANIMATEDPOINTLIST_H__
+#endif  // MOZILLA_SVGANIMATEDPOINTLIST_H__

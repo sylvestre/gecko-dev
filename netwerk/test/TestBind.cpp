@@ -17,9 +17,9 @@
 using namespace mozilla::net;
 using namespace mozilla;
 
-class ServerListener: public nsIServerSocketListener
+class ServerListener : public nsIServerSocketListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISERVERSOCKETLISTENER
 
@@ -29,24 +29,23 @@ public:
   uint32_t mClientPort;
   bool mFailed;
   RefPtr<WaitForCondition> mWaiter;
-private:
+
+ private:
   virtual ~ServerListener();
 };
 
 NS_IMPL_ISUPPORTS(ServerListener, nsIServerSocketListener)
 
 ServerListener::ServerListener(WaitForCondition* waiter)
-  : mClientPort(-1)
-  , mFailed(false)
-  , mWaiter(waiter)
+    : mClientPort(-1), mFailed(false), mWaiter(waiter)
 {
 }
 
 ServerListener::~ServerListener() = default;
 
 NS_IMETHODIMP
-ServerListener::OnSocketAccepted(nsIServerSocket *aServ,
-                                 nsISocketTransport *aTransport)
+ServerListener::OnSocketAccepted(nsIServerSocket* aServ,
+                                 nsISocketTransport* aTransport)
 {
   // Run on STS thread.
   NetAddr peerAddr;
@@ -62,15 +61,14 @@ ServerListener::OnSocketAccepted(nsIServerSocket *aServ,
 }
 
 NS_IMETHODIMP
-ServerListener::OnStopListening(nsIServerSocket *aServ,
-                                nsresult aStatus)
+ServerListener::OnStopListening(nsIServerSocket* aServ, nsresult aStatus)
 {
   return NS_OK;
 }
 
 class ClientInputCallback : public nsIInputStreamCallback
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINPUTSTREAMCALLBACK
 
@@ -78,22 +76,22 @@ public:
 
   bool mFailed;
   RefPtr<WaitForCondition> mWaiter;
-private:
+
+ private:
   virtual ~ClientInputCallback();
 };
 
 NS_IMPL_ISUPPORTS(ClientInputCallback, nsIInputStreamCallback)
 
 ClientInputCallback::ClientInputCallback(WaitForCondition* waiter)
-  : mFailed(false)
-  , mWaiter(waiter)
+    : mFailed(false), mWaiter(waiter)
 {
 }
 
 ClientInputCallback::~ClientInputCallback() = default;
 
 NS_IMETHODIMP
-ClientInputCallback::OnInputStreamReady(nsIAsyncInputStream *aStream)
+ClientInputCallback::OnInputStreamReady(nsIAsyncInputStream* aStream)
 {
   // Server doesn't send. That means if we are here, we probably have run into
   // an error.
@@ -111,7 +109,8 @@ TEST(TestBind, MainTest)
   //
   // Server side.
   //
-  nsCOMPtr<nsIServerSocket> server = do_CreateInstance("@mozilla.org/network/server-socket;1");
+  nsCOMPtr<nsIServerSocket> server =
+      do_CreateInstance("@mozilla.org/network/server-socket;1");
   ASSERT_TRUE(server);
 
   nsresult rv = server->Init(-1, true, -1);
@@ -133,7 +132,7 @@ TEST(TestBind, MainTest)
   //
   uint32_t bindingPort = 20000;
   nsCOMPtr<nsISocketTransportService> sts =
-    do_GetService("@mozilla.org/network/socket-transport-service;1", &rv);
+      do_GetService("@mozilla.org/network/socket-transport-service;1", &rv);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   nsCOMPtr<nsIInputStream> inputStream;
@@ -141,8 +140,12 @@ TEST(TestBind, MainTest)
 
   for (int32_t tried = 0; tried < 100; tried++) {
     nsCOMPtr<nsISocketTransport> client;
-    rv = sts->CreateTransport(nullptr, 0, NS_LITERAL_CSTRING("127.0.0.1"),
-                              serverPort, nullptr, getter_AddRefs(client));
+    rv = sts->CreateTransport(nullptr,
+                              0,
+                              NS_LITERAL_CSTRING("127.0.0.1"),
+                              serverPort,
+                              nullptr,
+                              getter_AddRefs(client));
     ASSERT_TRUE(NS_SUCCEEDED(rv));
 
     // Bind to a port. It's possible that we are binding to a port that is
@@ -156,11 +159,12 @@ TEST(TestBind, MainTest)
 
     // Open IO streams, to make client SocketTransport connect to server.
     clientCallback = new ClientInputCallback(waiter);
-    rv = client->OpenInputStream(nsITransport::OPEN_UNBUFFERED,
-                                 0, 0, getter_AddRefs(inputStream));
+    rv = client->OpenInputStream(
+        nsITransport::OPEN_UNBUFFERED, 0, 0, getter_AddRefs(inputStream));
     ASSERT_TRUE(NS_SUCCEEDED(rv));
 
-    nsCOMPtr<nsIAsyncInputStream> asyncInputStream = do_QueryInterface(inputStream);
+    nsCOMPtr<nsIAsyncInputStream> asyncInputStream =
+        do_QueryInterface(inputStream);
     rv = asyncInputStream->AsyncWait(clientCallback, 0, 0, nullptr);
 
     // Wait for server's response or callback of input stream.

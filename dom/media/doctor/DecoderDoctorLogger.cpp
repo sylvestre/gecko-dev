@@ -15,7 +15,7 @@
 namespace mozilla {
 
 /* static */ Atomic<DecoderDoctorLogger::LogState>
-  DecoderDoctorLogger::sLogState{ DecoderDoctorLogger::scDisabled };
+    DecoderDoctorLogger::sLogState{DecoderDoctorLogger::scDisabled};
 
 /* static */ const char* DecoderDoctorLogger::sShutdownReason = nullptr;
 
@@ -96,7 +96,7 @@ DecoderDoctorLogger::EnsureLogIsEnabled()
           // possible shutdown.)
           // Create DDMediaLogs singleton, which will process the message queue.
           DDMediaLogs::ConstructionResult mediaLogsConstruction =
-            DDMediaLogs::New();
+              DDMediaLogs::New();
           if (NS_FAILED(mediaLogsConstruction.mRv)) {
             PanicInternal("Failed to enable logging", /* aDontBlock */ true);
             return false;
@@ -105,13 +105,13 @@ DecoderDoctorLogger::EnsureLogIsEnabled()
           sMediaLogs = mediaLogsConstruction.mMediaLogs;
           // Setup shutdown-time clean-up.
           MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(
-            TaskCategory::Other,
-            NS_NewRunnableFunction("DDLogger shutdown setup", [] {
-              sDDLogShutdowner = MakeUnique<DDLogShutdowner>();
-              ClearOnShutdown(&sDDLogShutdowner, ShutdownPhase::Shutdown);
-              sDDLogDeleter = MakeUnique<DDLogDeleter>();
-              ClearOnShutdown(&sDDLogDeleter, ShutdownPhase::ShutdownThreads);
-            })));
+              TaskCategory::Other,
+              NS_NewRunnableFunction("DDLogger shutdown setup", [] {
+                sDDLogShutdowner = MakeUnique<DDLogShutdowner>();
+                ClearOnShutdown(&sDDLogShutdowner, ShutdownPhase::Shutdown);
+                sDDLogDeleter = MakeUnique<DDLogDeleter>();
+                ClearOnShutdown(&sDDLogDeleter, ShutdownPhase::ShutdownThreads);
+              })));
 
           // Nobody else should change the state when *we* are enabling logging.
           MOZ_ASSERT(sLogState == scEnabling);
@@ -144,12 +144,12 @@ DecoderDoctorLogger::EnableLogging()
 
 /* static */ RefPtr<DecoderDoctorLogger::LogMessagesPromise>
 DecoderDoctorLogger::RetrieveMessages(
-  const dom::HTMLMediaElement* aMediaElement)
+    const dom::HTMLMediaElement* aMediaElement)
 {
   if (MOZ_UNLIKELY(!EnsureLogIsEnabled())) {
     DDL_WARN("Request (for %p) but there are no logs", aMediaElement);
     return DecoderDoctorLogger::LogMessagesPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_ABORT_ERR, __func__);
+        NS_ERROR_DOM_MEDIA_ABORT_ERR, __func__);
   }
   return sMediaLogs->RetrieveMessages(aMediaElement);
 }
@@ -164,8 +164,8 @@ DecoderDoctorLogger::Log(const char* aSubjectTypeName,
   if (IsDDLoggingEnabled()) {
     MOZ_ASSERT(sMediaLogs);
     sMediaLogs->Log(
-      aSubjectTypeName, aSubjectPointer, aCategory, aLabel, Move(aValue));
+        aSubjectTypeName, aSubjectPointer, aCategory, aLabel, Move(aValue));
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

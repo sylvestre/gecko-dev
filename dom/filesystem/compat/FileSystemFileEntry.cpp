@@ -18,11 +18,9 @@ namespace {
 
 class FileCallbackRunnable final : public Runnable
 {
-public:
+ public:
   FileCallbackRunnable(FileCallback* aCallback, File* aFile)
-    : Runnable("FileCallbackRunnable")
-    , mCallback(aCallback)
-    , mFile(aFile)
+      : Runnable("FileCallbackRunnable"), mCallback(aCallback), mFile(aFile)
   {
     MOZ_ASSERT(aCallback);
     MOZ_ASSERT(aFile);
@@ -40,12 +38,12 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<FileCallback> mCallback;
   RefPtr<File> mFile;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(FileSystemFileEntry, FileSystemEntry, mFile)
 
@@ -59,15 +57,13 @@ FileSystemFileEntry::FileSystemFileEntry(nsIGlobalObject* aGlobal,
                                          File* aFile,
                                          FileSystemDirectoryEntry* aParentEntry,
                                          FileSystem* aFileSystem)
-  : FileSystemEntry(aGlobal, aParentEntry, aFileSystem)
-  , mFile(aFile)
+    : FileSystemEntry(aGlobal, aParentEntry, aFileSystem), mFile(aFile)
 {
   MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(mFile);
 }
 
-FileSystemFileEntry::~FileSystemFileEntry()
-{}
+FileSystemFileEntry::~FileSystemFileEntry() {}
 
 JSObject*
 FileSystemFileEntry::WrapObject(JSContext* aCx,
@@ -99,14 +95,15 @@ FileSystemFileEntry::GetFullPath(nsAString& aPath, ErrorResult& aRv) const
 }
 
 void
-FileSystemFileEntry::GetFile(FileCallback& aSuccessCallback,
-                             const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback) const
+FileSystemFileEntry::GetFile(
+    FileCallback& aSuccessCallback,
+    const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback) const
 {
   RefPtr<FileCallbackRunnable> runnable =
-    new FileCallbackRunnable(&aSuccessCallback, mFile);
+      new FileCallbackRunnable(&aSuccessCallback, mFile);
 
   FileSystemUtils::DispatchRunnable(GetParentObject(), runnable.forget());
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

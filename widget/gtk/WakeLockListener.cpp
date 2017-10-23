@@ -15,15 +15,15 @@
 #include "mozilla/ipc/DBusMessageRefPtr.h"
 #include "mozilla/ipc/DBusPendingCallRefPtr.h"
 
-#define FREEDESKTOP_SCREENSAVER_TARGET    "org.freedesktop.ScreenSaver"
-#define FREEDESKTOP_SCREENSAVER_OBJECT    "/ScreenSaver"
+#define FREEDESKTOP_SCREENSAVER_TARGET "org.freedesktop.ScreenSaver"
+#define FREEDESKTOP_SCREENSAVER_OBJECT "/ScreenSaver"
 #define FREEDESKTOP_SCREENSAVER_INTERFACE "org.freedesktop.ScreenSaver"
 
-#define SESSION_MANAGER_TARGET            "org.gnome.SessionManager"
-#define SESSION_MANAGER_OBJECT            "/org/gnome/SessionManager"
-#define SESSION_MANAGER_INTERFACE         "org.gnome.SessionManager"
+#define SESSION_MANAGER_TARGET "org.gnome.SessionManager"
+#define SESSION_MANAGER_OBJECT "/org/gnome/SessionManager"
+#define SESSION_MANAGER_INTERFACE "org.gnome.SessionManager"
 
-#define DBUS_TIMEOUT                      (-1)
+#define DBUS_TIMEOUT (-1)
 
 using namespace mozilla;
 
@@ -31,8 +31,8 @@ NS_IMPL_ISUPPORTS(WakeLockListener, nsIDOMMozWakeLockListener)
 
 StaticRefPtr<WakeLockListener> WakeLockListener::sSingleton;
 
-
-enum DesktopEnvironment {
+enum DesktopEnvironment
+{
   FreeDesktop,
   GNOME,
   Unsupported,
@@ -40,21 +40,21 @@ enum DesktopEnvironment {
 
 class WakeLockTopic
 {
-public:
+ public:
   WakeLockTopic(const nsAString& aTopic, DBusConnection* aConnection)
-    : mTopic(NS_ConvertUTF16toUTF8(aTopic))
-    , mConnection(aConnection)
-    , mDesktopEnvironment(FreeDesktop)
-    , mInhibitRequest(0)
-    , mShouldInhibit(false)
-    , mWaitingForReply(false)
+      : mTopic(NS_ConvertUTF16toUTF8(aTopic)),
+        mConnection(aConnection),
+        mDesktopEnvironment(FreeDesktop),
+        mInhibitRequest(0),
+        mShouldInhibit(false),
+        mWaitingForReply(false)
   {
   }
 
   nsresult InhibitScreensaver(void);
   nsresult UninhibitScreensaver(void);
 
-private:
+ private:
   bool SendInhibit();
   bool SendUninhibit();
 
@@ -77,15 +77,13 @@ private:
   bool mWaitingForReply;
 };
 
-
 bool
 WakeLockTopic::SendMessage(DBusMessage* aMessage)
 {
   // send message and get a handle for a reply
   RefPtr<DBusPendingCall> reply;
-  dbus_connection_send_with_reply(mConnection, aMessage,
-                                  reply.StartAssignment(),
-                                  DBUS_TIMEOUT);
+  dbus_connection_send_with_reply(
+      mConnection, aMessage, reply.StartAssignment(), DBUS_TIMEOUT);
   if (!reply) {
     return false;
   }
@@ -99,10 +97,10 @@ bool
 WakeLockTopic::SendFreeDesktopInhibitMessage()
 {
   RefPtr<DBusMessage> message = already_AddRefed<DBusMessage>(
-    dbus_message_new_method_call(FREEDESKTOP_SCREENSAVER_TARGET,
-                                 FREEDESKTOP_SCREENSAVER_OBJECT,
-                                 FREEDESKTOP_SCREENSAVER_INTERFACE,
-                                 "Inhibit"));
+      dbus_message_new_method_call(FREEDESKTOP_SCREENSAVER_TARGET,
+                                   FREEDESKTOP_SCREENSAVER_OBJECT,
+                                   FREEDESKTOP_SCREENSAVER_INTERFACE,
+                                   "Inhibit"));
 
   if (!message) {
     return false;
@@ -111,8 +109,10 @@ WakeLockTopic::SendFreeDesktopInhibitMessage()
   const char* app = g_get_prgname();
   const char* topic = mTopic.get();
   dbus_message_append_args(message,
-                           DBUS_TYPE_STRING, &app,
-                           DBUS_TYPE_STRING, &topic,
+                           DBUS_TYPE_STRING,
+                           &app,
+                           DBUS_TYPE_STRING,
+                           &topic,
                            DBUS_TYPE_INVALID);
 
   return SendMessage(message);
@@ -122,45 +122,47 @@ bool
 WakeLockTopic::SendGNOMEInhibitMessage()
 {
   RefPtr<DBusMessage> message = already_AddRefed<DBusMessage>(
-    dbus_message_new_method_call(SESSION_MANAGER_TARGET,
-                                 SESSION_MANAGER_OBJECT,
-                                 SESSION_MANAGER_INTERFACE,
-                                 "Inhibit"));
+      dbus_message_new_method_call(SESSION_MANAGER_TARGET,
+                                   SESSION_MANAGER_OBJECT,
+                                   SESSION_MANAGER_INTERFACE,
+                                   "Inhibit"));
 
   if (!message) {
     return false;
   }
 
   static const uint32_t xid = 0;
-  static const uint32_t flags = (1 << 3); // Inhibit idle
+  static const uint32_t flags = (1 << 3);  // Inhibit idle
   const char* app = g_get_prgname();
   const char* topic = mTopic.get();
   dbus_message_append_args(message,
-                           DBUS_TYPE_STRING, &app,
-                           DBUS_TYPE_UINT32, &xid,
-                           DBUS_TYPE_STRING, &topic,
-                           DBUS_TYPE_UINT32, &flags,
+                           DBUS_TYPE_STRING,
+                           &app,
+                           DBUS_TYPE_UINT32,
+                           &xid,
+                           DBUS_TYPE_STRING,
+                           &topic,
+                           DBUS_TYPE_UINT32,
+                           &flags,
                            DBUS_TYPE_INVALID);
 
   return SendMessage(message);
 }
-
 
 bool
 WakeLockTopic::SendInhibit()
 {
   bool sendOk = false;
 
-  switch (mDesktopEnvironment)
-  {
-  case FreeDesktop:
-    sendOk = SendFreeDesktopInhibitMessage();
-    break;
-  case GNOME:
-    sendOk = SendGNOMEInhibitMessage();
-    break;
-  case Unsupported:
-    return false;
+  switch (mDesktopEnvironment) {
+    case FreeDesktop:
+      sendOk = SendFreeDesktopInhibitMessage();
+      break;
+    case GNOME:
+      sendOk = SendGNOMEInhibitMessage();
+      break;
+    case Unsupported:
+      return false;
   }
 
   if (sendOk) {
@@ -177,25 +179,24 @@ WakeLockTopic::SendUninhibit()
 
   if (mDesktopEnvironment == FreeDesktop) {
     message = already_AddRefed<DBusMessage>(
-      dbus_message_new_method_call(FREEDESKTOP_SCREENSAVER_TARGET,
-                                   FREEDESKTOP_SCREENSAVER_OBJECT,
-                                   FREEDESKTOP_SCREENSAVER_INTERFACE,
-                                   "UnInhibit"));
+        dbus_message_new_method_call(FREEDESKTOP_SCREENSAVER_TARGET,
+                                     FREEDESKTOP_SCREENSAVER_OBJECT,
+                                     FREEDESKTOP_SCREENSAVER_INTERFACE,
+                                     "UnInhibit"));
   } else if (mDesktopEnvironment == GNOME) {
     message = already_AddRefed<DBusMessage>(
-      dbus_message_new_method_call(SESSION_MANAGER_TARGET,
-                                   SESSION_MANAGER_OBJECT,
-                                   SESSION_MANAGER_INTERFACE,
-                                   "Uninhibit"));
+        dbus_message_new_method_call(SESSION_MANAGER_TARGET,
+                                     SESSION_MANAGER_OBJECT,
+                                     SESSION_MANAGER_INTERFACE,
+                                     "Uninhibit"));
   }
 
   if (!message) {
     return false;
   }
 
-  dbus_message_append_args(message,
-                           DBUS_TYPE_UINT32, &mInhibitRequest,
-                           DBUS_TYPE_INVALID);
+  dbus_message_append_args(
+      message, DBUS_TYPE_UINT32, &mInhibitRequest, DBUS_TYPE_INVALID);
 
   dbus_connection_send(mConnection, message, nullptr);
   dbus_connection_flush(mConnection);
@@ -291,8 +292,8 @@ WakeLockTopic::ReceiveInhibitReply(DBusPendingCall* pending, void* user_data)
 
   WakeLockTopic* self = static_cast<WakeLockTopic*>(user_data);
 
-  RefPtr<DBusMessage> msg = already_AddRefed<DBusMessage>(
-    dbus_pending_call_steal_reply(pending));
+  RefPtr<DBusMessage> msg =
+      already_AddRefed<DBusMessage>(dbus_pending_call_steal_reply(pending));
   if (!msg) {
     return;
   }
@@ -300,8 +301,11 @@ WakeLockTopic::ReceiveInhibitReply(DBusPendingCall* pending, void* user_data)
   if (dbus_message_get_type(msg) == DBUS_MESSAGE_TYPE_METHOD_RETURN) {
     uint32_t inhibitRequest;
 
-    if (dbus_message_get_args(msg, nullptr, DBUS_TYPE_UINT32,
-                              &inhibitRequest, DBUS_TYPE_INVALID)) {
+    if (dbus_message_get_args(msg,
+                              nullptr,
+                              DBUS_TYPE_UINT32,
+                              &inhibitRequest,
+                              DBUS_TYPE_INVALID)) {
       self->InhibitSucceeded(inhibitRequest);
     }
   } else {
@@ -309,10 +313,9 @@ WakeLockTopic::ReceiveInhibitReply(DBusPendingCall* pending, void* user_data)
   }
 }
 
-
 WakeLockListener::WakeLockListener()
-  : mConnection(already_AddRefed<DBusConnection>(
-    dbus_bus_get(DBUS_BUS_SESSION, nullptr)))
+    : mConnection(already_AddRefed<DBusConnection>(
+          dbus_bus_get(DBUS_BUS_SESSION, nullptr)))
 {
   if (mConnection) {
     dbus_connection_set_exit_on_disconnect(mConnection, false);
@@ -343,9 +346,9 @@ WakeLockListener::Callback(const nsAString& topic, const nsAString& state)
     return NS_ERROR_FAILURE;
   }
 
-  if(!topic.Equals(NS_LITERAL_STRING("screen")) &&
-     !topic.Equals(NS_LITERAL_STRING("audio-playing")) &&
-     !topic.Equals(NS_LITERAL_STRING("video-playing")))
+  if (!topic.Equals(NS_LITERAL_STRING("screen")) &&
+      !topic.Equals(NS_LITERAL_STRING("audio-playing")) &&
+      !topic.Equals(NS_LITERAL_STRING("video-playing")))
     return NS_OK;
 
   WakeLockTopic* topicLock = mTopics.Get(topic);
@@ -357,9 +360,8 @@ WakeLockListener::Callback(const nsAString& topic, const nsAString& state)
   // Treat "locked-background" the same as "unlocked" on desktop linux.
   bool shouldLock = state.EqualsLiteral("locked-foreground");
 
-  return shouldLock ?
-    topicLock->InhibitScreensaver() :
-    topicLock->UninhibitScreensaver();
+  return shouldLock ? topicLock->InhibitScreensaver()
+                    : topicLock->UninhibitScreensaver();
 }
 
 #endif

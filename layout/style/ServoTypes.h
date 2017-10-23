@@ -29,31 +29,35 @@ class SizeOfState;
  */
 
 template<typename T>
-struct ServoUnsafeCell {
+struct ServoUnsafeCell
+{
   T value;
 
   // Ensure that primitive types (i.e. pointers) get zero-initialized.
-  ServoUnsafeCell() : value() {};
+  ServoUnsafeCell() : value(){};
 };
 
 template<typename T>
-struct ServoCell {
+struct ServoCell
+{
   ServoUnsafeCell<T> value;
   T Get() const { return value.value; }
   void Set(T arg) { value.value = arg; }
-  ServoCell() : value() {};
+  ServoCell() : value(){};
 };
 
 // Indicates whether the Servo style system should expect the style on an element
 // to have already been resolved (i.e. via a parallel traversal), or whether it
 // may be lazily computed.
-enum class LazyComputeBehavior {
+enum class LazyComputeBehavior
+{
   Allow,
   Assert,
 };
 
 // Various flags for the servo traversal.
-enum class ServoTraversalFlags : uint32_t {
+enum class ServoTraversalFlags : uint32_t
+{
   Empty = 0,
   // Perform animation processing but not regular styling.
   AnimationOnly = 1 << 0,
@@ -88,23 +92,26 @@ MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(ServoTraversalFlags)
 // on an element.  DefaultOnly is used to exclude all rules except for those
 // that come from UA style sheets, and is used to implemented
 // getDefaultComputedStyle.
-enum class StyleRuleInclusion {
+enum class StyleRuleInclusion
+{
   All,
   DefaultOnly,
 };
 
 // Represents which tasks are performed in a SequentialTask of UpdateAnimations.
-enum class UpdateAnimationsTasks : uint8_t {
-  CSSAnimations    = 1 << 0,
-  CSSTransitions   = 1 << 1,
+enum class UpdateAnimationsTasks : uint8_t
+{
+  CSSAnimations = 1 << 0,
+  CSSTransitions = 1 << 1,
   EffectProperties = 1 << 2,
-  CascadeResults   = 1 << 3,
+  CascadeResults = 1 << 3,
 };
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(UpdateAnimationsTasks)
 
 // The mode to use when parsing values.
-enum class ParsingMode : uint8_t {
+enum class ParsingMode : uint8_t
+{
   // In CSS, lengths must have units, except for zero values, where the unit can
   // be omitted.
   // https://www.w3.org/TR/css3-values/#lengths
@@ -122,7 +129,8 @@ MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(ParsingMode)
 
 // The kind of style we're generating when requesting Servo to give us an
 // inherited style.
-enum class InheritTarget {
+enum class InheritTarget
+{
   // We're requesting a text style.
   Text,
   // We're requesting a first-letter continuation frame style.
@@ -131,22 +139,25 @@ enum class InheritTarget {
   PlaceholderFrame,
 };
 
-struct ServoWritingMode {
+struct ServoWritingMode
+{
   uint8_t mBits;
 };
 
-struct ServoCustomPropertiesMap {
+struct ServoCustomPropertiesMap
+{
   uintptr_t mPtr;
 };
 
-struct ServoRuleNode {
+struct ServoRuleNode
+{
   uintptr_t mPtr;
 };
-
 
 class ServoStyleContext;
 
-struct ServoVisitedStyle {
+struct ServoVisitedStyle
+{
   // This is actually a strong reference
   // but ServoComputedData's destructor is
   // managed by the Rust code so we just use a
@@ -154,14 +165,16 @@ struct ServoVisitedStyle {
   ServoStyleContext* mPtr;
 };
 
-template <typename T>
-struct ServoRawOffsetArc {
+template<typename T>
+struct ServoRawOffsetArc
+{
   // Again, a strong reference, but
   // managed by the Rust code
   T* mPtr;
 };
 
-struct ServoComputedValueFlags {
+struct ServoComputedValueFlags
+{
   uint16_t mFlags;
 };
 
@@ -175,25 +188,26 @@ struct ServoComputedValueFlags {
 // not all the fields are used in both cases.
 class ServoStyleSetSizes
 {
-public:
-  size_t mRuleTree;                // Stylist-only
-  size_t mPrecomputedPseudos;      // UA cache-only
-  size_t mElementAndPseudosMaps;   // Used for both
-  size_t mInvalidationMap;         // Used for both
-  size_t mRevalidationSelectors;   // Used for both
-  size_t mOther;                   // Used for both
+ public:
+  size_t mRuleTree;               // Stylist-only
+  size_t mPrecomputedPseudos;     // UA cache-only
+  size_t mElementAndPseudosMaps;  // Used for both
+  size_t mInvalidationMap;        // Used for both
+  size_t mRevalidationSelectors;  // Used for both
+  size_t mOther;                  // Used for both
 
   ServoStyleSetSizes()
-    : mRuleTree(0)
-    , mPrecomputedPseudos(0)
-    , mElementAndPseudosMaps(0)
-    , mInvalidationMap(0)
-    , mRevalidationSelectors(0)
-    , mOther(0)
-  {}
+      : mRuleTree(0),
+        mPrecomputedPseudos(0),
+        mElementAndPseudosMaps(0),
+        mInvalidationMap(0),
+        mRevalidationSelectors(0),
+        mOther(0)
+  {
+  }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 class ServoComputedData;
 
@@ -201,7 +215,10 @@ struct ServoComputedDataForgotten
 {
   // Make sure you manually mem::forget the backing ServoComputedData
   // after calling this
-  explicit ServoComputedDataForgotten(const ServoComputedData* aValue) : mPtr(aValue) {}
+  explicit ServoComputedDataForgotten(const ServoComputedData* aValue)
+      : mPtr(aValue)
+  {
+  }
   const ServoComputedData* mPtr;
 };
 
@@ -214,14 +231,14 @@ class ServoComputedData
 {
   friend class mozilla::ServoStyleContext;
 
-public:
+ public:
   // Constructs via memcpy.  Will not move out of aValue.
   explicit ServoComputedData(const ServoComputedDataForgotten aValue);
 
 #define STYLE_STRUCT(name_, checkdata_cb_)                 \
   mozilla::ServoRawOffsetArc<mozilla::Gecko##name_> name_; \
   inline const nsStyle##name_* GetStyle##name_() const;
-  #define STYLE_STRUCT_LIST_IGNORE_VARIABLES
+#define STYLE_STRUCT_LIST_IGNORE_VARIABLES
 #include "nsStyleStructList.h"
 #undef STYLE_STRUCT
 #undef STYLE_STRUCT_LIST_IGNORE_VARIABLES
@@ -229,7 +246,7 @@ public:
 
   void AddSizeOfExcludingThis(nsWindowSizes& aSizes) const;
 
-private:
+ private:
   mozilla::ServoCustomPropertiesMap custom_properties;
   mozilla::ServoWritingMode writing_mode;
   mozilla::ServoComputedValueFlags flags;
@@ -255,4 +272,4 @@ private:
   ServoComputedData(const ServoComputedData&&) = delete;
 };
 
-#endif // mozilla_ServoTypes_h
+#endif  // mozilla_ServoTypes_h

@@ -16,9 +16,11 @@ namespace mozilla {
 
 class ServoMediaList final : public dom::MediaList
 {
-public:
+ public:
   explicit ServoMediaList(already_AddRefed<RawServoMediaList> aRawList)
-    : mRawList(aRawList) {}
+      : mRawList(aRawList)
+  {
+  }
   explicit ServoMediaList(const nsAString& aMedia);
   ServoMediaList();
 
@@ -28,8 +30,7 @@ public:
   void SetText(const nsAString& aMediaText) final;
 
   uint32_t Length() final;
-  void IndexedGetter(uint32_t aIndex, bool& aFound,
-                     nsAString& aReturn) final;
+  void IndexedGetter(uint32_t aIndex, bool& aFound, nsAString& aReturn) final;
 
   bool Matches(nsPresContext*) const final;
 
@@ -39,16 +40,16 @@ public:
 
   RawServoMediaList& RawList() { return *mRawList; }
 
-protected:
+ protected:
   nsresult Delete(const nsAString& aOldMedium) final;
   nsresult Append(const nsAString& aNewMedium) final;
 
   ~ServoMediaList() {}
 
-private:
+ private:
   RefPtr<RawServoMediaList> mRawList;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoMediaList_h
+#endif  // mozilla_ServoMediaList_h

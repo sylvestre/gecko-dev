@@ -34,13 +34,14 @@ namespace detail {
 
 class SchedulerEventQueue final : public SynchronizedEventQueue
 {
-public:
+ public:
   explicit SchedulerEventQueue(UniquePtr<AbstractEventQueue> aQueue)
-    : mLock("Scheduler")
-    , mNonCooperativeCondVar(mLock, "SchedulerNonCoop")
-    , mQueue(Move(aQueue))
-    , mScheduler(nullptr)
-  {}
+      : mLock("Scheduler"),
+        mNonCooperativeCondVar(mLock, "SchedulerNonCoop"),
+        mQueue(Move(aQueue)),
+        mScheduler(nullptr)
+  {
+  }
 
   bool PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
                 EventPriority aPriority) final;
@@ -68,7 +69,7 @@ public:
 
   Mutex& MutexRef() { return mLock; }
 
-private:
+ private:
   Mutex mLock;
   CondVar mNonCooperativeCondVar;
 
@@ -82,14 +83,14 @@ private:
   nsCOMPtr<nsIThreadObserver> mObserver;
 };
 
-} // namespace detail
-} // namespace mozilla
+}  // namespace detail
+}  // namespace mozilla
 
 using mozilla::detail::SchedulerEventQueue;
 
 class mozilla::SchedulerImpl
 {
-public:
+ public:
   explicit SchedulerImpl(SchedulerEventQueue* aQueue);
 
   void Start();
@@ -99,16 +100,15 @@ public:
 
   void Yield();
 
-  static void EnterNestedEventLoop(Scheduler::EventLoopActivation& aOuterActivation);
-  static void ExitNestedEventLoop(Scheduler::EventLoopActivation& aOuterActivation);
+  static void EnterNestedEventLoop(
+      Scheduler::EventLoopActivation& aOuterActivation);
+  static void ExitNestedEventLoop(
+      Scheduler::EventLoopActivation& aOuterActivation);
 
   static void StartEvent(Scheduler::EventLoopActivation& aActivation);
   static void FinishEvent(Scheduler::EventLoopActivation& aActivation);
 
-  void SetJSContext(size_t aIndex, JSContext* aCx)
-  {
-    mContexts[aIndex] = aCx;
-  }
+  void SetJSContext(size_t aIndex, JSContext* aCx) { mContexts[aIndex] = aCx; }
 
   static void YieldCallback(JSContext* aCx);
   static bool InterruptCallback(JSContext* aCx);
@@ -118,8 +118,14 @@ public:
   static bool UnlabeledEventRunning() { return sUnlabeledEventRunning; }
   static bool AnyEventRunning() { return sNumThreadsRunning > 0; }
 
-  CooperativeThreadPool::Resource* GetQueueResource() { return &mQueueResource; }
-  bool UseCooperativeScheduling() const { return mQueue->UseCooperativeScheduling(); }
+  CooperativeThreadPool::Resource* GetQueueResource()
+  {
+    return &mQueueResource;
+  }
+  bool UseCooperativeScheduling() const
+  {
+    return mQueue->UseCooperativeScheduling();
+  }
 
   // Preferences.
   static bool sPrefScheduler;
@@ -128,7 +134,7 @@ public:
   static size_t sPrefThreadCount;
   static bool sPrefUseMultipleQueues;
 
-private:
+ private:
   void Interrupt(JSContext* aCx);
   void YieldFromJS(JSContext* aCx);
 
@@ -149,48 +155,53 @@ private:
 
   class QueueResource : public CooperativeThreadPool::Resource
   {
-  public:
-    explicit QueueResource(SchedulerImpl* aScheduler)
-      : mScheduler(aScheduler)
-    {}
+   public:
+    explicit QueueResource(SchedulerImpl* aScheduler) : mScheduler(aScheduler)
+    {
+    }
 
     bool IsAvailable(const MutexAutoLock& aProofOfLock) override;
 
-  private:
+   private:
     SchedulerImpl* mScheduler;
   };
   QueueResource mQueueResource;
 
   class SystemZoneResource : public CooperativeThreadPool::Resource
   {
-  public:
+   public:
     explicit SystemZoneResource(SchedulerImpl* aScheduler)
-      : mScheduler(aScheduler) {}
+        : mScheduler(aScheduler)
+    {
+    }
 
     bool IsAvailable(const MutexAutoLock& aProofOfLock) override;
 
-  private:
+   private:
     SchedulerImpl* mScheduler;
   };
   SystemZoneResource mSystemZoneResource;
 
   class ThreadController : public CooperativeThreadPool::Controller
   {
-  public:
+   public:
     ThreadController(SchedulerImpl* aScheduler, SchedulerEventQueue* aQueue)
-      : mScheduler(aScheduler)
-      , mMainVirtual(GetCurrentVirtualThread())
-      , mMainLoop(MessageLoop::current())
-      , mMainQueue(aQueue)
-    {}
+        : mScheduler(aScheduler),
+          mMainVirtual(GetCurrentVirtualThread()),
+          mMainLoop(MessageLoop::current()),
+          mMainQueue(aQueue)
+    {
+    }
 
-    void OnStartThread(size_t aIndex, const nsACString& aName, void* aStackTop) override;
+    void OnStartThread(size_t aIndex,
+                       const nsACString& aName,
+                       void* aStackTop) override;
     void OnStopThread(size_t aIndex) override;
 
     void OnSuspendThread(size_t aIndex) override;
     void OnResumeThread(size_t aIndex) override;
 
-  private:
+   private:
     SchedulerImpl* mScheduler;
     PRThread* mMainVirtual;
     MessageLoop* mMainLoop;
@@ -255,8 +266,7 @@ SchedulerEventQueue::PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
 }
 
 already_AddRefed<nsIRunnable>
-SchedulerEventQueue::GetEvent(bool aMayWait,
-                              EventPriority* aPriority)
+SchedulerEventQueue::GetEvent(bool aMayWait, EventPriority* aPriority)
 {
   MutexAutoLock lock(mLock);
 
@@ -375,15 +385,15 @@ SchedulerEventQueue::ResumeInputEventPrioritization()
 UniquePtr<SchedulerImpl> Scheduler::sScheduler;
 
 SchedulerImpl::SchedulerImpl(SchedulerEventQueue* aQueue)
-  : mNumThreads(sPrefThreadCount)
-  , mLock(aQueue->MutexRef())
-  , mShutdownCondVar(aQueue->MutexRef(), "SchedulerImpl")
-  , mShuttingDown(false)
-  , mQueue(aQueue)
-  , mQueueResource(this)
-  , mSystemZoneResource(this)
-  , mController(this, aQueue)
-  , mContexts()
+    : mNumThreads(sPrefThreadCount),
+      mLock(aQueue->MutexRef()),
+      mShutdownCondVar(aQueue->MutexRef(), "SchedulerImpl"),
+      mShuttingDown(false),
+      mQueue(aQueue),
+      mQueueResource(this),
+      mSystemZoneResource(this),
+      mController(this, aQueue),
+      mContexts()
 {
 }
 
@@ -422,7 +432,8 @@ SchedulerImpl::Switcher()
 
   MutexAutoLock lock(mLock);
   while (!mShuttingDown) {
-    CooperativeThreadPool::SelectedThread threadIndex = mThreadPool->CurrentThreadIndex(lock);
+    CooperativeThreadPool::SelectedThread threadIndex =
+        mThreadPool->CurrentThreadIndex(lock);
     if (threadIndex.is<size_t>()) {
       JSContext* cx = mContexts[threadIndex.as<size_t>()];
       if (cx) {
@@ -443,58 +454,59 @@ SchedulerImpl::SwitcherThread(void* aData)
 void
 SchedulerImpl::Start()
 {
-  NS_DispatchToMainThread(NS_NewRunnableFunction("Scheduler::Start", [this]() -> void {
-    // Let's pretend the runnable here isn't actually running.
-    MOZ_ASSERT(sUnlabeledEventRunning);
-    sUnlabeledEventRunning = false;
-    MOZ_ASSERT(sNumThreadsRunning == 1);
-    sNumThreadsRunning = 0;
+  NS_DispatchToMainThread(
+      NS_NewRunnableFunction("Scheduler::Start", [this]() -> void {
+        // Let's pretend the runnable here isn't actually running.
+        MOZ_ASSERT(sUnlabeledEventRunning);
+        sUnlabeledEventRunning = false;
+        MOZ_ASSERT(sNumThreadsRunning == 1);
+        sNumThreadsRunning = 0;
 
-    mQueue->SetScheduler(this);
+        mQueue->SetScheduler(this);
 
-    xpc::YieldCooperativeContext();
+        xpc::YieldCooperativeContext();
 
-    mThreadPool = MakeUnique<CooperativeThreadPool>(mNumThreads, mLock,
-                                                    mController);
+        mThreadPool =
+            MakeUnique<CooperativeThreadPool>(mNumThreads, mLock, mController);
 
-    PRThread* switcher = nullptr;
-    if (sPrefPreemption) {
-      switcher = PR_CreateThread(PR_USER_THREAD,
-                                 SwitcherThread,
-                                 this,
-                                 PR_PRIORITY_HIGH,
-                                 PR_GLOBAL_THREAD,
-                                 PR_JOINABLE_THREAD,
-                                 0);
-    }
+        PRThread* switcher = nullptr;
+        if (sPrefPreemption) {
+          switcher = PR_CreateThread(PR_USER_THREAD,
+                                     SwitcherThread,
+                                     this,
+                                     PR_PRIORITY_HIGH,
+                                     PR_GLOBAL_THREAD,
+                                     PR_JOINABLE_THREAD,
+                                     0);
+        }
 
-    {
-      MutexAutoLock mutex(mLock);
-      while (!mShuttingDown) {
-        mShutdownCondVar.Wait();
-      }
-    }
+        {
+          MutexAutoLock mutex(mLock);
+          while (!mShuttingDown) {
+            mShutdownCondVar.Wait();
+          }
+        }
 
-    if (switcher) {
-      PR_JoinThread(switcher);
-    }
+        if (switcher) {
+          PR_JoinThread(switcher);
+        }
 
-    mThreadPool->Shutdown();
-    mThreadPool = nullptr;
+        mThreadPool->Shutdown();
+        mThreadPool = nullptr;
 
-    mQueue->SetScheduler(nullptr);
+        mQueue->SetScheduler(nullptr);
 
-    xpc::ResumeCooperativeContext();
+        xpc::ResumeCooperativeContext();
 
-    // Put things back to the way they were before we started scheduling.
-    MOZ_ASSERT(!sUnlabeledEventRunning);
-    sUnlabeledEventRunning = true;
-    MOZ_ASSERT(sNumThreadsRunning == 0);
-    sNumThreadsRunning = 1;
+        // Put things back to the way they were before we started scheduling.
+        MOZ_ASSERT(!sUnlabeledEventRunning);
+        sUnlabeledEventRunning = true;
+        MOZ_ASSERT(sNumThreadsRunning == 0);
+        sNumThreadsRunning = 1;
 
-    // Delete the SchedulerImpl. Don't use it after this point.
-    Scheduler::sScheduler = nullptr;
-  }));
+        // Delete the SchedulerImpl. Don't use it after this point.
+        Scheduler::sScheduler = nullptr;
+      }));
 }
 
 void
@@ -515,7 +527,8 @@ SchedulerImpl::QueueResource::IsAvailable(const MutexAutoLock& aProofOfLock)
 }
 
 bool
-SchedulerImpl::SystemZoneResource::IsAvailable(const MutexAutoLock& aProofOfLock)
+SchedulerImpl::SystemZoneResource::IsAvailable(
+    const MutexAutoLock& aProofOfLock)
 {
   mScheduler->mLock.AssertCurrentThreadOwns();
 
@@ -523,7 +536,8 @@ SchedulerImpl::SystemZoneResource::IsAvailable(const MutexAutoLock& aProofOfLock
   return js::SystemZoneAvailable(cx);
 }
 
-MOZ_THREAD_LOCAL(Scheduler::EventLoopActivation*) Scheduler::EventLoopActivation::sTopActivation;
+MOZ_THREAD_LOCAL(Scheduler::EventLoopActivation*)
+Scheduler::EventLoopActivation::sTopActivation;
 
 /* static */ void
 Scheduler::EventLoopActivation::Init()
@@ -532,9 +546,7 @@ Scheduler::EventLoopActivation::Init()
 }
 
 Scheduler::EventLoopActivation::EventLoopActivation()
-  : mPrev(sTopActivation.get())
-  , mProcessingEvent(false)
-  , mIsLabeled(false)
+    : mPrev(sTopActivation.get()), mProcessingEvent(false), mIsLabeled(false)
 {
   sTopActivation.set(this);
 
@@ -589,13 +601,15 @@ SchedulerImpl::FinishEvent(Scheduler::EventLoopActivation& aActivation)
 // finished. When we exit the nested event loop, we "resume" the outer event
 // loop's event.
 /* static */ void
-SchedulerImpl::EnterNestedEventLoop(Scheduler::EventLoopActivation& aOuterActivation)
+SchedulerImpl::EnterNestedEventLoop(
+    Scheduler::EventLoopActivation& aOuterActivation)
 {
   FinishEvent(aOuterActivation);
 }
 
 /* static */ void
-SchedulerImpl::ExitNestedEventLoop(Scheduler::EventLoopActivation& aOuterActivation)
+SchedulerImpl::ExitNestedEventLoop(
+    Scheduler::EventLoopActivation& aOuterActivation)
 {
   StartEvent(aOuterActivation);
 }
@@ -619,7 +633,9 @@ Scheduler::EventLoopActivation::SetEvent(nsIRunnable* aEvent,
 }
 
 void
-SchedulerImpl::ThreadController::OnStartThread(size_t aIndex, const nsACString& aName, void* aStackTop)
+SchedulerImpl::ThreadController::OnStartThread(size_t aIndex,
+                                               const nsACString& aName,
+                                               void* aStackTop)
 {
   using mozilla::ipc::BackgroundChild;
 
@@ -689,9 +705,11 @@ Scheduler::Init(nsIIdlePeriod* aIdlePeriod)
   RefPtr<SchedulerEventQueue> queue;
   RefPtr<nsThread> mainThread;
   if (Scheduler::UseMultipleQueues()) {
-    mainThread = CreateMainThread<SchedulerEventQueue, LabeledEventQueue>(aIdlePeriod, getter_AddRefs(queue));
+    mainThread = CreateMainThread<SchedulerEventQueue, LabeledEventQueue>(
+        aIdlePeriod, getter_AddRefs(queue));
   } else {
-    mainThread = CreateMainThread<SchedulerEventQueue, EventQueue>(aIdlePeriod, getter_AddRefs(queue));
+    mainThread = CreateMainThread<SchedulerEventQueue, EventQueue>(
+        aIdlePeriod, getter_AddRefs(queue));
   }
 
   sScheduler = MakeUnique<SchedulerImpl>(queue);
@@ -716,17 +734,17 @@ Scheduler::Shutdown()
 Scheduler::GetPrefs()
 {
   MOZ_ASSERT(XRE_IsParentProcess());
-  nsPrintfCString result("%d%d%d%d,%d",
-                         Preferences::GetBool("dom.ipc.scheduler",
-                                              SchedulerImpl::sPrefScheduler),
-                         Preferences::GetBool("dom.ipc.scheduler.chaoticScheduling",
-                                              SchedulerImpl::sPrefChaoticScheduling),
-                         Preferences::GetBool("dom.ipc.scheduler.preemption",
-                                              SchedulerImpl::sPrefPreemption),
-                         Preferences::GetBool("dom.ipc.scheduler.useMultipleQueues",
-                                              SchedulerImpl::sPrefUseMultipleQueues),
-                         Preferences::GetInt("dom.ipc.scheduler.threadCount",
-                                             SchedulerImpl::sPrefThreadCount));
+  nsPrintfCString result(
+      "%d%d%d%d,%d",
+      Preferences::GetBool("dom.ipc.scheduler", SchedulerImpl::sPrefScheduler),
+      Preferences::GetBool("dom.ipc.scheduler.chaoticScheduling",
+                           SchedulerImpl::sPrefChaoticScheduling),
+      Preferences::GetBool("dom.ipc.scheduler.preemption",
+                           SchedulerImpl::sPrefPreemption),
+      Preferences::GetBool("dom.ipc.scheduler.useMultipleQueues",
+                           SchedulerImpl::sPrefUseMultipleQueues),
+      Preferences::GetInt("dom.ipc.scheduler.threadCount",
+                          SchedulerImpl::sPrefThreadCount));
 
   return result;
 }

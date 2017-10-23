@@ -32,9 +32,8 @@ SVGNumberList::GetValueAsString(nsAString& aValue) const
   for (uint32_t i = 0; i < mNumbers.Length(); ++i) {
     // Would like to use aValue.AppendPrintf("%f", mNumbers[i]), but it's not
     // possible to always avoid trailing zeros.
-    nsTextFormatter::snprintf(buf, ArrayLength(buf),
-                              u"%g",
-                              double(mNumbers[i]));
+    nsTextFormatter::snprintf(
+        buf, ArrayLength(buf), u"%g", double(mNumbers[i]));
     // We ignore OOM, since it's not useful for us to return an error.
     aValue.Append(buf);
     if (i != last) {
@@ -48,8 +47,8 @@ SVGNumberList::SetValueFromString(const nsAString& aValue)
 {
   SVGNumberList temp;
 
-  nsCharSeparatedTokenizerTemplate<IsSVGWhitespace>
-    tokenizer(aValue, ',', nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
+  nsCharSeparatedTokenizerTemplate<IsSVGWhitespace> tokenizer(
+      aValue, ',', nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
 
   while (tokenizer.hasMoreTokens()) {
     float num;
@@ -61,9 +60,9 @@ SVGNumberList::SetValueFromString(const nsAString& aValue)
     }
   }
   if (tokenizer.separatorAfterCurrentToken()) {
-    return NS_ERROR_DOM_SYNTAX_ERR; // trailing comma
+    return NS_ERROR_DOM_SYNTAX_ERR;  // trailing comma
   }
   return CopyFrom(temp);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

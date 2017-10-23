@@ -30,7 +30,7 @@ namespace mozilla {
 namespace dom {
 class Element;
 class Selection;
-} // namespace dom
+}  // namespace dom
 
 // -----------------------------------------------------------------------------
 // AccessibleCaretManager does not deal with events or callbacks directly. It
@@ -47,7 +47,7 @@ class Selection;
 //
 class AccessibleCaretManager
 {
-public:
+ public:
   explicit AccessibleCaretManager(nsIPresShell* aPresShell);
   virtual ~AccessibleCaretManager();
 
@@ -107,9 +107,10 @@ public:
   // is used in part to determine if the carets should be shown or hidden.
   void SetLastInputSource(uint16_t aInputSource);
 
-protected:
+ protected:
   // This enum representing the number of AccessibleCarets on the screen.
-  enum class CaretMode : uint8_t {
+  enum class CaretMode : uint8_t
+  {
     // No caret on the screen.
     None,
 
@@ -123,7 +124,8 @@ protected:
   friend std::ostream& operator<<(std::ostream& aStream,
                                   const CaretMode& aCaretMode);
 
-  enum class UpdateCaretsHint : uint8_t {
+  enum class UpdateCaretsHint : uint8_t
+  {
     // Update everything including appearance and position.
     Default,
 
@@ -184,10 +186,10 @@ protected:
   // well as the range start content and the content offset. Otherwise, get the
   // frame and the offset for the range end in the last range instead.
   nsIFrame* GetFrameForFirstRangeStartOrLastRangeEnd(
-    nsDirection aDirection,
-    int32_t* aOutOffset,
-    nsIContent** aOutContent = nullptr,
-    int32_t* aOutContentOffset = nullptr) const;
+      nsDirection aDirection,
+      int32_t* aOutOffset,
+      nsIContent** aOutContent = nullptr,
+      int32_t* aOutContentOffset = nullptr) const;
 
   nsresult DragCaretInternal(const nsPoint& aPoint);
   nsPoint AdjustDragBoundary(const nsPoint& aPoint) const;
@@ -250,14 +252,15 @@ protected:
   // Check whether AccessibleCaret is displayable in cursor mode or not.
   // @param aOutFrame returns frame of the cursor if it's displayable.
   // @param aOutOffset returns frame offset as well.
-  virtual bool IsCaretDisplayableInCursorMode(nsIFrame** aOutFrame = nullptr,
-                                              int32_t* aOutOffset = nullptr) const;
+  virtual bool IsCaretDisplayableInCursorMode(
+      nsIFrame** aOutFrame = nullptr, int32_t* aOutOffset = nullptr) const;
 
   virtual bool HasNonEmptyTextContent(nsINode* aNode) const;
 
   // This function will flush layout, so caller must ensure the PresShell is
   // still valid after calling this method.
-  virtual void DispatchCaretStateChangedEvent(dom::CaretChangedReason aReason) const;
+  virtual void DispatchCaretStateChangedEvent(
+      dom::CaretChangedReason aReason) const;
 
   // ---------------------------------------------------------------------------
   // Member variables
@@ -288,9 +291,9 @@ protected:
   // Store the appearance of the carets when calling OnScrollStart() so that it
   // can be restored in OnScrollEnd().
   AccessibleCaret::Appearance mFirstCaretAppearanceOnScrollStart =
-                                 AccessibleCaret::Appearance::None;
+      AccessibleCaret::Appearance::None;
   AccessibleCaret::Appearance mSecondCaretAppearanceOnScrollStart =
-                                 AccessibleCaret::Appearance::None;
+      AccessibleCaret::Appearance::None;
 
   // The last input source that the event hub saw. We use this to decide whether
   // or not show the carets when the selection is updated, as we want to hide
@@ -350,12 +353,14 @@ protected:
   static bool sHideCaretsForMouseInput;
 };
 
-std::ostream& operator<<(std::ostream& aStream,
-                         const AccessibleCaretManager::CaretMode& aCaretMode);
+std::ostream&
+operator<<(std::ostream& aStream,
+           const AccessibleCaretManager::CaretMode& aCaretMode);
 
-std::ostream& operator<<(std::ostream& aStream,
-                         const AccessibleCaretManager::UpdateCaretsHint& aResult);
+std::ostream&
+operator<<(std::ostream& aStream,
+           const AccessibleCaretManager::UpdateCaretsHint& aResult);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // AccessibleCaretManager_h
+#endif  // AccessibleCaretManager_h

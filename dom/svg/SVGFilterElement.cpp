@@ -18,51 +18,55 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFilterElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFilterElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFilterElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGFilterElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::x, -10, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
-  { &nsGkAtoms::y, -10, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
-  { &nsGkAtoms::width, 120, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
-  { &nsGkAtoms::height, 120, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGFilterElement::sLengthInfo[4] = {
+    {&nsGkAtoms::x,
+     -10,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y,
+     -10,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::width,
+     120,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::X},
+    {&nsGkAtoms::height,
+     120,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::Y},
 };
 
-nsSVGElement::EnumInfo SVGFilterElement::sEnumInfo[2] =
-{
-  { &nsGkAtoms::filterUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_OBJECTBOUNDINGBOX
-  },
-  { &nsGkAtoms::primitiveUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_USERSPACEONUSE
-  }
-};
+nsSVGElement::EnumInfo SVGFilterElement::sEnumInfo[2] = {
+    {&nsGkAtoms::filterUnits,
+     sSVGUnitTypesMap,
+     SVG_UNIT_TYPE_OBJECTBOUNDINGBOX},
+    {&nsGkAtoms::primitiveUnits,
+     sSVGUnitTypesMap,
+     SVG_UNIT_TYPE_USERSPACEONUSE}};
 
-nsSVGElement::StringInfo SVGFilterElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::href, kNameSpaceID_None, true },
-  { &nsGkAtoms::href, kNameSpaceID_XLink, true }
-};
+nsSVGElement::StringInfo SVGFilterElement::sStringInfo[2] = {
+    {&nsGkAtoms::href, kNameSpaceID_None, true},
+    {&nsGkAtoms::href, kNameSpaceID_XLink, true}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGFilterElement::SVGFilterElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGFilterElementBase(aNodeInfo)
+SVGFilterElement::SVGFilterElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGFilterElementBase(aNodeInfo)
 {
 }
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFilterElement)
-
 
 //----------------------------------------------------------------------
 
@@ -75,7 +79,7 @@ SVGFilterElement::X()
 already_AddRefed<SVGAnimatedLength>
 SVGFilterElement::Y()
 {
-   return mLengthAttributes[ATTR_Y].ToDOMAnimatedLength(this);
+  return mLengthAttributes[ATTR_Y].ToDOMAnimatedLength(this);
 }
 
 already_AddRefed<SVGAnimatedLength>
@@ -106,8 +110,8 @@ already_AddRefed<SVGAnimatedString>
 SVGFilterElement::Href()
 {
   return mStringAttributes[HREF].IsExplicitlySet()
-         ? mStringAttributes[HREF].ToDOMAnimatedString(this)
-         : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
+             ? mStringAttributes[HREF].ToDOMAnimatedString(this)
+             : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
 }
 
 //----------------------------------------------------------------------
@@ -116,32 +120,31 @@ SVGFilterElement::Href()
 NS_IMETHODIMP_(bool)
 SVGFilterElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sFEFloodMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sLightingEffectsMap,
-    sMarkersMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sFEFloodMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sLightingEffectsMap,
+                                                    sMarkersMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
   return FindAttributeDependence(name, map) ||
-    SVGFilterElementBase::IsAttributeMapped(name);
+         SVGFilterElementBase::IsAttributeMapped(name);
 }
 
 void
 SVGFilterElement::Invalidate()
 {
-  nsAutoTObserverArray<nsIMutationObserver*, 1> *observers = GetMutationObservers();
+  nsAutoTObserverArray<nsIMutationObserver*, 1>* observers =
+      GetMutationObservers();
 
   if (observers && !observers->IsEmpty()) {
-    nsAutoTObserverArray<nsIMutationObserver*, 1>::ForwardIterator iter(*observers);
+    nsAutoTObserverArray<nsIMutationObserver*, 1>::ForwardIterator iter(
+        *observers);
     while (iter.HasMore()) {
       nsCOMPtr<nsIMutationObserver> obs(iter.GetNext());
       nsCOMPtr<nsISVGFilterReference> filter = do_QueryInterface(obs);
-      if (filter)
-        filter->Invalidate();
+      if (filter) filter->Invalidate();
     }
   }
 }
@@ -153,31 +156,30 @@ SVGFilterElement::Invalidate()
 SVGFilterElement::HasValidDimensions() const
 {
   return (!mLengthAttributes[ATTR_WIDTH].IsExplicitlySet() ||
-           mLengthAttributes[ATTR_WIDTH].GetAnimValInSpecifiedUnits() > 0) &&
+          mLengthAttributes[ATTR_WIDTH].GetAnimValInSpecifiedUnits() > 0) &&
          (!mLengthAttributes[ATTR_HEIGHT].IsExplicitlySet() ||
-           mLengthAttributes[ATTR_HEIGHT].GetAnimValInSpecifiedUnits() > 0);
+          mLengthAttributes[ATTR_HEIGHT].GetAnimValInSpecifiedUnits() > 0);
 }
 
 nsSVGElement::LengthAttributesInfo
 SVGFilterElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGFilterElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGFilterElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

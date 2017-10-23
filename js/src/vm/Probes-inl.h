@@ -18,32 +18,24 @@ namespace js {
  * especially important when no backends are enabled.
  */
 
-inline bool
-probes::CallTrackingActive(JSContext* cx)
-{
+inline bool probes::CallTrackingActive(JSContext* cx) {
 #ifdef INCLUDE_MOZILLA_DTRACE
-    if (JAVASCRIPT_FUNCTION_ENTRY_ENABLED() || JAVASCRIPT_FUNCTION_RETURN_ENABLED())
-        return true;
+    if (JAVASCRIPT_FUNCTION_ENTRY_ENABLED() || JAVASCRIPT_FUNCTION_RETURN_ENABLED()) return true;
 #endif
     return false;
 }
 
-inline bool
-probes::EnterScript(JSContext* cx, JSScript* script, JSFunction* maybeFun,
-                    InterpreterFrame* fp)
-{
+inline bool probes::EnterScript(JSContext* cx, JSScript* script, JSFunction* maybeFun,
+                                InterpreterFrame* fp) {
 #ifdef INCLUDE_MOZILLA_DTRACE
-    if (JAVASCRIPT_FUNCTION_ENTRY_ENABLED())
-        DTraceEnterJSFun(cx, maybeFun, script);
+    if (JAVASCRIPT_FUNCTION_ENTRY_ENABLED()) DTraceEnterJSFun(cx, maybeFun, script);
 #endif
 
     JSRuntime* rt = cx->runtime();
     if (rt->geckoProfiler().enabled()) {
-        if (!cx->geckoProfiler().enter(cx, script, maybeFun))
-            return false;
-        MOZ_ASSERT_IF(!fp->script()->isStarGenerator() &&
-                      !fp->script()->isLegacyGenerator() &&
-                      !fp->script()->isAsync(),
+        if (!cx->geckoProfiler().enter(cx, script, maybeFun)) return false;
+        MOZ_ASSERT_IF(!fp->script()->isStarGenerator() && !fp->script()->isLegacyGenerator() &&
+                          !fp->script()->isAsync(),
                       !fp->hasPushedGeckoProfilerFrame());
         fp->setPushedGeckoProfilerFrame();
     }
@@ -51,21 +43,16 @@ probes::EnterScript(JSContext* cx, JSScript* script, JSFunction* maybeFun,
     return true;
 }
 
-inline void
-probes::ExitScript(JSContext* cx, JSScript* script, JSFunction* maybeFun, bool popProfilerFrame)
-{
+inline void probes::ExitScript(JSContext* cx, JSScript* script, JSFunction* maybeFun,
+                               bool popProfilerFrame) {
 #ifdef INCLUDE_MOZILLA_DTRACE
-    if (JAVASCRIPT_FUNCTION_RETURN_ENABLED())
-        DTraceExitJSFun(cx, maybeFun, script);
+    if (JAVASCRIPT_FUNCTION_RETURN_ENABLED()) DTraceExitJSFun(cx, maybeFun, script);
 #endif
 
-    if (popProfilerFrame)
-        cx->geckoProfiler().exit(script, maybeFun);
+    if (popProfilerFrame) cx->geckoProfiler().exit(script, maybeFun);
 }
 
-inline bool
-probes::StartExecution(JSScript* script)
-{
+inline bool probes::StartExecution(JSScript* script) {
     bool ok = true;
 
 #ifdef INCLUDE_MOZILLA_DTRACE
@@ -77,9 +64,7 @@ probes::StartExecution(JSScript* script)
     return ok;
 }
 
-inline bool
-probes::StopExecution(JSScript* script)
-{
+inline bool probes::StopExecution(JSScript* script) {
     bool ok = true;
 
 #ifdef INCLUDE_MOZILLA_DTRACE

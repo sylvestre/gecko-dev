@@ -37,10 +37,9 @@ class InputEventStatistics
     nsTArray<TimeDuration> mBuffer;
     TimeDuration mTotal;
 
-  public:
+   public:
     TimeDurationCircularBuffer(uint32_t aSize, TimeDuration& aDefaultValue)
-      : mSize(aSize)
-      , mCurrentIndex(0)
+        : mSize(aSize), mCurrentIndex(0)
     {
       mSize = mSize == 0 ? sInputCountForPrediction : mSize;
       for (int16_t index = 0; index < mSize; ++index) {
@@ -71,13 +70,13 @@ class InputEventStatistics
   // can't. This is a trick that ensures that we're the only code that can
   // construct ourselves: nobody else can access ConstructorCookie and therefore
   // nobody else can construct an InputEventStatistics.
-  struct ConstructorCookie {};
-
-public:
-  explicit InputEventStatistics(ConstructorCookie&&);
-  ~InputEventStatistics()
+  struct ConstructorCookie
   {
-  }
+  };
+
+ public:
+  explicit InputEventStatistics(ConstructorCookie&&);
+  ~InputEventStatistics() {}
 
   static InputEventStatistics& Get()
   {
@@ -99,29 +98,24 @@ public:
 
   TimeStamp GetInputHandlingStartTime(uint32_t aInputCount);
 
-  void SetEnable(bool aEnable)
-  {
-    mEnable = aEnable;
-  }
+  void SetEnable(bool aEnable) { mEnable = aEnable; }
 };
 
 class MOZ_RAII AutoTimeDurationHelper final
 {
-public:
-  AutoTimeDurationHelper()
-  {
-    mStartTime = TimeStamp::Now();
-  }
+ public:
+  AutoTimeDurationHelper() { mStartTime = TimeStamp::Now(); }
 
   ~AutoTimeDurationHelper()
   {
-    InputEventStatistics::Get().UpdateInputDuration(TimeStamp::Now() - mStartTime);
+    InputEventStatistics::Get().UpdateInputDuration(TimeStamp::Now() -
+                                                    mStartTime);
   }
 
-private:
+ private:
   TimeStamp mStartTime;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // InputEventStatistics_h_
+#endif  // InputEventStatistics_h_

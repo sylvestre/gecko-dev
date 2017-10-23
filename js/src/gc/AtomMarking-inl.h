@@ -13,45 +13,31 @@
 namespace js {
 namespace gc {
 
-inline size_t
-GetAtomBit(TenuredCell* thing)
-{
+inline size_t GetAtomBit(TenuredCell* thing) {
     MOZ_ASSERT(thing->zoneFromAnyThread()->isAtomsZone());
     Arena* arena = thing->arena();
-    size_t arenaBit = (reinterpret_cast<uintptr_t>(thing) - arena->address()) / CellBytesPerMarkBit;
+    size_t arenaBit =
+        (reinterpret_cast<uintptr_t>(thing) - arena->address()) / CellBytesPerMarkBit;
     return arena->atomBitmapStart() * JS_BITS_PER_WORD + arenaBit;
 }
 
-inline bool
-ThingIsPermanent(JSAtom* atom)
-{
-    return atom->isPermanentAtom();
-}
+inline bool ThingIsPermanent(JSAtom* atom) { return atom->isPermanentAtom(); }
 
-inline bool
-ThingIsPermanent(JS::Symbol* symbol)
-{
-    return symbol->isWellKnownSymbol();
-}
+inline bool ThingIsPermanent(JS::Symbol* symbol) { return symbol->isWellKnownSymbol(); }
 
 template <typename T>
-MOZ_ALWAYS_INLINE void
-AtomMarkingRuntime::inlinedMarkAtom(JSContext* cx, T* thing)
-{
-    static_assert(mozilla::IsSame<T, JSAtom>::value ||
-                  mozilla::IsSame<T, JS::Symbol>::value,
+MOZ_ALWAYS_INLINE void AtomMarkingRuntime::inlinedMarkAtom(JSContext* cx, T* thing) {
+    static_assert(mozilla::IsSame<T, JSAtom>::value || mozilla::IsSame<T, JS::Symbol>::value,
                   "Should only be called with JSAtom* or JS::Symbol* argument");
 
     MOZ_ASSERT(thing);
     MOZ_ASSERT(thing->zoneFromAnyThread()->isAtomsZone());
 
     // The context's zone will be null during initialization of the runtime.
-    if (!cx->zone())
-        return;
+    if (!cx->zone()) return;
     MOZ_ASSERT(!cx->zone()->isAtomsZone());
 
-    if (ThingIsPermanent(thing))
-        return;
+    if (ThingIsPermanent(thing)) return;
 
     size_t bit = GetAtomBit(thing);
     MOZ_ASSERT(bit / JS_BITS_PER_WORD < allocatedWords);
@@ -72,5 +58,5 @@ AtomMarkingRuntime::inlinedMarkAtom(JSContext* cx, T* thing)
     markChildren(cx, thing);
 }
 
-} // namespace gc
-} // namespace js
+}  // namespace gc
+}  // namespace js

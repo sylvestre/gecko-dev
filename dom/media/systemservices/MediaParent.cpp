@@ -45,33 +45,35 @@ class OriginKeyStore : public nsISupports
   NS_DECL_THREADSAFE_ISUPPORTS
   class OriginKey
   {
-  public:
+   public:
     static const size_t DecodedLength = 18;
     static const size_t EncodedLength = DecodedLength * 4 / 3;
 
-    explicit OriginKey(const nsACString& aKey, int64_t aSecondsStamp = 0) // 0 = temporal
-    : mKey(aKey)
-    , mSecondsStamp(aSecondsStamp) {}
+    explicit OriginKey(const nsACString& aKey,
+                       int64_t aSecondsStamp = 0)  // 0 = temporal
+        : mKey(aKey), mSecondsStamp(aSecondsStamp)
+    {
+    }
 
-    nsCString mKey; // Base64 encoded.
+    nsCString mKey;  // Base64 encoded.
     int64_t mSecondsStamp;
   };
 
   class OriginKeysTable
   {
-  public:
+   public:
     OriginKeysTable() : mPersistCount(0) {}
 
-    nsresult
-    GetPrincipalKey(const ipc::PrincipalInfo& aPrincipalInfo,
-                    nsCString& aResult, bool aPersist = false)
+    nsresult GetPrincipalKey(const ipc::PrincipalInfo& aPrincipalInfo,
+                             nsCString& aResult,
+                             bool aPersist = false)
     {
       nsAutoCString principalString;
       PrincipalInfoToString(aPrincipalInfo, principalString);
 
       OriginKey* key;
       if (!mKeys.Get(principalString, &key)) {
-        nsCString salt; // Make a new one
+        nsCString salt;  // Make a new one
         nsresult rv = GenerateRandomName(salt, key->EncodedLength);
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return rv;
@@ -90,13 +92,15 @@ class OriginKeyStore : public nsISupports
     void Clear(int64_t aSinceWhen)
     {
       // Avoid int64_t* <-> void* casting offset
-      OriginKey since(nsCString(), aSinceWhen  / PR_USEC_PER_SEC);
+      OriginKey since(nsCString(), aSinceWhen / PR_USEC_PER_SEC);
       for (auto iter = mKeys.Iter(); !iter.Done(); iter.Next()) {
         nsAutoPtr<OriginKey>& originKey = iter.Data();
-        LOG((((originKey->mSecondsStamp >= since.mSecondsStamp)?
-              "%s: REMOVE %" PRId64 " >= %" PRId64 :
-              "%s: KEEP   %" PRId64 " < %" PRId64),
-              __FUNCTION__, originKey->mSecondsStamp, since.mSecondsStamp));
+        LOG((((originKey->mSecondsStamp >= since.mSecondsStamp)
+                  ? "%s: REMOVE %" PRId64 " >= %" PRId64
+                  : "%s: KEEP   %" PRId64 " < %" PRId64),
+             __FUNCTION__,
+             originKey->mSecondsStamp,
+             since.mSecondsStamp));
 
         if (originKey->mSecondsStamp >= since.mSecondsStamp) {
           iter.Remove();
@@ -105,10 +109,9 @@ class OriginKeyStore : public nsISupports
       mPersistCount = 0;
     }
 
-  private:
-    void
-    PrincipalInfoToString(const ipc::PrincipalInfo& aPrincipalInfo,
-                          nsACString& aString)
+   private:
+    void PrincipalInfoToString(const ipc::PrincipalInfo& aPrincipalInfo,
+                               nsACString& aString)
     {
       switch (aPrincipalInfo.type()) {
         case ipc::PrincipalInfo::TSystemPrincipalInfo:
@@ -117,14 +120,14 @@ class OriginKeyStore : public nsISupports
 
         case ipc::PrincipalInfo::TNullPrincipalInfo: {
           const ipc::NullPrincipalInfo& info =
-            aPrincipalInfo.get_NullPrincipalInfo();
+              aPrincipalInfo.get_NullPrincipalInfo();
           aString.Assign(info.spec());
           return;
         }
 
         case ipc::PrincipalInfo::TContentPrincipalInfo: {
           const ipc::ContentPrincipalInfo& info =
-            aPrincipalInfo.get_ContentPrincipalInfo();
+              aPrincipalInfo.get_ContentPrincipalInfo();
           aString.Assign(info.originNoSuffix());
 
           nsAutoCString suffix;
@@ -135,7 +138,7 @@ class OriginKeyStore : public nsISupports
 
         case ipc::PrincipalInfo::TExpandedPrincipalInfo: {
           const ipc::ExpandedPrincipalInfo& info =
-            aPrincipalInfo.get_ExpandedPrincipalInfo();
+              aPrincipalInfo.get_ExpandedPrincipalInfo();
 
           aString.AssignLiteral("[Expanded Principal [");
 
@@ -159,23 +162,23 @@ class OriginKeyStore : public nsISupports
       }
     }
 
-  protected:
+   protected:
     nsClassHashtable<nsCStringHashKey, OriginKey> mKeys;
     size_t mPersistCount;
   };
 
   class OriginKeysLoader : public OriginKeysTable
   {
-  public:
+   public:
     OriginKeysLoader() {}
 
-    nsresult
-    GetPrincipalKey(const ipc::PrincipalInfo& aPrincipalInfo,
-                    nsCString& aResult, bool aPersist = false)
+    nsresult GetPrincipalKey(const ipc::PrincipalInfo& aPrincipalInfo,
+                             nsCString& aResult,
+                             bool aPersist = false)
     {
       auto before = mPersistCount;
-      nsresult rv = OriginKeysTable::GetPrincipalKey(aPrincipalInfo, aResult,
-                                                     aPersist);
+      nsresult rv =
+          OriginKeysTable::GetPrincipalKey(aPrincipalInfo, aResult, aPersist);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -186,8 +189,7 @@ class OriginKeyStore : public nsISupports
       return NS_OK;
     }
 
-    already_AddRefed<nsIFile>
-    GetFile()
+    already_AddRefed<nsIFile> GetFile()
     {
       MOZ_ASSERT(mProfileDir);
       nsCOMPtr<nsIFile> file;
@@ -253,7 +255,7 @@ class OriginKeyStore : public nsISupports
           continue;
         }
         const nsACString& key = Substring(line, 0, f);
-        const nsACString& s = Substring(line, f+1);
+        const nsACString& s = Substring(line, f + 1);
         f = s.FindChar(' ');
         if (f < 0) {
           continue;
@@ -262,7 +264,7 @@ class OriginKeyStore : public nsISupports
         if (NS_FAILED(rv)) {
           continue;
         }
-        const nsACString& origin = Substring(s, f+1);
+        const nsACString& origin = Substring(s, f + 1);
 
         // Validate key
         if (key.Length() != OriginKey::EncodedLength) {
@@ -279,8 +281,7 @@ class OriginKeyStore : public nsISupports
       return NS_OK;
     }
 
-    nsresult
-    Write()
+    nsresult Write()
     {
       nsCOMPtr<nsIFile> file = GetFile();
       if (NS_WARN_IF(!file)) {
@@ -288,7 +289,8 @@ class OriginKeyStore : public nsISupports
       }
 
       nsCOMPtr<nsIOutputStream> stream;
-      nsresult rv = NS_NewSafeLocalFileOutputStream(getter_AddRefs(stream), file);
+      nsresult rv =
+          NS_NewSafeLocalFileOutputStream(getter_AddRefs(stream), file);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -310,7 +312,7 @@ class OriginKeyStore : public nsISupports
         OriginKey* originKey = iter.UserData();
 
         if (!originKey->mSecondsStamp) {
-          continue; // don't write temporal ones
+          continue;  // don't write temporal ones
         }
 
         nsCString originBuffer;
@@ -379,8 +381,7 @@ class OriginKeyStore : public nsISupports
       return NS_OK;
     }
 
-    void
-    SetProfileDir(nsIFile* aProfileDir)
+    void SetProfileDir(nsIFile* aProfileDir)
     {
       MOZ_ASSERT(!NS_IsMainThread());
       bool first = !mProfileDir;
@@ -390,11 +391,12 @@ class OriginKeyStore : public nsISupports
         Load();
       }
     }
-  private:
+
+   private:
     nsCOMPtr<nsIFile> mProfileDir;
   };
 
-private:
+ private:
   virtual ~OriginKeyStore()
   {
     StaticMutexAutoLock lock(sOriginKeyStoreMutex);
@@ -402,7 +404,7 @@ private:
     LOG((__FUNCTION__));
   }
 
-public:
+ public:
   static OriginKeyStore* Get()
   {
     MOZ_ASSERT(NS_IsMainThread());
@@ -420,20 +422,23 @@ public:
 
 NS_IMPL_ISUPPORTS0(OriginKeyStore)
 
-bool NonE10s::SendGetPrincipalKeyResponse(const uint32_t& aRequestId,
-                                          nsCString aKey) {
+bool
+NonE10s::SendGetPrincipalKeyResponse(const uint32_t& aRequestId, nsCString aKey)
+{
   MediaManager* mgr = MediaManager::GetIfExists();
   if (!mgr) {
     return false;
   }
-  RefPtr<Pledge<nsCString>> pledge = mgr->mGetPrincipalKeyPledges.Remove(aRequestId);
+  RefPtr<Pledge<nsCString>> pledge =
+      mgr->mGetPrincipalKeyPledges.Remove(aRequestId);
   if (pledge) {
     pledge->Resolve(aKey);
   }
   return true;
 }
 
-template<class Super> mozilla::ipc::IPCResult
+template<class Super>
+mozilla::ipc::IPCResult
 Parent<Super>::RecvGetPrincipalKey(const uint32_t& aRequestId,
                                    const ipc::PrincipalInfo& aPrincipalInfo,
                                    const bool& aPersist)
@@ -456,50 +461,56 @@ Parent<Super>::RecvGetPrincipalKey(const uint32_t& aRequestId,
   RefPtr<Pledge<nsCString>> p = new Pledge<nsCString>();
   uint32_t id = mOutstandingPledges.Append(*p);
 
-  nsCOMPtr<nsIEventTarget> sts = do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+  nsCOMPtr<nsIEventTarget> sts =
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   MOZ_ASSERT(sts);
   RefPtr<Parent<Super>> that(this);
 
-  rv = sts->Dispatch(NewRunnableFrom([this, that, id, profileDir,
-                                      aPrincipalInfo, aPersist]() -> nsresult {
-    MOZ_ASSERT(!NS_IsMainThread());
-    StaticMutexAutoLock lock(sOriginKeyStoreMutex);
-    if (!sOriginKeyStore) {
-      return NS_ERROR_FAILURE;
-    }
-    sOriginKeyStore->mOriginKeys.SetProfileDir(profileDir);
+  rv = sts->Dispatch(
+      NewRunnableFrom(
+          [this, that, id, profileDir, aPrincipalInfo, aPersist]() -> nsresult {
+            MOZ_ASSERT(!NS_IsMainThread());
+            StaticMutexAutoLock lock(sOriginKeyStoreMutex);
+            if (!sOriginKeyStore) {
+              return NS_ERROR_FAILURE;
+            }
+            sOriginKeyStore->mOriginKeys.SetProfileDir(profileDir);
 
-    nsresult rv;
-    nsAutoCString result;
-    if (IsPincipalInfoPrivate(aPrincipalInfo)) {
-      rv = sOriginKeyStore->mPrivateBrowsingOriginKeys.GetPrincipalKey(aPrincipalInfo, result);
-    } else {
-      rv = sOriginKeyStore->mOriginKeys.GetPrincipalKey(aPrincipalInfo, result, aPersist);
-    }
+            nsresult rv;
+            nsAutoCString result;
+            if (IsPincipalInfoPrivate(aPrincipalInfo)) {
+              rv = sOriginKeyStore->mPrivateBrowsingOriginKeys.GetPrincipalKey(
+                  aPrincipalInfo, result);
+            } else {
+              rv = sOriginKeyStore->mOriginKeys.GetPrincipalKey(
+                  aPrincipalInfo, result, aPersist);
+            }
 
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+            if (NS_WARN_IF(NS_FAILED(rv))) {
+              return rv;
+            }
 
-    // Pass result back to main thread.
-    rv = NS_DispatchToMainThread(NewRunnableFrom([this, that, id,
-                                                  result]() -> nsresult {
-      if (mDestroyed) {
-        return NS_OK;
-      }
-      RefPtr<Pledge<nsCString>> p = mOutstandingPledges.Remove(id);
-      if (!p) {
-        return NS_ERROR_UNEXPECTED;
-      }
-      p->Resolve(result);
-      return NS_OK;
-    }), NS_DISPATCH_NORMAL);
+            // Pass result back to main thread.
+            rv = NS_DispatchToMainThread(
+                NewRunnableFrom([this, that, id, result]() -> nsresult {
+                  if (mDestroyed) {
+                    return NS_OK;
+                  }
+                  RefPtr<Pledge<nsCString>> p = mOutstandingPledges.Remove(id);
+                  if (!p) {
+                    return NS_ERROR_UNEXPECTED;
+                  }
+                  p->Resolve(result);
+                  return NS_OK;
+                }),
+                NS_DISPATCH_NORMAL);
 
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-    return NS_OK;
-  }), NS_DISPATCH_NORMAL);
+            if (NS_WARN_IF(NS_FAILED(rv))) {
+              return rv;
+            }
+            return NS_OK;
+          }),
+      NS_DISPATCH_NORMAL);
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return IPCResult(this, false);
@@ -514,43 +525,48 @@ Parent<Super>::RecvGetPrincipalKey(const uint32_t& aRequestId,
   return IPC_OK();
 }
 
-template<class Super> mozilla::ipc::IPCResult
+template<class Super>
+mozilla::ipc::IPCResult
 Parent<Super>::RecvSanitizeOriginKeys(const uint64_t& aSinceWhen,
                                       const bool& aOnlyPrivateBrowsing)
 {
   MOZ_ASSERT(NS_IsMainThread());
   nsCOMPtr<nsIFile> profileDir;
   nsresult rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
-                                         getter_AddRefs(profileDir));
+                                       getter_AddRefs(profileDir));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return IPCResult(this, false);
   }
   // Over to stream-transport thread (a thread pool) to do the file io.
 
-  nsCOMPtr<nsIEventTarget> sts = do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+  nsCOMPtr<nsIEventTarget> sts =
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   MOZ_ASSERT(sts);
 
-  rv = sts->Dispatch(NewRunnableFrom([profileDir, aSinceWhen,
-                                      aOnlyPrivateBrowsing]() -> nsresult {
-    MOZ_ASSERT(!NS_IsMainThread());
-    StaticMutexAutoLock lock(sOriginKeyStoreMutex);
-    if (!sOriginKeyStore) {
-      return NS_ERROR_FAILURE;
-    }
-    sOriginKeyStore->mPrivateBrowsingOriginKeys.Clear(aSinceWhen);
-    if (!aOnlyPrivateBrowsing) {
-      sOriginKeyStore->mOriginKeys.SetProfileDir(profileDir);
-      sOriginKeyStore->mOriginKeys.Clear(aSinceWhen);
-    }
-    return NS_OK;
-  }), NS_DISPATCH_NORMAL);
+  rv = sts->Dispatch(
+      NewRunnableFrom(
+          [profileDir, aSinceWhen, aOnlyPrivateBrowsing]() -> nsresult {
+            MOZ_ASSERT(!NS_IsMainThread());
+            StaticMutexAutoLock lock(sOriginKeyStoreMutex);
+            if (!sOriginKeyStore) {
+              return NS_ERROR_FAILURE;
+            }
+            sOriginKeyStore->mPrivateBrowsingOriginKeys.Clear(aSinceWhen);
+            if (!aOnlyPrivateBrowsing) {
+              sOriginKeyStore->mOriginKeys.SetProfileDir(profileDir);
+              sOriginKeyStore->mOriginKeys.Clear(aSinceWhen);
+            }
+            return NS_OK;
+          }),
+      NS_DISPATCH_NORMAL);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return IPCResult(this, false);
   }
   return IPC_OK();
 }
 
-template<class Super> void
+template<class Super>
+void
 Parent<Super>::ActorDestroy(ActorDestroyReason aWhy)
 {
   // No more IPC from here
@@ -560,8 +576,7 @@ Parent<Super>::ActorDestroy(ActorDestroyReason aWhy)
 
 template<class Super>
 Parent<Super>::Parent()
-  : mOriginKeyStore(OriginKeyStore::Get())
-  , mDestroyed(false)
+    : mOriginKeyStore(OriginKeyStore::Get()), mDestroyed(false)
 {
   LOG(("media::Parent: %p", this));
 }
@@ -581,14 +596,14 @@ AllocPMediaParent()
 }
 
 bool
-DeallocPMediaParent(media::PMediaParent *aActor)
+DeallocPMediaParent(media::PMediaParent* aActor)
 {
   static_cast<Parent<PMediaParent>*>(aActor)->Release();
   return true;
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
 // Instantiate templates to satisfy linker
 template class mozilla::media::Parent<mozilla::media::NonE10s>;

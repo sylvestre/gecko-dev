@@ -46,16 +46,14 @@ static bool sVideoStatsEnabled;
 NS_IMPL_ELEMENT_CLONE(HTMLVideoElement)
 
 HTMLVideoElement::HTMLVideoElement(already_AddRefed<NodeInfo>& aNodeInfo)
-  : HTMLMediaElement(aNodeInfo)
-  , mIsOrientationLocked(false)
+    : HTMLMediaElement(aNodeInfo), mIsOrientationLocked(false)
 {
 }
 
-HTMLVideoElement::~HTMLVideoElement()
-{
-}
+HTMLVideoElement::~HTMLVideoElement() {}
 
-nsresult HTMLVideoElement::GetVideoSize(nsIntSize* size)
+nsresult
+HTMLVideoElement::GetVideoSize(nsIntSize* size)
 {
   if (!mMediaInfo.HasVideo()) {
     return NS_ERROR_FAILURE;
@@ -89,12 +87,12 @@ HTMLVideoElement::ParseAttribute(int32_t aNamespaceID,
                                  const nsAString& aValue,
                                  nsAttrValue& aResult)
 {
-   if (aAttribute == nsGkAtoms::width || aAttribute == nsGkAtoms::height) {
-     return aResult.ParseSpecialIntValue(aValue);
-   }
+  if (aAttribute == nsGkAtoms::width || aAttribute == nsGkAtoms::height) {
+    return aResult.ParseSpecialIntValue(aValue);
+  }
 
-   return HTMLMediaElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                           aResult);
+  return HTMLMediaElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
@@ -109,15 +107,10 @@ NS_IMETHODIMP_(bool)
 HTMLVideoElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::width },
-    { &nsGkAtoms::height },
-    { nullptr }
-  };
+      {&nsGkAtoms::width}, {&nsGkAtoms::height}, {nullptr}};
 
-  static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sCommonAttributeMap
-  };
+  static const MappedAttributeEntry* const map[] = {attributes,
+                                                    sCommonAttributeMap};
 
   return FindAttributeDependence(aAttribute, map);
 }
@@ -128,7 +121,8 @@ HTMLVideoElement::GetAttributeMappingFunction() const
   return &MapAttributesIntoRule;
 }
 
-nsresult HTMLVideoElement::SetAcceptHeader(nsIHttpChannel* aChannel)
+nsresult
+HTMLVideoElement::SetAcceptHeader(nsIHttpChannel* aChannel)
 {
   nsAutoCString value(
       "video/webm,"
@@ -137,9 +131,7 @@ nsresult HTMLVideoElement::SetAcceptHeader(nsIHttpChannel* aChannel)
       "application/ogg;q=0.7,"
       "audio/*;q=0.6,*/*;q=0.5");
 
-  return aChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"),
-                                    value,
-                                    false);
+  return aChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"), value, false);
 }
 
 bool
@@ -149,7 +141,8 @@ HTMLVideoElement::IsInteractiveHTMLContent(bool aIgnoreTabindex) const
          HTMLMediaElement::IsInteractiveHTMLContent(aIgnoreTabindex);
 }
 
-uint32_t HTMLVideoElement::MozParsedFrames() const
+uint32_t
+HTMLVideoElement::MozParsedFrames() const
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread.");
   if (!IsVideoStatsEnabled()) {
@@ -163,7 +156,8 @@ uint32_t HTMLVideoElement::MozParsedFrames() const
   return mDecoder ? mDecoder->GetFrameStatistics().GetParsedFrames() : 0;
 }
 
-uint32_t HTMLVideoElement::MozDecodedFrames() const
+uint32_t
+HTMLVideoElement::MozDecodedFrames() const
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread.");
   if (!IsVideoStatsEnabled()) {
@@ -177,7 +171,8 @@ uint32_t HTMLVideoElement::MozDecodedFrames() const
   return mDecoder ? mDecoder->GetFrameStatistics().GetDecodedFrames() : 0;
 }
 
-uint32_t HTMLVideoElement::MozPresentedFrames() const
+uint32_t
+HTMLVideoElement::MozPresentedFrames() const
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread.");
   if (!IsVideoStatsEnabled()) {
@@ -185,13 +180,15 @@ uint32_t HTMLVideoElement::MozPresentedFrames() const
   }
 
   if (nsContentUtils::ShouldResistFingerprinting(OwnerDoc())) {
-    return nsRFPService::GetSpoofedPresentedFrames(TotalPlayTime(), VideoWidth(), VideoHeight());
+    return nsRFPService::GetSpoofedPresentedFrames(
+        TotalPlayTime(), VideoWidth(), VideoHeight());
   }
 
   return mDecoder ? mDecoder->GetFrameStatistics().GetPresentedFrames() : 0;
 }
 
-uint32_t HTMLVideoElement::MozPaintedFrames()
+uint32_t
+HTMLVideoElement::MozPaintedFrames()
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread.");
   if (!IsVideoStatsEnabled()) {
@@ -199,14 +196,16 @@ uint32_t HTMLVideoElement::MozPaintedFrames()
   }
 
   if (nsContentUtils::ShouldResistFingerprinting(OwnerDoc())) {
-    return nsRFPService::GetSpoofedPresentedFrames(TotalPlayTime(), VideoWidth(), VideoHeight());
+    return nsRFPService::GetSpoofedPresentedFrames(
+        TotalPlayTime(), VideoWidth(), VideoHeight());
   }
 
   layers::ImageContainer* container = GetImageContainer();
   return container ? container->GetPaintCount() : 0;
 }
 
-double HTMLVideoElement::MozFrameDelay()
+double
+HTMLVideoElement::MozFrameDelay()
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread.");
 
@@ -223,7 +222,8 @@ double HTMLVideoElement::MozFrameDelay()
   return container ? std::max(0.0, container->GetFrameDelay()) : 0.0;
 }
 
-bool HTMLVideoElement::MozHasAudio() const
+bool
+HTMLVideoElement::MozHasAudio() const
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on main thread.");
   return HasAudio();
@@ -260,13 +260,12 @@ HTMLVideoElement::GetVideoPlaybackQuality()
     if (mDecoder) {
       if (nsContentUtils::ShouldResistFingerprinting(OwnerDoc())) {
         totalFrames = nsRFPService::GetSpoofedTotalFrames(TotalPlayTime());
-        droppedFrames = nsRFPService::GetSpoofedDroppedFrames(TotalPlayTime(),
-                                                              VideoWidth(),
-                                                              VideoHeight());
+        droppedFrames = nsRFPService::GetSpoofedDroppedFrames(
+            TotalPlayTime(), VideoWidth(), VideoHeight());
         corruptedFrames = 0;
       } else {
         FrameStatisticsData stats =
-          mDecoder->GetFrameStatistics().GetFrameStatisticsData();
+            mDecoder->GetFrameStatistics().GetFrameStatisticsData();
         if (sizeof(totalFrames) >= sizeof(stats.mParsedFrames)) {
           totalFrames = stats.mPresentedFrames + stats.mDroppedFrames;
           droppedFrames = stats.mDroppedFrames;
@@ -279,7 +278,7 @@ HTMLVideoElement::GetVideoPlaybackQuality()
           } else {
             // Too big number(s) -> Resize everything to fit in 32 bits.
             double ratio = double(maxNumber) / double(total);
-            totalFrames = maxNumber; // === total * ratio
+            totalFrames = maxNumber;  // === total * ratio
             droppedFrames = uint32_t(double(stats.mDroppedFrames) * ratio);
           }
         }
@@ -288,9 +287,8 @@ HTMLVideoElement::GetVideoPlaybackQuality()
     }
   }
 
-  RefPtr<VideoPlaybackQuality> playbackQuality =
-    new VideoPlaybackQuality(this, creationTime, totalFrames, droppedFrames,
-                             corruptedFrames);
+  RefPtr<VideoPlaybackQuality> playbackQuality = new VideoPlaybackQuality(
+      this, creationTime, totalFrames, droppedFrames, corruptedFrames);
   return playbackQuality.forget();
 }
 
@@ -321,20 +319,20 @@ HTMLVideoElement::UpdateScreenWakeLock()
 
   if (!mScreenWakeLock && !mPaused && HasVideo()) {
     RefPtr<power::PowerManagerService> pmService =
-      power::PowerManagerService::GetInstance();
+        power::PowerManagerService::GetInstance();
     NS_ENSURE_TRUE_VOID(pmService);
 
     ErrorResult rv;
-    mScreenWakeLock = pmService->NewWakeLock(NS_LITERAL_STRING("video-playing"),
-                                             OwnerDoc()->GetInnerWindow(),
-                                             rv);
+    mScreenWakeLock = pmService->NewWakeLock(
+        NS_LITERAL_STRING("video-playing"), OwnerDoc()->GetInnerWindow(), rv);
   }
 }
 
 void
 HTMLVideoElement::Init()
 {
-  Preferences::AddBoolVarCache(&sVideoStatsEnabled, "media.video_stats.enabled");
+  Preferences::AddBoolVarCache(&sVideoStatsEnabled,
+                               "media.video_stats.enabled");
 }
 
 /* static */
@@ -372,5 +370,5 @@ HTMLVideoElement::TotalPlayTime() const
   return total;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

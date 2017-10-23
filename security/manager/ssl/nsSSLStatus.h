@@ -7,7 +7,7 @@
 #ifndef _NSSSLSTATUS_H
 #define _NSSSLSTATUS_H
 
-#include "CertVerifier.h" // For CertificateTransparencyInfo
+#include "CertVerifier.h"  // For CertificateTransparencyInfo
 #include "nsISSLStatus.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
@@ -17,19 +17,20 @@
 
 class nsNSSCertificate;
 
-enum class EVStatus {
+enum class EVStatus
+{
   NotEV = 0,
   EV = 1,
 };
 
-class nsSSLStatus final
-  : public nsISSLStatus
-  , public nsISerializable
-  , public nsIClassInfo
+class nsSSLStatus final : public nsISSLStatus,
+                          public nsISerializable,
+                          public nsIClassInfo
 {
-protected:
+ protected:
   virtual ~nsSSLStatus();
-public:
+
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISSLSTATUS
   NS_DECL_NSISERIALIZABLE
@@ -39,12 +40,10 @@ public:
 
   void SetServerCert(nsNSSCertificate* aServerCert, EVStatus aEVStatus);
 
-  bool HasServerCert() {
-    return mServerCert != nullptr;
-  }
+  bool HasServerCert() { return mServerCert != nullptr; }
 
   void SetCertificateTransparencyInfo(
-    const mozilla::psm::CertificateTransparencyInfo& info);
+      const mozilla::psm::CertificateTransparencyInfo& info);
 
   /* public for initilization in this file */
   uint16_t mCipherSuite;
@@ -65,12 +64,16 @@ public:
      connection is eligible for joining in nsNSSSocketInfo::JoinConnection() */
   bool mHaveCertErrorBits;
 
-private:
+ private:
   nsCOMPtr<nsIX509Cert> mServerCert;
 };
 
-#define NS_SSLSTATUS_CID \
-{ 0xe2f14826, 0x9e70, 0x4647, \
-  { 0xb2, 0x3f, 0x10, 0x10, 0xf5, 0x12, 0x46, 0x28 } }
+#define NS_SSLSTATUS_CID                             \
+  {                                                  \
+    0xe2f14826, 0x9e70, 0x4647,                      \
+    {                                                \
+      0xb2, 0x3f, 0x10, 0x10, 0xf5, 0x12, 0x46, 0x28 \
+    }                                                \
+  }
 
 #endif

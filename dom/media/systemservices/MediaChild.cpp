@@ -39,8 +39,9 @@ GetPrincipalKey(const ipc::PrincipalInfo& aPrincipalInfo, bool aPersist)
 void
 SanitizeOriginKeys(const uint64_t& aSinceWhen, bool aOnlyPrivateBrowsing)
 {
-  LOG(("SanitizeOriginKeys since %" PRIu64 " %s", aSinceWhen,
-       (aOnlyPrivateBrowsing? "in Private Browsing." : ".")));
+  LOG(("SanitizeOriginKeys since %" PRIu64 " %s",
+       aSinceWhen,
+       (aOnlyPrivateBrowsing ? "in Private Browsing." : ".")));
 
   if (XRE_GetProcessType() == GeckoProcessType_Default) {
     // Avoid opening MediaManager in this case, since this is called by
@@ -54,18 +55,19 @@ SanitizeOriginKeys(const uint64_t& aSinceWhen, bool aOnlyPrivateBrowsing)
 
 static Child* sChild;
 
-Child* Child::Get()
+Child*
+Child::Get()
 {
   MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_Content);
   MOZ_ASSERT(NS_IsMainThread());
   if (!sChild) {
-    sChild = static_cast<Child*>(dom::ContentChild::GetSingleton()->SendPMediaConstructor());
+    sChild = static_cast<Child*>(
+        dom::ContentChild::GetSingleton()->SendPMediaConstructor());
   }
   return sChild;
 }
 
-Child::Child()
-  : mActorDestroyed(false)
+Child::Child() : mActorDestroyed(false)
 {
   LOG(("media::Child: %p", this));
   MOZ_COUNT_CTOR(Child);
@@ -78,7 +80,8 @@ Child::~Child()
   MOZ_COUNT_DTOR(Child);
 }
 
-void Child::ActorDestroy(ActorDestroyReason aWhy)
+void
+Child::ActorDestroy(ActorDestroyReason aWhy)
 {
   mActorDestroyed = true;
 }
@@ -92,7 +95,7 @@ Child::RecvGetPrincipalKeyResponse(const uint32_t& aRequestId,
     return IPC_FAIL_NO_REASON(this);
   }
   RefPtr<Pledge<nsCString>> pledge =
-    mgr->mGetPrincipalKeyPledges.Remove(aRequestId);
+      mgr->mGetPrincipalKeyPledges.Remove(aRequestId);
   if (pledge) {
     pledge->Resolve(aKey);
   }
@@ -106,11 +109,11 @@ AllocPMediaChild()
 }
 
 bool
-DeallocPMediaChild(media::PMediaChild *aActor)
+DeallocPMediaChild(media::PMediaChild* aActor)
 {
   delete static_cast<Child*>(aActor);
   return true;
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla

@@ -13,7 +13,7 @@
 #include "nsISupportsImpl.h"
 
 typedef struct srtp_policy_t srtp_policy_t;
-typedef struct srtp_ctx_t *srtp_t;
+typedef struct srtp_ctx_t* srtp_t;
 typedef struct srtp_event_data_t srtp_event_data_t;
 
 namespace mozilla {
@@ -24,38 +24,32 @@ namespace mozilla {
 
 // SRTCP requires an auth tag *plus* a 4-byte index-plus-'E'-bit value (see
 // RFC 3711)
-#define SRTP_MAX_EXPANSION (SRTP_MAX_TRAILER_LEN+4)
+#define SRTP_MAX_EXPANSION (SRTP_MAX_TRAILER_LEN + 4)
 
-
-class SrtpFlow {
+class SrtpFlow
+{
   ~SrtpFlow();
+
  public:
-
-
   static RefPtr<SrtpFlow> Create(int cipher_suite,
-                                          bool inbound,
-                                          const void *key,
-                                          size_t key_len);
+                                 bool inbound,
+                                 const void* key,
+                                 size_t key_len);
 
-  nsresult ProtectRtp(void *in, int in_len,
-                      int max_len, int *out_len);
-  nsresult UnprotectRtp(void *in, int in_len,
-                        int max_len, int *out_len);
-  nsresult ProtectRtcp(void *in, int in_len,
-                       int max_len, int *out_len);
-  nsresult UnprotectRtcp(void *in, int in_len,
-                         int max_len, int *out_len);
+  nsresult ProtectRtp(void* in, int in_len, int max_len, int* out_len);
+  nsresult UnprotectRtp(void* in, int in_len, int max_len, int* out_len);
+  nsresult ProtectRtcp(void* in, int in_len, int max_len, int* out_len);
+  nsresult UnprotectRtcp(void* in, int in_len, int max_len, int* out_len);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SrtpFlow)
 
-  static void srtp_event_handler(srtp_event_data_t *data);
-
+  static void srtp_event_handler(srtp_event_data_t* data);
 
  private:
   SrtpFlow() : session_(nullptr) {}
 
-  nsresult CheckInputs(bool protect, void *in, int in_len,
-                       int max_len, int *out_len);
+  nsresult CheckInputs(
+      bool protect, void* in, int in_len, int max_len, int* out_len);
 
   static nsresult Init();
   static bool initialized;  // Was libsrtp initialized? Only happens once.
@@ -65,4 +59,3 @@ class SrtpFlow {
 
 }  // End of namespace
 #endif
-

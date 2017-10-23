@@ -13,7 +13,7 @@ namespace mozilla {
 namespace dom {
 class ContentParent;
 class TabParent;
-} // namespace dom
+}  // namespace dom
 
 /**
  * This class sets the priority of subprocesses in response to explicit
@@ -30,7 +30,7 @@ class TabParent;
  */
 class ProcessPriorityManager final
 {
-public:
+ public:
   /**
    * Initialize the ProcessPriorityManager machinery, causing the
    * ProcessPriorityManager to actively manage the priorities of all
@@ -71,11 +71,11 @@ public:
 
   static void TabActivityChanged(dom::TabParent* aTabParent, bool aIsActive);
 
-private:
+ private:
   ProcessPriorityManager();
   DISALLOW_EVIL_CONSTRUCTORS(ProcessPriorityManager);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

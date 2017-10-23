@@ -29,29 +29,29 @@ namespace wasm {
 // stateful objects exposed to WebAssembly. asm.js also uses Tables to represent
 // its homogeneous function-pointer tables.
 
-class Table : public ShareableBase<Table>
-{
-    using InstanceSet = JS::WeakCache<GCHashSet<ReadBarrieredWasmInstanceObject,
-                                                MovableCellHasher<ReadBarrieredWasmInstanceObject>,
-                                                SystemAllocPolicy>>;
+class Table : public ShareableBase<Table> {
+    using InstanceSet = JS::WeakCache<
+        GCHashSet<ReadBarrieredWasmInstanceObject,
+                  MovableCellHasher<ReadBarrieredWasmInstanceObject>, SystemAllocPolicy>>;
     using UniqueByteArray = UniquePtr<uint8_t[], JS::FreePolicy>;
 
     ReadBarrieredWasmTableObject maybeObject_;
-    InstanceSet                  observers_;
-    UniqueByteArray              array_;
-    const TableKind              kind_;
-    uint32_t                     length_;
-    const Maybe<uint32_t>        maximum_;
-    const bool                   external_;
+    InstanceSet observers_;
+    UniqueByteArray array_;
+    const TableKind kind_;
+    uint32_t length_;
+    const Maybe<uint32_t> maximum_;
+    const bool external_;
 
-    template <class> friend struct js::MallocProvider;
+    template <class>
+    friend struct js::MallocProvider;
     Table(JSContext* cx, const TableDesc& td, HandleWasmTableObject maybeObject,
           UniqueByteArray array);
 
     void tracePrivate(JSTracer* trc);
     friend class js::WasmTableObject;
 
-  public:
+   public:
     static RefPtr<Table> create(JSContext* cx, const TableDesc& desc,
                                 HandleWasmTableObject maybeObject);
     void trace(JSTracer* trc);
@@ -81,7 +81,7 @@ class Table : public ShareableBase<Table>
 typedef RefPtr<Table> SharedTable;
 typedef Vector<SharedTable, 0, SystemAllocPolicy> SharedTableVector;
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_table_h
+#endif  // wasm_table_h

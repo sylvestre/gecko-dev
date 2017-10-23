@@ -126,12 +126,13 @@ TEST(UTF, Hash16)
  * This tests the handling of a non-ascii character at various locations in a
  * UTF-16 string that is being converted to UTF-8.
  */
-void NonASCII16_helper(const size_t aStrSize)
+void
+NonASCII16_helper(const size_t aStrSize)
 {
   const size_t kTestSize = aStrSize;
   const size_t kMaxASCII = 0x80;
   const char16_t kUTF16Char = 0xC9;
-  const char kUTF8Surrogates[] = { char(0xC3), char(0x89) };
+  const char kUTF8Surrogates[] = {char(0xC3), char(0x89)};
 
   // Generate a string containing only ASCII characters.
   nsString asciiString;
@@ -188,4 +189,4 @@ TEST(UTF, NonASCII16)
   NonASCII16_helper(512);
 }
 
-} // namespace TestUTF
+}  // namespace TestUTF

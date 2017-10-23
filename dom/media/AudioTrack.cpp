@@ -17,8 +17,7 @@ AudioTrack::AudioTrack(const nsAString& aId,
                        const nsAString& aLabel,
                        const nsAString& aLanguage,
                        bool aEnabled)
-  : MediaTrack(aId, aKind, aLabel, aLanguage)
-  , mEnabled(aEnabled)
+    : MediaTrack(aId, aKind, aLabel, aLanguage), mEnabled(aEnabled)
 {
 }
 
@@ -65,5 +64,5 @@ AudioTrack::SetEnabledInternal(bool aEnabled, int aFlags)
   }
 }
 
-} // namespace dom
-} //namespace mozilla
+}  // namespace dom
+}  //namespace mozilla

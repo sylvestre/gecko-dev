@@ -11,8 +11,8 @@
 #include <shlobj.h>
 
 #ifndef IDropTargetHelper
-#include <shobjidl.h> // Vista drag image interfaces
-#undef LogSeverity // SetupAPI.h #defines this as DWORD
+#include <shobjidl.h>  // Vista drag image interfaces
+#undef LogSeverity     // SetupAPI.h #defines this as DWORD
 #endif
 
 #include "mozilla/Attributes.h"
@@ -28,8 +28,8 @@ class nsIWidget;
 
 class nsNativeDragTarget final : public IDropTarget
 {
-public:
-  explicit nsNativeDragTarget(nsIWidget * aWidget);
+ public:
+  explicit nsNativeDragTarget(nsIWidget* aWidget);
   ~nsNativeDragTarget();
 
   // IUnknown members - see iunknown.h for documentation
@@ -44,8 +44,10 @@ public:
   // in grfKeyState, and the coordinates specified by point. This is
   // called by OLE when a drag enters this object's window (as registered
   // by Initialize).
-  STDMETHODIMP DragEnter(LPDATAOBJECT pSource, DWORD grfKeyState,
-                         POINTL point, DWORD* pEffect);
+  STDMETHODIMP DragEnter(LPDATAOBJECT pSource,
+                         DWORD grfKeyState,
+                         POINTL point,
+                         DWORD* pEffect);
 
   // Similar to DragEnter except it is called frequently while the drag
   // is over this object's window.
@@ -61,8 +63,10 @@ public:
   // grfKeyState (DROPEFFECT_MOVE if the control key was not pressed,
   // DROPEFFECT_COPY if the control key was pressed). Otherwise return
   // E_FAIL.
-  STDMETHODIMP Drop(LPDATAOBJECT pSource, DWORD grfKeyState,
-                    POINTL point, DWORD* pEffect);
+  STDMETHODIMP Drop(LPDATAOBJECT pSource,
+                    DWORD grfKeyState,
+                    POINTL point,
+                    DWORD* pEffect);
   /**
    * Cancel the current drag session, if any.
    */
@@ -70,37 +74,36 @@ public:
 
   static void DragImageChanged() { gDragImageChanged = true; }
 
-protected:
-
-  void GetGeckoDragAction(DWORD grfKeyState, LPDWORD pdwEffect, 
-                          uint32_t * aGeckoAction);
-  void ProcessDrag(mozilla::EventMessage aEventMessage, DWORD grfKeyState,
-                   POINTL pt, DWORD* pdwEffect);
+ protected:
+  void GetGeckoDragAction(DWORD grfKeyState,
+                          LPDWORD pdwEffect,
+                          uint32_t* aGeckoAction);
+  void ProcessDrag(mozilla::EventMessage aEventMessage,
+                   DWORD grfKeyState,
+                   POINTL pt,
+                   DWORD* pdwEffect);
   void DispatchDragDropEvent(mozilla::EventMessage aEventMessage,
                              const POINTL& aPT);
   void AddLinkSupportIfCanBeGenerated(LPDATAOBJECT aIDataSource);
 
   // Native Stuff
-  ULONG            m_cRef;      // reference count
-  HWND             mHWnd;
-  DWORD            mEffectsAllowed;
-  DWORD            mEffectsPreferred;
-  bool             mTookOwnRef;
+  ULONG m_cRef;  // reference count
+  HWND mHWnd;
+  DWORD mEffectsAllowed;
+  DWORD mEffectsPreferred;
+  bool mTookOwnRef;
 
   // Gecko Stuff
-  nsIWidget      * mWidget;
-  nsIDragService * mDragService;
-  // Drag target helper 
-  IDropTargetHelper * GetDropTargetHelper();
+  nsIWidget* mWidget;
+  nsIDragService* mDragService;
+  // Drag target helper
+  IDropTargetHelper* GetDropTargetHelper();
 
-
-private:
-  // Drag target helper 
-  IDropTargetHelper * mDropTargetHelper;
+ private:
+  // Drag target helper
+  IDropTargetHelper* mDropTargetHelper;
 
   static bool gDragImageChanged;
 };
 
-#endif // _nsNativeDragTarget_h_
-
-
+#endif  // _nsNativeDragTarget_h_

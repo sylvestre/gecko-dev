@@ -5,10 +5,10 @@
 #ifndef GFX_BASICIMPLDATA_H
 #define GFX_BASICIMPLDATA_H
 
-#include "Layers.h"                     // for Layer (ptr only), etc
-#include "gfxContext.h"                 // for gfxContext, etc
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
+#include "Layers.h"           // for Layer (ptr only), etc
+#include "gfxContext.h"       // for gfxContext, etc
+#include "nsDebug.h"          // for NS_ASSERTION
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, etc
 #include "mozilla/gfx/Types.h"
 
 namespace mozilla {
@@ -38,19 +38,18 @@ class ReadbackProcessor;
  *       |                                  |
  *       +-> BasicImageLayer <--------------+
  */
-class BasicImplData {
-public:
-  BasicImplData() : mHidden(false),
-    mClipToVisibleRegion(false),
-    mDrawAtomically(false),
-    mOperator(gfx::CompositionOp::OP_OVER)
+class BasicImplData
+{
+ public:
+  BasicImplData()
+      : mHidden(false),
+        mClipToVisibleRegion(false),
+        mDrawAtomically(false),
+        mOperator(gfx::CompositionOp::OP_OVER)
   {
     MOZ_COUNT_CTOR(BasicImplData);
   }
-  virtual ~BasicImplData()
-  {
-    MOZ_COUNT_DTOR(BasicImplData);
-  }
+  virtual ~BasicImplData() { MOZ_COUNT_DTOR(BasicImplData); }
 
   /**
    * Layers that paint themselves, such as ImageLayers, should paint
@@ -60,7 +59,9 @@ public:
    */
   virtual void Paint(gfx::DrawTarget* aDT,
                      const gfx::Point& aDeviceOffset,
-                     Layer* aMaskLayer) {}
+                     Layer* aMaskLayer)
+  {
+  }
 
   /**
    * Like Paint() but called for PaintedLayers with the additional parameters
@@ -71,11 +72,15 @@ public:
   virtual void PaintThebes(gfxContext* aContext,
                            Layer* aMasklayer,
                            LayerManager::DrawPaintedLayerCallback aCallback,
-                           void* aCallbackData) {}
+                           void* aCallbackData)
+  {
+  }
 
   virtual void Validate(LayerManager::DrawPaintedLayerCallback aCallback,
                         void* aCallbackData,
-                        ReadbackProcessor* aReadback) {}
+                        ReadbackProcessor* aReadback)
+  {
+  }
 
   /**
    * Layers will get this call when their layer manager is destroyed, this
@@ -98,7 +103,7 @@ public:
   void SetOperator(gfx::CompositionOp aOperator)
   {
     NS_ASSERTION(aOperator == gfx::CompositionOp::OP_OVER ||
-                 aOperator == gfx::CompositionOp::OP_SOURCE,
+                     aOperator == gfx::CompositionOp::OP_SOURCE,
                  "Bad composition operator");
     mOperator = aOperator;
   }
@@ -112,21 +117,27 @@ public:
    * return false if a surface cannot be created.  If true is
    * returned, only one of |aSurface| or |aDescriptor| is valid.
    */
-  virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() { return nullptr; }
+  virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface()
+  {
+    return nullptr;
+  }
 
   bool GetClipToVisibleRegion() { return mClipToVisibleRegion; }
   void SetClipToVisibleRegion(bool aClip) { mClipToVisibleRegion = aClip; }
 
-  void SetDrawAtomically(bool aDrawAtomically) { mDrawAtomically = aDrawAtomically; }
+  void SetDrawAtomically(bool aDrawAtomically)
+  {
+    mDrawAtomically = aDrawAtomically;
+  }
 
-protected:
+ protected:
   bool mHidden;
   bool mClipToVisibleRegion;
   bool mDrawAtomically;
   gfx::CompositionOp mOperator;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

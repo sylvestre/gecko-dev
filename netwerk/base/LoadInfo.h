@@ -10,7 +10,7 @@
 #include "nsIContentPolicy.h"
 #include "nsILoadInfo.h"
 #include "nsIPrincipal.h"
-#include "nsIWeakReferenceUtils.h" // for nsWeakPtr
+#include "nsIWeakReferenceUtils.h"  // for nsWeakPtr
 #include "nsIURI.h"
 #include "nsTArray.h"
 
@@ -27,14 +27,14 @@ class XMLHttpRequestMainThread;
 
 namespace net {
 class OptionalLoadInfoArgs;
-} // namespace net
+}  // namespace net
 
 namespace ipc {
 // we have to forward declare that function so we can use it as a friend.
 nsresult
 LoadInfoArgsToLoadInfo(const mozilla::net::OptionalLoadInfoArgs& aLoadInfoArgs,
                        nsILoadInfo** outLoadInfo);
-} // namespace ipc
+}  // namespace ipc
 
 namespace net {
 
@@ -45,7 +45,7 @@ typedef nsTArray<nsCOMPtr<nsIRedirectHistoryEntry>> RedirectHistoryArray;
  */
 class LoadInfo final : public nsILoadInfo
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSILOADINFO
 
@@ -69,8 +69,8 @@ public:
   // hands off!!! don't use CloneWithNewSecFlags unless you know
   // exactly what you are doing - it should only be used within
   // nsBaseChannel::Redirect()
-  already_AddRefed<nsILoadInfo>
-  CloneWithNewSecFlags(nsSecurityFlags aSecurityFlags) const;
+  already_AddRefed<nsILoadInfo> CloneWithNewSecFlags(
+      nsSecurityFlags aSecurityFlags) const;
   // creates a copy of the loadinfo which is appropriate to use for a
   // separate request. I.e. not for a redirect or an inner channel, but
   // when a separate request is made with the same security properties.
@@ -87,7 +87,7 @@ public:
   void SetIsPreflight();
   void SetUpgradeInsecureRequests();
 
-private:
+ private:
   // private constructor that is only allowed to be called from within
   // HttpChannelParent and FTPChannelParent declared as friends undeneath.
   // In e10s we can not serialize nsINode, hence we store the innerWindowID.
@@ -126,13 +126,13 @@ private:
            bool aIsHSTSPrimingUpgrade);
   LoadInfo(const LoadInfo& rhs);
 
-  NS_IMETHOD GetRedirects(JSContext* aCx, JS::MutableHandle<JS::Value> aRedirects,
+  NS_IMETHOD GetRedirects(JSContext* aCx,
+                          JS::MutableHandle<JS::Value> aRedirects,
                           const RedirectHistoryArray& aArra);
 
-  friend nsresult
-  mozilla::ipc::LoadInfoArgsToLoadInfo(
-    const mozilla::net::OptionalLoadInfoArgs& aLoadInfoArgs,
-    nsILoadInfo** outLoadInfo);
+  friend nsresult mozilla::ipc::LoadInfoArgsToLoadInfo(
+      const mozilla::net::OptionalLoadInfoArgs& aLoadInfoArgs,
+      nsILoadInfo** outLoadInfo);
 
   ~LoadInfo();
 
@@ -145,45 +145,44 @@ private:
   friend class mozilla::dom::XMLHttpRequestMainThread;
 
   // if you add a member, please also update the copy constructor
-  nsCOMPtr<nsIPrincipal>           mLoadingPrincipal;
-  nsCOMPtr<nsIPrincipal>           mTriggeringPrincipal;
-  nsCOMPtr<nsIPrincipal>           mPrincipalToInherit;
-  nsCOMPtr<nsIPrincipal>           mSandboxedLoadingPrincipal;
-  nsCOMPtr<nsIURI>                 mResultPrincipalURI;
-  nsWeakPtr                        mLoadingContext;
-  nsWeakPtr                        mContextForTopLevelLoad;
-  nsSecurityFlags                  mSecurityFlags;
-  nsContentPolicyType              mInternalContentPolicyType;
-  LoadTainting                     mTainting;
-  bool                             mUpgradeInsecureRequests;
-  bool                             mVerifySignedContent;
-  bool                             mEnforceSRI;
-  bool                             mForceInheritPrincipalDropped;
-  uint64_t                         mInnerWindowID;
-  uint64_t                         mOuterWindowID;
-  uint64_t                         mParentOuterWindowID;
-  uint64_t                         mTopOuterWindowID;
-  uint64_t                         mFrameOuterWindowID;
-  bool                             mEnforceSecurity;
-  bool                             mInitialSecurityCheckDone;
-  bool                             mIsThirdPartyContext;
-  OriginAttributes                 mOriginAttributes;
-  RedirectHistoryArray             mRedirectChainIncludingInternalRedirects;
-  RedirectHistoryArray             mRedirectChain;
+  nsCOMPtr<nsIPrincipal> mLoadingPrincipal;
+  nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
+  nsCOMPtr<nsIPrincipal> mPrincipalToInherit;
+  nsCOMPtr<nsIPrincipal> mSandboxedLoadingPrincipal;
+  nsCOMPtr<nsIURI> mResultPrincipalURI;
+  nsWeakPtr mLoadingContext;
+  nsWeakPtr mContextForTopLevelLoad;
+  nsSecurityFlags mSecurityFlags;
+  nsContentPolicyType mInternalContentPolicyType;
+  LoadTainting mTainting;
+  bool mUpgradeInsecureRequests;
+  bool mVerifySignedContent;
+  bool mEnforceSRI;
+  bool mForceInheritPrincipalDropped;
+  uint64_t mInnerWindowID;
+  uint64_t mOuterWindowID;
+  uint64_t mParentOuterWindowID;
+  uint64_t mTopOuterWindowID;
+  uint64_t mFrameOuterWindowID;
+  bool mEnforceSecurity;
+  bool mInitialSecurityCheckDone;
+  bool mIsThirdPartyContext;
+  OriginAttributes mOriginAttributes;
+  RedirectHistoryArray mRedirectChainIncludingInternalRedirects;
+  RedirectHistoryArray mRedirectChain;
   nsTArray<nsCOMPtr<nsIPrincipal>> mAncestorPrincipals;
-  nsTArray<uint64_t>               mAncestorOuterWindowIDs;
-  nsTArray<nsCString>              mCorsUnsafeHeaders;
-  bool                             mForcePreflight;
-  bool                             mIsPreflight;
+  nsTArray<uint64_t> mAncestorOuterWindowIDs;
+  nsTArray<nsCString> mCorsUnsafeHeaders;
+  bool mForcePreflight;
+  bool mIsPreflight;
 
-  bool                             mForceHSTSPriming : 1;
-  bool                             mMixedContentWouldBlock : 1;
-  bool                             mIsHSTSPriming: 1;
-  bool                             mIsHSTSPrimingUpgrade: 1;
+  bool mForceHSTSPriming : 1;
+  bool mMixedContentWouldBlock : 1;
+  bool mIsHSTSPriming : 1;
+  bool mIsHSTSPrimingUpgrade : 1;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_LoadInfo_h
-
+#endif  // mozilla_LoadInfo_h

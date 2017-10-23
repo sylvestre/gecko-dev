@@ -8,10 +8,10 @@
 #include "sqlite3.h"
 
 #ifdef MOZ_STORAGE_MEMORY
-#  include "mozmemory.h"
-#  ifdef MOZ_DMD
-#    include "DMD.h"
-#  endif
+#include "mozmemory.h"
+#ifdef MOZ_DMD
+#include "DMD.h"
+#endif
 
 namespace {
 
@@ -53,7 +53,8 @@ MOZ_DEFINE_MALLOC_SIZE_OF_ON_FREE(SqliteMallocSizeOfOnFree)
 
 #endif
 
-static void *sqliteMemMalloc(int n)
+static void*
+sqliteMemMalloc(int n)
 {
   void* p = ::malloc(n);
 #ifdef MOZ_DMD
@@ -62,7 +63,8 @@ static void *sqliteMemMalloc(int n)
   return p;
 }
 
-static void sqliteMemFree(void *p)
+static void
+sqliteMemFree(void* p)
 {
 #ifdef MOZ_DMD
   gSqliteMemoryUsed -= SqliteMallocSizeOfOnFree(p);
@@ -70,11 +72,12 @@ static void sqliteMemFree(void *p)
   ::free(p);
 }
 
-static void *sqliteMemRealloc(void *p, int n)
+static void*
+sqliteMemRealloc(void* p, int n)
 {
 #ifdef MOZ_DMD
   gSqliteMemoryUsed -= SqliteMallocSizeOfOnFree(p);
-  void *pnew = ::realloc(p, n);
+  void* pnew = ::realloc(p, n);
   if (pnew) {
     gSqliteMemoryUsed += SqliteMallocSizeOfOnAlloc(pnew);
   } else {
@@ -87,12 +90,14 @@ static void *sqliteMemRealloc(void *p, int n)
 #endif
 }
 
-static int sqliteMemSize(void *p)
+static int
+sqliteMemSize(void* p)
 {
   return ::moz_malloc_usable_size(p);
 }
 
-static int sqliteMemRoundup(int n)
+static int
+sqliteMemRoundup(int n)
 {
   n = malloc_good_size(n);
 
@@ -102,27 +107,27 @@ static int sqliteMemRoundup(int n)
   return n <= 8 ? 8 : n;
 }
 
-static int sqliteMemInit(void *p)
+static int
+sqliteMemInit(void* p)
 {
   return 0;
 }
 
-static void sqliteMemShutdown(void *p)
+static void
+sqliteMemShutdown(void* p)
 {
 }
 
-const sqlite3_mem_methods memMethods = {
-  &sqliteMemMalloc,
-  &sqliteMemFree,
-  &sqliteMemRealloc,
-  &sqliteMemSize,
-  &sqliteMemRoundup,
-  &sqliteMemInit,
-  &sqliteMemShutdown,
-  nullptr
-};
+const sqlite3_mem_methods memMethods = {&sqliteMemMalloc,
+                                        &sqliteMemFree,
+                                        &sqliteMemRealloc,
+                                        &sqliteMemSize,
+                                        &sqliteMemRoundup,
+                                        &sqliteMemInit,
+                                        &sqliteMemShutdown,
+                                        nullptr};
 
-} // namespace
+}  // namespace
 
 #endif  // MOZ_STORAGE_MEMORY
 
@@ -164,4 +169,4 @@ AutoSQLiteLifetime::~AutoSQLiteLifetime()
 int AutoSQLiteLifetime::sSingletonEnforcer = 0;
 int AutoSQLiteLifetime::sResult = SQLITE_MISUSE;
 
-} // namespace mozilla
+}  // namespace mozilla

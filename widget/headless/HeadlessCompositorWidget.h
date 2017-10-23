@@ -15,11 +15,10 @@ namespace widget {
 
 class HeadlessCompositorWidgetInitData;
 
-class HeadlessCompositorWidget final
-  : public CompositorWidget
-  , public CompositorWidgetDelegate
+class HeadlessCompositorWidget final : public CompositorWidget,
+                                       public CompositorWidgetDelegate
 {
-public:
+ public:
   HeadlessCompositorWidget(const HeadlessCompositorWidgetInitData& aInitData,
                            const layers::CompositorOptions& aOptions,
                            HeadlessWidget* aWindow);
@@ -39,17 +38,18 @@ public:
 
   // CompositorWidgetDelegate Overrides
 
-  HeadlessCompositorWidget* AsHeadlessCompositorWidget() override {
+  HeadlessCompositorWidget* AsHeadlessCompositorWidget() override
+  {
     return this;
   }
 
-private:
+ private:
   HeadlessWidget* mWidget;
 
   LayoutDeviceIntSize mClientSize;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // widget_headless_HeadlessCompositor_h
+#endif  // widget_headless_HeadlessCompositor_h

@@ -27,11 +27,16 @@ class Heap;
 template<class T>
 class nsHashKeyDisallowMemmove : public T
 {
-public:
-  explicit nsHashKeyDisallowMemmove(const typename T::KeyTypePointer aKey) : T(aKey) {}
-  enum { ALLOW_MEMMOVE = false };
+ public:
+  explicit nsHashKeyDisallowMemmove(const typename T::KeyTypePointer aKey)
+      : T(aKey)
+  {
+  }
+  enum
+  {
+    ALLOW_MEMMOVE = false
+  };
 };
-
 
 /**
  * Templated hashtable class for use on the heap where the values are JS GC things.
@@ -53,9 +58,10 @@ public:
  */
 template<class KeyClass, class DataType>
 class nsJSThingHashtable
-  : public nsBaseHashtable<nsHashKeyDisallowMemmove<KeyClass>,
-                           JS::Heap<DataType>, DataType>
+    : public nsBaseHashtable<nsHashKeyDisallowMemmove<KeyClass>,
+                             JS::Heap<DataType>,
+                             DataType>
 {
 };
 
-#endif // nsJSThingHashtable_h__
+#endif  // nsJSThingHashtable_h__

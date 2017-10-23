@@ -16,7 +16,8 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-AnimationEffectTiming::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+AnimationEffectTiming::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return AnimationEffectTimingBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -104,7 +105,7 @@ AnimationEffectTiming::SetDuration(const UnrestrictedDoubleOrString& aDuration,
                                    ErrorResult& aRv)
 {
   Maybe<StickyTimeDuration> newDuration =
-    TimingParams::ParseDuration(aDuration, aRv);
+      TimingParams::ParseDuration(aDuration, aRv);
   if (aRv.Failed()) {
     return;
   }
@@ -134,7 +135,7 @@ void
 AnimationEffectTiming::SetEasing(const nsAString& aEasing, ErrorResult& aRv)
 {
   Maybe<ComputedTimingFunction> newFunction =
-    TimingParams::ParseEasing(aEasing, mDocument, aRv);
+      TimingParams::ParseEasing(aEasing, mDocument, aRv);
   if (aRv.Failed()) {
     return;
   }
@@ -148,5 +149,5 @@ AnimationEffectTiming::SetEasing(const nsAString& aEasing, ErrorResult& aRv)
   PostSpecifiedTimingUpdated(mEffect);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

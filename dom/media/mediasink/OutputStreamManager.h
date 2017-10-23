@@ -18,8 +18,9 @@ class MediaStreamGraph;
 class OutputStreamManager;
 class ProcessedMediaStream;
 
-class OutputStreamData {
-public:
+class OutputStreamData
+{
+ public:
   ~OutputStreamData();
   void Init(OutputStreamManager* aOwner, ProcessedMediaStream* aStream);
 
@@ -35,17 +36,18 @@ public:
   // Return the graph mStream belongs to.
   MediaStreamGraph* Graph() const;
 
-private:
+ private:
   OutputStreamManager* mOwner;
   RefPtr<ProcessedMediaStream> mStream;
   // mPort connects our mStream to an input stream.
   RefPtr<MediaInputPort> mPort;
 };
 
-class OutputStreamManager {
+class OutputStreamManager
+{
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(OutputStreamManager);
 
-public:
+ public:
   // Add the output stream to the collection.
   void Add(ProcessedMediaStream* aStream, bool aFinishWhenEnded);
   // Remove the output stream from the collection.
@@ -67,7 +69,7 @@ public:
     return !IsEmpty() ? mStreams[0].Graph() : nullptr;
   }
 
-private:
+ private:
   ~OutputStreamManager() {}
   // Keep the input stream so we can connect the output streams that
   // are added after Connect().
@@ -75,6 +77,6 @@ private:
   nsTArray<OutputStreamData> mStreams;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // OutputStreamManager_h
+#endif  // OutputStreamManager_h

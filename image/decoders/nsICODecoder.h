@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef mozilla_image_decoders_nsICODecoder_h
 #define mozilla_image_decoders_nsICODecoder_h
 
@@ -39,8 +38,8 @@ enum class ICOState
 
 class nsICODecoder : public Decoder
 {
-public:
-  virtual ~nsICODecoder() { }
+ public:
+  virtual ~nsICODecoder() {}
 
   /// @return The offset from the beginning of the ICO to the first resource.
   size_t FirstResourceOffset() const;
@@ -50,7 +49,7 @@ public:
   nsresult FinishInternal() override;
   nsresult FinishWithErrorInternal() override;
 
-private:
+ private:
   friend class DecoderFactory;
 
   // Decoders should only be instantiated via DecoderFactory.
@@ -78,27 +77,30 @@ private:
   LexerTransition<ICOState> FinishMask();
   LexerTransition<ICOState> FinishResource();
 
-  struct IconDirEntryEx : public IconDirEntry {
+  struct IconDirEntryEx : public IconDirEntry
+  {
     gfx::IntSize mSize;
   };
 
-  StreamingLexer<ICOState, 32> mLexer; // The lexer.
-  RefPtr<Decoder> mContainedDecoder; // Either a BMP or PNG decoder.
-  Maybe<SourceBufferIterator> mReturnIterator; // Iterator to save return point.
-  UniquePtr<uint8_t[]> mMaskBuffer; // A temporary buffer for the alpha mask.
-  nsTArray<IconDirEntryEx> mDirEntries; // Valid dir entries with a size.
-  nsTArray<IconDirEntryEx> mUnsizedDirEntries; // Dir entries without a size.
-  IconDirEntryEx* mDirEntry; // The dir entry for the selected resource.
-  uint16_t mNumIcons;     // Stores the number of icons in the ICO file.
-  uint16_t mCurrIcon;     // Stores the current dir entry index we are processing.
-  uint16_t mBPP;          // The BPP of the resource we're decoding.
-  uint32_t mMaskRowSize;  // The size in bytes of each row in the BMP alpha mask.
-  uint32_t mCurrMaskLine; // The line of the BMP alpha mask we're processing.
-  bool mIsCursor;         // Is this ICO a cursor?
-  bool mHasMaskAlpha;     // Did the BMP alpha mask have any transparency?
+  StreamingLexer<ICOState, 32> mLexer;  // The lexer.
+  RefPtr<Decoder> mContainedDecoder;    // Either a BMP or PNG decoder.
+  Maybe<SourceBufferIterator>
+      mReturnIterator;               // Iterator to save return point.
+  UniquePtr<uint8_t[]> mMaskBuffer;  // A temporary buffer for the alpha mask.
+  nsTArray<IconDirEntryEx> mDirEntries;  // Valid dir entries with a size.
+  nsTArray<IconDirEntryEx> mUnsizedDirEntries;  // Dir entries without a size.
+  IconDirEntryEx* mDirEntry;  // The dir entry for the selected resource.
+  uint16_t mNumIcons;         // Stores the number of icons in the ICO file.
+  uint16_t mCurrIcon;  // Stores the current dir entry index we are processing.
+  uint16_t mBPP;       // The BPP of the resource we're decoding.
+  uint32_t
+      mMaskRowSize;  // The size in bytes of each row in the BMP alpha mask.
+  uint32_t mCurrMaskLine;  // The line of the BMP alpha mask we're processing.
+  bool mIsCursor;          // Is this ICO a cursor?
+  bool mHasMaskAlpha;      // Did the BMP alpha mask have any transparency?
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_decoders_nsICODecoder_h
+#endif  // mozilla_image_decoders_nsICODecoder_h

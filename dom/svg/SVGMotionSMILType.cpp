@@ -23,25 +23,27 @@ namespace mozilla {
 
 /*static*/ SVGMotionSMILType SVGMotionSMILType::sSingleton;
 
-
 // Helper enum, for distinguishing between types of MotionSegment structs
-enum SegmentType {
+enum SegmentType
+{
   eSegmentType_Translation,
   eSegmentType_PathPoint
 };
 
 // Helper Structs: containers for params to define our MotionSegment
 // (either simple translation or point-on-a-path)
-struct TranslationParams {  // Simple translation
+struct TranslationParams
+{  // Simple translation
   float mX;
   float mY;
 };
-struct PathPointParams {  // Point along a path
+struct PathPointParams
+{  // Point along a path
   // Refcounted: need to AddRef/Release.  This can't be an nsRefPtr because
   // this struct is used inside a union so it can't have a default constructor.
   Path* MOZ_OWNING_REF mPath;
-  float mDistToPoint; // Distance from path start to the point on the path that
-                      // we're interested in.
+  float mDistToPoint;  // Distance from path start to the point on the path that
+                       // we're interested in.
 };
 
 /**
@@ -63,41 +65,44 @@ struct MotionSegment
 {
   // Default constructor just locks us into being a Translation, and leaves
   // other fields uninitialized (since client is presumably about to set them)
-  MotionSegment()
-    : mSegmentType(eSegmentType_Translation)
-  { }
+  MotionSegment() : mSegmentType(eSegmentType_Translation) {}
 
   // Constructor for a translation
   MotionSegment(float aX, float aY, float aRotateAngle)
-    : mRotateType(eRotateType_Explicit), mRotateAngle(aRotateAngle),
-      mSegmentType(eSegmentType_Translation)
+      : mRotateType(eRotateType_Explicit),
+        mRotateAngle(aRotateAngle),
+        mSegmentType(eSegmentType_Translation)
   {
     mU.mTranslationParams.mX = aX;
     mU.mTranslationParams.mY = aY;
   }
 
   // Constructor for a point on a path (NOTE: AddRef's)
-  MotionSegment(Path* aPath, float aDistToPoint,
-                RotateType aRotateType, float aRotateAngle)
-    : mRotateType(aRotateType), mRotateAngle(aRotateAngle),
-      mSegmentType(eSegmentType_PathPoint)
+  MotionSegment(Path* aPath,
+                float aDistToPoint,
+                RotateType aRotateType,
+                float aRotateAngle)
+      : mRotateType(aRotateType),
+        mRotateAngle(aRotateAngle),
+        mSegmentType(eSegmentType_PathPoint)
   {
     mU.mPathPointParams.mPath = aPath;
     mU.mPathPointParams.mDistToPoint = aDistToPoint;
 
-    NS_ADDREF(mU.mPathPointParams.mPath); // Retain a reference to path
+    NS_ADDREF(mU.mPathPointParams.mPath);  // Retain a reference to path
   }
 
   // Copy constructor (NOTE: AddRef's if we're eSegmentType_PathPoint)
   MotionSegment(const MotionSegment& aOther)
-    : mRotateType(aOther.mRotateType), mRotateAngle(aOther.mRotateAngle),
-      mSegmentType(aOther.mSegmentType)
+      : mRotateType(aOther.mRotateType),
+        mRotateAngle(aOther.mRotateAngle),
+        mSegmentType(aOther.mSegmentType)
   {
     if (mSegmentType == eSegmentType_Translation) {
       mU.mTranslationParams = aOther.mU.mTranslationParams;
-    } else { // mSegmentType == eSegmentType_PathPoint
+    } else {  // mSegmentType == eSegmentType_PathPoint
       mU.mPathPointParams = aOther.mU.mPathPointParams;
-      NS_ADDREF(mU.mPathPointParams.mPath); // Retain a reference to path
+      NS_ADDREF(mU.mPathPointParams.mPath);  // Retain a reference to path
     }
   }
 
@@ -114,9 +119,9 @@ struct MotionSegment
   {
     // Compare basic params
     if (mSegmentType != aOther.mSegmentType ||
-        mRotateType  != aOther.mRotateType ||
-        (mRotateType == eRotateType_Explicit &&  // Technically, angle mismatch
-         mRotateAngle != aOther.mRotateAngle)) { // only matters for Explicit.
+        mRotateType != aOther.mRotateType ||
+        (mRotateType == eRotateType_Explicit &&   // Technically, angle mismatch
+         mRotateAngle != aOther.mRotateAngle)) {  // only matters for Explicit.
       return false;
     }
 
@@ -128,8 +133,8 @@ struct MotionSegment
 
     // Else, compare path-point params, if we're a path point.
     return (mU.mPathPointParams.mPath == aOther.mU.mPathPointParams.mPath) &&
-      (mU.mPathPointParams.mDistToPoint ==
-       aOther.mU.mPathPointParams.mDistToPoint);
+           (mU.mPathPointParams.mDistToPoint ==
+            aOther.mU.mPathPointParams.mDistToPoint);
   }
 
   bool operator!=(const MotionSegment& aOther) const
@@ -139,12 +144,12 @@ struct MotionSegment
 
   // Member Data
   // -----------
-  RotateType mRotateType; // Explicit angle vs. auto vs. auto-reverse.
-  float mRotateAngle;     // Only used if mRotateType == eRotateType_Explicit.
-  const SegmentType mSegmentType; // This determines how we interpret
-                                  // mU. (const for safety/sanity)
+  RotateType mRotateType;  // Explicit angle vs. auto vs. auto-reverse.
+  float mRotateAngle;      // Only used if mRotateType == eRotateType_Explicit.
+  const SegmentType mSegmentType;  // This determines how we interpret
+                                   // mU. (const for safety/sanity)
 
-  union { // Union to let us hold the params for either segment-type.
+  union {  // Union to let us hold the params for either segment-type.
     TranslationParams mTranslationParams;
     PathPointParams mPathPointParams;
   } mU;
@@ -220,28 +225,29 @@ SVGMotionSMILType::IsEqual(const nsSMILValue& aLeft,
   }
 
   // Array-lengths match -- check each array-entry for equality.
-  uint32_t length = leftArr.Length(); // == rightArr->Length(), if we get here
+  uint32_t length = leftArr.Length();  // == rightArr->Length(), if we get here
   for (uint32_t i = 0; i < length; ++i) {
     if (leftArr[i] != rightArr[i]) {
       return false;
     }
   }
 
-  return true; // If we get here, we found no differences.
+  return true;  // If we get here, we found no differences.
 }
 
 // Helper method for Add & CreateMatrix
 inline static void
-GetAngleAndPointAtDistance(Path* aPath, float aDistance,
+GetAngleAndPointAtDistance(Path* aPath,
+                           float aDistance,
                            RotateType aRotateType,
-                           float& aRotateAngle, // in & out-param.
-                           Point& aPoint)       // out-param.
+                           float& aRotateAngle,  // in & out-param.
+                           Point& aPoint)        // out-param.
 {
   if (aRotateType == eRotateType_Explicit) {
     // Leave aRotateAngle as-is.
     aPoint = aPath->ComputePointAtLength(aDistance);
   } else {
-    Point tangent; // Unit vector tangent to the point we find.
+    Point tangent;  // Unit vector tangent to the point we find.
     aPoint = aPath->ComputePointAtLength(aDistance, &tangent);
     float tangentAngle = atan2(tangent.y, tangent.x);
     if (aRotateType == eRotateType_Auto) {
@@ -254,11 +260,11 @@ GetAngleAndPointAtDistance(Path* aPath, float aDistance,
 }
 
 nsresult
-SVGMotionSMILType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+SVGMotionSMILType::Add(nsSMILValue& aDest,
+                       const nsSMILValue& aValueToAdd,
                        uint32_t aCount) const
 {
-  MOZ_ASSERT(aDest.mType == aValueToAdd.mType,
-             "Incompatible SMIL types");
+  MOZ_ASSERT(aDest.mType == aValueToAdd.mType, "Incompatible SMIL types");
   MOZ_ASSERT(aDest.mType == this, "Unexpected SMIL type");
 
   MotionSegmentArray& dstArr = ExtractMotionSegmentArray(aDest);
@@ -284,18 +290,17 @@ SVGMotionSMILType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
   const PathPointParams& srcParams = srcSeg.mU.mPathPointParams;
   const PathPointParams& dstParams = dstSeg.mU.mPathPointParams;
 
-  MOZ_ASSERT(srcSeg.mRotateType  == dstSeg.mRotateType &&
-             srcSeg.mRotateAngle == dstSeg.mRotateAngle,
+  MOZ_ASSERT(srcSeg.mRotateType == dstSeg.mRotateType &&
+                 srcSeg.mRotateAngle == dstSeg.mRotateAngle,
              "unexpected angle mismatch");
-  MOZ_ASSERT(srcParams.mPath == dstParams.mPath,
-             "unexpected path mismatch");
+  MOZ_ASSERT(srcParams.mPath == dstParams.mPath, "unexpected path mismatch");
   Path* path = srcParams.mPath;
 
   // Use destination to get our rotate angle.
   float rotateAngle = dstSeg.mRotateAngle;
   Point dstPt;
-  GetAngleAndPointAtDistance(path, dstParams.mDistToPoint, dstSeg.mRotateType,
-                             rotateAngle, dstPt);
+  GetAngleAndPointAtDistance(
+      path, dstParams.mDistToPoint, dstSeg.mRotateType, rotateAngle, dstPt);
 
   Point srcPt = path->ComputePointAtLength(srcParams.mDistToPoint);
 
@@ -312,8 +317,7 @@ nsresult
 SVGMotionSMILType::SandwichAdd(nsSMILValue& aDest,
                                const nsSMILValue& aValueToAdd) const
 {
-  MOZ_ASSERT(aDest.mType == aValueToAdd.mType,
-             "Incompatible SMIL types");
+  MOZ_ASSERT(aDest.mType == aValueToAdd.mType, "Incompatible SMIL types");
   MOZ_ASSERT(aDest.mType == this, "Unexpected SMIL type");
   MotionSegmentArray& dstArr = ExtractMotionSegmentArray(aDest);
   const MotionSegmentArray& srcArr = ExtractMotionSegmentArray(aValueToAdd);
@@ -341,10 +345,8 @@ SVGMotionSMILType::ComputeDistance(const nsSMILValue& aFrom,
 
   // ComputeDistance is only used for calculating distances between single
   // values in a values array. So we should only have one entry in each array.
-  MOZ_ASSERT(fromArr.Length() == 1,
-             "Wrong number of elements in from value");
-  MOZ_ASSERT(toArr.Length() == 1,
-             "Wrong number of elements in to value");
+  MOZ_ASSERT(fromArr.Length() == 1, "Wrong number of elements in from value");
+  MOZ_ASSERT(toArr.Length() == 1, "Wrong number of elements in to value");
 
   const MotionSegment& from = fromArr[0];
   const MotionSegment& to = toArr[0];
@@ -353,7 +355,7 @@ SVGMotionSMILType::ComputeDistance(const nsSMILValue& aFrom,
              "Mismatched MotionSegment types");
   if (from.mSegmentType == eSegmentType_PathPoint) {
     const PathPointParams& fromParams = from.mU.mPathPointParams;
-    const PathPointParams& toParams   = to.mU.mPathPointParams;
+    const PathPointParams& toParams = to.mU.mPathPointParams;
     MOZ_ASSERT(fromParams.mPath == toParams.mPath,
                "Interpolation endpoints should be from same path");
     MOZ_ASSERT(fromParams.mDistToPoint <= toParams.mDistToPoint,
@@ -361,7 +363,7 @@ SVGMotionSMILType::ComputeDistance(const nsSMILValue& aFrom,
     aDistance = fabs(toParams.mDistToPoint - fromParams.mDistToPoint);
   } else {
     const TranslationParams& fromParams = from.mU.mTranslationParams;
-    const TranslationParams& toParams   = to.mU.mTranslationParams;
+    const TranslationParams& toParams = to.mU.mTranslationParams;
     float dX = toParams.mX - fromParams.mX;
     float dY = toParams.mY - fromParams.mY;
     aDistance = NS_hypot(dX, dY);
@@ -372,7 +374,8 @@ SVGMotionSMILType::ComputeDistance(const nsSMILValue& aFrom,
 
 // Helper method for Interpolate()
 static inline float
-InterpolateFloat(const float& aStartFlt, const float& aEndFlt,
+InterpolateFloat(const float& aStartFlt,
+                 const float& aEndFlt,
                  const double& aUnitDistance)
 {
   return aStartFlt + aUnitDistance * (aEndFlt - aStartFlt);
@@ -386,8 +389,7 @@ SVGMotionSMILType::Interpolate(const nsSMILValue& aStartVal,
 {
   MOZ_ASSERT(aStartVal.mType == aEndVal.mType,
              "Trying to interpolate different types");
-  MOZ_ASSERT(aStartVal.mType == this,
-             "Unexpected types for interpolation");
+  MOZ_ASSERT(aStartVal.mType == this, "Unexpected types for interpolation");
   MOZ_ASSERT(aResult.mType == this, "Unexpected result type");
   MOZ_ASSERT(aUnitDistance >= 0.0 && aUnitDistance <= 1.0,
              "unit distance value out of bounds");
@@ -412,8 +414,8 @@ SVGMotionSMILType::Interpolate(const nsSMILValue& aStartVal,
   // start & end came from the same <animateMotion> element), unless start is
   // empty. (as it would be for pure 'to' animation)
   Path* path = endParams.mPath;
-  RotateType rotateType  = endSeg.mRotateType;
-  float rotateAngle      = endSeg.mRotateAngle;
+  RotateType rotateType = endSeg.mRotateType;
+  float rotateAngle = endSeg.mRotateAngle;
 
   float startDist;
   if (startArr.IsEmpty()) {
@@ -423,8 +425,8 @@ SVGMotionSMILType::Interpolate(const nsSMILValue& aStartVal,
     MOZ_ASSERT(startSeg.mSegmentType == eSegmentType_PathPoint,
                "Expecting to be interpolating along a path");
     const PathPointParams& startParams = startSeg.mU.mPathPointParams;
-    MOZ_ASSERT(startSeg.mRotateType  == endSeg.mRotateType &&
-               startSeg.mRotateAngle == endSeg.mRotateAngle,
+    MOZ_ASSERT(startSeg.mRotateType == endSeg.mRotateType &&
+                   startSeg.mRotateAngle == endSeg.mRotateAngle,
                "unexpected angle mismatch");
     MOZ_ASSERT(startParams.mPath == endParams.mPath,
                "unexpected path mismatch");
@@ -432,15 +434,13 @@ SVGMotionSMILType::Interpolate(const nsSMILValue& aStartVal,
   }
 
   // Get the interpolated distance along our path.
-  float resultDist = InterpolateFloat(startDist, endParams.mDistToPoint,
-                                      aUnitDistance);
+  float resultDist =
+      InterpolateFloat(startDist, endParams.mDistToPoint, aUnitDistance);
 
   // Construct the intermediate result segment, and put it in our outparam.
   // AppendElement has guaranteed success here, since Init() allocates 1 slot.
-  MOZ_ALWAYS_TRUE(resultArr.AppendElement(MotionSegment(path, resultDist,
-                                                        rotateType,
-                                                        rotateAngle),
-                                          fallible));
+  MOZ_ALWAYS_TRUE(resultArr.AppendElement(
+      MotionSegment(path, resultDist, rotateType, rotateAngle), fallible));
   return NS_OK;
 }
 
@@ -452,8 +452,8 @@ SVGMotionSMILType::CreateMatrix(const nsSMILValue& aSMILVal)
   gfx::Matrix matrix;
   uint32_t length = arr.Length();
   for (uint32_t i = 0; i < length; i++) {
-    Point point;  // initialized below
-    float rotateAngle = arr[i].mRotateAngle; // might get updated below
+    Point point;                              // initialized below
+    float rotateAngle = arr[i].mRotateAngle;  // might get updated below
     if (arr[i].mSegmentType == eSegmentType_Translation) {
       point.x = arr[i].mU.mTranslationParams.mX;
       point.y = arr[i].mU.mTranslationParams.mY;
@@ -464,7 +464,8 @@ SVGMotionSMILType::CreateMatrix(const nsSMILValue& aSMILVal)
       GetAngleAndPointAtDistance(arr[i].mU.mPathPointParams.mPath,
                                  arr[i].mU.mPathPointParams.mDistToPoint,
                                  arr[i].mRotateType,
-                                 rotateAngle, point);
+                                 rotateAngle,
+                                 point);
     }
     matrix.PreTranslate(point.x, point.y);
     matrix.PreRotate(rotateAngle);
@@ -482,10 +483,9 @@ SVGMotionSMILType::ConstructSMILValue(Path* aPath,
   MotionSegmentArray& arr = ExtractMotionSegmentArray(smilVal);
 
   // AppendElement has guaranteed success here, since Init() allocates 1 slot.
-  MOZ_ALWAYS_TRUE(arr.AppendElement(MotionSegment(aPath, aDist,
-                                                  aRotateType, aRotateAngle),
-                                    fallible));
+  MOZ_ALWAYS_TRUE(arr.AppendElement(
+      MotionSegment(aPath, aDist, aRotateType, aRotateAngle), fallible));
   return smilVal;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -52,7 +52,7 @@ DDLifetimes::CreateLifetime(const DDLogObject& aObject,
   }
   LifetimesForObject* lifetimes = mLifetimes.LookupOrAdd(aObject, 1);
   DDLifetime& lifetime = *lifetimes->AppendElement(
-    DDLifetime(aObject, aIndex, aConstructionTimeStamp, sTag));
+      DDLifetime(aObject, aIndex, aConstructionTimeStamp, sTag));
   return lifetime;
 }
 
@@ -76,9 +76,9 @@ DDLifetimes::RemoveLifetimesFor(const dom::HTMLMediaElement* aMediaElement)
 {
   for (auto iter = mLifetimes.Iter(); !iter.Done(); iter.Next()) {
     iter.UserData()->RemoveElementsBy(
-      [aMediaElement](const DDLifetime& lifetime) {
-        return lifetime.mMediaElement == aMediaElement;
-      });
+        [aMediaElement](const DDLifetime& lifetime) {
+          return lifetime.mMediaElement == aMediaElement;
+        });
   }
 }
 
@@ -98,4 +98,4 @@ DDLifetimes::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
   return size;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

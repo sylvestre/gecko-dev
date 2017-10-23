@@ -10,7 +10,7 @@
 
 class nsDragServiceProxy : public nsBaseDragService
 {
-public:
+ public:
   nsDragServiceProxy();
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -19,8 +19,9 @@ public:
   virtual nsresult InvokeDragSessionImpl(nsIArray* anArrayTransferables,
                                          nsIScriptableRegion* aRegion,
                                          uint32_t aActionType) override;
-private:
+
+ private:
   virtual ~nsDragServiceProxy();
 };
 
-#endif // NSDRAGSERVICEPROXY_H
+#endif  // NSDRAGSERVICEPROXY_H

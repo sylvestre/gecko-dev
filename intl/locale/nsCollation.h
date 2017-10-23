@@ -13,9 +13,9 @@
 
 #include "unicode/ucol.h"
 
-class nsCollation final : public nsICollation {
-
-public:
+class nsCollation final : public nsICollation
+{
+ public:
   nsCollation();
 
   // nsISupports interface
@@ -24,7 +24,7 @@ public:
   // nsICollation interface
   NS_DECL_NSICOLLATION
 
-protected:
+ protected:
   ~nsCollation();
 
   nsresult ConvertStrength(const int32_t aStrength,
@@ -33,7 +33,7 @@ protected:
   nsresult EnsureCollator(const int32_t newStrength);
   nsresult CleanUpCollator(void);
 
-private:
+ private:
   bool mInit;
   bool mHasCollator;
   nsCString mLocale;
@@ -41,4 +41,4 @@ private:
   UCollator* mCollatorICU;
 };
 
-#endif  /* nsCollation_h_ */
+#endif /* nsCollation_h_ */

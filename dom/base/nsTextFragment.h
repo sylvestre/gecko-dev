@@ -34,16 +34,16 @@
  * This class does not have a virtual destructor therefore it is not
  * meant to be subclassed.
  */
-class nsTextFragment final {
-public:
+class nsTextFragment final
+{
+ public:
   static nsresult Init();
   static void Shutdown();
 
   /**
    * Default constructor. Initialize the fragment to be empty.
    */
-  nsTextFragment()
-    : m1b(nullptr), mAllBits(0)
+  nsTextFragment() : m1b(nullptr), mAllBits(0)
   {
     MOZ_COUNT_CTOR(nsTextFragment);
     NS_ASSERTION(sizeof(FragmentBits) == 4, "Bad field packing!");
@@ -60,25 +60,19 @@ public:
   /**
    * Return true if this fragment is represented by char16_t data
    */
-  bool Is2b() const
-  {
-    return mState.mIs2b;
-  }
+  bool Is2b() const { return mState.mIs2b; }
 
   /**
    * Return true if this fragment contains Bidi text
    * For performance reasons this flag is only set if explicitely requested (by
    * setting the aUpdateBidi argument on SetTo or Append to true).
    */
-  bool IsBidi() const
-  {
-    return mState.mIsBidi;
-  }
+  bool IsBidi() const { return mState.mIsBidi; }
 
   /**
    * Get a pointer to constant char16_t data.
    */
-  const char16_t *Get2b() const
+  const char16_t* Get2b() const
   {
     MOZ_ASSERT(Is2b(), "not 2b text");
     return static_cast<char16_t*>(m2b->Data());
@@ -87,20 +81,17 @@ public:
   /**
    * Get a pointer to constant char data.
    */
-  const char *Get1b() const
+  const char* Get1b() const
   {
     NS_ASSERTION(!Is2b(), "not 1b text");
-    return (const char *)m1b;
+    return (const char*)m1b;
   }
 
   /**
    * Get the length of the fragment. The length is the number of logical
    * characters, not the number of bytes to store the characters.
    */
-  uint32_t GetLength() const
-  {
-    return mState.mLength;
-  }
+  uint32_t GetLength() const { return mState.mLength; }
 
   bool CanGrowBy(size_t n) const
   {
@@ -115,7 +106,9 @@ public:
    * you can access the value faster but may waste memory if all characters
    * are less than U+0100.
    */
-  bool SetTo(const char16_t* aBuffer, int32_t aLength, bool aUpdateBidi,
+  bool SetTo(const char16_t* aBuffer,
+             int32_t aLength,
+             bool aUpdateBidi,
              bool aForce2b);
 
   bool SetTo(const nsString& aString, bool aUpdateBidi, bool aForce2b)
@@ -143,13 +136,16 @@ public:
    * you can access the value faster but may waste memory if all characters
    * are less than U+0100.
    */
-  bool Append(const char16_t* aBuffer, uint32_t aLength, bool aUpdateBidi,
+  bool Append(const char16_t* aBuffer,
+              uint32_t aLength,
+              bool aUpdateBidi,
               bool aForce2b);
 
   /**
    * Append the contents of this string fragment to aString
    */
-  void AppendTo(nsAString& aString) const {
+  void AppendTo(nsAString& aString) const
+  {
     if (!AppendTo(aString, mozilla::fallible)) {
       aString.AllocFailed(aString.Length() + GetLength());
     }
@@ -160,8 +156,8 @@ public:
    * @return false if an out of memory condition is detected, true otherwise
    */
   MOZ_MUST_USE
-  bool AppendTo(nsAString& aString,
-                const mozilla::fallible_t& aFallible) const {
+  bool AppendTo(nsAString& aString, const mozilla::fallible_t& aFallible) const
+  {
     if (mState.mIs2b) {
       if (aString.IsEmpty()) {
         m2b->ToString(mState.mLength, aString);
@@ -174,8 +170,8 @@ public:
 
       return true;
     } else {
-      return AppendASCIItoUTF16(Substring(m1b, mState.mLength), aString,
-                                aFallible);
+      return AppendASCIItoUTF16(
+          Substring(m1b, mState.mLength), aString, aFallible);
     }
   }
 
@@ -184,7 +180,8 @@ public:
    * @param aOffset where to start the substring in this text fragment
    * @param aLength the length of the substring
    */
-  void AppendTo(nsAString& aString, int32_t aOffset, int32_t aLength) const {
+  void AppendTo(nsAString& aString, int32_t aOffset, int32_t aLength) const
+  {
     if (!AppendTo(aString, aOffset, aLength, mozilla::fallible)) {
       aString.AllocFailed(aString.Length() + aLength);
     }
@@ -198,7 +195,9 @@ public:
    * @return false if an out of memory condition is detected, true otherwise
    */
   MOZ_MUST_USE
-  bool AppendTo(nsAString& aString, int32_t aOffset, int32_t aLength,
+  bool AppendTo(nsAString& aString,
+                int32_t aOffset,
+                int32_t aLength,
                 const mozilla::fallible_t& aFallible) const
   {
     if (mState.mIs2b) {
@@ -209,8 +208,8 @@ public:
 
       return true;
     } else {
-      return AppendASCIItoUTF16(Substring(m1b + aOffset, aLength), aString,
-                                aFallible);
+      return AppendASCIItoUTF16(
+          Substring(m1b + aOffset, aLength), aString, aFallible);
     }
   }
 
@@ -220,7 +219,7 @@ public:
    * lie within the fragments data. The fragments data is converted if
    * necessary.
    */
-  void CopyTo(char16_t *aDest, int32_t aOffset, int32_t aCount);
+  void CopyTo(char16_t* aDest, int32_t aOffset, int32_t aCount);
 
   /**
    * Return the character in the text-fragment at the given
@@ -229,15 +228,14 @@ public:
   char16_t CharAt(int32_t aIndex) const
   {
     MOZ_ASSERT(uint32_t(aIndex) < mState.mLength, "bad index");
-    return mState.mIs2b ? Get2b()[aIndex] : static_cast<unsigned char>(m1b[aIndex]);
+    return mState.mIs2b ? Get2b()[aIndex]
+                        : static_cast<unsigned char>(m1b[aIndex]);
   }
 
-  void SetBidi(bool aBidi)
+  void SetBidi(bool aBidi) { mState.mIsBidi = aBidi; }
+
+  struct FragmentBits
   {
-    mState.mIsBidi = aBidi;
-  }
-
-  struct FragmentBits {
     // uint32_t to ensure that the values are unsigned, because we
     // want 0/1, not 0/-1!
     // Making these bool causes Windows to not actually pack them,
@@ -255,7 +253,7 @@ public:
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   void ReleaseText();
 
   /**
@@ -266,7 +264,7 @@ private:
 
   union {
     nsStringBuffer* m2b;
-    const char* m1b; // This is const since it can point to shared data
+    const char* m1b;  // This is const since it can point to shared data
   };
 
   union {
@@ -276,4 +274,3 @@ private:
 };
 
 #endif /* nsTextFragment_h___ */
-

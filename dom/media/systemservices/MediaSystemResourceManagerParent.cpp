@@ -14,7 +14,7 @@ namespace media {
 using namespace ipc;
 
 MediaSystemResourceManagerParent::MediaSystemResourceManagerParent()
-  : mDestroyed(false)
+    : mDestroyed(false)
 {
   mMediaSystemResourceService = MediaSystemResourceService::Get();
 }
@@ -25,9 +25,10 @@ MediaSystemResourceManagerParent::~MediaSystemResourceManagerParent()
 }
 
 mozilla::ipc::IPCResult
-MediaSystemResourceManagerParent::RecvAcquire(const uint32_t& aId,
-                                              const MediaSystemResourceType& aResourceType,
-                                              const bool& aWillWait)
+MediaSystemResourceManagerParent::RecvAcquire(
+    const uint32_t& aId,
+    const MediaSystemResourceType& aResourceType,
+    const bool& aWillWait)
 {
   MediaSystemResourceRequest* request = mResourceRequests.Get(aId);
   MOZ_ASSERT(!request);
@@ -51,7 +52,8 @@ MediaSystemResourceManagerParent::RecvRelease(const uint32_t& aId)
     return IPC_OK();
   }
 
-  mMediaSystemResourceService->ReleaseResource(this, aId, request->mResourceType);
+  mMediaSystemResourceService->ReleaseResource(
+      this, aId, request->mResourceType);
   mResourceRequests.Remove(aId);
   return IPC_OK();
 }
@@ -78,5 +80,5 @@ MediaSystemResourceManagerParent::ActorDestroy(ActorDestroyReason aReason)
   mDestroyed = true;
 }
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla

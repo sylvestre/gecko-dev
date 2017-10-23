@@ -18,9 +18,8 @@ namespace ipc {
  */
 class RilConnector final : public UnixSocketConnector
 {
-public:
-  RilConnector(const nsACString& aAddressString,
-               unsigned long aClientId);
+ public:
+  RilConnector(const nsACString& aAddressString, unsigned long aClientId);
   ~RilConnector();
 
   // Methods for |UnixSocketConnector|
@@ -45,8 +44,7 @@ public:
 
   nsresult Duplicate(UnixSocketConnector*& aConnector) override;
 
-
-private:
+ private:
   nsresult CreateSocket(int aDomain, int& aFd) const;
   nsresult SetSocketFlags(int aFd) const;
   nsresult CreateAddress(int aDomain,
@@ -57,7 +55,7 @@ private:
   unsigned long mClientId;
 };
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif

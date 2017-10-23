@@ -10,14 +10,12 @@
 #include "builtin/Promise.h"
 #include "vm/NativeObject.h"
 
-
 namespace js {
 
 class AutoSetNewObjectMetadata;
 
-class ReadableStream : public NativeObject
-{
-  public:
+class ReadableStream : public NativeObject {
+   public:
     static ReadableStream* createDefaultStream(JSContext* cx, HandleValue underlyingSource,
                                                HandleValue size, HandleValue highWaterMark,
                                                HandleObject proto = nullptr);
@@ -47,8 +45,8 @@ class ReadableStream : public NativeObject
     static MOZ_MUST_USE NativeObject* getReader(JSContext* cx, Handle<ReadableStream*> stream,
                                                 JS::ReadableStreamReaderMode mode);
 
-    static MOZ_MUST_USE bool tee(JSContext* cx,
-                                 Handle<ReadableStream*> stream, bool cloneForBranch2,
+    static MOZ_MUST_USE bool tee(JSContext* cx, Handle<ReadableStream*> stream,
+                                 bool cloneForBranch2,
                                  MutableHandle<ReadableStream*> branch1Stream,
                                  MutableHandle<ReadableStream*> branch2Stream);
 
@@ -64,17 +62,12 @@ class ReadableStream : public NativeObject
                                                            Handle<ReadableStream*> stream,
                                                            uint32_t availableData);
 
-    enum State {
-         Readable  = 1 << 0,
-         Closed    = 1 << 1,
-         Errored   = 1 << 2,
-         Disturbed = 1 << 3
-    };
+    enum State { Readable = 1 << 0, Closed = 1 << 1, Errored = 1 << 2, Disturbed = 1 << 3 };
 
-  private:
+   private:
     static MOZ_MUST_USE ReadableStream* createStream(JSContext* cx, HandleObject proto = nullptr);
 
-  public:
+   public:
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
     static const ClassSpec classSpec_;
     static const Class class_;
@@ -82,9 +75,8 @@ class ReadableStream : public NativeObject
     static const Class protoClass_;
 };
 
-class ReadableStreamDefaultReader : public NativeObject
-{
-  public:
+class ReadableStreamDefaultReader : public NativeObject {
+   public:
     static MOZ_MUST_USE JSObject* read(JSContext* cx, Handle<ReadableStreamDefaultReader*> reader);
 
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
@@ -94,9 +86,8 @@ class ReadableStreamDefaultReader : public NativeObject
     static const Class protoClass_;
 };
 
-class ReadableStreamBYOBReader : public NativeObject
-{
-  public:
+class ReadableStreamBYOBReader : public NativeObject {
+   public:
     static MOZ_MUST_USE JSObject* read(JSContext* cx, Handle<ReadableStreamBYOBReader*> reader,
                                        Handle<ArrayBufferViewObject*> view);
 
@@ -114,9 +105,8 @@ MOZ_MUST_USE bool ReadableStreamReaderCancel(JSContext* cx, HandleObject reader,
 
 MOZ_MUST_USE bool ReadableStreamReaderReleaseLock(JSContext* cx, HandleObject reader);
 
-class ReadableStreamDefaultController : public NativeObject
-{
-  public:
+class ReadableStreamDefaultController : public NativeObject {
+   public:
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
     static const ClassSpec classSpec_;
     static const Class class_;
@@ -124,9 +114,8 @@ class ReadableStreamDefaultController : public NativeObject
     static const Class protoClass_;
 };
 
-class ReadableByteStreamController : public NativeObject
-{
-  public:
+class ReadableByteStreamController : public NativeObject {
+   public:
     bool hasExternalSource();
 
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
@@ -136,9 +125,8 @@ class ReadableByteStreamController : public NativeObject
     static const Class protoClass_;
 };
 
-class ReadableStreamBYOBRequest : public NativeObject
-{
-  public:
+class ReadableStreamBYOBRequest : public NativeObject {
+   public:
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
     static const ClassSpec classSpec_;
     static const Class class_;
@@ -146,9 +134,8 @@ class ReadableStreamBYOBRequest : public NativeObject
     static const Class protoClass_;
 };
 
-class ByteLengthQueuingStrategy : public NativeObject
-{
-  public:
+class ByteLengthQueuingStrategy : public NativeObject {
+   public:
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
     static const ClassSpec classSpec_;
     static const Class class_;
@@ -156,9 +143,8 @@ class ByteLengthQueuingStrategy : public NativeObject
     static const Class protoClass_;
 };
 
-class CountQueuingStrategy : public NativeObject
-{
-  public:
+class CountQueuingStrategy : public NativeObject {
+   public:
     static bool constructor(JSContext* cx, unsigned argc, Value* vp);
     static const ClassSpec classSpec_;
     static const Class class_;
@@ -166,6 +152,6 @@ class CountQueuingStrategy : public NativeObject
     static const Class protoClass_;
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* builtin_Stream_h */

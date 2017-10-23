@@ -16,93 +16,29 @@
 using namespace mozilla;
 using namespace mozilla::gfx;
 
-#define CHAR_BITS(b00, b01, b02, b10, b11, b12, b20, b21, b22, b30, b31, b32, b40, b41, b42) \
-  ((b00 << 0) | (b01 << 1) | (b02 << 2) | (b10 << 3) | (b11 << 4) | (b12 << 5) | \
-   (b20 << 6) | (b21 << 7) | (b22 << 8) | (b30 << 9) | (b31 << 10) | (b32 << 11) | \
-   (b40 << 12) | (b41 << 13) | (b42 << 14))
+#define CHAR_BITS(                                                             \
+    b00, b01, b02, b10, b11, b12, b20, b21, b22, b30, b31, b32, b40, b41, b42) \
+  ((b00 << 0) | (b01 << 1) | (b02 << 2) | (b10 << 3) | (b11 << 4) |            \
+   (b12 << 5) | (b20 << 6) | (b21 << 7) | (b22 << 8) | (b30 << 9) |            \
+   (b31 << 10) | (b32 << 11) | (b40 << 12) | (b41 << 13) | (b42 << 14))
 
 static const uint16_t glyphMicroFont[16] = {
-  CHAR_BITS(0, 1, 0,
-            1, 0, 1,
-            1, 0, 1,
-            1, 0, 1,
-            0, 1, 0),
-  CHAR_BITS(0, 1, 0,
-            0, 1, 0,
-            0, 1, 0,
-            0, 1, 0,
-            0, 1, 0),
-  CHAR_BITS(1, 1, 1,
-            0, 0, 1,
-            1, 1, 1,
-            1, 0, 0,
-            1, 1, 1),
-  CHAR_BITS(1, 1, 1,
-            0, 0, 1,
-            1, 1, 1,
-            0, 0, 1,
-            1, 1, 1),
-  CHAR_BITS(1, 0, 1,
-            1, 0, 1,
-            1, 1, 1,
-            0, 0, 1,
-            0, 0, 1),
-  CHAR_BITS(1, 1, 1,
-            1, 0, 0,
-            1, 1, 1,
-            0, 0, 1,
-            1, 1, 1),
-  CHAR_BITS(1, 1, 1,
-            1, 0, 0,
-            1, 1, 1,
-            1, 0, 1,
-            1, 1, 1),
-  CHAR_BITS(1, 1, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1),
-  CHAR_BITS(0, 1, 0,
-            1, 0, 1,
-            0, 1, 0,
-            1, 0, 1,
-            0, 1, 0),
-  CHAR_BITS(1, 1, 1,
-            1, 0, 1,
-            1, 1, 1,
-            0, 0, 1,
-            0, 0, 1),
-  CHAR_BITS(1, 1, 1,
-            1, 0, 1,
-            1, 1, 1,
-            1, 0, 1,
-            1, 0, 1),
-  CHAR_BITS(1, 1, 0,
-            1, 0, 1,
-            1, 1, 0,
-            1, 0, 1,
-            1, 1, 0),
-  CHAR_BITS(0, 1, 1,
-            1, 0, 0,
-            1, 0, 0,
-            1, 0, 0,
-            0, 1, 1),
-  CHAR_BITS(1, 1, 0,
-            1, 0, 1,
-            1, 0, 1,
-            1, 0, 1,
-            1, 1, 0),
-  CHAR_BITS(1, 1, 1,
-            1, 0, 0,
-            1, 1, 1,
-            1, 0, 0,
-            1, 1, 1),
-  CHAR_BITS(1, 1, 1,
-            1, 0, 0,
-            1, 1, 1,
-            1, 0, 0,
-            1, 0, 0)
-};
+    CHAR_BITS(0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0),
+    CHAR_BITS(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0),
+    CHAR_BITS(1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1),
+    CHAR_BITS(1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1),
+    CHAR_BITS(1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1),
+    CHAR_BITS(1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1),
+    CHAR_BITS(1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1),
+    CHAR_BITS(1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1),
+    CHAR_BITS(0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0),
+    CHAR_BITS(1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1),
+    CHAR_BITS(1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1),
+    CHAR_BITS(1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0),
+    CHAR_BITS(0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1),
+    CHAR_BITS(1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0),
+    CHAR_BITS(1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1),
+    CHAR_BITS(1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0)};
 
 /* Parameters that control the rendering of hexboxes. They look like this:
 
@@ -157,32 +93,34 @@ static const Float BOX_BORDER_OPACITY = 0.5;
  */
 #ifndef MOZ_GFX_OPTIMIZE_MOBILE
 static void
-DrawHexChar(uint32_t aDigit, const Point& aPt, DrawTarget& aDrawTarget,
-            const Pattern &aPattern)
+DrawHexChar(uint32_t aDigit,
+            const Point& aPt,
+            DrawTarget& aDrawTarget,
+            const Pattern& aPattern)
 {
-    // To avoid the potential for seams showing between rects when we're under
-    // a transform we concat all the rects into a PathBuilder and fill the
-    // resulting Path (rather than using DrawTarget::FillRect).
-    RefPtr<PathBuilder> builder = aDrawTarget.CreatePathBuilder();
-    uint32_t glyphBits = glyphMicroFont[aDigit];
-    for (int y = 0; y < MINIFONT_HEIGHT; ++y) {
-        for (int x = 0; x < MINIFONT_WIDTH; ++x) {
-            if (glyphBits & 1) {
-                Rect r(aPt.x + x, aPt.y + y, 1, 1);
-                MaybeSnapToDevicePixels(r, aDrawTarget, true);
-                builder->MoveTo(r.TopLeft());
-                builder->LineTo(r.TopRight());
-                builder->LineTo(r.BottomRight());
-                builder->LineTo(r.BottomLeft());
-                builder->Close();
-            }
-            glyphBits >>= 1;
-        }
+  // To avoid the potential for seams showing between rects when we're under
+  // a transform we concat all the rects into a PathBuilder and fill the
+  // resulting Path (rather than using DrawTarget::FillRect).
+  RefPtr<PathBuilder> builder = aDrawTarget.CreatePathBuilder();
+  uint32_t glyphBits = glyphMicroFont[aDigit];
+  for (int y = 0; y < MINIFONT_HEIGHT; ++y) {
+    for (int x = 0; x < MINIFONT_WIDTH; ++x) {
+      if (glyphBits & 1) {
+        Rect r(aPt.x + x, aPt.y + y, 1, 1);
+        MaybeSnapToDevicePixels(r, aDrawTarget, true);
+        builder->MoveTo(r.TopLeft());
+        builder->LineTo(r.TopRight());
+        builder->LineTo(r.BottomRight());
+        builder->LineTo(r.BottomLeft());
+        builder->Close();
+      }
+      glyphBits >>= 1;
     }
-    RefPtr<Path> path = builder->Finish();
-    aDrawTarget.Fill(path, aPattern);
+  }
+  RefPtr<Path> path = builder->Finish();
+  aDrawTarget.Fill(path, aPattern);
 }
-#endif // MOZ_GFX_OPTIMIZE_MOBILE
+#endif  // MOZ_GFX_OPTIMIZE_MOBILE
 
 void
 gfxFontMissingGlyphs::DrawMissingGlyph(uint32_t aChar,
@@ -191,81 +129,73 @@ gfxFontMissingGlyphs::DrawMissingGlyph(uint32_t aChar,
                                        const Pattern& aPattern,
                                        uint32_t aAppUnitsPerDevPixel)
 {
-    // If we're currently drawing with some kind of pattern, we just draw the
-    // missing-glyph data in black.
-    ColorPattern color = aPattern.GetType() == PatternType::COLOR ?
-        static_cast<const ColorPattern&>(aPattern) :
-        ColorPattern(ToDeviceColor(Color(0.f, 0.f, 0.f, 1.f)));
+  // If we're currently drawing with some kind of pattern, we just draw the
+  // missing-glyph data in black.
+  ColorPattern color =
+      aPattern.GetType() == PatternType::COLOR
+          ? static_cast<const ColorPattern&>(aPattern)
+          : ColorPattern(ToDeviceColor(Color(0.f, 0.f, 0.f, 1.f)));
 
-    // Stroke a rectangle so that the stroke's left edge is inset one pixel
-    // from the left edge of the glyph box and the stroke's right edge
-    // is inset one pixel from the right edge of the glyph box.
-    Float halfBorderWidth = BOX_BORDER_WIDTH / 2.0;
-    Float borderLeft = aRect.X() + BOX_HORIZONTAL_INSET + halfBorderWidth;
-    Float borderRight = aRect.XMost() - BOX_HORIZONTAL_INSET - halfBorderWidth;
-    Rect borderStrokeRect(borderLeft, aRect.Y() + halfBorderWidth,
-                          borderRight - borderLeft,
-                          aRect.Height() - 2.0 * halfBorderWidth);
-    if (!borderStrokeRect.IsEmpty()) {
-        ColorPattern adjustedColor = color;
-        color.mColor.a *= BOX_BORDER_OPACITY;
+  // Stroke a rectangle so that the stroke's left edge is inset one pixel
+  // from the left edge of the glyph box and the stroke's right edge
+  // is inset one pixel from the right edge of the glyph box.
+  Float halfBorderWidth = BOX_BORDER_WIDTH / 2.0;
+  Float borderLeft = aRect.X() + BOX_HORIZONTAL_INSET + halfBorderWidth;
+  Float borderRight = aRect.XMost() - BOX_HORIZONTAL_INSET - halfBorderWidth;
+  Rect borderStrokeRect(borderLeft,
+                        aRect.Y() + halfBorderWidth,
+                        borderRight - borderLeft,
+                        aRect.Height() - 2.0 * halfBorderWidth);
+  if (!borderStrokeRect.IsEmpty()) {
+    ColorPattern adjustedColor = color;
+    color.mColor.a *= BOX_BORDER_OPACITY;
 #ifdef MOZ_GFX_OPTIMIZE_MOBILE
-        aDrawTarget.FillRect(borderStrokeRect, adjustedColor);
+    aDrawTarget.FillRect(borderStrokeRect, adjustedColor);
 #else
-        StrokeOptions strokeOptions(BOX_BORDER_WIDTH);
-        aDrawTarget.StrokeRect(borderStrokeRect, adjustedColor, strokeOptions);
+    StrokeOptions strokeOptions(BOX_BORDER_WIDTH);
+    aDrawTarget.StrokeRect(borderStrokeRect, adjustedColor, strokeOptions);
 #endif
-    }
+  }
 
 #ifndef MOZ_GFX_OPTIMIZE_MOBILE
-    Point center = aRect.Center();
-    Float halfGap = HEX_CHAR_GAP / 2.f;
-    Float top = -(MINIFONT_HEIGHT + halfGap);
-    // We always want integer scaling, otherwise the "bitmap" glyphs will look
-    // even uglier than usual when zoomed
-    int32_t devPixelsPerCSSPx =
-        std::max<int32_t>(1, nsDeviceContext::AppUnitsPerCSSPixel() /
-                             aAppUnitsPerDevPixel);
-    AutoRestoreTransform autoRestoreTransform(&aDrawTarget);
-    aDrawTarget.SetTransform(
-      aDrawTarget.GetTransform().PreTranslate(center).
-                                 PreScale(devPixelsPerCSSPx,
-                                          devPixelsPerCSSPx));
-    if (aChar < 0x10000) {
-        if (aRect.Width() >= 2 * (MINIFONT_WIDTH + HEX_CHAR_GAP) &&
-            aRect.Height() >= 2 * MINIFONT_HEIGHT + HEX_CHAR_GAP) {
-            // Draw 4 digits for BMP
-            Float left = -(MINIFONT_WIDTH + halfGap);
-            DrawHexChar((aChar >> 12) & 0xF,
-                        Point(left, top), aDrawTarget, color);
-            DrawHexChar((aChar >> 8) & 0xF,
-                        Point(halfGap, top), aDrawTarget, color);
-            DrawHexChar((aChar >> 4) & 0xF,
-                        Point(left, halfGap), aDrawTarget, color);
-            DrawHexChar(aChar & 0xF,
-                        Point(halfGap, halfGap), aDrawTarget, color);
-        }
-    } else {
-        if (aRect.Width() >= 3 * (MINIFONT_WIDTH + HEX_CHAR_GAP) &&
-            aRect.Height() >= 2 * MINIFONT_HEIGHT + HEX_CHAR_GAP) {
-            // Draw 6 digits for non-BMP
-            Float first = -(MINIFONT_WIDTH * 1.5 + HEX_CHAR_GAP);
-            Float second = -(MINIFONT_WIDTH / 2.0);
-            Float third = (MINIFONT_WIDTH / 2.0 + HEX_CHAR_GAP);
-            DrawHexChar((aChar >> 20) & 0xF,
-                        Point(first, top), aDrawTarget, color);
-            DrawHexChar((aChar >> 16) & 0xF,
-                        Point(second, top), aDrawTarget, color);
-            DrawHexChar((aChar >> 12) & 0xF,
-                        Point(third, top), aDrawTarget, color);
-            DrawHexChar((aChar >> 8) & 0xF,
-                        Point(first, halfGap), aDrawTarget, color);
-            DrawHexChar((aChar >> 4) & 0xF,
-                        Point(second, halfGap), aDrawTarget, color);
-            DrawHexChar(aChar & 0xF,
-                        Point(third, halfGap), aDrawTarget, color);
-        }
+  Point center = aRect.Center();
+  Float halfGap = HEX_CHAR_GAP / 2.f;
+  Float top = -(MINIFONT_HEIGHT + halfGap);
+  // We always want integer scaling, otherwise the "bitmap" glyphs will look
+  // even uglier than usual when zoomed
+  int32_t devPixelsPerCSSPx = std::max<int32_t>(
+      1, nsDeviceContext::AppUnitsPerCSSPixel() / aAppUnitsPerDevPixel);
+  AutoRestoreTransform autoRestoreTransform(&aDrawTarget);
+  aDrawTarget.SetTransform(
+      aDrawTarget.GetTransform().PreTranslate(center).PreScale(
+          devPixelsPerCSSPx, devPixelsPerCSSPx));
+  if (aChar < 0x10000) {
+    if (aRect.Width() >= 2 * (MINIFONT_WIDTH + HEX_CHAR_GAP) &&
+        aRect.Height() >= 2 * MINIFONT_HEIGHT + HEX_CHAR_GAP) {
+      // Draw 4 digits for BMP
+      Float left = -(MINIFONT_WIDTH + halfGap);
+      DrawHexChar((aChar >> 12) & 0xF, Point(left, top), aDrawTarget, color);
+      DrawHexChar((aChar >> 8) & 0xF, Point(halfGap, top), aDrawTarget, color);
+      DrawHexChar((aChar >> 4) & 0xF, Point(left, halfGap), aDrawTarget, color);
+      DrawHexChar(aChar & 0xF, Point(halfGap, halfGap), aDrawTarget, color);
     }
+  } else {
+    if (aRect.Width() >= 3 * (MINIFONT_WIDTH + HEX_CHAR_GAP) &&
+        aRect.Height() >= 2 * MINIFONT_HEIGHT + HEX_CHAR_GAP) {
+      // Draw 6 digits for non-BMP
+      Float first = -(MINIFONT_WIDTH * 1.5 + HEX_CHAR_GAP);
+      Float second = -(MINIFONT_WIDTH / 2.0);
+      Float third = (MINIFONT_WIDTH / 2.0 + HEX_CHAR_GAP);
+      DrawHexChar((aChar >> 20) & 0xF, Point(first, top), aDrawTarget, color);
+      DrawHexChar((aChar >> 16) & 0xF, Point(second, top), aDrawTarget, color);
+      DrawHexChar((aChar >> 12) & 0xF, Point(third, top), aDrawTarget, color);
+      DrawHexChar(
+          (aChar >> 8) & 0xF, Point(first, halfGap), aDrawTarget, color);
+      DrawHexChar(
+          (aChar >> 4) & 0xF, Point(second, halfGap), aDrawTarget, color);
+      DrawHexChar(aChar & 0xF, Point(third, halfGap), aDrawTarget, color);
+    }
+  }
 #endif
 }
 
@@ -273,16 +203,16 @@ Float
 gfxFontMissingGlyphs::GetDesiredMinWidth(uint32_t aChar,
                                          uint32_t aAppUnitsPerDevPixel)
 {
-/**
+  /**
  * The minimum desired width for a missing-glyph glyph box. I've laid it out
  * like this so you can see what goes where.
  */
-    Float width = BOX_HORIZONTAL_INSET + BOX_BORDER_WIDTH + HEX_CHAR_GAP +
-        MINIFONT_WIDTH + HEX_CHAR_GAP + MINIFONT_WIDTH +
-         ((aChar < 0x10000) ? 0 : HEX_CHAR_GAP + MINIFONT_WIDTH) +
-        HEX_CHAR_GAP + BOX_BORDER_WIDTH + BOX_HORIZONTAL_INSET;
-    // Note that this will give us floating-point division, so the width will
-    // -not- be snapped to integer multiples of its basic pixel value
-    width *= Float(nsDeviceContext::AppUnitsPerCSSPixel()) / aAppUnitsPerDevPixel;
-    return width;
+  Float width = BOX_HORIZONTAL_INSET + BOX_BORDER_WIDTH + HEX_CHAR_GAP +
+                MINIFONT_WIDTH + HEX_CHAR_GAP + MINIFONT_WIDTH +
+                ((aChar < 0x10000) ? 0 : HEX_CHAR_GAP + MINIFONT_WIDTH) +
+                HEX_CHAR_GAP + BOX_BORDER_WIDTH + BOX_HORIZONTAL_INSET;
+  // Note that this will give us floating-point division, so the width will
+  // -not- be snapped to integer multiples of its basic pixel value
+  width *= Float(nsDeviceContext::AppUnitsPerCSSPixel()) / aAppUnitsPerDevPixel;
+  return width;
 }

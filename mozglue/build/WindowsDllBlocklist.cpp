@@ -10,7 +10,7 @@
 // See mozmemory_wrap.h for more details. This file is part of libmozglue, so
 // it needs to use _impl suffixes.
 #define MALLOC_DECL(name, return_type, ...) \
-  MOZ_MEMORY_API return_type name ## _impl(__VA_ARGS__);
+  MOZ_MEMORY_API return_type name##_impl(__VA_ARGS__);
 #include "malloc_decls.h"
 #endif
 
@@ -18,10 +18,10 @@
 #include <winternl.h>
 #include <io.h>
 
-#pragma warning( push )
-#pragma warning( disable : 4275 4530 ) // See msvc-stl-wrapper.template.h
+#pragma warning(push)
+#pragma warning(disable : 4275 4530)  // See msvc-stl-wrapper.template.h
 #include <map>
-#pragma warning( pop )
+#pragma warning(pop)
 
 #include "nsAutoPtr.h"
 
@@ -36,23 +36,24 @@
 
 using namespace mozilla;
 
-#define ALL_VERSIONS   ((unsigned long long)-1LL)
+#define ALL_VERSIONS ((unsigned long long)-1LL)
 
 // DLLs sometimes ship without a version number, particularly early
 // releases. Blocking "version <= 0" has the effect of blocking unversioned
 // DLLs (since the call to get version info fails), but not blocking
 // any versioned instance.
-#define UNVERSIONED    ((unsigned long long)0LL)
+#define UNVERSIONED ((unsigned long long)0LL)
 
 // Convert the 4 (decimal) components of a DLL version number into a
 // single unsigned long long, as needed by the blocklist
-#define MAKE_VERSION(a,b,c,d)\
+#define MAKE_VERSION(a, b, c, d) \
   ((a##ULL << 48) + (b##ULL << 32) + (c##ULL << 16) + d##ULL)
 
-struct DllBlockInfo {
+struct DllBlockInfo
+{
   // The name of the DLL -- in LOWERCASE!  It will be compared to
   // a lowercase version of the DLL name only.
-  const char *name;
+  const char* name;
 
   // If maxVersion is ALL_VERSIONS, we'll block all versions of this
   // dll.  Otherwise, we'll block all versions less than or equal to
@@ -70,7 +71,8 @@ struct DllBlockInfo {
   // only when we are a child process.
   unsigned long long maxVersion;
 
-  enum {
+  enum
+  {
     FLAGS_DEFAULT = 0,
     BLOCK_WIN8PLUS_ONLY = 1,
     BLOCK_WIN8_ONLY = 2,
@@ -80,185 +82,186 @@ struct DllBlockInfo {
 };
 
 static const DllBlockInfo sWindowsDllBlocklist[] = {
-  // EXAMPLE:
-  // { "uxtheme.dll", ALL_VERSIONS },
-  // { "uxtheme.dll", 0x0000123400000000ULL },
-  // The DLL name must be in lowercase!
-  // The version field is a maximum, that is, we block anything that is
-  // less-than or equal to that version.
+    // EXAMPLE:
+    // { "uxtheme.dll", ALL_VERSIONS },
+    // { "uxtheme.dll", 0x0000123400000000ULL },
+    // The DLL name must be in lowercase!
+    // The version field is a maximum, that is, we block anything that is
+    // less-than or equal to that version.
 
-  // NPFFAddon - Known malware
-  { "npffaddon.dll", ALL_VERSIONS},
+    // NPFFAddon - Known malware
+    {"npffaddon.dll", ALL_VERSIONS},
 
-  // AVG 8 - Antivirus vendor AVG, old version, plugin already blocklisted
-  {"avgrsstx.dll", MAKE_VERSION(8,5,0,401)},
+    // AVG 8 - Antivirus vendor AVG, old version, plugin already blocklisted
+    {"avgrsstx.dll", MAKE_VERSION(8, 5, 0, 401)},
 
-  // calc.dll - Suspected malware
-  {"calc.dll", MAKE_VERSION(1,0,0,1)},
+    // calc.dll - Suspected malware
+    {"calc.dll", MAKE_VERSION(1, 0, 0, 1)},
 
-  // hook.dll - Suspected malware
-  {"hook.dll", ALL_VERSIONS},
+    // hook.dll - Suspected malware
+    {"hook.dll", ALL_VERSIONS},
 
-  // GoogleDesktopNetwork3.dll - Extremely old, unversioned instances
-  // of this DLL cause crashes
-  {"googledesktopnetwork3.dll", UNVERSIONED},
+    // GoogleDesktopNetwork3.dll - Extremely old, unversioned instances
+    // of this DLL cause crashes
+    {"googledesktopnetwork3.dll", UNVERSIONED},
 
-  // rdolib.dll - Suspected malware
-  {"rdolib.dll", MAKE_VERSION(6,0,88,4)},
+    // rdolib.dll - Suspected malware
+    {"rdolib.dll", MAKE_VERSION(6, 0, 88, 4)},
 
-  // fgjk4wvb.dll - Suspected malware
-  {"fgjk4wvb.dll", MAKE_VERSION(8,8,8,8)},
+    // fgjk4wvb.dll - Suspected malware
+    {"fgjk4wvb.dll", MAKE_VERSION(8, 8, 8, 8)},
 
-  // radhslib.dll - Naomi internet filter - unmaintained since 2006
-  {"radhslib.dll", UNVERSIONED},
+    // radhslib.dll - Naomi internet filter - unmaintained since 2006
+    {"radhslib.dll", UNVERSIONED},
 
-  // Music download filter for vkontakte.ru - old instances
-  // of this DLL cause crashes
-  {"vksaver.dll", MAKE_VERSION(2,2,2,0)},
+    // Music download filter for vkontakte.ru - old instances
+    // of this DLL cause crashes
+    {"vksaver.dll", MAKE_VERSION(2, 2, 2, 0)},
 
-  // Topcrash in Firefox 4.0b1
-  {"rlxf.dll", MAKE_VERSION(1,2,323,1)},
+    // Topcrash in Firefox 4.0b1
+    {"rlxf.dll", MAKE_VERSION(1, 2, 323, 1)},
 
-  // psicon.dll - Topcrashes in Thunderbird, and some crashes in Firefox
-  // Adobe photoshop library, now redundant in later installations
-  {"psicon.dll", ALL_VERSIONS},
+    // psicon.dll - Topcrashes in Thunderbird, and some crashes in Firefox
+    // Adobe photoshop library, now redundant in later installations
+    {"psicon.dll", ALL_VERSIONS},
 
-  // Topcrash in Firefox 4 betas (bug 618899)
-  {"accelerator.dll", MAKE_VERSION(3,2,1,6)},
+    // Topcrash in Firefox 4 betas (bug 618899)
+    {"accelerator.dll", MAKE_VERSION(3, 2, 1, 6)},
 
-  // Topcrash with Roboform in Firefox 8 (bug 699134)
-  {"rf-firefox.dll", MAKE_VERSION(7,6,1,0)},
-  {"roboform.dll", MAKE_VERSION(7,6,1,0)},
+    // Topcrash with Roboform in Firefox 8 (bug 699134)
+    {"rf-firefox.dll", MAKE_VERSION(7, 6, 1, 0)},
+    {"roboform.dll", MAKE_VERSION(7, 6, 1, 0)},
 
-  // Topcrash with Babylon Toolbar on FF16+ (bug 721264)
-  {"babyfox.dll", ALL_VERSIONS},
+    // Topcrash with Babylon Toolbar on FF16+ (bug 721264)
+    {"babyfox.dll", ALL_VERSIONS},
 
-  // sprotector.dll crashes, bug 957258
-  {"sprotector.dll", ALL_VERSIONS},
+    // sprotector.dll crashes, bug 957258
+    {"sprotector.dll", ALL_VERSIONS},
 
-  // leave these two in always for tests
-  { "mozdllblockingtest.dll", ALL_VERSIONS },
-  { "mozdllblockingtest_versioned.dll", 0x0000000400000000ULL },
+    // leave these two in always for tests
+    {"mozdllblockingtest.dll", ALL_VERSIONS},
+    {"mozdllblockingtest_versioned.dll", 0x0000000400000000ULL},
 
-  // Windows Media Foundation FLAC decoder and type sniffer (bug 839031).
-  { "mfflac.dll", ALL_VERSIONS },
+    // Windows Media Foundation FLAC decoder and type sniffer (bug 839031).
+    {"mfflac.dll", ALL_VERSIONS},
 
-  // Older Relevant Knowledge DLLs cause us to crash (bug 904001).
-  { "rlnx.dll", MAKE_VERSION(1, 3, 334, 9) },
-  { "pmnx.dll", MAKE_VERSION(1, 3, 334, 9) },
-  { "opnx.dll", MAKE_VERSION(1, 3, 334, 9) },
-  { "prnx.dll", MAKE_VERSION(1, 3, 334, 9) },
+    // Older Relevant Knowledge DLLs cause us to crash (bug 904001).
+    {"rlnx.dll", MAKE_VERSION(1, 3, 334, 9)},
+    {"pmnx.dll", MAKE_VERSION(1, 3, 334, 9)},
+    {"opnx.dll", MAKE_VERSION(1, 3, 334, 9)},
+    {"prnx.dll", MAKE_VERSION(1, 3, 334, 9)},
 
-  // Older belgian ID card software causes Firefox to crash or hang on
-  // shutdown, bug 831285 and 918399.
-  { "beid35cardlayer.dll", MAKE_VERSION(3, 5, 6, 6968) },
+    // Older belgian ID card software causes Firefox to crash or hang on
+    // shutdown, bug 831285 and 918399.
+    {"beid35cardlayer.dll", MAKE_VERSION(3, 5, 6, 6968)},
 
-  // bug 925459, bitguard crashes
-  { "bitguard.dll", ALL_VERSIONS },
+    // bug 925459, bitguard crashes
+    {"bitguard.dll", ALL_VERSIONS},
 
-  // bug 812683 - crashes in Windows library when Asus Gamer OSD is installed
-  // Software is discontinued/unsupported
-  { "atkdx11disp.dll", ALL_VERSIONS },
+    // bug 812683 - crashes in Windows library when Asus Gamer OSD is installed
+    // Software is discontinued/unsupported
+    {"atkdx11disp.dll", ALL_VERSIONS},
 
-  // Topcrash with Conduit SearchProtect, bug 944542
-  { "spvc32.dll", ALL_VERSIONS },
+    // Topcrash with Conduit SearchProtect, bug 944542
+    {"spvc32.dll", ALL_VERSIONS},
 
-  // Topcrash with V-bates, bug 1002748 and bug 1023239
-  { "libinject.dll", UNVERSIONED },
-  { "libinject2.dll", 0x537DDC93, DllBlockInfo::USE_TIMESTAMP },
-  { "libredir2.dll", 0x5385B7ED, DllBlockInfo::USE_TIMESTAMP },
+    // Topcrash with V-bates, bug 1002748 and bug 1023239
+    {"libinject.dll", UNVERSIONED},
+    {"libinject2.dll", 0x537DDC93, DllBlockInfo::USE_TIMESTAMP},
+    {"libredir2.dll", 0x5385B7ED, DllBlockInfo::USE_TIMESTAMP},
 
-  // Crashes with RoboForm2Go written against old SDK, bug 988311/1196859
-  { "rf-firefox-22.dll", ALL_VERSIONS },
-  { "rf-firefox-40.dll", ALL_VERSIONS },
+    // Crashes with RoboForm2Go written against old SDK, bug 988311/1196859
+    {"rf-firefox-22.dll", ALL_VERSIONS},
+    {"rf-firefox-40.dll", ALL_VERSIONS},
 
-  // Crashes with DesktopTemperature, bug 1046382
-  { "dtwxsvc.dll", 0x53153234, DllBlockInfo::USE_TIMESTAMP },
+    // Crashes with DesktopTemperature, bug 1046382
+    {"dtwxsvc.dll", 0x53153234, DllBlockInfo::USE_TIMESTAMP},
 
-  // Startup crashes with Lenovo Onekey Theater, bug 1123778
-  { "activedetect32.dll", UNVERSIONED },
-  { "activedetect64.dll", UNVERSIONED },
-  { "windowsapihookdll32.dll", UNVERSIONED },
-  { "windowsapihookdll64.dll", UNVERSIONED },
+    // Startup crashes with Lenovo Onekey Theater, bug 1123778
+    {"activedetect32.dll", UNVERSIONED},
+    {"activedetect64.dll", UNVERSIONED},
+    {"windowsapihookdll32.dll", UNVERSIONED},
+    {"windowsapihookdll64.dll", UNVERSIONED},
 
-  // Flash crashes with RealNetworks RealDownloader, bug 1132663
-  { "rndlnpshimswf.dll", ALL_VERSIONS },
-  { "rndlmainbrowserrecordplugin.dll", ALL_VERSIONS },
+    // Flash crashes with RealNetworks RealDownloader, bug 1132663
+    {"rndlnpshimswf.dll", ALL_VERSIONS},
+    {"rndlmainbrowserrecordplugin.dll", ALL_VERSIONS},
 
-  // Startup crashes with RealNetworks Browser Record Plugin, bug 1170141
-  { "nprpffbrowserrecordext.dll", ALL_VERSIONS },
-  { "nprndlffbrowserrecordext.dll", ALL_VERSIONS },
+    // Startup crashes with RealNetworks Browser Record Plugin, bug 1170141
+    {"nprpffbrowserrecordext.dll", ALL_VERSIONS},
+    {"nprndlffbrowserrecordext.dll", ALL_VERSIONS},
 
-  // Crashes with CyberLink YouCam, bug 1136968
-  { "ycwebcamerasource.ax", MAKE_VERSION(2, 0, 0, 1611) },
+    // Crashes with CyberLink YouCam, bug 1136968
+    {"ycwebcamerasource.ax", MAKE_VERSION(2, 0, 0, 1611)},
 
-  // Old version of WebcamMax crashes WebRTC, bug 1130061
-  { "vwcsource.ax", MAKE_VERSION(1, 5, 0, 0) },
+    // Old version of WebcamMax crashes WebRTC, bug 1130061
+    {"vwcsource.ax", MAKE_VERSION(1, 5, 0, 0)},
 
-  // NetOp School, discontinued product, bug 763395
-  { "nlsp.dll", MAKE_VERSION(6, 23, 2012, 19) },
+    // NetOp School, discontinued product, bug 763395
+    {"nlsp.dll", MAKE_VERSION(6, 23, 2012, 19)},
 
-  // Orbit Downloader, bug 1222819
-  { "grabdll.dll", MAKE_VERSION(2, 6, 1, 0) },
-  { "grabkernel.dll", MAKE_VERSION(1, 0, 0, 1) },
+    // Orbit Downloader, bug 1222819
+    {"grabdll.dll", MAKE_VERSION(2, 6, 1, 0)},
+    {"grabkernel.dll", MAKE_VERSION(1, 0, 0, 1)},
 
-  // ESET, bug 1229252
-  { "eoppmonitor.dll", ALL_VERSIONS },
+    // ESET, bug 1229252
+    {"eoppmonitor.dll", ALL_VERSIONS},
 
-  // SS2OSD, bug 1262348
-  { "ss2osd.dll", ALL_VERSIONS },
-  { "ss2devprops.dll", ALL_VERSIONS },
+    // SS2OSD, bug 1262348
+    {"ss2osd.dll", ALL_VERSIONS},
+    {"ss2devprops.dll", ALL_VERSIONS},
 
-  // NHASUSSTRIXOSD.DLL, bug 1269244
-  { "nhasusstrixosd.dll", ALL_VERSIONS },
-  { "nhasusstrixdevprops.dll", ALL_VERSIONS },
+    // NHASUSSTRIXOSD.DLL, bug 1269244
+    {"nhasusstrixosd.dll", ALL_VERSIONS},
+    {"nhasusstrixdevprops.dll", ALL_VERSIONS},
 
-  // Crashes with PremierOpinion/RelevantKnowledge, bug 1277846
-  { "opls.dll", ALL_VERSIONS },
-  { "opls64.dll", ALL_VERSIONS },
-  { "pmls.dll", ALL_VERSIONS },
-  { "pmls64.dll", ALL_VERSIONS },
-  { "prls.dll", ALL_VERSIONS },
-  { "prls64.dll", ALL_VERSIONS },
-  { "rlls.dll", ALL_VERSIONS },
-  { "rlls64.dll", ALL_VERSIONS },
+    // Crashes with PremierOpinion/RelevantKnowledge, bug 1277846
+    {"opls.dll", ALL_VERSIONS},
+    {"opls64.dll", ALL_VERSIONS},
+    {"pmls.dll", ALL_VERSIONS},
+    {"pmls64.dll", ALL_VERSIONS},
+    {"prls.dll", ALL_VERSIONS},
+    {"prls64.dll", ALL_VERSIONS},
+    {"rlls.dll", ALL_VERSIONS},
+    {"rlls64.dll", ALL_VERSIONS},
 
-  // Vorbis DirectShow filters, bug 1239690.
-  { "vorbis.acm", MAKE_VERSION(0, 0, 3, 6) },
+    // Vorbis DirectShow filters, bug 1239690.
+    {"vorbis.acm", MAKE_VERSION(0, 0, 3, 6)},
 
-  // AhnLab Internet Security, bug 1311969
-  { "nzbrcom.dll", ALL_VERSIONS },
+    // AhnLab Internet Security, bug 1311969
+    {"nzbrcom.dll", ALL_VERSIONS},
 
-  // K7TotalSecurity, bug 1339083.
-  { "k7pswsen.dll", MAKE_VERSION(15, 2, 2, 95) },
+    // K7TotalSecurity, bug 1339083.
+    {"k7pswsen.dll", MAKE_VERSION(15, 2, 2, 95)},
 
-  // smci*.dll - goobzo crashware (bug 1339908)
-  { "smci32.dll", ALL_VERSIONS },
-  { "smci64.dll", ALL_VERSIONS },
+    // smci*.dll - goobzo crashware (bug 1339908)
+    {"smci32.dll", ALL_VERSIONS},
+    {"smci64.dll", ALL_VERSIONS},
 
-  // Crashes with Internet Download Manager, bug 1333486
-  { "idmcchandler7.dll", ALL_VERSIONS },
-  { "idmcchandler7_64.dll", ALL_VERSIONS },
-  { "idmcchandler5.dll", ALL_VERSIONS },
-  { "idmcchandler5_64.dll", ALL_VERSIONS },
+    // Crashes with Internet Download Manager, bug 1333486
+    {"idmcchandler7.dll", ALL_VERSIONS},
+    {"idmcchandler7_64.dll", ALL_VERSIONS},
+    {"idmcchandler5.dll", ALL_VERSIONS},
+    {"idmcchandler5_64.dll", ALL_VERSIONS},
 
-  // Nahimic 2 breaks applicaton update (bug 1356637)
-  { "nahimic2devprops.dll", MAKE_VERSION(2, 5, 19, 0xffff) },
-  // Nahimic is causing crashes, bug 1233556
-  { "nahimicmsiosd.dll", UNVERSIONED },
-  // Nahimic is causing crashes, bug 1360029
-  { "nahimicvrdevprops.dll", UNVERSIONED },
-  { "nahimic2osd.dll", MAKE_VERSION(2, 5, 19, 0xffff) },
-  { "nahimicmsidevprops.dll", UNVERSIONED },
+    // Nahimic 2 breaks applicaton update (bug 1356637)
+    {"nahimic2devprops.dll", MAKE_VERSION(2, 5, 19, 0xffff)},
+    // Nahimic is causing crashes, bug 1233556
+    {"nahimicmsiosd.dll", UNVERSIONED},
+    // Nahimic is causing crashes, bug 1360029
+    {"nahimicvrdevprops.dll", UNVERSIONED},
+    {"nahimic2osd.dll", MAKE_VERSION(2, 5, 19, 0xffff)},
+    {"nahimicmsidevprops.dll", UNVERSIONED},
 
-  // Bug 1268470 - crashes with Kaspersky Lab on Windows 8
-  { "klsihk64.dll", MAKE_VERSION(14, 0, 456, 0xffff), DllBlockInfo::BLOCK_WIN8_ONLY },
+    // Bug 1268470 - crashes with Kaspersky Lab on Windows 8
+    {"klsihk64.dll",
+     MAKE_VERSION(14, 0, 456, 0xffff),
+     DllBlockInfo::BLOCK_WIN8_ONLY},
 
-  // Bug 1407337, crashes with OpenSC < 0.16.0
-  { "onepin-opensc-pkcs11.dll", MAKE_VERSION(0, 15, 0xffff, 0xffff) },
+    // Bug 1407337, crashes with OpenSC < 0.16.0
+    {"onepin-opensc-pkcs11.dll", MAKE_VERSION(0, 15, 0xffff, 0xffff)},
 
-  { nullptr, 0 }
-};
+    {nullptr, 0}};
 
 #ifndef STATUS_DLL_NOT_FOUND
 #define STATUS_DLL_NOT_FOUND ((DWORD)0xC0000135L)
@@ -268,16 +271,16 @@ static const DllBlockInfo sWindowsDllBlocklist[] = {
 #undef DEBUG_very_verbose
 
 static const char kBlockedDllsParameter[] = "BlockedDllList=";
-static const int kBlockedDllsParameterLen =
-  sizeof(kBlockedDllsParameter) - 1;
+static const int kBlockedDllsParameterLen = sizeof(kBlockedDllsParameter) - 1;
 
 static const char kBlocklistInitFailedParameter[] = "BlocklistInitFailed=1\n";
 static const int kBlocklistInitFailedParameterLen =
-  sizeof(kBlocklistInitFailedParameter) - 1;
+    sizeof(kBlocklistInitFailedParameter) - 1;
 
-static const char kUser32BeforeBlocklistParameter[] = "User32BeforeBlocklist=1\n";
+static const char kUser32BeforeBlocklistParameter[] =
+    "User32BeforeBlocklist=1\n";
 static const int kUser32BeforeBlocklistParameterLen =
-  sizeof(kUser32BeforeBlocklistParameter) - 1;
+    sizeof(kUser32BeforeBlocklistParameter) - 1;
 
 static uint32_t sInitFlags;
 static bool sBlocklistInitAttempted;
@@ -286,7 +289,7 @@ static bool sUser32BeforeBlocklist;
 
 // Duplicated from xpcom glue. Ideally this should be shared.
 void
-printf_stderr(const char *fmt, ...)
+printf_stderr(const char* fmt, ...)
 {
   if (IsDebuggerPresent()) {
     char buf[2048];
@@ -297,9 +300,8 @@ printf_stderr(const char *fmt, ...)
     OutputDebugStringA(buf);
   }
 
-  FILE *fp = _fdopen(_dup(2), "a");
-  if (!fp)
-      return;
+  FILE* fp = _fdopen(_dup(2), "a");
+  if (!fp) return;
 
   va_list args;
   va_start(args, fmt);
@@ -309,23 +311,32 @@ printf_stderr(const char *fmt, ...)
   fclose(fp);
 }
 
-
-typedef MOZ_NORETURN_PTR void (__fastcall* BaseThreadInitThunk_func)(BOOL aIsInitialThread, void* aStartAddress, void* aThreadParam);
+typedef MOZ_NORETURN_PTR void(__fastcall* BaseThreadInitThunk_func)(
+    BOOL aIsInitialThread, void* aStartAddress, void* aThreadParam);
 static BaseThreadInitThunk_func stub_BaseThreadInitThunk = nullptr;
 
-typedef NTSTATUS (NTAPI *LdrLoadDll_func) (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileName, PHANDLE handle);
+typedef NTSTATUS(NTAPI* LdrLoadDll_func)(PWCHAR filePath,
+                                         PULONG flags,
+                                         PUNICODE_STRING moduleFileName,
+                                         PHANDLE handle);
 static LdrLoadDll_func stub_LdrLoadDll;
 
 #ifdef _M_AMD64
-typedef decltype(RtlInstallFunctionTableCallback)* RtlInstallFunctionTableCallback_func;
-static RtlInstallFunctionTableCallback_func stub_RtlInstallFunctionTableCallback;
+typedef decltype(
+    RtlInstallFunctionTableCallback)* RtlInstallFunctionTableCallback_func;
+static RtlInstallFunctionTableCallback_func
+    stub_RtlInstallFunctionTableCallback;
 
 extern uint8_t* sMsMpegJitCodeRegionStart;
 extern size_t sMsMpegJitCodeRegionSize;
 
-BOOLEAN WINAPI patched_RtlInstallFunctionTableCallback(DWORD64 TableIdentifier,
-  DWORD64 BaseAddress, DWORD Length, PGET_RUNTIME_FUNCTION_CALLBACK Callback,
-  PVOID Context, PCWSTR OutOfProcessCallbackDll)
+BOOLEAN WINAPI
+patched_RtlInstallFunctionTableCallback(DWORD64 TableIdentifier,
+                                        DWORD64 BaseAddress,
+                                        DWORD Length,
+                                        PGET_RUNTIME_FUNCTION_CALLBACK Callback,
+                                        PVOID Context,
+                                        PCWSTR OutOfProcessCallbackDll)
 {
   // msmpeg2vdec.dll sets up a function table callback for their JIT code that
   // just terminates the process, because their JIT doesn't have unwind info.
@@ -345,41 +356,53 @@ BOOLEAN WINAPI patched_RtlInstallFunctionTableCallback(DWORD64 TableIdentifier,
 
   if (GetModuleHandleExW(moduleFlags, (LPWSTR)Callback, &callbackModule) &&
       GetModuleHandleW(L"msmpeg2vdec.dll") == callbackModule) {
-      sMsMpegJitCodeRegionStart = (uint8_t*)BaseAddress;
-      sMsMpegJitCodeRegionSize = Length;
+    sMsMpegJitCodeRegionStart = (uint8_t*)BaseAddress;
+    sMsMpegJitCodeRegionSize = Length;
   }
 
-  return stub_RtlInstallFunctionTableCallback(TableIdentifier, BaseAddress,
-                                              Length, Callback, Context,
+  return stub_RtlInstallFunctionTableCallback(TableIdentifier,
+                                              BaseAddress,
+                                              Length,
+                                              Callback,
+                                              Context,
                                               OutOfProcessCallbackDll);
 }
 #endif
 
-template <class T>
-struct RVAMap {
-  RVAMap(HANDLE map, DWORD offset) {
+template<class T>
+struct RVAMap
+{
+  RVAMap(HANDLE map, DWORD offset)
+  {
     SYSTEM_INFO info;
     GetSystemInfo(&info);
 
-    DWORD alignedOffset = (offset / info.dwAllocationGranularity) *
-                          info.dwAllocationGranularity;
+    DWORD alignedOffset =
+        (offset / info.dwAllocationGranularity) * info.dwAllocationGranularity;
 
     MOZ_ASSERT(offset - alignedOffset < info.dwAllocationGranularity, "Wtf");
 
-    mRealView = ::MapViewOfFile(map, FILE_MAP_READ, 0, alignedOffset,
+    mRealView = ::MapViewOfFile(map,
+                                FILE_MAP_READ,
+                                0,
+                                alignedOffset,
                                 sizeof(T) + (offset - alignedOffset));
 
-    mMappedView = mRealView ? reinterpret_cast<T*>((char*)mRealView + (offset - alignedOffset)) :
-                              nullptr;
+    mMappedView =
+        mRealView
+            ? reinterpret_cast<T*>((char*)mRealView + (offset - alignedOffset))
+            : nullptr;
   }
-  ~RVAMap() {
+  ~RVAMap()
+  {
     if (mRealView) {
       ::UnmapViewOfFile(mRealView);
     }
   }
   operator const T*() const { return mMappedView; }
   const T* operator->() const { return mMappedView; }
-private:
+
+ private:
   const T* mMappedView;
   void* mRealView;
 };
@@ -389,12 +412,16 @@ GetTimestamp(const wchar_t* path)
 {
   DWORD timestamp = 0;
 
-  HANDLE file = ::CreateFileW(path, GENERIC_READ, FILE_SHARE_READ,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+  HANDLE file = ::CreateFileW(path,
+                              GENERIC_READ,
+                              FILE_SHARE_READ,
+                              nullptr,
+                              OPEN_EXISTING,
+                              FILE_ATTRIBUTE_NORMAL,
                               nullptr);
   if (file != INVALID_HANDLE_VALUE) {
-    HANDLE map = ::CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0,
-                                      nullptr);
+    HANDLE map =
+        ::CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
     if (map) {
       RVAMap<IMAGE_DOS_HEADER> peHeader(map, 0);
       if (peHeader) {
@@ -427,7 +454,7 @@ static CRITICAL_SECTION sLock;
  */
 class ReentrancySentinel
 {
-public:
+ public:
   explicit ReentrancySentinel(const char* dllName)
   {
     DWORD currentThreadId = GetCurrentThreadId();
@@ -447,10 +474,7 @@ public:
     (*sThreadMap)[currentThreadId] = mPreviousDllName;
   }
 
-  bool BailOut() const
-  {
-    return mReentered;
-  };
+  bool BailOut() const { return mReentered; };
 
   static void InitializeStatics()
   {
@@ -458,7 +482,7 @@ public:
     sThreadMap = new std::map<DWORD, const char*>;
   }
 
-private:
+ private:
   static std::map<DWORD, const char*>* sThreadMap;
 
   const char* mPreviousDllName;
@@ -474,22 +498,20 @@ std::map<DWORD, const char*>* ReentrancySentinel::sThreadMap;
  */
 class DllBlockSet
 {
-public:
+ public:
   static void Add(const char* name, unsigned long long version);
 
   // Write the list of blocked DLLs to a file HANDLE. This method is run after
   // a crash occurs and must therefore not use the heap, etc.
   static void Write(HANDLE file);
 
-private:
+ private:
   DllBlockSet(const char* name, unsigned long long version)
-    : mName(name)
-    , mVersion(version)
-    , mNext(nullptr)
+      : mName(name), mVersion(version), mNext(nullptr)
   {
   }
 
-  const char* mName; // points into the sWindowsDllBlocklist string
+  const char* mName;  // points into the sWindowsDllBlocklist string
   unsigned long long mVersion;
   DllBlockSet* mNext;
 
@@ -524,7 +546,8 @@ DllBlockSet::Write(HANDLE file)
 
   // Because this method is called after a crash occurs, and uses heap memory,
   // protect this entire block with a structured exception handler.
-  MOZ_SEH_TRY {
+  MOZ_SEH_TRY
+  {
     DWORD nBytes;
     for (DllBlockSet* b = gFirst; b; b = b->mNext) {
       // write name[,v.v.v.v];
@@ -548,13 +571,13 @@ DllBlockSet::Write(HANDLE file)
       WriteFile(file, ";", 1, &nBytes, nullptr);
     }
   }
-  MOZ_SEH_EXCEPT (EXCEPTION_EXECUTE_HANDLER) { }
+  MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {}
 
   ::LeaveCriticalSection(&sLock);
 }
 
 static UniquePtr<wchar_t[]>
-getFullPath (PWCHAR filePath, wchar_t* fname)
+getFullPath(PWCHAR filePath, wchar_t* fname)
 {
   // In Windows 8, the first parameter seems to be used for more than just the
   // path name.  For example, its numerical value can be 1.  Passing a non-valid
@@ -566,26 +589,31 @@ getFullPath (PWCHAR filePath, wchar_t* fname)
   }
 
   // figure out the length of the string that we need
-  DWORD pathlen = SearchPathW(sanitizedFilePath, fname, L".dll", 0, nullptr,
-                              nullptr);
+  DWORD pathlen =
+      SearchPathW(sanitizedFilePath, fname, L".dll", 0, nullptr, nullptr);
   if (pathlen == 0) {
     return nullptr;
   }
 
-  auto full_fname = MakeUnique<wchar_t[]>(pathlen+1);
+  auto full_fname = MakeUnique<wchar_t[]>(pathlen + 1);
   if (!full_fname) {
     // couldn't allocate memory?
     return nullptr;
   }
 
   // now actually grab it
-  SearchPathW(sanitizedFilePath, fname, L".dll", pathlen + 1, full_fname.get(),
+  SearchPathW(sanitizedFilePath,
+              fname,
+              L".dll",
+              pathlen + 1,
+              full_fname.get(),
               nullptr);
   return full_fname;
 }
 
 // No builtin function to find the last character matching a set
-static wchar_t* lastslash(wchar_t* s, int len)
+static wchar_t*
+lastslash(wchar_t* s, int len)
 {
   for (wchar_t* c = s + len - 1; c >= s; --c) {
     if (*c == L'\\' || *c == L'/') {
@@ -596,16 +624,19 @@ static wchar_t* lastslash(wchar_t* s, int len)
 }
 
 static NTSTATUS NTAPI
-patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileName, PHANDLE handle)
+patched_LdrLoadDll(PWCHAR filePath,
+                   PULONG flags,
+                   PUNICODE_STRING moduleFileName,
+                   PHANDLE handle)
 {
-  // We have UCS2 (UTF16?), we want ASCII, but we also just want the filename portion
+// We have UCS2 (UTF16?), we want ASCII, but we also just want the filename portion
 #define DLLNAME_MAX 128
-  char dllName[DLLNAME_MAX+1];
-  wchar_t *dll_part;
-  char *dot;
+  char dllName[DLLNAME_MAX + 1];
+  wchar_t* dll_part;
+  char* dot;
 
   int len = moduleFileName->Length / 2;
-  wchar_t *fname = moduleFileName->Buffer;
+  wchar_t* fname = moduleFileName->Buffer;
   UniquePtr<wchar_t[]> full_fname;
 
   const DllBlockInfo* info = &sWindowsDllBlocklist[0];
@@ -614,9 +645,8 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
   // it always will be; ensure that this is so, and bail if not.
   // This is done instead of the more robust approach because of bug 527122,
   // where lots of weird things were happening when we tried to make a copy.
-  if (moduleFileName->MaximumLength < moduleFileName->Length+2 ||
-      fname[len] != 0)
-  {
+  if (moduleFileName->MaximumLength < moduleFileName->Length + 2 ||
+      fname[len] != 0) {
 #ifdef DEBUG
     printf_stderr("LdrLoadDll: non-null terminated string found!\n");
 #endif
@@ -656,10 +686,9 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
     }
 
     // ensure that dll name is all lowercase
-    if (c >= 'A' && c <= 'Z')
-      c += 'a' - 'A';
+    if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
 
-    dllName[i] = (char) c;
+    dllName[i] = (char)c;
   }
 
   dllName[len] = 0;
@@ -671,16 +700,16 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
   // Block a suspicious binary that uses various 12-digit hex strings
   // e.g. MovieMode.48CA2AEFA22D.dll (bug 973138)
   dot = strchr(dllName, '.');
-  if (dot && (strchr(dot+1, '.') == dot+13)) {
-    char * end = nullptr;
-    _strtoui64(dot+1, &end, 16);
-    if (end == dot+13) {
+  if (dot && (strchr(dot + 1, '.') == dot + 13)) {
+    char* end = nullptr;
+    _strtoui64(dot + 1, &end, 16);
+    if (end == dot + 13) {
       return STATUS_DLL_NOT_FOUND;
     }
   }
   // Block binaries where the filename is at least 16 hex digits
   if (dot && ((dot - dllName) >= 16)) {
-    char * current = dllName;
+    char* current = dllName;
     while (current < dot && isxdigit(*current)) {
       current++;
     }
@@ -691,8 +720,7 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
 
   // then compare to everything on the blocklist
   while (info->name) {
-    if (strcmp(info->name, dllName) == 0)
-      break;
+    if (strcmp(info->name, dllName) == 0) break;
 
     info++;
   }
@@ -704,8 +732,7 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
     printf_stderr("LdrLoadDll: info->name: '%s'\n", info->name);
 #endif
 
-    if ((info->flags & DllBlockInfo::BLOCK_WIN8PLUS_ONLY) &&
-        !IsWin8OrLater()) {
+    if ((info->flags & DllBlockInfo::BLOCK_WIN8PLUS_ONLY) && !IsWin8OrLater()) {
       goto continue_loading;
     }
 
@@ -730,7 +757,9 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
       full_fname = getFullPath(filePath, fname);
       if (!full_fname) {
         // uh, we couldn't find the DLL at all, so...
-        printf_stderr("LdrLoadDll: Blocking load of '%s' (SearchPathW didn't find it?)\n", dllName);
+        printf_stderr(
+            "LdrLoadDll: Blocking load of '%s' (SearchPathW didn't find it?)\n",
+            dllName);
         return STATUS_DLL_NOT_FOUND;
       }
 
@@ -747,27 +776,29 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
 
         if (infoSize != 0) {
           auto infoData = MakeUnique<unsigned char[]>(infoSize);
-          VS_FIXEDFILEINFO *vInfo;
+          VS_FIXEDFILEINFO* vInfo;
           UINT vInfoLen;
 
-          if (GetFileVersionInfoW(full_fname.get(), 0, infoSize, infoData.get()) &&
-              VerQueryValueW(infoData.get(), L"\\", (LPVOID*) &vInfo, &vInfoLen))
-          {
-            fVersion =
-              ((unsigned long long)vInfo->dwFileVersionMS) << 32 |
-              ((unsigned long long)vInfo->dwFileVersionLS);
+          if (GetFileVersionInfoW(
+                  full_fname.get(), 0, infoSize, infoData.get()) &&
+              VerQueryValueW(
+                  infoData.get(), L"\\", (LPVOID*)&vInfo, &vInfoLen)) {
+            fVersion = ((unsigned long long)vInfo->dwFileVersionMS) << 32 |
+                       ((unsigned long long)vInfo->dwFileVersionLS);
 
             // finally do the version check, and if it's greater than our block
             // version, keep loading
-            if (fVersion > info->maxVersion)
-              load_ok = true;
+            if (fVersion > info->maxVersion) load_ok = true;
           }
         }
       }
     }
 
     if (!load_ok) {
-      printf_stderr("LdrLoadDll: Blocking load of '%s' -- see http://www.mozilla.com/en-US/blocklist/\n", dllName);
+      printf_stderr(
+          "LdrLoadDll: Blocking load of '%s' -- see "
+          "http://www.mozilla.com/en-US/blocklist/\n",
+          dllName);
       DllBlockSet::Add(info->name, fVersion);
       return STATUS_DLL_NOT_FOUND;
     }
@@ -775,14 +806,15 @@ patched_LdrLoadDll (PWCHAR filePath, PULONG flags, PUNICODE_STRING moduleFileNam
 
 continue_loading:
 #ifdef DEBUG_very_verbose
-  printf_stderr("LdrLoadDll: continuing load... ('%S')\n", moduleFileName->Buffer);
+  printf_stderr("LdrLoadDll: continuing load... ('%S')\n",
+                moduleFileName->Buffer);
 #endif
 
   // A few DLLs such as xul.dll and nss3.dll get loaded before mozglue's
   // AutoProfilerLabel is initialized, and this is a no-op in those cases. But
   // the vast majority of DLLs do get labelled here.
-  AutoProfilerLabel label("WindowsDllBlocklist::patched_LdrLoadDll", dllName,
-                          __LINE__);
+  AutoProfilerLabel label(
+      "WindowsDllBlocklist::patched_LdrLoadDll", dllName, __LINE__);
 
 #ifdef _M_AMD64
   // Prevent the stack walker from suspending this thread when LdrLoadDll
@@ -797,12 +829,12 @@ static bool
 ShouldBlockThread(void* aStartAddress)
 {
   // Allows crashfirefox.exe to continue to work. Also if your threadproc is null, this crash is intentional.
-  if (aStartAddress == 0)
-    return false;
+  if (aStartAddress == 0) return false;
 
   bool shouldBlock = false;
   MEMORY_BASIC_INFORMATION startAddressInfo = {0};
-  if (VirtualQuery(aStartAddress, &startAddressInfo, sizeof(startAddressInfo))) {
+  if (VirtualQuery(
+          aStartAddress, &startAddressInfo, sizeof(startAddressInfo))) {
     shouldBlock |= startAddressInfo.State != MEM_COMMIT;
     shouldBlock |= startAddressInfo.Protect != PAGE_EXECUTE_READ;
   }
@@ -817,9 +849,8 @@ NopThreadProc(void* /* aThreadParam */)
   return 0;
 }
 
-static MOZ_NORETURN void __fastcall
-patched_BaseThreadInitThunk(BOOL aIsInitialThread, void* aStartAddress,
-                            void* aThreadParam)
+static MOZ_NORETURN void __fastcall patched_BaseThreadInitThunk(
+    BOOL aIsInitialThread, void* aStartAddress, void* aThreadParam)
 {
   if (ShouldBlockThread(aStartAddress)) {
     aStartAddress = (void*)NopThreadProc;
@@ -827,7 +858,6 @@ patched_BaseThreadInitThunk(BOOL aIsInitialThread, void* aStartAddress,
 
   stub_BaseThreadInitThunk(aIsInitialThread, aStartAddress, aThreadParam);
 }
-
 
 static WindowsDllInterceptor NtDllIntercept;
 static WindowsDllInterceptor Kernel32Intercept;
@@ -857,7 +887,10 @@ DllBlocklist_Initialize(uint32_t aInitFlags)
   // We specifically use a detour, because there are cases where external
   // code also tries to hook LdrLoadDll, and doesn't know how to relocate our
   // nop space patches. (Bug 951827)
-  bool ok = NtDllIntercept.AddDetour("LdrLoadDll", reinterpret_cast<intptr_t>(patched_LdrLoadDll), (void**) &stub_LdrLoadDll);
+  bool ok =
+      NtDllIntercept.AddDetour("LdrLoadDll",
+                               reinterpret_cast<intptr_t>(patched_LdrLoadDll),
+                               (void**)&stub_LdrLoadDll);
 
   if (!ok) {
     sBlocklistInitFailed = true;
@@ -878,18 +911,20 @@ DllBlocklist_Initialize(uint32_t aInitFlags)
 #ifdef _M_AMD64
   if (!IsWin8OrLater()) {
     // The crash that this hook works around is only seen on Win7.
-    Kernel32Intercept.AddHook("RtlInstallFunctionTableCallback",
-                              reinterpret_cast<intptr_t>(patched_RtlInstallFunctionTableCallback),
-                              (void**)&stub_RtlInstallFunctionTableCallback);
+    Kernel32Intercept.AddHook(
+        "RtlInstallFunctionTableCallback",
+        reinterpret_cast<intptr_t>(patched_RtlInstallFunctionTableCallback),
+        (void**)&stub_RtlInstallFunctionTableCallback);
   }
 #endif
 
   // Bug 1361410: WRusr.dll will overwrite our hook and cause a crash.
   // Workaround: If we detect WRusr.dll, don't hook.
   if (!GetModuleHandleW(L"WRusr.dll")) {
-    if(!Kernel32Intercept.AddDetour("BaseThreadInitThunk",
-                                    reinterpret_cast<intptr_t>(patched_BaseThreadInitThunk),
-                                    (void**) &stub_BaseThreadInitThunk)) {
+    if (!Kernel32Intercept.AddDetour(
+            "BaseThreadInitThunk",
+            reinterpret_cast<intptr_t>(patched_BaseThreadInitThunk),
+            (void**)&stub_BaseThreadInitThunk)) {
 #ifdef DEBUG
       printf_stderr("BaseThreadInitThunk hook failed\n");
 #endif
@@ -902,25 +937,31 @@ DllBlocklist_WriteNotes(HANDLE file)
 {
   DWORD nBytes;
 
-  WriteFile(file, kBlockedDllsParameter, kBlockedDllsParameterLen, &nBytes, nullptr);
+  WriteFile(
+      file, kBlockedDllsParameter, kBlockedDllsParameterLen, &nBytes, nullptr);
   DllBlockSet::Write(file);
   WriteFile(file, "\n", 1, &nBytes, nullptr);
 
   if (sBlocklistInitFailed) {
-    WriteFile(file, kBlocklistInitFailedParameter,
-              kBlocklistInitFailedParameterLen, &nBytes, nullptr);
+    WriteFile(file,
+              kBlocklistInitFailedParameter,
+              kBlocklistInitFailedParameterLen,
+              &nBytes,
+              nullptr);
   }
 
   if (sUser32BeforeBlocklist) {
-    WriteFile(file, kUser32BeforeBlocklistParameter,
-              kUser32BeforeBlocklistParameterLen, &nBytes, nullptr);
+    WriteFile(file,
+              kUser32BeforeBlocklistParameter,
+              kUser32BeforeBlocklistParameterLen,
+              &nBytes,
+              nullptr);
   }
 }
 
 MFBT_API bool
 DllBlocklist_CheckStatus()
 {
-  if (sBlocklistInitFailed || sUser32BeforeBlocklist)
-    return false;
+  if (sBlocklistInitFailed || sUser32BeforeBlocklist) return false;
   return true;
 }

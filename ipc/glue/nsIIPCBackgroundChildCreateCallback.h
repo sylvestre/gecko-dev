@@ -15,15 +15,20 @@ namespace ipc {
 
 class PBackgroundChild;
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#define NS_IIPCBACKGROUNDCHILDCREATECALLBACK_IID                               \
-  {0x4de01707, 0x70e3, 0x4181, {0xbc, 0x9f, 0xa3, 0xec, 0xfe, 0x74, 0x1a, 0xe3}}
+#define NS_IIPCBACKGROUNDCHILDCREATECALLBACK_IID     \
+  {                                                  \
+    0x4de01707, 0x70e3, 0x4181,                      \
+    {                                                \
+      0xbc, 0x9f, 0xa3, 0xec, 0xfe, 0x74, 0x1a, 0xe3 \
+    }                                                \
+  }
 
 class NS_NO_VTABLE nsIIPCBackgroundChildCreateCallback : public nsISupports
 {
-public:
+ public:
   typedef mozilla::ipc::PBackgroundChild PBackgroundChild;
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IIPCBACKGROUNDCHILDCREATECALLBACK_IID)
@@ -33,40 +38,41 @@ public:
   // may be saved and reused on the same thread for as long as the thread lives.
   // After this callback BackgroundChild::GetForCurrentThread() will return the
   // same actor.
-  virtual void
-  ActorCreated(PBackgroundChild*) = 0;
+  virtual void ActorCreated(PBackgroundChild*) = 0;
 
   // This will be called if for some reason the PBackgroundChild actor cannot be
   // created. This should never be called in child processes as the failure to
   // create the actor should result in the termination of the child process
   // first. This may be called for cross-thread actors in the main process.
-  virtual void
-  ActorFailed() = 0;
+  virtual void ActorFailed() = 0;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIIPCBackgroundChildCreateCallback,
                               NS_IIPCBACKGROUNDCHILDCREATECALLBACK_IID)
 
-#define NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK                            \
-  virtual void                                                                 \
-  ActorCreated(mozilla::ipc::PBackgroundChild*) override;                      \
-  virtual void                                                                 \
-  ActorFailed() override;
+#define NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK                    \
+  virtual void ActorCreated(mozilla::ipc::PBackgroundChild*) override; \
+  virtual void ActorFailed() override;
 
-#define NS_FORWARD_NSIIPCBACKGROUNDCHILDCREATECALLBACK(_to)                    \
-  virtual void                                                                 \
-  ActorCreated(mozilla::ipc::PBackgroundChild* aActor) override                \
-  { _to ActorCreated(aActor); }                                                \
-  virtual void                                                                 \
-  ActorFailed() override                                                       \
-  { _to ActorFailed(); }
+#define NS_FORWARD_NSIIPCBACKGROUNDCHILDCREATECALLBACK(_to)                  \
+  virtual void ActorCreated(mozilla::ipc::PBackgroundChild* aActor) override \
+  {                                                                          \
+    _to ActorCreated(aActor);                                                \
+  }                                                                          \
+  virtual void ActorFailed() override { _to ActorFailed(); }
 
-#define NS_FORWARD_SAFE_NSIIPCBACKGROUNDCHILDCREATECALLBACK(_to)               \
-  virtual void                                                                 \
-  ActorCreated(mozilla::ipc::PBackgroundChild* aActor) override                \
-  { if (_to) { _to->ActorCreated(aActor); } }                                  \
-  virtual void                                                                 \
-  ActorFailed() override                                                       \
-  { if (_to) { _to->ActorFailed(); } }
+#define NS_FORWARD_SAFE_NSIIPCBACKGROUNDCHILDCREATECALLBACK(_to)             \
+  virtual void ActorCreated(mozilla::ipc::PBackgroundChild* aActor) override \
+  {                                                                          \
+    if (_to) {                                                               \
+      _to->ActorCreated(aActor);                                             \
+    }                                                                        \
+  }                                                                          \
+  virtual void ActorFailed() override                                        \
+  {                                                                          \
+    if (_to) {                                                               \
+      _to->ActorFailed();                                                    \
+    }                                                                        \
+  }
 
-#endif // mozilla_ipc_nsiipcbackgroundchildcreatecallback_h
+#endif  // mozilla_ipc_nsiipcbackgroundchildcreatecallback_h

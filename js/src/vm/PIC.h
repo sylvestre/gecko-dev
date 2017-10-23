@@ -23,34 +23,31 @@ namespace js {
 
 class Shape;
 
-template <typename Category> class PICChain;
+template <typename Category>
+class PICChain;
 
 /*
  * The basic PICStub just has a pointer to the next stub.
  */
 template <typename Category>
-class PICStub
-{
-  friend class PICChain<Category>;
-  private:
+class PICStub {
+    friend class PICChain<Category>;
+
+   private:
     typedef typename Category::Stub CatStub;
     typedef typename Category::Chain CatChain;
 
-  protected:
+   protected:
     CatStub* next_;
 
     PICStub() : next_(nullptr) {}
-    explicit PICStub(const CatStub* next) : next_(next) {
-        MOZ_ASSERT(next_);
-    }
+    explicit PICStub(const CatStub* next) : next_(next) { MOZ_ASSERT(next_); }
     explicit PICStub(const CatStub& other) : next_(other.next_) {}
 
-  public:
-    CatStub* next() const {
-        return next_;
-    }
+   public:
+    CatStub* next() const { return next_; }
 
-  protected:
+   protected:
     void append(CatStub* stub) {
         MOZ_ASSERT(!next_);
         MOZ_ASSERT(!stub->next_);
@@ -62,23 +59,20 @@ class PICStub
  * The basic PIC just has a pointer to the list of stubs.
  */
 template <typename Category>
-class PICChain
-{
-  private:
+class PICChain {
+   private:
     typedef typename Category::Stub CatStub;
     typedef typename Category::Chain CatChain;
 
-  protected:
+   protected:
     CatStub* stubs_;
 
     PICChain() : stubs_(nullptr) {}
     // PICs should never be copy constructed.
     PICChain(const PICChain<Category>& other) = delete;
 
-  public:
-    CatStub* stubs() const {
-        return stubs_;
-    }
+   public:
+    CatStub* stubs() const { return stubs_; }
 
     void addStub(CatStub* stub) {
         MOZ_ASSERT(stub);
@@ -89,15 +83,13 @@ class PICChain
         }
 
         CatStub* cur = stubs_;
-        while (cur->next())
-            cur = cur->next();
+        while (cur->next()) cur = cur->next();
         cur->append(stub);
     }
 
     unsigned numStubs() const {
         unsigned count = 0;
-        for (CatStub* stub = stubs_; stub; stub = stub->next())
-            count++;
+        for (CatStub* stub = stubs_; stub; stub = stub->next()) count++;
         return count;
     }
 
@@ -116,8 +108,7 @@ class PICChain
 /*
  *  ForOfPIC defines a PIC category for optimizing for-of operations.
  */
-struct ForOfPIC
-{
+struct ForOfPIC {
     /* Forward declarations so template-substitution works. */
     class Stub;
     class Chain;
@@ -132,23 +123,15 @@ struct ForOfPIC
      * A ForOfPIC has only one kind of stub for now: one that holds the shape
      * of an array object that does not override its @@iterator property.
      */
-    class Stub : public BaseStub
-    {
-      private:
+    class Stub : public BaseStub {
+       private:
         // Shape of matching array object.
         Shape* shape_;
 
-      public:
-        explicit Stub(Shape* shape)
-          : BaseStub(),
-            shape_(shape)
-        {
-            MOZ_ASSERT(shape_);
-        }
+       public:
+        explicit Stub(Shape* shape) : BaseStub(), shape_(shape) { MOZ_ASSERT(shape_); }
 
-        Shape* shape() {
-            return shape_;
-        }
+        Shape* shape() { return shape_; }
     };
 
     /*
@@ -174,9 +157,8 @@ struct ForOfPIC
      *      To quickly retrieve and ensure that the 'next' method for ArrayIterator
      *      objects has not changed.
      */
-    class Chain : public BaseChain
-    {
-      private:
+    class Chain : public BaseChain {
+       private:
         // Pointer to canonical Array.prototype and ArrayIterator.prototype
         GCPtrNativeObject arrayProto_;
         GCPtrNativeObject arrayIteratorProto_;
@@ -202,19 +184,18 @@ struct ForOfPIC
 
         static const unsigned MAX_STUBS = 10;
 
-      public:
+       public:
         Chain()
-          : BaseChain(),
-            arrayProto_(nullptr),
-            arrayIteratorProto_(nullptr),
-            arrayProtoShape_(nullptr),
-            arrayProtoIteratorSlot_(-1),
-            canonicalIteratorFunc_(UndefinedValue()),
-            arrayIteratorProtoShape_(nullptr),
-            arrayIteratorProtoNextSlot_(-1),
-            initialized_(false),
-            disabled_(false)
-        {}
+            : BaseChain(),
+              arrayProto_(nullptr),
+              arrayIteratorProto_(nullptr),
+              arrayProtoShape_(nullptr),
+              arrayProtoIteratorSlot_(-1),
+              canonicalIteratorFunc_(UndefinedValue()),
+              arrayIteratorProtoShape_(nullptr),
+              arrayIteratorProtoNextSlot_(-1),
+              initialized_(false),
+              disabled_(false) {}
 
         // Initialize the canonical iterator function.
         bool initialize(JSContext* cx);
@@ -229,13 +210,14 @@ struct ForOfPIC
         // Check if ArrayIterator.next is still optimizable.
         inline bool isArrayNextStillSane() {
             return (arrayIteratorProto_->lastProperty() == arrayIteratorProtoShape_) &&
-                (arrayIteratorProto_->getSlot(arrayIteratorProtoNextSlot_) == canonicalNextFunc_);
+                   (arrayIteratorProto_->getSlot(arrayIteratorProtoNextSlot_) ==
+                    canonicalNextFunc_);
         }
 
         void trace(JSTracer* trc);
         void sweep(FreeOp* fop);
 
-      private:
+       private:
         // Check if a matching optimized stub for the given object exists.
         bool hasMatchingStub(ArrayObject* obj);
 
@@ -253,18 +235,16 @@ struct ForOfPIC
 
     static inline Chain* fromJSObject(NativeObject* obj) {
         MOZ_ASSERT(js::GetObjectClass(obj) == &ForOfPIC::class_);
-        return (ForOfPIC::Chain*) obj->getPrivate();
+        return (ForOfPIC::Chain*)obj->getPrivate();
     }
     static inline Chain* getOrCreate(JSContext* cx) {
         NativeObject* obj = cx->global()->getForOfPICObject();
-        if (obj)
-            return fromJSObject(obj);
+        if (obj) return fromJSObject(obj);
         return create(cx);
     }
     static Chain* create(JSContext* cx);
 };
 
-
-} // namespace js
+}  // namespace js
 
 #endif /* vm_PIC_h */

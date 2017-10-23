@@ -22,23 +22,21 @@ using namespace mozilla;
 // =======================
 
 NS_QUERYFRAME_HEAD(nsRubyTextContainerFrame)
-  NS_QUERYFRAME_ENTRY(nsRubyTextContainerFrame)
+NS_QUERYFRAME_ENTRY(nsRubyTextContainerFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsRubyTextContainerFrame)
 
 nsContainerFrame*
-NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
-                             nsStyleContext* aContext)
+NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsRubyTextContainerFrame(aContext);
 }
 
+  //----------------------------------------------------------------------
 
-//----------------------------------------------------------------------
-
-// nsRubyTextContainerFrame Method Implementations
-// ===============================================
+  // nsRubyTextContainerFrame Method Implementations
+  // ===============================================
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult
@@ -85,8 +83,7 @@ nsRubyTextContainerFrame::InsertFrames(ChildListID aListID,
 }
 
 /* virtual */ void
-nsRubyTextContainerFrame::RemoveFrame(ChildListID aListID,
-                                      nsIFrame* aOldFrame)
+nsRubyTextContainerFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   nsContainerFrame::RemoveFrame(aListID, aOldFrame);
   UpdateSpanFlag();

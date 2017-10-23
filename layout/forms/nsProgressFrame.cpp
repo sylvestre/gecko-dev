@@ -37,14 +37,11 @@ NS_NewProgressFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsProgressFrame)
 
 nsProgressFrame::nsProgressFrame(nsStyleContext* aContext)
-  : nsContainerFrame(aContext, kClassID)
-  , mBarDiv(nullptr)
+    : nsContainerFrame(aContext, kClassID), mBarDiv(nullptr)
 {
 }
 
-nsProgressFrame::~nsProgressFrame()
-{
-}
+nsProgressFrame::~nsProgressFrame() {}
 
 void
 nsProgressFrame::DestroyFrom(nsIFrame* aDestructRoot)
@@ -84,23 +81,22 @@ nsProgressFrame::AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
 }
 
 NS_QUERYFRAME_HEAD(nsProgressFrame)
-  NS_QUERYFRAME_ENTRY(nsProgressFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(nsProgressFrame)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
-
 void
-nsProgressFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsProgressFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                   const nsDisplayListSet& aLists)
 {
   BuildDisplayListForInline(aBuilder, aLists);
 }
 
 void
-nsProgressFrame::Reflow(nsPresContext*           aPresContext,
-                        ReflowOutput&     aDesiredSize,
+nsProgressFrame::Reflow(nsPresContext* aPresContext,
+                        ReflowOutput& aDesiredSize,
                         const ReflowInput& aReflowInput,
-                        nsReflowStatus&          aStatus)
+                        nsReflowStatus& aStatus)
 {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsProgressFrame");
@@ -108,9 +104,10 @@ nsProgressFrame::Reflow(nsPresContext*           aPresContext,
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
 
   NS_ASSERTION(mBarDiv, "Progress bar div must exist!");
-  NS_ASSERTION(PrincipalChildList().GetLength() == 1 &&
-               PrincipalChildList().FirstChild() == mBarDiv->GetPrimaryFrame(),
-               "unexpected child frames");
+  NS_ASSERTION(
+      PrincipalChildList().GetLength() == 1 &&
+          PrincipalChildList().FirstChild() == mBarDiv->GetPrimaryFrame(),
+      "unexpected child frames");
   NS_ASSERTION(!GetPrevContinuation(),
                "nsProgressFrame should not have continuations; if it does we "
                "need to call RegUnregAccessKey only for the first.");
@@ -130,24 +127,24 @@ nsProgressFrame::Reflow(nsPresContext*           aPresContext,
 
   FinishAndStoreOverflow(&aDesiredSize);
 
-  aStatus.Reset(); // This type of frame can't be split.
+  aStatus.Reset();  // This type of frame can't be split.
 
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aDesiredSize);
 }
 
 void
-nsProgressFrame::ReflowChildFrame(nsIFrame*          aChild,
-                                  nsPresContext*     aPresContext,
+nsProgressFrame::ReflowChildFrame(nsIFrame* aChild,
+                                  nsPresContext* aPresContext,
                                   const ReflowInput& aReflowInput,
-                                  nsReflowStatus&    aStatus)
+                                  nsReflowStatus& aStatus)
 {
   bool vertical = ResolvedOrientationIsVertical();
   WritingMode wm = aChild->GetWritingMode();
   LogicalSize availSize = aReflowInput.ComputedSize(wm);
   availSize.BSize(wm) = NS_UNCONSTRAINEDSIZE;
   ReflowInput reflowInput(aPresContext, aReflowInput, aChild, availSize);
-  nscoord size = vertical ? aReflowInput.ComputedHeight()
-                          : aReflowInput.ComputedWidth();
+  nscoord size =
+      vertical ? aReflowInput.ComputedHeight() : aReflowInput.ComputedWidth();
   nscoord xoffset = aReflowInput.ComputedPhysicalBorderPadding().left;
   nscoord yoffset = aReflowInput.ComputedPhysicalBorderPadding().top;
 
@@ -196,16 +193,22 @@ nsProgressFrame::ReflowChildFrame(nsIFrame*          aChild,
   yoffset += reflowInput.ComputedPhysicalMargin().top;
 
   ReflowOutput barDesiredSize(aReflowInput);
-  ReflowChild(aChild, aPresContext, barDesiredSize, reflowInput, xoffset,
-              yoffset, 0, aStatus);
-  FinishReflowChild(aChild, aPresContext, barDesiredSize, &reflowInput,
-                    xoffset, yoffset, 0);
+  ReflowChild(aChild,
+              aPresContext,
+              barDesiredSize,
+              reflowInput,
+              xoffset,
+              yoffset,
+              0,
+              aStatus);
+  FinishReflowChild(
+      aChild, aPresContext, barDesiredSize, &reflowInput, xoffset, yoffset, 0);
 }
 
 nsresult
-nsProgressFrame::AttributeChanged(int32_t  aNameSpaceID,
+nsProgressFrame::AttributeChanged(int32_t aNameSpaceID,
                                   nsAtom* aAttribute,
-                                  int32_t  aModType)
+                                  int32_t aModType)
 {
   NS_ASSERTION(mBarDiv, "Progress bar div must exist!");
 
@@ -213,8 +216,8 @@ nsProgressFrame::AttributeChanged(int32_t  aNameSpaceID,
       (aAttribute == nsGkAtoms::value || aAttribute == nsGkAtoms::max)) {
     auto shell = PresContext()->PresShell();
     for (auto childFrame : PrincipalChildList()) {
-      shell->FrameNeedsReflow(childFrame, nsIPresShell::eResize,
-                              NS_FRAME_IS_DIRTY);
+      shell->FrameNeedsReflow(
+          childFrame, nsIPresShell::eResize, NS_FRAME_IS_DIRTY);
     }
     InvalidateFrame();
   }
@@ -223,48 +226,48 @@ nsProgressFrame::AttributeChanged(int32_t  aNameSpaceID,
 }
 
 LogicalSize
-nsProgressFrame::ComputeAutoSize(gfxContext*         aRenderingContext,
-                                 WritingMode         aWM,
-                                 const LogicalSize&  aCBSize,
-                                 nscoord             aAvailableISize,
-                                 const LogicalSize&  aMargin,
-                                 const LogicalSize&  aBorder,
-                                 const LogicalSize&  aPadding,
-                                 ComputeSizeFlags    aFlags)
+nsProgressFrame::ComputeAutoSize(gfxContext* aRenderingContext,
+                                 WritingMode aWM,
+                                 const LogicalSize& aCBSize,
+                                 nscoord aAvailableISize,
+                                 const LogicalSize& aMargin,
+                                 const LogicalSize& aBorder,
+                                 const LogicalSize& aPadding,
+                                 ComputeSizeFlags aFlags)
 {
   const WritingMode wm = GetWritingMode();
   LogicalSize autoSize(wm);
   autoSize.BSize(wm) = autoSize.ISize(wm) =
-    NSToCoordRound(StyleFont()->mFont.size *
-                   nsLayoutUtils::FontSizeInflationFor(this)); // 1em
+      NSToCoordRound(StyleFont()->mFont.size *
+                     nsLayoutUtils::FontSizeInflationFor(this));  // 1em
 
   if (ResolvedOrientationIsVertical() == wm.IsVertical()) {
-    autoSize.ISize(wm) *= 10; // 10em
+    autoSize.ISize(wm) *= 10;  // 10em
   } else {
-    autoSize.BSize(wm) *= 10; // 10em
+    autoSize.BSize(wm) *= 10;  // 10em
   }
 
   return autoSize.ConvertTo(aWM, wm);
 }
 
 nscoord
-nsProgressFrame::GetMinISize(gfxContext *aRenderingContext)
+nsProgressFrame::GetMinISize(gfxContext* aRenderingContext)
 {
   RefPtr<nsFontMetrics> fontMet =
-    nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
+      nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
 
-  nscoord minISize = fontMet->Font().size; // 1em
+  nscoord minISize = fontMet->Font().size;  // 1em
 
   if (ResolvedOrientationIsVertical() == GetWritingMode().IsVertical()) {
     // The orientation is inline
-    minISize *= 10; // 10em
+    minISize *= 10;  // 10em
   }
 
   return minISize;
 }
 
 nscoord
-nsProgressFrame::GetPrefISize(gfxContext *aRenderingContext)
+nsProgressFrame::GetPrefISize(gfxContext* aRenderingContext)
 {
   return GetMinISize(aRenderingContext);
 }
@@ -279,12 +282,14 @@ nsProgressFrame::ShouldUseNativeStyle() const
   // - neither frame has author specified rules setting the border or the
   //   background.
   return StyleDisplay()->mAppearance == NS_THEME_PROGRESSBAR &&
-         !PresContext()->HasAuthorSpecifiedRules(this,
-                                                 NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND) &&
+         !PresContext()->HasAuthorSpecifiedRules(
+             this,
+             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND) &&
          barFrame &&
          barFrame->StyleDisplay()->mAppearance == NS_THEME_PROGRESSCHUNK &&
-         !PresContext()->HasAuthorSpecifiedRules(barFrame,
-                                                 NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND);
+         !PresContext()->HasAuthorSpecifiedRules(
+             barFrame,
+             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND);
 }
 
 Element*

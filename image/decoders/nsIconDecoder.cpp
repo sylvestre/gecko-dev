@@ -16,42 +16,42 @@ namespace image {
 static const uint32_t ICON_HEADER_SIZE = 2;
 
 nsIconDecoder::nsIconDecoder(RasterImage* aImage)
- : Decoder(aImage)
- , mLexer(Transition::To(State::HEADER, ICON_HEADER_SIZE),
-          Transition::TerminateSuccess())
- , mBytesPerRow()   // set by ReadHeader()
+    : Decoder(aImage),
+      mLexer(Transition::To(State::HEADER, ICON_HEADER_SIZE),
+             Transition::TerminateSuccess()),
+      mBytesPerRow()  // set by ReadHeader()
 {
   // Nothing to do
 }
 
-nsIconDecoder::~nsIconDecoder()
-{ }
+nsIconDecoder::~nsIconDecoder() {}
 
 LexerResult
 nsIconDecoder::DoDecode(SourceBufferIterator& aIterator, IResumable* aOnResume)
 {
   MOZ_ASSERT(!HasError(), "Shouldn't call DoDecode after error!");
 
-  return mLexer.Lex(aIterator, aOnResume,
+  return mLexer.Lex(aIterator,
+                    aOnResume,
                     [=](State aState, const char* aData, size_t aLength) {
-    switch (aState) {
-      case State::HEADER:
-        return ReadHeader(aData);
-      case State::ROW_OF_PIXELS:
-        return ReadRowOfPixels(aData, aLength);
-      case State::FINISH:
-        return Finish();
-      default:
-        MOZ_CRASH("Unknown State");
-    }
-  });
+                      switch (aState) {
+                        case State::HEADER:
+                          return ReadHeader(aData);
+                        case State::ROW_OF_PIXELS:
+                          return ReadRowOfPixels(aData, aLength);
+                        case State::FINISH:
+                          return Finish();
+                        default:
+                          MOZ_CRASH("Unknown State");
+                      }
+                    });
 }
 
 LexerTransition<nsIconDecoder::State>
 nsIconDecoder::ReadHeader(const char* aData)
 {
   // Grab the width and height.
-  uint8_t width  = uint8_t(aData[0]);
+  uint8_t width = uint8_t(aData[0]);
   uint8_t height = uint8_t(aData[1]);
 
   // The input is 32bpp, so we expect 4 bytes of data per pixel.
@@ -70,9 +70,13 @@ nsIconDecoder::ReadHeader(const char* aData)
 
   MOZ_ASSERT(!mImageData, "Already have a buffer allocated?");
   Maybe<SurfacePipe> pipe =
-    SurfacePipeFactory::CreateSurfacePipe(this, 0, Size(), OutputSize(),
-                                          FullFrame(), SurfaceFormat::B8G8R8A8,
-                                          SurfacePipeFlags());
+      SurfacePipeFactory::CreateSurfacePipe(this,
+                                            0,
+                                            Size(),
+                                            OutputSize(),
+                                            FullFrame(),
+                                            SurfaceFormat::B8G8R8A8,
+                                            SurfacePipeFlags());
   if (!pipe) {
     return Transition::TerminateFailure();
   }
@@ -111,8 +115,8 @@ nsIconDecoder::ReadRowOfPixels(const char* aData, size_t aLength)
   }
 
   return result == WriteState::FINISHED
-       ? Transition::To(State::FINISH, 0)
-       : Transition::To(State::ROW_OF_PIXELS, mBytesPerRow);
+             ? Transition::To(State::FINISH, 0)
+             : Transition::To(State::ROW_OF_PIXELS, mBytesPerRow);
 }
 
 LexerTransition<nsIconDecoder::State>
@@ -124,5 +128,5 @@ nsIconDecoder::Finish()
   return Transition::TerminateSuccess();
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

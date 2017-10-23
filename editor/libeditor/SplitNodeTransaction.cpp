@@ -5,12 +5,12 @@
 
 #include "SplitNodeTransaction.h"
 
-#include "mozilla/EditorBase.h"         // for EditorBase
+#include "mozilla/EditorBase.h"  // for EditorBase
 #include "mozilla/dom/Selection.h"
 #include "nsAString.h"
-#include "nsDebug.h"                    // for NS_ASSERTION, etc.
-#include "nsError.h"                    // for NS_ERROR_NOT_INITIALIZED, etc.
-#include "nsIContent.h"                 // for nsIContent
+#include "nsDebug.h"     // for NS_ASSERTION, etc.
+#include "nsError.h"     // for NS_ERROR_NOT_INITIALIZED, etc.
+#include "nsIContent.h"  // for nsIContent
 
 namespace mozilla {
 
@@ -19,17 +19,14 @@ using namespace dom;
 SplitNodeTransaction::SplitNodeTransaction(EditorBase& aEditorBase,
                                            nsIContent& aNode,
                                            int32_t aOffset)
-  : mEditorBase(&aEditorBase)
-  , mExistingRightNode(&aNode)
-  , mOffset(aOffset)
+    : mEditorBase(&aEditorBase), mExistingRightNode(&aNode), mOffset(aOffset)
 {
 }
 
-SplitNodeTransaction::~SplitNodeTransaction()
-{
-}
+SplitNodeTransaction::~SplitNodeTransaction() {}
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(SplitNodeTransaction, EditTransactionBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(SplitNodeTransaction,
+                                   EditTransactionBase,
                                    mEditorBase,
                                    mParent,
                                    mNewLeftNode)
@@ -72,8 +69,7 @@ SplitNodeTransaction::DoTransaction()
 NS_IMETHODIMP
 SplitNodeTransaction::UndoTransaction()
 {
-  if (NS_WARN_IF(!mEditorBase) ||
-      NS_WARN_IF(!mNewLeftNode) ||
+  if (NS_WARN_IF(!mEditorBase) || NS_WARN_IF(!mNewLeftNode) ||
       NS_WARN_IF(!mParent)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
@@ -89,8 +85,7 @@ SplitNodeTransaction::UndoTransaction()
 NS_IMETHODIMP
 SplitNodeTransaction::RedoTransaction()
 {
-  if (NS_WARN_IF(!mNewLeftNode) ||
-      NS_WARN_IF(!mParent)) {
+  if (NS_WARN_IF(!mNewLeftNode) || NS_WARN_IF(!mParent)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
@@ -102,7 +97,7 @@ SplitNodeTransaction::RedoTransaction()
   } else {
     nsCOMPtr<nsIContent> child = mExistingRightNode->GetFirstChild();
     nsCOMPtr<nsIContent> nextSibling;
-    for (int32_t i=0; i < mOffset; i++) {
+    for (int32_t i = 0; i < mOffset; i++) {
       if (rv.Failed()) {
         return rv.StealNSResult();
       }
@@ -123,7 +118,6 @@ SplitNodeTransaction::RedoTransaction()
   return rv.StealNSResult();
 }
 
-
 NS_IMETHODIMP
 SplitNodeTransaction::GetTxnDescription(nsAString& aString)
 {
@@ -137,4 +131,4 @@ SplitNodeTransaction::GetNewNode()
   return mNewLeftNode;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

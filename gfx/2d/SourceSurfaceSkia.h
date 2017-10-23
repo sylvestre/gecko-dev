@@ -20,7 +20,7 @@ class DrawTargetSkia;
 
 class SourceSurfaceSkia : public DataSourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceSkia)
   SourceSurfaceSkia();
   ~SourceSurfaceSkia();
@@ -32,7 +32,7 @@ public:
   sk_sp<SkImage> GetImage();
 
   bool InitFromData(unsigned char* aData,
-                    const IntSize &aSize,
+                    const IntSize& aSize,
                     int32_t aStride,
                     SurfaceFormat aFormat);
 
@@ -45,13 +45,13 @@ public:
   /**
    * The caller is responsible for ensuring aMappedSurface is not null.
    */
-  virtual bool Map(MapType, MappedSurface *aMappedSurface);
+  virtual bool Map(MapType, MappedSurface* aMappedSurface);
 
   virtual void Unmap();
 
   virtual int32_t Stride() { return mStride; }
 
-private:
+ private:
   friend class DrawTargetSkia;
 
   void DrawTargetWillChange();
@@ -64,7 +64,7 @@ private:
   Mutex mChangeMutex;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SOURCESURFACESKIA_H_ */

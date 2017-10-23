@@ -7,10 +7,10 @@
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "mozilla/layers/CompositorThread.h"
-#include <stddef.h>                     // for size_t
-#include "ClientLayerManager.h"         // for ClientLayerManager
-#include "base/message_loop.h"          // for MessageLoop
-#include "base/task.h"                  // for NewRunnableMethod, etc
+#include <stddef.h>              // for size_t
+#include "ClientLayerManager.h"  // for ClientLayerManager
+#include "base/message_loop.h"   // for MessageLoop
+#include "base/task.h"           // for NewRunnableMethod, etc
 #include "gfxPrefs.h"
 #include "mozilla/dom/TabGroup.h"
 #include "mozilla/layers/CompositorManagerChild.h"
@@ -22,20 +22,20 @@
 #include "mozilla/layers/PaintThread.h"
 #include "mozilla/layers/PLayerTransactionChild.h"
 #include "mozilla/layers/PTextureChild.h"
-#include "mozilla/layers/TextureClient.h"// for TextureClient
-#include "mozilla/layers/TextureClientPool.h"// for TextureClientPool
+#include "mozilla/layers/TextureClient.h"      // for TextureClient
+#include "mozilla/layers/TextureClientPool.h"  // for TextureClientPool
 #include "mozilla/layers/WebRenderBridgeChild.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/GPUProcessManager.h"
 #include "mozilla/gfx/Logging.h"
-#include "mozilla/mozalloc.h"           // for operator new, etc
+#include "mozilla/mozalloc.h"  // for operator new, etc
 #include "mozilla/Telemetry.h"
 #include "nsAutoPtr.h"
-#include "nsDebug.h"                    // for NS_RUNTIMEABORT
-#include "nsIObserver.h"                // for nsIObserver
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsTArray.h"                   // for nsTArray, nsTArray_Impl
-#include "nsXULAppAPI.h"                // for XRE_GetIOMessageLoop, etc
+#include "nsDebug.h"          // for NS_RUNTIMEABORT
+#include "nsIObserver.h"      // for nsIObserver
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, etc
+#include "nsTArray.h"         // for nsTArray, nsTArray_Impl
+#include "nsXULAppAPI.h"      // for XRE_GetIOMessageLoop, etc
 #include "FrameLayerBuilder.h"
 #include "mozilla/dom/TabChild.h"
 #include "mozilla/dom/TabParent.h"
@@ -47,32 +47,35 @@
 #endif
 #include "mozilla/widget/CompositorWidget.h"
 #ifdef MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING
-# include "mozilla/widget/CompositorWidgetChild.h"
+#include "mozilla/widget/CompositorWidgetChild.h"
 #endif
 #include "VsyncSource.h"
 
-using mozilla::layers::LayerTransactionChild;
-using mozilla::dom::TabChildBase;
 using mozilla::Unused;
+using mozilla::dom::TabChildBase;
 using mozilla::gfx::GPUProcessManager;
+using mozilla::layers::LayerTransactionChild;
 
 namespace mozilla {
 namespace layers {
 
 static int sShmemCreationCounter = 0;
 
-static void ResetShmemCounter()
+static void
+ResetShmemCounter()
 {
   sShmemCreationCounter = 0;
 }
 
-static void ShmemAllocated(CompositorBridgeChild* aProtocol)
+static void
+ShmemAllocated(CompositorBridgeChild* aProtocol)
 {
   sShmemCreationCounter++;
   if (sShmemCreationCounter > 256) {
     aProtocol->SendSyncWithCompositor();
     ResetShmemCounter();
-    MOZ_PERFORMANCE_WARNING("gfx", "The number of shmem allocations is too damn high!");
+    MOZ_PERFORMANCE_WARNING(
+        "gfx", "The number of shmem allocations is too damn high!");
   }
 }
 
@@ -80,23 +83,23 @@ static StaticRefPtr<CompositorBridgeChild> sCompositorBridge;
 
 Atomic<int32_t> KnowsCompositor::sSerialCounter(0);
 
-CompositorBridgeChild::CompositorBridgeChild(CompositorManagerChild *aManager)
-  : mCompositorManager(aManager)
-  , mIdNamespace(0)
-  , mResourceId(0)
-  , mCanSend(false)
-  , mActorDestroyed(false)
-  , mFwdTransactionId(0)
-  , mDeviceResetSequenceNumber(0)
-  , mMessageLoop(MessageLoop::current())
-  , mProcessToken(0)
-  , mSectionAllocator(nullptr)
-  , mPaintLock("CompositorBridgeChild.mPaintLock")
-  , mOutstandingAsyncPaints(0)
-  , mOutstandingAsyncEndTransaction(false)
-  , mIsDelayingForAsyncPaints(false)
-  , mSlowFlushCount(0)
-  , mTotalFlushCount(0)
+CompositorBridgeChild::CompositorBridgeChild(CompositorManagerChild* aManager)
+    : mCompositorManager(aManager),
+      mIdNamespace(0),
+      mResourceId(0),
+      mCanSend(false),
+      mActorDestroyed(false),
+      mFwdTransactionId(0),
+      mDeviceResetSequenceNumber(0),
+      mMessageLoop(MessageLoop::current()),
+      mProcessToken(0),
+      mSectionAllocator(nullptr),
+      mPaintLock("CompositorBridgeChild.mPaintLock"),
+      mOutstandingAsyncPaints(0),
+      mOutstandingAsyncEndTransaction(false),
+      mIsDelayingForAsyncPaints(false),
+      mSlowFlushCount(0),
+      mTotalFlushCount(0)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
@@ -160,9 +163,10 @@ CompositorBridgeChild::Destroy()
     // We may have already called destroy but still have lingering references
     // or CompositorBridgeChild::ActorDestroy was called. Ensure that we do our
     // post destroy clean up no matter what. It is safe to call multiple times.
-    MessageLoop::current()->PostTask(NewRunnableMethod(
-      "CompositorBridgeChild::AfterDestroy",
-      selfRef, &CompositorBridgeChild::AfterDestroy));
+    MessageLoop::current()->PostTask(
+        NewRunnableMethod("CompositorBridgeChild::AfterDestroy",
+                          selfRef,
+                          &CompositorBridgeChild::AfterDestroy));
     return;
   }
 
@@ -170,7 +174,7 @@ CompositorBridgeChild::Destroy()
   ManagedPLayerTransactionChild(transactions);
   for (int i = transactions.Length() - 1; i >= 0; --i) {
     RefPtr<LayerTransactionChild> layers =
-      static_cast<LayerTransactionChild*>(transactions[i]);
+        static_cast<LayerTransactionChild*>(transactions[i]);
     layers->Destroy();
   }
 
@@ -178,7 +182,7 @@ CompositorBridgeChild::Destroy()
   ManagedPWebRenderBridgeChild(wrBridges);
   for (int i = wrBridges.Length() - 1; i >= 0; --i) {
     RefPtr<WebRenderBridgeChild> wrBridge =
-      static_cast<WebRenderBridgeChild*>(wrBridges[i]);
+        static_cast<WebRenderBridgeChild*>(wrBridges[i]);
     wrBridge->Destroy(/* aIsSync */ false);
   }
 
@@ -187,7 +191,8 @@ CompositorBridgeChild::Destroy()
 
   const ManagedContainer<PTextureChild>& textures = ManagedPTextureChild();
   for (auto iter = textures.ConstIter(); !iter.Done(); iter.Next()) {
-    RefPtr<TextureClient> texture = TextureClient::AsTextureClient(iter.Get()->GetKey());
+    RefPtr<TextureClient> texture =
+        TextureClient::AsTextureClient(iter.Get()->GetKey());
 
     if (texture) {
       texture->Destroy();
@@ -209,9 +214,10 @@ CompositorBridgeChild::Destroy()
   // handle compositor destruction.
 
   // From now on we can't send any message message.
-  MessageLoop::current()->PostTask(NewRunnableMethod(
-    "CompositorBridgeChild::AfterDestroy",
-    selfRef, &CompositorBridgeChild::AfterDestroy));
+  MessageLoop::current()->PostTask(
+      NewRunnableMethod("CompositorBridgeChild::AfterDestroy",
+                        selfRef,
+                        &CompositorBridgeChild::AfterDestroy));
 }
 
 // static
@@ -225,8 +231,8 @@ CompositorBridgeChild::ShutDown()
 }
 
 bool
-CompositorBridgeChild::LookupCompositorFrameMetrics(const FrameMetrics::ViewID aId,
-                                                    FrameMetrics& aFrame)
+CompositorBridgeChild::LookupCompositorFrameMetrics(
+    const FrameMetrics::ViewID aId, FrameMetrics& aFrame)
 {
   SharedFrameMetricsData* data = mFrameMetricsTable.Get(aId);
   if (data) {
@@ -305,7 +311,8 @@ CompositorBridgeChild::CompositorIsInGPUProcess()
 }
 
 PLayerTransactionChild*
-CompositorBridgeChild::AllocPLayerTransactionChild(const nsTArray<LayersBackend>& aBackendHints, const uint64_t& aId)
+CompositorBridgeChild::AllocPLayerTransactionChild(
+    const nsTArray<LayersBackend>& aBackendHints, const uint64_t& aId)
 {
   LayerTransactionChild* c = new LayerTransactionChild(aId);
   c->AddIPDLReference();
@@ -315,7 +322,7 @@ CompositorBridgeChild::AllocPLayerTransactionChild(const nsTArray<LayersBackend>
   // Do the DOM Labeling.
   if (tabChild) {
     nsCOMPtr<nsIEventTarget> target =
-      tabChild->TabGroup()->EventTargetFor(TaskCategory::Other);
+        tabChild->TabGroup()->EventTargetFor(TaskCategory::Other);
     SetEventTargetForActor(c, target);
     MOZ_ASSERT(c->GetActorEventTarget());
   }
@@ -324,7 +331,8 @@ CompositorBridgeChild::AllocPLayerTransactionChild(const nsTArray<LayersBackend>
 }
 
 bool
-CompositorBridgeChild::DeallocPLayerTransactionChild(PLayerTransactionChild* actor)
+CompositorBridgeChild::DeallocPLayerTransactionChild(
+    PLayerTransactionChild* actor)
 {
   uint64_t childId = static_cast<LayerTransactionChild*>(actor)->GetId();
 
@@ -353,13 +361,14 @@ CompositorBridgeChild::RecvInvalidateLayers(const uint64_t& aLayersId)
 }
 
 #if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
-static void CalculatePluginClip(const LayoutDeviceIntRect& aBounds,
-                                const nsTArray<LayoutDeviceIntRect>& aPluginClipRects,
-                                const LayoutDeviceIntPoint& aContentOffset,
-                                const LayoutDeviceIntRegion& aParentLayerVisibleRegion,
-                                nsTArray<LayoutDeviceIntRect>& aResult,
-                                LayoutDeviceIntRect& aVisibleBounds,
-                                bool& aPluginIsVisible)
+static void
+CalculatePluginClip(const LayoutDeviceIntRect& aBounds,
+                    const nsTArray<LayoutDeviceIntRect>& aPluginClipRects,
+                    const LayoutDeviceIntPoint& aContentOffset,
+                    const LayoutDeviceIntRegion& aParentLayerVisibleRegion,
+                    nsTArray<LayoutDeviceIntRect>& aResult,
+                    LayoutDeviceIntRect& aVisibleBounds,
+                    bool& aPluginIsVisible)
 {
   aPluginIsVisible = true;
   LayoutDeviceIntRegion contentVisibleRegion;
@@ -390,13 +399,15 @@ static void CalculatePluginClip(const LayoutDeviceIntRect& aBounds,
 #endif
 
 mozilla::ipc::IPCResult
-CompositorBridgeChild::RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint& aContentOffset,
-                                                      const LayoutDeviceIntRegion& aParentLayerVisibleRegion,
-                                                      nsTArray<PluginWindowData>&& aPlugins)
+CompositorBridgeChild::RecvUpdatePluginConfigurations(
+    const LayoutDeviceIntPoint& aContentOffset,
+    const LayoutDeviceIntRegion& aParentLayerVisibleRegion,
+    nsTArray<PluginWindowData>&& aPlugins)
 {
 #if !defined(XP_WIN) && !defined(MOZ_WIDGET_GTK)
-  NS_NOTREACHED("CompositorBridgeChild::RecvUpdatePluginConfigurations calls "
-                "unexpected on this platform.");
+  NS_NOTREACHED(
+      "CompositorBridgeChild::RecvUpdatePluginConfigurations calls "
+      "unexpected on this platform.");
   return IPC_FAIL_NO_REASON(this);
 #else
   // Now that we are on the main thread, update plugin widget config.
@@ -409,8 +420,8 @@ CompositorBridgeChild::RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint
   nsTArray<uintptr_t> visiblePluginIds;
   nsIWidget* parent = nullptr;
   for (uint32_t pluginsIdx = 0; pluginsIdx < aPlugins.Length(); pluginsIdx++) {
-    nsIWidget* widget =
-      nsIWidget::LookupRegisteredPluginWindow(aPlugins[pluginsIdx].windowId());
+    nsIWidget* widget = nsIWidget::LookupRegisteredPluginWindow(
+        aPlugins[pluginsIdx].windowId());
     if (!widget) {
       NS_WARNING("Unexpected, plugin id not found!");
       continue;
@@ -428,10 +439,13 @@ CompositorBridgeChild::RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint
         bounds = aPlugins[pluginsIdx].bounds();
         nsTArray<LayoutDeviceIntRect> rectsOut;
         // This call may change the value of isVisible
-        CalculatePluginClip(bounds, aPlugins[pluginsIdx].clip(),
+        CalculatePluginClip(bounds,
+                            aPlugins[pluginsIdx].clip(),
                             aContentOffset,
                             aParentLayerVisibleRegion,
-                            rectsOut, visibleBounds, isVisible);
+                            rectsOut,
+                            visibleBounds,
+                            isVisible);
         // content clipping region (widget origin)
         rv = widget->SetWindowClipRegion(rectsOut, false);
         NS_ASSERTION(NS_SUCCEEDED(rv), "widget call failure");
@@ -441,7 +455,9 @@ CompositorBridgeChild::RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint
         // our OnPaint handler and forwarded over to the plugin process async.
         widget->Resize(aContentOffset.x + bounds.x,
                        aContentOffset.y + bounds.y,
-                       bounds.Width(), bounds.Height(), true);
+                       bounds.Width(),
+                       bounds.Height(),
+                       true);
       }
 
       widget->Enable(isVisible);
@@ -451,13 +467,13 @@ CompositorBridgeChild::RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint
 
       // Handle invalidation, this can be costly, avoid if it is not needed.
       if (isVisible) {
-        // invalidate region (widget origin)
+      // invalidate region (widget origin)
 #if defined(XP_WIN)
         // Work around for flash's crummy sandbox. See bug 762948. This call
         // digs down into the window hirearchy, invalidating regions on
         // windows owned by other processes.
-        mozilla::widget::WinUtils::InvalidatePluginAsWorkaround(
-          widget, visibleBounds);
+        mozilla::widget::WinUtils::InvalidatePluginAsWorkaround(widget,
+                                                                visibleBounds);
 #else
         widget->Invalidate(visibleBounds);
 #endif
@@ -467,13 +483,14 @@ CompositorBridgeChild::RecvUpdatePluginConfigurations(const LayoutDeviceIntPoint
   }
   // Any plugins we didn't update need to be hidden, as they are
   // not associated with visible content.
-  nsIWidget::UpdateRegisteredPluginWindowVisibility((uintptr_t)parent, visiblePluginIds);
+  nsIWidget::UpdateRegisteredPluginWindowVisibility((uintptr_t)parent,
+                                                    visiblePluginIds);
   if (!mCanSend) {
     return IPC_OK();
   }
   SendRemotePluginsReady();
   return IPC_OK();
-#endif // !defined(XP_WIN) && !defined(MOZ_WIDGET_GTK)
+#endif  // !defined(XP_WIN) && !defined(MOZ_WIDGET_GTK)
 }
 
 #if defined(XP_WIN)
@@ -481,8 +498,9 @@ static void
 ScheduleSendAllPluginsCaptured(CompositorBridgeChild* aThis, MessageLoop* aLoop)
 {
   aLoop->PostTask(NewNonOwningRunnableMethod(
-    "CompositorBridgeChild::SendAllPluginsCaptured",
-    aThis, &CompositorBridgeChild::SendAllPluginsCaptured));
+      "CompositorBridgeChild::SendAllPluginsCaptured",
+      aThis,
+      &CompositorBridgeChild::SendAllPluginsCaptured));
 }
 #endif
 
@@ -496,12 +514,12 @@ CompositorBridgeChild::RecvCaptureAllPlugins(const uintptr_t& aParentWidget)
   // Bounce the call to SendAllPluginsCaptured off the ImageBridgeChild loop,
   // to make sure that the image updates on that thread have been processed.
   ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(
-    NewRunnableFunction(&ScheduleSendAllPluginsCaptured, this,
-                        MessageLoop::current()));
+      NewRunnableFunction(
+          &ScheduleSendAllPluginsCaptured, this, MessageLoop::current()));
   return IPC_OK();
 #else
   MOZ_ASSERT_UNREACHABLE(
-    "CompositorBridgeChild::RecvCaptureAllPlugins calls unexpected.");
+      "CompositorBridgeChild::RecvCaptureAllPlugins calls unexpected.");
   return IPC_FAIL_NO_REASON(this);
 #endif
 }
@@ -510,8 +528,9 @@ mozilla::ipc::IPCResult
 CompositorBridgeChild::RecvHideAllPlugins(const uintptr_t& aParentWidget)
 {
 #if !defined(XP_WIN) && !defined(MOZ_WIDGET_GTK)
-  NS_NOTREACHED("CompositorBridgeChild::RecvHideAllPlugins calls "
-                "unexpected on this platform.");
+  NS_NOTREACHED(
+      "CompositorBridgeChild::RecvHideAllPlugins calls "
+      "unexpected on this platform.");
   return IPC_FAIL_NO_REASON(this);
 #else
   MOZ_ASSERT(NS_IsMainThread());
@@ -522,17 +541,19 @@ CompositorBridgeChild::RecvHideAllPlugins(const uintptr_t& aParentWidget)
   }
   SendRemotePluginsReady();
   return IPC_OK();
-#endif // !defined(XP_WIN) && !defined(MOZ_WIDGET_GTK)
+#endif  // !defined(XP_WIN) && !defined(MOZ_WIDGET_GTK)
 }
 
 mozilla::ipc::IPCResult
-CompositorBridgeChild::RecvDidComposite(const uint64_t& aId, const uint64_t& aTransactionId,
+CompositorBridgeChild::RecvDidComposite(const uint64_t& aId,
+                                        const uint64_t& aTransactionId,
                                         const TimeStamp& aCompositeStart,
                                         const TimeStamp& aCompositeEnd)
 {
   if (mLayerManager) {
     MOZ_ASSERT(aId == 0);
-    MOZ_ASSERT(mLayerManager->GetBackendType() == LayersBackend::LAYERS_CLIENT ||
+    MOZ_ASSERT(mLayerManager->GetBackendType() ==
+                   LayersBackend::LAYERS_CLIENT ||
                mLayerManager->GetBackendType() == LayersBackend::LAYERS_WR);
     // Hold a reference to keep LayerManager alive. See Bug 1242668.
     RefPtr<LayerManager> m = mLayerManager;
@@ -587,16 +608,15 @@ CompositorBridgeChild::RecvSharedCompositorFrameMetrics(
     const uint64_t& aLayersId,
     const uint32_t& aAPZCId)
 {
-  SharedFrameMetricsData* data = new SharedFrameMetricsData(
-    metrics, handle, aLayersId, aAPZCId);
+  SharedFrameMetricsData* data =
+      new SharedFrameMetricsData(metrics, handle, aLayersId, aAPZCId);
   mFrameMetricsTable.Put(data->GetViewID(), data);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 CompositorBridgeChild::RecvReleaseSharedCompositorFrameMetrics(
-    const ViewID& aId,
-    const uint32_t& aAPZCId)
+    const ViewID& aId, const uint32_t& aAPZCId)
 {
   if (auto entry = mFrameMetricsTable.Lookup(aId)) {
     // The SharedFrameMetricsData may have been removed previously if
@@ -614,9 +634,7 @@ CompositorBridgeChild::SharedFrameMetricsData::SharedFrameMetricsData(
     const CrossProcessMutexHandle& handle,
     const uint64_t& aLayersId,
     const uint32_t& aAPZCId)
-  : mMutex(nullptr)
-  , mLayersId(aLayersId)
-  , mAPZCId(aAPZCId)
+    : mMutex(nullptr), mLayersId(aLayersId), mAPZCId(aAPZCId)
 {
   mBuffer = new ipc::SharedMemoryBasic;
   mBuffer->SetHandle(metrics, ipc::SharedMemory::RightsReadOnly);
@@ -635,10 +653,11 @@ CompositorBridgeChild::SharedFrameMetricsData::~SharedFrameMetricsData()
 }
 
 void
-CompositorBridgeChild::SharedFrameMetricsData::CopyFrameMetrics(FrameMetrics* aFrame)
+CompositorBridgeChild::SharedFrameMetricsData::CopyFrameMetrics(
+    FrameMetrics* aFrame)
 {
   const FrameMetrics* frame =
-    static_cast<const FrameMetrics*>(mBuffer->memory());
+      static_cast<const FrameMetrics*>(mBuffer->memory());
   MOZ_ASSERT(frame);
   mMutex->Lock();
   *aFrame = *frame;
@@ -649,7 +668,7 @@ FrameMetrics::ViewID
 CompositorBridgeChild::SharedFrameMetricsData::GetViewID()
 {
   const FrameMetrics* frame =
-    static_cast<const FrameMetrics*>(mBuffer->memory());
+      static_cast<const FrameMetrics*>(mBuffer->memory());
   MOZ_ASSERT(frame);
   // Not locking to read of mScrollId since it should not change after being
   // initially set.
@@ -668,7 +687,6 @@ CompositorBridgeChild::SharedFrameMetricsData::GetAPZCId()
   return mAPZCId;
 }
 
-
 mozilla::ipc::IPCResult
 CompositorBridgeChild::RecvRemotePaintIsReady()
 {
@@ -676,11 +694,13 @@ CompositorBridgeChild::RecvRemotePaintIsReady()
   // TabParent (via the TabChild) if the notification was previously requested.
   // XPCOM gives a soup of compiler errors when trying to do_QueryReference
   // so I'm using static_cast<>
-  MOZ_LAYERS_LOG(("[RemoteGfx] CompositorBridgeChild received RemotePaintIsReady"));
+  MOZ_LAYERS_LOG(
+      ("[RemoteGfx] CompositorBridgeChild received RemotePaintIsReady"));
   RefPtr<nsISupports> iTabChildBase(do_QueryReferent(mWeakTabChild));
   if (!iTabChildBase) {
-    MOZ_LAYERS_LOG(("[RemoteGfx] Note: TabChild was released before RemotePaintIsReady. "
-        "MozAfterRemotePaint will not be sent to listener."));
+    MOZ_LAYERS_LOG(
+        ("[RemoteGfx] Note: TabChild was released before RemotePaintIsReady. "
+         "MozAfterRemotePaint will not be sent to listener."));
     return IPC_OK();
   }
   TabChildBase* tabChildBase = static_cast<TabChildBase*>(iTabChildBase.get());
@@ -691,12 +711,14 @@ CompositorBridgeChild::RecvRemotePaintIsReady()
   return IPC_OK();
 }
 
-
 void
 CompositorBridgeChild::RequestNotifyAfterRemotePaint(TabChild* aTabChild)
 {
-  MOZ_ASSERT(aTabChild, "NULL TabChild not allowed in CompositorBridgeChild::RequestNotifyAfterRemotePaint");
-  mWeakTabChild = do_GetWeakReference( static_cast<dom::TabChildBase*>(aTabChild) );
+  MOZ_ASSERT(aTabChild,
+             "NULL TabChild not allowed in "
+             "CompositorBridgeChild::RequestNotifyAfterRemotePaint");
+  mWeakTabChild =
+      do_GetWeakReference(static_cast<dom::TabChildBase*>(aTabChild));
   if (!mCanSend) {
     return;
   }
@@ -762,7 +784,8 @@ CompositorBridgeChild::SendAdoptChild(const uint64_t& id)
 }
 
 bool
-CompositorBridgeChild::SendMakeSnapshot(const SurfaceDescriptor& inSnapshot, const gfx::IntRect& dirtyRect)
+CompositorBridgeChild::SendMakeSnapshot(const SurfaceDescriptor& inSnapshot,
+                                        const gfx::IntRect& dirtyRect)
 {
   if (!mCanSend) {
     return false;
@@ -780,21 +803,25 @@ CompositorBridgeChild::SendFlushRendering()
 }
 
 bool
-CompositorBridgeChild::SendStartFrameTimeRecording(const int32_t& bufferSize, uint32_t* startIndex)
+CompositorBridgeChild::SendStartFrameTimeRecording(const int32_t& bufferSize,
+                                                   uint32_t* startIndex)
 {
   if (!mCanSend) {
     return false;
   }
-  return PCompositorBridgeChild::SendStartFrameTimeRecording(bufferSize, startIndex);
+  return PCompositorBridgeChild::SendStartFrameTimeRecording(bufferSize,
+                                                             startIndex);
 }
 
 bool
-CompositorBridgeChild::SendStopFrameTimeRecording(const uint32_t& startIndex, nsTArray<float>* intervals)
+CompositorBridgeChild::SendStopFrameTimeRecording(const uint32_t& startIndex,
+                                                  nsTArray<float>* intervals)
 {
   if (!mCanSend) {
     return false;
   }
-  return PCompositorBridgeChild::SendStopFrameTimeRecording(startIndex, intervals);
+  return PCompositorBridgeChild::SendStopFrameTimeRecording(startIndex,
+                                                            intervals);
 }
 
 bool
@@ -816,24 +843,25 @@ CompositorBridgeChild::SendRequestNotifyAfterRemotePaint()
 }
 
 bool
-CompositorBridgeChild::SendClearApproximatelyVisibleRegions(uint64_t aLayersId,
-                                                            uint32_t aPresShellId)
+CompositorBridgeChild::SendClearApproximatelyVisibleRegions(
+    uint64_t aLayersId, uint32_t aPresShellId)
 {
   if (!mCanSend) {
     return false;
   }
-  return PCompositorBridgeChild::SendClearApproximatelyVisibleRegions(aLayersId,
-                                                                aPresShellId);
+  return PCompositorBridgeChild::SendClearApproximatelyVisibleRegions(
+      aLayersId, aPresShellId);
 }
 
 bool
-CompositorBridgeChild::SendNotifyApproximatelyVisibleRegion(const ScrollableLayerGuid& aGuid,
-                                                            const CSSIntRegion& aRegion)
+CompositorBridgeChild::SendNotifyApproximatelyVisibleRegion(
+    const ScrollableLayerGuid& aGuid, const CSSIntRegion& aRegion)
 {
   if (!mCanSend) {
     return false;
   }
-  return PCompositorBridgeChild::SendNotifyApproximatelyVisibleRegion(aGuid, aRegion);
+  return PCompositorBridgeChild::SendNotifyApproximatelyVisibleRegion(aGuid,
+                                                                      aRegion);
 }
 
 bool
@@ -846,12 +874,13 @@ CompositorBridgeChild::SendAllPluginsCaptured()
 }
 
 PTextureChild*
-CompositorBridgeChild::AllocPTextureChild(const SurfaceDescriptor&,
-                                          const LayersBackend&,
-                                          const TextureFlags&,
-                                          const uint64_t&,
-                                          const uint64_t& aSerial,
-                                          const wr::MaybeExternalImageId& aExternalImageId)
+CompositorBridgeChild::AllocPTextureChild(
+    const SurfaceDescriptor&,
+    const LayersBackend&,
+    const TextureFlags&,
+    const uint64_t&,
+    const uint64_t& aSerial,
+    const wr::MaybeExternalImageId& aExternalImageId)
 {
   return TextureClient::CreateIPDLActor();
 }
@@ -863,7 +892,8 @@ CompositorBridgeChild::DeallocPTextureChild(PTextureChild* actor)
 }
 
 mozilla::ipc::IPCResult
-CompositorBridgeChild::RecvParentAsyncMessages(InfallibleTArray<AsyncParentMessageData>&& aMessages)
+CompositorBridgeChild::RecvParentAsyncMessages(
+    InfallibleTArray<AsyncParentMessageData>&& aMessages)
 {
   for (AsyncParentMessageArray::index_type i = 0; i < aMessages.Length(); ++i) {
     const AsyncParentMessageData& message = aMessages[i];
@@ -892,7 +922,8 @@ CompositorBridgeChild::RecvObserveLayerUpdate(const uint64_t& aLayersId,
   MOZ_ASSERT(aLayersId);
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  if (RefPtr<dom::TabParent> tab = dom::TabParent::GetTabParentFromLayersId(aLayersId)) {
+  if (RefPtr<dom::TabParent> tab =
+          dom::TabParent::GetTabParentFromLayersId(aLayersId)) {
     tab->LayerTreeUpdate(aEpoch, aActive);
   }
   return IPC_OK();
@@ -907,7 +938,8 @@ CompositorBridgeChild::RecvNotifyWebRenderError(const WebRenderError& aError)
 }
 
 void
-CompositorBridgeChild::HoldUntilCompositableRefReleasedIfNecessary(TextureClient* aClient)
+CompositorBridgeChild::HoldUntilCompositableRefReleasedIfNecessary(
+    TextureClient* aClient)
 {
   if (!aClient) {
     return;
@@ -922,7 +954,8 @@ CompositorBridgeChild::HoldUntilCompositableRefReleasedIfNecessary(TextureClient
 }
 
 void
-CompositorBridgeChild::NotifyNotUsed(uint64_t aTextureId, uint64_t aFwdTransactionId)
+CompositorBridgeChild::NotifyNotUsed(uint64_t aTextureId,
+                                     uint64_t aFwdTransactionId)
 {
   if (auto entry = mTexturesWaitingRecycled.Lookup(aTextureId)) {
     if (aFwdTransactionId < entry.Data()->GetLastFwdTransactionId()) {
@@ -945,8 +978,10 @@ CompositorBridgeChild::GetTexturePool(KnowsCompositor* aAllocator,
                                       TextureFlags aFlags)
 {
   for (size_t i = 0; i < mTexturePools.Length(); i++) {
-    if (mTexturePools[i]->GetBackend() == aAllocator->GetCompositorBackendType() &&
-        mTexturePools[i]->GetMaxTextureSize() == aAllocator->GetMaxTextureSize() &&
+    if (mTexturePools[i]->GetBackend() ==
+            aAllocator->GetCompositorBackendType() &&
+        mTexturePools[i]->GetMaxTextureSize() ==
+            aAllocator->GetMaxTextureSize() &&
         mTexturePools[i]->GetFormat() == aFormat &&
         mTexturePools[i]->GetFlags() == aFlags) {
       return mTexturePools[i];
@@ -1005,22 +1040,30 @@ CompositorBridgeChild::CreateTexture(const SurfaceDescriptor& aSharedData,
                                      wr::MaybeExternalImageId& aExternalImageId,
                                      nsIEventTarget* aTarget)
 {
-  PTextureChild* textureChild = AllocPTextureChild(
-    aSharedData, aLayersBackend, aFlags, 0 /* FIXME */, aSerial, aExternalImageId);
+  PTextureChild* textureChild = AllocPTextureChild(aSharedData,
+                                                   aLayersBackend,
+                                                   aFlags,
+                                                   0 /* FIXME */,
+                                                   aSerial,
+                                                   aExternalImageId);
 
   // Do the DOM labeling.
   if (aTarget) {
     SetEventTargetForActor(textureChild, aTarget);
   }
 
-  return SendPTextureConstructor(
-    textureChild, aSharedData, aLayersBackend, aFlags, 0 /* FIXME? */, aSerial, aExternalImageId);
+  return SendPTextureConstructor(textureChild,
+                                 aSharedData,
+                                 aLayersBackend,
+                                 aFlags,
+                                 0 /* FIXME? */,
+                                 aSerial,
+                                 aExternalImageId);
 }
 
 bool
-CompositorBridgeChild::AllocUnsafeShmem(size_t aSize,
-                                   ipc::SharedMemory::SharedMemoryType aType,
-                                   ipc::Shmem* aShmem)
+CompositorBridgeChild::AllocUnsafeShmem(
+    size_t aSize, ipc::SharedMemory::SharedMemoryType aType, ipc::Shmem* aShmem)
 {
   ShmemAllocated(this);
   return PCompositorBridgeChild::AllocUnsafeShmem(aSize, aType, aShmem);
@@ -1028,8 +1071,8 @@ CompositorBridgeChild::AllocUnsafeShmem(size_t aSize,
 
 bool
 CompositorBridgeChild::AllocShmem(size_t aSize,
-                             ipc::SharedMemory::SharedMemoryType aType,
-                             ipc::Shmem* aShmem)
+                                  ipc::SharedMemory::SharedMemoryType aType,
+                                  ipc::Shmem* aShmem)
 {
   ShmemAllocated(this);
   return PCompositorBridgeChild::AllocShmem(aSize, aType, aShmem);
@@ -1045,7 +1088,8 @@ CompositorBridgeChild::DeallocShmem(ipc::Shmem& aShmem)
 }
 
 widget::PCompositorWidgetChild*
-CompositorBridgeChild::AllocPCompositorWidgetChild(const CompositorWidgetInitData& aInitData)
+CompositorBridgeChild::AllocPCompositorWidgetChild(
+    const CompositorWidgetInitData& aInitData)
 {
   // We send the constructor manually.
   MOZ_CRASH("Should not be called");
@@ -1053,7 +1097,8 @@ CompositorBridgeChild::AllocPCompositorWidgetChild(const CompositorWidgetInitDat
 }
 
 bool
-CompositorBridgeChild::DeallocPCompositorWidgetChild(PCompositorWidgetChild* aActor)
+CompositorBridgeChild::DeallocPCompositorWidgetChild(
+    PCompositorWidgetChild* aActor)
 {
 #ifdef MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING
   delete aActor;
@@ -1072,7 +1117,7 @@ CompositorBridgeChild::AllocPAPZCTreeManagerChild(const uint64_t& aLayersId)
     TabChild* tabChild = TabChild::GetFrom(aLayersId);
     if (tabChild) {
       SetEventTargetForActor(
-        child, tabChild->TabGroup()->EventTargetFor(TaskCategory::Other));
+          child, tabChild->TabGroup()->EventTargetFor(TaskCategory::Other));
       MOZ_ASSERT(child->GetActorEventTarget());
     }
   }
@@ -1096,7 +1141,8 @@ CompositorBridgeChild::DeallocPAPZChild(PAPZChild* aActor)
 }
 
 bool
-CompositorBridgeChild::DeallocPAPZCTreeManagerChild(PAPZCTreeManagerChild* aActor)
+CompositorBridgeChild::DeallocPAPZCTreeManagerChild(
+    PAPZCTreeManagerChild* aActor)
 {
   APZCTreeManagerChild* parent = static_cast<APZCTreeManagerChild*>(aActor);
   parent->Release();
@@ -1110,10 +1156,11 @@ CompositorBridgeChild::WillEndTransaction()
 }
 
 PWebRenderBridgeChild*
-CompositorBridgeChild::AllocPWebRenderBridgeChild(const wr::PipelineId& aPipelineId,
-                                                  const LayoutDeviceIntSize&,
-                                                  TextureFactoryIdentifier*,
-                                                  wr::IdNamespace *aIdNamespace)
+CompositorBridgeChild::AllocPWebRenderBridgeChild(
+    const wr::PipelineId& aPipelineId,
+    const LayoutDeviceIntSize&,
+    TextureFactoryIdentifier*,
+    wr::IdNamespace* aIdNamespace)
 {
   WebRenderBridgeChild* child = new WebRenderBridgeChild(aPipelineId);
   child->AddIPDLReference();
@@ -1121,7 +1168,8 @@ CompositorBridgeChild::AllocPWebRenderBridgeChild(const wr::PipelineId& aPipelin
 }
 
 bool
-CompositorBridgeChild::DeallocPWebRenderBridgeChild(PWebRenderBridgeChild* aActor)
+CompositorBridgeChild::DeallocPWebRenderBridgeChild(
+    PWebRenderBridgeChild* aActor)
 {
   WebRenderBridgeChild* child = static_cast<WebRenderBridgeChild*>(aActor);
   child->ReleaseIPDLReference();
@@ -1315,5 +1363,5 @@ CompositorBridgeChild::PostponeMessagesIfAsyncPainting()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

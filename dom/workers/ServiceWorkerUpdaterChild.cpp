@@ -11,11 +11,11 @@ namespace mozilla {
 namespace dom {
 namespace workers {
 
-ServiceWorkerUpdaterChild::ServiceWorkerUpdaterChild(GenericPromise* aPromise,
-                                                     CancelableRunnable* aSuccessRunnable,
-                                                     CancelableRunnable* aFailureRunnable)
-  : mSuccessRunnable(aSuccessRunnable)
-  , mFailureRunnable(aFailureRunnable)
+ServiceWorkerUpdaterChild::ServiceWorkerUpdaterChild(
+    GenericPromise* aPromise,
+    CancelableRunnable* aSuccessRunnable,
+    CancelableRunnable* aFailureRunnable)
+    : mSuccessRunnable(aSuccessRunnable), mFailureRunnable(aFailureRunnable)
 {
   // TODO: remove the main thread restriction after fixing bug 1364821.
   MOZ_ASSERT(NS_IsMainThread());
@@ -24,11 +24,14 @@ ServiceWorkerUpdaterChild::ServiceWorkerUpdaterChild(GenericPromise* aPromise,
   MOZ_ASSERT(aSuccessRunnable);
   MOZ_ASSERT(aFailureRunnable);
 
-  aPromise->Then(GetMainThreadSerialEventTarget(), __func__,
-    [this]() {
-      mPromiseHolder.Complete();
-      Unused << Send__delete__(this);
-  }).Track(mPromiseHolder);
+  aPromise
+      ->Then(GetMainThreadSerialEventTarget(),
+             __func__,
+             [this]() {
+               mPromiseHolder.Complete();
+               Unused << Send__delete__(this);
+             })
+      .Track(mPromiseHolder);
 }
 
 mozilla::ipc::IPCResult
@@ -64,6 +67,6 @@ ServiceWorkerUpdaterChild::ActorDestroy(ActorDestroyReason aWhy)
   mPromiseHolder.DisconnectIfExists();
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

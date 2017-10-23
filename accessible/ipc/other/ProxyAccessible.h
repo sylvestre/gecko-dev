@@ -21,30 +21,31 @@ namespace a11y {
 
 class ProxyAccessible : public ProxyAccessibleBase<ProxyAccessible>
 {
-public:
-
-  ProxyAccessible(uint64_t aID, ProxyAccessible* aParent,
-                  DocAccessibleParent* aDoc, role aRole, uint32_t aInterfaces)
-    : ProxyAccessibleBase(aID, aParent, aDoc, aRole, aInterfaces)
+ public:
+  ProxyAccessible(uint64_t aID,
+                  ProxyAccessible* aParent,
+                  DocAccessibleParent* aDoc,
+                  role aRole,
+                  uint32_t aInterfaces)
+      : ProxyAccessibleBase(aID, aParent, aDoc, aRole, aInterfaces)
 
   {
     MOZ_COUNT_CTOR(ProxyAccessible);
   }
 
-  ~ProxyAccessible()
-  {
-    MOZ_COUNT_DTOR(ProxyAccessible);
-  }
+  ~ProxyAccessible() { MOZ_COUNT_DTOR(ProxyAccessible); }
 
 #include "mozilla/a11y/ProxyAccessibleShared.h"
 
-protected:
+ protected:
   explicit ProxyAccessible(DocAccessibleParent* aThisAsDoc)
-    : ProxyAccessibleBase(aThisAsDoc)
-  { MOZ_COUNT_CTOR(ProxyAccessible); }
+      : ProxyAccessibleBase(aThisAsDoc)
+  {
+    MOZ_COUNT_CTOR(ProxyAccessible);
+  }
 };
 
-}
-}
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

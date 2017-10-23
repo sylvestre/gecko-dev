@@ -14,62 +14,51 @@ struct BarkWhenTracedClass {
     static const JSClass class_;
     static void finalize(JSFreeOp* fop, JSObject* obj) { finalizeCount++; }
     static void trace(JSTracer* trc, JSObject* obj) { traceCount++; }
-    static void reset() { finalizeCount = 0; traceCount = 0; }
+    static void reset() {
+        finalizeCount = 0;
+        traceCount = 0;
+    }
 };
 
 int BarkWhenTracedClass::finalizeCount;
 int BarkWhenTracedClass::traceCount;
 
-static const JSClassOps BarkWhenTracedClassClassOps = {
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    BarkWhenTracedClass::finalize,
-    nullptr,
-    nullptr,
-    nullptr,
-    BarkWhenTracedClass::trace
-};
+static const JSClassOps BarkWhenTracedClassClassOps = {nullptr,
+                                                       nullptr,
+                                                       nullptr,
+                                                       nullptr,
+                                                       nullptr,
+                                                       nullptr,
+                                                       BarkWhenTracedClass::finalize,
+                                                       nullptr,
+                                                       nullptr,
+                                                       nullptr,
+                                                       BarkWhenTracedClass::trace};
 
-const JSClass BarkWhenTracedClass::class_ = {
-    "BarkWhenTracedClass",
-    JSCLASS_FOREGROUND_FINALIZE,
-    &BarkWhenTracedClassClassOps
-};
+const JSClass BarkWhenTracedClass::class_ = {"BarkWhenTracedClass", JSCLASS_FOREGROUND_FINALIZE,
+                                             &BarkWhenTracedClassClassOps};
 
 struct Kennel {
     PersistentRootedObject obj;
-    Kennel() { }
-    explicit Kennel(JSContext* cx) : obj(cx) { }
-    Kennel(JSContext* cx, const HandleObject& woof) : obj(cx, woof) { }
-    void init(JSContext* cx, const HandleObject& woof) {
-        obj.init(cx, woof);
-    }
-    void clear() {
-        obj = nullptr;
-    }
+    Kennel() {}
+    explicit Kennel(JSContext* cx) : obj(cx) {}
+    Kennel(JSContext* cx, const HandleObject& woof) : obj(cx, woof) {}
+    void init(JSContext* cx, const HandleObject& woof) { obj.init(cx, woof); }
+    void clear() { obj = nullptr; }
 };
 
 // A function for allocating a Kennel and a barker. Only allocating
 // PersistentRooteds on the heap, and in this function, helps ensure that the
 // conservative GC doesn't find stray references to the barker. Ugh.
-MOZ_NEVER_INLINE static Kennel*
-Allocate(JSContext* cx)
-{
+MOZ_NEVER_INLINE static Kennel* Allocate(JSContext* cx) {
     RootedObject barker(cx, JS_NewObject(cx, &BarkWhenTracedClass::class_));
-    if (!barker)
-        return nullptr;
+    if (!barker) return nullptr;
 
     return new Kennel(cx, barker);
 }
 
 // Do a GC, expecting |n| barkers to be finalized.
-static bool
-GCFinalizesNBarkers(JSContext* cx, int n)
-{
+static bool GCFinalizesNBarkers(JSContext* cx, int n) {
     int preGCTrace = BarkWhenTracedClass::traceCount;
     int preGCFinalize = BarkWhenTracedClass::finalizeCount;
 
@@ -80,8 +69,7 @@ GCFinalizesNBarkers(JSContext* cx, int n)
 }
 
 // PersistentRooted instances protect their contents from being recycled.
-BEGIN_TEST(test_PersistentRooted)
-{
+BEGIN_TEST(test_PersistentRooted) {
     BarkWhenTracedClass::reset();
 
     mozilla::UniquePtr<Kennel> kennel(Allocate(cx));
@@ -101,8 +89,7 @@ BEGIN_TEST(test_PersistentRooted)
 END_TEST(test_PersistentRooted)
 
 // GC should not be upset by null PersistentRooteds.
-BEGIN_TEST(test_PersistentRootedNull)
-{
+BEGIN_TEST(test_PersistentRootedNull) {
     BarkWhenTracedClass::reset();
 
     Kennel kennel(cx);
@@ -116,8 +103,7 @@ BEGIN_TEST(test_PersistentRootedNull)
 END_TEST(test_PersistentRootedNull)
 
 // Copy construction works.
-BEGIN_TEST(test_PersistentRootedCopy)
-{
+BEGIN_TEST(test_PersistentRootedCopy) {
     BarkWhenTracedClass::reset();
 
     mozilla::UniquePtr<Kennel> kennel(Allocate(cx));
@@ -146,8 +132,7 @@ BEGIN_TEST(test_PersistentRootedCopy)
 END_TEST(test_PersistentRootedCopy)
 
 // Assignment works.
-BEGIN_TEST(test_PersistentRootedAssign)
-{
+BEGIN_TEST(test_PersistentRootedAssign) {
     BarkWhenTracedClass::reset();
 
     mozilla::UniquePtr<Kennel> kennel(Allocate(cx));
@@ -193,8 +178,7 @@ END_TEST(test_PersistentRootedAssign)
 static PersistentRootedObject gGlobalRoot;
 
 // PersistentRooted instances can initialized in a separate step to allow for global PersistentRooteds.
-BEGIN_TEST(test_GlobalPersistentRooted)
-{
+BEGIN_TEST(test_GlobalPersistentRooted) {
     BarkWhenTracedClass::reset();
 
     CHECK(!gGlobalRoot.initialized());

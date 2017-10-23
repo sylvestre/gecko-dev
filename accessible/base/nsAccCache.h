@@ -12,10 +12,10 @@
 // Accessible cache utils
 ////////////////////////////////////////////////////////////////////////////////
 
-template <class T>
+template<class T>
 void
 UnbindCacheEntriesFromDocument(
-  nsRefPtrHashtable<nsPtrHashKey<const void>, T>& aCache)
+    nsRefPtrHashtable<nsPtrHashKey<const void>, T>& aCache)
 {
   for (auto iter = aCache.Iter(); !iter.Done(); iter.Next()) {
     T* accessible = iter.Data();

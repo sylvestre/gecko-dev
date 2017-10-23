@@ -12,19 +12,20 @@ class nsIContent;
 namespace mozilla {
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /*
  * A class that computes and caches the indices used for :nth-* pseudo-class
  * matching.
  */
 
-class nsNthIndexCache {
-private:
+class nsNthIndexCache
+{
+ private:
   typedef mozilla::dom::Element Element;
 
-public:
+ public:
   /**
    * Constructor and destructor out of line so that we don't try to
    * instantiate the hashtable template all over the place.
@@ -39,17 +40,20 @@ public:
   // is 1, and something other than 1 (maybe or maybe not a valid
   // result) otherwise.
   // This must only be called on nodes which have a non-null parent.
-  int32_t GetNthIndex(Element* aChild, bool aIsOfType, bool aIsFromEnd,
+  int32_t GetNthIndex(Element* aChild,
+                      bool aIsOfType,
+                      bool aIsFromEnd,
                       bool aCheckEdgeOnly);
 
   void Reset();
 
-private:
+ private:
   /**
    * Returns true if aSibling and aElement should be considered in the same
    * list for nth-index purposes, taking aIsOfType into account.
    */
-  inline bool SiblingMatchesElement(nsIContent* aSibling, Element* aElement,
+  inline bool SiblingMatchesElement(nsIContent* aSibling,
+                                    Element* aElement,
                                     bool aIsOfType);
 
   // This node's index for this cache.
@@ -58,28 +62,34 @@ private:
   // If 0, the node is not at any index in its parent.
   typedef int32_t CacheEntry;
 
-  class SystemAllocPolicy {
-  public:
-    void *malloc_(size_t bytes) { return ::malloc(bytes); }
+  class SystemAllocPolicy
+  {
+   public:
+    void* malloc_(size_t bytes) { return ::malloc(bytes); }
 
-    template <typename T>
-    T *maybe_pod_calloc(size_t numElems) {
-      return static_cast<T *>(::calloc(numElems, sizeof(T)));
+    template<typename T>
+    T* maybe_pod_calloc(size_t numElems)
+    {
+      return static_cast<T*>(::calloc(numElems, sizeof(T)));
     }
 
-    template <typename T>
-    T *pod_calloc(size_t numElems) {
+    template<typename T>
+    T* pod_calloc(size_t numElems)
+    {
       return maybe_pod_calloc<T>(numElems);
     }
 
-    void *realloc_(void *p, size_t bytes) { return ::realloc(p, bytes); }
-    void free_(void *p) { ::free(p); }
+    void* realloc_(void* p, size_t bytes) { return ::realloc(p, bytes); }
+    void free_(void* p) { ::free(p); }
     void reportAllocOverflow() const {}
     bool checkSimulatedOOM() const { return true; }
   };
 
-  typedef js::HashMap<nsIContent*, CacheEntry, js::DefaultHasher<nsIContent*>,
-                      SystemAllocPolicy> Cache;
+  typedef js::HashMap<nsIContent*,
+                      CacheEntry,
+                      js::DefaultHasher<nsIContent*>,
+                      SystemAllocPolicy>
+      Cache;
 
   /**
    * Returns true if aResult has been set to the correct value for aChild and

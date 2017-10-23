@@ -11,19 +11,21 @@
 #include "mozilla/layers/APZChild.h"
 #include "nsIContentInlines.h"
 
-#include "InputData.h"                  // for InputData
+#include "InputData.h"  // for InputData
 
 namespace mozilla {
 namespace layers {
 
-ContentProcessController::ContentProcessController(const RefPtr<dom::TabChild>& aBrowser)
+ContentProcessController::ContentProcessController(
+    const RefPtr<dom::TabChild>& aBrowser)
     : mBrowser(aBrowser)
 {
   MOZ_ASSERT(mBrowser);
 }
 
 void
-ContentProcessController::RequestContentRepaint(const FrameMetrics& aFrameMetrics)
+ContentProcessController::RequestContentRepaint(
+    const FrameMetrics& aFrameMetrics)
 {
   if (mBrowser) {
     mBrowser->UpdateFrame(aFrameMetrics);
@@ -31,12 +33,11 @@ ContentProcessController::RequestContentRepaint(const FrameMetrics& aFrameMetric
 }
 
 void
-ContentProcessController::HandleTap(
-                        TapType aType,
-                        const LayoutDevicePoint& aPoint,
-                        Modifiers aModifiers,
-                        const ScrollableLayerGuid& aGuid,
-                        uint64_t aInputBlockId)
+ContentProcessController::HandleTap(TapType aType,
+                                    const LayoutDevicePoint& aPoint,
+                                    Modifiers aModifiers,
+                                    const ScrollableLayerGuid& aGuid,
+                                    uint64_t aInputBlockId)
 {
   // This should never get called
   MOZ_ASSERT(false);
@@ -44,20 +45,19 @@ ContentProcessController::HandleTap(
 
 void
 ContentProcessController::NotifyPinchGesture(
-                        PinchGestureInput::PinchGestureType aType,
-                        const ScrollableLayerGuid& aGuid,
-                        LayoutDeviceCoord aSpanChange,
-                        Modifiers aModifiers)
+    PinchGestureInput::PinchGestureType aType,
+    const ScrollableLayerGuid& aGuid,
+    LayoutDeviceCoord aSpanChange,
+    Modifiers aModifiers)
 {
   // This should never get called
   MOZ_ASSERT_UNREACHABLE("Unexpected message to content process");
 }
 
 void
-ContentProcessController::NotifyAPZStateChange(
-                                  const ScrollableLayerGuid& aGuid,
-                                  APZStateChange aChange,
-                                  int aArg)
+ContentProcessController::NotifyAPZStateChange(const ScrollableLayerGuid& aGuid,
+                                               APZStateChange aChange,
+                                               int aArg)
 {
   if (mBrowser) {
     mBrowser->NotifyAPZStateChange(aGuid.mScrollId, aChange, aArg);
@@ -66,8 +66,7 @@ ContentProcessController::NotifyAPZStateChange(
 
 void
 ContentProcessController::NotifyMozMouseScrollEvent(
-                                  const FrameMetrics::ViewID& aScrollId,
-                                  const nsString& aEvent)
+    const FrameMetrics::ViewID& aScrollId, const nsString& aEvent)
 {
   if (mBrowser) {
     APZCCallbackHelper::NotifyMozMouseScrollEvent(aScrollId, aEvent);
@@ -87,13 +86,15 @@ ContentProcessController::NotifyFlushComplete()
 }
 
 void
-ContentProcessController::NotifyAsyncScrollbarDragRejected(const FrameMetrics::ViewID& aScrollId)
+ContentProcessController::NotifyAsyncScrollbarDragRejected(
+    const FrameMetrics::ViewID& aScrollId)
 {
   APZCCallbackHelper::NotifyAsyncScrollbarDragRejected(aScrollId);
 }
 
 void
-ContentProcessController::NotifyAsyncAutoscrollRejected(const FrameMetrics::ViewID& aScrollId)
+ContentProcessController::NotifyAsyncAutoscrollRejected(
+    const FrameMetrics::ViewID& aScrollId)
 {
   APZCCallbackHelper::NotifyAsyncAutoscrollRejected(aScrollId);
 }
@@ -106,9 +107,11 @@ ContentProcessController::CancelAutoscroll(const ScrollableLayerGuid& aGuid)
 }
 
 void
-ContentProcessController::PostDelayedTask(already_AddRefed<Runnable> aRunnable, int aDelayMs)
+ContentProcessController::PostDelayedTask(already_AddRefed<Runnable> aRunnable,
+                                          int aDelayMs)
 {
-  MOZ_ASSERT_UNREACHABLE("ContentProcessController should only be used remotely.");
+  MOZ_ASSERT_UNREACHABLE(
+      "ContentProcessController should only be used remotely.");
 }
 
 bool
@@ -118,10 +121,11 @@ ContentProcessController::IsRepaintThread()
 }
 
 void
-ContentProcessController::DispatchToRepaintThread(already_AddRefed<Runnable> aTask)
+ContentProcessController::DispatchToRepaintThread(
+    already_AddRefed<Runnable> aTask)
 {
   NS_DispatchToMainThread(Move(aTask));
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

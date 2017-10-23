@@ -29,7 +29,7 @@ namespace image {
  */
 class IProgressObserver : public SupportsWeakPtr<IProgressObserver>
 {
-public:
+ public:
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(IProgressObserver)
 
   // Subclasses may or may not be XPCOM classes, so we just require that they
@@ -54,11 +54,11 @@ public:
     return nullptr;
   }
 
-protected:
-  virtual ~IProgressObserver() { }
+ protected:
+  virtual ~IProgressObserver() {}
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_IProgressObserver_h
+#endif  // mozilla_image_IProgressObserver_h

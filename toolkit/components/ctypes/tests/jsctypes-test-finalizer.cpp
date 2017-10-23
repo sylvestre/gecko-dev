@@ -7,15 +7,14 @@
  * Shared infrastructure
  */
 
-
 /**
  * An array of integers representing resources.
  * - 0: unacquired
  * - 1: acquired
  * - < 0: error, resource has been released several times.
  */
-int *gFinalizerTestResources = nullptr;
-char **gFinalizerTestNames = nullptr;
+int* gFinalizerTestResources = nullptr;
+char** gFinalizerTestNames = nullptr;
 size_t gFinalizerTestSize;
 
 void
@@ -66,7 +65,7 @@ test_finalizer_rel_size_t(size_t i)
 size_t
 test_finalizer_rel_size_t_return_size_t(size_t i)
 {
-  if (-- gFinalizerTestResources[i] < 0) {
+  if (--gFinalizerTestResources[i] < 0) {
     MOZ_CRASH("Assertion failed");
   }
   return i;
@@ -75,18 +74,18 @@ test_finalizer_rel_size_t_return_size_t(size_t i)
 myRECT
 test_finalizer_rel_size_t_return_struct_t(size_t i)
 {
-  if (-- gFinalizerTestResources[i] < 0) {
+  if (--gFinalizerTestResources[i] < 0) {
     MOZ_CRASH("Assertion failed");
   }
   const int32_t narrowed = (int32_t)i;
-  myRECT result = { narrowed, narrowed, narrowed, narrowed };
+  myRECT result = {narrowed, narrowed, narrowed, narrowed};
   return result;
 }
 
 bool
 test_finalizer_cmp_size_t(size_t a, size_t b)
 {
-  return a==b;
+  return a == b;
 }
 
 // Resource type: int32_t
@@ -111,7 +110,7 @@ test_finalizer_rel_int32_t(int32_t i)
 bool
 test_finalizer_cmp_int32_t(int32_t a, int32_t b)
 {
-  return a==b;
+  return a == b;
 }
 
 // Resource type: int64_t
@@ -128,7 +127,7 @@ test_finalizer_acq_int64_t(size_t i)
 void
 test_finalizer_rel_int64_t(int64_t i)
 {
-  if (-- gFinalizerTestResources[i] < 0) {
+  if (--gFinalizerTestResources[i] < 0) {
     MOZ_CRASH("Assertion failed");
   }
 }
@@ -136,7 +135,7 @@ test_finalizer_rel_int64_t(int64_t i)
 bool
 test_finalizer_cmp_int64_t(int64_t a, int64_t b)
 {
-  return a==b;
+  return a == b;
 }
 
 // Resource type: void*
@@ -151,19 +150,19 @@ test_finalizer_acq_ptr_t(size_t i)
 
 // Release resource i
 void
-test_finalizer_rel_ptr_t(void *i)
+test_finalizer_rel_ptr_t(void* i)
 {
-  int *as_int = (int*)i;
-  -- (*as_int);
+  int* as_int = (int*)i;
+  --(*as_int);
   if (*as_int < 0) {
     MOZ_CRASH("Assertion failed");
   }
 }
 
 bool
-test_finalizer_cmp_ptr_t(void *a, void *b)
+test_finalizer_cmp_ptr_t(void* a, void* b)
 {
-  return a==b;
+  return a == b;
 }
 
 // Resource type: int32_t*
@@ -178,18 +177,18 @@ test_finalizer_acq_int32_ptr_t(size_t i)
 
 // Release resource i
 void
-test_finalizer_rel_int32_ptr_t(int32_t *i)
+test_finalizer_rel_int32_ptr_t(int32_t* i)
 {
-  -- (*i);
+  --(*i);
   if (*i < 0) {
     MOZ_CRASH("Assertion failed");
   }
 }
 
 bool
-test_finalizer_cmp_int32_ptr_t(int32_t *a, int32_t *b)
+test_finalizer_cmp_int32_ptr_t(int32_t* a, int32_t* b)
 {
-  return a==b;
+  return a == b;
 }
 
 // Resource type: nullptr
@@ -198,30 +197,29 @@ test_finalizer_cmp_int32_ptr_t(int32_t *a, int32_t *b)
 void*
 test_finalizer_acq_null_t(size_t i)
 {
-  gFinalizerTestResources[0] = 1;//Always index 0
+  gFinalizerTestResources[0] = 1;  //Always index 0
   return nullptr;
 }
 
 // Release resource i
 void
-test_finalizer_rel_null_t(void *i)
+test_finalizer_rel_null_t(void* i)
 {
   if (i != nullptr) {
     MOZ_CRASH("Assertion failed");
   }
-  gFinalizerTestResources[0] --;
+  gFinalizerTestResources[0]--;
 }
 
-bool
-test_finalizer_null_resource_is_acquired(size_t)
+bool test_finalizer_null_resource_is_acquired(size_t)
 {
   return gFinalizerTestResources[0] == 1;
 }
 
 bool
-test_finalizer_cmp_null_t(void *a, void *b)
+test_finalizer_cmp_null_t(void* a, void* b)
 {
-  return a==b;
+  return a == b;
 }
 
 // Resource type: char*
@@ -242,13 +240,13 @@ test_finalizer_acq_string_t(int i)
 
 // Release resource i
 void
-test_finalizer_rel_string_t(char *i)
+test_finalizer_rel_string_t(char* i)
 {
   int index = atoi(i);
   if (index < 0 || index >= (int)gFinalizerTestSize) {
     MOZ_CRASH("Assertion failed");
   }
-  gFinalizerTestResources[index] --;
+  gFinalizerTestResources[index]--;
 }
 
 bool
@@ -258,7 +256,7 @@ test_finalizer_string_resource_is_acquired(size_t i)
 }
 
 bool
-test_finalizer_cmp_string_t(char *a, char *b)
+test_finalizer_cmp_string_t(char* a, char* b)
 {
   return !strncmp(a, b, 10);
 }
@@ -270,7 +268,7 @@ myRECT
 test_finalizer_acq_struct_t(int i)
 {
   gFinalizerTestResources[i] = 1;
-  myRECT result = { i, i, i, i };
+  myRECT result = {i, i, i, i};
   return result;
 }
 
@@ -282,7 +280,7 @@ test_finalizer_rel_struct_t(myRECT i)
   if (index < 0 || index >= (int)gFinalizerTestSize) {
     MOZ_CRASH("Assertion failed");
   }
-  gFinalizerTestResources[index] --;
+  gFinalizerTestResources[index]--;
 }
 
 bool
@@ -302,7 +300,8 @@ test_finalizer_cmp_struct_t(myRECT a, myRECT b)
 }
 
 // Support for checking that we reject nullptr finalizer
-afun* test_finalizer_rel_null_function()
+afun*
+test_finalizer_rel_null_function()
 {
   return nullptr;
 }
@@ -310,7 +309,7 @@ afun* test_finalizer_rel_null_function()
 void
 test_finalizer_rel_size_t_set_errno(size_t i)
 {
-  if (-- gFinalizerTestResources[i] < 0) {
+  if (--gFinalizerTestResources[i] < 0) {
     MOZ_CRASH("Assertion failed");
   }
   errno = 10;

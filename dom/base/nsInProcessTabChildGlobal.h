@@ -25,26 +25,28 @@
 
 namespace mozilla {
 class EventChainPreVisitor;
-} // namespace mozilla
+}  // namespace mozilla
 
-class nsInProcessTabChildGlobal : public mozilla::DOMEventTargetHelper,
-                                  public nsMessageManagerScriptExecutor,
-                                  public nsIInProcessContentFrameMessageManager,
-                                  public nsIGlobalObject,
-                                  public nsIScriptObjectPrincipal,
-                                  public nsSupportsWeakReference,
-                                  public mozilla::dom::ipc::MessageManagerCallback
+class nsInProcessTabChildGlobal
+    : public mozilla::DOMEventTargetHelper,
+      public nsMessageManagerScriptExecutor,
+      public nsIInProcessContentFrameMessageManager,
+      public nsIGlobalObject,
+      public nsIScriptObjectPrincipal,
+      public nsSupportsWeakReference,
+      public mozilla::dom::ipc::MessageManagerCallback
 {
   typedef mozilla::dom::ipc::StructuredCloneData StructuredCloneData;
 
   using mozilla::dom::ipc::MessageManagerCallback::GetProcessMessageManager;
 
-public:
-  nsInProcessTabChildGlobal(nsIDocShell* aShell, nsIContent* aOwner,
+ public:
+  nsInProcessTabChildGlobal(nsIDocShell* aShell,
+                            nsIContent* aOwner,
                             nsFrameMessageManager* aChrome);
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(nsInProcessTabChildGlobal,
-                                                         mozilla::DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
+      nsInProcessTabChildGlobal, mozilla::DOMEventTargetHelper)
 
   NS_FORWARD_SAFE_NSIMESSAGELISTENERMANAGER(mMessageManager)
   NS_FORWARD_SAFE_NSIMESSAGESENDER(mMessageManager)
@@ -57,10 +59,14 @@ public:
                              uint8_t aArgc,
                              JS::MutableHandle<JS::Value> aRetval) override
   {
-    return mMessageManager
-      ? mMessageManager->SendSyncMessage(aMessageName, aObject, aRemote,
-                                         aPrincipal, aCx, aArgc, aRetval)
-      : NS_ERROR_NULL_POINTER;
+    return mMessageManager ? mMessageManager->SendSyncMessage(aMessageName,
+                                                              aObject,
+                                                              aRemote,
+                                                              aPrincipal,
+                                                              aCx,
+                                                              aArgc,
+                                                              aRetval)
+                           : NS_ERROR_NULL_POINTER;
   }
   NS_IMETHOD SendRpcMessage(const nsAString& aMessageName,
                             JS::Handle<JS::Value> aObject,
@@ -70,10 +76,14 @@ public:
                             uint8_t aArgc,
                             JS::MutableHandle<JS::Value> aRetval) override
   {
-    return mMessageManager
-      ? mMessageManager->SendRpcMessage(aMessageName, aObject, aRemote,
-                                        aPrincipal, aCx, aArgc, aRetval)
-      : NS_ERROR_NULL_POINTER;
+    return mMessageManager ? mMessageManager->SendRpcMessage(aMessageName,
+                                                             aObject,
+                                                             aRemote,
+                                                             aPrincipal,
+                                                             aCx,
+                                                             aArgc,
+                                                             aRetval)
+                           : NS_ERROR_NULL_POINTER;
   }
   NS_IMETHOD GetContent(mozIDOMWindowProxy** aContent) override;
   NS_IMETHOD GetDocShell(nsIDocShell** aDocShell) override;
@@ -85,38 +95,36 @@ public:
    * MessageManagerCallback methods that we override.
    */
   virtual bool DoSendBlockingMessage(JSContext* aCx,
-                                      const nsAString& aMessage,
-                                      StructuredCloneData& aData,
-                                      JS::Handle<JSObject *> aCpows,
-                                      nsIPrincipal* aPrincipal,
-                                      nsTArray<StructuredCloneData>* aRetVal,
-                                      bool aIsSync) override;
+                                     const nsAString& aMessage,
+                                     StructuredCloneData& aData,
+                                     JS::Handle<JSObject*> aCpows,
+                                     nsIPrincipal* aPrincipal,
+                                     nsTArray<StructuredCloneData>* aRetVal,
+                                     bool aIsSync) override;
   virtual nsresult DoSendAsyncMessage(JSContext* aCx,
                                       const nsAString& aMessage,
                                       StructuredCloneData& aData,
-                                      JS::Handle<JSObject *> aCpows,
+                                      JS::Handle<JSObject*> aCpows,
                                       nsIPrincipal* aPrincipal) override;
 
   virtual nsresult GetEventTargetParent(
-                     mozilla::EventChainPreVisitor& aVisitor) override;
+      mozilla::EventChainPreVisitor& aVisitor) override;
   NS_IMETHOD AddEventListener(const nsAString& aType,
                               nsIDOMEventListener* aListener,
                               bool aUseCapture)
   {
     // By default add listeners only for trusted events!
-    return mozilla::DOMEventTargetHelper::AddEventListener(aType, aListener,
-                                                           aUseCapture, false,
-                                                           2);
+    return mozilla::DOMEventTargetHelper::AddEventListener(
+        aType, aListener, aUseCapture, false, 2);
   }
   NS_IMETHOD AddEventListener(const nsAString& aType,
                               nsIDOMEventListener* aListener,
-                              bool aUseCapture, bool aWantsUntrusted,
+                              bool aUseCapture,
+                              bool aWantsUntrusted,
                               uint8_t optional_argc) override
   {
-    return mozilla::DOMEventTargetHelper::AddEventListener(aType, aListener,
-                                                           aUseCapture,
-                                                           aWantsUntrusted,
-                                                           optional_argc);
+    return mozilla::DOMEventTargetHelper::AddEventListener(
+        aType, aListener, aUseCapture, aWantsUntrusted, optional_argc);
   }
   using mozilla::DOMEventTargetHelper::AddEventListener;
 
@@ -125,7 +133,8 @@ public:
   void FireUnloadEvent();
   void DisconnectEventListeners();
   void Disconnect();
-  void SendMessageToParent(const nsString& aMessage, bool aSync,
+  void SendMessageToParent(const nsString& aMessage,
+                           bool aSync,
                            const nsString& aJSON,
                            nsTArray<nsString>* aJSONRetVal);
   nsFrameMessageManager* GetInnerManager()
@@ -143,17 +152,16 @@ public:
     mChromeMessageManager = aParent;
   }
 
-  virtual JSObject* GetGlobalJSObject() override {
-    return mGlobal;
-  }
-  virtual JSObject* WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* GetGlobalJSObject() override { return mGlobal; }
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override
   {
     MOZ_CRASH("nsInProcessTabChildGlobal doesn't use DOM bindings!");
   }
 
   already_AddRefed<nsIFrameLoader> GetFrameLoader();
 
-protected:
+ protected:
   virtual ~nsInProcessTabChildGlobal();
 
   nsresult Init();
@@ -172,7 +180,8 @@ protected:
   // teardown. This allows us to dispatch message manager messages during this
   // time.
   nsCOMPtr<nsIFrameLoader> mFrameLoader;
-public:
+
+ public:
   nsIContent* mOwner;
   nsFrameMessageManager* mChromeMessageManager;
 };

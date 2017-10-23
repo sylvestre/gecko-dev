@@ -33,10 +33,9 @@ using namespace dom;
  *****************************************************************************/
 
 AutoSelectionRestorer::AutoSelectionRestorer(
-                         Selection* aSelection,
-                         EditorBase* aEditorBase
-                         MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-  : mEditorBase(nullptr)
+    Selection* aSelection,
+    EditorBase* aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    : mEditorBase(nullptr)
 {
   MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (NS_WARN_IF(!aSelection) || NS_WARN_IF(!aEditorBase)) {
@@ -95,9 +94,7 @@ DOMIterator::DOMIterator(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL)
   MOZ_GUARD_OBJECT_NOTIFIER_INIT;
 }
 
-DOMIterator::~DOMIterator()
-{
-}
+DOMIterator::~DOMIterator() {}
 
 void
 DOMIterator::AppendList(const BoolDomIterFunctor& functor,
@@ -114,8 +111,8 @@ DOMIterator::AppendList(const BoolDomIterFunctor& functor,
 }
 
 DOMSubtreeIterator::DOMSubtreeIterator(
-                      MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL)
-  : DOMIterator(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT)
+    MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL)
+    : DOMIterator(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT)
 {
 }
 
@@ -126,18 +123,14 @@ DOMSubtreeIterator::Init(nsRange& aRange)
   return mIter->Init(&aRange);
 }
 
-DOMSubtreeIterator::~DOMSubtreeIterator()
-{
-}
+DOMSubtreeIterator::~DOMSubtreeIterator() {}
 
 /******************************************************************************
  * some general purpose editor utils
  *****************************************************************************/
 
 bool
-EditorUtils::IsDescendantOf(nsINode* aNode,
-                            nsINode* aParent,
-                            int32_t* aOffset)
+EditorUtils::IsDescendantOf(nsINode* aNode, nsINode* aParent, int32_t* aOffset)
 {
   MOZ_ASSERT(aNode && aParent);
   if (aNode == aParent) {
@@ -192,8 +185,7 @@ bool
 EditorUtils::IsLeafNode(nsIDOMNode* aNode)
 {
   bool hasChildren = false;
-  if (aNode)
-    aNode->HasChildNodes(&hasChildren);
+  if (aNode) aNode->HasChildNodes(&hasChildren);
   return !hasChildren;
 }
 
@@ -218,7 +210,7 @@ EditorHookUtils::GetHookEnumeratorFromDocument(nsIDOMDocument* aDoc,
 bool
 EditorHookUtils::DoInsertionHook(nsIDOMDocument* aDoc,
                                  nsIDOMEvent* aDropEvent,
-                                 nsITransferable *aTrans)
+                                 nsITransferable* aTrans)
 {
   nsCOMPtr<nsISimpleEnumerator> enumerator;
   GetHookEnumeratorFromDocument(aDoc, getter_AddRefs(enumerator));
@@ -236,7 +228,7 @@ EditorHookUtils::DoInsertionHook(nsIDOMDocument* aDoc,
     if (override) {
       bool doInsert = true;
       DebugOnly<nsresult> hookResult =
-        override->OnPasteOrDrop(aDropEvent, aTrans, &doInsert);
+          override->OnPasteOrDrop(aDropEvent, aTrans, &doInsert);
       NS_ASSERTION(NS_SUCCEEDED(hookResult), "hook failure in OnPasteOrDrop");
       NS_ENSURE_TRUE(doInsert, false);
     }
@@ -245,4 +237,4 @@ EditorHookUtils::DoInsertionHook(nsIDOMDocument* aDoc,
   return true;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -15,8 +15,9 @@
 namespace mozilla {
 namespace gmp {
 
-class GMPStorage {
-public:
+class GMPStorage
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPStorage)
 
   virtual GMPErr Open(const nsCString& aRecordName) = 0;
@@ -26,15 +27,17 @@ public:
   virtual GMPErr Write(const nsCString& aRecordName,
                        const nsTArray<uint8_t>& aBytes) = 0;
   virtual void Close(const nsCString& aRecordName) = 0;
-protected:
+
+ protected:
   virtual ~GMPStorage() {}
 };
 
-already_AddRefed<GMPStorage> CreateGMPMemoryStorage();
-already_AddRefed<GMPStorage> CreateGMPDiskStorage(const nsCString& aNodeId,
-                                                  const nsString& aGMPName);
+already_AddRefed<GMPStorage>
+CreateGMPMemoryStorage();
+already_AddRefed<GMPStorage>
+CreateGMPDiskStorage(const nsCString& aNodeId, const nsString& aGMPName);
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
 #endif

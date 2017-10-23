@@ -12,22 +12,17 @@
 
 namespace mozilla {
 
-MOZ_DEFINE_STYLO_METHODS(DeclarationBlock, css::Declaration, ServoDeclarationBlock)
+MOZ_DEFINE_STYLO_METHODS(DeclarationBlock,
+                         css::Declaration,
+                         ServoDeclarationBlock)
 
 MozExternalRefCountType
-DeclarationBlock::AddRef()
-{
-  MOZ_STYLO_FORWARD(AddRef, ())
-}
+DeclarationBlock::AddRef(){MOZ_STYLO_FORWARD(AddRef, ())}
 
-MozExternalRefCountType
-DeclarationBlock::Release()
-{
-  MOZ_STYLO_FORWARD(Release, ())
-}
+MozExternalRefCountType DeclarationBlock::Release(){
+    MOZ_STYLO_FORWARD(Release, ())}
 
-already_AddRefed<DeclarationBlock>
-DeclarationBlock::Clone() const
+already_AddRefed<DeclarationBlock> DeclarationBlock::Clone() const
 {
   RefPtr<DeclarationBlock> result;
   if (IsGecko()) {
@@ -62,13 +57,10 @@ DeclarationBlock::EnsureMutable()
 }
 
 void
-DeclarationBlock::ToString(nsAString& aString) const
-{
-  MOZ_STYLO_FORWARD(ToString, (aString))
-}
+DeclarationBlock::ToString(nsAString& aString) const {
+    MOZ_STYLO_FORWARD(ToString, (aString))}
 
-uint32_t
-DeclarationBlock::Count() const
+uint32_t DeclarationBlock::Count() const
 {
   MOZ_STYLO_FORWARD(Count, ())
 }
@@ -111,6 +103,6 @@ DeclarationBlock::RemovePropertyByID(nsCSSPropertyID aProperty)
   MOZ_STYLO_FORWARD(RemovePropertyByID, (aProperty))
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_DeclarationBlockInlines_h
+#endif  // mozilla_DeclarationBlockInlines_h

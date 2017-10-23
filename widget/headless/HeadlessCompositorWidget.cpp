@@ -10,11 +10,11 @@
 namespace mozilla {
 namespace widget {
 
-HeadlessCompositorWidget::HeadlessCompositorWidget(const HeadlessCompositorWidgetInitData& aInitData,
-                                                   const layers::CompositorOptions& aOptions,
-                                                   HeadlessWidget* aWindow)
-      : CompositorWidget(aOptions)
-      , mWidget(aWindow)
+HeadlessCompositorWidget::HeadlessCompositorWidget(
+    const HeadlessCompositorWidgetInitData& aInitData,
+    const layers::CompositorOptions& aOptions,
+    HeadlessWidget* aWindow)
+    : CompositorWidget(aOptions), mWidget(aWindow)
 {
   mClientSize = aInitData.InitialClientSize();
 }
@@ -22,18 +22,21 @@ HeadlessCompositorWidget::HeadlessCompositorWidget(const HeadlessCompositorWidge
 void
 HeadlessCompositorWidget::ObserveVsync(VsyncObserver* aObserver)
 {
-  if (RefPtr<CompositorVsyncDispatcher> cvd = mWidget->GetCompositorVsyncDispatcher()) {
+  if (RefPtr<CompositorVsyncDispatcher> cvd =
+          mWidget->GetCompositorVsyncDispatcher()) {
     cvd->SetCompositorVsyncObserver(aObserver);
   }
 }
 
-nsIWidget* HeadlessCompositorWidget::RealWidget()
+nsIWidget*
+HeadlessCompositorWidget::RealWidget()
 {
   return mWidget;
 }
 
 void
-HeadlessCompositorWidget::NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize)
+HeadlessCompositorWidget::NotifyClientSizeChanged(
+    const LayoutDeviceIntSize& aClientSize)
 {
   mClientSize = aClientSize;
 }
@@ -50,5 +53,5 @@ HeadlessCompositorWidget::GetWidgetKey()
   return reinterpret_cast<uintptr_t>(mWidget);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

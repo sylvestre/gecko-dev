@@ -19,17 +19,16 @@ namespace mozilla {
 
 namespace {
 
-struct EarlyTest {
+struct EarlyTest
+{
   bool mWasSingleThreaded;
 
-  EarlyTest()
-  : mWasSingleThreaded(IsSingleThreaded())
-  { }
+  EarlyTest() : mWasSingleThreaded(IsSingleThreaded()) {}
 };
 
 static const EarlyTest gEarlyTest;
 
-} // namespace
+}  // namespace
 
 TEST(SandboxUtil, IsSingleThreaded)
 {
@@ -41,4 +40,4 @@ TEST(SandboxUtil, IsSingleThreaded)
   EXPECT_FALSE(IsSingleThreaded());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

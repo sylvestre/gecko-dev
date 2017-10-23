@@ -30,7 +30,7 @@
 #endif
 
 #if defined(MOZ_GECKO_PROFILER) && defined(MOZ_PROFILING) && defined(XP_WIN)
-  #define REPORT_CHROME_HANGS
+#define REPORT_CHROME_HANGS
 #endif
 
 namespace mozilla {
@@ -129,7 +129,7 @@ ChromeStackWalker(uint32_t aFrameNumber, void* aPC, void* aSP, void* aClosure)
 {
   MOZ_ASSERT(aClosure);
   std::vector<uintptr_t>* stack =
-    static_cast<std::vector<uintptr_t>*>(aClosure);
+      static_cast<std::vector<uintptr_t>*>(aClosure);
   if (stack->size() == MAX_CALL_STACK_PCS) {
     return;
   }
@@ -169,8 +169,12 @@ GetChromeHangReport(Telemetry::ProcessedStack& aStack,
     return;
   }
 
-  MozStackWalkThread(ChromeStackWalker, /* skipFrames */ 0, /* maxFrames */ 0,
-                     &rawStack, winMainThreadHandle, nullptr);
+  MozStackWalkThread(ChromeStackWalker,
+                     /* skipFrames */ 0,
+                     /* maxFrames */ 0,
+                     &rawStack,
+                     winMainThreadHandle,
+                     nullptr);
   ret = ::ResumeThread(winMainThreadHandle);
   if (ret == (DWORD)-1) {
     return;
@@ -185,7 +189,8 @@ GetChromeHangReport(Telemetry::ProcessedStack& aStack,
   TimeStamp processCreation = TimeStamp::ProcessCreation(&error);
   if (!error) {
     TimeDuration td = TimeStamp::Now() - processCreation;
-    aFirefoxUptime = (static_cast<int32_t>(td.ToSeconds()) - (gTimeout * 2)) / 60;
+    aFirefoxUptime =
+        (static_cast<int32_t>(td.ToSeconds()) - (gTimeout * 2)) / 60;
   } else {
     aFirefoxUptime = -1;
   }
@@ -216,7 +221,7 @@ ThreadMain(void*)
 
   while (true) {
     if (gShutdown) {
-      return; // Exit the thread
+      return;  // Exit the thread
     }
 
     // avoid rereading the volatile value in this loop
@@ -224,14 +229,12 @@ ThreadMain(void*)
 
     PRIntervalTime now = PR_IntervalNow();
 
-    if (timestamp != PR_INTERVAL_NO_WAIT &&
-        now < timestamp) {
+    if (timestamp != PR_INTERVAL_NO_WAIT && now < timestamp) {
       // 32-bit overflow, reset for another waiting period
-      timestamp = 1; // lowest legal PRInterval value
+      timestamp = 1;  // lowest legal PRInterval value
     }
 
-    if (timestamp != PR_INTERVAL_NO_WAIT &&
-        timestamp == lastTimestamp &&
+    if (timestamp != PR_INTERVAL_NO_WAIT && timestamp == lastTimestamp &&
         gTimeout > 0) {
       ++waitCount;
 #ifdef REPORT_CHROME_HANGS
@@ -245,8 +248,7 @@ ThreadMain(void*)
       // This is the crash-on-hang feature.
       // See bug 867313 for the quirk in the waitCount comparison
       if (waitCount >= 2) {
-        int32_t delay =
-          int32_t(PR_IntervalToSeconds(now - timestamp));
+        int32_t delay = int32_t(PR_IntervalToSeconds(now - timestamp));
         if (delay >= gTimeout) {
           MonitorAutoUnlock unlock(*gMonitor);
           Crash();
@@ -257,8 +259,11 @@ ThreadMain(void*)
 #ifdef REPORT_CHROME_HANGS
       if (waitCount >= 2) {
         uint32_t hangDuration = PR_IntervalToSeconds(now - lastTimestamp);
-        Telemetry::RecordChromeHang(hangDuration, stack, systemUptime,
-                                    firefoxUptime, Move(annotations));
+        Telemetry::RecordChromeHang(hangDuration,
+                                    stack,
+                                    systemUptime,
+                                    firefoxUptime,
+                                    Move(annotations));
         stack.Clear();
       }
 #endif
@@ -293,7 +298,7 @@ Startup()
 #ifdef REPORT_CHROME_HANGS
   Preferences::RegisterCallback(PrefChanged, kTelemetryPrefName);
   winMainThreadHandle =
-    OpenThread(THREAD_ALL_ACCESS, FALSE, GetCurrentThreadId());
+      OpenThread(THREAD_ALL_ACCESS, FALSE, GetCurrentThreadId());
   if (!winMainThreadHandle) {
     return;
   }
@@ -307,8 +312,11 @@ Startup()
 
   gThread = PR_CreateThread(PR_USER_THREAD,
                             ThreadMain,
-                            nullptr, PR_PRIORITY_LOW, PR_GLOBAL_THREAD,
-                            PR_JOINABLE_THREAD, 0);
+                            nullptr,
+                            PR_PRIORITY_LOW,
+                            PR_GLOBAL_THREAD,
+                            PR_JOINABLE_THREAD,
+                            0);
 }
 
 void
@@ -351,15 +359,15 @@ IsUIMessageWaiting()
     return false;
   }
 #define NS_WM_IMEFIRST WM_IME_SETCONTEXT
-#define NS_WM_IMELAST  WM_IME_KEYUP
+#define NS_WM_IMELAST WM_IME_KEYUP
   BOOL haveUIMessageWaiting = FALSE;
   MSG msg;
-  haveUIMessageWaiting |= ::PeekMessageW(&msg, nullptr, WM_KEYFIRST,
-                                         WM_IME_KEYLAST, PM_NOREMOVE);
-  haveUIMessageWaiting |= ::PeekMessageW(&msg, nullptr, NS_WM_IMEFIRST,
-                                         NS_WM_IMELAST, PM_NOREMOVE);
-  haveUIMessageWaiting |= ::PeekMessageW(&msg, nullptr, WM_MOUSEFIRST,
-                                         WM_MOUSELAST, PM_NOREMOVE);
+  haveUIMessageWaiting |=
+      ::PeekMessageW(&msg, nullptr, WM_KEYFIRST, WM_IME_KEYLAST, PM_NOREMOVE);
+  haveUIMessageWaiting |=
+      ::PeekMessageW(&msg, nullptr, NS_WM_IMEFIRST, NS_WM_IMELAST, PM_NOREMOVE);
+  haveUIMessageWaiting |=
+      ::PeekMessageW(&msg, nullptr, WM_MOUSEFIRST, WM_MOUSELAST, PM_NOREMOVE);
   return haveUIMessageWaiting;
 #endif
 }
@@ -372,8 +380,8 @@ NotifyActivity(ActivityType aActivityType)
 
   // Determine the activity type more specifically
   if (aActivityType == kGeneralActivity) {
-    aActivityType = IsUIMessageWaiting() ? kActivityUIAVail :
-                                           kActivityNoUIAVail;
+    aActivityType =
+        IsUIMessageWaiting() ? kActivityUIAVail : kActivityNoUIAVail;
   }
 
   // Calculate the cumulative amount of lag time since the last UI message
@@ -385,8 +393,8 @@ NotifyActivity(ActivityType aActivityType)
     case kActivityUIAVail:
     case kUIActivity:
       if (gTimestamp != PR_INTERVAL_NO_WAIT) {
-        cumulativeUILagMS += PR_IntervalToMilliseconds(PR_IntervalNow() -
-                                                       gTimestamp);
+        cumulativeUILagMS +=
+            PR_IntervalToMilliseconds(PR_IntervalNow() - gTimestamp);
       }
       break;
     default:
@@ -400,8 +408,8 @@ NotifyActivity(ActivityType aActivityType)
 
   // If we have UI activity we should reset the timer and report it
   if (aActivityType == kUIActivity) {
-    mozilla::Telemetry::Accumulate(mozilla::Telemetry::EVENTLOOP_UI_ACTIVITY_EXP_MS,
-                                     cumulativeUILagMS);
+    mozilla::Telemetry::Accumulate(
+        mozilla::Telemetry::EVENTLOOP_UI_ACTIVITY_EXP_MS, cumulativeUILagMS);
     cumulativeUILagMS = 0;
   }
 
@@ -424,5 +432,5 @@ Suspend()
   }
 }
 
-} // namespace HangMonitor
-} // namespace mozilla
+}  // namespace HangMonitor
+}  // namespace mozilla

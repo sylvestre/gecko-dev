@@ -17,20 +17,17 @@ class ServiceWorkerJobQueue::Callback final : public ServiceWorkerJob::Callback
 {
   RefPtr<ServiceWorkerJobQueue> mQueue;
 
-  ~Callback()
-  {
-  }
+  ~Callback() {}
 
-public:
-  explicit Callback(ServiceWorkerJobQueue* aQueue)
-    : mQueue(aQueue)
+ public:
+  explicit Callback(ServiceWorkerJobQueue* aQueue) : mQueue(aQueue)
   {
     AssertIsOnMainThread();
     MOZ_ASSERT(mQueue);
   }
 
-  virtual void
-  JobFinished(ServiceWorkerJob* aJob, ErrorResult& aStatus) override
+  virtual void JobFinished(ServiceWorkerJob* aJob,
+                           ErrorResult& aStatus) override
   {
     AssertIsOnMainThread();
     mQueue->JobFinished(aJob);
@@ -82,10 +79,7 @@ ServiceWorkerJobQueue::RunJob()
   mJobList[0]->Start(callback);
 }
 
-ServiceWorkerJobQueue::ServiceWorkerJobQueue()
-{
-  AssertIsOnMainThread();
-}
+ServiceWorkerJobQueue::ServiceWorkerJobQueue() { AssertIsOnMainThread(); }
 
 void
 ServiceWorkerJobQueue::ScheduleJob(ServiceWorkerJob* aJob)
@@ -129,6 +123,6 @@ ServiceWorkerJobQueue::CancelAll()
   }
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

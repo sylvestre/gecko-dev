@@ -40,8 +40,7 @@ NS_IMPL_ISUPPORTS_INHERITED(GeneralResponseData,
                             PaymentResponseData,
                             nsIGeneralResponseData)
 
-GeneralResponseData::GeneralResponseData()
-  : mData(NS_LITERAL_STRING("{}"))
+GeneralResponseData::GeneralResponseData() : mData(NS_LITERAL_STRING("{}"))
 {
   Init(nsIPaymentResponseData::GENERAL_RESPONSE);
 }
@@ -122,12 +121,10 @@ BasicCardResponseData::InitData(const nsAString& aCardholderName,
 
 /* PaymentActionResponse */
 
-NS_IMPL_ISUPPORTS(PaymentActionResponse,
-                  nsIPaymentActionResponse)
+NS_IMPL_ISUPPORTS(PaymentActionResponse, nsIPaymentActionResponse)
 
 PaymentActionResponse::PaymentActionResponse()
-  : mRequestId(EmptyString())
-  , mType(nsIPaymentActionResponse::NO_TYPE)
+    : mRequestId(EmptyString()), mType(nsIPaymentActionResponse::NO_TYPE)
 {
 }
 
@@ -166,7 +163,8 @@ PaymentCanMakeActionResponse::GetResult(bool* aResult)
 }
 
 NS_IMETHODIMP
-PaymentCanMakeActionResponse::Init(const nsAString& aRequestId, const bool aResult)
+PaymentCanMakeActionResponse::Init(const nsAString& aRequestId,
+                                   const bool aResult)
 {
   mRequestId = aRequestId;
   mResult = aResult;
@@ -352,9 +350,10 @@ nsresult
 PaymentCompleteActionResponse::IsCompleted(bool* aIsCompleted)
 {
   NS_ENSURE_ARG_POINTER(aIsCompleted);
-  *aIsCompleted = (mCompleteStatus == nsIPaymentActionResponse::COMPLETE_SUCCEEDED);
+  *aIsCompleted =
+      (mCompleteStatus == nsIPaymentActionResponse::COMPLETE_SUCCEEDED);
   return NS_OK;
 }
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla

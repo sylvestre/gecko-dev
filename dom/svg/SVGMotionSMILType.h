@@ -20,10 +20,11 @@ namespace mozilla {
 /**
  * MotionRotateType: Enum to indicate the type of our "rotate" attribute.
  */
-enum RotateType {
-  eRotateType_Explicit,     // for e.g. rotate="45"/"45deg"/"0.785rad"
-  eRotateType_Auto,         // for rotate="auto"
-  eRotateType_AutoReverse   // for rotate="auto-reverse"
+enum RotateType
+{
+  eRotateType_Explicit,    // for e.g. rotate="45"/"45deg"/"0.785rad"
+  eRotateType_Auto,        // for rotate="auto"
+  eRotateType_AutoReverse  // for rotate="auto-reverse"
 };
 
 /**
@@ -37,18 +38,19 @@ class SVGMotionSMILType : public nsISMILType
 {
   typedef mozilla::gfx::Path Path;
 
-public:
+ public:
   // Singleton for nsSMILValue objects to hold onto.
   static SVGMotionSMILType sSingleton;
 
-protected:
+ protected:
   // nsISMILType Methods
   // -------------------
-  virtual void     Init(nsSMILValue& aValue) const override;
-  virtual void     Destroy(nsSMILValue& aValue) const override;
-  virtual nsresult Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const override;
-  virtual bool     IsEqual(const nsSMILValue& aLeft,
-                           const nsSMILValue& aRight) const override;
+  virtual void Init(nsSMILValue& aValue) const override;
+  virtual void Destroy(nsSMILValue& aValue) const override;
+  virtual nsresult Assign(nsSMILValue& aDest,
+                          const nsSMILValue& aSrc) const override;
+  virtual bool IsEqual(const nsSMILValue& aLeft,
+                       const nsSMILValue& aRight) const override;
   virtual nsresult Add(nsSMILValue& aDest,
                        const nsSMILValue& aValueToAdd,
                        uint32_t aCount) const override;
@@ -61,7 +63,8 @@ protected:
                                const nsSMILValue& aEndVal,
                                double aUnitDistance,
                                nsSMILValue& aResult) const override;
-public:
+
+ public:
   // Used to generate a transform matrix from an <animateMotion> nsSMILValue.
   static gfx::Matrix CreateMatrix(const nsSMILValue& aSMILVal);
 
@@ -72,11 +75,11 @@ public:
                                         RotateType aRotateType,
                                         float aRotateAngle);
 
-private:
+ private:
   // Private constructor: prevent instances beyond my singleton.
   constexpr SVGMotionSMILType() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGMOTIONSMILTYPE_H_
+#endif  // MOZILLA_SVGMOTIONSMILTYPE_H_

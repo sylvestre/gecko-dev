@@ -18,12 +18,12 @@ namespace a11y {
 
 class AccessibleWrap : public Accessible
 {
-public: // construction, destruction
+ public:  // construction, destruction
   AccessibleWrap(nsIContent* aContent, DocAccessible* aDoc);
   virtual ~AccessibleWrap();
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

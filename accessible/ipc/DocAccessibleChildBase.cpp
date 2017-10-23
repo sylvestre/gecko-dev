@@ -19,24 +19,19 @@ DocAccessibleChildBase::InterfacesFor(Accessible* aAcc)
   if (aAcc->IsHyperText() && aAcc->AsHyperText()->IsTextRole())
     interfaces |= Interfaces::HYPERTEXT;
 
-  if (aAcc->IsLink())
-    interfaces |= Interfaces::HYPERLINK;
+  if (aAcc->IsLink()) interfaces |= Interfaces::HYPERLINK;
 
-  if (aAcc->HasNumericValue())
-    interfaces |= Interfaces::VALUE;
+  if (aAcc->HasNumericValue()) interfaces |= Interfaces::VALUE;
 
-  if (aAcc->IsImage())
-    interfaces |= Interfaces::IMAGE;
+  if (aAcc->IsImage()) interfaces |= Interfaces::IMAGE;
 
   if (aAcc->IsTable()) {
     interfaces |= Interfaces::TABLE;
   }
 
-  if (aAcc->IsTableCell())
-    interfaces |= Interfaces::TABLECELL;
+  if (aAcc->IsTableCell()) interfaces |= Interfaces::TABLECELL;
 
-  if (aAcc->IsDoc())
-    interfaces |= Interfaces::DOCUMENT;
+  if (aAcc->IsDoc()) interfaces |= Interfaces::DOCUMENT;
 
   if (aAcc->IsSelect()) {
     interfaces |= Interfaces::SELECTION;
@@ -85,8 +80,8 @@ DocAccessibleChildBase::InsertIntoIpcTree(Accessible* aParent,
                                           Accessible* aChild,
                                           uint32_t aIdxInParent)
 {
-  uint64_t parentID = aParent->IsDoc() ?
-    0 : reinterpret_cast<uint64_t>(aParent->UniqueID());
+  uint64_t parentID =
+      aParent->IsDoc() ? 0 : reinterpret_cast<uint64_t>(aParent->UniqueID());
   nsTArray<AccessibleData> shownTree;
   ShowEventData data(parentID, aIdxInParent, shownTree, true);
   SerializeTree(aChild, data.NewTree());
@@ -97,7 +92,8 @@ void
 DocAccessibleChildBase::ShowEvent(AccShowEvent* aShowEvent)
 {
   Accessible* parent = aShowEvent->Parent();
-  uint64_t parentID = parent->IsDoc() ? 0 : reinterpret_cast<uint64_t>(parent->UniqueID());
+  uint64_t parentID =
+      parent->IsDoc() ? 0 : reinterpret_cast<uint64_t>(parent->UniqueID());
   uint32_t idxInParent = aShowEvent->GetAccessible()->IndexInParent();
   nsTArray<AccessibleData> shownTree;
   ShowEventData data(parentID, idxInParent, shownTree, false);
@@ -105,6 +101,5 @@ DocAccessibleChildBase::ShowEvent(AccShowEvent* aShowEvent)
   MaybeSendShowEvent(data, aShowEvent->IsFromUserInput());
 }
 
-} // namespace a11y
-} // namespace mozilla
-
+}  // namespace a11y
+}  // namespace mozilla

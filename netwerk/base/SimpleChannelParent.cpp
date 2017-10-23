@@ -15,11 +15,11 @@ namespace net {
 NS_IMPL_ISUPPORTS(SimpleChannelParent, nsIParentChannel, nsIStreamListener)
 
 bool
-SimpleChannelParent::Init(const uint32_t &channelId)
+SimpleChannelParent::Init(const uint32_t& channelId)
 {
   nsCOMPtr<nsIChannel> channel;
   MOZ_ALWAYS_SUCCEEDS(
-    NS_LinkRedirectChannels(channelId, this, getter_AddRefs(channel)));
+      NS_LinkRedirectChannels(channelId, this, getter_AddRefs(channel)));
 
   return true;
 }
@@ -67,8 +67,7 @@ SimpleChannelParent::ActorDestroy(ActorDestroyReason aWhy)
 }
 
 NS_IMETHODIMP
-SimpleChannelParent::OnStartRequest(nsIRequest* aRequest,
-                                    nsISupports* aContext)
+SimpleChannelParent::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 {
   // We don't have a way to prevent nsBaseChannel from calling AsyncOpen on
   // the created nsSimpleChannel. We don't have anywhere to send the data in the
@@ -97,5 +96,5 @@ SimpleChannelParent::OnDataAvailable(nsIRequest* aRequest,
   MOZ_CRASH("Should never be called");
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

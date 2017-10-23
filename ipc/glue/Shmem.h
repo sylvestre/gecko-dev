@@ -55,7 +55,7 @@
 namespace mozilla {
 namespace layers {
 class ShadowLayerForwarder;
-} // namespace layers
+}  // namespace layers
 
 namespace ipc {
 
@@ -67,42 +67,37 @@ class Shmem final
   friend class mozilla::layers::ShadowLayerForwarder;
 #endif
 
-public:
+ public:
   typedef int32_t id_t;
   // Low-level wrapper around platform shmem primitives.
   typedef mozilla::ipc::SharedMemory SharedMemory;
   typedef SharedMemory::SharedMemoryType SharedMemoryType;
-  struct IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead {};
-
-  Shmem() :
-    mSegment(nullptr),
-    mData(nullptr),
-    mSize(0),
-    mId(0)
+  struct IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead
   {
-  }
+  };
 
-  Shmem(const Shmem& aOther) :
-    mSegment(aOther.mSegment),
-    mData(aOther.mData),
-    mSize(aOther.mSize),
-    mId(aOther.mId)
+  Shmem() : mSegment(nullptr), mData(nullptr), mSize(0), mId(0) {}
+
+  Shmem(const Shmem& aOther)
+      : mSegment(aOther.mSegment),
+        mData(aOther.mData),
+        mSize(aOther.mSize),
+        mId(aOther.mId)
   {
   }
 
 #if !defined(DEBUG)
   Shmem(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-        SharedMemory* aSegment, id_t aId) :
-    mSegment(aSegment),
-    mData(aSegment->memory()),
-    mSize(0),
-    mId(aId)
+        SharedMemory* aSegment,
+        id_t aId)
+      : mSegment(aSegment), mData(aSegment->memory()), mSize(0), mId(aId)
   {
     mSize = static_cast<size_t>(*PtrToSize(mSegment));
   }
 #else
   Shmem(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-        SharedMemory* aSegment, id_t aId);
+        SharedMemory* aSegment,
+        id_t aId);
 #endif
 
   ~Shmem()
@@ -121,31 +116,19 @@ public:
     return *this;
   }
 
-  bool operator==(const Shmem& aRhs) const
-  {
-    return mSegment == aRhs.mSegment;
-  }
+  bool operator==(const Shmem& aRhs) const { return mSegment == aRhs.mSegment; }
 
   // Returns whether this Shmem is writable by you, and thus whether you can
   // transfer writability to another actor.
-  bool
-  IsWritable() const
-  {
-    return mSegment != nullptr;
-  }
+  bool IsWritable() const { return mSegment != nullptr; }
 
   // Returns whether this Shmem is readable by you, and thus whether you can
   // transfer readability to another actor.
-  bool
-  IsReadable() const
-  {
-    return mSegment != nullptr;
-  }
+  bool IsReadable() const { return mSegment != nullptr; }
 
   // Return a pointer to the user-visible data segment.
   template<typename T>
-  T*
-  get() const
+  T* get() const
   {
     AssertInvariants();
     AssertAligned<T>();
@@ -158,8 +141,7 @@ public:
   // actually be larger because of page alignment and private data,
   // but this isn't exposed to clients.
   template<typename T>
-  size_t
-  Size() const
+  size_t Size() const
   {
     AssertInvariants();
     AssertAligned<T>();
@@ -168,18 +150,19 @@ public:
   }
 
   // These shouldn't be used directly, use the IPDL interface instead.
-  id_t Id(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead) const {
+  id_t Id(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead) const
+  {
     return mId;
   }
 
-  SharedMemory* Segment(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead) const {
+  SharedMemory* Segment(
+      IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead) const
+  {
     return mSegment;
   }
 
 #ifndef DEBUG
-  void RevokeRights(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead)
-  {
-  }
+  void RevokeRights(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead) {}
 #else
   void RevokeRights(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead);
 #endif
@@ -192,62 +175,57 @@ public:
     mId = 0;
   }
 
-  static already_AddRefed<Shmem::SharedMemory>
-  Alloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-        size_t aNBytes,
-        SharedMemoryType aType,
-        bool aUnsafe,
-        bool aProtect=false);
+  static already_AddRefed<Shmem::SharedMemory> Alloc(
+      IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
+      size_t aNBytes,
+      SharedMemoryType aType,
+      bool aUnsafe,
+      bool aProtect = false);
 
   // Prepare this to be shared with |aProcess|.  Return an IPC message
   // that contains enough information for the other process to map
   // this segment in OpenExisting() below.  Return a new message if
   // successful (owned by the caller), nullptr if not.
-  IPC::Message*
-  ShareTo(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-          base::ProcessId aTargetPid,
-          int32_t routingId);
+  IPC::Message* ShareTo(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
+                        base::ProcessId aTargetPid,
+                        int32_t routingId);
 
   // Stop sharing this with |aTargetPid|.  Return an IPC message that
   // contains enough information for the other process to unmap this
   // segment.  Return a new message if successful (owned by the
   // caller), nullptr if not.
-  IPC::Message*
-  UnshareFrom(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-              base::ProcessId aTargetPid,
-              int32_t routingId);
+  IPC::Message* UnshareFrom(
+      IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
+      base::ProcessId aTargetPid,
+      int32_t routingId);
 
   // Return a SharedMemory instance in this process using the
   // descriptor shared to us by the process that created the
   // underlying OS shmem resource.  The contents of the descriptor
   // depend on the type of SharedMemory that was passed to us.
-  static already_AddRefed<SharedMemory>
-  OpenExisting(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-               const IPC::Message& aDescriptor,
-               id_t* aId,
-               bool aProtect=false);
+  static already_AddRefed<SharedMemory> OpenExisting(
+      IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
+      const IPC::Message& aDescriptor,
+      id_t* aId,
+      bool aProtect = false);
 
-  static void
-  Dealloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-          SharedMemory* aSegment);
+  static void Dealloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
+                      SharedMemory* aSegment);
 
-private:
+ private:
   template<typename T>
   void AssertAligned() const
   {
-    if (0 != (mSize % sizeof(T)))
-      MOZ_CRASH("shmem is not T-aligned");
+    if (0 != (mSize % sizeof(T))) MOZ_CRASH("shmem is not T-aligned");
   }
 
 #if !defined(DEBUG)
-  void AssertInvariants() const
-  { }
+  void AssertInvariants() const {}
 
-  static uint32_t*
-  PtrToSize(SharedMemory* aSegment)
+  static uint32_t* PtrToSize(SharedMemory* aSegment)
   {
     char* endOfSegment =
-      reinterpret_cast<char*>(aSegment->memory()) + aSegment->Size();
+        reinterpret_cast<char*>(aSegment->memory()) + aSegment->Size();
     return reinterpret_cast<uint32_t*>(endOfSegment - sizeof(uint32_t));
   }
 
@@ -261,10 +239,8 @@ private:
   id_t mId;
 };
 
-
-} // namespace ipc
-} // namespace mozilla
-
+}  // namespace ipc
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -282,11 +258,12 @@ struct ParamTraits<mozilla::ipc::Shmem>
     WriteParam(aMsg, aParam.mId);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     paramType::id_t id;
-    if (!ReadParam(aMsg, aIter, &id))
-      return false;
+    if (!ReadParam(aMsg, aIter, &id)) return false;
     aResult->mId = id;
     return true;
   }
@@ -297,8 +274,6 @@ struct ParamTraits<mozilla::ipc::Shmem>
   }
 };
 
+}  // namespace IPC
 
-} // namespace IPC
-
-
-#endif // ifndef mozilla_ipc_Shmem_h
+#endif  // ifndef mozilla_ipc_Shmem_h

@@ -11,10 +11,7 @@
 namespace mozilla {
 namespace dom {
 
-MessagePortChild::MessagePortChild()
-  : mPort(nullptr)
-{
-}
+MessagePortChild::MessagePortChild() : mPort(nullptr) {}
 
 mozilla::ipc::IPCResult
 MessagePortChild::RecvStopSendingDataConfirmed()
@@ -52,5 +49,5 @@ MessagePortChild::ActorDestroy(ActorDestroyReason aWhy)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -28,7 +28,7 @@ const LPCWSTR kPropNameDocAccParent = L"MozDocAccessibleParent";
 
 class nsWinUtils
 {
-public:
+ public:
   /**
    * Return computed styles declaration for the given node.
    *
@@ -36,7 +36,7 @@ public:
    *       you operate on.
    */
   static already_AddRefed<nsIDOMCSSStyleDeclaration>
-    GetComputedStyleDeclaration(nsIContent* aContent);
+  GetComputedStyleDeclaration(nsIContent* aContent);
 
   /**
    * Start window emulation if presence of specific AT is detected.
@@ -78,10 +78,15 @@ public:
    *     HWND hwnd = nsWinUtils::CreateNativeWindow(..., &onCreate);
    *     // Doing further initialization work to hwnd on this line is too late!
    */
-  static HWND CreateNativeWindow(LPCWSTR aWindowClass, HWND aParentWnd,
-                                 int aX, int aY, int aWidth, int aHeight,
-                                 bool aIsActive,
-                                 NativeWindowCreateProc* aOnCreateProc = nullptr);
+  static HWND CreateNativeWindow(
+      LPCWSTR aWindowClass,
+      HWND aParentWnd,
+      int aX,
+      int aY,
+      int aWidth,
+      int aHeight,
+      bool aIsActive,
+      NativeWindowCreateProc* aOnCreateProc = nullptr);
 
   /**
    * Helper to show window.
@@ -93,14 +98,14 @@ public:
    */
   static void HideNativeWindow(HWND aWnd);
 
-private:
+ private:
   /**
    * Flag that indicates if window emulation is started.
    */
   static bool sWindowEmulationStarted;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

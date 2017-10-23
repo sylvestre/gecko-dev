@@ -18,24 +18,36 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGEllipseElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGEllipseElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGEllipseElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGEllipseElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::cx, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::cy, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::rx, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::ry, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGEllipseElement::sLengthInfo[4] = {
+    {&nsGkAtoms::cx,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::cy,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::rx,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::ry,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
 };
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGEllipseElement::SVGEllipseElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGEllipseElementBase(aNodeInfo)
+SVGEllipseElement::SVGEllipseElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGEllipseElementBase(aNodeInfo)
 {
 }
 
@@ -86,8 +98,8 @@ SVGEllipseElement::HasValidDimensions() const
 nsSVGElement::LengthAttributesInfo
 SVGEllipseElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 //----------------------------------------------------------------------
@@ -116,9 +128,11 @@ SVGEllipseElement::GetGeometryBounds(Rect* aBounds,
         if (aToNonScalingStrokeSpace->IsRectilinear()) {
           MOZ_ASSERT(!aToNonScalingStrokeSpace->IsSingular());
           Rect userBounds(x - rx, y - ry, 2 * rx, 2 * ry);
-          SVGContentUtils::RectilinearGetStrokeBounds(
-            userBounds, aToBoundsSpace, *aToNonScalingStrokeSpace,
-            aStrokeOptions.mLineWidth, aBounds);
+          SVGContentUtils::RectilinearGetStrokeBounds(userBounds,
+                                                      aToBoundsSpace,
+                                                      *aToNonScalingStrokeSpace,
+                                                      aStrokeOptions.mLineWidth,
+                                                      aBounds);
           return true;
         }
         return false;
@@ -149,5 +163,5 @@ SVGEllipseElement::BuildPath(PathBuilder* aBuilder)
   return aBuilder->Finish();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

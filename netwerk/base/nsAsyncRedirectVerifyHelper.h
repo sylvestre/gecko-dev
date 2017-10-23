@@ -30,24 +30,24 @@ class nsAsyncRedirectVerifyHelper final : public nsIRunnable,
                                           public nsINamed,
                                           public nsIAsyncVerifyRedirectCallback
 {
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSIRUNNABLE
-    NS_DECL_NSINAMED
-    NS_DECL_NSIASYNCVERIFYREDIRECTCALLBACK
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIRUNNABLE
+  NS_DECL_NSINAMED
+  NS_DECL_NSIASYNCVERIFYREDIRECTCALLBACK
 
-public:
-    nsAsyncRedirectVerifyHelper();
+ public:
+  nsAsyncRedirectVerifyHelper();
 
-    /*
+  /*
      * Calls AsyncOnChannelRedirect() on the given sink with the given
      * channels and flags. Keeps track of number of async callbacks to expect.
      */
-    nsresult DelegateOnChannelRedirect(nsIChannelEventSink *sink,
-                                       nsIChannel *oldChannel,
-                                       nsIChannel *newChannel,
-                                       uint32_t flags);
+  nsresult DelegateOnChannelRedirect(nsIChannelEventSink* sink,
+                                     nsIChannel* oldChannel,
+                                     nsIChannel* newChannel,
+                                     uint32_t flags);
 
-    /**
+  /**
      * Initialize and run the chain of AsyncOnChannelRedirect calls. OldChannel
      * is QI'ed for nsIAsyncVerifyRedirectCallback. The result of the redirect
      * decision is passed through this interface back to the oldChannel.
@@ -65,33 +65,33 @@ public:
      *    set to TRUE if you want the Init method wait synchronously for
      *    all redirect callbacks
      */
-    nsresult Init(nsIChannel* oldChan,
-                  nsIChannel* newChan,
-                  uint32_t flags,
-                  nsIEventTarget* mainThreadEventTarget,
-                  bool synchronize = false);
+  nsresult Init(nsIChannel* oldChan,
+                nsIChannel* newChan,
+                uint32_t flags,
+                nsIEventTarget* mainThreadEventTarget,
+                bool synchronize = false);
 
-protected:
-    nsCOMPtr<nsIChannel> mOldChan;
-    nsCOMPtr<nsIChannel> mNewChan;
-    uint32_t mFlags;
-    bool mWaitingForRedirectCallback;
-    nsCOMPtr<nsIEventTarget> mCallbackEventTarget;
-    bool                     mCallbackInitiated;
-    int32_t                  mExpectedCallbacks;
-    nsresult                 mResult; // value passed to callback
+ protected:
+  nsCOMPtr<nsIChannel> mOldChan;
+  nsCOMPtr<nsIChannel> mNewChan;
+  uint32_t mFlags;
+  bool mWaitingForRedirectCallback;
+  nsCOMPtr<nsIEventTarget> mCallbackEventTarget;
+  bool mCallbackInitiated;
+  int32_t mExpectedCallbacks;
+  nsresult mResult;  // value passed to callback
 
-    void InitCallback();
+  void InitCallback();
 
-    /**
+  /**
      * Calls back to |oldChan| as described in Init()
      */
-    void ExplicitCallback(nsresult result);
+  void ExplicitCallback(nsresult result);
 
-private:
-    ~nsAsyncRedirectVerifyHelper();
+ private:
+  ~nsAsyncRedirectVerifyHelper();
 
-    bool IsOldChannelCanceled();
+  bool IsOldChannelCanceled();
 };
 
 /*
@@ -99,36 +99,31 @@ private:
  */
 class nsAsyncRedirectAutoCallback
 {
-public:
-    explicit nsAsyncRedirectAutoCallback(nsIAsyncVerifyRedirectCallback* aCallback)
-        : mCallback(aCallback)
-    {
-        mResult = NS_OK;
-    }
-    ~nsAsyncRedirectAutoCallback()
-    {
-        if (mCallback)
-            mCallback->OnRedirectVerifyCallback(mResult);
-    }
-    /*
+ public:
+  explicit nsAsyncRedirectAutoCallback(
+      nsIAsyncVerifyRedirectCallback* aCallback)
+      : mCallback(aCallback)
+  {
+    mResult = NS_OK;
+  }
+  ~nsAsyncRedirectAutoCallback()
+  {
+    if (mCallback) mCallback->OnRedirectVerifyCallback(mResult);
+  }
+  /*
      * Call this is you want it to call back with a different result-code
      */
-    void SetResult(nsresult aRes)
-    {
-        mResult = aRes;
-    }
-    /*
+  void SetResult(nsresult aRes) { mResult = aRes; }
+  /*
      * Call this is you want to avoid the callback
      */
-    void DontCallback()
-    {
-        mCallback = nullptr;
-    }
-private:
-    nsIAsyncVerifyRedirectCallback* mCallback;
-    nsresult mResult;
+  void DontCallback() { mCallback = nullptr; }
+
+ private:
+  nsIAsyncVerifyRedirectCallback* mCallback;
+  nsresult mResult;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 #endif

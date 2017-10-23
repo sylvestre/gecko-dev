@@ -20,19 +20,18 @@ namespace dom {
  */
 class PromiseNativeHandler : public nsISupports
 {
-protected:
-  virtual ~PromiseNativeHandler()
-  { }
+ protected:
+  virtual ~PromiseNativeHandler() {}
 
-public:
-  virtual void
-  ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) = 0;
+ public:
+  virtual void ResolvedCallback(JSContext* aCx,
+                                JS::Handle<JS::Value> aValue) = 0;
 
-  virtual void
-  RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) = 0;
+  virtual void RejectedCallback(JSContext* aCx,
+                                JS::Handle<JS::Value> aValue) = 0;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PromiseNativeHandler_h
+#endif  // mozilla_dom_PromiseNativeHandler_h

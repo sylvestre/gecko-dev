@@ -36,33 +36,33 @@
 using namespace mozilla::services;
 using namespace mozilla::dom;
 
-#define PROXY_IF_SANDBOXED(_call)                 \
-  do {                                            \
-    if (InSandbox()) {                            \
-      if (!hal_sandbox::HalChildDestroyed()) {    \
-        hal_sandbox::_call;                       \
-      }                                           \
-    } else {                                      \
-      hal_impl::_call;                            \
-    }                                             \
+#define PROXY_IF_SANDBOXED(_call)              \
+  do {                                         \
+    if (InSandbox()) {                         \
+      if (!hal_sandbox::HalChildDestroyed()) { \
+        hal_sandbox::_call;                    \
+      }                                        \
+    } else {                                   \
+      hal_impl::_call;                         \
+    }                                          \
   } while (0)
 
-#define RETURN_PROXY_IF_SANDBOXED(_call, defValue)\
-  do {                                            \
-    if (InSandbox()) {                            \
-      if (hal_sandbox::HalChildDestroyed()) {     \
-        return defValue;                          \
-      }                                           \
-      return hal_sandbox::_call;                  \
-    } else {                                      \
-      return hal_impl::_call;                     \
-    }                                             \
+#define RETURN_PROXY_IF_SANDBOXED(_call, defValue) \
+  do {                                             \
+    if (InSandbox()) {                             \
+      if (hal_sandbox::HalChildDestroyed()) {      \
+        return defValue;                           \
+      }                                            \
+      return hal_sandbox::_call;                   \
+    } else {                                       \
+      return hal_impl::_call;                      \
+    }                                              \
   } while (0)
 
 namespace mozilla {
 namespace hal {
 
-mozilla::LogModule *
+mozilla::LogModule*
 GetHalLog()
 {
   static mozilla::LazyLogModule sHalLog("hal");
@@ -100,13 +100,14 @@ WindowIsActive(nsPIDOMWindowInner* aWindow)
 
 StaticAutoPtr<WindowIdentifier::IDArrayType> gLastIDToVibrate;
 
-void InitLastIDToVibrate()
+void
+InitLastIDToVibrate()
 {
   gLastIDToVibrate = new WindowIdentifier::IDArrayType();
   ClearOnShutdown(&gLastIDToVibrate);
 }
 
-} // namespace
+}  // namespace
 
 void
 Vibrate(const nsTArray<uint32_t>& pattern, nsPIDOMWindowInner* window)
@@ -115,7 +116,7 @@ Vibrate(const nsTArray<uint32_t>& pattern, nsPIDOMWindowInner* window)
 }
 
 void
-Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier &id)
+Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier& id)
 {
   AssertMainThread();
 
@@ -150,7 +151,7 @@ CancelVibrate(nsPIDOMWindowInner* window)
 }
 
 void
-CancelVibrate(const WindowIdentifier &id)
+CancelVibrate(const WindowIdentifier& id)
 {
   AssertMainThread();
 
@@ -179,11 +180,12 @@ CancelVibrate(const WindowIdentifier &id)
   }
 }
 
-template <class InfoType>
+template<class InfoType>
 class ObserversManager
 {
-public:
-  void AddObserver(Observer<InfoType>* aObserver) {
+ public:
+  void AddObserver(Observer<InfoType>* aObserver)
+  {
     if (!mObservers) {
       mObservers = new mozilla::ObserverList<InfoType>();
     }
@@ -195,7 +197,8 @@ public:
     }
   }
 
-  void RemoveObserver(Observer<InfoType>* aObserver) {
+  void RemoveObserver(Observer<InfoType>* aObserver)
+  {
     bool removed = mObservers && mObservers->RemoveObserver(aObserver);
     if (!removed) {
       return;
@@ -211,7 +214,8 @@ public:
     }
   }
 
-  void BroadcastInformation(const InfoType& aInfo) {
+  void BroadcastInformation(const InfoType& aInfo)
+  {
     // It is possible for mObservers to be nullptr here on some platforms,
     // because a call to BroadcastInformation gets queued up asynchronously
     // while RemoveObserver is running (and before the notifications are
@@ -223,20 +227,21 @@ public:
     mObservers->Broadcast(aInfo);
   }
 
-protected:
+ protected:
   virtual void EnableNotifications() = 0;
   virtual void DisableNotifications() = 0;
   virtual void OnNotificationsDisabled() {}
 
-private:
+ private:
   mozilla::ObserverList<InfoType>* mObservers;
 };
 
-template <class InfoType>
+template<class InfoType>
 class CachingObserversManager : public ObserversManager<InfoType>
 {
-public:
-  InfoType GetCurrentInformation() {
+ public:
+  InfoType GetCurrentInformation()
+  {
     if (mHasValidCache) {
       return mInfo;
     }
@@ -246,39 +251,40 @@ public:
     return mInfo;
   }
 
-  void CacheInformation(const InfoType& aInfo) {
+  void CacheInformation(const InfoType& aInfo)
+  {
     mHasValidCache = true;
     mInfo = aInfo;
   }
 
-  void BroadcastCachedInformation() {
-    this->BroadcastInformation(mInfo);
-  }
+  void BroadcastCachedInformation() { this->BroadcastInformation(mInfo); }
 
-protected:
+ protected:
   virtual void GetCurrentInformationInternal(InfoType*) = 0;
 
-  void OnNotificationsDisabled() override {
-    mHasValidCache = false;
-  }
+  void OnNotificationsDisabled() override { mHasValidCache = false; }
 
-private:
-  InfoType                mInfo;
-  bool                    mHasValidCache;
+ private:
+  InfoType mInfo;
+  bool mHasValidCache;
 };
 
-class BatteryObserversManager : public CachingObserversManager<BatteryInformation>
+class BatteryObserversManager
+    : public CachingObserversManager<BatteryInformation>
 {
-protected:
-  void EnableNotifications() override {
+ protected:
+  void EnableNotifications() override
+  {
     PROXY_IF_SANDBOXED(EnableBatteryNotifications());
   }
 
-  void DisableNotifications() override {
+  void DisableNotifications() override
+  {
     PROXY_IF_SANDBOXED(DisableBatteryNotifications());
   }
 
-  void GetCurrentInformationInternal(BatteryInformation* aInfo) override {
+  void GetCurrentInformationInternal(BatteryInformation* aInfo) override
+  {
     PROXY_IF_SANDBOXED(GetCurrentBatteryInformation(aInfo));
   }
 };
@@ -291,18 +297,22 @@ BatteryObservers()
   return sBatteryObservers;
 }
 
-class NetworkObserversManager : public CachingObserversManager<NetworkInformation>
+class NetworkObserversManager
+    : public CachingObserversManager<NetworkInformation>
 {
-protected:
-  void EnableNotifications() override {
+ protected:
+  void EnableNotifications() override
+  {
     PROXY_IF_SANDBOXED(EnableNetworkNotifications());
   }
 
-  void DisableNotifications() override {
+  void DisableNotifications() override
+  {
     PROXY_IF_SANDBOXED(DisableNetworkNotifications());
   }
 
-  void GetCurrentInformationInternal(NetworkInformation* aInfo) override {
+  void GetCurrentInformationInternal(NetworkInformation* aInfo) override
+  {
     PROXY_IF_SANDBOXED(GetCurrentNetworkInformation(aInfo));
   }
 };
@@ -317,12 +327,14 @@ NetworkObservers()
 
 class WakeLockObserversManager : public ObserversManager<WakeLockInformation>
 {
-protected:
-  void EnableNotifications() override {
+ protected:
+  void EnableNotifications() override
+  {
     PROXY_IF_SANDBOXED(EnableWakeLockNotifications());
   }
 
-  void DisableNotifications() override {
+  void DisableNotifications() override
+  {
     PROXY_IF_SANDBOXED(DisableWakeLockNotifications());
   }
 };
@@ -335,18 +347,22 @@ WakeLockObservers()
   return sWakeLockObservers;
 }
 
-class ScreenConfigurationObserversManager : public CachingObserversManager<ScreenConfiguration>
+class ScreenConfigurationObserversManager
+    : public CachingObserversManager<ScreenConfiguration>
 {
-protected:
-  void EnableNotifications() override {
+ protected:
+  void EnableNotifications() override
+  {
     PROXY_IF_SANDBOXED(EnableScreenConfigurationNotifications());
   }
 
-  void DisableNotifications() override {
+  void DisableNotifications() override
+  {
     PROXY_IF_SANDBOXED(DisableScreenConfigurationNotifications());
   }
 
-  void GetCurrentInformationInternal(ScreenConfiguration* aInfo) override {
+  void GetCurrentInformationInternal(ScreenConfiguration* aInfo) override
+  {
     PROXY_IF_SANDBOXED(GetCurrentScreenConfiguration(aInfo));
   }
 };
@@ -390,12 +406,14 @@ NotifyBatteryChange(const BatteryInformation& aInfo)
 
 class SystemClockChangeObserversManager : public ObserversManager<int64_t>
 {
-protected:
-  void EnableNotifications() override {
+ protected:
+  void EnableNotifications() override
+  {
     PROXY_IF_SANDBOXED(EnableSystemClockChangeNotifications());
   }
 
-  void DisableNotifications() override {
+  void DisableNotifications() override
+  {
     PROXY_IF_SANDBOXED(DisableSystemClockChangeNotifications());
   }
 };
@@ -428,14 +446,17 @@ NotifySystemClockChange(const int64_t& aClockDeltaMS)
   SystemClockChangeObservers().BroadcastInformation(aClockDeltaMS);
 }
 
-class SystemTimezoneChangeObserversManager : public ObserversManager<SystemTimezoneChangeInformation>
+class SystemTimezoneChangeObserversManager
+    : public ObserversManager<SystemTimezoneChangeInformation>
 {
-protected:
-  void EnableNotifications() override {
+ protected:
+  void EnableNotifications() override
+  {
     PROXY_IF_SANDBOXED(EnableSystemTimezoneChangeNotifications());
   }
 
-  void DisableNotifications() override {
+  void DisableNotifications() override
+  {
     PROXY_IF_SANDBOXED(DisableSystemTimezoneChangeNotifications());
   }
 };
@@ -462,10 +483,12 @@ UnregisterSystemTimezoneChangeObserver(SystemTimezoneChangeObserver* aObserver)
 }
 
 void
-NotifySystemTimezoneChange(const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
+NotifySystemTimezoneChange(
+    const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
 {
   nsJSUtils::ResetTimeZone();
-  SystemTimezoneChangeObservers().BroadcastInformation(aSystemTimezoneChangeInfo);
+  SystemTimezoneChangeObservers().BroadcastInformation(
+      aSystemTimezoneChangeInfo);
 }
 
 void
@@ -476,13 +499,15 @@ AdjustSystemClock(int64_t aDeltaMilliseconds)
 }
 
 void
-EnableSensorNotifications(SensorType aSensor) {
+EnableSensorNotifications(SensorType aSensor)
+{
   AssertMainThread();
   PROXY_IF_SANDBOXED(EnableSensorNotifications(aSensor));
 }
 
 void
-DisableSensorNotifications(SensorType aSensor) {
+DisableSensorNotifications(SensorType aSensor)
+{
   AssertMainThread();
   PROXY_IF_SANDBOXED(DisableSensorNotifications(aSensor));
 }
@@ -490,37 +515,40 @@ DisableSensorNotifications(SensorType aSensor) {
 typedef mozilla::ObserverList<SensorData> SensorObserverList;
 static SensorObserverList* gSensorObservers = nullptr;
 
-static SensorObserverList &
-GetSensorObservers(SensorType sensor_type) {
+static SensorObserverList&
+GetSensorObservers(SensorType sensor_type)
+{
   MOZ_ASSERT(sensor_type < NUM_SENSOR_TYPE);
 
-  if(!gSensorObservers) {
+  if (!gSensorObservers) {
     gSensorObservers = new SensorObserverList[NUM_SENSOR_TYPE];
   }
   return gSensorObservers[sensor_type];
 }
 
 void
-RegisterSensorObserver(SensorType aSensor, ISensorObserver *aObserver) {
-  SensorObserverList &observers = GetSensorObservers(aSensor);
+RegisterSensorObserver(SensorType aSensor, ISensorObserver* aObserver)
+{
+  SensorObserverList& observers = GetSensorObservers(aSensor);
 
   AssertMainThread();
 
   observers.AddObserver(aObserver);
-  if(observers.Length() == 1) {
+  if (observers.Length() == 1) {
     EnableSensorNotifications(aSensor);
   }
 }
 
 void
-UnregisterSensorObserver(SensorType aSensor, ISensorObserver *aObserver) {
+UnregisterSensorObserver(SensorType aSensor, ISensorObserver* aObserver)
+{
   AssertMainThread();
 
   if (!gSensorObservers) {
     return;
   }
 
-  SensorObserverList &observers = GetSensorObservers(aSensor);
+  SensorObserverList& observers = GetSensorObservers(aSensor);
   if (!observers.RemoveObserver(aObserver) || observers.Length() > 0) {
     return;
   }
@@ -532,13 +560,14 @@ UnregisterSensorObserver(SensorType aSensor, ISensorObserver *aObserver) {
       return;
     }
   }
-  delete [] gSensorObservers;
+  delete[] gSensorObservers;
   gSensorObservers = nullptr;
 }
 
 void
-NotifySensorChange(const SensorData &aSensorData) {
-  SensorObserverList &observers = GetSensorObservers(aSensorData.sensor());
+NotifySensorChange(const SensorData& aSensorData)
+{
+  SensorObserverList& observers = GetSensorObservers(aSensorData.sensor());
 
   AssertMainThread();
 
@@ -596,12 +625,12 @@ ModifyWakeLock(const nsAString& aTopic,
   AssertMainThread();
 
   if (aProcessID == CONTENT_PROCESS_ID_UNKNOWN) {
-    aProcessID = InSandbox() ? ContentChild::GetSingleton()->GetID() :
-                               CONTENT_PROCESS_ID_MAIN;
+    aProcessID = InSandbox() ? ContentChild::GetSingleton()->GetID()
+                             : CONTENT_PROCESS_ID_MAIN;
   }
 
-  PROXY_IF_SANDBOXED(ModifyWakeLock(aTopic, aLockAdjust,
-                                    aHiddenAdjust, aProcessID));
+  PROXY_IF_SANDBOXED(
+      ModifyWakeLock(aTopic, aLockAdjust, aHiddenAdjust, aProcessID));
 }
 
 void
@@ -636,7 +665,8 @@ void
 GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration)
 {
   AssertMainThread();
-  *aScreenConfiguration = ScreenConfigurationObservers().GetCurrentInformation();
+  *aScreenConfiguration =
+      ScreenConfigurationObservers().GetCurrentInformation();
 }
 
 void
@@ -661,23 +691,26 @@ UnlockScreenOrientation()
 }
 
 void
-EnableSwitchNotifications(SwitchDevice aDevice) {
+EnableSwitchNotifications(SwitchDevice aDevice)
+{
   AssertMainThread();
   PROXY_IF_SANDBOXED(EnableSwitchNotifications(aDevice));
 }
 
 void
-DisableSwitchNotifications(SwitchDevice aDevice) {
+DisableSwitchNotifications(SwitchDevice aDevice)
+{
   AssertMainThread();
   PROXY_IF_SANDBOXED(DisableSwitchNotifications(aDevice));
 }
 
 typedef mozilla::ObserverList<SwitchEvent> SwitchObserverList;
 
-static SwitchObserverList *sSwitchObserverLists = nullptr;
+static SwitchObserverList* sSwitchObserverLists = nullptr;
 
 static SwitchObserverList&
-GetSwitchObserverList(SwitchDevice aDevice) {
+GetSwitchObserverList(SwitchDevice aDevice)
+{
   MOZ_ASSERT(0 <= aDevice && aDevice < NUM_SWITCH_DEVICE);
   if (sSwitchObserverLists == nullptr) {
     sSwitchObserverLists = new SwitchObserverList[NUM_SWITCH_DEVICE];
@@ -686,19 +719,19 @@ GetSwitchObserverList(SwitchDevice aDevice) {
 }
 
 static void
-ReleaseObserversIfNeeded() {
+ReleaseObserversIfNeeded()
+{
   for (int i = 0; i < NUM_SWITCH_DEVICE; i++) {
-    if (sSwitchObserverLists[i].Length() != 0)
-      return;
+    if (sSwitchObserverLists[i].Length() != 0) return;
   }
 
   //The length of every list is 0, no observer in the list.
-  delete [] sSwitchObserverLists;
+  delete[] sSwitchObserverLists;
   sSwitchObserverLists = nullptr;
 }
 
 void
-RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver)
+RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver* aObserver)
 {
   AssertMainThread();
   SwitchObserverList& observer = GetSwitchObserverList(aDevice);
@@ -709,7 +742,7 @@ RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver)
 }
 
 void
-UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver)
+UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver* aObserver)
 {
   AssertMainThread();
 
@@ -731,8 +764,7 @@ NotifySwitchChange(const SwitchEvent& aEvent)
 {
   // When callback this notification, main thread may call unregister function
   // first. We should check if this pointer is valid.
-  if (!sSwitchObserverLists)
-    return;
+  if (!sSwitchObserverLists) return;
 
   SwitchObserverList& observer = GetSwitchObserverList(aEvent.device());
   observer.Broadcast(aEvent);
@@ -770,29 +802,29 @@ const char*
 ProcessPriorityToString(ProcessPriority aPriority)
 {
   switch (aPriority) {
-  case PROCESS_PRIORITY_MASTER:
-    return "MASTER";
-  case PROCESS_PRIORITY_PREALLOC:
-    return "PREALLOC";
-  case PROCESS_PRIORITY_FOREGROUND_HIGH:
-    return "FOREGROUND_HIGH";
-  case PROCESS_PRIORITY_FOREGROUND:
-    return "FOREGROUND";
-  case PROCESS_PRIORITY_FOREGROUND_KEYBOARD:
-    return "FOREGROUND_KEYBOARD";
-  case PROCESS_PRIORITY_BACKGROUND_PERCEIVABLE:
-    return "BACKGROUND_PERCEIVABLE";
-  case PROCESS_PRIORITY_BACKGROUND:
-    return "BACKGROUND";
-  case PROCESS_PRIORITY_UNKNOWN:
-    return "UNKNOWN";
-  default:
-    MOZ_ASSERT(false);
-    return "???";
+    case PROCESS_PRIORITY_MASTER:
+      return "MASTER";
+    case PROCESS_PRIORITY_PREALLOC:
+      return "PREALLOC";
+    case PROCESS_PRIORITY_FOREGROUND_HIGH:
+      return "FOREGROUND_HIGH";
+    case PROCESS_PRIORITY_FOREGROUND:
+      return "FOREGROUND";
+    case PROCESS_PRIORITY_FOREGROUND_KEYBOARD:
+      return "FOREGROUND_KEYBOARD";
+    case PROCESS_PRIORITY_BACKGROUND_PERCEIVABLE:
+      return "BACKGROUND_PERCEIVABLE";
+    case PROCESS_PRIORITY_BACKGROUND:
+      return "BACKGROUND";
+    case PROCESS_PRIORITY_UNKNOWN:
+      return "UNKNOWN";
+    default:
+      MOZ_ASSERT(false);
+      return "???";
   }
 }
 
-const char *
+const char*
 ThreadPriorityToString(ThreadPriority aPriority)
 {
   switch (aPriority) {
@@ -820,5 +852,5 @@ StopDiskSpaceWatcher()
   PROXY_IF_SANDBOXED(StopDiskSpaceWatcher());
 }
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla

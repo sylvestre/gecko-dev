@@ -18,13 +18,15 @@
 namespace mozilla {
 namespace dom {
 
-class U2FKeyHandles {
-public:
-  explicit U2FKeyHandles(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors)
+class U2FKeyHandles
+{
+ public:
+  explicit U2FKeyHandles(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors)
   {
     mKeyHandles = rust_u2f_khs_new();
 
-    for (auto desc: aDescriptors) {
+    for (auto desc : aDescriptors) {
       rust_u2f_khs_add(mKeyHandles, desc.id().Elements(), desc.id().Length());
     }
   }
@@ -33,16 +35,17 @@ public:
 
   ~U2FKeyHandles() { rust_u2f_khs_free(mKeyHandles); }
 
-private:
+ private:
   rust_u2f_key_handles* mKeyHandles;
 };
 
-class U2FResult {
-public:
+class U2FResult
+{
+ public:
   explicit U2FResult(uint64_t aTransactionId, rust_u2f_result* aResult)
-    : mTransactionId(aTransactionId)
-    , mResult(aResult)
-  { }
+      : mTransactionId(aTransactionId), mResult(aResult)
+  {
+  }
 
   ~U2FResult() { rust_u2f_res_free(mResult); }
 
@@ -63,8 +66,9 @@ public:
     return CopyBuffer(U2F_RESBUF_ID_SIGNATURE, aBuffer);
   }
 
-private:
-  bool CopyBuffer(uint8_t aResBufID, nsTArray<uint8_t>& aBuffer) {
+ private:
+  bool CopyBuffer(uint8_t aResBufID, nsTArray<uint8_t>& aBuffer)
+  {
     if (!mResult) {
       return false;
     }
@@ -87,30 +91,31 @@ private:
 
 class U2FHIDTokenManager final : public U2FTokenTransport
 {
-public:
+ public:
   explicit U2FHIDTokenManager();
 
-  virtual RefPtr<U2FRegisterPromise>
-  Register(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-           const nsTArray<uint8_t>& aApplication,
-           const nsTArray<uint8_t>& aChallenge,
-           uint32_t aTimeoutMS) override;
+  virtual RefPtr<U2FRegisterPromise> Register(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+      const nsTArray<uint8_t>& aApplication,
+      const nsTArray<uint8_t>& aChallenge,
+      uint32_t aTimeoutMS) override;
 
-  virtual RefPtr<U2FSignPromise>
-  Sign(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-       const nsTArray<uint8_t>& aApplication,
-       const nsTArray<uint8_t>& aChallenge,
-       uint32_t aTimeoutMS) override;
+  virtual RefPtr<U2FSignPromise> Sign(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+      const nsTArray<uint8_t>& aApplication,
+      const nsTArray<uint8_t>& aChallenge,
+      uint32_t aTimeoutMS) override;
 
   void Cancel() override;
 
   void HandleRegisterResult(UniquePtr<U2FResult>&& aResult);
   void HandleSignResult(UniquePtr<U2FResult>&& aResult);
 
-private:
+ private:
   ~U2FHIDTokenManager();
 
-  void ClearPromises() {
+  void ClearPromises()
+  {
     mRegisterPromise.RejectIfExists(NS_ERROR_DOM_UNKNOWN_ERR, __func__);
     mSignPromise.RejectIfExists(NS_ERROR_DOM_UNKNOWN_ERR, __func__);
   }
@@ -121,7 +126,7 @@ private:
   MozPromiseHolder<U2FSignPromise> mSignPromise;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2FHIDTokenManager_h
+#endif  // mozilla_dom_U2FHIDTokenManager_h

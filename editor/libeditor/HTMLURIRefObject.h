@@ -11,11 +11,13 @@
 #include "nsIURIRefObject.h"
 #include "nscore.h"
 
-#define NS_URI_REF_OBJECT_CID                          \
-{ /* {bdd79df6-1dd1-11b2-b29c-c3d63a58f1d2} */         \
-    0xbdd79df6, 0x1dd1, 0x11b2,                        \
-    { 0xb2, 0x9c, 0xc3, 0xd6, 0x3a, 0x58, 0xf1, 0xd2 } \
-}
+#define NS_URI_REF_OBJECT_CID                        \
+  { /* {bdd79df6-1dd1-11b2-b29c-c3d63a58f1d2} */     \
+    0xbdd79df6, 0x1dd1, 0x11b2,                      \
+    {                                                \
+      0xb2, 0x9c, 0xc3, 0xd6, 0x3a, 0x58, 0xf1, 0xd2 \
+    }                                                \
+  }
 
 class nsIDOMMozNamedAttrMap;
 class nsIDOMNode;
@@ -24,7 +26,7 @@ namespace mozilla {
 
 class HTMLURIRefObject final : public nsIURIRefObject
 {
-public:
+ public:
   HTMLURIRefObject();
 
   // Interfaces for addref and release and queryinterface
@@ -32,7 +34,7 @@ public:
 
   NS_DECL_NSIURIREFOBJECT
 
-protected:
+ protected:
   virtual ~HTMLURIRefObject();
 
   nsCOMPtr<nsIDOMNode> mNode;
@@ -41,8 +43,9 @@ protected:
   uint32_t mAttributeCnt;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-nsresult NS_NewHTMLURIRefObject(nsIURIRefObject** aResult, nsIDOMNode* aNode);
+nsresult
+NS_NewHTMLURIRefObject(nsIURIRefObject** aResult, nsIDOMNode* aNode);
 
-#endif // #ifndef HTMLURIRefObject_h
+#endif  // #ifndef HTMLURIRefObject_h

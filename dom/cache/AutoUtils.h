@@ -22,7 +22,7 @@ class ErrorResult;
 namespace ipc {
 class PBackgroundParent;
 class AutoIPCStream;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 
@@ -46,22 +46,29 @@ class StreamList;
 
 class MOZ_STACK_CLASS AutoChildOpArgs final
 {
-public:
+ public:
   typedef TypeUtils::BodyAction BodyAction;
   typedef TypeUtils::SchemeAction SchemeAction;
 
-  AutoChildOpArgs(TypeUtils* aTypeUtils, const CacheOpArgs& aOpArgs,
+  AutoChildOpArgs(TypeUtils* aTypeUtils,
+                  const CacheOpArgs& aOpArgs,
                   uint32_t aEntryCount);
   ~AutoChildOpArgs();
 
-  void Add(InternalRequest* aRequest, BodyAction aBodyAction,
-           SchemeAction aSchemeAction, ErrorResult& aRv);
-  void Add(JSContext* aCx, InternalRequest* aRequest, BodyAction aBodyAction,
-           SchemeAction aSchemeAction, Response& aResponse, ErrorResult& aRv);
+  void Add(InternalRequest* aRequest,
+           BodyAction aBodyAction,
+           SchemeAction aSchemeAction,
+           ErrorResult& aRv);
+  void Add(JSContext* aCx,
+           InternalRequest* aRequest,
+           BodyAction aBodyAction,
+           SchemeAction aSchemeAction,
+           Response& aResponse,
+           ErrorResult& aRv);
 
   const CacheOpArgs& SendAsOpArgs();
 
-private:
+ private:
   TypeUtils* mTypeUtils;
   CacheOpArgs mOpArgs;
   nsTArray<UniquePtr<mozilla::ipc::AutoIPCStream>> mStreamCleanupList;
@@ -70,7 +77,7 @@ private:
 
 class MOZ_STACK_CLASS AutoParentOpResult final
 {
-public:
+ public:
   AutoParentOpResult(mozilla::ipc::PBackgroundParent* aManager,
                      const CacheOpResult& aOpResult,
                      uint32_t aEntryCount);
@@ -82,12 +89,13 @@ public:
 
   const CacheOpResult& SendAsOpResult();
 
-private:
+ private:
   void SerializeResponseBody(const SavedResponse& aSavedResponse,
                              StreamList* aStreamList,
                              CacheResponse* aResponseOut);
 
-  void SerializeReadStream(const nsID& aId, StreamList* aStreamList,
+  void SerializeReadStream(const nsID& aId,
+                           StreamList* aStreamList,
                            CacheReadStream* aReadStreamOut);
 
   mozilla::ipc::PBackgroundParent* mManager;
@@ -97,8 +105,8 @@ private:
   bool mSent;
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_AutoUtils_h
+#endif  // mozilla_dom_cache_AutoUtils_h

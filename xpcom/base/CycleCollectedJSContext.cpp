@@ -53,13 +53,13 @@ using namespace mozilla::dom;
 namespace mozilla {
 
 CycleCollectedJSContext::CycleCollectedJSContext()
-  : mIsPrimaryContext(true)
-  , mRuntime(nullptr)
-  , mJSContext(nullptr)
-  , mDoingStableStates(false)
-  , mDisableMicroTaskCheckpoint(false)
-  , mMicroTaskLevel(0)
-  , mMicroTaskRecursionDepth(0)
+    : mIsPrimaryContext(true),
+      mRuntime(nullptr),
+      mJSContext(nullptr),
+      mDoingStableStates(false),
+      mDisableMicroTaskCheckpoint(false),
+      mMicroTaskLevel(0),
+      mMicroTaskRecursionDepth(0)
 {
   MOZ_COUNT_CTOR(CycleCollectedJSContext);
   nsCOMPtr<nsIThread> thread = do_GetCurrentThread();
@@ -131,9 +131,14 @@ CycleCollectedJSContext::InitializeCommon()
   JS::SetGetIncumbentGlobalCallback(mJSContext, GetIncumbentGlobalCallback);
 
   JS::SetEnqueuePromiseJobCallback(mJSContext, EnqueuePromiseJobCallback, this);
-  JS::SetPromiseRejectionTrackerCallback(mJSContext, PromiseRejectionTrackerCallback, this);
-  mUncaughtRejections.init(mJSContext, JS::GCVector<JSObject*, 0, js::SystemAllocPolicy>(js::SystemAllocPolicy()));
-  mConsumedRejections.init(mJSContext, JS::GCVector<JSObject*, 0, js::SystemAllocPolicy>(js::SystemAllocPolicy()));
+  JS::SetPromiseRejectionTrackerCallback(
+      mJSContext, PromiseRejectionTrackerCallback, this);
+  mUncaughtRejections.init(mJSContext,
+                           JS::GCVector<JSObject*, 0, js::SystemAllocPolicy>(
+                               js::SystemAllocPolicy()));
+  mConsumedRejections.init(mJSContext,
+                           JS::GCVector<JSObject*, 0, js::SystemAllocPolicy>(
+                               js::SystemAllocPolicy()));
 }
 
 nsresult
@@ -159,7 +164,8 @@ CycleCollectedJSContext::Initialize(JSRuntime* aParentRuntime,
 }
 
 nsresult
-CycleCollectedJSContext::InitializeNonPrimary(CycleCollectedJSContext* aPrimaryContext)
+CycleCollectedJSContext::InitializeNonPrimary(
+    CycleCollectedJSContext* aPrimaryContext)
 {
   MOZ_ASSERT(!mJSContext);
 
@@ -188,21 +194,19 @@ CycleCollectedJSContext::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
 
 class PromiseJobRunnable final : public Runnable
 {
-public:
+ public:
   PromiseJobRunnable(JS::HandleObject aCallback,
                      JS::HandleObject aAllocationSite,
                      nsIGlobalObject* aIncumbentGlobal)
-    : Runnable("PromiseJobRunnable")
-    , mCallback(
-        new PromiseJobCallback(aCallback, aAllocationSite, aIncumbentGlobal))
+      : Runnable("PromiseJobRunnable"),
+        mCallback(new PromiseJobCallback(
+            aCallback, aAllocationSite, aIncumbentGlobal))
   {
   }
 
-  virtual ~PromiseJobRunnable()
-  {
-  }
+  virtual ~PromiseJobRunnable() {}
 
-protected:
+ protected:
   NS_IMETHOD
   Run() override
   {
@@ -214,7 +218,7 @@ protected:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<PromiseJobCallback> mCallback;
 };
 
@@ -231,11 +235,12 @@ CycleCollectedJSContext::GetIncumbentGlobalCallback(JSContext* aCx)
 
 /* static */
 bool
-CycleCollectedJSContext::EnqueuePromiseJobCallback(JSContext* aCx,
-                                                   JS::HandleObject aJob,
-                                                   JS::HandleObject aAllocationSite,
-                                                   JS::HandleObject aIncumbentGlobal,
-                                                   void* aData)
+CycleCollectedJSContext::EnqueuePromiseJobCallback(
+    JSContext* aCx,
+    JS::HandleObject aJob,
+    JS::HandleObject aAllocationSite,
+    JS::HandleObject aIncumbentGlobal,
+    void* aData)
 {
   CycleCollectedJSContext* self = static_cast<CycleCollectedJSContext*>(aData);
   MOZ_ASSERT(aCx == self->Context());
@@ -245,21 +250,23 @@ CycleCollectedJSContext::EnqueuePromiseJobCallback(JSContext* aCx,
   if (aIncumbentGlobal) {
     global = xpc::NativeGlobal(aIncumbentGlobal);
   }
-  nsCOMPtr<nsIRunnable> runnable = new PromiseJobRunnable(aJob, aAllocationSite, global);
+  nsCOMPtr<nsIRunnable> runnable =
+      new PromiseJobRunnable(aJob, aAllocationSite, global);
   self->DispatchToMicroTask(runnable.forget());
   return true;
 }
 
 /* static */
 void
-CycleCollectedJSContext::PromiseRejectionTrackerCallback(JSContext* aCx,
-                                                         JS::HandleObject aPromise,
-                                                         PromiseRejectionHandlingState state,
-                                                         void* aData)
+CycleCollectedJSContext::PromiseRejectionTrackerCallback(
+    JSContext* aCx,
+    JS::HandleObject aPromise,
+    PromiseRejectionHandlingState state,
+    void* aData)
 {
 #ifdef DEBUG
   CycleCollectedJSContext* self = static_cast<CycleCollectedJSContext*>(aData);
-#endif // DEBUG
+#endif  // DEBUG
   MOZ_ASSERT(aCx == self->Context());
   MOZ_ASSERT(Get() == self);
 
@@ -325,8 +332,7 @@ CycleCollectedJSContext::ProcessMetastableStateQueue(uint32_t aRecursionDepth)
 
   nsTArray<RunInMetastableStateData> localQueue = Move(mMetastableStateEvents);
 
-  for (uint32_t i = 0; i < localQueue.Length(); ++i)
-  {
+  for (uint32_t i = 0; i < localQueue.Length(); ++i) {
     RunInMetastableStateData& data = localQueue[i];
     if (data.mRecursionDepth != aRecursionDepth) {
       continue;
@@ -396,14 +402,16 @@ CycleCollectedJSContext::RecursionDepth()
 }
 
 void
-CycleCollectedJSContext::RunInStableState(already_AddRefed<nsIRunnable>&& aRunnable)
+CycleCollectedJSContext::RunInStableState(
+    already_AddRefed<nsIRunnable>&& aRunnable)
 {
   MOZ_ASSERT(mJSContext);
   mStableStateEvents.AppendElement(Move(aRunnable));
 }
 
 void
-CycleCollectedJSContext::RunInMetastableState(already_AddRefed<nsIRunnable>&& aRunnable)
+CycleCollectedJSContext::RunInMetastableState(
+    already_AddRefed<nsIRunnable>&& aRunnable)
 {
   MOZ_ASSERT(mJSContext);
 
@@ -429,7 +437,8 @@ CycleCollectedJSContext::RunInMetastableState(already_AddRefed<nsIRunnable>&& aR
 }
 
 void
-CycleCollectedJSContext::DispatchToMicroTask(already_AddRefed<nsIRunnable> aRunnable)
+CycleCollectedJSContext::DispatchToMicroTask(
+    already_AddRefed<nsIRunnable> aRunnable)
 {
   RefPtr<nsIRunnable> runnable(aRunnable);
 
@@ -441,7 +450,7 @@ CycleCollectedJSContext::DispatchToMicroTask(already_AddRefed<nsIRunnable> aRunn
 
 class AsyncMutationHandler final : public mozilla::Runnable
 {
-public:
+ public:
   AsyncMutationHandler() : mozilla::Runnable("AsyncMutationHandler") {}
 
   NS_IMETHOD Run() override
@@ -484,7 +493,7 @@ CycleCollectedJSContext::PerformMicroTaskCheckPoint()
   std::queue<RefPtr<MicroTaskRunnable>> suppressed;
   while (!mPendingMicroTaskRunnables.empty()) {
     RefPtr<MicroTaskRunnable> runnable =
-      mPendingMicroTaskRunnables.front().forget();
+        mPendingMicroTaskRunnables.front().forget();
     mPendingMicroTaskRunnables.pop();
     if (runnable->Suppressed()) {
       suppressed.push(runnable);
@@ -502,9 +511,9 @@ CycleCollectedJSContext::PerformMicroTaskCheckPoint()
 
 void
 CycleCollectedJSContext::DispatchMicroTaskRunnable(
-  already_AddRefed<MicroTaskRunnable> aRunnable)
+    already_AddRefed<MicroTaskRunnable> aRunnable)
 {
   mPendingMicroTaskRunnables.push(aRunnable);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

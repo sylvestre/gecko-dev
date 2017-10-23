@@ -17,10 +17,9 @@
 namespace mozilla {
 namespace net {
 
-class nsUDPSocket final : public nsASocketHandler
-                        , public nsIUDPSocket
+class nsUDPSocket final : public nsASocketHandler, public nsIUDPSocket
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIUDPSOCKET
 
@@ -36,7 +35,7 @@ public:
 
   nsUDPSocket();
 
-private:
+ private:
   virtual ~nsUDPSocket();
 
   void OnMsgClose();
@@ -57,24 +56,24 @@ private:
 
   // lock protects access to mListener;
   // so mListener is not cleared while being used/locked.
-  Mutex                                mLock;
-  PRFileDesc                          *mFD;
-  NetAddr                              mAddr;
-  OriginAttributes                     mOriginAttributes;
-  nsCOMPtr<nsIUDPSocketListener>       mListener;
-  nsCOMPtr<nsIEventTarget>             mListenerTarget;
-  bool                                 mAttached;
-  RefPtr<nsSocketTransportService>     mSts;
+  Mutex mLock;
+  PRFileDesc* mFD;
+  NetAddr mAddr;
+  OriginAttributes mOriginAttributes;
+  nsCOMPtr<nsIUDPSocketListener> mListener;
+  nsCOMPtr<nsIEventTarget> mListenerTarget;
+  bool mAttached;
+  RefPtr<nsSocketTransportService> mSts;
 
-  uint64_t   mByteReadCount;
-  uint64_t   mByteWriteCount;
+  uint64_t mByteReadCount;
+  uint64_t mByteWriteCount;
 };
 
 //-----------------------------------------------------------------------------
 
 class nsUDPMessage : public nsIUDPMessage
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsUDPMessage)
   NS_DECL_NSIUDPMESSAGE
@@ -83,7 +82,7 @@ public:
                nsIOutputStream* aOutputStream,
                FallibleTArray<uint8_t>& aData);
 
-private:
+ private:
   virtual ~nsUDPMessage();
 
   NetAddr mAddr;
@@ -92,12 +91,11 @@ private:
   JS::Heap<JSObject*> mJsobj;
 };
 
-
 //-----------------------------------------------------------------------------
 
 class nsUDPOutputStream : public nsIOutputStream
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOUTPUTSTREAM
 
@@ -105,16 +103,16 @@ public:
                     PRFileDesc* aFD,
                     PRNetAddr& aPrClientAddr);
 
-private:
+ private:
   virtual ~nsUDPOutputStream();
 
-  RefPtr<nsUDPSocket>       mSocket;
-  PRFileDesc                  *mFD;
-  PRNetAddr                   mPrClientAddr;
-  bool                        mIsClosed;
+  RefPtr<nsUDPSocket> mSocket;
+  PRFileDesc* mFD;
+  PRNetAddr mPrClientAddr;
+  bool mIsClosed;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // nsUDPSocket_h__
+#endif  // nsUDPSocket_h__

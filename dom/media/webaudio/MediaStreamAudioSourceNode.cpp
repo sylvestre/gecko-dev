@@ -25,7 +25,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(MediaStreamAudioSourceNode)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mInputTrack)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END_INHERITED(AudioNode)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(MediaStreamAudioSourceNode, AudioNode)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(MediaStreamAudioSourceNode,
+                                                  AudioNode)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mInputStream)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mInputTrack)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -37,17 +38,16 @@ NS_IMPL_ADDREF_INHERITED(MediaStreamAudioSourceNode, AudioNode)
 NS_IMPL_RELEASE_INHERITED(MediaStreamAudioSourceNode, AudioNode)
 
 MediaStreamAudioSourceNode::MediaStreamAudioSourceNode(AudioContext* aContext)
-  : AudioNode(aContext,
-              2,
-              ChannelCountMode::Max,
-              ChannelInterpretation::Speakers)
+    : AudioNode(
+          aContext, 2, ChannelCountMode::Max, ChannelInterpretation::Speakers)
 {
 }
 
 /* static */ already_AddRefed<MediaStreamAudioSourceNode>
-MediaStreamAudioSourceNode::Create(AudioContext& aAudioContext,
-                                   const MediaStreamAudioSourceOptions& aOptions,
-                                   ErrorResult& aRv)
+MediaStreamAudioSourceNode::Create(
+    AudioContext& aAudioContext,
+    const MediaStreamAudioSourceOptions& aOptions,
+    ErrorResult& aRv)
 {
   if (aAudioContext.IsOffline()) {
     aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
@@ -59,7 +59,7 @@ MediaStreamAudioSourceNode::Create(AudioContext& aAudioContext,
   }
 
   RefPtr<MediaStreamAudioSourceNode> node =
-    new MediaStreamAudioSourceNode(&aAudioContext);
+      new MediaStreamAudioSourceNode(&aAudioContext);
 
   node->Init(aOptions.mMediaStream, aRv);
   if (aRv.Failed()) {
@@ -103,13 +103,11 @@ MediaStreamAudioSourceNode::Destroy()
   DetachFromTrack();
 }
 
-MediaStreamAudioSourceNode::~MediaStreamAudioSourceNode()
-{
-  Destroy();
-}
+MediaStreamAudioSourceNode::~MediaStreamAudioSourceNode() { Destroy(); }
 
 void
-MediaStreamAudioSourceNode::AttachToTrack(const RefPtr<MediaStreamTrack>& aTrack)
+MediaStreamAudioSourceNode::AttachToTrack(
+    const RefPtr<MediaStreamTrack>& aTrack)
 {
   MOZ_ASSERT(!mInputTrack);
   MOZ_ASSERT(aTrack->AsAudioStreamTrack());
@@ -120,9 +118,9 @@ MediaStreamAudioSourceNode::AttachToTrack(const RefPtr<MediaStreamTrack>& aTrack
 
   mInputTrack = aTrack;
   ProcessedMediaStream* outputStream =
-    static_cast<ProcessedMediaStream*>(mStream.get());
+      static_cast<ProcessedMediaStream*>(mStream.get());
   mInputPort = mInputTrack->ForwardTrackContentsTo(outputStream);
-  PrincipalChanged(mInputTrack); // trigger enabling/disabling of the connector
+  PrincipalChanged(mInputTrack);  // trigger enabling/disabling of the connector
   mInputTrack->AddPrincipalChangeObserver(this);
 }
 
@@ -140,7 +138,8 @@ MediaStreamAudioSourceNode::DetachFromTrack()
 }
 
 void
-MediaStreamAudioSourceNode::AttachToFirstTrack(const RefPtr<DOMMediaStream>& aMediaStream)
+MediaStreamAudioSourceNode::AttachToFirstTrack(
+    const RefPtr<DOMMediaStream>& aMediaStream)
 {
   nsTArray<RefPtr<AudioStreamTrack>> tracks;
   aMediaStream->GetAudioTracks(tracks);
@@ -160,7 +159,8 @@ MediaStreamAudioSourceNode::AttachToFirstTrack(const RefPtr<DOMMediaStream>& aMe
 }
 
 void
-MediaStreamAudioSourceNode::NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTrack)
+MediaStreamAudioSourceNode::NotifyTrackAdded(
+    const RefPtr<MediaStreamTrack>& aTrack)
 {
   if (mInputTrack) {
     return;
@@ -174,7 +174,8 @@ MediaStreamAudioSourceNode::NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTr
 }
 
 void
-MediaStreamAudioSourceNode::NotifyTrackRemoved(const RefPtr<MediaStreamTrack>& aTrack)
+MediaStreamAudioSourceNode::NotifyTrackRemoved(
+    const RefPtr<MediaStreamTrack>& aTrack)
 {
   if (aTrack != mInputTrack) {
     return;
@@ -199,7 +200,8 @@ MediaStreamAudioSourceNode::NotifyTrackRemoved(const RefPtr<MediaStreamTrack>& a
  * change is changing to be the document principal.
  */
 void
-MediaStreamAudioSourceNode::PrincipalChanged(MediaStreamTrack* aMediaStreamTrack)
+MediaStreamAudioSourceNode::PrincipalChanged(
+    MediaStreamTrack* aMediaStreamTrack)
 {
   MOZ_ASSERT(aMediaStreamTrack == mInputTrack);
 
@@ -210,7 +212,8 @@ MediaStreamAudioSourceNode::PrincipalChanged(MediaStreamTrack* aMediaStreamTrack
     if (doc) {
       nsIPrincipal* docPrincipal = doc->NodePrincipal();
       nsIPrincipal* trackPrincipal = aMediaStreamTrack->GetPrincipal();
-      if (!trackPrincipal || NS_FAILED(docPrincipal->Subsumes(trackPrincipal, &subsumes))) {
+      if (!trackPrincipal ||
+          NS_FAILED(docPrincipal->Subsumes(trackPrincipal, &subsumes))) {
         subsumes = false;
       }
     }
@@ -229,7 +232,8 @@ MediaStreamAudioSourceNode::PrincipalChanged(MediaStreamTrack* aMediaStreamTrack
 }
 
 size_t
-MediaStreamAudioSourceNode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
+MediaStreamAudioSourceNode::SizeOfExcludingThis(
+    MallocSizeOf aMallocSizeOf) const
 {
   // Future:
   // - mInputStream
@@ -241,7 +245,8 @@ MediaStreamAudioSourceNode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) cons
 }
 
 size_t
-MediaStreamAudioSourceNode::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+MediaStreamAudioSourceNode::SizeOfIncludingThis(
+    MallocSizeOf aMallocSizeOf) const
 {
   return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
 }
@@ -257,10 +262,11 @@ MediaStreamAudioSourceNode::DestroyMediaStream()
 }
 
 JSObject*
-MediaStreamAudioSourceNode::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+MediaStreamAudioSourceNode::WrapObject(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto)
 {
   return MediaStreamAudioSourceNodeBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

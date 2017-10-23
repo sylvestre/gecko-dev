@@ -19,36 +19,37 @@
 #include "webrtc/modules/video_capture/video_capture_defines.h"
 
 namespace webrtc {
-  using CaptureCapability = VideoCaptureCapability;
+using CaptureCapability = VideoCaptureCapability;
 }
 
 namespace mozilla {
 
 class MediaEngineCameraVideoSource : public MediaEngineVideoSource
 {
-public:
+ public:
   // Some subclasses use an index to track multiple instances.
-  explicit MediaEngineCameraVideoSource(int aIndex,
-                                        const char* aMonitorName = "Camera.Monitor")
-    : MediaEngineVideoSource(kReleased)
-    , mMonitor(aMonitorName)
-    , mWidth(0)
-    , mHeight(0)
-    , mInitDone(false)
-    , mCaptureIndex(aIndex)
-    , mTrackID(0)
-  {}
+  explicit MediaEngineCameraVideoSource(
+      int aIndex, const char* aMonitorName = "Camera.Monitor")
+      : MediaEngineVideoSource(kReleased),
+        mMonitor(aMonitorName),
+        mWidth(0),
+        mHeight(0),
+        mInitDone(false),
+        mCaptureIndex(aIndex),
+        mTrackID(0)
+  {
+  }
 
-  explicit MediaEngineCameraVideoSource(const char* aMonitorName = "Camera.Monitor")
-    : MediaEngineCameraVideoSource(0, aMonitorName) {}
+  explicit MediaEngineCameraVideoSource(
+      const char* aMonitorName = "Camera.Monitor")
+      : MediaEngineCameraVideoSource(0, aMonitorName)
+  {
+  }
 
   void GetName(nsAString& aName) const override;
   void GetUUID(nsACString& aUUID) const override;
 
-  bool IsFake() override
-  {
-    return false;
-  }
+  bool IsFake() override { return false; }
 
   nsresult TakePhoto(MediaEnginePhotoCallback* aCallback) override
   {
@@ -68,10 +69,13 @@ public:
     mImageContainer = nullptr;
   }
 
-protected:
-  struct CapabilityCandidate {
+ protected:
+  struct CapabilityCandidate
+  {
     explicit CapabilityCandidate(uint8_t index, uint32_t distance = 0)
-    : mIndex(index), mDistance(distance) {}
+        : mIndex(index), mDistance(distance)
+    {
+    }
 
     size_t mIndex;
     uint32_t mDistance;
@@ -87,21 +91,22 @@ protected:
                              StreamTime delta,
                              const PrincipalHandle& aPrincipalHandle);
   uint32_t GetFitnessDistance(const webrtc::CaptureCapability& aCandidate,
-                              const NormalizedConstraintSet &aConstraints,
+                              const NormalizedConstraintSet& aConstraints,
                               const nsString& aDeviceId) const;
   static void TrimLessFitCandidates(CapabilitySet& set);
   static void LogConstraints(const NormalizedConstraintSet& aConstraints);
   static void LogCapability(const char* aHeader,
-                            const webrtc::CaptureCapability &aCapability,
+                            const webrtc::CaptureCapability& aCapability,
                             uint32_t aDistance);
   virtual size_t NumCapabilities() const;
-  virtual void GetCapability(size_t aIndex, webrtc::CaptureCapability& aOut) const;
-  virtual bool ChooseCapability(const NormalizedConstraints &aConstraints,
-                                const MediaEnginePrefs &aPrefs,
+  virtual void GetCapability(size_t aIndex,
+                             webrtc::CaptureCapability& aOut) const;
+  virtual bool ChooseCapability(const NormalizedConstraints& aConstraints,
+                                const MediaEnginePrefs& aPrefs,
                                 const nsString& aDeviceId);
   void SetName(nsString aName);
   void SetUUID(const char* aUUID);
-  const nsCString& GetUUID() const; // protected access
+  const nsCString& GetUUID() const;  // protected access
 
   // Engine variables.
 
@@ -112,9 +117,10 @@ protected:
   // mSources[] and mPrincipalHandles[] are accessed from webrtc threads.
 
   // All the mMonitor accesses are from the child classes.
-  Monitor mMonitor; // Monitor for processing Camera frames.
-  nsTArray<RefPtr<SourceMediaStream>> mSources; // When this goes empty, we shut down HW
-  nsTArray<PrincipalHandle> mPrincipalHandles; // Directly mapped to mSources.
+  Monitor mMonitor;  // Monitor for processing Camera frames.
+  nsTArray<RefPtr<SourceMediaStream>>
+      mSources;  // When this goes empty, we shut down HW
+  nsTArray<PrincipalHandle> mPrincipalHandles;  // Directly mapped to mSources.
   RefPtr<layers::Image> mImage;
   RefPtr<layers::ImageContainer> mImageContainer;
   // end of data protected by mMonitor
@@ -127,13 +133,13 @@ protected:
   webrtc::CaptureCapability mCapability;
 
   mutable nsTArray<webrtc::CaptureCapability> mHardcodedCapabilities;
-private:
+
+ private:
   nsString mDeviceName;
   nsCString mUniqueId;
   nsString mFacingMode;
 };
 
+}  // namespace mozilla
 
-} // namespace mozilla
-
-#endif // MediaEngineCameraVideoSource_h
+#endif  // MediaEngineCameraVideoSource_h

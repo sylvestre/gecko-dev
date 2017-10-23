@@ -10,14 +10,16 @@
 #include "ThreadInfo.h"
 
 // Make sure we can initialize our thread profile
-TEST(ThreadProfile, Initialization) {
+TEST(ThreadProfile, Initialization)
+{
   int tid = 1000;
   ThreadInfo info("testThread", tid, true, nullptr);
   info.StartProfiling();
 }
 
 // Make sure we can record one entry and read it
-TEST(ThreadProfile, InsertOneEntry) {
+TEST(ThreadProfile, InsertOneEntry)
+{
   int tid = 1000;
   ThreadInfo info("testThread", tid, true, nullptr);
   auto pb = MakeUnique<ProfileBuffer>(10);
@@ -28,7 +30,8 @@ TEST(ThreadProfile, InsertOneEntry) {
 }
 
 // See if we can insert some entries
-TEST(ThreadProfile, InsertEntriesNoWrap) {
+TEST(ThreadProfile, InsertEntriesNoWrap)
+{
   int tid = 1000;
   ThreadInfo info("testThread", tid, true, nullptr);
   auto pb = MakeUnique<ProfileBuffer>(100);
@@ -46,7 +49,8 @@ TEST(ThreadProfile, InsertEntriesNoWrap) {
 }
 
 // See if wrapping works as it should in the basic case
-TEST(ThreadProfile, InsertEntriesWrap) {
+TEST(ThreadProfile, InsertEntriesWrap)
+{
   int tid = 1000;
   // we can fit only 24 entries in this buffer because of the empty slot
   int entries = 24;
@@ -68,4 +72,3 @@ TEST(ThreadProfile, InsertEntriesWrap) {
     readPos = (readPos + 1) % pb->mEntrySize;
   }
 }
-

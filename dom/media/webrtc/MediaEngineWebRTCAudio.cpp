@@ -21,14 +21,14 @@
 #define ENCODING "L16"
 #define DEFAULT_PORT 5555
 
-#define SAMPLE_RATE(freq) ((freq)*2*8) // bps, 16-bit samples
-#define SAMPLE_LENGTH(freq) (((freq)*10)/1000)
+#define SAMPLE_RATE(freq) ((freq)*2 * 8)  // bps, 16-bit samples
+#define SAMPLE_LENGTH(freq) (((freq)*10) / 1000)
 
 // These are restrictions from the webrtc.org code
 #define MAX_CHANNELS 2
-#define MAX_SAMPLING_FREQ 48000 // Hz - multiple of 100
+#define MAX_SAMPLING_FREQ 48000  // Hz - multiple of 100
 
-#define MAX_AEC_FIFO_DEPTH 200 // ms - multiple of 10
+#define MAX_AEC_FIFO_DEPTH 200  // ms - multiple of 10
 static_assert(!(MAX_AEC_FIFO_DEPTH % 10), "Invalid MAX_AEC_FIFO_DEPTH");
 
 namespace mozilla {
@@ -37,11 +37,15 @@ namespace mozilla {
 #undef LOG
 #endif
 
-extern LogModule* GetMediaManagerLog();
+extern LogModule*
+GetMediaManagerLog();
 #define LOG(msg) MOZ_LOG(GetMediaManagerLog(), mozilla::LogLevel::Debug, msg)
-#define LOG_FRAMES(msg) MOZ_LOG(GetMediaManagerLog(), mozilla::LogLevel::Verbose, msg)
+#define LOG_FRAMES(msg) \
+  MOZ_LOG(GetMediaManagerLog(), mozilla::LogLevel::Verbose, msg)
 
-LogModule* AudioLogModule() {
+LogModule*
+AudioLogModule()
+{
   static mozilla::LazyLogModule log("AudioLatency");
   return static_cast<LogModule*>(log);
 }
@@ -53,21 +57,25 @@ NS_IMPL_ISUPPORTS0(MediaEngineWebRTCMicrophoneSource)
 NS_IMPL_ISUPPORTS0(MediaEngineWebRTCAudioCaptureSource)
 
 int MediaEngineWebRTCMicrophoneSource::sChannelsOpen = 0;
-ScopedCustomReleasePtr<webrtc::VoEBase> MediaEngineWebRTCMicrophoneSource::mVoEBase;
-ScopedCustomReleasePtr<webrtc::VoEExternalMedia> MediaEngineWebRTCMicrophoneSource::mVoERender;
-ScopedCustomReleasePtr<webrtc::VoENetwork> MediaEngineWebRTCMicrophoneSource::mVoENetwork;
-ScopedCustomReleasePtr<webrtc::VoEAudioProcessing> MediaEngineWebRTCMicrophoneSource::mVoEProcessing;
+ScopedCustomReleasePtr<webrtc::VoEBase>
+    MediaEngineWebRTCMicrophoneSource::mVoEBase;
+ScopedCustomReleasePtr<webrtc::VoEExternalMedia>
+    MediaEngineWebRTCMicrophoneSource::mVoERender;
+ScopedCustomReleasePtr<webrtc::VoENetwork>
+    MediaEngineWebRTCMicrophoneSource::mVoENetwork;
+ScopedCustomReleasePtr<webrtc::VoEAudioProcessing>
+    MediaEngineWebRTCMicrophoneSource::mVoEProcessing;
 
 AudioOutputObserver::AudioOutputObserver()
-  : mPlayoutFreq(0)
-  , mPlayoutChannels(0)
-  , mChunkSize(0)
-  , mSaved(nullptr)
-  , mSamplesSaved(0)
-  , mDownmixBuffer(MAX_SAMPLING_FREQ * MAX_CHANNELS / 100)
+    : mPlayoutFreq(0),
+      mPlayoutChannels(0),
+      mChunkSize(0),
+      mSaved(nullptr),
+      mSamplesSaved(0),
+      mDownmixBuffer(MAX_SAMPLING_FREQ * MAX_CHANNELS / 100)
 {
   // Buffers of 10ms chunks
-  mPlayoutFifo = new webrtc::SingleRwFifo(MAX_AEC_FIFO_DEPTH/10);
+  mPlayoutFifo = new webrtc::SingleRwFifo(MAX_AEC_FIFO_DEPTH / 10);
 }
 
 AudioOutputObserver::~AudioOutputObserver()
@@ -86,10 +94,10 @@ AudioOutputObserver::Clear()
   // we'd like to touch mSaved here, but we can't if we might still be getting callbacks
 }
 
-FarEndAudioChunk *
+FarEndAudioChunk*
 AudioOutputObserver::Pop()
 {
-  return (FarEndAudioChunk *) mPlayoutFifo->Pop();
+  return (FarEndAudioChunk*)mPlayoutFifo->Pop();
 }
 
 uint32_t
@@ -100,8 +108,11 @@ AudioOutputObserver::Size()
 
 // static
 void
-AudioOutputObserver::InsertFarEnd(const AudioDataValue *aBuffer, uint32_t aFrames, bool aOverran,
-                                  int aFreq, int aChannels)
+AudioOutputObserver::InsertFarEnd(const AudioDataValue* aBuffer,
+                                  uint32_t aFrames,
+                                  bool aOverran,
+                                  int aFreq,
+                                  int aChannels)
 {
   // Prepare for downmix if needed
   int channels = aChannels;
@@ -123,13 +134,14 @@ AudioOutputObserver::InsertFarEnd(const AudioDataValue *aBuffer, uint32_t aFrame
     }
   } else {
     MOZ_ASSERT(aFreq <= MAX_SAMPLING_FREQ);
-    MOZ_ASSERT(!(aFreq % 100), "Sampling rate for far end data should be multiple of 100.");
+    MOZ_ASSERT(!(aFreq % 100),
+               "Sampling rate for far end data should be multiple of 100.");
     mPlayoutFreq = aFreq;
-    mChunkSize = aFreq/100; // 10ms
+    mChunkSize = aFreq / 100;  // 10ms
   }
 
 #ifdef LOG_FAREND_INSERTION
-  static FILE *fp = fopen("insertfarend.pcm","wb");
+  static FILE* fp = fopen("insertfarend.pcm", "wb");
 #endif
 
   if (mSaved) {
@@ -142,8 +154,9 @@ AudioOutputObserver::InsertFarEnd(const AudioDataValue *aBuffer, uint32_t aFrame
   // samples per call.  Annoying...
   while (aFrames) {
     if (!mSaved) {
-      mSaved = (FarEndAudioChunk *) moz_xmalloc(sizeof(FarEndAudioChunk) +
-                                                (mChunkSize * channels - 1)*sizeof(int16_t));
+      mSaved = (FarEndAudioChunk*)moz_xmalloc(sizeof(FarEndAudioChunk) +
+                                              (mChunkSize * channels - 1) *
+                                                  sizeof(int16_t));
       mSaved->mSamples = mChunkSize;
       mSaved->mOverrun = aOverran;
       aOverran = false;
@@ -155,7 +168,8 @@ AudioOutputObserver::InsertFarEnd(const AudioDataValue *aBuffer, uint32_t aFrame
 
     int16_t* dest = &(mSaved->mData[mSamplesSaved * channels]);
     if (aChannels > MAX_CHANNELS) {
-      AudioConverter converter(AudioConfig(aChannels, 0), AudioConfig(channels, 0));
+      AudioConverter converter(AudioConfig(aChannels, 0),
+                               AudioConfig(channels, 0));
       converter.Process(mDownmixBuffer, aBuffer, to_copy);
       ConvertAudioSamples(mDownmixBuffer.Data(), dest, to_copy * channels);
     } else {
@@ -164,7 +178,10 @@ AudioOutputObserver::InsertFarEnd(const AudioDataValue *aBuffer, uint32_t aFrame
 
 #ifdef LOG_FAREND_INSERTION
     if (fp) {
-      fwrite(&(mSaved->mData[mSamplesSaved * aChannels]), to_copy * aChannels, sizeof(int16_t), fp);
+      fwrite(&(mSaved->mData[mSamplesSaved * aChannels]),
+             to_copy * aChannels,
+             sizeof(int16_t),
+             fp);
     }
 #endif
     aFrames -= to_copy;
@@ -178,7 +195,7 @@ AudioOutputObserver::InsertFarEnd(const AudioDataValue *aBuffer, uint32_t aFrame
         // thread safety issues.
         break;
       } else {
-        mPlayoutFifo->Push((int8_t *) mSaved); // takes ownership
+        mPlayoutFifo->Push((int8_t*)mSaved);  // takes ownership
         mSaved = nullptr;
         mSamplesSaved = 0;
       }
@@ -194,23 +211,23 @@ MediaEngineWebRTCMicrophoneSource::MediaEngineWebRTCMicrophoneSource(
     const char* uuid,
     bool aDelayAgnostic,
     bool aExtendedFilter)
-  : MediaEngineAudioSource(kReleased)
-  , mVoiceEngine(aVoiceEnginePtr)
-  , mAudioInput(aAudioInput)
-  , mMonitor("WebRTCMic.Monitor")
-  , mCapIndex(aIndex)
-  , mChannel(-1)
-  , mDelayAgnostic(aDelayAgnostic)
-  , mExtendedFilter(aExtendedFilter)
-  , mTrackID(TRACK_NONE)
-  , mStarted(false)
-  , mSampleFrequency(MediaEngine::DEFAULT_SAMPLE_RATE)
-  , mTotalFrames(0)
-  , mLastLogFrames(0)
-  , mPlayoutDelay(0)
-  , mNullTransport(nullptr)
-  , mSkipProcessing(false)
-  , mInputDownmixBuffer(MAX_SAMPLING_FREQ * MAX_CHANNELS / 100)
+    : MediaEngineAudioSource(kReleased),
+      mVoiceEngine(aVoiceEnginePtr),
+      mAudioInput(aAudioInput),
+      mMonitor("WebRTCMic.Monitor"),
+      mCapIndex(aIndex),
+      mChannel(-1),
+      mDelayAgnostic(aDelayAgnostic),
+      mExtendedFilter(aExtendedFilter),
+      mTrackID(TRACK_NONE),
+      mStarted(false),
+      mSampleFrequency(MediaEngine::DEFAULT_SAMPLE_RATE),
+      mTotalFrames(0),
+      mLastLogFrames(0),
+      mPlayoutDelay(0),
+      mNullTransport(nullptr),
+      mSkipProcessing(false),
+      mInputDownmixBuffer(MAX_SAMPLING_FREQ * MAX_CHANNELS / 100)
 {
   MOZ_ASSERT(aVoiceEnginePtr);
   MOZ_ASSERT(aAudioInput);
@@ -244,7 +261,8 @@ MediaEngineWebRTCMicrophoneSource::GetUUID(nsACString& aUUID) const
 // Infinity = UINT32_MAX e.g. device cannot satisfy accumulated ConstraintSets.
 // A finite result may be used to calculate this device's ranking as a choice.
 
-uint32_t MediaEngineWebRTCMicrophoneSource::GetBestFitnessDistance(
+uint32_t
+MediaEngineWebRTCMicrophoneSource::GetBestFitnessDistance(
     const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
     const nsString& aDeviceId) const
 {
@@ -252,26 +270,28 @@ uint32_t MediaEngineWebRTCMicrophoneSource::GetBestFitnessDistance(
 
   for (const auto* cs : aConstraintSets) {
     distance = GetMinimumFitnessDistance(*cs, aDeviceId);
-    break; // distance is read from first entry only
+    break;  // distance is read from first entry only
   }
   return distance;
 }
 
 nsresult
-MediaEngineWebRTCMicrophoneSource::Restart(AllocationHandle* aHandle,
-                                           const dom::MediaTrackConstraints& aConstraints,
-                                           const MediaEnginePrefs &aPrefs,
-                                           const nsString& aDeviceId,
-                                           const char** aOutBadConstraint)
+MediaEngineWebRTCMicrophoneSource::Restart(
+    AllocationHandle* aHandle,
+    const dom::MediaTrackConstraints& aConstraints,
+    const MediaEnginePrefs& aPrefs,
+    const nsString& aDeviceId,
+    const char** aOutBadConstraint)
 {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aHandle);
   NormalizedConstraints constraints(aConstraints);
-  return ReevaluateAllocation(aHandle, &constraints, aPrefs, aDeviceId,
-                              aOutBadConstraint);
+  return ReevaluateAllocation(
+      aHandle, &constraints, aPrefs, aDeviceId, aOutBadConstraint);
 }
 
-bool operator == (const MediaEnginePrefs& a, const MediaEnginePrefs& b)
+bool
+operator==(const MediaEnginePrefs& a, const MediaEnginePrefs& b)
 {
   return !memcmp(&a, &b, sizeof(MediaEnginePrefs));
 };
@@ -304,17 +324,18 @@ MediaEngineWebRTCMicrophoneSource::UpdateSingleSource(
   if (prefs.mChannels <= 0) {
     prefs.mChannels = static_cast<int32_t>(maxChannels);
   }
-  prefs.mChannels = c.mChannelCount.Get(std::min(prefs.mChannels,
-                                        static_cast<int32_t>(maxChannels)));
+  prefs.mChannels = c.mChannelCount.Get(
+      std::min(prefs.mChannels, static_cast<int32_t>(maxChannels)));
   // Clamp channelCount to a valid value
-  prefs.mChannels = std::max(1, std::min(prefs.mChannels, static_cast<int32_t>(maxChannels)));
+  prefs.mChannels =
+      std::max(1, std::min(prefs.mChannels, static_cast<int32_t>(maxChannels)));
 
   LOG(("Audio config: aec: %d, agc: %d, noise: %d, delay: %d, channels: %d",
-      prefs.mAecOn ? prefs.mAec : -1,
-      prefs.mAgcOn ? prefs.mAgc : -1,
-      prefs.mNoiseOn ? prefs.mNoise : -1,
-      prefs.mPlayoutDelay,
-      prefs.mChannels));
+       prefs.mAecOn ? prefs.mAec : -1,
+       prefs.mAgcOn ? prefs.mAgc : -1,
+       prefs.mNoiseOn ? prefs.mNoise : -1,
+       prefs.mPlayoutDelay,
+       prefs.mChannels));
 
   mPlayoutDelay = prefs.mPlayoutDelay;
 
@@ -332,7 +353,7 @@ MediaEngineWebRTCMicrophoneSource::UpdateSingleSource(
         return NS_ERROR_FAILURE;
       }
       if (mAudioInput->SetRecordingDevice(mCapIndex)) {
-         return NS_ERROR_FAILURE;
+        return NS_ERROR_FAILURE;
       }
       mAudioInput->SetUserChannelCount(prefs.mChannels);
       if (!AllocChannel()) {
@@ -391,24 +412,29 @@ MediaEngineWebRTCMicrophoneSource::UpdateSingleSource(
   if (sChannelsOpen > 0) {
     int error;
 
-    error = mVoEProcessing->SetEcStatus(prefs.mAecOn, (webrtc::EcModes)prefs.mAec);
+    error =
+        mVoEProcessing->SetEcStatus(prefs.mAecOn, (webrtc::EcModes)prefs.mAec);
     if (error) {
-      LOG(("%s Error setting Echo Status: %d ",__FUNCTION__, error));
+      LOG(("%s Error setting Echo Status: %d ", __FUNCTION__, error));
       // Overhead of capturing all the time is very low (<0.1% of an audio only call)
       if (prefs.mAecOn) {
         error = mVoEProcessing->SetEcMetricsStatus(true);
         if (error) {
-          LOG(("%s Error setting Echo Metrics: %d ",__FUNCTION__, error));
+          LOG(("%s Error setting Echo Metrics: %d ", __FUNCTION__, error));
         }
       }
     }
-    error = mVoEProcessing->SetAgcStatus(prefs.mAgcOn, (webrtc::AgcModes)prefs.mAgc);
+    error = mVoEProcessing->SetAgcStatus(prefs.mAgcOn,
+                                         (webrtc::AgcModes)prefs.mAgc);
     if (error) {
-      LOG(("%s Error setting AGC Status: %d ",__FUNCTION__, error));
+      LOG(("%s Error setting AGC Status: %d ", __FUNCTION__, error));
     }
-    error = mVoEProcessing->SetNsStatus(prefs.mNoiseOn, (webrtc::NsModes)prefs.mNoise);
+    error = mVoEProcessing->SetNsStatus(prefs.mNoiseOn,
+                                        (webrtc::NsModes)prefs.mNoise);
     if (error) {
-      LOG(("%s Error setting NoiseSuppression Status: %d ",__FUNCTION__, error));
+      LOG(("%s Error setting NoiseSuppression Status: %d ",
+           __FUNCTION__,
+           error));
     }
   }
 
@@ -430,8 +456,7 @@ MediaEngineWebRTCMicrophoneSource::UpdateSingleSource(
 }
 
 void
-MediaEngineWebRTCMicrophoneSource::SetLastPrefs(
-    const MediaEnginePrefs& aPrefs)
+MediaEngineWebRTCMicrophoneSource::SetLastPrefs(const MediaEnginePrefs& aPrefs)
 {
   mLastPrefs = aPrefs;
 
@@ -445,7 +470,6 @@ MediaEngineWebRTCMicrophoneSource::SetLastPrefs(
     return NS_OK;
   }));
 }
-
 
 nsresult
 MediaEngineWebRTCMicrophoneSource::Deallocate(AllocationHandle* aHandle)
@@ -469,9 +493,10 @@ MediaEngineWebRTCMicrophoneSource::Deallocate(AllocationHandle* aHandle)
 }
 
 nsresult
-MediaEngineWebRTCMicrophoneSource::Start(SourceMediaStream *aStream,
-                                         TrackID aID,
-                                         const PrincipalHandle& aPrincipalHandle)
+MediaEngineWebRTCMicrophoneSource::Start(
+    SourceMediaStream* aStream,
+    TrackID aID,
+    const PrincipalHandle& aPrincipalHandle)
 {
   AssertIsOnOwningThread();
   if (sChannelsOpen == 0 || !aStream) {
@@ -496,7 +521,8 @@ MediaEngineWebRTCMicrophoneSource::Start(SourceMediaStream *aStream,
   if (mSampleFrequency == MediaEngine::USE_GRAPH_RATE) {
     mSampleFrequency = aStream->GraphRate();
   }
-  aStream->AddAudioTrack(aID, mSampleFrequency, 0, segment, SourceMediaStream::ADDTRACK_QUEUED);
+  aStream->AddAudioTrack(
+      aID, mSampleFrequency, 0, segment, SourceMediaStream::ADDTRACK_QUEUED);
 
   // XXX Make this based on the pref.
   aStream->RegisterForAudioMixing();
@@ -533,13 +559,14 @@ MediaEngineWebRTCMicrophoneSource::Start(SourceMediaStream *aStream,
   }
 
   // Attach external media processor, so this::Process will be called.
-  mVoERender->RegisterExternalMediaProcessing(mChannel, webrtc::kRecordingPerChannel, *this);
+  mVoERender->RegisterExternalMediaProcessing(
+      mChannel, webrtc::kRecordingPerChannel, *this);
 
   return NS_OK;
 }
 
 nsresult
-MediaEngineWebRTCMicrophoneSource::Stop(SourceMediaStream *aSource, TrackID aID)
+MediaEngineWebRTCMicrophoneSource::Stop(SourceMediaStream* aSource, TrackID aID)
 {
   AssertIsOnOwningThread();
   {
@@ -577,7 +604,8 @@ MediaEngineWebRTCMicrophoneSource::Stop(SourceMediaStream *aSource, TrackID aID)
 
   mAudioInput->StopRecording(aSource);
 
-  mVoERender->DeRegisterExternalMediaProcessing(mChannel, webrtc::kRecordingPerChannel);
+  mVoERender->DeRegisterExternalMediaProcessing(mChannel,
+                                                webrtc::kRecordingPerChannel);
 
   if (mVoEBase->StopSend(mChannel)) {
     return NS_ERROR_FAILURE;
@@ -589,14 +617,15 @@ MediaEngineWebRTCMicrophoneSource::Stop(SourceMediaStream *aSource, TrackID aID)
 }
 
 void
-MediaEngineWebRTCMicrophoneSource::NotifyPull(MediaStreamGraph *aGraph,
-                                              SourceMediaStream *aSource,
-                                              TrackID aID,
-                                              StreamTime aDesiredTime,
-                                              const PrincipalHandle& aPrincipalHandle)
+MediaEngineWebRTCMicrophoneSource::NotifyPull(
+    MediaStreamGraph* aGraph,
+    SourceMediaStream* aSource,
+    TrackID aID,
+    StreamTime aDesiredTime,
+    const PrincipalHandle& aPrincipalHandle)
 {
   // Ignore - we push audio data
-  LOG_FRAMES(("NotifyPull, desired = %" PRId64, (int64_t) aDesiredTime));
+  LOG_FRAMES(("NotifyPull, desired = %" PRId64, (int64_t)aDesiredTime));
 }
 
 void
@@ -607,32 +636,32 @@ MediaEngineWebRTCMicrophoneSource::NotifyOutputData(MediaStreamGraph* aGraph,
                                                     uint32_t aChannels)
 {
   if (mAudioOutputObserver) {
-    mAudioOutputObserver->InsertFarEnd(aBuffer, aFrames, false,
-                                  aRate, aChannels);
+    mAudioOutputObserver->InsertFarEnd(
+        aBuffer, aFrames, false, aRate, aChannels);
   }
 }
 
 void
-MediaEngineWebRTCMicrophoneSource::PacketizeAndProcess(MediaStreamGraph* aGraph,
-                                                       const AudioDataValue* aBuffer,
-                                                       size_t aFrames,
-                                                       TrackRate aRate,
-                                                       uint32_t aChannels)
+MediaEngineWebRTCMicrophoneSource::PacketizeAndProcess(
+    MediaStreamGraph* aGraph,
+    const AudioDataValue* aBuffer,
+    size_t aFrames,
+    TrackRate aRate,
+    uint32_t aChannels)
 {
   // This will call Process() with data coming out of the AEC/NS/AGC/etc chain
-  if (!mPacketizer ||
-      mPacketizer->PacketSize() != aRate/100u ||
+  if (!mPacketizer || mPacketizer->PacketSize() != aRate / 100u ||
       mPacketizer->Channels() != aChannels) {
     // It's ok to drop the audio still in the packetizer here.
     mPacketizer =
-      new AudioPacketizer<AudioDataValue, int16_t>(aRate/100, aChannels);
+        new AudioPacketizer<AudioDataValue, int16_t>(aRate / 100, aChannels);
   }
 
   mPacketizer->Input(aBuffer, static_cast<uint32_t>(aFrames));
 
   while (mPacketizer->PacketsAvailable()) {
-    uint32_t samplesPerPacket = mPacketizer->PacketSize() *
-      mPacketizer->Channels();
+    uint32_t samplesPerPacket =
+        mPacketizer->PacketSize() * mPacketizer->Channels();
     if (mInputBuffer.Length() < samplesPerPacket) {
       mInputBuffer.SetLength(samplesPerPacket);
     }
@@ -640,14 +669,18 @@ MediaEngineWebRTCMicrophoneSource::PacketizeAndProcess(MediaStreamGraph* aGraph,
     mPacketizer->Output(packet);
 
     if (aChannels > MAX_CHANNELS) {
-      AudioConverter converter(AudioConfig(aChannels, 0, AudioConfig::FORMAT_S16),
-                               AudioConfig(MAX_CHANNELS, 0, AudioConfig::FORMAT_S16));
+      AudioConverter converter(
+          AudioConfig(aChannels, 0, AudioConfig::FORMAT_S16),
+          AudioConfig(MAX_CHANNELS, 0, AudioConfig::FORMAT_S16));
       converter.Process(mInputDownmixBuffer, packet, mPacketizer->PacketSize());
-      mVoERender->ExternalRecordingInsertData(mInputDownmixBuffer.Data(),
-                                              mPacketizer->PacketSize() * MAX_CHANNELS,
-                                              aRate, 0);
+      mVoERender->ExternalRecordingInsertData(
+          mInputDownmixBuffer.Data(),
+          mPacketizer->PacketSize() * MAX_CHANNELS,
+          aRate,
+          0);
     } else {
-      mVoERender->ExternalRecordingInsertData(packet, samplesPerPacket, aRate, 0);
+      mVoERender->ExternalRecordingInsertData(
+          packet, samplesPerPacket, aRate, 0);
     }
   }
 }
@@ -665,10 +698,13 @@ MediaEngineWebRTCMicrophoneSource::InsertInGraph(const T* aBuffer,
 
   if (MOZ_LOG_TEST(AudioLogModule(), LogLevel::Debug)) {
     mTotalFrames += aFrames;
-    if (mTotalFrames > mLastLogFrames + mSampleFrequency) { // ~ 1 second
-      MOZ_LOG(AudioLogModule(), LogLevel::Debug,
+    if (mTotalFrames > mLastLogFrames + mSampleFrequency) {  // ~ 1 second
+      MOZ_LOG(AudioLogModule(),
+              LogLevel::Debug,
               ("%p: Inserting %zu samples into graph, total frames = %" PRIu64,
-               (void*)this, aFrames, mTotalFrames));
+               (void*)this,
+               aFrames,
+               mTotalFrames));
       mLastLogFrames = mTotalFrames;
     }
   }
@@ -684,15 +720,15 @@ MediaEngineWebRTCMicrophoneSource::InsertInGraph(const T* aBuffer,
     // The 0:1 is a flag to note when we've done the final insert for a given input block.
     LogTime(AsyncLatencyLogger::AudioTrackInsertion,
             LATENCY_STREAM_ID(mSources[i].get(), mTrackID),
-            (i+1 < len) ? 0 : 1, insertTime);
+            (i + 1 < len) ? 0 : 1,
+            insertTime);
 
     // Bug 971528 - Support stereo capture in gUM
-    MOZ_ASSERT(aChannels >= 1 && aChannels <= 8,
-               "Support up to 8 channels");
+    MOZ_ASSERT(aChannels >= 1 && aChannels <= 8, "Support up to 8 channels");
 
     nsAutoPtr<AudioSegment> segment(new AudioSegment());
     RefPtr<SharedBuffer> buffer =
-      SharedBuffer::Create(aFrames * aChannels * sizeof(T));
+        SharedBuffer::Create(aFrames * aChannels * sizeof(T));
     AutoTArray<const T*, 8> channels;
     if (aChannels == 1) {
       PodCopy(static_cast<T*>(buffer->Data()), aBuffer, aFrames);
@@ -701,23 +737,21 @@ MediaEngineWebRTCMicrophoneSource::InsertInGraph(const T* aBuffer,
       channels.SetLength(aChannels);
       AutoTArray<T*, 8> write_channels;
       write_channels.SetLength(aChannels);
-      T * samples = static_cast<T*>(buffer->Data());
+      T* samples = static_cast<T*>(buffer->Data());
 
       size_t offset = 0;
-      for(uint32_t i = 0; i < aChannels; ++i) {
+      for (uint32_t i = 0; i < aChannels; ++i) {
         channels[i] = write_channels[i] = samples + offset;
         offset += aFrames;
       }
 
-      DeinterleaveAndConvertBuffer(aBuffer,
-                                   aFrames,
-                                   aChannels,
-                                   write_channels.Elements());
+      DeinterleaveAndConvertBuffer(
+          aBuffer, aFrames, aChannels, write_channels.Elements());
     }
 
     MOZ_ASSERT(aChannels == channels.Length());
-    segment->AppendFrames(buffer.forget(), channels, aFrames,
-                         mPrincipalHandles[i]);
+    segment->AppendFrames(
+        buffer.forget(), channels, aFrames, mPrincipalHandles[i]);
     segment->GetStartTime(insertTime);
 
     mSources[i]->AppendToTrack(mTrackID, segment);
@@ -727,11 +761,12 @@ MediaEngineWebRTCMicrophoneSource::InsertInGraph(const T* aBuffer,
 // Called back on GraphDriver thread!
 // Note this can be called back after ::Shutdown()
 void
-MediaEngineWebRTCMicrophoneSource::NotifyInputData(MediaStreamGraph* aGraph,
-                                                   const AudioDataValue* aBuffer,
-                                                   size_t aFrames,
-                                                   TrackRate aRate,
-                                                   uint32_t aChannels)
+MediaEngineWebRTCMicrophoneSource::NotifyInputData(
+    MediaStreamGraph* aGraph,
+    const AudioDataValue* aBuffer,
+    size_t aFrames,
+    TrackRate aRate,
+    uint32_t aChannels)
 {
   // If some processing is necessary, packetize and insert in the WebRTC.org
   // code. Otherwise, directly insert the mic data in the MSG, bypassing all processing.
@@ -742,35 +777,36 @@ MediaEngineWebRTCMicrophoneSource::NotifyInputData(MediaStreamGraph* aGraph,
   }
 }
 
-#define ResetProcessingIfNeeded(_processing)                        \
-do {                                                                \
-  webrtc::_processing##Modes mode;                                  \
-  int rv = mVoEProcessing->Get##_processing##Status(enabled, mode); \
-  if (rv) {                                                         \
-    NS_WARNING("Could not get the status of the "                   \
-     #_processing " on device change.");                            \
-    return;                                                         \
-  }                                                                 \
-                                                                    \
-  if (enabled) {                                                    \
-    rv = mVoEProcessing->Set##_processing##Status(!enabled);        \
-    if (rv) {                                                       \
-      NS_WARNING("Could not reset the status of the "               \
-      #_processing " on device change.");                           \
-      return;                                                       \
-    }                                                               \
-                                                                    \
-    rv = mVoEProcessing->Set##_processing##Status(enabled);         \
-    if (rv) {                                                       \
-      NS_WARNING("Could not reset the status of the "               \
-      #_processing " on device change.");                           \
-      return;                                                       \
-    }                                                               \
-  }                                                                 \
-}  while(0)
+#define ResetProcessingIfNeeded(_processing)                          \
+  do {                                                                \
+    webrtc::_processing##Modes mode;                                  \
+    int rv = mVoEProcessing->Get##_processing##Status(enabled, mode); \
+    if (rv) {                                                         \
+      NS_WARNING("Could not get the status of the " #_processing      \
+                 " on device change.");                               \
+      return;                                                         \
+    }                                                                 \
+                                                                      \
+    if (enabled) {                                                    \
+      rv = mVoEProcessing->Set##_processing##Status(!enabled);        \
+      if (rv) {                                                       \
+        NS_WARNING("Could not reset the status of the " #_processing  \
+                   " on device change.");                             \
+        return;                                                       \
+      }                                                               \
+                                                                      \
+      rv = mVoEProcessing->Set##_processing##Status(enabled);         \
+      if (rv) {                                                       \
+        NS_WARNING("Could not reset the status of the " #_processing  \
+                   " on device change.");                             \
+        return;                                                       \
+      }                                                               \
+    }                                                                 \
+  } while (0)
 
 void
-MediaEngineWebRTCMicrophoneSource::DeviceChanged() {
+MediaEngineWebRTCMicrophoneSource::DeviceChanged()
+{
   // Reset some processing
   bool enabled;
   ResetProcessingIfNeeded(Agc);
@@ -786,7 +822,8 @@ MediaEngineWebRTCMicrophoneSource::InitEngine()
 
   mVoEBase->Init();
   webrtc::Config config;
-  config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(mExtendedFilter));
+  config.Set<webrtc::ExtendedFilter>(
+      new webrtc::ExtendedFilter(mExtendedFilter));
   config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(mDelayAgnostic));
   mVoEBase->audio_processing()->SetExtraOptions(config);
 
@@ -871,7 +908,8 @@ MediaEngineWebRTCMicrophoneSource::AllocChannel()
         }
 
         // Set "codec" to PCM, 32kHz on device's channels
-        ScopedCustomReleasePtr<webrtc::VoECodec> ptrVoECodec(webrtc::VoECodec::GetInterface(mVoiceEngine));
+        ScopedCustomReleasePtr<webrtc::VoECodec> ptrVoECodec(
+            webrtc::VoECodec::GetInterface(mVoiceEngine));
         if (ptrVoECodec) {
           webrtc::CodecInst codec;
           strcpy(codec.plname, ENCODING);
@@ -885,7 +923,7 @@ MediaEngineWebRTCMicrophoneSource::AllocChannel()
           codec.rate = SAMPLE_RATE(mSampleFrequency);
           codec.plfreq = mSampleFrequency;
           codec.pacsize = SAMPLE_LENGTH(mSampleFrequency);
-          codec.pltype = 0; // Default payload type
+          codec.pltype = 0;  // Default payload type
 
           if (!ptrVoECodec->SetSendCodec(mChannel, codec)) {
             mState = kAllocated;
@@ -916,7 +954,7 @@ MediaEngineWebRTCMicrophoneSource::Shutdown()
   }
 
   if (mState == kStarted) {
-    SourceMediaStream *source;
+    SourceMediaStream* source;
     bool empty;
 
     while (1) {
@@ -928,7 +966,7 @@ MediaEngineWebRTCMicrophoneSource::Shutdown()
         }
         source = mSources[0];
       }
-      Stop(source, kAudioTrack); // XXX change to support multiple tracks
+      Stop(source, kAudioTrack);  // XXX change to support multiple tracks
     }
     MOZ_ASSERT(mState == kStopped);
   }
@@ -948,29 +986,34 @@ typedef int16_t sample;
 void
 MediaEngineWebRTCMicrophoneSource::Process(int channel,
                                            webrtc::ProcessingTypes type,
-                                           sample *audio10ms, size_t length,
-                                           int samplingFreq, bool isStereo)
+                                           sample* audio10ms,
+                                           size_t length,
+                                           int samplingFreq,
+                                           bool isStereo)
 {
-  MOZ_ASSERT(!PassThrough(), "This should be bypassed when in PassThrough mode.");
+  MOZ_ASSERT(!PassThrough(),
+             "This should be bypassed when in PassThrough mode.");
   // On initial capture, throw away all far-end data except the most recent sample
   // since it's already irrelevant and we want to keep avoid confusing the AEC far-end
   // input code with "old" audio.
   if (!mStarted) {
-    mStarted  = true;
+    mStarted = true;
     while (mAudioOutputObserver->Size() > 1) {
-      free(mAudioOutputObserver->Pop()); // only call if size() > 0
+      free(mAudioOutputObserver->Pop());  // only call if size() > 0
     }
   }
 
   while (mAudioOutputObserver->Size() > 0) {
-    FarEndAudioChunk *buffer = mAudioOutputObserver->Pop(); // only call if size() > 0
+    FarEndAudioChunk* buffer =
+        mAudioOutputObserver->Pop();  // only call if size() > 0
     if (buffer) {
       int length = buffer->mSamples;
-      int res = mVoERender->ExternalPlayoutData(buffer->mData,
-                                                mAudioOutputObserver->PlayoutFrequency(),
-                                                mAudioOutputObserver->PlayoutChannels(),
-                                                mPlayoutDelay,
-                                                length);
+      int res = mVoERender->ExternalPlayoutData(
+          buffer->mData,
+          mAudioOutputObserver->PlayoutFrequency(),
+          mAudioOutputObserver->PlayoutChannels(),
+          mPlayoutDelay,
+          length);
       free(buffer);
       if (res == -1) {
         return;
@@ -983,13 +1026,13 @@ MediaEngineWebRTCMicrophoneSource::Process(int channel,
 }
 
 void
-MediaEngineWebRTCAudioCaptureSource::GetName(nsAString &aName) const
+MediaEngineWebRTCAudioCaptureSource::GetName(nsAString& aName) const
 {
   aName.AssignLiteral("AudioCapture");
 }
 
 void
-MediaEngineWebRTCAudioCaptureSource::GetUUID(nsACString &aUUID) const
+MediaEngineWebRTCAudioCaptureSource::GetUUID(nsACString& aUUID) const
 {
   nsID uuid;
   char uuidBuffer[NSID_LENGTH];
@@ -1002,7 +1045,6 @@ MediaEngineWebRTCAudioCaptureSource::GetUUID(nsACString &aUUID) const
     return;
   }
 
-
   uuid.ToProvidedString(uuidBuffer);
   asciiString.AssignASCII(uuidBuffer);
 
@@ -1011,9 +1053,10 @@ MediaEngineWebRTCAudioCaptureSource::GetUUID(nsACString &aUUID) const
 }
 
 nsresult
-MediaEngineWebRTCAudioCaptureSource::Start(SourceMediaStream *aMediaStream,
-                                           TrackID aId,
-                                           const PrincipalHandle& aPrincipalHandle)
+MediaEngineWebRTCAudioCaptureSource::Start(
+    SourceMediaStream* aMediaStream,
+    TrackID aId,
+    const PrincipalHandle& aPrincipalHandle)
 {
   AssertIsOnOwningThread();
   aMediaStream->AddTrack(aId, 0, new AudioSegment());
@@ -1021,7 +1064,7 @@ MediaEngineWebRTCAudioCaptureSource::Start(SourceMediaStream *aMediaStream,
 }
 
 nsresult
-MediaEngineWebRTCAudioCaptureSource::Stop(SourceMediaStream *aMediaStream,
+MediaEngineWebRTCAudioCaptureSource::Stop(SourceMediaStream* aMediaStream,
                                           TrackID aId)
 {
   AssertIsOnOwningThread();
@@ -1033,7 +1076,7 @@ nsresult
 MediaEngineWebRTCAudioCaptureSource::Restart(
     AllocationHandle* aHandle,
     const dom::MediaTrackConstraints& aConstraints,
-    const MediaEnginePrefs &aPrefs,
+    const MediaEnginePrefs& aPrefs,
     const nsString& aDeviceId,
     const char** aOutBadConstraint)
 {
@@ -1049,5 +1092,4 @@ MediaEngineWebRTCAudioCaptureSource::GetBestFitnessDistance(
   // There is only one way of capturing audio for now, and it's always adequate.
   return 0;
 }
-
 }

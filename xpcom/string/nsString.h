@@ -24,9 +24,9 @@
 
 #if MOZ_STRING_WITH_OBSOLETE_API
 // radix values for ToInteger/AppendInt
-#define kRadix10        (10)
-#define kRadix16        (16)
-#define kAutoDetect     (100)
+#define kRadix10 (10)
+#define kRadix16 (16)
+#define kAutoDetect (100)
 #endif
 
 #include "nsTString.h"
@@ -47,13 +47,12 @@ static_assert(sizeof(nsTLiteralString<char16_t>) == sizeof(nsTString<char16_t>),
               "nsTLiteralString can masquerade as nsString, "
               "so they must have identical layout");
 
-
 /**
  * A helper class that converts a UTF-16 string to ASCII in a lossy manner
  */
 class NS_LossyConvertUTF16toASCII : public nsAutoCString
 {
-public:
+ public:
   explicit NS_LossyConvertUTF16toASCII(const char16ptr_t aString)
   {
     LossyAppendUTF16toASCII(aString, *this);
@@ -61,7 +60,8 @@ public:
 
   NS_LossyConvertUTF16toASCII(const char16ptr_t aString, uint32_t aLength)
   {
-    LossyAppendUTF16toASCII(Substring(static_cast<const char16_t*>(aString), aLength), *this);
+    LossyAppendUTF16toASCII(
+        Substring(static_cast<const char16_t*>(aString), aLength), *this);
   }
 
   explicit NS_LossyConvertUTF16toASCII(const nsAString& aString)
@@ -69,15 +69,14 @@ public:
     LossyAppendUTF16toASCII(aString, *this);
   }
 
-private:
+ private:
   // NOT TO BE IMPLEMENTED
   NS_LossyConvertUTF16toASCII(char) = delete;
 };
 
-
 class NS_ConvertASCIItoUTF16 : public nsAutoString
 {
-public:
+ public:
   explicit NS_ConvertASCIItoUTF16(const char* aCString)
   {
     AppendASCIItoUTF16(aCString, *this);
@@ -93,18 +92,17 @@ public:
     AppendASCIItoUTF16(aCString, *this);
   }
 
-private:
+ private:
   // NOT TO BE IMPLEMENTED
   NS_ConvertASCIItoUTF16(char16_t) = delete;
 };
-
 
 /**
  * A helper class that converts a UTF-16 string to UTF-8
  */
 class NS_ConvertUTF16toUTF8 : public nsAutoCString
 {
-public:
+ public:
   explicit NS_ConvertUTF16toUTF8(const char16ptr_t aString)
   {
     AppendUTF16toUTF8(aString, *this);
@@ -112,7 +110,8 @@ public:
 
   NS_ConvertUTF16toUTF8(const char16ptr_t aString, uint32_t aLength)
   {
-    AppendUTF16toUTF8(Substring(static_cast<const char16_t*>(aString), aLength), *this);
+    AppendUTF16toUTF8(Substring(static_cast<const char16_t*>(aString), aLength),
+                      *this);
   }
 
   explicit NS_ConvertUTF16toUTF8(const nsAString& aString)
@@ -120,15 +119,14 @@ public:
     AppendUTF16toUTF8(aString, *this);
   }
 
-private:
+ private:
   // NOT TO BE IMPLEMENTED
   NS_ConvertUTF16toUTF8(char) = delete;
 };
 
-
 class NS_ConvertUTF8toUTF16 : public nsAutoString
 {
-public:
+ public:
   explicit NS_ConvertUTF8toUTF16(const char* aCString)
   {
     AppendUTF8toUTF16(aCString, *this);
@@ -144,7 +142,7 @@ public:
     AppendUTF8toUTF16(aCString, *this);
   }
 
-private:
+ private:
   // NOT TO BE IMPLEMENTED
   NS_ConvertUTF8toUTF16(char16_t) = delete;
 };
@@ -162,4 +160,4 @@ typedef nsAutoString nsVoidableString;
 #include <stdio.h>
 #include "plhash.h"
 
-#endif // !defined(nsString_h___)
+#endif  // !defined(nsString_h___)

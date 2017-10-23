@@ -22,17 +22,18 @@ CompositorWidget::CreateLocal(const CompositorWidgetInitData& aInitData,
 {
   MOZ_ASSERT(aWidget);
 #ifdef MOZ_WIDGET_ANDROID
-  return new AndroidCompositorWidget(aOptions, static_cast<nsBaseWidget*>(aWidget));
+  return new AndroidCompositorWidget(aOptions,
+                                     static_cast<nsBaseWidget*>(aWidget));
 #else
-  return new InProcessCompositorWidget(aOptions, static_cast<nsBaseWidget*>(aWidget));
+  return new InProcessCompositorWidget(aOptions,
+                                       static_cast<nsBaseWidget*>(aWidget));
 #endif
 }
 #endif
 
-InProcessCompositorWidget::InProcessCompositorWidget(const layers::CompositorOptions& aOptions,
-                                                     nsBaseWidget* aWidget)
- : CompositorWidget(aOptions)
- , mWidget(aWidget)
+InProcessCompositorWidget::InProcessCompositorWidget(
+    const layers::CompositorOptions& aOptions, nsBaseWidget* aWidget)
+    : CompositorWidget(aOptions), mWidget(aWidget)
 {
 }
 
@@ -69,8 +70,8 @@ InProcessCompositorWidget::StartRemoteDrawing()
 }
 
 already_AddRefed<gfx::DrawTarget>
-InProcessCompositorWidget::StartRemoteDrawingInRegion(LayoutDeviceIntRegion& aInvalidRegion,
-                                                  layers::BufferMode* aBufferMode)
+InProcessCompositorWidget::StartRemoteDrawingInRegion(
+    LayoutDeviceIntRegion& aInvalidRegion, layers::BufferMode* aBufferMode)
 {
   return mWidget->StartRemoteDrawingInRegion(aInvalidRegion, aBufferMode);
 }
@@ -82,8 +83,8 @@ InProcessCompositorWidget::EndRemoteDrawing()
 }
 
 void
-InProcessCompositorWidget::EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
-                                                LayoutDeviceIntRegion& aInvalidRegion)
+InProcessCompositorWidget::EndRemoteDrawingInRegion(
+    gfx::DrawTarget* aDrawTarget, LayoutDeviceIntRegion& aInvalidRegion)
 {
   mWidget->EndRemoteDrawingInRegion(aDrawTarget, aInvalidRegion);
 }
@@ -133,11 +134,11 @@ InProcessCompositorWidget::RealWidget()
 void
 InProcessCompositorWidget::ObserveVsync(VsyncObserver* aObserver)
 {
-  if (RefPtr<CompositorVsyncDispatcher> cvd = mWidget->GetCompositorVsyncDispatcher()) {
+  if (RefPtr<CompositorVsyncDispatcher> cvd =
+          mWidget->GetCompositorVsyncDispatcher()) {
     cvd->SetCompositorVsyncObserver(aObserver);
   }
 }
 
-} // namespace widget
-} // namespace mozilla
-
+}  // namespace widget
+}  // namespace mozilla

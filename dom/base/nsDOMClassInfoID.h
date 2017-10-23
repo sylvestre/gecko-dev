@@ -51,22 +51,21 @@ NS_GetDOMClassInfoInstance(nsDOMClassInfoID aID);
       aIID.Equals(NS_GET_IID(nsXPCClassInfo))) {                              \
     foundInterface = NS_GetDOMClassInfoInstance(eDOMClassInfo_##_class##_id); \
     if (!foundInterface) {                                                    \
-      *aInstancePtr = nullptr;                                                 \
+      *aInstancePtr = nullptr;                                                \
       return NS_ERROR_OUT_OF_MEMORY;                                          \
     }                                                                         \
   } else
 
 #define NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO_CONDITIONAL(_class, condition)   \
-  if ((condition) &&                                                          \
-      (aIID.Equals(NS_GET_IID(nsIClassInfo)) ||                               \
-       aIID.Equals(NS_GET_IID(nsXPCClassInfo)))) {                            \
+  if ((condition) && (aIID.Equals(NS_GET_IID(nsIClassInfo)) ||                \
+                      aIID.Equals(NS_GET_IID(nsXPCClassInfo)))) {             \
     foundInterface = NS_GetDOMClassInfoInstance(eDOMClassInfo_##_class##_id); \
     if (!foundInterface) {                                                    \
-      *aInstancePtr = nullptr;                                                 \
+      *aInstancePtr = nullptr;                                                \
       return NS_ERROR_OUT_OF_MEMORY;                                          \
     }                                                                         \
   } else
 
-#endif // MOZILLA_INTERNAL_API
+#endif  // MOZILLA_INTERNAL_API
 
-#endif // nsDOMClassInfoID_h__
+#endif  // nsDOMClassInfoID_h__

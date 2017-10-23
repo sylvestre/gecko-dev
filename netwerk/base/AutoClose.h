@@ -9,37 +9,30 @@
 
 #include "nsCOMPtr.h"
 
-namespace mozilla { namespace net {
+namespace mozilla {
+namespace net {
 
 // Like an nsAutoPtr for XPCOM streams (e.g. nsIAsyncInputStream) and other
 // refcounted classes that need to have the Close() method called explicitly
 // before they are destroyed.
-template <typename T>
+template<typename T>
 class AutoClose
 {
-public:
-  AutoClose() { }
-  ~AutoClose(){
-    Close();
-  }
+ public:
+  AutoClose() {}
+  ~AutoClose() { Close(); }
 
-  explicit operator bool() const
-  {
-    return mPtr;
-  }
+  explicit operator bool() const { return mPtr; }
 
-  already_AddRefed<T> forget()
-  {
-    return mPtr.forget();
-  }
+  already_AddRefed<T> forget() { return mPtr.forget(); }
 
-  void takeOver(nsCOMPtr<T> & rhs)
+  void takeOver(nsCOMPtr<T>& rhs)
   {
     Close();
     mPtr = rhs.forget();
   }
 
-  void takeOver(AutoClose<T> & rhs)
+  void takeOver(AutoClose<T>& rhs)
   {
     Close();
     mPtr = rhs.mPtr.forget();
@@ -56,7 +49,7 @@ public:
     return mPtr.operator->();
   }
 
-private:
+ private:
   void Close()
   {
     if (mPtr) {
@@ -64,13 +57,13 @@ private:
     }
   }
 
-  void operator=(const AutoClose<T> &) = delete;
-  AutoClose(const AutoClose<T> &) = delete;
+  void operator=(const AutoClose<T>&) = delete;
+  AutoClose(const AutoClose<T>&) = delete;
 
   nsCOMPtr<T> mPtr;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_AutoClose_h
+#endif  // mozilla_net_AutoClose_h

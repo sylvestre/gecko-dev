@@ -3,42 +3,40 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "BasicLayersImpl.h"            // for FillRectWithMask, etc
-#include "Layers.h"                     // for ColorLayer, etc
-#include "BasicImplData.h"              // for BasicImplData
-#include "BasicLayers.h"                // for BasicLayerManager
-#include "gfxContext.h"                 // for gfxContext, etc
-#include "gfxRect.h"                    // for gfxRect
+#include "BasicLayersImpl.h"  // for FillRectWithMask, etc
+#include "Layers.h"           // for ColorLayer, etc
+#include "BasicImplData.h"    // for BasicImplData
+#include "BasicLayers.h"      // for BasicLayerManager
+#include "gfxContext.h"       // for gfxContext, etc
+#include "gfxRect.h"          // for gfxRect
 #include "gfx2DGlue.h"
-#include "mozilla/mozalloc.h"           // for operator new
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for Layer::AddRef, etc
-#include "nsRect.h"                     // for mozilla::gfx::IntRect
-#include "nsRegion.h"                   // for nsIntRegion
+#include "mozilla/mozalloc.h"  // for operator new
+#include "nsCOMPtr.h"          // for already_AddRefed
+#include "nsDebug.h"           // for NS_ASSERTION
+#include "nsISupportsImpl.h"   // for Layer::AddRef, etc
+#include "nsRect.h"            // for mozilla::gfx::IntRect
+#include "nsRegion.h"          // for nsIntRegion
 #include "mozilla/gfx/PathHelpers.h"
-#include "mozilla/layers/LayersMessages.h" // for GlyphArray
+#include "mozilla/layers/LayersMessages.h"  // for GlyphArray
 
 using namespace mozilla::gfx;
 
 namespace mozilla {
 namespace layers {
 
-class BasicTextLayer : public TextLayer, public BasicImplData {
-public:
-  explicit BasicTextLayer(BasicLayerManager* aLayerManager) :
-    TextLayer(aLayerManager, static_cast<BasicImplData*>(this))
+class BasicTextLayer : public TextLayer, public BasicImplData
+{
+ public:
+  explicit BasicTextLayer(BasicLayerManager* aLayerManager)
+      : TextLayer(aLayerManager, static_cast<BasicImplData*>(this))
   {
     MOZ_COUNT_CTOR(BasicTextLayer);
   }
 
-protected:
-  virtual ~BasicTextLayer()
-  {
-    MOZ_COUNT_DTOR(BasicTextLayer);
-  }
+ protected:
+  virtual ~BasicTextLayer() { MOZ_COUNT_DTOR(BasicTextLayer); }
 
-public:
+ public:
   virtual void SetVisibleRegion(const LayerIntRegion& aRegion) override
   {
     NS_ASSERTION(BasicManager()->InConstruction(),
@@ -63,12 +61,13 @@ public:
     aDT->SetPermitSubpixelAA(false);
 
     for (GlyphArray& g : mGlyphs) {
-      GlyphBuffer buffer = { g.glyphs().Elements(), (uint32_t)g.glyphs().Length() };
+      GlyphBuffer buffer = {g.glyphs().Elements(),
+                            (uint32_t)g.glyphs().Length()};
       aDT->FillGlyphs(mFont, buffer, ColorPattern(g.color().value()));
     }
   }
 
-protected:
+ protected:
   BasicLayerManager* BasicManager()
   {
     return static_cast<BasicLayerManager*>(mManager);
@@ -83,5 +82,5 @@ BasicLayerManager::CreateTextLayer()
   return layer.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

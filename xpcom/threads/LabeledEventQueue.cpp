@@ -100,7 +100,8 @@ LabeledEventQueue::PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
   mNumEvents++;
   epoch->mNumEvents++;
 
-  RunnableEpochQueue* queue = isLabeled ? mLabeled.LookupOrAdd(group) : &mUnlabeled;
+  RunnableEpochQueue* queue =
+      isLabeled ? mLabeled.LookupOrAdd(group) : &mUnlabeled;
   queue->Push(QueueEntry(event.forget(), epoch->mEpochNumber));
 
   if (group && group->EnqueueEvent() == SchedulerGroup::NewlyQueued) {
@@ -170,8 +171,8 @@ LabeledEventQueue::GetEvent(EventPriority* aPriority,
   // prevents us from preferentially processing events from active tabs twice in
   // a row. This scheme is designed to prevent starvation.
   if (TabChild::HasActiveTabs() && mAvoidActiveTabCount <= 0) {
-    for (auto iter = TabChild::GetActiveTabs().ConstIter();
-         !iter.Done(); iter.Next()) {
+    for (auto iter = TabChild::GetActiveTabs().ConstIter(); !iter.Done();
+         iter.Next()) {
       SchedulerGroup* group = iter.Get()->GetKey()->TabGroup();
       if (!group->isInList() || group == sCurrentSchedulerGroup) {
         continue;

@@ -19,17 +19,16 @@ namespace mozilla {
 
 class AppleVTLinker
 {
-public:
+ public:
   static bool Link();
   static void Unlink();
   static CFStringRef skPropEnableHWAccel;
   static CFStringRef skPropUsingHWAccel;
 
-private:
+ private:
   static void* sLink;
 
-  static enum LinkStatus
-  {
+  static enum LinkStatus {
     LinkStatus_INIT = 0,
     LinkStatus_FAILED,
     LinkStatus_SUCCEEDED
@@ -42,6 +41,6 @@ private:
 #include "AppleVTFunctions.h"
 #undef LINK_FUNC
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // AppleVTLinker_h
+#endif  // AppleVTLinker_h

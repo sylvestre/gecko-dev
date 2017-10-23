@@ -28,7 +28,7 @@ struct DDLogMessage
   DDLogObject mObject;
   DDLogCategory mCategory;
   const char* mLabel;
-  DDLogValue mValue = DDLogValue{ DDNoValue{} };
+  DDLogValue mValue = DDLogValue{DDNoValue{}};
 
   // Print the message. Format:
   // "index | timestamp | object | category | label | value". E.g.:
@@ -41,6 +41,6 @@ struct DDLogMessage
   nsCString Print(const DDLifetimes& aLifetimes) const;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDLogMessage_h_
+#endif  // DDLogMessage_h_

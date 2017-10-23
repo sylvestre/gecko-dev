@@ -6,28 +6,30 @@
 #ifndef nsEditorSpellCheck_h___
 #define nsEditorSpellCheck_h___
 
-
-#include "nsCOMPtr.h"                   // for nsCOMPtr
+#include "nsCOMPtr.h"  // for nsCOMPtr
 #include "nsCycleCollectionParticipant.h"
-#include "nsIEditorSpellCheck.h"        // for NS_DECL_NSIEDITORSPELLCHECK, etc
+#include "nsIEditorSpellCheck.h"  // for NS_DECL_NSIEDITORSPELLCHECK, etc
 #include "nsISupportsImpl.h"
-#include "nsString.h"                   // for nsString
-#include "nsTArray.h"                   // for nsTArray
-#include "nscore.h"                     // for nsresult
+#include "nsString.h"  // for nsString
+#include "nsTArray.h"  // for nsTArray
+#include "nscore.h"    // for nsresult
 
 class nsIEditor;
 class nsISpellChecker;
 class nsITextServicesFilter;
 
-#define NS_EDITORSPELLCHECK_CID                     \
-{ /* {75656ad9-bd13-4c5d-939a-ec6351eea0cc} */        \
-    0x75656ad9, 0xbd13, 0x4c5d,                       \
-    { 0x93, 0x9a, 0xec, 0x63, 0x51, 0xee, 0xa0, 0xcc }\
-}
+#define NS_EDITORSPELLCHECK_CID                      \
+  { /* {75656ad9-bd13-4c5d-939a-ec6351eea0cc} */     \
+    0x75656ad9, 0xbd13, 0x4c5d,                      \
+    {                                                \
+      0x93, 0x9a, 0xec, 0x63, 0x51, 0xee, 0xa0, 0xcc \
+    }                                                \
+  }
 
 class DictionaryFetcher;
 
-enum dictCompare {
+enum dictCompare
+{
   DICT_NORMAL_COMPARE,
   DICT_COMPARE_CASE_INSENSITIVE,
   DICT_COMPARE_DASHMATCH
@@ -37,7 +39,7 @@ class nsEditorSpellCheck final : public nsIEditorSpellCheck
 {
   friend class DictionaryFetcher;
 
-public:
+ public:
   nsEditorSpellCheck();
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -46,20 +48,20 @@ public:
   /* Declare all methods in the nsIEditorSpellCheck interface */
   NS_DECL_NSIEDITORSPELLCHECK
 
-protected:
+ protected:
   virtual ~nsEditorSpellCheck();
 
   nsCOMPtr<nsISpellChecker> mSpellChecker;
 
-  nsTArray<nsString>  mSuggestedWordList;
-  int32_t        mSuggestedWordIndex;
+  nsTArray<nsString> mSuggestedWordList;
+  int32_t mSuggestedWordIndex;
 
   // these are the words in the current personal dictionary,
   // GetPersonalDictionary must be called to load them.
-  nsTArray<nsString>  mDictionaryList;
-  int32_t        mDictionaryIndex;
+  nsTArray<nsString> mDictionaryList;
+  int32_t mDictionaryIndex;
 
-  nsresult       DeleteSuggestedWordList();
+  nsresult DeleteSuggestedWordList();
 
   nsCOMPtr<nsITextServicesFilter> mTxtSrvFilter;
   nsCOMPtr<nsIEditor> mEditor;
@@ -79,12 +81,9 @@ protected:
 
   void SetFallbackDictionary(DictionaryFetcher* aFetcher);
 
-
-public:
-  void BeginUpdateDictionary() { mUpdateDictionaryRunning = true ;}
-  void EndUpdateDictionary() { mUpdateDictionaryRunning = false ;}
+ public:
+  void BeginUpdateDictionary() { mUpdateDictionaryRunning = true; }
+  void EndUpdateDictionary() { mUpdateDictionaryRunning = false; }
 };
 
-#endif // nsEditorSpellCheck_h___
-
-
+#endif  // nsEditorSpellCheck_h___

@@ -18,7 +18,7 @@ class CSSVariableResolver;
 
 class CSSVariableValues
 {
-public:
+ public:
   CSSVariableValues();
   CSSVariableValues(const CSSVariableValues& aOther);
 #ifdef DEBUG
@@ -28,7 +28,9 @@ public:
 
   bool operator==(const CSSVariableValues& aOther) const;
   bool operator!=(const CSSVariableValues& aOther) const
-    { return !(*this == aOther); }
+  {
+    return !(*this == aOther);
+  }
 
   /**
    * Gets the value of a variable in this set of computed variables.
@@ -101,23 +103,25 @@ public:
    */
   void AddVariablesToResolver(CSSVariableResolver* aResolver) const;
 
-private:
+ private:
   struct Variable
   {
     Variable()
-      : mFirstToken(eCSSTokenSerialization_Nothing)
-      , mLastToken(eCSSTokenSerialization_Nothing)
-    {}
+        : mFirstToken(eCSSTokenSerialization_Nothing),
+          mLastToken(eCSSTokenSerialization_Nothing)
+    {
+    }
 
     Variable(const nsAString& aVariableName,
              nsString aValue,
              nsCSSTokenSerializationType aFirstToken,
              nsCSSTokenSerializationType aLastToken)
-      : mVariableName(aVariableName)
-      , mValue(aValue)
-      , mFirstToken(aFirstToken)
-      , mLastToken(aLastToken)
-    {}
+        : mVariableName(aVariableName),
+          mValue(aValue),
+          mFirstToken(aFirstToken),
+          mLastToken(aLastToken)
+    {
+    }
 
     nsString mVariableName;
     nsString mValue;
@@ -142,6 +146,6 @@ private:
   nsTArray<Variable> mVariables;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

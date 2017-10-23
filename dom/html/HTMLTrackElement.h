@@ -28,8 +28,9 @@ class WindowDestroyObserver;
 
 class HTMLTrackElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLTrackElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLTrackElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -43,10 +44,7 @@ public:
     SetHTMLAttr(nsGkAtoms::kind, aKind, aError);
   }
 
-  void GetSrc(DOMString& aSrc) const
-  {
-    GetHTMLURIAttr(nsGkAtoms::src, aSrc);
-  }
+  void GetSrc(DOMString& aSrc) const { GetHTMLURIAttr(nsGkAtoms::src, aSrc); }
 
   void SetSrc(const nsAString& aSrc, ErrorResult& aError);
 
@@ -76,10 +74,7 @@ public:
     SetHTMLAttr(nsGkAtoms::label, aLabel, aError);
   }
 
-  bool Default() const
-  {
-    return GetBoolAttr(nsGkAtoms::_default);
-  }
+  bool Default() const { return GetBoolAttr(nsGkAtoms::_default); }
   void SetDefault(bool aDefault, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::_default, aDefault, aError);
@@ -90,7 +85,8 @@ public:
 
   TextTrack* GetTrack();
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // Override ParseAttribute() to convert kind strings to enum values.
@@ -114,11 +110,13 @@ public:
 
   void NotifyShutdown();
 
-protected:
+ protected:
   virtual ~HTMLTrackElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-  void OnChannelRedirect(nsIChannel* aChannel, nsIChannel* aNewChannel,
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
+  void OnChannelRedirect(nsIChannel* aChannel,
+                         nsIChannel* aNewChannel,
                          uint32_t aFlags);
   // Open a new channel to the HTMLTrackElement's src attribute and call
   // mListener's LoadResource().
@@ -134,14 +132,14 @@ protected:
 
   void CreateTextTrack();
 
-private:
+ private:
   void DispatchLoadResource();
   bool mLoadResourceDispatched;
 
   RefPtr<WindowDestroyObserver> mWindowDestroyObserver;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLTrackElement_h
+#endif  // mozilla_dom_HTMLTrackElement_h

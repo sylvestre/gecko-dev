@@ -16,50 +16,44 @@ class StorageEvent;
 
 class StorageNotificationObserver
 {
-public:
+ public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
-  virtual void
-  ObserveStorageNotification(StorageEvent* aEvent,
-                             const char16_t* aStorageType,
-                             bool aPrivateBrowsing) = 0;
+  virtual void ObserveStorageNotification(StorageEvent* aEvent,
+                                          const char16_t* aStorageType,
+                                          bool aPrivateBrowsing) = 0;
 
-  virtual bool
-  IsPrivateBrowsing() const = 0;
+  virtual bool IsPrivateBrowsing() const = 0;
 
-  virtual nsIPrincipal*
-  GetPrincipal() const = 0;
+  virtual nsIPrincipal* GetPrincipal() const = 0;
 
-  virtual nsIEventTarget*
-  GetEventTarget() const = 0;
+  virtual nsIEventTarget* GetEventTarget() const = 0;
 };
 
 class StorageNotifierService final
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(StorageNotifierService)
 
-  static StorageNotifierService*
-  GetOrCreate();
+  static StorageNotifierService* GetOrCreate();
 
-  static void
-  Broadcast(StorageEvent* aEvent, const char16_t* aStorageType,
-            bool aPrivateBrowsing, bool aImmediateDispatch);
+  static void Broadcast(StorageEvent* aEvent,
+                        const char16_t* aStorageType,
+                        bool aPrivateBrowsing,
+                        bool aImmediateDispatch);
 
-  void
-  Register(StorageNotificationObserver* aObserver);
+  void Register(StorageNotificationObserver* aObserver);
 
-  void
-  Unregister(StorageNotificationObserver* aObserver);
+  void Unregister(StorageNotificationObserver* aObserver);
 
-private:
+ private:
   StorageNotifierService();
   ~StorageNotifierService();
 
   nsTObserverArray<RefPtr<StorageNotificationObserver>> mObservers;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_StorageNotifierService_h
+#endif  // mozilla_dom_StorageNotifierService_h

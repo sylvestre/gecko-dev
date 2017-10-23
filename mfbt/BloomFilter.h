@@ -103,7 +103,7 @@ class BloomFilter
    * positive rate for N == 100 and to quite bad false positive
    * rates for larger N.
    */
-public:
+ public:
   BloomFilter()
   {
     static_assert(KeySize <= kKeyShift, "KeySize too big");
@@ -145,28 +145,19 @@ public:
   void remove(uint32_t aHash);
   bool mightContain(uint32_t aHash) const;
 
-private:
+ private:
   static const size_t kArraySize = (1 << KeySize);
   static const uint32_t kKeyMask = (1 << KeySize) - 1;
   static const uint32_t kKeyShift = 16;
 
-  static uint32_t hash1(uint32_t aHash)
-  {
-    return aHash & kKeyMask;
-  }
+  static uint32_t hash1(uint32_t aHash) { return aHash & kKeyMask; }
   static uint32_t hash2(uint32_t aHash)
   {
     return (aHash >> kKeyShift) & kKeyMask;
   }
 
-  uint8_t& firstSlot(uint32_t aHash)
-  {
-    return mCounters[hash1(aHash)];
-  }
-  uint8_t& secondSlot(uint32_t aHash)
-  {
-    return mCounters[hash2(aHash)];
-  }
+  uint8_t& firstSlot(uint32_t aHash) { return mCounters[hash1(aHash)]; }
+  uint8_t& secondSlot(uint32_t aHash) { return mCounters[hash2(aHash)]; }
 
   const uint8_t& firstSlot(uint32_t aHash) const
   {
@@ -251,6 +242,6 @@ BloomFilter<KeySize, T>::mightContain(const T* aValue) const
   return mightContain(hash);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_BloomFilter_h */

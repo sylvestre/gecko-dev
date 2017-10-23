@@ -26,13 +26,11 @@ class ThrottleInputStream;
  * may be a bit choppy.
  */
 
-class ThrottleQueue final
-  : public nsIInputChannelThrottleQueue
-  , public nsITimerCallback
-  , public nsINamed
+class ThrottleQueue final : public nsIInputChannelThrottleQueue,
+                            public nsITimerCallback,
+                            public nsINamed
 {
-public:
-
+ public:
   ThrottleQueue();
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -43,11 +41,11 @@ public:
   void QueueStream(ThrottleInputStream* aStream);
   void DequeueStream(ThrottleInputStream* aStream);
 
-private:
-
+ private:
   ~ThrottleQueue();
 
-  struct ThrottleEntry {
+  struct ThrottleEntry
+  {
     TimeStamp mTime;
     uint32_t mBytesRead;
   };
@@ -62,7 +60,7 @@ private:
   bool mTimerArmed;
 };
 
-}
-}
+}  // namespace net
+}  // namespace mozilla
 
-#endif //  mozilla_net_ThrottleQueue_h
+#endif  //  mozilla_net_ThrottleQueue_h

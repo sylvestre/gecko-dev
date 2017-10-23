@@ -15,7 +15,8 @@
 namespace mozilla {
 
 void
-GetMaybeResultPrincipalURI(nsIDocShellLoadInfo* aLoadInfo, Maybe<nsCOMPtr<nsIURI>>& aRPURI)
+GetMaybeResultPrincipalURI(nsIDocShellLoadInfo* aLoadInfo,
+                           Maybe<nsCOMPtr<nsIURI>>& aRPURI)
 {
   if (!aLoadInfo) {
     return;
@@ -45,7 +46,8 @@ GetMaybeResultPrincipalURI(nsIDocShellLoadInfo* aLoadInfo, Maybe<nsCOMPtr<nsIURI
 }
 
 void
-SetMaybeResultPrincipalURI(nsIDocShellLoadInfo* aLoadInfo, Maybe<nsCOMPtr<nsIURI>> const& aRPURI)
+SetMaybeResultPrincipalURI(nsIDocShellLoadInfo* aLoadInfo,
+                           Maybe<nsCOMPtr<nsIURI>> const& aRPURI)
 {
   if (!aLoadInfo) {
     return;
@@ -60,23 +62,21 @@ SetMaybeResultPrincipalURI(nsIDocShellLoadInfo* aLoadInfo, Maybe<nsCOMPtr<nsIURI
   Unused << NS_WARN_IF(NS_FAILED(rv));
 }
 
-} // mozilla
+}  // namespace mozilla
 
 nsDocShellLoadInfo::nsDocShellLoadInfo()
-  : mResultPrincipalURIIsSome(false)
-  , mLoadReplace(false)
-  , mInheritPrincipal(false)
-  , mPrincipalIsExplicit(false)
-  , mSendReferrer(true)
-  , mReferrerPolicy(mozilla::net::RP_Unset)
-  , mLoadType(nsIDocShellLoadInfo::loadNormal)
-  , mIsSrcdocLoad(false)
+    : mResultPrincipalURIIsSome(false),
+      mLoadReplace(false),
+      mInheritPrincipal(false),
+      mPrincipalIsExplicit(false),
+      mSendReferrer(true),
+      mReferrerPolicy(mozilla::net::RP_Unset),
+      mLoadType(nsIDocShellLoadInfo::loadNormal),
+      mIsSrcdocLoad(false)
 {
 }
 
-nsDocShellLoadInfo::~nsDocShellLoadInfo()
-{
-}
+nsDocShellLoadInfo::~nsDocShellLoadInfo() {}
 
 NS_IMPL_ADDREF(nsDocShellLoadInfo)
 NS_IMPL_RELEASE(nsDocShellLoadInfo)

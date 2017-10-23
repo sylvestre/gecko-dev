@@ -19,30 +19,25 @@
 
 namespace js {
 
-inline bool
-NewObjectCache::lookupProto(const Class* clasp, JSObject* proto, gc::AllocKind kind, EntryIndex* pentry)
-{
+inline bool NewObjectCache::lookupProto(const Class* clasp, JSObject* proto, gc::AllocKind kind,
+                                        EntryIndex* pentry) {
     MOZ_ASSERT(!proto->is<GlobalObject>());
     return lookup(clasp, proto, kind, pentry);
 }
 
-inline bool
-NewObjectCache::lookupGlobal(const Class* clasp, GlobalObject* global, gc::AllocKind kind, EntryIndex* pentry)
-{
+inline bool NewObjectCache::lookupGlobal(const Class* clasp, GlobalObject* global,
+                                         gc::AllocKind kind, EntryIndex* pentry) {
     return lookup(clasp, global, kind, pentry);
 }
 
-inline void
-NewObjectCache::fillGlobal(EntryIndex entry, const Class* clasp, GlobalObject* global,
-                           gc::AllocKind kind, NativeObject* obj)
-{
+inline void NewObjectCache::fillGlobal(EntryIndex entry, const Class* clasp, GlobalObject* global,
+                                       gc::AllocKind kind, NativeObject* obj) {
     //MOZ_ASSERT(global == obj->getGlobal());
     return fill(entry, clasp, global, kind, obj);
 }
 
-inline NativeObject*
-NewObjectCache::newObjectFromHit(JSContext* cx, EntryIndex entryIndex, gc::InitialHeap heap)
-{
+inline NativeObject* NewObjectCache::newObjectFromHit(JSContext* cx, EntryIndex entryIndex,
+                                                      gc::InitialHeap heap) {
     MOZ_ASSERT(unsigned(entryIndex) < mozilla::ArrayLength(entries));
     Entry* entry = &entries[entryIndex];
 
@@ -54,16 +49,13 @@ NewObjectCache::newObjectFromHit(JSContext* cx, EntryIndex entryIndex, gc::Initi
 
     MOZ_ASSERT(!group->hasUnanalyzedPreliminaryObjects());
 
-    if (group->shouldPreTenure())
-        heap = gc::TenuredHeap;
+    if (group->shouldPreTenure()) heap = gc::TenuredHeap;
 
-    if (cx->runtime()->gc.upcomingZealousGC())
-        return nullptr;
+    if (cx->runtime()->gc.upcomingZealousGC()) return nullptr;
 
-    NativeObject* obj = static_cast<NativeObject*>(Allocate<JSObject, NoGC>(cx, entry->kind, 0,
-                                                                            heap, group->clasp()));
-    if (!obj)
-        return nullptr;
+    NativeObject* obj = static_cast<NativeObject*>(
+        Allocate<JSObject, NoGC>(cx, entry->kind, 0, heap, group->clasp()));
+    if (!obj) return nullptr;
 
     copyCachedToObject(obj, templateObj, entry->kind);
 
@@ -77,6 +69,6 @@ NewObjectCache::newObjectFromHit(JSContext* cx, EntryIndex entryIndex, gc::Initi
     return obj;
 }
 
-}  /* namespace js */
+} /* namespace js */
 
 #endif /* vm_Caches_inl_h */

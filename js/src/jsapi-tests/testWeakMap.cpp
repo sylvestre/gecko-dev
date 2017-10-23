@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -13,8 +13,7 @@
 
 JSObject* keyDelegate = nullptr;
 
-BEGIN_TEST(testWeakMap_basicOperations)
-{
+BEGIN_TEST(testWeakMap_basicOperations) {
     JS::RootedObject map(cx, JS::NewWeakMapObject(cx));
     CHECK(IsWeakMapObject(map));
 
@@ -49,14 +48,9 @@ BEGIN_TEST(testWeakMap_basicOperations)
     return true;
 }
 
-JSObject* newKey()
-{
-    return JS_NewPlainObject(cx);
-}
+JSObject* newKey() { return JS_NewPlainObject(cx); }
 
-bool
-checkSize(JS::HandleObject map, uint32_t expected)
-{
+bool checkSize(JS::HandleObject map, uint32_t expected) {
     JS::RootedObject keys(cx);
     CHECK(JS_NondeterministicGetWeakMapKeys(cx, map, &keys));
 
@@ -68,8 +62,7 @@ checkSize(JS::HandleObject map, uint32_t expected)
 }
 END_TEST(testWeakMap_basicOperations)
 
-BEGIN_TEST(testWeakMap_keyDelegates)
-{
+BEGIN_TEST(testWeakMap_keyDelegates) {
 #ifdef JS_GC_ZEAL
     AutoLeaveZeal nozeal(cx);
 #endif /* JS_GC_ZEAL */
@@ -103,8 +96,7 @@ BEGIN_TEST(testWeakMap_keyDelegates)
     CHECK(newCCW(map, delegateRoot));
     js::SliceBudget budget(js::WorkBudget(1000000));
     cx->runtime()->gc.startDebugGC(GC_NORMAL, budget);
-    while (JS::IsIncrementalGCInProgress(cx))
-        cx->runtime()->gc.debugGCSlice(budget);
+    while (JS::IsIncrementalGCInProgress(cx)) cx->runtime()->gc.debugGCSlice(budget);
 #ifdef DEBUG
     CHECK(map->zone()->lastSweepGroupIndex() < delegateRoot->zone()->lastSweepGroupIndex());
 #endif
@@ -119,8 +111,7 @@ BEGIN_TEST(testWeakMap_keyDelegates)
     CHECK(newCCW(map, delegateRoot));
     budget = js::SliceBudget(js::WorkBudget(100000));
     cx->runtime()->gc.startDebugGC(GC_NORMAL, budget);
-    while (JS::IsIncrementalGCInProgress(cx))
-        cx->runtime()->gc.debugGCSlice(budget);
+    while (JS::IsIncrementalGCInProgress(cx)) cx->runtime()->gc.debugGCSlice(budget);
     CHECK(checkSize(map, 1));
 
     /*
@@ -140,46 +131,31 @@ BEGIN_TEST(testWeakMap_keyDelegates)
     return true;
 }
 
-static size_t
-DelegateObjectMoved(JSObject* obj, JSObject* old)
-{
-    if (!keyDelegate)
-        return 0;  // Object got moved before we set keyDelegate to point to it.
+static size_t DelegateObjectMoved(JSObject* obj, JSObject* old) {
+    if (!keyDelegate) return 0;  // Object got moved before we set keyDelegate to point to it.
 
     MOZ_RELEASE_ASSERT(keyDelegate == old);
     keyDelegate = obj;
     return 0;
 }
 
-static JSObject* GetKeyDelegate(JSObject* obj)
-{
-    return keyDelegate;
-}
+static JSObject* GetKeyDelegate(JSObject* obj) { return keyDelegate; }
 
-JSObject* newKey()
-{
-    static const js::ClassExtension keyClassExtension = {
-        GetKeyDelegate
-    };
+JSObject* newKey() {
+    static const js::ClassExtension keyClassExtension = {GetKeyDelegate};
 
     static const js::Class keyClass = {
-        "keyWithDelegate",
-        JSCLASS_HAS_PRIVATE | JSCLASS_HAS_RESERVED_SLOTS(1),
-        JS_NULL_CLASS_OPS,
-        JS_NULL_CLASS_SPEC,
-        &keyClassExtension,
-        JS_NULL_OBJECT_OPS
-    };
+        "keyWithDelegate",  JSCLASS_HAS_PRIVATE | JSCLASS_HAS_RESERVED_SLOTS(1),
+        JS_NULL_CLASS_OPS,  JS_NULL_CLASS_SPEC,
+        &keyClassExtension, JS_NULL_OBJECT_OPS};
 
     JS::RootedObject key(cx, JS_NewObject(cx, Jsvalify(&keyClass)));
-    if (!key)
-        return nullptr;
+    if (!key) return nullptr;
 
     return key;
 }
 
-JSObject* newCCW(JS::HandleObject sourceZone, JS::HandleObject destZone)
-{
+JSObject* newCCW(JS::HandleObject sourceZone, JS::HandleObject destZone) {
     /*
      * Now ensure that this zone will be swept first by adding a cross
      * compartment wrapper to a new objct in the same zone as the
@@ -189,13 +165,11 @@ JSObject* newCCW(JS::HandleObject sourceZone, JS::HandleObject destZone)
     {
         JSAutoCompartment ac(cx, destZone);
         object = JS_NewPlainObject(cx);
-        if (!object)
-            return nullptr;
+        if (!object) return nullptr;
     }
     {
         JSAutoCompartment ac(cx, sourceZone);
-        if (!JS_WrapObject(cx, &object))
-            return nullptr;
+        if (!JS_WrapObject(cx, &object)) return nullptr;
     }
 
     // In order to test the SCC algorithm, we need the wrapper/wrappee to be
@@ -205,8 +179,7 @@ JSObject* newCCW(JS::HandleObject sourceZone, JS::HandleObject destZone)
     return object;
 }
 
-JSObject* newDelegate()
-{
+JSObject* newDelegate() {
     static const js::ClassOps delegateClassOps = {
         nullptr, /* addProperty */
         nullptr, /* delProperty */
@@ -221,19 +194,14 @@ JSObject* newDelegate()
         JS_GlobalObjectTraceHook,
     };
 
-    static const js::ClassExtension delegateClassExtension = {
-        nullptr,
-        DelegateObjectMoved
-    };
+    static const js::ClassExtension delegateClassExtension = {nullptr, DelegateObjectMoved};
 
-    static const js::Class delegateClass = {
-        "delegate",
-        JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_RESERVED_SLOTS(1),
-        &delegateClassOps,
-        JS_NULL_CLASS_SPEC,
-        &delegateClassExtension,
-        JS_NULL_OBJECT_OPS
-    };
+    static const js::Class delegateClass = {"delegate",
+                                            JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_RESERVED_SLOTS(1),
+                                            &delegateClassOps,
+                                            JS_NULL_CLASS_SPEC,
+                                            &delegateClassExtension,
+                                            JS_NULL_OBJECT_OPS};
 
     /* Create the global object. */
     JS::CompartmentOptions options;
@@ -241,16 +209,13 @@ JSObject* newDelegate()
 
     JS::RootedObject global(cx, JS_NewGlobalObject(cx, Jsvalify(&delegateClass), nullptr,
                                                    JS::FireOnNewGlobalHook, options));
-    if (!global)
-        return nullptr;
+    if (!global) return nullptr;
 
     JS_SetReservedSlot(global, 0, JS::Int32Value(42));
     return global;
 }
 
-bool
-checkSize(JS::HandleObject map, uint32_t expected)
-{
+bool checkSize(JS::HandleObject map, uint32_t expected) {
     JS::RootedObject keys(cx);
     CHECK(JS_NondeterministicGetWeakMapKeys(cx, map, &keys));
 

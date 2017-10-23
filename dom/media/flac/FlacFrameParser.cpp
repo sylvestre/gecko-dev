@@ -13,13 +13,12 @@
 
 using mp4_demuxer::ByteReader;
 
-namespace mozilla
-{
+namespace mozilla {
 
 #define OGG_FLAC_METADATA_TYPE_STREAMINFO 0x7F
-#define FLAC_STREAMINFO_SIZE   34
+#define FLAC_STREAMINFO_SIZE 34
 
-#define BITMASK(x) ((1ULL << x)-1)
+#define BITMASK(x) ((1ULL << x) - 1)
 
 enum
 {
@@ -34,19 +33,17 @@ enum
 };
 
 FlacFrameParser::FlacFrameParser()
-  : mMinBlockSize(0)
-  , mMaxBlockSize(0)
-  , mMinFrameSize(0)
-  , mMaxFrameSize(0)
-  , mNumFrames(0)
-  , mFullMetadata(false)
-  , mPacketCount(0)
+    : mMinBlockSize(0),
+      mMaxBlockSize(0),
+      mMinFrameSize(0),
+      mMaxFrameSize(0),
+      mNumFrames(0),
+      mFullMetadata(false),
+      mPacketCount(0)
 {
 }
 
-FlacFrameParser::~FlacFrameParser()
-{
-}
+FlacFrameParser::~FlacFrameParser() {}
 
 uint32_t
 FlacFrameParser::HeaderBlockLength(const uint8_t* aPacket) const
@@ -94,9 +91,9 @@ FlacFrameParser::DecodeHeaderBlock(const uint8_t* aPacket, size_t aLength)
       // unsupported version;
       return false;
     }
-    br.ReadU8(); // minor version
+    br.ReadU8();  // minor version
     mNumHeaders = Some(uint32_t(br.ReadU16()));
-    br.Read(4); // fLaC
+    br.Read(4);  // fLaC
     blockType = br.ReadU8() & BITMASK(7);
     // First METADATA_BLOCK_STREAMINFO
     if (blockType != FLAC_METADATA_TYPE_STREAMINFO) {
@@ -113,8 +110,7 @@ FlacFrameParser::DecodeHeaderBlock(const uint8_t* aPacket, size_t aLength)
   }
 
   switch (blockType) {
-    case FLAC_METADATA_TYPE_STREAMINFO:
-    {
+    case FLAC_METADATA_TYPE_STREAMINFO: {
       if (mPacketCount != 1 || blockDataSize != FLAC_STREAMINFO_SIZE) {
         // STREAMINFO must be the first metadata block found, and its size
         // is constant.
@@ -151,8 +147,7 @@ FlacFrameParser::DecodeHeaderBlock(const uint8_t* aPacket, size_t aLength)
       mParser = new OpusParser;
       break;
     }
-    case FLAC_METADATA_TYPE_VORBIS_COMMENT:
-    {
+    case FLAC_METADATA_TYPE_VORBIS_COMMENT: {
       if (!mParser) {
         // We must have seen a valid streaminfo first.
         return false;
@@ -237,12 +232,11 @@ FlacFrameParser::GetTags() const
 
   tags = new MetadataTags;
   for (uint32_t i = 0; i < mParser->mTags.Length(); i++) {
-    OggCodecState::AddVorbisComment(tags,
-                                    mParser->mTags[i].Data(),
-                                    mParser->mTags[i].Length());
+    OggCodecState::AddVorbisComment(
+        tags, mParser->mTags[i].Data(), mParser->mTags[i].Length());
   }
 
   return tags;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

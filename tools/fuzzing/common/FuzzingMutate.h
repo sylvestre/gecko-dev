@@ -15,12 +15,12 @@ namespace fuzzing {
 
 class FuzzingMutate
 {
-public:
+ public:
   static void ChangeBit(uint8_t* aData, size_t aLength);
   static void ChangeByte(uint8_t* aData, size_t aLength);
 };
 
-} // namespace fuzzing
-} // namespace mozilla
+}  // namespace fuzzing
+}  // namespace mozilla
 
 #endif

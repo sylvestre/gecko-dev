@@ -20,17 +20,18 @@
 
 namespace mozilla {
 
-StyleSheet::StyleSheet(StyleBackendType aType, css::SheetParsingMode aParsingMode)
-  : mParent(nullptr)
-  , mDocument(nullptr)
-  , mOwningNode(nullptr)
-  , mOwnerRule(nullptr)
-  , mParsingMode(aParsingMode)
-  , mType(aType)
-  , mDisabled(false)
-  , mDirty(false)
-  , mDocumentAssociationMode(NotOwnedByDocument)
-  , mInner(nullptr)
+StyleSheet::StyleSheet(StyleBackendType aType,
+                       css::SheetParsingMode aParsingMode)
+    : mParent(nullptr),
+      mDocument(nullptr),
+      mOwningNode(nullptr),
+      mOwnerRule(nullptr),
+      mParsingMode(aParsingMode),
+      mType(aType),
+      mDisabled(false),
+      mDirty(false),
+      mDocumentAssociationMode(NotOwnedByDocument),
+      mInner(nullptr)
 {
 }
 
@@ -39,19 +40,21 @@ StyleSheet::StyleSheet(const StyleSheet& aCopy,
                        dom::CSSImportRule* aOwnerRuleToUse,
                        nsIDocument* aDocumentToUse,
                        nsINode* aOwningNodeToUse)
-  : mParent(aParentToUse)
-  , mTitle(aCopy.mTitle)
-  , mDocument(aDocumentToUse)
-  , mOwningNode(aOwningNodeToUse)
-  , mOwnerRule(aOwnerRuleToUse)
-  , mParsingMode(aCopy.mParsingMode)
-  , mType(aCopy.mType)
-  , mDisabled(aCopy.mDisabled)
-  , mDirty(aCopy.mDirty)
-  // We only use this constructor during cloning.  It's the cloner's
-  // responsibility to notify us if we end up being owned by a document.
-  , mDocumentAssociationMode(NotOwnedByDocument)
-  , mInner(aCopy.mInner) // Shallow copy, but concrete subclasses will fix up.
+    : mParent(aParentToUse),
+      mTitle(aCopy.mTitle),
+      mDocument(aDocumentToUse),
+      mOwningNode(aOwningNodeToUse),
+      mOwnerRule(aOwnerRuleToUse),
+      mParsingMode(aCopy.mParsingMode),
+      mType(aCopy.mType),
+      mDisabled(aCopy.mDisabled),
+      mDirty(aCopy.mDirty)
+      // We only use this constructor during cloning.  It's the cloner's
+      // responsibility to notify us if we end up being owned by a document.
+      ,
+      mDocumentAssociationMode(NotOwnedByDocument),
+      mInner(
+          aCopy.mInner)  // Shallow copy, but concrete subclasses will fix up.
 {
   MOZ_ASSERT(mInner, "Should only copy StyleSheets with an mInner.");
   mInner->AddSheet(this);
@@ -125,7 +128,7 @@ StyleSheet::UnlinkInner()
 }
 
 void
-StyleSheet::TraverseInner(nsCycleCollectionTraversalCallback &cb)
+StyleSheet::TraverseInner(nsCycleCollectionTraversalCallback& cb)
 {
   // We can only have a cycle through our inner if we have a unique inner,
   // because otherwise there are no JS wrappers for anything in the inner.
@@ -175,13 +178,17 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(StyleSheet)
 mozilla::dom::CSSStyleSheetParsingMode
 StyleSheet::ParsingModeDOM()
 {
-#define CHECK(X, Y) \
+#define CHECK(X, Y)                                                     \
   static_assert(static_cast<int>(X) == static_cast<int>(Y),             \
-                "mozilla::dom::CSSStyleSheetParsingMode and mozilla::css::SheetParsingMode should have identical values");
+                "mozilla::dom::CSSStyleSheetParsingMode and "           \
+                "mozilla::css::SheetParsingMode should have identical " \
+                "values");
 
-  CHECK(mozilla::dom::CSSStyleSheetParsingMode::Agent, css::eAgentSheetFeatures);
+  CHECK(mozilla::dom::CSSStyleSheetParsingMode::Agent,
+        css::eAgentSheetFeatures);
   CHECK(mozilla::dom::CSSStyleSheetParsingMode::User, css::eUserSheetFeatures);
-  CHECK(mozilla::dom::CSSStyleSheetParsingMode::Author, css::eAuthorSheetFeatures);
+  CHECK(mozilla::dom::CSSStyleSheetParsingMode::Author,
+        css::eAuthorSheetFeatures);
 
 #undef CHECK
 
@@ -209,7 +216,8 @@ StyleSheet::SetComplete()
   if (mOwningNode && !mDisabled &&
       mOwningNode->HasFlag(NODE_IS_IN_SHADOW_TREE) &&
       mOwningNode->IsContent()) {
-    dom::ShadowRoot* shadowRoot = mOwningNode->AsContent()->GetContainingShadow();
+    dom::ShadowRoot* shadowRoot =
+        mOwningNode->AsContent()->GetContainingShadow();
     shadowRoot->StyleSheetChanged();
   }
 }
@@ -233,13 +241,14 @@ StyleSheet::SetEnabled(bool aEnabled)
 StyleSheetInfo::StyleSheetInfo(CORSMode aCORSMode,
                                ReferrerPolicy aReferrerPolicy,
                                const dom::SRIMetadata& aIntegrity)
-  : mPrincipal(NullPrincipal::Create())
-  , mCORSMode(aCORSMode)
-  , mReferrerPolicy(aReferrerPolicy)
-  , mIntegrity(aIntegrity)
-  , mComplete(false)
+    : mPrincipal(NullPrincipal::Create()),
+      mCORSMode(aCORSMode),
+      mReferrerPolicy(aReferrerPolicy),
+      mIntegrity(aIntegrity),
+      mComplete(false)
 #ifdef DEBUG
-  , mPrincipalSet(false)
+      ,
+      mPrincipalSet(false)
 #endif
 {
   if (!mPrincipal) {
@@ -247,31 +256,30 @@ StyleSheetInfo::StyleSheetInfo(CORSMode aCORSMode,
   }
 }
 
-StyleSheetInfo::StyleSheetInfo(StyleSheetInfo& aCopy,
-                               StyleSheet* aPrimarySheet)
-  : mSheetURI(aCopy.mSheetURI)
-  , mOriginalSheetURI(aCopy.mOriginalSheetURI)
-  , mBaseURI(aCopy.mBaseURI)
-  , mPrincipal(aCopy.mPrincipal)
-  , mCORSMode(aCopy.mCORSMode)
-  , mReferrerPolicy(aCopy.mReferrerPolicy)
-  , mIntegrity(aCopy.mIntegrity)
-  , mComplete(aCopy.mComplete)
-  , mFirstChild()  // We don't rebuild the child because we're making a copy
-                   // without children.
-  , mSourceMapURL(aCopy.mSourceMapURL)
-  , mSourceMapURLFromComment(aCopy.mSourceMapURLFromComment)
-  , mSourceURL(aCopy.mSourceURL)
+StyleSheetInfo::StyleSheetInfo(StyleSheetInfo& aCopy, StyleSheet* aPrimarySheet)
+    : mSheetURI(aCopy.mSheetURI),
+      mOriginalSheetURI(aCopy.mOriginalSheetURI),
+      mBaseURI(aCopy.mBaseURI),
+      mPrincipal(aCopy.mPrincipal),
+      mCORSMode(aCopy.mCORSMode),
+      mReferrerPolicy(aCopy.mReferrerPolicy),
+      mIntegrity(aCopy.mIntegrity),
+      mComplete(aCopy.mComplete),
+      mFirstChild()  // We don't rebuild the child because we're making a copy
+                     // without children.
+      ,
+      mSourceMapURL(aCopy.mSourceMapURL),
+      mSourceMapURLFromComment(aCopy.mSourceMapURLFromComment),
+      mSourceURL(aCopy.mSourceURL)
 #ifdef DEBUG
-  , mPrincipalSet(aCopy.mPrincipalSet)
+      ,
+      mPrincipalSet(aCopy.mPrincipalSet)
 #endif
 {
   AddSheet(aPrimarySheet);
 }
 
-StyleSheetInfo::~StyleSheetInfo()
-{
-}
+StyleSheetInfo::~StyleSheetInfo() {}
 
 void
 StyleSheetInfo::AddSheet(StyleSheet* aSheet)
@@ -283,7 +291,8 @@ void
 StyleSheetInfo::RemoveSheet(StyleSheet* aSheet)
 {
   if ((aSheet == mSheets.ElementAt(0)) && (mSheets.Length() > 1)) {
-    StyleSheet::ChildSheetListBuilder::ReparentChildList(mSheets[1], mFirstChild);
+    StyleSheet::ChildSheetListBuilder::ReparentChildList(mSheets[1],
+                                                         mFirstChild);
   }
 
   if (1 == mSheets.Length()) {
@@ -307,7 +316,7 @@ void
 StyleSheet::ChildSheetListBuilder::ReparentChildList(StyleSheet* aPrimarySheet,
                                                      StyleSheet* aFirstChild)
 {
-  for (StyleSheet *child = aFirstChild; child; child = child->mNext) {
+  for (StyleSheet* child = aFirstChild; child; child = child->mNext) {
     child->mParent = aPrimarySheet;
     child->SetAssociatedDocument(aPrimarySheet->mDocument,
                                  aPrimarySheet->mDocumentAssociationMode);
@@ -397,18 +406,18 @@ StyleSheet::GetCssRules(nsIDOMCSSRuleList** aCssRules)
 {
   ErrorResult rv;
   nsCOMPtr<nsIDOMCSSRuleList> rules =
-    GetCssRules(*nsContentUtils::SubjectPrincipal(), rv);
+      GetCssRules(*nsContentUtils::SubjectPrincipal(), rv);
   rules.forget(aCssRules);
   return rv.StealNSResult();
 }
 
 NS_IMETHODIMP
-StyleSheet::InsertRule(const nsAString& aRule, uint32_t aIndex,
+StyleSheet::InsertRule(const nsAString& aRule,
+                       uint32_t aIndex,
                        uint32_t* aReturn)
 {
   ErrorResult rv;
-  *aReturn =
-    InsertRule(aRule, aIndex, *nsContentUtils::SubjectPrincipal(), rv);
+  *aReturn = InsertRule(aRule, aIndex, *nsContentUtils::SubjectPrincipal(), rv);
   return rv.StealNSResult();
 }
 
@@ -431,8 +440,7 @@ StyleSheet::WillDirty()
 void
 StyleSheet::AddStyleSet(const StyleSetHandle& aStyleSet)
 {
-  NS_ASSERTION(!mStyleSets.Contains(aStyleSet),
-               "style set already registered");
+  NS_ASSERTION(!mStyleSets.Contains(aStyleSet), "style set already registered");
   mStyleSets.AppendElement(aStyleSet);
 }
 
@@ -446,8 +454,7 @@ StyleSheet::DropStyleSet(const StyleSetHandle& aStyleSet)
 void
 StyleSheet::EnsureUniqueInner()
 {
-  MOZ_ASSERT(mInner->mSheets.Length() != 0,
-             "unexpected number of outers");
+  MOZ_ASSERT(mInner->mSheets.Length() != 0, "unexpected number of outers");
   mDirty = true;
 
   if (HasUniqueInner()) {
@@ -491,17 +498,16 @@ StyleSheet::AppendAllChildSheets(nsTArray<StyleSheet*>& aArray)
   }
 }
 
-// WebIDL CSSStyleSheet API
+  // WebIDL CSSStyleSheet API
 
 #define FORWARD_INTERNAL(method_, args_) \
-  if (IsServo()) { \
-    return AsServo()->method_ args_; \
-  } \
+  if (IsServo()) {                       \
+    return AsServo()->method_ args_;     \
+  }                                      \
   return AsGecko()->method_ args_;
 
 dom::CSSRuleList*
-StyleSheet::GetCssRules(nsIPrincipal& aSubjectPrincipal,
-                        ErrorResult& aRv)
+StyleSheet::GetCssRules(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv)
 {
   if (!AreRulesAvailable(aSubjectPrincipal, aRv)) {
     return nullptr;
@@ -526,7 +532,8 @@ StyleSheet::SetSourceMapURL(const nsAString& aSourceMapURL)
 }
 
 void
-StyleSheet::SetSourceMapURLFromComment(const nsAString& aSourceMapURLFromComment)
+StyleSheet::SetSourceMapURLFromComment(
+    const nsAString& aSourceMapURLFromComment)
 {
   mInner->mSourceMapURLFromComment = aSourceMapURLFromComment;
 }
@@ -550,7 +557,8 @@ StyleSheet::GetDOMOwnerRule() const
 }
 
 uint32_t
-StyleSheet::InsertRule(const nsAString& aRule, uint32_t aIndex,
+StyleSheet::InsertRule(const nsAString& aRule,
+                       uint32_t aIndex,
                        nsIPrincipal& aSubjectPrincipal,
                        ErrorResult& aRv)
 {
@@ -675,9 +683,7 @@ StyleSheet::UnparentChildren()
 {
   // XXXbz this is a little bogus; see the XXX comment where we
   // declare mFirstChild in StyleSheetInfo.
-  for (StyleSheet* child = GetFirstChild();
-       child;
-       child = child->mNext) {
+  for (StyleSheet* child = GetFirstChild(); child; child = child->mNext) {
     if (child->mParent == this) {
       child->mParent = nullptr;
       MOZ_ASSERT(child->mDocumentAssociationMode == NotOwnedByDocument,
@@ -700,8 +706,7 @@ StyleSheet::SubjectSubsumesInnerPrincipal(nsIPrincipal& aSubjectPrincipal,
 
   // Allow access only if CORS mode is not NONE and the security flag
   // is not turned off.
-  if (GetCORSMode() == CORS_NONE &&
-      !nsContentUtils::BypassCSSOMOriginCheck()) {
+  if (GetCORSMode() == CORS_NONE && !nsContentUtils::BypassCSSOMOriginCheck()) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
     return;
   }
@@ -730,8 +735,7 @@ StyleSheet::SubjectSubsumesInnerPrincipal(nsIPrincipal& aSubjectPrincipal,
 }
 
 bool
-StyleSheet::AreRulesAvailable(nsIPrincipal& aSubjectPrincipal,
-                              ErrorResult& aRv)
+StyleSheet::AreRulesAvailable(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv)
 {
   // Rules are not available on incomplete sheets.
   if (!SheetInfo().mComplete) {
@@ -766,8 +770,7 @@ StyleSheet::SetAssociatedDocument(nsIDocument* aDocument,
   // Now set the same document on all our child sheets....
   // XXXbz this is a little bogus; see the XXX comment where we
   // declare mFirstChild.
-  for (StyleSheet* child = GetFirstChild();
-       child; child = child->mNext) {
+  for (StyleSheet* child = GetFirstChild(); child; child = child->mNext) {
     if (child->mParent == this) {
       child->SetAssociatedDocument(aDocument, aAssociationMode);
     }
@@ -829,7 +832,7 @@ StyleSheet::List(FILE* out, int32_t aIndent) const
 
   // Indent
   nsAutoCString str;
-  for (index = aIndent; --index >= 0; ) {
+  for (index = aIndent; --index >= 0;) {
     str.AppendLiteral("  ");
   }
 
@@ -842,16 +845,14 @@ StyleSheet::List(FILE* out, int32_t aIndent) const
 
   if (mMedia) {
     str.AppendLiteral(" media: ");
-    nsAutoString  buffer;
+    nsAutoString buffer;
     mMedia->GetText(buffer);
     AppendUTF16toUTF8(buffer, str);
   }
   str.Append('\n');
   fprintf_stderr(out, "%s", str.get());
 
-  for (const StyleSheet* child = GetFirstChild();
-       child;
-       child = child->mNext) {
+  for (const StyleSheet* child = GetFirstChild(); child; child = child->mNext) {
     child->List(out, aIndent + 1);
   }
 }
@@ -902,4 +903,4 @@ StyleSheet::RuleHasPendingChildSheet(css::Rule* aRule)
   return false;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

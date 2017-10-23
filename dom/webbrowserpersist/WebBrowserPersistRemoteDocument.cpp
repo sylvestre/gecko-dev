@@ -12,137 +12,136 @@
 
 namespace mozilla {
 
-NS_IMPL_ISUPPORTS(WebBrowserPersistRemoteDocument,
-                  nsIWebBrowserPersistDocument)
+NS_IMPL_ISUPPORTS(WebBrowserPersistRemoteDocument, nsIWebBrowserPersistDocument)
 
-WebBrowserPersistRemoteDocument
-::WebBrowserPersistRemoteDocument(WebBrowserPersistDocumentParent* aActor,
-                                  const Attrs& aAttrs,
-                                  nsIInputStream* aPostData)
-: mActor(aActor)
-, mAttrs(aAttrs)
-, mPostData(aPostData)
+WebBrowserPersistRemoteDocument ::WebBrowserPersistRemoteDocument(
+    WebBrowserPersistDocumentParent* aActor,
+    const Attrs& aAttrs,
+    nsIInputStream* aPostData)
+    : mActor(aActor), mAttrs(aAttrs), mPostData(aPostData)
 {
 }
 
 WebBrowserPersistRemoteDocument::~WebBrowserPersistRemoteDocument()
 {
-    if (mActor) {
-        Unused << mActor->Send__delete__(mActor);
-        // That will call mActor->ActorDestroy, which calls this->ActorDestroy
-        // (whether or not the IPC send succeeds).
-    }
-    MOZ_ASSERT(!mActor);
+  if (mActor) {
+    Unused << mActor->Send__delete__(mActor);
+    // That will call mActor->ActorDestroy, which calls this->ActorDestroy
+    // (whether or not the IPC send succeeds).
+  }
+  MOZ_ASSERT(!mActor);
 }
 
 void
 WebBrowserPersistRemoteDocument::ActorDestroy(void)
 {
-    mActor = nullptr;
+  mActor = nullptr;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetIsPrivate(bool* aIsPrivate)
 {
-    *aIsPrivate = mAttrs.isPrivate();
-    return NS_OK;
+  *aIsPrivate = mAttrs.isPrivate();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetDocumentURI(nsACString& aURISpec)
 {
-    aURISpec = mAttrs.documentURI();
-    return NS_OK;
+  aURISpec = mAttrs.documentURI();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetBaseURI(nsACString& aURISpec)
 {
-    aURISpec = mAttrs.baseURI();
-    return NS_OK;
+  aURISpec = mAttrs.baseURI();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetContentType(nsACString& aContentType)
 {
-    aContentType = mAttrs.contentType();
-    return NS_OK;
+  aContentType = mAttrs.contentType();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetCharacterSet(nsACString& aCharSet)
 {
-    aCharSet = mAttrs.characterSet();
-    return NS_OK;
+  aCharSet = mAttrs.characterSet();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetTitle(nsAString& aTitle)
 {
-    aTitle = mAttrs.title();
-    return NS_OK;
+  aTitle = mAttrs.title();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetReferrer(nsAString& aReferrer)
 {
-    aReferrer = mAttrs.referrer();
-    return NS_OK;
+  aReferrer = mAttrs.referrer();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetContentDisposition(nsAString& aDisp)
 {
-    aDisp = mAttrs.contentDisposition();
-    return NS_OK;
+  aDisp = mAttrs.contentDisposition();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetCacheKey(uint32_t* aCacheKey)
 {
-    *aCacheKey = mAttrs.cacheKey();
-    return NS_OK;
+  *aCacheKey = mAttrs.cacheKey();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetPersistFlags(uint32_t* aFlags)
 {
-    *aFlags = mAttrs.persistFlags();
-    return NS_OK;
+  *aFlags = mAttrs.persistFlags();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::SetPersistFlags(uint32_t aFlags)
 {
-    if (!mActor) {
-        return NS_ERROR_FAILURE;
-    }
-    if (!mActor->SendSetPersistFlags(aFlags)) {
-        return NS_ERROR_FAILURE;
-    }
-    mAttrs.persistFlags() = aFlags;
-    return NS_OK;
+  if (!mActor) {
+    return NS_ERROR_FAILURE;
+  }
+  if (!mActor->SendSetPersistFlags(aFlags)) {
+    return NS_ERROR_FAILURE;
+  }
+  mAttrs.persistFlags() = aFlags;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetPostData(nsIInputStream** aStream)
 {
-    nsCOMPtr<nsIInputStream> stream = mPostData;
-    stream.forget(aStream);
-    return NS_OK;
+  nsCOMPtr<nsIInputStream> stream = mPostData;
+  stream.forget(aStream);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-WebBrowserPersistRemoteDocument::ReadResources(nsIWebBrowserPersistResourceVisitor* aVisitor)
+WebBrowserPersistRemoteDocument::ReadResources(
+    nsIWebBrowserPersistResourceVisitor* aVisitor)
 {
-    if (!mActor) {
-        return NS_ERROR_FAILURE;
-    }
-    RefPtr<WebBrowserPersistResourcesParent> subActor =
-        new WebBrowserPersistResourcesParent(this, aVisitor);
-    return mActor->SendPWebBrowserPersistResourcesConstructor(
-        subActor.forget().take())
-        ? NS_OK : NS_ERROR_FAILURE;
+  if (!mActor) {
+    return NS_ERROR_FAILURE;
+  }
+  RefPtr<WebBrowserPersistResourcesParent> subActor =
+      new WebBrowserPersistResourcesParent(this, aVisitor);
+  return mActor->SendPWebBrowserPersistResourcesConstructor(
+             subActor.forget().take())
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
@@ -154,33 +153,33 @@ WebBrowserPersistRemoteDocument::WriteContent(
     uint32_t aWrapColumn,
     nsIWebBrowserPersistWriteCompletion* aCompletion)
 {
-    if (!mActor) {
-        return NS_ERROR_FAILURE;
-    }
+  if (!mActor) {
+    return NS_ERROR_FAILURE;
+  }
 
-    nsresult rv;
-    WebBrowserPersistURIMap map;
-    uint32_t numMappedURIs;
-    if (aMap) {
-        rv = aMap->GetTargetBaseURI(map.targetBaseURI());
-        NS_ENSURE_SUCCESS(rv, rv);
-        rv = aMap->GetNumMappedURIs(&numMappedURIs);
-        NS_ENSURE_SUCCESS(rv, rv);
-        for (uint32_t i = 0; i < numMappedURIs; ++i) {
-            WebBrowserPersistURIMapEntry& nextEntry =
-                *(map.mapURIs().AppendElement());
-            rv = aMap->GetURIMapping(i, nextEntry.mapFrom(), nextEntry.mapTo());
-            NS_ENSURE_SUCCESS(rv, rv);
-        }
+  nsresult rv;
+  WebBrowserPersistURIMap map;
+  uint32_t numMappedURIs;
+  if (aMap) {
+    rv = aMap->GetTargetBaseURI(map.targetBaseURI());
+    NS_ENSURE_SUCCESS(rv, rv);
+    rv = aMap->GetNumMappedURIs(&numMappedURIs);
+    NS_ENSURE_SUCCESS(rv, rv);
+    for (uint32_t i = 0; i < numMappedURIs; ++i) {
+      WebBrowserPersistURIMapEntry& nextEntry =
+          *(map.mapURIs().AppendElement());
+      rv = aMap->GetURIMapping(i, nextEntry.mapFrom(), nextEntry.mapTo());
+      NS_ENSURE_SUCCESS(rv, rv);
     }
+  }
 
-    auto* subActor = new WebBrowserPersistSerializeParent(this,
-                                                          aStream,
-                                                          aCompletion);
-    nsCString requestedContentType(aRequestedContentType); // Sigh.
-    return mActor->SendPWebBrowserPersistSerializeConstructor(
-        subActor, map, requestedContentType, aEncoderFlags, aWrapColumn)
-        ? NS_OK : NS_ERROR_FAILURE;
+  auto* subActor =
+      new WebBrowserPersistSerializeParent(this, aStream, aCompletion);
+  nsCString requestedContentType(aRequestedContentType);  // Sigh.
+  return mActor->SendPWebBrowserPersistSerializeConstructor(
+             subActor, map, requestedContentType, aEncoderFlags, aWrapColumn)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

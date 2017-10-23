@@ -18,7 +18,8 @@ namespace dom {
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ModuleLoadRequest)
 NS_INTERFACE_MAP_END_INHERITING(ScriptLoadRequest)
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(ModuleLoadRequest, ScriptLoadRequest,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(ModuleLoadRequest,
+                                   ScriptLoadRequest,
                                    mBaseURL,
                                    mLoader,
                                    mParent,
@@ -33,14 +34,12 @@ ModuleLoadRequest::ModuleLoadRequest(nsIScriptElement* aElement,
                                      CORSMode aCORSMode,
                                      const SRIMetadata& aIntegrity,
                                      ScriptLoader* aLoader)
-  : ScriptLoadRequest(ScriptKind::Module,
-                      aElement,
-                      aVersion,
-                      aCORSMode,
-                      aIntegrity),
-    mIsTopLevel(true),
-    mLoader(aLoader)
-{}
+    : ScriptLoadRequest(
+          ScriptKind::Module, aElement, aVersion, aCORSMode, aIntegrity),
+      mIsTopLevel(true),
+      mLoader(aLoader)
+{
+}
 
 void
 ModuleLoadRequest::Cancel()
@@ -63,13 +62,13 @@ ModuleLoadRequest::CancelImports()
 void
 ModuleLoadRequest::SetReady()
 {
-  // Mark a module as ready to execute. This means that this module and all it
-  // dependencies have had their source loaded, parsed as a module and the
-  // modules instantiated.
-  //
-  // The mReady promise is used to ensure that when all dependencies of a module
-  // have become ready, DependenciesLoaded is called on that module
-  // request. This is set up in StartFetchingModuleDependencies.
+// Mark a module as ready to execute. This means that this module and all it
+// dependencies have had their source loaded, parsed as a module and the
+// modules instantiated.
+//
+// The mReady promise is used to ensure that when all dependencies of a module
+// have become ready, DependenciesLoaded is called on that module
+// request. This is set up in StartFetchingModuleDependencies.
 
 #ifdef DEBUG
   for (size_t i = 0; i < mImports.Length(); i++) {
@@ -149,5 +148,5 @@ ModuleLoadRequest::LoadFinished()
   mParent = nullptr;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // dom namespace
+}  // namespace mozilla

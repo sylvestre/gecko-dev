@@ -34,22 +34,21 @@ class WorkerPrivate;
 // Base class for main-thread and worker Performance API
 class Performance : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Performance,
-                                           DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Performance, DOMEventTargetHelper)
 
   static bool IsObserverEnabled(JSContext* aCx, JSObject* aGlobal);
 
-  static already_AddRefed<Performance>
-  CreateForMainThread(nsPIDOMWindowInner* aWindow,
-                      nsDOMNavigationTiming* aDOMTiming,
-                      nsITimedChannel* aChannel);
+  static already_AddRefed<Performance> CreateForMainThread(
+      nsPIDOMWindowInner* aWindow,
+      nsDOMNavigationTiming* aDOMTiming,
+      nsITimedChannel* aChannel);
 
-  static already_AddRefed<Performance>
-  CreateForWorker(workers::WorkerPrivate* aWorkerPrivate);
+  static already_AddRefed<Performance> CreateForWorker(
+      workers::WorkerPrivate* aWorkerPrivate);
 
-  JSObject* WrapObject(JSContext *cx,
+  JSObject* WrapObject(JSContext* cx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
   virtual void GetEntries(nsTArray<RefPtr<PerformanceEntry>>& aRetval);
@@ -94,7 +93,7 @@ public:
 
   IMPL_EVENT_HANDLER(resourcetimingbufferfull)
 
-  virtual void GetMozMemory(JSContext *aCx,
+  virtual void GetMozMemory(JSContext* aCx,
                             JS::MutableHandle<JSObject*> aObj) = 0;
 
   virtual nsDOMNavigationTiming* GetDOMTiming() const = 0;
@@ -106,7 +105,7 @@ public:
   size_t SizeOfUserEntries(mozilla::MallocSizeOf aMallocSizeOf) const;
   size_t SizeOfResourceEntries(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-protected:
+ protected:
   Performance();
   explicit Performance(nsPIDOMWindowInner* aWindow);
 
@@ -132,8 +131,8 @@ protected:
     return false;
   }
 
-  virtual DOMHighResTimeStamp
-  GetPerformanceTimingFromString(const nsAString& aTimingName)
+  virtual DOMHighResTimeStamp GetPerformanceTimingFromString(
+      const nsAString& aTimingName)
   {
     return 0;
   }
@@ -144,7 +143,8 @@ protected:
   }
 
   void LogEntry(PerformanceEntry* aEntry, const nsACString& aOwner) const;
-  void TimingNotification(PerformanceEntry* aEntry, const nsACString& aOwner,
+  void TimingNotification(PerformanceEntry* aEntry,
+                          const nsACString& aOwner,
                           uint64_t epoch);
 
   void RunNotificationObserversTask();
@@ -154,13 +154,15 @@ protected:
 
   nsTObserverArray<PerformanceObserver*> mObservers;
 
-protected:
+ protected:
   static const uint64_t kDefaultResourceTimingBufferSize = 150;
 
   // When kDefaultResourceTimingBufferSize is increased or removed, these should
   // be changed to use SegmentedVector
-  AutoTArray<RefPtr<PerformanceEntry>, kDefaultResourceTimingBufferSize> mUserEntries;
-  AutoTArray<RefPtr<PerformanceEntry>, kDefaultResourceTimingBufferSize> mResourceEntries;
+  AutoTArray<RefPtr<PerformanceEntry>, kDefaultResourceTimingBufferSize>
+      mUserEntries;
+  AutoTArray<RefPtr<PerformanceEntry>, kDefaultResourceTimingBufferSize>
+      mResourceEntries;
 
   uint64_t mResourceTimingBufferSize;
   bool mPendingNotificationObserversTask;
@@ -168,7 +170,7 @@ protected:
   RefPtr<PerformanceService> mPerformanceService;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Performance_h
+#endif  // mozilla_dom_Performance_h

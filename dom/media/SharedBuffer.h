@@ -20,8 +20,9 @@ class ThreadSharedFloatArrayBufferList;
  * Base class for objects with a thread-safe refcount and a virtual
  * destructor.
  */
-class ThreadSharedObject {
-public:
+class ThreadSharedObject
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ThreadSharedObject)
 
   bool IsShared() { return mRefCnt.get() > 1; }
@@ -41,7 +42,8 @@ public:
   {
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
-protected:
+
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~ThreadSharedObject() {}
 };
@@ -54,8 +56,9 @@ protected:
  * assume that the memory from malloc is at least 4-byte aligned and the
  * refcount's size is large enough that SharedBuffer's size is divisible by 4.
  */
-class SharedBuffer : public ThreadSharedObject {
-public:
+class SharedBuffer : public ThreadSharedObject
+{
+ public:
   void* Data() { return this + 1; }
 
   static already_AddRefed<SharedBuffer> Create(size_t aSize, const fallible_t&)
@@ -80,9 +83,8 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
-  static size_t
-  AllocSize(size_t aDataSize)
+ private:
+  static size_t AllocSize(size_t aDataSize)
   {
     CheckedInt<size_t> size = sizeof(SharedBuffer);
     size += aDataSize;
@@ -94,11 +96,14 @@ private:
 
   SharedBuffer()
   {
-    NS_ASSERTION((reinterpret_cast<char*>(this + 1) - reinterpret_cast<char*>(this)) % 4 == 0,
-                 "SharedBuffers should be at least 4-byte aligned");
+    NS_ASSERTION(
+        (reinterpret_cast<char*>(this + 1) - reinterpret_cast<char*>(this)) %
+                4 ==
+            0,
+        "SharedBuffers should be at least 4-byte aligned");
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_SHAREDBUFFER_H_ */

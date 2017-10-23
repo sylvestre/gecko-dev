@@ -18,8 +18,8 @@
 #include <unistd.h>
 #include <string.h>
 
-#if defined(__DragonFly__) || defined(__FreeBSD__) \
-    || defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
+    defined(__OpenBSD__)
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -55,11 +55,11 @@
 static uint64_t sResolution;
 static uint64_t sResolutionSigDigs;
 
-static const uint16_t kNsPerUs   =       1000;
-static const uint64_t kNsPerMs   =    1000000;
-static const uint64_t kNsPerSec  = 1000000000;
-static const double kNsPerMsd    =    1000000.0;
-static const double kNsPerSecd   = 1000000000.0;
+static const uint16_t kNsPerUs = 1000;
+static const uint64_t kNsPerMs = 1000000;
+static const uint64_t kNsPerSec = 1000000000;
+static const double kNsPerMsd = 1000000.0;
+static const double kNsPerSecd = 1000000000.0;
 
 static uint64_t
 TimespecToNs(const struct timespec& aTs)
@@ -186,10 +186,10 @@ TimeStamp::Startup()
 
   // find the number of significant digits in sResolution, for the
   // sake of ToSecondsSigDigits()
-  for (sResolutionSigDigs = 1;
-       !(sResolutionSigDigs == sResolution ||
-         10 * sResolutionSigDigs > sResolution);
-       sResolutionSigDigs *= 10);
+  for (sResolutionSigDigs = 1; !(sResolutionSigDigs == sResolution ||
+                                 10 * sResolutionSigDigs > sResolution);
+       sResolutionSigDigs *= 10)
+    ;
 
   gInitialized = true;
 }
@@ -231,7 +231,7 @@ JiffiesSinceBoot(const char* aFile)
 
   stat[n] = 0;
 
-  long long unsigned startTime = 0; // instead of uint64_t to keep GCC quiet
+  long long unsigned startTime = 0;  // instead of uint64_t to keep GCC quiet
   char* s = strrchr(stat, ')');
 
   if (!s) {
@@ -269,7 +269,8 @@ ComputeProcessUptimeThread(void* aTime)
   }
 
   char threadStat[40];
-  SprintfLiteral(threadStat, "/proc/self/task/%d/stat", (pid_t)syscall(__NR_gettid));
+  SprintfLiteral(
+      threadStat, "/proc/self/task/%d/stat", (pid_t)syscall(__NR_gettid));
 
   uint64_t threadJiffies = JiffiesSinceBoot(threadStat);
   uint64_t selfJiffies = JiffiesSinceBoot("/proc/self/stat");
@@ -291,7 +292,8 @@ TimeStamp::ComputeProcessUptime()
   uint64_t uptime = 0;
   pthread_t uptime_pthread;
 
-  if (pthread_create(&uptime_pthread, nullptr, ComputeProcessUptimeThread, &uptime)) {
+  if (pthread_create(
+          &uptime_pthread, nullptr, ComputeProcessUptimeThread, &uptime)) {
     MOZ_CRASH("Failed to create process uptime thread.");
     return 0;
   }
@@ -301,8 +303,8 @@ TimeStamp::ComputeProcessUptime()
   return uptime / kNsPerUs;
 }
 
-#elif defined(__DragonFly__) || defined(__FreeBSD__) \
-      || defined(__NetBSD__) || defined(__OpenBSD__)
+#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
+    defined(__OpenBSD__)
 
 // Computes and returns the process uptime in us on various BSD flavors.
 // Returns 0 if an error was encountered.
@@ -338,7 +340,7 @@ TimeStamp::ComputeProcessUptime()
   }
 
   uint64_t startTime = ((uint64_t)proc.KP_START_SEC * kNsPerSec) +
-    (proc.KP_START_USEC * kNsPerUs);
+                       (proc.KP_START_USEC * kNsPerUs);
   uint64_t now = ((uint64_t)ts.tv_sec * kNsPerSec) + ts.tv_nsec;
 
   if (startTime > now) {
@@ -358,4 +360,4 @@ TimeStamp::ComputeProcessUptime()
 
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla

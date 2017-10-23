@@ -15,6 +15,6 @@ NS_IMPL_ISUPPORTS(nsHapticFeedback, nsIHapticFeedback)
 NS_IMETHODIMP
 nsHapticFeedback::PerformSimpleAction(int32_t aType)
 {
-    java::GeckoAppShell::PerformHapticFeedback(aType == LongPress);
-    return NS_OK;
+  java::GeckoAppShell::PerformHapticFeedback(aType == LongPress);
+  return NS_OK;
 }

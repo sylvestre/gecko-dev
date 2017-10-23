@@ -17,13 +17,14 @@ class nsTWhitespaceTokenizer
   typedef typename DependentSubstringType::char_type CharType;
   typedef typename DependentSubstringType::substring_type SubstringType;
 
-public:
+ public:
   explicit nsTWhitespaceTokenizer(const SubstringType& aSource)
-    : mIter(aSource.Data(), aSource.Length())
-    , mEnd(aSource.Data() + aSource.Length(), aSource.Data(),
-           aSource.Length())
-    , mWhitespaceBeforeFirstToken(false)
-    , mWhitespaceAfterCurrentToken(false)
+      : mIter(aSource.Data(), aSource.Length()),
+        mEnd(aSource.Data() + aSource.Length(),
+             aSource.Data(),
+             aSource.Length()),
+        mWhitespaceBeforeFirstToken(false),
+        mWhitespaceAfterCurrentToken(false)
   {
     while (mIter < mEnd && IsWhitespace(*mIter)) {
       mWhitespaceBeforeFirstToken = true;
@@ -34,10 +35,7 @@ public:
   /**
    * Checks if any more tokens are available.
    */
-  bool hasMoreTokens() const
-  {
-    return mIter < mEnd;
-  }
+  bool hasMoreTokens() const { return mIter < mEnd; }
 
   /*
    * Returns true if there is whitespace prior to the first token.
@@ -74,7 +72,7 @@ public:
     return Substring(tokenStart.get(), tokenEnd.get());
   }
 
-private:
+ private:
   mozilla::RangedPtr<const CharType> mIter;
   const mozilla::RangedPtr<const CharType> mEnd;
   bool mWhitespaceBeforeFirstToken;
@@ -83,11 +81,11 @@ private:
 
 template<bool IsWhitespace(char16_t) = NS_IsAsciiWhitespace>
 class nsWhitespaceTokenizerTemplate
-  : public nsTWhitespaceTokenizer<nsDependentSubstring, IsWhitespace>
+    : public nsTWhitespaceTokenizer<nsDependentSubstring, IsWhitespace>
 {
-public:
+ public:
   explicit nsWhitespaceTokenizerTemplate(const nsAString& aSource)
-    : nsTWhitespaceTokenizer<nsDependentSubstring, IsWhitespace>(aSource)
+      : nsTWhitespaceTokenizer<nsDependentSubstring, IsWhitespace>(aSource)
   {
   }
 };
@@ -96,11 +94,11 @@ typedef nsWhitespaceTokenizerTemplate<> nsWhitespaceTokenizer;
 
 template<bool IsWhitespace(char16_t) = NS_IsAsciiWhitespace>
 class nsCWhitespaceTokenizerTemplate
-  : public nsTWhitespaceTokenizer<nsDependentCSubstring, IsWhitespace>
+    : public nsTWhitespaceTokenizer<nsDependentCSubstring, IsWhitespace>
 {
-public:
+ public:
   explicit nsCWhitespaceTokenizerTemplate(const nsACString& aSource)
-    : nsTWhitespaceTokenizer<nsDependentCSubstring, IsWhitespace>(aSource)
+      : nsTWhitespaceTokenizer<nsDependentCSubstring, IsWhitespace>(aSource)
   {
   }
 };

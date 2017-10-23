@@ -13,9 +13,9 @@
 #ifndef mozilla_dom_Element_h__
 #define mozilla_dom_Element_h__
 
-#include "mozilla/dom/FragmentOrElement.h" // for base class
-#include "nsChangeHint.h"                  // for enum
-#include "mozilla/EventStates.h"           // for member
+#include "mozilla/dom/FragmentOrElement.h"  // for base class
+#include "nsChangeHint.h"                   // for enum
+#include "mozilla/EventStates.h"            // for member
 #include "mozilla/ServoTypes.h"
 #include "mozilla/dom/DirectionalityUtils.h"
 #include "nsIDOMElement.h"
@@ -65,29 +65,30 @@ namespace mozilla {
 class DeclarationBlock;
 class TextEditor;
 namespace dom {
-  struct AnimationFilter;
-  struct ScrollIntoViewOptions;
-  struct ScrollToOptions;
-  class DOMIntersectionObserver;
-  class DOMMatrixReadOnly;
-  class ElementOrCSSPseudoElement;
-  class UnrestrictedDoubleOrKeyframeAnimationOptions;
-  enum class CallerType : uint32_t;
-  typedef nsDataHashtable<nsRefPtrHashKey<DOMIntersectionObserver>, int32_t>
+struct AnimationFilter;
+struct ScrollIntoViewOptions;
+struct ScrollToOptions;
+class DOMIntersectionObserver;
+class DOMMatrixReadOnly;
+class ElementOrCSSPseudoElement;
+class UnrestrictedDoubleOrKeyframeAnimationOptions;
+enum class CallerType : uint32_t;
+typedef nsDataHashtable<nsRefPtrHashKey<DOMIntersectionObserver>, int32_t>
     IntersectionObserverList;
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<nsContentList>
 NS_GetContentList(nsINode* aRootNode,
-                  int32_t  aMatchNameSpaceId,
+                  int32_t aMatchNameSpaceId,
                   const nsAString& aTagname);
 
-#define ELEMENT_FLAG_BIT(n_) NODE_FLAG_BIT(NODE_TYPE_SPECIFIC_BITS_OFFSET + (n_))
+#define ELEMENT_FLAG_BIT(n_) \
+  NODE_FLAG_BIT(NODE_TYPE_SPECIFIC_BITS_OFFSET + (n_))
 
 // Element-specific flags
-enum {
+enum
+{
   // These four bits are shared by Gecko's and Servo's restyle systems for
   // different purposes. They should not be accessed directly, and access to
   // them should be properly guarded by asserts.
@@ -96,10 +97,9 @@ enum {
   ELEMENT_SHARED_RESTYLE_BIT_3 = ELEMENT_FLAG_BIT(2),
   ELEMENT_SHARED_RESTYLE_BIT_4 = ELEMENT_FLAG_BIT(3),
 
-  ELEMENT_SHARED_RESTYLE_BITS = ELEMENT_SHARED_RESTYLE_BIT_1 |
-                                ELEMENT_SHARED_RESTYLE_BIT_2 |
-                                ELEMENT_SHARED_RESTYLE_BIT_3 |
-                                ELEMENT_SHARED_RESTYLE_BIT_4,
+  ELEMENT_SHARED_RESTYLE_BITS =
+      ELEMENT_SHARED_RESTYLE_BIT_1 | ELEMENT_SHARED_RESTYLE_BIT_2 |
+      ELEMENT_SHARED_RESTYLE_BIT_3 | ELEMENT_SHARED_RESTYLE_BIT_4,
 
   // Whether this node has dirty descendants for Servo's style system.
   ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO = ELEMENT_SHARED_RESTYLE_BIT_1,
@@ -107,7 +107,7 @@ enum {
   // Whether this node has dirty descendants for animation-only restyle for
   // Servo's style system.
   ELEMENT_HAS_ANIMATION_ONLY_DIRTY_DESCENDANTS_FOR_SERVO =
-    ELEMENT_SHARED_RESTYLE_BIT_2,
+      ELEMENT_SHARED_RESTYLE_BIT_2,
 
   // Whether the element has been snapshotted due to attribute or state changes
   // by the Servo restyle manager.
@@ -136,7 +136,8 @@ enum {
   // Set if the element is a potential animation-only restyle root (that
   // is, has an animation-only style change pending _and_ that style
   // change will attempt to restyle descendants).
-  ELEMENT_IS_POTENTIAL_ANIMATION_ONLY_RESTYLE_ROOT = ELEMENT_SHARED_RESTYLE_BIT_4,
+  ELEMENT_IS_POTENTIAL_ANIMATION_ONLY_RESTYLE_ROOT =
+      ELEMENT_SHARED_RESTYLE_BIT_4,
 
   // Set if this element has a pending restyle with an eRestyle_SomeDescendants
   // restyle hint.
@@ -149,13 +150,12 @@ enum {
 
   // Just the HAS_PENDING bits, for convenience
   ELEMENT_PENDING_RESTYLE_FLAGS =
-    ELEMENT_HAS_PENDING_RESTYLE |
-    ELEMENT_HAS_PENDING_ANIMATION_ONLY_RESTYLE,
+      ELEMENT_HAS_PENDING_RESTYLE | ELEMENT_HAS_PENDING_ANIMATION_ONLY_RESTYLE,
 
   // Just the IS_POTENTIAL bits, for convenience
   ELEMENT_POTENTIAL_RESTYLE_ROOT_FLAGS =
-    ELEMENT_IS_POTENTIAL_RESTYLE_ROOT |
-    ELEMENT_IS_POTENTIAL_ANIMATION_ONLY_RESTYLE_ROOT,
+      ELEMENT_IS_POTENTIAL_RESTYLE_ROOT |
+      ELEMENT_IS_POTENTIAL_ANIMATION_ONLY_RESTYLE_ROOT,
 
   // All of the restyle bits together, for convenience.
   ELEMENT_ALL_RESTYLE_FLAGS = ELEMENT_PENDING_RESTYLE_FLAGS |
@@ -190,17 +190,20 @@ class DestinationInsertionPointList;
 class Grid;
 
 // IID for the dom::Element interface
-#define NS_ELEMENT_IID \
-{ 0xc67ed254, 0xfd3b, 0x4b10, \
-  { 0x96, 0xa2, 0xc5, 0x8b, 0x7b, 0x64, 0x97, 0xd1 } }
+#define NS_ELEMENT_IID                               \
+  {                                                  \
+    0xc67ed254, 0xfd3b, 0x4b10,                      \
+    {                                                \
+      0x96, 0xa2, 0xc5, 0x8b, 0x7b, 0x64, 0x97, 0xd1 \
+    }                                                \
+  }
 
 class Element : public FragmentOrElement
 {
-public:
+ public:
 #ifdef MOZILLA_INTERNAL_API
-  explicit Element(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo) :
-    FragmentOrElement(aNodeInfo),
-    mState(NS_EVENT_STATE_MOZ_READONLY)
+  explicit Element(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : FragmentOrElement(aNodeInfo), mState(NS_EVENT_STATE_MOZ_READONLY)
   {
     MOZ_ASSERT(mNodeInfo->NodeType() == nsIDOMNode::ELEMENT_NODE,
                "Bad NodeType in aNodeInfo");
@@ -212,7 +215,7 @@ public:
     NS_ASSERTION(!HasServoData(), "expected ServoData to be cleared earlier");
   }
 
-#endif // MOZILLA_INTERNAL_API
+#endif  // MOZILLA_INTERNAL_API
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ELEMENT_IID)
 
@@ -248,10 +251,7 @@ public:
    */
   void UpdateLinkState(EventStates aState);
 
-  virtual int32_t TabIndexDefault()
-  {
-    return -1;
-  }
+  virtual int32_t TabIndexDefault() { return -1; }
 
   /**
    * Get tabIndex of this element. If not found, return TabIndexDefault.
@@ -289,7 +289,8 @@ public:
    * StyleStateLocks is used to specify which event states should be locked,
    * and whether they should be locked to on or off.
    */
-  struct StyleStateLocks {
+  struct StyleStateLocks
+  {
     // mLocks tracks which event states should be locked.
     EventStates mLocks;
     // mValues tracks if the locked state should be on or off.
@@ -344,9 +345,7 @@ public:
    */
   const nsMappedAttributes* GetMappedAttributes() const;
 
-  void ClearMappedServoStyle() {
-    mAttrsAndChildren.ClearMappedServoStyle();
-  }
+  void ClearMappedServoStyle() { mAttrsAndChildren.ClearMappedServoStyle(); }
 
   /**
    * Set the inline style declaration for this element. This will send
@@ -428,7 +427,8 @@ public:
   virtual nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                               int32_t aModType) const;
 
-  inline Directionality GetDirectionality() const {
+  inline Directionality GetDirectionality() const
+  {
     if (HasFlag(NODE_HAS_DIRECTION_RTL)) {
       return eDir_RTL;
     }
@@ -440,7 +440,8 @@ public:
     return eDir_NotSet;
   }
 
-  inline void SetDirectionality(Directionality aDir, bool aNotify) {
+  inline void SetDirectionality(Directionality aDir, bool aNotify)
+  {
     UnsetFlags(NODE_ALL_DIRECTION_FLAGS);
     if (!aNotify) {
       RemoveStatesSilently(DIRECTION_STATES);
@@ -454,7 +455,7 @@ public:
         }
         break;
 
-      case(eDir_LTR):
+      case (eDir_LTR):
         SetFlags(NODE_HAS_DIRECTION_LTR);
         if (!aNotify) {
           AddStatesSilently(NS_EVENT_STATE_LTR);
@@ -475,14 +476,14 @@ public:
     }
   }
 
-  bool GetBindingURL(nsIDocument* aDocument, css::URLValue **aResult);
+  bool GetBindingURL(nsIDocument* aDocument, css::URLValue** aResult);
 
   Directionality GetComputedDirectionality() const;
 
   static const uint32_t kAllServoDescendantBits =
-    ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO |
-    ELEMENT_HAS_ANIMATION_ONLY_DIRTY_DESCENDANTS_FOR_SERVO |
-    NODE_DESCENDANTS_NEED_FRAMES;
+      ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO |
+      ELEMENT_HAS_ANIMATION_ONLY_DIRTY_DESCENDANTS_FOR_SERVO |
+      NODE_DESCENDANTS_NEED_FRAMES;
 
   /**
    * Notes that something in the given subtree of this element needs dirtying,
@@ -504,34 +505,37 @@ public:
     return HasFlag(ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO);
   }
 
-  void SetHasDirtyDescendantsForServo() {
+  void SetHasDirtyDescendantsForServo()
+  {
     MOZ_ASSERT(IsStyledByServo());
     SetFlags(ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO);
   }
 
-  void UnsetHasDirtyDescendantsForServo() {
+  void UnsetHasDirtyDescendantsForServo()
+  {
     MOZ_ASSERT(IsStyledByServo());
     UnsetFlags(ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO);
   }
 
-  bool HasAnimationOnlyDirtyDescendantsForServo() const {
+  bool HasAnimationOnlyDirtyDescendantsForServo() const
+  {
     MOZ_ASSERT(IsStyledByServo());
     return HasFlag(ELEMENT_HAS_ANIMATION_ONLY_DIRTY_DESCENDANTS_FOR_SERVO);
   }
 
-  void SetHasAnimationOnlyDirtyDescendantsForServo() {
+  void SetHasAnimationOnlyDirtyDescendantsForServo()
+  {
     MOZ_ASSERT(IsStyledByServo());
     SetFlags(ELEMENT_HAS_ANIMATION_ONLY_DIRTY_DESCENDANTS_FOR_SERVO);
   }
 
-  void UnsetHasAnimationOnlyDirtyDescendantsForServo() {
+  void UnsetHasAnimationOnlyDirtyDescendantsForServo()
+  {
     MOZ_ASSERT(IsStyledByServo());
     UnsetFlags(ELEMENT_HAS_ANIMATION_ONLY_DIRTY_DESCENDANTS_FOR_SERVO);
   }
 
-  bool HasServoData() const {
-    return !!mServoData.Get();
-  }
+  bool HasServoData() const { return !!mServoData.Get(); }
 
   void ClearServoData() { ClearServoData(GetComposedDoc()); }
   void ClearServoData(nsIDocument* aDocument);
@@ -575,7 +579,7 @@ public:
    */
   void SetCustomElementDefinition(CustomElementDefinition* aDefinition);
 
-protected:
+ protected:
   /**
    * Method to get the _intrinsic_ content state of this element.  This is the
    * state that is independent of the element's presentation.  To get the full
@@ -590,10 +594,7 @@ protected:
    * time and other places where we don't want to notify a state
    * change.
    */
-  void AddStatesSilently(EventStates aStates)
-  {
-    mState |= aStates;
-  }
+  void AddStatesSilently(EventStates aStates) { mState |= aStates; }
 
   /**
    * Method to remove state bits.  This should be called from subclass
@@ -601,12 +602,9 @@ protected:
    * time and other places where we don't want to notify a state
    * change.
    */
-  void RemoveStatesSilently(EventStates aStates)
-  {
-    mState &= ~aStates;
-  }
+  void RemoveStatesSilently(EventStates aStates) { mState &= ~aStates; }
 
-private:
+ private:
   // Need to allow the ESM, nsGlobalWindow, and the focus manager to
   // set our state
   friend class mozilla::EventStateManager;
@@ -626,7 +624,7 @@ private:
   // Style state computed from element's state and style locks.
   EventStates StyleStateFromLocks() const;
 
-protected:
+ protected:
   // Methods for the ESM, nsGlobalWindow and focus manager to manage state bits.
   // These will handle setting up script blockers when they notify, so no need
   // to do it in the callers unless desired.  States passed here must only be
@@ -655,7 +653,7 @@ protected:
     }
   }
 
-public:
+ public:
   // Public methods to manage state bits in MANUALLY_MANAGED_STATES.
   void AddManuallyManagedStates(EventStates aStates)
   {
@@ -672,7 +670,8 @@ public:
 
   virtual void UpdateEditableState(bool aNotify) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
@@ -688,8 +687,8 @@ public:
    * @param aStr the unparsed attribute string
    * @return the node info. May be nullptr.
    */
-  already_AddRefed<mozilla::dom::NodeInfo>
-  GetExistingAttrNameFromQName(const nsAString& aStr) const;
+  already_AddRefed<mozilla::dom::NodeInfo> GetExistingAttrNameFromQName(
+      const nsAString& aStr) const;
 
   using nsIContent::SetAttr;
 
@@ -711,11 +710,14 @@ public:
    * @param aOldValueSet [out] Indicates whether an old attribute value has been
    *   stored in aOldValue. The bool will be set to true if a value was stored.
    */
-  bool MaybeCheckSameAttrVal(int32_t aNamespaceID, nsAtom* aName,
+  bool MaybeCheckSameAttrVal(int32_t aNamespaceID,
+                             nsAtom* aName,
                              nsAtom* aPrefix,
                              const nsAttrValueOrString& aValue,
-                             bool aNotify, nsAttrValue& aOldValue,
-                             uint8_t* aModType, bool* aHasListeners,
+                             bool aNotify,
+                             nsAttrValue& aOldValue,
+                             uint8_t* aModType,
+                             bool* aHasListeners,
                              bool* aOldValueSet);
 
   /**
@@ -738,11 +740,14 @@ public:
    * @param aOldValueSet [out] Indicates whether an old attribute value has been
    *   stored in aOldValue. The bool will be set to true if a value was stored.
    */
-  bool OnlyNotifySameValueSet(int32_t aNamespaceID, nsAtom* aName,
+  bool OnlyNotifySameValueSet(int32_t aNamespaceID,
+                              nsAtom* aName,
                               nsAtom* aPrefix,
                               const nsAttrValueOrString& aValue,
-                              bool aNotify, nsAttrValue& aOldValue,
-                              uint8_t* aModType, bool* aHasListeners,
+                              bool aNotify,
+                              nsAttrValue& aOldValue,
+                              uint8_t* aModType,
+                              bool* aHasListeners,
                               bool* aOldValueSet);
 
   /**
@@ -752,30 +757,39 @@ public:
    */
   nsresult SetSingleClassFromParser(nsAtom* aSingleClassName);
 
-  virtual nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName, nsAtom* aPrefix,
-                           const nsAString& aValue, nsIPrincipal* aSubjectPrincipal,
+  virtual nsresult SetAttr(int32_t aNameSpaceID,
+                           nsAtom* aName,
+                           nsAtom* aPrefix,
+                           const nsAString& aValue,
+                           nsIPrincipal* aSubjectPrincipal,
                            bool aNotify) override;
   // aParsedValue receives the old value of the attribute. That's useful if
   // either the input or output value of aParsedValue is StoresOwnData.
-  nsresult SetParsedAttr(int32_t aNameSpaceID, nsAtom* aName, nsAtom* aPrefix,
-                         nsAttrValue& aParsedValue, bool aNotify);
+  nsresult SetParsedAttr(int32_t aNameSpaceID,
+                         nsAtom* aName,
+                         nsAtom* aPrefix,
+                         nsAttrValue& aParsedValue,
+                         bool aNotify);
   // GetAttr is not inlined on purpose, to keep down codesize from all
   // the inlined nsAttrValue bits for C++ callers.
-  bool GetAttr(int32_t aNameSpaceID, nsAtom* aName,
-               nsAString& aResult) const;
+  bool GetAttr(int32_t aNameSpaceID, nsAtom* aName, nsAString& aResult) const;
   inline bool HasAttr(int32_t aNameSpaceID, nsAtom* aName) const;
   // aCaseSensitive == eIgnoreCaase means ASCII case-insensitive matching.
-  inline bool AttrValueIs(int32_t aNameSpaceID, nsAtom* aName,
+  inline bool AttrValueIs(int32_t aNameSpaceID,
+                          nsAtom* aName,
                           const nsAString& aValue,
                           nsCaseTreatment aCaseSensitive) const;
-  inline bool AttrValueIs(int32_t aNameSpaceID, nsAtom* aName,
+  inline bool AttrValueIs(int32_t aNameSpaceID,
+                          nsAtom* aName,
                           nsAtom* aValue,
                           nsCaseTreatment aCaseSensitive) const;
-  virtual int32_t FindAttrValueIn(int32_t aNameSpaceID,
-                                  nsAtom* aName,
-                                  AttrValuesArray* aValues,
-                                  nsCaseTreatment aCaseSensitive) const override;
-  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttribute,
+  virtual int32_t FindAttrValueIn(
+      int32_t aNameSpaceID,
+      nsAtom* aName,
+      AttrValuesArray* aValues,
+      nsCaseTreatment aCaseSensitive) const override;
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID,
+                             nsAtom* aAttribute,
                              bool aNotify) override;
   virtual const nsAttrName* GetAttrNameAt(uint32_t aIndex) const override;
   virtual BorrowedAttrInfo GetAttrInfoAt(uint32_t aIndex) const override;
@@ -787,7 +801,8 @@ public:
    * class attribute).  This may be null if there are no classes, but that's not
    * guaranteed (e.g. we could have class="").
    */
-  const nsAttrValue* GetClasses() const {
+  const nsAttrValue* GetClasses() const
+  {
     if (MayHaveClass()) {
       return DoGetClasses();
     }
@@ -799,7 +814,9 @@ public:
   {
     List(out, aIndent, EmptyCString());
   }
-  virtual void DumpContent(FILE* out, int32_t aIndent, bool aDumpAll) const override;
+  virtual void DumpContent(FILE* out,
+                           int32_t aIndent,
+                           bool aDumpAll) const override;
   void List(FILE* out, int32_t aIndent, const nsCString& aPrefix) const;
   void ListAttributes(FILE* out) const;
 #endif
@@ -809,7 +826,8 @@ public:
   /*
    * Attribute Mapping Helpers
    */
-  struct MappedAttributeEntry {
+  struct MappedAttributeEntry
+  {
     nsAtom** attribute;
   };
 
@@ -820,25 +838,24 @@ public:
    * handler.
    */
   template<size_t N>
-  static bool
-  FindAttributeDependence(const nsAtom* aAttribute,
-                          const MappedAttributeEntry* const (&aMaps)[N])
+  static bool FindAttributeDependence(
+      const nsAtom* aAttribute, const MappedAttributeEntry* const (&aMaps)[N])
   {
     return FindAttributeDependence(aAttribute, aMaps, N);
   }
 
   static nsAtom*** HTMLSVGPropertiesToTraverseAndUnlink();
 
-private:
+ private:
   void DescribeAttribute(uint32_t index, nsAString& aOutDescription) const;
 
-  static bool
-  FindAttributeDependence(const nsAtom* aAttribute,
-                          const MappedAttributeEntry* const aMaps[],
-                          uint32_t aMapCount);
+  static bool FindAttributeDependence(const nsAtom* aAttribute,
+                                      const MappedAttributeEntry* const aMaps[],
+                                      uint32_t aMapCount);
 
-protected:
-  inline bool GetAttr(int32_t aNameSpaceID, nsAtom* aName,
+ protected:
+  inline bool GetAttr(int32_t aNameSpaceID,
+                      nsAtom* aName,
                       DOMString& aResult) const
   {
     NS_ASSERTION(nullptr != aName, "must have attribute name");
@@ -855,7 +872,7 @@ protected:
     return false;
   }
 
-public:
+ public:
   bool HasAttrs() const { return mAttrsAndChildren.HasAttrs(); }
 
   inline bool GetAttr(const nsAString& aName, DOMString& aResult) const
@@ -871,10 +888,7 @@ public:
     return false;
   }
 
-  void GetTagName(nsAString& aTagName) const
-  {
-    aTagName = NodeName();
-  }
+  void GetTagName(nsAString& aTagName) const { aTagName = NodeName(); }
   void GetId(nsAString& aId) const
   {
     GetAttr(kNameSpaceID_None, nsGkAtoms::id, aId);
@@ -924,21 +938,23 @@ public:
   void GetAttributeNS(const nsAString& aNamespaceURI,
                       const nsAString& aLocalName,
                       nsAString& aReturn);
-  void SetAttribute(const nsAString& aName, const nsAString& aValue,
-                    nsIPrincipal* aTriggeringPrincipal, ErrorResult& aError);
+  void SetAttribute(const nsAString& aName,
+                    const nsAString& aValue,
+                    nsIPrincipal* aTriggeringPrincipal,
+                    ErrorResult& aError);
   void SetAttributeNS(const nsAString& aNamespaceURI,
                       const nsAString& aLocalName,
                       const nsAString& aValue,
                       nsIPrincipal* aTriggeringPrincipal,
                       ErrorResult& aError);
-  void SetAttribute(const nsAString& aName, const nsAString& aValue,
+  void SetAttribute(const nsAString& aName,
+                    const nsAString& aValue,
                     ErrorResult& aError)
   {
     SetAttribute(aName, aValue, nullptr, aError);
   }
 
-  void RemoveAttribute(const nsAString& aName,
-                       ErrorResult& aError);
+  void RemoveAttribute(const nsAString& aName, ErrorResult& aError);
   void RemoveAttributeNS(const nsAString& aNamespaceURI,
                          const nsAString& aLocalName,
                          ErrorResult& aError);
@@ -948,24 +964,20 @@ public:
   }
   bool HasAttributeNS(const nsAString& aNamespaceURI,
                       const nsAString& aLocalName) const;
-  bool HasAttributes() const
-  {
-    return HasAttrs();
-  }
-  Element* Closest(const nsAString& aSelector,
-                   ErrorResult& aResult);
-  bool Matches(const nsAString& aSelector,
-               ErrorResult& aError);
-  already_AddRefed<nsIHTMLCollection>
-    GetElementsByTagName(const nsAString& aQualifiedName);
-  already_AddRefed<nsIHTMLCollection>
-    GetElementsByTagNameNS(const nsAString& aNamespaceURI,
-                           const nsAString& aLocalName,
-                           ErrorResult& aError);
-  already_AddRefed<nsIHTMLCollection>
-    GetElementsByClassName(const nsAString& aClassNames);
+  bool HasAttributes() const { return HasAttrs(); }
+  Element* Closest(const nsAString& aSelector, ErrorResult& aResult);
+  bool Matches(const nsAString& aSelector, ErrorResult& aError);
+  already_AddRefed<nsIHTMLCollection> GetElementsByTagName(
+      const nsAString& aQualifiedName);
+  already_AddRefed<nsIHTMLCollection> GetElementsByTagNameNS(
+      const nsAString& aNamespaceURI,
+      const nsAString& aLocalName,
+      ErrorResult& aError);
+  already_AddRefed<nsIHTMLCollection> GetElementsByClassName(
+      const nsAString& aClassNames);
 
-  CSSPseudoElementType GetPseudoElementType() const {
+  CSSPseudoElementType GetPseudoElementType() const
+  {
     nsresult rv = NS_OK;
     auto raw = GetProperty(nsGkAtoms::pseudoProperty, &rv);
     if (rv == NS_PROPTABLE_PROP_NOT_THERE) {
@@ -974,14 +986,15 @@ public:
     return CSSPseudoElementType(reinterpret_cast<uintptr_t>(raw));
   }
 
-  void SetPseudoElementType(CSSPseudoElementType aPseudo) {
+  void SetPseudoElementType(CSSPseudoElementType aPseudo)
+  {
     static_assert(sizeof(CSSPseudoElementType) <= sizeof(uintptr_t),
                   "Need to be able to store this in a void*");
     MOZ_ASSERT(aPseudo != CSSPseudoElementType::NotPseudo);
     SetProperty(nsGkAtoms::pseudoProperty, reinterpret_cast<void*>(aPseudo));
   }
 
-private:
+ private:
   /**
    * Implement the algorithm specified at
    * https://dom.spec.whatwg.org/#insert-adjacent for both
@@ -991,7 +1004,7 @@ private:
                           nsINode* aNode,
                           ErrorResult& aError);
 
-public:
+ public:
   Element* InsertAdjacentElement(const nsAString& aWhere,
                                  Element& aElement,
                                  ErrorResult& aError);
@@ -1036,7 +1049,7 @@ public:
   bool HasPointerCapture(long aPointerId)
   {
     PointerCaptureInfo* pointerCaptureInfo =
-      PointerEventHandler::GetPointerCaptureInfo(aPointerId);
+        PointerEventHandler::GetPointerCaptureInfo(aPointerId);
     if (pointerCaptureInfo && pointerCaptureInfo->mPendingContent == this) {
       return true;
     }
@@ -1048,16 +1061,19 @@ public:
     // occur if a splitter, frame resizer, etc had already captured and we don't
     // want to override those.
     if (!nsIPresShell::GetCapturingContent()) {
-      nsIPresShell::SetCapturingContent(this, CAPTURE_PREVENTDRAG |
-        (aRetargetToElement ? CAPTURE_RETARGETTOELEMENT : 0));
+      nsIPresShell::SetCapturingContent(
+          this,
+          CAPTURE_PREVENTDRAG |
+              (aRetargetToElement ? CAPTURE_RETARGETTOELEMENT : 0));
     }
   }
 
   void SetCaptureAlways(bool aRetargetToElement)
   {
-    nsIPresShell::SetCapturingContent(this,
+    nsIPresShell::SetCapturingContent(
+        this,
         CAPTURE_PREVENTDRAG | CAPTURE_IGNOREALLOWED |
-        (aRetargetToElement ? CAPTURE_RETARGETTOELEMENT : 0));
+            (aRetargetToElement ? CAPTURE_RETARGETTOELEMENT : 0));
   }
 
   void ReleaseCapture()
@@ -1070,8 +1086,7 @@ public:
   void RequestFullscreen(CallerType aCallerType, ErrorResult& aError);
   void RequestPointerLock(CallerType aCallerType);
   Attr* GetAttributeNode(const nsAString& aName);
-  already_AddRefed<Attr> SetAttributeNode(Attr& aNewAttr,
-                                          ErrorResult& aError);
+  already_AddRefed<Attr> SetAttributeNode(Attr& aNewAttr, ErrorResult& aError);
   already_AddRefed<Attr> RemoveAttributeNode(Attr& aOldAttr,
                                              ErrorResult& aError);
   Attr* GetAttributeNodeNS(const nsAString& aNamespaceURI,
@@ -1083,17 +1098,19 @@ public:
   already_AddRefed<DOMRect> GetBoundingClientRect();
 
   already_AddRefed<ShadowRoot> CreateShadowRoot(ErrorResult& aError);
-  already_AddRefed<DestinationInsertionPointList> GetDestinationInsertionPoints();
+  already_AddRefed<DestinationInsertionPointList>
+  GetDestinationInsertionPoints();
 
-  ShadowRoot *FastGetShadowRoot() const
+  ShadowRoot* FastGetShadowRoot() const
   {
     nsExtendedDOMSlots* slots = GetExistingExtendedDOMSlots();
     return slots ? slots->mShadowRoot.get() : nullptr;
   }
 
-private:
-  void ScrollIntoView(const ScrollIntoViewOptions &aOptions);
-public:
+ private:
+  void ScrollIntoView(const ScrollIntoViewOptions& aOptions);
+
+ public:
   void ScrollIntoView(const BooleanOrScrollIntoViewOptions& aObject);
   void Scroll(double aXScroll, double aYScroll);
   void Scroll(const ScrollToOptions& aOptions);
@@ -1132,50 +1149,51 @@ public:
   int32_t ScrollTopMin()
   {
     nsIScrollableFrame* sf = GetScrollFrame();
-    return sf ?
-           nsPresContext::AppUnitsToIntCSSPixels(sf->GetScrollRange().y) : 0;
+    return sf ? nsPresContext::AppUnitsToIntCSSPixels(sf->GetScrollRange().y)
+              : 0;
   }
   int32_t ScrollTopMax()
   {
     nsIScrollableFrame* sf = GetScrollFrame();
-    return sf ?
-           nsPresContext::AppUnitsToIntCSSPixels(sf->GetScrollRange().YMost()) :
-           0;
+    return sf ? nsPresContext::AppUnitsToIntCSSPixels(
+                    sf->GetScrollRange().YMost())
+              : 0;
   }
   int32_t ScrollLeftMin()
   {
     nsIScrollableFrame* sf = GetScrollFrame();
-    return sf ?
-           nsPresContext::AppUnitsToIntCSSPixels(sf->GetScrollRange().x) : 0;
+    return sf ? nsPresContext::AppUnitsToIntCSSPixels(sf->GetScrollRange().x)
+              : 0;
   }
   int32_t ScrollLeftMax()
   {
     nsIScrollableFrame* sf = GetScrollFrame();
-    return sf ?
-           nsPresContext::AppUnitsToIntCSSPixels(sf->GetScrollRange().XMost()) :
-           0;
+    return sf ? nsPresContext::AppUnitsToIntCSSPixels(
+                    sf->GetScrollRange().XMost())
+              : 0;
   }
 
   void GetGridFragments(nsTArray<RefPtr<Grid>>& aResult);
 
-  already_AddRefed<DOMMatrixReadOnly> GetTransformToAncestor(Element& aAncestor);
+  already_AddRefed<DOMMatrixReadOnly> GetTransformToAncestor(
+      Element& aAncestor);
   already_AddRefed<DOMMatrixReadOnly> GetTransformToParent();
   already_AddRefed<DOMMatrixReadOnly> GetTransformToViewport();
 
-  already_AddRefed<Animation>
-  Animate(JSContext* aContext,
-          JS::Handle<JSObject*> aKeyframes,
-          const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
-          ErrorResult& aError);
+  already_AddRefed<Animation> Animate(
+      JSContext* aContext,
+      JS::Handle<JSObject*> aKeyframes,
+      const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
+      ErrorResult& aError);
 
   // A helper method that factors out the common functionality needed by
   // Element::Animate and CSSPseudoElement::Animate
-  static already_AddRefed<Animation>
-  Animate(const Nullable<ElementOrCSSPseudoElement>& aTarget,
-          JSContext* aContext,
-          JS::Handle<JSObject*> aKeyframes,
-          const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
-          ErrorResult& aError);
+  static already_AddRefed<Animation> Animate(
+      const Nullable<ElementOrCSSPseudoElement>& aTarget,
+      JSContext* aContext,
+      JS::Handle<JSObject*> aKeyframes,
+      const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
+      ErrorResult& aError);
 
   // Note: GetAnimations will flush style while GetAnimationsUnsorted won't.
   // Callers must keep this element alive because flushing style may destroy
@@ -1190,7 +1208,8 @@ public:
   virtual void SetInnerHTML(const nsAString& aInnerHTML, ErrorResult& aError);
   void GetOuterHTML(nsAString& aOuterHTML);
   void SetOuterHTML(const nsAString& aOuterHTML, ErrorResult& aError);
-  void InsertAdjacentHTML(const nsAString& aPosition, const nsAString& aText,
+  void InsertAdjacentHTML(const nsAString& aPosition,
+                          const nsAString& aText,
                           ErrorResult& aError);
 
   //----------------------------------------
@@ -1211,7 +1230,7 @@ public:
    */
   nsresult LeaveLink(nsPresContext* aPresContext);
 
-  static bool ShouldBlur(nsIContent *aContent);
+  static bool ShouldBlur(nsIContent* aContent);
 
   /**
    * Method to create and dispatch a left-click event loosely based on
@@ -1270,16 +1289,14 @@ public:
    *
    * @return existing attribute map or nullptr.
    */
-  nsDOMAttributeMap *GetAttributeMap()
+  nsDOMAttributeMap* GetAttributeMap()
   {
-    nsDOMSlots *slots = GetExistingDOMSlots();
+    nsDOMSlots* slots = GetExistingDOMSlots();
 
     return slots ? slots->mAttributeMap.get() : nullptr;
   }
 
-  virtual void RecompileScriptEventListeners()
-  {
-  }
+  virtual void RecompileScriptEventListeners() {}
 
   /**
    * Get the attr info for the given namespace ID and attribute name.  The
@@ -1289,7 +1306,8 @@ public:
    * is, this should only be called from methods that only care about attrs
    * that effectively live in mAttrsAndChildren.
    */
-  virtual BorrowedAttrInfo GetAttrInfo(int32_t aNamespaceID, nsAtom* aName) const;
+  virtual BorrowedAttrInfo GetAttrInfo(int32_t aNamespaceID,
+                                       nsAtom* aName) const;
 
   /**
    * Called when we have been adopted, and the information of the
@@ -1322,7 +1340,8 @@ public:
    */
   static CORSMode AttrValueToCORSMode(const nsAttrValue* aValue);
 
-  virtual JSObject* WrapObject(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) final override;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) final override;
 
   nsINode* GetScopeChainParent() const override;
 
@@ -1402,9 +1421,13 @@ public:
     aError = SetAttr(kNameSpaceID_None, aAttr, aValue, true);
   }
 
-  void SetAttr(nsAtom* aAttr, const nsAString& aValue, nsIPrincipal& aTriggeringPrincipal, ErrorResult& aError)
+  void SetAttr(nsAtom* aAttr,
+               const nsAString& aValue,
+               nsIPrincipal& aTriggeringPrincipal,
+               ErrorResult& aError)
   {
-    aError = nsIContent::SetAttr(kNameSpaceID_None, aAttr, aValue, &aTriggeringPrincipal, true);
+    aError = nsIContent::SetAttr(
+        kNameSpaceID_None, aAttr, aValue, &aTriggeringPrincipal, true);
   }
 
   /**
@@ -1412,7 +1435,8 @@ public:
    * attribute (e.g. a CORS attribute).  If DOMStringIsNull(aValue),
    * this will actually remove the content attribute.
    */
-  void SetOrRemoveNullableStringAttr(nsAtom* aName, const nsAString& aValue,
+  void SetOrRemoveNullableStringAttr(nsAtom* aName,
+                                     const nsAString& aValue,
                                      ErrorResult& aError);
 
   /**
@@ -1447,19 +1471,20 @@ public:
   void RegisterIntersectionObserver(DOMIntersectionObserver* aObserver);
   void UnregisterIntersectionObserver(DOMIntersectionObserver* aObserver);
   void UnlinkIntersectionObservers();
-  bool UpdateIntersectionObservation(DOMIntersectionObserver* aObserver, int32_t threshold);
+  bool UpdateIntersectionObservation(DOMIntersectionObserver* aObserver,
+                                     int32_t threshold);
 
-protected:
+ protected:
   /*
    * Named-bools for use with SetAttrAndNotify to make call sites easier to
    * read.
    */
-  static const bool kFireMutationEvent           = true;
-  static const bool kDontFireMutationEvent       = false;
-  static const bool kNotifyDocumentObservers     = true;
+  static const bool kFireMutationEvent = true;
+  static const bool kDontFireMutationEvent = false;
+  static const bool kNotifyDocumentObservers = true;
   static const bool kDontNotifyDocumentObservers = false;
-  static const bool kCallAfterSetAttr            = true;
-  static const bool kDontCallAfterSetAttr        = false;
+  static const bool kCallAfterSetAttr = true;
+  static const bool kDontCallAfterSetAttr = false;
 
   /**
    * Set attribute and (if needed) notify documentobservers and fire off
@@ -1537,9 +1562,9 @@ protected:
    * @return true if the parsing was successful, false otherwise
    */
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult);
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult);
 
   /**
    * Try to set the attribute as a mapped attribute, if applicable.  This will
@@ -1578,7 +1603,8 @@ protected:
    *        will be null.
    * @param aNotify Whether we plan to notify document observers.
    */
-  virtual nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult BeforeSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify);
 
@@ -1606,7 +1632,8 @@ protected:
    */
   // Note that this is inlined so that when subclasses call it it gets
   // inlined.  Those calls don't go through a vtable.
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
@@ -1630,7 +1657,8 @@ protected:
    * @param aName the localname of the attribute being set
    * @param aValue the new id value. Will be null if the id is being unset.
    */
-  void PreIdMaybeChange(int32_t aNamespaceID, nsAtom* aName,
+  void PreIdMaybeChange(int32_t aNamespaceID,
+                        nsAtom* aName,
                         const nsAttrValueOrString* aValue);
 
   /**
@@ -1648,7 +1676,8 @@ protected:
    * @param aName the localname of the attribute being set
    * @param aValue the new id value. Will be null if the id is being unset.
    */
-  void PostIdMaybeChange(int32_t aNamespaceID, nsAtom* aName,
+  void PostIdMaybeChange(int32_t aNamespaceID,
+                         nsAtom* aName,
                          const nsAttrValue* aValue);
 
   /**
@@ -1666,7 +1695,8 @@ protected:
    */
   // Note that this is inlined so that when subclasses call it it gets
   // inlined.  Those calls don't go through a vtable.
-  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID,
+                                          nsAtom* aName,
                                           const nsAttrValueOrString& aValue,
                                           bool aNotify)
   {
@@ -1677,24 +1707,20 @@ protected:
    * Hook to allow subclasses to produce a different EventListenerManager if
    * needed for attachment of attribute-defined handlers
    */
-  virtual EventListenerManager*
-    GetEventListenerManagerForAttr(nsAtom* aAttrName, bool* aDefer);
+  virtual EventListenerManager* GetEventListenerManagerForAttr(
+      nsAtom* aAttrName, bool* aDefer);
 
   /**
    * Internal hook for converting an attribute name-string to nsAttrName in
    * case there is such existing attribute. aNameToUse can be passed to get
    * name which was used for looking for the attribute (lowercase in HTML).
    */
-  const nsAttrName*
-  InternalGetAttrNameFromQName(const nsAString& aStr,
-                               nsAutoString* aNameToUse = nullptr) const;
+  const nsAttrName* InternalGetAttrNameFromQName(
+      const nsAString& aStr, nsAutoString* aNameToUse = nullptr) const;
 
   nsIFrame* GetStyledFrame();
 
-  virtual Element* GetNameSpaceElement() override
-  {
-    return this;
-  }
+  virtual Element* GetNameSpaceElement() override { return this; }
 
   Attr* GetAttributeNodeNSInternal(const nsAString& aNamespaceURI,
                                    const nsAString& aLocalName);
@@ -1746,10 +1772,11 @@ protected:
    */
   virtual void GetLinkTarget(nsAString& aTarget);
 
-  nsDOMTokenList* GetTokenList(nsAtom* aAtom,
-                               const DOMTokenListSupportedTokenArray aSupportedTokens = nullptr);
+  nsDOMTokenList* GetTokenList(
+      nsAtom* aAtom,
+      const DOMTokenListSupportedTokenArray aSupportedTokens = nullptr);
 
-private:
+ private:
   /**
    * Hook for implementing GetClasses.  This is guaranteed to only be
    * called if the NODE_MAY_HAVE_CLASS flag is set.
@@ -1762,7 +1789,7 @@ private:
    */
   nsRect GetClientAreaRect();
 
-  nsIScrollableFrame* GetScrollFrame(nsIFrame **aStyledFrame = nullptr,
+  nsIScrollableFrame* GetScrollFrame(nsIFrame** aStyledFrame = nullptr,
                                      FlushType aFlushType = FlushType::Layout);
 
   // Data members
@@ -1773,13 +1800,14 @@ private:
 
 class RemoveFromBindingManagerRunnable : public mozilla::Runnable
 {
-public:
+ public:
   RemoveFromBindingManagerRunnable(nsBindingManager* aManager,
                                    nsIContent* aContent,
                                    nsIDocument* aDoc);
 
   NS_IMETHOD Run() override;
-private:
+
+ private:
   virtual ~RemoveFromBindingManagerRunnable();
   RefPtr<nsBindingManager> mManager;
   RefPtr<nsIContent> mContent;
@@ -1788,7 +1816,7 @@ private:
 
 class DestinationInsertionPointList : public nsINodeList
 {
-public:
+ public:
   explicit DestinationInsertionPointList(Element* aElement);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -1802,8 +1830,10 @@ public:
   virtual int32_t IndexOf(nsIContent* aContent) override;
   virtual nsINode* GetParentObject() override { return mParent; }
   virtual uint32_t Length() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-protected:
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+ protected:
   virtual ~DestinationInsertionPointList();
 
   RefPtr<Element> mParent;
@@ -1849,22 +1879,25 @@ Element::AttrValueIs(int32_t aNameSpaceID,
   return val && val->Equals(aValue, aCaseSensitive);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-inline mozilla::dom::Element* nsINode::AsElement()
+inline mozilla::dom::Element*
+nsINode::AsElement()
 {
   MOZ_ASSERT(IsElement());
   return static_cast<mozilla::dom::Element*>(this);
 }
 
-inline const mozilla::dom::Element* nsINode::AsElement() const
+inline const mozilla::dom::Element*
+nsINode::AsElement() const
 {
   MOZ_ASSERT(IsElement());
   return static_cast<const mozilla::dom::Element*>(this);
 }
 
-inline void nsINode::UnsetRestyleFlagsIfGecko()
+inline void
+nsINode::UnsetRestyleFlagsIfGecko()
 {
   if (IsElement() && !AsElement()->IsStyledByServo()) {
     UnsetFlags(ELEMENT_ALL_RESTYLE_FLAGS |
@@ -1876,54 +1909,56 @@ inline void nsINode::UnsetRestyleFlagsIfGecko()
  * Macros to implement Clone(). _elementName is the class for which to implement
  * Clone.
  */
-#define NS_IMPL_ELEMENT_CLONE(_elementName)                                 \
-nsresult                                                                    \
-_elementName::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,   \
-                    bool aPreallocateChildren) const                        \
-{                                                                           \
-  *aResult = nullptr;                                                       \
-  already_AddRefed<mozilla::dom::NodeInfo> ni =                             \
-    RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();                   \
-  _elementName *it = new _elementName(ni);                                  \
-  if (!it) {                                                                \
-    return NS_ERROR_OUT_OF_MEMORY;                                          \
-  }                                                                         \
-                                                                            \
-  nsCOMPtr<nsINode> kungFuDeathGrip = it;                                   \
-  nsresult rv = const_cast<_elementName*>(this)->CopyInnerTo(it, aPreallocateChildren); \
-  if (NS_SUCCEEDED(rv)) {                                                   \
-    kungFuDeathGrip.swap(*aResult);                                         \
-  }                                                                         \
-                                                                            \
-  return rv;                                                                \
-}
+#define NS_IMPL_ELEMENT_CLONE(_elementName)                       \
+  nsresult _elementName::Clone(mozilla::dom::NodeInfo* aNodeInfo, \
+                               nsINode** aResult,                 \
+                               bool aPreallocateChildren) const   \
+  {                                                               \
+    *aResult = nullptr;                                           \
+    already_AddRefed<mozilla::dom::NodeInfo> ni =                 \
+        RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();       \
+    _elementName* it = new _elementName(ni);                      \
+    if (!it) {                                                    \
+      return NS_ERROR_OUT_OF_MEMORY;                              \
+    }                                                             \
+                                                                  \
+    nsCOMPtr<nsINode> kungFuDeathGrip = it;                       \
+    nsresult rv = const_cast<_elementName*>(this)->CopyInnerTo(   \
+        it, aPreallocateChildren);                                \
+    if (NS_SUCCEEDED(rv)) {                                       \
+      kungFuDeathGrip.swap(*aResult);                             \
+    }                                                             \
+                                                                  \
+    return rv;                                                    \
+  }
 
 #define EXPAND(...) __VA_ARGS__
-#define NS_IMPL_ELEMENT_CLONE_WITH_INIT_HELPER(_elementName, extra_args_)   \
-nsresult                                                                    \
-_elementName::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,   \
-                    bool aPreallocateChildren) const                        \
-{                                                                           \
-  *aResult = nullptr;                                                       \
-  already_AddRefed<mozilla::dom::NodeInfo> ni =                             \
-    RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();                     \
-  _elementName *it = new _elementName(ni EXPAND extra_args_);               \
-  if (!it) {                                                                \
-    return NS_ERROR_OUT_OF_MEMORY;                                          \
-  }                                                                         \
-                                                                            \
-  nsCOMPtr<nsINode> kungFuDeathGrip = it;                                   \
-  nsresult rv = it->Init();                                                 \
-  nsresult rv2 = const_cast<_elementName*>(this)->CopyInnerTo(it, aPreallocateChildren); \
-  if (NS_FAILED(rv2)) {                                                     \
-    rv = rv2;                                                               \
-  }                                                                         \
-  if (NS_SUCCEEDED(rv)) {                                                   \
-    kungFuDeathGrip.swap(*aResult);                                         \
-  }                                                                         \
-                                                                            \
-  return rv;                                                                \
-}
+#define NS_IMPL_ELEMENT_CLONE_WITH_INIT_HELPER(_elementName, extra_args_) \
+  nsresult _elementName::Clone(mozilla::dom::NodeInfo* aNodeInfo,         \
+                               nsINode** aResult,                         \
+                               bool aPreallocateChildren) const           \
+  {                                                                       \
+    *aResult = nullptr;                                                   \
+    already_AddRefed<mozilla::dom::NodeInfo> ni =                         \
+        RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();               \
+    _elementName* it = new _elementName(ni EXPAND extra_args_);           \
+    if (!it) {                                                            \
+      return NS_ERROR_OUT_OF_MEMORY;                                      \
+    }                                                                     \
+                                                                          \
+    nsCOMPtr<nsINode> kungFuDeathGrip = it;                               \
+    nsresult rv = it->Init();                                             \
+    nsresult rv2 = const_cast<_elementName*>(this)->CopyInnerTo(          \
+        it, aPreallocateChildren);                                        \
+    if (NS_FAILED(rv2)) {                                                 \
+      rv = rv2;                                                           \
+    }                                                                     \
+    if (NS_SUCCEEDED(rv)) {                                               \
+      kungFuDeathGrip.swap(*aResult);                                     \
+    }                                                                     \
+                                                                          \
+    return rv;                                                            \
+  }
 
 #define NS_IMPL_ELEMENT_CLONE_WITH_INIT(_elementName) \
   NS_IMPL_ELEMENT_CLONE_WITH_INIT_HELPER(_elementName, ())
@@ -1937,17 +1972,18 @@ _elementName::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,   \
  * some consumers only implement that one, hiding superclass
  * 4-argument forms.
  */
-#define NS_IMPL_STRING_ATTR(_class, _method, _atom)                     \
-  NS_IMETHODIMP                                                         \
-  _class::Get##_method(nsAString& aValue)                               \
-  {                                                                     \
-    GetAttr(kNameSpaceID_None, nsGkAtoms::_atom, aValue);               \
-    return NS_OK;                                                       \
-  }                                                                     \
-  NS_IMETHODIMP                                                         \
-  _class::Set##_method(const nsAString& aValue)                         \
-  {                                                                     \
-    return SetAttr(kNameSpaceID_None, nsGkAtoms::_atom, nullptr, aValue, true); \
+#define NS_IMPL_STRING_ATTR(_class, _method, _atom)                  \
+  NS_IMETHODIMP                                                      \
+  _class::Get##_method(nsAString& aValue)                            \
+  {                                                                  \
+    GetAttr(kNameSpaceID_None, nsGkAtoms::_atom, aValue);            \
+    return NS_OK;                                                    \
+  }                                                                  \
+  NS_IMETHODIMP                                                      \
+  _class::Set##_method(const nsAString& aValue)                      \
+  {                                                                  \
+    return SetAttr(                                                  \
+        kNameSpaceID_None, nsGkAtoms::_atom, nullptr, aValue, true); \
   }
 
 /**
@@ -1955,66 +1991,65 @@ _elementName::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,   \
  * valued content property. The method uses the GetBoolAttr and
  * SetBoolAttr methods.
  */
-#define NS_IMPL_BOOL_ATTR(_class, _method, _atom)                     \
-  NS_IMETHODIMP                                                       \
-  _class::Get##_method(bool* aValue)                                  \
-  {                                                                   \
-    *aValue = GetBoolAttr(nsGkAtoms::_atom);                          \
-    return NS_OK;                                                     \
-  }                                                                   \
-  NS_IMETHODIMP                                                       \
-  _class::Set##_method(bool aValue)                                   \
-  {                                                                   \
-    return SetBoolAttr(nsGkAtoms::_atom, aValue);                     \
+#define NS_IMPL_BOOL_ATTR(_class, _method, _atom) \
+  NS_IMETHODIMP                                   \
+  _class::Get##_method(bool* aValue)              \
+  {                                               \
+    *aValue = GetBoolAttr(nsGkAtoms::_atom);      \
+    return NS_OK;                                 \
+  }                                               \
+  NS_IMETHODIMP                                   \
+  _class::Set##_method(bool aValue)               \
+  {                                               \
+    return SetBoolAttr(nsGkAtoms::_atom, aValue); \
   }
 
-#define NS_FORWARD_NSIDOMELEMENT_TO_GENERIC                                   \
-typedef mozilla::dom::Element Element;                                        \
-NS_IMETHOD GetTagName(nsAString& aTagName) final override                     \
-{                                                                             \
-  Element::GetTagName(aTagName);                                              \
-  return NS_OK;                                                               \
-}                                                                             \
-NS_IMETHOD GetAttributes(nsIDOMMozNamedAttrMap** aAttributes) final override  \
-{                                                                             \
-  NS_ADDREF(*aAttributes = Attributes());                                     \
-  return NS_OK;                                                               \
-}                                                                             \
-using Element::GetAttribute;                                                  \
-NS_IMETHOD GetAttribute(const nsAString& name, nsAString& _retval) final      \
-  override                                                                    \
-{                                                                             \
-  nsString attr;                                                              \
-  GetAttribute(name, attr);                                                   \
-  _retval = attr;                                                             \
-  return NS_OK;                                                               \
-}                                                                             \
-NS_IMETHOD SetAttribute(const nsAString& name,                                \
-                        const nsAString& value) override                      \
-{                                                                             \
-  mozilla::ErrorResult rv;                                                    \
-  Element::SetAttribute(name, value, nullptr, rv);                            \
-  return rv.StealNSResult();                                                  \
-}                                                                             \
-using Element::HasAttribute;                                                  \
-NS_IMETHOD HasAttribute(const nsAString& name,                                \
-                           bool* _retval) final override                      \
-{                                                                             \
-  *_retval = HasAttribute(name);                                              \
-  return NS_OK;                                                               \
-}                                                                             \
-NS_IMETHOD GetAttributeNode(const nsAString& name,                            \
-                            nsIDOMAttr** _retval) final override              \
-{                                                                             \
-  NS_IF_ADDREF(*_retval = Element::GetAttributeNode(name));                   \
-  return NS_OK;                                                               \
-}                                                                             \
-NS_IMETHOD GetAttributeNodeNS(const nsAString& namespaceURI,                  \
-                              const nsAString& localName,                     \
-                              nsIDOMAttr** _retval) final override            \
-{                                                                             \
-  NS_IF_ADDREF(*_retval = Element::GetAttributeNodeNS(namespaceURI,           \
-                                                      localName));            \
-  return NS_OK;                                                               \
-}
-#endif // mozilla_dom_Element_h__
+#define NS_FORWARD_NSIDOMELEMENT_TO_GENERIC                                    \
+  typedef mozilla::dom::Element Element;                                       \
+  NS_IMETHOD GetTagName(nsAString& aTagName) final override                    \
+  {                                                                            \
+    Element::GetTagName(aTagName);                                             \
+    return NS_OK;                                                              \
+  }                                                                            \
+  NS_IMETHOD GetAttributes(nsIDOMMozNamedAttrMap** aAttributes) final override \
+  {                                                                            \
+    NS_ADDREF(*aAttributes = Attributes());                                    \
+    return NS_OK;                                                              \
+  }                                                                            \
+  using Element::GetAttribute;                                                 \
+  NS_IMETHOD GetAttribute(const nsAString& name, nsAString& _retval)           \
+      final override                                                           \
+  {                                                                            \
+    nsString attr;                                                             \
+    GetAttribute(name, attr);                                                  \
+    _retval = attr;                                                            \
+    return NS_OK;                                                              \
+  }                                                                            \
+  NS_IMETHOD SetAttribute(const nsAString& name, const nsAString& value)       \
+      override                                                                 \
+  {                                                                            \
+    mozilla::ErrorResult rv;                                                   \
+    Element::SetAttribute(name, value, nullptr, rv);                           \
+    return rv.StealNSResult();                                                 \
+  }                                                                            \
+  using Element::HasAttribute;                                                 \
+  NS_IMETHOD HasAttribute(const nsAString& name, bool* _retval) final override \
+  {                                                                            \
+    *_retval = HasAttribute(name);                                             \
+    return NS_OK;                                                              \
+  }                                                                            \
+  NS_IMETHOD GetAttributeNode(const nsAString& name, nsIDOMAttr** _retval)     \
+      final override                                                           \
+  {                                                                            \
+    NS_IF_ADDREF(*_retval = Element::GetAttributeNode(name));                  \
+    return NS_OK;                                                              \
+  }                                                                            \
+  NS_IMETHOD GetAttributeNodeNS(const nsAString& namespaceURI,                 \
+                                const nsAString& localName,                    \
+                                nsIDOMAttr** _retval) final override           \
+  {                                                                            \
+    NS_IF_ADDREF(*_retval =                                                    \
+                     Element::GetAttributeNodeNS(namespaceURI, localName));    \
+    return NS_OK;                                                              \
+  }
+#endif  // mozilla_dom_Element_h__

@@ -12,13 +12,7 @@
 using namespace mozilla;
 
 static const char* const kJunkNames[] = {
-  nullptr,
-  "",
-  "123",
-  "backgroundz",
-  "zzzzzz",
-  "#@$&@#*@*$@$#"
-};
+    nullptr, "", "123", "backgroundz", "zzzzzz", "#@$&@#*@*$@$#"};
 
 static bool
 TestProps()
@@ -34,8 +28,8 @@ TestProps()
   // be in the table. Futz with the case to make sure any case will
   // work
   extern const char* const kCSSRawProperties[];
-  const char*const* et = &kCSSRawProperties[0];
-  const char*const* end = &kCSSRawProperties[eCSSProperty_COUNT];
+  const char* const* et = &kCSSRawProperties[0];
+  const char* const* end = &kCSSRawProperties[eCSSProperty_COUNT];
   index = eCSSProperty_UNKNOWN;
   while (et < end) {
     char tagName[100];
@@ -71,7 +65,7 @@ TestProps()
   }
 
   // Now make sure we don't find some garbage
-  for (int i = 0; i < (int) (sizeof(kJunkNames) / sizeof(const char*)); i++) {
+  for (int i = 0; i < (int)(sizeof(kJunkNames) / sizeof(const char*)); i++) {
     const char* const tag = kJunkNames[i];
     id = nsCSSProps::LookupProperty(nsAutoCString(tag),
                                     CSSEnabledState::eIgnoreEnabledState);
@@ -99,8 +93,8 @@ TestKeywords()
   // First make sure we can find all of the tags that are supposed to
   // be in the table. Futz with the case to make sure any case will
   // work
-  const char*const*  et = &kCSSRawKeywords[0];
-  const char*const*  end = &kCSSRawKeywords[eCSSKeyword_COUNT - 1];
+  const char* const* et = &kCSSRawKeywords[0];
+  const char* const* end = &kCSSRawKeywords[eCSSKeyword_COUNT - 1];
   index = eCSSKeyword_UNKNOWN;
   while (et < end) {
     char tagName[512];
@@ -142,7 +136,7 @@ TestKeywords()
   }
 
   // Now make sure we don't find some garbage
-  for (int i = 0; i < (int) (sizeof(kJunkNames) / sizeof(const char*)); i++) {
+  for (int i = 0; i < (int)(sizeof(kJunkNames) / sizeof(const char*)); i++) {
     const char* const tag = kJunkNames[i];
     id = nsCSSKeywords::LookupKeyword(nsAutoCString(tag));
     if (eCSSKeyword_UNKNOWN < id) {

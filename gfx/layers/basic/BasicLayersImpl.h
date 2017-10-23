@@ -6,61 +6,62 @@
 #ifndef GFX_BASICLAYERSIMPL_H
 #define GFX_BASICLAYERSIMPL_H
 
-#include "BasicImplData.h"              // for BasicImplData
-#include "BasicLayers.h"                // for BasicLayerManager
-#include "ReadbackLayer.h"              // for ReadbackLayer
-#include "gfxContext.h"                 // for gfxContext, etc
-#include "mozilla/Attributes.h"         // for MOZ_STACK_CLASS
-#include "mozilla/Maybe.h"              // for Maybe
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for gfxContext::Release, etc
-#include "nsRegion.h"                   // for nsIntRegion
+#include "BasicImplData.h"       // for BasicImplData
+#include "BasicLayers.h"         // for BasicLayerManager
+#include "ReadbackLayer.h"       // for ReadbackLayer
+#include "gfxContext.h"          // for gfxContext, etc
+#include "mozilla/Attributes.h"  // for MOZ_STACK_CLASS
+#include "mozilla/Maybe.h"       // for Maybe
+#include "nsDebug.h"             // for NS_ASSERTION
+#include "nsISupportsImpl.h"     // for gfxContext::Release, etc
+#include "nsRegion.h"            // for nsIntRegion
 
 namespace mozilla {
 namespace gfx {
 class DrawTarget;
-} // namespace gfx
+}  // namespace gfx
 
 namespace layers {
 
 class AutoMoz2DMaskData;
 class Layer;
 
-class AutoSetOperator {
+class AutoSetOperator
+{
   typedef mozilla::gfx::CompositionOp CompositionOp;
-public:
-  AutoSetOperator(gfxContext* aContext, CompositionOp aOperator) {
+
+ public:
+  AutoSetOperator(gfxContext* aContext, CompositionOp aOperator)
+  {
     if (aOperator != CompositionOp::OP_OVER) {
       aContext->SetOp(aOperator);
       mContext = aContext;
     }
   }
-  ~AutoSetOperator() {
+  ~AutoSetOperator()
+  {
     if (mContext) {
       mContext->SetOp(CompositionOp::OP_OVER);
     }
   }
-private:
+
+ private:
   RefPtr<gfxContext> mContext;
 };
 
-class BasicReadbackLayer : public ReadbackLayer,
-                           public BasicImplData
+class BasicReadbackLayer : public ReadbackLayer, public BasicImplData
 {
-public:
-  explicit BasicReadbackLayer(BasicLayerManager* aLayerManager) :
-    ReadbackLayer(aLayerManager, static_cast<BasicImplData*>(this))
+ public:
+  explicit BasicReadbackLayer(BasicLayerManager* aLayerManager)
+      : ReadbackLayer(aLayerManager, static_cast<BasicImplData*>(this))
   {
     MOZ_COUNT_CTOR(BasicReadbackLayer);
   }
 
-protected:
-  virtual ~BasicReadbackLayer()
-  {
-    MOZ_COUNT_DTOR(BasicReadbackLayer);
-  }
+ protected:
+  virtual ~BasicReadbackLayer() { MOZ_COUNT_DTOR(BasicReadbackLayer); }
 
-public:
+ public:
   virtual void SetVisibleRegion(const LayerIntRegion& aRegion)
   {
     NS_ASSERTION(BasicManager()->InConstruction(),
@@ -68,7 +69,7 @@ public:
     ReadbackLayer::SetVisibleRegion(aRegion);
   }
 
-protected:
+ protected:
   BasicLayerManager* BasicManager()
   {
     return static_cast<BasicLayerManager*>(mManager);
@@ -87,7 +88,8 @@ GetMaskData(Layer* aMaskLayer,
             const gfx::Point& aDeviceOffset,
             AutoMoz2DMaskData* aMaskData);
 
-already_AddRefed<gfx::SourceSurface> GetMaskForLayer(Layer* aLayer, gfx::Matrix* aMaskTransform);
+already_AddRefed<gfx::SourceSurface>
+GetMaskForLayer(Layer* aLayer, gfx::Matrix* aMaskTransform);
 
 // Paint the current source to a context using a mask, if present
 void
@@ -165,7 +167,7 @@ ToData(Layer* aLayer);
 gfx::CompositionOp
 GetEffectiveOperator(Layer* aLayer);
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

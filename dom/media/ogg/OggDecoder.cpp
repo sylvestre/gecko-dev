@@ -51,4 +51,4 @@ OggDecoder::IsSupportedType(const MediaContainerType& aContainerType)
   return true;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

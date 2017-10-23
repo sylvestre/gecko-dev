@@ -99,26 +99,30 @@ namespace mozilla {
 // NotNull currently doesn't work with UniquePtr. See
 // https://github.com/Microsoft/GSL/issues/89 for some discussion.
 //
-template <typename T>
+template<typename T>
 class NotNull
 {
-  template <typename U> friend NotNull<U> WrapNotNull(U aBasePtr);
+  template<typename U>
+  friend NotNull<U> WrapNotNull(U aBasePtr);
   template<typename U, typename... Args>
   friend NotNull<U> MakeNotNull(Args&&... aArgs);
 
   T mBasePtr;
 
   // This constructor is only used by WrapNotNull() and MakeNotNull<U>().
-  template <typename U>
-  explicit NotNull(U aBasePtr) : mBasePtr(aBasePtr) {}
+  template<typename U>
+  explicit NotNull(U aBasePtr) : mBasePtr(aBasePtr)
+  {
+  }
 
-public:
+ public:
   // Disallow default construction.
   NotNull() = delete;
 
   // Construct/assign from another NotNull with a compatible base pointer type.
-  template <typename U>
-  MOZ_IMPLICIT NotNull(const NotNull<U>& aOther) : mBasePtr(aOther.get()) {
+  template<typename U>
+  MOZ_IMPLICIT NotNull(const NotNull<U>& aOther) : mBasePtr(aOther.get())
+  {
     static_assert(sizeof(T) == sizeof(NotNull<T>),
                   "NotNull must have zero space overhead.");
     static_assert(offsetof(NotNull<T>, mBasePtr) == 0,
@@ -146,7 +150,7 @@ public:
   decltype(*mBasePtr) operator*() const { return *mBasePtr; }
 };
 
-template <typename T>
+template<typename T>
 NotNull<T>
 WrapNotNull(const T aBasePtr)
 {
@@ -165,20 +169,20 @@ MakeNotNull(Args&&... aArgs)
   // Extract the pointee type from what T's dereferencing operator returns
   // (which could be a reference to a const type).
   using Pointee = typename mozilla::RemoveConst<
-    typename mozilla::RemoveReference<decltype(*DeclVal<T>())>::Type>::Type;
+      typename mozilla::RemoveReference<decltype(*DeclVal<T>())>::Type>::Type;
   static_assert(!IsArray<Pointee>::value,
                 "MakeNotNull cannot construct an array");
   return NotNull<T>(new Pointee(Forward<Args>(aArgs)...));
 }
 
 // Compare two NotNulls.
-template <typename T, typename U>
+template<typename T, typename U>
 inline bool
 operator==(const NotNull<T>& aLhs, const NotNull<U>& aRhs)
 {
   return aLhs.get() == aRhs.get();
 }
-template <typename T, typename U>
+template<typename T, typename U>
 inline bool
 operator!=(const NotNull<T>& aLhs, const NotNull<U>& aRhs)
 {
@@ -186,13 +190,13 @@ operator!=(const NotNull<T>& aLhs, const NotNull<U>& aRhs)
 }
 
 // Compare a NotNull to a base pointer.
-template <typename T, typename U>
+template<typename T, typename U>
 inline bool
 operator==(const NotNull<T>& aLhs, const U& aRhs)
 {
   return aLhs.get() == aRhs;
 }
-template <typename T, typename U>
+template<typename T, typename U>
 inline bool
 operator!=(const NotNull<T>& aLhs, const U& aRhs)
 {
@@ -200,13 +204,13 @@ operator!=(const NotNull<T>& aLhs, const U& aRhs)
 }
 
 // Compare a base pointer to a NotNull.
-template <typename T, typename U>
+template<typename T, typename U>
 inline bool
 operator==(const T& aLhs, const NotNull<U>& aRhs)
 {
   return aLhs == aRhs.get();
 }
-template <typename T, typename U>
+template<typename T, typename U>
 inline bool
 operator!=(const T& aLhs, const NotNull<U>& aRhs)
 {
@@ -214,21 +218,21 @@ operator!=(const T& aLhs, const NotNull<U>& aRhs)
 }
 
 // Disallow comparing a NotNull to a nullptr.
-template <typename T>
+template<typename T>
 bool
 operator==(const NotNull<T>&, decltype(nullptr)) = delete;
-template <typename T>
+template<typename T>
 bool
 operator!=(const NotNull<T>&, decltype(nullptr)) = delete;
 
 // Disallow comparing a nullptr to a NotNull.
-template <typename T>
+template<typename T>
 bool
 operator==(decltype(nullptr), const NotNull<T>&) = delete;
-template <typename T>
+template<typename T>
 bool
 operator!=(decltype(nullptr), const NotNull<T>&) = delete;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_NotNull_h */

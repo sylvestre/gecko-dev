@@ -18,7 +18,7 @@ namespace Telemetry {
 // include any logic on how to collect or read the information it stores.
 class ProcessedStack
 {
-public:
+ public:
   ProcessedStack();
   size_t GetStackSize() const;
   size_t GetNumModules() const;
@@ -41,14 +41,14 @@ public:
     bool operator==(const Module& other) const;
   };
 
-  const Frame &GetFrame(unsigned aIndex) const;
+  const Frame& GetFrame(unsigned aIndex) const;
   void AddFrame(const Frame& aFrame);
-  const Module &GetModule(unsigned aIndex) const;
+  const Module& GetModule(unsigned aIndex) const;
   void AddModule(const Module& aFrame);
 
   void Clear();
 
-private:
+ private:
   std::vector<Module> mModules;
   std::vector<Frame> mStack;
 };
@@ -57,9 +57,9 @@ private:
 // stack. We let the caller collect the stack since different callers have
 // different needs (current thread X main thread, stopping the thread, etc).
 ProcessedStack
-GetStackAndModules(const std::vector<uintptr_t> &aPCs);
+GetStackAndModules(const std::vector<uintptr_t>& aPCs);
 
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Telemetry
+}  // namespace mozilla
 
-#endif // ProcessedStack_h__
+#endif  // ProcessedStack_h__

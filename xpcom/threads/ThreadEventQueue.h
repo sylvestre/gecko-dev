@@ -36,7 +36,7 @@ class ThreadEventTarget;
 template<class InnerQueueT>
 class ThreadEventQueue final : public SynchronizedEventQueue
 {
-public:
+ public:
   explicit ThreadEventQueue(UniquePtr<InnerQueueT> aQueue);
 
   bool PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
@@ -83,7 +83,7 @@ public:
 
   Mutex& MutexRef() { return mLock; }
 
-private:
+ private:
   class NestedSink;
 
   virtual ~ThreadEventQueue();
@@ -101,9 +101,9 @@ private:
 
     NestedQueueItem(UniquePtr<EventQueue> aQueue,
                     ThreadEventTarget* aEventTarget)
-      : mQueue(Move(aQueue))
-      , mEventTarget(aEventTarget)
-    {}
+        : mQueue(Move(aQueue)), mEventTarget(aEventTarget)
+    {
+    }
   };
 
   nsTArray<NestedQueueItem> mNestedQueues;
@@ -117,8 +117,9 @@ private:
 
 extern template class ThreadEventQueue<EventQueue>;
 extern template class ThreadEventQueue<PrioritizedEventQueue<EventQueue>>;
-extern template class ThreadEventQueue<PrioritizedEventQueue<LabeledEventQueue>>;
+extern template class ThreadEventQueue<
+    PrioritizedEventQueue<LabeledEventQueue>>;
 
-}; // namespace mozilla
+};  // namespace mozilla
 
-#endif // mozilla_ThreadEventQueue_h
+#endif  // mozilla_ThreadEventQueue_h

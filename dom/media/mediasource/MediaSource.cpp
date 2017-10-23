@@ -44,20 +44,28 @@
 struct JSContext;
 class JSObject;
 
-mozilla::LogModule* GetMediaSourceLog()
+mozilla::LogModule*
+GetMediaSourceLog()
 {
   static mozilla::LazyLogModule sLogModule("MediaSource");
   return sLogModule;
 }
 
-mozilla::LogModule* GetMediaSourceAPILog()
+mozilla::LogModule*
+GetMediaSourceAPILog()
 {
   static mozilla::LazyLogModule sLogModule("MediaSource");
   return sLogModule;
 }
 
-#define MSE_DEBUG(arg, ...) MOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Debug, ("MediaSource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
-#define MSE_API(arg, ...) MOZ_LOG(GetMediaSourceAPILog(), mozilla::LogLevel::Debug, ("MediaSource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define MSE_DEBUG(arg, ...)         \
+  MOZ_LOG(GetMediaSourceLog(),      \
+          mozilla::LogLevel::Debug, \
+          ("MediaSource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define MSE_API(arg, ...)           \
+  MOZ_LOG(GetMediaSourceAPILog(),   \
+          mozilla::LogLevel::Debug, \
+          ("MediaSource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 // Arbitrary limit.
 static const unsigned int MAX_SOURCE_BUFFERS = 16;
@@ -75,9 +83,8 @@ namespace mozilla {
 static bool
 IsWebMForced(DecoderDoctorDiagnostics* aDiagnostics)
 {
-  bool mp4supported =
-    DecoderTraits::IsMP4SupportedType(MediaContainerType(MEDIAMIMETYPE("video/mp4")),
-                                      aDiagnostics);
+  bool mp4supported = DecoderTraits::IsMP4SupportedType(
+      MediaContainerType(MEDIAMIMETYPE("video/mp4")), aDiagnostics);
   bool hwsupported = gfx::gfxVars::CanUseHardwareVideoDecoding();
 #ifdef MOZ_WIDGET_ANDROID
   return !mp4supported || !hwsupported || VP9Benchmark::IsVP9DecodeFast() ||
@@ -91,7 +98,8 @@ namespace dom {
 
 /* static */
 nsresult
-MediaSource::IsTypeSupported(const nsAString& aType, DecoderDoctorDiagnostics* aDiagnostics)
+MediaSource::IsTypeSupported(const nsAString& aType,
+                             DecoderDoctorDiagnostics* aDiagnostics)
 {
   if (aType.IsEmpty()) {
     return NS_ERROR_DOM_TYPE_ERR;
@@ -102,8 +110,8 @@ MediaSource::IsTypeSupported(const nsAString& aType, DecoderDoctorDiagnostics* a
     return NS_ERROR_DOM_NOT_SUPPORTED_ERR;
   }
 
-  if (DecoderTraits::CanHandleContainerType(*containerType, aDiagnostics)
-      == CANPLAY_NO) {
+  if (DecoderTraits::CanHandleContainerType(*containerType, aDiagnostics) ==
+      CANPLAY_NO) {
     return NS_ERROR_DOM_NOT_SUPPORTED_ERR;
   }
 
@@ -120,11 +128,12 @@ MediaSource::IsTypeSupported(const nsAString& aType, DecoderDoctorDiagnostics* a
   if (mimeType == MEDIAMIMETYPE("video/webm")) {
     if (!(Preferences::GetBool("media.mediasource.webm.enabled", false) ||
           containerType->ExtendedType().Codecs().Contains(
-            NS_LITERAL_STRING("vp8")) ||
+              NS_LITERAL_STRING("vp8")) ||
 #ifdef MOZ_AV1
           // FIXME: Temporary comparison with the full codecs attribute.
           // See bug 1377015.
-          AOMDecoder::IsSupportedCodec(containerType->ExtendedType().Codecs().AsString()) ||
+          AOMDecoder::IsSupportedCodec(
+              containerType->ExtendedType().Codecs().AsString()) ||
 #endif
           IsWebMForced(aDiagnostics))) {
       return NS_ERROR_DOM_NOT_SUPPORTED_ERR;
@@ -143,10 +152,10 @@ MediaSource::IsTypeSupported(const nsAString& aType, DecoderDoctorDiagnostics* a
 }
 
 /* static */ already_AddRefed<MediaSource>
-MediaSource::Constructor(const GlobalObject& aGlobal,
-                         ErrorResult& aRv)
+MediaSource::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -169,7 +178,8 @@ SourceBufferList*
 MediaSource::SourceBuffers()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT_IF(mReadyState == MediaSourceReadyState::Closed, mSourceBuffers->IsEmpty());
+  MOZ_ASSERT_IF(mReadyState == MediaSourceReadyState::Closed,
+                mSourceBuffers->IsEmpty());
   return mSourceBuffers;
 }
 
@@ -177,7 +187,8 @@ SourceBufferList*
 MediaSource::ActiveSourceBuffers()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT_IF(mReadyState == MediaSourceReadyState::Closed, mActiveSourceBuffers->IsEmpty());
+  MOZ_ASSERT_IF(mReadyState == MediaSourceReadyState::Closed,
+                mActiveSourceBuffers->IsEmpty());
   return mActiveSourceBuffers;
 }
 
@@ -230,10 +241,11 @@ MediaSource::AddSourceBuffer(const nsAString& aType, ErrorResult& aRv)
   MOZ_ASSERT(NS_IsMainThread());
   DecoderDoctorDiagnostics diagnostics;
   nsresult rv = IsTypeSupported(aType, &diagnostics);
-  diagnostics.StoreFormatDiagnostics(GetOwner()
-                                     ? GetOwner()->GetExtantDoc()
-                                     : nullptr,
-                                     aType, NS_SUCCEEDED(rv), __func__);
+  diagnostics.StoreFormatDiagnostics(
+      GetOwner() ? GetOwner()->GetExtantDoc() : nullptr,
+      aType,
+      NS_SUCCEEDED(rv),
+      __func__);
   MSE_API("AddSourceBuffer(aType=%s)%s",
           NS_ConvertUTF16toUTF8(aType).get(),
           rv == NS_OK ? "" : " [not supported]");
@@ -256,7 +268,7 @@ MediaSource::AddSourceBuffer(const nsAString& aType, ErrorResult& aRv)
   }
   RefPtr<SourceBuffer> sourceBuffer = new SourceBuffer(this, *containerType);
   if (!sourceBuffer) {
-    aRv.Throw(NS_ERROR_FAILURE); // XXX need a better error here
+    aRv.Throw(NS_ERROR_FAILURE);  // XXX need a better error here
     return nullptr;
   }
   mSourceBuffers->Append(sourceBuffer);
@@ -339,7 +351,8 @@ MediaSource::RemoveSourceBuffer(SourceBuffer& aSourceBuffer, ErrorResult& aRv)
 }
 
 void
-MediaSource::EndOfStream(const Optional<MediaSourceEndOfStreamError>& aError, ErrorResult& aRv)
+MediaSource::EndOfStream(const Optional<MediaSourceEndOfStreamError>& aError,
+                         ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MSE_API("EndOfStream(aError=%d)",
@@ -359,14 +372,14 @@ MediaSource::EndOfStream(const Optional<MediaSourceEndOfStreamError>& aError, Er
     return;
   }
   switch (aError.Value()) {
-  case MediaSourceEndOfStreamError::Network:
-    mDecoder->NetworkError();
-    break;
-  case MediaSourceEndOfStreamError::Decode:
-    mDecoder->DecodeError(NS_ERROR_DOM_MEDIA_FATAL_ERR);
-    break;
-  default:
-    aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+    case MediaSourceEndOfStreamError::Network:
+      mDecoder->NetworkError();
+      break;
+    case MediaSourceEndOfStreamError::Decode:
+      mDecoder->DecodeError(NS_ERROR_DOM_MEDIA_FATAL_ERR);
+      break;
+    default:
+      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
   }
 }
 
@@ -387,13 +400,17 @@ MediaSource::IsTypeSupported(const GlobalObject& aOwner, const nsAString& aType)
   MOZ_ASSERT(NS_IsMainThread());
   DecoderDoctorDiagnostics diagnostics;
   nsresult rv = IsTypeSupported(aType, &diagnostics);
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aOwner.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aOwner.GetAsSupports());
   diagnostics.StoreFormatDiagnostics(window ? window->GetExtantDoc() : nullptr,
-                                     aType, NS_SUCCEEDED(rv), __func__);
+                                     aType,
+                                     NS_SUCCEEDED(rv),
+                                     __func__);
 #define this nullptr
   MSE_API("IsTypeSupported(aType=%s)%s ",
-          NS_ConvertUTF16toUTF8(aType).get(), rv == NS_OK ? "OK" : "[not supported]");
-#undef this // don't ever remove this line !
+          NS_ConvertUTF16toUTF8(aType).get(),
+          rv == NS_OK ? "OK" : "[not supported]");
+#undef this  // don't ever remove this line !
   return NS_SUCCEEDED(rv);
 }
 
@@ -426,8 +443,8 @@ MediaSource::SetLiveSeekableRange(double aStart, double aEnd, ErrorResult& aRv)
   // containing a single range whose start position is start and end position is
   // end.
   mLiveSeekableRange =
-    Some(media::TimeInterval(media::TimeUnit::FromSeconds(aStart),
-                             media::TimeUnit::FromSeconds(aEnd)));
+      Some(media::TimeInterval(media::TimeUnit::FromSeconds(aStart),
+                               media::TimeUnit::FromSeconds(aEnd)));
 }
 
 void
@@ -472,7 +489,8 @@ MediaSource::Detach()
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_RELEASE_ASSERT(mCompletionPromises.IsEmpty());
   MSE_DEBUG("mDecoder=%p owner=%p",
-            mDecoder.get(), mDecoder ? mDecoder->GetOwner() : nullptr);
+            mDecoder.get(),
+            mDecoder ? mDecoder->GetOwner() : nullptr);
   if (!mDecoder) {
     MOZ_ASSERT(mReadyState == MediaSourceReadyState::Closed);
     MOZ_ASSERT(mActiveSourceBuffers->IsEmpty() && mSourceBuffers->IsEmpty());
@@ -491,11 +509,12 @@ MediaSource::Detach()
 }
 
 MediaSource::MediaSource(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mDecoder(nullptr)
-  , mPrincipal(nullptr)
-  , mAbstractMainThread(GetOwnerGlobal()->AbstractMainThreadFor(TaskCategory::Other))
-  , mReadyState(MediaSourceReadyState::Closed)
+    : DOMEventTargetHelper(aWindow),
+      mDecoder(nullptr),
+      mPrincipal(nullptr),
+      mAbstractMainThread(
+          GetOwnerGlobal()->AbstractMainThreadFor(TaskCategory::Other)),
+      mReadyState(MediaSourceReadyState::Closed)
 {
   MOZ_ASSERT(NS_IsMainThread());
   mSourceBuffers = new SourceBufferList(this);
@@ -507,7 +526,9 @@ MediaSource::MediaSource(nsPIDOMWindowInner* aWindow)
   }
 
   MSE_API("MediaSource(aWindow=%p) mSourceBuffers=%p mActiveSourceBuffers=%p",
-          aWindow, mSourceBuffers.get(), mActiveSourceBuffers.get());
+          aWindow,
+          mSourceBuffers.get(),
+          mActiveSourceBuffers.get());
 }
 
 void
@@ -516,7 +537,8 @@ MediaSource::SetReadyState(MediaSourceReadyState aState)
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aState != mReadyState);
   MSE_DEBUG("SetReadyState(aState=%" PRIu32 ") mReadyState=%" PRIu32,
-            static_cast<uint32_t>(aState), static_cast<uint32_t>(mReadyState));
+            static_cast<uint32_t>(aState),
+            static_cast<uint32_t>(mReadyState));
 
   MediaSourceReadyState oldState = mReadyState;
   mReadyState = aState;
@@ -588,8 +610,7 @@ MediaSource::DurationChange(double aNewDuration, ErrorResult& aRv)
   double highestEndTime = mSourceBuffers->HighestEndTime();
   // 4. If new duration is less than highest end time, then
   //    4.1 Update new duration to equal highest end time.
-  aNewDuration =
-    std::max(aNewDuration, highestEndTime);
+  aNewDuration = std::max(aNewDuration, highestEndTime);
 
   // 5. Update the media duration to new duration and run the HTMLMediaElement
   // duration change algorithm.
@@ -616,9 +637,11 @@ MediaSource::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return MediaSourceBinding::Wrap(aCx, this, aGivenProto);
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaSource, DOMEventTargetHelper,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaSource,
+                                   DOMEventTargetHelper,
                                    mMediaElement,
-                                   mSourceBuffers, mActiveSourceBuffers)
+                                   mSourceBuffers,
+                                   mActiveSourceBuffers)
 
 NS_IMPL_ADDREF_INHERITED(MediaSource, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(MediaSource, DOMEventTargetHelper)
@@ -630,6 +653,6 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 #undef MSE_DEBUG
 #undef MSE_API
 
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla

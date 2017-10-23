@@ -19,8 +19,8 @@ using std::swap;
 namespace mozilla {
 
 using namespace gfx;
-using layers::LayerManager;
 using layers::ImageContainer;
+using layers::LayerManager;
 
 namespace image {
 
@@ -87,8 +87,7 @@ OrientedImage::GetIntrinsicRatio(nsSize* aRatio)
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
-OrientedImage::GetFrame(uint32_t aWhichFrame,
-                        uint32_t aFlags)
+OrientedImage::GetFrame(uint32_t aWhichFrame, uint32_t aFlags)
 {
   nsresult rv;
 
@@ -113,27 +112,29 @@ OrientedImage::GetFrame(uint32_t aWhichFrame,
 
   // Create a surface to draw into.
   RefPtr<DrawTarget> target =
-    gfxPlatform::GetPlatform()->
-      CreateOffscreenContentDrawTarget(size, surfaceFormat);
+      gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
+          size, surfaceFormat);
   if (!target || !target->IsValid()) {
     NS_ERROR("Could not create a DrawTarget");
     return nullptr;
   }
 
-
   // Create our drawable.
   RefPtr<SourceSurface> innerSurface =
-    InnerImage()->GetFrame(aWhichFrame, aFlags);
+      InnerImage()->GetFrame(aWhichFrame, aFlags);
   NS_ENSURE_TRUE(innerSurface, nullptr);
-  RefPtr<gfxDrawable> drawable =
-    new gfxSurfaceDrawable(innerSurface, size);
+  RefPtr<gfxDrawable> drawable = new gfxSurfaceDrawable(innerSurface, size);
 
   // Draw.
   RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(target);
-  MOZ_ASSERT(ctx); // already checked the draw target above
+  MOZ_ASSERT(ctx);  // already checked the draw target above
   ctx->Multiply(OrientationMatrix(size));
-  gfxUtils::DrawPixelSnapped(ctx, drawable, SizeDouble(size), ImageRegion::Create(size),
-                             surfaceFormat, SamplingFilter::LINEAR);
+  gfxUtils::DrawPixelSnapped(ctx,
+                             drawable,
+                             SizeDouble(size),
+                             ImageRegion::Create(size),
+                             surfaceFormat,
+                             SamplingFilter::LINEAR);
 
   return target->Snapshot();
 }
@@ -149,7 +150,8 @@ OrientedImage::GetFrameAtSize(const IntSize& aSize,
 }
 
 NS_IMETHODIMP_(bool)
-OrientedImage::IsImageContainerAvailable(LayerManager* aManager, uint32_t aFlags)
+OrientedImage::IsImageContainerAvailable(LayerManager* aManager,
+                                         uint32_t aFlags)
 {
   if (mOrientation.IsIdentity()) {
     return InnerImage()->IsImageContainerAvailable(aManager, aFlags);
@@ -175,7 +177,7 @@ OrientedImage::GetImageContainer(LayerManager* aManager, uint32_t aFlags)
 
 struct MatrixBuilder
 {
-  explicit MatrixBuilder(bool aInvert) : mInvert(aInvert) { }
+  explicit MatrixBuilder(bool aInvert) : mInvert(aInvert) {}
 
   gfxMatrix Build() { return mMatrix; }
 
@@ -206,9 +208,9 @@ struct MatrixBuilder
     }
   }
 
-private:
+ private:
   gfxMatrix mMatrix;
-  bool      mInvert;
+  bool mInvert;
 };
 
 /*
@@ -283,9 +285,14 @@ OrientedImage::Draw(gfxContext* aContext,
                     float aOpacity)
 {
   if (mOrientation.IsIdentity()) {
-    return InnerImage()->Draw(aContext, aSize, aRegion,
-                              aWhichFrame, aSamplingFilter,
-                              aSVGContext, aFlags, aOpacity);
+    return InnerImage()->Draw(aContext,
+                              aSize,
+                              aRegion,
+                              aWhichFrame,
+                              aSamplingFilter,
+                              aSVGContext,
+                              aFlags,
+                              aOpacity);
   }
 
   // Update the image size to match the image's coordinate system. (This could
@@ -319,9 +326,13 @@ OrientedImage::Draw(gfxContext* aContext,
     return context;
   };
 
-  return InnerImage()->Draw(aContext, size, region, aWhichFrame,
+  return InnerImage()->Draw(aContext,
+                            size,
+                            region,
+                            aWhichFrame,
                             aSamplingFilter,
-                            aSVGContext.map(orientViewport), aFlags,
+                            aSVGContext.map(orientViewport),
+                            aFlags,
                             aOpacity);
 }
 
@@ -332,16 +343,14 @@ OrientedImage::OptimalImageSizeForDest(const gfxSize& aDest,
                                        uint32_t aFlags)
 {
   if (!mOrientation.SwapsWidthAndHeight()) {
-    return InnerImage()->OptimalImageSizeForDest(aDest, aWhichFrame,
-                                                 aSamplingFilter, aFlags);
+    return InnerImage()->OptimalImageSizeForDest(
+        aDest, aWhichFrame, aSamplingFilter, aFlags);
   }
 
   // Swap the size for the calculation, then swap it back for the caller.
   gfxSize destSize(aDest.height, aDest.width);
-  nsIntSize innerImageSize(InnerImage()->OptimalImageSizeForDest(destSize,
-                                                                 aWhichFrame,
-                                                                 aSamplingFilter,
-                                                                 aFlags));
+  nsIntSize innerImageSize(InnerImage()->OptimalImageSizeForDest(
+      destSize, aWhichFrame, aSamplingFilter, aFlags));
   return nsIntSize(innerImageSize.height, innerImageSize.width);
 }
 
@@ -364,12 +373,12 @@ OrientedImage::GetImageSpaceInvalidationRect(const nsIntRect& aRect)
 
   // Transform the invalidation rect into the correct orientation.
   gfxMatrix matrix(OrientationMatrix(innerSize));
-  gfxRect invalidRect(matrix.TransformBounds(gfxRect(rect.x, rect.y,
-                                                     rect.Width(), rect.Height())));
+  gfxRect invalidRect(matrix.TransformBounds(
+      gfxRect(rect.x, rect.y, rect.Width(), rect.Height())));
 
-  return IntRect::RoundOut(invalidRect.x, invalidRect.y,
-                           invalidRect.Width(), invalidRect.Height());
+  return IntRect::RoundOut(
+      invalidRect.x, invalidRect.y, invalidRect.Width(), invalidRect.Height());
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

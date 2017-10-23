@@ -19,33 +19,33 @@ namespace browser {
 
 class DirectoryProvider final : public nsIDirectoryServiceProvider2
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDIRECTORYSERVICEPROVIDER
   NS_DECL_NSIDIRECTORYSERVICEPROVIDER2
 
-private:
+ private:
   ~DirectoryProvider() {}
 
   class AppendingEnumerator final : public nsISimpleEnumerator
   {
-  public:
+   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSISIMPLEENUMERATOR
 
     AppendingEnumerator(nsISimpleEnumerator* aBase,
-                        char const *const *aAppendList);
+                        char const* const* aAppendList);
 
-  private:
+   private:
     ~AppendingEnumerator() {}
 
     nsCOMPtr<nsISimpleEnumerator> mBase;
-    char const *const *const      mAppendList;
-    nsCOMPtr<nsIFile>             mNext;
+    char const* const* const mAppendList;
+    nsCOMPtr<nsIFile> mNext;
   };
 };
 
-} // namespace browser
-} // namespace mozilla
+}  // namespace browser
+}  // namespace mozilla
 
-#endif // DirectoryProvider_h__
+#endif  // DirectoryProvider_h__

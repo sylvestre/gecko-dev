@@ -11,7 +11,8 @@
 #include "CTVerifyResult.h"
 #include "pkix/Result.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Information about the compliance of the TLS connection with the
 // Certificate Transparency policy.
@@ -44,7 +45,7 @@ enum class CTPolicyCompliance
 // CheckOperatorDiversityCompliance in CTPolicyEnforcer.cpp).
 class CTPolicyEnforcer
 {
-public:
+ public:
   // |verifiedSct| - SCTs present on the connection along with their
   // verification status.
   // |certLifetimeInCalendarMonths| - certificate lifetime in full calendar
@@ -60,6 +61,7 @@ public:
                                CTPolicyCompliance& compliance);
 };
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
-#endif // CTPolicyEnforcer_h
+#endif  // CTPolicyEnforcer_h

@@ -22,19 +22,19 @@ class PrintProgressDialogChild final : public PPrintProgressDialogChild,
   NS_DECL_NSIWEBPROGRESSLISTENER
   NS_DECL_NSIPRINTPROGRESSPARAMS
 
-public:
+ public:
   MOZ_IMPLICIT PrintProgressDialogChild(nsIObserver* aOpenObserver);
 
   virtual mozilla::ipc::IPCResult RecvDialogOpened() override;
 
-private:
+ private:
   virtual ~PrintProgressDialogChild();
   nsCOMPtr<nsIObserver> mOpenObserver;
   nsString mDocTitle;
   nsString mDocURL;
 };
 
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla
 
 #endif

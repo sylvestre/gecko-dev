@@ -5,7 +5,7 @@
 
 NS_DEF_PTR(nsIDOMNode);
 
-	/*
+/*
 		Windows:
                         raw, nsCOMPtr           21 bytes
 
@@ -14,61 +14,55 @@ NS_DEF_PTR(nsIDOMNode);
 	*/
 
 class Test05_Raw
-	{
-		public:
-                        Test05_Raw();
-                 ~Test05_Raw();
+{
+ public:
+  Test05_Raw();
+  ~Test05_Raw();
 
-			void /*nsresult*/ GetNode( nsIDOMNode** aNode );
+  void /*nsresult*/ GetNode(nsIDOMNode** aNode);
 
-		private:
-			nsIDOMNode* mNode;
-	};
+ private:
+  nsIDOMNode* mNode;
+};
 
-Test05_Raw::Test05_Raw()
-		: mNode(0)
-	{
-		// nothing else to do here
-	}
+Test05_Raw::Test05_Raw() : mNode(0)
+{
+  // nothing else to do here
+}
 
-Test05_Raw::~Test05_Raw()
-	{
-		NS_IF_RELEASE(mNode);
-	}
+Test05_Raw::~Test05_Raw() { NS_IF_RELEASE(mNode); }
 
-void // nsresult
-Test05_Raw::GetNode( nsIDOMNode** aNode )
-		// m64, w21
-	{
-//		if ( !aNode )
-//			return NS_ERROR_NULL_POINTER;
+void  // nsresult
+Test05_Raw::GetNode(nsIDOMNode** aNode)
+// m64, w21
+{
+  //		if ( !aNode )
+  //			return NS_ERROR_NULL_POINTER;
 
-		*aNode = mNode;
-		NS_IF_ADDREF(*aNode);
+  *aNode = mNode;
+  NS_IF_ADDREF(*aNode);
 
-//		return NS_OK;
-	}
-
-
+  //		return NS_OK;
+}
 
 class Test05_nsCOMPtr
-	{
-		public:
-			void /*nsresult*/ GetNode( nsIDOMNode** aNode );
+{
+ public:
+  void /*nsresult*/ GetNode(nsIDOMNode** aNode);
 
-		private:
-			nsCOMPtr<nsIDOMNode> mNode;
-	};
+ private:
+  nsCOMPtr<nsIDOMNode> mNode;
+};
 
-void // nsresult
-Test05_nsCOMPtr::GetNode( nsIDOMNode** aNode )
-		// m64, w21
-	{
-//		if ( !aNode )
-//			return NS_ERROR_NULL_POINTER;
+void  // nsresult
+Test05_nsCOMPtr::GetNode(nsIDOMNode** aNode)
+// m64, w21
+{
+  //		if ( !aNode )
+  //			return NS_ERROR_NULL_POINTER;
 
-		*aNode = mNode;
-		NS_IF_ADDREF(*aNode);
+  *aNode = mNode;
+  NS_IF_ADDREF(*aNode);
 
-//		return NS_OK;
-	}
+  //		return NS_OK;
+}

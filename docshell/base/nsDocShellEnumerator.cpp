@@ -9,17 +9,15 @@
 #include "nsIDocShellTreeItem.h"
 
 nsDocShellEnumerator::nsDocShellEnumerator(int32_t aEnumerationDirection)
-  : mRootItem(nullptr)
-  , mCurIndex(0)
-  , mDocShellType(nsIDocShellTreeItem::typeAll)
-  , mArrayValid(false)
-  , mEnumerationDirection(aEnumerationDirection)
+    : mRootItem(nullptr),
+      mCurIndex(0),
+      mDocShellType(nsIDocShellTreeItem::typeAll),
+      mArrayValid(false),
+      mEnumerationDirection(aEnumerationDirection)
 {
 }
 
-nsDocShellEnumerator::~nsDocShellEnumerator()
-{
-}
+nsDocShellEnumerator::~nsDocShellEnumerator() {}
 
 NS_IMPL_ISUPPORTS(nsDocShellEnumerator, nsISimpleEnumerator)
 
@@ -132,8 +130,7 @@ nsDocShellEnumerator::BuildDocShellArray(nsTArray<nsWeakPtr>& aItemArray)
 
 nsresult
 nsDocShellForwardsEnumerator::BuildArrayRecursive(
-    nsIDocShellTreeItem* aItem,
-    nsTArray<nsWeakPtr>& aItemArray)
+    nsIDocShellTreeItem* aItem, nsTArray<nsWeakPtr>& aItemArray)
 {
   nsresult rv;
 
@@ -169,8 +166,7 @@ nsDocShellForwardsEnumerator::BuildArrayRecursive(
 
 nsresult
 nsDocShellBackwardsEnumerator::BuildArrayRecursive(
-    nsIDocShellTreeItem* aItem,
-    nsTArray<nsWeakPtr>& aItemArray)
+    nsIDocShellTreeItem* aItem, nsTArray<nsWeakPtr>& aItemArray)
 {
   nsresult rv;
 

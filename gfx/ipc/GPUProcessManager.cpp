@@ -27,7 +27,7 @@
 #include "mozilla/layers/RemoteCompositorSession.h"
 #include "mozilla/widget/PlatformWidgetTypes.h"
 #ifdef MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING
-# include "mozilla/widget/CompositorWidgetChild.h"
+#include "mozilla/widget/CompositorWidgetChild.h"
 #endif
 #include "nsBaseWidget.h"
 #include "nsContentUtils.h"
@@ -42,13 +42,13 @@
 #include "nsPrintfCString.h"
 
 #ifdef MOZ_CRASHREPORTER
-# include "nsExceptionHandler.h"
+#include "nsExceptionHandler.h"
 #endif
 
 #if defined(MOZ_WIDGET_ANDROID)
 #include "mozilla/widget/AndroidUiThread.h"
 #include "mozilla/layers/UiCompositorControllerChild.h"
-#endif // defined(MOZ_WIDGET_ANDROID)
+#endif  // defined(MOZ_WIDGET_ANDROID)
 
 namespace mozilla {
 namespace gfx {
@@ -84,14 +84,14 @@ GPUProcessManager::Shutdown()
 }
 
 GPUProcessManager::GPUProcessManager()
- : mTaskFactory(this),
-   mNextNamespace(0),
-   mIdNamespace(0),
-   mResourceId(0),
-   mNumProcessAttempts(0),
-   mDeviceResetCount(0),
-   mProcess(nullptr),
-   mGPUChild(nullptr)
+    : mTaskFactory(this),
+      mNextNamespace(0),
+      mIdNamespace(0),
+      mResourceId(0),
+      mNumProcessAttempts(0),
+      mDeviceResetCount(0),
+      mProcess(nullptr),
+      mGPUChild(nullptr)
 {
   MOZ_COUNT_CTOR(GPUProcessManager);
 
@@ -120,12 +120,14 @@ GPUProcessManager::~GPUProcessManager()
 NS_IMPL_ISUPPORTS(GPUProcessManager::Observer, nsIObserver);
 
 GPUProcessManager::Observer::Observer(GPUProcessManager* aManager)
- : mManager(aManager)
+    : mManager(aManager)
 {
 }
 
 NS_IMETHODIMP
-GPUProcessManager::Observer::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
+GPUProcessManager::Observer::Observe(nsISupports* aSubject,
+                                     const char* aTopic,
+                                     const char16_t* aData)
 {
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     mManager->OnXPCOMShutdown();
@@ -238,18 +240,15 @@ GPUProcessManager::EnsureCompositorManagerChild()
   ipc::Endpoint<PCompositorManagerParent> parentPipe;
   ipc::Endpoint<PCompositorManagerChild> childPipe;
   nsresult rv = PCompositorManager::CreateEndpoints(
-    mGPUChild->OtherPid(),
-    base::GetCurrentProcId(),
-    &parentPipe,
-    &childPipe);
+      mGPUChild->OtherPid(), base::GetCurrentProcId(), &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
     DisableGPUProcess("Failed to create PCompositorManager endpoints");
     return;
   }
 
   mGPUChild->SendInitCompositorManager(Move(parentPipe));
-  CompositorManagerChild::Init(Move(childPipe), AllocateNamespace(),
-                               mProcessToken);
+  CompositorManagerChild::Init(
+      Move(childPipe), AllocateNamespace(), mProcessToken);
 }
 
 void
@@ -267,10 +266,7 @@ GPUProcessManager::EnsureImageBridgeChild()
   ipc::Endpoint<PImageBridgeParent> parentPipe;
   ipc::Endpoint<PImageBridgeChild> childPipe;
   nsresult rv = PImageBridge::CreateEndpoints(
-    mGPUChild->OtherPid(),
-    base::GetCurrentProcId(),
-    &parentPipe,
-    &childPipe);
+      mGPUChild->OtherPid(), base::GetCurrentProcId(), &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
     DisableGPUProcess("Failed to create PImageBridge endpoints");
     return;
@@ -295,10 +291,7 @@ GPUProcessManager::EnsureVRManager()
   ipc::Endpoint<PVRManagerParent> parentPipe;
   ipc::Endpoint<PVRManagerChild> childPipe;
   nsresult rv = PVRManager::CreateEndpoints(
-    mGPUChild->OtherPid(),
-    base::GetCurrentProcId(),
-    &parentPipe,
-    &childPipe);
+      mGPUChild->OtherPid(), base::GetCurrentProcId(), &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
     DisableGPUProcess("Failed to create PVRManager endpoints");
     return;
@@ -310,7 +303,8 @@ GPUProcessManager::EnsureVRManager()
 
 #if defined(MOZ_WIDGET_ANDROID)
 already_AddRefed<UiCompositorControllerChild>
-GPUProcessManager::CreateUiCompositorController(nsBaseWidget* aWidget, const uint64_t aId)
+GPUProcessManager::CreateUiCompositorController(nsBaseWidget* aWidget,
+                                                const uint64_t aId)
 {
   RefPtr<UiCompositorControllerChild> result;
 
@@ -319,25 +313,26 @@ GPUProcessManager::CreateUiCompositorController(nsBaseWidget* aWidget, const uin
   } else {
     ipc::Endpoint<PUiCompositorControllerParent> parentPipe;
     ipc::Endpoint<PUiCompositorControllerChild> childPipe;
-    nsresult rv = PUiCompositorController::CreateEndpoints(
-      mGPUChild->OtherPid(),
-      base::GetCurrentProcId(),
-      &parentPipe,
-      &childPipe);
+    nsresult rv =
+        PUiCompositorController::CreateEndpoints(mGPUChild->OtherPid(),
+                                                 base::GetCurrentProcId(),
+                                                 &parentPipe,
+                                                 &childPipe);
     if (NS_FAILED(rv)) {
       DisableGPUProcess("Failed to create PUiCompositorController endpoints");
       return nullptr;
     }
 
     mGPUChild->SendInitUiCompositorController(aId, Move(parentPipe));
-    result = UiCompositorControllerChild::CreateForGPUProcess(mProcessToken, Move(childPipe));
+    result = UiCompositorControllerChild::CreateForGPUProcess(mProcessToken,
+                                                              Move(childPipe));
   }
   if (result) {
     result->SetBaseWidget(aWidget);
   }
   return result.forget();
 }
-#endif // defined(MOZ_WIDGET_ANDROID)
+#endif  // defined(MOZ_WIDGET_ANDROID)
 
 void
 GPUProcessManager::OnProcessLaunchComplete(GPUProcessHost* aHost)
@@ -354,27 +349,26 @@ GPUProcessManager::OnProcessLaunchComplete(GPUProcessHost* aHost)
 
   Endpoint<PVsyncBridgeParent> vsyncParent;
   Endpoint<PVsyncBridgeChild> vsyncChild;
-  nsresult rv = PVsyncBridge::CreateEndpoints(
-    mGPUChild->OtherPid(),
-    base::GetCurrentProcId(),
-    &vsyncParent,
-    &vsyncChild);
+  nsresult rv = PVsyncBridge::CreateEndpoints(mGPUChild->OtherPid(),
+                                              base::GetCurrentProcId(),
+                                              &vsyncParent,
+                                              &vsyncChild);
   if (NS_FAILED(rv)) {
     DisableGPUProcess("Failed to create PVsyncBridge endpoints");
     return;
   }
 
-  mVsyncBridge = VsyncBridgeChild::Create(mVsyncIOThread, mProcessToken, Move(vsyncChild));
+  mVsyncBridge =
+      VsyncBridgeChild::Create(mVsyncIOThread, mProcessToken, Move(vsyncChild));
   mGPUChild->SendInitVsyncBridge(Move(vsyncParent));
 
 #ifdef MOZ_CRASHREPORTER
-  CrashReporter::AnnotateCrashReport(
-    NS_LITERAL_CSTRING("GPUProcessStatus"),
-    NS_LITERAL_CSTRING("Running"));
+  CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("GPUProcessStatus"),
+                                     NS_LITERAL_CSTRING("Running"));
 
   CrashReporter::AnnotateCrashReport(
-    NS_LITERAL_CSTRING("GPUProcessLaunchCount"),
-    nsPrintfCString("%d", mNumProcessAttempts));
+      NS_LITERAL_CSTRING("GPUProcessLaunchCount"),
+      nsPrintfCString("%d", mNumProcessAttempts));
 #endif
 }
 
@@ -435,20 +429,22 @@ GPUProcessManager::DisableWebRender(wr::WebRenderError aError)
   }
   // Disable WebRender
   if (aError == wr::WebRenderError::INITIALIZE) {
-    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER).ForceDisable(
-      gfx::FeatureStatus::Unavailable,
-      "WebRender initialization failed",
-      NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_INITIALIZE"));
+    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER)
+        .ForceDisable(
+            gfx::FeatureStatus::Unavailable,
+            "WebRender initialization failed",
+            NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_INITIALIZE"));
   } else if (aError == wr::WebRenderError::MAKE_CURRENT) {
-    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER).ForceDisable(
-      gfx::FeatureStatus::Unavailable,
-      "Failed to make render context current",
-      NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_MAKE_CURRENT"));
+    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER)
+        .ForceDisable(
+            gfx::FeatureStatus::Unavailable,
+            "Failed to make render context current",
+            NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_MAKE_CURRENT"));
   } else if (aError == wr::WebRenderError::RENDER) {
-    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER).ForceDisable(
-      gfx::FeatureStatus::Unavailable,
-      "Failed to render WebRender",
-      NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_RENDER"));
+    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER)
+        .ForceDisable(gfx::FeatureStatus::Unavailable,
+                      "Failed to render WebRender",
+                      NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_RENDER"));
   } else {
     MOZ_ASSERT_UNREACHABLE("Invalid value");
   }
@@ -490,15 +486,18 @@ GPUProcessManager::OnRemoteProcessDeviceReset(GPUProcessHost* aHost)
     DisableGPUProcess("GPU processed experienced too many device resets");
 
     // Reaches the limited TDR attempts, fallback to software solution.
-    gfxConfig::SetFailed(Feature::HW_COMPOSITING,
-      FeatureStatus::Blocked,
-      "Too many attemps of D3D11 creation, fallback to software solution.");
-    gfxConfig::SetFailed(Feature::D3D11_COMPOSITING,
-      FeatureStatus::Blocked,
-      "Too many attemps of D3D11 creation, fallback to software solution.");
-    gfxConfig::SetFailed(Feature::DIRECT2D,
-      FeatureStatus::Blocked,
-      "Too many attemps of D3D11 creation, fallback to software solution.");
+    gfxConfig::SetFailed(
+        Feature::HW_COMPOSITING,
+        FeatureStatus::Blocked,
+        "Too many attemps of D3D11 creation, fallback to software solution.");
+    gfxConfig::SetFailed(
+        Feature::D3D11_COMPOSITING,
+        FeatureStatus::Blocked,
+        "Too many attemps of D3D11 creation, fallback to software solution.");
+    gfxConfig::SetFailed(
+        Feature::DIRECT2D,
+        FeatureStatus::Blocked,
+        "Too many attemps of D3D11 creation, fallback to software solution.");
 
     HandleProcessLost();
     return;
@@ -526,18 +525,20 @@ GPUProcessManager::OnProcessUnexpectedShutdown(GPUProcessHost* aHost)
 
   if (mNumProcessAttempts > uint32_t(gfxPrefs::GPUProcessMaxRestarts())) {
     char disableMessage[64];
-    SprintfLiteral(disableMessage, "GPU process disabled after %d attempts",
+    SprintfLiteral(disableMessage,
+                   "GPU process disabled after %d attempts",
                    mNumProcessAttempts);
     DisableGPUProcess(disableMessage);
-  } else if (mNumProcessAttempts > uint32_t(gfxPrefs::GPUProcessMaxRestartsWithDecoder()) &&
+  } else if (mNumProcessAttempts >
+                 uint32_t(gfxPrefs::GPUProcessMaxRestartsWithDecoder()) &&
              mDecodeVideoOnGpuProcess) {
     mDecodeVideoOnGpuProcess = false;
     Telemetry::Accumulate(Telemetry::GPU_PROCESS_CRASH_FALLBACKS,
-                                     uint32_t(FallbackType::DECODINGDISABLED));
+                          uint32_t(FallbackType::DECODINGDISABLED));
     HandleProcessLost();
   } else {
     Telemetry::Accumulate(Telemetry::GPU_PROCESS_CRASH_FALLBACKS,
-                                     uint32_t(FallbackType::NONE));
+                          uint32_t(FallbackType::NONE));
     HandleProcessLost();
   }
 }
@@ -662,7 +663,7 @@ GPUProcessManager::NotifyRemoteActorDestroyed(const uint64_t& aProcessToken)
 {
   if (!NS_IsMainThread()) {
     RefPtr<Runnable> task = mTaskFactory.NewRunnableMethod(
-      &GPUProcessManager::NotifyRemoteActorDestroyed, aProcessToken);
+        &GPUProcessManager::NotifyRemoteActorDestroyed, aProcessToken);
     NS_DispatchToMainThread(task.forget());
     return;
   }
@@ -713,9 +714,8 @@ GPUProcessManager::DestroyProcess()
   }
 
 #ifdef MOZ_CRASHREPORTER
-  CrashReporter::AnnotateCrashReport(
-    NS_LITERAL_CSTRING("GPUProcessStatus"),
-    NS_LITERAL_CSTRING("Destroyed"));
+  CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("GPUProcessStatus"),
+                                     NS_LITERAL_CSTRING("Destroyed"));
 #endif
 }
 
@@ -737,14 +737,13 @@ GPUProcessManager::CreateTopLevelCompositor(nsBaseWidget* aWidget,
   RefPtr<CompositorSession> session;
 
   if (EnsureGPUReady()) {
-    session = CreateRemoteSession(
-      aWidget,
-      aLayerManager,
-      layerTreeId,
-      aScale,
-      aOptions,
-      aUseExternalSurfaceSize,
-      aSurfaceSize);
+    session = CreateRemoteSession(aWidget,
+                                  aLayerManager,
+                                  layerTreeId,
+                                  aScale,
+                                  aOptions,
+                                  aUseExternalSurfaceSize,
+                                  aSurfaceSize);
     if (!session) {
       // We couldn't create a remote compositor, so abort the process.
       DisableGPUProcess("Failed to create remote compositor");
@@ -752,24 +751,24 @@ GPUProcessManager::CreateTopLevelCompositor(nsBaseWidget* aWidget,
       return nullptr;
     }
   } else {
-    session = InProcessCompositorSession::Create(
-      aWidget,
-      aLayerManager,
-      layerTreeId,
-      aScale,
-      aOptions,
-      aUseExternalSurfaceSize,
-      aSurfaceSize,
-      AllocateNamespace());
+    session = InProcessCompositorSession::Create(aWidget,
+                                                 aLayerManager,
+                                                 layerTreeId,
+                                                 aScale,
+                                                 aOptions,
+                                                 aUseExternalSurfaceSize,
+                                                 aSurfaceSize,
+                                                 AllocateNamespace());
   }
 
 #if defined(MOZ_WIDGET_ANDROID)
   if (session) {
     // Nothing to do if controller gets a nullptr
-    RefPtr<UiCompositorControllerChild> controller = CreateUiCompositorController(aWidget, session->RootLayerTreeId());
+    RefPtr<UiCompositorControllerChild> controller =
+        CreateUiCompositorController(aWidget, session->RootLayerTreeId());
     session->SetUiCompositorControllerChild(controller);
   }
-#endif // defined(MOZ_WIDGET_ANDROID)
+#endif  // defined(MOZ_WIDGET_ANDROID)
 
   *aRetryOut = false;
   return session.forget();
@@ -789,24 +788,26 @@ GPUProcessManager::CreateRemoteSession(nsBaseWidget* aWidget,
   aWidget->GetCompositorWidgetInitData(&initData);
 
   RefPtr<CompositorBridgeChild> child =
-    CompositorManagerChild::CreateWidgetCompositorBridge(
-      mProcessToken,
-      aLayerManager,
-      AllocateNamespace(),
-      aScale,
-      aOptions,
-      aUseExternalSurfaceSize,
-      aSurfaceSize);
+      CompositorManagerChild::CreateWidgetCompositorBridge(
+          mProcessToken,
+          aLayerManager,
+          AllocateNamespace(),
+          aScale,
+          aOptions,
+          aUseExternalSurfaceSize,
+          aSurfaceSize);
   if (!child) {
     gfxCriticalNote << "Failed to create CompositorBridgeChild";
     return nullptr;
   }
 
-  RefPtr<CompositorVsyncDispatcher> dispatcher = aWidget->GetCompositorVsyncDispatcher();
+  RefPtr<CompositorVsyncDispatcher> dispatcher =
+      aWidget->GetCompositorVsyncDispatcher();
   RefPtr<CompositorWidgetVsyncObserver> observer =
-    new CompositorWidgetVsyncObserver(mVsyncBridge, aRootLayerTreeId);
+      new CompositorWidgetVsyncObserver(mVsyncBridge, aRootLayerTreeId);
 
-  CompositorWidgetChild* widget = new CompositorWidgetChild(dispatcher, observer);
+  CompositorWidgetChild* widget =
+      new CompositorWidgetChild(dispatcher, observer);
   if (!child->SendPCompositorWidgetConstructor(widget, initData)) {
     return nullptr;
   }
@@ -823,8 +824,8 @@ GPUProcessManager::CreateRemoteSession(nsBaseWidget* aWidget,
     apz = static_cast<APZCTreeManagerChild*>(papz);
   }
 
-  RefPtr<RemoteCompositorSession> session =
-    new RemoteCompositorSession(aWidget, child, widget, apz, aRootLayerTreeId);
+  RefPtr<RemoteCompositorSession> session = new RemoteCompositorSession(
+      aWidget, child, widget, apz, aRootLayerTreeId);
   return session.forget();
 #else
   gfxCriticalNote << "Platform does not support out-of-process compositing";
@@ -833,17 +834,17 @@ GPUProcessManager::CreateRemoteSession(nsBaseWidget* aWidget,
 }
 
 bool
-GPUProcessManager::CreateContentBridges(base::ProcessId aOtherProcess,
-                                        ipc::Endpoint<PCompositorManagerChild>* aOutCompositor,
-                                        ipc::Endpoint<PImageBridgeChild>* aOutImageBridge,
-                                        ipc::Endpoint<PVRManagerChild>* aOutVRBridge,
-                                        ipc::Endpoint<dom::PVideoDecoderManagerChild>* aOutVideoManager,
-                                        nsTArray<uint32_t>* aNamespaces)
+GPUProcessManager::CreateContentBridges(
+    base::ProcessId aOtherProcess,
+    ipc::Endpoint<PCompositorManagerChild>* aOutCompositor,
+    ipc::Endpoint<PImageBridgeChild>* aOutImageBridge,
+    ipc::Endpoint<PVRManagerChild>* aOutVRBridge,
+    ipc::Endpoint<dom::PVideoDecoderManagerChild>* aOutVideoManager,
+    nsTArray<uint32_t>* aNamespaces)
 {
   if (!CreateContentCompositorManager(aOtherProcess, aOutCompositor) ||
       !CreateContentImageBridge(aOtherProcess, aOutImageBridge) ||
-      !CreateContentVRManager(aOtherProcess, aOutVRBridge))
-  {
+      !CreateContentVRManager(aOtherProcess, aOutVRBridge)) {
     return false;
   }
   // VideoDeocderManager is only supported in the GPU process, so we allow this to be
@@ -857,23 +858,21 @@ GPUProcessManager::CreateContentBridges(base::ProcessId aOtherProcess,
 }
 
 bool
-GPUProcessManager::CreateContentCompositorManager(base::ProcessId aOtherProcess,
-                                                  ipc::Endpoint<PCompositorManagerChild>* aOutEndpoint)
+GPUProcessManager::CreateContentCompositorManager(
+    base::ProcessId aOtherProcess,
+    ipc::Endpoint<PCompositorManagerChild>* aOutEndpoint)
 {
   ipc::Endpoint<PCompositorManagerParent> parentPipe;
   ipc::Endpoint<PCompositorManagerChild> childPipe;
 
-  base::ProcessId parentPid = EnsureGPUReady()
-                              ? mGPUChild->OtherPid()
-                              : base::GetCurrentProcId();
+  base::ProcessId parentPid =
+      EnsureGPUReady() ? mGPUChild->OtherPid() : base::GetCurrentProcId();
 
   nsresult rv = PCompositorManager::CreateEndpoints(
-    parentPid,
-    aOtherProcess,
-    &parentPipe,
-    &childPipe);
+      parentPid, aOtherProcess, &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
-    gfxCriticalNote << "Could not create content compositor manager: " << hexa(int(rv));
+    gfxCriticalNote << "Could not create content compositor manager: "
+                    << hexa(int(rv));
     return false;
   }
 
@@ -888,24 +887,22 @@ GPUProcessManager::CreateContentCompositorManager(base::ProcessId aOtherProcess,
 }
 
 bool
-GPUProcessManager::CreateContentImageBridge(base::ProcessId aOtherProcess,
-                                            ipc::Endpoint<PImageBridgeChild>* aOutEndpoint)
+GPUProcessManager::CreateContentImageBridge(
+    base::ProcessId aOtherProcess,
+    ipc::Endpoint<PImageBridgeChild>* aOutEndpoint)
 {
   EnsureImageBridgeChild();
 
-  base::ProcessId parentPid = EnsureGPUReady()
-                              ? mGPUChild->OtherPid()
-                              : base::GetCurrentProcId();
+  base::ProcessId parentPid =
+      EnsureGPUReady() ? mGPUChild->OtherPid() : base::GetCurrentProcId();
 
   ipc::Endpoint<PImageBridgeParent> parentPipe;
   ipc::Endpoint<PImageBridgeChild> childPipe;
   nsresult rv = PImageBridge::CreateEndpoints(
-    parentPid,
-    aOtherProcess,
-    &parentPipe,
-    &childPipe);
+      parentPid, aOtherProcess, &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
-    gfxCriticalNote << "Could not create content compositor bridge: " << hexa(int(rv));
+    gfxCriticalNote << "Could not create content compositor bridge: "
+                    << hexa(int(rv));
     return false;
   }
 
@@ -924,31 +921,26 @@ GPUProcessManager::CreateContentImageBridge(base::ProcessId aOtherProcess,
 base::ProcessId
 GPUProcessManager::GPUProcessPid()
 {
-  base::ProcessId gpuPid = mGPUChild
-                           ? mGPUChild->OtherPid()
-                           : -1;
+  base::ProcessId gpuPid = mGPUChild ? mGPUChild->OtherPid() : -1;
   return gpuPid;
 }
 
 bool
-GPUProcessManager::CreateContentVRManager(base::ProcessId aOtherProcess,
-                                          ipc::Endpoint<PVRManagerChild>* aOutEndpoint)
+GPUProcessManager::CreateContentVRManager(
+    base::ProcessId aOtherProcess, ipc::Endpoint<PVRManagerChild>* aOutEndpoint)
 {
   EnsureVRManager();
 
-  base::ProcessId parentPid = EnsureGPUReady()
-                              ? mGPUChild->OtherPid()
-                              : base::GetCurrentProcId();
+  base::ProcessId parentPid =
+      EnsureGPUReady() ? mGPUChild->OtherPid() : base::GetCurrentProcId();
 
   ipc::Endpoint<PVRManagerParent> parentPipe;
   ipc::Endpoint<PVRManagerChild> childPipe;
   nsresult rv = PVRManager::CreateEndpoints(
-    parentPid,
-    aOtherProcess,
-    &parentPipe,
-    &childPipe);
+      parentPid, aOtherProcess, &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
-    gfxCriticalNote << "Could not create content compositor bridge: " << hexa(int(rv));
+    gfxCriticalNote << "Could not create content compositor bridge: "
+                    << hexa(int(rv));
     return false;
   }
 
@@ -965,11 +957,11 @@ GPUProcessManager::CreateContentVRManager(base::ProcessId aOtherProcess,
 }
 
 void
-GPUProcessManager::CreateContentVideoDecoderManager(base::ProcessId aOtherProcess,
-                                                    ipc::Endpoint<dom::PVideoDecoderManagerChild>* aOutEndpoint)
+GPUProcessManager::CreateContentVideoDecoderManager(
+    base::ProcessId aOtherProcess,
+    ipc::Endpoint<dom::PVideoDecoderManagerChild>* aOutEndpoint)
 {
-  if (!EnsureGPUReady() ||
-      !MediaPrefs::PDMUseGPUDecoder() ||
+  if (!EnsureGPUReady() || !MediaPrefs::PDMUseGPUDecoder() ||
       !mDecodeVideoOnGpuProcess) {
     return;
   }
@@ -978,12 +970,10 @@ GPUProcessManager::CreateContentVideoDecoderManager(base::ProcessId aOtherProces
   ipc::Endpoint<dom::PVideoDecoderManagerChild> childPipe;
 
   nsresult rv = dom::PVideoDecoderManager::CreateEndpoints(
-    mGPUChild->OtherPid(),
-    aOtherProcess,
-    &parentPipe,
-    &childPipe);
+      mGPUChild->OtherPid(), aOtherProcess, &parentPipe, &childPipe);
   if (NS_FAILED(rv)) {
-    gfxCriticalNote << "Could not create content video decoder: " << hexa(int(rv));
+    gfxCriticalNote << "Could not create content video decoder: "
+                    << hexa(int(rv));
     return;
   }
 
@@ -1004,24 +994,28 @@ GPUProcessManager::MapLayerTreeId(uint64_t aLayersId, base::ProcessId aOwningId)
   LayerTreeOwnerTracker::Get()->Map(aLayersId, aOwningId);
 
   if (EnsureGPUReady()) {
-    mGPUChild->SendAddLayerTreeIdMapping(LayerTreeIdMapping(aLayersId, aOwningId));
+    mGPUChild->SendAddLayerTreeIdMapping(
+        LayerTreeIdMapping(aLayersId, aOwningId));
   }
 }
 
 void
-GPUProcessManager::UnmapLayerTreeId(uint64_t aLayersId, base::ProcessId aOwningId)
+GPUProcessManager::UnmapLayerTreeId(uint64_t aLayersId,
+                                    base::ProcessId aOwningId)
 {
   LayerTreeOwnerTracker::Get()->Unmap(aLayersId, aOwningId);
 
   if (EnsureGPUReady()) {
-    mGPUChild->SendRemoveLayerTreeIdMapping(LayerTreeIdMapping(aLayersId, aOwningId));
+    mGPUChild->SendRemoveLayerTreeIdMapping(
+        LayerTreeIdMapping(aLayersId, aOwningId));
     return;
   }
   CompositorBridgeParent::DeallocateLayerTreeId(aLayersId);
 }
 
 bool
-GPUProcessManager::IsLayerTreeIdMapped(uint64_t aLayersId, base::ProcessId aRequestingId)
+GPUProcessManager::IsLayerTreeIdMapped(uint64_t aLayersId,
+                                       base::ProcessId aRequestingId)
 {
   return LayerTreeOwnerTracker::Get()->IsMapped(aLayersId, aRequestingId);
 }
@@ -1053,10 +1047,11 @@ GPUProcessManager::AllocateNamespace()
 }
 
 bool
-GPUProcessManager::AllocateAndConnectLayerTreeId(PCompositorBridgeChild* aCompositorBridge,
-                                                 base::ProcessId aOtherPid,
-                                                 uint64_t* aOutLayersId,
-                                                 CompositorOptions* aOutCompositorOptions)
+GPUProcessManager::AllocateAndConnectLayerTreeId(
+    PCompositorBridgeChild* aCompositorBridge,
+    base::ProcessId aOtherPid,
+    uint64_t* aOutLayersId,
+    CompositorOptions* aOutCompositorOptions)
 {
   uint64_t layersId = AllocateLayerTreeId();
   *aOutLayersId = layersId;
@@ -1070,12 +1065,14 @@ GPUProcessManager::AllocateAndConnectLayerTreeId(PCompositorBridgeChild* aCompos
     if (!aCompositorBridge) {
       return false;
     }
-    return aCompositorBridge->SendNotifyChildCreated(layersId, aOutCompositorOptions);
+    return aCompositorBridge->SendNotifyChildCreated(layersId,
+                                                     aOutCompositorOptions);
   }
 
   // Use the combined message path.
   LayerTreeOwnerTracker::Get()->Map(layersId, aOtherPid);
-  return aCompositorBridge->SendMapAndNotifyChildCreated(layersId, aOtherPid, aOutCompositorOptions);
+  return aCompositorBridge->SendMapAndNotifyChildCreated(
+      layersId, aOtherPid, aOutCompositorOptions);
 }
 
 void
@@ -1096,25 +1093,29 @@ GPUProcessManager::ShutdownVsyncIOThread()
 }
 
 void
-GPUProcessManager::RegisterRemoteProcessSession(RemoteCompositorSession* aSession)
+GPUProcessManager::RegisterRemoteProcessSession(
+    RemoteCompositorSession* aSession)
 {
   mRemoteSessions.AppendElement(aSession);
 }
 
 void
-GPUProcessManager::UnregisterRemoteProcessSession(RemoteCompositorSession* aSession)
+GPUProcessManager::UnregisterRemoteProcessSession(
+    RemoteCompositorSession* aSession)
 {
   mRemoteSessions.RemoveElement(aSession);
 }
 
 void
-GPUProcessManager::RegisterInProcessSession(InProcessCompositorSession* aSession)
+GPUProcessManager::RegisterInProcessSession(
+    InProcessCompositorSession* aSession)
 {
   mInProcessSessions.AppendElement(aSession);
 }
 
 void
-GPUProcessManager::UnregisterInProcessSession(InProcessCompositorSession* aSession)
+GPUProcessManager::UnregisterInProcessSession(
+    InProcessCompositorSession* aSession)
 {
   mInProcessSessions.RemoveElement(aSession);
 }
@@ -1144,10 +1145,11 @@ GPUProcessManager::NotifyGpuObservers(const char* aTopic)
 
 class GPUMemoryReporter : public MemoryReportingProcess
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GPUMemoryReporter, override)
 
-  bool IsAlive() const override {
+  bool IsAlive() const override
+  {
     if (GPUProcessManager* gpm = GPUProcessManager::Get()) {
       return !!gpm->GetGPUChild();
     }
@@ -1165,18 +1167,20 @@ public:
     }
 
     return child->SendRequestMemoryReport(
-      aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile);
+        aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile);
   }
 
-  int32_t Pid() const override {
+  int32_t Pid() const override
+  {
     if (GPUChild* child = GetChild()) {
       return (int32_t)child->OtherPid();
     }
     return 0;
   }
 
-private:
-  GPUChild* GetChild() const {
+ private:
+  GPUChild* GetChild() const
+  {
     if (GPUProcessManager* gpm = GPUProcessManager::Get()) {
       if (GPUChild* child = gpm->GetGPUChild()) {
         return child;
@@ -1185,7 +1189,7 @@ private:
     return nullptr;
   }
 
-protected:
+ protected:
   ~GPUMemoryReporter() = default;
 };
 
@@ -1198,5 +1202,5 @@ GPUProcessManager::GetProcessMemoryReporter()
   return new GPUMemoryReporter();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

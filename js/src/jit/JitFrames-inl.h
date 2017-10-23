@@ -16,9 +16,7 @@
 namespace js {
 namespace jit {
 
-inline void
-SafepointIndex::resolve()
-{
+inline void SafepointIndex::resolve() {
     MOZ_ASSERT(!resolved);
     safepointOffset_ = safepoint_->offset();
 #ifdef DEBUG
@@ -26,19 +24,16 @@ SafepointIndex::resolve()
 #endif
 }
 
-inline BaselineFrame*
-GetTopBaselineFrame(JSContext* cx)
-{
+inline BaselineFrame* GetTopBaselineFrame(JSContext* cx) {
     JSJitFrameIter frame(cx);
     MOZ_ASSERT(frame.type() == JitFrame_Exit);
     ++frame;
-    if (frame.isBaselineStub())
-        ++frame;
+    if (frame.isBaselineStub()) ++frame;
     MOZ_ASSERT(frame.isBaselineJS());
     return frame.baselineFrame();
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_JitFrames_inl_h */

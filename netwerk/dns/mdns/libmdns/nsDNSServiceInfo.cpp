@@ -43,10 +43,11 @@ nsDNSServiceInfo::nsDNSServiceInfo(nsIDNSServiceInfo* aServiceInfo)
     Unused << NS_WARN_IF(NS_FAILED(SetDomainName(str)));
   }
 
-  nsCOMPtr<nsIPropertyBag2> attributes; // deep copy
+  nsCOMPtr<nsIPropertyBag2> attributes;  // deep copy
   if (NS_SUCCEEDED(aServiceInfo->GetAttributes(getter_AddRefs(attributes)))) {
     nsCOMPtr<nsISimpleEnumerator> enumerator;
-    if (NS_WARN_IF(NS_FAILED(attributes->GetEnumerator(getter_AddRefs(enumerator))))) {
+    if (NS_WARN_IF(
+            NS_FAILED(attributes->GetEnumerator(getter_AddRefs(enumerator))))) {
       return;
     }
 
@@ -56,19 +57,21 @@ nsDNSServiceInfo::nsDNSServiceInfo(nsIDNSServiceInfo* aServiceInfo)
     while (NS_SUCCEEDED(enumerator->HasMoreElements(&hasMoreElements)) &&
            hasMoreElements) {
       nsCOMPtr<nsISupports> element;
-      Unused <<
-        NS_WARN_IF(NS_FAILED(enumerator->GetNext(getter_AddRefs(element))));
+      Unused << NS_WARN_IF(
+          NS_FAILED(enumerator->GetNext(getter_AddRefs(element))));
       nsCOMPtr<nsIProperty> property = do_QueryInterface(element);
       MOZ_ASSERT(property);
 
       nsAutoString name;
       nsCOMPtr<nsIVariant> value;
       Unused << NS_WARN_IF(NS_FAILED(property->GetName(name)));
-      Unused << NS_WARN_IF(NS_FAILED(property->GetValue(getter_AddRefs(value))));
+      Unused << NS_WARN_IF(
+          NS_FAILED(property->GetValue(getter_AddRefs(value))));
       nsAutoCString valueStr;
       Unused << NS_WARN_IF(NS_FAILED(value->GetAsACString(valueStr)));
 
-      Unused << NS_WARN_IF(NS_FAILED(newAttributes->SetPropertyAsACString(name, valueStr)));
+      Unused << NS_WARN_IF(
+          NS_FAILED(newAttributes->SetPropertyAsACString(name, valueStr)));
     }
 
     Unused << NS_WARN_IF(NS_FAILED(SetAttributes(newAttributes)));
@@ -205,5 +208,5 @@ nsDNSServiceInfo::SetAttributes(nsIPropertyBag2* aAttributes)
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

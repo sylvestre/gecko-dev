@@ -30,8 +30,8 @@
 namespace mozilla {
 namespace dom {
 class DOMStringList;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsDOMOfflineResourceList final : public mozilla::DOMEventTargetHelper,
                                        public nsIDOMOfflineResourceList,
@@ -41,7 +41,7 @@ class nsDOMOfflineResourceList final : public mozilla::DOMEventTargetHelper,
 {
   typedef mozilla::ErrorResult ErrorResult;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMOFFLINERESOURCELIST
   NS_DECL_NSIOBSERVER
@@ -60,12 +60,9 @@ public:
 
   nsresult Init();
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return GetOwner();
-  }
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   uint16_t GetStatus(ErrorResult& aRv)
   {
@@ -73,14 +70,8 @@ public:
     aRv = GetStatus(&status);
     return status;
   }
-  void Update(ErrorResult& aRv)
-  {
-    aRv = Update();
-  }
-  void SwapCache(ErrorResult& aRv)
-  {
-    aRv = SwapCache();
-  }
+  void Update(ErrorResult& aRv) { aRv = Update(); }
+  void SwapCache(ErrorResult& aRv) { aRv = SwapCache(); }
 
   IMPL_EVENT_HANDLER(checking)
   IMPL_EVENT_HANDLER(error)
@@ -108,7 +99,9 @@ public:
   {
     aRv = MozItem(aIndex, aURI);
   }
-  void IndexedGetter(uint32_t aIndex, bool& aFound, nsAString& aURI,
+  void IndexedGetter(uint32_t aIndex,
+                     bool& aFound,
+                     nsAString& aURI,
                      ErrorResult& aRv)
   {
     MozItem(aIndex, aURI, aRv);
@@ -120,29 +113,26 @@ public:
     uint32_t length = GetMozLength(rv);
     return rv.Failed() ? 0 : length;
   }
-  void MozAdd(const nsAString& aURI, ErrorResult& aRv)
-  {
-    aRv = MozAdd(aURI);
-  }
+  void MozAdd(const nsAString& aURI, ErrorResult& aRv) { aRv = MozAdd(aURI); }
   void MozRemove(const nsAString& aURI, ErrorResult& aRv)
   {
     aRv = MozRemove(aURI);
   }
 
-protected:
+ protected:
   virtual ~nsDOMOfflineResourceList();
 
-private:
-  nsresult SendEvent(const nsAString &aEventName);
+ private:
+  nsresult SendEvent(const nsAString& aEventName);
 
-  nsresult UpdateAdded(nsIOfflineCacheUpdate *aUpdate);
-  nsresult UpdateCompleted(nsIOfflineCacheUpdate *aUpdate);
+  nsresult UpdateAdded(nsIOfflineCacheUpdate* aUpdate);
+  nsresult UpdateCompleted(nsIOfflineCacheUpdate* aUpdate);
 
   already_AddRefed<nsIApplicationCacheContainer> GetDocumentAppCacheContainer();
   already_AddRefed<nsIApplicationCache> GetDocumentAppCache();
 
-  nsresult GetCacheKey(const nsAString &aURI, nsCString &aKey);
-  nsresult GetCacheKey(nsIURI *aURI, nsCString &aKey);
+  nsresult GetCacheKey(const nsAString& aURI, nsCString& aKey);
+  nsresult GetCacheKey(nsIURI* aURI, nsCString& aKey);
 
   nsresult CacheKeys();
   void ClearCachedKeys();
@@ -162,7 +152,7 @@ private:
   uint16_t mStatus;
 
   // The set of dynamic keys for this application cache object.
-  char **mCachedKeys;
+  char** mCachedKeys;
   uint32_t mCachedKeysCount;
 
   nsCOMArray<nsIDOMEvent> mPendingEvents;

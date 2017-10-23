@@ -16,17 +16,24 @@
 namespace IPC {
 
 template<>
-struct ParamTraits<mozilla::gfx::VRDeviceType> :
-  public ContiguousEnumSerializer<mozilla::gfx::VRDeviceType,
-                                  mozilla::gfx::VRDeviceType(0),
-                                  mozilla::gfx::VRDeviceType(mozilla::gfx::VRDeviceType::NumVRDeviceTypes)> {};
+struct ParamTraits<mozilla::gfx::VRDeviceType>
+    : public ContiguousEnumSerializer<
+          mozilla::gfx::VRDeviceType,
+          mozilla::gfx::VRDeviceType(0),
+          mozilla::gfx::VRDeviceType(
+              mozilla::gfx::VRDeviceType::NumVRDeviceTypes)>
+{
+};
 
 template<>
-struct ParamTraits<mozilla::gfx::VRDisplayCapabilityFlags> :
-  public BitFlagsEnumSerializer<mozilla::gfx::VRDisplayCapabilityFlags,
-                                mozilla::gfx::VRDisplayCapabilityFlags::Cap_All> {};
+struct ParamTraits<mozilla::gfx::VRDisplayCapabilityFlags>
+    : public BitFlagsEnumSerializer<
+          mozilla::gfx::VRDisplayCapabilityFlags,
+          mozilla::gfx::VRDisplayCapabilityFlags::Cap_All>
+{
+};
 
-template <>
+template<>
 struct ParamTraits<mozilla::gfx::VRDisplayInfo>
 {
   typedef mozilla::gfx::VRDisplayInfo paramType;
@@ -54,7 +61,9 @@ struct ParamTraits<mozilla::gfx::VRDisplayInfo>
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (!ReadParam(aMsg, aIter, &(aResult->mType)) ||
         !ReadParam(aMsg, aIter, &(aResult->mDisplayID)) ||
@@ -86,7 +95,7 @@ struct ParamTraits<mozilla::gfx::VRDisplayInfo>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::gfx::VRHMDSensorState>
 {
   typedef mozilla::gfx::VRHMDSensorState paramType;
@@ -117,7 +126,9 @@ struct ParamTraits<mozilla::gfx::VRHMDSensorState>
     WriteParam(aMsg, aParam.linearAcceleration[2]);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (!ReadParam(aMsg, aIter, &(aResult->timestamp)) ||
         !ReadParam(aMsg, aIter, &(aResult->inputFrameID)) ||
@@ -147,7 +158,7 @@ struct ParamTraits<mozilla::gfx::VRHMDSensorState>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::gfx::VRFieldOfView>
 {
   typedef mozilla::gfx::VRFieldOfView paramType;
@@ -160,7 +171,9 @@ struct ParamTraits<mozilla::gfx::VRFieldOfView>
     WriteParam(aMsg, aParam.leftDegrees);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (!ReadParam(aMsg, aIter, &(aResult->upDegrees)) ||
         !ReadParam(aMsg, aIter, &(aResult->rightDegrees)) ||
@@ -173,7 +186,7 @@ struct ParamTraits<mozilla::gfx::VRFieldOfView>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::gfx::VRControllerInfo>
 {
   typedef mozilla::gfx::VRControllerInfo paramType;
@@ -188,7 +201,9 @@ struct ParamTraits<mozilla::gfx::VRControllerInfo>
     WriteParam(aMsg, aParam.mNumAxes);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (!ReadParam(aMsg, aIter, &(aResult->mType)) ||
         !ReadParam(aMsg, aIter, &(aResult->mControllerID)) ||
@@ -203,7 +218,7 @@ struct ParamTraits<mozilla::gfx::VRControllerInfo>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::gfx::VRSubmitFrameResultInfo>
 {
   typedef mozilla::gfx::VRSubmitFrameResultInfo paramType;
@@ -217,7 +232,9 @@ struct ParamTraits<mozilla::gfx::VRSubmitFrameResultInfo>
     WriteParam(aMsg, aParam.mFrameNum);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     if (!ReadParam(aMsg, aIter, &(aResult->mBase64Image)) ||
         !ReadParam(aMsg, aIter, &(aResult->mFormat)) ||
@@ -231,6 +248,6 @@ struct ParamTraits<mozilla::gfx::VRSubmitFrameResultInfo>
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_gfx_vr_VRMessageUtils_h
+#endif  // mozilla_gfx_vr_VRMessageUtils_h

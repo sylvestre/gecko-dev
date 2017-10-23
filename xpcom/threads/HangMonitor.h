@@ -31,12 +31,14 @@ enum ActivityType
 /**
  * Start monitoring hangs. Should be called by the XPCOM startup process only.
  */
-void Startup();
+void
+Startup();
 
 /**
  * Stop monitoring hangs and join the thread.
  */
-void Shutdown();
+void
+Shutdown();
 
 /**
  * Notify the hang monitor of activity which will reset its internal timer.
@@ -44,15 +46,17 @@ void Shutdown();
  * @param activityType The type of activity being reported.
  * @see ActivityType
  */
-void NotifyActivity(ActivityType activityType = kGeneralActivity);
+void
+NotifyActivity(ActivityType activityType = kGeneralActivity);
 
 /*
  * Notify the hang monitor that the browser is now idle and no detection should
  * be done.
  */
-void Suspend();
+void
+Suspend();
 
-} // namespace HangMonitor
-} // namespace mozilla
+}  // namespace HangMonitor
+}  // namespace mozilla
 
-#endif // mozilla_HangMonitor_h
+#endif  // mozilla_HangMonitor_h

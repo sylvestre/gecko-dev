@@ -36,7 +36,7 @@ namespace mozilla {
 // nsISMILType implementation
 
 void
-SVGNumberListSMILType::Init(nsSMILValue &aValue) const
+SVGNumberListSMILType::Init(nsSMILValue& aValue) const
 {
   MOZ_ASSERT(aValue.IsNull(), "Unexpected value type");
 
@@ -56,16 +56,15 @@ SVGNumberListSMILType::Destroy(nsSMILValue& aValue) const
 }
 
 nsresult
-SVGNumberListSMILType::Assign(nsSMILValue& aDest,
-                              const nsSMILValue& aSrc) const
+SVGNumberListSMILType::Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const
 {
   NS_PRECONDITION(aDest.mType == aSrc.mType, "Incompatible SMIL types");
   NS_PRECONDITION(aDest.mType == this, "Unexpected SMIL value");
 
   const SVGNumberListAndInfo* src =
-    static_cast<const SVGNumberListAndInfo*>(aSrc.mU.mPtr);
+      static_cast<const SVGNumberListAndInfo*>(aSrc.mU.mPtr);
   SVGNumberListAndInfo* dest =
-    static_cast<SVGNumberListAndInfo*>(aDest.mU.mPtr);
+      static_cast<SVGNumberListAndInfo*>(aDest.mU.mPtr);
 
   return dest->CopyFrom(*src);
 }
@@ -90,9 +89,9 @@ SVGNumberListSMILType::Add(nsSMILValue& aDest,
   NS_PRECONDITION(aValueToAdd.mType == this, "Incompatible SMIL type");
 
   SVGNumberListAndInfo& dest =
-    *static_cast<SVGNumberListAndInfo*>(aDest.mU.mPtr);
+      *static_cast<SVGNumberListAndInfo*>(aDest.mU.mPtr);
   const SVGNumberListAndInfo& valueToAdd =
-    *static_cast<const SVGNumberListAndInfo*>(aValueToAdd.mU.mPtr);
+      *static_cast<const SVGNumberListAndInfo*>(aValueToAdd.mU.mPtr);
 
   MOZ_ASSERT(dest.Element() || valueToAdd.Element(),
              "Target element propagation failure");
@@ -111,7 +110,7 @@ SVGNumberListSMILType::Add(nsSMILValue& aDest,
     for (uint32_t i = 0; i < dest.Length(); ++i) {
       dest[i] = aCount * valueToAdd[i];
     }
-    dest.SetInfo(valueToAdd.Element()); // propagate target element info!
+    dest.SetInfo(valueToAdd.Element());  // propagate target element info!
     return NS_OK;
   }
   MOZ_ASSERT(dest.Element() == valueToAdd.Element(),
@@ -124,7 +123,7 @@ SVGNumberListSMILType::Add(nsSMILValue& aDest,
   for (uint32_t i = 0; i < dest.Length(); ++i) {
     dest[i] += aCount * valueToAdd[i];
   }
-  dest.SetInfo(valueToAdd.Element()); // propagate target element info!
+  dest.SetInfo(valueToAdd.Element());  // propagate target element info!
   return NS_OK;
 }
 
@@ -137,9 +136,9 @@ SVGNumberListSMILType::ComputeDistance(const nsSMILValue& aFrom,
   NS_PRECONDITION(aTo.mType == this, "Incompatible SMIL type");
 
   const SVGNumberListAndInfo& from =
-    *static_cast<const SVGNumberListAndInfo*>(aFrom.mU.mPtr);
+      *static_cast<const SVGNumberListAndInfo*>(aFrom.mU.mPtr);
   const SVGNumberListAndInfo& to =
-    *static_cast<const SVGNumberListAndInfo*>(aTo.mU.mPtr);
+      *static_cast<const SVGNumberListAndInfo*>(aTo.mU.mPtr);
 
   if (from.Length() != to.Length()) {
     // Lists in the 'values' attribute must have the same length.
@@ -178,17 +177,17 @@ SVGNumberListSMILType::Interpolate(const nsSMILValue& aStartVal,
   NS_PRECONDITION(aResult.mType == this, "Unexpected result type");
 
   const SVGNumberListAndInfo& start =
-    *static_cast<const SVGNumberListAndInfo*>(aStartVal.mU.mPtr);
+      *static_cast<const SVGNumberListAndInfo*>(aStartVal.mU.mPtr);
   const SVGNumberListAndInfo& end =
-    *static_cast<const SVGNumberListAndInfo*>(aEndVal.mU.mPtr);
+      *static_cast<const SVGNumberListAndInfo*>(aEndVal.mU.mPtr);
   SVGNumberListAndInfo& result =
-    *static_cast<SVGNumberListAndInfo*>(aResult.mU.mPtr);
+      *static_cast<SVGNumberListAndInfo*>(aResult.mU.mPtr);
 
   MOZ_ASSERT(end.Element(), "Can't propagate target element");
   MOZ_ASSERT(start.Element() == end.Element() || !start.Element(),
              "Different target elements");
 
-  if (start.Element() && // 'start' is not an "identity" value
+  if (start.Element() &&  // 'start' is not an "identity" value
       start.Length() != end.Length()) {
     // For now we only support animation between lists of the same length.
     // SVGContentUtils::ReportToConsole
@@ -198,7 +197,7 @@ SVGNumberListSMILType::Interpolate(const nsSMILValue& aStartVal,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  result.SetInfo(end.Element()); // propagate target element info!
+  result.SetInfo(end.Element());  // propagate target element info!
 
   if (start.Length() != end.Length()) {
     MOZ_ASSERT(start.Length() == 0, "Not an identity value");
@@ -213,4 +212,4 @@ SVGNumberListSMILType::Interpolate(const nsSMILValue& aStartVal,
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

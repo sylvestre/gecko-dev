@@ -23,29 +23,27 @@ namespace mozilla {
   */
 class ScopedGfxFeatureReporter
 {
-public:
-  explicit ScopedGfxFeatureReporter(const char *aFeature, bool aForce = false)
-    : mFeature(aFeature), mStatusChar('-')
+ public:
+  explicit ScopedGfxFeatureReporter(const char* aFeature, bool aForce = false)
+      : mFeature(aFeature), mStatusChar('-')
   {
     WriteAppNote(aForce ? '!' : '?');
   }
-  ~ScopedGfxFeatureReporter() {
-    WriteAppNote(mStatusChar);
-  }
+  ~ScopedGfxFeatureReporter() { WriteAppNote(mStatusChar); }
   void SetSuccessful() { mStatusChar = '+'; }
 
   static void AppNote(const nsACString& aMessage);
 
   class AppNoteWritingRunnable;
 
-protected:
-  const char *mFeature;
+ protected:
+  const char* mFeature;
   char mStatusChar;
 
-private:
+ private:
   void WriteAppNote(char statusChar);
 };
 
-} // end namespace mozilla
+}  // end namespace mozilla
 
-#endif // gfxCrashReporterUtils_h__
+#endif  // gfxCrashReporterUtils_h__

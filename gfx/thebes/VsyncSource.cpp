@@ -13,7 +13,8 @@ namespace mozilla {
 namespace gfx {
 
 void
-VsyncSource::AddCompositorVsyncDispatcher(CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
+VsyncSource::AddCompositorVsyncDispatcher(
+    CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(NS_IsMainThread());
@@ -23,12 +24,14 @@ VsyncSource::AddCompositorVsyncDispatcher(CompositorVsyncDispatcher* aCompositor
 }
 
 void
-VsyncSource::RemoveCompositorVsyncDispatcher(CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
+VsyncSource::RemoveCompositorVsyncDispatcher(
+    CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(NS_IsMainThread());
   // See also AddCompositorVsyncDispatcher().
-  GetGlobalDisplay().RemoveCompositorVsyncDispatcher(aCompositorVsyncDispatcher);
+  GetGlobalDisplay().RemoveCompositorVsyncDispatcher(
+      aCompositorVsyncDispatcher);
 }
 
 RefPtr<RefreshTimerVsyncDispatcher>
@@ -40,8 +43,7 @@ VsyncSource::GetRefreshTimerVsyncDispatcher()
 }
 
 VsyncSource::Display::Display()
-  : mDispatcherLock("display dispatcher lock")
-  , mRefreshTimerNeedsVsync(false)
+    : mDispatcherLock("display dispatcher lock"), mRefreshTimerNeedsVsync(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
   mRefreshTimerVsyncDispatcher = new RefreshTimerVsyncDispatcher();
@@ -76,11 +78,12 @@ VsyncSource::Display::GetVsyncRate()
 }
 
 void
-VsyncSource::Display::AddCompositorVsyncDispatcher(CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
+VsyncSource::Display::AddCompositorVsyncDispatcher(
+    CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aCompositorVsyncDispatcher);
-  { // scope lock
+  {  // scope lock
     MutexAutoLock lock(mDispatcherLock);
     if (!mCompositorVsyncDispatchers.Contains(aCompositorVsyncDispatcher)) {
       mCompositorVsyncDispatchers.AppendElement(aCompositorVsyncDispatcher);
@@ -90,11 +93,12 @@ VsyncSource::Display::AddCompositorVsyncDispatcher(CompositorVsyncDispatcher* aC
 }
 
 void
-VsyncSource::Display::RemoveCompositorVsyncDispatcher(CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
+VsyncSource::Display::RemoveCompositorVsyncDispatcher(
+    CompositorVsyncDispatcher* aCompositorVsyncDispatcher)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aCompositorVsyncDispatcher);
-  { // Scope lock
+  {  // Scope lock
     MutexAutoLock lock(mDispatcherLock);
     if (mCompositorVsyncDispatchers.Contains(aCompositorVsyncDispatcher)) {
       mCompositorVsyncDispatchers.RemoveElement(aCompositorVsyncDispatcher);
@@ -121,9 +125,10 @@ VsyncSource::Display::UpdateVsyncStatus()
   // We can deadlock if we wait for the underlying vsync thread to stop
   // while the vsync thread is in NotifyVsync.
   bool enableVsync = false;
-  { // scope lock
+  {  // scope lock
     MutexAutoLock lock(mDispatcherLock);
-    enableVsync = !mCompositorVsyncDispatchers.IsEmpty() || mRefreshTimerNeedsVsync;
+    enableVsync =
+        !mCompositorVsyncDispatchers.IsEmpty() || mRefreshTimerNeedsVsync;
   }
 
   if (enableVsync) {
@@ -149,5 +154,5 @@ VsyncSource::Shutdown()
   GetGlobalDisplay().Shutdown();
 }
 
-} //namespace gfx
-} //namespace mozilla
+}  //namespace gfx
+}  //namespace mozilla

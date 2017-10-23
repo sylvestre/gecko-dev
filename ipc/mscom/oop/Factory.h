@@ -9,7 +9,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #error This code is NOT for internal Gecko use!
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #include "mozilla/Attributes.h"
 #include "mozilla/DebugOnly.h"
@@ -28,23 +28,23 @@
 namespace mozilla {
 namespace mscom {
 
-template <typename T>
+template<typename T>
 class MOZ_NONHEAP_CLASS Factory : public IClassFactory
 {
-  template <typename... Args>
+  template<typename... Args>
   HRESULT DoCreate(Args... args)
   {
     MOZ_DIAGNOSTIC_ASSERT(false, "This should not be executed");
     return E_NOTIMPL;
   }
 
-  template <typename... Args>
+  template<typename... Args>
   HRESULT DoCreate(HRESULT (*aFnPtr)(IUnknown*, REFIID, void**), Args... args)
   {
     return aFnPtr(mozilla::Forward<Args>(args)...);
   }
 
-public:
+ public:
   // IUnknown
   STDMETHODIMP QueryInterface(REFIID aIid, void** aOutInterface) override
   {
@@ -76,7 +76,8 @@ public:
   }
 
   // IClassFactory
-  STDMETHODIMP CreateInstance(IUnknown* aOuter, REFIID aIid,
+  STDMETHODIMP CreateInstance(IUnknown* aOuter,
+                              REFIID aIid,
                               void** aOutInterface) override
   {
     return DoCreate(&T::Create, aOuter, aIid, aOutInterface);
@@ -93,11 +94,12 @@ public:
   }
 };
 
-template <typename T>
+template<typename T>
 class MOZ_NONHEAP_CLASS SingletonFactory : public Factory<T>
 {
-public:
-  STDMETHODIMP CreateInstance(IUnknown* aOuter, REFIID aIid,
+ public:
+  STDMETHODIMP CreateInstance(IUnknown* aOuter,
+                              REFIID aIid,
                               void** aOutInterface) override
   {
     if (aOuter || !aOutInterface) {
@@ -126,10 +128,7 @@ public:
     return sInstance;
   }
 
-  RefPtr<T> GetSingleton()
-  {
-    return sInstance;
-  }
+  RefPtr<T> GetSingleton() { return sInstance; }
 
   void ClearSingleton()
   {
@@ -142,14 +141,14 @@ public:
     sInstance = nullptr;
   }
 
-private:
+ private:
   static StaticRefPtr<T> sInstance;
 };
 
-template <typename T>
+template<typename T>
 StaticRefPtr<T> SingletonFactory<T>::sInstance;
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_Factory_h
+#endif  // mozilla_mscom_Factory_h

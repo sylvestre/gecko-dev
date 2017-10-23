@@ -36,7 +36,8 @@
 using namespace mozilla;
 using namespace mozilla::widget;
 
-#define WAKE_LOCK_LOG(...) MOZ_LOG(gWinWakeLockLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define WAKE_LOCK_LOG(...) \
+  MOZ_LOG(gWinWakeLockLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 static mozilla::LazyLogModule gWinWakeLockLog("WinWakeLock");
 
 // A wake lock listener that disables screen saver when requested by
@@ -44,15 +45,15 @@ static mozilla::LazyLogModule gWinWakeLockLog("WinWakeLock");
 // don't want the screen saver to turn on.
 class WinWakeLockListener final : public nsIDOMMozWakeLockListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-private:
+ private:
   ~WinWakeLockListener() {}
 
-  NS_IMETHOD Callback(const nsAString& aTopic, const nsAString& aState) {
-    if (!aTopic.EqualsASCII("screen") &&
-        !aTopic.EqualsASCII("audio-playing") &&
+  NS_IMETHOD Callback(const nsAString& aTopic, const nsAString& aState)
+  {
+    if (!aTopic.EqualsASCII("screen") && !aTopic.EqualsASCII("audio-playing") &&
         !aTopic.EqualsASCII("video-playing")) {
       return NS_OK;
     }
@@ -63,8 +64,7 @@ private:
       return NS_OK;
     }
 
-    if (aTopic.EqualsASCII("screen") ||
-        aTopic.EqualsASCII("video-playing")) {
+    if (aTopic.EqualsASCII("screen") || aTopic.EqualsASCII("video-playing")) {
       mRequireForDisplay = aState.EqualsASCII("locked-foreground");
     }
 
@@ -74,9 +74,9 @@ private:
       WAKE_LOCK_LOG("WinWakeLock: Blocking screen saver");
       if (mRequireForDisplay) {
         // Prevent the display turning off and block the screen saver.
-        SetThreadExecutionState(ES_DISPLAY_REQUIRED|ES_CONTINUOUS);
+        SetThreadExecutionState(ES_DISPLAY_REQUIRED | ES_CONTINUOUS);
       } else {
-        SetThreadExecutionState(ES_SYSTEM_REQUIRED|ES_CONTINUOUS);
+        SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_CONTINUOUS);
       }
     } else {
       WAKE_LOCK_LOG("WinWakeLock: Unblocking screen saver");
@@ -95,19 +95,22 @@ StaticRefPtr<WinWakeLockListener> sWakeLockListener;
 static void
 AddScreenWakeLockListener()
 {
-  nsCOMPtr<nsIPowerManagerService> sPowerManagerService = do_GetService(POWERMANAGERSERVICE_CONTRACTID);
+  nsCOMPtr<nsIPowerManagerService> sPowerManagerService =
+      do_GetService(POWERMANAGERSERVICE_CONTRACTID);
   if (sPowerManagerService) {
     sWakeLockListener = new WinWakeLockListener();
     sPowerManagerService->AddWakeLockListener(sWakeLockListener);
   } else {
-    NS_WARNING("Failed to retrieve PowerManagerService, wakelocks will be broken!");
+    NS_WARNING(
+        "Failed to retrieve PowerManagerService, wakelocks will be broken!");
   }
 }
 
 static void
 RemoveScreenWakeLockListener()
 {
-  nsCOMPtr<nsIPowerManagerService> sPowerManagerService = do_GetService(POWERMANAGERSERVICE_CONTRACTID);
+  nsCOMPtr<nsIPowerManagerService> sPowerManagerService =
+      do_GetService(POWERMANAGERSERVICE_CONTRACTID);
   if (sPowerManagerService) {
     sPowerManagerService->RemoveWakeLockListener(sWakeLockListener);
     sPowerManagerService = nullptr;
@@ -119,21 +122,25 @@ namespace mozilla {
 namespace widget {
 // Native event callback message.
 UINT sAppShellGeckoMsgId = RegisterWindowMessageW(L"nsAppShell:EventID");
-} }
+}  // namespace widget
+}  // namespace mozilla
 
 const wchar_t* kTaskbarButtonEventId = L"TaskbarButtonCreated";
 UINT sTaskbarButtonCreatedMsg;
 
 /* static */
-UINT nsAppShell::GetTaskbarButtonCreatedMessage() {
-	return sTaskbarButtonCreatedMsg;
+UINT
+nsAppShell::GetTaskbarButtonCreatedMessage()
+{
+  return sTaskbarButtonCreatedMsg;
 }
 
 namespace mozilla {
 namespace crashreporter {
-void LSPAnnotate();
-} // namespace crashreporter
-} // namespace mozilla
+void
+LSPAnnotate();
+}  // namespace crashreporter
+}  // namespace mozilla
 
 using mozilla::crashreporter::LSPAnnotate;
 
@@ -143,7 +150,7 @@ using mozilla::crashreporter::LSPAnnotate;
 nsAppShell::EventWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   if (uMsg == sAppShellGeckoMsgId) {
-    nsAppShell *as = reinterpret_cast<nsAppShell *>(lParam);
+    nsAppShell* as = reinterpret_cast<nsAppShell*>(lParam);
     as->NativeEventCallback();
     NS_RELEASE(as);
     return TRUE;
@@ -173,28 +180,37 @@ nsAppShell::Init()
   mozilla::ipc::windows::InitUIThread();
 
   sTaskbarButtonCreatedMsg = ::RegisterWindowMessageW(kTaskbarButtonEventId);
-  NS_ASSERTION(sTaskbarButtonCreatedMsg, "Could not register taskbar button creation message");
+  NS_ASSERTION(sTaskbarButtonCreatedMsg,
+               "Could not register taskbar button creation message");
 
   WNDCLASSW wc;
   HINSTANCE module = GetModuleHandle(nullptr);
 
-  const wchar_t *const kWindowClass = L"nsAppShell:EventWindowClass";
+  const wchar_t* const kWindowClass = L"nsAppShell:EventWindowClass";
   if (!GetClassInfoW(module, kWindowClass, &wc)) {
-    wc.style         = 0;
-    wc.lpfnWndProc   = EventWindowProc;
-    wc.cbClsExtra    = 0;
-    wc.cbWndExtra    = 0;
-    wc.hInstance     = module;
-    wc.hIcon         = nullptr;
-    wc.hCursor       = nullptr;
+    wc.style = 0;
+    wc.lpfnWndProc = EventWindowProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = module;
+    wc.hIcon = nullptr;
+    wc.hCursor = nullptr;
     wc.hbrBackground = (HBRUSH) nullptr;
-    wc.lpszMenuName  = (LPCWSTR) nullptr;
+    wc.lpszMenuName = (LPCWSTR) nullptr;
     wc.lpszClassName = kWindowClass;
     RegisterClassW(&wc);
   }
 
-  mEventWnd = CreateWindowW(kWindowClass, L"nsAppShell:EventWindow",
-                            0, 0, 0, 10, 10, HWND_MESSAGE, nullptr, module,
+  mEventWnd = CreateWindowW(kWindowClass,
+                            L"nsAppShell:EventWindow",
+                            0,
+                            0,
+                            0,
+                            10,
+                            10,
+                            HWND_MESSAGE,
+                            nullptr,
+                            module,
                             nullptr);
   NS_ENSURE_STATE(mEventWnd);
 
@@ -235,10 +251,7 @@ nsAppShell::Run(void)
 }
 
 NS_IMETHODIMP
-nsAppShell::Exit(void)
-{
-  return nsBaseAppShell::Exit();
-}
+nsAppShell::Exit(void) { return nsBaseAppShell::Exit(); }
 
 void
 nsAppShell::DoProcessMoreGeckoEvents()
@@ -278,14 +291,15 @@ void
 nsAppShell::ScheduleNativeEventCallback()
 {
   // Post a message to the hidden message window
-  NS_ADDREF_THIS(); // will be released when the event is processed
+  NS_ADDREF_THIS();  // will be released when the event is processed
   {
     MutexAutoLock lock(mLastNativeEventScheduledMutex);
     // Time stamp this event so we can detect cases where the event gets
     // dropping in sub classes / modal loops we do not control.
     mLastNativeEventScheduled = TimeStamp::NowLoRes();
   }
-  ::PostMessage(mEventWnd, sAppShellGeckoMsgId, 0, reinterpret_cast<LPARAM>(this));
+  ::PostMessage(
+      mEventWnd, sAppShellGeckoMsgId, 0, reinterpret_cast<LPARAM>(this));
 }
 
 bool
@@ -308,8 +322,11 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
     // internal message because it may make different modifier key state or
     // mouse cursor position between them.
     if (mozilla::widget::MouseScrollHandler::IsWaitingInternalMessage()) {
-      gotMessage = WinUtils::PeekMessage(&msg, nullptr, MOZ_WM_MOUSEWHEEL_FIRST,
-                                         MOZ_WM_MOUSEWHEEL_LAST, PM_REMOVE);
+      gotMessage = WinUtils::PeekMessage(&msg,
+                                         nullptr,
+                                         MOZ_WM_MOUSEWHEEL_FIRST,
+                                         MOZ_WM_MOUSEWHEEL_LAST,
+                                         PM_REMOVE);
       NS_ASSERTION(gotMessage,
                    "waiting internal wheel message, but it has not come");
       uiMessage = gotMessage;
@@ -318,9 +335,9 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
     if (!gotMessage) {
       gotMessage = WinUtils::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
       uiMessage =
-        (msg.message >= WM_KEYFIRST && msg.message <= WM_IME_KEYLAST) ||
-        (msg.message >= NS_WM_IMEFIRST && msg.message <= NS_WM_IMELAST) ||
-        (msg.message >= WM_MOUSEFIRST && msg.message <= WM_MOUSELAST);
+          (msg.message >= WM_KEYFIRST && msg.message <= WM_IME_KEYLAST) ||
+          (msg.message >= NS_WM_IMEFIRST && msg.message <= NS_WM_IMELAST) ||
+          (msg.message >= WM_MOUSEFIRST && msg.message <= WM_MOUSELAST);
     }
 
     if (gotMessage) {
@@ -331,8 +348,8 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
         // If we had UI activity we would be processing it now so we know we
         // have either kUIActivity or kActivityNoUIAVail.
         mozilla::HangMonitor::NotifyActivity(
-          uiMessage ? mozilla::HangMonitor::kUIActivity :
-                      mozilla::HangMonitor::kActivityNoUIAVail);
+            uiMessage ? mozilla::HangMonitor::kUIActivity
+                      : mozilla::HangMonitor::kActivityNoUIAVail);
 
         if (msg.message >= WM_KEYFIRST && msg.message <= WM_KEYLAST &&
             IMEHandler::ProcessRawKeyMessage(msg)) {
@@ -369,7 +386,7 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
   // Check for starved native callbacks. If we haven't processed one
   // of these events in NATIVE_EVENT_STARVATION_LIMIT, fire one off.
   static const mozilla::TimeDuration nativeEventStarvationLimit =
-    mozilla::TimeDuration::FromSeconds(NATIVE_EVENT_STARVATION_LIMIT);
+      mozilla::TimeDuration::FromSeconds(NATIVE_EVENT_STARVATION_LIMIT);
 
   TimeDuration timeSinceLastNativeEventScheduled;
   {

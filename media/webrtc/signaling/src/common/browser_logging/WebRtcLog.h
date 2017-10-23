@@ -7,10 +7,15 @@
 
 #include "webrtc/common_types.h"
 
-nsCString StartAecLog();
-void StopAecLog();
-void StartWebRtcLog(uint32_t log_level = webrtc::kTraceDefault);
-void EnableWebRtcLog();
-void StopWebRtcLog();
+nsCString
+StartAecLog();
+void
+StopAecLog();
+void
+StartWebRtcLog(uint32_t log_level = webrtc::kTraceDefault);
+void
+EnableWebRtcLog();
+void
+StopWebRtcLog();
 
 #endif

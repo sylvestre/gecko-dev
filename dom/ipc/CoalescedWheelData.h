@@ -15,7 +15,7 @@ namespace dom {
 
 class CoalescedWheelData final : public CoalescedInputData<WidgetWheelEvent>
 {
-public:
+ public:
   void Coalesce(const WidgetWheelEvent& aEvent,
                 const ScrollableLayerGuid& aGuid,
                 const uint64_t& aInputBlockId);
@@ -25,7 +25,7 @@ public:
                    const uint64_t& aInputBlockId);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CoalescedWheelData_h
+#endif  // mozilla_dom_CoalescedWheelData_h

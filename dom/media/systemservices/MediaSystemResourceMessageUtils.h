@@ -12,14 +12,15 @@
 
 namespace IPC {
 
-template <>
+template<>
 struct ParamTraits<mozilla::MediaSystemResourceType>
-  : public ContiguousEnumSerializer<
-             mozilla::MediaSystemResourceType,
-             mozilla::MediaSystemResourceType::VIDEO_DECODER,
-             mozilla::MediaSystemResourceType::INVALID_RESOURCE>
-{};
+    : public ContiguousEnumSerializer<
+          mozilla::MediaSystemResourceType,
+          mozilla::MediaSystemResourceType::VIDEO_DECODER,
+          mozilla::MediaSystemResourceType::INVALID_RESOURCE>
+{
+};
 
-} // namespace IPC
+}  // namespace IPC
 
 #endif

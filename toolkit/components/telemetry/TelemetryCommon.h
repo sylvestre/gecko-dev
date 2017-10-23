@@ -17,28 +17,34 @@ namespace mozilla {
 namespace Telemetry {
 namespace Common {
 
-enum class RecordedProcessType : uint32_t {
-  Main       = (1 << GeckoProcessType_Default),  // Also known as "parent process"
-  Content    = (1 << GeckoProcessType_Content),
-  Gpu        = (1 << GeckoProcessType_GPU),
-  AllChilds  = 0xFFFFFFFF - 1,  // All the children processes (i.e. content, gpu, ...)
-  All        = 0xFFFFFFFF       // All the processes
+enum class RecordedProcessType : uint32_t
+{
+  Main = (1 << GeckoProcessType_Default),  // Also known as "parent process"
+  Content = (1 << GeckoProcessType_Content),
+  Gpu = (1 << GeckoProcessType_GPU),
+  AllChilds =
+      0xFFFFFFFF - 1,  // All the children processes (i.e. content, gpu, ...)
+  All = 0xFFFFFFFF     // All the processes
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(RecordedProcessType);
 
 template<class EntryType>
 class AutoHashtable : public nsTHashtable<EntryType>
 {
-public:
-  explicit AutoHashtable(uint32_t initLength =
-                         PLDHashTable::kDefaultInitialLength);
-  typedef bool (*ReflectEntryFunc)(EntryType *entry, JSContext *cx, JS::Handle<JSObject*> obj);
-  bool ReflectIntoJS(ReflectEntryFunc entryFunc, JSContext *cx, JS::Handle<JSObject*> obj);
+ public:
+  explicit AutoHashtable(
+      uint32_t initLength = PLDHashTable::kDefaultInitialLength);
+  typedef bool (*ReflectEntryFunc)(EntryType* entry,
+                                   JSContext* cx,
+                                   JS::Handle<JSObject*> obj);
+  bool ReflectIntoJS(ReflectEntryFunc entryFunc,
+                     JSContext* cx,
+                     JS::Handle<JSObject*> obj);
 };
 
 template<class EntryType>
 AutoHashtable<EntryType>::AutoHashtable(uint32_t initLength)
-  : nsTHashtable<EntryType>(initLength)
+    : nsTHashtable<EntryType>(initLength)
 {
 }
 
@@ -49,7 +55,8 @@ AutoHashtable<EntryType>::AutoHashtable(uint32_t initLength)
 template<typename EntryType>
 bool
 AutoHashtable<EntryType>::ReflectIntoJS(ReflectEntryFunc entryFunc,
-                                        JSContext *cx, JS::Handle<JSObject*> obj)
+                                        JSContext* cx,
+                                        JS::Handle<JSObject*> obj)
 {
   for (auto iter = this->Iter(); !iter.Done(); iter.Next()) {
     if (!entryFunc(iter.Get(), cx, obj)) {
@@ -59,11 +66,18 @@ AutoHashtable<EntryType>::ReflectIntoJS(ReflectEntryFunc entryFunc,
   return true;
 }
 
-bool IsExpiredVersion(const char* aExpiration);
-bool IsInDataset(uint32_t aDataset, uint32_t aContainingDataset);
-bool CanRecordDataset(uint32_t aDataset, bool aCanRecordBase, bool aCanRecordExtended);
-bool CanRecordInProcess(RecordedProcessType aProcesses, GeckoProcessType aProcess);
-bool CanRecordInProcess(RecordedProcessType aProcesses, ProcessID aProcess);
+bool
+IsExpiredVersion(const char* aExpiration);
+bool
+IsInDataset(uint32_t aDataset, uint32_t aContainingDataset);
+bool
+CanRecordDataset(uint32_t aDataset,
+                 bool aCanRecordBase,
+                 bool aCanRecordExtended);
+bool
+CanRecordInProcess(RecordedProcessType aProcesses, GeckoProcessType aProcess);
+bool
+CanRecordInProcess(RecordedProcessType aProcesses, ProcessID aProcess);
 
 /**
  * Return the number of milliseconds since process start using monotonic
@@ -71,7 +85,8 @@ bool CanRecordInProcess(RecordedProcessType aProcesses, ProcessID aProcess);
  *
  * @return NS_OK on success, NS_ERROR_NOT_AVAILABLE if TimeStamp doesn't have the data.
  */
-nsresult MsSinceProcessStart(double* aResult);
+nsresult
+MsSinceProcessStart(double* aResult);
 
 /**
  * Dumps a log message to the Browser Console using the provided level.
@@ -80,20 +95,23 @@ nsresult MsSinceProcessStart(double* aResult);
  *        (e.g. nsIScriptError::warningFlag, ...).
  * @param aMsg The text message to print to the console.
  */
-void LogToBrowserConsole(uint32_t aLogLevel, const nsAString& aMsg);
+void
+LogToBrowserConsole(uint32_t aLogLevel, const nsAString& aMsg);
 
 /**
  * Get the name string for a ProcessID.
  * This is the name we use for the Telemetry payloads.
  */
-const char* GetNameForProcessID(ProcessID process);
+const char*
+GetNameForProcessID(ProcessID process);
 
 /**
  * Get the GeckoProcessType for a ProcessID.
  * Telemetry distinguishes between more process types than the GeckoProcessType,
  * so the mapping is not direct.
  */
-GeckoProcessType GetGeckoProcessType(ProcessID process);
+GeckoProcessType
+GetGeckoProcessType(ProcessID process);
 
 /**
  * Check if the passed telemetry identifier is valid.
@@ -105,11 +123,13 @@ GeckoProcessType GetGeckoProcessType(ProcessID process);
  * @returns true if the string validates correctly, false otherwise.
  */
 bool
-IsValidIdentifierString(const nsACString& aStr, const size_t aMaxLength,
-                        const bool aAllowInfixPeriod, const bool aAllowInfixUnderscore);
+IsValidIdentifierString(const nsACString& aStr,
+                        const size_t aMaxLength,
+                        const bool aAllowInfixPeriod,
+                        const bool aAllowInfixUnderscore);
 
-} // namespace Common
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Common
+}  // namespace Telemetry
+}  // namespace mozilla
 
-#endif // TelemetryCommon_h__
+#endif  // TelemetryCommon_h__

@@ -17,12 +17,11 @@ using namespace js;
 
 // A helper JS::ubi::Node concrete implementation that can be used to make mock
 // graphs for testing traversals with.
-struct FakeNode
-{
-    char                name;
+struct FakeNode {
+    char name;
     JS::ubi::EdgeVector edges;
 
-    explicit FakeNode(char name) : name(name), edges() { }
+    explicit FakeNode(char name) : name(name), edges() {}
 
     bool addEdgeTo(FakeNode& referent, const char16_t* edgeName = nullptr) {
         JS::ubi::Node node(&referent);
@@ -40,23 +39,20 @@ struct FakeNode
 namespace JS {
 namespace ubi {
 
-template<>
-class Concrete<FakeNode> : public Base
-{
-  protected:
-    explicit Concrete(FakeNode* ptr) : Base(ptr) { }
+template <>
+class Concrete<FakeNode> : public Base {
+   protected:
+    explicit Concrete(FakeNode* ptr) : Base(ptr) {}
     FakeNode& get() const { return *static_cast<FakeNode*>(ptr); }
 
-  public:
+   public:
     static void construct(void* storage, FakeNode* ptr) { new (storage) Concrete(ptr); }
 
     UniquePtr<EdgeRange> edges(JSContext* cx, bool wantNames) const override {
         return UniquePtr<EdgeRange>(js_new<PreComputedEdgeRange>(get().edges));
     }
 
-    Node::Size size(mozilla::MallocSizeOf) const override {
-        return 1;
-    }
+    Node::Size size(mozilla::MallocSizeOf) const override { return 1; }
 
     static const char16_t concreteTypeName[];
     const char16_t* typeName() const override { return concreteTypeName; }
@@ -64,12 +60,11 @@ class Concrete<FakeNode> : public Base
 
 const char16_t Concrete<FakeNode>::concreteTypeName[] = u"FakeNode";
 
-} // namespace ubi
-} // namespace JS
+}  // namespace ubi
+}  // namespace JS
 
 // ubi::Node::zone works
-BEGIN_TEST(test_ubiNodeZone)
-{
+BEGIN_TEST(test_ubiNodeZone) {
     RootedObject global1(cx, JS::CurrentGlobalOrNull(cx));
     CHECK(global1);
     CHECK(JS::ubi::Node(global1).zone() == cx->zone());
@@ -112,8 +107,7 @@ BEGIN_TEST(test_ubiNodeZone)
 END_TEST(test_ubiNodeZone)
 
 // ubi::Node::compartment works
-BEGIN_TEST(test_ubiNodeCompartment)
-{
+BEGIN_TEST(test_ubiNodeCompartment) {
     RootedObject global1(cx, JS::CurrentGlobalOrNull(cx));
     CHECK(global1);
     CHECK(JS::ubi::Node(global1).compartment() == cx->compartment());
@@ -148,8 +142,7 @@ BEGIN_TEST(test_ubiNodeCompartment)
 }
 END_TEST(test_ubiNodeCompartment)
 
-BEGIN_TEST(test_ubiNodeJSObjectConstructorName)
-{
+BEGIN_TEST(test_ubiNodeJSObjectConstructorName) {
     JS::RootedValue val(cx);
     EVAL("this.Ctor = function Ctor() {}; new Ctor", &val);
     CHECK(val.isObject());
@@ -164,43 +157,37 @@ BEGIN_TEST(test_ubiNodeJSObjectConstructorName)
 END_TEST(test_ubiNodeJSObjectConstructorName)
 
 template <typename F, typename G>
-static bool
-checkString(const char* expected, F fillBufferFunction, G stringGetterFunction)
-{
+static bool checkString(const char* expected, F fillBufferFunction, G stringGetterFunction) {
     auto expectedLength = strlen(expected);
     char16_t buf[1024];
     if (fillBufferFunction(mozilla::RangedPtr<char16_t>(buf, 1024), 1024) != expectedLength ||
-        !EqualChars(buf, expected, expectedLength))
-    {
+        !EqualChars(buf, expected, expectedLength)) {
         return false;
     }
 
     auto string = stringGetterFunction();
     // Expecting a |JSAtom*| from a live |JS::ubi::StackFrame|.
     if (!string.template is<JSAtom*>() ||
-        !StringEqualsAscii(string.template as<JSAtom*>(), expected))
-    {
+        !StringEqualsAscii(string.template as<JSAtom*>(), expected)) {
         return false;
     }
 
     return true;
 }
 
-BEGIN_TEST(test_ubiStackFrame)
-{
+BEGIN_TEST(test_ubiStackFrame) {
     CHECK(js::DefineTestingFunctions(cx, global, false, false));
 
     JS::RootedValue val(cx);
-    CHECK(evaluate("(function one() {                      \n"  // 1
-                   "  return (function two() {             \n"  // 2
-                   "    return (function three() {         \n"  // 3
-                   "      return saveStack();              \n"  // 4
-                   "    }());                              \n"  // 5
-                   "  }());                                \n"  // 6
-                   "}());                                  \n", // 7
-                   "filename.js",
-                   1,
-                   &val));
+    CHECK(
+        evaluate("(function one() {                      \n"   // 1
+                 "  return (function two() {             \n"   // 2
+                 "    return (function three() {         \n"   // 3
+                 "      return saveStack();              \n"   // 4
+                 "    }());                              \n"   // 5
+                 "  }());                                \n"   // 6
+                 "}());                                  \n",  // 7
+                 "filename.js", 1, &val));
 
     CHECK(val.isObject());
     JS::RootedObject obj(cx, &val.toObject());
@@ -213,23 +200,19 @@ BEGIN_TEST(test_ubiStackFrame)
     // All frames should be from the "filename.js" source.
     while (ubiFrame) {
         CHECK(checkString("filename.js",
-                          [&] (mozilla::RangedPtr<char16_t> ptr, size_t length) {
+                          [&](mozilla::RangedPtr<char16_t> ptr, size_t length) {
                               return ubiFrame.source(ptr, length);
                           },
-                          [&] {
-                              return ubiFrame.source();
-                          }));
+                          [&] { return ubiFrame.source(); }));
         ubiFrame = ubiFrame.parent();
     }
 
     ubiFrame = savedFrame;
 
-    auto bufferFunctionDisplayName = [&] (mozilla::RangedPtr<char16_t> ptr, size_t length) {
+    auto bufferFunctionDisplayName = [&](mozilla::RangedPtr<char16_t> ptr, size_t length) {
         return ubiFrame.functionDisplayName(ptr, length);
     };
-    auto getFunctionDisplayName = [&] {
-        return ubiFrame.functionDisplayName();
-    };
+    auto getFunctionDisplayName = [&] { return ubiFrame.functionDisplayName(); };
 
     CHECK(checkString("three", bufferFunctionDisplayName, getFunctionDisplayName));
     CHECK(ubiFrame.line() == 4);
@@ -254,8 +237,7 @@ BEGIN_TEST(test_ubiStackFrame)
 }
 END_TEST(test_ubiStackFrame)
 
-BEGIN_TEST(test_ubiCoarseType)
-{
+BEGIN_TEST(test_ubiCoarseType) {
     // Test that our explicit coarseType() overrides work as expected.
 
     JSObject* obj = nullptr;
@@ -282,37 +264,29 @@ BEGIN_TEST(test_ubiCoarseType)
 }
 END_TEST(test_ubiCoarseType)
 
-struct ExpectedEdge
-{
+struct ExpectedEdge {
     char from;
     char to;
 
-    ExpectedEdge(FakeNode& fromNode, FakeNode& toNode)
-        : from(fromNode.name)
-        , to(toNode.name)
-    { }
+    ExpectedEdge(FakeNode& fromNode, FakeNode& toNode) : from(fromNode.name), to(toNode.name) {}
 };
 
 namespace js {
 
 template <>
-struct DefaultHasher<ExpectedEdge>
-{
+struct DefaultHasher<ExpectedEdge> {
     using Lookup = ExpectedEdge;
 
-    static HashNumber hash(const Lookup& l) {
-        return mozilla::AddToHash(l.from, l.to);
-    }
+    static HashNumber hash(const Lookup& l) { return mozilla::AddToHash(l.from, l.to); }
 
     static bool match(const ExpectedEdge& k, const Lookup& l) {
         return k.from == l.from && k.to == l.to;
     }
 };
 
-} // namespace js
+}  // namespace js
 
-BEGIN_TEST(test_ubiPostOrder)
-{
+BEGIN_TEST(test_ubiPostOrder) {
     // Construct the following graph:
     //
     //                          .-----.
@@ -387,10 +361,8 @@ BEGIN_TEST(test_ubiPostOrder)
         auto onEdge = [&](const JS::ubi::Node& origin, const JS::ubi::Edge& edge) {
             ExpectedEdge e(*origin.as<FakeNode>(), *edge.referent.as<FakeNode>());
             if (!expectedEdges.has(e)) {
-                fprintf(stderr,
-                        "Error: Unexpected edge from %c to %c!\n",
-                        origin.as<FakeNode>()->name,
-                        edge.referent.as<FakeNode>()->name);
+                fprintf(stderr, "Error: Unexpected edge from %c to %c!\n",
+                        origin.as<FakeNode>()->name, edge.referent.as<FakeNode>()->name);
                 return false;
             }
 
@@ -401,9 +373,9 @@ BEGIN_TEST(test_ubiPostOrder)
         CHECK(traversal.traverse(onNode, onEdge));
     }
 
-    fprintf(stderr, "visited.length() = %lu\n", (unsigned long) visited.length());
+    fprintf(stderr, "visited.length() = %lu\n", (unsigned long)visited.length());
     for (size_t i = 0; i < visited.length(); i++)
-        fprintf(stderr, "visited[%lu] = '%c'\n", (unsigned long) i, visited[i]);
+        fprintf(stderr, "visited[%lu] = '%c'\n", (unsigned long)i, visited[i]);
 
     CHECK(visited.length() == 8);
     CHECK(visited[0] == 'g');
@@ -422,8 +394,7 @@ BEGIN_TEST(test_ubiPostOrder)
 }
 END_TEST(test_ubiPostOrder)
 
-BEGIN_TEST(test_JS_ubi_DominatorTree)
-{
+BEGIN_TEST(test_JS_ubi_DominatorTree) {
     // Construct the following graph:
     //
     //                                  .-----.
@@ -539,29 +510,15 @@ BEGIN_TEST(test_JS_ubi_DominatorTree)
     struct {
         FakeNode& dominated;
         FakeNode& dominator;
-    } domination[] = {
-        {r, r},
-        {a, r},
-        {b, r},
-        {c, r},
-        {d, r},
-        {e, r},
-        {f, c},
-        {g, c},
-        {h, r},
-        {i, r},
-        {j, g},
-        {k, r},
-        {l, d}
-    };
+    } domination[] = {{r, r}, {a, r}, {b, r}, {c, r}, {d, r}, {e, r}, {f, c},
+                      {g, c}, {h, r}, {i, r}, {j, g}, {k, r}, {l, d}};
 
     for (auto& relation : domination) {
         // Test immediate dominator.
-        fprintf(stderr,
-                "%c's immediate dominator is %c\n",
-                relation.dominated.name,
+        fprintf(stderr, "%c's immediate dominator is %c\n", relation.dominated.name,
                 tree.getImmediateDominator(&relation.dominator).as<FakeNode>()->name);
-        CHECK(tree.getImmediateDominator(&relation.dominated) == JS::ubi::Node(&relation.dominator));
+        CHECK(tree.getImmediateDominator(&relation.dominated) ==
+              JS::ubi::Node(&relation.dominator));
 
         // Test the dominated set. Build up the expected dominated set based on
         // the set of nodes immediately dominated by this one in `domination`,
@@ -601,19 +558,8 @@ BEGIN_TEST(test_JS_ubi_DominatorTree)
         FakeNode& node;
         JS::ubi::Node::Size retainedSize;
     } sizes[] = {
-        {r, 13},
-        {a, 1},
-        {b, 1},
-        {c, 4},
-        {d, 2},
-        {e, 1},
-        {f, 1},
-        {g, 2},
-        {h, 1},
-        {i, 1},
-        {j, 1},
-        {k, 1},
-        {l, 1},
+        {r, 13}, {a, 1}, {b, 1}, {c, 4}, {d, 2}, {e, 1}, {f, 1},
+        {g, 2},  {h, 1}, {i, 1}, {j, 1}, {k, 1}, {l, 1},
     };
 
     for (auto& expected : sizes) {
@@ -626,19 +572,17 @@ BEGIN_TEST(test_JS_ubi_DominatorTree)
 }
 END_TEST(test_JS_ubi_DominatorTree)
 
-BEGIN_TEST(test_JS_ubi_Node_scriptFilename)
-{
+BEGIN_TEST(test_JS_ubi_Node_scriptFilename) {
     JS::RootedValue val(cx);
-    CHECK(evaluate("(function one() {                      \n"  // 1
-                   "  return (function two() {             \n"  // 2
-                   "    return (function three() {         \n"  // 3
-                   "      return function four() {};       \n"  // 4
-                   "    }());                              \n"  // 5
-                   "  }());                                \n"  // 6
-                   "}());                                  \n", // 7
-                   "my-cool-filename.js",
-                   1,
-                   &val));
+    CHECK(
+        evaluate("(function one() {                      \n"   // 1
+                 "  return (function two() {             \n"   // 2
+                 "    return (function three() {         \n"   // 3
+                 "      return function four() {};       \n"   // 4
+                 "    }());                              \n"   // 5
+                 "  }());                                \n"   // 6
+                 "}());                                  \n",  // 7
+                 "my-cool-filename.js", 1, &val));
 
     CHECK(val.isObject());
     JS::RootedObject obj(cx, &val.toObject());
@@ -660,26 +604,22 @@ BEGIN_TEST(test_JS_ubi_Node_scriptFilename)
 }
 END_TEST(test_JS_ubi_Node_scriptFilename)
 
-#define LAMBDA_CHECK(cond)                                                         \
-    do {                                                                           \
-        if (!(cond)) {                                                             \
-            fprintf(stderr,"%s:%d:CHECK failed: " #cond "\n", __FILE__, __LINE__); \
-            return false;                                                          \
-        }                                                                          \
+#define LAMBDA_CHECK(cond)                                                          \
+    do {                                                                            \
+        if (!(cond)) {                                                              \
+            fprintf(stderr, "%s:%d:CHECK failed: " #cond "\n", __FILE__, __LINE__); \
+            return false;                                                           \
+        }                                                                           \
     } while (false)
 
-static void
-dumpPath(JS::ubi::Path& path)
-{
+static void dumpPath(JS::ubi::Path& path) {
     for (size_t i = 0; i < path.length(); i++) {
-        fprintf(stderr, "path[%llu]->predecessor() = '%c'\n",
-                (long long unsigned) i,
+        fprintf(stderr, "path[%llu]->predecessor() = '%c'\n", (long long unsigned)i,
                 path[i]->predecessor().as<FakeNode>()->name);
     }
 }
 
-BEGIN_TEST(test_JS_ubi_ShortestPaths_no_path)
-{
+BEGIN_TEST(test_JS_ubi_ShortestPaths_no_path) {
     // Create the following graph:
     //
     //     .---.      .---.    .---.
@@ -699,8 +639,8 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_no_path)
         CHECK(targets.init());
         CHECK(targets.put(&b));
 
-        maybeShortestPaths = JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a,
-                                                            mozilla::Move(targets));
+        maybeShortestPaths =
+            JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a, mozilla::Move(targets));
     }
 
     CHECK(maybeShortestPaths);
@@ -719,8 +659,7 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_no_path)
 }
 END_TEST(test_JS_ubi_ShortestPaths_no_path)
 
-BEGIN_TEST(test_JS_ubi_ShortestPaths_one_path)
-{
+BEGIN_TEST(test_JS_ubi_ShortestPaths_one_path) {
     // Create the following graph:
     //
     //     .---.      .---.     .---.
@@ -741,8 +680,8 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_one_path)
         CHECK(targets.init());
         CHECK(targets.put(&b));
 
-        maybeShortestPaths = JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a,
-                                                            mozilla::Move(targets));
+        maybeShortestPaths =
+            JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a, mozilla::Move(targets));
     }
 
     CHECK(maybeShortestPaths);
@@ -767,8 +706,7 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_one_path)
 }
 END_TEST(test_JS_ubi_ShortestPaths_one_path)
 
-BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_paths)
-{
+BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_paths) {
     // Create the following graph:
     //
     //                .---.
@@ -808,8 +746,8 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_paths)
         CHECK(targets.init());
         CHECK(targets.put(&f));
 
-        maybeShortestPaths = JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a,
-                                                            mozilla::Move(targets));
+        maybeShortestPaths =
+            JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a, mozilla::Move(targets));
     }
 
     CHECK(maybeShortestPaths);
@@ -852,15 +790,14 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_paths)
     });
 
     CHECK(ok);
-    fprintf(stderr, "numPathsFound = %llu\n", (long long unsigned) numPathsFound);
+    fprintf(stderr, "numPathsFound = %llu\n", (long long unsigned)numPathsFound);
     CHECK(numPathsFound == 3);
 
     return true;
 }
 END_TEST(test_JS_ubi_ShortestPaths_multiple_paths)
 
-BEGIN_TEST(test_JS_ubi_ShortestPaths_more_paths_than_max)
-{
+BEGIN_TEST(test_JS_ubi_ShortestPaths_more_paths_than_max) {
     // Create the following graph:
     //
     //                .---.
@@ -900,8 +837,8 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_more_paths_than_max)
         CHECK(targets.init());
         CHECK(targets.put(&f));
 
-        maybeShortestPaths = JS::ubi::ShortestPaths::Create(cx, noGC, 1, &a,
-                                                            mozilla::Move(targets));
+        maybeShortestPaths =
+            JS::ubi::ShortestPaths::Create(cx, noGC, 1, &a, mozilla::Move(targets));
     }
 
     CHECK(maybeShortestPaths);
@@ -915,15 +852,14 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_more_paths_than_max)
     });
 
     CHECK(ok);
-    fprintf(stderr, "numPathsFound = %llu\n", (long long unsigned) numPathsFound);
+    fprintf(stderr, "numPathsFound = %llu\n", (long long unsigned)numPathsFound);
     CHECK(numPathsFound == 1);
 
     return true;
 }
 END_TEST(test_JS_ubi_ShortestPaths_more_paths_than_max)
 
-BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_edges_to_target)
-{
+BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_edges_to_target) {
     // Create the following graph:
     //
     //                .---.
@@ -950,8 +886,8 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_edges_to_target)
         CHECK(targets.init());
         CHECK(targets.put(&b));
 
-        maybeShortestPaths = JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a,
-                                                            mozilla::Move(targets));
+        maybeShortestPaths =
+            JS::ubi::ShortestPaths::Create(cx, noGC, 10, &a, mozilla::Move(targets));
     }
 
     CHECK(maybeShortestPaths);
@@ -996,7 +932,7 @@ BEGIN_TEST(test_JS_ubi_ShortestPaths_multiple_edges_to_target)
     });
 
     CHECK(ok);
-    fprintf(stderr, "numPathsFound = %llu\n", (long long unsigned) numPathsFound);
+    fprintf(stderr, "numPathsFound = %llu\n", (long long unsigned)numPathsFound);
     CHECK(numPathsFound == 3);
     CHECK(foundX);
     CHECK(foundY);

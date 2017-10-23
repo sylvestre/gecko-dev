@@ -10,7 +10,8 @@
 #include "nsHTMLTags.h"
 
 #ifdef DEBUG
-void CheckElementTable();
+void
+CheckElementTable();
 #endif
 
 struct nsHTMLElement
@@ -19,4 +20,4 @@ struct nsHTMLElement
   static bool IsBlock(nsHTMLTag aTag);
 };
 
-#endif // nsElementTable_h
+#endif  // nsElementTable_h

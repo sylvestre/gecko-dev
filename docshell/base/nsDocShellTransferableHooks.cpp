@@ -9,13 +9,9 @@
 #include "nsIClipboardDragDropHookList.h"
 #include "nsArrayEnumerator.h"
 
-nsTransferableHookData::nsTransferableHookData()
-{
-}
+nsTransferableHookData::nsTransferableHookData() {}
 
-nsTransferableHookData::~nsTransferableHookData()
-{
-}
+nsTransferableHookData::~nsTransferableHookData() {}
 
 NS_IMPL_ISUPPORTS(nsTransferableHookData, nsIClipboardDragDropHookList)
 

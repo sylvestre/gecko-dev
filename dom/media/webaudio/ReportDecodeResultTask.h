@@ -14,11 +14,9 @@ namespace mozilla {
 
 class ReportDecodeResultTask final : public Runnable
 {
-public:
-  ReportDecodeResultTask(DecodeJob& aDecodeJob,
-                         DecodeJob::ResultFn aFunction)
-    : mDecodeJob(aDecodeJob)
-    , mFunction(aFunction)
+ public:
+  ReportDecodeResultTask(DecodeJob& aDecodeJob, DecodeJob::ResultFn aFunction)
+      : mDecodeJob(aDecodeJob), mFunction(aFunction)
   {
     MOZ_ASSERT(aFunction);
   }
@@ -32,12 +30,11 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   DecodeJob& mDecodeJob;
   DecodeJob::ResultFn mFunction;
 };
 
-}
+}  // namespace mozilla
 
 #endif
-

@@ -26,7 +26,7 @@ nsCycleCollectionParticipant::NoteJSChild(JS::GCCellPtr aGCThing,
                                           void* aClosure)
 {
   nsCycleCollectionTraversalCallback* cb =
-    static_cast<nsCycleCollectionTraversalCallback*>(aClosure);
+      static_cast<nsCycleCollectionTraversalCallback*>(aClosure);
   NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(*cb, aName);
   if (mozilla::AddToCCKind(aGCThing.kind())) {
     cb->NoteJSChild(aGCThing);
@@ -34,7 +34,8 @@ nsCycleCollectionParticipant::NoteJSChild(JS::GCCellPtr aGCThing,
 }
 
 void
-TraceCallbackFunc::Trace(JS::Heap<JS::Value>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::Heap<JS::Value>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (aPtr->unbarrieredGet().isGCThing()) {
@@ -43,7 +44,8 @@ TraceCallbackFunc::Trace(JS::Heap<JS::Value>* aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JS::Heap<jsid>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::Heap<jsid>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (JSID_IS_GCTHING(aPtr->unbarrieredGet())) {
@@ -52,7 +54,8 @@ TraceCallbackFunc::Trace(JS::Heap<jsid>* aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JS::Heap<JSObject*>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::Heap<JSObject*>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (*aPtr) {
@@ -61,7 +64,8 @@ TraceCallbackFunc::Trace(JS::Heap<JSObject*>* aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JSObject** aPtr, const char* aName,
+TraceCallbackFunc::Trace(JSObject** aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (*aPtr) {
@@ -70,7 +74,8 @@ TraceCallbackFunc::Trace(JSObject** aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JS::TenuredHeap<JSObject*>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::TenuredHeap<JSObject*>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (*aPtr) {
@@ -79,7 +84,8 @@ TraceCallbackFunc::Trace(JS::TenuredHeap<JSObject*>* aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JS::Heap<JSFunction*>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::Heap<JSFunction*>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (*aPtr) {
@@ -88,7 +94,8 @@ TraceCallbackFunc::Trace(JS::Heap<JSFunction*>* aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JS::Heap<JSString*>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::Heap<JSString*>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (*aPtr) {
@@ -97,7 +104,8 @@ TraceCallbackFunc::Trace(JS::Heap<JSString*>* aPtr, const char* aName,
 }
 
 void
-TraceCallbackFunc::Trace(JS::Heap<JSScript*>* aPtr, const char* aName,
+TraceCallbackFunc::Trace(JS::Heap<JSScript*>* aPtr,
+                         const char* aName,
                          void* aClosure) const
 {
   if (*aPtr) {

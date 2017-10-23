@@ -14,28 +14,28 @@
 
 #include "nsCOMPtr.h"
 #include "nsDebug.h"
-#include "nsServiceManagerUtils.h" // do_GetService()
-#include "nsWidgetsCID.h"       // NS_APPSHELL_CID
+#include "nsServiceManagerUtils.h"  // do_GetService()
+#include "nsWidgetsCID.h"           // NS_APPSHELL_CID
 #include "nsXULAppAPI.h"
-
 
 #define MOZ_IPDL_TESTFAIL_LABEL "TEST-UNEXPECTED-FAIL"
 #define MOZ_IPDL_TESTPASS_LABEL "TEST-PASS"
 #define MOZ_IPDL_TESTINFO_LABEL "TEST-INFO"
-
 
 namespace mozilla {
 namespace _ipdltest {
 
 //-----------------------------------------------------------------------------
 // both processes
-const char* IPDLUnitTestName();
+const char*
+IPDLUnitTestName();
 
 // NB: these are named like the similar functions in
 // xpcom/test/TestHarness.h.  The names should nominally be kept in
 // sync.
 
-inline void fail(const char* fmt, ...)
+inline void
+fail(const char* fmt, ...)
 {
   va_list ap;
 
@@ -50,7 +50,8 @@ inline void fail(const char* fmt, ...)
   MOZ_CRASH("failed test");
 }
 
-inline void passed(const char* fmt, ...)
+inline void
+passed(const char* fmt, ...)
 {
   va_list ap;
 
@@ -71,23 +72,26 @@ class IPDLUnitTestSubprocess;
 extern void* gParentActor;
 extern IPDLUnitTestSubprocess* gSubprocess;
 
-void IPDLUnitTestMain(void* aData);
+void
+IPDLUnitTestMain(void* aData);
 
-void QuitParent();
+void
+QuitParent();
 
 //-----------------------------------------------------------------------------
 // child process only
 
 extern void* gChildActor;
 
-void IPDLUnitTestChildInit(IPC::Channel* transport,
-                           base::ProcessId parentPid,
-                           MessageLoop* worker);
+void
+IPDLUnitTestChildInit(IPC::Channel* transport,
+                      base::ProcessId parentPid,
+                      MessageLoop* worker);
 
-void QuitChild();
+void
+QuitChild();
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla
 
-
-#endif // ifndef mozilla__ipdltest_IPDLUnitTests_h
+#endif  // ifndef mozilla__ipdltest_IPDLUnitTests_h

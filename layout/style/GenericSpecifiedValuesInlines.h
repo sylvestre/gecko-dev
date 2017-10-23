@@ -69,13 +69,13 @@ GenericSpecifiedValues::SetKeywordValue(nsCSSPropertyID aId, int32_t aValue)
   // so we copy its expansion and use SetIntValue for decltype
   // instead
   static_assert(
-    !mozilla::IsSame<decltype(&MOZ_STYLO_THIS_TYPE::SetIntValue),
-                     decltype(&MOZ_STYLO_GECKO_TYPE::SetKeywordValue)>::value,
-    "Gecko subclass should define its own SetKeywordValue");
+      !mozilla::IsSame<decltype(&MOZ_STYLO_THIS_TYPE::SetIntValue),
+                       decltype(&MOZ_STYLO_GECKO_TYPE::SetKeywordValue)>::value,
+      "Gecko subclass should define its own SetKeywordValue");
   static_assert(
-    !mozilla::IsSame<decltype(&MOZ_STYLO_THIS_TYPE::SetIntValue),
-                     decltype(&MOZ_STYLO_SERVO_TYPE::SetKeywordValue)>::value,
-    "Servo subclass should define its own SetKeywordValue");
+      !mozilla::IsSame<decltype(&MOZ_STYLO_THIS_TYPE::SetIntValue),
+                       decltype(&MOZ_STYLO_SERVO_TYPE::SetKeywordValue)>::value,
+      "Servo subclass should define its own SetKeywordValue");
 
   if (IsServo()) {
     return AsServo()->SetKeywordValue(aId, aValue);
@@ -200,6 +200,6 @@ GenericSpecifiedValues::SetBackgroundImage(nsAttrValue& aValue)
   MOZ_STYLO_FORWARD(SetBackgroundImage, (aValue))
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_GenericSpecifiedValuesInlines_h
+#endif  // mozilla_GenericSpecifiedValuesInlines_h

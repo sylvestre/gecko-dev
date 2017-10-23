@@ -28,15 +28,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Storage)
 NS_INTERFACE_MAP_END
 
 Storage::Storage(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal)
-  : mWindow(aWindow)
-  , mPrincipal(aPrincipal)
-  , mIsSessionOnly(false)
+    : mWindow(aWindow), mPrincipal(aPrincipal), mIsSessionOnly(false)
 {
   MOZ_ASSERT(aPrincipal);
 }
 
-Storage::~Storage()
-{}
+Storage::~Storage() {}
 
 bool
 Storage::CanUseStorage(nsIPrincipal& aSubjectPrincipal)
@@ -47,7 +44,7 @@ Storage::CanUseStorage(nsIPrincipal& aSubjectPrincipal)
   }
 
   nsContentUtils::StorageAccess access =
-    nsContentUtils::StorageAllowedForPrincipal(Principal());
+      nsContentUtils::StorageAllowedForPrincipal(Principal());
 
   if (access == nsContentUtils::StorageAccess::eDeny) {
     return false;
@@ -68,44 +65,49 @@ namespace {
 
 class StorageNotifierRunnable : public Runnable
 {
-public:
-  StorageNotifierRunnable(nsISupports* aSubject, const char16_t *aStorageType,
+ public:
+  StorageNotifierRunnable(nsISupports* aSubject,
+                          const char16_t* aStorageType,
                           bool aPrivateBrowsing)
-    : Runnable("StorageNotifierRunnable")
-    , mSubject(aSubject)
-    , mStorageType(aStorageType)
-    , mPrivateBrowsing(aPrivateBrowsing)
-  {}
+      : Runnable("StorageNotifierRunnable"),
+        mSubject(aSubject),
+        mStorageType(aStorageType),
+        mPrivateBrowsing(aPrivateBrowsing)
+  {
+  }
 
   NS_IMETHOD
   Run() override
   {
     nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
+        mozilla::services::GetObserverService();
     if (observerService) {
       observerService->NotifyObservers(mSubject,
                                        mPrivateBrowsing
-                                         ? "dom-private-storage2-changed"
-                                         : "dom-storage2-changed",
+                                           ? "dom-private-storage2-changed"
+                                           : "dom-storage2-changed",
                                        mStorageType);
     }
     return NS_OK;
   }
 
-private:
+ private:
   nsCOMPtr<nsISupports> mSubject;
   const char16_t* mStorageType;
   const bool mPrivateBrowsing;
 };
 
-} // namespace
+}  // namespace
 
 /* static */ void
-Storage::NotifyChange(Storage* aStorage, nsIPrincipal* aPrincipal,
+Storage::NotifyChange(Storage* aStorage,
+                      nsIPrincipal* aPrincipal,
                       const nsAString& aKey,
-                      const nsAString& aOldValue, const nsAString& aNewValue,
+                      const nsAString& aOldValue,
+                      const nsAString& aNewValue,
                       const char16_t* aStorageType,
-                      const nsAString& aDocumentURI, bool aIsPrivate,
+                      const nsAString& aDocumentURI,
+                      bool aIsPrivate,
                       bool aImmediateDispatch)
 {
   StorageEventInit dict;
@@ -120,19 +122,19 @@ Storage::NotifyChange(Storage* aStorage, nsIPrincipal* aPrincipal,
   // Note, this DOM event should never reach JS. It is cloned later in
   // nsGlobalWindow.
   RefPtr<StorageEvent> event =
-    StorageEvent::Constructor(nullptr, NS_LITERAL_STRING("storage"), dict);
+      StorageEvent::Constructor(nullptr, NS_LITERAL_STRING("storage"), dict);
 
   event->SetPrincipal(aPrincipal);
 
   // This will send the event to any registered window.
-  StorageNotifierService::Broadcast(event, aStorageType, aIsPrivate,
-                                    aImmediateDispatch);
+  StorageNotifierService::Broadcast(
+      event, aStorageType, aIsPrivate, aImmediateDispatch);
 
   // This runnable is mainly used by devtools. Windows receive notification by
   // StorageNotifierService.
 
   RefPtr<StorageNotifierRunnable> r =
-    new StorageNotifierRunnable(event, aStorageType, aIsPrivate);
+      new StorageNotifierRunnable(event, aStorageType, aIsPrivate);
 
   if (aImmediateDispatch) {
     Unused << r->Run();
@@ -141,5 +143,5 @@ Storage::NotifyChange(Storage* aStorage, nsIPrincipal* aPrincipal,
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

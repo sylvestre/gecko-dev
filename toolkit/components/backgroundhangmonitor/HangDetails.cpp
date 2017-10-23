@@ -4,7 +4,7 @@
 #include "mozilla/gfx/GPUParent.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/Unused.h"
-#include "mozilla/GfxMessageUtils.h" // For ParamTraits<GeckoProcessType>
+#include "mozilla/GfxMessageUtils.h"  // For ParamTraits<GeckoProcessType>
 
 namespace mozilla {
 
@@ -54,14 +54,19 @@ nsHangDetails::GetAnnotations(JSContext* aCx, JS::MutableHandleValue aVal)
   }
 
   for (auto& annot : mDetails.mAnnotations) {
-    JSString* jsString = JS_NewUCStringCopyN(aCx, annot.mValue.get(), annot.mValue.Length());
+    JSString* jsString =
+        JS_NewUCStringCopyN(aCx, annot.mValue.get(), annot.mValue.Length());
     if (!jsString) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
     JS::RootedValue jsValue(aCx);
     jsValue.setString(jsString);
-    if (!JS_DefineUCProperty(aCx, jsAnnotation, annot.mName.get(), annot.mName.Length(),
-                             jsValue, JSPROP_ENUMERATE)) {
+    if (!JS_DefineUCProperty(aCx,
+                             jsAnnotation,
+                             annot.mName.get(),
+                             annot.mName.Length(),
+                             jsValue,
+                             JSPROP_ENUMERATE)) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
   }
@@ -70,7 +75,7 @@ nsHangDetails::GetAnnotations(JSContext* aCx, JS::MutableHandleValue aVal)
   return NS_OK;
 }
 
-namespace  {
+namespace {
 
 nsresult
 StringFrame(JSContext* aCx,
@@ -92,7 +97,7 @@ StringFrame(JSContext* aCx,
   return NS_OK;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_IMETHODIMP
 nsHangDetails::GetStack(JSContext* aCx, JS::MutableHandle<JS::Value> aVal)
@@ -116,11 +121,16 @@ nsHangDetails::GetStack(JSContext* aCx, JS::MutableHandle<JS::Value> aVal)
           return NS_ERROR_OUT_OF_MEMORY;
         }
 
-        if (!JS_DefineElement(aCx, jsFrame, 0, frame.AsModOffset().mModule, JSPROP_ENUMERATE)) {
+        if (!JS_DefineElement(aCx,
+                              jsFrame,
+                              0,
+                              frame.AsModOffset().mModule,
+                              JSPROP_ENUMERATE)) {
           return NS_ERROR_OUT_OF_MEMORY;
         }
 
-        nsPrintfCString hexString("%" PRIxPTR, (uintptr_t)frame.AsModOffset().mOffset);
+        nsPrintfCString hexString("%" PRIxPTR,
+                                  (uintptr_t)frame.AsModOffset().mOffset);
         JS::RootedString hex(aCx, JS_NewStringCopyZ(aCx, hexString.get()));
         if (!hex || !JS_DefineElement(aCx, jsFrame, 1, hex, JSPROP_ENUMERATE)) {
           return NS_ERROR_OUT_OF_MEMORY;
@@ -205,12 +215,19 @@ nsHangDetails::GetModules(JSContext* aCx, JS::MutableHandleValue aVal)
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    JS::RootedString name(aCx, JS_NewUCStringCopyN(aCx, module.mName.BeginReading(), module.mName.Length()));
+    JS::RootedString name(
+        aCx,
+        JS_NewUCStringCopyN(
+            aCx, module.mName.BeginReading(), module.mName.Length()));
     if (!JS_DefineElement(aCx, jsModule, 0, name, JSPROP_ENUMERATE)) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    JS::RootedString breakpadId(aCx, JS_NewStringCopyN(aCx, module.mBreakpadId.BeginReading(), module.mBreakpadId.Length()));
+    JS::RootedString breakpadId(
+        aCx,
+        JS_NewStringCopyN(aCx,
+                          module.mBreakpadId.BeginReading(),
+                          module.mBreakpadId.Length()));
     if (!JS_DefineElement(aCx, jsModule, 1, breakpadId, JSPROP_ENUMERATE)) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
@@ -234,45 +251,47 @@ nsHangDetails::Submit()
   }
 
   RefPtr<nsHangDetails> hangDetails = this;
-  nsCOMPtr<nsIRunnable> notifyObservers = NS_NewRunnableFunction("NotifyBHRHangObservers", [hangDetails] {
-    // The place we need to report the hang to varies depending on process.
-    //
-    // In child processes, we report the hang to our parent process, while if
-    // we're in the parent process, we report a bhr-thread-hang observer
-    // notification.
-    switch (XRE_GetProcessType()) {
-    case GeckoProcessType_Content: {
-      auto cc = dom::ContentChild::GetSingleton();
-      if (cc) {
-        hangDetails->mDetails.mRemoteType.Assign(cc->GetRemoteType());
-        Unused << cc->SendBHRThreadHang(hangDetails->mDetails);
-      }
-      break;
-    }
-    case GeckoProcessType_GPU: {
-      auto gp = gfx::GPUParent::GetSingleton();
-      if (gp) {
-        Unused << gp->SendBHRThreadHang(hangDetails->mDetails);
-      }
-      break;
-    }
-    case GeckoProcessType_Default: {
-      nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
-      if (os) {
-        os->NotifyObservers(hangDetails, "bhr-thread-hang", nullptr);
-      }
-      break;
-    }
-    default:
-      // XXX: Consider handling GeckoProcessType_GMPlugin and
-      // GeckoProcessType_Plugin?
-      NS_WARNING("Unsupported BHR process type - discarding hang.");
-      break;
-    }
-  });
+  nsCOMPtr<nsIRunnable> notifyObservers =
+      NS_NewRunnableFunction("NotifyBHRHangObservers", [hangDetails] {
+        // The place we need to report the hang to varies depending on process.
+        //
+        // In child processes, we report the hang to our parent process, while if
+        // we're in the parent process, we report a bhr-thread-hang observer
+        // notification.
+        switch (XRE_GetProcessType()) {
+          case GeckoProcessType_Content: {
+            auto cc = dom::ContentChild::GetSingleton();
+            if (cc) {
+              hangDetails->mDetails.mRemoteType.Assign(cc->GetRemoteType());
+              Unused << cc->SendBHRThreadHang(hangDetails->mDetails);
+            }
+            break;
+          }
+          case GeckoProcessType_GPU: {
+            auto gp = gfx::GPUParent::GetSingleton();
+            if (gp) {
+              Unused << gp->SendBHRThreadHang(hangDetails->mDetails);
+            }
+            break;
+          }
+          case GeckoProcessType_Default: {
+            nsCOMPtr<nsIObserverService> os =
+                mozilla::services::GetObserverService();
+            if (os) {
+              os->NotifyObservers(hangDetails, "bhr-thread-hang", nullptr);
+            }
+            break;
+          }
+          default:
+            // XXX: Consider handling GeckoProcessType_GMPlugin and
+            // GeckoProcessType_Plugin?
+            NS_WARNING("Unsupported BHR process type - discarding hang.");
+            break;
+        }
+      });
 
-  nsresult rv = SystemGroup::Dispatch(TaskCategory::Other,
-                                      notifyObservers.forget());
+  nsresult rv =
+      SystemGroup::Dispatch(TaskCategory::Other, notifyObservers.forget());
   MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
 }
 
@@ -291,8 +310,7 @@ ProcessHangStackRunnable::Run()
   return NS_OK;
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla
 
 /**
  * IPC Serialization / Deserialization logic
@@ -300,7 +318,8 @@ ProcessHangStackRunnable::Run()
 namespace IPC {
 
 void
-ParamTraits<mozilla::HangDetails>::Write(Message* aMsg, const mozilla::HangDetails& aParam)
+ParamTraits<mozilla::HangDetails>::Write(Message* aMsg,
+                                         const mozilla::HangDetails& aParam)
 {
   WriteParam(aMsg, aParam.mDuration);
   WriteParam(aMsg, aParam.mProcess);
@@ -341,4 +360,4 @@ ParamTraits<mozilla::HangDetails>::Read(const Message* aMsg,
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC

@@ -17,7 +17,7 @@ namespace layers {
 // thread, and only with TextureClients that support BorrowDrawTarget().
 class TextureWrapperImage final : public Image
 {
-public:
+ public:
   TextureWrapperImage(TextureClient* aClient, const gfx::IntRect& aPictureRect);
   ~TextureWrapperImage() override;
 
@@ -26,12 +26,12 @@ public:
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
   TextureClient* GetTextureClient(KnowsCompositor* aForwarder) override;
 
-private:
+ private:
   gfx::IntRect mPictureRect;
   RefPtr<TextureClient> mTextureClient;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // GFX_LAYERS_TEXTUREWRAPPINGIMAGE_H_
+#endif  // GFX_LAYERS_TEXTUREWRAPPINGIMAGE_H_

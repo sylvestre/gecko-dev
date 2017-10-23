@@ -18,36 +18,37 @@ class nsITextServicesFilter;
 TextServicesDocument interface to outside world
 */
 
-#define NS_ITEXTSERVICESDOCUMENT_IID            \
-{ /* 019718E1-CDB5-11d2-8D3C-000000000000 */    \
-0x019718e1, 0xcdb5, 0x11d2,                     \
-{ 0x8d, 0x3c, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-
+#define NS_ITEXTSERVICESDOCUMENT_IID                                         \
+  { /* 019718E1-CDB5-11d2-8D3C-000000000000 */                               \
+    0x019718e1, 0xcdb5, 0x11d2, { 0x8d, 0x3c, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } \
+  }
 
 /**
  * The nsITextServicesDocument presents the document in as a
  * bunch of flattened text blocks. Each text block can be retrieved
  * as an nsString (array of characters).
  */
-class nsITextServicesDocument  : public nsISupports{
-public:
-
+class nsITextServicesDocument : public nsISupports
+{
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ITEXTSERVICESDOCUMENT_IID)
 
-  typedef enum { eDSNormal=0, eDSUndlerline } TSDDisplayStyle;
+  typedef enum { eDSNormal = 0, eDSUndlerline } TSDDisplayStyle;
 
-  typedef enum { eBlockNotFound=0, // There is no text block (TB) in or before the selection (S).
-                 eBlockOutside,    // No TB in S, but found one before/after S.
-                 eBlockInside,     // S extends beyond the start and end of TB.
-                 eBlockContains,   // TB contains entire S.
-                 eBlockPartial     // S begins or ends in TB but extends outside of TB.
+  typedef enum {
+    eBlockNotFound =
+        0,  // There is no text block (TB) in or before the selection (S).
+    eBlockOutside,   // No TB in S, but found one before/after S.
+    eBlockInside,    // S extends beyond the start and end of TB.
+    eBlockContains,  // TB contains entire S.
+    eBlockPartial    // S begins or ends in TB but extends outside of TB.
   } TSDBlockSelectionStatus;
 
   /**
    * Get the DOM document for the document in use.
    * @return aDocument the dom document [OUT]
    */
-  NS_IMETHOD GetDocument(nsIDOMDocument **aDocument) = 0;
+  NS_IMETHOD GetDocument(nsIDOMDocument** aDocument) = 0;
 
   /**
    * Initializes the text services document to use a particular
@@ -56,7 +57,7 @@ public:
    * @param aEditor is the editor to use. The editor is AddRef'd
    * by this method.
    */
-  NS_IMETHOD InitWithEditor(nsIEditor *aEditor) = 0;
+  NS_IMETHOD InitWithEditor(nsIEditor* aEditor) = 0;
 
   /**
    * Sets the range/extent over which the text services document
@@ -75,20 +76,20 @@ public:
    *
    * @param aDOMRange the range to be expanded/adjusted.
    */
-  NS_IMETHOD ExpandRangeToWordBoundaries(nsIDOMRange *aRange) = 0;
+  NS_IMETHOD ExpandRangeToWordBoundaries(nsIDOMRange* aRange) = 0;
 
   /**
    * Sets the filter to be used while iterating over content.
    * @param aFilter filter to be used while iterating over content.
    */
-  NS_IMETHOD SetFilter(nsITextServicesFilter *aFilter) = 0;
+  NS_IMETHOD SetFilter(nsITextServicesFilter* aFilter) = 0;
 
   /**
    * Returns the text in the current text block.
    * @param aStr will contain the text.
    */
 
-  NS_IMETHOD GetCurrentTextBlock(nsString *aStr) = 0;
+  NS_IMETHOD GetCurrentTextBlock(nsString* aStr) = 0;
 
   /**
    * Tells the document to point to the first text block
@@ -109,7 +110,9 @@ public:
    * selected in the string.
    */
 
-  NS_IMETHOD LastSelectedBlock(TSDBlockSelectionStatus *aSelectionStatus, int32_t *aSelectionOffset, int32_t *aSelectionLength) = 0;
+  NS_IMETHOD LastSelectedBlock(TSDBlockSelectionStatus* aSelectionStatus,
+                               int32_t* aSelectionOffset,
+                               int32_t* aSelectionLength) = 0;
 
   /**
    * Tells the document to point to the text block before
@@ -141,7 +144,7 @@ public:
    * @param aIsDone will contain the result.
    */
 
-  NS_IMETHOD IsDone(bool *aIsDone) = 0;
+  NS_IMETHOD IsDone(bool* aIsDone) = 0;
 
   /**
    * SetSelection() allows the caller to set the selection
@@ -175,11 +178,10 @@ public:
    * text is inserted.
    */
 
-  NS_IMETHOD InsertText(const nsString *aText) = 0;
+  NS_IMETHOD InsertText(const nsString* aText) = 0;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsITextServicesDocument,
                               NS_ITEXTSERVICESDOCUMENT_IID)
 
-#endif // nsITextServicesDocument_h__
-
+#endif  // nsITextServicesDocument_h__

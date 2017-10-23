@@ -22,24 +22,26 @@ CAIRO_BEGIN_DECLS
  * 
  * @return True on success, False on non-recoverable error
  */
-typedef cairo_bool_t (* cairo_xlib_drawing_callback)
-    (void *closure,
-     Screen *screen,
-     Drawable drawable,
-     Visual *visual,
-     short offset_x, short offset_y,
-     XRectangle* clip_rects, unsigned int num_rects);
+typedef cairo_bool_t (*cairo_xlib_drawing_callback)(void* closure,
+                                                    Screen* screen,
+                                                    Drawable drawable,
+                                                    Visual* visual,
+                                                    short offset_x,
+                                                    short offset_y,
+                                                    XRectangle* clip_rects,
+                                                    unsigned int num_rects);
 
 /**
  * This structure captures the result of the native drawing, in case the
  * caller may wish to reapply the drawing efficiently later.
  */
-typedef struct {
-    cairo_surface_t *surface;
-    cairo_bool_t    uniform_alpha;
-    cairo_bool_t    uniform_color;
-    double          alpha; /* valid only if uniform_alpha is TRUE */
-    double          r, g, b; /* valid only if uniform_color is TRUE */
+typedef struct
+{
+  cairo_surface_t* surface;
+  cairo_bool_t uniform_alpha;
+  cairo_bool_t uniform_color;
+  double alpha;   /* valid only if uniform_alpha is TRUE */
+  double r, g, b; /* valid only if uniform_color is TRUE */
 } cairo_xlib_drawing_result_t;
 
 /**
@@ -49,8 +51,8 @@ typedef struct {
  * existing contents of the target drawable in some way.
  */
 typedef enum _cairo_xlib_drawing_opacity {
-    CAIRO_XLIB_DRAWING_OPAQUE,
-    CAIRO_XLIB_DRAWING_TRANSPARENT
+  CAIRO_XLIB_DRAWING_OPAQUE,
+  CAIRO_XLIB_DRAWING_TRANSPARENT
 } cairo_xlib_drawing_opacity_t;
 
 /**
@@ -74,11 +76,11 @@ typedef enum _cairo_xlib_drawing_opacity {
  * DefaultVisualOfScreen (screen).
  */
 typedef enum {
-    CAIRO_XLIB_DRAWING_SUPPORTS_OFFSET = 0x01,
-    CAIRO_XLIB_DRAWING_SUPPORTS_CLIP_RECT = 0x02,
-    CAIRO_XLIB_DRAWING_SUPPORTS_CLIP_LIST = 0x04,
-    CAIRO_XLIB_DRAWING_SUPPORTS_ALTERNATE_SCREEN = 0x08,
-    CAIRO_XLIB_DRAWING_SUPPORTS_NONDEFAULT_VISUAL = 0x10
+  CAIRO_XLIB_DRAWING_SUPPORTS_OFFSET = 0x01,
+  CAIRO_XLIB_DRAWING_SUPPORTS_CLIP_RECT = 0x02,
+  CAIRO_XLIB_DRAWING_SUPPORTS_CLIP_LIST = 0x04,
+  CAIRO_XLIB_DRAWING_SUPPORTS_ALTERNATE_SCREEN = 0x08,
+  CAIRO_XLIB_DRAWING_SUPPORTS_NONDEFAULT_VISUAL = 0x10
 } cairo_xlib_drawing_support_t;
 
 /**
@@ -105,14 +107,16 @@ typedef enum {
  * in which case the color is always uniform) then we won't bother returning
  * a surface for it.
  */
-void cairo_draw_with_xlib (cairo_t *cr,
-                           cairo_xlib_drawing_callback callback,
-                           void *closure,
-                           Display *dpy,
-                           unsigned int width, unsigned int height,
-                           cairo_xlib_drawing_opacity_t is_opaque,
-                           cairo_xlib_drawing_support_t capabilities,
-                           cairo_xlib_drawing_result_t *result);
+void
+cairo_draw_with_xlib(cairo_t* cr,
+                     cairo_xlib_drawing_callback callback,
+                     void* closure,
+                     Display* dpy,
+                     unsigned int width,
+                     unsigned int height,
+                     cairo_xlib_drawing_opacity_t is_opaque,
+                     cairo_xlib_drawing_support_t capabilities,
+                     cairo_xlib_drawing_result_t* result);
 
 CAIRO_END_DECLS
 

@@ -22,11 +22,11 @@ namespace dom {
 
 class EventTarget;
 
-class Touch final : public nsISupports
-                  , public nsWrapperCache
-                  , public WidgetPointerHelper
+class Touch final : public nsISupports,
+                    public nsWrapperCache,
+                    public WidgetPointerHelper
 {
-public:
+ public:
   static bool PrefEnabled(JSContext* aCx, JSObject* aGlobal);
 
   static already_AddRefed<Touch> Constructor(const GlobalObject& aGlobal,
@@ -61,7 +61,8 @@ public:
 
   bool Equals(Touch* aTouch);
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   nsIGlobalObject* GetParentObject();
 
@@ -90,13 +91,14 @@ public:
   LayoutDeviceIntPoint mRadius;
   float mRotationAngle;
   float mForce;
-protected:
+
+ protected:
   ~Touch();
 
   bool mPointsInitialized;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Touch_h_
+#endif  // mozilla_dom_Touch_h_

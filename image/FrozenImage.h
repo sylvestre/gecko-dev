@@ -28,7 +28,7 @@ class FrozenImage : public ImageWrapper
 {
   typedef gfx::SourceSurface SourceSurface;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   virtual void IncrementAnimationConsumers() override;
@@ -36,39 +36,40 @@ public:
 
   NS_IMETHOD GetAnimated(bool* aAnimated) override;
   NS_IMETHOD_(already_AddRefed<SourceSurface>)
-    GetFrame(uint32_t aWhichFrame, uint32_t aFlags) override;
+  GetFrame(uint32_t aWhichFrame, uint32_t aFlags) override;
   NS_IMETHOD_(already_AddRefed<SourceSurface>)
-    GetFrameAtSize(const gfx::IntSize& aSize,
-                   uint32_t aWhichFrame,
-                   uint32_t aFlags) override;
-  NS_IMETHOD_(bool) IsImageContainerAvailable(layers::LayerManager* aManager,
-                                              uint32_t aFlags) override;
+  GetFrameAtSize(const gfx::IntSize& aSize,
+                 uint32_t aWhichFrame,
+                 uint32_t aFlags) override;
+  NS_IMETHOD_(bool)
+  IsImageContainerAvailable(layers::LayerManager* aManager,
+                            uint32_t aFlags) override;
   NS_IMETHOD_(already_AddRefed<layers::ImageContainer>)
-    GetImageContainer(layers::LayerManager* aManager,
-                      uint32_t aFlags) override;
-  NS_IMETHOD_(DrawResult) Draw(gfxContext* aContext,
-                               const nsIntSize& aSize,
-                               const ImageRegion& aRegion,
-                               uint32_t aWhichFrame,
-                               gfx::SamplingFilter aSamplingFilter,
-                               const Maybe<SVGImageContext>& aSVGContext,
-                               uint32_t aFlags,
-                               float aOpacity) override;
+  GetImageContainer(layers::LayerManager* aManager, uint32_t aFlags) override;
+  NS_IMETHOD_(DrawResult)
+  Draw(gfxContext* aContext,
+       const nsIntSize& aSize,
+       const ImageRegion& aRegion,
+       uint32_t aWhichFrame,
+       gfx::SamplingFilter aSamplingFilter,
+       const Maybe<SVGImageContext>& aSVGContext,
+       uint32_t aFlags,
+       float aOpacity) override;
   NS_IMETHOD_(void) RequestRefresh(const TimeStamp& aTime) override;
   NS_IMETHOD GetAnimationMode(uint16_t* aAnimationMode) override;
   NS_IMETHOD SetAnimationMode(uint16_t aAnimationMode) override;
   NS_IMETHOD ResetAnimation() override;
   NS_IMETHOD_(float) GetFrameIndex(uint32_t aWhichFrame) override;
 
-protected:
-  explicit FrozenImage(Image* aImage) : ImageWrapper(aImage) { }
-  virtual ~FrozenImage() { }
+ protected:
+  explicit FrozenImage(Image* aImage) : ImageWrapper(aImage) {}
+  virtual ~FrozenImage() {}
 
-private:
+ private:
   friend class ImageOps;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_FrozenImage_h
+#endif  // mozilla_image_FrozenImage_h

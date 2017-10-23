@@ -29,7 +29,7 @@ class DecoderDoctorDiagnostics;
 
 namespace layers {
 class ImageContainer;
-} // namespace layers
+}  // namespace layers
 
 namespace dom {
 class RemoteDecoderModule;
@@ -43,7 +43,7 @@ static LazyLogModule sPDMLog("PlatformDecoderModule");
 
 struct MOZ_STACK_CLASS CreateDecoderParams final
 {
-  explicit CreateDecoderParams(const TrackInfo& aConfig) : mConfig(aConfig) { }
+  explicit CreateDecoderParams(const TrackInfo& aConfig) : mConfig(aConfig) {}
 
   enum class Option
   {
@@ -55,20 +55,20 @@ struct MOZ_STACK_CLASS CreateDecoderParams final
   struct UseNullDecoder
   {
     UseNullDecoder() = default;
-    explicit UseNullDecoder(bool aUseNullDecoder) : mUse(aUseNullDecoder) { }
+    explicit UseNullDecoder(bool aUseNullDecoder) : mUse(aUseNullDecoder) {}
     bool mUse = false;
   };
 
   struct VideoFrameRate
   {
     VideoFrameRate() = default;
-    explicit VideoFrameRate(float aFramerate) : mValue(aFramerate) { }
+    explicit VideoFrameRate(float aFramerate) : mValue(aFramerate) {}
     float mValue = 0.0f;
   };
 
-  template <typename T1, typename... Ts>
+  template<typename T1, typename... Ts>
   CreateDecoderParams(const TrackInfo& aConfig, T1&& a1, Ts&&... args)
-    : mConfig(aConfig)
+      : mConfig(aConfig)
   {
     Set(mozilla::Forward<T1>(a1), mozilla::Forward<Ts>(args)...);
   }
@@ -106,7 +106,7 @@ struct MOZ_STACK_CLASS CreateDecoderParams final
   OptionSet mOptions = OptionSet(Option::Default);
   VideoFrameRate mRate;
 
-private:
+ private:
   void Set(TaskQueue* aTaskQueue) { mTaskQueue = aTaskQueue; }
   void Set(DecoderDoctorDiagnostics* aDiagnostics)
   {
@@ -118,22 +118,22 @@ private:
   }
   void Set(MediaResult* aError) { mError = aError; }
   void Set(GMPCrashHelper* aCrashHelper) { mCrashHelper = aCrashHelper; }
-  void Set(UseNullDecoder aUseNullDecoder) { mUseNullDecoder = aUseNullDecoder; }
+  void Set(UseNullDecoder aUseNullDecoder)
+  {
+    mUseNullDecoder = aUseNullDecoder;
+  }
   void Set(OptionSet aOptions) { mOptions = aOptions; }
   void Set(VideoFrameRate aRate) { mRate = aRate; }
   void Set(layers::KnowsCompositor* aKnowsCompositor)
   {
     mKnowsCompositor = aKnowsCompositor;
   }
-  void Set(TrackInfo::TrackType aType)
-  {
-    mType = aType;
-  }
+  void Set(TrackInfo::TrackType aType) { mType = aType; }
   void Set(MediaEventProducer<TrackInfo::TrackType>* aOnWaitingForKey)
   {
     mOnWaitingForKeyEvent = aOnWaitingForKey;
   }
-  template <typename T1, typename T2, typename... Ts>
+  template<typename T1, typename T2, typename... Ts>
   void Set(T1&& a1, T2&& a2, Ts&&... args)
   {
     Set(mozilla::Forward<T1>(a1));
@@ -157,7 +157,7 @@ private:
 
 class PlatformDecoderModule
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(PlatformDecoderModule)
 
   // Perform any per-instance initialization.
@@ -165,13 +165,12 @@ public:
   virtual nsresult Startup() { return NS_OK; }
 
   // Indicates if the PlatformDecoderModule supports decoding of aMimeType.
-  virtual bool
-  SupportsMimeType(const nsACString& aMimeType,
-                   DecoderDoctorDiagnostics* aDiagnostics) const = 0;
+  virtual bool SupportsMimeType(
+      const nsACString& aMimeType,
+      DecoderDoctorDiagnostics* aDiagnostics) const = 0;
 
-  virtual bool
-  Supports(const TrackInfo& aTrackInfo,
-           DecoderDoctorDiagnostics* aDiagnostics) const
+  virtual bool Supports(const TrackInfo& aTrackInfo,
+                        DecoderDoctorDiagnostics* aDiagnostics) const
   {
     if (!SupportsMimeType(aTrackInfo.mMimeType, aDiagnostics)) {
       return false;
@@ -180,9 +179,9 @@ public:
     return !videoInfo || SupportsBitDepth(videoInfo->mBitDepth, aDiagnostics);
   }
 
-protected:
-  PlatformDecoderModule() { }
-  virtual ~PlatformDecoderModule() { }
+ protected:
+  PlatformDecoderModule() {}
+  virtual ~PlatformDecoderModule() {}
 
   friend class H264Converter;
   friend class PDMFactory;
@@ -207,8 +206,8 @@ protected:
   // Returns nullptr if the decoder can't be created.
   // It is safe to store a reference to aConfig.
   // This is called on the decode task queue.
-  virtual already_AddRefed<MediaDataDecoder>
-  CreateVideoDecoder(const CreateDecoderParams& aParams) = 0;
+  virtual already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+      const CreateDecoderParams& aParams) = 0;
 
   // Creates an Audio decoder with the specified properties.
   // Asynchronous decoding of audio should be done in runnables dispatched to
@@ -219,8 +218,8 @@ protected:
   // COINIT_MULTITHREADED.
   // It is safe to store a reference to aConfig.
   // This is called on the decode task queue.
-  virtual already_AddRefed<MediaDataDecoder>
-  CreateAudioDecoder(const CreateDecoderParams& aParams) = 0;
+  virtual already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
+      const CreateDecoderParams& aParams) = 0;
 };
 
 // MediaDataDecoder is the interface exposed by decoders created by the
@@ -242,16 +241,16 @@ protected:
 // for decoding.
 class MediaDataDecoder
 {
-protected:
-  virtual ~MediaDataDecoder() { }
+ protected:
+  virtual ~MediaDataDecoder() {}
 
-public:
+ public:
   typedef TrackInfo::TrackType TrackType;
   typedef nsTArray<RefPtr<MediaData>> DecodedData;
   typedef MozPromise<TrackType, MediaResult, /* IsExclusive = */ true>
-    InitPromise;
+      InitPromise;
   typedef MozPromise<DecodedData, MediaResult, /* IsExclusive = */ true>
-    DecodePromise;
+      DecodePromise;
   typedef MozPromise<bool, MediaResult, /* IsExclusive = */ true> FlushPromise;
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaDataDecoder)
@@ -316,7 +315,7 @@ public:
   // Decoder may not honor this value. However, it'd be better that
   // video decoder implements this API to improve seek performance.
   // Note: it should be called before Input() or after Flush().
-  virtual void SetSeekThreshold(const media::TimeUnit& aTime) { }
+  virtual void SetSeekThreshold(const media::TimeUnit& aTime) {}
 
   // When playing adaptive playback, recreating an Android video decoder will
   // cause the transition not smooth during resolution change.
@@ -340,6 +339,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

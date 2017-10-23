@@ -11,8 +11,8 @@
 #include "mozilla/RefPtr.h"   // for RefPtr
 #include "nsISupportsImpl.h"  // for NS_INLINE_DECL_THREADSAFE_REFCOUNTING
 #include "APZUtils.h"         // for CancelAnimationFlags
-#include "mozilla/layers/LayersTypes.h" // for Layer::ScrollDirection
-#include "Units.h"            // for ScreenPoint
+#include "mozilla/layers/LayersTypes.h"  // for Layer::ScrollDirection
+#include "Units.h"                       // for ScreenPoint
 
 namespace mozilla {
 
@@ -31,10 +31,11 @@ class AsyncPanZoomController;
  */
 class OverscrollHandoffChain
 {
-protected:
+ protected:
   // Reference-counted classes cannot have public destructors.
   ~OverscrollHandoffChain();
-public:
+
+ public:
   // Threadsafe so that the controller and compositor threads can both maintain
   // nsRefPtrs to the same handoff chain.
   // Mutable so that we can pass around the class by
@@ -89,9 +90,10 @@ public:
   // Determine whether any APZC along this handoff chain has been flung fast.
   bool HasFastFlungApzc() const;
 
-  RefPtr<AsyncPanZoomController> FindFirstScrollable(const InputData& aInput) const;
+  RefPtr<AsyncPanZoomController> FindFirstScrollable(
+      const InputData& aInput) const;
 
-private:
+ private:
   std::vector<RefPtr<AsyncPanZoomController>> mChain;
 
   typedef void (AsyncPanZoomController::*APZCMethod)();
@@ -103,15 +105,17 @@ private:
 /**
  * This class groups the state maintained during overscroll handoff.
  */
-struct OverscrollHandoffState {
+struct OverscrollHandoffState
+{
   OverscrollHandoffState(const OverscrollHandoffChain& aChain,
                          const ScreenPoint& aPanDistance,
                          ScrollSource aScrollSource)
-    : mChain(aChain),
-      mChainIndex(0),
-      mPanDistance(aPanDistance),
-      mScrollSource(aScrollSource)
-  {}
+      : mChain(aChain),
+        mChainIndex(0),
+        mPanDistance(aPanDistance),
+        mScrollSource(aScrollSource)
+  {
+  }
 
   // The chain of APZCs along which we hand off scroll.
   // This is const to indicate that the chain does not change over the
@@ -134,7 +138,8 @@ struct OverscrollHandoffState {
 /*
  * This class groups the state maintained during fling handoff.
  */
-struct FlingHandoffState {
+struct FlingHandoffState
+{
   // The velocity of the fling being handed off.
   ParentLayerPoint mVelocity;
 
@@ -153,7 +158,7 @@ struct FlingHandoffState {
   RefPtr<const AsyncPanZoomController> mScrolledApzc;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_OverscrollHandoffChain_h */

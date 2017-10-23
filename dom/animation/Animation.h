@@ -12,10 +12,10 @@
 #include "mozilla/AnimationPerformanceWarning.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/EffectCompositor.h" // For EffectCompositor::CascadeLevel
+#include "mozilla/EffectCompositor.h"  // For EffectCompositor::CascadeLevel
 #include "mozilla/LinkedList.h"
-#include "mozilla/TimeStamp.h" // for TimeStamp, TimeDuration
-#include "mozilla/dom/AnimationBinding.h" // for AnimationPlayState
+#include "mozilla/TimeStamp.h"             // for TimeStamp, TimeDuration
+#include "mozilla/dom/AnimationBinding.h"  // for AnimationPlayState
 #include "mozilla/dom/AnimationEffectReadOnly.h"
 #include "mozilla/dom/AnimationTimeline.h"
 #include "mozilla/dom/Promise.h"
@@ -47,29 +47,27 @@ namespace dom {
 class CSSAnimation;
 class CSSTransition;
 
-class Animation
-  : public DOMEventTargetHelper
-  , public LinkedListElement<Animation>
+class Animation : public DOMEventTargetHelper,
+                  public LinkedListElement<Animation>
 {
-protected:
+ protected:
   virtual ~Animation() {}
 
-public:
+ public:
   explicit Animation(nsIGlobalObject* aGlobal)
-    : DOMEventTargetHelper(aGlobal)
-    , mPlaybackRate(1.0)
-    , mPendingState(PendingState::NotPending)
-    , mAnimationIndex(sNextAnimationIndex++)
-    , mFinishedAtLastComposeStyle(false)
-    , mIsRelevant(false)
-    , mFinishedIsResolved(false)
-    , mSyncWithGeometricAnimations(false)
+      : DOMEventTargetHelper(aGlobal),
+        mPlaybackRate(1.0),
+        mPendingState(PendingState::NotPending),
+        mAnimationIndex(sNextAnimationIndex++),
+        mFinishedAtLastComposeStyle(false),
+        mIsRelevant(false),
+        mFinishedIsResolved(false),
+        mSyncWithGeometricAnimations(false)
   {
   }
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Animation,
-                                           DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Animation, DOMEventTargetHelper)
 
   nsIGlobalObject* GetParentObject() const { return GetOwnerGlobal(); }
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -86,17 +84,18 @@ public:
    * For regular calls to play() from script we should do this, but when a CSS
    * animation's animation-play-state changes we shouldn't rewind the animation.
    */
-  enum class LimitBehavior {
+  enum class LimitBehavior
+  {
     AutoRewind,
     Continue
   };
 
   // Animation interface methods
-  static already_AddRefed<Animation>
-  Constructor(const GlobalObject& aGlobal,
-              AnimationEffectReadOnly* aEffect,
-              const Optional<AnimationTimeline*>& aTimeline,
-              ErrorResult& aRv);
+  static already_AddRefed<Animation> Constructor(
+      const GlobalObject& aGlobal,
+      AnimationEffectReadOnly* aEffect,
+      const Optional<AnimationTimeline*>& aTimeline,
+      ErrorResult& aRv);
   void GetId(nsAString& aResult) const { aResult = mId; }
   void SetId(const nsAString& aId);
   AnimationEffectReadOnly* GetEffect() const { return mEffect; }
@@ -259,7 +258,8 @@ public:
 
   // Converts an AnimationEvent's elapsedTime value to an equivalent TimeStamp
   // that can be used to sort events by when they occurred.
-  TimeStamp ElapsedTimeToTimeStamp(const StickyTimeDuration& aElapsedTime) const;
+  TimeStamp ElapsedTimeToTimeStamp(
+      const StickyTimeDuration& aElapsedTime) const;
 
   bool IsPausedOrPausing() const
   {
@@ -271,23 +271,19 @@ public:
   {
     return GetEffect() && GetEffect()->IsCurrent();
   }
-  bool IsInEffect() const
-  {
-    return GetEffect() && GetEffect()->IsInEffect();
-  }
+  bool IsInEffect() const { return GetEffect() && GetEffect()->IsInEffect(); }
 
   bool IsPlaying() const
   {
-    return mPlaybackRate != 0.0 &&
-           mTimeline &&
+    return mPlaybackRate != 0.0 && mTimeline &&
            (PlayState() == AnimationPlayState::Running ||
             mPendingState == PendingState::PlayPending);
   }
 
   bool ShouldBeSynchronizedWithMainThread(
-    nsCSSPropertyID aProperty,
-    const nsIFrame* aFrame,
-    AnimationPerformanceWarning::Type& aPerformanceWarning) const;
+      nsCSSPropertyID aProperty,
+      const nsIFrame* aFrame,
+      AnimationPerformanceWarning::Type& aPerformanceWarning) const;
 
   bool IsRelevant() const { return mIsRelevant; }
   void UpdateRelevance();
@@ -297,7 +293,7 @@ public:
    */
   bool HasLowerCompositeOrderThan(const Animation& aOther) const;
 
-   /**
+  /**
    * Returns the level at which the effect(s) associated with this Animation
    * are applied to the CSS cascade.
    */
@@ -341,9 +337,9 @@ public:
    * is canceled, it will be released by its owning element and may not still
    * exist when we would normally go to queue events on the next tick.
    */
-  virtual void MaybeQueueCancelEvent(StickyTimeDuration aActiveTime) {};
+  virtual void MaybeQueueCancelEvent(StickyTimeDuration aActiveTime){};
 
-protected:
+ protected:
   void SilentlySetCurrentTime(const TimeDuration& aNewCurrentTime);
   void SilentlySetPlaybackRate(double aPlaybackRate);
   void CancelNoUpdate();
@@ -366,20 +362,20 @@ protected:
    * Finishing behavior depends on if changes to timing occurred due
    * to a seek or regular playback.
    */
-  enum class SeekFlag {
+  enum class SeekFlag
+  {
     NoSeek,
     DidSeek
   };
 
-  enum class SyncNotifyFlag {
+  enum class SyncNotifyFlag
+  {
     Sync,
     Async
   };
 
-  virtual void UpdateTiming(SeekFlag aSeekFlag,
-                            SyncNotifyFlag aSyncNotifyFlag);
-  void UpdateFinishedState(SeekFlag aSeekFlag,
-                           SyncNotifyFlag aSyncNotifyFlag);
+  virtual void UpdateTiming(SeekFlag aSeekFlag, SyncNotifyFlag aSyncNotifyFlag);
+  void UpdateFinishedState(SeekFlag aSeekFlag, SyncNotifyFlag aSyncNotifyFlag);
   void UpdateEffect();
   void FlushStyle() const;
   void PostUpdate();
@@ -410,7 +406,8 @@ protected:
    * useful because in some cases animations that are painted together
    * may need to be synchronized.
    */
-  bool IsNewlyStarted() const {
+  bool IsNewlyStarted() const
+  {
     return mPendingState == PendingState::PlayPending &&
            mPendingReadyTime.IsNull();
   }
@@ -422,10 +419,10 @@ protected:
   RefPtr<AnimationTimeline> mTimeline;
   RefPtr<AnimationEffectReadOnly> mEffect;
   // The beginning of the delay period.
-  Nullable<TimeDuration> mStartTime; // Timeline timescale
-  Nullable<TimeDuration> mHoldTime;  // Animation timescale
-  Nullable<TimeDuration> mPendingReadyTime; // Timeline timescale
-  Nullable<TimeDuration> mPreviousCurrentTime; // Animation timescale
+  Nullable<TimeDuration> mStartTime;            // Timeline timescale
+  Nullable<TimeDuration> mHoldTime;             // Animation timescale
+  Nullable<TimeDuration> mPendingReadyTime;     // Timeline timescale
+  Nullable<TimeDuration> mPreviousCurrentTime;  // Animation timescale
   double mPlaybackRate;
 
   // A Promise that is replaced on each call to Play()
@@ -447,7 +444,12 @@ protected:
   // the animation will continue to be pending even after it has been removed
   // from the PendingAnimationTracker while it is waiting for the next tick
   // (see TriggerOnNextTick for details).
-  enum class PendingState { NotPending, PlayPending, PausePending };
+  enum class PendingState
+  {
+    NotPending,
+    PlayPending,
+    PausePending
+  };
   PendingState mPendingState;
 
   static uint64_t sNextAnimationIndex;
@@ -481,7 +483,7 @@ protected:
   nsString mId;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Animation_h
+#endif  // mozilla_dom_Animation_h

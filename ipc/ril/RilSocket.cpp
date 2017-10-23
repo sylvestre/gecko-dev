@@ -9,7 +9,7 @@
 #include "mozilla/dom/workers/Workers.h"
 #include "mozilla/ipc/UnixSocketConnector.h"
 #include "mozilla/RefPtr.h"
-#include "nsISupportsImpl.h" // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
 #include "nsXULAppAPI.h"
 #include "RilSocketConsumer.h"
 #include "mozilla/Unused.h"
@@ -27,7 +27,7 @@ USING_WORKERS_NAMESPACE
 
 class RilSocketIO final : public ConnectionOrientedSocketIO
 {
-public:
+ public:
   class ConnectTask;
   class DelayedConnectTask;
   class ReceiveTask;
@@ -67,7 +67,7 @@ public:
   void ShutdownOnConsumerThread() override;
   void ShutdownOnIOThread() override;
 
-private:
+ private:
   /**
    * Cross-thread dispatcher for the RIL worker
    */
@@ -102,11 +102,11 @@ RilSocketIO::RilSocketIO(WorkerCrossThreadDispatcher* aDispatcher,
                          MessageLoop* aIOLoop,
                          RilSocket* aRilSocket,
                          UnixSocketConnector* aConnector)
-  : ConnectionOrientedSocketIO(aConsumerLoop, aIOLoop, aConnector)
-  , mDispatcher(aDispatcher)
-  , mRilSocket(aRilSocket)
-  , mShuttingDownOnIOThread(false)
-  , mDelayedConnectTask(nullptr)
+    : ConnectionOrientedSocketIO(aConsumerLoop, aIOLoop, aConnector),
+      mDispatcher(aDispatcher),
+      mRilSocket(aRilSocket),
+      mShuttingDownOnIOThread(false),
+      mDelayedConnectTask(nullptr)
 {
   MOZ_ASSERT(mDispatcher);
   MOZ_ASSERT(mRilSocket);
@@ -184,10 +184,9 @@ RilSocketIO::QueryReceiveBuffer(UnixSocketIOBuffer** aBuffer)
  */
 class RilSocketIO::ReceiveTask final : public WorkerTask
 {
-public:
+ public:
   ReceiveTask(RilSocketIO* aIO, UnixSocketBuffer* aBuffer)
-    : mIO(aIO)
-    , mBuffer(aBuffer)
+      : mIO(aIO), mBuffer(aBuffer)
   {
     MOZ_ASSERT(mIO);
   }
@@ -211,7 +210,7 @@ public:
     return true;
   }
 
-private:
+ private:
   RilSocketIO* mIO;
   UniquePtr<UnixSocketBuffer> mBuffer;
 };
@@ -266,7 +265,7 @@ RilSocketIO::ShutdownOnIOThread()
   MOZ_ASSERT(!IsConsumerThread());
   MOZ_ASSERT(!mShuttingDownOnIOThread);
 
-  Close(); // will also remove fd from I/O loop
+  Close();  // will also remove fd from I/O loop
   mShuttingDownOnIOThread = true;
 }
 
@@ -274,13 +273,10 @@ RilSocketIO::ShutdownOnIOThread()
 // Socket tasks
 //
 
-class RilSocketIO::ConnectTask final
-  : public SocketIOTask<RilSocketIO>
+class RilSocketIO::ConnectTask final : public SocketIOTask<RilSocketIO>
 {
-public:
-  ConnectTask(RilSocketIO* aIO)
-    : SocketIOTask<RilSocketIO>(aIO)
-  { }
+ public:
+  ConnectTask(RilSocketIO* aIO) : SocketIOTask<RilSocketIO>(aIO) {}
 
   NS_IMETHOD Run() override
   {
@@ -293,13 +289,10 @@ public:
   }
 };
 
-class RilSocketIO::DelayedConnectTask final
-  : public SocketIOTask<RilSocketIO>
+class RilSocketIO::DelayedConnectTask final : public SocketIOTask<RilSocketIO>
 {
-public:
-  DelayedConnectTask(RilSocketIO* aIO)
-    : SocketIOTask<RilSocketIO>(aIO)
-  { }
+ public:
+  DelayedConnectTask(RilSocketIO* aIO) : SocketIOTask<RilSocketIO>(aIO) {}
 
   NS_IMETHOD Run() override
   {
@@ -326,11 +319,12 @@ public:
 //
 
 RilSocket::RilSocket(WorkerCrossThreadDispatcher* aDispatcher,
-                     RilSocketConsumer* aConsumer, int aIndex)
-  : mIO(nullptr)
-  , mDispatcher(aDispatcher)
-  , mConsumer(aConsumer)
-  , mIndex(aIndex)
+                     RilSocketConsumer* aConsumer,
+                     int aIndex)
+    : mIO(nullptr),
+      mDispatcher(aDispatcher),
+      mConsumer(aConsumer),
+      mIndex(aIndex)
 {
   MOZ_ASSERT(mDispatcher);
   MOZ_ASSERT(mConsumer);
@@ -353,8 +347,10 @@ RilSocket::ReceiveSocketData(JSContext* aCx,
 }
 
 nsresult
-RilSocket::Connect(UnixSocketConnector* aConnector, int aDelayMs,
-                   MessageLoop* aConsumerLoop, MessageLoop* aIOLoop)
+RilSocket::Connect(UnixSocketConnector* aConnector,
+                   int aDelayMs,
+                   MessageLoop* aConsumerLoop,
+                   MessageLoop* aIOLoop)
 {
   MOZ_ASSERT(!mIO);
 
@@ -363,7 +359,7 @@ RilSocket::Connect(UnixSocketConnector* aConnector, int aDelayMs,
 
   if (aDelayMs > 0) {
     RefPtr<RilSocketIO::DelayedConnectTask> connectTask =
-      MakeAndAddRef<RilSocketIO::DelayedConnectTask>(mIO);
+        MakeAndAddRef<RilSocketIO::DelayedConnectTask>(mIO);
     mIO->SetDelayedConnectTask(connectTask);
     MessageLoop::current()->PostDelayedTask(connectTask.forget(), aDelayMs);
   } else {
@@ -376,8 +372,8 @@ RilSocket::Connect(UnixSocketConnector* aConnector, int aDelayMs,
 nsresult
 RilSocket::Connect(UnixSocketConnector* aConnector, int aDelayMs)
 {
-  return Connect(aConnector, aDelayMs,
-                 MessageLoop::current(), XRE_GetIOMessageLoop());
+  return Connect(
+      aConnector, aDelayMs, MessageLoop::current(), XRE_GetIOMessageLoop());
 }
 
 // |ConnectionOrientedSocket|
@@ -401,7 +397,8 @@ RilSocket::SendSocketData(UnixSocketIOBuffer* aBuffer)
   MOZ_ASSERT(!mIO->IsShutdownOnConsumerThread());
 
   mIO->GetIOLoop()->PostTask(
-    MakeAndAddRef<SocketIOSendTask<RilSocketIO, UnixSocketIOBuffer>>(mIO, aBuffer));
+      MakeAndAddRef<SocketIOSendTask<RilSocketIO, UnixSocketIOBuffer>>(
+          mIO, aBuffer));
 }
 
 // |SocketBase|
@@ -442,5 +439,5 @@ RilSocket::OnDisconnect()
   mConsumer->OnDisconnect(mIndex);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

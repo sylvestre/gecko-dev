@@ -20,15 +20,16 @@ namespace mozilla {
 namespace dom {
 
 void
-IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
-                 bool aWatch, bool aReferenceImage)
+IDTracker::Reset(nsIContent* aFromContent,
+                 nsIURI* aURI,
+                 bool aWatch,
+                 bool aReferenceImage)
 {
   MOZ_ASSERT(aFromContent, "Reset() expects non-null content pointer");
 
   Unlink();
 
-  if (!aURI)
-    return;
+  if (!aURI) return;
 
   nsAutoCString refPart;
   aURI->GetRef(refPart);
@@ -37,7 +38,7 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
   NS_UnescapeURL(refPart);
 
   // Get the current document
-  nsIDocument *doc = aFromContent->OwnerDoc();
+  nsIDocument* doc = aFromContent->OwnerDoc();
   if (!doc) {
     return;
   }
@@ -59,7 +60,7 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
       // also want to handle.  (It also happens for <use>'s anonymous
       // content etc.)
       Element* anonRoot =
-        doc->GetAnonRootIfInAnonymousContentContainer(aFromContent);
+          doc->GetAnonRootIfInAnonymousContentContainer(aFromContent);
       if (anonRoot) {
         mElement = nsContentUtils::MatchElementId(anonRoot, ref);
         // We don't have watching working yet for anonymous content, so bail out here.
@@ -80,14 +81,14 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
         // If the URI points to a different document we don't need this
         // restriction.
         nsINodeList* anonymousChildren =
-          doc->BindingManager()->GetAnonymousNodesFor(bindingParent);
+            doc->BindingManager()->GetAnonymousNodesFor(bindingParent);
 
         if (anonymousChildren) {
           uint32_t length;
           anonymousChildren->GetLength(&length);
           for (uint32_t i = 0; i < length && !mElement; ++i) {
             mElement =
-              nsContentUtils::MatchElementId(anonymousChildren->Item(i), ref);
+                nsContentUtils::MatchElementId(anonymousChildren->Item(i), ref);
           }
         }
 
@@ -101,8 +102,8 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
   rv = aURI->EqualsExceptRef(doc->GetDocumentURI(), &isEqualExceptRef);
   if (NS_FAILED(rv) || !isEqualExceptRef) {
     RefPtr<nsIDocument::ExternalResourceLoad> load;
-    doc = doc->RequestExternalResource(aURI, aFromContent,
-                                       getter_AddRefs(load));
+    doc =
+        doc->RequestExternalResource(aURI, aFromContent, getter_AddRefs(load));
     if (!doc) {
       if (!load || !aWatch) {
         // Nothing will ever happen here
@@ -110,7 +111,7 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
       }
 
       DocumentLoadNotification* observer =
-        new DocumentLoadNotification(this, ref);
+          new DocumentLoadNotification(this, ref);
       mPendingNotification = observer;
       if (observer) {
         load->AddObserver(observer);
@@ -121,8 +122,7 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
 
   if (aWatch) {
     RefPtr<nsAtom> atom = NS_Atomize(ref);
-    if (!atom)
-      return;
+    if (!atom) return;
     atom.swap(mWatchID);
   }
 
@@ -132,19 +132,18 @@ IDTracker::Reset(nsIContent* aFromContent, nsIURI* aURI,
 }
 
 void
-IDTracker::ResetWithID(nsIContent* aFromContent, const nsString& aID,
+IDTracker::ResetWithID(nsIContent* aFromContent,
+                       const nsString& aID,
                        bool aWatch)
 {
-  nsIDocument *doc = aFromContent->OwnerDoc();
-  if (!doc)
-    return;
+  nsIDocument* doc = aFromContent->OwnerDoc();
+  if (!doc) return;
 
   // XXX Need to take care of XBL/XBL2
 
   if (aWatch) {
     RefPtr<nsAtom> atom = NS_Atomize(aID);
-    if (!atom)
-      return;
+    if (!atom) return;
     atom.swap(mWatchID);
   }
 
@@ -154,14 +153,15 @@ IDTracker::ResetWithID(nsIContent* aFromContent, const nsString& aID,
 }
 
 void
-IDTracker::HaveNewDocument(nsIDocument* aDocument, bool aWatch,
+IDTracker::HaveNewDocument(nsIDocument* aDocument,
+                           bool aWatch,
                            const nsString& aRef)
 {
   if (aWatch) {
     mWatchDocument = aDocument;
     if (mWatchDocument) {
-      mElement = mWatchDocument->AddIDTargetObserver(mWatchID, Observe, this,
-                                                     mReferencingImage);
+      mElement = mWatchDocument->AddIDTargetObserver(
+          mWatchID, Observe, this, mReferencingImage);
     }
     return;
   }
@@ -170,8 +170,8 @@ IDTracker::HaveNewDocument(nsIDocument* aDocument, bool aWatch,
     return;
   }
 
-  Element *e = mReferencingImage ? aDocument->LookupImageElement(aRef) :
-                                   aDocument->GetElementById(aRef);
+  Element* e = mReferencingImage ? aDocument->LookupImageElement(aRef)
+                                 : aDocument->GetElementById(aRef);
   if (e) {
     mElement = e;
   }
@@ -190,8 +190,8 @@ void
 IDTracker::Unlink()
 {
   if (mWatchDocument && mWatchID) {
-    mWatchDocument->RemoveIDTargetObserver(mWatchID, Observe, this,
-                                           mReferencingImage);
+    mWatchDocument->RemoveIDTargetObserver(
+        mWatchID, Observe, this, mReferencingImage);
   }
   if (mPendingNotification) {
     mPendingNotification->Clear();
@@ -204,8 +204,7 @@ IDTracker::Unlink()
 }
 
 bool
-IDTracker::Observe(Element* aOldElement,
-                   Element* aNewElement, void* aData)
+IDTracker::Observe(Element* aOldElement, Element* aNewElement, void* aData)
 {
   IDTracker* p = static_cast<IDTracker*>(aData);
   if (p->mPendingNotification) {
@@ -213,7 +212,7 @@ IDTracker::Observe(Element* aOldElement,
   } else {
     NS_ASSERTION(aOldElement == p->mElement, "Failed to track content!");
     ChangeNotification* watcher =
-      new ChangeNotification(p, aOldElement, aNewElement);
+        new ChangeNotification(p, aOldElement, aNewElement);
     p->mPendingNotification = watcher;
     nsContentUtils::AddScriptRunner(watcher);
   }
@@ -225,11 +224,9 @@ IDTracker::Observe(Element* aOldElement,
   return keepTracking;
 }
 
-NS_IMPL_ISUPPORTS_INHERITED0(IDTracker::ChangeNotification,
-                             mozilla::Runnable)
+NS_IMPL_ISUPPORTS_INHERITED0(IDTracker::ChangeNotification, mozilla::Runnable)
 
-NS_IMPL_ISUPPORTS(IDTracker::DocumentLoadNotification,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(IDTracker::DocumentLoadNotification, nsIObserver)
 
 NS_IMETHODIMP
 IDTracker::DocumentLoadNotification::Observe(nsISupports* aSubject,
@@ -250,5 +247,5 @@ IDTracker::DocumentLoadNotification::Observe(nsISupports* aSubject,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

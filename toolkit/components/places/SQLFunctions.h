@@ -58,7 +58,7 @@ namespace places {
  */
 class MatchAutoCompleteFunction final : public mozIStorageFunction
 {
-public:
+ public:
   MatchAutoCompleteFunction();
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -70,9 +70,9 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
-private:
+ private:
   ~MatchAutoCompleteFunction() {}
 
   /**
@@ -100,8 +100,8 @@ private:
   /**
    * Typedefs
    */
-  typedef bool (*searchFunctionPtr)(const nsDependentCSubstring &aToken,
-                                    const nsACString &aSourceString);
+  typedef bool (*searchFunctionPtr)(const nsDependentCSubstring& aToken,
+                                    const nsACString& aSourceString);
 
   typedef nsACString::const_char_iterator const_char_iterator;
 
@@ -124,8 +124,8 @@ private:
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findBeginning(const nsDependentCSubstring &aToken,
-                            const nsACString &aSourceString);
+  static bool findBeginning(const nsDependentCSubstring& aToken,
+                            const nsACString& aSourceString);
 
   /**
    * Tests if aSourceString starts with aToken in a case sensitive way.
@@ -136,8 +136,8 @@ private:
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findBeginningCaseSensitive(const nsDependentCSubstring &aToken,
-                                         const nsACString &aSourceString);
+  static bool findBeginningCaseSensitive(const nsDependentCSubstring& aToken,
+                                         const nsACString& aSourceString);
 
   /**
    * Searches aSourceString for aToken anywhere in the string in a case-
@@ -149,8 +149,8 @@ private:
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findAnywhere(const nsDependentCSubstring &aToken,
-                           const nsACString &aSourceString);
+  static bool findAnywhere(const nsDependentCSubstring& aToken,
+                           const nsACString& aSourceString);
 
   /**
    * Tests if aToken is found on a word boundary in aSourceString.
@@ -161,9 +161,8 @@ private:
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findOnBoundary(const nsDependentCSubstring &aToken,
-                             const nsACString &aSourceString);
-
+  static bool findOnBoundary(const nsDependentCSubstring& aToken,
+                             const nsACString& aSourceString);
 
   /**
    * Fixes a URI's spec such that it is ready to be searched.  This includes
@@ -179,11 +178,10 @@ private:
    *        A string buffer that the returned slice can point into, if needed.
    * @return the fixed up string.
    */
-  static nsDependentCSubstring fixupURISpec(const nsACString &aURISpec,
+  static nsDependentCSubstring fixupURISpec(const nsACString& aURISpec,
                                             int32_t aMatchBehavior,
-                                            nsACString &aSpecBuf);
+                                            nsACString& aSpecBuf);
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Frecency Calculation Function
@@ -203,7 +201,7 @@ private:
  */
 class CalculateFrecencyFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -213,8 +211,9 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~CalculateFrecencyFunction() {}
 };
 
@@ -226,7 +225,7 @@ private:
  */
 class GenerateGUIDFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -236,8 +235,9 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~GenerateGUIDFunction() {}
 };
 
@@ -249,7 +249,7 @@ private:
  */
 class IsValidGUIDFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -259,8 +259,9 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~IsValidGUIDFunction() {}
 };
 
@@ -274,7 +275,7 @@ private:
  */
 class GetUnreversedHostFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -284,11 +285,11 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~GetUnreversedHostFunction() {}
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Fixup URL Function
@@ -304,7 +305,7 @@ private:
  */
 class FixupURLFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -314,11 +315,11 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~FixupURLFunction() {}
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Frecency Changed Notification Function
@@ -342,7 +343,7 @@ private:
  */
 class FrecencyNotificationFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -352,11 +353,11 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~FrecencyNotificationFunction() {}
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Store Last Inserted Id Function
@@ -372,7 +373,7 @@ private:
  */
 class StoreLastInsertedIdFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -382,11 +383,11 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~StoreLastInsertedIdFunction() {}
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Hash Function
@@ -401,7 +402,7 @@ private:
  */
 class HashFunction final : public mozIStorageFunction
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
 
@@ -411,12 +412,13 @@ public:
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
-private:
+  static nsresult create(mozIStorageConnection* aDBConn);
+
+ private:
   ~HashFunction() {}
 };
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla
 
-#endif // mozilla_places_SQLFunctions_h_
+#endif  // mozilla_places_SQLFunctions_h_

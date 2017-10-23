@@ -33,12 +33,11 @@ ToPlaybackType(uint32_t aWhichFrame)
 {
   MOZ_ASSERT(aWhichFrame == imgIContainer::FRAME_FIRST ||
              aWhichFrame == imgIContainer::FRAME_CURRENT);
-  return aWhichFrame == imgIContainer::FRAME_CURRENT
-       ? PlaybackType::eAnimated
-       : PlaybackType::eStatic;
+  return aWhichFrame == imgIContainer::FRAME_CURRENT ? PlaybackType::eAnimated
+                                                     : PlaybackType::eStatic;
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_PlaybackType_h
+#endif  // mozilla_image_PlaybackType_h

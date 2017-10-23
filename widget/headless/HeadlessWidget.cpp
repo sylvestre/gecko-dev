@@ -46,8 +46,10 @@ CreateDefaultTarget(IntSize aSize)
 {
   // Always use at least a 1x1 draw target to avoid gfx issues
   // with 0x0 targets.
-  IntSize size = (aSize.width <= 0 || aSize.height <= 0) ? gfx::IntSize(1, 1) : aSize;
-  RefPtr<DrawTarget> target = Factory::CreateDrawTarget(gfxVars::ContentBackend(), size, SurfaceFormat::B8G8R8A8);
+  IntSize size =
+      (aSize.width <= 0 || aSize.height <= 0) ? gfx::IntSize(1, 1) : aSize;
+  RefPtr<DrawTarget> target = Factory::CreateDrawTarget(
+      gfxVars::ContentBackend(), size, SurfaceFormat::B8G8R8A8);
   RefPtr<gfxContext> ctx = gfxContext::CreatePreservingTransformOrNull(target);
   return ctx.forget();
 }
@@ -71,14 +73,14 @@ HeadlessWidget::GetActiveWindow()
 }
 
 HeadlessWidget::HeadlessWidget()
-  : mEnabled(true)
-  , mVisible(false)
-  , mDestroyed(false)
-  , mTopLevel(nullptr)
-  , mCompositorWidget(nullptr)
-  , mLastSizeMode(nsSizeMode_Normal)
-  , mEffectiveSizeMode(nsSizeMode_Normal)
-  , mRestoreBounds(0,0,0,0)
+    : mEnabled(true),
+      mVisible(false),
+      mDestroyed(false),
+      mTopLevel(nullptr),
+      mCompositorWidget(nullptr),
+      mLastSizeMode(nsSizeMode_Normal),
+      mEffectiveSizeMode(nsSizeMode_Normal),
+      mRestoreBounds(0, 0, 0, 0)
 {
   if (!sActiveWindows) {
     sActiveWindows = new nsTArray<HeadlessWidget*>();
@@ -88,7 +90,7 @@ HeadlessWidget::HeadlessWidget()
 
 HeadlessWidget::~HeadlessWidget()
 {
-  LOG(("HeadlessWidget::~HeadlessWidget() [%p]\n", (void *)this));
+  LOG(("HeadlessWidget::~HeadlessWidget() [%p]\n", (void*)this));
 
   Destroy();
 }
@@ -99,7 +101,7 @@ HeadlessWidget::Destroy()
   if (mDestroyed) {
     return;
   }
-  LOG(("HeadlessWidget::Destroy [%p]\n", (void *)this));
+  LOG(("HeadlessWidget::Destroy [%p]\n", (void*)this));
   mDestroyed = true;
 
   if (sActiveWindows) {
@@ -159,9 +161,12 @@ HeadlessWidget::CreateChild(const LayoutDeviceIntRect& aRect,
   return widget.forget();
 }
 
-void HeadlessWidget::GetCompositorWidgetInitData(mozilla::widget::CompositorWidgetInitData* aInitData)
+void
+HeadlessWidget::GetCompositorWidgetInitData(
+    mozilla::widget::CompositorWidgetInitData* aInitData)
 {
-  *aInitData = mozilla::widget::HeadlessCompositorWidgetInitData(GetClientSize());
+  *aInitData =
+      mozilla::widget::HeadlessCompositorWidgetInitData(GetClientSize());
 }
 
 nsIWidget*
@@ -173,7 +178,8 @@ HeadlessWidget::GetTopLevelWidget()
 void
 HeadlessWidget::RaiseWindow()
 {
-  MOZ_ASSERT(mTopLevel == this || mWindowType == eWindowType_dialog, "Raising a non-toplevel window.");
+  MOZ_ASSERT(mTopLevel == this || mWindowType == eWindowType_dialog,
+             "Raising a non-toplevel window.");
 
   // Do nothing if this is the currently active window.
   RefPtr<HeadlessWidget> activeWindow = GetActiveWindow();
@@ -185,7 +191,8 @@ HeadlessWidget::RaiseWindow()
   nsWindowZ placement = nsWindowZTop;
   nsCOMPtr<nsIWidget> actualBelow;
   if (mWidgetListener)
-    mWidgetListener->ZLevelChanged(true, &placement, nullptr, getter_AddRefs(actualBelow));
+    mWidgetListener->ZLevelChanged(
+        true, &placement, nullptr, getter_AddRefs(actualBelow));
 
   // Deactivate the last active window.
   if (activeWindow && activeWindow->mWidgetListener) {
@@ -200,8 +207,7 @@ HeadlessWidget::RaiseWindow()
 
   // Activate this window.
   sActiveWindows->AppendElement(this);
-  if (mWidgetListener)
-    mWidgetListener->WindowActivated();
+  if (mWidgetListener) mWidgetListener->WindowActivated();
 }
 
 void
@@ -209,7 +215,7 @@ HeadlessWidget::Show(bool aState)
 {
   mVisible = aState;
 
-  LOG(("HeadlessWidget::Show [%p] state %d\n", (void *)this, aState));
+  LOG(("HeadlessWidget::Show [%p] state %d\n", (void*)this, aState));
 
   // Top-level window and dialogs are activated/raised when shown.
   if (aState && (mTopLevel == this || mWindowType == eWindowType_dialog)) {
@@ -228,16 +234,15 @@ HeadlessWidget::IsVisible() const
 nsresult
 HeadlessWidget::SetFocus(bool aRaise)
 {
-  LOGFOCUS(("  SetFocus %d [%p]\n", aRaise, (void *)this));
+  LOGFOCUS(("  SetFocus %d [%p]\n", aRaise, (void*)this));
 
   // aRaise == true means we request activation of our toplevel window.
   if (aRaise) {
-    HeadlessWidget* topLevel = (HeadlessWidget*) GetTopLevelWidget();
+    HeadlessWidget* topLevel = (HeadlessWidget*)GetTopLevelWidget();
 
     // The toplevel only becomes active if it's currently visible; otherwise, it
     // will be activated anyway when it's shown.
-    if (topLevel->IsVisible())
-      topLevel->RaiseWindow();
+    if (topLevel->IsVisible()) topLevel->RaiseWindow();
   }
   return NS_OK;
 }
@@ -257,23 +262,22 @@ HeadlessWidget::IsEnabled() const
 void
 HeadlessWidget::Move(double aX, double aY)
 {
-  LOG(("HeadlessWidget::Move [%p] %f %f\n", (void *)this,
-       aX, aY));
+  LOG(("HeadlessWidget::Move [%p] %f %f\n", (void*)this, aX, aY));
 
-  double scale = BoundsUseDesktopPixels() ? GetDesktopToDeviceScale().scale : 1.0;
+  double scale =
+      BoundsUseDesktopPixels() ? GetDesktopToDeviceScale().scale : 1.0;
   int32_t x = NSToIntRound(aX * scale);
   int32_t y = NSToIntRound(aY * scale);
 
   if (mWindowType == eWindowType_toplevel ||
       mWindowType == eWindowType_dialog) {
-      SetSizeMode(nsSizeMode_Normal);
+    SetSizeMode(nsSizeMode_Normal);
   }
 
   // Since a popup window's x/y coordinates are in relation to
   // the parent, the parent might have moved so we always move a
   // popup window.
-  if (x == mBounds.x && y == mBounds.y &&
-      mWindowType != eWindowType_popup) {
+  if (x == mBounds.x && y == mBounds.y && mWindowType != eWindowType_popup) {
     return;
   }
 
@@ -293,25 +297,25 @@ HeadlessWidget::GetLayerManager(PLayerTransactionChild* aShadowManager,
                                 LayersBackend aBackendHint,
                                 LayerManagerPersistence aPersistence)
 {
-  return nsBaseWidget::GetLayerManager(aShadowManager, aBackendHint, aPersistence);
+  return nsBaseWidget::GetLayerManager(
+      aShadowManager, aBackendHint, aPersistence);
 }
 
 void
 HeadlessWidget::SetCompositorWidgetDelegate(CompositorWidgetDelegate* delegate)
 {
-    if (delegate) {
-        mCompositorWidget = delegate->AsHeadlessCompositorWidget();
-        MOZ_ASSERT(mCompositorWidget,
-                   "HeadlessWidget::SetCompositorWidgetDelegate called with a non-HeadlessCompositorWidget");
-    } else {
-        mCompositorWidget = nullptr;
-    }
+  if (delegate) {
+    mCompositorWidget = delegate->AsHeadlessCompositorWidget();
+    MOZ_ASSERT(mCompositorWidget,
+               "HeadlessWidget::SetCompositorWidgetDelegate called with a "
+               "non-HeadlessCompositorWidget");
+  } else {
+    mCompositorWidget = nullptr;
+  }
 }
 
 void
-HeadlessWidget::Resize(double aWidth,
-                       double aHeight,
-                       bool   aRepaint)
+HeadlessWidget::Resize(double aWidth, double aHeight, bool aRepaint)
 {
   int32_t width = NSToIntRound(aWidth);
   int32_t height = NSToIntRound(aHeight);
@@ -319,7 +323,8 @@ HeadlessWidget::Resize(double aWidth,
   mBounds.SizeTo(LayoutDeviceIntSize(width, height));
 
   if (mCompositorWidget) {
-    mCompositorWidget->NotifyClientSizeChanged(LayoutDeviceIntSize(mBounds.width, mBounds.height));
+    mCompositorWidget->NotifyClientSizeChanged(
+        LayoutDeviceIntSize(mBounds.width, mBounds.height));
   }
   if (mWidgetListener) {
     mWidgetListener->WindowResized(this, mBounds.width, mBounds.height);
@@ -330,11 +335,8 @@ HeadlessWidget::Resize(double aWidth,
 }
 
 void
-HeadlessWidget::Resize(double aX,
-                       double aY,
-                       double aWidth,
-                       double aHeight,
-                       bool   aRepaint)
+HeadlessWidget::Resize(
+    double aX, double aY, double aWidth, double aHeight, bool aRepaint)
 {
   if (mBounds.x != aX || mBounds.y != aY) {
     NotifyWindowMoved(aX, aY);
@@ -345,7 +347,7 @@ HeadlessWidget::Resize(double aX,
 void
 HeadlessWidget::SetSizeMode(nsSizeMode aMode)
 {
-  LOG(("HeadlessWidget::SetSizeMode [%p] %d\n", (void *)this, aMode));
+  LOG(("HeadlessWidget::SetSizeMode [%p] %d\n", (void*)this, aMode));
 
   if (aMode == mSizeMode) {
     return;
@@ -372,29 +374,34 @@ HeadlessWidget::ApplySizeModeSideEffects()
     mRestoreBounds = mBounds;
   }
 
-  switch(mSizeMode) {
-  case nsSizeMode_Normal: {
-    Resize(mRestoreBounds.x, mRestoreBounds.y, mRestoreBounds.width, mRestoreBounds.height, false);
-    break;
-  }
-  case nsSizeMode_Minimized:
-    break;
-  case nsSizeMode_Maximized: {
-    nsCOMPtr<nsIScreen> screen = GetWidgetScreen();
-    if (screen) {
-      int32_t left, top, width, height;
-      if (NS_SUCCEEDED(screen->GetRectDisplayPix(&left, &top, &width, &height))) {
-        Resize(0, 0, width, height, true);
-      }
+  switch (mSizeMode) {
+    case nsSizeMode_Normal: {
+      Resize(mRestoreBounds.x,
+             mRestoreBounds.y,
+             mRestoreBounds.width,
+             mRestoreBounds.height,
+             false);
+      break;
     }
-    break;
-  }
-  case nsSizeMode_Fullscreen:
-    // This will take care of resizing the window.
-    nsBaseWidget::InfallibleMakeFullScreen(true);
-    break;
-  default:
-    break;
+    case nsSizeMode_Minimized:
+      break;
+    case nsSizeMode_Maximized: {
+      nsCOMPtr<nsIScreen> screen = GetWidgetScreen();
+      if (screen) {
+        int32_t left, top, width, height;
+        if (NS_SUCCEEDED(
+                screen->GetRectDisplayPix(&left, &top, &width, &height))) {
+          Resize(0, 0, width, height, true);
+        }
+      }
+      break;
+    }
+    case nsSizeMode_Fullscreen:
+      // This will take care of resizing the window.
+      nsBaseWidget::InfallibleMakeFullScreen(true);
+      break;
+    default:
+      break;
   }
 
   mEffectiveSizeMode = mSizeMode;
@@ -478,14 +485,15 @@ HeadlessWidget::SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint,
 }
 
 nsresult
-HeadlessWidget::SynthesizeNativeMouseScrollEvent(mozilla::LayoutDeviceIntPoint aPoint,
-                                                 uint32_t aNativeMessage,
-                                                 double aDeltaX,
-                                                 double aDeltaY,
-                                                 double aDeltaZ,
-                                                 uint32_t aModifierFlags,
-                                                 uint32_t aAdditionalFlags,
-                                                 nsIObserver* aObserver)
+HeadlessWidget::SynthesizeNativeMouseScrollEvent(
+    mozilla::LayoutDeviceIntPoint aPoint,
+    uint32_t aNativeMessage,
+    double aDeltaX,
+    double aDeltaY,
+    double aDeltaZ,
+    uint32_t aModifierFlags,
+    uint32_t aAdditionalFlags,
+    nsIObserver* aObserver)
 {
   AutoObserverNotifier notifier(aObserver, "mousescrollevent");
   // The various platforms seem to handle scrolling deltas differently,
@@ -522,13 +530,18 @@ HeadlessWidget::SynthesizeNativeTouchPoint(uint32_t aPointerId,
   }
 
   LayoutDeviceIntPoint pointInWindow = aPoint - WidgetToScreenOffset();
-  MultiTouchInput inputToDispatch = UpdateSynthesizedTouchState(
-      mSynthesizedTouchInput.get(), PR_IntervalNow(), TimeStamp::Now(),
-      aPointerId, aPointerState, pointInWindow, aPointerPressure,
-      aPointerOrientation);
+  MultiTouchInput inputToDispatch =
+      UpdateSynthesizedTouchState(mSynthesizedTouchInput.get(),
+                                  PR_IntervalNow(),
+                                  TimeStamp::Now(),
+                                  aPointerId,
+                                  aPointerState,
+                                  pointInWindow,
+                                  aPointerPressure,
+                                  aPointerOrientation);
   DispatchTouchInput(inputToDispatch);
   return NS_OK;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

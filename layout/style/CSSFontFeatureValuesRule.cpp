@@ -22,14 +22,14 @@ NS_INTERFACE_MAP_END_INHERITING(mozilla::css::Rule)
 
 void
 CSSFontFeatureValuesRule::SetFontFamily(const nsAString& aFamily,
-                                              ErrorResult& aRv)
+                                        ErrorResult& aRv)
 {
   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
 }
 
 void
 CSSFontFeatureValuesRule::SetValueText(const nsAString& aFamily,
-                                             ErrorResult& aRv)
+                                       ErrorResult& aRv)
 {
   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
 }
@@ -42,10 +42,10 @@ CSSFontFeatureValuesRule::IsCCLeaf() const
 
 /* virtual */ JSObject*
 CSSFontFeatureValuesRule::WrapObject(JSContext* aCx,
-                                       JS::Handle<JSObject*> aGivenProto)
+                                     JS::Handle<JSObject*> aGivenProto)
 {
   return CSSFontFeatureValuesRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

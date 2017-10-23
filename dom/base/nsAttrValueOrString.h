@@ -24,30 +24,26 @@
 
 class MOZ_STACK_CLASS nsAttrValueOrString
 {
-public:
+ public:
   explicit nsAttrValueOrString(const nsAString& aValue)
-    : mAttrValue(nullptr)
-    , mStringPtr(&aValue)
-    , mCheapString(nullptr)
-  { }
+      : mAttrValue(nullptr), mStringPtr(&aValue), mCheapString(nullptr)
+  {
+  }
 
   explicit nsAttrValueOrString(const nsAString* aValue)
-    : mAttrValue(nullptr)
-    , mStringPtr(aValue)
-    , mCheapString(nullptr)
-  { }
+      : mAttrValue(nullptr), mStringPtr(aValue), mCheapString(nullptr)
+  {
+  }
 
   explicit nsAttrValueOrString(const nsAttrValue& aValue)
-    : mAttrValue(&aValue)
-    , mStringPtr(nullptr)
-    , mCheapString(nullptr)
-  { }
+      : mAttrValue(&aValue), mStringPtr(nullptr), mCheapString(nullptr)
+  {
+  }
 
   explicit nsAttrValueOrString(const nsAttrValue* aValue)
-    : mAttrValue(aValue)
-    , mStringPtr(nullptr)
-    , mCheapString(nullptr)
-  { }
+      : mAttrValue(aValue), mStringPtr(nullptr), mCheapString(nullptr)
+  {
+  }
 
   void ResetToAttrValue(const nsAttrValue& aValue)
   {
@@ -92,10 +88,10 @@ public:
     return true;
   }
 
-protected:
-  const nsAttrValue*       mAttrValue;
+ protected:
+  const nsAttrValue* mAttrValue;
   mutable const nsAString* mStringPtr;
-  mutable nsCheapString    mCheapString;
+  mutable nsCheapString mCheapString;
 };
 
-#endif // nsAttrValueOrString_h___
+#endif  // nsAttrValueOrString_h___

@@ -33,14 +33,11 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsMimeTypeArray,
                                       mMimeTypes,
                                       mCTPMimeTypes)
 
-nsMimeTypeArray::nsMimeTypeArray(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
+nsMimeTypeArray::nsMimeTypeArray(nsPIDOMWindowInner* aWindow) : mWindow(aWindow)
 {
 }
 
-nsMimeTypeArray::~nsMimeTypeArray()
-{
-}
+nsMimeTypeArray::~nsMimeTypeArray() {}
 
 JSObject*
 nsMimeTypeArray::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -77,7 +74,8 @@ nsMimeTypeArray::NamedItem(const nsAString& aName, CallerType aCallerType)
 }
 
 nsMimeType*
-nsMimeTypeArray::IndexedGetter(uint32_t aIndex, bool &aFound,
+nsMimeTypeArray::IndexedGetter(uint32_t aIndex,
+                               bool& aFound,
                                CallerType aCallerType)
 {
   aFound = false;
@@ -112,7 +110,8 @@ FindMimeType(const nsTArray<RefPtr<nsMimeType>>& aMimeTypes,
 }
 
 nsMimeType*
-nsMimeTypeArray::NamedGetter(const nsAString& aName, bool &aFound,
+nsMimeTypeArray::NamedGetter(const nsAString& aName,
+                             bool& aFound,
                              CallerType aCallerType)
 {
   aFound = false;
@@ -180,8 +179,8 @@ nsMimeTypeArray::EnsurePluginMimeTypes()
   }
 
   ErrorResult rv;
-  nsPluginArray *pluginArray =
-    static_cast<Navigator*>(navigator.get())->GetPlugins(rv);
+  nsPluginArray* pluginArray =
+      static_cast<Navigator*>(navigator.get())->GetPlugins(rv);
   if (!pluginArray) {
     return;
   }
@@ -200,18 +199,16 @@ nsMimeType::nsMimeType(nsPIDOMWindowInner* aWindow,
                        const nsAString& aType,
                        const nsAString& aDescription,
                        const nsAString& aExtension)
-  : mWindow(aWindow),
-    mPluginElement(aPluginElement),
-    mType(aType),
-    mDescription(aDescription),
-    mExtension(aExtension)
+    : mWindow(aWindow),
+      mPluginElement(aPluginElement),
+      mType(aType),
+      mDescription(aDescription),
+      mExtension(aExtension)
 {
   MOZ_ASSERT(aPluginElement);
 }
 
-nsMimeType::~nsMimeType()
-{
-}
+nsMimeType::~nsMimeType() {}
 
 nsPIDOMWindowInner*
 nsMimeType::GetParentObject() const

@@ -26,7 +26,7 @@ namespace layout {
 
 class RemotePrintJobParent final : public PRemotePrintJobParent
 {
-public:
+ public:
   explicit RemotePrintJobParent(nsIPrintSettings* aPrintSettings);
 
   void ActorDestroy(ActorDestroyReason aWhy) final;
@@ -45,10 +45,11 @@ public:
   mozilla::ipc::IPCResult RecvStateChange(const long& aStateFlags,
                                           const nsresult& aStatus) final;
 
-  mozilla::ipc::IPCResult RecvProgressChange(const long& aCurSelfProgress,
-                                             const long& aMaxSelfProgress,
-                                             const long& aCurTotalProgress,
-                                             const long& aMaxTotalProgress) final;
+  mozilla::ipc::IPCResult RecvProgressChange(
+      const long& aCurSelfProgress,
+      const long& aMaxSelfProgress,
+      const long& aCurTotalProgress,
+      const long& aMaxTotalProgress) final;
 
   mozilla::ipc::IPCResult RecvStatusChange(const nsresult& aStatus) final;
 
@@ -64,7 +65,7 @@ public:
     */
   already_AddRefed<nsIPrintSettings> GetPrintSettings();
 
-private:
+ private:
   ~RemotePrintJobParent() final;
 
   nsresult InitializePrintDevice(const nsString& aDocumentTitle,
@@ -83,7 +84,7 @@ private:
   PRFileDescStream mCurrentPageStream;
 };
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
-#endif // mozilla_layout_RemotePrintJobParent_h
+#endif  // mozilla_layout_RemotePrintJobParent_h

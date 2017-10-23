@@ -11,8 +11,13 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Services.h"
 
-#define NS_DISKSPACEWATCHER_CID \
-  { 0xab218518, 0xf197, 0x4fb4, { 0x8b, 0x0f, 0x8b, 0xb3, 0x4d, 0xf2, 0x4b, 0xf4 } }
+#define NS_DISKSPACEWATCHER_CID                      \
+  {                                                  \
+    0xab218518, 0xf197, 0x4fb4,                      \
+    {                                                \
+      0x8b, 0x0f, 0x8b, 0xb3, 0x4d, 0xf2, 0x4b, 0xf4 \
+    }                                                \
+  }
 
 using namespace mozilla;
 
@@ -29,10 +34,7 @@ DiskSpaceWatcher::DiskSpaceWatcher()
   MOZ_ASSERT(!gDiskSpaceWatcher);
 }
 
-DiskSpaceWatcher::~DiskSpaceWatcher()
-{
-  MOZ_ASSERT(!gDiskSpaceWatcher);
-}
+DiskSpaceWatcher::~DiskSpaceWatcher() { MOZ_ASSERT(!gDiskSpaceWatcher); }
 
 already_AddRefed<DiskSpaceWatcher>
 DiskSpaceWatcher::FactoryCreate()
@@ -57,14 +59,15 @@ DiskSpaceWatcher::FactoryCreate()
 }
 
 NS_IMETHODIMP
-DiskSpaceWatcher::Observe(nsISupports* aSubject, const char* aTopic,
+DiskSpaceWatcher::Observe(nsISupports* aSubject,
+                          const char* aTopic,
                           const char16_t* aData)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!strcmp(aTopic, "profile-after-change")) {
     nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
+        mozilla::services::GetObserverService();
     observerService->AddObserver(this, "profile-before-change", false);
     mozilla::hal::StartDiskSpaceWatcher();
     return NS_OK;
@@ -72,7 +75,7 @@ DiskSpaceWatcher::Observe(nsISupports* aSubject, const char* aTopic,
 
   if (!strcmp(aTopic, "profile-before-change")) {
     nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
+        mozilla::services::GetObserverService();
     observerService->RemoveObserver(this, "profile-before-change");
     mozilla::hal::StopDiskSpaceWatcher();
     return NS_OK;
@@ -82,7 +85,8 @@ DiskSpaceWatcher::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_ERROR_UNEXPECTED;
 }
 
-NS_IMETHODIMP DiskSpaceWatcher::GetIsDiskFull(bool* aIsDiskFull)
+NS_IMETHODIMP
+DiskSpaceWatcher::GetIsDiskFull(bool* aIsDiskFull)
 {
   *aIsDiskFull = sIsDiskFull;
   return NS_OK;
@@ -93,14 +97,16 @@ NS_IMETHODIMP DiskSpaceWatcher::GetIsDiskFull(bool* aIsDiskFull)
 #ifdef XP_WIN
 #undef GetFreeSpace
 #endif
-NS_IMETHODIMP DiskSpaceWatcher::GetFreeSpace(uint64_t* aFreeSpace)
+NS_IMETHODIMP
+DiskSpaceWatcher::GetFreeSpace(uint64_t* aFreeSpace)
 {
   *aFreeSpace = sFreeSpace;
   return NS_OK;
 }
 
 // static
-void DiskSpaceWatcher::UpdateState(bool aIsDiskFull, uint64_t aFreeSpace)
+void
+DiskSpaceWatcher::UpdateState(bool aIsDiskFull, uint64_t aFreeSpace)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (!gDiskSpaceWatcher) {
@@ -108,7 +114,7 @@ void DiskSpaceWatcher::UpdateState(bool aIsDiskFull, uint64_t aFreeSpace)
   }
 
   nsCOMPtr<nsIObserverService> observerService =
-    mozilla::services::GetObserverService();
+      mozilla::services::GetObserverService();
 
   sIsDiskFull = aIsDiskFull;
   sFreeSpace = aFreeSpace;
@@ -117,8 +123,8 @@ void DiskSpaceWatcher::UpdateState(bool aIsDiskFull, uint64_t aFreeSpace)
     return;
   }
 
-  const char16_t stateFull[] = { 'f', 'u', 'l', 'l', 0 };
-  const char16_t stateFree[] = { 'f', 'r', 'e', 'e', 0 };
+  const char16_t stateFull[] = {'f', 'u', 'l', 'l', 0};
+  const char16_t stateFree[] = {'f', 'r', 'e', 'e', 0};
 
   nsCOMPtr<nsISupports> subject;
   CallQueryInterface(gDiskSpaceWatcher.get(), getter_AddRefs(subject));
@@ -134,24 +140,20 @@ NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(DiskSpaceWatcher,
 NS_DEFINE_NAMED_CID(NS_DISKSPACEWATCHER_CID);
 
 static const mozilla::Module::CIDEntry kDiskSpaceWatcherCIDs[] = {
-  { &kNS_DISKSPACEWATCHER_CID, false, nullptr, DiskSpaceWatcherConstructor },
-  { nullptr }
-};
+    {&kNS_DISKSPACEWATCHER_CID, false, nullptr, DiskSpaceWatcherConstructor},
+    {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kDiskSpaceWatcherContracts[] = {
-  { "@mozilla.org/toolkit/disk-space-watcher;1", &kNS_DISKSPACEWATCHER_CID },
-  { nullptr }
-};
+    {"@mozilla.org/toolkit/disk-space-watcher;1", &kNS_DISKSPACEWATCHER_CID},
+    {nullptr}};
 
 static const mozilla::Module::CategoryEntry kDiskSpaceWatcherCategories[] = {
-  { nullptr }
-};
+    {nullptr}};
 
 static const mozilla::Module kDiskSpaceWatcherModule = {
-  mozilla::Module::kVersion,
-  kDiskSpaceWatcherCIDs,
-  kDiskSpaceWatcherContracts,
-  kDiskSpaceWatcherCategories
-};
+    mozilla::Module::kVersion,
+    kDiskSpaceWatcherCIDs,
+    kDiskSpaceWatcherContracts,
+    kDiskSpaceWatcherCategories};
 
 NSMODULE_DEFN(DiskSpaceWatcherModule) = &kDiskSpaceWatcherModule;

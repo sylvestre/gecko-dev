@@ -14,37 +14,42 @@
 class nsIStreamListener;
 class nsIDocument;
 
-#define NS_CONTENTSECURITYMANAGER_CONTRACTID "@mozilla.org/contentsecuritymanager;1"
+#define NS_CONTENTSECURITYMANAGER_CONTRACTID \
+  "@mozilla.org/contentsecuritymanager;1"
 // cdcc1ab8-3cea-4e6c-a294-a651fa35227f
-#define NS_CONTENTSECURITYMANAGER_CID \
-{ 0xcdcc1ab8, 0x3cea, 0x4e6c, \
-  { 0xa2, 0x94, 0xa6, 0x51, 0xfa, 0x35, 0x22, 0x7f } }
+#define NS_CONTENTSECURITYMANAGER_CID                \
+  {                                                  \
+    0xcdcc1ab8, 0x3cea, 0x4e6c,                      \
+    {                                                \
+      0xa2, 0x94, 0xa6, 0x51, 0xfa, 0x35, 0x22, 0x7f \
+    }                                                \
+  }
 
-class nsContentSecurityManager : public nsIContentSecurityManager
-                               , public nsIChannelEventSink
+class nsContentSecurityManager : public nsIContentSecurityManager,
+                                 public nsIChannelEventSink
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICONTENTSECURITYMANAGER
   NS_DECL_NSICHANNELEVENTSINK
 
   nsContentSecurityManager() {}
 
-  static nsresult doContentSecurityCheck(nsIChannel* aChannel,
-                                         nsCOMPtr<nsIStreamListener>& aInAndOutListener);
+  static nsresult doContentSecurityCheck(
+      nsIChannel* aChannel, nsCOMPtr<nsIStreamListener>& aInAndOutListener);
 
-  static bool AllowTopLevelNavigationToDataURI(nsIURI* aURI,
-                                               nsContentPolicyType aContentPolicyType,
-                                               nsIPrincipal* aTriggeringPrincipal,
-                                               nsIDocument* aDoc,
-                                               bool aLoadFromExternal,
-                                               bool aIsDownload);
+  static bool AllowTopLevelNavigationToDataURI(
+      nsIURI* aURI,
+      nsContentPolicyType aContentPolicyType,
+      nsIPrincipal* aTriggeringPrincipal,
+      nsIDocument* aDoc,
+      bool aLoadFromExternal,
+      bool aIsDownload);
 
-private:
+ private:
   static nsresult CheckChannel(nsIChannel* aChannel);
 
   virtual ~nsContentSecurityManager() {}
-
 };
 
 #endif /* nsContentSecurityManager_h___ */

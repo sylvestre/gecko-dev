@@ -17,13 +17,13 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(AudioListener, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(AudioListener, Release)
 
 AudioListener::AudioListener(AudioContext* aContext)
-  : mContext(aContext)
-  , mPosition()
-  , mFrontVector(0., 0., -1.)
-  , mRightVector(1., 0., 0.)
-  , mVelocity()
-  , mDopplerFactor(1.)
-  , mSpeedOfSound(343.3) // meters/second
+    : mContext(aContext),
+      mPosition(),
+      mFrontVector(0., 0., -1.),
+      mRightVector(1., 0., 0.),
+      mVelocity(),
+      mDopplerFactor(1.),
+      mSpeedOfSound(343.3)  // meters/second
 {
   MOZ_ASSERT(aContext);
 }
@@ -35,8 +35,8 @@ AudioListener::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 void
-AudioListener::SetOrientation(double aX, double aY, double aZ,
-                              double aXUp, double aYUp, double aZUp)
+AudioListener::SetOrientation(
+    double aX, double aY, double aZ, double aXUp, double aYUp, double aZUp)
 {
   ThreeDPoint front(aX, aY, aZ);
   // The panning effect and the azimuth and elevation calculation in the Web
@@ -74,16 +74,23 @@ AudioListener::RegisterPannerNode(PannerNode* aPannerNode)
   mPanners.AppendElement(aPannerNode);
 
   // Let the panner node know about our parameters
-  aPannerNode->SendThreeDPointParameterToStream(PannerNode::LISTENER_POSITION, mPosition);
-  aPannerNode->SendThreeDPointParameterToStream(PannerNode::LISTENER_FRONT_VECTOR, mFrontVector);
-  aPannerNode->SendThreeDPointParameterToStream(PannerNode::LISTENER_RIGHT_VECTOR, mRightVector);
-  aPannerNode->SendThreeDPointParameterToStream(PannerNode::LISTENER_VELOCITY, mVelocity);
-  aPannerNode->SendDoubleParameterToStream(PannerNode::LISTENER_DOPPLER_FACTOR, mDopplerFactor);
-  aPannerNode->SendDoubleParameterToStream(PannerNode::LISTENER_SPEED_OF_SOUND, mSpeedOfSound);
+  aPannerNode->SendThreeDPointParameterToStream(PannerNode::LISTENER_POSITION,
+                                                mPosition);
+  aPannerNode->SendThreeDPointParameterToStream(
+      PannerNode::LISTENER_FRONT_VECTOR, mFrontVector);
+  aPannerNode->SendThreeDPointParameterToStream(
+      PannerNode::LISTENER_RIGHT_VECTOR, mRightVector);
+  aPannerNode->SendThreeDPointParameterToStream(PannerNode::LISTENER_VELOCITY,
+                                                mVelocity);
+  aPannerNode->SendDoubleParameterToStream(PannerNode::LISTENER_DOPPLER_FACTOR,
+                                           mDopplerFactor);
+  aPannerNode->SendDoubleParameterToStream(PannerNode::LISTENER_SPEED_OF_SOUND,
+                                           mSpeedOfSound);
   UpdatePannersVelocity();
 }
 
-void AudioListener::UnregisterPannerNode(PannerNode* aPannerNode)
+void
+AudioListener::UnregisterPannerNode(PannerNode* aPannerNode)
 {
   mPanners.RemoveElement(aPannerNode);
 }
@@ -99,7 +106,8 @@ AudioListener::SendDoubleParameterToStream(uint32_t aIndex, double aValue)
 }
 
 void
-AudioListener::SendThreeDPointParameterToStream(uint32_t aIndex, const ThreeDPoint& aValue)
+AudioListener::SendThreeDPointParameterToStream(uint32_t aIndex,
+                                                const ThreeDPoint& aValue)
 {
   for (uint32_t i = 0; i < mPanners.Length(); ++i) {
     if (mPanners[i]) {
@@ -108,7 +116,8 @@ AudioListener::SendThreeDPointParameterToStream(uint32_t aIndex, const ThreeDPoi
   }
 }
 
-void AudioListener::UpdatePannersVelocity()
+void
+AudioListener::UpdatePannersVelocity()
 {
   for (uint32_t i = 0; i < mPanners.Length(); ++i) {
     if (mPanners[i]) {
@@ -126,6 +135,5 @@ AudioListener::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
   return amount;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

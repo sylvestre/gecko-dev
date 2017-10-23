@@ -20,10 +20,10 @@
 #define IOKIT_FRAMEWORK_PATH "/System/Library/Frameworks/IOKit.framework/IOKit"
 
 #ifndef kIOPSTimeRemainingUnknown
-  #define kIOPSTimeRemainingUnknown ((CFTimeInterval)-1.0)
+#define kIOPSTimeRemainingUnknown ((CFTimeInterval)-1.0)
 #endif
 #ifndef kIOPSTimeRemainingUnlimited
-  #define kIOPSTimeRemainingUnlimited ((CFTimeInterval)-2.0)
+#define kIOPSTimeRemainingUnlimited ((CFTimeInterval)-2.0)
 #endif
 
 using namespace mozilla::dom::battery;
@@ -35,7 +35,7 @@ typedef CFTimeInterval (*IOPSGetTimeRemainingEstimateFunc)(void);
 
 class MacPowerInformationService
 {
-public:
+ public:
   static MacPowerInformationService* GetInstance();
   static void Shutdown();
   static bool IsShuttingDown();
@@ -43,11 +43,11 @@ public:
   void BeginListening();
   void StopListening();
 
-  static void HandleChange(void *aContext);
+  static void HandleChange(void* aContext);
 
   ~MacPowerInformationService();
 
-private:
+ private:
   MacPowerInformationService();
 
   // The reference to the runloop that is notified of power changes.
@@ -58,7 +58,8 @@ private:
   double mRemainingTime;
   bool mShouldNotify;
 
-  friend void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo);
+  friend void GetCurrentBatteryInformation(
+      hal::BatteryInformation* aBatteryInfo);
 
   static MacPowerInformationService* sInstance;
   static bool sShuttingDown;
@@ -68,7 +69,8 @@ private:
 };
 
 void* MacPowerInformationService::sIOKitFramework;
-IOPSGetTimeRemainingEstimateFunc MacPowerInformationService::sIOPSGetTimeRemainingEstimate;
+IOPSGetTimeRemainingEstimateFunc
+    MacPowerInformationService::sIOPSGetTimeRemainingEstimate;
 
 /*
  * Implementation of mozilla::hal_impl::EnableBatteryNotifications,
@@ -95,7 +97,8 @@ DisableBatteryNotifications()
 void
 GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
 {
-  MacPowerInformationService* powerService = MacPowerInformationService::GetInstance();
+  MacPowerInformationService* powerService =
+      MacPowerInformationService::GetInstance();
 
   aBatteryInfo->level() = powerService->mLevel;
   aBatteryInfo->charging() = powerService->mCharging;
@@ -116,7 +119,7 @@ struct SingletonDestroyer final : public nsIObserver
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
-private:
+ private:
   ~SingletonDestroyer() {}
 };
 
@@ -129,7 +132,7 @@ SingletonDestroyer::Observe(nsISupports*, const char* aTopic, const char16_t*)
   MacPowerInformationService::Shutdown();
   return NS_OK;
 }
-} // namespace
+}  // namespace
 
 /* static */ MacPowerInformationService*
 MacPowerInformationService::GetInstance()
@@ -163,18 +166,18 @@ MacPowerInformationService::Shutdown()
 }
 
 MacPowerInformationService::MacPowerInformationService()
-  : mRunLoopSource(nullptr)
-  , mLevel(kDefaultLevel)
-  , mCharging(kDefaultCharging)
-  , mRemainingTime(kDefaultRemainingTime)
-  , mShouldNotify(false)
+    : mRunLoopSource(nullptr),
+      mLevel(kDefaultLevel),
+      mCharging(kDefaultCharging),
+      mRemainingTime(kDefaultRemainingTime),
+      mShouldNotify(false)
 {
   // IOPSGetTimeRemainingEstimate (and the related constants) are only available
   // on 10.7, so we test for their presence at runtime.
   sIOKitFramework = dlopen(IOKIT_FRAMEWORK_PATH, RTLD_LAZY | RTLD_LOCAL);
   if (sIOKitFramework) {
-    sIOPSGetTimeRemainingEstimate =
-      (IOPSGetTimeRemainingEstimateFunc)dlsym(sIOKitFramework, "IOPSGetTimeRemainingEstimate");
+    sIOPSGetTimeRemainingEstimate = (IOPSGetTimeRemainingEstimateFunc)dlsym(
+        sIOKitFramework, "IOPSGetTimeRemainingEstimate");
   } else {
     sIOPSGetTimeRemainingEstimate = nullptr;
   }
@@ -183,8 +186,8 @@ MacPowerInformationService::MacPowerInformationService()
 MacPowerInformationService::~MacPowerInformationService()
 {
   MOZ_ASSERT(!mRunLoopSource,
-               "The observers have not been correctly removed! "
-               "(StopListening should have been called)");
+             "The observers have not been correctly removed! "
+             "(StopListening should have been called)");
 
   if (sIOKitFramework) {
     dlclose(sIOKitFramework);
@@ -195,13 +198,14 @@ void
 MacPowerInformationService::BeginListening()
 {
   // Set ourselves up to be notified about changes.
-  MOZ_ASSERT(!mRunLoopSource, "IOPS Notification Loop Source already set up. "
-                              "(StopListening should have been called)");
+  MOZ_ASSERT(!mRunLoopSource,
+             "IOPS Notification Loop Source already set up. "
+             "(StopListening should have been called)");
 
   mRunLoopSource = ::IOPSNotificationCreateRunLoopSource(HandleChange, this);
   if (mRunLoopSource) {
-    ::CFRunLoopAddSource(::CFRunLoopGetCurrent(), mRunLoopSource,
-                         kCFRunLoopDefaultMode);
+    ::CFRunLoopAddSource(
+        ::CFRunLoopGetCurrent(), mRunLoopSource, kCFRunLoopDefaultMode);
 
     // Invoke our callback now so we have data if GetCurrentBatteryInformation is
     // called before a change happens.
@@ -213,18 +217,20 @@ MacPowerInformationService::BeginListening()
 void
 MacPowerInformationService::StopListening()
 {
-  MOZ_ASSERT(mRunLoopSource, "IOPS Notification Loop Source not set up. "
-                             "(StopListening without BeginListening)");
+  MOZ_ASSERT(mRunLoopSource,
+             "IOPS Notification Loop Source not set up. "
+             "(StopListening without BeginListening)");
 
-  ::CFRunLoopRemoveSource(::CFRunLoopGetCurrent(), mRunLoopSource,
-                          kCFRunLoopDefaultMode);
+  ::CFRunLoopRemoveSource(
+      ::CFRunLoopGetCurrent(), mRunLoopSource, kCFRunLoopDefaultMode);
   mRunLoopSource = nullptr;
 }
 
 void
-MacPowerInformationService::HandleChange(void* aContext) {
+MacPowerInformationService::HandleChange(void* aContext)
+{
   MacPowerInformationService* power =
-    static_cast<MacPowerInformationService*>(aContext);
+      static_cast<MacPowerInformationService*>(aContext);
 
   CFTypeRef data = ::IOPSCopyPowerSourcesInfo();
   if (!data) {
@@ -249,29 +255,35 @@ MacPowerInformationService::HandleChange(void* aContext) {
   // Usually there's only 1 available, depending on current power source.
   for (CFIndex i = 0; i < ::CFArrayGetCount(list); ++i) {
     CFTypeRef source = ::CFArrayGetValueAtIndex(list, i);
-    CFDictionaryRef currPowerSourceDesc = ::IOPSGetPowerSourceDescription(data, source);
+    CFDictionaryRef currPowerSourceDesc =
+        ::IOPSGetPowerSourceDescription(data, source);
     if (!currPowerSourceDesc) {
       continue;
     }
 
     // Get a battery level estimate. This key is required.
     int currentCapacity = 0;
-    const void* cfRef = ::CFDictionaryGetValue(currPowerSourceDesc, CFSTR(kIOPSCurrentCapacityKey));
-    ::CFNumberGetValue((CFNumberRef)cfRef, kCFNumberSInt32Type, &currentCapacity);
+    const void* cfRef = ::CFDictionaryGetValue(currPowerSourceDesc,
+                                               CFSTR(kIOPSCurrentCapacityKey));
+    ::CFNumberGetValue(
+        (CFNumberRef)cfRef, kCFNumberSInt32Type, &currentCapacity);
 
     // This key is also required.
     int maxCapacity = 0;
-    cfRef = ::CFDictionaryGetValue(currPowerSourceDesc, CFSTR(kIOPSMaxCapacityKey));
+    cfRef =
+        ::CFDictionaryGetValue(currPowerSourceDesc, CFSTR(kIOPSMaxCapacityKey));
     ::CFNumberGetValue((CFNumberRef)cfRef, kCFNumberSInt32Type, &maxCapacity);
 
     if (maxCapacity > 0) {
-      level = static_cast<double>(currentCapacity)/static_cast<double>(maxCapacity);
+      level = static_cast<double>(currentCapacity) /
+              static_cast<double>(maxCapacity);
     }
 
     // Find out if we're charging.
     // This key is optional, we fallback to kDefaultCharging if the current power
     // source doesn't have that info.
-    if(::CFDictionaryGetValueIfPresent(currPowerSourceDesc, CFSTR(kIOPSIsChargingKey), &cfRef)) {
+    if (::CFDictionaryGetValueIfPresent(
+            currPowerSourceDesc, CFSTR(kIOPSIsChargingKey), &cfRef)) {
       charging = ::CFBooleanGetValue((CFBooleanRef)cfRef);
 
       // Get an estimate of how long it's going to take until we're fully charged.
@@ -279,20 +291,23 @@ MacPowerInformationService::HandleChange(void* aContext) {
       if (charging) {
         // Default value that will be changed if we happen to find the actual
         // remaining time.
-        remainingTime = level == 1.0 ? kDefaultRemainingTime : kUnknownRemainingTime;
+        remainingTime =
+            level == 1.0 ? kDefaultRemainingTime : kUnknownRemainingTime;
 
-        if (::CFDictionaryGetValueIfPresent(currPowerSourceDesc,
-                CFSTR(kIOPSTimeToFullChargeKey), &cfRef)) {
+        if (::CFDictionaryGetValueIfPresent(
+                currPowerSourceDesc, CFSTR(kIOPSTimeToFullChargeKey), &cfRef)) {
           int timeToCharge;
-          ::CFNumberGetValue((CFNumberRef)cfRef, kCFNumberIntType, &timeToCharge);
+          ::CFNumberGetValue(
+              (CFNumberRef)cfRef, kCFNumberIntType, &timeToCharge);
           if (timeToCharge != kIOPSTimeRemainingUnknown) {
-            remainingTime = timeToCharge*60;
+            remainingTime = timeToCharge * 60;
           }
         }
-      } else if (sIOPSGetTimeRemainingEstimate) { // not charging
+      } else if (sIOPSGetTimeRemainingEstimate) {  // not charging
         // See if we can get a time estimate.
         CFTimeInterval estimate = sIOPSGetTimeRemainingEstimate();
-        if (estimate == kIOPSTimeRemainingUnlimited || estimate == kIOPSTimeRemainingUnknown) {
+        if (estimate == kIOPSTimeRemainingUnlimited ||
+            estimate == kIOPSTimeRemainingUnknown) {
           remainingTime = kUnknownRemainingTime;
         } else {
           remainingTime = estimate;
@@ -312,14 +327,13 @@ MacPowerInformationService::HandleChange(void* aContext) {
 
   // Notify the observers if stuff changed.
   if (power->mShouldNotify && isNewData) {
-    hal::NotifyBatteryChange(hal::BatteryInformation(power->mLevel,
-                                                     power->mCharging,
-                                                     power->mRemainingTime));
+    hal::NotifyBatteryChange(hal::BatteryInformation(
+        power->mLevel, power->mCharging, power->mRemainingTime));
   }
 
   ::CFRelease(data);
   ::CFRelease(list);
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

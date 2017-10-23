@@ -25,16 +25,18 @@ using namespace mozilla::image;
 using std::generate;
 using std::vector;
 
-template <typename Func> void
+template<typename Func>
+void
 WithADAM7InterpolatingFilter(const IntSize& aSize, Func aFunc)
 {
   RefPtr<Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(bool(decoder));
 
-  WithFilterPipeline(decoder, Forward<Func>(aFunc),
-                     ADAM7InterpolatingConfig { },
-                     SurfaceConfig { decoder, 0, aSize,
-                                     SurfaceFormat::B8G8R8A8, false });
+  WithFilterPipeline(
+      decoder,
+      Forward<Func>(aFunc),
+      ADAM7InterpolatingConfig{},
+      SurfaceConfig{decoder, 0, aSize, SurfaceFormat::B8G8R8A8, false});
 }
 
 void
@@ -43,10 +45,10 @@ AssertConfiguringADAM7InterpolatingFilterFails(const IntSize& aSize)
   RefPtr<Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(bool(decoder));
 
-  AssertConfiguringPipelineFails(decoder,
-                                 ADAM7InterpolatingConfig { },
-                                 SurfaceConfig { decoder, 0, aSize,
-                                                 SurfaceFormat::B8G8R8A8, false });
+  AssertConfiguringPipelineFails(
+      decoder,
+      ADAM7InterpolatingConfig{},
+      SurfaceConfig{decoder, 0, aSize, SurfaceFormat::B8G8R8A8, false});
 }
 
 uint8_t
@@ -58,9 +60,9 @@ InterpolateByte(uint8_t aByteA, uint8_t aByteB, float aWeight)
 BGRAColor
 InterpolateColors(BGRAColor aColor1, BGRAColor aColor2, float aWeight)
 {
-  return BGRAColor(InterpolateByte(aColor1.mBlue,  aColor2.mBlue,  aWeight),
+  return BGRAColor(InterpolateByte(aColor1.mBlue, aColor2.mBlue, aWeight),
                    InterpolateByte(aColor1.mGreen, aColor2.mGreen, aWeight),
-                   InterpolateByte(aColor1.mRed,   aColor2.mRed,   aWeight),
+                   InterpolateByte(aColor1.mRed, aColor2.mRed, aWeight),
                    InterpolateByte(aColor1.mAlpha, aColor2.mAlpha, aWeight));
 }
 
@@ -103,8 +105,7 @@ HorizontallyInterpolatedPixel(uint32_t aCol,
   // between final pixels, we can check if |aCol| is a final pixel by checking
   // whether |aCol| is a multiple of |aWeights.size()|.
   if (aShouldInterpolate == ShouldInterpolate::eNo) {
-    return aCol % aWeights.size() == 0 ? color1
-                                       : BGRAColor::Transparent();
+    return aCol % aWeights.size() == 0 ? color1 : BGRAColor::Transparent();
   }
 
   // Interpolate.
@@ -119,17 +120,27 @@ InterpolationWeights(int32_t aStride)
   // is actually applied to the previous final pixel or important row value,
   // the arrays still start with 1.0f, which is always skipped, primarily
   // because otherwise |stride1Weights| would have zero elements.
-  static vector<float> stride8Weights =
-    { 1.0f, 7 / 8.0f, 6 / 8.0f, 5 / 8.0f, 4 / 8.0f, 3 / 8.0f, 2 / 8.0f, 1 / 8.0f };
-  static vector<float> stride4Weights = { 1.0f, 3 / 4.0f, 2 / 4.0f, 1 / 4.0f };
-  static vector<float> stride2Weights = { 1.0f, 1 / 2.0f };
-  static vector<float> stride1Weights = { 1.0f };
+  static vector<float> stride8Weights = {1.0f,
+                                         7 / 8.0f,
+                                         6 / 8.0f,
+                                         5 / 8.0f,
+                                         4 / 8.0f,
+                                         3 / 8.0f,
+                                         2 / 8.0f,
+                                         1 / 8.0f};
+  static vector<float> stride4Weights = {1.0f, 3 / 4.0f, 2 / 4.0f, 1 / 4.0f};
+  static vector<float> stride2Weights = {1.0f, 1 / 2.0f};
+  static vector<float> stride1Weights = {1.0f};
 
   switch (aStride) {
-    case 8: return stride8Weights;
-    case 4: return stride4Weights;
-    case 2: return stride2Weights;
-    case 1: return stride1Weights;
+    case 8:
+      return stride8Weights;
+    case 4:
+      return stride4Weights;
+    case 2:
+      return stride2Weights;
+    case 1:
+      return stride1Weights;
     default:
       MOZ_CRASH();
   }
@@ -141,7 +152,7 @@ ImportantRowStride(uint8_t aPass)
   // The stride between important rows for each pass, with a dummy value for
   // the nonexistent pass 0 and for pass 8, since the tests run an extra pass to
   // make sure nothing breaks.
-  static int32_t strides[] = { 1, 8, 8, 4, 4, 2, 2, 1, 1 };
+  static int32_t strides[] = {1, 8, 8, 4, 4, 2, 2, 1, 1};
 
   return strides[aPass];
 }
@@ -152,7 +163,7 @@ FinalPixelStride(uint8_t aPass)
   // The stride between the final pixels in important rows for each pass, with
   // a dummy value for the nonexistent pass 0 and for pass 8, since the tests
   // run an extra pass to make sure nothing breaks.
-  static size_t strides[] = { 1, 8, 4, 4, 2, 2, 1, 1, 1 };
+  static size_t strides[] = {1, 8, 4, 4, 2, 2, 1, 1, 1};
 
   return strides[aPass];
 }
@@ -214,15 +225,14 @@ ADAM7HorizontallyInterpolatedRow(uint8_t aPass,
 
     // Compute the horizontally interpolated row.
     uint32_t col = 0;
-    generate(result.begin(), result.end(), [&]{
-      return HorizontallyInterpolatedPixel(col++, aWidth, weights,
-                                           aShouldInterpolate, aColors);
+    generate(result.begin(), result.end(), [&] {
+      return HorizontallyInterpolatedPixel(
+          col++, aWidth, weights, aShouldInterpolate, aColors);
     });
   } else {
     // This is an unimportant row; just make the entire thing transparent.
-    generate(result.begin(), result.end(), []{
-      return BGRAColor::Transparent();
-    });
+    generate(
+        result.begin(), result.end(), [] { return BGRAColor::Transparent(); });
   }
 
   EXPECT_EQ(result.size(), size_t(aWidth));
@@ -240,15 +250,13 @@ WriteUninterpolatedPixels(SurfaceFilter* aFilter,
 
   for (int32_t row = 0; row < aSize.height; ++row) {
     // Compute uninterpolated pixels for this row.
-    vector<BGRAColor> pixels =
-      Move(ADAM7HorizontallyInterpolatedRow(aPass, row, aSize.width,
-                                            ShouldInterpolate::eNo, aColors));
+    vector<BGRAColor> pixels = Move(ADAM7HorizontallyInterpolatedRow(
+        aPass, row, aSize.width, ShouldInterpolate::eNo, aColors));
 
     // Write them to the surface.
     auto pixelIterator = pixels.cbegin();
-    result = aFilter->WritePixelsToRow<uint32_t>([&]{
-      return AsVariant((*pixelIterator++).AsPixel());
-    });
+    result = aFilter->WritePixelsToRow<uint32_t>(
+        [&] { return AsVariant((*pixelIterator++).AsPixel()); });
 
     if (result != WriteState::NEED_MORE_DATA) {
       break;
@@ -274,9 +282,8 @@ CheckHorizontallyInterpolatedImage(Decoder* aDecoder,
 
     // Compute the expected pixels, *with* interpolation to match what the
     // filter should have done.
-    vector<BGRAColor> expectedPixels =
-      Move(ADAM7HorizontallyInterpolatedRow(aPass, row, aSize.width,
-                                            ShouldInterpolate::eYes, aColors));
+    vector<BGRAColor> expectedPixels = Move(ADAM7HorizontallyInterpolatedRow(
+        aPass, row, aSize.width, ShouldInterpolate::eYes, aColors));
 
     if (!RowHasPixels(surface, row, expectedPixels)) {
       return false;
@@ -292,36 +299,34 @@ CheckHorizontalInterpolation(const IntSize& aSize,
 {
   const IntRect surfaceRect(IntPoint(0, 0), aSize);
 
-  WithADAM7InterpolatingFilter(aSize,
-                               [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
-    // We check horizontal interpolation behavior for each pass individually. In
-    // addition to the normal 7 passes that ADAM7 includes, we also check an
-    // eighth pass to verify that nothing breaks if extra data is written.
-    for (uint8_t pass = 1; pass <= 8; ++pass) {
-      // Write our color pattern to the surface. We don't perform any
-      // interpolation when writing to the filter so that we can check that the
-      // filter itself *does*.
-      WriteState result =
-        WriteUninterpolatedPixels(aFilter, aSize, pass, aColors);
+  WithADAM7InterpolatingFilter(
+      aSize, [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
+        // We check horizontal interpolation behavior for each pass individually. In
+        // addition to the normal 7 passes that ADAM7 includes, we also check an
+        // eighth pass to verify that nothing breaks if extra data is written.
+        for (uint8_t pass = 1; pass <= 8; ++pass) {
+          // Write our color pattern to the surface. We don't perform any
+          // interpolation when writing to the filter so that we can check that the
+          // filter itself *does*.
+          WriteState result =
+              WriteUninterpolatedPixels(aFilter, aSize, pass, aColors);
 
-      EXPECT_EQ(WriteState::FINISHED, result);
-      AssertCorrectPipelineFinalState(aFilter, surfaceRect, surfaceRect);
+          EXPECT_EQ(WriteState::FINISHED, result);
+          AssertCorrectPipelineFinalState(aFilter, surfaceRect, surfaceRect);
 
-      // Check that the generated image matches the expected pattern, with
-      // interpolation applied.
-      EXPECT_TRUE(CheckHorizontallyInterpolatedImage(aDecoder, aSize,
-                                                     pass, aColors));
+          // Check that the generated image matches the expected pattern, with
+          // interpolation applied.
+          EXPECT_TRUE(CheckHorizontallyInterpolatedImage(
+              aDecoder, aSize, pass, aColors));
 
-      // Prepare for the next pass.
-      aFilter->ResetToFirstRow();
-    }
-  });
+          // Prepare for the next pass.
+          aFilter->ResetToFirstRow();
+        }
+      });
 }
 
 BGRAColor
-ADAM7RowColor(int32_t aRow,
-              uint8_t aPass,
-              const vector<BGRAColor>& aColors)
+ADAM7RowColor(int32_t aRow, uint8_t aPass, const vector<BGRAColor>& aColors)
 {
   EXPECT_LT(0, aPass);
   EXPECT_GE(8, aPass);
@@ -346,7 +351,8 @@ WriteRowColorPixels(SurfaceFilter* aFilter,
     const uint32_t color = ADAM7RowColor(row, aPass, aColors).AsPixel();
 
     // Fill the surface with |color| pixels.
-    result = aFilter->WritePixelsToRow<uint32_t>([&]{ return AsVariant(color); });
+    result =
+        aFilter->WritePixelsToRow<uint32_t>([&] { return AsVariant(color); });
 
     if (result != WriteState::NEED_MORE_DATA) {
       break;
@@ -376,27 +382,27 @@ CheckVerticallyInterpolatedImage(Decoder* aDecoder,
     const int32_t prevImportantRow = row - row % stride;
     const int32_t maybeNextImportantRow = prevImportantRow + stride;
     const int32_t nextImportantRow = maybeNextImportantRow < aSize.height
-                                   ? maybeNextImportantRow
-                                   : prevImportantRow;
+                                         ? maybeNextImportantRow
+                                         : prevImportantRow;
 
     // Retrieve the colors for the important rows we're going to interpolate.
     const BGRAColor prevImportantRowColor =
-      ADAM7RowColor(prevImportantRow, aPass, aColors);
+        ADAM7RowColor(prevImportantRow, aPass, aColors);
     const BGRAColor nextImportantRowColor =
-      ADAM7RowColor(nextImportantRow, aPass, aColors);
+        ADAM7RowColor(nextImportantRow, aPass, aColors);
 
     // The weight we'll use for interpolation is also determined by the stride.
     // A row halfway between two important rows should have pixels that have a
     // 50% contribution from each of the important rows, for example.
     const float weight = weights[row % stride];
     const BGRAColor interpolatedColor =
-      InterpolateColors(prevImportantRowColor, nextImportantRowColor, weight);
+        InterpolateColors(prevImportantRowColor, nextImportantRowColor, weight);
 
     // Generate a row of expected pixels. Every pixel in the row is always the
     // same color since we're only testing vertical interpolation between
     // solid-colored rows.
     vector<BGRAColor> expectedPixels(aSize.width);
-    generate(expectedPixels.begin(), expectedPixels.end(), [&]{
+    generate(expectedPixels.begin(), expectedPixels.end(), [&] {
       return interpolatedColor;
     });
 
@@ -417,25 +423,26 @@ CheckVerticalInterpolation(const IntSize& aSize,
 {
   const IntRect surfaceRect(IntPoint(0, 0), aSize);
 
-  WithADAM7InterpolatingFilter(aSize,
-                               [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
-    for (uint8_t pass = 1; pass <= 8; ++pass) {
-      // Write a pattern of rows to the surface. Important rows will receive a
-      // color selected from |aColors|; unimportant rows will be transparent.
-      WriteState result = WriteRowColorPixels(aFilter, aSize, pass, aColors);
+  WithADAM7InterpolatingFilter(
+      aSize, [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
+        for (uint8_t pass = 1; pass <= 8; ++pass) {
+          // Write a pattern of rows to the surface. Important rows will receive a
+          // color selected from |aColors|; unimportant rows will be transparent.
+          WriteState result =
+              WriteRowColorPixels(aFilter, aSize, pass, aColors);
 
-      EXPECT_EQ(WriteState::FINISHED, result);
-      AssertCorrectPipelineFinalState(aFilter, surfaceRect, surfaceRect);
+          EXPECT_EQ(WriteState::FINISHED, result);
+          AssertCorrectPipelineFinalState(aFilter, surfaceRect, surfaceRect);
 
-      // Check that the generated image matches the expected pattern, with
-      // interpolation applied.
-      EXPECT_TRUE(CheckVerticallyInterpolatedImage(aDecoder, aSize,
-                                                   pass, aColors));
+          // Check that the generated image matches the expected pattern, with
+          // interpolation applied.
+          EXPECT_TRUE(
+              CheckVerticallyInterpolatedImage(aDecoder, aSize, pass, aColors));
 
-      // Prepare for the next pass.
-      aFilter->ResetToFirstRow();
-    }
-  });
+          // Prepare for the next pass.
+          aFilter->ResetToFirstRow();
+        }
+      });
 }
 
 void
@@ -453,29 +460,30 @@ CheckADAM7InterpolatingWritePixels(const IntSize& aSize)
   // that the output is a solid green surface each time. Because all the pixels
   // are the same color, interpolation doesn't matter; we test the correctness
   // of the interpolation algorithm itself separately.
-  WithADAM7InterpolatingFilter(aSize,
-                               [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
-    IntRect rect(IntPoint(0, 0), aSize);
+  WithADAM7InterpolatingFilter(
+      aSize, [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
+        IntRect rect(IntPoint(0, 0), aSize);
 
-    for (int32_t pass = 1; pass <= 8; ++pass) {
-      // We only actually write up to the last important row for each pass,
-      // because that row unambiguously determines the remaining rows.
-      const int32_t lastRow = aSize.height - 1;
-      const int32_t lastImportantRow =
-        lastRow - (lastRow % ImportantRowStride(pass));
-      const IntRect inputWriteRect(0, 0, aSize.width, lastImportantRow + 1);
+        for (int32_t pass = 1; pass <= 8; ++pass) {
+          // We only actually write up to the last important row for each pass,
+          // because that row unambiguously determines the remaining rows.
+          const int32_t lastRow = aSize.height - 1;
+          const int32_t lastImportantRow =
+              lastRow - (lastRow % ImportantRowStride(pass));
+          const IntRect inputWriteRect(0, 0, aSize.width, lastImportantRow + 1);
 
-      CheckWritePixels(aDecoder, aFilter,
-                       /* aOutputRect = */ Some(rect),
-                       /* aInputRect = */ Some(rect),
-                       /* aInputWriteRect = */ Some(inputWriteRect));
+          CheckWritePixels(aDecoder,
+                           aFilter,
+                           /* aOutputRect = */ Some(rect),
+                           /* aInputRect = */ Some(rect),
+                           /* aInputWriteRect = */ Some(inputWriteRect));
 
-      aFilter->ResetToFirstRow();
-      EXPECT_FALSE(aFilter->IsSurfaceFinished());
-      Maybe<SurfaceInvalidRect> invalidRect = aFilter->TakeInvalidRect();
-      EXPECT_TRUE(invalidRect.isNothing());
-    }
-  });
+          aFilter->ResetToFirstRow();
+          EXPECT_FALSE(aFilter->IsSurfaceFinished());
+          Maybe<SurfaceInvalidRect> invalidRect = aFilter->TakeInvalidRect();
+          EXPECT_TRUE(invalidRect.isNothing());
+        }
+      });
 }
 
 TEST(ImageADAM7InterpolatingFilter, WritePixels100_100)
@@ -530,117 +538,176 @@ TEST(ImageADAM7InterpolatingFilter, WritePixels1_1)
 
 TEST(ImageADAM7InterpolatingFilter, TrivialInterpolation48_48)
 {
-  CheckInterpolation(IntSize(48, 48), { BGRAColor::Green() });
+  CheckInterpolation(IntSize(48, 48), {BGRAColor::Green()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput33_17)
 {
   // We check interpolation using irregular patterns to make sure that the
   // interpolation will look different for different passes.
-  CheckInterpolation(IntSize(33, 17), {
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),  BGRAColor::Blue(),
-    BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Blue(),
-    BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Blue()
-  });
+  CheckInterpolation(
+      IntSize(33, 17),
+      {BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Blue(),
+       BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Red(),
+       BGRAColor::Red(),   BGRAColor::Blue(),  BGRAColor::Blue(),
+       BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
+       BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),
+       BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),
+       BGRAColor::Green(), BGRAColor::Green(), BGRAColor::Blue(),
+       BGRAColor::Red(),   BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput32_16)
 {
-  CheckInterpolation(IntSize(32, 16), {
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),  BGRAColor::Blue(),
-    BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Blue(),
-    BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Blue()
-  });
+  CheckInterpolation(
+      IntSize(32, 16),
+      {BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Blue(),
+       BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Red(),
+       BGRAColor::Red(),   BGRAColor::Blue(),  BGRAColor::Blue(),
+       BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
+       BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),
+       BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),
+       BGRAColor::Green(), BGRAColor::Green(), BGRAColor::Blue(),
+       BGRAColor::Red(),   BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput31_15)
 {
-  CheckInterpolation(IntSize(31, 15), {
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),  BGRAColor::Blue(),
-    BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Blue(),
-    BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Blue()
-  });
+  CheckInterpolation(
+      IntSize(31, 15),
+      {BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Blue(),
+       BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Red(),
+       BGRAColor::Red(),   BGRAColor::Blue(),  BGRAColor::Blue(),
+       BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
+       BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
+       BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue(),
+       BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),
+       BGRAColor::Green(), BGRAColor::Green(), BGRAColor::Blue(),
+       BGRAColor::Red(),   BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput17_33)
 {
-  CheckInterpolation(IntSize(17, 33), {
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),
-    BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue()
-  });
+  CheckInterpolation(IntSize(17, 33),
+                     {BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput16_32)
 {
-  CheckInterpolation(IntSize(16, 32), {
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),
-    BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue()
-  });
+  CheckInterpolation(IntSize(16, 32),
+                     {BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput15_31)
 {
-  CheckInterpolation(IntSize(15, 31), {
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),
-    BGRAColor::Red(),   BGRAColor::Green(), BGRAColor::Blue(),  BGRAColor::Red(),
-    BGRAColor::Blue(),  BGRAColor::Blue(),  BGRAColor::Red(),   BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Red(),   BGRAColor::Blue()
-  });
+  CheckInterpolation(IntSize(15, 31),
+                     {BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput9_9)
 {
-  CheckInterpolation(IntSize(9, 9), {
-    BGRAColor::Blue(),  BGRAColor::Blue(), BGRAColor::Red(), BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Red(),  BGRAColor::Red(), BGRAColor::Blue()
-  });
+  CheckInterpolation(IntSize(9, 9),
+                     {BGRAColor::Blue(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput8_8)
 {
-  CheckInterpolation(IntSize(8, 8), {
-    BGRAColor::Blue(),  BGRAColor::Blue(), BGRAColor::Red(), BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Red(),  BGRAColor::Red(), BGRAColor::Blue()
-  });
+  CheckInterpolation(IntSize(8, 8),
+                     {BGRAColor::Blue(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput7_7)
 {
-  CheckInterpolation(IntSize(7, 7), {
-    BGRAColor::Blue(),  BGRAColor::Blue(), BGRAColor::Red(), BGRAColor::Green(),
-    BGRAColor::Green(), BGRAColor::Red(),  BGRAColor::Red(), BGRAColor::Blue()
-  });
+  CheckInterpolation(IntSize(7, 7),
+                     {BGRAColor::Blue(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red(),
+                      BGRAColor::Green(),
+                      BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput3_3)
 {
-  CheckInterpolation(IntSize(3, 3), {
-    BGRAColor::Green(), BGRAColor::Red(), BGRAColor::Blue(), BGRAColor::Red()
-  });
+  CheckInterpolation(IntSize(3, 3),
+                     {BGRAColor::Green(),
+                      BGRAColor::Red(),
+                      BGRAColor::Blue(),
+                      BGRAColor::Red()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, InterpolationOutput1_1)
 {
-  CheckInterpolation(IntSize(1, 1), { BGRAColor::Blue() });
+  CheckInterpolation(IntSize(1, 1), {BGRAColor::Blue()});
 }
 
 TEST(ImageADAM7InterpolatingFilter, ADAM7InterpolationFailsFor0_0)
@@ -655,7 +722,8 @@ TEST(ImageADAM7InterpolatingFilter, ADAM7InterpolationFailsForMinus1_Minus1)
   AssertConfiguringADAM7InterpolatingFilterFails(IntSize(-1, -1));
 }
 
-TEST(ImageADAM7InterpolatingFilter, ConfiguringPalettedADAM7InterpolatingFilterFails)
+TEST(ImageADAM7InterpolatingFilter,
+     ConfiguringPalettedADAM7InterpolatingFilterFails)
 {
   RefPtr<Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(decoder != nullptr);
@@ -663,9 +731,12 @@ TEST(ImageADAM7InterpolatingFilter, ConfiguringPalettedADAM7InterpolatingFilterF
   // ADAM7InterpolatingFilter does not support paletted images, so configuration
   // should fail.
   AssertConfiguringPipelineFails(decoder,
-                                 ADAM7InterpolatingConfig { },
-                                 PalettedSurfaceConfig { decoder, 0, IntSize(100, 100),
-                                                         IntRect(0, 0, 50, 50),
-                                                         SurfaceFormat::B8G8R8A8, 8,
-                                                         false });
+                                 ADAM7InterpolatingConfig{},
+                                 PalettedSurfaceConfig{decoder,
+                                                       0,
+                                                       IntSize(100, 100),
+                                                       IntRect(0, 0, 50, 50),
+                                                       SurfaceFormat::B8G8R8A8,
+                                                       8,
+                                                       false});
 }

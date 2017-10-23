@@ -36,16 +36,17 @@ GeckoStyleContext::GeckoStyleContext(GeckoStyleContext* aParent,
                                      CSSPseudoElementType aPseudoType,
                                      already_AddRefed<nsRuleNode> aRuleNode,
                                      bool aSkipParentDisplayBasedStyleFixup)
-  : nsStyleContext(aPseudoTag, aPseudoType)
-  , mCachedResetData(nullptr)
-  , mRefCnt(0)
-  , mChild(nullptr)
-  , mEmptyChild(nullptr)
-  , mRuleNode(Move(aRuleNode))
-  , mParent(aParent)
+    : nsStyleContext(aPseudoTag, aPseudoType),
+      mCachedResetData(nullptr),
+      mRefCnt(0),
+      mChild(nullptr),
+      mEmptyChild(nullptr),
+      mRuleNode(Move(aRuleNode)),
+      mParent(aParent)
 #ifdef DEBUG
-  , mComputingStruct(nsStyleStructID_None)
-  , mFrameRefCnt(0)
+      ,
+      mComputingStruct(nsStyleStructID_None),
+      mFrameRefCnt(0)
 #endif
 {
   mBits |= NS_STYLE_CONTEXT_IS_GECKO;
@@ -53,17 +54,15 @@ GeckoStyleContext::GeckoStyleContext(GeckoStyleContext* aParent,
   if (aParent) {
 #ifdef DEBUG
     nsRuleNode *r1 = mParent->RuleNode(), *r2 = mRuleNode;
-    while (r1->GetParent())
-      r1 = r1->GetParent();
-    while (r2->GetParent())
-      r2 = r2->GetParent();
+    while (r1->GetParent()) r1 = r1->GetParent();
+    while (r2->GetParent()) r2 = r2->GetParent();
     NS_ASSERTION(r1 == r2, "must be in the same rule tree as parent");
 #endif
   } else {
     PresContext()->PresShell()->StyleSet()->RootStyleContextAdded();
   }
 
-  mRuleNode->SetUsedDirectly(); // before ApplyStyleFixups()!
+  mRuleNode->SetUsedDirectly();  // before ApplyStyleFixups()!
   // FinishConstruction() calls AddChild which needs these
   // to be initialized!
   mNextSibling = this;
@@ -80,8 +79,8 @@ GeckoStyleContext::operator new(size_t sz, nsPresContext* aPresContext)
 {
   MOZ_ASSERT(sz == sizeof(GeckoStyleContext));
   // Check the recycle list first.
-  return aPresContext->PresShell()->
-    AllocateByObjectID(eArenaObjectID_GeckoStyleContext, sz);
+  return aPresContext->PresShell()->AllocateByObjectID(
+      eArenaObjectID_GeckoStyleContext, sz);
 }
 
 // Overridden to prevent the global delete from being called, since the memory
@@ -95,13 +94,13 @@ GeckoStyleContext::Destroy()
   this->~GeckoStyleContext();
   // Don't let the memory be freed, since it will be recycled
   // instead. Don't call the global operator delete.
-  presContext->PresShell()->
-    FreeByObjectID(eArenaObjectID_GeckoStyleContext, this);
+  presContext->PresShell()->FreeByObjectID(eArenaObjectID_GeckoStyleContext,
+                                           this);
 }
 
 GeckoStyleContext::~GeckoStyleContext()
 {
-  nsPresContext *presContext = PresContext();
+  nsPresContext* presContext = PresContext();
 #ifdef DEBUG
   NS_ASSERTION(HasNoChildren(), "destructing context with children");
   if (sExpensiveStyleStructAssertionsEnabled) {
@@ -120,11 +119,13 @@ GeckoStyleContext::~GeckoStyleContext()
     this->AssertStructsNotUsedElsewhere(this, 2);
   }
 
-  nsStyleSet* geckoStyleSet = presContext->PresShell()->StyleSet()->GetAsGecko();
-  NS_ASSERTION(!geckoStyleSet ||
-               geckoStyleSet->GetRuleTree() == AsGecko()->RuleNode()->RuleTree() ||
-               geckoStyleSet->IsInRuleTreeReconstruct(),
-               "destroying style context from old rule tree too late");
+  nsStyleSet* geckoStyleSet =
+      presContext->PresShell()->StyleSet()->GetAsGecko();
+  NS_ASSERTION(
+      !geckoStyleSet ||
+          geckoStyleSet->GetRuleTree() == AsGecko()->RuleNode()->RuleTree() ||
+          geckoStyleSet->IsInRuleTreeReconstruct(),
+      "destroying style context from old rule tree too late");
 #endif
 
   if (mParent) {
@@ -141,11 +142,11 @@ GeckoStyleContext::~GeckoStyleContext()
 void
 GeckoStyleContext::AddChild(GeckoStyleContext* aChild)
 {
-  NS_ASSERTION(aChild->mPrevSibling == aChild &&
-               aChild->mNextSibling == aChild,
+  NS_ASSERTION(aChild->mPrevSibling == aChild && aChild->mNextSibling == aChild,
                "child already in a child list");
 
-  GeckoStyleContext **listPtr = aChild->mRuleNode->IsRoot() ? &mEmptyChild : &mChild;
+  GeckoStyleContext** listPtr =
+      aChild->mRuleNode->IsRoot() ? &mEmptyChild : &mChild;
   if (const nsRuleNode* source = aChild->mRuleNode) {
     if (source->IsRoot()) {
       listPtr = &mEmptyChild;
@@ -154,7 +155,7 @@ GeckoStyleContext::AddChild(GeckoStyleContext* aChild)
 
   // Explicitly dereference listPtr so that compiler doesn't have to know that mNextSibling
   // etc. don't alias with what ever listPtr points at.
-  GeckoStyleContext *list = *listPtr;
+  GeckoStyleContext* list = *listPtr;
 
   // Insert at the beginning of the list.  See also FindChildWithRules.
   if (list) {
@@ -177,12 +178,14 @@ GeckoStyleContext::MoveTo(GeckoStyleContext* aNewParent)
   // context) because if that were the case we would need to recompute those
   // bits for |this|.
 
-#define CHECK_FLAG(bit_) \
-  MOZ_ASSERT((mParent->AsGecko()->mBits & (bit_)) ==                          \
-               (aNewParent->mBits & (bit_)) || (mBits & (bit_)),              \
-             "MoveTo cannot be called if " #bit_ " value on old and new "     \
-             "style context parents do not match, unless the flag is set "    \
-             "on this style context");
+#define CHECK_FLAG(bit_)                                                      \
+  MOZ_ASSERT(                                                                 \
+      (mParent->AsGecko()->mBits & (bit_)) == (aNewParent->mBits & (bit_)) || \
+          (mBits & (bit_)),                                                   \
+      "MoveTo cannot be called if " #bit_                                     \
+      " value on old and new "                                                \
+      "style context parents do not match, unless the flag is set "           \
+      "on this style context");
 
   CHECK_FLAG(NS_STYLE_HAS_PSEUDO_ELEMENT_DATA)
   CHECK_FLAG(NS_STYLE_IN_DISPLAY_NONE_SUBTREE)
@@ -220,14 +223,14 @@ GeckoStyleContext::RemoveChild(GeckoStyleContext* aChild)
   NS_PRECONDITION(nullptr != aChild && this == aChild->mParent, "bad argument");
 
   MOZ_ASSERT(aChild->mRuleNode, "child context should have rule node");
-  GeckoStyleContext **list = aChild->mRuleNode->IsRoot() ? &mEmptyChild : &mChild;
+  GeckoStyleContext** list =
+      aChild->mRuleNode->IsRoot() ? &mEmptyChild : &mChild;
 
-  if (aChild->mPrevSibling != aChild) { // has siblings
+  if (aChild->mPrevSibling != aChild) {  // has siblings
     if ((*list) == aChild) {
       (*list) = (*list)->mNextSibling;
     }
-  }
-  else {
+  } else {
     NS_ASSERTION((*list) == aChild, "bad sibling pointers");
     (*list) = nullptr;
   }
@@ -279,7 +282,8 @@ GeckoStyleContext::ClearCachedInheritedStyleDataOnDescendants(uint32_t aStructs)
 }
 
 void
-GeckoStyleContext::DoClearCachedInheritedStyleDataOnDescendants(uint32_t aStructs)
+GeckoStyleContext::DoClearCachedInheritedStyleDataOnDescendants(
+    uint32_t aStructs)
 {
   NS_ASSERTION(mFrameRefCnt == 0, "frame still referencing style context");
   for (nsStyleStructID i = nsStyleStructID_Inherited_Start;
@@ -319,22 +323,21 @@ GeckoStyleContext::DoClearCachedInheritedStyleDataOnDescendants(uint32_t aStruct
 
 already_AddRefed<GeckoStyleContext>
 GeckoStyleContext::FindChildWithRules(const nsAtom* aPseudoTag,
-                                   nsRuleNode* aSource,
-                                   nsRuleNode* aSourceIfVisited,
-                                   bool aRelevantLinkVisited)
+                                      nsRuleNode* aSource,
+                                      nsRuleNode* aSourceIfVisited,
+                                      bool aRelevantLinkVisited)
 {
-  uint32_t threshold = 10; // The # of siblings we're willing to examine
-                           // before just giving this whole thing up.
+  uint32_t threshold = 10;  // The # of siblings we're willing to examine
+                            // before just giving this whole thing up.
 
   RefPtr<GeckoStyleContext> result;
   MOZ_ASSERT(aSource);
-  GeckoStyleContext *list = aSource->IsRoot() ? mEmptyChild : mChild;
+  GeckoStyleContext* list = aSource->IsRoot() ? mEmptyChild : mChild;
 
   if (list) {
-    GeckoStyleContext *child = list;
+    GeckoStyleContext* child = list;
     do {
-      if (child->RuleNode() == aSource &&
-          child->mPseudoTag == aPseudoTag &&
+      if (child->RuleNode() == aSource && child->mPseudoTag == aPseudoTag &&
           !child->IsStyleIfVisited() &&
           child->RelevantLinkVisited() == aRelevantLinkVisited) {
         bool match = false;
@@ -351,8 +354,7 @@ GeckoStyleContext::FindChildWithRules(const nsAtom* aPseudoTag,
       }
       child = child->mNextSibling;
       threshold--;
-      if (threshold == 0)
-        break;
+      if (threshold == 0) break;
     } while (child != list);
   }
 
@@ -368,8 +370,6 @@ GeckoStyleContext::FindChildWithRules(const nsAtom* aPseudoTag,
   return result.forget();
 }
 
-
-
 // This is an evil evil function, since it forces you to alloc your own separate copy of
 // style data!  Do not use this function unless you absolutely have to!  You should avoid
 // this at all costs! -dwh
@@ -381,34 +381,35 @@ GeckoStyleContext::GetUniqueStyleData(const nsStyleStructID& aSID)
   // function really shouldn't be called for style contexts that could
   // have kids depending on the data.  ClearStyleData would be OK, but
   // this test for no mChild or mEmptyChild doesn't catch that case.)
-  const void *current = StyleData(aSID);
+  const void* current = StyleData(aSID);
   if (!mChild && !mEmptyChild &&
       !(mBits & nsCachedStyleData::GetBitForSID(aSID)) &&
       GetCachedStyleData(aSID))
     return const_cast<void*>(current);
 
   void* result;
-  nsPresContext *presContext = PresContext();
+  nsPresContext* presContext = PresContext();
   switch (aSID) {
-
-#define UNIQUE_CASE(c_)                                                       \
-  case eStyleStruct_##c_:                                                     \
-    result = new (presContext) nsStyle##c_(                                   \
-      * static_cast<const nsStyle##c_ *>(current));                           \
+#define UNIQUE_CASE(c_)                                         \
+  case eStyleStruct_##c_:                                       \
+    result = new (presContext)                                  \
+        nsStyle##c_(*static_cast<const nsStyle##c_*>(current)); \
     break;
 
-  UNIQUE_CASE(Font)
-  UNIQUE_CASE(Display)
-  UNIQUE_CASE(Position)
-  UNIQUE_CASE(Text)
-  UNIQUE_CASE(TextReset)
-  UNIQUE_CASE(Visibility)
+    UNIQUE_CASE(Font)
+    UNIQUE_CASE(Display)
+    UNIQUE_CASE(Position)
+    UNIQUE_CASE(Text)
+    UNIQUE_CASE(TextReset)
+    UNIQUE_CASE(Visibility)
 
 #undef UNIQUE_CASE
 
-  default:
-    NS_ERROR("Struct type not supported.  Please find another way to do this if you can!");
-    return nullptr;
+    default:
+      NS_ERROR(
+          "Struct type not supported.  Please find another way to do this if "
+          "you can!");
+      return nullptr;
   }
 
   SetStyle(aSID, result);
@@ -417,33 +418,32 @@ GeckoStyleContext::GetUniqueStyleData(const nsStyleStructID& aSID)
   return result;
 }
 
-
 // This is an evil function, but less evil than GetUniqueStyleData. It
 // creates an empty style struct for this nsStyleContext.
 void*
 GeckoStyleContext::CreateEmptyStyleData(const nsStyleStructID& aSID)
 {
   MOZ_ASSERT(!mChild && !mEmptyChild &&
-             !(mBits & nsCachedStyleData::GetBitForSID(aSID)) &&
-             !GetCachedStyleData(aSID),
+                 !(mBits & nsCachedStyleData::GetBitForSID(aSID)) &&
+                 !GetCachedStyleData(aSID),
              "This style should not have been computed");
 
   void* result;
   nsPresContext* presContext = PresContext();
   switch (aSID) {
-#define UNIQUE_CASE(c_) \
-    case eStyleStruct_##c_: \
-      result = new (presContext) nsStyle##c_(presContext); \
-      break;
+#define UNIQUE_CASE(c_)                                  \
+  case eStyleStruct_##c_:                                \
+    result = new (presContext) nsStyle##c_(presContext); \
+    break;
 
-  UNIQUE_CASE(Border)
-  UNIQUE_CASE(Padding)
+    UNIQUE_CASE(Border)
+    UNIQUE_CASE(Padding)
 
 #undef UNIQUE_CASE
 
-  default:
-    NS_ERROR("Struct type not supported.");
-    return nullptr;
+    default:
+      NS_ERROR("Struct type not supported.");
+      return nullptr;
   }
 
   // The new struct is owned by this style context, but that we don't
@@ -452,7 +452,6 @@ GeckoStyleContext::CreateEmptyStyleData(const nsStyleStructID& aSID)
   SetStyle(aSID, result);
   return result;
 }
-
 
 void
 GeckoStyleContext::SetIneligibleForSharing()
@@ -482,8 +481,7 @@ nsCString
 GeckoStyleContext::GetCachedStyleDataAsString(uint32_t aStructs)
 {
   nsCString structs;
-  for (nsStyleStructID i = nsStyleStructID(0);
-       i < nsStyleStructID_Length;
+  for (nsStyleStructID i = nsStyleStructID(0); i < nsStyleStructID_Length;
        i = nsStyleStructID(i + 1)) {
     if (aStructs & nsCachedStyleData::GetBitForSID(i)) {
       const void* data = GetCachedStyleData(i);
@@ -548,8 +546,12 @@ GeckoStyleContext::LogStyleContextTree(bool aFirst, uint32_t aStructs)
   }
 
   LOG_RESTYLE("%p(%d) %s%s%s%s",
-              this, mRefCnt,
-              structs.get(), pseudo.get(), flags.get(), parent.get());
+              this,
+              mRefCnt,
+              structs.get(),
+              pseudo.get(),
+              flags.get(),
+              parent.get());
 
   LOG_RESTYLE_INDENT();
 
@@ -586,7 +588,8 @@ ShouldSuppressLineBreak(const nsStyleContext* aContext,
   // which represents text frames, as well as ruby pseudos are excluded
   // because we still want to set the flag for them.
   if ((aContext->GetPseudoType() == CSSPseudoElementType::InheritingAnonBox ||
-       aContext->GetPseudoType() == CSSPseudoElementType::NonInheritingAnonBox) &&
+       aContext->GetPseudoType() ==
+           CSSPseudoElementType::NonInheritingAnonBox) &&
       !nsCSSAnonBoxes::IsNonElement(aContext->GetPseudo()) &&
       !RubyUtils::IsRubyPseudo(aContext->GetPseudo())) {
     return false;
@@ -662,9 +665,9 @@ GeckoStyleContext::SetStyleBits()
   // Mark text combined for text-combine-upright, as needed.
   if (mPseudoTag == nsCSSAnonBoxes::mozText && mParent &&
       mParent->StyleVisibility()->mWritingMode !=
-        NS_STYLE_WRITING_MODE_HORIZONTAL_TB &&
+          NS_STYLE_WRITING_MODE_HORIZONTAL_TB &&
       mParent->StyleText()->mTextCombineUpright ==
-        NS_STYLE_TEXT_COMBINE_UPRIGHT_ALL) {
+          NS_STYLE_TEXT_COMBINE_UPRIGHT_ALL) {
     AddStyleBit(NS_STYLE_IS_TEXT_COMBINED);
   }
 }
@@ -679,16 +682,15 @@ ShouldBlockifyChildren(const nsStyleDisplay* aStyleDisp)
 {
   auto displayVal = aStyleDisp->mDisplay;
   return mozilla::StyleDisplay::Flex == displayVal ||
-    mozilla::StyleDisplay::InlineFlex == displayVal ||
-    mozilla::StyleDisplay::Grid == displayVal ||
-    mozilla::StyleDisplay::InlineGrid == displayVal;
+         mozilla::StyleDisplay::InlineFlex == displayVal ||
+         mozilla::StyleDisplay::Grid == displayVal ||
+         mozilla::StyleDisplay::InlineGrid == displayVal;
 }
 
 #ifdef DEBUG
 void
 GeckoStyleContext::AssertStructsNotUsedElsewhere(
-                                       GeckoStyleContext* aDestroyingContext,
-                                       int32_t aLevels) const
+    GeckoStyleContext* aDestroyingContext, int32_t aLevels) const
 {
   if (aLevels == 0) {
     return;
@@ -702,21 +704,22 @@ GeckoStyleContext::AssertStructsNotUsedElsewhere(
 
   if (this != aDestroyingContext) {
     nsInheritedStyleData& destroyingInheritedData =
-      aDestroyingContext->mCachedInheritedData;
-#define STYLE_STRUCT_INHERITED(name_, checkdata_cb)                            \
-    data = destroyingInheritedData.mStyleStructs[eStyleStruct_##name_];        \
-    if (data &&                                                                \
-        !(aDestroyingContext->mBits & NS_STYLE_INHERIT_BIT(name_)) &&          \
-         (mCachedInheritedData.mStyleStructs[eStyleStruct_##name_] == data)) { \
-      printf_stderr("style struct %p found on style context %p\n", data, this);\
-      nsString url;                                                            \
-      nsresult rv = PresContext()->Document()->GetURL(url);                    \
-      if (NS_SUCCEEDED(rv)) {                                                  \
-        printf_stderr("  in %s\n", NS_ConvertUTF16toUTF8(url).get());          \
-      }                                                                        \
-      MOZ_ASSERT(false, "destroying " #name_ " style struct still present "    \
-                        "in style context tree");                              \
-    }
+        aDestroyingContext->mCachedInheritedData;
+#define STYLE_STRUCT_INHERITED(name_, checkdata_cb)                           \
+  data = destroyingInheritedData.mStyleStructs[eStyleStruct_##name_];         \
+  if (data && !(aDestroyingContext->mBits & NS_STYLE_INHERIT_BIT(name_)) &&   \
+      (mCachedInheritedData.mStyleStructs[eStyleStruct_##name_] == data)) {   \
+    printf_stderr("style struct %p found on style context %p\n", data, this); \
+    nsString url;                                                             \
+    nsresult rv = PresContext()->Document()->GetURL(url);                     \
+    if (NS_SUCCEEDED(rv)) {                                                   \
+      printf_stderr("  in %s\n", NS_ConvertUTF16toUTF8(url).get());           \
+    }                                                                         \
+    MOZ_ASSERT(false,                                                         \
+               "destroying " #name_                                           \
+               " style struct still present "                                 \
+               "in style context tree");                                      \
+  }
 #define STYLE_STRUCT_RESET(name_, checkdata_cb)
 
 #include "nsStyleStructList.h"
@@ -726,24 +729,24 @@ GeckoStyleContext::AssertStructsNotUsedElsewhere(
 
     if (mCachedResetData) {
       nsResetStyleData* destroyingResetData =
-        aDestroyingContext->mCachedResetData;
+          aDestroyingContext->mCachedResetData;
       if (destroyingResetData) {
 #define STYLE_STRUCT_INHERITED(name_, checkdata_cb_)
-#define STYLE_STRUCT_RESET(name_, checkdata_cb)                                \
-        data = destroyingResetData->mStyleStructs[eStyleStruct_##name_];       \
-        if (data &&                                                            \
-            !(aDestroyingContext->mBits & NS_STYLE_INHERIT_BIT(name_)) &&      \
-            (mCachedResetData->mStyleStructs[eStyleStruct_##name_] == data)) { \
-          printf_stderr("style struct %p found on style context %p\n", data,   \
-                        this);                                                 \
-          nsString url;                                                        \
-          nsresult rv = PresContext()->Document()->GetURL(url);                \
-          if (NS_SUCCEEDED(rv)) {                                              \
-            printf_stderr("  in %s\n", NS_ConvertUTF16toUTF8(url).get());      \
-          }                                                                    \
-          MOZ_ASSERT(false, "destroying " #name_ " style struct still present "\
-                            "in style context tree");                          \
-        }
+#define STYLE_STRUCT_RESET(name_, checkdata_cb)                               \
+  data = destroyingResetData->mStyleStructs[eStyleStruct_##name_];            \
+  if (data && !(aDestroyingContext->mBits & NS_STYLE_INHERIT_BIT(name_)) &&   \
+      (mCachedResetData->mStyleStructs[eStyleStruct_##name_] == data)) {      \
+    printf_stderr("style struct %p found on style context %p\n", data, this); \
+    nsString url;                                                             \
+    nsresult rv = PresContext()->Document()->GetURL(url);                     \
+    if (NS_SUCCEEDED(rv)) {                                                   \
+      printf_stderr("  in %s\n", NS_ConvertUTF16toUTF8(url).get());           \
+    }                                                                         \
+    MOZ_ASSERT(false,                                                         \
+               "destroying " #name_                                           \
+               " style struct still present "                                 \
+               "in style context tree");                                      \
+  }
 
 #include "nsStyleStructList.h"
 
@@ -771,7 +774,6 @@ GeckoStyleContext::AssertStructsNotUsedElsewhere(
 }
 #endif
 
-
 void
 GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
 {
@@ -794,23 +796,22 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
         containerSC = containerSC->GetParent();
         containerDisp = containerSC->StyleDisplay();
       }
-      nscoord containerLH =
-        ReflowInput::CalcLineHeight(nullptr, containerSC, NS_AUTOHEIGHT, 1.0f);
+      nscoord containerLH = ReflowInput::CalcLineHeight(
+          nullptr, containerSC, NS_AUTOHEIGHT, 1.0f);
       RefPtr<nsFontMetrics> containerFM =
-        nsLayoutUtils::GetFontMetricsForStyleContext(containerSC);
+          nsLayoutUtils::GetFontMetricsForStyleContext(containerSC);
       MOZ_ASSERT(containerFM, "Should have fontMetrics!!");
       nscoord containerCH = containerFM->CapHeight();
       RefPtr<nsFontMetrics> firstLetterFM =
-        nsLayoutUtils::GetFontMetricsForStyleContext(this);
+          nsLayoutUtils::GetFontMetricsForStyleContext(this);
       MOZ_ASSERT(firstLetterFM, "Should have fontMetrics!!");
       nscoord firstLetterCH = firstLetterFM->CapHeight();
       nsStyleFont* mutableStyleFont = GET_UNIQUE_STYLE_DATA(Font);
       float invCapHeightRatio =
-        mutableStyleFont->mFont.size / NSCoordToFloat(firstLetterCH);
-      mutableStyleFont->mFont.size =
-        NSToCoordRound(((textReset->mInitialLetterSize - 1) * containerLH +
-                        containerCH) *
-                       invCapHeightRatio);
+          mutableStyleFont->mFont.size / NSCoordToFloat(firstLetterCH);
+      mutableStyleFont->mFont.size = NSToCoordRound(
+          ((textReset->mInitialLetterSize - 1) * containerLH + containerCH) *
+          invCapHeightRatio);
     }
   }
 
@@ -821,10 +822,11 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
   // inherited properties, and ::-moz-text never matches any rules.
   if (mPseudoTag == nsCSSAnonBoxes::mozText && mParent &&
       mParent->StyleVisibility()->mWritingMode !=
-        NS_STYLE_WRITING_MODE_HORIZONTAL_TB &&
+          NS_STYLE_WRITING_MODE_HORIZONTAL_TB &&
       mParent->StyleText()->mTextCombineUpright ==
-        NS_STYLE_TEXT_COMBINE_UPRIGHT_ALL) {
-    MOZ_ASSERT(!PeekStyleVisibility(), "If StyleVisibility was already "
+          NS_STYLE_TEXT_COMBINE_UPRIGHT_ALL) {
+    MOZ_ASSERT(!PeekStyleVisibility(),
+               "If StyleVisibility was already "
                "computed, some properties may have been computed "
                "incorrectly based on the old writing mode value");
     nsStyleVisibility* mutableVis = GET_UNIQUE_STYLE_DATA(Visibility);
@@ -846,10 +848,12 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
   // (PageContentFrame/CanvasFrame etc will inherit 'direction')
   if (mPseudoTag == nsCSSAnonBoxes::viewport) {
     nsPresContext* presContext = PresContext();
-    mozilla::dom::Element* docElement = presContext->Document()->GetRootElement();
+    mozilla::dom::Element* docElement =
+        presContext->Document()->GetRootElement();
     if (docElement) {
       RefPtr<nsStyleContext> rootStyle =
-        presContext->StyleSet()->AsGecko()->ResolveStyleFor(docElement, nullptr);
+          presContext->StyleSet()->AsGecko()->ResolveStyleFor(docElement,
+                                                              nullptr);
       auto dir = rootStyle->StyleVisibility()->mDirection;
       if (dir != StyleVisibility()->mDirection) {
         nsStyleVisibility* uniqueVisibility = GET_UNIQUE_STYLE_DATA(Visibility);
@@ -868,8 +872,7 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
 
     if (text->mTextAlign == NS_STYLE_TEXT_ALIGN_MOZ_LEFT ||
         text->mTextAlign == NS_STYLE_TEXT_ALIGN_MOZ_CENTER ||
-        text->mTextAlign == NS_STYLE_TEXT_ALIGN_MOZ_RIGHT)
-    {
+        text->mTextAlign == NS_STYLE_TEXT_ALIGN_MOZ_RIGHT) {
       nsStyleText* uniqueText = GET_UNIQUE_STYLE_DATA(Text);
       uniqueText->mTextAlign = NS_STYLE_TEXT_ALIGN_START;
     }
@@ -887,7 +890,8 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
   if (mParent &&
       mParent->StylePosition()->mJustifyItems & NS_STYLE_JUSTIFY_LEGACY &&
       StylePosition()->mSpecifiedJustifyItems == NS_STYLE_JUSTIFY_AUTO &&
-      StylePosition()->mJustifyItems != mParent->StylePosition()->mJustifyItems) {
+      StylePosition()->mJustifyItems !=
+          mParent->StylePosition()->mJustifyItems) {
     nsStylePosition* uniquePosition = GET_UNIQUE_STYLE_DATA(Position);
     uniquePosition->mJustifyItems = mParent->StylePosition()->mJustifyItems;
   }
@@ -908,8 +912,7 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
       // display type in the spec, but computes to a blockified display type per
       // various provisions of
       // https://fullscreen.spec.whatwg.org/#new-stacking-layer
-      (!mPseudoTag ||
-       mPseudoTag == nsCSSAnonBoxes::viewport ||
+      (!mPseudoTag || mPseudoTag == nsCSSAnonBoxes::viewport ||
        mPseudoTag == nsCSSPseudoElements::backdrop)) {
     auto displayVal = disp->mDisplay;
     if (displayVal != mozilla::StyleDisplay::Contents) {
@@ -930,7 +933,7 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
       // hypothetical boxes it's better to have mOriginalDisplay
       // matching mDisplay here.
       mutable_display->mOriginalDisplay = mutable_display->mDisplay =
-        displayVal;
+          displayVal;
     }
   }
 
@@ -980,8 +983,8 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
 
   // Note: This must come after the blockification above, otherwise we fail
   // the grid-item-blockifying-001.html reftest.
-  if (mParent && ::ShouldSuppressLineBreak(this, disp, mParent,
-                                           mParent->StyleDisplay())) {
+  if (mParent &&
+      ::ShouldSuppressLineBreak(this, disp, mParent, mParent->StyleDisplay())) {
     mBits |= NS_STYLE_SUPPRESS_LINEBREAK;
     auto displayVal = disp->mDisplay;
     nsRuleNode::EnsureInlineDisplay(displayVal);
@@ -1024,21 +1027,21 @@ GeckoStyleContext::ApplyStyleFixups(bool aSkipParentDisplayBasedStyleFixup)
    *   ...etc.
    */
   if (disp->mDisplay == mozilla::StyleDisplay::Inline &&
-      !nsCSSAnonBoxes::IsNonElement(mPseudoTag) &&
-      mParent) {
+      !nsCSSAnonBoxes::IsNonElement(mPseudoTag) && mParent) {
     auto cbContext = GetParent();
-    while (cbContext->StyleDisplay()->mDisplay == mozilla::StyleDisplay::Contents) {
+    while (cbContext->StyleDisplay()->mDisplay ==
+           mozilla::StyleDisplay::Contents) {
       cbContext = cbContext->GetParent();
     }
     MOZ_ASSERT(cbContext, "the root context can't have display:contents");
     // We don't need the full mozilla::WritingMode value (incorporating dir
     // and text-orientation) here; just the writing-mode property is enough.
     if (StyleVisibility()->mWritingMode !=
-          cbContext->StyleVisibility()->mWritingMode) {
+        cbContext->StyleVisibility()->mWritingMode) {
       nsStyleDisplay* mutable_display = GET_UNIQUE_STYLE_DATA(Display);
       disp = mutable_display;
       mutable_display->mOriginalDisplay = mutable_display->mDisplay =
-        mozilla::StyleDisplay::InlineBlock;
+          mozilla::StyleDisplay::InlineBlock;
     }
   }
 
@@ -1079,15 +1082,15 @@ GeckoStyleContext::SetStyle(nsStyleStructID aSID, void* aStruct)
   *dataSlot = aStruct;
 }
 
-
 const void*
 GeckoStyleContext::StyleData(nsStyleStructID aSID)
 {
   const void* cachedData = GetCachedStyleData(aSID);
   if (cachedData)
-    return cachedData; // We have computed data stored on this node in the context tree.
+    return cachedData;  // We have computed data stored on this node in the context tree.
   // Our style source will take care of it for us.
-  const void* newData = AsGecko()->RuleNode()->GetStyleData(aSID, this->AsGecko(), true);
+  const void* newData =
+      AsGecko()->RuleNode()->GetStyleData(aSID, this->AsGecko(), true);
   if (!nsCachedStyleData::IsReset(aSID)) {
     // always cache inherited data on the style context; the rule
     // node set the bit in mBits for us if needed.
@@ -1106,9 +1109,9 @@ GeckoStyleContext::DestroyCachedStructs(nsPresContext* aPresContext)
   }
 }
 
-
 void
-GeckoStyleContext::SwapStyleData(GeckoStyleContext* aNewContext, uint32_t aStructs)
+GeckoStyleContext::SwapStyleData(GeckoStyleContext* aNewContext,
+                                 uint32_t aStructs)
 {
   static_assert(nsStyleStructID_Length <= 32, "aStructs is not big enough");
 
@@ -1155,9 +1158,9 @@ GeckoStyleContext::SwapStyleData(GeckoStyleContext* aNewContext, uint32_t aStruc
   }
 }
 
-
 void
-GeckoStyleContext::SetStyleIfVisited(already_AddRefed<GeckoStyleContext> aStyleIfVisited)
+GeckoStyleContext::SetStyleIfVisited(
+    already_AddRefed<GeckoStyleContext> aStyleIfVisited)
 {
   MOZ_ASSERT(!IsStyleIfVisited(), "this context is not visited data");
   NS_ASSERTION(!mStyleIfVisited, "should only be set once");
@@ -1171,15 +1174,12 @@ GeckoStyleContext::SetStyleIfVisited(already_AddRefed<GeckoStyleContext> aStyleI
   NS_ASSERTION(GetStyleIfVisited()->GetPseudo() == GetPseudo(),
                "pseudo tag mismatch");
   if (GetParent() && GetParent()->GetStyleIfVisited()) {
-    MOZ_ASSERT(GetStyleIfVisited()->GetParent() ==
-                   GetParent()->GetStyleIfVisited() ||
-                 GetStyleIfVisited()->GetParent() ==
-                   GetParent(),
-                 "parent mismatch");
+    MOZ_ASSERT(
+        GetStyleIfVisited()->GetParent() == GetParent()->GetStyleIfVisited() ||
+            GetStyleIfVisited()->GetParent() == GetParent(),
+        "parent mismatch");
   } else {
-    MOZ_ASSERT(GetStyleIfVisited()->GetParent() ==
-                   GetParent(),
-                 "parent mismatch");
+    MOZ_ASSERT(GetStyleIfVisited()->GetParent() == GetParent(),
+               "parent mismatch");
   }
 }
-

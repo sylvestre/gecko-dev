@@ -131,20 +131,17 @@ URLParams::DecodeString(const nsACString& aInput, nsAString& aOutput)
       nsACString::const_iterator second(first);
       ++second;
 
-#define ASCII_HEX_DIGIT( x )    \
-  ((x >= 0x41 && x <= 0x46) ||  \
-   (x >= 0x61 && x <= 0x66) ||  \
+#define ASCII_HEX_DIGIT(x)                                 \
+  ((x >= 0x41 && x <= 0x46) || (x >= 0x61 && x <= 0x66) || \
    (x >= 0x30 && x <= 0x39))
 
-#define HEX_DIGIT( x )              \
-   (*x >= 0x30 && *x <= 0x39        \
-     ? *x - 0x30                    \
-     : (*x >= 0x41 && *x <= 0x46    \
-        ? *x - 0x37                 \
-        : *x - 0x57))
+#define HEX_DIGIT(x)        \
+  (*x >= 0x30 && *x <= 0x39 \
+       ? *x - 0x30          \
+       : (*x >= 0x41 && *x <= 0x46 ? *x - 0x37 : *x - 0x57))
 
-      if (first != end && second != end &&
-          ASCII_HEX_DIGIT(*first) && ASCII_HEX_DIGIT(*second)) {
+      if (first != end && second != end && ASCII_HEX_DIGIT(*first) &&
+          ASCII_HEX_DIGIT(*second)) {
         unescaped.Append(HEX_DIGIT(first) * 16 + HEX_DIGIT(second));
         start = ++second;
         continue;
@@ -218,20 +215,20 @@ URLParams::ParseInput(const nsACString& aInput)
 
 namespace {
 
-void SerializeString(const nsCString& aInput, nsAString& aValue)
+void
+SerializeString(const nsCString& aInput, nsAString& aValue)
 {
-  const unsigned char* p = (const unsigned char*) aInput.get();
+  const unsigned char* p = (const unsigned char*)aInput.get();
   const unsigned char* end = p + aInput.Length();
 
   while (p != end) {
     // ' ' to '+'
     if (*p == 0x20) {
       aValue.Append(0x2B);
-    // Percent Encode algorithm
+      // Percent Encode algorithm
     } else if (*p == 0x2A || *p == 0x2D || *p == 0x2E ||
-               (*p >= 0x30 && *p <= 0x39) ||
-               (*p >= 0x41 && *p <= 0x5A) || *p == 0x5F ||
-               (*p >= 0x61 && *p <= 0x7A)) {
+               (*p >= 0x30 && *p <= 0x39) || (*p >= 0x41 && *p <= 0x5A) ||
+               *p == 0x5F || (*p >= 0x61 && *p <= 0x7A)) {
       aValue.Append(*p);
     } else {
       aValue.AppendPrintf("%%%.2X", *p);
@@ -241,7 +238,7 @@ void SerializeString(const nsCString& aInput, nsAString& aValue)
   }
 }
 
-} // namespace
+}  // namespace
 
 void
 URLParams::Serialize(nsAString& aValue) const
@@ -274,16 +271,11 @@ NS_INTERFACE_MAP_END
 
 URLSearchParams::URLSearchParams(nsISupports* aParent,
                                  URLSearchParamsObserver* aObserver)
-  : mParams(new URLParams())
-  , mParent(aParent)
-  , mObserver(aObserver)
+    : mParams(new URLParams()), mParent(aParent), mObserver(aObserver)
 {
 }
 
-URLSearchParams::~URLSearchParams()
-{
-  DeleteAll();
-}
+URLSearchParams::~URLSearchParams() { DeleteAll(); }
 
 JSObject*
 URLSearchParams::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -292,12 +284,13 @@ URLSearchParams::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 /* static */ already_AddRefed<URLSearchParams>
-URLSearchParams::Constructor(const GlobalObject& aGlobal,
-                             const USVStringSequenceSequenceOrUSVStringUSVStringRecordOrUSVString& aInit,
-                             ErrorResult& aRv)
+URLSearchParams::Constructor(
+    const GlobalObject& aGlobal,
+    const USVStringSequenceSequenceOrUSVStringUSVStringRecordOrUSVString& aInit,
+    ErrorResult& aRv)
 {
   RefPtr<URLSearchParams> sp =
-    new URLSearchParams(aGlobal.GetAsSupports(), nullptr);
+      new URLSearchParams(aGlobal.GetAsSupports(), nullptr);
 
   if (aInit.IsUSVString()) {
     NS_ConvertUTF16toUTF8 input(aInit.GetAsUSVString());
@@ -308,7 +301,7 @@ URLSearchParams::Constructor(const GlobalObject& aGlobal,
     }
   } else if (aInit.IsUSVStringSequenceSequence()) {
     const Sequence<Sequence<nsString>>& list =
-      aInit.GetAsUSVStringSequenceSequence();
+        aInit.GetAsUSVStringSequenceSequence();
     for (uint32_t i = 0; i < list.Length(); ++i) {
       const Sequence<nsString>& item = list[i];
       if (item.Length() != 2) {
@@ -319,7 +312,7 @@ URLSearchParams::Constructor(const GlobalObject& aGlobal,
     }
   } else if (aInit.IsUSVStringUSVStringRecord()) {
     const Record<nsString, nsString>& record =
-      aInit.GetAsUSVStringUSVStringRecord();
+        aInit.GetAsUSVStringUSVStringRecord();
     for (auto& entry : record.Entries()) {
       sp->Append(entry.mKey, entry.mValue);
     }
@@ -437,8 +430,8 @@ ReadString(JSStructuredCloneReader* aReader, nsString& aString)
   MOZ_ASSERT(zero == 0);
   aString.SetLength(nameLength);
   size_t charSize = sizeof(nsString::char_type);
-  read = JS_ReadBytes(aReader, (void*) aString.BeginWriting(),
-                      nameLength * charSize);
+  read = JS_ReadBytes(
+      aReader, (void*)aString.BeginWriting(), nameLength * charSize);
   if (!read) {
     return false;
   }
@@ -468,8 +461,7 @@ URLParams::Sort()
        ++keyId) {
     const nsString& key = keys[keyId];
     for (const Param& param : mParams) {
-      if (param.mKey.Equals(key) &&
-          !params.AppendElement(param, fallible)) {
+      if (param.mKey.Equals(key) && !params.AppendElement(param, fallible)) {
         return NS_ERROR_OUT_OF_MEMORY;
       }
     }
@@ -536,15 +528,17 @@ URLSearchParams::WriteStructuredClone(JSStructuredCloneWriter* aWriter) const
 bool
 URLSearchParams::ReadStructuredClone(JSStructuredCloneReader* aReader)
 {
- return mParams->ReadStructuredClone(aReader);
+  return mParams->ReadStructuredClone(aReader);
 }
 
 NS_IMETHODIMP
-URLSearchParams::GetSendInfo(nsIInputStream** aBody, uint64_t* aContentLength,
+URLSearchParams::GetSendInfo(nsIInputStream** aBody,
+                             uint64_t* aContentLength,
                              nsACString& aContentTypeWithCharset,
                              nsACString& aCharset)
 {
-  aContentTypeWithCharset.AssignLiteral("application/x-www-form-urlencoded;charset=UTF-8");
+  aContentTypeWithCharset.AssignLiteral(
+      "application/x-www-form-urlencoded;charset=UTF-8");
   aCharset.AssignLiteral("UTF-8");
 
   nsAutoString serialized;
@@ -554,5 +548,5 @@ URLSearchParams::GetSendInfo(nsIInputStream** aBody, uint64_t* aContentLength,
   return NS_NewCStringInputStream(aBody, converted);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -17,41 +17,49 @@ namespace mozilla {
  *
  * Note: CoreGraphics and Direct2D only support rounded rectangle with the same
  * radii on all corners. However, supporting CSS's border-radius requires the extra flexibility. */
-struct RoundedRect {
-    typedef mozilla::gfx::RectCornerRadii RectCornerRadii;
+struct RoundedRect
+{
+  typedef mozilla::gfx::RectCornerRadii RectCornerRadii;
 
-    RoundedRect(gfxRect &aRect, RectCornerRadii &aCorners) : rect(aRect), corners(aCorners) { }
-    void Deflate(gfxFloat aTopWidth, gfxFloat aBottomWidth, gfxFloat aLeftWidth, gfxFloat aRightWidth) {
-        // deflate the internal rect
-        rect.x += aLeftWidth;
-        rect.y += aTopWidth;
-        rect.SetWidth(std::max(0., rect.Width() - aLeftWidth - aRightWidth));
-        rect.SetHeight(std::max(0., rect.Height() - aTopWidth - aBottomWidth));
+  RoundedRect(gfxRect& aRect, RectCornerRadii& aCorners)
+      : rect(aRect), corners(aCorners)
+  {
+  }
+  void Deflate(gfxFloat aTopWidth,
+               gfxFloat aBottomWidth,
+               gfxFloat aLeftWidth,
+               gfxFloat aRightWidth)
+  {
+    // deflate the internal rect
+    rect.x += aLeftWidth;
+    rect.y += aTopWidth;
+    rect.SetWidth(std::max(0., rect.Width() - aLeftWidth - aRightWidth));
+    rect.SetHeight(std::max(0., rect.Height() - aTopWidth - aBottomWidth));
 
-        corners.radii[mozilla::eCornerTopLeft].width =
-            std::max(0., corners.radii[mozilla::eCornerTopLeft].width - aLeftWidth);
-        corners.radii[mozilla::eCornerTopLeft].height =
-            std::max(0., corners.radii[mozilla::eCornerTopLeft].height - aTopWidth);
+    corners.radii[mozilla::eCornerTopLeft].width =
+        std::max(0., corners.radii[mozilla::eCornerTopLeft].width - aLeftWidth);
+    corners.radii[mozilla::eCornerTopLeft].height =
+        std::max(0., corners.radii[mozilla::eCornerTopLeft].height - aTopWidth);
 
-        corners.radii[mozilla::eCornerTopRight].width =
-            std::max(0., corners.radii[mozilla::eCornerTopRight].width - aRightWidth);
-        corners.radii[mozilla::eCornerTopRight].height =
-            std::max(0., corners.radii[mozilla::eCornerTopRight].height - aTopWidth);
+    corners.radii[mozilla::eCornerTopRight].width = std::max(
+        0., corners.radii[mozilla::eCornerTopRight].width - aRightWidth);
+    corners.radii[mozilla::eCornerTopRight].height = std::max(
+        0., corners.radii[mozilla::eCornerTopRight].height - aTopWidth);
 
-        corners.radii[mozilla::eCornerBottomLeft].width =
-            std::max(0., corners.radii[mozilla::eCornerBottomLeft].width - aLeftWidth);
-        corners.radii[mozilla::eCornerBottomLeft].height =
-            std::max(0., corners.radii[mozilla::eCornerBottomLeft].height - aBottomWidth);
+    corners.radii[mozilla::eCornerBottomLeft].width = std::max(
+        0., corners.radii[mozilla::eCornerBottomLeft].width - aLeftWidth);
+    corners.radii[mozilla::eCornerBottomLeft].height = std::max(
+        0., corners.radii[mozilla::eCornerBottomLeft].height - aBottomWidth);
 
-        corners.radii[mozilla::eCornerBottomRight].width =
-            std::max(0., corners.radii[mozilla::eCornerBottomRight].width - aRightWidth);
-        corners.radii[mozilla::eCornerBottomRight].height =
-            std::max(0., corners.radii[mozilla::eCornerBottomRight].height - aBottomWidth);
-    }
-    gfxRect rect;
-    RectCornerRadii corners;
+    corners.radii[mozilla::eCornerBottomRight].width = std::max(
+        0., corners.radii[mozilla::eCornerBottomRight].width - aRightWidth);
+    corners.radii[mozilla::eCornerBottomRight].height = std::max(
+        0., corners.radii[mozilla::eCornerBottomRight].height - aBottomWidth);
+  }
+  gfxRect rect;
+  RectCornerRadii corners;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

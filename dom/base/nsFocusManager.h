@@ -30,7 +30,7 @@ namespace mozilla {
 namespace dom {
 class TabParent;
 }
-}
+}  // namespace mozilla
 
 struct nsDelayedBlurOrFocusEvent;
 
@@ -45,8 +45,7 @@ class nsFocusManager final : public nsIFocusManager,
 {
   typedef mozilla::widget::InputContextAction InputContextAction;
 
-public:
-
+ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsFocusManager, nsIFocusManager)
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_NSIOBSERVER
@@ -91,8 +90,8 @@ public:
   /**
    * Called when mouse button event handling is started and finished.
    */
-  already_AddRefed<nsIDocument>
-    SetMouseButtonHandlingDocument(nsIDocument* aDocument)
+  already_AddRefed<nsIDocument> SetMouseButtonHandlingDocument(
+      nsIDocument* aDocument)
   {
     nsCOMPtr<nsIDocument> handlingDocument = mMouseButtonEventHandlingDocument;
     mMouseButtonEventHandlingDocument = aDocument;
@@ -167,8 +166,8 @@ public:
   static bool sMouseFocusesFormControl;
 
   static void MarkUncollectableForCCGeneration(uint32_t aGeneration);
-protected:
 
+ protected:
   nsFocusManager();
   ~nsFocusManager();
 
@@ -182,7 +181,8 @@ protected:
    * Iterate over the children of the message broadcaster and notify them
    * of the activation change.
    */
-  void ActivateOrDeactivateChildren(nsIMessageBroadcaster* aManager, bool aActive);
+  void ActivateOrDeactivateChildren(nsIMessageBroadcaster* aManager,
+                                    bool aActive);
 
   /**
    * Activate or deactivate the window and send the activate/deactivate events.
@@ -200,8 +200,10 @@ protected:
    * All actual focus changes must use this method to do so. (as opposed
    * to those that update the focus in an inactive window for instance).
    */
-  void SetFocusInner(nsIContent* aNewContent, int32_t aFlags,
-                     bool aFocusChanged, bool aAdjustWidget);
+  void SetFocusInner(nsIContent* aNewContent,
+                     int32_t aFlags,
+                     bool aFocusChanged,
+                     bool aAdjustWidget);
 
   /**
    * Returns true if aPossibleAncestor is the same as aWindow or an
@@ -214,8 +216,8 @@ protected:
    * Returns the window that is the lowest common ancestor of both aWindow1
    * and aWindow2, or null if they share no common ancestor.
    */
-  already_AddRefed<nsPIDOMWindowOuter>
-  GetCommonAncestor(nsPIDOMWindowOuter* aWindow1, nsPIDOMWindowOuter* aWindow2);
+  already_AddRefed<nsPIDOMWindowOuter> GetCommonAncestor(
+      nsPIDOMWindowOuter* aWindow1, nsPIDOMWindowOuter* aWindow2);
 
   /**
    * When aNewWindow is focused, adjust the ancestors of aNewWindow so that they
@@ -324,14 +326,15 @@ protected:
    *
    * aWindowRaised should only be true if called from WindowRaised.
    */
-  void SendFocusOrBlurEvent(mozilla::EventMessage aEventMessage,
-                            nsIPresShell* aPresShell,
-                            nsIDocument* aDocument,
-                            nsISupports* aTarget,
-                            uint32_t aFocusMethod,
-                            bool aWindowRaised,
-                            bool aIsRefocus = false,
-                            mozilla::dom::EventTarget* aRelatedTarget = nullptr);
+  void SendFocusOrBlurEvent(
+      mozilla::EventMessage aEventMessage,
+      nsIPresShell* aPresShell,
+      nsIDocument* aDocument,
+      nsISupports* aTarget,
+      uint32_t aFocusMethod,
+      bool aWindowRaised,
+      bool aIsRefocus = false,
+      mozilla::dom::EventTarget* aRelatedTarget = nullptr);
 
   /**
    * Fire a focus or blur event at aTarget.
@@ -341,12 +344,13 @@ protected:
    *
    * aWindowRaised should only be true if called from WindowRaised.
    */
-  void FireFocusOrBlurEvent(mozilla::EventMessage aEventMessage,
-                            nsIPresShell* aPresShell,
-                            nsISupports* aTarget,
-                            bool aWindowRaised,
-                            bool aIsRefocus = false,
-                            mozilla::dom::EventTarget* aRelatedTarget = nullptr);
+  void FireFocusOrBlurEvent(
+      mozilla::EventMessage aEventMessage,
+      nsIPresShell* aPresShell,
+      nsISupports* aTarget,
+      bool aWindowRaised,
+      bool aIsRefocus = false,
+      mozilla::dom::EventTarget* aRelatedTarget = nullptr);
 
   /**
    *  Fire a focusin or focusout event
@@ -365,12 +369,13 @@ protected:
    *  aRelatedTarget is the content related to the event (the object
    *  losing focus for focusin, the object getting focus for focusout).
    */
-  void FireFocusInOrOutEvent(mozilla::EventMessage aEventMessage,
-                             nsIPresShell* aPresShell,
-                             nsISupports* aTarget,
-                             nsPIDOMWindowOuter* aCurrentFocusedWindow,
-                             nsIContent* aCurrentFocusedContent,
-                             mozilla::dom::EventTarget* aRelatedTarget = nullptr);
+  void FireFocusInOrOutEvent(
+      mozilla::EventMessage aEventMessage,
+      nsIPresShell* aPresShell,
+      nsISupports* aTarget,
+      nsPIDOMWindowOuter* aCurrentFocusedWindow,
+      nsIContent* aCurrentFocusedContent,
+      mozilla::dom::EventTarget* aRelatedTarget = nullptr);
 
   /**
    * Scrolls aContent into view unless the FLAG_NOSCROLL flag is set.
@@ -408,7 +413,6 @@ protected:
                            bool aVisible,
                            nsIContent* aContent);
 
-
   // the remaining functions are used for tab key and document-navigation
 
   /**
@@ -417,8 +421,8 @@ protected:
    */
   nsresult GetSelectionLocation(nsIDocument* aDocument,
                                 nsIPresShell* aPresShell,
-                                nsIContent **aStartContent,
-                                nsIContent **aEndContent);
+                                nsIContent** aStartContent,
+                                nsIContent** aEndContent);
 
   /**
    * Helper function for MoveFocus which determines the next element
@@ -434,7 +438,8 @@ protected:
    */
   nsresult DetermineElementToMoveFocus(nsPIDOMWindowOuter* aWindow,
                                        nsIContent* aStart,
-                                       int32_t aType, bool aNoParentTraversal,
+                                       int32_t aType,
+                                       bool aNoParentTraversal,
                                        nsIContent** aNextContent);
 
   /**
@@ -541,7 +546,7 @@ protected:
                            nsIContent* aEndSelection,
                            nsIContent** aFocusedContent);
 
-private:
+ private:
   // Notify that the focus state of aContent has changed.  Note that
   // we need to pass in whether the window should show a focus ring
   // before the SetFocusedNode call on it happened when losing focus

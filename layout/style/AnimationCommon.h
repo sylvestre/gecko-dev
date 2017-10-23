@@ -6,7 +6,7 @@
 #ifndef mozilla_css_AnimationCommon_h
 #define mozilla_css_AnimationCommon_h
 
-#include <algorithm> // For <std::stable_sort>
+#include <algorithm>  // For <std::stable_sort>
 #include "mozilla/AnimationCollection.h"
 #include "mozilla/AnimationComparator.h"
 #include "mozilla/EventDispatcher.h"
@@ -14,7 +14,7 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/dom/Animation.h"
 #include "mozilla/AnimationTarget.h"
-#include "mozilla/Attributes.h" // For MOZ_NON_OWNING_REF
+#include "mozilla/Attributes.h"  // For MOZ_NON_OWNING_REF
 #include "mozilla/Assertions.h"
 #include "mozilla/TimingParams.h"
 #include "nsContentUtils.h"
@@ -31,11 +31,12 @@ namespace dom {
 class Element;
 }
 
-template <class AnimationType>
-class CommonAnimationManager {
-public:
-  explicit CommonAnimationManager(nsPresContext *aPresContext)
-    : mPresContext(aPresContext)
+template<class AnimationType>
+class CommonAnimationManager
+{
+ public:
+  explicit CommonAnimationManager(nsPresContext* aPresContext)
+      : mPresContext(aPresContext)
   {
   }
 
@@ -63,8 +64,8 @@ public:
   {
     MOZ_ASSERT(aElement);
     AnimationCollection<AnimationType>* collection =
-      AnimationCollection<AnimationType>::GetAnimationCollection(aElement,
-                                                                 aPseudoType);
+        AnimationCollection<AnimationType>::GetAnimationCollection(aElement,
+                                                                   aPseudoType);
     if (!collection) {
       return;
     }
@@ -73,7 +74,7 @@ public:
     collection->Destroy();
   }
 
-protected:
+ protected:
   virtual ~CommonAnimationManager()
   {
     MOZ_ASSERT(!mPresContext, "Disconnect should have been called");
@@ -86,13 +87,13 @@ protected:
   void RemoveAllElementCollections()
   {
     while (AnimationCollection<AnimationType>* head =
-           mElementCollections.getFirst()) {
-      head->Destroy(); // Note: this removes 'head' from mElementCollections.
+               mElementCollections.getFirst()) {
+      head->Destroy();  // Note: this removes 'head' from mElementCollections.
     }
   }
 
   LinkedList<AnimationCollection<AnimationType>> mElementCollections;
-  nsPresContext *mPresContext; // weak (non-null from ctor to Disconnect)
+  nsPresContext* mPresContext;  // weak (non-null from ctor to Disconnect)
 };
 
 /**
@@ -111,17 +112,18 @@ protected:
  */
 class OwningElementRef final
 {
-public:
+ public:
   OwningElementRef() = default;
 
   explicit OwningElementRef(const NonOwningAnimationTarget& aTarget)
-    : mTarget(aTarget)
-  { }
+      : mTarget(aTarget)
+  {
+  }
 
-  OwningElementRef(dom::Element& aElement,
-                   CSSPseudoElementType aPseudoType)
-    : mTarget(&aElement, aPseudoType)
-  { }
+  OwningElementRef(dom::Element& aElement, CSSPseudoElementType aPseudoType)
+      : mTarget(&aElement, aPseudoType)
+  {
+  }
 
   bool Equals(const OwningElementRef& aOther) const
   {
@@ -139,8 +141,8 @@ public:
     }
 
     return mTarget.mPseudoType == CSSPseudoElementType::NotPseudo ||
-          (mTarget.mPseudoType == CSSPseudoElementType::before &&
-           aOther.mTarget.mPseudoType == CSSPseudoElementType::after);
+           (mTarget.mPseudoType == CSSPseudoElementType::before &&
+            aOther.mTarget.mPseudoType == CSSPseudoElementType::after);
   }
 
   bool IsSet() const { return !!mTarget.mElement; }
@@ -152,15 +154,15 @@ public:
     aPseudoType = mTarget.mPseudoType;
   }
 
-private:
+ private:
   NonOwningAnimationTarget mTarget;
 };
 
-template <class EventInfo>
+template<class EventInfo>
 class DelayedEventDispatcher
 {
-public:
-  DelayedEventDispatcher() : mIsSorted(true) { }
+ public:
+  DelayedEventDispatcher() : mIsSorted(true) {}
 
   void QueueEvent(EventInfo&& aEventInfo)
   {
@@ -180,8 +182,8 @@ public:
 
     // FIXME: Replace with mPendingEvents.StableSort when bug 1147091 is
     // fixed.
-    std::stable_sort(mPendingEvents.begin(), mPendingEvents.end(),
-                     EventInfoLessThan());
+    std::stable_sort(
+        mPendingEvents.begin(), mPendingEvents.end(), EventInfoLessThan());
     mIsSorted = true;
   }
 
@@ -191,7 +193,7 @@ public:
   //
   // This will call SortEvents automatically if it has not already been
   // called.
-  void DispatchEvents(nsPresContext* const & aPresContext)
+  void DispatchEvents(nsPresContext* const& aPresContext)
   {
     if (!aPresContext || mPendingEvents.IsEmpty()) {
       return;
@@ -230,10 +232,10 @@ public:
   }
   void Unlink() { ClearEventQueue(); }
 
-protected:
+ protected:
   class EventInfoLessThan
   {
-  public:
+   public:
     bool operator()(const EventInfo& a, const EventInfo& b) const
     {
       if (a.mTimeStamp != b.mTimeStamp) {
@@ -255,14 +257,14 @@ protected:
   bool mIsSorted;
 };
 
-template <class EventInfo>
+template<class EventInfo>
 inline void
 ImplCycleCollectionUnlink(DelayedEventDispatcher<EventInfo>& aField)
 {
   aField.Unlink();
 }
 
-template <class EventInfo>
+template<class EventInfo>
 inline void
 ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
                             DelayedEventDispatcher<EventInfo>& aField,
@@ -274,8 +276,9 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
 
 // Return the TransitionPhase or AnimationPhase to use when the animation
 // doesn't have a target effect.
-template <typename PhaseType>
-PhaseType GetAnimationPhaseWithoutEffect(const dom::Animation& aAnimation)
+template<typename PhaseType>
+PhaseType
+GetAnimationPhaseWithoutEffect(const dom::Animation& aAnimation)
 {
   MOZ_ASSERT(!aAnimation.GetEffect(),
              "Should only be called when we do not have an effect");
@@ -287,13 +290,13 @@ PhaseType GetAnimationPhaseWithoutEffect(const dom::Animation& aAnimation)
 
   // If we don't have a target effect, the duration will be zero so the phase is
   // 'before' if the current time is less than zero.
-  return currentTime.Value() < TimeDuration()
-         ? PhaseType::Before
-         : PhaseType::After;
+  return currentTime.Value() < TimeDuration() ? PhaseType::Before
+                                              : PhaseType::After;
 };
 
 inline TimingParams
-TimingParamsFromCSSParams(float aDuration, float aDelay,
+TimingParamsFromCSSParams(float aDuration,
+                          float aDelay,
                           float aIterationCount,
                           dom::PlaybackDirection aDirection,
                           dom::FillMode aFillMode)
@@ -302,15 +305,10 @@ TimingParamsFromCSSParams(float aDuration, float aDelay,
              "aIterations should be nonnegative & finite, as ensured by "
              "CSSParser");
 
-  return TimingParams {
-    aDuration,
-    aDelay,
-    aIterationCount,
-    aDirection,
-    aFillMode
-  };
+  return TimingParams{
+      aDuration, aDelay, aIterationCount, aDirection, aFillMode};
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(mozilla_css_AnimationCommon_h) */

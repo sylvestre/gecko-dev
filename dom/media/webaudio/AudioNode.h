@@ -55,14 +55,13 @@ struct ThreeDPoint;
  * still alive, and will still be alive when it receives a message from the
  * engine.
  */
-class AudioNode : public DOMEventTargetHelper,
-                  public nsSupportsWeakReference
+class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference
 {
-protected:
+ protected:
   // You can only use refcounting to delete this object
   virtual ~AudioNode();
 
-public:
+ public:
   AudioNode(AudioContext* aContext,
             uint32_t aChannelCount,
             ChannelCountMode aChannelCountMode,
@@ -72,40 +71,36 @@ public:
   virtual void DestroyMediaStream();
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioNode,
-                                           DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioNode, DOMEventTargetHelper)
 
-  virtual AudioBufferSourceNode* AsAudioBufferSourceNode()
-  {
-    return nullptr;
-  }
+  virtual AudioBufferSourceNode* AsAudioBufferSourceNode() { return nullptr; }
 
-  AudioContext* GetParentObject() const
-  {
-    return mContext;
-  }
+  AudioContext* GetParentObject() const { return mContext; }
 
-  AudioContext* Context() const
-  {
-    return mContext;
-  }
+  AudioContext* Context() const { return mContext; }
 
-  virtual AudioNode* Connect(AudioNode& aDestination, uint32_t aOutput,
-                             uint32_t aInput, ErrorResult& aRv);
+  virtual AudioNode* Connect(AudioNode& aDestination,
+                             uint32_t aOutput,
+                             uint32_t aInput,
+                             ErrorResult& aRv);
 
-  virtual void Connect(AudioParam& aDestination, uint32_t aOutput,
+  virtual void Connect(AudioParam& aDestination,
+                       uint32_t aOutput,
                        ErrorResult& aRv);
 
   virtual void Disconnect(ErrorResult& aRv);
   virtual void Disconnect(uint32_t aOutput, ErrorResult& aRv);
   virtual void Disconnect(AudioNode& aDestination, ErrorResult& aRv);
-  virtual void Disconnect(AudioNode& aDestination, uint32_t aOutput,
+  virtual void Disconnect(AudioNode& aDestination,
+                          uint32_t aOutput,
                           ErrorResult& aRv);
   virtual void Disconnect(AudioNode& aDestination,
-                          uint32_t aOutput, uint32_t aInput,
+                          uint32_t aOutput,
+                          uint32_t aInput,
                           ErrorResult& aRv);
   virtual void Disconnect(AudioParam& aDestination, ErrorResult& aRv);
-  virtual void Disconnect(AudioParam& aDestination, uint32_t aOutput,
+  virtual void Disconnect(AudioParam& aDestination,
+                          uint32_t aOutput,
                           ErrorResult& aRv);
 
   // Called after input nodes have been explicitly added or removed through
@@ -131,19 +126,16 @@ public:
   uint32_t ChannelCount() const { return mChannelCount; }
   virtual void SetChannelCount(uint32_t aChannelCount, ErrorResult& aRv)
   {
-    if (aChannelCount == 0 ||
-        aChannelCount > WebAudioUtils::MaxChannelCount) {
+    if (aChannelCount == 0 || aChannelCount > WebAudioUtils::MaxChannelCount) {
       aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
       return;
     }
     mChannelCount = aChannelCount;
     SendChannelMixingParametersToStream();
   }
-  ChannelCountMode ChannelCountModeValue() const
-  {
-    return mChannelCountMode;
-  }
-  virtual void SetChannelCountModeValue(ChannelCountMode aMode, ErrorResult& aRv)
+  ChannelCountMode ChannelCountModeValue() const { return mChannelCountMode; }
+  virtual void SetChannelCountModeValue(ChannelCountMode aMode,
+                                        ErrorResult& aRv)
   {
     mChannelCountMode = aMode;
     SendChannelMixingParametersToStream();
@@ -190,10 +182,7 @@ public:
   // Returns the stream, if any.
   AudioNodeStream* GetStream() const { return mStream; }
 
-  const nsTArray<InputNode>& InputNodes() const
-  {
-    return mInputNodes;
-  }
+  const nsTArray<InputNode>& InputNodes() const { return mInputNodes; }
   const nsTArray<RefPtr<AudioNode> >& OutputNodes() const
   {
     return mOutputNodes;
@@ -204,8 +193,7 @@ public:
   }
 
   template<typename T>
-  const nsTArray<InputNode>&
-  InputsForDestination(uint32_t aOutputIndex) const;
+  const nsTArray<InputNode>& InputsForDestination(uint32_t aOutputIndex) const;
 
   void RemoveOutputParam(AudioParam* aParam);
 
@@ -229,7 +217,7 @@ public:
 
   AbstractThread* AbstractMainThread() const { return mAbstractMainThread; }
 
-private:
+ private:
   // Given:
   //
   // - a DestinationType, that can be an AudioNode or an AudioParam ;
@@ -252,26 +240,28 @@ private:
   void DisconnectFromGraph();
 
   template<typename DestinationType>
-  bool DisconnectFromOutputIfConnected(uint32_t aOutputIndex, uint32_t aInputIndex);
+  bool DisconnectFromOutputIfConnected(uint32_t aOutputIndex,
+                                       uint32_t aInputIndex);
 
-protected:
+ protected:
   // Helper for the Constructors for nodes.
   void Initialize(const AudioNodeOptions& aOptions, ErrorResult& aRv);
 
   // Helpers for sending different value types to streams
   void SendDoubleParameterToStream(uint32_t aIndex, double aValue);
   void SendInt32ParameterToStream(uint32_t aIndex, int32_t aValue);
-  void SendThreeDPointParameterToStream(uint32_t aIndex, const ThreeDPoint& aValue);
+  void SendThreeDPointParameterToStream(uint32_t aIndex,
+                                        const ThreeDPoint& aValue);
   void SendChannelMixingParametersToStream();
 
-private:
+ private:
   RefPtr<AudioContext> mContext;
 
-protected:
+ protected:
   // Must be set in the constructor. Must not be null unless finished.
   RefPtr<AudioNodeStream> mStream;
 
-private:
+ private:
   // For every InputNode, there is a corresponding entry in mOutputNodes of the
   // InputNode's mInputNode.
   nsTArray<InputNode> mInputNodes;
@@ -297,7 +287,7 @@ private:
   const RefPtr<AbstractThread> mAbstractMainThread;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

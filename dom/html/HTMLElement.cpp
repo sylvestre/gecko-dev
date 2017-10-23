@@ -13,7 +13,7 @@ namespace dom {
 
 class HTMLElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
   virtual ~HTMLElement();
 
@@ -21,29 +21,28 @@ public:
                          nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-protected:
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+ protected:
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 };
 
 HTMLElement::HTMLElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
-HTMLElement::~HTMLElement()
-{
-}
+HTMLElement::~HTMLElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLElement)
 
 JSObject*
-HTMLElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return dom::HTMLElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 // Here, we expand 'NS_IMPL_NS_NEW_HTML_ELEMENT()' by hand.
 // (Calling the macro directly (with no args) produces compiler warnings.)

@@ -18,7 +18,7 @@ namespace dom {
 class Blob;
 class ImageCapture;
 class MediaStreamTrack;
-} // namespace dom
+}  // namespace dom
 
 /**
  * CaptureTask retrieves image from MediaStream and encodes the image to jpeg in
@@ -33,7 +33,7 @@ class MediaStreamTrack;
 class CaptureTask : public MediaStreamVideoSink,
                     public dom::PrincipalChangeObserver<dom::MediaStreamTrack>
 {
-public:
+ public:
   class MediaStreamEventListener;
 
   // MediaStreamVideoSink methods.
@@ -63,7 +63,7 @@ public:
   // CaptureTask should be created on main thread.
   explicit CaptureTask(dom::ImageCapture* aImageCapture);
 
-protected:
+ protected:
   virtual ~CaptureTask() {}
 
   // Post a runnable on main thread to end this task and call TaskComplete to post
@@ -86,6 +86,6 @@ protected:
   bool mPrincipalChanged;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // CAPTURETASK_H
+#endif  // CAPTURETASK_H

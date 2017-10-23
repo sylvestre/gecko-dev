@@ -17,10 +17,9 @@ class nsWindow;
 namespace mozilla {
 namespace widget {
 
-class PlatformCompositorWidgetDelegate
-  : public CompositorWidgetDelegate
+class PlatformCompositorWidgetDelegate : public CompositorWidgetDelegate
 {
-public:
+ public:
   // Callbacks for nsWindow.
   virtual void EnterPresentLock() = 0;
   virtual void LeavePresentLock() = 0;
@@ -36,7 +35,8 @@ public:
 
   // CompositorWidgetDelegate Overrides
 
-  PlatformCompositorWidgetDelegate* AsPlatformSpecificDelegate() override {
+  PlatformCompositorWidgetDelegate* AsPlatformSpecificDelegate() override
+  {
     return this;
   }
 };
@@ -47,11 +47,10 @@ class WinCompositorWidgetInitData;
 // the most part it only requires an HWND, however it maintains extra state
 // for transparent windows, as well as for synchronizing WM_SETTEXT messages
 // with the compositor.
-class WinCompositorWidget
- : public CompositorWidget,
-   public PlatformCompositorWidgetDelegate
+class WinCompositorWidget : public CompositorWidget,
+                            public PlatformCompositorWidgetDelegate
 {
-public:
+ public:
   WinCompositorWidget(const WinCompositorWidgetInitData& aInitData,
                       const layers::CompositorOptions& aOptions);
 
@@ -63,18 +62,15 @@ public:
   void EndRemoteDrawing() override;
   bool NeedsToDeferEndRemoteDrawing() override;
   LayoutDeviceIntSize GetClientSize() override;
-  already_AddRefed<gfx::DrawTarget> GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
-                                                            const LayoutDeviceIntRect& aRect,
-                                                            const LayoutDeviceIntRect& aClearRect) override;
+  already_AddRefed<gfx::DrawTarget> GetBackBufferDrawTarget(
+      gfx::DrawTarget* aScreenTarget,
+      const LayoutDeviceIntRect& aRect,
+      const LayoutDeviceIntRect& aClearRect) override;
   already_AddRefed<gfx::SourceSurface> EndBackBufferDrawing() override;
   bool InitCompositor(layers::Compositor* aCompositor) override;
   uintptr_t GetWidgetKey() override;
-  WinCompositorWidget* AsWindows() override {
-    return this;
-  }
-  CompositorWidgetDelegate* AsDelegate() override {
-    return this;
-  }
+  WinCompositorWidget* AsWindows() override { return this; }
+  CompositorWidgetDelegate* AsDelegate() override { return this; }
   bool IsHidden() const override;
 
   // PlatformCompositorWidgetDelegate Overrides
@@ -90,20 +86,16 @@ public:
   // Ensure that a transparent surface exists, then return it.
   RefPtr<gfxASurface> EnsureTransparentSurface();
 
-  HDC GetTransparentDC() const override {
-    return mMemoryDC;
-  }
-  HWND GetHwnd() const {
-    return mWnd;
-  }
+  HDC GetTransparentDC() const override { return mMemoryDC; }
+  HWND GetHwnd() const { return mWnd; }
 
-private:
+ private:
   HDC GetWindowSurface();
   void FreeWindowSurface(HDC dc);
 
   void CreateTransparentSurface(const gfx::IntSize& aSize);
 
-private:
+ private:
   uintptr_t mWidgetKey;
   HWND mWnd;
   gfx::CriticalSection mPresentLock;
@@ -120,7 +112,7 @@ private:
   bool mNotDeferEndRemoteDrawing;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // widget_windows_CompositorWidgetParent_h
+#endif  // widget_windows_CompositorWidgetParent_h

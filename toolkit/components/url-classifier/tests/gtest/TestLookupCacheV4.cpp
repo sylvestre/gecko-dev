@@ -5,15 +5,16 @@
 #include "Common.h"
 
 void
-TestHasPrefix(const _Fragment& aFragment, bool aExpectedHas, bool aExpectedComplete)
+TestHasPrefix(const _Fragment& aFragment,
+              bool aExpectedHas,
+              bool aExpectedComplete)
 {
-  _PrefixArray array = { GeneratePrefix(_Fragment("bravo.com/"), 32),
-                         GeneratePrefix(_Fragment("browsing.com/"), 8),
-                         GeneratePrefix(_Fragment("gound.com/"), 5),
-                         GeneratePrefix(_Fragment("small.com/"), 4)
-                       };
+  _PrefixArray array = {GeneratePrefix(_Fragment("bravo.com/"), 32),
+                        GeneratePrefix(_Fragment("browsing.com/"), 8),
+                        GeneratePrefix(_Fragment("gound.com/"), 5),
+                        GeneratePrefix(_Fragment("small.com/"), 4)};
 
-  RunTestInNewThread([&] () -> void {
+  RunTestInNewThread([&]() -> void {
     UniquePtr<LookupCache> cache = SetupLookupCache<LookupCacheV4>(array);
 
     Completion lookupHash;
@@ -23,8 +24,7 @@ TestHasPrefix(const _Fragment& aFragment, bool aExpectedHas, bool aExpectedCompl
     uint32_t matchLength;
     // Freshness is not used in V4 so we just put dummy values here.
     TableFreshnessMap dummy;
-    nsresult rv =
-      cache->Has(lookupHash, &has, &matchLength, &confirmed);
+    nsresult rv = cache->Has(lookupHash, &has, &matchLength, &confirmed);
 
     EXPECT_EQ(rv, NS_OK);
     EXPECT_EQ(has, aExpectedHas);
@@ -33,7 +33,6 @@ TestHasPrefix(const _Fragment& aFragment, bool aExpectedHas, bool aExpectedCompl
 
     cache->ClearAll();
   });
-
 }
 
 TEST(LookupCacheV4, HasComplete)

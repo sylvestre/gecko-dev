@@ -7,7 +7,6 @@
 #ifndef nsNativeCharsetUtils_h__
 #define nsNativeCharsetUtils_h__
 
-
 /*****************************************************************************\
  *                                                                           *
  *                             **** NOTICE ****                              *
@@ -23,8 +22,10 @@
 /**
  * thread-safe conversion routines that do not depend on uconv libraries.
  */
-nsresult NS_CopyNativeToUnicode(const nsACString& aInput, nsAString& aOutput);
-nsresult NS_CopyUnicodeToNative(const nsAString& aInput, nsACString& aOutput);
+nsresult
+NS_CopyNativeToUnicode(const nsACString& aInput, nsAString& aOutput);
+nsresult
+NS_CopyUnicodeToNative(const nsAString& aInput, nsACString& aOutput);
 
 /*
  * This function indicates whether the character encoding used in the file
@@ -40,7 +41,8 @@ nsresult NS_CopyUnicodeToNative(const nsAString& aInput, nsACString& aOutput);
  * and other platforms (e.g. OS2), it's never UTF-8.
  */
 #if defined(XP_UNIX) && !defined(XP_MACOSX) && !defined(ANDROID)
-bool NS_IsNativeUTF8();
+bool
+NS_IsNativeUTF8();
 #else
 inline bool
 NS_IsNativeUTF8()
@@ -53,11 +55,12 @@ NS_IsNativeUTF8()
 }
 #endif
 
-
 /**
  * internal
  */
-void NS_StartupNativeCharsetUtils();
-void NS_ShutdownNativeCharsetUtils();
+void
+NS_StartupNativeCharsetUtils();
+void
+NS_ShutdownNativeCharsetUtils();
 
-#endif // nsNativeCharsetUtils_h__
+#endif  // nsNativeCharsetUtils_h__

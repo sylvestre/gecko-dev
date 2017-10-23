@@ -10,23 +10,19 @@
 using mozilla::ArrayLength;
 using mozilla::PodEqual;
 
-static const char16_t arr[] = {
-    'h', 'i', ',', 'd', 'o', 'n', '\'', 't', ' ', 'd', 'e', 'l', 'e', 't', 'e', ' ', 'm', 'e', '\0'
-};
+static const char16_t arr[] = {'h', 'i', ',', 'd', 'o', 'n', '\'', 't', ' ', 'd',
+                               'e', 'l', 'e', 't', 'e', ' ', 'm',  'e', '\0'};
 static const size_t arrlen = ArrayLength(arr) - 1;
 
 static int finalized1 = 0;
 static int finalized2 = 0;
 
-static void
-finalize_str(const JSStringFinalizer* fin, char16_t* chars);
+static void finalize_str(const JSStringFinalizer* fin, char16_t* chars);
 
-static const JSStringFinalizer finalizer1 = { finalize_str };
-static const JSStringFinalizer finalizer2 = { finalize_str };
+static const JSStringFinalizer finalizer1 = {finalize_str};
+static const JSStringFinalizer finalizer2 = {finalize_str};
 
-static void
-finalize_str(const JSStringFinalizer* fin, char16_t* chars)
-{
+static void finalize_str(const JSStringFinalizer* fin, char16_t* chars) {
     if (chars && PodEqual(const_cast<const char16_t*>(chars), arr, arrlen)) {
         if (fin == &finalizer1) {
             ++finalized1;
@@ -36,8 +32,7 @@ finalize_str(const JSStringFinalizer* fin, char16_t* chars)
     }
 }
 
-BEGIN_TEST(testExternalStrings)
-{
+BEGIN_TEST(testExternalStrings) {
     const unsigned N = 1000;
 
     for (unsigned i = 0; i < N; ++i) {

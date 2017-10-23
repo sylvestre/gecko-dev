@@ -17,34 +17,43 @@
    To change the list of properties, see nsCSSPropList.h
 
  */
-enum nsCSSPropertyID {
+enum nsCSSPropertyID
+{
   eCSSProperty_UNKNOWN = -1,
 
-  #define CSS_PROP(name_, id_, method_, flags_, pref_, parsevariant_, \
-                   kwtable_, stylestruct_, stylestructoffset_, animtype_) \
-    eCSSProperty_##id_,
-  #define CSS_PROP_LIST_INCLUDE_LOGICAL
-  #include "nsCSSPropList.h"
-  #undef CSS_PROP_LIST_INCLUDE_LOGICAL
-  #undef CSS_PROP
+#define CSS_PROP(name_,              \
+                 id_,                \
+                 method_,            \
+                 flags_,             \
+                 pref_,              \
+                 parsevariant_,      \
+                 kwtable_,           \
+                 stylestruct_,       \
+                 stylestructoffset_, \
+                 animtype_)          \
+  eCSSProperty_##id_,
+#define CSS_PROP_LIST_INCLUDE_LOGICAL
+#include "nsCSSPropList.h"
+#undef CSS_PROP_LIST_INCLUDE_LOGICAL
+#undef CSS_PROP
 
   eCSSProperty_COUNT_no_shorthands,
   // Make the count continue where it left off:
   eCSSProperty_COUNT_DUMMY = eCSSProperty_COUNT_no_shorthands - 1,
 
-  #define CSS_PROP_SHORTHAND(name_, id_, method_, flags_, pref_) \
-    eCSSProperty_##id_,
-  #include "nsCSSPropList.h"
-  #undef CSS_PROP_SHORTHAND
+#define CSS_PROP_SHORTHAND(name_, id_, method_, flags_, pref_) \
+  eCSSProperty_##id_,
+#include "nsCSSPropList.h"
+#undef CSS_PROP_SHORTHAND
 
   eCSSProperty_COUNT,
   // Make the count continue where it left off:
   eCSSProperty_COUNT_DUMMY2 = eCSSProperty_COUNT - 1,
 
-  #define CSS_PROP_ALIAS(aliasname_, aliasid_, id_, method_, pref_) \
-    eCSSPropertyAlias_##method_,
-  #include "nsCSSPropAliasList.h"
-  #undef CSS_PROP_ALIAS
+#define CSS_PROP_ALIAS(aliasname_, aliasid_, id_, method_, pref_) \
+  eCSSPropertyAlias_##method_,
+#include "nsCSSPropAliasList.h"
+#undef CSS_PROP_ALIAS
 
   eCSSProperty_COUNT_with_aliases,
   // Make the count continue where it left off:
@@ -78,11 +87,12 @@ Hash<nsCSSPropertyID>(const nsCSSPropertyID& aValue)
   return uint32_t(aValue);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 // The "descriptors" that can appear in a @font-face rule.
 // They have the syntax of properties but different value rules.
-enum nsCSSFontDesc {
+enum nsCSSFontDesc
+{
   eCSSFontDesc_UNKNOWN = -1,
 #define CSS_FONT_DESC(name_, method_) eCSSFontDesc_##method_,
 #include "nsCSSFontDescList.h"
@@ -92,7 +102,8 @@ enum nsCSSFontDesc {
 
 // The "descriptors" that can appear in a @counter-style rule.
 // They have the syntax of properties but different value rules.
-enum nsCSSCounterDesc {
+enum nsCSSCounterDesc
+{
   eCSSCounterDesc_UNKNOWN = -1,
 #define CSS_COUNTER_DESC(name_, method_) eCSSCounterDesc_##method_,
 #include "nsCSSCounterDescList.h"
@@ -100,12 +111,11 @@ enum nsCSSCounterDesc {
   eCSSCounterDesc_COUNT
 };
 
-enum nsCSSPropertyLogicalGroup {
+enum nsCSSPropertyLogicalGroup
+{
   eCSSPropertyLogicalGroup_UNKNOWN = -1,
-#define CSS_PROP_LOGICAL_GROUP_AXIS(name_) \
-  eCSSPropertyLogicalGroup_##name_,
-#define CSS_PROP_LOGICAL_GROUP_BOX(name_) \
-  eCSSPropertyLogicalGroup_##name_,
+#define CSS_PROP_LOGICAL_GROUP_AXIS(name_) eCSSPropertyLogicalGroup_##name_,
+#define CSS_PROP_LOGICAL_GROUP_BOX(name_) eCSSPropertyLogicalGroup_##name_,
 #define CSS_PROP_LOGICAL_GROUP_SHORTHAND(name_) \
   eCSSPropertyLogicalGroup_##name_,
 #include "nsCSSPropLogicalGroupList.h"

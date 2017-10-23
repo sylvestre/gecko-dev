@@ -7,7 +7,6 @@
 #ifndef mozilla_net_ChildDNSService_h
 #define mozilla_net_ChildDNSService_h
 
-
 #include "nsPIDNSService.h"
 #include "nsIObserver.h"
 #include "mozilla/Attributes.h"
@@ -19,11 +18,9 @@
 namespace mozilla {
 namespace net {
 
-class ChildDNSService final
-  : public nsPIDNSService
-  , public nsIObserver
+class ChildDNSService final : public nsPIDNSService, public nsIObserver
 {
-public:
+ public:
   // AsyncResolve (and CancelAsyncResolve) can be called off-main
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSPIDNSSERVICE
@@ -34,28 +31,31 @@ public:
 
   static ChildDNSService* GetSingleton();
 
-  void NotifyRequestDone(DNSRequestChild *aDnsRequest);
+  void NotifyRequestDone(DNSRequestChild* aDnsRequest);
 
   bool GetOffline() const;
-private:
+
+ private:
   virtual ~ChildDNSService();
 
-  void MOZ_ALWAYS_INLINE GetDNSRecordHashKey(const nsACString &aHost,
-                                             const OriginAttributes &aOriginAttributes,
-                                             uint32_t aFlags,
-                                             const nsACString &aNetworkInterface,
-                                             nsIDNSListener* aListener,
-                                             nsACString &aHashKey);
+  void MOZ_ALWAYS_INLINE
+  GetDNSRecordHashKey(const nsACString& aHost,
+                      const OriginAttributes& aOriginAttributes,
+                      uint32_t aFlags,
+                      const nsACString& aNetworkInterface,
+                      nsIDNSListener* aListener,
+                      nsACString& aHashKey);
 
   bool mFirstTime;
   bool mDisablePrefetch;
 
   // We need to remember pending dns requests to be able to cancel them.
-  nsClassHashtable<nsCStringHashKey, nsTArray<RefPtr<DNSRequestChild>>> mPendingRequests;
+  nsClassHashtable<nsCStringHashKey, nsTArray<RefPtr<DNSRequestChild>>>
+      mPendingRequests;
   Mutex mPendingRequestsLock;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_ChildDNSService_h
+#endif  // mozilla_net_ChildDNSService_h

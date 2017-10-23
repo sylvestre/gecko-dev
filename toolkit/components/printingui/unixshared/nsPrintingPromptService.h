@@ -7,10 +7,15 @@
 #define __nsPrintingPromptService_h
 
 // {E042570C-62DE-4bb6-A6E0-798E3C07B4DF}
-#define NS_PRINTINGPROMPTSERVICE_CID \
- {0xe042570c, 0x62de, 0x4bb6, { 0xa6, 0xe0, 0x79, 0x8e, 0x3c, 0x7, 0xb4, 0xdf}}
+#define NS_PRINTINGPROMPTSERVICE_CID                \
+  {                                                 \
+    0xe042570c, 0x62de, 0x4bb6,                     \
+    {                                               \
+      0xa6, 0xe0, 0x79, 0x8e, 0x3c, 0x7, 0xb4, 0xdf \
+    }                                               \
+  }
 #define NS_PRINTINGPROMPTSERVICE_CONTRACTID \
- "@mozilla.org/embedcomp/printingprompt-service;1"
+  "@mozilla.org/embedcomp/printingprompt-service;1"
 
 #include "nsCOMPtr.h"
 #include "nsIPrintingPromptService.h"
@@ -25,12 +30,10 @@
 class nsIDOMWindow;
 class nsIDialogParamBlock;
 
-class nsPrintingPromptService: public nsIPrintingPromptService,
-                               public nsIWebProgressListener
+class nsPrintingPromptService : public nsIPrintingPromptService,
+                                public nsIWebProgressListener
 {
-
-public:
-
+ public:
   nsPrintingPromptService();
 
   nsresult Init();
@@ -39,15 +42,15 @@ public:
   NS_DECL_NSIWEBPROGRESSLISTENER
   NS_DECL_ISUPPORTS
 
-protected:
+ protected:
   virtual ~nsPrintingPromptService();
 
-private:
-  nsresult DoDialog(mozIDOMWindowProxy *aParent,
-                    nsIDialogParamBlock *aParamBlock,
-                    nsIWebBrowserPrint *aWebBrowserPrint,
+ private:
+  nsresult DoDialog(mozIDOMWindowProxy* aParent,
+                    nsIDialogParamBlock* aParamBlock,
+                    nsIWebBrowserPrint* aWebBrowserPrint,
                     nsIPrintSettings* aPS,
-                    const char *aChromeURL);
+                    const char* aChromeURL);
 
   nsCOMPtr<nsIWindowWatcher> mWatcher;
   nsCOMPtr<nsIPrintProgress> mPrintProgress;
@@ -55,4 +58,3 @@ private:
 };
 
 #endif
-

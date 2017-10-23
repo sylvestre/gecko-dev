@@ -20,8 +20,8 @@ class nsSMILTimeValueSpecParams;
 namespace mozilla {
 namespace dom {
 class SVGAnimationElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * Common parsing utilities for the SMIL module. There is little re-use here; it
@@ -30,10 +30,11 @@ class SVGAnimationElement;
  */
 class nsSMILParserUtils
 {
-public:
+ public:
   // Abstract helper-class for assisting in parsing |values| attribute
-  class MOZ_STACK_CLASS GenericValueParser {
-  public:
+  class MOZ_STACK_CLASS GenericValueParser
+  {
+   public:
     virtual bool Parse(const nsAString& aValueStr) = 0;
   };
 
@@ -43,9 +44,10 @@ public:
                               FallibleTArray<nsSMILKeySpline>& aKeySplines);
 
   // Used for parsing the |keyTimes| and |keyPoints| attributes.
-  static bool ParseSemicolonDelimitedProgressList(const nsAString& aSpec,
-                                                  bool aNonDecreasing,
-                                                  FallibleTArray<double>& aArray);
+  static bool ParseSemicolonDelimitedProgressList(
+      const nsAString& aSpec,
+      bool aNonDecreasing,
+      FallibleTArray<double>& aArray);
 
   static bool ParseValues(const nsAString& aSpec,
                           const mozilla::dom::SVGAnimationElement* aSrcElement,
@@ -73,8 +75,7 @@ public:
    * @param aResult  The parsed result. [OUT]
    * @return true if parsing succeeded, otherwise false.
    */
-  static bool ParseClockValue(const nsAString& aSpec,
-                              nsSMILTimeValue* aResult);
+  static bool ParseClockValue(const nsAString& aSpec, nsSMILTimeValue* aResult);
 
   /*
    * This method checks whether the given string looks like a negative number.
@@ -86,4 +87,4 @@ public:
   static int32_t CheckForNegativeNumber(const nsAString& aStr);
 };
 
-#endif // NS_SMILPARSERUTILS_H_
+#endif  // NS_SMILPARSERUTILS_H_

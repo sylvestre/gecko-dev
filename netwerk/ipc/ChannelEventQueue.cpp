@@ -38,7 +38,7 @@ ChannelEventQueue::FlushQueue()
   // destructor) unless we make sure its refcount doesn't drop to 0 while this
   // method is running.
   nsCOMPtr<nsISupports> kungFuDeathGrip(mOwner);
-  mozilla::Unused << kungFuDeathGrip; // Not used in this function
+  mozilla::Unused << kungFuDeathGrip;  // Not used in this function
 
   // Prevent flushed events from flushing the queue recursively
   {
@@ -91,7 +91,7 @@ ChannelEventQueue::FlushQueue()
     }
 
     event->Run();
-  } // end of while(true)
+  }  // end of while(true)
 
   // The flush procedure is aborted because next event cannot be run on current
   // thread. We need to resume the event processing right after flush procedure
@@ -119,7 +119,8 @@ ChannelEventQueue::SuspendInternal()
   mSuspendCount++;
 }
 
-void ChannelEventQueue::Resume()
+void
+ChannelEventQueue::Resume()
 {
   MutexAutoLock lock(mMutex);
   ResumeInternal();
@@ -147,11 +148,12 @@ ChannelEventQueue::ResumeInternal()
     // before CompleteResume was executed.
     class CompleteResumeRunnable : public CancelableRunnable
     {
-    public:
-      explicit CompleteResumeRunnable(ChannelEventQueue* aQueue, nsISupports* aOwner)
-        : CancelableRunnable("CompleteResumeRunnable")
-        , mQueue(aQueue)
-        , mOwner(aOwner)
+     public:
+      explicit CompleteResumeRunnable(ChannelEventQueue* aQueue,
+                                      nsISupports* aOwner)
+          : CancelableRunnable("CompleteResumeRunnable"),
+            mQueue(aQueue),
+            mOwner(aOwner)
       {
       }
 
@@ -161,7 +163,7 @@ ChannelEventQueue::ResumeInternal()
         return NS_OK;
       }
 
-    private:
+     private:
       virtual ~CompleteResumeRunnable() {}
 
       RefPtr<ChannelEventQueue> mQueue;
@@ -172,13 +174,13 @@ ChannelEventQueue::ResumeInternal()
     RefPtr<Runnable> event = new CompleteResumeRunnable(this, mOwner);
 
     nsCOMPtr<nsIEventTarget> target;
-      target = mEventQueue[0]->GetEventTarget();
+    target = mEventQueue[0]->GetEventTarget();
     MOZ_ASSERT(target);
 
-    Unused << NS_WARN_IF(NS_FAILED(target->Dispatch(event.forget(),
-                                                    NS_DISPATCH_NORMAL)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(target->Dispatch(event.forget(), NS_DISPATCH_NORMAL)));
   }
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

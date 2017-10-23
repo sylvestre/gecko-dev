@@ -12,24 +12,26 @@ namespace mozilla {
 namespace dom {
 
 PaintWorkletGlobalScope::PaintWorkletGlobalScope(nsPIDOMWindowInner* aWindow)
-  : WorkletGlobalScope(aWindow)
+    : WorkletGlobalScope(aWindow)
 {
 }
 
-PaintWorkletGlobalScope::~PaintWorkletGlobalScope()
-{
-}
+PaintWorkletGlobalScope::~PaintWorkletGlobalScope() {}
 
 bool
-PaintWorkletGlobalScope::WrapGlobalObject(JSContext* aCx,
-                                          nsIPrincipal* aPrincipal,
-                                          JS::MutableHandle<JSObject*> aReflector)
+PaintWorkletGlobalScope::WrapGlobalObject(
+    JSContext* aCx,
+    nsIPrincipal* aPrincipal,
+    JS::MutableHandle<JSObject*> aReflector)
 {
   JS::CompartmentOptions options;
-  return PaintWorkletGlobalScopeBinding::Wrap(aCx, this, this,
+  return PaintWorkletGlobalScopeBinding::Wrap(aCx,
+                                              this,
+                                              this,
                                               options,
                                               nsJSPrincipals::get(aPrincipal),
-                                              true, aReflector);
+                                              true,
+                                              aReflector);
 }
 
 void
@@ -39,5 +41,5 @@ PaintWorkletGlobalScope::RegisterPaint(const nsAString& aType,
   // Nothing to do here, yet.
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

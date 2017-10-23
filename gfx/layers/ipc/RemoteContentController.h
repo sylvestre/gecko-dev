@@ -29,18 +29,18 @@ namespace layers {
  * which must be called on the repaint thread, which in this case is the compositor
  * thread.
  */
-class RemoteContentController : public GeckoContentController
-                              , public PAPZParent
+class RemoteContentController : public GeckoContentController, public PAPZParent
 {
-  using GeckoContentController::TapType;
   using GeckoContentController::APZStateChange;
+  using GeckoContentController::TapType;
 
-public:
+ public:
   RemoteContentController();
 
   virtual ~RemoteContentController();
 
-  virtual void RequestContentRepaint(const FrameMetrics& aFrameMetrics) override;
+  virtual void RequestContentRepaint(
+      const FrameMetrics& aFrameMetrics) override;
 
   virtual void HandleTap(TapType aTapType,
                          const LayoutDevicePoint& aPoint,
@@ -53,28 +53,36 @@ public:
                                   LayoutDeviceCoord aSpanChange,
                                   Modifiers aModifiers) override;
 
-  virtual void PostDelayedTask(already_AddRefed<Runnable> aTask, int aDelayMs) override;
+  virtual void PostDelayedTask(already_AddRefed<Runnable> aTask,
+                               int aDelayMs) override;
 
   virtual bool IsRepaintThread() override;
 
-  virtual void DispatchToRepaintThread(already_AddRefed<Runnable> aTask) override;
+  virtual void DispatchToRepaintThread(
+      already_AddRefed<Runnable> aTask) override;
 
   virtual void NotifyAPZStateChange(const ScrollableLayerGuid& aGuid,
                                     APZStateChange aChange,
                                     int aArg) override;
 
-  virtual void UpdateOverscrollVelocity(float aX, float aY, bool aIsRootContent) override;
+  virtual void UpdateOverscrollVelocity(float aX,
+                                        float aY,
+                                        bool aIsRootContent) override;
 
-  virtual void UpdateOverscrollOffset(float aX, float aY, bool aIsRootContent) override;
+  virtual void UpdateOverscrollOffset(float aX,
+                                      float aY,
+                                      bool aIsRootContent) override;
 
   virtual void NotifyMozMouseScrollEvent(const FrameMetrics::ViewID& aScrollId,
                                          const nsString& aEvent) override;
 
   virtual void NotifyFlushComplete() override;
 
-  virtual void NotifyAsyncScrollbarDragRejected(const FrameMetrics::ViewID& aScrollId) override;
+  virtual void NotifyAsyncScrollbarDragRejected(
+      const FrameMetrics::ViewID& aScrollId) override;
 
-  virtual void NotifyAsyncAutoscrollRejected(const FrameMetrics::ViewID& aScrollId) override;
+  virtual void NotifyAsyncAutoscrollRejected(
+      const FrameMetrics::ViewID& aScrollId) override;
 
   virtual void CancelAutoscroll(const ScrollableLayerGuid& aScrollId) override;
 
@@ -82,7 +90,7 @@ public:
 
   virtual void Destroy() override;
 
-private:
+ private:
   MessageLoop* mCompositorThread;
   bool mCanSend;
 
@@ -96,8 +104,8 @@ private:
   void CancelAutoscrollCrossProcess(const ScrollableLayerGuid& aScrollId);
 };
 
-} // namespace layers
+}  // namespace layers
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_layers_RemoteContentController_h
+#endif  // mozilla_layers_RemoteContentController_h

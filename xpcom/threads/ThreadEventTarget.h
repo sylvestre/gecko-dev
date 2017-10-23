@@ -8,7 +8,7 @@
 #define mozilla_ThreadEventTarget_h
 
 #include "mozilla/Mutex.h"
-#include "mozilla/SynchronizedEventQueue.h" // for ThreadTargetSink
+#include "mozilla/SynchronizedEventQueue.h"  // for ThreadTargetSink
 #include "nsISerialEventTarget.h"
 
 namespace mozilla {
@@ -17,26 +17,28 @@ namespace mozilla {
 // be used with any ThreadTargetSink implementation.
 class ThreadEventTarget final : public nsISerialEventTarget
 {
-public:
-  ThreadEventTarget(ThreadTargetSink* aSink,
-                    bool aIsMainThread);
+ public:
+  ThreadEventTarget(ThreadTargetSink* aSink, bool aIsMainThread);
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIEVENTTARGET_FULL
 
   // Disconnects the target so that it can no longer post events.
-  void Disconnect(const MutexAutoLock& aProofOfLock) { mSink->Disconnect(aProofOfLock); }
+  void Disconnect(const MutexAutoLock& aProofOfLock)
+  {
+    mSink->Disconnect(aProofOfLock);
+  }
 
   // Sets the thread for which IsOnCurrentThread returns true to the current thread.
   void SetCurrentThread();
 
-private:
+ private:
   ~ThreadEventTarget() {}
 
   RefPtr<ThreadTargetSink> mSink;
   bool mIsMainThread;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ThreadEventTarget_h
+#endif  // mozilla_ThreadEventTarget_h

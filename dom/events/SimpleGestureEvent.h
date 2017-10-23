@@ -17,10 +17,9 @@ class nsPresContext;
 namespace mozilla {
 namespace dom {
 
-class SimpleGestureEvent : public MouseEvent,
-                           public nsIDOMSimpleGestureEvent
+class SimpleGestureEvent : public MouseEvent, public nsIDOMSimpleGestureEvent
 {
-public:
+ public:
   SimpleGestureEvent(EventTarget* aOwner,
                      nsPresContext* aPresContext,
                      WidgetSimpleGestureEvent* aEvent);
@@ -32,7 +31,8 @@ public:
   // Forward to base class
   NS_FORWARD_TO_MOUSEEVENT
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return SimpleGestureEventBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -62,16 +62,16 @@ public:
                               double aDelta,
                               uint32_t aClickCount);
 
-protected:
+ protected:
   ~SimpleGestureEvent() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::SimpleGestureEvent>
 NS_NewDOMSimpleGestureEvent(mozilla::dom::EventTarget* aOwner,
                             nsPresContext* aPresContext,
                             mozilla::WidgetSimpleGestureEvent* aEvent);
 
-#endif // mozilla_dom_SimpleGestureEvent_h_
+#endif  // mozilla_dom_SimpleGestureEvent_h_

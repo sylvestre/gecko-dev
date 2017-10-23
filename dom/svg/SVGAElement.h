@@ -11,8 +11,9 @@
 #include "nsSVGString.h"
 #include "mozilla/dom/SVGGraphicsElement.h"
 
-nsresult NS_NewSVGAElement(nsIContent **aResult,
-                           already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGAElement(nsIContent** aResult,
+                  already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 
@@ -23,29 +24,31 @@ namespace dom {
 
 typedef SVGGraphicsElement SVGAElementBase;
 
-class SVGAElement final : public SVGAElementBase,
-                          public Link
+class SVGAElement final : public SVGAElementBase, public Link
 {
-protected:
+ protected:
   explicit SVGAElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
-  friend nsresult (::NS_NewSVGAElement(nsIContent **aResult,
-                                       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
-  virtual JSObject* WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  friend nsresult(::NS_NewSVGAElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+  virtual JSObject* WrapNode(JSContext* cx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // nsINode interface methods
   virtual nsresult GetEventTargetParent(
-                     EventChainPreVisitor& aVisitor) override;
-  virtual nsresult PostHandleEvent(
-                     EventChainPostVisitor& aVisitor) override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+      EventChainPreVisitor& aVisitor) override;
+  virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument *aDocument, nsIContent *aParent,
-                              nsIContent *aBindingParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
+                              nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
@@ -57,11 +60,14 @@ public:
   virtual already_AddRefed<nsIURI> GetHrefURI() const override;
   virtual EventStates IntrinsicState() const override;
   using nsIContent::SetAttr;
-  virtual nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                           nsAtom* aPrefix, const nsAString& aValue,
+  virtual nsresult SetAttr(int32_t aNameSpaceID,
+                           nsAtom* aName,
+                           nsAtom* aPrefix,
+                           const nsAString& aValue,
                            nsIPrincipal* aSubjectPrincipal,
                            bool aNotify) override;
-  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID,
+                             nsAtom* aAttribute,
                              bool aNotify) override;
 
   // Link
@@ -70,8 +76,8 @@ public:
   // WebIDL
   already_AddRefed<SVGAnimatedString> Href();
   already_AddRefed<SVGAnimatedString> Target();
-  void GetDownload(nsAString & aDownload);
-  void SetDownload(const nsAString & aDownload, ErrorResult& rv);
+  void GetDownload(nsAString& aDownload);
+  void SetDownload(const nsAString& aDownload, ErrorResult& rv);
 
   virtual void NodeInfoChanged(nsIDocument* aOldDoc) final override
   {
@@ -79,17 +85,22 @@ public:
     SVGAElementBase::NodeInfoChanged(aOldDoc);
   }
 
-protected:
+ protected:
   virtual ~SVGAElement();
 
   virtual StringAttributesInfo GetStringInfo() override;
 
-  enum { HREF, XLINK_HREF, TARGET };
+  enum
+  {
+    HREF,
+    XLINK_HREF,
+    TARGET
+  };
   nsSVGString mStringAttributes[3];
   static StringInfo sStringInfo[3];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGAElement_h
+#endif  // mozilla_dom_SVGAElement_h

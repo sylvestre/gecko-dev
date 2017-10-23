@@ -14,22 +14,22 @@
 #include "nsCategoryCache.h"
 
 nsCategoryObserver::nsCategoryObserver(const char* aCategory)
-  : mCategory(aCategory)
-  , mCallback(nullptr)
-  , mClosure(nullptr)
-  , mObserversRemoved(false)
+    : mCategory(aCategory),
+      mCallback(nullptr),
+      mClosure(nullptr),
+      mObserversRemoved(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
   // First, enumerate the currently existing entries
   nsCOMPtr<nsICategoryManager> catMan =
-    do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
+      do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
   if (!catMan) {
     return;
   }
 
   nsCOMPtr<nsISimpleEnumerator> enumerator;
-  nsresult rv = catMan->EnumerateCategory(aCategory,
-                                          getter_AddRefs(enumerator));
+  nsresult rv =
+      catMan->EnumerateCategory(aCategory, getter_AddRefs(enumerator));
   if (NS_FAILED(rv)) {
     return;
   }
@@ -43,9 +43,8 @@ nsCategoryObserver::nsCategoryObserver(const char* aCategory)
     strings->GetNext(entryName);
 
     nsCString entryValue;
-    rv = catMan->GetCategoryEntry(aCategory,
-                                  entryName.get(),
-                                  getter_Copies(entryValue));
+    rv = catMan->GetCategoryEntry(
+        aCategory, entryName.get(), getter_Copies(entryValue));
     if (NS_SUCCEEDED(rv)) {
       nsCOMPtr<nsISupports> service = do_GetService(entryValue.get());
       if (service) {
@@ -55,8 +54,7 @@ nsCategoryObserver::nsCategoryObserver(const char* aCategory)
   }
 
   // Now, listen for changes
-  nsCOMPtr<nsIObserverService> serv =
-    mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> serv = mozilla::services::GetObserverService();
   if (serv) {
     serv->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
     serv->AddObserver(this, NS_XPCOM_CATEGORY_ENTRY_ADDED_OBSERVER_ID, false);
@@ -100,8 +98,7 @@ nsCategoryObserver::RemoveObservers()
   }
 
   mObserversRemoved = true;
-  nsCOMPtr<nsIObserverService> obsSvc =
-    mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> obsSvc = mozilla::services::GetObserverService();
   if (obsSvc) {
     obsSvc->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
     obsSvc->RemoveObserver(this, NS_XPCOM_CATEGORY_ENTRY_ADDED_OBSERVER_ID);
@@ -111,7 +108,8 @@ nsCategoryObserver::RemoveObservers()
 }
 
 NS_IMETHODIMP
-nsCategoryObserver::Observe(nsISupports* aSubject, const char* aTopic,
+nsCategoryObserver::Observe(nsISupports* aSubject,
+                            const char* aTopic,
                             const char16_t* aData)
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -145,15 +143,14 @@ nsCategoryObserver::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     nsCOMPtr<nsICategoryManager> catMan =
-      do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
+        do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
     if (!catMan) {
       return NS_OK;
     }
 
     nsCString entryValue;
-    catMan->GetCategoryEntry(mCategory.get(),
-                             str.get(),
-                             getter_Copies(entryValue));
+    catMan->GetCategoryEntry(
+        mCategory.get(), str.get(), getter_Copies(entryValue));
 
     nsCOMPtr<nsISupports> service = do_GetService(entryValue.get());
 

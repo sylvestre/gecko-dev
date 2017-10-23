@@ -33,16 +33,21 @@
 #include "client/windows/crash_generation/minidump_generator.h"
 
 // Convenience to get to the PEB pointer in a TEB.
-struct FakeTEB {
+struct FakeTEB
+{
   char dummy[0x30];
   void* peb;
 };
 
-class DumpAnalysis {
+class DumpAnalysis
+{
  public:
   explicit DumpAnalysis(const std::wstring& file_path)
-      : dump_file_(file_path), dump_file_view_(NULL), dump_file_mapping_(NULL),
-        dump_file_handle_(NULL) {
+      : dump_file_(file_path),
+        dump_file_view_(NULL),
+        dump_file_mapping_(NULL),
+        dump_file_handle_(NULL)
+  {
     EnsureDumpMapped();
   }
   ~DumpAnalysis();
@@ -52,34 +57,38 @@ class DumpAnalysis {
   // This is template to keep type safety in the front, but we end up casting
   // to void** inside the implementation to pass the pointer to Win32. So
   // casting here is considered safe.
-  template <class StreamType>
-  size_t GetStream(ULONG stream_number, StreamType** stream) const {
+  template<class StreamType>
+  size_t GetStream(ULONG stream_number, StreamType** stream) const
+  {
     return GetStreamImpl(stream_number, reinterpret_cast<void**>(stream));
   }
 
   bool HasTebs() const;
   bool HasPeb() const;
-  bool HasMemory(ULONG64 address) const {
+  bool HasMemory(ULONG64 address) const
+  {
     return HasMemory<BYTE>(address, NULL);
   }
 
-  bool HasMemory(const void* address) const {
+  bool HasMemory(const void* address) const
+  {
     return HasMemory<BYTE>(address, NULL);
   }
 
-  template <class StructureType>
-  bool HasMemory(ULONG64 address, StructureType** structure = NULL) const {
+  template<class StructureType>
+  bool HasMemory(ULONG64 address, StructureType** structure = NULL) const
+  {
     // We can't cope with 64 bit addresses for now.
-    if (address > 0xFFFFFFFFUL)
-      return false;
+    if (address > 0xFFFFFFFFUL) return false;
 
     return HasMemory(reinterpret_cast<void*>(address), structure);
   }
 
-  template <class StructureType>
-  bool HasMemory(const void* addr_in, StructureType** structure = NULL) const {
-    return HasMemoryImpl(addr_in, sizeof(StructureType),
-                             reinterpret_cast<void**>(structure));
+  template<class StructureType>
+  bool HasMemory(const void* addr_in, StructureType** structure = NULL) const
+  {
+    return HasMemoryImpl(
+        addr_in, sizeof(StructureType), reinterpret_cast<void**>(structure));
   }
 
  protected:
@@ -95,7 +104,8 @@ class DumpAnalysis {
   size_t GetStreamImpl(ULONG stream_number, void** stream) const;
 
   // This is the implementation of HasMemory<>.
-  bool HasMemoryImpl(const void* addr_in, size_t pointersize,
+  bool HasMemoryImpl(const void* addr_in,
+                     size_t pointersize,
                      void** structure) const;
 };
 

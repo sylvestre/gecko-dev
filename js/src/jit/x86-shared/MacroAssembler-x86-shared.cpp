@@ -15,9 +15,7 @@ using namespace js;
 using namespace js::jit;
 
 // Note: this function clobbers the input register.
-void
-MacroAssembler::clampDoubleToUint8(FloatRegister input, Register output)
-{
+void MacroAssembler::clampDoubleToUint8(FloatRegister input, Register output) {
     ScratchDoubleScope scratch(*this);
     MOZ_ASSERT(input != scratch);
     Label positive, done;
@@ -56,43 +54,31 @@ MacroAssembler::clampDoubleToUint8(FloatRegister input, Register output)
 
     // > 255 --> 255
     bind(&outOfRange);
-    {
-        move32(Imm32(255), output);
-    }
+    { move32(Imm32(255), output); }
 
     bind(&done);
 }
 
-void
-MacroAssembler::alignFrameForICArguments(AfterICSaveLive& aic)
-{
+void MacroAssembler::alignFrameForICArguments(AfterICSaveLive& aic) {
     // Exists for MIPS compatibility.
 }
 
-void
-MacroAssembler::restoreFrameAlignmentForICArguments(AfterICSaveLive& aic)
-{
+void MacroAssembler::restoreFrameAlignmentForICArguments(AfterICSaveLive& aic) {
     // Exists for MIPS compatibility.
 }
 
-bool
-MacroAssemblerX86Shared::buildOOLFakeExitFrame(void* fakeReturnAddr)
-{
-    uint32_t descriptor = MakeFrameDescriptor(asMasm().framePushed(), JitFrame_IonJS,
-                                              ExitFrameLayout::Size());
+bool MacroAssemblerX86Shared::buildOOLFakeExitFrame(void* fakeReturnAddr) {
+    uint32_t descriptor =
+        MakeFrameDescriptor(asMasm().framePushed(), JitFrame_IonJS, ExitFrameLayout::Size());
     asMasm().Push(Imm32(descriptor));
     asMasm().Push(ImmPtr(fakeReturnAddr));
     return true;
 }
 
-void
-MacroAssemblerX86Shared::branchNegativeZero(FloatRegister reg,
-                                            Register scratch,
-                                            Label* label,
-                                            bool maybeNonZero)
-{
-    // Determines whether the low double contained in the XMM register reg
-    // is equal to -0.0.
+void MacroAssemblerX86Shared::branchNegativeZero(FloatRegister reg, Register scratch, Label* label,
+                                                 bool maybeNonZero) {
+// Determines whether the low double contained in the XMM register reg
+// is equal to -0.0.
 
 #if defined(JS_CODEGEN_X86)
     Label nonZero;
@@ -122,121 +108,106 @@ MacroAssemblerX86Shared::branchNegativeZero(FloatRegister reg,
 #endif
 }
 
-void
-MacroAssemblerX86Shared::branchNegativeZeroFloat32(FloatRegister reg,
-                                                   Register scratch,
-                                                   Label* label)
-{
+void MacroAssemblerX86Shared::branchNegativeZeroFloat32(FloatRegister reg, Register scratch,
+                                                        Label* label) {
     vmovd(reg, scratch);
     cmp32(scratch, Imm32(1));
     j(Overflow, label);
 }
 
-MacroAssembler&
-MacroAssemblerX86Shared::asMasm()
-{
-    return *static_cast<MacroAssembler*>(this);
-}
+MacroAssembler& MacroAssemblerX86Shared::asMasm() { return *static_cast<MacroAssembler*>(this); }
 
-const MacroAssembler&
-MacroAssemblerX86Shared::asMasm() const
-{
+const MacroAssembler& MacroAssemblerX86Shared::asMasm() const {
     return *static_cast<const MacroAssembler*>(this);
 }
 
-template<typename T>
-void
-MacroAssemblerX86Shared::compareExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem,
-                                                        Register oldval, Register newval,
-                                                        Register temp, AnyRegister output)
-{
+template <typename T>
+void MacroAssemblerX86Shared::compareExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem,
+                                                             Register oldval, Register newval,
+                                                             Register temp, AnyRegister output) {
     switch (arrayType) {
-      case Scalar::Int8:
-        compareExchange8SignExtend(mem, oldval, newval, output.gpr());
-        break;
-      case Scalar::Uint8:
-        compareExchange8ZeroExtend(mem, oldval, newval, output.gpr());
-        break;
-      case Scalar::Int16:
-        compareExchange16SignExtend(mem, oldval, newval, output.gpr());
-        break;
-      case Scalar::Uint16:
-        compareExchange16ZeroExtend(mem, oldval, newval, output.gpr());
-        break;
-      case Scalar::Int32:
-        compareExchange32(mem, oldval, newval, output.gpr());
-        break;
-      case Scalar::Uint32:
-        // At the moment, the code in MCallOptimize.cpp requires the output
-        // type to be double for uint32 arrays.  See bug 1077305.
-        MOZ_ASSERT(output.isFloat());
-        compareExchange32(mem, oldval, newval, temp);
-        asMasm().convertUInt32ToDouble(temp, output.fpu());
-        break;
-      default:
-        MOZ_CRASH("Invalid typed array type");
+        case Scalar::Int8:
+            compareExchange8SignExtend(mem, oldval, newval, output.gpr());
+            break;
+        case Scalar::Uint8:
+            compareExchange8ZeroExtend(mem, oldval, newval, output.gpr());
+            break;
+        case Scalar::Int16:
+            compareExchange16SignExtend(mem, oldval, newval, output.gpr());
+            break;
+        case Scalar::Uint16:
+            compareExchange16ZeroExtend(mem, oldval, newval, output.gpr());
+            break;
+        case Scalar::Int32:
+            compareExchange32(mem, oldval, newval, output.gpr());
+            break;
+        case Scalar::Uint32:
+            // At the moment, the code in MCallOptimize.cpp requires the output
+            // type to be double for uint32 arrays.  See bug 1077305.
+            MOZ_ASSERT(output.isFloat());
+            compareExchange32(mem, oldval, newval, temp);
+            asMasm().convertUInt32ToDouble(temp, output.fpu());
+            break;
+        default:
+            MOZ_CRASH("Invalid typed array type");
     }
 }
 
-template void
-MacroAssemblerX86Shared::compareExchangeToTypedIntArray(Scalar::Type arrayType, const Address& mem,
-                                                        Register oldval, Register newval, Register temp,
-                                                        AnyRegister output);
-template void
-MacroAssemblerX86Shared::compareExchangeToTypedIntArray(Scalar::Type arrayType, const BaseIndex& mem,
-                                                        Register oldval, Register newval, Register temp,
-                                                        AnyRegister output);
+template void MacroAssemblerX86Shared::compareExchangeToTypedIntArray(
+    Scalar::Type arrayType, const Address& mem, Register oldval, Register newval, Register temp,
+    AnyRegister output);
+template void MacroAssemblerX86Shared::compareExchangeToTypedIntArray(
+    Scalar::Type arrayType, const BaseIndex& mem, Register oldval, Register newval, Register temp,
+    AnyRegister output);
 
-template<typename T>
-void
-MacroAssemblerX86Shared::atomicExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem,
-                                                       Register value, Register temp, AnyRegister output)
-{
+template <typename T>
+void MacroAssemblerX86Shared::atomicExchangeToTypedIntArray(Scalar::Type arrayType, const T& mem,
+                                                            Register value, Register temp,
+                                                            AnyRegister output) {
     switch (arrayType) {
-      case Scalar::Int8:
-        atomicExchange8SignExtend(mem, value, output.gpr());
-        break;
-      case Scalar::Uint8:
-        atomicExchange8ZeroExtend(mem, value, output.gpr());
-        break;
-      case Scalar::Int16:
-        atomicExchange16SignExtend(mem, value, output.gpr());
-        break;
-      case Scalar::Uint16:
-        atomicExchange16ZeroExtend(mem, value, output.gpr());
-        break;
-      case Scalar::Int32:
-        atomicExchange32(mem, value, output.gpr());
-        break;
-      case Scalar::Uint32:
-        // At the moment, the code in MCallOptimize.cpp requires the output
-        // type to be double for uint32 arrays.  See bug 1077305.
-        MOZ_ASSERT(output.isFloat());
-        atomicExchange32(mem, value, temp);
-        asMasm().convertUInt32ToDouble(temp, output.fpu());
-        break;
-      default:
-        MOZ_CRASH("Invalid typed array type");
+        case Scalar::Int8:
+            atomicExchange8SignExtend(mem, value, output.gpr());
+            break;
+        case Scalar::Uint8:
+            atomicExchange8ZeroExtend(mem, value, output.gpr());
+            break;
+        case Scalar::Int16:
+            atomicExchange16SignExtend(mem, value, output.gpr());
+            break;
+        case Scalar::Uint16:
+            atomicExchange16ZeroExtend(mem, value, output.gpr());
+            break;
+        case Scalar::Int32:
+            atomicExchange32(mem, value, output.gpr());
+            break;
+        case Scalar::Uint32:
+            // At the moment, the code in MCallOptimize.cpp requires the output
+            // type to be double for uint32 arrays.  See bug 1077305.
+            MOZ_ASSERT(output.isFloat());
+            atomicExchange32(mem, value, temp);
+            asMasm().convertUInt32ToDouble(temp, output.fpu());
+            break;
+        default:
+            MOZ_CRASH("Invalid typed array type");
     }
 }
 
-template void
-MacroAssemblerX86Shared::atomicExchangeToTypedIntArray(Scalar::Type arrayType, const Address& mem,
-                                                       Register value, Register temp, AnyRegister output);
-template void
-MacroAssemblerX86Shared::atomicExchangeToTypedIntArray(Scalar::Type arrayType, const BaseIndex& mem,
-                                                       Register value, Register temp, AnyRegister output);
+template void MacroAssemblerX86Shared::atomicExchangeToTypedIntArray(Scalar::Type arrayType,
+                                                                     const Address& mem,
+                                                                     Register value, Register temp,
+                                                                     AnyRegister output);
+template void MacroAssemblerX86Shared::atomicExchangeToTypedIntArray(Scalar::Type arrayType,
+                                                                     const BaseIndex& mem,
+                                                                     Register value, Register temp,
+                                                                     AnyRegister output);
 
-template<class T, class Map>
-T*
-MacroAssemblerX86Shared::getConstant(const typename T::Pod& value, Map& map,
-                                     Vector<T, 0, SystemAllocPolicy>& vec)
-{
+template <class T, class Map>
+T* MacroAssemblerX86Shared::getConstant(const typename T::Pod& value, Map& map,
+                                        Vector<T, 0, SystemAllocPolicy>& vec) {
     typedef typename Map::AddPtr AddPtr;
     if (!map.initialized()) {
         enoughMemory_ &= map.init();
-        if (!enoughMemory_)
-            return nullptr;
+        if (!enoughMemory_) return nullptr;
     }
     size_t index;
     if (AddPtr p = map.lookupForAdd(value)) {
@@ -244,37 +215,27 @@ MacroAssemblerX86Shared::getConstant(const typename T::Pod& value, Map& map,
     } else {
         index = vec.length();
         enoughMemory_ &= vec.append(T(value));
-        if (!enoughMemory_)
-            return nullptr;
+        if (!enoughMemory_) return nullptr;
         enoughMemory_ &= map.add(p, value, index);
-        if (!enoughMemory_)
-            return nullptr;
+        if (!enoughMemory_) return nullptr;
     }
     return &vec[index];
 }
 
-MacroAssemblerX86Shared::Float*
-MacroAssemblerX86Shared::getFloat(float f)
-{
+MacroAssemblerX86Shared::Float* MacroAssemblerX86Shared::getFloat(float f) {
     return getConstant<Float, FloatMap>(f, floatMap_, floats_);
 }
 
-MacroAssemblerX86Shared::Double*
-MacroAssemblerX86Shared::getDouble(double d)
-{
+MacroAssemblerX86Shared::Double* MacroAssemblerX86Shared::getDouble(double d) {
     return getConstant<Double, DoubleMap>(d, doubleMap_, doubles_);
 }
 
-MacroAssemblerX86Shared::SimdData*
-MacroAssemblerX86Shared::getSimdData(const SimdConstant& v)
-{
+MacroAssemblerX86Shared::SimdData* MacroAssemblerX86Shared::getSimdData(const SimdConstant& v) {
     return getConstant<SimdData, SimdMap>(v, simdMap_, simds_);
 }
 
-void
-MacroAssemblerX86Shared::minMaxDouble(FloatRegister first, FloatRegister second, bool canBeNaN,
-                                      bool isMax)
-{
+void MacroAssemblerX86Shared::minMaxDouble(FloatRegister first, FloatRegister second,
+                                           bool canBeNaN, bool isMax) {
     Label done, nan, minMaxInst;
 
     // Do a vucomisd to catch equality and NaNs, which both require special
@@ -284,8 +245,7 @@ MacroAssemblerX86Shared::minMaxDouble(FloatRegister first, FloatRegister second,
     // will sometimes be hard on the branch predictor.
     vucomisd(second, first);
     j(Assembler::NotEqual, &minMaxInst);
-    if (canBeNaN)
-        j(Assembler::Parity, &nan);
+    if (canBeNaN) j(Assembler::Parity, &nan);
 
     // Ordered and equal. The operands are bit-identical unless they are zero
     // and negative zero. These instructions merge the sign bits in that
@@ -316,10 +276,8 @@ MacroAssemblerX86Shared::minMaxDouble(FloatRegister first, FloatRegister second,
     bind(&done);
 }
 
-void
-MacroAssemblerX86Shared::minMaxFloat32(FloatRegister first, FloatRegister second, bool canBeNaN,
-                                       bool isMax)
-{
+void MacroAssemblerX86Shared::minMaxFloat32(FloatRegister first, FloatRegister second,
+                                            bool canBeNaN, bool isMax) {
     Label done, nan, minMaxInst;
 
     // Do a vucomiss to catch equality and NaNs, which both require special
@@ -329,8 +287,7 @@ MacroAssemblerX86Shared::minMaxFloat32(FloatRegister first, FloatRegister second
     // will sometimes be hard on the branch predictor.
     vucomiss(second, first);
     j(Assembler::NotEqual, &minMaxInst);
-    if (canBeNaN)
-        j(Assembler::Parity, &nan);
+    if (canBeNaN) j(Assembler::Parity, &nan);
 
     // Ordered and equal. The operands are bit-identical unless they are zero
     // and negative zero. These instructions merge the sign bits in that
@@ -365,23 +322,14 @@ MacroAssemblerX86Shared::minMaxFloat32(FloatRegister first, FloatRegister second
 // ===============================================================
 // MacroAssembler high-level usage.
 
-void
-MacroAssembler::flush()
-{
-}
+void MacroAssembler::flush() {}
 
-void
-MacroAssembler::comment(const char* msg)
-{
-    masm.comment(msg);
-}
+void MacroAssembler::comment(const char* msg) { masm.comment(msg); }
 
 // ===============================================================
 // Stack manipulation functions.
 
-void
-MacroAssembler::PushRegsInMask(LiveRegisterSet set)
-{
+void MacroAssembler::PushRegsInMask(LiveRegisterSet set) {
     FloatRegisterSet fpuSet(set.fpus().reduceSetForPush());
     unsigned numFpu = fpuSet.size();
     int32_t diffF = fpuSet.getPushSizeInBytes();
@@ -417,9 +365,7 @@ MacroAssembler::PushRegsInMask(LiveRegisterSet set)
     MOZ_ASSERT(diffF == 0);
 }
 
-void
-MacroAssembler::storeRegsInMask(LiveRegisterSet set, Address dest, Register)
-{
+void MacroAssembler::storeRegsInMask(LiveRegisterSet set, Address dest, Register) {
     FloatRegisterSet fpuSet(set.fpus().reduceSetForPush());
     unsigned numFpu = fpuSet.size();
     int32_t diffF = fpuSet.getPushSizeInBytes();
@@ -455,9 +401,7 @@ MacroAssembler::storeRegsInMask(LiveRegisterSet set, Address dest, Register)
     MOZ_ASSERT(diffF == 0);
 }
 
-void
-MacroAssembler::PopRegsInMaskIgnore(LiveRegisterSet set, LiveRegisterSet ignore)
-{
+void MacroAssembler::PopRegsInMaskIgnore(LiveRegisterSet set, LiveRegisterSet ignore) {
     FloatRegisterSet fpuSet(set.fpus().reduceSetForPush());
     unsigned numFpu = fpuSet.size();
     int32_t diffG = set.gprs().size() * sizeof(intptr_t);
@@ -469,8 +413,7 @@ MacroAssembler::PopRegsInMaskIgnore(LiveRegisterSet set, LiveRegisterSet ignore)
         FloatRegister reg = *iter;
         diffF -= reg.size();
         numFpu -= 1;
-        if (ignore.has(reg))
-            continue;
+        if (ignore.has(reg)) continue;
 
         Address spillAddress(StackPointer, diffF);
         if (reg.isDouble())
@@ -500,221 +443,130 @@ MacroAssembler::PopRegsInMaskIgnore(LiveRegisterSet set, LiveRegisterSet ignore)
     } else {
         for (GeneralRegisterBackwardIterator iter(set.gprs()); iter.more(); ++iter) {
             diffG -= sizeof(intptr_t);
-            if (!ignore.has(*iter))
-                loadPtr(Address(StackPointer, diffG), *iter);
+            if (!ignore.has(*iter)) loadPtr(Address(StackPointer, diffG), *iter);
         }
         freeStack(reservedG);
     }
     MOZ_ASSERT(diffG == 0);
 }
 
-void
-MacroAssembler::Push(const Operand op)
-{
+void MacroAssembler::Push(const Operand op) {
     push(op);
     adjustFrame(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Push(Register reg)
-{
+void MacroAssembler::Push(Register reg) {
     push(reg);
     adjustFrame(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Push(const Imm32 imm)
-{
+void MacroAssembler::Push(const Imm32 imm) {
     push(imm);
     adjustFrame(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Push(const ImmWord imm)
-{
+void MacroAssembler::Push(const ImmWord imm) {
     push(imm);
     adjustFrame(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Push(const ImmPtr imm)
-{
-    Push(ImmWord(uintptr_t(imm.value)));
-}
+void MacroAssembler::Push(const ImmPtr imm) { Push(ImmWord(uintptr_t(imm.value))); }
 
-void
-MacroAssembler::Push(const ImmGCPtr ptr)
-{
+void MacroAssembler::Push(const ImmGCPtr ptr) {
     push(ptr);
     adjustFrame(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Push(FloatRegister t)
-{
+void MacroAssembler::Push(FloatRegister t) {
     push(t);
     adjustFrame(sizeof(double));
 }
 
-void
-MacroAssembler::PushFlags()
-{
+void MacroAssembler::PushFlags() {
     pushFlags();
     adjustFrame(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Pop(const Operand op)
-{
+void MacroAssembler::Pop(const Operand op) {
     pop(op);
     implicitPop(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Pop(Register reg)
-{
+void MacroAssembler::Pop(Register reg) {
     pop(reg);
     implicitPop(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::Pop(FloatRegister reg)
-{
+void MacroAssembler::Pop(FloatRegister reg) {
     pop(reg);
     implicitPop(sizeof(double));
 }
 
-void
-MacroAssembler::Pop(const ValueOperand& val)
-{
+void MacroAssembler::Pop(const ValueOperand& val) {
     popValue(val);
     implicitPop(sizeof(Value));
 }
 
-void
-MacroAssembler::PopFlags()
-{
+void MacroAssembler::PopFlags() {
     popFlags();
     implicitPop(sizeof(intptr_t));
 }
 
-void
-MacroAssembler::PopStackPtr()
-{
-    Pop(StackPointer);
-}
+void MacroAssembler::PopStackPtr() { Pop(StackPointer); }
 
 // ===============================================================
 // Simple call functions.
 
-CodeOffset
-MacroAssembler::call(Register reg)
-{
-    return Assembler::call(reg);
-}
+CodeOffset MacroAssembler::call(Register reg) { return Assembler::call(reg); }
 
-CodeOffset
-MacroAssembler::call(Label* label)
-{
-    return Assembler::call(label);
-}
+CodeOffset MacroAssembler::call(Label* label) { return Assembler::call(label); }
 
-void
-MacroAssembler::call(const Address& addr)
-{
+void MacroAssembler::call(const Address& addr) {
     Assembler::call(Operand(addr.base, addr.offset));
 }
 
-void
-MacroAssembler::call(wasm::SymbolicAddress target)
-{
+void MacroAssembler::call(wasm::SymbolicAddress target) {
     mov(target, eax);
     Assembler::call(eax);
 }
 
-void
-MacroAssembler::call(ImmWord target)
-{
-    Assembler::call(target);
-}
+void MacroAssembler::call(ImmWord target) { Assembler::call(target); }
 
-void
-MacroAssembler::call(ImmPtr target)
-{
-    Assembler::call(target);
-}
+void MacroAssembler::call(ImmPtr target) { Assembler::call(target); }
 
-void
-MacroAssembler::call(JitCode* target)
-{
-    Assembler::call(target);
-}
+void MacroAssembler::call(JitCode* target) { Assembler::call(target); }
 
-CodeOffset
-MacroAssembler::callWithPatch()
-{
-    return Assembler::callWithPatch();
-}
-void
-MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset)
-{
+CodeOffset MacroAssembler::callWithPatch() { return Assembler::callWithPatch(); }
+void MacroAssembler::patchCall(uint32_t callerOffset, uint32_t calleeOffset) {
     Assembler::patchCall(callerOffset, calleeOffset);
 }
 
-void
-MacroAssembler::callAndPushReturnAddress(Register reg)
-{
-    call(reg);
-}
+void MacroAssembler::callAndPushReturnAddress(Register reg) { call(reg); }
 
-void
-MacroAssembler::callAndPushReturnAddress(Label* label)
-{
-    call(label);
-}
+void MacroAssembler::callAndPushReturnAddress(Label* label) { call(label); }
 
 // ===============================================================
 // Patchable near/far jumps.
 
-CodeOffset
-MacroAssembler::farJumpWithPatch()
-{
-    return Assembler::farJumpWithPatch();
-}
+CodeOffset MacroAssembler::farJumpWithPatch() { return Assembler::farJumpWithPatch(); }
 
-void
-MacroAssembler::patchFarJump(CodeOffset farJump, uint32_t targetOffset)
-{
+void MacroAssembler::patchFarJump(CodeOffset farJump, uint32_t targetOffset) {
     Assembler::patchFarJump(farJump, targetOffset);
 }
 
-void
-MacroAssembler::repatchFarJump(uint8_t* code, uint32_t farJumpOffset, uint32_t targetOffset)
-{
+void MacroAssembler::repatchFarJump(uint8_t* code, uint32_t farJumpOffset, uint32_t targetOffset) {
     Assembler::repatchFarJump(code, farJumpOffset, targetOffset);
 }
 
-CodeOffset
-MacroAssembler::nopPatchableToNearJump()
-{
-    return Assembler::twoByteNop();
-}
+CodeOffset MacroAssembler::nopPatchableToNearJump() { return Assembler::twoByteNop(); }
 
-void
-MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target)
-{
+void MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target) {
     Assembler::patchTwoByteNopToJump(jump, target);
 }
 
-void
-MacroAssembler::patchNearJumpToNop(uint8_t* jump)
-{
-    Assembler::patchJumpToTwoByteNop(jump);
-}
+void MacroAssembler::patchNearJumpToNop(uint8_t* jump) { Assembler::patchJumpToTwoByteNop(jump); }
 
-CodeOffset
-MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc)
-{
+CodeOffset MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc) {
     CodeOffset offset(currentOffset());
     masm.nop_five();
     append(desc, CodeOffset(currentOffset()));
@@ -722,24 +574,18 @@ MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc)
     return offset;
 }
 
-void
-MacroAssembler::patchNopToCall(uint8_t* callsite, uint8_t* target)
-{
+void MacroAssembler::patchNopToCall(uint8_t* callsite, uint8_t* target) {
     Assembler::patchFiveByteNopToCall(callsite, target);
 }
 
-void
-MacroAssembler::patchCallToNop(uint8_t* callsite)
-{
+void MacroAssembler::patchCallToNop(uint8_t* callsite) {
     Assembler::patchCallToFiveByteNop(callsite);
 }
 
 // ===============================================================
 // Jit Frames.
 
-uint32_t
-MacroAssembler::pushFakeReturnAddress(Register scratch)
-{
+uint32_t MacroAssembler::pushFakeReturnAddress(Register scratch) {
     CodeLabel cl;
 
     mov(cl.patchAt(), scratch);
@@ -755,16 +601,14 @@ MacroAssembler::pushFakeReturnAddress(Register scratch)
 
 // RAII class that generates the jumps to traps when it's destructed, to
 // prevent some code duplication in the outOfLineWasmTruncateXtoY methods.
-struct MOZ_RAII AutoHandleWasmTruncateToIntErrors
-{
+struct MOZ_RAII AutoHandleWasmTruncateToIntErrors {
     MacroAssembler& masm;
     Label inputIsNaN;
     Label fail;
     wasm::BytecodeOffset off;
 
     explicit AutoHandleWasmTruncateToIntErrors(MacroAssembler& masm, wasm::BytecodeOffset off)
-      : masm(masm), off(off)
-    { }
+        : masm(masm), off(off) {}
 
     ~AutoHandleWasmTruncateToIntErrors() {
         // Handle errors.
@@ -776,34 +620,29 @@ struct MOZ_RAII AutoHandleWasmTruncateToIntErrors
     }
 };
 
-void
-MacroAssembler::wasmTruncateDoubleToInt32(FloatRegister input, Register output, Label* oolEntry)
-{
+void MacroAssembler::wasmTruncateDoubleToInt32(FloatRegister input, Register output,
+                                               Label* oolEntry) {
     vcvttsd2si(input, output);
     cmp32(output, Imm32(1));
     j(Assembler::Overflow, oolEntry);
 }
 
-void
-MacroAssembler::wasmTruncateFloat32ToInt32(FloatRegister input, Register output, Label* oolEntry)
-{
+void MacroAssembler::wasmTruncateFloat32ToInt32(FloatRegister input, Register output,
+                                                Label* oolEntry) {
     vcvttss2si(input, output);
     cmp32(output, Imm32(1));
     j(Assembler::Overflow, oolEntry);
 }
 
-void
-MacroAssembler::outOfLineWasmTruncateDoubleToInt32(FloatRegister input, bool isUnsigned,
-                                                   wasm::BytecodeOffset off, Label* rejoin)
-{
+void MacroAssembler::outOfLineWasmTruncateDoubleToInt32(FloatRegister input, bool isUnsigned,
+                                                        wasm::BytecodeOffset off, Label* rejoin) {
     AutoHandleWasmTruncateToIntErrors traps(*this, off);
 
     // Eagerly take care of NaNs.
     branchDouble(Assembler::DoubleUnordered, input, input, &traps.inputIsNaN);
 
     // Handle special values (not needed for unsigned values).
-    if (isUnsigned)
-        return;
+    if (isUnsigned) return;
 
     // We've used vcvttsd2si. The only valid double values that can
     // truncate to INT32_MIN are in ]INT32_MIN - 1; INT32_MIN].
@@ -815,18 +654,15 @@ MacroAssembler::outOfLineWasmTruncateDoubleToInt32(FloatRegister input, bool isU
     jump(rejoin);
 }
 
-void
-MacroAssembler::outOfLineWasmTruncateFloat32ToInt32(FloatRegister input, bool isUnsigned,
-                                                    wasm::BytecodeOffset off, Label* rejoin)
-{
+void MacroAssembler::outOfLineWasmTruncateFloat32ToInt32(FloatRegister input, bool isUnsigned,
+                                                         wasm::BytecodeOffset off, Label* rejoin) {
     AutoHandleWasmTruncateToIntErrors traps(*this, off);
 
     // Eagerly take care of NaNs.
     branchFloat(Assembler::DoubleUnordered, input, input, &traps.inputIsNaN);
 
     // Handle special values (not needed for unsigned values).
-    if (isUnsigned)
-        return;
+    if (isUnsigned) return;
 
     // We've used vcvttss2si. Check that the input wasn't
     // float(INT32_MIN), which is the only legimitate input that
@@ -836,10 +672,8 @@ MacroAssembler::outOfLineWasmTruncateFloat32ToInt32(FloatRegister input, bool is
     jump(rejoin);
 }
 
-void
-MacroAssembler::outOfLineWasmTruncateDoubleToInt64(FloatRegister input, bool isUnsigned,
-                                                   wasm::BytecodeOffset off, Label* rejoin)
-{
+void MacroAssembler::outOfLineWasmTruncateDoubleToInt64(FloatRegister input, bool isUnsigned,
+                                                        wasm::BytecodeOffset off, Label* rejoin) {
     AutoHandleWasmTruncateToIntErrors traps(*this, off);
 
     // Eagerly take care of NaNs.
@@ -863,10 +697,8 @@ MacroAssembler::outOfLineWasmTruncateDoubleToInt64(FloatRegister input, bool isU
     jump(rejoin);
 }
 
-void
-MacroAssembler::outOfLineWasmTruncateFloat32ToInt64(FloatRegister input, bool isUnsigned,
-                                                    wasm::BytecodeOffset off, Label* rejoin)
-{
+void MacroAssembler::outOfLineWasmTruncateFloat32ToInt64(FloatRegister input, bool isUnsigned,
+                                                         wasm::BytecodeOffset off, Label* rejoin) {
     AutoHandleWasmTruncateToIntErrors traps(*this, off);
 
     // Eagerly take care of NaNs.

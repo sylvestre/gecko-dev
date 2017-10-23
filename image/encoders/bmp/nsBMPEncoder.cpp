@@ -16,17 +16,20 @@ using namespace mozilla;
 using namespace mozilla::image;
 using namespace mozilla::image::bmp;
 
-NS_IMPL_ISUPPORTS(nsBMPEncoder, imgIEncoder, nsIInputStream,
+NS_IMPL_ISUPPORTS(nsBMPEncoder,
+                  imgIEncoder,
+                  nsIInputStream,
                   nsIAsyncInputStream)
 
-nsBMPEncoder::nsBMPEncoder() : mImageBufferStart(nullptr),
-                               mImageBufferCurr(0),
-                               mImageBufferSize(0),
-                               mImageBufferReadPoint(0),
-                               mFinished(false),
-                               mCallback(nullptr),
-                               mCallbackTarget(nullptr),
-                               mNotifyThreshold(0)
+nsBMPEncoder::nsBMPEncoder()
+    : mImageBufferStart(nullptr),
+      mImageBufferCurr(0),
+      mImageBufferSize(0),
+      mImageBufferReadPoint(0),
+      mFinished(false),
+      mCallback(nullptr),
+      mCallbackTarget(nullptr),
+      mNotifyThreshold(0)
 {
 }
 
@@ -45,7 +48,7 @@ nsBMPEncoder::~nsBMPEncoder()
 // bpp specifies the bits per pixel to use where bpp_value can be 24 or 32
 NS_IMETHODIMP
 nsBMPEncoder::InitFromData(const uint8_t* aData,
-                           uint32_t aLength, // (unused, req'd by JS)
+                           uint32_t aLength,  // (unused, req'd by JS)
                            uint32_t aWidth,
                            uint32_t aHeight,
                            uint32_t aStride,
@@ -53,8 +56,7 @@ nsBMPEncoder::InitFromData(const uint8_t* aData,
                            const nsAString& aOutputOptions)
 {
   // validate input format
-  if (aInputFormat != INPUT_FORMAT_RGB &&
-      aInputFormat != INPUT_FORMAT_RGBA &&
+  if (aInputFormat != INPUT_FORMAT_RGB && aInputFormat != INPUT_FORMAT_RGBA &&
       aInputFormat != INPUT_FORMAT_HOSTARGB) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -65,13 +67,12 @@ nsBMPEncoder::InitFromData(const uint8_t* aData,
   }
 
   // Stride is the padded width of each row, so it better be longer
-  if ((aInputFormat == INPUT_FORMAT_RGB &&
-       aStride < aWidth * 3) ||
+  if ((aInputFormat == INPUT_FORMAT_RGB && aStride < aWidth * 3) ||
       ((aInputFormat == INPUT_FORMAT_RGBA ||
         aInputFormat == INPUT_FORMAT_HOSTARGB) &&
        aStride < aWidth * 4)) {
-      NS_WARNING("Invalid stride for InitFromData");
-      return NS_ERROR_INVALID_ARG;
+    NS_WARNING("Invalid stride for InitFromData");
+    return NS_ERROR_INVALID_ARG;
   }
 
   nsresult rv;
@@ -80,8 +81,8 @@ nsBMPEncoder::InitFromData(const uint8_t* aData,
     return rv;
   }
 
-  rv = AddImageFrame(aData, aLength, aWidth, aHeight, aStride,
-                     aInputFormat, aOutputOptions);
+  rv = AddImageFrame(
+      aData, aLength, aWidth, aHeight, aStride, aInputFormat, aOutputOptions);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -123,8 +124,7 @@ nsBMPEncoder::StartImageEncode(uint32_t aWidth,
   }
 
   // validate input format
-  if (aInputFormat != INPUT_FORMAT_RGB &&
-      aInputFormat != INPUT_FORMAT_RGBA &&
+  if (aInputFormat != INPUT_FORMAT_RGB && aInputFormat != INPUT_FORMAT_RGBA &&
       aInputFormat != INPUT_FORMAT_HOSTARGB) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -181,7 +181,7 @@ nsBMPEncoder::GetImageBuffer(char** aOutputBuffer)
 
 NS_IMETHODIMP
 nsBMPEncoder::AddImageFrame(const uint8_t* aData,
-                            uint32_t aLength, // (unused, req'd by JS)
+                            uint32_t aLength,  // (unused, req'd by JS)
                             uint32_t aWidth,
                             uint32_t aHeight,
                             uint32_t aStride,
@@ -194,8 +194,7 @@ nsBMPEncoder::AddImageFrame(const uint8_t* aData,
   }
 
   // validate input format
-  if (aInputFormat != INPUT_FORMAT_RGB &&
-      aInputFormat != INPUT_FORMAT_RGBA &&
+  if (aInputFormat != INPUT_FORMAT_RGB && aInputFormat != INPUT_FORMAT_RGBA &&
       aInputFormat != INPUT_FORMAT_HOSTARGB) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -204,8 +203,8 @@ nsBMPEncoder::AddImageFrame(const uint8_t* aData,
     return NS_ERROR_ILLEGAL_VALUE;
   }
 
-  CheckedUint32 size =
-    CheckedUint32(mBMPInfoHeader.width) * CheckedUint32(BytesPerPixel(mBMPInfoHeader.bpp));
+  CheckedUint32 size = CheckedUint32(mBMPInfoHeader.width) *
+                       CheckedUint32(BytesPerPixel(mBMPInfoHeader.bpp));
   if (MOZ_UNLIKELY(!size.isValid())) {
     return NS_ERROR_FAILURE;
   }
@@ -224,9 +223,9 @@ nsBMPEncoder::AddImageFrame(const uint8_t* aData,
   // generalize the conversions
   if (aInputFormat == INPUT_FORMAT_HOSTARGB) {
     // BMP requires RGBA with post-multiplied alpha, so we need to convert
-    for (int32_t y = mBMPInfoHeader.height - 1; y >= 0 ; y --) {
+    for (int32_t y = mBMPInfoHeader.height - 1; y >= 0; y--) {
       ConvertHostARGBRow(&aData[y * aStride], row, mBMPInfoHeader.width);
-      if(mBMPInfoHeader.bpp == 24) {
+      if (mBMPInfoHeader.bpp == 24) {
         EncodeImageDataRow24(row.get());
       } else {
         EncodeImageDataRow32(row.get());
@@ -258,7 +257,6 @@ nsBMPEncoder::AddImageFrame(const uint8_t* aData,
   return NS_OK;
 }
 
-
 NS_IMETHODIMP
 nsBMPEncoder::EndImageEncode()
 {
@@ -278,11 +276,11 @@ nsBMPEncoder::EndImageEncode()
   return NS_OK;
 }
 
-
 // Parses the encoder options and sets the bits per pixel to use
 // See InitFromData for a description of the parse options
 nsresult
-nsBMPEncoder::ParseOptions(const nsAString& aOptions, Version& aVersionOut,
+nsBMPEncoder::ParseOptions(const nsAString& aOptions,
+                           Version& aVersionOut,
                            uint16_t& aBppOut)
 {
   aVersionOut = VERSION_3;
@@ -298,7 +296,6 @@ nsBMPEncoder::ParseOptions(const nsAString& aOptions, Version& aVersionOut,
 
   // For each name/value pair in the set
   for (uint32_t i = 0; i < nameValuePairs.Length(); ++i) {
-
     // Split the name value pair [0] = name, [1] = value
     nsTArray<nsCString> nameValuePair;
     if (!ParseString(nameValuePairs[i], '=', nameValuePair)) {
@@ -371,8 +368,10 @@ nsBMPEncoder::Read(char* aBuf, uint32_t aCount, uint32_t* _retval)
 
 // [noscript] Reads segments
 NS_IMETHODIMP
-nsBMPEncoder::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                           uint32_t aCount, uint32_t* _retval)
+nsBMPEncoder::ReadSegments(nsWriteSegmentFun aWriter,
+                           void* aClosure,
+                           uint32_t aCount,
+                           uint32_t* _retval)
 {
   uint32_t maxCount = GetCurrentImageBufferOffset() - mImageBufferReadPoint;
   if (maxCount == 0) {
@@ -383,10 +382,13 @@ nsBMPEncoder::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
   if (aCount > maxCount) {
     aCount = maxCount;
   }
-  nsresult rv = aWriter(this, aClosure,
-                        reinterpret_cast<const char*>(mImageBufferStart +
-                                                      mImageBufferReadPoint),
-                        0, aCount, _retval);
+  nsresult rv = aWriter(
+      this,
+      aClosure,
+      reinterpret_cast<const char*>(mImageBufferStart + mImageBufferReadPoint),
+      0,
+      aCount,
+      _retval);
   if (NS_SUCCEEDED(rv)) {
     NS_ASSERTION(*_retval <= aCount, "bad write count");
     mImageBufferReadPoint += *_retval;
@@ -420,7 +422,7 @@ nsBMPEncoder::AsyncWait(nsIInputStreamCallback* aCallback,
   // 0 means "any number of bytes except 0"
   mNotifyThreshold = aRequestedCount;
   if (!aRequestedCount) {
-    mNotifyThreshold = 1024; // We don't want to notify incessantly
+    mNotifyThreshold = 1024;  // We don't want to notify incessantly
   }
 
   // We set the callback absolutely last, because NotifyListener uses it to
@@ -436,10 +438,7 @@ nsBMPEncoder::AsyncWait(nsIInputStreamCallback* aCallback,
 }
 
 NS_IMETHODIMP
-nsBMPEncoder::CloseWithStatus(nsresult aStatus)
-{
-  return Close();
-}
+nsBMPEncoder::CloseWithStatus(nsresult aStatus) { return Close(); }
 
 // nsBMPEncoder::ConvertHostARGBRow
 //
@@ -459,8 +458,8 @@ nsBMPEncoder::ConvertHostARGBRow(const uint8_t* aSrc,
       uint8_t* pixelOut = &aDest[x * bytes];
 
       pixelOut[0] = (pixelIn & 0x00ff0000) >> 16;
-      pixelOut[1] = (pixelIn & 0x0000ff00) >>  8;
-      pixelOut[2] = (pixelIn & 0x000000ff) >>  0;
+      pixelOut[1] = (pixelIn & 0x0000ff00) >> 8;
+      pixelOut[2] = (pixelIn & 0x000000ff) >> 0;
       pixelOut[3] = (pixelIn & 0xff000000) >> 24;
     }
   } else {
@@ -469,8 +468,8 @@ nsBMPEncoder::ConvertHostARGBRow(const uint8_t* aSrc,
       uint8_t* pixelOut = &aDest[x * bytes];
 
       pixelOut[0] = (pixelIn & 0xff0000) >> 16;
-      pixelOut[1] = (pixelIn & 0x00ff00) >>  8;
-      pixelOut[2] = (pixelIn & 0x0000ff) >>  0;
+      pixelOut[1] = (pixelIn & 0x00ff00) >> 8;
+      pixelOut[2] = (pixelIn & 0x0000ff) >> 0;
     }
   }
 }
@@ -478,13 +477,13 @@ nsBMPEncoder::ConvertHostARGBRow(const uint8_t* aSrc,
 void
 nsBMPEncoder::NotifyListener()
 {
-  if (mCallback &&
-      (GetCurrentImageBufferOffset() - mImageBufferReadPoint >=
-       mNotifyThreshold || mFinished)) {
+  if (mCallback && (GetCurrentImageBufferOffset() - mImageBufferReadPoint >=
+                        mNotifyThreshold ||
+                    mFinished)) {
     nsCOMPtr<nsIInputStreamCallback> callback;
     if (mCallbackTarget) {
-      callback = NS_NewInputStreamReadyEvent("nsBMPEncoder::NotifyListener",
-                                             mCallback, mCallbackTarget);
+      callback = NS_NewInputStreamReadyEvent(
+          "nsBMPEncoder::NotifyListener", mCallback, mCallbackTarget);
     } else {
       callback = mCallback;
     }
@@ -502,7 +501,9 @@ nsBMPEncoder::NotifyListener()
 
 // Initializes the BMP file header mBMPFileHeader to the passed in values
 nsresult
-nsBMPEncoder::InitFileHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
+nsBMPEncoder::InitFileHeader(Version aVersion,
+                             uint16_t aBPP,
+                             uint32_t aWidth,
                              uint32_t aHeight)
 {
   memset(&mBMPFileHeader, 0, sizeof(mBMPFileHeader));
@@ -511,7 +512,7 @@ nsBMPEncoder::InitFileHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
 
   if (aVersion == VERSION_3) {
     mBMPFileHeader.dataoffset = FILE_HEADER_LENGTH + InfoHeaderLength::WIN_V3;
-  } else { // aVersion == 5
+  } else {  // aVersion == 5
     mBMPFileHeader.dataoffset = FILE_HEADER_LENGTH + InfoHeaderLength::WIN_V5;
   }
 
@@ -519,16 +520,17 @@ nsBMPEncoder::InitFileHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
   if (aBPP <= 8) {
     uint32_t numColors = 1 << aBPP;
     mBMPFileHeader.dataoffset += 4 * numColors;
-    CheckedUint32 filesize =
-      CheckedUint32(mBMPFileHeader.dataoffset) + CheckedUint32(aWidth) * aHeight;
+    CheckedUint32 filesize = CheckedUint32(mBMPFileHeader.dataoffset) +
+                             CheckedUint32(aWidth) * aHeight;
     if (MOZ_UNLIKELY(!filesize.isValid())) {
       return NS_ERROR_INVALID_ARG;
     }
     mBMPFileHeader.filesize = filesize.value();
   } else {
-    CheckedUint32 filesize =
-      CheckedUint32(mBMPFileHeader.dataoffset) +
-        (CheckedUint32(aWidth) * BytesPerPixel(aBPP) + PaddingBytes(aBPP, aWidth)) * aHeight;
+    CheckedUint32 filesize = CheckedUint32(mBMPFileHeader.dataoffset) +
+                             (CheckedUint32(aWidth) * BytesPerPixel(aBPP) +
+                              PaddingBytes(aBPP, aWidth)) *
+                                 aHeight;
     if (MOZ_UNLIKELY(!filesize.isValid())) {
       return NS_ERROR_INVALID_ARG;
     }
@@ -540,13 +542,15 @@ nsBMPEncoder::InitFileHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
   return NS_OK;
 }
 
-#define ENCODE(pImageBufferCurr, value) \
-    memcpy(*pImageBufferCurr, &value, sizeof value); \
-    *pImageBufferCurr += sizeof value;
+#define ENCODE(pImageBufferCurr, value)            \
+  memcpy(*pImageBufferCurr, &value, sizeof value); \
+  *pImageBufferCurr += sizeof value;
 
 // Initializes the bitmap info header mBMPInfoHeader to the passed in values
 nsresult
-nsBMPEncoder::InitInfoHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
+nsBMPEncoder::InitInfoHeader(Version aVersion,
+                             uint16_t aBPP,
+                             uint32_t aWidth,
                              uint32_t aHeight)
 {
   memset(&mBMPInfoHeader, 0, sizeof(mBMPInfoHeader));
@@ -583,8 +587,9 @@ nsBMPEncoder::InitInfoHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
     }
     mBMPInfoHeader.image_size = imagesize.value();
   } else {
-    CheckedUint32 imagesize =
-      (CheckedUint32(aWidth) * BytesPerPixel(aBPP) + PaddingBytes(aBPP, aWidth)) * CheckedUint32(aHeight);
+    CheckedUint32 imagesize = (CheckedUint32(aWidth) * BytesPerPixel(aBPP) +
+                               PaddingBytes(aBPP, aWidth)) *
+                              CheckedUint32(aHeight);
     if (MOZ_UNLIKELY(!imagesize.isValid())) {
       return NS_ERROR_INVALID_ARG;
     }
@@ -593,27 +598,27 @@ nsBMPEncoder::InitInfoHeader(Version aVersion, uint16_t aBPP, uint32_t aWidth,
   mBMPInfoHeader.xppm = 0;
   mBMPInfoHeader.yppm = 0;
   if (aVersion >= VERSION_5) {
-      mBMPInfoHeader.red_mask   = 0x000000FF;
-      mBMPInfoHeader.green_mask = 0x0000FF00;
-      mBMPInfoHeader.blue_mask  = 0x00FF0000;
-      mBMPInfoHeader.alpha_mask = 0xFF000000;
-      mBMPInfoHeader.color_space = V5InfoHeader::COLOR_SPACE_LCS_SRGB;
-      mBMPInfoHeader.white_point.r.x = 0;
-      mBMPInfoHeader.white_point.r.y = 0;
-      mBMPInfoHeader.white_point.r.z = 0;
-      mBMPInfoHeader.white_point.g.x = 0;
-      mBMPInfoHeader.white_point.g.y = 0;
-      mBMPInfoHeader.white_point.g.z = 0;
-      mBMPInfoHeader.white_point.b.x = 0;
-      mBMPInfoHeader.white_point.b.y = 0;
-      mBMPInfoHeader.white_point.b.z = 0;
-      mBMPInfoHeader.gamma_red = 0;
-      mBMPInfoHeader.gamma_green = 0;
-      mBMPInfoHeader.gamma_blue = 0;
-      mBMPInfoHeader.intent = 0;
-      mBMPInfoHeader.profile_offset = 0;
-      mBMPInfoHeader.profile_size = 0;
-      mBMPInfoHeader.reserved = 0;
+    mBMPInfoHeader.red_mask = 0x000000FF;
+    mBMPInfoHeader.green_mask = 0x0000FF00;
+    mBMPInfoHeader.blue_mask = 0x00FF0000;
+    mBMPInfoHeader.alpha_mask = 0xFF000000;
+    mBMPInfoHeader.color_space = V5InfoHeader::COLOR_SPACE_LCS_SRGB;
+    mBMPInfoHeader.white_point.r.x = 0;
+    mBMPInfoHeader.white_point.r.y = 0;
+    mBMPInfoHeader.white_point.r.z = 0;
+    mBMPInfoHeader.white_point.g.x = 0;
+    mBMPInfoHeader.white_point.g.y = 0;
+    mBMPInfoHeader.white_point.g.z = 0;
+    mBMPInfoHeader.white_point.b.x = 0;
+    mBMPInfoHeader.white_point.b.y = 0;
+    mBMPInfoHeader.white_point.b.z = 0;
+    mBMPInfoHeader.gamma_red = 0;
+    mBMPInfoHeader.gamma_green = 0;
+    mBMPInfoHeader.gamma_blue = 0;
+    mBMPInfoHeader.intent = 0;
+    mBMPInfoHeader.profile_offset = 0;
+    mBMPInfoHeader.profile_size = 0;
+    mBMPInfoHeader.reserved = 0;
   }
 
   return NS_OK;
@@ -711,8 +716,10 @@ nsBMPEncoder::EncodeInfoHeader()
 
 // Sets a pixel in the image buffer that doesn't have alpha data
 static inline void
-SetPixel24(uint8_t*& imageBufferCurr, uint8_t aRed, uint8_t aGreen,
-  uint8_t aBlue)
+SetPixel24(uint8_t*& imageBufferCurr,
+           uint8_t aRed,
+           uint8_t aGreen,
+           uint8_t aBlue)
 {
   *imageBufferCurr = aBlue;
   *(imageBufferCurr + 1) = aGreen;
@@ -721,8 +728,11 @@ SetPixel24(uint8_t*& imageBufferCurr, uint8_t aRed, uint8_t aGreen,
 
 // Sets a pixel in the image buffer with alpha data
 static inline void
-SetPixel32(uint8_t*& imageBufferCurr, uint8_t aRed, uint8_t aGreen,
-           uint8_t aBlue, uint8_t aAlpha = 0xFF)
+SetPixel32(uint8_t*& imageBufferCurr,
+           uint8_t aRed,
+           uint8_t aGreen,
+           uint8_t aBlue,
+           uint8_t aAlpha = 0xFF)
 {
   *imageBufferCurr = aBlue;
   *(imageBufferCurr + 1) = aGreen;
@@ -740,8 +750,9 @@ nsBMPEncoder::EncodeImageDataRow24(const uint8_t* aData)
     mImageBufferCurr += BytesPerPixel(mBMPInfoHeader.bpp);
   }
 
-  for (uint32_t x = 0; x < PaddingBytes(mBMPInfoHeader.bpp,
-                                        mBMPInfoHeader.width); x++) {
+  for (uint32_t x = 0;
+       x < PaddingBytes(mBMPInfoHeader.bpp, mBMPInfoHeader.width);
+       x++) {
     *mImageBufferCurr++ = 0;
   }
 }
@@ -752,13 +763,17 @@ nsBMPEncoder::EncodeImageDataRow32(const uint8_t* aData)
 {
   for (int32_t x = 0; x < mBMPInfoHeader.width; x++) {
     uint32_t pos = x * BytesPerPixel(mBMPInfoHeader.bpp);
-    SetPixel32(mImageBufferCurr, aData[pos], aData[pos + 1],
-               aData[pos + 2], aData[pos + 3]);
+    SetPixel32(mImageBufferCurr,
+               aData[pos],
+               aData[pos + 1],
+               aData[pos + 2],
+               aData[pos + 3]);
     mImageBufferCurr += 4;
   }
 
-  for (uint32_t x = 0; x < PaddingBytes(mBMPInfoHeader.bpp,
-                                        mBMPInfoHeader.width); x++) {
+  for (uint32_t x = 0;
+       x < PaddingBytes(mBMPInfoHeader.bpp, mBMPInfoHeader.width);
+       x++) {
     *mImageBufferCurr++ = 0;
   }
 }

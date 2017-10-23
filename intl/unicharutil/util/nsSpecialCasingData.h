@@ -11,16 +11,20 @@ namespace unicode {
 // value to a sequence of 2 or 3 Unicode characters. There are currently none
 // defined outside the BMP, so we can use char16_t here. Unused trailing
 // positions in mMappedChars are set to 0.
-struct MultiCharMapping {
+struct MultiCharMapping
+{
   char16_t mOriginalChar;
   char16_t mMappedChars[3];
 };
 
 // Return a pointer to the special case mapping for the given character;
 // returns nullptr if no such mapping is defined.
-const MultiCharMapping* SpecialUpper(uint32_t aCh);
-const MultiCharMapping* SpecialLower(uint32_t aCh);
-const MultiCharMapping* SpecialTitle(uint32_t aCh);
+const MultiCharMapping*
+SpecialUpper(uint32_t aCh);
+const MultiCharMapping*
+SpecialLower(uint32_t aCh);
+const MultiCharMapping*
+SpecialTitle(uint32_t aCh);
 
-} // namespace unicode
-} // namespace mozilla
+}  // namespace unicode
+}  // namespace mozilla

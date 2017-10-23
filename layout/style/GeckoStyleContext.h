@@ -11,10 +11,11 @@
 
 namespace mozilla {
 
-class GeckoStyleContext final : public nsStyleContext {
-public:
-  static already_AddRefed<GeckoStyleContext>
-  TakeRef(already_AddRefed<nsStyleContext> aStyleContext)
+class GeckoStyleContext final : public nsStyleContext
+{
+ public:
+  static already_AddRefed<GeckoStyleContext> TakeRef(
+      already_AddRefed<nsStyleContext> aStyleContext)
   {
     auto* context = aStyleContext.take();
     MOZ_ASSERT(context);
@@ -30,16 +31,15 @@ public:
 
   void* operator new(size_t sz, nsPresContext* aPresContext);
 
-  nsPresContext* PresContext() const {
-    return RuleNode()->PresContext();
-  }
+  nsPresContext* PresContext() const { return RuleNode()->PresContext(); }
 
   void AddChild(GeckoStyleContext* aChild);
   void RemoveChild(GeckoStyleContext* aChild);
 
   GeckoStyleContext* GetParent() const { return mParent; }
 
-  bool IsLinkContext() const {
+  bool IsLinkContext() const
+  {
     return GetStyleIfVisited() &&
            GetStyleIfVisited()->GetParent() == GetParent();
   }
@@ -90,15 +90,14 @@ public:
   //  * !!GetStyleIfVisited() == !!aSourceIfVisited, and, if they're
   //    non-null, GetStyleIfVisited()->mRuleNode == aSourceIfVisited
   //  * RelevantLinkVisited() == aRelevantLinkVisited
-  already_AddRefed<GeckoStyleContext>
-  FindChildWithRules(const nsAtom* aPseudoTag,
-                     nsRuleNode* aSource,
-                     nsRuleNode* aSourceIfVisited,
-                     bool aRelevantLinkVisited);
+  already_AddRefed<GeckoStyleContext> FindChildWithRules(
+      const nsAtom* aPseudoTag,
+      nsRuleNode* aSource,
+      nsRuleNode* aSourceIfVisited,
+      bool aRelevantLinkVisited);
 
   // Tell this style context to cache aStruct as the struct for aSID
   void SetStyle(nsStyleStructID aSID, void* aStruct);
-
 
   /*
    * Get the style data for a style struct.  This is the most important
@@ -140,19 +139,22 @@ public:
 
   bool HasNoChildren() const;
 
-  nsRuleNode* RuleNode() const {
+  nsRuleNode* RuleNode() const
+  {
     MOZ_ASSERT(mRuleNode);
     return mRuleNode;
   }
 
-  bool HasSingleReference() const {
+  bool HasSingleReference() const
+  {
     NS_ASSERTION(mRefCnt != 0,
                  "do not call HasSingleReference on a newly created "
                  "nsStyleContext with no references yet");
     return mRefCnt == 1;
   }
 
-  void AddRef() {
+  void AddRef()
+  {
     if (mRefCnt == UINT32_MAX) {
       NS_WARNING("refcount overflow, leaking object");
       return;
@@ -162,7 +164,8 @@ public:
     return;
   }
 
-  void Release() {
+  void Release()
+  {
     if (mRefCnt == UINT32_MAX) {
       NS_WARNING("refcount overflow, leaking object");
       return;
@@ -231,8 +234,8 @@ public:
   // Since style contexts typically have some inherited data but only sometimes
   // have reset data, we always allocate the mCachedInheritedData, but only
   // sometimes allocate the mCachedResetData.
-  nsResetStyleData*       mCachedResetData; // Cached reset style data.
-  nsInheritedStyleData    mCachedInheritedData; // Cached inherited style data
+  nsResetStyleData* mCachedResetData;         // Cached reset style data.
+  nsInheritedStyleData mCachedInheritedData;  // Cached inherited style data
 
   uint32_t mRefCnt;
 
@@ -241,7 +244,7 @@ public:
                                      int32_t aLevels) const;
 #endif
 
-private:
+ private:
   // Helper for ClearCachedInheritedStyleDataOnDescendants.
   void DoClearCachedInheritedStyleDataOnDescendants(uint32_t aStructs);
   void Destroy();
@@ -268,52 +271,44 @@ private:
   RefPtr<GeckoStyleContext> mStyleIfVisited;
 
 #ifdef DEBUG
-public:
-  struct AutoCheckDependency {
-
+ public:
+  struct AutoCheckDependency
+  {
     GeckoStyleContext* mStyleContext;
     nsStyleStructID mOuterSID;
 
     AutoCheckDependency(GeckoStyleContext* aContext, nsStyleStructID aInnerSID)
-      : mStyleContext(aContext)
+        : mStyleContext(aContext)
     {
       mOuterSID = aContext->mComputingStruct;
       MOZ_ASSERT(mOuterSID == nsStyleStructID_None ||
-                 DependencyAllowed(mOuterSID, aInnerSID),
+                     DependencyAllowed(mOuterSID, aInnerSID),
                  "Undeclared dependency, see generate-stylestructlist.py");
       aContext->mComputingStruct = aInnerSID;
     }
 
-    ~AutoCheckDependency()
-    {
-      mStyleContext->mComputingStruct = mOuterSID;
-    }
+    ~AutoCheckDependency() { mStyleContext->mComputingStruct = mOuterSID; }
   };
 
-  void FrameAddRef() {
-    ++mFrameRefCnt;
-  }
+  void FrameAddRef() { ++mFrameRefCnt; }
 
-  void FrameRelease() {
-    --mFrameRefCnt;
-  }
+  void FrameRelease() { --mFrameRefCnt; }
 
-  uint32_t FrameRefCnt() const {
-    return mFrameRefCnt;
-  }
-private:
+  uint32_t FrameRefCnt() const { return mFrameRefCnt; }
+
+ private:
   // Used to check for undeclared dependencies.
   // See AUTO_CHECK_DEPENDENCY in nsStyleContextInlines.h.
-  nsStyleStructID         mComputingStruct;
+  nsStyleStructID mComputingStruct;
 
-  uint32_t                mFrameRefCnt; // number of frames that use this
-                                        // as their style context
+  uint32_t mFrameRefCnt;  // number of frames that use this
+                          // as their style context
 #define AUTO_CHECK_DEPENDENCY(gecko_, sid_) \
   mozilla::GeckoStyleContext::AutoCheckDependency checkNesting_(gecko_, sid_)
 #else
 #define AUTO_CHECK_DEPENDENCY(gecko_, sid_)
 #endif
 };
-}
+}  // namespace mozilla
 
-#endif // mozilla_GeckoStyleContext_h
+#endif  // mozilla_GeckoStyleContext_h

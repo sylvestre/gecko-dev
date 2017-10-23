@@ -6,7 +6,7 @@
 
 #include "nsSVGNumber2.h"
 #include "mozilla/Attributes.h"
-#include "nsContentUtils.h" // NS_ENSURE_FINITE
+#include "nsContentUtils.h"  // NS_ENSURE_FINITE
 #include "nsSMILFloatType.h"
 #include "nsSMILValue.h"
 #include "nsSVGAttrTearoffTable.h"
@@ -18,17 +18,16 @@ using namespace mozilla::dom;
 /* Implementation */
 
 static nsSVGAttrTearoffTable<nsSVGNumber2, nsSVGNumber2::DOMAnimatedNumber>
-  sSVGAnimatedNumberTearoffTable;
+    sSVGAnimatedNumberTearoffTable;
 
 static bool
 GetValueFromString(const nsAString& aString,
                    bool aPercentagesAllowed,
                    float& aValue)
 {
-  RangedPtr<const char16_t> iter =
-    SVGContentUtils::GetStartRangedPtr(aString);
+  RangedPtr<const char16_t> iter = SVGContentUtils::GetStartRangedPtr(aString);
   const RangedPtr<const char16_t> end =
-    SVGContentUtils::GetEndRangedPtr(aString);
+      SVGContentUtils::GetEndRangedPtr(aString);
 
   if (!SVGContentUtils::ParseNumber(iter, end, aValue)) {
     return false;
@@ -46,8 +45,8 @@ GetValueFromString(const nsAString& aString,
 }
 
 nsresult
-nsSVGNumber2::SetBaseValueString(const nsAString &aValueAsString,
-                                 nsSVGElement *aSVGElement)
+nsSVGNumber2::SetBaseValueString(const nsAString& aValueAsString,
+                                 nsSVGElement* aSVGElement)
 {
   float val;
 
@@ -61,8 +60,7 @@ nsSVGNumber2::SetBaseValueString(const nsAString &aValueAsString,
   mIsBaseSet = true;
   if (!mIsAnimated) {
     mAnimVal = mBaseVal;
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
 
@@ -73,14 +71,14 @@ nsSVGNumber2::SetBaseValueString(const nsAString &aValueAsString,
 }
 
 void
-nsSVGNumber2::GetBaseValueString(nsAString & aValueAsString)
+nsSVGNumber2::GetBaseValueString(nsAString& aValueAsString)
 {
   aValueAsString.Truncate();
   aValueAsString.AppendFloat(mBaseVal);
 }
 
 void
-nsSVGNumber2::SetBaseValue(float aValue, nsSVGElement *aSVGElement)
+nsSVGNumber2::SetBaseValue(float aValue, nsSVGElement* aSVGElement)
 {
   if (mIsBaseSet && aValue == mBaseVal) {
     return;
@@ -90,15 +88,14 @@ nsSVGNumber2::SetBaseValue(float aValue, nsSVGElement *aSVGElement)
   mIsBaseSet = true;
   if (!mIsAnimated) {
     mAnimVal = mBaseVal;
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
   aSVGElement->DidChangeNumber(mAttrEnum);
 }
 
 void
-nsSVGNumber2::SetAnimValue(float aValue, nsSVGElement *aSVGElement)
+nsSVGNumber2::SetAnimValue(float aValue, nsSVGElement* aSVGElement)
 {
   if (mIsAnimated && aValue == mAnimVal) {
     return;
@@ -112,7 +109,7 @@ already_AddRefed<SVGAnimatedNumber>
 nsSVGNumber2::ToDOMAnimatedNumber(nsSVGElement* aSVGElement)
 {
   RefPtr<DOMAnimatedNumber> domAnimatedNumber =
-    sSVGAnimatedNumberTearoffTable.GetTearoff(this);
+      sSVGAnimatedNumberTearoffTable.GetTearoff(this);
   if (!domAnimatedNumber) {
     domAnimatedNumber = new DOMAnimatedNumber(this, aSVGElement);
     sSVGAnimatedNumberTearoffTable.AddTearoff(this, domAnimatedNumber);
@@ -127,22 +124,24 @@ nsSVGNumber2::DOMAnimatedNumber::~DOMAnimatedNumber()
 }
 
 UniquePtr<nsISMILAttr>
-nsSVGNumber2::ToSMILAttr(nsSVGElement *aSVGElement)
+nsSVGNumber2::ToSMILAttr(nsSVGElement* aSVGElement)
 {
   return MakeUnique<SMILNumber>(this, aSVGElement);
 }
 
 nsresult
-nsSVGNumber2::SMILNumber::ValueFromString(const nsAString& aStr,
-                                          const mozilla::dom::SVGAnimationElement* /*aSrcElement*/,
-                                          nsSMILValue& aValue,
-                                          bool& aPreventCachingOfSandwich) const
+nsSVGNumber2::SMILNumber::ValueFromString(
+    const nsAString& aStr,
+    const mozilla::dom::SVGAnimationElement* /*aSrcElement*/,
+    nsSMILValue& aValue,
+    bool& aPreventCachingOfSandwich) const
 {
   float value;
 
-  if (!GetValueFromString(aStr,
-                          mSVGElement->NumberAttrAllowsPercentage(mVal->mAttrEnum),
-                          value)) {
+  if (!GetValueFromString(
+          aStr,
+          mSVGElement->NumberAttrAllowsPercentage(mVal->mAttrEnum),
+          value)) {
     return NS_ERROR_DOM_SYNTAX_ERR;
   }
 

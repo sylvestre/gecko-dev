@@ -17,7 +17,9 @@
 namespace {
 
 void
-WriteData(nsIOutputStream* aOut, nsTArray<char>& aData, uint32_t aNumBytes,
+WriteData(nsIOutputStream* aOut,
+          nsTArray<char>& aData,
+          uint32_t aNumBytes,
           nsACString& aDataWritten)
 {
   uint32_t n;
@@ -26,7 +28,7 @@ WriteData(nsIOutputStream* aOut, nsTArray<char>& aData, uint32_t aNumBytes,
   aDataWritten.Append(aData.Elements(), aNumBytes);
 }
 
-} // namespace
+}  // namespace
 
 TEST(StorageStreams, Main)
 {

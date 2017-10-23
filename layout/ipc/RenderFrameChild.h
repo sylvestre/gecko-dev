@@ -15,7 +15,7 @@ namespace layout {
 
 class RenderFrameChild : public PRenderFrameChild
 {
-public:
+ public:
   RenderFrameChild() : mWasDestroyed(false) {}
   virtual ~RenderFrameChild() {}
 
@@ -23,11 +23,11 @@ public:
 
   void Destroy();
 
-private:
+ private:
   bool mWasDestroyed;
 };
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
 #endif  // mozilla_dom_RenderFrameChild_h

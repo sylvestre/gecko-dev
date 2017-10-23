@@ -43,21 +43,18 @@ using mozilla::Atomic;
 static const char16_t gNullChar = 0;
 
 char* const nsCharTraits<char>::sEmptyBuffer =
-  (char*)const_cast<char16_t*>(&gNullChar);
+    (char*)const_cast<char16_t*>(&gNullChar);
 char16_t* const nsCharTraits<char16_t>::sEmptyBuffer =
-  const_cast<char16_t*>(&gNullChar);
+    const_cast<char16_t*>(&gNullChar);
 
 // ---------------------------------------------------------------------------
 
 #ifdef ENABLE_STRING_STATS
 class nsStringStats
 {
-public:
+ public:
   nsStringStats()
-    : mAllocCount(0)
-    , mReallocCount(0)
-    , mFreeCount(0)
-    , mShareCount(0)
+      : mAllocCount(0), mReallocCount(0), mFreeCount(0), mShareCount(0)
   {
   }
 
@@ -88,7 +85,8 @@ public:
       printf("\n");
     }
     printf(" => Process ID: %" PRIuPTR ", Thread ID: %" PRIuPTR "\n",
-           uintptr_t(getpid()), uintptr_t(pthread_self()));
+           uintptr_t(getpid()),
+           uintptr_t(pthread_self()));
   }
 
   Atomic<int32_t> mAllocCount;
@@ -99,7 +97,7 @@ public:
   Atomic<int32_t> mAdoptFreeCount;
 };
 static nsStringStats gStringStats;
-#define STRING_STAT_INCREMENT(_s) (gStringStats.m ## _s ## Count)++
+#define STRING_STAT_INCREMENT(_s) (gStringStats.m##_s##Count)++
 #else
 #define STRING_STAT_INCREMENT(_s)
 #endif
@@ -127,22 +125,13 @@ ReleaseData(void* aData, nsAString::DataFlags aFlags)
 
 class nsAStringAccessor : public nsAString
 {
-private:
-  nsAStringAccessor(); // NOT IMPLEMENTED
+ private:
+  nsAStringAccessor();  // NOT IMPLEMENTED
 
-public:
-  char_type* data() const
-  {
-    return mData;
-  }
-  size_type length() const
-  {
-    return mLength;
-  }
-  DataFlags flags() const
-  {
-    return mDataFlags;
-  }
+ public:
+  char_type* data() const { return mData; }
+  size_type length() const { return mLength; }
+  DataFlags flags() const { return mDataFlags; }
 
   void set(char_type* aData, size_type aLen, DataFlags aDataFlags)
   {
@@ -153,22 +142,13 @@ public:
 
 class nsACStringAccessor : public nsACString
 {
-private:
-  nsACStringAccessor(); // NOT IMPLEMENTED
+ private:
+  nsACStringAccessor();  // NOT IMPLEMENTED
 
-public:
-  char_type* data() const
-  {
-    return mData;
-  }
-  size_type length() const
-  {
-    return mLength;
-  }
-  DataFlags flags() const
-  {
-    return mDataFlags;
-  }
+ public:
+  char_type* data() const { return mData; }
+  size_type length() const { return mLength; }
+  DataFlags flags() const { return mDataFlags; }
 
   void set(char_type* aData, size_type aLen, DataFlags aDataFlags)
   {
@@ -182,22 +162,22 @@ public:
 void
 nsStringBuffer::AddRef()
 {
-  // Memory synchronization is not required when incrementing a
-  // reference count.  The first increment of a reference count on a
-  // thread is not important, since the first use of the object on a
-  // thread can happen before it.  What is important is the transfer
-  // of the pointer to that thread, which may happen prior to the
-  // first increment on that thread.  The necessary memory
-  // synchronization is done by the mechanism that transfers the
-  // pointer between threads.
+// Memory synchronization is not required when incrementing a
+// reference count.  The first increment of a reference count on a
+// thread is not important, since the first use of the object on a
+// thread can happen before it.  What is important is the transfer
+// of the pointer to that thread, which may happen prior to the
+// first increment on that thread.  The necessary memory
+// synchronization is done by the mechanism that transfers the
+// pointer between threads.
 #ifdef NS_BUILD_REFCNT_LOGGING
   uint32_t count =
 #endif
-    mRefCount.fetch_add(1, std::memory_order_relaxed)
+      mRefCount.fetch_add(1, std::memory_order_relaxed)
 #ifdef NS_BUILD_REFCNT_LOGGING
-    + 1
+      + 1
 #endif
-    ;
+      ;
   STRING_STAT_INCREMENT(Share);
   NS_LOG_ADDREF(this, count, "nsStringBuffer", sizeof(*this));
 }
@@ -219,7 +199,7 @@ nsStringBuffer::Release()
     count = mRefCount.load(std::memory_order_acquire);
 
     STRING_STAT_INCREMENT(Free);
-    free(this); // we were allocated with |malloc|
+    free(this);  // we were allocated with |malloc|
   }
 }
 
@@ -231,11 +211,10 @@ nsStringBuffer::Alloc(size_t aSize)
 {
   NS_ASSERTION(aSize != 0, "zero capacity allocation not allowed");
   NS_ASSERTION(sizeof(nsStringBuffer) + aSize <= size_t(uint32_t(-1)) &&
-               sizeof(nsStringBuffer) + aSize > aSize,
+                   sizeof(nsStringBuffer) + aSize > aSize,
                "mStorageSize will truncate");
 
-  nsStringBuffer* hdr =
-    (nsStringBuffer*)malloc(sizeof(nsStringBuffer) + aSize);
+  nsStringBuffer* hdr = (nsStringBuffer*)malloc(sizeof(nsStringBuffer) + aSize);
   if (hdr) {
     STRING_STAT_INCREMENT(Alloc);
 
@@ -253,7 +232,7 @@ nsStringBuffer::Realloc(nsStringBuffer* aHdr, size_t aSize)
 
   NS_ASSERTION(aSize != 0, "zero capacity allocation not allowed");
   NS_ASSERTION(sizeof(nsStringBuffer) + aSize <= size_t(uint32_t(-1)) &&
-               sizeof(nsStringBuffer) + aSize > aSize,
+                   sizeof(nsStringBuffer) + aSize > aSize,
                "mStorageSize will truncate");
 
   // no point in trying to save ourselves if we hit this assertion
@@ -277,7 +256,7 @@ nsStringBuffer*
 nsStringBuffer::FromString(const nsAString& aStr)
 {
   const nsAStringAccessor* accessor =
-    static_cast<const nsAStringAccessor*>(&aStr);
+      static_cast<const nsAStringAccessor*>(&aStr);
 
   if (!(accessor->flags() & nsAString::DataFlags::SHARED)) {
     return nullptr;
@@ -290,7 +269,7 @@ nsStringBuffer*
 nsStringBuffer::FromString(const nsACString& aStr)
 {
   const nsACStringAccessor* accessor =
-    static_cast<const nsACStringAccessor*>(&aStr);
+      static_cast<const nsACStringAccessor*>(&aStr);
 
   if (!(accessor->flags() & nsACString::DataFlags::SHARED)) {
     return nullptr;
@@ -300,8 +279,7 @@ nsStringBuffer::FromString(const nsACString& aStr)
 }
 
 void
-nsStringBuffer::ToString(uint32_t aLen, nsAString& aStr,
-                         bool aMoveOwnership)
+nsStringBuffer::ToString(uint32_t aLen, nsAString& aStr, bool aMoveOwnership)
 {
   char16_t* data = static_cast<char16_t*>(Data());
 
@@ -310,7 +288,7 @@ nsStringBuffer::ToString(uint32_t aLen, nsAString& aStr,
                         "data should be null terminated");
 
   nsAString::DataFlags flags =
-    nsAString::DataFlags::SHARED | nsAString::DataFlags::TERMINATED;
+      nsAString::DataFlags::SHARED | nsAString::DataFlags::TERMINATED;
 
   if (!aMoveOwnership) {
     AddRef();
@@ -319,8 +297,7 @@ nsStringBuffer::ToString(uint32_t aLen, nsAString& aStr,
 }
 
 void
-nsStringBuffer::ToString(uint32_t aLen, nsACString& aStr,
-                         bool aMoveOwnership)
+nsStringBuffer::ToString(uint32_t aLen, nsACString& aStr, bool aMoveOwnership)
 {
   char* data = static_cast<char*>(Data());
 
@@ -329,7 +306,7 @@ nsStringBuffer::ToString(uint32_t aLen, nsACString& aStr,
                         "data should be null terminated");
 
   nsACString::DataFlags flags =
-    nsACString::DataFlags::SHARED | nsACString::DataFlags::TERMINATED;
+      nsACString::DataFlags::SHARED | nsACString::DataFlags::TERMINATED;
 
   if (!aMoveOwnership) {
     AddRef();
@@ -338,13 +315,15 @@ nsStringBuffer::ToString(uint32_t aLen, nsACString& aStr,
 }
 
 size_t
-nsStringBuffer::SizeOfIncludingThisIfUnshared(mozilla::MallocSizeOf aMallocSizeOf) const
+nsStringBuffer::SizeOfIncludingThisIfUnshared(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   return IsReadonly() ? 0 : aMallocSizeOf(this);
 }
 
 size_t
-nsStringBuffer::SizeOfIncludingThisEvenIfShared(mozilla::MallocSizeOf aMallocSizeOf) const
+nsStringBuffer::SizeOfIncludingThisEvenIfShared(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   return aMallocSizeOf(this);
 }
@@ -360,124 +339,148 @@ extern "C" {
 // This is a no-op on release, so we ifdef it out such that using it in release
 // results in a linker error.
 #ifdef DEBUG
-void Gecko_IncrementStringAdoptCount(void* aData)
+void
+Gecko_IncrementStringAdoptCount(void* aData)
 {
   MOZ_LOG_CTOR(aData, "StringAdopt", 1);
 }
 #elif defined(MOZ_DEBUG_RUST)
-void Gecko_IncrementStringAdoptCount(void *aData)
+void
+Gecko_IncrementStringAdoptCount(void* aData)
 {
 }
 #endif
 
-void Gecko_FinalizeCString(nsACString* aThis)
+void
+Gecko_FinalizeCString(nsACString* aThis)
 {
   aThis->~nsACString();
 }
 
-void Gecko_AssignCString(nsACString* aThis, const nsACString* aOther)
+void
+Gecko_AssignCString(nsACString* aThis, const nsACString* aOther)
 {
   aThis->Assign(*aOther);
 }
 
-void Gecko_TakeFromCString(nsACString* aThis, nsACString* aOther)
+void
+Gecko_TakeFromCString(nsACString* aThis, nsACString* aOther)
 {
   aThis->Assign(mozilla::Move(*aOther));
 }
 
-void Gecko_AppendCString(nsACString* aThis, const nsACString* aOther)
+void
+Gecko_AppendCString(nsACString* aThis, const nsACString* aOther)
 {
   aThis->Append(*aOther);
 }
 
-void Gecko_SetLengthCString(nsACString* aThis, uint32_t aLength)
+void
+Gecko_SetLengthCString(nsACString* aThis, uint32_t aLength)
 {
   aThis->SetLength(aLength);
 }
 
-bool Gecko_FallibleAssignCString(nsACString* aThis, const nsACString* aOther)
+bool
+Gecko_FallibleAssignCString(nsACString* aThis, const nsACString* aOther)
 {
   return aThis->Assign(*aOther, mozilla::fallible);
 }
 
-bool Gecko_FallibleTakeFromCString(nsACString* aThis, nsACString* aOther)
+bool
+Gecko_FallibleTakeFromCString(nsACString* aThis, nsACString* aOther)
 {
   return aThis->Assign(mozilla::Move(*aOther), mozilla::fallible);
 }
 
-bool Gecko_FallibleAppendCString(nsACString* aThis, const nsACString* aOther)
+bool
+Gecko_FallibleAppendCString(nsACString* aThis, const nsACString* aOther)
 {
   return aThis->Append(*aOther, mozilla::fallible);
 }
 
-bool Gecko_FallibleSetLengthCString(nsACString* aThis, uint32_t aLength)
+bool
+Gecko_FallibleSetLengthCString(nsACString* aThis, uint32_t aLength)
 {
   return aThis->SetLength(aLength, mozilla::fallible);
 }
 
-char* Gecko_BeginWritingCString(nsACString* aThis)
+char*
+Gecko_BeginWritingCString(nsACString* aThis)
 {
   return aThis->BeginWriting();
 }
 
-char* Gecko_FallibleBeginWritingCString(nsACString* aThis)
+char*
+Gecko_FallibleBeginWritingCString(nsACString* aThis)
 {
   return aThis->BeginWriting(mozilla::fallible);
 }
 
-void Gecko_FinalizeString(nsAString* aThis)
+void
+Gecko_FinalizeString(nsAString* aThis)
 {
   aThis->~nsAString();
 }
 
-void Gecko_AssignString(nsAString* aThis, const nsAString* aOther)
+void
+Gecko_AssignString(nsAString* aThis, const nsAString* aOther)
 {
   aThis->Assign(*aOther);
 }
 
-void Gecko_TakeFromString(nsAString* aThis, nsAString* aOther)
+void
+Gecko_TakeFromString(nsAString* aThis, nsAString* aOther)
 {
   aThis->Assign(mozilla::Move(*aOther));
 }
 
-void Gecko_AppendString(nsAString* aThis, const nsAString* aOther)
+void
+Gecko_AppendString(nsAString* aThis, const nsAString* aOther)
 {
   aThis->Append(*aOther);
 }
 
-void Gecko_SetLengthString(nsAString* aThis, uint32_t aLength)
+void
+Gecko_SetLengthString(nsAString* aThis, uint32_t aLength)
 {
   aThis->SetLength(aLength);
 }
 
-bool Gecko_FallibleAssignString(nsAString* aThis, const nsAString* aOther)
+bool
+Gecko_FallibleAssignString(nsAString* aThis, const nsAString* aOther)
 {
   return aThis->Assign(*aOther, mozilla::fallible);
 }
 
-bool Gecko_FallibleTakeFromString(nsAString* aThis, nsAString* aOther)
+bool
+Gecko_FallibleTakeFromString(nsAString* aThis, nsAString* aOther)
 {
   return aThis->Assign(mozilla::Move(*aOther), mozilla::fallible);
 }
 
-bool Gecko_FallibleAppendString(nsAString* aThis, const nsAString* aOther)
+bool
+Gecko_FallibleAppendString(nsAString* aThis, const nsAString* aOther)
 {
   return aThis->Append(*aOther, mozilla::fallible);
 }
 
-bool Gecko_FallibleSetLengthString(nsAString* aThis, uint32_t aLength)
+bool
+Gecko_FallibleSetLengthString(nsAString* aThis, uint32_t aLength)
 {
   return aThis->SetLength(aLength, mozilla::fallible);
 }
 
-char16_t* Gecko_BeginWritingString(nsAString* aThis)
+char16_t*
+Gecko_BeginWritingString(nsAString* aThis)
 {
   return aThis->BeginWriting();
 }
 
-char16_t* Gecko_FallibleBeginWritingString(nsAString* aThis)
+char16_t*
+Gecko_FallibleBeginWritingString(nsAString* aThis)
 {
   return aThis->BeginWriting(mozilla::fallible);
 }
 
-} // extern "C"
+}  // extern "C"

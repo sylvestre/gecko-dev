@@ -29,7 +29,7 @@ namespace dom {
 class ContentChild;
 class DataStorageEntry;
 class DataStorageItem;
-}
+}  // namespace dom
 
 /**
  * DataStorage is a threadsafe, generic, narrow string-based hash map that
@@ -86,13 +86,15 @@ class DataStorageItem;
  * only be set and accessed from private contexts. It will be cleared upon
  * observing the event "last-pb-context-exited".
  */
-enum DataStorageType {
+enum DataStorageType
+{
   DataStorage_Persistent,
   DataStorage_Temporary,
   DataStorage_Private
 };
 
-enum class DataStorageClass {
+enum class DataStorageClass
+{
 #define DATA_STORAGE(_) _,
 #include "mozilla/DataStorageList.h"
 #undef DATA_STORAGE
@@ -102,7 +104,7 @@ class DataStorage : public nsIObserver
 {
   typedef dom::DataStorageItem DataStorageItem;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -116,9 +118,9 @@ public:
   // aItems is used in the content process to initialize a cache of the items
   // received from the parent process over IPC. nullptr must be passed for the
   // parent process.
-  nsresult Init(/*out*/bool& aDataWillPersist,
-                const InfallibleTArray<mozilla::dom::DataStorageItem>*
-                  aItems = nullptr);
+  nsresult Init(
+      /*out*/ bool& aDataWillPersist,
+      const InfallibleTArray<mozilla::dom::DataStorageItem>* aItems = nullptr);
   // Given a key and a type of data, returns a value. Returns an empty string if
   // the key is not present for that type of data. If Get is called before the
   // "data-storage-ready" event is observed, it will block. NB: It is not
@@ -127,7 +129,8 @@ public:
   nsCString Get(const nsCString& aKey, DataStorageType aType);
   // Give a key, value, and type of data, adds an entry as appropriate.
   // Updates existing entries.
-  nsresult Put(const nsCString& aKey, const nsCString& aValue,
+  nsresult Put(const nsCString& aKey,
+               const nsCString& aValue,
                DataStorageType aType);
   // Given a key and type of data, removes an entry if present.
   void Remove(const nsCString& aKey, DataStorageType aType);
@@ -138,21 +141,24 @@ public:
   static void GetAllFileNames(nsTArray<nsString>& aItems);
 
   // Read all child process data that we know about.
-  static void GetAllChildProcessData(nsTArray<mozilla::dom::DataStorageEntry>& aEntries);
+  static void GetAllChildProcessData(
+      nsTArray<mozilla::dom::DataStorageEntry>& aEntries);
 
   // Read all of the data items.
   void GetAll(InfallibleTArray<DataStorageItem>* aItems);
 
   // Set the cached copy of our DataStorage entries in the content process.
-  static void SetCachedStorageEntries(const InfallibleTArray<mozilla::dom::DataStorageEntry>& aEntries);
+  static void SetCachedStorageEntries(
+      const InfallibleTArray<mozilla::dom::DataStorageEntry>& aEntries);
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   explicit DataStorage(const nsString& aFilename);
   virtual ~DataStorage();
 
-  static already_AddRefed<DataStorage> GetFromRawFileName(const nsString& aFilename);
+  static already_AddRefed<DataStorage> GetFromRawFileName(
+      const nsString& aFilename);
 
   friend class ::psm_DataStorageTest;
   friend class mozilla::dom::ContentChild;
@@ -163,19 +169,19 @@ private:
 
   class Entry
   {
-  public:
+   public:
     Entry();
     bool UpdateScore();
 
     uint32_t mScore;
-    int32_t mLastAccessed; // the last accessed time in days since the epoch
+    int32_t mLastAccessed;  // the last accessed time in days since the epoch
     nsCString mValue;
   };
 
   // Utility class for scanning tables for an entry to evict.
   class KeyAndEntry
   {
-  public:
+   public:
     nsCString mKey;
     Entry mEntry;
   };
@@ -197,9 +203,12 @@ private:
   void ShutdownTimer();
   void NotifyObservers(const char* aTopic);
 
-  bool GetInternal(const nsCString& aKey, Entry* aEntry, DataStorageType aType,
+  bool GetInternal(const nsCString& aKey,
+                   Entry* aEntry,
+                   DataStorageType aType,
                    const MutexAutoLock& aProofOfLock);
-  nsresult PutInternal(const nsCString& aKey, Entry& aEntry,
+  nsresult PutInternal(const nsCString& aKey,
+                       Entry& aEntry,
                        DataStorageType aType,
                        const MutexAutoLock& aProofOfLock);
   void MaybeEvictOneEntry(DataStorageType aType,
@@ -211,28 +220,29 @@ private:
                         InfallibleTArray<DataStorageItem>* aItems,
                         const MutexAutoLock& aProofOfLock);
 
-  Mutex mMutex; // This mutex protects access to the following members:
-  DataStorageTable  mPersistentDataTable;
-  DataStorageTable  mTemporaryDataTable;
-  DataStorageTable  mPrivateDataTable;
+  Mutex mMutex;  // This mutex protects access to the following members:
+  DataStorageTable mPersistentDataTable;
+  DataStorageTable mTemporaryDataTable;
+  DataStorageTable mPrivateDataTable;
   nsCOMPtr<nsIThread> mWorkerThread;
   nsCOMPtr<nsIFile> mBackingFile;
-  nsCOMPtr<nsITimer> mTimer; // All uses after init must be on the worker thread
-  uint32_t mTimerDelay; // in milliseconds
-  bool mPendingWrite; // true if a write is needed but hasn't been dispatched
+  nsCOMPtr<nsITimer>
+      mTimer;            // All uses after init must be on the worker thread
+  uint32_t mTimerDelay;  // in milliseconds
+  bool mPendingWrite;    // true if a write is needed but hasn't been dispatched
   bool mShuttingDown;
   // (End list of members protected by mMutex)
 
-  mozilla::Atomic<bool> mInitCalled; // Indicates that Init() has been called.
+  mozilla::Atomic<bool> mInitCalled;  // Indicates that Init() has been called.
 
-  Monitor mReadyMonitor; // Do not acquire this at the same time as mMutex.
-  bool mReady; // Indicates that saved data has been read and Get can proceed.
+  Monitor mReadyMonitor;  // Do not acquire this at the same time as mMutex.
+  bool mReady;  // Indicates that saved data has been read and Get can proceed.
 
   const nsString mFilename;
 
   static StaticAutoPtr<DataStorages> sDataStorages;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_DataStorage_h
+#endif  // mozilla_DataStorage_h

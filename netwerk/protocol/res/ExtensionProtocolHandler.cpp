@@ -70,80 +70,78 @@ StaticRefPtr<ExtensionProtocolHandler> ExtensionProtocolHandler::sSingleton;
  */
 class ExtensionStreamGetter : public RefCounted<ExtensionStreamGetter>
 {
-  public:
-    // To use when getting a remote input stream for a resource
-    // in an unpacked extension.
-    ExtensionStreamGetter(nsIURI* aURI, nsILoadInfo* aLoadInfo)
-      : mURI(aURI)
-      , mLoadInfo(aLoadInfo)
-      , mIsJarChannel(false)
-    {
-      MOZ_ASSERT(aURI);
-      MOZ_ASSERT(aLoadInfo);
+ public:
+  // To use when getting a remote input stream for a resource
+  // in an unpacked extension.
+  ExtensionStreamGetter(nsIURI* aURI, nsILoadInfo* aLoadInfo)
+      : mURI(aURI), mLoadInfo(aLoadInfo), mIsJarChannel(false)
+  {
+    MOZ_ASSERT(aURI);
+    MOZ_ASSERT(aLoadInfo);
 
-      SetupEventTarget();
+    SetupEventTarget();
+  }
+
+  // To use when getting an FD for a packed extension JAR file
+  // in order to load a resource.
+  ExtensionStreamGetter(nsIURI* aURI,
+                        nsILoadInfo* aLoadInfo,
+                        already_AddRefed<nsIJARChannel>&& aJarChannel,
+                        nsIFile* aJarFile)
+      : mURI(aURI),
+        mLoadInfo(aLoadInfo),
+        mJarChannel(Move(aJarChannel)),
+        mJarFile(aJarFile),
+        mIsJarChannel(true)
+  {
+    MOZ_ASSERT(aURI);
+    MOZ_ASSERT(aLoadInfo);
+    MOZ_ASSERT(mJarChannel);
+    MOZ_ASSERT(aJarFile);
+
+    SetupEventTarget();
+  }
+
+  ~ExtensionStreamGetter() {}
+
+  void SetupEventTarget()
+  {
+    mMainThreadEventTarget = nsContentUtils::GetEventTargetByLoadInfo(
+        mLoadInfo, TaskCategory::Other);
+    if (!mMainThreadEventTarget) {
+      mMainThreadEventTarget = GetMainThreadSerialEventTarget();
     }
+  }
 
-    // To use when getting an FD for a packed extension JAR file
-    // in order to load a resource.
-    ExtensionStreamGetter(nsIURI* aURI, nsILoadInfo* aLoadInfo,
-                          already_AddRefed<nsIJARChannel>&& aJarChannel,
-                          nsIFile* aJarFile)
-      : mURI(aURI)
-      , mLoadInfo(aLoadInfo)
-      , mJarChannel(Move(aJarChannel))
-      , mJarFile(aJarFile)
-      , mIsJarChannel(true)
-    {
-      MOZ_ASSERT(aURI);
-      MOZ_ASSERT(aLoadInfo);
-      MOZ_ASSERT(mJarChannel);
-      MOZ_ASSERT(aJarFile);
+  // Get an input stream or file descriptor from the parent asynchronously.
+  Result<Ok, nsresult> GetAsync(nsIStreamListener* aListener,
+                                nsIChannel* aChannel);
 
-      SetupEventTarget();
-    }
+  // Handle an input stream being returned from the parent
+  void OnStream(nsIInputStream* aStream);
 
-    ~ExtensionStreamGetter() {}
+  // Handle file descriptor being returned from the parent
+  void OnFD(const FileDescriptor& aFD);
 
-    void SetupEventTarget()
-    {
-      mMainThreadEventTarget =
-        nsContentUtils::GetEventTargetByLoadInfo(mLoadInfo, TaskCategory::Other);
-      if (!mMainThreadEventTarget) {
-        mMainThreadEventTarget = GetMainThreadSerialEventTarget();
-      }
-    }
+  MOZ_DECLARE_REFCOUNTED_TYPENAME(ExtensionStreamGetter)
 
-    // Get an input stream or file descriptor from the parent asynchronously.
-    Result<Ok, nsresult> GetAsync(nsIStreamListener* aListener,
-                                  nsIChannel* aChannel);
-
-    // Handle an input stream being returned from the parent
-    void OnStream(nsIInputStream* aStream);
-
-    // Handle file descriptor being returned from the parent
-    void OnFD(const FileDescriptor& aFD);
-
-    MOZ_DECLARE_REFCOUNTED_TYPENAME(ExtensionStreamGetter)
-
-  private:
-    nsCOMPtr<nsIURI> mURI;
-    nsCOMPtr<nsILoadInfo> mLoadInfo;
-    nsCOMPtr<nsIJARChannel> mJarChannel;
-    nsCOMPtr<nsIFile> mJarFile;
-    nsCOMPtr<nsIStreamListener> mListener;
-    nsCOMPtr<nsIChannel> mChannel;
-    nsCOMPtr<nsISerialEventTarget> mMainThreadEventTarget;
-    bool mIsJarChannel;
+ private:
+  nsCOMPtr<nsIURI> mURI;
+  nsCOMPtr<nsILoadInfo> mLoadInfo;
+  nsCOMPtr<nsIJARChannel> mJarChannel;
+  nsCOMPtr<nsIFile> mJarFile;
+  nsCOMPtr<nsIStreamListener> mListener;
+  nsCOMPtr<nsIChannel> mChannel;
+  nsCOMPtr<nsISerialEventTarget> mMainThreadEventTarget;
+  bool mIsJarChannel;
 };
 
 class ExtensionJARFileOpener : public nsISupports
 {
-public:
+ public:
   ExtensionJARFileOpener(nsIFile* aFile,
-                         NeckoParent::GetExtensionFDResolver& aResolve) :
-    mFile(aFile),
-    mResolve(aResolve)
+                         NeckoParent::GetExtensionFDResolver& aResolve)
+      : mFile(aFile), mResolve(aResolve)
   {
     MOZ_ASSERT(aFile);
     MOZ_ASSERT(aResolve);
@@ -159,8 +157,8 @@ public:
     nsCOMPtr<nsILocalFileWin> winFile = do_QueryInterface(mFile, &rv);
     MOZ_ASSERT(winFile);
     if (NS_SUCCEEDED(rv)) {
-      rv = winFile->OpenNSPRFileDescShareDelete(PR_RDONLY, 0,
-                                                &prFileDesc.rwget());
+      rv = winFile->OpenNSPRFileDescShareDelete(
+          PR_RDONLY, 0, &prFileDesc.rwget());
     }
 #else
     nsresult rv = mFile->OpenNSPRFileDesc(PR_RDONLY, 0, &prFileDesc.rwget());
@@ -168,12 +166,13 @@ public:
 
     if (NS_SUCCEEDED(rv)) {
       mFD = FileDescriptor(FileDescriptor::PlatformHandleType(
-                           PR_FileDesc2NativeHandle(prFileDesc)));
+          PR_FileDesc2NativeHandle(prFileDesc)));
     }
 
     nsCOMPtr<nsIRunnable> event =
-      mozilla::NewRunnableMethod("ExtensionJarFileFDResolver",
-        this, &ExtensionJARFileOpener::SendBackFD);
+        mozilla::NewRunnableMethod("ExtensionJarFileFDResolver",
+                                   this,
+                                   &ExtensionJARFileOpener::SendBackFD);
 
     rv = NS_DispatchToMainThread(event, nsIEventTarget::DISPATCH_NORMAL);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "NS_DispatchToMainThread");
@@ -189,7 +188,7 @@ public:
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
-private:
+ private:
   virtual ~ExtensionJARFileOpener() {}
 
   nsCOMPtr<nsIFile> mFile;
@@ -223,33 +222,29 @@ ExtensionStreamGetter::GetAsync(nsIStreamListener* aListener,
   if (mIsJarChannel) {
     // Request an FD for this moz-extension URI
     gNeckoChild->SendGetExtensionFD(uri)->Then(
-      mMainThreadEventTarget,
-      __func__,
-      [self] (const FileDescriptor& fd) {
-        self->OnFD(fd);
-      },
-      [self] (const mozilla::ipc::PromiseRejectReason) {
-        self->OnFD(FileDescriptor());
-      }
-    );
+        mMainThreadEventTarget,
+        __func__,
+        [self](const FileDescriptor& fd) { self->OnFD(fd); },
+        [self](const mozilla::ipc::PromiseRejectReason) {
+          self->OnFD(FileDescriptor());
+        });
     return Ok();
   }
 
   // Request an input stream for this moz-extension URI
   gNeckoChild->SendGetExtensionStream(uri)->Then(
-    mMainThreadEventTarget,
-    __func__,
-    [self] (const OptionalIPCStream& stream) {
-      nsCOMPtr<nsIInputStream> inputStream;
-      if (stream.type() == OptionalIPCStream::OptionalIPCStream::TIPCStream) {
-        inputStream = ipc::DeserializeIPCStream(stream);
-      }
-      self->OnStream(inputStream);
-    },
-    [self] (const mozilla::ipc::PromiseRejectReason) {
-      self->OnStream(nullptr);
-    }
-  );
+      mMainThreadEventTarget,
+      __func__,
+      [self](const OptionalIPCStream& stream) {
+        nsCOMPtr<nsIInputStream> inputStream;
+        if (stream.type() == OptionalIPCStream::OptionalIPCStream::TIPCStream) {
+          inputStream = ipc::DeserializeIPCStream(stream);
+        }
+        self->OnStream(inputStream);
+      },
+      [self](const mozilla::ipc::PromiseRejectReason) {
+        self->OnStream(nullptr);
+      });
   return Ok();
 }
 
@@ -287,8 +282,8 @@ ExtensionStreamGetter::OnStream(nsIInputStream* aStream)
   }
 
   nsCOMPtr<nsIInputStreamPump> pump;
-  nsresult rv = NS_NewInputStreamPump(getter_AddRefs(pump), aStream, 0, 0,
-                                      false, mMainThreadEventTarget);
+  nsresult rv = NS_NewInputStreamPump(
+      getter_AddRefs(pump), aStream, 0, 0, false, mMainThreadEventTarget);
   if (NS_FAILED(rv)) {
     CancelRequest(listener, mChannel, rv);
     return;
@@ -325,8 +320,10 @@ ExtensionStreamGetter::OnFD(const FileDescriptor& aFD)
   }
 }
 
-NS_IMPL_QUERY_INTERFACE(ExtensionProtocolHandler, nsISubstitutingProtocolHandler,
-                        nsIProtocolHandler, nsIProtocolHandlerWithDynamicFlags,
+NS_IMPL_QUERY_INTERFACE(ExtensionProtocolHandler,
+                        nsISubstitutingProtocolHandler,
+                        nsIProtocolHandler,
+                        nsIProtocolHandlerWithDynamicFlags,
                         nsISupportsWeakReference)
 NS_IMPL_ADDREF_INHERITED(ExtensionProtocolHandler, SubstitutingProtocolHandler)
 NS_IMPL_RELEASE_INHERITED(ExtensionProtocolHandler, SubstitutingProtocolHandler)
@@ -342,12 +339,14 @@ ExtensionProtocolHandler::GetSingleton()
 }
 
 ExtensionProtocolHandler::ExtensionProtocolHandler()
-  : SubstitutingProtocolHandler(EXTENSION_SCHEME)
+    : SubstitutingProtocolHandler(EXTENSION_SCHEME)
 #if !defined(XP_WIN)
 #if defined(XP_MACOSX)
-  , mAlreadyCheckedDevRepo(false)
+      ,
+      mAlreadyCheckedDevRepo(false)
 #endif /* XP_MACOSX */
-  , mAlreadyCheckedAppDir(false)
+      ,
+      mAlreadyCheckedAppDir(false)
 #endif /* ! XP_WIN */
 {
   // Note, extensions.webextensions.protocol.remote=false is for
@@ -355,8 +354,9 @@ ExtensionProtocolHandler::ExtensionProtocolHandler()
   // processes (specifically content and extension processes), will
   // not be able to load most moz-extension URI's when the pref is
   // set to false.
-  mUseRemoteFileChannels = IsNeckoChild() &&
-    Preferences::GetBool("extensions.webextensions.protocol.remote");
+  mUseRemoteFileChannels =
+      IsNeckoChild() &&
+      Preferences::GetBool("extensions.webextensions.protocol.remote");
 }
 
 static inline ExtensionPolicyService&
@@ -377,7 +377,10 @@ ExtensionProtocolHandler::GetFlagsForURI(nsIURI* aURI, uint32_t* aFlags)
     loadableByAnyone = policy->IsPathWebAccessible(url.FilePath());
   }
 
-  *aFlags = URI_STD | URI_IS_LOCAL_RESOURCE | (loadableByAnyone ? (URI_LOADABLE_BY_ANYONE | URI_FETCHABLE_BY_ANYONE) : URI_DANGEROUS_TO_LOAD);
+  *aFlags =
+      URI_STD | URI_IS_LOCAL_RESOURCE |
+      (loadableByAnyone ? (URI_LOADABLE_BY_ANYONE | URI_FETCHABLE_BY_ANYONE)
+                        : URI_DANGEROUS_TO_LOAD);
   return NS_OK;
 }
 
@@ -466,30 +469,34 @@ ExtensionProtocolHandler::SubstituteChannel(nsIURI* aURI,
 
   bool haveLoadInfo = aLoadInfo;
   nsCOMPtr<nsIChannel> channel = NS_NewSimpleChannel(
-    aURI, aLoadInfo, *result,
-    [haveLoadInfo] (nsIStreamListener* listener, nsIChannel* channel, nsIChannel* origChannel) -> RequestOrReason {
-      nsresult rv;
-      nsCOMPtr<nsIStreamConverterService> convService =
-        do_GetService(NS_STREAMCONVERTERSERVICE_CONTRACTID, &rv);
-      MOZ_TRY(rv);
+      aURI,
+      aLoadInfo,
+      *result,
+      [haveLoadInfo](nsIStreamListener* listener,
+                     nsIChannel* channel,
+                     nsIChannel* origChannel) -> RequestOrReason {
+        nsresult rv;
+        nsCOMPtr<nsIStreamConverterService> convService =
+            do_GetService(NS_STREAMCONVERTERSERVICE_CONTRACTID, &rv);
+        MOZ_TRY(rv);
 
-      nsCOMPtr<nsIURI> uri;
-      MOZ_TRY(channel->GetURI(getter_AddRefs(uri)));
+        nsCOMPtr<nsIURI> uri;
+        MOZ_TRY(channel->GetURI(getter_AddRefs(uri)));
 
-      const char* kFromType = "application/vnd.mozilla.webext.unlocalized";
-      const char* kToType = "text/css";
+        const char* kFromType = "application/vnd.mozilla.webext.unlocalized";
+        const char* kToType = "text/css";
 
-      nsCOMPtr<nsIStreamListener> converter;
-      MOZ_TRY(convService->AsyncConvertData(kFromType, kToType, listener,
-                                        uri, getter_AddRefs(converter)));
-      if (haveLoadInfo) {
-        MOZ_TRY(origChannel->AsyncOpen2(converter));
-      } else {
-        MOZ_TRY(origChannel->AsyncOpen(converter, nullptr));
-      }
+        nsCOMPtr<nsIStreamListener> converter;
+        MOZ_TRY(convService->AsyncConvertData(
+            kFromType, kToType, listener, uri, getter_AddRefs(converter)));
+        if (haveLoadInfo) {
+          MOZ_TRY(origChannel->AsyncOpen2(converter));
+        } else {
+          MOZ_TRY(origChannel->AsyncOpen(converter, nullptr));
+        }
 
-      return RequestOrReason(origChannel);
-    });
+        return RequestOrReason(origChannel);
+      });
   NS_ENSURE_TRUE(channel, NS_ERROR_OUT_OF_MEMORY);
 
   if (aLoadInfo) {
@@ -574,8 +581,7 @@ ExtensionProtocolHandler::DevRepoContains(nsIFile* aRequestedFile,
 
 #if !defined(XP_WIN)
 Result<Ok, nsresult>
-ExtensionProtocolHandler::AppDirContains(nsIFile* aExtensionDir,
-                                         bool* aResult)
+ExtensionProtocolHandler::AppDirContains(nsIFile* aExtensionDir, bool* aResult)
 {
   MOZ_ASSERT(mozilla::IsDevelopmentBuild());
   MOZ_ASSERT(!IsNeckoChild());
@@ -612,7 +618,8 @@ LogExternalResourceError(nsIFile* aExtensionDir, nsIFile* aRequestedFile)
   Unused << aRequestedFile->GetNativePath(requestedFilePath);
 
   LOG("Rejecting external unpacked extension resource [%s] from "
-      "extension directory [%s]", requestedFilePath.get(),
+      "extension directory [%s]",
+      requestedFilePath.get(),
       extensionDirPath.get());
 }
 
@@ -685,10 +692,8 @@ ExtensionProtocolHandler::NewStream(nsIURI* aChildURI, bool* aTerminateSender)
   MOZ_TRY(rv);
 
   nsCOMPtr<nsIURI> resolvedURI;
-  MOZ_TRY(ioService->NewURI(resolvedSpec,
-                            nullptr,
-                            nullptr,
-                            getter_AddRefs(resolvedURI)));
+  MOZ_TRY(ioService->NewURI(
+      resolvedSpec, nullptr, nullptr, getter_AddRefs(resolvedURI)));
 
   // We use the system principal to get a file channel for the request,
   // but only after we've checked (above) that the child URI is of
@@ -787,16 +792,15 @@ ExtensionProtocolHandler::NewFD(nsIURI* aChildURI,
 
   if (!mFileOpenerThread) {
     mFileOpenerThread =
-      new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
-                         NS_LITERAL_CSTRING("ExtensionProtocolHandler"));
+        new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
+                           NS_LITERAL_CSTRING("ExtensionProtocolHandler"));
   }
 
   RefPtr<ExtensionJARFileOpener> fileOpener =
-    new ExtensionJARFileOpener(jarFile, aResolve);
+      new ExtensionJARFileOpener(jarFile, aResolve);
 
-  nsCOMPtr<nsIRunnable> event =
-    mozilla::NewRunnableMethod("ExtensionJarFileOpener",
-        fileOpener, &ExtensionJARFileOpener::OpenFile);
+  nsCOMPtr<nsIRunnable> event = mozilla::NewRunnableMethod(
+      "ExtensionJarFileOpener", fileOpener, &ExtensionJARFileOpener::OpenFile);
 
   MOZ_TRY(mFileOpenerThread->Dispatch(event, nsIEventTarget::DISPATCH_NORMAL));
 
@@ -825,13 +829,16 @@ NewSimpleChannel(nsIURI* aURI,
                  ExtensionStreamGetter* aStreamGetter,
                  nsIChannel** aRetVal)
 {
-  nsCOMPtr<nsIChannel> channel = NS_NewSimpleChannel(
-    aURI, aLoadinfo, aStreamGetter,
-    [] (nsIStreamListener* listener, nsIChannel* simpleChannel,
-        ExtensionStreamGetter* getter) -> RequestOrReason {
-      MOZ_TRY(getter->GetAsync(listener, simpleChannel));
-      return RequestOrReason(nullptr);
-    });
+  nsCOMPtr<nsIChannel> channel =
+      NS_NewSimpleChannel(aURI,
+                          aLoadinfo,
+                          aStreamGetter,
+                          [](nsIStreamListener* listener,
+                             nsIChannel* simpleChannel,
+                             ExtensionStreamGetter* getter) -> RequestOrReason {
+                            MOZ_TRY(getter->GetAsync(listener, simpleChannel));
+                            return RequestOrReason(nullptr);
+                          });
 
   SetContentType(aURI, channel);
   channel.swap(*aRetVal);
@@ -844,31 +851,36 @@ NewSimpleChannel(nsIURI* aURI,
                  nsIChannel* aChannel,
                  nsIChannel** aRetVal)
 {
-  nsCOMPtr<nsIChannel> channel = NS_NewSimpleChannel(aURI, aLoadinfo, aChannel,
-    [] (nsIStreamListener* listener, nsIChannel* simpleChannel,
-        nsIChannel* origChannel) -> RequestOrReason {
-      nsresult rv = origChannel->AsyncOpen2(listener);
-      if (NS_FAILED(rv)) {
-        simpleChannel->Cancel(NS_BINDING_ABORTED);
-        return RequestOrReason(rv);
-      }
-      return RequestOrReason(origChannel);
-    });
+  nsCOMPtr<nsIChannel> channel =
+      NS_NewSimpleChannel(aURI,
+                          aLoadinfo,
+                          aChannel,
+                          [](nsIStreamListener* listener,
+                             nsIChannel* simpleChannel,
+                             nsIChannel* origChannel) -> RequestOrReason {
+                            nsresult rv = origChannel->AsyncOpen2(listener);
+                            if (NS_FAILED(rv)) {
+                              simpleChannel->Cancel(NS_BINDING_ABORTED);
+                              return RequestOrReason(rv);
+                            }
+                            return RequestOrReason(origChannel);
+                          });
 
   SetContentType(aURI, channel);
   channel.swap(*aRetVal);
 }
 
 void
-ExtensionProtocolHandler::SubstituteRemoteFileChannel(nsIURI* aURI,
-                                                      nsILoadInfo* aLoadinfo,
-                                                      nsACString& aResolvedFileSpec,
-                                                      nsIChannel** aRetVal)
+ExtensionProtocolHandler::SubstituteRemoteFileChannel(
+    nsIURI* aURI,
+    nsILoadInfo* aLoadinfo,
+    nsACString& aResolvedFileSpec,
+    nsIChannel** aRetVal)
 {
   MOZ_ASSERT(IsNeckoChild());
 
   RefPtr<ExtensionStreamGetter> streamGetter =
-    new ExtensionStreamGetter(aURI, aLoadinfo);
+      new ExtensionStreamGetter(aURI, aLoadinfo);
 
   NewSimpleChannel(aURI, aLoadinfo, streamGetter, aRetVal);
 }
@@ -893,7 +905,10 @@ LogCacheCheck(const nsIJARChannel* aJarChannel,
   Unused << aJarURI->GetSpec(uriSpec);
   Unused << innerFileURI->GetSpec(jarSpec);
   LOG("[JARChannel %p] Cache %s: %s (%s)",
-      aJarChannel, aIsCached ? "hit" : "miss", uriSpec.get(), jarSpec.get());
+      aJarChannel,
+      aIsCached ? "hit" : "miss",
+      uriSpec.get(),
+      jarSpec.get());
 
   return Ok();
 }
@@ -945,14 +960,11 @@ ExtensionProtocolHandler::SubstituteRemoteJarChannel(nsIURI* aURI,
   MOZ_TRY(innerFileURL->GetFile(getter_AddRefs(jarFile)));
 
   RefPtr<ExtensionStreamGetter> streamGetter =
-    new ExtensionStreamGetter(aURI,
-                              aLoadinfo,
-                              jarChannel.forget(),
-                              jarFile);
+      new ExtensionStreamGetter(aURI, aLoadinfo, jarChannel.forget(), jarFile);
 
   NewSimpleChannel(aURI, aLoadinfo, streamGetter, aRetVal);
   return Ok();
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

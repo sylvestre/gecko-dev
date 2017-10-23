@@ -16,10 +16,10 @@ struct ID3D11Device;
 namespace mozilla {
 namespace gfx {
 class DataSourceSurface;
-} // namespace gfx
+}  // namespace gfx
 namespace gl {
 class GLContext;
-} // namespace gl
+}  // namespace gl
 namespace layers {
 
 class TextureHost;
@@ -30,19 +30,21 @@ class Compositor;
 // texture types.
 class TextureSourceProvider
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(TextureSourceProvider)
 
-  virtual already_AddRefed<DataTextureSource>
-  CreateDataTextureSource(TextureFlags aFlags = TextureFlags::NO_FLAGS) = 0;
+  virtual already_AddRefed<DataTextureSource> CreateDataTextureSource(
+      TextureFlags aFlags = TextureFlags::NO_FLAGS) = 0;
 
-  virtual already_AddRefed<DataTextureSource>
-  CreateDataTextureSourceAround(gfx::DataSourceSurface* aSurface) {
+  virtual already_AddRefed<DataTextureSource> CreateDataTextureSourceAround(
+      gfx::DataSourceSurface* aSurface)
+  {
     return nullptr;
   }
 
   virtual already_AddRefed<DataTextureSource>
-  CreateDataTextureSourceAroundYCbCr(TextureHost* aTexture) {
+  CreateDataTextureSourceAroundYCbCr(TextureHost* aTexture)
+  {
     return nullptr;
   }
 
@@ -80,21 +82,15 @@ public:
 
   // If this provider is also a Compositor, return the compositor. Otherwise return
   // null.
-  virtual Compositor* AsCompositor() {
-    return nullptr;
-  }
+  virtual Compositor* AsCompositor() { return nullptr; }
 
 #ifdef XP_WIN
   // On Windows, if this provides Direct3D textures, it must expose the device.
-  virtual ID3D11Device* GetD3D11Device() const {
-    return nullptr;
-  }
+  virtual ID3D11Device* GetD3D11Device() const { return nullptr; }
 #endif
 
   // If this provides OpenGL textures, it must expose the GLContext.
-  virtual gl::GLContext* GetGLContext() const {
-    return nullptr;
-  }
+  virtual gl::GLContext* GetGLContext() const { return nullptr; }
 
   virtual int32_t GetMaxTextureSize() const = 0;
 
@@ -102,28 +98,27 @@ public:
   // used to composite).
   virtual bool IsValid() const = 0;
 
-public:
+ public:
   class MOZ_STACK_CLASS AutoReadUnlockTextures
   {
-  public:
+   public:
     explicit AutoReadUnlockTextures(TextureSourceProvider* aProvider)
-     : mProvider(aProvider)
-    {}
-    ~AutoReadUnlockTextures() {
-      mProvider->ReadUnlockTextures();
+        : mProvider(aProvider)
+    {
     }
+    ~AutoReadUnlockTextures() { mProvider->ReadUnlockTextures(); }
 
-  private:
+   private:
     RefPtr<TextureSourceProvider> mProvider;
   };
 
-protected:
+ protected:
   // Should be called at the end of each composition.
   void ReadUnlockTextures();
 
   virtual ~TextureSourceProvider();
 
-private:
+ private:
   // An array of locks that will need to be unlocked after the next composition.
   nsTArray<RefPtr<TextureHost>> mUnlockAfterComposition;
 
@@ -131,7 +126,7 @@ private:
   nsTArray<RefPtr<TextureHost>> mNotifyNotUsedAfterComposition;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_TextureSourceProvider_h
+#endif  // mozilla_gfx_layers_TextureSourceProvider_h

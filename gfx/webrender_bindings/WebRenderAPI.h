@@ -28,7 +28,7 @@ class CompositorWidget;
 namespace layers {
 class CompositorBridgeParentBase;
 class WebRenderBridgeParent;
-}
+}  // namespace layers
 
 namespace wr {
 
@@ -38,7 +38,8 @@ class RendererEvent;
 
 // This isn't part of WR's API, but we define it here to simplify layout's
 // logic and data plumbing.
-struct Line {
+struct Line
+{
   float baseline;
   float start;
   float end;
@@ -50,8 +51,9 @@ struct Line {
 
 /// Updates to retained resources such as images and fonts, applied within the
 /// same transaction.
-class ResourceUpdateQueue {
-public:
+class ResourceUpdateQueue
+{
+ public:
   ResourceUpdateQueue();
   ~ResourceUpdateQueue();
   ResourceUpdateQueue(ResourceUpdateQueue&&);
@@ -111,9 +113,11 @@ public:
   // Try to avoid using this when possible.
   wr::ResourceUpdates* Raw() { return mUpdates; }
 
-protected:
+ protected:
   explicit ResourceUpdateQueue(wr::ResourceUpdates* aUpdates)
-  : mUpdates(aUpdates) {}
+      : mUpdates(aUpdates)
+  {
+  }
 
   wr::ResourceUpdates* mUpdates;
 };
@@ -122,11 +126,12 @@ class WebRenderAPI
 {
   NS_INLINE_DECL_REFCOUNTING(WebRenderAPI);
 
-public:
+ public:
   /// This can be called on the compositor thread only.
-  static already_AddRefed<WebRenderAPI> Create(layers::CompositorBridgeParentBase* aBridge,
-                                               RefPtr<widget::CompositorWidget>&& aWidget,
-                                               LayoutDeviceIntSize aSize);
+  static already_AddRefed<WebRenderAPI> Create(
+      layers::CompositorBridgeParentBase* aBridge,
+      RefPtr<widget::CompositorWidget>&& aWidget,
+      LayoutDeviceIntSize aSize);
 
   already_AddRefed<WebRenderAPI> Clone();
 
@@ -148,7 +153,7 @@ public:
                       wr::WrPipelineId pipeline_id,
                       const wr::LayoutSize& content_size,
                       wr::BuiltDisplayListDescriptor dl_descriptor,
-                      uint8_t *dl_data,
+                      uint8_t* dl_data,
                       size_t dl_size,
                       ResourceUpdateQueue& aResources);
 
@@ -158,13 +163,15 @@ public:
 
   void UpdateResources(ResourceUpdateQueue& aUpdates);
 
-  void UpdatePipelineResources(ResourceUpdateQueue& aUpdates, PipelineId aPipeline, Epoch aEpoch);
+  void UpdatePipelineResources(ResourceUpdateQueue& aUpdates,
+                               PipelineId aPipeline,
+                               Epoch aEpoch);
 
   void SetFrameStartTime(const TimeStamp& aTime);
 
   void RunOnRenderThread(UniquePtr<RendererEvent> aEvent);
 
-  void Readback(gfx::IntSize aSize, uint8_t *aBuffer, uint32_t aBufferSize);
+  void Readback(gfx::IntSize aSize, uint8_t* aBuffer, uint32_t aBufferSize);
 
   void Pause();
   bool Resume();
@@ -174,14 +181,19 @@ public:
   bool GetUseANGLE() const { return mUseANGLE; }
   layers::SyncHandle GetSyncHandle() const { return mSyncHandle; }
 
-protected:
-  WebRenderAPI(wr::DocumentHandle* aHandle, wr::WindowId aId, uint32_t aMaxTextureSize, bool aUseANGLE, layers::SyncHandle aSyncHandle)
-    : mDocHandle(aHandle)
-    , mId(aId)
-    , mMaxTextureSize(aMaxTextureSize)
-    , mUseANGLE(aUseANGLE)
-    , mSyncHandle(aSyncHandle)
-  {}
+ protected:
+  WebRenderAPI(wr::DocumentHandle* aHandle,
+               wr::WindowId aId,
+               uint32_t aMaxTextureSize,
+               bool aUseANGLE,
+               layers::SyncHandle aSyncHandle)
+      : mDocHandle(aHandle),
+        mId(aId),
+        mMaxTextureSize(aMaxTextureSize),
+        mUseANGLE(aUseANGLE),
+        mSyncHandle(aSyncHandle)
+  {
+  }
 
   ~WebRenderAPI();
   // Should be used only for shutdown handling
@@ -201,8 +213,9 @@ protected:
 /// This is a simple C++ wrapper around WrState defined in the rust bindings.
 /// We may want to turn this into a direct wrapper on top of WebRenderFrameBuilder
 /// instead, so the interface may change a bit.
-class DisplayListBuilder {
-public:
+class DisplayListBuilder
+{
+ public:
   explicit DisplayListBuilder(wr::PipelineId aId,
                               const wr::LayoutSize& aContentSize,
                               size_t aCapacity = 0);
@@ -217,20 +230,23 @@ public:
   void Finalize(wr::LayoutSize& aOutContentSize,
                 wr::BuiltDisplayList& aOutDisplayList);
 
-  void PushStackingContext(const wr::LayoutRect& aBounds, // TODO: We should work with strongly typed rects
-                           const uint64_t& aAnimationId,
-                           const float* aOpacity,
-                           const gfx::Matrix4x4* aTransform,
-                           wr::TransformStyle aTransformStyle,
-                           const gfx::Matrix4x4* aPerspective,
-                           const wr::MixBlendMode& aMixBlendMode,
-                           const nsTArray<wr::WrFilterOp>& aFilters,
-                           bool aIsBackfaceVisible);
+  void PushStackingContext(
+      const wr::LayoutRect&
+          aBounds,  // TODO: We should work with strongly typed rects
+      const uint64_t& aAnimationId,
+      const float* aOpacity,
+      const gfx::Matrix4x4* aTransform,
+      wr::TransformStyle aTransformStyle,
+      const gfx::Matrix4x4* aPerspective,
+      const wr::MixBlendMode& aMixBlendMode,
+      const nsTArray<wr::WrFilterOp>& aFilters,
+      bool aIsBackfaceVisible);
   void PopStackingContext();
 
-  wr::WrClipId DefineClip(const wr::LayoutRect& aClipRect,
-                          const nsTArray<wr::ComplexClipRegion>* aComplex = nullptr,
-                          const wr::WrImageMask* aMask = nullptr);
+  wr::WrClipId DefineClip(
+      const wr::LayoutRect& aClipRect,
+      const nsTArray<wr::ComplexClipRegion>* aComplex = nullptr,
+      const wr::WrImageMask* aMask = nullptr);
   void PushClip(const wr::WrClipId& aClipId, bool aExtra = false);
   void PopClip(bool aExtra = false);
 
@@ -243,9 +259,11 @@ public:
   void PopStickyFrame();
 
   bool IsScrollLayerDefined(layers::FrameMetrics::ViewID aScrollId) const;
-  void DefineScrollLayer(const layers::FrameMetrics::ViewID& aScrollId,
-                         const wr::LayoutRect& aContentRect, // TODO: We should work with strongly typed rects
-                         const wr::LayoutRect& aClipRect);
+  void DefineScrollLayer(
+      const layers::FrameMetrics::ViewID& aScrollId,
+      const wr::LayoutRect&
+          aContentRect,  // TODO: We should work with strongly typed rects
+      const wr::LayoutRect& aClipRect);
   void PushScrollLayer(const layers::FrameMetrics::ViewID& aScrollId);
   void PopScrollLayer();
 
@@ -372,13 +390,11 @@ public:
                 const wr::Line& aLine);
 
   void PushShadow(const wr::LayoutRect& aBounds,
-                      const wr::LayoutRect& aClip,
-                      bool aIsBackfaceVisible,
-                      const wr::Shadow& aShadow);
+                  const wr::LayoutRect& aClip,
+                  bool aIsBackfaceVisible,
+                  const wr::Shadow& aShadow);
 
   void PopAllShadows();
-
-
 
   void PushBoxShadow(const wr::LayoutRect& aRect,
                      const wr::LayoutRect& aClip,
@@ -400,7 +416,8 @@ public:
   // Returns the scroll id that was pushed just before the given scroll id. This
   // function returns Nothing() if the given scrollid has not been encountered,
   // or if it is the rootmost scroll id (and therefore has no ancestor).
-  Maybe<layers::FrameMetrics::ViewID> ParentScrollIdFor(layers::FrameMetrics::ViewID aScrollId);
+  Maybe<layers::FrameMetrics::ViewID> ParentScrollIdFor(
+      layers::FrameMetrics::ViewID aScrollId);
 
   // Try to avoid using this when possible.
   wr::WrState* Raw() { return mWrState; }
@@ -408,7 +425,7 @@ public:
   // Return true if the current clip stack has any extra clip.
   bool HasExtraClip() { return mExtraClipCount > 0; }
 
-protected:
+ protected:
   wr::WrState* mWrState;
 
   // Track the stack of clip ids and scroll layer ids that have been pushed
@@ -421,7 +438,9 @@ protected:
   // Track the parent scroll id of each scroll id that we encountered. A
   // Nothing() value indicates a root scroll id. We also use this structure to
   // ensure that we don't define a particular scroll layer multiple times.
-  std::unordered_map<layers::FrameMetrics::ViewID, Maybe<layers::FrameMetrics::ViewID>> mScrollParents;
+  std::unordered_map<layers::FrameMetrics::ViewID,
+                     Maybe<layers::FrameMetrics::ViewID>>
+      mScrollParents;
 
   // The number of extra clips that are in the stack.
   uint32_t mExtraClipCount;
@@ -432,7 +451,7 @@ protected:
 Maybe<wr::ImageFormat>
 SurfaceFormatToImageFormat(gfx::SurfaceFormat aFormat);
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
 #endif

@@ -35,7 +35,7 @@ CBOREncodePublicKeyObj(const CryptoBuffer& aPubKeyBuf,
   encoder.write_map(3);
   {
     encoder.write_string("alg");
-    encoder.write_string(JWK_ALG_ECDSA_P_256); // Always ES256 for U2F
+    encoder.write_string(JWK_ALG_ECDSA_P_256);  // Always ES256 for U2F
 
     encoder.write_string("x");
     encoder.write_bytes(xBuf.Elements(), xBuf.Length());
@@ -88,7 +88,8 @@ CBOREncodeAttestationObj(const CryptoBuffer& aAuthDataBuf,
       encoder.write_string("x5c");
       // U2F wire protocol can only deliver 1 certificate, so it's never a chain
       encoder.write_array(1);
-      encoder.write_bytes(aAttestationCertBuf.Elements(), aAttestationCertBuf.Length());
+      encoder.write_bytes(aAttestationCertBuf.Elements(),
+                          aAttestationCertBuf.Length());
 
       encoder.write_string("sig");
       encoder.write_bytes(aSignatureBuf.Elements(), aSignatureBuf.Length());
@@ -101,5 +102,5 @@ CBOREncodeAttestationObj(const CryptoBuffer& aAuthDataBuf,
   return NS_OK;
 }
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla

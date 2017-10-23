@@ -23,11 +23,11 @@ namespace mozilla {
 class EditorBase;
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 class CreateElementTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * Initialize the transaction.
    * @param aEditorBase     The provider of basic editing functionality.
@@ -54,7 +54,7 @@ public:
 
   already_AddRefed<dom::Element> GetNewNode();
 
-protected:
+ protected:
   virtual ~CreateElementTransaction();
 
   // The document into which the new node will be inserted.
@@ -77,6 +77,6 @@ protected:
   nsCOMPtr<nsIContent> mRefNode;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef CreateElementTransaction_h
+#endif  // #ifndef CreateElementTransaction_h

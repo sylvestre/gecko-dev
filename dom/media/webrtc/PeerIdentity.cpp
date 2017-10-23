@@ -37,8 +37,8 @@ PeerIdentity::Equals(const nsAString& aOtherString) const
   GetHost(aOtherString, otherHost);
 
   nsresult rv;
-  nsCOMPtr<nsIIDNService> idnService
-    = do_GetService("@mozilla.org/network/idn-service;1", &rv);
+  nsCOMPtr<nsIIDNService> idnService =
+      do_GetService("@mozilla.org/network/idn-service;1", &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return host == otherHost;
   }
@@ -78,7 +78,8 @@ PeerIdentity::GetNormalizedHost(const nsCOMPtr<nsIIDNService>& aIdnService,
                                 nsACString& aNormalizedHost)
 {
   const nsCString chost = NS_ConvertUTF16toUTF8(aHost);
-  DebugOnly<nsresult> rv = aIdnService->ConvertUTF8toACE(chost, aNormalizedHost);
+  DebugOnly<nsresult> rv =
+      aIdnService->ConvertUTF8toACE(chost, aNormalizedHost);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "Failed to convert UTF-8 host to ASCII");
 }

@@ -16,9 +16,10 @@
 class nsAtom;
 struct nsStaticAtomSetup;
 
-class nsAtomListUtils {
-public:
-  static bool IsMember(nsAtom *aAtom,
+class nsAtomListUtils
+{
+ public:
+  static bool IsMember(nsAtom* aAtom,
                        const nsStaticAtomSetup* aSetup,
                        uint32_t aCount);
 };

@@ -20,9 +20,9 @@ namespace mozilla {
 
 class ServoKeyframeList : public dom::CSSRuleList
 {
-public:
+ public:
   explicit ServoKeyframeList(already_AddRefed<RawServoKeyframesRule> aRawRule)
-    : mRawRule(aRawRule)
+      : mRawRule(aRawRule)
   {
     mRules.SetCount(Servo_KeyframesRule_GetCount(mRawRule));
   }
@@ -51,14 +51,15 @@ public:
 
   ServoStyleSheet* GetParentObject() final { return mStyleSheet; }
 
-  ServoKeyframeRule* GetRule(uint32_t aIndex) {
+  ServoKeyframeRule* GetRule(uint32_t aIndex)
+  {
     if (!mRules[aIndex]) {
       uint32_t line = 0, column = 0;
       RefPtr<RawServoKeyframe> rule =
-        Servo_KeyframesRule_GetKeyframeAt(mRawRule, aIndex,
-                                          &line, &column).Consume();
+          Servo_KeyframesRule_GetKeyframeAt(mRawRule, aIndex, &line, &column)
+              .Consume();
       ServoKeyframeRule* ruleObj =
-        new ServoKeyframeRule(rule.forget(), line, column);
+          new ServoKeyframeRule(rule.forget(), line, column);
       mRules.ReplaceObjectAt(ruleObj, aIndex);
       ruleObj->SetStyleSheet(mStyleSheet);
       ruleObj->SetParentRule(mParentRule);
@@ -76,13 +77,9 @@ public:
     return GetRule(aIndex);
   }
 
-  void AppendRule() {
-    mRules.AppendObject(nullptr);
-  }
+  void AppendRule() { mRules.AppendObject(nullptr); }
 
-  void RemoveRule(uint32_t aIndex) {
-    mRules.RemoveObjectAt(aIndex);
-  }
+  void RemoveRule(uint32_t aIndex) { mRules.RemoveObjectAt(aIndex); }
 
   uint32_t Length() final { return mRules.Length(); }
 
@@ -102,7 +99,7 @@ public:
     return n;
   }
 
-private:
+ private:
   virtual ~ServoKeyframeList() {}
 
   void DropAllRules()
@@ -151,19 +148,17 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 //
 
 ServoKeyframesRule::ServoKeyframesRule(RefPtr<RawServoKeyframesRule> aRawRule,
-                                       uint32_t aLine, uint32_t aColumn)
-  // Although this class inherits from GroupRule, we don't want to use
-  // it at all, so it is fine to call the constructor for Gecko. We can
-  // make CSSKeyframesRule inherit from Rule directly once we can get
-  // rid of nsCSSKeyframeRule.
-  : dom::CSSKeyframesRule(aLine, aColumn)
-  , mRawRule(Move(aRawRule))
+                                       uint32_t aLine,
+                                       uint32_t aColumn)
+    // Although this class inherits from GroupRule, we don't want to use
+    // it at all, so it is fine to call the constructor for Gecko. We can
+    // make CSSKeyframesRule inherit from Rule directly once we can get
+    // rid of nsCSSKeyframeRule.
+    : dom::CSSKeyframesRule(aLine, aColumn), mRawRule(Move(aRawRule))
 {
 }
 
-ServoKeyframesRule::~ServoKeyframesRule()
-{
-}
+ServoKeyframesRule::~ServoKeyframesRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoKeyframesRule, dom::CSSKeyframesRule)
 NS_IMPL_RELEASE_INHERITED(ServoKeyframesRule, dom::CSSKeyframesRule)
@@ -182,7 +177,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(ServoKeyframesRule,
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ServoKeyframesRule, Rule)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mKeyframeList)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mKeyframeList)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 /* virtual */ bool
@@ -285,7 +280,7 @@ ServoKeyframesRule::AppendRule(const nsAString& aRule)
   NS_ConvertUTF16toUTF8 rule(aRule);
   UpdateRule([this, sheet, &rule]() {
     bool parsedOk = Servo_KeyframesRule_AppendRule(
-      mRawRule, sheet->AsServo()->RawContents(), &rule);
+        mRawRule, sheet->AsServo()->RawContents(), &rule);
     if (parsedOk && mKeyframeList) {
       mKeyframeList->AppendRule();
     }
@@ -352,4 +347,4 @@ ServoKeyframesRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
   return n;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

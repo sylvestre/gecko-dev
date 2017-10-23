@@ -26,9 +26,7 @@ NS_IMPL_ISUPPORTS(PresentationDeviceManager,
                   nsIObserver,
                   nsISupportsWeakReference)
 
-PresentationDeviceManager::PresentationDeviceManager()
-{
-}
+PresentationDeviceManager::PresentationDeviceManager() {}
 
 PresentationDeviceManager::~PresentationDeviceManager()
 {
@@ -63,7 +61,8 @@ PresentationDeviceManager::LoadDeviceProviders()
 {
   MOZ_ASSERT(mProviders.IsEmpty());
 
-  nsCategoryCache<nsIPresentationDeviceProvider> providerCache(PRESENTATION_DEVICE_PROVIDER_CATEGORY);
+  nsCategoryCache<nsIPresentationDeviceProvider> providerCache(
+      PRESENTATION_DEVICE_PROVIDER_CATEGORY);
   providerCache.GetEntries(mProviders);
 
   for (uint32_t i = 0; i < mProviders.Length(); ++i) {
@@ -87,9 +86,7 @@ PresentationDeviceManager::NotifyDeviceChange(nsIPresentationDevice* aDevice,
 {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs) {
-    obs->NotifyObservers(aDevice,
-                         PRESENTATION_DEVICE_CHANGE_TOPIC,
-                         aType);
+    obs->NotifyObservers(aDevice, PRESENTATION_DEVICE_CHANGE_TOPIC, aType);
   }
 }
 
@@ -107,7 +104,8 @@ PresentationDeviceManager::ForceDiscovery()
 }
 
 NS_IMETHODIMP
-PresentationDeviceManager::AddDeviceProvider(nsIPresentationDeviceProvider* aProvider)
+PresentationDeviceManager::AddDeviceProvider(
+    nsIPresentationDeviceProvider* aProvider)
 {
   NS_ENSURE_ARG(aProvider);
   MOZ_ASSERT(NS_IsMainThread());
@@ -123,7 +121,8 @@ PresentationDeviceManager::AddDeviceProvider(nsIPresentationDeviceProvider* aPro
 }
 
 NS_IMETHODIMP
-PresentationDeviceManager::RemoveDeviceProvider(nsIPresentationDeviceProvider* aProvider)
+PresentationDeviceManager::RemoveDeviceProvider(
+    nsIPresentationDeviceProvider* aProvider)
 {
   NS_ENSURE_ARG(aProvider);
   MOZ_ASSERT(NS_IsMainThread());
@@ -149,7 +148,8 @@ PresentationDeviceManager::GetDeviceAvailable(bool* aRetVal)
 }
 
 NS_IMETHODIMP
-PresentationDeviceManager::GetAvailableDevices(nsIArray* aPresentationUrls, nsIArray** aRetVal)
+PresentationDeviceManager::GetAvailableDevices(nsIArray* aPresentationUrls,
+                                               nsIArray** aRetVal)
 {
   NS_ENSURE_ARG_POINTER(aRetVal);
   MOZ_ASSERT(NS_IsMainThread());
@@ -157,9 +157,9 @@ PresentationDeviceManager::GetAvailableDevices(nsIArray* aPresentationUrls, nsIA
   // Bug 1194049: some providers may discontinue discovery after timeout.
   // Call |ForceDiscovery()| here to make sure device lists are updated.
   NS_DispatchToMainThread(
-    NewRunnableMethod("dom::PresentationDeviceManager::ForceDiscovery",
-                      this,
-                      &PresentationDeviceManager::ForceDiscovery));
+      NewRunnableMethod("dom::PresentationDeviceManager::ForceDiscovery",
+                        this,
+                        &PresentationDeviceManager::ForceDiscovery));
 
   nsTArray<nsString> presentationUrls;
   if (aPresentationUrls) {
@@ -168,7 +168,7 @@ PresentationDeviceManager::GetAvailableDevices(nsIArray* aPresentationUrls, nsIA
     if (NS_SUCCEEDED(rv)) {
       for (uint32_t i = 0; i < length; ++i) {
         nsCOMPtr<nsISupportsString> isupportStr =
-          do_QueryElementAt(aPresentationUrls, i);
+            do_QueryElementAt(aPresentationUrls, i);
 
         nsAutoString presentationUrl;
         rv = isupportStr->GetData(presentationUrl);
@@ -256,10 +256,11 @@ PresentationDeviceManager::UpdateDevice(nsIPresentationDevice* aDevice)
 }
 
 NS_IMETHODIMP
-PresentationDeviceManager::OnSessionRequest(nsIPresentationDevice* aDevice,
-                                            const nsAString& aUrl,
-                                            const nsAString& aPresentationId,
-                                            nsIPresentationControlChannel* aControlChannel)
+PresentationDeviceManager::OnSessionRequest(
+    nsIPresentationDevice* aDevice,
+    const nsAString& aUrl,
+    const nsAString& aPresentationId,
+    nsIPresentationControlChannel* aControlChannel)
 {
   NS_ENSURE_ARG(aDevice);
   NS_ENSURE_ARG(aControlChannel);
@@ -267,20 +268,19 @@ PresentationDeviceManager::OnSessionRequest(nsIPresentationDevice* aDevice,
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE(obs, NS_ERROR_FAILURE);
 
-  RefPtr<PresentationSessionRequest> request =
-    new PresentationSessionRequest(aDevice, aUrl, aPresentationId, aControlChannel);
-  obs->NotifyObservers(request,
-                       PRESENTATION_SESSION_REQUEST_TOPIC,
-                       nullptr);
+  RefPtr<PresentationSessionRequest> request = new PresentationSessionRequest(
+      aDevice, aUrl, aPresentationId, aControlChannel);
+  obs->NotifyObservers(request, PRESENTATION_SESSION_REQUEST_TOPIC, nullptr);
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-PresentationDeviceManager::OnTerminateRequest(nsIPresentationDevice* aDevice,
-                                              const nsAString& aPresentationId,
-                                              nsIPresentationControlChannel* aControlChannel,
-                                              bool aIsFromReceiver)
+PresentationDeviceManager::OnTerminateRequest(
+    nsIPresentationDevice* aDevice,
+    const nsAString& aPresentationId,
+    nsIPresentationControlChannel* aControlChannel,
+    bool aIsFromReceiver)
 {
   NS_ENSURE_ARG(aDevice);
   NS_ENSURE_ARG(aControlChannel);
@@ -289,20 +289,19 @@ PresentationDeviceManager::OnTerminateRequest(nsIPresentationDevice* aDevice,
   NS_ENSURE_TRUE(obs, NS_ERROR_FAILURE);
 
   RefPtr<PresentationTerminateRequest> request =
-    new PresentationTerminateRequest(aDevice, aPresentationId,
-                                     aControlChannel, aIsFromReceiver);
-  obs->NotifyObservers(request,
-                       PRESENTATION_TERMINATE_REQUEST_TOPIC,
-                       nullptr);
+      new PresentationTerminateRequest(
+          aDevice, aPresentationId, aControlChannel, aIsFromReceiver);
+  obs->NotifyObservers(request, PRESENTATION_TERMINATE_REQUEST_TOPIC, nullptr);
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-PresentationDeviceManager::OnReconnectRequest(nsIPresentationDevice* aDevice,
-                                              const nsAString& aUrl,
-                                              const nsAString& aPresentationId,
-                                              nsIPresentationControlChannel* aControlChannel)
+PresentationDeviceManager::OnReconnectRequest(
+    nsIPresentationDevice* aDevice,
+    const nsAString& aUrl,
+    const nsAString& aPresentationId,
+    nsIPresentationControlChannel* aControlChannel)
 {
   NS_ENSURE_ARG(aDevice);
   NS_ENSURE_ARG(aControlChannel);
@@ -310,20 +309,18 @@ PresentationDeviceManager::OnReconnectRequest(nsIPresentationDevice* aDevice,
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE(obs, NS_ERROR_FAILURE);
 
-  RefPtr<PresentationSessionRequest> request =
-    new PresentationSessionRequest(aDevice, aUrl, aPresentationId, aControlChannel);
-  obs->NotifyObservers(request,
-                       PRESENTATION_RECONNECT_REQUEST_TOPIC,
-                       nullptr);
+  RefPtr<PresentationSessionRequest> request = new PresentationSessionRequest(
+      aDevice, aUrl, aPresentationId, aControlChannel);
+  obs->NotifyObservers(request, PRESENTATION_RECONNECT_REQUEST_TOPIC, nullptr);
 
   return NS_OK;
 }
 
 // nsIObserver
 NS_IMETHODIMP
-PresentationDeviceManager::Observe(nsISupports *aSubject,
-                                   const char *aTopic,
-                                   const char16_t *aData)
+PresentationDeviceManager::Observe(nsISupports* aSubject,
+                                   const char* aTopic,
+                                   const char16_t* aData)
 {
   if (!strcmp(aTopic, "profile-after-change")) {
     Init();
@@ -334,5 +331,5 @@ PresentationDeviceManager::Observe(nsISupports *aSubject,
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

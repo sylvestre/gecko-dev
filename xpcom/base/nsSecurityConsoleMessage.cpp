@@ -8,13 +8,9 @@
 
 NS_IMPL_ISUPPORTS(nsSecurityConsoleMessage, nsISecurityConsoleMessage)
 
-nsSecurityConsoleMessage::nsSecurityConsoleMessage()
-{
-}
+nsSecurityConsoleMessage::nsSecurityConsoleMessage() {}
 
-nsSecurityConsoleMessage::~nsSecurityConsoleMessage()
-{
-}
+nsSecurityConsoleMessage::~nsSecurityConsoleMessage() {}
 
 NS_IMETHODIMP
 nsSecurityConsoleMessage::GetTag(nsAString& aTag)

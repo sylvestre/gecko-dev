@@ -43,11 +43,11 @@ using namespace mozilla;
 
 // define home directory
 // For Windows platform, We are choosing Appdata folder as HOME
-#if defined (XP_WIN)
+#if defined(XP_WIN)
 #define HOME_DIR NS_WIN_APPDATA_DIR
-#elif defined (MOZ_WIDGET_COCOA)
+#elif defined(MOZ_WIDGET_COCOA)
 #define HOME_DIR NS_OSX_HOME_DIR
-#elif defined (XP_UNIX)
+#elif defined(XP_UNIX)
 #define HOME_DIR NS_UNIX_HOME_DIR
 #endif
 
@@ -67,7 +67,8 @@ nsDirectoryService::GetCurrentProcessDirectory(nsIFile** aFile)
   }
 
   nsCOMPtr<nsIFile> file;
-  gService->Get(NS_XPCOM_INIT_CURRENT_PROCESS_DIR, NS_GET_IID(nsIFile),
+  gService->Get(NS_XPCOM_INIT_CURRENT_PROCESS_DIR,
+                NS_GET_IID(nsIFile),
                 getter_AddRefs(file));
   if (file) {
     file.forget(aFile);
@@ -79,14 +80,11 @@ nsDirectoryService::GetCurrentProcessDirectory(nsIFile** aFile)
   }
   NS_ERROR("unable to get current process directory");
   return NS_ERROR_FAILURE;
-} // GetCurrentProcessDirectory()
+}  // GetCurrentProcessDirectory()
 
 StaticRefPtr<nsDirectoryService> nsDirectoryService::gService;
 
-nsDirectoryService::nsDirectoryService()
-  : mHashtable(128)
-{
-}
+nsDirectoryService::nsDirectoryService() : mHashtable(128) {}
 
 nsresult
 nsDirectoryService::Create(nsISupports* aOuter, REFNSIID aIID, void** aResult)
@@ -114,10 +112,9 @@ nsDirectoryService::Create(nsISupports* aOuter, REFNSIID aIID, void** aResult)
 #undef DIR_ATOM
 
 static const nsStaticAtomSetup sDirectoryServiceAtomSetup[] = {
-  #define DIR_ATOM(name_, value_) \
-    NS_STATIC_ATOM_SETUP(nsDirectoryService, name_)
-  #include "nsDirectoryServiceAtomList.h"
-  #undef DIR_ATOM
+#define DIR_ATOM(name_, value_) NS_STATIC_ATOM_SETUP(nsDirectoryService, name_)
+#include "nsDirectoryServiceAtomList.h"
+#undef DIR_ATOM
 };
 
 NS_IMETHODIMP
@@ -142,16 +139,13 @@ nsDirectoryService::RealInit()
   gService->mProviders.AppendElement(defaultProvider);
 }
 
-nsDirectoryService::~nsDirectoryService()
-{
-}
+nsDirectoryService::~nsDirectoryService() {}
 
 NS_IMPL_ISUPPORTS(nsDirectoryService,
                   nsIProperties,
                   nsIDirectoryService,
                   nsIDirectoryServiceProvider,
                   nsIDirectoryServiceProvider2)
-
 
 NS_IMETHODIMP
 nsDirectoryService::Undefine(const char* aProp)
@@ -173,17 +167,14 @@ nsDirectoryService::GetKeys(uint32_t* aCount, char*** aKeys)
 struct MOZ_STACK_CLASS FileData
 {
   FileData(const char* aProperty, const nsIID& aUUID)
-    : property(aProperty)
-    , data(nullptr)
-    , persistent(true)
-    , uuid(aUUID)
+      : property(aProperty), data(nullptr), persistent(true), uuid(aUUID)
   {
   }
 
-  const char*   property;
+  const char* property;
   nsCOMPtr<nsISupports> data;
-  bool          persistent;
-  const nsIID&  uuid;
+  bool persistent;
+  const nsIID& uuid;
 };
 
 static bool
@@ -201,7 +192,8 @@ FindProviderFile(nsIDirectoryServiceProvider* aElement, FileData* aData)
           nsCOMPtr<nsISimpleEnumerator> unionFiles;
 
           NS_NewUnionEnumerator(getter_AddRefs(unionFiles),
-                                (nsISimpleEnumerator*)aData->data.get(), newFiles);
+                                (nsISimpleEnumerator*)aData->data.get(),
+                                newFiles);
 
           if (unionFiles) {
             unionFiles.swap(*(nsISimpleEnumerator**)&aData->data);
@@ -210,13 +202,13 @@ FindProviderFile(nsIDirectoryServiceProvider* aElement, FileData* aData)
           aData->data = newFiles;
         }
 
-        aData->persistent = false; // Enumerators can never be persistent
+        aData->persistent = false;  // Enumerators can never be persistent
         return rv == NS_SUCCESS_AGGREGATE_RESULT;
       }
     }
   } else {
-    rv = aElement->GetFile(aData->property, &aData->persistent,
-                           (nsIFile**)&aData->data);
+    rv = aElement->GetFile(
+        aData->property, &aData->persistent, (nsIFile**)&aData->data);
     if (NS_SUCCEEDED(rv) && aData->data) {
       return false;
     }
@@ -255,7 +247,7 @@ nsDirectoryService::Get(const char* aProp, const nsIID& aUuid, void** aResult)
       Set(aProp, static_cast<nsIFile*>(fileData.data.get()));
     }
     nsresult rv = (fileData.data)->QueryInterface(aUuid, aResult);
-    fileData.data = nullptr; // AddRef occurs in FindProviderFile()
+    fileData.data = nullptr;  // AddRef occurs in FindProviderFile()
     return rv;
   }
 
@@ -265,7 +257,7 @@ nsDirectoryService::Get(const char* aProp, const nsIID& aUuid, void** aResult)
       Set(aProp, static_cast<nsIFile*>(fileData.data.get()));
     }
     nsresult rv = (fileData.data)->QueryInterface(aUuid, aResult);
-    fileData.data = nullptr; // AddRef occurs in FindProviderFile()
+    fileData.data = nullptr;  // AddRef occurs in FindProviderFile()
     return rv;
   }
 
@@ -290,10 +282,10 @@ nsDirectoryService::Set(const char* aProp, nsISupports* aValue)
     if (ourFile) {
       nsCOMPtr<nsIFile> cloneFile;
       ourFile->Clone(getter_AddRefs(cloneFile));
-      entry.OrInsert([&cloneFile] () { return cloneFile.forget(); });
+      entry.OrInsert([&cloneFile]() { return cloneFile.forget(); });
       return NS_OK;
     }
-    mHashtable.Remove(key); // another hashtable lookup, but should be rare
+    mHashtable.Remove(key);  // another hashtable lookup, but should be rare
   }
   return NS_ERROR_FAILURE;
 }
@@ -333,8 +325,8 @@ nsDirectoryService::RegisterProvider(nsIDirectoryServiceProvider* aProv)
 void
 nsDirectoryService::RegisterCategoryProviders()
 {
-  nsCOMPtr<nsICategoryManager> catman
-  (do_GetService(NS_CATEGORYMANAGER_CONTRACTID));
+  nsCOMPtr<nsICategoryManager> catman(
+      do_GetService(NS_CATEGORYMANAGER_CONTRACTID));
   if (!catman) {
     return;
   }
@@ -354,11 +346,13 @@ nsDirectoryService::RegisterCategoryProviders()
     strings->GetNext(entry);
 
     nsCString contractID;
-    catman->GetCategoryEntry(XPCOM_DIRECTORY_PROVIDER_CATEGORY, entry.get(),
+    catman->GetCategoryEntry(XPCOM_DIRECTORY_PROVIDER_CATEGORY,
+                             entry.get(),
                              getter_Copies(contractID));
 
     if (!contractID.IsVoid()) {
-      nsCOMPtr<nsIDirectoryServiceProvider> provider = do_GetService(contractID.get());
+      nsCOMPtr<nsIDirectoryServiceProvider> provider =
+          do_GetService(contractID.get());
       if (provider) {
         RegisterProvider(provider);
       }
@@ -382,8 +376,8 @@ static nsresult
 GetLowIntegrityTempBase(nsIFile** aLowIntegrityTempBase)
 {
   nsCOMPtr<nsIFile> localFile;
-  nsresult rv = GetSpecialSystemDirectory(Win_LocalAppdataLow,
-                                          getter_AddRefs(localFile));
+  nsresult rv =
+      GetSpecialSystemDirectory(Win_LocalAppdataLow, getter_AddRefs(localFile));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -404,7 +398,8 @@ GetLowIntegrityTempBase(nsIFile** aLowIntegrityTempBase)
 // your application.
 
 NS_IMETHODIMP
-nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
+nsDirectoryService::GetFile(const char* aProp,
+                            bool* aPersistent,
                             nsIFile** aResult)
 {
   nsCOMPtr<nsIFile> localFile;
@@ -428,100 +423,136 @@ nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
            inAtom == nsDirectoryService::sGRE_BinDirectory) {
     rv = GetCurrentProcessDirectory(getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_DriveDirectory) {
-    rv = GetSpecialSystemDirectory(OS_DriveDirectory, getter_AddRefs(localFile));
+    rv =
+        GetSpecialSystemDirectory(OS_DriveDirectory, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_TemporaryDirectory) {
-    rv = GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(OS_TemporaryDirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_CurrentProcessDirectory) {
-    rv = GetSpecialSystemDirectory(OS_CurrentProcessDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(OS_CurrentProcessDirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_CurrentWorkingDirectory) {
-    rv = GetSpecialSystemDirectory(OS_CurrentWorkingDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(OS_CurrentWorkingDirectory,
+                                   getter_AddRefs(localFile));
   }
-
 #if defined(MOZ_WIDGET_COCOA)
   else if (inAtom == nsDirectoryService::sDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kSystemFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kSystemFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sTrashDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kTrashFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kTrashFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sStartupDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kStartupFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kStartupFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sShutdownDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kShutdownFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kShutdownFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sAppleMenuDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kAppleMenuFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kAppleMenuFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sControlPanelDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kControlPanelFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kControlPanelFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sExtensionDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kExtensionFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kExtensionFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sFontsDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kFontsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kFontsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sPreferencesDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kPreferencesFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kPreferencesFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sDocumentsDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kDocumentsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kClassicDomain, kDocumentsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sInternetSearchDirectory) {
-    rv = GetOSXFolderType(kClassicDomain, kInternetSearchSitesFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(kClassicDomain,
+                          kInternetSearchSitesFolderType,
+                          getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sUserLibDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kDomainLibraryFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kDomainLibraryFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_HomeDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kDomainTopLevelFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kDomainTopLevelFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sDefaultDownloadDirectory) {
-    // 10.5 and later, we can use kDownloadsFolderType which is defined in
-    // Folders.h as "down".  However, in order to support 10.4 still, we
-    // cannot use the named constant.  We'll use it's value, and if it
-    // fails, fall back to the desktop.
+  // 10.5 and later, we can use kDownloadsFolderType which is defined in
+  // Folders.h as "down".  However, in order to support 10.4 still, we
+  // cannot use the named constant.  We'll use it's value, and if it
+  // fails, fall back to the desktop.
 #ifndef kDownloadsFolderType
 #define kDownloadsFolderType 'down'
 #endif
 
-    rv = GetOSXFolderType(kUserDomain, kDownloadsFolderType,
-                          getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kDownloadsFolderType, getter_AddRefs(localFile));
     if (NS_FAILED(rv)) {
-      rv = GetOSXFolderType(kUserDomain, kDesktopFolderType,
-                            getter_AddRefs(localFile));
+      rv = GetOSXFolderType(
+          kUserDomain, kDesktopFolderType, getter_AddRefs(localFile));
     }
   } else if (inAtom == nsDirectoryService::sUserDesktopDirectory ||
              inAtom == nsDirectoryService::sOS_DesktopDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kDesktopFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kDesktopFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalDesktopDirectory) {
-    rv = GetOSXFolderType(kLocalDomain, kDesktopFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kLocalDomain, kDesktopFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sUserApplicationsDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kApplicationsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kApplicationsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalApplicationsDirectory) {
-    rv = GetOSXFolderType(kLocalDomain, kApplicationsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kLocalDomain, kApplicationsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sUserDocumentsDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kDocumentsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kDocumentsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalDocumentsDirectory) {
-    rv = GetOSXFolderType(kLocalDomain, kDocumentsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kLocalDomain, kDocumentsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sUserInternetPlugInDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kInternetPlugInFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kInternetPlugInFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalInternetPlugInDirectory) {
-    rv = GetOSXFolderType(kLocalDomain, kInternetPlugInFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kLocalDomain, kInternetPlugInFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sUserFrameworksDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kFrameworksFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kFrameworksFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalFrameworksDirectory) {
-    rv = GetOSXFolderType(kLocalDomain, kFrameworksFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kLocalDomain, kFrameworksFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sUserPreferencesDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kPreferencesFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kPreferencesFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalPreferencesDirectory) {
-    rv = GetOSXFolderType(kLocalDomain, kPreferencesFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kLocalDomain, kPreferencesFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sPictureDocumentsDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kPictureDocumentsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kPictureDocumentsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sMovieDocumentsDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kMovieDocumentsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kMovieDocumentsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sMusicDocumentsDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kMusicDocumentsFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kMusicDocumentsFolderType, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sInternetSitesDirectory) {
-    rv = GetOSXFolderType(kUserDomain, kInternetSitesFolderType, getter_AddRefs(localFile));
+    rv = GetOSXFolderType(
+        kUserDomain, kInternetSitesFolderType, getter_AddRefs(localFile));
   }
-#elif defined (XP_WIN)
+#elif defined(XP_WIN)
   else if (inAtom == nsDirectoryService::sSystemDirectory) {
-    rv = GetSpecialSystemDirectory(Win_SystemDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_SystemDirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sWindowsDirectory) {
-    rv = GetSpecialSystemDirectory(Win_WindowsDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_WindowsDirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sWindowsProgramFiles) {
     rv = GetSpecialSystemDirectory(Win_ProgramFiles, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_HomeDirectory) {
-    rv = GetSpecialSystemDirectory(Win_HomeDirectory, getter_AddRefs(localFile));
+    rv =
+        GetSpecialSystemDirectory(Win_HomeDirectory, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sDesktop) {
     rv = GetSpecialSystemDirectory(Win_Desktop, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sPrograms) {
@@ -546,7 +577,8 @@ nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
     rv = GetSpecialSystemDirectory(Win_Startmenu, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sDesktopdirectory ||
              inAtom == nsDirectoryService::sOS_DesktopDirectory) {
-    rv = GetSpecialSystemDirectory(Win_Desktopdirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_Desktopdirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sDrives) {
     rv = GetSpecialSystemDirectory(Win_Drives, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sNetwork) {
@@ -558,22 +590,28 @@ nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
   } else if (inAtom == nsDirectoryService::sTemplates) {
     rv = GetSpecialSystemDirectory(Win_Templates, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sCommon_Startmenu) {
-    rv = GetSpecialSystemDirectory(Win_Common_Startmenu, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_Common_Startmenu,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sCommon_Programs) {
-    rv = GetSpecialSystemDirectory(Win_Common_Programs, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_Common_Programs,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sCommon_Startup) {
-    rv = GetSpecialSystemDirectory(Win_Common_Startup, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_Common_Startup,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sCommon_Desktopdirectory) {
-    rv = GetSpecialSystemDirectory(Win_Common_Desktopdirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_Common_Desktopdirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sCommon_AppData) {
-    rv = GetSpecialSystemDirectory(Win_Common_AppData, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_Common_AppData,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sAppdata) {
     rv = GetSpecialSystemDirectory(Win_Appdata, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLocalAppdata) {
     rv = GetSpecialSystemDirectory(Win_LocalAppdata, getter_AddRefs(localFile));
 #if defined(MOZ_CONTENT_SANDBOX)
   } else if (inAtom == nsDirectoryService::sLocalAppdataLow) {
-    rv = GetSpecialSystemDirectory(Win_LocalAppdataLow, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Win_LocalAppdataLow,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLowIntegrityTempBase) {
     rv = GetLowIntegrityTempBase(getter_AddRefs(localFile));
 #endif
@@ -592,36 +630,44 @@ nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
   } else if (inAtom == nsDirectoryService::sVideos) {
     rv = GetSpecialSystemDirectory(Win_Videos, getter_AddRefs(localFile));
   }
-#elif defined (XP_UNIX)
+#elif defined(XP_UNIX)
 
   else if (inAtom == nsDirectoryService::sLocalDirectory) {
-    rv = GetSpecialSystemDirectory(Unix_LocalDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Unix_LocalDirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sLibDirectory) {
-    rv = GetSpecialSystemDirectory(Unix_LibDirectory, getter_AddRefs(localFile));
+    rv =
+        GetSpecialSystemDirectory(Unix_LibDirectory, getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sOS_HomeDirectory) {
-    rv = GetSpecialSystemDirectory(Unix_HomeDirectory, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Unix_HomeDirectory,
+                                   getter_AddRefs(localFile));
   } else if (inAtom == nsDirectoryService::sXDGDesktop ||
              inAtom == nsDirectoryService::sOS_DesktopDirectory) {
     rv = GetSpecialSystemDirectory(Unix_XDG_Desktop, getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGDocuments) {
-    rv = GetSpecialSystemDirectory(Unix_XDG_Documents, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Unix_XDG_Documents,
+                                   getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGDownload ||
              inAtom == nsDirectoryService::sDefaultDownloadDirectory) {
-    rv = GetSpecialSystemDirectory(Unix_XDG_Download, getter_AddRefs(localFile));
+    rv =
+        GetSpecialSystemDirectory(Unix_XDG_Download, getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGMusic) {
     rv = GetSpecialSystemDirectory(Unix_XDG_Music, getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGPictures) {
-    rv = GetSpecialSystemDirectory(Unix_XDG_Pictures, getter_AddRefs(localFile));
+    rv =
+        GetSpecialSystemDirectory(Unix_XDG_Pictures, getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGPublicShare) {
-    rv = GetSpecialSystemDirectory(Unix_XDG_PublicShare, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Unix_XDG_PublicShare,
+                                   getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGTemplates) {
-    rv = GetSpecialSystemDirectory(Unix_XDG_Templates, getter_AddRefs(localFile));
+    rv = GetSpecialSystemDirectory(Unix_XDG_Templates,
+                                   getter_AddRefs(localFile));
     *aPersistent = false;
   } else if (inAtom == nsDirectoryService::sXDGVideos) {
     rv = GetSpecialSystemDirectory(Unix_XDG_Videos, getter_AddRefs(localFile));

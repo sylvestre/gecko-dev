@@ -22,29 +22,26 @@ class MBasicBlock;
 class MIRGraph;
 class LNode;
 
-class C1Spewer
-{
+class C1Spewer {
     MIRGraph* graph;
     GenericPrinter& out_;
 
-  public:
-    explicit C1Spewer(GenericPrinter& out)
-      : graph(nullptr), out_(out)
-    { }
+   public:
+    explicit C1Spewer(GenericPrinter& out) : graph(nullptr), out_(out) {}
 
     void beginFunction(MIRGraph* graph, JSScript* script);
     void spewPass(const char* pass);
     void spewRanges(const char* pass, BacktrackingAllocator* regalloc);
     void endFunction();
 
-  private:
+   private:
     void spewPass(GenericPrinter& out, MBasicBlock* block);
     void spewRanges(GenericPrinter& out, BacktrackingAllocator* regalloc, LNode* ins);
     void spewRanges(GenericPrinter& out, MBasicBlock* block, BacktrackingAllocator* regalloc);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* JS_JITSPEW */
 

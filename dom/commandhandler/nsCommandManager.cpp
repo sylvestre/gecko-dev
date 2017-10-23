@@ -25,14 +25,9 @@
 
 #include "nsCommandManager.h"
 
-nsCommandManager::nsCommandManager()
-  : mWindow(nullptr)
-{
-}
+nsCommandManager::nsCommandManager() : mWindow(nullptr) {}
 
-nsCommandManager::~nsCommandManager()
-{
-}
+nsCommandManager::~nsCommandManager() {}
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsCommandManager)
 
@@ -64,7 +59,7 @@ nsCommandManager::Init(mozIDOMWindowProxy* aWindow)
 {
   NS_ENSURE_ARG_POINTER(aWindow);
 
-  mWindow = aWindow; // weak ptr
+  mWindow = aWindow;  // weak ptr
   return NS_OK;
 }
 
@@ -103,8 +98,9 @@ nsCommandManager::AddCommandObserver(nsIObserver* aCommandObserver,
 
   // for each command in the table, we make a list of observers for that command
   ObserverList* commandObservers =
-    mObserversTable.LookupForAdd(aCommandToObserve).OrInsert(
-      [] () { return new ObserverList; });
+      mObserversTable.LookupForAdd(aCommandToObserve).OrInsert([]() {
+        return new ObserverList;
+      });
 
   // need to check that this command observer hasn't already been registered
   int32_t existingIndex = commandObservers->IndexOf(aCommandObserver);
@@ -143,8 +139,8 @@ nsCommandManager::IsCommandSupported(const char* aCommandName,
   NS_ENSURE_ARG_POINTER(aResult);
 
   nsCOMPtr<nsIController> controller;
-  GetControllerForCommand(aCommandName, aTargetWindow,
-                          getter_AddRefs(controller));
+  GetControllerForCommand(
+      aCommandName, aTargetWindow, getter_AddRefs(controller));
   *aResult = (controller.get() != nullptr);
   return NS_OK;
 }
@@ -159,8 +155,8 @@ nsCommandManager::IsCommandEnabled(const char* aCommandName,
   bool commandEnabled = false;
 
   nsCOMPtr<nsIController> controller;
-  GetControllerForCommand(aCommandName, aTargetWindow,
-                          getter_AddRefs(controller));
+  GetControllerForCommand(
+      aCommandName, aTargetWindow, getter_AddRefs(controller));
   if (controller) {
     controller->IsCommandEnabled(aCommandName, &commandEnabled);
   }
@@ -175,14 +171,14 @@ nsCommandManager::GetCommandState(const char* aCommandName,
 {
   nsCOMPtr<nsIController> controller;
   nsAutoString tValue;
-  nsresult rv = GetControllerForCommand(aCommandName, aTargetWindow,
-                                        getter_AddRefs(controller));
+  nsresult rv = GetControllerForCommand(
+      aCommandName, aTargetWindow, getter_AddRefs(controller));
   if (!controller) {
     return NS_ERROR_FAILURE;
   }
 
   nsCOMPtr<nsICommandController> commandController =
-    do_QueryInterface(controller);
+      do_QueryInterface(controller);
   if (commandController) {
     rv = commandController->GetCommandStateWithParams(aCommandName,
                                                       aCommandParams);
@@ -198,14 +194,14 @@ nsCommandManager::DoCommand(const char* aCommandName,
                             mozIDOMWindowProxy* aTargetWindow)
 {
   nsCOMPtr<nsIController> controller;
-  nsresult rv = GetControllerForCommand(aCommandName, aTargetWindow,
-                                        getter_AddRefs(controller));
+  nsresult rv = GetControllerForCommand(
+      aCommandName, aTargetWindow, getter_AddRefs(controller));
   if (!controller) {
     return NS_ERROR_FAILURE;
   }
 
   nsCOMPtr<nsICommandController> commandController =
-    do_QueryInterface(controller);
+      do_QueryInterface(controller);
   if (commandController && aCommandParams) {
     rv = commandController->DoCommandWithParams(aCommandName, aCommandParams);
   } else {
@@ -256,6 +252,6 @@ nsCommandManager::GetControllerForCommand(const char* aCommand,
   NS_ENSURE_TRUE(root, NS_ERROR_FAILURE);
 
   // no target window; send command to focus controller
-  return root->GetControllerForCommand(aCommand, false /* for any window */,
-                                       aResult);
+  return root->GetControllerForCommand(
+      aCommand, false /* for any window */, aResult);
 }

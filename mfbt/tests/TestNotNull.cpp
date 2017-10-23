@@ -19,19 +19,19 @@ using mozilla::WrapNotNull;
 
 class Blah
 {
-public:
+ public:
   Blah() : mX(0) {}
-  void blah() {};
+  void blah(){};
   int mX;
 };
 
 // A simple smart pointer that implicity converts to and from T*.
-template <typename T>
+template<typename T>
 class MyPtr
 {
   T* mRawPtr;
 
-public:
+ public:
   MyPtr() : mRawPtr(nullptr) {}
   MOZ_IMPLICIT MyPtr(T* aRawPtr) : mRawPtr(aRawPtr) {}
 
@@ -48,18 +48,17 @@ class MyRefType
   int mExpectedMaxRefCnt;
   int mMaxRefCnt;
   int mRefCnt;
-public:
-  explicit MyRefType(int aExpectedMaxRefCnt)
-    : mExpectedMaxRefCnt(aExpectedMaxRefCnt)
-    , mMaxRefCnt(0)
-    , mRefCnt(0)
-  {}
 
-  ~MyRefType() {
-    CHECK(mMaxRefCnt == mExpectedMaxRefCnt);
+ public:
+  explicit MyRefType(int aExpectedMaxRefCnt)
+      : mExpectedMaxRefCnt(aExpectedMaxRefCnt), mMaxRefCnt(0), mRefCnt(0)
+  {
   }
 
-  uint32_t AddRef() {
+  ~MyRefType() { CHECK(mMaxRefCnt == mExpectedMaxRefCnt); }
+
+  uint32_t AddRef()
+  {
     mRefCnt++;
     if (mRefCnt > mMaxRefCnt) {
       mMaxRefCnt = mRefCnt;
@@ -67,7 +66,8 @@ public:
     return mRefCnt;
   }
 
-  uint32_t Release() {
+  uint32_t Release()
+  {
     CHECK(mRefCnt > 0);
     mRefCnt--;
     if (mRefCnt == 0) {
@@ -78,11 +78,23 @@ public:
   }
 };
 
-void f_i(int* aPtr) {}
-void f_my(MyPtr<int> aPtr) {}
+void
+f_i(int* aPtr)
+{
+}
+void
+f_my(MyPtr<int> aPtr)
+{
+}
 
-void f_nni(NotNull<int*> aPtr) {}
-void f_nnmy(NotNull<MyPtr<int>> aPtr) {}
+void
+f_nni(NotNull<int*> aPtr)
+{
+}
+void
+f_nnmy(NotNull<MyPtr<int>> aPtr)
+{
+}
 
 void
 TestNotNullWithMyPtr()
@@ -106,10 +118,10 @@ TestNotNullWithMyPtr()
   //NotNull<int*> nni4a(0);                     // no zero
   //NotNull<int*> nni4a(&i4);                   // no int*
   //NotNull<int*> nni4a(my4);                   // no MyPtr<int>
-  NotNull<int*> nni4b(WrapNotNull(&i4));        // WrapNotNull(int*)
-  NotNull<int*> nni4c(WrapNotNull(my4));        // WrapNotNull(MyPtr<int>)
-  NotNull<int*> nni4d(nni4);                    // NotNull<int*>
-  NotNull<int*> nni4e(nnmy4);                   // NotNull<MyPtr<int>>
+  NotNull<int*> nni4b(WrapNotNull(&i4));  // WrapNotNull(int*)
+  NotNull<int*> nni4c(WrapNotNull(my4));  // WrapNotNull(MyPtr<int>)
+  NotNull<int*> nni4d(nni4);              // NotNull<int*>
+  NotNull<int*> nni4e(nnmy4);             // NotNull<MyPtr<int>>
   CHECK(*nni4b == 4);
   CHECK(*nni4c == 4);
   CHECK(*nni4d == 4);
@@ -121,10 +133,10 @@ TestNotNullWithMyPtr()
   //NotNull<MyPtr<int>> nnmy4a(0);              // no zero
   //NotNull<MyPtr<int>> nnmy4a(&i4);            // no int*
   //NotNull<MyPtr<int>> nnmy4a(my4);            // no MyPtr<int>
-  NotNull<MyPtr<int>> nnmy4b(WrapNotNull(&i4)); // WrapNotNull(int*)
-  NotNull<MyPtr<int>> nnmy4c(WrapNotNull(my4)); // WrapNotNull(MyPtr<int>)
-  NotNull<MyPtr<int>> nnmy4d(nni4);             // NotNull<int*>
-  NotNull<MyPtr<int>> nnmy4e(nnmy4);            // NotNull<MyPtr<int>>
+  NotNull<MyPtr<int>> nnmy4b(WrapNotNull(&i4));  // WrapNotNull(int*)
+  NotNull<MyPtr<int>> nnmy4c(WrapNotNull(my4));  // WrapNotNull(MyPtr<int>)
+  NotNull<MyPtr<int>> nnmy4d(nni4);              // NotNull<int*>
+  NotNull<MyPtr<int>> nnmy4e(nnmy4);             // NotNull<MyPtr<int>>
   CHECK(*nnmy4b == 4);
   CHECK(*nnmy4c == 4);
   CHECK(*nnmy4d == 4);
@@ -135,10 +147,10 @@ TestNotNullWithMyPtr()
   //nni4b = 0;                                  // no zero
   //nni4a = &i4;                                // no int*
   //nni4a = my4;                                // no MyPtr<int>
-  nni4b = WrapNotNull(&i4);                     // WrapNotNull(int*)
-  nni4c = WrapNotNull(my4);                     // WrapNotNull(MyPtr<int>)
-  nni4d = nni4;                                 // NotNull<int*>
-  nni4e = nnmy4;                                // NotNull<MyPtr<int>>
+  nni4b = WrapNotNull(&i4);  // WrapNotNull(int*)
+  nni4c = WrapNotNull(my4);  // WrapNotNull(MyPtr<int>)
+  nni4d = nni4;              // NotNull<int*>
+  nni4e = nnmy4;             // NotNull<MyPtr<int>>
   CHECK(*nni4b == 4);
   CHECK(*nni4c == 4);
   CHECK(*nni4d == 4);
@@ -149,10 +161,10 @@ TestNotNullWithMyPtr()
   //nnmy4a = 0;                                 // no zero
   //nnmy4a = &i4;                               // no int*
   //nnmy4a = my4;                               // no MyPtr<int>
-  nnmy4b = WrapNotNull(&i4);                    // WrapNotNull(int*)
-  nnmy4c = WrapNotNull(my4);                    // WrapNotNull(MyPtr<int>)
-  nnmy4d = nni4;                                // NotNull<int*>
-  nnmy4e = nnmy4;                               // NotNull<MyPtr<int>>
+  nnmy4b = WrapNotNull(&i4);  // WrapNotNull(int*)
+  nnmy4c = WrapNotNull(my4);  // WrapNotNull(MyPtr<int>)
+  nnmy4d = nni4;              // NotNull<int*>
+  nnmy4e = nnmy4;             // NotNull<MyPtr<int>>
   CHECK(*nnmy4b == 4);
   CHECK(*nnmy4c == 4);
   CHECK(*nnmy4d == 4);
@@ -160,60 +172,61 @@ TestNotNullWithMyPtr()
 
   NotNull<MyPtr<int>> nnmy5 = WrapNotNull(&i5);
   CHECK(*nnmy5 == 5);
-  CHECK(nnmy5 == &i5);       // NotNull<MyPtr<int>> == int*
-  CHECK(nnmy5 == my5);       // NotNull<MyPtr<int>> == MyPtr<int>
-  CHECK(nnmy5 == nni5);      // NotNull<MyPtr<int>> == NotNull<int*>
-  CHECK(nnmy5 == nnmy5);     // NotNull<MyPtr<int>> == NotNull<MyPtr<int>>
-  CHECK(&i5   == nnmy5);     // int*                == NotNull<MyPtr<int>>
-  CHECK(my5   == nnmy5);     // MyPtr<int>          == NotNull<MyPtr<int>>
-  CHECK(nni5  == nnmy5);     // NotNull<int*>       == NotNull<MyPtr<int>>
-  CHECK(nnmy5 == nnmy5);     // NotNull<MyPtr<int>> == NotNull<MyPtr<int>>
+  CHECK(nnmy5 == &i5);    // NotNull<MyPtr<int>> == int*
+  CHECK(nnmy5 == my5);    // NotNull<MyPtr<int>> == MyPtr<int>
+  CHECK(nnmy5 == nni5);   // NotNull<MyPtr<int>> == NotNull<int*>
+  CHECK(nnmy5 == nnmy5);  // NotNull<MyPtr<int>> == NotNull<MyPtr<int>>
+  CHECK(&i5 == nnmy5);    // int*                == NotNull<MyPtr<int>>
+  CHECK(my5 == nnmy5);    // MyPtr<int>          == NotNull<MyPtr<int>>
+  CHECK(nni5 == nnmy5);   // NotNull<int*>       == NotNull<MyPtr<int>>
+  CHECK(nnmy5 == nnmy5);  // NotNull<MyPtr<int>> == NotNull<MyPtr<int>>
   //CHECK(nni5 == nullptr);  // no comparisons with nullptr
   //CHECK(nullptr == nni5);  // no comparisons with nullptr
   //CHECK(nni5 == 0);        // no comparisons with zero
   //CHECK(0 == nni5);        // no comparisons with zero
 
   CHECK(*nnmy5 == 5);
-  CHECK(nnmy5 != &i4);       // NotNull<MyPtr<int>> != int*
-  CHECK(nnmy5 != my4);       // NotNull<MyPtr<int>> != MyPtr<int>
-  CHECK(nnmy5 != nni4);      // NotNull<MyPtr<int>> != NotNull<int*>
-  CHECK(nnmy5 != nnmy4);     // NotNull<MyPtr<int>> != NotNull<MyPtr<int>>
-  CHECK(&i4   != nnmy5);     // int*                != NotNull<MyPtr<int>>
-  CHECK(my4   != nnmy5);     // MyPtr<int>          != NotNull<MyPtr<int>>
-  CHECK(nni4  != nnmy5);     // NotNull<int*>       != NotNull<MyPtr<int>>
-  CHECK(nnmy4 != nnmy5);     // NotNull<MyPtr<int>> != NotNull<MyPtr<int>>
+  CHECK(nnmy5 != &i4);    // NotNull<MyPtr<int>> != int*
+  CHECK(nnmy5 != my4);    // NotNull<MyPtr<int>> != MyPtr<int>
+  CHECK(nnmy5 != nni4);   // NotNull<MyPtr<int>> != NotNull<int*>
+  CHECK(nnmy5 != nnmy4);  // NotNull<MyPtr<int>> != NotNull<MyPtr<int>>
+  CHECK(&i4 != nnmy5);    // int*                != NotNull<MyPtr<int>>
+  CHECK(my4 != nnmy5);    // MyPtr<int>          != NotNull<MyPtr<int>>
+  CHECK(nni4 != nnmy5);   // NotNull<int*>       != NotNull<MyPtr<int>>
+  CHECK(nnmy4 != nnmy5);  // NotNull<MyPtr<int>> != NotNull<MyPtr<int>>
   //CHECK(nni4 != nullptr);  // no comparisons with nullptr
   //CHECK(nullptr != nni4);  // no comparisons with nullptr
   //CHECK(nni4 != 0);        // no comparisons with zero
   //CHECK(0 != nni4);        // no comparisons with zero
 
   // int* parameter
-  f_i(&i4);             // identity int*                        --> int*
-  f_i(my4);             // implicit MyPtr<int>                  --> int*
-  f_i(my4.get());       // explicit MyPtr<int>                  --> int*
-  f_i(nni4);            // implicit NotNull<int*>               --> int*
-  f_i(nni4.get());      // explicit NotNull<int*>               --> int*
+  f_i(&i4);         // identity int*                        --> int*
+  f_i(my4);         // implicit MyPtr<int>                  --> int*
+  f_i(my4.get());   // explicit MyPtr<int>                  --> int*
+  f_i(nni4);        // implicit NotNull<int*>               --> int*
+  f_i(nni4.get());  // explicit NotNull<int*>               --> int*
   //f_i(nnmy4);         // no implicit NotNull<MyPtr<int>>      --> int*
-  f_i(nnmy4.get());     // explicit NotNull<MyPtr<int>>         --> int*
-  f_i(nnmy4.get().get());// doubly-explicit NotNull<MyPtr<int>> --> int*
+  f_i(nnmy4.get());        // explicit NotNull<MyPtr<int>>         --> int*
+  f_i(nnmy4.get().get());  // doubly-explicit NotNull<MyPtr<int>> --> int*
 
   // MyPtr<int> parameter
-  f_my(&i4);            // implicit int*                         --> MyPtr<int>
-  f_my(my4);            // identity MyPtr<int>                   --> MyPtr<int>
-  f_my(my4.get());      // explicit MyPtr<int>                   --> MyPtr<int>
+  f_my(&i4);        // implicit int*                         --> MyPtr<int>
+  f_my(my4);        // identity MyPtr<int>                   --> MyPtr<int>
+  f_my(my4.get());  // explicit MyPtr<int>                   --> MyPtr<int>
   //f_my(nni4);         // no implicit NotNull<int*>             --> MyPtr<int>
-  f_my(nni4.get());     // explicit NotNull<int*>                --> MyPtr<int>
-  f_my(nnmy4);          // implicit NotNull<MyPtr<int>>          --> MyPtr<int>
-  f_my(nnmy4.get());    // explicit NotNull<MyPtr<int>>          --> MyPtr<int>
-  f_my(nnmy4.get().get());// doubly-explicit NotNull<MyPtr<int>> --> MyPtr<int>
+  f_my(nni4.get());   // explicit NotNull<int*>                --> MyPtr<int>
+  f_my(nnmy4);        // implicit NotNull<MyPtr<int>>          --> MyPtr<int>
+  f_my(nnmy4.get());  // explicit NotNull<MyPtr<int>>          --> MyPtr<int>
+  f_my(
+      nnmy4.get().get());  // doubly-explicit NotNull<MyPtr<int>> --> MyPtr<int>
 
   // NotNull<int*> parameter
-  f_nni(nni4);          // identity NotNull<int*>       --> NotNull<int*>
-  f_nni(nnmy4);         // implicit NotNull<MyPtr<int>> --> NotNull<int*>
+  f_nni(nni4);   // identity NotNull<int*>       --> NotNull<int*>
+  f_nni(nnmy4);  // implicit NotNull<MyPtr<int>> --> NotNull<int*>
 
   // NotNull<MyPtr<int>> parameter
-  f_nnmy(nni4);         // implicit NotNull<int*>       --> NotNull<MyPtr<int>>
-  f_nnmy(nnmy4);        // identity NotNull<MyPtr<int>> --> NotNull<MyPtr<int>>
+  f_nnmy(nni4);   // implicit NotNull<int*>       --> NotNull<MyPtr<int>>
+  f_nnmy(nnmy4);  // identity NotNull<MyPtr<int>> --> NotNull<MyPtr<int>>
 
   //CHECK(nni4);        // disallow boolean conversion / unary expression usage
   //CHECK(nnmy4);       // ditto
@@ -223,10 +236,10 @@ TestNotNullWithMyPtr()
   MyPtr<Blah> myblah = &blah;
   NotNull<Blah*> nnblah = WrapNotNull(&blah);
   NotNull<MyPtr<Blah>> nnmyblah = WrapNotNull(myblah);
-  (&blah)->blah();          // int*
-  myblah->blah();           // MyPtr<int>
-  nnblah->blah();           // NotNull<int*>
-  nnmyblah->blah();         // NotNull<MyPtr<int>>
+  (&blah)->blah();   // int*
+  myblah->blah();    // MyPtr<int>
+  nnblah->blah();    // NotNull<int*>
+  nnmyblah->blah();  // NotNull<MyPtr<int>>
 
   (&blah)->mX = 1;
   CHECK((&blah)->mX == 1);
@@ -238,13 +251,13 @@ TestNotNullWithMyPtr()
   CHECK(nnmyblah->mX == 4);
 
   // '*' dereferencing (lvalues and rvalues)
-  *(&i4) = 7;               // int*
+  *(&i4) = 7;  // int*
   CHECK(*(&i4) == 7);
-  *my4 = 6;                 // MyPtr<int>
+  *my4 = 6;  // MyPtr<int>
   CHECK(*my4 == 6);
-  *nni4 = 5;                // NotNull<int*>
+  *nni4 = 5;  // NotNull<int*>
   CHECK(*nni4 == 5);
-  *nnmy4 = 4;               // NotNull<MyPtr<int>>
+  *nnmy4 = 4;  // NotNull<MyPtr<int>>
   CHECK(*nnmy4 == 4);
 
   // Non-null arrays.
@@ -262,7 +275,8 @@ TestNotNullWithMyPtr()
   }
 }
 
-void f_ref(NotNull<MyRefType*> aR)
+void
+f_ref(NotNull<MyRefType*> aR)
 {
   NotNull<RefPtr<MyRefType>> r = aR;
 }
@@ -352,15 +366,16 @@ TestMakeNotNull()
 
   auto nnui = MakeNotNull<UniquePtr<int>>(24);
   static_assert(
-    mozilla::IsSame<NotNull<UniquePtr<int>>, decltype(nnui)>::value,
-    "MakeNotNull<UniquePtr<int>> should return NotNull<UniquePtr<int>>");
+      mozilla::IsSame<NotNull<UniquePtr<int>>, decltype(nnui)>::value,
+      "MakeNotNull<UniquePtr<int>> should return NotNull<UniquePtr<int>>");
   CHECK(*nnui == 24);
 
   // Expect only 1 RefCnt (from construction).
   auto nnr = MakeNotNull<RefPtr<MyRefType>>(1);
   static_assert(
-    mozilla::IsSame<NotNull<RefPtr<MyRefType>>, decltype(nnr)>::value,
-    "MakeNotNull<RefPtr<MyRefType>> should return NotNull<RefPtr<MyRefType>>");
+      mozilla::IsSame<NotNull<RefPtr<MyRefType>>, decltype(nnr)>::value,
+      "MakeNotNull<RefPtr<MyRefType>> should return "
+      "NotNull<RefPtr<MyRefType>>");
   mozilla::Unused << nnr;
 }
 
@@ -373,4 +388,3 @@ main()
 
   return 0;
 }
-

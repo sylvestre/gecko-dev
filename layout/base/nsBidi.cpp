@@ -20,7 +20,8 @@ nsBidi::CountRuns(int32_t* aRunCount)
 
 void
 nsBidi::GetLogicalRun(int32_t aLogicalStart,
-                      int32_t* aLogicalLimit, nsBidiLevel* aLevel)
+                      int32_t* aLogicalLimit,
+                      nsBidiLevel* aLevel)
 {
   MOZ_ASSERT(mLevels, "CountRuns hasn't been run?");
   MOZ_RELEASE_ASSERT(aLogicalStart < mLength, "Out of bound");

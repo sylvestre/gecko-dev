@@ -17,16 +17,15 @@ class nsIPresShell;
  * A list-based class (hopefully tree-based when I get around to it)
  * for representing a set of ranges on a number-line.
  */
-class nsIntervalSet {
+class nsIntervalSet
+{
+ public:
+  typedef nscoord coord_type;
 
-public:
+  explicit nsIntervalSet(nsIPresShell* aPresShell);
+  ~nsIntervalSet();
 
-    typedef nscoord coord_type;
-
-    explicit nsIntervalSet(nsIPresShell* aPresShell);
-    ~nsIntervalSet();
-
-    /*
+  /*
      * Include the interval [aBegin, aEnd] in the set.
      *
      * Removal of intervals added is not supported because that would
@@ -34,49 +33,42 @@ public:
      * added (nsIntervalMap should do that).  It would be simple to
      * implement ExcludeInterval if anyone wants it, though.
      */
-    void IncludeInterval(coord_type aBegin, coord_type aEnd);
+  void IncludeInterval(coord_type aBegin, coord_type aEnd);
 
-    /*
+  /*
      * Are _some_ points in [aBegin, aEnd] contained within the set
      * of intervals?
      */
-    bool Intersects(coord_type aBegin, coord_type aEnd) const;
+  bool Intersects(coord_type aBegin, coord_type aEnd) const;
 
-    /*
+  /*
      * Are _all_ points in [aBegin, aEnd] contained within the set
      * of intervals?
      */
-    bool Contains(coord_type aBegin, coord_type aEnd) const;
+  bool Contains(coord_type aBegin, coord_type aEnd) const;
 
-    bool IsEmpty() const
+  bool IsEmpty() const { return !mList; }
+
+ private:
+  class Interval
+  {
+   public:
+    Interval(coord_type aBegin, coord_type aEnd)
+        : mBegin(aBegin), mEnd(aEnd), mPrev(nullptr), mNext(nullptr)
     {
-        return !mList;
     }
 
-private:
+    coord_type mBegin;
+    coord_type mEnd;
+    Interval* mPrev;
+    Interval* mNext;
+  };
 
-    class Interval {
+  void* AllocateInterval();
+  void FreeInterval(Interval* aInterval);
 
-    public:
-        Interval(coord_type aBegin, coord_type aEnd)
-            : mBegin(aBegin),
-              mEnd(aEnd),
-              mPrev(nullptr),
-              mNext(nullptr)
-        {
-        }
-
-        coord_type mBegin;
-        coord_type mEnd;
-        Interval *mPrev;
-        Interval *mNext;
-    };
-
-    void* AllocateInterval();
-    void FreeInterval(Interval *aInterval);
-
-    Interval           *mList;
-    nsIPresShell       *mPresShell;
+  Interval* mList;
+  nsIPresShell* mPresShell;
 };
 
-#endif // !defined(nsIntervalSet_h___)
+#endif  // !defined(nsIntervalSet_h___)

@@ -84,8 +84,8 @@ HTMLEditor::SetInlineProperty(nsAtom* aProperty,
   }
 
   AutoPlaceholderBatch batchIt(this);
-  AutoRules beginRulesSniffing(this, EditAction::insertElement,
-                               nsIEditor::eNext);
+  AutoRules beginRulesSniffing(
+      this, EditAction::insertElement, nsIEditor::eNext);
   AutoSelectionRestorer selectionRestorer(selection, this);
   AutoTransactionsConserveSelection dontChangeMySelection(this);
 
@@ -110,7 +110,9 @@ HTMLEditor::SetInlineProperty(nsAtom* aProperty,
         rv = SetInlinePropertyOnTextNode(*startNode->GetAsText(),
                                          range->StartOffset(),
                                          range->EndOffset(),
-                                         *aProperty, &aAttribute, aValue);
+                                         *aProperty,
+                                         &aAttribute,
+                                         aValue);
         NS_ENSURE_SUCCESS(rv, rv);
         continue;
       }
@@ -150,8 +152,10 @@ HTMLEditor::SetInlineProperty(nsAtom* aProperty,
       if (startNode && startNode->GetAsText() && IsEditable(startNode)) {
         rv = SetInlinePropertyOnTextNode(*startNode->GetAsText(),
                                          range->StartOffset(),
-                                         startNode->Length(), *aProperty,
-                                         &aAttribute, aValue);
+                                         startNode->Length(),
+                                         *aProperty,
+                                         &aAttribute,
+                                         aValue);
         NS_ENSURE_SUCCESS(rv, rv);
       }
 
@@ -165,9 +169,12 @@ HTMLEditor::SetInlineProperty(nsAtom* aProperty,
       // separately handled (it does if it's a text node, due to how the
       // subtree iterator works - it will not have reported it).
       if (endNode && endNode->GetAsText() && IsEditable(endNode)) {
-        rv = SetInlinePropertyOnTextNode(*endNode->GetAsText(), 0,
-                                          range->EndOffset(), *aProperty,
-                                          &aAttribute, aValue);
+        rv = SetInlinePropertyOnTextNode(*endNode->GetAsText(),
+                                         0,
+                                         range->EndOffset(),
+                                         *aProperty,
+                                         &aAttribute,
+                                         aValue);
         NS_ENSURE_SUCCESS(rv, rv);
       }
     }
@@ -206,8 +213,7 @@ HTMLEditor::IsSimpleModifiableNode(nsIContent* aContent,
   if (!element->GetAttrCount() &&
       ((aProperty == nsGkAtoms::b &&
         element->IsHTMLElement(nsGkAtoms::strong)) ||
-       (aProperty == nsGkAtoms::i &&
-        element->IsHTMLElement(nsGkAtoms::em)) ||
+       (aProperty == nsGkAtoms::i && element->IsHTMLElement(nsGkAtoms::em)) ||
        (aProperty == nsGkAtoms::strike &&
         element->IsHTMLElement(nsGkAtoms::s)))) {
     return true;
@@ -247,8 +253,10 @@ HTMLEditor::IsSimpleModifiableNode(nsIContent* aContent,
   nsCOMPtr<Element> newSpan = CreateHTMLContent(nsGkAtoms::span);
   NS_ASSERTION(newSpan, "CreateHTMLContent failed");
   NS_ENSURE_TRUE(newSpan, false);
-  mCSSEditUtils->SetCSSEquivalentToHTMLStyle(newSpan, aProperty,
-                                             aAttribute, aValue,
+  mCSSEditUtils->SetCSSEquivalentToHTMLStyle(newSpan,
+                                             aProperty,
+                                             aAttribute,
+                                             aValue,
                                              /*suppress transaction*/ true);
 
   return mCSSEditUtils->ElementsSameStyle(newSpan, element);
@@ -276,12 +284,12 @@ HTMLEditor::SetInlinePropertyOnTextNode(Text& aText,
   if (mCSSEditUtils->IsCSSEditableProperty(&aText, &aProperty, aAttribute)) {
     // The HTML styles defined by aProperty/aAttribute have a CSS equivalence
     // for node; let's check if it carries those CSS styles
-    if (mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(&aText, &aProperty,
-          aAttribute, aValue, CSSEditUtils::eComputed)) {
+    if (mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
+            &aText, &aProperty, aAttribute, aValue, CSSEditUtils::eComputed)) {
       return NS_OK;
     }
-  } else if (IsTextPropertySetByContent(&aText, &aProperty, aAttribute,
-                                        &aValue)) {
+  } else if (IsTextPropertySetByContent(
+                 &aText, &aProperty, aAttribute, &aValue)) {
     return NS_OK;
   }
 
@@ -333,8 +341,7 @@ HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aNode,
       nsTArray<OwningNonNull<nsIContent>> arrayOfNodes;
 
       // Populate the list.
-      for (nsCOMPtr<nsIContent> child = aNode.GetFirstChild();
-           child;
+      for (nsCOMPtr<nsIContent> child = aNode.GetFirstChild(); child;
            child = child->GetNextSibling()) {
         if (IsEditable(child) && !IsEmptyTextNode(this, child)) {
           arrayOfNodes.AppendElement(*child);
@@ -343,8 +350,8 @@ HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aNode,
 
       // Then loop through the list, set the property on each node.
       for (auto& node : arrayOfNodes) {
-        nsresult rv = SetInlinePropertyOnNode(node, aProperty, aAttribute,
-                                              aValue);
+        nsresult rv =
+            SetInlinePropertyOnNode(node, aProperty, aAttribute, aValue);
         NS_ENSURE_SUCCESS(rv, rv);
       }
     }
@@ -354,7 +361,8 @@ HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aNode,
   // First check if there's an adjacent sibling we can put our node into.
   nsCOMPtr<nsIContent> previousSibling = GetPriorHTMLSibling(&aNode);
   nsCOMPtr<nsIContent> nextSibling = GetNextHTMLSibling(&aNode);
-  if (IsSimpleModifiableNode(previousSibling, &aProperty, aAttribute, &aValue)) {
+  if (IsSimpleModifiableNode(
+          previousSibling, &aProperty, aAttribute, &aValue)) {
     nsresult rv = MoveNode(&aNode, previousSibling, -1);
     NS_ENSURE_SUCCESS(rv, rv);
     if (IsSimpleModifiableNode(nextSibling, &aProperty, aAttribute, &aValue)) {
@@ -372,17 +380,16 @@ HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aNode,
   // Don't need to do anything if property already set on node
   if (mCSSEditUtils->IsCSSEditableProperty(&aNode, &aProperty, aAttribute)) {
     if (mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
-          &aNode, &aProperty, aAttribute, aValue, CSSEditUtils::eComputed)) {
+            &aNode, &aProperty, aAttribute, aValue, CSSEditUtils::eComputed)) {
       return NS_OK;
     }
-  } else if (IsTextPropertySetByContent(&aNode, &aProperty,
-                                        aAttribute, &aValue)) {
+  } else if (IsTextPropertySetByContent(
+                 &aNode, &aProperty, aAttribute, &aValue)) {
     return NS_OK;
   }
 
-  bool useCSS = (IsCSSEnabled() &&
-                 mCSSEditUtils->IsCSSEditableProperty(&aNode, &aProperty,
-                                                      aAttribute)) ||
+  bool useCSS = (IsCSSEnabled() && mCSSEditUtils->IsCSSEditableProperty(
+                                       &aNode, &aProperty, aAttribute)) ||
                 // bgcolor is always done using CSS
                 attrAtom == nsGkAtoms::bgcolor;
 
@@ -399,9 +406,8 @@ HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aNode,
     }
 
     // Add the CSS styles corresponding to the HTML style request
-    mCSSEditUtils->SetCSSEquivalentToHTMLStyle(tmp,
-                                               &aProperty, attrAtom,
-                                               &aValue, false);
+    mCSSEditUtils->SetCSSEquivalentToHTMLStyle(
+        tmp, &aProperty, attrAtom, &aValue, false);
     return NS_OK;
   }
 
@@ -413,8 +419,8 @@ HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aNode,
   }
 
   // ok, chuck it in its very own container
-  nsCOMPtr<Element> tmp = InsertContainerAbove(&aNode, &aProperty, attrAtom,
-                                               &aValue);
+  nsCOMPtr<Element> tmp =
+      InsertContainerAbove(&aNode, &aProperty, attrAtom, &aValue);
   NS_ENSURE_STATE(tmp);
 
   return NS_OK;
@@ -436,8 +442,7 @@ HTMLEditor::SetInlinePropertyOnNode(nsIContent& aNode,
 
   if (aNode.GetParentNode()) {
     // The node is still where it was
-    return SetInlinePropertyOnNodeImpl(aNode, aProperty,
-                                       aAttribute, aValue);
+    return SetInlinePropertyOnNodeImpl(aNode, aProperty, aAttribute, aValue);
   }
 
   // It's vanished.  Use the old siblings for reference to construct a
@@ -448,8 +453,8 @@ HTMLEditor::SetInlinePropertyOnNode(nsIContent& aNode,
     return NS_ERROR_UNEXPECTED;
   }
   nsTArray<OwningNonNull<nsIContent>> nodesToSet;
-  nsCOMPtr<nsIContent> cur = previousSibling
-    ? previousSibling->GetNextSibling() : parent->GetFirstChild();
+  nsCOMPtr<nsIContent> cur = previousSibling ? previousSibling->GetNextSibling()
+                                             : parent->GetFirstChild();
   for (; cur && cur != nextSibling; cur = cur->GetNextSibling()) {
     if (IsEditable(cur)) {
       nodesToSet.AppendElement(*cur);
@@ -481,16 +486,14 @@ HTMLEditor::SplitStyleAboveRange(nsRange* inRange,
   // split any matching style nodes above the start of range
   {
     AutoTrackDOMPoint tracker(mRangeUpdater, address_of(endNode), &endOffset);
-    nsresult rv =
-      SplitStyleAbovePoint(address_of(startNode), &startOffset, aProperty,
-                           aAttribute);
+    nsresult rv = SplitStyleAbovePoint(
+        address_of(startNode), &startOffset, aProperty, aAttribute);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
   // second verse, same as the first...
-  nsresult rv =
-    SplitStyleAbovePoint(address_of(endNode), &endOffset, aProperty,
-                         aAttribute);
+  nsresult rv = SplitStyleAbovePoint(
+      address_of(endNode), &endOffset, aProperty, aAttribute);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // reset the range
@@ -522,17 +525,16 @@ HTMLEditor::SplitStyleAbovePoint(nsCOMPtr<nsINode>* aNode,
   while (!IsBlockNode(node) && node->GetParent() &&
          IsEditable(node->GetParent())) {
     isSet = false;
-    if (useCSS && mCSSEditUtils->IsCSSEditableProperty(node, aProperty,
-                                                       aAttribute)) {
+    if (useCSS &&
+        mCSSEditUtils->IsCSSEditableProperty(node, aProperty, aAttribute)) {
       // The HTML style defined by aProperty/aAttribute has a CSS equivalence
       // in this implementation for the node; let's check if it carries those
       // CSS styles
       nsAutoString firstValue;
       isSet = mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
-                node, aProperty, aAttribute, firstValue,
-                CSSEditUtils::eSpecified);
+          node, aProperty, aAttribute, firstValue, CSSEditUtils::eSpecified);
     }
-    if (// node is the correct inline prop
+    if (  // node is the correct inline prop
         (aProperty && node->IsHTMLElement(aProperty)) ||
         // node is href - test if really <a href=...
         (aProperty == nsGkAtoms::href && HTMLEditUtils::IsLink(node)) ||
@@ -541,8 +543,11 @@ HTMLEditor::SplitStyleAbovePoint(nsCOMPtr<nsINode>* aNode,
         // or the style is specified in the style attribute
         isSet) {
       // Found a style node we need to split
-      int32_t offset = SplitNodeDeep(*node, *(*aNode)->AsContent(), *aOffset,
-                                     EmptyContainers::yes, aOutLeftNode,
+      int32_t offset = SplitNodeDeep(*node,
+                                     *(*aNode)->AsContent(),
+                                     *aOffset,
+                                     EmptyContainers::yes,
+                                     aOutLeftNode,
                                      aOutRightNode);
       NS_ENSURE_TRUE(offset != -1, NS_ERROR_FAILURE);
       // reset startNode/startOffset
@@ -562,8 +567,11 @@ HTMLEditor::ClearStyle(nsCOMPtr<nsINode>* aNode,
                        const nsAString* aAttribute)
 {
   nsCOMPtr<nsIContent> leftNode, rightNode;
-  nsresult rv = SplitStyleAbovePoint(aNode, aOffset, aProperty,
-                                     aAttribute, getter_AddRefs(leftNode),
+  nsresult rv = SplitStyleAbovePoint(aNode,
+                                     aOffset,
+                                     aProperty,
+                                     aAttribute,
+                                     getter_AddRefs(leftNode),
                                      getter_AddRefs(rightNode));
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -593,7 +601,9 @@ HTMLEditor::ClearStyle(nsCOMPtr<nsINode>* aNode,
     }
     *aOffset = 0;
     rv = SplitStyleAbovePoint(address_of(secondSplitParent),
-                              aOffset, aProperty, aAttribute,
+                              aOffset,
+                              aProperty,
+                              aAttribute,
                               getter_AddRefs(leftNode),
                               getter_AddRefs(rightNode));
     NS_ENSURE_SUCCESS(rv, rv);
@@ -632,8 +642,8 @@ HTMLEditor::ClearStyle(nsCOMPtr<nsINode>* aNode,
       // RemoveStyleInside() could remove any and all of those nodes, so I
       // have to use the range tracking system to find the right spot to put
       // selection.
-      AutoTrackDOMPoint tracker(mRangeUpdater,
-                                address_of(newSelParent), &newSelOffset);
+      AutoTrackDOMPoint tracker(
+          mRangeUpdater, address_of(newSelParent), &newSelOffset);
       rv = RemoveStyleInside(*leftNode, aProperty, aAttribute);
       NS_ENSURE_SUCCESS(rv, rv);
     }
@@ -674,7 +684,7 @@ HTMLEditor::RemoveStyleInside(nsIContent& aNode,
 
   // then process the node itself
   if (!aChildrenOnly &&
-       // node is prop we asked for
+      // node is prop we asked for
       ((aProperty && aNode.NodeInfo()->NameAtom() == aProperty) ||
        // but check for link (<a href=...)
        (aProperty == nsGkAtoms::href && HTMLEditUtils::IsLink(&aNode)) ||
@@ -693,13 +703,12 @@ HTMLEditor::RemoveStyleInside(nsIContent& aNode,
         // a span that will carry those styles or class, then we can delete
         // the node.
         RefPtr<Element> spanNode =
-          InsertContainerAbove(&aNode, nsGkAtoms::span);
+            InsertContainerAbove(&aNode, nsGkAtoms::span);
         NS_ENSURE_STATE(spanNode);
         nsresult rv =
-          CloneAttribute(nsGkAtoms::style, spanNode, aNode.AsElement());
+            CloneAttribute(nsGkAtoms::style, spanNode, aNode.AsElement());
         NS_ENSURE_SUCCESS(rv, rv);
-        rv =
-          CloneAttribute(nsGkAtoms::_class, spanNode, aNode.AsElement());
+        rv = CloneAttribute(nsGkAtoms::_class, spanNode, aNode.AsElement());
         NS_ENSURE_SUCCESS(rv, rv);
       }
       nsresult rv = RemoveContainer(&aNode);
@@ -733,20 +742,15 @@ HTMLEditor::RemoveStyleInside(nsIContent& aNode,
     // this implementation for the node aNode; let's check if it carries those
     // css styles
     if (aNode.IsElement()) {
-      RefPtr<nsAtom> attribute =
-        aAttribute ? NS_Atomize(*aAttribute) : nullptr;
-      bool hasAttribute =
-        mCSSEditUtils->HaveCSSEquivalentStyles(
-                         aNode, aProperty, attribute, CSSEditUtils::eSpecified);
+      RefPtr<nsAtom> attribute = aAttribute ? NS_Atomize(*aAttribute) : nullptr;
+      bool hasAttribute = mCSSEditUtils->HaveCSSEquivalentStyles(
+          aNode, aProperty, attribute, CSSEditUtils::eSpecified);
       if (hasAttribute) {
         // yes, tmp has the corresponding css declarations in its style
         // attribute
         // let's remove them
-        mCSSEditUtils->RemoveCSSEquivalentToHTMLStyle(aNode.AsElement(),
-                                                      aProperty,
-                                                      attribute,
-                                                      nullptr,
-                                                      false);
+        mCSSEditUtils->RemoveCSSEquivalentToHTMLStyle(
+            aNode.AsElement(), aProperty, attribute, nullptr, false);
         // remove the node if it is a span or font, if its style attribute is
         // empty or absent, and if it does not have a class nor an id
         RemoveElementIfNoStyleOrIdOrClass(*aNode.AsElement());
@@ -829,8 +833,8 @@ HTMLEditor::PromoteRangeIfStartsOrEndsInNamedAnchor(nsRange& aRange)
     endOffset = endNode ? endNode->IndexOf(parent) + 1 : 0;
   }
 
-  nsresult rv = aRange.SetStartAndEnd(startNode, startOffset,
-                                      endNode, endOffset);
+  nsresult rv =
+      aRange.SetStartAndEnd(startNode, startOffset, endNode, endOffset);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -863,8 +867,8 @@ HTMLEditor::PromoteInlineRange(nsRange& aRange)
     endNode = parent;
   }
 
-  nsresult rv = aRange.SetStartAndEnd(startNode, startOffset,
-                                      endNode, endOffset);
+  nsresult rv =
+      aRange.SetStartAndEnd(startNode, startOffset, endNode, endOffset);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -873,8 +877,7 @@ HTMLEditor::PromoteInlineRange(nsRange& aRange)
 }
 
 bool
-HTMLEditor::IsAtFrontOfNode(nsINode& aNode,
-                            int32_t aOffset)
+HTMLEditor::IsAtFrontOfNode(nsINode& aNode, int32_t aOffset)
 {
   if (!aOffset) {
     return true;
@@ -893,8 +896,7 @@ HTMLEditor::IsAtFrontOfNode(nsINode& aNode,
 }
 
 bool
-HTMLEditor::IsAtEndOfNode(nsINode& aNode,
-                          int32_t aOffset)
+HTMLEditor::IsAtEndOfNode(nsINode& aNode, int32_t aOffset)
 {
   if (aOffset == (int32_t)aNode.Length()) {
     return true;
@@ -911,7 +913,6 @@ HTMLEditor::IsAtEndOfNode(nsINode& aNode,
   }
   return false;
 }
-
 
 nsresult
 HTMLEditor::GetInlinePropertyBase(nsAtom& aProperty,
@@ -945,8 +946,8 @@ HTMLEditor::GetInlinePropertyBase(nsAtom& aProperty,
       nsString tOutString;
       if (aAttribute) {
         nsString tString(*aAttribute);
-        mTypeInState->GetTypingState(isSet, theSetting, &aProperty, tString,
-                                     &tOutString);
+        mTypeInState->GetTypingState(
+            isSet, theSetting, &aProperty, tString, &tOutString);
         if (outValue) {
           outValue->Assign(tOutString);
         }
@@ -958,22 +959,26 @@ HTMLEditor::GetInlinePropertyBase(nsAtom& aProperty,
         return NS_OK;
       }
 
-      if (mCSSEditUtils->IsCSSEditableProperty(collapsedNode, &aProperty,
-                                               aAttribute)) {
+      if (mCSSEditUtils->IsCSSEditableProperty(
+              collapsedNode, &aProperty, aAttribute)) {
         if (aValue) {
           tOutString.Assign(*aValue);
         }
         *aFirst = *aAny = *aAll =
-          mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(collapsedNode,
-              &aProperty, aAttribute, tOutString, CSSEditUtils::eComputed);
+            mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
+                collapsedNode,
+                &aProperty,
+                aAttribute,
+                tOutString,
+                CSSEditUtils::eComputed);
         if (outValue) {
           outValue->Assign(tOutString);
         }
         return NS_OK;
       }
 
-      isSet = IsTextPropertySetByContent(collapsedNode, &aProperty,
-                                         aAttribute, aValue, outValue);
+      isSet = IsTextPropertySetByContent(
+          collapsedNode, &aProperty, aAttribute, aValue, outValue);
       *aFirst = *aAny = *aAll = isSet;
       return NS_OK;
     }
@@ -997,8 +1002,8 @@ HTMLEditor::GetInlinePropertyBase(nsAtom& aProperty,
       }
 
       // just ignore any non-editable nodes
-      if (content->GetAsText() && (!IsEditable(content) ||
-                                   IsEmptyTextNode(this, content))) {
+      if (content->GetAsText() &&
+          (!IsEditable(content) || IsEmptyTextNode(this, content))) {
         continue;
       }
       if (content->GetAsText()) {
@@ -1017,19 +1022,23 @@ HTMLEditor::GetInlinePropertyBase(nsAtom& aProperty,
 
       bool isSet = false;
       if (first) {
-        if (mCSSEditUtils->IsCSSEditableProperty(content, &aProperty,
-                                                 aAttribute)) {
+        if (mCSSEditUtils->IsCSSEditableProperty(
+                content, &aProperty, aAttribute)) {
           // The HTML styles defined by aProperty/aAttribute have a CSS
           // equivalence in this implementation for node; let's check if it
           // carries those CSS styles
           if (aValue) {
             firstValue.Assign(*aValue);
           }
-          isSet = mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(content,
-              &aProperty, aAttribute, firstValue, CSSEditUtils::eComputed);
+          isSet = mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
+              content,
+              &aProperty,
+              aAttribute,
+              firstValue,
+              CSSEditUtils::eComputed);
         } else {
-          isSet = IsTextPropertySetByContent(content, &aProperty, aAttribute,
-                                             aValue, &firstValue);
+          isSet = IsTextPropertySetByContent(
+              content, &aProperty, aAttribute, aValue, &firstValue);
         }
         *aFirst = isSet;
         first = false;
@@ -1037,19 +1046,23 @@ HTMLEditor::GetInlinePropertyBase(nsAtom& aProperty,
           *outValue = firstValue;
         }
       } else {
-        if (mCSSEditUtils->IsCSSEditableProperty(content, &aProperty,
-                                                 aAttribute)) {
+        if (mCSSEditUtils->IsCSSEditableProperty(
+                content, &aProperty, aAttribute)) {
           // The HTML styles defined by aProperty/aAttribute have a CSS
           // equivalence in this implementation for node; let's check if it
           // carries those CSS styles
           if (aValue) {
             theValue.Assign(*aValue);
           }
-          isSet = mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(content,
-              &aProperty, aAttribute, theValue, CSSEditUtils::eComputed);
+          isSet = mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
+              content,
+              &aProperty,
+              aAttribute,
+              theValue,
+              CSSEditUtils::eComputed);
         } else {
-          isSet = IsTextPropertySetByContent(content, &aProperty, aAttribute,
-                                             aValue, &theValue);
+          isSet = IsTextPropertySetByContent(
+              content, &aProperty, aAttribute, aValue, &theValue);
         }
         if (firstValue != theValue) {
           *aAll = false;
@@ -1092,13 +1105,12 @@ HTMLEditor::GetInlineProperty(nsAtom* aProperty,
                               bool* aAll)
 {
   NS_ENSURE_TRUE(aProperty && aFirst && aAny && aAll, NS_ERROR_NULL_POINTER);
-  const nsAString *att = nullptr;
-  if (!aAttribute.IsEmpty())
-    att = &aAttribute;
-  const nsAString *val = nullptr;
-  if (!aValue.IsEmpty())
-    val = &aValue;
-  return GetInlinePropertyBase(*aProperty, att, val, aFirst, aAny, aAll, nullptr);
+  const nsAString* att = nullptr;
+  if (!aAttribute.IsEmpty()) att = &aAttribute;
+  const nsAString* val = nullptr;
+  if (!aValue.IsEmpty()) val = &aValue;
+  return GetInlinePropertyBase(
+      *aProperty, att, val, aFirst, aAny, aAll, nullptr);
 }
 
 NS_IMETHODIMP
@@ -1111,8 +1123,8 @@ HTMLEditor::GetInlinePropertyWithAttrValue(const nsAString& aProperty,
                                            nsAString& outValue)
 {
   RefPtr<nsAtom> property = NS_Atomize(aProperty);
-  return GetInlinePropertyWithAttrValue(property, aAttribute, aValue, aFirst,
-                                        aAny, aAll, outValue);
+  return GetInlinePropertyWithAttrValue(
+      property, aAttribute, aValue, aFirst, aAny, aAll, outValue);
 }
 
 nsresult
@@ -1125,21 +1137,20 @@ HTMLEditor::GetInlinePropertyWithAttrValue(nsAtom* aProperty,
                                            nsAString& outValue)
 {
   NS_ENSURE_TRUE(aProperty && aFirst && aAny && aAll, NS_ERROR_NULL_POINTER);
-  const nsAString *att = nullptr;
-  if (!aAttribute.IsEmpty())
-    att = &aAttribute;
-  const nsAString *val = nullptr;
-  if (!aValue.IsEmpty())
-    val = &aValue;
-  return GetInlinePropertyBase(*aProperty, att, val, aFirst, aAny, aAll, &outValue);
+  const nsAString* att = nullptr;
+  if (!aAttribute.IsEmpty()) att = &aAttribute;
+  const nsAString* val = nullptr;
+  if (!aValue.IsEmpty()) val = &aValue;
+  return GetInlinePropertyBase(
+      *aProperty, att, val, aFirst, aAny, aAll, &outValue);
 }
 
 NS_IMETHODIMP
 HTMLEditor::RemoveAllInlineProperties()
 {
   AutoPlaceholderBatch batchIt(this);
-  AutoRules beginRulesSniffing(this, EditAction::resetTextProperties,
-                               nsIEditor::eNext);
+  AutoRules beginRulesSniffing(
+      this, EditAction::resetTextProperties, nsIEditor::eNext);
 
   nsresult rv = RemoveInlinePropertyImpl(nullptr, nullptr);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1155,8 +1166,7 @@ HTMLEditor::RemoveInlineProperty(const nsAString& aProperty,
 }
 
 nsresult
-HTMLEditor::RemoveInlineProperty(nsAtom* aProperty,
-                                 const nsAString& aAttribute)
+HTMLEditor::RemoveInlineProperty(nsAtom* aProperty, const nsAString& aAttribute)
 {
   return RemoveInlinePropertyImpl(aProperty, &aAttribute);
 }
@@ -1190,8 +1200,8 @@ HTMLEditor::RemoveInlinePropertyImpl(nsAtom* aProperty,
   }
 
   AutoPlaceholderBatch batchIt(this);
-  AutoRules beginRulesSniffing(this, EditAction::removeTextProperty,
-                               nsIEditor::eNext);
+  AutoRules beginRulesSniffing(
+      this, EditAction::removeTextProperty, nsIEditor::eNext);
   AutoSelectionRestorer selectionRestorer(selection, this);
   AutoTransactionsConserveSelection dontChangeMySelection(this);
 
@@ -1233,14 +1243,16 @@ HTMLEditor::RemoveInlinePropertyImpl(nsAtom* aProperty,
       nsCOMPtr<nsINode> endNode = range->GetEndContainer();
       if (startNode && startNode == endNode && startNode->GetAsText()) {
         // We're done with this range!
-        if (IsCSSEnabled() &&
-            mCSSEditUtils->IsCSSEditableProperty(startNode, aProperty,
-                                                 aAttribute)) {
+        if (IsCSSEnabled() && mCSSEditUtils->IsCSSEditableProperty(
+                                  startNode, aProperty, aAttribute)) {
           // The HTML style defined by aProperty/aAttribute has a CSS
           // equivalence in this implementation for startNode
-          if (mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(startNode,
-                aProperty, aAttribute, EmptyString(),
-                CSSEditUtils::eComputed)) {
+          if (mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
+                  startNode,
+                  aProperty,
+                  aAttribute,
+                  EmptyString(),
+                  CSSEditUtils::eComputed)) {
             // startNode's computed style indicates the CSS equivalence to the
             // HTML style to remove is applied; but we found no element in the
             // ancestors of startNode carrying specified styles; assume it
@@ -1249,8 +1261,10 @@ HTMLEditor::RemoveInlinePropertyImpl(nsAtom* aProperty,
               NS_NAMED_LITERAL_STRING(value, "-moz-editor-invert-value");
               SetInlinePropertyOnTextNode(*startNode->GetAsText(),
                                           range->StartOffset(),
-                                          range->EndOffset(), *aProperty,
-                                          aAttribute, value);
+                                          range->EndOffset(),
+                                          *aProperty,
+                                          aAttribute,
+                                          value);
             }
           }
         }
@@ -1275,10 +1289,13 @@ HTMLEditor::RemoveInlinePropertyImpl(nsAtom* aProperty,
           rv = RemoveStyleInside(node, aProperty, aAttribute);
           NS_ENSURE_SUCCESS(rv, rv);
           if (IsCSSEnabled() &&
-              mCSSEditUtils->IsCSSEditableProperty(node, aProperty,
-                                                   aAttribute) &&
-              mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(node,
-                  aProperty, aAttribute, EmptyString(),
+              mCSSEditUtils->IsCSSEditableProperty(
+                  node, aProperty, aAttribute) &&
+              mCSSEditUtils->IsCSSEquivalentToHTMLInlineStyleSet(
+                  node,
+                  aProperty,
+                  aAttribute,
+                  EmptyString(),
                   CSSEditUtils::eComputed) &&
               // startNode's computed style indicates the CSS equivalence to
               // the HTML style to remove is applied; but we found no element
@@ -1302,16 +1319,10 @@ HTMLEditor::RemoveInlinePropertyImpl(nsAtom* aProperty,
 }
 
 NS_IMETHODIMP
-HTMLEditor::IncreaseFontSize()
-{
-  return RelativeFontChange(FontSize::incr);
-}
+HTMLEditor::IncreaseFontSize() { return RelativeFontChange(FontSize::incr); }
 
 NS_IMETHODIMP
-HTMLEditor::DecreaseFontSize()
-{
-  return RelativeFontChange(FontSize::decr);
-}
+HTMLEditor::DecreaseFontSize() { return RelativeFontChange(FontSize::decr); }
 
 nsresult
 HTMLEditor::RelativeFontChange(FontSize aDir)
@@ -1323,14 +1334,14 @@ HTMLEditor::RelativeFontChange(FontSize aDir)
   NS_ENSURE_TRUE(selection, NS_ERROR_FAILURE);
   // If selection is collapsed, set typing state
   if (selection->Collapsed()) {
-    nsAtom& atom = aDir == FontSize::incr ? *nsGkAtoms::big :
-                                             *nsGkAtoms::small;
+    nsAtom& atom = aDir == FontSize::incr ? *nsGkAtoms::big : *nsGkAtoms::small;
 
     // Let's see in what kind of element the selection is
     NS_ENSURE_TRUE(selection->RangeCount() &&
-                   selection->GetRangeAt(0)->GetStartContainer(), NS_OK);
+                       selection->GetRangeAt(0)->GetStartContainer(),
+                   NS_OK);
     OwningNonNull<nsINode> selectedNode =
-      *selection->GetRangeAt(0)->GetStartContainer();
+        *selection->GetRangeAt(0)->GetStartContainer();
     if (IsTextNode(selectedNode)) {
       NS_ENSURE_TRUE(selectedNode->GetParentNode(), NS_OK);
       selectedNode = *selectedNode->GetParentNode();
@@ -1347,8 +1358,8 @@ HTMLEditor::RelativeFontChange(FontSize aDir)
 
   // Wrap with txn batching, rules sniffing, and selection preservation code
   AutoPlaceholderBatch batchIt(this);
-  AutoRules beginRulesSniffing(this, EditAction::setTextProperty,
-                               nsIEditor::eNext);
+  AutoRules beginRulesSniffing(
+      this, EditAction::setTextProperty, nsIEditor::eNext);
   AutoSelectionRestorer selectionRestorer(selection, this);
   AutoTransactionsConserveSelection dontChangeMySelection(this);
 
@@ -1363,7 +1374,8 @@ HTMLEditor::RelativeFontChange(FontSize aDir)
     nsCOMPtr<nsINode> startNode = range->GetStartContainer();
     nsCOMPtr<nsINode> endNode = range->GetEndContainer();
     if (startNode == endNode && IsTextNode(startNode)) {
-      rv = RelativeFontChangeOnTextNode(aDir, *startNode->GetAsText(),
+      rv = RelativeFontChangeOnTextNode(aDir,
+                                        *startNode->GetAsText(),
                                         range->StartOffset(),
                                         range->EndOffset());
       NS_ENSURE_SUCCESS(rv, rv);
@@ -1404,14 +1416,15 @@ HTMLEditor::RelativeFontChange(FontSize aDir)
       // to be separately handled (they do if they are text nodes, due to how
       // the subtree iterator works - it will not have reported them).
       if (IsTextNode(startNode) && IsEditable(startNode)) {
-        rv = RelativeFontChangeOnTextNode(aDir, *startNode->GetAsText(),
+        rv = RelativeFontChangeOnTextNode(aDir,
+                                          *startNode->GetAsText(),
                                           range->StartOffset(),
                                           startNode->Length());
         NS_ENSURE_SUCCESS(rv, rv);
       }
       if (IsTextNode(endNode) && IsEditable(endNode)) {
-        rv = RelativeFontChangeOnTextNode(aDir, *endNode->GetAsText(), 0,
-                                          range->EndOffset());
+        rv = RelativeFontChangeOnTextNode(
+            aDir, *endNode->GetAsText(), 0, range->EndOffset());
         NS_ENSURE_SUCCESS(rv, rv);
       }
     }
@@ -1458,8 +1471,7 @@ HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
   }
 
   // Look for siblings that are correct type of node
-  nsAtom* nodeType = aDir == FontSize::incr ? nsGkAtoms::big
-                                             : nsGkAtoms::small;
+  nsAtom* nodeType = aDir == FontSize::incr ? nsGkAtoms::big : nsGkAtoms::small;
   nsCOMPtr<nsIContent> sibling = GetPriorHTMLSibling(node);
   if (sibling && sibling->IsHTMLElement(nodeType)) {
     // Previous sib is already right kind of inline node; slide this over
@@ -1483,8 +1495,7 @@ HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
 }
 
 nsresult
-HTMLEditor::RelativeFontChangeHelper(int32_t aSizeChange,
-                                     nsINode* aNode)
+HTMLEditor::RelativeFontChangeHelper(int32_t aSizeChange, nsINode* aNode)
 {
   MOZ_ASSERT(aNode);
 
@@ -1504,12 +1515,12 @@ HTMLEditor::RelativeFontChangeHelper(int32_t aSizeChange,
       aNode->AsElement()->HasAttr(kNameSpaceID_None, nsGkAtoms::size)) {
     // Cycle through children and adjust relative font size.
     AutoTArray<nsCOMPtr<nsIContent>, 10> childList;
-    for (nsIContent* child = aNode->GetFirstChild();
-         child; child = child->GetNextSibling()) {
+    for (nsIContent* child = aNode->GetFirstChild(); child;
+         child = child->GetNextSibling()) {
       childList.AppendElement(child);
     }
 
-    for (const auto& child: childList) {
+    for (const auto& child : childList) {
       nsresult rv = RelativeFontChangeOnNode(aSizeChange, child);
       NS_ENSURE_SUCCESS(rv, rv);
     }
@@ -1521,12 +1532,12 @@ HTMLEditor::RelativeFontChangeHelper(int32_t aSizeChange,
 
   // Otherwise cycle through the children.
   AutoTArray<nsCOMPtr<nsIContent>, 10> childList;
-  for (nsIContent* child = aNode->GetFirstChild();
-       child; child = child->GetNextSibling()) {
+  for (nsIContent* child = aNode->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
     childList.AppendElement(child);
   }
 
-  for (const auto& child: childList) {
+  for (const auto& child : childList) {
     nsresult rv = RelativeFontChangeHelper(aSizeChange, child);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1535,8 +1546,7 @@ HTMLEditor::RelativeFontChangeHelper(int32_t aSizeChange,
 }
 
 nsresult
-HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
-                                     nsIContent* aNode)
+HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange, nsIContent* aNode)
 {
   MOZ_ASSERT(aNode);
   // Can only change font size by + or - 1
@@ -1553,7 +1563,7 @@ HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
 
   // Is it the opposite of what we want?
   if ((aSizeChange == 1 && aNode->IsHTMLElement(nsGkAtoms::small)) ||
-       (aSizeChange == -1 && aNode->IsHTMLElement(nsGkAtoms::big))) {
+      (aSizeChange == -1 && aNode->IsHTMLElement(nsGkAtoms::big))) {
     // first populate any nested font tags that have the size attr set
     nsresult rv = RelativeFontChangeHelper(aSizeChange, aNode);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -1594,12 +1604,12 @@ HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
   // into a single "big" or "small".  For the moment they are
   // each getting their own.
   AutoTArray<nsCOMPtr<nsIContent>, 10> childList;
-  for (nsIContent* child = aNode->GetFirstChild();
-       child; child = child->GetNextSibling()) {
+  for (nsIContent* child = aNode->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
     childList.AppendElement(child);
   }
 
-  for (const auto& child: childList) {
+  for (const auto& child : childList) {
     nsresult rv = RelativeFontChangeOnNode(aSizeChange, child);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1608,8 +1618,7 @@ HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
 }
 
 NS_IMETHODIMP
-HTMLEditor::GetFontFaceState(bool* aMixed,
-                             nsAString& outFace)
+HTMLEditor::GetFontFaceState(bool* aMixed, nsAString& outFace)
 {
   NS_ENSURE_TRUE(aMixed, NS_ERROR_FAILURE);
   *aMixed = true;
@@ -1618,12 +1627,16 @@ HTMLEditor::GetFontFaceState(bool* aMixed,
   bool first, any, all;
 
   NS_NAMED_LITERAL_STRING(attr, "face");
-  nsresult rv =
-    GetInlinePropertyBase(*nsGkAtoms::font, &attr.AsString(), nullptr, &first,
-                          &any, &all, &outFace);
+  nsresult rv = GetInlinePropertyBase(*nsGkAtoms::font,
+                                      &attr.AsString(),
+                                      nullptr,
+                                      &first,
+                                      &any,
+                                      &all,
+                                      &outFace);
   NS_ENSURE_SUCCESS(rv, rv);
   if (any && !all) {
-    return NS_OK; // mixed
+    return NS_OK;  // mixed
   }
   if (all) {
     *aMixed = false;
@@ -1631,11 +1644,11 @@ HTMLEditor::GetFontFaceState(bool* aMixed,
   }
 
   // if there is no font face, check for tt
-  rv = GetInlinePropertyBase(*nsGkAtoms::tt, nullptr, nullptr, &first, &any,
-                             &all,nullptr);
+  rv = GetInlinePropertyBase(
+      *nsGkAtoms::tt, nullptr, nullptr, &first, &any, &all, nullptr);
   NS_ENSURE_SUCCESS(rv, rv);
   if (any && !all) {
-    return rv; // mixed
+    return rv;  // mixed
   }
   if (all) {
     *aMixed = false;
@@ -1651,8 +1664,7 @@ HTMLEditor::GetFontFaceState(bool* aMixed,
 }
 
 NS_IMETHODIMP
-HTMLEditor::GetFontColorState(bool* aMixed,
-                              nsAString& aOutColor)
+HTMLEditor::GetFontColorState(bool* aMixed, nsAString& aOutColor)
 {
   NS_ENSURE_TRUE(aMixed, NS_ERROR_NULL_POINTER);
   *aMixed = true;
@@ -1661,12 +1673,16 @@ HTMLEditor::GetFontColorState(bool* aMixed,
   NS_NAMED_LITERAL_STRING(colorStr, "color");
   bool first, any, all;
 
-  nsresult rv =
-    GetInlinePropertyBase(*nsGkAtoms::font, &colorStr.AsString(), nullptr,
-                          &first, &any, &all, &aOutColor);
+  nsresult rv = GetInlinePropertyBase(*nsGkAtoms::font,
+                                      &colorStr.AsString(),
+                                      nullptr,
+                                      &first,
+                                      &any,
+                                      &all,
+                                      &aOutColor);
   NS_ENSURE_SUCCESS(rv, rv);
   if (any && !all) {
-    return NS_OK; // mixed
+    return NS_OK;  // mixed
   }
   if (all) {
     *aMixed = false;
@@ -1692,8 +1708,7 @@ HTMLEditor::GetIsCSSEnabled(bool* aIsCSSEnabled)
 }
 
 static bool
-HasNonEmptyAttribute(Element* aElement,
-                     nsAtom* aName)
+HasNonEmptyAttribute(Element* aElement, nsAtom* aName)
 {
   MOZ_ASSERT(aElement);
 
@@ -1726,4 +1741,4 @@ HTMLEditor::RemoveElementIfNoStyleOrIdOrClass(Element& aElement)
   return RemoveContainer(&aElement);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

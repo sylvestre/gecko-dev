@@ -21,12 +21,12 @@ PlaceInfo::PlaceInfo(int64_t aId,
                      already_AddRefed<nsIURI> aURI,
                      const nsString& aTitle,
                      int64_t aFrecency)
-: mId(aId)
-, mGUID(aGUID)
-, mURI(aURI)
-, mTitle(aTitle)
-, mFrecency(aFrecency)
-, mVisitsAvailable(false)
+    : mId(aId),
+      mGUID(aGUID),
+      mURI(aURI),
+      mTitle(aTitle),
+      mFrecency(aFrecency),
+      mVisitsAvailable(false)
 {
   NS_PRECONDITION(mURI, "Must provide a non-null uri!");
 }
@@ -37,13 +37,13 @@ PlaceInfo::PlaceInfo(int64_t aId,
                      const nsString& aTitle,
                      int64_t aFrecency,
                      const VisitsArray& aVisits)
-: mId(aId)
-, mGUID(aGUID)
-, mURI(aURI)
-, mTitle(aTitle)
-, mFrecency(aFrecency)
-, mVisits(aVisits)
-, mVisitsAvailable(true)
+    : mId(aId),
+      mGUID(aGUID),
+      mURI(aURI),
+      mTitle(aTitle),
+      mFrecency(aFrecency),
+      mVisits(aVisits),
+      mVisitsAvailable(true)
 {
   NS_PRECONDITION(mURI, "Must provide a non-null uri!");
 }
@@ -87,8 +87,7 @@ PlaceInfo::GetFrecency(int64_t* _frecency)
 }
 
 NS_IMETHODIMP
-PlaceInfo::GetVisits(JSContext* aContext,
-                     JS::MutableHandle<JS::Value> _visits)
+PlaceInfo::GetVisits(JSContext* aContext, JS::MutableHandle<JS::Value> _visits)
 {
   // If the visits data was not provided, return null rather
   // than an empty array to distinguish this case from the case
@@ -100,8 +99,7 @@ PlaceInfo::GetVisits(JSContext* aContext,
 
   // TODO bug 625913 when we use this in situations that have more than one
   // visit here, we will likely want to make this cache the value.
-  JS::Rooted<JSObject*> visits(aContext,
-                               JS_NewArrayObject(aContext, 0));
+  JS::Rooted<JSObject*> visits(aContext, JS_NewArrayObject(aContext, 0));
   NS_ENSURE_TRUE(visits, NS_ERROR_OUT_OF_MEMORY);
 
   JS::Rooted<JSObject*> global(aContext, JS::CurrentGlobalOrNull(aContext));
@@ -111,7 +109,9 @@ PlaceInfo::GetVisits(JSContext* aContext,
 
   for (VisitsArray::size_type idx = 0; idx < mVisits.Length(); idx++) {
     JS::RootedObject jsobj(aContext);
-    nsresult rv = xpc->WrapNative(aContext, global, mVisits[idx],
+    nsresult rv = xpc->WrapNative(aContext,
+                                  global,
+                                  mVisits[idx],
                                   NS_GET_IID(mozIVisitInfo),
                                   jsobj.address());
     NS_ENSURE_SUCCESS(rv, rv);
@@ -128,10 +128,7 @@ PlaceInfo::GetVisits(JSContext* aContext,
 ////////////////////////////////////////////////////////////////////////////////
 //// nsISupports
 
-NS_IMPL_ISUPPORTS(
-  PlaceInfo
-, mozIPlaceInfo
-)
+NS_IMPL_ISUPPORTS(PlaceInfo, mozIPlaceInfo)
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla

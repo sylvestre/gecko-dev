@@ -17,59 +17,63 @@
 class nsMenuItemIconX;
 class nsMenuX;
 
-enum {
-  knsMenuItemNoModifier      = 0,
-  knsMenuItemShiftModifier   = (1 << 0),
-  knsMenuItemAltModifier     = (1 << 1),
+enum
+{
+  knsMenuItemNoModifier = 0,
+  knsMenuItemShiftModifier = (1 << 0),
+  knsMenuItemAltModifier = (1 << 1),
   knsMenuItemControlModifier = (1 << 2),
   knsMenuItemCommandModifier = (1 << 3)
 };
 
-enum EMenuItemType {
+enum EMenuItemType
+{
   eRegularMenuItemType = 0,
   eCheckboxMenuItemType,
   eRadioMenuItemType,
   eSeparatorMenuItemType
 };
 
-
 // Once instantiated, this object lives until its DOM node or its parent window is destroyed.
 // Do not hold references to this, they can become invalid any time the DOM node can be destroyed.
-class nsMenuItemX : public nsMenuObjectX,
-                    public nsChangeObserver
+class nsMenuItemX : public nsMenuObjectX, public nsChangeObserver
 {
-public:
+ public:
   nsMenuItemX();
   virtual ~nsMenuItemX();
 
   NS_DECL_CHANGEOBSERVER
 
   // nsMenuObjectX
-  void*             NativeData() override {return (void*)mNativeMenuItem;}
-  nsMenuObjectTypeX MenuObjectType() override {return eMenuItemObjectType;}
+  void* NativeData() override { return (void*)mNativeMenuItem; }
+  nsMenuObjectTypeX MenuObjectType() override { return eMenuItemObjectType; }
 
   // nsMenuItemX
-  nsresult      Create(nsMenuX* aParent, const nsString& aLabel, EMenuItemType aItemType,
-                       nsMenuGroupOwnerX* aMenuGroupOwner, nsIContent* aNode);
-  nsresult      SetChecked(bool aIsChecked);
+  nsresult Create(nsMenuX* aParent,
+                  const nsString& aLabel,
+                  EMenuItemType aItemType,
+                  nsMenuGroupOwnerX* aMenuGroupOwner,
+                  nsIContent* aNode);
+  nsresult SetChecked(bool aIsChecked);
   EMenuItemType GetMenuItemType();
-  void          DoCommand();
-  nsresult      DispatchDOMEvent(const nsString &eventName, bool* preventDefaultCalled);
-  void          SetupIcon();
+  void DoCommand();
+  nsresult DispatchDOMEvent(const nsString& eventName,
+                            bool* preventDefaultCalled);
+  void SetupIcon();
 
-protected:
+ protected:
   void UncheckRadioSiblings(nsIContent* inCheckedElement);
   void SetKeyEquiv();
 
-  EMenuItemType             mType;
+  EMenuItemType mType;
   // nsMenuItemX objects should always have a valid native menu item.
-  NSMenuItem*               mNativeMenuItem;      // [strong]
-  nsMenuX*                  mMenuParent;          // [weak]
-  nsMenuGroupOwnerX*        mMenuGroupOwner;      // [weak]
-  nsCOMPtr<nsIContent>      mCommandContent;
+  NSMenuItem* mNativeMenuItem;         // [strong]
+  nsMenuX* mMenuParent;                // [weak]
+  nsMenuGroupOwnerX* mMenuGroupOwner;  // [weak]
+  nsCOMPtr<nsIContent> mCommandContent;
   // The icon object should never outlive its creating nsMenuItemX object.
   RefPtr<nsMenuItemIconX> mIcon;
-  bool                      mIsChecked;
+  bool mIsChecked;
 };
 
-#endif // nsMenuItemX_h_
+#endif  // nsMenuItemX_h_

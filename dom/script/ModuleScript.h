@@ -27,12 +27,11 @@ class ModuleScript final : public nsISupports
 
   ~ModuleScript();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ModuleScript)
 
-  ModuleScript(ScriptLoader* aLoader,
-               nsIURI* aBaseURL);
+  ModuleScript(ScriptLoader* aLoader, nsIURI* aBaseURL);
 
   void SetModuleRecord(JS::Handle<JSObject*> aModuleRecord);
   void SetPreInstantiationError(const JS::Value& aError);
@@ -47,7 +46,7 @@ public:
   void UnlinkModuleRecord();
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ModuleScript_h
+#endif  // mozilla_dom_ModuleScript_h

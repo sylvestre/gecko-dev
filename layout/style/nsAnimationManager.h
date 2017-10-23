@@ -34,7 +34,8 @@ class ServoStyleContext;
 enum class CSSPseudoElementType : uint8_t;
 struct NonOwningAnimationTarget;
 
-struct AnimationEventInfo {
+struct AnimationEventInfo
+{
   RefPtr<dom::Element> mElement;
   RefPtr<dom::Animation> mAnimation;
   InternalAnimationEvent mEvent;
@@ -47,26 +48,26 @@ struct AnimationEventInfo {
                      const StickyTimeDuration& aElapsedTime,
                      const TimeStamp& aTimeStamp,
                      dom::Animation* aAnimation)
-    : mElement(aElement)
-    , mAnimation(aAnimation)
-    , mEvent(true, aMessage)
-    , mTimeStamp(aTimeStamp)
+      : mElement(aElement),
+        mAnimation(aAnimation),
+        mEvent(true, aMessage),
+        mTimeStamp(aTimeStamp)
   {
     // XXX Looks like nobody initialize WidgetEvent::time
     aAnimationName->ToString(mEvent.mAnimationName);
     mEvent.mElapsedTime =
-      nsRFPService::ReduceTimePrecisionAsSecs(aElapsedTime.ToSeconds());
+        nsRFPService::ReduceTimePrecisionAsSecs(aElapsedTime.ToSeconds());
     mEvent.mPseudoElement =
-      AnimationCollection<dom::CSSAnimation>::PseudoTypeAsString(aPseudoType);
+        AnimationCollection<dom::CSSAnimation>::PseudoTypeAsString(aPseudoType);
   }
 
   // InternalAnimationEvent doesn't support copy-construction, so we need
   // to ourselves in order to work with nsTArray
   AnimationEventInfo(const AnimationEventInfo& aOther)
-    : mElement(aOther.mElement)
-    , mAnimation(aOther.mAnimation)
-    , mEvent(true, aOther.mEvent.mMessage)
-    , mTimeStamp(aOther.mTimeStamp)
+      : mElement(aOther.mElement),
+        mAnimation(aOther.mAnimation),
+        mEvent(true, aOther.mEvent.mMessage),
+        mTimeStamp(aOther.mTimeStamp)
   {
     mEvent.AssignAnimationEventData(aOther.mEvent, false);
   }
@@ -76,16 +77,15 @@ namespace dom {
 
 class CSSAnimation final : public Animation
 {
-public:
- explicit CSSAnimation(nsIGlobalObject* aGlobal,
-                       nsAtom* aAnimationName)
-    : dom::Animation(aGlobal)
-    , mAnimationName(aAnimationName)
-    , mIsStylePaused(false)
-    , mPauseShouldStick(false)
-    , mNeedsNewAnimationIndexWhenRun(false)
-    , mPreviousPhase(ComputedTiming::AnimationPhase::Idle)
-    , mPreviousIteration(0)
+ public:
+  explicit CSSAnimation(nsIGlobalObject* aGlobal, nsAtom* aAnimationName)
+      : dom::Animation(aGlobal),
+        mAnimationName(aAnimationName),
+        mIsStylePaused(false),
+        mPauseShouldStick(false),
+        mNeedsNewAnimationIndexWhenRun(false),
+        mPreviousPhase(ComputedTiming::AnimationPhase::Idle),
+        mPreviousIteration(0)
   {
     // We might need to drop this assertion once we add a script-accessible
     // constructor but for animations generated from CSS markup the
@@ -159,8 +159,7 @@ public:
   void SetAnimationIndex(uint64_t aIndex)
   {
     MOZ_ASSERT(IsTiedToMarkup());
-    if (IsRelevant() &&
-        mAnimationIndex != aIndex) {
+    if (IsRelevant() && mAnimationIndex != aIndex) {
       nsNodeUtils::AnimationChanged(this);
       PostUpdate();
     }
@@ -179,15 +178,17 @@ public:
   // reflect changes to that markup.
   bool IsTiedToMarkup() const { return mOwningElement.IsSet(); }
 
-  void MaybeQueueCancelEvent(StickyTimeDuration aActiveTime) override {
+  void MaybeQueueCancelEvent(StickyTimeDuration aActiveTime) override
+  {
     QueueEvents(aActiveTime);
   }
 
-protected:
+ protected:
   virtual ~CSSAnimation()
   {
-    MOZ_ASSERT(!mOwningElement.IsSet(), "Owning element should be cleared "
-                                        "before a CSS animation is destroyed");
+    MOZ_ASSERT(!mOwningElement.IsSet(),
+               "Owning element should be cleared "
+               "before a CSS animation is destroyed");
   }
 
   // Animation overrides
@@ -199,10 +200,11 @@ protected:
   // This is zero unless the animation's source effect has a negative delay in
   // which case it is the absolute value of that delay.
   // This is used for setting the elapsedTime member of CSS AnimationEvents.
-  TimeDuration InitialAdvance() const {
-    return mEffect ?
-           std::max(TimeDuration(), mEffect->SpecifiedTiming().Delay() * -1) :
-           TimeDuration();
+  TimeDuration InitialAdvance() const
+  {
+    return mEffect ? std::max(TimeDuration(),
+                              mEffect->SpecifiedTiming().Delay() * -1)
+                   : TimeDuration();
   }
 
   RefPtr<nsAtom> mAnimationName;
@@ -291,13 +293,10 @@ protected:
 
 } /* namespace dom */
 
-template <>
+template<>
 struct AnimationTypeTraits<dom::CSSAnimation>
 {
-  static nsAtom* ElementPropertyAtom()
-  {
-    return nsGkAtoms::animationsProperty;
-  }
+  static nsAtom* ElementPropertyAtom() { return nsGkAtoms::animationsProperty; }
   static nsAtom* BeforePropertyAtom()
   {
     return nsGkAtoms::animationsOfBeforeProperty;
@@ -311,11 +310,12 @@ struct AnimationTypeTraits<dom::CSSAnimation>
 } /* namespace mozilla */
 
 class nsAnimationManager final
-  : public mozilla::CommonAnimationManager<mozilla::dom::CSSAnimation>
+    : public mozilla::CommonAnimationManager<mozilla::dom::CSSAnimation>
 {
-public:
-  explicit nsAnimationManager(nsPresContext *aPresContext)
-    : mozilla::CommonAnimationManager<mozilla::dom::CSSAnimation>(aPresContext)
+ public:
+  explicit nsAnimationManager(nsPresContext* aPresContext)
+      : mozilla::CommonAnimationManager<mozilla::dom::CSSAnimation>(
+            aPresContext)
   {
   }
 
@@ -323,9 +323,9 @@ public:
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(nsAnimationManager)
 
   typedef mozilla::AnimationCollection<mozilla::dom::CSSAnimation>
-    CSSAnimationCollection;
+      CSSAnimationCollection;
   typedef nsTArray<RefPtr<mozilla::dom::CSSAnimation>>
-    OwningCSSAnimationPtrArray;
+      OwningCSSAnimationPtrArray;
 
   /**
    * Update the set of animations on |aElement| based on |aStyleContext|.
@@ -342,10 +342,9 @@ public:
    * This function does the same thing as the above UpdateAnimations()
    * but with servo's computed values.
    */
-  void UpdateAnimations(
-    mozilla::dom::Element* aElement,
-    mozilla::CSSPseudoElementType aPseudoType,
-    const mozilla::ServoStyleContext* aComputedValues);
+  void UpdateAnimations(mozilla::dom::Element* aElement,
+                        mozilla::CSSPseudoElementType aPseudoType,
+                        const mozilla::ServoStyleContext* aComputedValues);
 
   /**
    * Add a pending event.
@@ -353,7 +352,7 @@ public:
   void QueueEvent(mozilla::AnimationEventInfo&& aEventInfo)
   {
     mEventDispatcher.QueueEvent(
-      mozilla::Forward<mozilla::AnimationEventInfo>(aEventInfo));
+        mozilla::Forward<mozilla::AnimationEventInfo>(aEventInfo));
   }
 
   /**
@@ -368,7 +367,7 @@ public:
     RefPtr<nsAnimationManager> kungFuDeathGrip(this);
     mEventDispatcher.DispatchEvents(mPresContext);
   }
-  void SortEvents()      { mEventDispatcher.SortEvents(); }
+  void SortEvents() { mEventDispatcher.SortEvents(); }
   void ClearEventQueue() { mEventDispatcher.ClearEventQueue(); }
 
   // Utility function to walk through |aIter| to find the Keyframe with
@@ -384,12 +383,12 @@ public:
   //   first Keyframe with an offset differing to |aOffset| or, if the end
   //   of the iterator is reached, sets |aIndex| to the index after the last
   //   Keyframe.
-  template <class IterType, class TimingFunctionType>
+  template<class IterType, class TimingFunctionType>
   static bool FindMatchingKeyframe(
-    IterType&& aIter,
-    double aOffset,
-    const TimingFunctionType& aTimingFunctionToMatch,
-    size_t& aIndex)
+      IterType&& aIter,
+      double aOffset,
+      const TimingFunctionType& aTimingFunctionToMatch,
+      size_t& aIndex)
   {
     aIndex = 0;
     for (mozilla::Keyframe& keyframe : aIter) {
@@ -404,15 +403,14 @@ public:
     return false;
   }
 
-protected:
+ protected:
   ~nsAnimationManager() override = default;
 
-private:
+ private:
   template<class BuilderType>
-  void DoUpdateAnimations(
-    const mozilla::NonOwningAnimationTarget& aTarget,
-    const nsStyleDisplay& aStyleDisplay,
-    BuilderType& aBuilder);
+  void DoUpdateAnimations(const mozilla::NonOwningAnimationTarget& aTarget,
+                          const nsStyleDisplay& aStyleDisplay,
+                          BuilderType& aBuilder);
 
   mozilla::DelayedEventDispatcher<mozilla::AnimationEventInfo> mEventDispatcher;
 };

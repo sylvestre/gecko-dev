@@ -16,18 +16,19 @@ namespace {
 
 class InputStreamReader final : public nsIInputStreamCallback
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-  static already_AddRefed<InputStreamReader>
-  Create(nsICloneableInputStreamWithRange* aStream, int64_t aStart,
-         uint32_t aLength)
+  static already_AddRefed<InputStreamReader> Create(
+      nsICloneableInputStreamWithRange* aStream,
+      int64_t aStart,
+      uint32_t aLength)
   {
     MOZ_ASSERT(aStream);
 
     nsCOMPtr<nsIInputStream> stream;
-    nsresult rv = aStream->CloneWithRange(aStart, aLength,
-                                          getter_AddRefs(stream));
+    nsresult rv =
+        aStream->CloneWithRange(aStart, aLength, getter_AddRefs(stream));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return nullptr;
     }
@@ -36,8 +37,7 @@ public:
     return reader.forget();
   }
 
-  nsresult
-  Read(char* aBuffer, uint32_t aSize, uint32_t* aRead)
+  nsresult Read(char* aBuffer, uint32_t aSize, uint32_t* aRead)
   {
     uint32_t done = 0;
     do {
@@ -47,7 +47,7 @@ public:
         return rv;
       }
       done += read;
-    } while(done != aSize);
+    } while (done != aSize);
 
     *aRead = done;
     return NS_OK;
@@ -61,18 +61,16 @@ public:
     return lock.Notify();
   }
 
-private:
+ private:
   explicit InputStreamReader(nsIInputStream* aStream)
-    : mStream(aStream)
-    , mMonitor("InputStreamReader::mMonitor")
+      : mStream(aStream), mMonitor("InputStreamReader::mMonitor")
   {
     MOZ_ASSERT(aStream);
   }
 
   ~InputStreamReader() = default;
 
-  nsresult
-  SyncRead(char* aBuffer, uint32_t aSize, uint32_t* aRead)
+  nsresult SyncRead(char* aBuffer, uint32_t aSize, uint32_t* aRead)
   {
     while (1) {
       nsresult rv = mStream->Read(aBuffer, aSize, aRead);
@@ -96,7 +94,7 @@ private:
       }
 
       nsCOMPtr<nsIEventTarget> target =
-        do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+          do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
       MOZ_ASSERT(target);
 
       {
@@ -126,7 +124,7 @@ NS_INTERFACE_MAP_BEGIN(InputStreamReader)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIInputStreamCallback)
 NS_INTERFACE_MAP_END
 
-} // anonymous
+}  // namespace
 
 void
 CloneableWithRangeMediaResource::MaybeInitialize()
@@ -177,7 +175,8 @@ CloneableWithRangeMediaResource::GetCurrentPrincipal()
 }
 
 nsresult
-CloneableWithRangeMediaResource::ReadFromCache(char* aBuffer, int64_t aOffset,
+CloneableWithRangeMediaResource::ReadFromCache(char* aBuffer,
+                                               int64_t aOffset,
                                                uint32_t aCount)
 {
   MaybeInitialize();
@@ -186,7 +185,7 @@ CloneableWithRangeMediaResource::ReadFromCache(char* aBuffer, int64_t aOffset,
   }
 
   RefPtr<InputStreamReader> reader =
-    InputStreamReader::Create(mStream, aOffset, aCount);
+      InputStreamReader::Create(mStream, aOffset, aCount);
   if (!reader) {
     return NS_ERROR_FAILURE;
   }
@@ -202,13 +201,15 @@ CloneableWithRangeMediaResource::ReadFromCache(char* aBuffer, int64_t aOffset,
 }
 
 nsresult
-CloneableWithRangeMediaResource::ReadAt(int64_t aOffset, char* aBuffer,
-                                        uint32_t aCount, uint32_t* aBytes)
+CloneableWithRangeMediaResource::ReadAt(int64_t aOffset,
+                                        char* aBuffer,
+                                        uint32_t aCount,
+                                        uint32_t* aBytes)
 {
   MOZ_ASSERT(!NS_IsMainThread());
 
   RefPtr<InputStreamReader> reader =
-    InputStreamReader::Create(mStream, aOffset, aCount);
+      InputStreamReader::Create(mStream, aOffset, aCount);
   if (!reader) {
     return NS_ERROR_FAILURE;
   }
@@ -222,10 +223,11 @@ CloneableWithRangeMediaResource::ReadAt(int64_t aOffset, char* aBuffer,
   return NS_OK;
 }
 
-int64_t CloneableWithRangeMediaResource::Tell()
+int64_t
+CloneableWithRangeMediaResource::Tell()
 {
   MaybeInitialize();
   return mCurrentPosition;
 }
 
-} // mozilla namespace
+}  // namespace mozilla

@@ -23,26 +23,43 @@ namespace dom {
 class SVGAnimatedLength;
 
 JSObject*
-SVGRectElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGRectElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGRectElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGRectElement::sLengthInfo[6] =
-{
-  { &nsGkAtoms::x, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::y, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::width, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::height, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::rx, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::ry, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y }
-};
+nsSVGElement::LengthInfo SVGRectElement::sLengthInfo[6] = {
+    {&nsGkAtoms::x,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::width,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::height,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::rx,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::ry,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGRectElement::SVGRectElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGRectElementBase(aNodeInfo)
+SVGRectElement::SVGRectElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGRectElementBase(aNodeInfo)
 {
 }
 
@@ -104,8 +121,8 @@ SVGRectElement::HasValidDimensions() const
 nsSVGElement::LengthAttributesInfo
 SVGRectElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 //----------------------------------------------------------------------
@@ -119,12 +136,12 @@ SVGRectElement::GetGeometryBounds(Rect* aBounds,
 {
   Rect rect;
   Float rx, ry;
-  GetAnimatedLengthValues(&rect.x, &rect.y, &rect.width,
-                          &rect.height, &rx, &ry, nullptr);
+  GetAnimatedLengthValues(
+      &rect.x, &rect.y, &rect.width, &rect.height, &rx, &ry, nullptr);
 
   if (rect.IsEmpty()) {
     // Rendering of the element disabled
-    rect.SetEmpty(); // Make sure width/height are zero and not negative
+    rect.SetEmpty();  // Make sure width/height are zero and not negative
     // We still want the x/y position from 'rect'
     *aBounds = aToBoundsSpace.TransformBounds(rect);
     return true;
@@ -153,7 +170,7 @@ SVGRectElement::GetGeometryBounds(Rect* aBounds,
         // not worth handling though.
         rect.Inflate(aStrokeOptions.mLineWidth / 2.f);
         Matrix nonScalingToBounds =
-          aToNonScalingStrokeSpace->Inverse() * aToBoundsSpace;
+            aToNonScalingStrokeSpace->Inverse() * aToBoundsSpace;
         *aBounds = nonScalingToBounds.TransformBounds(rect);
         return true;
       }
@@ -234,5 +251,5 @@ SVGRectElement::BuildPath(PathBuilder* aBuilder)
   return aBuilder->Finish();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

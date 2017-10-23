@@ -10,7 +10,7 @@
 #if defined(MOZ_CRASHREPORTER)
 #include "nsExceptionHandler.h"
 #include "nsPrintfCString.h"
-#endif // defined(MOZ_CRASHREPORTER)
+#endif  // defined(MOZ_CRASHREPORTER)
 #include "nsUnicharUtils.h"
 #include "nsWindowsDllInterceptor.h"
 #include "nsWinUtils.h"
@@ -26,21 +26,20 @@ using namespace mozilla::a11y;
 /**
  * String versions of consumer flags. See GetHumanReadableConsumersStr.
  */
-static const wchar_t* ConsumerStringMap[CONSUMERS_ENUM_LEN+1] = {
-  L"NVDA",
-  L"JAWS",
-  L"OLDJAWS",
-  L"WE",
-  L"DOLPHIN",
-  L"SEROTEK",
-  L"COBRA",
-  L"ZOOMTEXT",
-  L"KAZAGURU",
-  L"YOUDAO",
-  L"UNKNOWN",
-  L"UIAUTOMATION",
-  L"\0"
-};
+static const wchar_t* ConsumerStringMap[CONSUMERS_ENUM_LEN + 1] = {
+    L"NVDA",
+    L"JAWS",
+    L"OLDJAWS",
+    L"WE",
+    L"DOLPHIN",
+    L"SEROTEK",
+    L"COBRA",
+    L"ZOOMTEXT",
+    L"KAZAGURU",
+    L"YOUDAO",
+    L"UNKNOWN",
+    L"UIAUTOMATION",
+    L"\0"};
 
 /**
  * Return true if module version is lesser than the given version.
@@ -62,14 +61,13 @@ IsModuleVersionLessThan(HMODULE aModuleHandle, DWORD aMajor, DWORD aMinor)
   ::VerQueryValueW(versionInfo, L"\\", (LPVOID*)&fixedFileInfo, &uLen);
   DWORD dwFileVersionMS = fixedFileInfo->dwFileVersionMS;
   DWORD dwFileVersionLS = fixedFileInfo->dwFileVersionLS;
-  delete [] versionInfo;
+  delete[] versionInfo;
 
   DWORD dwLeftMost = HIWORD(dwFileVersionMS);
   DWORD dwSecondRight = HIWORD(dwFileVersionLS);
   return (dwLeftMost < aMajor ||
-    (dwLeftMost == aMajor && dwSecondRight < aMinor));
+          (dwLeftMost == aMajor && dwSecondRight < aMinor));
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Compatibility
@@ -85,7 +83,8 @@ static PVOID sVectoredExceptionHandler = nullptr;
 #pragma intrinsic(_ReturnAddress)
 #define RETURN_ADDRESS() _ReturnAddress()
 #elif defined(__GNUC__) || defined(__clang__)
-#define RETURN_ADDRESS() __builtin_extract_return_addr(__builtin_return_address(0))
+#define RETURN_ADDRESS() \
+  __builtin_extract_return_addr(__builtin_return_address(0))
 #endif
 
 static inline bool
@@ -125,9 +124,10 @@ InSendMessageExHook(LPVOID lpReserved)
     // Check if InSendMessageEx is being called from code within combase.dll
     HMODULE callingModule;
     if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                           reinterpret_cast<LPCWSTR>(RETURN_ADDRESS()),
-                          &callingModule) && callingModule == comModule) {
+                          &callingModule) &&
+        callingModule == comModule) {
       result = ISMEX_NOTIFY;
     }
   }
@@ -138,8 +138,7 @@ static LONG CALLBACK
 DetectInSendMessageExCompat(PEXCEPTION_POINTERS aExceptionInfo)
 {
   DWORD exceptionCode = aExceptionInfo->ExceptionRecord->ExceptionCode;
-  if (exceptionCode == RPC_E_CANTCALLOUT_ININPUTSYNCCALL &&
-      NS_IsMainThread()) {
+  if (exceptionCode == RPC_E_CANTCALLOUT_ININPUTSYNCCALL && NS_IsMainThread()) {
     sInSendMessageExHackEnabled = true;
     // We don't need this exception handler anymore, so remove it
     if (RemoveVectoredExceptionHandler(sVectoredExceptionHandler)) {
@@ -158,29 +157,22 @@ Compatibility::Init()
 
   HMODULE jawsHandle = ::GetModuleHandleW(L"jhook");
   if (jawsHandle)
-    sConsumers |= (IsModuleVersionLessThan(jawsHandle, 18, 4315)) ?
-                   OLDJAWS : JAWS;
+    sConsumers |=
+        (IsModuleVersionLessThan(jawsHandle, 18, 4315)) ? OLDJAWS : JAWS;
 
-  if (::GetModuleHandleW(L"gwm32inc"))
-    sConsumers |= WE;
+  if (::GetModuleHandleW(L"gwm32inc")) sConsumers |= WE;
 
-  if (::GetModuleHandleW(L"dolwinhk"))
-    sConsumers |= DOLPHIN;
+  if (::GetModuleHandleW(L"dolwinhk")) sConsumers |= DOLPHIN;
 
-  if (::GetModuleHandleW(L"STSA32"))
-    sConsumers |= SEROTEK;
+  if (::GetModuleHandleW(L"STSA32")) sConsumers |= SEROTEK;
 
-  if (::GetModuleHandleW(L"nvdaHelperRemote"))
-    sConsumers |= NVDA;
+  if (::GetModuleHandleW(L"nvdaHelperRemote")) sConsumers |= NVDA;
 
-  if (::GetModuleHandleW(L"OsmHooks"))
-    sConsumers |= COBRA;
+  if (::GetModuleHandleW(L"OsmHooks")) sConsumers |= COBRA;
 
-  if (::GetModuleHandleW(L"WebFinderRemote"))
-    sConsumers |= ZOOMTEXT;
+  if (::GetModuleHandleW(L"WebFinderRemote")) sConsumers |= ZOOMTEXT;
 
-  if (::GetModuleHandleW(L"Kazahook"))
-    sConsumers |= KAZAGURU;
+  if (::GetModuleHandleW(L"Kazahook")) sConsumers |= KAZAGURU;
 
   if (::GetModuleHandleW(L"TextExtractorImpl32") ||
       ::GetModuleHandleW(L"TextExtractorImpl64"))
@@ -195,16 +187,15 @@ Compatibility::Init()
     sConsumers ^= Compatibility::UNKNOWN;
 
 #ifdef MOZ_CRASHREPORTER
-  CrashReporter::
-    AnnotateCrashReport(NS_LITERAL_CSTRING("AccessibilityInProcClient"),
-                        nsPrintfCString("0x%X", sConsumers));
+  CrashReporter::AnnotateCrashReport(
+      NS_LITERAL_CSTRING("AccessibilityInProcClient"),
+      nsPrintfCString("0x%X", sConsumers));
 #endif
 
   // Gather telemetry
   uint32_t temp = sConsumers;
   for (int i = 0; temp; i++) {
-    if (temp & 0x1)
-      statistics::A11yConsumers(i);
+    if (temp & 0x1) statistics::A11yConsumers(i);
 
     temp >>= 1;
   }
@@ -223,15 +214,16 @@ Compatibility::Init()
       BrowserTabsRemoteAutostart()) {
     sUser32Interceptor.Init("user32.dll");
     if (!sInSendMessageExStub) {
-      sUser32Interceptor.AddHook("InSendMessageEx",
-                                 reinterpret_cast<intptr_t>(&InSendMessageExHook),
-                                 (void**)&sInSendMessageExStub);
+      sUser32Interceptor.AddHook(
+          "InSendMessageEx",
+          reinterpret_cast<intptr_t>(&InSendMessageExHook),
+          (void**)&sInSendMessageExStub);
     }
     // The vectored exception handler allows us to catch exceptions ahead of any
     // SEH handlers.
     if (!sVectoredExceptionHandler) {
       sVectoredExceptionHandler =
-        AddVectoredExceptionHandler(TRUE, &DetectInSendMessageExCompat);
+          AddVectoredExceptionHandler(TRUE, &DetectInSendMessageExCompat);
     }
   }
 }
@@ -251,8 +243,13 @@ ReadCOMRegDefaultString(const nsString& aRegPath, nsAString& aOutBuf)
   // We expect either REG_SZ or REG_EXPAND_SZ.
   DWORD type;
   DWORD bufLen = 0;
-  LONG result = ::RegGetValue(HKEY_LOCAL_MACHINE, fullyQualifiedRegPath.get(),
-                              nullptr, RRF_RT_ANY, &type, nullptr, &bufLen);
+  LONG result = ::RegGetValue(HKEY_LOCAL_MACHINE,
+                              fullyQualifiedRegPath.get(),
+                              nullptr,
+                              RRF_RT_ANY,
+                              &type,
+                              nullptr,
+                              &bufLen);
   if (result != ERROR_SUCCESS || (type != REG_SZ && type != REG_EXPAND_SZ)) {
     return false;
   }
@@ -262,8 +259,13 @@ ReadCOMRegDefaultString(const nsString& aRegPath, nsAString& aOutBuf)
 
   aOutBuf.SetLength((bufLen + 1) / sizeof(char16_t));
 
-  result = ::RegGetValue(HKEY_LOCAL_MACHINE, fullyQualifiedRegPath.get(), nullptr,
-                         flags, nullptr, aOutBuf.BeginWriting(), &bufLen);
+  result = ::RegGetValue(HKEY_LOCAL_MACHINE,
+                         fullyQualifiedRegPath.get(),
+                         nullptr,
+                         flags,
+                         nullptr,
+                         aOutBuf.BeginWriting(),
+                         &bufLen);
   if (result != ERROR_SUCCESS) {
     aOutBuf.Truncate();
     return false;
@@ -282,15 +284,15 @@ IsSystemOleAcc(nsCOMPtr<nsIFile>& aFile)
   // necessary because the values that we are reading from the registry
   // are not redirected; they reference SysWOW64 directly.
   PWSTR systemPath = nullptr;
-  HRESULT hr = ::SHGetKnownFolderPath(FOLDERID_SystemX86, 0, nullptr,
-                                      &systemPath);
+  HRESULT hr =
+      ::SHGetKnownFolderPath(FOLDERID_SystemX86, 0, nullptr, &systemPath);
   if (FAILED(hr)) {
     return false;
   }
 
   nsCOMPtr<nsIFile> oleAcc;
-  nsresult rv = NS_NewLocalFile(nsDependentString(systemPath), false,
-                                getter_AddRefs(oleAcc));
+  nsresult rv = NS_NewLocalFile(
+      nsDependentString(systemPath), false, getter_AddRefs(oleAcc));
 
   ::CoTaskMemFree(systemPath);
   systemPath = nullptr;
@@ -315,9 +317,10 @@ IsTypelibPreferred()
   // If IAccessible's Proxy/Stub CLSID is kUniversalMarshalerClsid, then any
   // external a11y clients are expecting to use a typelib.
   NS_NAMED_LITERAL_STRING(kUniversalMarshalerClsid,
-      "{00020424-0000-0000-C000-000000000046}");
+                          "{00020424-0000-0000-C000-000000000046}");
 
-  NS_NAMED_LITERAL_STRING(kIAccessiblePSClsidPath,
+  NS_NAMED_LITERAL_STRING(
+      kIAccessiblePSClsidPath,
       "Interface\\{618736E0-3C3D-11CF-810C-00AA00389B71}\\ProxyStubClsid32");
 
   nsAutoString psClsid;
@@ -334,8 +337,9 @@ IsIAccessibleTypelibRegistered()
 {
   // The system default IAccessible typelib is always registered with version
   // 1.1, under the neutral locale (LCID 0).
-  NS_NAMED_LITERAL_STRING(kIAccessibleTypelibRegPath,
-    "TypeLib\\{1EA4DBF0-3C3B-11CF-810C-00AA00389B71}\\1.1\\0\\win32");
+  NS_NAMED_LITERAL_STRING(
+      kIAccessibleTypelibRegPath,
+      "TypeLib\\{1EA4DBF0-3C3B-11CF-810C-00AA00389B71}\\1.1\\0\\win32");
 
   nsAutoString typelibPath;
   if (!ReadCOMRegDefaultString(kIAccessibleTypelibRegPath, typelibPath)) {
@@ -343,7 +347,8 @@ IsIAccessibleTypelibRegistered()
   }
 
   nsCOMPtr<nsIFile> libTestFile;
-  nsresult rv = NS_NewLocalFile(typelibPath, false, getter_AddRefs(libTestFile));
+  nsresult rv =
+      NS_NewLocalFile(typelibPath, false, getter_AddRefs(libTestFile));
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -354,8 +359,9 @@ IsIAccessibleTypelibRegistered()
 static bool
 IsIAccessiblePSRegistered()
 {
-  NS_NAMED_LITERAL_STRING(kIAccessiblePSRegPath,
-    "CLSID\\{03022430-ABC4-11D0-BDE2-00AA001A1953}\\InProcServer32");
+  NS_NAMED_LITERAL_STRING(
+      kIAccessiblePSRegPath,
+      "CLSID\\{03022430-ABC4-11D0-BDE2-00AA001A1953}\\InProcServer32");
 
   nsAutoString proxyStubPath;
   if (!ReadCOMRegDefaultString(kIAccessiblePSRegPath, proxyStubPath)) {
@@ -363,7 +369,8 @@ IsIAccessiblePSRegistered()
   }
 
   nsCOMPtr<nsIFile> libTestFile;
-  nsresult rv = NS_NewLocalFile(proxyStubPath, false, getter_AddRefs(libTestFile));
+  nsresult rv =
+      NS_NewLocalFile(proxyStubPath, false, getter_AddRefs(libTestFile));
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -391,11 +398,11 @@ UseIAccessibleProxyStub()
   // so that we can easily determine this condition during crash analysis.
   CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("IAccessibleConfig"),
                                      NS_LITERAL_CSTRING("NoSystemTypeLibOrPS"));
-#endif // defined(MOZ_CRASHREPORTER)
+#endif  // defined(MOZ_CRASHREPORTER)
   return false;
 }
 
-#endif // !defined(HAVE_64BIT_BUILD)
+#endif  // !defined(HAVE_64BIT_BUILD)
 
 uint16_t
 Compatibility::GetActCtxResourceId()
@@ -408,18 +415,17 @@ Compatibility::GetActCtxResourceId()
   // Beginning with Windows 10 Creators Update, 32-bit builds always use the
   // 64-bit manifest. Older builds of Windows may or may not require the 64-bit
   // manifest: UseIAccessibleProxyStub() determines the course of action.
-  if (mozilla::IsWin10CreatorsUpdateOrLater() ||
-      UseIAccessibleProxyStub()) {
+  if (mozilla::IsWin10CreatorsUpdateOrLater() || UseIAccessibleProxyStub()) {
     return 64;
   }
 
   return 32;
-#endif // defined(HAVE_64BIT_BUILD)
+#endif  // defined(HAVE_64BIT_BUILD)
 }
 
 // static
 void
-Compatibility::GetHumanReadableConsumersStr(nsAString &aResult)
+Compatibility::GetHumanReadableConsumersStr(nsAString& aResult)
 {
   bool appened = false;
   uint32_t index = 0;

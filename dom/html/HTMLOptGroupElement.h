@@ -16,8 +16,9 @@ namespace dom {
 
 class HTMLOptGroupElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLOptGroupElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLOptGroupElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   NS_IMPL_FROMCONTENT_HTML_WITH_TAG(HTMLOptGroupElement, optgroup)
 
@@ -25,18 +26,21 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // nsINode
-  virtual nsresult InsertChildAt(nsIContent* aKid, uint32_t aIndex,
+  virtual nsresult InsertChildAt(nsIContent* aKid,
+                                 uint32_t aIndex,
                                  bool aNotify) override;
   virtual void RemoveChildAt(uint32_t aIndex, bool aNotify) override;
 
   // nsIContent
   virtual nsresult GetEventTargetParent(
-                     EventChainPreVisitor& aVisitor) override;
+      EventChainPreVisitor& aVisitor) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -44,17 +48,15 @@ public:
 
   virtual nsIDOMNode* AsDOMNode() override { return this; }
 
-  virtual bool IsDisabled() const override {
+  virtual bool IsDisabled() const override
+  {
     return State().HasState(NS_EVENT_STATE_DISABLED);
   }
 
-  bool Disabled() const
-  {
-    return GetBoolAttr(nsGkAtoms::disabled);
-  }
+  bool Disabled() const { return GetBoolAttr(nsGkAtoms::disabled); }
   void SetDisabled(bool aValue, ErrorResult& aError)
   {
-     SetHTMLBoolAttr(nsGkAtoms::disabled, aValue, aError);
+    SetHTMLBoolAttr(nsGkAtoms::disabled, aValue, aError);
   }
 
   void GetLabel(nsAString& aValue) const
@@ -66,13 +68,13 @@ public:
     SetHTMLAttr(nsGkAtoms::label, aLabel, aError);
   }
 
-protected:
+ protected:
   virtual ~HTMLOptGroupElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
-
+ protected:
   /**
    * Get the select content element that contains this option
    * @param aSelectElement the select element [OUT]
@@ -80,7 +82,7 @@ protected:
   Element* GetSelect();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLOptGroupElement_h */

@@ -17,43 +17,33 @@ namespace jit {
 
 // List of a fixed length, but the length is unknown until runtime.
 template <typename T>
-class FixedList
-{
+class FixedList {
     T* list_;
     size_t length_;
 
-  private:
-    FixedList(const FixedList&); // no copy definition.
-    void operator= (const FixedList*); // no assignment definition.
+   private:
+    FixedList(const FixedList&);       // no copy definition.
+    void operator=(const FixedList*);  // no assignment definition.
 
-  public:
-    FixedList()
-      : list_(nullptr), length_(0)
-    { }
+   public:
+    FixedList() : list_(nullptr), length_(0) {}
 
     // Dynamic memory allocation requires the ability to report failure.
     MOZ_MUST_USE bool init(TempAllocator& alloc, size_t length) {
-        if (length == 0)
-            return true;
+        if (length == 0) return true;
 
         size_t bytes;
-        if (MOZ_UNLIKELY(!CalculateAllocSize<T>(length, &bytes)))
-            return false;
+        if (MOZ_UNLIKELY(!CalculateAllocSize<T>(length, &bytes))) return false;
         list_ = (T*)alloc.allocate(bytes);
-        if (!list_)
-            return false;
+        if (!list_) return false;
 
         length_ = length;
         return true;
     }
 
-    size_t empty() const {
-        return length_ == 0;
-    }
+    size_t empty() const { return length_ == 0; }
 
-    size_t length() const {
-        return length_;
-    }
+    size_t length() const { return length_; }
 
     void shrink(size_t num) {
         MOZ_ASSERT(num < length_);
@@ -62,17 +52,13 @@ class FixedList
 
     MOZ_MUST_USE bool growBy(TempAllocator& alloc, size_t num) {
         size_t newlength = length_ + num;
-        if (newlength < length_)
-            return false;
+        if (newlength < length_) return false;
         size_t bytes;
-        if (MOZ_UNLIKELY(!CalculateAllocSize<T>(newlength, &bytes)))
-            return false;
+        if (MOZ_UNLIKELY(!CalculateAllocSize<T>(newlength, &bytes))) return false;
         T* list = (T*)alloc.allocate(bytes);
-        if (MOZ_UNLIKELY(!list))
-            return false;
+        if (MOZ_UNLIKELY(!list)) return false;
 
-        for (size_t i = 0; i < length_; i++)
-            list[i] = list_[i];
+        for (size_t i = 0; i < length_; i++) list[i] = list_[i];
 
         length_ += num;
         list_ = list;
@@ -83,24 +69,18 @@ class FixedList
         MOZ_ASSERT(index < length_);
         return list_[index];
     }
-    const T& operator [](size_t index) const {
+    const T& operator[](size_t index) const {
         MOZ_ASSERT(index < length_);
         return list_[index];
     }
 
-    T* data() {
-        return list_;
-    }
+    T* data() { return list_; }
 
-    T* begin() {
-        return list_;
-    }
-    T* end() {
-        return list_ + length_;
-    }
+    T* begin() { return list_; }
+    T* end() { return list_ + length_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_FixedList_h */

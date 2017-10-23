@@ -14,7 +14,8 @@ namespace dom {
 
 // CHANGING THE ORDER/PLACEMENT OF EXISTING ENUM VALUES MAY BREAK INDEXEDDB.
 // PROCEED WITH EXTREME CAUTION.
-enum StructuredCloneTags {
+enum StructuredCloneTags
+{
   SCTAG_BASE = JS_SCTAG_USER_MIN,
 
   SCTAG_DOM_BLOB,
@@ -73,7 +74,7 @@ enum StructuredCloneTags {
   SCTAG_DOM_MAX
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // StructuredCloneTags_h__
+#endif  // StructuredCloneTags_h__

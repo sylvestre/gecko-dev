@@ -32,8 +32,7 @@ TimedMetric::Average() const
 }
 
 Diagnostics::Diagnostics()
- : mCompositeFps("Compositor"),
-   mTransactionFps("LayerTransactions")
+    : mCompositeFps("Compositor"), mTransactionFps("LayerTransactions")
 {
 }
 
@@ -55,12 +54,13 @@ Diagnostics::GetFrameOverlayString(const GPUStats& aStats)
   unsigned fps = unsigned(mCompositeFps.AddFrameAndGetFps(now));
   unsigned txnFps = unsigned(mTransactionFps.GetFPS(now));
 
-  float pixelFillRatio = aStats.mInvalidPixels
-                         ? float(aStats.mPixelsFilled) / float(aStats.mInvalidPixels)
-                         : 0.0f;
-  float screenFillRatio = aStats.mScreenPixels
-                          ? float(aStats.mPixelsFilled) / float(aStats.mScreenPixels)
-                          : 0.0f;
+  float pixelFillRatio =
+      aStats.mInvalidPixels
+          ? float(aStats.mPixelsFilled) / float(aStats.mInvalidPixels)
+          : 0.0f;
+  float screenFillRatio = aStats.mScreenPixels ? float(aStats.mPixelsFilled) /
+                                                     float(aStats.mScreenPixels)
+                                               : 0.0f;
 
   if (aStats.mDrawTime) {
     mGPUDrawMs.Add(aStats.mDrawTime.value());
@@ -82,35 +82,36 @@ Diagnostics::GetFrameOverlayString(const GPUStats& aStats)
   // CC_BUILD = Container prepare/composite frame building
   // CC_EXEC  = Container render/composite drawing
   nsPrintfCString line1("FPS: %d (TXN: %d)", fps, txnFps);
-  nsPrintfCString line2("[CC] Build: %0.1fms Exec: %0.1fms GPU: %s Fill Ratio: %0.1f/%0.1f",
-    mPrepareMs.Average(),
-    mCompositeMs.Average(),
-    gpuTimeString.c_str(),
-    pixelFillRatio,
-    screenFillRatio);
+  nsPrintfCString line2(
+      "[CC] Build: %0.1fms Exec: %0.1fms GPU: %s Fill Ratio: %0.1f/%0.1f",
+      mPrepareMs.Average(),
+      mCompositeMs.Average(),
+      gpuTimeString.c_str(),
+      pixelFillRatio,
+      screenFillRatio);
   nsCString line3;
   if (mDlb2Ms.Average() != 0.0f) {
-    line3 += nsPrintfCString("[Content] DL: %0.1f/%0.1fms FLB: %0.1fms Raster: %0.1fms",
-    mDlb2Ms.Average(),
-    mDlbMs.Average(),
-    mFlbMs.Average(),
-    mRasterMs.Average());
+    line3 += nsPrintfCString(
+        "[Content] DL: %0.1f/%0.1fms FLB: %0.1fms Raster: %0.1fms",
+        mDlb2Ms.Average(),
+        mDlbMs.Average(),
+        mFlbMs.Average(),
+        mRasterMs.Average());
   } else {
-    line3 += nsPrintfCString("[Content] DL: %0.1fms FLB: %0.1fms Raster: %0.1fms",
-    mDlbMs.Average(),
-    mFlbMs.Average(),
-    mRasterMs.Average());
+    line3 +=
+        nsPrintfCString("[Content] DL: %0.1fms FLB: %0.1fms Raster: %0.1fms",
+                        mDlbMs.Average(),
+                        mFlbMs.Average(),
+                        mRasterMs.Average());
   }
   nsPrintfCString line4("[IPDL] Build: %0.1fms Send: %0.1fms Update: %0.1fms",
-    mSerializeMs.Average(),
-    mSendMs.Average(),
-    mUpdateMs.Average());
+                        mSerializeMs.Average(),
+                        mSendMs.Average(),
+                        mUpdateMs.Average());
 
-  return std::string(line1.get()) + "\n" +
-         std::string(line2.get()) + "\n" +
-         std::string(line3.get()) + "\n" +
-         std::string(line4.get());
+  return std::string(line1.get()) + "\n" + std::string(line2.get()) + "\n" +
+         std::string(line3.get()) + "\n" + std::string(line4.get());
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

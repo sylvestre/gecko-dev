@@ -8,37 +8,40 @@
 
 class nsITreeBoxObject;
 
-nsIFrame* NS_NewTreeColFrame(nsIPresShell* aPresShell,
-                             nsStyleContext* aContext);
+nsIFrame*
+NS_NewTreeColFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsTreeColFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsTreeColFrame)
 
-  explicit nsTreeColFrame(nsStyleContext* aContext):
-    nsBoxFrame(aContext, kClassID) {}
+  explicit nsTreeColFrame(nsStyleContext* aContext)
+      : nsBoxFrame(aContext, kClassID)
+  {
+  }
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
-  virtual void BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
-                                           const nsDisplayListSet& aLists) override;
+  virtual void BuildDisplayListForChildren(
+      nsDisplayListBuilder* aBuilder, const nsDisplayListSet& aLists) override;
 
   virtual nsresult AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
                                     int32_t aModType) override;
 
-  virtual void SetXULBounds(nsBoxLayoutState& aBoxLayoutState, const nsRect& aRect,
+  virtual void SetXULBounds(nsBoxLayoutState& aBoxLayoutState,
+                            const nsRect& aRect,
                             bool aRemoveOverflowArea = false) override;
 
   friend nsIFrame* NS_NewTreeColFrame(nsIPresShell* aPresShell,
                                       nsStyleContext* aContext);
 
-protected:
+ protected:
   virtual ~nsTreeColFrame();
 
   /**

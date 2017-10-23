@@ -3,15 +3,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <algorithm> // min & max
+#include <algorithm>  // min & max
 #include <cstdlib>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void BufferUnrotate(uint8_t* aBuffer, int aByteWidth, int aHeight,
-                    int aByteStride, int aXBoundary, int aYBoundary)
+void
+BufferUnrotate(uint8_t* aBuffer,
+               int aByteWidth,
+               int aHeight,
+               int aByteStride,
+               int aXBoundary,
+               int aYBoundary)
 {
   if (aXBoundary != 0) {
     uint8_t* line = new uint8_t[aByteWidth];
@@ -33,7 +38,9 @@ void BufferUnrotate(uint8_t* aBuffer, int aByteWidth, int aHeight,
     for (int y = 0; y < aHeight; y++) {
       int yOffset = y * aByteStride;
       memcpy(line, &aBuffer[yOffset + smallStart], smallLen);
-      memmove(&aBuffer[yOffset + largeDest], &aBuffer[yOffset + largeStart], largeLen);
+      memmove(&aBuffer[yOffset + largeDest],
+              &aBuffer[yOffset + largeStart],
+              largeLen);
       memcpy(&aBuffer[yOffset + smallDest], line, smallLen);
     }
 
@@ -56,9 +63,11 @@ void BufferUnrotate(uint8_t* aBuffer, int aByteWidth, int aHeight,
 
     uint8_t* smallestSide = new uint8_t[aByteStride * smallestHeight];
     memcpy(smallestSide, &aBuffer[smallOffset], aByteStride * smallestHeight);
-    memmove(&aBuffer[largeDestOffset], &aBuffer[largeOffset], aByteStride * largestHeight);
-    memcpy(&aBuffer[smallDestOffset], smallestSide, aByteStride * smallestHeight);
+    memmove(&aBuffer[largeDestOffset],
+            &aBuffer[largeOffset],
+            aByteStride * largestHeight);
+    memcpy(
+        &aBuffer[smallDestOffset], smallestSide, aByteStride * smallestHeight);
     delete[] smallestSide;
   }
 }
-

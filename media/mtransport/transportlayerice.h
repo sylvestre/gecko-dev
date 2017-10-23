@@ -28,7 +28,8 @@
 // An ICE transport layer -- corresponds to a single ICE
 namespace mozilla {
 
-class TransportLayerIce : public TransportLayer {
+class TransportLayerIce : public TransportLayer
+{
  public:
   explicit TransportLayerIce(const std::string& name);
 
@@ -38,18 +39,20 @@ class TransportLayerIce : public TransportLayer {
                      RefPtr<NrIceMediaStream> stream,
                      int component);
 
-  void ResetOldStream(); // called after successful ice restart
-  void RestoreOldStream(); // called after unsuccessful ice restart
+  void ResetOldStream();    // called after successful ice restart
+  void RestoreOldStream();  // called after unsuccessful ice restart
 
   // Transport layer overrides.
-  TransportResult SendPacket(const unsigned char *data, size_t len) override;
+  TransportResult SendPacket(const unsigned char* data, size_t len) override;
 
   // Slots for ICE
-  void IceCandidate(NrIceMediaStream *stream, const std::string&);
-  void IceReady(NrIceMediaStream *stream);
-  void IceFailed(NrIceMediaStream *stream);
-  void IcePacketReceived(NrIceMediaStream *stream, int component,
-                         const unsigned char *data, int len);
+  void IceCandidate(NrIceMediaStream* stream, const std::string&);
+  void IceReady(NrIceMediaStream* stream);
+  void IceFailed(NrIceMediaStream* stream);
+  void IcePacketReceived(NrIceMediaStream* stream,
+                         int component,
+                         const unsigned char* data,
+                         int len);
 
   TRANSPORT_LAYER_ID("ice")
 
@@ -66,5 +69,5 @@ class TransportLayerIce : public TransportLayer {
   RefPtr<NrIceMediaStream> old_stream_;
 };
 
-}  // close namespace
+}  // namespace mozilla
 #endif

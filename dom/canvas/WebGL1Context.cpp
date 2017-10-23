@@ -14,39 +14,34 @@ namespace mozilla {
 /*static*/ WebGL1Context*
 WebGL1Context::Create()
 {
-    return new WebGL1Context();
+  return new WebGL1Context();
 }
 
-WebGL1Context::WebGL1Context()
-    : WebGLContext()
-{
-}
+WebGL1Context::WebGL1Context() : WebGLContext() {}
 
-WebGL1Context::~WebGL1Context()
-{
-}
+WebGL1Context::~WebGL1Context() {}
 
 UniquePtr<webgl::FormatUsageAuthority>
 WebGL1Context::CreateFormatUsage(gl::GLContext* gl) const
 {
-    return webgl::FormatUsageAuthority::CreateForWebGL1(gl);
+  return webgl::FormatUsageAuthority::CreateForWebGL1(gl);
 }
 
 JSObject*
 WebGL1Context::WrapObject(JSContext* cx, JS::Handle<JSObject*> givenProto)
 {
-    return dom::WebGLRenderingContextBinding::Wrap(cx, this, givenProto);
+  return dom::WebGLRenderingContextBinding::Wrap(cx, this, givenProto);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 nsresult
 NS_NewCanvasRenderingContextWebGL(nsIDOMWebGLRenderingContext** out_result)
 {
-    mozilla::Telemetry::Accumulate(mozilla::Telemetry::CANVAS_WEBGL_USED, 1);
+  mozilla::Telemetry::Accumulate(mozilla::Telemetry::CANVAS_WEBGL_USED, 1);
 
-    nsIDOMWebGLRenderingContext* ctx = mozilla::WebGL1Context::Create();
+  nsIDOMWebGLRenderingContext* ctx = mozilla::WebGL1Context::Create();
 
-    NS_ADDREF(*out_result = ctx);
-    return NS_OK;
+  NS_ADDREF(*out_result = ctx);
+  return NS_OK;
 }

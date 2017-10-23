@@ -4,36 +4,35 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "nsAtom.h"
 #include "CParserContext.h"
-#include "prenv.h"  
+#include "prenv.h"
 #include "nsIHTMLContentSink.h"
 #include "nsHTMLTokenizer.h"
 #include "nsMimeTypes.h"
 #include "nsHTMLTokenizer.h"
 
 CParserContext::CParserContext(CParserContext* aPrevContext,
-                               nsScanner* aScanner, 
-                               void *aKey, 
+                               nsScanner* aScanner,
+                               void* aKey,
                                eParserCommands aCommand,
-                               nsIRequestObserver* aListener, 
-                               eAutoDetectResult aStatus, 
+                               nsIRequestObserver* aListener,
+                               eAutoDetectResult aStatus,
                                bool aCopyUnused)
-  : mListener(aListener),
-    mKey(aKey),
-    mPrevContext(aPrevContext),
-    mScanner(aScanner),
-    mDTDMode(eDTDMode_unknown),
-    mStreamListenerState(eNone),
-    mContextType(eCTNone),
-    mAutoDetectStatus(aStatus),
-    mParserCommand(aCommand),
-    mMultipart(true),
-    mCopyUnused(aCopyUnused)
-{ 
-  MOZ_COUNT_CTOR(CParserContext); 
-} 
+    : mListener(aListener),
+      mKey(aKey),
+      mPrevContext(aPrevContext),
+      mScanner(aScanner),
+      mDTDMode(eDTDMode_unknown),
+      mStreamListenerState(eNone),
+      mContextType(eCTNone),
+      mAutoDetectStatus(aStatus),
+      mParserCommand(aCommand),
+      mMultipart(true),
+      mCopyUnused(aCopyUnused)
+{
+  MOZ_COUNT_CTOR(CParserContext);
+}
 
 CParserContext::~CParserContext()
 {
@@ -50,13 +49,13 @@ CParserContext::SetMimeType(const nsACString& aMimeType)
 
   if (mMimeType.EqualsLiteral(TEXT_HTML))
     mDocType = eHTML_Strict;
-  else if (mMimeType.EqualsLiteral(TEXT_XML)              ||
-           mMimeType.EqualsLiteral(APPLICATION_XML)       ||
+  else if (mMimeType.EqualsLiteral(TEXT_XML) ||
+           mMimeType.EqualsLiteral(APPLICATION_XML) ||
            mMimeType.EqualsLiteral(APPLICATION_XHTML_XML) ||
-           mMimeType.EqualsLiteral(TEXT_XUL)              ||
-           mMimeType.EqualsLiteral(IMAGE_SVG_XML)         ||
+           mMimeType.EqualsLiteral(TEXT_XUL) ||
+           mMimeType.EqualsLiteral(IMAGE_SVG_XML) ||
            mMimeType.EqualsLiteral(APPLICATION_MATHML_XML) ||
-           mMimeType.EqualsLiteral(APPLICATION_RDF_XML)   ||
+           mMimeType.EqualsLiteral(APPLICATION_RDF_XML) ||
            mMimeType.EqualsLiteral(APPLICATION_WAPXHTML_XML) ||
            mMimeType.EqualsLiteral(TEXT_RDF))
     mDocType = eXML;
@@ -73,8 +72,7 @@ CParserContext::GetTokenizer(nsIDTD* aDTD,
   if (!mTokenizer) {
     if (type == NS_IPARSER_FLAG_HTML || mParserCommand == eViewSource) {
       mTokenizer = new nsHTMLTokenizer;
-    }
-    else if (type == NS_IPARSER_FLAG_XML) {
+    } else if (type == NS_IPARSER_FLAG_XML) {
       mTokenizer = do_QueryInterface(aDTD, &result);
     }
   }

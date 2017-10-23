@@ -18,13 +18,13 @@ class ProfilerIOInterposeObserver final : public IOInterposeObserver
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ProfilerIOInterposeObserver)
 
-public:
+ public:
   virtual void Observe(Observation& aObservation);
 
-protected:
+ protected:
   virtual ~ProfilerIOInterposeObserver() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // PROFILERIOINTERPOSEOBSERVER_H
+#endif  // PROFILERIOINTERPOSEOBSERVER_H

@@ -23,13 +23,11 @@ NS_INTERFACE_MAP_BEGIN(nsBaseCommandController)
 NS_INTERFACE_MAP_END
 
 nsBaseCommandController::nsBaseCommandController()
-  : mCommandContextRawPtr(nullptr)
+    : mCommandContextRawPtr(nullptr)
 {
 }
 
-nsBaseCommandController::~nsBaseCommandController()
-{
-}
+nsBaseCommandController::~nsBaseCommandController() {}
 
 NS_IMETHODIMP
 nsBaseCommandController::Init(nsIControllerCommandTable* aCommandTable)
@@ -40,7 +38,7 @@ nsBaseCommandController::Init(nsIControllerCommandTable* aCommandTable)
     mCommandTable = aCommandTable;
   } else {
     mCommandTable =
-      do_CreateInstance(NS_CONTROLLERCOMMANDTABLE_CONTRACTID, &rv);
+        do_CreateInstance(NS_CONTROLLERCOMMANDTABLE_CONTRACTID, &rv);
   }
 
   return rv;
@@ -53,10 +51,11 @@ nsBaseCommandController::SetCommandContext(nsISupports* aCommandContext)
   mCommandContextRawPtr = nullptr;
 
   if (aCommandContext) {
-    nsCOMPtr<nsISupportsWeakReference> weak = do_QueryInterface(aCommandContext);
+    nsCOMPtr<nsISupportsWeakReference> weak =
+        do_QueryInterface(aCommandContext);
     if (weak) {
       nsresult rv =
-        weak->GetWeakReference(getter_AddRefs(mCommandContextWeakPtr));
+          weak->GetWeakReference(getter_AddRefs(mCommandContextWeakPtr));
       NS_ENSURE_SUCCESS(rv, rv);
     } else {
       mCommandContextRawPtr = aCommandContext;

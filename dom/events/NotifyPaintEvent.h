@@ -21,11 +21,9 @@ class DOMRect;
 class DOMRectList;
 class PaintRequestList;
 
-class NotifyPaintEvent : public Event,
-                         public nsIDOMNotifyPaintEvent
+class NotifyPaintEvent : public Event, public nsIDOMNotifyPaintEvent
 {
-
-public:
+ public:
   NotifyPaintEvent(EventTarget* aOwner,
                    nsPresContext* aPresContext,
                    WidgetEvent* aEvent,
@@ -44,17 +42,21 @@ public:
   {
     return Event::DuplicatePrivateData();
   }
-  NS_IMETHOD_(void) Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType) override;
-  NS_IMETHOD_(bool) Deserialize(const IPC::Message* aMsg, PickleIterator* aIter) override;
+  NS_IMETHOD_(void)
+  Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType) override;
+  NS_IMETHOD_(bool)
+  Deserialize(const IPC::Message* aMsg, PickleIterator* aIter) override;
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return NotifyPaintEventBinding::Wrap(aCx, this, aGivenProto);
   }
 
   already_AddRefed<DOMRectList> ClientRects(SystemCallerGuarantee aGuarantee);
 
-  already_AddRefed<DOMRect> BoundingClientRect(SystemCallerGuarantee aGuarantee);
+  already_AddRefed<DOMRect> BoundingClientRect(
+      SystemCallerGuarantee aGuarantee);
 
   already_AddRefed<PaintRequestList> PaintRequests(SystemCallerGuarantee);
 
@@ -62,10 +64,10 @@ public:
 
   DOMHighResTimeStamp PaintTimeStamp(SystemCallerGuarantee);
 
-protected:
+ protected:
   ~NotifyPaintEvent() {}
 
-private:
+ private:
   nsRegion GetRegion(SystemCallerGuarantee);
 
   nsTArray<nsRect> mInvalidateRequests;
@@ -73,18 +75,18 @@ private:
   DOMHighResTimeStamp mTimeStamp;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 // This empties aInvalidateRequests.
 already_AddRefed<mozilla::dom::NotifyPaintEvent>
-NS_NewDOMNotifyPaintEvent(mozilla::dom::EventTarget* aOwner,
-                          nsPresContext* aPresContext,
-                          mozilla::WidgetEvent* aEvent,
-                          mozilla::EventMessage aEventMessage =
-                            mozilla::eVoidEvent,
-                          nsTArray<nsRect>* aInvalidateRequests = nullptr,
-                          uint64_t aTransactionId = 0,
-                          DOMHighResTimeStamp aTimeStamp = 0);
+NS_NewDOMNotifyPaintEvent(
+    mozilla::dom::EventTarget* aOwner,
+    nsPresContext* aPresContext,
+    mozilla::WidgetEvent* aEvent,
+    mozilla::EventMessage aEventMessage = mozilla::eVoidEvent,
+    nsTArray<nsRect>* aInvalidateRequests = nullptr,
+    uint64_t aTransactionId = 0,
+    DOMHighResTimeStamp aTimeStamp = 0);
 
-#endif // mozilla_dom_NotifyPaintEvent_h_
+#endif  // mozilla_dom_NotifyPaintEvent_h_

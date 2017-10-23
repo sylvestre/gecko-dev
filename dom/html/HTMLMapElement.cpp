@@ -16,8 +16,9 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Map)
 namespace mozilla {
 namespace dom {
 
-HTMLMapElement::HTMLMapElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLMapElement::HTMLMapElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
@@ -34,22 +35,17 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLMapElement,
 
 NS_IMPL_ELEMENT_CLONE(HTMLMapElement)
 
-
 nsIHTMLCollection*
 HTMLMapElement::Areas()
 {
   if (!mAreas) {
     // Not using NS_GetContentList because this should not be cached
-    mAreas = new nsContentList(this,
-                               kNameSpaceID_XHTML,
-                               nsGkAtoms::area,
-                               nsGkAtoms::area,
-                               false);
+    mAreas = new nsContentList(
+        this, kNameSpaceID_XHTML, nsGkAtoms::area, nsGkAtoms::area, false);
   }
 
   return mAreas;
 }
-
 
 JSObject*
 HTMLMapElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -57,5 +53,5 @@ HTMLMapElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLMapElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

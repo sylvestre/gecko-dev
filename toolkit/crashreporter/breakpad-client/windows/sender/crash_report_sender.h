@@ -38,17 +38,17 @@
 // To use this library in your project, you will need to link against
 // wininet.lib.
 
-#pragma warning( push )
+#pragma warning(push)
 // Disable exception handler warnings.
-#pragma warning( disable : 4530 )
+#pragma warning(disable : 4530)
 
 #include <map>
 #include <string>
 
 namespace google_breakpad {
 
-using std::wstring;
 using std::map;
+using std::wstring;
 
 typedef enum {
   RESULT_FAILED = 0,  // Failed to communicate with the server; try later.
@@ -59,21 +59,20 @@ typedef enum {
                       // we exceeded the maximum reports per day.
 } ReportResult;
 
-class CrashReportSender {
+class CrashReportSender
+{
  public:
   // Initializes a CrashReportSender instance.
   // If checkpoint_file is non-empty, breakpad will persist crash report
   // state to this file.  A checkpoint file is required for
   // set_max_reports_per_day() to function properly.
-  explicit CrashReportSender(const wstring &checkpoint_file);
+  explicit CrashReportSender(const wstring& checkpoint_file);
   ~CrashReportSender() {}
 
   // Sets the maximum number of crash reports that will be sent in a 24-hour
   // period.  This uses the state persisted to the checkpoint file.
   // The default value of -1 means that there is no limit on reports sent.
-  void set_max_reports_per_day(int reports) {
-    max_reports_per_day_ = reports;
-  }
+  void set_max_reports_per_day(int reports) { max_reports_per_day_ = reports; }
 
   int max_reports_per_day() const { return max_reports_per_day_; }
 
@@ -87,14 +86,14 @@ class CrashReportSender {
   // the return value is RESULT_SUCCEEDED), a code uniquely identifying the
   // report will be returned in report_code.
   // (Otherwise, report_code will be unchanged.)
-  ReportResult SendCrashReport(const wstring &url,
-                               const map<wstring, wstring> &parameters,
-                               const map<wstring, wstring> &files,
-                               wstring *report_code);
+  ReportResult SendCrashReport(const wstring& url,
+                               const map<wstring, wstring>& parameters,
+                               const map<wstring, wstring>& files,
+                               wstring* report_code);
 
  private:
   // Reads persistent state from a checkpoint file.
-  void ReadCheckpoint(FILE *fd);
+  void ReadCheckpoint(FILE* fd);
 
   // Called when a new report has been sent, to update the checkpoint state.
   void ReportSent(int today);
@@ -104,7 +103,7 @@ class CrashReportSender {
 
   // Opens the checkpoint file with the specified mode.
   // Returns zero on success, or an error code on failure.
-  int OpenCheckpointFile(const wchar_t *mode, FILE **fd);
+  int OpenCheckpointFile(const wchar_t* mode, FILE** fd);
 
   wstring checkpoint_file_;
   int max_reports_per_day_;
@@ -114,12 +113,12 @@ class CrashReportSender {
   int reports_sent_;
 
   // Disallow copy constructor and operator=
-  explicit CrashReportSender(const CrashReportSender &);
-  void operator=(const CrashReportSender &);
+  explicit CrashReportSender(const CrashReportSender&);
+  void operator=(const CrashReportSender&);
 };
 
 }  // namespace google_breakpad
 
-#pragma warning( pop )
+#pragma warning(pop)
 
 #endif  // CLIENT_WINDOWS_SENDER_CRASH_REPORT_SENDER_H__

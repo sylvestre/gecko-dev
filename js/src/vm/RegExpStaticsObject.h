@@ -11,9 +11,8 @@
 
 namespace js {
 
-class RegExpStaticsObject : public NativeObject
-{
-  public:
+class RegExpStaticsObject : public NativeObject {
+   public:
     static const Class class_;
 
     size_t sizeOfData(mozilla::MallocSizeOf mallocSizeOf) {
@@ -23,6 +22,6 @@ class RegExpStaticsObject : public NativeObject
     }
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_RegExpStaticsObject_h */

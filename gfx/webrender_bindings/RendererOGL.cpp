@@ -18,7 +18,8 @@
 namespace mozilla {
 namespace wr {
 
-wr::WrExternalImage LockExternalImage(void* aObj, wr::WrExternalImageId aId, uint8_t aChannelIndex)
+wr::WrExternalImage
+LockExternalImage(void* aObj, wr::WrExternalImageId aId, uint8_t aChannelIndex)
 {
   RendererOGL* renderer = reinterpret_cast<RendererOGL*>(aObj);
   RenderTextureHost* texture = renderer->GetRenderTexture(aId);
@@ -43,19 +44,23 @@ wr::WrExternalImage LockExternalImage(void* aObj, wr::WrExternalImageId aId, uin
     textureOGL->SetGLContext(renderer->mGL);
     gfx::IntSize size = textureOGL->GetSize(aChannelIndex);
     if (textureOGL->Lock()) {
-      return NativeTextureToWrExternalImage(textureOGL->GetGLHandle(aChannelIndex),
-                                            0, 0,
-                                            size.width, size.height);
+      return NativeTextureToWrExternalImage(
+          textureOGL->GetGLHandle(aChannelIndex),
+          0,
+          0,
+          size.width,
+          size.height);
     } else {
       // Just use 0 for the gl handle if the lock() was failed.
-      return NativeTextureToWrExternalImage(0,
-                                            0, 0,
-                                            size.width, size.height);
+      return NativeTextureToWrExternalImage(0, 0, 0, size.width, size.height);
     }
   }
 }
 
-void UnlockExternalImage(void* aObj, wr::WrExternalImageId aId, uint8_t aChannelIndex)
+void
+UnlockExternalImage(void* aObj,
+                    wr::WrExternalImageId aId,
+                    uint8_t aChannelIndex)
 {
   RendererOGL* renderer = reinterpret_cast<RendererOGL*>(aObj);
   RenderTextureHost* texture = renderer->GetRenderTexture(aId);
@@ -69,13 +74,13 @@ RendererOGL::RendererOGL(RefPtr<RenderThread>&& aThread,
                          wr::WindowId aWindowId,
                          wr::Renderer* aRenderer,
                          layers::CompositorBridgeParentBase* aBridge)
-  : mThread(aThread)
-  , mGL(aGL)
-  , mWidget(aWidget)
-  , mRenderer(aRenderer)
-  , mBridge(aBridge)
-  , mWindowId(aWindowId)
-  , mDebugFlags({ 0 })
+    : mThread(aThread),
+      mGL(aGL),
+      mWidget(aWidget),
+      mRenderer(aRenderer),
+      mBridge(aBridge),
+      mWindowId(aWindowId),
+      mDebugFlags({0})
 {
   MOZ_ASSERT(mThread);
   MOZ_ASSERT(mGL);
@@ -90,10 +95,12 @@ RendererOGL::RendererOGL(RefPtr<RenderThread>&& aThread,
 
     // Fetch the D3D11 device.
     EGLDeviceEXT eglDevice = nullptr;
-    egl->fQueryDisplayAttribEXT(egl->Display(), LOCAL_EGL_DEVICE_EXT, (EGLAttrib*)&eglDevice);
+    egl->fQueryDisplayAttribEXT(
+        egl->Display(), LOCAL_EGL_DEVICE_EXT, (EGLAttrib*)&eglDevice);
     MOZ_ASSERT(eglDevice);
     ID3D11Device* device = nullptr;
-    egl->fQueryDeviceAttribEXT(eglDevice, LOCAL_EGL_D3D11_DEVICE_ANGLE, (EGLAttrib*)&device);
+    egl->fQueryDeviceAttribEXT(
+        eglDevice, LOCAL_EGL_D3D11_DEVICE_ANGLE, (EGLAttrib*)&device);
     MOZ_ASSERT(device);
 
     mSyncObject = layers::SyncObjectHost::CreateSyncObjectHost(device);
@@ -112,7 +119,8 @@ RendererOGL::~RendererOGL()
 {
   MOZ_COUNT_DTOR(RendererOGL);
   if (!mGL->MakeCurrent()) {
-    gfxCriticalNote << "Failed to make render context current during destroying.";
+    gfxCriticalNote
+        << "Failed to make render context current during destroying.";
     // Leak resources!
     return;
   }
@@ -122,10 +130,10 @@ RendererOGL::~RendererOGL()
 wr::WrExternalImageHandler
 RendererOGL::GetExternalImageHandler()
 {
-  return wr::WrExternalImageHandler {
-    this,
-    LockExternalImage,
-    UnlockExternalImage,
+  return wr::WrExternalImageHandler{
+      this,
+      LockExternalImage,
+      UnlockExternalImage,
   };
 }
 
@@ -183,7 +191,8 @@ RendererOGL::Render()
 
 #if defined(ENABLE_FRAME_LATENCY_LOG)
   if (mFrameStartTime) {
-    uint32_t latencyMs = round((TimeStamp::Now() - mFrameStartTime).ToMilliseconds());
+    uint32_t latencyMs =
+        round((TimeStamp::Now() - mFrameStartTime).ToMilliseconds());
     printf_stderr("generate frame latencyMs latencyMs %d\n", latencyMs);
   }
   // Clear frame start time
@@ -246,7 +255,8 @@ RendererOGL::GetRenderTexture(wr::WrExternalImageId aExternalImageId)
 }
 
 static void
-DoNotifyWebRenderError(layers::CompositorBridgeParentBase* aBridge, WebRenderError aError)
+DoNotifyWebRenderError(layers::CompositorBridgeParentBase* aBridge,
+                       WebRenderError aError)
 {
   aBridge->NotifyWebRenderError(aError);
 }
@@ -254,12 +264,9 @@ DoNotifyWebRenderError(layers::CompositorBridgeParentBase* aBridge, WebRenderErr
 void
 RendererOGL::NotifyWebRenderError(WebRenderError aError)
 {
-  layers::CompositorThreadHolder::Loop()->PostTask(NewRunnableFunction(
-    &DoNotifyWebRenderError,
-    mBridge,
-    aError
-  ));
+  layers::CompositorThreadHolder::Loop()->PostTask(
+      NewRunnableFunction(&DoNotifyWebRenderError, mBridge, aError));
 }
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla

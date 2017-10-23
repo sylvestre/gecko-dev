@@ -22,15 +22,15 @@ class nsView;
 struct nsPoint;
 
 namespace mozilla {
-  namespace layers {
-    class LayerTransactionChild;
-    class WebRenderBridgeChild;
-  } // namespace layers
-} // namespace mozilla
+namespace layers {
+class LayerTransactionChild;
+class WebRenderBridgeChild;
+}  // namespace layers
+}  // namespace mozilla
 
 class nsTranslationNodeList final : public nsITranslationNodeList
 {
-public:
+ public:
   nsTranslationNodeList()
   {
     mNodes.SetCapacity(1000);
@@ -48,7 +48,7 @@ public:
     mLength++;
   }
 
-private:
+ private:
   ~nsTranslationNodeList() {}
 
   nsTArray<nsCOMPtr<nsIDOMNode> > mNodes;
@@ -59,14 +59,14 @@ private:
 class nsDOMWindowUtils final : public nsIDOMWindowUtils,
                                public nsSupportsWeakReference
 {
-  typedef mozilla::widget::TextEventDispatcher
-    TextEventDispatcher;
-public:
-  explicit nsDOMWindowUtils(nsGlobalWindow *aWindow);
+  typedef mozilla::widget::TextEventDispatcher TextEventDispatcher;
+
+ public:
+  explicit nsDOMWindowUtils(nsGlobalWindow* aWindow);
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMWINDOWUTILS
 
-protected:
+ protected:
   ~nsDOMWindowUtils();
 
   nsWeakPtr mWindow;
@@ -95,7 +95,7 @@ protected:
                                   unsigned short aInputSourceArg,
                                   uint32_t aIdentifier,
                                   bool aToWindow,
-                                  bool *aPreventDefault,
+                                  bool* aPreventDefault,
                                   bool aIsDOMEventSynthesized,
                                   bool aIsWidgetEventSynthesized,
                                   int32_t aButtons);

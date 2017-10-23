@@ -27,10 +27,10 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 
-using mozilla::ipc::InputStreamParams;
-using mozilla::ipc::StringInputStreamParams;
 using mozilla::Maybe;
 using mozilla::Some;
+using mozilla::ipc::InputStreamParams;
+using mozilla::ipc::StringInputStreamParams;
 
 //
 // Log module for StorageStream logging...
@@ -50,20 +50,20 @@ static LazyLogModule sStorageStreamLog("nsStorageStream");
 #define LOG(args) MOZ_LOG(sStorageStreamLog, mozilla::LogLevel::Debug, args)
 
 nsStorageStream::nsStorageStream()
-  : mSegmentedBuffer(0), mSegmentSize(0), mWriteInProgress(false),
-    mLastSegmentNum(-1), mWriteCursor(0), mSegmentEnd(0), mLogicalLength(0)
+    : mSegmentedBuffer(0),
+      mSegmentSize(0),
+      mWriteInProgress(false),
+      mLastSegmentNum(-1),
+      mWriteCursor(0),
+      mSegmentEnd(0),
+      mLogicalLength(0)
 {
   LOG(("Creating nsStorageStream [%p].\n", this));
 }
 
-nsStorageStream::~nsStorageStream()
-{
-  delete mSegmentedBuffer;
-}
+nsStorageStream::~nsStorageStream() { delete mSegmentedBuffer; }
 
-NS_IMPL_ISUPPORTS(nsStorageStream,
-                  nsIStorageStream,
-                  nsIOutputStream)
+NS_IMPL_ISUPPORTS(nsStorageStream, nsIStorageStream, nsIOutputStream)
 
 NS_IMETHODIMP
 nsStorageStream::Init(uint32_t aSegmentSize, uint32_t aMaxSize)
@@ -139,19 +139,19 @@ nsStorageStream::Close()
   mSegmentEnd = 0;
 
   LOG(("nsStorageStream [%p] Close mWriteCursor=%p mSegmentEnd=%p\n",
-       this, mWriteCursor, mSegmentEnd));
+       this,
+       mWriteCursor,
+       mSegmentEnd));
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsStorageStream::Flush()
-{
-  return NS_OK;
-}
+nsStorageStream::Flush() { return NS_OK; }
 
 NS_IMETHODIMP
-nsStorageStream::Write(const char* aBuffer, uint32_t aCount,
+nsStorageStream::Write(const char* aBuffer,
+                       uint32_t aCount,
                        uint32_t* aNumWritten)
 {
   if (NS_WARN_IF(!aNumWritten) || NS_WARN_IF(!aBuffer)) {
@@ -166,7 +166,10 @@ nsStorageStream::Write(const char* aBuffer, uint32_t aCount,
   nsresult rv = NS_OK;
 
   LOG(("nsStorageStream [%p] Write mWriteCursor=%p mSegmentEnd=%p aCount=%d\n",
-       this, mWriteCursor, mSegmentEnd, aCount));
+       this,
+       mWriteCursor,
+       mSegmentEnd,
+       aCount));
 
   remaining = aCount;
   readCursor = aBuffer;
@@ -190,8 +193,12 @@ nsStorageStream::Write(const char* aBuffer, uint32_t aCount,
       mLastSegmentNum++;
       mSegmentEnd = mWriteCursor + mSegmentSize;
       availableInSegment = mSegmentEnd - mWriteCursor;
-      LOG(("nsStorageStream [%p] Write (new seg) mWriteCursor=%p mSegmentEnd=%p\n",
-           this, mWriteCursor, mSegmentEnd));
+      LOG(
+          ("nsStorageStream [%p] Write (new seg) mWriteCursor=%p "
+           "mSegmentEnd=%p\n",
+           this,
+           mWriteCursor,
+           mSegmentEnd));
     }
 
     count = XPCOM_MIN(availableInSegment, remaining);
@@ -199,29 +206,42 @@ nsStorageStream::Write(const char* aBuffer, uint32_t aCount,
     remaining -= count;
     readCursor += count;
     mWriteCursor += count;
-    LOG(("nsStorageStream [%p] Writing mWriteCursor=%p mSegmentEnd=%p count=%d\n",
-         this, mWriteCursor, mSegmentEnd, count));
+    LOG(
+        ("nsStorageStream [%p] Writing mWriteCursor=%p mSegmentEnd=%p "
+         "count=%d\n",
+         this,
+         mWriteCursor,
+         mSegmentEnd,
+         count));
   }
 
 out:
   *aNumWritten = aCount - remaining;
   mLogicalLength += *aNumWritten;
 
-  LOG(("nsStorageStream [%p] Wrote mWriteCursor=%p mSegmentEnd=%p numWritten=%d\n",
-       this, mWriteCursor, mSegmentEnd, *aNumWritten));
+  LOG(
+      ("nsStorageStream [%p] Wrote mWriteCursor=%p mSegmentEnd=%p "
+       "numWritten=%d\n",
+       this,
+       mWriteCursor,
+       mSegmentEnd,
+       *aNumWritten));
   return rv;
 }
 
 NS_IMETHODIMP
-nsStorageStream::WriteFrom(nsIInputStream* aInStr, uint32_t aCount,
+nsStorageStream::WriteFrom(nsIInputStream* aInStr,
+                           uint32_t aCount,
                            uint32_t* aResult)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsStorageStream::WriteSegments(nsReadSegmentFun aReader, void* aClosure,
-                               uint32_t aCount, uint32_t* aResult)
+nsStorageStream::WriteSegments(nsReadSegmentFun aReader,
+                               void* aClosure,
+                               uint32_t aCount,
+                               uint32_t* aResult)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -303,7 +323,9 @@ nsStorageStream::Seek(int32_t aPosition)
     mWriteCursor = 0;
     mSegmentEnd = 0;
     LOG(("nsStorageStream [%p] Seek mWriteCursor=%p mSegmentEnd=%p\n",
-         this, mWriteCursor, mSegmentEnd));
+         this,
+         mWriteCursor,
+         mSegmentEnd));
     return NS_OK;
   }
 
@@ -316,32 +338,36 @@ nsStorageStream::Seek(int32_t aPosition)
   // because SegNum may reference the next-to-be-allocated segment, in which
   // case we need to be pointing at the end of the last segment.
   int32_t segmentOffset = SegOffset(aPosition);
-  if (segmentOffset == 0 && (SegNum(aPosition) > (uint32_t) mLastSegmentNum)) {
+  if (segmentOffset == 0 && (SegNum(aPosition) > (uint32_t)mLastSegmentNum)) {
     mWriteCursor = mSegmentEnd;
   } else {
     mWriteCursor += segmentOffset;
   }
 
   LOG(("nsStorageStream [%p] Seek mWriteCursor=%p mSegmentEnd=%p\n",
-       this, mWriteCursor, mSegmentEnd));
+       this,
+       mWriteCursor,
+       mSegmentEnd));
   return NS_OK;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // There can be many nsStorageInputStreams for a single nsStorageStream
-class nsStorageInputStream final
-  : public nsIInputStream
-  , public nsISeekableStream
-  , public nsIIPCSerializableInputStream
-  , public nsICloneableInputStream
+class nsStorageInputStream final : public nsIInputStream,
+                                   public nsISeekableStream,
+                                   public nsIIPCSerializableInputStream,
+                                   public nsICloneableInputStream
 {
-public:
+ public:
   nsStorageInputStream(nsStorageStream* aStorageStream, uint32_t aSegmentSize)
-    : mStorageStream(aStorageStream), mReadCursor(0),
-      mSegmentEnd(0), mSegmentNum(0),
-      mSegmentSize(aSegmentSize), mLogicalCursor(0),
-      mStatus(NS_OK)
+      : mStorageStream(aStorageStream),
+        mReadCursor(0),
+        mSegmentEnd(0),
+        mSegmentNum(0),
+        mSegmentSize(aSegmentSize),
+        mLogicalCursor(0),
+        mStatus(NS_OK)
   {
   }
 
@@ -351,24 +377,22 @@ public:
   NS_DECL_NSIIPCSERIALIZABLEINPUTSTREAM
   NS_DECL_NSICLONEABLEINPUTSTREAM
 
-private:
-  ~nsStorageInputStream()
-  {
-  }
+ private:
+  ~nsStorageInputStream() {}
 
-protected:
+ protected:
   nsresult Seek(uint32_t aPosition);
 
   friend class nsStorageStream;
 
-private:
+ private:
   RefPtr<nsStorageStream> mStorageStream;
-  uint32_t         mReadCursor;    // Next memory location to read byte, or 0
-  uint32_t         mSegmentEnd;    // One byte past end of current buffer segment
-  uint32_t         mSegmentNum;    // Segment number containing read cursor
-  uint32_t         mSegmentSize;   // All segments, except the last, are of this size
-  uint32_t         mLogicalCursor; // Logical offset into stream
-  nsresult         mStatus;
+  uint32_t mReadCursor;     // Next memory location to read byte, or 0
+  uint32_t mSegmentEnd;     // One byte past end of current buffer segment
+  uint32_t mSegmentNum;     // Segment number containing read cursor
+  uint32_t mSegmentSize;    // All segments, except the last, are of this size
+  uint32_t mLogicalCursor;  // Logical offset into stream
+  nsresult mStatus;
 
   uint32_t SegNum(uint32_t aPosition)
   {
@@ -395,7 +419,7 @@ nsStorageStream::NewInputStream(int32_t aStartingOffset,
   }
 
   RefPtr<nsStorageInputStream> inputStream =
-    new nsStorageInputStream(this, mSegmentSize);
+      new nsStorageInputStream(this, mSegmentSize);
 
   nsresult rv = inputStream->Seek(aStartingOffset);
   if (NS_FAILED(rv)) {
@@ -431,8 +455,10 @@ nsStorageInputStream::Read(char* aBuffer, uint32_t aCount, uint32_t* aNumRead)
 }
 
 NS_IMETHODIMP
-nsStorageInputStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                                   uint32_t aCount, uint32_t* aNumRead)
+nsStorageInputStream::ReadSegments(nsWriteSegmentFun aWriter,
+                                   void* aClosure,
+                                   uint32_t aCount,
+                                   uint32_t* aNumRead)
 {
   *aNumRead = 0;
   if (mStatus == NS_BASE_STREAM_CLOSED) {
@@ -470,8 +496,12 @@ nsStorageInputStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
     const char* cur = mStorageStream->mSegmentedBuffer->GetSegment(mSegmentNum);
 
     count = XPCOM_MIN(availableInSegment, remainingCapacity);
-    rv = aWriter(this, aClosure, cur + mReadCursor, aCount - remainingCapacity,
-                 count, &bytesConsumed);
+    rv = aWriter(this,
+                 aClosure,
+                 cur + mReadCursor,
+                 aCount - remainingCapacity,
+                 count,
+                 &bytesConsumed);
     if (NS_FAILED(rv) || (bytesConsumed == 0)) {
       break;
     }
@@ -573,7 +603,8 @@ nsStorageInputStream::Seek(uint32_t aPosition)
 }
 
 void
-nsStorageInputStream::Serialize(InputStreamParams& aParams, FileDescriptorArray&)
+nsStorageInputStream::Serialize(InputStreamParams& aParams,
+                                FileDescriptorArray&)
 {
   nsCString combined;
   int64_t offset;
@@ -613,7 +644,8 @@ bool
 nsStorageInputStream::Deserialize(const InputStreamParams& aParams,
                                   const FileDescriptorArray&)
 {
-  NS_NOTREACHED("We should never attempt to deserialize a storage input stream.");
+  NS_NOTREACHED(
+      "We should never attempt to deserialize a storage input stream.");
   return false;
 }
 
@@ -631,7 +663,8 @@ nsStorageInputStream::Clone(nsIInputStream** aCloneOut)
 }
 
 nsresult
-NS_NewStorageStream(uint32_t aSegmentSize, uint32_t aMaxSize,
+NS_NewStorageStream(uint32_t aSegmentSize,
+                    uint32_t aMaxSize,
                     nsIStorageStream** aResult)
 {
   RefPtr<nsStorageStream> storageStream = new nsStorageStream();

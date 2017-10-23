@@ -9,14 +9,16 @@
 namespace mozilla {
 
 const char* const kDDLogCategoryShortStrings[kDDLogCategoryCount] = {
-  "con", "dcn", "des", "lnk", "ulk", "prp", "evt", "api", "log"
-};
+    "con", "dcn", "des", "lnk", "ulk", "prp", "evt", "api", "log"};
 const char* const kDDLogCategoryLongStrings[kDDLogCategoryCount] = {
-  "Construction", "Derived Construction",
-  "Destruction",  "Link",
-  "Unlink",       "Property",
-  "Event",        "API",
-  "Log"
-};
+    "Construction",
+    "Derived Construction",
+    "Destruction",
+    "Link",
+    "Unlink",
+    "Property",
+    "Event",
+    "API",
+    "Log"};
 
-} // namespace mozilla
+}  // namespace mozilla

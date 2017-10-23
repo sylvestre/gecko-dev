@@ -13,7 +13,7 @@ namespace dom {
 using namespace workers;
 
 PerformanceWorker::PerformanceWorker(WorkerPrivate* aWorkerPrivate)
-  : mWorkerPrivate(aWorkerPrivate)
+    : mWorkerPrivate(aWorkerPrivate)
 {
   mWorkerPrivate->AssertIsOnWorkerThread();
 }
@@ -50,5 +50,5 @@ PerformanceWorker::CreationTime() const
   return mWorkerPrivate->CreationTime();
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

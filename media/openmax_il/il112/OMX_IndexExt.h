@@ -39,47 +39,46 @@ extern "C" {
  */
 #include <OMX_Index.h>
 
-
 /** Khronos standard extension indices.
 
 This enum lists the current Khronos extension indices to OpenMAX IL.
 */
 typedef enum OMX_INDEXEXTTYPE {
 
-    /* Component parameters and configurations */
-    OMX_IndexExtComponentStartUnused = OMX_IndexKhronosExtensions + 0x00100000,
-    OMX_IndexConfigCallbackRequest,                 /**< reference: OMX_CONFIG_CALLBACKREQUESTTYPE */
-    OMX_IndexConfigCommitMode,                      /**< reference: OMX_CONFIG_COMMITMODETYPE */
-    OMX_IndexConfigCommit,                          /**< reference: OMX_CONFIG_COMMITTYPE */
+  /* Component parameters and configurations */
+  OMX_IndexExtComponentStartUnused = OMX_IndexKhronosExtensions + 0x00100000,
+  OMX_IndexConfigCallbackRequest, /**< reference: OMX_CONFIG_CALLBACKREQUESTTYPE */
+  OMX_IndexConfigCommitMode,      /**< reference: OMX_CONFIG_COMMITMODETYPE */
+  OMX_IndexConfigCommit,          /**< reference: OMX_CONFIG_COMMITTYPE */
 
-    /* Port parameters and configurations */
-    OMX_IndexExtPortStartUnused = OMX_IndexKhronosExtensions + 0x00200000,
+  /* Port parameters and configurations */
+  OMX_IndexExtPortStartUnused = OMX_IndexKhronosExtensions + 0x00200000,
 
-    /* Audio parameters and configurations */
-    OMX_IndexExtAudioStartUnused = OMX_IndexKhronosExtensions + 0x00400000,
+  /* Audio parameters and configurations */
+  OMX_IndexExtAudioStartUnused = OMX_IndexKhronosExtensions + 0x00400000,
 
-    /* Image parameters and configurations */
-    OMX_IndexExtImageStartUnused = OMX_IndexKhronosExtensions + 0x00500000,
+  /* Image parameters and configurations */
+  OMX_IndexExtImageStartUnused = OMX_IndexKhronosExtensions + 0x00500000,
 
-    /* Video parameters and configurations */
-    OMX_IndexExtVideoStartUnused = OMX_IndexKhronosExtensions + 0x00600000,
-    OMX_IndexParamNalStreamFormatSupported,         /**< reference: OMX_NALSTREAMFORMATTYPE */
-    OMX_IndexParamNalStreamFormat,                  /**< reference: OMX_NALSTREAMFORMATTYPE */
-    OMX_IndexParamNalStreamFormatSelect,            /**< reference: OMX_NALSTREAMFORMATTYPE */
-    OMX_IndexParamVideoVp8,                         /**< reference: OMX_VIDEO_PARAM_VP8TYPE */
-    OMX_IndexConfigVideoVp8ReferenceFrame,          /**< reference: OMX_VIDEO_VP8REFERENCEFRAMETYPE */
-    OMX_IndexConfigVideoVp8ReferenceFrameType,      /**< reference: OMX_VIDEO_VP8REFERENCEFRAMEINFOTYPE */
+  /* Video parameters and configurations */
+  OMX_IndexExtVideoStartUnused = OMX_IndexKhronosExtensions + 0x00600000,
+  OMX_IndexParamNalStreamFormatSupported, /**< reference: OMX_NALSTREAMFORMATTYPE */
+  OMX_IndexParamNalStreamFormat, /**< reference: OMX_NALSTREAMFORMATTYPE */
+  OMX_IndexParamNalStreamFormatSelect, /**< reference: OMX_NALSTREAMFORMATTYPE */
+  OMX_IndexParamVideoVp8, /**< reference: OMX_VIDEO_PARAM_VP8TYPE */
+  OMX_IndexConfigVideoVp8ReferenceFrame, /**< reference: OMX_VIDEO_VP8REFERENCEFRAMETYPE */
+  OMX_IndexConfigVideoVp8ReferenceFrameType, /**< reference: OMX_VIDEO_VP8REFERENCEFRAMEINFOTYPE */
 
-    /* Image & Video common configurations */
-    OMX_IndexExtCommonStartUnused = OMX_IndexKhronosExtensions + 0x00700000,
+  /* Image & Video common configurations */
+  OMX_IndexExtCommonStartUnused = OMX_IndexKhronosExtensions + 0x00700000,
 
-    /* Other configurations */
-    OMX_IndexExtOtherStartUnused = OMX_IndexKhronosExtensions + 0x00800000,
+  /* Other configurations */
+  OMX_IndexExtOtherStartUnused = OMX_IndexKhronosExtensions + 0x00800000,
 
-    /* Time configurations */
-    OMX_IndexExtTimeStartUnused = OMX_IndexKhronosExtensions + 0x00900000,
+  /* Time configurations */
+  OMX_IndexExtTimeStartUnused = OMX_IndexKhronosExtensions + 0x00900000,
 
-    OMX_IndexExtMax = 0x7FFFFFFF
+  OMX_IndexExtMax = 0x7FFFFFFF
 } OMX_INDEXEXTTYPE;
 
 #ifdef __cplusplus

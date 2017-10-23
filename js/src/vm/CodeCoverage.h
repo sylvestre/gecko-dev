@@ -25,22 +25,17 @@ namespace coverage {
 
 class LCovCompartment;
 
-class LCovSource
-{
-  public:
+class LCovSource {
+   public:
     LCovSource(LifoAlloc* alloc, const char* name);
     LCovSource(LCovSource&& src);
     ~LCovSource();
 
     // Whether the given script name matches this LCovSource.
-    bool match(const char* name) const {
-        return strcmp(name_, name) == 0;
-    }
+    bool match(const char* name) const { return strcmp(name_, name) == 0; }
 
     // Whether the current source is complete and if it can be flushed.
-    bool isComplete() const {
-        return hasTopLevelScript_;
-    }
+    bool isComplete() const { return hasTopLevelScript_; }
 
     // Iterate over the bytecode and collect the lcov output based on the
     // ScriptCounts counters.
@@ -50,11 +45,11 @@ class LCovSource
     // the runtime code coverage trace file.
     void exportInto(GenericPrinter& out) const;
 
-  private:
+   private:
     // Write the script name in out.
     bool writeScriptName(LSprinter& out, JSScript* script);
 
-  private:
+   private:
     // Name of the source file.
     const char* name_;
 
@@ -79,9 +74,8 @@ class LCovSource
     bool hasTopLevelScript_ : 1;
 };
 
-class LCovCompartment
-{
-  public:
+class LCovCompartment {
+   public:
     LCovCompartment();
 
     // Collect code coverage information for the given source.
@@ -91,14 +85,14 @@ class LCovCompartment
     // the runtime code coverage trace file.
     void exportInto(GenericPrinter& out, bool* isEmpty) const;
 
-  private:
+   private:
     // Write the script name in out.
     bool writeCompartmentName(JSCompartment* comp);
 
     // Return the LCovSource entry which matches the given ScriptSourceObject.
     LCovSource* lookupOrAdd(JSCompartment* comp, const char* name);
 
-  private:
+   private:
     typedef mozilla::Vector<LCovSource, 16, LifoAllocPolicy<Fallible>> LCovSourceVector;
 
     // LifoAlloc backend for all temporary allocations needed to stash the
@@ -112,9 +106,8 @@ class LCovCompartment
     LCovSourceVector* sources_;
 };
 
-class LCovRuntime
-{
-  public:
+class LCovRuntime {
+   public:
     LCovRuntime();
     ~LCovRuntime();
 
@@ -134,7 +127,7 @@ class LCovRuntime
     // into a file.
     void writeLCovResult(LCovCompartment& comp);
 
-  private:
+   private:
     // When a process forks, the file will remain open, but 2 processes will
     // have the same file. To avoid conflicting writes, we open a new file for
     // the child process.
@@ -142,13 +135,13 @@ class LCovRuntime
 
     // Fill an array with the name of the file. Return false if we are unable to
     // serialize the filename in this array.
-    bool fillWithFilename(char *name, size_t length);
+    bool fillWithFilename(char* name, size_t length);
 
     // Finish the current opened file, and remove if it does not have any
     // content.
     void finishFile();
 
-  private:
+   private:
     // Output file which is created if code coverage is enabled.
     Fprinter out_;
 
@@ -162,8 +155,7 @@ class LCovRuntime
     bool isEmpty_;
 };
 
-} // namespace coverage
-} // namespace js
+}  // namespace coverage
+}  // namespace js
 
-#endif // vm_Printer_h
-
+#endif  // vm_Printer_h

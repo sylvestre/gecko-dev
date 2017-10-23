@@ -16,7 +16,7 @@ namespace mozilla {
 
 class MediaPipelineFactory
 {
-public:
+ public:
   explicit MediaPipelineFactory(PeerConnectionMedia* aPCMedia)
       : mPCMedia(aPCMedia), mPC(aPCMedia->GetPC())
   {
@@ -25,7 +25,7 @@ public:
   nsresult CreateOrUpdateMediaPipeline(const JsepTrackPair& aTrackPair,
                                        const JsepTrack& aTrack);
 
-private:
+ private:
   nsresult CreateMediaPipelineReceiving(
       const JsepTrackPair& aTrackPair,
       const JsepTrack& aTrack,
@@ -52,7 +52,8 @@ private:
                                    const JsepTrack& aTrack,
                                    RefPtr<MediaSessionConduit>* aConduitp);
 
-  nsresult CreateOrGetTransportFlow(size_t aLevel, bool aIsRtcp,
+  nsresult CreateOrGetTransportFlow(size_t aLevel,
+                                    bool aIsRtcp,
                                     const JsepTransport& transport,
                                     RefPtr<TransportFlow>* out);
 
@@ -66,13 +67,13 @@ private:
   nsresult ConfigureVideoCodecMode(const JsepTrack& aTrack,
                                    VideoSessionConduit& aConduit);
 
-private:
+ private:
   // Not owned, and assumed to exist as long as the factory.
   // The factory is a transient object, so this is fairly easy.
   PeerConnectionMedia* mPCMedia;
   PeerConnectionImpl* mPC;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

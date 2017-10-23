@@ -18,25 +18,29 @@ namespace mozilla {
 namespace Telemetry {
 
 nsresult
-ComputeAnnotationsKey(const HangMonitor::HangAnnotations& aAnnotations, nsAString& aKeyOut);
+ComputeAnnotationsKey(const HangMonitor::HangAnnotations& aAnnotations,
+                      nsAString& aKeyOut);
 
-class HangReports {
-public:
+class HangReports
+{
+ public:
   /**
    * This struct encapsulates information for an individual ChromeHang annotation.
    * mHangIndex is the index of the corresponding ChromeHang.
    */
-  struct AnnotationInfo {
+  struct AnnotationInfo
+  {
     AnnotationInfo(uint32_t aHangIndex,
                    HangMonitor::HangAnnotations&& aAnnotations)
-      : mAnnotations(Move(aAnnotations))
+        : mAnnotations(Move(aAnnotations))
     {
       mHangIndices.AppendElement(aHangIndex);
     }
     AnnotationInfo(AnnotationInfo&& aOther)
-      : mHangIndices(aOther.mHangIndices)
-      , mAnnotations(Move(aOther.mAnnotations))
-    {}
+        : mHangIndices(aOther.mHangIndices),
+          mAnnotations(Move(aOther.mAnnotations))
+    {
+    }
     ~AnnotationInfo() = default;
     AnnotationInfo& operator=(AnnotationInfo&& aOther)
     {
@@ -49,29 +53,34 @@ public:
     nsTArray<uint32_t> mHangIndices;
     HangMonitor::HangAnnotations mAnnotations;
 
-  private:
+   private:
     // Force move constructor
     AnnotationInfo(const AnnotationInfo& aOther) = delete;
     void operator=(const AnnotationInfo& aOther) = delete;
   };
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 #if defined(MOZ_GECKO_PROFILER)
-  void AddHang(const Telemetry::ProcessedStack& aStack, uint32_t aDuration,
-               int32_t aSystemUptime, int32_t aFirefoxUptime,
+  void AddHang(const Telemetry::ProcessedStack& aStack,
+               uint32_t aDuration,
+               int32_t aSystemUptime,
+               int32_t aFirefoxUptime,
                HangMonitor::HangAnnotations&& aAnnotations);
   void PruneStackReferences(const size_t aRemovedStackIndex);
 #endif
   uint32_t GetDuration(unsigned aIndex) const;
   int32_t GetSystemUptime(unsigned aIndex) const;
   int32_t GetFirefoxUptime(unsigned aIndex) const;
-  const nsClassHashtable<nsStringHashKey, AnnotationInfo>& GetAnnotationInfo() const;
+  const nsClassHashtable<nsStringHashKey, AnnotationInfo>& GetAnnotationInfo()
+      const;
   const CombinedStacks& GetStacks() const;
-private:
+
+ private:
   /**
    * This struct encapsulates the data for an individual ChromeHang, excluding
    * annotations.
    */
-  struct HangInfo {
+  struct HangInfo
+  {
     // Hang duration (in seconds)
     uint32_t mDuration;
     // System uptime (in minutes) at the time of the hang
@@ -84,7 +93,7 @@ private:
   CombinedStacks mStacks;
 };
 
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Telemetry
+}  // namespace mozilla
 
-#endif // CombinedStacks_h__
+#endif  // CombinedStacks_h__

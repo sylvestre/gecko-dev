@@ -24,7 +24,18 @@
 #ifdef WMF_MUST_DEFINE_AAC_MFT_CLSID
 // Some SDK versions don't define the AAC decoder CLSID.
 // {32D186A7-218F-4C75-8876-DD77273A8999}
-DEFINE_GUID(CLSID_CMSAACDecMFT, 0x32D186A7, 0x218F, 0x4C75, 0x88, 0x76, 0xDD, 0x77, 0x27, 0x3A, 0x89, 0x99);
+DEFINE_GUID(CLSID_CMSAACDecMFT,
+            0x32D186A7,
+            0x218F,
+            0x4C75,
+            0x88,
+            0x76,
+            0xDD,
+            0x77,
+            0x27,
+            0x3A,
+            0x89,
+            0x99);
 #endif
 
 namespace mozilla {
@@ -45,7 +56,7 @@ HNsToFrames(int64_t aHNs, uint32_t aRate, int64_t* aOutFrames)
 }
 
 HRESULT
-GetDefaultStride(IMFMediaType *aType, uint32_t aWidth, uint32_t* aOutStride)
+GetDefaultStride(IMFMediaType* aType, uint32_t aWidth, uint32_t* aOutStride)
 {
   // Try to get the default stride from the media type.
   HRESULT hr = aType->GetUINT32(MF_MT_DEFAULT_STRIDE, aOutStride);
@@ -60,7 +71,7 @@ GetDefaultStride(IMFMediaType *aType, uint32_t aWidth, uint32_t* aOutStride)
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   hr = wmf::MFGetStrideForBitmapInfoHeader(
-    subtype.Data1, aWidth, (LONG*)(aOutStride));
+      subtype.Data1, aWidth, (LONG*)(aOutStride));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   return hr;
@@ -99,7 +110,7 @@ GetPictureRegion(IMFMediaType* aMediaType, gfx::IntRect& aOutPictureRegion)
   // Determine if "pan and scan" is enabled for this media. If it is, we
   // only display a region of the video frame, not the entire frame.
   BOOL panScan =
-    MFGetAttributeUINT32(aMediaType, MF_MT_PAN_SCAN_ENABLED, FALSE);
+      MFGetAttributeUINT32(aMediaType, MF_MT_PAN_SCAN_ENABLED, FALSE);
 
   // If pan and scan mode is enabled. Try to get the display region.
   HRESULT hr = E_FAIL;
@@ -167,10 +178,10 @@ GetProgramW6432Path()
 namespace wmf {
 
 static const wchar_t* sDLLs[] = {
-  L"mfplat.dll",
-  L"mf.dll",
-  L"dxva2.dll",
-  L"evr.dll",
+    L"mfplat.dll",
+    L"mf.dll",
+    L"dxva2.dll",
+    L"evr.dll",
 };
 
 HRESULT
@@ -205,25 +216,25 @@ LoadDLLs()
   return S_OK;
 }
 
-#define ENSURE_FUNCTION_PTR_HELPER(FunctionType, FunctionName, DLL)            \
-  static FunctionType FunctionName##Ptr = nullptr;                             \
-  if (!FunctionName##Ptr) {                                                    \
-    FunctionName##Ptr =                                                        \
-      (FunctionType)GetProcAddress(GetModuleHandleW(L## #DLL), #FunctionName); \
-    if (!FunctionName##Ptr) {                                                  \
-      NS_WARNING("Failed to get GetProcAddress of " #FunctionName              \
-                 " from " #DLL);                                               \
-      return E_FAIL;                                                           \
-    }                                                                          \
+#define ENSURE_FUNCTION_PTR_HELPER(FunctionType, FunctionName, DLL) \
+  static FunctionType FunctionName##Ptr = nullptr;                  \
+  if (!FunctionName##Ptr) {                                         \
+    FunctionName##Ptr = (FunctionType)GetProcAddress(               \
+        GetModuleHandleW(L## #DLL), #FunctionName);                 \
+    if (!FunctionName##Ptr) {                                       \
+      NS_WARNING("Failed to get GetProcAddress of " #FunctionName   \
+                 " from " #DLL);                                    \
+      return E_FAIL;                                                \
+    }                                                               \
   }
 
-#define ENSURE_FUNCTION_PTR(FunctionName, DLL)                                 \
+#define ENSURE_FUNCTION_PTR(FunctionName, DLL) \
   ENSURE_FUNCTION_PTR_HELPER(decltype(::FunctionName)*, FunctionName, DLL)
 
-#define ENSURE_FUNCTION_PTR_(FunctionName, DLL)                                \
+#define ENSURE_FUNCTION_PTR_(FunctionName, DLL) \
   ENSURE_FUNCTION_PTR_HELPER(FunctionName##Ptr_t, FunctionName, DLL)
 
-#define DECL_FUNCTION_PTR(FunctionName, ...)                                   \
+#define DECL_FUNCTION_PTR(FunctionName, ...) \
   typedef HRESULT(STDMETHODCALLTYPE* FunctionName##Ptr_t)(__VA_ARGS__)
 
 HRESULT
@@ -252,7 +263,7 @@ MFStartup()
 
   hr = E_FAIL;
   mozilla::mscom::EnsureMTA(
-    [&]() -> void { hr = MFStartupPtr(MF_WIN7_VERSION, MFSTARTUP_FULL); });
+      [&]() -> void { hr = MFStartupPtr(MF_WIN7_VERSION, MFSTARTUP_FULL); });
   return hr;
 }
 
@@ -266,41 +277,39 @@ MFShutdown()
 }
 
 HRESULT
-MFCreateMediaType(IMFMediaType **aOutMFType)
+MFCreateMediaType(IMFMediaType** aOutMFType)
 {
   ENSURE_FUNCTION_PTR(MFCreateMediaType, Mfplat.dll)
   return (MFCreateMediaTypePtr)(aOutMFType);
 }
 
-
 HRESULT
-MFGetStrideForBitmapInfoHeader(DWORD aFormat,
-                               DWORD aWidth,
-                               LONG *aOutStride)
+MFGetStrideForBitmapInfoHeader(DWORD aFormat, DWORD aWidth, LONG* aOutStride)
 {
   ENSURE_FUNCTION_PTR(MFGetStrideForBitmapInfoHeader, evr.dll)
   return (MFGetStrideForBitmapInfoHeaderPtr)(aFormat, aWidth, aOutStride);
 }
 
-HRESULT MFGetService(IUnknown *punkObject,
-                     REFGUID guidService,
-                     REFIID riid,
-                     LPVOID *ppvObject)
+HRESULT
+MFGetService(IUnknown* punkObject,
+             REFGUID guidService,
+             REFIID riid,
+             LPVOID* ppvObject)
 {
   ENSURE_FUNCTION_PTR(MFGetService, mf.dll)
   return (MFGetServicePtr)(punkObject, guidService, riid, ppvObject);
 }
 
 HRESULT
-DXVA2CreateDirect3DDeviceManager9(UINT *pResetToken,
-                                  IDirect3DDeviceManager9 **ppDXVAManager)
+DXVA2CreateDirect3DDeviceManager9(UINT* pResetToken,
+                                  IDirect3DDeviceManager9** ppDXVAManager)
 {
   ENSURE_FUNCTION_PTR(DXVA2CreateDirect3DDeviceManager9, dxva2.dll)
   return (DXVA2CreateDirect3DDeviceManager9Ptr)(pResetToken, ppDXVAManager);
 }
 
 HRESULT
-MFCreateSample(IMFSample **ppIMFSample)
+MFCreateSample(IMFSample** ppIMFSample)
 {
   ENSURE_FUNCTION_PTR(MFCreateSample, mfplat.dll)
   return (MFCreateSamplePtr)(ppIMFSample);
@@ -309,11 +318,11 @@ MFCreateSample(IMFSample **ppIMFSample)
 HRESULT
 MFCreateAlignedMemoryBuffer(DWORD cbMaxLength,
                             DWORD fAlignmentFlags,
-                            IMFMediaBuffer **ppBuffer)
+                            IMFMediaBuffer** ppBuffer)
 {
   ENSURE_FUNCTION_PTR(MFCreateAlignedMemoryBuffer, mfplat.dll)
   return (MFCreateAlignedMemoryBufferPtr)(
-    cbMaxLength, fAlignmentFlags, ppBuffer);
+      cbMaxLength, fAlignmentFlags, ppBuffer);
 }
 
 HRESULT
@@ -326,15 +335,15 @@ MFCreateDXGIDeviceManager(UINT* pResetToken,
 
 HRESULT
 MFCreateDXGISurfaceBuffer(REFIID riid,
-                          IUnknown *punkSurface,
+                          IUnknown* punkSurface,
                           UINT uSubresourceIndex,
                           BOOL fButtomUpWhenLinear,
-                          IMFMediaBuffer **ppBuffer)
+                          IMFMediaBuffer** ppBuffer)
 {
   ENSURE_FUNCTION_PTR(MFCreateDXGISurfaceBuffer, mfplat.dll)
   return (MFCreateDXGISurfaceBufferPtr)(
-    riid, punkSurface, uSubresourceIndex, fButtomUpWhenLinear, ppBuffer);
+      riid, punkSurface, uSubresourceIndex, fButtomUpWhenLinear, ppBuffer);
 }
 
-} // end namespace wmf
-} // end namespace mozilla
+}  // end namespace wmf
+}  // end namespace mozilla

@@ -14,25 +14,26 @@ namespace dom {
 
 class WebKitCSSMatrix final : public DOMMatrix
 {
-public:
-  explicit WebKitCSSMatrix(nsISupports* aParent)
-    : DOMMatrix(aParent)
-  {}
+ public:
+  explicit WebKitCSSMatrix(nsISupports* aParent) : DOMMatrix(aParent) {}
 
   WebKitCSSMatrix(nsISupports* aParent, const DOMMatrixReadOnly& other)
-    : DOMMatrix(aParent, other)
-  {}
+      : DOMMatrix(aParent, other)
+  {
+  }
 
   static bool FeatureEnabled(JSContext* aCx, JSObject* aObj);
 
-  static already_AddRefed<WebKitCSSMatrix>
-  Constructor(const GlobalObject& aGlobal, ErrorResult& aRv);
-  static already_AddRefed<WebKitCSSMatrix>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aTransformList, ErrorResult& aRv);
-  static already_AddRefed<WebKitCSSMatrix>
-  Constructor(const GlobalObject& aGlobal,
-              const DOMMatrixReadOnly& aOther, ErrorResult& aRv);
+  static already_AddRefed<WebKitCSSMatrix> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<WebKitCSSMatrix> Constructor(
+      const GlobalObject& aGlobal,
+      const nsAString& aTransformList,
+      ErrorResult& aRv);
+  static already_AddRefed<WebKitCSSMatrix> Constructor(
+      const GlobalObject& aGlobal,
+      const DOMMatrixReadOnly& aOther,
+      ErrorResult& aRv);
 
   nsISupports* GetParentObject() const { return mParent; }
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -41,7 +42,8 @@ public:
   WebKitCSSMatrix* SetMatrixValue(const nsAString& aTransformList,
                                   ErrorResult& aRv);
 
-  already_AddRefed<WebKitCSSMatrix> Multiply(const WebKitCSSMatrix& aOther) const;
+  already_AddRefed<WebKitCSSMatrix> Multiply(
+      const WebKitCSSMatrix& aOther) const;
   already_AddRefed<WebKitCSSMatrix> Inverse(ErrorResult& aRv) const;
   already_AddRefed<WebKitCSSMatrix> Translate(double aTx,
                                               double aTy,
@@ -58,15 +60,14 @@ public:
                                                     double aAngle) const;
   already_AddRefed<WebKitCSSMatrix> SkewX(double aSx) const;
   already_AddRefed<WebKitCSSMatrix> SkewY(double aSy) const;
-protected:
-  WebKitCSSMatrix* Rotate3dSelf(double aRotX,
-                                double aRotY,
-                                double aRotZ);
+
+ protected:
+  WebKitCSSMatrix* Rotate3dSelf(double aRotX, double aRotY, double aRotZ);
 
   WebKitCSSMatrix* InvertSelfThrow(ErrorResult& aRv);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_webkitcssmatrix_h__ */

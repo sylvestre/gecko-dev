@@ -19,12 +19,12 @@ class TimingFunction;
 
 class AnimationUtils
 {
-public:
+ public:
   static Maybe<ComputedTimingFunction> TimingFunctionToComputedTimingFunction(
-    const TimingFunction& aTimingFunction);
+      const TimingFunction& aTimingFunction);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_LayerAnimationUtils_h
+#endif  // mozilla_layers_LayerAnimationUtils_h

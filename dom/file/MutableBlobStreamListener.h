@@ -18,7 +18,7 @@ namespace dom {
 // This class is main-thread only.
 class MutableBlobStreamListener final : public nsIStreamListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISTREAMLISTENER
   NS_DECL_NSIREQUESTOBSERVER
@@ -29,13 +29,15 @@ public:
                             MutableBlobStorageCallback* aCallback,
                             nsIEventTarget* aEventTarget = nullptr);
 
-private:
+ private:
   ~MutableBlobStreamListener();
 
-  static nsresult
-  WriteSegmentFun(nsIInputStream* aWriter, void* aClosure,
-                  const char* aFromSegment, uint32_t aOffset,
-                  uint32_t aCount, uint32_t* aWriteCount);
+  static nsresult WriteSegmentFun(nsIInputStream* aWriter,
+                                  void* aClosure,
+                                  const char* aFromSegment,
+                                  uint32_t aOffset,
+                                  uint32_t aCount,
+                                  uint32_t* aWriteCount);
 
   RefPtr<MutableBlobStorage> mStorage;
   RefPtr<MutableBlobStorageCallback> mCallback;
@@ -46,7 +48,7 @@ private:
   nsCOMPtr<nsIEventTarget> mEventTarget;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MutableBlobStreamListener_h
+#endif  // mozilla_dom_MutableBlobStreamListener_h

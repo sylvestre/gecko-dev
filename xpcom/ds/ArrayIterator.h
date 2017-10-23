@@ -31,110 +31,130 @@ namespace mozilla {
 template<class Element, class ArrayType>
 class ArrayIterator
 {
-public:
-  typedef ArrayType                               array_type;
-  typedef ArrayIterator<Element, ArrayType>       iterator_type;
-  typedef typename array_type::index_type         index_type;
+ public:
+  typedef ArrayType array_type;
+  typedef ArrayIterator<Element, ArrayType> iterator_type;
+  typedef typename array_type::index_type index_type;
   typedef typename RemoveReference<Element>::Type value_type;
-  typedef ptrdiff_t                               difference_type;
-  typedef value_type*                             pointer;
-  typedef value_type&                             reference;
-  typedef std::random_access_iterator_tag         iterator_category;
+  typedef ptrdiff_t difference_type;
+  typedef value_type* pointer;
+  typedef value_type& reference;
+  typedef std::random_access_iterator_tag iterator_category;
 
-private:
+ private:
   const array_type* mArray;
   index_type mIndex;
 
-public:
+ public:
   ArrayIterator() : mArray(nullptr), mIndex(0) {}
   ArrayIterator(const iterator_type& aOther)
-    : mArray(aOther.mArray), mIndex(aOther.mIndex) {}
+      : mArray(aOther.mArray), mIndex(aOther.mIndex)
+  {
+  }
   ArrayIterator(const array_type& aArray, index_type aIndex)
-    : mArray(&aArray), mIndex(aIndex) {}
+      : mArray(&aArray), mIndex(aIndex)
+  {
+  }
 
-  iterator_type& operator=(const iterator_type& aOther) {
+  iterator_type& operator=(const iterator_type& aOther)
+  {
     mArray = aOther.mArray;
     mIndex = aOther.mIndex;
     return *this;
   }
 
-  bool operator==(const iterator_type& aRhs) const {
+  bool operator==(const iterator_type& aRhs) const
+  {
     return mIndex == aRhs.mIndex;
   }
-  bool operator!=(const iterator_type& aRhs) const {
-    return !(*this == aRhs);
-  }
-  bool operator<(const iterator_type& aRhs) const {
+  bool operator!=(const iterator_type& aRhs) const { return !(*this == aRhs); }
+  bool operator<(const iterator_type& aRhs) const
+  {
     return mIndex < aRhs.mIndex;
   }
-  bool operator>(const iterator_type& aRhs) const {
+  bool operator>(const iterator_type& aRhs) const
+  {
     return mIndex > aRhs.mIndex;
   }
-  bool operator<=(const iterator_type& aRhs) const {
+  bool operator<=(const iterator_type& aRhs) const
+  {
     return mIndex <= aRhs.mIndex;
   }
-  bool operator>=(const iterator_type& aRhs) const {
+  bool operator>=(const iterator_type& aRhs) const
+  {
     return mIndex >= aRhs.mIndex;
   }
 
   // These operators depend on the release mode bounds checks in
   // ArrayIterator::ElementAt for safety.
-  value_type* operator->() const {
+  value_type* operator->() const
+  {
     return const_cast<value_type*>(&mArray->ElementAt(mIndex));
   }
-  Element operator*() const {
+  Element operator*() const
+  {
     return const_cast<Element>(mArray->ElementAt(mIndex));
   }
 
-  iterator_type& operator++() {
+  iterator_type& operator++()
+  {
     ++mIndex;
     return *this;
   }
-  iterator_type operator++(int) {
+  iterator_type operator++(int)
+  {
     iterator_type it = *this;
     ++*this;
     return it;
   }
-  iterator_type& operator--() {
+  iterator_type& operator--()
+  {
     --mIndex;
     return *this;
   }
-  iterator_type operator--(int) {
+  iterator_type operator--(int)
+  {
     iterator_type it = *this;
     --*this;
     return it;
   }
 
-  iterator_type& operator+=(difference_type aDiff) {
+  iterator_type& operator+=(difference_type aDiff)
+  {
     mIndex += aDiff;
     return *this;
   }
-  iterator_type& operator-=(difference_type aDiff) {
+  iterator_type& operator-=(difference_type aDiff)
+  {
     mIndex -= aDiff;
     return *this;
   }
 
-  iterator_type operator+(difference_type aDiff) const {
+  iterator_type operator+(difference_type aDiff) const
+  {
     iterator_type it = *this;
     it += aDiff;
     return it;
   }
-  iterator_type operator-(difference_type aDiff) const {
+  iterator_type operator-(difference_type aDiff) const
+  {
     iterator_type it = *this;
     it -= aDiff;
     return it;
   }
 
-  difference_type operator-(const iterator_type& aOther) const {
+  difference_type operator-(const iterator_type& aOther) const
+  {
     return static_cast<difference_type>(mIndex) -
-      static_cast<difference_type>(aOther.mIndex);
+           static_cast<difference_type>(aOther.mIndex);
   }
 
-  Element operator[](difference_type aIndex) const {
+  Element operator[](difference_type aIndex) const
+  {
     return *this->operator+(aIndex);
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ArrayIterator_h
+#endif  // mozilla_ArrayIterator_h

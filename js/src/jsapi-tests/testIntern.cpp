@@ -10,8 +10,7 @@
 
 using mozilla::ArrayLength;
 
-BEGIN_TEST(testAtomizedIsNotPinned)
-{
+BEGIN_TEST(testAtomizedIsNotPinned) {
     /* Try to pick a string that won't be interned by other tests in this runtime. */
     static const char someChars[] = "blah blah blah? blah blah blah";
     JS::Rooted<JSAtom*> atom(cx, js::Atomize(cx, someChars, ArrayLength(someChars)));
@@ -22,14 +21,12 @@ BEGIN_TEST(testAtomizedIsNotPinned)
 }
 END_TEST(testAtomizedIsNotPinned)
 
-struct StringWrapperStruct
-{
+struct StringWrapperStruct {
     JSString* str;
-    bool     strOk;
+    bool strOk;
 } sw;
 
-BEGIN_TEST(testPinAcrossGC)
-{
+BEGIN_TEST(testPinAcrossGC) {
     sw.str = JS_AtomizeAndPinString(cx, "wrapped chars that another test shouldn't be using");
     sw.strOk = false;
     CHECK(sw.str);
@@ -39,9 +36,7 @@ BEGIN_TEST(testPinAcrossGC)
     return true;
 }
 
-static void
-FinalizeCallback(JSFreeOp* fop, JSFinalizeStatus status, void* data)
-{
+static void FinalizeCallback(JSFreeOp* fop, JSFinalizeStatus status, void* data) {
     if (status == JSFINALIZE_GROUP_START)
         sw.strOk = js::gc::IsMarkedUnbarriered(fop->runtime(), &sw.str);
 }

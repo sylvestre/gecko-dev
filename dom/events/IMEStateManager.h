@@ -40,7 +40,7 @@ class IMEStateManager
   typedef widget::InputContext InputContext;
   typedef widget::InputContextAction InputContextAction;
 
-public:
+ public:
   static void Init();
   static void Shutdown();
 
@@ -157,7 +157,7 @@ public:
   // isn't changed by the new state, this method does nothing.
   // Note that this method changes the IME state of the active element in the
   // widget.  So, the caller must have focus.
-  static void UpdateIMEState(const IMEState &aNewIMEState,
+  static void UpdateIMEState(const IMEState& aNewIMEState,
                              nsIContent* aContent,
                              EditorBase* aEditorBase);
 
@@ -200,12 +200,12 @@ public:
    * target is destroying, this removes the stored composition automatically.
    */
   static void DispatchCompositionEvent(
-                nsINode* aEventTargetNode,
-                nsPresContext* aPresContext,
-                WidgetCompositionEvent* aCompositionEvent,
-                nsEventStatus* aStatus,
-                EventDispatchingCallback* aCallBack,
-                bool aIsSynthesized = false);
+      nsINode* aEventTargetNode,
+      nsPresContext* aPresContext,
+      WidgetCompositionEvent* aCompositionEvent,
+      nsEventStatus* aStatus,
+      EventDispatchingCallback* aCallBack,
+      bool aIsSynthesized = false);
 
   /**
    * All selection events must be handled via HandleSelectionEvent()
@@ -221,27 +221,27 @@ public:
    * to dispatch events.
    */
   static void OnCompositionEventDiscarded(
-                WidgetCompositionEvent* aCompositionEvent);
+      WidgetCompositionEvent* aCompositionEvent);
 
   /**
    * Get TextComposition from widget.
    */
-  static already_AddRefed<TextComposition>
-    GetTextCompositionFor(nsIWidget* aWidget);
+  static already_AddRefed<TextComposition> GetTextCompositionFor(
+      nsIWidget* aWidget);
 
   /**
    * Returns TextComposition instance for the event.
    */
-  static already_AddRefed<TextComposition>
-    GetTextCompositionFor(const WidgetCompositionEvent* aCompositionEvent);
+  static already_AddRefed<TextComposition> GetTextCompositionFor(
+      const WidgetCompositionEvent* aCompositionEvent);
 
   /**
    * Returns TextComposition instance for the pres context.
    * Be aware, even if another pres context which shares native IME context with
    * specified pres context has composition, this returns nullptr.
    */
-  static already_AddRefed<TextComposition>
-    GetTextCompositionFor(nsPresContext* aPresContext);
+  static already_AddRefed<TextComposition> GetTextCompositionFor(
+      nsPresContext* aPresContext);
 
   /**
    * Send a notification to IME.  It depends on the IME or platform spec what
@@ -266,11 +266,11 @@ public:
    */
   static IMEContentObserver* GetActiveContentObserver();
 
-protected:
+ protected:
   static nsresult OnChangeFocusInternal(nsPresContext* aPresContext,
                                         nsIContent* aContent,
                                         InputContextAction aAction);
-  static void SetIMEState(const IMEState &aState,
+  static void SetIMEState(const IMEState& aState,
                           nsPresContext* aPresContext,
                           nsIContent* aContent,
                           nsIWidget* aWidget,
@@ -365,9 +365,9 @@ protected:
 
   class MOZ_STACK_CLASS GettingNewIMEStateBlocker final
   {
-  public:
+   public:
     GettingNewIMEStateBlocker()
-      : mOldValue(IMEStateManager::sIsGettingNewIMEState)
+        : mOldValue(IMEStateManager::sIsGettingNewIMEState)
     {
       IMEStateManager::sIsGettingNewIMEState = true;
     }
@@ -375,11 +375,12 @@ protected:
     {
       IMEStateManager::sIsGettingNewIMEState = mOldValue;
     }
-  private:
+
+   private:
     bool mOldValue;
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_IMEStateManager_h_
+#endif  // mozilla_IMEStateManager_h_

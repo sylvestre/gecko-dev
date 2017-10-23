@@ -20,13 +20,14 @@ NetworkErrorToBucket(nsresult rv);
 uint32_t
 HTTPStatusToBucket(uint32_t status);
 
-enum UpdateTimeout {
+enum UpdateTimeout
+{
   eNoTimeout = 0,
   eResponseTimeout = 1,
   eDownloadTimeout = 2,
 };
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla
 
-#endif //UrlClassifierTelemetryUtils_h__
+#endif  //UrlClassifierTelemetryUtils_h__

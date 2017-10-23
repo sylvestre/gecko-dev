@@ -12,14 +12,15 @@ namespace mozilla {
 namespace layers {
 namespace mlg {
 
-void InitializeMemoryReporters();
+void
+InitializeMemoryReporters();
 
 extern mozilla::Atomic<size_t> sConstantBufferUsage;
 extern mozilla::Atomic<size_t> sVertexBufferUsage;
 extern mozilla::Atomic<size_t> sRenderTargetUsage;
 
-} // namespace mlg
-} // namespace layers
-} // namespace mozilla
+}  // namespace mlg
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_MemoryReportingMLGPU_h
+#endif  // mozilla_gfx_layers_mlgpu_MemoryReportingMLGPU_h

@@ -11,7 +11,9 @@
 
 namespace mozilla {
 
-int GetEffectiveContentSandboxLevel() {
+int
+GetEffectiveContentSandboxLevel()
+{
   int level = Preferences::GetInt("security.sandbox.content.level");
 // On Windows and macOS, enforce a minimum content sandbox level of 1 (except on
 // Nightly, where it can be set to 0).
@@ -25,19 +27,20 @@ int GetEffectiveContentSandboxLevel() {
 
 class SandboxSettings final : public mozISandboxSettings
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_MOZISANDBOXSETTINGS
 
-  SandboxSettings() { }
+  SandboxSettings() {}
 
-private:
-  ~SandboxSettings() { }
+ private:
+  ~SandboxSettings() {}
 };
 
 NS_IMPL_ISUPPORTS(SandboxSettings, mozISandboxSettings)
 
-NS_IMETHODIMP SandboxSettings::GetEffectiveContentSandboxLevel(int32_t *aRetVal)
+NS_IMETHODIMP
+SandboxSettings::GetEffectiveContentSandboxLevel(int32_t* aRetVal)
 {
   *aRetVal = mozilla::GetEffectiveContentSandboxLevel();
   return NS_OK;
@@ -48,21 +51,15 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(SandboxSettings)
 NS_DEFINE_NAMED_CID(MOZ_SANDBOX_SETTINGS_CID);
 
 static const mozilla::Module::CIDEntry kSandboxSettingsCIDs[] = {
-  { &kMOZ_SANDBOX_SETTINGS_CID, false, nullptr, SandboxSettingsConstructor },
-  { nullptr }
-};
+    {&kMOZ_SANDBOX_SETTINGS_CID, false, nullptr, SandboxSettingsConstructor},
+    {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kSandboxSettingsContracts[] = {
-  { MOZ_SANDBOX_SETTINGS_CONTRACTID, &kMOZ_SANDBOX_SETTINGS_CID },
-  { nullptr }
-};
+    {MOZ_SANDBOX_SETTINGS_CONTRACTID, &kMOZ_SANDBOX_SETTINGS_CID}, {nullptr}};
 
 static const mozilla::Module kSandboxSettingsModule = {
-  mozilla::Module::kVersion,
-  kSandboxSettingsCIDs,
-  kSandboxSettingsContracts
-};
+    mozilla::Module::kVersion, kSandboxSettingsCIDs, kSandboxSettingsContracts};
 
 NSMODULE_DEFN(SandboxSettingsModule) = &kSandboxSettingsModule;
 
-} // namespace mozilla
+}  // namespace mozilla

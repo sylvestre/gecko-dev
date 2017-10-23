@@ -28,13 +28,11 @@ NS_IMPL_FRAMEARENA_HELPERS(nsHTMLButtonControlFrame)
 
 nsHTMLButtonControlFrame::nsHTMLButtonControlFrame(nsStyleContext* aContext,
                                                    nsIFrame::ClassID aID)
-  : nsContainerFrame(aContext, aID)
+    : nsContainerFrame(aContext, aID)
 {
 }
 
-nsHTMLButtonControlFrame::~nsHTMLButtonControlFrame()
-{
-}
+nsHTMLButtonControlFrame::~nsHTMLButtonControlFrame() {}
 
 void
 nsHTMLButtonControlFrame::DestroyFrom(nsIFrame* aDestructRoot)
@@ -44,16 +42,16 @@ nsHTMLButtonControlFrame::DestroyFrom(nsIFrame* aDestructRoot)
 }
 
 void
-nsHTMLButtonControlFrame::Init(nsIContent*       aContent,
+nsHTMLButtonControlFrame::Init(nsIContent* aContent,
                                nsContainerFrame* aParent,
-                               nsIFrame*         aPrevInFlow)
+                               nsIFrame* aPrevInFlow)
 {
   nsContainerFrame::Init(aContent, aParent, aPrevInFlow);
   mRenderer.SetFrame(this, PresContext());
 }
 
 NS_QUERYFRAME_HEAD(nsHTMLButtonControlFrame)
-  NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
+NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 #ifdef ACCESSIBILITY
@@ -91,7 +89,7 @@ nsHTMLButtonControlFrame::ShouldClipPaintingToBorderBox()
 }
 
 void
-nsHTMLButtonControlFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsHTMLButtonControlFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                            const nsDisplayListSet& aLists)
 {
   // Clip to our border area for event hit testing.
@@ -102,7 +100,8 @@ nsHTMLButtonControlFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     nsRect rect(aBuilder->ToReferenceFrame(this), GetSize());
     nscoord radii[8];
     bool hasRadii = GetBorderRadii(radii);
-    eventClipState->ClipContainingBlockDescendants(rect, hasRadii ? radii : nullptr);
+    eventClipState->ClipContainingBlockDescendants(rect,
+                                                   hasRadii ? radii : nullptr);
   }
 
   nsDisplayList onTop(aBuilder);
@@ -122,10 +121,13 @@ nsHTMLButtonControlFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
       rect.Deflate(border);
       nscoord radii[8];
       bool hasRadii = GetPaddingBoxBorderRadii(radii);
-      clipState.ClipContainingBlockDescendants(rect, hasRadii ? radii : nullptr);
+      clipState.ClipContainingBlockDescendants(rect,
+                                               hasRadii ? radii : nullptr);
     }
 
-    BuildDisplayListForChild(aBuilder, mFrames.FirstChild(), set,
+    BuildDisplayListForChild(aBuilder,
+                             mFrames.FirstChild(),
+                             set,
                              DISPLAY_CHILD_FORCE_PSEUDO_STACKING_CONTEXT);
     // That should put the display items in set.Content()
   }
@@ -147,9 +149,8 @@ nsHTMLButtonControlFrame::GetMinISize(gfxContext* aRenderingContext)
   DISPLAY_MIN_WIDTH(this, result);
 
   nsIFrame* kid = mFrames.FirstChild();
-  result = nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
-                                                kid,
-                                                nsLayoutUtils::MIN_ISIZE);
+  result = nsLayoutUtils::IntrinsicForContainer(
+      aRenderingContext, kid, nsLayoutUtils::MIN_ISIZE);
 
   return result;
 }
@@ -161,9 +162,8 @@ nsHTMLButtonControlFrame::GetPrefISize(gfxContext* aRenderingContext)
   DISPLAY_PREF_WIDTH(this, result);
 
   nsIFrame* kid = mFrames.FirstChild();
-  result = nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
-                                                kid,
-                                                nsLayoutUtils::PREF_ISIZE);
+  result = nsLayoutUtils::IntrinsicForContainer(
+      aRenderingContext, kid, nsLayoutUtils::PREF_ISIZE);
 
   return result;
 }
@@ -189,9 +189,9 @@ nsHTMLButtonControlFrame::Reflow(nsPresContext* aPresContext,
   MOZ_ASSERT(firstKid, "Button should have a child frame for its contents");
   MOZ_ASSERT(!firstKid->GetNextSibling(),
              "Button should have exactly one child frame");
-  MOZ_ASSERT(firstKid->StyleContext()->GetPseudo() ==
-             nsCSSAnonBoxes::buttonContent,
-             "Button's child frame has unexpected pseudo type!");
+  MOZ_ASSERT(
+      firstKid->StyleContext()->GetPseudo() == nsCSSAnonBoxes::buttonContent,
+      "Button's child frame has unexpected pseudo type!");
 
   // XXXbz Eventually we may want to check-and-bail if
   // !aReflowInput.ShouldReflowAllKids() &&
@@ -200,8 +200,7 @@ nsHTMLButtonControlFrame::Reflow(nsPresContext* aPresContext,
 
   // Reflow the contents of the button.
   // (This populates our aDesiredSize, too.)
-  ReflowButtonContents(aPresContext, aDesiredSize,
-                       aReflowInput, firstKid);
+  ReflowButtonContents(aPresContext, aDesiredSize, aReflowInput, firstKid);
 
   if (!ShouldClipPaintingToBorderBox()) {
     ConsiderChildOverflow(aDesiredSize.mOverflowAreas, firstKid);
@@ -209,8 +208,8 @@ nsHTMLButtonControlFrame::Reflow(nsPresContext* aPresContext,
   // else, we ignore child overflow -- anything that overflows beyond our
   // own border-box will get clipped when painting.
 
-  FinishReflowWithAbsoluteFrames(aPresContext, aDesiredSize,
-                                 aReflowInput, aStatus);
+  FinishReflowWithAbsoluteFrames(
+      aPresContext, aDesiredSize, aReflowInput, aStatus);
 
   // We're always complete and we don't support overflow containers
   // so we shouldn't have a next-in-flow ever.
@@ -221,10 +220,11 @@ nsHTMLButtonControlFrame::Reflow(nsPresContext* aPresContext,
 }
 
 void
-nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
-                                               ReflowOutput& aButtonDesiredSize,
-                                               const ReflowInput& aButtonReflowInput,
-                                               nsIFrame* aFirstKid)
+nsHTMLButtonControlFrame::ReflowButtonContents(
+    nsPresContext* aPresContext,
+    ReflowOutput& aButtonDesiredSize,
+    const ReflowInput& aButtonReflowInput,
+    nsIFrame* aFirstKid)
 {
   WritingMode wm = GetWritingMode();
   LogicalSize availSize = aButtonReflowInput.ComputedSize(wm);
@@ -237,20 +237,26 @@ nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
   childPos.I(wm) = clbp.IStart(wm);
   availSize.ISize(wm) = std::max(availSize.ISize(wm), 0);
 
-  ReflowInput contentsReflowInput(aPresContext, aButtonReflowInput,
-                                  aFirstKid, availSize);
+  ReflowInput contentsReflowInput(
+      aPresContext, aButtonReflowInput, aFirstKid, availSize);
 
   nsReflowStatus contentsReflowStatus;
   ReflowOutput contentsDesiredSize(aButtonReflowInput);
-  childPos.B(wm) = 0; // This will be set properly later, after reflowing the
-                      // child to determine its size.
+  childPos.B(wm) = 0;  // This will be set properly later, after reflowing the
+                       // child to determine its size.
 
   // We just pass a dummy containerSize here, as the child will be
   // repositioned later by FinishReflowChild.
   nsSize dummyContainerSize;
-  ReflowChild(aFirstKid, aPresContext,
-              contentsDesiredSize, contentsReflowInput,
-              wm, childPos, dummyContainerSize, 0, contentsReflowStatus);
+  ReflowChild(aFirstKid,
+              aPresContext,
+              contentsDesiredSize,
+              contentsReflowInput,
+              wm,
+              childPos,
+              dummyContainerSize,
+              0,
+              contentsReflowStatus);
   MOZ_ASSERT(contentsReflowStatus.IsComplete(),
              "We gave button-contents frame unconstrained available height, "
              "so it should be complete");
@@ -271,37 +277,41 @@ nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
     // adjusting for borderpadding, since mComputedMaxBSize and
     // mComputedMinBSize are content bSizes.
     buttonContentBox.BSize(wm) =
-      NS_CSS_MINMAX(buttonContentBox.BSize(wm),
-                    aButtonReflowInput.ComputedMinBSize(),
-                    aButtonReflowInput.ComputedMaxBSize());
+        NS_CSS_MINMAX(buttonContentBox.BSize(wm),
+                      aButtonReflowInput.ComputedMinBSize(),
+                      aButtonReflowInput.ComputedMaxBSize());
   }
   if (aButtonReflowInput.ComputedISize() != NS_INTRINSICSIZE) {
     buttonContentBox.ISize(wm) = aButtonReflowInput.ComputedISize();
   } else {
     buttonContentBox.ISize(wm) = contentsDesiredSize.ISize(wm);
     buttonContentBox.ISize(wm) =
-      NS_CSS_MINMAX(buttonContentBox.ISize(wm),
-                    aButtonReflowInput.ComputedMinISize(),
-                    aButtonReflowInput.ComputedMaxISize());
+        NS_CSS_MINMAX(buttonContentBox.ISize(wm),
+                      aButtonReflowInput.ComputedMinISize(),
+                      aButtonReflowInput.ComputedMaxISize());
   }
 
   // Center child in the block-direction in the button
   // (technically, inside of the button's focus-padding area)
-  nscoord extraSpace = buttonContentBox.BSize(wm) -
-                       contentsDesiredSize.BSize(wm);
+  nscoord extraSpace =
+      buttonContentBox.BSize(wm) - contentsDesiredSize.BSize(wm);
 
   childPos.B(wm) = std::max(0, extraSpace / 2);
 
   // Adjust childPos.B() to be in terms of the button's frame-rect:
   childPos.B(wm) += clbp.BStart(wm);
 
-  nsSize containerSize =
-    (buttonContentBox + clbp.Size(wm)).GetPhysicalSize(wm);
+  nsSize containerSize = (buttonContentBox + clbp.Size(wm)).GetPhysicalSize(wm);
 
   // Place the child
-  FinishReflowChild(aFirstKid, aPresContext,
-                    contentsDesiredSize, &contentsReflowInput,
-                    wm, childPos, containerSize, 0);
+  FinishReflowChild(aFirstKid,
+                    aPresContext,
+                    contentsDesiredSize,
+                    &contentsReflowInput,
+                    wm,
+                    childPos,
+                    containerSize,
+                    0);
 
   // Make sure we have a useful 'ascent' value for the child
   if (contentsDesiredSize.BlockStartAscent() ==
@@ -313,9 +323,11 @@ nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
   // OK, we're done with the child frame.
   // Use what we learned to populate the button frame's reflow metrics.
   //  * Button's height & width are content-box size + border-box contribution:
-  aButtonDesiredSize.SetSize(wm,
-    LogicalSize(wm, aButtonReflowInput.ComputedISize() + clbp.IStartEnd(wm),
-                    buttonContentBox.BSize(wm) + clbp.BStartEnd(wm)));
+  aButtonDesiredSize.SetSize(
+      wm,
+      LogicalSize(wm,
+                  aButtonReflowInput.ComputedISize() + clbp.IStartEnd(wm),
+                  buttonContentBox.BSize(wm) + clbp.BStartEnd(wm)));
 
   //  * Button's ascent is its child's ascent, plus the child's block-offset
   // within our frame... unless it's orthogonal, in which case we'll use the
@@ -324,8 +336,8 @@ nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
   if (aButtonDesiredSize.GetWritingMode().IsOrthogonalTo(wm)) {
     aButtonDesiredSize.SetBlockStartAscent(contentsDesiredSize.ISize(wm));
   } else {
-    aButtonDesiredSize.SetBlockStartAscent(contentsDesiredSize.BlockStartAscent() +
-                                           childPos.B(wm));
+    aButtonDesiredSize.SetBlockStartAscent(
+        contentsDesiredSize.BlockStartAscent() + childPos.B(wm));
   }
 
   aButtonDesiredSize.SetOverflowAreasToDesiredBounds();
@@ -341,8 +353,8 @@ nsHTMLButtonControlFrame::GetVerticalAlignBaseline(mozilla::WritingMode aWM,
   }
   if (!inner->GetVerticalAlignBaseline(aWM, aBaseline)) {
     // <input type=color> has an empty block frame as inner frame
-    *aBaseline = inner->
-      SynthesizeBaselineBOffsetFromBorderBox(aWM, BaselineSharingGroup::eFirst);
+    *aBaseline = inner->SynthesizeBaselineBOffsetFromBorderBox(
+        aWM, BaselineSharingGroup::eFirst);
   }
   nscoord innerBStart = inner->BStart(aWM, GetSize());
   *aBaseline += innerBStart;
@@ -350,9 +362,10 @@ nsHTMLButtonControlFrame::GetVerticalAlignBaseline(mozilla::WritingMode aWM,
 }
 
 bool
-nsHTMLButtonControlFrame::GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
-                                         BaselineSharingGroup aBaselineGroup,
-                                         nscoord* aBaseline) const
+nsHTMLButtonControlFrame::GetNaturalBaselineBOffset(
+    mozilla::WritingMode aWM,
+    BaselineSharingGroup aBaselineGroup,
+    nscoord* aBaseline) const
 {
   nsIFrame* inner = mFrames.FirstChild();
   if (MOZ_UNLIKELY(inner->GetWritingMode().IsOrthogonalTo(aWM))) {
@@ -360,8 +373,8 @@ nsHTMLButtonControlFrame::GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
   }
   if (!inner->GetNaturalBaselineBOffset(aWM, aBaselineGroup, aBaseline)) {
     // <input type=color> has an empty block frame as inner frame
-    *aBaseline = inner->
-      SynthesizeBaselineBOffsetFromBorderBox(aWM, aBaselineGroup);
+    *aBaseline =
+        inner->SynthesizeBaselineBOffsetFromBorderBox(aWM, aBaselineGroup);
   }
   nscoord innerBStart = inner->BStart(aWM, GetSize());
   if (aBaselineGroup == BaselineSharingGroup::eFirst) {
@@ -372,11 +385,12 @@ nsHTMLButtonControlFrame::GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
   return true;
 }
 
-nsresult nsHTMLButtonControlFrame::SetFormProperty(nsAtom* aName, const nsAString& aValue)
+nsresult
+nsHTMLButtonControlFrame::SetFormProperty(nsAtom* aName,
+                                          const nsAString& aValue)
 {
   if (nsGkAtoms::value == aName) {
-    return mContent->SetAttr(kNameSpaceID_None, nsGkAtoms::value,
-                             aValue, true);
+    return mContent->SetAttr(kNameSpaceID_None, nsGkAtoms::value, aValue, true);
   }
   return NS_OK;
 }
@@ -388,14 +402,15 @@ nsHTMLButtonControlFrame::GetAdditionalStyleContext(int32_t aIndex) const
 }
 
 void
-nsHTMLButtonControlFrame::SetAdditionalStyleContext(int32_t aIndex,
-                                                    nsStyleContext* aStyleContext)
+nsHTMLButtonControlFrame::SetAdditionalStyleContext(
+    int32_t aIndex, nsStyleContext* aStyleContext)
 {
   mRenderer.SetStyleContext(aIndex, aStyleContext);
 }
 
 void
-nsHTMLButtonControlFrame::AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult)
+nsHTMLButtonControlFrame::AppendDirectlyOwnedAnonBoxes(
+    nsTArray<OwnedAnonBox>& aResult)
 {
   MOZ_ASSERT(mFrames.FirstChild(), "Must have our button-content anon box");
   MOZ_ASSERT(!mFrames.FirstChild()->GetNextSibling(),
@@ -405,23 +420,22 @@ nsHTMLButtonControlFrame::AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& a
 
 #ifdef DEBUG
 void
-nsHTMLButtonControlFrame::AppendFrames(ChildListID     aListID,
-                                       nsFrameList&    aFrameList)
+nsHTMLButtonControlFrame::AppendFrames(ChildListID aListID,
+                                       nsFrameList& aFrameList)
 {
   MOZ_CRASH("unsupported operation");
 }
 
 void
-nsHTMLButtonControlFrame::InsertFrames(ChildListID     aListID,
-                                       nsIFrame*       aPrevFrame,
-                                       nsFrameList&    aFrameList)
+nsHTMLButtonControlFrame::InsertFrames(ChildListID aListID,
+                                       nsIFrame* aPrevFrame,
+                                       nsFrameList& aFrameList)
 {
   MOZ_CRASH("unsupported operation");
 }
 
 void
-nsHTMLButtonControlFrame::RemoveFrame(ChildListID     aListID,
-                                      nsIFrame*       aOldFrame)
+nsHTMLButtonControlFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   MOZ_CRASH("unsupported operation");
 }

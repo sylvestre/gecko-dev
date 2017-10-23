@@ -28,29 +28,39 @@ namespace net {
 // to properly invoke CollectSubstitutions at the right time.
 class SubstitutingProtocolHandler
 {
-public:
-  SubstitutingProtocolHandler(const char* aScheme, uint32_t aFlags, bool aEnforceFileOrJar = true);
+ public:
+  SubstitutingProtocolHandler(const char* aScheme,
+                              uint32_t aFlags,
+                              bool aEnforceFileOrJar = true);
   explicit SubstitutingProtocolHandler(const char* aScheme);
 
   NS_INLINE_DECL_REFCOUNTING(SubstitutingProtocolHandler);
   NS_DECL_NON_VIRTUAL_NSIPROTOCOLHANDLER;
   NS_DECL_NON_VIRTUAL_NSISUBSTITUTINGPROTOCOLHANDLER;
 
-  bool HasSubstitution(const nsACString& aRoot) const { return mSubstitutions.Get(aRoot, nullptr); }
+  bool HasSubstitution(const nsACString& aRoot) const
+  {
+    return mSubstitutions.Get(aRoot, nullptr);
+  }
 
-  MOZ_MUST_USE nsresult CollectSubstitutions(InfallibleTArray<SubstitutionMapping>& aResources);
+  MOZ_MUST_USE nsresult
+  CollectSubstitutions(InfallibleTArray<SubstitutionMapping>& aResources);
 
-protected:
+ protected:
   virtual ~SubstitutingProtocolHandler() {}
   void ConstructInternal();
 
-  MOZ_MUST_USE nsresult SendSubstitution(const nsACString& aRoot, nsIURI* aBaseURI, uint32_t aFlags);
+  MOZ_MUST_USE nsresult SendSubstitution(const nsACString& aRoot,
+                                         nsIURI* aBaseURI,
+                                         uint32_t aFlags);
 
   nsresult GetSubstitutionFlags(const nsACString& root, uint32_t* flags);
 
   // Override this in the subclass to try additional lookups after checking
   // mSubstitutions.
-  virtual MOZ_MUST_USE nsresult GetSubstitutionInternal(const nsACString& aRoot, nsIURI** aResult, uint32_t* aFlags)
+  virtual MOZ_MUST_USE nsresult GetSubstitutionInternal(const nsACString& aRoot,
+                                                        nsIURI** aResult,
+                                                        uint32_t* aFlags)
   {
     *aResult = nullptr;
     *aFlags = 0;
@@ -69,24 +79,21 @@ protected:
 
   // Override this in the subclass to check for special case when opening
   // channels.
-  virtual MOZ_MUST_USE nsresult SubstituteChannel(nsIURI* uri, nsILoadInfo* aLoadInfo, nsIChannel** result)
+  virtual MOZ_MUST_USE nsresult SubstituteChannel(nsIURI* uri,
+                                                  nsILoadInfo* aLoadInfo,
+                                                  nsIChannel** result)
   {
     return NS_OK;
   }
 
   nsIIOService* IOService() { return mIOService; }
 
-private:
+ private:
   struct SubstitutionEntry
   {
-    SubstitutionEntry()
-        : flags(0)
-    {
-    }
+    SubstitutionEntry() : flags(0) {}
 
-    ~SubstitutionEntry()
-    {
-    }
+    ~SubstitutionEntry() {}
 
     nsCOMPtr<nsIURI> baseURI;
     uint32_t flags;
@@ -121,14 +128,14 @@ private:
 // SubstitutingURL : overrides nsStandardURL::GetFile to provide nsIFile resolution
 class SubstitutingURL : public nsStandardURL
 {
-public:
+ public:
   SubstitutingURL() : nsStandardURL(true) {}
   virtual nsStandardURL* StartClone();
   virtual MOZ_MUST_USE nsresult EnsureFile();
-  NS_IMETHOD GetClassIDNoAlloc(nsCID *aCID);
+  NS_IMETHOD GetClassIDNoAlloc(nsCID* aCID);
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* SubstitutingProtocolHandler_h___ */

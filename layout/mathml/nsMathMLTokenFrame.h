@@ -13,14 +13,17 @@
 // Base class to handle token elements
 //
 
-class nsMathMLTokenFrame : public nsMathMLContainerFrame {
-public:
+class nsMathMLTokenFrame : public nsMathMLContainerFrame
+{
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLTokenFrame)
 
-  friend nsIFrame* NS_NewMathMLTokenFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewMathMLTokenFrame(nsIPresShell* aPresShell,
+                                          nsStyleContext* aContext);
 
   NS_IMETHOD
-  TransmitAutomaticData() override {
+  TransmitAutomaticData() override
+  {
     // The REC defines the following elements to be space-like:
     // * an mtext, mspace, maligngroup, or malignmark element;
     if (mContent->IsMathMLElement(nsGkAtoms::mtext_)) {
@@ -34,33 +37,30 @@ public:
 
   virtual eMathMLFrameType GetMathMLFrameType() override;
 
-  virtual void
-  SetInitialChildList(ChildListID     aListID,
-                      nsFrameList&    aChildList) override;
+  virtual void SetInitialChildList(ChildListID aListID,
+                                   nsFrameList& aChildList) override;
 
-  virtual void
-  AppendFrames(ChildListID            aListID,
-               nsFrameList&           aChildList) override;
+  virtual void AppendFrames(ChildListID aListID,
+                            nsFrameList& aChildList) override;
 
-  virtual void
-  InsertFrames(ChildListID            aListID,
-               nsIFrame*              aPrevFrame,
-               nsFrameList&           aChildList) override;
+  virtual void InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aChildList) override;
 
-  virtual void
-  Reflow(nsPresContext*          aPresContext,
-         ReflowOutput&     aDesiredSize,
-         const ReflowInput& aReflowInput,
-         nsReflowStatus&          aStatus) override;
+  virtual void Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
+                      const ReflowInput& aReflowInput,
+                      nsReflowStatus& aStatus) override;
 
-  virtual nsresult
-  Place(DrawTarget*          aDrawTarget,
-        bool                 aPlaceOrigin,
-        ReflowOutput& aDesiredSize) override;
+  virtual nsresult Place(DrawTarget* aDrawTarget,
+                         bool aPlaceOrigin,
+                         ReflowOutput& aDesiredSize) override;
 
-protected:
+ protected:
   explicit nsMathMLTokenFrame(nsStyleContext* aContext, ClassID aID = kClassID)
-    : nsMathMLContainerFrame(aContext, aID) {}
+      : nsMathMLContainerFrame(aContext, aID)
+  {
+  }
   virtual ~nsMathMLTokenFrame();
 
   void MarkTextFramesAsTokenMathML();

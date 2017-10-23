@@ -13,147 +13,140 @@ class txListIterator;
 /**
  * Represents an ordered list of Object pointers. Modeled after a Java 2 List.
 **/
-class txList : public txObject {
+class txList : public txObject
+{
+  friend class txListIterator;
 
-friend class txListIterator;
-
-public:
-
-    /**
+ public:
+  /**
     * Creates an empty txList
     **/
-    txList();
+  txList();
 
-    /**
+  /**
      * txList destructor, object references will not be deleted.
     **/
-    ~txList();
+  ~txList();
 
-    /**
+  /**
      * Returns the number of items in this txList
     **/
-    int32_t getLength();
+  int32_t getLength();
 
-    /**
+  /**
      * Returns true if there are no items in this txList
      */
-    inline bool isEmpty()
-    {
-        return itemCount == 0;
-    }
+  inline bool isEmpty() { return itemCount == 0; }
 
-    /**
+  /**
      * Adds the given Object to the list
     **/
-    nsresult add(void* objPtr);
+  nsresult add(void* objPtr);
 
-    /*
+  /*
      * Removes all the objects from the list
      */
-    void clear();
+  void clear();
 
-protected:
+ protected:
+  struct ListItem
+  {
+    ListItem* nextItem;
+    ListItem* prevItem;
+    void* objPtr;
+  };
 
-    struct ListItem {
-        ListItem* nextItem;
-        ListItem* prevItem;
-        void* objPtr;
-    };
-
-    /**
+  /**
      * Removes the given ListItem pointer from the list
     **/
-    ListItem* remove(ListItem* sItem);
+  ListItem* remove(ListItem* sItem);
 
-private:
-      txList(const txList& aOther); // not implemented
+ private:
+  txList(const txList& aOther);  // not implemented
 
-      ListItem* firstItem;
-      ListItem* lastItem;
-      int32_t itemCount;
+  ListItem* firstItem;
+  ListItem* lastItem;
+  int32_t itemCount;
 
-      nsresult insertAfter(void* objPtr, ListItem* sItem);
-      nsresult insertBefore(void* objPtr, ListItem* sItem);
+  nsresult insertAfter(void* objPtr, ListItem* sItem);
+  nsresult insertBefore(void* objPtr, ListItem* sItem);
 };
-
-
 
 /**
  * An Iterator for the txList Class
 **/
-class txListIterator {
-
-public:
-    /**
+class txListIterator
+{
+ public:
+  /**
      * Creates a new txListIterator for the given txList
      * @param list, the txList to create an Iterator for
     **/
-    explicit txListIterator(txList* list);
+  explicit txListIterator(txList* list);
 
-    /**
+  /**
      * Adds the Object pointer to the txList pointed to by this txListIterator.
      * The Object pointer is inserted as the next item in the txList
      * based on the current position within the txList
      * @param objPtr the Object pointer to add to the list
     **/
-    nsresult addAfter(void* objPtr);
+  nsresult addAfter(void* objPtr);
 
-    /**
+  /**
      * Adds the Object pointer to the txList pointed to by this txListIterator.
      * The Object pointer is inserted as the previous item in the txList
      * based on the current position within the txList
      * @param objPtr the Object pointer to add to the list
     **/
-    nsresult addBefore(void* objPtr);
+  nsresult addBefore(void* objPtr);
 
-    /**
+  /**
      * Returns true if a successful call to the next() method can be made
      * @return true if a successful call to the next() method can be made,
      * otherwise false
     **/
-    bool  hasNext();
+  bool hasNext();
 
-    /**
+  /**
      * Returns the next Object pointer from the list
     **/
-    void* next();
+  void* next();
 
-    /**
+  /**
      * Returns the previous Object pointer from the list
     **/
-    void* previous();
+  void* previous();
 
-    /**
+  /**
      * Returns the current Object
     **/
-    void* current();
+  void* current();
 
-    /**
+  /**
      * Removes the Object last returned by the next() or previous() methods;
      * @return the removed Object pointer
     **/
-    void* remove();
+  void* remove();
 
-    /**
+  /**
      * Resets the current location within the txList to the beginning of the txList
     **/
-    void reset();
+  void reset();
 
-    /**
+  /**
      * Resets the current location within the txList to the end of the txList
     **/
-    void resetToEnd();
+  void resetToEnd();
 
-private:
+ private:
+  //-- points to the current list item
+  txList::ListItem* currentItem;
 
-   //-- points to the current list item
-   txList::ListItem* currentItem;
+  //-- points to the list to iterator over
+  txList* list;
 
-   //-- points to the list to iterator over
-   txList* list;
-
-   //-- we've moved off the end of the list
-   bool atEndOfList;
+  //-- we've moved off the end of the list
+  bool atEndOfList;
 };
 
 typedef txList List;

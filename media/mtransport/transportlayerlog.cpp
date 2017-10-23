@@ -14,10 +14,12 @@ namespace mozilla {
 
 MOZ_MTLOG_MODULE("mtransport")
 
-void TransportLayerLogging::WasInserted() {
+void
+TransportLayerLogging::WasInserted()
+{
   if (downward_) {
-    downward_->SignalStateChange.connect(
-        this, &TransportLayerLogging::StateChange);
+    downward_->SignalStateChange.connect(this,
+                                         &TransportLayerLogging::StateChange);
     downward_->SignalPacketReceived.connect(
         this, &TransportLayerLogging::PacketReceived);
     TL_SET_STATE(downward_->state());
@@ -25,7 +27,8 @@ void TransportLayerLogging::WasInserted() {
 }
 
 TransportResult
-TransportLayerLogging::SendPacket(const unsigned char *data, size_t len) {
+TransportLayerLogging::SendPacket(const unsigned char* data, size_t len)
+{
   MOZ_MTLOG(ML_DEBUG, LAYER_INFO << "SendPacket(" << len << ")");
 
   if (downward_) {
@@ -34,20 +37,22 @@ TransportLayerLogging::SendPacket(const unsigned char *data, size_t len) {
   return static_cast<TransportResult>(len);
 }
 
-void TransportLayerLogging::StateChange(TransportLayer *layer, State state) {
+void
+TransportLayerLogging::StateChange(TransportLayer* layer, State state)
+{
   MOZ_MTLOG(ML_DEBUG, LAYER_INFO << "Received StateChange to " << state);
 
   TL_SET_STATE(state);
 }
 
-void TransportLayerLogging::PacketReceived(TransportLayer* layer,
-                                           const unsigned char *data,
-                                           size_t len) {
+void
+TransportLayerLogging::PacketReceived(TransportLayer* layer,
+                                      const unsigned char* data,
+                                      size_t len)
+{
   MOZ_MTLOG(ML_DEBUG, LAYER_INFO << "PacketReceived(" << len << ")");
 
   SignalPacketReceived(this, data, len);
 }
 
-
-
-}  // close namespace
+}  // namespace mozilla

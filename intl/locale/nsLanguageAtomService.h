@@ -23,11 +23,13 @@ class Encoding;
 class nsLanguageAtomService final
 {
   using Encoding = mozilla::Encoding;
-  template <typename T> using NotNull = mozilla::NotNull<T>;
-public:
+  template<typename T>
+  using NotNull = mozilla::NotNull<T>;
+
+ public:
   static nsLanguageAtomService* GetService();
 
-  nsAtom* LookupLanguage(const nsACString &aLanguage);
+  nsAtom* LookupLanguage(const nsACString& aLanguage);
   already_AddRefed<nsAtom> LookupCharSet(NotNull<const Encoding*> aCharSet);
   nsAtom* GetLocaleLanguage();
 
@@ -49,7 +51,7 @@ public:
   nsAtom* GetLanguageGroup(nsAtom* aLanguage, bool* aNeedsToCache = nullptr);
   already_AddRefed<nsAtom> GetUncachedLanguageGroup(nsAtom* aLanguage) const;
 
-private:
+ private:
   nsRefPtrHashtable<nsRefPtrHashKey<nsAtom>, nsAtom> mLangToGroup;
   RefPtr<nsAtom> mLocaleLanguage;
 };

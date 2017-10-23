@@ -11,8 +11,8 @@
 
 class UpdateLog
 {
-public:
-  static UpdateLog & GetPrimaryLog()
+ public:
+  static UpdateLog& GetPrimaryLog()
   {
     static UpdateLog primaryLog;
     return primaryLog;
@@ -21,22 +21,20 @@ public:
   void Init(NS_tchar* sourcePath, const NS_tchar* fileName);
   void Finish();
   void Flush();
-  void Printf(const char *fmt, ... ) MOZ_FORMAT_PRINTF(2, 3);
-  void WarnPrintf(const char *fmt, ... ) MOZ_FORMAT_PRINTF(2, 3);
+  void Printf(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3);
+  void WarnPrintf(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3);
 
-  ~UpdateLog()
-  {
-    Finish();
-  }
+  ~UpdateLog() { Finish(); }
 
-protected:
+ protected:
   UpdateLog();
-  FILE *logFP;
+  FILE* logFP;
   NS_tchar mTmpFilePath[MAXPATHLEN];
   NS_tchar mDstFilePath[MAXPATHLEN];
 };
 
-bool IsValidFullPath(NS_tchar* fullPath);
+bool
+IsValidFullPath(NS_tchar* fullPath);
 
 #define LOG_WARN(args) UpdateLog::GetPrimaryLog().WarnPrintf args
 #define LOG(args) UpdateLog::GetPrimaryLog().Printf args

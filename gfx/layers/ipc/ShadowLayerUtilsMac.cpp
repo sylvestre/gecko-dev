@@ -35,6 +35,5 @@ LayerManagerComposite::SupportsDirectTexturing()
   return false;
 }
 
-
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

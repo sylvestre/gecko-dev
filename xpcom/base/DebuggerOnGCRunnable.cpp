@@ -23,9 +23,10 @@ DebuggerOnGCRunnable::Enqueue(JSContext* aCx, const JS::GCDescription& aDesc)
   }
 
   RefPtr<DebuggerOnGCRunnable> runOnGC =
-    new DebuggerOnGCRunnable(Move(gcEvent));
+      new DebuggerOnGCRunnable(Move(gcEvent));
   if (NS_IsMainThread()) {
-    return SystemGroup::Dispatch(TaskCategory::GarbageCollection, runOnGC.forget());
+    return SystemGroup::Dispatch(TaskCategory::GarbageCollection,
+                                 runOnGC.forget());
   } else {
     return NS_DispatchToCurrentThread(runOnGC);
   }
@@ -49,4 +50,4 @@ DebuggerOnGCRunnable::Cancel()
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -42,16 +42,16 @@ UnicodeToNative(JSContext* aCx, const char16_t* aSource, size_t aSourceLen)
   return result;
 }
 
-#endif // BUILD_CTYPES
+#endif  // BUILD_CTYPES
 
-} // namespace
+}  // namespace
 
 BEGIN_WORKERS_NAMESPACE
 
 bool
 DefineChromeWorkerFunctions(JSContext* aCx, JS::Handle<JSObject*> aGlobal)
 {
-  // Currently ctypes is the only special property given to ChromeWorkers.
+// Currently ctypes is the only special property given to ChromeWorkers.
 #ifdef BUILD_CTYPES
   {
     JS::Rooted<JS::Value> ctypes(aCx);
@@ -60,13 +60,11 @@ DefineChromeWorkerFunctions(JSContext* aCx, JS::Handle<JSObject*> aGlobal)
       return false;
     }
 
-    static const JSCTypesCallbacks callbacks = {
-      UnicodeToNative
-    };
+    static const JSCTypesCallbacks callbacks = {UnicodeToNative};
 
     JS_SetCTypesCallbacks(ctypes.toObjectOrNull(), &callbacks);
   }
-#endif // BUILD_CTYPES
+#endif  // BUILD_CTYPES
 
   return true;
 }

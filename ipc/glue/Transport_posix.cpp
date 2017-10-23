@@ -53,8 +53,8 @@ CreateTransport(base::ProcessId aProcIdOne,
     return NS_ERROR_DUPLICATE_HANDLE;
   }
 
-  aOne->mFd = base::FileDescriptor(fd1, true/*close after sending*/);
-  aTwo->mFd = base::FileDescriptor(fd2, true/*close after sending*/);
+  aOne->mFd = base::FileDescriptor(fd1, true /*close after sending*/);
+  aTwo->mFd = base::FileDescriptor(fd2, true /*close after sending*/);
   return NS_OK;
 }
 
@@ -89,5 +89,5 @@ CloseDescriptor(const TransportDescriptor& aTd)
   close(aTd.mFd.fd);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

@@ -9,9 +9,9 @@
 #include "mozilla/Attributes.h"           // override
 #include "mozilla/EditTransactionBase.h"  // base class
 #include "nsCOMPtr.h"                     // nsCOMPtr members
-#include "nsCycleCollectionParticipant.h" // NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED
-#include "nsISupportsImpl.h"              // NS_DECL_ISUPPORTS_INHERITED
-#include "nsString.h"                     // nsString members
+#include "nsCycleCollectionParticipant.h"  // NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED
+#include "nsISupportsImpl.h"               // NS_DECL_ISUPPORTS_INHERITED
+#include "nsString.h"                      // nsString members
 
 class nsAtom;
 
@@ -19,7 +19,7 @@ namespace mozilla {
 
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 /**
  * A transaction that changes an attribute of a content node.  This transaction
@@ -27,7 +27,7 @@ class Element;
  */
 class ChangeAttributeTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * @param aElement   the element whose attribute will be changed
    * @param aAttribute the name of the attribute to change
@@ -45,7 +45,7 @@ public:
 
   NS_IMETHOD RedoTransaction() override;
 
-private:
+ private:
   virtual ~ChangeAttributeTransaction();
 
   // The element to operate upon
@@ -67,6 +67,6 @@ private:
   nsString mUndoValue;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef ChangeAttributeTransaction_h
+#endif  // #ifndef ChangeAttributeTransaction_h

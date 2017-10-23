@@ -10,16 +10,21 @@
 
 #include "nsISupports.h"
 
-#define NS_ICSSLOADEROBSERVER_IID \
-{ 0xf51fbf2c, 0xfe4b, 0x4a15, \
-  { 0xaf, 0x7e, 0x5e, 0x20, 0x64, 0x5f, 0xaf, 0x58 } }
+#define NS_ICSSLOADEROBSERVER_IID                    \
+  {                                                  \
+    0xf51fbf2c, 0xfe4b, 0x4a15,                      \
+    {                                                \
+      0xaf, 0x7e, 0x5e, 0x20, 0x64, 0x5f, 0xaf, 0x58 \
+    }                                                \
+  }
 
 namespace mozilla {
-  class StyleSheet;
+class StyleSheet;
 }
 
-class nsICSSLoaderObserver : public nsISupports {
-public:
+class nsICSSLoaderObserver : public nsISupports
+{
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ICSSLOADEROBSERVER_IID)
 
   /**
@@ -44,4 +49,4 @@ public:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsICSSLoaderObserver, NS_ICSSLOADEROBSERVER_IID)
 
-#endif // nsICSSLoaderObserver_h___
+#endif  // nsICSSLoaderObserver_h___

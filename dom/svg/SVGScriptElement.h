@@ -14,28 +14,30 @@
 
 class nsIDocument;
 
-nsresult NS_NewSVGScriptElement(nsIContent **aResult,
-                                already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
-                                mozilla::dom::FromParser aFromParser);
+nsresult
+NS_NewSVGScriptElement(nsIContent** aResult,
+                       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
+                       mozilla::dom::FromParser aFromParser);
 
 namespace mozilla {
 namespace dom {
 
 typedef nsSVGElement SVGScriptElementBase;
 
-class SVGScriptElement final : public SVGScriptElementBase,
-                               public ScriptElement
+class SVGScriptElement final : public SVGScriptElementBase, public ScriptElement
 {
-protected:
-  friend nsresult (::NS_NewSVGScriptElement(nsIContent **aResult,
-                                            already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
-                                            mozilla::dom::FromParser aFromParser));
+ protected:
+  friend nsresult(::NS_NewSVGScriptElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
+      mozilla::dom::FromParser aFromParser));
   SVGScriptElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
                    FromParser aFromParser);
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
+ public:
   // interfaces:
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -51,10 +53,12 @@ public:
   virtual bool HasScriptContent() override;
 
   // nsIContent specializations:
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -64,27 +68,32 @@ public:
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL
-  void GetType(nsAString & aType);
-  void SetType(const nsAString & aType, ErrorResult& rv);
-  void GetCrossOrigin(nsAString & aCrossOrigin);
-  void SetCrossOrigin(const nsAString & aCrossOrigin, ErrorResult& aError);
+  void GetType(nsAString& aType);
+  void SetType(const nsAString& aType, ErrorResult& rv);
+  void GetCrossOrigin(nsAString& aCrossOrigin);
+  void SetCrossOrigin(const nsAString& aCrossOrigin, ErrorResult& aError);
   already_AddRefed<SVGAnimatedString> Href();
 
-protected:
+ protected:
   ~SVGScriptElement();
 
   virtual StringAttributesInfo GetStringInfo() override;
 
-  enum { HREF, XLINK_HREF };
+  enum
+  {
+    HREF,
+    XLINK_HREF
+  };
   nsSVGString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGScriptElement_h
+#endif  // mozilla_dom_SVGScriptElement_h

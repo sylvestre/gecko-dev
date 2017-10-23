@@ -25,10 +25,11 @@ class AudioConverter;
 
 namespace media {
 
-class AudioSink : private AudioStream::DataSource {
+class AudioSink : private AudioStream::DataSource
+{
   using PlaybackParams = MediaSink::PlaybackParams;
 
-public:
+ public:
   AudioSink(AbstractThread* aThread,
             MediaQueue<AudioData>& aAudioQueue,
             const TimeUnit& aStartTime,
@@ -59,11 +60,9 @@ public:
   void SetPreservesPitch(bool aPreservesPitch);
   void SetPlaying(bool aPlaying);
 
-  MediaEventSource<bool>& AudibleEvent() {
-    return mAudibleEvent;
-  }
+  MediaEventSource<bool>& AudibleEvent() { return mAudibleEvent; }
 
-private:
+ private:
   // Allocate and initialize mAudioStream. Returns NS_OK on success.
   nsresult InitializeAudioStream(const PlaybackParams& aParams);
 
@@ -128,8 +127,8 @@ private:
   // Drain the converter and add the output to the processed audio queue.
   // A maximum of aMaxFrames will be added.
   uint32_t DrainConverter(uint32_t aMaxFrames = UINT32_MAX);
-  already_AddRefed<AudioData> CreateAudioFromBuffer(AlignedAudioBuffer&& aBuffer,
-                                                    AudioData* aReference);
+  already_AddRefed<AudioData> CreateAudioFromBuffer(
+      AlignedAudioBuffer&& aBuffer, AudioData* aReference);
   // Add data to the processsed queue, update mProcessedQueueLength and
   // return the number of frames added.
   uint32_t PushProcessedAudio(AudioData* aData);
@@ -158,7 +157,7 @@ private:
   MediaQueue<AudioData>& mAudioQueue;
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif // AudioSink_h__
+#endif  // AudioSink_h__

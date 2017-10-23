@@ -37,7 +37,6 @@ CheckboxInputType::GetValueMissingMessage(nsAString& aMessage)
 nsresult
 RadioInputType::GetValueMissingMessage(nsAString& aMessage)
 {
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                            "FormValidationRadioMissing",
-                                            aMessage);
+  return nsContentUtils::GetLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "FormValidationRadioMissing", aMessage);
 }

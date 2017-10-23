@@ -17,7 +17,7 @@ nsIWidget::CreatePluginProxyWidget(TabChild* aTabChild,
                                    mozilla::plugins::PluginWidgetChild* aActor)
 {
   nsCOMPtr<nsIWidget> widget =
-    new mozilla::widget::PluginWidgetProxy(aTabChild, aActor);
+      new mozilla::widget::PluginWidgetProxy(aTabChild, aActor);
   return widget.forget();
 }
 
@@ -28,18 +28,17 @@ using mozilla::plugins::PluginInstanceParent;
 
 NS_IMPL_ISUPPORTS_INHERITED(PluginWidgetProxy, PuppetWidget, nsIWidget)
 
-#define ENSURE_CHANNEL do {                                   \
-  if (!mActor) {                                              \
-    NS_WARNING("called on an invalid channel.");              \
-    return NS_ERROR_FAILURE;                                  \
-  }                                                           \
-} while (0)
+#define ENSURE_CHANNEL                             \
+  do {                                             \
+    if (!mActor) {                                 \
+      NS_WARNING("called on an invalid channel."); \
+      return NS_ERROR_FAILURE;                     \
+    }                                              \
+  } while (0)
 
-PluginWidgetProxy::PluginWidgetProxy(dom::TabChild* aTabChild,
-                                     mozilla::plugins::PluginWidgetChild* aActor) :
-  PuppetWidget(aTabChild),
-  mActor(aActor),
-  mCachedPluginPort(0)
+PluginWidgetProxy::PluginWidgetProxy(
+    dom::TabChild* aTabChild, mozilla::plugins::PluginWidgetChild* aActor)
+    : PuppetWidget(aTabChild), mActor(aActor), mCachedPluginPort(0)
 {
   // See ChannelDestroyed() in the header
   mActor->SetWidget(this);
@@ -76,9 +75,10 @@ PluginWidgetProxy::Create(nsIWidget* aParent,
   mVisible = true;
 
   PluginInstanceParent* instance =
-    PluginInstanceParent::LookupPluginInstanceByID(pluginInstanceId);
+      PluginInstanceParent::LookupPluginInstanceByID(pluginInstanceId);
   if (instance) {
-    Unused << NS_WARN_IF(NS_FAILED(instance->SetScrollCaptureId(scrollCaptureId)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(instance->SetScrollCaptureId(scrollCaptureId)));
   }
 
   return NS_OK;
@@ -143,7 +143,9 @@ PluginWidgetProxy::GetNativeData(uint32_t aDataType)
     case NS_NATIVE_SHAREABLE_WINDOW:
       break;
     default:
-      NS_WARNING("PluginWidgetProxy::GetNativeData received request for unsupported data type.");
+      NS_WARNING(
+          "PluginWidgetProxy::GetNativeData received request for unsupported "
+          "data type.");
       return nullptr;
   }
   // The parent side window handle or xid never changes so we can
@@ -186,5 +188,5 @@ PluginWidgetProxy::SetFocus(bool aRaise)
   return NS_OK;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

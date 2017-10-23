@@ -16,15 +16,12 @@
 using namespace js;
 using namespace js::jit;
 
-static EnterJitStatus
-EnterJit(JSContext* cx, RunState& state, uint8_t* code)
-{
+static EnterJitStatus EnterJit(JSContext* cx, RunState& state, uint8_t* code) {
     MOZ_ASSERT(state.script()->hasBaselineScript());
     MOZ_ASSERT(code);
     MOZ_ASSERT(IsBaselineEnabled(cx));
 
-    if (!CheckRecursionLimit(cx))
-        return EnterJitStatus::Error;
+    if (!CheckRecursionLimit(cx)) return EnterJitStatus::Error;
 
 #ifdef DEBUG
     // Assert we don't GC before entering JIT code. A GC could discard JIT code
@@ -50,14 +47,13 @@ EnterJit(JSContext* cx, RunState& state, uint8_t* code)
         if (TooManyActualArguments(numActualArgs)) {
             // Too many arguments for Ion. Baseline supports more actual
             // arguments, so in that case force Baseline code.
-            if (numActualArgs > BASELINE_MAX_ARGS_LENGTH)
-                return EnterJitStatus::NotEntered;
+            if (numActualArgs > BASELINE_MAX_ARGS_LENGTH) return EnterJitStatus::NotEntered;
             code = script->baselineScript()->method()->raw();
         }
 
         constructing = state.asInvoke()->constructing();
         maxArgc = args.length() + 1;
-        maxArgv = args.array() - 1; // -1 to include |this|
+        maxArgv = args.array() - 1;  // -1 to include |this|
         envChain = nullptr;
         calleeToken = CalleeToToken(&args.callee().as<JSFunction>(), constructing);
 
@@ -101,9 +97,8 @@ EnterJit(JSContext* cx, RunState& state, uint8_t* code)
 #ifdef DEBUG
         nogc.reset();
 #endif
-        CALL_GENERATED_CODE(enter, code, maxArgc, maxArgv, /* osrFrame = */ nullptr,
-                            calleeToken, envChain, /* osrNumStackValues = */ 0,
-                            result.address());
+        CALL_GENERATED_CODE(enter, code, maxArgc, maxArgv, /* osrFrame = */ nullptr, calleeToken,
+                            envChain, /* osrNumStackValues = */ 0, result.address());
     }
 
     MOZ_ASSERT(!cx->hasIonReturnOverride());
@@ -118,10 +113,7 @@ EnterJit(JSContext* cx, RunState& state, uint8_t* code)
 
     // Jit callers wrap primitive constructor return, except for derived
     // class constructors, which are forced to do it themselves.
-    if (constructing &&
-        result.isPrimitive() &&
-        !constructingLegacyGen)
-    {
+    if (constructing && result.isPrimitive() && !constructingLegacyGen) {
         MOZ_ASSERT(maxArgv[0].isObject());
         result = maxArgv[0];
     }
@@ -130,23 +122,19 @@ EnterJit(JSContext* cx, RunState& state, uint8_t* code)
     return EnterJitStatus::Ok;
 }
 
-EnterJitStatus
-js::jit::MaybeEnterJit(JSContext* cx, RunState& state)
-{
+EnterJitStatus js::jit::MaybeEnterJit(JSContext* cx, RunState& state) {
     JSScript* script = state.script();
 
     uint8_t* code = script->baselineOrIonRawPointer();
     do {
         // If we have JIT-code, we can just use it. Note that Baseline code
         // contains warm-up checks in the prologue to Ion-compile if needed.
-        if (code)
-            break;
+        if (code) break;
 
         // Try to Ion-compile.
         if (jit::IsIonEnabled(cx)) {
             jit::MethodStatus status = jit::CanEnterIon(cx, state);
-            if (status == jit::Method_Error)
-                return EnterJitStatus::Error;
+            if (status == jit::Method_Error) return EnterJitStatus::Error;
             if (status == jit::Method_Compiled) {
                 code = script->baselineOrIonRawPointer();
                 break;
@@ -156,8 +144,7 @@ js::jit::MaybeEnterJit(JSContext* cx, RunState& state)
         // Try to Baseline-compile.
         if (jit::IsBaselineEnabled(cx)) {
             jit::MethodStatus status = jit::CanEnterBaselineMethod(cx, state);
-            if (status == jit::Method_Error)
-                return EnterJitStatus::Error;
+            if (status == jit::Method_Error) return EnterJitStatus::Error;
             if (status == jit::Method_Compiled) {
                 code = script->baselineOrIonRawPointer();
                 break;

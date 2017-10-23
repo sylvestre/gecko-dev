@@ -20,9 +20,9 @@ namespace dom {
 
 /* static */ void
 SharedMessagePortMessage::FromSharedToMessagesChild(
-                      MessagePortChild* aActor,
-                      const nsTArray<RefPtr<SharedMessagePortMessage>>& aData,
-                      nsTArray<ClonedMessageData>& aArray)
+    MessagePortChild* aActor,
+    const nsTArray<RefPtr<SharedMessagePortMessage>>& aData,
+    nsTArray<ClonedMessageData>& aArray)
 {
   MOZ_ASSERT(aActor);
   MOZ_ASSERT(aArray.IsEmpty());
@@ -39,8 +39,8 @@ SharedMessagePortMessage::FromSharedToMessagesChild(
 
 /* static */ bool
 SharedMessagePortMessage::FromMessagesToSharedChild(
-                      nsTArray<ClonedMessageData>& aArray,
-                      FallibleTArray<RefPtr<SharedMessagePortMessage>>& aData)
+    nsTArray<ClonedMessageData>& aArray,
+    FallibleTArray<RefPtr<SharedMessagePortMessage>>& aData)
 {
   MOZ_ASSERT(aData.IsEmpty());
 
@@ -62,9 +62,9 @@ SharedMessagePortMessage::FromMessagesToSharedChild(
 
 /* static */ bool
 SharedMessagePortMessage::FromSharedToMessagesParent(
-                      MessagePortParent* aActor,
-                      const nsTArray<RefPtr<SharedMessagePortMessage>>& aData,
-                      FallibleTArray<ClonedMessageData>& aArray)
+    MessagePortParent* aActor,
+    const nsTArray<RefPtr<SharedMessagePortMessage>>& aData,
+    FallibleTArray<ClonedMessageData>& aArray)
 {
   MOZ_ASSERT(aArray.IsEmpty());
 
@@ -86,8 +86,8 @@ SharedMessagePortMessage::FromSharedToMessagesParent(
 
 /* static */ bool
 SharedMessagePortMessage::FromMessagesToSharedParent(
-                      nsTArray<ClonedMessageData>& aArray,
-                      FallibleTArray<RefPtr<SharedMessagePortMessage>>& aData)
+    nsTArray<ClonedMessageData>& aArray,
+    FallibleTArray<RefPtr<SharedMessagePortMessage>>& aData)
 {
   MOZ_ASSERT(aData.IsEmpty());
 
@@ -107,5 +107,5 @@ SharedMessagePortMessage::FromMessagesToSharedParent(
   return true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

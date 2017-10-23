@@ -12,14 +12,14 @@ namespace mozilla {
 namespace dom {
 namespace workers {
 
-class ServiceWorkerUnregisterJob::PushUnsubscribeCallback final :
-        public nsIUnsubscribeResultCallback
+class ServiceWorkerUnregisterJob::PushUnsubscribeCallback final
+    : public nsIUnsubscribeResultCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit PushUnsubscribeCallback(ServiceWorkerUnregisterJob* aJob)
-    : mJob(aJob)
+      : mJob(aJob)
   {
     AssertIsOnMainThread();
   }
@@ -34,10 +34,8 @@ public:
     return NS_OK;
   }
 
-private:
-  ~PushUnsubscribeCallback()
-  {
-  }
+ private:
+  ~PushUnsubscribeCallback() {}
 
   RefPtr<ServiceWorkerUnregisterJob> mJob;
 };
@@ -48,9 +46,9 @@ NS_IMPL_ISUPPORTS(ServiceWorkerUnregisterJob::PushUnsubscribeCallback,
 ServiceWorkerUnregisterJob::ServiceWorkerUnregisterJob(nsIPrincipal* aPrincipal,
                                                        const nsACString& aScope,
                                                        bool aSendToParent)
-  : ServiceWorkerJob(Type::Unregister, aPrincipal, aScope, EmptyCString())
-  , mResult(false)
-  , mSendToParent(aSendToParent)
+    : ServiceWorkerJob(Type::Unregister, aPrincipal, aScope, EmptyCString()),
+      mResult(false),
+      mSendToParent(aSendToParent)
 {
 }
 
@@ -61,9 +59,7 @@ ServiceWorkerUnregisterJob::GetResult() const
   return mResult;
 }
 
-ServiceWorkerUnregisterJob::~ServiceWorkerUnregisterJob()
-{
-}
+ServiceWorkerUnregisterJob::~ServiceWorkerUnregisterJob() {}
 
 void
 ServiceWorkerUnregisterJob::AsyncExecute()
@@ -80,15 +76,15 @@ ServiceWorkerUnregisterJob::AsyncExecute()
   // service worker registration isn't cleared as we're unregistering, we
   // unsubscribe first.
   nsCOMPtr<nsIPushService> pushService =
-    do_GetService("@mozilla.org/push/Service;1");
+      do_GetService("@mozilla.org/push/Service;1");
   if (NS_WARN_IF(!pushService)) {
     Unregister();
     return;
   }
   nsCOMPtr<nsIUnsubscribeResultCallback> unsubscribeCallback =
-    new PushUnsubscribeCallback(this);
-  nsresult rv = pushService->Unsubscribe(NS_ConvertUTF8toUTF16(mScope),
-                                         mPrincipal, unsubscribeCallback);
+      new PushUnsubscribeCallback(this);
+  nsresult rv = pushService->Unsubscribe(
+      NS_ConvertUTF8toUTF16(mScope), mPrincipal, unsubscribeCallback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     Unregister();
   }
@@ -113,7 +109,7 @@ ServiceWorkerUnregisterJob::Unregister()
   // "Let registration be the result of running [[Get Registration]]
   // algorithm passing scope as the argument."
   RefPtr<ServiceWorkerRegistrationInfo> registration =
-    swm->GetRegistration(mPrincipal, mScope);
+      swm->GetRegistration(mPrincipal, mScope);
   if (!registration) {
     // "If registration is null, then, resolve promise with false."
     Finish(NS_OK);
@@ -146,6 +142,6 @@ ServiceWorkerUnregisterJob::Unregister()
   Finish(NS_OK);
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

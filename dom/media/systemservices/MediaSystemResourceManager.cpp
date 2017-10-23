@@ -17,7 +17,8 @@ namespace mozilla {
 using namespace mozilla::ipc;
 using namespace mozilla::layers;
 
-/* static */ StaticRefPtr<MediaSystemResourceManager> MediaSystemResourceManager::sSingleton;
+/* static */ StaticRefPtr<MediaSystemResourceManager>
+    MediaSystemResourceManager::sSingleton;
 
 /* static */ MediaSystemResourceManager*
 MediaSystemResourceManager::Get()
@@ -65,14 +66,14 @@ MediaSystemResourceManager::Init()
   bool done = false;
 
   RefPtr<Runnable> runnable =
-    NS_NewRunnableFunction("MediaSystemResourceManager::Init", [&]() {
-      if (!sSingleton) {
-        sSingleton = new MediaSystemResourceManager();
-      }
-      ReentrantMonitorAutoEnter childThreadAutoMon(barrier);
-      done = true;
-      barrier.NotifyAll();
-    });
+      NS_NewRunnableFunction("MediaSystemResourceManager::Init", [&]() {
+        if (!sSingleton) {
+          sSingleton = new MediaSystemResourceManager();
+        }
+        ReentrantMonitorAutoEnter childThreadAutoMon(barrier);
+        done = true;
+        barrier.NotifyAll();
+      });
 
   imageBridge->GetMessageLoop()->PostTask(runnable.forget());
 
@@ -83,9 +84,9 @@ MediaSystemResourceManager::Init()
 }
 
 MediaSystemResourceManager::MediaSystemResourceManager()
-  : mReentrantMonitor("MediaSystemResourceManager.mReentrantMonitor")
-  , mShutDown(false)
-  , mChild(nullptr)
+    : mReentrantMonitor("MediaSystemResourceManager.mReentrantMonitor"),
+      mShutDown(false),
+      mChild(nullptr)
 {
   MOZ_ASSERT(InImageBridgeChildThread());
   OpenIPC();
@@ -103,7 +104,8 @@ MediaSystemResourceManager::OpenIPC()
   MOZ_ASSERT(!mChild);
 
   media::PMediaSystemResourceManagerChild* child =
-    ImageBridgeChild::GetSingleton()->SendPMediaSystemResourceManagerConstructor();
+      ImageBridgeChild::GetSingleton()
+          ->SendPMediaSystemResourceManagerConstructor();
   mChild = static_cast<media::MediaSystemResourceManagerChild*>(child);
   mChild->SetManager(this);
 }
@@ -155,8 +157,9 @@ MediaSystemResourceManager::Unregister(MediaSystemResourceClient* aClient)
 }
 
 bool
-MediaSystemResourceManager::SetListener(MediaSystemResourceClient* aClient,
-                                  MediaSystemResourceReservationListener* aListener)
+MediaSystemResourceManager::SetListener(
+    MediaSystemResourceClient* aClient,
+    MediaSystemResourceReservationListener* aListener)
 {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
   MOZ_ASSERT(aClient);
@@ -168,7 +171,8 @@ MediaSystemResourceManager::SetListener(MediaSystemResourceClient* aClient,
     return false;
   }
   // State Check
-  if (aClient->mResourceState != MediaSystemResourceClient::RESOURCE_STATE_START) {
+  if (aClient->mResourceState !=
+      MediaSystemResourceClient::RESOURCE_STATE_START) {
     return false;
   }
   aClient->mListener = aListener;
@@ -186,27 +190,29 @@ MediaSystemResourceManager::Acquire(MediaSystemResourceClient* aClient)
   MOZ_ASSERT(client);
   MOZ_ASSERT(client == aClient);
 
-  aClient->mIsSync = false; // async request
+  aClient->mIsSync = false;  // async request
 
   if (!client) {
     HandleAcquireResult(aClient->mId, false);
     return;
   }
   // State Check
-  if (aClient->mResourceState != MediaSystemResourceClient::RESOURCE_STATE_START) {
+  if (aClient->mResourceState !=
+      MediaSystemResourceClient::RESOURCE_STATE_START) {
     HandleAcquireResult(aClient->mId, false);
     return;
   }
   aClient->mResourceState = MediaSystemResourceClient::RESOURCE_STATE_WAITING;
   ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(
-    NewRunnableMethod<uint32_t>("MediaSystemResourceManager::DoAcquire",
-                                this,
-                                &MediaSystemResourceManager::DoAcquire,
-                                aClient->mId));
+      NewRunnableMethod<uint32_t>("MediaSystemResourceManager::DoAcquire",
+                                  this,
+                                  &MediaSystemResourceManager::DoAcquire,
+                                  aClient->mId));
 }
 
 bool
-MediaSystemResourceManager::AcquireSyncNoWait(MediaSystemResourceClient* aClient)
+MediaSystemResourceManager::AcquireSyncNoWait(
+    MediaSystemResourceClient* aClient)
 {
   MOZ_ASSERT(aClient);
   MOZ_ASSERT(!InImageBridgeChildThread());
@@ -220,7 +226,7 @@ MediaSystemResourceManager::AcquireSyncNoWait(MediaSystemResourceClient* aClient
     MOZ_ASSERT(client);
     MOZ_ASSERT(client == aClient);
 
-    aClient->mIsSync = true; // sync request
+    aClient->mIsSync = true;  // sync request
 
     if (InImageBridgeChildThread()) {
       HandleAcquireResult(aClient->mId, false);
@@ -231,7 +237,8 @@ MediaSystemResourceManager::AcquireSyncNoWait(MediaSystemResourceClient* aClient
       return false;
     }
     // State Check
-    if (aClient->mResourceState != MediaSystemResourceClient::RESOURCE_STATE_START) {
+    if (aClient->mResourceState !=
+        MediaSystemResourceClient::RESOURCE_STATE_START) {
       HandleAcquireResult(aClient->mId, false);
       return false;
     }
@@ -242,10 +249,10 @@ MediaSystemResourceManager::AcquireSyncNoWait(MediaSystemResourceClient* aClient
   }
 
   ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(
-    NewRunnableMethod<uint32_t>("MediaSystemResourceManager::DoAcquire",
-                                this,
-                                &MediaSystemResourceManager::DoAcquire,
-                                aClient->mId));
+      NewRunnableMethod<uint32_t>("MediaSystemResourceManager::DoAcquire",
+                                  this,
+                                  &MediaSystemResourceManager::DoAcquire,
+                                  aClient->mId));
 
   // should stop the thread until done.
   while (!done) {
@@ -254,7 +261,8 @@ MediaSystemResourceManager::AcquireSyncNoWait(MediaSystemResourceClient* aClient
 
   {
     ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-    if (aClient->mResourceState != MediaSystemResourceClient::RESOURCE_STATE_ACQUIRED) {
+    if (aClient->mResourceState !=
+        MediaSystemResourceClient::RESOURCE_STATE_ACQUIRED) {
       return false;
     }
     return true;
@@ -274,16 +282,14 @@ MediaSystemResourceManager::DoAcquire(uint32_t aId)
     MediaSystemResourceClient* client = mResourceClients.Get(aId);
     MOZ_ASSERT(client);
 
-    if (!client ||
-        client->mResourceState != MediaSystemResourceClient::RESOURCE_STATE_WAITING) {
+    if (!client || client->mResourceState !=
+                       MediaSystemResourceClient::RESOURCE_STATE_WAITING) {
       HandleAcquireResult(aId, false);
       return;
     }
     MOZ_ASSERT(aId == client->mId);
     bool willWait = !client->mAcquireSyncWaitMonitor ? true : false;
-    mChild->SendAcquire(client->mId,
-                        client->mResourceType,
-                        willWait);
+    mChild->SendAcquire(client->mId, client->mResourceType, willWait);
   }
 }
 
@@ -297,11 +303,11 @@ MediaSystemResourceManager::ReleaseResource(MediaSystemResourceClient* aClient)
     MOZ_ASSERT(client);
     MOZ_ASSERT(client == aClient);
 
-    if (!client ||
-        client != aClient ||
-        aClient->mResourceState == MediaSystemResourceClient::RESOURCE_STATE_START ||
-        aClient->mResourceState == MediaSystemResourceClient::RESOURCE_STATE_END) {
-
+    if (!client || client != aClient ||
+        aClient->mResourceState ==
+            MediaSystemResourceClient::RESOURCE_STATE_START ||
+        aClient->mResourceState ==
+            MediaSystemResourceClient::RESOURCE_STATE_END) {
       aClient->mResourceState = MediaSystemResourceClient::RESOURCE_STATE_END;
       return;
     }
@@ -309,10 +315,10 @@ MediaSystemResourceManager::ReleaseResource(MediaSystemResourceClient* aClient)
     aClient->mResourceState = MediaSystemResourceClient::RESOURCE_STATE_END;
 
     ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(
-      NewRunnableMethod<uint32_t>("MediaSystemResourceManager::DoRelease",
-                                  this,
-                                  &MediaSystemResourceManager::DoRelease,
-                                  aClient->mId));
+        NewRunnableMethod<uint32_t>("MediaSystemResourceManager::DoRelease",
+                                    this,
+                                    &MediaSystemResourceManager::DoRelease,
+                                    aClient->mId));
   }
 }
 
@@ -337,12 +343,12 @@ MediaSystemResourceManager::HandleAcquireResult(uint32_t aId, bool aSuccess)
 {
   if (!InImageBridgeChildThread()) {
     ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(
-      NewRunnableMethod<uint32_t, bool>(
-        "MediaSystemResourceManager::HandleAcquireResult",
-        this,
-        &MediaSystemResourceManager::HandleAcquireResult,
-        aId,
-        aSuccess));
+        NewRunnableMethod<uint32_t, bool>(
+            "MediaSystemResourceManager::HandleAcquireResult",
+            this,
+            &MediaSystemResourceManager::HandleAcquireResult,
+            aId,
+            aSuccess));
     return;
   }
 
@@ -352,7 +358,8 @@ MediaSystemResourceManager::HandleAcquireResult(uint32_t aId, bool aSuccess)
     // Client was already unregistered.
     return;
   }
-  if (client->mResourceState != MediaSystemResourceClient::RESOURCE_STATE_WAITING) {
+  if (client->mResourceState !=
+      MediaSystemResourceClient::RESOURCE_STATE_WAITING) {
     return;
   }
 
@@ -360,7 +367,8 @@ MediaSystemResourceManager::HandleAcquireResult(uint32_t aId, bool aSuccess)
   if (aSuccess) {
     client->mResourceState = MediaSystemResourceClient::RESOURCE_STATE_ACQUIRED;
   } else {
-    client->mResourceState = MediaSystemResourceClient::RESOURCE_STATE_NOT_ACQUIRED;
+    client->mResourceState =
+        MediaSystemResourceClient::RESOURCE_STATE_NOT_ACQUIRED;
   }
 
   if (client->mIsSync) {
@@ -379,10 +387,10 @@ MediaSystemResourceManager::HandleAcquireResult(uint32_t aId, bool aSuccess)
       if (aSuccess) {
         client->mListener->ResourceReserved();
       } else {
-       client->mListener->ResourceReserveFailed();
+        client->mListener->ResourceReserveFailed();
       }
     }
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

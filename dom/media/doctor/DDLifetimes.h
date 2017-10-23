@@ -17,7 +17,7 @@ namespace mozilla {
 // Managed list of lifetimes.
 class DDLifetimes
 {
-public:
+ public:
   // DDLifetime for a given aObject, that exists at the aIndex time;
   // otherwise nullptr.
   DDLifetime* FindLifetime(const DDLogObject& aObject,
@@ -57,7 +57,7 @@ public:
           if (aOnlyHTMLMediaElement) {
             if (lifetime.mObject.Pointer() == aMediaElement &&
                 lifetime.mObject.TypeName() ==
-                  DDLoggedTypeTraits<dom::HTMLMediaElement>::Name()) {
+                    DDLoggedTypeTraits<dom::HTMLMediaElement>::Name()) {
               aF(lifetime);
               break;
             }
@@ -93,20 +93,17 @@ public:
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   // Hashtable key to use for each DDLogObject.
   class DDLogObjectHashKey : public PLDHashEntryHdr
   {
-  public:
+   public:
     typedef const DDLogObject& KeyType;
     typedef const DDLogObject* KeyTypePointer;
 
-    explicit DDLogObjectHashKey(KeyTypePointer aKey)
-      : mValue(*aKey)
-    {
-    }
+    explicit DDLogObjectHashKey(KeyTypePointer aKey) : mValue(*aKey) {}
     DDLogObjectHashKey(const DDLogObjectHashKey& aToCopy)
-      : mValue(aToCopy.mValue)
+        : mValue(aToCopy.mValue)
     {
     }
     ~DDLogObjectHashKey() {}
@@ -124,7 +121,7 @@ private:
       ALLOW_MEMMOVE = true
     };
 
-  private:
+   private:
     const DDLogObject mValue;
   };
 
@@ -137,6 +134,6 @@ private:
   nsClassHashtable<DDLogObjectHashKey, LifetimesForObject> mLifetimes;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDLifetimes_h_
+#endif  // DDLifetimes_h_

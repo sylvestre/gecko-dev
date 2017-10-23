@@ -12,7 +12,7 @@
 #include "nsBaseWidget.h"
 #if defined(MOZ_WIDGET_ANDROID)
 #include "mozilla/layers/UiCompositorControllerChild.h"
-#endif // defined(MOZ_WIDGET_ANDROID)
+#endif  // defined(MOZ_WIDGET_ANDROID)
 
 namespace mozilla {
 namespace layers {
@@ -20,14 +20,15 @@ namespace layers {
 using namespace gfx;
 using namespace widget;
 
-RemoteCompositorSession::RemoteCompositorSession(nsBaseWidget* aWidget,
-                                                 CompositorBridgeChild* aChild,
-                                                 CompositorWidgetDelegate* aWidgetDelegate,
-                                                 APZCTreeManagerChild* aAPZ,
-                                                 const uint64_t& aRootLayerTreeId)
- : CompositorSession(aWidgetDelegate, aChild, aRootLayerTreeId),
-   mWidget(aWidget),
-   mAPZ(aAPZ)
+RemoteCompositorSession::RemoteCompositorSession(
+    nsBaseWidget* aWidget,
+    CompositorBridgeChild* aChild,
+    CompositorWidgetDelegate* aWidgetDelegate,
+    APZCTreeManagerChild* aAPZ,
+    const uint64_t& aRootLayerTreeId)
+    : CompositorSession(aWidgetDelegate, aChild, aRootLayerTreeId),
+      mWidget(aWidget),
+      mAPZ(aAPZ)
 {
   MOZ_ASSERT(!gfxPlatform::IsHeadless());
   GPUProcessManager::Get()->RegisterRemoteProcessSession(this);
@@ -42,7 +43,7 @@ RemoteCompositorSession::~RemoteCompositorSession()
   MOZ_ASSERT(!mCompositorBridgeChild);
 #if defined(MOZ_WIDGET_ANDROID)
   MOZ_ASSERT(!mUiCompositorControllerChild);
-#endif //defined(MOZ_WIDGET_ANDROID)
+#endif  //defined(MOZ_WIDGET_ANDROID)
 }
 
 void
@@ -61,7 +62,8 @@ RemoteCompositorSession::GetInProcessBridge() const
 }
 
 void
-RemoteCompositorSession::SetContentController(GeckoContentController* aController)
+RemoteCompositorSession::SetContentController(
+    GeckoContentController* aController)
 {
   mContentController = aController;
   mCompositorBridgeChild->SendPAPZConstructor(new APZChild(aController), 0);
@@ -101,9 +103,9 @@ RemoteCompositorSession::Shutdown()
     mUiCompositorControllerChild->Destroy();
     mUiCompositorControllerChild = nullptr;
   }
-#endif //defined(MOZ_WIDGET_ANDROID)
+#endif  //defined(MOZ_WIDGET_ANDROID)
   GPUProcessManager::Get()->UnregisterRemoteProcessSession(this);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

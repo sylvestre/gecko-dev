@@ -15,7 +15,8 @@ namespace layers {
 struct ScrollSnapInfo;
 }
 
-struct ScrollSnapUtils {
+struct ScrollSnapUtils
+{
   /**
    * GetSnapPointForDestination determines which point to snap to after
    * scrolling. |aStartPos| gives the position before scrolling and
@@ -39,6 +40,6 @@ struct ScrollSnapUtils {
       const nsPoint& aDestination);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_layout_ScrollSnap_h_
+#endif  // mozilla_layout_ScrollSnap_h_

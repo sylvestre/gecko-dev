@@ -9,19 +9,15 @@
 #include "ProfileJSONWriter.h"
 #include "ThreadInfo.h"
 
-ProfilerBacktrace::ProfilerBacktrace(const char* aName, int aThreadId,
+ProfilerBacktrace::ProfilerBacktrace(const char* aName,
+                                     int aThreadId,
                                      UniquePtr<ProfileBuffer> aBuffer)
-  : mName(strdup(aName))
-  , mThreadId(aThreadId)
-  , mBuffer(Move(aBuffer))
+    : mName(strdup(aName)), mThreadId(aThreadId), mBuffer(Move(aBuffer))
 {
   MOZ_COUNT_CTOR(ProfilerBacktrace);
 }
 
-ProfilerBacktrace::~ProfilerBacktrace()
-{
-  MOZ_COUNT_DTOR(ProfilerBacktrace);
-}
+ProfilerBacktrace::~ProfilerBacktrace() { MOZ_COUNT_DTOR(ProfilerBacktrace); }
 
 void
 ProfilerBacktrace::StreamJSON(SpliceableJSONWriter& aWriter,
@@ -33,11 +29,15 @@ ProfilerBacktrace::StreamJSON(SpliceableJSONWriter& aWriter,
   // JSContext when streaming JitReturnAddress entries, and such entries
   // never appear in synchronous samples.
   double firstSampleTimeIgnored;
-  StreamSamplesAndMarkers(mName.get(), mThreadId,
-                          *mBuffer.get(), aWriter, aProcessStartTime,
+  StreamSamplesAndMarkers(mName.get(),
+                          mThreadId,
+                          *mBuffer.get(),
+                          aWriter,
+                          aProcessStartTime,
                           /* aRegisterTime */ TimeStamp(),
                           /* aUnregisterTime */ TimeStamp(),
-                          /* aSinceTime */ 0, &firstSampleTimeIgnored,
+                          /* aSinceTime */ 0,
+                          &firstSampleTimeIgnored,
                           /* aContext */ nullptr,
                           /* aSavedStreamedSamples */ nullptr,
                           /* aFirstSavedStreamedSampleTime */ 0.0,

@@ -15,8 +15,7 @@ using namespace JS;
 
 namespace XPCNativeWrapper {
 
-static inline
-bool
+static inline bool
 ThrowException(nsresult ex, JSContext* cx)
 {
   XPCThrower::Throw(ex, cx);
@@ -69,18 +68,25 @@ AttachNewConstructorObject(JSContext* aCx, JS::HandleObject aGlobalObject)
   // we can't use an AutoJSContext here until JSD is gone.
   JSAutoCompartment ac(aCx, aGlobalObject);
   JSFunction* xpcnativewrapper =
-    JS_DefineFunction(aCx, aGlobalObject, "XPCNativeWrapper",
-                      XrayWrapperConstructor, 1,
-                      JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_CONSTRUCTOR);
+      JS_DefineFunction(aCx,
+                        aGlobalObject,
+                        "XPCNativeWrapper",
+                        XrayWrapperConstructor,
+                        1,
+                        JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_CONSTRUCTOR);
   if (!xpcnativewrapper) {
     return false;
   }
   JS::RootedObject obj(aCx, JS_GetFunctionObject(xpcnativewrapper));
-  return JS_DefineFunction(aCx, obj, "unwrap", UnwrapNW, 1,
+  return JS_DefineFunction(aCx,
+                           obj,
+                           "unwrap",
+                           UnwrapNW,
+                           1,
                            JSPROP_READONLY | JSPROP_PERMANENT) != nullptr;
 }
 
-} // namespace XPCNativeWrapper
+}  // namespace XPCNativeWrapper
 
 namespace XPCWrapper {
 
@@ -94,4 +100,4 @@ UnsafeUnwrapSecurityWrapper(JSObject* obj)
   return obj;
 }
 
-} // namespace XPCWrapper
+}  // namespace XPCWrapper

@@ -13,14 +13,15 @@ namespace mozilla {
 
 Atomic<uint32_t> MediaSystemResourceClient::sSerialCounter(0);
 
-MediaSystemResourceClient::MediaSystemResourceClient(MediaSystemResourceType aReourceType)
-  : mResourceType(aReourceType)
-  , mId(++sSerialCounter)
-  , mListener(nullptr)
-  , mResourceState(RESOURCE_STATE_START)
-  , mIsSync(false)
-  , mAcquireSyncWaitMonitor(nullptr)
-  , mAcquireSyncWaitDone(nullptr)
+MediaSystemResourceClient::MediaSystemResourceClient(
+    MediaSystemResourceType aReourceType)
+    : mResourceType(aReourceType),
+      mId(++sSerialCounter),
+      mListener(nullptr),
+      mResourceState(RESOURCE_STATE_START),
+      mIsSync(false),
+      mAcquireSyncWaitMonitor(nullptr),
+      mAcquireSyncWaitDone(nullptr)
 {
   mManager = MediaSystemResourceManager::Get();
   if (mManager) {
@@ -37,7 +38,8 @@ MediaSystemResourceClient::~MediaSystemResourceClient()
 }
 
 bool
-MediaSystemResourceClient::SetListener(MediaSystemResourceReservationListener* aListener)
+MediaSystemResourceClient::SetListener(
+    MediaSystemResourceReservationListener* aListener)
 {
   if (!mManager) {
     return false;
@@ -72,4 +74,4 @@ MediaSystemResourceClient::ReleaseResource()
   mManager->ReleaseResource(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

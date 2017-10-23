@@ -24,15 +24,11 @@ NS_INTERFACE_MAP_END
 PerformanceEntry::PerformanceEntry(nsISupports* aParent,
                                    const nsAString& aName,
                                    const nsAString& aEntryType)
-: mParent(aParent),
-  mName(aName),
-  mEntryType(aEntryType)
+    : mParent(aParent), mName(aName), mEntryType(aEntryType)
 {
 }
 
-PerformanceEntry::~PerformanceEntry()
-{
-}
+PerformanceEntry::~PerformanceEntry() {}
 
 JSObject*
 PerformanceEntry::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)

@@ -7,20 +7,24 @@
 
 #include "nsLocalHandlerApp.h"
 
-class nsLocalHandlerAppMac : public nsLocalHandlerApp {
+class nsLocalHandlerAppMac : public nsLocalHandlerApp
+{
+ public:
+  nsLocalHandlerAppMac() {}
 
-  public:
-    nsLocalHandlerAppMac() { }
+  nsLocalHandlerAppMac(const char16_t* aName, nsIFile* aExecutable)
+      : nsLocalHandlerApp(aName, aExecutable)
+  {
+  }
 
-    nsLocalHandlerAppMac(const char16_t *aName, nsIFile *aExecutable)
-      : nsLocalHandlerApp(aName, aExecutable) {} 
+  nsLocalHandlerAppMac(const nsAString& aName, nsIFile* aExecutable)
+      : nsLocalHandlerApp(aName, aExecutable)
+  {
+  }
+  virtual ~nsLocalHandlerAppMac() {}
 
-    nsLocalHandlerAppMac(const nsAString & aName, nsIFile *aExecutable) 
-      : nsLocalHandlerApp(aName, aExecutable) {}
-    virtual ~nsLocalHandlerAppMac() { }
-
-    NS_IMETHOD LaunchWithURI(nsIURI* aURI, nsIInterfaceRequestor* aWindowContext);
-    NS_IMETHOD GetName(nsAString& aName);
+  NS_IMETHOD LaunchWithURI(nsIURI* aURI, nsIInterfaceRequestor* aWindowContext);
+  NS_IMETHOD GetName(nsAString& aName);
 };
 
 #endif /*NSLOCALHANDLERAPPMAC_H_*/

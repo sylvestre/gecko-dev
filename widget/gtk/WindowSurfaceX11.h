@@ -17,13 +17,17 @@
 namespace mozilla {
 namespace widget {
 
-class WindowSurfaceX11 : public WindowSurface {
-public:
-  WindowSurfaceX11(Display* aDisplay, Window aWindow, Visual* aVisual,
+class WindowSurfaceX11 : public WindowSurface
+{
+ public:
+  WindowSurfaceX11(Display* aDisplay,
+                   Window aWindow,
+                   Visual* aVisual,
                    unsigned int aDepth);
 
-protected:
-  static gfx::SurfaceFormat GetVisualFormat(const Visual* aVisual, unsigned int aDepth);
+ protected:
+  static gfx::SurfaceFormat GetVisualFormat(const Visual* aVisual,
+                                            unsigned int aDepth);
 
   Display* const mDisplay;
   const Window mWindow;
@@ -35,5 +39,5 @@ protected:
 }  // namespace widget
 }  // namespace mozilla
 
-#endif // MOZ_X11
-#endif // _MOZILLA_WIDGET_GTK_WINDOW_SURFACE_X11_H
+#endif  // MOZ_X11
+#endif  // _MOZILLA_WIDGET_GTK_WINDOW_SURFACE_X11_H

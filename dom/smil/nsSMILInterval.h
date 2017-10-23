@@ -21,7 +21,7 @@
 
 class nsSMILInterval
 {
-public:
+ public:
   nsSMILInterval();
   nsSMILInterval(const nsSMILInterval& aOther);
   ~nsSMILInterval();
@@ -63,7 +63,7 @@ public:
   // Cue for assessing if this interval can be filtered
   bool IsDependencyChainLink() const;
 
-private:
+ private:
   RefPtr<nsSMILInstanceTime> mBegin;
   RefPtr<nsSMILInstanceTime> mEnd;
 
@@ -83,4 +83,4 @@ private:
   bool mEndFixed;
 };
 
-#endif // NS_SMILINTERVAL_H_
+#endif  // NS_SMILINTERVAL_H_

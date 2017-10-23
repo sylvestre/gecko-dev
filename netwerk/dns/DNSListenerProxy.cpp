@@ -11,9 +11,7 @@
 namespace mozilla {
 namespace net {
 
-NS_IMPL_ISUPPORTS(DNSListenerProxy,
-                  nsIDNSListener,
-                  nsIDNSListenerProxy)
+NS_IMPL_ISUPPORTS(DNSListenerProxy, nsIDNSListener, nsIDNSListenerProxy)
 
 NS_IMETHODIMP
 DNSListenerProxy::OnLookupComplete(nsICancelable* aRequest,
@@ -21,7 +19,7 @@ DNSListenerProxy::OnLookupComplete(nsICancelable* aRequest,
                                    nsresult aStatus)
 {
   RefPtr<OnLookupCompleteRunnable> r =
-    new OnLookupCompleteRunnable(mListener, aRequest, aRecord, aStatus);
+      new OnLookupCompleteRunnable(mListener, aRequest, aRecord, aStatus);
   return mTargetThread->Dispatch(r, NS_DISPATCH_NORMAL);
 }
 
@@ -33,11 +31,11 @@ DNSListenerProxy::OnLookupCompleteRunnable::Run()
 }
 
 NS_IMETHODIMP
-DNSListenerProxy::GetOriginalListener(nsIDNSListener **aOriginalListener)
+DNSListenerProxy::GetOriginalListener(nsIDNSListener** aOriginalListener)
 {
   NS_IF_ADDREF(*aOriginalListener = mListener);
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

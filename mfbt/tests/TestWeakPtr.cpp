@@ -12,14 +12,12 @@ using mozilla::WeakPtr;
 // To have a class C support weak pointers, inherit from SupportsWeakPtr<C>.
 class C : public SupportsWeakPtr<C>
 {
-public:
+ public:
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(C)
 
   int mNum;
 
-  C()
-    : mNum(0)
-  {}
+  C() : mNum(0) {}
 
   ~C()
   {
@@ -29,21 +27,19 @@ public:
 
   void act() {}
 
-  bool isConst() {
-    return false;
-  }
+  bool isConst() { return false; }
 
-  bool isConst() const {
-    return true;
-  }
+  bool isConst() const { return true; }
 };
 
-bool isConst(C*)
+bool
+isConst(C*)
 {
   return false;
 }
 
-bool isConst(const C*)
+bool
+isConst(const C*)
 {
   return true;
 }
@@ -103,7 +99,7 @@ main()
   // Now construct another C object and test changing what object a WeakPtr points to
   C* c2 = new C;
   c2->mNum = 2;
-  MOZ_RELEASE_ASSERT(w2->mNum == 1); // w2 was pointing to c1
+  MOZ_RELEASE_ASSERT(w2->mNum == 1);  // w2 was pointing to c1
   w2 = c2;
   MOZ_RELEASE_ASSERT(w2);
   MOZ_RELEASE_ASSERT(w2 == c2);
@@ -115,8 +111,11 @@ main()
   // It should not affect pointers that are not currently pointing to it.
   delete c1;
   MOZ_RELEASE_ASSERT(!w1, "Deleting an object should clear WeakPtr's to it.");
-  MOZ_RELEASE_ASSERT(!w3const, "Deleting an object should clear WeakPtr's to it.");
-  MOZ_RELEASE_ASSERT(w2, "Deleting an object should not clear WeakPtr that are not pointing to it.");
+  MOZ_RELEASE_ASSERT(!w3const,
+                     "Deleting an object should clear WeakPtr's to it.");
+  MOZ_RELEASE_ASSERT(w2,
+                     "Deleting an object should not clear WeakPtr that are not "
+                     "pointing to it.");
 
   delete c2;
   MOZ_RELEASE_ASSERT(!w2, "Deleting an object should clear WeakPtr's to it.");

@@ -12,8 +12,13 @@
 
 #include "nsWrapperCache.h"
 #include "mozilla/dom/TypedArray.h"
-#define NS_DOMCRYPTO_CID \
-  {0x929d9320, 0x251e, 0x11d4, { 0x8a, 0x7c, 0x00, 0x60, 0x08, 0xc8, 0x44, 0xc3} }
+#define NS_DOMCRYPTO_CID                             \
+  {                                                  \
+    0x929d9320, 0x251e, 0x11d4,                      \
+    {                                                \
+      0x8a, 0x7c, 0x00, 0x60, 0x08, 0xc8, 0x44, 0xc3 \
+    }                                                \
+  }
 
 namespace mozilla {
 
@@ -21,13 +26,12 @@ class ErrorResult;
 
 namespace dom {
 
-class Crypto : public nsIDOMCrypto,
-               public nsWrapperCache
+class Crypto : public nsIDOMCrypto, public nsWrapperCache
 {
-protected:
+ protected:
   virtual ~Crypto();
 
-public:
+ public:
   Crypto();
 
   NS_DECL_NSIDOMCRYPTO
@@ -35,31 +39,26 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Crypto)
 
-  void
-  GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
-                  JS::MutableHandle<JSObject*> aRetval,
-                  ErrorResult& aRv);
+  void GetRandomValues(JSContext* aCx,
+                       const ArrayBufferView& aArray,
+                       JS::MutableHandle<JSObject*> aRetval,
+                       ErrorResult& aRv);
 
-  SubtleCrypto*
-  Subtle();
+  SubtleCrypto* Subtle();
 
   // WebIDL
 
-  nsIGlobalObject*
-  GetParentObject() const
-  {
-    return mParent;
-  }
+  nsIGlobalObject* GetParentObject() const { return mParent; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   nsCOMPtr<nsIGlobalObject> mParent;
   RefPtr<SubtleCrypto> mSubtle;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Crypto_h
+#endif  // mozilla_dom_Crypto_h

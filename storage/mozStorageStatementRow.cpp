@@ -32,9 +32,8 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(StatementRow)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(StatementRow)
 
-StatementRow::StatementRow(nsPIDOMWindowInner* aWindow, Statement *aStatement)
-: mWindow(aWindow),
-  mStatement(aStatement)
+StatementRow::StatementRow(nsPIDOMWindowInner* aWindow, Statement* aStatement)
+    : mWindow(aWindow), mStatement(aStatement)
 {
 }
 
@@ -77,56 +76,55 @@ StatementRow::NamedGetter(JSContext* aCx,
   }
 
   switch (type) {
-  case mozIStorageValueArray::VALUE_TYPE_INTEGER:
-  case mozIStorageValueArray::VALUE_TYPE_FLOAT: {
-    double dval;
-    aRv = mStatement->GetDouble(idx, &dval);
-    if (aRv.Failed()) {
-      return;
+    case mozIStorageValueArray::VALUE_TYPE_INTEGER:
+    case mozIStorageValueArray::VALUE_TYPE_FLOAT: {
+      double dval;
+      aRv = mStatement->GetDouble(idx, &dval);
+      if (aRv.Failed()) {
+        return;
+      }
+      aResult.set(::JS_NumberValue(dval));
+      break;
     }
-    aResult.set(::JS_NumberValue(dval));
-    break;
-  }
-  case mozIStorageValueArray::VALUE_TYPE_TEXT: {
-    uint32_t bytes;
-    const char16_t *sval = reinterpret_cast<const char16_t *>(
-        static_cast<mozIStorageStatement *>(mStatement)->
-          AsSharedWString(idx, &bytes)
-      );
-    JSString *str = ::JS_NewUCStringCopyN(aCx, sval, bytes / 2);
-    if (!str) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return;
-    }
-    aResult.setString(str);
-    break;
-  }
-  case mozIStorageValueArray::VALUE_TYPE_BLOB: {
-    uint32_t length;
-    const uint8_t *blob = static_cast<mozIStorageStatement *>(mStatement)->
-      AsSharedBlob(idx, &length);
-    JS::Rooted<JSObject*> obj(aCx, ::JS_NewArrayObject(aCx, length));
-    if (!obj) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return;
-    }
-    aResult.setObject(*obj);
-
-    // Copy the blob over to the JS array.
-    for (uint32_t i = 0; i < length; i++) {
-      if (!::JS_DefineElement(aCx, obj, i, blob[i], JSPROP_ENUMERATE)) {
+    case mozIStorageValueArray::VALUE_TYPE_TEXT: {
+      uint32_t bytes;
+      const char16_t* sval = reinterpret_cast<const char16_t*>(
+          static_cast<mozIStorageStatement*>(mStatement)
+              ->AsSharedWString(idx, &bytes));
+      JSString* str = ::JS_NewUCStringCopyN(aCx, sval, bytes / 2);
+      if (!str) {
         aRv.Throw(NS_ERROR_UNEXPECTED);
         return;
       }
+      aResult.setString(str);
+      break;
     }
-    break;
-  }
-  case mozIStorageValueArray::VALUE_TYPE_NULL:
-    aResult.setNull();
-    break;
-  default:
-    NS_ERROR("unknown column type returned, what's going on?");
-    break;
+    case mozIStorageValueArray::VALUE_TYPE_BLOB: {
+      uint32_t length;
+      const uint8_t* blob = static_cast<mozIStorageStatement*>(mStatement)
+                                ->AsSharedBlob(idx, &length);
+      JS::Rooted<JSObject*> obj(aCx, ::JS_NewArrayObject(aCx, length));
+      if (!obj) {
+        aRv.Throw(NS_ERROR_UNEXPECTED);
+        return;
+      }
+      aResult.setObject(*obj);
+
+      // Copy the blob over to the JS array.
+      for (uint32_t i = 0; i < length; i++) {
+        if (!::JS_DefineElement(aCx, obj, i, blob[i], JSPROP_ENUMERATE)) {
+          aRv.Throw(NS_ERROR_UNEXPECTED);
+          return;
+        }
+      }
+      break;
+    }
+    case mozIStorageValueArray::VALUE_TYPE_NULL:
+      aResult.setNull();
+      break;
+    default:
+      NS_ERROR("unknown column type returned, what's going on?");
+      break;
   }
   aFound = true;
 }
@@ -154,5 +152,5 @@ StatementRow::GetSupportedNames(nsTArray<nsString>& aNames)
   }
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla

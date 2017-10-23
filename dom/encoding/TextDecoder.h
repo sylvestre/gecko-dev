@@ -21,16 +21,14 @@ namespace dom {
 
 class ArrayBufferViewOrArrayBuffer;
 
-class TextDecoder final
-  : public NonRefcountedDOMObject
+class TextDecoder final : public NonRefcountedDOMObject
 {
-public:
+ public:
   // The WebIDL constructor.
-  static TextDecoder*
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aEncoding,
-              const TextDecoderOptions& aOptions,
-              ErrorResult& aRv)
+  static TextDecoder* Constructor(const GlobalObject& aGlobal,
+                                  const nsAString& aEncoding,
+                                  const TextDecoderOptions& aOptions,
+                                  ErrorResult& aRv)
   {
     nsAutoPtr<TextDecoder> txtDecoder(new TextDecoder());
     txtDecoder->Init(aEncoding, aOptions.mFatal, aRv);
@@ -40,18 +38,13 @@ public:
     return txtDecoder.forget();
   }
 
-  TextDecoder()
-    : mFatal(false)
-  {
-    MOZ_COUNT_CTOR(TextDecoder);
-  }
+  TextDecoder() : mFatal(false) { MOZ_COUNT_CTOR(TextDecoder); }
 
-  ~TextDecoder()
-  {
-    MOZ_COUNT_DTOR(TextDecoder);
-  }
+  ~TextDecoder() { MOZ_COUNT_DTOR(TextDecoder); }
 
-  bool WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto, JS::MutableHandle<JSObject*> aReflector)
+  bool WrapObject(JSContext* aCx,
+                  JS::Handle<JSObject*> aGivenProto,
+                  JS::MutableHandle<JSObject*> aReflector)
   {
     return TextDecoderBinding::Wrap(aCx, this, aGivenProto, aReflector);
   }
@@ -74,8 +67,7 @@ public:
    * @param aFatal       indicates whether to throw an 'EncodingError'
    *                     exception or not when decoding.
    */
-  void InitWithEncoding(NotNull<const Encoding*> aEncoding,
-                        const bool aFatal);
+  void InitWithEncoding(NotNull<const Encoding*> aEncoding, const bool aFatal);
 
   /**
    * Return the encoding name.
@@ -110,17 +102,15 @@ public:
               nsAString& aOutDecodedString,
               ErrorResult& aRv);
 
-  bool Fatal() const {
-    return mFatal;
-  }
+  bool Fatal() const { return mFatal; }
 
-private:
+ private:
   nsCString mEncoding;
   mozilla::UniquePtr<mozilla::Decoder> mDecoder;
   bool mFatal;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_textdecoder_h_
+#endif  // mozilla_dom_textdecoder_h_

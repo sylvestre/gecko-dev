@@ -57,16 +57,17 @@ OggWriter::WriteEncodedTrack(const EncodedFrameContainer& aData,
 
   uint32_t len = aData.GetEncodedFrames().Length();
   for (uint32_t i = 0; i < len; i++) {
-    if (aData.GetEncodedFrames()[i]->GetFrameType() != EncodedFrame::OPUS_AUDIO_FRAME) {
+    if (aData.GetEncodedFrames()[i]->GetFrameType() !=
+        EncodedFrame::OPUS_AUDIO_FRAME) {
       LOG("[OggWriter] wrong encoded data type!");
       return NS_ERROR_FAILURE;
     }
 
     // only pass END_OF_STREAM on the last frame!
-    nsresult rv = WriteEncodedData(aData.GetEncodedFrames()[i]->GetFrameData(),
-                                   aData.GetEncodedFrames()[i]->GetDuration(),
-                                   i < len-1 ? (aFlags & ~ContainerWriter::END_OF_STREAM) :
-                                   aFlags);
+    nsresult rv = WriteEncodedData(
+        aData.GetEncodedFrames()[i]->GetFrameData(),
+        aData.GetEncodedFrames()[i]->GetDuration(),
+        i < len - 1 ? (aFlags & ~ContainerWriter::END_OF_STREAM) : aFlags);
     if (NS_FAILED(rv)) {
       LOG("%p Failed to WriteEncodedTrack!", this);
       return rv;
@@ -76,7 +77,8 @@ OggWriter::WriteEncodedTrack(const EncodedFrameContainer& aData,
 }
 
 nsresult
-OggWriter::WriteEncodedData(const nsTArray<uint8_t>& aBuffer, int aDuration,
+OggWriter::WriteEncodedData(const nsTArray<uint8_t>& aBuffer,
+                            int aDuration,
                             uint32_t aFlags)
 {
   if (!mInitialized) {
@@ -121,12 +123,13 @@ void
 OggWriter::ProduceOggPage(nsTArray<nsTArray<uint8_t> >* aOutputBufs)
 {
   aOutputBufs->AppendElement();
-  aOutputBufs->LastElement().SetLength(mOggPage.header_len +
-                                       mOggPage.body_len);
-  memcpy(aOutputBufs->LastElement().Elements(), mOggPage.header,
+  aOutputBufs->LastElement().SetLength(mOggPage.header_len + mOggPage.body_len);
+  memcpy(aOutputBufs->LastElement().Elements(),
+         mOggPage.header,
          mOggPage.header_len);
   memcpy(aOutputBufs->LastElement().Elements() + mOggPage.header_len,
-         mOggPage.body, mOggPage.body_len);
+         mOggPage.body,
+         mOggPage.body_len);
 }
 
 nsresult
@@ -158,8 +161,8 @@ OggWriter::GetContainerData(nsTArray<nsTArray<uint8_t> >* aOutputBufs,
     ProduceOggPage(aOutputBufs);
     return NS_OK;
 
-  // Force generate a page even if the amount of packet data is not enough.
-  // Usually do so after a header packet.
+    // Force generate a page even if the amount of packet data is not enough.
+    // Usually do so after a header packet.
   } else if (aFlags & ContainerWriter::FLUSH_NEEDED) {
     // rc = 0 means no packet to put into a page, or an internal error.
     rc = ogg_stream_flush(&mOggStreamState, &mOggPage);
@@ -203,4 +206,4 @@ OggWriter::SetMetadata(TrackMetadataBase* aMetadata)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

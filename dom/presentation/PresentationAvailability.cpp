@@ -21,11 +21,13 @@ using namespace mozilla::dom;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PresentationAvailability)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PresentationAvailability, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PresentationAvailability,
+                                                  DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPromises)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PresentationAvailability, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PresentationAvailability,
+                                                DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPromises);
   tmp->Shutdown();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -43,32 +45,27 @@ PresentationAvailability::Create(nsPIDOMWindowInner* aWindow,
                                  RefPtr<Promise>& aPromise)
 {
   RefPtr<PresentationAvailability> availability =
-    new PresentationAvailability(aWindow, aUrls);
+      new PresentationAvailability(aWindow, aUrls);
   return NS_WARN_IF(!availability->Init(aPromise)) ? nullptr
                                                    : availability.forget();
 }
 
-PresentationAvailability::PresentationAvailability(nsPIDOMWindowInner* aWindow,
-                                                   const nsTArray<nsString>& aUrls)
-  : DOMEventTargetHelper(aWindow)
-  , mIsAvailable(false)
-  , mUrls(aUrls)
+PresentationAvailability::PresentationAvailability(
+    nsPIDOMWindowInner* aWindow, const nsTArray<nsString>& aUrls)
+    : DOMEventTargetHelper(aWindow), mIsAvailable(false), mUrls(aUrls)
 {
   for (uint32_t i = 0; i < mUrls.Length(); ++i) {
     mAvailabilityOfUrl.AppendElement(false);
   }
 }
 
-PresentationAvailability::~PresentationAvailability()
-{
-  Shutdown();
-}
+PresentationAvailability::~PresentationAvailability() { Shutdown(); }
 
 bool
 PresentationAvailability::Init(RefPtr<Promise>& aPromise)
 {
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return false;
   }
@@ -92,22 +89,22 @@ PresentationAvailability::Init(RefPtr<Promise>& aPromise)
   return true;
 }
 
-void PresentationAvailability::Shutdown()
+void
+PresentationAvailability::Shutdown()
 {
   AvailabilityCollection* collection = AvailabilityCollection::GetSingleton();
-  if (collection ) {
+  if (collection) {
     collection->Remove(this);
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return;
   }
 
-  Unused <<
-    NS_WARN_IF(NS_FAILED(service->UnregisterAvailabilityListener(mUrls,
-                                                                 this)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(service->UnregisterAvailabilityListener(mUrls, this)));
 }
 
 /* virtual */ void
@@ -166,8 +163,8 @@ PresentationAvailability::Value() const
 }
 
 NS_IMETHODIMP
-PresentationAvailability::NotifyAvailableChange(const nsTArray<nsString>& aAvailabilityUrls,
-                                                bool aIsAvailable)
+PresentationAvailability::NotifyAvailableChange(
+    const nsTArray<nsString>& aAvailabilityUrls, bool aIsAvailable)
 {
   bool available = false;
   for (uint32_t i = 0; i < mUrls.Length(); ++i) {
@@ -178,10 +175,10 @@ PresentationAvailability::NotifyAvailableChange(const nsTArray<nsString>& aAvail
   }
 
   return NS_DispatchToCurrentThread(NewRunnableMethod<bool>(
-    "dom::PresentationAvailability::UpdateAvailabilityAndDispatchEvent",
-    this,
-    &PresentationAvailability::UpdateAvailabilityAndDispatchEvent,
-    available));
+      "dom::PresentationAvailability::UpdateAvailabilityAndDispatchEvent",
+      this,
+      &PresentationAvailability::UpdateAvailabilityAndDispatchEvent,
+      available));
 }
 
 void
@@ -215,7 +212,7 @@ PresentationAvailability::UpdateAvailabilityAndDispatchEvent(bool aIsAvailable)
   }
 
   if (isChanged) {
-    Unused <<
-      NS_WARN_IF(NS_FAILED(DispatchTrustedEvent(NS_LITERAL_STRING("change"))));
+    Unused << NS_WARN_IF(
+        NS_FAILED(DispatchTrustedEvent(NS_LITERAL_STRING("change"))));
   }
 }

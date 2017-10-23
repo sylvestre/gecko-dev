@@ -4,11 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "Key.h"
 
 #include <algorithm>
-#include <stdint.h> // for UINT32_MAX, uintptr_t
+#include <stdint.h>  // for UINT32_MAX, uintptr_t
 #include "IndexedDatabaseManager.h"
 #include "js/Date.h"
 #include "js/Value.h"
@@ -154,7 +153,7 @@ Key::ToLocaleBasedKey(Key& aTarget, const nsCString& aLocale) const
   auto* start = reinterpret_cast<const unsigned char*>(mBuffer.BeginReading());
   if (it > start) {
     char* buffer;
-    if (!aTarget.mBuffer.GetMutableData(&buffer, it-start)) {
+    if (!aTarget.mBuffer.GetMutableData(&buffer, it - start)) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
@@ -206,11 +205,12 @@ Key::ToLocaleBasedKey(Key& aTarget, const nsCString& aLocale) const
 }
 
 nsresult
-Key::EncodeJSValInternal(JSContext* aCx, JS::Handle<JS::Value> aVal,
-                         uint8_t aTypeOffset, uint16_t aRecursionDepth)
+Key::EncodeJSValInternal(JSContext* aCx,
+                         JS::Handle<JS::Value> aVal,
+                         uint8_t aTypeOffset,
+                         uint16_t aRecursionDepth)
 {
-  static_assert(eMaxType * kMaxArrayCollapse < 256,
-                "Unable to encode jsvals.");
+  static_assert(eMaxType * kMaxArrayCollapse < 256, "Unable to encode jsvals.");
 
   if (NS_WARN_IF(aRecursionDepth == kMaxRecursionDepth)) {
     return NS_ERROR_DOM_INDEXEDDB_DATA_ERR;
@@ -250,7 +250,7 @@ Key::EncodeJSValInternal(JSContext* aCx, JS::Handle<JS::Value> aVal,
         aTypeOffset = 0;
       }
       NS_ASSERTION((aTypeOffset % eMaxType) == 0 &&
-                   aTypeOffset < (eMaxType * kMaxArrayCollapse),
+                       aTypeOffset < (eMaxType * kMaxArrayCollapse),
                    "Wrong typeoffset");
 
       uint32_t length;
@@ -266,8 +266,8 @@ Key::EncodeJSValInternal(JSContext* aCx, JS::Handle<JS::Value> aVal,
           return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
         }
 
-        nsresult rv = EncodeJSValInternal(aCx, val, aTypeOffset,
-                                          aRecursionDepth + 1);
+        nsresult rv =
+            EncodeJSValInternal(aCx, val, aTypeOffset, aRecursionDepth + 1);
         if (NS_FAILED(rv)) {
           return rv;
         }
@@ -286,7 +286,7 @@ Key::EncodeJSValInternal(JSContext* aCx, JS::Handle<JS::Value> aVal,
         IDB_REPORT_INTERNAL_ERR();
         return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
       }
-      if (!valid)  {
+      if (!valid) {
         return NS_ERROR_DOM_INDEXEDDB_DATA_ERR;
       }
       double t;
@@ -312,8 +312,11 @@ Key::EncodeJSValInternal(JSContext* aCx, JS::Handle<JS::Value> aVal,
 
 // static
 nsresult
-Key::DecodeJSValInternal(const unsigned char*& aPos, const unsigned char* aEnd,
-                         JSContext* aCx, uint8_t aTypeOffset, JS::MutableHandle<JS::Value> aVal,
+Key::DecodeJSValInternal(const unsigned char*& aPos,
+                         const unsigned char* aEnd,
+                         JSContext* aCx,
+                         uint8_t aTypeOffset,
+                         JS::MutableHandle<JS::Value> aVal,
                          uint16_t aRecursionDepth)
 {
   if (NS_WARN_IF(aRecursionDepth == kMaxRecursionDepth)) {
@@ -338,8 +341,8 @@ Key::DecodeJSValInternal(const unsigned char*& aPos, const unsigned char* aEnd,
     uint32_t index = 0;
     JS::Rooted<JS::Value> val(aCx);
     while (aPos < aEnd && *aPos - aTypeOffset != eTerminator) {
-      nsresult rv = DecodeJSValInternal(aPos, aEnd, aCx, aTypeOffset,
-                                        &val, aRecursionDepth + 1);
+      nsresult rv = DecodeJSValInternal(
+          aPos, aEnd, aCx, aTypeOffset, &val, aRecursionDepth + 1);
       NS_ENSURE_SUCCESS(rv, rv);
 
       aTypeOffset = 0;
@@ -356,16 +359,14 @@ Key::DecodeJSValInternal(const unsigned char*& aPos, const unsigned char* aEnd,
     ++aPos;
 
     aVal.setObject(*array);
-  }
-  else if (*aPos - aTypeOffset == eString) {
+  } else if (*aPos - aTypeOffset == eString) {
     nsString key;
     DecodeString(aPos, aEnd, key);
     if (!xpc::StringToJsval(aCx, key, aVal)) {
       IDB_REPORT_INTERNAL_ERR();
       return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
     }
-  }
-  else if (*aPos - aTypeOffset == eDate) {
+  } else if (*aPos - aTypeOffset == eDate) {
     double msec = static_cast<double>(DecodeNumber(aPos, aEnd));
     JS::ClippedTime time = JS::TimeClip(msec);
     MOZ_ASSERT(msec == time.toDouble(),
@@ -378,11 +379,9 @@ Key::DecodeJSValInternal(const unsigned char*& aPos, const unsigned char* aEnd,
     }
 
     aVal.setObject(*date);
-  }
-  else if (*aPos - aTypeOffset == eFloat) {
+  } else if (*aPos - aTypeOffset == eFloat) {
     aVal.setDouble(DecodeNumber(aPos, aEnd));
-  }
-  else if (*aPos - aTypeOffset == eBinary) {
+  } else if (*aPos - aTypeOffset == eBinary) {
     JSObject* binary = DecodeBinary(aPos, aEnd, aCx);
     if (!binary) {
       IDB_REPORT_INTERNAL_ERR();
@@ -390,8 +389,7 @@ Key::DecodeJSValInternal(const unsigned char*& aPos, const unsigned char* aEnd,
     }
 
     aVal.setObject(*binary);
-  }
-  else {
+  } else {
     NS_NOTREACHED("Unknown key type!");
   }
 
@@ -399,7 +397,7 @@ Key::DecodeJSValInternal(const unsigned char*& aPos, const unsigned char* aEnd,
 }
 
 #define ONE_BYTE_LIMIT 0x7E
-#define TWO_BYTE_LIMIT (0x3FFF+0x7F)
+#define TWO_BYTE_LIMIT (0x3FFF + 0x7F)
 
 #define ONE_BYTE_ADJUST 1
 #define TWO_BYTE_ADJUST (-0x7F)
@@ -421,14 +419,14 @@ Key::EncodeString(const nsAString& aString, uint8_t aTypeOffset)
   return EncodeString(start, end, aTypeOffset);
 }
 
-template <typename T>
+template<typename T>
 nsresult
 Key::EncodeString(const T* aStart, const T* aEnd, uint8_t aTypeOffset)
 {
   return EncodeAsString(aStart, aEnd, eString + aTypeOffset);
 }
 
-template <typename T>
+template<typename T>
 nsresult
 Key::EncodeAsString(const T* aStart, const T* aEnd, uint8_t aType)
 {
@@ -481,13 +479,11 @@ Key::EncodeAsString(const T* aStart, const T* aEnd, uint8_t aType)
   for (const T* iter = start; iter < end; ++iter) {
     if (*iter <= ONE_BYTE_LIMIT) {
       *(buffer++) = *iter + ONE_BYTE_ADJUST;
-    }
-    else if (char16_t(*iter) <= TWO_BYTE_LIMIT) {
+    } else if (char16_t(*iter) <= TWO_BYTE_LIMIT) {
       char16_t c = char16_t(*iter) + TWO_BYTE_ADJUST + 0x8000;
       *(buffer++) = (char)(c >> 8);
       *(buffer++) = (char)(c & 0xFF);
-    }
-    else {
+    } else {
       uint32_t c = (uint32_t(*iter) << THREE_BYTE_SHIFT) | 0x00C00000;
       *(buffer++) = (char)(c >> 16);
       *(buffer++) = (char)(c >> 8);
@@ -504,7 +500,8 @@ Key::EncodeAsString(const T* aStart, const T* aEnd, uint8_t aType)
 }
 
 nsresult
-Key::EncodeLocaleString(const nsDependentString& aString, uint8_t aTypeOffset,
+Key::EncodeLocaleString(const nsDependentString& aString,
+                        uint8_t aTypeOffset,
                         const nsCString& aLocale)
 {
   const int length = aString.Length();
@@ -521,14 +518,12 @@ Key::EncodeLocaleString(const nsDependentString& aString, uint8_t aTypeOffset,
   MOZ_ASSERT(collator);
 
   AutoTArray<uint8_t, 128> keyBuffer;
-  int32_t sortKeyLength = ucol_getSortKey(collator, ustr, length,
-                                          keyBuffer.Elements(),
-                                          keyBuffer.Length());
+  int32_t sortKeyLength = ucol_getSortKey(
+      collator, ustr, length, keyBuffer.Elements(), keyBuffer.Length());
   if (sortKeyLength > (int32_t)keyBuffer.Length()) {
     keyBuffer.SetLength(sortKeyLength);
-    sortKeyLength = ucol_getSortKey(collator, ustr, length,
-                                    keyBuffer.Elements(),
-                                    sortKeyLength);
+    sortKeyLength = ucol_getSortKey(
+        collator, ustr, length, keyBuffer.Elements(), sortKeyLength);
   }
 
   ucol_close(collator);
@@ -536,9 +531,8 @@ Key::EncodeLocaleString(const nsDependentString& aString, uint8_t aTypeOffset,
     return NS_ERROR_FAILURE;
   }
 
-  return EncodeString(keyBuffer.Elements(),
-                      keyBuffer.Elements()+sortKeyLength,
-                      aTypeOffset);
+  return EncodeString(
+      keyBuffer.Elements(), keyBuffer.Elements() + sortKeyLength, aTypeOffset);
 }
 
 // static
@@ -553,7 +547,8 @@ Key::DecodeJSVal(const unsigned char*& aPos,
 
 // static
 void
-Key::DecodeString(const unsigned char*& aPos, const unsigned char* aEnd,
+Key::DecodeString(const unsigned char*& aPos,
+                  const unsigned char* aEnd,
                   nsString& aString)
 {
   NS_ASSERTION(*aPos % eMaxType == eString, "Don't call me!");
@@ -584,15 +579,13 @@ Key::DecodeString(const unsigned char*& aPos, const unsigned char* aEnd,
   for (iter = buffer; iter < aEnd;) {
     if (!(*iter & 0x80)) {
       *out = *(iter++) - ONE_BYTE_ADJUST;
-    }
-    else if (!(*iter & 0x40)) {
+    } else if (!(*iter & 0x40)) {
       char16_t c = (char16_t(*(iter++)) << 8);
       if (iter < aEnd) {
         c |= *(iter++);
       }
       *out = c - TWO_BYTE_ADJUST - 0x8000;
-    }
-    else {
+    } else {
       uint32_t c = uint32_t(*(iter++)) << (16 - THREE_BYTE_SHIFT);
       if (iter < aEnd) {
         c |= uint32_t(*(iter++)) << (8 - THREE_BYTE_SHIFT);
@@ -638,8 +631,8 @@ Key::EncodeNumber(double aFloat, uint8_t aType)
 double
 Key::DecodeNumber(const unsigned char*& aPos, const unsigned char* aEnd)
 {
-  NS_ASSERTION(*aPos % eMaxType == eFloat ||
-               *aPos % eMaxType == eDate, "Don't call me!");
+  NS_ASSERTION(*aPos % eMaxType == eFloat || *aPos % eMaxType == eDate,
+               "Don't call me!");
 
   ++aPos;
 
@@ -665,12 +658,15 @@ Key::EncodeBinary(JSObject* aObject, bool aIsViewObject, uint8_t aTypeOffset)
   bool unused;
 
   if (aIsViewObject) {
-    js::GetArrayBufferViewLengthAndData(aObject, &bufferLength, &unused, &bufferData);
+    js::GetArrayBufferViewLengthAndData(
+        aObject, &bufferLength, &unused, &bufferData);
   } else {
-    js::GetArrayBufferLengthAndData(aObject, &bufferLength, &unused, &bufferData);
+    js::GetArrayBufferLengthAndData(
+        aObject, &bufferLength, &unused, &bufferData);
   }
 
-  return EncodeAsString(bufferData, bufferData + bufferLength, eBinary + aTypeOffset);
+  return EncodeAsString(
+      bufferData, bufferData + bufferLength, eBinary + aTypeOffset);
 }
 
 // static
@@ -713,8 +709,7 @@ Key::DecodeBinary(const unsigned char*& aPos,
   for (iter = buffer; iter < aEnd;) {
     if (!(*iter & 0x80)) {
       *pos = *(iter++) - ONE_BYTE_ADJUST;
-    }
-    else {
+    } else {
       uint16_t c = (uint16_t(*(iter++)) << 8);
       if (iter < aEnd) {
         c |= *(iter++);
@@ -741,30 +736,29 @@ Key::BindToStatement(mozIStorageStatement* aStatement,
   if (IsUnset()) {
     rv = aStatement->BindNullByName(aParamName);
   } else {
-    rv = aStatement->BindBlobByName(aParamName,
-      reinterpret_cast<const uint8_t*>(mBuffer.get()), mBuffer.Length());
+    rv = aStatement->BindBlobByName(
+        aParamName,
+        reinterpret_cast<const uint8_t*>(mBuffer.get()),
+        mBuffer.Length());
   }
 
   return NS_SUCCEEDED(rv) ? NS_OK : NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
 }
 
 nsresult
-Key::SetFromStatement(mozIStorageStatement* aStatement,
-                      uint32_t aIndex)
+Key::SetFromStatement(mozIStorageStatement* aStatement, uint32_t aIndex)
 {
   return SetFromSource(aStatement, aIndex);
 }
 
 nsresult
-Key::SetFromValueArray(mozIStorageValueArray* aValues,
-                      uint32_t aIndex)
+Key::SetFromValueArray(mozIStorageValueArray* aValues, uint32_t aIndex)
 {
   return SetFromSource(aValues, aIndex);
 }
 
 nsresult
-Key::SetFromJSVal(JSContext* aCx,
-                  JS::Handle<JS::Value> aVal)
+Key::SetFromJSVal(JSContext* aCx, JS::Handle<JS::Value> aVal)
 {
   mBuffer.Truncate();
 
@@ -784,8 +778,7 @@ Key::SetFromJSVal(JSContext* aCx,
 }
 
 nsresult
-Key::ToJSVal(JSContext* aCx,
-             JS::MutableHandle<JS::Value> aVal) const
+Key::ToJSVal(JSContext* aCx, JS::MutableHandle<JS::Value> aVal) const
 {
   if (IsUnset()) {
     aVal.setUndefined();
@@ -804,8 +797,7 @@ Key::ToJSVal(JSContext* aCx,
 }
 
 nsresult
-Key::ToJSVal(JSContext* aCx,
-             JS::Heap<JS::Value>& aVal) const
+Key::ToJSVal(JSContext* aCx, JS::Heap<JS::Value>& aVal) const
 {
   JS::Rooted<JS::Value> value(aCx);
   nsresult rv = ToJSVal(aCx, &value);
@@ -827,7 +819,7 @@ Key::AppendItem(JSContext* aCx, bool aFirstOfArray, JS::Handle<JS::Value> aVal)
   return NS_OK;
 }
 
-template <typename T>
+template<typename T>
 nsresult
 Key::SetFromSource(T* aSource, uint32_t aIndex)
 {
@@ -852,8 +844,8 @@ Key::Assert(bool aCondition) const
   MOZ_ASSERT(aCondition);
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla

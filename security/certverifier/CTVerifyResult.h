@@ -11,7 +11,8 @@
 #include "mozilla/Vector.h"
 #include "SignedCertificateTimestamp.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Holds a verified Signed Certificate Timestamp along with the verification
 // status (e.g. valid/invalid) and additional information related to the
@@ -59,7 +60,7 @@ typedef Vector<VerifiedSCT> VerifiedSCTList;
 // Holds Signed Certificate Timestamps verification results.
 class CTVerifyResult
 {
-public:
+ public:
   // SCTs that were processed during the verification along with their
   // verification results.
   VerifiedSCTList verifiedScts;
@@ -78,6 +79,7 @@ public:
   void Reset();
 };
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
 #endif  // CTVerifyResult_h

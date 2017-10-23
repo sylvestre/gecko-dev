@@ -19,11 +19,11 @@ namespace gfx {
  */
 class SharedDIBSurface : public gfxImageSurface
 {
-public:
+ public:
   typedef base::SharedMemoryHandle Handle;
 
-  SharedDIBSurface() { }
-  ~SharedDIBSurface() { }
+  SharedDIBSurface() {}
+  ~SharedDIBSurface() {}
 
   /**
    * Create this image surface backed by shared memory.
@@ -33,7 +33,9 @@ public:
   /**
    * Attach this surface to shared memory from another process.
    */
-  bool Attach(Handle aHandle, uint32_t aWidth, uint32_t aHeight,
+  bool Attach(Handle aHandle,
+              uint32_t aWidth,
+              uint32_t aHeight,
               bool aTransparent);
 
   /**
@@ -44,19 +46,20 @@ public:
 
   HDC GetHDC() { return mSharedDIB.GetHDC(); }
 
-  nsresult ShareToProcess(base::ProcessId aTargetPid, Handle* aNewHandle) {
+  nsresult ShareToProcess(base::ProcessId aTargetPid, Handle* aNewHandle)
+  {
     return mSharedDIB.ShareToProcess(aTargetPid, aNewHandle);
   }
 
   static bool IsSharedDIBSurface(gfxASurface* aSurface);
 
-private:
+ private:
   SharedDIBWin mSharedDIB;
 
   void InitSurface(uint32_t aWidth, uint32_t aHeight, bool aTransparent);
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_SharedDIBSurface_h
+#endif  // mozilla_gfx_SharedDIBSurface_h

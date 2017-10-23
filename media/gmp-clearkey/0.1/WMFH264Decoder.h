@@ -21,8 +21,9 @@
 
 namespace wmf {
 
-class WMFH264Decoder {
-public:
+class WMFH264Decoder
+{
+ public:
   WMFH264Decoder();
   ~WMFH264Decoder();
 
@@ -42,8 +43,7 @@ public:
 
   HRESULT Drain();
 
-private:
-
+ private:
   HRESULT SetDecoderInputType();
   HRESULT SetDecoderOutputType();
   HRESULT SendMFTMessage(MFT_MESSAGE_TYPE aMsg, UINT32 aData);
@@ -67,9 +67,8 @@ private:
   int32_t mVideoHeight;
   IntRect mPictureRegion;
   int32_t mStride;
-
 };
 
-} // namespace wmf
+}  // namespace wmf
 
 #endif

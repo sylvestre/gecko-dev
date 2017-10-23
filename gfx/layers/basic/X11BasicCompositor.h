@@ -16,13 +16,16 @@ namespace mozilla {
 namespace layers {
 
 // TextureSource for Image-backed surfaces.
-class X11DataTextureSourceBasic : public DataTextureSource
-                                , public TextureSourceBasic
+class X11DataTextureSourceBasic : public DataTextureSource,
+                                  public TextureSourceBasic
 {
-public:
-  X11DataTextureSourceBasic() {};
+ public:
+  X11DataTextureSourceBasic(){};
 
-  virtual const char* Name() const override { return "X11DataTextureSourceBasic"; }
+  virtual const char* Name() const override
+  {
+    return "X11DataTextureSourceBasic";
+  }
 
   virtual bool Update(gfx::DataSourceSurface* aSurface,
                       nsIntRegion* aDestRegion = nullptr,
@@ -38,28 +41,33 @@ public:
 
   virtual gfx::SurfaceFormat GetFormat() const override;
 
-private:
+ private:
   // We are going to buffer layer content on this xlib draw target
   RefPtr<mozilla::gfx::DrawTarget> mBufferDrawTarget;
 };
 
 class X11BasicCompositor : public BasicCompositor
 {
-public:
-  explicit X11BasicCompositor(CompositorBridgeParent* aParent, widget::CompositorWidget* aWidget)
-    : BasicCompositor(aParent, aWidget)
-  {}
+ public:
+  explicit X11BasicCompositor(CompositorBridgeParent* aParent,
+                              widget::CompositorWidget* aWidget)
+      : BasicCompositor(aParent, aWidget)
+  {
+  }
 
-  virtual already_AddRefed<DataTextureSource>
-  CreateDataTextureSource(TextureFlags aFlags = TextureFlags::NO_FLAGS) override;
+  virtual already_AddRefed<DataTextureSource> CreateDataTextureSource(
+      TextureFlags aFlags = TextureFlags::NO_FLAGS) override;
 
-  virtual already_AddRefed<DataTextureSource>
-  CreateDataTextureSourceAround(gfx::DataSourceSurface* aSurface) override { return nullptr; }
+  virtual already_AddRefed<DataTextureSource> CreateDataTextureSourceAround(
+      gfx::DataSourceSurface* aSurface) override
+  {
+    return nullptr;
+  }
 
   virtual void EndFrame() override;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_X11BASICCOMPOSITOR_H */

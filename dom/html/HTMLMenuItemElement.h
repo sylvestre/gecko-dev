@@ -22,7 +22,7 @@ class Visitor;
 class HTMLMenuItemElement final : public nsGenericHTMLElement,
                                   public nsIDOMHTMLMenuItemElement
 {
-public:
+ public:
   using mozilla::dom::Element::GetText;
 
   HTMLMenuItemElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
@@ -37,22 +37,23 @@ public:
   NS_DECL_NSIDOMHTMLMENUITEMELEMENT
 
   virtual nsresult GetEventTargetParent(
-                     EventChainPreVisitor& aVisitor) override;
-  virtual nsresult PostHandleEvent(
-                     EventChainPostVisitor& aVisitor) override;
+      EventChainPreVisitor& aVisitor) override;
+  virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
 
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
 
   virtual void DoneCreatingElement() override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   uint8_t GetType() const { return mType; }
@@ -85,19 +86,13 @@ public:
     SetAttrHelper(nsGkAtoms::icon, aIcon);
   }
 
-  bool Disabled() const
-  {
-    return GetBoolAttr(nsGkAtoms::disabled);
-  }
+  bool Disabled() const { return GetBoolAttr(nsGkAtoms::disabled); }
   void SetDisabled(bool aDisabled, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::disabled, aDisabled, aError);
   }
 
-  bool Checked() const
-  {
-    return mChecked;
-  }
+  bool Checked() const { return mChecked; }
   void SetChecked(bool aChecked, ErrorResult& aError)
   {
     aError = SetChecked(aChecked);
@@ -109,23 +104,21 @@ public:
     SetHTMLAttr(nsGkAtoms::radiogroup, aRadiogroup, aError);
   }
 
-  bool DefaultChecked() const
-  {
-    return GetBoolAttr(nsGkAtoms::checked);
-  }
+  bool DefaultChecked() const { return GetBoolAttr(nsGkAtoms::checked); }
   void SetDefaultChecked(bool aDefault, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::checked, aDefault, aError);
   }
 
-protected:
+ protected:
   virtual ~HTMLMenuItemElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-
-protected:
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+ protected:
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -145,7 +138,7 @@ protected:
   void ClearChecked() { mChecked = false; }
   void SetCheckedDirty() { mCheckedDirty = true; }
 
-private:
+ private:
   uint8_t mType : 2;
   bool mParserCreating : 1;
   bool mShouldInitChecked : 1;
@@ -153,7 +146,7 @@ private:
   bool mChecked : 1;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLMenuItemElement_h
+#endif  // mozilla_dom_HTMLMenuItemElement_h

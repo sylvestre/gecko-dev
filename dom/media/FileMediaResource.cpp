@@ -63,7 +63,7 @@ FileMediaResource::Open(nsIStreamListener** aStreamListener)
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = NS_NewLocalFileInputStream(
-      getter_AddRefs(mInput), file, -1, -1, nsIFileInputStream::SHARE_DELETE);
+        getter_AddRefs(mInput), file, -1, -1, nsIFileInputStream::SHARE_DELETE);
   } else if (IsBlobURI(mURI)) {
     rv = NS_GetStreamForBlobURI(mURI, getter_AddRefs(mInput));
   }
@@ -104,14 +104,14 @@ FileMediaResource::GetCurrentPrincipal()
 
   nsCOMPtr<nsIPrincipal> principal;
   nsIScriptSecurityManager* secMan = nsContentUtils::GetSecurityManager();
-  if (!secMan || !mChannel)
-    return nullptr;
+  if (!secMan || !mChannel) return nullptr;
   secMan->GetChannelResultPrincipal(mChannel, getter_AddRefs(principal));
   return principal.forget();
 }
 
 nsresult
-FileMediaResource::ReadFromCache(char* aBuffer, int64_t aOffset,
+FileMediaResource::ReadFromCache(char* aBuffer,
+                                 int64_t aOffset,
                                  uint32_t aCount)
 {
   MutexAutoLock lock(mLock);
@@ -122,9 +122,9 @@ FileMediaResource::ReadFromCache(char* aBuffer, int64_t aOffset,
   }
   int64_t offset = 0;
   nsresult res = mSeekable->Tell(&offset);
-  NS_ENSURE_SUCCESS(res,res);
+  NS_ENSURE_SUCCESS(res, res);
   res = mSeekable->Seek(nsISeekableStream::NS_SEEK_SET, aOffset);
-  NS_ENSURE_SUCCESS(res,res);
+  NS_ENSURE_SUCCESS(res, res);
   uint32_t bytesRead = 0;
   do {
     uint32_t x = 0;
@@ -141,7 +141,7 @@ FileMediaResource::ReadFromCache(char* aBuffer, int64_t aOffset,
   nsresult seekres = mSeekable->Seek(nsISeekableStream::NS_SEEK_SET, offset);
 
   // If a read failed in the loop above, we want to return its failure code.
-  NS_ENSURE_SUCCESS(res,res);
+  NS_ENSURE_SUCCESS(res, res);
 
   // Else we succeed if the reset-seek succeeds.
   return seekres;
@@ -155,7 +155,9 @@ FileMediaResource::UnsafeRead(char* aBuffer, uint32_t aCount, uint32_t* aBytes)
 }
 
 nsresult
-FileMediaResource::ReadAt(int64_t aOffset, char* aBuffer, uint32_t aCount,
+FileMediaResource::ReadAt(int64_t aOffset,
+                          char* aBuffer,
+                          uint32_t aCount,
                           uint32_t* aBytes)
 {
   NS_ASSERTION(!NS_IsMainThread(), "Don't call on main thread");
@@ -202,8 +204,7 @@ FileMediaResource::UnsafeSeek(int32_t aWhence, int64_t aOffset)
 {
   NS_ASSERTION(!NS_IsMainThread(), "Don't call on main thread");
 
-  if (!mSeekable)
-    return NS_ERROR_FAILURE;
+  if (!mSeekable) return NS_ERROR_FAILURE;
   EnsureSizeInitialized();
   return mSeekable->Seek(aWhence, aOffset);
 }
@@ -216,9 +217,8 @@ FileMediaResource::Tell()
 
   int64_t offset = 0;
   // Return mSize as offset (end of stream) in case of error
-  if (!mSeekable || NS_FAILED(mSeekable->Tell(&offset)))
-    return mSize;
+  if (!mSeekable || NS_FAILED(mSeekable->Tell(&offset))) return mSize;
   return offset;
 }
 
-} // mozilla namespace
+}  // namespace mozilla

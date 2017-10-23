@@ -4,16 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-template <typename T>
+template<typename T>
 void
 nsTPromiseFlatString<T>::Init(const substring_type& str)
 {
   if (str.IsTerminated()) {
     char_type* newData =
-      const_cast<char_type*>(static_cast<const char_type*>(str.Data()));
+        const_cast<char_type*>(static_cast<const char_type*>(str.Data()));
     size_type newLength = str.Length();
     DataFlags newDataFlags =
-      str.GetDataFlags() & (DataFlags::TERMINATED | DataFlags::LITERAL);
+        str.GetDataFlags() & (DataFlags::TERMINATED | DataFlags::LITERAL);
     // does not promote DataFlags::VOIDED
 
     this->SetData(newData, newLength, newDataFlags);

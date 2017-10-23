@@ -19,7 +19,7 @@
 
 class nsSVGElement;
 
-#define MOZ_SVG_LIST_INDEX_BIT_COUNT 31 // supports > 2 billion list items
+#define MOZ_SVG_LIST_INDEX_BIT_COUNT 31  // supports > 2 billion list items
 
 namespace mozilla {
 namespace dom {
@@ -33,14 +33,14 @@ class SVGTransform final : public nsWrapperCache
 {
   friend class AutoChangeTransformNotifier;
 
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(SVGTransform)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(SVGTransform)
 
   /**
    * Generic ctor for SVGTransform objects that are created for an attribute.
    */
-  SVGTransform(DOMSVGTransformList *aList,
+  SVGTransform(DOMSVGTransformList* aList,
                uint32_t aListIndex,
                bool aIsAnimValItem);
 
@@ -52,33 +52,30 @@ public:
    * which do not initially belong to an attribute.
    */
   explicit SVGTransform();
-  explicit SVGTransform(const gfxMatrix &aMatrix);
+  explicit SVGTransform(const gfxMatrix& aMatrix);
 
   /**
    * Ctor for creating an unowned copy. Used with Clone().
    */
-  explicit SVGTransform(const nsSVGTransform &aMatrix);
+  explicit SVGTransform(const nsSVGTransform& aMatrix);
 
   /**
    * Create an unowned copy of an owned transform. The caller is responsible for
    * the first AddRef().
    */
-  SVGTransform* Clone() {
+  SVGTransform* Clone()
+  {
     NS_ASSERTION(mList, "unexpected caller");
     return new SVGTransform(InternalItem());
   }
 
-  bool IsInList() const {
-    return !!mList;
-  }
+  bool IsInList() const { return !!mList; }
 
   /**
    * In future, if this class is used for non-list transforms, this will be
    * different to IsInList().
    */
-  bool HasOwner() const {
-    return !!mList;
-  }
+  bool HasOwner() const { return !!mList; }
 
   /**
    * This method is called to notify this DOM object that it is being inserted
@@ -90,18 +87,17 @@ public:
    * the necessary notifications) is located elsewhere (in
    * DOMSVGTransformList).)
    */
-  void InsertingIntoList(DOMSVGTransformList *aList,
+  void InsertingIntoList(DOMSVGTransformList* aList,
                          uint32_t aListIndex,
                          bool aIsAnimValItem);
 
-  static uint32_t MaxListIndex() {
+  static uint32_t MaxListIndex()
+  {
     return (1U << MOZ_SVG_LIST_INDEX_BIT_COUNT) - 1;
   }
 
   /// This method is called to notify this object that its list index changed.
-  void UpdateListIndex(uint32_t aListIndex) {
-    mListIndex = aListIndex;
-  }
+  void UpdateListIndex(uint32_t aListIndex) { mListIndex = aListIndex; }
 
   /**
    * This method is called to notify this DOM object that it is about to be
@@ -111,13 +107,12 @@ public:
    */
   void RemovingFromList();
 
-  nsSVGTransform ToSVGTransform() const {
-    return Transform();
-  }
+  nsSVGTransform ToSVGTransform() const { return Transform(); }
 
   // WebIDL
   DOMSVGTransformList* GetParentObject() const { return mList; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
   uint16_t Type() const;
   dom::SVGMatrix* GetMatrix();
   float Angle() const;
@@ -128,23 +123,17 @@ public:
   void SetSkewX(float angle, ErrorResult& rv);
   void SetSkewY(float angle, ErrorResult& rv);
 
-protected:
+ protected:
   ~SVGTransform();
 
   // Interface for SVGMatrix's use
   friend class dom::SVGMatrix;
-  bool IsAnimVal() const {
-    return mIsAnimValItem;
-  }
-  const gfxMatrix& Matrixgfx() const {
-    return Transform().GetMatrix();
-  }
+  bool IsAnimVal() const { return mIsAnimValItem; }
+  const gfxMatrix& Matrixgfx() const { return Transform().GetMatrix(); }
   void SetMatrix(const gfxMatrix& aMatrix);
 
-private:
-  nsSVGElement* Element() {
-    return mList->Element();
-  }
+ private:
+  nsSVGElement* Element() { return mList->Element(); }
 
   /**
    * Get a reference to the internal nsSVGTransform list item that this DOM
@@ -157,10 +146,12 @@ private:
   bool IndexIsValid();
 #endif
 
-  const nsSVGTransform& Transform() const {
+  const nsSVGTransform& Transform() const
+  {
     return HasOwner() ? InternalItem() : *mTransform;
   }
-  nsSVGTransform& Transform() {
+  nsSVGTransform& Transform()
+  {
     return HasOwner() ? InternalItem() : *mTransform;
   }
 
@@ -169,8 +160,8 @@ private:
   // Bounds for the following are checked in the ctor, so be sure to update
   // that if you change the capacity of any of the following.
 
-  uint32_t mListIndex:MOZ_SVG_LIST_INDEX_BIT_COUNT;
-  uint32_t mIsAnimValItem:1;
+  uint32_t mListIndex : MOZ_SVG_LIST_INDEX_BIT_COUNT;
+  uint32_t mIsAnimValItem : 1;
 
   // Usually this class acts as a wrapper for an nsSVGTransform object which is
   // part of a list and is accessed by going via the owning Element.
@@ -181,9 +172,9 @@ private:
   nsAutoPtr<nsSVGTransform> mTransform;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #undef MOZ_SVG_LIST_INDEX_BIT_COUNT
 
-#endif // mozilla_dom_SVGTransform_h
+#endif  // mozilla_dom_SVGTransform_h

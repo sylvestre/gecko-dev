@@ -12,11 +12,10 @@ namespace dom {
 
 class CompareCuesByTime
 {
-public:
-  bool Equals(TextTrackCue* aOne, TextTrackCue* aTwo) const {
-    return false;
-  }
-  bool LessThan(TextTrackCue* aOne, TextTrackCue* aTwo) const {
+ public:
+  bool Equals(TextTrackCue* aOne, TextTrackCue* aTwo) const { return false; }
+  bool LessThan(TextTrackCue* aOne, TextTrackCue* aTwo) const
+  {
     return aOne->StartTime() < aTwo->StartTime() ||
            (aOne->StartTime() == aTwo->StartTime() &&
             aOne->EndTime() >= aTwo->EndTime());
@@ -32,12 +31,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TextTrackCueList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-TextTrackCueList::TextTrackCueList(nsISupports* aParent) : mParent(aParent)
-{
-}
+TextTrackCueList::TextTrackCueList(nsISupports* aParent) : mParent(aParent) {}
 
-TextTrackCueList::~TextTrackCueList()
-{}
+TextTrackCueList::~TextTrackCueList() {}
 
 JSObject*
 TextTrackCueList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -55,8 +51,7 @@ TextTrackCueList::IndexedGetter(uint32_t aIndex, bool& aFound)
   return mList[aIndex];
 }
 
-TextTrackCue*
-TextTrackCueList::operator[](uint32_t aIndex)
+TextTrackCue* TextTrackCueList::operator[](uint32_t aIndex)
 {
   return mList.SafeElementAt(aIndex, nullptr);
 }
@@ -123,16 +118,15 @@ TextTrackCueList::RemoveAll()
 }
 
 void
-TextTrackCueList::GetArray(nsTArray<RefPtr<TextTrackCue> >& aCues)
+TextTrackCueList::GetArray(nsTArray<RefPtr<TextTrackCue>>& aCues)
 {
-  aCues = nsTArray<RefPtr<TextTrackCue> >(mList);
+  aCues = nsTArray<RefPtr<TextTrackCue>>(mList);
 }
-
 
 void
 TextTrackCueList::SetCuesInactive()
 {
-  for(uint32_t i = 0; i < mList.Length(); ++i) {
+  for (uint32_t i = 0; i < mList.Length(); ++i) {
     mList[i]->SetActive(false);
   }
 }
@@ -152,7 +146,7 @@ TextTrackCueList::GetCueListByTimeInterval(media::Interval<double>& aInterval)
 }
 
 void
-TextTrackCueList::NotifyCueUpdated(TextTrackCue *aCue)
+TextTrackCueList::NotifyCueUpdated(TextTrackCue* aCue)
 {
   if (aCue) {
     mList.RemoveElement(aCue);
@@ -161,7 +155,7 @@ TextTrackCueList::NotifyCueUpdated(TextTrackCue *aCue)
 }
 
 bool
-TextTrackCueList::IsCueExist(TextTrackCue *aCue)
+TextTrackCueList::IsCueExist(TextTrackCue* aCue)
 {
   if (aCue && mList.Contains(aCue)) {
     return true;
@@ -175,5 +169,5 @@ TextTrackCueList::GetCuesArray()
   return mList;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -15,8 +15,9 @@ using namespace mozilla;
 // because they occur after a block with timecode 160000000 and the parser
 // expects in-order timecodes per the WebM spec.  The remaining 6
 // SimpleBlocks have the following attributes:
-static const uint64_t gTimecodes[] = { 66000000, 160000000, 166000000, 200000000, 233000000, 320000000 };
-static const int64_t gEndOffsets[] = { 501, 772, 1244, 1380, 1543, 2015 };
+static const uint64_t gTimecodes[] = {
+    66000000, 160000000, 166000000, 200000000, 233000000, 320000000};
+static const int64_t gEndOffsets[] = {501, 772, 1244, 1380, 1543, 2015};
 
 TEST(WebMBuffered, BasicTests)
 {
@@ -29,7 +30,7 @@ TEST(WebMBuffered, BasicTests)
   EXPECT_EQ(parser.mStartOffset, 0);
   EXPECT_EQ(parser.mCurrentOffset, 0);
 
-  unsigned char buf[] = { 0x1a, 0x45, 0xdf, 0xa3 };
+  unsigned char buf[] = {0x1a, 0x45, 0xdf, 0xa3};
   parser.Append(buf, ArrayLength(buf), mapping, dummy);
   EXPECT_TRUE(mapping.IsEmpty());
   EXPECT_EQ(parser.mStartOffset, 0);
@@ -40,7 +41,7 @@ static void
 ReadFile(const char* aPath, nsTArray<uint8_t>& aBuffer)
 {
   FILE* f = fopen(aPath, "rb");
-  ASSERT_NE(f, (FILE *) nullptr);
+  ASSERT_NE(f, (FILE*)nullptr);
 
   int r = fseek(f, 0, SEEK_END);
   ASSERT_EQ(r, 0);

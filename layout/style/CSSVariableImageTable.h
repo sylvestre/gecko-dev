@@ -45,25 +45,28 @@ namespace detail {
 
 typedef nsTArray<RefPtr<css::ImageValue>> ImageValueArray;
 typedef nsClassHashtable<nsGenericHashKey<nsCSSPropertyID>, ImageValueArray>
-        PerPropertyImageHashtable;
-typedef nsClassHashtable<nsPtrHashKey<nsStyleContext>, PerPropertyImageHashtable>
-        CSSVariableImageHashtable;
+    PerPropertyImageHashtable;
+typedef nsClassHashtable<nsPtrHashKey<nsStyleContext>,
+                         PerPropertyImageHashtable>
+    CSSVariableImageHashtable;
 
-inline CSSVariableImageHashtable& GetTable()
+inline CSSVariableImageHashtable&
+GetTable()
 {
   static CSSVariableImageHashtable imageTable;
   return imageTable;
 }
 
 #ifdef DEBUG
-inline bool& IsReplacing()
+inline bool&
+IsReplacing()
 {
   static bool isReplacing = false;
   return isReplacing;
 }
 #endif
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * ReplaceAll() allows callers to replace the ImageValues associated with a
@@ -75,10 +78,9 @@ inline bool& IsReplacing()
  * @param aFunc    A lambda that calls CSSVariableImageTable::Add() to add new
  *                 ImageValues which will replace the old ones.
  */
-template <typename Lambda>
-inline void ReplaceAll(nsStyleContext* aContext,
-                       nsCSSPropertyID aProp,
-                       Lambda aFunc)
+template<typename Lambda>
+inline void
+ReplaceAll(nsStyleContext* aContext, nsCSSPropertyID aProp, Lambda aFunc)
 {
   MOZ_ASSERT(aContext);
 
@@ -87,8 +89,8 @@ inline void ReplaceAll(nsStyleContext* aContext,
   // Clear the existing image array, if any, for this property.
   {
     auto* perPropertyImageTable = imageTable.Get(aContext);
-    auto* imageList = perPropertyImageTable ? perPropertyImageTable->Get(aProp)
-                                            : nullptr;
+    auto* imageList =
+        perPropertyImageTable ? perPropertyImageTable->Get(aProp) : nullptr;
     if (imageList) {
       imageList->ClearAndRetainStorage();
     }
@@ -107,8 +109,8 @@ inline void ReplaceAll(nsStyleContext* aContext,
 
   // Clean up.
   auto* perPropertyImageTable = imageTable.Get(aContext);
-  auto* imageList = perPropertyImageTable ? perPropertyImageTable->Get(aProp)
-                                          : nullptr;
+  auto* imageList =
+      perPropertyImageTable ? perPropertyImageTable->Get(aProp) : nullptr;
   if (imageList) {
     if (imageList->IsEmpty()) {
       // We used to have an image array for this property, but now we don't.
@@ -184,7 +186,7 @@ RemoveAll(nsStyleContext* aContext)
   imageTable.Remove(aContext);
 }
 
-} // namespace CSSVariableImageTable
-} // namespace mozilla
+}  // namespace CSSVariableImageTable
+}  // namespace mozilla
 
-#endif // mozilla_CSSVariableImageTable_h
+#endif  // mozilla_CSSVariableImageTable_h

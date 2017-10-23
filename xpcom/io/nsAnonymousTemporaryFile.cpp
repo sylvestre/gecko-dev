@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "nsAnonymousTemporaryFile.h"
 #include "nsDirectoryServiceUtils.h"
 #include "nsDirectoryServiceDefs.h"
@@ -129,8 +128,8 @@ NS_OpenAnonymousTemporaryFile(PRFileDesc** aOutFileDesc)
     return rv;
   }
 
-  rv = tmpFile->OpenNSPRFileDesc(PR_RDWR | nsIFile::DELETE_ON_CLOSE,
-                                 PR_IRWXU, aOutFileDesc);
+  rv = tmpFile->OpenNSPRFileDesc(
+      PR_RDWR | nsIFile::DELETE_ON_CLOSE, PR_IRWXU, aOutFileDesc);
 
   return rv;
 }
@@ -163,7 +162,7 @@ NS_OpenAnonymousTemporaryFile(PRFileDesc** aOutFileDesc)
 // are what keep this object alive.
 class nsAnonTempFileRemover final : public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   nsAnonTempFileRemover() {}
@@ -175,9 +174,9 @@ public:
     // idle observer too early, it will be registered before the fake idle
     // service is installed when running in xpcshell, and this interferes with
     // the fake idle service, causing xpcshell-test failures.
-    MOZ_TRY_VAR(mTimer, NS_NewTimerWithObserver(this,
-                                                SCHEDULE_TIMEOUT_MS,
-                                                nsITimer::TYPE_ONE_SHOT));
+    MOZ_TRY_VAR(mTimer,
+                NS_NewTimerWithObserver(
+                    this, SCHEDULE_TIMEOUT_MS, nsITimer::TYPE_ONE_SHOT));
 
     // Register shutdown observer so we can cancel the timer if we shutdown before
     // the timer runs.
@@ -197,7 +196,7 @@ public:
     }
     // Remove idle service observer.
     nsCOMPtr<nsIIdleService> idleSvc =
-      do_GetService("@mozilla.org/widget/idleservice;1");
+        do_GetService("@mozilla.org/widget/idleservice;1");
     if (idleSvc) {
       idleSvc->RemoveIdleObserver(this, TEMP_FILE_IDLE_TIME_S);
     }
@@ -233,7 +232,7 @@ public:
     // TEMP_FILE_IDLE_TIME_S seconds, we'll get a notification, and we'll then
     // try to delete any stray temp files.
     nsCOMPtr<nsIIdleService> idleSvc =
-      do_GetService("@mozilla.org/widget/idleservice;1");
+        do_GetService("@mozilla.org/widget/idleservice;1");
     if (!idleSvc) {
       return NS_ERROR_FAILURE;
     }
@@ -252,7 +251,7 @@ public:
     tmpDir->Remove(true);
   }
 
-private:
+ private:
   ~nsAnonTempFileRemover() {}
 
   nsCOMPtr<nsITimer> mTimer;
@@ -276,4 +275,3 @@ CreateAnonTempFileRemover()
 }
 
 #endif
-

@@ -17,19 +17,21 @@ namespace mscom {
 
 class InterceptorLog
 {
-public:
+ public:
   static bool Init();
-  static void QI(HRESULT aResult, IUnknown* aTarget, REFIID aIid,
+  static void QI(HRESULT aResult,
+                 IUnknown* aTarget,
+                 REFIID aIid,
                  IUnknown* aInterface,
                  const TimeDuration* aOverheadDuration = nullptr,
                  const TimeDuration* aGeckoDuration = nullptr);
-  static void Event(ICallFrame* aCallFrame, IUnknown* aTarget,
+  static void Event(ICallFrame* aCallFrame,
+                    IUnknown* aTarget,
                     const TimeDuration& aOverheadDuration,
                     const TimeDuration& aGeckoDuration);
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_InterceptorLog_h
-
+#endif  // mozilla_mscom_InterceptorLog_h

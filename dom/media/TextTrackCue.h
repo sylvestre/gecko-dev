@@ -26,42 +26,43 @@ class TextTrackRegion;
 
 class TextTrackCue final : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TextTrackCue, DOMEventTargetHelper)
 
   // TextTrackCue WebIDL
   // See bug 868509 about splitting out the WebVTT-specific interfaces.
-  static already_AddRefed<TextTrackCue>
-  Constructor(GlobalObject& aGlobal,
-              double aStartTime,
-              double aEndTime,
-              const nsAString& aText,
-              ErrorResult& aRv)
+  static already_AddRefed<TextTrackCue> Constructor(GlobalObject& aGlobal,
+                                                    double aStartTime,
+                                                    double aEndTime,
+                                                    const nsAString& aText,
+                                                    ErrorResult& aRv)
   {
-    nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
-    RefPtr<TextTrackCue> ttcue = new TextTrackCue(window, aStartTime,
-                                                    aEndTime, aText, aRv);
+    nsCOMPtr<nsPIDOMWindowInner> window =
+        do_QueryInterface(aGlobal.GetAsSupports());
+    RefPtr<TextTrackCue> ttcue =
+        new TextTrackCue(window, aStartTime, aEndTime, aText, aRv);
     return ttcue.forget();
   }
-  TextTrackCue(nsPIDOMWindowInner* aGlobal, double aStartTime, double aEndTime,
-               const nsAString& aText, ErrorResult& aRv);
-
-  TextTrackCue(nsPIDOMWindowInner* aGlobal, double aStartTime, double aEndTime,
-               const nsAString& aText, HTMLTrackElement* aTrackElement,
+  TextTrackCue(nsPIDOMWindowInner* aGlobal,
+               double aStartTime,
+               double aEndTime,
+               const nsAString& aText,
                ErrorResult& aRv);
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  TextTrackCue(nsPIDOMWindowInner* aGlobal,
+               double aStartTime,
+               double aEndTime,
+               const nsAString& aText,
+               HTMLTrackElement* aTrackElement,
+               ErrorResult& aRv);
 
-  TextTrack* GetTrack() const
-  {
-    return mTrack;
-  }
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  void GetId(nsAString& aId) const
-  {
-    aId = mId;
-  }
+  TextTrack* GetTrack() const { return mTrack; }
+
+  void GetId(nsAString& aId) const { aId = mId; }
 
   void SetId(const nsAString& aId)
   {
@@ -72,10 +73,7 @@ public:
     mId = aId;
   }
 
-  double StartTime() const
-  {
-    return mStartTime;
-  }
+  double StartTime() const { return mStartTime; }
 
   void SetStartTime(double aStartTime)
   {
@@ -88,10 +86,7 @@ public:
     NotifyCueUpdated(this);
   }
 
-  double EndTime() const
-  {
-    return mEndTime;
-  }
+  double EndTime() const { return mEndTime; }
 
   void SetEndTime(double aEndTime)
   {
@@ -104,10 +99,7 @@ public:
     NotifyCueUpdated(this);
   }
 
-  bool PauseOnExit()
-  {
-    return mPauseOnExit;
-  }
+  bool PauseOnExit() { return mPauseOnExit; }
 
   void SetPauseOnExit(bool aPauseOnExit)
   {
@@ -122,10 +114,7 @@ public:
   TextTrackRegion* GetRegion();
   void SetRegion(TextTrackRegion* aRegion);
 
-  DirectionSetting Vertical() const
-  {
-    return mVertical;
-  }
+  DirectionSetting Vertical() const { return mVertical; }
 
   void SetVertical(const DirectionSetting& aVertical)
   {
@@ -137,10 +126,7 @@ public:
     mVertical = aVertical;
   }
 
-  bool SnapToLines()
-  {
-    return mSnapToLines;
-  }
+  bool SnapToLines() { return mSnapToLines; }
 
   void SetSnapToLines(bool aSnapToLines)
   {
@@ -176,10 +162,7 @@ public:
     }
   }
 
-  LineAlignSetting LineAlign() const
-  {
-    return mLineAlign;
-  }
+  LineAlignSetting LineAlign() const { return mLineAlign; }
 
   void SetLineAlign(LineAlignSetting& aLineAlign, ErrorResult& aRv)
   {
@@ -203,7 +186,7 @@ public:
   void SetPosition(const DoubleOrAutoKeyword& aPosition, ErrorResult& aRv)
   {
     if (!aPosition.IsAutoKeyword() &&
-        (aPosition.GetAsDouble() > 100.0 || aPosition.GetAsDouble() < 0.0)){
+        (aPosition.GetAsDouble() > 100.0 || aPosition.GetAsDouble() < 0.0)) {
       aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
       return;
     }
@@ -222,10 +205,7 @@ public:
     }
   }
 
-  PositionAlignSetting PositionAlign() const
-  {
-    return mPositionAlign;
-  }
+  PositionAlignSetting PositionAlign() const { return mPositionAlign; }
 
   void SetPositionAlign(PositionAlignSetting aPositionAlign, ErrorResult& aRv)
   {
@@ -237,10 +217,7 @@ public:
     mPositionAlign = aPositionAlign;
   }
 
-  double Size() const
-  {
-    return mSize;
-  }
+  double Size() const { return mSize; }
 
   void SetSize(double aSize, ErrorResult& aRv)
   {
@@ -257,10 +234,7 @@ public:
     mSize = aSize;
   }
 
-  AlignSetting Align() const
-  {
-    return mAlign;
-  }
+  AlignSetting Align() const { return mAlign; }
 
   void SetAlign(AlignSetting& aAlign)
   {
@@ -272,10 +246,7 @@ public:
     mAlign = aAlign;
   }
 
-  void GetText(nsAString& aText) const
-  {
-    aText = mText;
-  }
+  void GetText(nsAString& aText) const { aText = mText; }
 
   void SetText(const nsAString& aText)
   {
@@ -301,25 +272,16 @@ public:
     mReset = false;
   }
 
-  void Reset()
-  {
-    mReset = true;
-  }
+  void Reset() { mReset = true; }
 
-  bool HasBeenReset()
-  {
-    return mReset;
-  }
+  bool HasBeenReset() { return mReset; }
 
   double ComputedLine();
   double ComputedPosition();
   PositionAlignSetting ComputedPositionAlign();
 
   // Helper functions for implementation.
-  const nsAString& Id() const
-  {
-    return mId;
-  }
+  const nsAString& Id() const { return mId; }
 
   void SetTrack(TextTrack* aTextTrack)
   {
@@ -354,12 +316,9 @@ public:
     mDisplayState = mActive ? mDisplayState : nullptr;
   }
 
-  bool GetActive()
-  {
-    return mActive;
-  }
+  bool GetActive() { return mActive; }
 
-private:
+ private:
   ~TextTrackCue();
 
   void NotifyCueUpdated(TextTrackCue* aCue)
@@ -412,7 +371,7 @@ private:
   WatchManager<TextTrackCue> mWatchManager;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TextTrackCue_h
+#endif  // mozilla_dom_TextTrackCue_h

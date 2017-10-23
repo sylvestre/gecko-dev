@@ -39,17 +39,18 @@ class CommandBufferBuilder;
 /// CommandBuffer objects are built using CommandBufferBuilder.
 class CommandBuffer : public external::AtomicRefCounted<CommandBuffer>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(CommandBuffer)
 
   ~CommandBuffer();
 
   const DrawingCommand* GetDrawingCommand(ptrdiff_t aId);
 
-protected:
+ protected:
   explicit CommandBuffer(size_t aSize = 256)
-  : mStorage(IterableArena::GROWABLE, aSize)
-  {}
+      : mStorage(IterableArena::GROWABLE, aSize)
+  {
+  }
 
   IterableArena mStorage;
   friend class CommandBufferBuilder;
@@ -61,7 +62,7 @@ protected:
 /// submitted CommandBuffer.
 class CommandBufferBuilder
 {
-public:
+ public:
   void BeginCommandBuffer(size_t aBufferSize = 256);
 
   already_AddRefed<CommandBuffer> EndCommandBuffer();
@@ -78,23 +79,24 @@ public:
 
   bool HasCommands() const { return !!mCommands; }
 
-protected:
+ protected:
   RefPtr<CommandBuffer> mCommands;
 };
 
 /// Stores multiple commands to be executed sequencially.
-class DrawingJob : public Job {
-public:
+class DrawingJob : public Job
+{
+ public:
   ~DrawingJob();
 
   virtual JobStatus Run() override;
 
-protected:
+ protected:
   DrawingJob(DrawTarget* aTarget,
-              IntPoint aOffset,
-              SyncObject* aStart,
-              SyncObject* aCompletion,
-              WorkerThread* aPinToWorker = nullptr);
+             IntPoint aOffset,
+             SyncObject* aStart,
+             SyncObject* aCompletion,
+             WorkerThread* aPinToWorker = nullptr);
 
   /// Runs the tasks's destructors and resets the buffer.
   void Clear();
@@ -113,8 +115,9 @@ protected:
 ///
 /// The builder is a separate object to ensure that commands are not added to a
 /// submitted DrawingJob.
-class DrawingJobBuilder {
-public:
+class DrawingJobBuilder
+{
+ public:
   DrawingJobBuilder();
 
   ~DrawingJobBuilder();
@@ -122,15 +125,13 @@ public:
   /// Allocates a DrawingJob.
   ///
   /// call this method before starting to add commands.
-  void BeginDrawingJob(DrawTarget* aTarget, IntPoint aOffset,
-                        SyncObject* aStart = nullptr);
+  void BeginDrawingJob(DrawTarget* aTarget,
+                       IntPoint aOffset,
+                       SyncObject* aStart = nullptr);
 
   /// Build the DrawingJob, command after command.
   /// This must be used between BeginDrawingJob and EndDrawingJob.
-  void AddCommand(ptrdiff_t offset)
-  {
-    mCommandOffsets.push_back(offset);
-  }
+  void AddCommand(ptrdiff_t offset) { mCommandOffsets.push_back(offset); }
 
   /// Finalizes and returns the drawing task.
   ///
@@ -139,20 +140,20 @@ public:
   /// In most cases this means after the completion of all tasks in the task buffer,
   /// but also when the task buffer is destroyed due to an error.
   DrawingJob* EndDrawingJob(CommandBuffer* aCmdBuffer,
-                              SyncObject* aCompletion = nullptr,
-                              WorkerThread* aPinToWorker = nullptr);
+                            SyncObject* aCompletion = nullptr,
+                            WorkerThread* aPinToWorker = nullptr);
 
   /// Returns true between BeginDrawingJob and EndDrawingJob, false otherwise.
   bool HasDrawingJob() const { return !!mDrawTarget; }
 
-protected:
+ protected:
   std::vector<ptrdiff_t> mCommandOffsets;
   RefPtr<DrawTarget> mDrawTarget;
   IntPoint mOffset;
   RefPtr<SyncObject> mStart;
 };
 
-} // namespace
-} // namespace
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif

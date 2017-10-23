@@ -20,7 +20,8 @@ class ErrorResult;
 
 namespace dom {
 
-template<typename K, typename V> class Record;
+template<typename K, typename V>
+class Record;
 class HeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord;
 class OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord;
 
@@ -31,8 +32,7 @@ class OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord;
  * implementations, where they must always be created from the backing
  * InternalHeaders object.
  */
-class Headers final : public nsISupports
-                    , public nsWrapperCache
+class Headers final : public nsISupports, public nsWrapperCache
 {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Headers)
@@ -40,14 +40,13 @@ class Headers final : public nsISupports
   friend class Request;
   friend class Response;
 
-private:
+ private:
   nsCOMPtr<nsISupports> mOwner;
   RefPtr<InternalHeaders> mInternalHeaders;
 
-public:
+ public:
   explicit Headers(nsISupports* aOwner, InternalHeaders* aInternalHeaders)
-    : mOwner(aOwner)
-    , mInternalHeaders(aInternalHeaders)
+      : mOwner(aOwner), mInternalHeaders(aInternalHeaders)
   {
   }
 
@@ -55,22 +54,27 @@ public:
 
   static bool PrefEnabled(JSContext* cx, JSObject* obj);
 
-  static already_AddRefed<Headers>
-  Constructor(const GlobalObject& aGlobal,
-              const Optional<HeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord>& aInit,
-              ErrorResult& aRv);
+  static already_AddRefed<Headers> Constructor(
+      const GlobalObject& aGlobal,
+      const Optional<
+          HeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord>&
+          aInit,
+      ErrorResult& aRv);
 
-  static already_AddRefed<Headers>
-  Constructor(const GlobalObject& aGlobal,
-              const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord& aInit,
-              ErrorResult& aRv);
+  static already_AddRefed<Headers> Constructor(
+      const GlobalObject& aGlobal,
+      const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord&
+          aInit,
+      ErrorResult& aRv);
 
-  static already_AddRefed<Headers>
-  Create(nsIGlobalObject* aGlobalObject,
-         const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord& aInit,
-         ErrorResult& aRv);
+  static already_AddRefed<Headers> Create(
+      nsIGlobalObject* aGlobalObject,
+      const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord&
+          aInit,
+      ErrorResult& aRv);
 
-  void Append(const nsACString& aName, const nsACString& aValue,
+  void Append(const nsACString& aName,
+              const nsACString& aValue,
               ErrorResult& aRv)
   {
     mInternalHeaders->Append(aName, aValue, aRv);
@@ -86,7 +90,9 @@ public:
     mInternalHeaders->Get(aName, aValue, aRv);
   }
 
-  void GetFirst(const nsACString& aName, nsACString& aValue, ErrorResult& aRv) const
+  void GetFirst(const nsACString& aName,
+                nsACString& aValue,
+                ErrorResult& aRv) const
   {
     mInternalHeaders->GetFirst(aName, aValue, aRv);
   }
@@ -115,30 +121,24 @@ public:
   }
 
   // ChromeOnly
-  HeadersGuardEnum Guard() const
-  {
-    return mInternalHeaders->Guard();
-  }
+  HeadersGuardEnum Guard() const { return mInternalHeaders->Guard(); }
 
   void SetGuard(HeadersGuardEnum aGuard, ErrorResult& aRv)
   {
     mInternalHeaders->SetGuard(aGuard, aRv);
   }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
   nsISupports* GetParentObject() const { return mOwner; }
 
-private:
+ private:
   virtual ~Headers();
 
-  InternalHeaders*
-  GetInternalHeaders() const
-  {
-    return mInternalHeaders;
-  }
+  InternalHeaders* GetInternalHeaders() const { return mInternalHeaders; }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Headers_h
+#endif  // mozilla_dom_Headers_h

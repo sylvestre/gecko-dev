@@ -12,14 +12,15 @@ class nsIEventTarget;
 namespace mozilla {
 namespace net {
 
-class StunAddrsListener {
-public:
+class StunAddrsListener
+{
+ public:
   virtual void OnStunAddrsAvailable(const NrIceStunAddrArray& addrs) = 0;
 
   NS_IMETHOD_(MozExternalRefCountType) AddRef();
   NS_IMETHOD_(MozExternalRefCountType) Release();
 
-protected:
+ protected:
   virtual ~StunAddrsListener() {}
 
   ThreadSafeAutoRefCnt mRefCnt;
@@ -28,7 +29,7 @@ protected:
 
 class StunAddrsRequestChild final : public PStunAddrsRequestChild
 {
-public:
+ public:
   explicit StunAddrsRequestChild(StunAddrsListener* listener,
                                  nsIEventTarget* mainThreadEventTarget);
 
@@ -43,7 +44,7 @@ public:
 
   void Cancel();
 
-protected:
+ protected:
   virtual ~StunAddrsRequestChild() {}
 
   virtual mozilla::ipc::IPCResult RecvOnStunAddrsAvailable(
@@ -55,7 +56,7 @@ protected:
   NS_DECL_OWNINGTHREAD
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_StunAddrsRequestChild_h
+#endif  // mozilla_net_StunAddrsRequestChild_h

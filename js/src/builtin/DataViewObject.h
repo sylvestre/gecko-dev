@@ -24,21 +24,18 @@ namespace js {
 // should not be exposed without sharedness information accompanying
 // it.
 
-class DataViewObject : public NativeObject
-{
-  private:
+class DataViewObject : public NativeObject {
+   private:
     static const Class protoClass_;
     static const ClassSpec classSpec_;
 
     static JSObject* CreatePrototype(JSContext* cx, JSProtoKey key);
 
-    static bool is(HandleValue v) {
-        return v.isObject() && v.toObject().hasClass(&class_);
-    }
+    static bool is(HandleValue v) { return v.isObject() && v.toObject().hasClass(&class_); }
 
     template <typename NativeType>
-    static SharedMem<uint8_t*>
-    getDataPointer(JSContext* cx, Handle<DataViewObject*> obj, uint64_t offset, bool* isSharedMemory);
+    static SharedMem<uint8_t*> getDataPointer(JSContext* cx, Handle<DataViewObject*> obj,
+                                              uint64_t offset, bool* isSharedMemory);
 
     static bool bufferGetterImpl(JSContext* cx, const CallArgs& args);
     static bool bufferGetter(JSContext* cx, unsigned argc, Value* vp);
@@ -49,17 +46,17 @@ class DataViewObject : public NativeObject
     static bool byteOffsetGetterImpl(JSContext* cx, const CallArgs& args);
     static bool byteOffsetGetter(JSContext* cx, unsigned argc, Value* vp);
 
-    static bool
-    getAndCheckConstructorArgs(JSContext* cx, HandleObject bufobj, const CallArgs& args,
-                               uint32_t* byteOffset, uint32_t* byteLength);
+    static bool getAndCheckConstructorArgs(JSContext* cx, HandleObject bufobj,
+                                           const CallArgs& args, uint32_t* byteOffset,
+                                           uint32_t* byteLength);
     static bool constructSameCompartment(JSContext* cx, HandleObject bufobj, const CallArgs& args);
     static bool constructWrapped(JSContext* cx, HandleObject bufobj, const CallArgs& args);
 
-    static DataViewObject*
-    create(JSContext* cx, uint32_t byteOffset, uint32_t byteLength,
-           Handle<ArrayBufferObjectMaybeShared*> arrayBuffer, JSObject* proto);
+    static DataViewObject* create(JSContext* cx, uint32_t byteOffset, uint32_t byteLength,
+                                  Handle<ArrayBufferObjectMaybeShared*> arrayBuffer,
+                                  JSObject* proto);
 
-  public:
+   public:
     static const Class class_;
 
     static Value byteOffsetValue(DataViewObject* view) {
@@ -87,14 +84,14 @@ class DataViewObject : public NativeObject
     }
 
     ArrayBufferObjectMaybeShared& arrayBufferEither() const {
-        return bufferValue(
-            const_cast<DataViewObject*>(this)).toObject().as<ArrayBufferObjectMaybeShared>();
+        return bufferValue(const_cast<DataViewObject*>(this))
+            .toObject()
+            .as<ArrayBufferObjectMaybeShared>();
     }
 
     SharedMem<void*> dataPointerEither() const {
-        void *p = getPrivate();
-        if (isSharedMemory())
-            return SharedMem<void*>::shared(p);
+        void* p = getPrivate();
+        if (isSharedMemory()) return SharedMem<void*>::shared(p);
         return SharedMem<void*>::unshared(p);
     }
 
@@ -159,19 +156,19 @@ class DataViewObject : public NativeObject
     static bool fun_setFloat64(JSContext* cx, unsigned argc, Value* vp);
 
     static bool initClass(JSContext* cx);
-    template<typename NativeType>
+    template <typename NativeType>
     static bool read(JSContext* cx, Handle<DataViewObject*> obj, const CallArgs& args,
                      NativeType* val);
-    template<typename NativeType>
+    template <typename NativeType>
     static bool write(JSContext* cx, Handle<DataViewObject*> obj, const CallArgs& args);
 
     void notifyBufferDetached(void* newData);
 
-  private:
+   private:
     static const JSFunctionSpec methods[];
     static const JSPropertySpec properties[];
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_DataViewObject_h */

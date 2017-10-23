@@ -27,8 +27,7 @@ PrintTargetThebes::CreateOrNull(gfxASurface* aSurface)
 }
 
 PrintTargetThebes::PrintTargetThebes(gfxASurface* aSurface)
-  : PrintTarget(nullptr, aSurface->GetSize())
-  , mGfxSurface(aSurface)
+    : PrintTarget(nullptr, aSurface->GetSize()), mGfxSurface(aSurface)
 {
 }
 
@@ -41,7 +40,8 @@ PrintTargetThebes::MakeDrawTarget(const IntSize& aSize,
   MOZ_ASSERT(mHasActivePage, "We can't guarantee a valid DrawTarget");
 
   RefPtr<gfx::DrawTarget> dt =
-    gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(mGfxSurface, aSize);
+      gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(mGfxSurface,
+                                                             aSize);
   if (!dt || !dt->IsValid()) {
     return nullptr;
   }
@@ -61,11 +61,12 @@ PrintTargetThebes::GetReferenceDrawTarget(DrawEventRecorder* aRecorder)
 {
   if (!mRefDT) {
     RefPtr<gfx::DrawTarget> dt =
-      gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(mGfxSurface, mSize);
+        gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(mGfxSurface,
+                                                               mSize);
     if (!dt || !dt->IsValid()) {
       return nullptr;
     }
-    mRefDT = dt->CreateSimilarDrawTarget(IntSize(1,1), dt->GetFormat());
+    mRefDT = dt->CreateSimilarDrawTarget(IntSize(1, 1), dt->GetFormat());
   }
 
   if (aRecorder) {
@@ -81,8 +82,9 @@ PrintTargetThebes::GetReferenceDrawTarget(DrawEventRecorder* aRecorder)
     }
 #ifdef DEBUG
     else {
-      MOZ_ASSERT(aRecorder == mRecorder,
-                 "Caching mRecordingRefDT assumes the aRecorder is an invariant");
+      MOZ_ASSERT(
+          aRecorder == mRecorder,
+          "Caching mRecordingRefDT assumes the aRecorder is an invariant");
     }
 #endif
 
@@ -140,5 +142,5 @@ PrintTargetThebes::Finish()
   return mGfxSurface->Finish();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -17,8 +17,8 @@ class nsXMLBindingValues;
 namespace mozilla {
 namespace dom {
 class XPathResult;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * Classes related to storing bindings for XML handling.
@@ -27,22 +27,20 @@ class XPathResult;
 /**
  * a <binding> description
  */
-struct nsXMLBinding {
+struct nsXMLBinding
+{
   RefPtr<nsAtom> mVar;
   nsAutoPtr<mozilla::dom::XPathExpression> mExpr;
 
   nsAutoPtr<nsXMLBinding> mNext;
 
   nsXMLBinding(nsAtom* aVar, nsAutoPtr<mozilla::dom::XPathExpression>&& aExpr)
-    : mVar(aVar), mExpr(aExpr), mNext(nullptr)
+      : mVar(aVar), mExpr(aExpr), mNext(nullptr)
   {
     MOZ_COUNT_CTOR(nsXMLBinding);
   }
 
-  ~nsXMLBinding()
-  {
-    MOZ_COUNT_DTOR(nsXMLBinding);
-  }
+  ~nsXMLBinding() { MOZ_COUNT_DTOR(nsXMLBinding); }
 };
 
 /**
@@ -53,7 +51,7 @@ class nsXMLBindingSet final
 {
   ~nsXMLBindingSet();
 
-public:
+ public:
   // pointer to the first binding in a linked list
   nsAutoPtr<nsXMLBinding> mFirst;
 
@@ -62,8 +60,8 @@ public:
   /**
    * Add a binding to the set
    */
-  void
-  AddBinding(nsAtom* aVar, nsAutoPtr<mozilla::dom::XPathExpression>&& aExpr);
+  void AddBinding(nsAtom* aVar,
+                  nsAutoPtr<mozilla::dom::XPathExpression>&& aExpr);
 
   /**
    * The nsXMLBindingValues class stores an array of values, one for each
@@ -71,8 +69,7 @@ public:
    * LookupTargetIndex determines the index into the array for a given
    * target symbol.
    */
-  int32_t
-  LookupTargetIndex(nsAtom* aTargetVariable, nsXMLBinding** aBinding);
+  int32_t LookupTargetIndex(nsAtom* aTargetVariable, nsXMLBinding** aBinding);
 };
 
 /**
@@ -80,8 +77,7 @@ public:
  */
 class nsXMLBindingValues
 {
-protected:
-
+ protected:
   // the binding set
   RefPtr<nsXMLBindingSet> mBindings;
 
@@ -92,8 +88,7 @@ protected:
    */
   nsTArray<RefPtr<mozilla::dom::XPathResult> > mValues;
 
-public:
-
+ public:
   nsXMLBindingValues() { MOZ_COUNT_CTOR(nsXMLBindingValues); }
   ~nsXMLBindingValues() { MOZ_COUNT_DTOR(nsXMLBindingValues); }
 
@@ -101,11 +96,10 @@ public:
 
   void SetBindingSet(nsXMLBindingSet* aBindings) { mBindings = aBindings; }
 
-  int32_t
-  LookupTargetIndex(nsAtom* aTargetVariable, nsXMLBinding** aBinding)
+  int32_t LookupTargetIndex(nsAtom* aTargetVariable, nsXMLBinding** aBinding)
   {
-    return mBindings ?
-           mBindings->LookupTargetIndex(aTargetVariable, aBinding) : -1;
+    return mBindings ? mBindings->LookupTargetIndex(aTargetVariable, aBinding)
+                     : -1;
   }
 
   /**
@@ -116,22 +110,19 @@ public:
    * aIndex the index of the assignment to retrieve
    * aType the type of result expected
    */
-  mozilla::dom::XPathResult*
-  GetAssignmentFor(nsXULTemplateResultXML* aResult,
-                   nsXMLBinding* aBinding,
-                   int32_t idx,
-                   uint16_t type);
+  mozilla::dom::XPathResult* GetAssignmentFor(nsXULTemplateResultXML* aResult,
+                                              nsXMLBinding* aBinding,
+                                              int32_t idx,
+                                              uint16_t type);
 
-  nsINode*
-  GetNodeAssignmentFor(nsXULTemplateResultXML* aResult,
-                       nsXMLBinding* aBinding,
-                       int32_t idx);
+  nsINode* GetNodeAssignmentFor(nsXULTemplateResultXML* aResult,
+                                nsXMLBinding* aBinding,
+                                int32_t idx);
 
-  void
-  GetStringAssignmentFor(nsXULTemplateResultXML* aResult,
-                         nsXMLBinding* aBinding,
-                         int32_t idx,
-                         nsAString& aValue);
+  void GetStringAssignmentFor(nsXULTemplateResultXML* aResult,
+                              nsXMLBinding* aBinding,
+                              int32_t idx,
+                              nsAString& aValue);
 };
 
-#endif // nsXMLBinding_h__
+#endif  // nsXMLBinding_h__

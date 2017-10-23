@@ -3,41 +3,39 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
-#include "mozilla/HTMLEditor.h"         // for HTMLEditor
-#include "mozilla/TextEditor.h"         // for TextEditor
-#include "nsCOMPtr.h"                   // for nsCOMPtr, do_QueryInterface, etc
-#include "nsCRT.h"                      // for nsCRT
-#include "nsComposerCommands.h"         // for nsSetDocumentOptionsCommand, etc
-#include "nsDebug.h"                    // for NS_ENSURE_ARG_POINTER, etc
-#include "nsError.h"                    // for NS_ERROR_INVALID_ARG, etc
-#include "nsICommandParams.h"           // for nsICommandParams
-#include "nsIDOMDocument.h"             // for nsIDOMDocument
-#include "nsIDocShell.h"                // for nsIDocShell
-#include "nsIDocument.h"                // for nsIDocument
-#include "nsIEditingSession.h"          // for nsIEditingSession, etc
-#include "nsIEditor.h"                  // for nsIEditor
-#include "nsIPlaintextEditor.h"         // for nsIPlaintextEditor, etc
-#include "nsIPresShell.h"               // for nsIPresShell
-#include "nsISelectionController.h"     // for nsISelectionController
-#include "nsISupportsImpl.h"            // for nsPresContext::Release
-#include "nsISupportsUtils.h"           // for NS_IF_ADDREF
-#include "nsIURI.h"                     // for nsIURI
-#include "nsPresContext.h"              // for nsPresContext
-#include "nscore.h"                     // for NS_IMETHODIMP, nsresult, etc
+#include "mozilla/HTMLEditor.h"      // for HTMLEditor
+#include "mozilla/TextEditor.h"      // for TextEditor
+#include "nsCOMPtr.h"                // for nsCOMPtr, do_QueryInterface, etc
+#include "nsCRT.h"                   // for nsCRT
+#include "nsComposerCommands.h"      // for nsSetDocumentOptionsCommand, etc
+#include "nsDebug.h"                 // for NS_ENSURE_ARG_POINTER, etc
+#include "nsError.h"                 // for NS_ERROR_INVALID_ARG, etc
+#include "nsICommandParams.h"        // for nsICommandParams
+#include "nsIDOMDocument.h"          // for nsIDOMDocument
+#include "nsIDocShell.h"             // for nsIDocShell
+#include "nsIDocument.h"             // for nsIDocument
+#include "nsIEditingSession.h"       // for nsIEditingSession, etc
+#include "nsIEditor.h"               // for nsIEditor
+#include "nsIPlaintextEditor.h"      // for nsIPlaintextEditor, etc
+#include "nsIPresShell.h"            // for nsIPresShell
+#include "nsISelectionController.h"  // for nsISelectionController
+#include "nsISupportsImpl.h"         // for nsPresContext::Release
+#include "nsISupportsUtils.h"        // for NS_IF_ADDREF
+#include "nsIURI.h"                  // for nsIURI
+#include "nsPresContext.h"           // for nsPresContext
+#include "nscore.h"                  // for NS_IMETHODIMP, nsresult, etc
 
 using namespace mozilla;
 
 class nsISupports;
 
 //defines
-#define STATE_ENABLED  "state_enabled"
+#define STATE_ENABLED "state_enabled"
 #define STATE_ALL "state_all"
 #define STATE_ATTRIBUTE "state_attribute"
 #define STATE_DATA "state_data"
 
-static
-nsresult
+static nsresult
 GetPresContextFromEditor(TextEditor* aTextEditor, nsPresContext** aResult)
 {
   if (NS_WARN_IF(!aResult) || NS_WARN_IF(!aTextEditor)) {
@@ -54,9 +52,9 @@ GetPresContextFromEditor(TextEditor* aTextEditor, nsPresContext** aResult)
 }
 
 NS_IMETHODIMP
-nsSetDocumentOptionsCommand::IsCommandEnabled(const char * aCommandName,
-                                              nsISupports *refCon,
-                                              bool *outCmdEnabled)
+nsSetDocumentOptionsCommand::IsCommandEnabled(const char* aCommandName,
+                                              nsISupports* refCon,
+                                              bool* outCmdEnabled)
 {
   NS_ENSURE_ARG_POINTER(outCmdEnabled);
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(refCon);
@@ -71,16 +69,16 @@ nsSetDocumentOptionsCommand::IsCommandEnabled(const char * aCommandName,
 }
 
 NS_IMETHODIMP
-nsSetDocumentOptionsCommand::DoCommand(const char *aCommandName,
-                                       nsISupports *refCon)
+nsSetDocumentOptionsCommand::DoCommand(const char* aCommandName,
+                                       nsISupports* refCon)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsSetDocumentOptionsCommand::DoCommandParams(const char *aCommandName,
-                                             nsICommandParams *aParams,
-                                             nsISupports *refCon)
+nsSetDocumentOptionsCommand::DoCommandParams(const char* aCommandName,
+                                             nsICommandParams* aParams,
+                                             nsISupports* refCon)
 {
   NS_ENSURE_ARG_POINTER(aParams);
 
@@ -93,7 +91,7 @@ nsSetDocumentOptionsCommand::DoCommandParams(const char *aCommandName,
 
   RefPtr<nsPresContext> presContext;
   nsresult rv =
-    GetPresContextFromEditor(textEditor, getter_AddRefs(presContext));
+      GetPresContextFromEditor(textEditor, getter_AddRefs(presContext));
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(presContext, NS_ERROR_FAILURE);
 
@@ -119,9 +117,9 @@ nsSetDocumentOptionsCommand::DoCommandParams(const char *aCommandName,
 }
 
 NS_IMETHODIMP
-nsSetDocumentOptionsCommand::GetCommandStateParams(const char *aCommandName,
-                                                   nsICommandParams *aParams,
-                                                   nsISupports *refCon)
+nsSetDocumentOptionsCommand::GetCommandStateParams(const char* aCommandName,
+                                                   nsICommandParams* aParams,
+                                                   nsISupports* refCon)
 {
   NS_ENSURE_ARG_POINTER(aParams);
   NS_ENSURE_ARG_POINTER(refCon);
@@ -171,7 +169,6 @@ nsSetDocumentOptionsCommand::GetCommandStateParams(const char *aCommandName,
   return NS_OK;
 }
 
-
 /**
  *  Commands for document state that may be changed via doCommandParams
  *  As of 11/11/02, this is just "cmd_setDocumentModified"
@@ -181,9 +178,9 @@ nsSetDocumentOptionsCommand::GetCommandStateParams(const char *aCommandName,
  */
 
 NS_IMETHODIMP
-nsSetDocumentStateCommand::IsCommandEnabled(const char * aCommandName,
-                                            nsISupports *refCon,
-                                            bool *outCmdEnabled)
+nsSetDocumentStateCommand::IsCommandEnabled(const char* aCommandName,
+                                            nsISupports* refCon,
+                                            bool* outCmdEnabled)
 {
   // These commands are always enabled
   NS_ENSURE_ARG_POINTER(outCmdEnabled);
@@ -192,16 +189,16 @@ nsSetDocumentStateCommand::IsCommandEnabled(const char * aCommandName,
 }
 
 NS_IMETHODIMP
-nsSetDocumentStateCommand::DoCommand(const char *aCommandName,
-                                     nsISupports *refCon)
+nsSetDocumentStateCommand::DoCommand(const char* aCommandName,
+                                     nsISupports* refCon)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsSetDocumentStateCommand::DoCommandParams(const char *aCommandName,
-                                           nsICommandParams *aParams,
-                                           nsISupports *refCon)
+nsSetDocumentStateCommand::DoCommandParams(const char* aCommandName,
+                                           nsICommandParams* aParams,
+                                           nsISupports* refCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(refCon);
   if (NS_WARN_IF(!editor)) {
@@ -232,9 +229,10 @@ nsSetDocumentStateCommand::DoCommandParams(const char *aCommandName,
     bool isReadOnly;
     nsresult rvRO = aParams->GetBooleanValue(STATE_ATTRIBUTE, &isReadOnly);
     NS_ENSURE_SUCCESS(rvRO, rvRO);
-    return isReadOnly ?
-      textEditor->AddFlags(nsIPlaintextEditor::eEditorReadonlyMask) :
-      textEditor->RemoveFlags(nsIPlaintextEditor::eEditorReadonlyMask);
+    return isReadOnly
+               ? textEditor->AddFlags(nsIPlaintextEditor::eEditorReadonlyMask)
+               : textEditor->RemoveFlags(
+                     nsIPlaintextEditor::eEditorReadonlyMask);
   }
 
   if (!nsCRT::strcmp(aCommandName, "cmd_setDocumentUseCSS")) {
@@ -259,11 +257,12 @@ nsSetDocumentStateCommand::DoCommandParams(const char *aCommandName,
     }
 
     bool insertBrOnReturn;
-    nsresult rvBR = aParams->GetBooleanValue(STATE_ATTRIBUTE,
-                                              &insertBrOnReturn);
+    nsresult rvBR =
+        aParams->GetBooleanValue(STATE_ATTRIBUTE, &insertBrOnReturn);
     NS_ENSURE_SUCCESS(rvBR, rvBR);
 
-    return htmlEditor->SetReturnInParagraphCreatesNewParagraph(!insertBrOnReturn);
+    return htmlEditor->SetReturnInParagraphCreatesNewParagraph(
+        !insertBrOnReturn);
   }
 
   if (!nsCRT::strcmp(aCommandName, "cmd_defaultParagraphSeparator")) {
@@ -276,8 +275,8 @@ nsSetDocumentStateCommand::DoCommandParams(const char *aCommandName,
     }
 
     nsCString newValue;
-    nsresult rv = aParams->GetCStringValue(STATE_ATTRIBUTE,
-                                           getter_Copies(newValue));
+    nsresult rv =
+        aParams->GetCStringValue(STATE_ATTRIBUTE, getter_Copies(newValue));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -333,9 +332,9 @@ nsSetDocumentStateCommand::DoCommandParams(const char *aCommandName,
 }
 
 NS_IMETHODIMP
-nsSetDocumentStateCommand::GetCommandStateParams(const char *aCommandName,
-                                                 nsICommandParams *aParams,
-                                                 nsISupports *refCon)
+nsSetDocumentStateCommand::GetCommandStateParams(const char* aCommandName,
+                                                 nsICommandParams* aParams,
+                                                 nsISupports* refCon)
 {
   NS_ENSURE_ARG_POINTER(aParams);
   NS_ENSURE_ARG_POINTER(refCon);
@@ -485,8 +484,8 @@ nsSetDocumentStateCommand::GetCommandStateParams(const char *aCommandName,
 
 NS_IMETHODIMP
 nsDocumentStateCommand::IsCommandEnabled(const char* aCommandName,
-                                         nsISupports *refCon,
-                                         bool *outCmdEnabled)
+                                         nsISupports* refCon,
+                                         bool* outCmdEnabled)
 {
   NS_ENSURE_ARG_POINTER(outCmdEnabled);
   // Always return false to discourage callers from using DoCommand()
@@ -495,24 +494,23 @@ nsDocumentStateCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-nsDocumentStateCommand::DoCommand(const char *aCommandName,
-                                  nsISupports *refCon)
+nsDocumentStateCommand::DoCommand(const char* aCommandName, nsISupports* refCon)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsDocumentStateCommand::DoCommandParams(const char *aCommandName,
-                                        nsICommandParams *aParams,
-                                        nsISupports *refCon)
+nsDocumentStateCommand::DoCommandParams(const char* aCommandName,
+                                        nsICommandParams* aParams,
+                                        nsISupports* refCon)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsDocumentStateCommand::GetCommandStateParams(const char *aCommandName,
-                                              nsICommandParams *aParams,
-                                              nsISupports *refCon)
+nsDocumentStateCommand::GetCommandStateParams(const char* aCommandName,
+                                              nsICommandParams* aParams,
+                                              nsISupports* refCon)
 {
   NS_ENSURE_ARG_POINTER(aParams);
   NS_ENSURE_ARG_POINTER(aCommandName);
@@ -555,7 +553,7 @@ nsDocumentStateCommand::GetCommandStateParams(const char *aCommandName,
     nsCOMPtr<nsIDocument> doc = textEditor->GetDocument();
     NS_ENSURE_TRUE(doc, NS_ERROR_FAILURE);
 
-    nsIURI *uri = doc->GetDocumentURI();
+    nsIURI* uri = doc->GetDocumentURI();
     NS_ENSURE_TRUE(uri, NS_ERROR_FAILURE);
 
     return aParams->SetISupportsValue(STATE_DATA, (nsISupports*)uri);

@@ -14,24 +14,24 @@ PerformanceMeasure::PerformanceMeasure(nsISupports* aParent,
                                        const nsAString& aName,
                                        DOMHighResTimeStamp aStartTime,
                                        DOMHighResTimeStamp aEndTime)
-: PerformanceEntry(aParent, aName, NS_LITERAL_STRING("measure")),
-  mStartTime(aStartTime),
-  mDuration(aEndTime - aStartTime)
+    : PerformanceEntry(aParent, aName, NS_LITERAL_STRING("measure")),
+      mStartTime(aStartTime),
+      mDuration(aEndTime - aStartTime)
 {
 }
 
-PerformanceMeasure::~PerformanceMeasure()
-{
-}
+PerformanceMeasure::~PerformanceMeasure() {}
 
 JSObject*
-PerformanceMeasure::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+PerformanceMeasure::WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto)
 {
   return PerformanceMeasureBinding::Wrap(aCx, this, aGivenProto);
 }
 
 size_t
-PerformanceMeasure::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+PerformanceMeasure::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
 }

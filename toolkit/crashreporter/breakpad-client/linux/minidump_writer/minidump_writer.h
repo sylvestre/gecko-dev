@@ -53,17 +53,17 @@ typedef struct _libc_fpstate fpstate_t;
 
 // These entries store a list of memory regions that the client wants included
 // in the minidump.
-struct AppMemory {
+struct AppMemory
+{
   void* ptr;
   size_t length;
 
-  bool operator==(const struct AppMemory& other) const {
+  bool operator==(const struct AppMemory& other) const
+  {
     return ptr == other.ptr;
   }
 
-  bool operator==(const void* other) const {
-    return ptr == other;
-  }
+  bool operator==(const void* other) const { return ptr == other; }
 };
 typedef std::list<AppMemory> AppMemoryList;
 
@@ -77,47 +77,68 @@ typedef std::list<AppMemory> AppMemoryList;
 //   blob_size: the length of |blob|, in bytes
 //
 // Returns true iff successful.
-bool WriteMinidump(const char* minidump_path, pid_t crashing_process,
-                   const void* blob, size_t blob_size);
+bool
+WriteMinidump(const char* minidump_path,
+              pid_t crashing_process,
+              const void* blob,
+              size_t blob_size);
 // Same as above but takes an open file descriptor instead of a path.
-bool WriteMinidump(int minidump_fd, pid_t crashing_process,
-                   const void* blob, size_t blob_size);
+bool
+WriteMinidump(int minidump_fd,
+              pid_t crashing_process,
+              const void* blob,
+              size_t blob_size);
 
 // Alternate form of WriteMinidump() that works with processes that
 // are not expected to have crashed.  If |process_blamed_thread| is
 // meaningful, it will be the one from which a crash signature is
 // extracted.  It is not expected that this function will be called
 // from a compromised context, but it is safe to do so.
-bool WriteMinidump(const char* minidump_path, pid_t process,
-                   pid_t process_blamed_thread);
+bool
+WriteMinidump(const char* minidump_path,
+              pid_t process,
+              pid_t process_blamed_thread);
 
 // These overloads also allow passing a list of known mappings and
 // a list of additional memory regions to be included in the minidump.
-bool WriteMinidump(const char* minidump_path, pid_t crashing_process,
-                   const void* blob, size_t blob_size,
-                   const MappingList& mappings,
-                   const AppMemoryList& appdata);
-bool WriteMinidump(int minidump_fd, pid_t crashing_process,
-                   const void* blob, size_t blob_size,
-                   const MappingList& mappings,
-                   const AppMemoryList& appdata);
+bool
+WriteMinidump(const char* minidump_path,
+              pid_t crashing_process,
+              const void* blob,
+              size_t blob_size,
+              const MappingList& mappings,
+              const AppMemoryList& appdata);
+bool
+WriteMinidump(int minidump_fd,
+              pid_t crashing_process,
+              const void* blob,
+              size_t blob_size,
+              const MappingList& mappings,
+              const AppMemoryList& appdata);
 
 // These overloads also allow passing a file size limit for the minidump.
-bool WriteMinidump(const char* minidump_path, off_t minidump_size_limit,
-                   pid_t crashing_process,
-                   const void* blob, size_t blob_size,
-                   const MappingList& mappings,
-                   const AppMemoryList& appdata);
-bool WriteMinidump(int minidump_fd, off_t minidump_size_limit,
-                   pid_t crashing_process,
-                   const void* blob, size_t blob_size,
-                   const MappingList& mappings,
-                   const AppMemoryList& appdata);
+bool
+WriteMinidump(const char* minidump_path,
+              off_t minidump_size_limit,
+              pid_t crashing_process,
+              const void* blob,
+              size_t blob_size,
+              const MappingList& mappings,
+              const AppMemoryList& appdata);
+bool
+WriteMinidump(int minidump_fd,
+              off_t minidump_size_limit,
+              pid_t crashing_process,
+              const void* blob,
+              size_t blob_size,
+              const MappingList& mappings,
+              const AppMemoryList& appdata);
 
-bool WriteMinidump(const char* filename,
-                   const MappingList& mappings,
-                   const AppMemoryList& appdata,
-                   LinuxDumper* dumper);
+bool
+WriteMinidump(const char* filename,
+              const MappingList& mappings,
+              const AppMemoryList& appdata,
+              LinuxDumper* dumper);
 
 }  // namespace google_breakpad
 

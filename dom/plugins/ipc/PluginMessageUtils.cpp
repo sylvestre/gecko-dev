@@ -21,18 +21,16 @@ namespace {
 
 class DeferNPObjectReleaseRunnable : public mozilla::Runnable
 {
-public:
+ public:
   DeferNPObjectReleaseRunnable(const NPNetscapeFuncs* f, NPObject* o)
-    : Runnable("DeferNPObjectReleaseRunnable")
-    , mFuncs(f)
-    , mObject(o)
+      : Runnable("DeferNPObjectReleaseRunnable"), mFuncs(f), mObject(o)
   {
     NS_ASSERTION(o, "no release null objects");
   }
 
   NS_IMETHOD Run();
 
-private:
+ private:
   const NPNetscapeFuncs* mFuncs;
   NPObject* mObject;
 };
@@ -44,19 +42,26 @@ DeferNPObjectReleaseRunnable::Run()
   return NS_OK;
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace plugins {
 
-NPRemoteWindow::NPRemoteWindow() :
-  window(0), x(0), y(0), width(0), height(0), type(NPWindowTypeDrawable)
+NPRemoteWindow::NPRemoteWindow()
+    : window(0),
+      x(0),
+      y(0),
+      width(0),
+      height(0),
+      type(NPWindowTypeDrawable)
 #if defined(MOZ_X11) && defined(XP_UNIX) && !defined(XP_MACOSX)
-  , visualID(0)
-  , colormap(0)
+      ,
+      visualID(0),
+      colormap(0)
 #endif /* XP_UNIX */
 #if defined(XP_MACOSX)
-  ,contentsScaleFactor(1.0)
+      ,
+      contentsScaleFactor(1.0)
 #endif
 {
   clipRect.top = 0;
@@ -70,16 +75,16 @@ MediateRace(const MessageChannel::MessageInfo& parent,
             const MessageChannel::MessageInfo& child)
 {
   switch (parent.type()) {
-  case PPluginInstance::Msg_Paint__ID:
-  case PPluginInstance::Msg_NPP_SetWindow__ID:
-  case PPluginInstance::Msg_NPP_HandleEvent_Shmem__ID:
-  case PPluginInstance::Msg_NPP_HandleEvent_IOSurface__ID:
-    // our code relies on the frame list not changing during paints and
-    // reflows
-    return ipc::RIPParentWins;
+    case PPluginInstance::Msg_Paint__ID:
+    case PPluginInstance::Msg_NPP_SetWindow__ID:
+    case PPluginInstance::Msg_NPP_HandleEvent_Shmem__ID:
+    case PPluginInstance::Msg_NPP_HandleEvent_IOSurface__ID:
+      // our code relies on the frame list not changing during paints and
+      // reflows
+      return ipc::RIPParentWins;
 
-  default:
-    return ipc::RIPChildWins;
+    default:
+      return ipc::RIPChildWins;
   }
 }
 
@@ -120,7 +125,6 @@ UnmungePluginDsoPath(const string& munged)
 #endif
 }
 
-
 LogModule*
 GetPluginLog()
 {
@@ -131,8 +135,7 @@ GetPluginLog()
 void
 DeferNPObjectLastRelease(const NPNetscapeFuncs* f, NPObject* o)
 {
-  if (!o)
-    return;
+  if (!o) return;
 
   if (o->referenceCount > 1) {
     f->releaseobject(o);
@@ -142,7 +145,8 @@ DeferNPObjectLastRelease(const NPNetscapeFuncs* f, NPObject* o)
   NS_DispatchToCurrentThread(new DeferNPObjectReleaseRunnable(f, o));
 }
 
-void DeferNPVariantLastRelease(const NPNetscapeFuncs* f, NPVariant* v)
+void
+DeferNPVariantLastRelease(const NPNetscapeFuncs* f, NPVariant* v)
 {
   if (!NPVARIANT_IS_OBJECT(*v)) {
     f->releasevariantvalue(v);
@@ -163,25 +167,24 @@ OpenFileNameIPC::CopyFromOfn(LPOPENFILENAMEW aLpofn)
   if (mHasFilter) {
     uint32_t dNullIdx = 0;
     while (aLpofn->lpstrFilter[dNullIdx] != L'\0' ||
-           aLpofn->lpstrFilter[dNullIdx+1] != L'\0') {
+           aLpofn->lpstrFilter[dNullIdx + 1] != L'\0') {
       dNullIdx++;
     }
-    mFilter.assign(aLpofn->lpstrFilter, dNullIdx+2);
+    mFilter.assign(aLpofn->lpstrFilter, dNullIdx + 2);
   }
   mHasCustomFilter = aLpofn->lpstrCustomFilter != nullptr;
   if (mHasCustomFilter) {
     mCustomFilterIn = std::wstring(aLpofn->lpstrCustomFilter);
     mNMaxCustFilterOut =
-      aLpofn->nMaxCustFilter - (wcslen(aLpofn->lpstrCustomFilter) + 1);
-  }
-  else {
+        aLpofn->nMaxCustFilter - (wcslen(aLpofn->lpstrCustomFilter) + 1);
+  } else {
     mNMaxCustFilterOut = 0;
   }
   mFilterIndex = aLpofn->nFilterIndex;
   mFile = std::wstring(aLpofn->lpstrFile);
   mNMaxFile = aLpofn->nMaxFile;
   mNMaxFileTitle =
-    aLpofn->lpstrFileTitle != nullptr ? aLpofn->nMaxFileTitle : 0;
+      aLpofn->lpstrFileTitle != nullptr ? aLpofn->nMaxFileTitle : 0;
   mHasInitialDir = aLpofn->lpstrInitialDir != nullptr;
   if (mHasInitialDir) {
     mInitialDir = std::wstring(aLpofn->lpstrInitialDir);
@@ -214,15 +217,16 @@ OpenFileNameIPC::AddToOfn(LPOPENFILENAMEW aLpofn) const
   aLpofn->hwndOwner = mHwndOwner;
   if (mHasFilter) {
     memcpy(const_cast<LPWSTR>(aLpofn->lpstrFilter),
-           mFilter.data(), mFilter.size() * sizeof(wchar_t));
+           mFilter.data(),
+           mFilter.size() * sizeof(wchar_t));
   }
   if (mHasCustomFilter) {
     aLpofn->nMaxCustFilter = mCustomFilterIn.size() + 1 + mNMaxCustFilterOut;
     wcscpy(aLpofn->lpstrCustomFilter, mCustomFilterIn.c_str());
-    memset(aLpofn->lpstrCustomFilter + mCustomFilterIn.size() + 1, 0,
+    memset(aLpofn->lpstrCustomFilter + mCustomFilterIn.size() + 1,
+           0,
            mNMaxCustFilterOut * sizeof(wchar_t));
-  }
-  else {
+  } else {
     aLpofn->nMaxCustFilter = 0;
   }
   aLpofn->nFilterIndex = mFilterIndex;
@@ -235,7 +239,7 @@ OpenFileNameIPC::AddToOfn(LPOPENFILENAMEW aLpofn) const
   if (mHasTitle) {
     wcscpy(const_cast<LPWSTR>(aLpofn->lpstrTitle), mTitle.c_str());
   }
-  aLpofn->Flags = mFlags;  /* TODO: Consider adding OFN_NOCHANGEDIR */
+  aLpofn->Flags = mFlags; /* TODO: Consider adding OFN_NOCHANGEDIR */
   if (mHasDefExt) {
     wcscpy(const_cast<LPWSTR>(aLpofn->lpstrDefExt), mDefExt.c_str());
   }
@@ -248,29 +252,29 @@ OpenFileNameIPC::AllocateOfnStrings(LPOPENFILENAMEW aLpofn) const
   if (mHasFilter) {
     // mFilter is double-NULL terminated and it includes the double-NULL in its length.
     aLpofn->lpstrFilter =
-      static_cast<LPCTSTR>(moz_xmalloc(sizeof(wchar_t) * (mFilter.size())));
+        static_cast<LPCTSTR>(moz_xmalloc(sizeof(wchar_t) * (mFilter.size())));
   }
   if (mHasCustomFilter) {
-    aLpofn->lpstrCustomFilter =
-      static_cast<LPTSTR>(moz_xmalloc(sizeof(wchar_t) * (mCustomFilterIn.size() + 1) + mNMaxCustFilterOut));
+    aLpofn->lpstrCustomFilter = static_cast<LPTSTR>(moz_xmalloc(
+        sizeof(wchar_t) * (mCustomFilterIn.size() + 1) + mNMaxCustFilterOut));
   }
   aLpofn->lpstrFile =
-    static_cast<LPTSTR>(moz_xmalloc(sizeof(wchar_t) * mNMaxFile));
+      static_cast<LPTSTR>(moz_xmalloc(sizeof(wchar_t) * mNMaxFile));
   if (mNMaxFileTitle > 0) {
     aLpofn->lpstrFileTitle =
-      static_cast<LPTSTR>(moz_xmalloc(sizeof(wchar_t) * mNMaxFileTitle));
+        static_cast<LPTSTR>(moz_xmalloc(sizeof(wchar_t) * mNMaxFileTitle));
   }
   if (mHasInitialDir) {
-    aLpofn->lpstrInitialDir =
-      static_cast<LPCTSTR>(moz_xmalloc(sizeof(wchar_t) * (mInitialDir.size() + 1)));
+    aLpofn->lpstrInitialDir = static_cast<LPCTSTR>(
+        moz_xmalloc(sizeof(wchar_t) * (mInitialDir.size() + 1)));
   }
   if (mHasTitle) {
-    aLpofn->lpstrTitle =
-      static_cast<LPCTSTR>(moz_xmalloc(sizeof(wchar_t) * (mTitle.size() + 1)));
+    aLpofn->lpstrTitle = static_cast<LPCTSTR>(
+        moz_xmalloc(sizeof(wchar_t) * (mTitle.size() + 1)));
   }
   if (mHasDefExt) {
-    aLpofn->lpstrDefExt =
-      static_cast<LPCTSTR>(moz_xmalloc(sizeof(wchar_t) * (mDefExt.size() + 1)));
+    aLpofn->lpstrDefExt = static_cast<LPCTSTR>(
+        moz_xmalloc(sizeof(wchar_t) * (mDefExt.size() + 1)));
   }
 }
 
@@ -304,12 +308,13 @@ void
 OpenFileNameRetIPC::CopyFromOfn(LPOPENFILENAMEW aLpofn)
 {
   if (aLpofn->lpstrCustomFilter != nullptr) {
-    mCustomFilterOut =
-      std::wstring(aLpofn->lpstrCustomFilter + wcslen(aLpofn->lpstrCustomFilter) + 1);
+    mCustomFilterOut = std::wstring(aLpofn->lpstrCustomFilter +
+                                    wcslen(aLpofn->lpstrCustomFilter) + 1);
   }
   mFile.assign(aLpofn->lpstrFile, aLpofn->nMaxFile);
   if (aLpofn->lpstrFileTitle != nullptr) {
-    mFileTitle.assign(aLpofn->lpstrFileTitle, wcslen(aLpofn->lpstrFileTitle) + 1);
+    mFileTitle.assign(aLpofn->lpstrFileTitle,
+                      wcslen(aLpofn->lpstrFileTitle) + 1);
   }
   mFileOffset = aLpofn->nFileOffset;
   mFileExtension = aLpofn->nFileExtension;
@@ -320,16 +325,17 @@ OpenFileNameRetIPC::AddToOfn(LPOPENFILENAMEW aLpofn) const
 {
   if (aLpofn->lpstrCustomFilter) {
     LPWSTR secondString =
-      aLpofn->lpstrCustomFilter + wcslen(aLpofn->lpstrCustomFilter) + 1;
+        aLpofn->lpstrCustomFilter + wcslen(aLpofn->lpstrCustomFilter) + 1;
     const wchar_t* customFilterOut = mCustomFilterOut.c_str();
-    MOZ_ASSERT(wcslen(aLpofn->lpstrCustomFilter) + 1 +
-               wcslen(customFilterOut) + 1 + 1 <= aLpofn->nMaxCustFilter);
+    MOZ_ASSERT(wcslen(aLpofn->lpstrCustomFilter) + 1 + wcslen(customFilterOut) +
+                   1 + 1 <=
+               aLpofn->nMaxCustFilter);
     wcscpy(secondString, customFilterOut);
-    secondString[wcslen(customFilterOut) + 1] = L'\0';  // terminated with two NULLs
+    secondString[wcslen(customFilterOut) + 1] =
+        L'\0';  // terminated with two NULLs
   }
   MOZ_ASSERT(mFile.size() <= aLpofn->nMaxFile);
-  memcpy(aLpofn->lpstrFile,
-         mFile.data(), mFile.size() * sizeof(wchar_t));
+  memcpy(aLpofn->lpstrFile, mFile.data(), mFile.size() * sizeof(wchar_t));
   if (aLpofn->lpstrFileTitle != nullptr) {
     MOZ_ASSERT(mFileTitle.size() + 1 < aLpofn->nMaxFileTitle);
     wcscpy(aLpofn->lpstrFileTitle, mFileTitle.c_str());
@@ -339,5 +345,5 @@ OpenFileNameRetIPC::AddToOfn(LPOPENFILENAMEW aLpofn) const
 }
 #endif  // XP_WIN
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla

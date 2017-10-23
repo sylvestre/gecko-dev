@@ -17,22 +17,25 @@ namespace binding_detail {
 // A struct that has the same layout as an nsString but much faster
 // constructor and destructor behavior. FakeString uses inline storage
 // for small strings and a nsStringBuffer for longer strings.
-struct FakeString {
-  FakeString() :
-    mData(nsString::char_traits::sEmptyBuffer),
-    mLength(0),
-    mDataFlags(nsString::DataFlags::TERMINATED),
-    mClassFlags(nsString::ClassFlags(0))
+struct FakeString
+{
+  FakeString()
+      : mData(nsString::char_traits::sEmptyBuffer),
+        mLength(0),
+        mDataFlags(nsString::DataFlags::TERMINATED),
+        mClassFlags(nsString::ClassFlags(0))
   {
   }
 
-  ~FakeString() {
+  ~FakeString()
+  {
     if (mDataFlags & nsString::DataFlags::SHARED) {
       nsStringBuffer::FromData(mData)->Release();
     }
   }
 
-  void Rebind(const nsString::char_type* aData, nsString::size_type aLength) {
+  void Rebind(const nsString::char_type* aData, nsString::size_type aLength)
+  {
     MOZ_ASSERT(mDataFlags == nsString::DataFlags::TERMINATED);
     mData = const_cast<nsString::char_type*>(aData);
     mLength = aLength;
@@ -41,7 +44,8 @@ struct FakeString {
   // Share aString's string buffer, if it has one; otherwise, make this string
   // depend upon aString's data.  aString should outlive this instance of
   // FakeString.
-  void ShareOrDependUpon(const nsAString& aString) {
+  void ShareOrDependUpon(const nsAString& aString)
+  {
     RefPtr<nsStringBuffer> sharedBuffer = nsStringBuffer::FromString(aString);
     if (!sharedBuffer) {
       Rebind(aString.Data(), aString.Length());
@@ -51,41 +55,35 @@ struct FakeString {
     }
   }
 
-  void Truncate() {
+  void Truncate()
+  {
     MOZ_ASSERT(mDataFlags == nsString::DataFlags::TERMINATED);
     mData = nsString::char_traits::sEmptyBuffer;
     mLength = 0;
   }
 
-  void SetIsVoid(bool aValue) {
-    MOZ_ASSERT(aValue,
-               "We don't support SetIsVoid(false) on FakeString!");
+  void SetIsVoid(bool aValue)
+  {
+    MOZ_ASSERT(aValue, "We don't support SetIsVoid(false) on FakeString!");
     Truncate();
     mDataFlags |= nsString::DataFlags::VOIDED;
   }
 
-  const nsString::char_type* Data() const
-  {
-    return mData;
-  }
+  const nsString::char_type* Data() const { return mData; }
 
-  nsString::char_type* BeginWriting()
-  {
-    return mData;
-  }
+  nsString::char_type* BeginWriting() { return mData; }
 
-  nsString::size_type Length() const
-  {
-    return mLength;
-  }
+  nsString::size_type Length() const { return mLength; }
 
   // Reserve space to write aLength chars, not including null-terminator.
-  bool SetLength(nsString::size_type aLength, mozilla::fallible_t const&) {
+  bool SetLength(nsString::size_type aLength, mozilla::fallible_t const&)
+  {
     // Use mInlineStorage for small strings.
     if (aLength < sInlineCapacity) {
       SetData(mInlineStorage);
     } else {
-      RefPtr<nsStringBuffer> buf = nsStringBuffer::Alloc((aLength + 1) * sizeof(nsString::char_type));
+      RefPtr<nsStringBuffer> buf =
+          nsStringBuffer::Alloc((aLength + 1) * sizeof(nsString::char_type));
       if (MOZ_UNLIKELY(!buf)) {
         return false;
       }
@@ -99,18 +97,18 @@ struct FakeString {
 
   // If this ever changes, change the corresponding code in the
   // Optional<nsAString> specialization as well.
-  const nsAString* ToAStringPtr() const {
+  const nsAString* ToAStringPtr() const
+  {
     return reinterpret_cast<const nsString*>(this);
   }
 
-operator const nsAString& () const {
+  operator const nsAString&() const
+  {
     return *reinterpret_cast<const nsString*>(this);
   }
 
-private:
-  nsAString* ToAStringPtr() {
-    return reinterpret_cast<nsString*>(this);
-  }
+ private:
+  nsAString* ToAStringPtr() { return reinterpret_cast<nsString*>(this); }
 
   nsString::char_type* mData;
   nsString::size_type mLength;
@@ -123,11 +121,13 @@ private:
   FakeString(const FakeString& other) = delete;
   void operator=(const FakeString& other) = delete;
 
-  void SetData(nsString::char_type* aData) {
+  void SetData(nsString::char_type* aData)
+  {
     MOZ_ASSERT(mDataFlags == nsString::DataFlags::TERMINATED);
     mData = const_cast<nsString::char_type*>(aData);
   }
-  void AssignFromStringBuffer(already_AddRefed<nsStringBuffer> aBuffer) {
+  void AssignFromStringBuffer(already_AddRefed<nsStringBuffer> aBuffer)
+  {
     SetData(static_cast<nsString::char_type*>(aBuffer.take()->Data()));
     mDataFlags = nsString::DataFlags::SHARED | nsString::DataFlags::TERMINATED;
   }
@@ -139,29 +139,30 @@ private:
   class StringAsserter;
   friend class StringAsserter;
 
-  class StringAsserter : public nsString {
-  public:
-    static void StaticAsserts() {
-      static_assert(offsetof(FakeString, mInlineStorage) ==
-                      sizeof(nsString),
+  class StringAsserter : public nsString
+  {
+   public:
+    static void StaticAsserts()
+    {
+      static_assert(offsetof(FakeString, mInlineStorage) == sizeof(nsString),
                     "FakeString should include all nsString members");
-      static_assert(offsetof(FakeString, mData) ==
-                      offsetof(StringAsserter, mData),
-                    "Offset of mData should match");
-      static_assert(offsetof(FakeString, mLength) ==
-                      offsetof(StringAsserter, mLength),
-                    "Offset of mLength should match");
+      static_assert(
+          offsetof(FakeString, mData) == offsetof(StringAsserter, mData),
+          "Offset of mData should match");
+      static_assert(
+          offsetof(FakeString, mLength) == offsetof(StringAsserter, mLength),
+          "Offset of mLength should match");
       static_assert(offsetof(FakeString, mDataFlags) ==
-                      offsetof(StringAsserter, mDataFlags),
+                        offsetof(StringAsserter, mDataFlags),
                     "Offset of mDataFlags should match");
       static_assert(offsetof(FakeString, mClassFlags) ==
-                      offsetof(StringAsserter, mClassFlags),
+                        offsetof(StringAsserter, mClassFlags),
                     "Offset of mClassFlags should match");
     }
   };
 };
-} // namespace binding_detail
-} // namespace dom
-} // namespace mozilla
+}  // namespace binding_detail
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_FakeString_h__ */

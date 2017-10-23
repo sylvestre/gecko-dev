@@ -20,9 +20,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMStringList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-DOMStringList::~DOMStringList()
-{
-}
+DOMStringList::~DOMStringList() {}
 
 JSObject*
 DOMStringList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -30,5 +28,5 @@ DOMStringList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return DOMStringListBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

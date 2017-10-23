@@ -10,7 +10,8 @@
 
 // Test of scenario described in bug 1269067 - that a continuing mouse drag
 // doesn't interrupt a wheel scrolling animation
-TEST_F(APZCTreeManagerTester, WheelInterruptedByMouseDrag) {
+TEST_F(APZCTreeManagerTester, WheelInterruptedByMouseDrag)
+{
   // Set up a scrollable layer
   CreateSimpleScrollingLayer();
   ScopedLayerTreeRegistration registration(manager, 0, root, mcc);
@@ -27,7 +28,11 @@ TEST_F(APZCTreeManagerTester, WheelInterruptedByMouseDrag) {
   EXPECT_EQ(dragBlockId, tmpBlockId);
 
   // Insert the wheel event, check that it has a new block id
-  SmoothWheel(apzc, ScreenIntPoint(6, 6), ScreenPoint(0, 1), mcc->Time(), &wheelBlockId);
+  SmoothWheel(apzc,
+              ScreenIntPoint(6, 6),
+              ScreenPoint(0, 1),
+              mcc->Time(),
+              &wheelBlockId);
   EXPECT_NE(dragBlockId, wheelBlockId);
 
   // Continue the drag, check that the block id is the same as before
@@ -38,7 +43,8 @@ TEST_F(APZCTreeManagerTester, WheelInterruptedByMouseDrag) {
   apzc->AdvanceAnimationsUntilEnd();
 
   // Check that it scrolled
-  ParentLayerPoint scroll = apzc->GetCurrentAsyncScrollOffset(AsyncPanZoomController::eForHitTesting);
+  ParentLayerPoint scroll =
+      apzc->GetCurrentAsyncScrollOffset(AsyncPanZoomController::eForHitTesting);
   EXPECT_EQ(scroll.x, 0);
-  EXPECT_EQ(scroll.y, 10); // We scrolled 1 "line" or 10 pixels
+  EXPECT_EQ(scroll.y, 10);  // We scrolled 1 "line" or 10 pixels
 }

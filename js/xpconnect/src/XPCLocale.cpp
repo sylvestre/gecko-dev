@@ -27,14 +27,14 @@ using mozilla::intl::LocaleService;
 
 class XPCLocaleObserver : public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
   void Init();
 
-private:
-  virtual ~XPCLocaleObserver() {};
+ private:
+  virtual ~XPCLocaleObserver(){};
 };
 
 NS_IMPL_ISUPPORTS(XPCLocaleObserver, nsIObserver);
@@ -43,13 +43,15 @@ void
 XPCLocaleObserver::Init()
 {
   nsCOMPtr<nsIObserverService> observerService =
-    mozilla::services::GetObserverService();
+      mozilla::services::GetObserverService();
 
   observerService->AddObserver(this, "intl:app-locales-changed", false);
 }
 
 NS_IMETHODIMP
-XPCLocaleObserver::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
+XPCLocaleObserver::Observe(nsISupports* aSubject,
+                           const char* aTopic,
+                           const char16_t* aData)
 {
   if (!strcmp(aTopic, "intl:app-locales-changed")) {
     JSRuntime* rt = CycleCollectedJSRuntime::Get()->Runtime();
@@ -96,8 +98,7 @@ struct XPCLocaleCallbacks : public JSLocaleCallbacks
   /**
    * Return the XPCLocaleCallbacks from |cx|'s runtime (see below).
    */
-  static XPCLocaleCallbacks*
-  This(JSContext* cx)
+  static XPCLocaleCallbacks* This(JSContext* cx)
   {
     return This(JS_GetRuntime(cx));
   }
@@ -106,8 +107,7 @@ struct XPCLocaleCallbacks : public JSLocaleCallbacks
    * Return the XPCLocaleCallbacks that's hidden away in |rt|. (This impl uses
    * the locale callbacks struct to store away its per-context data.)
    */
-  static XPCLocaleCallbacks*
-  This(JSRuntime* rt)
+  static XPCLocaleCallbacks* This(JSRuntime* rt)
   {
     // Locale information for |cx| was associated using xpc_LocalizeContext;
     // assert and double-check this.
@@ -123,27 +123,32 @@ struct XPCLocaleCallbacks : public JSLocaleCallbacks
     return const_cast<XPCLocaleCallbacks*>(ths);
   }
 
-  static bool
-  LocaleToUnicode(JSContext* cx, const char* src, MutableHandleValue rval)
+  static bool LocaleToUnicode(JSContext* cx,
+                              const char* src,
+                              MutableHandleValue rval)
   {
     return This(cx)->ToUnicode(cx, src, rval);
   }
 
-  static bool
-  LocaleCompare(JSContext* cx, HandleString src1, HandleString src2, MutableHandleValue rval)
+  static bool LocaleCompare(JSContext* cx,
+                            HandleString src1,
+                            HandleString src2,
+                            MutableHandleValue rval)
   {
     return This(cx)->Compare(cx, src1, src2, rval);
   }
 
-private:
-  bool
-  Compare(JSContext* cx, HandleString src1, HandleString src2, MutableHandleValue rval)
+ private:
+  bool Compare(JSContext* cx,
+               HandleString src1,
+               HandleString src2,
+               MutableHandleValue rval)
   {
     nsresult rv;
 
     if (!mCollation) {
       nsCOMPtr<nsICollationFactory> colFactory =
-        do_CreateInstance(NS_COLLATIONFACTORY_CONTRACTID, &rv);
+          do_CreateInstance(NS_COLLATIONFACTORY_CONTRACTID, &rv);
 
       if (NS_SUCCEEDED(rv)) {
         rv = colFactory->CreateCollation(getter_AddRefs(mCollation));
@@ -161,8 +166,8 @@ private:
     }
 
     int32_t result;
-    rv = mCollation->CompareString(nsICollation::kCollationStrengthDefault,
-                                   autoStr1, autoStr2, &result);
+    rv = mCollation->CompareString(
+        nsICollation::kCollationStrengthDefault, autoStr1, autoStr2, &result);
 
     if (NS_FAILED(rv)) {
       xpc::Throw(cx, rv);
@@ -173,8 +178,7 @@ private:
     return true;
   }
 
-  bool
-  ToUnicode(JSContext* cx, const char* src, MutableHandleValue rval)
+  bool ToUnicode(JSContext* cx, const char* src, MutableHandleValue rval)
   {
     // This code is only used by our prioprietary toLocaleFormat method
     // and should be removed once we get rid of it.
@@ -184,8 +188,7 @@ private:
     // See bug 1349470 for more details.
     nsAutoString result;
     NS_CopyNativeToUnicode(nsDependentCString(src), result);
-    JSString* ucstr =
-      JS_NewUCStringCopyN(cx, result.get(), result.Length());
+    JSString* ucstr = JS_NewUCStringCopyN(cx, result.get(), result.Length());
     if (ucstr) {
       rval.setString(ucstr);
       return true;

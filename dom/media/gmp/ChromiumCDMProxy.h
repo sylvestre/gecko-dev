@@ -18,7 +18,7 @@ class DecryptJob;
 class ChromiumCDMCallbackProxy;
 class ChromiumCDMProxy : public CDMProxy
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ChromiumCDMProxy, override)
 
   ChromiumCDMProxy(dom::MediaKeys* aKeys,
@@ -115,7 +115,7 @@ public:
   // CDM, which will fail on all operations.
   already_AddRefed<gmp::ChromiumCDMParent> GetCDMParent();
 
-private:
+ private:
   void OnCDMCreated(uint32_t aPromiseId);
 
   ~ChromiumCDMProxy();
@@ -128,6 +128,6 @@ private:
   UniquePtr<ChromiumCDMCallbackProxy> mCallback;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ChromiumCDMProxy_h_
+#endif  // ChromiumCDMProxy_h_

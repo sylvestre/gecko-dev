@@ -9,8 +9,7 @@
 
 using namespace std;
 
-struct LooseEqualityFixture : public JSAPITest
-{
+struct LooseEqualityFixture : public JSAPITest {
     virtual ~LooseEqualityFixture() {}
 
     bool leq(JS::HandleValue x, JS::HandleValue y) {
@@ -28,8 +27,7 @@ struct LooseEqualityFixture : public JSAPITest
     }
 };
 
-struct LooseEqualityData
-{
+struct LooseEqualityData {
     JS::RootedValue qNaN;
     JS::RootedValue sNaN;
     JS::RootedValue d42;
@@ -41,16 +39,15 @@ struct LooseEqualityData
     JS::RootedValue negzero;
 
     explicit LooseEqualityData(JSContext* cx)
-      : qNaN(cx),
-        sNaN(cx),
-        d42(cx),
-        i42(cx),
-        undef(cx),
-        null(cx),
-        obj(cx),
-        poszero(cx),
-        negzero(cx)
-    {
+        : qNaN(cx),
+          sNaN(cx),
+          d42(cx),
+          i42(cx),
+          undef(cx),
+          null(cx),
+          obj(cx),
+          poszero(cx),
+          negzero(cx) {
         qNaN = JS::CanonicalizedDoubleValue(numeric_limits<double>::quiet_NaN());
         sNaN = JS::CanonicalizedDoubleValue(numeric_limits<double>::signaling_NaN());
         d42 = JS::DoubleValue(42.0);
@@ -61,19 +58,18 @@ struct LooseEqualityData
         poszero = JS::DoubleValue(0.0);
         negzero = JS::DoubleValue(-0.0);
 #ifdef XP_WIN
-# define copysign _copysign
+#define copysign _copysign
 #endif
         MOZ_RELEASE_ASSERT(copysign(1.0, poszero.toDouble()) == 1.0);
         MOZ_RELEASE_ASSERT(copysign(1.0, negzero.toDouble()) == -1.0);
 #ifdef XP_WIN
-# undef copysign
+#undef copysign
 #endif
     }
 };
 
 // 11.9.3 1a
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_undef_leq_undef)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_undef_leq_undef) {
     LooseEqualityData d(cx);
     CHECK(leq(d.undef, d.undef));
     return true;
@@ -81,8 +77,7 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_undef_leq_undef)
 END_FIXTURE_TEST(LooseEqualityFixture, test_undef_leq_undef)
 
 // 11.9.3 1b
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_null)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_null) {
     LooseEqualityData d(cx);
     CHECK(leq(d.null, d.null));
     return true;
@@ -90,8 +85,7 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_null)
 END_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_null)
 
 // 11.9.3 1ci
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_nan_nleq_all)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_nan_nleq_all) {
     LooseEqualityData d(cx);
 
     CHECK(nleq(d.qNaN, d.qNaN));
@@ -116,8 +110,7 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_nan_nleq_all)
 END_FIXTURE_TEST(LooseEqualityFixture, test_nan_nleq_all)
 
 // 11.9.3 1cii
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_all_nleq_nan)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_all_nleq_nan) {
     LooseEqualityData d(cx);
 
     CHECK(nleq(d.qNaN, d.qNaN));
@@ -126,24 +119,23 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_all_nleq_nan)
     CHECK(nleq(d.sNaN, d.sNaN));
     CHECK(nleq(d.sNaN, d.qNaN));
 
-    CHECK(nleq(d.d42,   d.qNaN));
-    CHECK(nleq(d.i42,   d.qNaN));
+    CHECK(nleq(d.d42, d.qNaN));
+    CHECK(nleq(d.i42, d.qNaN));
     CHECK(nleq(d.undef, d.qNaN));
-    CHECK(nleq(d.null,  d.qNaN));
-    CHECK(nleq(d.obj,   d.qNaN));
+    CHECK(nleq(d.null, d.qNaN));
+    CHECK(nleq(d.obj, d.qNaN));
 
-    CHECK(nleq(d.d42,   d.sNaN));
-    CHECK(nleq(d.i42,   d.sNaN));
+    CHECK(nleq(d.d42, d.sNaN));
+    CHECK(nleq(d.i42, d.sNaN));
     CHECK(nleq(d.undef, d.sNaN));
-    CHECK(nleq(d.null,  d.sNaN));
-    CHECK(nleq(d.obj,   d.sNaN));
+    CHECK(nleq(d.null, d.sNaN));
+    CHECK(nleq(d.obj, d.sNaN));
     return true;
 }
 END_FIXTURE_TEST(LooseEqualityFixture, test_all_nleq_nan)
 
 // 11.9.3 1ciii
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_leq_same_nums)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_leq_same_nums) {
     LooseEqualityData d(cx);
 
     CHECK(leq(d.d42, d.d42));
@@ -155,8 +147,7 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_leq_same_nums)
 END_FIXTURE_TEST(LooseEqualityFixture, test_leq_same_nums)
 
 // 11.9.3 1civ
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_pz_leq_nz)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_pz_leq_nz) {
     LooseEqualityData d(cx);
     CHECK(leq(d.poszero, d.negzero));
     return true;
@@ -164,8 +155,7 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_pz_leq_nz)
 END_FIXTURE_TEST(LooseEqualityFixture, test_pz_leq_nz)
 
 // 11.9.3 1cv
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_nz_leq_pz)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_nz_leq_pz) {
     LooseEqualityData d(cx);
     CHECK(leq(d.negzero, d.poszero));
     return true;
@@ -175,8 +165,7 @@ END_FIXTURE_TEST(LooseEqualityFixture, test_nz_leq_pz)
 // 1cvi onwards NOT TESTED
 
 // 11.9.3 2
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_undef)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_undef) {
     LooseEqualityData d(cx);
     CHECK(leq(d.null, d.undef));
     return true;
@@ -184,8 +173,7 @@ BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_undef)
 END_FIXTURE_TEST(LooseEqualityFixture, test_null_leq_undef)
 
 // 11.9.3 3
-BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_undef_leq_null)
-{
+BEGIN_FIXTURE_TEST(LooseEqualityFixture, test_undef_leq_null) {
     LooseEqualityData d(cx);
     CHECK(leq(d.undef, d.null));
     return true;

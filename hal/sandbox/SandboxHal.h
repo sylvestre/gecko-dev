@@ -13,11 +13,13 @@ namespace hal_sandbox {
 class PHalChild;
 class PHalParent;
 
-PHalChild* CreateHalChild();
+PHalChild*
+CreateHalChild();
 
-PHalParent* CreateHalParent();
+PHalParent*
+CreateHalParent();
 
-} // namespace hal_sandbox
-} // namespace mozilla
+}  // namespace hal_sandbox
+}  // namespace mozilla
 
 #endif  // mozilla_SandboxHal_h

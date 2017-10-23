@@ -6,30 +6,30 @@
 #ifndef mozilla_EditorBase_h
 #define mozilla_EditorBase_h
 
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc.
-#include "mozilla/Maybe.h"              // for Maybe
-#include "mozilla/OwningNonNull.h"      // for OwningNonNull
-#include "mozilla/PresShell.h"          // for PresShell
-#include "mozilla/SelectionState.h"     // for RangeUpdater, etc.
-#include "mozilla/StyleSheet.h"         // for StyleSheet
-#include "mozilla/WeakPtr.h"            // for WeakPtr
+#include "mozilla/Assertions.h"      // for MOZ_ASSERT, etc.
+#include "mozilla/Maybe.h"           // for Maybe
+#include "mozilla/OwningNonNull.h"   // for OwningNonNull
+#include "mozilla/PresShell.h"       // for PresShell
+#include "mozilla/SelectionState.h"  // for RangeUpdater, etc.
+#include "mozilla/StyleSheet.h"      // for StyleSheet
+#include "mozilla/WeakPtr.h"         // for WeakPtr
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/Text.h"
-#include "nsCOMPtr.h"                   // for already_AddRefed, nsCOMPtr
+#include "nsCOMPtr.h"  // for already_AddRefed, nsCOMPtr
 #include "nsCycleCollectionParticipant.h"
 #include "nsGkAtoms.h"
-#include "nsIDocument.h"                // for nsIDocument
-#include "nsIEditor.h"                  // for nsIEditor, etc.
-#include "nsIObserver.h"                // for NS_DECL_NSIOBSERVER, etc.
-#include "nsIPlaintextEditor.h"         // for nsIPlaintextEditor, etc.
-#include "nsISelectionController.h"     // for nsISelectionController constants
-#include "nsISupportsImpl.h"            // for EditorBase::Release, etc.
-#include "nsIWeakReferenceUtils.h"      // for nsWeakPtr
-#include "nsLiteralString.h"            // for NS_LITERAL_STRING
-#include "nsString.h"                   // for nsCString
-#include "nsTArray.h"                   // for nsTArray and nsAutoTArray
-#include "nsWeakReference.h"            // for nsSupportsWeakReference
-#include "nscore.h"                     // for nsresult, nsAString, etc.
+#include "nsIDocument.h"             // for nsIDocument
+#include "nsIEditor.h"               // for nsIEditor, etc.
+#include "nsIObserver.h"             // for NS_DECL_NSIOBSERVER, etc.
+#include "nsIPlaintextEditor.h"      // for nsIPlaintextEditor, etc.
+#include "nsISelectionController.h"  // for nsISelectionController constants
+#include "nsISupportsImpl.h"         // for EditorBase::Release, etc.
+#include "nsIWeakReferenceUtils.h"   // for nsWeakPtr
+#include "nsLiteralString.h"         // for NS_LITERAL_STRING
+#include "nsString.h"                // for nsCString
+#include "nsTArray.h"                // for nsTArray and nsAutoTArray
+#include "nsWeakReference.h"         // for nsSupportsWeakReference
+#include "nscore.h"                  // for nsresult, nsAString, etc.
 
 class nsAtom;
 class nsIContent;
@@ -68,38 +68,35 @@ enum class EditAction : int32_t
   deleteText = 1003,
 
   // text commands
-  insertText         = 2000,
-  insertIMEText      = 2001,
-  deleteSelection    = 2002,
-  setTextProperty    = 2003,
+  insertText = 2000,
+  insertIMEText = 2001,
+  deleteSelection = 2002,
+  setTextProperty = 2003,
   removeTextProperty = 2004,
-  outputText         = 2005,
-  setText            = 2006,
+  outputText = 2005,
+  setText = 2006,
 
   // html only action
-  insertBreak         = 3000,
-  makeList            = 3001,
-  indent              = 3002,
-  outdent             = 3003,
-  align               = 3004,
-  makeBasicBlock      = 3005,
-  removeList          = 3006,
-  makeDefListItem     = 3007,
-  insertElement       = 3008,
-  insertQuotation     = 3009,
-  htmlPaste           = 3012,
-  loadHTML            = 3013,
+  insertBreak = 3000,
+  makeList = 3001,
+  indent = 3002,
+  outdent = 3003,
+  align = 3004,
+  makeBasicBlock = 3005,
+  removeList = 3006,
+  makeDefListItem = 3007,
+  insertElement = 3008,
+  insertQuotation = 3009,
+  htmlPaste = 3012,
+  loadHTML = 3013,
   resetTextProperties = 3014,
   setAbsolutePosition = 3015,
   removeAbsolutePosition = 3016,
-  decreaseZIndex      = 3017,
-  increaseZIndex      = 3018
+  decreaseZIndex = 3017,
+  increaseZIndex = 3018
 };
 
-inline bool operator!(const EditAction& aOp)
-{
-  return aOp == EditAction::none;
-}
+inline bool operator!(const EditAction& aOp) { return aOp == EditAction::none; }
 
 namespace mozilla {
 class AddStyleSheetTransaction;
@@ -130,11 +127,11 @@ class DataTransfer;
 class Element;
 class EventTarget;
 class Text;
-} // namespace dom
+}  // namespace dom
 
 namespace widget {
 struct IMEState;
-} // namespace widget
+}  // namespace widget
 
 /**
  * CachedWeakPtr stores a pointer to a class which inherits nsIWeakReference.
@@ -146,11 +143,8 @@ struct IMEState;
 template<class T, class Base = nsISupports>
 class CachedWeakPtr final
 {
-public:
-  CachedWeakPtr<T, Base>()
-    : mCache(nullptr)
-  {
-  }
+ public:
+  CachedWeakPtr<T, Base>() : mCache(nullptr) {}
   explicit CachedWeakPtr<T, Base>(T* aObject)
   {
     mWeakPtr = do_GetWeakReference(static_cast<Base*>(aObject));
@@ -200,7 +194,7 @@ public:
     return mCache;
   }
 
-private:
+ private:
   nsWeakPtr mWeakPtr;
   T* MOZ_NON_OWNING_REF mCache;
 };
@@ -215,10 +209,9 @@ private:
  * delegate the actual commands to the editor independent of the XPFE
  * implementation.
  */
-class EditorBase : public nsIEditor
-                 , public nsSupportsWeakReference
+class EditorBase : public nsIEditor, public nsSupportsWeakReference
 {
-public:
+ public:
   typedef dom::Element Element;
   typedef dom::Selection Selection;
   typedef dom::Text Text;
@@ -235,14 +228,14 @@ public:
    */
   EditorBase();
 
-protected:
+ protected:
   /**
    * The default destructor. This should suffice. Should this be pure virtual
    * for someone to derive from the EditorBase later? I don't believe so.
    */
   virtual ~EditorBase();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(EditorBase, nsIEditor)
 
@@ -282,7 +275,7 @@ public:
   // nsIEditor methods
   NS_DECL_NSIEDITOR
 
-public:
+ public:
   virtual bool IsModifiableNode(nsINode* aNode);
 
   virtual nsresult InsertTextImpl(const nsAString& aStringToInsert,
@@ -291,7 +284,8 @@ public:
                                   int32_t* aInOutOffset,
                                   nsIDocument* aDoc);
   nsresult InsertTextIntoTextNodeImpl(const nsAString& aStringToInsert,
-                                      Text& aTextNode, int32_t aOffset,
+                                      Text& aTextNode,
+                                      int32_t aOffset,
                                       bool aSuppressIME = false);
 
   nsresult SetTextImpl(Selection& aSelection,
@@ -308,33 +302,40 @@ public:
    */
   nsresult DeleteNode(nsINode* aNode);
   nsresult InsertNode(nsIContent& aNode, nsINode& aParent, int32_t aPosition);
-  enum ECloneAttributes { eDontCloneAttributes, eCloneAttributes };
-  already_AddRefed<Element> ReplaceContainer(Element* aOldContainer,
-                                             nsAtom* aNodeType,
-                                             nsAtom* aAttribute = nullptr,
-                                             const nsAString* aValue = nullptr,
-                                             ECloneAttributes aCloneAttributes
-                                             = eDontCloneAttributes);
+  enum ECloneAttributes
+  {
+    eDontCloneAttributes,
+    eCloneAttributes
+  };
+  already_AddRefed<Element> ReplaceContainer(
+      Element* aOldContainer,
+      nsAtom* aNodeType,
+      nsAtom* aAttribute = nullptr,
+      const nsAString* aValue = nullptr,
+      ECloneAttributes aCloneAttributes = eDontCloneAttributes);
   void CloneAttributes(Element* aDest, Element* aSource);
 
   nsresult RemoveContainer(nsIContent* aNode);
-  already_AddRefed<Element> InsertContainerAbove(nsIContent* aNode,
-                                                 nsAtom* aNodeType,
-                                                 nsAtom* aAttribute = nullptr,
-                                                 const nsAString* aValue =
-                                                 nullptr);
-  nsIContent* SplitNode(nsIContent& aNode, int32_t aOffset,
+  already_AddRefed<Element> InsertContainerAbove(
+      nsIContent* aNode,
+      nsAtom* aNodeType,
+      nsAtom* aAttribute = nullptr,
+      const nsAString* aValue = nullptr);
+  nsIContent* SplitNode(nsIContent& aNode,
+                        int32_t aOffset,
                         ErrorResult& aResult);
   nsresult JoinNodes(nsINode& aLeftNode, nsINode& aRightNode);
   nsresult MoveNode(nsIContent* aNode, nsINode* aParent, int32_t aOffset);
 
-  nsresult CloneAttribute(nsAtom* aAttribute, Element* aDestElement,
+  nsresult CloneAttribute(nsAtom* aAttribute,
+                          Element* aDestElement,
                           Element* aSourceElement);
   nsresult RemoveAttribute(Element* aElement, nsAtom* aAttribute);
   virtual nsresult RemoveAttributeOrEquivalent(Element* aElement,
                                                nsAtom* aAttribute,
                                                bool aSuppressTransaction) = 0;
-  nsresult SetAttribute(Element* aElement, nsAtom* aAttribute,
+  nsresult SetAttribute(Element* aElement,
+                        nsAtom* aAttribute,
                         const nsAString& aValue);
   virtual nsresult SetAttributeOrEquivalent(Element* aElement,
                                             nsAtom* aAttribute,
@@ -359,7 +360,7 @@ public:
    */
   virtual nsresult BeginIMEComposition(WidgetCompositionEvent* aEvent);
   virtual nsresult UpdateIMEComposition(
-                     WidgetCompositionEvent* aCompositionChangeEvet) = 0;
+      WidgetCompositionEvent* aCompositionChangeEvet) = 0;
   void EndIMEComposition();
 
   /**
@@ -373,7 +374,7 @@ public:
 
   void SwitchTextDirectionTo(uint32_t aDirection);
 
-protected:
+ protected:
   nsresult DetermineCurrentDirection();
   void FireInputEvent();
 
@@ -381,42 +382,41 @@ protected:
    * Create a transaction for setting aAttribute to aValue on aElement.  Never
    * returns null.
    */
-  already_AddRefed<ChangeAttributeTransaction>
-    CreateTxnForSetAttribute(Element& aElement, nsAtom& aAttribute,
-                             const nsAString& aValue);
+  already_AddRefed<ChangeAttributeTransaction> CreateTxnForSetAttribute(
+      Element& aElement, nsAtom& aAttribute, const nsAString& aValue);
 
   /**
    * Create a transaction for removing aAttribute on aElement.  Never returns
    * null.
    */
-  already_AddRefed<ChangeAttributeTransaction>
-    CreateTxnForRemoveAttribute(Element& aElement, nsAtom& aAttribute);
+  already_AddRefed<ChangeAttributeTransaction> CreateTxnForRemoveAttribute(
+      Element& aElement, nsAtom& aAttribute);
 
   /**
    * Create a transaction for creating a new child node of aParent of type aTag.
    */
-  already_AddRefed<CreateElementTransaction>
-    CreateTxnForCreateElement(nsAtom& aTag,
-                              nsINode& aParent,
-                              int32_t aPosition,
-                              nsIContent* aChildAtPosition);
+  already_AddRefed<CreateElementTransaction> CreateTxnForCreateElement(
+      nsAtom& aTag,
+      nsINode& aParent,
+      int32_t aPosition,
+      nsIContent* aChildAtPosition);
 
-  already_AddRefed<Element> CreateNode(nsAtom* aTag, nsINode* aParent,
+  already_AddRefed<Element> CreateNode(nsAtom* aTag,
+                                       nsINode* aParent,
                                        int32_t aPosition,
                                        nsIContent* aChildAtPosition = nullptr);
 
   /**
    * Create a transaction for inserting aNode as a child of aParent.
    */
-  already_AddRefed<InsertNodeTransaction>
-    CreateTxnForInsertNode(nsIContent& aNode, nsINode& aParent,
-                           int32_t aOffset);
+  already_AddRefed<InsertNodeTransaction> CreateTxnForInsertNode(
+      nsIContent& aNode, nsINode& aParent, int32_t aOffset);
 
   /**
    * Create a transaction for removing aNode from its parent.
    */
-  already_AddRefed<DeleteNodeTransaction>
-    CreateTxnForDeleteNode(nsINode* aNode);
+  already_AddRefed<DeleteNodeTransaction> CreateTxnForDeleteNode(
+      nsINode* aNode);
 
   /**
    * Create an aggregate transaction for delete selection.  The result may
@@ -432,11 +432,8 @@ protected:
    *                            DeleteNodeTransactions and/or
    *                            DeleteTextTransactions as its children.
    */
-  already_AddRefed<EditAggregateTransaction>
-    CreateTxnForDeleteSelection(EDirection aAction,
-                                nsINode** aNode,
-                                int32_t* aOffset,
-                                int32_t* aLength);
+  already_AddRefed<EditAggregateTransaction> CreateTxnForDeleteSelection(
+      EDirection aAction, nsINode** aNode, int32_t* aOffset, int32_t* aLength);
 
   /**
    * Create a transaction for removing the nodes and/or text in aRange.
@@ -450,55 +447,53 @@ protected:
    *                            is DeleteNodeTransaction or
    *                            DeleteTextTransaction.
    */
-  already_AddRefed<EditTransactionBase>
-    CreateTxnForDeleteRange(nsRange* aRangeToDelete,
-                            EDirection aAction,
-                            nsINode** aRemovingNode,
-                            int32_t* aOffset,
-                            int32_t* aLength);
+  already_AddRefed<EditTransactionBase> CreateTxnForDeleteRange(
+      nsRange* aRangeToDelete,
+      EDirection aAction,
+      nsINode** aRemovingNode,
+      int32_t* aOffset,
+      int32_t* aLength);
 
   /**
    * Create a transaction for inserting aStringToInsert into aTextNode.  Never
    * returns null.
    */
-  already_AddRefed<mozilla::InsertTextTransaction>
-    CreateTxnForInsertText(const nsAString& aStringToInsert, Text& aTextNode,
-                           int32_t aOffset);
+  already_AddRefed<mozilla::InsertTextTransaction> CreateTxnForInsertText(
+      const nsAString& aStringToInsert, Text& aTextNode, int32_t aOffset);
 
   /**
    * Never returns null.
    */
-  already_AddRefed<mozilla::CompositionTransaction>
-    CreateTxnForComposition(const nsAString& aStringToInsert);
+  already_AddRefed<mozilla::CompositionTransaction> CreateTxnForComposition(
+      const nsAString& aStringToInsert);
 
   /**
    * Create a transaction for adding a style sheet.
    */
-  already_AddRefed<mozilla::AddStyleSheetTransaction>
-    CreateTxnForAddStyleSheet(StyleSheet* aSheet);
+  already_AddRefed<mozilla::AddStyleSheetTransaction> CreateTxnForAddStyleSheet(
+      StyleSheet* aSheet);
 
   /**
    * Create a transaction for removing a style sheet.
    */
   already_AddRefed<mozilla::RemoveStyleSheetTransaction>
-    CreateTxnForRemoveStyleSheet(StyleSheet* aSheet);
+  CreateTxnForRemoveStyleSheet(StyleSheet* aSheet);
 
   nsresult DeleteText(nsGenericDOMDataNode& aElement,
-                      uint32_t aOffset, uint32_t aLength);
+                      uint32_t aOffset,
+                      uint32_t aLength);
 
-  already_AddRefed<DeleteTextTransaction>
-    CreateTxnForDeleteText(nsGenericDOMDataNode& aElement,
-                           uint32_t aOffset, uint32_t aLength);
+  already_AddRefed<DeleteTextTransaction> CreateTxnForDeleteText(
+      nsGenericDOMDataNode& aElement, uint32_t aOffset, uint32_t aLength);
 
-  already_AddRefed<DeleteTextTransaction>
-    CreateTxnForDeleteCharacter(nsGenericDOMDataNode& aData, uint32_t aOffset,
-                                EDirection aDirection);
+  already_AddRefed<DeleteTextTransaction> CreateTxnForDeleteCharacter(
+      nsGenericDOMDataNode& aData, uint32_t aOffset, EDirection aDirection);
 
-  already_AddRefed<SplitNodeTransaction>
-    CreateTxnForSplitNode(nsIContent& aNode, uint32_t aOffset);
+  already_AddRefed<SplitNodeTransaction> CreateTxnForSplitNode(
+      nsIContent& aNode, uint32_t aOffset);
 
-  already_AddRefed<JoinNodeTransaction>
-    CreateTxnForJoinNode(nsINode& aLeftNode, nsINode& aRightNode);
+  already_AddRefed<JoinNodeTransaction> CreateTxnForJoinNode(
+      nsINode& aLeftNode, nsINode& aRightNode);
 
   /**
    * This method first deletes the selection, if it's not collapsed.  Then if
@@ -512,7 +507,7 @@ protected:
   /**
    * Called after a transaction is done successfully.
    */
-  void DoAfterDoTransaction(nsITransaction *aTxn);
+  void DoAfterDoTransaction(nsITransaction* aTxn);
 
   /**
    * Called after a transaction is undone successfully.
@@ -526,8 +521,7 @@ protected:
   void DoAfterRedoTransaction();
 
   // Note that aSelection is optional and can be nullptr.
-  nsresult DoTransaction(Selection* aSelection,
-                         nsITransaction* aTxn);
+  nsresult DoTransaction(Selection* aSelection, nsITransaction* aTxn);
 
   enum TDocumentListenerNotification
   {
@@ -540,7 +534,7 @@ protected:
    * Tell the doc state listeners that the doc state has changed.
    */
   nsresult NotifyDocumentListeners(
-             TDocumentListenerNotification aNotificationType);
+      TDocumentListenerNotification aNotificationType);
 
   /**
    * Make the given selection span the entire document.
@@ -614,13 +608,12 @@ protected:
   void BeginPlaceholderTransaction(nsAtom* aTransactionName);
   void EndPlaceholderTransaction();
 
-public:
+ public:
   /**
    * All editor operations which alter the doc should be prefaced
    * with a call to StartOperation, naming the action and direction.
    */
-  NS_IMETHOD StartOperation(EditAction opID,
-                            nsIEditor::EDirection aDirection);
+  NS_IMETHOD StartOperation(EditAction opID, nsIEditor::EDirection aDirection);
 
   /**
    * All editor operations which alter the doc should be followed
@@ -670,10 +663,8 @@ public:
    *      methods may return wrong index if aChild doesn't have previous
    *      sibling or next sibling.
    */
-  static int32_t GetChildOffset(nsIDOMNode* aChild,
-                                nsIDOMNode* aParent);
-  static int32_t GetChildOffset(nsINode* aChild,
-                                nsINode* aParent);
+  static int32_t GetChildOffset(nsIDOMNode* aChild, nsIDOMNode* aParent);
+  static int32_t GetChildOffset(nsINode* aChild, nsINode* aParent);
 
   /**
    * Set outOffset to the offset of aChild in the parent.
@@ -690,7 +681,7 @@ public:
    *         If not, returns number of children nodes.
    * @param  aCount [OUT] the result of the above calculation.
    */
-  static nsresult GetLengthOfDOMNode(nsIDOMNode *aNode, uint32_t &aCount);
+  static nsresult GetLengthOfDOMNode(nsIDOMNode* aNode, uint32_t& aCount);
 
   /**
    * Get the node immediately prior to aCurrentNode.
@@ -703,7 +694,8 @@ public:
    * @param bNoBlockCrossing If true, don't move across "block" nodes,
    *                         whatever that means.
    */
-  nsIContent* GetPriorNode(nsINode* aCurrentNode, bool aEditableNode,
+  nsIContent* GetPriorNode(nsINode* aCurrentNode,
+                           bool aEditableNode,
                            bool aNoBlockCrossing = false);
 
   /**
@@ -714,7 +706,6 @@ public:
                            nsINode* aChildAtOffset,
                            bool aEditableNode,
                            bool aNoBlockCrossing = false);
-
 
   /**
    * Get the node immediately after to aCurrentNode.
@@ -756,7 +747,7 @@ public:
    * Get the leftmost child of aCurrentNode;
    * return nullptr if aCurrentNode has no children.
    */
-  nsIContent* GetLeftmostChild(nsINode *aCurrentNode,
+  nsIContent* GetLeftmostChild(nsINode* aCurrentNode,
                                bool bNoBlockCrossing = false);
 
   /**
@@ -803,8 +794,8 @@ public:
   {
     NS_ENSURE_TRUE(aNode, false);
 
-    if (!aNode->IsNodeOfType(nsINode::eCONTENT) || IsMozEditorBogusNode(aNode) ||
-        !IsModifiableNode(aNode)) {
+    if (!aNode->IsNodeOfType(nsINode::eCONTENT) ||
+        IsMozEditorBogusNode(aNode) || !IsModifiableNode(aNode)) {
       return false;
     }
 
@@ -836,8 +827,9 @@ public:
   {
     return aNode && aNode->IsElement() &&
            aNode->AsElement()->AttrValueIs(kNameSpaceID_None,
-               kMOZEditorBogusNodeAttrAtom, kMOZEditorBogusNodeValue,
-               eCaseMatters);
+                                           kMOZEditorBogusNodeAttrAtom,
+                                           kMOZEditorBogusNodeValue,
+                                           eCaseMatters);
   }
 
   /**
@@ -902,20 +894,19 @@ public:
                                       nsINode** aEndContainer,
                                       int32_t* aEndOffset);
 
-  static nsresult GetEndChildNode(Selection* aSelection,
-                                  nsIContent** aEndNode);
+  static nsresult GetEndChildNode(Selection* aSelection, nsIContent** aEndNode);
 
 #if DEBUG_JOE
   static void DumpNode(nsIDOMNode* aNode, int32_t indent = 0);
 #endif
-  Selection* GetSelection(SelectionType aSelectionType =
-                                          SelectionType::eNormal)
+  Selection* GetSelection(SelectionType aSelectionType = SelectionType::eNormal)
   {
     nsISelectionController* sc = GetSelectionController();
     if (!sc) {
       return nullptr;
     }
-    Selection* selection = sc->GetDOMSelection(ToRawSelectionType(aSelectionType));
+    Selection* selection =
+        sc->GetDOMSelection(ToRawSelectionType(aSelectionType));
     return selection;
   }
 
@@ -928,15 +919,17 @@ public:
    * Helpers to add a node to the selection.
    * Used by table cell selection methods.
    */
-  nsresult CreateRange(nsIDOMNode* aStartContainer, int32_t aStartOffset,
-                       nsIDOMNode* aEndContainer, int32_t aEndOffset,
+  nsresult CreateRange(nsIDOMNode* aStartContainer,
+                       int32_t aStartOffset,
+                       nsIDOMNode* aEndContainer,
+                       int32_t aEndOffset,
                        nsRange** aRange);
 
   /**
    * Creates a range with just the supplied node and appends that to the
    * selection.
    */
-  nsresult AppendNodeToSelectionAsRange(nsIDOMNode *aNode);
+  nsresult AppendNodeToSelectionAsRange(nsIDOMNode* aNode);
 
   /**
    * When you are using AppendNodeToSelectionAsRange(), call this first to
@@ -946,17 +939,20 @@ public:
 
   nsresult IsPreformatted(nsIDOMNode* aNode, bool* aResult);
 
-  enum class EmptyContainers { no, yes };
-  int32_t SplitNodeDeep(nsIContent& aNode, nsIContent& aSplitPointParent,
-                        int32_t aSplitPointOffset,
-                        EmptyContainers aEmptyContainers =
-                          EmptyContainers::yes,
-                        nsIContent** outLeftNode = nullptr,
-                        nsIContent** outRightNode = nullptr,
-                        nsCOMPtr<nsIContent>* ioChildAtSplitPointOffset =
-                          nullptr);
-  EditorDOMPoint JoinNodeDeep(nsIContent& aLeftNode,
-                              nsIContent& aRightNode);
+  enum class EmptyContainers
+  {
+    no,
+    yes
+  };
+  int32_t SplitNodeDeep(
+      nsIContent& aNode,
+      nsIContent& aSplitPointParent,
+      int32_t aSplitPointOffset,
+      EmptyContainers aEmptyContainers = EmptyContainers::yes,
+      nsIContent** outLeftNode = nullptr,
+      nsIContent** outRightNode = nullptr,
+      nsCOMPtr<nsIContent>* ioChildAtSplitPointOffset = nullptr);
+  EditorDOMPoint JoinNodeDeep(nsIContent& aLeftNode, nsIContent& aRightNode);
 
   nsresult GetString(const nsAString& name, nsAString& value);
 
@@ -1007,7 +1003,7 @@ public:
     if (kNewFlags == kOldFlags) {
       return NS_OK;
     }
-    return SetFlags(kNewFlags); // virtual call and may be expensive.
+    return SetFlags(kNewFlags);  // virtual call and may be expensive.
   }
   nsresult RemoveFlags(uint32_t aFlags)
   {
@@ -1016,7 +1012,7 @@ public:
     if (kNewFlags == kOldFlags) {
       return NS_OK;
     }
-    return SetFlags(kNewFlags); // virtual call and may be expensive.
+    return SetFlags(kNewFlags);  // virtual call and may be expensive.
   }
   nsresult AddAndRemoveFlags(uint32_t aAddingFlags, uint32_t aRemovingFlags)
   {
@@ -1027,7 +1023,7 @@ public:
     if (kNewFlags == kOldFlags) {
       return NS_OK;
     }
-    return SetFlags(kNewFlags); // virtual call and may be expensive.
+    return SetFlags(kNewFlags);  // virtual call and may be expensive.
   }
 
   bool IsPlaintextEditor() const
@@ -1112,15 +1108,9 @@ public:
            IsInteractionAllowed();
   }
 
-  bool HasIndependentSelection() const
-  {
-    return !!mSelectionController;
-  }
+  bool HasIndependentSelection() const { return !!mSelectionController; }
 
-  bool IsModifiable() const
-  {
-    return !IsReadonly();
-  }
+  bool IsModifiable() const { return !IsReadonly(); }
 
   /**
    * IsInEditAction() return true while the instance is handling an edit action.
@@ -1137,10 +1127,7 @@ public:
     return !mDispatchInputEvent;
   }
 
-  bool Destroyed() const
-  {
-    return mDidPreDestroy;
-  }
+  bool Destroyed() const { return mDidPreDestroy; }
 
   /**
    * GetTransactionManager() returns transaction manager associated with the
@@ -1237,8 +1224,7 @@ public:
    *                  the method will make it point to the child at the output node and
    *                  offset returned in aNode and aOffset.
    */
-  void FindBetterInsertionPoint(nsCOMPtr<nsIDOMNode>& aNode,
-                                int32_t& aOffset);
+  void FindBetterInsertionPoint(nsCOMPtr<nsIDOMNode>& aNode, int32_t& aOffset);
   void FindBetterInsertionPoint(nsCOMPtr<nsINode>& aNode,
                                 int32_t& aOffset,
                                 nsCOMPtr<nsIContent>* aSelChild);
@@ -1250,11 +1236,11 @@ public:
    */
   void HideCaret(bool aHide);
 
-private:
+ private:
   nsCOMPtr<nsISelectionController> mSelectionController;
   nsCOMPtr<nsIDocument> mDocument;
 
-protected:
+ protected:
   enum Tristate
   {
     eTriUnset,
@@ -1287,15 +1273,15 @@ protected:
 
   // Listens to all low level actions on the doc.
   typedef AutoTArray<OwningNonNull<nsIEditActionListener>, 5>
-            AutoActionListenerArray;
+      AutoActionListenerArray;
   AutoActionListenerArray mActionListeners;
   // Just notify once per high level change.
   typedef AutoTArray<OwningNonNull<nsIEditorObserver>, 3>
-            AutoEditorObserverArray;
+      AutoEditorObserverArray;
   AutoEditorObserverArray mEditorObservers;
   // Listen to overall doc state (dirty or not, just created, etc.).
   typedef AutoTArray<OwningNonNull<nsIDocumentStateListener>, 1>
-            AutoDocumentStateListenerArray;
+      AutoDocumentStateListenerArray;
   AutoDocumentStateListenerArray mDocStateListeners;
 
   // Cached selection for AutoSelectionRestorer.
@@ -1353,7 +1339,7 @@ protected:
   friend class nsIEditor;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 mozilla::EditorBase*
 nsIEditor::AsEditorBase()
@@ -1367,4 +1353,4 @@ nsIEditor::AsEditorBase() const
   return static_cast<const mozilla::EditorBase*>(this);
 }
 
-#endif // #ifndef mozilla_EditorBase_h
+#endif  // #ifndef mozilla_EditorBase_h

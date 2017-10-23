@@ -57,7 +57,7 @@ nsScriptableInputStream::Read(uint32_t aCount, char** aResult)
 
   // bug716556 - Ensure count+1 doesn't overflow
   uint32_t count =
-    XPCOM_MIN((uint32_t)XPCOM_MIN<uint64_t>(count64, aCount), UINT32_MAX - 1);
+      XPCOM_MIN((uint32_t)XPCOM_MIN<uint64_t>(count64, aCount), UINT32_MAX - 1);
   buffer = (char*)malloc(count + 1);  // make room for '\0'
   if (!buffer) {
     return NS_ERROR_OUT_OF_MEMORY;
@@ -100,9 +100,8 @@ nsScriptableInputStream::ReadHelper(char* aBuffer, uint32_t aCount)
   uint32_t totalBytesRead = 0;
   while (1) {
     uint32_t bytesRead;
-    nsresult rv = mInputStream->Read(aBuffer + totalBytesRead,
-                                     aCount - totalBytesRead,
-                                     &bytesRead);
+    nsresult rv = mInputStream->Read(
+        aBuffer + totalBytesRead, aCount - totalBytesRead, &bytesRead);
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -116,13 +115,13 @@ nsScriptableInputStream::ReadHelper(char* aBuffer, uint32_t aCount)
     if (bytesRead == 0) {
       return NS_ERROR_FAILURE;
     }
-
   }
   return NS_OK;
 }
 
 nsresult
-nsScriptableInputStream::Create(nsISupports* aOuter, REFNSIID aIID,
+nsScriptableInputStream::Create(nsISupports* aOuter,
+                                REFNSIID aIID,
                                 void** aResult)
 {
   if (aOuter) {

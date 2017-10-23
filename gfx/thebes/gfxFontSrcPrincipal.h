@@ -13,8 +13,8 @@
 namespace mozilla {
 namespace net {
 class nsSimpleURI;
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 /**
  * A wrapper for an nsIPrincipal that can be used OMT, which has cached
@@ -22,7 +22,7 @@ class nsSimpleURI;
  */
 class gfxFontSrcPrincipal
 {
-public:
+ public:
   explicit gfxFontSrcPrincipal(nsIPrincipal* aPrincipal);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(gfxFontSrcPrincipal)
@@ -33,7 +33,7 @@ public:
 
   PLDHashNumber Hash() const { return mHash; }
 
-private:
+ private:
   ~gfxFontSrcPrincipal();
 
   // The principal.
@@ -43,4 +43,4 @@ private:
   PLDHashNumber mHash;
 };
 
-#endif // MOZILLA_GFX_FONTSRCPRINCIPAL_H
+#endif  // MOZILLA_GFX_FONTSRCPRINCIPAL_H

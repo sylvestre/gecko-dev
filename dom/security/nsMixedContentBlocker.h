@@ -9,13 +9,18 @@
 
 #define NS_MIXEDCONTENTBLOCKER_CONTRACTID "@mozilla.org/mixedcontentblocker;1"
 /* daf1461b-bf29-4f88-8d0e-4bcdf332c862 */
-#define NS_MIXEDCONTENTBLOCKER_CID \
-{ 0xdaf1461b, 0xbf29, 0x4f88, \
-  { 0x8d, 0x0e, 0x4b, 0xcd, 0xf3, 0x32, 0xc8, 0x62 } }
+#define NS_MIXEDCONTENTBLOCKER_CID                   \
+  {                                                  \
+    0xdaf1461b, 0xbf29, 0x4f88,                      \
+    {                                                \
+      0x8d, 0x0e, 0x4b, 0xcd, 0xf3, 0x32, 0xc8, 0x62 \
+    }                                                \
+  }
 
 // This enum defines type of content that is detected when an
 // nsMixedContentEvent fires
-enum MixedContentTypes {
+enum MixedContentTypes
+{
   // "Active" content, such as fonts, plugin content, JavaScript, stylesheets,
   // iframes, WebSockets, and XHR
   eMixedScript,
@@ -30,15 +35,15 @@ enum MixedContentTypes {
 
 using mozilla::OriginAttributes;
 
-class nsILoadInfo; // forward declaration
+class nsILoadInfo;  // forward declaration
 
 class nsMixedContentBlocker : public nsIContentPolicy,
                               public nsIChannelEventSink
 {
-private:
+ private:
   virtual ~nsMixedContentBlocker();
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICONTENTPOLICY
   NS_DECL_NSICHANNELEVENTSINK
@@ -67,10 +72,11 @@ public:
                              nsISupports* aExtra,
                              nsIPrincipal* aRequestPrincipal,
                              int16_t* aDecision);
-  static void AccumulateMixedContentHSTS(nsIURI* aURI,
-                                         bool aActive,
-                                         bool aHasHSTSPriming,
-                                         const OriginAttributes& aOriginAttributes);
+  static void AccumulateMixedContentHSTS(
+      nsIURI* aURI,
+      bool aActive,
+      bool aHasHSTSPriming,
+      const OriginAttributes& aOriginAttributes);
   /* If the document associated with aRequestingContext requires priming for
    * aURI, propagate that to the LoadInfo so the HttpChannel will find out about
    * it.
@@ -93,11 +99,11 @@ public:
    * @param aSendPrimingRequest out true if priming is required on the channel
    * @param aMixedContentWouldBlock out true if mixed content would block
    */
-  static nsresult GetHSTSPrimingFromRequestingContext(nsIURI* aURI,
-                                                      nsISupports* aRequestingContext,
-                                                      bool* aSendPrimingRequest,
-                                                      bool* aMixedContentWouldBlock);
-
+  static nsresult GetHSTSPrimingFromRequestingContext(
+      nsIURI* aURI,
+      nsISupports* aRequestingContext,
+      bool* aSendPrimingRequest,
+      bool* aMixedContentWouldBlock);
 
   static bool sBlockMixedScript;
   static bool sBlockMixedDisplay;

@@ -42,19 +42,19 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SimpleGlobalObject)
 NS_INTERFACE_MAP_END
 
 static void
-SimpleGlobal_finalize(js::FreeOp *fop, JSObject *obj)
+SimpleGlobal_finalize(js::FreeOp* fop, JSObject* obj)
 {
   SimpleGlobalObject* globalObject =
-    static_cast<SimpleGlobalObject*>(JS_GetPrivate(obj));
+      static_cast<SimpleGlobalObject*>(JS_GetPrivate(obj));
   globalObject->ClearWrapper(obj);
   NS_RELEASE(globalObject);
 }
 
 static size_t
-SimpleGlobal_moved(JSObject *obj, JSObject *old)
+SimpleGlobal_moved(JSObject* obj, JSObject* old)
 {
   SimpleGlobalObject* globalObject =
-    static_cast<SimpleGlobalObject*>(JS_GetPrivate(obj));
+      static_cast<SimpleGlobalObject*>(JS_GetPrivate(obj));
   globalObject->UpdateWrapper(obj, old);
   return 0;
 }
@@ -74,21 +74,16 @@ static const js::ClassOps SimpleGlobalClassOps = {
 };
 
 static const js::ClassExtension SimpleGlobalClassExtension = {
-  nullptr,
-  SimpleGlobal_moved
-};
+    nullptr, SimpleGlobal_moved};
 
 const js::Class SimpleGlobalClass = {
     "",
-    JSCLASS_GLOBAL_FLAGS |
-    JSCLASS_HAS_PRIVATE |
-    JSCLASS_PRIVATE_IS_NSISUPPORTS |
-    JSCLASS_FOREGROUND_FINALIZE,
+    JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE |
+        JSCLASS_PRIVATE_IS_NSISUPPORTS | JSCLASS_FOREGROUND_FINALIZE,
     &SimpleGlobalClassOps,
     JS_NULL_CLASS_SPEC,
     &SimpleGlobalClassExtension,
-    JS_NULL_OBJECT_OPS
-};
+    JS_NULL_OBJECT_OPS};
 
 // static
 JSObject*
@@ -99,30 +94,33 @@ SimpleGlobalObject::Create(GlobalType globalType, JS::Handle<JS::Value> proto)
   // the lifetime of the AutoJSAPI.
   JS::Rooted<JSObject*> global(RootingCx());
 
-  { // Scope to ensure the AutoJSAPI destructor runs before we end up returning
+  {  // Scope to ensure the AutoJSAPI destructor runs before we end up returning
     AutoJSAPI jsapi;
     jsapi.Init();
     JSContext* cx = jsapi.cx();
 
     JS::CompartmentOptions options;
     options.creationOptions()
-           .setInvisibleToDebugger(true)
-           // Put our SimpleGlobalObjects in the system zone, so we won't create
-           // lots of zones for what are probably very short-lived
-           // compartments.  This should help them be GCed quicker and take up
-           // less memory before they're GCed.
-           .setSystemZone();
+        .setInvisibleToDebugger(true)
+        // Put our SimpleGlobalObjects in the system zone, so we won't create
+        // lots of zones for what are probably very short-lived
+        // compartments.  This should help them be GCed quicker and take up
+        // less memory before they're GCed.
+        .setSystemZone();
 
     if (NS_IsMainThread()) {
       nsCOMPtr<nsIPrincipal> principal = NullPrincipal::Create();
       options.creationOptions().setTrace(xpc::TraceXPCGlobal);
-      global = xpc::CreateGlobalObject(cx, js::Jsvalify(&SimpleGlobalClass),
+      global = xpc::CreateGlobalObject(cx,
+                                       js::Jsvalify(&SimpleGlobalClass),
                                        nsJSPrincipals::get(principal),
                                        options);
     } else {
-      global = JS_NewGlobalObject(cx, js::Jsvalify(&SimpleGlobalClass),
+      global = JS_NewGlobalObject(cx,
+                                  js::Jsvalify(&SimpleGlobalClass),
                                   nullptr,
-                                  JS::DontFireOnNewGlobalHook, options);
+                                  JS::DontFireOnNewGlobalHook,
+                                  options);
     }
 
     if (!global) {
@@ -137,7 +135,7 @@ SimpleGlobalObject::Create(GlobalType globalType, JS::Handle<JS::Value> proto)
     // because the wrap operation relies on the global having its
     // nsIGlobalObject already.
     RefPtr<SimpleGlobalObject> globalObject =
-      new SimpleGlobalObject(global, globalType);
+        new SimpleGlobalObject(global, globalType);
 
     // Pass on ownership of globalObject to |global|.
     JS_SetPrivate(global, globalObject.forget().take());
@@ -173,9 +171,9 @@ SimpleGlobalObject::SimpleGlobalType(JSObject* obj)
   }
 
   SimpleGlobalObject* globalObject =
-    static_cast<SimpleGlobalObject*>(JS_GetPrivate(obj));
+      static_cast<SimpleGlobalObject*>(JS_GetPrivate(obj));
   return globalObject->Type();
 }
 
-} // namespace mozilla
-} // namespace dom
+}  // namespace dom
+}  // namespace mozilla

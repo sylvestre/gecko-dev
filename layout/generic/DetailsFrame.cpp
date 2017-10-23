@@ -18,8 +18,8 @@ using namespace mozilla::dom;
 NS_IMPL_FRAMEARENA_HELPERS(DetailsFrame)
 
 NS_QUERYFRAME_HEAD(DetailsFrame)
-  NS_QUERYFRAME_ENTRY(DetailsFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(DetailsFrame)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsBlockFrame)
 
 nsBlockFrame*
@@ -31,13 +31,11 @@ NS_NewDetailsFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 namespace mozilla {
 
 DetailsFrame::DetailsFrame(nsStyleContext* aContext)
-  : nsBlockFrame(aContext, kClassID)
+    : nsBlockFrame(aContext, kClassID)
 {
 }
 
-DetailsFrame::~DetailsFrame()
-{
-}
+DetailsFrame::~DetailsFrame() {}
 
 void
 DetailsFrame::SetInitialChildList(ChildListID aListID, nsFrameList& aChildList)
@@ -57,7 +55,7 @@ DetailsFrame::CheckValidMainSummary(const nsFrameList& aFrameList) const
 {
   for (nsIFrame* child : aFrameList) {
     HTMLSummaryElement* summary =
-      HTMLSummaryElement::FromContent(child->GetContent());
+        HTMLSummaryElement::FromContent(child->GetContent());
 
     if (child == aFrameList.FirstChild()) {
       if (summary && summary->IsMainSummary()) {
@@ -98,16 +96,18 @@ DetailsFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
   // The <details> element lacks any direct <summary> child. Create a default
   // <summary> element as an anonymous content.
   nsNodeInfoManager* nodeInfoManager =
-    GetContent()->NodeInfo()->NodeInfoManager();
+      GetContent()->NodeInfo()->NodeInfoManager();
 
   already_AddRefed<NodeInfo> nodeInfo =
-    nodeInfoManager->GetNodeInfo(nsGkAtoms::summary, nullptr, kNameSpaceID_XHTML,
-                                 nsIDOMNode::ELEMENT_NODE);
+      nodeInfoManager->GetNodeInfo(nsGkAtoms::summary,
+                                   nullptr,
+                                   kNameSpaceID_XHTML,
+                                   nsIDOMNode::ELEMENT_NODE);
   mDefaultSummary = new HTMLSummaryElement(nodeInfo);
 
   nsAutoString defaultSummaryText;
-  nsContentUtils::GetLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
-                                     "DefaultSummary", defaultSummaryText);
+  nsContentUtils::GetLocalizedString(
+      nsContentUtils::eFORMS_PROPERTIES, "DefaultSummary", defaultSummaryText);
   RefPtr<nsTextNode> description = new nsTextNode(nodeInfoManager);
   description->SetText(defaultSummaryText, false);
   mDefaultSummary->AppendChildTo(description, false);
@@ -130,9 +130,9 @@ bool
 DetailsFrame::HasMainSummaryFrame(nsIFrame* aSummaryFrame)
 {
   nsIFrame* firstChild =
-    nsPlaceholderFrame::GetRealFrameFor(mFrames.FirstChild());
+      nsPlaceholderFrame::GetRealFrameFor(mFrames.FirstChild());
 
   return aSummaryFrame == firstChild;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

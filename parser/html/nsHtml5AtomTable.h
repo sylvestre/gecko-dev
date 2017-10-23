@@ -14,13 +14,14 @@
 
 class nsHtml5AtomEntry : public nsStringHashKey
 {
-  public:
-    explicit nsHtml5AtomEntry(KeyTypePointer aStr);
-    nsHtml5AtomEntry(const nsHtml5AtomEntry& aOther);
-    ~nsHtml5AtomEntry();
-    inline nsAtom* GetAtom() { return mAtom; }
-  private:
-    nsAtom* mAtom;
+ public:
+  explicit nsHtml5AtomEntry(KeyTypePointer aStr);
+  nsHtml5AtomEntry(const nsHtml5AtomEntry& aOther);
+  ~nsHtml5AtomEntry();
+  inline nsAtom* GetAtom() { return mAtom; }
+
+ private:
+  nsAtom* mAtom;
 };
 
 /**
@@ -69,39 +70,39 @@ class nsHtml5AtomEntry : public nsStringHashKey
  */
 class nsHtml5AtomTable
 {
-  public:
-    nsHtml5AtomTable();
-    ~nsHtml5AtomTable();
-    
-    /**
+ public:
+  nsHtml5AtomTable();
+  ~nsHtml5AtomTable();
+
+  /**
      * Obtains the atom for the given string in the scope of this atom table.
      */
-    nsAtom* GetAtom(const nsAString& aKey);
-    
-    /**
+  nsAtom* GetAtom(const nsAString& aKey);
+
+  /**
      * Empties the table.
      */
-    void Clear()
-    {
-      for (uint32_t i = 0; i < RECENTLY_USED_PARSER_ATOMS_SIZE; ++i) {
-        mRecentlyUsedParserAtoms[i] = nullptr;
-      }
-      mTable.Clear();
+  void Clear()
+  {
+    for (uint32_t i = 0; i < RECENTLY_USED_PARSER_ATOMS_SIZE; ++i) {
+      mRecentlyUsedParserAtoms[i] = nullptr;
     }
-    
+    mTable.Clear();
+  }
+
 #ifdef DEBUG
-    void SetPermittedLookupEventTarget(nsISerialEventTarget* aEventTarget)
-    {
-      mPermittedLookupEventTarget = aEventTarget;
-    }
-#endif  
-  
-  private:
-    nsTHashtable<nsHtml5AtomEntry> mTable;
-    nsAtom* mRecentlyUsedParserAtoms[RECENTLY_USED_PARSER_ATOMS_SIZE];
+  void SetPermittedLookupEventTarget(nsISerialEventTarget* aEventTarget)
+  {
+    mPermittedLookupEventTarget = aEventTarget;
+  }
+#endif
+
+ private:
+  nsTHashtable<nsHtml5AtomEntry> mTable;
+  nsAtom* mRecentlyUsedParserAtoms[RECENTLY_USED_PARSER_ATOMS_SIZE];
 #ifdef DEBUG
-    nsCOMPtr<nsISerialEventTarget>            mPermittedLookupEventTarget;
+  nsCOMPtr<nsISerialEventTarget> mPermittedLookupEventTarget;
 #endif
 };
 
-#endif // nsHtml5AtomTable_h
+#endif  // nsHtml5AtomTable_h

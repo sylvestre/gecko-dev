@@ -19,7 +19,8 @@ static mozilla::LazyLogModule sLogger("AudioNotificationSender");
 #undef ANS_LOG
 #define ANS_LOG(...) MOZ_LOG(sLogger, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #undef ANS_LOGW
-#define ANS_LOGW(...) MOZ_LOG(sLogger, mozilla::LogLevel::Warning, (__VA_ARGS__))
+#define ANS_LOGW(...) \
+  MOZ_LOG(sLogger, mozilla::LogLevel::Warning, (__VA_ARGS__))
 
 namespace mozilla {
 namespace audio {
@@ -29,9 +30,10 @@ namespace audio {
  */
 class AudioDeviceChangedRunnable final : public Runnable
 {
-public:
-  explicit AudioDeviceChangedRunnable(): Runnable("AudioDeviceChangedRunnable")
-  {}
+ public:
+  explicit AudioDeviceChangedRunnable() : Runnable("AudioDeviceChangedRunnable")
+  {
+  }
 
   NS_IMETHOD Run() override
   {
@@ -44,19 +46,17 @@ public:
     }
     return NS_OK;
   }
-}; // class AudioDeviceChangedRunnable
+};  // class AudioDeviceChangedRunnable
 
 /*
  * An observer for receiving audio device events from Windows.
  */
-typedef void (* DefaultDeviceChangedCallback)();
+typedef void (*DefaultDeviceChangedCallback)();
 class AudioNotification final : public IMMNotificationClient
 {
-public:
+ public:
   explicit AudioNotification(DefaultDeviceChangedCallback aCallback)
-    : mCallback(aCallback)
-    , mRefCt(0)
-    , mIsRegistered(false)
+      : mCallback(aCallback), mRefCt(0), mIsRegistered(false)
   {
     MOZ_COUNT_CTOR(AudioNotification);
     MOZ_ASSERT(mCallback);
@@ -94,7 +94,8 @@ public:
       return;
     }
 
-    HRESULT hr = mDeviceEnumerator->UnregisterEndpointNotificationCallback(this);
+    HRESULT hr =
+        mDeviceEnumerator->UnregisterEndpointNotificationCallback(this);
     if (FAILED(hr)) {
       // We can't really do anything here, so we just add a log for debugging.
       ANS_LOGW("Unregister notification failed.");
@@ -106,14 +107,12 @@ public:
   }
 
   // True whenever the notification server is set to report events to this object.
-  bool IsRegistered() const
-  {
-    return mIsRegistered;
-  }
+  bool IsRegistered() const { return mIsRegistered; }
 
   // IMMNotificationClient Implementation
-  HRESULT STDMETHODCALLTYPE
-  OnDefaultDeviceChanged(EDataFlow aFlow, ERole aRole, LPCWSTR aDeviceId) override
+  HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow aFlow,
+                                                   ERole aRole,
+                                                   LPCWSTR aDeviceId) override
   {
     ANS_LOG("Default device has changed: flow %d, role: %d\n", aFlow, aRole);
     mCallback();
@@ -122,22 +121,20 @@ public:
 
   // The remaining methods are not implemented. they simply log when called
   // (if log is enabled), for debugging.
-  HRESULT STDMETHODCALLTYPE
-  OnDeviceAdded(LPCWSTR aDeviceId) override
+  HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR aDeviceId) override
   {
     ANS_LOG("Audio device added.");
     return S_OK;
   };
 
-  HRESULT STDMETHODCALLTYPE
-  OnDeviceRemoved(LPCWSTR aDeviceId) override
+  HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR aDeviceId) override
   {
     ANS_LOG("Audio device removed.");
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE
-  OnDeviceStateChanged(LPCWSTR aDeviceId, DWORD aNewState) override
+  HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR aDeviceId,
+                                                 DWORD aNewState) override
   {
     ANS_LOG("Audio device state changed.");
     return S_OK;
@@ -151,14 +148,12 @@ public:
   }
 
   // IUnknown Implementation
-  ULONG STDMETHODCALLTYPE
-  AddRef() override
+  ULONG STDMETHODCALLTYPE AddRef() override
   {
     return InterlockedIncrement(&mRefCt);
   }
 
-  ULONG STDMETHODCALLTYPE
-  Release() override
+  ULONG STDMETHODCALLTYPE Release() override
   {
     ULONG ulRef = InterlockedDecrement(&mRefCt);
     if (0 == ulRef) {
@@ -167,8 +162,8 @@ public:
     return ulRef;
   }
 
-  HRESULT STDMETHODCALLTYPE
-  QueryInterface(REFIID riid, VOID **ppvInterface) override
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           VOID** ppvInterface) override
   {
     if (__uuidof(IUnknown) == riid) {
       AddRef();
@@ -183,12 +178,12 @@ public:
     return S_OK;
   }
 
-private:
+ private:
   RefPtr<IMMDeviceEnumerator> mDeviceEnumerator;
   DefaultDeviceChangedCallback mCallback;
   LONG mRefCt;
   bool mIsRegistered;
-}; // class AudioNotification
+};  // class AudioNotification
 
 /*
  * A singleton observer for audio device changed events.
@@ -225,9 +220,10 @@ AudioNotificationSender::NotifyDefaultDeviceChanged()
   MOZ_ASSERT(XRE_IsParentProcess());
   ANS_LOG("Notify the default device-changed event.");
 
-  RefPtr<AudioDeviceChangedRunnable> runnable = new AudioDeviceChangedRunnable();
+  RefPtr<AudioDeviceChangedRunnable> runnable =
+      new AudioDeviceChangedRunnable();
   NS_DispatchToMainThread(runnable);
 }
 
-} // namespace audio
-} // namespace mozilla
+}  // namespace audio
+}  // namespace mozilla

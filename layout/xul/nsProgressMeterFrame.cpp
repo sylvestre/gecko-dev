@@ -24,7 +24,7 @@
 
 class nsReflowFrameRunnable : public mozilla::Runnable
 {
-public:
+ public:
   nsReflowFrameRunnable(nsIFrame* aFrame,
                         nsIPresShell::IntrinsicDirty aIntrinsicDirty,
                         nsFrameState aBitToAdd);
@@ -37,13 +37,13 @@ public:
 };
 
 nsReflowFrameRunnable::nsReflowFrameRunnable(
-  nsIFrame* aFrame,
-  nsIPresShell::IntrinsicDirty aIntrinsicDirty,
-  nsFrameState aBitToAdd)
-  : mozilla::Runnable("nsReflowFrameRunnable")
-  , mWeakFrame(aFrame)
-  , mIntrinsicDirty(aIntrinsicDirty)
-  , mBitToAdd(aBitToAdd)
+    nsIFrame* aFrame,
+    nsIPresShell::IntrinsicDirty aIntrinsicDirty,
+    nsFrameState aBitToAdd)
+    : mozilla::Runnable("nsReflowFrameRunnable"),
+      mWeakFrame(aFrame),
+      mIntrinsicDirty(aIntrinsicDirty),
+      mBitToAdd(aBitToAdd)
 {
 }
 
@@ -51,8 +51,8 @@ NS_IMETHODIMP
 nsReflowFrameRunnable::Run()
 {
   if (mWeakFrame.IsAlive()) {
-    mWeakFrame->PresContext()->PresShell()->
-      FrameNeedsReflow(mWeakFrame, mIntrinsicDirty, mBitToAdd);
+    mWeakFrame->PresContext()->PresShell()->FrameNeedsReflow(
+        mWeakFrame, mIntrinsicDirty, mBitToAdd);
   }
   return NS_OK;
 }
@@ -63,7 +63,7 @@ nsReflowFrameRunnable::Run()
 // Creates a new Toolbar frame and returns it
 //
 nsIFrame*
-NS_NewProgressMeterFrame (nsIPresShell* aPresShell, nsStyleContext* aContext)
+NS_NewProgressMeterFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsProgressMeterFrame(aContext);
 }
@@ -75,13 +75,11 @@ NS_IMPL_FRAMEARENA_HELPERS(nsProgressMeterFrame)
 //
 // Cleanup, if necessary
 //
-nsProgressMeterFrame :: ~nsProgressMeterFrame ( )
-{
-}
+nsProgressMeterFrame ::~nsProgressMeterFrame() {}
 
 class nsAsyncProgressMeterInit final : public nsIReflowCallback
 {
-public:
+ public:
   explicit nsAsyncProgressMeterInit(nsIFrame* aFrame) : mWeakFrame(aFrame) {}
 
   virtual bool ReflowFinished() override
@@ -97,10 +95,7 @@ public:
     return shouldFlush;
   }
 
-  virtual void ReflowCallbackCanceled() override
-  {
-    delete this;
-  }
+  virtual void ReflowCallbackCanceled() override { delete this; }
 
   WeakFrame mWeakFrame;
 };
@@ -123,17 +118,20 @@ nsProgressMeterFrame::AttributeChanged(int32_t aNameSpaceID,
                                        nsAtom* aAttribute,
                                        int32_t aModType)
 {
-  NS_ASSERTION(!nsContentUtils::IsSafeToRunScript(),
+  NS_ASSERTION(
+      !nsContentUtils::IsSafeToRunScript(),
       "Scripts not blocked in nsProgressMeterFrame::AttributeChanged!");
-  nsresult rv = nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                             aModType);
+  nsresult rv =
+      nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
   if (NS_OK != rv) {
     return rv;
   }
 
   // did the progress change?
-  bool undetermined = mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::mode,
-                                            nsGkAtoms::undetermined, eCaseMatters);
+  bool undetermined = mContent->AttrValueIs(kNameSpaceID_None,
+                                            nsGkAtoms::mode,
+                                            nsGkAtoms::undetermined,
+                                            eCaseMatters);
   if (nsGkAtoms::mode == aAttribute ||
       (!undetermined &&
        (nsGkAtoms::value == aAttribute || nsGkAtoms::max == aAttribute))) {
@@ -167,12 +165,12 @@ nsProgressMeterFrame::AttributeChanged(int32_t aNameSpaceID,
       }
     }
 
+    nsContentUtils::AddScriptRunner(
+        new nsSetAttrRunnable(barChild->GetContent(), nsGkAtoms::flex, flex));
     nsContentUtils::AddScriptRunner(new nsSetAttrRunnable(
-      barChild->GetContent(), nsGkAtoms::flex, flex));
-    nsContentUtils::AddScriptRunner(new nsSetAttrRunnable(
-      remainderContent, nsGkAtoms::flex, maxFlex - flex));
+        remainderContent, nsGkAtoms::flex, maxFlex - flex));
     nsContentUtils::AddScriptRunner(new nsReflowFrameRunnable(
-      this, nsIPresShell::eTreeChange, NS_FRAME_IS_DIRTY));
+        this, nsIPresShell::eTreeChange, NS_FRAME_IS_DIRTY));
   }
   return NS_OK;
 }

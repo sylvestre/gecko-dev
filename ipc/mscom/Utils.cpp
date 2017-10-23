@@ -96,7 +96,7 @@ GetContainingModuleHandle()
   thisModule = reinterpret_cast<HMODULE>(&__ImageBase);
 #else
   if (!GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                             GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                          reinterpret_cast<LPCTSTR>(&GetContainingModuleHandle),
                          &thisModule)) {
     return 0;
@@ -106,7 +106,8 @@ GetContainingModuleHandle()
 }
 
 uint32_t
-CreateStream(const uint8_t* aInitBuf, const uint32_t aInitBufSize,
+CreateStream(const uint8_t* aInitBuf,
+             const uint32_t aInitBufSize,
              IStream** aOutStream)
 {
   if (!aInitBufSize || !aOutStream) {
@@ -234,7 +235,8 @@ GUIDToString(REFGUID aGuid, nsAString& aOutString)
   // to include curly braces and dashes.
   const int kBufLenWithNul = 39;
   aOutString.SetLength(kBufLenWithNul);
-  int result = StringFromGUID2(aGuid, char16ptr_t(aOutString.BeginWriting()), kBufLenWithNul);
+  int result = StringFromGUID2(
+      aGuid, char16ptr_t(aOutString.BeginWriting()), kBufLenWithNul);
   MOZ_ASSERT(result);
   if (result) {
     // Truncate the terminator
@@ -242,7 +244,7 @@ GUIDToString(REFGUID aGuid, nsAString& aOutString)
   }
 }
 
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #if defined(ACCESSIBILITY)
 
@@ -313,12 +315,13 @@ IsCallerExternalProcess()
 
   // Now check whether the caller is our parent process main thread.
   const DWORD parentMainTid =
-    dom::ContentChild::GetSingleton()->GetChromeMainThreadId();
+      dom::ContentChild::GetSingleton()->GetChromeMainThreadId();
   return callerTid != parentMainTid;
 }
 
 bool
-IsInterfaceEqualToOrInheritedFrom(REFIID aInterface, REFIID aFrom,
+IsInterfaceEqualToOrInheritedFrom(REFIID aInterface,
+                                  REFIID aFrom,
                                   unsigned long aVtableIndexHint)
 {
   if (aInterface == aFrom) {
@@ -349,8 +352,8 @@ IsInterfaceEqualToOrInheritedFrom(REFIID aInterface, REFIID aFrom,
       break;
     }
 
-    bool isFromParentVtable = IsVtableIndexFromParentInterface(typeAttr,
-                                                               aVtableIndexHint);
+    bool isFromParentVtable =
+        IsVtableIndexFromParentInterface(typeAttr, aVtableIndexHint);
     WORD numParentInterfaces = typeAttr->cImplTypes;
 
     curTypeInfo->ReleaseTypeAttr(typeAttr);
@@ -374,8 +377,7 @@ IsInterfaceEqualToOrInheritedFrom(REFIID aInterface, REFIID aFrom,
       }
 
       RefPtr<ITypeInfo> nextTypeInfo;
-      hr = curTypeInfo->GetRefTypeInfo(refCookie,
-                                       getter_AddRefs(nextTypeInfo));
+      hr = curTypeInfo->GetRefTypeInfo(refCookie, getter_AddRefs(nextTypeInfo));
       if (FAILED(hr)) {
         continue;
       }
@@ -401,9 +403,9 @@ IsInterfaceEqualToOrInheritedFrom(REFIID aInterface, REFIID aFrom,
   return false;
 }
 
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
-#endif // defined(ACCESSIBILITY)
+#endif  // defined(ACCESSIBILITY)
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

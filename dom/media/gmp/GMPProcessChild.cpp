@@ -16,13 +16,11 @@ namespace mozilla {
 namespace gmp {
 
 GMPProcessChild::GMPProcessChild(ProcessId aParentPid)
-: ProcessChild(aParentPid)
+    : ProcessChild(aParentPid)
 {
 }
 
-GMPProcessChild::~GMPProcessChild()
-{
-}
+GMPProcessChild::~GMPProcessChild() {}
 
 bool
 GMPProcessChild::Init(int aArgc, char* aArgv[])
@@ -37,7 +35,8 @@ GMPProcessChild::Init(int aArgc, char* aArgv[])
   MOZ_ASSERT(values.size() >= 2, "not enough args");
   pluginFilename = NS_ConvertUTF8toUTF16(nsDependentCString(values[1].c_str()));
 #elif defined(OS_WIN)
-  std::vector<std::wstring> values = CommandLine::ForCurrentProcess()->GetLooseValues();
+  std::vector<std::wstring> values =
+      CommandLine::ForCurrentProcess()->GetLooseValues();
   MOZ_ASSERT(values.size() >= 1, "not enough loose args");
   pluginFilename = nsDependentString(values[0].c_str());
 #else
@@ -58,5 +57,5 @@ GMPProcessChild::CleanUp()
   BackgroundHangMonitor::Shutdown();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

@@ -7,56 +7,56 @@
 
 using namespace mozilla;
 
-nsJNIString::nsJNIString(jstring jstr, JNIEnv *jenv)
+nsJNIString::nsJNIString(jstring jstr, JNIEnv* jenv)
 {
-    if (!jstr) {
-        SetIsVoid(true);
-        return;
-    }
-    JNIEnv *jni = jenv;
-    if (!jni) {
-        jni = jni::GetGeckoThreadEnv();
-    }
-    const jchar* jCharPtr = jni->GetStringChars(jstr, nullptr);
+  if (!jstr) {
+    SetIsVoid(true);
+    return;
+  }
+  JNIEnv* jni = jenv;
+  if (!jni) {
+    jni = jni::GetGeckoThreadEnv();
+  }
+  const jchar* jCharPtr = jni->GetStringChars(jstr, nullptr);
 
-    if (!jCharPtr) {
-        SetIsVoid(true);
-        return;
-    }
+  if (!jCharPtr) {
+    SetIsVoid(true);
+    return;
+  }
 
-    jsize len = jni->GetStringLength(jstr);
+  jsize len = jni->GetStringLength(jstr);
 
-    if (len <= 0) {
-        SetIsVoid(true);
-    } else {
-        Assign(reinterpret_cast<const char16_t*>(jCharPtr), len);
-    }
-    jni->ReleaseStringChars(jstr, jCharPtr);
+  if (len <= 0) {
+    SetIsVoid(true);
+  } else {
+    Assign(reinterpret_cast<const char16_t*>(jCharPtr), len);
+  }
+  jni->ReleaseStringChars(jstr, jCharPtr);
 }
 
-nsJNICString::nsJNICString(jstring jstr, JNIEnv *jenv)
+nsJNICString::nsJNICString(jstring jstr, JNIEnv* jenv)
 {
-    if (!jstr) {
-        SetIsVoid(true);
-        return;
-    }
-    JNIEnv *jni = jenv;
-    if (!jni) {
-        jni = jni::GetGeckoThreadEnv();
-    }
-    const char* jCharPtr = jni->GetStringUTFChars(jstr, nullptr);
+  if (!jstr) {
+    SetIsVoid(true);
+    return;
+  }
+  JNIEnv* jni = jenv;
+  if (!jni) {
+    jni = jni::GetGeckoThreadEnv();
+  }
+  const char* jCharPtr = jni->GetStringUTFChars(jstr, nullptr);
 
-    if (!jCharPtr) {
-        SetIsVoid(true);
-        return;
-    }
+  if (!jCharPtr) {
+    SetIsVoid(true);
+    return;
+  }
 
-    jsize len = jni->GetStringUTFLength(jstr);
+  jsize len = jni->GetStringUTFLength(jstr);
 
-    if (len <= 0) {
-        SetIsVoid(true);
-    } else {
-        Assign(jCharPtr, len);
-    }
-    jni->ReleaseStringUTFChars(jstr, jCharPtr);
+  if (len <= 0) {
+    SetIsVoid(true);
+  } else {
+    Assign(jCharPtr, len);
+  }
+  jni->ReleaseStringUTFChars(jstr, jCharPtr);
 }

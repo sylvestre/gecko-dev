@@ -23,8 +23,8 @@
 namespace mozilla {
 
 namespace Telemetry {
-  enum HistogramID : uint32_t;
-} // namespace Telemetry
+enum HistogramID : uint32_t;
+}  // namespace Telemetry
 
 namespace image {
 
@@ -34,11 +34,12 @@ struct DecoderFinalStatus final
                      bool aFinished,
                      bool aHadError,
                      bool aShouldReportError)
-    : mWasMetadataDecode(aWasMetadataDecode)
-    , mFinished(aFinished)
-    , mHadError(aHadError)
-    , mShouldReportError(aShouldReportError)
-  { }
+      : mWasMetadataDecode(aWasMetadataDecode),
+        mFinished(aFinished),
+        mHadError(aHadError),
+        mShouldReportError(aShouldReportError)
+  {
+  }
 
   /// True if this was a metadata decode.
   const bool mWasMetadataDecode : 1;
@@ -60,11 +61,12 @@ struct DecoderTelemetry final
                    size_t aBytesDecoded,
                    uint32_t aChunkCount,
                    TimeDuration aDecodeTime)
-    : mSpeedHistogram(aSpeedHistogram)
-    , mBytesDecoded(aBytesDecoded)
-    , mChunkCount(aChunkCount)
-    , mDecodeTime(aDecodeTime)
-  { }
+      : mSpeedHistogram(aSpeedHistogram),
+        mBytesDecoded(aBytesDecoded),
+        mChunkCount(aChunkCount),
+        mDecodeTime(aDecodeTime)
+  {
+  }
 
   /// @return our decoder's speed, in KBps.
   int32_t Speed() const
@@ -91,7 +93,7 @@ struct DecoderTelemetry final
 
 class Decoder
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Decoder)
 
   explicit Decoder(RasterImage* aImage);
@@ -165,7 +167,8 @@ public:
    */
   bool HasProgress() const
   {
-    return mProgress != NoProgress || !mInvalidRect.IsEmpty() || mFinishedNewFrame;
+    return mProgress != NoProgress || !mInvalidRect.IsEmpty() ||
+           mFinishedNewFrame;
   }
 
   /*
@@ -207,7 +210,11 @@ public:
    *
    * Illegal to call if HasSize() returns false.
    */
-  gfx::IntSize OutputSize() const { MOZ_ASSERT(HasSize()); return *mOutputSize; }
+  gfx::IntSize OutputSize() const
+  {
+    MOZ_ASSERT(HasSize());
+    return *mOutputSize;
+  }
 
   /**
    * @return either the size passed to SetOutputSize() or Nothing(), indicating
@@ -294,15 +301,13 @@ public:
   bool InFrame() const { return mInFrame; }
 
   /// Is the image valid if embedded inside an ICO.
-  virtual bool IsValidICOResource() const
-  {
-    return false;
-  }
+  virtual bool IsValidICOResource() const { return false; }
 
-  enum DecodeStyle {
-      PROGRESSIVE, // produce intermediate frames representing the partial
-                   // state of the image
-      SEQUENTIAL   // decode to final image immediately
+  enum DecodeStyle
+  {
+    PROGRESSIVE,  // produce intermediate frames representing the partial
+                  // state of the image
+    SEQUENTIAL    // decode to final image immediately
   };
 
   /**
@@ -393,12 +398,10 @@ public:
 
   RawAccessFrameRef GetCurrentFrameRef()
   {
-    return mCurrentFrame ? mCurrentFrame->RawAccessRef()
-                         : RawAccessFrameRef();
+    return mCurrentFrame ? mCurrentFrame->RawAccessRef() : RawAccessFrameRef();
   }
 
-
-protected:
+ protected:
   friend class AutoRecordDecoderTelemetry;
   friend class nsICODecoder;
   friend class PalettedSurfaceSink;
@@ -426,8 +429,10 @@ protected:
    * speed, or Nothing() if we don't record speed telemetry for this kind of
    * decoder.
    */
-  virtual Maybe<Telemetry::HistogramID> SpeedHistogram() const { return Nothing(); }
-
+  virtual Maybe<Telemetry::HistogramID> SpeedHistogram() const
+  {
+    return Nothing();
+  }
 
   /*
    * Progress notifications.
@@ -479,8 +484,9 @@ protected:
    *                          the image at our output size). This must
    *                          be supplied if we're downscaling during decode.
    */
-  void PostInvalidation(const gfx::IntRect& aRect,
-                        const Maybe<gfx::IntRect>& aRectAtOutputSize = Nothing());
+  void PostInvalidation(
+      const gfx::IntRect& aRect,
+      const Maybe<gfx::IntRect>& aRectAtOutputSize = Nothing());
 
   // Called by the decoders when they have successfully decoded the image. This
   // may occur as the result of the decoder getting to the appropriate point in
@@ -506,7 +512,7 @@ protected:
                          gfx::SurfaceFormat aFormat,
                          uint8_t aPaletteDepth = 0);
 
-private:
+ private:
   /// Report that an error was encountered while decoding.
   void PostError();
 
@@ -535,7 +541,7 @@ private:
                                           uint8_t aPaletteDepth,
                                           imgFrame* aPreviousFrame);
 
-protected:
+ protected:
   Maybe<Downscaler> mDownscaler;
 
   uint8_t* mImageData;  // Pointer to image data in either Cairo or 8bit format
@@ -543,20 +549,21 @@ protected:
   uint32_t* mColormap;  // Current colormap to be used in Cairo format
   uint32_t mColormapSize;
 
-private:
+ private:
   RefPtr<RasterImage> mImage;
   Maybe<SourceBufferIterator> mIterator;
   RawAccessFrameRef mCurrentFrame;
   ImageMetadata mImageMetadata;
-  gfx::IntRect mInvalidRect; // Tracks an invalidation region in the current frame.
-  Maybe<gfx::IntSize> mOutputSize;  // The size of our output surface.
-  Maybe<gfx::IntSize> mExpectedSize; // The expected size of the image.
+  gfx::IntRect
+      mInvalidRect;  // Tracks an invalidation region in the current frame.
+  Maybe<gfx::IntSize> mOutputSize;    // The size of our output surface.
+  Maybe<gfx::IntSize> mExpectedSize;  // The expected size of the image.
   Progress mProgress;
 
-  uint32_t mFrameCount; // Number of frames, including anything in-progress
+  uint32_t mFrameCount;      // Number of frames, including anything in-progress
   FrameTimeout mLoopLength;  // Length of a single loop of this image.
   gfx::IntRect mFirstFrameRefreshArea;  // The area of the image that needs to
-                                        // be invalidated when the animation loops.
+  // be invalidated when the animation loops.
 
   // Telemetry data for this decoder.
   TimeDuration mDecodeTime;
@@ -577,7 +584,7 @@ private:
   bool mFinalizeFrames : 1;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_Decoder_h
+#endif  // mozilla_image_Decoder_h

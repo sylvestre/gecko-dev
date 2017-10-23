@@ -19,13 +19,11 @@ SVGTransformList::GetConsolidationMatrix() const
   // from ALL return points. This function must only return THIS variable:
   gfxMatrix result;
 
-  if (mItems.IsEmpty())
-    return result;
+  if (mItems.IsEmpty()) return result;
 
   result = mItems[0].GetMatrix();
 
-  if (mItems.Length() == 1)
-    return result;
+  if (mItems.Length() == 1) return result;
 
   for (uint32_t i = 1; i < mItems.Length(); ++i) {
     result.PreMultiply(mItems[i].GetMatrix());
@@ -77,4 +75,4 @@ SVGTransformList::SetValueFromString(const nsAString& aValue)
   return CopyFrom(parser.GetTransformList());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

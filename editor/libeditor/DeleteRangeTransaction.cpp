@@ -27,9 +27,9 @@ using namespace dom;
 DeleteRangeTransaction::DeleteRangeTransaction(EditorBase& aEditorBase,
                                                nsRange& aRangeToDelete,
                                                RangeUpdater* aRangeUpdater)
-  : mEditorBase(&aEditorBase)
-  , mRangeToDelete(aRangeToDelete.CloneRange())
-  , mRangeUpdater(aRangeUpdater)
+    : mEditorBase(&aEditorBase),
+      mRangeToDelete(aRangeToDelete.CloneRange()),
+      mRangeUpdater(aRangeUpdater)
 {
 }
 
@@ -65,22 +65,21 @@ DeleteRangeTransaction::DoTransaction()
   if (startContainer == endContainer) {
     // the selection begins and ends in the same node
     nsIContent* startChild = rangeToDelete->GetChildAtStartOffset();
-    nsresult rv =
-      CreateTxnsToDeleteBetween(startContainer, startOffset,
-                                startChild, endOffset);
+    nsresult rv = CreateTxnsToDeleteBetween(
+        startContainer, startOffset, startChild, endOffset);
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
     // the selection ends in a different node from where it started.  delete
     // the relevant content in the start node
-    nsresult rv =
-      CreateTxnsToDeleteContent(startContainer, startOffset, nsIEditor::eNext);
+    nsresult rv = CreateTxnsToDeleteContent(
+        startContainer, startOffset, nsIEditor::eNext);
     NS_ENSURE_SUCCESS(rv, rv);
     // delete the intervening nodes
     rv = CreateTxnsToDeleteNodesBetween(rangeToDelete);
     NS_ENSURE_SUCCESS(rv, rv);
     // delete the relevant content in the end node
-    rv = CreateTxnsToDeleteContent(endContainer, endOffset,
-                                   nsIEditor::ePrevious);
+    rv = CreateTxnsToDeleteContent(
+        endContainer, endOffset, nsIEditor::ePrevious);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -122,10 +121,11 @@ DeleteRangeTransaction::GetTxnDescription(nsAString& aString)
 }
 
 nsresult
-DeleteRangeTransaction::CreateTxnsToDeleteBetween(nsINode* aNode,
-                                                  int32_t aStartOffset,
-                                                  nsIContent* aChildAtStartOffset,
-                                                  int32_t aEndOffset)
+DeleteRangeTransaction::CreateTxnsToDeleteBetween(
+    nsINode* aNode,
+    int32_t aStartOffset,
+    nsIContent* aChildAtStartOffset,
+    int32_t aEndOffset)
 {
   if (NS_WARN_IF(!mEditorBase)) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -142,11 +142,11 @@ DeleteRangeTransaction::CreateTxnsToDeleteBetween(nsINode* aNode,
     }
 
     RefPtr<nsGenericDOMDataNode> charDataNode =
-      static_cast<nsGenericDOMDataNode*>(aNode);
+        static_cast<nsGenericDOMDataNode*>(aNode);
 
     RefPtr<DeleteTextTransaction> deleteTextTransaction =
-      new DeleteTextTransaction(*mEditorBase, *charDataNode, aStartOffset,
-                                numToDel, mRangeUpdater);
+        new DeleteTextTransaction(
+            *mEditorBase, *charDataNode, aStartOffset, numToDel, mRangeUpdater);
     // If the text node isn't editable, it should be never undone/redone.
     // So, the transaction shouldn't be recorded.
     if (NS_WARN_IF(!deleteTextTransaction->CanDoIt())) {
@@ -164,7 +164,7 @@ DeleteRangeTransaction::CreateTxnsToDeleteBetween(nsINode* aNode,
       break;
     }
     RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-      new DeleteNodeTransaction(*mEditorBase, *child, mRangeUpdater);
+        new DeleteNodeTransaction(*mEditorBase, *child, mRangeUpdater);
     // XXX This is odd handling.  Even if some children are not editable,
     //     editor should append transactions because they could be editable
     //     at undoing/redoing.  Additionally, if the transaction needs to
@@ -201,10 +201,10 @@ DeleteRangeTransaction::CreateTxnsToDeleteContent(nsINode* aNode,
 
     if (numToDelete) {
       RefPtr<nsGenericDOMDataNode> dataNode =
-        static_cast<nsGenericDOMDataNode*>(aNode);
+          static_cast<nsGenericDOMDataNode*>(aNode);
       RefPtr<DeleteTextTransaction> deleteTextTransaction =
-        new DeleteTextTransaction(*mEditorBase, *dataNode, start, numToDelete,
-                                  mRangeUpdater);
+          new DeleteTextTransaction(
+              *mEditorBase, *dataNode, start, numToDelete, mRangeUpdater);
       // If the text node isn't editable, it should be never undone/redone.
       // So, the transaction shouldn't be recorded.
       if (NS_WARN_IF(!deleteTextTransaction->CanDoIt())) {
@@ -236,7 +236,7 @@ DeleteRangeTransaction::CreateTxnsToDeleteNodesBetween(nsRange* aRangeToDelete)
     }
 
     RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-      new DeleteNodeTransaction(*mEditorBase, *node, mRangeUpdater);
+        new DeleteNodeTransaction(*mEditorBase, *node, mRangeUpdater);
     // XXX This is odd handling.  Even if some nodes in the range are not
     //     editable, editor should append transactions because they could
     //     at undoing/redoing.  Additionally, if the transaction needs to
@@ -251,4 +251,4 @@ DeleteRangeTransaction::CreateTxnsToDeleteNodesBetween(nsRange* aRangeToDelete)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

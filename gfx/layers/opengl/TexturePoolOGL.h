@@ -5,7 +5,7 @@
 #ifndef GFX_TEXTUREPOOLOGL_H
 #define GFX_TEXTUREPOOLOGL_H
 
-#include "GLContextTypes.h"             // for GLContext, GLuint
+#include "GLContextTypes.h"  // for GLContext, GLuint
 
 namespace mozilla {
 namespace gl {
@@ -16,7 +16,7 @@ namespace gl {
 // necessitates this.
 class TexturePoolOGL
 {
-public:
+ public:
   // Get a new texture from the pool. Will block
   // and wait for one to be created if necessary
   static GLuint AcquireTexture();
@@ -32,12 +32,13 @@ public:
 
   // Clears all internal data structures in preparation for shutdown
   static void Shutdown();
-private:
+
+ private:
   // These methods are used to refill textures to avoid pool becomes dry
   static void MaybeFillTextures();
 };
 
-} // namespace gl
-} // namespace mozilla
+}  // namespace gl
+}  // namespace mozilla
 
-#endif // GFX_TEXTUREPOOLOGL_H
+#endif  // GFX_TEXTUREPOOLOGL_H

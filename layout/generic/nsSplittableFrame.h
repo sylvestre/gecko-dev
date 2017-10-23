@@ -17,12 +17,12 @@
 // Derived class that allows splitting
 class nsSplittableFrame : public nsFrame
 {
-public:
+ public:
   NS_DECL_ABSTRACT_FRAME(nsSplittableFrame)
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
   virtual nsSplittableType GetSplittableType() const override;
 
@@ -58,8 +58,14 @@ public:
   nsIFrame* GetPrevInFlow() const;
   nsIFrame* GetNextInFlow() const;
 
-  virtual nsIFrame* GetPrevInFlowVirtual() const override { return GetPrevInFlow(); }
-  virtual nsIFrame* GetNextInFlowVirtual() const override { return GetNextInFlow(); }
+  virtual nsIFrame* GetPrevInFlowVirtual() const override
+  {
+    return GetPrevInFlow();
+  }
+  virtual nsIFrame* GetNextInFlowVirtual() const override
+  {
+    return GetNextInFlow();
+  }
 
   // Set a previous/next fluid continuation.
   virtual void SetPrevInFlow(nsIFrame*) override;
@@ -73,12 +79,13 @@ public:
   // and its next-in-flow. This should only be called in frame Destroy() methods.
   static void RemoveFromFlow(nsIFrame* aFrame);
 
-protected:
+ protected:
   nsSplittableFrame(nsStyleContext* aContext, ClassID aID)
-    : nsFrame(aContext, aID)
-    , mPrevContinuation(nullptr)
-    , mNextContinuation(nullptr)
-  {}
+      : nsFrame(aContext, aID),
+        mPrevContinuation(nullptr),
+        mNextContinuation(nullptr)
+  {
+  }
 
   /**
    * Return the sum of the block-axis content size of our prev-in-flows.
@@ -100,7 +107,8 @@ protected:
   /**
    * @see nsIFrame::GetLogicalSkipSides()
    */
-  virtual LogicalSides GetLogicalSkipSides(const ReflowInput* aReflowInput = nullptr) const override;
+  virtual LogicalSides GetLogicalSkipSides(
+      const ReflowInput* aReflowInput = nullptr) const override;
 
   /**
    * A faster version of GetLogicalSkipSides() that is intended to be used
@@ -114,8 +122,8 @@ protected:
    */
   LogicalSides PreReflowBlockLevelLogicalSkipSides() const;
 
-  nsIFrame*   mPrevContinuation;
-  nsIFrame*   mNextContinuation;
+  nsIFrame* mPrevContinuation;
+  nsIFrame* mNextContinuation;
 };
 
 #endif /* nsSplittableFrame_h___ */

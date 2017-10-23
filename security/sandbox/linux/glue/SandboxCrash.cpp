@@ -62,11 +62,13 @@ SandboxLogJSStack(void)
     Unused << frame->GetName(cx, funName);
 
     if (!funName.IsVoid() || !fileName.IsVoid()) {
-      SANDBOX_LOG_ERROR("JS frame %d: %s %s line %d", i,
-                        funName.IsVoid() ?
-                        "(anonymous)" : NS_ConvertUTF16toUTF8(funName).get(),
-                        fileName.IsVoid() ?
-                        "(no file)" : NS_ConvertUTF16toUTF8(fileName).get(),
+      SANDBOX_LOG_ERROR("JS frame %d: %s %s line %d",
+                        i,
+                        funName.IsVoid() ? "(anonymous)"
+                                         : NS_ConvertUTF16toUTF8(funName).get(),
+                        fileName.IsVoid()
+                            ? "(no file)"
+                            : NS_ConvertUTF16toUTF8(fileName).get(),
                         lineNumber);
     }
 
@@ -77,8 +79,11 @@ SandboxLogJSStack(void)
   }
 }
 
-static void SandboxPrintStackFrame(uint32_t aFrameNumber, void *aPC, void *aSP,
-                                   void *aClosure)
+static void
+SandboxPrintStackFrame(uint32_t aFrameNumber,
+                       void* aPC,
+                       void* aSP,
+                       void* aClosure)
 {
   char buf[1024];
   MozCodeAddressDetails details;
@@ -103,7 +108,7 @@ SandboxLogCStack()
 }
 
 static void
-SandboxCrash(int nr, siginfo_t *info, void *void_context)
+SandboxCrash(int nr, siginfo_t* info, void* void_context)
 {
   pid_t pid = getpid(), tid = syscall(__NR_gettid);
   bool dumped = false;
@@ -112,8 +117,9 @@ SandboxCrash(int nr, siginfo_t *info, void *void_context)
   dumped = CrashReporter::WriteMinidumpForSigInfo(nr, info, void_context);
 #endif
   if (!dumped) {
-    SANDBOX_LOG_ERROR("crash reporter is disabled (or failed);"
-                      " trying stack trace:");
+    SANDBOX_LOG_ERROR(
+        "crash reporter is disabled (or failed);"
+        " trying stack trace:");
     SandboxLogCStack();
   }
 
@@ -127,10 +133,9 @@ SandboxCrash(int nr, siginfo_t *info, void *void_context)
   syscall(__NR_tgkill, pid, tid, nr);
 }
 
-static void __attribute__((constructor))
-SandboxSetCrashFunc()
+static void __attribute__((constructor)) SandboxSetCrashFunc()
 {
   gSandboxCrashFunc = SandboxCrash;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

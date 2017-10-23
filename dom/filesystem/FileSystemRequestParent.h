@@ -20,24 +20,18 @@ class FileSystemRequestParent final : public PFileSystemRequestParent
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FileSystemRequestParent)
 
-public:
+ public:
   FileSystemRequestParent();
 
-  bool
-  Initialize(const FileSystemParams& aParams);
+  bool Initialize(const FileSystemParams& aParams);
 
-  void
-  Start();
+  void Start();
 
-  bool Destroyed() const
-  {
-    return mDestroyed;
-  }
+  bool Destroyed() const { return mDestroyed; }
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
-private:
+ private:
   ~FileSystemRequestParent();
 
   RefPtr<FileSystemBase> mFileSystem;
@@ -46,7 +40,7 @@ private:
   bool mDestroyed;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FileSystemRequestParent_h
+#endif  // mozilla_dom_FileSystemRequestParent_h

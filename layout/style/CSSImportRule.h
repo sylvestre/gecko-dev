@@ -13,22 +13,21 @@
 namespace mozilla {
 namespace dom {
 
-class CSSImportRule : public css::Rule
-                    , public nsIDOMCSSImportRule
+class CSSImportRule : public css::Rule, public nsIDOMCSSImportRule
 {
-protected:
+ protected:
   using Rule::Rule;
   virtual ~CSSImportRule() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   bool IsCCLeaf() const final;
 
   int32_t GetType() const final { return css::Rule::IMPORT_RULE; }
   using Rule::GetType;
 
-  size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-    const override = 0;
+  size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override = 0;
 
   // nsIDOMCSSImportRule interface
   NS_IMETHOD GetMedia(nsIDOMMediaList** aMedia) final;
@@ -44,7 +43,7 @@ public:
                        JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSImportRule_h
+#endif  // mozilla_dom_CSSImportRule_h

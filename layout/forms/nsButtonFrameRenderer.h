@@ -19,15 +19,15 @@ class nsPresContext;
 struct nsRect;
 class nsStyleContext;
 
+#define NS_BUTTON_RENDERER_FOCUS_INNER_CONTEXT_INDEX 0
+#define NS_BUTTON_RENDERER_LAST_CONTEXT_INDEX \
+  NS_BUTTON_RENDERER_FOCUS_INNER_CONTEXT_INDEX
 
-#define NS_BUTTON_RENDERER_FOCUS_INNER_CONTEXT_INDEX  0
-#define NS_BUTTON_RENDERER_LAST_CONTEXT_INDEX   NS_BUTTON_RENDERER_FOCUS_INNER_CONTEXT_INDEX
-
-class nsButtonFrameRenderer {
+class nsButtonFrameRenderer
+{
   typedef mozilla::image::DrawResult DrawResult;
 
-public:
-
+ public:
   nsButtonFrameRenderer();
   ~nsButtonFrameRenderer();
 
@@ -35,8 +35,8 @@ public:
    * Create display list items for the button
    */
   nsresult DisplayButton(nsDisplayListBuilder* aBuilder,
-                         nsDisplayList* aBackground, nsDisplayList* aForeground);
-
+                         nsDisplayList* aBackground,
+                         nsDisplayList* aForeground);
 
   DrawResult PaintInnerFocusBorder(nsDisplayListBuilder* aBuilder,
                                    nsPresContext* aPresContext,
@@ -44,11 +44,12 @@ public:
                                    const nsRect& aDirtyRect,
                                    const nsRect& aRect);
 
-  mozilla::Maybe<nsCSSBorderRenderer> CreateInnerFocusBorderRenderer(nsDisplayListBuilder* aBuilder,
-                                                                     nsPresContext* aPresContext,
-                                                                     gfxContext* aRenderingContext,
-                                                                     const nsRect& aDirtyRect,
-                                                                     const nsRect& aRect);
+  mozilla::Maybe<nsCSSBorderRenderer> CreateInnerFocusBorderRenderer(
+      nsDisplayListBuilder* aBuilder,
+      nsPresContext* aPresContext,
+      gfxContext* aRenderingContext,
+      const nsRect& aDirtyRect,
+      const nsRect& aRect);
 
   DrawResult PaintBorder(nsDisplayListBuilder* aBuilder,
                          nsPresContext* aPresContext,
@@ -71,16 +72,12 @@ public:
 
   nsIFrame* GetFrame();
 
-protected:
-
-private:
-
+ protected:
+ private:
   // cached style for optional inner focus outline (used on Windows).
   RefPtr<nsStyleContext> mInnerFocusStyle;
 
   nsFrame* mFrame;
 };
 
-
 #endif
-

@@ -14,8 +14,9 @@
 class CheckResponsivenessTask;
 
 // This class should only be used for the main thread.
-class ThreadResponsiveness {
-public:
+class ThreadResponsiveness
+{
+ public:
   explicit ThreadResponsiveness();
 
   ~ThreadResponsiveness();
@@ -24,14 +25,14 @@ public:
 
   // The number of milliseconds that elapsed since the last
   // CheckResponsivenessTask was processed.
-  double GetUnresponsiveDuration(double aStartToNow_ms) const {
+  double GetUnresponsiveDuration(double aStartToNow_ms) const
+  {
     return aStartToNow_ms - *mStartToPrevTracer_ms;
   }
 
-  bool HasData() const {
-    return mStartToPrevTracer_ms.isSome();
-  }
-private:
+  bool HasData() const { return mStartToPrevTracer_ms.isSome(); }
+
+ private:
   RefPtr<CheckResponsivenessTask> mActiveTracerEvent;
   // The time at which the last CheckResponsivenessTask was processed, in
   // milliseconds since process start (i.e. what you get from profiler_time()).
@@ -39,4 +40,3 @@ private:
 };
 
 #endif
-

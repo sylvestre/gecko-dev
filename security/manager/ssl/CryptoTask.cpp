@@ -31,7 +31,8 @@ CryptoTask::Dispatch(const nsACString& taskThreadName)
   }
 
   // Can't add 'this' as the event to run, since mThread may not be set yet
-  nsresult rv = NS_NewNamedThread(taskThreadName, getter_AddRefs(mThread),
+  nsresult rv = NS_NewNamedThread(taskThreadName,
+                                  getter_AddRefs(mThread),
                                   nullptr,
                                   nsIThreadManager::DEFAULT_STACK_SIZE);
   if (NS_FAILED(rv)) {
@@ -69,7 +70,7 @@ CryptoTask::Run()
     // Not all uses of CryptoTask use a transient thread
     if (mThread) {
       // Don't leak threads!
-      mThread->Shutdown(); // can't Shutdown from the thread itself, darn
+      mThread->Shutdown();  // can't Shutdown from the thread itself, darn
       // Don't null out mThread!
       // See bug 999104.  We must hold a ref to the thread across Dispatch()
       // since the internal mThread ref could be released while processing
@@ -92,4 +93,4 @@ CryptoTask::virtualDestroyNSSReference()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

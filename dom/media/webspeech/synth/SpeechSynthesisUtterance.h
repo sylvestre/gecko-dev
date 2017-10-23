@@ -27,8 +27,9 @@ class SpeechSynthesisUtterance final : public DOMEventTargetHelper
   friend class nsSpeechTask;
   friend class nsSynthVoiceRegistry;
 
-public:
-  SpeechSynthesisUtterance(nsPIDOMWindowInner* aOwnerWindow, const nsAString& aText);
+ public:
+  SpeechSynthesisUtterance(nsPIDOMWindowInner* aOwnerWindow,
+                           const nsAString& aText);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SpeechSynthesisUtterance,
@@ -37,15 +38,13 @@ public:
 
   nsISupports* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  static
-  already_AddRefed<SpeechSynthesisUtterance> Constructor(GlobalObject& aGlobal,
-                                                         ErrorResult& aRv);
-  static
-  already_AddRefed<SpeechSynthesisUtterance> Constructor(GlobalObject& aGlobal,
-                                                         const nsAString& aText,
-                                                         ErrorResult& aRv);
+  static already_AddRefed<SpeechSynthesisUtterance> Constructor(
+      GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<SpeechSynthesisUtterance> Constructor(
+      GlobalObject& aGlobal, const nsAString& aText, ErrorResult& aRv);
 
   void GetText(nsString& aResult) const;
 
@@ -73,7 +72,8 @@ public:
 
   void GetChosenVoiceURI(nsString& aResult) const;
 
-  enum {
+  enum
+  {
     STATE_NONE,
     STATE_PENDING,
     STATE_SPEAKING,
@@ -92,13 +92,14 @@ public:
   IMPL_EVENT_HANDLER(mark)
   IMPL_EVENT_HANDLER(boundary)
 
-private:
+ private:
   virtual ~SpeechSynthesisUtterance();
 
   void DispatchSpeechSynthesisEvent(const nsAString& aEventType,
                                     uint32_t aCharIndex,
                                     const Nullable<uint32_t>& aCharLength,
-                                    float aElapsedTime, const nsAString& aName);
+                                    float aElapsedTime,
+                                    const nsAString& aName);
 
   nsString mText;
 
@@ -119,7 +120,7 @@ private:
   RefPtr<SpeechSynthesisVoice> mVoice;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

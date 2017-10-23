@@ -17,7 +17,11 @@ namespace mozilla {
 
 namespace detail {
 
-enum StorageType { AsBase, AsMember };
+enum StorageType
+{
+  AsBase,
+  AsMember
+};
 
 // Optimize storage using the Empty Base Optimization -- that empty base classes
 // don't take up space -- to optimize size when one or the other class is
@@ -26,24 +30,25 @@ enum StorageType { AsBase, AsMember };
 // The extra conditions on storage for B are necessary so that PairHelper won't
 // ambiguously inherit from either A or B, such that one or the other base class
 // would be inaccessible.
-template<typename A, typename B,
+template<typename A,
+         typename B,
          detail::StorageType =
-           IsEmpty<A>::value ? detail::AsBase : detail::AsMember,
-         detail::StorageType =
-           IsEmpty<B>::value && !IsBaseOf<A, B>::value && !IsBaseOf<B, A>::value
-           ? detail::AsBase
-           : detail::AsMember>
+             IsEmpty<A>::value ? detail::AsBase : detail::AsMember,
+         detail::StorageType = IsEmpty<B>::value && !IsBaseOf<A, B>::value &&
+                                       !IsBaseOf<B, A>::value
+                                   ? detail::AsBase
+                                   : detail::AsMember>
 struct PairHelper;
 
 template<typename A, typename B>
 struct PairHelper<A, B, AsMember, AsMember>
 {
-protected:
+ protected:
   template<typename AArg, typename BArg>
   PairHelper(AArg&& aA, BArg&& aB)
-    : mFirstA(Forward<AArg>(aA)),
-      mSecondB(Forward<BArg>(aB))
-  {}
+      : mFirstA(Forward<AArg>(aA)), mSecondB(Forward<BArg>(aB))
+  {
+  }
 
   A& first() { return mFirstA; }
   const A& first() const { return mFirstA; }
@@ -56,7 +61,7 @@ protected:
     Swap(mSecondB, aOther.mSecondB);
   }
 
-private:
+ private:
   A mFirstA;
   B mSecondB;
 };
@@ -64,12 +69,12 @@ private:
 template<typename A, typename B>
 struct PairHelper<A, B, AsMember, AsBase> : private B
 {
-protected:
+ protected:
   template<typename AArg, typename BArg>
   PairHelper(AArg&& aA, BArg&& aB)
-    : B(Forward<BArg>(aB)),
-      mFirstA(Forward<AArg>(aA))
-  {}
+      : B(Forward<BArg>(aB)), mFirstA(Forward<AArg>(aA))
+  {
+  }
 
   A& first() { return mFirstA; }
   const A& first() const { return mFirstA; }
@@ -82,19 +87,19 @@ protected:
     Swap(static_cast<B&>(*this), static_cast<B&>(aOther));
   }
 
-private:
+ private:
   A mFirstA;
 };
 
 template<typename A, typename B>
 struct PairHelper<A, B, AsBase, AsMember> : private A
 {
-protected:
+ protected:
   template<typename AArg, typename BArg>
   PairHelper(AArg&& aA, BArg&& aB)
-    : A(Forward<AArg>(aA)),
-      mSecondB(Forward<BArg>(aB))
-  {}
+      : A(Forward<AArg>(aA)), mSecondB(Forward<BArg>(aB))
+  {
+  }
 
   A& first() { return *this; }
   const A& first() const { return *this; }
@@ -107,19 +112,18 @@ protected:
     Swap(mSecondB, aOther.mSecondB);
   }
 
-private:
+ private:
   B mSecondB;
 };
 
 template<typename A, typename B>
 struct PairHelper<A, B, AsBase, AsBase> : private A, private B
 {
-protected:
+ protected:
   template<typename AArg, typename BArg>
-  PairHelper(AArg&& aA, BArg&& aB)
-    : A(Forward<AArg>(aA)),
-      B(Forward<BArg>(aB))
-  {}
+  PairHelper(AArg&& aA, BArg&& aB) : A(Forward<AArg>(aA)), B(Forward<BArg>(aB))
+  {
+  }
 
   A& first() { return static_cast<A&>(*this); }
   const A& first() const { return static_cast<A&>(*this); }
@@ -133,7 +137,7 @@ protected:
   }
 };
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * Pair is the logical concatenation of an instance of A with an instance B.
@@ -149,20 +153,17 @@ protected:
  * conceptual!
  */
 template<typename A, typename B>
-struct Pair
-  : private detail::PairHelper<A, B>
+struct Pair : private detail::PairHelper<A, B>
 {
   typedef typename detail::PairHelper<A, B> Base;
 
-public:
+ public:
   template<typename AArg, typename BArg>
-  Pair(AArg&& aA, BArg&& aB)
-    : Base(Forward<AArg>(aA), Forward<BArg>(aB))
-  {}
+  Pair(AArg&& aA, BArg&& aB) : Base(Forward<AArg>(aA), Forward<BArg>(aB))
+  {
+  }
 
-  Pair(Pair&& aOther)
-    : Base(Move(aOther.first()), Move(aOther.second()))
-  { }
+  Pair(Pair&& aOther) : Base(Move(aOther.first()), Move(aOther.second())) {}
 
   Pair(const Pair& aOther) = default;
 
@@ -207,13 +208,11 @@ Pair<typename RemoveCV<typename RemoveReference<A>::Type>::Type,
      typename RemoveCV<typename RemoveReference<B>::Type>::Type>
 MakePair(A&& aA, B&& aB)
 {
-  return
-    Pair<typename RemoveCV<typename RemoveReference<A>::Type>::Type,
-         typename RemoveCV<typename RemoveReference<B>::Type>::Type>(
-             Forward<A>(aA),
-             Forward<B>(aB));
+  return Pair<typename RemoveCV<typename RemoveReference<A>::Type>::Type,
+              typename RemoveCV<typename RemoveReference<B>::Type>::Type>(
+      Forward<A>(aA), Forward<B>(aB));
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_Pair_h */

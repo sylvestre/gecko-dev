@@ -13,8 +13,7 @@
 namespace js {
 namespace jit {
 
-class MoveEmitterX86
-{
+class MoveEmitterX86 {
     bool inCycle_;
     MacroAssembler& masm;
 
@@ -36,14 +35,14 @@ class MoveEmitterX86
     Operand toOperand(const MoveOperand& operand) const;
     Operand toPopOperand(const MoveOperand& operand) const;
 
-    size_t characterizeCycle(const MoveResolver& moves, size_t i,
-                             bool* allGeneralRegs, bool* allFloatRegs);
-    bool maybeEmitOptimizedCycle(const MoveResolver& moves, size_t i,
-                                 bool allGeneralRegs, bool allFloatRegs, size_t swapCount);
-    void emitInt32Move(const MoveOperand& from, const MoveOperand& to,
-                       const MoveResolver& moves, size_t i);
-    void emitGeneralMove(const MoveOperand& from, const MoveOperand& to,
-                         const MoveResolver& moves, size_t i);
+    size_t characterizeCycle(const MoveResolver& moves, size_t i, bool* allGeneralRegs,
+                             bool* allFloatRegs);
+    bool maybeEmitOptimizedCycle(const MoveResolver& moves, size_t i, bool allGeneralRegs,
+                                 bool allFloatRegs, size_t swapCount);
+    void emitInt32Move(const MoveOperand& from, const MoveOperand& to, const MoveResolver& moves,
+                       size_t i);
+    void emitGeneralMove(const MoveOperand& from, const MoveOperand& to, const MoveResolver& moves,
+                         size_t i);
     void emitFloat32Move(const MoveOperand& from, const MoveOperand& to);
     void emitDoubleMove(const MoveOperand& from, const MoveOperand& to);
     void emitSimd128FloatMove(const MoveOperand& from, const MoveOperand& to);
@@ -51,7 +50,7 @@ class MoveEmitterX86
     void breakCycle(const MoveOperand& to, MoveOp::Type type);
     void completeCycle(const MoveOperand& to, MoveOp::Type type);
 
-  public:
+   public:
     explicit MoveEmitterX86(MacroAssembler& masm);
     ~MoveEmitterX86();
     void emit(const MoveResolver& moves);
@@ -68,7 +67,7 @@ class MoveEmitterX86
 
 typedef MoveEmitterX86 MoveEmitter;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_MoveEmitter_x86_shared_h */

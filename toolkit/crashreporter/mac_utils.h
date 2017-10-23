@@ -9,6 +9,7 @@
 #include "nsString.h"
 
 // Given an Objective-C NSException object, put exception info into a string.
-void GetObjCExceptionInfo(void* inException, nsACString& outString);
+void
+GetObjCExceptionInfo(void* inException, nsACString& outString);
 
 #endif /* toolkit_breakpad_mac_utils_h__ */

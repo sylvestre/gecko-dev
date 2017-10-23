@@ -6,13 +6,17 @@
 #ifndef CompositionTransaction_h
 #define CompositionTransaction_h
 
-#include "mozilla/EditTransactionBase.h"  // base class
-#include "nsCycleCollectionParticipant.h" // various macros
-#include "nsString.h"                     // mStringToInsert
+#include "mozilla/EditTransactionBase.h"   // base class
+#include "nsCycleCollectionParticipant.h"  // various macros
+#include "nsString.h"                      // mStringToInsert
 
-#define NS_IMETEXTTXN_IID \
-  { 0xb391355d, 0x346c, 0x43d1, \
-    { 0x85, 0xed, 0x9e, 0x65, 0xbe, 0xe7, 0x7e, 0x48 } }
+#define NS_IMETEXTTXN_IID                            \
+  {                                                  \
+    0xb391355d, 0x346c, 0x43d1,                      \
+    {                                                \
+      0x85, 0xed, 0x9e, 0x65, 0xbe, 0xe7, 0x7e, 0x48 \
+    }                                                \
+  }
 
 namespace mozilla {
 
@@ -22,7 +26,7 @@ class TextRangeArray;
 
 namespace dom {
 class Text;
-} // namespace dom
+}  // namespace dom
 
 /**
  * CompositionTransaction stores all edit for a composition, i.e.,
@@ -32,7 +36,7 @@ class Text;
  */
 class CompositionTransaction final : public EditTransactionBase
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IMETEXTTXN_IID)
 
   /**
@@ -47,7 +51,8 @@ public:
    * @param aRangeUpdater       The range updater
    */
   CompositionTransaction(dom::Text& aTextNode,
-                         uint32_t aOffset, uint32_t aReplaceLength,
+                         uint32_t aOffset,
+                         uint32_t aReplaceLength,
                          TextRangeArray* aTextRangeArray,
                          const nsAString& aString,
                          EditorBase& aEditorBase,
@@ -70,7 +75,7 @@ public:
                                   uint32_t aLengthOfCompositionString,
                                   const TextRangeArray* aRanges);
 
-private:
+ private:
   ~CompositionTransaction();
 
   nsresult SetSelectionForRanges();
@@ -99,6 +104,6 @@ private:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(CompositionTransaction, NS_IMETEXTTXN_IID)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef CompositionTransaction_h
+#endif  // #ifndef CompositionTransaction_h

@@ -10,21 +10,25 @@
 
 using namespace mozilla::intl;
 
-TEST(Intl_Locale_LocaleService, Negotiate) {
+TEST(Intl_Locale_LocaleService, Negotiate)
+{
   nsTArray<nsCString> requestedLocales;
   nsTArray<nsCString> availableLocales;
   nsTArray<nsCString> supportedLocales;
   nsAutoCString defaultLocale("en-US");
   LocaleService::LangNegStrategy strategy =
-    LocaleService::LangNegStrategy::Filtering;
+      LocaleService::LangNegStrategy::Filtering;
 
   requestedLocales.AppendElement(NS_LITERAL_CSTRING("sr"));
 
   availableLocales.AppendElement(NS_LITERAL_CSTRING("sr-Cyrl"));
   availableLocales.AppendElement(NS_LITERAL_CSTRING("sr-Latn"));
 
-  LocaleService::GetInstance()->NegotiateLanguages(
-      requestedLocales, availableLocales, defaultLocale, strategy, supportedLocales);
+  LocaleService::GetInstance()->NegotiateLanguages(requestedLocales,
+                                                   availableLocales,
+                                                   defaultLocale,
+                                                   strategy,
+                                                   supportedLocales);
 
   ASSERT_TRUE(supportedLocales.Length() == 2);
   ASSERT_TRUE(supportedLocales[0].EqualsLiteral("sr-Cyrl"));

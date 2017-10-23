@@ -17,9 +17,10 @@ namespace dom {
 TimeEvent::TimeEvent(EventTarget* aOwner,
                      nsPresContext* aPresContext,
                      InternalSMILTimeEvent* aEvent)
-  : Event(aOwner, aPresContext,
-          aEvent ? aEvent : new InternalSMILTimeEvent(false, eVoidEvent))
-  , mDetail(mEvent->AsSMILTimeEvent()->mDetail)
+    : Event(aOwner,
+            aPresContext,
+            aEvent ? aEvent : new InternalSMILTimeEvent(false, eVoidEvent)),
+      mDetail(mEvent->AsSMILTimeEvent()->mDetail)
 {
   if (aEvent) {
     mEventIsInternal = false;
@@ -35,8 +36,7 @@ TimeEvent::TimeEvent(EventTarget* aOwner,
   }
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(TimeEvent, Event,
-                                   mView)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(TimeEvent, Event, mView)
 
 NS_IMPL_ADDREF_INHERITED(TimeEvent, Event)
 NS_IMPL_RELEASE_INHERITED(TimeEvent, Event)
@@ -53,7 +53,8 @@ TimeEvent::GetDetail(int32_t* aDetail)
 }
 
 void
-TimeEvent::InitTimeEvent(const nsAString& aType, nsGlobalWindow* aView,
+TimeEvent::InitTimeEvent(const nsAString& aType,
+                         nsGlobalWindow* aView,
                          int32_t aDetail)
 {
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
@@ -63,8 +64,8 @@ TimeEvent::InitTimeEvent(const nsAString& aType, nsGlobalWindow* aView,
   mView = aView ? aView->GetOuterWindow() : nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

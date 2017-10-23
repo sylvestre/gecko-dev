@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "VRThread.h"
 #include "nsThreadUtils.h"
 
@@ -14,7 +13,8 @@ namespace gfx {
 static StaticRefPtr<VRListenerThreadHolder> sVRListenerThreadHolder;
 static bool sFinishedVRListenerShutDown = false;
 
-VRListenerThreadHolder* GetVRListenerThreadHolder()
+VRListenerThreadHolder*
+GetVRListenerThreadHolder()
 {
   return sVRListenerThreadHolder;
 }
@@ -22,9 +22,8 @@ VRListenerThreadHolder* GetVRListenerThreadHolder()
 base::Thread*
 VRListenerThread()
 {
-  return sVRListenerThreadHolder
-         ? sVRListenerThreadHolder->GetThread()
-         : nullptr;
+  return sVRListenerThreadHolder ? sVRListenerThreadHolder->GetThread()
+                                 : nullptr;
 }
 
 /* static */ MessageLoop*
@@ -39,8 +38,7 @@ VRListenerThreadHolder::GetSingleton()
   return sVRListenerThreadHolder;
 }
 
-VRListenerThreadHolder::VRListenerThreadHolder()
- : mThread(CreateThread())
+VRListenerThreadHolder::VRListenerThreadHolder() : mThread(CreateThread())
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
@@ -65,18 +63,19 @@ VRListenerThreadHolder::DestroyThread(base::Thread* aThread)
 VRListenerThreadHolder::CreateThread()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(!sVRListenerThreadHolder, "The VR listener thread has already been started!");
+  MOZ_ASSERT(!sVRListenerThreadHolder,
+             "The VR listener thread has already been started!");
 
   base::Thread* vrThread = new base::Thread("VRListener");
   base::Thread::Options options;
   /* Timeout values are powers-of-two to enable us get better data.
      128ms is chosen for transient hangs because 8Hz should be the minimally
      acceptable goal for Compositor responsiveness (normal goal is 60Hz). */
-  options.transient_hang_timeout = 128; // milliseconds
+  options.transient_hang_timeout = 128;  // milliseconds
   /* 2048ms is chosen for permanent hangs because it's longer than most
    * Compositor hangs seen in the wild, but is short enough to not miss getting
    * native hang stacks. */
-  options.permanent_hang_timeout = 2048; // milliseconds
+  options.permanent_hang_timeout = 2048;  // milliseconds
 
   if (!vrThread->StartWithOptions(options)) {
     delete vrThread;
@@ -90,7 +89,8 @@ void
 VRListenerThreadHolder::Start()
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on the main thread!");
-  MOZ_ASSERT(!sVRListenerThreadHolder, "The VR listener thread has already been started!");
+  MOZ_ASSERT(!sVRListenerThreadHolder,
+             "The VR listener thread has already been started!");
 
   sVRListenerThreadHolder = new VRListenerThreadHolder();
 }
@@ -99,7 +99,8 @@ void
 VRListenerThreadHolder::Shutdown()
 {
   MOZ_ASSERT(NS_IsMainThread(), "Should be on the main thread!");
-  MOZ_ASSERT(sVRListenerThreadHolder, "The VR listener thread has already been shut down!");
+  MOZ_ASSERT(sVRListenerThreadHolder,
+             "The VR listener thread has already been shut down!");
 
   sVRListenerThreadHolder = nullptr;
 
@@ -110,11 +111,11 @@ VRListenerThreadHolder::Shutdown()
 VRListenerThreadHolder::IsInVRListenerThread()
 {
   return VRListenerThread() &&
-		 VRListenerThread()->thread_id() == PlatformThread::CurrentId();
+         VRListenerThread()->thread_id() == PlatformThread::CurrentId();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 bool
 NS_IsInVRListenerThread()

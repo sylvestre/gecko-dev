@@ -18,5 +18,5 @@ RenderTextureHostOGL::~RenderTextureHostOGL()
   MOZ_COUNT_DTOR_INHERITED(RenderTextureHostOGL, RenderTextureHost);
 }
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla

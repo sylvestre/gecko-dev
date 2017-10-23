@@ -26,9 +26,8 @@ void FinishGC(JSContext* cx);
  * This class should be used by any code that needs to exclusive access to the
  * heap in order to trace through it...
  */
-class MOZ_RAII AutoTraceSession
-{
-  public:
+class MOZ_RAII AutoTraceSession {
+   public:
     explicit AutoTraceSession(JSRuntime* rt, JS::HeapState state = JS::HeapState::Tracing);
     ~AutoTraceSession();
 
@@ -38,10 +37,10 @@ class MOZ_RAII AutoTraceSession
     // the exclusive access lock during GC sessions.
     AutoLockForExclusiveAccess lock;
 
-  protected:
+   protected:
     JSRuntime* runtime;
 
-  private:
+   private:
     AutoTraceSession(const AutoTraceSession&) = delete;
     void operator=(const AutoTraceSession&) = delete;
 
@@ -49,29 +48,24 @@ class MOZ_RAII AutoTraceSession
     AutoGeckoProfilerEntry pseudoFrame;
 };
 
-class MOZ_RAII AutoPrepareForTracing
-{
+class MOZ_RAII AutoPrepareForTracing {
     mozilla::Maybe<AutoTraceSession> session_;
 
-  public:
+   public:
     AutoPrepareForTracing(JSContext* cx, ZoneSelector selector);
     AutoTraceSession& session() { return session_.ref(); }
 };
 
-AbortReason
-IsIncrementalGCUnsafe(JSRuntime* rt);
+AbortReason IsIncrementalGCUnsafe(JSRuntime* rt);
 
 #ifdef JS_GC_ZEAL
 
-class MOZ_RAII AutoStopVerifyingBarriers
-{
+class MOZ_RAII AutoStopVerifyingBarriers {
     GCRuntime* gc;
     bool restartPreVerifier;
 
-  public:
-    AutoStopVerifyingBarriers(JSRuntime* rt, bool isShutdown)
-      : gc(&rt->gc)
-    {
+   public:
+    AutoStopVerifyingBarriers(JSRuntime* rt, bool isShutdown) : gc(&rt->gc) {
         if (gc->isVerifyPreBarriersEnabled()) {
             gc->endVerifyPreBarriers();
             restartPreVerifier = !isShutdown;
@@ -86,20 +80,16 @@ class MOZ_RAII AutoStopVerifyingBarriers
         // gc::Statistics phase tree. So we pause the "real" GC, if in fact one
         // is in progress.
         gcstats::PhaseKind outer = gc->stats().currentPhaseKind();
-        if (outer != gcstats::PhaseKind::NONE)
-            gc->stats().endPhase(outer);
+        if (outer != gcstats::PhaseKind::NONE) gc->stats().endPhase(outer);
         MOZ_ASSERT(gc->stats().currentPhaseKind() == gcstats::PhaseKind::NONE);
 
-        if (restartPreVerifier)
-            gc->startVerifyPreBarriers();
+        if (restartPreVerifier) gc->startVerifyPreBarriers();
 
-        if (outer != gcstats::PhaseKind::NONE)
-            gc->stats().beginPhase(outer);
+        if (outer != gcstats::PhaseKind::NONE) gc->stats().beginPhase(outer);
     }
 };
 #else
-struct MOZ_RAII AutoStopVerifyingBarriers
-{
+struct MOZ_RAII AutoStopVerifyingBarriers {
     AutoStopVerifyingBarriers(JSRuntime*, bool) {}
 };
 #endif /* JS_GC_ZEAL */
@@ -109,8 +99,7 @@ void CheckHashTablesAfterMovingGC(JSRuntime* rt);
 void CheckHeapAfterGC(JSRuntime* rt);
 #endif
 
-struct MovingTracer : JS::CallbackTracer
-{
+struct MovingTracer : JS::CallbackTracer {
     explicit MovingTracer(JSRuntime* rt) : CallbackTracer(rt, TraceWeakMapKeysValues) {}
 
     void onObjectEdge(JSObject** objp) override;
@@ -129,15 +118,14 @@ struct MovingTracer : JS::CallbackTracer
     TracerKind getTracerKind() const override { return TracerKind::Moving; }
 #endif
 
-  private:
+   private:
     template <typename T>
     void updateEdge(T** thingp);
 };
 
 // Structure for counting how many times objects in a particular group have
 // been tenured during a minor collection.
-struct TenureCount
-{
+struct TenureCount {
     ObjectGroup* group;
     int count;
 };
@@ -145,8 +133,7 @@ struct TenureCount
 // Keep rough track of how many times we tenure objects in particular groups
 // during minor collections, using a fixed size hash for efficiency at the cost
 // of potential collisions.
-struct TenureCountCache
-{
+struct TenureCountCache {
     static const size_t EntryShift = 4;
     static const size_t EntryCount = 1 << EntryShift;
 
@@ -167,9 +154,7 @@ struct TenureCountCache
         return HashNumber((word >> EntryShift) ^ word);
     }
 
-    TenureCount& findEntry(ObjectGroup* group) {
-        return entries[hash(group) % EntryCount];
-    }
+    TenureCount& findEntry(ObjectGroup* group) { return entries[hash(group) % EntryCount]; }
 };
 
 } /* namespace gc */

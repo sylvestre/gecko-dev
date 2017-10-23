@@ -13,7 +13,8 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGAnimateMotionElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGAnimateMotionElement::WrapNode(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return SVGAnimateMotionElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -21,8 +22,9 @@ SVGAnimateMotionElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenPr
 //----------------------------------------------------------------------
 // Implementation
 
-SVGAnimateMotionElement::SVGAnimateMotionElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGAnimationElement(aNodeInfo)
+SVGAnimateMotionElement::SVGAnimateMotionElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGAnimationElement(aNodeInfo)
 {
 }
 
@@ -40,8 +42,8 @@ SVGAnimateMotionElement::AnimationFunction()
 }
 
 bool
-SVGAnimateMotionElement::GetTargetAttributeName(int32_t *aNamespaceID,
-                                                nsAtom **aLocalName) const
+SVGAnimateMotionElement::GetTargetAttributeName(int32_t* aNamespaceID,
+                                                nsAtom** aLocalName) const
 {
   // <animateMotion> doesn't take an attributeName, since it doesn't target an
   // 'attribute' per se.  We'll use a unique dummy attribute-name so that our
@@ -51,6 +53,5 @@ SVGAnimateMotionElement::GetTargetAttributeName(int32_t *aNamespaceID,
   return true;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

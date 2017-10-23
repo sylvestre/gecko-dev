@@ -27,40 +27,46 @@ class PosixCondVar;
 class WorkerThread;
 
 // posix platforms only!
-class PosixCondVar {
-public:
-  PosixCondVar() {
+class PosixCondVar
+{
+ public:
+  PosixCondVar()
+  {
     DebugOnly<int> err = pthread_cond_init(&mCond, nullptr);
     MOZ_ASSERT(!err);
   }
 
-  ~PosixCondVar() {
+  ~PosixCondVar()
+  {
     DebugOnly<int> err = pthread_cond_destroy(&mCond);
     MOZ_ASSERT(!err);
   }
 
-  void Wait(CriticalSection* aMutex) {
+  void Wait(CriticalSection* aMutex)
+  {
     DebugOnly<int> err = pthread_cond_wait(&mCond, &aMutex->mMutex);
     MOZ_ASSERT(!err);
   }
 
-  void Broadcast() {
+  void Broadcast()
+  {
     DebugOnly<int> err = pthread_cond_broadcast(&mCond);
     MOZ_ASSERT(!err);
   }
 
-protected:
+ protected:
   pthread_cond_t mCond;
 };
-
 
 /// A simple and naive multithreaded task queue
 ///
 /// The public interface of this class must remain identical to its equivalent
 /// in JobScheduler_win32.h
-class MultiThreadedJobQueue {
-public:
-  enum AccessType {
+class MultiThreadedJobQueue
+{
+ public:
+  enum AccessType
+  {
     BLOCKING,
     NON_BLOCKING
   };
@@ -95,8 +101,7 @@ public:
   // Worker threads
   void UnregisterThread();
 
-protected:
-
+ protected:
   std::list<Job*> mJobs;
   CriticalSection mMutex;
   PosixCondVar mAvailableCondvar;
@@ -111,7 +116,7 @@ protected:
 /// Usually set by a SetEventJob.
 class EventObject : public external::AtomicRefCounted<EventObject>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(EventObject)
 
   EventObject();
@@ -127,14 +132,14 @@ public:
   /// Set the event.
   void Set();
 
-protected:
+ protected:
   CriticalSection mMutex;
   PosixCondVar mCond;
   bool mIsSet;
 };
 
-} // namespace
-} // namespace
+}  // namespace gfx
+}  // namespace mozilla
 
 #include "JobScheduler.h"
 

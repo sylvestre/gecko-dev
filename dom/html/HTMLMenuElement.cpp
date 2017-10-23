@@ -29,13 +29,11 @@ enum MenuType : uint8_t
 };
 
 static const nsAttrValue::EnumTable kMenuTypeTable[] = {
-  { "context", MENU_TYPE_CONTEXT },
-  { "toolbar", MENU_TYPE_TOOLBAR },
-  { nullptr, 0 }
-};
+    {"context", MENU_TYPE_CONTEXT},
+    {"toolbar", MENU_TYPE_TOOLBAR},
+    {nullptr, 0}};
 
-static const nsAttrValue::EnumTable* kMenuDefaultType =
-  &kMenuTypeTable[1];
+static const nsAttrValue::EnumTable* kMenuDefaultType = &kMenuTypeTable[1];
 
 enum SeparatorType
 {
@@ -44,21 +42,17 @@ enum SeparatorType
   ST_TRUE = 1
 };
 
-
-
-HTMLMenuElement::HTMLMenuElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo), mType(MENU_TYPE_TOOLBAR)
+HTMLMenuElement::HTMLMenuElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo), mType(MENU_TYPE_TOOLBAR)
 {
 }
 
-HTMLMenuElement::~HTMLMenuElement()
-{
-}
+HTMLMenuElement::~HTMLMenuElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLMenuElement, nsGenericHTMLElement)
 
 NS_IMPL_ELEMENT_CLONE(HTMLMenuElement)
-
 
 void
 HTMLMenuElement::SendShowEvent()
@@ -79,8 +73,8 @@ HTMLMenuElement::SendShowEvent()
 
   RefPtr<nsPresContext> presContext = shell->GetPresContext();
   nsEventStatus status = nsEventStatus_eIgnore;
-  EventDispatcher::Dispatch(static_cast<nsIContent*>(this), presContext,
-                            &event, nullptr, &status);
+  EventDispatcher::Dispatch(
+      static_cast<nsIContent*>(this), presContext, &event, nullptr, &status);
 }
 
 already_AddRefed<nsIMenuBuilder>
@@ -90,7 +84,8 @@ HTMLMenuElement::CreateBuilder()
     return nullptr;
   }
 
-  nsCOMPtr<nsIMenuBuilder> builder = do_CreateInstance(HTMLMENUBUILDER_CONTRACTID);
+  nsCOMPtr<nsIMenuBuilder> builder =
+      do_CreateInstance(HTMLMENUBUILDER_CONTRACTID);
   NS_WARNING_ASSERTION(builder, "No builder available");
   return builder.forget();
 }
@@ -106,7 +101,8 @@ HTMLMenuElement::Build(nsIMenuBuilder* aBuilder)
 }
 
 nsresult
-HTMLMenuElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+HTMLMenuElement::AfterSetAttr(int32_t aNameSpaceID,
+                              nsAtom* aName,
                               const nsAttrValue* aValue,
                               const nsAttrValue* aOldValue,
                               nsIPrincipal* aSubjectPrincipal,
@@ -120,8 +116,8 @@ HTMLMenuElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 bool
@@ -131,12 +127,12 @@ HTMLMenuElement::ParseAttribute(int32_t aNamespaceID,
                                 nsAttrValue& aResult)
 {
   if (aNamespaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::type) {
-    return aResult.ParseEnumValue(aValue, kMenuTypeTable, false,
-                                  kMenuDefaultType);
+    return aResult.ParseEnumValue(
+        aValue, kMenuTypeTable, false, kMenuDefaultType);
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
@@ -168,15 +164,15 @@ HTMLMenuElement::CanLoadIcon(nsIContent* aContent, const nsAString& aIcon)
 
   nsCOMPtr<nsIURI> baseURI = aContent->GetBaseURI();
   nsCOMPtr<nsIURI> uri;
-  nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(uri), aIcon, doc,
-                                            baseURI);
+  nsContentUtils::NewURIWithDocumentCharset(
+      getter_AddRefs(uri), aIcon, doc, baseURI);
 
   if (!uri) {
     return false;
   }
 
-  return nsContentUtils::CanLoadImage(uri, aContent, doc,
-                                      aContent->NodePrincipal());
+  return nsContentUtils::CanLoadImage(
+      uri, aContent, doc, aContent->NodePrincipal());
 }
 
 void
@@ -249,5 +245,5 @@ HTMLMenuElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLMenuElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

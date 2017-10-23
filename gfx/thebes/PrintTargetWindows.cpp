@@ -16,8 +16,7 @@ namespace gfx {
 PrintTargetWindows::PrintTargetWindows(cairo_surface_t* aCairoSurface,
                                        const IntSize& aSize,
                                        HDC aDC)
-  : PrintTarget(aCairoSurface, aSize)
-  , mDC(aDC)
+    : PrintTarget(aCairoSurface, aSize), mDC(aDC)
 {
   // TODO: At least add basic memory reporting.
   // 4 * mSize.width * mSize.height + sizeof(PrintTargetWindows) ?
@@ -31,9 +30,9 @@ PrintTargetWindows::CreateOrNull(HDC aDC)
   // so we use that when calculating the surface width as well as the height.
   int32_t heightDPI = ::GetDeviceCaps(aDC, LOGPIXELSY);
   float width =
-    (::GetDeviceCaps(aDC, HORZRES) * POINTS_PER_INCH_FLOAT) / heightDPI;
+      (::GetDeviceCaps(aDC, HORZRES) * POINTS_PER_INCH_FLOAT) / heightDPI;
   float height =
-    (::GetDeviceCaps(aDC, VERTRES) * POINTS_PER_INCH_FLOAT) / heightDPI;
+      (::GetDeviceCaps(aDC, VERTRES) * POINTS_PER_INCH_FLOAT) / heightDPI;
   IntSize size = IntSize::Truncate(width, height);
 
   if (!Factory::CheckSurfaceSize(size)) {
@@ -48,7 +47,7 @@ PrintTargetWindows::CreateOrNull(HDC aDC)
 
   // The new object takes ownership of our surface reference.
   RefPtr<PrintTargetWindows> target =
-    new PrintTargetWindows(surface, size, aDC);
+      new PrintTargetWindows(surface, size, aDC);
 
   return target.forget();
 }
@@ -71,7 +70,8 @@ PrintTargetWindows::BeginPrinting(const nsAString& aTitle,
 
   nsString docName(aPrintToFileName);
   docinfo.cbSize = sizeof(docinfo);
-  docinfo.lpszDocName = titleStr.Length() > 0 ? titleStr.get() : L"Mozilla Document";
+  docinfo.lpszDocName =
+      titleStr.Length() > 0 ? titleStr.get() : L"Mozilla Document";
   docinfo.lpszOutput = docName.Length() > 0 ? docName.get() : nullptr;
   docinfo.lpszDatatype = nullptr;
   docinfo.fwType = 0;
@@ -113,5 +113,5 @@ PrintTargetWindows::EndPage()
   return (result <= 0) ? NS_ERROR_FAILURE : NS_OK;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

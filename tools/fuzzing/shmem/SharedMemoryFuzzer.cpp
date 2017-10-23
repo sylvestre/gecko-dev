@@ -13,9 +13,9 @@
 #define SHMEM_FUZZER_DEFAULT_MUTATION_PROBABILITY 2
 #define SHMEM_FUZZER_DEFAULT_MUTATION_FACTOR 500
 #define SHMEM_FUZZER_LOG(fmt, args...)                       \
- if (SharedMemoryFuzzer::IsLoggingEnabled()) {               \
-   printf_stderr("[SharedMemoryFuzzer] " fmt "\n", ## args); \
- }
+  if (SharedMemoryFuzzer::IsLoggingEnabled()) {              \
+    printf_stderr("[SharedMemoryFuzzer] " fmt "\n", ##args); \
+  }
 
 namespace mozilla {
 namespace ipc {
@@ -128,5 +128,5 @@ SharedMemoryFuzzer::MutateSharedMemory(void* aMemory, size_t aSize)
   return aMemory;
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

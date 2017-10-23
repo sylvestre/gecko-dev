@@ -26,13 +26,11 @@
 namespace mozilla {
 
 BasePrincipal::BasePrincipal(PrincipalKind aKind)
-  : mKind(aKind)
-  , mHasExplicitDomain(false)
-  , mInitialized(false)
-{}
+    : mKind(aKind), mHasExplicitDomain(false), mInitialized(false)
+{
+}
 
-BasePrincipal::~BasePrincipal()
-{}
+BasePrincipal::~BasePrincipal() {}
 
 NS_IMETHODIMP
 BasePrincipal::GetOrigin(nsACString& aOrigin)
@@ -58,7 +56,8 @@ BasePrincipal::GetOriginNoSuffix(nsACString& aOrigin)
 }
 
 bool
-BasePrincipal::Subsumes(nsIPrincipal* aOther, DocumentDomainConsideration aConsideration)
+BasePrincipal::Subsumes(nsIPrincipal* aOther,
+                        DocumentDomainConsideration aConsideration)
 {
   MOZ_ASSERT(aOther);
   MOZ_ASSERT_IF(Kind() == eCodebasePrincipal, mOriginSuffix);
@@ -76,7 +75,7 @@ BasePrincipal::Subsumes(nsIPrincipal* aOther, DocumentDomainConsideration aConsi
 }
 
 NS_IMETHODIMP
-BasePrincipal::Equals(nsIPrincipal *aOther, bool *aResult)
+BasePrincipal::Equals(nsIPrincipal* aOther, bool* aResult)
 {
   NS_ENSURE_TRUE(aOther, NS_ERROR_INVALID_ARG);
 
@@ -86,7 +85,7 @@ BasePrincipal::Equals(nsIPrincipal *aOther, bool *aResult)
 }
 
 NS_IMETHODIMP
-BasePrincipal::EqualsConsideringDomain(nsIPrincipal *aOther, bool *aResult)
+BasePrincipal::EqualsConsideringDomain(nsIPrincipal* aOther, bool* aResult)
 {
   NS_ENSURE_TRUE(aOther, NS_ERROR_INVALID_ARG);
 
@@ -96,7 +95,7 @@ BasePrincipal::EqualsConsideringDomain(nsIPrincipal *aOther, bool *aResult)
 }
 
 NS_IMETHODIMP
-BasePrincipal::Subsumes(nsIPrincipal *aOther, bool *aResult)
+BasePrincipal::Subsumes(nsIPrincipal* aOther, bool* aResult)
 {
   NS_ENSURE_TRUE(aOther, NS_ERROR_INVALID_ARG);
 
@@ -106,7 +105,7 @@ BasePrincipal::Subsumes(nsIPrincipal *aOther, bool *aResult)
 }
 
 NS_IMETHODIMP
-BasePrincipal::SubsumesConsideringDomain(nsIPrincipal *aOther, bool *aResult)
+BasePrincipal::SubsumesConsideringDomain(nsIPrincipal* aOther, bool* aResult)
 {
   NS_ENSURE_TRUE(aOther, NS_ERROR_INVALID_ARG);
 
@@ -116,8 +115,8 @@ BasePrincipal::SubsumesConsideringDomain(nsIPrincipal *aOther, bool *aResult)
 }
 
 NS_IMETHODIMP
-BasePrincipal::SubsumesConsideringDomainIgnoringFPD(nsIPrincipal *aOther,
-                                                    bool *aResult)
+BasePrincipal::SubsumesConsideringDomainIgnoringFPD(nsIPrincipal* aOther,
+                                                    bool* aResult)
 {
   NS_ENSURE_TRUE(aOther, NS_ERROR_INVALID_ARG);
 
@@ -127,7 +126,9 @@ BasePrincipal::SubsumesConsideringDomainIgnoringFPD(nsIPrincipal *aOther,
 }
 
 NS_IMETHODIMP
-BasePrincipal::CheckMayLoad(nsIURI* aURI, bool aReport, bool aAllowIfInheritsPrincipal)
+BasePrincipal::CheckMayLoad(nsIURI* aURI,
+                            bool aReport,
+                            bool aAllowIfInheritsPrincipal)
 {
   // Check the internal method first, which allows us to quickly approve loads
   // for the System Principal.
@@ -140,7 +141,8 @@ BasePrincipal::CheckMayLoad(nsIURI* aURI, bool aReport, bool aAllowIfInheritsPri
     // If the caller specified to allow loads of URIs that inherit
     // our principal, allow the load if this URI inherits its principal.
     bool doesInheritSecurityContext;
-    rv = NS_URIChainHasFlags(aURI, nsIProtocolHandler::URI_INHERITS_SECURITY_CONTEXT,
+    rv = NS_URIChainHasFlags(aURI,
+                             nsIProtocolHandler::URI_INHERITS_SECURITY_CONTEXT,
                              &doesInheritSecurityContext);
     if (NS_SUCCEEDED(rv) && doesInheritSecurityContext) {
       return NS_OK;
@@ -148,7 +150,8 @@ BasePrincipal::CheckMayLoad(nsIURI* aURI, bool aReport, bool aAllowIfInheritsPri
   }
 
   bool fetchableByAnyone;
-  rv = NS_URIChainHasFlags(aURI, nsIProtocolHandler::URI_FETCHABLE_BY_ANYONE, &fetchableByAnyone);
+  rv = NS_URIChainHasFlags(
+      aURI, nsIProtocolHandler::URI_FETCHABLE_BY_ANYONE, &fetchableByAnyone);
   if (NS_SUCCEEDED(rv) && fetchableByAnyone) {
     return NS_OK;
   }
@@ -157,8 +160,8 @@ BasePrincipal::CheckMayLoad(nsIURI* aURI, bool aReport, bool aAllowIfInheritsPri
     nsCOMPtr<nsIURI> prinURI;
     rv = GetURI(getter_AddRefs(prinURI));
     if (NS_SUCCEEDED(rv) && prinURI) {
-      nsScriptSecurityManager::ReportError(nullptr, "CheckSameOriginError",
-                                           prinURI, aURI);
+      nsScriptSecurityManager::ReportError(
+          nullptr, "CheckSameOriginError", prinURI, aURI);
     }
   }
 
@@ -282,7 +285,8 @@ BasePrincipal::GetIsSystemPrincipal(bool* aResult)
 }
 
 NS_IMETHODIMP
-BasePrincipal::GetOriginAttributes(JSContext* aCx, JS::MutableHandle<JS::Value> aVal)
+BasePrincipal::GetOriginAttributes(JSContext* aCx,
+                                   JS::MutableHandle<JS::Value> aVal)
 {
   if (NS_WARN_IF(!ToJSValue(aCx, mOriginAttributes, aVal))) {
     return NS_ERROR_FAILURE;
@@ -326,7 +330,8 @@ BasePrincipal::GetPrivateBrowsingId(uint32_t* aPrivateBrowsingId)
 }
 
 NS_IMETHODIMP
-BasePrincipal::GetIsInIsolatedMozBrowserElement(bool* aIsInIsolatedMozBrowserElement)
+BasePrincipal::GetIsInIsolatedMozBrowserElement(
+    bool* aIsInIsolatedMozBrowserElement)
 {
   *aIsInIsolatedMozBrowserElement = IsInIsolatedMozBrowserElement();
   return NS_OK;
@@ -365,7 +370,7 @@ BasePrincipal::CreateCodebasePrincipal(nsIURI* aURI,
 
   nsAutoCString originNoSuffix;
   nsresult rv =
-    ContentPrincipal::GenerateOriginNoSuffixFromURI(aURI, originNoSuffix);
+      ContentPrincipal::GenerateOriginNoSuffixFromURI(aURI, originNoSuffix);
   if (NS_FAILED(rv)) {
     // If the generation of the origin fails, we still want to have a valid
     // principal. Better to return a null principal here.
@@ -386,8 +391,10 @@ BasePrincipal::CreateCodebasePrincipal(nsIURI* aURI,
   // If the URI is supposed to inherit the security context of whoever loads it,
   // we shouldn't make a codebase principal for it.
   bool inheritsPrincipal;
-  nsresult rv = NS_URIChainHasFlags(aURI, nsIProtocolHandler::URI_INHERITS_SECURITY_CONTEXT,
-                                    &inheritsPrincipal);
+  nsresult rv =
+      NS_URIChainHasFlags(aURI,
+                          nsIProtocolHandler::URI_INHERITS_SECURITY_CONTEXT,
+                          &inheritsPrincipal);
   if (NS_FAILED(rv) || inheritsPrincipal) {
     return NullPrincipal::Create(aAttrs);
   }
@@ -415,9 +422,11 @@ already_AddRefed<BasePrincipal>
 BasePrincipal::CreateCodebasePrincipal(const nsACString& aOrigin)
 {
   MOZ_ASSERT(!StringBeginsWith(aOrigin, NS_LITERAL_CSTRING("[")),
-             "CreateCodebasePrincipal does not support System and Expanded principals");
+             "CreateCodebasePrincipal does not support System and Expanded "
+             "principals");
 
-  MOZ_ASSERT(!StringBeginsWith(aOrigin, NS_LITERAL_CSTRING(NS_NULLPRINCIPAL_SCHEME ":")),
+  MOZ_ASSERT(!StringBeginsWith(aOrigin,
+                               NS_LITERAL_CSTRING(NS_NULLPRINCIPAL_SCHEME ":")),
              "CreateCodebasePrincipal does not support NullPrincipal");
 
   nsAutoCString originNoSuffix;
@@ -476,4 +485,4 @@ BasePrincipal::FinishInit(const nsACString& aOriginNoSuffix,
   mOriginNoSuffix = NS_Atomize(aOriginNoSuffix);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -8,9 +8,9 @@
 #define jit_mips_shared_MacroAssembler_mips_shared_h
 
 #if defined(JS_CODEGEN_MIPS32)
-# include "jit/mips32/Assembler-mips32.h"
+#include "jit/mips32/Assembler-mips32.h"
 #elif defined(JS_CODEGEN_MIPS64)
-# include "jit/mips64/Assembler-mips64.h"
+#include "jit/mips64/Assembler-mips64.h"
 #endif
 
 #include "jit/AtomicOp.h"
@@ -18,37 +18,18 @@
 namespace js {
 namespace jit {
 
-enum LoadStoreSize
-{
-    SizeByte = 8,
-    SizeHalfWord = 16,
-    SizeWord = 32,
-    SizeDouble = 64
-};
+enum LoadStoreSize { SizeByte = 8, SizeHalfWord = 16, SizeWord = 32, SizeDouble = 64 };
 
-enum LoadStoreExtension
-{
-    ZeroExtend = 0,
-    SignExtend = 1
-};
+enum LoadStoreExtension { ZeroExtend = 0, SignExtend = 1 };
 
-enum JumpKind
-{
-    LongJump = 0,
-    ShortJump = 1
-};
+enum JumpKind { LongJump = 0, ShortJump = 1 };
 
-enum DelaySlotFill
-{
-    DontFillDelaySlot = 0,
-    FillDelaySlot = 1
-};
+enum DelaySlotFill { DontFillDelaySlot = 0, FillDelaySlot = 1 };
 
 static Register CallReg = t9;
 
-class MacroAssemblerMIPSShared : public Assembler
-{
-  protected:
+class MacroAssemblerMIPSShared : public Assembler {
+   protected:
     // Perform a downcast. Should be removed by Bug 996602.
     MacroAssembler& asMasm();
     const MacroAssembler& asMasm() const;
@@ -59,7 +40,7 @@ class MacroAssemblerMIPSShared : public Assembler
                               DoubleCondition c, FloatTestKind* testKind,
                               FPConditionBit fcc = FCC0);
 
-  public:
+   public:
     void ma_move(Register rd, Register rs);
 
     void ma_li(Register dest, ImmGCPtr ptr);
@@ -113,8 +94,8 @@ class MacroAssemblerMIPSShared : public Assembler
     // load
     void ma_load(Register dest, const BaseIndex& src, LoadStoreSize size = SizeWord,
                  LoadStoreExtension extension = SignExtend);
-    void ma_load_unaligned(Register dest, const BaseIndex& src, Register temp,
-                           LoadStoreSize size, LoadStoreExtension extension);
+    void ma_load_unaligned(Register dest, const BaseIndex& src, Register temp, LoadStoreSize size,
+                           LoadStoreExtension extension);
 
     // store
     void ma_store(Register data, const BaseIndex& dest, LoadStoreSize size = SizeWord,
@@ -151,8 +132,8 @@ class MacroAssemblerMIPSShared : public Assembler
 
     // fast mod, uses scratch registers, and thus needs to be in the assembler
     // implicitly assumes that we can overwrite dest at the beginning of the sequence
-    void ma_mod_mask(Register src, Register dest, Register hold, Register remain,
-                     int32_t shift, Label* negZero = nullptr);
+    void ma_mod_mask(Register src, Register dest, Register hold, Register remain, int32_t shift,
+                     Label* negZero = nullptr);
 
     // branches when done from within mips-specific code
     void ma_b(Register lhs, Register rhs, Label* l, Condition c, JumpKind jumpKind = LongJump);
@@ -198,44 +179,41 @@ class MacroAssemblerMIPSShared : public Assembler
         return bo;
     }
 
-    void moveToDoubleLo(Register src, FloatRegister dest) {
-        as_mtc1(src, dest);
-    }
-    void moveFromDoubleLo(FloatRegister src, Register dest) {
-        as_mfc1(dest, src);
-    }
+    void moveToDoubleLo(Register src, FloatRegister dest) { as_mtc1(src, dest); }
+    void moveFromDoubleLo(FloatRegister src, Register dest) { as_mfc1(dest, src); }
 
-    void moveToFloat32(Register src, FloatRegister dest) {
-        as_mtc1(src, dest);
-    }
-    void moveFromFloat32(FloatRegister src, Register dest) {
-        as_mfc1(dest, src);
-    }
+    void moveToFloat32(Register src, FloatRegister dest) { as_mtc1(src, dest); }
+    void moveFromFloat32(FloatRegister src, Register dest) { as_mfc1(dest, src); }
 
     // Evaluate srcDest = minmax<isMax>{Float32,Double}(srcDest, other).
     // Handle NaN specially if handleNaN is true.
     void minMaxDouble(FloatRegister srcDest, FloatRegister other, bool handleNaN, bool isMax);
     void minMaxFloat32(FloatRegister srcDest, FloatRegister other, bool handleNaN, bool isMax);
 
-  private:
+   private:
     void atomicEffectOpMIPSr2(int nbytes, AtomicOp op, const Register& value, const Register& addr,
-                              Register flagTemp, Register valueTemp, Register offsetTemp, Register maskTemp);
-    void atomicFetchOpMIPSr2(int nbytes, bool signExtend, AtomicOp op, const Register& value, const Register& addr,
-                             Register flagTemp, Register valueTemp, Register offsetTemp, Register maskTemp,
-                             Register output);
+                              Register flagTemp, Register valueTemp, Register offsetTemp,
+                              Register maskTemp);
+    void atomicFetchOpMIPSr2(int nbytes, bool signExtend, AtomicOp op, const Register& value,
+                             const Register& addr, Register flagTemp, Register valueTemp,
+                             Register offsetTemp, Register maskTemp, Register output);
     void compareExchangeMIPSr2(int nbytes, bool signExtend, const Register& addr, Register oldval,
-                               Register newval, Register flagTemp, Register valueTemp, Register offsetTemp,
-                               Register maskTemp, Register output);
+                               Register newval, Register flagTemp, Register valueTemp,
+                               Register offsetTemp, Register maskTemp, Register output);
 
-  protected:
+   protected:
     void atomicEffectOp(int nbytes, AtomicOp op, const Imm32& value, const Address& address,
-                        Register flagTemp, Register valueTemp, Register offsetTemp, Register maskTemp);
+                        Register flagTemp, Register valueTemp, Register offsetTemp,
+                        Register maskTemp);
     void atomicEffectOp(int nbytes, AtomicOp op, const Imm32& value, const BaseIndex& address,
-                        Register flagTemp, Register valueTemp, Register offsetTemp, Register maskTemp);
+                        Register flagTemp, Register valueTemp, Register offsetTemp,
+                        Register maskTemp);
     void atomicEffectOp(int nbytes, AtomicOp op, const Register& value, const Address& address,
-                        Register flagTemp, Register valueTemp, Register offsetTemp, Register maskTemp);
+                        Register flagTemp, Register valueTemp, Register offsetTemp,
+                        Register maskTemp);
     void atomicEffectOp(int nbytes, AtomicOp op, const Register& value, const BaseIndex& address,
-                        Register flagTemp, Register valueTemp, Register offsetTemp, Register maskTemp);
+                        Register flagTemp, Register valueTemp, Register offsetTemp,
+                        Register maskTemp);
 
     void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, const Imm32& value,
                        const Address& address, Register flagTemp, Register valueTemp,
@@ -251,11 +229,11 @@ class MacroAssemblerMIPSShared : public Assembler
                        Register offsetTemp, Register maskTemp, Register output);
 
     void compareExchange(int nbytes, bool signExtend, const Address& address, Register oldval,
-                         Register newval, Register valueTemp, Register offsetTemp, Register maskTemp,
-                         Register output);
+                         Register newval, Register valueTemp, Register offsetTemp,
+                         Register maskTemp, Register output);
     void compareExchange(int nbytes, bool signExtend, const BaseIndex& address, Register oldval,
-                         Register newval, Register valueTemp, Register offsetTemp, Register maskTemp,
-                         Register output);
+                         Register newval, Register valueTemp, Register offsetTemp,
+                         Register maskTemp, Register output);
 
     void atomicExchange(int nbytes, bool signExtend, const Address& address, Register value,
                         Register valueTemp, Register offsetTemp, Register maskTemp,
@@ -265,7 +243,7 @@ class MacroAssemblerMIPSShared : public Assembler
                         Register output);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips_shared_MacroAssembler_mips_shared_h */

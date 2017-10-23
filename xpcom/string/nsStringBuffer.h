@@ -10,7 +10,8 @@
 #include <atomic>
 #include "mozilla/MemoryReporting.h"
 
-template<class T> struct already_AddRefed;
+template<class T>
+struct already_AddRefed;
 
 /**
  * This structure precedes the string buffers "we" allocate.  It may be the
@@ -23,14 +24,13 @@ template<class T> struct already_AddRefed;
  */
 class nsStringBuffer
 {
-private:
+ private:
   friend class CheckStaticAtomSizes;
 
   std::atomic<uint32_t> mRefCount;
   uint32_t mStorageSize;
 
-public:
-
+ public:
   /**
    * Allocates a new string buffer, with given size in bytes and a
    * reference count of one.  When the string buffer is no longer needed,
@@ -94,10 +94,7 @@ public:
    * This value is the same value that was originally passed to Alloc (or
    * Realloc).
    */
-  uint32_t StorageSize() const
-  {
-    return mStorageSize;
-  }
+  uint32_t StorageSize() const { return mStorageSize; }
 
   /**
    * If this method returns false, then the caller can be sure that their
@@ -163,7 +160,8 @@ public:
   /**
    * This measures the size only if the StringBuffer is unshared.
    */
-  size_t SizeOfIncludingThisIfUnshared(mozilla::MallocSizeOf aMallocSizeOf) const;
+  size_t SizeOfIncludingThisIfUnshared(
+      mozilla::MallocSizeOf aMallocSizeOf) const;
 
   /**
    * This measures the size regardless of whether the StringBuffer is
@@ -174,7 +172,8 @@ public:
    * please explain clearly in a comment why it's safe and won't lead to
    * double-counting.
    */
-  size_t SizeOfIncludingThisEvenIfShared(mozilla::MallocSizeOf aMallocSizeOf) const;
+  size_t SizeOfIncludingThisEvenIfShared(
+      mozilla::MallocSizeOf aMallocSizeOf) const;
 };
 
 #endif /* !defined(nsStringBuffer_h__ */

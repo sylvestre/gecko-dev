@@ -6,20 +6,18 @@
 #include "VRLayerChild.h"
 #include "GLScreenBuffer.h"
 #include "mozilla/layers/TextureClientSharedSurface.h"
-#include "SharedSurface.h"                // for SharedSurface
-#include "SharedSurfaceGL.h"              // for SharedSurface
-#include "mozilla/layers/LayersMessages.h" // for TimedTexture
+#include "SharedSurface.h"                  // for SharedSurface
+#include "SharedSurfaceGL.h"                // for SharedSurface
+#include "mozilla/layers/LayersMessages.h"  // for TimedTexture
 #include "nsICanvasRenderingContextInternal.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
-#include "mozilla/layers/SyncObject.h" // for SyncObjectClient
+#include "mozilla/layers/SyncObject.h"  // for SyncObjectClient
 
 namespace mozilla {
 namespace gfx {
 
 VRLayerChild::VRLayerChild()
-  : mCanvasElement(nullptr)
-  , mIPCOpen(false)
-  , mLastSubmittedFrameId(0)
+    : mCanvasElement(nullptr), mIPCOpen(false), mLastSubmittedFrameId(0)
 {
   MOZ_COUNT_CTOR(VRLayerChild);
 }
@@ -33,14 +31,15 @@ VRLayerChild::~VRLayerChild()
 
 void
 VRLayerChild::Initialize(dom::HTMLCanvasElement* aCanvasElement,
-                         const gfx::Rect& aLeftEyeRect, const gfx::Rect& aRightEyeRect)
+                         const gfx::Rect& aLeftEyeRect,
+                         const gfx::Rect& aRightEyeRect)
 {
   MOZ_ASSERT(aCanvasElement);
   mLeftEyeRect = aLeftEyeRect;
   mRightEyeRect = aRightEyeRect;
   if (mCanvasElement == nullptr) {
     mCanvasElement = aCanvasElement;
-    VRManagerChild *vrmc = VRManagerChild::Get();
+    VRManagerChild* vrmc = VRManagerChild::Get();
     vrmc->RunFrameRequestCallbacks();
   } else {
     mCanvasElement = aCanvasElement;
@@ -84,7 +83,8 @@ VRLayerChild::SubmitFrame(uint64_t aFrameId)
 
   layers::SurfaceDescriptor desc;
   if (!surf->ToSurfaceDescriptor(&desc)) {
-    gfxCriticalError() << "SharedSurface::ToSurfaceDescriptor failed in VRLayerChild::SubmitFrame";
+    gfxCriticalError() << "SharedSurface::ToSurfaceDescriptor failed in "
+                          "VRLayerChild::SubmitFrame";
     return;
   }
 
@@ -128,16 +128,18 @@ VRLayerChild::DestroyIPDLActor(PVRLayerChild* actor)
 }
 
 void
-VRLayerChild::AddIPDLReference() {
+VRLayerChild::AddIPDLReference()
+{
   MOZ_ASSERT(mIPCOpen == false);
   mIPCOpen = true;
   AddRef();
 }
 void
-VRLayerChild::ReleaseIPDLReference() {
+VRLayerChild::ReleaseIPDLReference()
+{
   MOZ_ASSERT(mIPCOpen == false);
   Release();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

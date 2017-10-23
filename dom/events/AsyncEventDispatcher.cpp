@@ -7,7 +7,7 @@
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/EventDispatcher.h"
-#include "mozilla/dom/Event.h" // for nsIDOMEvent::InternalDOMEvent()
+#include "mozilla/dom/Event.h"  // for nsIDOMEvent::InternalDOMEvent()
 #include "mozilla/dom/EventTarget.h"
 #include "nsContentUtils.h"
 #include "nsIDOMEvent.h"
@@ -22,13 +22,13 @@ using namespace dom;
 
 AsyncEventDispatcher::AsyncEventDispatcher(EventTarget* aTarget,
                                            WidgetEvent& aEvent)
-  : CancelableRunnable("AsyncEventDispatcher")
-  , mTarget(aTarget)
-  , mEventMessage(eUnidentifiedEvent)
+    : CancelableRunnable("AsyncEventDispatcher"),
+      mTarget(aTarget),
+      mEventMessage(eUnidentifiedEvent)
 {
   MOZ_ASSERT(mTarget);
   RefPtr<Event> event =
-    EventDispatcher::CreateEvent(aTarget, nullptr, &aEvent, EmptyString());
+      EventDispatcher::CreateEvent(aTarget, nullptr, &aEvent, EmptyString());
   mEvent = event.forget();
   mEventType.SetIsVoid(true);
   NS_ASSERTION(mEvent, "Should never fail to create an event");
@@ -51,10 +51,14 @@ AsyncEventDispatcher::Run()
   }
   mTarget->AsyncEventRunning(this);
   if (mEventMessage != eUnidentifiedEvent) {
-    return nsContentUtils::DispatchTrustedEvent<WidgetEvent>
-      (node->OwnerDoc(), mTarget, mEventMessage, mBubbles,
-       false /* aCancelable */, nullptr /* aDefaultAction */,
-       mOnlyChromeDispatch);
+    return nsContentUtils::DispatchTrustedEvent<WidgetEvent>(
+        node->OwnerDoc(),
+        mTarget,
+        mEventMessage,
+        mBubbles,
+        false /* aCancelable */,
+        nullptr /* aDefaultAction */,
+        mOnlyChromeDispatch);
   }
   RefPtr<Event> event = mEvent ? mEvent->InternalDOMEvent() : nullptr;
   if (!event) {
@@ -84,14 +88,16 @@ AsyncEventDispatcher::PostDOMEvent()
   RefPtr<AsyncEventDispatcher> ensureDeletionWhenFailing = this;
   if (NS_IsMainThread()) {
     if (nsCOMPtr<nsIGlobalObject> global = mTarget->GetOwnerGlobal()) {
-      return global->Dispatch(TaskCategory::Other, ensureDeletionWhenFailing.forget());
+      return global->Dispatch(TaskCategory::Other,
+                              ensureDeletionWhenFailing.forget());
     }
 
     // Sometimes GetOwnerGlobal returns null because it uses
     // GetScriptHandlingObject rather than GetScopeObject.
     if (nsCOMPtr<nsINode> node = do_QueryInterface(mTarget)) {
       nsCOMPtr<nsIDocument> doc = node->OwnerDoc();
-      return doc->Dispatch(TaskCategory::Other, ensureDeletionWhenFailing.forget());
+      return doc->Dispatch(TaskCategory::Other,
+                           ensureDeletionWhenFailing.forget());
     }
   }
   return NS_DispatchToCurrentThread(this);
@@ -126,4 +132,4 @@ LoadBlockingAsyncEventDispatcher::~LoadBlockingAsyncEventDispatcher()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

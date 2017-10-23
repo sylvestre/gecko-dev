@@ -9,16 +9,16 @@
 
 #include "jit/shared/LOpcodes-shared.h"
 
-#define LIR_CPU_OPCODE_LIST(_)  \
-    _(BoxFloatingPoint)         \
-    _(DivOrModConstantI)        \
-    _(SimdValueInt32x4)         \
-    _(SimdValueFloat32x4)       \
-    _(UDivOrMod)                \
-    _(UDivOrModConstant)        \
-    _(UDivOrModI64)             \
-    _(DivOrModI64)              \
-    _(WasmTruncateToInt64)      \
+#define LIR_CPU_OPCODE_LIST(_) \
+    _(BoxFloatingPoint)        \
+    _(DivOrModConstantI)       \
+    _(SimdValueInt32x4)        \
+    _(SimdValueFloat32x4)      \
+    _(UDivOrMod)               \
+    _(UDivOrModConstant)       \
+    _(UDivOrModI64)            \
+    _(DivOrModI64)             \
+    _(WasmTruncateToInt64)     \
     _(Int64ToFloatingPoint)
 
 #endif /* jit_x86_LOpcodes_x86_h */

@@ -16,10 +16,9 @@
 
 class nsDocElementCreatedNotificationRunner : public mozilla::Runnable
 {
-public:
+ public:
   explicit nsDocElementCreatedNotificationRunner(nsIDocument* aDoc)
-    : mozilla::Runnable("nsDocElementCreatedNotificationRunner")
-    , mDoc(aDoc)
+      : mozilla::Runnable("nsDocElementCreatedNotificationRunner"), mDoc(aDoc)
   {
   }
 

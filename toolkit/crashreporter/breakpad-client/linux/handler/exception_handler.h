@@ -71,7 +71,8 @@ namespace google_breakpad {
 // Caller should try to make the callbacks as crash-friendly as possible,
 // it should avoid use heap memory allocation as much as possible.
 
-class ExceptionHandler {
+class ExceptionHandler
+{
  public:
   // A callback function to run before Breakpad performs any substantial
   // processing of an exception.  A FilterCallback is called before writing
@@ -82,7 +83,7 @@ class ExceptionHandler {
   // attempting to write a minidump.  If a FilterCallback returns false,
   // Breakpad  will immediately report the exception as unhandled without
   // writing a minidump, allowing another handler the opportunity to handle it.
-  typedef bool (*FilterCallback)(void *context);
+  typedef bool (*FilterCallback)(void* context);
 
   // A callback function to run after the minidump has been written.
   // |descriptor| contains the file descriptor or file path containing the
@@ -132,19 +133,23 @@ class ExceptionHandler {
                    const int server_fd);
   ~ExceptionHandler();
 
-  const MinidumpDescriptor& minidump_descriptor() const {
+  const MinidumpDescriptor& minidump_descriptor() const
+  {
     return minidump_descriptor_;
   }
 
-  void set_minidump_descriptor(const MinidumpDescriptor& descriptor) {
+  void set_minidump_descriptor(const MinidumpDescriptor& descriptor)
+  {
     minidump_descriptor_ = descriptor;
   }
 
-  void set_crash_handler(HandlerCallback callback) {
+  void set_crash_handler(HandlerCallback callback)
+  {
     crash_handler_ = callback;
   }
 
-  void set_crash_generation_client(CrashGenerationClient* client) {
+  void set_crash_generation_client(CrashGenerationClient* client)
+  {
     crash_generation_client_.reset(client);
   }
 
@@ -188,7 +193,8 @@ class ExceptionHandler {
 
   // This structure is passed to minidump_writer.h:WriteMinidump via an opaque
   // blob. It shouldn't be needed in any user code.
-  struct CrashContext {
+  struct CrashContext
+  {
     siginfo_t siginfo;
     pid_t tid;  // the crashing thread.
     ucontext_t context;
@@ -201,9 +207,7 @@ class ExceptionHandler {
   };
 
   // Returns whether out-of-process dump generation is used or not.
-  bool IsOutOfProcess() const {
-    return crash_generation_client_.get() != NULL;
-  }
+  bool IsOutOfProcess() const { return crash_generation_client_.get() != NULL; }
 
   // Add information about a memory mapping. This can be used if
   // a custom library loader is used that maps things in a way
@@ -234,14 +238,13 @@ class ExceptionHandler {
   static void RestoreHandlersLocked();
 
   void PreresolveSymbols();
-  bool GenerateDump(CrashContext *context);
+  bool GenerateDump(CrashContext* context);
   void SendContinueSignalToChild();
   void WaitForContinueSignal();
 
   static void SignalHandler(int sig, siginfo_t* info, void* uc);
   static int ThreadEntry(void* arg);
-  bool DoDump(pid_t crashing_process, const void* context,
-              size_t context_size);
+  bool DoDump(pid_t crashing_process, const void* context, size_t context_size);
 
   const FilterCallback filter_;
   const MinidumpCallback callback_;

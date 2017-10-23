@@ -18,13 +18,13 @@ namespace dom {
 
 class IPCBlobInputStreamChild;
 
-class IPCBlobInputStream final : public nsIAsyncInputStream
-                               , public nsIInputStreamCallback
-                               , public nsICloneableInputStreamWithRange
-                               , public nsIIPCSerializableInputStream
-                               , public nsIAsyncFileMetadata
+class IPCBlobInputStream final : public nsIAsyncInputStream,
+                                 public nsIInputStreamCallback,
+                                 public nsICloneableInputStreamWithRange,
+                                 public nsIIPCSerializableInputStream,
+                                 public nsIAsyncFileMetadata
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINPUTSTREAM
   NS_DECL_NSIASYNCINPUTSTREAM
@@ -37,26 +37,23 @@ public:
 
   explicit IPCBlobInputStream(IPCBlobInputStreamChild* aActor);
 
-  void
-  StreamReady(already_AddRefed<nsIInputStream> aInputStream);
+  void StreamReady(already_AddRefed<nsIInputStream> aInputStream);
 
-private:
+ private:
   ~IPCBlobInputStream();
 
-  nsresult
-  MaybeExecuteInputStreamCallback(nsIInputStreamCallback* aCallback,
-                                  nsIEventTarget* aEventTarget);
+  nsresult MaybeExecuteInputStreamCallback(nsIInputStreamCallback* aCallback,
+                                           nsIEventTarget* aEventTarget);
 
-  nsresult
-  EnsureAsyncRemoteStream();
+  nsresult EnsureAsyncRemoteStream();
 
-  void
-  InitWithExistingRange(uint64_t aStart, uint64_t aLength);
+  void InitWithExistingRange(uint64_t aStart, uint64_t aLength);
 
   RefPtr<IPCBlobInputStreamChild> mActor;
 
   // This is the list of possible states.
-  enum {
+  enum
+  {
     // The initial state. Only ::Available() can be used without receiving an
     // error. The available size is known by the actor.
     eInit,
@@ -91,7 +88,7 @@ private:
   nsCOMPtr<nsIEventTarget> mFileMetadataCallbackEventTarget;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ipc_IPCBlobInputStream_h
+#endif  // mozilla_dom_ipc_IPCBlobInputStream_h

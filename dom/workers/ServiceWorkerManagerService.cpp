@@ -24,7 +24,7 @@ namespace {
 
 ServiceWorkerManagerService* sInstance = nullptr;
 
-} // namespace
+}  // namespace
 
 ServiceWorkerManagerService::ServiceWorkerManagerService()
 {
@@ -76,7 +76,8 @@ ServiceWorkerManagerService::RegisterActor(ServiceWorkerManagerParent* aParent)
 }
 
 void
-ServiceWorkerManagerService::UnregisterActor(ServiceWorkerManagerParent* aParent)
+ServiceWorkerManagerService::UnregisterActor(
+    ServiceWorkerManagerParent* aParent)
 {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aParent);
@@ -87,8 +88,7 @@ ServiceWorkerManagerService::UnregisterActor(ServiceWorkerManagerParent* aParent
 
 void
 ServiceWorkerManagerService::PropagateRegistration(
-                                           uint64_t aParentID,
-                                           ServiceWorkerRegistrationData& aData)
+    uint64_t aParentID, ServiceWorkerRegistrationData& aData)
 {
   AssertIsOnBackgroundThread();
 
@@ -110,16 +110,17 @@ ServiceWorkerManagerService::PropagateRegistration(
   // content processes.
   PrincipalInfo pi = aData.principal();
   NS_DispatchToMainThread(NS_NewRunnableFunction(
-    "dom::workers::ServiceWorkerManagerService::PropagateRegistration", [pi]() {
-      nsTArray<ContentParent*> cps;
-      ContentParent::GetAll(cps);
-      for (auto* cp : cps) {
-        nsCOMPtr<nsIPrincipal> principal = PrincipalInfoToPrincipal(pi);
-        if (principal) {
-          cp->TransmitPermissionsForPrincipal(principal);
+      "dom::workers::ServiceWorkerManagerService::PropagateRegistration",
+      [pi]() {
+        nsTArray<ContentParent*> cps;
+        ContentParent::GetAll(cps);
+        for (auto* cp : cps) {
+          nsCOMPtr<nsIPrincipal> principal = PrincipalInfoToPrincipal(pi);
+          if (principal) {
+            cp->TransmitPermissionsForPrincipal(principal);
+          }
         }
-      }
-    }));
+      }));
 
 #ifdef DEBUG
   MOZ_ASSERT(parentFound);
@@ -128,9 +129,9 @@ ServiceWorkerManagerService::PropagateRegistration(
 
 void
 ServiceWorkerManagerService::PropagateSoftUpdate(
-                                      uint64_t aParentID,
-                                      const OriginAttributes& aOriginAttributes,
-                                      const nsAString& aScope)
+    uint64_t aParentID,
+    const OriginAttributes& aOriginAttributes,
+    const nsAString& aScope)
 {
   AssertIsOnBackgroundThread();
 
@@ -140,8 +141,7 @@ ServiceWorkerManagerService::PropagateSoftUpdate(
     MOZ_ASSERT(parent);
 
     nsString scope(aScope);
-    Unused << parent->SendNotifySoftUpdate(aOriginAttributes,
-                                           scope);
+    Unused << parent->SendNotifySoftUpdate(aOriginAttributes, scope);
 
 #ifdef DEBUG
     if (parent->ID() == aParentID) {
@@ -157,14 +157,14 @@ ServiceWorkerManagerService::PropagateSoftUpdate(
 
 void
 ServiceWorkerManagerService::PropagateUnregister(
-                                            uint64_t aParentID,
-                                            const PrincipalInfo& aPrincipalInfo,
-                                            const nsAString& aScope)
+    uint64_t aParentID,
+    const PrincipalInfo& aPrincipalInfo,
+    const nsAString& aScope)
 {
   AssertIsOnBackgroundThread();
 
   RefPtr<dom::ServiceWorkerRegistrar> service =
-    dom::ServiceWorkerRegistrar::Get();
+      dom::ServiceWorkerRegistrar::Get();
   MOZ_ASSERT(service);
 
   // It's possible that we don't have any ServiceWorkerManager managing this
@@ -224,7 +224,7 @@ ServiceWorkerManagerService::PropagateRemoveAll(uint64_t aParentID)
   AssertIsOnBackgroundThread();
 
   RefPtr<dom::ServiceWorkerRegistrar> service =
-    dom::ServiceWorkerRegistrar::Get();
+      dom::ServiceWorkerRegistrar::Get();
   MOZ_ASSERT(service);
 
   service->RemoveAll();
@@ -249,10 +249,11 @@ ServiceWorkerManagerService::PropagateRemoveAll(uint64_t aParentID)
 }
 
 void
-ServiceWorkerManagerService::ProcessUpdaterActor(ServiceWorkerUpdaterParent* aActor,
-                                                 const OriginAttributes& aOriginAttributes,
-                                                 const nsACString& aScope,
-                                                 uint64_t aParentId)
+ServiceWorkerManagerService::ProcessUpdaterActor(
+    ServiceWorkerUpdaterParent* aActor,
+    const OriginAttributes& aOriginAttributes,
+    const nsACString& aScope,
+    uint64_t aParentId)
 {
   AssertIsOnBackgroundThread();
 
@@ -280,7 +281,8 @@ ServiceWorkerManagerService::ProcessUpdaterActor(ServiceWorkerUpdaterParent* aAc
 }
 
 void
-ServiceWorkerManagerService::UpdaterActorDestroyed(ServiceWorkerUpdaterParent* aActor)
+ServiceWorkerManagerService::UpdaterActorDestroyed(
+    ServiceWorkerUpdaterParent* aActor)
 {
   for (uint32_t i = 0; i < mPendingUpdaterActors.Length(); ++i) {
     // We already have an actor doing the update for this scope.
@@ -293,6 +295,6 @@ ServiceWorkerManagerService::UpdaterActorDestroyed(ServiceWorkerUpdaterParent* a
   MOZ_CRASH("The actor should be found");
 }
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

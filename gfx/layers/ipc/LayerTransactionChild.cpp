@@ -8,14 +8,13 @@
 #include "LayerTransactionChild.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/layers/ShadowLayers.h"  // for ShadowLayerForwarder
-#include "mozilla/mozalloc.h"           // for operator delete, etc
-#include "nsDebug.h"                    // for NS_RUNTIMEABORT, etc
-#include "nsTArray.h"                   // for nsTArray
+#include "mozilla/mozalloc.h"             // for operator delete, etc
+#include "nsDebug.h"                      // for NS_RUNTIMEABORT, etc
+#include "nsTArray.h"                     // for nsTArray
 #include "mozilla/layers/TextureClient.h"
 
 namespace mozilla {
 namespace layers {
-
 
 void
 LayerTransactionChild::Destroy()
@@ -40,5 +39,5 @@ LayerTransactionChild::ActorDestroy(ActorDestroyReason why)
   mDestroyed = true;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

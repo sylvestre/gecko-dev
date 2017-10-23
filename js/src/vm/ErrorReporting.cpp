@@ -22,9 +22,7 @@ using JS::HandleObject;
 using JS::HandleValue;
 using JS::UniqueTwoByteChars;
 
-void
-js::CallWarningReporter(JSContext* cx, JSErrorReport* reportp)
-{
+void js::CallWarningReporter(JSContext* cx, JSErrorReport* reportp) {
     MOZ_ASSERT(reportp);
     MOZ_ASSERT(JSREPORT_IS_WARNING(reportp->flags));
 
@@ -32,9 +30,7 @@ js::CallWarningReporter(JSContext* cx, JSErrorReport* reportp)
         warningReporter(cx, reportp);
 }
 
-void
-js::CompileError::throwError(JSContext* cx)
-{
+void js::CompileError::throwError(JSContext* cx) {
     if (JSREPORT_IS_WARNING(flags)) {
         CallWarningReporter(cx, this);
         return;
@@ -54,17 +50,15 @@ js::CompileError::throwError(JSContext* cx)
     ErrorToException(cx, this, nullptr, nullptr);
 }
 
-bool
-js::ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNotes> notes,
-                         unsigned flags, unsigned errorNumber, va_list args)
-{
+bool js::ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata,
+                              UniquePtr<JSErrorNotes> notes, unsigned flags, unsigned errorNumber,
+                              va_list args) {
     // On the active thread, report the error immediately. When compiling off
     // thread, save the error so that the thread finishing the parse can report
     // it later.
     CompileError tempErr;
     CompileError* err = &tempErr;
-    if (cx->helperThread() && !cx->addPendingCompileError(&err))
-        return false;
+    if (cx->helperThread() && !cx->addPendingCompileError(&err)) return false;
 
     err->notes = Move(notes);
     err->flags = flags;
@@ -78,29 +72,24 @@ js::ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSEr
     if (UniqueTwoByteChars lineOfContext = Move(metadata.lineOfContext))
         err->initOwnedLinebuf(lineOfContext.release(), metadata.lineLength, metadata.tokenOffset);
 
-    if (!ExpandErrorArgumentsVA(cx, GetErrorMessage, nullptr, errorNumber,
-                                nullptr, ArgumentsAreLatin1, err, args))
-    {
+    if (!ExpandErrorArgumentsVA(cx, GetErrorMessage, nullptr, errorNumber, nullptr,
+                                ArgumentsAreLatin1, err, args)) {
         return false;
     }
 
-    if (!cx->helperThread())
-        err->throwError(cx);
+    if (!cx->helperThread()) err->throwError(cx);
 
     return true;
 }
 
-void
-js::ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNotes> notes,
-                       unsigned flags, unsigned errorNumber, va_list args)
-{
+void js::ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNotes> notes,
+                            unsigned flags, unsigned errorNumber, va_list args) {
     // On the active thread, report the error immediately. When compiling off
     // thread, save the error so that the thread finishing the parse can report
     // it later.
     CompileError tempErr;
     CompileError* err = &tempErr;
-    if (cx->helperThread() && !cx->addPendingCompileError(&err))
-        return;
+    if (cx->helperThread() && !cx->addPendingCompileError(&err)) return;
 
     err->notes = Move(notes);
     err->flags = flags;
@@ -114,49 +103,39 @@ js::ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErro
     if (UniqueTwoByteChars lineOfContext = Move(metadata.lineOfContext))
         err->initOwnedLinebuf(lineOfContext.release(), metadata.lineLength, metadata.tokenOffset);
 
-    if (!ExpandErrorArgumentsVA(cx, GetErrorMessage, nullptr, errorNumber,
-                                nullptr, ArgumentsAreLatin1, err, args))
-    {
+    if (!ExpandErrorArgumentsVA(cx, GetErrorMessage, nullptr, errorNumber, nullptr,
+                                ArgumentsAreLatin1, err, args)) {
         return;
     }
 
-    if (!cx->helperThread())
-        err->throwError(cx);
+    if (!cx->helperThread()) err->throwError(cx);
 }
 
 namespace {
 
-class MOZ_STACK_CLASS ReportExceptionClosure
-  : public js::ScriptEnvironmentPreparer::Closure
-{
-  public:
-    explicit ReportExceptionClosure(HandleValue& exn)
-      : exn_(exn)
-    {
-    }
+class MOZ_STACK_CLASS ReportExceptionClosure : public js::ScriptEnvironmentPreparer::Closure {
+   public:
+    explicit ReportExceptionClosure(HandleValue& exn) : exn_(exn) {}
 
-    bool operator()(JSContext* cx) override
-    {
+    bool operator()(JSContext* cx) override {
         cx->setPendingException(exn_);
         return false;
     }
 
-  private:
+   private:
     HandleValue& exn_;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
-void
-js::ReportErrorToGlobal(JSContext* cx, HandleObject global, HandleValue error)
-{
+void js::ReportErrorToGlobal(JSContext* cx, HandleObject global, HandleValue error) {
     MOZ_ASSERT(!cx->isExceptionPending());
 #ifdef DEBUG
     // No assertSameCompartment version that doesn't take JSContext...
     if (error.isObject()) {
         AssertSameCompartment(global, &error.toObject());
     }
-#endif // DEBUG
+#endif  // DEBUG
     ReportExceptionClosure report(error);
     PrepareScriptEnvironmentAndInvoke(cx, global, report);
 }

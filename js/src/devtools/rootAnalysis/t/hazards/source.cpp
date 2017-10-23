@@ -1,32 +1,35 @@
 #define ANNOTATE(property) __attribute__((tag(property)))
 
-struct Cell { int f; } ANNOTATE("GC Thing");
+struct Cell {
+    int f;
+} ANNOTATE("GC Thing");
 
-struct RootedCell { RootedCell(Cell*) {} } ANNOTATE("Rooted Pointer");
+struct RootedCell {
+    RootedCell(Cell*) {}
+} ANNOTATE("Rooted Pointer");
 
 class AutoSuppressGC_Base {
-  public:
+   public:
     AutoSuppressGC_Base() {}
     ~AutoSuppressGC_Base() {}
 } ANNOTATE("Suppress GC");
 
 class AutoSuppressGC_Child : public AutoSuppressGC_Base {
-  public:
+   public:
     AutoSuppressGC_Child() : AutoSuppressGC_Base() {}
 };
 
 class AutoSuppressGC {
     AutoSuppressGC_Child helpImBeingSuppressed;
 
-  public:
+   public:
     AutoSuppressGC() {}
 };
 
 extern void GC() ANNOTATE("GC Call");
 extern void invisible();
 
-void GC()
-{
+void GC() {
     // If the implementation is too trivial, the function body won't be emitted at all.
     asm("");
     invisible();
@@ -35,15 +38,15 @@ void GC()
 extern void usecell(Cell*);
 
 void suppressedFunction() {
-    GC(); // Calls GC, but is always called within AutoSuppressGC
+    GC();  // Calls GC, but is always called within AutoSuppressGC
 }
 
 void halfSuppressedFunction() {
-    GC(); // Calls GC, but is sometimes called within AutoSuppressGC
+    GC();  // Calls GC, but is sometimes called within AutoSuppressGC
 }
 
 void unsuppressedFunction() {
-    GC(); // Calls GC, never within AutoSuppressGC
+    GC();  // Calls GC, never within AutoSuppressGC
 }
 
 volatile static int x = 3;
@@ -57,9 +60,7 @@ struct GCInDestructor {
     }
 };
 
-Cell*
-f()
-{
+Cell* f() {
     GCInDestructor kaboom;
 
     Cell cell;
@@ -90,28 +91,22 @@ f()
     return cell6;
 }
 
-Cell* copy_and_gc(Cell* src)
-{
+Cell* copy_and_gc(Cell* src) {
     GC();
     return reinterpret_cast<Cell*>(88);
 }
 
-void use(Cell* cell)
-{
+void use(Cell* cell) {
     static int x = 0;
-    if (cell)
-        x++;
+    if (cell) x++;
 }
 
 struct CellContainer {
     Cell* cell;
-    CellContainer() {
-        asm("");
-    }
+    CellContainer() { asm(""); }
 };
 
-void loopy()
-{
+void loopy() {
     Cell cell;
 
     // No hazard: haz1 is not live during call to copy_and_gc.

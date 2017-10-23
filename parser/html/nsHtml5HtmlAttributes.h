@@ -50,50 +50,47 @@ class nsHtml5UTF16Buffer;
 class nsHtml5StateSnapshot;
 class nsHtml5Portability;
 
-
 class nsHtml5HtmlAttributes
 {
-  public:
-    static nsHtml5HtmlAttributes* EMPTY_ATTRIBUTES;
-  private:
-    AutoTArray<nsHtml5AttributeEntry, 5> mStorage;
-    int32_t mMode;
-    void AddEntry(nsHtml5AttributeEntry&& aEntry);
+ public:
+  static nsHtml5HtmlAttributes* EMPTY_ATTRIBUTES;
 
-  public:
-    explicit nsHtml5HtmlAttributes(int32_t aMode);
-    ~nsHtml5HtmlAttributes();
+ private:
+  AutoTArray<nsHtml5AttributeEntry, 5> mStorage;
+  int32_t mMode;
+  void AddEntry(nsHtml5AttributeEntry&& aEntry);
 
-    // Remove getIndex when removing isindex support
-    int32_t getIndex(nsHtml5AttributeName* aName);
+ public:
+  explicit nsHtml5HtmlAttributes(int32_t aMode);
+  ~nsHtml5HtmlAttributes();
 
-    nsHtml5String getValue(nsHtml5AttributeName* aName);
-    int32_t getLength();
-    nsAtom* getLocalNameNoBoundsCheck(int32_t aIndex);
-    int32_t getURINoBoundsCheck(int32_t aIndex);
-    nsAtom* getPrefixNoBoundsCheck(int32_t aIndex);
-    nsHtml5String getValueNoBoundsCheck(int32_t aIndex);
-    nsHtml5AttributeName* getAttributeNameNoBoundsCheck(int32_t aIndex);
-    int32_t getLineNoBoundsCheck(int32_t aIndex);
-    void addAttribute(nsHtml5AttributeName* aName,
-                      nsHtml5String aValue,
-                      int32_t aLine);
-    void AddAttributeWithLocal(nsAtom* aName,
-                               nsHtml5String aValue,
-                               int32_t aLine);
-    void clear(int32_t aMode);
-    void releaseValue(int32_t aIndex);
-    void clearWithoutReleasingContents();
-    bool contains(nsHtml5AttributeName* aName);
-    void adjustForMath();
-    void adjustForSvg();
-    nsHtml5HtmlAttributes* cloneAttributes(nsHtml5AtomTable* aInterner);
-    bool equalsAnother(nsHtml5HtmlAttributes* aOther);
-    static void initializeStatics();
-    static void releaseStatics();
+  // Remove getIndex when removing isindex support
+  int32_t getIndex(nsHtml5AttributeName* aName);
+
+  nsHtml5String getValue(nsHtml5AttributeName* aName);
+  int32_t getLength();
+  nsAtom* getLocalNameNoBoundsCheck(int32_t aIndex);
+  int32_t getURINoBoundsCheck(int32_t aIndex);
+  nsAtom* getPrefixNoBoundsCheck(int32_t aIndex);
+  nsHtml5String getValueNoBoundsCheck(int32_t aIndex);
+  nsHtml5AttributeName* getAttributeNameNoBoundsCheck(int32_t aIndex);
+  int32_t getLineNoBoundsCheck(int32_t aIndex);
+  void addAttribute(nsHtml5AttributeName* aName,
+                    nsHtml5String aValue,
+                    int32_t aLine);
+  void AddAttributeWithLocal(nsAtom* aName,
+                             nsHtml5String aValue,
+                             int32_t aLine);
+  void clear(int32_t aMode);
+  void releaseValue(int32_t aIndex);
+  void clearWithoutReleasingContents();
+  bool contains(nsHtml5AttributeName* aName);
+  void adjustForMath();
+  void adjustForSvg();
+  nsHtml5HtmlAttributes* cloneAttributes(nsHtml5AtomTable* aInterner);
+  bool equalsAnother(nsHtml5HtmlAttributes* aOther);
+  static void initializeStatics();
+  static void releaseStatics();
 };
 
-
-
 #endif
-

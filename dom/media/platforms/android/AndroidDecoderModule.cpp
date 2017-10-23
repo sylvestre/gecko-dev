@@ -18,11 +18,11 @@
 #include <jni.h>
 
 #undef LOG
-#define LOG(arg, ...)                                                          \
-  MOZ_LOG(                                                                     \
-    sAndroidDecoderModuleLog,                                                  \
-    mozilla::LogLevel::Debug,                                                  \
-    ("AndroidDecoderModule(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define LOG(arg, ...)           \
+  MOZ_LOG(                      \
+      sAndroidDecoderModuleLog, \
+      mozilla::LogLevel::Debug, \
+      ("AndroidDecoderModule(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 using namespace mozilla;
 using namespace mozilla::gl;
@@ -51,7 +51,7 @@ GetFeatureStatus(int32_t aFeature)
   int32_t status = nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
   nsCString discardFailureId;
   if (!gfxInfo || NS_FAILED(gfxInfo->GetFeatureStatus(
-                    aFeature, discardFailureId, &status))) {
+                      aFeature, discardFailureId, &status))) {
     return false;
   }
   return status == nsIGfxInfo::FEATURE_STATUS_OK;
@@ -71,7 +71,7 @@ GetCryptoInfoFromSample(const MediaRawData* aSample)
   NS_ENSURE_SUCCESS(rv, nullptr);
 
   uint32_t numSubSamples = std::min<uint32_t>(
-    cryptoObj.mPlainSizes.Length(), cryptoObj.mEncryptedSizes.Length());
+      cryptoObj.mPlainSizes.Length(), cryptoObj.mEncryptedSizes.Length());
 
   uint32_t totalSubSamplesSize = 0;
   for (auto& size : cryptoObj.mEncryptedSizes) {
@@ -100,19 +100,22 @@ GetCryptoInfoFromSample(const MediaRawData* aSample)
   }
 
   auto numBytesOfPlainData = mozilla::jni::IntArray::New(
-                              reinterpret_cast<int32_t*>(&plainSizes[0]),
-                              plainSizes.Length());
+      reinterpret_cast<int32_t*>(&plainSizes[0]), plainSizes.Length());
 
   auto numBytesOfEncryptedData = mozilla::jni::IntArray::New(
-    reinterpret_cast<const int32_t*>(&cryptoObj.mEncryptedSizes[0]),
-    cryptoObj.mEncryptedSizes.Length());
+      reinterpret_cast<const int32_t*>(&cryptoObj.mEncryptedSizes[0]),
+      cryptoObj.mEncryptedSizes.Length());
   auto iv = mozilla::jni::ByteArray::New(reinterpret_cast<int8_t*>(&tempIV[0]),
                                          tempIV.Length());
   auto keyId = mozilla::jni::ByteArray::New(
-    reinterpret_cast<const int8_t*>(&cryptoObj.mKeyId[0]),
-    cryptoObj.mKeyId.Length());
-  cryptoInfo->Set(numSubSamples, numBytesOfPlainData, numBytesOfEncryptedData,
-                  keyId, iv, MediaCodec::CRYPTO_MODE_AES_CTR);
+      reinterpret_cast<const int8_t*>(&cryptoObj.mKeyId[0]),
+      cryptoObj.mKeyId.Length());
+  cryptoInfo->Set(numSubSamples,
+                  numBytesOfPlainData,
+                  numBytesOfEncryptedData,
+                  keyId,
+                  iv,
+                  MediaCodec::CRYPTO_MODE_AES_CTR);
 
   return cryptoInfo;
 }
@@ -124,8 +127,7 @@ AndroidDecoderModule::AndroidDecoderModule(CDMProxy* aProxy)
 
 bool
 AndroidDecoderModule::SupportsMimeType(
-  const nsACString& aMimeType,
-  DecoderDoctorDiagnostics* aDiagnostics) const
+    const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const
 {
   if (jni::GetAPIVersion() < 16) {
     return false;
@@ -163,7 +165,7 @@ AndroidDecoderModule::SupportsMimeType(
   }
 
   return java::HardwareCodecCapabilityUtils::FindDecoderCodecInfoForMimeType(
-    nsCString(TranslateMimeType(aMimeType)));
+      nsCString(TranslateMimeType(aMimeType)));
 }
 
 already_AddRefed<MediaDataDecoder>
@@ -183,7 +185,7 @@ AndroidDecoderModule::CreateVideoDecoder(const CreateDecoderParams& aParams)
   }
 
   RefPtr<MediaDataDecoder> decoder =
-    RemoteDataDecoder::CreateVideoDecoder(aParams, drmStubId, mProxy);
+      RemoteDataDecoder::CreateVideoDecoder(aParams, drmStubId, mProxy);
   return decoder.forget();
 }
 
@@ -197,15 +199,17 @@ AndroidDecoderModule::CreateAudioDecoder(const CreateDecoderParams& aParams)
   }
 
   LOG("CreateAudioFormat with mimeType=%s, mRate=%d, channels=%d",
-      config.mMimeType.Data(), config.mRate, config.mChannels);
+      config.mMimeType.Data(),
+      config.mRate,
+      config.mChannels);
 
   nsString drmStubId;
   if (mProxy) {
     drmStubId = mProxy->GetMediaDrmStubId();
   }
   RefPtr<MediaDataDecoder> decoder =
-   RemoteDataDecoder::CreateAudioDecoder(aParams, drmStubId, mProxy);
+      RemoteDataDecoder::CreateAudioDecoder(aParams, drmStubId, mProxy);
   return decoder.forget();
 }
 
-} // mozilla
+}  // namespace mozilla

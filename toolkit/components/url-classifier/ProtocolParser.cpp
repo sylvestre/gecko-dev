@@ -19,8 +19,10 @@
 #include "mozilla/IntegerPrintfMacros.h"
 
 // MOZ_LOG=UrlClassifierProtocolParser:5
-mozilla::LazyLogModule gUrlClassifierProtocolParserLog("UrlClassifierProtocolParser");
-#define PARSER_LOG(args) MOZ_LOG(gUrlClassifierProtocolParserLog, mozilla::LogLevel::Debug, args)
+mozilla::LazyLogModule gUrlClassifierProtocolParserLog(
+    "UrlClassifierProtocolParser");
+#define PARSER_LOG(args) \
+  MOZ_LOG(gUrlClassifierProtocolParserLog, mozilla::LogLevel::Debug, args)
 
 namespace mozilla {
 namespace safebrowsing {
@@ -38,15 +40,15 @@ const uint32_t DOMAIN_SIZE = 4;
 static bool
 ParseChunkRange(nsACString::const_iterator& aBegin,
                 const nsACString::const_iterator& aEnd,
-                uint32_t* aFirst, uint32_t* aLast)
+                uint32_t* aFirst,
+                uint32_t* aLast)
 {
   nsACString::const_iterator iter = aBegin;
   FindCharInReadable(',', iter, aEnd);
 
   nsAutoCString element(Substring(aBegin, iter));
   aBegin = iter;
-  if (aBegin != aEnd)
-    aBegin++;
+  if (aBegin != aEnd) aBegin++;
 
   uint32_t numRead = PR_sscanf(element.get(), "%u-%u", aFirst, aLast);
   if (numRead == 2) {
@@ -69,16 +71,9 @@ ParseChunkRange(nsACString::const_iterator& aBegin,
 ///////////////////////////////////////////////////////////////
 // ProtocolParser implementation
 
-ProtocolParser::ProtocolParser()
-  : mUpdateStatus(NS_OK)
-  , mUpdateWaitSec(0)
-{
-}
+ProtocolParser::ProtocolParser() : mUpdateStatus(NS_OK), mUpdateWaitSec(0) {}
 
-ProtocolParser::~ProtocolParser()
-{
-  CleanupUpdates();
-}
+ProtocolParser::~ProtocolParser() { CleanupUpdates(); }
 
 void
 ProtocolParser::CleanupUpdates()
@@ -89,7 +84,7 @@ ProtocolParser::CleanupUpdates()
   mTableUpdates.Clear();
 }
 
-TableUpdate *
+TableUpdate*
 ProtocolParser::GetTableUpdate(const nsACString& aTable)
 {
   for (uint32_t i = 0; i < mTableUpdates.Length(); i++) {
@@ -102,7 +97,7 @@ ProtocolParser::GetTableUpdate(const nsACString& aTable)
   // updates can be transferred to DBServiceWorker, which passes
   // them back to Classifier when doing the updates, and that
   // will free them.
-  TableUpdate *update = CreateTableUpdate(aTable);
+  TableUpdate* update = CreateTableUpdate(aTable);
   mTableUpdates.AppendElement(update);
   return update;
 }
@@ -111,15 +106,13 @@ ProtocolParser::GetTableUpdate(const nsACString& aTable)
 // ProtocolParserV2
 
 ProtocolParserV2::ProtocolParserV2()
-  : mState(PROTOCOL_STATE_CONTROL)
-  , mResetRequested(false)
-  , mTableUpdate(nullptr)
+    : mState(PROTOCOL_STATE_CONTROL),
+      mResetRequested(false),
+      mTableUpdate(nullptr)
 {
 }
 
-ProtocolParserV2::~ProtocolParserV2()
-{
-}
+ProtocolParserV2::~ProtocolParserV2() {}
 
 void
 ProtocolParserV2::SetCurrentTable(const nsACString& aTable)
@@ -131,8 +124,7 @@ ProtocolParserV2::SetCurrentTable(const nsACString& aTable)
 nsresult
 ProtocolParserV2::AppendStream(const nsACString& aData)
 {
-  if (NS_FAILED(mUpdateStatus))
-    return mUpdateStatus;
+  if (NS_FAILED(mUpdateStatus)) return mUpdateStatus;
 
   nsresult rv;
   mPending.Append(aData);
@@ -260,9 +252,9 @@ ProtocolParserV2::ProcessChunkControl(const nsCString& aLine)
   if (PR_sscanf(aLine.get(),
                 "%c:%d:%d:%d",
                 &command,
-                &mChunkState.num, &mChunkState.hashSize, &mChunkState.length)
-      != 4)
-  {
+                &mChunkState.num,
+                &mChunkState.hashSize,
+                &mChunkState.length) != 4) {
     NS_WARNING(("PR_sscanf failed"));
     return NS_ERROR_FAILURE;
   }
@@ -272,7 +264,8 @@ ProtocolParserV2::ProcessChunkControl(const nsCString& aLine)
     return NS_ERROR_FAILURE;
   }
 
-  if (!(mChunkState.hashSize == PREFIX_SIZE || mChunkState.hashSize == COMPLETE_SIZE)) {
+  if (!(mChunkState.hashSize == PREFIX_SIZE ||
+        mChunkState.hashSize == COMPLETE_SIZE)) {
     NS_WARNING("Invalid hash size specified in update.");
     return NS_ERROR_FAILURE;
   }
@@ -284,7 +277,7 @@ ProtocolParserV2::ProcessChunkControl(const nsCString& aLine)
     // Accommodate test tables ending in -simple for now.
     mChunkState.type = (command == 'a') ? CHUNK_ADD : CHUNK_SUB;
   } else if (StringEndsWith(mTableUpdate->TableName(),
-    NS_LITERAL_CSTRING("-digest256"))) {
+                            NS_LITERAL_CSTRING("-digest256"))) {
     mChunkState.type = (command == 'a') ? CHUNK_ADD_DIGEST : CHUNK_SUB_DIGEST;
   }
   nsresult rv;
@@ -333,7 +326,7 @@ ProtocolParserV2::AddForward(const nsACString& aUrl)
     return NS_ERROR_FAILURE;
   }
 
-  ForwardedUpdate *forward = mForwards.AppendElement();
+  ForwardedUpdate* forward = mForwards.AppendElement();
   forward->table = mTableUpdate->TableName();
   forward->url.Assign(aUrl);
 
@@ -368,7 +361,7 @@ ProtocolParserV2::ProcessChunk(bool* aDone)
     return ProcessShaChunk(chunk);
   }
   if (StringEndsWith(mTableUpdate->TableName(),
-             NS_LITERAL_CSTRING("-digest256"))) {
+                     NS_LITERAL_CSTRING("-digest256"))) {
     return ProcessDigestChunk(chunk);
   }
   return ProcessPlaintextChunk(chunk);
@@ -403,7 +396,8 @@ ProtocolParserV2::ProcessPlaintextChunk(const nsACString& aChunk)
           return rv;
         }
       } else {
-        NS_ASSERTION(mChunkState.hashSize == 4, "Only 32- or 4-byte hashes can be used for add chunks.");
+        NS_ASSERTION(mChunkState.hashSize == 4,
+                     "Only 32- or 4-byte hashes can be used for add chunks.");
         Prefix hash;
         hash.FromPlaintext(line);
         nsresult rv = mTableUpdate->NewAddPrefix(mChunkState.num, hash);
@@ -427,15 +421,18 @@ ProtocolParserV2::ProcessPlaintextChunk(const nsACString& aChunk)
       if (mChunkState.hashSize == COMPLETE_SIZE) {
         Completion hash;
         hash.FromPlaintext(Substring(iter, end));
-        nsresult rv = mTableUpdate->NewSubComplete(addChunk, hash, mChunkState.num);
+        nsresult rv =
+            mTableUpdate->NewSubComplete(addChunk, hash, mChunkState.num);
         if (NS_FAILED(rv)) {
           return rv;
         }
       } else {
-        NS_ASSERTION(mChunkState.hashSize == 4, "Only 32- or 4-byte hashes can be used for add chunks.");
+        NS_ASSERTION(mChunkState.hashSize == 4,
+                     "Only 32- or 4-byte hashes can be used for add chunks.");
         Prefix hash;
         hash.FromPlaintext(Substring(iter, end));
-        nsresult rv = mTableUpdate->NewSubPrefix(addChunk, hash, mChunkState.num);
+        nsresult rv =
+            mTableUpdate->NewSubPrefix(addChunk, hash, mChunkState.num);
         if (NS_FAILED(rv)) {
           return rv;
         }
@@ -460,24 +457,30 @@ ProtocolParserV2::ProcessShaChunk(const nsACString& aChunk)
     uint8_t numEntries = static_cast<uint8_t>(aChunk[start]);
     start++;
 
-    PARSER_LOG(("Handling a %d-byte shavar chunk containing %u entries"
-                " for domain %X", aChunk.Length(), numEntries,
-                domain.ToUint32()));
+    PARSER_LOG(
+        ("Handling a %d-byte shavar chunk containing %u entries"
+         " for domain %X",
+         aChunk.Length(),
+         numEntries,
+         domain.ToUint32()));
 
     nsresult rv;
     if (mChunkState.type == CHUNK_ADD && mChunkState.hashSize == PREFIX_SIZE) {
       rv = ProcessHostAdd(domain, numEntries, aChunk, &start);
-    } else if (mChunkState.type == CHUNK_ADD && mChunkState.hashSize == COMPLETE_SIZE) {
+    } else if (mChunkState.type == CHUNK_ADD &&
+               mChunkState.hashSize == COMPLETE_SIZE) {
       rv = ProcessHostAddComplete(numEntries, aChunk, &start);
-    } else if (mChunkState.type == CHUNK_SUB && mChunkState.hashSize == PREFIX_SIZE) {
+    } else if (mChunkState.type == CHUNK_SUB &&
+               mChunkState.hashSize == PREFIX_SIZE) {
       rv = ProcessHostSub(domain, numEntries, aChunk, &start);
-    } else if (mChunkState.type == CHUNK_SUB && mChunkState.hashSize == COMPLETE_SIZE) {
+    } else if (mChunkState.type == CHUNK_SUB &&
+               mChunkState.hashSize == COMPLETE_SIZE) {
       rv = ProcessHostSubComplete(numEntries, aChunk, &start);
     } else {
       NS_WARNING("Unexpected chunk type/hash size!");
       PARSER_LOG(("Got an unexpected chunk type/hash size: %s:%d",
-           mChunkState.type == CHUNK_ADD ? "add" : "sub",
-           mChunkState.hashSize));
+                  mChunkState.type == CHUNK_ADD ? "add" : "sub",
+                  mChunkState.hashSize));
       return NS_ERROR_FAILURE;
     }
     NS_ENSURE_SUCCESS(rv, rv);
@@ -550,8 +553,10 @@ ProtocolParserV2::ProcessDigestSub(const nsACString& aChunk)
 }
 
 nsresult
-ProtocolParserV2::ProcessHostAdd(const Prefix& aDomain, uint8_t aNumEntries,
-                               const nsACString& aChunk, uint32_t* aStart)
+ProtocolParserV2::ProcessHostAdd(const Prefix& aDomain,
+                                 uint8_t aNumEntries,
+                                 const nsACString& aChunk,
+                                 uint32_t* aStart)
 {
   NS_ASSERTION(mChunkState.hashSize == PREFIX_SIZE,
                "ProcessHostAdd should only be called for prefix hashes.");
@@ -584,8 +589,10 @@ ProtocolParserV2::ProcessHostAdd(const Prefix& aDomain, uint8_t aNumEntries,
 }
 
 nsresult
-ProtocolParserV2::ProcessHostSub(const Prefix& aDomain, uint8_t aNumEntries,
-                               const nsACString& aChunk, uint32_t *aStart)
+ProtocolParserV2::ProcessHostSub(const Prefix& aDomain,
+                                 uint8_t aNumEntries,
+                                 const nsACString& aChunk,
+                                 uint32_t* aStart)
 {
   NS_ASSERTION(mChunkState.hashSize == PREFIX_SIZE,
                "ProcessHostSub should only be called for prefix hashes.");
@@ -604,7 +611,8 @@ ProtocolParserV2::ProcessHostSub(const Prefix& aDomain, uint8_t aNumEntries,
     addChunk = PR_ntohl(addChunk);
 
     PARSER_LOG(("Sub prefix (addchunk=%u)", addChunk));
-    nsresult rv = mTableUpdate->NewSubPrefix(addChunk, aDomain, mChunkState.num);
+    nsresult rv =
+        mTableUpdate->NewSubPrefix(addChunk, aDomain, mChunkState.num);
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -640,10 +648,12 @@ ProtocolParserV2::ProcessHostSub(const Prefix& aDomain, uint8_t aNumEntries,
 
 nsresult
 ProtocolParserV2::ProcessHostAddComplete(uint8_t aNumEntries,
-                                       const nsACString& aChunk, uint32_t* aStart)
+                                         const nsACString& aChunk,
+                                         uint32_t* aStart)
 {
-  NS_ASSERTION(mChunkState.hashSize == COMPLETE_SIZE,
-               "ProcessHostAddComplete should only be called for complete hashes.");
+  NS_ASSERTION(
+      mChunkState.hashSize == COMPLETE_SIZE,
+      "ProcessHostAddComplete should only be called for complete hashes.");
 
   if (aNumEntries == 0) {
     // this is totally comprehensible.
@@ -672,10 +682,12 @@ ProtocolParserV2::ProcessHostAddComplete(uint8_t aNumEntries,
 
 nsresult
 ProtocolParserV2::ProcessHostSubComplete(uint8_t aNumEntries,
-                                       const nsACString& aChunk, uint32_t* aStart)
+                                         const nsACString& aChunk,
+                                         uint32_t* aStart)
 {
-  NS_ASSERTION(mChunkState.hashSize == COMPLETE_SIZE,
-               "ProcessHostSubComplete should only be called for complete hashes.");
+  NS_ASSERTION(
+      mChunkState.hashSize == COMPLETE_SIZE,
+      "ProcessHostSubComplete should only be called for complete hashes.");
 
   if (aNumEntries == 0) {
     // this is totally comprehensible.
@@ -730,13 +742,9 @@ ProtocolParserV2::CreateTableUpdate(const nsACString& aTableName) const
 ///////////////////////////////////////////////////////////////////////
 // ProtocolParserProtobuf
 
-ProtocolParserProtobuf::ProtocolParserProtobuf()
-{
-}
+ProtocolParserProtobuf::ProtocolParserProtobuf() {}
 
-ProtocolParserProtobuf::~ProtocolParserProtobuf()
-{
-}
+ProtocolParserProtobuf::~ProtocolParserProtobuf() {}
 
 void
 ProtocolParserProtobuf::SetCurrentTable(const nsACString& aTable)
@@ -744,7 +752,6 @@ ProtocolParserProtobuf::SetCurrentTable(const nsACString& aTable)
   // Should never occur.
   MOZ_ASSERT_UNREACHABLE("SetCurrentTable shouldn't be called");
 }
-
 
 TableUpdate*
 ProtocolParserProtobuf::CreateTableUpdate(const nsACString& aTableName) const
@@ -774,8 +781,8 @@ ProtocolParserProtobuf::End()
   }
 
   auto minWaitDuration = response.minimum_wait_duration();
-  mUpdateWaitSec = minWaitDuration.seconds() +
-                   minWaitDuration.nanos() / 1000000000;
+  mUpdateWaitSec =
+      minWaitDuration.seconds() + minWaitDuration.nanos() / 1000000000;
 
   for (int i = 0; i < response.list_update_responses_size(); i++) {
     auto r = response.list_update_responses(i);
@@ -793,13 +800,14 @@ ProtocolParserProtobuf::ProcessOneResponse(const ListUpdateResponse& aResponse)
 {
   // A response must have a threat type.
   if (!aResponse.has_threat_type()) {
-    NS_WARNING("Threat type not initialized. This seems to be an invalid response.");
+    NS_WARNING(
+        "Threat type not initialized. This seems to be an invalid response.");
     return NS_ERROR_FAILURE;
   }
 
   // Convert threat type to list name.
   nsCOMPtr<nsIUrlClassifierUtils> urlUtil =
-    do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID);
+      do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID);
   nsCString possibleListNames;
   nsresult rv = urlUtil->ConvertThreatTypeToListNames(aResponse.threat_type(),
                                                       possibleListNames);
@@ -823,15 +831,15 @@ ProtocolParserProtobuf::ProcessOneResponse(const ListUpdateResponse& aResponse)
   }
 
   if (listName.IsEmpty()) {
-    PARSER_LOG(("We received an update for a list we didn't ask for. Ignoring it."));
+    PARSER_LOG(
+        ("We received an update for a list we didn't ask for. Ignoring it."));
     return NS_ERROR_FAILURE;
   }
 
   // Test if this is a full update.
   bool isFullUpdate = false;
   if (aResponse.has_response_type()) {
-    isFullUpdate =
-      aResponse.response_type() == ListUpdateResponse::FULL_UPDATE;
+    isFullUpdate = aResponse.response_type() == ListUpdateResponse::FULL_UPDATE;
   } else {
     NS_WARNING("Response type not initialized.");
     return NS_ERROR_FAILURE;
@@ -855,15 +863,18 @@ ProtocolParserProtobuf::ProcessOneResponse(const ListUpdateResponse& aResponse)
     tuV4->NewChecksum(aResponse.checksum().sha256());
   }
 
-  PARSER_LOG(("==== Update for threat type '%d' ====", aResponse.threat_type()));
+  PARSER_LOG(
+      ("==== Update for threat type '%d' ====", aResponse.threat_type()));
   PARSER_LOG(("* listName: %s\n", listName.get()));
   PARSER_LOG(("* newState: %s\n", aResponse.new_client_state().c_str()));
   PARSER_LOG(("* isFullUpdate: %s\n", (isFullUpdate ? "yes" : "no")));
-  PARSER_LOG(("* hasChecksum: %s\n", (aResponse.has_checksum() ? "yes" : "no")));
+  PARSER_LOG(
+      ("* hasChecksum: %s\n", (aResponse.has_checksum() ? "yes" : "no")));
 
   tuV4->SetFullUpdate(isFullUpdate);
 
-  rv = ProcessAdditionOrRemoval(*tuV4, aResponse.additions(), true /*aIsAddition*/);
+  rv = ProcessAdditionOrRemoval(
+      *tuV4, aResponse.additions(), true /*aIsAddition*/);
   NS_ENSURE_SUCCESS(rv, rv);
   rv = ProcessAdditionOrRemoval(*tuV4, aResponse.removals(), false);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -874,9 +885,10 @@ ProtocolParserProtobuf::ProcessOneResponse(const ListUpdateResponse& aResponse)
 }
 
 nsresult
-ProtocolParserProtobuf::ProcessAdditionOrRemoval(TableUpdateV4& aTableUpdate,
-                                                 const ThreatEntrySetList& aUpdate,
-                                                 bool aIsAddition)
+ProtocolParserProtobuf::ProcessAdditionOrRemoval(
+    TableUpdateV4& aTableUpdate,
+    const ThreatEntrySetList& aUpdate,
+    bool aIsAddition)
 {
   nsresult ret = NS_OK;
 
@@ -884,24 +896,25 @@ ProtocolParserProtobuf::ProcessAdditionOrRemoval(TableUpdateV4& aTableUpdate,
     auto update = aUpdate.Get(i);
     if (!update.has_compression_type()) {
       NS_WARNING(nsPrintfCString("%s with no compression type.",
-                                  aIsAddition ? "Addition" : "Removal").get());
+                                 aIsAddition ? "Addition" : "Removal")
+                     .get());
       continue;
     }
 
     switch (update.compression_type()) {
-    case COMPRESSION_TYPE_UNSPECIFIED:
-      NS_WARNING("Unspecified compression type.");
-      break;
+      case COMPRESSION_TYPE_UNSPECIFIED:
+        NS_WARNING("Unspecified compression type.");
+        break;
 
-    case RAW:
-      ret = (aIsAddition ? ProcessRawAddition(aTableUpdate, update)
-                         : ProcessRawRemoval(aTableUpdate, update));
-      break;
+      case RAW:
+        ret = (aIsAddition ? ProcessRawAddition(aTableUpdate, update)
+                           : ProcessRawRemoval(aTableUpdate, update));
+        break;
 
-    case RICE:
-      ret = (aIsAddition ? ProcessEncodedAddition(aTableUpdate, update)
-                         : ProcessEncodedRemoval(aTableUpdate, update));
-      break;
+      case RICE:
+        ret = (aIsAddition ? ProcessEncodedAddition(aTableUpdate, update)
+                           : ProcessEncodedRemoval(aTableUpdate, update));
+        break;
     }
   }
 
@@ -938,7 +951,8 @@ ProtocolParserProtobuf::ProcessRawAddition(TableUpdateV4& aTableUpdate,
   }
 
   if (!rawHashes.mutable_raw_hashes()) {
-    PARSER_LOG(("Unable to get mutable raw hashes. Can't perform a string move."));
+    PARSER_LOG(
+        ("Unable to get mutable raw hashes. Can't perform a string move."));
     return NS_ERROR_FAILURE;
   }
 
@@ -994,7 +1008,8 @@ DoRiceDeltaDecode(const RiceDeltaEncoding& aEncoding,
   // Set up the input buffer. Note that the bits should be read
   // from LSB to MSB so that we in-place reverse the bits before
   // feeding to the decoder.
-  auto encoded = const_cast<RiceDeltaEncoding&>(aEncoding).mutable_encoded_data();
+  auto encoded =
+      const_cast<RiceDeltaEncoding&>(aEncoding).mutable_encoded_data();
   RiceDeltaDecoder decoder((uint8_t*)encoded->c_str(), encoded->size());
 
   // Setup the output buffer. The "first value" is included in
@@ -1002,10 +1017,11 @@ DoRiceDeltaDecode(const RiceDeltaEncoding& aEncoding,
   aDecoded.SetLength(aEncoding.num_entries() + 1);
 
   // Decode!
-  bool rv = decoder.Decode(aEncoding.rice_parameter(),
-                           aEncoding.first_value(), // first value.
-                           aEncoding.num_entries(), // # of entries (first value not included).
-                           &aDecoded[0]);
+  bool rv = decoder.Decode(
+      aEncoding.rice_parameter(),
+      aEncoding.first_value(),  // first value.
+      aEncoding.num_entries(),  // # of entries (first value not included).
+      &aDecoded[0]);
 
   NS_ENSURE_TRUE(rv, NS_ERROR_FAILURE);
 
@@ -1109,5 +1125,5 @@ ProtocolParserProtobuf::ProcessEncodedRemoval(TableUpdateV4& aTableUpdate,
   return NS_OK;
 }
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla

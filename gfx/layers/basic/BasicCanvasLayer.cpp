@@ -5,12 +5,12 @@
 
 #include "BasicCanvasLayer.h"
 #include "AsyncCanvasRenderer.h"
-#include "basic/BasicLayers.h"          // for BasicLayerManager
-#include "basic/BasicLayersImpl.h"      // for GetEffectiveOperator
+#include "basic/BasicLayers.h"      // for BasicLayerManager
+#include "basic/BasicLayersImpl.h"  // for GetEffectiveOperator
 #include "CopyableCanvasRenderer.h"
-#include "mozilla/mozalloc.h"           // for operator new
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsISupportsImpl.h"            // for Layer::AddRef, etc
+#include "mozilla/mozalloc.h"  // for operator new
+#include "nsCOMPtr.h"          // for already_AddRefed
+#include "nsISupportsImpl.h"   // for Layer::AddRef, etc
 #include "gfx2DGlue.h"
 #include "GLScreenBuffer.h"
 #include "GLContext.h"
@@ -31,11 +31,11 @@ BasicCanvasLayer::Paint(DrawTarget* aDT,
                         const Point& aDeviceOffset,
                         Layer* aMaskLayer)
 {
-  if (IsHidden())
-    return;
+  if (IsHidden()) return;
 
   RefPtr<SourceSurface> surface;
-  CopyableCanvasRenderer* canvasRenderer = mCanvasRenderer->AsCopyableCanvasRenderer();
+  CopyableCanvasRenderer* canvasRenderer =
+      mCanvasRenderer->AsCopyableCanvasRenderer();
   MOZ_ASSERT(canvasRenderer);
   if (IsDirty()) {
     Painted();
@@ -44,7 +44,8 @@ BasicCanvasLayer::Paint(DrawTarget* aDT,
   }
 
   bool bufferPoviderSnapshot = false;
-  PersistentBufferProvider* bufferProvider = canvasRenderer->GetBufferProvider();
+  PersistentBufferProvider* bufferProvider =
+      canvasRenderer->GetBufferProvider();
   if (!surface && bufferProvider) {
     surface = bufferProvider->BorrowSnapshot();
     bufferPoviderSnapshot = !!surface;
@@ -57,16 +58,19 @@ BasicCanvasLayer::Paint(DrawTarget* aDT,
   Matrix oldTM;
   if (canvasRenderer->NeedsYFlip()) {
     oldTM = aDT->GetTransform();
-    aDT->SetTransform(Matrix(oldTM).
-                      PreTranslate(0.0f, mBounds.Height()).
-                        PreScale(1.0f, -1.0f));
+    aDT->SetTransform(Matrix(oldTM)
+                          .PreTranslate(0.0f, mBounds.Height())
+                          .PreScale(1.0f, -1.0f));
   }
 
-  FillRectWithMask(aDT, aDeviceOffset,
-                   Rect(0, 0, mBounds.Width(), mBounds.Height()),
-                   surface, mSamplingFilter,
-                   DrawOptions(GetEffectiveOpacity(), GetEffectiveOperator(this)),
-                   aMaskLayer);
+  FillRectWithMask(
+      aDT,
+      aDeviceOffset,
+      Rect(0, 0, mBounds.Width(), mBounds.Height()),
+      surface,
+      mSamplingFilter,
+      DrawOptions(GetEffectiveOpacity(), GetEffectiveOperator(this)),
+      aMaskLayer);
 
   if (canvasRenderer->NeedsYFlip()) {
     aDT->SetTransform(oldTM);
@@ -91,5 +95,5 @@ BasicLayerManager::CreateCanvasLayer()
   return layer.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

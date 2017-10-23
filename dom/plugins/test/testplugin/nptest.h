@@ -43,10 +43,7 @@
 #include <string>
 #include <sstream>
 
-typedef enum  {
-  DM_DEFAULT,
-  DM_SOLID_COLOR
-} DrawMode;
+typedef enum { DM_DEFAULT, DM_SOLID_COLOR } DrawMode;
 
 typedef enum {
   FUNCTION_NONE,
@@ -61,11 +58,7 @@ typedef enum {
   FUNCTION_NPP_WRITE_RPC
 } TestFunction;
 
-typedef enum {
-  AD_NONE,
-  AD_BITMAP,
-  AD_DXGI
-} AsyncDrawing;
+typedef enum { AD_NONE, AD_BITMAP, AD_DXGI } AsyncDrawing;
 
 typedef enum {
   ACTIVATION_STATE_UNKNOWN,
@@ -73,25 +66,25 @@ typedef enum {
   ACTIVATION_STATE_DEACTIVATED
 } ActivationState;
 
-typedef struct FunctionTable {
+typedef struct FunctionTable
+{
   TestFunction funcId;
   const char* funcName;
 } FunctionTable;
 
-typedef enum {
-  POSTMODE_FRAME,
-  POSTMODE_STREAM
-} PostMode;
+typedef enum { POSTMODE_FRAME, POSTMODE_STREAM } PostMode;
 
-typedef struct TestNPObject : NPObject {
+typedef struct TestNPObject : NPObject
+{
   NPP npp;
   DrawMode drawMode;
-  uint32_t drawColor; // 0xAARRGGBB
+  uint32_t drawColor;  // 0xAARRGGBB
 } TestNPObject;
 
 typedef struct _PlatformData PlatformData;
 
-typedef struct InstanceData {
+typedef struct InstanceData
+{
   NPP npp;
   NPWindow window;
   TestNPObject* scriptableObject;
@@ -143,18 +136,21 @@ typedef struct InstanceData {
   int32_t bugMode;
   std::string javaCodebase;
   AsyncDrawing asyncDrawing;
-  NPAsyncSurface *frontBuffer;
-  NPAsyncSurface *backBuffer;
+  NPAsyncSurface* frontBuffer;
+  NPAsyncSurface* backBuffer;
   std::string lastComposition;
   void* placeholderWnd;
   double cssZoomFactor;
 } InstanceData;
 
-void notifyDidPaint(InstanceData* instanceData);
+void
+notifyDidPaint(InstanceData* instanceData);
 
 #if defined(XP_WIN)
-bool setupDxgiSurfaces(NPP npp, InstanceData* instanceData);
-void drawDxgiBitmapColor(InstanceData* instanceData);
+bool
+setupDxgiSurfaces(NPP npp, InstanceData* instanceData);
+void
+drawDxgiBitmapColor(InstanceData* instanceData);
 #endif
 
-#endif // nptest_h_
+#endif  // nptest_h_

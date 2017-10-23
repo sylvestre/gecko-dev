@@ -27,7 +27,7 @@
 #endif
 
 extern mozilla::LazyLogModule gWifiMonitorLog;
-#define LOG(args)     MOZ_LOG(gWifiMonitorLog, mozilla::LogLevel::Debug, args)
+#define LOG(args) MOZ_LOG(gWifiMonitorLog, mozilla::LogLevel::Debug, args)
 
 class nsWifiAccessPoint;
 
@@ -36,7 +36,6 @@ class nsWifiAccessPoint;
 class nsWifiListener
 {
  public:
-
   explicit nsWifiListener(nsMainThreadPtrHolder<nsIWifiListener>* aListener)
   {
     mListener = aListener;
@@ -63,7 +62,7 @@ class nsWifiMonitor final : nsIRunnable, nsIWifiMonitor, nsIObserver
 
   nsresult DoScan();
 
-  nsresult CallWifiListeners(const nsCOMArray<nsWifiAccessPoint> &aAccessPoints,
+  nsresult CallWifiListeners(const nsCOMArray<nsWifiAccessPoint>& aAccessPoints,
                              bool aAccessPointsChanged);
 
   mozilla::Atomic<bool> mKeepGoing;

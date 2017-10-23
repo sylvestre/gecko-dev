@@ -25,28 +25,31 @@ namespace mozilla {
 // of AnimationCollection as a property on an Element (e.g. which atom
 // to use when storing an AnimationCollection<CSSAnimation> for a ::before
 // pseudo-element).
-template <class AnimationType>
-struct AnimationTypeTraits { };
+template<class AnimationType>
+struct AnimationTypeTraits
+{
+};
 
-template <class AnimationType>
+template<class AnimationType>
 class AnimationCollection
-  : public LinkedListElement<AnimationCollection<AnimationType>>
+    : public LinkedListElement<AnimationCollection<AnimationType>>
 {
   typedef AnimationCollection<AnimationType> SelfType;
   typedef AnimationTypeTraits<AnimationType> TraitsType;
 
   AnimationCollection(dom::Element* aElement, nsAtom* aElementProperty)
-    : mElement(aElement)
-    , mElementProperty(aElementProperty)
-    , mCheckGeneration(0)
+      : mElement(aElement),
+        mElementProperty(aElementProperty),
+        mCheckGeneration(0)
 #ifdef DEBUG
-    , mCalledPropertyDtor(false)
+        ,
+        mCalledPropertyDtor(false)
 #endif
   {
     MOZ_COUNT_CTOR(AnimationCollection);
   }
 
-public:
+ public:
   ~AnimationCollection()
   {
     MOZ_ASSERT(mCalledPropertyDtor,
@@ -61,21 +64,22 @@ public:
     mElement->DeleteProperty(mElementProperty);
   }
 
-  static void PropertyDtor(void *aObject, nsAtom *aPropertyName,
-                           void *aPropertyValue, void *aData);
+  static void PropertyDtor(void* aObject,
+                           nsAtom* aPropertyName,
+                           void* aPropertyValue,
+                           void* aData);
 
   // Get the collection of animations for the given |aElement| and
   // |aPseudoType|.
-  static AnimationCollection<AnimationType>*
-    GetAnimationCollection(const dom::Element* aElement,
-                           CSSPseudoElementType aPseudoType);
+  static AnimationCollection<AnimationType>* GetAnimationCollection(
+      const dom::Element* aElement, CSSPseudoElementType aPseudoType);
 
   // Given the frame |aFrame| with possibly animated content, finds its
   // associated collection of animations. If |aFrame| is a generated content
   // frame, this function may examine the parent frame to search for such
   // animations.
   static AnimationCollection<AnimationType>* GetAnimationCollection(
-    const nsIFrame* aFrame);
+      const nsIFrame* aFrame);
 
   // Get the collection of animations for the given |aElement| and
   // |aPseudoType| or create it if it does not already exist.
@@ -83,18 +87,18 @@ public:
   // We'll set the outparam |aCreatedCollection| to true if we have
   // to create the collection and we successfully do so. Otherwise,
   // we'll set it to false.
-  static AnimationCollection<AnimationType>*
-    GetOrCreateAnimationCollection(dom::Element* aElement,
-                                   CSSPseudoElementType aPseudoType,
-                                   bool* aCreatedCollection);
+  static AnimationCollection<AnimationType>* GetOrCreateAnimationCollection(
+      dom::Element* aElement,
+      CSSPseudoElementType aPseudoType,
+      bool* aCreatedCollection);
 
   static nsString PseudoTypeAsString(CSSPseudoElementType aPseudoType);
 
-  dom::Element *mElement;
+  dom::Element* mElement;
 
   // the atom we use in mElement's prop table (must be a static atom,
   // i.e., in an atom list)
-  nsAtom *mElementProperty;
+  nsAtom* mElementProperty;
 
   InfallibleTArray<RefPtr<AnimationType>> mAnimations;
 
@@ -108,15 +112,14 @@ public:
   // Update mCheckGeneration to RestyleManager's count
   void UpdateCheckGeneration(nsPresContext* aPresContext);
 
-private:
-  static nsAtom* GetPropertyAtomForPseudoType(
-    CSSPseudoElementType aPseudoType);
+ private:
+  static nsAtom* GetPropertyAtomForPseudoType(CSSPseudoElementType aPseudoType);
 
 #ifdef DEBUG
   bool mCalledPropertyDtor;
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AnimationCollection_h
+#endif  // mozilla_AnimationCollection_h

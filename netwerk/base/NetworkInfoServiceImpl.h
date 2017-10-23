@@ -12,7 +12,8 @@ namespace net {
 
 typedef nsDataHashtable<nsCStringHashKey, nsCString> AddrMapType;
 
-nsresult DoListAddresses(AddrMapType& aAddrMap);
+nsresult
+DoListAddresses(AddrMapType& aAddrMap);
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

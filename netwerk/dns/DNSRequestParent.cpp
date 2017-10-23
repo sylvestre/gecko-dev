@@ -19,23 +19,15 @@ using namespace mozilla::ipc;
 namespace mozilla {
 namespace net {
 
-DNSRequestParent::DNSRequestParent()
-  : mFlags(0)
-  , mIPCClosed(false)
-{
+DNSRequestParent::DNSRequestParent() : mFlags(0), mIPCClosed(false) {}
 
-}
-
-DNSRequestParent::~DNSRequestParent()
-{
-
-}
+DNSRequestParent::~DNSRequestParent() {}
 
 void
-DNSRequestParent::DoAsyncResolve(const nsACString &hostname,
-                                 const OriginAttributes &originAttributes,
+DNSRequestParent::DoAsyncResolve(const nsACString& hostname,
+                                 const OriginAttributes& originAttributes,
                                  uint32_t flags,
-                                 const nsACString &networkInterface)
+                                 const nsACString& networkInterface)
 {
   nsresult rv;
   mFlags = flags;
@@ -43,9 +35,12 @@ DNSRequestParent::DoAsyncResolve(const nsACString &hostname,
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIEventTarget> main = GetMainThreadEventTarget();
     nsCOMPtr<nsICancelable> unused;
-    rv = dns->AsyncResolveExtendedNative(hostname, flags,
-                                         networkInterface, this,
-                                         main, originAttributes,
+    rv = dns->AsyncResolveExtendedNative(hostname,
+                                         flags,
+                                         networkInterface,
+                                         this,
+                                         main,
+                                         originAttributes,
                                          getter_AddRefs(unused));
   }
 
@@ -65,10 +60,8 @@ DNSRequestParent::RecvCancelDNSRequest(const nsCString& hostName,
   nsresult rv;
   nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID, &rv);
   if (NS_SUCCEEDED(rv)) {
-    rv = dns->CancelAsyncResolveExtendedNative(hostName, flags,
-                                               networkInterface,
-                                               this, reason,
-                                               originAttributes);
+    rv = dns->CancelAsyncResolveExtendedNative(
+        hostName, flags, networkInterface, this, reason, originAttributes);
   }
   return IPC_OK();
 }
@@ -92,17 +85,16 @@ DNSRequestParent::ActorDestroy(ActorDestroyReason why)
 // DNSRequestParent::nsISupports
 //-----------------------------------------------------------------------------
 
-NS_IMPL_ISUPPORTS(DNSRequestParent,
-                  nsIDNSListener)
+NS_IMPL_ISUPPORTS(DNSRequestParent, nsIDNSListener)
 
 //-----------------------------------------------------------------------------
 // nsIDNSListener functions
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-DNSRequestParent::OnLookupComplete(nsICancelable *request,
-                                   nsIDNSRecord  *rec,
-                                   nsresult       status)
+DNSRequestParent::OnLookupComplete(nsICancelable* request,
+                                   nsIDNSRecord* rec,
+                                   nsresult status)
 {
   if (mIPCClosed) {
     // nothing to do: child probably crashed
@@ -133,7 +125,5 @@ DNSRequestParent::OnLookupComplete(nsICancelable *request,
   return NS_OK;
 }
 
-
-
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

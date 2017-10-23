@@ -37,7 +37,7 @@ class WaitForThreadShutdown;
  */
 class NS_NO_VTABLE nsPACManCallback : public nsISupports
 {
-public:
+ public:
   /**
    * This method is invoked on the same thread that called AsyncGetProxyForURI.
    *
@@ -52,35 +52,36 @@ public:
    *        newPACURL should be 0 length.
    */
   virtual void OnQueryComplete(nsresult status,
-                               const nsCString &pacString,
-                               const nsCString &newPACURL) = 0;
+                               const nsCString& pacString,
+                               const nsCString& newPACURL) = 0;
 };
 
 class PendingPACQuery final : public Runnable,
                               public LinkedListElement<PendingPACQuery>
 {
-public:
-  PendingPACQuery(nsPACMan *pacMan, nsIURI *uri,
-                  nsPACManCallback *callback,
+ public:
+  PendingPACQuery(nsPACMan* pacMan,
+                  nsIURI* uri,
+                  nsPACManCallback* callback,
                   bool mainThreadResponse);
 
   // can be called from either thread
-  void Complete(nsresult status, const nsCString &pacString);
-  void UseAlternatePACFile(const nsCString &pacURL);
+  void Complete(nsresult status, const nsCString& pacString);
+  void UseAlternatePACFile(const nsCString& pacURL);
 
-  nsCString                  mSpec;
-  nsCString                  mScheme;
-  nsCString                  mHost;
-  int32_t                    mPort;
+  nsCString mSpec;
+  nsCString mScheme;
+  nsCString mHost;
+  int32_t mPort;
 
-  NS_IMETHOD Run(void);     /* Runnable */
+  NS_IMETHOD Run(void); /* Runnable */
 
-private:
-  nsPACMan                  *mPACMan;  // weak reference
+ private:
+  nsPACMan* mPACMan;  // weak reference
 
-private:
+ private:
   RefPtr<nsPACManCallback> mCallback;
-  bool                       mOnMainThreadOnly;
+  bool mOnMainThreadOnly;
 };
 
 /**
@@ -88,15 +89,15 @@ private:
  * defined on this class are intended to be called on the main thread only.
  */
 
-class nsPACMan final : public nsIStreamLoaderObserver
-                     , public nsIInterfaceRequestor
-                     , public nsIChannelEventSink
-                     , public NeckoTargetHolder
+class nsPACMan final : public nsIStreamLoaderObserver,
+                       public nsIInterfaceRequestor,
+                       public nsIChannelEventSink,
+                       public NeckoTargetHolder
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-  explicit nsPACMan(nsIEventTarget *mainThreadEventTarget);
+  explicit nsPACMan(nsIEventTarget* mainThreadEventTarget);
 
   /**
    * This method may be called to shutdown the PAC manager.  Any async queries
@@ -118,8 +119,8 @@ public:
    * @param mustCallbackOnMainThread
    *        If set to false the callback can be made from the PAC thread
    */
-  nsresult AsyncGetProxyForURI(nsIURI *uri,
-                               nsPACManCallback *callback,
+  nsresult AsyncGetProxyForURI(nsIURI* uri,
+                               nsPACManCallback* callback,
                                bool mustCallbackOnMainThread);
 
   /**
@@ -131,7 +132,7 @@ public:
    *        The non normalized uri spec of this URI used for comparison with
    *        system proxy settings to determine if the PAC uri has changed.
    */
-  nsresult LoadPACFromURI(const nsCString &pacSpec);
+  nsresult LoadPACFromURI(const nsCString& pacSpec);
 
   /**
    * Returns true if we are currently loading the PAC file.
@@ -146,13 +147,14 @@ public:
    * should bypass the proxy (to fetch the pac file) or if the pac
    * configuration has changed (and we should reload the pac file)
    */
-  bool IsPACURI(const nsACString &spec)
+  bool IsPACURI(const nsACString& spec)
   {
     return mPACURISpec.Equals(spec) || mPACURIRedirectSpec.Equals(spec) ||
-      mNormalPACURISpec.Equals(spec);
+           mNormalPACURISpec.Equals(spec);
   }
 
-  bool IsPACURI(nsIURI *uri) {
+  bool IsPACURI(nsIURI* uri)
+  {
     if (mPACURISpec.IsEmpty() && mPACURIRedirectSpec.IsEmpty()) {
       return false;
     }
@@ -166,14 +168,14 @@ public:
     return IsPACURI(tmp);
   }
 
-  nsresult Init(nsISystemProxySettings *);
-  static nsPACMan *sInstance;
+  nsresult Init(nsISystemProxySettings*);
+  static nsPACMan* sInstance;
 
   // PAC thread operations only
   void ProcessPendingQ();
   void CancelPendingQ(nsresult);
 
-private:
+ private:
   NS_DECL_NSISTREAMLOADEROBSERVER
   NS_DECL_NSIINTERFACEREQUESTOR
   NS_DECL_NSICHANNELEVENTSINK
@@ -210,16 +212,16 @@ private:
    * place a pendingPACQuery into the queue and potentially
    * execute the queue if it was otherwise empty
    */
-  nsresult PostQuery(PendingPACQuery *query);
+  nsresult PostQuery(PendingPACQuery* query);
 
   // PAC thread operations only
   void PostProcessPendingQ();
   void PostCancelPendingQ(nsresult);
   bool ProcessPending();
 
-private:
+ private:
   ProxyAutoConfig mPAC;
-  nsCOMPtr<nsIThread>           mPACThread;
+  nsCOMPtr<nsIThread> mPACThread;
   nsCOMPtr<nsISystemProxySettings> mSystemProxySettings;
 
   LinkedList<PendingPACQuery> mPendingQ; /* pac thread only */
@@ -227,23 +229,23 @@ private:
   // These specs are not nsIURI so that they can be used off the main thread.
   // The non-normalized versions are directly from the configuration, the
   // normalized version has been extracted from an nsIURI
-  nsCString                    mPACURISpec;
-  nsCString                    mPACURIRedirectSpec;
-  nsCString                    mNormalPACURISpec;
+  nsCString mPACURISpec;
+  nsCString mPACURIRedirectSpec;
+  nsCString mNormalPACURISpec;
 
-  nsCOMPtr<nsIStreamLoader>    mLoader;
-  bool                         mLoadPending;
-  Atomic<bool, Relaxed>        mShutdown;
-  TimeStamp                    mScheduledReload;
-  uint32_t                     mLoadFailureCount;
+  nsCOMPtr<nsIStreamLoader> mLoader;
+  bool mLoadPending;
+  Atomic<bool, Relaxed> mShutdown;
+  TimeStamp mScheduledReload;
+  uint32_t mLoadFailureCount;
 
-  bool                         mInProgress;
-  bool                         mIncludePath;
+  bool mInProgress;
+  bool mIncludePath;
 };
 
 extern LazyLogModule gProxyLog;
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif  // nsPACMan_h__

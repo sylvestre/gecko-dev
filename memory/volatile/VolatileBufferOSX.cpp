@@ -16,11 +16,11 @@
 namespace mozilla {
 
 VolatileBuffer::VolatileBuffer()
-  : mMutex("VolatileBuffer")
-  , mBuf(nullptr)
-  , mSize(0)
-  , mLockCount(0)
-  , mHeap(false)
+    : mMutex("VolatileBuffer"),
+      mBuf(nullptr),
+      mSize(0),
+      mLockCount(0),
+      mHeap(false)
 {
 }
 
@@ -28,7 +28,7 @@ bool
 VolatileBuffer::Init(size_t aSize, size_t aAlignment)
 {
   MOZ_ASSERT(!mSize && !mBuf, "Init called twice");
-  MOZ_ASSERT(!(aAlignment % sizeof(void *)),
+  MOZ_ASSERT(!(aAlignment % sizeof(void*)),
              "Alignment must be multiple of pointer size");
 
   mSize = aSize;
@@ -76,11 +76,8 @@ VolatileBuffer::Lock(void** aBuf)
   }
 
   int state = VM_PURGABLE_NONVOLATILE;
-  kern_return_t ret =
-    vm_purgable_control(mach_task_self(),
-                        (vm_address_t)mBuf,
-                        VM_PURGABLE_SET_STATE,
-                        &state);
+  kern_return_t ret = vm_purgable_control(
+      mach_task_self(), (vm_address_t)mBuf, VM_PURGABLE_SET_STATE, &state);
   return ret == KERN_SUCCESS && !(state & VM_PURGABLE_EMPTY);
 }
 
@@ -95,11 +92,8 @@ VolatileBuffer::Unlock()
   }
 
   int state = VM_PURGABLE_VOLATILE | VM_VOLATILE_GROUP_DEFAULT;
-  DebugOnly<kern_return_t> ret =
-    vm_purgable_control(mach_task_self(),
-                        (vm_address_t)mBuf,
-                        VM_PURGABLE_SET_STATE,
-                        &state);
+  DebugOnly<kern_return_t> ret = vm_purgable_control(
+      mach_task_self(), (vm_address_t)mBuf, VM_PURGABLE_SET_STATE, &state);
   MOZ_ASSERT(ret == KERN_SUCCESS, "Failed to set buffer as purgable");
 }
 
@@ -126,4 +120,4 @@ VolatileBuffer::NonHeapSizeOfExcludingThis() const
   return (mSize + pagemask) & ~pagemask;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

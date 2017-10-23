@@ -14,16 +14,16 @@ class nsDefaultURIFixupInfo;
 /* Header file */
 class nsDefaultURIFixup : public nsIURIFixup
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIURIFIXUP
 
   nsDefaultURIFixup();
 
-protected:
+ protected:
   virtual ~nsDefaultURIFixup();
 
-private:
+ private:
   /* additional members */
   nsresult FileURIFixup(const nsACString& aStringURI, nsIURI** aURI);
   nsresult ConvertFileToStringURI(const nsACString& aIn, nsCString& aResult);
@@ -44,7 +44,7 @@ private:
 
 class nsDefaultURIFixupInfo : public nsIURIFixupInfo
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIURIFIXUPINFO
 
@@ -52,10 +52,10 @@ public:
 
   friend class nsDefaultURIFixup;
 
-protected:
+ protected:
   virtual ~nsDefaultURIFixupInfo();
 
-private:
+ private:
   nsCOMPtr<nsISupports> mConsumer;
   nsCOMPtr<nsIURI> mPreferredURI;
   nsCOMPtr<nsIURI> mFixedURI;

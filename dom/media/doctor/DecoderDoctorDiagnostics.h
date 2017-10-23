@@ -14,8 +14,10 @@ class nsIDocument;
 
 namespace mozilla {
 
-struct DecoderDoctorEvent {
-  enum Domain {
+struct DecoderDoctorEvent
+{
+  enum Domain
+  {
     eAudioSinkStartup,
   } mDomain;
   nsresult mResult;
@@ -39,7 +41,7 @@ struct DecoderDoctorEvent {
 
 class DecoderDoctorDiagnostics
 {
-public:
+ public:
   // Store the diagnostic information collected so far on a document for a
   // given format. All diagnostics for a document will be analyzed together
   // within a short timeframe.
@@ -104,7 +106,8 @@ public:
 
   const nsAString& KeySystem() const { return mKeySystem; }
   bool IsKeySystemSupported() const { return mIsKeySystemSupported; }
-  enum KeySystemIssue {
+  enum KeySystemIssue
+  {
     eUnset,
     eWidevineWithNoWMF
   };
@@ -112,23 +115,14 @@ public:
   {
     mKeySystemIssue = aKeySystemIssue;
   }
-  KeySystemIssue GetKeySystemIssue() const
-  {
-    return mKeySystemIssue;
-  }
+  KeySystemIssue GetKeySystemIssue() const { return mKeySystemIssue; }
 
-  DecoderDoctorEvent event() const
-  {
-    return mEvent;
-  }
+  DecoderDoctorEvent event() const { return mEvent; }
 
   const MediaResult& DecodeIssue() const { return mDecodeIssue; }
-  const nsString& DecodeIssueMediaSrc() const
-  {
-    return mDecodeIssueMediaSrc;
-  }
+  const nsString& DecodeIssueMediaSrc() const { return mDecodeIssueMediaSrc; }
 
-private:
+ private:
   // Currently-known type of diagnostics. Set from one of the 'Store...' methods.
   // This helps ensure diagnostics are only stored once,
   // and makes it easy to know what information they contain.
@@ -155,6 +149,6 @@ private:
   nsString mDecodeIssueMediaSrc;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

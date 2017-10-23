@@ -16,24 +16,26 @@ namespace sandbox {
 namespace bpf_dsl {
 class Policy;
 }
-}
+}  // namespace sandbox
 
 namespace mozilla {
 
 #ifdef MOZ_CONTENT_SANDBOX
 class SandboxBrokerClient;
 
-UniquePtr<sandbox::bpf_dsl::Policy> GetContentSandboxPolicy(SandboxBrokerClient* aMaybeBroker,
-                                                            const std::vector<int>& aSyscallWhitelist);
+UniquePtr<sandbox::bpf_dsl::Policy>
+GetContentSandboxPolicy(SandboxBrokerClient* aMaybeBroker,
+                        const std::vector<int>& aSyscallWhitelist);
 #endif
 
 #ifdef MOZ_GMP_SANDBOX
 class SandboxOpenedFiles;
 
 // The SandboxOpenedFiles object must live until the process exits.
-UniquePtr<sandbox::bpf_dsl::Policy> GetMediaSandboxPolicy(const SandboxOpenedFiles* aFiles);
+UniquePtr<sandbox::bpf_dsl::Policy>
+GetMediaSandboxPolicy(const SandboxOpenedFiles* aFiles);
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

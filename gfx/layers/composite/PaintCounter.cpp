@@ -8,8 +8,8 @@
 #include "mozilla/gfx/Types.h"          // for Color, SurfaceFormat
 #include "mozilla/layers/Compositor.h"  // for Compositor
 #include "mozilla/layers/CompositorTypes.h"
-#include "mozilla/layers/Effects.h"     // for Effect, EffectChain, etc
-#include "mozilla/TimeStamp.h"          // for TimeStamp, TimeDuration
+#include "mozilla/layers/Effects.h"  // for Effect, EffectChain, etc
+#include "mozilla/TimeStamp.h"       // for TimeStamp, TimeDuration
 #include "mozilla/Sprintf.h"
 
 #include "mozilla/gfx/HelpersSkia.h"
@@ -29,9 +29,8 @@ PaintCounter::PaintCounter()
   mSurface = Factory::CreateDataSourceSurface(mRect.Size(), mFormat);
   mStride = mSurface->Stride();
 
-  mCanvas =
-    SkCanvas::MakeRasterDirect(MakeSkiaImageInfo(mRect.Size(), mFormat),
-                              mSurface->GetData(), mStride);
+  mCanvas = SkCanvas::MakeRasterDirect(
+      MakeSkiaImageInfo(mRect.Size(), mFormat), mSurface->GetData(), mStride);
   mCanvas->clear(SK_ColorWHITE);
 }
 
@@ -43,9 +42,13 @@ PaintCounter::~PaintCounter()
 }
 
 void
-PaintCounter::Draw(Compositor* aCompositor, TimeDuration aPaintTime, TimeDuration aCompositeTime) {
+PaintCounter::Draw(Compositor* aCompositor,
+                   TimeDuration aPaintTime,
+                   TimeDuration aCompositeTime)
+{
   char buffer[48];
-  SprintfLiteral(buffer, "P: %.2f  C: %.2f",
+  SprintfLiteral(buffer,
+                 "P: %.2f  C: %.2f",
                  aPaintTime.ToMilliseconds(),
                  aCompositeTime.ToMilliseconds());
 
@@ -60,8 +63,8 @@ PaintCounter::Draw(Compositor* aCompositor, TimeDuration aPaintTime, TimeDuratio
 
   if (!mTextureSource) {
     mTextureSource = aCompositor->CreateDataTextureSource();
-    mTexturedEffect = CreateTexturedEffect(mFormat, mTextureSource,
-                                           SamplingFilter::POINT, true);
+    mTexturedEffect = CreateTexturedEffect(
+        mFormat, mTextureSource, SamplingFilter::POINT, true);
     mTexturedEffect->mTextureCoords = Rect(0, 0, 1.0f, 1.0f);
   }
 
@@ -75,5 +78,5 @@ PaintCounter::Draw(Compositor* aCompositor, TimeDuration aPaintTime, TimeDuratio
   aCompositor->DrawQuad(rect, mRect, effectChain, 1.0, identity);
 }
 
-} // end namespace layers
-} // end namespace mozilla
+}  // end namespace layers
+}  // end namespace mozilla

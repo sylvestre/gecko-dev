@@ -26,13 +26,13 @@ class GpsdLocationProvider final : public nsIGeolocationProvider
   class PollRunnable;
   class UpdateRunnable;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIGEOLOCATIONPROVIDER
 
   GpsdLocationProvider();
 
-private:
+ private:
   ~GpsdLocationProvider();
 
   void Update(nsIDOMGeoPosition* aPosition);
@@ -46,7 +46,7 @@ private:
   RefPtr<MLSFallback> mMLSProvider;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* GpsLocationProvider_h */

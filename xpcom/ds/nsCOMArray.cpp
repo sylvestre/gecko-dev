@@ -18,7 +18,8 @@ template<>
 class nsTArrayElementTraits<nsISupports*>
 {
   typedef nsISupports* E;
-public:
+
+ public:
   // Zero out the value
   static inline void Construct(E* aE)
   {
@@ -31,13 +32,11 @@ public:
     new (mozilla::KnownNotNull, static_cast<void*>(aE)) E(aArg);
   }
   // Invoke the destructor in place.
-  static inline void Destruct(E* aE)
-  {
-    aE->~E();
-  }
+  static inline void Destruct(E* aE) { aE->~E(); }
 };
 
-static void ReleaseObjects(nsTArray<nsISupports*>& aArray);
+static void
+ReleaseObjects(nsTArray<nsISupports*>& aArray);
 
 // implementations of non-trivial methods in nsCOMArray_base
 
@@ -48,10 +47,7 @@ nsCOMArray_base::nsCOMArray_base(const nsCOMArray_base& aOther)
   AppendObjects(aOther);
 }
 
-nsCOMArray_base::~nsCOMArray_base()
-{
-  Clear();
-}
+nsCOMArray_base::~nsCOMArray_base() { Clear(); }
 
 int32_t
 nsCOMArray_base::IndexOf(nsISupports* aObject, uint32_t aStartIndex) const
@@ -93,9 +89,10 @@ nsCOMArray_base::EnumerateForwards(nsBaseArrayEnumFunc aFunc, void* aData) const
 }
 
 bool
-nsCOMArray_base::EnumerateBackwards(nsBaseArrayEnumFunc aFunc, void* aData) const
+nsCOMArray_base::EnumerateBackwards(nsBaseArrayEnumFunc aFunc,
+                                    void* aData) const
 {
-  for (uint32_t index = mArray.Length(); index--; ) {
+  for (uint32_t index = mArray.Length(); index--;) {
     if (!(*aFunc)(mArray[index], aData)) {
       return false;
     }
@@ -110,7 +107,7 @@ nsCOMArray_base::nsCOMArrayComparator(const void* aElement1,
                                       void* aData)
 {
   nsCOMArrayComparatorContext* ctx =
-    static_cast<nsCOMArrayComparatorContext*>(aData);
+      static_cast<nsCOMArrayComparatorContext*>(aData);
   return (*ctx->mComparatorFunc)(*static_cast<nsISupports* const*>(aElement1),
                                  *static_cast<nsISupports* const*>(aElement2),
                                  ctx->mData);
@@ -121,8 +118,11 @@ nsCOMArray_base::Sort(nsBaseArrayComparatorFunc aFunc, void* aData)
 {
   if (mArray.Length() > 1) {
     nsCOMArrayComparatorContext ctx = {aFunc, aData};
-    NS_QuickSort(mArray.Elements(), mArray.Length(), sizeof(nsISupports*),
-                 nsCOMArrayComparator, &ctx);
+    NS_QuickSort(mArray.Elements(),
+                 mArray.Length(),
+                 sizeof(nsISupports*),
+                 nsCOMArrayComparator,
+                 &ctx);
   }
 }
 
@@ -149,13 +149,15 @@ nsCOMArray_base::InsertElementAt(uint32_t aIndex, nsISupports* aElement)
 }
 
 void
-nsCOMArray_base::InsertElementAt(uint32_t aIndex, already_AddRefed<nsISupports> aElement)
+nsCOMArray_base::InsertElementAt(uint32_t aIndex,
+                                 already_AddRefed<nsISupports> aElement)
 {
   mArray.InsertElementAt(aIndex, aElement.take());
 }
 
 bool
-nsCOMArray_base::InsertObjectsAt(const nsCOMArray_base& aObjects, int32_t aIndex)
+nsCOMArray_base::InsertObjectsAt(const nsCOMArray_base& aObjects,
+                                 int32_t aIndex)
 {
   if ((uint32_t)aIndex > mArray.Length()) {
     return false;

@@ -14,14 +14,16 @@ namespace mozilla {
 namespace net {
 
 static LazyLogModule gChannelWrapperLog("ChannelWrapper");
-#define CHANNELWRAPPERLOG(args) MOZ_LOG(gChannelWrapperLog, LogLevel::Debug, args)
+#define CHANNELWRAPPERLOG(args) \
+  MOZ_LOG(gChannelWrapperLog, LogLevel::Debug, args)
 
 NS_IMPL_ADDREF(nsSecCheckWrapChannelBase)
 NS_IMPL_RELEASE(nsSecCheckWrapChannelBase)
 
 NS_INTERFACE_MAP_BEGIN(nsSecCheckWrapChannelBase)
   NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIHttpChannel, mHttpChannel)
-  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIHttpChannelInternal, mHttpChannelInternal)
+  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIHttpChannelInternal,
+                                     mHttpChannelInternal)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIHttpChannel)
   NS_INTERFACE_MAP_ENTRY(nsIRequest)
   NS_INTERFACE_MAP_ENTRY(nsIChannel)
@@ -35,26 +37,24 @@ NS_INTERFACE_MAP_END
 //---------------------------------------------------------
 
 nsSecCheckWrapChannelBase::nsSecCheckWrapChannelBase(nsIChannel* aChannel)
- : mChannel(aChannel)
- , mHttpChannel(do_QueryInterface(aChannel))
- , mHttpChannelInternal(do_QueryInterface(aChannel))
- , mRequest(do_QueryInterface(aChannel))
- , mUploadChannel(do_QueryInterface(aChannel))
- , mUploadChannel2(do_QueryInterface(aChannel))
+    : mChannel(aChannel),
+      mHttpChannel(do_QueryInterface(aChannel)),
+      mHttpChannelInternal(do_QueryInterface(aChannel)),
+      mRequest(do_QueryInterface(aChannel)),
+      mUploadChannel(do_QueryInterface(aChannel)),
+      mUploadChannel2(do_QueryInterface(aChannel))
 {
   MOZ_ASSERT(mChannel, "can not create a channel wrapper without a channel");
 }
 
-nsSecCheckWrapChannelBase::~nsSecCheckWrapChannelBase()
-{
-}
+nsSecCheckWrapChannelBase::~nsSecCheckWrapChannelBase() {}
 
 //---------------------------------------------------------
 // nsISecCheckWrapChannel implementation
 //---------------------------------------------------------
 
 NS_IMETHODIMP
-nsSecCheckWrapChannelBase::GetInnerChannel(nsIChannel **aInnerChannel)
+nsSecCheckWrapChannelBase::GetInnerChannel(nsIChannel** aInnerChannel)
 {
   NS_IF_ADDREF(*aInnerChannel = mChannel);
   return NS_OK;
@@ -66,14 +66,14 @@ nsSecCheckWrapChannelBase::GetInnerChannel(nsIChannel **aInnerChannel)
 
 nsSecCheckWrapChannel::nsSecCheckWrapChannel(nsIChannel* aChannel,
                                              nsILoadInfo* aLoadInfo)
- : nsSecCheckWrapChannelBase(aChannel)
- , mLoadInfo(aLoadInfo)
+    : nsSecCheckWrapChannelBase(aChannel), mLoadInfo(aLoadInfo)
 {
   {
     nsCOMPtr<nsIURI> uri;
     mChannel->GetURI(getter_AddRefs(uri));
     CHANNELWRAPPERLOG(("nsSecCheckWrapChannel::nsSecCheckWrapChannel [%p] (%s)",
-                       this, uri ? uri->GetSpecOrDefault().get() : ""));
+                       this,
+                       uri ? uri->GetSpecOrDefault().get() : ""));
   }
 }
 
@@ -97,9 +97,7 @@ nsSecCheckWrapChannel::MaybeWrap(nsIChannel* aChannel, nsILoadInfo* aLoadInfo)
   return channel.forget();
 }
 
-nsSecCheckWrapChannel::~nsSecCheckWrapChannel()
-{
-}
+nsSecCheckWrapChannel::~nsSecCheckWrapChannel() {}
 
 //---------------------------------------------------------
 // SecWrapChannelStreamListener helper
@@ -107,21 +105,22 @@ nsSecCheckWrapChannel::~nsSecCheckWrapChannel()
 
 class SecWrapChannelStreamListener final : public nsIStreamListener
 {
-  public:
-    SecWrapChannelStreamListener(nsIRequest *aRequest,
-                                 nsIStreamListener *aStreamListener)
-    : mRequest(aRequest)
-    , mListener(aStreamListener) {}
+ public:
+  SecWrapChannelStreamListener(nsIRequest* aRequest,
+                               nsIStreamListener* aStreamListener)
+      : mRequest(aRequest), mListener(aStreamListener)
+  {
+  }
 
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSISTREAMLISTENER
-    NS_DECL_NSIREQUESTOBSERVER
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISTREAMLISTENER
+  NS_DECL_NSIREQUESTOBSERVER
 
-  private:
-    ~SecWrapChannelStreamListener() {}
+ private:
+  ~SecWrapChannelStreamListener() {}
 
-    nsCOMPtr<nsIRequest>        mRequest;
-    nsCOMPtr<nsIStreamListener> mListener;
+  nsCOMPtr<nsIRequest> mRequest;
+  nsCOMPtr<nsIStreamListener> mListener;
 };
 
 NS_IMPL_ISUPPORTS(SecWrapChannelStreamListener,
@@ -129,28 +128,29 @@ NS_IMPL_ISUPPORTS(SecWrapChannelStreamListener,
                   nsIRequestObserver)
 
 NS_IMETHODIMP
-SecWrapChannelStreamListener::OnStartRequest(nsIRequest *aRequest,
-                                             nsISupports *aContext)
+SecWrapChannelStreamListener::OnStartRequest(nsIRequest* aRequest,
+                                             nsISupports* aContext)
 {
   return mListener->OnStartRequest(mRequest, aContext);
 }
 
 NS_IMETHODIMP
-SecWrapChannelStreamListener::OnStopRequest(nsIRequest *aRequest,
-                                            nsISupports *aContext,
+SecWrapChannelStreamListener::OnStopRequest(nsIRequest* aRequest,
+                                            nsISupports* aContext,
                                             nsresult aStatus)
 {
   return mListener->OnStopRequest(mRequest, aContext, aStatus);
 }
 
 NS_IMETHODIMP
-SecWrapChannelStreamListener::OnDataAvailable(nsIRequest *aRequest,
-                                              nsISupports *aContext,
-                                              nsIInputStream *aInStream,
+SecWrapChannelStreamListener::OnDataAvailable(nsIRequest* aRequest,
+                                              nsISupports* aContext,
+                                              nsIInputStream* aInStream,
                                               uint64_t aOffset,
                                               uint32_t aCount)
 {
-  return mListener->OnDataAvailable(mRequest, aContext, aInStream, aOffset, aCount);
+  return mListener->OnDataAvailable(
+      mRequest, aContext, aInStream, aOffset, aCount);
 }
 
 //---------------------------------------------------------
@@ -160,7 +160,7 @@ SecWrapChannelStreamListener::OnDataAvailable(nsIRequest *aRequest,
 NS_IMETHODIMP
 nsSecCheckWrapChannel::GetLoadInfo(nsILoadInfo** aLoadInfo)
 {
-  CHANNELWRAPPERLOG(("nsSecCheckWrapChannel::GetLoadInfo() [%p]",this));
+  CHANNELWRAPPERLOG(("nsSecCheckWrapChannel::GetLoadInfo() [%p]", this));
   NS_IF_ADDREF(*aLoadInfo = mLoadInfo);
   return NS_OK;
 }
@@ -174,11 +174,12 @@ nsSecCheckWrapChannel::SetLoadInfo(nsILoadInfo* aLoadInfo)
 }
 
 NS_IMETHODIMP
-nsSecCheckWrapChannel::AsyncOpen2(nsIStreamListener *aListener)
+nsSecCheckWrapChannel::AsyncOpen2(nsIStreamListener* aListener)
 {
   nsCOMPtr<nsIStreamListener> secWrapChannelListener =
-    new SecWrapChannelStreamListener(this, aListener);
-  nsresult rv = nsContentSecurityManager::doContentSecurityCheck(this, secWrapChannelListener);
+      new SecWrapChannelStreamListener(this, aListener);
+  nsresult rv = nsContentSecurityManager::doContentSecurityCheck(
+      this, secWrapChannelListener);
   NS_ENSURE_SUCCESS(rv, rv);
   return AsyncOpen(secWrapChannelListener, nullptr);
 }
@@ -187,10 +188,11 @@ NS_IMETHODIMP
 nsSecCheckWrapChannel::Open2(nsIInputStream** aStream)
 {
   nsCOMPtr<nsIStreamListener> listener;
-  nsresult rv = nsContentSecurityManager::doContentSecurityCheck(this, listener);
+  nsresult rv =
+      nsContentSecurityManager::doContentSecurityCheck(this, listener);
   NS_ENSURE_SUCCESS(rv, rv);
   return Open(aStream);
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

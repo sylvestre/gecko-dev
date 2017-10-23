@@ -7,7 +7,7 @@
 #ifndef mozilla_layers_CompositorBench_h
 #define mozilla_layers_CompositorBench_h
 
-#include "mozilla/gfx/Rect.h"           // for Rect
+#include "mozilla/gfx/Rect.h"  // for Rect
 
 namespace mozilla {
 namespace layers {
@@ -18,14 +18,16 @@ class Compositor;
 // #define MOZ_COMPOSITOR_BENCH
 
 #ifdef MOZ_COMPOSITOR_BENCH
-void CompositorBench(Compositor* aCompositor, const gfx::IntRect& aScreenRect);
+void
+CompositorBench(Compositor* aCompositor, const gfx::IntRect& aScreenRect);
 #else
-static inline void CompositorBench(Compositor* aCompositor, const gfx::IntRect& aScreenRect) {}
+static inline void
+CompositorBench(Compositor* aCompositor, const gfx::IntRect& aScreenRect)
+{
+}
 #endif
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif
-
-

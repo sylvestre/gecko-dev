@@ -52,10 +52,10 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
                             const char* aName,
                             uint32_t aFlags = 0)
 {
-  ImplCycleCollectionTraverse(aCallback, aField.mStartContainer,
-                              "mStartContainer", aFlags);
-  ImplCycleCollectionTraverse(aCallback, aField.mEndContainer,
-                              "mEndContainer", aFlags);
+  ImplCycleCollectionTraverse(
+      aCallback, aField.mStartContainer, "mStartContainer", aFlags);
+  ImplCycleCollectionTraverse(
+      aCallback, aField.mEndContainer, "mEndContainer", aFlags);
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(SelectionChangeListener)
@@ -78,7 +78,8 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(SelectionChangeListener)
 
 NS_IMETHODIMP
 SelectionChangeListener::NotifySelectionChanged(nsIDOMDocument* aDoc,
-                                                nsISelection* aSel, int16_t aReason)
+                                                nsISelection* aSel,
+                                                int16_t aReason)
 {
   RefPtr<Selection> sel = aSel->AsSelection();
 
@@ -90,7 +91,8 @@ SelectionChangeListener::NotifySelectionChanged(nsIDOMDocument* aDoc,
 
   // Check if the ranges have actually changed
   // Don't bother checking this if we are hiding changes.
-  if (mOldRanges.Length() == sel->RangeCount() && !sel->IsBlockingSelectionChangeEvents()) {
+  if (mOldRanges.Length() == sel->RangeCount() &&
+      !sel->IsBlockingSelectionChangeEvents()) {
     bool changed = false;
 
     for (size_t i = 0; i < mOldRanges.Length(); i++) {
@@ -155,7 +157,7 @@ SelectionChangeListener::NotifySelectionChanged(nsIDOMDocument* aDoc,
 
     if (target) {
       RefPtr<AsyncEventDispatcher> asyncDispatcher =
-        new AsyncEventDispatcher(target, eSelectionChange, false);
+          new AsyncEventDispatcher(target, eSelectionChange, false);
       asyncDispatcher->PostDOMEvent();
     }
   } else {
@@ -170,7 +172,7 @@ SelectionChangeListener::NotifySelectionChanged(nsIDOMDocument* aDoc,
     nsCOMPtr<nsIDocument> doc = do_QueryInterface(aDoc);
     if (doc) {
       RefPtr<AsyncEventDispatcher> asyncDispatcher =
-        new AsyncEventDispatcher(doc, eSelectionChange, false);
+          new AsyncEventDispatcher(doc, eSelectionChange, false);
       asyncDispatcher->PostDOMEvent();
     }
   }

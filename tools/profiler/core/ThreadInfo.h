@@ -22,18 +22,13 @@
 //
 class RacyThreadInfo final : public PseudoStack
 {
-public:
-  RacyThreadInfo()
-    : PseudoStack()
-    , mSleep(AWAKE)
+ public:
+  RacyThreadInfo() : PseudoStack(), mSleep(AWAKE)
   {
     MOZ_COUNT_CTOR(RacyThreadInfo);
   }
 
-  ~RacyThreadInfo()
-  {
-    MOZ_COUNT_DTOR(RacyThreadInfo);
-  }
+  ~RacyThreadInfo() { MOZ_COUNT_DTOR(RacyThreadInfo); }
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
   {
@@ -57,7 +52,7 @@ public:
                         double aTime)
   {
     ProfilerMarker* marker =
-      new ProfilerMarker(aMarkerName, Move(aPayload), aTime);
+        new ProfilerMarker(aMarkerName, Move(aPayload), aTime);
     mPendingMarkers.insert(marker);
   }
 
@@ -113,7 +108,7 @@ public:
 
   bool IsSleeping() { return mSleep != AWAKE; }
 
-private:
+ private:
   // A list of pending markers that must be moved to the circular buffer.
   ProfilerSignalSafeLinkedList<ProfilerMarker> mPendingMarkers;
 
@@ -166,8 +161,10 @@ private:
 // after the thread exists.
 class ThreadInfo final
 {
-public:
-  ThreadInfo(const char* aName, int aThreadId, bool aIsMainThread,
+ public:
+  ThreadInfo(const char* aName,
+             int aThreadId,
+             bool aIsMainThread,
              void* aStackTop);
 
   ~ThreadInfo();
@@ -192,7 +189,7 @@ public:
 
   ProfileBuffer::LastSample& LastSample() { return mLastSample; }
 
-private:
+ private:
   mozilla::UniqueFreePtr<char> mName;
   mozilla::TimeStamp mRegisterTime;
   mozilla::TimeStamp mUnregisterTime;
@@ -213,9 +210,10 @@ private:
   // for which IsBeingProfiled() returns true.
   //
 
-public:
+ public:
   // Returns the time of the first sample.
-  double StreamJSON(const ProfileBuffer& aBuffer, SpliceableJSONWriter& aWriter,
+  double StreamJSON(const ProfileBuffer& aBuffer,
+                    SpliceableJSONWriter& aWriter,
                     const mozilla::TimeStamp& aProcessStartTime,
                     double aSinceTime);
 
@@ -302,7 +300,7 @@ public:
     }
   }
 
-private:
+ private:
   bool mIsBeingProfiled;
 
   // JS frames in the buffer may require a live JSRuntime to stream (e.g.,
@@ -317,12 +315,12 @@ private:
   // This is only used for the main thread.
   mozilla::Maybe<ThreadResponsiveness> mResponsiveness;
 
-public:
+ public:
   // If this is a JS thread, this is its JSContext, which is required for any
   // JS sampling.
   JSContext* mContext;
 
-private:
+ private:
   // The profiler needs to start and stop JS sampling of JS threads at various
   // times. However, the JS engine can only do the required actions on the
   // JS thread itself ("on-thread"), not from another thread ("off-thread").
@@ -363,7 +361,8 @@ private:
   // setJSContext(), which can only happen for JS threads) for any JS sampling
   // to actually happen.
   //
-  enum {
+  enum
+  {
     INACTIVE = 0,
     ACTIVE_REQUESTED = 1,
     ACTIVE = 2,
@@ -376,7 +375,8 @@ private:
 };
 
 void
-StreamSamplesAndMarkers(const char* aName, int aThreadId,
+StreamSamplesAndMarkers(const char* aName,
+                        int aThreadId,
                         const ProfileBuffer& aBuffer,
                         SpliceableJSONWriter& aWriter,
                         const mozilla::TimeStamp& aProcessStartTime,

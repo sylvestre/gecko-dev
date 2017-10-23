@@ -47,9 +47,9 @@ struct JustificationInfo
   bool mIsEndJustifiable;
 
   constexpr JustificationInfo()
-    : mInnerOpportunities(0)
-    , mIsStartJustifiable(false)
-    , mIsEndJustifiable(false)
+      : mInnerOpportunities(0),
+        mIsStartJustifiable(false),
+        mIsEndJustifiable(false)
   {
   }
 
@@ -76,11 +76,7 @@ struct JustificationAssignment
   uint8_t mGapsAtStart : 2;
   uint8_t mGapsAtEnd : 2;
 
-  constexpr JustificationAssignment()
-    : mGapsAtStart(0)
-    , mGapsAtEnd(0)
-  {
-  }
+  constexpr JustificationAssignment() : mGapsAtStart(0), mGapsAtEnd(0) {}
 
   int32_t TotalGaps() const { return mGapsAtStart + mGapsAtEnd; }
 };
@@ -128,7 +124,7 @@ struct JustificationApplicationState
 
 class JustificationUtils
 {
-public:
+ public:
   // Compute justification gaps should be applied on a unit.
   static int32_t CountGaps(const JustificationInfo& aInfo,
                            const JustificationAssignment& aAssign)
@@ -139,6 +135,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(mozilla_JustificationUtils_h_) */

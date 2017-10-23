@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,9 +11,7 @@
 
 #include "jsapi-tests/tests.h"
 
-static void
-MinimizeHeap(JSContext* cx)
-{
+static void MinimizeHeap(JSContext* cx) {
     // The second collection is to force us to wait for the background
     // sweeping that the first GC started to finish.
     JS_GC(cx);
@@ -21,8 +19,7 @@ MinimizeHeap(JSContext* cx)
     js::gc::FinishGC(cx);
 }
 
-BEGIN_TEST(testGCUID)
-{
+BEGIN_TEST(testGCUID) {
 #ifdef JS_GC_ZEAL
     AutoLeaveZeal nozeal(cx);
 #endif /* JS_GC_ZEAL */
@@ -96,8 +93,7 @@ BEGIN_TEST(testGCUID)
     // Tear holes in the heap by unrooting the even objects and collecting.
     JS::Rooted<ObjectVector> vec2(cx, ObjectVector(cx));
     for (size_t i = 0; i < N; ++i) {
-        if (i % 2 == 1)
-            CHECK(vec2.append(vec[i]));
+        if (i % 2 == 1) CHECK(vec2.append(vec[i]));
     }
     vec.clear();
     MinimizeHeap(cx);

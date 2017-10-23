@@ -18,15 +18,14 @@ extern "C" {
 #include "signaling/src/sdp/sipcc/sdp.h"
 }
 
-namespace mozilla
-{
+namespace mozilla {
 
 class SipccSdp;
 class SdpErrorHolder;
 
 class SipccSdpBandwidths final : public std::map<std::string, uint32_t>
 {
-public:
+ public:
   bool Load(sdp_t* sdp, uint16_t level, SdpErrorHolder& errorHolder);
   void Serialize(std::ostream& os) const;
 };
@@ -35,14 +34,10 @@ class SipccSdpMediaSection final : public SdpMediaSection
 {
   friend class SipccSdp;
 
-public:
+ public:
   ~SipccSdpMediaSection() {}
 
-  virtual MediaType
-  GetMediaType() const override
-  {
-    return mMediaType;
-  }
+  virtual MediaType GetMediaType() const override { return mMediaType; }
 
   virtual unsigned int GetPort() const override;
   virtual void SetPort(unsigned int port) override;
@@ -57,16 +52,20 @@ public:
   virtual SdpAttributeList& GetAttributeList() override;
   virtual SdpDirectionAttribute GetDirectionAttribute() const override;
 
-  virtual void AddCodec(const std::string& pt, const std::string& name,
-                        uint32_t clockrate, uint16_t channels) override;
+  virtual void AddCodec(const std::string& pt,
+                        const std::string& name,
+                        uint32_t clockrate,
+                        uint16_t channels) override;
   virtual void ClearCodecs() override;
 
-  virtual void AddDataChannel(const std::string& name, uint16_t port,
-                              uint16_t streams, uint32_t message_size) override;
+  virtual void AddDataChannel(const std::string& name,
+                              uint16_t port,
+                              uint16_t streams,
+                              uint32_t message_size) override;
 
   virtual void Serialize(std::ostream&) const override;
 
-private:
+ private:
   SipccSdpMediaSection(size_t level, const SipccSdpAttributeList* sessionLevel)
       : SdpMediaSection(level), mAttributeList(sessionLevel)
   {
@@ -76,7 +75,8 @@ private:
   bool LoadConnection(sdp_t* sdp, uint16_t level, SdpErrorHolder& errorHolder);
   bool LoadProtocol(sdp_t* sdp, uint16_t level, SdpErrorHolder& errorHolder);
   bool LoadFormats(sdp_t* sdp, uint16_t level, SdpErrorHolder& errorHolder);
-  bool ValidateSimulcast(sdp_t* sdp, uint16_t level,
+  bool ValidateSimulcast(sdp_t* sdp,
+                         uint16_t level,
                          SdpErrorHolder& errorHolder) const;
   bool ValidateSimulcastVersions(
       sdp_t* sdp,
@@ -97,6 +97,6 @@ private:
 
   SipccSdpAttributeList mAttributeList;
 };
-}
+}  // namespace mozilla
 
 #endif

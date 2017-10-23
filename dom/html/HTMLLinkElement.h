@@ -21,7 +21,7 @@ class HTMLLinkElement final : public nsGenericHTMLElement,
                               public nsStyleLinkElement,
                               public Link
 {
-public:
+ public:
   explicit HTMLLinkElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
@@ -39,25 +39,29 @@ public:
 
   // nsIDOMEventTarget
   virtual nsresult GetEventTargetParent(
-                     EventChainPreVisitor& aVisitor) override;
-  virtual nsresult PostHandleEvent(
-                     EventChainPostVisitor& aVisitor) override;
+      EventChainPreVisitor& aVisitor) override;
+  virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
   // nsINode
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
-  virtual nsresult BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult BeforeSetAttr(int32_t aNameSpaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override;
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -87,11 +91,10 @@ public:
   {
     GetURIAttr(nsGkAtoms::href, nullptr, aValue);
   }
-  void GetHref(nsString& aValue, nsIPrincipal&)
-  {
-    GetHref(aValue);
-  }
-  void SetHref(const nsAString& aHref, nsIPrincipal& aTriggeringPrincipal, ErrorResult& aRv)
+  void GetHref(nsString& aValue, nsIPrincipal&) { GetHref(aValue); }
+  void SetHref(const nsAString& aHref,
+               nsIPrincipal& aTriggeringPrincipal,
+               ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::href, aHref, aTriggeringPrincipal, aRv);
   }
@@ -111,19 +114,13 @@ public:
     SetOrRemoveNullableStringAttr(nsGkAtoms::crossorigin, aCrossOrigin, aError);
   }
   // nsAString for WebBrowserPersistLocalDocument
-  void GetRel(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::rel, aValue);
-  }
+  void GetRel(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::rel, aValue); }
   void SetRel(const nsAString& aRel, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::rel, aRel, aRv);
   }
   nsDOMTokenList* RelList();
-  void GetMedia(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::media, aValue);
-  }
+  void GetMedia(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::media, aValue); }
   void SetMedia(const nsAString& aMedia, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::media, aMedia, aRv);
@@ -139,16 +136,10 @@ public:
   void GetAs(nsAString& aResult);
   void SetAs(const nsAString& aAs, ErrorResult& aRv)
   {
-    SetAttr(nsGkAtoms::as ,aAs, aRv);
+    SetAttr(nsGkAtoms::as, aAs, aRv);
   }
-  nsDOMTokenList* Sizes()
-  {
-    return GetTokenList(nsGkAtoms::sizes);
-  }
-  void GetType(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aValue);
-  }
+  nsDOMTokenList* Sizes() { return GetTokenList(nsGkAtoms::sizes); }
+  void GetType(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::type, aValue); }
   void SetType(const nsAString& aType, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::type, aType, aRv);
@@ -163,18 +154,12 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::charset, aCharset, aRv);
   }
-  void GetRev(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::rev, aValue);
-  }
+  void GetRev(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::rev, aValue); }
   void SetRev(const nsAString& aRev, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::rev, aRev, aRv);
   }
-  void GetTarget(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::target, aValue);
-  }
+  void GetTarget(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::target, aValue); }
   void SetTarget(const nsAString& aTarget, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::target, aTarget, aRv);
@@ -208,21 +193,23 @@ public:
     nsGenericHTMLElement::NodeInfoChanged(aOldDoc);
   }
 
-protected:
+ protected:
   virtual ~HTMLLinkElement();
 
   // nsStyleLinkElement
-  virtual already_AddRefed<nsIURI> GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) override;
+  virtual already_AddRefed<nsIURI> GetStyleSheetURL(
+      bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) override;
   virtual void GetStyleSheetInfo(nsAString& aTitle,
                                  nsAString& aType,
                                  nsAString& aMedia,
                                  bool* aIsScoped,
                                  bool* aIsAlternate) override;
-protected:
+
+ protected:
   RefPtr<nsDOMTokenList> mRelList;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLLinkElement_h
+#endif  // mozilla_dom_HTMLLinkElement_h

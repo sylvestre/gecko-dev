@@ -11,13 +11,12 @@
 
 namespace js {
 
-class WeakSetObject : public WeakCollectionObject
-{
-  public:
+class WeakSetObject : public WeakCollectionObject {
+   public:
     static JSObject* initClass(JSContext* cx, HandleObject obj);
     static const Class class_;
 
-  private:
+   private:
     static const JSPropertySpec properties[];
     static const JSFunctionSpec methods[];
 
@@ -27,15 +26,12 @@ class WeakSetObject : public WeakCollectionObject
     static bool isBuiltinAdd(HandleValue add, JSContext* cx);
 };
 
-extern JSObject*
-InitWeakSetClass(JSContext* cx, HandleObject obj);
+extern JSObject* InitWeakSetClass(JSContext* cx, HandleObject obj);
 
-} // namespace js
+}  // namespace js
 
-template<>
-inline bool
-JSObject::is<js::WeakCollectionObject>() const
-{
+template <>
+inline bool JSObject::is<js::WeakCollectionObject>() const {
     return is<js::WeakMapObject>() || is<js::WeakSetObject>();
 }
 

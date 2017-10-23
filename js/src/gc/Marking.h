@@ -33,10 +33,10 @@ class ObjectGroup;
 class WeakMapBase;
 namespace gc {
 class Arena;
-} // namespace gc
+}  // namespace gc
 namespace jit {
 class JitCode;
-} // namespace jit
+}  // namespace jit
 
 static const size_t NON_INCREMENTAL_MARK_STACK_BASE_CAPACITY = 4096;
 static const size_t INCREMENTAL_MARK_STACK_BASE_CAPACITY = 32768;
@@ -57,9 +57,8 @@ class MarkStackIter;
  * GCMarker::delayMarkingChildren adds arenas to the stack as necessary while
  * markDelayedChildren pops the arenas from the stack until it empties.
  */
-class MarkStack
-{
-  public:
+class MarkStack {
+   public:
     /*
      * We use a common mark stack to mark GC things of different types and use
      * the explicit tags to distinguish them when it cannot be deduced from
@@ -81,23 +80,22 @@ class MarkStack
     static_assert(TagMask >= uintptr_t(LastTag), "The tag mask must subsume the tags.");
     static_assert(TagMask <= gc::CellAlignMask, "The tag mask must be embeddable in a Cell*.");
 
-    class TaggedPtr
-    {
+    class TaggedPtr {
         uintptr_t bits;
 
         Cell* ptr() const;
 
-      public:
+       public:
         TaggedPtr(Tag tag, Cell* ptr);
         Tag tag() const;
-        template <typename T> T* as() const;
+        template <typename T>
+        T* as() const;
         JSObject* asValueArrayObject() const;
         JSObject* asSavedValueArrayObject() const;
         JSRope* asTempRope() const;
     };
 
-    struct ValueArray
-    {
+    struct ValueArray {
         ValueArray(JSObject* obj, HeapSlot* start, HeapSlot* end);
 
         HeapSlot* end;
@@ -105,8 +103,7 @@ class MarkStack
         TaggedPtr ptr;
     };
 
-    struct SavedValueArray
-    {
+    struct SavedValueArray {
         SavedValueArray(JSObject* obj, size_t index, HeapSlot::Kind kind);
 
         uintptr_t kind;
@@ -145,9 +142,7 @@ class MarkStack
     // storage to hold rope pointers.
     MOZ_MUST_USE bool pushTempRope(JSRope* ptr);
 
-    bool isEmpty() const {
-        return tos_ == stack_;
-    }
+    bool isEmpty() const { return tos_ == stack_; }
 
     Tag peekTag() const;
     TaggedPtr popPtr();
@@ -160,7 +155,7 @@ class MarkStack
 
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-  private:
+   private:
     MOZ_MUST_USE bool ensureSpace(size_t count);
 
     /* Grow the stack, ensuring there is space for at least count elements. */
@@ -184,12 +179,11 @@ class MarkStack
     friend class MarkStackIter;
 };
 
-class MarkStackIter
-{
+class MarkStackIter {
     const MarkStack& stack_;
     MarkStack::TaggedPtr* pos_;
 
-  public:
+   public:
     explicit MarkStackIter(const MarkStack& stack);
     ~MarkStackIter();
 
@@ -204,7 +198,7 @@ class MarkStackIter
     // Mutate the current ValueArray to a SavedValueArray.
     void saveValueArray(NativeObject* obj, uintptr_t index, HeapSlot::Kind kind);
 
-  private:
+   private:
     size_t position() const;
 };
 
@@ -223,21 +217,18 @@ struct WeakMarkable {
     JS::GCCellPtr key;
 
     WeakMarkable(WeakMapBase* weakmapArg, JS::GCCellPtr keyArg)
-      : weakmap(weakmapArg), key(keyArg) {}
+        : weakmap(weakmapArg), key(keyArg) {}
 };
 
 using WeakEntryVector = Vector<WeakMarkable, 2, js::SystemAllocPolicy>;
 
-using WeakKeyTable = OrderedHashMap<JS::GCCellPtr,
-                                    WeakEntryVector,
-                                    WeakKeyTableHashPolicy,
-                                    js::SystemAllocPolicy>;
+using WeakKeyTable =
+    OrderedHashMap<JS::GCCellPtr, WeakEntryVector, WeakKeyTableHashPolicy, js::SystemAllocPolicy>;
 
 } /* namespace gc */
 
-class GCMarker : public JSTracer
-{
-  public:
+class GCMarker : public JSTracer {
+   public:
     explicit GCMarker(JSRuntime* rt);
     MOZ_MUST_USE bool init(JSGCMode gcMode);
 
@@ -249,14 +240,18 @@ class GCMarker : public JSTracer
     void reset();
 
     // Mark the given GC thing and traverse its children at some point.
-    template <typename T> void traverse(T thing);
+    template <typename T>
+    void traverse(T thing);
 
     // Calls traverse on target after making additional assertions.
-    template <typename S, typename T> void traverseEdge(S source, T* target);
-    template <typename S, typename T> void traverseEdge(S source, const T& target);
+    template <typename S, typename T>
+    void traverseEdge(S source, T* target);
+    template <typename S, typename T>
+    void traverseEdge(S source, const T& target);
 
     // Notes a weak graph edge for later sweeping.
-    template <typename T> void noteWeakEdge(T* edge);
+    template <typename T>
+    void noteWeakEdge(T* edge);
 
     /*
      * Care must be taken changing the mark color from gray to black. The cycle
@@ -288,13 +283,9 @@ class GCMarker : public JSTracer
     void delayMarkingChildren(const void* thing);
     void markDelayedChildren(gc::Arena* arena);
     MOZ_MUST_USE bool markDelayedChildren(SliceBudget& budget);
-    bool hasDelayedChildren() const {
-        return !!unmarkedArenaStackTop;
-    }
+    bool hasDelayedChildren() const { return !!unmarkedArenaStackTop; }
 
-    bool isDrained() {
-        return isMarkStackEmpty() && !unmarkedArenaStackTop;
-    }
+    bool isDrained() { return isMarkStackEmpty() && !unmarkedArenaStackTop; }
 
     MOZ_MUST_USE bool drainMarkStack(SliceBudget& budget);
 
@@ -317,7 +308,7 @@ class GCMarker : public JSTracer
         return static_cast<GCMarker*>(trc);
     }
 
-  private:
+   private:
 #ifdef DEBUG
     void checkZone(void* p);
 #else
@@ -328,15 +319,20 @@ class GCMarker : public JSTracer
     // already been marked.
     inline void repush(JSObject* obj);
 
-    template <typename T> void markAndTraceChildren(T* thing);
-    template <typename T> void markAndPush(T* thing);
-    template <typename T> void markAndScan(T* thing);
-    template <typename T> void markImplicitEdgesHelper(T oldThing);
-    template <typename T> void markImplicitEdges(T* oldThing);
+    template <typename T>
+    void markAndTraceChildren(T* thing);
+    template <typename T>
+    void markAndPush(T* thing);
+    template <typename T>
+    void markAndScan(T* thing);
+    template <typename T>
+    void markImplicitEdgesHelper(T oldThing);
+    template <typename T>
+    void markImplicitEdges(T* oldThing);
     void eagerlyMarkChildren(JSLinearString* str);
     void eagerlyMarkChildren(JSRope* rope);
     void eagerlyMarkChildren(JSString* str);
-    void eagerlyMarkChildren(LazyScript *thing);
+    void eagerlyMarkChildren(LazyScript* thing);
     void eagerlyMarkChildren(Shape* shape);
     void eagerlyMarkChildren(Scope* scope);
     void lazilyMarkChildren(ObjectGroup* group);
@@ -355,9 +351,7 @@ class GCMarker : public JSTracer
 
     inline void pushValueArray(JSObject* obj, HeapSlot* start, HeapSlot* end);
 
-    bool isMarkStackEmpty() {
-        return stack.isEmpty();
-    }
+    bool isMarkStackEmpty() { return stack.isEmpty(); }
 
     MOZ_MUST_USE bool restoreValueArray(const gc::MarkStack::SavedValueArray& array,
                                         HeapSlot** vpp, HeapSlot** endp);
@@ -391,25 +385,22 @@ class GCMarker : public JSTracer
      * GCed. This is used to look for compartment bugs.
      */
     ActiveThreadData<bool> strictCompartmentChecking;
-#endif // DEBUG
+#endif  // DEBUG
 };
 
 #ifdef DEBUG
 // Return true if this trace is happening on behalf of gray buffering during
 // the marking phase of incremental GC.
-bool
-IsBufferGrayRootsTracer(JSTracer* trc);
+bool IsBufferGrayRootsTracer(JSTracer* trc);
 
-bool
-IsUnmarkGrayTracer(JSTracer* trc);
+bool IsUnmarkGrayTracer(JSTracer* trc);
 #endif
 
 namespace gc {
 
 /*** Special Cases ***/
 
-void
-PushArena(GCMarker* gcmarker, Arena* arena);
+void PushArena(GCMarker* gcmarker, Arena* arena);
 
 /*** Liveness ***/
 
@@ -417,52 +408,40 @@ PushArena(GCMarker* gcmarker, Arena* arena);
 // not currently being collected or are owned by another runtime are always
 // reported as being marked.
 template <typename T>
-bool
-IsMarkedUnbarriered(JSRuntime* rt, T* thingp);
+bool IsMarkedUnbarriered(JSRuntime* rt, T* thingp);
 
 // Report whether a thing has been marked.  Things which are in zones that are
 // not currently being collected or are owned by another runtime are always
 // reported as being marked.
 template <typename T>
-bool
-IsMarked(JSRuntime* rt, WriteBarrieredBase<T>* thingp);
+bool IsMarked(JSRuntime* rt, WriteBarrieredBase<T>* thingp);
 
 template <typename T>
-bool
-IsAboutToBeFinalizedUnbarriered(T* thingp);
+bool IsAboutToBeFinalizedUnbarriered(T* thingp);
 
 template <typename T>
-bool
-IsAboutToBeFinalized(WriteBarrieredBase<T>* thingp);
+bool IsAboutToBeFinalized(WriteBarrieredBase<T>* thingp);
 
 template <typename T>
-bool
-IsAboutToBeFinalized(ReadBarrieredBase<T>* thingp);
+bool IsAboutToBeFinalized(ReadBarrieredBase<T>* thingp);
 
-bool
-IsAboutToBeFinalizedDuringSweep(TenuredCell& tenured);
+bool IsAboutToBeFinalizedDuringSweep(TenuredCell& tenured);
 
-inline Cell*
-ToMarkable(const Value& v)
-{
-    if (v.isGCThing())
-        return (Cell*)v.toGCThing();
+inline Cell* ToMarkable(const Value& v) {
+    if (v.isGCThing()) return (Cell*)v.toGCThing();
     return nullptr;
 }
 
-inline Cell*
-ToMarkable(Cell* cell)
-{
-    return cell;
-}
+inline Cell* ToMarkable(Cell* cell) { return cell; }
 
 // Wrap a GC thing pointer into a new Value or jsid. The type system enforces
 // that the thing pointer is a wrappable type.
 template <typename S, typename T>
-struct RewrapTaggedPointer{};
-#define DECLARE_REWRAP(S, T, method, prefix) \
-    template <> struct RewrapTaggedPointer<S, T> { \
-        static S wrap(T* thing) { return method ( prefix thing ); } \
+struct RewrapTaggedPointer {};
+#define DECLARE_REWRAP(S, T, method, prefix)                     \
+    template <>                                                  \
+    struct RewrapTaggedPointer<S, T> {                           \
+        static S wrap(T* thing) { return method(prefix thing); } \
     }
 DECLARE_REWRAP(JS::Value, JSObject, JS::ObjectOrNullValue, );
 DECLARE_REWRAP(JS::Value, JSString, JS::StringValue, );
@@ -474,18 +453,16 @@ DECLARE_REWRAP(js::TaggedProto, JSObject, js::TaggedProto, );
 
 template <typename T>
 struct IsPrivateGCThingInValue
-  : public mozilla::EnableIf<mozilla::IsBaseOf<Cell, T>::value &&
-                             !mozilla::IsBaseOf<JSObject, T>::value &&
-                             !mozilla::IsBaseOf<JSString, T>::value &&
-                             !mozilla::IsBaseOf<JS::Symbol, T>::value, T>
-{
+    : public mozilla::EnableIf<
+          mozilla::IsBaseOf<Cell, T>::value && !mozilla::IsBaseOf<JSObject, T>::value &&
+              !mozilla::IsBaseOf<JSString, T>::value && !mozilla::IsBaseOf<JS::Symbol, T>::value,
+          T> {
     static_assert(!mozilla::IsSame<Cell, T>::value && !mozilla::IsSame<TenuredCell, T>::value,
                   "T must not be Cell or TenuredCell");
 };
 
 template <typename T>
-struct RewrapTaggedPointer<Value, T>
-{
+struct RewrapTaggedPointer<Value, T> {
     static Value wrap(typename IsPrivateGCThingInValue<T>::Type* thing) {
         return JS::PrivateGCThingValue(thing);
     }
@@ -494,16 +471,13 @@ struct RewrapTaggedPointer<Value, T>
 } /* namespace gc */
 
 // The return value indicates if anything was unmarked.
-bool
-UnmarkGrayShapeRecursively(Shape* shape);
+bool UnmarkGrayShapeRecursively(Shape* shape);
 
-template<typename T>
-void
-CheckTracedThing(JSTracer* trc, T* thing);
+template <typename T>
+void CheckTracedThing(JSTracer* trc, T* thing);
 
-template<typename T>
-void
-CheckTracedThing(JSTracer* trc, T thing);
+template <typename T>
+void CheckTracedThing(JSTracer* trc, T thing);
 
 } /* namespace js */
 

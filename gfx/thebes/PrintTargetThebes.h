@@ -23,11 +23,11 @@ namespace gfx {
  * When removing this class, be sure to make PrintTarget::MakeDrawTarget
  * non-virtual!
  */
-class PrintTargetThebes final : public PrintTarget {
-public:
-
-  static already_AddRefed<PrintTargetThebes>
-  CreateOrNull(gfxASurface* aSurface);
+class PrintTargetThebes final : public PrintTarget
+{
+ public:
+  static already_AddRefed<PrintTargetThebes> CreateOrNull(
+      gfxASurface* aSurface);
 
   virtual nsresult BeginPrinting(const nsAString& aTitle,
                                  const nsAString& aPrintToFileName,
@@ -39,21 +39,20 @@ public:
   virtual nsresult EndPage() override;
   virtual void Finish() override;
 
-  virtual already_AddRefed<DrawTarget>
-  MakeDrawTarget(const IntSize& aSize,
-                 DrawEventRecorder* aRecorder = nullptr) override;
+  virtual already_AddRefed<DrawTarget> MakeDrawTarget(
+      const IntSize& aSize, DrawEventRecorder* aRecorder = nullptr) override;
 
-  virtual already_AddRefed<DrawTarget> GetReferenceDrawTarget(DrawEventRecorder* aRecorder) final;
+  virtual already_AddRefed<DrawTarget> GetReferenceDrawTarget(
+      DrawEventRecorder* aRecorder) final;
 
-private:
-
+ private:
   // Only created via CreateOrNull
   explicit PrintTargetThebes(gfxASurface* aSurface);
 
   RefPtr<gfxASurface> mGfxSurface;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_PRINTTARGETTHEBES_H */

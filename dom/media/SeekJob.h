@@ -28,6 +28,6 @@ struct SeekJob
   MozPromiseHolder<MediaDecoder::SeekPromise> mPromise;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* SEEK_JOB_H */

@@ -28,13 +28,15 @@ using namespace mozilla;
 extern const XREAppData* gAppData;
 
 static const char kProfileProperties[] =
-  "chrome://mozapps/locale/profile/profileSelection.properties";
+    "chrome://mozapps/locale/profile/profileSelection.properties";
 
 /**
  * Creates a new profile with a timestamp in the name to use for profile reset.
  */
 nsresult
-CreateResetProfile(nsIToolkitProfileService* aProfileSvc, const nsACString& aOldProfileName, nsIToolkitProfile* *aNewProfile)
+CreateResetProfile(nsIToolkitProfileService* aProfileSvc,
+                   const nsACString& aOldProfileName,
+                   nsIToolkitProfile** aNewProfile)
 {
   MOZ_ASSERT(aProfileSvc, "NULL profile service");
 
@@ -48,9 +50,10 @@ CreateResetProfile(nsIToolkitProfileService* aProfileSvc, const nsACString& aOld
     newProfileName.AssignLiteral("default-");
   }
   newProfileName.Append(nsPrintfCString("%" PRId64, PR_Now() / 1000));
-  nsresult rv = aProfileSvc->CreateProfile(nullptr, // choose a default dir for us
-                                           newProfileName,
-                                           getter_AddRefs(newProfile));
+  nsresult rv =
+      aProfileSvc->CreateProfile(nullptr,  // choose a default dir for us
+                                 newProfileName,
+                                 getter_AddRefs(newProfile));
   if (NS_FAILED(rv)) return rv;
 
   rv = aProfileSvc->Flush();
@@ -77,7 +80,8 @@ ProfileResetCleanup(nsIToolkitProfile* aOldProfile)
   if (NS_FAILED(rv)) return rv;
 
   // Get the friendly name for the backup directory.
-  nsCOMPtr<nsIStringBundleService> sbs = mozilla::services::GetStringBundleService();
+  nsCOMPtr<nsIStringBundleService> sbs =
+      mozilla::services::GetStringBundleService();
   if (!sbs) return NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIStringBundle> sb;
@@ -90,8 +94,8 @@ ProfileResetCleanup(nsIToolkitProfile* aOldProfile)
   nsAutoString resetBackupDirectoryName;
 
   static const char* kResetBackupDirectory = "resetBackupDirectory";
-  rv = sb->FormatStringFromName(kResetBackupDirectory, params, 2,
-                                resetBackupDirectoryName);
+  rv = sb->FormatStringFromName(
+      kResetBackupDirectory, params, 2, resetBackupDirectoryName);
 
   // Get info to copy the old root profile dir to the desktop as a backup.
   nsCOMPtr<nsIFile> backupDest, containerDest, profileDest;
@@ -137,7 +141,8 @@ ProfileResetCleanup(nsIToolkitProfile* aOldProfile)
   if (NS_FAILED(rv)) return rv;
 
   // Show a progress window while the cleanup happens since the disk I/O can take time.
-  nsCOMPtr<nsIWindowWatcher> windowWatcher(do_GetService(NS_WINDOWWATCHER_CONTRACTID));
+  nsCOMPtr<nsIWindowWatcher> windowWatcher(
+      do_GetService(NS_WINDOWWATCHER_CONTRACTID));
   if (!windowWatcher) return NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIAppStartup> appStartup(do_GetService(NS_APPSTARTUP_CONTRACTID));
@@ -157,8 +162,8 @@ ProfileResetCleanup(nsIToolkitProfile* aOldProfile)
   nsCOMPtr<nsIThread> cleanupThread;
   rv = tm->NewThread(0, 0, getter_AddRefs(cleanupThread));
   if (NS_SUCCEEDED(rv)) {
-    nsCOMPtr<nsIRunnable> runnable = new ProfileResetCleanupAsyncTask(profileDir, profileLocalDir,
-                                                                      containerDest, leafName);
+    nsCOMPtr<nsIRunnable> runnable = new ProfileResetCleanupAsyncTask(
+        profileDir, profileLocalDir, containerDest, leafName);
     cleanupThread->Dispatch(runnable, nsIThread::DISPATCH_NORMAL);
     // The result callback will shut down the worker thread.
 

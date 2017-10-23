@@ -19,7 +19,7 @@
  */
 class nsAtomicContainerFrame : public nsContainerFrame
 {
-public:
+ public:
   NS_DECL_ABSTRACT_FRAME(nsAtomicContainerFrame)
 
   // Bypass the nsContainerFrame/nsSplittableFrame impl of the following
@@ -28,10 +28,11 @@ public:
   {
     return nsFrame::PeekOffsetNoAmount(aForward, aOffset);
   }
-  FrameSearchResult
-  PeekOffsetCharacter(bool aForward, int32_t* aOffset,
-                      PeekOffsetCharacterOptions aOptions =
-                        PeekOffsetCharacterOptions()) override
+  FrameSearchResult PeekOffsetCharacter(
+      bool aForward,
+      int32_t* aOffset,
+      PeekOffsetCharacterOptions aOptions =
+          PeekOffsetCharacterOptions()) override
   {
     return nsFrame::PeekOffsetCharacter(aForward, aOffset, aOptions);
   }
@@ -40,10 +41,11 @@ public:
     return nsFrame::GetSplittableType();
   }
 
-protected:
+ protected:
   nsAtomicContainerFrame(nsStyleContext* aContext, ClassID aID)
-    : nsContainerFrame(aContext, aID)
-  {}
+      : nsContainerFrame(aContext, aID)
+  {
+  }
 };
 
-#endif // nsAtomicContainerFrame_h___
+#endif  // nsAtomicContainerFrame_h___

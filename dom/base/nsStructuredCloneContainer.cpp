@@ -29,14 +29,9 @@ NS_INTERFACE_MAP_BEGIN(nsStructuredCloneContainer)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-nsStructuredCloneContainer::nsStructuredCloneContainer()
-  : mVersion(0)
-{
-}
+nsStructuredCloneContainer::nsStructuredCloneContainer() : mVersion(0) {}
 
-nsStructuredCloneContainer::~nsStructuredCloneContainer()
-{
-}
+nsStructuredCloneContainer::~nsStructuredCloneContainer() {}
 
 NS_IMETHODIMP
 nsStructuredCloneContainer::InitFromJSVal(JS::Handle<JS::Value> aData,
@@ -57,7 +52,7 @@ nsStructuredCloneContainer::InitFromJSVal(JS::Handle<JS::Value> aData,
 }
 
 NS_IMETHODIMP
-nsStructuredCloneContainer::InitFromBase64(const nsAString &aData,
+nsStructuredCloneContainer::InitFromBase64(const nsAString& aData,
                                            uint32_t aFormatVersion)
 {
   if (DataLength()) {
@@ -79,8 +74,8 @@ nsStructuredCloneContainer::InitFromBase64(const nsAString &aData,
 }
 
 nsresult
-nsStructuredCloneContainer::DeserializeToJsval(JSContext* aCx,
-                                               JS::MutableHandle<JS::Value> aValue)
+nsStructuredCloneContainer::DeserializeToJsval(
+    JSContext* aCx, JS::MutableHandle<JS::Value> aValue)
 {
   aValue.setNull();
   JS::Rooted<JS::Value> jsStateObj(aCx);
@@ -125,7 +120,7 @@ nsStructuredCloneContainer::DeserializeToVariant(JSContext* aCx,
 }
 
 NS_IMETHODIMP
-nsStructuredCloneContainer::GetDataAsBase64(nsAString &aOut)
+nsStructuredCloneContainer::GetDataAsBase64(nsAString& aOut)
 {
   aOut.Truncate();
 

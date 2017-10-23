@@ -24,9 +24,11 @@ NS_INTERFACE_MAP_END
 
 // static
 already_AddRefed<Headers>
-Headers::Constructor(const GlobalObject& aGlobal,
-                     const Optional<HeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord>& aInit,
-                     ErrorResult& aRv)
+Headers::Constructor(
+    const GlobalObject& aGlobal,
+    const Optional<
+        HeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord>& aInit,
+    ErrorResult& aRv)
 {
   RefPtr<InternalHeaders> ih = new InternalHeaders();
   RefPtr<Headers> headers = new Headers(aGlobal.GetAsSupports(), ih);
@@ -52,18 +54,22 @@ Headers::Constructor(const GlobalObject& aGlobal,
 
 // static
 already_AddRefed<Headers>
-Headers::Constructor(const GlobalObject& aGlobal,
-                     const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord& aInit,
-                     ErrorResult& aRv)
+Headers::Constructor(
+    const GlobalObject& aGlobal,
+    const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord&
+        aInit,
+    ErrorResult& aRv)
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   return Create(global, aInit, aRv);
 }
 
 /* static */ already_AddRefed<Headers>
-Headers::Create(nsIGlobalObject* aGlobal,
-                const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord& aInit,
-                ErrorResult& aRv)
+Headers::Create(
+    nsIGlobalObject* aGlobal,
+    const OwningHeadersOrByteStringSequenceSequenceOrByteStringByteStringRecord&
+        aInit,
+    ErrorResult& aRv)
 {
   RefPtr<InternalHeaders> ih = new InternalHeaders();
   RefPtr<Headers> headers = new Headers(aGlobal, ih);
@@ -89,9 +95,7 @@ Headers::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return mozilla::dom::HeadersBinding::Wrap(aCx, this, aGivenProto);
 }
 
-Headers::~Headers()
-{
-}
+Headers::~Headers() {}
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

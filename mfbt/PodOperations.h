@@ -57,17 +57,17 @@ PodZero(T* aT, size_t aNElem)
 template<typename T, size_t N>
 static void PodZero(T (&aT)[N]) = delete;
 template<typename T, size_t N>
-static void PodZero(T (&aT)[N], size_t aNElem) = delete;
+static void
+PodZero(T (&aT)[N], size_t aNElem) = delete;
 
 /** Set the contents of the array |aT| to zero. */
-template <class T, size_t N>
-static MOZ_ALWAYS_INLINE void
-PodArrayZero(T (&aT)[N])
+template<class T, size_t N>
+static MOZ_ALWAYS_INLINE void PodArrayZero(T (&aT)[N])
 {
   memset(aT, 0, N * sizeof(T));
 }
 
-template <typename T, size_t N>
+template<typename T, size_t N>
 static MOZ_ALWAYS_INLINE void
 PodArrayZero(Array<T, N>& aArr)
 {
@@ -84,7 +84,8 @@ PodAssign(T* aDst, const T* aSrc)
 {
   MOZ_ASSERT(aDst + 1 <= aSrc || aSrc + 1 <= aDst,
              "destination and source must not overlap");
-  memcpy(reinterpret_cast<char*>(aDst), reinterpret_cast<const char*>(aSrc),
+  memcpy(reinterpret_cast<char*>(aDst),
+         reinterpret_cast<const char*>(aSrc),
          sizeof(T));
 }
 
@@ -103,7 +104,7 @@ PodCopy(T* aDst, const T* aSrc, size_t aNElem)
      * Avoid using operator= in this loop, as it may have been
      * intentionally deleted by the POD type.
      */
-    for (const T* srcend = aSrc + aNElem; aSrc < srcend; aSrc++, aDst++) {
+    for (const T *srcend = aSrc + aNElem; aSrc < srcend; aSrc++, aDst++) {
       PodAssign(aDst, aSrc);
     }
   } else {
@@ -124,8 +125,7 @@ PodCopy(volatile T* aDst, const volatile T* aSrc, size_t aNElem)
    * loops manually, using operator= rather than memcpy for the same reason,
    * and let the compiler optimize to the extent it can.
    */
-  for (const volatile T* srcend = aSrc + aNElem;
-       aSrc < srcend;
+  for (const volatile T *srcend = aSrc + aNElem; aSrc < srcend;
        aSrc++, aDst++) {
     *aDst = *aSrc;
   }
@@ -135,7 +135,7 @@ PodCopy(volatile T* aDst, const volatile T* aSrc, size_t aNElem)
  * Copy the contents of the array |aSrc| into the array |aDst|, both of size N.
  * The arrays must not overlap!
  */
-template <class T, size_t N>
+template<class T, size_t N>
 static MOZ_ALWAYS_INLINE void
 PodArrayCopy(T (&aDst)[N], const T (&aSrc)[N])
 {
@@ -184,13 +184,13 @@ PodEqual(const T* one, const T* two, size_t len)
  * Determine whether the |N| elements at |one| are memory-identical to the
  * |N| elements at |two|.
  */
-template <class T, size_t N>
+template<class T, size_t N>
 static MOZ_ALWAYS_INLINE bool
 PodEqual(const T (&one)[N], const T (&two)[N])
 {
   return PodEqual(one, two, N);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_PodOperations_h */

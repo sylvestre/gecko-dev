@@ -13,8 +13,8 @@ namespace mozilla {
 namespace gfx {
 class DrawTarget;
 class Pattern;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 /**
  * This class should not be instantiated. It's just a container
@@ -22,15 +22,15 @@ class Pattern;
  */
 class gfxFontMissingGlyphs final
 {
-    typedef mozilla::gfx::DrawTarget DrawTarget;
-    typedef mozilla::gfx::Float Float;
-    typedef mozilla::gfx::Pattern Pattern;
-    typedef mozilla::gfx::Rect Rect;
+  typedef mozilla::gfx::DrawTarget DrawTarget;
+  typedef mozilla::gfx::Float Float;
+  typedef mozilla::gfx::Pattern Pattern;
+  typedef mozilla::gfx::Rect Rect;
 
-    gfxFontMissingGlyphs() = delete; // prevent instantiation
+  gfxFontMissingGlyphs() = delete;  // prevent instantiation
 
-public:
-    /**
+ public:
+  /**
      * Draw hexboxes for a missing glyph.
      * @param aChar the UTF16 codepoint for the character
      * @param aRect the glyph-box for the glyph that is missing
@@ -39,17 +39,16 @@ public:
      * @param aAppUnitsPerDevPixel the appUnits to devPixel ratio we're using,
      *                             (so we can scale glyphs to a sensible size)
      */
-    static void DrawMissingGlyph(uint32_t aChar,
-                                 const Rect& aRect,
-                                 DrawTarget& aDrawTarget,
-                                 const Pattern& aPattern,
-                                 uint32_t aAppUnitsPerDevPixel);
-    /**
+  static void DrawMissingGlyph(uint32_t aChar,
+                               const Rect& aRect,
+                               DrawTarget& aDrawTarget,
+                               const Pattern& aPattern,
+                               uint32_t aAppUnitsPerDevPixel);
+  /**
      * @return the desired minimum width for a glyph-box that will allow
      * the hexboxes to be drawn reasonably.
      */
-    static Float GetDesiredMinWidth(uint32_t aChar,
-                                    uint32_t aAppUnitsPerDevUnit);
+  static Float GetDesiredMinWidth(uint32_t aChar, uint32_t aAppUnitsPerDevUnit);
 };
 
 #endif

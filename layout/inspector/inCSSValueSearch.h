@@ -21,18 +21,18 @@ class nsIURI;
 
 class inCSSValueSearch final : public inICSSValueSearch
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_INISEARCHPROCESS
   NS_DECL_INICSSVALUESEARCH
 
   inCSSValueSearch();
 
-protected:
+ protected:
   virtual ~inCSSValueSearch();
   nsCOMPtr<inISearchObserver> mObserver;
   nsCOMPtr<nsIDOMDocument> mDocument;
-  nsTArray<nsAutoString *>* mResults;
+  nsTArray<nsAutoString*>* mResults;
   nsCSSPropertyID* mProperties;
   nsString mLastResult;
   nsString mBaseURL;
@@ -54,7 +54,12 @@ protected:
 };
 
 // {4D977F60-FBE7-4583-8CB7-F5ED882293EF}
-#define IN_CSSVALUESEARCH_CID \
-{ 0x4d977f60, 0xfbe7, 0x4583, { 0x8c, 0xb7, 0xf5, 0xed, 0x88, 0x22, 0x93, 0xef } }
+#define IN_CSSVALUESEARCH_CID                        \
+  {                                                  \
+    0x4d977f60, 0xfbe7, 0x4583,                      \
+    {                                                \
+      0x8c, 0xb7, 0xf5, 0xed, 0x88, 0x22, 0x93, 0xef \
+    }                                                \
+  }
 
-#endif // __inCSSValueSearch_h__
+#endif  // __inCSSValueSearch_h__

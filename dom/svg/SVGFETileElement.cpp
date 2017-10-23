@@ -16,20 +16,17 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFETileElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFETileElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFETileElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGFETileElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFETileElement::sStringInfo[2] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
-
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFETileElement)
 
@@ -49,10 +46,11 @@ SVGFETileElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 // nsSVGElement methods
 
 FilterPrimitiveDescription
-SVGFETileElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                          const IntRect& aFilterSubregion,
-                                          const nsTArray<bool>& aInputsAreTainted,
-                                          nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFETileElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   return FilterPrimitiveDescription(PrimitiveType::Tile);
 }
@@ -63,7 +61,7 @@ SVGFETileElement::AttributeAffectsRendering(int32_t aNameSpaceID,
 {
   return SVGFETileElementBase::AttributeAffectsRendering(aNameSpaceID,
                                                          aAttribute) ||
-           (aNameSpaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::in);
+         (aNameSpaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::in);
 }
 
 //----------------------------------------------------------------------
@@ -72,9 +70,9 @@ SVGFETileElement::AttributeAffectsRendering(int32_t aNameSpaceID,
 nsSVGElement::StringAttributesInfo
 SVGFETileElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

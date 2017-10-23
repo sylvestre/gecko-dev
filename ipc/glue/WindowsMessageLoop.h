@@ -16,20 +16,15 @@ namespace mozilla {
 namespace ipc {
 namespace windows {
 
-void InitUIThread();
+void
+InitUIThread();
 
 class DeferredMessage
 {
-public:
-  DeferredMessage()
-  {
-    MOZ_COUNT_CTOR(DeferredMessage);
-  }
+ public:
+  DeferredMessage() { MOZ_COUNT_CTOR(DeferredMessage); }
 
-  virtual ~DeferredMessage()
-  {
-    MOZ_COUNT_DTOR(DeferredMessage);
-  }
+  virtual ~DeferredMessage() { MOZ_COUNT_DTOR(DeferredMessage); }
 
   virtual void Run() = 0;
 };
@@ -39,40 +34,31 @@ public:
 // may be invalid by the time the message actually runs.
 class DeferredSendMessage : public DeferredMessage
 {
-public:
-  DeferredSendMessage(HWND aHWnd,
-                      UINT aMessage,
-                      WPARAM aWParam,
-                      LPARAM aLParam)
-    : hWnd(aHWnd),
-      message(aMessage),
-      wParam(aWParam),
-      lParam(aLParam)
-  { }
+ public:
+  DeferredSendMessage(HWND aHWnd, UINT aMessage, WPARAM aWParam, LPARAM aLParam)
+      : hWnd(aHWnd), message(aMessage), wParam(aWParam), lParam(aLParam)
+  {
+  }
 
   virtual void Run();
 
-protected:
-    HWND hWnd;
-    UINT message;
-    WPARAM wParam;
-    LPARAM lParam;
+ protected:
+  HWND hWnd;
+  UINT message;
+  WPARAM wParam;
+  LPARAM lParam;
 };
 
 // Uses RedrawWindow to fake several painting-related messages. Flags passed
 // to the constructor go directly to RedrawWindow.
 class DeferredRedrawMessage : public DeferredMessage
 {
-public:
-  DeferredRedrawMessage(HWND aHWnd,
-                        UINT aFlags)
-    : hWnd(aHWnd),
-      flags(aFlags)
-  { }
+ public:
+  DeferredRedrawMessage(HWND aHWnd, UINT aFlags) : hWnd(aHWnd), flags(aFlags) {}
 
   virtual void Run();
 
-private:
+ private:
   HWND hWnd;
   UINT flags;
 };
@@ -80,12 +66,12 @@ private:
 // Uses UpdateWindow to generate a WM_PAINT message if needed.
 class DeferredUpdateMessage : public DeferredMessage
 {
-public:
+ public:
   explicit DeferredUpdateMessage(HWND aHWnd);
 
   virtual void Run();
 
-private:
+ private:
   HWND mWnd;
   RECT mUpdateRect;
 };
@@ -94,14 +80,15 @@ private:
 // message.
 class DeferredSettingChangeMessage : public DeferredSendMessage
 {
-public:
+ public:
   DeferredSettingChangeMessage(HWND aHWnd,
                                UINT aMessage,
                                WPARAM aWParam,
                                LPARAM aLParam);
 
   ~DeferredSettingChangeMessage();
-private:
+
+ private:
   wchar_t* lParamString;
 };
 
@@ -109,7 +96,7 @@ private:
 // passed to the constructor go straight through to SetWindowPos.
 class DeferredWindowPosMessage : public DeferredMessage
 {
-public:
+ public:
   DeferredWindowPosMessage(HWND aHWnd,
                            LPARAM aLParam,
                            bool aForCalcSize = false,
@@ -117,34 +104,33 @@ public:
 
   virtual void Run();
 
-private:
+ private:
   WINDOWPOS windowPos;
 };
 
 // This class duplicates a data buffer for a WM_COPYDATA message.
 class DeferredCopyDataMessage : public DeferredSendMessage
 {
-public:
+ public:
   DeferredCopyDataMessage(HWND aHWnd,
                           UINT aMessage,
                           WPARAM aWParam,
                           LPARAM aLParam);
 
   ~DeferredCopyDataMessage();
-private:
+
+ private:
   COPYDATASTRUCT copyData;
 };
 
 class DeferredStyleChangeMessage : public DeferredMessage
 {
-public:
-  DeferredStyleChangeMessage(HWND aHWnd,
-                             WPARAM aWParam,
-                             LPARAM aLParam);
+ public:
+  DeferredStyleChangeMessage(HWND aHWnd, WPARAM aWParam, LPARAM aLParam);
 
   virtual void Run();
 
-private:
+ private:
   HWND hWnd;
   int index;
   LONG_PTR style;
@@ -152,7 +138,7 @@ private:
 
 class DeferredSetIconMessage : public DeferredSendMessage
 {
-public:
+ public:
   DeferredSetIconMessage(HWND aHWnd,
                          UINT aMessage,
                          WPARAM aWParam,

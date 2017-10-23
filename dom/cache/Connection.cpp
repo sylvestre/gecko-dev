@@ -15,12 +15,12 @@ namespace cache {
 
 using mozilla::dom::quota::QuotaObject;
 
-NS_IMPL_ISUPPORTS(cache::Connection, mozIStorageAsyncConnection,
-                                     mozIStorageConnection);
+NS_IMPL_ISUPPORTS(cache::Connection,
+                  mozIStorageAsyncConnection,
+                  mozIStorageConnection);
 
 Connection::Connection(mozIStorageConnection* aBase)
-  : mBase(aBase)
-  , mClosed(false)
+    : mBase(aBase), mClosed(false)
 {
   MOZ_DIAGNOSTIC_ASSERT(mBase);
 }
@@ -90,7 +90,8 @@ Connection::CreateAsyncStatement(const nsACString&, mozIStorageAsyncStatement**)
 }
 
 NS_IMETHODIMP
-Connection::ExecuteAsync(mozIStorageBaseStatement**, uint32_t,
+Connection::ExecuteAsync(mozIStorageBaseStatement**,
+                         uint32_t,
                          mozIStorageStatementCallback*,
                          mozIStoragePendingStatement**)
 {
@@ -121,8 +122,8 @@ Connection::CreateAggregateFunction(const nsACString& aFunctionName,
                                     int32_t aNumArguments,
                                     mozIStorageAggregateFunction* aFunction)
 {
-  return mBase->CreateAggregateFunction(aFunctionName, aNumArguments,
-                                        aFunction);
+  return mBase->CreateAggregateFunction(
+      aFunctionName, aNumArguments, aFunction);
 }
 
 NS_IMETHODIMP
@@ -152,7 +153,9 @@ Connection::Clone(bool aReadOnly, mozIStorageConnection** aConnectionOut)
 {
   nsCOMPtr<mozIStorageConnection> conn;
   nsresult rv = mBase->Clone(aReadOnly, getter_AddRefs(conn));
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   nsCOMPtr<mozIStorageConnection> wrapped = new Connection(conn);
   wrapped.forget(aConnectionOut);
@@ -161,10 +164,7 @@ Connection::Clone(bool aReadOnly, mozIStorageConnection** aConnectionOut)
 }
 
 NS_IMETHODIMP
-Connection::Interrupt()
-{
-  return mBase->Interrupt();
-}
+Connection::Interrupt() { return mBase->Interrupt(); }
 
 NS_IMETHODIMP
 Connection::GetDefaultPageSize(int32_t* aSizeOut)
@@ -246,10 +246,7 @@ Connection::GetTransactionInProgress(bool* aResultOut)
 }
 
 NS_IMETHODIMP
-Connection::BeginTransaction()
-{
-  return mBase->BeginTransaction();
-}
+Connection::BeginTransaction() { return mBase->BeginTransaction(); }
 
 NS_IMETHODIMP
 Connection::BeginTransactionAs(int32_t aType)
@@ -258,16 +255,10 @@ Connection::BeginTransactionAs(int32_t aType)
 }
 
 NS_IMETHODIMP
-Connection::CommitTransaction()
-{
-  return mBase->CommitTransaction();
-}
+Connection::CommitTransaction() { return mBase->CommitTransaction(); }
 
 NS_IMETHODIMP
-Connection::RollbackTransaction()
-{
-  return mBase->RollbackTransaction();
-}
+Connection::RollbackTransaction() { return mBase->RollbackTransaction(); }
 
 NS_IMETHODIMP
 Connection::CreateTable(const char* aTable, const char* aSchema)
@@ -294,6 +285,6 @@ Connection::GetQuotaObjects(QuotaObject** aDatabaseQuotaObject,
   return mBase->GetQuotaObjects(aDatabaseQuotaObject, aJournalQuotaObject);
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

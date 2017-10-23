@@ -15,8 +15,9 @@
  * (using nsIPresShell::CancelReflowCallback()) before that occurs then neither
  * of the callback methods are called.
  */
-class nsIReflowCallback {
-public:
+class nsIReflowCallback
+{
+ public:
   /**
    * The presshell calls this when reflow has finished. Return true if
    * you need a FlushType::Layout to happen after this.

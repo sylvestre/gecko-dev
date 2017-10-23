@@ -10,21 +10,22 @@
 
 using namespace mozilla::intl;
 
-
-TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags) {
+TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags)
+{
   nsTArray<nsCString> appLocales;
   LocaleService::GetInstance()->GetAppLocalesAsLangTags(appLocales);
 
   ASSERT_FALSE(appLocales.IsEmpty());
 }
 
-TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags_firstMatchesChromeReg) {
+TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags_firstMatchesChromeReg)
+{
   nsTArray<nsCString> appLocales;
   LocaleService::GetInstance()->GetAppLocalesAsLangTags(appLocales);
 
   nsAutoCString uaLangTag;
   nsCOMPtr<nsIToolkitChromeRegistry> cr =
-    mozilla::services::GetToolkitChromeRegistryService();
+      mozilla::services::GetToolkitChromeRegistryService();
   if (cr) {
     cr->GetSelectedLocale(NS_LITERAL_CSTRING("global"), true, uaLangTag);
   }
@@ -32,7 +33,8 @@ TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags_firstMatchesChromeReg) {
   ASSERT_TRUE(appLocales[0].Equals(uaLangTag));
 }
 
-TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags_lastIsEnUS) {
+TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags_lastIsEnUS)
+{
   nsTArray<nsCString> appLocales;
   LocaleService::GetInstance()->GetAppLocalesAsLangTags(appLocales);
 
@@ -40,7 +42,8 @@ TEST(Intl_Locale_LocaleService, GetAppLocalesAsLangTags_lastIsEnUS) {
   ASSERT_TRUE(appLocales[len - 1].EqualsLiteral("en-US"));
 }
 
-TEST(Intl_Locale_LocaleService, GetRequestedLocales) {
+TEST(Intl_Locale_LocaleService, GetRequestedLocales)
+{
   nsTArray<nsCString> reqLocales;
   LocaleService::GetInstance()->GetRequestedLocales(reqLocales);
 
@@ -48,7 +51,8 @@ TEST(Intl_Locale_LocaleService, GetRequestedLocales) {
   ASSERT_TRUE(len > 0);
 }
 
-TEST(Intl_Locale_LocaleService, GetAppLocaleAsLangTag) {
+TEST(Intl_Locale_LocaleService, GetAppLocaleAsLangTag)
+{
   nsTArray<nsCString> appLocales;
   LocaleService::GetInstance()->GetAppLocalesAsLangTags(appLocales);
 
@@ -58,9 +62,9 @@ TEST(Intl_Locale_LocaleService, GetAppLocaleAsLangTag) {
   ASSERT_TRUE(appLocales[0] == locale);
 }
 
-TEST(Intl_Locale_LocaleService, IsAppLocaleRTL) {
+TEST(Intl_Locale_LocaleService, IsAppLocaleRTL)
+{
   // For now we can only test if the method doesn't crash.
   LocaleService::GetInstance()->IsAppLocaleRTL();
   ASSERT_TRUE(true);
-
 }

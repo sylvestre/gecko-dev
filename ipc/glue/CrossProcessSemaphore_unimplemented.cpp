@@ -17,8 +17,8 @@ CrossProcessSemaphore::Create(const char*, uint32_t)
   return nullptr;
 }
 
-/* static */ CrossProcessSemaphore*
-CrossProcessSemaphore::Create(CrossProcessSemaphoreHandle)
+/* static */ CrossProcessSemaphore* CrossProcessSemaphore::Create(
+    CrossProcessSemaphoreHandle)
 {
   MOZ_CRASH("Cross-process semaphores not allowed on this platform.");
   return nullptr;
@@ -26,32 +26,42 @@ CrossProcessSemaphore::Create(CrossProcessSemaphoreHandle)
 
 CrossProcessSemaphore::CrossProcessSemaphore()
 {
-  MOZ_CRASH("Cross-process semaphores not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process semaphores not allowed on this platform - woah! We "
+      "should've aborted by now!");
 }
 
 CrossProcessSemaphore::~CrossProcessSemaphore()
 {
-  MOZ_CRASH("Cross-process semaphores not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process semaphores not allowed on this platform - woah! We "
+      "should've aborted by now!");
 }
 
 bool
 CrossProcessSemaphore::Wait(const Maybe<TimeDuration>& aWaitTime)
 {
-  MOZ_CRASH("Cross-process semaphores not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process semaphores not allowed on this platform - woah! We "
+      "should've aborted by now!");
   return false;
 }
 
 void
 CrossProcessSemaphore::Signal()
 {
-  MOZ_CRASH("Cross-process semaphores not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process semaphores not allowed on this platform - woah! We "
+      "should've aborted by now!");
 }
 
 CrossProcessSemaphoreHandle
 CrossProcessSemaphore::ShareToProcess(base::ProcessId aTargetPid)
 {
-  MOZ_CRASH("Cross-process semaphores not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process semaphores not allowed on this platform - woah! We "
+      "should've aborted by now!");
   return 0;
 }
 
-}
+}  // namespace mozilla

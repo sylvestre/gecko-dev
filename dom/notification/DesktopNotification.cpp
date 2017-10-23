@@ -24,23 +24,23 @@ namespace dom {
 /*
  * Simple Request
  */
-class DesktopNotificationRequest : public nsIContentPermissionRequest
-                                 , public Runnable
+class DesktopNotificationRequest : public nsIContentPermissionRequest,
+                                   public Runnable
 {
-  virtual ~DesktopNotificationRequest()
-  {
-  }
+  virtual ~DesktopNotificationRequest() {}
 
   nsCOMPtr<nsIContentPermissionRequester> mRequester;
-public:
+
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICONTENTPERMISSIONREQUEST
 
   explicit DesktopNotificationRequest(DesktopNotification* aNotification)
-    : Runnable("dom::DesktopNotificationRequest")
-    , mDesktopNotification(aNotification)
+      : Runnable("dom::DesktopNotificationRequest"),
+        mDesktopNotification(aNotification)
   {
-    mRequester = new nsContentPermissionRequester(mDesktopNotification->GetOwner());
+    mRequester =
+        new nsContentPermissionRequester(mDesktopNotification->GetOwner());
   }
 
   NS_IMETHOD Run() override
@@ -72,7 +72,8 @@ DesktopNotification::PostDesktopNotification()
     mObserver = new AlertServiceObserver(this);
   }
 
-  nsCOMPtr<nsIAlertsService> alerts = do_GetService("@mozilla.org/alerts-service;1");
+  nsCOMPtr<nsIAlertsService> alerts =
+      do_GetService("@mozilla.org/alerts-service;1");
   if (!alerts) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -92,9 +93,11 @@ DesktopNotification::PostDesktopNotification()
   nsCOMPtr<nsILoadContext> loadContext = doc->GetLoadContext();
   bool inPrivateBrowsing = loadContext && loadContext->UsePrivateBrowsing();
   nsCOMPtr<nsIAlertNotification> alert =
-    do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
+      do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
   NS_ENSURE_TRUE(alert, NS_ERROR_FAILURE);
-  nsresult rv = alert->Init(uniqueName, mIconURL, mTitle,
+  nsresult rv = alert->Init(uniqueName,
+                            mIconURL,
+                            mTitle,
                             mDescription,
                             true,
                             uniqueName,
@@ -108,18 +111,18 @@ DesktopNotification::PostDesktopNotification()
   return alerts->ShowAlert(alert, mObserver);
 }
 
-DesktopNotification::DesktopNotification(const nsAString & title,
-                                         const nsAString & description,
-                                         const nsAString & iconURL,
+DesktopNotification::DesktopNotification(const nsAString& title,
+                                         const nsAString& description,
+                                         const nsAString& iconURL,
                                          nsPIDOMWindowInner* aWindow,
                                          nsIPrincipal* principal)
-  : DOMEventTargetHelper(aWindow)
-  , mTitle(title)
-  , mDescription(description)
-  , mIconURL(iconURL)
-  , mPrincipal(principal)
-  , mAllow(false)
-  , mShowHasBeenCalled(false)
+    : DOMEventTargetHelper(aWindow),
+      mTitle(title),
+      mDescription(description),
+      mIconURL(iconURL),
+      mPrincipal(principal),
+      mAllow(false),
+      mShowHasBeenCalled(false)
 {
   if (Preferences::GetBool("notification.disabled", false)) {
     return;
@@ -136,7 +139,8 @@ DesktopNotification::DesktopNotification(const nsAString & title,
 void
 DesktopNotification::Init()
 {
-  RefPtr<DesktopNotificationRequest> request = new DesktopNotificationRequest(this);
+  RefPtr<DesktopNotificationRequest> request =
+      new DesktopNotificationRequest(this);
 
   NS_DispatchToMainThread(request);
 }
@@ -177,7 +181,7 @@ DesktopNotification::SetAllow(bool aAllow)
 }
 
 void
-DesktopNotification::HandleAlertServiceNotification(const char *aTopic)
+DesktopNotification::HandleAlertServiceNotification(const char* aTopic)
 {
   if (NS_FAILED(CheckInnerWindowCorrectness())) {
     return;
@@ -203,7 +207,8 @@ DesktopNotification::Show(ErrorResult& aRv)
 }
 
 JSObject*
-DesktopNotification::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DesktopNotification::WrapObject(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return DesktopNotificationBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -227,18 +232,15 @@ DesktopNotificationCenter::CreateNotification(const nsAString& aTitle,
 {
   MOZ_ASSERT(mOwner);
 
-  RefPtr<DesktopNotification> notification =
-    new DesktopNotification(aTitle,
-                            aDescription,
-                            aIconURL,
-                            mOwner,
-                            mPrincipal);
+  RefPtr<DesktopNotification> notification = new DesktopNotification(
+      aTitle, aDescription, aIconURL, mOwner, mPrincipal);
   notification->Init();
   return notification.forget();
 }
 
 JSObject*
-DesktopNotificationCenter::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DesktopNotificationCenter::WrapObject(JSContext* aCx,
+                                      JS::Handle<JSObject*> aGivenProto)
 {
   return DesktopNotificationCenterBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -247,11 +249,12 @@ DesktopNotificationCenter::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGiv
 /* DesktopNotificationRequest                                               */
 /* ------------------------------------------------------------------------ */
 
-NS_IMPL_ISUPPORTS_INHERITED(DesktopNotificationRequest, Runnable,
+NS_IMPL_ISUPPORTS_INHERITED(DesktopNotificationRequest,
+                            Runnable,
                             nsIContentPermissionRequest)
 
 NS_IMETHODIMP
-DesktopNotificationRequest::GetPrincipal(nsIPrincipal * *aRequestingPrincipal)
+DesktopNotificationRequest::GetPrincipal(nsIPrincipal** aRequestingPrincipal)
 {
   if (!mDesktopNotification) {
     return NS_ERROR_NOT_INITIALIZED;
@@ -273,7 +276,7 @@ DesktopNotificationRequest::GetWindow(mozIDOMWindow** aRequestingWindow)
 }
 
 NS_IMETHODIMP
-DesktopNotificationRequest::GetElement(nsIDOMElement * *aElement)
+DesktopNotificationRequest::GetElement(nsIDOMElement** aElement)
 {
   NS_ENSURE_ARG_POINTER(aElement);
   *aElement = nullptr;
@@ -298,7 +301,8 @@ DesktopNotificationRequest::Allow(JS::HandleValue aChoices)
 }
 
 NS_IMETHODIMP
-DesktopNotificationRequest::GetRequester(nsIContentPermissionRequester** aRequester)
+DesktopNotificationRequest::GetRequester(
+    nsIContentPermissionRequester** aRequester)
 {
   NS_ENSURE_ARG_POINTER(aRequester);
 
@@ -311,11 +315,12 @@ NS_IMETHODIMP
 DesktopNotificationRequest::GetTypes(nsIArray** aTypes)
 {
   nsTArray<nsString> emptyOptions;
-  return nsContentPermissionUtils::CreatePermissionArray(NS_LITERAL_CSTRING("desktop-notification"),
-                                                         NS_LITERAL_CSTRING("unused"),
-                                                         emptyOptions,
-                                                         aTypes);
+  return nsContentPermissionUtils::CreatePermissionArray(
+      NS_LITERAL_CSTRING("desktop-notification"),
+      NS_LITERAL_CSTRING("unused"),
+      emptyOptions,
+      aTypes);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

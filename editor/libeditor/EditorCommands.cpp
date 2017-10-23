@@ -38,9 +38,7 @@ namespace mozilla {
  * mozilla::EditorCommandBase
  ******************************************************************************/
 
-EditorCommandBase::EditorCommandBase()
-{
-}
+EditorCommandBase::EditorCommandBase() {}
 
 NS_IMPL_ISUPPORTS(EditorCommandBase, nsIControllerCommand)
 
@@ -73,8 +71,7 @@ UndoCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-UndoCommand::DoCommand(const char* aCommandName,
-                       nsISupports* aCommandRefCon)
+UndoCommand::DoCommand(const char* aCommandName, nsISupports* aCommandRefCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(aCommandRefCon);
   if (!editor) {
@@ -132,8 +129,7 @@ RedoCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-RedoCommand::DoCommand(const char* aCommandName,
-                       nsISupports* aCommandRefCon)
+RedoCommand::DoCommand(const char* aCommandName, nsISupports* aCommandRefCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(aCommandRefCon);
   if (!editor) {
@@ -195,8 +191,8 @@ ClearUndoCommand::DoCommand(const char* aCommandName,
   }
   TextEditor* textEditor = editor->AsTextEditor();
   MOZ_ASSERT(textEditor);
-  textEditor->EnableUndo(false); // Turning off undo clears undo/redo stacks.
-  textEditor->EnableUndo(true);  // This re-enables undo/redo.
+  textEditor->EnableUndo(false);  // Turning off undo clears undo/redo stacks.
+  textEditor->EnableUndo(true);   // This re-enables undo/redo.
   return NS_OK;
 }
 
@@ -250,8 +246,7 @@ CutCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-CutCommand::DoCommand(const char* aCommandName,
-                      nsISupports* aCommandRefCon)
+CutCommand::DoCommand(const char* aCommandName, nsISupports* aCommandRefCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(aCommandRefCon);
   if (!editor) {
@@ -361,8 +356,7 @@ CopyCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-CopyCommand::DoCommand(const char* aCommandName,
-                       nsISupports* aCommandRefCon)
+CopyCommand::DoCommand(const char* aCommandName, nsISupports* aCommandRefCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(aCommandRefCon);
   if (!editor) {
@@ -539,8 +533,7 @@ PasteCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-PasteCommand::DoCommand(const char* aCommandName,
-                        nsISupports* aCommandRefCon)
+PasteCommand::DoCommand(const char* aCommandName, nsISupports* aCommandRefCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(aCommandRefCon);
   if (NS_WARN_IF(!editor)) {
@@ -755,8 +748,7 @@ DeleteCommand::IsCommandEnabled(const char* aCommandName,
 }
 
 NS_IMETHODIMP
-DeleteCommand::DoCommand(const char* aCommandName,
-                         nsISupports* aCommandRefCon)
+DeleteCommand::DoCommand(const char* aCommandName, nsISupports* aCommandRefCon)
 {
   nsCOMPtr<nsIEditor> editor = do_QueryInterface(aCommandRefCon);
   if (NS_WARN_IF(!editor)) {
@@ -894,69 +886,77 @@ SelectionMoveCommands::IsCommandEnabled(const char* aCommandName,
   return NS_OK;
 }
 
-static const struct ScrollCommand {
-  const char *reverseScroll;
-  const char *forwardScroll;
+static const struct ScrollCommand
+{
+  const char* reverseScroll;
+  const char* forwardScroll;
   nsresult (NS_STDCALL nsISelectionController::*scroll)(bool);
-} scrollCommands[] = {
-  { "cmd_scrollTop", "cmd_scrollBottom",
-    &nsISelectionController::CompleteScroll },
-  { "cmd_scrollPageUp", "cmd_scrollPageDown",
-    &nsISelectionController::ScrollPage },
-  { "cmd_scrollLineUp", "cmd_scrollLineDown",
-    &nsISelectionController::ScrollLine }
-};
+} scrollCommands[] = {{"cmd_scrollTop",
+                       "cmd_scrollBottom",
+                       &nsISelectionController::CompleteScroll},
+                      {"cmd_scrollPageUp",
+                       "cmd_scrollPageDown",
+                       &nsISelectionController::ScrollPage},
+                      {"cmd_scrollLineUp",
+                       "cmd_scrollLineDown",
+                       &nsISelectionController::ScrollLine}};
 
-static const struct MoveCommand {
-  const char *reverseMove;
-  const char *forwardMove;
-  const char *reverseSelect;
-  const char *forwardSelect;
+static const struct MoveCommand
+{
+  const char* reverseMove;
+  const char* forwardMove;
+  const char* reverseSelect;
+  const char* forwardSelect;
   nsresult (NS_STDCALL nsISelectionController::*move)(bool, bool);
-} moveCommands[] = {
-  { "cmd_charPrevious", "cmd_charNext",
-    "cmd_selectCharPrevious", "cmd_selectCharNext",
-    &nsISelectionController::CharacterMove },
-  { "cmd_linePrevious", "cmd_lineNext",
-    "cmd_selectLinePrevious", "cmd_selectLineNext",
-    &nsISelectionController::LineMove },
-  { "cmd_wordPrevious", "cmd_wordNext",
-    "cmd_selectWordPrevious", "cmd_selectWordNext",
-    &nsISelectionController::WordMove },
-  { "cmd_beginLine", "cmd_endLine",
-    "cmd_selectBeginLine", "cmd_selectEndLine",
-    &nsISelectionController::IntraLineMove },
-  { "cmd_movePageUp", "cmd_movePageDown",
-    "cmd_selectPageUp", "cmd_selectPageDown",
-    &nsISelectionController::PageMove },
-  { "cmd_moveTop", "cmd_moveBottom",
-    "cmd_selectTop", "cmd_selectBottom",
-    &nsISelectionController::CompleteMove }
-};
+} moveCommands[] = {{"cmd_charPrevious",
+                     "cmd_charNext",
+                     "cmd_selectCharPrevious",
+                     "cmd_selectCharNext",
+                     &nsISelectionController::CharacterMove},
+                    {"cmd_linePrevious",
+                     "cmd_lineNext",
+                     "cmd_selectLinePrevious",
+                     "cmd_selectLineNext",
+                     &nsISelectionController::LineMove},
+                    {"cmd_wordPrevious",
+                     "cmd_wordNext",
+                     "cmd_selectWordPrevious",
+                     "cmd_selectWordNext",
+                     &nsISelectionController::WordMove},
+                    {"cmd_beginLine",
+                     "cmd_endLine",
+                     "cmd_selectBeginLine",
+                     "cmd_selectEndLine",
+                     &nsISelectionController::IntraLineMove},
+                    {"cmd_movePageUp",
+                     "cmd_movePageDown",
+                     "cmd_selectPageUp",
+                     "cmd_selectPageDown",
+                     &nsISelectionController::PageMove},
+                    {"cmd_moveTop",
+                     "cmd_moveBottom",
+                     "cmd_selectTop",
+                     "cmd_selectBottom",
+                     &nsISelectionController::CompleteMove}};
 
-static const struct PhysicalCommand {
-  const char *move;
-  const char *select;
+static const struct PhysicalCommand
+{
+  const char* move;
+  const char* select;
   int16_t direction;
   int16_t amount;
 } physicalCommands[] = {
-  { "cmd_moveLeft", "cmd_selectLeft",
-    nsISelectionController::MOVE_LEFT, 0 },
-  { "cmd_moveRight", "cmd_selectRight",
-    nsISelectionController::MOVE_RIGHT, 0 },
-  { "cmd_moveUp", "cmd_selectUp",
-    nsISelectionController::MOVE_UP, 0 },
-  { "cmd_moveDown", "cmd_selectDown",
-    nsISelectionController::MOVE_DOWN, 0 },
-  { "cmd_moveLeft2", "cmd_selectLeft2",
-    nsISelectionController::MOVE_LEFT, 1 },
-  { "cmd_moveRight2", "cmd_selectRight2",
-    nsISelectionController::MOVE_RIGHT, 1 },
-  { "cmd_moveUp2", "cmd_selectUp2",
-    nsISelectionController::MOVE_UP, 1 },
-  { "cmd_moveDown2", "cmd_selectDown2",
-    nsISelectionController::MOVE_DOWN, 1 }
-};
+    {"cmd_moveLeft", "cmd_selectLeft", nsISelectionController::MOVE_LEFT, 0},
+    {"cmd_moveRight", "cmd_selectRight", nsISelectionController::MOVE_RIGHT, 0},
+    {"cmd_moveUp", "cmd_selectUp", nsISelectionController::MOVE_UP, 0},
+    {"cmd_moveDown", "cmd_selectDown", nsISelectionController::MOVE_DOWN, 0},
+    {"cmd_moveLeft2", "cmd_selectLeft2", nsISelectionController::MOVE_LEFT, 1},
+    {"cmd_moveRight2",
+     "cmd_selectRight2",
+     nsISelectionController::MOVE_RIGHT,
+     1},
+    {"cmd_moveUp2", "cmd_selectUp2", nsISelectionController::MOVE_UP, 1},
+    {"cmd_moveDown2", "cmd_selectDown2", nsISelectionController::MOVE_DOWN, 1}};
 
 NS_IMETHODIMP
 SelectionMoveCommands::DoCommand(const char* aCommandName,
@@ -977,14 +977,14 @@ SelectionMoveCommands::DoCommand(const char* aCommandName,
   }
 
   nsCOMPtr<nsISelectionController> selectionController =
-    textEditor->GetSelectionController();
+      textEditor->GetSelectionController();
   if (NS_WARN_IF(!selectionController)) {
     return NS_ERROR_FAILURE;
   }
 
   // scroll commands
   for (size_t i = 0; i < mozilla::ArrayLength(scrollCommands); i++) {
-    const ScrollCommand &cmd = scrollCommands[i];
+    const ScrollCommand& cmd = scrollCommands[i];
     if (!nsCRT::strcmp(aCommandName, cmd.reverseScroll)) {
       return (selectionController->*(cmd.scroll))(false);
     } else if (!nsCRT::strcmp(aCommandName, cmd.forwardScroll)) {
@@ -994,7 +994,7 @@ SelectionMoveCommands::DoCommand(const char* aCommandName,
 
   // caret movement/selection commands
   for (size_t i = 0; i < mozilla::ArrayLength(moveCommands); i++) {
-    const MoveCommand &cmd = moveCommands[i];
+    const MoveCommand& cmd = moveCommands[i];
     if (!nsCRT::strcmp(aCommandName, cmd.reverseMove)) {
       return (selectionController->*(cmd.move))(false, false);
     } else if (!nsCRT::strcmp(aCommandName, cmd.forwardMove)) {
@@ -1008,13 +1008,12 @@ SelectionMoveCommands::DoCommand(const char* aCommandName,
 
   // physical-direction movement/selection
   for (size_t i = 0; i < mozilla::ArrayLength(physicalCommands); i++) {
-    const PhysicalCommand &cmd = physicalCommands[i];
+    const PhysicalCommand& cmd = physicalCommands[i];
     if (!nsCRT::strcmp(aCommandName, cmd.move)) {
-      return selectionController->PhysicalMove(cmd.direction, cmd.amount,
-                                               false);
+      return selectionController->PhysicalMove(
+          cmd.direction, cmd.amount, false);
     } else if (!nsCRT::strcmp(aCommandName, cmd.select)) {
-      return selectionController->PhysicalMove(cmd.direction, cmd.amount,
-                                               true);
+      return selectionController->PhysicalMove(cmd.direction, cmd.amount, true);
     }
   }
 
@@ -1307,4 +1306,4 @@ PasteQuotationCommand::GetCommandStateParams(const char* aCommandName,
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

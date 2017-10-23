@@ -20,23 +20,29 @@ static float sMaxFlingSpeed = 0.0f;
 namespace mozilla {
 namespace layers {
 
-AndroidSpecificState::AndroidSpecificState() {
+AndroidSpecificState::AndroidSpecificState()
+{
   using namespace mozilla::java;
 
   sdk::ViewConfiguration::LocalRef config;
-  if (sdk::ViewConfiguration::Get(GeckoAppShell::GetApplicationContext(), &config) == NS_OK) {
+  if (sdk::ViewConfiguration::Get(GeckoAppShell::GetApplicationContext(),
+                                  &config) == NS_OK) {
     int32_t speed = 0;
     if (config->GetScaledMaximumFlingVelocity(&speed) == NS_OK) {
       sMaxFlingSpeed = (float)speed * 0.001f;
     } else {
-      ANDROID_APZ_LOG("%p Failed to query ViewConfiguration for scaled maximum fling velocity\n", this);
+      ANDROID_APZ_LOG(
+          "%p Failed to query ViewConfiguration for scaled maximum fling "
+          "velocity\n",
+          this);
     }
   } else {
     ANDROID_APZ_LOG("%p Failed to get ViewConfiguration\n", this);
   }
 
   StackScroller::LocalRef scroller;
-  if (StackScroller::New(GeckoAppShell::GetApplicationContext(), &scroller) != NS_OK) {
+  if (StackScroller::New(GeckoAppShell::GetApplicationContext(), &scroller) !=
+      NS_OK) {
     ANDROID_APZ_LOG("%p Failed to create Android StackScroller\n", this);
     return;
   }
@@ -67,20 +73,22 @@ ClampStart(float aOrigin, float aMin, float aMax)
   return (int32_t)aOrigin;
 }
 
-AndroidFlingAnimation::AndroidFlingAnimation(AsyncPanZoomController& aApzc,
-                                             PlatformSpecificStateBase* aPlatformSpecificState,
-                                             const RefPtr<const OverscrollHandoffChain>& aOverscrollHandoffChain,
-                                             bool aFlingIsHandoff,
-                                             const RefPtr<const AsyncPanZoomController>& aScrolledApzc)
-  : mApzc(aApzc)
-  , mOverscrollHandoffChain(aOverscrollHandoffChain)
-  , mScrolledApzc(aScrolledApzc)
-  , mSentBounceX(false)
-  , mSentBounceY(false)
-  , mFlingDuration(0)
+AndroidFlingAnimation::AndroidFlingAnimation(
+    AsyncPanZoomController& aApzc,
+    PlatformSpecificStateBase* aPlatformSpecificState,
+    const RefPtr<const OverscrollHandoffChain>& aOverscrollHandoffChain,
+    bool aFlingIsHandoff,
+    const RefPtr<const AsyncPanZoomController>& aScrolledApzc)
+    : mApzc(aApzc),
+      mOverscrollHandoffChain(aOverscrollHandoffChain),
+      mScrolledApzc(aScrolledApzc),
+      mSentBounceX(false),
+      mSentBounceY(false),
+      mFlingDuration(0)
 {
   MOZ_ASSERT(mOverscrollHandoffChain);
-  AndroidSpecificState* state = aPlatformSpecificState->AsAndroidSpecificState();
+  AndroidSpecificState* state =
+      aPlatformSpecificState->AsAndroidSpecificState();
   MOZ_ASSERT(state);
   mOverScroller = state->mOverScroller;
   MOZ_ASSERT(mOverScroller);
@@ -89,11 +97,13 @@ AndroidFlingAnimation::AndroidFlingAnimation(AsyncPanZoomController& aApzc,
   // (in this APZC, or an APZC further in the handoff chain).
   // This ensures that we don't take the 'overscroll' path in Sample()
   // on account of one axis which can't scroll having a velocity.
-  if (!mOverscrollHandoffChain->CanScrollInDirection(&mApzc, ScrollDirection::HORIZONTAL)) {
+  if (!mOverscrollHandoffChain->CanScrollInDirection(
+          &mApzc, ScrollDirection::HORIZONTAL)) {
     RecursiveMutexAutoLock lock(mApzc.mRecursiveMutex);
     mApzc.mX.SetVelocity(0);
   }
-  if (!mOverscrollHandoffChain->CanScrollInDirection(&mApzc, ScrollDirection::VERTICAL)) {
+  if (!mOverscrollHandoffChain->CanScrollInDirection(
+          &mApzc, ScrollDirection::VERTICAL)) {
     RecursiveMutexAutoLock lock(mApzc.mRecursiveMutex);
     mApzc.mY.SetVelocity(0);
   }
@@ -111,34 +121,44 @@ AndroidFlingAnimation::AndroidFlingAnimation(AsyncPanZoomController& aApzc,
     mFlingDirection = velocity / length;
 
     if ((sMaxFlingSpeed > 0.0f) && (length > sMaxFlingSpeed)) {
-       velocity = mFlingDirection * sMaxFlingSpeed;
+      velocity = mFlingDirection * sMaxFlingSpeed;
     }
   }
 
   mPreviousVelocity = velocity;
 
-  int32_t originX = ClampStart(mStartOffset.x, scrollRangeStartX, scrollRangeEndX);
-  int32_t originY = ClampStart(mStartOffset.y, scrollRangeStartY, scrollRangeEndY);
+  int32_t originX =
+      ClampStart(mStartOffset.x, scrollRangeStartX, scrollRangeEndX);
+  int32_t originY =
+      ClampStart(mStartOffset.y, scrollRangeStartY, scrollRangeEndY);
   if (!state->mLastFling.IsNull()) {
     // If it's been too long since the previous fling, or if the new fling's
     // velocity is too low, don't allow flywheel to kick in. If we do allow
     // flywheel to kick in, then we need to update the timestamp on the
     // StackScroller because otherwise it might use a stale velocity.
     TimeDuration flingDuration = TimeStamp::Now() - state->mLastFling;
-    if (flingDuration.ToMilliseconds() < gfxPrefs::APZFlingAccelInterval()
-        && velocity.Length() >= gfxPrefs::APZFlingAccelMinVelocity()) {
+    if (flingDuration.ToMilliseconds() < gfxPrefs::APZFlingAccelInterval() &&
+        velocity.Length() >= gfxPrefs::APZFlingAccelMinVelocity()) {
       bool unused = false;
-      mOverScroller->ComputeScrollOffset(flingDuration.ToMilliseconds(), &unused);
+      mOverScroller->ComputeScrollOffset(flingDuration.ToMilliseconds(),
+                                         &unused);
     } else {
       mOverScroller->ForceFinished(true);
     }
   }
-  mOverScroller->Fling(originX, originY,
-                       // Android needs the velocity in pixels per second and it is in pixels per ms.
-                       (int32_t)(velocity.x * 1000.0f), (int32_t)(velocity.y * 1000.0f),
-                       (int32_t)floor(scrollRangeStartX), (int32_t)ceil(scrollRangeEndX),
-                       (int32_t)floor(scrollRangeStartY), (int32_t)ceil(scrollRangeEndY),
-                       0, 0, 0);
+  mOverScroller->Fling(
+      originX,
+      originY,
+      // Android needs the velocity in pixels per second and it is in pixels per ms.
+      (int32_t)(velocity.x * 1000.0f),
+      (int32_t)(velocity.y * 1000.0f),
+      (int32_t)floor(scrollRangeStartX),
+      (int32_t)ceil(scrollRangeEndX),
+      (int32_t)floor(scrollRangeStartY),
+      (int32_t)ceil(scrollRangeEndY),
+      0,
+      0,
+      0);
   state->mLastFling = TimeStamp::Now();
 }
 
@@ -164,8 +184,10 @@ AndroidFlingAnimation::DoSample(FrameMetrics& aFrameMetrics,
   ParentLayerPoint offset((float)currentX, (float)currentY);
   ParentLayerPoint preCheckedOffset(offset);
 
-  bool hitBoundX = CheckBounds(mApzc.mX, offset.x, mFlingDirection.x, &(offset.x));
-  bool hitBoundY = CheckBounds(mApzc.mY, offset.y, mFlingDirection.y, &(offset.y));
+  bool hitBoundX =
+      CheckBounds(mApzc.mX, offset.x, mFlingDirection.x, &(offset.x));
+  bool hitBoundY =
+      CheckBounds(mApzc.mY, offset.y, mFlingDirection.y, &(offset.y));
 
   ParentLayerPoint velocity = mPreviousVelocity;
 
@@ -183,7 +205,8 @@ AndroidFlingAnimation::DoSample(FrameMetrics& aFrameMetrics,
 
       mPreviousVelocity = velocity;
     }
-  } else if ((fabsf(offset.x - preCheckedOffset.x) > BOUNDS_EPSILON) || (fabsf(offset.y - preCheckedOffset.y) > BOUNDS_EPSILON)) {
+  } else if ((fabsf(offset.x - preCheckedOffset.x) > BOUNDS_EPSILON) ||
+             (fabsf(offset.y - preCheckedOffset.y) > BOUNDS_EPSILON)) {
     // The page is no longer scrolling but the fling animation is still animating beyond the page bounds. If it goes
     // beyond the BOUNDS_EPSILON then it has overflowed and will never stop. In that case, stop the fling animation.
     shouldContinueFling = false;
@@ -220,13 +243,15 @@ AndroidFlingAnimation::DoSample(FrameMetrics& aFrameMetrics,
   if (hitBoundX || hitBoundY) {
     ParentLayerPoint bounceVelocity = velocity;
 
-    if (!mSentBounceX && hitBoundX && fabsf(offset.x - mStartOffset.x) > BOUNDS_EPSILON) {
+    if (!mSentBounceX && hitBoundX &&
+        fabsf(offset.x - mStartOffset.x) > BOUNDS_EPSILON) {
       mSentBounceX = true;
     } else {
       bounceVelocity.x = 0.0f;
     }
 
-    if (!mSentBounceY && hitBoundY && fabsf(offset.y - mStartOffset.y) > BOUNDS_EPSILON) {
+    if (!mSentBounceY && hitBoundY &&
+        fabsf(offset.y - mStartOffset.y) > BOUNDS_EPSILON) {
       mSentBounceY = true;
     } else {
       bounceVelocity.y = 0.0f;
@@ -245,24 +270,28 @@ AndroidFlingAnimation::DeferHandleFlingOverscroll(ParentLayerPoint& aVelocity)
   mDeferredTasks.AppendElement(
       NewRunnableMethod<ParentLayerPoint,
                         RefPtr<const OverscrollHandoffChain>,
-                        RefPtr<const AsyncPanZoomController>>("layers::AsyncPanZoomController::HandleFlingOverscroll",
-                                                              &mApzc,
-                                                              &AsyncPanZoomController::HandleFlingOverscroll,
-                                                              aVelocity,
-                                                              mOverscrollHandoffChain,
-                                                              mScrolledApzc));
-
+                        RefPtr<const AsyncPanZoomController>>(
+          "layers::AsyncPanZoomController::HandleFlingOverscroll",
+          &mApzc,
+          &AsyncPanZoomController::HandleFlingOverscroll,
+          aVelocity,
+          mOverscrollHandoffChain,
+          mScrolledApzc));
 }
 
 bool
-AndroidFlingAnimation::CheckBounds(Axis& aAxis, float aValue, float aDirection, float* aClamped)
+AndroidFlingAnimation::CheckBounds(Axis& aAxis,
+                                   float aValue,
+                                   float aDirection,
+                                   float* aClamped)
 {
   if ((aDirection < 0.0f) && (aValue <= aAxis.GetPageStart().value)) {
     if (aClamped) {
       *aClamped = aAxis.GetPageStart().value;
     }
     return true;
-  } else if ((aDirection > 0.0f) && (aValue >= aAxis.GetScrollRangeEnd().value)) {
+  } else if ((aDirection > 0.0f) &&
+             (aValue >= aAxis.GetScrollRangeEnd().value)) {
     if (aClamped) {
       *aClamped = aAxis.GetScrollRangeEnd().value;
     }
@@ -271,5 +300,5 @@ AndroidFlingAnimation::CheckBounds(Axis& aAxis, float aValue, float aDirection, 
   return false;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

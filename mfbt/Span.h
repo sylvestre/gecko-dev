@@ -46,7 +46,7 @@
 #pragma warning(push)
 
 // turn off some warnings that are noisy about our MOZ_RELEASE_ASSERT statements
-#pragma warning(disable : 4127) // conditional expression is constant
+#pragma warning(disable : 4127)  // conditional expression is constant
 
 // blanket turn off warnings from CppCoreCheck for now
 // so people aren't annoyed by them when running the tool.
@@ -57,8 +57,8 @@
 #pragma push_macro("constexpr")
 #define constexpr /*constexpr*/
 
-#endif            // _MSC_VER < 1910
-#endif            // _MSC_VER
+#endif  // _MSC_VER < 1910
+#endif  // _MSC_VER
 
 namespace mozilla {
 
@@ -87,7 +87,9 @@ class Span;
 // implementation details
 namespace span_details {
 
-inline size_t strlen16(const char16_t* aZeroTerminated) {
+inline size_t
+strlen16(const char16_t* aZeroTerminated)
+{
   size_t len = 0;
   while (*(aZeroTerminated++)) {
     len++;
@@ -139,16 +141,18 @@ struct is_std_array : public is_std_array_oracle<remove_cv_t<T>>
 
 template<size_t From, size_t To>
 struct is_allowed_extent_conversion
-  : public mozilla::IntegralConstant<bool,
-                                  From == To ||
-                                    From == mozilla::dynamic_extent ||
-                                    To == mozilla::dynamic_extent>
+    : public mozilla::IntegralConstant<bool,
+                                       From == To ||
+                                           From == mozilla::dynamic_extent ||
+                                           To == mozilla::dynamic_extent>
 {
 };
 
 template<class From, class To>
 struct is_allowed_element_type_conversion
-  : public mozilla::IntegralConstant<bool, mozilla::IsConvertible<From (*)[], To (*)[]>::value>
+    : public mozilla::IntegralConstant<
+          bool,
+          mozilla::IsConvertible<From (*)[], To (*)[]>::value>
 {
 };
 
@@ -157,7 +161,7 @@ class span_iterator
 {
   using element_type_ = typename Span::element_type;
 
-public:
+ public:
   using iterator_category = std::random_access_iterator_tag;
   using value_type = remove_const_t<element_type_>;
   using difference_type = typename Span::index_type;
@@ -169,8 +173,7 @@ public:
 
   MOZ_SPAN_ASSERTION_CONSTEXPR span_iterator(const Span* span,
                                              typename Span::index_type index)
-    : span_(span)
-    , index_(index)
+      : span_(span), index_(index)
   {
     MOZ_RELEASE_ASSERT(span == nullptr ||
                        (index_ >= 0 && index <= span_->Length()));
@@ -178,7 +181,7 @@ public:
 
   friend class span_iterator<Span, true>;
   constexpr MOZ_IMPLICIT span_iterator(const span_iterator<Span, false>& other)
-    : span_iterator(other.span_, other.index_)
+      : span_iterator(other.span_, other.index_)
   {
   }
 
@@ -308,7 +311,7 @@ public:
     std::swap(span_, rhs.span_);
   }
 
-protected:
+ protected:
   const Span* span_;
   size_t index_;
 };
@@ -324,7 +327,7 @@ operator+(typename span_iterator<Span, IsConst>::difference_type n,
 template<size_t Ext>
 class extent_type
 {
-public:
+ public:
   using index_type = size_t;
 
   static_assert(Ext >= 0, "A fixed-size Span must be >= 0 in size.");
@@ -335,8 +338,8 @@ public:
   MOZ_SPAN_ASSERTION_CONSTEXPR MOZ_IMPLICIT extent_type(extent_type<Other> ext)
   {
     static_assert(
-      Other == Ext || Other == dynamic_extent,
-      "Mismatch between fixed-size extent and size of initializing data.");
+        Other == Ext || Other == dynamic_extent,
+        "Mismatch between fixed-size extent and size of initializing data.");
     MOZ_RELEASE_ASSERT(ext.size() == Ext);
   }
 
@@ -351,26 +354,22 @@ public:
 template<>
 class extent_type<dynamic_extent>
 {
-public:
+ public:
   using index_type = size_t;
 
   template<index_type Other>
-  explicit constexpr extent_type(extent_type<Other> ext)
-    : size_(ext.size())
+  explicit constexpr extent_type(extent_type<Other> ext) : size_(ext.size())
   {
   }
 
-  explicit constexpr extent_type(index_type length)
-    : size_(length)
-  {
-  }
+  explicit constexpr extent_type(index_type length) : size_(length) {}
 
   constexpr index_type size() const { return size_; }
 
-private:
+ private:
   index_type size_;
 };
-} // namespace span_details
+}  // namespace span_details
 
 /**
  * Span - slices for C++
@@ -439,7 +438,7 @@ private:
 template<class ElementType, size_t Extent>
 class Span
 {
-public:
+ public:
   // constants and types
   using element_type = ElementType;
   using index_type = size_t;
@@ -447,9 +446,9 @@ public:
   using reference = element_type&;
 
   using iterator =
-    span_details::span_iterator<Span<ElementType, Extent>, false>;
+      span_details::span_iterator<Span<ElementType, Extent>, false>;
   using const_iterator =
-    span_details::span_iterator<Span<ElementType, Extent>, true>;
+      span_details::span_iterator<Span<ElementType, Extent>, true>;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -461,12 +460,11 @@ public:
   /**
    * Constructor with no args.
    */
-  template<
-    bool Dependent = false,
-    class = span_details::enable_if_t<
-      (Dependent || Extent == 0 || Extent == mozilla::MaxValue<size_t>::value)>>
-  constexpr Span()
-    : storage_(nullptr, span_details::extent_type<0>())
+  template<bool Dependent = false,
+           class = span_details::enable_if_t<
+               (Dependent || Extent == 0 ||
+                Extent == mozilla::MaxValue<size_t>::value)>>
+  constexpr Span() : storage_(nullptr, span_details::extent_type<0>())
   {
   }
 
@@ -478,16 +476,13 @@ public:
   /**
    * Constructor for pointer and length.
    */
-  constexpr Span(pointer aPtr, index_type aLength)
-    : storage_(aPtr, aLength)
-  {
-  }
+  constexpr Span(pointer aPtr, index_type aLength) : storage_(aPtr, aLength) {}
 
   /**
    * Constructor for start pointer and pointer past end.
    */
   constexpr Span(pointer aStartPtr, pointer aEndPtr)
-    : storage_(aStartPtr, std::distance(aStartPtr, aEndPtr))
+      : storage_(aStartPtr, std::distance(aStartPtr, aEndPtr))
   {
   }
 
@@ -496,7 +491,7 @@ public:
    */
   template<size_t N>
   constexpr MOZ_IMPLICIT Span(element_type (&aArr)[N])
-    : storage_(&aArr[0], span_details::extent_type<N>())
+      : storage_(&aArr[0], span_details::extent_type<N>())
   {
   }
 
@@ -516,7 +511,7 @@ public:
   template<size_t N,
            class ArrayElementType = span_details::remove_const_t<element_type>>
   constexpr MOZ_IMPLICIT Span(std::array<ArrayElementType, N>& aArr)
-    : storage_(&aArr[0], span_details::extent_type<N>())
+      : storage_(&aArr[0], span_details::extent_type<N>())
   {
   }
 
@@ -525,8 +520,8 @@ public:
    */
   template<size_t N>
   constexpr MOZ_IMPLICIT Span(
-    const std::array<span_details::remove_const_t<element_type>, N>& aArr)
-    : storage_(&aArr[0], span_details::extent_type<N>())
+      const std::array<span_details::remove_const_t<element_type>, N>& aArr)
+      : storage_(&aArr[0], span_details::extent_type<N>())
   {
   }
 
@@ -536,7 +531,7 @@ public:
   template<size_t N,
            class ArrayElementType = span_details::remove_const_t<element_type>>
   constexpr MOZ_IMPLICIT Span(mozilla::Array<ArrayElementType, N>& aArr)
-    : storage_(&aArr[0], span_details::extent_type<N>())
+      : storage_(&aArr[0], span_details::extent_type<N>())
   {
   }
 
@@ -545,8 +540,8 @@ public:
    */
   template<size_t N>
   constexpr MOZ_IMPLICIT Span(
-    const mozilla::Array<span_details::remove_const_t<element_type>, N>& aArr)
-    : storage_(&aArr[0], span_details::extent_type<N>())
+      const mozilla::Array<span_details::remove_const_t<element_type>, N>& aArr)
+      : storage_(&aArr[0], span_details::extent_type<N>())
   {
   }
 
@@ -556,7 +551,7 @@ public:
   template<class ArrayElementType = std::add_pointer<element_type>>
   constexpr Span(const mozilla::UniquePtr<ArrayElementType>& aPtr,
                  index_type aLength)
-    : storage_(aPtr.get(), aLength)
+      : storage_(aPtr.get(), aLength)
   {
   }
 
@@ -566,15 +561,16 @@ public:
    * Constructor for standard-library containers.
    */
   template<
-    class Container,
-    class = span_details::enable_if_t<
-      !span_details::is_span<Container>::value &&
-      !span_details::is_std_array<Container>::value &&
-      mozilla::IsConvertible<typename Container::pointer, pointer>::value &&
-      mozilla::IsConvertible<typename Container::pointer,
-                          decltype(mozilla::DeclVal<Container>().data())>::value>>
+      class Container,
+      class = span_details::enable_if_t<
+          !span_details::is_span<Container>::value &&
+          !span_details::is_std_array<Container>::value &&
+          mozilla::IsConvertible<typename Container::pointer, pointer>::value &&
+          mozilla::IsConvertible<
+              typename Container::pointer,
+              decltype(mozilla::DeclVal<Container>().data())>::value>>
   constexpr MOZ_IMPLICIT Span(Container& cont)
-    : Span(cont.data(), ReleaseAssertedCast<index_type>(cont.size()))
+      : Span(cont.data(), ReleaseAssertedCast<index_type>(cont.size()))
   {
   }
 
@@ -582,15 +578,16 @@ public:
    * Constructor for standard-library containers (const version).
    */
   template<
-    class Container,
-    class = span_details::enable_if_t<
-      mozilla::IsConst<element_type>::value &&
-      !span_details::is_span<Container>::value &&
-      mozilla::IsConvertible<typename Container::pointer, pointer>::value &&
-      mozilla::IsConvertible<typename Container::pointer,
-                          decltype(mozilla::DeclVal<Container>().data())>::value>>
+      class Container,
+      class = span_details::enable_if_t<
+          mozilla::IsConst<element_type>::value &&
+          !span_details::is_span<Container>::value &&
+          mozilla::IsConvertible<typename Container::pointer, pointer>::value &&
+          mozilla::IsConvertible<
+              typename Container::pointer,
+              decltype(mozilla::DeclVal<Container>().data())>::value>>
   constexpr MOZ_IMPLICIT Span(const Container& cont)
-    : Span(cont.data(), ReleaseAssertedCast<index_type>(cont.size()))
+      : Span(cont.data(), ReleaseAssertedCast<index_type>(cont.size()))
   {
   }
 
@@ -607,41 +604,43 @@ public:
   /**
    * Constructor from other Span with conversion of element type.
    */
-  template<
-    class OtherElementType,
-    size_t OtherExtent,
-    class = span_details::enable_if_t<
-      span_details::is_allowed_extent_conversion<OtherExtent, Extent>::value &&
-      span_details::is_allowed_element_type_conversion<OtherElementType,
-                                                       element_type>::value>>
+  template<class OtherElementType,
+           size_t OtherExtent,
+           class = span_details::enable_if_t<
+               span_details::is_allowed_extent_conversion<OtherExtent,
+                                                          Extent>::value &&
+               span_details::is_allowed_element_type_conversion<
+                   OtherElementType,
+                   element_type>::value>>
   constexpr MOZ_IMPLICIT Span(const Span<OtherElementType, OtherExtent>& other)
-    : storage_(other.data(),
-               span_details::extent_type<OtherExtent>(other.size()))
+      : storage_(other.data(),
+                 span_details::extent_type<OtherExtent>(other.size()))
   {
   }
 
   /**
    * Constructor from other Span with conversion of element type.
    */
-  template<
-    class OtherElementType,
-    size_t OtherExtent,
-    class = span_details::enable_if_t<
-      span_details::is_allowed_extent_conversion<OtherExtent, Extent>::value &&
-      span_details::is_allowed_element_type_conversion<OtherElementType,
-                                                       element_type>::value>>
+  template<class OtherElementType,
+           size_t OtherExtent,
+           class = span_details::enable_if_t<
+               span_details::is_allowed_extent_conversion<OtherExtent,
+                                                          Extent>::value &&
+               span_details::is_allowed_element_type_conversion<
+                   OtherElementType,
+                   element_type>::value>>
   constexpr MOZ_IMPLICIT Span(Span<OtherElementType, OtherExtent>&& other)
-    : storage_(other.data(),
-               span_details::extent_type<OtherExtent>(other.size()))
+      : storage_(other.data(),
+                 span_details::extent_type<OtherExtent>(other.size()))
   {
   }
 
   ~Span() = default;
-  MOZ_SPAN_EXPLICITLY_DEFAULTED_CONSTEXPR Span& operator=(const Span& other)
-    = default;
+  MOZ_SPAN_EXPLICITLY_DEFAULTED_CONSTEXPR Span& operator=(const Span& other) =
+      default;
 
-  MOZ_SPAN_EXPLICITLY_DEFAULTED_CONSTEXPR Span& operator=(Span&& other)
-    = default;
+  MOZ_SPAN_EXPLICITLY_DEFAULTED_CONSTEXPR Span& operator=(Span&& other) =
+      default;
 
   // [Span.sub], Span subviews
   /**
@@ -651,7 +650,7 @@ public:
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, Count> First() const
   {
     MOZ_RELEASE_ASSERT(Count <= size());
-    return { data(), Count };
+    return {data(), Count};
   }
 
   /**
@@ -662,7 +661,7 @@ public:
   {
     const size_t len = size();
     MOZ_RELEASE_ASSERT(Count <= len);
-    return { data() + (len - Count), Count };
+    return {data() + (len - Count), Count};
   }
 
   /**
@@ -673,52 +672,49 @@ public:
   {
     const size_t len = size();
     MOZ_RELEASE_ASSERT(Offset <= len &&
-      (Count == dynamic_extent || (Offset + Count <= len)));
-    return { data() + Offset,
-             Count == dynamic_extent ? len - Offset : Count };
+                       (Count == dynamic_extent || (Offset + Count <= len)));
+    return {data() + Offset, Count == dynamic_extent ? len - Offset : Count};
   }
 
   /**
    * Subspan with first N elements with run-time N.
    */
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, dynamic_extent> First(
-    index_type aCount) const
+      index_type aCount) const
   {
     MOZ_RELEASE_ASSERT(aCount <= size());
-    return { data(), aCount };
+    return {data(), aCount};
   }
 
   /**
    * Subspan with last N elements with run-time N.
    */
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, dynamic_extent> Last(
-    index_type aCount) const
+      index_type aCount) const
   {
     const size_t len = size();
     MOZ_RELEASE_ASSERT(aCount <= len);
-    return { data() + (len - aCount), aCount };
+    return {data() + (len - aCount), aCount};
   }
 
   /**
    * Subspan with run-time start index and length.
    */
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, dynamic_extent> Subspan(
-    index_type aStart,
-    index_type aLength = dynamic_extent) const
+      index_type aStart, index_type aLength = dynamic_extent) const
   {
     const size_t len = size();
-    MOZ_RELEASE_ASSERT(aStart <= len &&
-                       (aLength == dynamic_extent ||
-                        (aStart + aLength <= len)));
-    return { data() + aStart,
-             aLength == dynamic_extent ? len - aStart : aLength };
+    MOZ_RELEASE_ASSERT(aStart <= len && (aLength == dynamic_extent ||
+                                         (aStart + aLength <= len)));
+    return {data() + aStart,
+            aLength == dynamic_extent ? len - aStart : aLength};
   }
 
   /**
    * Subspan with run-time start index. (Rust's &foo[start..])
    */
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, dynamic_extent> From(
-    index_type aStart) const
+      index_type aStart) const
   {
     return Subspan(aStart);
   }
@@ -727,7 +723,7 @@ public:
    * Subspan with run-time exclusive end index. (Rust's &foo[..end])
    */
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, dynamic_extent> To(
-    index_type aEnd) const
+      index_type aEnd) const
   {
     return Subspan(0, aEnd);
   }
@@ -737,8 +733,7 @@ public:
    * (Rust's &foo[start..end])
    */
   MOZ_SPAN_GCC_CONSTEXPR Span<element_type, dynamic_extent> FromTo(
-    index_type aStart,
-    index_type aEnd) const
+      index_type aStart, index_type aEnd) const
   {
     MOZ_RELEASE_ASSERT(aStart <= aEnd);
     return Subspan(aStart, aEnd - aStart);
@@ -811,55 +806,50 @@ public:
   constexpr pointer data() const { return storage_.data(); }
 
   // [Span.iter], Span iterator support
-  iterator begin() const { return { this, 0 }; }
-  iterator end() const { return { this, Length() }; }
+  iterator begin() const { return {this, 0}; }
+  iterator end() const { return {this, Length()}; }
 
-  const_iterator cbegin() const { return { this, 0 }; }
-  const_iterator cend() const { return { this, Length() }; }
+  const_iterator cbegin() const { return {this, 0}; }
+  const_iterator cend() const { return {this, Length()}; }
 
-  reverse_iterator rbegin() const
-  {
-    return reverse_iterator{ end() };
-  }
-  reverse_iterator rend() const
-  {
-    return reverse_iterator{ begin() };
-  }
+  reverse_iterator rbegin() const { return reverse_iterator{end()}; }
+  reverse_iterator rend() const { return reverse_iterator{begin()}; }
 
   const_reverse_iterator crbegin() const
   {
-    return const_reverse_iterator{ cend() };
+    return const_reverse_iterator{cend()};
   }
   const_reverse_iterator crend() const
   {
-    return const_reverse_iterator{ cbegin() };
+    return const_reverse_iterator{cbegin()};
   }
 
-private:
+ private:
   // this implementation detail class lets us take advantage of the
   // empty base class optimization to pay for only storage of a single
   // pointer in the case of fixed-size Spans
   template<class ExtentType>
   class storage_type : public ExtentType
   {
-  public:
+   public:
     template<class OtherExtentType>
     MOZ_SPAN_ASSERTION_CONSTEXPR storage_type(pointer elements,
                                               OtherExtentType ext)
-      : ExtentType(ext)
-      // Replace nullptr with 0x1 for Rust slice compatibility. See
-      // https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html
-      , data_(elements ? elements : reinterpret_cast<pointer>(0x1))
+        : ExtentType(ext)
+          // Replace nullptr with 0x1 for Rust slice compatibility. See
+          // https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html
+          ,
+          data_(elements ? elements : reinterpret_cast<pointer>(0x1))
     {
       const size_t extentSize = ExtentType::size();
       MOZ_RELEASE_ASSERT(
-        (!elements && extentSize == 0) ||
-        (elements && extentSize != mozilla::MaxValue<size_t>::value));
+          (!elements && extentSize == 0) ||
+          (elements && extentSize != mozilla::MaxValue<size_t>::value));
     }
 
     constexpr pointer data() const { return data_; }
 
-  private:
+   private:
     pointer data_;
   };
 
@@ -924,18 +914,19 @@ namespace span_details {
 // and so will fail compilation of the template
 template<class ElementType, size_t Extent>
 struct calculate_byte_size
-  : mozilla::IntegralConstant<size_t,
-                           static_cast<size_t>(sizeof(ElementType) *
-                                               static_cast<size_t>(Extent))>
+    : mozilla::IntegralConstant<size_t,
+                                static_cast<size_t>(
+                                    sizeof(ElementType) *
+                                    static_cast<size_t>(Extent))>
 {
 };
 
 template<class ElementType>
 struct calculate_byte_size<ElementType, dynamic_extent>
-  : mozilla::IntegralConstant<size_t, dynamic_extent>
+    : mozilla::IntegralConstant<size_t, dynamic_extent>
 {
 };
-}
+}  // namespace span_details
 
 // [Span.objectrep], views of object representation
 /**
@@ -946,19 +937,20 @@ Span<const uint8_t,
      span_details::calculate_byte_size<ElementType, Extent>::value>
 AsBytes(Span<ElementType, Extent> s)
 {
-  return { reinterpret_cast<const uint8_t*>(s.data()), s.size_bytes() };
+  return {reinterpret_cast<const uint8_t*>(s.data()), s.size_bytes()};
 }
 
 /**
  * View span as Span<uint8_t>.
  */
-template<class ElementType,
-         size_t Extent,
-         class = span_details::enable_if_t<!mozilla::IsConst<ElementType>::value>>
+template<
+    class ElementType,
+    size_t Extent,
+    class = span_details::enable_if_t<!mozilla::IsConst<ElementType>::value>>
 Span<uint8_t, span_details::calculate_byte_size<ElementType, Extent>::value>
 AsWritableBytes(Span<ElementType, Extent> s)
 {
-  return { reinterpret_cast<uint8_t*>(s.data()), s.size_bytes() };
+  return {reinterpret_cast<uint8_t*>(s.data()), s.size_bytes()};
 }
 
 //
@@ -993,10 +985,11 @@ MakeSpan(ElementType* aStartPtr, ElementType* aEndPtr)
  * the MakeSpan() overload that accepts a pointer and length and specify the
  * string literal's full length.
  */
-template<class ElementType, size_t N,
+template<class ElementType,
+         size_t N,
          class = span_details::enable_if_t<
-                   !IsSame<ElementType, const char>::value &&
-                   !IsSame<ElementType, const char16_t>::value>>
+             !IsSame<ElementType, const char>::value &&
+             !IsSame<ElementType, const char16_t>::value>>
 Span<ElementType> MakeSpan(ElementType (&aArr)[N])
 {
   return Span<ElementType>(aArr, N);
@@ -1067,20 +1060,21 @@ MakeStringSpan(const char* aZeroTerminated)
 inline Span<const char16_t>
 MakeStringSpan(const char16_t* aZeroTerminated)
 {
-  return Span<const char16_t>(aZeroTerminated, span_details::strlen16(aZeroTerminated));
+  return Span<const char16_t>(aZeroTerminated,
+                              span_details::strlen16(aZeroTerminated));
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #ifdef _MSC_VER
 #if _MSC_VER < 1910
 #undef constexpr
 #pragma pop_macro("constexpr")
 
-#endif // _MSC_VER < 1910
+#endif  // _MSC_VER < 1910
 
 #pragma warning(pop)
-#endif // _MSC_VER
+#endif  // _MSC_VER
 
 #undef MOZ_SPAN_ASSERTION_CONSTEXPR
 #undef MOZ_SPAN_GCC_CONSTEXPR
@@ -1088,4 +1082,4 @@ MakeStringSpan(const char16_t* aZeroTerminated)
 #undef MOZ_SPAN_CONSTEXPR_NOT_JUST_RETURN
 #undef MOZ_SPAN_NON_CONST_CONSTEXPR
 
-#endif // mozilla_Span_h
+#endif  // mozilla_Span_h

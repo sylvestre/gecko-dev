@@ -16,22 +16,22 @@
 nsresult
 UnaryExpr::evaluate(txIEvalContext* aContext, txAExprResult** aResult)
 {
-    *aResult = nullptr;
+  *aResult = nullptr;
 
-    RefPtr<txAExprResult> exprRes;
-    nsresult rv = expr->evaluate(aContext, getter_AddRefs(exprRes));
-    NS_ENSURE_SUCCESS(rv, rv);
+  RefPtr<txAExprResult> exprRes;
+  nsresult rv = expr->evaluate(aContext, getter_AddRefs(exprRes));
+  NS_ENSURE_SUCCESS(rv, rv);
 
-    double value = exprRes->numberValue();
+  double value = exprRes->numberValue();
 #ifdef HPUX
-    /*
+  /*
      * Negation of a zero doesn't produce a negative
      * zero on HPUX. Perform the operation by multiplying with
      * -1.
      */
-    return aContext->recycler()->getNumberResult(-1 * value, aResult);
+  return aContext->recycler()->getNumberResult(-1 * value, aResult);
 #else
-    return aContext->recycler()->getNumberResult(-value, aResult);
+  return aContext->recycler()->getNumberResult(-value, aResult);
 #endif
 }
 
@@ -40,16 +40,15 @@ TX_IMPL_EXPR_STUBS_1(UnaryExpr, NODESET_RESULT, expr)
 bool
 UnaryExpr::isSensitiveTo(ContextSensitivity aContext)
 {
-    return expr->isSensitiveTo(aContext);
+  return expr->isSensitiveTo(aContext);
 }
 
 #ifdef TX_TO_STRING
 void
 UnaryExpr::toString(nsAString& str)
 {
-    if (!expr)
-        return;
-    str.Append(char16_t('-'));
-    expr->toString(str);
+  if (!expr) return;
+  str.Append(char16_t('-'));
+  expr->toString(str);
 }
 #endif

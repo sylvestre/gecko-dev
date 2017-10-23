@@ -17,8 +17,8 @@ namespace workers {
 
 class WorkerCrossThreadDispatcher;
 
-} // namespace workers
-} // namespace dom
+}  // namespace workers
+}  // namespace dom
 
 namespace ipc {
 
@@ -26,29 +26,29 @@ class RilConsumer;
 
 class RilWorker final
 {
-public:
+ public:
   static nsresult Register(
-    unsigned int aClientId,
-    mozilla::dom::workers::WorkerCrossThreadDispatcher* aDispatcher);
+      unsigned int aClientId,
+      mozilla::dom::workers::WorkerCrossThreadDispatcher* aDispatcher);
 
   static void Shutdown();
 
   // Public for |MakeUnique| Call |Register| instead.
   RilWorker(mozilla::dom::workers::WorkerCrossThreadDispatcher* aDispatcher);
 
-private:
+ private:
   class RegisterConsumerTask;
   class UnregisterConsumerTask;
 
   nsresult RegisterConsumer(unsigned int aClientId);
-  void     UnregisterConsumer(unsigned int aClientId);
+  void UnregisterConsumer(unsigned int aClientId);
 
   static nsTArray<UniquePtr<RilWorker>> sRilWorkers;
 
   RefPtr<mozilla::dom::workers::WorkerCrossThreadDispatcher> mDispatcher;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_Ril_h
+#endif  // mozilla_ipc_Ril_h

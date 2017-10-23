@@ -29,6 +29,6 @@ gfxFontSrcPrincipal::~gfxFontSrcPrincipal()
 bool
 gfxFontSrcPrincipal::Equals(gfxFontSrcPrincipal* aOther)
 {
-  return BasePrincipal::Cast(mPrincipal)->
-           FastEquals(BasePrincipal::Cast(aOther->mPrincipal));
+  return BasePrincipal::Cast(mPrincipal)
+      ->FastEquals(BasePrincipal::Cast(aOther->mPrincipal));
 }

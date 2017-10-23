@@ -27,8 +27,10 @@ VsyncIOThreadHolder::~VsyncIOThreadHolder()
   if (NS_IsMainThread()) {
     mThread->AsyncShutdown();
   } else {
-    SystemGroup::Dispatch(TaskCategory::Other, NewRunnableMethod(
-      "nsIThread::AsyncShutdown", mThread, &nsIThread::AsyncShutdown));
+    SystemGroup::Dispatch(
+        TaskCategory::Other,
+        NewRunnableMethod(
+            "nsIThread::AsyncShutdown", mThread, &nsIThread::AsyncShutdown));
   }
 }
 
@@ -45,5 +47,5 @@ VsyncIOThreadHolder::GetThread() const
   return mThread;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

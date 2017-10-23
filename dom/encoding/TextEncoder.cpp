@@ -32,8 +32,10 @@ TextEncoder::Encode(JSContext* aCx,
   }
 
   JSAutoCompartment ac(aCx, aObj);
-  JSObject* outView = Uint8Array::Create(
-    aCx, utf8.Length(), reinterpret_cast<const uint8_t*>(utf8.BeginReading()));
+  JSObject* outView =
+      Uint8Array::Create(aCx,
+                         utf8.Length(),
+                         reinterpret_cast<const uint8_t*>(utf8.BeginReading()));
   if (!outView) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
@@ -48,5 +50,5 @@ TextEncoder::GetEncoding(nsAString& aEncoding)
   aEncoding.AssignLiteral("utf-8");
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -17,7 +17,7 @@
 
 class nsIStackFrame;
 class nsPIDOMWindowInner;
-template <class T>
+template<class T>
 struct already_AddRefed;
 
 namespace mozilla {
@@ -61,8 +61,8 @@ namespace exceptions {
 already_AddRefed<nsIStackFrame>
 CreateStack(JSContext* aCx, JS::StackCapture&& aCaptureMode);
 
-} // namespace exceptions
-} // namespace dom
-} // namespace mozilla
+}  // namespace exceptions
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

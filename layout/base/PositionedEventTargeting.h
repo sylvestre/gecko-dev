@@ -13,7 +13,8 @@ struct nsPoint;
 
 namespace mozilla {
 
-enum {
+enum
+{
   INPUT_IGNORE_ROOT_SCROLL_FRAME = 0x01
 };
 /**
@@ -27,6 +28,6 @@ FindFrameTargetedByInputEvent(WidgetGUIEvent* aEvent,
                               const nsPoint& aPointRelativeToRootFrame,
                               uint32_t aFlags = 0);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_PositionedEventTargeting_h */

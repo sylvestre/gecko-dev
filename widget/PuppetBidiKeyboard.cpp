@@ -11,19 +11,12 @@ using namespace mozilla::widget;
 
 NS_IMPL_ISUPPORTS(PuppetBidiKeyboard, nsIBidiKeyboard)
 
-PuppetBidiKeyboard::PuppetBidiKeyboard() : nsIBidiKeyboard()
-{
-}
+PuppetBidiKeyboard::PuppetBidiKeyboard() : nsIBidiKeyboard() {}
 
-PuppetBidiKeyboard::~PuppetBidiKeyboard()
-{
-}
+PuppetBidiKeyboard::~PuppetBidiKeyboard() {}
 
 NS_IMETHODIMP
-PuppetBidiKeyboard::Reset()
-{
-  return NS_OK;
-}
+PuppetBidiKeyboard::Reset() { return NS_OK; }
 
 NS_IMETHODIMP
 PuppetBidiKeyboard::IsLangRTL(bool* aIsRTL)

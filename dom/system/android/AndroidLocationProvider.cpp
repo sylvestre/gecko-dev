@@ -11,49 +11,47 @@
 
 using namespace mozilla;
 
-extern nsIGeolocationUpdate *gLocationCallback;
+extern nsIGeolocationUpdate* gLocationCallback;
 
 NS_IMPL_ISUPPORTS(AndroidLocationProvider, nsIGeolocationProvider)
 
-AndroidLocationProvider::AndroidLocationProvider()
-{
-}
+AndroidLocationProvider::AndroidLocationProvider() {}
 
 AndroidLocationProvider::~AndroidLocationProvider()
 {
-    NS_IF_RELEASE(gLocationCallback);
+  NS_IF_RELEASE(gLocationCallback);
 }
 
 NS_IMETHODIMP
 AndroidLocationProvider::Startup()
 {
-    if (java::GeckoAppShell::EnableLocation(true)) {
-        return NS_OK;
-    }
-    return NS_ERROR_FAILURE;
+  if (java::GeckoAppShell::EnableLocation(true)) {
+    return NS_OK;
+  }
+  return NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
 AndroidLocationProvider::Watch(nsIGeolocationUpdate* aCallback)
 {
-    NS_IF_RELEASE(gLocationCallback);
-    gLocationCallback = aCallback;
-    NS_IF_ADDREF(gLocationCallback);
-    return NS_OK;
+  NS_IF_RELEASE(gLocationCallback);
+  gLocationCallback = aCallback;
+  NS_IF_ADDREF(gLocationCallback);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 AndroidLocationProvider::Shutdown()
 {
-    if (java::GeckoAppShell::EnableLocation(false)) {
-        return NS_OK;
-    }
-    return NS_ERROR_FAILURE;
+  if (java::GeckoAppShell::EnableLocation(false)) {
+    return NS_OK;
+  }
+  return NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
 AndroidLocationProvider::SetHighAccuracy(bool enable)
 {
-    java::GeckoAppShell::EnableLocationHighAccuracy(enable);
-    return NS_OK;
+  java::GeckoAppShell::EnableLocationHighAccuracy(enable);
+  return NS_OK;
 }

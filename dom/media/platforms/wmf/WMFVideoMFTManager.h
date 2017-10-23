@@ -22,7 +22,7 @@ class DXVA2Manager;
 
 class WMFVideoMFTManager : public MFTManager
 {
-public:
+ public:
   WMFVideoMFTManager(const VideoInfo& aConfig,
                      layers::KnowsCompositor* aKnowsCompositor,
                      layers::ImageContainer* aImageContainer,
@@ -60,11 +60,11 @@ public:
   MediaDataDecoder::ConversionRequired NeedsConversion() const override
   {
     return mStreamType == H264
-           ? MediaDataDecoder::ConversionRequired::kNeedAnnexB
-           : MediaDataDecoder::ConversionRequired::kNeedNone;
+               ? MediaDataDecoder::ConversionRequired::kNeedAnnexB
+               : MediaDataDecoder::ConversionRequired::kNeedNone;
   }
 
-private:
+ private:
   MediaResult ValidateVideoInfo();
 
   bool InitializeDXVA();
@@ -127,6 +127,6 @@ private:
   const float mFramerate;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // WMFVideoMFTManager_h_
+#endif  // WMFVideoMFTManager_h_

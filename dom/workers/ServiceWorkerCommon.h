@@ -12,14 +12,15 @@ namespace dom {
 
 // Use multiples of 2 since they can be bitwise ORed when calling
 // InvalidateServiceWorkerRegistrationWorker.
-enum class WhichServiceWorker {
+enum class WhichServiceWorker
+{
   INSTALLING_WORKER = 1,
-  WAITING_WORKER    = 2,
-  ACTIVE_WORKER     = 4,
+  WAITING_WORKER = 2,
+  ACTIVE_WORKER = 4,
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(WhichServiceWorker)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ServiceWorkerCommon_h
+#endif  // mozilla_dom_ServiceWorkerCommon_h

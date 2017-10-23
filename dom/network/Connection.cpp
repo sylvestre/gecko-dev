@@ -25,7 +25,8 @@ using namespace workers;
 
 namespace network {
 
-NS_IMPL_QUERY_INTERFACE_INHERITED(Connection, DOMEventTargetHelper,
+NS_IMPL_QUERY_INTERFACE_INHERITED(Connection,
+                                  DOMEventTargetHelper,
                                   nsINetworkProperties)
 
 // Don't use |Connection| alone, since that confuses nsTraceRefcnt since
@@ -34,11 +35,11 @@ NS_IMPL_ADDREF_INHERITED(dom::network::Connection, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(dom::network::Connection, DOMEventTargetHelper)
 
 Connection::Connection(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mType(static_cast<ConnectionType>(kDefaultType))
-  , mIsWifi(kDefaultIsWifi)
-  , mDHCPGateway(kDefaultDHCPGateway)
-  , mBeenShutDown(false)
+    : DOMEventTargetHelper(aWindow),
+      mType(static_cast<ConnectionType>(kDefaultType)),
+      mIsWifi(kDefaultIsWifi),
+      mDHCPGateway(kDefaultDHCPGateway),
+      mBeenShutDown(false)
 {
   Telemetry::Accumulate(Telemetry::NETWORK_CONNECTION_COUNT, 1);
 }
@@ -89,7 +90,9 @@ Connection::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 void
-Connection::Update(ConnectionType aType, bool aIsWifi, uint32_t aDHCPGateway,
+Connection::Update(ConnectionType aType,
+                   bool aIsWifi,
+                   uint32_t aDHCPGateway,
                    bool aNotify)
 {
   NS_ASSERT_OWNINGTHREAD(Connection);
@@ -134,6 +137,6 @@ Connection::CreateForWorker(workers::WorkerPrivate* aWorkerPrivate,
   return ConnectionWorker::Create(aWorkerPrivate, aRv);
 }
 
-} // namespace network
-} // namespace dom
-} // namespace mozilla
+}  // namespace network
+}  // namespace dom
+}  // namespace mozilla

@@ -14,28 +14,29 @@ namespace dom {
 
 class FileSystemRootDirectoryReader final : public FileSystemDirectoryReader
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(FileSystemRootDirectoryReader,
                                            FileSystemDirectoryReader)
 
-  explicit FileSystemRootDirectoryReader(FileSystemDirectoryEntry* aParentEntry,
-                                         FileSystem* aFileSystem,
-                                         const Sequence<RefPtr<FileSystemEntry>>& aEntries);
+  explicit FileSystemRootDirectoryReader(
+      FileSystemDirectoryEntry* aParentEntry,
+      FileSystem* aFileSystem,
+      const Sequence<RefPtr<FileSystemEntry>>& aEntries);
 
-  virtual void
-  ReadEntries(FileSystemEntriesCallback& aSuccessCallback,
-              const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
-              ErrorResult& aRv) override;
+  virtual void ReadEntries(
+      FileSystemEntriesCallback& aSuccessCallback,
+      const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
+      ErrorResult& aRv) override;
 
-private:
+ private:
   ~FileSystemRootDirectoryReader();
 
   Sequence<RefPtr<FileSystemEntry>> mEntries;
   bool mAlreadyRead;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FileSystemRootDirectoryReader_h
+#endif  // mozilla_dom_FileSystemRootDirectoryReader_h

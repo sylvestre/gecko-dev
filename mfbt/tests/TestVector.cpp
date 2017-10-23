@@ -8,11 +8,11 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Vector.h"
 
-using mozilla::detail::VectorTesting;
 using mozilla::MakeUnique;
 using mozilla::Move;
 using mozilla::UniquePtr;
 using mozilla::Vector;
+using mozilla::detail::VectorTesting;
 
 struct mozilla::detail::VectorTesting
 {
@@ -96,7 +96,7 @@ mozilla::detail::VectorTesting::testConstRange()
     MOZ_RELEASE_ASSERT(vec.append(i));
   }
 
-  const auto &vecRef = vec;
+  const auto& vecRef = vec;
 
   Vector<int>::ConstRange range = vecRef.all();
   for (int i = 0; i < 10; i++) {
@@ -111,40 +111,33 @@ namespace {
 
 struct S
 {
-  size_t            j;
+  size_t j;
   UniquePtr<size_t> k;
 
   static size_t constructCount;
   static size_t moveCount;
   static size_t destructCount;
 
-  static void resetCounts() {
+  static void resetCounts()
+  {
     constructCount = 0;
     moveCount = 0;
     destructCount = 0;
   }
 
-  S(size_t j, size_t k)
-    : j(j)
-    , k(MakeUnique<size_t>(k))
-  {
-    constructCount++;
-  }
+  S(size_t j, size_t k) : j(j), k(MakeUnique<size_t>(k)) { constructCount++; }
 
-  S(S&& rhs)
-    : j(rhs.j)
-    , k(Move(rhs.k))
+  S(S&& rhs) : j(rhs.j), k(Move(rhs.k))
   {
     rhs.j = 0;
     rhs.k.reset(0);
     moveCount++;
   }
 
-  ~S() {
-    destructCount++;
-  }
+  ~S() { destructCount++; }
 
-  S& operator=(S&& rhs) {
+  S& operator=(S&& rhs)
+  {
     j = rhs.j;
     rhs.j = 0;
     k = Move(rhs.k);
@@ -161,7 +154,7 @@ size_t S::constructCount = 0;
 size_t S::moveCount = 0;
 size_t S::destructCount = 0;
 
-}
+}  // namespace
 
 void
 mozilla::detail::VectorTesting::testEmplaceBack()
@@ -414,8 +407,7 @@ mozilla::detail::VectorTesting::testReplaceRawBuffer()
     MOZ_ASSERT(v.reserved() == 4);
     MOZ_ASSERT(v.capacity() == 4);
     MOZ_ASSERT(v[0].j == 9);
-    for (size_t i = 0; i < 5; i++)
-      MOZ_RELEASE_ASSERT(v.emplaceBack(i, i));
+    for (size_t i = 0; i < 5; i++) MOZ_RELEASE_ASSERT(v.emplaceBack(i, i));
     MOZ_ASSERT(v.length() == 6);
     MOZ_ASSERT(v.reserved() == 6);
     MOZ_ASSERT(S::constructCount == 6);
@@ -462,8 +454,8 @@ mozilla::detail::VectorTesting::testInsert()
   MOZ_ASSERT(vec.reserved() == 8);
   MOZ_RELEASE_ASSERT(S::constructCount == 8);
   MOZ_RELEASE_ASSERT(S::moveCount == 1 /* move in insert() call */ +
-                                     1 /* move the back() element */ +
-                                     3 /* elements to shift */);
+                                         1 /* move the back() element */ +
+                                         3 /* elements to shift */);
   MOZ_RELEASE_ASSERT(S::destructCount == 1);
 }
 
@@ -513,7 +505,8 @@ struct NoInlineStorageLayout
 {
   T* mBegin;
   size_t mLength;
-  struct CRAndStorage {
+  struct CRAndStorage
+  {
     size_t mCapacity;
   } mTail;
 };
@@ -532,11 +525,12 @@ static_assert(sizeof(Vector<S, 0>) == sizeof(NoInlineStorageLayout<S>),
               "Vector of S without inline storage shouldn't occupy dead "
               "space for that absence of storage");
 
-static_assert(sizeof(Vector<Incomplete, 0>) == sizeof(NoInlineStorageLayout<Incomplete>),
+static_assert(sizeof(Vector<Incomplete, 0>) ==
+                  sizeof(NoInlineStorageLayout<Incomplete>),
               "Vector of an incomplete class without inline storage shouldn't "
               "occupy dead space for that absence of storage");
 
-#endif // DEBUG
+#endif  // DEBUG
 
 int
 main()

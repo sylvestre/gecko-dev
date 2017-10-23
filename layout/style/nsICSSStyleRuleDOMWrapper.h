@@ -15,15 +15,21 @@
 
 // IID for the nsICSSStyleRuleDOMWrapper interface
 // {cee1bbb6-0a32-4cf3-8d42-ba3938e9ecaa}
-#define NS_ICSS_STYLE_RULE_DOM_WRAPPER_IID \
-{0xcee1bbb6, 0x0a32, 0x4cf3, {0x8d, 0x42, 0xba, 0x39, 0x38, 0xe9, 0xec, 0xaa}}
+#define NS_ICSS_STYLE_RULE_DOM_WRAPPER_IID           \
+  {                                                  \
+    0xcee1bbb6, 0x0a32, 0x4cf3,                      \
+    {                                                \
+      0x8d, 0x42, 0xba, 0x39, 0x38, 0xe9, 0xec, 0xaa \
+    }                                                \
+  }
 
 namespace mozilla {
 class BindingStyleRule;
-} // namespace mozilla
+}  // namespace mozilla
 
-class nsICSSStyleRuleDOMWrapper : public nsIDOMCSSStyleRule {
-public:
+class nsICSSStyleRuleDOMWrapper : public nsIDOMCSSStyleRule
+{
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ICSS_STYLE_RULE_DOM_WRAPPER_IID)
 
   NS_IMETHOD GetCSSStyleRule(mozilla::BindingStyleRule** aResult) = 0;

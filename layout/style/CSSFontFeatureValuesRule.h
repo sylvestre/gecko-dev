@@ -16,10 +16,10 @@
 namespace mozilla {
 namespace dom {
 
-class CSSFontFeatureValuesRule : public css::Rule
-                               , public nsIDOMCSSFontFeatureValuesRule
+class CSSFontFeatureValuesRule : public css::Rule,
+                                 public nsIDOMCSSFontFeatureValuesRule
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   virtual bool IsCCLeaf() const override;
@@ -31,26 +31,29 @@ public:
   using nsIDOMCSSFontFeatureValuesRule::SetFontFamily;
   using nsIDOMCSSFontFeatureValuesRule::SetValueText;
   // WebIDL interfaces
-  uint16_t Type() const final { return nsIDOMCSSRule::FONT_FEATURE_VALUES_RULE; }
+  uint16_t Type() const final
+  {
+    return nsIDOMCSSRule::FONT_FEATURE_VALUES_RULE;
+  }
   virtual void GetCssTextImpl(nsAString& aCssText) const override = 0;
   // The XPCOM GetFontFamily is fine
   void SetFontFamily(const nsAString& aFamily, mozilla::ErrorResult& aRv);
   // The XPCOM GetValueText is fine
   void SetValueText(const nsAString& aFamily, mozilla::ErrorResult& aRv);
 
-  virtual size_t
-  SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override = 0;
+  virtual size_t SizeOfIncludingThis(
+      MallocSizeOf aMallocSizeOf) const override = 0;
 
-  JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   using Rule::Rule;
 
-  virtual ~CSSFontFeatureValuesRule() {};
+  virtual ~CSSFontFeatureValuesRule(){};
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSFontFeatureValuesRule_h
+#endif  // mozilla_dom_CSSFontFeatureValuesRule_h

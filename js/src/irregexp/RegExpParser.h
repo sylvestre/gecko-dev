@@ -40,23 +40,19 @@
 namespace js {
 
 namespace frontend {
-    class TokenStream;
+class TokenStream;
 }
 
 namespace irregexp {
 
-bool
-ParsePattern(frontend::TokenStream& ts, LifoAlloc& alloc, JSAtom* str,
-             bool multiline, bool match_only, bool unicode, bool ignore_case,
-             bool global, bool sticky, RegExpCompileData* data);
+bool ParsePattern(frontend::TokenStream& ts, LifoAlloc& alloc, JSAtom* str, bool multiline,
+                  bool match_only, bool unicode, bool ignore_case, bool global, bool sticky,
+                  RegExpCompileData* data);
 
-bool
-ParsePatternSyntax(frontend::TokenStream& ts, LifoAlloc& alloc, JSAtom* str,
-                   bool unicode);
+bool ParsePatternSyntax(frontend::TokenStream& ts, LifoAlloc& alloc, JSAtom* str, bool unicode);
 
-bool
-ParsePatternSyntax(frontend::TokenStream& ts, LifoAlloc& alloc,
-                   const mozilla::Range<const char16_t> chars, bool unicode);
+bool ParsePatternSyntax(frontend::TokenStream& ts, LifoAlloc& alloc,
+                        const mozilla::Range<const char16_t> chars, bool unicode);
 
 // A BufferedVector is an automatically growing list, just like (and backed
 // by) a Vector, that is optimized for the case of adding and removing
@@ -65,9 +61,8 @@ ParsePatternSyntax(frontend::TokenStream& ts, LifoAlloc& alloc,
 // allocated.
 // Elements must not be nullptr pointers.
 template <typename T, int initial_size>
-class BufferedVector
-{
-  public:
+class BufferedVector {
+   public:
     typedef InfallibleVector<T*, 1> VectorType;
 
     BufferedVector() : list_(nullptr), last_(nullptr) {}
@@ -127,8 +122,7 @@ class BufferedVector
     }
 
     VectorType* GetList(LifoAlloc* alloc) {
-        if (list_ == nullptr)
-            list_ = alloc->newInfallible<VectorType>(*alloc);
+        if (list_ == nullptr) list_ = alloc->newInfallible<VectorType>(*alloc);
         if (last_ != nullptr) {
             list_->append(last_);
             last_ = nullptr;
@@ -136,16 +130,14 @@ class BufferedVector
         return list_;
     }
 
-  private:
+   private:
     VectorType* list_;
     T* last_;
 };
 
-
 // Accumulates RegExp atoms and assertions into lists of terms and alternatives.
-class RegExpBuilder
-{
-  public:
+class RegExpBuilder {
+   public:
     explicit RegExpBuilder(LifoAlloc* alloc);
     void AddCharacter(char16_t character);
     // "Adds" an empty expression. Does nothing except consume a
@@ -157,7 +149,7 @@ class RegExpBuilder
     void AddQuantifierToAtom(int min, int max, RegExpQuantifier::QuantifierType type);
     RegExpTree* ToRegExp();
 
-  private:
+   private:
     void FlushCharacters();
     void FlushText();
     void FlushTerms();
@@ -169,9 +161,7 @@ class RegExpBuilder
     BufferedVector<RegExpTree, 2> text_;
     BufferedVector<RegExpTree, 2> alternatives_;
 
-    enum LastAdded {
-        ADD_NONE, ADD_CHAR, ADD_TERM, ADD_ASSERT, ADD_ATOM
-    };
+    enum LastAdded { ADD_NONE, ADD_CHAR, ADD_TERM, ADD_ASSERT, ADD_ATOM };
 #ifdef DEBUG
     LastAdded last_added_;
 #endif
@@ -181,12 +171,10 @@ class RegExpBuilder
 typedef uint32_t widechar;
 
 template <typename CharT>
-class RegExpParser
-{
-  public:
-    RegExpParser(frontend::TokenStream& ts, LifoAlloc* alloc,
-                 const CharT* chars, const CharT* end, bool multiline_mode, bool unicode,
-                 bool ignore_case);
+class RegExpParser {
+   public:
+    RegExpParser(frontend::TokenStream& ts, LifoAlloc* alloc, const CharT* chars, const CharT* end,
+                 bool multiline_mode, bool unicode, bool ignore_case);
 
     RegExpTree* ParsePattern();
     RegExpTree* ParseDisjunction();
@@ -218,12 +206,12 @@ class RegExpParser
     // can be reparsed.
     bool ParseBackReferenceIndex(int* index_out);
 
-    bool ParseClassAtom(char16_t* char_class, widechar *value);
+    bool ParseClassAtom(char16_t* char_class, widechar* value);
 
-  private:
+   private:
     void SyntaxError(unsigned errorNumber, ...);
 
-  public:
+   public:
     RegExpTree* ReportError(unsigned errorNumber, const char* param = nullptr);
 
     void Advance();
@@ -249,7 +237,7 @@ class RegExpParser
     static const int kMaxCaptures = 1 << 16;
     static const widechar kEndMarker = (1 << 21);
 
-  private:
+   private:
     enum SubexpressionType {
         INITIAL,
         CAPTURE,  // All positive values represent captures.
@@ -259,16 +247,13 @@ class RegExpParser
     };
 
     class RegExpParserState {
-      public:
-        RegExpParserState(LifoAlloc* alloc,
-                          RegExpParserState* previous_state,
-                          SubexpressionType group_type,
-                          int disjunction_capture_index)
+       public:
+        RegExpParserState(LifoAlloc* alloc, RegExpParserState* previous_state,
+                          SubexpressionType group_type, int disjunction_capture_index)
             : previous_state_(previous_state),
               builder_(alloc->newInfallible<RegExpBuilder>(alloc)),
               group_type_(group_type),
-              disjunction_capture_index_(disjunction_capture_index)
-        {}
+              disjunction_capture_index_(disjunction_capture_index) {}
         // Parser state of containing expression, if any.
         RegExpParserState* previous_state() { return previous_state_; }
         bool IsSubexpression() { return previous_state_ != nullptr; }
@@ -281,7 +266,7 @@ class RegExpParser
         // is CAPTURE.
         int capture_index() { return disjunction_capture_index_; }
 
-      private:
+       private:
         // Linked list implementation of stack of states.
         RegExpParserState* previous_state_;
         // Builder for the stored disjunction.
@@ -296,8 +281,7 @@ class RegExpParser
     bool has_more() { return has_more_; }
     bool has_next() { return next_pos_ < end_; }
     widechar Next() {
-        if (has_next())
-            return *next_pos_;
+        if (has_next()) return *next_pos_;
         return kEndMarker;
     }
     void ScanForCaptures();
@@ -320,6 +304,7 @@ class RegExpParser
     bool is_scanned_for_captures_;
 };
 
-} } // namespace js::irregexp
+}  // namespace irregexp
+}  // namespace js
 
-#endif // V8_PARSER_H_
+#endif  // V8_PARSER_H_

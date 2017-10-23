@@ -21,25 +21,25 @@ class GLContext;
 
 class SkiaGLGlue : public GenericAtomicRefCounted
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SkiaGLGlue)
   explicit SkiaGLGlue(GLContext* context);
   GLContext* GetGLContext() const { return mGLContext.get(); }
   GrContext* GetGrContext() const { return mGrContext.get(); }
 
-protected:
+ protected:
   virtual ~SkiaGLGlue();
 
-private:
+ private:
   RefPtr<GLContext> mGLContext;
   sk_sp<GrGLInterface> mGrGLInterface;
   sk_sp<GrContext> mGrContext;
 };
 
-} // namespace gl
-} // namespace mozilla
+}  // namespace gl
+}  // namespace mozilla
 
-#else // USE_SKIA_GPU
+#else  // USE_SKIA_GPU
 
 class GrContext;
 
@@ -50,15 +50,15 @@ class GLContext;
 
 class SkiaGLGlue : public GenericAtomicRefCounted
 {
-public:
+ public:
   SkiaGLGlue(GLContext* context);
   GLContext* GetGLContext() const { return nullptr; }
   GrContext* GetGrContext() const { return nullptr; }
 };
 
-} // namespace gl
-} // namespace mozilla
+}  // namespace gl
+}  // namespace mozilla
 
-#endif // USE_SKIA_GPU
+#endif  // USE_SKIA_GPU
 
-#endif // SKIA_GL_GLUE_H_
+#endif  // SKIA_GL_GLUE_H_

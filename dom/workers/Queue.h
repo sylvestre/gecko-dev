@@ -14,7 +14,7 @@
 
 BEGIN_WORKERS_NAMESPACE
 
-template <typename T, int TCount>
+template<typename T, int TCount>
 struct StorageWithTArray
 {
   typedef AutoTArray<T, TCount> StorageType;
@@ -55,51 +55,30 @@ struct StorageWithTArray
     return true;
   }
 
-  static void Clear(StorageType& aStorage)
-  {
-    aStorage.Clear();
-  }
+  static void Clear(StorageType& aStorage) { aStorage.Clear(); }
 
-  static void Compact(StorageType& aStorage)
-  {
-    aStorage.Compact();
-  }
+  static void Compact(StorageType& aStorage) { aStorage.Compact(); }
 };
 
 class LockingWithMutex
 {
   mozilla::Mutex mMutex;
 
-protected:
-  LockingWithMutex()
-  : mMutex("LockingWithMutex::mMutex")
-  { }
+ protected:
+  LockingWithMutex() : mMutex("LockingWithMutex::mMutex") {}
 
-  void Lock()
-  {
-    mMutex.Lock();
-  }
+  void Lock() { mMutex.Lock(); }
 
-  void Unlock()
-  {
-    mMutex.Unlock();
-  }
+  void Unlock() { mMutex.Unlock(); }
 
   class AutoLock
   {
     LockingWithMutex& mHost;
 
-  public:
-    explicit AutoLock(LockingWithMutex& aHost)
-    : mHost(aHost)
-    {
-      mHost.Lock();
-    }
+   public:
+    explicit AutoLock(LockingWithMutex& aHost) : mHost(aHost) { mHost.Lock(); }
 
-    ~AutoLock()
-    {
-      mHost.Unlock();
-    }
+    ~AutoLock() { mHost.Unlock(); }
   };
 
   friend class AutoLock;
@@ -107,30 +86,25 @@ protected:
 
 class NoLocking
 {
-protected:
-  void Lock()
-  { }
+ protected:
+  void Lock() {}
 
-  void Unlock()
-  { }
+  void Unlock() {}
 
   class AutoLock
   {
-  public:
-    explicit AutoLock(NoLocking& aHost)
-    { }
+   public:
+    explicit AutoLock(NoLocking& aHost) {}
 
-    ~AutoLock()
-    { }
+    ~AutoLock() {}
   };
 };
 
-template <typename T,
-          int TCount = 256,
-          class LockingPolicy = NoLocking,
-          class StoragePolicy = StorageWithTArray<T, TCount % 2 ?
-                                                     TCount / 2 + 1 :
-                                                     TCount / 2> >
+template<typename T,
+         int TCount = 256,
+         class LockingPolicy = NoLocking,
+         class StoragePolicy =
+             StorageWithTArray<T, TCount % 2 ? TCount / 2 + 1 : TCount / 2> >
 class Queue : public LockingPolicy
 {
   typedef typename StoragePolicy::StorageType StorageType;
@@ -142,16 +116,13 @@ class Queue : public LockingPolicy
   StorageType* mFront;
   StorageType* mBack;
 
-public:
-  Queue()
-  : mFront(&mStorage1), mBack(&mStorage2)
-  { }
+ public:
+  Queue() : mFront(&mStorage1), mBack(&mStorage2) {}
 
   bool IsEmpty()
   {
     AutoLock lock(*this);
-    return StoragePolicy::IsEmpty(*mFront) &&
-           StoragePolicy::IsEmpty(*mBack);
+    return StoragePolicy::IsEmpty(*mFront) && StoragePolicy::IsEmpty(*mBack);
   }
 
   bool Push(const T& aEntry)
@@ -181,21 +152,15 @@ public:
   }
 
   // XXX Do we need this?
-  void Lock()
-  {
-    LockingPolicy::Lock();
-  }
+  void Lock() { LockingPolicy::Lock(); }
 
   // XXX Do we need this?
-  void Unlock()
-  {
-    LockingPolicy::Unlock();
-  }
+  void Unlock() { LockingPolicy::Unlock(); }
 
-private:
+ private:
   // Queue is not copyable.
   Queue(const Queue&);
-  Queue & operator=(const Queue&);
+  Queue& operator=(const Queue&);
 };
 
 END_WORKERS_NAMESPACE

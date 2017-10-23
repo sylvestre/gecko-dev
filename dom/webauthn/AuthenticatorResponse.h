@@ -18,44 +18,36 @@
 namespace mozilla {
 namespace dom {
 
-class AuthenticatorResponse : public nsISupports
-                            , public nsWrapperCache
+class AuthenticatorResponse : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AuthenticatorResponse)
 
   explicit AuthenticatorResponse(nsPIDOMWindowInner* aParent);
 
-protected:
+ protected:
   virtual ~AuthenticatorResponse();
 
-public:
-  nsISupports*
-  GetParentObject() const
-  {
-    return mParent;
-  }
+ public:
+  nsISupports* GetParentObject() const { return mParent; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  GetFormat(nsString& aRetVal) const;
+  void GetFormat(nsString& aRetVal) const;
 
-  void
-  GetClientDataJSON(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal);
+  void GetClientDataJSON(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal);
 
-  nsresult
-  SetClientDataJSON(CryptoBuffer& aBuffer);
+  nsresult SetClientDataJSON(CryptoBuffer& aBuffer);
 
-private:
+ private:
   nsCOMPtr<nsPIDOMWindowInner> mParent;
   CryptoBuffer mClientDataJSON;
   JS::Heap<JSObject*> mClientDataJSONCachedObj;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_AuthenticatorResponse_h
+#endif  // mozilla_dom_AuthenticatorResponse_h

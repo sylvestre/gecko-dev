@@ -44,9 +44,9 @@ SandboxLogError(const char* message)
 #endif
   static const char logPrefix[] = "Sandbox: ", logSuffix[] = "\n";
   struct iovec iovs[3] = {
-    { const_cast<char*>(logPrefix), sizeof(logPrefix) - 1 },
-    { const_cast<char*>(message), strlen(message) },
-    { const_cast<char*>(logSuffix), sizeof(logSuffix) - 1 },
+      {const_cast<char*>(logPrefix), sizeof(logPrefix) - 1},
+      {const_cast<char*>(message), strlen(message)},
+      {const_cast<char*>(logSuffix), sizeof(logSuffix) - 1},
   };
   while (iovs[2].iov_len > 0) {
     ssize_t written = HANDLE_EINTR(writev(STDERR_FILENO, iovs, 3));
@@ -57,4 +57,4 @@ SandboxLogError(const char* message)
   }
 }
 
-}
+}  // namespace mozilla

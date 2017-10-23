@@ -14,20 +14,23 @@ class nsIFormControl;
 namespace mozilla {
 namespace dom {
 class HTMLInputElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#define NS_IRADIOGROUPCONTAINER_IID   \
-{ 0x800320a0, 0x733f, 0x11e4, \
-  { 0x82, 0xf8, 0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66 } }
+#define NS_IRADIOGROUPCONTAINER_IID                  \
+  {                                                  \
+    0x800320a0, 0x733f, 0x11e4,                      \
+    {                                                \
+      0x82, 0xf8, 0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66 \
+    }                                                \
+  }
 
 /**
  * A container that has multiple radio groups in it, defined by name.
  */
 class nsIRadioGroupContainer : public nsISupports
 {
-public:
-
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IRADIOGROUPCONTAINER_IID)
 
   /**
@@ -46,15 +49,16 @@ public:
    * @param aName the group name
    * @param aRadio the currently selected radio button
    */
-  virtual void SetCurrentRadioButton(const nsAString& aName,
-                                     mozilla::dom::HTMLInputElement* aRadio) = 0;
+  virtual void SetCurrentRadioButton(
+      const nsAString& aName, mozilla::dom::HTMLInputElement* aRadio) = 0;
 
   /**
    * Get the current radio button in a group
    * @param aName the group name
    * @return the currently selected radio button
    */
-  virtual mozilla::dom::HTMLInputElement* GetCurrentRadioButton(const nsAString& aName) = 0;
+  virtual mozilla::dom::HTMLInputElement* GetCurrentRadioButton(
+      const nsAString& aName) = 0;
 
   /**
    * Get the next/prev radio button in a group
@@ -65,7 +69,7 @@ public:
    */
   NS_IMETHOD GetNextRadioButton(const nsAString& aName,
                                 const bool aPrevious,
-                                mozilla::dom::HTMLInputElement*  aFocusedRadio,
+                                mozilla::dom::HTMLInputElement* aFocusedRadio,
                                 mozilla::dom::HTMLInputElement** aRadio) = 0;
 
   /**

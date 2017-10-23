@@ -20,16 +20,17 @@ NS_IMPL_ISUPPORTS_INHERITED0(IIRFilterNode, AudioNode)
 
 class IIRFilterNodeEngine final : public AudioNodeEngine
 {
-public:
-  IIRFilterNodeEngine(AudioNode* aNode, AudioDestinationNode* aDestination,
-                      const AudioDoubleArray &aFeedforward,
-                      const AudioDoubleArray &aFeedback,
+ public:
+  IIRFilterNodeEngine(AudioNode* aNode,
+                      AudioDestinationNode* aDestination,
+                      const AudioDoubleArray& aFeedforward,
+                      const AudioDoubleArray& aFeedback,
                       uint64_t aWindowID)
-    : AudioNodeEngine(aNode)
-    , mDestination(aDestination->Stream())
-    , mFeedforward(aFeedforward)
-    , mFeedback(aFeedback)
-    , mWindowID(aWindowID)
+      : AudioNodeEngine(aNode),
+        mDestination(aDestination->Stream()),
+        mFeedforward(aFeedforward),
+        mFeedback(aFeedback),
+        mWindowID(aWindowID)
   {
   }
 
@@ -57,9 +58,10 @@ public:
           aStream->ScheduleCheckForInactive();
 
           RefPtr<PlayingRefChangeHandler> refchanged =
-            new PlayingRefChangeHandler(aStream, PlayingRefChangeHandler::RELEASE);
+              new PlayingRefChangeHandler(aStream,
+                                          PlayingRefChangeHandler::RELEASE);
           aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-            refchanged.forget());
+              refchanged.forget());
 
           aOutput->SetNull(WEBAUDIO_BLOCK_SIZE);
           return;
@@ -67,15 +69,16 @@ public:
 
         PodZero(alignedInputBuffer, WEBAUDIO_BLOCK_SIZE);
       }
-    } else if(mIIRFilters.Length() != aInput.ChannelCount()){
+    } else if (mIIRFilters.Length() != aInput.ChannelCount()) {
       if (mIIRFilters.IsEmpty()) {
         RefPtr<PlayingRefChangeHandler> refchanged =
-          new PlayingRefChangeHandler(aStream, PlayingRefChangeHandler::ADDREF);
+            new PlayingRefChangeHandler(aStream,
+                                        PlayingRefChangeHandler::ADDREF);
         aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-          refchanged.forget());
+            refchanged.forget());
       } else {
-        WebAudioUtils::LogToDeveloperConsole(mWindowID,
-                                             "IIRFilterChannelCountChangeWarning");
+        WebAudioUtils::LogToDeveloperConsole(
+            mWindowID, "IIRFilterChannelCountChangeWarning");
       }
 
       // Adjust the number of filters based on the number of channels
@@ -95,21 +98,18 @@ public:
       } else {
         input = static_cast<const float*>(aInput.mChannelData[i]);
         if (aInput.mVolume != 1.0) {
-          AudioBlockCopyChannelWithScale(input, aInput.mVolume, alignedInputBuffer);
+          AudioBlockCopyChannelWithScale(
+              input, aInput.mVolume, alignedInputBuffer);
           input = alignedInputBuffer;
         }
       }
 
-      mIIRFilters[i]->process(input,
-                              aOutput->ChannelFloatsForWrite(i),
-                              aInput.GetDuration());
+      mIIRFilters[i]->process(
+          input, aOutput->ChannelFloatsForWrite(i), aInput.GetDuration());
     }
   }
 
-  bool IsActive() const override
-  {
-    return !mIIRFilters.IsEmpty();
-  }
+  bool IsActive() const override { return !mIIRFilters.IsEmpty(); }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override
   {
@@ -126,7 +126,7 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   RefPtr<AudioNodeStream> mDestination;
   nsTArray<nsAutoPtr<blink::IIRFilter>> mIIRFilters;
   AudioDoubleArray mFeedforward;
@@ -137,13 +137,12 @@ private:
 IIRFilterNode::IIRFilterNode(AudioContext* aContext,
                              const Sequence<double>& aFeedforward,
                              const Sequence<double>& aFeedback)
-  : AudioNode(aContext,
-              2,
-              ChannelCountMode::Max,
-              ChannelInterpretation::Speakers)
+    : AudioNode(
+          aContext, 2, ChannelCountMode::Max, ChannelInterpretation::Speakers)
 {
   mFeedforward.SetLength(aFeedforward.Length());
-  PodCopy(mFeedforward.Elements(), aFeedforward.Elements(), aFeedforward.Length());
+  PodCopy(
+      mFeedforward.Elements(), aFeedforward.Elements(), aFeedforward.Length());
   mFeedback.SetLength(aFeedback.Length());
   PodCopy(mFeedback.Elements(), aFeedback.Elements(), aFeedback.Length());
 
@@ -164,22 +163,23 @@ IIRFilterNode::IIRFilterNode(AudioContext* aContext,
   elements[0] = 1.0;
 
   uint64_t windowID = aContext->GetParentObject()->WindowID();
-  IIRFilterNodeEngine* engine = new IIRFilterNodeEngine(this, aContext->Destination(), mFeedforward, mFeedback, windowID);
-  mStream = AudioNodeStream::Create(aContext, engine,
-                                    AudioNodeStream::NO_STREAM_FLAGS,
-                                    aContext->Graph());
+  IIRFilterNodeEngine* engine = new IIRFilterNodeEngine(
+      this, aContext->Destination(), mFeedforward, mFeedback, windowID);
+  mStream = AudioNodeStream::Create(
+      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
 }
 
 /* static */ already_AddRefed<IIRFilterNode>
 IIRFilterNode::Create(AudioContext& aAudioContext,
-                 const IIRFilterOptions& aOptions,
-                 ErrorResult& aRv)
+                      const IIRFilterOptions& aOptions,
+                      ErrorResult& aRv)
 {
   if (aAudioContext.CheckClosed(aRv)) {
     return nullptr;
   }
 
-  if (aOptions.mFeedforward.Length() == 0 || aOptions.mFeedforward.Length() > 20) {
+  if (aOptions.mFeedforward.Length() == 0 ||
+      aOptions.mFeedforward.Length() > 20) {
     aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
     return nullptr;
   }
@@ -201,8 +201,8 @@ IIRFilterNode::Create(AudioContext& aAudioContext,
     return nullptr;
   }
 
-  RefPtr<IIRFilterNode> audioNode =
-    new IIRFilterNode(&aAudioContext, aOptions.mFeedforward, aOptions.mFeedback);
+  RefPtr<IIRFilterNode> audioNode = new IIRFilterNode(
+      &aAudioContext, aOptions.mFeedforward, aOptions.mFeedback);
 
   audioNode->Initialize(aOptions, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
@@ -240,9 +240,9 @@ IIRFilterNode::GetFrequencyResponse(const Float32Array& aFrequencyHz,
   aMagResponse.ComputeLengthAndData();
   aPhaseResponse.ComputeLengthAndData();
 
-  uint32_t length = std::min(std::min(aFrequencyHz.Length(),
-                                      aMagResponse.Length()),
-                             aPhaseResponse.Length());
+  uint32_t length =
+      std::min(std::min(aFrequencyHz.Length(), aMagResponse.Length()),
+               aPhaseResponse.Length());
   if (!length) {
     return;
   }
@@ -254,15 +254,18 @@ IIRFilterNode::GetFrequencyResponse(const Float32Array& aFrequencyHz,
   // Normalize the frequencies
   for (uint32_t i = 0; i < length; ++i) {
     if (frequencyHz[i] >= 0 && frequencyHz[i] <= nyquist) {
-        frequencies[i] = static_cast<float>(frequencyHz[i] / nyquist);
+      frequencies[i] = static_cast<float>(frequencyHz[i] / nyquist);
     } else {
-        frequencies[i] = std::numeric_limits<float>::quiet_NaN();
+      frequencies[i] = std::numeric_limits<float>::quiet_NaN();
     }
   }
 
   blink::IIRFilter filter(&mFeedforward, &mFeedback);
-  filter.getFrequencyResponse(int(length), frequencies.get(), aMagResponse.Data(), aPhaseResponse.Data());
+  filter.getFrequencyResponse(int(length),
+                              frequencies.get(),
+                              aMagResponse.Data(),
+                              aPhaseResponse.Data());
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

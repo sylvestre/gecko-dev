@@ -30,20 +30,20 @@ namespace dom {
  */
 class FontFaceBufferSource : public gfxFontFaceBufferSource
 {
-public:
-  explicit FontFaceBufferSource(FontFace* aFontFace)
-    : mFontFace(aFontFace) {}
+ public:
+  explicit FontFaceBufferSource(FontFace* aFontFace) : mFontFace(aFontFace) {}
   virtual void TakeBuffer(uint8_t*& aBuffer, uint32_t& aLength);
 
-private:
+ private:
   RefPtr<FontFace> mFontFace;
 };
 
 void
 FontFaceBufferSource::TakeBuffer(uint8_t*& aBuffer, uint32_t& aLength)
 {
-  MOZ_ASSERT(mFontFace, "only call TakeBuffer once on a given "
-                        "FontFaceBufferSource object");
+  MOZ_ASSERT(mFontFace,
+             "only call TakeBuffer once on a given "
+             "FontFaceBufferSource object");
   mFontFace->TakeBuffer(aBuffer, aLength);
   mFontFace = nullptr;
 }
@@ -59,11 +59,11 @@ GetDataFrom(const T& aObject, uint8_t*& aBuffer, uint32_t& aLength)
   // We use malloc here rather than a FallibleTArray or fallible
   // operator new[] since the gfxUserFontEntry will be calling free
   // on it.
-  aBuffer = (uint8_t*) malloc(aObject.Length());
+  aBuffer = (uint8_t*)malloc(aObject.Length());
   if (!aBuffer) {
     return;
   }
-  memcpy((void*) aBuffer, aObject.Data(), aObject.Length());
+  memcpy((void*)aBuffer, aObject.Data(), aObject.Length());
   aLength = aObject.Length();
 }
 
@@ -101,15 +101,15 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(FontFace)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(FontFace)
 
 FontFace::FontFace(nsISupports* aParent, FontFaceSet* aFontFaceSet)
-  : mParent(aParent)
-  , mLoadedRejection(NS_OK)
-  , mStatus(FontFaceLoadStatus::Unloaded)
-  , mSourceType(SourceType(0))
-  , mSourceBuffer(nullptr)
-  , mSourceBufferLength(0)
-  , mFontFaceSet(aFontFaceSet)
-  , mUnicodeRangeDirty(true)
-  , mInFontFaceSet(false)
+    : mParent(aParent),
+      mLoadedRejection(NS_OK),
+      mStatus(FontFaceLoadStatus::Unloaded),
+      mSourceType(SourceType(0)),
+      mSourceBuffer(nullptr),
+      mSourceBufferLength(0),
+      mFontFaceSet(aFontFaceSet),
+      mUnicodeRangeDirty(true),
+      mInFontFaceSet(false)
 {
 }
 
@@ -190,9 +190,8 @@ void
 FontFace::InitializeSource(const StringOrArrayBufferOrArrayBufferView& aSource)
 {
   if (aSource.IsString()) {
-    if (!ParseDescriptor(eCSSFontDesc_Src,
-                         aSource.GetAsString(),
-                         mDescriptors->mSrc)) {
+    if (!ParseDescriptor(
+            eCSSFontDesc_Src, aSource.GetAsString(), mDescriptors->mSrc)) {
       Reject(NS_ERROR_DOM_SYNTAX_ERR);
 
       SetStatus(FontFaceLoadStatus::Error);
@@ -206,12 +205,11 @@ FontFace::InitializeSource(const StringOrArrayBufferOrArrayBufferView& aSource)
   mSourceType = FontFace::eSourceType_Buffer;
 
   if (aSource.IsArrayBuffer()) {
-    GetDataFrom(aSource.GetAsArrayBuffer(),
-                mSourceBuffer, mSourceBufferLength);
+    GetDataFrom(aSource.GetAsArrayBuffer(), mSourceBuffer, mSourceBufferLength);
   } else {
     MOZ_ASSERT(aSource.IsArrayBufferView());
-    GetDataFrom(aSource.GetAsArrayBufferView(),
-                mSourceBuffer, mSourceBufferLength);
+    GetDataFrom(
+        aSource.GetAsArrayBufferView(), mSourceBuffer, mSourceBufferLength);
   }
 
   SetStatus(FontFaceLoadStatus::Loading);
@@ -331,7 +329,8 @@ void
 FontFace::GetFeatureSettings(nsString& aResult)
 {
   mFontFaceSet->FlushUserFontSet();
-  GetDesc(eCSSFontDesc_FontFeatureSettings, eCSSProperty_font_feature_settings,
+  GetDesc(eCSSFontDesc_FontFeatureSettings,
+          eCSSProperty_font_feature_settings,
           aResult);
 }
 
@@ -403,7 +402,7 @@ FontFace::CreateUserFontEntry()
                "entry by the time Load() can be called on them");
 
     RefPtr<gfxUserFontEntry> newEntry =
-      mFontFaceSet->FindOrCreateUserFontEntryFromFontFace(this);
+        mFontFaceSet->FindOrCreateUserFontEntryFromFontFace(this);
     if (newEntry) {
       SetUserFontEntry(newEntry);
     }
@@ -500,7 +499,8 @@ FontFace::DoReject(nsresult aResult)
 
   if (ServoStyleSet* ss = ServoStyleSet::Current()) {
     // See comments in Gecko_GetFontMetrics.
-    ss->AppendTask(PostTraversalTask::RejectFontFaceLoadedPromise(this, aResult));
+    ss->AppendTask(
+        PostTraversalTask::RejectFontFaceLoadedPromise(this, aResult));
     return;
   }
 
@@ -521,8 +521,9 @@ FontFace::ParseDescriptor(nsCSSFontDesc aDescID,
   nsCOMPtr<nsIURI> docURI = window->GetDocumentURI();
   nsCOMPtr<nsIURI> base = window->GetDocBaseURI();
 
-  if (!parser.ParseFontFaceDescriptor(aDescID, aString,
-                                      docURI, // aSheetURL
+  if (!parser.ParseFontFaceDescriptor(aDescID,
+                                      aString,
+                                      docURI,  // aSheetURL
                                       base,
                                       principal,
                                       aResult)) {
@@ -538,8 +539,7 @@ FontFace::SetDescriptor(nsCSSFontDesc aFontDesc,
                         const nsAString& aValue,
                         ErrorResult& aRv)
 {
-  NS_ASSERTION(!HasRule(),
-               "we don't handle rule backed FontFace objects yet");
+  NS_ASSERTION(!HasRule(), "we don't handle rule backed FontFace objects yet");
   if (HasRule()) {
     return;
   }
@@ -571,16 +571,12 @@ FontFace::SetDescriptors(const nsAString& aFamily,
 
   // Parse all of the mDescriptors in aInitializer, which are the values
   // we got from the JS constructor.
-  if (!ParseDescriptor(eCSSFontDesc_Family,
-                       aFamily,
-                       mDescriptors->mFamily) ||
+  if (!ParseDescriptor(eCSSFontDesc_Family, aFamily, mDescriptors->mFamily) ||
       *mDescriptors->mFamily.GetStringBufferValue() == 0 ||
-      !ParseDescriptor(eCSSFontDesc_Style,
-                       aDescriptors.mStyle,
-                       mDescriptors->mStyle) ||
-      !ParseDescriptor(eCSSFontDesc_Weight,
-                       aDescriptors.mWeight,
-                       mDescriptors->mWeight) ||
+      !ParseDescriptor(
+          eCSSFontDesc_Style, aDescriptors.mStyle, mDescriptors->mStyle) ||
+      !ParseDescriptor(
+          eCSSFontDesc_Weight, aDescriptors.mWeight, mDescriptors->mWeight) ||
       !ParseDescriptor(eCSSFontDesc_Stretch,
                        aDescriptors.mStretch,
                        mDescriptors->mStretch) ||
@@ -626,8 +622,8 @@ FontFace::GetDesc(nsCSSFontDesc aDescID,
                   nsString& aResult) const
 {
   MOZ_ASSERT(aDescID == eCSSFontDesc_UnicodeRange ||
-             aDescID == eCSSFontDesc_Display ||
-             aPropID != eCSSProperty_UNKNOWN,
+                 aDescID == eCSSFontDesc_Display ||
+                 aPropID != eCSSProperty_UNKNOWN,
              "only pass eCSSProperty_UNKNOWN for eCSSFontDesc_UnicodeRange");
 
   nsCSSValue value;
@@ -641,8 +637,7 @@ FontFace::GetDesc(nsCSSFontDesc aDescID,
       aResult.AssignLiteral("U+0-10FFFF");
     } else if (aDescID == eCSSFontDesc_Display) {
       aResult.AssignLiteral("auto");
-    } else if (aDescID != eCSSFontDesc_Family &&
-               aDescID != eCSSFontDesc_Src) {
+    } else if (aDescID != eCSSFontDesc_Family && aDescID != eCSSFontDesc_Src) {
       aResult.AssignLiteral("normal");
     }
     return;
@@ -653,8 +648,8 @@ FontFace::GetDesc(nsCSSFontDesc aDescID,
     // nsCSSValue::AppendToString to serialize this descriptor.
     nsStyleUtil::AppendUnicodeRange(value, aResult);
   } else if (aDescID == eCSSFontDesc_Display) {
-    AppendASCIItoUTF16(nsCSSProps::ValueToKeyword(value.GetIntValue(),
-                                                  nsCSSProps::kFontDisplayKTable),
+    AppendASCIItoUTF16(nsCSSProps::ValueToKeyword(
+                           value.GetIntValue(), nsCSSProps::kFontDisplayKTable),
                        aResult);
   } else {
     value.AppendToString(aPropID, aResult);
@@ -683,7 +678,7 @@ FontFace::SetUserFontEntry(gfxUserFontEntry* aEntry)
     // DoLoad call) comes after the author's call to load(), which set mStatus
     // to Loading.
     FontFaceLoadStatus newStatus =
-      LoadStateToStatus(mUserFontEntry->LoadState());
+        LoadStateToStatus(mUserFontEntry->LoadState());
     if (newStatus > mStatus) {
       SetStatus(newStatus);
     }
@@ -831,7 +826,7 @@ FontFace::GetUnicodeRangeAsCharacterMap()
 
     for (uint32_t i = 0; i < sources.Count(); i += 2) {
       uint32_t min = sources[i].GetIntValue();
-      uint32_t max = sources[i+1].GetIntValue();
+      uint32_t max = sources[i + 1].GetIntValue();
       mUnicodeRange->SetRange(min, max);
     }
   } else {
@@ -874,5 +869,5 @@ FontFace::Entry::GetUserFontSets(nsTArray<gfxUserFontSet*>& aResult)
   aResult.TruncateLength(it - aResult.begin());
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

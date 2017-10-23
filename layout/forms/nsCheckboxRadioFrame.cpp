@@ -25,13 +25,11 @@ NS_NewCheckboxRadioFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 }
 
 nsCheckboxRadioFrame::nsCheckboxRadioFrame(nsStyleContext* aContext)
-  : nsAtomicContainerFrame(aContext, kClassID)
+    : nsAtomicContainerFrame(aContext, kClassID)
 {
 }
 
-nsCheckboxRadioFrame::~nsCheckboxRadioFrame()
-{
-}
+nsCheckboxRadioFrame::~nsCheckboxRadioFrame() {}
 
 void
 nsCheckboxRadioFrame::DestroyFrom(nsIFrame* aDestructRoot)
@@ -44,11 +42,11 @@ nsCheckboxRadioFrame::DestroyFrom(nsIFrame* aDestructRoot)
 NS_IMPL_FRAMEARENA_HELPERS(nsCheckboxRadioFrame)
 
 NS_QUERYFRAME_HEAD(nsCheckboxRadioFrame)
-  NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
+NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsAtomicContainerFrame)
 
 /* virtual */ nscoord
-nsCheckboxRadioFrame::GetMinISize(gfxContext *aRenderingContext)
+nsCheckboxRadioFrame::GetMinISize(gfxContext* aRenderingContext)
 {
   nscoord result;
   DISPLAY_MIN_WIDTH(this, result);
@@ -67,14 +65,14 @@ nsCheckboxRadioFrame::GetPrefISize(gfxContext* aRenderingContext)
 
 /* virtual */
 LogicalSize
-nsCheckboxRadioFrame::ComputeAutoSize(gfxContext*         aRC,
-                                      WritingMode         aWM,
-                                      const LogicalSize&  aCBSize,
-                                      nscoord             aAvailableISize,
-                                      const LogicalSize&  aMargin,
-                                      const LogicalSize&  aBorder,
-                                      const LogicalSize&  aPadding,
-                                      ComputeSizeFlags    aFlags)
+nsCheckboxRadioFrame::ComputeAutoSize(gfxContext* aRC,
+                                      WritingMode aWM,
+                                      const LogicalSize& aCBSize,
+                                      nscoord aAvailableISize,
+                                      const LogicalSize& aMargin,
+                                      const LogicalSize& aBorder,
+                                      const LogicalSize& aPadding,
+                                      ComputeSizeFlags aFlags)
 {
   LogicalSize size(aWM, 0, 0);
   if (StyleDisplay()->mAppearance == NS_THEME_NONE) {
@@ -82,9 +80,8 @@ nsCheckboxRadioFrame::ComputeAutoSize(gfxContext*         aRC,
   }
 
   // Note: this call always set the BSize to NS_UNCONSTRAINEDSIZE.
-  size = nsAtomicContainerFrame::ComputeAutoSize(aRC, aWM, aCBSize,
-                                                 aAvailableISize, aMargin,
-                                                 aBorder, aPadding, aFlags);
+  size = nsAtomicContainerFrame::ComputeAutoSize(
+      aRC, aWM, aCBSize, aAvailableISize, aMargin, aBorder, aPadding, aFlags);
   size.BSize(aWM) = DefaultSize();
   return size;
 }
@@ -92,8 +89,7 @@ nsCheckboxRadioFrame::ComputeAutoSize(gfxContext*         aRC,
 nscoord
 nsCheckboxRadioFrame::GetLogicalBaseline(WritingMode aWritingMode) const
 {
-  NS_ASSERTION(!NS_SUBTREE_DIRTY(this),
-               "frame must not be dirty");
+  NS_ASSERTION(!NS_SUBTREE_DIRTY(this), "frame must not be dirty");
 
   // For appearance:none we use a standard CSS baseline, i.e. synthesized from
   // our margin-box.
@@ -108,16 +104,17 @@ nsCheckboxRadioFrame::GetLogicalBaseline(WritingMode aWritingMode) const
   // For "inverted" lines (typically in writing-mode:vertical-lr), use the
   // block-start end instead.
   return aWritingMode.IsLineInverted()
-    ? GetLogicalUsedBorderAndPadding(aWritingMode).BStart(aWritingMode)
-    : BSize(aWritingMode) -
-         GetLogicalUsedBorderAndPadding(aWritingMode).BEnd(aWritingMode);
+             ? GetLogicalUsedBorderAndPadding(aWritingMode).BStart(aWritingMode)
+             : BSize(aWritingMode) -
+                   GetLogicalUsedBorderAndPadding(aWritingMode)
+                       .BEnd(aWritingMode);
 }
 
 void
-nsCheckboxRadioFrame::Reflow(nsPresContext*     aPresContext,
-                             ReflowOutput&      aDesiredSize,
+nsCheckboxRadioFrame::Reflow(nsPresContext* aPresContext,
+                             ReflowOutput& aDesiredSize,
                              const ReflowInput& aReflowInput,
-                             nsReflowStatus&    aStatus)
+                             nsReflowStatus& aStatus)
 {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsCheckboxRadioFrame");
@@ -125,7 +122,8 @@ nsCheckboxRadioFrame::Reflow(nsPresContext*     aPresContext,
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
   NS_FRAME_TRACE(NS_FRAME_TRACE_CALLS,
                  ("enter nsCheckboxRadioFrame::Reflow: aMaxSize=%d,%d",
-                  aReflowInput.AvailableWidth(), aReflowInput.AvailableHeight()));
+                  aReflowInput.AvailableWidth(),
+                  aReflowInput.AvailableHeight()));
 
   if (mState & NS_FRAME_FIRST_REFLOW) {
     RegUnRegAccessKey(static_cast<nsIFrame*>(this), true);
@@ -142,7 +140,8 @@ nsCheckboxRadioFrame::Reflow(nsPresContext*     aPresContext,
 
   NS_FRAME_TRACE(NS_FRAME_TRACE_CALLS,
                  ("exit nsCheckboxRadioFrame::Reflow: size=%d,%d",
-                  aDesiredSize.Width(), aDesiredSize.Height()));
+                  aDesiredSize.Width(),
+                  aDesiredSize.Height()));
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aDesiredSize);
 
   aDesiredSize.SetOverflowAreasToDesiredBounds();
@@ -214,10 +213,10 @@ nsCheckboxRadioFrame::GetUsableScreenRect(nsPresContext* aPresContext)
 {
   nsRect screen;
 
-  nsDeviceContext *context = aPresContext->DeviceContext();
+  nsDeviceContext* context = aPresContext->DeviceContext();
   int32_t dropdownCanOverlapOSBar =
-    LookAndFeel::GetInt(LookAndFeel::eIntID_MenusCanOverlapOSBar, 0);
-  if ( dropdownCanOverlapOSBar )
+      LookAndFeel::GetInt(LookAndFeel::eIntID_MenusCanOverlapOSBar, 0);
+  if (dropdownCanOverlapOSBar)
     context->GetRect(screen);
   else
     context->GetClientRect(screen);

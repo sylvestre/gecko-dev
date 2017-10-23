@@ -67,10 +67,10 @@ nsTextFragment::Init()
 void
 nsTextFragment::Shutdown()
 {
-  uint32_t  i;
+  uint32_t i;
   for (i = 0; i <= TEXTFRAG_MAX_NEWLINES; ++i) {
-    delete [] sSpaceSharedString[i];
-    delete [] sTabSharedString[i];
+    delete[] sSpaceSharedString[i];
+    delete[] sTabSharedString[i];
     sSpaceSharedString[i] = nullptr;
     sTabSharedString[i] = nullptr;
   }
@@ -121,7 +121,7 @@ nsTextFragment::operator=(const nsTextFragment& aOther)
           MOZ_CRASH("OOM!");
         }
         char16_t* data = static_cast<char16_t*>(m2b->Data());
-        data[0] = 0xFFFD; // REPLACEMENT CHARACTER
+        data[0] = 0xFFFD;  // REPLACEMENT CHARACTER
         data[1] = char16_t(0);
         mState.mIs2b = true;
         mState.mInHeap = true;
@@ -137,7 +137,7 @@ nsTextFragment::operator=(const nsTextFragment& aOther)
 }
 
 static inline int32_t
-FirstNon8BitUnvectorized(const char16_t *str, const char16_t *end)
+FirstNon8BitUnvectorized(const char16_t* str, const char16_t* end)
 {
   typedef Non8BitParameters<sizeof(size_t)> p;
   const size_t mask = p::mask();
@@ -147,25 +147,23 @@ FirstNon8BitUnvectorized(const char16_t *str, const char16_t *end)
   int32_t i = 0;
 
   // Align ourselves to a word boundary.
-  int32_t alignLen =
-    std::min(len, int32_t(((-NS_PTR_TO_INT32(str)) & alignMask) / sizeof(char16_t)));
+  int32_t alignLen = std::min(
+      len, int32_t(((-NS_PTR_TO_INT32(str)) & alignMask) / sizeof(char16_t)));
   for (; i < alignLen; i++) {
-    if (str[i] > 255)
-      return i;
+    if (str[i] > 255) return i;
   }
 
   // Check one word at a time.
-  const int32_t wordWalkEnd = ((len - i) / numUnicharsPerWord) * numUnicharsPerWord;
+  const int32_t wordWalkEnd =
+      ((len - i) / numUnicharsPerWord) * numUnicharsPerWord;
   for (; i < wordWalkEnd; i += numUnicharsPerWord) {
     const size_t word = *reinterpret_cast<const size_t*>(str + i);
-    if (word & mask)
-      return i;
+    if (word & mask) return i;
   }
 
   // Take care of the remainder one character at a time.
   for (; i < len; i++) {
-    if (str[i] > 255)
-      return i;
+    if (str[i] > 255) return i;
   }
 
   return -1;
@@ -173,10 +171,11 @@ FirstNon8BitUnvectorized(const char16_t *str, const char16_t *end)
 
 #ifdef MOZILLA_MAY_SUPPORT_SSE2
 namespace mozilla {
-  namespace SSE2 {
-    int32_t FirstNon8Bit(const char16_t *str, const char16_t *end);
-  } // namespace SSE2
-} // namespace mozilla
+namespace SSE2 {
+int32_t
+FirstNon8Bit(const char16_t* str, const char16_t* end);
+}  // namespace SSE2
+}  // namespace mozilla
 #endif
 
 /*
@@ -187,7 +186,7 @@ namespace mozilla {
  * there is no non-8bit character before returned value.
  */
 static inline int32_t
-FirstNon8Bit(const char16_t *str, const char16_t *end)
+FirstNon8Bit(const char16_t* str, const char16_t* end)
 {
 #ifdef MOZILLA_MAY_SUPPORT_SSE2
   if (mozilla::supports_sse2()) {
@@ -199,8 +198,10 @@ FirstNon8Bit(const char16_t *str, const char16_t *end)
 }
 
 bool
-nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
-                      bool aUpdateBidi, bool aForce2b)
+nsTextFragment::SetTo(const char16_t* aBuffer,
+                      int32_t aLength,
+                      bool aUpdateBidi,
+                      bool aForce2b)
 {
   ReleaseText();
 
@@ -218,13 +219,13 @@ nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
     return true;
   }
 
-  const char16_t *ucp = aBuffer;
-  const char16_t *uend = aBuffer + aLength;
+  const char16_t* ucp = aBuffer;
+  const char16_t* uend = aBuffer + aLength;
 
   // Check if we can use a shared string
   if (!aForce2b &&
       aLength <= 1 + TEXTFRAG_WHITE_AFTER_NEWLINE + TEXTFRAG_MAX_NEWLINES &&
-     (firstChar == ' ' || firstChar == '\n' || firstChar == '\t')) {
+      (firstChar == ' ' || firstChar == '\n' || firstChar == '\t')) {
     if (firstChar == ' ') {
       ++ucp;
     }
@@ -240,8 +241,7 @@ nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
       ++ucp;
     }
 
-    if (ucp == uend &&
-        endNewLine - start <= TEXTFRAG_MAX_NEWLINES &&
+    if (ucp == uend && endNewLine - start <= TEXTFRAG_MAX_NEWLINES &&
         ucp - endNewLine <= TEXTFRAG_WHITE_AFTER_NEWLINE) {
       char** strings = space == ' ' ? sSpaceSharedString : sTabSharedString;
       m1b = strings[endNewLine - start];
@@ -262,7 +262,7 @@ nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
   // See if we need to store the data in ucs2 or not
   int32_t first16bit = aForce2b ? 0 : FirstNon8Bit(ucp, uend);
 
-  if (first16bit != -1) { // aBuffer contains no non-8bit character
+  if (first16bit != -1) {  // aBuffer contains no non-8bit character
     // Use ucs2 storage because we have to
     CheckedUint32 m2bSize = aLength + 1;
     m2bSize *= sizeof(char16_t);
@@ -291,7 +291,7 @@ nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
 
     // Copy data
     LossyConvertEncoding16to8 converter(buff);
-    copy_string(aBuffer, aBuffer+aLength, converter);
+    copy_string(aBuffer, aBuffer + aLength, converter);
     m1b = buff;
     mState.mIs2b = false;
   }
@@ -304,7 +304,7 @@ nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
 }
 
 void
-nsTextFragment::CopyTo(char16_t *aDest, int32_t aOffset, int32_t aCount)
+nsTextFragment::CopyTo(char16_t* aDest, int32_t aOffset, int32_t aCount)
 {
   NS_ASSERTION(aOffset >= 0, "Bad offset passed to nsTextFragment::CopyTo()!");
   NS_ASSERTION(aCount >= 0, "Bad count passed to nsTextFragment::CopyTo()!");
@@ -321,8 +321,8 @@ nsTextFragment::CopyTo(char16_t *aDest, int32_t aOffset, int32_t aCount)
     if (mState.mIs2b) {
       memcpy(aDest, Get2b() + aOffset, sizeof(char16_t) * aCount);
     } else {
-      const char *cp = m1b + aOffset;
-      const char *end = cp + aCount;
+      const char* cp = m1b + aOffset;
+      const char* end = cp + aCount;
       LossyConvertEncoding8to16 converter(aDest);
       copy_string(cp, end, converter);
     }
@@ -330,8 +330,10 @@ nsTextFragment::CopyTo(char16_t *aDest, int32_t aOffset, int32_t aCount)
 }
 
 bool
-nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
-                       bool aUpdateBidi, bool aForce2b)
+nsTextFragment::Append(const char16_t* aBuffer,
+                       uint32_t aLength,
+                       bool aUpdateBidi,
+                       bool aForce2b)
 {
   // This is a common case because some callsites create a textnode
   // with a value by creating the node and then calling AppendData.
@@ -363,7 +365,8 @@ nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
         return false;
       }
       bufferToRelease = m2b;
-      memcpy(static_cast<char16_t*>(buff->Data()), m2b->Data(),
+      memcpy(static_cast<char16_t*>(buff->Data()),
+             m2b->Data(),
              mState.mLength * sizeof(char16_t));
     } else {
       buff = nsStringBuffer::Realloc(m2b, size);
@@ -373,8 +376,7 @@ nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
     }
 
     char16_t* data = static_cast<char16_t*>(buff->Data());
-    memcpy(data + mState.mLength, aBuffer,
-           aLength * sizeof(char16_t));
+    memcpy(data + mState.mLength, aBuffer, aLength * sizeof(char16_t));
     mState.mLength += aLength;
     m2b = buff;
     data[mState.mLength] = char16_t(0);
@@ -391,7 +393,7 @@ nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
   // Current string is a 1-byte string, check if the new data fits in one byte too.
   int32_t first16bit = aForce2b ? 0 : FirstNon8Bit(aBuffer, aBuffer + aLength);
 
-  if (first16bit != -1) { // aBuffer contains no non-8bit character
+  if (first16bit != -1) {  // aBuffer contains no non-8bit character
     size_t size = mState.mLength + aLength + 1;
     if (SIZE_MAX / sizeof(char16_t) < size) {
       return false;  // Would be overflown if we'd keep handling.
@@ -408,7 +410,7 @@ nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
     // Copy data into buff
     char16_t* data = static_cast<char16_t*>(buff->Data());
     LossyConvertEncoding8to16 converter(data);
-    copy_string(m1b, m1b+mState.mLength, converter);
+    copy_string(m1b, m1b + mState.mLength, converter);
 
     memcpy(data + mState.mLength, aBuffer, aLength * sizeof(char16_t));
     mState.mLength += aLength;
@@ -438,8 +440,7 @@ nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
     if (!buff) {
       return false;
     }
-  }
-  else {
+  } else {
     buff = static_cast<char*>(malloc(size));
     if (!buff) {
       return false;

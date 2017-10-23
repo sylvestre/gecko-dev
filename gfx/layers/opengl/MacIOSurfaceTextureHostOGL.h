@@ -23,7 +23,7 @@ namespace layers {
  */
 class MacIOSurfaceTextureHostOGL : public TextureHost
 {
-public:
+ public:
   MacIOSurfaceTextureHostOGL(TextureFlags aFlags,
                              const SurfaceDescriptorMacIOSurface& aDescriptor);
   virtual ~MacIOSurfaceTextureHostOGL();
@@ -31,14 +31,16 @@ public:
   // MacIOSurfaceTextureSourceOGL doesn't own any GL texture
   virtual void DeallocateDeviceData() override {}
 
-  virtual void SetTextureSourceProvider(TextureSourceProvider* aProvider) override;
+  virtual void SetTextureSourceProvider(
+      TextureSourceProvider* aProvider) override;
 
   virtual bool Lock() override;
 
   virtual gfx::SurfaceFormat GetFormat() const override;
   virtual gfx::SurfaceFormat GetReadFormat() const override;
 
-  virtual bool BindTextureSource(CompositableTextureSourceRef& aTexture) override
+  virtual bool BindTextureSource(
+      CompositableTextureSourceRef& aTexture) override
   {
     aTexture = mTextureSource;
     return !!aTexture;
@@ -46,7 +48,8 @@ public:
 
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override
   {
-    RefPtr<gfx::SourceSurface> surf = CreateSourceSurfaceFromMacIOSurface(GetMacIOSurface());
+    RefPtr<gfx::SourceSurface> surf =
+        CreateSourceSurfaceFromMacIOSurface(GetMacIOSurface());
     return surf->GetDataSurface();
   }
 
@@ -58,11 +61,15 @@ public:
   virtual const char* Name() override { return "MacIOSurfaceTextureHostOGL"; }
 #endif
 
-  virtual MacIOSurfaceTextureHostOGL* AsMacIOSurfaceTextureHost() override { return this; }
+  virtual MacIOSurfaceTextureHostOGL* AsMacIOSurfaceTextureHost() override
+  {
+    return this;
+  }
 
   virtual MacIOSurface* GetMacIOSurface() override { return mSurface; }
 
-  virtual void CreateRenderTexture(const wr::ExternalImageId& aExternalImageId) override;
+  virtual void CreateRenderTexture(
+      const wr::ExternalImageId& aExternalImageId) override;
 
   virtual uint32_t NumSubTextures() const override;
 
@@ -77,14 +84,14 @@ public:
                                 wr::ImageRendering aFilter,
                                 const Range<wr::ImageKey>& aImageKeys) override;
 
-protected:
+ protected:
   GLTextureSource* CreateTextureSourceForPlane(size_t aPlane);
 
   RefPtr<GLTextureSource> mTextureSource;
   RefPtr<MacIOSurface> mSurface;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_MACIOSURFACETEXTUREHOSTOGL_H
+#endif  // MOZILLA_GFX_MACIOSURFACETEXTUREHOSTOGL_H

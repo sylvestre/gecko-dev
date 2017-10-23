@@ -47,13 +47,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(LegacyMozTCPSocket)
 NS_INTERFACE_MAP_END
 
 LegacyMozTCPSocket::LegacyMozTCPSocket(nsPIDOMWindowInner* aWindow)
-: mGlobal(do_QueryInterface(aWindow))
+    : mGlobal(do_QueryInterface(aWindow))
 {
 }
 
-LegacyMozTCPSocket::~LegacyMozTCPSocket()
-{
-}
+LegacyMozTCPSocket::~LegacyMozTCPSocket() {}
 
 already_AddRefed<TCPSocket>
 LegacyMozTCPSocket::Open(const nsAString& aHost,
@@ -81,7 +79,8 @@ LegacyMozTCPSocket::Listen(uint16_t aPort,
     return nullptr;
   }
   GlobalObject globalObj(api.cx(), mGlobal->GetGlobalJSObject());
-  return TCPServerSocket::Constructor(globalObj, aPort, aOptions, aBacklog, aRv);
+  return TCPServerSocket::Constructor(
+      globalObj, aPort, aOptions, aBacklog, aRv);
 }
 
 bool
@@ -94,8 +93,7 @@ LegacyMozTCPSocket::WrapObject(JSContext* aCx,
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(TCPSocket)
 
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(TCPSocket,
-                                               DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(TCPSocket, DOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(TCPSocket,
@@ -113,8 +111,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(TCPSocket,
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSocketBridgeParent)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(TCPSocket,
-                                                DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(TCPSocket, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTransport)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSocketInputStream)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSocketOutputStream)
@@ -141,22 +138,25 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TCPSocket)
   NS_INTERFACE_MAP_ENTRY(nsITCPSocketCallback)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost, uint16_t aPort,
-                     bool aSsl, bool aUseArrayBuffers)
-  : DOMEventTargetHelper(aGlobal)
-  , mReadyState(TCPReadyState::Closed)
-  , mUseArrayBuffers(aUseArrayBuffers)
-  , mHost(aHost)
-  , mPort(aPort)
-  , mSsl(aSsl)
-  , mAsyncCopierActive(false)
-  , mWaitingForDrain(false)
-  , mInnerWindowID(0)
-  , mBufferedAmount(0)
-  , mSuspendCount(0)
-  , mTrackingNumber(0)
-  , mWaitingForStartTLS(false)
-  , mObserversActive(false)
+TCPSocket::TCPSocket(nsIGlobalObject* aGlobal,
+                     const nsAString& aHost,
+                     uint16_t aPort,
+                     bool aSsl,
+                     bool aUseArrayBuffers)
+    : DOMEventTargetHelper(aGlobal),
+      mReadyState(TCPReadyState::Closed),
+      mUseArrayBuffers(aUseArrayBuffers),
+      mHost(aHost),
+      mPort(aPort),
+      mSsl(aSsl),
+      mAsyncCopierActive(false),
+      mWaitingForDrain(false),
+      mInnerWindowID(0),
+      mBufferedAmount(0),
+      mSuspendCount(0),
+      mTrackingNumber(0),
+      mWaitingForStartTLS(false),
+      mObserversActive(false)
 {
   if (aGlobal) {
     nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal);
@@ -169,7 +169,8 @@ TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost, uint16_t 
 TCPSocket::~TCPSocket()
 {
   if (mObserversActive) {
-    nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
+    nsCOMPtr<nsIObserverService> obs =
+        do_GetService("@mozilla.org/observer-service;1");
     if (obs) {
       obs->RemoveObserver(this, "inner-window-destroyed");
       obs->RemoveObserver(this, "profile-change-net-teardown");
@@ -180,38 +181,46 @@ TCPSocket::~TCPSocket()
 nsresult
 TCPSocket::CreateStream()
 {
-  nsresult rv = mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(mSocketInputStream));
+  nsresult rv =
+      mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(mSocketInputStream));
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = mTransport->OpenOutputStream(nsITransport::OPEN_UNBUFFERED, 0, 0, getter_AddRefs(mSocketOutputStream));
+  rv = mTransport->OpenOutputStream(
+      nsITransport::OPEN_UNBUFFERED, 0, 0, getter_AddRefs(mSocketOutputStream));
   NS_ENSURE_SUCCESS(rv, rv);
 
   // If the other side is not listening, we will
   // get an onInputStreamReady callback where available
   // raises to indicate the connection was refused.
-  nsCOMPtr<nsIAsyncInputStream> asyncStream = do_QueryInterface(mSocketInputStream);
+  nsCOMPtr<nsIAsyncInputStream> asyncStream =
+      do_QueryInterface(mSocketInputStream);
   NS_ENSURE_TRUE(asyncStream, NS_ERROR_NOT_AVAILABLE);
 
   nsCOMPtr<nsIEventTarget> mainTarget = GetMainThreadEventTarget();
-  rv = asyncStream->AsyncWait(this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY, 0, mainTarget);
+  rv = asyncStream->AsyncWait(
+      this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY, 0, mainTarget);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (mUseArrayBuffers) {
-    mInputStreamBinary = do_CreateInstance("@mozilla.org/binaryinputstream;1", &rv);
+    mInputStreamBinary =
+        do_CreateInstance("@mozilla.org/binaryinputstream;1", &rv);
     NS_ENSURE_SUCCESS(rv, rv);
     rv = mInputStreamBinary->SetInputStream(mSocketInputStream);
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
-    mInputStreamScriptable = do_CreateInstance("@mozilla.org/scriptableinputstream;1", &rv);
+    mInputStreamScriptable =
+        do_CreateInstance("@mozilla.org/scriptableinputstream;1", &rv);
     NS_ENSURE_SUCCESS(rv, rv);
     rv = mInputStreamScriptable->Init(mSocketInputStream);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  mMultiplexStream = do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1", &rv);
+  mMultiplexStream =
+      do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
   nsCOMPtr<nsIInputStream> stream = do_QueryInterface(mMultiplexStream);
 
-  mMultiplexStreamCopier = do_CreateInstance("@mozilla.org/network/async-stream-copier;1", &rv);
+  mMultiplexStreamCopier =
+      do_CreateInstance("@mozilla.org/network/async-stream-copier;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsISocketTransportService> sts =
@@ -221,10 +230,10 @@ TCPSocket::CreateStream()
   rv = mMultiplexStreamCopier->Init(stream,
                                     mSocketOutputStream,
                                     target,
-                                    true, /* source buffered */
+                                    true,  /* source buffered */
                                     false, /* sink buffered */
                                     BUFFER_SIZE,
-                                    false, /* close source */
+                                    false,  /* close source */
                                     false); /* close sink */
   NS_ENSURE_SUCCESS(rv, rv);
   return NS_OK;
@@ -250,11 +259,12 @@ TCPSocket::InitWithUnconnectedTransport(nsISocketTransport* aTransport)
 nsresult
 TCPSocket::Init()
 {
-  nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
+  nsCOMPtr<nsIObserverService> obs =
+      do_GetService("@mozilla.org/observer-service;1");
   if (obs) {
     mObserversActive = true;
-    obs->AddObserver(this, "inner-window-destroyed", true); // weak reference
-    obs->AddObserver(this, "profile-change-net-teardown", true); // weak ref
+    obs->AddObserver(this, "inner-window-destroyed", true);  // weak reference
+    obs->AddObserver(this, "profile-change-net-teardown", true);  // weak ref
   }
 
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
@@ -270,7 +280,7 @@ TCPSocket::Init()
   }
 
   nsCOMPtr<nsISocketTransportService> sts =
-    do_GetService("@mozilla.org/network/socket-transport-service;1");
+      do_GetService("@mozilla.org/network/socket-transport-service;1");
 
   const char* socketTypes[1];
   if (mSsl) {
@@ -279,8 +289,12 @@ TCPSocket::Init()
     socketTypes[0] = "starttls";
   }
   nsCOMPtr<nsISocketTransport> transport;
-  nsresult rv = sts->CreateTransport(socketTypes, 1, NS_ConvertUTF16toUTF8(mHost), mPort,
-                                     nullptr, getter_AddRefs(transport));
+  nsresult rv = sts->CreateTransport(socketTypes,
+                                     1,
+                                     NS_ConvertUTF16toUTF8(mHost),
+                                     mPort,
+                                     nullptr,
+                                     getter_AddRefs(transport));
   NS_ENSURE_SUCCESS(rv, rv);
 
   return InitWithUnconnectedTransport(transport);
@@ -349,12 +363,13 @@ namespace {
 class CopierCallbacks final : public nsIRequestObserver
 {
   RefPtr<TCPSocket> mOwner;
-public:
+
+ public:
   explicit CopierCallbacks(TCPSocket* aSocket) : mOwner(aSocket) {}
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
-private:
+ private:
   ~CopierCallbacks() {}
 };
 
@@ -367,13 +382,15 @@ CopierCallbacks::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 }
 
 NS_IMETHODIMP
-CopierCallbacks::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext, nsresult aStatus)
+CopierCallbacks::OnStopRequest(nsIRequest* aRequest,
+                               nsISupports* aContext,
+                               nsresult aStatus)
 {
   mOwner->NotifyCopyComplete(aStatus);
   mOwner = nullptr;
   return NS_OK;
 }
-} // unnamed namespace
+}  // unnamed namespace
 
 nsresult
 TCPSocket::EnsureCopying()
@@ -401,14 +418,14 @@ TCPSocket::NotifyCopyComplete(nsresult aStatus)
   }
 
   while (!mPendingDataWhileCopierActive.IsEmpty()) {
-      nsCOMPtr<nsIInputStream> stream = mPendingDataWhileCopierActive[0];
-      mMultiplexStream->AppendStream(stream);
-      mPendingDataWhileCopierActive.RemoveElementAt(0);
+    nsCOMPtr<nsIInputStream> stream = mPendingDataWhileCopierActive[0];
+    mMultiplexStream->AppendStream(stream);
+    mPendingDataWhileCopierActive.RemoveElementAt(0);
   }
 
   if (mSocketBridgeParent) {
-    mozilla::Unused << mSocketBridgeParent->SendUpdateBufferedAmount(BufferedAmount(),
-                                                                     mTrackingNumber);
+    mozilla::Unused << mSocketBridgeParent->SendUpdateBufferedAmount(
+        BufferedAmount(), mTrackingNumber);
   }
 
   if (NS_FAILED(aStatus)) {
@@ -486,7 +503,7 @@ TCPSocket::FireErrorEvent(const nsAString& aName, const nsAString& aType)
   init.mMessage = aType;
 
   RefPtr<TCPSocketErrorEvent> event =
-    TCPSocketErrorEvent::Constructor(this, NS_LITERAL_STRING("error"), init);
+      TCPSocketErrorEvent::Constructor(this, NS_LITERAL_STRING("error"), init);
   MOZ_ASSERT(event);
   event->SetTrusted(true);
   bool dummy;
@@ -547,7 +564,9 @@ TCPSocket::FireDataStringEvent(const nsAString& aType,
 }
 
 nsresult
-TCPSocket::FireDataEvent(JSContext* aCx, const nsAString& aType, JS::Handle<JS::Value> aData)
+TCPSocket::FireDataEvent(JSContext* aCx,
+                         const nsAString& aType,
+                         JS::Handle<JS::Value> aData)
 {
   MOZ_ASSERT(!mSocketBridgeParent);
 
@@ -556,8 +575,7 @@ TCPSocket::FireDataEvent(JSContext* aCx, const nsAString& aType, JS::Handle<JS::
   init.mCancelable = false;
   init.mData = aData;
 
-  RefPtr<TCPSocketEvent> event =
-    TCPSocketEvent::Constructor(this, aType, init);
+  RefPtr<TCPSocketEvent> event = TCPSocketEvent::Constructor(this, aType, init);
   event->SetTrusted(true);
   bool dummy;
   DispatchEvent(event, &dummy);
@@ -635,7 +653,8 @@ TCPSocket::Resume(mozilla::ErrorResult& aRv)
 }
 
 nsresult
-TCPSocket::MaybeReportErrorAndCloseIfOpen(nsresult status) {
+TCPSocket::MaybeReportErrorAndCloseIfOpen(nsresult status)
+{
   // If we're closed, we've already reported the error or just don't need to
   // report the error.
   if (mReadyState == TCPReadyState::Closed) {
@@ -653,7 +672,8 @@ TCPSocket::MaybeReportErrorAndCloseIfOpen(nsresult status) {
 
     // security module? (and this is an error)
     if ((static_cast<uint32_t>(status) & 0xFF0000) == 0x5a0000) {
-      nsCOMPtr<nsINSSErrorsService> errSvc = do_GetService("@mozilla.org/nss_errors_service;1");
+      nsCOMPtr<nsINSSErrorsService> errSvc =
+          do_GetService("@mozilla.org/nss_errors_service;1");
       // getErrorClass will throw a generic NS_ERROR_FAILURE if the error code is
       // somehow not in the set of covered errors.
       uint32_t errorClass;
@@ -672,7 +692,8 @@ TCPSocket::MaybeReportErrorAndCloseIfOpen(nsresult status) {
       }
 
       // NSS_SEC errors (happen below the base value because of negative vals)
-      if ((static_cast<int32_t>(status) & 0xFFFF) < abs(nsINSSErrorsService::NSS_SEC_ERROR_BASE)) {
+      if ((static_cast<int32_t>(status) & 0xFFFF) <
+          abs(nsINSSErrorsService::NSS_SEC_ERROR_BASE)) {
         switch (static_cast<SECErrorCodes>(status)) {
           case SEC_ERROR_EXPIRED_CERTIFICATE:
             errName.AssignLiteral("SecurityExpiredCertificateError");
@@ -692,7 +713,8 @@ TCPSocket::MaybeReportErrorAndCloseIfOpen(nsresult status) {
             errName.AssignLiteral("SecurityInadequateKeyUsageError");
             break;
           case SEC_ERROR_CERT_SIGNATURE_ALGORITHM_DISABLED:
-            errName.AssignLiteral("SecurityCertificateSignatureAlgorithmDisabledError");
+            errName.AssignLiteral(
+                "SecurityCertificateSignatureAlgorithmDisabledError");
             break;
           default:
             errName.AssignLiteral("SecurityError");
@@ -768,7 +790,8 @@ TCPSocket::CloseImmediately()
 void
 TCPSocket::CloseHelper(bool waitForUnsentData)
 {
-  if (mReadyState == TCPReadyState::Closed || mReadyState == TCPReadyState::Closing) {
+  if (mReadyState == TCPReadyState::Closed ||
+      mReadyState == TCPReadyState::Closing) {
     return;
   }
 
@@ -808,7 +831,9 @@ TCPSocket::SendWithTrackingNumber(const nsACString& aData,
 }
 
 bool
-TCPSocket::Send(JSContext* aCx, const nsACString& aData, mozilla::ErrorResult& aRv)
+TCPSocket::Send(JSContext* aCx,
+                const nsACString& aData,
+                mozilla::ErrorResult& aRv)
 {
   if (mReadyState != TCPReadyState::Open) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -863,10 +888,12 @@ TCPSocket::Send(JSContext* aCx,
   nsCOMPtr<nsIArrayBufferInputStream> stream;
 
   aData.ComputeLengthAndData();
-  uint32_t byteLength = aByteLength.WasPassed() ? aByteLength.Value() : aData.Length();
+  uint32_t byteLength =
+      aByteLength.WasPassed() ? aByteLength.Value() : aData.Length();
 
   if (mSocketBridgeChild) {
-    nsresult rv = mSocketBridgeChild->SendSend(aData, aByteOffset, byteLength, ++mTrackingNumber);
+    nsresult rv = mSocketBridgeChild->SendSend(
+        aData, aByteOffset, byteLength, ++mTrackingNumber);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       aRv.Throw(rv);
       return false;
@@ -944,7 +971,8 @@ TCPSocket::CreateAcceptedSocket(nsIGlobalObject* aGlobal,
                                 nsISocketTransport* aTransport,
                                 bool aUseArrayBuffers)
 {
-  RefPtr<TCPSocket> socket = new TCPSocket(aGlobal, EmptyString(), 0, false, aUseArrayBuffers);
+  RefPtr<TCPSocket> socket =
+      new TCPSocket(aGlobal, EmptyString(), 0, false, aUseArrayBuffers);
   nsresult rv = socket->InitWithTransport(aTransport);
   NS_ENSURE_SUCCESS(rv, nullptr);
   return socket.forget();
@@ -955,7 +983,8 @@ TCPSocket::CreateAcceptedSocket(nsIGlobalObject* aGlobal,
                                 TCPSocketChild* aBridge,
                                 bool aUseArrayBuffers)
 {
-  RefPtr<TCPSocket> socket = new TCPSocket(aGlobal, EmptyString(), 0, false, aUseArrayBuffers);
+  RefPtr<TCPSocket> socket =
+      new TCPSocket(aGlobal, EmptyString(), 0, false, aUseArrayBuffers);
   socket->InitWithSocketChild(aBridge);
   return socket.forget();
 }
@@ -969,8 +998,11 @@ TCPSocket::Constructor(const GlobalObject& aGlobal,
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<TCPSocket> socket =
-    new TCPSocket(global, aHost, aPort, aOptions.mUseSecureTransport,
-                  aOptions.mBinaryType == TCPSocketBinaryType::Arraybuffer);
+      new TCPSocket(global,
+                    aHost,
+                    aPort,
+                    aOptions.mUseSecureTransport,
+                    aOptions.mBinaryType == TCPSocketBinaryType::Arraybuffer);
   nsresult rv = socket->Init();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(rv);
@@ -987,7 +1019,8 @@ TCPSocket::CreateInputStreamPump()
     return NS_ERROR_NOT_AVAILABLE;
   }
   nsresult rv;
-  mInputStreamPump = do_CreateInstance("@mozilla.org/network/input-stream-pump;1", &rv);
+  mInputStreamPump =
+      do_CreateInstance("@mozilla.org/network/input-stream-pump;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = mInputStreamPump->Init(mSocketInputStream, 0, 0, false, nullptr);
@@ -1004,10 +1037,13 @@ TCPSocket::CreateInputStreamPump()
 }
 
 NS_IMETHODIMP
-TCPSocket::OnTransportStatus(nsITransport* aTransport, nsresult aStatus,
-                             int64_t aProgress, int64_t aProgressMax)
+TCPSocket::OnTransportStatus(nsITransport* aTransport,
+                             nsresult aStatus,
+                             int64_t aProgress,
+                             int64_t aProgressMax)
 {
-  if (static_cast<uint32_t>(aStatus) != nsISocketTransport::STATUS_CONNECTED_TO) {
+  if (static_cast<uint32_t>(aStatus) !=
+      nsISocketTransport::STATUS_CONNECTED_TO) {
     return NS_OK;
   }
 
@@ -1039,14 +1075,18 @@ TCPSocket::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 }
 
 NS_IMETHODIMP
-TCPSocket::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext, nsIInputStream* aStream,
-                           uint64_t aOffset, uint32_t aCount)
+TCPSocket::OnDataAvailable(nsIRequest* aRequest,
+                           nsISupports* aContext,
+                           nsIInputStream* aStream,
+                           uint64_t aOffset,
+                           uint32_t aCount)
 {
   if (mUseArrayBuffers) {
     nsTArray<uint8_t> buffer;
     buffer.SetCapacity(aCount);
     uint32_t actual;
-    nsresult rv = aStream->Read(reinterpret_cast<char*>(buffer.Elements()), aCount, &actual);
+    nsresult rv = aStream->Read(
+        reinterpret_cast<char*>(buffer.Elements()), aCount, &actual);
     NS_ENSURE_SUCCESS(rv, rv);
     MOZ_ASSERT(actual == aCount);
     buffer.SetLength(actual);
@@ -1095,7 +1135,9 @@ TCPSocket::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext, nsIInput
 }
 
 NS_IMETHODIMP
-TCPSocket::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext, nsresult aStatus)
+TCPSocket::OnStopRequest(nsIRequest* aRequest,
+                         nsISupports* aContext,
+                         nsresult aStatus)
 {
   uint32_t count;
   nsresult rv = mMultiplexStream->GetCount(&count);
@@ -1133,7 +1175,8 @@ TCPSocket::UpdateReadyState(uint32_t aReadyState)
 }
 
 NS_IMETHODIMP
-TCPSocket::UpdateBufferedAmount(uint32_t aBufferedAmount, uint32_t aTrackingNumber)
+TCPSocket::UpdateBufferedAmount(uint32_t aBufferedAmount,
+                                uint32_t aTrackingNumber)
 {
   if (aTrackingNumber != mTrackingNumber) {
     return NS_OK;
@@ -1149,7 +1192,9 @@ TCPSocket::UpdateBufferedAmount(uint32_t aBufferedAmount, uint32_t aTrackingNumb
 }
 
 NS_IMETHODIMP
-TCPSocket::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
+TCPSocket::Observe(nsISupports* aSubject,
+                   const char* aTopic,
+                   const char16_t* aData)
 {
   if (!strcmp(aTopic, "inner-window-destroyed")) {
     nsCOMPtr<nsISupportsPRUint64> wrapper = do_QueryInterface(aSubject);
@@ -1175,5 +1220,6 @@ bool
 TCPSocket::ShouldTCPSocketExist(JSContext* aCx, JSObject* aGlobal)
 {
   JS::Rooted<JSObject*> global(aCx, aGlobal);
-  return nsContentUtils::IsSystemPrincipal(nsContentUtils::ObjectPrincipal(global));
+  return nsContentUtils::IsSystemPrincipal(
+      nsContentUtils::ObjectPrincipal(global));
 }

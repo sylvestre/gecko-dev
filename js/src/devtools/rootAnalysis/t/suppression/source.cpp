@@ -1,29 +1,30 @@
 #define ANNOTATE(property) __attribute__((tag(property)))
 
-struct Cell { int f; } ANNOTATE("GC Thing");
+struct Cell {
+    int f;
+} ANNOTATE("GC Thing");
 
 class AutoSuppressGC_Base {
-  public:
+   public:
     AutoSuppressGC_Base() {}
     ~AutoSuppressGC_Base() {}
 } ANNOTATE("Suppress GC");
 
 class AutoSuppressGC_Child : public AutoSuppressGC_Base {
-  public:
+   public:
     AutoSuppressGC_Child() : AutoSuppressGC_Base() {}
 };
 
 class AutoSuppressGC {
     AutoSuppressGC_Child helpImBeingSuppressed;
 
-  public:
+   public:
     AutoSuppressGC() {}
 };
 
 extern void GC() ANNOTATE("GC Call");
 
-void GC()
-{
+void GC() {
     // If the implementation is too trivial, the function body won't be emitted at all.
     asm("");
 }
@@ -31,15 +32,15 @@ void GC()
 extern void foo(Cell*);
 
 void suppressedFunction() {
-    GC(); // Calls GC, but is always called within AutoSuppressGC
+    GC();  // Calls GC, but is always called within AutoSuppressGC
 }
 
 void halfSuppressedFunction() {
-    GC(); // Calls GC, but is sometimes called within AutoSuppressGC
+    GC();  // Calls GC, but is sometimes called within AutoSuppressGC
 }
 
 void unsuppressedFunction() {
-    GC(); // Calls GC, never within AutoSuppressGC
+    GC();  // Calls GC, never within AutoSuppressGC
 }
 
 void f() {

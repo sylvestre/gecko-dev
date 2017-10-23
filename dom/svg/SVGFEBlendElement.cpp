@@ -16,45 +16,37 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEBlendElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEBlendElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEBlendElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
 nsSVGEnumMapping SVGFEBlendElement::sModeMap[] = {
-  {&nsGkAtoms::normal, SVG_FEBLEND_MODE_NORMAL},
-  {&nsGkAtoms::multiply, SVG_FEBLEND_MODE_MULTIPLY},
-  {&nsGkAtoms::screen, SVG_FEBLEND_MODE_SCREEN},
-  {&nsGkAtoms::darken, SVG_FEBLEND_MODE_DARKEN},
-  {&nsGkAtoms::lighten, SVG_FEBLEND_MODE_LIGHTEN},
-  {&nsGkAtoms::overlay, SVG_FEBLEND_MODE_OVERLAY},
-  {&nsGkAtoms::colorDodge, SVG_FEBLEND_MODE_COLOR_DODGE},
-  {&nsGkAtoms::colorBurn, SVG_FEBLEND_MODE_COLOR_BURN},
-  {&nsGkAtoms::hardLight, SVG_FEBLEND_MODE_HARD_LIGHT},
-  {&nsGkAtoms::softLight, SVG_FEBLEND_MODE_SOFT_LIGHT},
-  {&nsGkAtoms::difference, SVG_FEBLEND_MODE_DIFFERENCE},
-  {&nsGkAtoms::exclusion, SVG_FEBLEND_MODE_EXCLUSION},
-  {&nsGkAtoms::hue, SVG_FEBLEND_MODE_HUE},
-  {&nsGkAtoms::saturation, SVG_FEBLEND_MODE_SATURATION},
-  {&nsGkAtoms::color, SVG_FEBLEND_MODE_COLOR},
-  {&nsGkAtoms::luminosity, SVG_FEBLEND_MODE_LUMINOSITY},
-  {nullptr, 0}
-};
+    {&nsGkAtoms::normal, SVG_FEBLEND_MODE_NORMAL},
+    {&nsGkAtoms::multiply, SVG_FEBLEND_MODE_MULTIPLY},
+    {&nsGkAtoms::screen, SVG_FEBLEND_MODE_SCREEN},
+    {&nsGkAtoms::darken, SVG_FEBLEND_MODE_DARKEN},
+    {&nsGkAtoms::lighten, SVG_FEBLEND_MODE_LIGHTEN},
+    {&nsGkAtoms::overlay, SVG_FEBLEND_MODE_OVERLAY},
+    {&nsGkAtoms::colorDodge, SVG_FEBLEND_MODE_COLOR_DODGE},
+    {&nsGkAtoms::colorBurn, SVG_FEBLEND_MODE_COLOR_BURN},
+    {&nsGkAtoms::hardLight, SVG_FEBLEND_MODE_HARD_LIGHT},
+    {&nsGkAtoms::softLight, SVG_FEBLEND_MODE_SOFT_LIGHT},
+    {&nsGkAtoms::difference, SVG_FEBLEND_MODE_DIFFERENCE},
+    {&nsGkAtoms::exclusion, SVG_FEBLEND_MODE_EXCLUSION},
+    {&nsGkAtoms::hue, SVG_FEBLEND_MODE_HUE},
+    {&nsGkAtoms::saturation, SVG_FEBLEND_MODE_SATURATION},
+    {&nsGkAtoms::color, SVG_FEBLEND_MODE_COLOR},
+    {&nsGkAtoms::luminosity, SVG_FEBLEND_MODE_LUMINOSITY},
+    {nullptr, 0}};
 
-nsSVGElement::EnumInfo SVGFEBlendElement::sEnumInfo[1] =
-{
-  { &nsGkAtoms::mode,
-    sModeMap,
-    SVG_FEBLEND_MODE_NORMAL
-  }
-};
+nsSVGElement::EnumInfo SVGFEBlendElement::sEnumInfo[1] = {
+    {&nsGkAtoms::mode, sModeMap, SVG_FEBLEND_MODE_NORMAL}};
 
-nsSVGElement::StringInfo SVGFEBlendElement::sStringInfo[3] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true },
-  { &nsGkAtoms::in2, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEBlendElement::sStringInfo[3] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true},
+    {&nsGkAtoms::in2, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -83,10 +75,11 @@ SVGFEBlendElement::Mode()
 }
 
 FilterPrimitiveDescription
-SVGFEBlendElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                           const IntRect& aFilterSubregion,
-                                           const nsTArray<bool>& aInputsAreTainted,
-                                           nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFEBlendElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   uint32_t mode = mEnumAttributes[MODE].GetAnimValue();
   FilterPrimitiveDescription descr(PrimitiveType::Blend);
@@ -98,10 +91,10 @@ bool
 SVGFEBlendElement::AttributeAffectsRendering(int32_t aNameSpaceID,
                                              nsAtom* aAttribute) const
 {
-  return SVGFEBlendElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
+  return SVGFEBlendElementBase::AttributeAffectsRendering(aNameSpaceID,
+                                                          aAttribute) ||
          (aNameSpaceID == kNameSpaceID_None &&
-          (aAttribute == nsGkAtoms::in ||
-           aAttribute == nsGkAtoms::in2 ||
+          (aAttribute == nsGkAtoms::in || aAttribute == nsGkAtoms::in2 ||
            aAttribute == nsGkAtoms::mode));
 }
 
@@ -118,16 +111,15 @@ SVGFEBlendElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 nsSVGElement::EnumAttributesInfo
 SVGFEBlendElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGFEBlendElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

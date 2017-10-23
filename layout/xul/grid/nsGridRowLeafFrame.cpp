@@ -16,11 +16,11 @@
 #include "nsBoxLayoutState.h"
 #include "nsGridLayout2.h"
 
-already_AddRefed<nsBoxLayout> NS_NewGridRowLeafLayout();
+already_AddRefed<nsBoxLayout>
+NS_NewGridRowLeafLayout();
 
 nsIFrame*
-NS_NewGridRowLeafFrame(nsIPresShell* aPresShell,
-                       nsStyleContext* aContext)
+NS_NewGridRowLeafFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   nsCOMPtr<nsBoxLayout> layout = NS_NewGridRowLeafLayout();
   return new (aPresShell) nsGridRowLeafFrame(aContext, false, layout);
@@ -39,14 +39,12 @@ nsGridRowLeafFrame::GetXULBorderAndPadding(nsMargin& aBorderAndPadding)
   nsresult rv = nsBoxFrame::GetXULBorderAndPadding(aBorderAndPadding);
 
   nsIGridPart* part = nsGrid::GetPartFromBox(this);
-  if (!part)
-    return rv;
+  if (!part) return rv;
 
   int32_t index = 0;
   nsGrid* grid = part->GetGrid(this, &index);
 
-  if (!grid)
-    return rv;
+  if (!grid) return rv;
 
   bool isHorizontal = IsXULHorizontal();
 
@@ -54,41 +52,33 @@ nsGridRowLeafFrame::GetXULBorderAndPadding(nsMargin& aBorderAndPadding)
   int32_t lastIndex = 0;
   nsGridRow* firstRow = nullptr;
   nsGridRow* lastRow = nullptr;
-  grid->GetFirstAndLastRow(firstIndex, lastIndex, firstRow, lastRow, isHorizontal);
+  grid->GetFirstAndLastRow(
+      firstIndex, lastIndex, firstRow, lastRow, isHorizontal);
 
   // only the first and last rows can be affected.
   if (firstRow && firstRow->GetBox() == this) {
-
     nscoord top = 0;
     nscoord bottom = 0;
     grid->GetRowOffsets(firstIndex, top, bottom, isHorizontal);
 
     if (isHorizontal) {
-      if (top > aBorderAndPadding.top)
-        aBorderAndPadding.top = top;
+      if (top > aBorderAndPadding.top) aBorderAndPadding.top = top;
     } else {
-      if (top > aBorderAndPadding.left)
-        aBorderAndPadding.left = top;
+      if (top > aBorderAndPadding.left) aBorderAndPadding.left = top;
     }
   }
 
   if (lastRow && lastRow->GetBox() == this) {
-
     nscoord top = 0;
     nscoord bottom = 0;
     grid->GetRowOffsets(lastIndex, top, bottom, isHorizontal);
 
     if (isHorizontal) {
-      if (bottom > aBorderAndPadding.bottom)
-        aBorderAndPadding.bottom = bottom;
+      if (bottom > aBorderAndPadding.bottom) aBorderAndPadding.bottom = bottom;
     } else {
-      if (bottom > aBorderAndPadding.right)
-        aBorderAndPadding.right = bottom;
+      if (bottom > aBorderAndPadding.right) aBorderAndPadding.right = bottom;
     }
-
   }
 
   return rv;
 }
-
-

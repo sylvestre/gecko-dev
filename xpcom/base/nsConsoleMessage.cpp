@@ -13,11 +13,7 @@
 
 NS_IMPL_ISUPPORTS(nsConsoleMessage, nsIConsoleMessage)
 
-nsConsoleMessage::nsConsoleMessage()
-  : mTimeStamp(0)
-  , mMessage()
-{
-}
+nsConsoleMessage::nsConsoleMessage() : mTimeStamp(0), mMessage() {}
 
 nsConsoleMessage::nsConsoleMessage(const char16_t* aMessage)
 {

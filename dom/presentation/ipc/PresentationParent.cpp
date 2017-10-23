@@ -23,19 +23,20 @@ namespace dom {
 
 namespace {
 
-class PresentationTransportBuilderConstructorIPC final :
-  public nsIPresentationTransportBuilderConstructor
+class PresentationTransportBuilderConstructorIPC final
+    : public nsIPresentationTransportBuilderConstructor
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRESENTATIONTRANSPORTBUILDERCONSTRUCTOR
 
-  explicit PresentationTransportBuilderConstructorIPC(PresentationParent* aParent)
-    : mParent(aParent)
+  explicit PresentationTransportBuilderConstructorIPC(
+      PresentationParent* aParent)
+      : mParent(aParent)
   {
   }
 
-private:
+ private:
   virtual ~PresentationTransportBuilderConstructorIPC() = default;
 
   RefPtr<PresentationParent> mParent;
@@ -46,8 +47,7 @@ NS_IMPL_ISUPPORTS(PresentationTransportBuilderConstructorIPC,
 
 NS_IMETHODIMP
 PresentationTransportBuilderConstructorIPC::CreateTransportBuilder(
-                              uint8_t aType,
-                              nsIPresentationSessionTransportBuilder** aRetval)
+    uint8_t aType, nsIPresentationSessionTransportBuilder** aRetval)
 {
   if (NS_WARN_IF(!aRetval)) {
     return NS_ERROR_INVALID_ARG;
@@ -56,7 +56,8 @@ PresentationTransportBuilderConstructorIPC::CreateTransportBuilder(
   *aRetval = nullptr;
 
   if (NS_WARN_IF(aType != nsIPresentationChannelDescription::TYPE_TCP &&
-                 aType != nsIPresentationChannelDescription::TYPE_DATACHANNEL)) {
+                 aType !=
+                     nsIPresentationChannelDescription::TYPE_DATACHANNEL)) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -81,7 +82,7 @@ PresentationTransportBuilderConstructorIPC::CreateTransportBuilder(
   return NS_OK;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 /*
  * Implementation of PresentationParent
@@ -92,13 +93,9 @@ NS_IMPL_ISUPPORTS(PresentationParent,
                   nsIPresentationSessionListener,
                   nsIPresentationRespondingListener)
 
-PresentationParent::PresentationParent()
-{
-}
+PresentationParent::PresentationParent() {}
 
-/* virtual */ PresentationParent::~PresentationParent()
-{
-}
+/* virtual */ PresentationParent::~PresentationParent() {}
 
 bool
 PresentationParent::Init(ContentParentId aContentParentId)
@@ -115,21 +112,20 @@ PresentationParent::ActorDestroy(ActorDestroyReason aWhy)
   mActorDestroyed = true;
 
   for (uint32_t i = 0; i < mSessionIdsAtController.Length(); i++) {
-    Unused << NS_WARN_IF(NS_FAILED(mService->
-      UnregisterSessionListener(mSessionIdsAtController[i],
-                                nsIPresentationService::ROLE_CONTROLLER)));
+    Unused << NS_WARN_IF(NS_FAILED(mService->UnregisterSessionListener(
+        mSessionIdsAtController[i], nsIPresentationService::ROLE_CONTROLLER)));
   }
   mSessionIdsAtController.Clear();
 
   for (uint32_t i = 0; i < mSessionIdsAtReceiver.Length(); i++) {
-    Unused << NS_WARN_IF(NS_FAILED(mService->
-      UnregisterSessionListener(mSessionIdsAtReceiver[i], nsIPresentationService::ROLE_RECEIVER)));
+    Unused << NS_WARN_IF(NS_FAILED(mService->UnregisterSessionListener(
+        mSessionIdsAtReceiver[i], nsIPresentationService::ROLE_RECEIVER)));
   }
   mSessionIdsAtReceiver.Clear();
 
   for (uint32_t i = 0; i < mWindowIds.Length(); i++) {
-    Unused << NS_WARN_IF(NS_FAILED(mService->
-      UnregisterRespondingListener(mWindowIds[i])));
+    Unused << NS_WARN_IF(
+        NS_FAILED(mService->UnregisterRespondingListener(mWindowIds[i])));
   }
   mWindowIds.Clear();
 
@@ -141,10 +137,10 @@ PresentationParent::ActorDestroy(ActorDestroyReason aWhy)
 
 mozilla::ipc::IPCResult
 PresentationParent::RecvPPresentationRequestConstructor(
-  PPresentationRequestParent* aActor,
-  const PresentationIPCRequest& aRequest)
+    PPresentationRequestParent* aActor, const PresentationIPCRequest& aRequest)
 {
-  PresentationRequestParent* actor = static_cast<PresentationRequestParent*>(aActor);
+  PresentationRequestParent* actor =
+      static_cast<PresentationRequestParent*>(aActor);
 
   nsresult rv = NS_ERROR_FAILURE;
   switch (aRequest.type()) {
@@ -178,19 +174,20 @@ PresentationParent::RecvPPresentationRequestConstructor(
 
 PPresentationRequestParent*
 PresentationParent::AllocPPresentationRequestParent(
-  const PresentationIPCRequest& aRequest)
+    const PresentationIPCRequest& aRequest)
 {
   MOZ_ASSERT(mService);
-  RefPtr<PresentationRequestParent> actor = new PresentationRequestParent(mService, mChildId);
+  RefPtr<PresentationRequestParent> actor =
+      new PresentationRequestParent(mService, mChildId);
   return actor.forget().take();
 }
 
 bool
 PresentationParent::DeallocPPresentationRequestParent(
-  PPresentationRequestParent* aActor)
+    PPresentationRequestParent* aActor)
 {
   RefPtr<PresentationRequestParent> actor =
-    dont_AddRef(static_cast<PresentationRequestParent*>(aActor));
+      dont_AddRef(static_cast<PresentationRequestParent*>(aActor));
   return true;
 }
 
@@ -198,13 +195,15 @@ PPresentationBuilderParent*
 PresentationParent::AllocPPresentationBuilderParent(const nsString& aSessionId,
                                                     const uint8_t& aRole)
 {
-  NS_NOTREACHED("We should never be manually allocating AllocPPresentationBuilderParent actors");
+  NS_NOTREACHED(
+      "We should never be manually allocating AllocPPresentationBuilderParent "
+      "actors");
   return nullptr;
 }
 
 bool
 PresentationParent::DeallocPPresentationBuilderParent(
-  PPresentationBuilderParent* aActor)
+    PPresentationBuilderParent* aActor)
 {
   return true;
 }
@@ -217,26 +216,24 @@ PresentationParent::Recv__delete__()
 
 mozilla::ipc::IPCResult
 PresentationParent::RecvRegisterAvailabilityHandler(
-                                       nsTArray<nsString>&& aAvailabilityUrls)
+    nsTArray<nsString>&& aAvailabilityUrls)
 {
   MOZ_ASSERT(mService);
 
-  Unused << NS_WARN_IF(NS_FAILED(mService->RegisterAvailabilityListener(
-                                                             aAvailabilityUrls,
-                                                             this)));
+  Unused << NS_WARN_IF(NS_FAILED(
+      mService->RegisterAvailabilityListener(aAvailabilityUrls, this)));
   mContentAvailabilityUrls.AppendElements(aAvailabilityUrls);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 PresentationParent::RecvUnregisterAvailabilityHandler(
-                                        nsTArray<nsString>&& aAvailabilityUrls)
+    nsTArray<nsString>&& aAvailabilityUrls)
 {
   MOZ_ASSERT(mService);
 
-  Unused << NS_WARN_IF(NS_FAILED(mService->UnregisterAvailabilityListener(
-                                                             aAvailabilityUrls,
-                                                             this)));
+  Unused << NS_WARN_IF(NS_FAILED(
+      mService->UnregisterAvailabilityListener(aAvailabilityUrls, this)));
   for (const auto& url : aAvailabilityUrls) {
     mContentAvailabilityUrls.RemoveElement(url);
   }
@@ -251,8 +248,8 @@ PresentationParent::RecvRegisterSessionHandler(const nsString& aSessionId,
 
   // Validate the accessibility (primarily for receiver side) so that a
   // compromised child process can't fake the ID.
-  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())->
-                  IsSessionAccessible(aSessionId, aRole, OtherPid()))) {
+  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())
+                      ->IsSessionAccessible(aSessionId, aRole, OtherPid()))) {
     return IPC_OK();
   }
 
@@ -261,7 +258,8 @@ PresentationParent::RecvRegisterSessionHandler(const nsString& aSessionId,
   } else {
     mSessionIdsAtReceiver.AppendElement(aSessionId);
   }
-  Unused << NS_WARN_IF(NS_FAILED(mService->RegisterSessionListener(aSessionId, aRole, this)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(mService->RegisterSessionListener(aSessionId, aRole, this)));
   return IPC_OK();
 }
 
@@ -275,7 +273,8 @@ PresentationParent::RecvUnregisterSessionHandler(const nsString& aSessionId,
   } else {
     mSessionIdsAtReceiver.RemoveElement(aSessionId);
   }
-  Unused << NS_WARN_IF(NS_FAILED(mService->UnregisterSessionListener(aSessionId, aRole)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(mService->UnregisterSessionListener(aSessionId, aRole)));
   return IPC_OK();
 }
 
@@ -285,7 +284,8 @@ PresentationParent::RecvRegisterRespondingHandler(const uint64_t& aWindowId)
   MOZ_ASSERT(mService);
 
   mWindowIds.AppendElement(aWindowId);
-  Unused << NS_WARN_IF(NS_FAILED(mService->RegisterRespondingListener(aWindowId, this)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(mService->RegisterRespondingListener(aWindowId, this)));
   return IPC_OK();
 }
 
@@ -294,17 +294,17 @@ PresentationParent::RecvUnregisterRespondingHandler(const uint64_t& aWindowId)
 {
   MOZ_ASSERT(mService);
   mWindowIds.RemoveElement(aWindowId);
-  Unused << NS_WARN_IF(NS_FAILED(mService->UnregisterRespondingListener(aWindowId)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(mService->UnregisterRespondingListener(aWindowId)));
   return IPC_OK();
 }
 
 NS_IMETHODIMP
-PresentationParent::NotifyAvailableChange(const nsTArray<nsString>& aAvailabilityUrls,
-                                          bool aAvailable)
+PresentationParent::NotifyAvailableChange(
+    const nsTArray<nsString>& aAvailabilityUrls, bool aAvailable)
 {
   if (NS_WARN_IF(mActorDestroyed ||
-                 !SendNotifyAvailableChange(aAvailabilityUrls,
-                                            aAvailable))) {
+                 !SendNotifyAvailableChange(aAvailabilityUrls, aAvailable))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -316,9 +316,8 @@ PresentationParent::NotifyStateChange(const nsAString& aSessionId,
                                       nsresult aReason)
 {
   if (NS_WARN_IF(mActorDestroyed ||
-                 !SendNotifySessionStateChange(nsString(aSessionId),
-                                               aState,
-                                               aReason))) {
+                 !SendNotifySessionStateChange(
+                     nsString(aSessionId), aState, aReason))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -330,9 +329,8 @@ PresentationParent::NotifyMessage(const nsAString& aSessionId,
                                   bool aIsBinary)
 {
   if (NS_WARN_IF(mActorDestroyed ||
-                 !SendNotifyMessage(nsString(aSessionId),
-                                    nsCString(aData),
-                                    aIsBinary))) {
+                 !SendNotifyMessage(
+                     nsString(aSessionId), nsCString(aData), aIsBinary))) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -357,11 +355,9 @@ PresentationParent::RecvNotifyReceiverReady(const nsString& aSessionId,
   MOZ_ASSERT(mService);
 
   nsCOMPtr<nsIPresentationTransportBuilderConstructor> constructor =
-    new PresentationTransportBuilderConstructorIPC(this);
-  Unused << NS_WARN_IF(NS_FAILED(mService->NotifyReceiverReady(aSessionId,
-                                                               aWindowId,
-                                                               aIsLoading,
-                                                               constructor)));
+      new PresentationTransportBuilderConstructorIPC(this);
+  Unused << NS_WARN_IF(NS_FAILED(mService->NotifyReceiverReady(
+      aSessionId, aWindowId, aIsLoading, constructor)));
   return IPC_OK();
 }
 
@@ -372,7 +368,8 @@ PresentationParent::RecvNotifyTransportClosed(const nsString& aSessionId,
 {
   MOZ_ASSERT(mService);
 
-  Unused << NS_WARN_IF(NS_FAILED(mService->NotifyTransportClosed(aSessionId, aRole, aReason)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(mService->NotifyTransportClosed(aSessionId, aRole, aReason)));
   return IPC_OK();
 }
 
@@ -382,16 +379,13 @@ PresentationParent::RecvNotifyTransportClosed(const nsString& aSessionId,
 
 NS_IMPL_ISUPPORTS(PresentationRequestParent, nsIPresentationServiceCallback)
 
-PresentationRequestParent::PresentationRequestParent(nsIPresentationService* aService,
-                                                     ContentParentId aContentParentId)
-  : mService(aService)
-  , mChildId(aContentParentId)
+PresentationRequestParent::PresentationRequestParent(
+    nsIPresentationService* aService, ContentParentId aContentParentId)
+    : mService(aService), mChildId(aContentParentId)
 {
 }
 
-PresentationRequestParent::~PresentationRequestParent()
-{
-}
+PresentationRequestParent::~PresentationRequestParent() {}
 
 void
 PresentationRequestParent::ActorDestroy(ActorDestroyReason aWhy)
@@ -410,18 +404,24 @@ PresentationRequestParent::DoRequest(const StartSessionRequest& aRequest)
   nsCOMPtr<nsIDOMEventTarget> eventTarget;
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
   RefPtr<TabParent> tp =
-    cpm->GetTopLevelTabParentByProcessAndTabId(mChildId, aRequest.tabId());
+      cpm->GetTopLevelTabParentByProcessAndTabId(mChildId, aRequest.tabId());
   if (tp) {
     eventTarget = do_QueryInterface(tp->GetOwnerElement());
   }
 
-  RefPtr<PresentationParent> parent = static_cast<PresentationParent*>(Manager());
+  RefPtr<PresentationParent> parent =
+      static_cast<PresentationParent*>(Manager());
   nsCOMPtr<nsIPresentationTransportBuilderConstructor> constructor =
-    new PresentationTransportBuilderConstructorIPC(parent);
-  return mService->StartSession(aRequest.urls(), aRequest.sessionId(),
-                                aRequest.origin(), aRequest.deviceId(),
-                                aRequest.windowId(), eventTarget,
-                                aRequest.principal(), this, constructor);
+      new PresentationTransportBuilderConstructorIPC(parent);
+  return mService->StartSession(aRequest.urls(),
+                                aRequest.sessionId(),
+                                aRequest.origin(),
+                                aRequest.deviceId(),
+                                aRequest.windowId(),
+                                eventTarget,
+                                aRequest.principal(),
+                                this,
+                                constructor);
 }
 
 nsresult
@@ -431,14 +431,14 @@ PresentationRequestParent::DoRequest(const SendSessionMessageRequest& aRequest)
 
   // Validate the accessibility (primarily for receiver side) so that a
   // compromised child process can't fake the ID.
-  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())->
-                  IsSessionAccessible(aRequest.sessionId(), aRequest.role(), OtherPid()))) {
+  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())
+                      ->IsSessionAccessible(
+                          aRequest.sessionId(), aRequest.role(), OtherPid()))) {
     return SendResponse(NS_ERROR_DOM_SECURITY_ERR);
   }
 
-  nsresult rv = mService->SendSessionMessage(aRequest.sessionId(),
-                                             aRequest.role(),
-                                             aRequest.data());
+  nsresult rv = mService->SendSessionMessage(
+      aRequest.sessionId(), aRequest.role(), aRequest.data());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return SendResponse(rv);
   }
@@ -452,14 +452,14 @@ PresentationRequestParent::DoRequest(const CloseSessionRequest& aRequest)
 
   // Validate the accessibility (primarily for receiver side) so that a
   // compromised child process can't fake the ID.
-  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())->
-                  IsSessionAccessible(aRequest.sessionId(), aRequest.role(), OtherPid()))) {
+  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())
+                      ->IsSessionAccessible(
+                          aRequest.sessionId(), aRequest.role(), OtherPid()))) {
     return SendResponse(NS_ERROR_DOM_SECURITY_ERR);
   }
 
-  nsresult rv = mService->CloseSession(aRequest.sessionId(),
-                                       aRequest.role(),
-                                       aRequest.closedReason());
+  nsresult rv = mService->CloseSession(
+      aRequest.sessionId(), aRequest.role(), aRequest.closedReason());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return SendResponse(rv);
   }
@@ -473,12 +473,14 @@ PresentationRequestParent::DoRequest(const TerminateSessionRequest& aRequest)
 
   // Validate the accessibility (primarily for receiver side) so that a
   // compromised child process can't fake the ID.
-  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())->
-                  IsSessionAccessible(aRequest.sessionId(), aRequest.role(), OtherPid()))) {
+  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())
+                      ->IsSessionAccessible(
+                          aRequest.sessionId(), aRequest.role(), OtherPid()))) {
     return SendResponse(NS_ERROR_DOM_SECURITY_ERR);
   }
 
-  nsresult rv = mService->TerminateSession(aRequest.sessionId(), aRequest.role());
+  nsresult rv =
+      mService->TerminateSession(aRequest.sessionId(), aRequest.role());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return SendResponse(rv);
   }
@@ -492,19 +494,17 @@ PresentationRequestParent::DoRequest(const ReconnectSessionRequest& aRequest)
 
   // Validate the accessibility (primarily for receiver side) so that a
   // compromised child process can't fake the ID.
-  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())->
-    IsSessionAccessible(aRequest.sessionId(), aRequest.role(), OtherPid()))) {
-
+  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())
+                      ->IsSessionAccessible(
+                          aRequest.sessionId(), aRequest.role(), OtherPid()))) {
     // NOTE: Return NS_ERROR_DOM_NOT_FOUND_ERR here to match the spec.
     // https://w3c.github.io/presentation-api/#reconnecting-to-a-presentation
     return SendResponse(NS_ERROR_DOM_NOT_FOUND_ERR);
   }
 
   mSessionId = aRequest.sessionId();
-  return mService->ReconnectSession(aRequest.urls(),
-                                    aRequest.sessionId(),
-                                    aRequest.role(),
-                                    this);
+  return mService->ReconnectSession(
+      aRequest.urls(), aRequest.sessionId(), aRequest.role(), this);
 }
 
 nsresult
@@ -514,8 +514,9 @@ PresentationRequestParent::DoRequest(const BuildTransportRequest& aRequest)
 
   // Validate the accessibility (primarily for receiver side) so that a
   // compromised child process can't fake the ID.
-  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())->
-                  IsSessionAccessible(aRequest.sessionId(), aRequest.role(), OtherPid()))) {
+  if (NS_WARN_IF(!static_cast<PresentationService*>(mService.get())
+                      ->IsSessionAccessible(
+                          aRequest.sessionId(), aRequest.role(), OtherPid()))) {
     return SendResponse(NS_ERROR_DOM_SECURITY_ERR);
   }
 
@@ -549,5 +550,5 @@ PresentationRequestParent::SendResponse(nsresult aResult)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

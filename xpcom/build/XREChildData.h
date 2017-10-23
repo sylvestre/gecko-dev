@@ -35,4 +35,4 @@ struct XREChildData
 #endif
 };
 
-#endif // XREChildData_h
+#endif  // XREChildData_h

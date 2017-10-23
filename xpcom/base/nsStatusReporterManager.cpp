@@ -25,21 +25,21 @@
 #define DO_STATUS_REPORT 1
 #endif
 
-#ifdef DO_STATUS_REPORT // {
+#ifdef DO_STATUS_REPORT  // {
 namespace {
 
 class DumpStatusInfoToTempDirRunnable : public mozilla::Runnable
 {
-public:
+ public:
   DumpStatusInfoToTempDirRunnable()
-    : mozilla::Runnable("DumpStatusInfoToTempDirRunnable")
+      : mozilla::Runnable("DumpStatusInfoToTempDirRunnable")
   {
   }
 
   NS_IMETHOD Run() override
   {
     nsCOMPtr<nsIStatusReporterManager> mgr =
-      do_GetService("@mozilla.org/status-reporter-manager;1");
+        do_GetService("@mozilla.org/status-reporter-manager;1");
     mgr->DumpReports();
     return NS_OK;
   }
@@ -50,12 +50,12 @@ doStatusReport(const nsCString& aInputStr)
 {
   LOG("FifoWatcher(%s) dispatching status report runnable.", aInputStr.get());
   RefPtr<DumpStatusInfoToTempDirRunnable> runnable =
-    new DumpStatusInfoToTempDirRunnable();
+      new DumpStatusInfoToTempDirRunnable();
   NS_DispatchToMainThread(runnable);
 }
 
-} //anonymous namespace
-#endif // DO_STATUS_REPORT }
+}  //anonymous namespace
+#endif  // DO_STATUS_REPORT }
 
 static bool gStatusReportProgress = 0;
 static int gNumReporters = 0;
@@ -75,18 +75,19 @@ getStatus(nsACString& aDesc)
 
 NS_STATUS_REPORTER_IMPLEMENT(StatusReporter, "StatusReporter State", getStatus)
 
-#define DUMP(o, s) \
-  do { \
-    const char* s2 = (s); \
-    uint32_t dummy; \
+#define DUMP(o, s)                                          \
+  do {                                                      \
+    const char* s2 = (s);                                   \
+    uint32_t dummy;                                         \
     nsresult rvDump = (o)->Write((s2), strlen(s2), &dummy); \
-    if (NS_WARN_IF(NS_FAILED(rvDump))) \
-      return rvDump; \
+    if (NS_WARN_IF(NS_FAILED(rvDump))) return rvDump;       \
   } while (0)
 
 static nsresult
-DumpReport(nsIFileOutputStream* aOStream, const nsCString& aProcess,
-           const nsCString& aName, const nsCString& aDescription)
+DumpReport(nsIFileOutputStream* aOStream,
+           const nsCString& aProcess,
+           const nsCString& aName,
+           const nsCString& aDescription)
 {
   if (aProcess.IsEmpty()) {
     int pid = getpid();
@@ -116,13 +117,9 @@ DumpReport(nsIFileOutputStream* aOStream, const nsCString& aProcess,
 
 NS_IMPL_ISUPPORTS(nsStatusReporterManager, nsIStatusReporterManager)
 
-nsStatusReporterManager::nsStatusReporterManager()
-{
-}
+nsStatusReporterManager::nsStatusReporterManager() {}
 
-nsStatusReporterManager::~nsStatusReporterManager()
-{
-}
+nsStatusReporterManager::~nsStatusReporterManager() {}
 
 NS_IMETHODIMP
 nsStatusReporterManager::Init()
@@ -156,8 +153,7 @@ nsStatusReporterManager::DumpReports()
   // The file is initialized as "incomplete-status-reports-pid-number.json" in the
   // begining, it will be rename as "status-reports-pid-number.json" in the end.
   nsCOMPtr<nsIFile> tmpFile;
-  rv = nsDumpUtils::OpenTempFile(NS_LITERAL_CSTRING("incomplete-") +
-                                 filename,
+  rv = nsDumpUtils::OpenTempFile(NS_LITERAL_CSTRING("incomplete-") + filename,
                                  getter_AddRefs(tmpFile),
                                  NS_LITERAL_CSTRING("status-reports"));
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -165,7 +161,7 @@ nsStatusReporterManager::DumpReports()
   }
 
   nsCOMPtr<nsIFileOutputStream> ostream =
-    do_CreateInstance("@mozilla.org/network/file-output-stream;1");
+      do_CreateInstance("@mozilla.org/network/file-output-stream;1");
   rv = ostream->Init(tmpFile, -1, -1, 0);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -291,7 +287,7 @@ nsresult
 NS_RegisterStatusReporter(nsIStatusReporter* aReporter)
 {
   nsCOMPtr<nsIStatusReporterManager> mgr =
-    do_GetService("@mozilla.org/status-reporter-manager;1");
+      do_GetService("@mozilla.org/status-reporter-manager;1");
   if (!mgr) {
     return NS_ERROR_FAILURE;
   }
@@ -302,7 +298,7 @@ nsresult
 NS_UnregisterStatusReporter(nsIStatusReporter* aReporter)
 {
   nsCOMPtr<nsIStatusReporterManager> mgr =
-    do_GetService("@mozilla.org/status-reporter-manager;1");
+      do_GetService("@mozilla.org/status-reporter-manager;1");
   if (!mgr) {
     return NS_ERROR_FAILURE;
   }
@@ -313,7 +309,7 @@ nsresult
 NS_DumpStatusReporter()
 {
   nsCOMPtr<nsIStatusReporterManager> mgr =
-    do_GetService("@mozilla.org/status-reporter-manager;1");
+      do_GetService("@mozilla.org/status-reporter-manager;1");
   if (!mgr) {
     return NS_ERROR_FAILURE;
   }

@@ -8,8 +8,8 @@
 #include "RilConnector.h"
 #include <fcntl.h>
 #include <sys/socket.h>
-#include "nsISupportsImpl.h" // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
-#include "nsThreadUtils.h" // For NS_IsMainThread.
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
+#include "nsThreadUtils.h"    // For NS_IsMainThread.
 
 #ifdef AF_INET
 #include <arpa/inet.h>
@@ -26,8 +26,7 @@ static const uint16_t RIL_TEST_PORT = 6200;
 
 RilConnector::RilConnector(const nsACString& aAddressString,
                            unsigned long aClientId)
-  : mAddressString(aAddressString)
-  , mClientId(aClientId)
+    : mAddressString(aAddressString), mClientId(aClientId)
 {
   MOZ_COUNT_CTOR_INHERITED(RilConnector, UnixSocketConnector);
 }
@@ -77,8 +76,8 @@ RilConnector::SetSocketFlags(int aFd) const
   }
 
   // Set socket addr to be reused even if kernel is still waiting to close.
-  res = setsockopt(aFd, SOL_SOCKET, SO_REUSEADDR, &sReuseAddress,
-                   sizeof(sReuseAddress));
+  res = setsockopt(
+      aFd, SOL_SOCKET, SO_REUSEADDR, &sReuseAddress, sizeof(sReuseAddress));
   if (res < 0) {
     return NS_ERROR_FAILURE;
   }
@@ -94,29 +93,27 @@ RilConnector::CreateAddress(int aDomain,
   switch (aDomain) {
 #ifdef AF_UNIX
     case AF_UNIX: {
-        struct sockaddr_un* address =
+      struct sockaddr_un* address =
           reinterpret_cast<struct sockaddr_un*>(&aAddress);
-        address->sun_family = aDomain;
-        size_t siz = mAddressString.Length() + 1;
-        if (siz > sizeof(address->sun_path)) {
-          NS_WARNING("Address too long for socket struct!");
-          return NS_ERROR_FAILURE;
-        }
-        memcpy(address->sun_path, mAddressString.get(), siz);
-        aAddressLength = offsetof(struct sockaddr_un, sun_path) + siz;
+      address->sun_family = aDomain;
+      size_t siz = mAddressString.Length() + 1;
+      if (siz > sizeof(address->sun_path)) {
+        NS_WARNING("Address too long for socket struct!");
+        return NS_ERROR_FAILURE;
       }
-      break;
+      memcpy(address->sun_path, mAddressString.get(), siz);
+      aAddressLength = offsetof(struct sockaddr_un, sun_path) + siz;
+    } break;
 #endif
 #ifdef AF_INET
     case AF_INET: {
-        struct sockaddr_in* address =
+      struct sockaddr_in* address =
           reinterpret_cast<struct sockaddr_in*>(&aAddress);
-        address->sin_family = aDomain;
-        address->sin_port = htons(RIL_TEST_PORT + mClientId);
-        address->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        aAddressLength = sizeof(*address);
-      }
-      break;
+      address->sin_family = aDomain;
+      address->sin_port = htons(RIL_TEST_PORT + mClientId);
+      address->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+      aAddressLength = sizeof(*address);
+    } break;
 #endif
     default:
       NS_WARNING("Address family not handled by connector!");
@@ -136,7 +133,7 @@ RilConnector::ConvertAddressToString(const struct sockaddr& aAddress,
 #ifdef AF_UNIX
   if (aAddress.sa_family == AF_UNIX) {
     const struct sockaddr_un* un =
-      reinterpret_cast<const struct sockaddr_un*>(&aAddress);
+        reinterpret_cast<const struct sockaddr_un*>(&aAddress);
 
     size_t len = aAddressLength - offsetof(struct sockaddr_un, sun_path);
 
@@ -144,9 +141,9 @@ RilConnector::ConvertAddressToString(const struct sockaddr& aAddress,
   } else
 #endif
 #ifdef AF_INET
-  if (aAddress.sa_family == AF_INET) {
+      if (aAddress.sa_family == AF_INET) {
     const struct sockaddr_in* in =
-      reinterpret_cast<const struct sockaddr_in*>(&aAddress);
+        reinterpret_cast<const struct sockaddr_in*>(&aAddress);
 
     aAddressString.Assign(nsDependentCString(inet_ntoa(in->sin_addr)));
   } else
@@ -213,5 +210,5 @@ RilConnector::Duplicate(UnixSocketConnector*& aConnector)
   return NS_OK;
 }
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla

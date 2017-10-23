@@ -29,17 +29,15 @@ namespace mozilla {
 
 using namespace extensions;
 
-#define DEFAULT_BASE_CSP \
-    "script-src 'self' https://* moz-extension: blob: filesystem: 'unsafe-eval' 'unsafe-inline'; " \
-    "object-src 'self' https://* moz-extension: blob: filesystem:;"
+#define DEFAULT_BASE_CSP                                          \
+  "script-src 'self' https://* moz-extension: blob: filesystem: " \
+  "'unsafe-eval' 'unsafe-inline'; "                               \
+  "object-src 'self' https://* moz-extension: blob: filesystem:;"
 
-#define DEFAULT_DEFAULT_CSP \
-    "script-src 'self'; object-src 'self';"
-
+#define DEFAULT_DEFAULT_CSP "script-src 'self'; object-src 'self';"
 
 #define OBS_TOPIC_PRELOAD_SCRIPT "web-extension-preload-content-script"
 #define OBS_TOPIC_LOAD_SCRIPT "web-extension-load-content-script"
-
 
 static mozIExtensionProcessScript&
 ProcessScript()
@@ -47,7 +45,8 @@ ProcessScript()
   static nsCOMPtr<mozIExtensionProcessScript> sProcessScript;
 
   if (MOZ_UNLIKELY(!sProcessScript)) {
-    sProcessScript = do_GetService("@mozilla.org/webextensions/extension-process-script;1");
+    sProcessScript =
+        do_GetService("@mozilla.org/webextensions/extension-process-script;1");
     MOZ_RELEASE_ASSERT(sProcessScript);
     ClearOnShutdown(&sProcessScript);
   }
@@ -77,7 +76,8 @@ ExtensionPolicyService::ExtensionPolicyService()
   mObs = services::GetObserverService();
   MOZ_RELEASE_ASSERT(mObs);
 
-  Preferences::AddBoolVarCache(&sRemoteExtensions, "extensions.webextensions.remote", false);
+  Preferences::AddBoolVarCache(
+      &sRemoteExtensions, "extensions.webextensions.remote", false);
 
   RegisterObservers();
 }
@@ -100,7 +100,6 @@ ExtensionPolicyService::IsExtensionProcess() const
   return !isRemote && XRE_IsParentProcess();
 }
 
-
 WebExtensionPolicy*
 ExtensionPolicyService::GetByURL(const URLInfo& aURL)
 {
@@ -121,8 +120,8 @@ ExtensionPolicyService::GetAll(nsTArray<RefPtr<WebExtensionPolicy>>& aResult)
 bool
 ExtensionPolicyService::RegisterExtension(WebExtensionPolicy& aPolicy)
 {
-  bool ok = (!GetByID(aPolicy.Id()) &&
-             !GetByHost(aPolicy.MozExtensionHostname()));
+  bool ok =
+      (!GetByID(aPolicy.Id()) && !GetByHost(aPolicy.MozExtensionHostname()));
   MOZ_ASSERT(ok);
 
   if (!ok) {
@@ -150,13 +149,13 @@ ExtensionPolicyService::UnregisterExtension(WebExtensionPolicy& aPolicy)
   return true;
 }
 
-
 void
 ExtensionPolicyService::BaseCSP(nsAString& aBaseCSP) const
 {
   nsresult rv;
 
-  rv = Preferences::GetString("extensions.webextensions.base-content-security-policy", aBaseCSP);
+  rv = Preferences::GetString(
+      "extensions.webextensions.base-content-security-policy", aBaseCSP);
   if (NS_FAILED(rv)) {
     aBaseCSP.AssignLiteral(DEFAULT_BASE_CSP);
   }
@@ -167,12 +166,12 @@ ExtensionPolicyService::DefaultCSP(nsAString& aDefaultCSP) const
 {
   nsresult rv;
 
-  rv = Preferences::GetString("extensions.webextensions.default-content-security-policy", aDefaultCSP);
+  rv = Preferences::GetString(
+      "extensions.webextensions.default-content-security-policy", aDefaultCSP);
   if (NS_FAILED(rv)) {
     aDefaultCSP.AssignLiteral(DEFAULT_DEFAULT_CSP);
   }
 }
-
 
 /*****************************************************************************
  * Content script management
@@ -199,7 +198,9 @@ ExtensionPolicyService::UnregisterObservers()
 }
 
 nsresult
-ExtensionPolicyService::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
+ExtensionPolicyService::Observe(nsISupports* aSubject,
+                                const char* aTopic,
+                                const char16_t* aData)
 {
   if (!strcmp(aTopic, "content-document-global-created")) {
     nsCOMPtr<nsPIDOMWindowOuter> win = do_QueryInterface(aSubject);
@@ -258,7 +259,8 @@ ExtensionPolicyService::CheckDocument(nsIDocument* aDocument)
 
     nsIPrincipal* principal = aDocument->NodePrincipal();
 
-    RefPtr<WebExtensionPolicy> policy = BasePrincipal::Cast(principal)->AddonPolicy();
+    RefPtr<WebExtensionPolicy> policy =
+        BasePrincipal::Cast(principal)->AddonPolicy();
     if (policy) {
       nsCOMPtr<nsIDOMDocument> doc = do_QueryInterface(aDocument);
       ProcessScript().InitExtensionDocument(policy, doc);
@@ -292,7 +294,8 @@ ExtensionPolicyService::CheckWindow(nsPIDOMWindowOuter* aWindow)
 }
 
 void
-ExtensionPolicyService::CheckContentScripts(const DocInfo& aDocInfo, bool aIsPreload)
+ExtensionPolicyService::CheckContentScripts(const DocInfo& aDocInfo,
+                                            bool aIsPreload)
 {
   for (auto iter = mExtensions.Iter(); !iter.Done(); iter.Next()) {
     RefPtr<WebExtensionPolicy> policy = iter.Data();
@@ -308,7 +311,6 @@ ExtensionPolicyService::CheckContentScripts(const DocInfo& aDocInfo, bool aIsPre
     }
   }
 }
-
 
 /*****************************************************************************
  * nsIAddonPolicyService
@@ -340,8 +342,8 @@ ExtensionPolicyService::GetAddonCSP(const nsAString& aAddonId,
 }
 
 nsresult
-ExtensionPolicyService::GetGeneratedBackgroundPageUrl(const nsACString& aHostname,
-                                                      nsACString& aResult)
+ExtensionPolicyService::GetGeneratedBackgroundPageUrl(
+    const nsACString& aHostname, nsACString& aResult)
 {
   if (WebExtensionPolicy* policy = GetByHost(aHostname)) {
     nsAutoCString url("data:text/html,");
@@ -394,7 +396,8 @@ ExtensionPolicyService::GetExtensionName(const nsAString& aAddonId,
 }
 
 nsresult
-ExtensionPolicyService::ExtensionURILoadableByAnyone(nsIURI* aURI, bool* aResult)
+ExtensionPolicyService::ExtensionURILoadableByAnyone(nsIURI* aURI,
+                                                     bool* aResult)
 {
   URLInfo url(aURI);
   if (WebExtensionPolicy* policy = GetByURL(url)) {
@@ -415,7 +418,6 @@ ExtensionPolicyService::ExtensionURIToAddonId(nsIURI* aURI, nsAString& aResult)
   return NS_OK;
 }
 
-
 NS_IMPL_CYCLE_COLLECTION(ExtensionPolicyService, mExtensions, mExtensionHosts)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ExtensionPolicyService)
@@ -427,4 +429,4 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(ExtensionPolicyService)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(ExtensionPolicyService)
 
-} // namespace mozilla
+}  // namespace mozilla

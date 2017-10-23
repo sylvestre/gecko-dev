@@ -21,7 +21,7 @@ namespace mozilla {
 
 namespace dom {
 class SVGAnimationElement;
-} // namespace dom
+}  // namespace dom
 
 /**
  * Class SVGAnimatedPathSegList
@@ -44,7 +44,7 @@ class SVGAnimatedPathSegList final
   friend class DOMSVGPathSeg;
   friend class DOMSVGPathSegList;
 
-public:
+ public:
   SVGAnimatedPathSegList() {}
 
   /**
@@ -53,9 +53,7 @@ public:
    * DOMSVGPathSegList::InternalListWillChangeTo), this method returns a const
    * reference. Only our friend classes may get mutable references to mBaseVal.
    */
-  const SVGPathData& GetBaseValue() const {
-    return mBaseVal;
-  }
+  const SVGPathData& GetBaseValue() const { return mBaseVal; }
 
   nsresult SetBaseValueString(const nsAString& aValue);
 
@@ -64,36 +62,29 @@ public:
   /**
    * const! See comment for GetBaseValue!
    */
-  const SVGPathData& GetAnimValue() const {
+  const SVGPathData& GetAnimValue() const
+  {
     return mAnimVal ? *mAnimVal : mBaseVal;
   }
 
-  nsresult SetAnimValue(const SVGPathData& aValue,
-                        nsSVGElement *aElement);
+  nsresult SetAnimValue(const SVGPathData& aValue, nsSVGElement* aElement);
 
-  void ClearAnimValue(nsSVGElement *aElement);
+  void ClearAnimValue(nsSVGElement* aElement);
 
   /**
    * Needed for correct DOM wrapper construction since GetAnimValue may
    * actually return the baseVal!
    */
-  void *GetBaseValKey() const {
-    return (void*)&mBaseVal;
-  }
-  void *GetAnimValKey() const {
-    return (void*)&mAnimVal;
-  }
+  void* GetBaseValKey() const { return (void*)&mBaseVal; }
+  void* GetAnimValKey() const { return (void*)&mAnimVal; }
 
-  bool IsAnimating() const {
-    return !!mAnimVal;
-  }
+  bool IsAnimating() const { return !!mAnimVal; }
 
   UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aElement);
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
 
-private:
-
+ private:
   // mAnimVal is a pointer to allow us to determine if we're being animated or
   // not. Making it a non-pointer member and using mAnimVal.IsEmpty() to check
   // if we're animating is not an option, since that would break animation *to*
@@ -104,30 +95,31 @@ private:
 
   struct SMILAnimatedPathSegList : public nsISMILAttr
   {
-  public:
+   public:
     SMILAnimatedPathSegList(SVGAnimatedPathSegList* aVal,
                             nsSVGElement* aElement)
-      : mVal(aVal)
-      , mElement(aElement)
-    {}
+        : mVal(aVal), mElement(aElement)
+    {
+    }
 
     // These will stay alive because a nsISMILAttr only lives as long
     // as the Compositing step, and DOM elements don't get a chance to
     // die during that.
-    SVGAnimatedPathSegList *mVal;
-    nsSVGElement *mElement;
+    SVGAnimatedPathSegList* mVal;
+    nsSVGElement* mElement;
 
     // nsISMILAttr methods
-    virtual nsresult ValueFromString(const nsAString& aStr,
-                                     const dom::SVGAnimationElement* aSrcElement,
-                                     nsSMILValue& aValue,
-                                     bool& aPreventCachingOfSandwich) const override;
+    virtual nsresult ValueFromString(
+        const nsAString& aStr,
+        const dom::SVGAnimationElement* aSrcElement,
+        nsSMILValue& aValue,
+        bool& aPreventCachingOfSandwich) const override;
     virtual nsSMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
     virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGANIMATEDPATHSEGLIST_H__
+#endif  // MOZILLA_SVGANIMATEDPATHSEGLIST_H__

@@ -40,7 +40,8 @@ namespace google_breakpad {
 // dumping.  The default implementation, accessed via the TryCreate() factory,
 // works in conjunction with the CrashGenerationServer to generate a minidump
 // via a remote process.
-class CrashGenerationClient {
+class CrashGenerationClient
+{
  public:
   CrashGenerationClient() {}
   virtual ~CrashGenerationClient() {}

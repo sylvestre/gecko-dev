@@ -10,16 +10,10 @@
 NS_IMPL_ISUPPORTS(nsBase64Encoder, nsIOutputStream)
 
 NS_IMETHODIMP
-nsBase64Encoder::Close()
-{
-  return NS_OK;
-}
+nsBase64Encoder::Close() { return NS_OK; }
 
 NS_IMETHODIMP
-nsBase64Encoder::Flush()
-{
-  return NS_OK;
-}
+nsBase64Encoder::Flush() { return NS_OK; }
 
 NS_IMETHODIMP
 nsBase64Encoder::Write(const char* aBuf, uint32_t aCount, uint32_t* _retval)
@@ -30,7 +24,8 @@ nsBase64Encoder::Write(const char* aBuf, uint32_t aCount, uint32_t* _retval)
 }
 
 NS_IMETHODIMP
-nsBase64Encoder::WriteFrom(nsIInputStream* aStream, uint32_t aCount,
+nsBase64Encoder::WriteFrom(nsIInputStream* aStream,
+                           uint32_t aCount,
                            uint32_t* _retval)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -56,11 +51,10 @@ nsresult
 nsBase64Encoder::Finish(nsACString& result)
 {
   char* b64 = PL_Base64Encode(mData.get(), mData.Length(), nullptr);
-  if (!b64)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!b64) return NS_ERROR_OUT_OF_MEMORY;
 
   result.Assign(b64);
-  PR_Free(b64); // PL_Base64Encode() uses PR_MALLOC().
+  PR_Free(b64);  // PL_Base64Encode() uses PR_MALLOC().
   // Free unneeded memory and allow reusing the object
   mData.Truncate();
   return NS_OK;

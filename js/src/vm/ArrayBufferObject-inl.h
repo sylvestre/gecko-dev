@@ -18,47 +18,32 @@
 
 namespace js {
 
-inline SharedMem<uint8_t*>
-ArrayBufferObjectMaybeShared::dataPointerEither()
-{
+inline SharedMem<uint8_t*> ArrayBufferObjectMaybeShared::dataPointerEither() {
     ArrayBufferObjectMaybeShared* buf = this;
-    if (buf->is<ArrayBufferObject>())
-        return buf->as<ArrayBufferObject>().dataPointerShared();
+    if (buf->is<ArrayBufferObject>()) return buf->as<ArrayBufferObject>().dataPointerShared();
     return buf->as<SharedArrayBufferObject>().dataPointerShared();
 }
 
-inline bool
-ArrayBufferObjectMaybeShared::isDetached() const
-{
-    if (this->is<ArrayBufferObject>())
-        return this->as<ArrayBufferObject>().isDetached();
+inline bool ArrayBufferObjectMaybeShared::isDetached() const {
+    if (this->is<ArrayBufferObject>()) return this->as<ArrayBufferObject>().isDetached();
     return false;
 }
 
-inline uint32_t
-AnyArrayBufferByteLength(const ArrayBufferObjectMaybeShared* buf)
-{
-    if (buf->is<ArrayBufferObject>())
-        return buf->as<ArrayBufferObject>().byteLength();
+inline uint32_t AnyArrayBufferByteLength(const ArrayBufferObjectMaybeShared* buf) {
+    if (buf->is<ArrayBufferObject>()) return buf->as<ArrayBufferObject>().byteLength();
     return buf->as<SharedArrayBufferObject>().byteLength();
 }
 
-inline bool
-AnyArrayBufferIsPreparedForAsmJS(const ArrayBufferObjectMaybeShared* buf)
-{
-    if (buf->is<ArrayBufferObject>())
-        return buf->as<ArrayBufferObject>().isPreparedForAsmJS();
+inline bool AnyArrayBufferIsPreparedForAsmJS(const ArrayBufferObjectMaybeShared* buf) {
+    if (buf->is<ArrayBufferObject>()) return buf->as<ArrayBufferObject>().isPreparedForAsmJS();
     return buf->as<SharedArrayBufferObject>().isPreparedForAsmJS();
 }
 
-inline ArrayBufferObjectMaybeShared&
-AsAnyArrayBuffer(HandleValue val)
-{
-    if (val.toObject().is<ArrayBufferObject>())
-        return val.toObject().as<ArrayBufferObject>();
+inline ArrayBufferObjectMaybeShared& AsAnyArrayBuffer(HandleValue val) {
+    if (val.toObject().is<ArrayBufferObject>()) return val.toObject().as<ArrayBufferObject>();
     return val.toObject().as<SharedArrayBufferObject>();
 }
 
-} // namespace js
+}  // namespace js
 
-#endif // vm_ArrayBufferObject_inl_h
+#endif  // vm_ArrayBufferObject_inl_h

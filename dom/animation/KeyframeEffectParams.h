@@ -11,17 +11,17 @@
 #ifdef None
 #undef None
 #endif
-#include "mozilla/dom/KeyframeEffectBinding.h" // IterationCompositeOperation
+#include "mozilla/dom/KeyframeEffectBinding.h"  // IterationCompositeOperation
 
 namespace mozilla {
 
 struct KeyframeEffectParams
 {
   dom::IterationCompositeOperation mIterationComposite =
-    dom::IterationCompositeOperation::Replace;
+      dom::IterationCompositeOperation::Replace;
   dom::CompositeOperation mComposite = dom::CompositeOperation::Replace;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_KeyframeEffectParams_h
+#endif  // mozilla_KeyframeEffectParams_h

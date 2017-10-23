@@ -33,25 +33,25 @@ class HTMLEditRules;
 class TextEditRules;
 namespace dom {
 class Selection;
-} // namespace dom
+}  // namespace dom
 
 /**
  * The text editor implementation.
  * Use to edit text document represented as a DOM tree.
  */
-class TextEditor : public EditorBase
-                 , public nsIPlaintextEditor
-                 , public nsIEditorMailSupport
+class TextEditor : public EditorBase,
+                   public nsIPlaintextEditor,
+                   public nsIEditorMailSupport
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TextEditor, EditorBase)
 
   enum ETypingAction
   {
-    eTypedText,  /* user typed text */
-    eTypedBR,    /* user typed shift-enter to get a br */
-    eTypedBreak  /* user typed enter */
+    eTypedText, /* user typed text */
+    eTypedBR,   /* user typed shift-enter to get a br */
+    eTypedBreak /* user typed enter */
   };
 
   TextEditor();
@@ -64,9 +64,9 @@ public:
 
   // Overrides of EditorBase
   virtual nsresult RemoveAttributeOrEquivalent(
-                     Element* aElement,
-                     nsAtom* aAttribute,
-                     bool aSuppressTransaction) override;
+      Element* aElement,
+      nsAtom* aAttribute,
+      bool aSuppressTransaction) override;
   virtual nsresult SetAttributeOrEquivalent(Element* aElement,
                                             nsAtom* aAttribute,
                                             const nsAString& aValue,
@@ -74,8 +74,10 @@ public:
   using EditorBase::RemoveAttributeOrEquivalent;
   using EditorBase::SetAttributeOrEquivalent;
 
-  NS_IMETHOD Init(nsIDOMDocument* aDoc, nsIContent* aRoot,
-                  nsISelectionController* aSelCon, uint32_t aFlags,
+  NS_IMETHOD Init(nsIDOMDocument* aDoc,
+                  nsIContent* aRoot,
+                  nsISelectionController* aSelCon,
+                  uint32_t aFlags,
                   const nsAString& aValue) override;
 
   nsresult DocumentIsEmpty(bool* aIsEmpty);
@@ -128,13 +130,13 @@ public:
   virtual nsresult SelectEntireDocument(Selection* aSelection) override;
 
   virtual nsresult HandleKeyPressEvent(
-                     WidgetKeyboardEvent* aKeyboardEvent) override;
+      WidgetKeyboardEvent* aKeyboardEvent) override;
 
   virtual already_AddRefed<dom::EventTarget> GetDOMEventTarget() override;
 
   virtual nsresult BeginIMEComposition(WidgetCompositionEvent* aEvent) override;
   virtual nsresult UpdateIMEComposition(
-                     WidgetCompositionEvent* aCompositionChangeEvet) override;
+      WidgetCompositionEvent* aCompositionChangeEvet) override;
 
   virtual already_AddRefed<nsIContent> GetInputEventTargetContent() override;
 
@@ -175,7 +177,7 @@ public:
 
   int32_t MaxTextLength() const { return mMaxTextLength; }
 
-protected:
+ protected:
   virtual ~TextEditor();
 
   NS_IMETHOD InitRules();
@@ -183,11 +185,12 @@ protected:
   nsresult EndEditorInit();
 
   already_AddRefed<nsIDocumentEncoder> GetAndInitDocEncoder(
-                                         const nsAString& aFormatType,
-                                         uint32_t aFlags,
-                                         const nsACString& aCharset);
+      const nsAString& aFormatType,
+      uint32_t aFlags,
+      const nsACString& aCharset);
 
-  NS_IMETHOD CreateBR(nsIDOMNode* aNode, int32_t aOffset,
+  NS_IMETHOD CreateBR(nsIDOMNode* aNode,
+                      int32_t aOffset,
                       nsCOMPtr<nsIDOMNode>* outBRNode,
                       EDirection aSelect = eNone);
   already_AddRefed<Element> CreateBRImpl(nsCOMPtr<nsINode>* aInOutParent,
@@ -212,7 +215,8 @@ protected:
    * Shared outputstring; returns whether selection is collapsed and resulting
    * string.
    */
-  nsresult SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
+  nsresult SharedOutputString(uint32_t aFlags,
+                              bool* aIsCollapsed,
                               nsAString& aResult);
 
   enum PasswordFieldAllowed
@@ -228,7 +232,7 @@ protected:
   bool UpdateMetaCharset(nsIDocument& aDocument,
                          const nsACString& aCharacterSet);
 
-protected:
+ protected:
   nsCOMPtr<nsIEditRules> mRules;
   nsCOMPtr<nsIDocumentEncoder> mCachedDocumentEncoder;
   nsString mCachedDocumentEncoderType;
@@ -243,7 +247,7 @@ protected:
   friend class TextEditRules;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 mozilla::TextEditor*
 nsIEditor::AsTextEditor()
@@ -257,4 +261,4 @@ nsIEditor::AsTextEditor() const
   return static_cast<const mozilla::TextEditor*>(this);
 }
 
-#endif // #ifndef mozilla_TextEditor_h
+#endif  // #ifndef mozilla_TextEditor_h

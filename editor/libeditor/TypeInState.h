@@ -28,7 +28,7 @@ namespace mozilla {
 class HTMLEditRules;
 namespace dom {
 class Selection;
-} // namespace dom
+}  // namespace dom
 
 struct PropItem
 {
@@ -43,7 +43,7 @@ struct PropItem
 
 class TypeInState final : public nsISelectionListener
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(TypeInState)
 
@@ -79,20 +79,27 @@ public:
   int32_t TakeRelativeFontSize();
 
   void GetTypingState(bool& isSet, bool& theSetting, nsAtom* aProp);
-  void GetTypingState(bool& isSet, bool& theSetting, nsAtom* aProp,
-                      const nsString& aAttr, nsString* outValue);
+  void GetTypingState(bool& isSet,
+                      bool& theSetting,
+                      nsAtom* aProp,
+                      const nsString& aAttr,
+                      nsString* outValue);
 
-  static bool FindPropInList(nsAtom* aProp, const nsAString& aAttr,
-                             nsAString* outValue, nsTArray<PropItem*>& aList,
+  static bool FindPropInList(nsAtom* aProp,
+                             const nsAString& aAttr,
+                             nsAString* outValue,
+                             nsTArray<PropItem*>& aList,
                              int32_t& outIndex);
 
-protected:
+ protected:
   virtual ~TypeInState();
 
   void RemovePropFromSetList(nsAtom* aProp, const nsAString& aAttr);
   void RemovePropFromClearedList(nsAtom* aProp, const nsAString& aAttr);
   bool IsPropSet(nsAtom* aProp, const nsAString& aAttr, nsAString* outValue);
-  bool IsPropSet(nsAtom* aProp, const nsAString& aAttr, nsAString* outValue,
+  bool IsPropSet(nsAtom* aProp,
+                 const nsAString& aAttr,
+                 nsAString* outValue,
                  int32_t& outIndex);
   bool IsPropCleared(nsAtom* aProp, const nsAString& aAttr);
   bool IsPropCleared(nsAtom* aProp, const nsAString& aAttr, int32_t& outIndex);
@@ -106,7 +113,6 @@ protected:
   friend class HTMLEditRules;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif  // #ifndef TypeInState_h
-

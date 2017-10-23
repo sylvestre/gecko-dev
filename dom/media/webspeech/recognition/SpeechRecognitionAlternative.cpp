@@ -21,18 +21,17 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechRecognitionAlternative)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-SpeechRecognitionAlternative::SpeechRecognitionAlternative(SpeechRecognition* aParent)
-  : mConfidence(0)
-  , mParent(aParent)
+SpeechRecognitionAlternative::SpeechRecognitionAlternative(
+    SpeechRecognition* aParent)
+    : mConfidence(0), mParent(aParent)
 {
 }
 
-SpeechRecognitionAlternative::~SpeechRecognitionAlternative()
-{
-}
+SpeechRecognitionAlternative::~SpeechRecognitionAlternative() {}
 
 JSObject*
-SpeechRecognitionAlternative::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SpeechRecognitionAlternative::WrapObject(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto)
 {
   return SpeechRecognitionAlternativeBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -55,5 +54,5 @@ SpeechRecognitionAlternative::Confidence() const
   return mConfidence;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

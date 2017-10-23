@@ -26,10 +26,7 @@ WebRenderCanvasRenderer::Initialize(const CanvasInitializeData& aData)
   ShareableCanvasRenderer::Initialize(aData);
 }
 
-WebRenderCanvasRendererSync::~WebRenderCanvasRendererSync()
-{
-  Destroy();
-}
+WebRenderCanvasRendererSync::~WebRenderCanvasRendererSync() { Destroy(); }
 
 void
 WebRenderCanvasRendererSync::Initialize(const CanvasInitializeData& aData)
@@ -55,9 +52,8 @@ WebRenderCanvasRendererSync::CreateCompositable()
       flags |= TextureFlags::NON_PREMULTIPLIED;
     }
 
-    mCanvasClient = CanvasClient::CreateCanvasClient(GetCanvasClientType(),
-                                                     GetForwarder(),
-                                                     flags);
+    mCanvasClient = CanvasClient::CreateCanvasClient(
+        GetCanvasClientType(), GetForwarder(), flags);
     if (!mCanvasClient) {
       return false;
     }
@@ -66,7 +62,9 @@ WebRenderCanvasRendererSync::CreateCompositable()
   }
 
   if (mExternalImageId.isNothing()) {
-    mExternalImageId = Some(mManager->WrBridge()->AllocExternalImageIdForCompositable(mCanvasClient));
+    mExternalImageId =
+        Some(mManager->WrBridge()->AllocExternalImageIdForCompositable(
+            mCanvasClient));
   }
 
   return true;
@@ -90,10 +88,7 @@ WebRenderCanvasRendererSync::Destroy()
   }
 }
 
-WebRenderCanvasRendererAsync::~WebRenderCanvasRendererAsync()
-{
-  Destroy();
-}
+WebRenderCanvasRendererAsync::~WebRenderCanvasRendererAsync() { Destroy(); }
 
 void
 WebRenderCanvasRendererAsync::Initialize(const CanvasInitializeData& aData)
@@ -119,9 +114,8 @@ WebRenderCanvasRendererAsync::CreateCompositable()
       flags |= TextureFlags::NON_PREMULTIPLIED;
     }
 
-    mCanvasClient = CanvasClient::CreateCanvasClient(GetCanvasClientType(),
-                                                     GetForwarder(),
-                                                     flags);
+    mCanvasClient = CanvasClient::CreateCanvasClient(
+        GetCanvasClientType(), GetForwarder(), flags);
     if (!mCanvasClient) {
       return false;
     }
@@ -131,9 +125,10 @@ WebRenderCanvasRendererAsync::CreateCompositable()
 
   if (!mPipelineId) {
     // Alloc async image pipeline id.
-    mPipelineId = Some(mManager->WrBridge()->GetCompositorBridgeChild()->GetNextPipelineId());
-    mManager->WrBridge()->AddPipelineIdForCompositable(mPipelineId.ref(),
-                                                       mCanvasClient->GetIPCHandle());
+    mPipelineId = Some(
+        mManager->WrBridge()->GetCompositorBridgeChild()->GetNextPipelineId());
+    mManager->WrBridge()->AddPipelineIdForCompositable(
+        mPipelineId.ref(), mCanvasClient->GetIPCHandle());
   }
 
   return true;
@@ -157,5 +152,5 @@ WebRenderCanvasRendererAsync::Destroy()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

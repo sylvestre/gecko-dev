@@ -33,7 +33,8 @@ static bool sThreadDestroyed;
 static MessageLoop* sMessageLoop;
 static Atomic<Monitor*> sMessageLoopAccessMonitor;
 
-void EnqueueTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs);
+void
+EnqueueTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs);
 
 /*
  * The AndroidUiThread is derived from nsThread so that nsIRunnable objects that get
@@ -51,21 +52,23 @@ void EnqueueTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs);
 
 class AndroidUiThread : public nsThread
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   AndroidUiThread()
-    : nsThread(MakeNotNull<ThreadEventQueue<mozilla::EventQueue>*>(
-                 MakeUnique<mozilla::EventQueue>()),
-               nsThread::NOT_MAIN_THREAD,
-               0)
-  {}
+      : nsThread(MakeNotNull<ThreadEventQueue<mozilla::EventQueue>*>(
+                     MakeUnique<mozilla::EventQueue>()),
+                 nsThread::NOT_MAIN_THREAD,
+                 0)
+  {
+  }
 
-  nsresult Dispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags) override;
-  nsresult DelayedDispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aDelayMs) override;
+  nsresult Dispatch(already_AddRefed<nsIRunnable> aEvent,
+                    uint32_t aFlags) override;
+  nsresult DelayedDispatch(already_AddRefed<nsIRunnable> aEvent,
+                           uint32_t aDelayMs) override;
 
-private:
-  ~AndroidUiThread()
-  {}
+ private:
+  ~AndroidUiThread() {}
 };
 
 NS_IMPL_ISUPPORTS_INHERITED0(AndroidUiThread, nsThread)
@@ -82,29 +85,29 @@ AndroidUiThread::Dispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags)
 }
 
 NS_IMETHODIMP
-AndroidUiThread::DelayedDispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aDelayMs)
+AndroidUiThread::DelayedDispatch(already_AddRefed<nsIRunnable> aEvent,
+                                 uint32_t aDelayMs)
 {
   EnqueueTask(Move(aEvent), aDelayMs);
   return NS_OK;
 }
 
 static void
-PumpEvents() {
+PumpEvents()
+{
   NS_ProcessPendingEvents(sThread.get());
 }
 
 class ThreadObserver : public nsIThreadObserver
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITHREADOBSERVER
 
-  ThreadObserver()
-  {}
+  ThreadObserver() {}
 
-private:
-  virtual ~ThreadObserver()
-  {}
+ private:
+  virtual ~ThreadObserver() {}
 };
 
 NS_IMPL_ISUPPORTS(ThreadObserver, nsIThreadObserver)
@@ -117,31 +120,34 @@ ThreadObserver::OnDispatchedEvent()
 }
 
 NS_IMETHODIMP
-ThreadObserver::OnProcessNextEvent(nsIThreadInternal *thread, bool mayWait)
+ThreadObserver::OnProcessNextEvent(nsIThreadInternal* thread, bool mayWait)
 {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-ThreadObserver::AfterProcessNextEvent(nsIThreadInternal *thread, bool eventWasProcessed)
+ThreadObserver::AfterProcessNextEvent(nsIThreadInternal* thread,
+                                      bool eventWasProcessed)
 {
   return NS_OK;
 }
 
-class AndroidUiTask : public LinkedListElement<AndroidUiTask> {
-    using TimeStamp = mozilla::TimeStamp;
-    using TimeDuration = mozilla::TimeDuration;
+class AndroidUiTask : public LinkedListElement<AndroidUiTask>
+{
+  using TimeStamp = mozilla::TimeStamp;
+  using TimeDuration = mozilla::TimeDuration;
 
-public:
+ public:
   AndroidUiTask(already_AddRefed<nsIRunnable> aTask)
-    : mTask(aTask)
-    , mRunTime() // Null timestamp representing no delay.
-  {}
+      : mTask(aTask), mRunTime()  // Null timestamp representing no delay.
+  {
+  }
 
   AndroidUiTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs)
-    : mTask(aTask)
-    , mRunTime(TimeStamp::Now() + TimeDuration::FromMilliseconds(aDelayMs))
-  {}
+      : mTask(aTask),
+        mRunTime(TimeStamp::Now() + TimeDuration::FromMilliseconds(aDelayMs))
+  {
+  }
 
   bool IsEarlierThan(const AndroidUiTask& aOther) const
   {
@@ -161,40 +167,40 @@ public:
     return 0;
   }
 
-  already_AddRefed<nsIRunnable> TakeTask()
-  {
-      return mTask.forget();
-  }
+  already_AddRefed<nsIRunnable> TakeTask() { return mTask.forget(); }
 
-private:
+ private:
   nsCOMPtr<nsIRunnable> mTask;
   const TimeStamp mRunTime;
 };
 
-class CreateOnUiThread : public Runnable {
-public:
-  CreateOnUiThread() : Runnable("CreateOnUiThread")
-  {}
+class CreateOnUiThread : public Runnable
+{
+ public:
+  CreateOnUiThread() : Runnable("CreateOnUiThread") {}
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     MOZ_ASSERT(!sThreadDestroyed);
     MOZ_ASSERT(sMessageLoopAccessMonitor);
     MonitorAutoLock lock(*sMessageLoopAccessMonitor);
     sThread = new AndroidUiThread();
     sThread->InitCurrentThread();
     sThread->SetObserver(new ThreadObserver());
-    sMessageLoop = new MessageLoop(MessageLoop::TYPE_MOZILLA_ANDROID_UI, sThread.get());
+    sMessageLoop =
+        new MessageLoop(MessageLoop::TYPE_MOZILLA_ANDROID_UI, sThread.get());
     lock.NotifyAll();
     return NS_OK;
   }
 };
 
-class DestroyOnUiThread : public Runnable {
-public:
-  DestroyOnUiThread() : Runnable("DestroyOnUiThread"), mDestroyed(false)
-  {}
+class DestroyOnUiThread : public Runnable
+{
+ public:
+  DestroyOnUiThread() : Runnable("DestroyOnUiThread"), mDestroyed(false) {}
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     MOZ_ASSERT(!sThreadDestroyed);
     MOZ_ASSERT(sMessageLoopAccessMonitor);
     MOZ_ASSERT(sTaskQueue);
@@ -203,7 +209,7 @@ public:
 
     {
       // Flush the queue
-      MutexAutoLock lock (*sTaskQueueLock);
+      MutexAutoLock lock(*sTaskQueueLock);
       while (AndroidUiTask* task = sTaskQueue->getFirst()) {
         delete task;
       }
@@ -228,22 +234,22 @@ public:
     }
   }
 
-private:
+ private:
   bool mDestroyed;
 };
 
 void
 EnqueueTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs)
 {
-
   if (sThreadDestroyed) {
     return;
   }
 
   // add the new task into the sTaskQueue, sorted with
   // the earliest task first in the queue
-  AndroidUiTask* newTask = (aDelayMs ? new AndroidUiTask(mozilla::Move(aTask), aDelayMs)
-                                 : new AndroidUiTask(mozilla::Move(aTask)));
+  AndroidUiTask* newTask =
+      (aDelayMs ? new AndroidUiTask(mozilla::Move(aTask), aDelayMs)
+                : new AndroidUiTask(mozilla::Move(aTask)));
 
   bool headOfList = false;
   {
@@ -275,7 +281,7 @@ EnqueueTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs)
   }
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -286,7 +292,8 @@ CreateAndroidUiThread()
   MOZ_ASSERT(!sMessageLoopAccessMonitor);
   sTaskQueue = new LinkedList<AndroidUiTask>();
   sTaskQueueLock = new Mutex("AndroidUiThreadTaskQueueLock");
-  sMessageLoopAccessMonitor = new Monitor("AndroidUiThreadMessageLoopAccessMonitor");
+  sMessageLoopAccessMonitor =
+      new Monitor("AndroidUiThreadMessageLoopAccessMonitor");
   sThreadDestroyed = false;
   RefPtr<CreateOnUiThread> runnable = new CreateOnUiThread;
   EnqueueTask(do_AddRef(runnable), 0);
@@ -367,4 +374,4 @@ RunAndroidUiTasks()
   return -1;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

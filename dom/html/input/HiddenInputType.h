@@ -12,17 +12,18 @@
 // input type=hidden
 class HiddenInputType : public ::InputType
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) HiddenInputType(aInputElement);
   }
 
-private:
+ private:
   explicit HiddenInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : InputType(aInputElement)
-  {}
+      : InputType(aInputElement)
+  {
+  }
 };
 
 #endif /* HiddenInputType_h__ */

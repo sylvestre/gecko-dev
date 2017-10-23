@@ -27,20 +27,14 @@ enum IonRegisterAllocator {
     RegisterAllocator_Stupid
 };
 
-static inline mozilla::Maybe<IonRegisterAllocator>
-LookupRegisterAllocator(const char* name)
-{
-    if (!strcmp(name, "backtracking"))
-        return mozilla::Some(RegisterAllocator_Backtracking);
-    if (!strcmp(name, "testbed"))
-        return mozilla::Some(RegisterAllocator_Testbed);
-    if (!strcmp(name, "stupid"))
-        return mozilla::Some(RegisterAllocator_Stupid);
+static inline mozilla::Maybe<IonRegisterAllocator> LookupRegisterAllocator(const char* name) {
+    if (!strcmp(name, "backtracking")) return mozilla::Some(RegisterAllocator_Backtracking);
+    if (!strcmp(name, "testbed")) return mozilla::Some(RegisterAllocator_Testbed);
+    if (!strcmp(name, "stupid")) return mozilla::Some(RegisterAllocator_Stupid);
     return mozilla::Nothing();
 }
 
-struct DefaultJitOptions
-{
+struct DefaultJitOptions {
     bool checkGraphConsistency;
 #ifdef CHECK_OSIPOINT_REGISTERS
     bool checkOsiPointRegisters;
@@ -108,7 +102,7 @@ struct DefaultJitOptions
 
 extern DefaultJitOptions JitOptions;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_JitOptions_h */

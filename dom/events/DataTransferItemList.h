@@ -15,16 +15,14 @@ namespace dom {
 
 class DataTransferItem;
 
-class DataTransferItemList final : public nsISupports
-                                 , public nsWrapperCache
+class DataTransferItemList final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DataTransferItemList);
 
   DataTransferItemList(DataTransfer* aDataTransfer, bool aIsExternal)
-    : mDataTransfer(aDataTransfer)
-    , mIsExternal(aIsExternal)
+      : mDataTransfer(aDataTransfer), mIsExternal(aIsExternal)
   {
     MOZ_ASSERT(aDataTransfer);
     // We always allocate an index 0 in our DataTransferItemList. This is done
@@ -40,17 +38,16 @@ public:
     mIndexedItems.SetLength(1);
   }
 
-  already_AddRefed<DataTransferItemList> Clone(DataTransfer* aDataTransfer) const;
+  already_AddRefed<DataTransferItemList> Clone(
+      DataTransfer* aDataTransfer) const;
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  uint32_t Length() const
-  {
-    return mItems.Length();
-  };
+  uint32_t Length() const { return mItems.Length(); };
 
-  DataTransferItem* Add(const nsAString& aData, const nsAString& aType,
+  DataTransferItem* Add(const nsAString& aData,
+                        const nsAString& aType,
                         nsIPrincipal& aSubjectPrincipal,
                         ErrorResult& rv);
   DataTransferItem* Add(File& aData,
@@ -63,22 +60,24 @@ public:
 
   DataTransferItem* IndexedGetter(uint32_t aIndex, bool& aFound) const;
 
-  DataTransfer* GetParentObject() const
-  {
-    return mDataTransfer;
-  }
+  DataTransfer* GetParentObject() const { return mDataTransfer; }
 
   void Clear(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv);
 
-  already_AddRefed<DataTransferItem>
-  SetDataWithPrincipal(const nsAString& aType, nsIVariant* aData,
-                       uint32_t aIndex, nsIPrincipal* aPrincipal,
-                       bool aInsertOnly, bool aHidden, ErrorResult& aRv);
+  already_AddRefed<DataTransferItem> SetDataWithPrincipal(
+      const nsAString& aType,
+      nsIVariant* aData,
+      uint32_t aIndex,
+      nsIPrincipal* aPrincipal,
+      bool aInsertOnly,
+      bool aHidden,
+      ErrorResult& aRv);
 
   already_AddRefed<FileList> Files(nsIPrincipal* aPrincipal);
 
   // Moz-style helper methods for interacting with the stored data
-  void MozRemoveByTypeAt(const nsAString& aType, uint32_t aIndex,
+  void MozRemoveByTypeAt(const nsAString& aType,
+                         uint32_t aIndex,
                          nsIPrincipal& aSubjectPrincipal,
                          ErrorResult& aRv);
   DataTransferItem* MozItemByTypeAt(const nsAString& aType, uint32_t aIndex);
@@ -92,13 +91,16 @@ public:
   // permissions or read-only status (for internal use only).
   void ClearAllItems();
 
-private:
-  void ClearDataHelper(DataTransferItem* aItem, uint32_t aIndexHint,
+ private:
+  void ClearDataHelper(DataTransferItem* aItem,
+                       uint32_t aIndexHint,
                        uint32_t aMozOffsetHint,
                        nsIPrincipal& aSubjectPrincipal,
                        ErrorResult& aRv);
-  DataTransferItem* AppendNewItem(uint32_t aIndex, const nsAString& aType,
-                                  nsIVariant* aData, nsIPrincipal* aPrincipal,
+  DataTransferItem* AppendNewItem(uint32_t aIndex,
+                                  const nsAString& aType,
+                                  nsIVariant* aData,
+                                  nsIPrincipal* aPrincipal,
                                   bool aHidden);
   void RegenerateFiles();
   void GenerateFiles(FileList* aFiles, nsIPrincipal* aFilesPrincipal);
@@ -125,7 +127,7 @@ private:
   nsTArray<nsTArray<RefPtr<DataTransferItem>>> mIndexedItems;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_DataTransferItemList_h
+#endif  // mozilla_dom_DataTransferItemList_h

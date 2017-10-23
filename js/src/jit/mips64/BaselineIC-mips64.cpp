@@ -18,9 +18,7 @@ namespace jit {
 
 // ICCompare_Int32
 
-bool
-ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
-{
+bool ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm) {
     // Guard that R0 is an integer and R1 is an integer.
     Label failure;
     Label conditionTrue;
@@ -30,7 +28,7 @@ ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
     // Compare payload regs of R0 and R1.
     masm.unboxInt32(R0, ExtractTemp0);
     masm.unboxInt32(R1, ExtractTemp1);
-    Assembler::Condition cond = JSOpToCondition(op, /* signed = */true);
+    Assembler::Condition cond = JSOpToCondition(op, /* signed = */ true);
     masm.ma_cmp_set(R0.valueReg(), ExtractTemp0, ExtractTemp1, cond);
 
     masm.tagValue(JSVAL_TYPE_BOOLEAN, R0.valueReg(), R0);
@@ -43,5 +41,5 @@ ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
     return true;
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js

@@ -26,8 +26,9 @@ const bool Faulty::sIsLoggingEnabled = Faulty::Logging();
 /**
  * RandomNumericValue generates negative and positive integrals.
  */
-template <typename T>
-T RandomIntegral()
+template<typename T>
+T
+RandomIntegral()
 {
   static_assert(mozilla::IsIntegral<T>::value == true,
                 "T must be an integral type");
@@ -43,8 +44,10 @@ T RandomIntegral()
  * RandomNumericLimit returns either the min or max limit of an arithmetic
  * data type.
  */
-template <typename T>
-T RandomNumericLimit() {
+template<typename T>
+T
+RandomNumericLimit()
+{
   static_assert(mozilla::IsArithmetic<T>::value == true,
                 "T must be an arithmetic type");
   return random() % 2 == 0 ? std::numeric_limits<T>::min()
@@ -54,8 +57,9 @@ T RandomNumericLimit() {
 /**
  * RandomIntegerRange returns a random integral within a user defined range.
  */
-template <typename T>
-T RandomIntegerRange(T min, T max)
+template<typename T>
+T
+RandomIntegerRange(T min, T max)
 {
   static_assert(mozilla::IsIntegral<T>::value == true,
                 "T must be an integral type");
@@ -67,8 +71,9 @@ T RandomIntegerRange(T min, T max)
  * RandomFloatingPointRange returns a random floating-point number within a
  * user defined range.
  */
-template <typename T>
-T RandomFloatingPointRange(T min, T max)
+template<typename T>
+T
+RandomFloatingPointRange(T min, T max)
 {
   static_assert(mozilla::IsFloatingPoint<T>::value == true,
                 "T must be a floating point type");
@@ -80,8 +85,9 @@ T RandomFloatingPointRange(T min, T max)
 /**
  * RandomFloatingPoint returns a random floating-point number.
  */
-template <typename T>
-T RandomFloatingPoint()
+template<typename T>
+T
+RandomFloatingPoint()
 {
   static_assert(mozilla::IsFloatingPoint<T>::value == true,
                 "T must be a floating point type");
@@ -94,8 +100,9 @@ T RandomFloatingPoint()
 /**
  * FuzzIntegralType mutates an incercepted integral type of a pickled message.
  */
-template <typename T>
-void FuzzIntegralType(T* v, bool largeValues)
+template<typename T>
+void
+FuzzIntegralType(T* v, bool largeValues)
 {
   static_assert(mozilla::IsIntegral<T>::value == true,
                 "T must be an integral type");
@@ -125,7 +132,7 @@ void FuzzIntegralType(T* v, bool largeValues)
       // Fall through
       MOZ_FALLTHROUGH;
     default:
-      switch(random() % 2) {
+      switch (random() % 2) {
         case 0:
           // Prevent underflow
           if (*v != std::numeric_limits<T>::min()) {
@@ -148,8 +155,9 @@ void FuzzIntegralType(T* v, bool largeValues)
  * FuzzFloatingPointType mutates an incercepted floating-point type of a
  * pickled message.
  */
-template <typename T>
-void FuzzFloatingPointType(T* v, bool largeValues)
+template<typename T>
+void
+FuzzFloatingPointType(T* v, bool largeValues)
 {
   static_assert(mozilla::IsFloatingPoint<T>::value == true,
                 "T must be a floating point type");
@@ -158,17 +166,17 @@ void FuzzFloatingPointType(T* v, bool largeValues)
       if (largeValues) {
         (*v) = RandomNumericLimit<T>();
         break;
-    }
-    // Fall through
-    MOZ_FALLTHROUGH;
+      }
+      // Fall through
+      MOZ_FALLTHROUGH;
     case 1:
       if (largeValues) {
         (*v) = RandomFloatingPointRange<T>(std::numeric_limits<T>::min(),
                                            std::numeric_limits<T>::max());
         break;
       }
-    // Fall through
-    MOZ_FALLTHROUGH;
+      // Fall through
+      MOZ_FALLTHROUGH;
     default:
       (*v) = RandomFloatingPoint<T>();
   }
@@ -177,8 +185,9 @@ void FuzzFloatingPointType(T* v, bool largeValues)
 /**
  * FuzzStringType mutates an incercepted string type of a pickled message.
  */
-template <typename T>
-void FuzzStringType(T& v, const T& literal1, const T& literal2)
+template<typename T>
+void
+FuzzStringType(T& v, const T& literal1, const T& literal2)
 {
   switch (random() % 5) {
     case 4:
@@ -201,17 +210,19 @@ void FuzzStringType(T& v, const T& literal1, const T& literal2)
   }
 }
 
-
 Faulty::Faulty()
-  // Enables the strategy for fuzzing pipes.
-  : mFuzzPipes(!!PR_GetEnv("FAULTY_PIPE"))
-  // Enables the strategy for fuzzing pickled messages.
-  , mFuzzPickle(!!PR_GetEnv("FAULTY_PICKLE"))
-  // Uses very large values while fuzzing pickled messages.
-  // This may cause a high amount of malloc_abort() / NS_ABORT_OOM crashes.
-  , mUseLargeValues(!!PR_GetEnv("FAULTY_LARGE_VALUES"))
-  // Sets up our target process.
-  , mIsValidProcessType(IsValidProcessType())
+    // Enables the strategy for fuzzing pipes.
+    : mFuzzPipes(!!PR_GetEnv("FAULTY_PIPE"))
+      // Enables the strategy for fuzzing pickled messages.
+      ,
+      mFuzzPickle(!!PR_GetEnv("FAULTY_PICKLE"))
+      // Uses very large values while fuzzing pickled messages.
+      // This may cause a high amount of malloc_abort() / NS_ABORT_OOM crashes.
+      ,
+      mUseLargeValues(!!PR_GetEnv("FAULTY_LARGE_VALUES"))
+      // Sets up our target process.
+      ,
+      mIsValidProcessType(IsValidProcessType())
 {
   FAULTY_LOG("Initializing.");
 
@@ -308,7 +319,8 @@ Faulty::MaybeCollectAndClosePipe(int aPipe, unsigned int aProbability)
 
   if (aPipe > -1) {
     FAULTY_LOG("collecting pipe %d to bucket of pipes (count: %ld)",
-               aPipe, mFds.size());
+               aPipe,
+               mFds.size());
     mFds.insert(aPipe);
   }
 
@@ -343,7 +355,8 @@ Faulty::FuzzBool(bool* aValue, unsigned int aProbability)
       bool oldValue = *aValue;
       MutateBool(aValue);
       FAULTY_LOG("pickle field {bool} of value: %d changed to: %d",
-                 (int)oldValue, (int)*aValue);
+                 (int)oldValue,
+                 (int)*aValue);
     }
   }
 }
@@ -361,8 +374,8 @@ Faulty::FuzzChar(char* aValue, unsigned int aProbability)
     if (mFuzzPickle && GetChance(aProbability)) {
       char oldValue = *aValue;
       MutateChar(aValue);
-      FAULTY_LOG("pickle field {char} of value: %c changed to: %c",
-                 oldValue, *aValue);
+      FAULTY_LOG(
+          "pickle field {char} of value: %c changed to: %c", oldValue, *aValue);
     }
   }
 }
@@ -381,7 +394,8 @@ Faulty::FuzzUChar(unsigned char* aValue, unsigned int aProbability)
       unsigned char oldValue = *aValue;
       MutateUChar(aValue);
       FAULTY_LOG("pickle field {unsigned char} of value: %u changed to: %u",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -400,7 +414,8 @@ Faulty::FuzzInt16(int16_t* aValue, unsigned int aProbability)
       int16_t oldValue = *aValue;
       MutateInt16(aValue);
       FAULTY_LOG("pickle field {Int16} of value: %d changed to: %d",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -419,7 +434,8 @@ Faulty::FuzzUInt16(uint16_t* aValue, unsigned int aProbability)
       uint16_t oldValue = *aValue;
       MutateUInt16(aValue);
       FAULTY_LOG("pickle field {UInt16} of value: %d changed to: %d",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -437,8 +453,8 @@ Faulty::FuzzInt(int* aValue, unsigned int aProbability)
     if (mFuzzPickle && GetChance(aProbability)) {
       int oldValue = *aValue;
       MutateInt(aValue);
-      FAULTY_LOG("pickle field {int} of value: %d changed to: %d",
-                 oldValue, *aValue);
+      FAULTY_LOG(
+          "pickle field {int} of value: %d changed to: %d", oldValue, *aValue);
     }
   }
 }
@@ -457,7 +473,8 @@ Faulty::FuzzUInt32(uint32_t* aValue, unsigned int aProbability)
       uint32_t oldValue = *aValue;
       MutateUInt32(aValue);
       FAULTY_LOG("pickle field {UInt32} of value: %u changed to: %u",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -476,7 +493,8 @@ Faulty::FuzzLong(long* aValue, unsigned int aProbability)
       long oldValue = *aValue;
       MutateLong(aValue);
       FAULTY_LOG("pickle field {long} of value: %ld changed to: %ld",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -495,7 +513,8 @@ Faulty::FuzzULong(unsigned long* aValue, unsigned int aProbability)
       unsigned long oldValue = *aValue;
       MutateULong(aValue);
       FAULTY_LOG("pickle field {unsigned long} of value: %lu changed to: %lu",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -514,7 +533,8 @@ Faulty::FuzzSize(size_t* aValue, unsigned int aProbability)
       size_t oldValue = *aValue;
       MutateSize(aValue);
       FAULTY_LOG("pickle field {size_t} of value: %zu changed to: %zu",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -532,8 +552,10 @@ Faulty::FuzzUInt64(uint64_t* aValue, unsigned int aProbability)
     if (mFuzzPickle && GetChance(aProbability)) {
       uint64_t oldValue = *aValue;
       MutateUInt64(aValue);
-      FAULTY_LOG("pickle field {UInt64} of value: %" PRIu64 " changed to: %" PRIu64,
-                 oldValue, *aValue);
+      FAULTY_LOG("pickle field {UInt64} of value: %" PRIu64
+                 " changed to: %" PRIu64,
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -551,8 +573,10 @@ Faulty::FuzzInt64(int64_t* aValue, unsigned int aProbability)
     if (mFuzzPickle && GetChance(aProbability)) {
       int64_t oldValue = *aValue;
       MutateInt64(aValue);
-      FAULTY_LOG("pickle field {UInt64} of value: %" PRIu64 " changed to: %" PRIu64,
-                 oldValue, *aValue);
+      FAULTY_LOG("pickle field {UInt64} of value: %" PRIu64
+                 " changed to: %" PRIu64,
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -571,7 +595,8 @@ Faulty::FuzzDouble(double* aValue, unsigned int aProbability)
       double oldValue = *aValue;
       MutateDouble(aValue);
       FAULTY_LOG("pickle field {double} of value: %f changed to: %f",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -590,7 +615,8 @@ Faulty::FuzzFloat(float* aValue, unsigned int aProbability)
       float oldValue = *aValue;
       MutateFloat(aValue);
       FAULTY_LOG("pickle field {float} of value: %f changed to: %f",
-                 oldValue, *aValue);
+                 oldValue,
+                 *aValue);
     }
   }
 }
@@ -603,7 +629,8 @@ Faulty::FuzzString(std::string& aValue, unsigned int aProbability)
       std::string oldValue = aValue;
       FuzzStringType<std::string>(aValue, "xoferiF", std::string());
       FAULTY_LOG("pickle field {string} of value: %s changed to: %s",
-                 oldValue.c_str(), aValue.c_str());
+                 oldValue.c_str(),
+                 aValue.c_str());
     }
   }
 }
@@ -628,8 +655,8 @@ Faulty::FuzzString16(string16& aValue, unsigned int aProbability)
       string16 oldValue = aValue;
       FAULTY_LOG("pickle field {string16}");
       FuzzStringType<string16>(aValue,
-        string16(ASCIIToUTF16(std::string("xoferiF"))),
-        string16(ASCIIToUTF16(std::string())));
+                               string16(ASCIIToUTF16(std::string("xoferiF"))),
+                               string16(ASCIIToUTF16(std::string())));
     }
   }
 }
@@ -662,5 +689,5 @@ Faulty::FuzzData(std::string& aValue, int aLength, unsigned int aProbability)
   }
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

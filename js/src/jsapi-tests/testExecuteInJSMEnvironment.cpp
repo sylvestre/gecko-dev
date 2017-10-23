@@ -6,9 +6,7 @@
 #include "vm/EnvironmentObject.h"
 #include "vm/EnvironmentObject-inl.h"
 
-
-BEGIN_TEST(testExecuteInJSMEnvironment_Basic)
-{
+BEGIN_TEST(testExecuteInJSMEnvironment_Basic) {
     static const char src[] =
         "var output = input;\n"
         "\n"
@@ -19,15 +17,14 @@ BEGIN_TEST(testExecuteInJSMEnvironment_Basic)
         "eval('this.e = 5');\n"
         "(0,eval)('this.f = 6');\n"
         "(function() { this.g = 7; })();\n"
-        "function f_h() { this.h = 8; }; f_h();\n"
-        ;
+        "function f_h() { this.h = 8; }; f_h();\n";
 
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, __LINE__);
     options.setNoScriptRval(true);
 
     JS::RootedScript script(cx);
-    CHECK(JS::CompileForNonSyntacticScope(cx, options, src, sizeof(src)-1, &script));
+    CHECK(JS::CompileForNonSyntacticScope(cx, options, src, sizeof(src) - 1, &script));
 
     JS::RootedObject varEnv(cx, js::NewJSMEnvironment(cx));
     JS::RootedObject lexEnv(cx, JS_ExtensibleLexicalEnvironment(varEnv));
@@ -47,8 +44,8 @@ BEGIN_TEST(testExecuteInJSMEnvironment_Basic)
     CHECK(JS_GetProperty(cx, lexEnv, "c", &v) && v == JS::Int32Value(3));
     CHECK(JS_GetProperty(cx, varEnv, "d", &v) && v == JS::Int32Value(4));
     CHECK(JS_GetProperty(cx, varEnv, "e", &v) && v == JS::Int32Value(5));
- // TODO: Bug 1396050 will fix this
- // CHECK(JS_GetProperty(cx, varEnv, "f", &v) && v == JS::Int32Value(6));
+    // TODO: Bug 1396050 will fix this
+    // CHECK(JS_GetProperty(cx, varEnv, "f", &v) && v == JS::Int32Value(6));
     CHECK(JS_GetProperty(cx, varEnv, "g", &v) && v == JS::Int32Value(7));
     CHECK(JS_GetProperty(cx, varEnv, "h", &v) && v == JS::Int32Value(8));
 
@@ -56,28 +53,19 @@ BEGIN_TEST(testExecuteInJSMEnvironment_Basic)
 }
 END_TEST(testExecuteInJSMEnvironment_Basic);
 
-static bool
-test_callback(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool test_callback(JSContext* cx, unsigned argc, JS::Value* vp) {
     JS::RootedObject env(cx, js::GetJSMEnvironmentOfScriptedCaller(cx));
-    if (!env)
-        return false;
+    if (!env) return false;
 
     JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
     args.rval().setObject(*env);
     return true;
 }
 
-static const JSFunctionSpec testFunctions[] = {
-    JS_FN("callback", test_callback, 0, 0),
-    JS_FS_END
-};
+static const JSFunctionSpec testFunctions[] = {JS_FN("callback", test_callback, 0, 0), JS_FS_END};
 
-BEGIN_TEST(testExecuteInJSMEnvironment_Callback)
-{
-    static const char src[] =
-        "var output = callback();\n"
-        ;
+BEGIN_TEST(testExecuteInJSMEnvironment_Callback) {
+    static const char src[] = "var output = callback();\n";
 
     CHECK(JS_DefineFunctions(cx, global, testFunctions));
 
@@ -86,7 +74,7 @@ BEGIN_TEST(testExecuteInJSMEnvironment_Callback)
     options.setNoScriptRval(true);
 
     JS::RootedScript script(cx);
-    CHECK(JS::CompileForNonSyntacticScope(cx, options, src, sizeof(src)-1, &script));
+    CHECK(JS::CompileForNonSyntacticScope(cx, options, src, sizeof(src) - 1, &script));
 
     JS::RootedObject nsvo(cx, js::NewJSMEnvironment(cx));
     CHECK(nsvo);

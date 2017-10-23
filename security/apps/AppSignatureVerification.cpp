@@ -37,7 +37,6 @@
 #include "plstr.h"
 #include "secmime.h"
 
-
 using namespace mozilla::pkix;
 using namespace mozilla;
 using namespace mozilla::psm;
@@ -51,8 +50,7 @@ inline nsDependentCSubstring
 DigestToDependentString(const Digest& digest)
 {
   return nsDependentCSubstring(
-    BitwiseCast<char*, unsigned char*>(digest.get().data),
-    digest.get().len);
+      BitwiseCast<char*, unsigned char*>(digest.get().data), digest.get().len);
 }
 
 // Reads a maximum of 1MB from a stream into the supplied buffer.
@@ -95,8 +93,8 @@ ReadStream(const nsCOMPtr<nsIInputStream>& stream, /*out*/ SECItem& buf)
   // instead of length, so that we can check whether the metadata for
   // the entry is incorrect.
   uint32_t bytesRead;
-  rv = stream->Read(BitwiseCast<char*, unsigned char*>(buf.data), buf.len,
-                    &bytesRead);
+  rv = stream->Read(
+      BitwiseCast<char*, unsigned char*>(buf.data), buf.len, &bytesRead);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -104,7 +102,7 @@ ReadStream(const nsCOMPtr<nsIInputStream>& stream, /*out*/ SECItem& buf)
     return NS_ERROR_FILE_CORRUPTED;
   }
 
-  buf.data[buf.len - 1] = 0; // null-terminate
+  buf.data[buf.len - 1] = 0;  // null-terminate
 
   return NS_OK;
 }
@@ -114,11 +112,11 @@ ReadStream(const nsCOMPtr<nsIInputStream>& stream, /*out*/ SECItem& buf)
 // there is more than one match. If bugDigest is not null then on success
 // bufDigest will contain the SHA-1 digeset of the entry.
 nsresult
-FindAndLoadOneEntry(nsIZipReader * zip,
-                    const nsACString & searchPattern,
-                    /*out*/ nsACString & filename,
-                    /*out*/ SECItem & buf,
-                    /*optional, out*/ Digest * bufDigest)
+FindAndLoadOneEntry(nsIZipReader* zip,
+                    const nsACString& searchPattern,
+                    /*out*/ nsACString& filename,
+                    /*out*/ SECItem& buf,
+                    /*optional, out*/ Digest* bufDigest)
 {
   nsCOMPtr<nsIUTF8StringEnumerator> files;
   nsresult rv = zip->FindEntries(searchPattern, getter_AddRefs(files));
@@ -173,7 +171,8 @@ FindAndLoadOneEntry(nsIZipReader * zip,
 //            size of our I/O.
 nsresult
 VerifyStreamContentDigest(nsIInputStream* stream,
-                          const nsCString& digestFromManifest, SECItem& buf)
+                          const nsCString& digestFromManifest,
+                          SECItem& buf)
 {
   MOZ_ASSERT(buf.len > 0);
   if (digestFromManifest.Length() != SHA1_LENGTH) {
@@ -199,12 +198,12 @@ VerifyStreamContentDigest(nsIInputStream* stream,
   uint64_t totalBytesRead = 0;
   for (;;) {
     uint32_t bytesRead;
-    rv = stream->Read(BitwiseCast<char*, unsigned char*>(buf.data), buf.len,
-                      &bytesRead);
+    rv = stream->Read(
+        BitwiseCast<char*, unsigned char*>(buf.data), buf.len, &bytesRead);
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (bytesRead == 0) {
-      break; // EOF
+      break;  // EOF
     }
 
     totalBytesRead += bytesRead;
@@ -236,8 +235,10 @@ VerifyStreamContentDigest(nsIInputStream* stream,
 }
 
 nsresult
-VerifyEntryContentDigest(nsIZipReader* zip, const nsACString& aFilename,
-                         const nsCString& digestFromManifest, SECItem& buf)
+VerifyEntryContentDigest(nsIZipReader* zip,
+                         const nsACString& aFilename,
+                         const nsCString& digestFromManifest,
+                         SECItem& buf)
 {
   nsCOMPtr<nsIInputStream> stream;
   nsresult rv = zip->GetInputStream(aFilename, getter_AddRefs(stream));
@@ -254,8 +255,10 @@ VerifyEntryContentDigest(nsIZipReader* zip, const nsACString& aFilename,
 //                           contents against, from the manifest
 // @param buf A scratch buffer that we use for doing the I/O
 nsresult
-VerifyFileContentDigest(nsIFile* aDir, const nsAString& aFilename,
-                        const nsCString& digestFromManifest, SECItem& buf)
+VerifyFileContentDigest(nsIFile* aDir,
+                        const nsAString& aFilename,
+                        const nsCString& digestFromManifest,
+                        SECItem& buf)
 {
   // Find the file corresponding to the manifest path
   nsCOMPtr<nsIFile> file;
@@ -284,7 +287,7 @@ VerifyFileContentDigest(nsIFile* aDir, const nsAString& aFilename,
       return NS_ERROR_SIGNED_JAR_ENTRY_INVALID;
     }
     pos = slash + 1;
-  }  while (pos < namelen && slash != kNotFound);
+  } while (pos < namelen && slash != kNotFound);
 
   bool exists;
   rv = file->Exists(&exists);
@@ -301,8 +304,8 @@ VerifyFileContentDigest(nsIFile* aDir, const nsAString& aFilename,
 
   // Open an input stream for that file and verify it.
   nsCOMPtr<nsIInputStream> stream;
-  rv = NS_NewLocalFileInputStream(getter_AddRefs(stream), file, -1, -1,
-                                  nsIFileInputStream::CLOSE_ON_EOF);
+  rv = NS_NewLocalFileInputStream(
+      getter_AddRefs(stream), file, -1, -1, nsIFileInputStream::CLOSE_ON_EOF);
   if (NS_FAILED(rv) || !stream) {
     return NS_ERROR_SIGNED_JAR_ENTRY_MISSING;
   }
@@ -313,7 +316,8 @@ VerifyFileContentDigest(nsIFile* aDir, const nsAString& aFilename,
 // On input, nextLineStart is the start of the current line. On output,
 // nextLineStart is the start of the next line.
 nsresult
-ReadLine(/*in/out*/ const char* & nextLineStart, /*out*/ nsCString & line,
+ReadLine(/*in/out*/ const char*& nextLineStart,
+         /*out*/ nsCString& line,
          bool allowContinuations = true)
 {
   line.Truncate();
@@ -322,7 +326,7 @@ ReadLine(/*in/out*/ const char* & nextLineStart, /*out*/ nsCString & line,
   for (;;) {
     const char* eol = PL_strpbrk(nextLineStart, "\r\n");
 
-    if (!eol) { // Reached end of file before newline
+    if (!eol) {  // Reached end of file before newline
       eol = nextLineStart + strlen(nextLineStart);
     }
 
@@ -362,7 +366,7 @@ ReadLine(/*in/out*/ const char* & nextLineStart, /*out*/ nsCString & line,
       return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
     }
 
-    ++nextLineStart; // skip space and keep appending
+    ++nextLineStart;  // skip space and keep appending
   }
 }
 
@@ -375,9 +379,9 @@ ReadLine(/*in/out*/ const char* & nextLineStart, /*out*/ nsCString & line,
 #define JAR_SF_HEADER "Signature-Version: 1.0"
 
 nsresult
-ParseAttribute(const nsAutoCString & curLine,
-               /*out*/ nsAutoCString & attrName,
-               /*out*/ nsAutoCString & attrValue)
+ParseAttribute(const nsAutoCString& curLine,
+               /*out*/ nsAutoCString& attrName,
+               /*out*/ nsAutoCString& attrValue)
 {
   // Find the colon that separates the name from the value.
   int32_t colonPos = curLine.FindChar(':');
@@ -389,10 +393,9 @@ ParseAttribute(const nsAutoCString & curLine,
   int32_t nameEnd = colonPos;
   for (;;) {
     if (nameEnd == 0) {
-      return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID; // colon with no name
+      return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;  // colon with no name
     }
-    if (curLine[nameEnd - 1] != ' ')
-      break;
+    if (curLine[nameEnd - 1] != ' ') break;
     --nameEnd;
   }
   curLine.Left(attrName, nameEnd);
@@ -411,8 +414,8 @@ ParseAttribute(const nsAutoCString & curLine,
 
 // Parses the version line of the MF or SF header.
 nsresult
-CheckManifestVersion(const char* & nextLineStart,
-                     const nsACString & expectedHeader)
+CheckManifestVersion(const char*& nextLineStart,
+                     const nsACString& expectedHeader)
 {
   // The JAR spec says: "Manifest-Version and Signature-Version must be first,
   // and in exactly that case (so that they can be recognized easily as magic
@@ -454,8 +457,8 @@ nsresult
 ParseSF(const char* filebuf, /*out*/ nsCString& mfDigest)
 {
   const char* nextLineStart = filebuf;
-  nsresult rv = CheckManifestVersion(nextLineStart,
-                                     NS_LITERAL_CSTRING(JAR_SF_HEADER));
+  nsresult rv =
+      CheckManifestVersion(nextLineStart, NS_LITERAL_CSTRING(JAR_SF_HEADER));
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -508,9 +511,10 @@ ParseSF(const char* filebuf, /*out*/ nsCString& mfDigest)
 // mfItems. buf must be a pre-allocated scratch buffer that is used for doing
 // I/O.
 nsresult
-ParseMF(const char* filebuf, nsIZipReader * zip,
-        /*out*/ nsTHashtable<nsCStringHashKey> & mfItems,
-        ScopedAutoSECItem & buf)
+ParseMF(const char* filebuf,
+        nsIZipReader* zip,
+        /*out*/ nsTHashtable<nsCStringHashKey>& mfItems,
+        ScopedAutoSECItem& buf)
 {
   nsresult rv;
 
@@ -568,12 +572,11 @@ ParseMF(const char* filebuf, nsIZipReader * zip,
       // Verify that the entry's content digest matches the digest from this
       // MF section.
       rv = VerifyEntryContentDigest(zip, curItemName, digest, buf);
-      if (NS_FAILED(rv))
-        return rv;
+      if (NS_FAILED(rv)) return rv;
 
       mfItems.PutEntry(curItemName);
 
-      if (*nextLineStart == '\0') // end-of-file
+      if (*nextLineStart == '\0')  // end-of-file
         break;
 
       // reset so we know we haven't encountered either of these for the next
@@ -581,7 +584,7 @@ ParseMF(const char* filebuf, nsIZipReader * zip,
       curItemName.Truncate();
       digest.Truncate();
 
-      continue; // skip the rest of the loop below
+      continue;  // skip the rest of the loop below
     }
 
     nsAutoCString attrName;
@@ -594,9 +597,8 @@ ParseMF(const char* filebuf, nsIZipReader * zip,
     // Lines to look for:
 
     // (1) Digest:
-    if (attrName.LowerCaseEqualsLiteral("sha1-digest"))
-    {
-      if (!digest.IsEmpty()) { // multiple SHA1 digests in section
+    if (attrName.LowerCaseEqualsLiteral("sha1-digest")) {
+      if (!digest.IsEmpty()) {  // multiple SHA1 digests in section
         return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
       }
 
@@ -609,9 +611,8 @@ ParseMF(const char* filebuf, nsIZipReader * zip,
     }
 
     // (2) Name: associates this manifest section with a file in the jar.
-    if (attrName.LowerCaseEqualsLiteral("name"))
-    {
-      if (MOZ_UNLIKELY(curItemName.Length() > 0)) // multiple names in section
+    if (attrName.LowerCaseEqualsLiteral("name")) {
+      if (MOZ_UNLIKELY(curItemName.Length() > 0))  // multiple names in section
         return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
 
       if (MOZ_UNLIKELY(attrValue.Length() == 0))
@@ -636,7 +637,8 @@ ParseMF(const char* filebuf, nsIZipReader * zip,
   return NS_OK;
 }
 
-struct VerifyCertificateContext {
+struct VerifyCertificateContext
+{
   AppTrustedRoot trustedRoot;
   UniqueCERTCertList& builtChain;
 };
@@ -649,7 +651,7 @@ VerifyCertificate(CERTCertificate* signerCert, void* voidContext, void* pinArg)
     return NS_ERROR_INVALID_ARG;
   }
   const VerifyCertificateContext& context =
-    *static_cast<const VerifyCertificateContext*>(voidContext);
+      *static_cast<const VerifyCertificateContext*>(voidContext);
 
   AppTrustDomain trustDomain(context.builtChain, pinArg);
   nsresult rv = trustDomain.SetTrustedRoot(context.trustedRoot);
@@ -657,13 +659,15 @@ VerifyCertificate(CERTCertificate* signerCert, void* voidContext, void* pinArg)
     return rv;
   }
   Input certDER;
-  mozilla::pkix::Result result = certDER.Init(signerCert->derCert.data,
-                                              signerCert->derCert.len);
+  mozilla::pkix::Result result =
+      certDER.Init(signerCert->derCert.data, signerCert->derCert.len);
   if (result != Success) {
     return mozilla::psm::GetXPCOMFromNSSError(MapResultToPRErrorCode(result));
   }
 
-  result = BuildCertChain(trustDomain, certDER, Now(),
+  result = BuildCertChain(trustDomain,
+                          certDER,
+                          Now(),
                           EndEntityOrCA::MustBeEndEntity,
                           KeyUsage::digitalSignature,
                           KeyPurposeId::id_kp_codeSigning,
@@ -698,7 +702,8 @@ VerifyCertificate(CERTCertificate* signerCert, void* voidContext, void* pinArg)
 }
 
 nsresult
-VerifySignature(AppTrustedRoot trustedRoot, const SECItem& buffer,
+VerifySignature(AppTrustedRoot trustedRoot,
+                const SECItem& buffer,
                 const SECItem& detachedDigest,
                 /*out*/ UniqueCERTCertList& builtChain)
 {
@@ -708,16 +713,15 @@ VerifySignature(AppTrustedRoot trustedRoot, const SECItem& buffer,
   // We acquire a nsNSSShutDownPreventionLock here solely to prove we did to
   // VerifyCMSDetachedSignatureIncludingCertificate().
   nsNSSShutDownPreventionLock locker;
-  VerifyCertificateContext context = { trustedRoot, builtChain };
+  VerifyCertificateContext context = {trustedRoot, builtChain};
   // XXX: missing pinArg
-  return VerifyCMSDetachedSignatureIncludingCertificate(buffer, detachedDigest,
-                                                        VerifyCertificate,
-                                                        &context, nullptr,
-                                                        locker);
+  return VerifyCMSDetachedSignatureIncludingCertificate(
+      buffer, detachedDigest, VerifyCertificate, &context, nullptr, locker);
 }
 
 NS_IMETHODIMP
-OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
+OpenSignedAppFile(AppTrustedRoot aTrustedRoot,
+                  nsIFile* aJarFile,
                   /*out, optional */ nsIZipReader** aZipReader,
                   /*out, optional */ nsIX509Cert** aSignerCert)
 {
@@ -743,8 +747,11 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
   // Signature (RSA) file
   nsAutoCString sigFilename;
   ScopedAutoSECItem sigBuffer;
-  rv = FindAndLoadOneEntry(zip, nsLiteralCString(JAR_RSA_SEARCH_STRING),
-                           sigFilename, sigBuffer, nullptr);
+  rv = FindAndLoadOneEntry(zip,
+                           nsLiteralCString(JAR_RSA_SEARCH_STRING),
+                           sigFilename,
+                           sigBuffer,
+                           nullptr);
   if (NS_FAILED(rv)) {
     return NS_ERROR_SIGNED_JAR_NOT_SIGNED;
   }
@@ -753,16 +760,19 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
   nsAutoCString sfFilename;
   ScopedAutoSECItem sfBuffer;
   Digest sfCalculatedDigest;
-  rv = FindAndLoadOneEntry(zip, NS_LITERAL_CSTRING(JAR_SF_SEARCH_STRING),
-                           sfFilename, sfBuffer, &sfCalculatedDigest);
+  rv = FindAndLoadOneEntry(zip,
+                           NS_LITERAL_CSTRING(JAR_SF_SEARCH_STRING),
+                           sfFilename,
+                           sfBuffer,
+                           &sfCalculatedDigest);
   if (NS_FAILED(rv)) {
     return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
   }
 
   sigBuffer.type = siBuffer;
   UniqueCERTCertList builtChain;
-  rv = VerifySignature(aTrustedRoot, sigBuffer, sfCalculatedDigest.get(),
-                       builtChain);
+  rv = VerifySignature(
+      aTrustedRoot, sigBuffer, sfCalculatedDigest.get(), builtChain);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -777,14 +787,17 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
   nsAutoCString mfFilename;
   ScopedAutoSECItem manifestBuffer;
   Digest mfCalculatedDigest;
-  rv = FindAndLoadOneEntry(zip, NS_LITERAL_CSTRING(JAR_MF_SEARCH_STRING),
-                           mfFilename, manifestBuffer, &mfCalculatedDigest);
+  rv = FindAndLoadOneEntry(zip,
+                           NS_LITERAL_CSTRING(JAR_MF_SEARCH_STRING),
+                           mfFilename,
+                           manifestBuffer,
+                           &mfCalculatedDigest);
   if (NS_FAILED(rv)) {
     return rv;
   }
 
   nsDependentCSubstring calculatedDigest(
-    DigestToDependentString(mfCalculatedDigest));
+      DigestToDependentString(mfCalculatedDigest));
   if (!mfDigest.Equals(calculatedDigest)) {
     return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
   }
@@ -796,8 +809,8 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
 
   nsTHashtable<nsCStringHashKey> items;
 
-  rv = ParseMF(BitwiseCast<char*, unsigned char*>(manifestBuffer.data), zip,
-               items, buf);
+  rv = ParseMF(
+      BitwiseCast<char*, unsigned char*>(manifestBuffer.data), zip, items, buf);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -825,8 +838,9 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
     rv = entries->GetNext(entryFilename);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("Verifying digests for %s",
-           entryFilename.get()));
+    MOZ_LOG(gPIPNSSLog,
+            LogLevel::Debug,
+            ("Verifying digests for %s", entryFilename.get()));
 
     // The files that comprise the signature mechanism are not covered by the
     // signature.
@@ -834,8 +848,7 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
     // XXX: This is OK for a single signature, but doesn't work for
     // multiple signatures, because the metadata for the other signatures
     // is not signed either.
-    if (entryFilename == mfFilename ||
-        entryFilename == sfFilename ||
+    if (entryFilename == mfFilename || entryFilename == sfFilename ||
         entryFilename == sigFilename) {
       continue;
     }
@@ -855,7 +868,7 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
       continue;
     }
 
-    nsCStringHashKey * item = items.GetEntry(entryFilename);
+    nsCStringHashKey* item = items.GetEntry(entryFilename);
     if (!item) {
       return NS_ERROR_SIGNED_JAR_UNSIGNED_ENTRY;
     }
@@ -885,7 +898,7 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
       return NS_ERROR_FAILURE;
     }
     nsCOMPtr<nsIX509Cert> signerCert =
-      nsNSSCertificate::Create(signerCertNode->cert);
+        nsNSSCertificate::Create(signerCertNode->cert);
     NS_ENSURE_TRUE(signerCert, NS_ERROR_OUT_OF_MEMORY);
     signerCert.forget(aSignerCert);
   }
@@ -895,52 +908,54 @@ OpenSignedAppFile(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
 
 class OpenSignedAppFileTask final : public CryptoTask
 {
-public:
-  OpenSignedAppFileTask(AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
+ public:
+  OpenSignedAppFileTask(AppTrustedRoot aTrustedRoot,
+                        nsIFile* aJarFile,
                         nsIOpenSignedAppFileCallback* aCallback)
-    : mTrustedRoot(aTrustedRoot)
-    , mJarFile(aJarFile)
-    , mCallback(new nsMainThreadPtrHolder<nsIOpenSignedAppFileCallback>(
-        "OpenSignedAppFileTask::mCallback", aCallback))
+      : mTrustedRoot(aTrustedRoot),
+        mJarFile(aJarFile),
+        mCallback(new nsMainThreadPtrHolder<nsIOpenSignedAppFileCallback>(
+            "OpenSignedAppFileTask::mCallback", aCallback))
   {
   }
 
-private:
+ private:
   virtual nsresult CalculateResult() override
   {
-    return OpenSignedAppFile(mTrustedRoot, mJarFile,
+    return OpenSignedAppFile(mTrustedRoot,
+                             mJarFile,
                              getter_AddRefs(mZipReader),
                              getter_AddRefs(mSignerCert));
   }
 
   // nsNSSCertificate implements nsNSSShutdownObject, so there's nothing that
   // needs to be released
-  virtual void ReleaseNSSResources() override { }
+  virtual void ReleaseNSSResources() override {}
 
   virtual void CallCallback(nsresult rv) override
   {
-    (void) mCallback->OpenSignedAppFileFinished(rv, mZipReader, mSignerCert);
+    (void)mCallback->OpenSignedAppFileFinished(rv, mZipReader, mSignerCert);
   }
 
   const AppTrustedRoot mTrustedRoot;
   const nsCOMPtr<nsIFile> mJarFile;
   nsMainThreadPtrHandle<nsIOpenSignedAppFileCallback> mCallback;
-  nsCOMPtr<nsIZipReader> mZipReader; // out
-  nsCOMPtr<nsIX509Cert> mSignerCert; // out
+  nsCOMPtr<nsIZipReader> mZipReader;  // out
+  nsCOMPtr<nsIX509Cert> mSignerCert;  // out
 };
 
-} // unnamed namespace
+}  // unnamed namespace
 
 NS_IMETHODIMP
 nsNSSCertificateDB::OpenSignedAppFileAsync(
-  AppTrustedRoot aTrustedRoot, nsIFile* aJarFile,
-  nsIOpenSignedAppFileCallback* aCallback)
+    AppTrustedRoot aTrustedRoot,
+    nsIFile* aJarFile,
+    nsIOpenSignedAppFileCallback* aCallback)
 {
   NS_ENSURE_ARG_POINTER(aJarFile);
   NS_ENSURE_ARG_POINTER(aCallback);
-  RefPtr<OpenSignedAppFileTask> task(new OpenSignedAppFileTask(aTrustedRoot,
-                                                               aJarFile,
-                                                               aCallback));
+  RefPtr<OpenSignedAppFileTask> task(
+      new OpenSignedAppFileTask(aTrustedRoot, aJarFile, aCallback));
   return task->Dispatch("SignedJAR");
 }
 
@@ -1036,7 +1051,8 @@ LoadOneMetafile(nsIFile* aMetaDir,
 // The filenames of all entries will be returned in aMfItems. aBuf must
 // be a pre-allocated scratch buffer that is used for doing I/O.
 nsresult
-ParseMFUnpacked(const char* aFilebuf, nsIFile* aDir,
+ParseMFUnpacked(const char* aFilebuf,
+                nsIFile* aDir,
                 /*out*/ nsTHashtable<nsStringHashKey>& aMfItems,
                 ScopedAutoSECItem& aBuf)
 {
@@ -1114,7 +1130,7 @@ ParseMFUnpacked(const char* aFilebuf, nsIFile* aDir,
       curItemName.Truncate();
       digest.Truncate();
 
-      continue; // skip the rest of the loop below
+      continue;  // skip the rest of the loop below
     }
 
     nsAutoCString attrName;
@@ -1222,8 +1238,8 @@ CheckDirForUnsignedFiles(nsIFile* aDir,
     // if it's a directory we need to recurse
     if (isDir) {
       curName.AppendLiteral(u"/");
-      rv = CheckDirForUnsignedFiles(file, curName, aItems,
-                                    sigFilename, sfFilename, mfFilename);
+      rv = CheckDirForUnsignedFiles(
+          file, curName, aItems, sigFilename, sfFilename, mfFilename);
     } else {
       // The files that comprise the signature mechanism are not covered by the
       // signature.
@@ -1231,9 +1247,8 @@ CheckDirForUnsignedFiles(nsIFile* aDir,
       // XXX: This is OK for a single signature, but doesn't work for
       // multiple signatures because the metadata for the other signatures
       // is not signed either.
-      if (inMeta && ( leafname == sigFilename ||
-                      leafname == sfFilename ||
-                      leafname == mfFilename )) {
+      if (inMeta && (leafname == sigFilename || leafname == sfFilename ||
+                     leafname == mfFilename)) {
         continue;
       }
 
@@ -1306,8 +1321,8 @@ VerifySignedDirectory(AppTrustedRoot aTrustedRoot,
   // Load the signature (SF) file and verify the signature.
   // The .sf and .rsa files must have the same name apart from the extension.
 
-  nsAutoString sfFilename(Substring(sigFilename, 0, sigFilename.Length() - 3)
-                          + NS_LITERAL_STRING("sf"));
+  nsAutoString sfFilename(Substring(sigFilename, 0, sigFilename.Length() - 3) +
+                          NS_LITERAL_STRING("sf"));
 
   ScopedAutoSECItem sfBuffer;
   Digest sfCalculatedDigest;
@@ -1318,8 +1333,8 @@ VerifySignedDirectory(AppTrustedRoot aTrustedRoot,
 
   sigBuffer.type = siBuffer;
   UniqueCERTCertList builtChain;
-  rv = VerifySignature(aTrustedRoot, sigBuffer, sfCalculatedDigest.get(),
-                       builtChain);
+  rv = VerifySignature(
+      aTrustedRoot, sigBuffer, sfCalculatedDigest.get(), builtChain);
   if (NS_FAILED(rv)) {
     return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
   }
@@ -1337,13 +1352,14 @@ VerifySignedDirectory(AppTrustedRoot aTrustedRoot,
   nsAutoString mfFilename(NS_LITERAL_STRING("manifest.mf"));
   ScopedAutoSECItem manifestBuffer;
   Digest mfCalculatedDigest;
-  rv = LoadOneMetafile(metaDir, mfFilename, manifestBuffer, &mfCalculatedDigest);
+  rv =
+      LoadOneMetafile(metaDir, mfFilename, manifestBuffer, &mfCalculatedDigest);
   if (NS_FAILED(rv)) {
     return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
   }
 
   nsDependentCSubstring calculatedDigest(
-    DigestToDependentString(mfCalculatedDigest));
+      DigestToDependentString(mfCalculatedDigest));
   if (!mfDigest.Equals(calculatedDigest)) {
     return NS_ERROR_SIGNED_JAR_MANIFEST_INVALID;
   }
@@ -1357,16 +1373,18 @@ VerifySignedDirectory(AppTrustedRoot aTrustedRoot,
 
   nsTHashtable<nsStringHashKey> items;
   rv = ParseMFUnpacked(BitwiseCast<char*, unsigned char*>(manifestBuffer.data),
-                       aDirectory, items, buf);
-  if (NS_FAILED(rv)){
+                       aDirectory,
+                       items,
+                       buf);
+  if (NS_FAILED(rv)) {
     return rv;
   }
 
   // We've checked that everything listed in the manifest exists and is signed
   // correctly. Now check on disk for extra (unsigned) files.
   // Deletes found entries from items as it goes.
-  rv = CheckDirForUnsignedFiles(aDirectory, EmptyString(), items,
-                                sigFilename, sfFilename, mfFilename);
+  rv = CheckDirForUnsignedFiles(
+      aDirectory, EmptyString(), items, sigFilename, sfFilename, mfFilename);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -1388,7 +1406,7 @@ VerifySignedDirectory(AppTrustedRoot aTrustedRoot,
       return NS_ERROR_FAILURE;
     }
     nsCOMPtr<nsIX509Cert> signerCert =
-      nsNSSCertificate::Create(signerCertNode->cert);
+        nsNSSCertificate::Create(signerCertNode->cert);
     NS_ENSURE_TRUE(signerCert, NS_ERROR_OUT_OF_MEMORY);
     signerCert.forget(aSignerCert);
   }
@@ -1398,48 +1416,48 @@ VerifySignedDirectory(AppTrustedRoot aTrustedRoot,
 
 class VerifySignedDirectoryTask final : public CryptoTask
 {
-public:
-  VerifySignedDirectoryTask(AppTrustedRoot aTrustedRoot, nsIFile* aUnpackedJar,
+ public:
+  VerifySignedDirectoryTask(AppTrustedRoot aTrustedRoot,
+                            nsIFile* aUnpackedJar,
                             nsIVerifySignedDirectoryCallback* aCallback)
-    : mTrustedRoot(aTrustedRoot)
-    , mDirectory(aUnpackedJar)
-    , mCallback(new nsMainThreadPtrHolder<nsIVerifySignedDirectoryCallback>(
-        "VerifySignedDirectoryTask::mCallback", aCallback))
+      : mTrustedRoot(aTrustedRoot),
+        mDirectory(aUnpackedJar),
+        mCallback(new nsMainThreadPtrHolder<nsIVerifySignedDirectoryCallback>(
+            "VerifySignedDirectoryTask::mCallback", aCallback))
   {
   }
 
-private:
+ private:
   virtual nsresult CalculateResult() override
   {
-    return VerifySignedDirectory(mTrustedRoot,
-                                 mDirectory,
-                                 getter_AddRefs(mSignerCert));
+    return VerifySignedDirectory(
+        mTrustedRoot, mDirectory, getter_AddRefs(mSignerCert));
   }
 
   // This class doesn't directly hold NSS resources so there's nothing that
   // needs to be released
-  virtual void ReleaseNSSResources() override { }
+  virtual void ReleaseNSSResources() override {}
 
   virtual void CallCallback(nsresult rv) override
   {
-    (void) mCallback->VerifySignedDirectoryFinished(rv, mSignerCert);
+    (void)mCallback->VerifySignedDirectoryFinished(rv, mSignerCert);
   }
 
   const AppTrustedRoot mTrustedRoot;
   const nsCOMPtr<nsIFile> mDirectory;
   nsMainThreadPtrHandle<nsIVerifySignedDirectoryCallback> mCallback;
-  nsCOMPtr<nsIX509Cert> mSignerCert; // out
+  nsCOMPtr<nsIX509Cert> mSignerCert;  // out
 };
 
 NS_IMETHODIMP
 nsNSSCertificateDB::VerifySignedDirectoryAsync(
-  AppTrustedRoot aTrustedRoot, nsIFile* aUnpackedJar,
-  nsIVerifySignedDirectoryCallback* aCallback)
+    AppTrustedRoot aTrustedRoot,
+    nsIFile* aUnpackedJar,
+    nsIVerifySignedDirectoryCallback* aCallback)
 {
   NS_ENSURE_ARG_POINTER(aUnpackedJar);
   NS_ENSURE_ARG_POINTER(aCallback);
-  RefPtr<VerifySignedDirectoryTask> task(new VerifySignedDirectoryTask(aTrustedRoot,
-                                                                       aUnpackedJar,
-                                                                       aCallback));
+  RefPtr<VerifySignedDirectoryTask> task(
+      new VerifySignedDirectoryTask(aTrustedRoot, aUnpackedJar, aCallback));
   return task->Dispatch("UnpackedJar");
 }

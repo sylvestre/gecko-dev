@@ -20,16 +20,12 @@ namespace mozilla {
 namespace dom {
 
 IdleRequest::IdleRequest(IdleRequestCallback* aCallback, uint32_t aHandle)
-  : mCallback(aCallback)
-  , mHandle(aHandle)
-  , mTimeoutHandle(Nothing())
+    : mCallback(aCallback), mHandle(aHandle), mTimeoutHandle(Nothing())
 {
   MOZ_DIAGNOSTIC_ASSERT(mCallback);
 }
 
-IdleRequest::~IdleRequest()
-{
-}
+IdleRequest::~IdleRequest() {}
 
 NS_IMPL_CYCLE_COLLECTION(IdleRequest, mCallback)
 
@@ -62,7 +58,7 @@ IdleRequest::IdleRun(nsPIDOMWindowInner* aWindow,
 
   ErrorResult error;
   RefPtr<IdleDeadline> deadline =
-    new IdleDeadline(aWindow, aDidTimeout, aDeadline);
+      new IdleDeadline(aWindow, aDidTimeout, aDeadline);
   mCallback->Call(*deadline, error, "requestIdleCallback handler");
 
   mCallback = nullptr;
@@ -70,5 +66,5 @@ IdleRequest::IdleRun(nsPIDOMWindowInner* aWindow,
   return error.StealNSResult();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

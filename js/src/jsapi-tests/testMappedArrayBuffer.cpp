@@ -11,18 +11,17 @@
 #include "vm/ArrayBufferObject.h"
 
 #ifdef XP_WIN
-#  include <io.h>
-#  define GET_OS_FD(a) int(_get_osfhandle(a))
+#include <io.h>
+#define GET_OS_FD(a) int(_get_osfhandle(a))
 #else
-#  include <unistd.h>
-#  define GET_OS_FD(a) (a)
+#include <unistd.h>
+#define GET_OS_FD(a) (a)
 #endif
 
 const char test_data[] = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const char test_filename[] = "temp-bug945152_MappedArrayBuffer";
 
-BEGIN_TEST(testMappedArrayBuffer_bug945152)
-{
+BEGIN_TEST(testMappedArrayBuffer_bug945152) {
     TempFile test_file;
     FILE* test_stream = test_file.open(test_filename);
     CHECK(fputs(test_data, test_stream) != EOF);
@@ -63,13 +62,11 @@ BEGIN_TEST(testMappedArrayBuffer_bug945152)
     return true;
 }
 
-JSObject* CreateNewObject(const int offset, const int length)
-{
+JSObject* CreateNewObject(const int offset, const int length) {
     int fd = open(test_filename, O_RDONLY);
     void* ptr = JS_CreateMappedArrayBufferContents(GET_OS_FD(fd), offset, length);
     close(fd);
-    if (!ptr)
-        return nullptr;
+    if (!ptr) return nullptr;
     JSObject* obj = JS_NewMappedArrayBufferWithContents(cx, length, ptr);
     if (!obj) {
         JS_ReleaseMappedArrayBufferContents(ptr, length);
@@ -78,8 +75,7 @@ JSObject* CreateNewObject(const int offset, const int length)
     return obj;
 }
 
-bool VerifyObject(JS::HandleObject obj, uint32_t offset, uint32_t length, const bool mapped)
-{
+bool VerifyObject(JS::HandleObject obj, uint32_t offset, uint32_t length, const bool mapped) {
     JS::AutoCheckCannotGC nogc;
 
     CHECK(obj);
@@ -98,28 +94,24 @@ bool VerifyObject(JS::HandleObject obj, uint32_t offset, uint32_t length, const 
     return true;
 }
 
-bool TestCreateObject(uint32_t offset, uint32_t length)
-{
+bool TestCreateObject(uint32_t offset, uint32_t length) {
     JS::RootedObject obj(cx, CreateNewObject(offset, length));
     CHECK(VerifyObject(obj, offset, length, true));
 
     return true;
 }
 
-bool TestReleaseContents()
-{
+bool TestReleaseContents() {
     int fd = open(test_filename, O_RDONLY);
     void* ptr = JS_CreateMappedArrayBufferContents(GET_OS_FD(fd), 0, 12);
     close(fd);
-    if (!ptr)
-        return false;
+    if (!ptr) return false;
     JS_ReleaseMappedArrayBufferContents(ptr, 12);
 
     return true;
 }
 
-bool TestDetachObject()
-{
+bool TestDetachObject() {
     JS::RootedObject obj(cx, CreateNewObject(8, 12));
     CHECK(obj);
     JS_DetachArrayBuffer(cx, obj);
@@ -128,11 +120,11 @@ bool TestDetachObject()
     return true;
 }
 
-bool TestCloneObject()
-{
+bool TestCloneObject() {
     JS::RootedObject obj1(cx, CreateNewObject(8, 12));
     CHECK(obj1);
-    JSAutoStructuredCloneBuffer cloned_buffer(JS::StructuredCloneScope::SameProcessSameThread, nullptr, nullptr);
+    JSAutoStructuredCloneBuffer cloned_buffer(JS::StructuredCloneScope::SameProcessSameThread,
+                                              nullptr, nullptr);
     JS::RootedValue v1(cx, JS::ObjectValue(*obj1));
     CHECK(cloned_buffer.write(cx, v1, nullptr, nullptr));
     JS::RootedValue v2(cx);
@@ -143,8 +135,7 @@ bool TestCloneObject()
     return true;
 }
 
-bool TestStealContents()
-{
+bool TestStealContents() {
     JS::RootedObject obj(cx, CreateNewObject(8, 12));
     CHECK(obj);
     void* contents = JS_StealArrayBufferContents(cx, obj);
@@ -155,23 +146,23 @@ bool TestStealContents()
     return true;
 }
 
-bool TestTransferObject()
-{
+bool TestTransferObject() {
     JS::RootedObject obj1(cx, CreateNewObject(8, 12));
     CHECK(obj1);
     JS::RootedValue v1(cx, JS::ObjectValue(*obj1));
 
     // Create an Array of transferable values.
     JS::AutoValueVector argv(cx);
-    if (!argv.append(v1))
-        return false;
+    if (!argv.append(v1)) return false;
 
     JS::RootedObject obj(cx, JS_NewArrayObject(cx, JS::HandleValueArray::subarray(argv, 0, 1)));
     CHECK(obj);
     JS::RootedValue transferable(cx, JS::ObjectValue(*obj));
 
-    JSAutoStructuredCloneBuffer cloned_buffer(JS::StructuredCloneScope::SameProcessSameThread, nullptr, nullptr);
-    CHECK(cloned_buffer.write(cx, v1, transferable, JS::CloneDataPolicy().denySharedArrayBuffer(), nullptr, nullptr));
+    JSAutoStructuredCloneBuffer cloned_buffer(JS::StructuredCloneScope::SameProcessSameThread,
+                                              nullptr, nullptr);
+    CHECK(cloned_buffer.write(cx, v1, transferable, JS::CloneDataPolicy().denySharedArrayBuffer(),
+                              nullptr, nullptr));
     JS::RootedValue v2(cx);
     CHECK(cloned_buffer.read(cx, &v2, nullptr, nullptr));
     JS::RootedObject obj2(cx, v2.toObjectOrNull());
@@ -181,8 +172,7 @@ bool TestTransferObject()
     return true;
 }
 
-static void GC(JSContext* cx)
-{
+static void GC(JSContext* cx) {
     JS_GC(cx);
     // Trigger another to wait for background finalization to end.
     JS_GC(cx);

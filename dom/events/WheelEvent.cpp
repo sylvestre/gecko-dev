@@ -14,10 +14,12 @@ namespace dom {
 WheelEvent::WheelEvent(EventTarget* aOwner,
                        nsPresContext* aPresContext,
                        WidgetWheelEvent* aWheelEvent)
-  : MouseEvent(aOwner, aPresContext,
-               aWheelEvent ? aWheelEvent :
-                             new WidgetWheelEvent(false, eVoidEvent, nullptr))
-  , mAppUnitsPerDevPixel(0)
+    : MouseEvent(aOwner,
+                 aPresContext,
+                 aWheelEvent
+                     ? aWheelEvent
+                     : new WidgetWheelEvent(false, eVoidEvent, nullptr)),
+      mAppUnitsPerDevPixel(0)
 {
   if (aWheelEvent) {
     mEventIsInternal = false;
@@ -62,9 +64,18 @@ WheelEvent::InitWheelEvent(const nsAString& aType,
 {
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
 
-  MouseEvent::InitMouseEvent(aType, aCanBubble, aCancelable, aView, aDetail,
-                             aScreenX, aScreenY, aClientX, aClientY, aButton,
-                             aRelatedTarget, aModifiersList);
+  MouseEvent::InitMouseEvent(aType,
+                             aCanBubble,
+                             aCancelable,
+                             aView,
+                             aDetail,
+                             aScreenX,
+                             aScreenY,
+                             aClientX,
+                             aClientY,
+                             aButton,
+                             aRelatedTarget,
+                             aModifiersList);
 
   WidgetWheelEvent* wheelEvent = mEvent->AsWheelEvent();
   wheelEvent->mDeltaX = aDeltaX;
@@ -79,8 +90,8 @@ WheelEvent::DeltaX()
   if (!mAppUnitsPerDevPixel) {
     return mEvent->AsWheelEvent()->mDeltaX;
   }
-  return mEvent->AsWheelEvent()->mDeltaX *
-    mAppUnitsPerDevPixel / nsPresContext::AppUnitsPerCSSPixel();
+  return mEvent->AsWheelEvent()->mDeltaX * mAppUnitsPerDevPixel /
+         nsPresContext::AppUnitsPerCSSPixel();
 }
 
 double
@@ -89,8 +100,8 @@ WheelEvent::DeltaY()
   if (!mAppUnitsPerDevPixel) {
     return mEvent->AsWheelEvent()->mDeltaY;
   }
-  return mEvent->AsWheelEvent()->mDeltaY *
-    mAppUnitsPerDevPixel / nsPresContext::AppUnitsPerCSSPixel();
+  return mEvent->AsWheelEvent()->mDeltaY * mAppUnitsPerDevPixel /
+         nsPresContext::AppUnitsPerCSSPixel();
 }
 
 double
@@ -99,8 +110,8 @@ WheelEvent::DeltaZ()
   if (!mAppUnitsPerDevPixel) {
     return mEvent->AsWheelEvent()->mDeltaZ;
   }
-  return mEvent->AsWheelEvent()->mDeltaZ *
-    mAppUnitsPerDevPixel / nsPresContext::AppUnitsPerCSSPixel();
+  return mEvent->AsWheelEvent()->mDeltaZ * mAppUnitsPerDevPixel /
+         nsPresContext::AppUnitsPerCSSPixel();
 }
 
 uint32_t
@@ -118,21 +129,30 @@ WheelEvent::Constructor(const GlobalObject& aGlobal,
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<WheelEvent> e = new WheelEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
-  e->InitWheelEvent(aType, aParam.mBubbles, aParam.mCancelable,
-                    aParam.mView, aParam.mDetail,
-                    aParam.mScreenX, aParam.mScreenY,
-                    aParam.mClientX, aParam.mClientY,
-                    aParam.mButton, aParam.mRelatedTarget,
-                    EmptyString(), aParam.mDeltaX,
-                    aParam.mDeltaY, aParam.mDeltaZ, aParam.mDeltaMode);
+  e->InitWheelEvent(aType,
+                    aParam.mBubbles,
+                    aParam.mCancelable,
+                    aParam.mView,
+                    aParam.mDetail,
+                    aParam.mScreenX,
+                    aParam.mScreenY,
+                    aParam.mClientX,
+                    aParam.mClientY,
+                    aParam.mButton,
+                    aParam.mRelatedTarget,
+                    EmptyString(),
+                    aParam.mDeltaX,
+                    aParam.mDeltaY,
+                    aParam.mDeltaZ,
+                    aParam.mDeltaMode);
   e->InitializeExtraMouseEventDictionaryMembers(aParam);
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

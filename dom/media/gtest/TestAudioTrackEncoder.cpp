@@ -11,32 +11,34 @@ using namespace mozilla;
 
 class AudioGenerator
 {
-public:
+ public:
   AudioGenerator(int32_t aChannels, int32_t aSampleRate)
-    : mGenerator(aSampleRate, 1000)
-    , mChannels(aChannels)
-  {}
+      : mGenerator(aSampleRate, 1000), mChannels(aChannels)
+  {
+  }
 
   void Generate(AudioSegment& aSegment, const int32_t& aSamples)
   {
-    RefPtr<SharedBuffer> buffer = SharedBuffer::Create(aSamples * sizeof(int16_t));
+    RefPtr<SharedBuffer> buffer =
+        SharedBuffer::Create(aSamples * sizeof(int16_t));
     int16_t* dest = static_cast<int16_t*>(buffer->Data());
     mGenerator.generate(dest, aSamples);
     AutoTArray<const int16_t*, 1> channels;
     for (int32_t i = 0; i < mChannels; i++) {
       channels.AppendElement(dest);
     }
-    aSegment.AppendFrames(buffer.forget(), channels, aSamples, PRINCIPAL_HANDLE_NONE);
+    aSegment.AppendFrames(
+        buffer.forget(), channels, aSamples, PRINCIPAL_HANDLE_NONE);
   }
 
-private:
+ private:
   SineWaveGenerator mGenerator;
   const int32_t mChannels;
 };
 
 class TestOpusTrackEncoder : public OpusTrackEncoder
 {
-public:
+ public:
   TestOpusTrackEncoder() : OpusTrackEncoder(90000) {}
 
   // Return true if it has successfully initialized the Opus encoder.
@@ -212,8 +214,7 @@ TEST(OpusAudioTrackEncoder, FetchMetadata)
   RefPtr<TrackMetadataBase> metadata = encoder.GetMetadata();
   ASSERT_EQ(TrackMetadataBase::METADATA_OPUS, metadata->GetKind());
 
-  RefPtr<OpusMetadata> opusMeta =
-    static_cast<OpusMetadata*>(metadata.get());
+  RefPtr<OpusMetadata> opusMeta = static_cast<OpusMetadata*>(metadata.get());
   EXPECT_EQ(channels, opusMeta->mChannels);
   EXPECT_EQ(sampleRate, opusMeta->mSamplingFrequency);
 }

@@ -7,9 +7,7 @@
 
 #include "threading/CpuCount.h"
 
-uint32_t
-js::GetCPUCount()
-{
+uint32_t js::GetCPUCount() {
     static uint32_t ncpus = 0;
 
     // _SC_NPROCESSORS_CONF and _SC_NPROCESSORS_ONLN are common, but not

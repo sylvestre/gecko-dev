@@ -15,7 +15,7 @@ namespace mozilla {
 
 class ServoCSSParser
 {
-public:
+ public:
   /**
    * Returns whether the specified string can be parsed as a valid CSS
    * <color> value.
@@ -51,6 +51,6 @@ public:
                                                   nsCSSRect* aResult);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoCSSParser_h
+#endif  // mozilla_ServoCSSParser_h

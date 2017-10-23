@@ -36,8 +36,7 @@
 namespace js {
 namespace irregexp {
 
-struct InputOutputData
-{
+struct InputOutputData {
     const void* inputStart;
     const void* inputEnd;
 
@@ -52,19 +51,17 @@ struct InputOutputData
     int32_t result;
 
     template <typename CharT>
-    InputOutputData(const CharT* inputStart, const CharT* inputEnd,
-                    size_t startIndex, MatchPairs* matches, size_t* endIndex)
-      : inputStart(inputStart),
-        inputEnd(inputEnd),
-        startIndex(startIndex),
-        endIndex(endIndex),
-        matches(matches),
-        result(0)
-    {}
+    InputOutputData(const CharT* inputStart, const CharT* inputEnd, size_t startIndex,
+                    MatchPairs* matches, size_t* endIndex)
+        : inputStart(inputStart),
+          inputEnd(inputEnd),
+          startIndex(startIndex),
+          endIndex(endIndex),
+          matches(matches),
+          result(0) {}
 };
 
-struct FrameData
-{
+struct FrameData {
     // Copy of the input/output data's data.
     char16_t* inputStart;
     size_t startIndex;
@@ -82,9 +79,8 @@ struct FrameData
     void* backtrackStackBase;
 };
 
-class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssembler
-{
-  public:
+class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssembler {
+   public:
     // Type of input string to generate code for.
     enum Mode { LATIN1 = 1, CHAR16 = 2 };
 
@@ -112,10 +108,8 @@ class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssem
     void CheckNotCharacterAfterAnd(unsigned c, unsigned and_with, jit::Label* on_not_equal);
     void CheckNotCharacterAfterMinusAnd(char16_t c, char16_t minus, char16_t and_with,
                                         jit::Label* on_not_equal);
-    void CheckCharacterInRange(char16_t from, char16_t to,
-                               jit::Label* on_in_range);
-    void CheckCharacterNotInRange(char16_t from, char16_t to,
-                                  jit::Label* on_not_in_range);
+    void CheckCharacterInRange(char16_t from, char16_t to, jit::Label* on_in_range);
+    void CheckCharacterNotInRange(char16_t from, char16_t to, jit::Label* on_not_in_range);
     void CheckBitInTable(RegExpShared::JitCodeTable table, jit::Label* on_bit_set);
     void CheckPosition(int cp_offset, jit::Label* on_outside_input);
     void JumpOrBacktrack(jit::Label* to);
@@ -124,8 +118,8 @@ class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssem
     void IfRegisterGE(int reg, int comparand, jit::Label* if_ge);
     void IfRegisterLT(int reg, int comparand, jit::Label* if_lt);
     void IfRegisterEqPos(int reg, jit::Label* if_eq);
-    void LoadCurrentCharacter(int cp_offset, jit::Label* on_end_of_input,
-                              bool check_bounds = true, int characters = 1);
+    void LoadCurrentCharacter(int cp_offset, jit::Label* on_end_of_input, bool check_bounds = true,
+                              int characters = 1);
     void PopCurrentPosition();
     void PopRegister(int register_index);
     void PushCurrentPosition();
@@ -143,8 +137,7 @@ class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssem
 
     // Compares two-byte strings case insensitively.
     // Called from generated RegExp code.
-    static int CaseInsensitiveCompareUC16(jit::Address byte_offset1,
-                                          jit::Address byte_offset2,
+    static int CaseInsensitiveCompareUC16(jit::Address byte_offset1, jit::Address byte_offset2,
                                           size_t byte_length);
 
     // Byte map of one byte characters with a 0xff if the character is a word
@@ -171,7 +164,7 @@ class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssem
 
     void LoadCurrentCharacterUnchecked(int cp_offset, int characters);
 
-  private:
+   private:
     jit::MacroAssembler masm;
     RegExpShared::JitCodeTables& tables;
 
@@ -198,8 +191,7 @@ class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssem
         jit::CodeOffset patchOffset;
 
         LabelPatch(jit::Label* label, jit::CodeOffset patchOffset)
-          : label(label), labelOffset(0), patchOffset(patchOffset)
-        {}
+            : label(label), labelOffset(0), patchOffset(patchOffset) {}
     };
 
     Vector<LabelPatch, 4, SystemAllocPolicy> labelPatches;
@@ -222,6 +214,7 @@ class MOZ_STACK_CLASS NativeRegExpMacroAssembler final : public RegExpMacroAssem
     }
 };
 
-} }  // namespace js::irregexp
+}  // namespace irregexp
+}  // namespace js
 
 #endif  // V8_NATIVE_REGEXP_MACRO_ASSEMBLER_H_

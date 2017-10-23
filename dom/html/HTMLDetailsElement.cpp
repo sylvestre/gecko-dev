@@ -12,9 +12,7 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Details)
 namespace mozilla {
 namespace dom {
 
-HTMLDetailsElement::~HTMLDetailsElement()
-{
-}
+HTMLDetailsElement::~HTMLDetailsElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLDetailsElement)
 
@@ -22,8 +20,7 @@ nsIContent*
 HTMLDetailsElement::GetFirstSummary() const
 {
   // XXX: Bug 1245032: Might want to cache the first summary element.
-  for (nsIContent* child = nsINode::GetFirstChild();
-       child;
+  for (nsIContent* child = nsINode::GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (child->IsHTMLElement(nsGkAtoms::summary)) {
       return child;
@@ -37,7 +34,7 @@ HTMLDetailsElement::GetAttributeChangeHint(const nsAtom* aAttribute,
                                            int32_t aModType) const
 {
   nsChangeHint hint =
-    nsGenericHTMLElement::GetAttributeChangeHint(aAttribute, aModType);
+      nsGenericHTMLElement::GetAttributeChangeHint(aAttribute, aModType);
   if (aAttribute == nsGkAtoms::open) {
     hint |= nsChangeHint_ReconstructFrame;
   }
@@ -45,8 +42,10 @@ HTMLDetailsElement::GetAttributeChangeHint(const nsAtom* aAttribute,
 }
 
 nsresult
-HTMLDetailsElement::BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                                  const nsAttrValueOrString* aValue, bool aNotify)
+HTMLDetailsElement::BeforeSetAttr(int32_t aNameSpaceID,
+                                  nsAtom* aName,
+                                  const nsAttrValueOrString* aValue,
+                                  bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None && aName == nsGkAtoms::open) {
     bool setOpen = aValue != nullptr;
@@ -57,13 +56,13 @@ HTMLDetailsElement::BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
       // According to the html spec, a 'toggle' event is a simple event which
       // does not bubble.
       mToggleEventDispatcher =
-        new AsyncEventDispatcher(this, NS_LITERAL_STRING("toggle"), false);
+          new AsyncEventDispatcher(this, NS_LITERAL_STRING("toggle"), false);
       mToggleEventDispatcher->PostDOMEvent();
     }
   }
 
-  return nsGenericHTMLElement::BeforeSetAttr(aNameSpaceID, aName, aValue,
-                                             aNotify);
+  return nsGenericHTMLElement::BeforeSetAttr(
+      aNameSpaceID, aName, aValue, aNotify);
 }
 
 void
@@ -80,5 +79,5 @@ HTMLDetailsElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLDetailsElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

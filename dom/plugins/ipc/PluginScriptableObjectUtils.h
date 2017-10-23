@@ -46,17 +46,17 @@ NPObjectFromVariant(const Variant& aRemoteVariant)
   switch (aRemoteVariant.type()) {
     case Variant::TPPluginScriptableObjectParent: {
       PluginScriptableObjectParent* actor =
-        const_cast<PluginScriptableObjectParent*>(
-          reinterpret_cast<const PluginScriptableObjectParent*>(
-            aRemoteVariant.get_PPluginScriptableObjectParent()));
+          const_cast<PluginScriptableObjectParent*>(
+              reinterpret_cast<const PluginScriptableObjectParent*>(
+                  aRemoteVariant.get_PPluginScriptableObjectParent()));
       return actor->GetObject(true);
     }
 
     case Variant::TPPluginScriptableObjectChild: {
       PluginScriptableObjectChild* actor =
-        const_cast<PluginScriptableObjectChild*>(
-          reinterpret_cast<const PluginScriptableObjectChild*>(
-            aRemoteVariant.get_PPluginScriptableObjectChild()));
+          const_cast<PluginScriptableObjectChild*>(
+              reinterpret_cast<const PluginScriptableObjectChild*>(
+                  aRemoteVariant.get_PPluginScriptableObjectChild()));
       return actor->GetObject(true);
     }
 
@@ -104,9 +104,9 @@ ReleaseRemoteVariant(Variant& aVariant)
   switch (aVariant.type()) {
     case Variant::TPPluginScriptableObjectParent: {
       PluginScriptableObjectParent* actor =
-        const_cast<PluginScriptableObjectParent*>(
-          reinterpret_cast<const PluginScriptableObjectParent*>(
-            aVariant.get_PPluginScriptableObjectParent()));
+          const_cast<PluginScriptableObjectParent*>(
+              reinterpret_cast<const PluginScriptableObjectParent*>(
+                  aVariant.get_PPluginScriptableObjectParent()));
       actor->Unprotect();
       break;
     }
@@ -115,15 +115,15 @@ ReleaseRemoteVariant(Variant& aVariant)
       NS_ASSERTION(XRE_GetProcessType() == GeckoProcessType_Plugin,
                    "Should only be running in the child!");
       PluginScriptableObjectChild* actor =
-        const_cast<PluginScriptableObjectChild*>(
-          reinterpret_cast<const PluginScriptableObjectChild*>(
-            aVariant.get_PPluginScriptableObjectChild()));
+          const_cast<PluginScriptableObjectChild*>(
+              reinterpret_cast<const PluginScriptableObjectChild*>(
+                  aVariant.get_PPluginScriptableObjectChild()));
       actor->Unprotect();
       break;
     }
 
-  default:
-    break; // Intentional fall-through for other variant types.
+    default:
+      break;  // Intentional fall-through for other variant types.
   }
 
   aVariant = mozilla::void_t();
@@ -134,7 +134,7 @@ ConvertToVariant(const Variant& aRemoteVariant,
                  NPVariant& aVariant,
                  PluginInstanceParent* aInstance = nullptr);
 
-template <class InstanceType>
+template<class InstanceType>
 bool
 ConvertToRemoteVariant(const NPVariant& aVariant,
                        Variant& aRemoteVariant,
@@ -143,49 +143,41 @@ ConvertToRemoteVariant(const NPVariant& aVariant,
 
 class ProtectedVariant
 {
-public:
-  ProtectedVariant(const NPVariant& aVariant,
-                   PluginInstanceParent* aInstance)
+ public:
+  ProtectedVariant(const NPVariant& aVariant, PluginInstanceParent* aInstance)
   {
     mOk = ConvertToRemoteVariant(aVariant, mVariant, aInstance, true);
   }
 
-  ProtectedVariant(const NPVariant& aVariant,
-                   PluginInstanceChild* aInstance)
+  ProtectedVariant(const NPVariant& aVariant, PluginInstanceChild* aInstance)
   {
     mOk = ConvertToRemoteVariant(aVariant, mVariant, aInstance, true);
   }
 
-  ~ProtectedVariant() {
-    ReleaseRemoteVariant(mVariant);
-  }
+  ~ProtectedVariant() { ReleaseRemoteVariant(mVariant); }
 
-  bool IsOk() {
-    return mOk;
-  }
+  bool IsOk() { return mOk; }
 
-  operator const Variant&() {
-    return mVariant;
-  }
+  operator const Variant&() { return mVariant; }
 
-private:
+ private:
   Variant mVariant;
   bool mOk;
 };
 
 class ProtectedVariantArray
 {
-public:
+ public:
   ProtectedVariantArray(const NPVariant* aArgs,
                         uint32_t aCount,
                         PluginInstanceParent* aInstance)
-    : mUsingShadowArray(false)
+      : mUsingShadowArray(false)
   {
     for (uint32_t index = 0; index < aCount; index++) {
       Variant* remoteVariant = mArray.AppendElement();
       if (!(remoteVariant &&
-            ConvertToRemoteVariant(aArgs[index], *remoteVariant, aInstance,
-                                   true))) {
+            ConvertToRemoteVariant(
+                aArgs[index], *remoteVariant, aInstance, true))) {
         mOk = false;
         return;
       }
@@ -196,13 +188,13 @@ public:
   ProtectedVariantArray(const NPVariant* aArgs,
                         uint32_t aCount,
                         PluginInstanceChild* aInstance)
-    : mUsingShadowArray(false)
+      : mUsingShadowArray(false)
   {
     for (uint32_t index = 0; index < aCount; index++) {
       Variant* remoteVariant = mArray.AppendElement();
       if (!(remoteVariant &&
-            ConvertToRemoteVariant(aArgs[index], *remoteVariant, aInstance,
-                                   true))) {
+            ConvertToRemoteVariant(
+                aArgs[index], *remoteVariant, aInstance, true))) {
         mOk = false;
         return;
       }
@@ -224,14 +216,10 @@ public:
     return EnsureAndGetShadowArray();
   }
 
-  bool IsOk()
-  {
-    return mOk;
-  }
+  bool IsOk() { return mOk; }
 
-private:
-  InfallibleTArray<Variant>&
-  EnsureAndGetShadowArray()
+ private:
+  InfallibleTArray<Variant>& EnsureAndGetShadowArray()
   {
     if (!mUsingShadowArray) {
       mShadowArray.SwapElements(mArray);
@@ -254,10 +242,10 @@ struct ProtectedActorTraits
   static bool Nullable();
 };
 
-template<class ActorType, class Traits=ProtectedActorTraits<ActorType> >
+template<class ActorType, class Traits = ProtectedActorTraits<ActorType> >
 class ProtectedActor
 {
-public:
+ public:
   explicit ProtectedActor(ActorType* aActor) : mActor(aActor)
   {
     if (!Traits::Nullable()) {
@@ -267,22 +255,15 @@ public:
 
   ~ProtectedActor()
   {
-    if (Traits::Nullable() && !mActor)
-      return;
+    if (Traits::Nullable() && !mActor) return;
     mActor->Unprotect();
   }
 
-  ActorType* operator->()
-  {
-    return mActor;
-  }
+  ActorType* operator->() { return mActor; }
 
-  explicit operator bool()
-  {
-    return !!mActor;
-  }
+  explicit operator bool() { return !!mActor; }
 
-private:
+ private:
   ActorType* mActor;
 };
 

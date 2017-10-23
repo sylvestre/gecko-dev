@@ -18,14 +18,12 @@
 namespace mozilla {
 namespace dom {
 
-File::File(nsISupports* aParent, BlobImpl* aImpl)
-  : Blob(aParent, aImpl)
+File::File(nsISupports* aParent, BlobImpl* aImpl) : Blob(aParent, aImpl)
 {
   MOZ_ASSERT(aImpl->IsFile());
 }
 
-File::~File()
-{}
+File::~File() {}
 
 /* static */ File*
 File::Create(nsISupports* aParent, BlobImpl* aImpl)
@@ -37,24 +35,30 @@ File::Create(nsISupports* aParent, BlobImpl* aImpl)
 }
 
 /* static */ already_AddRefed<File>
-File::Create(nsISupports* aParent, const nsAString& aName,
-             const nsAString& aContentType, uint64_t aLength,
+File::Create(nsISupports* aParent,
+             const nsAString& aName,
+             const nsAString& aContentType,
+             uint64_t aLength,
              int64_t aLastModifiedDate)
 {
-  RefPtr<File> file = new File(aParent,
-    new BaseBlobImpl(aName, aContentType, aLength, aLastModifiedDate));
+  RefPtr<File> file = new File(
+      aParent,
+      new BaseBlobImpl(aName, aContentType, aLength, aLastModifiedDate));
   return file.forget();
 }
 
 /* static */ already_AddRefed<File>
-File::CreateMemoryFile(nsISupports* aParent, void* aMemoryBuffer,
-                       uint64_t aLength, const nsAString& aName,
+File::CreateMemoryFile(nsISupports* aParent,
+                       void* aMemoryBuffer,
+                       uint64_t aLength,
+                       const nsAString& aName,
                        const nsAString& aContentType,
                        int64_t aLastModifiedDate)
 {
-  RefPtr<File> file = new File(aParent,
-    new MemoryBlobImpl(aMemoryBuffer, aLength, aName,
-                       aContentType, aLastModifiedDate));
+  RefPtr<File> file = new File(
+      aParent,
+      new MemoryBlobImpl(
+          aMemoryBuffer, aLength, aName, aContentType, aLastModifiedDate));
   return file.forget();
 }
 
@@ -67,12 +71,14 @@ File::CreateFromFile(nsISupports* aParent, nsIFile* aFile)
 }
 
 /* static */ already_AddRefed<File>
-File::CreateFromFile(nsISupports* aParent, nsIFile* aFile,
-                     const nsAString& aName, const nsAString& aContentType)
+File::CreateFromFile(nsISupports* aParent,
+                     nsIFile* aFile,
+                     const nsAString& aName,
+                     const nsAString& aContentType)
 {
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
-  RefPtr<File> file = new File(aParent,
-    new FileBlobImpl(aFile, aName, aContentType));
+  RefPtr<File> file =
+      new File(aParent, new FileBlobImpl(aFile, aName, aContentType));
   return file.forget();
 }
 
@@ -121,7 +127,8 @@ File::GetLastModified(ErrorResult& aRv)
 }
 
 void
-File::GetMozFullPath(nsAString& aFilename, SystemCallerGuarantee aGuarantee,
+File::GetMozFullPath(nsAString& aFilename,
+                     SystemCallerGuarantee aGuarantee,
                      ErrorResult& aRv) const
 {
   mImpl->GetMozFullPath(aFilename, aGuarantee, aRv);
@@ -172,7 +179,7 @@ File::CreateFromNsIFile(const GlobalObject& aGlobal,
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
 
   RefPtr<Promise> promise =
-    FileCreatorHelper::CreateFile(global, aData, aBag, true, aRv);
+      FileCreatorHelper::CreateFile(global, aData, aBag, true, aRv);
   return promise.forget();
 }
 
@@ -192,9 +199,9 @@ File::CreateFromFileName(const GlobalObject& aGlobal,
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
 
   RefPtr<Promise> promise =
-    FileCreatorHelper::CreateFile(global, file, aBag, false, aRv);
+      FileCreatorHelper::CreateFile(global, file, aBag, false, aRv);
   return promise.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

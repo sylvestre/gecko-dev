@@ -14,8 +14,7 @@
 namespace js {
 namespace jit {
 
-class StupidAllocator : public RegisterAllocator
-{
+class StupidAllocator : public RegisterAllocator {
     static const uint32_t MAX_REGISTERS = AnyRegister::Total;
     static const uint32_t MISSING_ALLOCATION = UINT32_MAX;
 
@@ -51,15 +50,13 @@ class StupidAllocator : public RegisterAllocator
     // Information about each virtual register.
     Vector<LDefinition*, 0, SystemAllocPolicy> virtualRegisters;
 
-  public:
+   public:
     StupidAllocator(MIRGenerator* mir, LIRGenerator* lir, LIRGraph& graph)
-      : RegisterAllocator(mir, lir, graph)
-    {
-    }
+        : RegisterAllocator(mir, lir, graph) {}
 
     MOZ_MUST_USE bool go();
 
-  private:
+   private:
     MOZ_MUST_USE bool init();
 
     void syncForBlockEnd(LBlock* block, LInstruction* ins);
@@ -76,7 +73,8 @@ class StupidAllocator : public RegisterAllocator
     void syncRegister(LInstruction* ins, RegisterIndex index);
     void evictRegister(LInstruction* ins, RegisterIndex index);
     void evictAliasedRegister(LInstruction* ins, RegisterIndex index);
-    void loadRegister(LInstruction* ins, uint32_t vreg, RegisterIndex index, LDefinition::Type type);
+    void loadRegister(LInstruction* ins, uint32_t vreg, RegisterIndex index,
+                      LDefinition::Type type);
 
     RegisterIndex findExistingRegister(uint32_t vreg);
 
@@ -84,7 +82,7 @@ class StupidAllocator : public RegisterAllocator
     bool registerIsReserved(LInstruction* ins, AnyRegister reg);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_StupidAllocator_h */

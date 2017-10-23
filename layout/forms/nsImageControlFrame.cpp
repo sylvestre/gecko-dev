@@ -15,17 +15,16 @@
 
 using namespace mozilla;
 
-class nsImageControlFrame : public nsImageFrame,
-                            public nsIFormControlFrame
+class nsImageControlFrame : public nsImageFrame, public nsIFormControlFrame
 {
-public:
+ public:
   explicit nsImageControlFrame(nsStyleContext* aContext);
   ~nsImageControlFrame();
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsImageControlFrame)
@@ -44,12 +43,13 @@ public:
 #endif
 
 #ifdef DEBUG_FRAME_DUMP
-  virtual nsresult GetFrameName(nsAString& aResult) const override {
+  virtual nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("ImageControl"), aResult);
   }
 #endif
 
-  virtual nsresult GetCursor(const nsPoint&    aPoint,
+  virtual nsresult GetCursor(const nsPoint& aPoint,
                              nsIFrame::Cursor& aCursor) override;
   // nsIFormContromFrame
   virtual void SetFocus(bool aOn, bool aRepaint) override;
@@ -58,13 +58,11 @@ public:
 };
 
 nsImageControlFrame::nsImageControlFrame(nsStyleContext* aContext)
-  : nsImageFrame(aContext, kClassID)
+    : nsImageFrame(aContext, kClassID)
 {
 }
 
-nsImageControlFrame::~nsImageControlFrame()
-{
-}
+nsImageControlFrame::~nsImageControlFrame() {}
 
 void
 nsImageControlFrame::DestroyFrom(nsIFrame* aDestructRoot)
@@ -84,9 +82,9 @@ NS_NewImageControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsImageControlFrame)
 
 void
-nsImageControlFrame::Init(nsIContent*       aContent,
+nsImageControlFrame::Init(nsIContent* aContent,
                           nsContainerFrame* aParent,
-                          nsIFrame*         aPrevInFlow)
+                          nsIFrame* aPrevInFlow)
 {
   nsImageFrame::Init(aContent, aParent, aPrevInFlow);
 
@@ -100,7 +98,7 @@ nsImageControlFrame::Init(nsIContent*       aContent,
 }
 
 NS_QUERYFRAME_HEAD(nsImageControlFrame)
-  NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
+NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsImageFrame)
 
 #ifdef ACCESSIBILITY
@@ -116,10 +114,10 @@ nsImageControlFrame::AccessibleType()
 #endif
 
 void
-nsImageControlFrame::Reflow(nsPresContext*           aPresContext,
-                            ReflowOutput&     aDesiredSize,
+nsImageControlFrame::Reflow(nsPresContext* aPresContext,
+                            ReflowOutput& aDesiredSize,
                             const ReflowInput& aReflowInput,
-                            nsReflowStatus&          aStatus)
+                            nsReflowStatus& aStatus)
 {
   DO_GLOBAL_REFLOW_COUNT("nsImageControlFrame");
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
@@ -127,7 +125,8 @@ nsImageControlFrame::Reflow(nsPresContext*           aPresContext,
   if (!GetPrevInFlow() && (mState & NS_FRAME_FIRST_REFLOW)) {
     nsCheckboxRadioFrame::RegUnRegAccessKey(this, true);
   }
-  return nsImageFrame::Reflow(aPresContext, aDesiredSize, aReflowInput, aStatus);
+  return nsImageFrame::Reflow(
+      aPresContext, aDesiredSize, aReflowInput, aStatus);
 }
 
 nsresult
@@ -148,7 +147,8 @@ nsImageControlFrame::HandleEvent(nsPresContext* aPresContext,
       uiStyle->mUserInput == StyleUserInput::Disabled) {
     return nsFrame::HandleEvent(aPresContext, aEvent, aEventStatus);
   }
-  if (mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::disabled)) { // XXX cache disabled
+  if (mContent->HasAttr(kNameSpaceID_None,
+                        nsGkAtoms::disabled)) {  // XXX cache disabled
     return NS_OK;
   }
 
@@ -158,9 +158,8 @@ nsImageControlFrame::HandleEvent(nsPresContext* aPresContext,
       aEvent->AsMouseEvent()->button == WidgetMouseEvent::eLeftButton) {
     // Store click point for HTMLInputElement::SubmitNamesValues
     // Do this on MouseUp because the specs don't say and that's what IE does
-    nsIntPoint* lastClickPoint =
-      static_cast<nsIntPoint*>
-                 (mContent->GetProperty(nsGkAtoms::imageClickedPoint));
+    nsIntPoint* lastClickPoint = static_cast<nsIntPoint*>(
+        mContent->GetProperty(nsGkAtoms::imageClickedPoint));
     if (lastClickPoint) {
       // normally lastClickedPoint is not null, as it's allocated in Init()
       nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, this);
@@ -176,8 +175,7 @@ nsImageControlFrame::SetFocus(bool aOn, bool aRepaint)
 }
 
 nsresult
-nsImageControlFrame::GetCursor(const nsPoint&    aPoint,
-                               nsIFrame::Cursor& aCursor)
+nsImageControlFrame::GetCursor(const nsPoint& aPoint, nsIFrame::Cursor& aCursor)
 {
   // Use style defined cursor if one is provided, otherwise when
   // the cursor style is "auto" we use the pointer cursor.
@@ -191,8 +189,7 @@ nsImageControlFrame::GetCursor(const nsPoint&    aPoint,
 }
 
 nsresult
-nsImageControlFrame::SetFormProperty(nsAtom* aName,
-                                     const nsAString& aValue)
+nsImageControlFrame::SetFormProperty(nsAtom* aName, const nsAString& aValue)
 {
   return NS_OK;
 }

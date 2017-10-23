@@ -23,15 +23,18 @@ NS_INTERFACE_MAP_END_INHERITING(PerformanceEntry)
 NS_IMPL_ADDREF_INHERITED(PerformanceResourceTiming, PerformanceEntry)
 NS_IMPL_RELEASE_INHERITED(PerformanceResourceTiming, PerformanceEntry)
 
-PerformanceResourceTiming::PerformanceResourceTiming(PerformanceTiming* aPerformanceTiming,
-                                                     Performance* aPerformance,
-                                                     const nsAString& aName,
-                                                     nsIHttpChannel* aChannel)
-: PerformanceEntry(aPerformance->GetParentObject(), aName, NS_LITERAL_STRING("resource")),
-  mTiming(aPerformanceTiming),
-  mEncodedBodySize(0),
-  mTransferSize(0),
-  mDecodedBodySize(0)
+PerformanceResourceTiming::PerformanceResourceTiming(
+    PerformanceTiming* aPerformanceTiming,
+    Performance* aPerformance,
+    const nsAString& aName,
+    nsIHttpChannel* aChannel)
+    : PerformanceEntry(aPerformance->GetParentObject(),
+                       aName,
+                       NS_LITERAL_STRING("resource")),
+      mTiming(aPerformanceTiming),
+      mEncodedBodySize(0),
+      mTransferSize(0),
+      mDecodedBodySize(0)
 {
   MOZ_ASSERT(aPerformance, "Parent performance object should be provided");
   SetPropertiesFromChannel(aChannel);
@@ -64,9 +67,7 @@ PerformanceResourceTiming::SetPropertiesFromChannel(nsIHttpChannel* aChannel)
   SetDecodedBodySize(decodedBodySize);
 }
 
-PerformanceResourceTiming::~PerformanceResourceTiming()
-{
-}
+PerformanceResourceTiming::~PerformanceResourceTiming() {}
 
 DOMHighResTimeStamp
 PerformanceResourceTiming::StartTime() const
@@ -90,19 +91,22 @@ PerformanceResourceTiming::StartTime() const
 }
 
 JSObject*
-PerformanceResourceTiming::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+PerformanceResourceTiming::WrapObject(JSContext* aCx,
+                                      JS::Handle<JSObject*> aGivenProto)
 {
   return PerformanceResourceTimingBinding::Wrap(aCx, this, aGivenProto);
 }
 
 size_t
-PerformanceResourceTiming::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+PerformanceResourceTiming::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
 }
 
 size_t
-PerformanceResourceTiming::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+PerformanceResourceTiming::SizeOfExcludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   return PerformanceEntry::SizeOfExcludingThis(aMallocSizeOf) +
          mInitiatorType.SizeOfExcludingThisIfUnshared(aMallocSizeOf) +

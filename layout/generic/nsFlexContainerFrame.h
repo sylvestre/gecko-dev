@@ -14,13 +14,13 @@
 #include "mozilla/UniquePtr.h"
 
 namespace mozilla {
-template <class T> class LinkedList;
+template<class T>
+class LinkedList;
 class LogicalPoint;
-} // namespace mozilla
+}  // namespace mozilla
 
-nsContainerFrame* NS_NewFlexContainerFrame(nsIPresShell* aPresShell,
-                                           nsStyleContext* aContext);
-
+nsContainerFrame*
+NS_NewFlexContainerFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 /**
  * This is the rendering object used for laying out elements with
@@ -43,7 +43,7 @@ nsContainerFrame* NS_NewFlexContainerFrame(nsIPresShell* aPresShell,
  */
 class nsFlexContainerFrame final : public nsContainerFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsFlexContainerFrame)
   NS_DECL_QUERYFRAME
 
@@ -59,11 +59,11 @@ public:
   class CachedMeasuringReflowResult;
 
   // nsIFrame overrides
-  void Init(nsIContent*       aContent,
+  void Init(nsIContent* aContent,
             nsContainerFrame* aParent,
-            nsIFrame*         aPrevInFlow) override;
+            nsIFrame* aPrevInFlow) override;
 
-  void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                         const nsDisplayListSet& aLists) override;
 
   void MarkIntrinsicISizesDirty() override;
@@ -85,25 +85,27 @@ public:
   bool GetVerticalAlignBaseline(mozilla::WritingMode aWM,
                                 nscoord* aBaseline) const override
   {
-    return GetNaturalBaselineBOffset(aWM, BaselineSharingGroup::eFirst, aBaseline);
+    return GetNaturalBaselineBOffset(
+        aWM, BaselineSharingGroup::eFirst, aBaseline);
   }
 
   bool GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
                                  BaselineSharingGroup aBaselineGroup,
-                                 nscoord*             aBaseline) const override
+                                 nscoord* aBaseline) const override
   {
     if (HasAnyStateBits(NS_STATE_FLEX_SYNTHESIZE_BASELINE)) {
       return false;
     }
-    *aBaseline = aBaselineGroup == BaselineSharingGroup::eFirst ?
-                   mBaselineFromLastReflow : mLastBaselineFromLastReflow;
+    *aBaseline = aBaselineGroup == BaselineSharingGroup::eFirst
+                     ? mBaselineFromLastReflow
+                     : mLastBaselineFromLastReflow;
     return true;
   }
 
   // nsContainerFrame overrides
   uint16_t CSSAlignmentForAbsPosChild(
-            const ReflowInput& aChildRI,
-            mozilla::LogicalAxis aLogicalAxis) const override;
+      const ReflowInput& aChildRI,
+      mozilla::LogicalAxis aLogicalAxis) const override;
 
   // Flexbox-specific public methods
   bool IsHorizontal();
@@ -128,13 +130,14 @@ public:
                                     uint32_t* aNumPackingSpacesRemaining,
                                     nscoord* aPackingSpaceRemaining);
 
-protected:
+ protected:
   // Protected constructor & destructor
   explicit nsFlexContainerFrame(nsStyleContext* aContext)
-    : nsContainerFrame(aContext, kClassID)
-    , mBaselineFromLastReflow(NS_INTRINSIC_WIDTH_UNKNOWN)
-    , mLastBaselineFromLastReflow(NS_INTRINSIC_WIDTH_UNKNOWN)
-  {}
+      : nsContainerFrame(aContext, kClassID),
+        mBaselineFromLastReflow(NS_INTRINSIC_WIDTH_UNKNOWN),
+        mLastBaselineFromLastReflow(NS_INTRINSIC_WIDTH_UNKNOWN)
+  {
+  }
 
   virtual ~nsFlexContainerFrame();
 
@@ -152,10 +155,10 @@ protected:
    * to, if we find any visibility:collapse children, and Reflow() does
    * everything before that point.)
    */
-  void DoFlexLayout(nsPresContext*           aPresContext,
-                    ReflowOutput&     aDesiredSize,
+  void DoFlexLayout(nsPresContext* aPresContext,
+                    ReflowOutput& aDesiredSize,
                     const ReflowInput& aReflowInput,
-                    nsReflowStatus&          aStatus,
+                    nsReflowStatus& aStatus,
                     nscoord aContentBoxMainSize,
                     nscoord aAvailableBSizeForContent,
                     nsTArray<StrutInfo>& aStruts,
@@ -176,7 +179,7 @@ protected:
   // Protected flex-container-specific methods / member-vars
 #ifdef DEBUG
   void SanityCheckAnonymousFlexItems() const;
-#endif // DEBUG
+#endif  // DEBUG
 
   /*
    * Returns a new FlexItem for the given child frame, allocated on the heap.
@@ -189,10 +192,11 @@ protected:
    * returned FlexItem will be ready to participate in the "Resolve the
    * Flexible Lengths" step of the Flex Layout Algorithm.)
    */
-  mozilla::UniquePtr<FlexItem> GenerateFlexItemForChild(nsPresContext* aPresContext,
-                                     nsIFrame* aChildFrame,
-                                     const ReflowInput& aParentReflowInput,
-                                     const FlexboxAxisTracker& aAxisTracker);
+  mozilla::UniquePtr<FlexItem> GenerateFlexItemForChild(
+      nsPresContext* aPresContext,
+      nsIFrame* aChildFrame,
+      const ReflowInput& aParentReflowInput,
+      const FlexboxAxisTracker& aAxisTracker);
 
   /**
    * This method gets a cached measuring reflow for a flex item, or does it and
@@ -202,9 +206,9 @@ protected:
    * CachedMeasuringReflowResult.
    */
   const CachedMeasuringReflowResult& MeasureAscentAndHeightForFlexItem(
-    FlexItem& aItem,
-    nsPresContext* aPresContext,
-    ReflowInput& aChildReflowInput);
+      FlexItem& aItem,
+      nsPresContext* aPresContext,
+      ReflowInput& aChildReflowInput);
 
   /**
    * This method performs a "measuring" reflow to get the content height of
@@ -212,10 +216,11 @@ protected:
    * resulting height.
    * (Helper for ResolveAutoFlexBasisAndMinSize().)
    */
-  nscoord MeasureFlexItemContentHeight(nsPresContext* aPresContext,
-                                       FlexItem& aFlexItem,
-                                       bool aForceVerticalResizeForMeasuringReflow,
-                                       const ReflowInput& aParentReflowInput);
+  nscoord MeasureFlexItemContentHeight(
+      nsPresContext* aPresContext,
+      FlexItem& aFlexItem,
+      bool aForceVerticalResizeForMeasuringReflow,
+      const ReflowInput& aParentReflowInput);
 
   /**
    * This method resolves an "auto" flex-basis and/or min-main-size value

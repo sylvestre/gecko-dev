@@ -29,11 +29,13 @@ using namespace mozilla::dom;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PresentationConnection)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PresentationConnection, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PresentationConnection,
+                                                  DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwningConnectionList)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PresentationConnection, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PresentationConnection,
+                                                DOMEventTargetHelper)
   tmp->Shutdown();
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mOwningConnectionList)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -46,26 +48,25 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PresentationConnection)
   NS_INTERFACE_MAP_ENTRY(nsIRequest)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-PresentationConnection::PresentationConnection(nsPIDOMWindowInner* aWindow,
-                                               const nsAString& aId,
-                                               const nsAString& aUrl,
-                                               const uint8_t aRole,
-                                               PresentationConnectionList* aList)
-  : DOMEventTargetHelper(aWindow)
-  , mId(aId)
-  , mUrl(aUrl)
-  , mState(PresentationConnectionState::Connecting)
-  , mOwningConnectionList(aList)
-  , mBinaryType(PresentationConnectionBinaryType::Arraybuffer)
+PresentationConnection::PresentationConnection(
+    nsPIDOMWindowInner* aWindow,
+    const nsAString& aId,
+    const nsAString& aUrl,
+    const uint8_t aRole,
+    PresentationConnectionList* aList)
+    : DOMEventTargetHelper(aWindow),
+      mId(aId),
+      mUrl(aUrl),
+      mState(PresentationConnectionState::Connecting),
+      mOwningConnectionList(aList),
+      mBinaryType(PresentationConnectionBinaryType::Arraybuffer)
 {
   MOZ_ASSERT(aRole == nsIPresentationService::ROLE_CONTROLLER ||
              aRole == nsIPresentationService::ROLE_RECEIVER);
   mRole = aRole;
 }
 
-/* virtual */ PresentationConnection::~PresentationConnection()
-{
-}
+/* virtual */ PresentationConnection::~PresentationConnection() {}
 
 /* static */ already_AddRefed<PresentationConnection>
 PresentationConnection::Create(nsPIDOMWindowInner* aWindow,
@@ -77,7 +78,7 @@ PresentationConnection::Create(nsPIDOMWindowInner* aWindow,
   MOZ_ASSERT(aRole == nsIPresentationService::ROLE_CONTROLLER ||
              aRole == nsIPresentationService::ROLE_RECEIVER);
   RefPtr<PresentationConnection> connection =
-    new PresentationConnection(aWindow, aId, aUrl, aRole, aList);
+      new PresentationConnection(aWindow, aId, aUrl, aRole, aList);
   if (NS_WARN_IF(!connection->Init())) {
     return nullptr;
   }
@@ -98,18 +99,18 @@ PresentationConnection::Init()
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     return false;
   }
 
   nsresult rv = service->RegisterSessionListener(mId, mRole, this);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
   }
 
   rv = AddIntoLoadGroup();
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
   }
 
@@ -120,10 +121,11 @@ void
 PresentationConnection::Shutdown()
 {
   PRES_DEBUG("connection shutdown:id[%s], role[%d]\n",
-             NS_ConvertUTF16toUTF8(mId).get(), mRole);
+             NS_ConvertUTF16toUTF8(mId).get(),
+             mRole);
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return;
   }
@@ -207,8 +209,7 @@ PresentationConnection::SetBinaryType(PresentationConnectionBinaryType aType)
 }
 
 void
-PresentationConnection::Send(const nsAString& aData,
-                             ErrorResult& aRv)
+PresentationConnection::Send(const nsAString& aData, ErrorResult& aRv)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return;
@@ -221,27 +222,26 @@ PresentationConnection::Send(const nsAString& aData,
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send message due to an internal error."));
+        NS_LITERAL_STRING("Unable to send message due to an internal error."));
     return;
   }
 
   nsresult rv = service->SendSessionMessage(mId, mRole, aData);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     const uint32_t kMaxMessageLength = 256;
     nsAutoString data(Substring(aData, 0, kMaxMessageLength));
 
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send message: \"") + data +
-      NS_LITERAL_STRING("\""));
+        NS_LITERAL_STRING("Unable to send message: \"") + data +
+        NS_LITERAL_STRING("\""));
   }
 }
 
 void
-PresentationConnection::Send(Blob& aData,
-                             ErrorResult& aRv)
+PresentationConnection::Send(Blob& aData, ErrorResult& aRv)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return;
@@ -253,23 +253,22 @@ PresentationConnection::Send(Blob& aData,
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send message due to an internal error."));
+        NS_LITERAL_STRING("Unable to send message due to an internal error."));
     return;
   }
 
   nsresult rv = service->SendSessionBlob(mId, mRole, &aData);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send binary message for Blob message."));
+        NS_LITERAL_STRING("Unable to send binary message for Blob message."));
   }
 }
 
 void
-PresentationConnection::Send(const ArrayBuffer& aData,
-                             ErrorResult& aRv)
+PresentationConnection::Send(const ArrayBuffer& aData, ErrorResult& aRv)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return;
@@ -281,10 +280,10 @@ PresentationConnection::Send(const ArrayBuffer& aData,
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send message due to an internal error."));
+        NS_LITERAL_STRING("Unable to send message due to an internal error."));
     return;
   }
 
@@ -297,15 +296,14 @@ PresentationConnection::Send(const ArrayBuffer& aData,
   nsDependentCSubstring msgString(data, length);
 
   nsresult rv = service->SendSessionBinaryMsg(mId, mRole, msgString);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
-    AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send binary message for ArrayBuffer message."));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    AsyncCloseConnectionWithErrorMsg(NS_LITERAL_STRING(
+        "Unable to send binary message for ArrayBuffer message."));
   }
 }
 
 void
-PresentationConnection::Send(const ArrayBufferView& aData,
-                             ErrorResult& aRv)
+PresentationConnection::Send(const ArrayBufferView& aData, ErrorResult& aRv)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return;
@@ -317,10 +315,10 @@ PresentationConnection::Send(const ArrayBufferView& aData,
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send message due to an internal error."));
+        NS_LITERAL_STRING("Unable to send message due to an internal error."));
     return;
   }
 
@@ -333,9 +331,9 @@ PresentationConnection::Send(const ArrayBufferView& aData,
   nsDependentCSubstring msgString(data, length);
 
   nsresult rv = service->SendSessionBinaryMsg(mId, mRole, msgString);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
-    AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to send binary message for ArrayBufferView message."));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    AsyncCloseConnectionWithErrorMsg(NS_LITERAL_STRING(
+        "Unable to send binary message for ArrayBufferView message."));
   }
 }
 
@@ -353,16 +351,14 @@ PresentationConnection::Close(ErrorResult& aRv)
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     aRv.Throw(NS_ERROR_DOM_OPERATION_ERR);
     return;
   }
 
-  Unused << NS_WARN_IF(NS_FAILED(
-    service->CloseSession(mId,
-                          mRole,
-                          nsIPresentationService::CLOSED_REASON_CLOSED)));
+  Unused << NS_WARN_IF(NS_FAILED(service->CloseSession(
+      mId, mRole, nsIPresentationService::CLOSED_REASON_CLOSED)));
 }
 
 void
@@ -378,8 +374,8 @@ PresentationConnection::Terminate(ErrorResult& aRv)
   }
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-  if(NS_WARN_IF(!service)) {
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+  if (NS_WARN_IF(!service)) {
     aRv.Throw(NS_ERROR_DOM_OPERATION_ERR);
     return;
   }
@@ -388,12 +384,9 @@ PresentationConnection::Terminate(ErrorResult& aRv)
 }
 
 bool
-PresentationConnection::Equals(uint64_t aWindowId,
-                               const nsAString& aId)
+PresentationConnection::Equals(uint64_t aWindowId, const nsAString& aId)
 {
-  return GetOwner() &&
-         aWindowId == GetOwner()->WindowID() &&
-         mId.Equals(aId);
+  return GetOwner() && aWindowId == GetOwner()->WindowID() && mId.Equals(aId);
 }
 
 NS_IMETHODIMP
@@ -403,8 +396,10 @@ PresentationConnection::NotifyStateChange(const nsAString& aSessionId,
 {
   PRES_DEBUG("connection state change:id[%s], state[%" PRIx32
              "], reason[%" PRIx32 "], role[%d]\n",
-             NS_ConvertUTF16toUTF8(aSessionId).get(), aState,
-             static_cast<uint32_t>(aReason), mRole);
+             NS_ConvertUTF16toUTF8(aSessionId).get(),
+             aState,
+             static_cast<uint32_t>(aReason),
+             mRole);
 
   if (!aSessionId.Equals(mId)) {
     return NS_ERROR_INVALID_ARG;
@@ -440,8 +435,8 @@ PresentationConnection::NotifyStateChange(const nsAString& aSessionId,
   mState = state;
 
   nsresult rv = ProcessStateChanged(aReason);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
 
   if (mOwningConnectionList) {
@@ -463,12 +458,12 @@ PresentationConnection::ProcessStateChanged(nsresult aReason)
       }
 
       RefPtr<AsyncEventDispatcher> asyncDispatcher =
-        new AsyncEventDispatcher(this, NS_LITERAL_STRING("connect"), false);
+          new AsyncEventDispatcher(this, NS_LITERAL_STRING("connect"), false);
       return asyncDispatcher->PostDOMEvent();
     }
     case PresentationConnectionState::Closed: {
       PresentationConnectionClosedReason reason =
-        PresentationConnectionClosedReason::Closed;
+          PresentationConnectionClosedReason::Closed;
 
       nsString errorMsg;
       if (NS_FAILED(aReason)) {
@@ -476,36 +471,35 @@ PresentationConnection::ProcessStateChanged(nsresult aReason)
         nsCString name, message;
 
         // If aReason is not a DOM error, use error name as message.
-        if (NS_FAILED(NS_GetNameAndMessageForDOMNSResult(aReason,
-                                                         name,
-                                                         message))) {
+        if (NS_FAILED(
+                NS_GetNameAndMessageForDOMNSResult(aReason, name, message))) {
           mozilla::GetErrorName(aReason, message);
           message.InsertLiteral("Internal error: ", 0);
         }
         CopyUTF8toUTF16(message, errorMsg);
       }
 
-      Unused <<
-        NS_WARN_IF(NS_FAILED(DispatchConnectionCloseEvent(reason, errorMsg)));
+      Unused << NS_WARN_IF(
+          NS_FAILED(DispatchConnectionCloseEvent(reason, errorMsg)));
 
       return RemoveFromLoadGroup();
     }
     case PresentationConnectionState::Terminated: {
       if (!nsContentUtils::ShouldResistFingerprinting()) {
         // Ensure onterminate event is fired.
-        RefPtr<AsyncEventDispatcher> asyncDispatcher =
-          new AsyncEventDispatcher(this, NS_LITERAL_STRING("terminate"), false);
+        RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
+            this, NS_LITERAL_STRING("terminate"), false);
         Unused << NS_WARN_IF(NS_FAILED(asyncDispatcher->PostDOMEvent()));
       }
 
       nsCOMPtr<nsIPresentationService> service =
-        do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+          do_GetService(PRESENTATION_SERVICE_CONTRACTID);
       if (NS_WARN_IF(!service)) {
         return NS_ERROR_NOT_AVAILABLE;
       }
 
       nsresult rv = service->UnregisterSessionListener(mId, mRole);
-      if(NS_WARN_IF(NS_FAILED(rv))) {
+      if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
 
@@ -522,9 +516,11 @@ PresentationConnection::NotifyMessage(const nsAString& aSessionId,
                                       const nsACString& aData,
                                       bool aIsBinary)
 {
-  PRES_DEBUG("connection %s:id[%s], data[%s], role[%d]\n", __func__,
+  PRES_DEBUG("connection %s:id[%s], data[%s], role[%d]\n",
+             __func__,
              NS_ConvertUTF16toUTF8(aSessionId).get(),
-             nsPromiseFlatCString(aData).get(), mRole);
+             nsPromiseFlatCString(aData).get(),
+             mRole);
 
   if (!aSessionId.Equals(mId)) {
     return NS_ERROR_INVALID_ARG;
@@ -537,7 +533,7 @@ PresentationConnection::NotifyMessage(const nsAString& aSessionId,
 
   if (NS_WARN_IF(NS_FAILED(DoReceiveMessage(aData, aIsBinary)))) {
     AsyncCloseConnectionWithErrorMsg(
-      NS_LITERAL_STRING("Unable to receive a message."));
+        NS_LITERAL_STRING("Unable to receive a message."));
     return NS_ERROR_FAILURE;
   }
 
@@ -545,7 +541,8 @@ PresentationConnection::NotifyMessage(const nsAString& aSessionId,
 }
 
 nsresult
-PresentationConnection::DoReceiveMessage(const nsACString& aData, bool aIsBinary)
+PresentationConnection::DoReceiveMessage(const nsACString& aData,
+                                         bool aIsBinary)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return NS_OK;
@@ -563,7 +560,7 @@ PresentationConnection::DoReceiveMessage(const nsACString& aData, bool aIsBinary
   if (aIsBinary) {
     if (mBinaryType == PresentationConnectionBinaryType::Blob) {
       RefPtr<Blob> blob =
-        Blob::CreateStringBlob(GetOwner(), aData, EmptyString());
+          Blob::CreateStringBlob(GetOwner(), aData, EmptyString());
       MOZ_ASSERT(blob);
 
       if (!ToJSValue(cx, blob, &jsData)) {
@@ -582,7 +579,7 @@ PresentationConnection::DoReceiveMessage(const nsACString& aData, bool aIsBinary
     }
   } else {
     NS_ConvertUTF8toUTF16 utf16Data(aData);
-    if(NS_WARN_IF(!ToJSValue(cx, utf16Data, &jsData))) {
+    if (NS_WARN_IF(!ToJSValue(cx, utf16Data, &jsData))) {
       return NS_ERROR_FAILURE;
     }
   }
@@ -592,9 +589,9 @@ PresentationConnection::DoReceiveMessage(const nsACString& aData, bool aIsBinary
 
 nsresult
 PresentationConnection::DispatchConnectionCloseEvent(
-  PresentationConnectionClosedReason aReason,
-  const nsAString& aMessage,
-  bool aDispatchNow)
+    PresentationConnectionClosedReason aReason,
+    const nsAString& aMessage,
+    bool aDispatchNow)
 {
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return NS_OK;
@@ -610,9 +607,8 @@ PresentationConnection::DispatchConnectionCloseEvent(
   init.mMessage = aMessage;
 
   RefPtr<PresentationConnectionCloseEvent> closedEvent =
-    PresentationConnectionCloseEvent::Constructor(this,
-                                                   NS_LITERAL_STRING("close"),
-                                                   init);
+      PresentationConnectionCloseEvent::Constructor(
+          this, NS_LITERAL_STRING("close"), init);
   closedEvent->SetTrusted(true);
 
   if (aDispatchNow) {
@@ -621,7 +617,7 @@ PresentationConnection::DispatchConnectionCloseEvent(
   }
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, static_cast<Event*>(closedEvent));
+      new AsyncEventDispatcher(this, static_cast<Event*>(closedEvent));
   return asyncDispatcher->PostDOMEvent();
 }
 
@@ -644,13 +640,17 @@ PresentationConnection::DispatchMessageEvent(JS::Handle<JS::Value> aData)
 
   messageEvent->InitMessageEvent(nullptr,
                                  NS_LITERAL_STRING("message"),
-                                 false, false, aData, origin,
-                                 EmptyString(), nullptr,
+                                 false,
+                                 false,
+                                 aData,
+                                 origin,
+                                 EmptyString(),
+                                 nullptr,
                                  Sequence<OwningNonNull<MessagePort>>());
   messageEvent->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, static_cast<Event*>(messageEvent));
+      new AsyncEventDispatcher(this, static_cast<Event*>(messageEvent));
   return asyncDispatcher->PostDOMEvent();
 }
 
@@ -667,17 +667,17 @@ PresentationConnection::ProcessConnectionWentAway()
   mState = PresentationConnectionState::Terminated;
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   return service->CloseSession(
-    mId, mRole, nsIPresentationService::CLOSED_REASON_WENTAWAY);
+      mId, mRole, nsIPresentationService::CLOSED_REASON_WENTAWAY);
 }
 
 NS_IMETHODIMP
-PresentationConnection::GetName(nsACString &aResult)
+PresentationConnection::GetName(nsACString& aResult)
 {
   aResult.AssignLiteral("about:presentation-connection");
   return NS_OK;
@@ -700,22 +700,16 @@ PresentationConnection::GetStatus(nsresult* aStatus)
 NS_IMETHODIMP
 PresentationConnection::Cancel(nsresult aStatus)
 {
-  nsCOMPtr<nsIRunnable> event =
-    NewRunnableMethod("dom::PresentationConnection::ProcessConnectionWentAway",
-                      this,
-                      &PresentationConnection::ProcessConnectionWentAway);
+  nsCOMPtr<nsIRunnable> event = NewRunnableMethod(
+      "dom::PresentationConnection::ProcessConnectionWentAway",
+      this,
+      &PresentationConnection::ProcessConnectionWentAway);
   return NS_DispatchToCurrentThread(event);
 }
 NS_IMETHODIMP
-PresentationConnection::Suspend(void)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+PresentationConnection::Suspend(void) { return NS_ERROR_NOT_IMPLEMENTED; }
 NS_IMETHODIMP
-PresentationConnection::Resume(void)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+PresentationConnection::Resume(void) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 PresentationConnection::GetLoadGroup(nsILoadGroup** aLoadGroup)
@@ -732,7 +726,7 @@ PresentationConnection::GetLoadGroup(nsILoadGroup** aLoadGroup)
 }
 
 NS_IMETHODIMP
-PresentationConnection::SetLoadGroup(nsILoadGroup * aLoadGroup)
+PresentationConnection::SetLoadGroup(nsILoadGroup* aLoadGroup)
 {
   return NS_ERROR_UNEXPECTED;
 }
@@ -745,10 +739,7 @@ PresentationConnection::GetLoadFlags(nsLoadFlags* aLoadFlags)
 }
 
 NS_IMETHODIMP
-PresentationConnection::SetLoadFlags(nsLoadFlags aLoadFlags)
-{
-  return NS_OK;
-}
+PresentationConnection::SetLoadFlags(nsLoadFlags aLoadFlags) { return NS_OK; }
 
 nsresult
 PresentationConnection::AddIntoLoadGroup()
@@ -760,12 +751,12 @@ PresentationConnection::AddIntoLoadGroup()
 
   nsCOMPtr<nsILoadGroup> loadGroup;
   nsresult rv = GetLoadGroup(getter_AddRefs(loadGroup));
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   rv = loadGroup->AddRequest(this, nullptr);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
@@ -790,7 +781,8 @@ PresentationConnection::RemoveFromLoadGroup()
 }
 
 void
-PresentationConnection::AsyncCloseConnectionWithErrorMsg(const nsAString& aMessage)
+PresentationConnection::AsyncCloseConnectionWithErrorMsg(
+    const nsAString& aMessage)
 {
   if (mState == PresentationConnectionState::Terminated) {
     return;
@@ -799,30 +791,28 @@ PresentationConnection::AsyncCloseConnectionWithErrorMsg(const nsAString& aMessa
   nsString message = nsString(aMessage);
   RefPtr<PresentationConnection> self = this;
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-    "dom::PresentationConnection::AsyncCloseConnectionWithErrorMsg",
-    [self, message]() -> void {
-      // Set |mState| to |PresentationConnectionState::Closed| here to avoid
-      // calling |ProcessStateChanged|.
-      self->mState = PresentationConnectionState::Closed;
+      "dom::PresentationConnection::AsyncCloseConnectionWithErrorMsg",
+      [self, message]() -> void {
+        // Set |mState| to |PresentationConnectionState::Closed| here to avoid
+        // calling |ProcessStateChanged|.
+        self->mState = PresentationConnectionState::Closed;
 
-      // Make sure dispatching the event and closing the connection are invoked
-      // at the same time by setting |aDispatchNow| to true.
-      Unused << NS_WARN_IF(NS_FAILED(
-        self->DispatchConnectionCloseEvent(PresentationConnectionClosedReason::Error,
-                                           message,
-                                           true)));
+        // Make sure dispatching the event and closing the connection are invoked
+        // at the same time by setting |aDispatchNow| to true.
+        Unused << NS_WARN_IF(NS_FAILED(self->DispatchConnectionCloseEvent(
+            PresentationConnectionClosedReason::Error, message, true)));
 
-      nsCOMPtr<nsIPresentationService> service =
-        do_GetService(PRESENTATION_SERVICE_CONTRACTID);
-      if(NS_WARN_IF(!service)) {
-        return;
-      }
+        nsCOMPtr<nsIPresentationService> service =
+            do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+        if (NS_WARN_IF(!service)) {
+          return;
+        }
 
-      Unused << NS_WARN_IF(NS_FAILED(
-        service->CloseSession(self->mId,
-                              self->mRole,
-                              nsIPresentationService::CLOSED_REASON_ERROR)));
-    });
+        Unused << NS_WARN_IF(NS_FAILED(service->CloseSession(
+            self->mId,
+            self->mRole,
+            nsIPresentationService::CLOSED_REASON_ERROR)));
+      });
 
   Unused << NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(r)));
 }

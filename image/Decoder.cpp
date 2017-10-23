@@ -23,9 +23,8 @@ namespace image {
 
 class MOZ_STACK_CLASS AutoRecordDecoderTelemetry final
 {
-public:
-  explicit AutoRecordDecoderTelemetry(Decoder* aDecoder)
-    : mDecoder(aDecoder)
+ public:
+  explicit AutoRecordDecoderTelemetry(Decoder* aDecoder) : mDecoder(aDecoder)
   {
     MOZ_ASSERT(mDecoder);
 
@@ -39,33 +38,34 @@ public:
     mDecoder->mDecodeTime += (TimeStamp::Now() - mStartTime);
   }
 
-private:
+ private:
   Decoder* mDecoder;
   TimeStamp mStartTime;
 };
 
 Decoder::Decoder(RasterImage* aImage)
-  : mImageData(nullptr)
-  , mImageDataLength(0)
-  , mColormap(nullptr)
-  , mColormapSize(0)
-  , mImage(aImage)
-  , mProgress(NoProgress)
-  , mFrameCount(0)
-  , mLoopLength(FrameTimeout::Zero())
-  , mDecoderFlags(DefaultDecoderFlags())
-  , mSurfaceFlags(DefaultSurfaceFlags())
-  , mInitialized(false)
-  , mMetadataDecode(false)
-  , mHaveExplicitOutputSize(false)
-  , mInFrame(false)
-  , mFinishedNewFrame(false)
-  , mReachedTerminalState(false)
-  , mDecodeDone(false)
-  , mError(false)
-  , mShouldReportError(false)
-  , mFinalizeFrames(true)
-{ }
+    : mImageData(nullptr),
+      mImageDataLength(0),
+      mColormap(nullptr),
+      mColormapSize(0),
+      mImage(aImage),
+      mProgress(NoProgress),
+      mFrameCount(0),
+      mLoopLength(FrameTimeout::Zero()),
+      mDecoderFlags(DefaultDecoderFlags()),
+      mSurfaceFlags(DefaultSurfaceFlags()),
+      mInitialized(false),
+      mMetadataDecode(false),
+      mHaveExplicitOutputSize(false),
+      mInFrame(false),
+      mFinishedNewFrame(false),
+      mReachedTerminalState(false),
+      mDecodeDone(false),
+      mError(false),
+      mShouldReportError(false),
+      mFinalizeFrames(true)
+{
+}
 
 Decoder::~Decoder()
 {
@@ -127,7 +127,7 @@ Decoder::Decode(IResumable* aOnResume /* = nullptr */)
     AUTO_PROFILER_LABEL("Decoder::Decode", GRAPHICS);
     AutoRecordDecoderTelemetry telemetry(this);
 
-    lexerResult =  DoDecode(*mIterator, aOnResume);
+    lexerResult = DoDecode(*mIterator, aOnResume);
   };
 
   if (lexerResult.is<Yield>()) {
@@ -185,8 +185,7 @@ Decoder::CompleteDecode()
     PostError();
   }
 
-  rv = HasError() ? FinishWithErrorInternal()
-                  : FinishInternal();
+  rv = HasError() ? FinishWithErrorInternal() : FinishInternal();
   if (NS_FAILED(rv)) {
     PostError();
   }
@@ -230,8 +229,7 @@ Decoder::CompleteDecode()
     // as optimizable. We don't support optimizing animated images and
     // optimizing transient images isn't worth it.
     if (!HasAnimation() &&
-        !(mDecoderFlags & DecoderFlags::IMAGE_IS_TRANSIENT) &&
-        mCurrentFrame) {
+        !(mDecoderFlags & DecoderFlags::IMAGE_IS_TRANSIENT) && mCurrentFrame) {
       mCurrentFrame->SetOptimizable();
     }
   }
@@ -262,10 +260,8 @@ Decoder::TakeCompleteFrameCount()
 DecoderFinalStatus
 Decoder::FinalStatus() const
 {
-  return DecoderFinalStatus(IsMetadataDecode(),
-                            GetDecodeDone(),
-                            HasError(),
-                            ShouldReportError());
+  return DecoderFinalStatus(
+      IsMetadataDecode(), GetDecodeDone(), HasError(), ShouldReportError());
 }
 
 DecoderTelemetry
@@ -285,8 +281,11 @@ Decoder::AllocateFrame(uint32_t aFrameNum,
                        gfx::SurfaceFormat aFormat,
                        uint8_t aPaletteDepth)
 {
-  mCurrentFrame = AllocateFrameInternal(aFrameNum, aOutputSize, aFrameRect,
-                                        aFormat, aPaletteDepth,
+  mCurrentFrame = AllocateFrameInternal(aFrameNum,
+                                        aOutputSize,
+                                        aFrameRect,
+                                        aFormat,
+                                        aPaletteDepth,
                                         mCurrentFrame.get());
 
   if (mCurrentFrame) {
@@ -334,8 +333,11 @@ Decoder::AllocateFrameInternal(uint32_t aFrameNum,
 
   auto frame = MakeNotNull<RefPtr<imgFrame>>();
   bool nonPremult = bool(mSurfaceFlags & SurfaceFlags::NO_PREMULTIPLY_ALPHA);
-  if (NS_FAILED(frame->InitForDecoder(aOutputSize, aFrameRect, aFormat,
-                                      aPaletteDepth, nonPremult,
+  if (NS_FAILED(frame->InitForDecoder(aOutputSize,
+                                      aFrameRect,
+                                      aFormat,
+                                      aPaletteDepth,
+                                      nonPremult,
                                       aFrameNum > 0))) {
     NS_WARNING("imgFrame::Init should succeed");
     return RawAccessFrameRef();
@@ -379,11 +381,24 @@ Decoder::AllocateFrameInternal(uint32_t aFrameNum,
  * Hook stubs. Override these as necessary in decoder implementations.
  */
 
-nsresult Decoder::InitInternal() { return NS_OK; }
-nsresult Decoder::BeforeFinishInternal() { return NS_OK; }
-nsresult Decoder::FinishInternal() { return NS_OK; }
+nsresult
+Decoder::InitInternal()
+{
+  return NS_OK;
+}
+nsresult
+Decoder::BeforeFinishInternal()
+{
+  return NS_OK;
+}
+nsresult
+Decoder::FinishInternal()
+{
+  return NS_OK;
+}
 
-nsresult Decoder::FinishWithErrorInternal()
+nsresult
+Decoder::FinishWithErrorInternal()
 {
   MOZ_ASSERT(!mInFrame);
   return NS_OK;
@@ -448,9 +463,9 @@ Decoder::PostIsAnimated(FrameTimeout aFirstFrameTimeout)
 
 void
 Decoder::PostFrameStop(Opacity aFrameOpacity
-                         /* = Opacity::SOME_TRANSPARENCY */,
+                       /* = Opacity::SOME_TRANSPARENCY */,
                        DisposalMethod aDisposalMethod
-                         /* = DisposalMethod::KEEP */,
+                       /* = DisposalMethod::KEEP */,
                        FrameTimeout aTimeout /* = FrameTimeout::Forever() */,
                        BlendMethod aBlendMethod /* = BlendMethod::OVER */,
                        const Maybe<nsIntRect>& aBlendRect /* = Nothing() */)
@@ -464,8 +479,12 @@ Decoder::PostFrameStop(Opacity aFrameOpacity
   mInFrame = false;
   mFinishedNewFrame = true;
 
-  mCurrentFrame->Finish(aFrameOpacity, aDisposalMethod, aTimeout,
-                        aBlendMethod, aBlendRect, mFinalizeFrames);
+  mCurrentFrame->Finish(aFrameOpacity,
+                        aDisposalMethod,
+                        aTimeout,
+                        aBlendMethod,
+                        aBlendRect,
+                        mFinalizeFrames);
 
   mProgress |= FLAG_FRAME_COMPLETE;
 
@@ -474,15 +493,14 @@ Decoder::PostFrameStop(Opacity aFrameOpacity
   // If we're not sending partial invalidations, then we send an invalidation
   // here when the first frame is complete.
   if (!ShouldSendPartialInvalidations() && mFrameCount == 1) {
-    mInvalidRect.UnionRect(mInvalidRect,
-                           IntRect(IntPoint(), Size()));
+    mInvalidRect.UnionRect(mInvalidRect, IntRect(IntPoint(), Size()));
   }
 }
 
 void
 Decoder::PostInvalidation(const gfx::IntRect& aRect,
                           const Maybe<gfx::IntRect>& aRectAtOutputSize
-                            /* = Nothing() */)
+                          /* = Nothing() */)
 {
   // We should be mid-frame
   MOZ_ASSERT(mInFrame, "Can't invalidate when not mid-frame!");
@@ -532,5 +550,5 @@ Decoder::PostError()
   }
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

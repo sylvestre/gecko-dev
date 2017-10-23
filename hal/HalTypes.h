@@ -22,19 +22,21 @@ const uint64_t CONTENT_PROCESS_ID_MAIN = 0;
 
 class SwitchEvent;
 
-enum SwitchDevice {
+enum SwitchDevice
+{
   SWITCH_DEVICE_UNKNOWN = -1,
   SWITCH_HEADPHONES,
   SWITCH_USB,
   NUM_SWITCH_DEVICE
 };
 
-enum SwitchState {
+enum SwitchState
+{
   SWITCH_STATE_UNKNOWN = -1,
   SWITCH_STATE_ON,
   SWITCH_STATE_OFF,
-  SWITCH_STATE_HEADSET,          // Headphone with microphone
-  SWITCH_STATE_HEADPHONE,        // without microphone
+  SWITCH_STATE_HEADSET,    // Headphone with microphone
+  SWITCH_STATE_HEADPHONE,  // without microphone
   NUM_SWITCH_STATE
 };
 
@@ -42,7 +44,8 @@ typedef Observer<SwitchEvent> SwitchObserver;
 
 // Note that we rely on the order of this enum's entries.  Higher priorities
 // should have larger int values.
-enum ProcessPriority {
+enum ProcessPriority
+{
   PROCESS_PRIORITY_UNKNOWN = -1,
   PROCESS_PRIORITY_BACKGROUND,
   PROCESS_PRIORITY_BACKGROUND_PERCEIVABLE,
@@ -66,7 +69,8 @@ enum ProcessPriority {
  * that it makes sense holistically for the overall operating system.  On
  * android we may want different priority schemes than on windows, etc.
  */
-enum ThreadPriority {
+enum ThreadPriority
+{
   THREAD_PRIORITY_COMPOSITOR,
   NUM_THREAD_PRIORITY
 };
@@ -88,66 +92,66 @@ ProcessPriorityToString(ProcessPriority aPriority);
  * If you pass an unknown process priority, we assert in debug builds
  * and otherwise return "???".
  */
-const char *
+const char*
 ThreadPriorityToString(ThreadPriority aPriority);
 
 /**
  * Used by ModifyWakeLock
  */
-enum WakeLockControl {
+enum WakeLockControl
+{
   WAKE_LOCK_REMOVE_ONE = -1,
-  WAKE_LOCK_NO_CHANGE  = 0,
-  WAKE_LOCK_ADD_ONE    = 1,
+  WAKE_LOCK_NO_CHANGE = 0,
+  WAKE_LOCK_ADD_ONE = 1,
   NUM_WAKE_LOCK
 };
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
 namespace IPC {
 
 /**
  * WakeLockControl serializer.
  */
-template <>
+template<>
 struct ParamTraits<mozilla::hal::WakeLockControl>
-  : public ContiguousEnumSerializer<
-             mozilla::hal::WakeLockControl,
-             mozilla::hal::WAKE_LOCK_REMOVE_ONE,
-             mozilla::hal::NUM_WAKE_LOCK>
-{};
+    : public ContiguousEnumSerializer<mozilla::hal::WakeLockControl,
+                                      mozilla::hal::WAKE_LOCK_REMOVE_ONE,
+                                      mozilla::hal::NUM_WAKE_LOCK>
+{
+};
 
 /**
  * Serializer for SwitchState
  */
-template <>
-struct ParamTraits<mozilla::hal::SwitchState>:
-  public ContiguousEnumSerializer<
-           mozilla::hal::SwitchState,
-           mozilla::hal::SWITCH_STATE_UNKNOWN,
-           mozilla::hal::NUM_SWITCH_STATE> {
+template<>
+struct ParamTraits<mozilla::hal::SwitchState>
+    : public ContiguousEnumSerializer<mozilla::hal::SwitchState,
+                                      mozilla::hal::SWITCH_STATE_UNKNOWN,
+                                      mozilla::hal::NUM_SWITCH_STATE>
+{
 };
 
 /**
  * Serializer for SwitchDevice
  */
-template <>
-struct ParamTraits<mozilla::hal::SwitchDevice>:
-  public ContiguousEnumSerializer<
-           mozilla::hal::SwitchDevice,
-           mozilla::hal::SWITCH_DEVICE_UNKNOWN,
-           mozilla::hal::NUM_SWITCH_DEVICE> {
+template<>
+struct ParamTraits<mozilla::hal::SwitchDevice>
+    : public ContiguousEnumSerializer<mozilla::hal::SwitchDevice,
+                                      mozilla::hal::SWITCH_DEVICE_UNKNOWN,
+                                      mozilla::hal::NUM_SWITCH_DEVICE>
+{
 };
 
-template <>
-struct ParamTraits<mozilla::hal::ProcessPriority>:
-  public ContiguousEnumSerializer<
-           mozilla::hal::ProcessPriority,
-           mozilla::hal::PROCESS_PRIORITY_UNKNOWN,
-           mozilla::hal::NUM_PROCESS_PRIORITY> {
+template<>
+struct ParamTraits<mozilla::hal::ProcessPriority>
+    : public ContiguousEnumSerializer<mozilla::hal::ProcessPriority,
+                                      mozilla::hal::PROCESS_PRIORITY_UNKNOWN,
+                                      mozilla::hal::NUM_PROCESS_PRIORITY>
+{
 };
 
+}  // namespace IPC
 
-} // namespace IPC
-
-#endif // mozilla_hal_Types_h
+#endif  // mozilla_hal_Types_h

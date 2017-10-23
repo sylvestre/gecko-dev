@@ -26,7 +26,7 @@ class nsIDNService final : public nsIIDNService,
                            public nsIObserver,
                            public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIIDNSERVICE
   NS_DECL_NSIOBSERVER
@@ -35,11 +35,12 @@ public:
 
   nsresult Init();
 
-protected:
+ protected:
   virtual ~nsIDNService();
 
-private:
-  enum stringPrepFlag {
+ private:
+  enum stringPrepFlag
+  {
     eStringPrepForDNS,
     eStringPrepForUI,
     eStringPrepIgnoreErrors
@@ -66,7 +67,8 @@ private:
    *        if eStringPrepForDNS and stringPrep finds an illegal
    *           character, returns NS_FAILURE and out is empty
    */
-  nsresult stringPrepAndACE(const nsAString& in, nsACString& out,
+  nsresult stringPrepAndACE(const nsAString& in,
+                            nsACString& out,
                             stringPrepFlag flag);
 
   /**
@@ -82,7 +84,8 @@ private:
    *           display, the output is the same as the input
    *        @see isLabelSafe
    */
-  nsresult decodeACE(const nsACString& in, nsACString& out,
+  nsresult decodeACE(const nsACString& in,
+                     nsACString& out,
                      stringPrepFlag flag);
 
   /**
@@ -92,13 +95,15 @@ private:
    *  label individually, so the output may contain some labels in
    *  punycode and some in UTF-8
    */
-  nsresult UTF8toACE(const nsACString& input, nsACString& ace,
+  nsresult UTF8toACE(const nsACString& input,
+                     nsACString& ace,
                      stringPrepFlag flag);
-  nsresult ACEtoUTF8(const nsACString& input, nsACString& _retval,
+  nsresult ACEtoUTF8(const nsACString& input,
+                     nsACString& _retval,
                      stringPrepFlag flag);
 
-  bool isInWhitelist(const nsACString &host);
-  void prefsChanged(nsIPrefBranch *prefBranch, const char16_t *pref);
+  bool isInWhitelist(const nsACString& host);
+  void prefsChanged(nsIPrefBranch* prefBranch, const char16_t* pref);
 
   /**
    * Determine whether a label is considered safe to display to the user
@@ -127,7 +132,7 @@ private:
    *  Both simplified-only and traditional-only Chinese characters
    *   XXX this test was disabled by bug 857481
    */
-  bool isLabelSafe(const nsAString &label);
+  bool isLabelSafe(const nsAString& label);
 
   /**
    * Determine whether a combination of scripts in a single label is
@@ -154,7 +159,8 @@ private:
   /**
    * Convert a DNS label to a normalized form conforming to IDNA2008
    */
-  nsresult IDNA2008StringPrep(const nsAString& input, nsAString& output,
+  nsresult IDNA2008StringPrep(const nsAString& input,
+                              nsAString& output,
                               stringPrepFlag flag);
 
   UIDNA* mIDNA;
@@ -185,7 +191,8 @@ private:
    * http://www.unicode.org/reports/tr39/#Restriction_Level_Detection,
    * and selected by the pref network.IDN.restriction_profile
    */
-   enum restrictionProfile {
+  enum restrictionProfile
+  {
     eASCIIOnlyProfile,
     eHighlyRestrictiveProfile,
     eModeratelyRestrictiveProfile

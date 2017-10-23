@@ -45,17 +45,13 @@
 
 extern "C" {
 
-int64_t
-__aeabi_idivmod(int x, int y)
-{
+int64_t __aeabi_idivmod(int x, int y) {
     uint32_t lo = uint32_t(x / y);
     uint32_t hi = uint32_t(x % y);
     return (int64_t(hi) << 32) | lo;
 }
 
-int64_t
-__aeabi_uidivmod(int x, int y)
-{
+int64_t __aeabi_uidivmod(int x, int y) {
     uint32_t lo = uint32_t(x) / uint32_t(y);
     uint32_t hi = uint32_t(x) % uint32_t(y);
     return (int64_t(hi) << 32) | lo;
@@ -68,24 +64,16 @@ namespace jit {
 // Load/store multiple addressing mode.
 enum BlockAddrMode {
     // Alias modes for comparison when writeback does not matter.
-    da_x         = (0|0|0) << 21,  // Decrement after.
-    ia_x         = (0|4|0) << 21,  // Increment after.
-    db_x         = (8|0|0) << 21,  // Decrement before.
-    ib_x         = (8|4|0) << 21,  // Increment before.
+    da_x = (0 | 0 | 0) << 21,  // Decrement after.
+    ia_x = (0 | 4 | 0) << 21,  // Increment after.
+    db_x = (8 | 0 | 0) << 21,  // Decrement before.
+    ib_x = (8 | 4 | 0) << 21,  // Increment before.
 };
 
 // Type of VFP register. Determines register encoding.
-enum VFPRegPrecision {
-    kSinglePrecision = 0,
-    kDoublePrecision = 1
-};
+enum VFPRegPrecision { kSinglePrecision = 0, kDoublePrecision = 1 };
 
-enum NeonListType {
-    nlt_1 = 0x7,
-    nlt_2 = 0xA,
-    nlt_3 = 0x6,
-    nlt_4 = 0x2
-};
+enum NeonListType { nlt_1 = 0x7, nlt_2 = 0xA, nlt_3 = 0x6, nlt_4 = 0x2 };
 
 // Supervisor Call (svc) specific support.
 
@@ -95,8 +83,8 @@ enum NeonListType {
 // standard SoftwareInterrupCode. Bit 23 is reserved for the stop feature.
 enum SoftwareInterruptCodes {
     kCallRtRedirected = 0x10,  // Transition to C code.
-    kBreakpoint= 0x20, // Breakpoint.
-    kStopCode = 1 << 23 // Stop.
+    kBreakpoint = 0x20,        // Breakpoint.
+    kStopCode = 1 << 23        // Stop.
 };
 
 const uint32_t kStopCodeMask = kStopCode - 1;
@@ -119,26 +107,17 @@ const uint32_t kMaxStopCode = kStopCode - 1;
 // }
 //
 class SimInstruction {
-  public:
-    enum {
-        kInstrSize = 4,
-        kPCReadOffset = 8
-    };
+   public:
+    enum { kInstrSize = 4, kPCReadOffset = 8 };
 
     // Get the raw instruction bits.
-    inline Instr instructionBits() const {
-        return *reinterpret_cast<const Instr*>(this);
-    }
+    inline Instr instructionBits() const { return *reinterpret_cast<const Instr*>(this); }
 
     // Set the raw instruction bits to value.
-    inline void setInstructionBits(Instr value) {
-        *reinterpret_cast<Instr*>(this) = value;
-    }
+    inline void setInstructionBits(Instr value) { *reinterpret_cast<Instr*>(this) = value; }
 
     // Read one particular bit out of the instruction bits.
-    inline int bit(int nr) const {
-        return (instructionBits() >> nr) & 1;
-    }
+    inline int bit(int nr) const { return (instructionBits() >> nr) & 1; }
 
     // Read a bit field's value out of the instruction bits.
     inline int bits(int hi, int lo) const {
@@ -261,13 +240,13 @@ class SimInstruction {
     }
 
     // Special accessors that test for existence of a value.
-    inline bool hasS()    const { return sValue() == 1; }
-    inline bool hasB()    const { return bValue() == 1; }
-    inline bool hasW()    const { return wValue() == 1; }
-    inline bool hasL()    const { return lValue() == 1; }
-    inline bool hasU()    const { return uValue() == 1; }
+    inline bool hasS() const { return sValue() == 1; }
+    inline bool hasB() const { return bValue() == 1; }
+    inline bool hasW() const { return wValue() == 1; }
+    inline bool hasL() const { return lValue() == 1; }
+    inline bool hasU() const { return uValue() == 1; }
     inline bool hasSign() const { return signValue() == 1; }
-    inline bool hasH()    const { return hValue() == 1; }
+    inline bool hasH() const { return hValue() == 1; }
     inline bool hasLink() const { return linkValue() == 1; }
 
     // Decoding the double immediate in the vmov instruction.
@@ -275,14 +254,13 @@ class SimInstruction {
     // Decoding the float32 immediate in the vmov.f32 instruction.
     float float32ImmedVmov() const;
 
-  private:
+   private:
     // Join split register codes, depending on single or double precision.
     // four_bit is the position of the least-significant bit of the four
     // bit specifier. one_bit is the position of the additional single bit
     // specifier.
     inline int VFPGlueRegValue(VFPRegPrecision pre, int four_bit, int one_bit) {
-        if (pre == kSinglePrecision)
-            return (bits(four_bit + 3, four_bit) << 1) | bit(one_bit);
+        if (pre == kSinglePrecision) return (bits(four_bit + 3, four_bit) << 1) | bit(one_bit);
         return (bit(one_bit) << 4) | bits(four_bit + 3, four_bit);
     }
 
@@ -291,9 +269,7 @@ class SimInstruction {
     void operator=(const SimInstruction& other) = delete;
 };
 
-double
-SimInstruction::doubleImmedVmov() const
-{
+double SimInstruction::doubleImmedVmov() const {
     // Reconstruct a double from the immediate encoded in the vmov instruction.
     //
     //   instruction: [xxxxxxxx,xxxxabcd,xxxxxxxx,xxxxefgh]
@@ -302,18 +278,16 @@ SimInstruction::doubleImmedVmov() const
     //
     // where B = ~b. Only the high 16 bits are affected.
     uint64_t high16;
-    high16  = (bits(17, 16) << 4) | bits(3, 0);   // xxxxxxxx,xxcdefgh.
-    high16 |= (0xff * bit(18)) << 6;              // xxbbbbbb,bbxxxxxx.
-    high16 |= (bit(18) ^ 1) << 14;                // xBxxxxxx,xxxxxxxx.
-    high16 |= bit(19) << 15;                      // axxxxxxx,xxxxxxxx.
+    high16 = (bits(17, 16) << 4) | bits(3, 0);  // xxxxxxxx,xxcdefgh.
+    high16 |= (0xff * bit(18)) << 6;            // xxbbbbbb,bbxxxxxx.
+    high16 |= (bit(18) ^ 1) << 14;              // xBxxxxxx,xxxxxxxx.
+    high16 |= bit(19) << 15;                    // axxxxxxx,xxxxxxxx.
 
     uint64_t imm = high16 << 48;
     return mozilla::BitwiseCast<double>(imm);
 }
 
-float
-SimInstruction::float32ImmedVmov() const
-{
+float SimInstruction::float32ImmedVmov() const {
     // Reconstruct a float32 from the immediate encoded in the vmov instruction.
     //
     //   instruction: [xxxxxxxx,xxxxabcd,xxxxxxxx,xxxxefgh]
@@ -321,7 +295,7 @@ SimInstruction::float32ImmedVmov() const
     //
     // where B = ~b. Only the high 16 bits are affected.
     uint32_t imm;
-    imm  = (bits(17, 16) << 23) | (bits(3, 0) << 19); // xxxxxxxc,defgh000.0.0
+    imm = (bits(17, 16) << 23) | (bits(3, 0) << 19);  // xxxxxxxc,defgh000.0.0
     imm |= (0x1f * bit(18)) << 25;                    // xxbbbbbx,xxxxxxxx.0.0
     imm |= (bit(18) ^ 1) << 30;                       // xBxxxxxx,xxxxxxxx.0.0
     imm |= bit(19) << 31;                             // axxxxxxx,xxxxxxxx.0.0
@@ -329,9 +303,8 @@ SimInstruction::float32ImmedVmov() const
     return mozilla::BitwiseCast<float>(imm);
 }
 
-class CachePage
-{
-  public:
+class CachePage {
+   public:
     static const int LINE_VALID = 0;
     static const int LINE_INVALID = 1;
     static const int kPageShift = 12;
@@ -341,48 +314,36 @@ class CachePage
     static const int kLineLength = 1 << kLineShift;
     static const int kLineMask = kLineLength - 1;
 
-    CachePage() {
-        memset(&validity_map_, LINE_INVALID, sizeof(validity_map_));
-    }
-    char* validityByte(int offset) {
-        return &validity_map_[offset >> kLineShift];
-    }
-    char* cachedData(int offset) {
-        return &data_[offset];
-    }
+    CachePage() { memset(&validity_map_, LINE_INVALID, sizeof(validity_map_)); }
+    char* validityByte(int offset) { return &validity_map_[offset >> kLineShift]; }
+    char* cachedData(int offset) { return &data_[offset]; }
 
-  private:
-    char data_[kPageSize];   // The cached data.
+   private:
+    char data_[kPageSize];  // The cached data.
     static const int kValidityMapSize = kPageSize >> kLineShift;
     char validity_map_[kValidityMapSize];  // One byte per line.
 };
 
 // Protects the icache() and redirection() properties of the
 // Simulator.
-class AutoLockSimulatorCache : public LockGuard<Mutex>
-{
+class AutoLockSimulatorCache : public LockGuard<Mutex> {
     using Base = LockGuard<Mutex>;
 
-  public:
-    explicit AutoLockSimulatorCache()
-      : Base(SimulatorProcess::singleton_->cacheLock_)
-    {}
+   public:
+    explicit AutoLockSimulatorCache() : Base(SimulatorProcess::singleton_->cacheLock_) {}
 };
 
-mozilla::Atomic<size_t, mozilla::ReleaseAcquire>
-    SimulatorProcess::ICacheCheckingDisableCount(1); // Checking is disabled by default.
-mozilla::Atomic<bool, mozilla::ReleaseAcquire>
-    SimulatorProcess::cacheInvalidatedBySignalHandler_(false);
+mozilla::Atomic<size_t, mozilla::ReleaseAcquire> SimulatorProcess::ICacheCheckingDisableCount(
+    1);  // Checking is disabled by default.
+mozilla::Atomic<bool, mozilla::ReleaseAcquire> SimulatorProcess::cacheInvalidatedBySignalHandler_(
+    false);
 SimulatorProcess* SimulatorProcess::singleton_ = nullptr;
 
 int64_t Simulator::StopSimAt = -1L;
 
-Simulator*
-Simulator::Create(JSContext* cx)
-{
+Simulator* Simulator::Create(JSContext* cx) {
     Simulator* sim = js_new<Simulator>(cx);
-    if (!sim)
-        return nullptr;
+    if (!sim) return nullptr;
 
     if (!sim->init()) {
         js_delete(sim);
@@ -399,55 +360,39 @@ Simulator::Create(JSContext* cx)
     return sim;
 }
 
-void
-Simulator::Destroy(Simulator* sim)
-{
-    js_delete(sim);
-}
+void Simulator::Destroy(Simulator* sim) { js_delete(sim); }
 
-void
-Simulator::disassemble(SimInstruction* instr, size_t n)
-{
+void Simulator::disassemble(SimInstruction* instr, size_t n) {
     disasm::NameConverter converter;
     disasm::Disassembler dasm(converter);
     disasm::EmbeddedVector<char, disasm::ReasonableBufferSize> buffer;
     while (n-- > 0) {
-        dasm.InstructionDecode(buffer,
-                               reinterpret_cast<uint8_t*>(instr));
+        dasm.InstructionDecode(buffer, reinterpret_cast<uint8_t*>(instr));
         fprintf(stderr, "  0x%08x  %s\n", uint32_t(instr), buffer.start());
         instr = reinterpret_cast<SimInstruction*>(reinterpret_cast<uint8_t*>(instr) + 4);
     }
 }
 
-void
-Simulator::disasm(SimInstruction* instr)
-{
-    disassemble(instr, 1);
-}
+void Simulator::disasm(SimInstruction* instr) { disassemble(instr, 1); }
 
-void
-Simulator::disasm(SimInstruction* instr, size_t n)
-{
-    disassemble(instr, n);
-}
+void Simulator::disasm(SimInstruction* instr, size_t n) { disassemble(instr, n); }
 
-void
-Simulator::disasm(SimInstruction* instr, size_t m, size_t n)
-{
-    disassemble(reinterpret_cast<SimInstruction*>(reinterpret_cast<uint8_t*>(instr)-m*4), n);
+void Simulator::disasm(SimInstruction* instr, size_t m, size_t n) {
+    disassemble(reinterpret_cast<SimInstruction*>(reinterpret_cast<uint8_t*>(instr) - m * 4), n);
 }
 
 // The ArmDebugger class is used by the simulator while debugging simulated ARM
 // code.
 class ArmDebugger {
-  public:
-    explicit ArmDebugger(Simulator* sim) : sim_(sim) { }
+   public:
+    explicit ArmDebugger(Simulator* sim) : sim_(sim) {}
 
     void stop(SimInstruction* instr);
     void debug();
 
-  private:
-    static const Instr kBreakpointInstr = (Assembler::AL | (7 * (1 << 25)) | (1* (1 << 24)) | kBreakpoint);
+   private:
+    static const Instr kBreakpointInstr =
+        (Assembler::AL | (7 * (1 << 25)) | (1 * (1 << 24)) | kBreakpoint);
     static const Instr kNopInstr = (Assembler::AL | (13 * (1 << 21)));
 
     Simulator* sim_;
@@ -468,14 +413,11 @@ class ArmDebugger {
     void redoBreakpoints();
 };
 
-void
-ArmDebugger::stop(SimInstruction * instr)
-{
+void ArmDebugger::stop(SimInstruction* instr) {
     // Get the stop code.
     uint32_t code = instr->svcValue() & kStopCodeMask;
     // Retrieve the encoded address, which comes just after this stop.
-    char* msg = *reinterpret_cast<char**>(sim_->get_pc()
-                                          + SimInstruction::kInstrSize);
+    char* msg = *reinterpret_cast<char**>(sim_->get_pc() + SimInstruction::kInstrSize);
     // Update this stop description.
     if (sim_->isWatchedStop(code) && !sim_->watched_stops_[code].desc) {
         sim_->watched_stops_[code].desc = msg;
@@ -490,29 +432,20 @@ ArmDebugger::stop(SimInstruction * instr)
     debug();
 }
 
-int32_t
-ArmDebugger::getRegisterValue(int regnum)
-{
-    if (regnum == Registers::pc)
-        return sim_->get_pc();
+int32_t ArmDebugger::getRegisterValue(int regnum) {
+    if (regnum == Registers::pc) return sim_->get_pc();
     return sim_->get_register(regnum);
 }
 
-double
-ArmDebugger::getRegisterPairDoubleValue(int regnum)
-{
+double ArmDebugger::getRegisterPairDoubleValue(int regnum) {
     return sim_->get_double_from_register_pair(regnum);
 }
 
-void
-ArmDebugger::getVFPDoubleRegisterValue(int regnum, double* out)
-{
+void ArmDebugger::getVFPDoubleRegisterValue(int regnum, double* out) {
     sim_->get_double_from_d_register(regnum, out);
 }
 
-bool
-ArmDebugger::getValue(const char* desc, int32_t* value)
-{
+bool ArmDebugger::getValue(const char* desc, int32_t* value) {
     Register reg = Register::FromName(desc);
     if (reg != InvalidReg) {
         *value = getRegisterValue(reg.code());
@@ -523,12 +456,9 @@ ArmDebugger::getValue(const char* desc, int32_t* value)
     return sscanf(desc, "%u", reinterpret_cast<uint32_t*>(value)) == 1;
 }
 
-bool
-ArmDebugger::getVFPDoubleValue(const char* desc, double* value)
-{
+bool ArmDebugger::getVFPDoubleValue(const char* desc, double* value) {
     FloatRegister reg = FloatRegister::FromCode(FloatRegister::FromName(desc));
-    if (reg == InvalidFloatReg)
-        return false;
+    if (reg == InvalidFloatReg) return false;
 
     if (reg.isSingle()) {
         float fval;
@@ -541,12 +471,9 @@ ArmDebugger::getVFPDoubleValue(const char* desc, double* value)
     return true;
 }
 
-bool
-ArmDebugger::setBreakpoint(SimInstruction* breakpc)
-{
+bool ArmDebugger::setBreakpoint(SimInstruction* breakpc) {
     // Check if a breakpoint can be set. If not return without any side-effects.
-    if (sim_->break_pc_)
-        return false;
+    if (sim_->break_pc_) return false;
 
     // Set the breakpoint.
     sim_->break_pc_ = breakpc;
@@ -556,34 +483,23 @@ ArmDebugger::setBreakpoint(SimInstruction* breakpc)
     return true;
 }
 
-bool
-ArmDebugger::deleteBreakpoint(SimInstruction* breakpc)
-{
-    if (sim_->break_pc_ != nullptr)
-        sim_->break_pc_->setInstructionBits(sim_->break_instr_);
+bool ArmDebugger::deleteBreakpoint(SimInstruction* breakpc) {
+    if (sim_->break_pc_ != nullptr) sim_->break_pc_->setInstructionBits(sim_->break_instr_);
 
     sim_->break_pc_ = nullptr;
     sim_->break_instr_ = 0;
     return true;
 }
 
-void
-ArmDebugger::undoBreakpoints()
-{
-    if (sim_->break_pc_)
-        sim_->break_pc_->setInstructionBits(sim_->break_instr_);
+void ArmDebugger::undoBreakpoints() {
+    if (sim_->break_pc_) sim_->break_pc_->setInstructionBits(sim_->break_instr_);
 }
 
-void
-ArmDebugger::redoBreakpoints()
-{
-    if (sim_->break_pc_)
-        sim_->break_pc_->setInstructionBits(kBreakpointInstr);
+void ArmDebugger::redoBreakpoints() {
+    if (sim_->break_pc_) sim_->break_pc_->setInstructionBits(kBreakpointInstr);
 }
 
-static char*
-ReadLine(const char* prompt)
-{
+static char* ReadLine(const char* prompt) {
     char* result = nullptr;
     char line_buf[256];
     int offset = 0;
@@ -593,8 +509,7 @@ ReadLine(const char* prompt)
     while (keep_going) {
         if (fgets(line_buf, sizeof(line_buf), stdin) == nullptr) {
             // fgets got an error. Just give up.
-            if (result)
-                js_delete(result);
+            if (result) js_delete(result);
             return nullptr;
         }
         int len = strlen(line_buf);
@@ -607,14 +522,12 @@ ReadLine(const char* prompt)
             // Allocate the initial result and make room for the terminating
             // '\0'.
             result = (char*)js_malloc(len + 1);
-            if (!result)
-                return nullptr;
+            if (!result) return nullptr;
         } else {
             // Allocate a new result with enough room for the new addition.
             int new_len = offset + len + 1;
             char* new_result = (char*)js_malloc(new_len);
-            if (!new_result)
-                return nullptr;
+            if (!new_result) return nullptr;
             // Copy the existing input into the new array and set the new
             // array as the result.
             memcpy(new_result, result, offset * sizeof(char));
@@ -631,10 +544,7 @@ ReadLine(const char* prompt)
     return result;
 }
 
-
-void
-ArmDebugger::debug()
-{
+void ArmDebugger::debug() {
     intptr_t last_pc = -1;
     bool done = false;
 
@@ -647,7 +557,7 @@ ArmDebugger::debug()
     char cmd[COMMAND_SIZE + 1];
     char arg1[ARG_SIZE + 1];
     char arg2[ARG_SIZE + 1];
-    char* argv[3] = { cmd, arg1, arg2 };
+    char* argv[3] = {cmd, arg1, arg2};
 
     // Make sure to have a proper terminating character if reaching the limit.
     cmd[COMMAND_SIZE] = 0;
@@ -672,8 +582,7 @@ ArmDebugger::debug()
             disasm::NameConverter converter;
             disasm::Disassembler dasm(converter);
             disasm::EmbeddedVector<char, disasm::ReasonableBufferSize> buffer;
-            dasm.InstructionDecode(buffer,
-                                   reinterpret_cast<uint8_t*>(sim_->get_pc()));
+            dasm.InstructionDecode(buffer, reinterpret_cast<uint8_t*>(sim_->get_pc()));
             printf("  0x%08x  %s\n", sim_->get_pc(), buffer.start());
 #endif
             last_pc = sim_->get_pc();
@@ -720,9 +629,7 @@ ArmDebugger::debug()
                         for (uint32_t i = 0; i < Registers::Total; i++) {
                             value = getRegisterValue(i);
                             printf("%3s: 0x%08x %10d", Registers::GetName(i), value, value);
-                            if ((argc == 3 && strcmp(arg2, "fp") == 0) &&
-                                i < 8 &&
-                                (i % 2) == 0) {
+                            if ((argc == 3 && strcmp(arg2, "fp") == 0) && i < 8 && (i % 2) == 0) {
                                 dvalue = getRegisterPairDoubleValue(i);
                                 printf(" (%.16g)\n", dvalue);
                             } else {
@@ -732,10 +639,8 @@ ArmDebugger::debug()
                         for (uint32_t i = 0; i < FloatRegisters::TotalPhys; i++) {
                             getVFPDoubleRegisterValue(i, &dvalue);
                             uint64_t as_words = mozilla::BitwiseCast<uint64_t>(dvalue);
-                            printf("%3s: %.16g 0x%08x %08x\n",
-                                   FloatRegister::FromCode(i).name(),
-                                   dvalue,
-                                   static_cast<uint32_t>(as_words >> 32),
+                            printf("%3s: %.16g 0x%08x %08x\n", FloatRegister::FromCode(i).name(),
+                                   dvalue, static_cast<uint32_t>(as_words >> 32),
                                    static_cast<uint32_t>(as_words & 0xffffffff));
                         }
                     } else {
@@ -743,9 +648,7 @@ ArmDebugger::debug()
                             printf("%s: 0x%08x %d \n", arg1, value, value);
                         } else if (getVFPDoubleValue(arg1, &dvalue)) {
                             uint64_t as_words = mozilla::BitwiseCast<uint64_t>(dvalue);
-                            printf("%s: %.16g 0x%08x %08x\n",
-                                   arg1,
-                                   dvalue,
+                            printf("%s: %.16g 0x%08x %08x\n", arg1, dvalue,
                                    static_cast<uint32_t>(as_words >> 32),
                                    static_cast<uint32_t>(as_words & 0xffffffff));
                         } else {
@@ -980,33 +883,25 @@ ArmDebugger::debug()
 #undef XSTR
 }
 
-static bool
-AllOnOnePage(uintptr_t start, int size)
-{
+static bool AllOnOnePage(uintptr_t start, int size) {
     intptr_t start_page = (start & ~CachePage::kPageMask);
     intptr_t end_page = ((start + size) & ~CachePage::kPageMask);
     return start_page == end_page;
 }
 
-static CachePage*
-GetCachePageLocked(SimulatorProcess::ICacheMap& i_cache, void* page)
-{
+static CachePage* GetCachePageLocked(SimulatorProcess::ICacheMap& i_cache, void* page) {
     SimulatorProcess::ICacheMap::AddPtr p = i_cache.lookupForAdd(page);
-    if (p)
-        return p->value();
+    if (p) return p->value();
 
     AutoEnterOOMUnsafeRegion oomUnsafe;
     CachePage* new_page = js_new<CachePage>();
-    if (!new_page || !i_cache.add(p, page, new_page))
-        oomUnsafe.crash("Simulator CachePage");
+    if (!new_page || !i_cache.add(p, page, new_page)) oomUnsafe.crash("Simulator CachePage");
 
     return new_page;
 }
 
 // Flush from start up to and not including start + size.
-static void
-FlushOnePageLocked(SimulatorProcess::ICacheMap& i_cache, intptr_t start, int size)
-{
+static void FlushOnePageLocked(SimulatorProcess::ICacheMap& i_cache, intptr_t start, int size) {
     MOZ_ASSERT(size <= CachePage::kPageSize);
     MOZ_ASSERT(AllOnOnePage(start, size - 1));
     MOZ_ASSERT((start & CachePage::kLineMask) == 0);
@@ -1019,9 +914,8 @@ FlushOnePageLocked(SimulatorProcess::ICacheMap& i_cache, intptr_t start, int siz
     memset(valid_bytemap, CachePage::LINE_INVALID, size >> CachePage::kLineShift);
 }
 
-static void
-FlushICacheLocked(SimulatorProcess::ICacheMap& i_cache, void* start_addr, size_t size)
-{
+static void FlushICacheLocked(SimulatorProcess::ICacheMap& i_cache, void* start_addr,
+                              size_t size) {
     intptr_t start = reinterpret_cast<intptr_t>(start_addr);
     int intra_line = (start & CachePage::kLineMask);
     start -= intra_line;
@@ -1036,13 +930,10 @@ FlushICacheLocked(SimulatorProcess::ICacheMap& i_cache, void* start_addr, size_t
         MOZ_ASSERT((start & CachePage::kPageMask) == 0);
         offset = 0;
     }
-    if (size != 0)
-        FlushOnePageLocked(i_cache, start, size);
+    if (size != 0) FlushOnePageLocked(i_cache, start, size);
 }
 
-/* static */ void
-SimulatorProcess::checkICacheLocked(SimInstruction* instr)
-{
+/* static */ void SimulatorProcess::checkICacheLocked(SimInstruction* instr) {
     intptr_t address = reinterpret_cast<intptr_t>(instr);
     void* page = reinterpret_cast<void*>(address & (~CachePage::kPageMask));
     void* line = reinterpret_cast<void*>(address & (~CachePage::kLineMask));
@@ -1056,8 +947,7 @@ SimulatorProcess::checkICacheLocked(SimInstruction* instr)
     int cmpret = 0;
     if (cache_hit) {
         // Check that the data in memory matches the contents of the I-cache.
-        cmpret = memcmp(reinterpret_cast<void*>(instr),
-                        cache_page->cachedData(offset),
+        cmpret = memcmp(reinterpret_cast<void*>(instr), cache_page->cachedData(offset),
                         SimInstruction::kInstrSize);
     }
 
@@ -1079,30 +969,22 @@ SimulatorProcess::checkICacheLocked(SimInstruction* instr)
     }
 }
 
-HashNumber
-SimulatorProcess::ICacheHasher::hash(const Lookup& l)
-{
+HashNumber SimulatorProcess::ICacheHasher::hash(const Lookup& l) {
     return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(l)) >> 2;
 }
 
-bool
-SimulatorProcess::ICacheHasher::match(const Key& k, const Lookup& l)
-{
+bool SimulatorProcess::ICacheHasher::match(const Key& k, const Lookup& l) {
     MOZ_ASSERT((reinterpret_cast<intptr_t>(k) & CachePage::kPageMask) == 0);
     MOZ_ASSERT((reinterpret_cast<intptr_t>(l) & CachePage::kPageMask) == 0);
     return k == l;
 }
 
-void
-Simulator::setLastDebuggerInput(char* input)
-{
+void Simulator::setLastDebuggerInput(char* input) {
     js_free(lastDebuggerInput_);
     lastDebuggerInput_ = input;
 }
 
-/* static */ void
-SimulatorProcess::FlushICache(void* start_addr, size_t size)
-{
+/* static */ void SimulatorProcess::FlushICache(void* start_addr, size_t size) {
     JitSpewCont(JitSpew_CacheFlush, "[%p %zx]", start_addr, size);
     if (!ICacheCheckingDisableCount) {
         AutoLockSimulatorCache als;
@@ -1110,9 +992,7 @@ SimulatorProcess::FlushICache(void* start_addr, size_t size)
     }
 }
 
-Simulator::Simulator(JSContext* cx)
-  : cx_(cx)
-{
+Simulator::Simulator(JSContext* cx) : cx_(cx) {
     // Set up simulator support first. Some of this information is needed to
     // setup the architecture state.
 
@@ -1133,16 +1013,14 @@ Simulator::Simulator(JSContext* cx)
 
     // Set up architecture state.
     // All registers are initialized to zero to start with.
-    for (int i = 0; i < num_registers; i++)
-        registers_[i] = 0;
+    for (int i = 0; i < num_registers; i++) registers_[i] = 0;
 
     n_flag_ = false;
     z_flag_ = false;
     c_flag_ = false;
     v_flag_ = false;
 
-    for (int i = 0; i < num_d_registers * 2; i++)
-        vfp_registers_[i] = 0;
+    for (int i = 0; i < num_d_registers * 2; i++) vfp_registers_[i] = 0;
 
     n_flag_FPSCR_ = false;
     z_flag_FPSCR_ = false;
@@ -1168,14 +1046,11 @@ Simulator::Simulator(JSContext* cx)
     exclusiveMonitor_ = 0;
 }
 
-bool
-Simulator::init()
-{
+bool Simulator::init() {
     // Allocate 2MB for the stack. Note that we will only use 1MB, see below.
-    static const size_t stackSize = 2 * 1024*1024;
+    static const size_t stackSize = 2 * 1024 * 1024;
     stack_ = reinterpret_cast<char*>(js_malloc(stackSize));
-    if (!stack_)
-        return false;
+    if (!stack_) return false;
 
     // Leave a safety margin of 1MB to prevent overrunning the stack when
     // pushing values (total stack size is 2MB).
@@ -1195,17 +1070,15 @@ Simulator::init()
 // call to a svc (Supervisor Call) instruction that is handled by the
 // simulator. We write the original destination of the jump just at a known
 // offset from the svc instruction so the simulator knows what to call.
-class Redirection
-{
+class Redirection {
     friend class SimulatorProcess;
 
     // sim's lock must already be held.
     Redirection(void* nativeFunction, ABIFunctionType type)
-      : nativeFunction_(nativeFunction),
-        swiInstruction_(Assembler::AL | (0xf * (1 << 24)) | kCallRtRedirected),
-        type_(type),
-        next_(nullptr)
-    {
+        : nativeFunction_(nativeFunction),
+          swiInstruction_(Assembler::AL | (0xf * (1 << 24)) | kCallRtRedirected),
+          type_(type),
+          next_(nullptr) {
         next_ = SimulatorProcess::redirection();
         if (!SimulatorProcess::ICacheCheckingDisableCount) {
             FlushICacheLocked(SimulatorProcess::icache(), addressOfSwiInstruction(),
@@ -1214,7 +1087,7 @@ class Redirection
         SimulatorProcess::setRedirection(this);
     }
 
-  public:
+   public:
     void* addressOfSwiInstruction() { return &swiInstruction_; }
     void* nativeFunction() const { return nativeFunction_; }
     ABIFunctionType type() const { return type_; }
@@ -1232,9 +1105,8 @@ class Redirection
 
         AutoEnterOOMUnsafeRegion oomUnsafe;
         Redirection* redir = (Redirection*)js_malloc(sizeof(Redirection));
-        if (!redir)
-            oomUnsafe.crash("Simulator redirection");
-        new(redir) Redirection(nativeFunction, type);
+        if (!redir) oomUnsafe.crash("Simulator redirection");
+        new (redir) Redirection(nativeFunction, type);
         return redir;
     }
 
@@ -1244,25 +1116,19 @@ class Redirection
         return reinterpret_cast<Redirection*>(addrOfRedirection);
     }
 
-  private:
+   private:
     void* nativeFunction_;
     uint32_t swiInstruction_;
     ABIFunctionType type_;
     Redirection* next_;
 };
 
-Simulator::~Simulator()
-{
-    js_free(stack_);
-}
+Simulator::~Simulator() { js_free(stack_); }
 
 SimulatorProcess::SimulatorProcess()
-  : cacheLock_(mutexid::SimulatorCacheLock)
-  , redirection_(nullptr)
-{}
+    : cacheLock_(mutexid::SimulatorCacheLock), redirection_(nullptr) {}
 
-SimulatorProcess::~SimulatorProcess()
-{
+SimulatorProcess::~SimulatorProcess() {
     Redirection* r = redirection_;
     while (r) {
         Redirection* next = r->next_;
@@ -1271,47 +1137,35 @@ SimulatorProcess::~SimulatorProcess()
     }
 }
 
-bool
-SimulatorProcess::init()
-{
-    if (getenv("ARM_SIM_ICACHE_CHECKS"))
-        ICacheCheckingDisableCount = 0;
+bool SimulatorProcess::init() {
+    if (getenv("ARM_SIM_ICACHE_CHECKS")) ICacheCheckingDisableCount = 0;
 
     return icache_.init();
 }
 
-/* static */ void*
-Simulator::RedirectNativeFunction(void* nativeFunction, ABIFunctionType type)
-{
+/* static */ void* Simulator::RedirectNativeFunction(void* nativeFunction, ABIFunctionType type) {
     Redirection* redirection = Redirection::Get(nativeFunction, type);
     return redirection->addressOfSwiInstruction();
 }
 
 // Sets the register in the architecture state. It will also deal with updating
 // Simulator internal state for special registers such as PC.
-void
-Simulator::set_register(int reg, int32_t value)
-{
+void Simulator::set_register(int reg, int32_t value) {
     MOZ_ASSERT(reg >= 0 && reg < num_registers);
-    if (reg == pc)
-        pc_modified_ = true;
+    if (reg == pc) pc_modified_ = true;
     registers_[reg] = value;
 }
 
 // Get the register from the architecture state. This function does handle the
 // special case of accessing the PC register.
-int32_t
-Simulator::get_register(int reg) const
-{
+int32_t Simulator::get_register(int reg) const {
     MOZ_ASSERT(reg >= 0 && reg < num_registers);
     // Work around GCC bug: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43949
     if (reg >= num_registers) return 0;
     return registers_[reg] + ((reg == pc) ? SimInstruction::kPCReadOffset : 0);
 }
 
-double
-Simulator::get_double_from_register_pair(int reg)
-{
+double Simulator::get_double_from_register_pair(int reg) {
     MOZ_ASSERT(reg >= 0 && reg < num_registers && (reg % 2) == 0);
 
     // Read the bits from the unsigned integer register_[] array into the double
@@ -1323,115 +1177,81 @@ Simulator::get_double_from_register_pair(int reg)
     return dm_val;
 }
 
-void
-Simulator::set_register_pair_from_double(int reg, double* value)
-{
+void Simulator::set_register_pair_from_double(int reg, double* value) {
     MOZ_ASSERT(reg >= 0 && reg < num_registers && (reg % 2) == 0);
     memcpy(registers_ + reg, value, sizeof(*value));
 }
 
-void
-Simulator::set_dw_register(int dreg, const int* dbl)
-{
+void Simulator::set_dw_register(int dreg, const int* dbl) {
     MOZ_ASSERT(dreg >= 0 && dreg < num_d_registers);
     registers_[dreg] = dbl[0];
     registers_[dreg + 1] = dbl[1];
 }
 
-void
-Simulator::get_d_register(int dreg, uint64_t* value)
-{
+void Simulator::get_d_register(int dreg, uint64_t* value) {
     MOZ_ASSERT(dreg >= 0 && dreg < int(FloatRegisters::TotalPhys));
     memcpy(value, vfp_registers_ + dreg * 2, sizeof(*value));
 }
 
-void
-Simulator::set_d_register(int dreg, const uint64_t* value)
-{
+void Simulator::set_d_register(int dreg, const uint64_t* value) {
     MOZ_ASSERT(dreg >= 0 && dreg < int(FloatRegisters::TotalPhys));
     memcpy(vfp_registers_ + dreg * 2, value, sizeof(*value));
 }
 
-void
-Simulator::get_d_register(int dreg, uint32_t* value)
-{
+void Simulator::get_d_register(int dreg, uint32_t* value) {
     MOZ_ASSERT(dreg >= 0 && dreg < int(FloatRegisters::TotalPhys));
     memcpy(value, vfp_registers_ + dreg * 2, sizeof(*value) * 2);
 }
 
-void
-Simulator::set_d_register(int dreg, const uint32_t* value)
-{
+void Simulator::set_d_register(int dreg, const uint32_t* value) {
     MOZ_ASSERT(dreg >= 0 && dreg < int(FloatRegisters::TotalPhys));
     memcpy(vfp_registers_ + dreg * 2, value, sizeof(*value) * 2);
 }
 
-void
-Simulator::get_q_register(int qreg, uint64_t* value)
-{
+void Simulator::get_q_register(int qreg, uint64_t* value) {
     MOZ_ASSERT(qreg >= 0 && qreg < num_q_registers);
     memcpy(value, vfp_registers_ + qreg * 4, sizeof(*value) * 2);
 }
 
-void
-Simulator::set_q_register(int qreg, const uint64_t* value)
-{
+void Simulator::set_q_register(int qreg, const uint64_t* value) {
     MOZ_ASSERT(qreg >= 0 && qreg < num_q_registers);
     memcpy(vfp_registers_ + qreg * 4, value, sizeof(*value) * 2);
 }
 
-void
-Simulator::get_q_register(int qreg, uint32_t* value)
-{
+void Simulator::get_q_register(int qreg, uint32_t* value) {
     MOZ_ASSERT(qreg >= 0 && qreg < num_q_registers);
     memcpy(value, vfp_registers_ + qreg * 4, sizeof(*value) * 4);
 }
 
-void
-Simulator::set_q_register(int qreg, const uint32_t* value)
-{
+void Simulator::set_q_register(int qreg, const uint32_t* value) {
     MOZ_ASSERT((qreg >= 0) && (qreg < num_q_registers));
     memcpy(vfp_registers_ + qreg * 4, value, sizeof(*value) * 4);
 }
 
-void
-Simulator::set_pc(int32_t value)
-{
+void Simulator::set_pc(int32_t value) {
     pc_modified_ = true;
     registers_[pc] = value;
 }
 
-bool
-Simulator::has_bad_pc() const
-{
+bool Simulator::has_bad_pc() const {
     return registers_[pc] == bad_lr || registers_[pc] == end_sim_pc;
 }
 
 // Raw access to the PC register without the special adjustment when reading.
-int32_t
-Simulator::get_pc() const
-{
-    return registers_[pc];
-}
+int32_t Simulator::get_pc() const { return registers_[pc]; }
 
-void
-Simulator::set_s_register(int sreg, unsigned int value)
-{
+void Simulator::set_s_register(int sreg, unsigned int value) {
     MOZ_ASSERT(sreg >= 0 && sreg < num_s_registers);
     vfp_registers_[sreg] = value;
 }
 
-unsigned
-Simulator::get_s_register(int sreg) const
-{
+unsigned Simulator::get_s_register(int sreg) const {
     MOZ_ASSERT(sreg >= 0 && sreg < num_s_registers);
     return vfp_registers_[sreg];
 }
 
-template<class InputType, int register_size>
-void
-Simulator::setVFPRegister(int reg_index, const InputType& value)
-{
+template <class InputType, int register_size>
+void Simulator::setVFPRegister(int reg_index, const InputType& value) {
     MOZ_ASSERT(reg_index >= 0);
     MOZ_ASSERT_IF(register_size == 1, reg_index < num_s_registers);
     MOZ_ASSERT_IF(register_size == 2, reg_index < int(FloatRegisters::TotalPhys));
@@ -1442,9 +1262,8 @@ Simulator::setVFPRegister(int reg_index, const InputType& value)
            register_size * sizeof(vfp_registers_[0]));
 }
 
-template<class ReturnType, int register_size>
-void Simulator::getFromVFPRegister(int reg_index, ReturnType* out)
-{
+template <class ReturnType, int register_size>
+void Simulator::getFromVFPRegister(int reg_index, ReturnType* out) {
     MOZ_ASSERT(reg_index >= 0);
     MOZ_ASSERT_IF(register_size == 1, reg_index < num_s_registers);
     MOZ_ASSERT_IF(register_size == 2, reg_index < int(FloatRegisters::TotalPhys));
@@ -1462,9 +1281,7 @@ template void Simulator::getFromVFPRegister<float, 1>(int reg_index, float* out)
 template void Simulator::setVFPRegister<double, 2>(int reg_index, const double& value);
 template void Simulator::setVFPRegister<float, 1>(int reg_index, const float& value);
 
-void
-Simulator::getFpArgs(double* x, double* y, int32_t* z)
-{
+void Simulator::getFpArgs(double* x, double* y, int32_t* z) {
     if (UseHardFpABI()) {
         get_double_from_d_register(0, x);
         get_double_from_d_register(1, y);
@@ -1476,18 +1293,14 @@ Simulator::getFpArgs(double* x, double* y, int32_t* z)
     }
 }
 
-void
-Simulator::getFpFromStack(int32_t* stack, double* x)
-{
+void Simulator::getFpFromStack(int32_t* stack, double* x) {
     MOZ_ASSERT(stack && x);
     char buffer[2 * sizeof(stack[0])];
     memcpy(buffer, stack, 2 * sizeof(stack[0]));
     memcpy(x, buffer, 2 * sizeof(stack[0]));
 }
 
-void
-Simulator::setCallResultDouble(double result)
-{
+void Simulator::setCallResultDouble(double result) {
     // The return value is either in r0/r1 or d0.
     if (UseHardFpABI()) {
         char buffer[2 * sizeof(vfp_registers_[0])];
@@ -1502,9 +1315,7 @@ Simulator::setCallResultDouble(double result)
     }
 }
 
-void
-Simulator::setCallResultFloat(float result)
-{
+void Simulator::setCallResultFloat(float result) {
     if (UseHardFpABI()) {
         char buffer[sizeof(registers_[0])];
         memcpy(buffer, &result, sizeof(buffer));
@@ -1518,42 +1329,30 @@ Simulator::setCallResultFloat(float result)
     }
 }
 
-void
-Simulator::setCallResult(int64_t res)
-{
+void Simulator::setCallResult(int64_t res) {
     set_register(r0, static_cast<int32_t>(res));
     set_register(r1, static_cast<int32_t>(res >> 32));
 }
 
-void
-Simulator::exclusiveMonitorSet(uint64_t value)
-{
+void Simulator::exclusiveMonitorSet(uint64_t value) {
     exclusiveMonitor_ = value;
     exclusiveMonitorHeld_ = true;
 }
 
-uint64_t
-Simulator::exclusiveMonitorGetAndClear(bool* held)
-{
+uint64_t Simulator::exclusiveMonitorGetAndClear(bool* held) {
     *held = exclusiveMonitorHeld_;
     exclusiveMonitorHeld_ = false;
     return *held ? exclusiveMonitor_ : 0;
 }
 
-void
-Simulator::exclusiveMonitorClear()
-{
-    exclusiveMonitorHeld_ = false;
-}
+void Simulator::exclusiveMonitorClear() { exclusiveMonitorHeld_ = false; }
 
-void
-Simulator::startWasmInterrupt(JitActivation* activation)
-{
+void Simulator::startWasmInterrupt(JitActivation* activation) {
     JS::ProfilingFrameIterator::RegisterState state;
-    state.pc = (void*) get_pc();
-    state.fp = (void*) get_register(fp);
-    state.sp = (void*) get_register(sp);
-    state.lr = (void*) get_register(lr);
+    state.pc = (void*)get_pc();
+    state.fp = (void*)get_register(fp);
+    state.sp = (void*)get_register(sp);
+    state.lr = (void*)get_register(lr);
     activation->startWasmInterrupt(state);
 }
 
@@ -1562,22 +1361,17 @@ Simulator::startWasmInterrupt(JitActivation* activation)
 // signal handler samples PC in the middle of simulating an instruction and thus
 // the current PC may have advanced once since the signal handler's guard. So we
 // re-check here.
-void
-Simulator::handleWasmInterrupt()
-{
-    if (!wasm::CodeExists)
-        return;
+void Simulator::handleWasmInterrupt() {
+    if (!wasm::CodeExists) return;
 
     uint8_t* pc = (uint8_t*)get_pc();
     uint8_t* fp = (uint8_t*)get_register(r11);
 
     const wasm::CodeSegment* cs = nullptr;
-    if (!wasm::InInterruptibleCode(cx_, pc, &cs))
-        return;
+    if (!wasm::InInterruptibleCode(cx_, pc, &cs)) return;
 
     // fp can be null during the prologue/epilogue of the entry function.
-    if (!fp)
-        return;
+    if (!fp) return;
 
     startWasmInterrupt(cx_->activation()->asJit());
     set_pc(int32_t(cs->interruptCode()));
@@ -1589,31 +1383,24 @@ Simulator::handleWasmInterrupt()
 // error. However, if the handler is hit by the simulator, the PC is in C++ code
 // and cannot be redirected. Therefore, we must avoid hitting the handler by
 // redirecting in the simulator before the real handler would have been hit.
-bool
-Simulator::handleWasmFault(int32_t addr, unsigned numBytes)
-{
-    if (!wasm::CodeExists)
-        return false;
-    if (!cx_->activation() || !cx_->activation()->isJit())
-        return false;
+bool Simulator::handleWasmFault(int32_t addr, unsigned numBytes) {
+    if (!wasm::CodeExists) return false;
+    if (!cx_->activation() || !cx_->activation()->isJit()) return false;
     JitActivation* act = cx_->activation()->asJit();
 
     void* pc = reinterpret_cast<void*>(get_pc());
     uint8_t* fp = reinterpret_cast<uint8_t*>(get_register(r11));
 
     const wasm::CodeSegment* segment = wasm::LookupCodeSegment(pc);
-    if (!segment)
-        return false;
+    if (!segment) return false;
 
     wasm::Instance* instance = wasm::LookupFaultingInstance(*segment, pc, fp);
-    if (!instance || !instance->memoryAccessInGuardRegion((uint8_t*)addr, numBytes))
-        return false;
+    if (!instance || !instance->memoryAccessInGuardRegion((uint8_t*)addr, numBytes)) return false;
 
     const wasm::MemoryAccess* memoryAccess = instance->code().lookupMemoryAccess(pc);
     if (!memoryAccess) {
         startWasmInterrupt(act);
-        if (!instance->code().containsCodePC(pc))
-            MOZ_CRASH("Cannot map PC to trap handler");
+        if (!instance->code().containsCodePC(pc)) MOZ_CRASH("Cannot map PC to trap handler");
         set_pc(int32_t(segment->outOfBoundsCode()));
         return true;
     }
@@ -1623,11 +1410,8 @@ Simulator::handleWasmFault(int32_t addr, unsigned numBytes)
     return true;
 }
 
-uint64_t
-Simulator::readQ(int32_t addr, SimInstruction* instr, UnalignedPolicy f)
-{
-    if (handleWasmFault(addr, 8))
-        return UINT64_MAX;
+uint64_t Simulator::readQ(int32_t addr, SimInstruction* instr, UnalignedPolicy f) {
+    if (handleWasmFault(addr, 8)) return UINT64_MAX;
 
     if ((addr & 3) == 0 || (f == AllowUnaligned && !HasAlignmentFault())) {
         uint64_t* ptr = reinterpret_cast<uint64_t*>(addr);
@@ -1646,11 +1430,8 @@ Simulator::readQ(int32_t addr, SimInstruction* instr, UnalignedPolicy f)
     MOZ_CRASH();
 }
 
-void
-Simulator::writeQ(int32_t addr, uint64_t value, SimInstruction* instr, UnalignedPolicy f)
-{
-    if (handleWasmFault(addr, 8))
-        return;
+void Simulator::writeQ(int32_t addr, uint64_t value, SimInstruction* instr, UnalignedPolicy f) {
+    if (handleWasmFault(addr, 8)) return;
 
     if ((addr & 3) == 0 || (f == AllowUnaligned && !HasAlignmentFault())) {
         uint64_t* ptr = reinterpret_cast<uint64_t*>(addr);
@@ -1669,11 +1450,8 @@ Simulator::writeQ(int32_t addr, uint64_t value, SimInstruction* instr, Unaligned
     MOZ_CRASH();
 }
 
-int
-Simulator::readW(int32_t addr, SimInstruction* instr, UnalignedPolicy f)
-{
-    if (handleWasmFault(addr, 4))
-        return -1;
+int Simulator::readW(int32_t addr, SimInstruction* instr, UnalignedPolicy f) {
+    if (handleWasmFault(addr, 4)) return -1;
 
     if ((addr & 3) == 0 || (f == AllowUnaligned && !HasAlignmentFault())) {
         intptr_t* ptr = reinterpret_cast<intptr_t*>(addr);
@@ -1695,11 +1473,8 @@ Simulator::readW(int32_t addr, SimInstruction* instr, UnalignedPolicy f)
     MOZ_CRASH();
 }
 
-void
-Simulator::writeW(int32_t addr, int value, SimInstruction* instr, UnalignedPolicy f)
-{
-    if (handleWasmFault(addr, 4))
-        return;
+void Simulator::writeW(int32_t addr, int value, SimInstruction* instr, UnalignedPolicy f) {
+    if (handleWasmFault(addr, 4)) return;
 
     if ((addr & 3) == 0 || (f == AllowUnaligned && !HasAlignmentFault())) {
         intptr_t* ptr = reinterpret_cast<intptr_t*>(addr);
@@ -1723,28 +1498,20 @@ Simulator::writeW(int32_t addr, int value, SimInstruction* instr, UnalignedPolic
 // the system, and the distinction is not important to the simulation
 // at the level where we're operating.
 
-template<typename T>
-static
-T loadRelaxed(SharedMem<T*> addr)
-{
+template <typename T>
+static T loadRelaxed(SharedMem<T*> addr) {
     return AtomicOperations::loadSeqCst(addr);
 }
 
-template<typename T>
-static
-T compareExchangeRelaxed(SharedMem<T*> addr, T oldval, T newval)
-{
+template <typename T>
+static T compareExchangeRelaxed(SharedMem<T*> addr, T oldval, T newval) {
     return AtomicOperations::compareExchangeSeqCst(addr, oldval, newval);
 }
 
-int
-Simulator::readExW(int32_t addr, SimInstruction* instr)
-{
-    if (addr & 3)
-        MOZ_CRASH("Unaligned exclusive read");
+int Simulator::readExW(int32_t addr, SimInstruction* instr) {
+    if (addr & 3) MOZ_CRASH("Unaligned exclusive read");
 
-    if (handleWasmFault(addr, 4))
-        return -1;
+    if (handleWasmFault(addr, 4)) return -1;
 
     SharedMem<int32_t*> ptr = SharedMem<int32_t*>::shared(reinterpret_cast<int32_t*>(addr));
     int32_t value = loadRelaxed(ptr);
@@ -1752,29 +1519,21 @@ Simulator::readExW(int32_t addr, SimInstruction* instr)
     return value;
 }
 
-int32_t
-Simulator::writeExW(int32_t addr, int value, SimInstruction* instr)
-{
-    if (addr & 3)
-        MOZ_CRASH("Unaligned exclusive write");
+int32_t Simulator::writeExW(int32_t addr, int value, SimInstruction* instr) {
+    if (addr & 3) MOZ_CRASH("Unaligned exclusive write");
 
-    if (handleWasmFault(addr, 4))
-        return -1;
+    if (handleWasmFault(addr, 4)) return -1;
 
     SharedMem<int32_t*> ptr = SharedMem<int32_t*>::shared(reinterpret_cast<int32_t*>(addr));
     bool held;
     int32_t expected = int32_t(exclusiveMonitorGetAndClear(&held));
-    if (!held)
-        return 1;
+    if (!held) return 1;
     int32_t old = compareExchangeRelaxed(ptr, expected, int32_t(value));
     return old != expected;
 }
 
-uint16_t
-Simulator::readHU(int32_t addr, SimInstruction* instr)
-{
-    if (handleWasmFault(addr, 2))
-        return UINT16_MAX;
+uint16_t Simulator::readHU(int32_t addr, SimInstruction* instr) {
+    if (handleWasmFault(addr, 2)) return UINT16_MAX;
 
     // The regexp engine emits unaligned loads, so we don't check for them here
     // like most of the other methods do.
@@ -1796,11 +1555,8 @@ Simulator::readHU(int32_t addr, SimInstruction* instr)
     return 0;
 }
 
-int16_t
-Simulator::readH(int32_t addr, SimInstruction* instr)
-{
-    if (handleWasmFault(addr, 2))
-        return -1;
+int16_t Simulator::readH(int32_t addr, SimInstruction* instr) {
+    if (handleWasmFault(addr, 2)) return -1;
 
     if ((addr & 1) == 0 || !HasAlignmentFault()) {
         int16_t* ptr = reinterpret_cast<int16_t*>(addr);
@@ -1820,11 +1576,8 @@ Simulator::readH(int32_t addr, SimInstruction* instr)
     return 0;
 }
 
-void
-Simulator::writeH(int32_t addr, uint16_t value, SimInstruction* instr)
-{
-    if (handleWasmFault(addr, 2))
-        return;
+void Simulator::writeH(int32_t addr, uint16_t value, SimInstruction* instr) {
+    if (handleWasmFault(addr, 2)) return;
 
     if ((addr & 1) == 0 || !HasAlignmentFault()) {
         uint16_t* ptr = reinterpret_cast<uint16_t*>(addr);
@@ -1843,11 +1596,8 @@ Simulator::writeH(int32_t addr, uint16_t value, SimInstruction* instr)
     MOZ_CRASH();
 }
 
-void
-Simulator::writeH(int32_t addr, int16_t value, SimInstruction* instr)
-{
-    if (handleWasmFault(addr, 2))
-        return;
+void Simulator::writeH(int32_t addr, int16_t value, SimInstruction* instr) {
+    if (handleWasmFault(addr, 2)) return;
 
     if ((addr & 1) == 0 || !HasAlignmentFault()) {
         int16_t* ptr = reinterpret_cast<int16_t*>(addr);
@@ -1866,14 +1616,10 @@ Simulator::writeH(int32_t addr, int16_t value, SimInstruction* instr)
     MOZ_CRASH();
 }
 
-uint16_t
-Simulator::readExHU(int32_t addr, SimInstruction* instr)
-{
-    if (addr & 1)
-        MOZ_CRASH("Unaligned exclusive read");
+uint16_t Simulator::readExHU(int32_t addr, SimInstruction* instr) {
+    if (addr & 1) MOZ_CRASH("Unaligned exclusive read");
 
-    if (handleWasmFault(addr, 2))
-        return UINT16_MAX;
+    if (handleWasmFault(addr, 2)) return UINT16_MAX;
 
     SharedMem<uint16_t*> ptr = SharedMem<uint16_t*>::shared(reinterpret_cast<uint16_t*>(addr));
     uint16_t value = loadRelaxed(ptr);
@@ -1881,39 +1627,28 @@ Simulator::readExHU(int32_t addr, SimInstruction* instr)
     return value;
 }
 
-int32_t
-Simulator::writeExH(int32_t addr, uint16_t value, SimInstruction* instr)
-{
-    if (addr & 1)
-        MOZ_CRASH("Unaligned exclusive write");
+int32_t Simulator::writeExH(int32_t addr, uint16_t value, SimInstruction* instr) {
+    if (addr & 1) MOZ_CRASH("Unaligned exclusive write");
 
-    if (handleWasmFault(addr, 2))
-        return -1;
+    if (handleWasmFault(addr, 2)) return -1;
 
     SharedMem<uint16_t*> ptr = SharedMem<uint16_t*>::shared(reinterpret_cast<uint16_t*>(addr));
     bool held;
     uint16_t expected = uint16_t(exclusiveMonitorGetAndClear(&held));
-    if (!held)
-        return 1;
+    if (!held) return 1;
     uint16_t old = compareExchangeRelaxed(ptr, expected, value);
     return old != expected;
 }
 
-uint8_t
-Simulator::readBU(int32_t addr)
-{
-    if (handleWasmFault(addr, 1))
-        return UINT8_MAX;
+uint8_t Simulator::readBU(int32_t addr) {
+    if (handleWasmFault(addr, 1)) return UINT8_MAX;
 
     uint8_t* ptr = reinterpret_cast<uint8_t*>(addr);
     return *ptr;
 }
 
-uint8_t
-Simulator::readExBU(int32_t addr)
-{
-    if (handleWasmFault(addr, 1))
-        return UINT8_MAX;
+uint8_t Simulator::readExBU(int32_t addr) {
+    if (handleWasmFault(addr, 1)) return UINT8_MAX;
 
     SharedMem<uint8_t*> ptr = SharedMem<uint8_t*>::shared(reinterpret_cast<uint8_t*>(addr));
     uint8_t value = loadRelaxed(ptr);
@@ -1921,56 +1656,40 @@ Simulator::readExBU(int32_t addr)
     return value;
 }
 
-int32_t
-Simulator::writeExB(int32_t addr, uint8_t value)
-{
-    if (handleWasmFault(addr, 1))
-        return -1;
+int32_t Simulator::writeExB(int32_t addr, uint8_t value) {
+    if (handleWasmFault(addr, 1)) return -1;
 
     SharedMem<uint8_t*> ptr = SharedMem<uint8_t*>::shared(reinterpret_cast<uint8_t*>(addr));
     bool held;
     uint8_t expected = uint8_t(exclusiveMonitorGetAndClear(&held));
-    if (!held)
-        return 1;
+    if (!held) return 1;
     uint8_t old = compareExchangeRelaxed(ptr, expected, value);
     return old != expected;
 }
 
-int8_t
-Simulator::readB(int32_t addr)
-{
-    if (handleWasmFault(addr, 1))
-        return -1;
+int8_t Simulator::readB(int32_t addr) {
+    if (handleWasmFault(addr, 1)) return -1;
 
     int8_t* ptr = reinterpret_cast<int8_t*>(addr);
     return *ptr;
 }
 
-void
-Simulator::writeB(int32_t addr, uint8_t value)
-{
-    if (handleWasmFault(addr, 1))
-        return;
+void Simulator::writeB(int32_t addr, uint8_t value) {
+    if (handleWasmFault(addr, 1)) return;
 
     uint8_t* ptr = reinterpret_cast<uint8_t*>(addr);
     *ptr = value;
 }
 
-void
-Simulator::writeB(int32_t addr, int8_t value)
-{
-    if (handleWasmFault(addr, 1))
-        return;
+void Simulator::writeB(int32_t addr, int8_t value) {
+    if (handleWasmFault(addr, 1)) return;
 
     int8_t* ptr = reinterpret_cast<int8_t*>(addr);
     *ptr = value;
 }
 
-int32_t*
-Simulator::readDW(int32_t addr)
-{
-    if (handleWasmFault(addr, 8))
-        return nullptr;
+int32_t* Simulator::readDW(int32_t addr) {
+    if (handleWasmFault(addr, 8)) return nullptr;
 
     if ((addr & 3) == 0) {
         int32_t* ptr = reinterpret_cast<int32_t*>(addr);
@@ -1981,11 +1700,8 @@ Simulator::readDW(int32_t addr)
     MOZ_CRASH();
 }
 
-void
-Simulator::writeDW(int32_t addr, int32_t value1, int32_t value2)
-{
-    if (handleWasmFault(addr, 8))
-        return;
+void Simulator::writeDW(int32_t addr, int32_t value1, int32_t value2) {
+    if (handleWasmFault(addr, 8)) return;
 
     if ((addr & 3) == 0) {
         int32_t* ptr = reinterpret_cast<int32_t*>(addr);
@@ -1998,14 +1714,10 @@ Simulator::writeDW(int32_t addr, int32_t value1, int32_t value2)
     MOZ_CRASH();
 }
 
-int32_t
-Simulator::readExDW(int32_t addr, int32_t* hibits)
-{
-    if (addr & 3)
-        MOZ_CRASH("Unaligned exclusive read");
+int32_t Simulator::readExDW(int32_t addr, int32_t* hibits) {
+    if (addr & 3) MOZ_CRASH("Unaligned exclusive read");
 
-    if (handleWasmFault(addr, 8))
-        return -1;
+    if (handleWasmFault(addr, 8)) return -1;
 
     SharedMem<uint64_t*> ptr = SharedMem<uint64_t*>::shared(reinterpret_cast<uint64_t*>(addr));
     // The spec says that the low part of value shall be read from addr and
@@ -2019,14 +1731,10 @@ Simulator::readExDW(int32_t addr, int32_t* hibits)
     return int32_t(value);
 }
 
-int32_t
-Simulator::writeExDW(int32_t addr, int32_t value1, int32_t value2)
-{
-    if (addr & 3)
-        MOZ_CRASH("Unaligned exclusive write");
+int32_t Simulator::writeExDW(int32_t addr, int32_t value1, int32_t value2) {
+    if (addr & 3) MOZ_CRASH("Unaligned exclusive write");
 
-    if (handleWasmFault(addr, 8))
-        return -1;
+    if (handleWasmFault(addr, 8)) return -1;
 
     SharedMem<uint64_t*> ptr = SharedMem<uint64_t*>::shared(reinterpret_cast<uint64_t*>(addr));
     // The spec says that value1 shall be stored at addr and value2 at
@@ -2036,130 +1744,111 @@ Simulator::writeExDW(int32_t addr, int32_t value1, int32_t value2)
     uint64_t value = (uint64_t(value2) << 32) | uint32_t(value1);
     bool held;
     uint64_t expected = exclusiveMonitorGetAndClear(&held);
-    if (!held)
-        return 1;
+    if (!held) return 1;
     uint64_t old = compareExchangeRelaxed(ptr, expected, value);
     return old != expected;
 }
 
-uintptr_t
-Simulator::stackLimit() const
-{
-    return stackLimit_;
-}
+uintptr_t Simulator::stackLimit() const { return stackLimit_; }
 
-uintptr_t*
-Simulator::addressOfStackLimit()
-{
-    return &stackLimit_;
-}
+uintptr_t* Simulator::addressOfStackLimit() { return &stackLimit_; }
 
-bool
-Simulator::overRecursed(uintptr_t newsp) const
-{
-    if (newsp == 0)
-        newsp = get_register(sp);
+bool Simulator::overRecursed(uintptr_t newsp) const {
+    if (newsp == 0) newsp = get_register(sp);
     return newsp <= stackLimit();
 }
 
-bool
-Simulator::overRecursedWithExtra(uint32_t extra) const
-{
+bool Simulator::overRecursedWithExtra(uint32_t extra) const {
     uintptr_t newsp = get_register(sp) - extra;
     return newsp <= stackLimit();
 }
 
 // Checks if the current instruction should be executed based on its condition
 // bits.
-bool
-Simulator::conditionallyExecute(SimInstruction* instr)
-{
+bool Simulator::conditionallyExecute(SimInstruction* instr) {
     switch (instr->conditionField()) {
-      case Assembler::EQ: return z_flag_;
-      case Assembler::NE: return !z_flag_;
-      case Assembler::CS: return c_flag_;
-      case Assembler::CC: return !c_flag_;
-      case Assembler::MI: return n_flag_;
-      case Assembler::PL: return !n_flag_;
-      case Assembler::VS: return v_flag_;
-      case Assembler::VC: return !v_flag_;
-      case Assembler::HI: return c_flag_ && !z_flag_;
-      case Assembler::LS: return !c_flag_ || z_flag_;
-      case Assembler::GE: return n_flag_ == v_flag_;
-      case Assembler::LT: return n_flag_ != v_flag_;
-      case Assembler::GT: return !z_flag_ && (n_flag_ == v_flag_);
-      case Assembler::LE: return z_flag_ || (n_flag_ != v_flag_);
-      case Assembler::AL: return true;
-      default: MOZ_CRASH();
+        case Assembler::EQ:
+            return z_flag_;
+        case Assembler::NE:
+            return !z_flag_;
+        case Assembler::CS:
+            return c_flag_;
+        case Assembler::CC:
+            return !c_flag_;
+        case Assembler::MI:
+            return n_flag_;
+        case Assembler::PL:
+            return !n_flag_;
+        case Assembler::VS:
+            return v_flag_;
+        case Assembler::VC:
+            return !v_flag_;
+        case Assembler::HI:
+            return c_flag_ && !z_flag_;
+        case Assembler::LS:
+            return !c_flag_ || z_flag_;
+        case Assembler::GE:
+            return n_flag_ == v_flag_;
+        case Assembler::LT:
+            return n_flag_ != v_flag_;
+        case Assembler::GT:
+            return !z_flag_ && (n_flag_ == v_flag_);
+        case Assembler::LE:
+            return z_flag_ || (n_flag_ != v_flag_);
+        case Assembler::AL:
+            return true;
+        default:
+            MOZ_CRASH();
     }
     return false;
 }
 
 // Calculate and set the Negative and Zero flags.
-void
-Simulator::setNZFlags(int32_t val)
-{
+void Simulator::setNZFlags(int32_t val) {
     n_flag_ = (val < 0);
     z_flag_ = (val == 0);
 }
 
 // Set the Carry flag.
-void
-Simulator::setCFlag(bool val)
-{
-    c_flag_ = val;
-}
+void Simulator::setCFlag(bool val) { c_flag_ = val; }
 
 // Set the oVerflow flag.
-void
-Simulator::setVFlag(bool val)
-{
-    v_flag_ = val;
-}
+void Simulator::setVFlag(bool val) { v_flag_ = val; }
 
 // Calculate C flag value for additions.
-bool
-Simulator::carryFrom(int32_t left, int32_t right, int32_t carry)
-{
+bool Simulator::carryFrom(int32_t left, int32_t right, int32_t carry) {
     uint32_t uleft = static_cast<uint32_t>(left);
     uint32_t uright = static_cast<uint32_t>(right);
-    uint32_t urest  = 0xffffffffU - uleft;
-    return (uright > urest) ||
-           (carry && (((uright + 1) > urest) || (uright > (urest - 1))));
+    uint32_t urest = 0xffffffffU - uleft;
+    return (uright > urest) || (carry && (((uright + 1) > urest) || (uright > (urest - 1))));
 }
 
 // Calculate C flag value for subtractions.
-bool
-Simulator::borrowFrom(int32_t left, int32_t right)
-{
+bool Simulator::borrowFrom(int32_t left, int32_t right) {
     uint32_t uleft = static_cast<uint32_t>(left);
     uint32_t uright = static_cast<uint32_t>(right);
     return (uright > uleft);
 }
 
 // Calculate V flag value for additions and subtractions.
-bool
-Simulator::overflowFrom(int32_t alu_out, int32_t left, int32_t right, bool addition)
-{
+bool Simulator::overflowFrom(int32_t alu_out, int32_t left, int32_t right, bool addition) {
     bool overflow;
     if (addition) {
         // Operands have the same sign.
         overflow = ((left >= 0 && right >= 0) || (left < 0 && right < 0))
-            // And operands and result have different sign.
-            && ((left < 0 && alu_out >= 0) || (left >= 0 && alu_out < 0));
+                   // And operands and result have different sign.
+                   && ((left < 0 && alu_out >= 0) || (left >= 0 && alu_out < 0));
     } else {
         // Operands have different signs.
         overflow = ((left < 0 && right >= 0) || (left >= 0 && right < 0))
-            // And first operand and result have different signs.
-            && ((left < 0 && alu_out >= 0) || (left >= 0 && alu_out < 0));
+                   // And first operand and result have different signs.
+                   && ((left < 0 && alu_out >= 0) || (left >= 0 && alu_out < 0));
     }
     return overflow;
 }
 
 // Support for VFP comparisons.
-void
-Simulator::compute_FPSCR_Flags(double val1, double val2)
-{
+void Simulator::compute_FPSCR_Flags(double val1, double val2) {
     if (mozilla::IsNaN(val1) || mozilla::IsNaN(val2)) {
         n_flag_FPSCR_ = false;
         z_flag_FPSCR_ = false;
@@ -2185,9 +1874,7 @@ Simulator::compute_FPSCR_Flags(double val1, double val2)
     }
 }
 
-void
-Simulator::copy_FPSCR_to_APSR()
-{
+void Simulator::copy_FPSCR_to_APSR() {
     n_flag_ = n_flag_FPSCR_;
     z_flag_ = z_flag_FPSCR_;
     c_flag_ = c_flag_FPSCR_;
@@ -2196,9 +1883,7 @@ Simulator::copy_FPSCR_to_APSR()
 
 // Addressing Mode 1 - Data-processing operands:
 // Get the value based on the shifter_operand with register.
-int32_t
-Simulator::getShiftRm(SimInstruction* instr, bool* carry_out)
-{
+int32_t Simulator::getShiftRm(SimInstruction* instr, bool* carry_out) {
     ShiftType shift = instr->shifttypeValue();
     int shift_amount = instr->shiftAmountValue();
     int32_t result = get_register(instr->rmValue());
@@ -2208,142 +1893,141 @@ Simulator::getShiftRm(SimInstruction* instr, bool* carry_out)
             MOZ_CRASH("NYI");
             return result;
         }
-        if ((shift == LSR || shift == ASR) && shift_amount == 0)
-            shift_amount = 32;
+        if ((shift == LSR || shift == ASR) && shift_amount == 0) shift_amount = 32;
         switch (shift) {
-          case ASR: {
-            if (shift_amount == 0) {
-                if (result < 0) {
-                    result = 0xffffffff;
-                    *carry_out = true;
+            case ASR: {
+                if (shift_amount == 0) {
+                    if (result < 0) {
+                        result = 0xffffffff;
+                        *carry_out = true;
+                    } else {
+                        result = 0;
+                        *carry_out = false;
+                    }
                 } else {
-                    result = 0;
-                    *carry_out = false;
+                    result >>= (shift_amount - 1);
+                    *carry_out = (result & 1) == 1;
+                    result >>= 1;
                 }
-            } else {
-                result >>= (shift_amount - 1);
-                *carry_out = (result & 1) == 1;
-                result >>= 1;
+                break;
             }
-            break;
-          }
 
-          case LSL: {
-            if (shift_amount == 0) {
-                *carry_out = c_flag_;
-            } else {
-                result <<= (shift_amount - 1);
-                *carry_out = (result < 0);
-                result <<= 1;
+            case LSL: {
+                if (shift_amount == 0) {
+                    *carry_out = c_flag_;
+                } else {
+                    result <<= (shift_amount - 1);
+                    *carry_out = (result < 0);
+                    result <<= 1;
+                }
+                break;
             }
-            break;
-          }
 
-          case LSR: {
-            if (shift_amount == 0) {
-                result = 0;
-                *carry_out = c_flag_;
-            } else {
-                uint32_t uresult = static_cast<uint32_t>(result);
-                uresult >>= (shift_amount - 1);
-                *carry_out = (uresult & 1) == 1;
-                uresult >>= 1;
-                result = static_cast<int32_t>(uresult);
+            case LSR: {
+                if (shift_amount == 0) {
+                    result = 0;
+                    *carry_out = c_flag_;
+                } else {
+                    uint32_t uresult = static_cast<uint32_t>(result);
+                    uresult >>= (shift_amount - 1);
+                    *carry_out = (uresult & 1) == 1;
+                    uresult >>= 1;
+                    result = static_cast<int32_t>(uresult);
+                }
+                break;
             }
-            break;
-          }
 
-          case ROR: {
-            if (shift_amount == 0) {
-                *carry_out = c_flag_;
-            } else {
-                uint32_t left = static_cast<uint32_t>(result) >> shift_amount;
-                uint32_t right = static_cast<uint32_t>(result) << (32 - shift_amount);
-                result = right | left;
-                *carry_out = (static_cast<uint32_t>(result) >> 31) != 0;
+            case ROR: {
+                if (shift_amount == 0) {
+                    *carry_out = c_flag_;
+                } else {
+                    uint32_t left = static_cast<uint32_t>(result) >> shift_amount;
+                    uint32_t right = static_cast<uint32_t>(result) << (32 - shift_amount);
+                    result = right | left;
+                    *carry_out = (static_cast<uint32_t>(result) >> 31) != 0;
+                }
+                break;
             }
-            break;
-          }
 
-          default:
-            MOZ_CRASH();
+            default:
+                MOZ_CRASH();
         }
     } else {
         // By register.
         int rs = instr->rsValue();
-        shift_amount = get_register(rs) &0xff;
+        shift_amount = get_register(rs) & 0xff;
         switch (shift) {
-          case ASR: {
-            if (shift_amount == 0) {
-                *carry_out = c_flag_;
-            } else if (shift_amount < 32) {
-                result >>= (shift_amount - 1);
-                *carry_out = (result & 1) == 1;
-                result >>= 1;
-            } else {
-                MOZ_ASSERT(shift_amount >= 32);
-                if (result < 0) {
-                    *carry_out = true;
-                    result = 0xffffffff;
+            case ASR: {
+                if (shift_amount == 0) {
+                    *carry_out = c_flag_;
+                } else if (shift_amount < 32) {
+                    result >>= (shift_amount - 1);
+                    *carry_out = (result & 1) == 1;
+                    result >>= 1;
+                } else {
+                    MOZ_ASSERT(shift_amount >= 32);
+                    if (result < 0) {
+                        *carry_out = true;
+                        result = 0xffffffff;
+                    } else {
+                        *carry_out = false;
+                        result = 0;
+                    }
+                }
+                break;
+            }
+
+            case LSL: {
+                if (shift_amount == 0) {
+                    *carry_out = c_flag_;
+                } else if (shift_amount < 32) {
+                    result <<= (shift_amount - 1);
+                    *carry_out = (result < 0);
+                    result <<= 1;
+                } else if (shift_amount == 32) {
+                    *carry_out = (result & 1) == 1;
+                    result = 0;
+                } else {
+                    MOZ_ASSERT(shift_amount > 32);
+                    *carry_out = false;
+                    result = 0;
+                }
+                break;
+            }
+
+            case LSR: {
+                if (shift_amount == 0) {
+                    *carry_out = c_flag_;
+                } else if (shift_amount < 32) {
+                    uint32_t uresult = static_cast<uint32_t>(result);
+                    uresult >>= (shift_amount - 1);
+                    *carry_out = (uresult & 1) == 1;
+                    uresult >>= 1;
+                    result = static_cast<int32_t>(uresult);
+                } else if (shift_amount == 32) {
+                    *carry_out = (result < 0);
+                    result = 0;
                 } else {
                     *carry_out = false;
                     result = 0;
                 }
+                break;
             }
-            break;
-          }
 
-          case LSL: {
-            if (shift_amount == 0) {
-                *carry_out = c_flag_;
-            } else if (shift_amount < 32) {
-                result <<= (shift_amount - 1);
-                *carry_out = (result < 0);
-                result <<= 1;
-            } else if (shift_amount == 32) {
-                *carry_out = (result & 1) == 1;
-                result = 0;
-            } else {
-                MOZ_ASSERT(shift_amount > 32);
-                *carry_out = false;
-                result = 0;
+            case ROR: {
+                if (shift_amount == 0) {
+                    *carry_out = c_flag_;
+                } else {
+                    uint32_t left = static_cast<uint32_t>(result) >> shift_amount;
+                    uint32_t right = static_cast<uint32_t>(result) << (32 - shift_amount);
+                    result = right | left;
+                    *carry_out = (static_cast<uint32_t>(result) >> 31) != 0;
+                }
+                break;
             }
-            break;
-          }
 
-          case LSR: {
-            if (shift_amount == 0) {
-                *carry_out = c_flag_;
-            } else if (shift_amount < 32) {
-                uint32_t uresult = static_cast<uint32_t>(result);
-                uresult >>= (shift_amount - 1);
-                *carry_out = (uresult & 1) == 1;
-                uresult >>= 1;
-                result = static_cast<int32_t>(uresult);
-            } else if (shift_amount == 32) {
-                *carry_out = (result < 0);
-                result = 0;
-            } else {
-                *carry_out = false;
-                result = 0;
-            }
-            break;
-          }
-
-          case ROR: {
-            if (shift_amount == 0) {
-                *carry_out = c_flag_;
-            } else {
-                uint32_t left = static_cast<uint32_t>(result) >> shift_amount;
-                uint32_t right = static_cast<uint32_t>(result) << (32 - shift_amount);
-                result = right | left;
-                *carry_out = (static_cast<uint32_t>(result) >> 31) != 0;
-            }
-            break;
-          }
-
-          default:
-            MOZ_CRASH();
+            default:
+                MOZ_CRASH();
         }
     }
     return result;
@@ -2351,9 +2035,7 @@ Simulator::getShiftRm(SimInstruction* instr, bool* carry_out)
 
 // Addressing Mode 1 - Data-processing operands:
 // Get the value based on the shifter_operand with immediate.
-int32_t
-Simulator::getImm(SimInstruction* instr, bool* carry_out)
-{
+int32_t Simulator::getImm(SimInstruction* instr, bool* carry_out) {
     int rotate = instr->rotateValue() * 2;
     int immed8 = instr->immed8Value();
     int imm = (immed8 >> rotate) | (immed8 << (32 - rotate));
@@ -2361,41 +2043,37 @@ Simulator::getImm(SimInstruction* instr, bool* carry_out)
     return imm;
 }
 
-int32_t
-Simulator::processPU(SimInstruction* instr, int num_regs, int reg_size,
-                     intptr_t* start_address, intptr_t* end_address)
-{
+int32_t Simulator::processPU(SimInstruction* instr, int num_regs, int reg_size,
+                             intptr_t* start_address, intptr_t* end_address) {
     int rn = instr->rnValue();
     int32_t rn_val = get_register(rn);
     switch (instr->PUField()) {
-      case da_x:
-        MOZ_CRASH();
-        break;
-      case ia_x:
-        *start_address = rn_val;
-        *end_address = rn_val + (num_regs * reg_size) - reg_size;
-        rn_val = rn_val + (num_regs * reg_size);
-        break;
-      case db_x:
-        *start_address = rn_val - (num_regs * reg_size);
-        *end_address = rn_val - reg_size;
-        rn_val = *start_address;
-        break;
-      case ib_x:
-        *start_address = rn_val + reg_size;
-        *end_address = rn_val + (num_regs * reg_size);
-        rn_val = *end_address;
-        break;
-      default:
-        MOZ_CRASH();
+        case da_x:
+            MOZ_CRASH();
+            break;
+        case ia_x:
+            *start_address = rn_val;
+            *end_address = rn_val + (num_regs * reg_size) - reg_size;
+            rn_val = rn_val + (num_regs * reg_size);
+            break;
+        case db_x:
+            *start_address = rn_val - (num_regs * reg_size);
+            *end_address = rn_val - reg_size;
+            rn_val = *start_address;
+            break;
+        case ib_x:
+            *start_address = rn_val + reg_size;
+            *end_address = rn_val + (num_regs * reg_size);
+            rn_val = *end_address;
+            break;
+        default:
+            MOZ_CRASH();
     }
     return rn_val;
 }
 
 // Addressing Mode 4 - Load and Store Multiple
-void
-Simulator::handleRList(SimInstruction* instr, bool load)
-{
+void Simulator::handleRList(SimInstruction* instr, bool load) {
     int rlist = instr->rlistValue();
     int num_regs = mozilla::CountPopulation32(rlist);
 
@@ -2421,14 +2099,11 @@ Simulator::handleRList(SimInstruction* instr, bool load)
         rlist >>= 1;
     }
     MOZ_ASSERT(end_address == ((intptr_t)address) - 4);
-    if (instr->hasW())
-        set_register(instr->rnValue(), rn_val);
+    if (instr->hasW()) set_register(instr->rnValue(), rn_val);
 }
 
 // Addressing Mode 6 - Load and Store Multiple Coprocessor registers.
-void
-Simulator::handleVList(SimInstruction* instr)
-{
+void Simulator::handleVList(SimInstruction* instr) {
     VFPRegPrecision precision = (instr->szValue() == 0) ? kSinglePrecision : kDoublePrecision;
     int operand_size = (precision == kSinglePrecision) ? 4 : 8;
     bool load = (instr->VLValue() == 0x1);
@@ -2449,16 +2124,16 @@ Simulator::handleVList(SimInstruction* instr)
     for (int reg = vd; reg < vd + num_regs; reg++) {
         if (precision == kSinglePrecision) {
             if (load)
-                set_s_register_from_sinteger(reg, readW(reinterpret_cast<int32_t>(address), instr));
+                set_s_register_from_sinteger(reg,
+                                             readW(reinterpret_cast<int32_t>(address), instr));
             else
-                writeW(reinterpret_cast<int32_t>(address), get_sinteger_from_s_register(reg), instr);
+                writeW(reinterpret_cast<int32_t>(address), get_sinteger_from_s_register(reg),
+                       instr);
             address += 1;
         } else {
             if (load) {
-                int32_t data[] = {
-                    readW(reinterpret_cast<int32_t>(address), instr),
-                    readW(reinterpret_cast<int32_t>(address + 1), instr)
-                };
+                int32_t data[] = {readW(reinterpret_cast<int32_t>(address), instr),
+                                  readW(reinterpret_cast<int32_t>(address + 1), instr)};
                 double d;
                 memcpy(&d, data, 8);
                 set_d_register_from_double(reg, d);
@@ -2474,10 +2149,8 @@ Simulator::handleVList(SimInstruction* instr)
         }
     }
     MOZ_ASSERT(reinterpret_cast<intptr_t>(address) - operand_size == end_address);
-    if (instr->hasW())
-        set_register(instr->rnValue(), rn_val);
+    if (instr->hasW()) set_register(instr->rnValue(), rn_val);
 }
-
 
 // Note: With the code below we assume that all runtime calls return a 64 bits
 // result. If they don't, the r1 result register contains a bogus value, which
@@ -2515,8 +2188,8 @@ typedef double (*Prototype_Double_DoubleDouble)(double arg0, double arg1);
 typedef int32_t (*Prototype_Int_IntDouble)(int32_t arg0, double arg1);
 
 typedef double (*Prototype_Double_DoubleDoubleDouble)(double arg0, double arg1, double arg2);
-typedef double (*Prototype_Double_DoubleDoubleDoubleDouble)(double arg0, double arg1,
-                                                            double arg2, double arg3);
+typedef double (*Prototype_Double_DoubleDoubleDoubleDouble)(double arg0, double arg1, double arg2,
+                                                            double arg3);
 
 // Fill the volatile registers with scratch values.
 //
@@ -2526,410 +2199,400 @@ typedef double (*Prototype_Double_DoubleDoubleDoubleDouble)(double arg0, double 
 // does not scratch any float registers for these calls. Should try to narrow it
 // further in future.
 //
-void
-Simulator::scratchVolatileRegisters(bool scratchFloat)
-{
+void Simulator::scratchVolatileRegisters(bool scratchFloat) {
     int32_t scratch_value = 0xa5a5a5a5 ^ uint32_t(icount_);
     set_register(r0, scratch_value);
     set_register(r1, scratch_value);
     set_register(r2, scratch_value);
     set_register(r3, scratch_value);
-    set_register(r12, scratch_value); // Intra-Procedure-call scratch register.
-    set_register(r14, scratch_value); // Link register.
+    set_register(r12, scratch_value);  // Intra-Procedure-call scratch register.
+    set_register(r14, scratch_value);  // Link register.
 
     if (scratchFloat) {
-        uint64_t scratch_value_d = 0x5a5a5a5a5a5a5a5aLU ^ uint64_t(icount_) ^ (uint64_t(icount_) << 30);
-        for (uint32_t i = d0; i < d8; i++)
-            set_d_register(i, &scratch_value_d);
+        uint64_t scratch_value_d =
+            0x5a5a5a5a5a5a5a5aLU ^ uint64_t(icount_) ^ (uint64_t(icount_) << 30);
+        for (uint32_t i = d0; i < d8; i++) set_d_register(i, &scratch_value_d);
         for (uint32_t i = d16; i < FloatRegisters::TotalPhys; i++)
             set_d_register(i, &scratch_value_d);
     }
 }
 
 // Software interrupt instructions are used by the simulator to call into C++.
-void
-Simulator::softwareInterrupt(SimInstruction* instr)
-{
+void Simulator::softwareInterrupt(SimInstruction* instr) {
     int svc = instr->svcValue();
     switch (svc) {
-      case kCallRtRedirected: {
-        Redirection* redirection = Redirection::FromSwiInstruction(instr);
-        int32_t arg0 = get_register(r0);
-        int32_t arg1 = get_register(r1);
-        int32_t arg2 = get_register(r2);
-        int32_t arg3 = get_register(r3);
-        int32_t* stack_pointer = reinterpret_cast<int32_t*>(get_register(sp));
-        int32_t arg4 = stack_pointer[0];
-        int32_t arg5 = stack_pointer[1];
+        case kCallRtRedirected: {
+            Redirection* redirection = Redirection::FromSwiInstruction(instr);
+            int32_t arg0 = get_register(r0);
+            int32_t arg1 = get_register(r1);
+            int32_t arg2 = get_register(r2);
+            int32_t arg3 = get_register(r3);
+            int32_t* stack_pointer = reinterpret_cast<int32_t*>(get_register(sp));
+            int32_t arg4 = stack_pointer[0];
+            int32_t arg5 = stack_pointer[1];
 
-        int32_t saved_lr = get_register(lr);
-        intptr_t external = reinterpret_cast<intptr_t>(redirection->nativeFunction());
+            int32_t saved_lr = get_register(lr);
+            intptr_t external = reinterpret_cast<intptr_t>(redirection->nativeFunction());
 
-        bool stack_aligned = (get_register(sp) & (ABIStackAlignment - 1)) == 0;
-        if (!stack_aligned) {
-            fprintf(stderr, "Runtime call with unaligned stack!\n");
-            MOZ_CRASH();
-        }
-
-        if (single_stepping_)
-            single_step_callback_(single_step_callback_arg_, this, nullptr);
-
-        switch (redirection->type()) {
-          case Args_General0: {
-            Prototype_General0 target = reinterpret_cast<Prototype_General0>(external);
-            int64_t result = target();
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_General1: {
-            Prototype_General1 target = reinterpret_cast<Prototype_General1>(external);
-            int64_t result = target(arg0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_General2: {
-            Prototype_General2 target = reinterpret_cast<Prototype_General2>(external);
-            int64_t result = target(arg0, arg1);
-            // The ARM backend makes calls to __aeabi_idivmod and
-            // __aeabi_uidivmod assuming that the float registers are
-            // non-volatile as a performance optimization, so the float
-            // registers must not be scratch when calling these.
-            bool scratchFloat = target != __aeabi_idivmod && target != __aeabi_uidivmod;
-            scratchVolatileRegisters(/* scratchFloat = */ scratchFloat);
-            setCallResult(result);
-            break;
-          }
-          case Args_General3: {
-            Prototype_General3 target = reinterpret_cast<Prototype_General3>(external);
-            int64_t result = target(arg0, arg1, arg2);
-            scratchVolatileRegisters(/* scratchFloat = true*/);
-            setCallResult(result);
-            break;
-          }
-          case Args_General4: {
-            Prototype_General4 target = reinterpret_cast<Prototype_General4>(external);
-            int64_t result = target(arg0, arg1, arg2, arg3);
-            scratchVolatileRegisters(/* scratchFloat = true*/);
-            setCallResult(result);
-            break;
-          }
-          case Args_General5: {
-            Prototype_General5 target = reinterpret_cast<Prototype_General5>(external);
-            int64_t result = target(arg0, arg1, arg2, arg3, arg4);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_General6: {
-            Prototype_General6 target = reinterpret_cast<Prototype_General6>(external);
-            int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_General7: {
-            Prototype_General7 target = reinterpret_cast<Prototype_General7>(external);
-            int32_t arg6 = stack_pointer[2];
-            int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_General8: {
-            Prototype_General8 target = reinterpret_cast<Prototype_General8>(external);
-            int32_t arg6 = stack_pointer[2];
-            int32_t arg7 = stack_pointer[3];
-            int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_Int64_Double: {
-            double dval0, dval1;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            Prototype_Int64_Double target = reinterpret_cast<Prototype_Int64_Double>(external);
-            int64_t result = target(dval0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResult(result);
-            break;
-          }
-          case Args_Double_None: {
-            Prototype_Double_None target = reinterpret_cast<Prototype_Double_None>(external);
-            double dresult = target();
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Int_Double: {
-            double dval0, dval1;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            Prototype_Int_Double target = reinterpret_cast<Prototype_Int_Double>(external);
-            int32_t res = target(dval0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            set_register(r0, res);
-            break;
-          }
-          case Args_Double_Double: {
-            double dval0, dval1;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            Prototype_Double_Double target = reinterpret_cast<Prototype_Double_Double>(external);
-            double dresult = target(dval0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Float32_Float32: {
-            float fval0;
-            if (UseHardFpABI())
-                get_float_from_s_register(0, &fval0);
-            else
-                fval0 = mozilla::BitwiseCast<float>(arg0);
-            Prototype_Float32_Float32 target = reinterpret_cast<Prototype_Float32_Float32>(external);
-            float fresult = target(fval0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultFloat(fresult);
-            break;
-          }
-          case Args_Float32_Float32Float32: {
-            float fval0, fval1;
-            if (UseHardFpABI()) {
-                get_float_from_s_register(0, &fval0);
-                get_float_from_s_register(1, &fval1);
-            } else {
-                fval0 = mozilla::BitwiseCast<float>(arg0);
-                fval1 = mozilla::BitwiseCast<float>(arg1);
+            bool stack_aligned = (get_register(sp) & (ABIStackAlignment - 1)) == 0;
+            if (!stack_aligned) {
+                fprintf(stderr, "Runtime call with unaligned stack!\n");
+                MOZ_CRASH();
             }
-            Prototype_Float32_Float32Float32 target = reinterpret_cast<Prototype_Float32_Float32Float32>(external);
-            float fresult = target(fval0, fval1);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultFloat(fresult);
-            break;
-          }
-          case Args_Float32_IntInt: {
-            Prototype_Float32_IntInt target = reinterpret_cast<Prototype_Float32_IntInt>(external);
-            float fresult = target(arg0, arg1);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultFloat(fresult);
-            break;
-          }
-          case Args_Double_Int: {
-            Prototype_Double_Int target = reinterpret_cast<Prototype_Double_Int>(external);
-            double dresult = target(arg0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Double_IntInt: {
-            Prototype_Double_IntInt target = reinterpret_cast<Prototype_Double_IntInt>(external);
-            double dresult = target(arg0, arg1);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Double_DoubleInt: {
-            double dval0, dval1;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            Prototype_DoubleInt target = reinterpret_cast<Prototype_DoubleInt>(external);
-            double dresult = target(dval0, ival);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Double_DoubleDouble: {
-            double dval0, dval1;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            Prototype_Double_DoubleDouble target = reinterpret_cast<Prototype_Double_DoubleDouble>(external);
-            double dresult = target(dval0, dval1);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Double_IntDouble: {
-            int32_t ival = get_register(0);
-            double dval0;
-            if (UseHardFpABI())
-                get_double_from_d_register(0, &dval0);
-            else
-                dval0 = get_double_from_register_pair(2);
-            Prototype_Double_IntDouble target = reinterpret_cast<Prototype_Double_IntDouble>(external);
-            double dresult = target(ival, dval0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          case Args_Int_IntDouble: {
-            int32_t ival = get_register(0);
-            double dval0;
-            if (UseHardFpABI())
-                get_double_from_d_register(0, &dval0);
-            else
-                dval0 = get_double_from_register_pair(2);
-            Prototype_Int_IntDouble target = reinterpret_cast<Prototype_Int_IntDouble>(external);
-            int32_t result = target(ival, dval0);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            set_register(r0, result);
-            break;
-          }
-          case Args_Int_DoubleIntInt: {
-            double dval;
-            int32_t result;
-            Prototype_Int_DoubleIntInt target = reinterpret_cast<Prototype_Int_DoubleIntInt>(external);
-            if (UseHardFpABI()) {
-                get_double_from_d_register(0, &dval);
-                result = target(dval, arg0, arg1);
-            } else {
-                dval = get_double_from_register_pair(0);
-                result = target(dval, arg2, arg3);
-            }
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            set_register(r0, result);
-            break;
-          }
-          case Args_Int_IntDoubleIntInt: {
-            double dval;
-            int32_t result;
-            Prototype_Int_IntDoubleIntInt target = reinterpret_cast<Prototype_Int_IntDoubleIntInt>(external);
-            if (UseHardFpABI()) {
-                get_double_from_d_register(0, &dval);
-                result = target(arg0, dval, arg1, arg2);
-            } else {
-                dval = get_double_from_register_pair(2);
-                result = target(arg0, dval, arg4, arg5);
-            }
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            set_register(r0, result);
-            break;
-          }
-          case Args_Double_DoubleDoubleDouble: {
-            double dval0, dval1, dval2;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            // the last argument is on stack
-            getFpFromStack(stack_pointer, &dval2);
-            Prototype_Double_DoubleDoubleDouble target = reinterpret_cast<Prototype_Double_DoubleDoubleDouble>(external);
-            double dresult = target(dval0, dval1, dval2);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-         }
-         case Args_Double_DoubleDoubleDoubleDouble: {
-            double dval0, dval1, dval2, dval3;
-            int32_t ival;
-            getFpArgs(&dval0, &dval1, &ival);
-            // the two last arguments are on stack
-            getFpFromStack(stack_pointer, &dval2);
-            getFpFromStack(stack_pointer + 2, &dval3);
-            Prototype_Double_DoubleDoubleDoubleDouble target = reinterpret_cast<Prototype_Double_DoubleDoubleDoubleDouble>(external);
-            double dresult = target(dval0, dval1, dval2, dval3);
-            scratchVolatileRegisters(/* scratchFloat = true */);
-            setCallResultDouble(dresult);
-            break;
-          }
-          default:
-            MOZ_CRASH("call");
-        }
 
-        if (single_stepping_)
-            single_step_callback_(single_step_callback_arg_, this, nullptr);
+            if (single_stepping_) single_step_callback_(single_step_callback_arg_, this, nullptr);
 
-        set_register(lr, saved_lr);
-        set_pc(get_register(lr));
-        break;
-      }
-      case kBreakpoint: {
-        ArmDebugger dbg(this);
-        dbg.debug();
-        break;
-      }
-      default: { // Stop uses all codes greater than 1 << 23.
-        if (svc >= (1 << 23)) {
-            uint32_t code = svc & kStopCodeMask;
-            if (isWatchedStop(code))
-                increaseStopCounter(code);
-
-            // Stop if it is enabled, otherwise go on jumping over the stop and
-            // the message address.
-            if (isEnabledStop(code)) {
-                ArmDebugger dbg(this);
-                dbg.stop(instr);
-            } else {
-                set_pc(get_pc() + 2 * SimInstruction::kInstrSize);
+            switch (redirection->type()) {
+                case Args_General0: {
+                    Prototype_General0 target = reinterpret_cast<Prototype_General0>(external);
+                    int64_t result = target();
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General1: {
+                    Prototype_General1 target = reinterpret_cast<Prototype_General1>(external);
+                    int64_t result = target(arg0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General2: {
+                    Prototype_General2 target = reinterpret_cast<Prototype_General2>(external);
+                    int64_t result = target(arg0, arg1);
+                    // The ARM backend makes calls to __aeabi_idivmod and
+                    // __aeabi_uidivmod assuming that the float registers are
+                    // non-volatile as a performance optimization, so the float
+                    // registers must not be scratch when calling these.
+                    bool scratchFloat = target != __aeabi_idivmod && target != __aeabi_uidivmod;
+                    scratchVolatileRegisters(/* scratchFloat = */ scratchFloat);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General3: {
+                    Prototype_General3 target = reinterpret_cast<Prototype_General3>(external);
+                    int64_t result = target(arg0, arg1, arg2);
+                    scratchVolatileRegisters(/* scratchFloat = true*/);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General4: {
+                    Prototype_General4 target = reinterpret_cast<Prototype_General4>(external);
+                    int64_t result = target(arg0, arg1, arg2, arg3);
+                    scratchVolatileRegisters(/* scratchFloat = true*/);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General5: {
+                    Prototype_General5 target = reinterpret_cast<Prototype_General5>(external);
+                    int64_t result = target(arg0, arg1, arg2, arg3, arg4);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General6: {
+                    Prototype_General6 target = reinterpret_cast<Prototype_General6>(external);
+                    int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General7: {
+                    Prototype_General7 target = reinterpret_cast<Prototype_General7>(external);
+                    int32_t arg6 = stack_pointer[2];
+                    int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_General8: {
+                    Prototype_General8 target = reinterpret_cast<Prototype_General8>(external);
+                    int32_t arg6 = stack_pointer[2];
+                    int32_t arg7 = stack_pointer[3];
+                    int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_Int64_Double: {
+                    double dval0, dval1;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    Prototype_Int64_Double target =
+                        reinterpret_cast<Prototype_Int64_Double>(external);
+                    int64_t result = target(dval0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResult(result);
+                    break;
+                }
+                case Args_Double_None: {
+                    Prototype_Double_None target =
+                        reinterpret_cast<Prototype_Double_None>(external);
+                    double dresult = target();
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Int_Double: {
+                    double dval0, dval1;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    Prototype_Int_Double target = reinterpret_cast<Prototype_Int_Double>(external);
+                    int32_t res = target(dval0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    set_register(r0, res);
+                    break;
+                }
+                case Args_Double_Double: {
+                    double dval0, dval1;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    Prototype_Double_Double target =
+                        reinterpret_cast<Prototype_Double_Double>(external);
+                    double dresult = target(dval0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Float32_Float32: {
+                    float fval0;
+                    if (UseHardFpABI())
+                        get_float_from_s_register(0, &fval0);
+                    else
+                        fval0 = mozilla::BitwiseCast<float>(arg0);
+                    Prototype_Float32_Float32 target =
+                        reinterpret_cast<Prototype_Float32_Float32>(external);
+                    float fresult = target(fval0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultFloat(fresult);
+                    break;
+                }
+                case Args_Float32_Float32Float32: {
+                    float fval0, fval1;
+                    if (UseHardFpABI()) {
+                        get_float_from_s_register(0, &fval0);
+                        get_float_from_s_register(1, &fval1);
+                    } else {
+                        fval0 = mozilla::BitwiseCast<float>(arg0);
+                        fval1 = mozilla::BitwiseCast<float>(arg1);
+                    }
+                    Prototype_Float32_Float32Float32 target =
+                        reinterpret_cast<Prototype_Float32_Float32Float32>(external);
+                    float fresult = target(fval0, fval1);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultFloat(fresult);
+                    break;
+                }
+                case Args_Float32_IntInt: {
+                    Prototype_Float32_IntInt target =
+                        reinterpret_cast<Prototype_Float32_IntInt>(external);
+                    float fresult = target(arg0, arg1);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultFloat(fresult);
+                    break;
+                }
+                case Args_Double_Int: {
+                    Prototype_Double_Int target = reinterpret_cast<Prototype_Double_Int>(external);
+                    double dresult = target(arg0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Double_IntInt: {
+                    Prototype_Double_IntInt target =
+                        reinterpret_cast<Prototype_Double_IntInt>(external);
+                    double dresult = target(arg0, arg1);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Double_DoubleInt: {
+                    double dval0, dval1;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    Prototype_DoubleInt target = reinterpret_cast<Prototype_DoubleInt>(external);
+                    double dresult = target(dval0, ival);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Double_DoubleDouble: {
+                    double dval0, dval1;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    Prototype_Double_DoubleDouble target =
+                        reinterpret_cast<Prototype_Double_DoubleDouble>(external);
+                    double dresult = target(dval0, dval1);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Double_IntDouble: {
+                    int32_t ival = get_register(0);
+                    double dval0;
+                    if (UseHardFpABI())
+                        get_double_from_d_register(0, &dval0);
+                    else
+                        dval0 = get_double_from_register_pair(2);
+                    Prototype_Double_IntDouble target =
+                        reinterpret_cast<Prototype_Double_IntDouble>(external);
+                    double dresult = target(ival, dval0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Int_IntDouble: {
+                    int32_t ival = get_register(0);
+                    double dval0;
+                    if (UseHardFpABI())
+                        get_double_from_d_register(0, &dval0);
+                    else
+                        dval0 = get_double_from_register_pair(2);
+                    Prototype_Int_IntDouble target =
+                        reinterpret_cast<Prototype_Int_IntDouble>(external);
+                    int32_t result = target(ival, dval0);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    set_register(r0, result);
+                    break;
+                }
+                case Args_Int_DoubleIntInt: {
+                    double dval;
+                    int32_t result;
+                    Prototype_Int_DoubleIntInt target =
+                        reinterpret_cast<Prototype_Int_DoubleIntInt>(external);
+                    if (UseHardFpABI()) {
+                        get_double_from_d_register(0, &dval);
+                        result = target(dval, arg0, arg1);
+                    } else {
+                        dval = get_double_from_register_pair(0);
+                        result = target(dval, arg2, arg3);
+                    }
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    set_register(r0, result);
+                    break;
+                }
+                case Args_Int_IntDoubleIntInt: {
+                    double dval;
+                    int32_t result;
+                    Prototype_Int_IntDoubleIntInt target =
+                        reinterpret_cast<Prototype_Int_IntDoubleIntInt>(external);
+                    if (UseHardFpABI()) {
+                        get_double_from_d_register(0, &dval);
+                        result = target(arg0, dval, arg1, arg2);
+                    } else {
+                        dval = get_double_from_register_pair(2);
+                        result = target(arg0, dval, arg4, arg5);
+                    }
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    set_register(r0, result);
+                    break;
+                }
+                case Args_Double_DoubleDoubleDouble: {
+                    double dval0, dval1, dval2;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    // the last argument is on stack
+                    getFpFromStack(stack_pointer, &dval2);
+                    Prototype_Double_DoubleDoubleDouble target =
+                        reinterpret_cast<Prototype_Double_DoubleDoubleDouble>(external);
+                    double dresult = target(dval0, dval1, dval2);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                case Args_Double_DoubleDoubleDoubleDouble: {
+                    double dval0, dval1, dval2, dval3;
+                    int32_t ival;
+                    getFpArgs(&dval0, &dval1, &ival);
+                    // the two last arguments are on stack
+                    getFpFromStack(stack_pointer, &dval2);
+                    getFpFromStack(stack_pointer + 2, &dval3);
+                    Prototype_Double_DoubleDoubleDoubleDouble target =
+                        reinterpret_cast<Prototype_Double_DoubleDoubleDoubleDouble>(external);
+                    double dresult = target(dval0, dval1, dval2, dval3);
+                    scratchVolatileRegisters(/* scratchFloat = true */);
+                    setCallResultDouble(dresult);
+                    break;
+                }
+                default:
+                    MOZ_CRASH("call");
             }
-        } else {
-            // This is not a valid svc code.
-            MOZ_CRASH();
+
+            if (single_stepping_) single_step_callback_(single_step_callback_arg_, this, nullptr);
+
+            set_register(lr, saved_lr);
+            set_pc(get_register(lr));
             break;
         }
-      }
+        case kBreakpoint: {
+            ArmDebugger dbg(this);
+            dbg.debug();
+            break;
+        }
+        default: {  // Stop uses all codes greater than 1 << 23.
+            if (svc >= (1 << 23)) {
+                uint32_t code = svc & kStopCodeMask;
+                if (isWatchedStop(code)) increaseStopCounter(code);
+
+                // Stop if it is enabled, otherwise go on jumping over the stop and
+                // the message address.
+                if (isEnabledStop(code)) {
+                    ArmDebugger dbg(this);
+                    dbg.stop(instr);
+                } else {
+                    set_pc(get_pc() + 2 * SimInstruction::kInstrSize);
+                }
+            } else {
+                // This is not a valid svc code.
+                MOZ_CRASH();
+                break;
+            }
+        }
     }
 }
 
-void
-Simulator::canonicalizeNaN(double* value)
-{
-    if (!JitOptions.wasmTestMode && FPSCR_default_NaN_mode_)
-        *value = JS::CanonicalizeNaN(*value);
+void Simulator::canonicalizeNaN(double* value) {
+    if (!JitOptions.wasmTestMode && FPSCR_default_NaN_mode_) *value = JS::CanonicalizeNaN(*value);
 }
 
-void
-Simulator::canonicalizeNaN(float* value)
-{
-    if (!JitOptions.wasmTestMode && FPSCR_default_NaN_mode_)
-        *value = JS::CanonicalizeNaN(*value);
+void Simulator::canonicalizeNaN(float* value) {
+    if (!JitOptions.wasmTestMode && FPSCR_default_NaN_mode_) *value = JS::CanonicalizeNaN(*value);
 }
 
 // Stop helper functions.
-bool
-Simulator::isStopInstruction(SimInstruction* instr)
-{
+bool Simulator::isStopInstruction(SimInstruction* instr) {
     return (instr->bits(27, 24) == 0xF) && (instr->svcValue() >= kStopCode);
 }
 
-bool Simulator::isWatchedStop(uint32_t code)
-{
+bool Simulator::isWatchedStop(uint32_t code) {
     MOZ_ASSERT(code <= kMaxStopCode);
     return code < kNumOfWatchedStops;
 }
 
-bool
-Simulator::isEnabledStop(uint32_t code)
-{
+bool Simulator::isEnabledStop(uint32_t code) {
     MOZ_ASSERT(code <= kMaxStopCode);
     // Unwatched stops are always enabled.
     return !isWatchedStop(code) || !(watched_stops_[code].count & kStopDisabledBit);
 }
 
-void
-Simulator::enableStop(uint32_t code)
-{
+void Simulator::enableStop(uint32_t code) {
     MOZ_ASSERT(isWatchedStop(code));
-    if (!isEnabledStop(code))
-        watched_stops_[code].count &= ~kStopDisabledBit;
+    if (!isEnabledStop(code)) watched_stops_[code].count &= ~kStopDisabledBit;
 }
 
-void
-Simulator::disableStop(uint32_t code)
-{
+void Simulator::disableStop(uint32_t code) {
     MOZ_ASSERT(isWatchedStop(code));
-    if (isEnabledStop(code))
-        watched_stops_[code].count |= kStopDisabledBit;
+    if (isEnabledStop(code)) watched_stops_[code].count |= kStopDisabledBit;
 }
 
-void
-Simulator::increaseStopCounter(uint32_t code)
-{
+void Simulator::increaseStopCounter(uint32_t code) {
     MOZ_ASSERT(code <= kMaxStopCode);
     MOZ_ASSERT(isWatchedStop(code));
     if ((watched_stops_[code].count & ~(1 << 31)) == 0x7fffffff) {
-        printf("Stop counter for code %i has overflowed.\n"
-               "Enabling this code and reseting the counter to 0.\n", code);
+        printf(
+            "Stop counter for code %i has overflowed.\n"
+            "Enabling this code and reseting the counter to 0.\n",
+            code);
         watched_stops_[code].count = 0;
         enableStop(code);
     } else {
@@ -2938,9 +2601,7 @@ Simulator::increaseStopCounter(uint32_t code)
 }
 
 // Print a stop status.
-void
-Simulator::printStopInfo(uint32_t code)
-{
+void Simulator::printStopInfo(uint32_t code) {
     MOZ_ASSERT(code <= kMaxStopCode);
     if (!isWatchedStop(code)) {
         printf("Stop not watched.");
@@ -2950,11 +2611,10 @@ Simulator::printStopInfo(uint32_t code)
         // Don't print the state of unused breakpoints.
         if (count != 0) {
             if (watched_stops_[code].desc) {
-                printf("stop %i - 0x%x: \t%s, \tcounter = %i, \t%s\n",
-                       code, code, state, count, watched_stops_[code].desc);
+                printf("stop %i - 0x%x: \t%s, \tcounter = %i, \t%s\n", code, code, state, count,
+                       watched_stops_[code].desc);
             } else {
-                printf("stop %i - 0x%x: \t%s, \tcounter = %i\n",
-                       code, code, state, count);
+                printf("stop %i - 0x%x: \t%s, \tcounter = %i\n", code, code, state, count);
             }
         }
     }
@@ -2962,9 +2622,7 @@ Simulator::printStopInfo(uint32_t code)
 
 // Instruction types 0 and 1 are both rolled into one function because they only
 // differ in the handling of the shifter_operand.
-void
-Simulator::decodeType01(SimInstruction* instr)
-{
+void Simulator::decodeType01(SimInstruction* instr) {
     int type = instr->typeValue();
     if (type == 0 && instr->isSpecialType0()) {
         // Multiply instruction or extra loads and stores.
@@ -2985,8 +2643,7 @@ Simulator::decodeType01(SimInstruction* instr)
                         int rd = rn;  // Remap the rn field to the Rd register.
                         int32_t alu_out = rm_val * rs_val;
                         set_register(rd, alu_out);
-                        if (instr->hasS())
-                            setNZFlags(alu_out);
+                        if (instr->hasS()) setNZFlags(alu_out);
                     } else {
                         int rd = instr->rdValue();
                         int32_t acc_value = get_register(rd);
@@ -3020,14 +2677,14 @@ Simulator::decodeType01(SimInstruction* instr)
                     int32_t hi_res = 0;
                     int32_t lo_res = 0;
                     if (instr->bit(22) == 1) {
-                        int64_t left_op  = static_cast<int32_t>(rm_val);
+                        int64_t left_op = static_cast<int32_t>(rm_val);
                         int64_t right_op = static_cast<int32_t>(rs_val);
                         uint64_t result = left_op * right_op;
                         hi_res = static_cast<int32_t>(result >> 32);
                         lo_res = static_cast<int32_t>(result & 0xffffffff);
                     } else {
                         // Unsigned multiply.
-                        uint64_t left_op  = static_cast<uint32_t>(rm_val);
+                        uint64_t left_op = static_cast<uint32_t>(rm_val);
                         uint64_t right_op = static_cast<uint32_t>(rs_val);
                         uint64_t result = left_op * right_op;
                         hi_res = static_cast<int32_t>(result >> 32);
@@ -3035,63 +2692,63 @@ Simulator::decodeType01(SimInstruction* instr)
                     }
                     set_register(rd_lo, lo_res);
                     set_register(rd_hi, hi_res);
-                    if (instr->hasS())
-                        MOZ_CRASH();
+                    if (instr->hasS()) MOZ_CRASH();
                 }
             } else {
-                if (instr->bits(disasm::ExclusiveOpHi, disasm::ExclusiveOpLo) == disasm::ExclusiveOpcode) {
+                if (instr->bits(disasm::ExclusiveOpHi, disasm::ExclusiveOpLo) ==
+                    disasm::ExclusiveOpcode) {
                     // Load-exclusive / store-exclusive.
                     if (instr->bit(disasm::ExclusiveLoad)) {
                         int rn = instr->rnValue();
                         int rt = instr->rtValue();
                         int32_t address = get_register(rn);
                         switch (instr->bits(disasm::ExclusiveSizeHi, disasm::ExclusiveSizeLo)) {
-                          case disasm::ExclusiveWord:
-                            set_register(rt, readExW(address, instr));
-                            break;
-                          case disasm::ExclusiveDouble: {
-                            MOZ_ASSERT((rt % 2) == 0);
-                            int32_t hibits;
-                            int32_t lobits = readExDW(address, &hibits);
-                            set_register(rt, lobits);
-                            set_register(rt+1, hibits);
-                            break;
-                          }
-                          case disasm::ExclusiveByte:
-                            set_register(rt, readExBU(address));
-                            break;
-                          case disasm::ExclusiveHalf:
-                            set_register(rt, readExHU(address, instr));
-                            break;
+                            case disasm::ExclusiveWord:
+                                set_register(rt, readExW(address, instr));
+                                break;
+                            case disasm::ExclusiveDouble: {
+                                MOZ_ASSERT((rt % 2) == 0);
+                                int32_t hibits;
+                                int32_t lobits = readExDW(address, &hibits);
+                                set_register(rt, lobits);
+                                set_register(rt + 1, hibits);
+                                break;
+                            }
+                            case disasm::ExclusiveByte:
+                                set_register(rt, readExBU(address));
+                                break;
+                            case disasm::ExclusiveHalf:
+                                set_register(rt, readExHU(address, instr));
+                                break;
                         }
                     } else {
                         int rn = instr->rnValue();
                         int rd = instr->rdValue();
-                        int rt = instr->bits(3,0);
+                        int rt = instr->bits(3, 0);
                         int32_t address = get_register(rn);
                         int32_t value = get_register(rt);
                         int32_t result = 0;
                         switch (instr->bits(disasm::ExclusiveSizeHi, disasm::ExclusiveSizeLo)) {
-                          case disasm::ExclusiveWord:
-                            result = writeExW(address, value, instr);
-                            break;
-                          case disasm::ExclusiveDouble: {
-                            MOZ_ASSERT((rt % 2) == 0);
-                            int32_t value2 = get_register(rt+1);
-                            result = writeExDW(address, value, value2);
-                            break;
-                          }
-                          case disasm::ExclusiveByte:
-                            result = writeExB(address, (uint8_t)value);
-                            break;
-                          case disasm::ExclusiveHalf:
-                            result = writeExH(address, (uint16_t)value, instr);
-                            break;
+                            case disasm::ExclusiveWord:
+                                result = writeExW(address, value, instr);
+                                break;
+                            case disasm::ExclusiveDouble: {
+                                MOZ_ASSERT((rt % 2) == 0);
+                                int32_t value2 = get_register(rt + 1);
+                                result = writeExDW(address, value, value2);
+                                break;
+                            }
+                            case disasm::ExclusiveByte:
+                                result = writeExB(address, (uint8_t)value);
+                                break;
+                            case disasm::ExclusiveHalf:
+                                result = writeExH(address, (uint16_t)value, instr);
+                                break;
                         }
                         set_register(rd, result);
                     }
                 } else {
-                    MOZ_CRASH(); // Not used atm
+                    MOZ_CRASH();  // Not used atm
                 }
             }
         } else {
@@ -3104,66 +2761,62 @@ Simulator::decodeType01(SimInstruction* instr)
                 int rm = instr->rmValue();
                 int32_t rm_val = get_register(rm);
                 switch (instr->PUField()) {
-                  case da_x:
-                    MOZ_ASSERT(!instr->hasW());
-                    addr = rn_val;
-                    rn_val -= rm_val;
-                    set_register(rn, rn_val);
-                    break;
-                  case ia_x:
-                    MOZ_ASSERT(!instr->hasW());
-                    addr = rn_val;
-                    rn_val += rm_val;
-                    set_register(rn, rn_val);
-                    break;
-                  case db_x:
-                    rn_val -= rm_val;
-                    addr = rn_val;
-                    if (instr->hasW())
+                    case da_x:
+                        MOZ_ASSERT(!instr->hasW());
+                        addr = rn_val;
+                        rn_val -= rm_val;
                         set_register(rn, rn_val);
-                    break;
-                  case ib_x:
-                    rn_val += rm_val;
-                    addr = rn_val;
-                    if (instr->hasW())
+                        break;
+                    case ia_x:
+                        MOZ_ASSERT(!instr->hasW());
+                        addr = rn_val;
+                        rn_val += rm_val;
                         set_register(rn, rn_val);
-                    break;
-                  default:
-                    // The PU field is a 2-bit field.
-                    MOZ_CRASH();
-                    break;
+                        break;
+                    case db_x:
+                        rn_val -= rm_val;
+                        addr = rn_val;
+                        if (instr->hasW()) set_register(rn, rn_val);
+                        break;
+                    case ib_x:
+                        rn_val += rm_val;
+                        addr = rn_val;
+                        if (instr->hasW()) set_register(rn, rn_val);
+                        break;
+                    default:
+                        // The PU field is a 2-bit field.
+                        MOZ_CRASH();
+                        break;
                 }
             } else {
                 int32_t imm_val = (instr->immedHValue() << 4) | instr->immedLValue();
                 switch (instr->PUField()) {
-                  case da_x:
-                    MOZ_ASSERT(!instr->hasW());
-                    addr = rn_val;
-                    rn_val -= imm_val;
-                    set_register(rn, rn_val);
-                    break;
-                  case ia_x:
-                    MOZ_ASSERT(!instr->hasW());
-                    addr = rn_val;
-                    rn_val += imm_val;
-                    set_register(rn, rn_val);
-                    break;
-                  case db_x:
-                    rn_val -= imm_val;
-                    addr = rn_val;
-                    if (instr->hasW())
+                    case da_x:
+                        MOZ_ASSERT(!instr->hasW());
+                        addr = rn_val;
+                        rn_val -= imm_val;
                         set_register(rn, rn_val);
-                    break;
-                  case ib_x:
-                    rn_val += imm_val;
-                    addr = rn_val;
-                    if (instr->hasW())
+                        break;
+                    case ia_x:
+                        MOZ_ASSERT(!instr->hasW());
+                        addr = rn_val;
+                        rn_val += imm_val;
                         set_register(rn, rn_val);
-                    break;
-                  default:
-                    // The PU field is a 2-bit field.
-                    MOZ_CRASH();
-                    break;
+                        break;
+                    case db_x:
+                        rn_val -= imm_val;
+                        addr = rn_val;
+                        if (instr->hasW()) set_register(rn, rn_val);
+                        break;
+                    case ib_x:
+                        rn_val += imm_val;
+                        addr = rn_val;
+                        if (instr->hasW()) set_register(rn, rn_val);
+                        break;
+                    default:
+                        // The PU field is a 2-bit field.
+                        MOZ_CRASH();
+                        break;
                 }
             }
             if ((instr->bits(7, 4) & 0xd) == 0xd && instr->bit(20) == 0) {
@@ -3171,13 +2824,12 @@ Simulator::decodeType01(SimInstruction* instr)
                 if (instr->hasH()) {
                     // The strd instruction.
                     int32_t value1 = get_register(rd);
-                    int32_t value2 = get_register(rd+1);
+                    int32_t value2 = get_register(rd + 1);
                     writeDW(addr, value1, value2);
                 } else {
                     // The ldrd instruction.
                     int* rn_data = readDW(addr);
-                    if (rn_data)
-                        set_dw_register(rd, rn_data);
+                    if (rn_data) set_dw_register(rd, rn_data);
                 }
             } else if (instr->hasH()) {
                 if (instr->hasSign()) {
@@ -3214,10 +2866,7 @@ Simulator::decodeType01(SimInstruction* instr)
                 uint32_t flags;
                 if (instr->bit(22) == 0) {
                     // CPSR. Note: The Q flag is not yet implemented!
-                    flags = (n_flag_ << 31) |
-                        (z_flag_ << 30) |
-                        (c_flag_ << 29) |
-                        (v_flag_ << 28);
+                    flags = (n_flag_ << 31) | (z_flag_ << 30) | (c_flag_ << 29) | (v_flag_ << 28);
                 } else {
                     // SPSR
                     MOZ_CRASH();
@@ -3243,46 +2892,46 @@ Simulator::decodeType01(SimInstruction* instr)
         } else if (instr->bits(22, 21) == 1) {
             int rm = instr->rmValue();
             switch (instr->bits(7, 4)) {
-              case 1:   // BX
-                set_pc(get_register(rm));
-                break;
-              case 3: { // BLX
-                uint32_t old_pc = get_pc();
-                set_pc(get_register(rm));
-                set_register(lr, old_pc + SimInstruction::kInstrSize);
-                break;
-              }
-              case 7: { // BKPT
-                fprintf(stderr, "Simulator hit BKPT.\n");
-                if (getenv("ARM_SIM_DEBUGGER")) {
-                    ArmDebugger dbg(this);
-                    dbg.debug();
-                } else {
-                    fprintf(stderr, "Use ARM_SIM_DEBUGGER=1 to enter the builtin debugger.\n");
-                    MOZ_CRASH("ARM simulator breakpoint");
+                case 1:  // BX
+                    set_pc(get_register(rm));
+                    break;
+                case 3: {  // BLX
+                    uint32_t old_pc = get_pc();
+                    set_pc(get_register(rm));
+                    set_register(lr, old_pc + SimInstruction::kInstrSize);
+                    break;
                 }
-                break;
-              }
-              default:
-                MOZ_CRASH();
+                case 7: {  // BKPT
+                    fprintf(stderr, "Simulator hit BKPT.\n");
+                    if (getenv("ARM_SIM_DEBUGGER")) {
+                        ArmDebugger dbg(this);
+                        dbg.debug();
+                    } else {
+                        fprintf(stderr, "Use ARM_SIM_DEBUGGER=1 to enter the builtin debugger.\n");
+                        MOZ_CRASH("ARM simulator breakpoint");
+                    }
+                    break;
+                }
+                default:
+                    MOZ_CRASH();
             }
         } else if (instr->bits(22, 21) == 3) {
             int rm = instr->rmValue();
             int rd = instr->rdValue();
             switch (instr->bits(7, 4)) {
-              case 1: { // CLZ
-                uint32_t bits = get_register(rm);
-                int leading_zeros = 0;
-                if (bits == 0)
-                    leading_zeros = 32;
-                else
-                    leading_zeros = mozilla::CountLeadingZeroes32(bits);
-                set_register(rd, leading_zeros);
-                break;
-              }
-              default:
-                MOZ_CRASH();
-                break;
+                case 1: {  // CLZ
+                    uint32_t bits = get_register(rm);
+                    int leading_zeros = 0;
+                    if (bits == 0)
+                        leading_zeros = 32;
+                    else
+                        leading_zeros = mozilla::CountLeadingZeroes32(bits);
+                    set_register(rd, leading_zeros);
+                    break;
+                }
+                default:
+                    MOZ_CRASH();
+                    break;
             }
         } else {
             printf("%08x\n", instr->instructionBits());
@@ -3304,190 +2953,183 @@ Simulator::decodeType01(SimInstruction* instr)
         }
         int32_t alu_out;
         switch (instr->opcodeField()) {
-          case OpAnd:
-            alu_out = rn_val & shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            }
-            break;
-          case OpEor:
-            alu_out = rn_val ^ shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            }
-            break;
-          case OpSub:
-            alu_out = rn_val - shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(!borrowFrom(rn_val, shifter_operand));
-                setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, false));
-            }
-            break;
-          case OpRsb:
-            alu_out = shifter_operand - rn_val;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(!borrowFrom(shifter_operand, rn_val));
-                setVFlag(overflowFrom(alu_out, shifter_operand, rn_val, false));
-            }
-            break;
-          case OpAdd:
-            alu_out = rn_val + shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(carryFrom(rn_val, shifter_operand));
-                setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, true));
-            }
-            break;
-          case OpAdc:
-            alu_out = rn_val + shifter_operand + getCarry();
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(carryFrom(rn_val, shifter_operand, getCarry()));
-                setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, true));
-            }
-            break;
-          case OpSbc:
-            alu_out = rn_val - shifter_operand - (getCarry() == 0 ? 1 : 0);
-            set_register(rd, alu_out);
-            if (instr->hasS())
-                MOZ_CRASH();
-            break;
-          case OpRsc:
-            alu_out = shifter_operand - rn_val - (getCarry() == 0 ? 1 : 0);
-            set_register(rd, alu_out);
-            if (instr->hasS())
-                MOZ_CRASH();
-            break;
-          case OpTst:
-            if (instr->hasS()) {
+            case OpAnd:
                 alu_out = rn_val & shifter_operand;
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            } else {
-                alu_out = instr->immedMovwMovtValue();
                 set_register(rd, alu_out);
-            }
-            break;
-          case OpTeq:
-            if (instr->hasS()) {
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                }
+                break;
+            case OpEor:
                 alu_out = rn_val ^ shifter_operand;
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            } else {
-                // Other instructions matching this pattern are handled in the
-                // miscellaneous instructions part above.
-                MOZ_CRASH();
-            }
-            break;
-          case OpCmp:
-            if (instr->hasS()) {
-                alu_out = rn_val - shifter_operand;
-                setNZFlags(alu_out);
-                setCFlag(!borrowFrom(rn_val, shifter_operand));
-                setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, false));
-            } else {
-                alu_out = (get_register(rd) & 0xffff) |
-                    (instr->immedMovwMovtValue() << 16);
                 set_register(rd, alu_out);
-            }
-            break;
-          case OpCmn:
-            if (instr->hasS()) {
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                }
+                break;
+            case OpSub:
+                alu_out = rn_val - shifter_operand;
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(!borrowFrom(rn_val, shifter_operand));
+                    setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, false));
+                }
+                break;
+            case OpRsb:
+                alu_out = shifter_operand - rn_val;
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(!borrowFrom(shifter_operand, rn_val));
+                    setVFlag(overflowFrom(alu_out, shifter_operand, rn_val, false));
+                }
+                break;
+            case OpAdd:
                 alu_out = rn_val + shifter_operand;
-                setNZFlags(alu_out);
-                setCFlag(carryFrom(rn_val, shifter_operand));
-                setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, true));
-            } else {
-                // Other instructions matching this pattern are handled in the
-                // miscellaneous instructions part above.
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(carryFrom(rn_val, shifter_operand));
+                    setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, true));
+                }
+                break;
+            case OpAdc:
+                alu_out = rn_val + shifter_operand + getCarry();
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(carryFrom(rn_val, shifter_operand, getCarry()));
+                    setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, true));
+                }
+                break;
+            case OpSbc:
+                alu_out = rn_val - shifter_operand - (getCarry() == 0 ? 1 : 0);
+                set_register(rd, alu_out);
+                if (instr->hasS()) MOZ_CRASH();
+                break;
+            case OpRsc:
+                alu_out = shifter_operand - rn_val - (getCarry() == 0 ? 1 : 0);
+                set_register(rd, alu_out);
+                if (instr->hasS()) MOZ_CRASH();
+                break;
+            case OpTst:
+                if (instr->hasS()) {
+                    alu_out = rn_val & shifter_operand;
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                } else {
+                    alu_out = instr->immedMovwMovtValue();
+                    set_register(rd, alu_out);
+                }
+                break;
+            case OpTeq:
+                if (instr->hasS()) {
+                    alu_out = rn_val ^ shifter_operand;
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                } else {
+                    // Other instructions matching this pattern are handled in the
+                    // miscellaneous instructions part above.
+                    MOZ_CRASH();
+                }
+                break;
+            case OpCmp:
+                if (instr->hasS()) {
+                    alu_out = rn_val - shifter_operand;
+                    setNZFlags(alu_out);
+                    setCFlag(!borrowFrom(rn_val, shifter_operand));
+                    setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, false));
+                } else {
+                    alu_out = (get_register(rd) & 0xffff) | (instr->immedMovwMovtValue() << 16);
+                    set_register(rd, alu_out);
+                }
+                break;
+            case OpCmn:
+                if (instr->hasS()) {
+                    alu_out = rn_val + shifter_operand;
+                    setNZFlags(alu_out);
+                    setCFlag(carryFrom(rn_val, shifter_operand));
+                    setVFlag(overflowFrom(alu_out, rn_val, shifter_operand, true));
+                } else {
+                    // Other instructions matching this pattern are handled in the
+                    // miscellaneous instructions part above.
+                    MOZ_CRASH();
+                }
+                break;
+            case OpOrr:
+                alu_out = rn_val | shifter_operand;
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                }
+                break;
+            case OpMov:
+                alu_out = shifter_operand;
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                }
+                break;
+            case OpBic:
+                alu_out = rn_val & ~shifter_operand;
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                }
+                break;
+            case OpMvn:
+                alu_out = ~shifter_operand;
+                set_register(rd, alu_out);
+                if (instr->hasS()) {
+                    setNZFlags(alu_out);
+                    setCFlag(shifter_carry_out);
+                }
+                break;
+            default:
                 MOZ_CRASH();
-            }
-            break;
-          case OpOrr:
-            alu_out = rn_val | shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            }
-            break;
-          case OpMov:
-            alu_out = shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            }
-            break;
-          case OpBic:
-            alu_out = rn_val & ~shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            }
-            break;
-          case OpMvn:
-            alu_out = ~shifter_operand;
-            set_register(rd, alu_out);
-            if (instr->hasS()) {
-                setNZFlags(alu_out);
-                setCFlag(shifter_carry_out);
-            }
-            break;
-          default:
-            MOZ_CRASH();
-            break;
+                break;
         }
     }
 }
 
-void
-Simulator::decodeType2(SimInstruction* instr)
-{
+void Simulator::decodeType2(SimInstruction* instr) {
     int rd = instr->rdValue();
     int rn = instr->rnValue();
     int32_t rn_val = get_register(rn);
     int32_t im_val = instr->offset12Value();
     int32_t addr = 0;
     switch (instr->PUField()) {
-      case da_x:
-        MOZ_ASSERT(!instr->hasW());
-        addr = rn_val;
-        rn_val -= im_val;
-        set_register(rn, rn_val);
-        break;
-      case ia_x:
-        MOZ_ASSERT(!instr->hasW());
-        addr = rn_val;
-        rn_val += im_val;
-        set_register(rn, rn_val);
-        break;
-      case db_x:
-        rn_val -= im_val;
-        addr = rn_val;
-        if (instr->hasW())
+        case da_x:
+            MOZ_ASSERT(!instr->hasW());
+            addr = rn_val;
+            rn_val -= im_val;
             set_register(rn, rn_val);
-        break;
-      case ib_x:
-        rn_val += im_val;
-        addr = rn_val;
-        if (instr->hasW())
+            break;
+        case ia_x:
+            MOZ_ASSERT(!instr->hasW());
+            addr = rn_val;
+            rn_val += im_val;
             set_register(rn, rn_val);
-        break;
-      default:
-        MOZ_CRASH();
-        break;
+            break;
+        case db_x:
+            rn_val -= im_val;
+            addr = rn_val;
+            if (instr->hasW()) set_register(rn, rn_val);
+            break;
+        case ib_x:
+            rn_val += im_val;
+            addr = rn_val;
+            if (instr->hasW()) set_register(rn, rn_val);
+            break;
+        default:
+            MOZ_CRASH();
+            break;
     }
     if (instr->hasB()) {
         if (instr->hasL()) {
@@ -3505,24 +3147,20 @@ Simulator::decodeType2(SimInstruction* instr)
     }
 }
 
-static uint32_t
-rotateBytes(uint32_t val, int32_t rotate)
-{
+static uint32_t rotateBytes(uint32_t val, int32_t rotate) {
     switch (rotate) {
-      default:
-        return val;
-      case 1:
-        return (val >> 8) | (val << 24);
-      case 2:
-        return (val >> 16) | (val << 16);
-      case 3:
-        return (val >> 24) | (val << 8);
+        default:
+            return val;
+        case 1:
+            return (val >> 8) | (val << 24);
+        case 2:
+            return (val >> 16) | (val << 16);
+        case 3:
+            return (val >> 24) | (val << 8);
     }
 }
 
-void
-Simulator::decodeType3(SimInstruction* instr)
-{
+void Simulator::decodeType3(SimInstruction* instr) {
     int rd = instr->rdValue();
     int rn = instr->rnValue();
     int32_t rn_val = get_register(rn);
@@ -3530,231 +3168,225 @@ Simulator::decodeType3(SimInstruction* instr)
     int32_t shifter_operand = getShiftRm(instr, &shifter_carry_out);
     int32_t addr = 0;
     switch (instr->PUField()) {
-      case da_x:
-        MOZ_ASSERT(!instr->hasW());
-        MOZ_CRASH();
-        break;
-      case ia_x: {
-        if (instr->bit(4) == 0) {
-            // Memop.
-        } else {
-            if (instr->bit(5) == 0) {
-                switch (instr->bits(22, 21)) {
-                  case 0:
-                    if (instr->bit(20) == 0) {
-                        if (instr->bit(6) == 0) {
-                            // Pkhbt.
-                            uint32_t rn_val = get_register(rn);
-                            uint32_t rm_val = get_register(instr->rmValue());
-                            int32_t shift = instr->bits(11, 7);
-                            rm_val <<= shift;
-                            set_register(rd, (rn_val & 0xFFFF) | (rm_val & 0xFFFF0000U));
-                        } else {
-                            // Pkhtb.
-                            uint32_t rn_val = get_register(rn);
-                            int32_t rm_val = get_register(instr->rmValue());
-                            int32_t shift = instr->bits(11, 7);
-                            if (shift == 0)
-                                shift = 32;
-                            rm_val >>= shift;
-                            set_register(rd, (rn_val & 0xFFFF0000U) | (rm_val & 0xFFFF));
-                        }
-                    } else {
-                        MOZ_CRASH();
-                    }
-                    break;
-                  case 1:
-                    MOZ_CRASH();
-                    break;
-                  case 2:
-                    MOZ_CRASH();
-                    break;
-                  case 3: {
-                    // Usat.
-                      int32_t sat_pos = instr->bits(20, 16);
-                      int32_t sat_val = (1 << sat_pos) - 1;
-                      int32_t shift = instr->bits(11, 7);
-                      int32_t shift_type = instr->bit(6);
-                      int32_t rm_val = get_register(instr->rmValue());
-                      if (shift_type == 0) // LSL
-                          rm_val <<= shift;
-                      else // ASR
-                          rm_val >>= shift;
-
-                      // If saturation occurs, the Q flag should be set in the
-                      // CPSR. There is no Q flag yet, and no instruction (MRS)
-                      // to read the CPSR directly.
-                      if (rm_val > sat_val)
-                          rm_val = sat_val;
-                      else if (rm_val < 0)
-                          rm_val = 0;
-                      set_register(rd, rm_val);
-                      break;
-                  }
-                }
+        case da_x:
+            MOZ_ASSERT(!instr->hasW());
+            MOZ_CRASH();
+            break;
+        case ia_x: {
+            if (instr->bit(4) == 0) {
+                // Memop.
             } else {
-                switch (instr->bits(22, 21)) {
-                  case 0:
-                    MOZ_CRASH();
-                    break;
-                  case 1:
-                    if (instr->bits(7,4) == 7 && instr->bits(19,16) == 15) {
-                        uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
-                                                      instr->bits(11, 10));
-                        if (instr->bit(20)) {
-                            // Sxth.
-                            set_register(rd, (int32_t)(int16_t)(rm_val & 0xFFFF));
-                        }
-                        else {
-                            // Sxtb.
-                            set_register(rd, (int32_t)(int8_t)(rm_val & 0xFF));
-                        }
-                    } else {
-                        MOZ_CRASH();
-                    }
-                    break;
-                  case 2:
-                    if ((instr->bit(20) == 0) && (instr->bits(9, 6) == 1)) {
-                        if (instr->bits(19, 16) == 0xF) {
-                            // Uxtb16.
-                            uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
-                                                          instr->bits(11, 10));
-                            set_register(rd, (rm_val & 0xFF) | (rm_val & 0xFF0000));
-                        } else {
+                if (instr->bit(5) == 0) {
+                    switch (instr->bits(22, 21)) {
+                        case 0:
+                            if (instr->bit(20) == 0) {
+                                if (instr->bit(6) == 0) {
+                                    // Pkhbt.
+                                    uint32_t rn_val = get_register(rn);
+                                    uint32_t rm_val = get_register(instr->rmValue());
+                                    int32_t shift = instr->bits(11, 7);
+                                    rm_val <<= shift;
+                                    set_register(rd, (rn_val & 0xFFFF) | (rm_val & 0xFFFF0000U));
+                                } else {
+                                    // Pkhtb.
+                                    uint32_t rn_val = get_register(rn);
+                                    int32_t rm_val = get_register(instr->rmValue());
+                                    int32_t shift = instr->bits(11, 7);
+                                    if (shift == 0) shift = 32;
+                                    rm_val >>= shift;
+                                    set_register(rd, (rn_val & 0xFFFF0000U) | (rm_val & 0xFFFF));
+                                }
+                            } else {
+                                MOZ_CRASH();
+                            }
+                            break;
+                        case 1:
                             MOZ_CRASH();
-                        }
-                    } else {
-                        MOZ_CRASH();
-                    }
-                    break;
-                  case 3:
-                    if ((instr->bit(20) == 0) && (instr->bits(9, 6) == 1)) {
-                        if (instr->bits(19, 16) == 0xF) {
-                            // Uxtb.
-                            uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
-                                                          instr->bits(11, 10));
-                            set_register(rd, (rm_val & 0xFF));
-                        } else {
-                            // Uxtab.
-                            uint32_t rn_val = get_register(rn);
-                            uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
-                                                          instr->bits(11, 10));
-                            set_register(rd, rn_val + (rm_val & 0xFF));
-                        }
-                    } else if ((instr->bit(20) == 1) && (instr->bits(9, 6) == 1)) {
-                        if (instr->bits(19, 16) == 0xF) {
-                            // Uxth.
-                            uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
-                                                          instr->bits(11, 10));
-                            set_register(rd, (rm_val & 0xFFFF));
-                        } else {
-                            // Uxtah.
-                            uint32_t rn_val = get_register(rn);
-                            uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
-                                                          instr->bits(11, 10));
-                            set_register(rd, rn_val + (rm_val & 0xFFFF));
-                        }
-                    } else {
-                        MOZ_CRASH();
-                    }
-                    break;
-                }
-            }
-            return;
-        }
-        break;
-      }
-      case db_x: { // sudiv
-        if (instr->bit(22) == 0x0 && instr->bit(20) == 0x1 &&
-            instr->bits(15,12) == 0x0f && instr->bits(7, 4) == 0x1) {
-            if (!instr->hasW()) {
-                // sdiv (in V8 notation matching ARM ISA format) rn = rm/rs.
-                int rm = instr->rmValue();
-                int32_t rm_val = get_register(rm);
-                int rs = instr->rsValue();
-                int32_t rs_val = get_register(rs);
-                int32_t ret_val = 0;
-                MOZ_ASSERT(rs_val != 0);
-                if ((rm_val == INT32_MIN) && (rs_val == -1))
-                    ret_val = INT32_MIN;
-                else
-                    ret_val = rm_val / rs_val;
-                set_register(rn, ret_val);
-                return;
-            } else {
-                // udiv (in V8 notation matching ARM ISA format) rn = rm/rs.
-                int rm = instr->rmValue();
-                uint32_t rm_val = get_register(rm);
-                int rs = instr->rsValue();
-                uint32_t rs_val = get_register(rs);
-                uint32_t ret_val = 0;
-                MOZ_ASSERT(rs_val != 0);
-                ret_val = rm_val / rs_val;
-                set_register(rn, ret_val);
-                return;
-            }
-        }
+                            break;
+                        case 2:
+                            MOZ_CRASH();
+                            break;
+                        case 3: {
+                            // Usat.
+                            int32_t sat_pos = instr->bits(20, 16);
+                            int32_t sat_val = (1 << sat_pos) - 1;
+                            int32_t shift = instr->bits(11, 7);
+                            int32_t shift_type = instr->bit(6);
+                            int32_t rm_val = get_register(instr->rmValue());
+                            if (shift_type == 0)  // LSL
+                                rm_val <<= shift;
+                            else  // ASR
+                                rm_val >>= shift;
 
-        addr = rn_val - shifter_operand;
-        if (instr->hasW())
-            set_register(rn, addr);
-        break;
-      }
-      case ib_x: {
-        if (instr->hasW() && (instr->bits(6, 4) == 0x5)) {
-            uint32_t widthminus1 = static_cast<uint32_t>(instr->bits(20, 16));
-            uint32_t lsbit = static_cast<uint32_t>(instr->bits(11, 7));
-            uint32_t msbit = widthminus1 + lsbit;
-            if (msbit <= 31) {
-                if (instr->bit(22)) {
-                    // ubfx - unsigned bitfield extract.
-                    uint32_t rm_val = static_cast<uint32_t>(get_register(instr->rmValue()));
-                    uint32_t extr_val = rm_val << (31 - msbit);
-                    extr_val = extr_val >> (31 - widthminus1);
-                    set_register(instr->rdValue(), extr_val);
+                            // If saturation occurs, the Q flag should be set in the
+                            // CPSR. There is no Q flag yet, and no instruction (MRS)
+                            // to read the CPSR directly.
+                            if (rm_val > sat_val)
+                                rm_val = sat_val;
+                            else if (rm_val < 0)
+                                rm_val = 0;
+                            set_register(rd, rm_val);
+                            break;
+                        }
+                    }
                 } else {
-                    // sbfx - signed bitfield extract.
-                    int32_t rm_val = get_register(instr->rmValue());
-                    int32_t extr_val = rm_val << (31 - msbit);
-                    extr_val = extr_val >> (31 - widthminus1);
-                    set_register(instr->rdValue(), extr_val);
+                    switch (instr->bits(22, 21)) {
+                        case 0:
+                            MOZ_CRASH();
+                            break;
+                        case 1:
+                            if (instr->bits(7, 4) == 7 && instr->bits(19, 16) == 15) {
+                                uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
+                                                              instr->bits(11, 10));
+                                if (instr->bit(20)) {
+                                    // Sxth.
+                                    set_register(rd, (int32_t)(int16_t)(rm_val & 0xFFFF));
+                                } else {
+                                    // Sxtb.
+                                    set_register(rd, (int32_t)(int8_t)(rm_val & 0xFF));
+                                }
+                            } else {
+                                MOZ_CRASH();
+                            }
+                            break;
+                        case 2:
+                            if ((instr->bit(20) == 0) && (instr->bits(9, 6) == 1)) {
+                                if (instr->bits(19, 16) == 0xF) {
+                                    // Uxtb16.
+                                    uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
+                                                                  instr->bits(11, 10));
+                                    set_register(rd, (rm_val & 0xFF) | (rm_val & 0xFF0000));
+                                } else {
+                                    MOZ_CRASH();
+                                }
+                            } else {
+                                MOZ_CRASH();
+                            }
+                            break;
+                        case 3:
+                            if ((instr->bit(20) == 0) && (instr->bits(9, 6) == 1)) {
+                                if (instr->bits(19, 16) == 0xF) {
+                                    // Uxtb.
+                                    uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
+                                                                  instr->bits(11, 10));
+                                    set_register(rd, (rm_val & 0xFF));
+                                } else {
+                                    // Uxtab.
+                                    uint32_t rn_val = get_register(rn);
+                                    uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
+                                                                  instr->bits(11, 10));
+                                    set_register(rd, rn_val + (rm_val & 0xFF));
+                                }
+                            } else if ((instr->bit(20) == 1) && (instr->bits(9, 6) == 1)) {
+                                if (instr->bits(19, 16) == 0xF) {
+                                    // Uxth.
+                                    uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
+                                                                  instr->bits(11, 10));
+                                    set_register(rd, (rm_val & 0xFFFF));
+                                } else {
+                                    // Uxtah.
+                                    uint32_t rn_val = get_register(rn);
+                                    uint32_t rm_val = rotateBytes(get_register(instr->rmValue()),
+                                                                  instr->bits(11, 10));
+                                    set_register(rd, rn_val + (rm_val & 0xFFFF));
+                                }
+                            } else {
+                                MOZ_CRASH();
+                            }
+                            break;
+                    }
                 }
-            } else {
-                MOZ_CRASH();
+                return;
             }
-            return;
-        } else if (!instr->hasW() && (instr->bits(6, 4) == 0x1)) {
-            uint32_t lsbit = static_cast<uint32_t>(instr->bits(11, 7));
-            uint32_t msbit = static_cast<uint32_t>(instr->bits(20, 16));
-            if (msbit >= lsbit) {
-                // bfc or bfi - bitfield clear/insert.
-                uint32_t rd_val =
-                    static_cast<uint32_t>(get_register(instr->rdValue()));
-                uint32_t bitcount = msbit - lsbit + 1;
-                uint32_t mask = (1 << bitcount) - 1;
-                rd_val &= ~(mask << lsbit);
-                if (instr->rmValue() != 15) {
-                    // bfi - bitfield insert.
-                    uint32_t rm_val =
-                        static_cast<uint32_t>(get_register(instr->rmValue()));
-                    rm_val &= mask;
-                    rd_val |= rm_val << lsbit;
-                }
-                set_register(instr->rdValue(), rd_val);
-            } else {
-                MOZ_CRASH();
-            }
-            return;
-        } else {
-            addr = rn_val + shifter_operand;
-            if (instr->hasW())
-                set_register(rn, addr);
+            break;
         }
-        break;
-      }
-      default:
-        MOZ_CRASH();
-        break;
+        case db_x: {  // sudiv
+            if (instr->bit(22) == 0x0 && instr->bit(20) == 0x1 && instr->bits(15, 12) == 0x0f &&
+                instr->bits(7, 4) == 0x1) {
+                if (!instr->hasW()) {
+                    // sdiv (in V8 notation matching ARM ISA format) rn = rm/rs.
+                    int rm = instr->rmValue();
+                    int32_t rm_val = get_register(rm);
+                    int rs = instr->rsValue();
+                    int32_t rs_val = get_register(rs);
+                    int32_t ret_val = 0;
+                    MOZ_ASSERT(rs_val != 0);
+                    if ((rm_val == INT32_MIN) && (rs_val == -1))
+                        ret_val = INT32_MIN;
+                    else
+                        ret_val = rm_val / rs_val;
+                    set_register(rn, ret_val);
+                    return;
+                } else {
+                    // udiv (in V8 notation matching ARM ISA format) rn = rm/rs.
+                    int rm = instr->rmValue();
+                    uint32_t rm_val = get_register(rm);
+                    int rs = instr->rsValue();
+                    uint32_t rs_val = get_register(rs);
+                    uint32_t ret_val = 0;
+                    MOZ_ASSERT(rs_val != 0);
+                    ret_val = rm_val / rs_val;
+                    set_register(rn, ret_val);
+                    return;
+                }
+            }
+
+            addr = rn_val - shifter_operand;
+            if (instr->hasW()) set_register(rn, addr);
+            break;
+        }
+        case ib_x: {
+            if (instr->hasW() && (instr->bits(6, 4) == 0x5)) {
+                uint32_t widthminus1 = static_cast<uint32_t>(instr->bits(20, 16));
+                uint32_t lsbit = static_cast<uint32_t>(instr->bits(11, 7));
+                uint32_t msbit = widthminus1 + lsbit;
+                if (msbit <= 31) {
+                    if (instr->bit(22)) {
+                        // ubfx - unsigned bitfield extract.
+                        uint32_t rm_val = static_cast<uint32_t>(get_register(instr->rmValue()));
+                        uint32_t extr_val = rm_val << (31 - msbit);
+                        extr_val = extr_val >> (31 - widthminus1);
+                        set_register(instr->rdValue(), extr_val);
+                    } else {
+                        // sbfx - signed bitfield extract.
+                        int32_t rm_val = get_register(instr->rmValue());
+                        int32_t extr_val = rm_val << (31 - msbit);
+                        extr_val = extr_val >> (31 - widthminus1);
+                        set_register(instr->rdValue(), extr_val);
+                    }
+                } else {
+                    MOZ_CRASH();
+                }
+                return;
+            } else if (!instr->hasW() && (instr->bits(6, 4) == 0x1)) {
+                uint32_t lsbit = static_cast<uint32_t>(instr->bits(11, 7));
+                uint32_t msbit = static_cast<uint32_t>(instr->bits(20, 16));
+                if (msbit >= lsbit) {
+                    // bfc or bfi - bitfield clear/insert.
+                    uint32_t rd_val = static_cast<uint32_t>(get_register(instr->rdValue()));
+                    uint32_t bitcount = msbit - lsbit + 1;
+                    uint32_t mask = (1 << bitcount) - 1;
+                    rd_val &= ~(mask << lsbit);
+                    if (instr->rmValue() != 15) {
+                        // bfi - bitfield insert.
+                        uint32_t rm_val = static_cast<uint32_t>(get_register(instr->rmValue()));
+                        rm_val &= mask;
+                        rd_val |= rm_val << lsbit;
+                    }
+                    set_register(instr->rdValue(), rd_val);
+                } else {
+                    MOZ_CRASH();
+                }
+                return;
+            } else {
+                addr = rn_val + shifter_operand;
+                if (instr->hasW()) set_register(rn, addr);
+            }
+            break;
+        }
+        default:
+            MOZ_CRASH();
+            break;
     }
     if (instr->hasB()) {
         if (instr->hasL()) {
@@ -3772,65 +3404,50 @@ Simulator::decodeType3(SimInstruction* instr)
     }
 }
 
-void
-Simulator::decodeType4(SimInstruction* instr)
-{
+void Simulator::decodeType4(SimInstruction* instr) {
     // Only allowed to be set in privileged mode.
     MOZ_ASSERT(instr->bit(22) == 0);
     bool load = instr->hasL();
     handleRList(instr, load);
 }
 
-void
-Simulator::decodeType5(SimInstruction* instr)
-{
+void Simulator::decodeType5(SimInstruction* instr) {
     int off = instr->sImmed24Value() << 2;
     intptr_t pc_address = get_pc();
-    if (instr->hasLink())
-        set_register(lr, pc_address + SimInstruction::kInstrSize);
+    if (instr->hasLink()) set_register(lr, pc_address + SimInstruction::kInstrSize);
     int pc_reg = get_register(pc);
     set_pc(pc_reg + off);
 }
 
-void
-Simulator::decodeType6(SimInstruction* instr)
-{
-    decodeType6CoprocessorIns(instr);
-}
+void Simulator::decodeType6(SimInstruction* instr) { decodeType6CoprocessorIns(instr); }
 
-void
-Simulator::decodeType7(SimInstruction* instr)
-{
+void Simulator::decodeType7(SimInstruction* instr) {
     if (instr->bit(24) == 1)
         softwareInterrupt(instr);
-    else if (instr->bit(4) == 1 && instr->bits(11,9) != 5)
+    else if (instr->bit(4) == 1 && instr->bits(11, 9) != 5)
         decodeType7CoprocessorIns(instr);
     else
         decodeTypeVFP(instr);
 }
 
-void
-Simulator::decodeType7CoprocessorIns(SimInstruction* instr)
-{
+void Simulator::decodeType7CoprocessorIns(SimInstruction* instr) {
     if (instr->bit(20) == 0) {
         // MCR, MCR2
         if (instr->coprocessorValue() == 15) {
-            int opc1 = instr->bits(23,21);
-            int opc2 = instr->bits(7,5);
-            int CRn = instr->bits(19,16);
-            int CRm = instr->bits(3,0);
+            int opc1 = instr->bits(23, 21);
+            int opc2 = instr->bits(7, 5);
+            int CRn = instr->bits(19, 16);
+            int CRm = instr->bits(3, 0);
             if (opc1 == 0 && opc2 == 4 && CRn == 7 && CRm == 10) {
                 // ARMv6 DSB instruction.  We do not use DSB.
                 MOZ_CRASH("DSB not implemented");
             } else if (opc1 == 0 && opc2 == 5 && CRn == 7 && CRm == 10) {
                 // ARMv6 DMB instruction.
                 AtomicOperations::fenceSeqCst();
-            }
-            else if (opc1 == 0 && opc2 == 4 && CRn == 7 && CRm == 5) {
+            } else if (opc1 == 0 && opc2 == 4 && CRn == 7 && CRm == 5) {
                 // ARMv6 ISB instruction.  We do not use ISB.
                 MOZ_CRASH("ISB not implemented");
-            }
-            else {
+            } else {
                 MOZ_CRASH();
             }
         } else {
@@ -3842,9 +3459,7 @@ Simulator::decodeType7CoprocessorIns(SimInstruction* instr)
     }
 }
 
-void
-Simulator::decodeTypeVFP(SimInstruction* instr)
-{
+void Simulator::decodeTypeVFP(SimInstruction* instr) {
     MOZ_ASSERT(instr->typeValue() == 7 && instr->bit(24) == 0);
     MOZ_ASSERT(instr->bits(11, 9) == 0x5);
 
@@ -3921,8 +3536,7 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
                 int fixed_value = get_sinteger_from_s_register(vd * 2);
                 double divide = 1 << fraction_bits;
                 set_d_register_from_double(vd, fixed_value / divide);
-            } else if (((instr->opc2Value() >> 1) == 0x6) &&
-                       (instr->opc3Value() & 0x1)) {
+            } else if (((instr->opc2Value() >> 1) == 0x6) && (instr->opc3Value() & 0x1)) {
                 decodeVCVTBetweenFloatingPointAndInteger(instr);
             } else if (((instr->opc2Value() == 0x4) || (instr->opc2Value() == 0x5)) &&
                        (instr->opc3Value() & 0x1)) {
@@ -4018,8 +3632,7 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
             // vmla, vmls
             const bool is_vmls = (instr->opc3Value() & 0x1);
 
-            if (instr->szValue() != 0x1)
-                MOZ_CRASH("Not used by V8.");
+            if (instr->szValue() != 0x1) MOZ_CRASH("Not used by V8.");
 
             double dd_val;
             get_double_from_d_register(vd, &dd_val);
@@ -4066,8 +3679,7 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
     } else {
         if (instr->VCValue() == 0x0 && instr->VAValue() == 0x0) {
             decodeVMOVBetweenCoreAndSinglePrecisionRegisters(instr);
-        } else if ((instr->VLValue() == 0x0) &&
-                   (instr->VCValue() == 0x1) &&
+        } else if ((instr->VLValue() == 0x0) && (instr->VCValue() == 0x1) &&
                    (instr->bit(23) == 0x0)) {
             // vmov (ARM core register to scalar).
             int vd = instr->bits(19, 16) | (instr->bit(7) << 4);
@@ -4078,8 +3690,7 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
             data[instr->bit(21)] = get_register(instr->rtValue());
             memcpy(&dd_value, data, 8);
             set_d_register_from_double(vd, dd_value);
-        } else if ((instr->VLValue() == 0x1) &&
-                   (instr->VCValue() == 0x1) &&
+        } else if ((instr->VLValue() == 0x1) && (instr->VCValue() == 0x1) &&
                    (instr->bit(23) == 0x0)) {
             // vmov (scalar to ARM core register).
             int vn = instr->bits(19, 16) | (instr->bit(7) << 4);
@@ -4088,33 +3699,24 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
             int32_t data[2];
             memcpy(data, &dn_value, 8);
             set_register(instr->rtValue(), data[instr->bit(21)]);
-        } else if ((instr->VLValue() == 0x1) &&
-                   (instr->VCValue() == 0x0) &&
-                   (instr->VAValue() == 0x7) &&
-                   (instr->bits(19, 16) == 0x1)) {
+        } else if ((instr->VLValue() == 0x1) && (instr->VCValue() == 0x0) &&
+                   (instr->VAValue() == 0x7) && (instr->bits(19, 16) == 0x1)) {
             // vmrs
             uint32_t rt = instr->rtValue();
             if (rt == 0xF) {
                 copy_FPSCR_to_APSR();
             } else {
                 // Emulate FPSCR from the Simulator flags.
-                uint32_t fpscr = (n_flag_FPSCR_ << 31) |
-                    (z_flag_FPSCR_ << 30) |
-                    (c_flag_FPSCR_ << 29) |
-                    (v_flag_FPSCR_ << 28) |
-                    (FPSCR_default_NaN_mode_ << 25) |
-                    (inexact_vfp_flag_ << 4) |
-                    (underflow_vfp_flag_ << 3) |
-                    (overflow_vfp_flag_ << 2) |
-                    (div_zero_vfp_flag_ << 1) |
-                    (inv_op_vfp_flag_ << 0) |
-                    (FPSCR_rounding_mode_);
+                uint32_t fpscr = (n_flag_FPSCR_ << 31) | (z_flag_FPSCR_ << 30) |
+                                 (c_flag_FPSCR_ << 29) | (v_flag_FPSCR_ << 28) |
+                                 (FPSCR_default_NaN_mode_ << 25) | (inexact_vfp_flag_ << 4) |
+                                 (underflow_vfp_flag_ << 3) | (overflow_vfp_flag_ << 2) |
+                                 (div_zero_vfp_flag_ << 1) | (inv_op_vfp_flag_ << 0) |
+                                 (FPSCR_rounding_mode_);
                 set_register(rt, fpscr);
             }
-        } else if ((instr->VLValue() == 0x0) &&
-                   (instr->VCValue() == 0x0) &&
-                   (instr->VAValue() == 0x7) &&
-                   (instr->bits(19, 16) == 0x1)) {
+        } else if ((instr->VLValue() == 0x0) && (instr->VCValue() == 0x0) &&
+                   (instr->VAValue() == 0x7) && (instr->bits(19, 16) == 0x1)) {
             // vmsr
             uint32_t rt = instr->rtValue();
             if (rt == pc) {
@@ -4132,7 +3734,7 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
                 div_zero_vfp_flag_ = (rt_value >> 1) & 1;
                 inv_op_vfp_flag_ = (rt_value >> 0) & 1;
                 FPSCR_rounding_mode_ =
-                    static_cast<VFPRoundingMode>((rt_value) & kVFPRoundingModeMask);
+                    static_cast<VFPRoundingMode>((rt_value)&kVFPRoundingModeMask);
             }
         } else {
             MOZ_CRASH();
@@ -4140,12 +3742,8 @@ Simulator::decodeTypeVFP(SimInstruction* instr)
     }
 }
 
-void
-Simulator::decodeVMOVBetweenCoreAndSinglePrecisionRegisters(SimInstruction* instr)
-{
-    MOZ_ASSERT(instr->bit(4) == 1 &&
-               instr->VCValue() == 0x0 &&
-               instr->VAValue() == 0x0);
+void Simulator::decodeVMOVBetweenCoreAndSinglePrecisionRegisters(SimInstruction* instr) {
+    MOZ_ASSERT(instr->bit(4) == 1 && instr->VCValue() == 0x0 && instr->VAValue() == 0x0);
 
     int t = instr->rtValue();
     int n = instr->VFPNRegValue(kSinglePrecision);
@@ -4159,55 +3757,45 @@ Simulator::decodeVMOVBetweenCoreAndSinglePrecisionRegisters(SimInstruction* inst
     }
 }
 
-void
-Simulator::decodeVCMP(SimInstruction* instr)
-{
+void Simulator::decodeVCMP(SimInstruction* instr) {
     MOZ_ASSERT((instr->bit(4) == 0) && (instr->opc1Value() == 0x7));
     MOZ_ASSERT(((instr->opc2Value() == 0x4) || (instr->opc2Value() == 0x5)) &&
                (instr->opc3Value() & 0x1));
     // Comparison.
 
     VFPRegPrecision precision = kSinglePrecision;
-    if (instr->szValue() == 1)
-        precision = kDoublePrecision;
+    if (instr->szValue() == 1) precision = kDoublePrecision;
 
     int d = instr->VFPDRegValue(precision);
     int m = 0;
-    if (instr->opc2Value() == 0x4)
-        m = instr->VFPMRegValue(precision);
+    if (instr->opc2Value() == 0x4) m = instr->VFPMRegValue(precision);
 
     if (precision == kDoublePrecision) {
         double dd_value;
         get_double_from_d_register(d, &dd_value);
         double dm_value = 0.0;
-        if (instr->opc2Value() == 0x4)
-            get_double_from_d_register(m, &dm_value);
+        if (instr->opc2Value() == 0x4) get_double_from_d_register(m, &dm_value);
 
         // Raise exceptions for quiet NaNs if necessary.
         if (instr->bit(7) == 1) {
-            if (mozilla::IsNaN(dd_value))
-                inv_op_vfp_flag_ = true;
+            if (mozilla::IsNaN(dd_value)) inv_op_vfp_flag_ = true;
         }
         compute_FPSCR_Flags(dd_value, dm_value);
     } else {
         float fd_value;
         get_float_from_s_register(d, &fd_value);
         float fm_value = 0.0;
-        if (instr->opc2Value() == 0x4)
-            get_float_from_s_register(m, &fm_value);
+        if (instr->opc2Value() == 0x4) get_float_from_s_register(m, &fm_value);
 
         // Raise exceptions for quiet NaNs if necessary.
         if (instr->bit(7) == 1) {
-            if (mozilla::IsNaN(fd_value))
-                inv_op_vfp_flag_ = true;
+            if (mozilla::IsNaN(fd_value)) inv_op_vfp_flag_ = true;
         }
         compute_FPSCR_Flags(fd_value, fm_value);
     }
 }
 
-void
-Simulator::decodeVCVTBetweenDoubleAndSingle(SimInstruction* instr)
-{
+void Simulator::decodeVCVTBetweenDoubleAndSingle(SimInstruction* instr) {
     MOZ_ASSERT(instr->bit(4) == 0 && instr->opc1Value() == 0x7);
     MOZ_ASSERT(instr->opc2Value() == 0x7 && instr->opc3Value() == 0x3);
 
@@ -4232,57 +3820,43 @@ Simulator::decodeVCVTBetweenDoubleAndSingle(SimInstruction* instr)
     }
 }
 
-static bool
-get_inv_op_vfp_flag(VFPRoundingMode mode, double val, bool unsigned_)
-{
+static bool get_inv_op_vfp_flag(VFPRoundingMode mode, double val, bool unsigned_) {
     MOZ_ASSERT(mode == SimRN || mode == SimRM || mode == SimRZ);
     double max_uint = static_cast<double>(0xffffffffu);
     double max_int = static_cast<double>(INT32_MAX);
     double min_int = static_cast<double>(INT32_MIN);
 
     // Check for NaN.
-    if (val != val)
-        return true;
+    if (val != val) return true;
 
     // Check for overflow. This code works because 32bit integers can be exactly
     // represented by ieee-754 64bit floating-point values.
     switch (mode) {
-      case SimRN:
-        return  unsigned_ ? (val >= (max_uint + 0.5)) ||
-                            (val < -0.5)
-                          : (val >= (max_int + 0.5)) ||
-                            (val < (min_int - 0.5));
-      case SimRM:
-        return  unsigned_ ? (val >= (max_uint + 1.0)) ||
-                            (val < 0)
-                          : (val >= (max_int + 1.0)) ||
-                            (val < min_int);
-      case SimRZ:
-        return  unsigned_ ? (val >= (max_uint + 1.0)) ||
-                            (val <= -1)
-                          : (val >= (max_int + 1.0)) ||
-                            (val <= (min_int - 1.0));
-      default:
-        MOZ_CRASH();
-        return true;
+        case SimRN:
+            return unsigned_ ? (val >= (max_uint + 0.5)) || (val < -0.5)
+                             : (val >= (max_int + 0.5)) || (val < (min_int - 0.5));
+        case SimRM:
+            return unsigned_ ? (val >= (max_uint + 1.0)) || (val < 0)
+                             : (val >= (max_int + 1.0)) || (val < min_int);
+        case SimRZ:
+            return unsigned_ ? (val >= (max_uint + 1.0)) || (val <= -1)
+                             : (val >= (max_int + 1.0)) || (val <= (min_int - 1.0));
+        default:
+            MOZ_CRASH();
+            return true;
     }
 }
 
 // We call this function only if we had a vfp invalid exception.
 // It returns the correct saturated value.
-static int
-VFPConversionSaturate(double val, bool unsigned_res)
-{
-    if (val != val) // NaN.
+static int VFPConversionSaturate(double val, bool unsigned_res) {
+    if (val != val)  // NaN.
         return 0;
-    if (unsigned_res)
-        return (val < 0) ? 0 : 0xffffffffu;
+    if (unsigned_res) return (val < 0) ? 0 : 0xffffffffu;
     return (val < 0) ? INT32_MIN : INT32_MAX;
 }
 
-void
-Simulator::decodeVCVTBetweenFloatingPointAndInteger(SimInstruction* instr)
-{
+void Simulator::decodeVCVTBetweenFloatingPointAndInteger(SimInstruction* instr) {
     MOZ_ASSERT((instr->bit(4) == 0) && (instr->opc1Value() == 0x7) &&
                (instr->bits(27, 23) == 0x1D));
     MOZ_ASSERT(((instr->opc2Value() == 0x8) && (instr->opc3Value() & 0x1)) ||
@@ -4324,9 +3898,8 @@ Simulator::decodeVCVTBetweenFloatingPointAndInteger(SimInstruction* instr)
 
         inv_op_vfp_flag_ = get_inv_op_vfp_flag(mode, val, unsigned_integer);
 
-        double abs_diff = unsigned_integer
-                          ? std::fabs(val - static_cast<uint32_t>(temp))
-                          : std::fabs(val - temp);
+        double abs_diff = unsigned_integer ? std::fabs(val - static_cast<uint32_t>(temp))
+                                           : std::fabs(val - temp);
 
         inexact_vfp_flag_ = (abs_diff != 0);
 
@@ -4334,27 +3907,27 @@ Simulator::decodeVCVTBetweenFloatingPointAndInteger(SimInstruction* instr)
             temp = VFPConversionSaturate(val, unsigned_integer);
         } else {
             switch (mode) {
-              case SimRN: {
-                int val_sign = (val > 0) ? 1 : -1;
-                if (abs_diff > 0.5) {
-                    temp += val_sign;
-                } else if (abs_diff == 0.5) {
-                    // Round to even if exactly halfway.
-                    temp = ((temp % 2) == 0) ? temp : temp + val_sign;
+                case SimRN: {
+                    int val_sign = (val > 0) ? 1 : -1;
+                    if (abs_diff > 0.5) {
+                        temp += val_sign;
+                    } else if (abs_diff == 0.5) {
+                        // Round to even if exactly halfway.
+                        temp = ((temp % 2) == 0) ? temp : temp + val_sign;
+                    }
+                    break;
                 }
-                break;
-              }
 
-              case SimRM:
-                temp = temp > val ? temp - 1 : temp;
-                  break;
+                case SimRM:
+                    temp = temp > val ? temp - 1 : temp;
+                    break;
 
-              case SimRZ:
-                // Nothing to do.
-                break;
+                case SimRZ:
+                    // Nothing to do.
+                    break;
 
-              default:
-                MOZ_CRASH();
+                default:
+                    MOZ_CRASH();
             }
         }
 
@@ -4382,11 +3955,9 @@ Simulator::decodeVCVTBetweenFloatingPointAndInteger(SimInstruction* instr)
 }
 
 // A VFPv3 specific instruction.
-void
-Simulator::decodeVCVTBetweenFloatingPointAndIntegerFrac(SimInstruction* instr)
-{
+void Simulator::decodeVCVTBetweenFloatingPointAndIntegerFrac(SimInstruction* instr) {
     MOZ_ASSERT(instr->bits(27, 24) == 0xE && instr->opc1Value() == 0x7 && instr->bit(19) == 1 &&
-               instr->bit(17) == 1 && instr->bits(11,9) == 0x5 && instr->bit(6) == 1 &&
+               instr->bit(17) == 1 && instr->bits(11, 9) == 0x5 && instr->bit(6) == 1 &&
                instr->bit(4) == 0);
 
     int size = (instr->bit(7) == 1) ? 32 : 16;
@@ -4394,7 +3965,7 @@ Simulator::decodeVCVTBetweenFloatingPointAndIntegerFrac(SimInstruction* instr)
     int fraction_bits = size - ((instr->bits(3, 0) << 1) | instr->bit(5));
     double mult = 1 << fraction_bits;
 
-    MOZ_ASSERT(size == 32); // Only handling size == 32 for now.
+    MOZ_ASSERT(size == 32);  // Only handling size == 32 for now.
 
     // Conversion between floating-point and integer.
     bool to_fixed = (instr->bit(18) == 1);
@@ -4431,19 +4002,18 @@ Simulator::decodeVCVTBetweenFloatingPointAndIntegerFrac(SimInstruction* instr)
 
         inv_op_vfp_flag_ = get_inv_op_vfp_flag(SimRZ, val, unsigned_integer);
 
-        double abs_diff = unsigned_integer
-                          ? std::fabs(val - static_cast<uint32_t>(temp))
-                          : std::fabs(val - temp);
+        double abs_diff = unsigned_integer ? std::fabs(val - static_cast<uint32_t>(temp))
+                                           : std::fabs(val - temp);
 
         inexact_vfp_flag_ = (abs_diff != 0);
 
-        if (inv_op_vfp_flag_)
-            temp = VFPConversionSaturate(val, unsigned_integer);
+        if (inv_op_vfp_flag_) temp = VFPConversionSaturate(val, unsigned_integer);
 
         // Update the destination register.
         if (double_precision) {
             uint32_t dbl[2];
-            dbl[0] = temp; dbl[1] = 0;
+            dbl[0] = temp;
+            dbl[1] = 0;
             set_d_register(dst, dbl);
         } else {
             set_s_register_from_sinteger(dst, temp);
@@ -4453,303 +4023,291 @@ Simulator::decodeVCVTBetweenFloatingPointAndIntegerFrac(SimInstruction* instr)
     }
 }
 
-void
-Simulator::decodeType6CoprocessorIns(SimInstruction* instr)
-{
+void Simulator::decodeType6CoprocessorIns(SimInstruction* instr) {
     MOZ_ASSERT(instr->typeValue() == 6);
 
     if (instr->coprocessorValue() == 0xA) {
         switch (instr->opcodeValue()) {
-          case 0x8:
-          case 0xA:
-          case 0xC:
-          case 0xE: {  // Load and store single precision float to memory.
-            int rn = instr->rnValue();
-            int vd = instr->VFPDRegValue(kSinglePrecision);
-            int offset = instr->immed8Value();
-            if (!instr->hasU())
-                offset = -offset;
+            case 0x8:
+            case 0xA:
+            case 0xC:
+            case 0xE: {  // Load and store single precision float to memory.
+                int rn = instr->rnValue();
+                int vd = instr->VFPDRegValue(kSinglePrecision);
+                int offset = instr->immed8Value();
+                if (!instr->hasU()) offset = -offset;
 
-            int32_t address = get_register(rn) + 4 * offset;
-            if (instr->hasL()) {
-                // Load double from memory: vldr.
-                set_s_register_from_sinteger(vd, readW(address, instr));
-            } else {
-                // Store double to memory: vstr.
-                writeW(address, get_sinteger_from_s_register(vd), instr);
+                int32_t address = get_register(rn) + 4 * offset;
+                if (instr->hasL()) {
+                    // Load double from memory: vldr.
+                    set_s_register_from_sinteger(vd, readW(address, instr));
+                } else {
+                    // Store double to memory: vstr.
+                    writeW(address, get_sinteger_from_s_register(vd), instr);
+                }
+                break;
             }
-            break;
-          }
-          case 0x4:
-          case 0x5:
-          case 0x6:
-          case 0x7:
-          case 0x9:
-          case 0xB:
-            // Load/store multiple single from memory: vldm/vstm.
-            handleVList(instr);
-            break;
-          default:
-            MOZ_CRASH();
+            case 0x4:
+            case 0x5:
+            case 0x6:
+            case 0x7:
+            case 0x9:
+            case 0xB:
+                // Load/store multiple single from memory: vldm/vstm.
+                handleVList(instr);
+                break;
+            default:
+                MOZ_CRASH();
         }
     } else if (instr->coprocessorValue() == 0xB) {
         switch (instr->opcodeValue()) {
-          case 0x2:
-            // Load and store double to two GP registers
-            if (instr->bits(7, 6) != 0 || instr->bit(4) != 1) {
-                MOZ_CRASH();  // Not used atm.
-            } else {
-                int rt = instr->rtValue();
-                int rn = instr->rnValue();
-                int vm = instr->VFPMRegValue(kDoublePrecision);
-                if (instr->hasL()) {
-                    int32_t data[2];
-                    double d;
-                    get_double_from_d_register(vm, &d);
-                    memcpy(data, &d, 8);
-                    set_register(rt, data[0]);
-                    set_register(rn, data[1]);
+            case 0x2:
+                // Load and store double to two GP registers
+                if (instr->bits(7, 6) != 0 || instr->bit(4) != 1) {
+                    MOZ_CRASH();  // Not used atm.
                 } else {
-                    int32_t data[] = { get_register(rt), get_register(rn) };
-                    double d;
-                    memcpy(&d, data, 8);
-                    set_d_register_from_double(vm, d);
+                    int rt = instr->rtValue();
+                    int rn = instr->rnValue();
+                    int vm = instr->VFPMRegValue(kDoublePrecision);
+                    if (instr->hasL()) {
+                        int32_t data[2];
+                        double d;
+                        get_double_from_d_register(vm, &d);
+                        memcpy(data, &d, 8);
+                        set_register(rt, data[0]);
+                        set_register(rn, data[1]);
+                    } else {
+                        int32_t data[] = {get_register(rt), get_register(rn)};
+                        double d;
+                        memcpy(&d, data, 8);
+                        set_d_register_from_double(vm, d);
+                    }
                 }
+                break;
+            case 0x8:
+            case 0xA:
+            case 0xC:
+            case 0xE: {  // Load and store double to memory.
+                int rn = instr->rnValue();
+                int vd = instr->VFPDRegValue(kDoublePrecision);
+                int offset = instr->immed8Value();
+                if (!instr->hasU()) offset = -offset;
+                int32_t address = get_register(rn) + 4 * offset;
+                if (instr->hasL()) {
+                    // Load double from memory: vldr.
+                    uint64_t data = readQ(address, instr);
+                    double val;
+                    memcpy(&val, &data, 8);
+                    set_d_register_from_double(vd, val);
+                } else {
+                    // Store double to memory: vstr.
+                    uint64_t data;
+                    double val;
+                    get_double_from_d_register(vd, &val);
+                    memcpy(&data, &val, 8);
+                    writeQ(address, data, instr);
+                }
+                break;
             }
-            break;
-          case 0x8:
-          case 0xA:
-          case 0xC:
-          case 0xE: {  // Load and store double to memory.
-            int rn = instr->rnValue();
-            int vd = instr->VFPDRegValue(kDoublePrecision);
-            int offset = instr->immed8Value();
-            if (!instr->hasU())
-                offset = -offset;
-            int32_t address = get_register(rn) + 4 * offset;
-            if (instr->hasL()) {
-                // Load double from memory: vldr.
-                uint64_t data = readQ(address, instr);
-                double val;
-                memcpy(&val, &data, 8);
-                set_d_register_from_double(vd, val);
-            } else {
-                // Store double to memory: vstr.
-                uint64_t data;
-                double val;
-                get_double_from_d_register(vd, &val);
-                memcpy(&data, &val, 8);
-                writeQ(address, data, instr);
-            }
-            break;
-          }
-          case 0x4:
-          case 0x5:
-          case 0x6:
-          case 0x7:
-          case 0x9:
-          case 0xB:
-            // Load/store multiple double from memory: vldm/vstm.
-            handleVList(instr);
-            break;
-          default:
-            MOZ_CRASH();
+            case 0x4:
+            case 0x5:
+            case 0x6:
+            case 0x7:
+            case 0x9:
+            case 0xB:
+                // Load/store multiple double from memory: vldm/vstm.
+                handleVList(instr);
+                break;
+            default:
+                MOZ_CRASH();
         }
     } else {
         MOZ_CRASH();
     }
 }
 
-void
-Simulator::decodeSpecialCondition(SimInstruction* instr)
-{
+void Simulator::decodeSpecialCondition(SimInstruction* instr) {
     switch (instr->specialValue()) {
-      case 5:
-        if (instr->bits(18, 16) == 0 && instr->bits(11, 6) == 0x28 && instr->bit(4) == 1) {
-            // vmovl signed
-            if ((instr->vdValue() & 1) != 0)
-                MOZ_CRASH("Undefined behavior");
-            int Vd = (instr->bit(22) << 3) | (instr->vdValue() >> 1);
-            int Vm = (instr->bit(5) << 4) | instr->vmValue();
-            int imm3 = instr->bits(21, 19);
-            if (imm3 != 1 && imm3 != 2 && imm3 != 4)
-                MOZ_CRASH();
-            int esize = 8 * imm3;
-            int elements = 64 / esize;
-            int8_t from[8];
-            get_d_register(Vm, reinterpret_cast<uint64_t*>(from));
-            int16_t to[8];
-            int e = 0;
-            while (e < elements) {
-                to[e] = from[e];
-                e++;
-            }
-            set_q_register(Vd, reinterpret_cast<uint64_t*>(to));
-        } else {
-            MOZ_CRASH();
-        }
-        break;
-      case 7:
-        if (instr->bits(18, 16) == 0 && instr->bits(11, 6) == 0x28 && instr->bit(4) == 1) {
-            // vmovl unsigned.
-            if ((instr->vdValue() & 1) != 0)
-                MOZ_CRASH("Undefined behavior");
-            int Vd = (instr->bit(22) << 3) | (instr->vdValue() >> 1);
-            int Vm = (instr->bit(5) << 4) | instr->vmValue();
-            int imm3 = instr->bits(21, 19);
-            if (imm3 != 1 && imm3 != 2 && imm3 != 4)
-                MOZ_CRASH();
-            int esize = 8 * imm3;
-            int elements = 64 / esize;
-            uint8_t from[8];
-            get_d_register(Vm, reinterpret_cast<uint64_t*>(from));
-            uint16_t to[8];
-            int e = 0;
-            while (e < elements) {
-                to[e] = from[e];
-                e++;
-            }
-            set_q_register(Vd, reinterpret_cast<uint64_t*>(to));
-        } else {
-            MOZ_CRASH();
-        }
-        break;
-      case 8:
-        if (instr->bits(21, 20) == 0) {
-            // vst1
-            int Vd = (instr->bit(22) << 4) | instr->vdValue();
-            int Rn = instr->vnValue();
-            int type = instr->bits(11, 8);
-            int Rm = instr->vmValue();
-            int32_t address = get_register(Rn);
-            int regs = 0;
-            switch (type) {
-              case nlt_1:
-                regs = 1;
-                break;
-              case nlt_2:
-                regs = 2;
-                break;
-              case nlt_3:
-                regs = 3;
-                break;
-              case nlt_4:
-                regs = 4;
-                break;
-              default:
-                MOZ_CRASH();
-                break;
-            }
-            int r = 0;
-            while (r < regs) {
-                uint32_t data[2];
-                get_d_register(Vd + r, data);
-                // TODO: We should AllowUnaligned here only if the alignment attribute of
-                // the instruction calls for default alignment.
-                writeW(address, data[0], instr, AllowUnaligned);
-                writeW(address + 4, data[1], instr, AllowUnaligned);
-                address += 8;
-                r++;
-            }
-            if (Rm != 15) {
-                if (Rm == 13)
-                    set_register(Rn, address);
-                else
-                    set_register(Rn, get_register(Rn) + get_register(Rm));
-            }
-        } else if (instr->bits(21, 20) == 2) {
-            // vld1
-            int Vd = (instr->bit(22) << 4) | instr->vdValue();
-            int Rn = instr->vnValue();
-            int type = instr->bits(11, 8);
-            int Rm = instr->vmValue();
-            int32_t address = get_register(Rn);
-            int regs = 0;
-            switch (type) {
-              case nlt_1:
-                regs = 1;
-                break;
-              case nlt_2:
-                regs = 2;
-                break;
-              case nlt_3:
-                regs = 3;
-                break;
-              case nlt_4:
-                regs = 4;
-                break;
-              default:
-                MOZ_CRASH();
-                break;
-            }
-            int r = 0;
-            while (r < regs) {
-                uint32_t data[2];
-                // TODO: We should AllowUnaligned here only if the alignment attribute of
-                // the instruction calls for default alignment.
-                data[0] = readW(address, instr, AllowUnaligned);
-                data[1] = readW(address + 4, instr, AllowUnaligned);
-                set_d_register(Vd + r, data);
-                address += 8;
-                r++;
-            }
-            if (Rm != 15) {
-                if (Rm == 13)
-                    set_register(Rn, address);
-                else
-                    set_register(Rn, get_register(Rn) + get_register(Rm));
-            }
-        } else {
-            MOZ_CRASH();
-        }
-        break;
-      case 0xA:
-        if (instr->bits(31,20) == 0xf57) {
-            switch (instr->bits(7,4)) {
-              case 1: // CLREX
-                exclusiveMonitorClear();
-                break;
-              case 5: // DMB
-                AtomicOperations::fenceSeqCst();
-                break;
-              case 4: // DSB
-                // We do not use DSB.
-                MOZ_CRASH("DSB unimplemented");
-              case 6: // ISB
-                // We do not use ISB.
-                MOZ_CRASH("ISB unimplemented");
-              default:
+        case 5:
+            if (instr->bits(18, 16) == 0 && instr->bits(11, 6) == 0x28 && instr->bit(4) == 1) {
+                // vmovl signed
+                if ((instr->vdValue() & 1) != 0) MOZ_CRASH("Undefined behavior");
+                int Vd = (instr->bit(22) << 3) | (instr->vdValue() >> 1);
+                int Vm = (instr->bit(5) << 4) | instr->vmValue();
+                int imm3 = instr->bits(21, 19);
+                if (imm3 != 1 && imm3 != 2 && imm3 != 4) MOZ_CRASH();
+                int esize = 8 * imm3;
+                int elements = 64 / esize;
+                int8_t from[8];
+                get_d_register(Vm, reinterpret_cast<uint64_t*>(from));
+                int16_t to[8];
+                int e = 0;
+                while (e < elements) {
+                    to[e] = from[e];
+                    e++;
+                }
+                set_q_register(Vd, reinterpret_cast<uint64_t*>(to));
+            } else {
                 MOZ_CRASH();
             }
-        } else {
+            break;
+        case 7:
+            if (instr->bits(18, 16) == 0 && instr->bits(11, 6) == 0x28 && instr->bit(4) == 1) {
+                // vmovl unsigned.
+                if ((instr->vdValue() & 1) != 0) MOZ_CRASH("Undefined behavior");
+                int Vd = (instr->bit(22) << 3) | (instr->vdValue() >> 1);
+                int Vm = (instr->bit(5) << 4) | instr->vmValue();
+                int imm3 = instr->bits(21, 19);
+                if (imm3 != 1 && imm3 != 2 && imm3 != 4) MOZ_CRASH();
+                int esize = 8 * imm3;
+                int elements = 64 / esize;
+                uint8_t from[8];
+                get_d_register(Vm, reinterpret_cast<uint64_t*>(from));
+                uint16_t to[8];
+                int e = 0;
+                while (e < elements) {
+                    to[e] = from[e];
+                    e++;
+                }
+                set_q_register(Vd, reinterpret_cast<uint64_t*>(to));
+            } else {
+                MOZ_CRASH();
+            }
+            break;
+        case 8:
+            if (instr->bits(21, 20) == 0) {
+                // vst1
+                int Vd = (instr->bit(22) << 4) | instr->vdValue();
+                int Rn = instr->vnValue();
+                int type = instr->bits(11, 8);
+                int Rm = instr->vmValue();
+                int32_t address = get_register(Rn);
+                int regs = 0;
+                switch (type) {
+                    case nlt_1:
+                        regs = 1;
+                        break;
+                    case nlt_2:
+                        regs = 2;
+                        break;
+                    case nlt_3:
+                        regs = 3;
+                        break;
+                    case nlt_4:
+                        regs = 4;
+                        break;
+                    default:
+                        MOZ_CRASH();
+                        break;
+                }
+                int r = 0;
+                while (r < regs) {
+                    uint32_t data[2];
+                    get_d_register(Vd + r, data);
+                    // TODO: We should AllowUnaligned here only if the alignment attribute of
+                    // the instruction calls for default alignment.
+                    writeW(address, data[0], instr, AllowUnaligned);
+                    writeW(address + 4, data[1], instr, AllowUnaligned);
+                    address += 8;
+                    r++;
+                }
+                if (Rm != 15) {
+                    if (Rm == 13)
+                        set_register(Rn, address);
+                    else
+                        set_register(Rn, get_register(Rn) + get_register(Rm));
+                }
+            } else if (instr->bits(21, 20) == 2) {
+                // vld1
+                int Vd = (instr->bit(22) << 4) | instr->vdValue();
+                int Rn = instr->vnValue();
+                int type = instr->bits(11, 8);
+                int Rm = instr->vmValue();
+                int32_t address = get_register(Rn);
+                int regs = 0;
+                switch (type) {
+                    case nlt_1:
+                        regs = 1;
+                        break;
+                    case nlt_2:
+                        regs = 2;
+                        break;
+                    case nlt_3:
+                        regs = 3;
+                        break;
+                    case nlt_4:
+                        regs = 4;
+                        break;
+                    default:
+                        MOZ_CRASH();
+                        break;
+                }
+                int r = 0;
+                while (r < regs) {
+                    uint32_t data[2];
+                    // TODO: We should AllowUnaligned here only if the alignment attribute of
+                    // the instruction calls for default alignment.
+                    data[0] = readW(address, instr, AllowUnaligned);
+                    data[1] = readW(address + 4, instr, AllowUnaligned);
+                    set_d_register(Vd + r, data);
+                    address += 8;
+                    r++;
+                }
+                if (Rm != 15) {
+                    if (Rm == 13)
+                        set_register(Rn, address);
+                    else
+                        set_register(Rn, get_register(Rn) + get_register(Rm));
+                }
+            } else {
+                MOZ_CRASH();
+            }
+            break;
+        case 0xA:
+            if (instr->bits(31, 20) == 0xf57) {
+                switch (instr->bits(7, 4)) {
+                    case 1:  // CLREX
+                        exclusiveMonitorClear();
+                        break;
+                    case 5:  // DMB
+                        AtomicOperations::fenceSeqCst();
+                        break;
+                    case 4:  // DSB
+                        // We do not use DSB.
+                        MOZ_CRASH("DSB unimplemented");
+                    case 6:  // ISB
+                        // We do not use ISB.
+                        MOZ_CRASH("ISB unimplemented");
+                    default:
+                        MOZ_CRASH();
+                }
+            } else {
+                MOZ_CRASH();
+            }
+            break;
+        case 0xB:
+            if (instr->bits(22, 20) == 5 && instr->bits(15, 12) == 0xf) {
+                // pld: ignore instruction.
+            } else {
+                MOZ_CRASH();
+            }
+            break;
+        case 0x1C:
+        case 0x1D:
+            if (instr->bit(4) == 1 && instr->bits(11, 9) != 5) {
+                // MCR, MCR2, MRC, MRC2 with cond == 15
+                decodeType7CoprocessorIns(instr);
+            } else {
+                MOZ_CRASH();
+            }
+            break;
+        default:
             MOZ_CRASH();
-        }
-        break;
-      case 0xB:
-        if (instr->bits(22, 20) == 5 && instr->bits(15, 12) == 0xf) {
-            // pld: ignore instruction.
-        } else {
-            MOZ_CRASH();
-        }
-        break;
-      case 0x1C:
-      case 0x1D:
-        if (instr->bit(4) == 1 && instr->bits(11,9) != 5) {
-            // MCR, MCR2, MRC, MRC2 with cond == 15
-            decodeType7CoprocessorIns(instr);
-        } else {
-            MOZ_CRASH();
-        }
-        break;
-      default:
-        MOZ_CRASH();
     }
 }
 
 // Executes the current instruction.
-void
-Simulator::instructionDecode(SimInstruction* instr)
-{
+void Simulator::instructionDecode(SimInstruction* instr) {
     if (!SimulatorProcess::ICacheCheckingDisableCount) {
         AutoLockSimulatorCache als;
         SimulatorProcess::checkICacheLocked(instr);
@@ -4762,31 +4320,31 @@ Simulator::instructionDecode(SimInstruction* instr)
         decodeSpecialCondition(instr);
     } else if (conditionallyExecute(instr)) {
         switch (instr->typeValue()) {
-          case 0:
-          case 1:
-            decodeType01(instr);
-            break;
-          case 2:
-            decodeType2(instr);
-            break;
-          case 3:
-            decodeType3(instr);
-            break;
-          case 4:
-            decodeType4(instr);
-            break;
-          case 5:
-            decodeType5(instr);
-            break;
-          case 6:
-            decodeType6(instr);
-            break;
-          case 7:
-            decodeType7(instr);
-            break;
-          default:
-            MOZ_CRASH();
-            break;
+            case 0:
+            case 1:
+                decodeType01(instr);
+                break;
+            case 2:
+                decodeType2(instr);
+                break;
+            case 3:
+                decodeType3(instr);
+                break;
+            case 4:
+                decodeType4(instr);
+                break;
+            case 5:
+                decodeType5(instr);
+                break;
+            case 6:
+                decodeType6(instr);
+                break;
+            case 7:
+                decodeType7(instr);
+                break;
+            default:
+                MOZ_CRASH();
+                break;
         }
         // If the instruction is a non taken conditional stop, we need to skip
         // the inlined message address.
@@ -4797,45 +4355,34 @@ Simulator::instructionDecode(SimInstruction* instr)
         set_register(pc, reinterpret_cast<int32_t>(instr) + SimInstruction::kInstrSize);
 }
 
-void
-Simulator::enable_single_stepping(SingleStepCallback cb, void* arg)
-{
+void Simulator::enable_single_stepping(SingleStepCallback cb, void* arg) {
     single_stepping_ = true;
     single_step_callback_ = cb;
     single_step_callback_arg_ = arg;
     single_step_callback_(single_step_callback_arg_, this, (void*)get_pc());
 }
 
-void
-Simulator::disable_single_stepping()
-{
-    if (!single_stepping_)
-        return;
+void Simulator::disable_single_stepping() {
+    if (!single_stepping_) return;
     single_step_callback_(single_step_callback_arg_, this, (void*)get_pc());
     single_stepping_ = false;
     single_step_callback_ = nullptr;
     single_step_callback_arg_ = nullptr;
 }
 
-static void
-FakeInterruptHandler()
-{
+static void FakeInterruptHandler() {
     JSContext* cx = TlsContext.get();
     uint8_t* pc = cx->simulator()->get_pc_as<uint8_t*>();
 
     const wasm::CodeSegment* cs = nullptr;
-    if (!wasm::InInterruptibleCode(cx, pc, &cs))
-        return;
+    if (!wasm::InInterruptibleCode(cx, pc, &cs)) return;
 
     cx->simulator()->trigger_wasm_interrupt();
 }
 
-template<bool EnableStopSimAt>
-void
-Simulator::execute()
-{
-    if (single_stepping_)
-        single_step_callback_(single_step_callback_arg_, this, nullptr);
+template <bool EnableStopSimAt>
+void Simulator::execute() {
+    if (single_stepping_) single_step_callback_(single_step_callback_arg_, this, nullptr);
 
     // Get the PC to simulate. Cannot use the accessor here as we need the raw
     // PC value and not the one used as input to arithmetic instructions.
@@ -4849,8 +4396,7 @@ Simulator::execute()
         } else {
             if (single_stepping_)
                 single_step_callback_(single_step_callback_arg_, this, (void*)program_counter);
-            if (MOZ_UNLIKELY(JitOptions.simulatorAlwaysInterrupt))
-                FakeInterruptHandler();
+            if (MOZ_UNLIKELY(JitOptions.simulatorAlwaysInterrupt)) FakeInterruptHandler();
             SimInstruction* instr = reinterpret_cast<SimInstruction*>(program_counter);
             instructionDecode(instr);
             icount_++;
@@ -4863,13 +4409,10 @@ Simulator::execute()
         program_counter = get_pc();
     }
 
-    if (single_stepping_)
-        single_step_callback_(single_step_callback_arg_, this, nullptr);
+    if (single_stepping_) single_step_callback_(single_step_callback_arg_, this, nullptr);
 }
 
-void
-Simulator::callInternal(uint8_t* entry)
-{
+void Simulator::callInternal(uint8_t* entry) {
     // Prepare to execute the code at entry.
     set_register(pc, reinterpret_cast<int32_t>(entry));
 
@@ -4931,7 +4474,6 @@ Simulator::callInternal(uint8_t* entry)
         set_d_register(d13, &callee_saved_value_d);
         set_d_register(d14, &callee_saved_value_d);
         set_d_register(d15, &callee_saved_value_d);
-
     }
     // Start the simulation.
     if (Simulator::StopSimAt != -1L)
@@ -4989,34 +4531,27 @@ Simulator::callInternal(uint8_t* entry)
     }
 }
 
-int32_t
-Simulator::call(uint8_t* entry, int argument_count, ...)
-{
+int32_t Simulator::call(uint8_t* entry, int argument_count, ...) {
     va_list parameters;
     va_start(parameters, argument_count);
 
     // First four arguments passed in registers.
     MOZ_ASSERT(argument_count >= 1);
     set_register(r0, va_arg(parameters, int32_t));
-    if (argument_count >= 2)
-        set_register(r1, va_arg(parameters, int32_t));
-    if (argument_count >= 3)
-        set_register(r2, va_arg(parameters, int32_t));
-    if (argument_count >= 4)
-        set_register(r3, va_arg(parameters, int32_t));
+    if (argument_count >= 2) set_register(r1, va_arg(parameters, int32_t));
+    if (argument_count >= 3) set_register(r2, va_arg(parameters, int32_t));
+    if (argument_count >= 4) set_register(r3, va_arg(parameters, int32_t));
 
     // Remaining arguments passed on stack.
     int original_stack = get_register(sp);
     int entry_stack = original_stack;
-    if (argument_count >= 4)
-        entry_stack -= (argument_count - 4) * sizeof(int32_t);
+    if (argument_count >= 4) entry_stack -= (argument_count - 4) * sizeof(int32_t);
 
     entry_stack &= ~ABIStackAlignment;
 
     // Store remaining arguments on stack, from low to high memory.
     intptr_t* stack_argument = reinterpret_cast<intptr_t*>(entry_stack);
-    for (int i = 4; i < argument_count; i++)
-        stack_argument[i - 4] = va_arg(parameters, int32_t);
+    for (int i = 4; i < argument_count; i++) stack_argument[i - 4] = va_arg(parameters, int32_t);
     va_end(parameters);
     set_register(sp, entry_stack);
 
@@ -5030,25 +4565,15 @@ Simulator::call(uint8_t* entry, int argument_count, ...)
     return result;
 }
 
-Simulator*
-Simulator::Current()
-{
+Simulator* Simulator::Current() {
     JSContext* cx = TlsContext.get();
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
     return cx->simulator();
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
-js::jit::Simulator*
-JSContext::simulator() const
-{
-    return simulator_;
-}
+js::jit::Simulator* JSContext::simulator() const { return simulator_; }
 
-uintptr_t*
-JSContext::addressOfSimulatorStackLimit()
-{
-    return simulator_->addressOfStackLimit();
-}
+uintptr_t* JSContext::addressOfSimulatorStackLimit() { return simulator_->addressOfStackLimit(); }

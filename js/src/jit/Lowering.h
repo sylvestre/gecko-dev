@@ -12,43 +12,40 @@
 
 #include "jit/LIR.h"
 #if defined(JS_CODEGEN_X86)
-# include "jit/x86/Lowering-x86.h"
+#include "jit/x86/Lowering-x86.h"
 #elif defined(JS_CODEGEN_X64)
-# include "jit/x64/Lowering-x64.h"
+#include "jit/x64/Lowering-x64.h"
 #elif defined(JS_CODEGEN_ARM)
-# include "jit/arm/Lowering-arm.h"
+#include "jit/arm/Lowering-arm.h"
 #elif defined(JS_CODEGEN_ARM64)
-# include "jit/arm64/Lowering-arm64.h"
+#include "jit/arm64/Lowering-arm64.h"
 #elif defined(JS_CODEGEN_MIPS32)
-# include "jit/mips32/Lowering-mips32.h"
+#include "jit/mips32/Lowering-mips32.h"
 #elif defined(JS_CODEGEN_MIPS64)
-# include "jit/mips64/Lowering-mips64.h"
+#include "jit/mips64/Lowering-mips64.h"
 #elif defined(JS_CODEGEN_NONE)
-# include "jit/none/Lowering-none.h"
+#include "jit/none/Lowering-none.h"
 #else
-# error "Unknown architecture!"
+#error "Unknown architecture!"
 #endif
 
 namespace js {
 namespace jit {
 
-class LIRGenerator : public LIRGeneratorSpecific
-{
+class LIRGenerator : public LIRGeneratorSpecific {
     void updateResumeState(MInstruction* ins);
     void updateResumeState(MBasicBlock* block);
 
     // The maximum depth, for framesizeclass determination.
     uint32_t maxargslots_;
 
-  public:
+   public:
     LIRGenerator(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorSpecific(gen, graph, lirGraph),
-        maxargslots_(0)
-    { }
+        : LIRGeneratorSpecific(gen, graph, lirGraph), maxargslots_(0) {}
 
     MOZ_MUST_USE bool generate();
 
-  private:
+   private:
     LBoxAllocation useBoxFixedAtStart(MDefinition* mir, Register reg1, Register reg2) {
         return useBoxFixed(mir, reg1, reg2, /* useAtStart = */ true);
     }
@@ -63,7 +60,7 @@ class LIRGenerator : public LIRGeneratorSpecific
 
     MOZ_MUST_USE bool lowerCallArguments(MCall* call);
 
-  public:
+   public:
     MOZ_MUST_USE bool visitInstruction(MInstruction* ins);
     MOZ_MUST_USE bool visitBlock(MBasicBlock* block);
 
@@ -157,7 +154,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     void visitFromCharCode(MFromCharCode* ins);
     void visitFromCodePoint(MFromCodePoint* ins);
     void visitStringConvertCase(MStringConvertCase* ins);
-    void visitSinCos(MSinCos *ins);
+    void visitSinCos(MSinCos* ins);
     void visitStringSplit(MStringSplit* ins);
     void visitStart(MStart* start);
     void visitOsrEntry(MOsrEntry* entry);
@@ -337,7 +334,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     void visitDebugger(MDebugger* ins);
     void visitNewTarget(MNewTarget* ins);
     void visitArrowNewTarget(MArrowNewTarget* ins);
-    void visitNaNToZero(MNaNToZero *ins);
+    void visitNaNToZero(MNaNToZero* ins);
     void visitAtomicIsLockFree(MAtomicIsLockFree* ins);
     void visitGuardSharedTypedArray(MGuardSharedTypedArray* ins);
     void visitCheckReturn(MCheckReturn* ins);
@@ -350,7 +347,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     void visitGetPrototypeOf(MGetPrototypeOf* ins);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_Lowering_h */

@@ -44,12 +44,10 @@ namespace google_breakpad {
 
 // A class for enumerating a directory without using diropen/readdir or other
 // functions which may allocate memory.
-class DirectoryReader {
+class DirectoryReader
+{
  public:
-  DirectoryReader(int fd)
-      : fd_(fd),
-        buf_used_(0) {
-  }
+  DirectoryReader(int fd) : fd_(fd), buf_used_(0) {}
 
   // Return the next entry from the directory
   //   name: (output) the NUL terminated entry name
@@ -58,9 +56,9 @@ class DirectoryReader {
   //
   // After calling this, one must call |PopEntry| otherwise you'll get the same
   // entry over and over.
-  bool GetNextEntry(const char** name) {
-    struct kernel_dirent* const dent =
-      reinterpret_cast<kernel_dirent*>(buf_);
+  bool GetNextEntry(const char** name)
+  {
+    struct kernel_dirent* const dent = reinterpret_cast<kernel_dirent*>(buf_);
 
     if (buf_used_ == 0) {
       // need to read more entries.
@@ -74,8 +72,7 @@ class DirectoryReader {
       }
     }
 
-    if (buf_used_ == 0 && hit_eof_)
-      return false;
+    if (buf_used_ == 0 && hit_eof_) return false;
 
     assert(buf_used_ > 0);
 
@@ -83,12 +80,12 @@ class DirectoryReader {
     return true;
   }
 
-  void PopEntry() {
-    if (!buf_used_)
-      return;
+  void PopEntry()
+  {
+    if (!buf_used_) return;
 
     const struct kernel_dirent* const dent =
-      reinterpret_cast<kernel_dirent*>(buf_);
+        reinterpret_cast<kernel_dirent*>(buf_);
 
     buf_used_ -= dent->d_reclen;
     my_memmove(buf_, buf_ + dent->d_reclen, buf_used_);

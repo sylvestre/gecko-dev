@@ -16,58 +16,60 @@
  * Factory function.
  * @return a newly allocated nsRubyBaseContainerFrame (infallible)
  */
-nsContainerFrame* NS_NewRubyBaseContainerFrame(nsIPresShell* aPresShell,
-                                               nsStyleContext* aContext);
+nsContainerFrame*
+NS_NewRubyBaseContainerFrame(nsIPresShell* aPresShell,
+                             nsStyleContext* aContext);
 
 class nsRubyBaseContainerFrame final : public nsContainerFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsRubyBaseContainerFrame)
   NS_DECL_QUERYFRAME
 
   // nsIFrame overrides
   virtual bool IsFrameOfType(uint32_t aFlags) const override;
   virtual bool CanContinueTextRun() const override;
-  virtual void AddInlineMinISize(gfxContext *aRenderingContext,
-                                 InlineMinISizeData *aData) override;
-  virtual void AddInlinePrefISize(gfxContext *aRenderingContext,
-                                  InlinePrefISizeData *aData) override;
-  virtual mozilla::LogicalSize
-    ComputeSize(gfxContext *aRenderingContext,
-                mozilla::WritingMode aWritingMode,
-                const mozilla::LogicalSize& aCBSize,
-                nscoord aAvailableISize,
-                const mozilla::LogicalSize& aMargin,
-                const mozilla::LogicalSize& aBorder,
-                const mozilla::LogicalSize& aPadding,
-                ComputeSizeFlags aFlags) override;
+  virtual void AddInlineMinISize(gfxContext* aRenderingContext,
+                                 InlineMinISizeData* aData) override;
+  virtual void AddInlinePrefISize(gfxContext* aRenderingContext,
+                                  InlinePrefISizeData* aData) override;
+  virtual mozilla::LogicalSize ComputeSize(gfxContext* aRenderingContext,
+                                           mozilla::WritingMode aWritingMode,
+                                           const mozilla::LogicalSize& aCBSize,
+                                           nscoord aAvailableISize,
+                                           const mozilla::LogicalSize& aMargin,
+                                           const mozilla::LogicalSize& aBorder,
+                                           const mozilla::LogicalSize& aPadding,
+                                           ComputeSizeFlags aFlags) override;
   virtual void Reflow(nsPresContext* aPresContext,
                       ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
                       nsReflowStatus& aStatus) override;
 
-  virtual nscoord
-    GetLogicalBaseline(mozilla::WritingMode aWritingMode) const override;
+  virtual nscoord GetLogicalBaseline(
+      mozilla::WritingMode aWritingMode) const override;
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  void UpdateDescendantLeadings(const mozilla::RubyBlockLeadings& aLeadings) {
+  void UpdateDescendantLeadings(const mozilla::RubyBlockLeadings& aLeadings)
+  {
     mDescendantLeadings.Update(aLeadings);
   }
-  mozilla::RubyBlockLeadings GetDescendantLeadings() const {
+  mozilla::RubyBlockLeadings GetDescendantLeadings() const
+  {
     return mDescendantLeadings;
   }
 
-protected:
-  friend nsContainerFrame*
-    NS_NewRubyBaseContainerFrame(nsIPresShell* aPresShell,
-                                 nsStyleContext* aContext);
+ protected:
+  friend nsContainerFrame* NS_NewRubyBaseContainerFrame(
+      nsIPresShell* aPresShell, nsStyleContext* aContext);
 
   explicit nsRubyBaseContainerFrame(nsStyleContext* aContext)
-    : nsContainerFrame(aContext, kClassID)
-  {}
+      : nsContainerFrame(aContext, kClassID)
+  {
+  }
 
   struct RubyReflowInput;
   nscoord ReflowColumns(const RubyReflowInput& aReflowInput,

@@ -63,13 +63,14 @@ CalculateCheckSum(_PrefixArray& prefixArray, nsCString& checksum)
 
   nsresult rv;
   nsCOMPtr<nsICryptoHash> cryptoHash =
-    do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID, &rv);
+      do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID, &rv);
 
   cryptoHash->Init(nsICryptoHash::SHA256);
   for (uint32_t i = 0; i < prefixArray.Length(); i++) {
     const _Prefix& prefix = prefixArray[i];
-    cryptoHash->Update(reinterpret_cast<uint8_t*>(
-                       const_cast<char*>(prefix.get())), prefix.Length());
+    cryptoHash->Update(
+        reinterpret_cast<uint8_t*>(const_cast<char*>(prefix.get())),
+        prefix.Length());
   }
   cryptoHash->Finish(false, checksum);
 }
@@ -145,7 +146,8 @@ GenerateUpdateData(bool fullUpdate,
 
   if (checksum) {
     std::string stdChecksum;
-    stdChecksum.assign(const_cast<char*>(checksum->BeginReading()), checksum->Length());
+    stdChecksum.assign(const_cast<char*>(checksum->BeginReading()),
+                       checksum->Length());
 
     tableUpdate->NewChecksum(stdChecksum);
   }
@@ -203,8 +205,7 @@ testUpdateFail(nsTArray<TableUpdate*>& tableUpdates)
 }
 
 static void
-testUpdate(nsTArray<TableUpdate*>& tableUpdates,
-           PrefixStringMap& expected)
+testUpdate(nsTArray<TableUpdate*>& tableUpdates, PrefixStringMap& expected)
 {
   nsCOMPtr<nsIFile> file;
   NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(file));
@@ -215,8 +216,8 @@ testUpdate(nsTArray<TableUpdate*>& tableUpdates,
     // in gtest.
     nsresult rv;
     nsCOMPtr<nsIUrlClassifierUtils> dummy =
-      do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID, &rv);
-      ASSERT_TRUE(NS_SUCCEEDED(rv));
+        do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID, &rv);
+    ASSERT_TRUE(NS_SUCCEEDED(rv));
   }
 
   UniquePtr<Classifier> classifier(new Classifier());
@@ -256,7 +257,7 @@ testOpenLookupCache()
   NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(file));
   file->AppendNative(GTEST_SAFEBROWSING_DIR);
 
-  RunTestInNewThread([&] () -> void {
+  RunTestInNewThread([&]() -> void {
     LookupCacheV4 cache(nsCString(GTEST_TABLE), EmptyCString(), file);
     nsresult rv = cache.Init();
     ASSERT_EQ(rv, NS_OK);
@@ -271,7 +272,7 @@ TEST(UrlClassifierTableUpdateV4, FixLenghtPSetFullUpdate)
 {
   srand(time(NULL));
 
-   _PrefixArray array;
+  _PrefixArray array;
   PrefixStringMap map;
   nsCString checksum;
 
@@ -286,7 +287,7 @@ TEST(UrlClassifierTableUpdateV4, FixLenghtPSetFullUpdate)
 
 TEST(UrlClassifierTableUpdateV4, VariableLenghtPSetFullUpdate)
 {
-   _PrefixArray array;
+  _PrefixArray array;
   PrefixStringMap map;
   nsCString checksum;
 
@@ -302,7 +303,7 @@ TEST(UrlClassifierTableUpdateV4, VariableLenghtPSetFullUpdate)
 // This test contain both variable length prefix set and fixed-length prefix set
 TEST(UrlClassifierTableUpdateV4, MixedPSetFullUpdate)
 {
-   _PrefixArray array;
+  _PrefixArray array;
   PrefixStringMap map;
   nsCString checksum;
 
@@ -644,7 +645,7 @@ TEST(UrlClassifierTableUpdateV4, RemovalIndexTooLarge)
     RemoveIntersection(fArray, pArray);
     PrefixArrayToPrefixStringMap(pArray, pMap);
 
-    for (uint32_t i = 0; i < fArray.Length() + 1 ;i++) {
+    for (uint32_t i = 0; i < fArray.Length() + 1; i++) {
       removal.AppendElement(i);
     }
 
@@ -731,24 +732,34 @@ TEST(UrlClassifierTableUpdateV4, ApplyUpdateThenLoad)
 // This test is used to avoid an eror from nsICryptoHash
 TEST(UrlClassifierTableUpdateV4, ApplyUpdateWithFixedChecksum)
 {
-  _PrefixArray fArray = { _Prefix("enus"), _Prefix("apollo"), _Prefix("mars"),
-                          _Prefix("Hecatonchires cyclopes"),
-                          _Prefix("vesta"), _Prefix("neptunus"), _Prefix("jupiter"),
-                          _Prefix("diana"), _Prefix("minerva"), _Prefix("ceres"),
-                          _Prefix("Aidos,Adephagia,Adikia,Aletheia"),
-                          _Prefix("hecatonchires"), _Prefix("alcyoneus"), _Prefix("hades"),
-                          _Prefix("vulcanus"), _Prefix("juno"), _Prefix("mercury"),
-                          _Prefix("Stheno, Euryale and Medusa")
-                        };
+  _PrefixArray fArray = {_Prefix("enus"),
+                         _Prefix("apollo"),
+                         _Prefix("mars"),
+                         _Prefix("Hecatonchires cyclopes"),
+                         _Prefix("vesta"),
+                         _Prefix("neptunus"),
+                         _Prefix("jupiter"),
+                         _Prefix("diana"),
+                         _Prefix("minerva"),
+                         _Prefix("ceres"),
+                         _Prefix("Aidos,Adephagia,Adikia,Aletheia"),
+                         _Prefix("hecatonchires"),
+                         _Prefix("alcyoneus"),
+                         _Prefix("hades"),
+                         _Prefix("vulcanus"),
+                         _Prefix("juno"),
+                         _Prefix("mercury"),
+                         _Prefix("Stheno, Euryale and Medusa")};
   fArray.Sort();
 
   PrefixStringMap fMap;
   PrefixArrayToPrefixStringMap(fArray, fMap);
 
-  nsCString checksum("\xae\x18\x94\xd7\xd0\x83\x5f\xc1"
-                     "\x58\x59\x5c\x2c\x72\xb9\x6e\x5e"
-                     "\xf4\xe8\x0a\x6b\xff\x5e\x6b\x81"
-                     "\x65\x34\x06\x16\x06\x59\xa0\x67");
+  nsCString checksum(
+      "\xae\x18\x94\xd7\xd0\x83\x5f\xc1"
+      "\x58\x59\x5c\x2c\x72\xb9\x6e\x5e"
+      "\xf4\xe8\x0a\x6b\xff\x5e\x6b\x81"
+      "\x65\x34\x06\x16\x06\x59\xa0\x67");
 
   testFullUpdate(fMap, &checksum);
 
@@ -765,7 +776,7 @@ TEST(UrlClassifierTableUpdateV4, EmptyUpdate)
   PrefixStringMap emptyAddition;
   nsTArray<uint32_t> emptyRemoval;
 
-   _PrefixArray array;
+  _PrefixArray array;
   PrefixStringMap map;
   nsCString checksum;
 
@@ -797,7 +808,7 @@ TEST(UrlClassifierTableUpdateV4, EmptyUpdate)
 TEST(UrlClassifierTableUpdateV4, EmptyUpdate2)
 {
   // Setup LookupCache with initial data
-   _PrefixArray array;
+  _PrefixArray array;
   CreateRandomSortedPrefixArray(100, 4, 4, array);
   CreateRandomSortedPrefixArray(10, 5, 32, array);
   UniquePtr<LookupCacheV4> cache = SetupLookupCache<LookupCacheV4>(array);
@@ -806,7 +817,8 @@ TEST(UrlClassifierTableUpdateV4, EmptyUpdate2)
   nsCString checksum;
   CalculateCheckSum(array, checksum);
   std::string stdChecksum;
-  stdChecksum.assign(const_cast<char*>(checksum.BeginReading()), checksum.Length());
+  stdChecksum.assign(const_cast<char*>(checksum.BeginReading()),
+                     checksum.Length());
 
   UniquePtr<TableUpdateV4> tableUpdate = MakeUnique<TableUpdateV4>(GTEST_TABLE);
   tableUpdate->NewChecksum(stdChecksum);

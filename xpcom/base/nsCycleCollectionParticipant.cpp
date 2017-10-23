@@ -24,13 +24,15 @@ nsXPCOMCycleCollectionParticipant::Unroot(void* aPtr)
 // We define a default trace function because some participants don't need
 // to trace anything, so it is okay for them not to define one.
 NS_IMETHODIMP_(void)
-nsXPCOMCycleCollectionParticipant::Trace(void* aPtr, const TraceCallbacks& aCb,
+nsXPCOMCycleCollectionParticipant::Trace(void* aPtr,
+                                         const TraceCallbacks& aCb,
                                          void* aClosure)
 {
 }
 
 bool
-nsXPCOMCycleCollectionParticipant::CheckForRightISupports(nsISupports* aSupports)
+nsXPCOMCycleCollectionParticipant::CheckForRightISupports(
+    nsISupports* aSupports)
 {
   nsISupports* foo;
   aSupports->QueryInterface(NS_GET_IID(nsCycleCollectionISupports),

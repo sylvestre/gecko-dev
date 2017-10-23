@@ -30,27 +30,32 @@ StringResult::StringResult(const nsAString& aValue, txResultRecycler* aRecycler)
  * Virtual Methods from ExprResult
 */
 
-short StringResult::getResultType() {
-    return txAExprResult::STRING;
-} //-- getResultType
+short
+StringResult::getResultType()
+{
+  return txAExprResult::STRING;
+}  //-- getResultType
 
 void
 StringResult::stringValue(nsString& aResult)
 {
-    aResult.Append(mValue);
+  aResult.Append(mValue);
 }
 
 const nsString*
 StringResult::stringValuePointer()
 {
-    return &mValue;
+  return &mValue;
 }
 
-bool StringResult::booleanValue() {
-   return !mValue.IsEmpty();
-} //-- booleanValue
+bool
+StringResult::booleanValue()
+{
+  return !mValue.IsEmpty();
+}  //-- booleanValue
 
-double StringResult::numberValue() {
-    return txDouble::toDouble(mValue);
-} //-- numberValue
-
+double
+StringResult::numberValue()
+{
+  return txDouble::toDouble(mValue);
+}  //-- numberValue

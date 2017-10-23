@@ -25,22 +25,21 @@
  * ASCII case-insensitive comparator.  (for Unicode case-insensitive
  * comparision, see nsUnicharUtils.h)
  */
-class nsCaseInsensitiveCStringComparator
-  : public nsCStringComparator
+class nsCaseInsensitiveCStringComparator : public nsCStringComparator
 {
-public:
-  nsCaseInsensitiveCStringComparator()
-  {
-  }
+ public:
+  nsCaseInsensitiveCStringComparator() {}
   typedef char char_type;
 
-  virtual int operator()(const char_type*, const char_type*,
-                         uint32_t, uint32_t) const override;
+  virtual int operator()(const char_type*,
+                         const char_type*,
+                         uint32_t,
+                         uint32_t) const override;
 };
 
 class nsCaseInsensitiveCStringArrayComparator
 {
-public:
+ public:
   template<class A, class B>
   bool Equals(const A& aStrA, const B& aStrB) const
   {
@@ -53,4 +52,4 @@ public:
 #include "nsSubstringTuple.h"
 #endif
 
-#endif // !defined(nsAString_h___)
+#endif  // !defined(nsAString_h___)

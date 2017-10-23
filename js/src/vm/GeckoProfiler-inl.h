@@ -15,11 +15,8 @@
 
 namespace js {
 
-inline void
-GeckoProfilerThread::updatePC(JSContext* cx, JSScript* script, jsbytecode* pc)
-{
-    if (!cx->runtime()->geckoProfiler().enabled())
-        return;
+inline void GeckoProfilerThread::updatePC(JSContext* cx, JSScript* script, jsbytecode* pc) {
+    if (!cx->runtime()->geckoProfiler().enabled()) return;
 
     uint32_t sp = pseudoStack_->stackPointer;
     if (sp - 1 < PseudoStack::MaxEntries) {
@@ -33,14 +30,13 @@ GeckoProfilerThread::updatePC(JSContext* cx, JSScript* script, jsbytecode* pc)
  * This class is used to suppress profiler sampling during
  * critical sections where stack state is not valid.
  */
-class MOZ_RAII AutoSuppressProfilerSampling
-{
-  public:
+class MOZ_RAII AutoSuppressProfilerSampling {
+   public:
     explicit AutoSuppressProfilerSampling(JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
 
     ~AutoSuppressProfilerSampling();
 
-  private:
+   private:
     JSContext* cx_;
     bool previouslyEnabled_;
     JSRuntime::AutoProhibitActiveContextChange prohibitContextChange_;
@@ -48,11 +44,9 @@ class MOZ_RAII AutoSuppressProfilerSampling
 };
 
 MOZ_ALWAYS_INLINE
-GeckoProfilerEntryMarker::GeckoProfilerEntryMarker(JSContext* cx,
-                                                   JSScript* script
-                                                   MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-  : profiler_(&cx->geckoProfiler())
-{
+GeckoProfilerEntryMarker::GeckoProfilerEntryMarker(
+    JSContext* cx, JSScript* script MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    : profiler_(&cx->geckoProfiler()) {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     if (MOZ_LIKELY(!profiler_->installed())) {
         profiler_ = nullptr;
@@ -68,27 +62,24 @@ GeckoProfilerEntryMarker::GeckoProfilerEntryMarker(JSContext* cx,
         /* label = */ "", /* dynamicString = */ nullptr, /* sp = */ this, /* line = */ 0,
         ProfileEntry::Kind::CPP_MARKER_FOR_JS, ProfileEntry::Category::OTHER);
 
-    profiler_->pseudoStack_->pushJsFrame(
-        "js::RunScript", /* dynamicString = */ nullptr, script, script->code());
+    profiler_->pseudoStack_->pushJsFrame("js::RunScript", /* dynamicString = */ nullptr, script,
+                                         script->code());
 }
 
 MOZ_ALWAYS_INLINE
-GeckoProfilerEntryMarker::~GeckoProfilerEntryMarker()
-{
-    if (MOZ_LIKELY(profiler_ == nullptr))
-        return;
+GeckoProfilerEntryMarker::~GeckoProfilerEntryMarker() {
+    if (MOZ_LIKELY(profiler_ == nullptr)) return;
 
-    profiler_->pseudoStack_->pop();    // the JS frame
-    profiler_->pseudoStack_->pop();    // the BEGIN_PSEUDO_JS frame
+    profiler_->pseudoStack_->pop();  // the JS frame
+    profiler_->pseudoStack_->pop();  // the BEGIN_PSEUDO_JS frame
     MOZ_ASSERT(spBefore_ == profiler_->stackPointer());
 }
 
 MOZ_ALWAYS_INLINE
 AutoGeckoProfilerEntry::AutoGeckoProfilerEntry(JSContext* cx, const char* label,
                                                ProfileEntry::Category category
-                                               MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-  : profiler_(&cx->geckoProfiler())
-{
+                                                   MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    : profiler_(&cx->geckoProfiler()) {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     if (MOZ_LIKELY(!profiler_->installed())) {
         profiler_ = nullptr;
@@ -100,21 +91,18 @@ AutoGeckoProfilerEntry::AutoGeckoProfilerEntry(JSContext* cx, const char* label,
     profiler_->pseudoStack_->pushCppFrame(label,
                                           /* dynamicString = */ nullptr,
                                           /* sp = */ this,
-                                          /* line = */ 0,
-                                          ProfileEntry::Kind::CPP_NORMAL,
+                                          /* line = */ 0, ProfileEntry::Kind::CPP_NORMAL,
                                           category);
 }
 
 MOZ_ALWAYS_INLINE
-AutoGeckoProfilerEntry::~AutoGeckoProfilerEntry()
-{
-    if (MOZ_LIKELY(!profiler_))
-        return;
+AutoGeckoProfilerEntry::~AutoGeckoProfilerEntry() {
+    if (MOZ_LIKELY(!profiler_)) return;
 
     profiler_->pseudoStack_->pop();
     MOZ_ASSERT(spBefore_ == profiler_->stackPointer());
 }
 
-} // namespace js
+}  // namespace js
 
-#endif // vm_GeckoProfiler_inl_h
+#endif  // vm_GeckoProfiler_inl_h

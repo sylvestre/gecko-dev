@@ -17,9 +17,9 @@ using mozilla::media::TimeUnit;
 
 mozilla::LazyLogModule gMediaResourceIndexLog("MediaResourceIndex");
 // Debug logging macro with object pointer and class name.
-#define ILOG(msg, ...)                                                         \
-  MOZ_LOG(gMediaResourceIndexLog,                                              \
-          mozilla::LogLevel::Debug,                                            \
+#define ILOG(msg, ...)              \
+  MOZ_LOG(gMediaResourceIndexLog,   \
+          mozilla::LogLevel::Debug, \
           ("%p " msg, this, ##__VA_ARGS__))
 
 namespace mozilla {
@@ -33,9 +33,9 @@ MediaResource::Destroy()
     return;
   }
   nsresult rv = SystemGroup::Dispatch(
-    TaskCategory::Other,
-    NewNonOwningRunnableMethod(
-      "MediaResource::Destroy", this, &MediaResource::Destroy));
+      TaskCategory::Other,
+      NewNonOwningRunnableMethod(
+          "MediaResource::Destroy", this, &MediaResource::Destroy));
   MOZ_ALWAYS_SUCCEEDS(rv);
 }
 
@@ -43,14 +43,15 @@ NS_IMPL_ADDREF(MediaResource)
 NS_IMPL_RELEASE_WITH_DESTROY(MediaResource, Destroy())
 
 MediaResourceIndex::MediaResourceIndex(MediaResource* aResource)
-  : mResource(aResource)
-  , mOffset(0)
-  , mCacheBlockSize(aResource->ShouldCacheReads()
-                      ? SelectCacheSize(MediaPrefs::MediaResourceIndexCache())
-                      : 0)
-  , mCachedOffset(0)
-  , mCachedBytes(0)
-  , mCachedBlock(MakeUnique<char[]>(mCacheBlockSize))
+    : mResource(aResource),
+      mOffset(0),
+      mCacheBlockSize(
+          aResource->ShouldCacheReads()
+              ? SelectCacheSize(MediaPrefs::MediaResourceIndexCache())
+              : 0),
+      mCachedOffset(0),
+      mCachedBytes(0),
+      mCachedBlock(MakeUnique<char[]>(mCacheBlockSize))
 {
 }
 
@@ -153,7 +154,7 @@ MediaResourceIndex::ReadAt(int64_t aOffset,
 
     // We've reached our cache.
     const uint32_t toCopy =
-      std::min(aCount, uint32_t(mCachedOffset + mCachedBytes - aOffset));
+        std::min(aCount, uint32_t(mCachedOffset + mCachedBytes - aOffset));
     // Note that we could in fact be just after the last byte of the cache, in
     // which case we can't actually read from it! (But we will top-up next.)
     if (toCopy != 0) {
@@ -288,14 +289,13 @@ MediaResourceIndex::CacheOrReadAt(int64_t aOffset,
       // Try to read as much resource-cached data as can fill our local cache.
       // Assume we can read as much as is cached without blocking.
       const uint32_t cacheIndex = IndexInCache(aOffset);
-      const uint32_t toRead =
-        uint32_t(std::min(cachedDataEnd - aOffset,
-                          int64_t(mCacheBlockSize - cacheIndex)));
+      const uint32_t toRead = uint32_t(std::min(
+          cachedDataEnd - aOffset, int64_t(mCacheBlockSize - cacheIndex)));
       MOZ_ASSERT(toRead >= aCount);
       uint32_t read = 0;
       // We would like `toRead` if possible, but ok with at least `aCount`.
       nsresult rv = UncachedRangedReadAt(
-        aOffset, &mCachedBlock[cacheIndex], aCount, toRead - aCount, &read);
+          aOffset, &mCachedBlock[cacheIndex], aCount, toRead - aCount, &read);
       if (NS_SUCCEEDED(rv)) {
         if (read == 0) {
           ILOG("ReadAt(%" PRIu32 "@%" PRId64 ") - UncachedRangedReadAt(%" PRIu32
@@ -492,15 +492,13 @@ MediaResourceIndex::Seek(int32_t aWhence, int64_t aOffset)
     case SEEK_CUR:
       aOffset += mOffset;
       break;
-    case SEEK_END:
-    {
+    case SEEK_END: {
       int64_t length = mResource->GetLength();
       if (length == -1 || length - aOffset < 0) {
         return NS_ERROR_FAILURE;
       }
       aOffset = mResource->GetLength() - aOffset;
-    }
-      break;
+    } break;
     default:
       return NS_ERROR_FAILURE;
   }
@@ -609,7 +607,7 @@ MediaResourceIndex::CacheOffsetContaining(int64_t aOffsetInFile) const
   return offset;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 // avoid redefined macro in unified build
 #undef ILOG

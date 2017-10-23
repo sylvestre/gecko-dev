@@ -29,11 +29,14 @@ typedef int PlatformFile;
 const PlatformFile kInvalidPlatformFile = -1;
 #endif  // defined(_WIN32)
 
-struct HostFile {
+struct HostFile
+{
   HostFile(const FilePathCharType* file_path,
            PlatformFile file,
            PlatformFile sig_file)
-      : file_path(file_path), file(file), sig_file(sig_file) {}
+      : file_path(file_path), file(file), sig_file(sig_file)
+  {
+  }
 
   // File that is part of the host of the CDM.
   const FilePathCharType* file_path = nullptr;
@@ -57,8 +60,8 @@ extern "C" {
 // Otherwise returns true as soon as possible and processes the files
 // asynchronously. All files MUST be closed by the CDM after this one-time
 // processing is finished.
-CDM_API bool VerifyCdmHost_0(const cdm::HostFile* host_files,
-                             uint32_t num_files);
+CDM_API bool
+VerifyCdmHost_0(const cdm::HostFile* host_files, uint32_t num_files);
 }
 
 #endif  // CDM_CONTENT_DECRYPTION_MODULE_EXT_H_

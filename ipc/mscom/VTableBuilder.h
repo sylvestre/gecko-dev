@@ -26,12 +26,14 @@ extern "C" {
  *                  entries (thus this parameter must be >= 3).
  * @return The resulting IUnknown, or nullptr on error.
  */
-IUnknown* BuildNullVTable(IUnknown* aUnk, uint32_t aVtblSize);
+IUnknown*
+BuildNullVTable(IUnknown* aUnk, uint32_t aVtblSize);
 
-void DeleteNullVTable(IUnknown* aUnk);
+void
+DeleteNullVTable(IUnknown* aUnk);
 
 #if defined(__cplusplus)
 }
 #endif
 
-#endif //  mozilla_mscom_VTableBuilder_h
+#endif  //  mozilla_mscom_VTableBuilder_h

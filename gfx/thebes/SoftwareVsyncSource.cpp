@@ -23,15 +23,15 @@ SoftwareVsyncSource::~SoftwareVsyncSource()
   mGlobalDisplay = nullptr;
 }
 
-SoftwareDisplay::SoftwareDisplay()
-  : mVsyncEnabled(false)
+SoftwareDisplay::SoftwareDisplay() : mVsyncEnabled(false)
 {
   // Mimic 60 fps
   MOZ_ASSERT(NS_IsMainThread());
-  const double rate = 1000.0 / (double) gfxPlatform::GetSoftwareVsyncRate();
+  const double rate = 1000.0 / (double)gfxPlatform::GetSoftwareVsyncRate();
   mVsyncRate = mozilla::TimeDuration::FromMilliseconds(rate);
   mVsyncThread = new base::Thread("SoftwareVsyncThread");
-  MOZ_RELEASE_ASSERT(mVsyncThread->Start(), "GFX: Could not start software vsync thread");
+  MOZ_RELEASE_ASSERT(mVsyncThread->Start(),
+                     "GFX: Could not start software vsync thread");
 }
 
 SoftwareDisplay::~SoftwareDisplay() {}
@@ -47,7 +47,7 @@ SoftwareDisplay::EnableVsync()
     mVsyncEnabled = true;
 
     mVsyncThread->message_loop()->PostTask(NewRunnableMethod(
-      "SoftwareDisplay::EnableVsync", this, &SoftwareDisplay::EnableVsync));
+        "SoftwareDisplay::EnableVsync", this, &SoftwareDisplay::EnableVsync));
     return;
   }
 
@@ -66,7 +66,7 @@ SoftwareDisplay::DisableVsync()
     mVsyncEnabled = false;
 
     mVsyncThread->message_loop()->PostTask(NewRunnableMethod(
-      "SoftwareDisplay::DisableVsync", this, &SoftwareDisplay::DisableVsync));
+        "SoftwareDisplay::DisableVsync", this, &SoftwareDisplay::DisableVsync));
     return;
   }
 
@@ -130,15 +130,14 @@ SoftwareDisplay::ScheduleNextVsync(mozilla::TimeStamp aVsyncTimestamp)
   }
 
   mCurrentVsyncTask = NewCancelableRunnableMethod<mozilla::TimeStamp>(
-    "SoftwareDisplay::NotifyVsync",
-    this,
-    &SoftwareDisplay::NotifyVsync,
-    nextVsync);
+      "SoftwareDisplay::NotifyVsync",
+      this,
+      &SoftwareDisplay::NotifyVsync,
+      nextVsync);
 
   RefPtr<Runnable> addrefedTask = mCurrentVsyncTask;
-  mVsyncThread->message_loop()->PostDelayedTask(
-    addrefedTask.forget(),
-    delay.ToMilliseconds());
+  mVsyncThread->message_loop()->PostDelayedTask(addrefedTask.forget(),
+                                                delay.ToMilliseconds());
 }
 
 void

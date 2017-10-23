@@ -42,7 +42,8 @@ namespace google_breakpad {
 // Returns the full path to linux_dumper_unittest_helper.  The full path is
 // discovered either by using the environment variable "bindir" or by using
 // the location of the main module of the currently running process.
-string GetHelperBinary();
+string
+GetHelperBinary();
 
 }  // namespace google_breakpad
 

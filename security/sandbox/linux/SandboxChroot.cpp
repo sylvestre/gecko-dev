@@ -54,7 +54,7 @@ SandboxChroot::SendCommand(Command aComm)
   mCommand = aComm;
   MOZ_ALWAYS_ZERO(pthread_mutex_unlock(&mMutex));
   MOZ_ALWAYS_ZERO(pthread_cond_signal(&mWakeup));
-  void *retval;
+  void* retval;
   if (pthread_join(mThread, &retval) != 0 || retval != nullptr) {
     MOZ_CRASH("Failed to stop privileged chroot thread");
   }
@@ -207,6 +207,6 @@ SandboxChroot::ThreadMain()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #undef MOZ_ALWAYS_ZERO

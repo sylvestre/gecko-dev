@@ -11,9 +11,13 @@
 #include "mozilla/Module.h"
 #include "mozilla/FileLocation.h"
 
-#define MOZILLA_MODULELOADER_PSEUDO_IID \
-{ 0xD951A8CE, 0x6E9F, 0x464F, \
-  { 0x8A, 0xC8, 0x14, 0x61, 0xC0, 0xD3, 0x63, 0xC8 } }
+#define MOZILLA_MODULELOADER_PSEUDO_IID              \
+  {                                                  \
+    0xD951A8CE, 0x6E9F, 0x464F,                      \
+    {                                                \
+      0x8A, 0xC8, 0x14, 0x61, 0xC0, 0xD3, 0x63, 0xC8 \
+    }                                                \
+  }
 
 namespace mozilla {
 
@@ -26,7 +30,7 @@ namespace mozilla {
  */
 class ModuleLoader : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(MOZILLA_MODULELOADER_PSEUDO_IID)
 
   /**
@@ -39,6 +43,6 @@ public:
 };
 NS_DEFINE_STATIC_IID_ACCESSOR(ModuleLoader, MOZILLA_MODULELOADER_PSEUDO_IID)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ModuleLoader_h
+#endif  // mozilla_ModuleLoader_h

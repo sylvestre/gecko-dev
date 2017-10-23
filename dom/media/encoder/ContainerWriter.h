@@ -14,19 +14,19 @@ namespace mozilla {
 /**
  * ContainerWriter packs encoded track data into a specific media container.
  */
-class ContainerWriter {
-public:
-  ContainerWriter()
-    : mInitialized(false)
-    , mIsWritingComplete(false)
-  {}
+class ContainerWriter
+{
+ public:
+  ContainerWriter() : mInitialized(false), mIsWritingComplete(false) {}
   virtual ~ContainerWriter() {}
   // Mapping to DOMLocalMediaStream::TrackTypeHints
-  enum {
+  enum
+  {
     CREATE_AUDIO_TRACK = 1 << 0,
     CREATE_VIDEO_TRACK = 1 << 1,
   };
-  enum {
+  enum
+  {
     END_OF_STREAM = 1 << 0
   };
 
@@ -53,7 +53,8 @@ public:
    */
   virtual bool IsWritingComplete() { return mIsWritingComplete; }
 
-  enum {
+  enum
+  {
     FLUSH_NEEDED = 1 << 0,
     GET_HEADER = 1 << 1
   };
@@ -68,11 +69,12 @@ public:
    */
   virtual nsresult GetContainerData(nsTArray<nsTArray<uint8_t> >* aOutputBufs,
                                     uint32_t aFlags = 0) = 0;
-protected:
+
+ protected:
   bool mInitialized;
   bool mIsWritingComplete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

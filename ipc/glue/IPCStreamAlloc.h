@@ -19,7 +19,7 @@ AllocPChildToParentStreamParent();
 PParentToChildStreamChild*
 AllocPParentToChildStreamChild();
 
-} // ipc namespace
-} // mozilla namespace
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_IPCStreamAlloc_h
+#endif  // mozilla_ipc_IPCStreamAlloc_h

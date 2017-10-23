@@ -21,23 +21,21 @@ class SourceSurfaceSharedData final : public DataSourceSurface
 {
   typedef mozilla::ipc::SharedMemoryBasic SharedMemoryBasic;
 
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SourceSurfaceSharedData, override)
 
   SourceSurfaceSharedData()
-    : mMutex("SourceSurfaceSharedData")
-    , mStride(0)
-    , mMapCount(0)
-    , mFormat(SurfaceFormat::UNKNOWN)
-    , mClosed(false)
-    , mFinalized(false)
-    , mShared(false)
+      : mMutex("SourceSurfaceSharedData"),
+        mStride(0),
+        mMapCount(0),
+        mFormat(SurfaceFormat::UNKNOWN),
+        mClosed(false),
+        mFinalized(false),
+        mShared(false)
   {
   }
 
-  bool Init(const IntSize &aSize,
-            int32_t aStride,
-            SurfaceFormat aFormat);
+  bool Init(const IntSize& aSize, int32_t aStride, SurfaceFormat aFormat);
 
   uint8_t* GetData() override
   {
@@ -57,10 +55,7 @@ public:
                               size_t& aHeapSizeOut,
                               size_t& aNonHeapSizeOut) const override;
 
-  bool OnHeap() const override
-  {
-    return false;
-  }
+  bool OnHeap() const override { return false; }
 
   /**
    * Although Map (and Moz2D in general) isn't normally threadsafe,
@@ -75,7 +70,7 @@ public:
    * the same data pointer by retaining the old shared buffer until
    * the last mapping is freed via Unmap.
    */
-  bool Map(MapType, MappedSurface *aMappedSurface) override
+  bool Map(MapType, MappedSurface* aMappedSurface) override
   {
     MutexAutoLock lock(mMutex);
     ++mMapCount;
@@ -138,11 +133,8 @@ public:
    */
   void Finalize();
 
-private:
-  ~SourceSurfaceSharedData() override
-  {
-    MOZ_ASSERT(mMapCount == 0);
-  }
+ private:
+  ~SourceSurfaceSharedData() override { MOZ_ASSERT(mMapCount == 0); }
 
   uint8_t* GetDataInternal() const;
 
@@ -174,7 +166,7 @@ private:
   bool mShared : 1;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SOURCESURFACESHAREDDATA_H_ */

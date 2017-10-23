@@ -39,7 +39,8 @@ using namespace mozilla::dom::workers;
 using mozilla::UniquePtr;
 
 JSObject*
-ServiceWorkerWindowClient::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+ServiceWorkerWindowClient::WrapObject(JSContext* aCx,
+                                      JS::Handle<JSObject*> aGivenProto)
 {
   return WindowClientBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -52,15 +53,16 @@ class ResolveOrRejectPromiseRunnable final : public WorkerRunnable
   UniquePtr<ServiceWorkerClientInfo> mClientInfo;
   nsresult mRv;
 
-public:
+ public:
   // Passing a null clientInfo will resolve the promise with a null value.
   ResolveOrRejectPromiseRunnable(
-    WorkerPrivate* aWorkerPrivate, PromiseWorkerProxy* aPromiseProxy,
-    UniquePtr<ServiceWorkerClientInfo>&& aClientInfo)
-    : WorkerRunnable(aWorkerPrivate)
-    , mPromiseProxy(aPromiseProxy)
-    , mClientInfo(Move(aClientInfo))
-    , mRv(NS_OK)
+      WorkerPrivate* aWorkerPrivate,
+      PromiseWorkerProxy* aPromiseProxy,
+      UniquePtr<ServiceWorkerClientInfo>&& aClientInfo)
+      : WorkerRunnable(aWorkerPrivate),
+        mPromiseProxy(aPromiseProxy),
+        mClientInfo(Move(aClientInfo)),
+        mRv(NS_OK)
   {
     AssertIsOnMainThread();
   }
@@ -69,17 +71,16 @@ public:
   ResolveOrRejectPromiseRunnable(WorkerPrivate* aWorkerPrivate,
                                  PromiseWorkerProxy* aPromiseProxy,
                                  nsresult aRv)
-    : WorkerRunnable(aWorkerPrivate)
-    , mPromiseProxy(aPromiseProxy)
-    , mClientInfo(nullptr)
-    , mRv(aRv)
+      : WorkerRunnable(aWorkerPrivate),
+        mPromiseProxy(aPromiseProxy),
+        mClientInfo(nullptr),
+        mRv(aRv)
   {
     MOZ_ASSERT(NS_FAILED(aRv));
     AssertIsOnMainThread();
   }
 
-  bool
-  WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
+  bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
   {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -90,8 +91,8 @@ public:
     if (NS_WARN_IF(NS_FAILED(mRv))) {
       promise->MaybeReject(mRv);
     } else if (mClientInfo) {
-      RefPtr<ServiceWorkerWindowClient> client =
-        new ServiceWorkerWindowClient(promise->GetParentObject(), *mClientInfo);
+      RefPtr<ServiceWorkerWindowClient> client = new ServiceWorkerWindowClient(
+          promise->GetParentObject(), *mClientInfo);
       promise->MaybeResolve(client);
     } else {
       promise->MaybeResolve(JS::NullHandleValue);
@@ -109,11 +110,11 @@ class ClientFocusRunnable final : public Runnable
   uint64_t mWindowId;
   RefPtr<PromiseWorkerProxy> mPromiseProxy;
 
-public:
+ public:
   ClientFocusRunnable(uint64_t aWindowId, PromiseWorkerProxy* aPromiseProxy)
-    : mozilla::Runnable("ClientFocusRunnable")
-    , mWindowId(aWindowId)
-    , mPromiseProxy(aPromiseProxy)
+      : mozilla::Runnable("ClientFocusRunnable"),
+        mWindowId(aWindowId),
+        mPromiseProxy(aPromiseProxy)
   {
     MOZ_ASSERT(mPromiseProxy);
   }
@@ -137,9 +138,8 @@ public:
     return NS_OK;
   }
 
-private:
-  void
-  DispatchResult(UniquePtr<ServiceWorkerClientInfo>&& aClientInfo)
+ private:
+  void DispatchResult(UniquePtr<ServiceWorkerClientInfo>&& aClientInfo)
   {
     AssertIsOnMainThread();
     MutexAutoLock lock(mPromiseProxy->Lock());
@@ -150,18 +150,19 @@ private:
     RefPtr<ResolveOrRejectPromiseRunnable> resolveRunnable;
     if (aClientInfo) {
       resolveRunnable = new ResolveOrRejectPromiseRunnable(
-        mPromiseProxy->GetWorkerPrivate(), mPromiseProxy, Move(aClientInfo));
+          mPromiseProxy->GetWorkerPrivate(), mPromiseProxy, Move(aClientInfo));
     } else {
-      resolveRunnable = new ResolveOrRejectPromiseRunnable(
-        mPromiseProxy->GetWorkerPrivate(), mPromiseProxy,
-        NS_ERROR_DOM_INVALID_ACCESS_ERR);
+      resolveRunnable =
+          new ResolveOrRejectPromiseRunnable(mPromiseProxy->GetWorkerPrivate(),
+                                             mPromiseProxy,
+                                             NS_ERROR_DOM_INVALID_ACCESS_ERR);
     }
 
     resolveRunnable->Dispatch();
   }
 };
 
-} // namespace
+}  // namespace
 
 already_AddRefed<Promise>
 ServiceWorkerWindowClient::Focus(ErrorResult& aRv) const
@@ -180,10 +181,10 @@ ServiceWorkerWindowClient::Focus(ErrorResult& aRv) const
 
   if (workerPrivate->GlobalScope()->WindowInteractionAllowed()) {
     RefPtr<PromiseWorkerProxy> promiseProxy =
-      PromiseWorkerProxy::Create(workerPrivate, promise);
+        PromiseWorkerProxy::Create(workerPrivate, promise);
     if (promiseProxy) {
-      RefPtr<ClientFocusRunnable> r = new ClientFocusRunnable(mWindowId,
-                                                              promiseProxy);
+      RefPtr<ClientFocusRunnable> r =
+          new ClientFocusRunnable(mWindowId, promiseProxy);
       MOZ_ALWAYS_SUCCEEDS(workerPrivate->DispatchToMainThread(r.forget()));
     } else {
       promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
@@ -199,18 +200,19 @@ ServiceWorkerWindowClient::Focus(ErrorResult& aRv) const
 class WebProgressListener final : public nsIWebProgressListener,
                                   public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(WebProgressListener,
                                            nsIWebProgressListener)
 
   WebProgressListener(PromiseWorkerProxy* aPromiseProxy,
                       ServiceWorkerPrivate* aServiceWorkerPrivate,
-                      nsPIDOMWindowOuter* aWindow, nsIURI* aBaseURI)
-    : mPromiseProxy(aPromiseProxy)
-    , mServiceWorkerPrivate(aServiceWorkerPrivate)
-    , mWindow(aWindow)
-    , mBaseURI(aBaseURI)
+                      nsPIDOMWindowOuter* aWindow,
+                      nsIURI* aBaseURI)
+      : mPromiseProxy(aPromiseProxy),
+        mServiceWorkerPrivate(aServiceWorkerPrivate),
+        mWindow(aWindow),
+        mBaseURI(aBaseURI)
   {
     MOZ_ASSERT(aPromiseProxy);
     MOZ_ASSERT(aServiceWorkerPrivate);
@@ -219,12 +221,15 @@ public:
     MOZ_ASSERT(aBaseURI);
     AssertIsOnMainThread();
 
-    mServiceWorkerPrivate->StoreISupports(static_cast<nsIWebProgressListener*>(this));
+    mServiceWorkerPrivate->StoreISupports(
+        static_cast<nsIWebProgressListener*>(this));
   }
 
   NS_IMETHOD
-  OnStateChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
-                uint32_t aStateFlags, nsresult aStatus) override
+  OnStateChange(nsIWebProgress* aWebProgress,
+                nsIRequest* aRequest,
+                uint32_t aStateFlags,
+                nsresult aStatus) override
   {
     if (!(aStateFlags & STATE_IS_DOCUMENT) ||
         !(aStateFlags & (STATE_STOP | STATE_TRANSFERRING))) {
@@ -232,7 +237,8 @@ public:
     }
 
     // This is safe because our caller holds a strong ref.
-    mServiceWorkerPrivate->RemoveISupports(static_cast<nsIWebProgressListener*>(this));
+    mServiceWorkerPrivate->RemoveISupports(
+        static_cast<nsIWebProgressListener*>(this));
     aWebProgress->RemoveProgressListener(this);
 
     WorkerPrivate* workerPrivate;
@@ -252,7 +258,7 @@ public:
     UniquePtr<ServiceWorkerClientInfo> clientInfo;
     if (!doc) {
       resolveRunnable = new ResolveOrRejectPromiseRunnable(
-        workerPrivate, mPromiseProxy, NS_ERROR_TYPE_ERR);
+          workerPrivate, mPromiseProxy, NS_ERROR_TYPE_ERR);
       resolveRunnable->Dispatch();
 
       return NS_OK;
@@ -260,9 +266,9 @@ public:
 
     // Check same origin.
     nsCOMPtr<nsIScriptSecurityManager> securityManager =
-      nsContentUtils::GetSecurityManager();
-    nsresult rv = securityManager->CheckSameOriginURI(doc->GetOriginalURI(),
-                                                      mBaseURI, false);
+        nsContentUtils::GetSecurityManager();
+    nsresult rv = securityManager->CheckSameOriginURI(
+        doc->GetOriginalURI(), mBaseURI, false);
 
     if (NS_SUCCEEDED(rv)) {
       nsContentUtils::DispatchFocusChromeEvent(mWindow->GetOuterWindow());
@@ -270,15 +276,17 @@ public:
     }
 
     resolveRunnable = new ResolveOrRejectPromiseRunnable(
-      workerPrivate, mPromiseProxy, Move(clientInfo));
+        workerPrivate, mPromiseProxy, Move(clientInfo));
     resolveRunnable->Dispatch();
 
     return NS_OK;
   }
 
   NS_IMETHOD
-  OnProgressChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
-                   int32_t aCurSelfProgress, int32_t aMaxSelfProgress,
+  OnProgressChange(nsIWebProgress* aWebProgress,
+                   nsIRequest* aRequest,
+                   int32_t aCurSelfProgress,
+                   int32_t aMaxSelfProgress,
                    int32_t aCurTotalProgress,
                    int32_t aMaxTotalProgress) override
   {
@@ -287,30 +295,35 @@ public:
   }
 
   NS_IMETHOD
-  OnLocationChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
-                   nsIURI* aLocation, uint32_t aFlags) override
+  OnLocationChange(nsIWebProgress* aWebProgress,
+                   nsIRequest* aRequest,
+                   nsIURI* aLocation,
+                   uint32_t aFlags) override
   {
     MOZ_CRASH("Unexpected notification.");
     return NS_OK;
   }
 
   NS_IMETHOD
-  OnStatusChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
-                 nsresult aStatus, const char16_t* aMessage) override
+  OnStatusChange(nsIWebProgress* aWebProgress,
+                 nsIRequest* aRequest,
+                 nsresult aStatus,
+                 const char16_t* aMessage) override
   {
     MOZ_CRASH("Unexpected notification.");
     return NS_OK;
   }
 
   NS_IMETHOD
-  OnSecurityChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
+  OnSecurityChange(nsIWebProgress* aWebProgress,
+                   nsIRequest* aRequest,
                    uint32_t aState) override
   {
     MOZ_CRASH("Unexpected notification.");
     return NS_OK;
   }
 
-private:
+ private:
   ~WebProgressListener() {}
 
   RefPtr<PromiseWorkerProxy> mPromiseProxy;
@@ -321,8 +334,10 @@ private:
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WebProgressListener)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WebProgressListener)
-NS_IMPL_CYCLE_COLLECTION(WebProgressListener, mPromiseProxy,
-                         mServiceWorkerPrivate, mWindow)
+NS_IMPL_CYCLE_COLLECTION(WebProgressListener,
+                         mPromiseProxy,
+                         mServiceWorkerPrivate,
+                         mWindow)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WebProgressListener)
   NS_INTERFACE_MAP_ENTRY(nsIWebProgressListener)
@@ -338,17 +353,17 @@ class ClientNavigateRunnable final : public Runnable
   RefPtr<PromiseWorkerProxy> mPromiseProxy;
   MOZ_INIT_OUTSIDE_CTOR WorkerPrivate* mWorkerPrivate;
 
-public:
+ public:
   ClientNavigateRunnable(uint64_t aWindowId,
                          const nsAString& aUrl,
                          const nsAString& aScope,
                          PromiseWorkerProxy* aPromiseProxy)
-    : mozilla::Runnable("ClientNavigateRunnable")
-    , mWindowId(aWindowId)
-    , mUrl(aUrl)
-    , mScope(aScope)
-    , mPromiseProxy(aPromiseProxy)
-    , mWorkerPrivate(nullptr)
+      : mozilla::Runnable("ClientNavigateRunnable"),
+        mWindowId(aWindowId),
+        mUrl(aUrl),
+        mScope(aScope),
+        mPromiseProxy(aPromiseProxy),
+        mWorkerPrivate(nullptr)
   {
     MOZ_ASSERT(aPromiseProxy);
     MOZ_ASSERT(aPromiseProxy->GetWorkerPrivate());
@@ -401,22 +416,25 @@ public:
     }
 
     RefPtr<ServiceWorkerRegistrationInfo> registration =
-      swm->GetRegistration(principal, NS_ConvertUTF16toUTF8(mScope));
+        swm->GetRegistration(principal, NS_ConvertUTF16toUTF8(mScope));
     if (NS_WARN_IF(!registration)) {
       return NS_ERROR_FAILURE;
     }
     RefPtr<ServiceWorkerInfo> serviceWorkerInfo =
-      registration->GetServiceWorkerInfoById(mWorkerPrivate->ServiceWorkerID());
+        registration->GetServiceWorkerInfoById(
+            mWorkerPrivate->ServiceWorkerID());
     if (NS_WARN_IF(!serviceWorkerInfo)) {
       return NS_ERROR_FAILURE;
     }
 
     nsCOMPtr<nsIWebProgressListener> listener =
-      new WebProgressListener(mPromiseProxy, serviceWorkerInfo->WorkerPrivate(),
-                              window->GetOuterWindow(), baseUrl);
+        new WebProgressListener(mPromiseProxy,
+                                serviceWorkerInfo->WorkerPrivate(),
+                                window->GetOuterWindow(),
+                                baseUrl);
 
     rv = webProgress->AddProgressListener(
-      listener, nsIWebProgress::NOTIFY_STATE_DOCUMENT);
+        listener, nsIWebProgress::NOTIFY_STATE_DOCUMENT);
 
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return RejectPromise(rv);
@@ -425,32 +443,29 @@ public:
     return NS_OK;
   }
 
-private:
-  nsresult
-  RejectPromise(nsresult aRv)
+ private:
+  nsresult RejectPromise(nsresult aRv)
   {
     MOZ_ASSERT(mWorkerPrivate);
     RefPtr<ResolveOrRejectPromiseRunnable> resolveRunnable =
-      new ResolveOrRejectPromiseRunnable(mWorkerPrivate, mPromiseProxy, aRv);
+        new ResolveOrRejectPromiseRunnable(mWorkerPrivate, mPromiseProxy, aRv);
 
     resolveRunnable->Dispatch();
     return NS_OK;
   }
 
-  nsresult
-  ResolvePromise(UniquePtr<ServiceWorkerClientInfo>&& aClientInfo)
+  nsresult ResolvePromise(UniquePtr<ServiceWorkerClientInfo>&& aClientInfo)
   {
     MOZ_ASSERT(mWorkerPrivate);
     RefPtr<ResolveOrRejectPromiseRunnable> resolveRunnable =
-      new ResolveOrRejectPromiseRunnable(mWorkerPrivate, mPromiseProxy,
-                                         Move(aClientInfo));
+        new ResolveOrRejectPromiseRunnable(
+            mWorkerPrivate, mPromiseProxy, Move(aClientInfo));
 
     resolveRunnable->Dispatch();
     return NS_OK;
   }
 
-  nsresult
-  ParseUrl(nsIURI** aBaseUrl, nsIURI** aUrl)
+  nsresult ParseUrl(nsIURI** aBaseUrl, nsIURI** aUrl)
   {
     MOZ_ASSERT(aBaseUrl);
     MOZ_ASSERT(aUrl);
@@ -470,8 +485,9 @@ private:
     return NS_OK;
   }
 
-  nsresult
-  Navigate(nsIURI* aUrl, nsIPrincipal* aPrincipal, nsGlobalWindow** aWindow)
+  nsresult Navigate(nsIURI* aUrl,
+                    nsIPrincipal* aPrincipal,
+                    nsGlobalWindow** aWindow)
   {
     MOZ_ASSERT(aWindow);
 
@@ -504,8 +520,8 @@ private:
     loadInfo->SetReferrerPolicy(doc->GetReferrerPolicy());
     loadInfo->SetLoadType(nsIDocShellLoadInfo::loadStopContent);
     loadInfo->SetSourceDocShell(docShell);
-    rv =
-      docShell->LoadURI(aUrl, loadInfo, nsIWebNavigation::LOAD_FLAGS_NONE, true);
+    rv = docShell->LoadURI(
+        aUrl, loadInfo, nsIWebNavigation::LOAD_FLAGS_NONE, true);
 
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return NS_ERROR_TYPE_ERR;
@@ -537,15 +553,15 @@ ServiceWorkerWindowClient::Navigate(const nsAString& aUrl, ErrorResult& aRv)
   }
 
   ServiceWorkerGlobalScope* globalScope =
-    static_cast<ServiceWorkerGlobalScope*>(workerPrivate->GlobalScope());
+      static_cast<ServiceWorkerGlobalScope*>(workerPrivate->GlobalScope());
   nsString scope;
   globalScope->GetScope(scope);
 
   RefPtr<PromiseWorkerProxy> promiseProxy =
-    PromiseWorkerProxy::Create(workerPrivate, promise);
+      PromiseWorkerProxy::Create(workerPrivate, promise);
   if (promiseProxy) {
     RefPtr<ClientNavigateRunnable> r =
-      new ClientNavigateRunnable(mWindowId, aUrl, scope, promiseProxy);
+        new ClientNavigateRunnable(mWindowId, aUrl, scope, promiseProxy);
     MOZ_ALWAYS_SUCCEEDS(workerPrivate->DispatchToMainThread(r.forget()));
   } else {
     promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);

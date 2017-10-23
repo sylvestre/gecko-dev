@@ -64,10 +64,10 @@ namespace mozilla {
 template<typename T>
 class DeadlockDetector
 {
-public:
+ public:
   typedef nsTArray<const T*> ResourceAcquisitionArray;
 
-private:
+ private:
   struct OrderingEntry;
   typedef nsTArray<OrderingEntry*> HashEntryArray;
   typedef typename HashEntryArray::index_type index_type;
@@ -84,17 +84,15 @@ private:
   struct OrderingEntry
   {
     explicit OrderingEntry(const T* aResource)
-      : mOrderedLT()        // FIXME bug 456272: set to empirical dep size?
-      , mExternalRefs()
-      , mResource(aResource)
+        : mOrderedLT()  // FIXME bug 456272: set to empirical dep size?
+          ,
+          mExternalRefs(),
+          mResource(aResource)
     {
     }
-    ~OrderingEntry()
-    {
-    }
+    ~OrderingEntry() {}
 
-    size_t
-    SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+    size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
     {
       size_t n = aMallocSizeOf(this);
       n += mOrderedLT.ShallowSizeOfExcludingThis(aMallocSizeOf);
@@ -102,8 +100,8 @@ private:
       return n;
     }
 
-    HashEntryArray mOrderedLT; // this <_o Other
-    HashEntryArray mExternalRefs; // hash entries that reference this
+    HashEntryArray mOrderedLT;     // this <_o Other
+    HashEntryArray mExternalRefs;  // hash entries that reference this
     const T* mResource;
   };
 
@@ -115,7 +113,7 @@ private:
     PRLock* mLock;
   };
 
-public:
+ public:
   static const uint32_t kDefaultNumBuckets;
 
   /**
@@ -126,7 +124,7 @@ public:
    *        that will be checked.
    */
   explicit DeadlockDetector(uint32_t aNumResourcesGuess = kDefaultNumBuckets)
-    : mOrdering(aNumResourcesGuess)
+      : mOrdering(aNumResourcesGuess)
   {
     mLock = PR_NewLock();
     if (!mLock) {
@@ -139,13 +137,9 @@ public:
    *
    * *NOT* thread safe.
    */
-  ~DeadlockDetector()
-  {
-    PR_DestroyLock(mLock);
-  }
+  ~DeadlockDetector() { PR_DestroyLock(mLock); }
 
-  size_t
-  SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+  size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
   {
     size_t n = aMallocSizeOf(this);
 
@@ -220,8 +214,7 @@ public:
    * @param aLast Last resource acquired by calling thread (or 0).
    * @param aProposed Resource calling thread proposes to acquire.
    */
-  ResourceAcquisitionArray* CheckAcquisition(const T* aLast,
-                                             const T* aProposed)
+  ResourceAcquisitionArray* CheckAcquisition(const T* aLast, const T* aProposed)
   {
     if (!aLast) {
       // don't check if |0 < aProposed|; just vamoose
@@ -358,7 +351,6 @@ public:
    */
   nsClassHashtable<nsPtrHashKey<const T>, OrderingEntry> mOrdering;
 
-
   /**
    * Protects contentious methods.
    * Nb: can't use mozilla::Mutex since we are used as its deadlock
@@ -366,17 +358,15 @@ public:
    */
   PRLock* mLock;
 
-private:
+ private:
   DeadlockDetector(const DeadlockDetector& aDD) = delete;
   DeadlockDetector& operator=(const DeadlockDetector& aDD) = delete;
 };
-
 
 template<typename T>
 // FIXME bug 456272: tune based on average workload
 const uint32_t DeadlockDetector<T>::kDefaultNumBuckets = 32;
 
+}  // namespace mozilla
 
-} // namespace mozilla
-
-#endif // ifndef mozilla_DeadlockDetector_h
+#endif  // ifndef mozilla_DeadlockDetector_h

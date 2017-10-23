@@ -19,9 +19,7 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Summary)
 namespace mozilla {
 namespace dom {
 
-HTMLSummaryElement::~HTMLSummaryElement()
-{
-}
+HTMLSummaryElement::~HTMLSummaryElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLSummaryElement)
 
@@ -59,7 +57,7 @@ HTMLSummaryElement::PostHandleEvent(EventChainPostVisitor& aVisitor)
       aVisitor.mEventStatus = nsEventStatus_eConsumeNoDefault;
       return NS_OK;
     }
-  } // event->HasMouseEventMessage()
+  }  // event->HasMouseEventMessage()
 
   if (event->HasKeyEventMessage()) {
     WidgetKeyboardEvent* keyboardEvent = event->AsKeyboardEvent();
@@ -84,23 +82,24 @@ HTMLSummaryElement::PostHandleEvent(EventChainPostVisitor& aVisitor)
     }
 
     if (dispatchClick) {
-      rv = DispatchSimulatedClick(this, event->mFlags.mIsTrusted,
-                                  aVisitor.mPresContext);
+      rv = DispatchSimulatedClick(
+          this, event->mFlags.mIsTrusted, aVisitor.mPresContext);
       if (NS_SUCCEEDED(rv)) {
         aVisitor.mEventStatus = nsEventStatus_eConsumeNoDefault;
       }
     }
-  } // event->HasKeyEventMessage()
+  }  // event->HasKeyEventMessage()
 
   return rv;
 }
 
 bool
-HTMLSummaryElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
+HTMLSummaryElement::IsHTMLFocusable(bool aWithMouse,
+                                    bool* aIsFocusable,
                                     int32_t* aTabIndex)
 {
-  bool disallowOverridingFocusability =
-    nsGenericHTMLElement::IsHTMLFocusable(aWithMouse, aIsFocusable, aTabIndex);
+  bool disallowOverridingFocusability = nsGenericHTMLElement::IsHTMLFocusable(
+      aWithMouse, aIsFocusable, aTabIndex);
 
   if (disallowOverridingFocusability || !IsMainSummary()) {
     return disallowOverridingFocusability;
@@ -151,5 +150,5 @@ HTMLSummaryElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

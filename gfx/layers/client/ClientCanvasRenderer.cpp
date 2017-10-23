@@ -29,9 +29,8 @@ ClientCanvasRenderer::CreateCompositable()
       flags |= TextureFlags::NON_PREMULTIPLIED;
     }
 
-    mCanvasClient = CanvasClient::CreateCanvasClient(GetCanvasClientType(),
-                                                     GetForwarder(),
-                                                     flags);
+    mCanvasClient = CanvasClient::CreateCanvasClient(
+        GetCanvasClientType(), GetForwarder(), flags);
     if (!mCanvasClient) {
       return false;
     }
@@ -49,5 +48,5 @@ ClientCanvasRenderer::CreateCompositable()
   return true;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

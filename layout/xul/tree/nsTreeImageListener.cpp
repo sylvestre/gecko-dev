@@ -12,19 +12,18 @@
 NS_IMPL_ISUPPORTS(nsTreeImageListener, imgINotificationObserver)
 
 nsTreeImageListener::nsTreeImageListener(nsTreeBodyFrame* aTreeFrame)
-  : mTreeFrame(aTreeFrame),
-    mInvalidationSuppressed(true),
-    mInvalidationArea(nullptr)
+    : mTreeFrame(aTreeFrame),
+      mInvalidationSuppressed(true),
+      mInvalidationArea(nullptr)
 {
 }
 
-nsTreeImageListener::~nsTreeImageListener()
-{
-  delete mInvalidationArea;
-}
+nsTreeImageListener::~nsTreeImageListener() { delete mInvalidationArea; }
 
 NS_IMETHODIMP
-nsTreeImageListener::Notify(imgIRequest *aRequest, int32_t aType, const nsIntRect* aData)
+nsTreeImageListener::Notify(imgIRequest* aRequest,
+                            int32_t aType,
+                            const nsIntRect* aData)
 {
   if (aType == imgINotificationObserver::IS_ANIMATED) {
     return mTreeFrame ? mTreeFrame->OnImageIsAnimated(aRequest) : NS_OK;
@@ -50,10 +49,10 @@ nsTreeImageListener::AddCell(int32_t aIndex, nsITreeColumn* aCol)
   if (!mInvalidationArea) {
     mInvalidationArea = new InvalidationArea(aCol);
     mInvalidationArea->AddRow(aIndex);
-  }
-  else {
+  } else {
     InvalidationArea* currArea;
-    for (currArea = mInvalidationArea; currArea; currArea = currArea->GetNext()) {
+    for (currArea = mInvalidationArea; currArea;
+         currArea = currArea->GetNext()) {
       if (currArea->GetCol() == aCol) {
         currArea->AddRow(aIndex);
         break;
@@ -67,7 +66,6 @@ nsTreeImageListener::AddCell(int32_t aIndex, nsITreeColumn* aCol)
     }
   }
 }
-
 
 void
 nsTreeImageListener::Invalidate()
@@ -89,10 +87,10 @@ nsTreeImageListener::Invalidate()
 }
 
 nsTreeImageListener::InvalidationArea::InvalidationArea(nsITreeColumn* aCol)
-  : mCol(aCol),
-    mMin(-1), // min should start out "undefined"
-    mMax(0),
-    mNext(nullptr)
+    : mCol(aCol),
+      mMin(-1),  // min should start out "undefined"
+      mMax(0),
+      mNext(nullptr)
 {
 }
 

@@ -18,7 +18,7 @@ namespace mozilla {
 // given time.
 class JsepTrackEncoding
 {
-public:
+ public:
   const std::vector<JsepCodecDescription*>& GetCodecs() const
   {
     return mCodecs.values;
@@ -42,9 +42,9 @@ public:
   EncodingConstraints mConstraints;
   std::string mRid;
 
-private:
+ private:
   PtrVector<JsepCodecDescription> mCodecs;
 };
-}
+}  // namespace mozilla
 
-#endif // _JESPTRACKENCODING_H_
+#endif  // _JESPTRACKENCODING_H_

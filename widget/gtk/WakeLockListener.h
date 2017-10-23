@@ -28,7 +28,7 @@ class WakeLockTopic;
  */
 class WakeLockListener final : public nsIDOMMozWakeLockListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS;
 
   static WakeLockListener* GetSingleton(bool aCreate = true);
@@ -37,7 +37,7 @@ public:
   virtual nsresult Callback(const nsAString& topic,
                             const nsAString& state) override;
 
-private:
+ private:
   WakeLockListener();
   ~WakeLockListener() = default;
 
@@ -51,4 +51,4 @@ private:
   nsClassHashtable<nsStringHashKey, WakeLockTopic> mTopics;
 };
 
-#endif // __WakeLockListener_h__
+#endif  // __WakeLockListener_h__

@@ -10,17 +10,16 @@
 #include "nsCOMPtr.h"
 #include "nsXULAlerts.h"
 
-class nsAlertsService : public nsIAlertsService,
-                        public nsIAlertsDoNotDisturb
+class nsAlertsService : public nsIAlertsService, public nsIAlertsDoNotDisturb
 {
-public:
+ public:
   NS_DECL_NSIALERTSDONOTDISTURB
   NS_DECL_NSIALERTSSERVICE
   NS_DECL_ISUPPORTS
 
   nsAlertsService();
 
-protected:
+ protected:
   virtual ~nsAlertsService();
 
   bool ShouldShowAlert();

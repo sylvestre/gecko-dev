@@ -14,24 +14,17 @@
 
 using namespace mozilla;
 
-const PLDHashTableOps nsCommandParams::sHashOps =
-{
-  HashKey,
-  HashMatchEntry,
-  HashMoveEntry,
-  HashClearEntry
-};
+const PLDHashTableOps nsCommandParams::sHashOps = {
+    HashKey, HashMatchEntry, HashMoveEntry, HashClearEntry};
 
 NS_IMPL_ISUPPORTS(nsCommandParams, nsICommandParams)
 
 nsCommandParams::nsCommandParams()
-  : mValuesHash(&sHashOps, sizeof(HashEntry), 2)
+    : mValuesHash(&sHashOps, sizeof(HashEntry), 2)
 {
 }
 
-nsCommandParams::~nsCommandParams()
-{
-}
+nsCommandParams::~nsCommandParams() {}
 
 NS_IMETHODIMP
 nsCommandParams::GetValueType(const char* aName, int16_t* aRetVal)
@@ -193,7 +186,7 @@ nsCommandParams::SetISupportsValue(const char* aName, nsISupports* aValue)
   if (!foundEntry) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
-  foundEntry->mISupports = aValue; // addrefs
+  foundEntry->mISupports = aValue;  // addrefs
   return NS_OK;
 }
 
@@ -214,7 +207,7 @@ nsCommandParams::HashEntry*
 nsCommandParams::GetOrMakeEntry(const char* aName, uint8_t aEntryType)
 {
   auto foundEntry = static_cast<HashEntry*>(mValuesHash.Search((void*)aName));
-  if (foundEntry) { // reuse existing entry
+  if (foundEntry) {  // reuse existing entry
     foundEntry->Reset(aEntryType);
     return foundEntry;
   }

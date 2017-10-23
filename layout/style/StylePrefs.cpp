@@ -40,4 +40,4 @@ StylePrefs::Init()
                                "full-screen-api.unprefix.enabled");
 }
 
-} // namespace mozilla
+}  // namespace mozilla

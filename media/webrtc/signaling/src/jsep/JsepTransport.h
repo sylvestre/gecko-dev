@@ -18,30 +18,26 @@ namespace mozilla {
 
 class JsepDtlsTransport
 {
-public:
+ public:
   JsepDtlsTransport() : mRole(kJsepDtlsInvalidRole) {}
 
   virtual ~JsepDtlsTransport() {}
 
-  enum Role {
+  enum Role
+  {
     kJsepDtlsClient,
     kJsepDtlsServer,
     kJsepDtlsInvalidRole
   };
 
-  virtual const SdpFingerprintAttributeList&
-  GetFingerprints() const
+  virtual const SdpFingerprintAttributeList& GetFingerprints() const
   {
     return mFingerprints;
   }
 
-  virtual Role
-  GetRole() const
-  {
-    return mRole;
-  }
+  virtual Role GetRole() const { return mRole; }
 
-private:
+ private:
   friend class JsepSessionImpl;
 
   SdpFingerprintAttributeList mFingerprints;
@@ -50,28 +46,16 @@ private:
 
 class JsepIceTransport
 {
-public:
+ public:
   JsepIceTransport() {}
 
   virtual ~JsepIceTransport() {}
 
-  const std::string&
-  GetUfrag() const
-  {
-    return mUfrag;
-  }
-  const std::string&
-  GetPassword() const
-  {
-    return mPwd;
-  }
-  const std::vector<std::string>&
-  GetCandidates() const
-  {
-    return mCandidates;
-  }
+  const std::string& GetUfrag() const { return mUfrag; }
+  const std::string& GetPassword() const { return mPwd; }
+  const std::vector<std::string>& GetCandidates() const { return mCandidates; }
 
-private:
+ private:
   friend class JsepSessionImpl;
 
   std::string mUfrag;
@@ -81,11 +65,8 @@ private:
 
 class JsepTransport
 {
-public:
-  JsepTransport()
-      : mComponents(0)
-  {
-  }
+ public:
+  JsepTransport() : mComponents(0) {}
 
   void Close()
   {
@@ -107,10 +88,10 @@ public:
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(JsepTransport);
 
-protected:
+ protected:
   ~JsepTransport() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

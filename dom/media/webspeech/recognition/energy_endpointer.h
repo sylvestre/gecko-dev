@@ -70,7 +70,8 @@
 namespace mozilla {
 
 // Endpointer status codes
-enum EpStatus {
+enum EpStatus
+{
   EP_PRE_SPEECH = 10,
   EP_POSSIBLE_ONSET,
   EP_SPEECH_PRESENT,
@@ -78,7 +79,8 @@ enum EpStatus {
   EP_POST_SPEECH,
 };
 
-class EnergyEndpointer {
+class EnergyEndpointer
+{
  public:
   // The default construction MUST be followed by Init(), before any
   // other use can be made of the instance.
@@ -104,16 +106,15 @@ class EnergyEndpointer {
   // Computes the next input frame and modifies EnergyEndpointer status as
   // appropriate based on the computation.
   void ProcessAudioFrame(int64_t time_us,
-                         const int16_t* samples, int num_samples,
+                         const int16_t* samples,
+                         int num_samples,
                          float* rms_out);
 
   // Returns the current state of the EnergyEndpointer and the time
   // corresponding to the most recently computed frame.
   EpStatus Status(int64_t* status_time_us) const;
 
-  bool estimating_environment() const {
-    return estimating_environment_;
-  }
+  bool estimating_environment() const { return estimating_environment_; }
 
   // Returns estimated noise level in dB.
   float GetNoiseLevelDb() const;
@@ -133,13 +134,16 @@ class EnergyEndpointer {
   // the 'time' (in seconds).
   int TimeToFrame(float time) const;
 
-  EpStatus status_;  // The current state of this instance.
+  EpStatus status_;               // The current state of this instance.
   float offset_confirm_dur_sec_;  // max on time allowed to confirm POST_SPEECH
-  int64_t endpointer_time_us_;  // Time of the most recently received audio frame.
-  int64_t fast_update_frames_; // Number of frames for initial level adaptation.
-  int64_t frame_counter_;  // Number of frames seen. Used for initial adaptation.
+  int64_t
+      endpointer_time_us_;  // Time of the most recently received audio frame.
+  int64_t
+      fast_update_frames_;  // Number of frames for initial level adaptation.
+  int64_t
+      frame_counter_;     // Number of frames seen. Used for initial adaptation.
   float max_window_dur_;  // Largest search window size (seconds)
-  float sample_rate_;  // Sampling rate.
+  float sample_rate_;     // Sampling rate.
 
   // Ring buffers to hold the speech activity history.
   nsAutoPtr<HistoryRing> history_;

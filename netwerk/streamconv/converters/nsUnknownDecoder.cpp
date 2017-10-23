@@ -33,24 +33,22 @@ NS_IMPL_ISUPPORTS(nsUnknownDecoder::ConvertedStreamListener,
                   nsIStreamListener,
                   nsIRequestObserver)
 
-nsUnknownDecoder::ConvertedStreamListener::
-                  ConvertedStreamListener(nsUnknownDecoder *aDecoder)
+nsUnknownDecoder::ConvertedStreamListener::ConvertedStreamListener(
+    nsUnknownDecoder* aDecoder)
 {
   mDecoder = aDecoder;
 }
 
-nsUnknownDecoder::ConvertedStreamListener::~ConvertedStreamListener()
-{
-}
+nsUnknownDecoder::ConvertedStreamListener::~ConvertedStreamListener() {}
 
 nsresult
-nsUnknownDecoder::ConvertedStreamListener::
-                  AppendDataToString(nsIInputStream* inputStream,
-                                     void* closure,
-                                     const char* rawSegment,
-                                     uint32_t toOffset,
-                                     uint32_t count,
-                                     uint32_t* writeCount)
+nsUnknownDecoder::ConvertedStreamListener::AppendDataToString(
+    nsIInputStream* inputStream,
+    void* closure,
+    const char* rawSegment,
+    uint32_t toOffset,
+    uint32_t count,
+    uint32_t* writeCount)
 {
   nsCString* decodedData = static_cast<nsCString*>(closure);
   decodedData->Append(rawSegment, count);
@@ -66,17 +64,17 @@ nsUnknownDecoder::ConvertedStreamListener::OnStartRequest(nsIRequest* request,
 }
 
 NS_IMETHODIMP
-nsUnknownDecoder::ConvertedStreamListener::
-                  OnDataAvailable(nsIRequest* request,
-                                  nsISupports* context,
-                                  nsIInputStream* stream,
-                                  uint64_t offset,
-                                  uint32_t count)
+nsUnknownDecoder::ConvertedStreamListener::OnDataAvailable(
+    nsIRequest* request,
+    nsISupports* context,
+    nsIInputStream* stream,
+    uint64_t offset,
+    uint32_t count)
 {
   uint32_t read;
   nsAutoCString decodedData;
-  nsresult rv = stream->ReadSegments(AppendDataToString, &decodedData, count,
-                                     &read);
+  nsresult rv =
+      stream->ReadSegments(AppendDataToString, &decodedData, count, &read);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -94,11 +92,11 @@ nsUnknownDecoder::ConvertedStreamListener::OnStopRequest(nsIRequest* request,
 }
 
 nsUnknownDecoder::nsUnknownDecoder()
-  : mBuffer(nullptr)
-  , mBufferLen(0)
-  , mRequireHTMLsuffix(false)
-  , mMutex("nsUnknownDecoder")
-  , mDecodedData("")
+    : mBuffer(nullptr),
+      mBufferLen(0),
+      mRequireHTMLsuffix(false),
+      mMutex("nsUnknownDecoder"),
+      mDecodedData("")
 {
   nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
   if (prefs) {
@@ -111,7 +109,7 @@ nsUnknownDecoder::nsUnknownDecoder()
 nsUnknownDecoder::~nsUnknownDecoder()
 {
   if (mBuffer) {
-    delete [] mBuffer;
+    delete[] mBuffer;
     mBuffer = nullptr;
   }
 }
@@ -126,14 +124,13 @@ NS_IMPL_ADDREF(nsUnknownDecoder)
 NS_IMPL_RELEASE(nsUnknownDecoder)
 
 NS_INTERFACE_MAP_BEGIN(nsUnknownDecoder)
-   NS_INTERFACE_MAP_ENTRY(nsIStreamConverter)
-   NS_INTERFACE_MAP_ENTRY(nsIStreamListener)
-   NS_INTERFACE_MAP_ENTRY(nsIRequestObserver)
-   NS_INTERFACE_MAP_ENTRY(nsIContentSniffer)
-   NS_INTERFACE_MAP_ENTRY(nsIThreadRetargetableStreamListener)
-   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIStreamListener)
+  NS_INTERFACE_MAP_ENTRY(nsIStreamConverter)
+  NS_INTERFACE_MAP_ENTRY(nsIStreamListener)
+  NS_INTERFACE_MAP_ENTRY(nsIRequestObserver)
+  NS_INTERFACE_MAP_ENTRY(nsIContentSniffer)
+  NS_INTERFACE_MAP_ENTRY(nsIThreadRetargetableStreamListener)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIStreamListener)
 NS_INTERFACE_MAP_END
-
 
 // ----
 //
@@ -142,20 +139,20 @@ NS_INTERFACE_MAP_END
 // ----
 
 NS_IMETHODIMP
-nsUnknownDecoder::Convert(nsIInputStream *aFromStream,
-                          const char *aFromType,
-                          const char *aToType,
-                          nsISupports *aCtxt,
-                          nsIInputStream **aResultStream)
+nsUnknownDecoder::Convert(nsIInputStream* aFromStream,
+                          const char* aFromType,
+                          const char* aToType,
+                          nsISupports* aCtxt,
+                          nsIInputStream** aResultStream)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsUnknownDecoder::AsyncConvertData(const char *aFromType,
-                                   const char *aToType,
-                                   nsIStreamListener *aListener,
-                                   nsISupports *aCtxt)
+nsUnknownDecoder::AsyncConvertData(const char* aFromType,
+                                   const char* aToType,
+                                   nsIStreamListener* aListener,
+                                   nsISupports* aCtxt)
 {
   NS_ASSERTION(aListener && aFromType && aToType,
                "null pointer passed into multi mixed converter");
@@ -176,8 +173,8 @@ nsUnknownDecoder::AsyncConvertData(const char *aFromType,
 
 NS_IMETHODIMP
 nsUnknownDecoder::OnDataAvailable(nsIRequest* request,
-                                  nsISupports *aCtxt,
-                                  nsIInputStream *aStream,
+                                  nsISupports* aCtxt,
+                                  nsIInputStream* aStream,
                                   uint64_t aSourceOffset,
                                   uint32_t aCount)
 {
@@ -208,11 +205,11 @@ nsUnknownDecoder::OnDataAvailable(nsIRequest* request,
     }
 
     // Read the data into the buffer...
-    rv = aStream->Read((mBuffer+mBufferLen), count, &len);
+    rv = aStream->Read((mBuffer + mBufferLen), count, &len);
     if (NS_FAILED(rv)) return rv;
 
     mBufferLen += len;
-    aCount     -= len;
+    aCount -= len;
 
     if (aCount) {
       //
@@ -253,8 +250,8 @@ nsUnknownDecoder::OnDataAvailable(nsIRequest* request,
       MutexAutoLock lock(mMutex);
       listener = mNextListener;
     }
-    rv = listener->OnDataAvailable(request, aCtxt, aStream,
-                                   aSourceOffset, aCount);
+    rv = listener->OnDataAvailable(
+        request, aCtxt, aStream, aSourceOffset, aCount);
   }
 
   return rv;
@@ -267,7 +264,7 @@ nsUnknownDecoder::OnDataAvailable(nsIRequest* request,
 // ----
 
 NS_IMETHODIMP
-nsUnknownDecoder::OnStartRequest(nsIRequest* request, nsISupports *aCtxt)
+nsUnknownDecoder::OnStartRequest(nsIRequest* request, nsISupports* aCtxt)
 {
   nsresult rv = NS_OK;
 
@@ -295,7 +292,8 @@ nsUnknownDecoder::OnStartRequest(nsIRequest* request, nsISupports *aCtxt)
 }
 
 NS_IMETHODIMP
-nsUnknownDecoder::OnStopRequest(nsIRequest* request, nsISupports *aCtxt,
+nsUnknownDecoder::OnStopRequest(nsIRequest* request,
+                                nsISupports* aCtxt,
                                 nsresult aStatus)
 {
   nsresult rv = NS_OK;
@@ -318,7 +316,8 @@ nsUnknownDecoder::OnStopRequest(nsIRequest* request, nsISupports *aCtxt,
     // Make sure channel listeners see channel as pending while we call
     // OnStartRequest/OnDataAvailable, even though the underlying channel
     // has already hit OnStopRequest.
-    nsCOMPtr<nsIForcePendingChannel> forcePendingChannel = do_QueryInterface(request);
+    nsCOMPtr<nsIForcePendingChannel> forcePendingChannel =
+        do_QueryInterface(request);
     if (forcePendingChannel) {
       forcePendingChannel->ForcePending(true);
     }
@@ -370,10 +369,10 @@ nsUnknownDecoder::GetMIMETypeFromContent(nsIRequest* aRequest,
   return type.IsEmpty() ? NS_ERROR_NOT_AVAILABLE : NS_OK;
 }
 
-
 // Actual sniffing code
 
-bool nsUnknownDecoder::AllowSniffing(nsIRequest* aRequest)
+bool
+nsUnknownDecoder::AllowSniffing(nsIRequest* aRequest)
 {
   if (!mRequireHTMLsuffix) {
     return true;
@@ -407,31 +406,31 @@ bool nsUnknownDecoder::AllowSniffing(nsIRequest* aRequest)
  * it sets mContentType, false otherwise
  */
 nsUnknownDecoder::nsSnifferEntry nsUnknownDecoder::sSnifferEntries[] = {
-  SNIFFER_ENTRY("%PDF-", APPLICATION_PDF),
+    SNIFFER_ENTRY("%PDF-", APPLICATION_PDF),
 
-  SNIFFER_ENTRY("%!PS-Adobe-", APPLICATION_POSTSCRIPT),
+    SNIFFER_ENTRY("%!PS-Adobe-", APPLICATION_POSTSCRIPT),
 
-  // Files that start with mailbox delimiters let's provisionally call
-  // text/plain
-  SNIFFER_ENTRY("From", TEXT_PLAIN),
-  SNIFFER_ENTRY(">From", TEXT_PLAIN),
+    // Files that start with mailbox delimiters let's provisionally call
+    // text/plain
+    SNIFFER_ENTRY("From", TEXT_PLAIN),
+    SNIFFER_ENTRY(">From", TEXT_PLAIN),
 
-  // If the buffer begins with "#!" or "%!" then it is a script of
-  // some sort...  "Scripts" can include arbitrary data to be passed
-  // to an interpreter, so we need to decide whether we can call this
-  // text or whether it's data.
-  SNIFFER_ENTRY_WITH_FUNC("#!", &nsUnknownDecoder::LastDitchSniff),
+    // If the buffer begins with "#!" or "%!" then it is a script of
+    // some sort...  "Scripts" can include arbitrary data to be passed
+    // to an interpreter, so we need to decide whether we can call this
+    // text or whether it's data.
+    SNIFFER_ENTRY_WITH_FUNC("#!", &nsUnknownDecoder::LastDitchSniff),
 
-  // XXXbz should (and can) we also include the various ways that <?xml can
-  // appear as UTF-16 and such?  See http://www.w3.org/TR/REC-xml#sec-guessing
-  SNIFFER_ENTRY_WITH_FUNC("<?xml", &nsUnknownDecoder::SniffForXML)
-};
+    // XXXbz should (and can) we also include the various ways that <?xml can
+    // appear as UTF-16 and such?  See http://www.w3.org/TR/REC-xml#sec-guessing
+    SNIFFER_ENTRY_WITH_FUNC("<?xml", &nsUnknownDecoder::SniffForXML)};
 
 uint32_t nsUnknownDecoder::sSnifferEntryNum =
-  sizeof(nsUnknownDecoder::sSnifferEntries) /
+    sizeof(nsUnknownDecoder::sSnifferEntries) /
     sizeof(nsUnknownDecoder::nsSnifferEntry);
 
-void nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest)
+void
+nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest)
 {
   {
     MutexAutoLock lock(mMutex);
@@ -464,12 +463,15 @@ void nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest)
   uint32_t i;
   for (i = 0; i < sSnifferEntryNum; ++i) {
     if (testDataLen >= sSnifferEntries[i].mByteLen &&  // enough data
-        memcmp(testData, sSnifferEntries[i].mBytes, sSnifferEntries[i].mByteLen) == 0) {  // and type matches
-      NS_ASSERTION(sSnifferEntries[i].mMimeType ||
-                   sSnifferEntries[i].mContentTypeSniffer,
-                   "Must have either a type string or a function to set the type");
+        memcmp(testData,
+               sSnifferEntries[i].mBytes,
+               sSnifferEntries[i].mByteLen) == 0) {  // and type matches
+      NS_ASSERTION(
+          sSnifferEntries[i].mMimeType ||
+              sSnifferEntries[i].mContentTypeSniffer,
+          "Must have either a type string or a function to set the type");
       NS_ASSERTION(!sSnifferEntries[i].mMimeType ||
-                   !sSnifferEntries[i].mContentTypeSniffer,
+                       !sSnifferEntries[i].mContentTypeSniffer,
                    "Both a type string and a type sniffing function set;"
                    " using type string");
       if (sSnifferEntries[i].mMimeType) {
@@ -491,8 +493,11 @@ void nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest)
   }
 
   nsAutoCString sniffedType;
-  NS_SniffContent(NS_DATA_SNIFFER_CATEGORY, aRequest,
-                  (const uint8_t*)testData, testDataLen, sniffedType);
+  NS_SniffContent(NS_DATA_SNIFFER_CATEGORY,
+                  aRequest,
+                  (const uint8_t*)testData,
+                  testDataLen,
+                  sniffedType);
   {
     MutexAutoLock lock(mMutex);
     mContentType = sniffedType;
@@ -524,12 +529,12 @@ void nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest)
   LastDitchSniff(aRequest);
 #ifdef DEBUG
   MutexAutoLock lock(mMutex);
-  NS_ASSERTION(!mContentType.IsEmpty(),
-               "Content type should be known by now.");
+  NS_ASSERTION(!mContentType.IsEmpty(), "Content type should be known by now.");
 #endif
 }
 
-bool nsUnknownDecoder::SniffForHTML(nsIRequest* aRequest)
+bool
+nsUnknownDecoder::SniffForHTML(nsIRequest* aRequest)
 {
   /*
    * To prevent a possible attack, we will not consider this to be
@@ -550,8 +555,7 @@ bool nsUnknownDecoder::SniffForHTML(nsIRequest* aRequest)
     end = mBuffer + mBufferLen;
   } else {
     str = mDecodedData.get();
-    end = mDecodedData.get() + std::min(mDecodedData.Length(),
-                                        MAX_BUFFER_SIZE);
+    end = mDecodedData.get() + std::min(mDecodedData.Length(), MAX_BUFFER_SIZE);
   }
 
   // skip leading whitespace
@@ -573,41 +577,21 @@ bool nsUnknownDecoder::SniffForHTML(nsIRequest* aRequest)
   uint32_t bufSize = end - str;
   // We use sizeof(_tagstr) below because that's the length of _tagstr
   // with the one char " " or ">" appended.
-#define MATCHES_TAG(_tagstr)                                              \
-  (bufSize >= sizeof(_tagstr) &&                                          \
-   (PL_strncasecmp(str, _tagstr " ", sizeof(_tagstr)) == 0 ||             \
+#define MATCHES_TAG(_tagstr)                                  \
+  (bufSize >= sizeof(_tagstr) &&                              \
+   (PL_strncasecmp(str, _tagstr " ", sizeof(_tagstr)) == 0 || \
     PL_strncasecmp(str, _tagstr ">", sizeof(_tagstr)) == 0))
 
-  if (MATCHES_TAG("html")     ||
-      MATCHES_TAG("frameset") ||
-      MATCHES_TAG("body")     ||
-      MATCHES_TAG("head")     ||
-      MATCHES_TAG("script")   ||
-      MATCHES_TAG("iframe")   ||
-      MATCHES_TAG("a")        ||
-      MATCHES_TAG("img")      ||
-      MATCHES_TAG("table")    ||
-      MATCHES_TAG("title")    ||
-      MATCHES_TAG("link")     ||
-      MATCHES_TAG("base")     ||
-      MATCHES_TAG("style")    ||
-      MATCHES_TAG("div")      ||
-      MATCHES_TAG("p")        ||
-      MATCHES_TAG("font")     ||
-      MATCHES_TAG("applet")   ||
-      MATCHES_TAG("meta")     ||
-      MATCHES_TAG("center")   ||
-      MATCHES_TAG("form")     ||
-      MATCHES_TAG("isindex")  ||
-      MATCHES_TAG("h1")       ||
-      MATCHES_TAG("h2")       ||
-      MATCHES_TAG("h3")       ||
-      MATCHES_TAG("h4")       ||
-      MATCHES_TAG("h5")       ||
-      MATCHES_TAG("h6")       ||
-      MATCHES_TAG("b")        ||
-      MATCHES_TAG("pre")) {
-
+  if (MATCHES_TAG("html") || MATCHES_TAG("frameset") || MATCHES_TAG("body") ||
+      MATCHES_TAG("head") || MATCHES_TAG("script") || MATCHES_TAG("iframe") ||
+      MATCHES_TAG("a") || MATCHES_TAG("img") || MATCHES_TAG("table") ||
+      MATCHES_TAG("title") || MATCHES_TAG("link") || MATCHES_TAG("base") ||
+      MATCHES_TAG("style") || MATCHES_TAG("div") || MATCHES_TAG("p") ||
+      MATCHES_TAG("font") || MATCHES_TAG("applet") || MATCHES_TAG("meta") ||
+      MATCHES_TAG("center") || MATCHES_TAG("form") || MATCHES_TAG("isindex") ||
+      MATCHES_TAG("h1") || MATCHES_TAG("h2") || MATCHES_TAG("h3") ||
+      MATCHES_TAG("h4") || MATCHES_TAG("h5") || MATCHES_TAG("h6") ||
+      MATCHES_TAG("b") || MATCHES_TAG("pre")) {
     mContentType = TEXT_HTML;
     return true;
   }
@@ -617,7 +601,8 @@ bool nsUnknownDecoder::SniffForHTML(nsIRequest* aRequest)
   return false;
 }
 
-bool nsUnknownDecoder::SniffForXML(nsIRequest* aRequest)
+bool
+nsUnknownDecoder::SniffForXML(nsIRequest* aRequest)
 {
   // Just like HTML, this should be able to be shut off.
   if (!AllowSniffing(aRequest)) {
@@ -634,7 +619,8 @@ bool nsUnknownDecoder::SniffForXML(nsIRequest* aRequest)
   return true;
 }
 
-bool nsUnknownDecoder::SniffURI(nsIRequest* aRequest)
+bool
+nsUnknownDecoder::SniffURI(nsIRequest* aRequest)
 {
   nsCOMPtr<nsIMIMEService> mimeService(do_GetService("@mozilla.org/mime;1"));
   if (mimeService) {
@@ -660,10 +646,11 @@ bool nsUnknownDecoder::SniffURI(nsIRequest* aRequest)
 // This macro is based on RFC 2046 Section 4.1.2.  Treat any char 0-31
 // except the 9-13 range (\t, \n, \v, \f, \r) and char 27 (used by
 // encodings like Shift_JIS) as non-text
-#define IS_TEXT_CHAR(ch)                                     \
+#define IS_TEXT_CHAR(ch) \
   (((unsigned char)(ch)) > 31 || (9 <= (ch) && (ch) <= 13) || (ch) == 27)
 
-bool nsUnknownDecoder::LastDitchSniff(nsIRequest* aRequest)
+bool
+nsUnknownDecoder::LastDitchSniff(nsIRequest* aRequest)
 {
   // All we can do now is try to guess whether this is text/plain or
   // application/octet-stream
@@ -686,10 +673,11 @@ bool nsUnknownDecoder::LastDitchSniff(nsIRequest* aRequest)
   // are for 2-byte encodings and the UTF-8 BOM is 3 bytes).
   if (testDataLen >= 4) {
     const unsigned char* buf = (const unsigned char*)testData;
-    if ((buf[0] == 0xFE && buf[1] == 0xFF) || // UTF-16, Big Endian
-        (buf[0] == 0xFF && buf[1] == 0xFE) || // UTF-16 or UCS-4, Little Endian
-        (buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF) || // UTF-8
-        (buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)) { // UCS-4, Big Endian
+    if ((buf[0] == 0xFE && buf[1] == 0xFF) ||  // UTF-16, Big Endian
+        (buf[0] == 0xFF && buf[1] == 0xFE) ||  // UTF-16 or UCS-4, Little Endian
+        (buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF) ||  // UTF-8
+        (buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE &&
+         buf[3] == 0xFF)) {  // UCS-4, Big Endian
 
       mContentType = TEXT_PLAIN;
       return true;
@@ -705,17 +693,16 @@ bool nsUnknownDecoder::LastDitchSniff(nsIRequest* aRequest)
 
   if (i == testDataLen) {
     mContentType = TEXT_PLAIN;
-  }
-  else {
+  } else {
     mContentType = APPLICATION_OCTET_STREAM;
   }
 
   return true;
 }
 
-
-nsresult nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
-                                                     nsISupports *aCtxt)
+nsresult
+nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
+                                            nsISupports* aCtxt)
 {
   nsresult rv = NS_OK;
 
@@ -731,7 +718,7 @@ nsresult nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
 
   if (!contentType.IsEmpty()) {
     nsCOMPtr<nsIViewSourceChannel> viewSourceChannel =
-      do_QueryInterface(request);
+        do_QueryInterface(request);
     if (viewSourceChannel) {
       rv = viewSourceChannel->SetOriginalContentType(contentType);
     } else {
@@ -762,23 +749,24 @@ nsresult nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
   // Fire the OnStartRequest(...)
   rv = listener->OnStartRequest(request, aCtxt);
 
-   nsCOMPtr<nsIDivertableChannel> divertable = do_QueryInterface(request);
-   if (divertable) {
-     rv = divertable->UnknownDecoderInvolvedOnStartRequestCalled();
-     bool diverting;
-     divertable->GetDivertingToParent(&diverting);
-     if (diverting) {
-       // The channel is diverted to the parent do not send any more data here.
-       return rv;
-     }
-   }
+  nsCOMPtr<nsIDivertableChannel> divertable = do_QueryInterface(request);
+  if (divertable) {
+    rv = divertable->UnknownDecoderInvolvedOnStartRequestCalled();
+    bool diverting;
+    divertable->GetDivertingToParent(&diverting);
+    if (diverting) {
+      // The channel is diverted to the parent do not send any more data here.
+      return rv;
+    }
+  }
 
   if (NS_SUCCEEDED(rv)) {
     // install stream converter if required
     nsCOMPtr<nsIEncodedChannel> encodedChannel = do_QueryInterface(request);
     if (encodedChannel) {
       nsCOMPtr<nsIStreamListener> listenerNew;
-      rv = encodedChannel->DoApplyContentConversions(listener, getter_AddRefs(listenerNew), aCtxt);
+      rv = encodedChannel->DoApplyContentConversions(
+          listener, getter_AddRefs(listenerNew), aCtxt);
       if (NS_SUCCEEDED(rv) && listenerNew) {
         MutexAutoLock lock(mMutex);
         mNextListener = listenerNew;
@@ -791,8 +779,7 @@ nsresult nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
 
   // If the request was canceled, then we need to treat that equivalently
   // to an error returned by OnStartRequest.
-  if (NS_SUCCEEDED(rv))
-    request->GetStatus(&rv);
+  if (NS_SUCCEEDED(rv)) request->GetStatus(&rv);
 
   // Fire the first OnDataAvailable for the data that was read from the
   // stream into the sniffer buffer...
@@ -802,8 +789,10 @@ nsresult nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
     nsCOMPtr<nsIOutputStream> out;
 
     // Create a pipe and fill it with the data from the sniffer buffer.
-    rv = NS_NewPipe(getter_AddRefs(in), getter_AddRefs(out),
-                    MAX_BUFFER_SIZE, MAX_BUFFER_SIZE);
+    rv = NS_NewPipe(getter_AddRefs(in),
+                    getter_AddRefs(out),
+                    MAX_BUFFER_SIZE,
+                    MAX_BUFFER_SIZE);
 
     if (NS_SUCCEEDED(rv)) {
       rv = out->Write(mBuffer, mBufferLen, &len);
@@ -818,13 +807,12 @@ nsresult nsUnknownDecoder::FireListenerNotifications(nsIRequest* request,
     }
   }
 
-  delete [] mBuffer;
+  delete[] mBuffer;
   mBuffer = nullptr;
   mBufferLen = 0;
 
   return rv;
 }
-
 
 nsresult
 nsUnknownDecoder::ConvertEncodedData(nsIRequest* request,
@@ -839,14 +827,12 @@ nsUnknownDecoder::ConvertEncodedData(nsIRequest* request,
   }
   nsCOMPtr<nsIEncodedChannel> encodedChannel(do_QueryInterface(request));
   if (encodedChannel) {
-
     RefPtr<ConvertedStreamListener> strListener =
-      new ConvertedStreamListener(this);
+        new ConvertedStreamListener(this);
 
     nsCOMPtr<nsIStreamListener> listener;
-    rv = encodedChannel->DoApplyContentConversions(strListener,
-                                                   getter_AddRefs(listener),
-                                                   nullptr);
+    rv = encodedChannel->DoApplyContentConversions(
+        strListener, getter_AddRefs(listener), nullptr);
 
     if (NS_FAILED(rv)) {
       return rv;
@@ -856,15 +842,13 @@ nsUnknownDecoder::ConvertEncodedData(nsIRequest* request,
       listener->OnStartRequest(request, nullptr);
 
       nsCOMPtr<nsIStringInputStream> rawStream =
-        do_CreateInstance(NS_STRINGINPUTSTREAM_CONTRACTID);
-      if (!rawStream)
-        return NS_ERROR_FAILURE;
+          do_CreateInstance(NS_STRINGINPUTSTREAM_CONTRACTID);
+      if (!rawStream) return NS_ERROR_FAILURE;
 
       rv = rawStream->SetData((const char*)data, length);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = listener->OnDataAvailable(request, nullptr, rawStream, 0,
-                                     length);
+      rv = listener->OnDataAvailable(request, nullptr, rawStream, 0, length);
       NS_ENSURE_SUCCESS(rv, rv);
 
       listener->OnStopRequest(request, nullptr, NS_OK);
@@ -926,8 +910,8 @@ nsBinaryDetector::DetermineContentType(nsIRequest* aRequest)
   // XXXbz we could improve this by doing a local decompress if we
   // wanted, I'm sure.
   nsAutoCString contentEncoding;
-  Unused << httpChannel->GetResponseHeader(NS_LITERAL_CSTRING("Content-Encoding"),
-                                           contentEncoding);
+  Unused << httpChannel->GetResponseHeader(
+      NS_LITERAL_CSTRING("Content-Encoding"), contentEncoding);
   if (!contentEncoding.IsEmpty()) {
     return;
   }

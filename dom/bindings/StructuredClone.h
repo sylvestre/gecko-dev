@@ -18,8 +18,9 @@ JSObject*
 ReadStructuredCloneImageData(JSContext* aCx, JSStructuredCloneReader* aReader);
 
 bool
-WriteStructuredCloneImageData(JSContext* aCx, JSStructuredCloneWriter* aWriter,
+WriteStructuredCloneImageData(JSContext* aCx,
+                              JSStructuredCloneWriter* aWriter,
                               ImageData* aImageData);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

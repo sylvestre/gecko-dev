@@ -11,7 +11,8 @@
 
 class nsWifiAccessPoint;
 
-class WinWifiScanner final {
+class WinWifiScanner final
+{
  public:
   WinWifiScanner();
   ~WinWifiScanner();
@@ -25,7 +26,7 @@ class WinWifiScanner final {
    * @param accessPoints The collection to populate with available APs
    * @return NS_OK on success, failure codes on failure
    */
-  nsresult GetAccessPointsFromWLAN(nsCOMArray<nsWifiAccessPoint> &accessPoints);
+  nsresult GetAccessPointsFromWLAN(nsCOMArray<nsWifiAccessPoint>& accessPoints);
 
  private:
   nsAutoPtr<WinWLANLibrary> mWlanLibrary;

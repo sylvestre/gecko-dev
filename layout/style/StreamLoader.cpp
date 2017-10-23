@@ -16,15 +16,12 @@ namespace mozilla {
 namespace css {
 
 StreamLoader::StreamLoader(mozilla::css::SheetLoadData* aSheetLoadData)
-  : mSheetLoadData(aSheetLoadData)
-  , mStatus(NS_OK)
+    : mSheetLoadData(aSheetLoadData), mStatus(NS_OK)
 {
   MOZ_ASSERT(!aSheetLoadData->mSheet->IsGecko());
 }
 
-StreamLoader::~StreamLoader()
-{
-}
+StreamLoader::~StreamLoader() {}
 
 NS_IMPL_ISUPPORTS(StreamLoader, nsIStreamListener)
 
@@ -81,7 +78,7 @@ StreamLoader::OnStopRequest(nsIRequest* aRequest,
     }
 
     nsresult rv =
-      mSheetLoadData->VerifySheetReadyToParse(aStatus, bytes, channel);
+        mSheetLoadData->VerifySheetReadyToParse(aStatus, bytes, channel);
     if (rv != NS_OK_PARSE_SHEET) {
       return rv;
     }
@@ -115,7 +112,7 @@ StreamLoader::OnStopRequest(nsIRequest* aRequest,
       // UTF-16LE or UTF-16BE
       rv = encoding->DecodeWithBOMRemoval(bytes, utf8String);
     }
-  } // run destructor for `bytes`
+  }  // run destructor for `bytes`
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -127,10 +124,10 @@ StreamLoader::OnStopRequest(nsIRequest* aRequest,
   mSheetLoadData->mEncoding = encoding;
   bool dummy;
   return mSheetLoadData->mLoader->ParseSheet(
-    EmptyString(),
-    Span<const uint8_t>(utf8String).From(skip),
-    mSheetLoadData,
-    dummy);
+      EmptyString(),
+      Span<const uint8_t>(utf8String).From(skip),
+      mSheetLoadData,
+      dummy);
 }
 
 /* nsIStreamListener implementation */
@@ -168,5 +165,5 @@ StreamLoader::WriteSegmentFun(nsIInputStream*,
   return NS_OK;
 }
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla

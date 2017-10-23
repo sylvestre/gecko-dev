@@ -21,69 +21,70 @@
 
 class nsAuthSSPI;
 
-class nsDNSService final : public nsPIDNSService
-                         , public nsIObserver
-                         , public nsIMemoryReporter
+class nsDNSService final : public nsPIDNSService,
+                           public nsIObserver,
+                           public nsIMemoryReporter
 {
-public:
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSPIDNSSERVICE
-    NS_DECL_NSIDNSSERVICE
-    NS_DECL_NSIOBSERVER
-    NS_DECL_NSIMEMORYREPORTER
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSPIDNSSERVICE
+  NS_DECL_NSIDNSSERVICE
+  NS_DECL_NSIOBSERVER
+  NS_DECL_NSIMEMORYREPORTER
 
-    nsDNSService();
+  nsDNSService();
 
-    static nsIDNSService* GetXPCOMSingleton();
+  static nsIDNSService* GetXPCOMSingleton();
 
-    size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
+  size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-    bool GetOffline() const;
+  bool GetOffline() const;
 
-protected:
-    friend class nsAuthSSPI;
+ protected:
+  friend class nsAuthSSPI;
 
-    nsresult DeprecatedSyncResolve(const nsACString &aHostname,
-                                   uint32_t flags,
-                                   const mozilla::OriginAttributes &aOriginAttributes,
-                                   nsIDNSRecord **result);
+  nsresult DeprecatedSyncResolve(
+      const nsACString& aHostname,
+      uint32_t flags,
+      const mozilla::OriginAttributes& aOriginAttributes,
+      nsIDNSRecord** result);
 
-private:
-    ~nsDNSService();
+ private:
+  ~nsDNSService();
 
-    static nsDNSService* GetSingleton();
+  static nsDNSService* GetSingleton();
 
-    uint16_t GetAFForLookup(const nsACString &host, uint32_t flags);
+  uint16_t GetAFForLookup(const nsACString& host, uint32_t flags);
 
-    nsresult PreprocessHostname(bool              aLocalDomain,
-                                const nsACString &aInput,
-                                nsIIDNService    *aIDN,
-                                nsACString       &aACE);
+  nsresult PreprocessHostname(bool aLocalDomain,
+                              const nsACString& aInput,
+                              nsIIDNService* aIDN,
+                              nsACString& aACE);
 
-    nsresult ResolveInternal(const nsACString &aHostname,
-                             uint32_t flags,
-                             const mozilla::OriginAttributes &aOriginAttributes,
-                             nsIDNSRecord **result);
+  nsresult ResolveInternal(const nsACString& aHostname,
+                           uint32_t flags,
+                           const mozilla::OriginAttributes& aOriginAttributes,
+                           nsIDNSRecord** result);
 
-    RefPtr<nsHostResolver>  mResolver;
-    nsCOMPtr<nsIIDNService>   mIDN;
+  RefPtr<nsHostResolver> mResolver;
+  nsCOMPtr<nsIIDNService> mIDN;
 
-    // mLock protects access to mResolver and mIPv4OnlyDomains
-    mozilla::Mutex            mLock;
+  // mLock protects access to mResolver and mIPv4OnlyDomains
+  mozilla::Mutex mLock;
 
-    // mIPv4OnlyDomains is a comma-separated list of domains for which only
-    // IPv4 DNS lookups are performed. This allows the user to disable IPv6 on
-    // a per-domain basis and work around broken DNS servers. See bug 68796.
-    nsCString                                 mIPv4OnlyDomains;
-    nsCString                                 mForceResolve;
-    bool                                      mDisableIPv6;
-    bool                                      mDisablePrefetch;
-    bool                                      mBlockDotOnion;
-    bool                                      mFirstTime;
-    bool                                      mNotifyResolution;
-    bool                                      mOfflineLocalhost;
-    bool                                      mForceResolveOn;
-    nsTHashtable<nsCStringHashKey>            mLocalDomains;
+  // mIPv4OnlyDomains is a comma-separated list of domains for which only
+  // IPv4 DNS lookups are performed. This allows the user to disable IPv6 on
+  // a per-domain basis and work around broken DNS servers. See bug 68796.
+  nsCString mIPv4OnlyDomains;
+  nsCString mForceResolve;
+  bool mDisableIPv6;
+  bool mDisablePrefetch;
+  bool mBlockDotOnion;
+  bool mFirstTime;
+  bool mNotifyResolution;
+  bool mOfflineLocalhost;
+  bool mForceResolveOn;
+  nsTHashtable<nsCStringHashKey> mLocalDomains;
 };
 
-#endif //nsDNSService2_h__
+#endif  //nsDNSService2_h__

@@ -13,8 +13,7 @@
 
 using namespace js;
 
-BEGIN_TEST(test_functionBinding)
-{
+BEGIN_TEST(test_functionBinding) {
     RootedFunction fun(cx);
 
     JS::CompileOptions options(cx);

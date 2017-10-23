@@ -39,16 +39,17 @@ class CacheEntryHandle;
 
 class CacheMemoryConsumer
 {
-private:
+ private:
   friend class CacheStorageService;
   uint32_t mReportedMemoryConsumption : 30;
   uint32_t mFlags : 2;
 
-private:
+ private:
   CacheMemoryConsumer() = delete;
 
-protected:
-  enum {
+ protected:
+  enum
+  {
     // No special treatment, reports always to the disk-entries pool.
     NORMAL = 0,
     // This consumer is belonging to a memory-only cache entry, used to decide
@@ -65,13 +66,13 @@ protected:
   void DoMemoryReport(uint32_t aCurrentSize);
 };
 
-class CacheStorageService final : public nsICacheStorageService
-                                , public nsIMemoryReporter
-                                , public nsITimerCallback
-                                , public nsICacheTesting
-                                , public nsINamed
+class CacheStorageService final : public nsICacheStorageService,
+                                  public nsIMemoryReporter,
+                                  public nsITimerCallback,
+                                  public nsICacheTesting,
+                                  public nsINamed
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICACHESTORAGESERVICE
   NS_DECL_NSIMEMORYREPORTER
@@ -89,7 +90,10 @@ public:
   static void CleaupCacheDirectories();
 
   static CacheStorageService* Self() { return sSelf; }
-  static nsISupports* SelfISupports() { return static_cast<nsICacheStorageService*>(Self()); }
+  static nsISupports* SelfISupports()
+  {
+    return static_cast<nsICacheStorageService*>(Self());
+  }
   nsresult Dispatch(nsIRunnable* aEvent);
   static bool IsRunning() { return sSelf && !sSelf->mShutdown; }
   static bool IsOnManagementThread();
@@ -98,27 +102,33 @@ public:
 
   // Tracks entries that may be forced valid in a pruned hashtable.
   nsDataHashtable<nsCStringHashKey, TimeStamp> mForcedValidEntries;
-  void ForcedValidEntriesPrune(TimeStamp &now);
+  void ForcedValidEntriesPrune(TimeStamp& now);
 
   // Helper thread-safe interface to pass entry info, only difference from
   // nsICacheStorageVisitor is that instead of nsIURI only the uri spec is
   // passed.
-  class EntryInfoCallback {
-  public:
-    virtual void OnEntryInfo(const nsACString & aURISpec, const nsACString & aIdEnhance,
-                             int64_t aDataSize, int32_t aFetchCount,
-                             uint32_t aLastModifiedTime, uint32_t aExpirationTime,
-                             bool aPinned, nsILoadContextInfo* aInfo) = 0;
+  class EntryInfoCallback
+  {
+   public:
+    virtual void OnEntryInfo(const nsACString& aURISpec,
+                             const nsACString& aIdEnhance,
+                             int64_t aDataSize,
+                             int32_t aFetchCount,
+                             uint32_t aLastModifiedTime,
+                             uint32_t aExpirationTime,
+                             bool aPinned,
+                             nsILoadContextInfo* aInfo) = 0;
   };
 
   // Invokes OnEntryInfo for the given aEntry, synchronously.
-  static void GetCacheEntryInfo(CacheEntry* aEntry, EntryInfoCallback *aVisitor);
+  static void GetCacheEntryInfo(CacheEntry* aEntry,
+                                EntryInfoCallback* aVisitor);
 
   nsresult GetCacheIndexEntryAttrs(CacheStorage const* aStorage,
-                                   const nsACString &aURI,
-                                   const nsACString &aIdExtension,
-                                   bool *aHasAltData,
-                                   uint32_t *aFileSizeKb);
+                                   const nsACString& aURI,
+                                   const nsACString& aIdExtension,
+                                   bool* aHasAltData,
+                                   uint32_t* aFileSizeKb);
 
   static uint32_t CacheQueueSize(bool highPriority);
 
@@ -127,11 +137,11 @@ public:
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
   MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf)
 
-private:
+ private:
   virtual ~CacheStorageService();
   void ShutdownBackground();
 
-private:
+ private:
   // The following methods may only be called on the management
   // thread.
   friend class CacheEntry;
@@ -169,24 +179,24 @@ private:
    * directly from cache) for the given number of seconds
    * See nsICacheEntry.idl for more details
    */
-  void ForceEntryValidFor(nsACString const &aContextKey,
-                          nsACString const &aEntryKey,
+  void ForceEntryValidFor(nsACString const& aContextKey,
+                          nsACString const& aEntryKey,
                           uint32_t aSecondsToTheFuture);
 
   /**
    * Remove the validity info
    */
-  void RemoveEntryForceValid(nsACString const &aContextKey,
-                             nsACString const &aEntryKey);
+  void RemoveEntryForceValid(nsACString const& aContextKey,
+                             nsACString const& aEntryKey);
 
   /**
    * Retrieves the status of the cache entry to see if it has been forced valid
    * (so it will loaded directly from cache without further validation)
    */
-  bool IsForcedValidEntry(nsACString const &aContextKey,
-                          nsACString const &aEntryKey);
+  bool IsForcedValidEntry(nsACString const& aContextKey,
+                          nsACString const& aEntryKey);
 
-private:
+ private:
   friend class CacheIndex;
 
   /**
@@ -194,15 +204,15 @@ private:
    * thrown away when forced valid
    * See nsICacheEntry.idl for more details
    */
-  bool IsForcedValidEntry(nsACString const &aEntryKeyWithContext);
+  bool IsForcedValidEntry(nsACString const& aEntryKeyWithContext);
 
-private:
+ private:
   // These are helpers for telemetry monitoring of the memory pools.
-  void TelemetryPrune(TimeStamp &now);
+  void TelemetryPrune(TimeStamp& now);
   void TelemetryRecordEntryCreation(CacheEntry const* entry);
   void TelemetryRecordEntryRemoval(CacheEntry const* entry);
 
-private:
+ private:
   // Following methods are thread safe to call.
   friend class CacheStorage;
 
@@ -211,8 +221,8 @@ private:
    * and uri+id extension.
    */
   nsresult AddStorageEntry(CacheStorage const* aStorage,
-                           const nsACString & aURI,
-                           const nsACString & aIdExtension,
+                           const nsACString& aURI,
+                           const nsACString& aIdExtension,
                            bool aReplace,
                            CacheEntryHandle** aResult);
 
@@ -221,8 +231,8 @@ private:
    * when the information cannot be obtained synchronously w/o blocking.
    */
   nsresult CheckStorageEntry(CacheStorage const* aStorage,
-                             const nsACString & aURI,
-                             const nsACString & aIdExtension,
+                             const nsACString& aURI,
+                             const nsACString& aIdExtension,
                              bool* aResult);
 
   /**
@@ -230,8 +240,8 @@ private:
    * and returns it.
    */
   nsresult DoomStorageEntry(CacheStorage const* aStorage,
-                            const nsACString & aURI,
-                            const nsACString & aIdExtension,
+                            const nsACString& aURI,
+                            const nsACString& aIdExtension,
                             nsICacheEntryDoomCallback* aCallback);
 
   /**
@@ -247,7 +257,7 @@ private:
                               bool aVisitEntries,
                               nsICacheStorageVisitor* aVisitor);
 
-private:
+ private:
   friend class CacheFileIOManager;
 
   /**
@@ -256,8 +266,8 @@ private:
    * removal was originated by CacheStorageService.
    */
   void CacheFileDoomed(nsILoadContextInfo* aLoadContextInfo,
-                       const nsACString & aIdExtension,
-                       const nsACString & aURISpec);
+                       const nsACString& aIdExtension,
+                       const nsACString& aURISpec);
 
   /**
    * Tries to find an existing entry in the hashtables and synchronously call
@@ -268,11 +278,11 @@ private:
    *   false, when an entry has not been found
    */
   bool GetCacheEntryInfo(nsILoadContextInfo* aLoadContextInfo,
-                         const nsACString & aIdExtension,
-                         const nsACString & aURISpec,
-                         EntryInfoCallback *aCallback);
+                         const nsACString& aIdExtension,
+                         const nsACString& aURISpec,
+                         EntryInfoCallback* aCallback);
 
-private:
+ private:
   friend class CacheMemoryConsumer;
 
   /**
@@ -296,15 +306,15 @@ private:
    */
   void PurgeOverMemoryLimit();
 
-private:
+ private:
   nsresult DoomStorageEntries(const nsACString& aContextKey,
                               nsILoadContextInfo* aContext,
                               bool aDiskStorage,
                               bool aPin,
                               nsICacheEntryDoomCallback* aCallback);
   nsresult AddStorageEntry(const nsACString& aContextKey,
-                           const nsACString & aURI,
-                           const nsACString & aIdExtension,
+                           const nsACString& aURI,
+                           const nsACString& aIdExtension,
                            bool aWriteToDisk,
                            bool aSkipSizeCheck,
                            bool aPin,
@@ -321,7 +331,7 @@ private:
   // Accessible only on the service thread
   class MemoryPool
   {
-  public:
+   public:
     enum EType
     {
       DISK,
@@ -342,10 +352,10 @@ private:
      */
     void PurgeOverMemoryLimit();
     void PurgeExpired();
-    void PurgeByFrecency(bool &aFrecencyNeedsSort, uint32_t aWhat);
+    void PurgeByFrecency(bool& aFrecencyNeedsSort, uint32_t aWhat);
     void PurgeAll(uint32_t aWhat);
 
-  private:
+   private:
     uint32_t Limit() const;
     MemoryPool() = delete;
   };
@@ -366,16 +376,16 @@ private:
 
   class PurgeFromMemoryRunnable : public Runnable
   {
-  public:
+   public:
     PurgeFromMemoryRunnable(CacheStorageService* aService, uint32_t aWhat)
-      : Runnable("net::CacheStorageService::PurgeFromMemoryRunnable")
-      , mService(aService)
-      , mWhat(aWhat)
+        : Runnable("net::CacheStorageService::PurgeFromMemoryRunnable"),
+          mService(aService),
+          mWhat(aWhat)
     {
     }
 
-  private:
-    virtual ~PurgeFromMemoryRunnable() { }
+   private:
+    virtual ~PurgeFromMemoryRunnable() {}
 
     NS_IMETHOD Run() override;
 
@@ -392,16 +402,17 @@ private:
   // nsICacheTesting
   class IOThreadSuspender : public Runnable
   {
-  public:
+   public:
     IOThreadSuspender()
-      : Runnable("net::CacheStorageService::IOThreadSuspender")
-      , mMon("IOThreadSuspender")
-      , mSignaled(false)
+        : Runnable("net::CacheStorageService::IOThreadSuspender"),
+          mMon("IOThreadSuspender"),
+          mSignaled(false)
     {
     }
     void Notify();
-  private:
-    virtual ~IOThreadSuspender() { }
+
+   private:
+    virtual ~IOThreadSuspender() {}
     NS_IMETHOD Run() override;
 
     Monitor mMon;
@@ -412,23 +423,29 @@ private:
 };
 
 template<class T>
-void ProxyRelease(const char* aName, nsCOMPtr<T> &object, nsIEventTarget* target)
+void
+ProxyRelease(const char* aName, nsCOMPtr<T>& object, nsIEventTarget* target)
 {
   NS_ProxyRelease(aName, target, object.forget());
 }
 
 template<class T>
-void ProxyReleaseMainThread(const char* aName, nsCOMPtr<T> &object)
+void
+ProxyReleaseMainThread(const char* aName, nsCOMPtr<T>& object)
 {
   ProxyRelease(aName, object, GetMainThreadEventTarget());
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#define NS_CACHE_STORAGE_SERVICE_CID \
-  { 0xea70b098, 0x5014, 0x4e21, \
-  { 0xae, 0xe1, 0x75, 0xe6, 0xb2, 0xc4, 0xb8, 0xe0 } } \
+#define NS_CACHE_STORAGE_SERVICE_CID                 \
+  {                                                  \
+    0xea70b098, 0x5014, 0x4e21,                      \
+    {                                                \
+      0xae, 0xe1, 0x75, 0xe6, 0xb2, 0xc4, 0xb8, 0xe0 \
+    }                                                \
+  }
 
 #define NS_CACHE_STORAGE_SERVICE_CONTRACTID \
   "@mozilla.org/netwerk/cache-storage-service;1"

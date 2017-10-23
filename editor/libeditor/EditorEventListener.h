@@ -39,7 +39,7 @@ class EditorBase;
 
 class EditorEventListener : public nsIDOMEventListener
 {
-public:
+ public:
   EditorEventListener();
 
   virtual nsresult Connect(EditorBase* aEditorBase);
@@ -51,7 +51,7 @@ public:
 
   void SpellCheckIfNeeded();
 
-protected:
+ protected:
   virtual ~EditorEventListener();
 
   nsresult InstallToEditor();
@@ -107,7 +107,7 @@ protected:
    */
   MOZ_MUST_USE bool EnsureCommitCompoisition();
 
-  EditorBase* mEditorBase; // weak
+  EditorBase* mEditorBase;  // weak
   RefPtr<nsCaret> mCaret;
   bool mCommitText;
   bool mInTransaction;
@@ -119,6 +119,6 @@ protected:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef EditorEventListener_h
+#endif  // #ifndef EditorEventListener_h

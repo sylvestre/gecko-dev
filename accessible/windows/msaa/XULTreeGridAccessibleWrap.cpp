@@ -11,8 +11,7 @@ using namespace mozilla::a11y;
 // XULTreeGridAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-NS_IMPL_ISUPPORTS_INHERITED0(XULTreeGridAccessibleWrap,
-                             XULTreeGridAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(XULTreeGridAccessibleWrap, XULTreeGridAccessible)
 
 IMPL_IUNKNOWN_INHERITED1(XULTreeGridAccessibleWrap,
                          AccessibleWrap,

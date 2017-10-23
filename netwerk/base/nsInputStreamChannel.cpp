@@ -12,7 +12,8 @@ namespace mozilla {
 namespace net {
 
 nsresult
-nsInputStreamChannel::OpenContentStream(bool async, nsIInputStream **result,
+nsInputStreamChannel::OpenContentStream(bool async,
+                                        nsIInputStream** result,
                                         nsIChannel** channel)
 {
   NS_ENSURE_TRUE(mContentStream, NS_ERROR_NOT_INITIALIZED);
@@ -49,7 +50,7 @@ NS_IMPL_ISUPPORTS_INHERITED(nsInputStreamChannel,
 // nsInputStreamChannel::nsIInputStreamChannel
 
 NS_IMETHODIMP
-nsInputStreamChannel::SetURI(nsIURI *uri)
+nsInputStreamChannel::SetURI(nsIURI* uri)
 {
   NS_ENSURE_TRUE(!URI(), NS_ERROR_ALREADY_INITIALIZED);
   nsBaseChannel::SetURI(uri);
@@ -57,14 +58,14 @@ nsInputStreamChannel::SetURI(nsIURI *uri)
 }
 
 NS_IMETHODIMP
-nsInputStreamChannel::GetContentStream(nsIInputStream **stream)
+nsInputStreamChannel::GetContentStream(nsIInputStream** stream)
 {
   NS_IF_ADDREF(*stream = mContentStream);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsInputStreamChannel::SetContentStream(nsIInputStream *stream)
+nsInputStreamChannel::SetContentStream(nsIInputStream* stream)
 {
   NS_ENSURE_TRUE(!mContentStream, NS_ERROR_ALREADY_INITIALIZED);
   mContentStream = stream;
@@ -87,7 +88,7 @@ nsInputStreamChannel::SetSrcdocData(const nsAString& aSrcdocData)
 }
 
 NS_IMETHODIMP
-nsInputStreamChannel::GetIsSrcdocChannel(bool *aIsSrcdocChannel)
+nsInputStreamChannel::GetIsSrcdocChannel(bool* aIsSrcdocChannel)
 {
   *aIsSrcdocChannel = mIsSrcdocChannel;
   return NS_OK;
@@ -108,5 +109,5 @@ nsInputStreamChannel::SetBaseURI(nsIURI* aBaseURI)
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

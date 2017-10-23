@@ -16,35 +16,39 @@ namespace tasktracer {
 
 class TracedTaskCommon
 {
-public:
+ public:
   TracedTaskCommon();
   TracedTaskCommon(const TracedTaskCommon& aSrc)
-    : mSourceEventType(aSrc.mSourceEventType)
-    , mSourceEventId(aSrc.mSourceEventId)
-    , mParentTaskId(aSrc.mParentTaskId)
-    , mTaskId(aSrc.mTaskId)
-    , mIsTraceInfoInit(aSrc.mIsTraceInfoInit) {}
+      : mSourceEventType(aSrc.mSourceEventType),
+        mSourceEventId(aSrc.mSourceEventId),
+        mParentTaskId(aSrc.mParentTaskId),
+        mTaskId(aSrc.mTaskId),
+        mIsTraceInfoInit(aSrc.mIsTraceInfoInit)
+  {
+  }
   virtual ~TracedTaskCommon();
 
   void DispatchTask(int aDelayTimeMs = 0);
 
-  void SetTLSTraceInfo() {
+  void SetTLSTraceInfo()
+  {
     if (mIsTraceInfoInit) {
       DoSetTLSTraceInfo();
     }
   }
-  void GetTLSTraceInfo() {
+  void GetTLSTraceInfo()
+  {
     if (IsStartLogging()) {
       DoGetTLSTraceInfo();
     }
   }
   void ClearTLSTraceInfo();
 
-private:
+ private:
   void DoSetTLSTraceInfo();
   void DoGetTLSTraceInfo();
 
-protected:
+ protected:
   void Init();
 
   // TraceInfo of TLS will be set by the following parameters, including source
@@ -57,16 +61,15 @@ protected:
   bool mIsTraceInfoInit;
 };
 
-class TracedRunnable : public TracedTaskCommon
-                     , public nsIRunnable
+class TracedRunnable : public TracedTaskCommon, public nsIRunnable
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIRUNNABLE
 
   explicit TracedRunnable(already_AddRefed<nsIRunnable>&& aOriginalObj);
 
-private:
+ private:
   virtual ~TracedRunnable();
 
   nsCOMPtr<nsIRunnable> mOriginalObj;
@@ -76,8 +79,9 @@ private:
  * This class is used to create a logical task, without a real
  * runnable.
  */
-class VirtualTask : public TracedTaskCommon {
-public:
+class VirtualTask : public TracedTaskCommon
+{
+ public:
   VirtualTask() : TracedTaskCommon() {}
 
   VirtualTask(const VirtualTask& aSrc) : TracedTaskCommon(aSrc) {}
@@ -88,10 +92,12 @@ public:
    *
    * This method may be called for one or more times.
    */
-  void Init(uintptr_t* aVPtr = nullptr) {
+  void Init(uintptr_t* aVPtr = nullptr)
+  {
     TracedTaskCommon::Init();
     if (aVPtr) {
-      extern void LogVirtualTablePtr(uint64_t aTaskId, uint64_t aSourceEventId, uintptr_t* aVptr);
+      extern void LogVirtualTablePtr(
+          uint64_t aTaskId, uint64_t aSourceEventId, uintptr_t * aVptr);
       LogVirtualTablePtr(mTaskId, mSourceEventId, aVPtr);
     }
     DispatchTask();
@@ -105,19 +111,22 @@ public:
    * class used to define running time as the life-span of it's
    * instance.
    */
-  class AutoRunTask : public AutoSaveCurTraceInfo {
+  class AutoRunTask : public AutoSaveCurTraceInfo
+  {
     VirtualTask* mTask;
-    void StartScope(VirtualTask *aTask);
+    void StartScope(VirtualTask* aTask);
     void StopScope();
-  public:
-    explicit AutoRunTask(VirtualTask *aTask)
-      : AutoSaveCurTraceInfo()
-      , mTask(aTask) {
+
+   public:
+    explicit AutoRunTask(VirtualTask* aTask)
+        : AutoSaveCurTraceInfo(), mTask(aTask)
+    {
       if (HasSavedTraceInfo()) {
         StartScope(aTask);
       }
     }
-    ~AutoRunTask() {
+    ~AutoRunTask()
+    {
       if (HasSavedTraceInfo()) {
         StopScope();
       }
@@ -125,7 +134,7 @@ public:
   };
 };
 
-} // namespace tasktracer
-} // namespace mozilla
+}  // namespace tasktracer
+}  // namespace mozilla
 
 #endif

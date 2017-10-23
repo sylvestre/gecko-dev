@@ -11,16 +11,12 @@
 using namespace js;
 using namespace jit;
 
-static bool
-IsAlignmentMask(uint32_t m)
-{
+static bool IsAlignmentMask(uint32_t m) {
     // Test whether m is just leading ones and trailing zeros.
     return (-m & ~m) == 0;
 }
 
-static void
-AnalyzeAsmHeapAddress(MDefinition* ptr, MIRGraph& graph)
-{
+static void AnalyzeAsmHeapAddress(MDefinition* ptr, MIRGraph& graph) {
     // Fold (a+i)&m to (a&m)+i, provided that this doesn't change the result,
     // since the users of the BitAnd include heap accesses. This will expose
     // the redundancy for GVN when expressions like this:
@@ -42,27 +38,21 @@ AnalyzeAsmHeapAddress(MDefinition* ptr, MIRGraph& graph)
 
     MOZ_ASSERT(IsCompilingWasm());
 
-    if (!ptr->isBitAnd())
-        return;
+    if (!ptr->isBitAnd()) return;
 
     MDefinition* lhs = ptr->toBitAnd()->getOperand(0);
     MDefinition* rhs = ptr->toBitAnd()->getOperand(1);
-    if (lhs->isConstant())
-        mozilla::Swap(lhs, rhs);
-    if (!lhs->isAdd() || !rhs->isConstant())
-        return;
+    if (lhs->isConstant()) mozilla::Swap(lhs, rhs);
+    if (!lhs->isAdd() || !rhs->isConstant()) return;
 
     MDefinition* op0 = lhs->toAdd()->getOperand(0);
     MDefinition* op1 = lhs->toAdd()->getOperand(1);
-    if (op0->isConstant())
-        mozilla::Swap(op0, op1);
-    if (!op1->isConstant())
-        return;
+    if (op0->isConstant()) mozilla::Swap(op0, op1);
+    if (!op1->isConstant()) return;
 
     uint32_t i = op1->toConstant()->toInt32();
     uint32_t m = rhs->toConstant()->toInt32();
-    if (!IsAlignmentMask(m) || (i & m) != i)
-        return;
+    if (!IsAlignmentMask(m) || (i & m) != i) return;
 
     // The pattern was matched! Produce the replacement expression.
     MInstruction* and_ = MBitAnd::New(graph.alloc(), op0, rhs, MIRType::Int32);
@@ -73,13 +63,10 @@ AnalyzeAsmHeapAddress(MDefinition* ptr, MIRGraph& graph)
     ptr->block()->discard(ptr->toBitAnd());
 }
 
-bool
-AlignmentMaskAnalysis::analyze()
-{
+bool AlignmentMaskAnalysis::analyze() {
     for (ReversePostorderIterator block(graph_.rpoBegin()); block != graph_.rpoEnd(); block++) {
         for (MInstructionIterator i = block->begin(); i != block->end(); i++) {
-            if (!graph_.alloc().ensureBallast())
-                return false;
+            if (!graph_.alloc().ensureBallast()) return false;
 
             // Note that we don't check for MAsmJSCompareExchangeHeap
             // or MAsmJSAtomicBinopHeap, because the backend and the OOB

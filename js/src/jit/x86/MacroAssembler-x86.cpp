@@ -23,24 +23,14 @@ using namespace js::jit;
 
 // vpunpckldq requires 16-byte boundary for memory operand.
 // See convertUInt64ToDouble for the details.
-MOZ_ALIGNED_DECL(static const uint64_t, 16) TO_DOUBLE[4] = {
-    0x4530000043300000LL,
-    0x0LL,
-    0x4330000000000000LL,
-    0x4530000000000000LL
-};
+MOZ_ALIGNED_DECL(static const uint64_t, 16)
+TO_DOUBLE[4] = {0x4530000043300000LL, 0x0LL, 0x4330000000000000LL, 0x4530000000000000LL};
 
 static const double TO_DOUBLE_HIGH_SCALE = 0x100000000;
 
-bool
-MacroAssemblerX86::convertUInt64ToDoubleNeedsTemp()
-{
-    return HasSSE3();
-}
+bool MacroAssemblerX86::convertUInt64ToDoubleNeedsTemp() { return HasSSE3(); }
 
-void
-MacroAssemblerX86::convertUInt64ToDouble(Register64 src, FloatRegister dest, Register temp)
-{
+void MacroAssemblerX86::convertUInt64ToDouble(Register64 src, FloatRegister dest, Register temp) {
     // SUBPD needs SSE2, HADDPD needs SSE3.
     if (!HasSSE3()) {
         MOZ_ASSERT(temp == Register::Invalid());
@@ -54,7 +44,7 @@ MacroAssemblerX86::convertUInt64ToDouble(Register64 src, FloatRegister dest, Reg
 
         Label notNegative;
         asMasm().branch32(Assembler::NotSigned, src.high, Imm32(0), &notNegative);
-        double add_constant = 18446744073709551616.0; // 2^64
+        double add_constant = 18446744073709551616.0;  // 2^64
         store64(Imm64(mozilla::BitwiseCast<uint64_t>(add_constant)), Address(esp, 0));
         fld(Operand(esp, 0));
         faddp();
@@ -110,95 +100,66 @@ MacroAssemblerX86::convertUInt64ToDouble(Register64 src, FloatRegister dest, Reg
     vhaddpd(dest128, dest128);
 }
 
-void
-MacroAssemblerX86::loadConstantDouble(double d, FloatRegister dest)
-{
-    if (maybeInlineDouble(d, dest))
-        return;
+void MacroAssemblerX86::loadConstantDouble(double d, FloatRegister dest) {
+    if (maybeInlineDouble(d, dest)) return;
     Double* dbl = getDouble(d);
-    if (!dbl)
-        return;
+    if (!dbl) return;
     masm.vmovsd_mr(nullptr, dest.encoding());
     propagateOOM(dbl->uses.append(CodeOffset(masm.size())));
 }
 
-void
-MacroAssemblerX86::loadConstantFloat32(float f, FloatRegister dest)
-{
-    if (maybeInlineFloat(f, dest))
-        return;
+void MacroAssemblerX86::loadConstantFloat32(float f, FloatRegister dest) {
+    if (maybeInlineFloat(f, dest)) return;
     Float* flt = getFloat(f);
-    if (!flt)
-        return;
+    if (!flt) return;
     masm.vmovss_mr(nullptr, dest.encoding());
     propagateOOM(flt->uses.append(CodeOffset(masm.size())));
 }
 
-void
-MacroAssemblerX86::loadConstantSimd128Int(const SimdConstant& v, FloatRegister dest)
-{
-    if (maybeInlineSimd128Int(v, dest))
-        return;
+void MacroAssemblerX86::loadConstantSimd128Int(const SimdConstant& v, FloatRegister dest) {
+    if (maybeInlineSimd128Int(v, dest)) return;
     SimdData* i4 = getSimdData(v);
-    if (!i4)
-        return;
+    if (!i4) return;
     masm.vmovdqa_mr(nullptr, dest.encoding());
     propagateOOM(i4->uses.append(CodeOffset(masm.size())));
 }
 
-void
-MacroAssemblerX86::loadConstantSimd128Float(const SimdConstant& v, FloatRegister dest)
-{
-    if (maybeInlineSimd128Float(v, dest))
-        return;
+void MacroAssemblerX86::loadConstantSimd128Float(const SimdConstant& v, FloatRegister dest) {
+    if (maybeInlineSimd128Float(v, dest)) return;
     SimdData* f4 = getSimdData(v);
-    if (!f4)
-        return;
+    if (!f4) return;
     masm.vmovaps_mr(nullptr, dest.encoding());
     propagateOOM(f4->uses.append(CodeOffset(masm.size())));
 }
 
-void
-MacroAssemblerX86::finish()
-{
-    if (!doubles_.empty())
-        masm.haltingAlign(sizeof(double));
+void MacroAssemblerX86::finish() {
+    if (!doubles_.empty()) masm.haltingAlign(sizeof(double));
     for (const Double& d : doubles_) {
         CodeOffset cst(masm.currentOffset());
-        for (CodeOffset use : d.uses)
-            addCodeLabel(CodeLabel(use, cst));
+        for (CodeOffset use : d.uses) addCodeLabel(CodeLabel(use, cst));
         masm.doubleConstant(d.value);
-        if (!enoughMemory_)
-            return;
+        if (!enoughMemory_) return;
     }
 
-    if (!floats_.empty())
-        masm.haltingAlign(sizeof(float));
+    if (!floats_.empty()) masm.haltingAlign(sizeof(float));
     for (const Float& f : floats_) {
         CodeOffset cst(masm.currentOffset());
-        for (CodeOffset use : f.uses)
-            addCodeLabel(CodeLabel(use, cst));
+        for (CodeOffset use : f.uses) addCodeLabel(CodeLabel(use, cst));
         masm.floatConstant(f.value);
-        if (!enoughMemory_)
-            return;
+        if (!enoughMemory_) return;
     }
 
     // SIMD memory values must be suitably aligned.
-    if (!simds_.empty())
-        masm.haltingAlign(SimdMemoryAlignment);
+    if (!simds_.empty()) masm.haltingAlign(SimdMemoryAlignment);
     for (const SimdData& v : simds_) {
         CodeOffset cst(masm.currentOffset());
-        for (CodeOffset use : v.uses)
-            addCodeLabel(CodeLabel(use, cst));
+        for (CodeOffset use : v.uses) addCodeLabel(CodeLabel(use, cst));
         masm.simd128Constant(v.value.bytes());
-        if (!enoughMemory_)
-            return;
+        if (!enoughMemory_) return;
     }
 }
 
-void
-MacroAssemblerX86::handleFailureWithHandlerTail(void* handler)
-{
+void MacroAssemblerX86::handleFailureWithHandlerTail(void* handler) {
     // Reserve space for exception information.
     subl(Imm32(sizeof(ResumeFromException)), esp);
     movl(esp, eax);
@@ -225,7 +186,7 @@ MacroAssemblerX86::handleFailureWithHandlerTail(void* handler)
     asMasm().branch32(Assembler::Equal, eax, Imm32(ResumeFromException::RESUME_BAILOUT), &bailout);
     asMasm().branch32(Assembler::Equal, eax, Imm32(ResumeFromException::RESUME_WASM), &wasm);
 
-    breakpoint(); // Invalid kind.
+    breakpoint();  // Invalid kind.
 
     // No exception handler. Load the error value, load the new stack pointer
     // and return from the entry frame.
@@ -270,7 +231,8 @@ MacroAssemblerX86::handleFailureWithHandlerTail(void* handler)
     {
         Label skipProfilingInstrumentation;
         // Test if profiler enabled.
-        AbsoluteAddress addressOfEnabled(GetJitContext()->runtime->geckoProfiler().addressOfEnabled());
+        AbsoluteAddress addressOfEnabled(
+            GetJitContext()->runtime->geckoProfiler().addressOfEnabled());
         asMasm().branch32(Assembler::Equal, addressOfEnabled, Imm32(0),
                           &skipProfilingInstrumentation);
         profilerExitFrame();
@@ -295,36 +257,24 @@ MacroAssemblerX86::handleFailureWithHandlerTail(void* handler)
     masm.ret();
 }
 
-void
-MacroAssemblerX86::profilerEnterFrame(Register framePtr, Register scratch)
-{
+void MacroAssemblerX86::profilerEnterFrame(Register framePtr, Register scratch) {
     asMasm().loadJSContext(scratch);
     loadPtr(Address(scratch, offsetof(JSContext, profilingActivation_)), scratch);
     storePtr(framePtr, Address(scratch, JitActivation::offsetOfLastProfilingFrame()));
     storePtr(ImmPtr(nullptr), Address(scratch, JitActivation::offsetOfLastProfilingCallSite()));
 }
 
-void
-MacroAssemblerX86::profilerExitFrame()
-{
+void MacroAssemblerX86::profilerExitFrame() {
     jmp(GetJitContext()->runtime->jitRuntime()->getProfilerExitFrameTail());
 }
 
-MacroAssembler&
-MacroAssemblerX86::asMasm()
-{
-    return *static_cast<MacroAssembler*>(this);
-}
+MacroAssembler& MacroAssemblerX86::asMasm() { return *static_cast<MacroAssembler*>(this); }
 
-const MacroAssembler&
-MacroAssemblerX86::asMasm() const
-{
+const MacroAssembler& MacroAssemblerX86::asMasm() const {
     return *static_cast<const MacroAssembler*>(this);
 }
 
-void
-MacroAssembler::subFromStackPtr(Imm32 imm32)
-{
+void MacroAssembler::subFromStackPtr(Imm32 imm32) {
     if (imm32.value) {
         // On windows, we cannot skip very far down the stack without touching the
         // memory pages in-between.  This is a corner-case code for situations where the
@@ -358,8 +308,7 @@ MacroAssembler::subFromStackPtr(Imm32 imm32)
             subl(Imm32(1), eax);
             j(Assembler::NonZero, &top);
             amountLeft -= fullPages * 4096;
-            if (amountLeft)
-                subl(Imm32(amountLeft), StackPointer);
+            if (amountLeft) subl(Imm32(amountLeft), StackPointer);
 
             // Restore scratch register.
             movl(Operand(StackPointer, uint32_t(imm32.value) - 4), eax);
@@ -371,9 +320,7 @@ MacroAssembler::subFromStackPtr(Imm32 imm32)
 // ===============================================================
 // ABI function calls.
 
-void
-MacroAssembler::setupUnalignedABICall(Register scratch)
-{
+void MacroAssembler::setupUnalignedABICall(Register scratch) {
     MOZ_ASSERT(!IsCompilingWasm(), "wasm should only use aligned ABI calls");
     setupABICall();
     dynamicAlignment_ = true;
@@ -383,17 +330,14 @@ MacroAssembler::setupUnalignedABICall(Register scratch)
     push(scratch);
 }
 
-void
-MacroAssembler::callWithABIPre(uint32_t* stackAdjust, bool callFromWasm)
-{
+void MacroAssembler::callWithABIPre(uint32_t* stackAdjust, bool callFromWasm) {
     MOZ_ASSERT(inCall_);
     uint32_t stackForCall = abiArgs_.stackBytesConsumedSoFar();
 
     if (dynamicAlignment_) {
         // sizeof(intptr_t) accounts for the saved stack pointer pushed by
         // setupUnalignedABICall.
-        stackForCall += ComputeByteAlignment(stackForCall + sizeof(intptr_t),
-                                             ABIStackAlignment);
+        stackForCall += ComputeByteAlignment(stackForCall + sizeof(intptr_t), ABIStackAlignment);
     } else {
         uint32_t alignmentAtPrologue = callFromWasm ? sizeof(wasm::Frame) : 0;
         stackForCall += ComputeByteAlignment(stackForCall + framePushed() + alignmentAtPrologue,
@@ -406,8 +350,7 @@ MacroAssembler::callWithABIPre(uint32_t* stackAdjust, bool callFromWasm)
     // Position all arguments.
     {
         enoughMemory_ &= moveResolver_.resolve();
-        if (!enoughMemory_)
-            return;
+        if (!enoughMemory_) return;
 
         MoveEmitter emitter(*this);
         emitter.emit(moveResolver_);
@@ -417,9 +360,8 @@ MacroAssembler::callWithABIPre(uint32_t* stackAdjust, bool callFromWasm)
     assertStackAlignment(ABIStackAlignment);
 }
 
-void
-MacroAssembler::callWithABIPost(uint32_t stackAdjust, MoveOp::Type result, bool callFromWasm)
-{
+void MacroAssembler::callWithABIPost(uint32_t stackAdjust, MoveOp::Type result,
+                                     bool callFromWasm) {
     freeStack(stackAdjust);
 
     // Calls to native functions in wasm pass through a thunk which already
@@ -438,8 +380,7 @@ MacroAssembler::callWithABIPost(uint32_t stackAdjust, MoveOp::Type result, bool 
         }
     }
 
-    if (dynamicAlignment_)
-        pop(esp);
+    if (dynamicAlignment_) pop(esp);
 
 #ifdef DEBUG
     MOZ_ASSERT(inCall_);
@@ -447,18 +388,14 @@ MacroAssembler::callWithABIPost(uint32_t stackAdjust, MoveOp::Type result, bool 
 #endif
 }
 
-void
-MacroAssembler::callWithABINoProfiler(Register fun, MoveOp::Type result)
-{
+void MacroAssembler::callWithABINoProfiler(Register fun, MoveOp::Type result) {
     uint32_t stackAdjust;
     callWithABIPre(&stackAdjust);
     call(fun);
     callWithABIPost(stackAdjust, result);
 }
 
-void
-MacroAssembler::callWithABINoProfiler(const Address& fun, MoveOp::Type result)
-{
+void MacroAssembler::callWithABINoProfiler(const Address& fun, MoveOp::Type result) {
     uint32_t stackAdjust;
     callWithABIPre(&stackAdjust);
     call(fun);
@@ -468,9 +405,7 @@ MacroAssembler::callWithABINoProfiler(const Address& fun, MoveOp::Type result)
 // ===============================================================
 // Move instructions
 
-void
-MacroAssembler::moveValue(const TypedOrValueRegister& src, const ValueOperand& dest)
-{
+void MacroAssembler::moveValue(const TypedOrValueRegister& src, const ValueOperand& dest) {
     if (src.hasValue()) {
         moveValue(src.valueReg(), dest);
         return;
@@ -481,8 +416,7 @@ MacroAssembler::moveValue(const TypedOrValueRegister& src, const ValueOperand& d
 
     if (!IsFloatingPointType(type)) {
         mov(ImmWord(MIRTypeToTag(type)), dest.typeReg());
-        if (reg.gpr() != dest.payloadReg())
-            movl(reg.gpr(), dest.payloadReg());
+        if (reg.gpr() != dest.payloadReg()) movl(reg.gpr(), dest.payloadReg());
         return;
     }
 
@@ -495,9 +429,7 @@ MacroAssembler::moveValue(const TypedOrValueRegister& src, const ValueOperand& d
     boxDouble(freg, dest, scratch);
 }
 
-void
-MacroAssembler::moveValue(const ValueOperand& src, const ValueOperand& dest)
-{
+void MacroAssembler::moveValue(const ValueOperand& src, const ValueOperand& dest) {
     Register s0 = src.typeReg();
     Register s1 = src.payloadReg();
     Register d0 = dest.typeReg();
@@ -516,15 +448,11 @@ MacroAssembler::moveValue(const ValueOperand& src, const ValueOperand& dest)
         mozilla::Swap(d0, d1);
     }
 
-    if (s0 != d0)
-        movl(s0, d0);
-    if (s1 != d1)
-        movl(s1, d1);
+    if (s0 != d0) movl(s0, d0);
+    if (s1 != d1) movl(s1, d1);
 }
 
-void
-MacroAssembler::moveValue(const Value& src, const ValueOperand& dest)
-{
+void MacroAssembler::moveValue(const Value& src, const ValueOperand& dest) {
     movl(Imm32(src.toNunboxTag()), dest.typeReg());
     if (src.isGCThing())
         movl(ImmGCPtr(src.toGCThing()), dest.payloadReg());
@@ -535,28 +463,22 @@ MacroAssembler::moveValue(const Value& src, const ValueOperand& dest)
 // ===============================================================
 // Branch functions
 
-void
-MacroAssembler::branchPtrInNurseryChunk(Condition cond, Register ptr, Register temp,
-                                        Label* label)
-{
+void MacroAssembler::branchPtrInNurseryChunk(Condition cond, Register ptr, Register temp,
+                                             Label* label) {
     MOZ_ASSERT(temp != InvalidReg);  // A temp register is required for x86.
     MOZ_ASSERT(ptr != temp);
     movePtr(ptr, temp);
     branchPtrInNurseryChunkImpl(cond, temp, label);
 }
 
-void
-MacroAssembler::branchPtrInNurseryChunk(Condition cond, const Address& address, Register temp,
-                                        Label* label)
-{
+void MacroAssembler::branchPtrInNurseryChunk(Condition cond, const Address& address, Register temp,
+                                             Label* label) {
     MOZ_ASSERT(temp != InvalidReg);  // A temp register is required for x86.
     loadPtr(address, temp);
     branchPtrInNurseryChunkImpl(cond, temp, label);
 }
 
-void
-MacroAssembler::branchPtrInNurseryChunkImpl(Condition cond, Register ptr, Label* label)
-{
+void MacroAssembler::branchPtrInNurseryChunkImpl(Condition cond, Register ptr, Label* label) {
     MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
 
     orPtr(Imm32(gc::ChunkMask), ptr);
@@ -564,10 +486,8 @@ MacroAssembler::branchPtrInNurseryChunkImpl(Condition cond, Register ptr, Label*
              Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
 }
 
-void
-MacroAssembler::branchValueIsNurseryObject(Condition cond, const Address& address, Register temp,
-                                           Label* label)
-{
+void MacroAssembler::branchValueIsNurseryObject(Condition cond, const Address& address,
+                                                Register temp, Label* label) {
     MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
 
     Label done;
@@ -578,10 +498,8 @@ MacroAssembler::branchValueIsNurseryObject(Condition cond, const Address& addres
     bind(&done);
 }
 
-void
-MacroAssembler::branchValueIsNurseryObject(Condition cond, ValueOperand value, Register temp,
-                                           Label* label)
-{
+void MacroAssembler::branchValueIsNurseryObject(Condition cond, ValueOperand value, Register temp,
+                                                Label* label) {
     MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
 
     Label done;
@@ -592,10 +510,8 @@ MacroAssembler::branchValueIsNurseryObject(Condition cond, ValueOperand value, R
     bind(&done);
 }
 
-void
-MacroAssembler::branchTestValue(Condition cond, const ValueOperand& lhs,
-                                const Value& rhs, Label* label)
-{
+void MacroAssembler::branchTestValue(Condition cond, const ValueOperand& lhs, const Value& rhs,
+                                     Label* label) {
     MOZ_ASSERT(cond == Equal || cond == NotEqual);
     if (rhs.isGCThing())
         cmpPtr(lhs.payloadReg(), ImmGCPtr(rhs.toGCThing()));
@@ -621,10 +537,8 @@ MacroAssembler::branchTestValue(Condition cond, const ValueOperand& lhs,
 // ========================================================================
 // Memory access primitives.
 template <typename T>
-void
-MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType valueType,
-                                  const T& dest, MIRType slotType)
-{
+void MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType valueType,
+                                       const T& dest, MIRType slotType) {
     if (valueType == MIRType::Double) {
         storeDouble(value.reg().typedReg().fpu(), dest);
         return;
@@ -641,231 +555,253 @@ MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType value
         storePayload(value.reg().typedReg().gpr(), Operand(dest));
 }
 
-template void
-MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType valueType,
-                                  const Address& dest, MIRType slotType);
-template void
-MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType valueType,
-                                  const BaseIndex& dest, MIRType slotType);
+template void MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType valueType,
+                                                const Address& dest, MIRType slotType);
+template void MacroAssembler::storeUnboxedValue(const ConstantOrRegister& value, MIRType valueType,
+                                                const BaseIndex& dest, MIRType slotType);
 
 // wasm specific methods, used in both the wasm baseline compiler and ion.
 
-void
-MacroAssembler::wasmLoad(const wasm::MemoryAccessDesc& access, Operand srcAddr, AnyRegister out)
-{
+void MacroAssembler::wasmLoad(const wasm::MemoryAccessDesc& access, Operand srcAddr,
+                              AnyRegister out) {
     MOZ_ASSERT(srcAddr.kind() == Operand::MEM_REG_DISP || srcAddr.kind() == Operand::MEM_SCALE);
 
     memoryBarrier(access.barrierBefore());
 
     size_t loadOffset = size();
     switch (access.type()) {
-      case Scalar::Int8:
-        movsbl(srcAddr, out.gpr());
-        break;
-      case Scalar::Uint8:
-        movzbl(srcAddr, out.gpr());
-        break;
-      case Scalar::Int16:
-        movswl(srcAddr, out.gpr());
-        break;
-      case Scalar::Uint16:
-        movzwl(srcAddr, out.gpr());
-        break;
-      case Scalar::Int32:
-      case Scalar::Uint32:
-        movl(srcAddr, out.gpr());
-        break;
-      case Scalar::Float32:
-        vmovss(srcAddr, out.fpu());
-        break;
-      case Scalar::Float64:
-        vmovsd(srcAddr, out.fpu());
-        break;
-      case Scalar::Float32x4:
-        switch (access.numSimdElems()) {
-          // In memory-to-register mode, movss zeroes out the high lanes.
-          case 1: vmovss(srcAddr, out.fpu()); break;
-          // See comment above, which also applies to movsd.
-          case 2: vmovsd(srcAddr, out.fpu()); break;
-          case 4: vmovups(srcAddr, out.fpu()); break;
-          default: MOZ_CRASH("unexpected size for partial load");
-        }
-        break;
-      case Scalar::Int32x4:
-        switch (access.numSimdElems()) {
-          // In memory-to-register mode, movd zeroes out the high lanes.
-          case 1: vmovd(srcAddr, out.fpu()); break;
-          // See comment above, which also applies to movq.
-          case 2: vmovq(srcAddr, out.fpu()); break;
-          case 4: vmovdqu(srcAddr, out.fpu()); break;
-          default: MOZ_CRASH("unexpected size for partial load");
-        }
-        break;
-      case Scalar::Int8x16:
-        MOZ_ASSERT(access.numSimdElems() == 16, "unexpected partial load");
-        vmovdqu(srcAddr, out.fpu());
-        break;
-      case Scalar::Int16x8:
-        MOZ_ASSERT(access.numSimdElems() == 8, "unexpected partial load");
-        vmovdqu(srcAddr, out.fpu());
-        break;
-      case Scalar::Int64:
-      case Scalar::Uint8Clamped:
-      case Scalar::MaxTypedArrayViewType:
-        MOZ_CRASH("unexpected type");
+        case Scalar::Int8:
+            movsbl(srcAddr, out.gpr());
+            break;
+        case Scalar::Uint8:
+            movzbl(srcAddr, out.gpr());
+            break;
+        case Scalar::Int16:
+            movswl(srcAddr, out.gpr());
+            break;
+        case Scalar::Uint16:
+            movzwl(srcAddr, out.gpr());
+            break;
+        case Scalar::Int32:
+        case Scalar::Uint32:
+            movl(srcAddr, out.gpr());
+            break;
+        case Scalar::Float32:
+            vmovss(srcAddr, out.fpu());
+            break;
+        case Scalar::Float64:
+            vmovsd(srcAddr, out.fpu());
+            break;
+        case Scalar::Float32x4:
+            switch (access.numSimdElems()) {
+                // In memory-to-register mode, movss zeroes out the high lanes.
+                case 1:
+                    vmovss(srcAddr, out.fpu());
+                    break;
+                // See comment above, which also applies to movsd.
+                case 2:
+                    vmovsd(srcAddr, out.fpu());
+                    break;
+                case 4:
+                    vmovups(srcAddr, out.fpu());
+                    break;
+                default:
+                    MOZ_CRASH("unexpected size for partial load");
+            }
+            break;
+        case Scalar::Int32x4:
+            switch (access.numSimdElems()) {
+                // In memory-to-register mode, movd zeroes out the high lanes.
+                case 1:
+                    vmovd(srcAddr, out.fpu());
+                    break;
+                // See comment above, which also applies to movq.
+                case 2:
+                    vmovq(srcAddr, out.fpu());
+                    break;
+                case 4:
+                    vmovdqu(srcAddr, out.fpu());
+                    break;
+                default:
+                    MOZ_CRASH("unexpected size for partial load");
+            }
+            break;
+        case Scalar::Int8x16:
+            MOZ_ASSERT(access.numSimdElems() == 16, "unexpected partial load");
+            vmovdqu(srcAddr, out.fpu());
+            break;
+        case Scalar::Int16x8:
+            MOZ_ASSERT(access.numSimdElems() == 8, "unexpected partial load");
+            vmovdqu(srcAddr, out.fpu());
+            break;
+        case Scalar::Int64:
+        case Scalar::Uint8Clamped:
+        case Scalar::MaxTypedArrayViewType:
+            MOZ_CRASH("unexpected type");
     }
     append(access, loadOffset, framePushed());
 
     memoryBarrier(access.barrierAfter());
 }
 
-void
-MacroAssembler::wasmLoadI64(const wasm::MemoryAccessDesc& access, Operand srcAddr, Register64 out)
-{
+void MacroAssembler::wasmLoadI64(const wasm::MemoryAccessDesc& access, Operand srcAddr,
+                                 Register64 out) {
     MOZ_ASSERT(!access.isAtomic());
     MOZ_ASSERT(!access.isSimd());
     MOZ_ASSERT(srcAddr.kind() == Operand::MEM_REG_DISP || srcAddr.kind() == Operand::MEM_SCALE);
 
     size_t loadOffset = size();
     switch (access.type()) {
-      case Scalar::Int8:
-        MOZ_ASSERT(out == Register64(edx, eax));
-        movsbl(srcAddr, out.low);
-        append(access, loadOffset, framePushed());
+        case Scalar::Int8:
+            MOZ_ASSERT(out == Register64(edx, eax));
+            movsbl(srcAddr, out.low);
+            append(access, loadOffset, framePushed());
 
-        cdq();
-        break;
-      case Scalar::Uint8:
-        movzbl(srcAddr, out.low);
-        append(access, loadOffset, framePushed());
+            cdq();
+            break;
+        case Scalar::Uint8:
+            movzbl(srcAddr, out.low);
+            append(access, loadOffset, framePushed());
 
-        xorl(out.high, out.high);
-        break;
-      case Scalar::Int16:
-        MOZ_ASSERT(out == Register64(edx, eax));
-        movswl(srcAddr, out.low);
-        append(access, loadOffset, framePushed());
+            xorl(out.high, out.high);
+            break;
+        case Scalar::Int16:
+            MOZ_ASSERT(out == Register64(edx, eax));
+            movswl(srcAddr, out.low);
+            append(access, loadOffset, framePushed());
 
-        cdq();
-        break;
-      case Scalar::Uint16:
-        movzwl(srcAddr, out.low);
-        append(access, loadOffset, framePushed());
+            cdq();
+            break;
+        case Scalar::Uint16:
+            movzwl(srcAddr, out.low);
+            append(access, loadOffset, framePushed());
 
-        xorl(out.high, out.high);
-        break;
-      case Scalar::Int32:
-        MOZ_ASSERT(out == Register64(edx, eax));
-        movl(srcAddr, out.low);
-        append(access, loadOffset, framePushed());
+            xorl(out.high, out.high);
+            break;
+        case Scalar::Int32:
+            MOZ_ASSERT(out == Register64(edx, eax));
+            movl(srcAddr, out.low);
+            append(access, loadOffset, framePushed());
 
-        cdq();
-        break;
-      case Scalar::Uint32:
-        movl(srcAddr, out.low);
-        append(access, loadOffset, framePushed());
+            cdq();
+            break;
+        case Scalar::Uint32:
+            movl(srcAddr, out.low);
+            append(access, loadOffset, framePushed());
 
-        xorl(out.high, out.high);
-        break;
-      case Scalar::Int64: {
-        if (srcAddr.kind() == Operand::MEM_SCALE) {
-            MOZ_RELEASE_ASSERT(srcAddr.toBaseIndex().base != out.low &&
-                               srcAddr.toBaseIndex().index != out.low);
+            xorl(out.high, out.high);
+            break;
+        case Scalar::Int64: {
+            if (srcAddr.kind() == Operand::MEM_SCALE) {
+                MOZ_RELEASE_ASSERT(srcAddr.toBaseIndex().base != out.low &&
+                                   srcAddr.toBaseIndex().index != out.low);
+            }
+            if (srcAddr.kind() == Operand::MEM_REG_DISP)
+                MOZ_RELEASE_ASSERT(srcAddr.toAddress().base != out.low);
+
+            movl(LowWord(srcAddr), out.low);
+            append(access, loadOffset, framePushed());
+
+            loadOffset = size();
+            movl(HighWord(srcAddr), out.high);
+            append(access, loadOffset, framePushed());
+
+            break;
         }
-        if (srcAddr.kind() == Operand::MEM_REG_DISP)
-            MOZ_RELEASE_ASSERT(srcAddr.toAddress().base != out.low);
-
-        movl(LowWord(srcAddr), out.low);
-        append(access, loadOffset, framePushed());
-
-        loadOffset = size();
-        movl(HighWord(srcAddr), out.high);
-        append(access, loadOffset, framePushed());
-
-        break;
-      }
-      case Scalar::Float32:
-      case Scalar::Float64:
-      case Scalar::Float32x4:
-      case Scalar::Int8x16:
-      case Scalar::Int16x8:
-      case Scalar::Int32x4:
-        MOZ_CRASH("non-int64 loads should use load()");
-      case Scalar::Uint8Clamped:
-      case Scalar::MaxTypedArrayViewType:
-        MOZ_CRASH("unexpected array type");
+        case Scalar::Float32:
+        case Scalar::Float64:
+        case Scalar::Float32x4:
+        case Scalar::Int8x16:
+        case Scalar::Int16x8:
+        case Scalar::Int32x4:
+            MOZ_CRASH("non-int64 loads should use load()");
+        case Scalar::Uint8Clamped:
+        case Scalar::MaxTypedArrayViewType:
+            MOZ_CRASH("unexpected array type");
     }
 }
 
-void
-MacroAssembler::wasmStore(const wasm::MemoryAccessDesc& access, AnyRegister value, Operand dstAddr)
-{
+void MacroAssembler::wasmStore(const wasm::MemoryAccessDesc& access, AnyRegister value,
+                               Operand dstAddr) {
     MOZ_ASSERT(dstAddr.kind() == Operand::MEM_REG_DISP || dstAddr.kind() == Operand::MEM_SCALE);
 
     memoryBarrier(access.barrierBefore());
 
     size_t storeOffset = size();
     switch (access.type()) {
-      case Scalar::Int8:
-      case Scalar::Uint8Clamped:
-      case Scalar::Uint8:
-        movb(value.gpr(), dstAddr);
-        break;
-      case Scalar::Int16:
-      case Scalar::Uint16:
-        movw(value.gpr(), dstAddr);
-        break;
-      case Scalar::Int32:
-      case Scalar::Uint32:
-        movl(value.gpr(), dstAddr);
-        break;
-      case Scalar::Float32:
-        vmovss(value.fpu(), dstAddr);
-        break;
-      case Scalar::Float64:
-        vmovsd(value.fpu(), dstAddr);
-        break;
-      case Scalar::Float32x4:
-        switch (access.numSimdElems()) {
-          // In memory-to-register mode, movss zeroes out the high lanes.
-          case 1: vmovss(value.fpu(), dstAddr); break;
-          // See comment above, which also applies to movsd.
-          case 2: vmovsd(value.fpu(), dstAddr); break;
-          case 4: vmovups(value.fpu(), dstAddr); break;
-          default: MOZ_CRASH("unexpected size for partial load");
-        }
-        break;
-      case Scalar::Int32x4:
-        switch (access.numSimdElems()) {
-          // In memory-to-register mode, movd zeroes out the high lanes.
-          case 1: vmovd(value.fpu(), dstAddr); break;
-          // See comment above, which also applies to movsd.
-          case 2: vmovq(value.fpu(), dstAddr); break;
-          case 4: vmovdqu(value.fpu(), dstAddr); break;
-          default: MOZ_CRASH("unexpected size for partial load");
-        }
-        break;
-      case Scalar::Int8x16:
-        MOZ_ASSERT(access.numSimdElems() == 16, "unexpected partial store");
-        vmovdqu(value.fpu(), dstAddr);
-        break;
-      case Scalar::Int16x8:
-        MOZ_ASSERT(access.numSimdElems() == 8, "unexpected partial store");
-        vmovdqu(value.fpu(), dstAddr);
-        break;
-      case Scalar::Int64:
-        MOZ_CRASH("Should be handled in storeI64.");
-      case Scalar::MaxTypedArrayViewType:
-        MOZ_CRASH("unexpected type");
+        case Scalar::Int8:
+        case Scalar::Uint8Clamped:
+        case Scalar::Uint8:
+            movb(value.gpr(), dstAddr);
+            break;
+        case Scalar::Int16:
+        case Scalar::Uint16:
+            movw(value.gpr(), dstAddr);
+            break;
+        case Scalar::Int32:
+        case Scalar::Uint32:
+            movl(value.gpr(), dstAddr);
+            break;
+        case Scalar::Float32:
+            vmovss(value.fpu(), dstAddr);
+            break;
+        case Scalar::Float64:
+            vmovsd(value.fpu(), dstAddr);
+            break;
+        case Scalar::Float32x4:
+            switch (access.numSimdElems()) {
+                // In memory-to-register mode, movss zeroes out the high lanes.
+                case 1:
+                    vmovss(value.fpu(), dstAddr);
+                    break;
+                // See comment above, which also applies to movsd.
+                case 2:
+                    vmovsd(value.fpu(), dstAddr);
+                    break;
+                case 4:
+                    vmovups(value.fpu(), dstAddr);
+                    break;
+                default:
+                    MOZ_CRASH("unexpected size for partial load");
+            }
+            break;
+        case Scalar::Int32x4:
+            switch (access.numSimdElems()) {
+                // In memory-to-register mode, movd zeroes out the high lanes.
+                case 1:
+                    vmovd(value.fpu(), dstAddr);
+                    break;
+                // See comment above, which also applies to movsd.
+                case 2:
+                    vmovq(value.fpu(), dstAddr);
+                    break;
+                case 4:
+                    vmovdqu(value.fpu(), dstAddr);
+                    break;
+                default:
+                    MOZ_CRASH("unexpected size for partial load");
+            }
+            break;
+        case Scalar::Int8x16:
+            MOZ_ASSERT(access.numSimdElems() == 16, "unexpected partial store");
+            vmovdqu(value.fpu(), dstAddr);
+            break;
+        case Scalar::Int16x8:
+            MOZ_ASSERT(access.numSimdElems() == 8, "unexpected partial store");
+            vmovdqu(value.fpu(), dstAddr);
+            break;
+        case Scalar::Int64:
+            MOZ_CRASH("Should be handled in storeI64.");
+        case Scalar::MaxTypedArrayViewType:
+            MOZ_CRASH("unexpected type");
     }
     append(access, storeOffset, framePushed());
 
     memoryBarrier(access.barrierAfter());
 }
 
-void
-MacroAssembler::wasmStoreI64(const wasm::MemoryAccessDesc& access, Register64 value, Operand dstAddr)
-{
+void MacroAssembler::wasmStoreI64(const wasm::MemoryAccessDesc& access, Register64 value,
+                                  Operand dstAddr) {
     MOZ_ASSERT(!access.isAtomic());
     MOZ_ASSERT(!access.isSimd());
     MOZ_ASSERT(dstAddr.kind() == Operand::MEM_REG_DISP || dstAddr.kind() == Operand::MEM_SCALE);
@@ -879,9 +815,8 @@ MacroAssembler::wasmStoreI64(const wasm::MemoryAccessDesc& access, Register64 va
     append(access, storeOffset, framePushed());
 }
 
-void
-MacroAssembler::wasmTruncateDoubleToUInt32(FloatRegister input, Register output, Label* oolEntry)
-{
+void MacroAssembler::wasmTruncateDoubleToUInt32(FloatRegister input, Register output,
+                                                Label* oolEntry) {
     Label done;
     vcvttsd2si(input, output);
     branch32(Assembler::Condition::NotSigned, output, Imm32(0), &done);
@@ -896,9 +831,8 @@ MacroAssembler::wasmTruncateDoubleToUInt32(FloatRegister input, Register output,
     bind(&done);
 }
 
-void
-MacroAssembler::wasmTruncateFloat32ToUInt32(FloatRegister input, Register output, Label* oolEntry)
-{
+void MacroAssembler::wasmTruncateFloat32ToUInt32(FloatRegister input, Register output,
+                                                 Label* oolEntry) {
     Label done;
     vcvttss2si(input, output);
     branch32(Assembler::Condition::NotSigned, output, Imm32(0), &done);
@@ -915,9 +849,7 @@ MacroAssembler::wasmTruncateFloat32ToUInt32(FloatRegister input, Register output
 
 //}}} check_macroassembler_style
 
-void
-MacroAssemblerX86::convertInt64ToDouble(Register64 input, FloatRegister output)
-{
+void MacroAssemblerX86::convertInt64ToDouble(Register64 input, FloatRegister output) {
     // Zero the output register to break dependencies, see convertInt32ToDouble.
     zeroDouble(output);
 
@@ -930,9 +862,7 @@ MacroAssemblerX86::convertInt64ToDouble(Register64 input, FloatRegister output)
     asMasm().freeStack(2 * sizeof(intptr_t));
 }
 
-void
-MacroAssemblerX86::convertInt64ToFloat32(Register64 input, FloatRegister output)
-{
+void MacroAssemblerX86::convertInt64ToFloat32(Register64 input, FloatRegister output) {
     // Zero the output register to break dependencies, see convertInt32ToDouble.
     zeroDouble(output);
 
@@ -945,9 +875,8 @@ MacroAssemblerX86::convertInt64ToFloat32(Register64 input, FloatRegister output)
     asMasm().freeStack(2 * sizeof(intptr_t));
 }
 
-void
-MacroAssemblerX86::convertUInt64ToFloat32(Register64 input, FloatRegister output, Register temp)
-{
+void MacroAssemblerX86::convertUInt64ToFloat32(Register64 input, FloatRegister output,
+                                               Register temp) {
     // Zero the dest register to break dependencies, see convertInt32ToDouble.
     zeroDouble(output);
 
@@ -965,7 +894,7 @@ MacroAssemblerX86::convertUInt64ToFloat32(Register64 input, FloatRegister output
 
     Label notNegative;
     asMasm().branch32(Assembler::NotSigned, input.high, Imm32(0), &notNegative);
-    double add_constant = 18446744073709551616.0; // 2^64
+    double add_constant = 18446744073709551616.0;  // 2^64
     uint64_t add_constant_u64 = mozilla::BitwiseCast<uint64_t>(add_constant);
     store64(Imm64(add_constant_u64), Address(esp, 0));
 
@@ -982,10 +911,9 @@ MacroAssemblerX86::convertUInt64ToFloat32(Register64 input, FloatRegister output
     asMasm().freeStack(2 * sizeof(intptr_t));
 }
 
-void
-MacroAssemblerX86::wasmTruncateDoubleToInt64(FloatRegister input, Register64 output, Label* oolEntry,
-                                             Label* oolRejoin, FloatRegister tempReg)
-{
+void MacroAssemblerX86::wasmTruncateDoubleToInt64(FloatRegister input, Register64 output,
+                                                  Label* oolEntry, Label* oolRejoin,
+                                                  FloatRegister tempReg) {
     Label fail, convert;
     Register temp = output.high;
 
@@ -1012,10 +940,9 @@ MacroAssemblerX86::wasmTruncateDoubleToInt64(FloatRegister input, Register64 out
     asMasm().freeStack(2 * sizeof(int32_t));
 }
 
-void
-MacroAssemblerX86::wasmTruncateFloat32ToInt64(FloatRegister input, Register64 output, Label* oolEntry,
-                                              Label* oolRejoin, FloatRegister tempReg)
-{
+void MacroAssemblerX86::wasmTruncateFloat32ToInt64(FloatRegister input, Register64 output,
+                                                   Label* oolEntry, Label* oolRejoin,
+                                                   FloatRegister tempReg) {
     Label fail, convert;
     Register temp = output.high;
 
@@ -1042,10 +969,9 @@ MacroAssemblerX86::wasmTruncateFloat32ToInt64(FloatRegister input, Register64 ou
     asMasm().freeStack(2 * sizeof(int32_t));
 }
 
-void
-MacroAssemblerX86::wasmTruncateDoubleToUInt64(FloatRegister input, Register64 output, Label* oolEntry,
-                                              Label* oolRejoin, FloatRegister tempReg)
-{
+void MacroAssemblerX86::wasmTruncateDoubleToUInt64(FloatRegister input, Register64 output,
+                                                   Label* oolEntry, Label* oolRejoin,
+                                                   FloatRegister tempReg) {
     Label fail, convert;
     Register temp = output.high;
 
@@ -1072,10 +998,9 @@ MacroAssemblerX86::wasmTruncateDoubleToUInt64(FloatRegister input, Register64 ou
     asMasm().freeStack(2 * sizeof(int32_t));
 }
 
-void
-MacroAssemblerX86::wasmTruncateFloat32ToUInt64(FloatRegister input, Register64 output, Label* oolEntry,
-                                               Label* oolRejoin, FloatRegister tempReg)
-{
+void MacroAssemblerX86::wasmTruncateFloat32ToUInt64(FloatRegister input, Register64 output,
+                                                    Label* oolEntry, Label* oolRejoin,
+                                                    FloatRegister tempReg) {
     Label fail, convert;
     Register temp = output.high;
 
@@ -1101,4 +1026,3 @@ MacroAssemblerX86::wasmTruncateFloat32ToUInt64(FloatRegister input, Register64 o
     load64(Address(esp, 0), output);
     asMasm().freeStack(2 * sizeof(int32_t));
 }
-

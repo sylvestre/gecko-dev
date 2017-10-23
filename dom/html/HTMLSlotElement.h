@@ -18,13 +18,15 @@ struct AssignedNodesOptions;
 
 class HTMLSlotElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLSlotElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
   NS_IMPL_FROMCONTENT_HTML_WITH_TAG(HTMLSlotElement, slot)
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(HTMLSlotElement, nsGenericHTMLElement)
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(HTMLSlotElement,
+                                           nsGenericHTMLElement)
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   void SetName(const nsAString& aName, ErrorResult& aRv)
@@ -32,23 +34,20 @@ public:
     SetHTMLAttr(nsGkAtoms::name, aName, aRv);
   }
 
-  void GetName(nsAString& aName)
-  {
-    GetHTMLAttr(nsGkAtoms::name, aName);
-  }
+  void GetName(nsAString& aName) { GetHTMLAttr(nsGkAtoms::name, aName); }
 
   void AssignedNodes(const AssignedNodesOptions& aOptions,
                      nsTArray<RefPtr<nsINode>>& aNodes);
 
-protected:
+ protected:
   virtual ~HTMLSlotElement();
-  virtual JSObject*
-  WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   nsTArray<RefPtr<nsINode>> mAssignedNodes;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLSlotElement_h
+#endif  // mozilla_dom_HTMLSlotElement_h

@@ -13,21 +13,21 @@
 #include "mozilla/ServoBindingTypes.h"
 #include "mozilla/StyleAnimationValue.h"
 #include "mozilla/TimingParams.h"
-#include "mozilla/dom/BaseKeyframeTypesBinding.h" // For FastBaseKeyframe etc.
+#include "mozilla/dom/BaseKeyframeTypesBinding.h"  // For FastBaseKeyframe etc.
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/KeyframeEffectBinding.h"
-#include "mozilla/dom/KeyframeEffectReadOnly.h" // For PropertyValuesPair etc.
-#include "jsapi.h" // For ForOfIterator etc.
+#include "mozilla/dom/KeyframeEffectReadOnly.h"  // For PropertyValuesPair etc.
+#include "jsapi.h"                               // For ForOfIterator etc.
 #include "nsClassHashtable.h"
-#include "nsContentUtils.h" // For GetContextForContent
+#include "nsContentUtils.h"  // For GetContextForContent
 #include "nsCSSParser.h"
 #include "nsCSSPropertyIDSet.h"
 #include "nsCSSProps.h"
-#include "nsCSSPseudoElements.h" // For CSSPseudoElementType
+#include "nsCSSPseudoElements.h"  // For CSSPseudoElementType
 #include "nsIScriptError.h"
 #include "nsStyleContext.h"
 #include "nsTArray.h"
-#include <algorithm> // For std::stable_sort, std::min
+#include <algorithm>  // For std::stable_sort, std::min
 
 namespace mozilla {
 
@@ -39,7 +39,11 @@ namespace mozilla {
 
 // For the aAllowList parameter of AppendStringOrStringSequence and
 // GetPropertyValuesPairs.
-enum class ListAllowance { eDisallow, eAllow };
+enum class ListAllowance
+{
+  eDisallow,
+  eAllow
+};
 
 /**
  * A comparator to sort nsCSSPropertyID values such that longhands are sorted
@@ -60,17 +64,15 @@ enum class ListAllowance { eDisallow, eAllow };
  */
 class PropertyPriorityComparator
 {
-public:
-  PropertyPriorityComparator()
-    : mSubpropertyCountInitialized(false) {}
+ public:
+  PropertyPriorityComparator() : mSubpropertyCountInitialized(false) {}
 
   bool Equals(nsCSSPropertyID aLhs, nsCSSPropertyID aRhs) const
   {
     return aLhs == aRhs;
   }
 
-  bool LessThan(nsCSSPropertyID aLhs,
-                nsCSSPropertyID aRhs) const
+  bool LessThan(nsCSSPropertyID aLhs, nsCSSPropertyID aRhs) const
   {
     bool isShorthandLhs = nsCSSProps::IsShorthand(aLhs);
     bool isShorthandRhs = nsCSSProps::IsShorthand(aRhs);
@@ -109,7 +111,8 @@ public:
     if (mSubpropertyCount[aProperty] == 0) {
       uint32_t count = 0;
       CSSPROPS_FOR_SHORTHAND_SUBPROPERTIES(
-          p, aProperty, CSSEnabledState::eForAllContent) {
+          p, aProperty, CSSEnabledState::eForAllContent)
+      {
         ++count;
       }
       mSubpropertyCount[aProperty] = count;
@@ -117,12 +120,12 @@ public:
     return mSubpropertyCount[aProperty];
   }
 
-private:
+ private:
   // Cache of shorthand subproperty counts.
-  mutable RangedArray<
-    uint32_t,
-    eCSSProperty_COUNT_no_shorthands,
-    eCSSProperty_COUNT - eCSSProperty_COUNT_no_shorthands> mSubpropertyCount;
+  mutable RangedArray<uint32_t,
+                      eCSSProperty_COUNT_no_shorthands,
+                      eCSSProperty_COUNT - eCSSProperty_COUNT_no_shorthands>
+      mSubpropertyCount;
   mutable bool mSubpropertyCountInitialized;
 };
 
@@ -130,10 +133,10 @@ private:
  * Adaptor for PropertyPriorityComparator to sort objects which have
  * a mProperty member.
  */
-template <typename T>
+template<typename T>
 class TPropertyPriorityComparator : PropertyPriorityComparator
 {
-public:
+ public:
   bool Equals(const T& aLhs, const T& aRhs) const
   {
     return PropertyPriorityComparator::Equals(aLhs.mProperty, aRhs.mProperty);
@@ -150,14 +153,14 @@ public:
  */
 class PropertyPriorityIterator
 {
-public:
+ public:
   explicit PropertyPriorityIterator(
-    const nsTArray<PropertyValuePair>& aProperties)
-    : mProperties(aProperties)
+      const nsTArray<PropertyValuePair>& aProperties)
+      : mProperties(aProperties)
   {
     mSortedPropertyIndices.SetCapacity(mProperties.Length());
     for (size_t i = 0, len = mProperties.Length(); i < len; ++i) {
-      PropertyAndIndex propertyIndex = { mProperties[i].mProperty, i };
+      PropertyAndIndex propertyIndex = {mProperties[i].mProperty, i};
       mSortedPropertyIndices.AppendElement(propertyIndex);
     }
     mSortedPropertyIndices.Sort(PropertyAndIndex::Comparator());
@@ -165,12 +168,13 @@ public:
 
   class Iter
   {
-  public:
+   public:
     explicit Iter(const PropertyPriorityIterator& aParent)
-      : mParent(aParent)
-      , mIndex(0) { }
+        : mParent(aParent), mIndex(0)
+    {
+    }
 
-    static Iter EndIter(const PropertyPriorityIterator &aParent)
+    static Iter EndIter(const PropertyPriorityIterator& aParent)
     {
       Iter iter(aParent);
       iter.mIndex = aParent.mSortedPropertyIndices.Length();
@@ -197,19 +201,19 @@ public:
       return mParent.mProperties[mParent.mSortedPropertyIndices[mIndex].mIndex];
     }
 
-  private:
+   private:
     const PropertyPriorityIterator& mParent;
     size_t mIndex;
   };
 
   Iter begin() { return Iter(*this); }
-  Iter end()   { return Iter::EndIter(*this); }
+  Iter end() { return Iter::EndIter(*this); }
 
-private:
+ private:
   struct PropertyAndIndex
   {
     nsCSSPropertyID mProperty;
-    size_t mIndex; // Index of mProperty within mProperties
+    size_t mIndex;  // Index of mProperty within mProperties
 
     typedef TPropertyPriorityComparator<PropertyAndIndex> Comparator;
   };
@@ -241,7 +245,7 @@ struct PropertyValuesPair
 struct AdditionalProperty
 {
   nsCSSPropertyID mProperty;
-  size_t mJsidIndex;        // Index into |ids| in GetPropertyValuesPairs.
+  size_t mJsidIndex;  // Index into |ids| in GetPropertyValuesPairs.
 
   struct PropertyComparator
   {
@@ -280,8 +284,7 @@ struct KeyframeValueEntry
     static bool Equals(const KeyframeValueEntry& aLhs,
                        const KeyframeValueEntry& aRhs)
     {
-      return aLhs.mProperty == aRhs.mProperty &&
-             aLhs.mOffset == aRhs.mOffset;
+      return aLhs.mProperty == aRhs.mProperty && aLhs.mOffset == aRhs.mOffset;
     }
     static bool LessThan(const KeyframeValueEntry& aLhs,
                          const KeyframeValueEntry& aRhs)
@@ -301,7 +304,7 @@ struct KeyframeValueEntry
 
 class ComputedOffsetComparator
 {
-public:
+ public:
   static bool Equals(const Keyframe& aLhs, const Keyframe& aRhs)
   {
     return aLhs.mComputedOffset == aRhs.mComputedOffset;
@@ -351,8 +354,10 @@ AppendValueAsString(JSContext* aCx,
                     JS::Handle<JS::Value> aValue);
 
 static Maybe<PropertyValuePair>
-MakePropertyValuePair(nsCSSPropertyID aProperty, const nsAString& aStringValue,
-                      nsCSSParser& aParser, nsIDocument* aDocument);
+MakePropertyValuePair(nsCSSPropertyID aProperty,
+                      const nsAString& aStringValue,
+                      nsCSSParser& aParser,
+                      nsIDocument* aDocument);
 
 static bool
 HasValidOffsets(const nsTArray<Keyframe>& aKeyframes);
@@ -427,8 +432,8 @@ KeyframeUtils::GetKeyframesFromObject(JSContext* aCx,
   if (iter.valueIsIterable()) {
     GetKeyframeListFromKeyframeSequence(aCx, aDocument, iter, keyframes, aRv);
   } else {
-    GetKeyframeListFromPropertyIndexedKeyframe(aCx, aDocument, objectValue,
-                                               keyframes, aRv);
+    GetKeyframeListFromPropertyIndexedKeyframe(
+        aCx, aDocument, objectValue, keyframes, aRv);
   }
 
   if (aRv.Failed()) {
@@ -485,13 +490,13 @@ KeyframeUtils::DistributeKeyframes(nsTArray<Keyframe>& aKeyframes)
 template<typename StyleType>
 /* static */ nsTArray<AnimationProperty>
 KeyframeUtils::GetAnimationPropertiesFromKeyframes(
-  const nsTArray<Keyframe>& aKeyframes,
-  dom::Element* aElement,
-  StyleType* aStyle,
-  dom::CompositeOperation aEffectComposite)
+    const nsTArray<Keyframe>& aKeyframes,
+    dom::Element* aElement,
+    StyleType* aStyle,
+    dom::CompositeOperation aEffectComposite)
 {
   const nsTArray<ComputedKeyframeValues> computedValues =
-    GetComputedKeyframeValues(aKeyframes, aElement, aStyle);
+      GetComputedKeyframeValues(aKeyframes, aElement, aStyle);
   MOZ_ASSERT(aKeyframes.Length() == computedValues.Length(),
              "Array length mismatch");
 
@@ -509,7 +514,7 @@ KeyframeUtils::GetAnimationPropertiesFromKeyframes(
       entry->mValue = value.mValue;
       entry->mTimingFunction = frame.mTimingFunction;
       entry->mComposite =
-        frame.mComposite ? frame.mComposite.value() : aEffectComposite;
+          frame.mComposite ? frame.mComposite.value() : aEffectComposite;
     }
   }
 
@@ -541,8 +546,9 @@ KeyframeUtils::IsAnimatableProperty(nsCSSPropertyID aProperty,
     return nsCSSProps::kAnimTypeTable[aProperty] != eStyleAnimType_None;
   }
 
-  CSSPROPS_FOR_SHORTHAND_SUBPROPERTIES(subprop, aProperty,
-                                       CSSEnabledState::eForAllContent) {
+  CSSPROPS_FOR_SHORTHAND_SUBPROPERTIES(
+      subprop, aProperty, CSSEnabledState::eForAllContent)
+  {
     if (nsCSSProps::kAnimTypeTable[*subprop] != eStyleAnimType_None) {
       return true;
     }
@@ -568,7 +574,8 @@ KeyframeUtils::ParseProperty(nsCSSPropertyID aProperty,
                              data,
                              ParsingMode::Default,
                              aDocument->GetCompatibilityMode(),
-                             aDocument->CSSLoader()).Consume();
+                             aDocument->CSSLoader())
+      .Consume();
 }
 
 // ------------------------------------------------------------------
@@ -648,15 +655,15 @@ ConvertKeyframeSequence(JSContext* aCx,
     // or null/undefined (which gets treated as a default {} dictionary
     // value).
     if (!value.isObject() && !value.isNullOrUndefined()) {
-      dom::ThrowErrorMessage(aCx, dom::MSG_NOT_OBJECT,
-                             "Element of sequence<Keyframe> argument");
+      dom::ThrowErrorMessage(
+          aCx, dom::MSG_NOT_OBJECT, "Element of sequence<Keyframe> argument");
       return false;
     }
 
     // Convert the JS value into a BaseKeyframe dictionary value.
     dom::binding_detail::FastBaseKeyframe keyframeDict;
-    if (!keyframeDict.Init(aCx, value,
-                           "Element of sequence<Keyframe> argument")) {
+    if (!keyframeDict.Init(
+            aCx, value, "Element of sequence<Keyframe> argument")) {
       return false;
     }
 
@@ -676,7 +683,8 @@ ConvertKeyframeSequence(JSContext* aCx,
     nsTArray<PropertyValuesPair> propertyValuePairs;
     if (value.isObject()) {
       JS::Rooted<JSObject*> object(aCx, &value.toObject());
-      if (!GetPropertyValuesPairs(aCx, object,
+      if (!GetPropertyValuesPairs(aCx,
+                                  object,
                                   ListAllowance::eDisallow,
                                   aDocument->GetStyleBackendType(),
                                   propertyValuePairs)) {
@@ -685,10 +693,8 @@ ConvertKeyframeSequence(JSContext* aCx,
     }
 
     if (!parseEasingResult.Failed()) {
-      keyframe->mTimingFunction =
-        TimingParams::ParseEasing(keyframeDict.mEasing,
-                                  aDocument,
-                                  parseEasingResult);
+      keyframe->mTimingFunction = TimingParams::ParseEasing(
+          keyframeDict.mEasing, aDocument, parseEasingResult);
       // Even if the above fails, we still need to continue reading off all the
       // properties since checking the validity of easing should be treated as
       // a separate step that happens *after* all the other processing in this
@@ -699,9 +705,8 @@ ConvertKeyframeSequence(JSContext* aCx,
     for (PropertyValuesPair& pair : propertyValuePairs) {
       MOZ_ASSERT(pair.mValues.Length() == 1);
 
-      Maybe<PropertyValuePair> valuePair =
-        MakePropertyValuePair(pair.mProperty, pair.mValues[0], parser,
-                              aDocument);
+      Maybe<PropertyValuePair> valuePair = MakePropertyValuePair(
+          pair.mProperty, pair.mValues[0], parser, aDocument);
       if (!valuePair) {
         continue;
       }
@@ -768,9 +773,8 @@ GetPropertyValuesPairs(JSContext* aCx,
     if (!propName.init(aCx, ids[i])) {
       return false;
     }
-    nsCSSPropertyID property =
-      nsCSSProps::LookupPropertyByIDLName(propName,
-                                          CSSEnabledState::eForAllContent);
+    nsCSSPropertyID property = nsCSSProps::LookupPropertyByIDLName(
+        propName, CSSEnabledState::eForAllContent);
     if (KeyframeUtils::IsAnimatableProperty(property, aBackend)) {
       AdditionalProperty* p = properties.AppendElement();
       p->mProperty = property;
@@ -791,8 +795,8 @@ GetPropertyValuesPairs(JSContext* aCx,
     }
     PropertyValuesPair* pair = aResult.AppendElement();
     pair->mProperty = p.mProperty;
-    if (!AppendStringOrStringSequenceToArray(aCx, value, aAllowLists,
-                                             pair->mValues)) {
+    if (!AppendStringOrStringSequenceToArray(
+            aCx, value, aAllowLists, pair->mValues)) {
       return false;
     }
   }
@@ -854,8 +858,8 @@ AppendValueAsString(JSContext* aCx,
                     nsTArray<nsString>& aValues,
                     JS::Handle<JS::Value> aValue)
 {
-  return ConvertJSValueToString(aCx, aValue, dom::eStringify, dom::eStringify,
-                                *aValues.AppendElement());
+  return ConvertJSValueToString(
+      aCx, aValue, dom::eStringify, dom::eStringify, *aValues.AppendElement());
 }
 
 static void
@@ -865,14 +869,15 @@ ReportInvalidPropertyValueToConsole(nsCSSPropertyID aProperty,
 {
   const nsString& invalidValue = PromiseFlatString(aInvalidPropertyValue);
   const NS_ConvertASCIItoUTF16 propertyName(
-    nsCSSProps::GetStringValue(aProperty));
-  const char16_t* params[] = { invalidValue.get(), propertyName.get() };
+      nsCSSProps::GetStringValue(aProperty));
+  const char16_t* params[] = {invalidValue.get(), propertyName.get()};
   nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
                                   NS_LITERAL_CSTRING("Animation"),
                                   aDoc,
                                   nsContentUtils::eDOM_PROPERTIES,
                                   "InvalidKeyframePropertyValue",
-                                  params, ArrayLength(params));
+                                  params,
+                                  ArrayLength(params));
 }
 
 /**
@@ -887,15 +892,17 @@ ReportInvalidPropertyValueToConsole(nsCSSPropertyID aProperty,
  *   an invalid property value.
  */
 static Maybe<PropertyValuePair>
-MakePropertyValuePair(nsCSSPropertyID aProperty, const nsAString& aStringValue,
-                      nsCSSParser& aParser, nsIDocument* aDocument)
+MakePropertyValuePair(nsCSSPropertyID aProperty,
+                      const nsAString& aStringValue,
+                      nsCSSParser& aParser,
+                      nsIDocument* aDocument)
 {
   MOZ_ASSERT(aDocument);
   Maybe<PropertyValuePair> result;
 
   if (aDocument->GetStyleBackendType() == StyleBackendType::Servo) {
     RefPtr<RawServoDeclarationBlock> servoDeclarationBlock =
-      KeyframeUtils::ParseProperty(aProperty, aStringValue, aDocument);
+        KeyframeUtils::ParseProperty(aProperty, aStringValue, aDocument);
 
     if (servoDeclarationBlock) {
       result.emplace(aProperty, Move(servoDeclarationBlock));
@@ -1035,7 +1042,7 @@ GetComputedKeyframeValues(const nsTArray<Keyframe>& aKeyframes,
     nsCSSPropertyIDSet propertiesOnThisKeyframe;
     ComputedKeyframeValues* computedValues = result.AppendElement();
     for (const PropertyValuePair& pair :
-           PropertyPriorityIterator(frame.mPropertyValues)) {
+         PropertyPriorityIterator(frame.mPropertyValues)) {
       MOZ_ASSERT(!pair.mServoDeclarationBlock,
                  "Animation values were parsed using Servo backend but target"
                  " element is not using Servo backend?");
@@ -1049,8 +1056,12 @@ GetComputedKeyframeValues(const nsTArray<Keyframe>& aKeyframes,
       if (nsCSSProps::IsShorthand(pair.mProperty)) {
         nsCSSValueTokenStream* tokenStream = pair.mValue.GetTokenStreamValue();
         if (!StyleAnimationValue::ComputeValues(pair.mProperty,
-              CSSEnabledState::eForAllContent, aElement, aStyleContext,
-              tokenStream->mTokenStream, /* aUseSVGMode */ false, values)) {
+                                                CSSEnabledState::eForAllContent,
+                                                aElement,
+                                                aStyleContext,
+                                                tokenStream->mTokenStream,
+                                                /* aUseSVGMode */ false,
+                                                values)) {
           continue;
         }
 
@@ -1067,13 +1078,17 @@ GetComputedKeyframeValues(const nsTArray<Keyframe>& aKeyframes,
         neutralPair->mProperty = pair.mProperty;
       } else {
         if (!StyleAnimationValue::ComputeValues(pair.mProperty,
-              CSSEnabledState::eForAllContent, aElement, aStyleContext,
-              pair.mValue, /* aUseSVGMode */ false, values)) {
+                                                CSSEnabledState::eForAllContent,
+                                                aElement,
+                                                aStyleContext,
+                                                pair.mValue,
+                                                /* aUseSVGMode */ false,
+                                                values)) {
           continue;
         }
         MOZ_ASSERT(values.Length() == 1,
-                  "Longhand properties should produce a single"
-                  " StyleAnimationValue");
+                   "Longhand properties should produce a single"
+                   " StyleAnimationValue");
       }
 
       for (auto& value : values) {
@@ -1106,8 +1121,8 @@ GetComputedKeyframeValues(const nsTArray<Keyframe>& aKeyframes,
   nsPresContext* presContext = nsContentUtils::GetContextForContent(aElement);
   MOZ_ASSERT(presContext);
 
-  return presContext->StyleSet()->AsServo()
-    ->GetComputedKeyframeValuesFor(aKeyframes, aElement, aStyleContext);
+  return presContext->StyleSet()->AsServo()->GetComputedKeyframeValuesFor(
+      aKeyframes, aElement, aStyleContext);
 }
 
 static void
@@ -1115,11 +1130,11 @@ AppendInitialSegment(AnimationProperty* aAnimationProperty,
                      const KeyframeValueEntry& aFirstEntry)
 {
   AnimationPropertySegment* segment =
-    aAnimationProperty->mSegments.AppendElement();
-  segment->mFromKey        = 0.0f;
-  segment->mToKey          = aFirstEntry.mOffset;
-  segment->mToValue        = aFirstEntry.mValue;
-  segment->mToComposite    = aFirstEntry.mComposite;
+      aAnimationProperty->mSegments.AppendElement();
+  segment->mFromKey = 0.0f;
+  segment->mToKey = aFirstEntry.mOffset;
+  segment->mToValue = aFirstEntry.mValue;
+  segment->mToComposite = aFirstEntry.mComposite;
 }
 
 static void
@@ -1127,11 +1142,11 @@ AppendFinalSegment(AnimationProperty* aAnimationProperty,
                    const KeyframeValueEntry& aLastEntry)
 {
   AnimationPropertySegment* segment =
-    aAnimationProperty->mSegments.AppendElement();
-  segment->mFromKey        = aLastEntry.mOffset;
-  segment->mFromValue      = aLastEntry.mValue;
-  segment->mFromComposite  = aLastEntry.mComposite;
-  segment->mToKey          = 1.0f;
+      aAnimationProperty->mSegments.AppendElement();
+  segment->mFromKey = aLastEntry.mOffset;
+  segment->mFromValue = aLastEntry.mValue;
+  segment->mFromComposite = aLastEntry.mComposite;
+  segment->mToKey = 1.0f;
   segment->mTimingFunction = aLastEntry.mTimingFunction;
 }
 
@@ -1148,7 +1163,7 @@ HandleMissingInitialKeyframe(nsTArray<AnimationProperty>& aResult,
   // If the preference of the core Web Animations API is not enabled, don't fill
   // in the missing keyframe since the missing keyframe requires support for
   // additive animation which is guarded by this pref.
-  if (!AnimationUtils::IsCoreAPIEnabled()){
+  if (!AnimationUtils::IsCoreAPIEnabled()) {
     return nullptr;
   }
 
@@ -1171,7 +1186,7 @@ HandleMissingFinalKeyframe(nsTArray<AnimationProperty>& aResult,
   // If the preference of the core Web Animations API is not enabled, don't fill
   // in the missing keyframe since the missing keyframe requires support for
   // additive animation which is guarded by this pref.
-  if (!AnimationUtils::IsCoreAPIEnabled()){
+  if (!AnimationUtils::IsCoreAPIEnabled()) {
     // If we have already appended a new entry for the property so we have to
     // remove it.
     if (aCurrentAnimationProperty) {
@@ -1210,7 +1225,8 @@ BuildSegmentsFromValueEntries(nsTArray<KeyframeValueEntry>& aEntries,
 
   // Sort the KeyframeValueEntry objects so that all entries for a given
   // property are together, and the entries are sorted by offset otherwise.
-  std::stable_sort(aEntries.begin(), aEntries.end(),
+  std::stable_sort(aEntries.begin(),
+                   aEntries.end(),
                    &KeyframeValueEntry::PropertyOffsetComparator::LessThan);
 
   // For a given index i, we want to generate a segment from aEntries[i]
@@ -1258,12 +1274,11 @@ BuildSegmentsFromValueEntries(nsTArray<KeyframeValueEntry>& aEntries,
     }
 
     MOZ_ASSERT(aEntries[i].mProperty != eCSSProperty_UNKNOWN &&
-               aEntries[i + 1].mProperty != eCSSProperty_UNKNOWN,
+                   aEntries[i + 1].mProperty != eCSSProperty_UNKNOWN,
                "Each entry should specify a valid property");
 
     // No keyframe for this property at offset 0.
-    if (aEntries[i].mProperty != lastProperty &&
-        aEntries[i].mOffset != 0.0f) {
+    if (aEntries[i].mProperty != lastProperty && aEntries[i].mOffset != 0.0f) {
       // If we don't support additive animation we can't fill in the missing
       // keyframes and we should just skip this property altogether. Since the
       // entries are sorted by offset for a given property, and since we don't
@@ -1311,8 +1326,7 @@ BuildSegmentsFromValueEntries(nsTArray<KeyframeValueEntry>& aEntries,
     if (aEntries[i].mOffset == 0.0f && aEntries[i + 1].mOffset == 0.0f) {
       // We need to generate an initial zero-length segment.
       MOZ_ASSERT(aEntries[i].mProperty == aEntries[i + 1].mProperty);
-      while (j + 1 < n &&
-             aEntries[j + 1].mOffset == 0.0f &&
+      while (j + 1 < n && aEntries[j + 1].mOffset == 0.0f &&
              aEntries[j + 1].mProperty == aEntries[j].mProperty) {
         ++j;
       }
@@ -1320,8 +1334,7 @@ BuildSegmentsFromValueEntries(nsTArray<KeyframeValueEntry>& aEntries,
       if (aEntries[i + 1].mOffset == 1.0f &&
           aEntries[i + 1].mProperty == aEntries[i].mProperty) {
         // We need to generate a final zero-length segment.
-        while (j + 1 < n &&
-               aEntries[j + 1].mOffset == 1.0f &&
+        while (j + 1 < n && aEntries[j + 1].mOffset == 1.0f &&
                aEntries[j + 1].mProperty == aEntries[j].mProperty) {
           ++j;
         }
@@ -1348,14 +1361,14 @@ BuildSegmentsFromValueEntries(nsTArray<KeyframeValueEntry>& aEntries,
 
     // Now generate the segment.
     AnimationPropertySegment* segment =
-      animationProperty->mSegments.AppendElement();
-    segment->mFromKey        = aEntries[i].mOffset;
-    segment->mToKey          = aEntries[j].mOffset;
-    segment->mFromValue      = aEntries[i].mValue;
-    segment->mToValue        = aEntries[j].mValue;
+        animationProperty->mSegments.AppendElement();
+    segment->mFromKey = aEntries[i].mOffset;
+    segment->mToKey = aEntries[j].mOffset;
+    segment->mFromValue = aEntries[i].mValue;
+    segment->mToValue = aEntries[j].mValue;
     segment->mTimingFunction = aEntries[i].mTimingFunction;
-    segment->mFromComposite  = aEntries[i].mComposite;
-    segment->mToComposite    = aEntries[j].mComposite;
+    segment->mFromComposite = aEntries[i].mComposite;
+    segment->mToComposite = aEntries[j].mComposite;
 
     i = j;
   }
@@ -1386,8 +1399,8 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
   // Convert the object to a property-indexed keyframe dictionary to
   // get its explicit dictionary members.
   dom::binding_detail::FastBasePropertyIndexedKeyframe keyframeDict;
-  if (!keyframeDict.Init(aCx, aValue, "BasePropertyIndexedKeyframe argument",
-                         false)) {
+  if (!keyframeDict.Init(
+          aCx, aValue, "BasePropertyIndexedKeyframe argument", false)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
@@ -1395,7 +1408,9 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
   // Get all the property--value-list pairs off the object.
   JS::Rooted<JSObject*> object(aCx, &aValue.toObject());
   nsTArray<PropertyValuesPair> propertyValuesPairs;
-  if (!GetPropertyValuesPairs(aCx, object, ListAllowance::eAllow,
+  if (!GetPropertyValuesPairs(aCx,
+                              object,
+                              ListAllowance::eAllow,
                               aDocument->GetStyleBackendType(),
                               propertyValuesPairs)) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -1415,8 +1430,7 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
     // If we only have one value, we should animate from the underlying value
     // using additive animation--however, we don't support additive animation
     // when the core animation API pref is switched off.
-    if ((!AnimationUtils::IsCoreAPIEnabled()) &&
-        count == 1) {
+    if ((!AnimationUtils::IsCoreAPIEnabled()) && count == 1) {
       aRv.Throw(NS_ERROR_DOM_ANIM_MISSING_PROPS_ERR);
       return;
     }
@@ -1434,7 +1448,7 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
       }
 
       Maybe<PropertyValuePair> valuePair =
-        MakePropertyValuePair(pair.mProperty, stringValue, parser, aDocument);
+          MakePropertyValuePair(pair.mProperty, stringValue, parser, aDocument);
       if (!valuePair) {
         continue;
       }
@@ -1471,7 +1485,7 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
   // as nullptr here, we skip updating mOffset below.
 
   size_t offsetsToFill =
-    offsets ? std::min(offsets->Length(), aResult.Length()) : 0;
+      offsets ? std::min(offsets->Length(), aResult.Length()) : 0;
   for (size_t i = 0; i < offsetsToFill; i++) {
     if (!offsets->ElementAt(i).IsNull()) {
       aResult[i].mOffset.emplace(offsets->ElementAt(i).Value());
@@ -1553,7 +1567,7 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
   if (composite.IsCompositeOperation()) {
     singleCompositeOp.AppendElement(composite.GetAsCompositeOperation());
     const FallibleTArray<dom::CompositeOperation>& asFallibleArray =
-      singleCompositeOp;
+        singleCompositeOp;
     compositeOps = &asFallibleArray;
   } else {
     compositeOps = &composite.GetAsCompositeOperationSequence();
@@ -1563,7 +1577,7 @@ GetKeyframeListFromPropertyIndexedKeyframe(JSContext* aCx,
   if (!compositeOps->IsEmpty()) {
     for (size_t i = 0; i < aResult.Length(); i++) {
       aResult[i].mComposite.emplace(
-        compositeOps->ElementAt(i % compositeOps->Length()));
+          compositeOps->ElementAt(i % compositeOps->Length()));
     }
   }
 }
@@ -1596,9 +1610,9 @@ RequiresAdditiveAnimation(const nsTArray<Keyframe>& aKeyframes,
   // So as long as this check catches most cases, and we don't do anything
   // horrible in one of the cases we can't detect, it should be sufficient.
 
-  nsCSSPropertyIDSet properties;              // All properties encountered.
-  nsCSSPropertyIDSet propertiesWithFromValue; // Those with a defined 0% value.
-  nsCSSPropertyIDSet propertiesWithToValue;   // Those with a defined 100% value.
+  nsCSSPropertyIDSet properties;               // All properties encountered.
+  nsCSSPropertyIDSet propertiesWithFromValue;  // Those with a defined 0% value.
+  nsCSSPropertyIDSet propertiesWithToValue;  // Those with a defined 100% value.
 
   auto addToPropertySets = [&](nsCSSPropertyID aProperty, double aOffset) {
     properties.AddProperty(aProperty);
@@ -1618,18 +1632,14 @@ RequiresAdditiveAnimation(const nsTArray<Keyframe>& aKeyframes,
     // we can't use frame.mComputedOffset. Instead we do a rough version
     // of that algorithm that substitutes null offsets with 0.0 for the first
     // frame, 1.0 for the last frame, and 0.5 for everything else.
-    double computedOffset = i == len - 1
-                            ? 1.0
-                            : i == 0 ? 0.0 : 0.5;
-    double offsetToUse = frame.mOffset
-                         ? frame.mOffset.value()
-                         : computedOffset;
+    double computedOffset = i == len - 1 ? 1.0 : i == 0 ? 0.0 : 0.5;
+    double offsetToUse = frame.mOffset ? frame.mOffset.value() : computedOffset;
 
     for (const PropertyValuePair& pair : frame.mPropertyValues) {
       if (nsCSSProps::IsShorthand(pair.mProperty)) {
         if (styleBackend == StyleBackendType::Gecko) {
           nsCSSValueTokenStream* tokenStream =
-            pair.mValue.GetTokenStreamValue();
+              pair.mValue.GetTokenStreamValue();
           nsCSSParser parser(aDocument->CSSLoader());
           if (!parser.IsValueValidForProperty(pair.mProperty,
                                               tokenStream->mTokenStream)) {
@@ -1640,7 +1650,8 @@ RequiresAdditiveAnimation(const nsTArray<Keyframe>& aKeyframes,
         MOZ_ASSERT(styleBackend != StyleBackendType::Servo ||
                    pair.mServoDeclarationBlock);
         CSSPROPS_FOR_SHORTHAND_SUBPROPERTIES(
-            prop, pair.mProperty, CSSEnabledState::eForAllContent) {
+            prop, pair.mProperty, CSSEnabledState::eForAllContent)
+        {
           addToPropertySets(*prop, offsetToUse);
         }
       } else {
@@ -1663,8 +1674,8 @@ RequiresAdditiveAnimation(const nsTArray<Keyframe>& aKeyframes,
 static void
 DistributeRange(const Range<Keyframe>& aRange)
 {
-  const Range<Keyframe> rangeToAdjust = Range<Keyframe>(aRange.begin() + 1,
-                                                        aRange.end() - 1);
+  const Range<Keyframe> rangeToAdjust =
+      Range<Keyframe>(aRange.begin() + 1, aRange.end() - 1);
   const size_t n = aRange.length() - 1;
   const double startOffset = aRange[0].mComputedOffset;
   const double diffOffset = aRange[n].mComputedOffset - startOffset;
@@ -1674,4 +1685,4 @@ DistributeRange(const Range<Keyframe>& aRange)
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -16,7 +16,7 @@ class nsISupports;
  */
 class nsNSSDialogHelper
 {
-public:
+ public:
   /**
    * Opens a XUL dialog.
    *
@@ -31,8 +31,10 @@ public:
    *        true if the dialog should be modal, false otherwise.
    * @return The result of opening the dialog.
    */
-  static nsresult openDialog(mozIDOMWindowProxy* window, const char* url,
-                             nsISupports* params, bool modal = true);
+  static nsresult openDialog(mozIDOMWindowProxy* window,
+                             const char* url,
+                             nsISupports* params,
+                             bool modal = true);
 };
 
-#endif // nsNSSDialogHelper_h
+#endif  // nsNSSDialogHelper_h

@@ -64,7 +64,6 @@ nsHashPropertyBagBase::DeleteProperty(const nsAString& aName)
   return mPropertyHash.Remove(aName) ? NS_OK : NS_ERROR_FAILURE;
 }
 
-
 //
 // nsSimpleProperty class and impl; used for GetEnumerator
 //
@@ -73,16 +72,15 @@ class nsSimpleProperty final : public nsIProperty
 {
   ~nsSimpleProperty() {}
 
-public:
+ public:
   nsSimpleProperty(const nsAString& aName, nsIVariant* aValue)
-    : mName(aName)
-    , mValue(aValue)
+      : mName(aName), mValue(aValue)
   {
   }
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPROPERTY
-protected:
+ protected:
   nsString mName;
   nsCOMPtr<nsIVariant> mValue;
 };
@@ -123,23 +121,24 @@ nsHashPropertyBagBase::GetEnumerator(nsISimpleEnumerator** aResult)
   return NS_NewArrayEnumerator(aResult, propertyArray);
 }
 
-#define IMPL_GETSETPROPERTY_AS(Name, Type) \
-NS_IMETHODIMP \
-nsHashPropertyBagBase::GetPropertyAs ## Name (const nsAString & prop, Type *_retval) \
-{ \
-    nsIVariant* v = mPropertyHash.GetWeak(prop); \
-    if (!v) \
-        return NS_ERROR_NOT_AVAILABLE; \
-    return v->GetAs ## Name(_retval); \
-} \
-\
-NS_IMETHODIMP \
-nsHashPropertyBagBase::SetPropertyAs ## Name (const nsAString & prop, Type value) \
-{ \
-    nsCOMPtr<nsIWritableVariant> var = new nsVariant(); \
-    var->SetAs ## Name(value); \
-    return SetProperty(prop, var); \
-}
+#define IMPL_GETSETPROPERTY_AS(Name, Type)                          \
+  NS_IMETHODIMP                                                     \
+  nsHashPropertyBagBase::GetPropertyAs##Name(const nsAString& prop, \
+                                             Type* _retval)         \
+  {                                                                 \
+    nsIVariant* v = mPropertyHash.GetWeak(prop);                    \
+    if (!v) return NS_ERROR_NOT_AVAILABLE;                          \
+    return v->GetAs##Name(_retval);                                 \
+  }                                                                 \
+                                                                    \
+  NS_IMETHODIMP                                                     \
+  nsHashPropertyBagBase::SetPropertyAs##Name(const nsAString& prop, \
+                                             Type value)            \
+  {                                                                 \
+    nsCOMPtr<nsIWritableVariant> var = new nsVariant();             \
+    var->SetAs##Name(value);                                        \
+    return SetProperty(prop, var);                                  \
+  }
 
 IMPL_GETSETPROPERTY_AS(Int32, int32_t)
 IMPL_GETSETPROPERTY_AS(Uint32, uint32_t)
@@ -147,7 +146,6 @@ IMPL_GETSETPROPERTY_AS(Int64, int64_t)
 IMPL_GETSETPROPERTY_AS(Uint64, uint64_t)
 IMPL_GETSETPROPERTY_AS(Double, double)
 IMPL_GETSETPROPERTY_AS(Bool, bool)
-
 
 NS_IMETHODIMP
 nsHashPropertyBagBase::GetPropertyAsAString(const nsAString& aProp,
@@ -240,7 +238,6 @@ nsHashPropertyBagBase::SetPropertyAsInterface(const nsAString& aProp,
   return SetProperty(aProp, var);
 }
 
-
 /*
  * nsHashPropertyBag implementation.
  */
@@ -262,12 +259,13 @@ NS_INTERFACE_MAP_END
  */
 class ProxyHashtableDestructor final : public mozilla::Runnable
 {
-public:
+ public:
   using HashtableType = nsInterfaceHashtable<nsStringHashKey, nsIVariant>;
   explicit ProxyHashtableDestructor(HashtableType&& aTable)
-    : mozilla::Runnable("ProxyHashtableDestructor")
-    , mPropertyHash(mozilla::Move(aTable))
-  {}
+      : mozilla::Runnable("ProxyHashtableDestructor"),
+        mPropertyHash(mozilla::Move(aTable))
+  {
+  }
 
   NS_IMETHODIMP
   Run()
@@ -277,7 +275,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   HashtableType mPropertyHash;
 };
 
@@ -285,7 +283,7 @@ nsHashPropertyBag::~nsHashPropertyBag()
 {
   if (!NS_IsMainThread()) {
     RefPtr<ProxyHashtableDestructor> runnable =
-      new ProxyHashtableDestructor(mozilla::Move(mPropertyHash));
+        new ProxyHashtableDestructor(mozilla::Move(mPropertyHash));
     MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(runnable));
   }
 }

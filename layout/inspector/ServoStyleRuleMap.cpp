@@ -19,13 +19,11 @@
 namespace mozilla {
 
 ServoStyleRuleMap::ServoStyleRuleMap(ServoStyleSet* aStyleSet)
-  : mStyleSet(aStyleSet)
+    : mStyleSet(aStyleSet)
 {
 }
 
-ServoStyleRuleMap::~ServoStyleRuleMap()
-{
-}
+ServoStyleRuleMap::~ServoStyleRuleMap() {}
 
 NS_IMPL_ISUPPORTS(ServoStyleRuleMap, nsIDocumentObserver, nsICSSLoaderObserver)
 
@@ -36,16 +34,15 @@ ServoStyleRuleMap::EnsureTable()
     return;
   }
   mStyleSet->EnumerateStyleSheetArrays(
-    [this](const nsTArray<RefPtr<ServoStyleSheet>>& aArray) {
-      for (auto& sheet : aArray) {
-        FillTableFromStyleSheet(sheet);
-      }
-    });
+      [this](const nsTArray<RefPtr<ServoStyleSheet>>& aArray) {
+        for (auto& sheet : aArray) {
+          FillTableFromStyleSheet(sheet);
+        }
+      });
 }
 
 void
-ServoStyleRuleMap::StyleSheetAdded(StyleSheet* aStyleSheet,
-                                   bool aDocumentSheet)
+ServoStyleRuleMap::StyleSheetAdded(StyleSheet* aStyleSheet, bool aDocumentSheet)
 {
   if (!IsEmpty()) {
     FillTableFromStyleSheet(aStyleSheet->AsServo());
@@ -183,4 +180,4 @@ ServoStyleRuleMap::FillTableFromStyleSheet(ServoStyleSheet* aSheet)
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

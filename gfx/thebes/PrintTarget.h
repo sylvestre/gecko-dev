@@ -24,35 +24,37 @@ class DrawEventRecorder;
  * DrawTarget.  The various checkpointing methods manage the state of the
  * platform specific cairo_surface_t*.
  */
-class PrintTarget {
-public:
-
+class PrintTarget
+{
+ public:
   NS_INLINE_DECL_REFCOUNTING(PrintTarget);
 
   /// Must be matched 1:1 by an EndPrinting/AbortPrinting call.
   virtual nsresult BeginPrinting(const nsAString& aTitle,
                                  const nsAString& aPrintToFileName,
                                  int32_t aStartPage,
-                                 int32_t aEndPage) {
+                                 int32_t aEndPage)
+  {
     return NS_OK;
   }
-  virtual nsresult EndPrinting() {
-    return NS_OK;
-  }
-  virtual nsresult AbortPrinting() {
+  virtual nsresult EndPrinting() { return NS_OK; }
+  virtual nsresult AbortPrinting()
+  {
 #ifdef DEBUG
     mHasActivePage = false;
 #endif
     return NS_OK;
   }
-  virtual nsresult BeginPage() {
+  virtual nsresult BeginPage()
+  {
 #ifdef DEBUG
     MOZ_ASSERT(!mHasActivePage, "Missing EndPage() call");
     mHasActivePage = true;
 #endif
     return NS_OK;
   }
-  virtual nsresult EndPage() {
+  virtual nsresult EndPage()
+  {
 #ifdef DEBUG
     mHasActivePage = false;
 #endif
@@ -73,13 +75,9 @@ public:
    * Returns true if to print landscape our consumers must apply a 90 degrees
    * rotation to our DrawTarget.
    */
-  virtual bool RotateNeededForLandscape() const {
-    return false;
-  }
+  virtual bool RotateNeededForLandscape() const { return false; }
 
-  const IntSize& GetSize() const {
-    return mSize;
-  }
+  const IntSize& GetSize() const { return mSize; }
 
   /**
    * Makes a DrawTarget to draw the printer output to, or returns null on
@@ -124,9 +122,8 @@ public:
    * TODO: Consider adding a SetDPI method that calls
    * cairo_surface_set_fallback_resolution.
    */
-  virtual already_AddRefed<DrawTarget>
-  MakeDrawTarget(const IntSize& aSize,
-                 DrawEventRecorder* aRecorder = nullptr);
+  virtual already_AddRefed<DrawTarget> MakeDrawTarget(
+      const IntSize& aSize, DrawEventRecorder* aRecorder = nullptr);
 
   /**
    * Returns a reference DrawTarget. Unlike MakeDrawTarget, this method is not
@@ -134,27 +131,26 @@ public:
    * returned DrawTarget it is still valid to use after EndPage() has been
    * called.
    */
-  virtual already_AddRefed<DrawTarget> GetReferenceDrawTarget(DrawEventRecorder* aRecorder);
+  virtual already_AddRefed<DrawTarget> GetReferenceDrawTarget(
+      DrawEventRecorder* aRecorder);
 
   static void AdjustPrintJobNameForIPP(const nsAString& aJobName,
                                        nsCString& aAdjustedJobName);
   static void AdjustPrintJobNameForIPP(const nsAString& aJobName,
                                        nsString& aAdjustedJobName);
 
-protected:
-
+ protected:
   // Only created via subclass's constructors
   explicit PrintTarget(cairo_surface_t* aCairoSurface, const IntSize& aSize);
 
   // Protected because we're refcounted
   virtual ~PrintTarget();
 
-  static already_AddRefed<DrawTarget>
-  CreateWrapAndRecordDrawTarget(DrawEventRecorder* aRecorder,
-                                DrawTarget* aDrawTarget);
+  static already_AddRefed<DrawTarget> CreateWrapAndRecordDrawTarget(
+      DrawEventRecorder* aRecorder, DrawTarget* aDrawTarget);
 
   cairo_surface_t* mCairoSurface;
-  RefPtr<DrawTarget> mRefDT; // reference DT
+  RefPtr<DrawTarget> mRefDT;  // reference DT
 
   // Early on during printing we expect to be called without a recorder in
   // order to gather metrics for reflow.  However, in a content process, once
@@ -171,7 +167,7 @@ protected:
 #endif
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_PRINTTARGET_H */

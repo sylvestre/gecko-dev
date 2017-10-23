@@ -9,15 +9,11 @@
 
 #include "mozilla/Assertions.h"
 
-namespace tracked_objects
+namespace tracked_objects {
+class ThreadData
 {
-  class ThreadData
-  {
-  public:
-    static void InitializeThreadContext(const std::string& name)
-    {
-      MOZ_CRASH();
-    }
-  };
-}
+ public:
+  static void InitializeThreadContext(const std::string& name) { MOZ_CRASH(); }
+};
+}  // namespace tracked_objects
 #endif

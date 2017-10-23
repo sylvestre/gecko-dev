@@ -9,8 +9,8 @@
 
 #include "mozilla/ComputedTimingFunction.h"
 #include "mozilla/Maybe.h"
-#include "mozilla/StyleAnimationValue.h" // For AnimationValue
-#include "mozilla/dom/BaseKeyframeTypesBinding.h" // For CompositeOperation
+#include "mozilla/StyleAnimationValue.h"           // For AnimationValue
+#include "mozilla/dom/BaseKeyframeTypesBinding.h"  // For CompositeOperation
 
 namespace mozilla {
 
@@ -44,10 +44,8 @@ struct AnimationPropertySegment
 
   bool operator==(const AnimationPropertySegment& aOther) const
   {
-    return mFromKey == aOther.mFromKey &&
-           mToKey == aOther.mToKey &&
-           mFromValue == aOther.mFromValue &&
-           mToValue == aOther.mToValue &&
+    return mFromKey == aOther.mFromKey && mToKey == aOther.mToKey &&
+           mFromValue == aOther.mFromValue && mToValue == aOther.mToValue &&
            mTimingFunction == aOther.mTimingFunction &&
            mFromComposite == aOther.mFromComposite &&
            mToComposite == aOther.mToComposite;
@@ -58,6 +56,6 @@ struct AnimationPropertySegment
   }
 };
 
-}
+}  // namespace mozilla
 
-#endif // mozilla_dom_AnimationPropertySegment_h
+#endif  // mozilla_dom_AnimationPropertySegment_h

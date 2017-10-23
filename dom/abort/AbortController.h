@@ -19,31 +19,27 @@ namespace dom {
 
 class AbortSignal;
 
-class AbortController final : public nsISupports
-                            , public nsWrapperCache
+class AbortController final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AbortController)
 
-  static already_AddRefed<AbortController>
-  Constructor(const GlobalObject& aGlobal, ErrorResult& aRv);
+  static already_AddRefed<AbortController> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
 
   explicit AbortController(nsIGlobalObject* aGlobal);
 
-  JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  nsIGlobalObject*
-  GetParentObject() const;
+  nsIGlobalObject* GetParentObject() const;
 
-  AbortSignal*
-  Signal();
+  AbortSignal* Signal();
 
-  void
-  Abort();
+  void Abort();
 
-private:
+ private:
   ~AbortController() = default;
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
@@ -52,7 +48,7 @@ private:
   bool mAborted;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_AbortController_h
+#endif  // mozilla_dom_AbortController_h

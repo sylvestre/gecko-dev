@@ -28,11 +28,10 @@ CSSKeyframeRule::GetStyle(nsIDOMCSSStyleDeclaration** aStyle)
 }
 
 /* virtual */ JSObject*
-CSSKeyframeRule::WrapObject(JSContext* aCx,
-                            JS::Handle<JSObject*> aGivenProto)
+CSSKeyframeRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return CSSKeyframeRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

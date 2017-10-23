@@ -23,7 +23,7 @@ namespace a11y {
  */
 class XULColumAccessible : public AccessibleWrap
 {
-public:
+ public:
   XULColumAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -37,7 +37,7 @@ public:
  */
 class XULColumnItemAccessible : public LeafAccessible
 {
-public:
+ public:
   XULColumnItemAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -49,7 +49,10 @@ public:
   virtual void ActionNameAt(uint8_t aIndex, nsAString& aName) override;
   virtual bool DoAction(uint8_t aIndex) override;
 
-  enum { eAction_Click = 0 };
+  enum
+  {
+    eAction_Click = 0
+  };
 };
 
 /*
@@ -58,13 +61,14 @@ public:
 class XULListboxAccessible : public XULSelectControlAccessible,
                              public TableAccessible
 {
-public:
+ public:
   XULListboxAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // TableAccessible
   virtual uint32_t ColCount() override;
   virtual uint32_t RowCount() override;
-  virtual Accessible* CellAt(uint32_t aRowIndex, uint32_t aColumnIndex) override;
+  virtual Accessible* CellAt(uint32_t aRowIndex,
+                             uint32_t aColumnIndex) override;
   virtual bool IsColSelected(uint32_t aColIdx) override;
   virtual bool IsRowSelected(uint32_t aRowIdx) override;
   virtual bool IsCellSelected(uint32_t aRowIdx, uint32_t aColIdx) override;
@@ -92,7 +96,7 @@ public:
 
   virtual Accessible* ContainerWidget() const override;
 
-protected:
+ protected:
   virtual ~XULListboxAccessible() {}
 
   bool IsMulticolumn() { return ColCount() > 1; }
@@ -103,8 +107,11 @@ protected:
   */
 class XULListitemAccessible : public XULMenuitemAccessible
 {
-public:
-  enum { eAction_Click = 0 };
+ public:
+  enum
+  {
+    eAction_Click = 0
+  };
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -122,7 +129,7 @@ public:
   // Widgets
   virtual Accessible* ContainerWidget() const override;
 
-protected:
+ protected:
   virtual ~XULListitemAccessible();
 
   // Accessible
@@ -135,7 +142,7 @@ protected:
    */
   Accessible* GetListAccessible() const;
 
-private:
+ private:
   bool mIsCheckbox;
 };
 
@@ -145,7 +152,7 @@ private:
 class XULListCellAccessible : public HyperTextAccessibleWrap,
                               public TableCellAccessible
 {
-public:
+ public:
   XULListCellAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // nsISupports
@@ -163,11 +170,11 @@ public:
   virtual void ColHeaderCells(nsTArray<Accessible*>* aHeaderCells) override;
   virtual bool Selected() override;
 
-protected:
+ protected:
   virtual ~XULListCellAccessible() {}
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

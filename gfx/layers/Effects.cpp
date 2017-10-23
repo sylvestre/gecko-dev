@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "Effects.h"
-#include "LayersLogging.h"              // for AppendToString
+#include "LayersLogging.h"  // for AppendToString
 #include "nsAString.h"
-#include "nsPrintfCString.h"            // for nsPrintfCString
-#include "nsString.h"                   // for nsAutoCString
+#include "nsPrintfCString.h"  // for nsPrintfCString
+#include "nsString.h"         // for nsAutoCString
 
 using namespace mozilla::layers;
 
@@ -47,14 +47,18 @@ void
 EffectSolidColor::PrintInfo(std::stringstream& aStream, const char* aPrefix)
 {
   aStream << aPrefix;
-  aStream << nsPrintfCString("EffectSolidColor (0x%p) [color=%x]", this, mColor.ToABGR()).get();
+  aStream << nsPrintfCString(
+                 "EffectSolidColor (0x%p) [color=%x]", this, mColor.ToABGR())
+                 .get();
 }
 
 void
 EffectBlendMode::PrintInfo(std::stringstream& aStream, const char* aPrefix)
 {
   aStream << aPrefix;
-  aStream << nsPrintfCString("EffectBlendMode (0x%p) [blendmode=%i]", this, (int)mBlendMode).get();
+  aStream << nsPrintfCString(
+                 "EffectBlendMode (0x%p) [blendmode=%i]", this, (int)mBlendMode)
+                 .get();
 }
 
 void
@@ -64,4 +68,3 @@ EffectColorMatrix::PrintInfo(std::stringstream& aStream, const char* aPrefix)
   aStream << nsPrintfCString("EffectColorMatrix (0x%p)", this).get();
   AppendToString(aStream, mColorMatrix, " [matrix=", "]");
 }
-

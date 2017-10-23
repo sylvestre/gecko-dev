@@ -5,12 +5,10 @@
 
 #include "nsDirIndex.h"
 
-NS_IMPL_ISUPPORTS(nsDirIndex,
-                  nsIDirIndex)
+NS_IMPL_ISUPPORTS(nsDirIndex, nsIDirIndex)
 
-nsDirIndex::nsDirIndex() : mType(TYPE_UNKNOWN),
-                           mSize(UINT64_MAX),
-                           mLastModified(-1LL)
+nsDirIndex::nsDirIndex()
+    : mType(TYPE_UNKNOWN), mSize(UINT64_MAX), mLastModified(-1LL)
 {
 }
 
@@ -33,13 +31,12 @@ nsDirIndex::SetType(uint32_t aType)
 }
 
 NS_IMETHODIMP
-nsDirIndex::GetContentType(char* *aContentType)
+nsDirIndex::GetContentType(char** aContentType)
 {
   NS_ENSURE_ARG_POINTER(aContentType);
 
   *aContentType = ToNewCString(mContentType);
-  if (!*aContentType)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!*aContentType) return NS_ERROR_OUT_OF_MEMORY;
 
   return NS_OK;
 }
@@ -52,13 +49,12 @@ nsDirIndex::SetContentType(const char* aContentType)
 }
 
 NS_IMETHODIMP
-nsDirIndex::GetLocation(char* *aLocation)
+nsDirIndex::GetLocation(char** aLocation)
 {
   NS_ENSURE_ARG_POINTER(aLocation);
 
   *aLocation = ToNewCString(mLocation);
-  if (!*aLocation)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!*aLocation) return NS_ERROR_OUT_OF_MEMORY;
 
   return NS_OK;
 }
@@ -71,13 +67,12 @@ nsDirIndex::SetLocation(const char* aLocation)
 }
 
 NS_IMETHODIMP
-nsDirIndex::GetDescription(char16_t* *aDescription)
+nsDirIndex::GetDescription(char16_t** aDescription)
 {
   NS_ENSURE_ARG_POINTER(aDescription);
 
   *aDescription = ToNewUnicode(mDescription);
-  if (!*aDescription)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!*aDescription) return NS_ERROR_OUT_OF_MEMORY;
 
   return NS_OK;
 }

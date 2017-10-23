@@ -42,5 +42,5 @@ DCPresentationChannelDescription::GetDataChannelSDP(nsAString& aDataChannelSDP)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

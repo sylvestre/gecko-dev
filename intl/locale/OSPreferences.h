@@ -40,14 +40,14 @@ namespace intl {
  * notify apps about changes, new OS-level settings may not be reflected
  * in the app until it is relaunched.
  */
-class OSPreferences: public mozIOSPreferences
+class OSPreferences : public mozIOSPreferences
 {
-
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_MOZIOSPREFERENCES
 
-  enum class DateTimeFormatStyle {
+  enum class DateTimeFormatStyle
+  {
     Invalid = -1,
     None,
     Short,   // e.g. time: HH:mm, date: Y/m/d
@@ -73,7 +73,6 @@ public:
   {
     return RefPtr<OSPreferences>(GetInstance()).forget();
   }
-
 
   /**
    * Returns a list of locales used by the host environment for UI
@@ -139,12 +138,12 @@ public:
    */
   void Refresh();
 
-protected:
+ protected:
   nsTArray<nsCString> mSystemLocales;
   nsTArray<nsCString> mRegionalPrefsLocales;
 
-private:
-  virtual ~OSPreferences() {};
+ private:
+  virtual ~OSPreferences(){};
 
   static StaticRefPtr<OSPreferences> sInstance;
 
@@ -200,7 +199,7 @@ private:
                            nsAString& aRetVal);
 };
 
-} // intl
-} // namespace mozilla
+}  // namespace intl
+}  // namespace mozilla
 
 #endif /* mozilla_intl_IntlOSPreferences_h__ */

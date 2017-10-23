@@ -9,15 +9,13 @@
 namespace mozilla {
 
 /* static */ WebrtcVideoEncoder*
-MediaDataDecoderCodec::CreateEncoder(
-  webrtc::VideoCodecType aCodecType)
+MediaDataDecoderCodec::CreateEncoder(webrtc::VideoCodecType aCodecType)
 {
   return nullptr;
 }
 
 /* static */ WebrtcVideoDecoder*
-MediaDataDecoderCodec::CreateDecoder(
-  webrtc::VideoCodecType aCodecType)
+MediaDataDecoderCodec::CreateDecoder(webrtc::VideoCodecType aCodecType)
 {
   if (!MediaPrefs::MediaDataDecoderEnabled()) {
     return nullptr;
@@ -34,4 +32,4 @@ MediaDataDecoderCodec::CreateDecoder(
   return new WebrtcMediaDataDecoder();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

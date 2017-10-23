@@ -25,17 +25,16 @@ X11DataTextureSourceBasic::Update(gfx::DataSourceSurface* aSurface,
   if (!mBufferDrawTarget ||
       (aSurface->GetSize() != mBufferDrawTarget->GetSize()) ||
       (aSurface->GetFormat() != mBufferDrawTarget->GetFormat())) {
-
     RefPtr<gfxASurface> surf;
-    gfxImageFormat imageFormat = SurfaceFormatToImageFormat(aSurface->GetFormat());
-    Display *display = DefaultXDisplay();
-    Screen *screen = DefaultScreenOfDisplay(display);
-    XRenderPictFormat *xrenderFormat =
-      gfxXlibSurface::FindRenderFormat(display, imageFormat);
+    gfxImageFormat imageFormat =
+        SurfaceFormatToImageFormat(aSurface->GetFormat());
+    Display* display = DefaultXDisplay();
+    Screen* screen = DefaultScreenOfDisplay(display);
+    XRenderPictFormat* xrenderFormat =
+        gfxXlibSurface::FindRenderFormat(display, imageFormat);
 
     if (xrenderFormat) {
-      surf = gfxXlibSurface::Create(screen, xrenderFormat,
-                                    aSurface->GetSize());
+      surf = gfxXlibSurface::Create(screen, xrenderFormat, aSurface->GetSize());
     }
 
     if (!surf) {
@@ -43,14 +42,15 @@ X11DataTextureSourceBasic::Update(gfx::DataSourceSurface* aSurface,
       surf = new gfxImageSurface(aSurface->GetSize(), imageFormat);
     }
 
-    mBufferDrawTarget = gfxPlatform::GetPlatform()->
-      CreateDrawTargetForSurface(surf, aSurface->GetSize());
+    mBufferDrawTarget = gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(
+        surf, aSurface->GetSize());
   }
 
   // Image contents have changed, upload to our DrawTarget
   // If aDestRegion is null, means we're updating the whole surface
   // Note : Incremental update with a source offset is only used on Mac.
-  NS_ASSERTION(!aSrcOffset, "SrcOffset should not be used with linux OMTC basic");
+  NS_ASSERTION(!aSrcOffset,
+               "SrcOffset should not be used with linux OMTC basic");
 
   if (aDestRegion) {
     for (auto iter = aDestRegion->RectIter(); !iter.Done(); iter.Next()) {
@@ -64,8 +64,8 @@ X11DataTextureSourceBasic::Update(gfx::DataSourceSurface* aSurface,
   } else {
     // We're uploading the whole buffer, so let's just copy the full surface
     IntSize size = aSurface->GetSize();
-    mBufferDrawTarget->CopySurface(aSurface, IntRect(0, 0, size.width, size.height),
-                                   IntPoint(0, 0));
+    mBufferDrawTarget->CopySurface(
+        aSurface, IntRect(0, 0, size.width, size.height), IntPoint(0, 0));
   }
 
   return true;
@@ -117,8 +117,7 @@ X11DataTextureSourceBasic::DeallocateDeviceData()
 already_AddRefed<DataTextureSource>
 X11BasicCompositor::CreateDataTextureSource(TextureFlags aFlags)
 {
-  RefPtr<DataTextureSource> result =
-    new X11DataTextureSourceBasic();
+  RefPtr<DataTextureSource> result = new X11DataTextureSourceBasic();
   return result.forget();
 }
 
@@ -129,5 +128,5 @@ X11BasicCompositor::EndFrame()
   XFlush(DefaultXDisplay());
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

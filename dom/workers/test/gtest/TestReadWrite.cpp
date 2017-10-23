@@ -24,12 +24,12 @@ using namespace mozilla::ipc;
 
 class ServiceWorkerRegistrarTest : public ServiceWorkerRegistrar
 {
-public:
+ public:
   ServiceWorkerRegistrarTest()
   {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     nsresult rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
-                                       getter_AddRefs(mProfileDir));
+                                         getter_AddRefs(mProfileDir));
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
 #else
     NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
@@ -54,8 +54,8 @@ already_AddRefed<nsIFile>
 GetFile()
 {
   nsCOMPtr<nsIFile> file;
-  nsresult rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
-                                       getter_AddRefs(file));
+  nsresult rv =
+      NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(file));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return nullptr;
   }
@@ -108,7 +108,8 @@ TEST(ServiceWorkerRegistrar, TestNoFile)
   ASSERT_EQ(NS_OK, rv) << "ReadData() should not fail";
 
   const nsTArray<ServiceWorkerRegistrationData>& data = swr->TestGetData();
-  ASSERT_EQ((uint32_t)0, data.Length()) << "No data should be found in an empty file";
+  ASSERT_EQ((uint32_t)0, data.Length())
+      << "No data should be found in an empty file";
 }
 
 TEST(ServiceWorkerRegistrar, TestEmptyFile)
@@ -121,33 +122,42 @@ TEST(ServiceWorkerRegistrar, TestEmptyFile)
   ASSERT_NE(NS_OK, rv) << "ReadData() should fail if the file is empty";
 
   const nsTArray<ServiceWorkerRegistrationData>& data = swr->TestGetData();
-  ASSERT_EQ((uint32_t)0, data.Length()) << "No data should be found in an empty file";
+  ASSERT_EQ((uint32_t)0, data.Length())
+      << "No data should be found in an empty file";
 }
 
 TEST(ServiceWorkerRegistrar, TestRightVersionFile)
 {
-  ASSERT_TRUE(CreateFile(NS_LITERAL_CSTRING(SERVICEWORKERREGISTRAR_VERSION "\n"))) << "CreateFile should not fail";
+  ASSERT_TRUE(
+      CreateFile(NS_LITERAL_CSTRING(SERVICEWORKERREGISTRAR_VERSION "\n")))
+      << "CreateFile should not fail";
 
   RefPtr<ServiceWorkerRegistrarTest> swr = new ServiceWorkerRegistrarTest;
 
   nsresult rv = swr->TestReadData();
-  ASSERT_EQ(NS_OK, rv) << "ReadData() should not fail when the version is correct";
+  ASSERT_EQ(NS_OK, rv)
+      << "ReadData() should not fail when the version is correct";
 
   const nsTArray<ServiceWorkerRegistrationData>& data = swr->TestGetData();
-  ASSERT_EQ((uint32_t)0, data.Length()) << "No data should be found in an empty file";
+  ASSERT_EQ((uint32_t)0, data.Length())
+      << "No data should be found in an empty file";
 }
 
 TEST(ServiceWorkerRegistrar, TestWrongVersionFile)
 {
-  ASSERT_TRUE(CreateFile(NS_LITERAL_CSTRING(SERVICEWORKERREGISTRAR_VERSION "bla\n"))) << "CreateFile should not fail";
+  ASSERT_TRUE(
+      CreateFile(NS_LITERAL_CSTRING(SERVICEWORKERREGISTRAR_VERSION "bla\n")))
+      << "CreateFile should not fail";
 
   RefPtr<ServiceWorkerRegistrarTest> swr = new ServiceWorkerRegistrarTest;
 
   nsresult rv = swr->TestReadData();
-  ASSERT_NE(NS_OK, rv) << "ReadData() should fail when the version is not correct";
+  ASSERT_NE(NS_OK, rv)
+      << "ReadData() should fail when the version is not correct";
 
   const nsTArray<ServiceWorkerRegistrationData>& data = swr->TestGetData();
-  ASSERT_EQ((uint32_t)0, data.Length()) << "No data should be found in an empty file";
+  ASSERT_EQ((uint32_t)0, data.Length())
+      << "No data should be found in an empty file";
 }
 
 TEST(ServiceWorkerRegistrar, TestReadData)
@@ -158,7 +168,8 @@ TEST(ServiceWorkerRegistrar, TestReadData)
   buffer.AppendLiteral("scope 0\ncurrentWorkerURL 0\n");
   buffer.Append(SERVICEWORKERREGISTRAR_TRUE "\n");
   buffer.AppendLiteral("cacheName 0\n");
-  buffer.AppendInt(nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS, 16);
+  buffer.AppendInt(nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS,
+                   16);
   buffer.AppendLiteral("\n");
   buffer.AppendInt(0);
   buffer.AppendLiteral("\n");
@@ -194,7 +205,8 @@ TEST(ServiceWorkerRegistrar, TestReadData)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -213,7 +225,8 @@ TEST(ServiceWorkerRegistrar, TestReadData)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -234,7 +247,8 @@ TEST(ServiceWorkerRegistrar, TestReadData)
 
 TEST(ServiceWorkerRegistrar, TestDeleteData)
 {
-  ASSERT_TRUE(CreateFile(NS_LITERAL_CSTRING("Foobar"))) << "CreateFile should not fail";
+  ASSERT_TRUE(CreateFile(NS_LITERAL_CSTRING("Foobar")))
+      << "CreateFile should not fail";
 
   RefPtr<ServiceWorkerRegistrarTest> swr = new ServiceWorkerRegistrarTest;
 
@@ -261,9 +275,9 @@ TEST(ServiceWorkerRegistrar, TestWriteData)
       reg.currentWorkerURL() = nsPrintfCString("currentWorkerURL write %d", i);
       reg.currentWorkerHandlesFetch() = true;
       reg.cacheName() =
-        NS_ConvertUTF8toUTF16(nsPrintfCString("cacheName write %d", i));
+          NS_ConvertUTF8toUTF16(nsPrintfCString("cacheName write %d", i));
       reg.updateViaCache() =
-        nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS;
+          nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS;
 
       reg.currentWorkerInstalledTime() = PR_Now();
       reg.currentWorkerActivatedTime() = PR_Now();
@@ -271,9 +285,8 @@ TEST(ServiceWorkerRegistrar, TestWriteData)
 
       nsAutoCString spec;
       spec.AppendPrintf("spec write %d", i);
-      reg.principal() =
-        mozilla::ipc::ContentPrincipalInfo(mozilla::OriginAttributes(i, i % 2),
-                                           mozilla::void_t(), spec);
+      reg.principal() = mozilla::ipc::ContentPrincipalInfo(
+          mozilla::OriginAttributes(i, i % 2), mozilla::void_t(), spec);
 
       swr->TestRegisterServiceWorker(reg);
     }
@@ -293,7 +306,8 @@ TEST(ServiceWorkerRegistrar, TestWriteData)
   for (int i = 0; i < 10; ++i) {
     nsAutoCString test;
 
-    ASSERT_EQ(data[i].principal().type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo);
+    ASSERT_EQ(data[i].principal().type(),
+              mozilla::ipc::PrincipalInfo::TContentPrincipalInfo);
     const mozilla::ipc::ContentPrincipalInfo& cInfo = data[i].principal();
 
     mozilla::OriginAttributes attrs(i, i % 2);
@@ -331,14 +345,20 @@ TEST(ServiceWorkerRegistrar, TestWriteData)
 
 TEST(ServiceWorkerRegistrar, TestVersion2Migration)
 {
-  nsAutoCString buffer("2" "\n");
+  nsAutoCString buffer(
+      "2"
+      "\n");
 
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
-  buffer.AppendLiteral("spec 0\nscope 0\nscriptSpec 0\ncurrentWorkerURL 0\nactiveCache 0\nwaitingCache 0\n");
+  buffer.AppendLiteral(
+      "spec 0\nscope 0\nscriptSpec 0\ncurrentWorkerURL 0\nactiveCache "
+      "0\nwaitingCache 0\n");
   buffer.AppendLiteral(SERVICEWORKERREGISTRAR_TERMINATOR "\n");
 
   buffer.AppendLiteral("\n");
-  buffer.AppendLiteral("spec 1\nscope 1\nscriptSpec 1\ncurrentWorkerURL 1\nactiveCache 1\nwaitingCache 1\n");
+  buffer.AppendLiteral(
+      "spec 1\nscope 1\nscriptSpec 1\ncurrentWorkerURL 1\nactiveCache "
+      "1\nwaitingCache 1\n");
   buffer.AppendLiteral(SERVICEWORKERREGISTRAR_TERMINATOR "\n");
 
   ASSERT_TRUE(CreateFile(buffer)) << "CreateFile should not fail";
@@ -352,7 +372,8 @@ TEST(ServiceWorkerRegistrar, TestVersion2Migration)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -363,7 +384,8 @@ TEST(ServiceWorkerRegistrar, TestVersion2Migration)
   ASSERT_STREQ("scope 0", data[0].scope().get());
   ASSERT_STREQ("currentWorkerURL 0", data[0].currentWorkerURL().get());
   ASSERT_EQ(true, data[0].currentWorkerHandlesFetch());
-  ASSERT_STREQ("activeCache 0", NS_ConvertUTF16toUTF8(data[0].cacheName()).get());
+  ASSERT_STREQ("activeCache 0",
+               NS_ConvertUTF16toUTF8(data[0].cacheName()).get());
   ASSERT_EQ(nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS,
             data[0].updateViaCache());
   ASSERT_EQ((int64_t)0, data[0].currentWorkerInstalledTime());
@@ -371,7 +393,8 @@ TEST(ServiceWorkerRegistrar, TestVersion2Migration)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -382,7 +405,8 @@ TEST(ServiceWorkerRegistrar, TestVersion2Migration)
   ASSERT_STREQ("scope 1", data[1].scope().get());
   ASSERT_STREQ("currentWorkerURL 1", data[1].currentWorkerURL().get());
   ASSERT_EQ(true, data[1].currentWorkerHandlesFetch());
-  ASSERT_STREQ("activeCache 1", NS_ConvertUTF16toUTF8(data[1].cacheName()).get());
+  ASSERT_STREQ("activeCache 1",
+               NS_ConvertUTF16toUTF8(data[1].cacheName()).get());
   ASSERT_EQ(nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS,
             data[1].updateViaCache());
   ASSERT_EQ((int64_t)0, data[1].currentWorkerInstalledTime());
@@ -392,7 +416,9 @@ TEST(ServiceWorkerRegistrar, TestVersion2Migration)
 
 TEST(ServiceWorkerRegistrar, TestVersion3Migration)
 {
-  nsAutoCString buffer("3" "\n");
+  nsAutoCString buffer(
+      "3"
+      "\n");
 
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
   buffer.AppendLiteral("spec 0\nscope 0\ncurrentWorkerURL 0\ncacheName 0\n");
@@ -413,7 +439,8 @@ TEST(ServiceWorkerRegistrar, TestVersion3Migration)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -432,7 +459,8 @@ TEST(ServiceWorkerRegistrar, TestVersion3Migration)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -453,7 +481,9 @@ TEST(ServiceWorkerRegistrar, TestVersion3Migration)
 
 TEST(ServiceWorkerRegistrar, TestVersion4Migration)
 {
-  nsAutoCString buffer("4" "\n");
+  nsAutoCString buffer(
+      "4"
+      "\n");
 
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
   buffer.AppendLiteral("scope 0\ncurrentWorkerURL 0\ncacheName 0\n");
@@ -474,7 +504,8 @@ TEST(ServiceWorkerRegistrar, TestVersion4Migration)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -494,7 +525,8 @@ TEST(ServiceWorkerRegistrar, TestVersion4Migration)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -516,7 +548,9 @@ TEST(ServiceWorkerRegistrar, TestVersion4Migration)
 
 TEST(ServiceWorkerRegistrar, TestVersion5Migration)
 {
-  nsAutoCString buffer("5" "\n");
+  nsAutoCString buffer(
+      "5"
+      "\n");
 
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
   buffer.AppendLiteral("scope 0\ncurrentWorkerURL 0\n");
@@ -541,7 +575,8 @@ TEST(ServiceWorkerRegistrar, TestVersion5Migration)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -560,7 +595,8 @@ TEST(ServiceWorkerRegistrar, TestVersion5Migration)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -581,7 +617,9 @@ TEST(ServiceWorkerRegistrar, TestVersion5Migration)
 
 TEST(ServiceWorkerRegistrar, TestVersion6Migration)
 {
-  nsAutoCString buffer("6" "\n");
+  nsAutoCString buffer(
+      "6"
+      "\n");
 
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
   buffer.AppendLiteral("scope 0\ncurrentWorkerURL 0\n");
@@ -610,7 +648,8 @@ TEST(ServiceWorkerRegistrar, TestVersion6Migration)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -629,7 +668,8 @@ TEST(ServiceWorkerRegistrar, TestVersion6Migration)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -650,7 +690,9 @@ TEST(ServiceWorkerRegistrar, TestVersion6Migration)
 
 TEST(ServiceWorkerRegistrar, TestVersion7Migration)
 {
-  nsAutoCString buffer("7" "\n");
+  nsAutoCString buffer(
+      "7"
+      "\n");
 
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
   buffer.AppendLiteral("scope 0\ncurrentWorkerURL 0\n");
@@ -692,7 +734,8 @@ TEST(ServiceWorkerRegistrar, TestVersion7Migration)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -711,7 +754,8 @@ TEST(ServiceWorkerRegistrar, TestVersion7Migration)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -732,7 +776,9 @@ TEST(ServiceWorkerRegistrar, TestVersion7Migration)
 
 TEST(ServiceWorkerRegistrar, TestDedupeRead)
 {
-  nsAutoCString buffer("3" "\n");
+  nsAutoCString buffer(
+      "3"
+      "\n");
 
   // unique entries
   buffer.AppendLiteral("^appId=123&inBrowser=1\n");
@@ -767,7 +813,8 @@ TEST(ServiceWorkerRegistrar, TestDedupeRead)
   ASSERT_EQ((uint32_t)2, data.Length()) << "2 entries should be found";
 
   const mozilla::ipc::PrincipalInfo& info0 = data[0].principal();
-  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info0.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo0 = data[0].principal();
 
   nsAutoCString suffix0;
@@ -786,7 +833,8 @@ TEST(ServiceWorkerRegistrar, TestDedupeRead)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 
   const mozilla::ipc::PrincipalInfo& info1 = data[1].principal();
-  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) << "First principal must be content";
+  ASSERT_EQ(info1.type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo)
+      << "First principal must be content";
   const mozilla::ipc::ContentPrincipalInfo& cInfo1 = data[1].principal();
 
   nsAutoCString suffix1;
@@ -817,15 +865,14 @@ TEST(ServiceWorkerRegistrar, TestDedupeWrite)
       reg.currentWorkerURL() = nsPrintfCString("currentWorkerURL write %d", i);
       reg.currentWorkerHandlesFetch() = true;
       reg.cacheName() =
-        NS_ConvertUTF8toUTF16(nsPrintfCString("cacheName write %d", i));
+          NS_ConvertUTF8toUTF16(nsPrintfCString("cacheName write %d", i));
       reg.updateViaCache() =
-        nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS;
+          nsIServiceWorkerRegistrationInfo::UPDATE_VIA_CACHE_IMPORTS;
 
       nsAutoCString spec;
       spec.AppendPrintf("spec write dedupe/%d", i);
-      reg.principal() =
-        mozilla::ipc::ContentPrincipalInfo(mozilla::OriginAttributes(0, false),
-                                           mozilla::void_t(), spec);
+      reg.principal() = mozilla::ipc::ContentPrincipalInfo(
+          mozilla::OriginAttributes(0, false), mozilla::void_t(), spec);
 
       swr->TestRegisterServiceWorker(reg);
     }
@@ -843,7 +890,8 @@ TEST(ServiceWorkerRegistrar, TestDedupeWrite)
   const nsTArray<ServiceWorkerRegistrationData>& data = swr->TestGetData();
   ASSERT_EQ((uint32_t)1, data.Length()) << "1 entry should be found";
 
-  ASSERT_EQ(data[0].principal().type(), mozilla::ipc::PrincipalInfo::TContentPrincipalInfo);
+  ASSERT_EQ(data[0].principal().type(),
+            mozilla::ipc::PrincipalInfo::TContentPrincipalInfo);
   const mozilla::ipc::ContentPrincipalInfo& cInfo = data[0].principal();
 
   mozilla::OriginAttributes attrs(0, false);
@@ -867,7 +915,9 @@ TEST(ServiceWorkerRegistrar, TestDedupeWrite)
   ASSERT_EQ((int64_t)0, data[0].lastUpdateTime());
 }
 
-int main(int argc, char** argv) {
+int
+main(int argc, char** argv)
+{
   ::testing::InitGoogleTest(&argc, argv);
 
   int rv = RUN_ALL_TESTS();

@@ -14,7 +14,7 @@ namespace gfx {
 
 PrintTargetRecording::PrintTargetRecording(cairo_surface_t* aCairoSurface,
                                            const IntSize& aSize)
-  : PrintTarget(aCairoSurface, aSize)
+    : PrintTarget(aCairoSurface, aSize)
 {
 }
 
@@ -55,7 +55,7 @@ PrintTargetRecording::CreateOrNull(const IntSize& aSize)
   // work.
   //
   cairo_surface_t* surface =
-    cairo_recording_surface_create(CAIRO_CONTENT_COLOR_ALPHA, nullptr);
+      cairo_recording_surface_create(CAIRO_CONTENT_COLOR_ALPHA, nullptr);
 
   if (cairo_surface_status(surface)) {
     return nullptr;
@@ -63,7 +63,7 @@ PrintTargetRecording::CreateOrNull(const IntSize& aSize)
 
   // The new object takes ownership of our surface reference.
   RefPtr<PrintTargetRecording> target =
-    new PrintTargetRecording(surface, aSize);
+      new PrintTargetRecording(surface, aSize);
 
   return target.forget();
 }
@@ -90,8 +90,8 @@ PrintTargetRecording::MakeDrawTarget(const IntSize& aSize,
 }
 
 already_AddRefed<DrawTarget>
-PrintTargetRecording::CreateWrapAndRecordDrawTarget(DrawEventRecorder* aRecorder,
-                                                    DrawTarget* aDrawTarget)
+PrintTargetRecording::CreateWrapAndRecordDrawTarget(
+    DrawEventRecorder* aRecorder, DrawTarget* aDrawTarget)
 {
   MOZ_ASSERT(aRecorder);
   MOZ_ASSERT(aDrawTarget);
@@ -105,12 +105,12 @@ PrintTargetRecording::CreateWrapAndRecordDrawTarget(DrawEventRecorder* aRecorder
 
   if (!dt || !dt->IsValid()) {
     gfxCriticalNote
-      << "Failed to create a recording DrawTarget for PrintTarget";
+        << "Failed to create a recording DrawTarget for PrintTarget";
     return nullptr;
   }
 
   return dt.forget();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

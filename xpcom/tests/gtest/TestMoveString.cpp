@@ -22,7 +22,8 @@ namespace TestMoveString {
 
 typedef mozilla::detail::StringDataFlags Df;
 
-void SetAsOwned(nsACString& aStr, const char* aValue)
+void
+SetAsOwned(nsACString& aStr, const char* aValue)
 {
   size_t len = strlen(aValue);
   char* data = new char[len + 1];
@@ -32,20 +33,23 @@ void SetAsOwned(nsACString& aStr, const char* aValue)
   EXPECT_STREQ(aStr.BeginReading(), aValue);
 }
 
-void ExpectTruncated(const nsACString& aStr)
+void
+ExpectTruncated(const nsACString& aStr)
 {
   EXPECT_EQ(aStr.Length(), uint32_t(0));
   EXPECT_STREQ(aStr.BeginReading(), "");
   EXPECT_EQ(aStr.GetDataFlags(), Df::TERMINATED);
 }
 
-void ExpectNew(const nsACString& aStr)
+void
+ExpectNew(const nsACString& aStr)
 {
   EXPECT_EQ(aStr.Length(), strlen(NEW_VAL));
   EXPECT_TRUE(aStr.EqualsASCII(NEW_VAL));
 }
 
-TEST(MoveString, SharedIntoOwned) {
+TEST(MoveString, SharedIntoOwned)
+{
   nsCString out;
   SetAsOwned(out, OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::OWNED | Df::TERMINATED);
@@ -63,7 +67,8 @@ TEST(MoveString, SharedIntoOwned) {
   EXPECT_EQ(out.get(), data);
 }
 
-TEST(MoveString, OwnedIntoOwned) {
+TEST(MoveString, OwnedIntoOwned)
+{
   nsCString out;
   SetAsOwned(out, OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::OWNED | Df::TERMINATED);
@@ -81,7 +86,8 @@ TEST(MoveString, OwnedIntoOwned) {
   EXPECT_EQ(out.get(), data);
 }
 
-TEST(MoveString, LiteralIntoOwned) {
+TEST(MoveString, LiteralIntoOwned)
+{
   nsCString out;
   SetAsOwned(out, OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::OWNED | Df::TERMINATED);
@@ -99,7 +105,8 @@ TEST(MoveString, LiteralIntoOwned) {
   EXPECT_EQ(out.get(), data);
 }
 
-TEST(MoveString, AutoIntoOwned) {
+TEST(MoveString, AutoIntoOwned)
+{
   nsCString out;
   SetAsOwned(out, OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::OWNED | Df::TERMINATED);
@@ -117,7 +124,8 @@ TEST(MoveString, AutoIntoOwned) {
   EXPECT_NE(out.get(), data);
 }
 
-TEST(MoveString, DepIntoOwned) {
+TEST(MoveString, DepIntoOwned)
+{
   nsCString out;
   SetAsOwned(out, OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::OWNED | Df::TERMINATED);
@@ -132,7 +140,8 @@ TEST(MoveString, DepIntoOwned) {
   EXPECT_EQ(out.GetDataFlags(), Df::SHARED | Df::TERMINATED);
 }
 
-TEST(MoveString, VoidIntoOwned) {
+TEST(MoveString, VoidIntoOwned)
+{
   nsCString out;
   SetAsOwned(out, OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::OWNED | Df::TERMINATED);
@@ -148,7 +157,8 @@ TEST(MoveString, VoidIntoOwned) {
   EXPECT_EQ(out.GetDataFlags(), Df::VOIDED | Df::TERMINATED);
 }
 
-TEST(MoveString, SharedIntoAuto) {
+TEST(MoveString, SharedIntoAuto)
+{
   nsAutoCString out;
   out.Assign(OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
@@ -166,7 +176,8 @@ TEST(MoveString, SharedIntoAuto) {
   EXPECT_EQ(out.get(), data);
 }
 
-TEST(MoveString, OwnedIntoAuto) {
+TEST(MoveString, OwnedIntoAuto)
+{
   nsAutoCString out;
   out.Assign(OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
@@ -184,7 +195,8 @@ TEST(MoveString, OwnedIntoAuto) {
   EXPECT_EQ(out.get(), data);
 }
 
-TEST(MoveString, LiteralIntoAuto) {
+TEST(MoveString, LiteralIntoAuto)
+{
   nsAutoCString out;
   out.Assign(OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
@@ -202,7 +214,8 @@ TEST(MoveString, LiteralIntoAuto) {
   EXPECT_EQ(out.get(), data);
 }
 
-TEST(MoveString, AutoIntoAuto) {
+TEST(MoveString, AutoIntoAuto)
+{
   nsAutoCString out;
   out.Assign(OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
@@ -220,7 +233,8 @@ TEST(MoveString, AutoIntoAuto) {
   EXPECT_NE(out.get(), data);
 }
 
-TEST(MoveString, DepIntoAuto) {
+TEST(MoveString, DepIntoAuto)
+{
   nsAutoCString out;
   out.Assign(OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
@@ -235,7 +249,8 @@ TEST(MoveString, DepIntoAuto) {
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
 }
 
-TEST(MoveString, VoidIntoAuto) {
+TEST(MoveString, VoidIntoAuto)
+{
   nsAutoCString out;
   out.Assign(OLD_VAL);
   EXPECT_EQ(out.GetDataFlags(), Df::INLINE | Df::TERMINATED);
@@ -254,4 +269,4 @@ TEST(MoveString, VoidIntoAuto) {
 #undef NEW_VAL
 #undef OLD_VAL
 
-} // namespace TestStrings
+}  // namespace TestStrings

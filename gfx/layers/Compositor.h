@@ -6,21 +6,21 @@
 #ifndef MOZILLA_GFX_COMPOSITOR_H
 #define MOZILLA_GFX_COMPOSITOR_H
 
-#include "Units.h"                      // for ScreenPoint
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/RefPtr.h"             // for already_AddRefed, RefCounted
-#include "mozilla/gfx/2D.h"             // for DrawTarget
-#include "mozilla/gfx/MatrixFwd.h"      // for Matrix, Matrix4x4
-#include "mozilla/gfx/Point.h"          // for IntSize, Point
-#include "mozilla/gfx/Polygon.h"        // for Polygon
-#include "mozilla/gfx/Rect.h"           // for Rect, IntRect
-#include "mozilla/gfx/Types.h"          // for Float
-#include "mozilla/gfx/Triangle.h"       // for Triangle, TexturedTriangle
+#include "Units.h"                           // for ScreenPoint
+#include "mozilla/Assertions.h"              // for MOZ_ASSERT, etc
+#include "mozilla/RefPtr.h"                  // for already_AddRefed, RefCounted
+#include "mozilla/gfx/2D.h"                  // for DrawTarget
+#include "mozilla/gfx/MatrixFwd.h"           // for Matrix, Matrix4x4
+#include "mozilla/gfx/Point.h"               // for IntSize, Point
+#include "mozilla/gfx/Polygon.h"             // for Polygon
+#include "mozilla/gfx/Rect.h"                // for Rect, IntRect
+#include "mozilla/gfx/Types.h"               // for Float
+#include "mozilla/gfx/Triangle.h"            // for Triangle, TexturedTriangle
 #include "mozilla/layers/CompositorTypes.h"  // for DiagnosticTypes, etc
-#include "mozilla/layers/LayersTypes.h"  // for LayersBackend
+#include "mozilla/layers/LayersTypes.h"      // for LayersBackend
 #include "mozilla/layers/TextureSourceProvider.h"
 #include "mozilla/widget/CompositorWidget.h"
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, etc
 #include "nsRegion.h"
 #include <vector>
 #include "mozilla/WidgetUtils.h"
@@ -116,7 +116,7 @@ namespace mozilla {
 namespace gfx {
 class DrawTarget;
 class DataSourceSurface;
-} // namespace gfx
+}  // namespace gfx
 
 namespace layers {
 
@@ -181,10 +181,10 @@ enum SurfaceInitMode
  */
 class Compositor : public TextureSourceProvider
 {
-protected:
+ protected:
   virtual ~Compositor();
 
-public:
+ public:
   explicit Compositor(widget::CompositorWidget* aWidget,
                       CompositorBridgeParent* aParent = nullptr);
 
@@ -218,14 +218,8 @@ public:
     mTarget = aTarget;
     mTargetBounds = aRect;
   }
-  gfx::DrawTarget* GetTargetContext() const
-  {
-    return mTarget;
-  }
-  void ClearTargetContext()
-  {
-    mTarget = nullptr;
-  }
+  gfx::DrawTarget* GetTargetContext() const { return mTarget; }
+  void ClearTargetContext() { mTarget = nullptr; }
 
   typedef uint32_t MakeCurrentFlags;
   static const MakeCurrentFlags ForceMakeCurrent = 0x1;
@@ -246,8 +240,8 @@ public:
    * Creates a Surface that can be used as a rendering target by this
    * compositor.
    */
-  virtual already_AddRefed<CompositingRenderTarget>
-  CreateRenderTarget(const gfx::IntRect& aRect, SurfaceInitMode aInit) = 0;
+  virtual already_AddRefed<CompositingRenderTarget> CreateRenderTarget(
+      const gfx::IntRect& aRect, SurfaceInitMode aInit) = 0;
 
   /**
    * Creates a Surface that can be used as a rendering target by this
@@ -287,7 +281,7 @@ public:
 
   void DrawGeometry(const gfx::Rect& aRect,
                     const gfx::IntRect& aClipRect,
-                    const EffectChain &aEffectChain,
+                    const EffectChain& aEffectChain,
                     gfx::Float aOpacity,
                     const gfx::Matrix4x4& aTransform,
                     const gfx::Rect& aVisibleRect,
@@ -295,13 +289,13 @@ public:
 
   void DrawGeometry(const gfx::Rect& aRect,
                     const gfx::IntRect& aClipRect,
-                    const EffectChain &aEffectChain,
+                    const EffectChain& aEffectChain,
                     gfx::Float aOpacity,
                     const gfx::Matrix4x4& aTransform,
                     const Maybe<gfx::Polygon>& aGeometry)
   {
-    DrawGeometry(aRect, aClipRect, aEffectChain, aOpacity,
-                 aTransform, aRect, aGeometry);
+    DrawGeometry(
+        aRect, aClipRect, aEffectChain, aOpacity, aTransform, aRect, aGeometry);
   }
 
   /**
@@ -312,9 +306,11 @@ public:
    * aVisibleRect is used to determine which edges should be antialiased,
    * without applying the effect to the inner edges of a tiled layer.
    */
-  virtual void DrawQuad(const gfx::Rect& aRect, const gfx::IntRect& aClipRect,
+  virtual void DrawQuad(const gfx::Rect& aRect,
+                        const gfx::IntRect& aClipRect,
                         const EffectChain& aEffectChain,
-                        gfx::Float aOpacity, const gfx::Matrix4x4& aTransform,
+                        gfx::Float aOpacity,
+                        const gfx::Matrix4x4& aTransform,
                         const gfx::Rect& aVisibleRect) = 0;
 
   /**
@@ -322,10 +318,13 @@ public:
    * Use this when you are drawing a single quad that is not part of a tiled
    * layer.
    */
-  void DrawQuad(const gfx::Rect& aRect, const gfx::IntRect& aClipRect,
-                        const EffectChain& aEffectChain,
-                        gfx::Float aOpacity, const gfx::Matrix4x4& aTransform) {
-      DrawQuad(aRect, aClipRect, aEffectChain, aOpacity, aTransform, aRect);
+  void DrawQuad(const gfx::Rect& aRect,
+                const gfx::IntRect& aClipRect,
+                const EffectChain& aEffectChain,
+                gfx::Float aOpacity,
+                const gfx::Matrix4x4& aTransform)
+  {
+    DrawQuad(aRect, aClipRect, aEffectChain, aOpacity, aTransform, aRect);
   }
 
   virtual void DrawTriangle(const gfx::TexturedTriangle& aTriangle,
@@ -335,40 +334,38 @@ public:
                             const gfx::Matrix4x4& aTransform,
                             const gfx::Rect& aVisibleRect)
   {
-    MOZ_CRASH("Compositor::DrawTriangle is not implemented for the current platform!");
+    MOZ_CRASH(
+        "Compositor::DrawTriangle is not implemented for the current "
+        "platform!");
   }
 
-  virtual bool SupportsLayerGeometry() const
-  {
-    return false;
-  }
+  virtual bool SupportsLayerGeometry() const { return false; }
 
   /**
    * Draw an unfilled solid color rect. Typically used for debugging overlays.
    */
-  void SlowDrawRect(const gfx::Rect& aRect, const gfx::Color& color,
-                const gfx::IntRect& aClipRect = gfx::IntRect(),
-                const gfx::Matrix4x4& aTransform = gfx::Matrix4x4(),
-                int aStrokeWidth = 1);
+  void SlowDrawRect(const gfx::Rect& aRect,
+                    const gfx::Color& color,
+                    const gfx::IntRect& aClipRect = gfx::IntRect(),
+                    const gfx::Matrix4x4& aTransform = gfx::Matrix4x4(),
+                    int aStrokeWidth = 1);
 
   /**
    * Draw a solid color filled rect. This is a simple DrawQuad helper.
    */
-  void FillRect(const gfx::Rect& aRect, const gfx::Color& color,
-                    const gfx::IntRect& aClipRect = gfx::IntRect(),
-                    const gfx::Matrix4x4& aTransform = gfx::Matrix4x4());
+  void FillRect(const gfx::Rect& aRect,
+                const gfx::Color& color,
+                const gfx::IntRect& aClipRect = gfx::IntRect(),
+                const gfx::Matrix4x4& aTransform = gfx::Matrix4x4());
 
-  void SetClearColor(const gfx::Color& aColor) {
-    mClearColor = aColor;
-  }
+  void SetClearColor(const gfx::Color& aColor) { mClearColor = aColor; }
 
-  void SetDefaultClearColor(const gfx::Color& aColor) {
+  void SetDefaultClearColor(const gfx::Color& aColor)
+  {
     mDefaultClearColor = aColor;
   }
 
-  void SetClearColorToDefault() {
-    mClearColor = mDefaultClearColor;
-  }
+  void SetClearColorToDefault() { mClearColor = mDefaultClearColor; }
 
   /*
    * Clear aRect on current render target.
@@ -431,10 +428,7 @@ public:
     mDiagnosticTypes = aDiagnostics;
   }
 
-  DiagnosticTypes GetDiagnosticTypes() const
-  {
-    return mDiagnosticTypes;
-  }
+  DiagnosticTypes GetDiagnosticTypes() const { return mDiagnosticTypes; }
 
   void DrawDiagnostics(DiagnosticFlags aFlags,
                        const gfx::Rect& visibleRect,
@@ -450,7 +444,7 @@ public:
 
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const = 0;
-#endif // MOZ_DUMP_PAINTING
+#endif  // MOZ_DUMP_PAINTING
 
   virtual LayersBackend GetBackendType() const = 0;
 
@@ -458,11 +452,10 @@ public:
   virtual CompositorD3D11* AsCompositorD3D11() { return nullptr; }
   virtual BasicCompositor* AsBasicCompositor() { return nullptr; }
 
-  virtual Compositor* AsCompositor() override {
-    return this;
-  }
+  virtual Compositor* AsCompositor() override { return this; }
 
-  TimeStamp GetLastCompositionEndTime() const override {
+  TimeStamp GetLastCompositionEndTime() const override
+  {
     return mLastCompositionEndTime;
   }
 
@@ -487,7 +480,7 @@ public:
    */
   virtual bool Ready() { return true; }
 
-  virtual void ForcePresent() { }
+  virtual void ForcePresent() {}
 
   virtual bool IsPendingComposite() { return false; }
 
@@ -504,10 +497,9 @@ public:
   // Return statistics for the most recent frame we computed statistics for.
   virtual void GetFrameStats(GPUStats* aStats);
 
-  ScreenRotation GetScreenRotation() const {
-    return mScreenRotation;
-  }
-  void SetScreenRotation(ScreenRotation aRotation) {
+  ScreenRotation GetScreenRotation() const { return mScreenRotation; }
+  void SetScreenRotation(ScreenRotation aRotation)
+  {
     mScreenRotation = aRotation;
   }
 
@@ -515,11 +507,9 @@ public:
   // frames and should not be used.
   void SetInvalid();
   virtual bool IsValid() const override;
-  CompositorBridgeParent* GetCompositorBridgeParent() const {
-    return mParent;
-  }
+  CompositorBridgeParent* GetCompositorBridgeParent() const { return mParent; }
 
-protected:
+ protected:
   void DrawDiagnosticsInternal(DiagnosticFlags aFlags,
                                const gfx::Rect& aVisibleRect,
                                const gfx::IntRect& aClipRect,
@@ -592,40 +582,40 @@ protected:
   gfx::Color mClearColor;
   gfx::Color mDefaultClearColor;
 
-private:
+ private:
   static LayersBackend sBackend;
-
 };
 
 // Returns the number of rects. (Up to 4)
 typedef gfx::Rect decomposedRectArrayT[4];
-size_t DecomposeIntoNoRepeatRects(const gfx::Rect& aRect,
-                                  const gfx::Rect& aTexCoordRect,
-                                  decomposedRectArrayT* aLayerRects,
-                                  decomposedRectArrayT* aTextureRects);
+size_t
+DecomposeIntoNoRepeatRects(const gfx::Rect& aRect,
+                           const gfx::Rect& aTexCoordRect,
+                           decomposedRectArrayT* aLayerRects,
+                           decomposedRectArrayT* aTextureRects);
 
 static inline bool
 BlendOpIsMixBlendMode(gfx::CompositionOp aOp)
 {
   switch (aOp) {
-  case gfx::CompositionOp::OP_MULTIPLY:
-  case gfx::CompositionOp::OP_SCREEN:
-  case gfx::CompositionOp::OP_OVERLAY:
-  case gfx::CompositionOp::OP_DARKEN:
-  case gfx::CompositionOp::OP_LIGHTEN:
-  case gfx::CompositionOp::OP_COLOR_DODGE:
-  case gfx::CompositionOp::OP_COLOR_BURN:
-  case gfx::CompositionOp::OP_HARD_LIGHT:
-  case gfx::CompositionOp::OP_SOFT_LIGHT:
-  case gfx::CompositionOp::OP_DIFFERENCE:
-  case gfx::CompositionOp::OP_EXCLUSION:
-  case gfx::CompositionOp::OP_HUE:
-  case gfx::CompositionOp::OP_SATURATION:
-  case gfx::CompositionOp::OP_COLOR:
-  case gfx::CompositionOp::OP_LUMINOSITY:
-    return true;
-  default:
-    return false;
+    case gfx::CompositionOp::OP_MULTIPLY:
+    case gfx::CompositionOp::OP_SCREEN:
+    case gfx::CompositionOp::OP_OVERLAY:
+    case gfx::CompositionOp::OP_DARKEN:
+    case gfx::CompositionOp::OP_LIGHTEN:
+    case gfx::CompositionOp::OP_COLOR_DODGE:
+    case gfx::CompositionOp::OP_COLOR_BURN:
+    case gfx::CompositionOp::OP_HARD_LIGHT:
+    case gfx::CompositionOp::OP_SOFT_LIGHT:
+    case gfx::CompositionOp::OP_DIFFERENCE:
+    case gfx::CompositionOp::OP_EXCLUSION:
+    case gfx::CompositionOp::OP_HUE:
+    case gfx::CompositionOp::OP_SATURATION:
+    case gfx::CompositionOp::OP_COLOR:
+    case gfx::CompositionOp::OP_LUMINOSITY:
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -636,9 +626,10 @@ struct TexturedVertex
 };
 
 nsTArray<TexturedVertex>
-TexturedTrianglesToVertexArray(const nsTArray<gfx::TexturedTriangle>& aTriangles);
+TexturedTrianglesToVertexArray(
+    const nsTArray<gfx::TexturedTriangle>& aTriangles);
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_COMPOSITOR_H */

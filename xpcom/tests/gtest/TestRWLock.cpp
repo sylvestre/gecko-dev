@@ -19,17 +19,19 @@ static const size_t sWriteLockIteration = 10;
 // Based on example code from _Programming with POSIX Threads_.  Not an actual
 // test of correctness, but more of a "does this work at all" sort of test.
 
-class RWLockRunnable : public mozilla::Runnable {
-public:
+class RWLockRunnable : public mozilla::Runnable
+{
+ public:
   RWLockRunnable(RWLock* aRWLock, mozilla::Atomic<size_t>* aSharedData)
-    : mozilla::Runnable("RWLockRunnable")
-    , mRWLock(aRWLock)
-    , mSharedData(aSharedData)
-  {}
+      : mozilla::Runnable("RWLockRunnable"),
+        mRWLock(aRWLock),
+        mSharedData(aSharedData)
+  {
+  }
 
   NS_DECL_NSIRUNNABLE
 
-private:
+ private:
   ~RWLockRunnable() = default;
 
   RWLock* mRWLock;

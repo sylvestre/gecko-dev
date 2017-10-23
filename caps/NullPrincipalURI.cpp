@@ -18,9 +18,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// NullPrincipalURI
 
-NullPrincipalURI::NullPrincipalURI()
-{
-}
+NullPrincipalURI::NullPrincipalURI() {}
 
 NullPrincipalURI::NullPrincipalURI(const NullPrincipalURI& aOther)
 {
@@ -38,9 +36,9 @@ NullPrincipalURI::Init()
   nsresult rv = uuidgen->GenerateUUIDInPlace(&id);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mPath.SetLength(NSID_LENGTH - 1); // -1 because NSID_LENGTH counts the '\0'
+  mPath.SetLength(NSID_LENGTH - 1);  // -1 because NSID_LENGTH counts the '\0'
   id.ToProvidedString(
-    *reinterpret_cast<char(*)[NSID_LENGTH]>(mPath.BeginWriting()));
+      *reinterpret_cast<char(*)[NSID_LENGTH]>(mPath.BeginWriting()));
 
   MOZ_ASSERT(mPath.Length() == NSID_LENGTH - 1);
   MOZ_ASSERT(strlen(mPath.get()) == NSID_LENGTH - 1);
@@ -69,7 +67,7 @@ NS_INTERFACE_MAP_BEGIN(NullPrincipalURI)
   if (aIID.Equals(kNullPrincipalURIImplementationCID))
     foundInterface = static_cast<nsIURI*>(this);
   else
-  NS_INTERFACE_MAP_ENTRY(nsIURI)
+    NS_INTERFACE_MAP_ENTRY(nsIURI)
   NS_INTERFACE_MAP_ENTRY(nsISizeOf)
   NS_INTERFACE_MAP_ENTRY(nsIIPCSerializableURI)
 NS_INTERFACE_MAP_END
@@ -212,16 +210,10 @@ NullPrincipalURI::GetPrePath(nsACString& _prePath)
 }
 
 NS_IMETHODIMP
-NullPrincipalURI::GetPort(int32_t* _port)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+NullPrincipalURI::GetPort(int32_t* _port) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
-NullPrincipalURI::SetPort(int32_t aPort)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+NullPrincipalURI::SetPort(int32_t aPort) { return NS_ERROR_NOT_IMPLEMENTED; }
 
 NS_IMETHODIMP
 NullPrincipalURI::GetScheme(nsACString& _scheme)
@@ -334,7 +326,7 @@ NullPrincipalURI::EqualsExceptRef(nsIURI* aOther, bool* _equals)
 
 NS_IMETHODIMP
 NullPrincipalURI::Resolve(const nsACString& aRelativePath,
-                            nsACString& _resolvedURI)
+                          nsACString& _resolvedURI)
 {
   _resolvedURI = aRelativePath;
   return NS_OK;
@@ -348,27 +340,27 @@ NullPrincipalURI::SchemeIs(const char* aScheme, bool* _schemeIs)
 }
 
 NS_IMETHODIMP
-NullPrincipalURI::GetDisplaySpec(nsACString &aUnicodeSpec)
+NullPrincipalURI::GetDisplaySpec(nsACString& aUnicodeSpec)
 {
   return GetSpec(aUnicodeSpec);
 }
 
 NS_IMETHODIMP
-NullPrincipalURI::GetDisplayHostPort(nsACString &aUnicodeHostPort)
+NullPrincipalURI::GetDisplayHostPort(nsACString& aUnicodeHostPort)
 {
   return GetHostPort(aUnicodeHostPort);
 }
 
 NS_IMETHODIMP
-NullPrincipalURI::GetDisplayHost(nsACString &aUnicodeHost)
+NullPrincipalURI::GetDisplayHost(nsACString& aUnicodeHost)
 {
   return GetHost(aUnicodeHost);
 }
 
 NS_IMETHODIMP
-NullPrincipalURI::GetDisplayPrePath(nsACString &aPrePath)
+NullPrincipalURI::GetDisplayPrePath(nsACString& aPrePath)
 {
-    return GetPrePath(aPrePath);
+  return GetPrePath(aPrePath);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

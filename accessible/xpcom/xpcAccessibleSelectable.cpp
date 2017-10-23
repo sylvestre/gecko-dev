@@ -17,24 +17,23 @@ xpcAccessibleSelectable::GetSelectedItems(nsIArray** aSelectedItems)
   NS_ENSURE_ARG_POINTER(aSelectedItems);
   *aSelectedItems = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   AutoTArray<Accessible*, 10> items;
   Intl()->SelectedItems(&items);
 
   uint32_t itemCount = items.Length();
-  if (itemCount == 0)
-    return NS_OK;
+  if (itemCount == 0) return NS_OK;
 
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMutableArray> xpcItems =
-    do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
+      do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   for (uint32_t idx = 0; idx < itemCount; idx++)
-    xpcItems->AppendElement(static_cast<nsIAccessible*>(ToXPC(items[idx])), false);
+    xpcItems->AppendElement(static_cast<nsIAccessible*>(ToXPC(items[idx])),
+                            false);
 
   NS_ADDREF(*aSelectedItems = xpcItems);
   return NS_OK;
@@ -46,8 +45,7 @@ xpcAccessibleSelectable::GetSelectedItemCount(uint32_t* aSelectionCount)
   NS_ENSURE_ARG_POINTER(aSelectionCount);
   *aSelectionCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   *aSelectionCount = Intl()->SelectedItemCount();
@@ -61,8 +59,7 @@ xpcAccessibleSelectable::GetSelectedItemAt(uint32_t aIndex,
   NS_ENSURE_ARG_POINTER(aSelected);
   *aSelected = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   *aSelected = ToXPC(Intl()->GetSelectedItem(aIndex));
@@ -80,8 +77,7 @@ xpcAccessibleSelectable::IsItemSelected(uint32_t aIndex, bool* aIsSelected)
   NS_ENSURE_ARG_POINTER(aIsSelected);
   *aIsSelected = false;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   *aIsSelected = Intl()->IsItemSelected(aIndex);
@@ -91,8 +87,7 @@ xpcAccessibleSelectable::IsItemSelected(uint32_t aIndex, bool* aIsSelected)
 NS_IMETHODIMP
 xpcAccessibleSelectable::AddItemToSelection(uint32_t aIndex)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   return Intl()->AddItemToSelection(aIndex) ? NS_OK : NS_ERROR_INVALID_ARG;
@@ -101,8 +96,7 @@ xpcAccessibleSelectable::AddItemToSelection(uint32_t aIndex)
 NS_IMETHODIMP
 xpcAccessibleSelectable::RemoveItemFromSelection(uint32_t aIndex)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   return Intl()->RemoveItemFromSelection(aIndex) ? NS_OK : NS_ERROR_INVALID_ARG;
@@ -114,8 +108,7 @@ xpcAccessibleSelectable::SelectAll(bool* aIsMultiSelect)
   NS_ENSURE_ARG_POINTER(aIsMultiSelect);
   *aIsMultiSelect = false;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   *aIsMultiSelect = Intl()->SelectAll();
@@ -125,8 +118,7 @@ xpcAccessibleSelectable::SelectAll(bool* aIsMultiSelect)
 NS_IMETHODIMP
 xpcAccessibleSelectable::UnselectAll()
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
   NS_PRECONDITION(Intl()->IsSelect(), "Called on non selectable widget!");
 
   Intl()->UnselectAll();

@@ -53,7 +53,8 @@ StyleSheet::GetBaseURI() const
 }
 
 void
-StyleSheet::SetURIs(nsIURI* aSheetURI, nsIURI* aOriginalSheetURI,
+StyleSheet::SetURIs(nsIURI* aSheetURI,
+                    nsIURI* aOriginalSheetURI,
                     nsIURI* aBaseURI)
 {
   NS_PRECONDITION(aSheetURI && aBaseURI, "null ptr");
@@ -72,13 +73,9 @@ StyleSheet::IsApplicable() const
 }
 
 bool
-StyleSheet::HasRules() const
-{
-  MOZ_STYLO_FORWARD(HasRules, ())
-}
+StyleSheet::HasRules() const {MOZ_STYLO_FORWARD(HasRules, ())}
 
-StyleSheet*
-StyleSheet::GetParentStyleSheet() const
+StyleSheet* StyleSheet::GetParentStyleSheet() const
 {
   return GetParentSheet();
 }
@@ -135,6 +132,6 @@ StyleSheet::HasUniqueInner() const
   return mInner->mSheets.Length() == 1;
 }
 
-}
+}  // namespace mozilla
 
-#endif // mozilla_StyleSheetInlines_h
+#endif  // mozilla_StyleSheetInlines_h

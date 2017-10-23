@@ -20,4 +20,4 @@ ByteLengthIsValid(uint32_t aNumElements, size_t aElementSize, int* aByteLength)
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC

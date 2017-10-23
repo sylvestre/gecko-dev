@@ -86,7 +86,8 @@ namespace mozilla {
  *   large values for |n| appear to be indistinguishable from those with small
  *   values for |n|.
  */
-class FastBernoulliTrial {
+class FastBernoulliTrial
+{
   /*
    * This comment should just read, "Generate skip counts with a geometric
    * distribution", and leave everyone to go look that up and see why it's the
@@ -177,10 +178,10 @@ class FastBernoulliTrial {
    * random number generator; both may not be zero.
    */
   FastBernoulliTrial(double aProbability, uint64_t aState0, uint64_t aState1)
-   : mProbability(0)
-   , mInvLogNotProbability(0)
-   , mGenerator(aState0, aState1)
-   , mSkipCount(0)
+      : mProbability(0),
+        mInvLogNotProbability(0),
+        mGenerator(aState0, aState1),
+        mSkipCount(0)
   {
     setProbability(aProbability);
   }
@@ -190,7 +191,8 @@ class FastBernoulliTrial {
    * occurs, to decide whether to sample it or not. The lower |mProbability| is,
    * the faster this function runs.
    */
-  bool trial() {
+  bool trial()
+  {
     if (mSkipCount) {
       mSkipCount--;
       return false;
@@ -215,7 +217,8 @@ class FastBernoulliTrial {
    * large values for |n| appear to be indistinguishable from those with small
    * values for |n|, despite being potentially much more likely to be sampled.
    */
-  bool trial(size_t aCount) {
+  bool trial(size_t aCount)
+  {
     if (mSkipCount > aCount) {
       mSkipCount -= aCount;
       return false;
@@ -224,11 +227,13 @@ class FastBernoulliTrial {
     return chooseSkipCount();
   }
 
-  void setRandomState(uint64_t aState0, uint64_t aState1) {
+  void setRandomState(uint64_t aState0, uint64_t aState1)
+  {
     mGenerator.setState(aState0, aState1);
   }
 
-  void setProbability(double aProbability) {
+  void setProbability(double aProbability)
+  {
     MOZ_ASSERT(0 <= aProbability && aProbability <= 1);
     mProbability = aProbability;
     if (0 < mProbability && mProbability < 1) {
@@ -314,7 +319,8 @@ class FastBernoulliTrial {
    * return, since we have to check for the extreme values for mProbability
    * anyway, and |trial| should never return true at all when mProbability is 0.
    */
-  bool chooseSkipCount() {
+  bool chooseSkipCount()
+  {
     /*
      * If the probability is 1.0, every call to |trial| returns true. Make sure
      * mSkipCount is 0.
@@ -363,8 +369,8 @@ class FastBernoulliTrial {
      * (On 32-bit machines, all size_t values can be represented exactly in
      * double, so all is well.)
      */
-    double skipCount = std::floor(std::log(mGenerator.nextDouble())
-                                  * mInvLogNotProbability);
+    double skipCount =
+        std::floor(std::log(mGenerator.nextDouble()) * mInvLogNotProbability);
     if (skipCount < SIZE_MAX)
       mSkipCount = skipCount;
     else
@@ -374,6 +380,6 @@ class FastBernoulliTrial {
   }
 };
 
-}  /* namespace mozilla */
+} /* namespace mozilla */
 
 #endif /* mozilla_FastBernoulliTrial_h */

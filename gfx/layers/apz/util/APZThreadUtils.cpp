@@ -14,12 +14,14 @@ static bool sThreadAssertionsEnabled = true;
 static MessageLoop* sControllerThread;
 
 /*static*/ void
-APZThreadUtils::SetThreadAssertionsEnabled(bool aEnabled) {
+APZThreadUtils::SetThreadAssertionsEnabled(bool aEnabled)
+{
   sThreadAssertionsEnabled = aEnabled;
 }
 
 /*static*/ bool
-APZThreadUtils::GetThreadAssertionsEnabled() {
+APZThreadUtils::GetThreadAssertionsEnabled()
+{
   return sThreadAssertionsEnabled;
 }
 
@@ -33,7 +35,8 @@ APZThreadUtils::SetControllerThread(MessageLoop* aLoop)
 }
 
 /*static*/ void
-APZThreadUtils::AssertOnControllerThread() {
+APZThreadUtils::AssertOnControllerThread()
+{
   if (!GetThreadAssertionsEnabled()) {
     return;
   }
@@ -75,5 +78,5 @@ APZThreadUtils::IsControllerThread()
 
 NS_IMPL_ISUPPORTS(GenericNamedTimerCallbackBase, nsITimerCallback, nsINamed)
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

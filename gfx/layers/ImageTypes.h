@@ -8,7 +8,8 @@
 
 namespace mozilla {
 
-enum class ImageFormat {
+enum class ImageFormat
+{
   /**
    * The PLANAR_YCBCR format creates a PlanarYCbCrImage. All backends should
    * support this format, because the Ogg video decoder depends on it.
@@ -89,7 +90,8 @@ enum class ImageFormat {
   GPU_VIDEO
 };
 
-enum class StereoMode {
+enum class StereoMode
+{
   MONO,
   LEFT_RIGHT,
   RIGHT_LEFT,
@@ -98,13 +100,14 @@ enum class StereoMode {
   MAX,
 };
 
-enum class YUVColorSpace {
+enum class YUVColorSpace
+{
   BT601,
   BT709,
   // This represents the unknown format.
   UNKNOWN,
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

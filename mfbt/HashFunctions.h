@@ -176,7 +176,8 @@ AddToHash(uint32_t aHash, A* aA)
 // are treated the same as 64-bit pointers, and smaller integral types are first
 // implicitly converted to 32 bits and then passed to AddUintptrToHash() to be hashed.
 template<typename T,
-         typename U = typename mozilla::EnableIf<mozilla::IsIntegral<T>::value>::Type>
+         typename U =
+             typename mozilla::EnableIf<mozilla::IsIntegral<T>::value>::Type>
 MOZ_MUST_USE inline uint32_t
 AddToHash(uint32_t aHash, T aA)
 {
@@ -245,7 +246,8 @@ HashString(const char* aStr)
 MOZ_MUST_USE inline uint32_t
 HashString(const char* aStr, size_t aLength)
 {
-  return detail::HashKnownLength(reinterpret_cast<const unsigned char*>(aStr), aLength);
+  return detail::HashKnownLength(reinterpret_cast<const unsigned char*>(aStr),
+                                 aLength);
 }
 
 MOZ_MUST_USE
@@ -316,9 +318,11 @@ class HashCodeScrambler
 
   uint64_t mK0, mK1;
 
-public:
+ public:
   /** Creates a new scrambler with the given 128-bit key. */
-  constexpr HashCodeScrambler(uint64_t aK0, uint64_t aK1) : mK0(aK0), mK1(aK1) {}
+  constexpr HashCodeScrambler(uint64_t aK0, uint64_t aK1) : mK0(aK0), mK1(aK1)
+  {
+  }
 
   /**
    * Scramble a hash code. Always produces the same result for the same
@@ -330,7 +334,7 @@ public:
     return uint32_t(hasher.sipHash(aHashCode));
   }
 
-private:
+ private:
   struct SipHasher
   {
     SipHasher(uint64_t aK0, uint64_t aK1)
@@ -351,8 +355,7 @@ private:
 
       // 3. Finalization.
       mV2 ^= 0xff;
-      for (int i = 0; i < 3; i++)
-        sipRound();
+      for (int i = 0; i < 3; i++) sipRound();
       return mV0 ^ mV1 ^ mV2 ^ mV3;
     }
 

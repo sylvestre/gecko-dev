@@ -14,8 +14,9 @@
 #include "GMPCallbackBase.h"
 #include "GMPUtils.h"
 
-class GMPVideoEncoderCallbackProxy : public GMPCallbackBase {
-public:
+class GMPVideoEncoderCallbackProxy : public GMPCallbackBase
+{
+ public:
   virtual ~GMPVideoEncoderCallbackProxy() {}
   virtual void Encoded(GMPVideoEncodedFrame* aEncodedFrame,
                        const nsTArray<uint8_t>& aCodecSpecificInfo) = 0;
@@ -33,8 +34,9 @@ public:
 // not access this again.
 
 // This interface is not thread-safe and must only be used from GMPThread.
-class GMPVideoEncoderProxy {
-public:
+class GMPVideoEncoderProxy
+{
+ public:
   virtual GMPErr InitEncode(const GMPVideoCodec& aCodecSettings,
                             const nsTArray<uint8_t>& aCodecSpecific,
                             GMPVideoEncoderCallbackProxy* aCallback,
@@ -53,4 +55,4 @@ public:
   virtual void Close() = 0;
 };
 
-#endif // GMPVideoEncoderProxy_h_
+#endif  // GMPVideoEncoderProxy_h_

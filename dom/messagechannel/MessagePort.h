@@ -30,41 +30,40 @@ class SharedMessagePortMessage;
 
 namespace workers {
 class WorkerHolder;
-} // namespace workers
+}  // namespace workers
 
-class MessagePort final : public DOMEventTargetHelper
-                        , public nsIIPCBackgroundChildCreateCallback
-                        , public nsIObserver
+class MessagePort final : public DOMEventTargetHelper,
+                          public nsIIPCBackgroundChildCreateCallback,
+                          public nsIObserver
 {
   friend class PostMessageRunnable;
 
-public:
+ public:
   NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK
   NS_DECL_NSIOBSERVER
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MessagePort,
-                                           DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MessagePort, DOMEventTargetHelper)
 
-  static already_AddRefed<MessagePort>
-  Create(nsIGlobalObject* aGlobal, const nsID& aUUID,
-         const nsID& aDestinationUUID, ErrorResult& aRv);
+  static already_AddRefed<MessagePort> Create(nsIGlobalObject* aGlobal,
+                                              const nsID& aUUID,
+                                              const nsID& aDestinationUUID,
+                                              ErrorResult& aRv);
 
-  static already_AddRefed<MessagePort>
-  Create(nsIGlobalObject* aGlobal,
-         const MessagePortIdentifier& aIdentifier,
-         ErrorResult& aRv);
+  static already_AddRefed<MessagePort> Create(
+      nsIGlobalObject* aGlobal,
+      const MessagePortIdentifier& aIdentifier,
+      ErrorResult& aRv);
 
   // For IPC.
-  static void
-  ForceClose(const MessagePortIdentifier& aIdentifier);
+  static void ForceClose(const MessagePortIdentifier& aIdentifier);
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
-              const Sequence<JSObject*>& aTransferable,
-              ErrorResult& aRv);
+  void PostMessage(JSContext* aCx,
+                   JS::Handle<JS::Value> aMessage,
+                   const Sequence<JSObject*>& aTransferable,
+                   ErrorResult& aRv);
 
   void Start();
 
@@ -91,11 +90,12 @@ public:
   void StopSendingDataConfirmed();
   void Closed();
 
-private:
+ private:
   explicit MessagePort(nsIGlobalObject* aGlobal);
   ~MessagePort();
 
-  enum State {
+  enum State
+  {
     // When a port is created by a MessageChannel it is entangled with the
     // other. They both run on the same thread, same event loop and the
     // messages are added to the queues without using PBackground actors.
@@ -140,8 +140,11 @@ private:
     eStateDisentangledForClose
   };
 
-  void Initialize(const nsID& aUUID, const nsID& aDestinationUUID,
-                  uint32_t aSequenceID, bool mNeutered, State aState,
+  void Initialize(const nsID& aUUID,
+                  const nsID& aDestinationUUID,
+                  uint32_t aSequenceID,
+                  bool mNeutered,
+                  State aState,
                   ErrorResult& aRv);
 
   void ConnectToPBackground();
@@ -163,10 +166,7 @@ private:
   // We release the object when the port is closed or disentangled.
   void UpdateMustKeepAlive();
 
-  bool IsCertainlyAliveForCC() const override
-  {
-    return mIsKeptAlive;
-  }
+  bool IsCertainlyAliveForCC() const override { return mIsKeptAlive; }
 
   nsAutoPtr<workers::WorkerHolder> mWorkerHolder;
 
@@ -190,7 +190,7 @@ private:
   bool mIsKeptAlive;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MessagePort_h
+#endif  // mozilla_dom_MessagePort_h

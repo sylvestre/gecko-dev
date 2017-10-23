@@ -7,7 +7,7 @@
 #include "nsXMLElement.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/ElementInlines.h"
-#include "nsContentUtils.h" // nsAutoScriptBlocker
+#include "nsContentUtils.h"  // nsAutoScriptBlocker
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -21,11 +21,10 @@ NS_NewXMLElement(Element** aInstancePtrResult,
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS_INHERITED(nsXMLElement, Element,
-                            nsIDOMNode, nsIDOMElement)
+NS_IMPL_ISUPPORTS_INHERITED(nsXMLElement, Element, nsIDOMNode, nsIDOMElement)
 
 JSObject*
-nsXMLElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+nsXMLElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return ElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -35,8 +34,8 @@ nsXMLElement::UnbindFromTree(bool aDeep, bool aNullParent)
 {
   CSSPseudoElementType pseudoType = GetPseudoElementType();
   bool isBefore = pseudoType == CSSPseudoElementType::before;
-  nsAtom* property = isBefore
-    ? nsGkAtoms::beforePseudoProperty : nsGkAtoms::afterPseudoProperty;
+  nsAtom* property = isBefore ? nsGkAtoms::beforePseudoProperty
+                              : nsGkAtoms::afterPseudoProperty;
 
   switch (pseudoType) {
     case CSSPseudoElementType::before:

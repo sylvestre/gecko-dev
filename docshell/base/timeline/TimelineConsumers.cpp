@@ -7,7 +7,7 @@
 #include "TimelineConsumers.h"
 
 #include "mozilla/ClearOnShutdown.h"
-#include "nsAppRunner.h" // for XRE_IsContentProcess, XRE_IsParentProcess
+#include "nsAppRunner.h"  // for XRE_IsContentProcess, XRE_IsParentProcess
 #include "nsDocShell.h"
 
 namespace mozilla {
@@ -77,7 +77,7 @@ TimelineConsumers::Init()
     return false;
   }
   if (NS_WARN_IF(NS_FAILED(
-    obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false)))) {
+          obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false)))) {
     return false;
   }
   return true;
@@ -91,7 +91,7 @@ TimelineConsumers::RemoveObservers()
     return false;
   }
   if (NS_WARN_IF(NS_FAILED(
-    obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)))) {
+          obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)))) {
     return false;
   }
   return true;
@@ -112,16 +112,14 @@ TimelineConsumers::Observe(nsISupports* aSubject,
   return NS_ERROR_UNEXPECTED;
 }
 
-TimelineConsumers::TimelineConsumers()
-  : mActiveConsumers(0)
-{
-}
+TimelineConsumers::TimelineConsumers() : mActiveConsumers(0) {}
 
 void
 TimelineConsumers::AddConsumer(nsDocShell* aDocShell)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  StaticMutexAutoLock lock(sMutex); // for `mActiveConsumers` and `mMarkersStores`.
+  StaticMutexAutoLock lock(
+      sMutex);  // for `mActiveConsumers` and `mMarkersStores`.
 
   UniquePtr<ObservedDocShell>& observed = aDocShell->mObserved;
   MOZ_ASSERT(!observed);
@@ -139,7 +137,8 @@ void
 TimelineConsumers::RemoveConsumer(nsDocShell* aDocShell)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  StaticMutexAutoLock lock(sMutex); // for `mActiveConsumers` and `mMarkersStores`.
+  StaticMutexAutoLock lock(
+      sMutex);  // for `mActiveConsumers` and `mMarkersStores`.
 
   UniquePtr<ObservedDocShell>& observed = aDocShell->mObserved;
   MOZ_ASSERT(observed);
@@ -158,15 +157,13 @@ bool
 TimelineConsumers::HasConsumer(nsIDocShell* aDocShell)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  return aDocShell
-       ? aDocShell->GetRecordProfileTimelineMarkers()
-       : false;
+  return aDocShell ? aDocShell->GetRecordProfileTimelineMarkers() : false;
 }
 
 bool
 TimelineConsumers::IsEmpty()
 {
-  StaticMutexAutoLock lock(sMutex); // for `mActiveConsumers`.
+  StaticMutexAutoLock lock(sMutex);  // for `mActiveConsumers`.
   return mActiveConsumers == 0;
 }
 
@@ -178,7 +175,8 @@ TimelineConsumers::AddMarkerForDocShell(nsDocShell* aDocShell,
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (HasConsumer(aDocShell)) {
-    aDocShell->mObserved->AddMarker(Move(MakeUnique<TimelineMarker>(aName, aTracingType, aStackRequest)));
+    aDocShell->mObserved->AddMarker(
+        Move(MakeUnique<TimelineMarker>(aName, aTracingType, aStackRequest)));
   }
 }
 
@@ -191,13 +189,14 @@ TimelineConsumers::AddMarkerForDocShell(nsDocShell* aDocShell,
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (HasConsumer(aDocShell)) {
-    aDocShell->mObserved->AddMarker(Move(MakeUnique<TimelineMarker>(aName, aTime, aTracingType, aStackRequest)));
+    aDocShell->mObserved->AddMarker(Move(
+        MakeUnique<TimelineMarker>(aName, aTime, aTracingType, aStackRequest)));
   }
 }
 
 void
-TimelineConsumers::AddMarkerForDocShell(nsDocShell* aDocShell,
-                                        UniquePtr<AbstractTimelineMarker>&& aMarker)
+TimelineConsumers::AddMarkerForDocShell(
+    nsDocShell* aDocShell, UniquePtr<AbstractTimelineMarker>&& aMarker)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (HasConsumer(aDocShell)) {
@@ -212,7 +211,8 @@ TimelineConsumers::AddMarkerForDocShell(nsIDocShell* aDocShell,
                                         MarkerStackRequest aStackRequest)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  AddMarkerForDocShell(static_cast<nsDocShell*>(aDocShell), aName, aTracingType, aStackRequest);
+  AddMarkerForDocShell(
+      static_cast<nsDocShell*>(aDocShell), aName, aTracingType, aStackRequest);
 }
 
 void
@@ -223,30 +223,34 @@ TimelineConsumers::AddMarkerForDocShell(nsIDocShell* aDocShell,
                                         MarkerStackRequest aStackRequest)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  AddMarkerForDocShell(static_cast<nsDocShell*>(aDocShell), aName, aTime, aTracingType, aStackRequest);
+  AddMarkerForDocShell(static_cast<nsDocShell*>(aDocShell),
+                       aName,
+                       aTime,
+                       aTracingType,
+                       aStackRequest);
 }
 
 void
-TimelineConsumers::AddMarkerForDocShell(nsIDocShell* aDocShell,
-                                        UniquePtr<AbstractTimelineMarker>&& aMarker)
+TimelineConsumers::AddMarkerForDocShell(
+    nsIDocShell* aDocShell, UniquePtr<AbstractTimelineMarker>&& aMarker)
 {
   MOZ_ASSERT(NS_IsMainThread());
   AddMarkerForDocShell(static_cast<nsDocShell*>(aDocShell), Move(aMarker));
 }
 
 void
-TimelineConsumers::AddMarkerForAllObservedDocShells(const char* aName,
-                                                    MarkerTracingType aTracingType,
-                                                    MarkerStackRequest aStackRequest /* = STACK */)
+TimelineConsumers::AddMarkerForAllObservedDocShells(
+    const char* aName,
+    MarkerTracingType aTracingType,
+    MarkerStackRequest aStackRequest /* = STACK */)
 {
   bool isMainThread = NS_IsMainThread();
-  StaticMutexAutoLock lock(sMutex); // for `mMarkersStores`.
+  StaticMutexAutoLock lock(sMutex);  // for `mMarkersStores`.
 
-  for (MarkersStorage* storage = mMarkersStores.getFirst();
-       storage != nullptr;
+  for (MarkersStorage* storage = mMarkersStores.getFirst(); storage != nullptr;
        storage = storage->getNext()) {
     UniquePtr<AbstractTimelineMarker> marker =
-      MakeUnique<TimelineMarker>(aName, aTracingType, aStackRequest);
+        MakeUnique<TimelineMarker>(aName, aTracingType, aStackRequest);
     if (isMainThread) {
       storage->AddMarker(Move(marker));
     } else {
@@ -256,19 +260,19 @@ TimelineConsumers::AddMarkerForAllObservedDocShells(const char* aName,
 }
 
 void
-TimelineConsumers::AddMarkerForAllObservedDocShells(const char* aName,
-                                                    const TimeStamp& aTime,
-                                                    MarkerTracingType aTracingType,
-                                                    MarkerStackRequest aStackRequest /* = STACK */)
+TimelineConsumers::AddMarkerForAllObservedDocShells(
+    const char* aName,
+    const TimeStamp& aTime,
+    MarkerTracingType aTracingType,
+    MarkerStackRequest aStackRequest /* = STACK */)
 {
   bool isMainThread = NS_IsMainThread();
-  StaticMutexAutoLock lock(sMutex); // for `mMarkersStores`.
+  StaticMutexAutoLock lock(sMutex);  // for `mMarkersStores`.
 
-  for (MarkersStorage* storage = mMarkersStores.getFirst();
-       storage != nullptr;
+  for (MarkersStorage* storage = mMarkersStores.getFirst(); storage != nullptr;
        storage = storage->getNext()) {
     UniquePtr<AbstractTimelineMarker> marker =
-      MakeUnique<TimelineMarker>(aName, aTime, aTracingType, aStackRequest);
+        MakeUnique<TimelineMarker>(aName, aTime, aTracingType, aStackRequest);
     if (isMainThread) {
       storage->AddMarker(Move(marker));
     } else {
@@ -278,13 +282,13 @@ TimelineConsumers::AddMarkerForAllObservedDocShells(const char* aName,
 }
 
 void
-TimelineConsumers::AddMarkerForAllObservedDocShells(UniquePtr<AbstractTimelineMarker>& aMarker)
+TimelineConsumers::AddMarkerForAllObservedDocShells(
+    UniquePtr<AbstractTimelineMarker>& aMarker)
 {
   bool isMainThread = NS_IsMainThread();
-  StaticMutexAutoLock lock(sMutex); // for `mMarkersStores`.
+  StaticMutexAutoLock lock(sMutex);  // for `mMarkersStores`.
 
-  for (MarkersStorage* storage = mMarkersStores.getFirst();
-       storage != nullptr;
+  for (MarkersStorage* storage = mMarkersStores.getFirst(); storage != nullptr;
        storage = storage->getNext()) {
     UniquePtr<AbstractTimelineMarker> clone = aMarker->Clone();
     if (isMainThread) {
@@ -309,4 +313,4 @@ TimelineConsumers::PopMarkers(nsDocShell* aDocShell,
   aDocShell->mObserved->PopMarkers(aCx, aStore);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

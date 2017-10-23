@@ -14,18 +14,20 @@ namespace mozilla {
 
 struct ReflowInput;
 
-class CSSAlignUtils {
-public:
+class CSSAlignUtils
+{
+ public:
   /**
    * Flags to customize the behavior of AlignJustifySelf:
    */
-  enum class AlignJustifyFlags {
-    eNoFlags           = 0,
+  enum class AlignJustifyFlags
+  {
+    eNoFlags = 0,
     // Indicates that we have <overflow-position> = safe.
-    eOverflowSafe      = 1 << 0,
+    eOverflowSafe = 1 << 0,
     // Indicates that the container's start side in aAxis is the same
     // as the child's start side in the child's parallel axis.
-    eSameSide          = 1 << 1,
+    eSameSide = 1 << 1,
     // Indicates that AlignJustifySelf() shouldn't expand "auto" margins.
     // (By default, AlignJustifySelf() *will* expand such margins, to fill the
     // available space before any alignment is done.)
@@ -49,15 +51,17 @@ public:
    * @param aRI A ReflowInput for the child.
    * @param aChildSize The child's LogicalSize (in its own writing mode).
    */
-  static nscoord AlignJustifySelf(uint8_t aAlignment, LogicalAxis aAxis,
+  static nscoord AlignJustifySelf(uint8_t aAlignment,
+                                  LogicalAxis aAxis,
                                   AlignJustifyFlags aFlags,
-                                  nscoord aBaselineAdjust, nscoord aCBSize,
+                                  nscoord aBaselineAdjust,
+                                  nscoord aCBSize,
                                   const ReflowInput& aRI,
                                   const LogicalSize& aChildSize);
 };
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(CSSAlignUtils::AlignJustifyFlags)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_CSSAlignUtils_h
+#endif  // mozilla_CSSAlignUtils_h

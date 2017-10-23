@@ -28,8 +28,7 @@ FileSystemErrorFromNsError(const nsresult& aErrorValue)
 {
   uint16_t module = NS_ERROR_GET_MODULE(aErrorValue);
   if (module == NS_ERROR_MODULE_DOM_FILESYSTEM ||
-      module == NS_ERROR_MODULE_DOM_FILE ||
-      module == NS_ERROR_MODULE_DOM) {
+      module == NS_ERROR_MODULE_DOM_FILE || module == NS_ERROR_MODULE_DOM) {
     return aErrorValue;
   }
 
@@ -69,8 +68,8 @@ DispatchToIOThread(nsIRunnable* aRunnable)
 {
   MOZ_ASSERT(aRunnable);
 
-  nsCOMPtr<nsIEventTarget> target
-    = do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+  nsCOMPtr<nsIEventTarget> target =
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   MOZ_ASSERT(target);
 
   return target->Dispatch(aRunnable, NS_DISPATCH_NORMAL);
@@ -81,10 +80,9 @@ DispatchToIOThread(nsIRunnable* aRunnable)
 // communicate the error.
 class ErrorRunnable final : public CancelableRunnable
 {
-public:
+ public:
   explicit ErrorRunnable(FileSystemTaskChildBase* aTask)
-    : CancelableRunnable("ErrorRunnable")
-    , mTask(aTask)
+      : CancelableRunnable("ErrorRunnable"), mTask(aTask)
   {
     MOZ_ASSERT(aTask);
   }
@@ -99,11 +97,11 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<FileSystemTaskChildBase> mTask;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_IMPL_ISUPPORTS(FileSystemTaskChildBase, nsIIPCBackgroundChildCreateCallback)
 
@@ -113,9 +111,7 @@ NS_IMPL_ISUPPORTS(FileSystemTaskChildBase, nsIIPCBackgroundChildCreateCallback)
 
 FileSystemTaskChildBase::FileSystemTaskChildBase(nsIGlobalObject* aGlobalObject,
                                                  FileSystemBase* aFileSystem)
-  : mErrorValue(NS_OK)
-  , mFileSystem(aFileSystem)
-  , mGlobalObject(aGlobalObject)
+    : mErrorValue(NS_OK), mFileSystem(aFileSystem), mGlobalObject(aGlobalObject)
 {
   MOZ_ASSERT(aFileSystem, "aFileSystem should not be null.");
   aFileSystem->AssertIsOnOwningThread();
@@ -140,12 +136,12 @@ FileSystemTaskChildBase::Start()
   mFileSystem->AssertIsOnOwningThread();
 
   mozilla::ipc::PBackgroundChild* actor =
-    mozilla::ipc::BackgroundChild::GetForCurrentThread();
+      mozilla::ipc::BackgroundChild::GetForCurrentThread();
   if (actor) {
     ActorCreated(actor);
   } else {
-    if (NS_WARN_IF(
-        !mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread(this))) {
+    if (NS_WARN_IF(!mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread(
+            this))) {
       MOZ_CRASH();
     }
   }
@@ -232,17 +228,16 @@ FileSystemTaskChildBase::SetError(const nsresult& aErrorValue)
  */
 
 FileSystemTaskParentBase::FileSystemTaskParentBase(
-  FileSystemBase* aFileSystem,
-  const FileSystemParams& aParam,
-  FileSystemRequestParent* aParent)
-  : Runnable("dom::FileSystemTaskParentBase")
-  , mErrorValue(NS_OK)
-  , mFileSystem(aFileSystem)
-  , mRequestParent(aParent)
-  , mBackgroundEventTarget(GetCurrentThreadEventTarget())
+    FileSystemBase* aFileSystem,
+    const FileSystemParams& aParam,
+    FileSystemRequestParent* aParent)
+    : Runnable("dom::FileSystemTaskParentBase"),
+      mErrorValue(NS_OK),
+      mFileSystem(aFileSystem),
+      mRequestParent(aParent),
+      mBackgroundEventTarget(GetCurrentThreadEventTarget())
 {
-  MOZ_ASSERT(XRE_IsParentProcess(),
-             "Only call from parent process!");
+  MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
   MOZ_ASSERT(aFileSystem, "aFileSystem should not be null.");
   MOZ_ASSERT(aParent);
   MOZ_ASSERT(mBackgroundEventTarget);
@@ -253,12 +248,12 @@ FileSystemTaskParentBase::~FileSystemTaskParentBase()
 {
   // This task can be released on different threads because we dispatch it (as
   // runnable) to main-thread, I/O and then back to the PBackground thread.
-  NS_ProxyRelease(
-    "FileSystemTaskParentBase::mFileSystem",
-    mBackgroundEventTarget, mFileSystem.forget());
-  NS_ProxyRelease(
-    "FileSystemTaskParentBase::mRequestParent",
-    mBackgroundEventTarget, mRequestParent.forget());
+  NS_ProxyRelease("FileSystemTaskParentBase::mFileSystem",
+                  mBackgroundEventTarget,
+                  mFileSystem.forget());
+  NS_ProxyRelease("FileSystemTaskParentBase::mRequestParent",
+                  mBackgroundEventTarget,
+                  mRequestParent.forget());
 }
 
 void
@@ -340,5 +335,5 @@ FileSystemTaskParentBase::Run()
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

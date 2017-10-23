@@ -39,15 +39,14 @@ DeallocPCacheStorageParent(PCacheStorageParent* aActor)
 CacheStorageParent::CacheStorageParent(PBackgroundParent* aManagingActor,
                                        Namespace aNamespace,
                                        const PrincipalInfo& aPrincipalInfo)
-  : mNamespace(aNamespace)
-  , mVerifiedStatus(NS_OK)
+    : mNamespace(aNamespace), mVerifiedStatus(NS_OK)
 {
   MOZ_COUNT_CTOR(cache::CacheStorageParent);
   MOZ_DIAGNOSTIC_ASSERT(aManagingActor);
 
   // Start the async principal verification process immediately.
-  mVerifier = PrincipalVerifier::CreateAndDispatch(this, aManagingActor,
-                                                   aPrincipalInfo);
+  mVerifier = PrincipalVerifier::CreateAndDispatch(
+      this, aManagingActor, aPrincipalInfo);
   MOZ_DIAGNOSTIC_ASSERT(mVerifier);
 }
 
@@ -73,8 +72,7 @@ CacheStorageParent::AllocPCacheOpParent(const CacheOpArgs& aOpArgs)
       aOpArgs.type() != CacheOpArgs::TStorageHasArgs &&
       aOpArgs.type() != CacheOpArgs::TStorageOpenArgs &&
       aOpArgs.type() != CacheOpArgs::TStorageDeleteArgs &&
-      aOpArgs.type() != CacheOpArgs::TStorageKeysArgs)
-  {
+      aOpArgs.type() != CacheOpArgs::TStorageKeysArgs) {
     MOZ_CRASH("Invalid operation sent to CacheStorage actor!");
   }
 
@@ -138,6 +136,6 @@ CacheStorageParent::OnPrincipalVerified(nsresult aRv, ManagerId* aManagerId)
   mVerifier = nullptr;
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

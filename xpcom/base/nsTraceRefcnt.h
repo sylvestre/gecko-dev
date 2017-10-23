@@ -6,12 +6,12 @@
 #ifndef nsTraceRefcnt_h
 #define nsTraceRefcnt_h
 
-#include <stdio.h> // for FILE
+#include <stdio.h>  // for FILE
 #include "nscore.h"
 
 class nsTraceRefcnt
 {
-public:
+ public:
   static void Shutdown();
 
   static nsresult DumpStatistics();
@@ -28,4 +28,4 @@ public:
   static void SetActivityIsLegal(bool aLegal);
 };
 
-#endif // nsTraceRefcnt_h
+#endif  // nsTraceRefcnt_h

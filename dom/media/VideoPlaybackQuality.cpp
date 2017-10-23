@@ -19,11 +19,11 @@ VideoPlaybackQuality::VideoPlaybackQuality(HTMLMediaElement* aElement,
                                            uint32_t aTotalFrames,
                                            uint32_t aDroppedFrames,
                                            uint32_t aCorruptedFrames)
-  : mElement(aElement)
-  , mCreationTime(aCreationTime)
-  , mTotalFrames(aTotalFrames)
-  , mDroppedFrames(aDroppedFrames)
-  , mCorruptedFrames(aCorruptedFrames)
+    : mElement(aElement),
+      mCreationTime(aCreationTime),
+      mTotalFrames(aTotalFrames),
+      mDroppedFrames(aDroppedFrames),
+      mCorruptedFrames(aCorruptedFrames)
 {
 }
 
@@ -34,7 +34,8 @@ VideoPlaybackQuality::GetParentObject() const
 }
 
 JSObject*
-VideoPlaybackQuality::WrapObject(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+VideoPlaybackQuality::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
   return VideoPlaybackQualityBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -44,5 +45,5 @@ NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VideoPlaybackQuality, Release)
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(VideoPlaybackQuality, mElement)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

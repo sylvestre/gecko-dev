@@ -14,72 +14,55 @@ using namespace js;
 
 MOZ_THREAD_LOCAL(js::Mutex::MutexVector*) js::Mutex::HeldMutexStack;
 
-/* static */ bool
-js::Mutex::Init()
-{
-  return HeldMutexStack.init();
+/* static */ bool js::Mutex::Init() { return HeldMutexStack.init(); }
+
+/* static */ void js::Mutex::ShutDown() {
+    js_delete(HeldMutexStack.get());
+    HeldMutexStack.set(nullptr);
 }
 
-/* static */ void
-js::Mutex::ShutDown()
-{
-  js_delete(HeldMutexStack.get());
-  HeldMutexStack.set(nullptr);
-}
-
-/* static */ js::Mutex::MutexVector&
-js::Mutex::heldMutexStack()
-{
-  auto stack = HeldMutexStack.get();
-  if (!stack) {
-    AutoEnterOOMUnsafeRegion oomUnsafe;
-    stack = js_new<MutexVector>();
-    if (!stack)
-      oomUnsafe.crash("js::Mutex::heldMutexStack");
-    HeldMutexStack.set(stack);
-  }
-  return *stack;
-}
-
-void
-js::Mutex::lock()
-{
-  auto& stack = heldMutexStack();
-  if (!stack.empty()) {
-    const Mutex& prev = *stack.back();
-    if (id_.order <= prev.id_.order) {
-      fprintf(stderr,
-              "Attempt to acquire mutex %s with order %d while holding %s with order %d\n",
-              id_.name, id_.order, prev.id_.name, prev.id_.order);
-      MOZ_CRASH("Mutex ordering violation");
+/* static */ js::Mutex::MutexVector& js::Mutex::heldMutexStack() {
+    auto stack = HeldMutexStack.get();
+    if (!stack) {
+        AutoEnterOOMUnsafeRegion oomUnsafe;
+        stack = js_new<MutexVector>();
+        if (!stack) oomUnsafe.crash("js::Mutex::heldMutexStack");
+        HeldMutexStack.set(stack);
     }
-  }
-
-  MutexImpl::lock();
-
-  AutoEnterOOMUnsafeRegion oomUnsafe;
-  if (!stack.append(this))
-    oomUnsafe.crash("js::Mutex::lock");
+    return *stack;
 }
 
-void
-js::Mutex::unlock()
-{
-  auto& stack = heldMutexStack();
-  MOZ_ASSERT(stack.back() == this);
-  MutexImpl::unlock();
-  stack.popBack();
+void js::Mutex::lock() {
+    auto& stack = heldMutexStack();
+    if (!stack.empty()) {
+        const Mutex& prev = *stack.back();
+        if (id_.order <= prev.id_.order) {
+            fprintf(stderr,
+                    "Attempt to acquire mutex %s with order %d while holding %s with order %d\n",
+                    id_.name, id_.order, prev.id_.name, prev.id_.order);
+            MOZ_CRASH("Mutex ordering violation");
+        }
+    }
+
+    MutexImpl::lock();
+
+    AutoEnterOOMUnsafeRegion oomUnsafe;
+    if (!stack.append(this)) oomUnsafe.crash("js::Mutex::lock");
 }
 
-bool
-js::Mutex::ownedByCurrentThread() const
-{
-  auto& stack = heldMutexStack();
-  for (size_t i = 0; i < stack.length(); i++) {
-    if (stack[i] == this)
-      return true;
-  }
-  return false;
+void js::Mutex::unlock() {
+    auto& stack = heldMutexStack();
+    MOZ_ASSERT(stack.back() == this);
+    MutexImpl::unlock();
+    stack.popBack();
+}
+
+bool js::Mutex::ownedByCurrentThread() const {
+    auto& stack = heldMutexStack();
+    for (size_t i = 0; i < stack.length(); i++) {
+        if (stack[i] == this) return true;
+    }
+    return false;
 }
 
 #endif

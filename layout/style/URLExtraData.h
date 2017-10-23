@@ -24,20 +24,22 @@ struct URLExtraData
   URLExtraData(already_AddRefed<nsIURI> aBaseURI,
                already_AddRefed<nsIURI> aReferrer,
                already_AddRefed<nsIPrincipal> aPrincipal)
-    : mBaseURI(Move(aBaseURI))
-    , mReferrer(Move(aReferrer))
-    , mPrincipal(Move(aPrincipal))
-      // When we hold the URI data of a style sheet, mReferrer is always
-      // equal to the sheet URI.
-    , mIsChrome(mReferrer ? dom::IsChromeURI(mReferrer) : false)
+      : mBaseURI(Move(aBaseURI)),
+        mReferrer(Move(aReferrer)),
+        mPrincipal(Move(aPrincipal))
+        // When we hold the URI data of a style sheet, mReferrer is always
+        // equal to the sheet URI.
+        ,
+        mIsChrome(mReferrer ? dom::IsChromeURI(mReferrer) : false)
   {
     MOZ_ASSERT(mBaseURI);
   }
 
   URLExtraData(nsIURI* aBaseURI, nsIURI* aReferrer, nsIPrincipal* aPrincipal)
-    : URLExtraData(do_AddRef(aBaseURI),
-                   do_AddRef(aReferrer),
-                   do_AddRef(aPrincipal)) {}
+      : URLExtraData(
+            do_AddRef(aBaseURI), do_AddRef(aReferrer), do_AddRef(aPrincipal))
+  {
+  }
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(URLExtraData)
 
@@ -45,14 +47,15 @@ struct URLExtraData
   nsIURI* GetReferrer() const { return mReferrer; }
   nsIPrincipal* GetPrincipal() const { return mPrincipal; }
 
-  static URLExtraData* Dummy() {
+  static URLExtraData* Dummy()
+  {
     MOZ_ASSERT(sDummy);
     return sDummy;
   }
   static void InitDummy();
   static void ReleaseDummy();
 
-private:
+ private:
   ~URLExtraData();
 
   nsCOMPtr<nsIURI> mBaseURI;
@@ -65,6 +68,6 @@ private:
   static StaticRefPtr<URLExtraData> sDummy;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_URLExtraData_h
+#endif  // mozilla_URLExtraData_h

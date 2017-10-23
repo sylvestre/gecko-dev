@@ -11,10 +11,11 @@
 
 class nsLeafBoxFrame : public nsLeafFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsLeafBoxFrame)
 
-  friend nsIFrame* NS_NewLeafBoxFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewLeafBoxFrame(nsIPresShell* aPresShell,
+                                      nsStyleContext* aContext);
 
   virtual nsSize GetXULPrefSize(nsBoxLayoutState& aState) override;
   virtual nsSize GetXULMinSize(nsBoxLayoutState& aState) override;
@@ -26,8 +27,9 @@ public:
   {
     // This is bogus, but it's what we've always done.
     // Note that nsLeafFrame is also eReplacedContainsBlock.
-    return nsLeafFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock | nsIFrame::eXULBox));
+    return nsLeafFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock |
+                   nsIFrame::eXULBox));
   }
 
 #ifdef DEBUG_FRAME_DUMP
@@ -37,32 +39,33 @@ public:
   // nsIHTMLReflow overrides
 
   virtual void MarkIntrinsicISizesDirty() override;
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  virtual nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
 
   // Our auto size is that provided by nsFrame, not nsLeafFrame
-  virtual mozilla::LogicalSize
-  ComputeAutoSize(gfxContext*                 aRenderingContext,
-                  mozilla::WritingMode        aWM,
-                  const mozilla::LogicalSize& aCBSize,
-                  nscoord                     aAvailableISize,
-                  const mozilla::LogicalSize& aMargin,
-                  const mozilla::LogicalSize& aBorder,
-                  const mozilla::LogicalSize& aPadding,
-                  ComputeSizeFlags            aFlags) override;
+  virtual mozilla::LogicalSize ComputeAutoSize(
+      gfxContext* aRenderingContext,
+      mozilla::WritingMode aWM,
+      const mozilla::LogicalSize& aCBSize,
+      nscoord aAvailableISize,
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorder,
+      const mozilla::LogicalSize& aPadding,
+      ComputeSizeFlags aFlags) override;
 
-  virtual void Reflow(nsPresContext*           aPresContext,
-                      ReflowOutput&     aDesiredSize,
+  virtual void Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
-  virtual nsresult CharacterDataChanged(CharacterDataChangeInfo* aInfo) override;
+  virtual nsresult CharacterDataChanged(
+      CharacterDataChangeInfo* aInfo) override;
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         asPrevInFlow) override;
+                    nsIFrame* asPrevInFlow) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   virtual nsresult AttributeChanged(int32_t aNameSpaceID,
@@ -71,8 +74,7 @@ public:
 
   virtual bool ComputesOwnOverflowArea() override { return false; }
 
-protected:
-
+ protected:
   NS_IMETHOD DoXULLayout(nsBoxLayoutState& aState) override;
 
 #ifdef DEBUG_LAYOUT
@@ -82,14 +84,13 @@ protected:
   virtual nscoord GetIntrinsicISize() override;
 
   explicit nsLeafBoxFrame(nsStyleContext* aContext, ClassID aID = kClassID)
-    : nsLeafFrame(aContext, aID)
-  {}
+      : nsLeafFrame(aContext, aID)
+  {
+  }
 
-private:
+ private:
+  void UpdateMouseThrough();
 
- void UpdateMouseThrough();
-
-
-}; // class nsLeafBoxFrame
+};  // class nsLeafBoxFrame
 
 #endif /* nsLeafBoxFrame_h___ */

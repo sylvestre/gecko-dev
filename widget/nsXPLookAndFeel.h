@@ -27,19 +27,22 @@ struct nsLookAndFeelFloatPref
   float floatVar;
 };
 
-#define CACHE_BLOCK(x)     ((x) >> 5)
-#define CACHE_BIT(x)       (1 << ((x) & 31))
+#define CACHE_BLOCK(x) ((x) >> 5)
+#define CACHE_BIT(x) (1 << ((x)&31))
 
-#define COLOR_CACHE_SIZE   (CACHE_BLOCK(LookAndFeel::eColorID_LAST_COLOR) + 1)
-#define IS_COLOR_CACHED(x) (CACHE_BIT(x) & nsXPLookAndFeel::sCachedColorBits[CACHE_BLOCK(x)])
-#define CLEAR_COLOR_CACHE(x) nsXPLookAndFeel::sCachedColors[(x)] =0; \
-              nsXPLookAndFeel::sCachedColorBits[CACHE_BLOCK(x)] &= ~(CACHE_BIT(x));
-#define CACHE_COLOR(x, y)  nsXPLookAndFeel::sCachedColors[(x)] = y; \
-              nsXPLookAndFeel::sCachedColorBits[CACHE_BLOCK(x)] |= CACHE_BIT(x);
+#define COLOR_CACHE_SIZE (CACHE_BLOCK(LookAndFeel::eColorID_LAST_COLOR) + 1)
+#define IS_COLOR_CACHED(x) \
+  (CACHE_BIT(x) & nsXPLookAndFeel::sCachedColorBits[CACHE_BLOCK(x)])
+#define CLEAR_COLOR_CACHE(x)               \
+  nsXPLookAndFeel::sCachedColors[(x)] = 0; \
+  nsXPLookAndFeel::sCachedColorBits[CACHE_BLOCK(x)] &= ~(CACHE_BIT(x));
+#define CACHE_COLOR(x, y)                  \
+  nsXPLookAndFeel::sCachedColors[(x)] = y; \
+  nsXPLookAndFeel::sCachedColorBits[CACHE_BLOCK(x)] |= CACHE_BIT(x);
 
-class nsXPLookAndFeel: public mozilla::LookAndFeel
+class nsXPLookAndFeel : public mozilla::LookAndFeel
 {
-public:
+ public:
   virtual ~nsXPLookAndFeel();
 
   static nsXPLookAndFeel* GetInstance();
@@ -53,50 +56,46 @@ public:
   // otherwise we'll return NS_ERROR_NOT_AVAILABLE, in which case, the
   // platform-specific nsLookAndFeel should use its own values instead.
   //
-  nsresult GetColorImpl(ColorID aID, bool aUseStandinsForNativeColors,
-                        nscolor &aResult);
-  virtual nsresult GetIntImpl(IntID aID, int32_t &aResult);
-  virtual nsresult GetFloatImpl(FloatID aID, float &aResult);
+  nsresult GetColorImpl(ColorID aID,
+                        bool aUseStandinsForNativeColors,
+                        nscolor& aResult);
+  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
+  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
 
   // This one is different: there are no override prefs (fixme?), so
   // there is no XP implementation, only per-system impls.
-  virtual bool GetFontImpl(FontID aID, nsString& aName,
+  virtual bool GetFontImpl(FontID aID,
+                           nsString& aName,
                            gfxFontStyle& aStyle,
                            float aDevPixPerCSSPixel) = 0;
 
   virtual void RefreshImpl();
 
-  virtual char16_t GetPasswordCharacterImpl()
-  {
-    return char16_t('*');
-  }
+  virtual char16_t GetPasswordCharacterImpl() { return char16_t('*'); }
 
-  virtual bool GetEchoPasswordImpl()
-  {
-    return false;
-  }
+  virtual bool GetEchoPasswordImpl() { return false; }
 
-  virtual uint32_t GetPasswordMaskDelayImpl()
-  {
-    return 600;
-  }
+  virtual uint32_t GetPasswordMaskDelayImpl() { return 600; }
 
   virtual nsTArray<LookAndFeelInt> GetIntCacheImpl();
-  virtual void SetIntCacheImpl(const nsTArray<LookAndFeelInt>& aLookAndFeelIntCache) {}
+  virtual void SetIntCacheImpl(
+      const nsTArray<LookAndFeelInt>& aLookAndFeelIntCache)
+  {
+  }
 
   virtual void NativeInit() = 0;
 
-protected:
+ protected:
   nsXPLookAndFeel();
 
-  static void IntPrefChanged(nsLookAndFeelIntPref *data);
-  static void FloatPrefChanged(nsLookAndFeelFloatPref *data);
-  static void ColorPrefChanged(unsigned int index, const char *prefName);
+  static void IntPrefChanged(nsLookAndFeelIntPref* data);
+  static void FloatPrefChanged(nsLookAndFeelFloatPref* data);
+  static void ColorPrefChanged(unsigned int index, const char* prefName);
   void InitFromPref(nsLookAndFeelIntPref* aPref);
   void InitFromPref(nsLookAndFeelFloatPref* aPref);
   void InitColorFromPref(int32_t aIndex);
-  virtual nsresult NativeGetColor(ColorID aID, nscolor &aResult) = 0;
-  bool IsSpecialColor(ColorID aID, nscolor &aColor);
+  virtual nsresult NativeGetColor(ColorID aID, nscolor& aResult) = 0;
+  bool IsSpecialColor(ColorID aID, nscolor& aColor);
   bool ColorIsNotCSSAccessible(ColorID aID);
   nscolor GetStandinForNativeColor(ColorID aID);
 

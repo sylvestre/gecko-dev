@@ -18,7 +18,7 @@ namespace mozilla {
 
 class IncrementalTokenizer : public TokenizerBase
 {
-public:
+ public:
   /**
    * The consumer callback.  The function is called for every single token
    * as found in the input.  Failure result returned by this callback stops
@@ -29,7 +29,8 @@ public:
    * be safely used to accumulate the data for processing after Feed/FinishInput
    * returned.
    */
-  typedef std::function<nsresult(Token const&, IncrementalTokenizer& i)> Consumer;
+  typedef std::function<nsresult(Token const&, IncrementalTokenizer& i)>
+      Consumer;
 
   /**
    * For aWhitespaces and aAdditionalWordChars arguments see TokenizerBase.
@@ -94,14 +95,14 @@ public:
    */
   void Rollback();
 
-private:
+ private:
   // Loops over the input with TokenizerBase::Parse and calls the Consumer callback.
   nsresult Process();
 
 #ifdef DEBUG
   // True when inside the consumer callback, used only for assertions.
   bool mConsuming;
-#endif // DEBUG
+#endif  // DEBUG
   // Modifyable only from the Consumer callback, tells the parser to break, rollback
   // and wait for more input.
   bool mNeedMoreInput;
@@ -117,6 +118,6 @@ private:
   Consumer mConsumer;
 };
 
-} // mozilla
+}  // namespace mozilla
 
 #endif

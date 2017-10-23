@@ -13,8 +13,7 @@
 namespace js {
 namespace jit {
 
-class MoveEmitterARM
-{
+class MoveEmitterARM {
     uint32_t inCycle_;
     MacroAssembler& masm;
 
@@ -43,13 +42,13 @@ class MoveEmitterARM
     void emitMove(const MoveOperand& from, const MoveOperand& to);
     void emitFloat32Move(const MoveOperand& from, const MoveOperand& to);
     void emitDoubleMove(const MoveOperand& from, const MoveOperand& to);
-    void breakCycle(const MoveOperand& from, const MoveOperand& to,
-                    MoveOp::Type type, uint32_t slot);
-    void completeCycle(const MoveOperand& from, const MoveOperand& to,
-                       MoveOp::Type type, uint32_t slot);
+    void breakCycle(const MoveOperand& from, const MoveOperand& to, MoveOp::Type type,
+                    uint32_t slot);
+    void completeCycle(const MoveOperand& from, const MoveOperand& to, MoveOp::Type type,
+                       uint32_t slot);
     void emit(const MoveOp& move);
 
-  public:
+   public:
     MoveEmitterARM(MacroAssembler& masm);
     ~MoveEmitterARM();
     void emit(const MoveResolver& moves);
@@ -60,7 +59,7 @@ class MoveEmitterARM
 
 typedef MoveEmitterARM MoveEmitter;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm_MoveEmitter_arm_h */

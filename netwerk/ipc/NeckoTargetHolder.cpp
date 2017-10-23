@@ -38,5 +38,5 @@ NeckoTargetHolder::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable,
   return mainThreadTarget->Dispatch(Move(aRunnable), aDispatchFlags);
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

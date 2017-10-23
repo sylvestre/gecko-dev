@@ -13,13 +13,10 @@
 namespace mozilla {
 namespace gfx {
 
-PathBuilderCairo::PathBuilderCairo(FillRule aFillRule)
-  : mFillRule(aFillRule)
-{
-}
+PathBuilderCairo::PathBuilderCairo(FillRule aFillRule) : mFillRule(aFillRule) {}
 
 void
-PathBuilderCairo::MoveTo(const Point &aPoint)
+PathBuilderCairo::MoveTo(const Point& aPoint)
 {
   cairo_path_data_t data;
   data.header.type = CAIRO_PATH_MOVE_TO;
@@ -33,7 +30,7 @@ PathBuilderCairo::MoveTo(const Point &aPoint)
 }
 
 void
-PathBuilderCairo::LineTo(const Point &aPoint)
+PathBuilderCairo::LineTo(const Point& aPoint)
 {
   cairo_path_data_t data;
   data.header.type = CAIRO_PATH_LINE_TO;
@@ -47,9 +44,9 @@ PathBuilderCairo::LineTo(const Point &aPoint)
 }
 
 void
-PathBuilderCairo::BezierTo(const Point &aCP1,
-                           const Point &aCP2,
-                           const Point &aCP3)
+PathBuilderCairo::BezierTo(const Point& aCP1,
+                           const Point& aCP2,
+                           const Point& aCP3)
 {
   cairo_path_data_t data;
   data.header.type = CAIRO_PATH_CURVE_TO;
@@ -69,8 +66,7 @@ PathBuilderCairo::BezierTo(const Point &aCP1,
 }
 
 void
-PathBuilderCairo::QuadraticBezierTo(const Point &aCP1,
-                                    const Point &aCP2)
+PathBuilderCairo::QuadraticBezierTo(const Point& aCP1, const Point& aCP2)
 {
   // We need to elevate the degree of this quadratic Bézier to cubic, so we're
   // going to add an intermediate control point, and recompute control point 1.
@@ -110,10 +106,18 @@ PathBuilderCairo::Close()
 }
 
 void
-PathBuilderCairo::Arc(const Point &aOrigin, float aRadius, float aStartAngle,
-                     float aEndAngle, bool aAntiClockwise)
+PathBuilderCairo::Arc(const Point& aOrigin,
+                      float aRadius,
+                      float aStartAngle,
+                      float aEndAngle,
+                      bool aAntiClockwise)
 {
-  ArcToBezier(this, aOrigin, Size(aRadius, aRadius), aStartAngle, aEndAngle, aAntiClockwise);
+  ArcToBezier(this,
+              aOrigin,
+              Size(aRadius, aRadius),
+              aStartAngle,
+              aEndAngle,
+              aAntiClockwise);
 }
 
 Point
@@ -128,19 +132,20 @@ PathBuilderCairo::Finish()
   return MakeAndAddRef<PathCairo>(mFillRule, mPathData, mCurrentPoint);
 }
 
-PathCairo::PathCairo(FillRule aFillRule, std::vector<cairo_path_data_t> &aPathData, const Point &aCurrentPoint)
-  : mFillRule(aFillRule)
-  , mContainingContext(nullptr)
-  , mCurrentPoint(aCurrentPoint)
+PathCairo::PathCairo(FillRule aFillRule,
+                     std::vector<cairo_path_data_t>& aPathData,
+                     const Point& aCurrentPoint)
+    : mFillRule(aFillRule),
+      mContainingContext(nullptr),
+      mCurrentPoint(aCurrentPoint)
 {
   mPathData.swap(aPathData);
 }
 
-PathCairo::PathCairo(cairo_t *aContext)
-  : mFillRule(FillRule::FILL_WINDING)
-  , mContainingContext(nullptr)
+PathCairo::PathCairo(cairo_t* aContext)
+    : mFillRule(FillRule::FILL_WINDING), mContainingContext(nullptr)
 {
-  cairo_path_t *path = cairo_copy_path(aContext);
+  cairo_path_t* path = cairo_copy_path(aContext);
 
   // XXX - mCurrentPoint is not properly set here, the same is true for the
   // D2D Path code, we never require current point when hitting this codepath
@@ -171,7 +176,8 @@ PathCairo::CopyToBuilder(FillRule aFillRule) const
 }
 
 already_AddRefed<PathBuilder>
-PathCairo::TransformedCopyToBuilder(const Matrix &aTransform, FillRule aFillRule) const
+PathCairo::TransformedCopyToBuilder(const Matrix& aTransform,
+                                    FillRule aFillRule) const
 {
   RefPtr<PathBuilderCairo> builder = new PathBuilderCairo(aFillRule);
 
@@ -182,7 +188,7 @@ PathCairo::TransformedCopyToBuilder(const Matrix &aTransform, FillRule aFillRule
 }
 
 bool
-PathCairo::ContainsPoint(const Point &aPoint, const Matrix &aTransform) const
+PathCairo::ContainsPoint(const Point& aPoint, const Matrix& aTransform) const
 {
   Matrix inverse = aTransform;
   inverse.Invert();
@@ -194,9 +200,9 @@ PathCairo::ContainsPoint(const Point &aPoint, const Matrix &aTransform) const
 }
 
 bool
-PathCairo::StrokeContainsPoint(const StrokeOptions &aStrokeOptions,
-                               const Point &aPoint,
-                               const Matrix &aTransform) const
+PathCairo::StrokeContainsPoint(const StrokeOptions& aStrokeOptions,
+                               const Point& aPoint,
+                               const Matrix& aTransform) const
 {
   Matrix inverse = aTransform;
   inverse.Invert();
@@ -210,7 +216,7 @@ PathCairo::StrokeContainsPoint(const StrokeOptions &aStrokeOptions,
 }
 
 Rect
-PathCairo::GetBounds(const Matrix &aTransform) const
+PathCairo::GetBounds(const Matrix& aTransform) const
 {
   EnsureContainingContext(aTransform);
 
@@ -222,8 +228,8 @@ PathCairo::GetBounds(const Matrix &aTransform) const
 }
 
 Rect
-PathCairo::GetStrokedBounds(const StrokeOptions &aStrokeOptions,
-                            const Matrix &aTransform) const
+PathCairo::GetStrokedBounds(const StrokeOptions& aStrokeOptions,
+                            const Matrix& aTransform) const
 {
   EnsureContainingContext(aTransform);
 
@@ -237,36 +243,37 @@ PathCairo::GetStrokedBounds(const StrokeOptions &aStrokeOptions,
 }
 
 void
-PathCairo::StreamToSink(PathSink *aSink) const
+PathCairo::StreamToSink(PathSink* aSink) const
 {
   for (size_t i = 0; i < mPathData.size(); i++) {
     switch (mPathData[i].header.type) {
-    case CAIRO_PATH_MOVE_TO:
-      i++;
-      aSink->MoveTo(Point(mPathData[i].point.x, mPathData[i].point.y));
-      break;
-    case CAIRO_PATH_LINE_TO:
-      i++;
-      aSink->LineTo(Point(mPathData[i].point.x, mPathData[i].point.y));
-      break;
-    case CAIRO_PATH_CURVE_TO:
-      aSink->BezierTo(Point(mPathData[i + 1].point.x, mPathData[i + 1].point.y),
-                      Point(mPathData[i + 2].point.x, mPathData[i + 2].point.y),
-                      Point(mPathData[i + 3].point.x, mPathData[i + 3].point.y));
-      i += 3;
-      break;
-    case CAIRO_PATH_CLOSE_PATH:
-      aSink->Close();
-      break;
-    default:
-      // Corrupt path data!
-      MOZ_ASSERT(false);
+      case CAIRO_PATH_MOVE_TO:
+        i++;
+        aSink->MoveTo(Point(mPathData[i].point.x, mPathData[i].point.y));
+        break;
+      case CAIRO_PATH_LINE_TO:
+        i++;
+        aSink->LineTo(Point(mPathData[i].point.x, mPathData[i].point.y));
+        break;
+      case CAIRO_PATH_CURVE_TO:
+        aSink->BezierTo(
+            Point(mPathData[i + 1].point.x, mPathData[i + 1].point.y),
+            Point(mPathData[i + 2].point.x, mPathData[i + 2].point.y),
+            Point(mPathData[i + 3].point.x, mPathData[i + 3].point.y));
+        i += 3;
+        break;
+      case CAIRO_PATH_CLOSE_PATH:
+        aSink->Close();
+        break;
+      default:
+        // Corrupt path data!
+        MOZ_ASSERT(false);
     }
   }
 }
 
 void
-PathCairo::EnsureContainingContext(const Matrix &aTransform) const
+PathCairo::EnsureContainingContext(const Matrix& aTransform) const
 {
   if (mContainingContext) {
     if (mContainingTransform.ExactlyEquals(aTransform)) {
@@ -286,7 +293,7 @@ PathCairo::EnsureContainingContext(const Matrix &aTransform) const
 }
 
 void
-PathCairo::SetPathOnContext(cairo_t *aContext) const
+PathCairo::SetPathOnContext(cairo_t* aContext) const
 {
   // Needs the correct fill rule set.
   cairo_set_fill_rule(aContext, GfxFillRuleToCairoFillRule(mFillRule));
@@ -303,7 +310,8 @@ PathCairo::SetPathOnContext(cairo_t *aContext) const
 }
 
 void
-PathCairo::AppendPathToBuilder(PathBuilderCairo *aBuilder, const Matrix *aTransform) const
+PathCairo::AppendPathToBuilder(PathBuilderCairo* aBuilder,
+                               const Matrix* aTransform) const
 {
   if (aTransform) {
     size_t i = 0;
@@ -313,7 +321,8 @@ PathCairo::AppendPathToBuilder(PathBuilderCairo *aBuilder, const Matrix *aTransf
       i++;
       for (uint32_t c = 0; c < pointCount; c++) {
         cairo_path_data_t data;
-        Point newPoint = aTransform->TransformPoint(Point(mPathData[i].point.x, mPathData[i].point.y));
+        Point newPoint = aTransform->TransformPoint(
+            Point(mPathData[i].point.x, mPathData[i].point.y));
         data.point.x = newPoint.x;
         data.point.y = newPoint.y;
         aBuilder->mPathData.push_back(data);
@@ -327,5 +336,5 @@ PathCairo::AppendPathToBuilder(PathBuilderCairo *aBuilder, const Matrix *aTransf
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

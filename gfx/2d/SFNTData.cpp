@@ -22,26 +22,26 @@ namespace gfx {
 
 struct TTCHeader
 {
-  BigEndianUint32 ttcTag;    // Always 'ttcf'
-  BigEndianUint32 version;   // Fixed, 0x00010000
+  BigEndianUint32 ttcTag;   // Always 'ttcf'
+  BigEndianUint32 version;  // Fixed, 0x00010000
   BigEndianUint32 numFonts;
 };
 
 struct OffsetTable
 {
-  BigEndianUint32 sfntVersion;   // Fixed, 0x00010000 for version 1.0.
+  BigEndianUint32 sfntVersion;  // Fixed, 0x00010000 for version 1.0.
   BigEndianUint16 numTables;
-  BigEndianUint16 searchRange;   // (Maximum power of 2 <= numTables) x 16.
-  BigEndianUint16 entrySelector; // Log2(maximum power of 2 <= numTables).
-  BigEndianUint16 rangeShift;    // NumTables x 16-searchRange.
+  BigEndianUint16 searchRange;    // (Maximum power of 2 <= numTables) x 16.
+  BigEndianUint16 entrySelector;  // Log2(maximum power of 2 <= numTables).
+  BigEndianUint16 rangeShift;     // NumTables x 16-searchRange.
 };
 
 struct TableDirEntry
 {
-  BigEndianUint32 tag;      // 4 -byte identifier.
-  BigEndianUint32 checkSum; // CheckSum for this table.
-  BigEndianUint32 offset;   // Offset from beginning of TrueType font file.
-  BigEndianUint32 length;   // Length of this table.
+  BigEndianUint32 tag;       // 4 -byte identifier.
+  BigEndianUint32 checkSum;  // CheckSum for this table.
+  BigEndianUint32 offset;    // Offset from beginning of TrueType font file.
+  BigEndianUint32 length;    // Length of this table.
 
   friend bool operator<(const TableDirEntry& lhs, const uint32_t aTag)
   {
@@ -53,27 +53,29 @@ struct TableDirEntry
 
 class SFNTData::Font
 {
-public:
-  Font(const OffsetTable *aOffsetTable, const uint8_t *aFontData,
+ public:
+  Font(const OffsetTable* aOffsetTable,
+       const uint8_t* aFontData,
        uint32_t aDataLength)
-    : mFontData(aFontData)
-    , mFirstDirEntry(reinterpret_cast<const TableDirEntry*>(aOffsetTable + 1))
-    , mEndOfDirEntries(mFirstDirEntry + aOffsetTable->numTables)
-    , mDataLength(aDataLength)
+      : mFontData(aFontData),
+        mFirstDirEntry(
+            reinterpret_cast<const TableDirEntry*>(aOffsetTable + 1)),
+        mEndOfDirEntries(mFirstDirEntry + aOffsetTable->numTables),
+        mDataLength(aDataLength)
   {
   }
 
   bool GetU16FullName(mozilla::u16string& aU16FullName)
   {
     const TableDirEntry* dirEntry =
-      GetDirEntry(TRUETYPE_TAG('n', 'a', 'm', 'e'));
+        GetDirEntry(TRUETYPE_TAG('n', 'a', 'm', 'e'));
     if (!dirEntry) {
       gfxWarning() << "Name table entry not found.";
       return false;
     }
 
     UniquePtr<SFNTNameTable> nameTable =
-      SFNTNameTable::Create((mFontData + dirEntry->offset), dirEntry->length);
+        SFNTNameTable::Create((mFontData + dirEntry->offset), dirEntry->length);
     if (!nameTable) {
       return false;
     }
@@ -81,13 +83,11 @@ public:
     return nameTable->GetU16FullName(aU16FullName);
   }
 
-private:
-
-  const TableDirEntry*
-  GetDirEntry(const uint32_t aTag)
+ private:
+  const TableDirEntry* GetDirEntry(const uint32_t aTag)
   {
     const TableDirEntry* foundDirEntry =
-      std::lower_bound(mFirstDirEntry, mEndOfDirEntries, aTag);
+        std::lower_bound(mFirstDirEntry, mEndOfDirEntries, aTag);
 
     if (foundDirEntry == mEndOfDirEntries || foundDirEntry->tag != aTag) {
       gfxWarning() << "Font data does not contain tag.";
@@ -102,15 +102,15 @@ private:
     return foundDirEntry;
   }
 
-  const uint8_t *mFontData;
-  const TableDirEntry *mFirstDirEntry;
-  const TableDirEntry *mEndOfDirEntries;
+  const uint8_t* mFontData;
+  const TableDirEntry* mFirstDirEntry;
+  const TableDirEntry* mEndOfDirEntries;
   uint32_t mDataLength;
 };
 
 /* static */
 UniquePtr<SFNTData>
-SFNTData::Create(const uint8_t *aFontData, uint32_t aDataLength)
+SFNTData::Create(const uint8_t* aFontData, uint32_t aDataLength)
 {
   MOZ_ASSERT(aFontData);
 
@@ -120,17 +120,18 @@ SFNTData::Create(const uint8_t *aFontData, uint32_t aDataLength)
     return nullptr;
   }
 
-  const TTCHeader *ttcHeader = reinterpret_cast<const TTCHeader*>(aFontData);
+  const TTCHeader* ttcHeader = reinterpret_cast<const TTCHeader*>(aFontData);
   if (ttcHeader->ttcTag == TRUETYPE_TAG('t', 't', 'c', 'f')) {
     uint32_t numFonts = ttcHeader->numFonts;
-    if (aDataLength < sizeof(TTCHeader) + (numFonts * sizeof(BigEndianUint32))) {
+    if (aDataLength <
+        sizeof(TTCHeader) + (numFonts * sizeof(BigEndianUint32))) {
       gfxWarning() << "Font data too short to contain full TTC Header.";
       return nullptr;
     }
 
     UniquePtr<SFNTData> sfntData(new SFNTData);
     const BigEndianUint32* offset =
-      reinterpret_cast<const BigEndianUint32*>(aFontData + sizeof(TTCHeader));
+        reinterpret_cast<const BigEndianUint32*>(aFontData + sizeof(TTCHeader));
     const BigEndianUint32* endOfOffsets = offset + numFonts;
     while (offset != endOfOffsets) {
       if (!sfntData->AddFont(aFontData, aDataLength, *offset)) {
@@ -152,8 +153,10 @@ SFNTData::Create(const uint8_t *aFontData, uint32_t aDataLength)
 
 /* static */
 uint64_t
-SFNTData::GetUniqueKey(const uint8_t *aFontData, uint32_t aDataLength,
-                       uint32_t aVarDataSize, const void* aVarData)
+SFNTData::GetUniqueKey(const uint8_t* aFontData,
+                       uint32_t aDataLength,
+                       uint32_t aVarDataSize,
+                       const void* aVarData)
 {
   uint64_t hash;
   UniquePtr<SFNTData> sfntData = SFNTData::Create(aFontData, aDataLength);
@@ -169,7 +172,8 @@ SFNTData::GetUniqueKey(const uint8_t *aFontData, uint32_t aDataLength,
     hash = AddToHash(hash, HashBytes(aVarData, aVarDataSize));
   }
 
-  return hash << 32 | aDataLength;;
+  return hash << 32 | aDataLength;
+  ;
 }
 
 SFNTData::~SFNTData()
@@ -209,7 +213,8 @@ SFNTData::GetU16FullNames(Vector<mozilla::u16string>& aU16FullNames)
 
 bool
 SFNTData::GetIndexForU16Name(const mozilla::u16string& aU16FullName,
-                             uint32_t* aIndex, size_t aTruncatedLen)
+                             uint32_t* aIndex,
+                             size_t aTruncatedLen)
 {
   for (size_t i = 0; i < mFonts.length(); ++i) {
     mozilla::u16string name;
@@ -232,7 +237,8 @@ SFNTData::GetIndexForU16Name(const mozilla::u16string& aU16FullName,
 }
 
 bool
-SFNTData::AddFont(const uint8_t *aFontData, uint32_t aDataLength,
+SFNTData::AddFont(const uint8_t* aFontData,
+                  uint32_t aDataLength,
                   uint32_t aOffset)
 {
   uint32_t remainingLength = aDataLength - aOffset;
@@ -241,8 +247,8 @@ SFNTData::AddFont(const uint8_t *aFontData, uint32_t aDataLength,
     return false;
   }
 
-  const OffsetTable *offsetTable =
-    reinterpret_cast<const OffsetTable*>(aFontData + aOffset);
+  const OffsetTable* offsetTable =
+      reinterpret_cast<const OffsetTable*>(aFontData + aOffset);
   if (remainingLength <
       sizeof(OffsetTable) + (offsetTable->numTables * sizeof(TableDirEntry))) {
     gfxWarning() << "Font data too short to contain tables.";
@@ -252,5 +258,5 @@ SFNTData::AddFont(const uint8_t *aFontData, uint32_t aDataLength,
   return mFonts.append(new Font(offsetTable, aFontData, aDataLength));
 }
 
-} // gfx
-} // mozilla
+}  // gfx
+}  // namespace mozilla

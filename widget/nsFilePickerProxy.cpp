@@ -16,18 +16,13 @@ using namespace mozilla::dom;
 
 NS_IMPL_ISUPPORTS(nsFilePickerProxy, nsIFilePicker)
 
-nsFilePickerProxy::nsFilePickerProxy()
-  : mSelectedType(0)
-  , mIPCActive(false)
-{
-}
+nsFilePickerProxy::nsFilePickerProxy() : mSelectedType(0), mIPCActive(false) {}
 
-nsFilePickerProxy::~nsFilePickerProxy()
-{
-}
+nsFilePickerProxy::~nsFilePickerProxy() {}
 
 NS_IMETHODIMP
-nsFilePickerProxy::Init(mozIDOMWindowProxy* aParent, const nsAString& aTitle,
+nsFilePickerProxy::Init(mozIDOMWindowProxy* aParent,
+                        const nsAString& aTitle,
                         int16_t aMode)
 {
   TabChild* tabChild = TabChild::GetFrom(aParent);
@@ -52,7 +47,8 @@ nsFilePickerProxy::InitNative(nsIWidget* aParent, const nsAString& aTitle)
 }
 
 NS_IMETHODIMP
-nsFilePickerProxy::AppendFilter(const nsAString& aTitle, const nsAString& aFilter)
+nsFilePickerProxy::AppendFilter(const nsAString& aTitle,
+                                const nsAString& aFilter)
 {
   mFilterNames.AppendElement(aTitle);
   mFilters.AppendElement(aFilter);
@@ -118,7 +114,8 @@ nsFilePickerProxy::GetFileURL(nsIURI** aFileURL)
 NS_IMETHODIMP
 nsFilePickerProxy::GetFiles(nsISimpleEnumerator** aFiles)
 {
-  MOZ_ASSERT(false, "GetFiles is unimplemented; use GetDomFileOrDirectoryEnumerator");
+  MOZ_ASSERT(false,
+             "GetFiles is unimplemented; use GetDomFileOrDirectoryEnumerator");
   return NS_ERROR_FAILURE;
 }
 
@@ -143,8 +140,14 @@ nsFilePickerProxy::Open(nsIFilePickerShownCallback* aCallback)
     return NS_ERROR_FAILURE;
   }
 
-  SendOpen(mSelectedType, mAddToRecentDocs, mDefault, mDefaultExtension,
-           mFilters, mFilterNames, displayDirectory, mDisplaySpecialDirectory,
+  SendOpen(mSelectedType,
+           mAddToRecentDocs,
+           mDefault,
+           mDefaultExtension,
+           mFilters,
+           mFilterNames,
+           displayDirectory,
+           mDisplaySpecialDirectory,
            mOkButtonLabel);
 
   return NS_OK;
@@ -165,7 +168,7 @@ nsFilePickerProxy::Recv__delete__(const MaybeInputData& aData,
       }
 
       nsPIDOMWindowInner* inner =
-        mParent ? mParent->GetCurrentInnerWindow() : nullptr;
+          mParent ? mParent->GetCurrentInnerWindow() : nullptr;
       RefPtr<File> file = File::Create(inner, blobImpl);
       MOZ_ASSERT(file);
 
@@ -181,7 +184,7 @@ nsFilePickerProxy::Recv__delete__(const MaybeInputData& aData,
     }
 
     RefPtr<Directory> directory =
-      Directory::Create(mParent->GetCurrentInnerWindow(), file);
+        Directory::Create(mParent->GetCurrentInnerWindow(), file);
     MOZ_ASSERT(directory);
 
     OwningFileOrDirectory* element = mFilesOrDirectories.AppendElement();
@@ -222,14 +225,14 @@ namespace {
 
 class SimpleEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  explicit
-  SimpleEnumerator(const nsTArray<OwningFileOrDirectory>& aFilesOrDirectories)
-    : mFilesOrDirectories(aFilesOrDirectories)
-    , mIndex(0)
-  {}
+  explicit SimpleEnumerator(
+      const nsTArray<OwningFileOrDirectory>& aFilesOrDirectories)
+      : mFilesOrDirectories(aFilesOrDirectories), mIndex(0)
+  {
+  }
 
   NS_IMETHOD
   HasMoreElements(bool* aRetvalue) override
@@ -258,9 +261,8 @@ public:
     return NS_OK;
   }
 
-private:
-  ~SimpleEnumerator()
-  {}
+ private:
+  ~SimpleEnumerator() {}
 
   nsTArray<mozilla::dom::OwningFileOrDirectory> mFilesOrDirectories;
   uint32_t mIndex;
@@ -268,13 +270,14 @@ private:
 
 NS_IMPL_ISUPPORTS(SimpleEnumerator, nsISimpleEnumerator)
 
-} // namespace
+}  // namespace
 
 NS_IMETHODIMP
-nsFilePickerProxy::GetDomFileOrDirectoryEnumerator(nsISimpleEnumerator** aDomfiles)
+nsFilePickerProxy::GetDomFileOrDirectoryEnumerator(
+    nsISimpleEnumerator** aDomfiles)
 {
   RefPtr<SimpleEnumerator> enumerator =
-    new SimpleEnumerator(mFilesOrDirectories);
+      new SimpleEnumerator(mFilesOrDirectories);
   enumerator.forget(aDomfiles);
   return NS_OK;
 }

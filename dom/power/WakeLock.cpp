@@ -6,7 +6,7 @@
 
 #include "WakeLock.h"
 #include "mozilla/dom/ContentParent.h"
-#include "mozilla/dom/Event.h" // for nsIDOMEvent::InternalDOMEvent()
+#include "mozilla/dom/Event.h"  // for nsIDOMEvent::InternalDOMEvent()
 #include "mozilla/dom/MozWakeLockBinding.h"
 #include "mozilla/Hal.h"
 #include "mozilla/HalWakeLock.h"
@@ -36,9 +36,9 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(WakeLock)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WakeLock)
 
 WakeLock::WakeLock()
-  : mLocked(false)
-  , mHidden(true)
-  , mContentParentID(CONTENT_PROCESS_ID_UNKNOWN)
+    : mLocked(false),
+      mHidden(true),
+      mContentParentID(CONTENT_PROCESS_ID_UNKNOWN)
 {
 }
 
@@ -55,7 +55,7 @@ WakeLock::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 nsresult
-WakeLock::Init(const nsAString &aTopic, nsPIDOMWindowInner* aWindow)
+WakeLock::Init(const nsAString& aTopic, nsPIDOMWindowInner* aWindow)
 {
   // Don't Init() a WakeLock twice.
   MOZ_ASSERT(mTopic.IsEmpty());
@@ -109,7 +109,9 @@ WakeLock::Init(const nsAString& aTopic, ContentParent* aContentParent)
 }
 
 NS_IMETHODIMP
-WakeLock::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* data)
+WakeLock::Observe(nsISupports* aSubject,
+                  const char* aTopic,
+                  const char16_t* data)
 {
   // If this wake lock was acquired on behalf of another process, unlock it
   // when that process dies.
@@ -128,8 +130,8 @@ WakeLock::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* dat
   }
 
   uint64_t childID = 0;
-  nsresult rv = props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"),
-                                           &childID);
+  nsresult rv =
+      props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"), &childID);
   if (NS_SUCCEEDED(rv)) {
     if (childID == mContentParentID) {
       mLocked = false;
@@ -147,10 +149,11 @@ WakeLock::DoLock()
     // Change the flag immediately to prevent recursive reentering
     mLocked = true;
 
-    hal::ModifyWakeLock(mTopic,
-                        hal::WAKE_LOCK_ADD_ONE,
-                        mHidden ? hal::WAKE_LOCK_ADD_ONE : hal::WAKE_LOCK_NO_CHANGE,
-                        mContentParentID);
+    hal::ModifyWakeLock(
+        mTopic,
+        hal::WAKE_LOCK_ADD_ONE,
+        mHidden ? hal::WAKE_LOCK_ADD_ONE : hal::WAKE_LOCK_NO_CHANGE,
+        mContentParentID);
   }
 }
 
@@ -161,10 +164,11 @@ WakeLock::DoUnlock()
     // Change the flag immediately to prevent recursive reentering
     mLocked = false;
 
-    hal::ModifyWakeLock(mTopic,
-                        hal::WAKE_LOCK_REMOVE_ONE,
-                        mHidden ? hal::WAKE_LOCK_REMOVE_ONE : hal::WAKE_LOCK_NO_CHANGE,
-                        mContentParentID);
+    hal::ModifyWakeLock(
+        mTopic,
+        hal::WAKE_LOCK_REMOVE_ONE,
+        mHidden ? hal::WAKE_LOCK_REMOVE_ONE : hal::WAKE_LOCK_NO_CHANGE,
+        mContentParentID);
   }
 }
 
@@ -228,30 +232,31 @@ WakeLock::Unlock(ErrorResult& aRv)
 }
 
 void
-WakeLock::GetTopic(nsAString &aTopic)
+WakeLock::GetTopic(nsAString& aTopic)
 {
   aTopic.Assign(mTopic);
 }
 
 NS_IMETHODIMP
-WakeLock::HandleEvent(nsIDOMEvent *aEvent)
+WakeLock::HandleEvent(nsIDOMEvent* aEvent)
 {
   nsAutoString type;
   aEvent->GetType(type);
 
   if (type.EqualsLiteral("visibilitychange")) {
     nsCOMPtr<nsIDocument> doc =
-      do_QueryInterface(aEvent->InternalDOMEvent()->GetTarget());
+        do_QueryInterface(aEvent->InternalDOMEvent()->GetTarget());
     NS_ENSURE_STATE(doc);
 
     bool oldHidden = mHidden;
     mHidden = doc->Hidden();
 
     if (mLocked && oldHidden != mHidden) {
-      hal::ModifyWakeLock(mTopic,
-                          hal::WAKE_LOCK_NO_CHANGE,
-                          mHidden ? hal::WAKE_LOCK_ADD_ONE : hal::WAKE_LOCK_REMOVE_ONE,
-                          mContentParentID);
+      hal::ModifyWakeLock(
+          mTopic,
+          hal::WAKE_LOCK_NO_CHANGE,
+          mHidden ? hal::WAKE_LOCK_ADD_ONE : hal::WAKE_LOCK_REMOVE_ONE,
+          mContentParentID);
     }
 
     return NS_OK;
@@ -277,5 +282,5 @@ WakeLock::GetParentObject() const
   return window;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -21,19 +21,19 @@ namespace dom {
  */
 class DetailedPromise : public Promise
 {
-public:
-  static already_AddRefed<DetailedPromise>
-  Create(nsIGlobalObject* aGlobal,
-         ErrorResult& aRv,
-         const nsACString& aName);
+ public:
+  static already_AddRefed<DetailedPromise> Create(nsIGlobalObject* aGlobal,
+                                                  ErrorResult& aRv,
+                                                  const nsACString& aName);
 
-  static already_AddRefed<DetailedPromise>
-  Create(nsIGlobalObject* aGlobal, ErrorResult& aRv,
-         const nsACString& aName,
-         Telemetry::HistogramID aSuccessLatencyProbe,
-         Telemetry::HistogramID aFailureLatencyProbe);
+  static already_AddRefed<DetailedPromise> Create(
+      nsIGlobalObject* aGlobal,
+      ErrorResult& aRv,
+      const nsACString& aName,
+      Telemetry::HistogramID aSuccessLatencyProbe,
+      Telemetry::HistogramID aFailureLatencyProbe);
 
-  template <typename T>
+  template<typename T>
   void MaybeResolve(const T& aArg)
   {
     EME_LOG("%s promise resolved", mName.get());
@@ -47,9 +47,8 @@ public:
   void MaybeReject(ErrorResult& aArg) = delete;
   void MaybeReject(ErrorResult&, const nsACString& aReason);
 
-private:
-  explicit DetailedPromise(nsIGlobalObject* aGlobal,
-                           const nsACString& aName);
+ private:
+  explicit DetailedPromise(nsIGlobalObject* aGlobal, const nsACString& aName);
 
   explicit DetailedPromise(nsIGlobalObject* aGlobal,
                            const nsACString& aName,
@@ -57,7 +56,11 @@ private:
                            Telemetry::HistogramID aFailureLatencyProbe);
   virtual ~DetailedPromise();
 
-  enum eStatus { kSucceeded, kFailed };
+  enum eStatus
+  {
+    kSucceeded,
+    kFailed
+  };
   void MaybeReportTelemetry(eStatus aStatus);
 
   nsCString mName;
@@ -67,7 +70,7 @@ private:
   Optional<Telemetry::HistogramID> mFailureLatencyProbe;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // __DetailedPromise_h__
+#endif  // __DetailedPromise_h__

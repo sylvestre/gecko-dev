@@ -38,50 +38,46 @@ namespace {
 
 class ChannelEventWrapper : public ChannelEvent
 {
-public:
-  ChannelEventWrapper(nsIEventTarget* aTarget)
-    : mTarget(aTarget)
-  {}
+ public:
+  ChannelEventWrapper(nsIEventTarget* aTarget) : mTarget(aTarget) {}
 
   already_AddRefed<nsIEventTarget> GetEventTarget() override
   {
     return do_AddRef(mTarget.get());
   }
 
-protected:
+ protected:
   ~ChannelEventWrapper() override = default;
 
-private:
+ private:
   nsCOMPtr<nsIEventTarget> mTarget;
 };
 
 class ChannelEventFunction final : public ChannelEventWrapper
 {
-public:
+ public:
   ChannelEventFunction(nsIEventTarget* aTarget, std::function<void()>&& aFunc)
-    : ChannelEventWrapper(aTarget)
-    , mFunc(Move(aFunc))
-  {}
-
-  void Run() override
+      : ChannelEventWrapper(aTarget), mFunc(Move(aFunc))
   {
-    mFunc();
   }
 
-protected:
+  void Run() override { mFunc(); }
+
+ protected:
   ~ChannelEventFunction() override = default;
 
-private:
+ private:
   std::function<void()> mFunc;
 };
 
 class ChannelEventRunnable final : public ChannelEventWrapper
 {
-public:
-  ChannelEventRunnable(nsIEventTarget* aTarget, already_AddRefed<Runnable> aRunnable)
-    : ChannelEventWrapper(aTarget)
-    , mRunnable(aRunnable)
-  {}
+ public:
+  ChannelEventRunnable(nsIEventTarget* aTarget,
+                       already_AddRefed<Runnable> aRunnable)
+      : ChannelEventWrapper(aTarget), mRunnable(aRunnable)
+  {
+  }
 
   void Run() override
   {
@@ -89,30 +85,31 @@ public:
     Unused << NS_WARN_IF(NS_FAILED(rv));
   }
 
-protected:
+ protected:
   ~ChannelEventRunnable() override = default;
 
-private:
+ private:
   RefPtr<Runnable> mRunnable;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 /*****************************************************************************
  * Initialization
  *****************************************************************************/
 
 StreamFilterParent::StreamFilterParent()
-  : mMainThread(GetCurrentThreadEventTarget())
-  , mIOThread(mMainThread)
-  , mQueue(new ChannelEventQueue(static_cast<nsIStreamListener*>(this)))
-  , mBufferMutex("StreamFilter buffer mutex")
-  , mReceivedStop(false)
-  , mSentStop(false)
-  , mContext(nullptr)
-  , mOffset(0)
-  , mState(State::Uninitialized)
-{}
+    : mMainThread(GetCurrentThreadEventTarget()),
+      mIOThread(mMainThread),
+      mQueue(new ChannelEventQueue(static_cast<nsIStreamListener*>(this))),
+      mBufferMutex("StreamFilter buffer mutex"),
+      mReceivedStop(false),
+      mSentStop(false),
+      mContext(nullptr),
+      mOffset(0),
+      mState(State::Uninitialized)
+{
+}
 
 StreamFilterParent::~StreamFilterParent()
 {
@@ -123,7 +120,9 @@ StreamFilterParent::~StreamFilterParent()
 }
 
 bool
-StreamFilterParent::Create(dom::ContentParent* aContentParent, uint64_t aChannelId, const nsAString& aAddonId,
+StreamFilterParent::Create(dom::ContentParent* aContentParent,
+                           uint64_t aChannelId,
+                           const nsAString& aAddonId,
                            Endpoint<PStreamFilterChild>* aEndpoint)
 {
   AssertIsMainThread();
@@ -131,17 +130,19 @@ StreamFilterParent::Create(dom::ContentParent* aContentParent, uint64_t aChannel
   auto& webreq = WebRequestService::GetSingleton();
 
   RefPtr<nsAtom> addonId = NS_Atomize(aAddonId);
-  nsCOMPtr<nsITraceableChannel> channel = webreq.GetTraceableChannel(aChannelId, addonId, aContentParent);
+  nsCOMPtr<nsITraceableChannel> channel =
+      webreq.GetTraceableChannel(aChannelId, addonId, aContentParent);
 
   RefPtr<nsHttpChannel> chan = do_QueryObject(channel);
   NS_ENSURE_TRUE(chan, false);
 
   Endpoint<PStreamFilterParent> parent;
   Endpoint<PStreamFilterChild> child;
-  nsresult rv = PStreamFilter::CreateEndpoints(chan->ProcessId(),
-                                               aContentParent ? aContentParent->OtherPid()
-                                                              : base::GetCurrentProcId(),
-                                               &parent, &child);
+  nsresult rv = PStreamFilter::CreateEndpoints(
+      chan->ProcessId(),
+      aContentParent ? aContentParent->OtherPid() : base::GetCurrentProcId(),
+      &parent,
+      &child);
   NS_ENSURE_SUCCESS(rv, false);
 
   if (!chan->AttachStreamFilter(Move(parent))) {
@@ -158,11 +159,11 @@ StreamFilterParent::Attach(nsIChannel* aChannel, ParentEndpoint&& aEndpoint)
   auto self = MakeRefPtr<StreamFilterParent>();
 
   self->ActorThread()->Dispatch(
-    NewRunnableMethod<ParentEndpoint&&>("StreamFilterParent::Bind",
-                                        self,
-                                        &StreamFilterParent::Bind,
-                                        Move(aEndpoint)),
-    NS_DISPATCH_NORMAL);
+      NewRunnableMethod<ParentEndpoint&&>("StreamFilterParent::Bind",
+                                          self,
+                                          &StreamFilterParent::Bind,
+                                          Move(aEndpoint)),
+      NS_DISPATCH_NORMAL);
 
   self->Init(aChannel);
 
@@ -198,7 +199,7 @@ StreamFilterParent::CheckListenerChain()
   AssertIsMainThread();
 
   nsCOMPtr<nsIThreadRetargetableStreamListener> trsl =
-    do_QueryInterface(mOrigListener);
+      do_QueryInterface(mOrigListener);
   if (trsl) {
     return trsl->CheckListenerChain();
   }
@@ -258,10 +259,9 @@ StreamFilterParent::Destroy()
   // Close the channel asynchronously so the actor is never destroyed before
   // this message is fully processed.
   ActorThread()->Dispatch(
-    NewRunnableMethod("StreamFilterParent::Close",
-                      this,
-                      &StreamFilterParent::Close),
-    NS_DISPATCH_NORMAL);
+      NewRunnableMethod(
+          "StreamFilterParent::Close", this, &StreamFilterParent::Close),
+      NS_DISPATCH_NORMAL);
 }
 
 IPCResult
@@ -316,9 +316,7 @@ StreamFilterParent::RecvDisconnect()
 
   if (mState == State::Suspended) {
     RefPtr<StreamFilterParent> self(this);
-    RunOnMainThread(FUNC, [=] {
-      self->mChannel->Resume();
-    });
+    RunOnMainThread(FUNC, [=] { self->mChannel->Resume(); });
   } else if (mState != State::TransferringData) {
     return IPC_OK();
   }
@@ -341,9 +339,7 @@ StreamFilterParent::RecvFlushedData()
   RunOnIOThread(FUNC, [=] {
     self->FlushBufferedData();
 
-    RunOnActorThread(FUNC, [=] {
-      self->mState = State::Disconnected;
-    });
+    RunOnActorThread(FUNC, [=] { self->mState = State::Disconnected; });
   });
   return IPC_OK();
 }
@@ -357,12 +353,10 @@ StreamFilterParent::RecvWrite(Data&& aData)
 {
   AssertIsActorThread();
 
-
-  RunOnIOThread(
-    NewRunnableMethod<Data&&>("StreamFilterParent::WriteMove",
-                              this,
-                              &StreamFilterParent::WriteMove,
-                              Move(aData)));
+  RunOnIOThread(NewRunnableMethod<Data&&>("StreamFilterParent::WriteMove",
+                                          this,
+                                          &StreamFilterParent::WriteMove,
+                                          Move(aData)));
   return IPC_OK();
 }
 
@@ -384,8 +378,8 @@ StreamFilterParent::Write(Data& aData)
                                       aData.Length());
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = mOrigListener->OnDataAvailable(mChannel, mContext, stream,
-                                      mOffset, aData.Length());
+  rv = mOrigListener->OnDataAvailable(
+      mChannel, mContext, stream, mOffset, aData.Length());
   NS_ENSURE_SUCCESS(rv, rv);
 
   mOffset += aData.Length();
@@ -417,7 +411,8 @@ StreamFilterParent::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 
   // Important: Do this only *after* running the next listener in the chain, so
   // that we get the final delivery target after any retargeting that it may do.
-  if (nsCOMPtr<nsIThreadRetargetableRequest> req = do_QueryInterface(aRequest)) {
+  if (nsCOMPtr<nsIThreadRetargetableRequest> req =
+          do_QueryInterface(aRequest)) {
     Unused << req->GetDeliveryTarget(getter_AddRefs(mIOThread));
     MOZ_ASSERT(mIOThread);
   }
@@ -492,16 +487,16 @@ StreamFilterParent::OnDataAvailable(nsIRequest* aRequest,
     }
 
     mOffset += aCount;
-    return mOrigListener->OnDataAvailable(aRequest, aContext, aInputStream,
-                                          mOffset - aCount, aCount);
+    return mOrigListener->OnDataAvailable(
+        aRequest, aContext, aInputStream, mOffset - aCount, aCount);
   }
 
   Data data;
   data.SetLength(aCount);
 
   uint32_t count;
-  nsresult rv = aInputStream->Read(reinterpret_cast<char*>(data.Elements()),
-                                   aCount, &count);
+  nsresult rv = aInputStream->Read(
+      reinterpret_cast<char*>(data.Elements()), aCount, &count);
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(count == aCount, NS_ERROR_UNEXPECTED);
 
@@ -512,11 +507,11 @@ StreamFilterParent::OnDataAvailable(nsIRequest* aRequest,
     return NS_ERROR_FAILURE;
   } else {
     ActorThread()->Dispatch(
-      NewRunnableMethod<Data&&>("StreamFilterParent::DoSendData",
-                                this,
-                                &StreamFilterParent::DoSendData,
-                                Move(data)),
-      NS_DISPATCH_NORMAL);
+        NewRunnableMethod<Data&&>("StreamFilterParent::DoSendData",
+                                  this,
+                                  &StreamFilterParent::DoSendData,
+                                  Move(data)),
+        NS_DISPATCH_NORMAL);
   }
   return NS_OK;
 }
@@ -639,9 +634,8 @@ StreamFilterParent::RunOnActorThread(const char* aName, Function&& aFunc)
   if (IsActorThread()) {
     aFunc();
   } else {
-    ActorThread()->Dispatch(
-      Move(NS_NewRunnableFunction(aName, aFunc)),
-      NS_DISPATCH_NORMAL);
+    ActorThread()->Dispatch(Move(NS_NewRunnableFunction(aName, aFunc)),
+                            NS_DISPATCH_NORMAL);
   }
 }
 
@@ -665,8 +659,10 @@ StreamFilterParent::DeallocPStreamFilterParent()
   RefPtr<StreamFilterParent> self = dont_AddRef(this);
 }
 
-NS_IMPL_ISUPPORTS(StreamFilterParent, nsIStreamListener, nsIRequestObserver, nsIThreadRetargetableStreamListener)
+NS_IMPL_ISUPPORTS(StreamFilterParent,
+                  nsIStreamListener,
+                  nsIRequestObserver,
+                  nsIThreadRetargetableStreamListener)
 
-} // namespace extensions
-} // namespace mozilla
-
+}  // namespace extensions
+}  // namespace mozilla

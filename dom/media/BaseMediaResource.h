@@ -19,15 +19,15 @@ namespace mozilla {
 
 class BaseMediaResource : public MediaResource
 {
-public:
+ public:
   /**
    * Create a resource, reading data from the channel. Call on main thread only.
    * The caller must follow up by calling resource->Open().
    */
   static already_AddRefed<BaseMediaResource> Create(
-    MediaResourceCallback* aCallback,
-    nsIChannel* aChannel,
-    bool aIsPrivateBrowsing);
+      MediaResourceCallback* aCallback,
+      nsIChannel* aChannel,
+      bool aIsPrivateBrowsing);
 
   // Close the resource, stop any listeners, channels, etc.
   // Cancels any currently blocking Read request and forces that request to
@@ -92,7 +92,7 @@ public:
   // with a new channel. Any cached data associated with the original
   // stream should be accessible in the new stream too.
   virtual already_AddRefed<BaseMediaResource> CloneData(
-    MediaResourceCallback* aCallback)
+      MediaResourceCallback* aCallback)
   {
     return nullptr;
   }
@@ -115,14 +115,14 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-protected:
+ protected:
   BaseMediaResource(MediaResourceCallback* aCallback,
                     nsIChannel* aChannel,
                     nsIURI* aURI)
-    : mCallback(aCallback)
-    , mChannel(aChannel)
-    , mURI(aURI)
-    , mLoadInBackground(false)
+      : mCallback(aCallback),
+        mChannel(aChannel),
+        mURI(aURI),
+        mLoadInBackground(false)
   {
   }
   virtual ~BaseMediaResource() {}
@@ -153,6 +153,6 @@ protected:
   bool mLoadInBackground;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // BaseMediaResource_h
+#endif  // BaseMediaResource_h

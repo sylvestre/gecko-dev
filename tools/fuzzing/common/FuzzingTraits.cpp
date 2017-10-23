@@ -31,5 +31,5 @@ FuzzingTraits::Frequency(const size_t aSize, const uint64_t aFactor)
   return RandomIntegerRange<size_t>(0, ceil(float(aSize) / aFactor)) + 1;
 }
 
-} // namespace fuzzing
-} // namespace mozilla
+}  // namespace fuzzing
+}  // namespace mozilla

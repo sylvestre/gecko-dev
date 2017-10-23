@@ -16,7 +16,7 @@ static sandbox::TargetServices*
 InitializeTargetServices()
 {
   sandbox::TargetServices* targetServices =
-    sandbox::SandboxFactory::GetTargetServices();
+      sandbox::SandboxFactory::GetTargetServices();
   if (!targetServices) {
     return nullptr;
   }
@@ -32,7 +32,7 @@ sandbox::TargetServices*
 GetInitializedTargetServices()
 {
   static sandbox::TargetServices* sInitializedTargetServices =
-    InitializeTargetServices();
+      InitializeTargetServices();
 
   return sInitializedTargetServices;
 }
@@ -47,7 +47,7 @@ static sandbox::BrokerServices*
 InitializeBrokerServices()
 {
   sandbox::BrokerServices* brokerServices =
-    sandbox::SandboxFactory::GetBrokerServices();
+      sandbox::SandboxFactory::GetBrokerServices();
   if (!brokerServices) {
     return nullptr;
   }
@@ -73,15 +73,16 @@ sandbox::BrokerServices*
 GetInitializedBrokerServices()
 {
   static sandbox::BrokerServices* sInitializedBrokerServices =
-    InitializeBrokerServices();
+      InitializeBrokerServices();
 
   return sInitializedBrokerServices;
 }
 
-PermissionsService* GetPermissionsService()
+PermissionsService*
+GetPermissionsService()
 {
   return PermissionsService::GetInstance();
 }
 
-} // sandboxing
-} // mozilla
+}  // namespace sandboxing
+}  // namespace mozilla

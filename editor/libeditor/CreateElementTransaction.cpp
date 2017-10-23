@@ -36,18 +36,16 @@ CreateElementTransaction::CreateElementTransaction(EditorBase& aEditorBase,
                                                    nsINode& aParent,
                                                    int32_t aOffsetInParent,
                                                    nsIContent* aChildAtOffset)
-  : EditTransactionBase()
-  , mEditorBase(&aEditorBase)
-  , mTag(&aTag)
-  , mParent(&aParent)
-  , mOffsetInParent(aOffsetInParent)
-  , mRefNode(aChildAtOffset)
+    : EditTransactionBase(),
+      mEditorBase(&aEditorBase),
+      mTag(&aTag),
+      mParent(&aParent),
+      mOffsetInParent(aOffsetInParent),
+      mRefNode(aChildAtOffset)
 {
 }
 
-CreateElementTransaction::~CreateElementTransaction()
-{
-}
+CreateElementTransaction::~CreateElementTransaction() {}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(CreateElementTransaction,
                                    EditTransactionBase,
@@ -60,7 +58,6 @@ NS_IMPL_ADDREF_INHERITED(CreateElementTransaction, EditTransactionBase)
 NS_IMPL_RELEASE_INHERITED(CreateElementTransaction, EditTransactionBase)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CreateElementTransaction)
 NS_INTERFACE_MAP_END_INHERITING(EditTransactionBase)
-
 
 NS_IMETHODIMP
 CreateElementTransaction::DoTransaction()
@@ -82,8 +79,8 @@ CreateElementTransaction::DoTransaction()
     return rv.StealNSResult();
   }
 
-  mOffsetInParent = std::min(mOffsetInParent,
-                             static_cast<int32_t>(mParent->GetChildCount()));
+  mOffsetInParent =
+      std::min(mOffsetInParent, static_cast<int32_t>(mParent->GetChildCount()));
 
   if (!mRefNode) {
     // Note, it's ok for mRefNode to be null. That means append
@@ -104,8 +101,7 @@ CreateElementTransaction::DoTransaction()
   NS_ENSURE_TRUE(selection, NS_ERROR_NULL_POINTER);
 
   rv = selection->Collapse(mParent, mParent->IndexOf(mNewNode) + 1);
-  NS_ASSERTION(!rv.Failed(),
-               "selection could not be collapsed after insert");
+  NS_ASSERTION(!rv.Failed(), "selection could not be collapsed after insert");
   return NS_OK;
 }
 
@@ -154,4 +150,4 @@ CreateElementTransaction::GetNewNode()
   return nsCOMPtr<Element>(mNewNode).forget();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

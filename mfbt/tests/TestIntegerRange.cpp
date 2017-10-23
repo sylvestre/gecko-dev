@@ -81,7 +81,8 @@ TestDoubleParamRange(const IntType1 aBegin, const IntType2 aEnd)
   IntType2 array[kArraySize];
   IntType2* ptr = array;
   for (auto i : IntegerRange(aBegin, aEnd)) {
-    static_assert(IsSame<decltype(i), IntType2>::value, "type of the loop var "
+    static_assert(IsSame<decltype(i), IntType2>::value,
+                  "type of the loop var "
                   "should be same as that of the second param");
     *ptr++ = i;
   }
@@ -101,7 +102,8 @@ TestDoubleParamReverseRange(const IntType1 aBegin, const IntType2 aEnd)
   IntType2 array[kArraySize];
   IntType2* ptr = array;
   for (auto i : Reversed(IntegerRange(aBegin, aEnd))) {
-    static_assert(IsSame<decltype(i), IntType2>::value, "type of the loop var "
+    static_assert(IsSame<decltype(i), IntType2>::value,
+                  "type of the loop var "
                   "should be same as that of the second param");
     *ptr++ = i;
   }
@@ -109,8 +111,9 @@ TestDoubleParamReverseRange(const IntType1 aBegin, const IntType2 aEnd)
   MOZ_RELEASE_ASSERT(ptr - array == static_cast<ptrdiff_t>(aEnd - aBegin),
                      "Should iterates (aEnd - aBegin) times");
   for (size_t i = 0; i < static_cast<size_t>(aEnd - aBegin); i++) {
-    MOZ_RELEASE_ASSERT(array[i] == static_cast<IntType2>(aEnd - i - 1),
-                       "Should iterate integers in [aBegin, aEnd) in reverse order");
+    MOZ_RELEASE_ASSERT(
+        array[i] == static_cast<IntType2>(aEnd - i - 1),
+        "Should iterate integers in [aBegin, aEnd) in reverse order");
   }
 }
 

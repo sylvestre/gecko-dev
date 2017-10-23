@@ -34,13 +34,12 @@ AnimValuesStyleRule::MapRuleInfoInto(nsRuleData* aRuleData)
 
   for (auto iter = mAnimationValues.ConstIter(); !iter.Done(); iter.Next()) {
     nsCSSPropertyID property = static_cast<nsCSSPropertyID>(iter.Key());
-    if (aRuleData->mSIDs & nsCachedStyleData::GetBitForSID(
-                             nsCSSProps::kSIDTable[property])) {
-      nsCSSValue *prop = aRuleData->ValueFor(property);
+    if (aRuleData->mSIDs &
+        nsCachedStyleData::GetBitForSID(nsCSSProps::kSIDTable[property])) {
+      nsCSSValue* prop = aRuleData->ValueFor(property);
       if (prop->GetUnit() == eCSSUnit_Null) {
         DebugOnly<bool> ok =
-          StyleAnimationValue::UncomputeValue(property, iter.Data(),
-                                              *prop);
+            StyleAnimationValue::UncomputeValue(property, iter.Data(), *prop);
         MOZ_ASSERT(ok, "could not store computed value");
       }
     }
@@ -63,24 +62,22 @@ AnimValuesStyleRule::GetDiscretelyAnimatedCSSValue(nsCSSPropertyID aProperty,
 
 void
 AnimValuesStyleRule::AddValue(nsCSSPropertyID aProperty,
-                              const StyleAnimationValue &aValue)
+                              const StyleAnimationValue& aValue)
 {
-  MOZ_ASSERT(aProperty != eCSSProperty_UNKNOWN,
-             "Unexpected css property");
+  MOZ_ASSERT(aProperty != eCSSProperty_UNKNOWN, "Unexpected css property");
   mAnimationValues.Put(aProperty, aValue);
   mStyleBits |=
-    nsCachedStyleData::GetBitForSID(nsCSSProps::kSIDTable[aProperty]);
+      nsCachedStyleData::GetBitForSID(nsCSSProps::kSIDTable[aProperty]);
 }
 
 void
 AnimValuesStyleRule::AddValue(nsCSSPropertyID aProperty,
                               StyleAnimationValue&& aValue)
 {
-  MOZ_ASSERT(aProperty != eCSSProperty_UNKNOWN,
-             "Unexpected css property");
+  MOZ_ASSERT(aProperty != eCSSProperty_UNKNOWN, "Unexpected css property");
   mAnimationValues.Put(aProperty, Move(aValue));
   mStyleBits |=
-    nsCachedStyleData::GetBitForSID(nsCSSProps::kSIDTable[aProperty]);
+      nsCachedStyleData::GetBitForSID(nsCSSProps::kSIDTable[aProperty]);
 }
 
 bool
@@ -95,7 +92,7 @@ void
 AnimValuesStyleRule::List(FILE* out, int32_t aIndent) const
 {
   nsAutoCString str;
-  for (int32_t index = aIndent; --index >= 0; ) {
+  for (int32_t index = aIndent; --index >= 0;) {
     str.AppendLiteral("  ");
   }
   str.AppendLiteral("[anim values] { ");
@@ -104,8 +101,7 @@ AnimValuesStyleRule::List(FILE* out, int32_t aIndent) const
     str.Append(nsCSSProps::GetStringValue(property));
     str.AppendLiteral(": ");
     nsAutoString value;
-    Unused <<
-      StyleAnimationValue::UncomputeValue(property, iter.Data(), value);
+    Unused << StyleAnimationValue::UncomputeValue(property, iter.Data(), value);
     AppendUTF16toUTF8(value, str);
     str.AppendLiteral("; ");
   }
@@ -114,4 +110,4 @@ AnimValuesStyleRule::List(FILE* out, int32_t aIndent) const
 }
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla

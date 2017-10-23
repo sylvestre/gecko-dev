@@ -8,14 +8,11 @@
 #include "nsString.h"
 #include "mozilla/DebugOnly.h"
 
-
 namespace mozilla {
 namespace net {
 
-CacheIndexIterator::CacheIndexIterator(CacheIndex *aIndex, bool aAddNew)
-  : mStatus(NS_OK)
-  , mIndex(aIndex)
-  , mAddNew(aAddNew)
+CacheIndexIterator::CacheIndexIterator(CacheIndex* aIndex, bool aAddNew)
+    : mStatus(NS_OK), mIndex(aIndex), mAddNew(aAddNew)
 {
   LOG(("CacheIndexIterator::CacheIndexIterator() [this=%p]", this));
 }
@@ -28,7 +25,7 @@ CacheIndexIterator::~CacheIndexIterator()
 }
 
 nsresult
-CacheIndexIterator::GetNextHash(SHA1Sum::Hash *aHash)
+CacheIndexIterator::GetNextHash(SHA1Sum::Hash* aHash)
 {
   LOG(("CacheIndexIterator::GetNextHash() [this=%p]", this));
 
@@ -62,7 +59,8 @@ CacheIndexIterator::Close()
 nsresult
 CacheIndexIterator::CloseInternal(nsresult aStatus)
 {
-  LOG(("CacheIndexIterator::CloseInternal() [this=%p, status=0x%08" PRIx32 "]", this,
+  LOG(("CacheIndexIterator::CloseInternal() [this=%p, status=0x%08" PRIx32 "]",
+       this,
        static_cast<uint32_t>(aStatus)));
 
   // Make sure status will be a failure
@@ -83,7 +81,7 @@ CacheIndexIterator::CloseInternal(nsresult aStatus)
 }
 
 void
-CacheIndexIterator::AddRecord(CacheIndexRecord *aRecord)
+CacheIndexIterator::AddRecord(CacheIndexRecord* aRecord)
 {
   LOG(("CacheIndexIterator::AddRecord() [this=%p, record=%p]", this, aRecord));
 
@@ -91,20 +89,25 @@ CacheIndexIterator::AddRecord(CacheIndexRecord *aRecord)
 }
 
 bool
-CacheIndexIterator::RemoveRecord(CacheIndexRecord *aRecord)
+CacheIndexIterator::RemoveRecord(CacheIndexRecord* aRecord)
 {
-  LOG(("CacheIndexIterator::RemoveRecord() [this=%p, record=%p]", this,
+  LOG(("CacheIndexIterator::RemoveRecord() [this=%p, record=%p]",
+       this,
        aRecord));
 
   return mRecords.RemoveElement(aRecord);
 }
 
 bool
-CacheIndexIterator::ReplaceRecord(CacheIndexRecord *aOldRecord,
-                                  CacheIndexRecord *aNewRecord)
+CacheIndexIterator::ReplaceRecord(CacheIndexRecord* aOldRecord,
+                                  CacheIndexRecord* aNewRecord)
 {
-  LOG(("CacheIndexIterator::ReplaceRecord() [this=%p, oldRecord=%p, "
-       "newRecord=%p]", this, aOldRecord, aNewRecord));
+  LOG(
+      ("CacheIndexIterator::ReplaceRecord() [this=%p, oldRecord=%p, "
+       "newRecord=%p]",
+       this,
+       aOldRecord,
+       aNewRecord));
 
   if (RemoveRecord(aOldRecord)) {
     AddRecord(aNewRecord);
@@ -114,5 +117,5 @@ CacheIndexIterator::ReplaceRecord(CacheIndexRecord *aOldRecord,
   return false;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

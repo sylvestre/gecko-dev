@@ -19,12 +19,10 @@ TestBugs::TestBugs()
 void
 TestBugs::CairoClip918671()
 {
-  RefPtr<DrawTarget> dt = Factory::CreateDrawTarget(BackendType::CAIRO,
-                                                    IntSize(100, 100),
-                                                    SurfaceFormat::B8G8R8A8);
-  RefPtr<DrawTarget> ref = Factory::CreateDrawTarget(BackendType::CAIRO,
-                                                     IntSize(100, 100),
-                                                     SurfaceFormat::B8G8R8A8);
+  RefPtr<DrawTarget> dt = Factory::CreateDrawTarget(
+      BackendType::CAIRO, IntSize(100, 100), SurfaceFormat::B8G8R8A8);
+  RefPtr<DrawTarget> ref = Factory::CreateDrawTarget(
+      BackendType::CAIRO, IntSize(100, 100), SurfaceFormat::B8G8R8A8);
   // Create a path that extends around the center rect but doesn't intersect it.
   RefPtr<PathBuilder> pb1 = dt->CreatePathBuilder();
   pb1->MoveTo(Point(10, 10));
@@ -52,7 +50,7 @@ TestBugs::CairoClip918671()
   RefPtr<Path> path2 = pb2->Finish();
   dt->PushClip(path2);
 
-  dt->FillRect(Rect(0, 0, 100, 100), ColorPattern(Color(1,0,0)));
+  dt->FillRect(Rect(0, 0, 100, 100), ColorPattern(Color(1, 0, 0)));
 
   RefPtr<SourceSurface> surf1 = dt->Snapshot();
   RefPtr<SourceSurface> surf2 = ref->Snapshot();
@@ -65,15 +63,13 @@ TestBugs::CairoClip918671()
                   dataSurf2->GetData() + y * dataSurf2->Stride(),
                   dataSurf1->GetSize().width * 4) == 0);
   }
-
 }
 
 void
 TestBugs::PushPopClip950550()
 {
-  RefPtr<DrawTarget> dt = Factory::CreateDrawTarget(BackendType::CAIRO,
-                                                    IntSize(500, 500),
-                                                    SurfaceFormat::B8G8R8A8);
+  RefPtr<DrawTarget> dt = Factory::CreateDrawTarget(
+      BackendType::CAIRO, IntSize(500, 500), SurfaceFormat::B8G8R8A8);
   dt->PushClipRect(Rect(0, 0, 100, 100));
   Matrix m(1, 0, 0, 1, 45, -100);
   dt->SetTransform(m);
@@ -83,4 +79,3 @@ TestBugs::PushPopClip950550()
   // transforms are out of sync.
   dt->FillRect(Rect(50, 50, 50, 50), ColorPattern(Color(0.5f, 0, 0, 1.0f)));
 }
-

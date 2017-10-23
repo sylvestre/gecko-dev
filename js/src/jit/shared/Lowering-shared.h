@@ -22,9 +22,8 @@ class MDefinition;
 class MInstruction;
 class LOsiPoint;
 
-class LIRGeneratorShared : public MDefinitionVisitor
-{
-  protected:
+class LIRGeneratorShared : public MDefinitionVisitor {
+   protected:
     MIRGenerator* gen;
     MIRGraph& graph;
     LIRGraph& lirGraph_;
@@ -33,24 +32,19 @@ class LIRGeneratorShared : public MDefinitionVisitor
     LRecoverInfo* cachedRecoverInfo_;
     LOsiPoint* osiPoint_;
 
-  public:
+   public:
     LIRGeneratorShared(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : gen(gen),
-        graph(graph),
-        lirGraph_(lirGraph),
-        lastResumePoint_(nullptr),
-        cachedRecoverInfo_(nullptr),
-        osiPoint_(nullptr)
-    { }
+        : gen(gen),
+          graph(graph),
+          lirGraph_(lirGraph),
+          lastResumePoint_(nullptr),
+          cachedRecoverInfo_(nullptr),
+          osiPoint_(nullptr) {}
 
-    MIRGenerator* mir() {
-        return gen;
-    }
+    MIRGenerator* mir() { return gen; }
 
     // Needed to capture the abort error out of the visitInstruction methods.
-    bool errored() {
-        return gen->getOffThreadStatus().isErr();
-    }
+    bool errored() { return gen->getOffThreadStatus().isErr(); }
     void abort(AbortReason r, const char* message, ...) MOZ_FORMAT_PRINTF(3, 4) {
         va_list ap;
         va_start(ap, message);
@@ -63,8 +57,7 @@ class LIRGeneratorShared : public MDefinitionVisitor
         gen->setOffThreadStatus(reason_);
     }
 
-  protected:
-
+   protected:
     static void ReorderCommutative(MDefinition** lhsp, MDefinition** rhsp, MInstruction* ins);
     static bool ShouldReorderCommutative(MDefinition* lhs, MDefinition* rhs, MInstruction* ins);
 
@@ -166,11 +159,11 @@ class LIRGeneratorShared : public MDefinitionVisitor
                             LDefinition::Policy policy = LDefinition::REGISTER);
 
     template <size_t Ops, size_t Temps>
-    inline void defineInt64Fixed(LInstructionHelper<INT64_PIECES, Ops, Temps>* lir, MDefinition* mir,
-                                 const LInt64Allocation& output);
+    inline void defineInt64Fixed(LInstructionHelper<INT64_PIECES, Ops, Temps>* lir,
+                                 MDefinition* mir, const LInt64Allocation& output);
 
     template <size_t Ops, size_t Temps>
-    inline void defineSinCos(LInstructionHelper<2, Ops, Temps> *lir, MDefinition *mir,
+    inline void defineSinCos(LInstructionHelper<2, Ops, Temps>* lir, MDefinition* mir,
                              LDefinition::Policy policy = LDefinition::REGISTER);
 
     inline void defineSharedStubReturn(LInstruction* lir, MDefinition* mir);
@@ -207,7 +200,8 @@ class LIRGeneratorShared : public MDefinitionVisitor
     inline LInt64Allocation useInt64OrConstant(MDefinition* mir, bool useAtStart = false);
     inline LInt64Allocation useInt64Register(MDefinition* mir, bool useAtStart = false);
     inline LInt64Allocation useInt64RegisterOrConstant(MDefinition* mir, bool useAtStart = false);
-    inline LInt64Allocation useInt64Fixed(MDefinition* mir, Register64 regs, bool useAtStart = false);
+    inline LInt64Allocation useInt64Fixed(MDefinition* mir, Register64 regs,
+                                          bool useAtStart = false);
     inline LInt64Allocation useInt64FixedAtStart(MDefinition* mir, Register64 regs);
 
     LInt64Allocation useInt64RegisterAtStart(MDefinition* mir) {
@@ -227,9 +221,7 @@ class LIRGeneratorShared : public MDefinitionVisitor
     // Redefine a sin/cos call to sincos.
     inline void redefine(MDefinition* def, MDefinition* as, MMathFunction::Function func);
 
-    TempAllocator& alloc() const {
-        return graph.alloc();
-    }
+    TempAllocator& alloc() const { return graph.alloc(); }
 
     uint32_t getVirtualRegister() {
         uint32_t vreg = lirGraph_.getVirtualRegister();
@@ -244,8 +236,10 @@ class LIRGeneratorShared : public MDefinitionVisitor
         return vreg;
     }
 
-    template <typename T> void annotate(T* ins);
-    template <typename T> void add(T* ins, MInstruction* mir = nullptr);
+    template <typename T>
+    void annotate(T* ins);
+    template <typename T>
+    void add(T* ins, MInstruction* mir = nullptr);
 
     void lowerTypedPhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block, size_t lirIndex);
     void defineTypedPhi(MPhi* phi, size_t lirIndex);
@@ -272,26 +266,22 @@ class LIRGeneratorShared : public MDefinitionVisitor
     void assignSafepoint(LInstruction* ins, MInstruction* mir,
                          BailoutKind kind = Bailout_DuringVMCall);
 
-  public:
+   public:
     void lowerConstantDouble(double d, MInstruction* mir) {
-        define(new(alloc()) LDouble(d), mir);
+        define(new (alloc()) LDouble(d), mir);
     }
     void lowerConstantFloat32(float f, MInstruction* mir) {
-        define(new(alloc()) LFloat32(f), mir);
+        define(new (alloc()) LFloat32(f), mir);
     }
 
     void visitConstant(MConstant* ins) override;
     void visitWasmFloatConstant(MWasmFloatConstant* ins) override;
 
     // Whether to generate typed reads for element accesses with hole checks.
-    static bool allowTypedElementHoleCheck() {
-        return false;
-    }
+    static bool allowTypedElementHoleCheck() { return false; }
 
     // Whether to generate typed array accesses on statically known objects.
-    static bool allowStaticTypedArrayAccesses() {
-        return false;
-    }
+    static bool allowStaticTypedArrayAccesses() { return false; }
 
     // Provide NYI default implementations of the SIMD visitor functions.
     // Many targets don't implement SIMD at all, and we don't want to duplicate
@@ -310,7 +300,7 @@ class LIRGeneratorShared : public MDefinitionVisitor
     void visitSimdGeneralShuffle(MSimdGeneralShuffle*) override { MOZ_CRASH("NYI"); }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_shared_Lowering_shared_h */

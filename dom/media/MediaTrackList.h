@@ -32,8 +32,9 @@ class VideoStreamTrack;
  */
 class MediaTrackList : public DOMEventTargetHelper
 {
-public:
-  MediaTrackList(nsPIDOMWindowInner* aOwnerWindow, HTMLMediaElement* aMediaElement);
+ public:
+  MediaTrackList(nsPIDOMWindowInner* aOwnerWindow,
+                 HTMLMediaElement* aMediaElement);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MediaTrackList, DOMEventTargetHelper)
@@ -52,21 +53,21 @@ public:
 
   void RemoveTracks();
 
-  static already_AddRefed<AudioTrack>
-  CreateAudioTrack(const nsAString& aId,
-                   const nsAString& aKind,
-                   const nsAString& aLabel,
-                   const nsAString& aLanguage,
-                   bool aEnabled);
+  static already_AddRefed<AudioTrack> CreateAudioTrack(
+      const nsAString& aId,
+      const nsAString& aKind,
+      const nsAString& aLabel,
+      const nsAString& aLanguage,
+      bool aEnabled);
 
   // For the case of src of HTMLMediaElement is non-MediaStream, leave the
   // aVideoTrack as default(nullptr).
-  static already_AddRefed<VideoTrack>
-  CreateVideoTrack(const nsAString& aId,
-                   const nsAString& aKind,
-                   const nsAString& aLabel,
-                   const nsAString& aLanguage,
-                   VideoStreamTrack* aVideoTrack = nullptr);
+  static already_AddRefed<VideoTrack> CreateVideoTrack(
+      const nsAString& aId,
+      const nsAString& aKind,
+      const nsAString& aLabel,
+      const nsAString& aLanguage,
+      VideoStreamTrack* aVideoTrack = nullptr);
 
   virtual void EmptyTracks();
 
@@ -77,15 +78,9 @@ public:
 
   MediaTrack* GetTrackById(const nsAString& aId);
 
-  bool IsEmpty() const
-  {
-    return mTracks.IsEmpty();
-  }
+  bool IsEmpty() const { return mTracks.IsEmpty(); }
 
-  uint32_t Length() const
-  {
-    return mTracks.Length();
-  }
+  uint32_t Length() const { return mTracks.Length(); }
 
   IMPL_EVENT_HANDLER(change)
   IMPL_EVENT_HANDLER(addtrack)
@@ -94,7 +89,7 @@ public:
   friend class AudioTrack;
   friend class VideoTrack;
 
-protected:
+ protected:
   virtual ~MediaTrackList();
 
   void CreateAndDispatchTrackEventRunner(MediaTrack* aTrack,
@@ -110,7 +105,7 @@ protected:
   RefPtr<HTMLMediaElement> mMediaElement;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MediaTrackList_h
+#endif  // mozilla_dom_MediaTrackList_h

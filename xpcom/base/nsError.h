@@ -16,8 +16,8 @@
 
 #include <stdint.h>
 
-#define NS_ERROR_SEVERITY_SUCCESS       0
-#define NS_ERROR_SEVERITY_ERROR         1
+#define NS_ERROR_SEVERITY_SUCCESS 0
+#define NS_ERROR_SEVERITY_ERROR 1
 
 #include "ErrorList.h"
 
@@ -31,14 +31,13 @@ NS_FAILED_impl(nsresult aErr)
 {
   return static_cast<uint32_t>(aErr) & 0x80000000;
 }
-#define NS_FAILED(_nsresult)    ((bool)MOZ_UNLIKELY(NS_FAILED_impl(_nsresult)))
+#define NS_FAILED(_nsresult) ((bool)MOZ_UNLIKELY(NS_FAILED_impl(_nsresult)))
 #define NS_SUCCEEDED(_nsresult) ((bool)MOZ_LIKELY(!NS_FAILED_impl(_nsresult)))
 
 /* Check that our enum type is actually uint32_t as expected */
 static_assert(((nsresult)0) < ((nsresult)-1),
               "nsresult must be an unsigned type");
-static_assert(sizeof(nsresult) == sizeof(uint32_t),
-              "nsresult must be 32 bits");
+static_assert(sizeof(nsresult) == sizeof(uint32_t), "nsresult must be 32 bits");
 
 #define MOZ_ALWAYS_SUCCEEDS(expr) MOZ_ALWAYS_TRUE(NS_SUCCEEDED(expr))
 
@@ -46,8 +45,8 @@ static_assert(sizeof(nsresult) == sizeof(uint32_t),
  * @name Standard Error Generating Macros
  */
 
-#define NS_ERROR_GENERATE(sev, module, code) \
-  (nsresult)(((uint32_t)(sev) << 31) | \
+#define NS_ERROR_GENERATE(sev, module, code)                            \
+  (nsresult)(((uint32_t)(sev) << 31) |                                  \
              ((uint32_t)(module + NS_ERROR_MODULE_BASE_OFFSET) << 16) | \
              ((uint32_t)(code)))
 
@@ -57,7 +56,7 @@ static_assert(sizeof(nsresult) == sizeof(uint32_t),
 #define NS_ERROR_GENERATE_FAILURE(module, code) \
   NS_ERROR_GENERATE(NS_ERROR_SEVERITY_ERROR, module, code)
 
- /*
+/*
   * This will return the nsresult corresponding to the most recent NSPR failure
   * returned by PR_GetError.
   *
@@ -67,7 +66,6 @@ static_assert(sizeof(nsresult) == sizeof(uint32_t),
   */
 extern nsresult
 NS_ErrorAccordingToNSPR();
-
 
 /**
  * @name Standard Macros for retrieving error bits
@@ -89,10 +87,11 @@ NS_ERROR_GET_SEVERITY(nsresult aErr)
   return uint32_t(aErr) >> 31;
 }
 
-
 #ifdef _MSC_VER
-#pragma warning(disable: 4251) /* 'nsCOMPtr<class nsIInputStream>' needs to have dll-interface to be used by clients of class 'nsInputStream' */
-#pragma warning(disable: 4275) /* non dll-interface class 'nsISupports' used as base for dll-interface class 'nsIRDFNode' */
+#pragma warning( \
+    disable : 4251) /* 'nsCOMPtr<class nsIInputStream>' needs to have dll-interface to be used by clients of class 'nsInputStream' */
+#pragma warning( \
+    disable : 4275) /* non dll-interface class 'nsISupports' used as base for dll-interface class 'nsIRDFNode' */
 #endif
 
 #endif

@@ -16,27 +16,21 @@ class MessagePort;
 
 class MessagePortChild final : public PMessagePortChild
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(MessagePortChild)
 
   MessagePortChild();
 
-  void SetPort(MessagePort* aPort)
-  {
-    mPort = aPort;
-  }
+  void SetPort(MessagePort* aPort) { mPort = aPort; }
 
-private:
-  ~MessagePortChild()
-  {
-    MOZ_ASSERT(!mPort);
-  }
+ private:
+  ~MessagePortChild() { MOZ_ASSERT(!mPort); }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEntangled(nsTArray<ClonedMessageData>&& aMessages) override;
+  virtual mozilla::ipc::IPCResult RecvEntangled(
+      nsTArray<ClonedMessageData>&& aMessages) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvReceiveData(nsTArray<ClonedMessageData>&& aMessages) override;
+  virtual mozilla::ipc::IPCResult RecvReceiveData(
+      nsTArray<ClonedMessageData>&& aMessages) override;
 
   virtual mozilla::ipc::IPCResult RecvStopSendingDataConfirmed() override;
 
@@ -46,7 +40,7 @@ private:
   MessagePort* mPort;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MessagePortChild_h
+#endif  // mozilla_dom_MessagePortChild_h

@@ -20,7 +20,7 @@ namespace layers {
 // gone up yet).
 class DragTracker
 {
-public:
+ public:
   DragTracker();
   static bool StartsDrag(const MouseInput& aInput);
   static bool EndsDrag(const MouseInput& aInput);
@@ -28,12 +28,12 @@ public:
   bool InDrag() const;
   bool IsOnScrollbar(bool aOnScrollbar);
 
-private:
+ private:
   Maybe<bool> mOnScrollbar;
   bool mInDrag;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_DragTracker_h */

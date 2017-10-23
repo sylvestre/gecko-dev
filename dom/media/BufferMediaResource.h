@@ -18,23 +18,21 @@ namespace mozilla {
 // unfortunate, but the MediaResource interface mandates that.
 class BufferMediaResource : public MediaResource
 {
-public:
+ public:
   BufferMediaResource(const uint8_t* aBuffer, uint32_t aLength)
-    : mBuffer(aBuffer)
-    , mLength(aLength)
-    , mOffset(0)
+      : mBuffer(aBuffer), mLength(aLength), mOffset(0)
   {
   }
 
-protected:
-  virtual ~BufferMediaResource()
-  {
-  }
+ protected:
+  virtual ~BufferMediaResource() {}
 
-private:
+ private:
   // These methods are called off the main thread.
-  nsresult ReadAt(int64_t aOffset, char* aBuffer,
-                  uint32_t aCount, uint32_t* aBytes) override
+  nsresult ReadAt(int64_t aOffset,
+                  char* aBuffer,
+                  uint32_t aCount,
+                  uint32_t* aBytes) override
   {
     if (aOffset < 0 || aOffset > mLength) {
       return NS_ERROR_FAILURE;
@@ -77,12 +75,12 @@ private:
     return NS_OK;
   }
 
-private:
-  const uint8_t * mBuffer;
+ private:
+  const uint8_t* mBuffer;
   uint32_t mLength;
   uint32_t mOffset;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

@@ -14,36 +14,32 @@
 namespace mozilla {
 namespace dom {
 
-class SVGAnimatedInteger : public nsISupports
-                         , public nsWrapperCache
+class SVGAnimatedInteger : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SVGAnimatedInteger)
 
-  nsSVGElement* GetParentObject() const
-  {
-    return mSVGElement;
-  }
+  nsSVGElement* GetParentObject() const { return mSVGElement; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-    override final;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
 
   virtual int32_t BaseVal() = 0;
   virtual void SetBaseVal(int32_t aBaseVal) = 0;
   virtual int32_t AnimVal() = 0;
 
-protected:
+ protected:
   explicit SVGAnimatedInteger(nsSVGElement* aSVGElement)
-    : mSVGElement(aSVGElement)
+      : mSVGElement(aSVGElement)
   {
   }
-  virtual ~SVGAnimatedInteger() {};
+  virtual ~SVGAnimatedInteger(){};
 
   RefPtr<nsSVGElement> mSVGElement;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGAnimatedInteger_h
+#endif  // mozilla_dom_SVGAnimatedInteger_h

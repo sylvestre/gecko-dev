@@ -16,9 +16,10 @@ namespace dom {
 PointerEvent::PointerEvent(EventTarget* aOwner,
                            nsPresContext* aPresContext,
                            WidgetPointerEvent* aEvent)
-  : MouseEvent(aOwner, aPresContext,
-               aEvent ? aEvent :
-                        new WidgetPointerEvent(false, eVoidEvent, nullptr))
+    : MouseEvent(
+          aOwner,
+          aPresContext,
+          aEvent ? aEvent : new WidgetPointerEvent(false, eVoidEvent, nullptr))
 {
   NS_ASSERTION(mEvent->mClass == ePointerEventClass,
                "event type mismatch ePointerEventClass");
@@ -54,7 +55,8 @@ ConvertStringToPointerType(const nsAString& aPointerTypeArg)
 }
 
 void
-ConvertPointerTypeToString(uint16_t aPointerTypeSrc, nsAString& aPointerTypeDest)
+ConvertPointerTypeToString(uint16_t aPointerTypeSrc,
+                           nsAString& aPointerTypeDest)
 {
   switch (aPointerTypeSrc) {
     case nsIDOMMouseEvent::MOZ_SOURCE_MOUSE:
@@ -81,10 +83,20 @@ PointerEvent::Constructor(EventTarget* aOwner,
   RefPtr<PointerEvent> e = new PointerEvent(aOwner, nullptr, nullptr);
   bool trusted = e->Init(aOwner);
 
-  e->InitMouseEvent(aType, aParam.mBubbles, aParam.mCancelable,
-                    aParam.mView, aParam.mDetail, aParam.mScreenX,
-                    aParam.mScreenY, aParam.mClientX, aParam.mClientY,
-                    false, false, false, false, aParam.mButton,
+  e->InitMouseEvent(aType,
+                    aParam.mBubbles,
+                    aParam.mCancelable,
+                    aParam.mView,
+                    aParam.mDetail,
+                    aParam.mScreenX,
+                    aParam.mScreenY,
+                    aParam.mClientX,
+                    aParam.mClientY,
+                    false,
+                    false,
+                    false,
+                    false,
+                    aParam.mButton,
                     aParam.mRelatedTarget);
   e->InitializeExtraMouseEventDictionaryMembers(aParam);
 
@@ -120,7 +132,8 @@ PointerEvent::Constructor(const GlobalObject& aGlobal,
 void
 PointerEvent::GetPointerType(nsAString& aPointerType)
 {
-  ConvertPointerTypeToString(mEvent->AsPointerEvent()->inputSource, aPointerType);
+  ConvertPointerTypeToString(mEvent->AsPointerEvent()->inputSource,
+                             aPointerType);
 }
 
 int32_t
@@ -177,8 +190,8 @@ PointerEvent::IsPrimary()
   return mEvent->AsPointerEvent()->mIsPrimary;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -186,7 +199,7 @@ using namespace mozilla::dom;
 already_AddRefed<PointerEvent>
 NS_NewDOMPointerEvent(EventTarget* aOwner,
                       nsPresContext* aPresContext,
-                      WidgetPointerEvent *aEvent)
+                      WidgetPointerEvent* aEvent)
 {
   RefPtr<PointerEvent> it = new PointerEvent(aOwner, aPresContext, aEvent);
   return it.forget();

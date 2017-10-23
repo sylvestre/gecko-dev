@@ -33,7 +33,7 @@
 #include <process.h>
 
 #ifdef __MINGW32__
-#include <immintrin.h> // for _mm_pause
+#include <immintrin.h>  // for _mm_pause
 #endif
 
 #include "nsWindowsDllInterceptor.h"
@@ -61,9 +61,7 @@ GetStackTop(void* aGuess)
       MOV pTib, EAX
   }
 #elif defined(__GNUC__)
-  asm ( "movl %%fs:0x18, %0\n"
-       : "=r" (pTib)
-      );
+  asm("movl %%fs:0x18, %0\n" : "=r"(pTib));
 #else
 #error "unimplemented"
 #endif
@@ -90,24 +88,24 @@ PopulateRegsFromContext(Registers& aRegs, CONTEXT* aContext)
   aRegs.mSP = reinterpret_cast<Address>(aContext->Esp);
   aRegs.mFP = reinterpret_cast<Address>(aContext->Ebp);
 #else
- #error "bad arch"
+#error "bad arch"
 #endif
   aRegs.mLR = 0;
 }
 
 class PlatformData
 {
-public:
+ public:
   // Get a handle to the calling thread. This is the thread that we are
   // going to profile. We need to make a copy of the handle because we are
   // going to use it in the sampler thread. Using GetThreadHandle() will
   // not work in this case. We're using OpenThread because DuplicateHandle
   // for some reason doesn't work in Chrome's sandbox.
   explicit PlatformData(int aThreadId)
-    : mProfiledThread(OpenThread(THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME |
-                                  THREAD_QUERY_INFORMATION,
-                                  false,
-                                  aThreadId))
+      : mProfiledThread(OpenThread(THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME |
+                                       THREAD_QUERY_INFORMATION,
+                                   false,
+                                   aThreadId))
   {
     MOZ_COUNT_CTOR(PlatformData);
   }
@@ -123,24 +121,19 @@ public:
 
   HANDLE ProfiledThread() { return mProfiledThread; }
 
-private:
+ private:
   HANDLE mProfiledThread;
 };
 
 HANDLE
-GetThreadHandle(PlatformData* aData)
-{
-  return aData->ProfiledThread();
-}
+GetThreadHandle(PlatformData* aData) { return aData->ProfiledThread(); }
 
 static const HANDLE kNoThread = INVALID_HANDLE_VALUE;
 
 ////////////////////////////////////////////////////////////////////////
 // BEGIN Sampler target specifics
 
-Sampler::Sampler(PSLockRef aLock)
-{
-}
+Sampler::Sampler(PSLockRef aLock) {}
 
 void
 Sampler::Disable(PSLockRef aLock)
@@ -170,12 +163,12 @@ Sampler::SuspendAndSampleAndResumeThread(PSLockRef aLock,
     return;
   }
 
-  // SuspendThread is asynchronous, so the thread may still be running.
-  // Call GetThreadContext first to ensure the thread is really suspended.
-  // See https://blogs.msdn.microsoft.com/oldnewthing/20150205-00/?p=44743.
+    // SuspendThread is asynchronous, so the thread may still be running.
+    // Call GetThreadContext first to ensure the thread is really suspended.
+    // See https://blogs.msdn.microsoft.com/oldnewthing/20150205-00/?p=44743.
 
-  // Using only CONTEXT_CONTROL is faster but on 64-bit it causes crashes in
-  // RtlVirtualUnwind (see bug 1120126) so we set all the flags.
+    // Using only CONTEXT_CONTROL is faster but on 64-bit it causes crashes in
+    // RtlVirtualUnwind (see bug 1120126) so we set all the flags.
 #if defined(GP_ARCH_amd64)
   context.ContextFlags = CONTEXT_FULL;
 #else
@@ -215,38 +208,37 @@ Sampler::SuspendAndSampleAndResumeThread(PSLockRef aLock,
 ////////////////////////////////////////////////////////////////////////
 // BEGIN SamplerThread target specifics
 
-static unsigned int __stdcall
-ThreadEntry(void* aArg)
+static unsigned int __stdcall ThreadEntry(void* aArg)
 {
   auto thread = static_cast<SamplerThread*>(aArg);
   thread->Run();
   return 0;
 }
 
-SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
+SamplerThread::SamplerThread(PSLockRef aLock,
+                             uint32_t aActivityGeneration,
                              double aIntervalMilliseconds)
-    : Sampler(aLock)
-    , mActivityGeneration(aActivityGeneration)
-    , mIntervalMicroseconds(
-        std::max(1, int(floor(aIntervalMilliseconds * 1000 + 0.5))))
+    : Sampler(aLock),
+      mActivityGeneration(aActivityGeneration),
+      mIntervalMicroseconds(
+          std::max(1, int(floor(aIntervalMilliseconds * 1000 + 0.5))))
 {
   // By default we'll not adjust the timer resolution which tends to be
   // around 16ms. However, if the requested interval is sufficiently low
   // we'll try to adjust the resolution to match.
-  if (mIntervalMicroseconds < 10*1000) {
+  if (mIntervalMicroseconds < 10 * 1000) {
     ::timeBeginPeriod(mIntervalMicroseconds / 1000);
   }
 
   // Create a new thread. It is important to use _beginthreadex() instead of
   // the Win32 function CreateThread(), because the CreateThread() does not
   // initialize thread-specific structures in the C runtime library.
-  mThread = reinterpret_cast<HANDLE>(
-      _beginthreadex(nullptr,
-                     /* stack_size */ 0,
-                     ThreadEntry,
-                     this,
-                     /* initflag */ 0,
-                     nullptr));
+  mThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr,
+                                                    /* stack_size */ 0,
+                                                    ThreadEntry,
+                                                    this,
+                                                    /* initflag */ 0,
+                                                    nullptr));
   if (mThread == 0) {
     MOZ_CRASH("_beginthreadex failed");
   }
@@ -325,7 +317,7 @@ Registers::SyncPopulate()
 #if defined(GP_PLAT_amd64_windows)
 static WindowsDllInterceptor NtDllIntercept;
 
-typedef NTSTATUS (NTAPI *LdrUnloadDll_func)(HMODULE module);
+typedef NTSTATUS(NTAPI* LdrUnloadDll_func)(HMODULE module);
 static LdrUnloadDll_func stub_LdrUnloadDll;
 
 static NTSTATUS NTAPI
@@ -338,22 +330,31 @@ patched_LdrUnloadDll(HMODULE module)
 }
 
 // These pointers are disguised as PVOID to avoid pulling in obscure headers
-typedef PVOID (WINAPI *LdrResolveDelayLoadedAPI_func)(PVOID ParentModuleBase,
-  PVOID DelayloadDescriptor, PVOID FailureDllHook, PVOID FailureSystemHook,
-  PVOID ThunkAddress, ULONG Flags);
+typedef PVOID(WINAPI* LdrResolveDelayLoadedAPI_func)(PVOID ParentModuleBase,
+                                                     PVOID DelayloadDescriptor,
+                                                     PVOID FailureDllHook,
+                                                     PVOID FailureSystemHook,
+                                                     PVOID ThunkAddress,
+                                                     ULONG Flags);
 static LdrResolveDelayLoadedAPI_func stub_LdrResolveDelayLoadedAPI;
 
 static PVOID WINAPI
 patched_LdrResolveDelayLoadedAPI(PVOID ParentModuleBase,
-  PVOID DelayloadDescriptor, PVOID FailureDllHook, PVOID FailureSystemHook,
-  PVOID ThunkAddress, ULONG Flags)
+                                 PVOID DelayloadDescriptor,
+                                 PVOID FailureDllHook,
+                                 PVOID FailureSystemHook,
+                                 PVOID ThunkAddress,
+                                 ULONG Flags)
 {
   // Prevent the stack walker from suspending this thread when
   // LdrResolveDelayLoadAPI holds the RtlLookupFunctionEntry lock.
   AutoSuppressStackWalking suppress;
-  return stub_LdrResolveDelayLoadedAPI(ParentModuleBase, DelayloadDescriptor,
-                                       FailureDllHook, FailureSystemHook,
-                                       ThunkAddress, Flags);
+  return stub_LdrResolveDelayLoadedAPI(ParentModuleBase,
+                                       DelayloadDescriptor,
+                                       FailureDllHook,
+                                       FailureSystemHook,
+                                       ThunkAddress,
+                                       Flags);
 }
 
 void
@@ -369,11 +370,11 @@ InitializeWin64ProfilerHooks()
   NtDllIntercept.AddHook("LdrUnloadDll",
                          reinterpret_cast<intptr_t>(patched_LdrUnloadDll),
                          (void**)&stub_LdrUnloadDll);
-  if (IsWin8OrLater()) { // LdrResolveDelayLoadedAPI was introduced in Win8
-    NtDllIntercept.AddHook("LdrResolveDelayLoadedAPI",
-                           reinterpret_cast<intptr_t>(patched_LdrResolveDelayLoadedAPI),
-                           (void**)&stub_LdrResolveDelayLoadedAPI);
+  if (IsWin8OrLater()) {  // LdrResolveDelayLoadedAPI was introduced in Win8
+    NtDllIntercept.AddHook(
+        "LdrResolveDelayLoadedAPI",
+        reinterpret_cast<intptr_t>(patched_LdrResolveDelayLoadedAPI),
+        (void**)&stub_LdrResolveDelayLoadedAPI);
   }
 }
-#endif // defined(GP_PLAT_amd64_windows)
-
+#endif  // defined(GP_PLAT_amd64_windows)

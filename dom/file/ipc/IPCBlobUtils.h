@@ -214,7 +214,7 @@ namespace mozilla {
 namespace ipc {
 class PBackgroundChild;
 class PBackgroundParent;
-}
+}  // namespace ipc
 
 namespace dom {
 
@@ -233,18 +233,20 @@ nsresult
 Serialize(BlobImpl* aBlobImpl, nsIContentChild* aManager, IPCBlob& aIPCBlob);
 
 nsresult
-Serialize(BlobImpl* aBlobImpl, mozilla::ipc::PBackgroundChild* aManager,
+Serialize(BlobImpl* aBlobImpl,
+          mozilla::ipc::PBackgroundChild* aManager,
           IPCBlob& aIPCBlob);
 
 nsresult
 Serialize(BlobImpl* aBlobImpl, nsIContentParent* aManager, IPCBlob& aIPCBlob);
 
 nsresult
-Serialize(BlobImpl* aBlobImpl, mozilla::ipc::PBackgroundParent* aManager,
+Serialize(BlobImpl* aBlobImpl,
+          mozilla::ipc::PBackgroundParent* aManager,
           IPCBlob& aIPCBlob);
 
-} // IPCBlobUtils
-} // dom namespace
-} // mozilla namespace
+}  // namespace IPCBlobUtils
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_IPCBlobUtils_h
+#endif  // mozilla_dom_IPCBlobUtils_h

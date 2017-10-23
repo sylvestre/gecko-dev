@@ -21,11 +21,15 @@ namespace mozilla {
  * this trait lives elsewhere.
  */
 template<typename T>
-struct IsNullPointer : FalseType {};
+struct IsNullPointer : FalseType
+{
+};
 
 template<>
-struct IsNullPointer<decltype(nullptr)> : TrueType {};
+struct IsNullPointer<decltype(nullptr)> : TrueType
+{
+};
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_NullPtr_h */

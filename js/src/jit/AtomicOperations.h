@@ -83,46 +83,45 @@ class RegionLock;
  * https://www.usenix.org/legacy/event/hotpar11/tech/final_files/Boehm.pdf
  * for details.)
  */
-class AtomicOperations
-{
+class AtomicOperations {
     friend class RegionLock;
 
-  private:
+   private:
     // The following functions are defined for T = int8_t, uint8_t,
     // int16_t, uint16_t, int32_t, uint32_t, int64_t, and uint64_t.
 
     // Atomically read *addr.
-    template<typename T>
+    template <typename T>
     static inline T loadSeqCst(T* addr);
 
     // Atomically store val in *addr.
-    template<typename T>
+    template <typename T>
     static inline void storeSeqCst(T* addr, T val);
 
     // Atomically store val in *addr and return the old value of *addr.
-    template<typename T>
+    template <typename T>
     static inline T exchangeSeqCst(T* addr, T val);
 
     // Atomically check that *addr contains oldval and if so replace it
     // with newval, in any case returning the old contents of *addr.
-    template<typename T>
+    template <typename T>
     static inline T compareExchangeSeqCst(T* addr, T oldval, T newval);
 
     // Atomically add, subtract, bitwise-AND, bitwise-OR, or bitwise-XOR
     // val into *addr and return the old value of *addr.
-    template<typename T>
+    template <typename T>
     static inline T fetchAddSeqCst(T* addr, T val);
 
-    template<typename T>
+    template <typename T>
     static inline T fetchSubSeqCst(T* addr, T val);
 
-    template<typename T>
+    template <typename T>
     static inline T fetchAndSeqCst(T* addr, T val);
 
-    template<typename T>
+    template <typename T>
     static inline T fetchOrSeqCst(T* addr, T val);
 
-    template<typename T>
+    template <typename T>
     static inline T fetchXorSeqCst(T* addr, T val);
 
     // The SafeWhenRacy functions are to be used when C++ code has to access
@@ -133,13 +132,13 @@ class AtomicOperations
     // Defined for all the integral types as well as for float32 and float64,
     // but not access-atomic for floats, nor for int64 and uint64 on 32-bit
     // platforms.
-    template<typename T>
+    template <typename T>
     static inline T loadSafeWhenRacy(T* addr);
 
     // Defined for all the integral types as well as for float32 and float64,
     // but not access-atomic for floats, nor for int64 and uint64 on 32-bit
     // platforms.
-    template<typename T>
+    template <typename T>
     static inline void storeSafeWhenRacy(T* addr, T val);
 
     // Replacement for memcpy().  No access-atomicity guarantees.
@@ -148,7 +147,7 @@ class AtomicOperations
     // Replacement for memmove().  No access-atomicity guarantees.
     static inline void memmoveSafeWhenRacy(void* dest, const void* src, size_t nbytes);
 
-  public:
+   public:
     // Test lock-freedom for any int32 value.  This implements the
     // Atomics::isLockFree() operation in the ECMAScript Shared Memory and
     // Atomics specification, as follows:
@@ -182,89 +181,89 @@ class AtomicOperations
     // All clients should use the APIs that take SharedMem pointers.
     // See above for semantics and acceptable types.
 
-    template<typename T>
+    template <typename T>
     static T loadSeqCst(SharedMem<T*> addr) {
         return loadSeqCst(addr.unwrap());
     }
 
-    template<typename T>
+    template <typename T>
     static void storeSeqCst(SharedMem<T*> addr, T val) {
         return storeSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T exchangeSeqCst(SharedMem<T*> addr, T val) {
         return exchangeSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T compareExchangeSeqCst(SharedMem<T*> addr, T oldval, T newval) {
         return compareExchangeSeqCst(addr.unwrap(), oldval, newval);
     }
 
-    template<typename T>
+    template <typename T>
     static T fetchAddSeqCst(SharedMem<T*> addr, T val) {
         return fetchAddSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T fetchSubSeqCst(SharedMem<T*> addr, T val) {
         return fetchSubSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T fetchAndSeqCst(SharedMem<T*> addr, T val) {
         return fetchAndSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T fetchOrSeqCst(SharedMem<T*> addr, T val) {
         return fetchOrSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T fetchXorSeqCst(SharedMem<T*> addr, T val) {
         return fetchXorSeqCst(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static T loadSafeWhenRacy(SharedMem<T*> addr) {
         return loadSafeWhenRacy(addr.unwrap());
     }
 
-    template<typename T>
+    template <typename T>
     static void storeSafeWhenRacy(SharedMem<T*> addr, T val) {
         return storeSafeWhenRacy(addr.unwrap(), val);
     }
 
-    template<typename T>
+    template <typename T>
     static void memcpySafeWhenRacy(SharedMem<T*> dest, SharedMem<T*> src, size_t nbytes) {
         memcpySafeWhenRacy(dest.template cast<void*>().unwrap(),
                            src.template cast<void*>().unwrap(), nbytes);
     }
 
-    template<typename T>
+    template <typename T>
     static void memcpySafeWhenRacy(SharedMem<T*> dest, T* src, size_t nbytes) {
         memcpySafeWhenRacy(dest.template cast<void*>().unwrap(), static_cast<void*>(src), nbytes);
     }
 
-    template<typename T>
+    template <typename T>
     static void memcpySafeWhenRacy(T* dest, SharedMem<T*> src, size_t nbytes) {
         memcpySafeWhenRacy(static_cast<void*>(dest), src.template cast<void*>().unwrap(), nbytes);
     }
 
-    template<typename T>
+    template <typename T>
     static void memmoveSafeWhenRacy(SharedMem<T*> dest, SharedMem<T*> src, size_t nbytes) {
         memmoveSafeWhenRacy(dest.template cast<void*>().unwrap(),
                             src.template cast<void*>().unwrap(), nbytes);
     }
 
-    template<typename T>
+    template <typename T>
     static void podCopySafeWhenRacy(SharedMem<T*> dest, SharedMem<T*> src, size_t nelem) {
         memcpySafeWhenRacy(dest, src, nelem * sizeof(T));
     }
 
-    template<typename T>
+    template <typename T>
     static void podMoveSafeWhenRacy(SharedMem<T*> dest, SharedMem<T*> src, size_t nelem) {
         memmoveSafeWhenRacy(dest, src, nelem * sizeof(T));
     }
@@ -279,9 +278,8 @@ class AtomicOperations
     // (Tier-2 and tier-3 platforms need not support 8-byte atomics, and if they
     // do, they need not be lock-free.)
 
-    template<typename T>
-    static bool
-    tier1Constraints(const T* addr) {
+    template <typename T>
+    static bool tier1Constraints(const T* addr) {
         static_assert(sizeof(T) <= 8, "atomics supported up to 8 bytes only");
         return (sizeof(T) < 8 || (hasAtomic8() && isLockfree8())) &&
                !(uintptr_t(addr) & (sizeof(T) - 1));
@@ -293,56 +291,53 @@ class AtomicOperations
  * memory, to be used only when the hardware does not provide necessary
  * atomicity.
  */
-class RegionLock
-{
-  public:
+class RegionLock {
+   public:
     RegionLock() : spinlock(0) {}
 
     /* Addr is the address to be locked, nbytes the number of bytes we
      * need to lock.  The lock that is taken may cover a larger range
      * of bytes, indeed it may cover all of memory.
      */
-    template<size_t nbytes>
+    template <size_t nbytes>
     void acquire(void* addr);
 
     /* Addr is the address to be unlocked, nbytes the number of bytes
      * we need to unlock.  The lock must be held by the calling thread,
      * at the given address and for the number of bytes.
      */
-    template<size_t nbytes>
+    template <size_t nbytes>
     void release(void* addr);
 
-  private:
+   private:
     /* For now, a simple spinlock that covers the entire buffer. */
     uint32_t spinlock;
 };
 
-inline bool
-AtomicOperations::isLockfreeJS(int32_t size)
-{
+inline bool AtomicOperations::isLockfreeJS(int32_t size) {
     // Keep this in sync with visitAtomicIsLockFree() in jit/CodeGenerator.cpp.
 
     switch (size) {
-      case 1:
-        return true;
-      case 2:
-        return true;
-      case 4:
-        // The spec requires Atomics.isLockFree(4) to return true.
-        return true;
-      case 8:
-        // The spec requires Atomics.isLockFree(n) to return false unless n is
-        // the BYTES_PER_ELEMENT value of some integer TypedArray that admits
-        // atomic operations.  At this time (August 2017) there is no such array
-        // with n=8.
-        return false;
-      default:
-        return false;
+        case 1:
+            return true;
+        case 2:
+            return true;
+        case 4:
+            // The spec requires Atomics.isLockFree(4) to return true.
+            return true;
+        case 8:
+            // The spec requires Atomics.isLockFree(n) to return false unless n is
+            // the BYTES_PER_ELEMENT value of some integer TypedArray that admits
+            // atomic operations.  At this time (August 2017) there is no such array
+            // with n=8.
+            return false;
+        default:
+            return false;
     }
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 // As explained above, our atomic operations are not portable even in principle,
 // so we must include platform+compiler specific definitions here.
@@ -375,47 +370,47 @@ AtomicOperations::isLockfreeJS(int32_t size)
 // Such a solution is likely to be difficult.
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
-# if defined(__clang__) || defined(__GNUC__)
-#  include "jit/x86-shared/AtomicOperations-x86-shared-gcc.h"
-# elif defined(_MSC_VER)
-#  include "jit/x86-shared/AtomicOperations-x86-shared-msvc.h"
-# else
-#  error "No AtomicOperations support for this platform+compiler combination"
-# endif
-#elif defined(__arm__)
-# if defined(__clang__) || defined(__GNUC__)
-#  include "jit/arm/AtomicOperations-arm.h"
-# else
-#  error "No AtomicOperations support for this platform+compiler combination"
-# endif
-#elif defined(__aarch64__)
-# if defined(__clang__) || defined(__GNUC__)
-#  include "jit/arm64/AtomicOperations-arm64.h"
-# else
-#  error "No AtomicOperations support for this platform+compiler combination"
-# endif
-#elif defined(__mips__)
-# if defined(__clang__) || defined(__GNUC__)
-#  include "jit/mips-shared/AtomicOperations-mips-shared.h"
-# else
-#  error "No AtomicOperations support for this platform+compiler combination"
-# endif
-#elif defined(__ppc__) || defined(__PPC__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
-#elif defined(__sparc__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
-#elif defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
-#elif defined(__alpha__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
-#elif defined(__hppa__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
-#elif defined(__sh__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
-#elif defined(__s390__) || defined(__s390x__)
-# include "jit/none/AtomicOperations-feeling-lucky.h"
+#if defined(__clang__) || defined(__GNUC__)
+#include "jit/x86-shared/AtomicOperations-x86-shared-gcc.h"
+#elif defined(_MSC_VER)
+#include "jit/x86-shared/AtomicOperations-x86-shared-msvc.h"
 #else
-# error "No AtomicOperations support provided for this platform"
+#error "No AtomicOperations support for this platform+compiler combination"
+#endif
+#elif defined(__arm__)
+#if defined(__clang__) || defined(__GNUC__)
+#include "jit/arm/AtomicOperations-arm.h"
+#else
+#error "No AtomicOperations support for this platform+compiler combination"
+#endif
+#elif defined(__aarch64__)
+#if defined(__clang__) || defined(__GNUC__)
+#include "jit/arm64/AtomicOperations-arm64.h"
+#else
+#error "No AtomicOperations support for this platform+compiler combination"
+#endif
+#elif defined(__mips__)
+#if defined(__clang__) || defined(__GNUC__)
+#include "jit/mips-shared/AtomicOperations-mips-shared.h"
+#else
+#error "No AtomicOperations support for this platform+compiler combination"
+#endif
+#elif defined(__ppc__) || defined(__PPC__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#elif defined(__sparc__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#elif defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#elif defined(__alpha__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#elif defined(__hppa__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#elif defined(__sh__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#elif defined(__s390__) || defined(__s390x__)
+#include "jit/none/AtomicOperations-feeling-lucky.h"
+#else
+#error "No AtomicOperations support provided for this platform"
 #endif
 
-#endif // jit_AtomicOperations_h
+#endif  // jit_AtomicOperations_h

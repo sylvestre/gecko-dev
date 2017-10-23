@@ -32,7 +32,6 @@ namespace js {
  * compartment to all the components to which it belongs.
  */
 struct PerformanceGroupHolder {
-
     /**
      * Get the groups to which this compartment belongs.
      *
@@ -43,13 +42,11 @@ struct PerformanceGroupHolder {
      */
     const PerformanceGroupVector* getGroups(JSContext*);
 
-    explicit PerformanceGroupHolder(JSRuntime* runtime)
-      : runtime_(runtime)
-      , initialized_(false)
-    {  }
+    explicit PerformanceGroupHolder(JSRuntime* runtime) : runtime_(runtime), initialized_(false) {}
     ~PerformanceGroupHolder();
     void unlink();
-  private:
+
+   private:
     JSRuntime* runtime_;
 
     // `true` once a call to `getGroups` has succeeded.
@@ -67,24 +64,21 @@ struct PerformanceMonitoring {
     /**
      * The number of the current iteration of the event loop.
      */
-    uint64_t iteration() {
-        return iteration_;
-    }
+    uint64_t iteration() { return iteration_; }
 
     explicit PerformanceMonitoring(JSRuntime* runtime)
-      : totalCPOWTime(0)
-      , stopwatchStartCallback(nullptr)
-      , stopwatchStartClosure(nullptr)
-      , stopwatchCommitCallback(nullptr)
-      , stopwatchCommitClosure(nullptr)
-      , getGroupsCallback(nullptr)
-      , getGroupsClosure(nullptr)
-      , isMonitoringJank_(false)
-      , isMonitoringCPOW_(false)
-      , iteration_(0)
-      , startedAtIteration_(0)
-      , highestTimestampCounter_(0)
-    { }
+        : totalCPOWTime(0),
+          stopwatchStartCallback(nullptr),
+          stopwatchStartClosure(nullptr),
+          stopwatchCommitCallback(nullptr),
+          stopwatchCommitClosure(nullptr),
+          getGroupsCallback(nullptr),
+          getGroupsClosure(nullptr),
+          isMonitoringJank_(false),
+          isMonitoringCPOW_(false),
+          iteration_(0),
+          startedAtIteration_(0),
+          highestTimestampCounter_(0) {}
 
     /**
      * Reset the stopwatch.
@@ -129,15 +123,12 @@ struct PerformanceMonitoring {
      * May return `false` if the underlying hashtable cannot be allocated.
      */
     bool setIsMonitoringJank(bool value) {
-        if (isMonitoringJank_ != value)
-            reset();
+        if (isMonitoringJank_ != value) reset();
 
         isMonitoringJank_ = value;
         return true;
     }
-    bool isMonitoringJank() const {
-        return isMonitoringJank_;
-    }
+    bool isMonitoringJank() const { return isMonitoringJank_; }
 
     /**
      * Mark that a group has been used in this iteration.
@@ -157,16 +148,13 @@ struct PerformanceMonitoring {
      * May return `false` if the underlying hashtable cannot be allocated.
      */
     bool setIsMonitoringCPOW(bool value) {
-        if (isMonitoringCPOW_ != value)
-            reset();
+        if (isMonitoringCPOW_ != value) reset();
 
         isMonitoringCPOW_ = value;
         return true;
     }
 
-    bool isMonitoringCPOW() const {
-        return isMonitoringCPOW_;
-    }
+    bool isMonitoringCPOW() const { return isMonitoringCPOW_; }
 
     /**
      * Callbacks called when we start executing an event/when we have
@@ -226,8 +214,7 @@ struct PerformanceMonitoring {
      * that offer a syscall/libcall to check on which CPU a
      * process is currently executed.
      */
-    struct TestCpuRescheduling
-    {
+    struct TestCpuRescheduling {
         // Incremented once we have finished executing code
         // in a group, if the CPU on which we started
         // execution is the same as the CPU on which
@@ -238,17 +225,15 @@ struct PerformanceMonitoring {
         // execution is different from the CPU on which
         // we finished.
         uint64_t moved;
-        TestCpuRescheduling()
-            : stayed(0),
-              moved(0)
-        { }
+        TestCpuRescheduling() : stayed(0), moved(0) {}
     };
     TestCpuRescheduling testCpuRescheduling;
-  private:
+
+   private:
     PerformanceMonitoring(const PerformanceMonitoring&) = delete;
     PerformanceMonitoring& operator=(const PerformanceMonitoring&) = delete;
 
-  private:
+   private:
     friend struct PerformanceGroupHolder;
     js::StopwatchStartCallback stopwatchStartCallback;
     void* stopwatchStartClosure;
@@ -300,7 +285,7 @@ struct PerformanceMonitoring {
 };
 
 // Temporary disable untested code path.
-#if 0 // WINVER >= 0x0600
+#if 0  // WINVER >= 0x0600
 struct cpuid_t {
     uint16_t group_;
     uint8_t number_;
@@ -314,8 +299,9 @@ struct cpuid_t {
     { }
 };
 #else
-    typedef struct {} cpuid_t;
-#endif // defined(WINVER >= 0x0600)
+typedef struct {
+} cpuid_t;
+#endif  // defined(WINVER >= 0x0600)
 
 /**
  * RAII class to start/stop measuring performance when
@@ -345,7 +331,7 @@ class AutoStopwatch final {
 
     PerformanceGroupVector groups_;
 
-  public:
+   public:
     // If the stopwatch is active, constructing an instance of
     // AutoStopwatch causes it to become the current owner of the
     // stopwatch.
@@ -353,7 +339,8 @@ class AutoStopwatch final {
     // Previous owner is restored upon destruction.
     explicit AutoStopwatch(JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
     ~AutoStopwatch();
-  private:
+
+   private:
     void inline enter();
 
     bool inline exit();
@@ -374,7 +361,8 @@ class AutoStopwatch final {
     bool addToGroups(uint64_t cyclesDelta, uint64_t CPOWTimeDelta);
 
     // Add recent changes to a single group. Mark the group as changed recently.
-    bool addToGroup(JSRuntime* runtime, uint64_t cyclesDelta, uint64_t CPOWTimeDelta, PerformanceGroup* group);
+    bool addToGroup(JSRuntime* runtime, uint64_t cyclesDelta, uint64_t CPOWTimeDelta,
+                    PerformanceGroup* group);
 
     // Update telemetry statistics.
     void updateTelemetry(const cpuid_t& a, const cpuid_t& b);
@@ -390,18 +378,17 @@ class AutoStopwatch final {
     // 0 on platforms for which we do not have access to a Timestamp Counter.
     uint64_t inline getCycles(JSRuntime*) const;
 
-
     // Return the identifier of the current CPU, on platforms for which we have
     // access to the current CPU.
     cpuid_t inline getCPU() const;
 
     // Compare two CPU identifiers.
     bool inline isSameCPU(const cpuid_t& a, const cpuid_t& b) const;
-  private:
+
+   private:
     MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER;
 };
 
+}  // namespace js
 
-} // namespace js
-
-#endif // vm_Stopwatch_h
+#endif  // vm_Stopwatch_h

@@ -9,11 +9,12 @@
 #define PINGSENDER_LOG(s, ...) printf(s, ##__VA_ARGS__)
 #else
 #define PINGSENDER_LOG(s, ...)
-#endif // DEBUG
+#endif  // DEBUG
 
 namespace PingSender {
 
 // System-specific function to make an HTTP POST operation
-bool Post(const std::string& url, const std::string& payload);
+bool
+Post(const std::string& url, const std::string& payload);
 
-} // namespace PingSender
+}  // namespace PingSender

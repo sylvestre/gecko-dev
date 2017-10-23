@@ -11,14 +11,17 @@
 
 #include "mozilla/Assertions.h"
 
-namespace mozilla
-{
-namespace sdp
-{
+namespace mozilla {
+namespace sdp {
 
-enum NetType { kNetTypeNone, kInternet };
+enum NetType
+{
+  kNetTypeNone,
+  kInternet
+};
 
-inline std::ostream& operator<<(std::ostream& os, sdp::NetType t)
+inline std::ostream&
+operator<<(std::ostream& os, sdp::NetType t)
 {
   switch (t) {
     case sdp::kNetTypeNone:
@@ -30,9 +33,15 @@ inline std::ostream& operator<<(std::ostream& os, sdp::NetType t)
   MOZ_CRASH("Unknown NetType");
 }
 
-enum AddrType { kAddrTypeNone, kIPv4, kIPv6 };
+enum AddrType
+{
+  kAddrTypeNone,
+  kIPv4,
+  kIPv6
+};
 
-inline std::ostream& operator<<(std::ostream& os, sdp::AddrType t)
+inline std::ostream&
+operator<<(std::ostream& os, sdp::AddrType t)
 {
   switch (t) {
     case sdp::kAddrTypeNone:
@@ -46,13 +55,15 @@ inline std::ostream& operator<<(std::ostream& os, sdp::AddrType t)
   MOZ_CRASH("Unknown AddrType");
 }
 
-enum Direction {
+enum Direction
+{
   // Start at 1 so these can be used as flags
   kSend = 1,
   kRecv = 2
 };
 
-inline std::ostream& operator<<(std::ostream& os, sdp::Direction d)
+inline std::ostream&
+operator<<(std::ostream& os, sdp::Direction d)
 {
   switch (d) {
     case sdp::kSend:
@@ -63,8 +74,8 @@ inline std::ostream& operator<<(std::ostream& os, sdp::Direction d)
   MOZ_CRASH("Unknown Direction");
 }
 
-} // namespace sdp
+}  // namespace sdp
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

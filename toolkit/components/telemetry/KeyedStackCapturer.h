@@ -25,10 +25,8 @@ namespace Telemetry {
 */
 class KeyedStackCapturer
 {
-public:
-  KeyedStackCapturer()
-    : mStackCapturerMutex("Telemetry::StackCapturerMutex")
-  {}
+ public:
+  KeyedStackCapturer() : mStackCapturerMutex("Telemetry::StackCapturerMutex") {}
 
   /**
    * Captures a stack for the given key.
@@ -38,38 +36,40 @@ public:
   /**
    * Transforms captured stacks into a JS object.
    */
-   NS_IMETHODIMP ReflectCapturedStacks(
-    JSContext *cx, JS::MutableHandle<JS::Value> ret);
+  NS_IMETHODIMP ReflectCapturedStacks(JSContext* cx,
+                                      JS::MutableHandle<JS::Value> ret);
 
   /**
    * Resets captured stacks and the information related to them.
    */
   void Clear();
 
-private:
+ private:
   /**
    * Describes how often a stack was captured.
    */
-  struct StackFrequencyInfo {
+  struct StackFrequencyInfo
+  {
     // A number of times the stack was captured.
     uint32_t mCount;
     // Index of the stack inside stacks array.
     uint32_t mIndex;
 
     StackFrequencyInfo(uint32_t aCount, uint32_t aIndex)
-      : mCount(aCount)
-      , mIndex(aIndex)
-    {}
+        : mCount(aCount), mIndex(aIndex)
+    {
+    }
   };
 
-  typedef nsClassHashtable<nsCStringHashKey, StackFrequencyInfo> FrequencyInfoMapType;
+  typedef nsClassHashtable<nsCStringHashKey, StackFrequencyInfo>
+      FrequencyInfoMapType;
 
   FrequencyInfoMapType mStackInfos;
   CombinedStacks mStacks;
   Mutex mStackCapturerMutex;
 };
 
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Telemetry
+}  // namespace mozilla
 
-#endif // KeyedStackCapturer_h__
+#endif  // KeyedStackCapturer_h__

@@ -16,7 +16,7 @@ namespace {
 
 StaticRefPtr<FileSystemSecurity> gFileSystemSecurity;
 
-} // anonymous
+}  // namespace
 
 /* static */ already_AddRefed<FileSystemSecurity>
 FileSystemSecurity::Get()
@@ -115,5 +115,5 @@ FileSystemSecurity::ContentProcessHasAccessTo(ContentParentId aId,
   return false;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

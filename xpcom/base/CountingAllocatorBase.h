@@ -40,7 +40,7 @@ namespace mozilla {
 template<typename T>
 class CountingAllocatorBase
 {
-public:
+ public:
   CountingAllocatorBase()
   {
 #ifdef DEBUG
@@ -52,33 +52,26 @@ public:
 #endif
   }
 
-  static size_t
-  MemoryAllocated()
-  {
-    return sAmount;
-  }
+  static size_t MemoryAllocated() { return sAmount; }
 
-  static void*
-  CountingMalloc(size_t size)
+  static void* CountingMalloc(size_t size)
   {
     void* p = malloc(size);
     sAmount += MallocSizeOfOnAlloc(p);
     return p;
   }
 
-  static void*
-  CountingCalloc(size_t nmemb, size_t size)
+  static void* CountingCalloc(size_t nmemb, size_t size)
   {
     void* p = calloc(nmemb, size);
     sAmount += MallocSizeOfOnAlloc(p);
     return p;
   }
 
-  static void*
-  CountingRealloc(void* p, size_t size)
+  static void* CountingRealloc(void* p, size_t size)
   {
     size_t oldsize = MallocSizeOfOnFree(p);
-    void *pnew = realloc(p, size);
+    void* pnew = realloc(p, size);
     if (pnew) {
       size_t newsize = MallocSizeOfOnAlloc(pnew);
       sAmount += newsize - oldsize;
@@ -109,8 +102,7 @@ public:
   // Some library code expects that realloc(x, 0) will free x, which is not
   // the behavior of the version of jemalloc we're using, so this wrapped
   // version of realloc is needed.
-  static void*
-  CountingFreeingRealloc(void* p, size_t size)
+  static void* CountingFreeingRealloc(void* p, size_t size)
   {
     if (size == 0) {
       CountingFree(p);
@@ -119,14 +111,13 @@ public:
     return CountingRealloc(p, size);
   }
 
-  static void
-  CountingFree(void* p)
+  static void CountingFree(void* p)
   {
     sAmount -= MallocSizeOfOnFree(p);
     free(p);
   }
 
-private:
+ private:
   // |sAmount| can be (implicitly) accessed by multiple threads, so it
   // must be thread-safe.
   static Atomic<size_t> sAmount;
@@ -135,6 +126,6 @@ private:
   MOZ_DEFINE_MALLOC_SIZE_OF_ON_FREE(MallocSizeOfOnFree)
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // CountingAllocatorBase_h
+#endif  // CountingAllocatorBase_h

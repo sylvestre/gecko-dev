@@ -16,10 +16,10 @@ namespace cache {
 
 class Connection final : public mozIStorageConnection
 {
-public:
+ public:
   explicit Connection(mozIStorageConnection* aBase);
 
-private:
+ private:
   ~Connection();
 
   nsCOMPtr<mozIStorageConnection> mBase;
@@ -30,8 +30,8 @@ private:
   NS_DECL_MOZISTORAGECONNECTION
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_Connection_h
+#endif  // mozilla_dom_cache_Connection_h

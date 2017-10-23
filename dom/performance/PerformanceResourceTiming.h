@@ -20,21 +20,20 @@ namespace dom {
 // http://www.w3.org/TR/resource-timing/#performanceresourcetiming
 class PerformanceResourceTiming : public PerformanceEntry
 {
-public:
+ public:
   typedef mozilla::TimeStamp TimeStamp;
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
-      PerformanceResourceTiming,
-      PerformanceEntry)
+      PerformanceResourceTiming, PerformanceEntry)
 
   PerformanceResourceTiming(PerformanceTiming* aPerformanceTiming,
                             Performance* aPerformance,
                             const nsAString& aName,
                             nsIHttpChannel* aChannel = nullptr);
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   virtual DOMHighResTimeStamp StartTime() const override;
 
@@ -63,81 +62,83 @@ public:
     mNextHopProtocol = aNextHopProtocol;
   }
 
-  DOMHighResTimeStamp WorkerStart() const {
-    return mTiming && mTiming->TimingAllowed()
-        ? mTiming->WorkerStartHighRes()
-        : 0;
+  DOMHighResTimeStamp WorkerStart() const
+  {
+    return mTiming && mTiming->TimingAllowed() ? mTiming->WorkerStartHighRes()
+                                               : 0;
   }
 
-  DOMHighResTimeStamp FetchStart() const {
-    return mTiming
-        ? mTiming->FetchStartHighRes()
-        : 0;
+  DOMHighResTimeStamp FetchStart() const
+  {
+    return mTiming ? mTiming->FetchStartHighRes() : 0;
   }
 
-  DOMHighResTimeStamp RedirectStart() const {
+  DOMHighResTimeStamp RedirectStart() const
+  {
     // We have to check if all the redirect URIs had the same origin (since
     // there is no check in RedirectEndHighRes())
     return mTiming && mTiming->ShouldReportCrossOriginRedirect()
-        ? mTiming->RedirectStartHighRes()
-        : 0;
+               ? mTiming->RedirectStartHighRes()
+               : 0;
   }
 
-  DOMHighResTimeStamp RedirectEnd() const {
+  DOMHighResTimeStamp RedirectEnd() const
+  {
     // We have to check if all the redirect URIs had the same origin (since
     // there is no check in RedirectEndHighRes())
     return mTiming && mTiming->ShouldReportCrossOriginRedirect()
-        ? mTiming->RedirectEndHighRes()
-        : 0;
+               ? mTiming->RedirectEndHighRes()
+               : 0;
   }
 
-  DOMHighResTimeStamp DomainLookupStart() const {
+  DOMHighResTimeStamp DomainLookupStart() const
+  {
     return mTiming && mTiming->TimingAllowed()
-        ? mTiming->DomainLookupStartHighRes()
-        : 0;
+               ? mTiming->DomainLookupStartHighRes()
+               : 0;
   }
 
-  DOMHighResTimeStamp DomainLookupEnd() const {
+  DOMHighResTimeStamp DomainLookupEnd() const
+  {
     return mTiming && mTiming->TimingAllowed()
-        ? mTiming->DomainLookupEndHighRes()
-        : 0;
+               ? mTiming->DomainLookupEndHighRes()
+               : 0;
   }
 
-  DOMHighResTimeStamp ConnectStart() const {
-    return mTiming && mTiming->TimingAllowed()
-        ? mTiming->ConnectStartHighRes()
-        : 0;
+  DOMHighResTimeStamp ConnectStart() const
+  {
+    return mTiming && mTiming->TimingAllowed() ? mTiming->ConnectStartHighRes()
+                                               : 0;
   }
 
-  DOMHighResTimeStamp ConnectEnd() const {
-    return mTiming && mTiming->TimingAllowed()
-        ? mTiming->ConnectEndHighRes()
-        : 0;
+  DOMHighResTimeStamp ConnectEnd() const
+  {
+    return mTiming && mTiming->TimingAllowed() ? mTiming->ConnectEndHighRes()
+                                               : 0;
   }
 
-  DOMHighResTimeStamp RequestStart() const {
-    return mTiming && mTiming->TimingAllowed()
-        ? mTiming->RequestStartHighRes()
-        : 0;
+  DOMHighResTimeStamp RequestStart() const
+  {
+    return mTiming && mTiming->TimingAllowed() ? mTiming->RequestStartHighRes()
+                                               : 0;
   }
 
-  DOMHighResTimeStamp ResponseStart() const {
-    return mTiming && mTiming->TimingAllowed()
-        ? mTiming->ResponseStartHighRes()
-        : 0;
+  DOMHighResTimeStamp ResponseStart() const
+  {
+    return mTiming && mTiming->TimingAllowed() ? mTiming->ResponseStartHighRes()
+                                               : 0;
   }
 
-  DOMHighResTimeStamp ResponseEnd() const {
-    return mTiming
-        ? mTiming->ResponseEndHighRes()
-        : 0;
+  DOMHighResTimeStamp ResponseEnd() const
+  {
+    return mTiming ? mTiming->ResponseEndHighRes() : 0;
   }
 
   DOMHighResTimeStamp SecureConnectionStart() const
   {
     return mTiming && mTiming->TimingAllowed()
-        ? mTiming->SecureConnectionStartHighRes()
-        : 0;
+               ? mTiming->SecureConnectionStartHighRes()
+               : 0;
   }
 
   virtual const PerformanceResourceTiming* ToResourceTiming() const override
@@ -175,15 +176,15 @@ public:
     mDecodedBodySize = aDecodedBodySize;
   }
 
-  size_t
-  SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
-protected:
+ protected:
   virtual ~PerformanceResourceTiming();
   void SetPropertiesFromChannel(nsIHttpChannel* aChannel);
 
-  size_t
-  SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  size_t SizeOfExcludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
   nsString mInitiatorType;
   nsString mNextHopProtocol;
@@ -193,7 +194,7 @@ protected:
   uint64_t mDecodedBodySize;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_PerformanceResourceTiming_h___ */

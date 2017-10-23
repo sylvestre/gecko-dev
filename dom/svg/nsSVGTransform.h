@@ -27,44 +27,43 @@ static const unsigned short SVG_TRANSFORM_SKEWY = 6;
  */
 class nsSVGTransform
 {
-public:
+ public:
   // Default ctor initialises to matrix type with identity matrix
   nsSVGTransform()
-    : mMatrix() // Initialises to identity
-    , mAngle(0.f)
-    , mOriginX(0.f)
-    , mOriginY(0.f)
-    , mType(SVG_TRANSFORM_MATRIX)
-  { }
+      : mMatrix()  // Initialises to identity
+        ,
+        mAngle(0.f),
+        mOriginX(0.f),
+        mOriginY(0.f),
+        mType(SVG_TRANSFORM_MATRIX)
+  {
+  }
 
   explicit nsSVGTransform(const gfxMatrix& aMatrix)
-    : mMatrix(aMatrix)
-    , mAngle(0.f)
-    , mOriginX(0.f)
-    , mOriginY(0.f)
-    , mType(SVG_TRANSFORM_MATRIX)
-  { }
+      : mMatrix(aMatrix),
+        mAngle(0.f),
+        mOriginX(0.f),
+        mOriginY(0.f),
+        mType(SVG_TRANSFORM_MATRIX)
+  {
+  }
 
-  bool operator==(const nsSVGTransform& rhs) const {
-    return mType == rhs.mType &&
-      MatricesEqual(mMatrix, rhs.mMatrix) &&
-      mAngle == rhs.mAngle &&
-      mOriginX == rhs.mOriginX &&
-      mOriginY == rhs.mOriginY;
+  bool operator==(const nsSVGTransform& rhs) const
+  {
+    return mType == rhs.mType && MatricesEqual(mMatrix, rhs.mMatrix) &&
+           mAngle == rhs.mAngle && mOriginX == rhs.mOriginX &&
+           mOriginY == rhs.mOriginY;
   }
 
   void GetValueAsString(nsAString& aValue) const;
 
-  float Angle() const {
-    return mAngle;
-  }
-  void GetRotationOrigin(float& aOriginX, float& aOriginY) const {
+  float Angle() const { return mAngle; }
+  void GetRotationOrigin(float& aOriginX, float& aOriginY) const
+  {
     aOriginX = mOriginX;
     aOriginY = mOriginY;
   }
-  uint16_t Type() const {
-    return mType;
-  }
+  uint16_t Type() const { return mType; }
 
   const gfxMatrix& GetMatrix() const { return mMatrix; }
   void SetMatrix(const gfxMatrix& aMatrix);
@@ -76,15 +75,11 @@ public:
 
   static bool MatricesEqual(const gfxMatrix& a, const gfxMatrix& b)
   {
-    return a._11 == b._11 &&
-           a._12 == b._12 &&
-           a._21 == b._21 &&
-           a._22 == b._22 &&
-           a._31 == b._31 &&
-           a._32 == b._32;
+    return a._11 == b._11 && a._12 == b._12 && a._21 == b._21 &&
+           a._22 == b._22 && a._31 == b._31 && a._32 == b._32;
   }
 
-protected:
+ protected:
   gfxMatrix mMatrix;
   float mAngle, mOriginX, mOriginY;
   uint16_t mType;
@@ -115,7 +110,7 @@ protected:
  */
 class SVGTransformSMILData
 {
-public:
+ public:
   // Number of float-params required in constructor, if constructing one of the
   // 'simple' transform types (all but matrix type)
   static const uint32_t NUM_SIMPLE_PARAMS = 3;
@@ -124,8 +119,7 @@ public:
   // This is also the number of params we actually store, regardless of type.
   static const uint32_t NUM_STORED_PARAMS = 6;
 
-  explicit SVGTransformSMILData(uint16_t aType)
-  : mTransformType(aType)
+  explicit SVGTransformSMILData(uint16_t aType) : mTransformType(aType)
   {
     MOZ_ASSERT(aType >= SVG_TRANSFORM_MATRIX && aType <= SVG_TRANSFORM_SKEWY,
                "Unexpected transform type");
@@ -135,7 +129,7 @@ public:
   }
 
   SVGTransformSMILData(uint16_t aType, float (&aParams)[NUM_SIMPLE_PARAMS])
-  : mTransformType(aType)
+      : mTransformType(aType)
   {
     MOZ_ASSERT(aType >= SVG_TRANSFORM_TRANSLATE && aType <= SVG_TRANSFORM_SKEWY,
                "Expected 'simple' transform type");
@@ -153,8 +147,7 @@ public:
 
   bool operator==(const SVGTransformSMILData& aOther) const
   {
-    if (mTransformType != aOther.mTransformType)
-      return false;
+    if (mTransformType != aOther.mTransformType) return false;
 
     for (uint32_t i = 0; i < NUM_STORED_PARAMS; ++i) {
       if (mParams[i] != aOther.mParams[i]) {
@@ -171,9 +164,9 @@ public:
   }
 
   uint16_t mTransformType;
-  float    mParams[NUM_STORED_PARAMS];
+  float mParams[NUM_STORED_PARAMS];
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGTRANSFORM_H__
+#endif  // MOZILLA_SVGTRANSFORM_H__

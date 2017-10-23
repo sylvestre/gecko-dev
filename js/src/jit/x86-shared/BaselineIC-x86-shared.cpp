@@ -12,9 +12,7 @@
 using namespace js;
 using namespace js::jit;
 
-bool
-ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm)
-{
+bool ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm) {
     Label failure, notNaN;
     masm.ensureDouble(R0, FloatReg0, &failure);
     masm.ensureDouble(R1, FloatReg1, &failure);
@@ -29,9 +27,9 @@ ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm)
     // Check for NaN, if needed.
     Assembler::NaNCond nanCond = Assembler::NaNCondFromDoubleCondition(cond);
     if (nanCond != Assembler::NaN_HandledByCond) {
-      masm.j(Assembler::NoParity, &notNaN);
-      masm.mov(ImmWord(nanCond == Assembler::NaN_IsTrue), dest);
-      masm.bind(&notNaN);
+        masm.j(Assembler::NoParity, &notNaN);
+        masm.mov(ImmWord(nanCond == Assembler::NaN_IsTrue), dest);
+        masm.bind(&notNaN);
     }
 
     masm.tagValue(JSVAL_TYPE_BOOLEAN, dest, R0);

@@ -12,12 +12,12 @@
 namespace mozilla {
 namespace layers {
 
-WebRenderTextureHost::WebRenderTextureHost(const SurfaceDescriptor& aDesc,
-                                           TextureFlags aFlags,
-                                           TextureHost* aTexture,
-                                           wr::ExternalImageId& aExternalImageId)
-  : TextureHost(aFlags)
-  , mExternalImageId(aExternalImageId)
+WebRenderTextureHost::WebRenderTextureHost(
+    const SurfaceDescriptor& aDesc,
+    TextureFlags aFlags,
+    TextureHost* aTexture,
+    wr::ExternalImageId& aExternalImageId)
+    : TextureHost(aFlags), mExternalImageId(aExternalImageId)
 {
   // The wrapped textureHost will be used in WebRender, and the WebRender could
   // run at another thread. It's hard to control the life-time when gecko
@@ -37,12 +37,13 @@ WebRenderTextureHost::WebRenderTextureHost(const SurfaceDescriptor& aDesc,
 WebRenderTextureHost::~WebRenderTextureHost()
 {
   MOZ_COUNT_DTOR(WebRenderTextureHost);
-  wr::RenderThread::Get()->UnregisterExternalImage(wr::AsUint64(mExternalImageId));
+  wr::RenderThread::Get()->UnregisterExternalImage(
+      wr::AsUint64(mExternalImageId));
 }
 
 void
-WebRenderTextureHost::CreateRenderTextureHost(const layers::SurfaceDescriptor& aDesc,
-                                              TextureHost* aTexture)
+WebRenderTextureHost::CreateRenderTextureHost(
+    const layers::SurfaceDescriptor& aDesc, TextureHost* aTexture)
 {
   MOZ_ASSERT(aTexture);
 
@@ -129,7 +130,8 @@ WebRenderTextureHost::GetRGBStride()
   if (GetFormat() == gfx::SurfaceFormat::YUV) {
     // XXX this stride is used until yuv image rendering by webrender is used.
     // Software converted RGB buffers strides are aliened to 16
-    return gfx::GetAlignedStride<16>(GetSize().width, BytesPerPixel(gfx::SurfaceFormat::B8G8R8A8));
+    return gfx::GetAlignedStride<16>(
+        GetSize().width, BytesPerPixel(gfx::SurfaceFormat::B8G8R8A8));
   }
   return ImageDataSerializer::ComputeRGBStride(format, GetSize().width);
 }
@@ -163,12 +165,9 @@ WebRenderTextureHost::PushDisplayItems(wr::DisplayListBuilder& aBuilder,
   MOZ_ASSERT(mWrappedTextureHost);
   MOZ_ASSERT(aImageKeys.length() > 0);
 
-  mWrappedTextureHost->PushDisplayItems(aBuilder,
-                                         aBounds,
-                                         aClip,
-                                         aFilter,
-                                         aImageKeys);
+  mWrappedTextureHost->PushDisplayItems(
+      aBuilder, aBounds, aClip, aFilter, aImageKeys);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

@@ -17,19 +17,21 @@ namespace mozilla {
 namespace layers {
 
 AsyncImagePipelineManager::AsyncImagePipeline::AsyncImagePipeline()
- : mInitialised(false)
- , mIsChanged(false)
- , mUseExternalImage(false)
- , mFilter(wr::ImageRendering::Auto)
- , mMixBlendMode(wr::MixBlendMode::Normal)
-{}
+    : mInitialised(false),
+      mIsChanged(false),
+      mUseExternalImage(false),
+      mFilter(wr::ImageRendering::Auto),
+      mMixBlendMode(wr::MixBlendMode::Normal)
+{
+}
 
-AsyncImagePipelineManager::AsyncImagePipelineManager(already_AddRefed<wr::WebRenderAPI>&& aApi)
- : mApi(aApi)
- , mIdNamespace(mApi->GetNamespace())
- , mResourceId(0)
- , mAsyncImageEpoch(0)
- , mDestroyed(false)
+AsyncImagePipelineManager::AsyncImagePipelineManager(
+    already_AddRefed<wr::WebRenderAPI>&& aApi)
+    : mApi(aApi),
+      mIdNamespace(mApi->GetNamespace()),
+      mResourceId(0),
+      mAsyncImageEpoch(0),
+      mDestroyed(false)
 {
   MOZ_COUNT_CTOR(AsyncImagePipelineManager);
 }
@@ -55,12 +57,13 @@ AsyncImagePipelineManager::AddPipeline(const wr::PipelineId& aPipelineId)
   }
   uint64_t id = wr::AsUint64(aPipelineId);
 
-  PipelineTexturesHolder* holder = mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
-  if(holder) {
+  PipelineTexturesHolder* holder =
+      mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
+  if (holder) {
     // This could happen during tab move between different windows.
     // Previously removed holder could be still alive for waiting destroyed.
     MOZ_ASSERT(holder->mDestroyedEpoch.isSome());
-    holder->mDestroyedEpoch = Nothing(); // Revive holder
+    holder->mDestroyedEpoch = Nothing();  // Revive holder
     return;
   }
   holder = new PipelineTexturesHolder();
@@ -68,13 +71,15 @@ AsyncImagePipelineManager::AddPipeline(const wr::PipelineId& aPipelineId)
 }
 
 void
-AsyncImagePipelineManager::RemovePipeline(const wr::PipelineId& aPipelineId, const wr::Epoch& aEpoch)
+AsyncImagePipelineManager::RemovePipeline(const wr::PipelineId& aPipelineId,
+                                          const wr::Epoch& aEpoch)
 {
   if (mDestroyed) {
     return;
   }
 
-  PipelineTexturesHolder* holder = mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
+  PipelineTexturesHolder* holder =
+      mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
   MOZ_ASSERT(holder);
   if (!holder) {
     return;
@@ -83,7 +88,8 @@ AsyncImagePipelineManager::RemovePipeline(const wr::PipelineId& aPipelineId, con
 }
 
 void
-AsyncImagePipelineManager::AddAsyncImagePipeline(const wr::PipelineId& aPipelineId, WebRenderImageHost* aImageHost)
+AsyncImagePipelineManager::AddAsyncImagePipeline(
+    const wr::PipelineId& aPipelineId, WebRenderImageHost* aImageHost)
 {
   if (mDestroyed) {
     return;
@@ -99,7 +105,8 @@ AsyncImagePipelineManager::AddAsyncImagePipeline(const wr::PipelineId& aPipeline
 }
 
 void
-AsyncImagePipelineManager::RemoveAsyncImagePipeline(const wr::PipelineId& aPipelineId)
+AsyncImagePipelineManager::RemoveAsyncImagePipeline(
+    const wr::PipelineId& aPipelineId)
 {
   if (mDestroyed) {
     return;
@@ -108,7 +115,7 @@ AsyncImagePipelineManager::RemoveAsyncImagePipeline(const wr::PipelineId& aPipel
   uint64_t id = wr::AsUint64(aPipelineId);
   if (auto entry = mAsyncImagePipelines.Lookup(id)) {
     AsyncImagePipeline* holder = entry.Data();
-    ++mAsyncImageEpoch; // Update webrender epoch
+    ++mAsyncImageEpoch;  // Update webrender epoch
     mApi->ClearDisplayList(wr::NewEpoch(mAsyncImageEpoch), aPipelineId);
     wr::ResourceUpdateQueue resources;
     for (wr::ImageKey key : holder->mKeys) {
@@ -121,17 +128,19 @@ AsyncImagePipelineManager::RemoveAsyncImagePipeline(const wr::PipelineId& aPipel
 }
 
 void
-AsyncImagePipelineManager::UpdateAsyncImagePipeline(const wr::PipelineId& aPipelineId,
-                                                    const LayoutDeviceRect& aScBounds,
-                                                    const gfx::Matrix4x4& aScTransform,
-                                                    const gfx::MaybeIntSize& aScaleToSize,
-                                                    const wr::ImageRendering& aFilter,
-                                                    const wr::MixBlendMode& aMixBlendMode)
+AsyncImagePipelineManager::UpdateAsyncImagePipeline(
+    const wr::PipelineId& aPipelineId,
+    const LayoutDeviceRect& aScBounds,
+    const gfx::Matrix4x4& aScTransform,
+    const gfx::MaybeIntSize& aScaleToSize,
+    const wr::ImageRendering& aFilter,
+    const wr::MixBlendMode& aMixBlendMode)
 {
   if (mDestroyed) {
     return;
   }
-  AsyncImagePipeline* pipeline = mAsyncImagePipelines.Get(wr::AsUint64(aPipelineId));
+  AsyncImagePipeline* pipeline =
+      mAsyncImagePipelines.Get(wr::AsUint64(aPipelineId));
   if (!pipeline) {
     return;
   }
@@ -183,9 +192,9 @@ AsyncImagePipelineManager::UpdateImageKeys(wr::ResourceUpdateQueue& aResources,
 
   // If we already had a texture and the format hasn't changed, better to reuse the image keys
   // than create new ones.
-  bool canUpdate = !!previousTexture
-                   && previousTexture->GetFormat() == texture->GetFormat()
-                   && aPipeline->mKeys.Length() == numKeys;
+  bool canUpdate = !!previousTexture &&
+                   previousTexture->GetFormat() == texture->GetFormat() &&
+                   aPipeline->mKeys.Length() == numKeys;
 
   if (!canUpdate) {
     for (auto key : aPipeline->mKeys) {
@@ -206,16 +215,18 @@ AsyncImagePipelineManager::UpdateImageKeys(wr::ResourceUpdateQueue& aResources,
   }
 
   Range<wr::ImageKey> keys(&aKeys[0], aKeys.Length());
-  wrTexture->PushResourceUpdates(aResources, op, keys, wrTexture->GetExternalImageKey());
+  wrTexture->PushResourceUpdates(
+      aResources, op, keys, wrTexture->GetExternalImageKey());
 
   return Some(op);
 }
 
 Maybe<TextureHost::ResourceUpdateOp>
-AsyncImagePipelineManager::UpdateWithoutExternalImage(wr::ResourceUpdateQueue& aResources,
-                                                      TextureHost* aTexture,
-                                                      wr::ImageKey aKey,
-                                                      TextureHost::ResourceUpdateOp aOp)
+AsyncImagePipelineManager::UpdateWithoutExternalImage(
+    wr::ResourceUpdateQueue& aResources,
+    TextureHost* aTexture,
+    wr::ImageKey aKey,
+    TextureHost::ResourceUpdateOp aOp)
 {
   MOZ_ASSERT(aTexture);
 
@@ -255,7 +266,7 @@ AsyncImagePipelineManager::ApplyAsyncImages()
     return;
   }
 
-  ++mAsyncImageEpoch; // Update webrender epoch
+  ++mAsyncImageEpoch;  // Update webrender epoch
   wr::Epoch epoch = wr::NewEpoch(mAsyncImageEpoch);
 
   // We use a pipeline with a very small display list for each video element.
@@ -274,31 +285,41 @@ AsyncImagePipelineManager::ApplyAsyncImages()
       // We may, however, have updated some resources.
       mApi->UpdatePipelineResources(resourceUpdates, pipelineId, epoch);
       if (pipeline->mCurrentTexture) {
-        HoldExternalImage(pipelineId, epoch, pipeline->mCurrentTexture->AsWebRenderTextureHost());
+        HoldExternalImage(pipelineId,
+                          epoch,
+                          pipeline->mCurrentTexture->AsWebRenderTextureHost());
       }
       continue;
     }
 
-    wr::LayoutSize contentSize { pipeline->mScBounds.Width(), pipeline->mScBounds.Height() };
+    wr::LayoutSize contentSize{pipeline->mScBounds.Width(),
+                               pipeline->mScBounds.Height()};
     wr::DisplayListBuilder builder(pipelineId, contentSize);
 
     MOZ_ASSERT(!keys.IsEmpty());
     MOZ_ASSERT(pipeline->mCurrentTexture.get());
 
     float opacity = 1.0f;
-    builder.PushStackingContext(wr::ToLayoutRect(pipeline->mScBounds),
-                                0,
-                                &opacity,
-                                pipeline->mScTransform.IsIdentity() ? nullptr : &pipeline->mScTransform,
-                                wr::TransformStyle::Flat,
-                                nullptr,
-                                pipeline->mMixBlendMode,
-                                nsTArray<wr::WrFilterOp>(),
-                                true);
+    builder.PushStackingContext(
+        wr::ToLayoutRect(pipeline->mScBounds),
+        0,
+        &opacity,
+        pipeline->mScTransform.IsIdentity() ? nullptr : &pipeline->mScTransform,
+        wr::TransformStyle::Flat,
+        nullptr,
+        pipeline->mMixBlendMode,
+        nsTArray<wr::WrFilterOp>(),
+        true);
 
-    LayoutDeviceRect rect(0, 0, pipeline->mCurrentTexture->GetSize().width, pipeline->mCurrentTexture->GetSize().height);
+    LayoutDeviceRect rect(0,
+                          0,
+                          pipeline->mCurrentTexture->GetSize().width,
+                          pipeline->mCurrentTexture->GetSize().height);
     if (pipeline->mScaleToSize.isSome()) {
-      rect = LayoutDeviceRect(0, 0, pipeline->mScaleToSize.value().width, pipeline->mScaleToSize.value().height);
+      rect = LayoutDeviceRect(0,
+                              0,
+                              pipeline->mScaleToSize.value().width,
+                              pipeline->mScaleToSize.value().height);
     }
 
     if (pipeline->mUseExternalImage) {
@@ -309,7 +330,9 @@ AsyncImagePipelineManager::ApplyAsyncImages()
                                                   wr::ToLayoutRect(rect),
                                                   pipeline->mFilter,
                                                   range_keys);
-      HoldExternalImage(pipelineId, epoch, pipeline->mCurrentTexture->AsWebRenderTextureHost());
+      HoldExternalImage(pipelineId,
+                        epoch,
+                        pipeline->mCurrentTexture->AsWebRenderTextureHost());
     } else {
       MOZ_ASSERT(keys.Length() == 1);
       builder.PushImage(wr::ToLayoutRect(rect),
@@ -323,22 +346,31 @@ AsyncImagePipelineManager::ApplyAsyncImages()
     wr::BuiltDisplayList dl;
     wr::LayoutSize builderContentSize;
     builder.Finalize(builderContentSize, dl);
-    mApi->SetDisplayList(gfx::Color(0.f, 0.f, 0.f, 0.f), epoch, LayerSize(pipeline->mScBounds.Width(), pipeline->mScBounds.Height()),
-                         pipelineId, builderContentSize,
-                         dl.dl_desc, dl.dl.inner.data, dl.dl.inner.length,
-                         resourceUpdates);
+    mApi->SetDisplayList(
+        gfx::Color(0.f, 0.f, 0.f, 0.f),
+        epoch,
+        LayerSize(pipeline->mScBounds.Width(), pipeline->mScBounds.Height()),
+        pipelineId,
+        builderContentSize,
+        dl.dl_desc,
+        dl.dl.inner.data,
+        dl.dl.inner.length,
+        resourceUpdates);
   }
 }
 
 void
-AsyncImagePipelineManager::HoldExternalImage(const wr::PipelineId& aPipelineId, const wr::Epoch& aEpoch, WebRenderTextureHost* aTexture)
+AsyncImagePipelineManager::HoldExternalImage(const wr::PipelineId& aPipelineId,
+                                             const wr::Epoch& aEpoch,
+                                             WebRenderTextureHost* aTexture)
 {
   if (mDestroyed) {
     return;
   }
   MOZ_ASSERT(aTexture);
 
-  PipelineTexturesHolder* holder = mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
+  PipelineTexturesHolder* holder =
+      mPipelineTexturesHolders.Get(wr::AsUint64(aPipelineId));
   MOZ_ASSERT(holder);
   if (!holder) {
     return;
@@ -348,7 +380,8 @@ AsyncImagePipelineManager::HoldExternalImage(const wr::PipelineId& aPipelineId, 
 }
 
 void
-AsyncImagePipelineManager::Update(const wr::PipelineId& aPipelineId, const wr::Epoch& aEpoch)
+AsyncImagePipelineManager::Update(const wr::PipelineId& aPipelineId,
+                                  const wr::Epoch& aEpoch)
 {
   if (mDestroyed) {
     return;
@@ -356,7 +389,8 @@ AsyncImagePipelineManager::Update(const wr::PipelineId& aPipelineId, const wr::E
   if (auto entry = mPipelineTexturesHolders.Lookup(wr::AsUint64(aPipelineId))) {
     PipelineTexturesHolder* holder = entry.Data();
     // Remove Pipeline
-    if (holder->mDestroyedEpoch.isSome() && holder->mDestroyedEpoch.ref() <= aEpoch) {
+    if (holder->mDestroyedEpoch.isSome() &&
+        holder->mDestroyedEpoch.ref() <= aEpoch) {
       entry.Remove();
       return;
     }
@@ -371,5 +405,5 @@ AsyncImagePipelineManager::Update(const wr::PipelineId& aPipelineId, const wr::E
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

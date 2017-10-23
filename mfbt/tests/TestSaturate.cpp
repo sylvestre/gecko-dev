@@ -158,9 +158,9 @@ TestUpperBound()
 
   A(--satValue == (std::numeric_limits<T>::max() - 1));
   A(++satValue == (std::numeric_limits<T>::max()));
-  A(++satValue == (std::numeric_limits<T>::max())); // don't overflow here
-  A(++satValue == (std::numeric_limits<T>::max())); // don't overflow here
-  A(--satValue == (std::numeric_limits<T>::max() - 1)); // back at (max - 1)
+  A(++satValue == (std::numeric_limits<T>::max()));      // don't overflow here
+  A(++satValue == (std::numeric_limits<T>::max()));      // don't overflow here
+  A(--satValue == (std::numeric_limits<T>::max() - 1));  // back at (max - 1)
   A(--satValue == (std::numeric_limits<T>::max() - 2));
 }
 
@@ -172,9 +172,9 @@ TestLowerBound()
 
   A(++satValue == (std::numeric_limits<T>::min() + 1));
   A(--satValue == (std::numeric_limits<T>::min()));
-  A(--satValue == (std::numeric_limits<T>::min())); // don't overflow here
-  A(--satValue == (std::numeric_limits<T>::min())); // don't overflow here
-  A(++satValue == (std::numeric_limits<T>::min() + 1)); // back at (max + 1)
+  A(--satValue == (std::numeric_limits<T>::min()));      // don't overflow here
+  A(--satValue == (std::numeric_limits<T>::min()));      // don't overflow here
+  A(++satValue == (std::numeric_limits<T>::min() + 1));  // back at (max + 1)
   A(++satValue == (std::numeric_limits<T>::min() + 2));
 }
 

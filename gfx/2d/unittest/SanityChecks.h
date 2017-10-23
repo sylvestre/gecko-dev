@@ -9,7 +9,7 @@
 
 class SanityChecks : public TestBase
 {
-public:
+ public:
   SanityChecks();
 
   void AlwaysPasses();

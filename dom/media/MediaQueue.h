@@ -16,33 +16,36 @@
 namespace mozilla {
 
 // Thread and type safe wrapper around nsDeque.
-template <class T>
-class MediaQueueDeallocator : public nsDequeFunctor {
+template<class T>
+class MediaQueueDeallocator : public nsDequeFunctor
+{
   virtual void operator()(void* aObject)
   {
     RefPtr<T> releaseMe = dont_AddRef(static_cast<T*>(aObject));
   }
 };
 
-template <class T>
-class MediaQueue : private nsDeque {
-public:
+template<class T>
+class MediaQueue : private nsDeque
+{
+ public:
   MediaQueue()
-    : nsDeque(new MediaQueueDeallocator<T>()),
-      mRecursiveMutex("mediaqueue"),
-      mEndOfStream(false)
-  {}
-
-  ~MediaQueue() {
-    Reset();
+      : nsDeque(new MediaQueueDeallocator<T>()),
+        mRecursiveMutex("mediaqueue"),
+        mEndOfStream(false)
+  {
   }
 
-  inline size_t GetSize() const {
+  ~MediaQueue() { Reset(); }
+
+  inline size_t GetSize() const
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     return nsDeque::GetSize();
   }
 
-  inline void Push(T* aItem) {
+  inline void Push(T* aItem)
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     MOZ_ASSERT(!mEndOfStream);
     MOZ_ASSERT(aItem);
@@ -52,7 +55,8 @@ public:
     mPushEvent.Notify(RefPtr<T>(aItem));
   }
 
-  inline already_AddRefed<T> PopFront() {
+  inline already_AddRefed<T> PopFront()
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     RefPtr<T> rv = dont_AddRef(static_cast<T*>(nsDeque::PopFront()));
     if (rv) {
@@ -61,12 +65,14 @@ public:
     return rv.forget();
   }
 
-  inline RefPtr<T> PeekFront() const {
+  inline RefPtr<T> PeekFront() const
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     return static_cast<T*>(nsDeque::PeekFront());
   }
 
-  void Reset() {
+  void Reset()
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     while (GetSize() > 0) {
       RefPtr<T> x = dont_AddRef(static_cast<T*>(nsDeque::PopFront()));
@@ -74,7 +80,8 @@ public:
     mEndOfStream = false;
   }
 
-  bool AtEndOfStream() const {
+  bool AtEndOfStream() const
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     return GetSize() == 0 && mEndOfStream;
   }
@@ -82,13 +89,15 @@ public:
   // Returns true if the media queue has had its last item added to it.
   // This happens when the media stream has been completely decoded. Note this
   // does not mean that the corresponding stream has finished playback.
-  bool IsFinished() const {
+  bool IsFinished() const
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     return mEndOfStream;
   }
 
   // Informs the media queue that it won't be receiving any more items.
-  void Finish() {
+  void Finish()
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     if (!mEndOfStream) {
       mEndOfStream = true;
@@ -97,7 +106,8 @@ public:
   }
 
   // Returns the approximate number of microseconds of items in the queue.
-  int64_t Duration() {
+  int64_t Duration()
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     if (GetSize() == 0) {
       return 0;
@@ -107,22 +117,22 @@ public:
     return (last->GetEndTime() - first->mTime).ToMicroseconds();
   }
 
-  void LockedForEach(nsDequeFunctor& aFunctor) const {
+  void LockedForEach(nsDequeFunctor& aFunctor) const
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     ForEach(aFunctor);
   }
 
   // Extracts elements from the queue into aResult, in order.
   // Elements whose start time is before aTime are ignored.
-  void GetElementsAfter(int64_t aTime, nsTArray<RefPtr<T>>* aResult) {
+  void GetElementsAfter(int64_t aTime, nsTArray<RefPtr<T>>* aResult)
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
-    if (GetSize() == 0)
-      return;
+    if (GetSize() == 0) return;
     size_t i;
     for (i = GetSize() - 1; i > 0; --i) {
       T* v = static_cast<T*>(ObjectAt(i));
-      if (v->GetEndTime().ToMicroseconds() < aTime)
-        break;
+      if (v->GetEndTime().ToMicroseconds() < aTime) break;
     }
     // Elements less than i have a end time before aTime. It's also possible
     // that the element at i has a end time before aTime, but that's OK.
@@ -133,18 +143,21 @@ public:
   }
 
   void GetElementsAfter(const media::TimeUnit& aTime,
-                        nsTArray<RefPtr<T>>* aResult) {
+                        nsTArray<RefPtr<T>>* aResult)
+  {
     GetElementsAfter(aTime.ToMicroseconds(), aResult);
   }
 
-  void GetFirstElements(uint32_t aMaxElements, nsTArray<RefPtr<T>>* aResult) {
+  void GetFirstElements(uint32_t aMaxElements, nsTArray<RefPtr<T>>* aResult)
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     for (size_t i = 0; i < aMaxElements && i < GetSize(); ++i) {
       *aResult->AppendElement() = static_cast<T*>(ObjectAt(i));
     }
   }
 
-  uint32_t FrameCount() {
+  uint32_t FrameCount()
+  {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     uint32_t frames = 0;
     for (size_t i = 0; i < GetSize(); ++i) {
@@ -154,19 +167,13 @@ public:
     return frames;
   }
 
-  MediaEventSource<RefPtr<T>>& PopEvent() {
-    return mPopEvent;
-  }
+  MediaEventSource<RefPtr<T>>& PopEvent() { return mPopEvent; }
 
-  MediaEventSource<RefPtr<T>>& PushEvent() {
-    return mPushEvent;
-  }
+  MediaEventSource<RefPtr<T>>& PushEvent() { return mPushEvent; }
 
-  MediaEventSource<void>& FinishEvent() {
-    return mFinishEvent;
-  }
+  MediaEventSource<void>& FinishEvent() { return mFinishEvent; }
 
-private:
+ private:
   mutable RecursiveMutex mRecursiveMutex;
   MediaEventProducer<RefPtr<T>> mPopEvent;
   MediaEventProducer<RefPtr<T>> mPushEvent;
@@ -176,6 +183,6 @@ private:
   bool mEndOfStream;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

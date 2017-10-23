@@ -26,33 +26,32 @@ class DiagnosticsD3D11;
 
 class CompositorD3D11 : public Compositor
 {
-public:
-  CompositorD3D11(CompositorBridgeParent* aParent, widget::CompositorWidget* aWidget);
+ public:
+  CompositorD3D11(CompositorBridgeParent* aParent,
+                  widget::CompositorWidget* aWidget);
   ~CompositorD3D11();
 
   virtual CompositorD3D11* AsCompositorD3D11() override { return this; }
 
   virtual bool Initialize(nsCString* const out_failureReason) override;
 
-  virtual TextureFactoryIdentifier
-    GetTextureFactoryIdentifier() override;
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() override;
 
-  virtual already_AddRefed<DataTextureSource>
-    CreateDataTextureSource(TextureFlags aFlags = TextureFlags::NO_FLAGS) override;
+  virtual already_AddRefed<DataTextureSource> CreateDataTextureSource(
+      TextureFlags aFlags = TextureFlags::NO_FLAGS) override;
 
   virtual bool CanUseCanvasLayerForSize(const gfx::IntSize& aSize) override;
   virtual int32_t GetMaxTextureSize() const final;
 
-  virtual void MakeCurrent(MakeCurrentFlags aFlags = 0)  override {}
+  virtual void MakeCurrent(MakeCurrentFlags aFlags = 0) override {}
+
+  virtual already_AddRefed<CompositingRenderTarget> CreateRenderTarget(
+      const gfx::IntRect& aRect, SurfaceInitMode aInit) override;
 
   virtual already_AddRefed<CompositingRenderTarget>
-    CreateRenderTarget(const gfx::IntRect &aRect,
-                       SurfaceInitMode aInit) override;
-
-  virtual already_AddRefed<CompositingRenderTarget>
-    CreateRenderTargetFromSource(const gfx::IntRect& aRect,
-                                 const CompositingRenderTarget* aSource,
-                                 const gfx::IntPoint& aSourcePoint) override;
+  CreateRenderTargetFromSource(const gfx::IntRect& aRect,
+                               const CompositingRenderTarget* aSource,
+                               const gfx::IntPoint& aSourcePoint) override;
 
   virtual void SetRenderTarget(CompositingRenderTarget* aSurface) override;
   virtual CompositingRenderTarget* GetCurrentRenderTarget() const override
@@ -76,9 +75,9 @@ public:
 
   virtual void ClearRect(const gfx::Rect& aRect) override;
 
-  virtual void DrawQuad(const gfx::Rect &aRect,
-                        const gfx::IntRect &aClipRect,
-                        const EffectChain &aEffectChain,
+  virtual void DrawQuad(const gfx::Rect& aRect,
+                        const gfx::IntRect& aClipRect,
+                        const EffectChain& aEffectChain,
                         gfx::Float aOpacity,
                         const gfx::Matrix4x4& aTransform,
                         const gfx::Rect& aVisibleRect) override;
@@ -88,11 +87,11 @@ public:
    * screen dimensions.
    */
   virtual void BeginFrame(const nsIntRegion& aInvalidRegion,
-                          const gfx::IntRect *aClipRectIn,
+                          const gfx::IntRect* aClipRectIn,
                           const gfx::IntRect& aRenderBounds,
                           const nsIntRegion& aOpaqueRegion,
-                          gfx::IntRect *aClipRectOut = nullptr,
-                          gfx::IntRect *aRenderBoundsOut = nullptr) override;
+                          gfx::IntRect* aClipRectOut = nullptr,
+                          gfx::IntRect* aRenderBoundsOut = nullptr) override;
 
   void NormalDrawingDone() override;
 
@@ -108,8 +107,10 @@ public:
    * to a window of the given dimensions.
    */
   virtual void PrepareViewport(const gfx::IntSize& aSize);
-  virtual void PrepareViewport(const gfx::IntSize& aSize, const gfx::Matrix4x4& aProjection,
-                               float aZNear, float aZFar);
+  virtual void PrepareViewport(const gfx::IntSize& aSize,
+                               const gfx::Matrix4x4& aProjection,
+                               float aZNear,
+                               float aZFar);
 
   virtual bool SupportsPartialTextureUpdate() override { return true; }
 
@@ -119,7 +120,8 @@ public:
   virtual const char* Name() const override { return "Direct3D 11"; }
 #endif
 
-  virtual LayersBackend GetBackendType() const override {
+  virtual LayersBackend GetBackendType() const override
+  {
     return LayersBackend::LAYERS_D3D11;
   }
 
@@ -132,8 +134,9 @@ public:
 
   ID3D11DeviceContext* GetDC() { return mContext; }
 
-private:
-  enum Severity {
+ private:
+  enum Severity
+  {
     Recoverable,
     DebugAssert,
     Critical,
@@ -180,7 +183,8 @@ private:
                     const gfx::Matrix4x4& aTransform,
                     const gfx::Rect& aVisibleRect);
 
-  bool UpdateDynamicVertexBuffer(const nsTArray<gfx::TexturedTriangle>& aTriangles);
+  bool UpdateDynamicVertexBuffer(
+      const nsTArray<gfx::TexturedTriangle>& aTriangles);
 
   void PrepareDynamicVertexBuffer();
   void PrepareStaticVertexBuffer();
@@ -189,16 +193,16 @@ private:
   void Draw(const nsTArray<gfx::TexturedTriangle>& aGeometry,
             const gfx::Rect* aTexCoords);
 
-  void Draw(const gfx::Rect& aGeometry,
-            const gfx::Rect* aTexCoords);
+  void Draw(const gfx::Rect& aGeometry, const gfx::Rect* aTexCoords);
 
   void GetFrameStats(GPUStats* aStats) override;
 
   void Present();
 
-  ID3D11VertexShader* GetVSForGeometry(const nsTArray<gfx::TexturedTriangle>& aTriangles,
-                                       const bool aUseBlendShader,
-                                       const MaskType aMaskType);
+  ID3D11VertexShader* GetVSForGeometry(
+      const nsTArray<gfx::TexturedTriangle>& aTriangles,
+      const bool aUseBlendShader,
+      const MaskType aMaskType);
 
   ID3D11VertexShader* GetVSForGeometry(const gfx::Rect& aRect,
                                        const bool aUseBlendShader,
@@ -238,8 +242,7 @@ private:
   bool mVerifyBuffersFailed;
   bool mUseMutexOnPresent;
 };
-
 }
-}
+}  // namespace mozilla
 
 #endif

@@ -38,18 +38,15 @@ namespace mozilla {
  */
 class RuleNodeCacheConditions
 {
-public:
-  RuleNodeCacheConditions()
-    : mFontSize(0)
-    , mBits(0)
-    , mWritingMode(0)
-  {}
+ public:
+  RuleNodeCacheConditions() : mFontSize(0), mBits(0), mWritingMode(0) {}
 
   RuleNodeCacheConditions(const RuleNodeCacheConditions& aOther)
-    : mFontSize(aOther.mFontSize)
-    , mBits(aOther.mBits)
-    , mWritingMode(aOther.mWritingMode)
-  {}
+      : mFontSize(aOther.mFontSize),
+        mBits(aOther.mBits),
+        mWritingMode(aOther.mWritingMode)
+  {
+  }
 
   RuleNodeCacheConditions& operator=(const RuleNodeCacheConditions& aOther)
   {
@@ -61,8 +58,7 @@ public:
 
   bool operator==(const RuleNodeCacheConditions& aOther) const
   {
-    return mFontSize == aOther.mFontSize &&
-           mBits == aOther.mBits &&
+    return mFontSize == aOther.mFontSize && mBits == aOther.mBits &&
            mWritingMode == aOther.mWritingMode;
   }
 
@@ -102,25 +98,13 @@ public:
     mBits |= eHaveWritingMode;
   }
 
-  void SetUncacheable()
-  {
-    mBits |= eUncacheable;
-  }
+  void SetUncacheable() { mBits |= eUncacheable; }
 
-  void Clear()
-  {
-    *this = RuleNodeCacheConditions();
-  }
+  void Clear() { *this = RuleNodeCacheConditions(); }
 
-  bool Cacheable() const
-  {
-    return !(mBits & eUncacheable);
-  }
+  bool Cacheable() const { return !(mBits & eUncacheable); }
 
-  bool CacheableWithDependencies() const
-  {
-    return Cacheable() && mBits;
-  }
+  bool CacheableWithDependencies() const { return Cacheable() && mBits; }
 
   bool CacheableWithoutDependencies() const
   {
@@ -133,11 +117,12 @@ public:
   void List() const;
 #endif
 
-private:
-  enum {
-    eUncacheable      = 1 << 0,
-    eHaveFontSize     = 1 << 1,
-    eHaveWritingMode  = 1 << 2,
+ private:
+  enum
+  {
+    eUncacheable = 1 << 0,
+    eHaveFontSize = 1 << 1,
+    eHaveWritingMode = 1 << 2,
   };
 
   // The font size from which em units are derived.
@@ -151,6 +136,6 @@ private:
   uint8_t mWritingMode;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // !defined(RuleNodeCacheConditions_h_)
+#endif  // !defined(RuleNodeCacheConditions_h_)

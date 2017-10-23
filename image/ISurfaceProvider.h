@@ -34,7 +34,7 @@ class DrawableSurface;
  */
 class ISurfaceProvider
 {
-public:
+ public:
   // Subclasses may or may not be XPCOM classes, so we just require that they
   // implement AddRef and Release.
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
@@ -72,8 +72,8 @@ public:
       return;
     }
 
-    ref->AddSizeOfExcludingThis(aMallocSizeOf, aHeapSizeOut,
-                                aNonHeapSizeOut, aSharedHandlesOut);
+    ref->AddSizeOfExcludingThis(
+        aMallocSizeOf, aHeapSizeOut, aNonHeapSizeOut, aSharedHandlesOut);
   }
 
   /// @return the availability state of this ISurfaceProvider, which indicates
@@ -83,18 +83,18 @@ public:
   AvailabilityState& Availability() { return mAvailability; }
   const AvailabilityState& Availability() const { return mAvailability; }
 
-protected:
+ protected:
   ISurfaceProvider(const ImageKey aImageKey,
                    const SurfaceKey& aSurfaceKey,
                    AvailabilityState aAvailability)
-    : mImageKey(aImageKey)
-    , mSurfaceKey(aSurfaceKey)
-    , mAvailability(aAvailability)
+      : mImageKey(aImageKey),
+        mSurfaceKey(aSurfaceKey),
+        mAvailability(aAvailability)
   {
     MOZ_ASSERT(aImageKey, "Must have a valid image key");
   }
 
-  virtual ~ISurfaceProvider() { }
+  virtual ~ISurfaceProvider() {}
 
   /// @return an eagerly computed drawable reference to a surface. For
   /// dynamically generated animation surfaces, @aFrame specifies the 0-based
@@ -111,7 +111,7 @@ protected:
   /// SurfaceCache code as it relies on SurfaceCache for synchronization.
   virtual void SetLocked(bool aLocked) = 0;
 
-private:
+ private:
   friend class CachedSurface;
   friend class DrawableSurface;
 
@@ -119,7 +119,6 @@ private:
   const SurfaceKey mSurfaceKey;
   AvailabilityState mAvailability;
 };
-
 
 /**
  * A reference to a surface (stored in an imgFrame) that holds the surface in
@@ -133,23 +132,23 @@ private:
  */
 class MOZ_STACK_CLASS DrawableSurface final
 {
-public:
-  DrawableSurface() : mHaveSurface(false) { }
+ public:
+  DrawableSurface() : mHaveSurface(false) {}
 
   explicit DrawableSurface(DrawableFrameRef&& aDrawableRef)
-    : mDrawableRef(Move(aDrawableRef))
-    , mHaveSurface(bool(mDrawableRef))
-  { }
+      : mDrawableRef(Move(aDrawableRef)), mHaveSurface(bool(mDrawableRef))
+  {
+  }
 
   explicit DrawableSurface(NotNull<ISurfaceProvider*> aProvider)
-    : mProvider(aProvider)
-    , mHaveSurface(true)
-  { }
+      : mProvider(aProvider), mHaveSurface(true)
+  {
+  }
 
   DrawableSurface(DrawableSurface&& aOther)
-    : mDrawableRef(Move(aOther.mDrawableRef))
-    , mProvider(Move(aOther.mProvider))
-    , mHaveSurface(aOther.mHaveSurface)
+      : mDrawableRef(Move(aOther.mDrawableRef)),
+        mProvider(Move(aOther.mProvider)),
+        mHaveSurface(aOther.mHaveSurface)
   {
     aOther.mHaveSurface = false;
   }
@@ -193,7 +192,7 @@ public:
   explicit operator bool() const { return mHaveSurface; }
   imgFrame* operator->() { return DrawableRef().get(); }
 
-private:
+ private:
   DrawableSurface(const DrawableSurface& aOther) = delete;
   DrawableSurface& operator=(const DrawableSurface& aOther) = delete;
 
@@ -219,7 +218,6 @@ private:
   bool mHaveSurface;
 };
 
-
 // Surface() is implemented here so that DrawableSurface's definition is
 // visible. This default implementation eagerly obtains a DrawableFrameRef for
 // the first frame and is intended for static ISurfaceProviders.
@@ -229,21 +227,20 @@ ISurfaceProvider::Surface()
   return DrawableSurface(DrawableRef(/* aFrame = */ 0));
 }
 
-
 /**
  * An ISurfaceProvider that stores a single surface.
  */
 class SimpleSurfaceProvider final : public ISurfaceProvider
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SimpleSurfaceProvider, override)
 
   SimpleSurfaceProvider(const ImageKey aImageKey,
                         const SurfaceKey& aSurfaceKey,
                         NotNull<imgFrame*> aSurface)
-    : ISurfaceProvider(aImageKey, aSurfaceKey,
-                       AvailabilityState::StartAvailable())
-    , mSurface(aSurface)
+      : ISurfaceProvider(
+            aImageKey, aSurfaceKey, AvailabilityState::StartAvailable()),
+        mSurface(aSurface)
   {
     MOZ_ASSERT(aSurfaceKey.Size() == mSurface->GetSize());
   }
@@ -256,7 +253,7 @@ public:
     return size.width * size.height * mSurface->GetBytesPerPixel();
   }
 
-protected:
+ protected:
   DrawableFrameRef DrawableRef(size_t aFrame) override
   {
     MOZ_ASSERT(aFrame == 0,
@@ -274,18 +271,17 @@ protected:
 
     // If we're locked, hold a DrawableFrameRef to |mSurface|, which will keep
     // any volatile buffer it owns in memory.
-    mLockRef = aLocked ? mSurface->DrawableRef()
-                       : DrawableFrameRef();
+    mLockRef = aLocked ? mSurface->DrawableRef() : DrawableFrameRef();
   }
 
-private:
-  virtual ~SimpleSurfaceProvider() { }
+ private:
+  virtual ~SimpleSurfaceProvider() {}
 
   NotNull<RefPtr<imgFrame>> mSurface;
   DrawableFrameRef mLockRef;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ISurfaceProvider_h
+#endif  // mozilla_image_ISurfaceProvider_h

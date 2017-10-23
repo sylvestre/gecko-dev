@@ -26,10 +26,10 @@ URLClassifierParent::StartClassify(nsIPrincipal* aPrincipal,
   // Note that in safe mode, the URL classifier service isn't available, so we
   // should handle the service not being present gracefully.
   nsCOMPtr<nsIURIClassifier> uriClassifier =
-    do_GetService(NS_URICLASSIFIERSERVICE_CONTRACTID, &rv);
+      do_GetService(NS_URICLASSIFIERSERVICE_CONTRACTID, &rv);
   if (NS_SUCCEEDED(rv)) {
-    rv = uriClassifier->Classify(aPrincipal, nullptr, aUseTrackingProtection,
-                                 this, aSuccess);
+    rv = uriClassifier->Classify(
+        aPrincipal, nullptr, aUseTrackingProtection, this, aSuccess);
   }
   if (NS_FAILED(rv) || !*aSuccess) {
     // We treat the case where we fail to classify and the case where the
@@ -62,7 +62,7 @@ URLClassifierLocalParent::StartClassify(nsIURI* aURI, const nsACString& aTables)
   // Note that in safe mode, the URL classifier service isn't available, so we
   // should handle the service not being present gracefully.
   nsCOMPtr<nsIURIClassifier> uriClassifier =
-    do_GetService(NS_URICLASSIFIERSERVICE_CONTRACTID, &rv);
+      do_GetService(NS_URICLASSIFIERSERVICE_CONTRACTID, &rv);
   if (NS_SUCCEEDED(rv)) {
     MOZ_ASSERT(aURI);
     rv = uriClassifier->AsyncClassifyLocalWithTables(aURI, aTables, this);

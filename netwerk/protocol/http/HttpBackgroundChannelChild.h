@@ -12,8 +12,8 @@
 #include "nsIRunnable.h"
 #include "nsTArray.h"
 
-using mozilla::ipc::IPCResult;
 using mozilla::dom::ClassifierInfo;
+using mozilla::ipc::IPCResult;
 
 namespace mozilla {
 namespace net {
@@ -23,7 +23,8 @@ class HttpChannelChild;
 class HttpBackgroundChannelChild final : public PHttpBackgroundChannelChild
 {
   friend class BackgroundChannelCreateCallback;
-public:
+
+ public:
   explicit HttpBackgroundChannelChild();
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(HttpBackgroundChannelChild)
@@ -43,7 +44,7 @@ public:
   // Callback while failed to create PBackground IPC channel.
   void OnBackgroundChannelCreationFailed();
 
-protected:
+ protected:
   IPCResult RecvOnTransportAndData(const nsresult& aChannelStatus,
                                    const nsresult& aTransportStatus,
                                    const uint64_t& aOffset,
@@ -72,7 +73,7 @@ protected:
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   virtual ~HttpBackgroundChannelChild();
 
   // Initiate the creation of the PBckground IPC channel.
@@ -108,7 +109,7 @@ private:
   nsTArray<nsCOMPtr<nsIRunnable>> mQueuedRunnables;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_HttpBackgroundChannelChild_h
+#endif  // mozilla_net_HttpBackgroundChannelChild_h

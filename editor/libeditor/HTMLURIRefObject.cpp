@@ -59,15 +59,9 @@ namespace mozilla {
 // Set this macro to this week's approved case-insensitive compare routine.
 #define MATCHES(tagName, str) tagName.EqualsIgnoreCase(str)
 
-HTMLURIRefObject::HTMLURIRefObject()
-  : mCurAttrIndex(0)
-  , mAttributeCnt(0)
-{
-}
+HTMLURIRefObject::HTMLURIRefObject() : mCurAttrIndex(0), mAttributeCnt(0) {}
 
-HTMLURIRefObject::~HTMLURIRefObject()
-{
-}
+HTMLURIRefObject::~HTMLURIRefObject() {}
 
 //Interfaces for addref and release and queryinterface
 NS_IMPL_ISUPPORTS(HTMLURIRefObject, nsIURIRefObject)
@@ -91,7 +85,7 @@ HTMLURIRefObject::GetNextURI(nsAString& aURI)
 
   // Loop over attribute list:
   if (!mAttributes) {
-    nsCOMPtr<nsIDOMElement> element (do_QueryInterface(mNode));
+    nsCOMPtr<nsIDOMElement> element(do_QueryInterface(mNode));
     NS_ENSURE_TRUE(element, NS_ERROR_INVALID_ARG);
 
     mCurAttrIndex = 0;
@@ -121,7 +115,7 @@ HTMLURIRefObject::GetNextURI(nsAString& aURI)
       }
       rv = attrNode->GetValue(aURI);
       NS_ENSURE_SUCCESS(rv, rv);
-      nsString uri (aURI);
+      nsString uri(aURI);
       // href pointing to a named anchor doesn't count
       if (aURI.First() != char16_t('#')) {
         return NS_OK;
@@ -131,9 +125,9 @@ HTMLURIRefObject::GetNextURI(nsAString& aURI)
     }
     // src >> FRAME, IFRAME, IMG, INPUT, SCRIPT
     else if (MATCHES(curAttr, "src")) {
-      if (!MATCHES(tagName, "img") &&
-          !MATCHES(tagName, "frame") && !MATCHES(tagName, "iframe") &&
-          !MATCHES(tagName, "input") && !MATCHES(tagName, "script")) {
+      if (!MATCHES(tagName, "img") && !MATCHES(tagName, "frame") &&
+          !MATCHES(tagName, "iframe") && !MATCHES(tagName, "input") &&
+          !MATCHES(tagName, "script")) {
         continue;
       }
       return attrNode->GetValue(aURI);
@@ -146,15 +140,15 @@ HTMLURIRefObject::GetNextURI(nsAString& aURI)
     }
     // longdesc >> FRAME, IFRAME, IMG
     else if (MATCHES(curAttr, "longdesc")) {
-      if (!MATCHES(tagName, "img") &&
-          !MATCHES(tagName, "frame") && !MATCHES(tagName, "iframe")) {
+      if (!MATCHES(tagName, "img") && !MATCHES(tagName, "frame") &&
+          !MATCHES(tagName, "iframe")) {
         continue;
       }
     }
     // usemap >> IMG, INPUT, OBJECT
     else if (MATCHES(curAttr, "usemap")) {
-      if (!MATCHES(tagName, "img") &&
-          !MATCHES(tagName, "input") && !MATCHES(tagName, "object")) {
+      if (!MATCHES(tagName, "img") && !MATCHES(tagName, "input") &&
+          !MATCHES(tagName, "object")) {
         continue;
       }
     }
@@ -237,7 +231,7 @@ HTMLURIRefObject::SetNode(nsIDOMNode* aNode)
   mNode = aNode;
   nsAutoString dummyURI;
   if (NS_SUCCEEDED(GetNextURI(dummyURI))) {
-    mCurAttrIndex = 0;    // Reset so we'll get the first node next time
+    mCurAttrIndex = 0;  // Reset so we'll get the first node next time
     return NS_OK;
   }
 
@@ -247,9 +241,10 @@ HTMLURIRefObject::SetNode(nsIDOMNode* aNode)
   return NS_ERROR_INVALID_ARG;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-nsresult NS_NewHTMLURIRefObject(nsIURIRefObject** aResult, nsIDOMNode* aNode)
+nsresult
+NS_NewHTMLURIRefObject(nsIURIRefObject** aResult, nsIDOMNode* aNode)
 {
   RefPtr<mozilla::HTMLURIRefObject> refObject = new mozilla::HTMLURIRefObject();
   nsresult rv = refObject->SetNode(aNode);

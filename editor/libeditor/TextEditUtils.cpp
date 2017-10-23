@@ -51,7 +51,6 @@ TextEditUtils::IsBreak(nsINode* aNode)
   return aNode->IsHTMLElement(nsGkAtoms::br);
 }
 
-
 /**
  * IsMozBR() returns true if aNode is an html br node with |type = _moz|.
  */
@@ -67,7 +66,8 @@ TextEditUtils::IsMozBR(nsINode* aNode)
 {
   MOZ_ASSERT(aNode);
   return aNode->IsHTMLElement(nsGkAtoms::br) &&
-         aNode->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
+         aNode->AsElement()->AttrValueIs(kNameSpaceID_None,
+                                         nsGkAtoms::type,
                                          NS_LITERAL_STRING("_moz"),
                                          eIgnoreCase);
 }
@@ -95,8 +95,7 @@ TextEditUtils::HasMozAttr(nsIDOMNode* aNode)
 
 AutoEditInitRulesTrigger::AutoEditInitRulesTrigger(TextEditor* aTextEditor,
                                                    nsresult& aResult)
-  : mTextEditor(aTextEditor)
-  , mResult(aResult)
+    : mTextEditor(aTextEditor), mResult(aResult)
 {
   if (mTextEditor) {
     mTextEditor->BeginEditorInit();
@@ -110,4 +109,4 @@ AutoEditInitRulesTrigger::~AutoEditInitRulesTrigger()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

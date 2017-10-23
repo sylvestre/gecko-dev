@@ -11,14 +11,9 @@
 
 NS_IMPL_ISUPPORTS(MLSFallback, nsITimerCallback, nsINamed)
 
-MLSFallback::MLSFallback(uint32_t delay)
-: mDelayMs(delay)
-{
-}
+MLSFallback::MLSFallback(uint32_t delay) : mDelayMs(delay) {}
 
-MLSFallback::~MLSFallback()
-{
-}
+MLSFallback::~MLSFallback() {}
 
 nsresult
 MLSFallback::Startup(nsIGeolocationUpdate* aWatcher)
@@ -28,8 +23,8 @@ MLSFallback::Startup(nsIGeolocationUpdate* aWatcher)
   }
 
   mUpdateWatcher = aWatcher;
-  return NS_NewTimerWithCallback(getter_AddRefs(mHandoffTimer),
-                                 this, mDelayMs, nsITimer::TYPE_ONE_SHOT);
+  return NS_NewTimerWithCallback(
+      getter_AddRefs(mHandoffTimer), this, mDelayMs, nsITimer::TYPE_ONE_SHOT);
 }
 
 nsresult
@@ -51,10 +46,7 @@ MLSFallback::Shutdown()
 }
 
 NS_IMETHODIMP
-MLSFallback::Notify(nsITimer* aTimer)
-{
-  return CreateMLSFallbackProvider();
-}
+MLSFallback::Notify(nsITimer* aTimer) { return CreateMLSFallbackProvider(); }
 
 NS_IMETHODIMP
 MLSFallback::GetName(nsACString& aName)
@@ -71,7 +63,8 @@ MLSFallback::CreateMLSFallbackProvider()
   }
 
   nsresult rv;
-  mMLSFallbackProvider = do_CreateInstance("@mozilla.org/geolocation/mls-provider;1", &rv);
+  mMLSFallbackProvider =
+      do_CreateInstance("@mozilla.org/geolocation/mls-provider;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (mMLSFallbackProvider) {
@@ -83,4 +76,3 @@ MLSFallback::CreateMLSFallbackProvider()
   mUpdateWatcher = nullptr;
   return rv;
 }
-

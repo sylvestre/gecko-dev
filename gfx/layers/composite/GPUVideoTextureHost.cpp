@@ -11,12 +11,13 @@
 namespace mozilla {
 namespace layers {
 
-GPUVideoTextureHost::GPUVideoTextureHost(TextureFlags aFlags,
-                                         const SurfaceDescriptorGPUVideo& aDescriptor)
-  : TextureHost(aFlags)
+GPUVideoTextureHost::GPUVideoTextureHost(
+    TextureFlags aFlags, const SurfaceDescriptorGPUVideo& aDescriptor)
+    : TextureHost(aFlags)
 {
   MOZ_COUNT_CTOR(GPUVideoTextureHost);
-  mWrappedTextureHost = VideoBridgeParent::GetSingleton()->LookupTexture(aDescriptor.handle());
+  mWrappedTextureHost =
+      VideoBridgeParent::GetSingleton()->LookupTexture(aDescriptor.handle());
 }
 
 GPUVideoTextureHost::~GPUVideoTextureHost()
@@ -52,7 +53,8 @@ GPUVideoTextureHost::BindTextureSource(CompositableTextureSourceRef& aTexture)
 }
 
 bool
-GPUVideoTextureHost::AcquireTextureSource(CompositableTextureSourceRef& aTexture)
+GPUVideoTextureHost::AcquireTextureSource(
+    CompositableTextureSourceRef& aTexture)
 {
   if (!mWrappedTextureHost) {
     return false;
@@ -104,7 +106,8 @@ GPUVideoTextureHost::HasIntermediateBuffer() const
 }
 
 void
-GPUVideoTextureHost::CreateRenderTexture(const wr::ExternalImageId& aExternalImageId)
+GPUVideoTextureHost::CreateRenderTexture(
+    const wr::ExternalImageId& aExternalImageId)
 {
   MOZ_ASSERT(mWrappedTextureHost);
 
@@ -138,12 +141,9 @@ GPUVideoTextureHost::PushDisplayItems(wr::DisplayListBuilder& aBuilder,
   MOZ_ASSERT(mWrappedTextureHost);
   MOZ_ASSERT(aImageKeys.length() > 0);
 
-  mWrappedTextureHost->PushDisplayItems(aBuilder,
-                                         aBounds,
-                                         aClip,
-                                         aFilter,
-                                         aImageKeys);
+  mWrappedTextureHost->PushDisplayItems(
+      aBuilder, aBounds, aClip, aFilter, aImageKeys);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

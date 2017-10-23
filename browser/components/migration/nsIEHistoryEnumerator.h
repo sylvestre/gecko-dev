@@ -14,13 +14,13 @@
 
 class nsIEHistoryEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISIMPLEENUMERATOR
 
   nsIEHistoryEnumerator();
 
-private:
+ private:
   ~nsIEHistoryEnumerator();
 
   /**

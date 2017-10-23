@@ -17,7 +17,8 @@
 
 using namespace mozilla;
 
-int32_t NS_GetUnusedAtomCount(void);
+int32_t
+NS_GetUnusedAtomCount(void);
 
 namespace TestAtoms {
 
@@ -155,7 +156,7 @@ TEST(Atoms, Table)
 
 class nsAtomRunner final : public nsIRunnable
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   NS_IMETHOD Run() final
@@ -166,7 +167,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   ~nsAtomRunner() {}
 };
 
@@ -190,4 +191,4 @@ TEST(Atoms, ConcurrentAccessing)
   EXPECT_EQ(NS_GetUnusedAtomCount(), int32_t(1));
 }
 
-}
+}  // namespace TestAtoms

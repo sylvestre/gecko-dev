@@ -34,38 +34,38 @@
  * @{
  */
 
-
 #if defined(__ICC) && _ICC < 1200 || defined(__SUNPRO_C)
-    #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
-    #define DECLARE_ASM_CONST(n,t,v)    const t __attribute__ ((aligned (n))) v
+#define DECLARE_ALIGNED(n, t, v) t __attribute__((aligned(n))) v
+#define DECLARE_ASM_CONST(n, t, v) const t __attribute__((aligned(n))) v
 #elif defined(__TI_COMPILER_VERSION__)
-    #define DECLARE_ALIGNED(n,t,v)                      \
-        AV_PRAGMA(DATA_ALIGN(v,n))                      \
-        t __attribute__((aligned(n))) v
-    #define DECLARE_ASM_CONST(n,t,v)                    \
-        AV_PRAGMA(DATA_ALIGN(v,n))                      \
-        static const t __attribute__((aligned(n))) v
+#define DECLARE_ALIGNED(n, t, v) \
+  AV_PRAGMA(DATA_ALIGN(v, n))    \
+  t __attribute__((aligned(n))) v
+#define DECLARE_ASM_CONST(n, t, v) \
+  AV_PRAGMA(DATA_ALIGN(v, n))      \
+  static const t __attribute__((aligned(n))) v
 #elif defined(__GNUC__)
-    #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
-    #define DECLARE_ASM_CONST(n,t,v)    static const t av_used __attribute__ ((aligned (n))) v
+#define DECLARE_ALIGNED(n, t, v) t __attribute__((aligned(n))) v
+#define DECLARE_ASM_CONST(n, t, v) \
+  static const t av_used __attribute__((aligned(n))) v
 #elif defined(_MSC_VER)
-    #define DECLARE_ALIGNED(n,t,v)      __declspec(align(n)) t v
-    #define DECLARE_ASM_CONST(n,t,v)    __declspec(align(n)) static const t v
+#define DECLARE_ALIGNED(n, t, v) __declspec(align(n)) t v
+#define DECLARE_ASM_CONST(n, t, v) __declspec(align(n)) static const t v
 #else
-    #define DECLARE_ALIGNED(n,t,v)      t v
-    #define DECLARE_ASM_CONST(n,t,v)    static const t v
+#define DECLARE_ALIGNED(n, t, v) t v
+#define DECLARE_ASM_CONST(n, t, v) static const t v
 #endif
 
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-    #define av_malloc_attrib __attribute__((__malloc__))
+#if AV_GCC_VERSION_AT_LEAST(3, 1)
+#define av_malloc_attrib __attribute__((__malloc__))
 #else
-    #define av_malloc_attrib
+#define av_malloc_attrib
 #endif
 
-#if AV_GCC_VERSION_AT_LEAST(4,3)
-    #define av_alloc_size(n) __attribute__((alloc_size(n)))
+#if AV_GCC_VERSION_AT_LEAST(4, 3)
+#define av_alloc_size(n) __attribute__((alloc_size(n)))
 #else
-    #define av_alloc_size(n)
+#define av_alloc_size(n)
 #endif
 
 /**
@@ -76,7 +76,8 @@
  * be allocated.
  * @see av_mallocz()
  */
-void *av_malloc(size_t size) av_malloc_attrib av_alloc_size(1);
+void*
+av_malloc(size_t size) av_malloc_attrib av_alloc_size(1);
 
 /**
  * Allocate or reallocate a block of memory.
@@ -90,7 +91,8 @@ void *av_malloc(size_t size) av_malloc_attrib av_alloc_size(1);
  * cannot be reallocated or the function is used to free the memory block.
  * @see av_fast_realloc()
  */
-void *av_realloc(void *ptr, size_t size) av_alloc_size(2);
+void*
+av_realloc(void* ptr, size_t size) av_alloc_size(2);
 
 /**
  * Free a memory block which has been allocated with av_malloc(z)() or
@@ -100,7 +102,8 @@ void *av_realloc(void *ptr, size_t size) av_alloc_size(2);
  * @note It is recommended that you use av_freep() instead.
  * @see av_freep()
  */
-void av_free(void *ptr);
+void
+av_free(void* ptr);
 
 /**
  * Allocate a block of size bytes with alignment suitable for all
@@ -110,7 +113,8 @@ void av_free(void *ptr);
  * @return Pointer to the allocated block, NULL if it cannot be allocated.
  * @see av_malloc()
  */
-void *av_mallocz(size_t size) av_malloc_attrib av_alloc_size(1);
+void*
+av_mallocz(size_t size) av_malloc_attrib av_alloc_size(1);
 
 /**
  * Duplicate the string s.
@@ -118,7 +122,8 @@ void *av_mallocz(size_t size) av_malloc_attrib av_alloc_size(1);
  * @return Pointer to a newly allocated string containing a
  * copy of s or NULL if the string cannot be allocated.
  */
-char *av_strdup(const char *s) av_malloc_attrib;
+char*
+av_strdup(const char* s) av_malloc_attrib;
 
 /**
  * Free a memory block which has been allocated with av_malloc(z)() or
@@ -127,7 +132,8 @@ char *av_strdup(const char *s) av_malloc_attrib;
  * be freed.
  * @see av_free()
  */
-void av_freep(void *ptr);
+void
+av_freep(void* ptr);
 
 /**
  * @}

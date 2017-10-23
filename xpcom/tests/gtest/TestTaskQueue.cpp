@@ -16,11 +16,11 @@ using namespace mozilla;
 TEST(TaskQueue, EventOrder)
 {
   RefPtr<TaskQueue> tq1 =
-    new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
   RefPtr<TaskQueue> tq2 =
-    new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
   RefPtr<TaskQueue> tq3 =
-    new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
 
   bool errored = false;
   int counter = 0;
@@ -30,38 +30,38 @@ TEST(TaskQueue, EventOrder)
   // We expect task1 happens before task3.
   for (int i = 0; i < 10000; ++i) {
     tq1->Dispatch(
-      NS_NewRunnableFunction(
-        "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
-        [&]() {
-          tq2->Dispatch(NS_NewRunnableFunction(
+        NS_NewRunnableFunction(
             "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
-            []() { // task0
-            }));
-          tq3->Dispatch(NS_NewRunnableFunction(
-            "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
-            [&]() { // task1
-              EXPECT_EQ(1, ++counter);
-              errored = counter != 1;
-              MonitorAutoLock mon(monitor);
-              ++sync;
-              mon.Notify();
-            }));
-          tq2->Dispatch(NS_NewRunnableFunction(
-            "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
-            [&]() { // task2
+            [&]() {
+              tq2->Dispatch(NS_NewRunnableFunction(
+                  "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
+                  []() {  // task0
+                  }));
               tq3->Dispatch(NS_NewRunnableFunction(
-                "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
-                [&]() { // task3
-                  EXPECT_EQ(0, --counter);
-                  errored = counter != 0;
-                  MonitorAutoLock mon(monitor);
-                  ++sync;
-                  mon.Notify();
-                }));
-            }));
-        }),
-      AbstractThread::AssertDispatchSuccess,
-      AbstractThread::TailDispatch);
+                  "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
+                  [&]() {  // task1
+                    EXPECT_EQ(1, ++counter);
+                    errored = counter != 1;
+                    MonitorAutoLock mon(monitor);
+                    ++sync;
+                    mon.Notify();
+                  }));
+              tq2->Dispatch(NS_NewRunnableFunction(
+                  "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
+                  [&]() {  // task2
+                    tq3->Dispatch(NS_NewRunnableFunction(
+                        "TestTaskQueue::TaskQueue_EventOrder_Test::TestBody",
+                        [&]() {  // task3
+                          EXPECT_EQ(0, --counter);
+                          errored = counter != 0;
+                          MonitorAutoLock mon(monitor);
+                          ++sync;
+                          mon.Notify();
+                        }));
+                  }));
+            }),
+        AbstractThread::AssertDispatchSuccess,
+        AbstractThread::TailDispatch);
 
     // Ensure task1 and task3 are done before next loop.
     MonitorAutoLock mon(monitor);
@@ -83,4 +83,4 @@ TEST(TaskQueue, EventOrder)
   tq3->AwaitShutdownAndIdle();
 }
 
-} // namespace TestTaskQueue
+}  // namespace TestTaskQueue

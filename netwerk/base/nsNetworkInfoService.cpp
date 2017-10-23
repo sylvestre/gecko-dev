@@ -22,12 +22,9 @@
 namespace mozilla {
 namespace net {
 
-NS_IMPL_ISUPPORTS(nsNetworkInfoService,
-                  nsINetworkInfoService)
+NS_IMPL_ISUPPORTS(nsNetworkInfoService, nsINetworkInfoService)
 
-nsNetworkInfoService::nsNetworkInfoService()
-{
-}
+nsNetworkInfoService::nsNetworkInfoService() {}
 
 nsresult
 nsNetworkInfoService::Init()
@@ -36,7 +33,8 @@ nsNetworkInfoService::Init()
 }
 
 nsresult
-nsNetworkInfoService::ListNetworkAddresses(nsIListNetworkAddressesListener* aListener)
+nsNetworkInfoService::ListNetworkAddresses(
+    nsIListNetworkAddressesListener* aListener)
 {
   nsresult rv;
 
@@ -48,14 +46,13 @@ nsNetworkInfoService::ListNetworkAddresses(nsIListNetworkAddressesListener* aLis
   }
 
   uint32_t addrCount = addrMap.Count();
-  const char** addrStrings = (const char**) malloc(sizeof(*addrStrings) * addrCount);
+  const char** addrStrings =
+      (const char**)malloc(sizeof(*addrStrings) * addrCount);
   if (!addrStrings) {
     aListener->OnListNetworkAddressesFailed();
     return NS_OK;
   }
-  auto autoFreeAddrStrings = MakeScopeExit([&] {
-    free(addrStrings);
-  });
+  auto autoFreeAddrStrings = MakeScopeExit([&] { free(addrStrings); });
 
   uint32_t idx = 0;
   for (auto iter = addrMap.Iter(); !iter.Done(); iter.Next()) {
@@ -109,5 +106,5 @@ nsNetworkInfoService::GetHostname(nsIGetHostnameListener* aListener)
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -28,17 +28,14 @@ namespace js {
 // Note that although this Fifo's trace will deal correctly with moved items, it
 // does not itself know when to barrier or trace items. To function properly it
 // must either be used with Rooted, or barriered and traced manually.
-template <typename T,
-          size_t MinInlineCapacity = 0,
-          typename AllocPolicy = TempAllocPolicy>
-class TraceableFifo : public js::Fifo<T, MinInlineCapacity, AllocPolicy>
-{
+template <typename T, size_t MinInlineCapacity = 0, typename AllocPolicy = TempAllocPolicy>
+class TraceableFifo : public js::Fifo<T, MinInlineCapacity, AllocPolicy> {
     using Base = js::Fifo<T, MinInlineCapacity, AllocPolicy>;
 
-  public:
+   public:
     explicit TraceableFifo(AllocPolicy alloc = AllocPolicy()) : Base(alloc) {}
 
-    TraceableFifo(TraceableFifo&& rhs) : Base(mozilla::Move(rhs)) { }
+    TraceableFifo(TraceableFifo&& rhs) : Base(mozilla::Move(rhs)) {}
     TraceableFifo& operator=(TraceableFifo&& rhs) { return Base::operator=(mozilla::Move(rhs)); }
 
     TraceableFifo(const TraceableFifo&) = delete;
@@ -53,12 +50,11 @@ class TraceableFifo : public js::Fifo<T, MinInlineCapacity, AllocPolicy>
 };
 
 template <typename Wrapper, typename T, size_t Capacity, typename AllocPolicy>
-class WrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapper>
-{
+class WrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapper> {
     using TF = TraceableFifo<T, Capacity, AllocPolicy>;
     const TF& fifo() const { return static_cast<const Wrapper*>(this)->get(); }
 
-  public:
+   public:
     size_t length() const { return fifo().length(); }
     bool empty() const { return fifo().empty(); }
     const T& front() const { return fifo().front(); }
@@ -66,16 +62,19 @@ class WrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapper>
 
 template <typename Wrapper, typename T, size_t Capacity, typename AllocPolicy>
 class MutableWrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapper>
-  : public WrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapper>
-{
+    : public WrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapper> {
     using TF = TraceableFifo<T, Capacity, AllocPolicy>;
     TF& fifo() { return static_cast<Wrapper*>(this)->get(); }
 
-  public:
+   public:
     T& front() { return fifo().front(); }
 
-    template<typename U> bool pushBack(U&& u) { return fifo().pushBack(mozilla::Forward<U>(u)); }
-    template<typename... Args> bool emplaceBack(Args&&... args) {
+    template <typename U>
+    bool pushBack(U&& u) {
+        return fifo().pushBack(mozilla::Forward<U>(u));
+    }
+    template <typename... Args>
+    bool emplaceBack(Args&&... args) {
         return fifo().emplaceBack(mozilla::Forward<Args...>(args...));
     }
 
@@ -83,6 +82,6 @@ class MutableWrappedPtrOperations<TraceableFifo<T, Capacity, AllocPolicy>, Wrapp
     void clear() { fifo().clear(); }
 };
 
-} // namespace js
+}  // namespace js
 
-#endif // js_TraceableFifo_h
+#endif  // js_TraceableFifo_h

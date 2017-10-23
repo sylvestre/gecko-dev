@@ -49,7 +49,7 @@ class TaskQueue : public AbstractThread
 {
   class EventTargetWrapper;
 
-public:
+ public:
   explicit TaskQueue(already_AddRefed<nsIEventTarget> aTarget,
                      bool aSupportsTailDispatch = false);
 
@@ -61,17 +61,21 @@ public:
 
   TaskQueue* AsTaskQueue() override { return this; }
 
-  void Dispatch(already_AddRefed<nsIRunnable> aRunnable,
-                DispatchFailureHandling aFailureHandling = AssertDispatchSuccess,
-                DispatchReason aReason = NormalDispatch) override
+  void Dispatch(
+      already_AddRefed<nsIRunnable> aRunnable,
+      DispatchFailureHandling aFailureHandling = AssertDispatchSuccess,
+      DispatchReason aReason = NormalDispatch) override
   {
     nsCOMPtr<nsIRunnable> r = aRunnable;
     {
       MonitorAutoLock mon(mQueueMonitor);
-      nsresult rv = DispatchLocked(/* passed by ref */r, aFailureHandling, aReason);
-#if defined(DEBUG) || !defined(RELEASE_OR_BETA) || defined(EARLY_BETA_OR_EARLIER)
+      nsresult rv =
+          DispatchLocked(/* passed by ref */ r, aFailureHandling, aReason);
+#if defined(DEBUG) || !defined(RELEASE_OR_BETA) || \
+    defined(EARLY_BETA_OR_EARLIER)
       if (NS_FAILED(rv) && aFailureHandling == AssertDispatchSuccess) {
-        MOZ_CRASH_UNSAFE_PRINTF("%s: Dispatch failed. rv=%x", mName, uint32_t(rv));
+        MOZ_CRASH_UNSAFE_PRINTF(
+            "%s: Dispatch failed. rv=%x", mName, uint32_t(rv));
       }
 #endif
       Unused << rv;
@@ -111,9 +115,8 @@ public:
   // TaskQueue.
   already_AddRefed<nsISerialEventTarget> WrapAsEventTarget();
 
-protected:
+ protected:
   virtual ~TaskQueue();
-
 
   // Blocks until all task finish executing. Called internally by methods
   // that need to wait until the task queue is idle.
@@ -154,10 +157,11 @@ protected:
   // RAII class that gets instantiated for each dispatched task.
   class AutoTaskGuard : public AutoTaskDispatcher
   {
-  public:
+   public:
     explicit AutoTaskGuard(TaskQueue* aQueue)
-      : AutoTaskDispatcher(/* aIsTailDispatcher = */ true), mQueue(aQueue)
-      , mLastCurrentThread(nullptr)
+        : AutoTaskDispatcher(/* aIsTailDispatcher = */ true),
+          mQueue(aQueue),
+          mLastCurrentThread(nullptr)
     {
       // NB: We don't hold the lock to aQueue here. Don't do anything that
       // might require it.
@@ -182,9 +186,9 @@ protected:
       mQueue->mTailDispatcher = nullptr;
     }
 
-  private:
-  TaskQueue* mQueue;
-  AbstractThread* mLastCurrentThread;
+   private:
+    TaskQueue* mQueue;
+    AbstractThread* mLastCurrentThread;
   };
 
   TaskDispatcher* mTailDispatcher;
@@ -200,19 +204,20 @@ protected:
   // The name of this TaskQueue. Useful when debugging dispatch failures.
   const char* const mName;
 
-  class Runner : public Runnable {
-  public:
+  class Runner : public Runnable
+  {
+   public:
     explicit Runner(TaskQueue* aQueue)
-      : Runnable("TaskQueue::Runner")
-      , mQueue(aQueue)
+        : Runnable("TaskQueue::Runner"), mQueue(aQueue)
     {
     }
     NS_IMETHOD Run() override;
-  private:
+
+   private:
     RefPtr<TaskQueue> mQueue;
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // TaskQueue_h_
+#endif  // TaskQueue_h_

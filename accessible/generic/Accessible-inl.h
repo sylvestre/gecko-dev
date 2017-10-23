@@ -75,9 +75,11 @@ Accessible::IsSearchbox() const
 {
   const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
   return (roleMapEntry && roleMapEntry->Is(nsGkAtoms::searchbox)) ||
-    (mContent->IsHTMLElement(nsGkAtoms::input) &&
-     mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                           nsGkAtoms::search, eCaseMatters));
+         (mContent->IsHTMLElement(nsGkAtoms::input) &&
+          mContent->AttrValueIs(kNameSpaceID_None,
+                                nsGkAtoms::type,
+                                nsGkAtoms::search,
+                                eCaseMatters));
 }
 
 inline bool
@@ -85,18 +87,16 @@ Accessible::HasGenericType(AccGenericType aType) const
 {
   const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
   return (mGenericTypes & aType) ||
-    (roleMapEntry && roleMapEntry->IsOfType(aType));
+         (roleMapEntry && roleMapEntry->IsOfType(aType));
 }
 
 inline bool
 Accessible::HasNumericValue() const
 {
-  if (mStateFlags & eHasNumericValue)
-    return true;
+  if (mStateFlags & eHasNumericValue) return true;
 
   const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
-  if (!roleMapEntry || roleMapEntry->valueRule == eNoValue)
-    return false;
+  if (!roleMapEntry || roleMapEntry->valueRule == eNoValue) return false;
 
   if (roleMapEntry->valueRule == eHasValueMinMaxIfFocusable)
     return InteractiveState() & states::FOCUSABLE;
@@ -107,8 +107,7 @@ Accessible::HasNumericValue() const
 inline void
 Accessible::ScrollTo(uint32_t aHow) const
 {
-  if (mContent)
-    nsCoreUtils::ScrollTo(mDoc->PresShell(), mContent, aHow);
+  if (mContent) nsCoreUtils::ScrollTo(mDoc->PresShell(), mContent, aHow);
 }
 
 inline bool
@@ -118,9 +117,15 @@ Accessible::InsertAfter(Accessible* aNewChild, Accessible* aRefChild)
 
   if (aRefChild && aRefChild->Parent() != this) {
 #ifdef A11Y_LOG
-    logging::TreeInfo("broken accessible tree", 0,
-                      "parent", this, "prev sibling parent",
-                      aRefChild->Parent(), "child", aNewChild, nullptr);
+    logging::TreeInfo("broken accessible tree",
+                      0,
+                      "parent",
+                      this,
+                      "prev sibling parent",
+                      aRefChild->Parent(),
+                      "child",
+                      aNewChild,
+                      nullptr);
     if (logging::IsEnabled(logging::eVerbose)) {
       logging::Tree("TREE", "Document tree", mDoc);
       logging::DOMTree("TREE", "DOM document tree", mDoc);
@@ -135,7 +140,7 @@ Accessible::InsertAfter(Accessible* aNewChild, Accessible* aRefChild)
                        aNewChild);
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

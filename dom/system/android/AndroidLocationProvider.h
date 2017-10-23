@@ -11,13 +11,14 @@
 
 class AndroidLocationProvider final : public nsIGeolocationProvider
 {
-public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIGEOLOCATIONPROVIDER
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIGEOLOCATIONPROVIDER
 
-    AndroidLocationProvider();
-private:
-    ~AndroidLocationProvider();
+  AndroidLocationProvider();
+
+ private:
+  ~AndroidLocationProvider();
 };
 
 #endif /* AndroidLocationProvider_h */

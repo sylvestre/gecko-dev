@@ -19,12 +19,11 @@ namespace dom {
 
 // you will see the phrases "rowgroup" and "section" used interchangably
 
-HTMLTableSectionElement::~HTMLTableSectionElement()
-{
-}
+HTMLTableSectionElement::~HTMLTableSectionElement() {}
 
 JSObject*
-HTMLTableSectionElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLTableSectionElement::WrapNode(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLTableSectionElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -45,11 +44,8 @@ nsIHTMLCollection*
 HTMLTableSectionElement::Rows()
 {
   if (!mRows) {
-    mRows = new nsContentList(this,
-                              mNodeInfo->NamespaceID(),
-                              nsGkAtoms::tr,
-                              nsGkAtoms::tr,
-                              false);
+    mRows = new nsContentList(
+        this, mNodeInfo->NamespaceID(), nsGkAtoms::tr, nsGkAtoms::tr, false);
   }
 
   return mRows;
@@ -75,11 +71,11 @@ HTMLTableSectionElement::InsertRow(int32_t aIndex, ErrorResult& aError)
 
   // create the row
   RefPtr<mozilla::dom::NodeInfo> nodeInfo;
-  nsContentUtils::QNameChanged(mNodeInfo, nsGkAtoms::tr,
-                               getter_AddRefs(nodeInfo));
+  nsContentUtils::QNameChanged(
+      mNodeInfo, nsGkAtoms::tr, getter_AddRefs(nodeInfo));
 
   RefPtr<nsGenericHTMLElement> rowContent =
-    NS_NewHTMLTableRowElement(nodeInfo.forget());
+      NS_NewHTMLTableRowElement(nodeInfo.forget());
   if (!rowContent) {
     aError.Throw(NS_ERROR_OUT_OF_MEMORY);
     return nullptr;
@@ -112,8 +108,7 @@ HTMLTableSectionElement::DeleteRow(int32_t aValue, ErrorResult& aError)
     }
 
     --refIndex;
-  }
-  else {
+  } else {
     refIndex = (uint32_t)aValue;
   }
 
@@ -153,23 +148,23 @@ HTMLTableSectionElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseBackgroundAttribute(aNamespaceID,
-                                                        aAttribute, aValue,
-                                                        aResult) ||
-         nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseBackgroundAttribute(
+             aNamespaceID, aAttribute, aValue, aResult) ||
+         nsGenericHTMLElement::ParseAttribute(
+             aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
-HTMLTableSectionElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
-                                               GenericSpecifiedValues* aData)
+HTMLTableSectionElement::MapAttributesIntoRule(
+    const nsMappedAttributes* aAttributes, GenericSpecifiedValues* aData)
 {
   if (aData->ShouldComputeStyleStruct(NS_STYLE_INHERIT_BIT(Position))) {
     // height: value
     if (!aData->PropertyIsSet(eCSSProperty_height)) {
       const nsAttrValue* value = aAttributes->GetAttr(nsGkAtoms::height);
       if (value && value->Type() == nsAttrValue::eInteger)
-        aData->SetPixelValue(eCSSProperty_height, (float)value->GetIntegerValue());
+        aData->SetPixelValue(eCSSProperty_height,
+                             (float)value->GetIntegerValue());
     }
   }
   nsGenericHTMLElement::MapDivAlignAttributeInto(aAttributes, aData);
@@ -181,22 +176,19 @@ HTMLTableSectionElement::MapAttributesIntoRule(const nsMappedAttributes* aAttrib
 NS_IMETHODIMP_(bool)
 HTMLTableSectionElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
-  static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::align },
-    { &nsGkAtoms::valign },
-    { &nsGkAtoms::height },
-    { nullptr }
-  };
+  static const MappedAttributeEntry attributes[] = {{&nsGkAtoms::align},
+                                                    {&nsGkAtoms::valign},
+                                                    {&nsGkAtoms::height},
+                                                    {nullptr}};
 
   static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sCommonAttributeMap,
-    sBackgroundAttributeMap,
+      attributes,
+      sCommonAttributeMap,
+      sBackgroundAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
 }
-
 
 nsMapRuleToAttributesFunc
 HTMLTableSectionElement::GetAttributeMappingFunction() const
@@ -204,5 +196,5 @@ HTMLTableSectionElement::GetAttributeMappingFunction() const
   return &MapAttributesIntoRule;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

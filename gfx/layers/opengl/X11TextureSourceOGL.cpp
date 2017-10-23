@@ -14,25 +14,21 @@ namespace layers {
 
 using namespace mozilla::gfx;
 
-X11TextureSourceOGL::X11TextureSourceOGL(CompositorOGL* aCompositor, gfxXlibSurface* aSurface)
-  : mGL(aCompositor->gl())
-  , mSurface(aSurface)
-  , mTexture(0)
-  , mUpdated(false)
+X11TextureSourceOGL::X11TextureSourceOGL(CompositorOGL* aCompositor,
+                                         gfxXlibSurface* aSurface)
+    : mGL(aCompositor->gl()), mSurface(aSurface), mTexture(0), mUpdated(false)
 {
 }
 
-X11TextureSourceOGL::~X11TextureSourceOGL()
-{
-  DeallocateDeviceData();
-}
+X11TextureSourceOGL::~X11TextureSourceOGL() { DeallocateDeviceData(); }
 
 void
 X11TextureSourceOGL::DeallocateDeviceData()
 {
   if (mTexture) {
     if (gl() && gl()->MakeCurrent()) {
-      gl::sGLXLibrary.ReleaseTexImage(mSurface->XDisplay(), mSurface->GetGLXPixmap());
+      gl::sGLXLibrary.ReleaseTexImage(mSurface->XDisplay(),
+                                      mSurface->GetGLXPixmap());
       gl()->fDeleteTextures(1, &mTexture);
       mTexture = 0;
     }
@@ -50,11 +46,13 @@ X11TextureSourceOGL::BindTexture(GLenum aTextureUnit,
 
     gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
 
-    gl::sGLXLibrary.BindTexImage(mSurface->XDisplay(), mSurface->GetGLXPixmap());
+    gl::sGLXLibrary.BindTexImage(mSurface->XDisplay(),
+                                 mSurface->GetGLXPixmap());
   } else {
     gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
     if (mUpdated) {
-      gl::sGLXLibrary.UpdateTexImage(mSurface->XDisplay(), mSurface->GetGLXPixmap());
+      gl::sGLXLibrary.UpdateTexImage(mSurface->XDisplay(),
+                                     mSurface->GetGLXPixmap());
       mUpdated = false;
     }
   }
@@ -69,7 +67,8 @@ X11TextureSourceOGL::GetSize() const
 }
 
 SurfaceFormat
-X11TextureSourceOGL::GetFormat() const {
+X11TextureSourceOGL::GetFormat() const
+{
   gfxContentType type = mSurface->GetContentType();
   return X11TextureSourceOGL::ContentTypeToSurfaceFormat(type);
 }
@@ -99,7 +98,7 @@ X11TextureSourceOGL::ContentTypeToSurfaceFormat(gfxContentType aType)
   }
 }
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

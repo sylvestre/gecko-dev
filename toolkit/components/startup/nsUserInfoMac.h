@@ -8,17 +8,17 @@
 #include "nsIUserInfo.h"
 #include "nsReadableUtils.h"
 
-class nsUserInfo: public nsIUserInfo
+class nsUserInfo : public nsIUserInfo
 {
-public:
+ public:
   nsUserInfo();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIUSERINFO
 
-  nsresult GetPrimaryEmailAddress(nsCString &aEmailAddress);
+  nsresult GetPrimaryEmailAddress(nsCString& aEmailAddress);
 
-protected:
+ protected:
   virtual ~nsUserInfo() {}
 };
 

@@ -47,22 +47,18 @@ AssertSanity()
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-} // namespace
+}  // namespace
 
 PermissionRequestBase::PermissionRequestBase(Element* aOwnerElement,
                                              nsIPrincipal* aPrincipal)
-  : mOwnerElement(aOwnerElement)
-  , mPrincipal(aPrincipal)
+    : mOwnerElement(aOwnerElement), mPrincipal(aPrincipal)
 {
   AssertSanity();
   MOZ_ASSERT(aOwnerElement);
   MOZ_ASSERT(aPrincipal);
 }
 
-PermissionRequestBase::~PermissionRequestBase()
-{
-  AssertSanity();
-}
+PermissionRequestBase::~PermissionRequestBase() { AssertSanity(); }
 
 // static
 nsresult
@@ -80,15 +76,12 @@ PermissionRequestBase::GetCurrentPermission(nsIPrincipal* aPrincipal,
 
   uint32_t intPermission;
   nsresult rv = permMan->TestExactPermissionFromPrincipal(
-                                                 aPrincipal,
-                                                 kPermissionString,
-                                                 &intPermission);
+      aPrincipal, kPermissionString, &intPermission);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
-  PermissionValue permission =
-    PermissionValueForIntPermission(intPermission);
+  PermissionValue permission = PermissionValueForIntPermission(intPermission);
 
   MOZ_ASSERT(permission == kPermissionAllowed ||
              permission == kPermissionDenied ||
@@ -101,7 +94,7 @@ PermissionRequestBase::GetCurrentPermission(nsIPrincipal* aPrincipal,
 // static
 auto
 PermissionRequestBase::PermissionValueForIntPermission(uint32_t aIntPermission)
-  -> PermissionValue
+    -> PermissionValue
 {
   AssertSanity();
 
@@ -152,9 +145,8 @@ PermissionRequestBase::PromptIfNeeded(PermissionValue* aCurrentValue)
     element.swap(mOwnerElement);
     principal.swap(mPrincipal);
 
-    rv = obsSvc->NotifyObservers(static_cast<nsIObserver*>(this),
-                                 kPermissionPromptTopic,
-                                 nullptr);
+    rv = obsSvc->NotifyObservers(
+        static_cast<nsIObserver*>(this), kPermissionPromptTopic, nullptr);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       // Finally release if we failed the prompt.
       mOwnerElement = nullptr;
@@ -194,8 +186,7 @@ PermissionRequestBase::SetExplicitPermission(nsIPrincipal* aPrincipal,
 NS_IMPL_ISUPPORTS(PermissionRequestBase, nsIObserver, nsIInterfaceRequestor)
 
 NS_IMETHODIMP
-PermissionRequestBase::GetInterface(const nsIID& aIID,
-                                    void** aResult)
+PermissionRequestBase::GetInterface(const nsIID& aIID, void** aResult)
 {
   AssertSanity();
 
@@ -264,6 +255,6 @@ PermissionRequestBase::Observe(nsISupports* aSubject,
   return NS_OK;
 }
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla

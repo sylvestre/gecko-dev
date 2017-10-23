@@ -21,19 +21,21 @@ namespace dom {
 
 class WebAuthnTransactionChild final : public PWebAuthnTransactionChild
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(WebAuthnTransactionChild);
   WebAuthnTransactionChild();
-  mozilla::ipc::IPCResult RecvConfirmRegister(nsTArray<uint8_t>&& aRegBuffer) override;
+  mozilla::ipc::IPCResult RecvConfirmRegister(
+      nsTArray<uint8_t>&& aRegBuffer) override;
   mozilla::ipc::IPCResult RecvConfirmSign(nsTArray<uint8_t>&& aCredentialId,
                                           nsTArray<uint8_t>&& aBuffer) override;
   mozilla::ipc::IPCResult RecvAbort(const nsresult& aError) override;
   void ActorDestroy(ActorDestroyReason why) override;
-private:
+
+ private:
   ~WebAuthnTransactionChild() = default;
 };
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_WebAuthnTransactionChild_h
+#endif  //mozilla_dom_WebAuthnTransactionChild_h

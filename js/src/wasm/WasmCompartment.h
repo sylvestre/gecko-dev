@@ -32,11 +32,10 @@ typedef Vector<Instance*, 0, SystemAllocPolicy> InstanceVector;
 // compartment and must be notified, via registerInstance(), of any new
 // WasmInstanceObject.
 
-class Compartment
-{
+class Compartment {
     InstanceVector instances_;
 
-  public:
+   public:
     explicit Compartment(Zone* zone);
     ~Compartment();
 
@@ -65,7 +64,7 @@ class Compartment
     void addSizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf, size_t* compartmentTables);
 };
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_compartment_h
+#endif  // wasm_compartment_h

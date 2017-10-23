@@ -30,47 +30,17 @@
 #include "nsHtml5NamedCharacters.h"
 
 const char16_t nsHtml5NamedCharacters::VALUES[][2] = {
-#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
-{ VALUE },
+#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) {VALUE},
 #include "nsHtml5NamedCharactersInclude.h"
 #undef NAMED_CHARACTER_REFERENCE
-{0, 0} };
+    {0, 0}};
 
 char16_t** nsHtml5NamedCharacters::WINDOWS_1252;
 static char16_t const WINDOWS_1252_DATA[] = {
-  0x20AC,
-  0x0081,
-  0x201A,
-  0x0192,
-  0x201E,
-  0x2026,
-  0x2020,
-  0x2021,
-  0x02C6,
-  0x2030,
-  0x0160,
-  0x2039,
-  0x0152,
-  0x008D,
-  0x017D,
-  0x008F,
-  0x0090,
-  0x2018,
-  0x2019,
-  0x201C,
-  0x201D,
-  0x2022,
-  0x2013,
-  0x2014,
-  0x02DC,
-  0x2122,
-  0x0161,
-  0x203A,
-  0x0153,
-  0x009D,
-  0x017E,
-  0x0178
-};
+    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+    0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
+    0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178};
 
 /**
  * To avoid having lots of pointers in the |charData| array, below,
@@ -81,33 +51,37 @@ static char16_t const WINDOWS_1252_DATA[] = {
  */
 
 static const int8_t ALL_NAMES[] = {
-#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
-CHARS ,
+#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) CHARS,
 #include "nsHtml5NamedCharactersInclude.h"
 #undef NAMED_CHARACTER_REFERENCE
 };
 
-enum NamePositions {
+enum NamePositions
+{
   DUMMY_INITIAL_NAME_POSITION = 0,
 /* enums don't take up space, so generate _START and _END */
-#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
-NAME_##N##_DUMMY, /* automatically one higher than previous */ \
-NAME_##N##_START = NAME_##N##_DUMMY - 1, \
-NAME_##N##_END = NAME_##N##_START + LEN + FLAG,
+#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE)    \
+  NAME_##N##_DUMMY, /* automatically one higher than previous */ \
+      NAME_##N##_START = NAME_##N##_DUMMY - 1,                   \
+      NAME_##N##_END = NAME_##N##_START + LEN + FLAG,
 #include "nsHtml5NamedCharactersInclude.h"
 #undef NAMED_CHARACTER_REFERENCE
   DUMMY_FINAL_NAME_VALUE
 };
 
-static_assert(MOZ_ARRAY_LENGTH(ALL_NAMES) < 0x10000, "Start positions should fit in 16 bits");
+static_assert(MOZ_ARRAY_LENGTH(ALL_NAMES) < 0x10000,
+              "Start positions should fit in 16 bits");
 
 const nsHtml5CharacterName nsHtml5NamedCharacters::NAMES[] = {
 #ifdef DEBUG
-  #define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
-{ NAME_##N##_START, LEN, N },
+#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
+  {NAME_##N##_START, LEN, N},
 #else
-  #define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
-{ NAME_##N##_START, LEN, },
+#define NAMED_CHARACTER_REFERENCE(N, CHARS, LEN, FLAG, VALUE) \
+  {                                                           \
+      NAME_##N##_START,                                       \
+      LEN,                                                    \
+  },
 #endif
 #include "nsHtml5NamedCharactersInclude.h"
 #undef NAMED_CHARACTER_REFERENCE
@@ -122,7 +96,7 @@ nsHtml5CharacterName::length() const
 char16_t
 nsHtml5CharacterName::charAt(int32_t index) const
 {
-  return static_cast<char16_t> (ALL_NAMES[nameStart + index]);
+  return static_cast<char16_t>(ALL_NAMES[nameStart + index]);
 }
 
 void

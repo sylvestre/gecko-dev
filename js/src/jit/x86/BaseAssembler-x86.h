@@ -14,14 +14,11 @@ namespace jit {
 
 namespace X86Encoding {
 
-class BaseAssemblerX86 : public BaseAssembler
-{
-  public:
-
+class BaseAssemblerX86 : public BaseAssembler {
+   public:
     // Arithmetic operations:
 
-    void adcl_ir(int32_t imm, RegisterID dst)
-    {
+    void adcl_ir(int32_t imm, RegisterID dst) {
         spew("adcl       $%d, %s", imm, GPReg32Name(dst));
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, dst, GROUP1_OP_ADC);
@@ -32,8 +29,7 @@ class BaseAssemblerX86 : public BaseAssembler
         }
     }
 
-    void adcl_im(int32_t imm, const void* addr)
-    {
+    void adcl_im(int32_t imm, const void* addr) {
         spew("adcl       %d, %p", imm, addr);
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, addr, GROUP1_OP_ADC);
@@ -44,14 +40,12 @@ class BaseAssemblerX86 : public BaseAssembler
         }
     }
 
-    void adcl_rr(RegisterID src, RegisterID dst)
-    {
+    void adcl_rr(RegisterID src, RegisterID dst) {
         spew("adcl       %s, %s", GPReg32Name(src), GPReg32Name(dst));
         m_formatter.oneByteOp(OP_ADC_GvEv, src, dst);
     }
 
-    void sbbl_ir(int32_t imm, RegisterID dst)
-    {
+    void sbbl_ir(int32_t imm, RegisterID dst) {
         spew("sbbl       $%d, %s", imm, GPReg32Name(dst));
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, dst, GROUP1_OP_SBB);
@@ -62,15 +56,13 @@ class BaseAssemblerX86 : public BaseAssembler
         }
     }
 
-    void sbbl_rr(RegisterID src, RegisterID dst)
-    {
+    void sbbl_rr(RegisterID src, RegisterID dst) {
         spew("sbbl       %s, %s", GPReg32Name(src), GPReg32Name(dst));
         m_formatter.oneByteOp(OP_SBB_GvEv, src, dst);
     }
 
     using BaseAssembler::andl_im;
-    void andl_im(int32_t imm, const void* addr)
-    {
+    void andl_im(int32_t imm, const void* addr) {
         spew("andl       $0x%x, %p", imm, addr);
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, addr, GROUP1_OP_AND);
@@ -82,8 +74,7 @@ class BaseAssemblerX86 : public BaseAssembler
     }
 
     using BaseAssembler::orl_im;
-    void orl_im(int32_t imm, const void* addr)
-    {
+    void orl_im(int32_t imm, const void* addr) {
         spew("orl        $0x%x, %p", imm, addr);
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, addr, GROUP1_OP_OR);
@@ -95,8 +86,7 @@ class BaseAssemblerX86 : public BaseAssembler
     }
 
     using BaseAssembler::subl_im;
-    void subl_im(int32_t imm, const void* addr)
-    {
+    void subl_im(int32_t imm, const void* addr) {
         spew("subl       $%d, %p", imm, addr);
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, addr, GROUP1_OP_SUB);
@@ -107,16 +97,14 @@ class BaseAssemblerX86 : public BaseAssembler
         }
     }
 
-    void shldl_irr(int32_t imm, RegisterID src, RegisterID dst)
-    {
+    void shldl_irr(int32_t imm, RegisterID src, RegisterID dst) {
         MOZ_ASSERT(imm < 32);
         spew("shldl      $%d, %s, %s", imm, GPReg32Name(src), GPReg32Name(dst));
         m_formatter.twoByteOp8(OP2_SHLD, dst, src);
         m_formatter.immediate8u(imm);
     }
 
-    void shrdl_irr(int32_t imm, RegisterID src, RegisterID dst)
-    {
+    void shrdl_irr(int32_t imm, RegisterID src, RegisterID dst) {
         MOZ_ASSERT(imm < 32);
         spew("shrdl      $%d, %s, %s", imm, GPReg32Name(src), GPReg32Name(dst));
         m_formatter.twoByteOp8(OP2_SHRD, dst, src);
@@ -126,68 +114,56 @@ class BaseAssemblerX86 : public BaseAssembler
     // SSE operations:
 
     using BaseAssembler::vcvtsi2sd_mr;
-    void vcvtsi2sd_mr(const void* address, XMMRegisterID src0, XMMRegisterID dst)
-    {
+    void vcvtsi2sd_mr(const void* address, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vcvtsi2sd", VEX_SD, OP2_CVTSI2SD_VsdEd, address, src0, dst);
     }
 
     using BaseAssembler::vmovaps_mr;
-    void vmovaps_mr(const void* address, XMMRegisterID dst)
-    {
+    void vmovaps_mr(const void* address, XMMRegisterID dst) {
         twoByteOpSimd("vmovaps", VEX_PS, OP2_MOVAPS_VsdWsd, address, invalid_xmm, dst);
     }
 
     using BaseAssembler::vmovdqa_mr;
-    void vmovdqa_mr(const void* address, XMMRegisterID dst)
-    {
+    void vmovdqa_mr(const void* address, XMMRegisterID dst) {
         twoByteOpSimd("vmovdqa", VEX_PD, OP2_MOVDQ_VdqWdq, address, invalid_xmm, dst);
     }
 
-    void vhaddpd_rr(XMMRegisterID src, XMMRegisterID dst)
-    {
+    void vhaddpd_rr(XMMRegisterID src, XMMRegisterID dst) {
         twoByteOpSimdFlags("vhaddpd", VEX_PD, OP2_HADDPD, src, dst);
     }
 
-    void vsubpd_rr(XMMRegisterID src1, XMMRegisterID src0, XMMRegisterID dst)
-    {
+    void vsubpd_rr(XMMRegisterID src1, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vsubpd", VEX_PD, OP2_SUBPS_VpsWps, src1, src0, dst);
     }
-    void vsubpd_mr(int32_t offset, RegisterID base, XMMRegisterID src0, XMMRegisterID dst)
-    {
+    void vsubpd_mr(int32_t offset, RegisterID base, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vsubpd", VEX_PD, OP2_SUBPS_VpsWps, offset, base, src0, dst);
     }
-    void vsubpd_mr(const void* address, XMMRegisterID src0, XMMRegisterID dst)
-    {
+    void vsubpd_mr(const void* address, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vsubpd", VEX_PD, OP2_SUBPS_VpsWps, address, src0, dst);
     }
 
     void vpunpckldq_rr(XMMRegisterID src1, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vpunpckldq", VEX_PD, OP2_PUNPCKLDQ, src1, src0, dst);
     }
-    void vpunpckldq_mr(int32_t offset, RegisterID base, XMMRegisterID src0, XMMRegisterID dst)
-    {
+    void vpunpckldq_mr(int32_t offset, RegisterID base, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vpunpckldq", VEX_PD, OP2_PUNPCKLDQ, offset, base, src0, dst);
     }
-    void vpunpckldq_mr(const void* addr, XMMRegisterID src0, XMMRegisterID dst)
-    {
+    void vpunpckldq_mr(const void* addr, XMMRegisterID src0, XMMRegisterID dst) {
         twoByteOpSimd("vpunpckldq", VEX_PD, OP2_PUNPCKLDQ, addr, src0, dst);
     }
 
-    void fild_m(int32_t offset, RegisterID base)
-    {
+    void fild_m(int32_t offset, RegisterID base) {
         m_formatter.oneByteOp(OP_FILD, offset, base, FILD_OP_64);
     }
 
     // Misc instructions:
 
-    void pusha()
-    {
+    void pusha() {
         spew("pusha");
         m_formatter.oneByteOp(OP_PUSHA);
     }
 
-    void popa()
-    {
+    void popa() {
         spew("popa");
         m_formatter.oneByteOp(OP_POPA);
     }
@@ -195,9 +171,9 @@ class BaseAssemblerX86 : public BaseAssembler
 
 typedef BaseAssemblerX86 BaseAssemblerSpecific;
 
-} // namespace X86Encoding
+}  // namespace X86Encoding
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x86_BaseAssembler_x86_h */

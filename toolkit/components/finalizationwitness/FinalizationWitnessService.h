@@ -22,11 +22,12 @@ class FinalizationWitnessService final : public nsIFinalizationWitnessService,
   NS_DECL_NSIOBSERVER
 
   nsresult Init();
+
  private:
   ~FinalizationWitnessService() {}
   void operator=(const FinalizationWitnessService* other) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_finalizationwitnessservice_h__
+#endif  // mozilla_finalizationwitnessservice_h__

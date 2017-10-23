@@ -24,7 +24,7 @@ class nsHTMLStyleSheet;
 
 class nsMappedAttributes final : public nsIStyleRule
 {
-public:
+ public:
   nsMappedAttributes(nsHTMLStyleSheet* aSheet,
                      nsMapRuleToAttributesFunc aMapRuleFunc);
 
@@ -34,28 +34,20 @@ public:
 
   NS_DECL_ISUPPORTS
 
-  void SetAndSwapAttr(nsAtom* aAttrName, nsAttrValue& aValue,
+  void SetAndSwapAttr(nsAtom* aAttrName,
+                      nsAttrValue& aValue,
                       bool* aValueWasSet);
   const nsAttrValue* GetAttr(nsAtom* aAttrName) const;
   const nsAttrValue* GetAttr(const nsAString& aAttrName) const;
 
-  uint32_t Count() const
-  {
-    return mAttrCount;
-  }
+  uint32_t Count() const { return mAttrCount; }
 
   bool Equals(const nsMappedAttributes* aAttributes) const;
   PLDHashNumber HashValue() const;
 
-  void DropStyleSheetReference()
-  {
-    mSheet = nullptr;
-  }
+  void DropStyleSheetReference() { mSheet = nullptr; }
   void SetStyleSheet(nsHTMLStyleSheet* aSheet);
-  nsHTMLStyleSheet* GetStyleSheet()
-  {
-    return mSheet;
-  }
+  nsHTMLStyleSheet* GetStyleSheet() { return mSheet; }
 
   const nsAttrName* NameAt(uint32_t aPos) const
   {
@@ -85,7 +77,8 @@ public:
     return mServoStyle;
   }
 
-  void ClearServoStyle() {
+  void ClearServoStyle()
+  {
     MOZ_ASSERT(NS_IsMainThread());
     mServoStyle = nullptr;
   }
@@ -102,8 +95,8 @@ public:
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
   static void Shutdown();
-private:
 
+ private:
   void LastRelease();
 
   nsMappedAttributes(const nsMappedAttributes& aCopy);
@@ -135,7 +128,7 @@ private:
 #ifdef DEBUG
   uint16_t mBufferSize;
 #endif
-  nsHTMLStyleSheet* mSheet; //weak
+  nsHTMLStyleSheet* mSheet;  //weak
   nsMapRuleToAttributesFunc mRuleMapper;
   RefPtr<RawServoDeclarationBlock> mServoStyle;
   void* mAttrs[1];

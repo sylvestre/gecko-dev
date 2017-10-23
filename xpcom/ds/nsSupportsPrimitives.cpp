@@ -27,10 +27,7 @@ DataToString(const char* aFormat, T aData)
 
 NS_IMPL_ISUPPORTS(nsSupportsID, nsISupportsID, nsISupportsPrimitive)
 
-nsSupportsID::nsSupportsID()
-  : mData(nullptr)
-{
-}
+nsSupportsID::nsSupportsID() : mData(nullptr) {}
 
 NS_IMETHODIMP
 nsSupportsID::GetType(uint16_t* aType)
@@ -78,8 +75,7 @@ nsSupportsID::ToString(char** aResult)
  * nsSupportsCString
  *****************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsCString, nsISupportsCString,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsCString, nsISupportsCString, nsISupportsPrimitive)
 
 NS_IMETHODIMP
 nsSupportsCString::GetType(uint16_t* aType)
@@ -122,8 +118,7 @@ nsSupportsCString::SetData(const nsACString& aData)
  * nsSupportsString
  *****************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsString, nsISupportsString,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsString, nsISupportsString, nsISupportsPrimitive)
 
 NS_IMETHODIMP
 nsSupportsString::GetType(uint16_t* aType)
@@ -164,13 +159,9 @@ nsSupportsString::SetData(const nsAString& aData)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRBool, nsISupportsPRBool,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRBool, nsISupportsPRBool, nsISupportsPrimitive)
 
-nsSupportsPRBool::nsSupportsPRBool()
-  : mData(false)
-{
-}
+nsSupportsPRBool::nsSupportsPRBool() : mData(false) {}
 
 NS_IMETHODIMP
 nsSupportsPRBool::GetType(uint16_t* aType)
@@ -205,13 +196,9 @@ nsSupportsPRBool::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRUint8, nsISupportsPRUint8,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRUint8, nsISupportsPRUint8, nsISupportsPrimitive)
 
-nsSupportsPRUint8::nsSupportsPRUint8()
-  : mData(0)
-{
-}
+nsSupportsPRUint8::nsSupportsPRUint8() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRUint8::GetType(uint16_t* aType)
@@ -246,13 +233,9 @@ nsSupportsPRUint8::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRUint16, nsISupportsPRUint16,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRUint16, nsISupportsPRUint16, nsISupportsPrimitive)
 
-nsSupportsPRUint16::nsSupportsPRUint16()
-  : mData(0)
-{
-}
+nsSupportsPRUint16::nsSupportsPRUint16() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRUint16::GetType(uint16_t* aType)
@@ -287,13 +270,9 @@ nsSupportsPRUint16::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRUint32, nsISupportsPRUint32,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRUint32, nsISupportsPRUint32, nsISupportsPrimitive)
 
-nsSupportsPRUint32::nsSupportsPRUint32()
-  : mData(0)
-{
-}
+nsSupportsPRUint32::nsSupportsPRUint32() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRUint32::GetType(uint16_t* aType)
@@ -328,13 +307,9 @@ nsSupportsPRUint32::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRUint64, nsISupportsPRUint64,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRUint64, nsISupportsPRUint64, nsISupportsPrimitive)
 
-nsSupportsPRUint64::nsSupportsPRUint64()
-  : mData(0)
-{
-}
+nsSupportsPRUint64::nsSupportsPRUint64() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRUint64::GetType(uint16_t* aType)
@@ -369,13 +344,9 @@ nsSupportsPRUint64::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRTime, nsISupportsPRTime,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRTime, nsISupportsPRTime, nsISupportsPrimitive)
 
-nsSupportsPRTime::nsSupportsPRTime()
-  : mData(0)
-{
-}
+nsSupportsPRTime::nsSupportsPRTime() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRTime::GetType(uint16_t* aType)
@@ -410,13 +381,9 @@ nsSupportsPRTime::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsChar, nsISupportsChar,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsChar, nsISupportsChar, nsISupportsPrimitive)
 
-nsSupportsChar::nsSupportsChar()
-  : mData(0)
-{
-}
+nsSupportsChar::nsSupportsChar() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsChar::GetType(uint16_t* aType)
@@ -454,13 +421,9 @@ nsSupportsChar::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRInt16, nsISupportsPRInt16,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRInt16, nsISupportsPRInt16, nsISupportsPrimitive)
 
-nsSupportsPRInt16::nsSupportsPRInt16()
-  : mData(0)
-{
-}
+nsSupportsPRInt16::nsSupportsPRInt16() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRInt16::GetType(uint16_t* aType)
@@ -495,13 +458,9 @@ nsSupportsPRInt16::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRInt32, nsISupportsPRInt32,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRInt32, nsISupportsPRInt32, nsISupportsPrimitive)
 
-nsSupportsPRInt32::nsSupportsPRInt32()
-  : mData(0)
-{
-}
+nsSupportsPRInt32::nsSupportsPRInt32() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRInt32::GetType(uint16_t* aType)
@@ -536,13 +495,9 @@ nsSupportsPRInt32::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsPRInt64, nsISupportsPRInt64,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsPRInt64, nsISupportsPRInt64, nsISupportsPrimitive)
 
-nsSupportsPRInt64::nsSupportsPRInt64()
-  : mData(0)
-{
-}
+nsSupportsPRInt64::nsSupportsPRInt64() : mData(0) {}
 
 NS_IMETHODIMP
 nsSupportsPRInt64::GetType(uint16_t* aType)
@@ -577,13 +532,9 @@ nsSupportsPRInt64::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsFloat, nsISupportsFloat,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsFloat, nsISupportsFloat, nsISupportsPrimitive)
 
-nsSupportsFloat::nsSupportsFloat()
-  : mData(float(0.0))
-{
-}
+nsSupportsFloat::nsSupportsFloat() : mData(float(0.0)) {}
 
 NS_IMETHODIMP
 nsSupportsFloat::GetType(uint16_t* aType)
@@ -618,13 +569,9 @@ nsSupportsFloat::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsDouble, nsISupportsDouble,
-                  nsISupportsPrimitive)
+NS_IMPL_ISUPPORTS(nsSupportsDouble, nsISupportsDouble, nsISupportsPrimitive)
 
-nsSupportsDouble::nsSupportsDouble()
-  : mData(double(0.0))
-{
-}
+nsSupportsDouble::nsSupportsDouble() : mData(double(0.0)) {}
 
 NS_IMETHODIMP
 nsSupportsDouble::GetType(uint16_t* aType)
@@ -654,20 +601,16 @@ nsSupportsDouble::ToString(char** aResult)
 {
   NS_ASSERTION(aResult, "Bad pointer");
   *aResult = DataToString("%f", mData);
-  return  NS_OK;
+  return NS_OK;
 }
 
 /***************************************************************************/
-
 
 NS_IMPL_ISUPPORTS(nsSupportsInterfacePointer,
                   nsISupportsInterfacePointer,
                   nsISupportsPrimitive)
 
-nsSupportsInterfacePointer::nsSupportsInterfacePointer()
-  : mIID(nullptr)
-{
-}
+nsSupportsInterfacePointer::nsSupportsInterfacePointer() : mIID(nullptr) {}
 
 nsSupportsInterfacePointer::~nsSupportsInterfacePointer()
 {
@@ -733,12 +676,14 @@ nsSupportsInterfacePointer::ToString(char** aResult)
 
 /***************************************************************************/
 
-NS_IMPL_ISUPPORTS(nsSupportsDependentCString, nsISupportsCString,
+NS_IMPL_ISUPPORTS(nsSupportsDependentCString,
+                  nsISupportsCString,
                   nsISupportsPrimitive)
 
 nsSupportsDependentCString::nsSupportsDependentCString(const char* aStr)
-  : mData(aStr)
-{ }
+    : mData(aStr)
+{
+}
 
 NS_IMETHODIMP
 nsSupportsDependentCString::GetType(uint16_t* aType)

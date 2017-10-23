@@ -53,10 +53,10 @@ class Database;
 /**
  * A base AsyncShutdown blocker in charge of shutting down Places.
  */
-class PlacesShutdownBlocker : public nsIAsyncShutdownBlocker
-                            , public nsIAsyncShutdownCompletionCallback
+class PlacesShutdownBlocker : public nsIAsyncShutdownBlocker,
+                              public nsIAsyncShutdownCompletionCallback
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIASYNCSHUTDOWNBLOCKER
   NS_DECL_NSIASYNCSHUTDOWNCOMPLETIONCALLBACK
@@ -69,13 +69,12 @@ public:
    * `true` if we have not started shutdown, i.e.  if
    * `BlockShutdown()` hasn't been called yet, false otherwise.
    */
-  static bool IsStarted() {
-    return sIsStarted;
-  }
+  static bool IsStarted() { return sIsStarted; }
 
   // The current state, used internally and for forensics/debugging purposes.
   // Not all the states make sense for all the derived classes.
-  enum States {
+  enum States
+  {
     NOT_STARTED,
     // Execution of `BlockShutdown` in progress.
     RECEIVED_BLOCK_SHUTDOWN,
@@ -98,11 +97,9 @@ public:
     // d. We have notified observers that Places has closed the connection.
     NOTIFIED_OBSERVERS_PLACES_CONNECTION_CLOSED,
   };
-  States State() {
-    return mState;
-  }
+  States State() { return mState; }
 
-protected:
+ protected:
   // The blocker name, also used as barrier name.
   nsString mName;
   // The current state, see States.
@@ -127,23 +124,24 @@ protected:
  */
 class ClientsShutdownBlocker final : public PlacesShutdownBlocker
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   explicit ClientsShutdownBlocker();
 
   NS_IMETHOD Done() override;
-private:
+
+ private:
   ~ClientsShutdownBlocker() {}
 };
 
 /**
  * Blocker used to wait when closing the database connection.
  */
-class ConnectionShutdownBlocker final : public PlacesShutdownBlocker
-                                      , public mozIStorageCompletionCallback
+class ConnectionShutdownBlocker final : public PlacesShutdownBlocker,
+                                        public mozIStorageCompletionCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_MOZISTORAGECOMPLETIONCALLBACK
 
@@ -151,7 +149,7 @@ public:
 
   NS_IMETHOD Done() override;
 
-private:
+ private:
   ~ConnectionShutdownBlocker() {}
 
   // The owning database.
@@ -160,7 +158,7 @@ private:
   RefPtr<mozilla::places::Database> mDatabase;
 };
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla
 
-#endif // mozilla_places_Shutdown_h_
+#endif  // mozilla_places_Shutdown_h_

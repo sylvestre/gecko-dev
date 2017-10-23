@@ -11,23 +11,25 @@
 
 namespace IPC {
 
-template <>
+template<>
 struct ParamTraits<mozilla::dom::FlyWebPublishOptions>
 {
   typedef mozilla::dom::FlyWebPublishOptions paramType;
 
   // Function to serialize a FlyWebPublishOptions
-  static void Write(Message *aMsg, const paramType& aParam)
+  static void Write(Message* aMsg, const paramType& aParam)
   {
     WriteParam(aMsg, aParam.mUiUrl);
   }
   // Function to de-serialize a FlyWebPublishOptions
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &(aResult->mUiUrl));
   }
 };
 
-}
+}  // namespace IPC
 
-#endif // mozilla_dom_FlyWebPublishOptionsIPCSerialiser_h
+#endif  // mozilla_dom_FlyWebPublishOptionsIPCSerialiser_h

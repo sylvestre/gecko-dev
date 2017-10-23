@@ -11,23 +11,31 @@
 namespace mozilla {
 namespace detail {
 
-void LayoutLogWarning(const char* aStr, const char* aExpr,
-                      const char* aFile, int32_t aLine)
+void
+LayoutLogWarning(const char* aStr,
+                 const char* aExpr,
+                 const char* aFile,
+                 int32_t aLine)
 {
   if (aExpr) {
     MOZ_LOG(sLayoutLog,
             mozilla::LogLevel::Warning,
             ("[%d] WARNING: %s: '%s', file %s, line %d",
              base::GetCurrentProcId(),
-             aStr, aExpr, aFile, aLine));
+             aStr,
+             aExpr,
+             aFile,
+             aLine));
   } else {
     MOZ_LOG(sLayoutLog,
             mozilla::LogLevel::Warning,
             ("[%d] WARNING: %s: file %s, line %d",
              base::GetCurrentProcId(),
-             aStr, aFile, aLine));
+             aStr,
+             aFile,
+             aLine));
   }
 }
 
-} // namespace detail
-} // namespace mozilla
+}  // namespace detail
+}  // namespace mozilla

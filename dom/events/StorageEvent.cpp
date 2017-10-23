@@ -30,13 +30,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(StorageEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 StorageEvent::StorageEvent(EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
+    : Event(aOwner, nullptr, nullptr)
 {
 }
 
-StorageEvent::~StorageEvent()
-{
-}
+StorageEvent::~StorageEvent() {}
 
 StorageEvent*
 StorageEvent::AsStorageEvent()
@@ -45,7 +43,8 @@ StorageEvent::AsStorageEvent()
 }
 
 JSObject*
-StorageEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+StorageEvent::WrapObjectInternal(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
   return StorageEventBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -80,8 +79,10 @@ StorageEvent::Constructor(const GlobalObject& aGlobal,
 }
 
 void
-StorageEvent::InitStorageEvent(const nsAString& aType, bool aCanBubble,
-                               bool aCancelable, const nsAString& aKey,
+StorageEvent::InitStorageEvent(const nsAString& aType,
+                               bool aCanBubble,
+                               bool aCancelable,
+                               const nsAString& aKey,
                                const nsAString& aOldValue,
                                const nsAString& aNewValue,
                                const nsAString& aURL,
@@ -97,5 +98,5 @@ StorageEvent::InitStorageEvent(const nsAString& aType, bool aCanBubble,
   mStorageArea = aStorageArea;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

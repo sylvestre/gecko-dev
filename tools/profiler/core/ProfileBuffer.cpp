@@ -14,11 +14,11 @@
 using namespace mozilla;
 
 ProfileBuffer::ProfileBuffer(int aEntrySize)
-  : mEntries(mozilla::MakeUnique<ProfileBufferEntry[]>(aEntrySize))
-  , mWritePos(0)
-  , mReadPos(0)
-  , mEntrySize(aEntrySize)
-  , mGeneration(0)
+    : mEntries(mozilla::MakeUnique<ProfileBufferEntry[]>(aEntrySize)),
+      mWritePos(0),
+      mReadPos(0),
+      mEntrySize(aEntrySize),
+      mGeneration(0)
 {
 }
 
@@ -61,7 +61,7 @@ ProfileBuffer::AddThreadIdEntry(int aThreadId, LastSample* aLS)
 }
 
 void
-ProfileBuffer::AddStoredMarker(ProfilerMarker *aStoredMarker)
+ProfileBuffer::AddStoredMarker(ProfilerMarker* aStoredMarker)
 {
   aStoredMarker->SetGeneration(mGeneration);
   mStoredMarkers.insert(aStoredMarker);
@@ -69,15 +69,17 @@ ProfileBuffer::AddStoredMarker(ProfilerMarker *aStoredMarker)
 
 void
 ProfileBuffer::CollectCodeLocation(
-  const char* aLabel, const char* aStr, int aLineNumber,
-  const Maybe<js::ProfileEntry::Category>& aCategory)
+    const char* aLabel,
+    const char* aStr,
+    int aLineNumber,
+    const Maybe<js::ProfileEntry::Category>& aCategory)
 {
   AddEntry(ProfileBufferEntry::Label(aLabel));
 
   if (aStr) {
     // Store the string using one or more DynamicStringFragment entries.
-    size_t strLen = strlen(aStr) + 1;   // +1 for the null terminator
-    for (size_t j = 0; j < strLen; ) {
+    size_t strLen = strlen(aStr) + 1;  // +1 for the null terminator
+    for (size_t j = 0; j < strLen;) {
       // Store up to kNumChars characters in the entry.
       char chars[ProfileBufferEntry::kNumChars];
       size_t len = ProfileBufferEntry::kNumChars;
@@ -141,7 +143,7 @@ IsChromeJSScript(JSScript* aScript)
   // WARNING: this function runs within the profiler's "critical section".
 
   nsIScriptSecurityManager* const secman =
-    nsScriptSecurityManager::GetScriptSecurityManager();
+      nsScriptSecurityManager::GetScriptSecurityManager();
   NS_ENSURE_TRUE(secman, false);
 
   JSPrincipals* const principals = JS_GetScriptPrincipals(aScript);
@@ -222,6 +224,6 @@ ProfileBufferCollector::CollectPseudoEntry(const js::ProfileEntry& aEntry)
     }
   }
 
-  mBuf.CollectCodeLocation(label, dynamicString, lineno,
-                           Some(aEntry.category()));
+  mBuf.CollectCodeLocation(
+      label, dynamicString, lineno, Some(aEntry.category()));
 }

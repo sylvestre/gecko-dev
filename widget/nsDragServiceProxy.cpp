@@ -13,19 +13,15 @@
 #include "mozilla/Unused.h"
 #include "nsContentUtils.h"
 
-using mozilla::ipc::Shmem;
-using mozilla::dom::TabChild;
 using mozilla::dom::OptionalShmem;
+using mozilla::dom::TabChild;
+using mozilla::ipc::Shmem;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsDragServiceProxy, nsBaseDragService)
 
-nsDragServiceProxy::nsDragServiceProxy()
-{
-}
+nsDragServiceProxy::nsDragServiceProxy() {}
 
-nsDragServiceProxy::~nsDragServiceProxy()
-{
-}
+nsDragServiceProxy::~nsDragServiceProxy() {}
 
 nsresult
 nsDragServiceProxy::InvokeDragSessionImpl(nsIArray* aArrayTransferables,
@@ -37,11 +33,8 @@ nsDragServiceProxy::InvokeDragSessionImpl(nsIArray* aArrayTransferables,
   TabChild* child = TabChild::GetFrom(doc->GetDocShell());
   NS_ENSURE_STATE(child);
   nsTArray<mozilla::dom::IPCDataTransfer> dataTransfers;
-  nsContentUtils::TransferablesToIPCTransferables(aArrayTransferables,
-                                                  dataTransfers,
-                                                  false,
-                                                  child->Manager(),
-                                                  nullptr);
+  nsContentUtils::TransferablesToIPCTransferables(
+      aArrayTransferables, dataTransfers, false, child->Manager(), nullptr);
 
   LayoutDeviceIntRect dragRect;
   if (mHasImage || mSelection) {
@@ -51,14 +44,12 @@ nsDragServiceProxy::InvokeDragSessionImpl(nsIArray* aArrayTransferables,
 
     if (surface) {
       RefPtr<mozilla::gfx::DataSourceSurface> dataSurface =
-        surface->GetDataSurface();
+          surface->GetDataSurface();
       if (dataSurface) {
         size_t length;
         int32_t stride;
-        Maybe<Shmem> maybeShm = nsContentUtils::GetSurfaceData(dataSurface,
-                                                               &length,
-                                                               &stride,
-                                                               child);
+        Maybe<Shmem> maybeShm = nsContentUtils::GetSurfaceData(
+            dataSurface, &length, &stride, child);
         if (maybeShm.isNothing()) {
           return NS_ERROR_FAILURE;
         }
@@ -71,18 +62,21 @@ nsDragServiceProxy::InvokeDragSessionImpl(nsIArray* aArrayTransferables,
           return NS_ERROR_FAILURE;
         }
 
-        mozilla::Unused <<
-          child->SendInvokeDragSession(dataTransfers, aActionType, surfaceData,
-                                       stride, static_cast<uint8_t>(dataSurface->GetFormat()),
-                                       dragRect);
+        mozilla::Unused << child->SendInvokeDragSession(
+            dataTransfers,
+            aActionType,
+            surfaceData,
+            stride,
+            static_cast<uint8_t>(dataSurface->GetFormat()),
+            dragRect);
         StartDragSession();
         return NS_OK;
       }
     }
   }
 
-  mozilla::Unused << child->SendInvokeDragSession(dataTransfers, aActionType,
-                                                  mozilla::void_t(), 0, 0, dragRect);
+  mozilla::Unused << child->SendInvokeDragSession(
+      dataTransfers, aActionType, mozilla::void_t(), 0, 0, dragRect);
   StartDragSession();
   return NS_OK;
 }

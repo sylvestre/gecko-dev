@@ -24,7 +24,7 @@ class SVGLengthList;
 class SVGNumberList;
 class SVGUserUnitList;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * This class is used for elements that can be part of a directly displayable
@@ -43,7 +43,7 @@ class SVGUserUnitList;
  */
 class nsSVGDisplayableFrame : public nsQueryFrame
 {
-public:
+ public:
   typedef mozilla::SVGAnimatedNumberList SVGAnimatedNumberList;
   typedef mozilla::SVGNumberList SVGNumberList;
   typedef mozilla::SVGAnimatedLengthList SVGAnimatedLengthList;
@@ -101,7 +101,7 @@ public:
   // called until after the nsSVGOuterSVGFrame has had its initial reflow
   // (i.e. once the SVG viewport dimensions are known). It should also only
   // be called by nsSVGOuterSVGFrame during its reflow.
-  virtual void ReflowSVG()=0;
+  virtual void ReflowSVG() = 0;
 
   // Flags to pass to NotifySVGChange:
   //
@@ -113,10 +113,11 @@ public:
   // TRANSFORM_CHANGED     - the current transform matrix for this frame has changed
   // COORD_CONTEXT_CHANGED - the dimensions of this frame's coordinate context has
   //                           changed (percentage lengths must be reevaluated)
-  enum SVGChangedFlags {
-    TRANSFORM_CHANGED     = 0x01,
+  enum SVGChangedFlags
+  {
+    TRANSFORM_CHANGED = 0x01,
     COORD_CONTEXT_CHANGED = 0x02,
-    FULL_ZOOM_CHANGED     = 0x04
+    FULL_ZOOM_CHANGED = 0x04
   };
   /**
    * This is called on a frame when there has been a change to one of its
@@ -127,7 +128,7 @@ public:
    * invalidate the entire area of the ancestor that changed. However, they
    * may need to update their bounds.
    */
-  virtual void NotifySVGChanged(uint32_t aFlags)=0;
+  virtual void NotifySVGChanged(uint32_t aFlags) = 0;
 
   /**
    * Get this frame's contribution to the rect returned by a GetBBox() call
@@ -150,12 +151,11 @@ public:
    * @param aFlags Flags indicating whether, stroke, for example, should be
    *   included in the bbox calculation.
    */
-  virtual SVGBBox GetBBoxContribution(const mozilla::gfx::Matrix &aToBBoxUserspace,
-                                      uint32_t aFlags) = 0;
+  virtual SVGBBox GetBBoxContribution(
+      const mozilla::gfx::Matrix& aToBBoxUserspace, uint32_t aFlags) = 0;
 
   // Are we a container frame?
-  virtual bool IsDisplayContainer()=0;
+  virtual bool IsDisplayContainer() = 0;
 };
 
-#endif // __NS_ISVGCHILDFRAME_H__
-
+#endif  // __NS_ISVGCHILDFRAME_H__

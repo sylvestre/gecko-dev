@@ -7,12 +7,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-namespace mozilla
-{
+namespace mozilla {
 
 MockMediaResource::MockMediaResource(const char* aFileName)
-  : mFileHandle(nullptr)
-  , mFileName(aFileName)
+    : mFileHandle(nullptr), mFileName(aFileName)
 {
 }
 
@@ -35,7 +33,9 @@ MockMediaResource::~MockMediaResource()
 }
 
 nsresult
-MockMediaResource::ReadAt(int64_t aOffset, char* aBuffer, uint32_t aCount,
+MockMediaResource::ReadAt(int64_t aOffset,
+                          char* aBuffer,
+                          uint32_t aCount,
                           uint32_t* aBytes)
 {
   if (mFileHandle == nullptr) {
@@ -111,4 +111,4 @@ MockMediaResource::GetCachedRanges(MediaByteRangeSet& aRanges)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

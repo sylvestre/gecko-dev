@@ -14,7 +14,6 @@
 	   limitations under the License.
 */
 
-
 #ifndef __CborEncoder_H_
 #define __CborEncoder_H_
 
@@ -22,47 +21,49 @@
 #include <string>
 
 namespace cbor {
-    class encoder {
-    private:
-        output *_out;
-    public:
-        explicit encoder(output &out);
+class encoder
+{
+ private:
+  output* _out;
 
-        ~encoder();
+ public:
+  explicit encoder(output& out);
 
-        void write_bool(bool value);
+  ~encoder();
 
-        void write_int(int value);
+  void write_bool(bool value);
 
-        void write_int(long long value);
+  void write_int(int value);
 
-        void write_int(unsigned int value);
+  void write_int(long long value);
 
-        void write_int(unsigned long long value);
+  void write_int(unsigned int value);
 
-        void write_bytes(const unsigned char *data, unsigned int size);
+  void write_int(unsigned long long value);
 
-        void write_string(const char *data, unsigned int size);
+  void write_bytes(const unsigned char* data, unsigned int size);
 
-        void write_string(const std::string str);
+  void write_string(const char* data, unsigned int size);
 
-        void write_array(int size);
+  void write_string(const std::string str);
 
-        void write_map(int size);
+  void write_array(int size);
 
-        void write_tag(const unsigned int tag);
+  void write_map(int size);
 
-        void write_special(int special);
+  void write_tag(const unsigned int tag);
 
-        void write_null();
+  void write_special(int special);
 
-        void write_undefined();
+  void write_null();
 
-    private:
-        void write_type_value(int major_type, unsigned int value);
+  void write_undefined();
 
-        void write_type_value(int major_type, unsigned long long value);
-    };
-}
+ private:
+  void write_type_value(int major_type, unsigned int value);
 
-#endif //__CborEncoder_H_
+  void write_type_value(int major_type, unsigned long long value);
+};
+}  // namespace cbor
+
+#endif  //__CborEncoder_H_

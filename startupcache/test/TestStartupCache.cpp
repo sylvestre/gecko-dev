@@ -52,7 +52,7 @@ WaitForStartupTimer()
 
 class TestStartupCache : public ::testing::Test
 {
-protected:
+ protected:
   TestStartupCache();
   ~TestStartupCache();
 
@@ -76,7 +76,6 @@ TestStartupCache::~TestStartupCache()
   PR_SetEnv("MOZ_STARTUP_CACHE=");
   StartupCache::GetSingleton()->InvalidateCache();
 }
-
 
 TEST_F(TestStartupCache, StartupWriteRead)
 {
@@ -127,8 +126,7 @@ TEST_F(TestStartupCache, WriteObject)
 {
   nsresult rv;
 
-  nsCOMPtr<nsIURI> obj
-    = do_CreateInstance("@mozilla.org/network/simple-uri;1");
+  nsCOMPtr<nsIURI> obj = do_CreateInstance("@mozilla.org/network/simple-uri;1");
   ASSERT_TRUE(obj);
 
   NS_NAMED_LITERAL_CSTRING(spec, "http://www.mozilla.org");
@@ -142,19 +140,18 @@ TEST_F(TestStartupCache, WriteObject)
   // StartupCache::GetSingleton in debug builds, and we
   // don't have access to that here. Obviously.
   const char* id = "id";
-  nsCOMPtr<nsIStorageStream> storageStream
-    = do_CreateInstance("@mozilla.org/storagestream;1");
+  nsCOMPtr<nsIStorageStream> storageStream =
+      do_CreateInstance("@mozilla.org/storagestream;1");
   ASSERT_TRUE(storageStream);
 
-  rv = storageStream->Init(256, (uint32_t) -1);
+  rv = storageStream->Init(256, (uint32_t)-1);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
-  nsCOMPtr<nsIObjectOutputStream> objectOutput
-    = do_CreateInstance("@mozilla.org/binaryoutputstream;1");
+  nsCOMPtr<nsIObjectOutputStream> objectOutput =
+      do_CreateInstance("@mozilla.org/binaryoutputstream;1");
   ASSERT_TRUE(objectOutput);
 
-  nsCOMPtr<nsIOutputStream> outputStream
-    = do_QueryInterface(storageStream);
+  nsCOMPtr<nsIOutputStream> outputStream = do_QueryInterface(storageStream);
 
   rv = objectOutput->SetOutputStream(outputStream);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
@@ -178,8 +175,8 @@ TEST_F(TestStartupCache, WriteObject)
   rv = sc->GetBuffer(id, &buf2, &len2);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
-  rv = NewObjectInputStreamFromBuffer(Move(buf2), len2,
-                                      getter_AddRefs(objectInput));
+  rv = NewObjectInputStreamFromBuffer(
+      Move(buf2), len2, getter_AddRefs(objectInput));
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
   nsCOMPtr<nsISupports> deserialized;

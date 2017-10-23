@@ -27,12 +27,11 @@ namespace js {
 namespace wasm {
 
 // Generates very fast code at the expense of compilation time.
-MOZ_MUST_USE bool
-IonCompileFunctions(const ModuleEnvironment& env, LifoAlloc& lifo,
-                    const FuncCompileInputVector& inputs, CompiledCode* code,
-                    UniqueChars* error);
+MOZ_MUST_USE bool IonCompileFunctions(const ModuleEnvironment& env, LifoAlloc& lifo,
+                                      const FuncCompileInputVector& inputs, CompiledCode* code,
+                                      UniqueChars* error);
 
-} // namespace wasm
-} // namespace js
+}  // namespace wasm
+}  // namespace js
 
-#endif // wasm_ion_compile_h
+#endif  // wasm_ion_compile_h

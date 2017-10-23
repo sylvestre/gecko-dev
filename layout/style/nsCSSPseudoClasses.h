@@ -21,9 +21,9 @@
 //   the specific contexts regardless of the value of the pref. If there
 //   is no pref for this pseudo class at all in this case, it is an
 //   internal-only pseudo class, which cannot be used anywhere else.
-#define CSS_PSEUDO_CLASS_ENABLED_MASK                  (3<<0)
-#define CSS_PSEUDO_CLASS_ENABLED_IN_UA_SHEETS          (1<<0)
-#define CSS_PSEUDO_CLASS_ENABLED_IN_CHROME             (1<<1)
+#define CSS_PSEUDO_CLASS_ENABLED_MASK (3 << 0)
+#define CSS_PSEUDO_CLASS_ENABLED_IN_UA_SHEETS (1 << 0)
+#define CSS_PSEUDO_CLASS_ENABLED_IN_CHROME (1 << 1)
 #define CSS_PSEUDO_CLASS_ENABLED_IN_UA_SHEETS_AND_CHROME \
   (CSS_PSEUDO_CLASS_ENABLED_IN_UA_SHEETS | CSS_PSEUDO_CLASS_ENABLED_IN_CHROME)
 
@@ -32,15 +32,14 @@ class nsAtom;
 namespace mozilla {
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 // The total count of CSSPseudoClassType is less than 256,
 // so use uint8_t as its underlying type.
 typedef uint8_t CSSPseudoClassTypeBase;
 enum class CSSPseudoClassType : CSSPseudoClassTypeBase
 {
-#define CSS_PSEUDO_CLASS(_name, _value, _flags, _pref) \
-  _name,
+#define CSS_PSEUDO_CLASS(_name, _value, _flags, _pref) _name,
 #include "nsCSSPseudoClassList.h"
 #undef CSS_PSEUDO_CLASS
   Count,
@@ -48,22 +47,20 @@ enum class CSSPseudoClassType : CSSPseudoClassTypeBase
   MAX
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 class nsCSSPseudoClasses
 {
   typedef mozilla::CSSPseudoClassType Type;
   typedef mozilla::CSSEnabledState EnabledState;
 
-public:
+ public:
   static void AddRefAtoms();
 
   static Type GetPseudoType(nsAtom* aAtom, EnabledState aEnabledState);
   static bool HasStringArg(Type aType);
   static bool HasNthPairArg(Type aType);
-  static bool HasSelectorListArg(Type aType) {
-    return aType == Type::any;
-  }
+  static bool HasSelectorListArg(Type aType) { return aType == Type::any; }
   static bool IsUserActionPseudoClass(Type aType);
 
   // Should only be used on types other than Count and NotPseudoClass
@@ -90,10 +87,10 @@ public:
   // Checks whether the given pseudo class matches the element.
   // It returns Some(result) if this function is able to check
   // the pseudo-class, Nothing() otherwise.
-  static mozilla::Maybe<bool>
-    MatchesElement(Type aType, const mozilla::dom::Element* aElement);
+  static mozilla::Maybe<bool> MatchesElement(
+      Type aType, const mozilla::dom::Element* aElement);
 
-private:
+ private:
   static const uint32_t kPseudoClassFlags[size_t(Type::Count)];
   static bool sPseudoClassEnabled[size_t(Type::Count)];
 };

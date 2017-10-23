@@ -28,28 +28,27 @@ bool gShutdownHasStarted = false;
 
 class ThreadInitializeRunnable final : public Runnable
 {
-public:
+ public:
   ThreadInitializeRunnable() : Runnable("dom::ThreadInitializeRunnable") {}
 
   NS_IMETHOD
   Run() override
   {
-     mozilla::StaticMutexAutoLock lock(gIPCBlobThreadMutex);
-     MOZ_ASSERT(gIPCBlobThread);
-     gIPCBlobThread->InitializeOnMainThread();
-     return NS_OK;
+    mozilla::StaticMutexAutoLock lock(gIPCBlobThreadMutex);
+    MOZ_ASSERT(gIPCBlobThread);
+    gIPCBlobThread->InitializeOnMainThread();
+    return NS_OK;
   }
 };
 
-class MigrateActorRunnable final : public Runnable
-                                 , public nsIIPCBackgroundChildCreateCallback
+class MigrateActorRunnable final : public Runnable,
+                                   public nsIIPCBackgroundChildCreateCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   explicit MigrateActorRunnable(IPCBlobInputStreamChild* aActor)
-    : Runnable("dom::MigrateActorRunnable")
-    , mActor(aActor)
+      : Runnable("dom::MigrateActorRunnable"), mActor(aActor)
   {
     MOZ_ASSERT(mActor);
   }
@@ -61,19 +60,17 @@ public:
     return NS_OK;
   }
 
-  void
-  ActorFailed() override
+  void ActorFailed() override
   {
     // We cannot continue. We are probably shutting down.
   }
 
-  void
-  ActorCreated(mozilla::ipc::PBackgroundChild* aActor) override
+  void ActorCreated(mozilla::ipc::PBackgroundChild* aActor) override
   {
     MOZ_ASSERT(mActor->State() == IPCBlobInputStreamChild::eInactiveMigrating);
 
-    if (aActor->SendPIPCBlobInputStreamConstructor(mActor, mActor->ID(),
-                                                   mActor->Size())) {
+    if (aActor->SendPIPCBlobInputStreamConstructor(
+            mActor, mActor->ID(), mActor->Size())) {
       // We need manually to increase the reference for this actor because the
       // IPC allocator method is not triggered. The Release() is called by IPDL
       // when the actor is deleted.
@@ -82,16 +79,17 @@ public:
     }
   }
 
-private:
+ private:
   ~MigrateActorRunnable() = default;
 
   RefPtr<IPCBlobInputStreamChild> mActor;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED(MigrateActorRunnable, Runnable,
-                  nsIIPCBackgroundChildCreateCallback)
+NS_IMPL_ISUPPORTS_INHERITED(MigrateActorRunnable,
+                            Runnable,
+                            nsIIPCBackgroundChildCreateCallback)
 
-} // anonymous
+}  // namespace
 
 NS_IMPL_ISUPPORTS(IPCBlobInputStreamThread, nsIObserver, nsIEventTarget)
 
@@ -163,7 +161,7 @@ IPCBlobInputStreamThread::InitializeOnMainThread()
   }
 
   nsresult rv =
-    obs->AddObserver(this, NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID, false);
+      obs->AddObserver(this, NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID, false);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -254,10 +252,11 @@ IPCBlobInputStreamThread::DispatchFromScript(nsIRunnable* aRunnable,
 }
 
 NS_IMETHODIMP
-IPCBlobInputStreamThread::DelayedDispatch(already_AddRefed<nsIRunnable>, uint32_t)
+IPCBlobInputStreamThread::DelayedDispatch(already_AddRefed<nsIRunnable>,
+                                          uint32_t)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

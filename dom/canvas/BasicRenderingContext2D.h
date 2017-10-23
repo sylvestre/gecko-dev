@@ -10,16 +10,17 @@
 namespace mozilla {
 namespace dom {
 
-class HTMLImageElementOrSVGImageElementOrHTMLCanvasElementOrHTMLVideoElementOrImageBitmap;
+class
+    HTMLImageElementOrSVGImageElementOrHTMLCanvasElementOrHTMLVideoElementOrImageBitmap;
 typedef HTMLImageElementOrSVGImageElementOrHTMLCanvasElementOrHTMLVideoElementOrImageBitmap
-  CanvasImageSource;
+    CanvasImageSource;
 
 /*
  * BasicRenderingContext2D
  */
 class BasicRenderingContext2D
 {
-public:
+ public:
   //
   // CanvasState
   //
@@ -70,29 +71,29 @@ public:
   // CanvasFillStrokeStyles
   //
   virtual void GetStrokeStyle(
-    OwningStringOrCanvasGradientOrCanvasPattern& aValue) = 0;
+      OwningStringOrCanvasGradientOrCanvasPattern& aValue) = 0;
   virtual void SetStrokeStyle(
-    const StringOrCanvasGradientOrCanvasPattern& aValue) = 0;
+      const StringOrCanvasGradientOrCanvasPattern& aValue) = 0;
   virtual void GetFillStyle(
-    OwningStringOrCanvasGradientOrCanvasPattern& aValue) = 0;
+      OwningStringOrCanvasGradientOrCanvasPattern& aValue) = 0;
   virtual void SetFillStyle(
-    const StringOrCanvasGradientOrCanvasPattern& aValue) = 0;
+      const StringOrCanvasGradientOrCanvasPattern& aValue) = 0;
   virtual already_AddRefed<CanvasGradient> CreateLinearGradient(double aX0,
                                                                 double aY0,
                                                                 double aX1,
                                                                 double aY1) = 0;
   virtual already_AddRefed<CanvasGradient> CreateRadialGradient(
-    double aX0,
-    double aY0,
-    double aR0,
-    double aX1,
-    double aY1,
-    double aR1,
-    ErrorResult& aError) = 0;
+      double aX0,
+      double aY0,
+      double aR0,
+      double aX1,
+      double aY1,
+      double aR1,
+      ErrorResult& aError) = 0;
   virtual already_AddRefed<CanvasPattern> CreatePattern(
-    const CanvasImageSource& aElement,
-    const nsAString& aRepeat,
-    ErrorResult& aError) = 0;
+      const CanvasImageSource& aElement,
+      const nsAString& aRepeat,
+      ErrorResult& aError) = 0;
   //
   // CanvasShadowStyles
   //
@@ -195,7 +196,7 @@ public:
                        ErrorResult& aError) = 0;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* BasicRenderingContext2D_h */

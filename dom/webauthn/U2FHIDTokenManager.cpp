@@ -24,11 +24,13 @@ u2f_register_callback(uint64_t aTransactionId, rust_u2f_result* aResult)
 
   UniquePtr<U2FResult> rv = MakeUnique<U2FResult>(aTransactionId, aResult);
   nsCOMPtr<nsIRunnable> r(NewNonOwningRunnableMethod<UniquePtr<U2FResult>&&>(
-      "U2FHIDTokenManager::HandleRegisterResult", gInstance,
-      &U2FHIDTokenManager::HandleRegisterResult, Move(rv)));
+      "U2FHIDTokenManager::HandleRegisterResult",
+      gInstance,
+      &U2FHIDTokenManager::HandleRegisterResult,
+      Move(rv)));
 
-  MOZ_ALWAYS_SUCCEEDS(gPBackgroundThread->Dispatch(r.forget(),
-                                                   NS_DISPATCH_NORMAL));
+  MOZ_ALWAYS_SUCCEEDS(
+      gPBackgroundThread->Dispatch(r.forget(), NS_DISPATCH_NORMAL));
 }
 
 static void
@@ -41,11 +43,13 @@ u2f_sign_callback(uint64_t aTransactionId, rust_u2f_result* aResult)
 
   UniquePtr<U2FResult> rv = MakeUnique<U2FResult>(aTransactionId, aResult);
   nsCOMPtr<nsIRunnable> r(NewNonOwningRunnableMethod<UniquePtr<U2FResult>&&>(
-      "U2FHIDTokenManager::HandleSignResult", gInstance,
-      &U2FHIDTokenManager::HandleSignResult, Move(rv)));
+      "U2FHIDTokenManager::HandleSignResult",
+      gInstance,
+      &U2FHIDTokenManager::HandleSignResult,
+      Move(rv)));
 
-  MOZ_ALWAYS_SUCCEEDS(gPBackgroundThread->Dispatch(r.forget(),
-                                                   NS_DISPATCH_NORMAL));
+  MOZ_ALWAYS_SUCCEEDS(
+      gPBackgroundThread->Dispatch(r.forget(), NS_DISPATCH_NORMAL));
 }
 
 U2FHIDTokenManager::U2FHIDTokenManager() : mTransactionId(0)
@@ -100,10 +104,11 @@ U2FHIDTokenManager::~U2FHIDTokenManager()
 // *      attestation signature
 //
 RefPtr<U2FRegisterPromise>
-U2FHIDTokenManager::Register(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-                             const nsTArray<uint8_t>& aApplication,
-                             const nsTArray<uint8_t>& aChallenge,
-                             uint32_t aTimeoutMS)
+U2FHIDTokenManager::Register(
+    const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+    const nsTArray<uint8_t>& aApplication,
+    const nsTArray<uint8_t>& aChallenge,
+    uint32_t aTimeoutMS)
 {
   MOZ_ASSERT(NS_GetCurrentThread() == gPBackgroundThread);
 
@@ -118,7 +123,8 @@ U2FHIDTokenManager::Register(const nsTArray<WebAuthnScopedCredentialDescriptor>&
                                          U2FKeyHandles(aDescriptors).Get());
 
   if (mTransactionId == 0) {
-    return U2FRegisterPromise::CreateAndReject(NS_ERROR_DOM_UNKNOWN_ERR, __func__);
+    return U2FRegisterPromise::CreateAndReject(NS_ERROR_DOM_UNKNOWN_ERR,
+                                               __func__);
   }
 
   return mRegisterPromise.Ensure(__func__);
@@ -141,10 +147,11 @@ U2FHIDTokenManager::Register(const nsTArray<WebAuthnScopedCredentialDescriptor>&
 //  *     Signature
 //
 RefPtr<U2FSignPromise>
-U2FHIDTokenManager::Sign(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-                         const nsTArray<uint8_t>& aApplication,
-                         const nsTArray<uint8_t>& aChallenge,
-                         uint32_t aTimeoutMS)
+U2FHIDTokenManager::Sign(
+    const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+    const nsTArray<uint8_t>& aApplication,
+    const nsTArray<uint8_t>& aChallenge,
+    uint32_t aTimeoutMS)
 {
   MOZ_ASSERT(NS_GetCurrentThread() == gPBackgroundThread);
 
@@ -221,5 +228,5 @@ U2FHIDTokenManager::HandleSignResult(UniquePtr<U2FResult>&& aResult)
   mSignPromise.Resolve(Move(result), __func__);
 }
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla

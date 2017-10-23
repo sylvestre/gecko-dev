@@ -12,9 +12,13 @@
 #include "nsISupportsImpl.h"
 #include "nsString.h"
 
-#define BLOBIMPL_IID \
-  { 0xbccb3275, 0x6778, 0x4ac5, \
-    { 0xaf, 0x03, 0x90, 0xed, 0x37, 0xad, 0xdf, 0x5d } }
+#define BLOBIMPL_IID                                 \
+  {                                                  \
+    0xbccb3275, 0x6778, 0x4ac5,                      \
+    {                                                \
+      0xaf, 0x03, 0x90, 0xed, 0x37, 0xad, 0xdf, 0x5d \
+    }                                                \
+  }
 
 class nsIInputStream;
 
@@ -25,7 +29,7 @@ namespace dom {
 // because this class must be ref-counted and it has to work with IPC.
 class BlobImpl : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(BLOBIMPL_IID)
   NS_DECL_THREADSAFE_ISUPPORTS
 
@@ -45,7 +49,8 @@ public:
                               SystemCallerGuarantee /* unused */,
                               ErrorResult& aRv) const = 0;
 
-  virtual void GetMozFullPathInternal(nsAString& aFileName, ErrorResult& aRv) const = 0;
+  virtual void GetMozFullPathInternal(nsAString& aFileName,
+                                      ErrorResult& aRv) const = 0;
 
   virtual uint64_t GetSize(ErrorResult& aRv) = 0;
 
@@ -61,16 +66,17 @@ public:
    */
   virtual uint64_t GetSerialNumber() const = 0;
 
-  already_AddRefed<BlobImpl>
-  Slice(const Optional<int64_t>& aStart, const Optional<int64_t>& aEnd,
-        const nsAString& aContentType, ErrorResult& aRv);
+  already_AddRefed<BlobImpl> Slice(const Optional<int64_t>& aStart,
+                                   const Optional<int64_t>& aEnd,
+                                   const nsAString& aContentType,
+                                   ErrorResult& aRv);
 
-  virtual already_AddRefed<BlobImpl>
-  CreateSlice(uint64_t aStart, uint64_t aLength,
-              const nsAString& aContentType, ErrorResult& aRv) = 0;
+  virtual already_AddRefed<BlobImpl> CreateSlice(uint64_t aStart,
+                                                 uint64_t aLength,
+                                                 const nsAString& aContentType,
+                                                 ErrorResult& aRv) = 0;
 
-  virtual const nsTArray<RefPtr<BlobImpl>>*
-  GetSubBlobImpls() const = 0;
+  virtual const nsTArray<RefPtr<BlobImpl>>* GetSubBlobImpls() const = 0;
 
   virtual void CreateInputStream(nsIInputStream** aStream,
                                  ErrorResult& aRv) = 0;
@@ -101,24 +107,18 @@ public:
 
   // Returns true if the BlobImpl is backed by an nsIFile and the underlying
   // file is a directory.
-  virtual bool IsDirectory() const
-  {
-    return false;
-  }
+  virtual bool IsDirectory() const { return false; }
 
   // True if this implementation can be sent to other threads.
-  virtual bool MayBeClonedToOtherThreads() const
-  {
-    return true;
-  }
+  virtual bool MayBeClonedToOtherThreads() const { return true; }
 
-protected:
+ protected:
   virtual ~BlobImpl() {}
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(BlobImpl, BLOBIMPL_IID)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_BlobImpl_h
+#endif  // mozilla_dom_BlobImpl_h

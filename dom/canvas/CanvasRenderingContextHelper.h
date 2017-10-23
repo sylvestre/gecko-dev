@@ -22,7 +22,8 @@ namespace dom {
 class BlobCallback;
 class EncodeCompleteCallback;
 
-enum class CanvasContextType : uint8_t {
+enum class CanvasContextType : uint8_t
+{
   NoContext,
   Canvas2D,
   WebGL1,
@@ -36,16 +37,16 @@ enum class CanvasContextType : uint8_t {
  */
 class CanvasRenderingContextHelper
 {
-public:
-  virtual already_AddRefed<nsISupports>
-  GetContext(JSContext* aCx,
-             const nsAString& aContextId,
-             JS::Handle<JS::Value> aContextOptions,
-             ErrorResult& aRv);
+ public:
+  virtual already_AddRefed<nsISupports> GetContext(
+      JSContext* aCx,
+      const nsAString& aContextId,
+      JS::Handle<JS::Value> aContextOptions,
+      ErrorResult& aRv);
 
   virtual bool GetOpaqueAttr() = 0;
 
-protected:
+ protected:
   virtual nsresult UpdateContext(JSContext* aCx,
                                  JS::Handle<JS::Value> aNewContextOptions,
                                  ErrorResult& aRvForDictionaryInit);
@@ -56,20 +57,27 @@ protected:
                                nsAString& outParams,
                                bool* const outCustomParseOptions);
 
-  void ToBlob(JSContext* aCx, nsIGlobalObject* global, BlobCallback& aCallback,
-              const nsAString& aType, JS::Handle<JS::Value> aParams,
-              bool aUsePlaceholder, ErrorResult& aRv);
+  void ToBlob(JSContext* aCx,
+              nsIGlobalObject* global,
+              BlobCallback& aCallback,
+              const nsAString& aType,
+              JS::Handle<JS::Value> aParams,
+              bool aUsePlaceholder,
+              ErrorResult& aRv);
 
-  void ToBlob(JSContext* aCx, nsIGlobalObject* aGlobal, EncodeCompleteCallback* aCallback,
-              const nsAString& aType, JS::Handle<JS::Value> aParams,
-              bool aUsePlaceholder, ErrorResult& aRv);
+  void ToBlob(JSContext* aCx,
+              nsIGlobalObject* aGlobal,
+              EncodeCompleteCallback* aCallback,
+              const nsAString& aType,
+              JS::Handle<JS::Value> aParams,
+              bool aUsePlaceholder,
+              ErrorResult& aRv);
 
-  virtual already_AddRefed<nsICanvasRenderingContextInternal>
-  CreateContext(CanvasContextType aContextType);
+  virtual already_AddRefed<nsICanvasRenderingContextInternal> CreateContext(
+      CanvasContextType aContextType);
 
-  already_AddRefed<nsICanvasRenderingContextInternal>
-  CreateContextHelper(CanvasContextType aContextType,
-                      layers::LayersBackend aCompositorBackend);
+  already_AddRefed<nsICanvasRenderingContextInternal> CreateContextHelper(
+      CanvasContextType aContextType, layers::LayersBackend aCompositorBackend);
 
   virtual nsIntSize GetWidthHeight() = 0;
 
@@ -77,7 +85,7 @@ protected:
   nsCOMPtr<nsICanvasRenderingContextInternal> mCurrentContext;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // MOZILLA_DOM_CANVASRENDERINGCONTEXTHELPER_H_
+#endif  // MOZILLA_DOM_CANVASRENDERINGCONTEXTHELPER_H_

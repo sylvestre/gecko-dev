@@ -20,9 +20,8 @@ namespace js {
  * Proxy::foo entry point below or (b) an override in SecurityWrapper. See bug
  * 945826 comment 0.
  */
-class Proxy
-{
-  public:
+class Proxy {
+   public:
     /* Standard internal methods. */
     static bool getOwnPropertyDescriptor(JSContext* cx, HandleObject proxy, HandleId id,
                                          MutableHandle<JS::PropertyDescriptor> desc);
@@ -42,8 +41,8 @@ class Proxy
     static bool has(JSContext* cx, HandleObject proxy, HandleId id, bool* bp);
     static bool get(JSContext* cx, HandleObject proxy, HandleValue receiver, HandleId id,
                     MutableHandleValue vp);
-    static bool getInternal(JSContext* cx, HandleObject proxy, HandleValue receiver,
-                            HandleId id, MutableHandleValue vp);
+    static bool getInternal(JSContext* cx, HandleObject proxy, HandleValue receiver, HandleId id,
+                            MutableHandleValue vp);
     static bool set(JSContext* cx, HandleObject proxy, HandleId id, HandleValue v,
                     HandleValue receiver, ObjectOpResult& result);
     static bool setInternal(JSContext* cx, HandleObject proxy, HandleId id, HandleValue v,
@@ -76,34 +75,26 @@ class Proxy
     static void trace(JSTracer* trc, JSObject* obj);
 };
 
-bool
-proxy_Call(JSContext* cx, unsigned argc, Value* vp);
-bool
-proxy_Construct(JSContext* cx, unsigned argc, Value* vp);
-size_t
-proxy_ObjectMoved(JSObject* obj, JSObject* old);
+bool proxy_Call(JSContext* cx, unsigned argc, Value* vp);
+bool proxy_Construct(JSContext* cx, unsigned argc, Value* vp);
+size_t proxy_ObjectMoved(JSObject* obj, JSObject* old);
 
 // These functions are used by JIT code
 
-bool
-ProxyHas(JSContext* cx, HandleObject proxy, HandleValue idVal, MutableHandleValue result);
+bool ProxyHas(JSContext* cx, HandleObject proxy, HandleValue idVal, MutableHandleValue result);
 
-bool
-ProxyHasOwn(JSContext* cx, HandleObject proxy, HandleValue idVal, MutableHandleValue result);
+bool ProxyHasOwn(JSContext* cx, HandleObject proxy, HandleValue idVal, MutableHandleValue result);
 
-bool
-ProxyGetProperty(JSContext* cx, HandleObject proxy, HandleId id, MutableHandleValue vp);
+bool ProxyGetProperty(JSContext* cx, HandleObject proxy, HandleId id, MutableHandleValue vp);
 
-bool
-ProxyGetPropertyByValue(JSContext* cx, HandleObject proxy, HandleValue idVal,
-                        MutableHandleValue vp);
+bool ProxyGetPropertyByValue(JSContext* cx, HandleObject proxy, HandleValue idVal,
+                             MutableHandleValue vp);
 
-bool
-ProxySetProperty(JSContext* cx, HandleObject proxy, HandleId id, HandleValue val, bool strict);
+bool ProxySetProperty(JSContext* cx, HandleObject proxy, HandleId id, HandleValue val,
+                      bool strict);
 
-bool
-ProxySetPropertyByValue(JSContext* cx, HandleObject proxy, HandleValue idVal, HandleValue val,
-                        bool strict);
+bool ProxySetPropertyByValue(JSContext* cx, HandleObject proxy, HandleValue idVal, HandleValue val,
+                             bool strict);
 
 } /* namespace js */
 

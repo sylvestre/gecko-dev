@@ -33,7 +33,7 @@
 
 namespace mozilla {
 
-static const char* acLogTag ="WebrtcAudioSessionConduit";
+static const char* acLogTag = "WebrtcAudioSessionConduit";
 #ifdef LOGTAG
 #undef LOGTAG
 #endif
@@ -45,19 +45,19 @@ const unsigned int WebrtcAudioConduit::CODEC_PLNAME_SIZE = 32;
 /**
  * Factory Method for AudioConduit
  */
-RefPtr<AudioSessionConduit> AudioSessionConduit::Create()
+RefPtr<AudioSessionConduit>
+AudioSessionConduit::Create()
 {
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Only call on main thread");
 
   WebrtcAudioConduit* obj = new WebrtcAudioConduit();
-  if(obj->Init() != kMediaConduitNoError)
-  {
-    CSFLogError(LOGTAG,  "%s AudioConduit Init Failed ", __FUNCTION__);
+  if (obj->Init() != kMediaConduitNoError) {
+    CSFLogError(LOGTAG, "%s AudioConduit Init Failed ", __FUNCTION__);
     delete obj;
     return nullptr;
   }
-  CSFLogDebug(LOGTAG,  "%s Successfully created AudioConduit ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s Successfully created AudioConduit ", __FUNCTION__);
   return obj;
 }
 
@@ -68,27 +68,23 @@ WebrtcAudioConduit::~WebrtcAudioConduit()
 {
   NS_ASSERTION(NS_IsMainThread(), "Only call on main thread");
 
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
-  for(auto & codec : mRecvCodecList)
-  {
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
+  for (auto& codec : mRecvCodecList) {
     delete codec;
   }
 
   // The first one of a pair to be deleted shuts down media for both
-  if(mPtrVoEXmedia)
-  {
+  if (mPtrVoEXmedia) {
     mPtrVoEXmedia->SetExternalRecordingStatus(false);
     mPtrVoEXmedia->SetExternalPlayoutStatus(false);
   }
 
   //Deal with the transport
-  if(mPtrVoENetwork)
-  {
+  if (mPtrVoENetwork) {
     mPtrVoENetwork->DeRegisterExternalTransport(mChannel);
   }
 
-  if(mPtrVoEBase)
-  {
+  if (mPtrVoEBase) {
     mPtrVoEBase->StopPlayout(mChannel);
     mPtrVoEBase->StopSend(mChannel);
     mPtrVoEBase->StopReceive(mChannel);
@@ -110,16 +106,17 @@ WebrtcAudioConduit::~WebrtcAudioConduit()
   mPtrVoERTP_RTCP = nullptr;
   mPtrRTP = nullptr;
 
-  if (mVoiceEngine)
-  {
+  if (mVoiceEngine) {
     webrtc::VoiceEngine::Delete(mVoiceEngine);
   }
 }
 
-bool WebrtcAudioConduit::SetLocalSSRCs(const std::vector<unsigned int> & aSSRCs)
+bool
+WebrtcAudioConduit::SetLocalSSRCs(const std::vector<unsigned int>& aSSRCs)
 {
   // This should hold true until the WebRTC.org VoE refactor
-  MOZ_ASSERT(aSSRCs.size() == 1,"WebrtcAudioConduit::SetLocalSSRCs accepts exactly 1 ssrc.");
+  MOZ_ASSERT(aSSRCs.size() == 1,
+             "WebrtcAudioConduit::SetLocalSSRCs accepts exactly 1 ssrc.");
 
   std::vector<unsigned int> oldSsrcs = GetLocalSSRCs();
   if (oldSsrcs.empty()) {
@@ -148,19 +145,24 @@ bool WebrtcAudioConduit::SetLocalSSRCs(const std::vector<unsigned int> & aSSRCs)
   return true;
 }
 
-std::vector<unsigned int> WebrtcAudioConduit::GetLocalSSRCs() const {
+std::vector<unsigned int>
+WebrtcAudioConduit::GetLocalSSRCs() const
+{
   unsigned int ssrc;
   if (!mPtrRTP->GetLocalSSRC(mChannel, ssrc)) {
-    return std::vector<unsigned int>(1,ssrc);
+    return std::vector<unsigned int>(1, ssrc);
   }
   return std::vector<unsigned int>();
 }
 
-bool WebrtcAudioConduit::GetRemoteSSRC(unsigned int* ssrc) {
+bool
+WebrtcAudioConduit::GetRemoteSSRC(unsigned int* ssrc)
+{
   return !mPtrRTP->GetRemoteSSRC(mChannel, *ssrc);
 }
 
-bool WebrtcAudioConduit::SetLocalCNAME(const char* cname)
+bool
+WebrtcAudioConduit::SetLocalCNAME(const char* cname)
 {
   char temp[256];
   strncpy(temp, cname, sizeof(temp) - 1);
@@ -168,7 +170,8 @@ bool WebrtcAudioConduit::SetLocalCNAME(const char* cname)
   return !mPtrRTP->SetRTCP_CNAME(mChannel, temp);
 }
 
-bool WebrtcAudioConduit::SetLocalMID(const std::string& mid)
+bool
+WebrtcAudioConduit::SetLocalMID(const std::string& mid)
 {
   if (mPtrRTP->SetLocalMID(mChannel, mid.c_str())) {
     return false;
@@ -176,8 +179,9 @@ bool WebrtcAudioConduit::SetLocalMID(const std::string& mid)
   return true;
 }
 
-bool WebrtcAudioConduit::GetSendPacketTypeStats(
-  webrtc::RtcpPacketTypeCounter* aPacketCounts)
+bool
+WebrtcAudioConduit::GetSendPacketTypeStats(
+    webrtc::RtcpPacketTypeCounter* aPacketCounts)
 {
   if (!mEngineTransmitting) {
     return false;
@@ -185,8 +189,9 @@ bool WebrtcAudioConduit::GetSendPacketTypeStats(
   return !mPtrVoERTP_RTCP->GetRTCPPacketTypeCounters(mChannel, *aPacketCounts);
 }
 
-bool WebrtcAudioConduit::GetRecvPacketTypeStats(
-  webrtc::RtcpPacketTypeCounter* aPacketCounts)
+bool
+WebrtcAudioConduit::GetRecvPacketTypeStats(
+    webrtc::RtcpPacketTypeCounter* aPacketCounts)
 {
   if (!mEngineReceiving) {
     return false;
@@ -194,37 +199,43 @@ bool WebrtcAudioConduit::GetRecvPacketTypeStats(
   return !mPtrRTP->GetRTCPPacketTypeCounters(mChannel, *aPacketCounts);
 }
 
-bool WebrtcAudioConduit::GetAVStats(int32_t* jitterBufferDelayMs,
-                                    int32_t* playoutBufferDelayMs,
-                                    int32_t* avSyncOffsetMs) {
-  return !mPtrVoEVideoSync->GetDelayEstimate(mChannel,
-                                             jitterBufferDelayMs,
-                                             playoutBufferDelayMs,
-                                             avSyncOffsetMs);
+bool
+WebrtcAudioConduit::GetAVStats(int32_t* jitterBufferDelayMs,
+                               int32_t* playoutBufferDelayMs,
+                               int32_t* avSyncOffsetMs)
+{
+  return !mPtrVoEVideoSync->GetDelayEstimate(
+      mChannel, jitterBufferDelayMs, playoutBufferDelayMs, avSyncOffsetMs);
 }
 
-bool WebrtcAudioConduit::GetRTPStats(unsigned int* jitterMs,
-                                     unsigned int* cumulativeLost) {
+bool
+WebrtcAudioConduit::GetRTPStats(unsigned int* jitterMs,
+                                unsigned int* cumulativeLost)
+{
   unsigned int maxJitterMs = 0;
   unsigned int discardedPackets;
   *jitterMs = 0;
   *cumulativeLost = 0;
-  return !mPtrRTP->GetRTPStatistics(mChannel, *jitterMs, maxJitterMs,
-                                    discardedPackets, *cumulativeLost);
+  return !mPtrRTP->GetRTPStatistics(
+      mChannel, *jitterMs, maxJitterMs, discardedPackets, *cumulativeLost);
 }
 
 DOMHighResTimeStamp
-NTPtoDOMHighResTimeStamp(uint32_t ntpHigh, uint32_t ntpLow) {
+NTPtoDOMHighResTimeStamp(uint32_t ntpHigh, uint32_t ntpLow)
+{
   return (uint32_t(ntpHigh - webrtc::kNtpJan1970) +
-          double(ntpLow) / webrtc::kMagicNtpFractionalUnit) * 1000;
+          double(ntpLow) / webrtc::kMagicNtpFractionalUnit) *
+         1000;
 }
 
-bool WebrtcAudioConduit::GetRTCPReceiverReport(DOMHighResTimeStamp* timestamp,
-                                               uint32_t* jitterMs,
-                                               uint32_t* packetsReceived,
-                                               uint64_t* bytesReceived,
-                                               uint32_t* cumulativeLost,
-                                               int32_t* rttMs) {
+bool
+WebrtcAudioConduit::GetRTCPReceiverReport(DOMHighResTimeStamp* timestamp,
+                                          uint32_t* jitterMs,
+                                          uint32_t* packetsReceived,
+                                          uint64_t* bytesReceived,
+                                          uint32_t* cumulativeLost,
+                                          int32_t* rttMs)
+{
   double fractionLost;
   int64_t timestampTmp;
   int64_t rttMsTmp;
@@ -240,38 +251,46 @@ bool WebrtcAudioConduit::GetRTCPReceiverReport(DOMHighResTimeStamp* timestamp,
   return res;
 }
 
-bool WebrtcAudioConduit::GetRTCPSenderReport(DOMHighResTimeStamp* timestamp,
-                                             unsigned int* packetsSent,
-                                             uint64_t* bytesSent) {
+bool
+WebrtcAudioConduit::GetRTCPSenderReport(DOMHighResTimeStamp* timestamp,
+                                        unsigned int* packetsSent,
+                                        uint64_t* bytesSent)
+{
   webrtc::RTCPSenderInfo senderInfo;
-  webrtc::RtpRtcp * rtpRtcpModule;
-  webrtc::RtpReceiver * rtp_receiver;
+  webrtc::RtpRtcp* rtpRtcpModule;
+  webrtc::RtpReceiver* rtp_receiver;
   bool result =
-    !mPtrVoEVideoSync->GetRtpRtcp(mChannel,&rtpRtcpModule,&rtp_receiver) &&
-    !rtpRtcpModule->RemoteRTCPStat(&senderInfo);
-  if (result){
-    *timestamp = NTPtoDOMHighResTimeStamp(senderInfo.NTPseconds,
-                                          senderInfo.NTPfraction);
+      !mPtrVoEVideoSync->GetRtpRtcp(mChannel, &rtpRtcpModule, &rtp_receiver) &&
+      !rtpRtcpModule->RemoteRTCPStat(&senderInfo);
+  if (result) {
+    *timestamp =
+        NTPtoDOMHighResTimeStamp(senderInfo.NTPseconds, senderInfo.NTPfraction);
     *packetsSent = senderInfo.sendPacketCount;
     *bytesSent = senderInfo.sendOctetCount;
-   }
-   return result;
- }
+  }
+  return result;
+}
 
-bool WebrtcAudioConduit::SetDtmfPayloadType(unsigned char type, int freq) {
+bool
+WebrtcAudioConduit::SetDtmfPayloadType(unsigned char type, int freq)
+{
   CSFLogInfo(LOGTAG, "%s : setting dtmf payload %d", __FUNCTION__, (int)type);
 
   int result = mChannelProxy->SetSendTelephoneEventPayloadType(type, freq);
   if (result == -1) {
-    CSFLogError(LOGTAG, "%s Failed call to SetSendTelephoneEventPayloadType(%u, %d)",
-                __FUNCTION__, type, freq);
+    CSFLogError(LOGTAG,
+                "%s Failed call to SetSendTelephoneEventPayloadType(%u, %d)",
+                __FUNCTION__,
+                type,
+                freq);
   }
   return result != -1;
 }
 
-bool WebrtcAudioConduit::InsertDTMFTone(int channel, int eventCode,
-                                        bool outOfBand, int lengthMs,
-                                        int attenuationDb) {
+bool
+WebrtcAudioConduit::InsertDTMFTone(
+    int channel, int eventCode, bool outOfBand, int lengthMs, int attenuationDb)
+{
   NS_ASSERTION(!NS_IsMainThread(), "Do not call on main thread");
 
   if (!mVoiceEngine || !mDtmfEnabled) {
@@ -279,7 +298,7 @@ bool WebrtcAudioConduit::InsertDTMFTone(int channel, int eventCode,
   }
 
   int result = 0;
-  if (outOfBand){
+  if (outOfBand) {
     result = mChannelProxy->SendTelephoneEventOutband(eventCode, lengthMs);
   }
   return result != -1;
@@ -288,122 +307,120 @@ bool WebrtcAudioConduit::InsertDTMFTone(int channel, int eventCode,
 /*
  * WebRTCAudioConduit Implementation
  */
-MediaConduitErrorCode WebrtcAudioConduit::Init()
+MediaConduitErrorCode
+WebrtcAudioConduit::Init()
 {
-  CSFLogDebug(LOGTAG,  "%s this=%p", __FUNCTION__, this);
+  CSFLogDebug(LOGTAG, "%s this=%p", __FUNCTION__, this);
 
 #ifdef MOZ_WIDGET_ANDROID
-    jobject context = jsjni_GetGlobalContextRef();
-    // get the JVM
-    JavaVM *jvm = jsjni_GetVM();
+  jobject context = jsjni_GetGlobalContextRef();
+  // get the JVM
+  JavaVM* jvm = jsjni_GetVM();
 
-    if (webrtc::VoiceEngine::SetAndroidObjects(jvm, (void*)context) != 0) {
-      CSFLogError(LOGTAG, "%s Unable to set Android objects", __FUNCTION__);
-      return kMediaConduitSessionNotInited;
-    }
+  if (webrtc::VoiceEngine::SetAndroidObjects(jvm, (void*)context) != 0) {
+    CSFLogError(LOGTAG, "%s Unable to set Android objects", __FUNCTION__);
+    return kMediaConduitSessionNotInited;
+  }
 #endif
 
   // Per WebRTC APIs below function calls return nullptr on failure
-  if(!(mVoiceEngine = webrtc::VoiceEngine::Create()))
-  {
+  if (!(mVoiceEngine = webrtc::VoiceEngine::Create())) {
     CSFLogError(LOGTAG, "%s Unable to create voice engine", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-  if(!(mPtrVoEBase = VoEBase::GetInterface(mVoiceEngine)))
-  {
+  if (!(mPtrVoEBase = VoEBase::GetInterface(mVoiceEngine))) {
     CSFLogError(LOGTAG, "%s Unable to initialize VoEBase", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
   // init the engine with our audio device layer
-  if(mPtrVoEBase->Init() == -1)
-  {
+  if (mPtrVoEBase->Init() == -1) {
     CSFLogError(LOGTAG, "%s VoiceEngine Base Not Initialized", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-  if(!(mPtrVoENetwork = VoENetwork::GetInterface(mVoiceEngine)))
-  {
+  if (!(mPtrVoENetwork = VoENetwork::GetInterface(mVoiceEngine))) {
     CSFLogError(LOGTAG, "%s Unable to initialize VoENetwork", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-  if(!(mPtrVoECodec = VoECodec::GetInterface(mVoiceEngine)))
-  {
+  if (!(mPtrVoECodec = VoECodec::GetInterface(mVoiceEngine))) {
     CSFLogError(LOGTAG, "%s Unable to initialize VoEBCodec", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-  if(!(mPtrVoEProcessing = VoEAudioProcessing::GetInterface(mVoiceEngine)))
-  {
+  if (!(mPtrVoEProcessing = VoEAudioProcessing::GetInterface(mVoiceEngine))) {
     CSFLogError(LOGTAG, "%s Unable to initialize VoEProcessing", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
-  if(!(mPtrVoEXmedia = VoEExternalMedia::GetInterface(mVoiceEngine)))
-  {
-    CSFLogError(LOGTAG, "%s Unable to initialize VoEExternalMedia", __FUNCTION__);
+  if (!(mPtrVoEXmedia = VoEExternalMedia::GetInterface(mVoiceEngine))) {
+    CSFLogError(
+        LOGTAG, "%s Unable to initialize VoEExternalMedia", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
-  if(!(mPtrVoERTP_RTCP = VoERTP_RTCP::GetInterface(mVoiceEngine)))
-  {
+  if (!(mPtrVoERTP_RTCP = VoERTP_RTCP::GetInterface(mVoiceEngine))) {
     CSFLogError(LOGTAG, "%s Unable to initialize VoERTP_RTCP", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-  if(!(mPtrVoEVideoSync = VoEVideoSync::GetInterface(mVoiceEngine)))
-  {
+  if (!(mPtrVoEVideoSync = VoEVideoSync::GetInterface(mVoiceEngine))) {
     CSFLogError(LOGTAG, "%s Unable to initialize VoEVideoSync", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
-  if (!(mPtrRTP = webrtc::VoERTP_RTCP::GetInterface(mVoiceEngine)))
-  {
-    CSFLogError(LOGTAG, "%s Unable to get audio RTP/RTCP interface ",
-                __FUNCTION__);
+  if (!(mPtrRTP = webrtc::VoERTP_RTCP::GetInterface(mVoiceEngine))) {
+    CSFLogError(
+        LOGTAG, "%s Unable to get audio RTP/RTCP interface ", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-  if( (mChannel = mPtrVoEBase->CreateChannel()) == -1)
-  {
-    CSFLogError(LOGTAG, "%s VoiceEngine Channel creation failed",__FUNCTION__);
+  if ((mChannel = mPtrVoEBase->CreateChannel()) == -1) {
+    CSFLogError(LOGTAG, "%s VoiceEngine Channel creation failed", __FUNCTION__);
     return kMediaConduitChannelError;
   }
   // Needed to access TelephoneEvent APIs in 57 if we're not using Call/audio_send_stream/etc
-  webrtc::VoiceEngineImpl* s = static_cast<webrtc::VoiceEngineImpl*>(mVoiceEngine);
+  webrtc::VoiceEngineImpl* s =
+      static_cast<webrtc::VoiceEngineImpl*>(mVoiceEngine);
   mChannelProxy = s->GetChannelProxy(mChannel);
   MOZ_ASSERT(mChannelProxy);
 
-  CSFLogDebug(LOGTAG, "%s Channel Created %d ",__FUNCTION__, mChannel);
+  CSFLogDebug(LOGTAG, "%s Channel Created %d ", __FUNCTION__, mChannel);
 
-  if(mPtrVoENetwork->RegisterExternalTransport(mChannel, *this) == -1)
-  {
-    CSFLogError(LOGTAG, "%s VoiceEngine, External Transport Failed",__FUNCTION__);
+  if (mPtrVoENetwork->RegisterExternalTransport(mChannel, *this) == -1) {
+    CSFLogError(
+        LOGTAG, "%s VoiceEngine, External Transport Failed", __FUNCTION__);
     return kMediaConduitTransportRegistrationFail;
   }
 
-  if(mPtrVoEXmedia->SetExternalRecordingStatus(true) == -1)
-  {
-    CSFLogError(LOGTAG, "%s SetExternalRecordingStatus Failed %d",__FUNCTION__,
+  if (mPtrVoEXmedia->SetExternalRecordingStatus(true) == -1) {
+    CSFLogError(LOGTAG,
+                "%s SetExternalRecordingStatus Failed %d",
+                __FUNCTION__,
                 mPtrVoEBase->LastError());
     return kMediaConduitExternalPlayoutError;
   }
 
-  if(mPtrVoEXmedia->SetExternalPlayoutStatus(true) == -1)
-  {
-    CSFLogError(LOGTAG, "%s SetExternalPlayoutStatus Failed %d ",__FUNCTION__,
+  if (mPtrVoEXmedia->SetExternalPlayoutStatus(true) == -1) {
+    CSFLogError(LOGTAG,
+                "%s SetExternalPlayoutStatus Failed %d ",
+                __FUNCTION__,
                 mPtrVoEBase->LastError());
     return kMediaConduitExternalRecordingError;
   }
 
-  CSFLogDebug(LOGTAG ,  "%s AudioSessionConduit Initialization Done (%p)",__FUNCTION__, this);
+  CSFLogDebug(LOGTAG,
+              "%s AudioSessionConduit Initialization Done (%p)",
+              __FUNCTION__,
+              this);
   return kMediaConduitNoError;
 }
 
 // AudioSessionConduit Implementation
 MediaConduitErrorCode
-WebrtcAudioConduit::SetTransmitterTransport(RefPtr<TransportInterface> aTransport)
+WebrtcAudioConduit::SetTransmitterTransport(
+    RefPtr<TransportInterface> aTransport)
 {
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
 
   ReentrantMonitorAutoEnter enter(mTransportMonitor);
   // set the transport
@@ -414,7 +431,7 @@ WebrtcAudioConduit::SetTransmitterTransport(RefPtr<TransportInterface> aTranspor
 MediaConduitErrorCode
 WebrtcAudioConduit::SetReceiverTransport(RefPtr<TransportInterface> aTransport)
 {
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
 
   ReentrantMonitorAutoEnter enter(mTransportMonitor);
   // set the transport
@@ -425,15 +442,15 @@ WebrtcAudioConduit::SetReceiverTransport(RefPtr<TransportInterface> aTransport)
 MediaConduitErrorCode
 WebrtcAudioConduit::ConfigureSendMediaCodec(const AudioCodecConfig* codecConfig)
 {
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
   MediaConduitErrorCode condError = kMediaConduitNoError;
-  int error = 0;//webrtc engine errors
+  int error = 0;  //webrtc engine errors
   webrtc::CodecInst cinst;
 
   {
     //validate codec param
-    if((condError = ValidateCodecConfig(codecConfig, true)) != kMediaConduitNoError)
-    {
+    if ((condError = ValidateCodecConfig(codecConfig, true)) !=
+        kMediaConduitNoError) {
       return condError;
     }
   }
@@ -443,31 +460,32 @@ WebrtcAudioConduit::ConfigureSendMediaCodec(const AudioCodecConfig* codecConfig)
     return condError;
   }
 
-  if(!CodecConfigToWebRTCCodec(codecConfig,cinst))
-  {
-    CSFLogError(LOGTAG,"%s CodecConfig to WebRTC Codec Failed ",__FUNCTION__);
+  if (!CodecConfigToWebRTCCodec(codecConfig, cinst)) {
+    CSFLogError(LOGTAG, "%s CodecConfig to WebRTC Codec Failed ", __FUNCTION__);
     return kMediaConduitMalformedArgument;
   }
 
-  if(mPtrVoECodec->SetSendCodec(mChannel, cinst) == -1)
-  {
+  if (mPtrVoECodec->SetSendCodec(mChannel, cinst) == -1) {
     error = mPtrVoEBase->LastError();
-    CSFLogError(LOGTAG, "%s SetSendCodec - Invalid Codec %d ",__FUNCTION__,
-                                                                    error);
+    CSFLogError(
+        LOGTAG, "%s SetSendCodec - Invalid Codec %d ", __FUNCTION__, error);
 
-    if(error ==  VE_CANNOT_SET_SEND_CODEC || error == VE_CODEC_ERROR)
-    {
+    if (error == VE_CANNOT_SET_SEND_CODEC || error == VE_CODEC_ERROR) {
       CSFLogError(LOGTAG, "%s Invalid Send Codec", __FUNCTION__);
       return kMediaConduitInvalidSendCodec;
     }
-    CSFLogError(LOGTAG, "%s SetSendCodec Failed %d ", __FUNCTION__,
-                                         mPtrVoEBase->LastError());
+    CSFLogError(LOGTAG,
+                "%s SetSendCodec Failed %d ",
+                __FUNCTION__,
+                mPtrVoEBase->LastError());
     return kMediaConduitUnknownError;
   }
 
   // This must be called after SetSendCodec
   if (mPtrVoECodec->SetFECStatus(mChannel, codecConfig->mFECEnabled) == -1) {
-    CSFLogError(LOGTAG, "%s SetFECStatus Failed %d ", __FUNCTION__,
+    CSFLogError(LOGTAG,
+                "%s SetFECStatus Failed %d ",
+                __FUNCTION__,
                 mPtrVoEBase->LastError());
     return kMediaConduitFECStatusError;
   }
@@ -476,9 +494,10 @@ WebrtcAudioConduit::ConfigureSendMediaCodec(const AudioCodecConfig* codecConfig)
 
   if (codecConfig->mName == "opus" && codecConfig->mMaxPlaybackRate) {
     if (mPtrVoECodec->SetOpusMaxPlaybackRate(
-          mChannel,
-          codecConfig->mMaxPlaybackRate) == -1) {
-      CSFLogError(LOGTAG, "%s SetOpusMaxPlaybackRate Failed %d ", __FUNCTION__,
+            mChannel, codecConfig->mMaxPlaybackRate) == -1) {
+      CSFLogError(LOGTAG,
+                  "%s SetOpusMaxPlaybackRate Failed %d ",
+                  __FUNCTION__,
                   mPtrVoEBase->LastError());
       return kMediaConduitUnknownError;
     }
@@ -486,7 +505,8 @@ WebrtcAudioConduit::ConfigureSendMediaCodec(const AudioCodecConfig* codecConfig)
 
   // TEMPORARY - see bug 694814 comment 2
   nsresult rv;
-  nsCOMPtr<nsIPrefService> prefs = do_GetService("@mozilla.org/preferences-service;1", &rv);
+  nsCOMPtr<nsIPrefService> prefs =
+      do_GetService("@mozilla.org/preferences-service;1", &rv);
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIPrefBranch> branch = do_QueryInterface(prefs);
 
@@ -517,11 +537,11 @@ WebrtcAudioConduit::ConfigureSendMediaCodec(const AudioCodecConfig* codecConfig)
 
 MediaConduitErrorCode
 WebrtcAudioConduit::ConfigureRecvMediaCodecs(
-                    const std::vector<AudioCodecConfig*>& codecConfigList)
+    const std::vector<AudioCodecConfig*>& codecConfigList)
 {
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
   MediaConduitErrorCode condError = kMediaConduitNoError;
-  int error = 0; //webrtc engine errors
+  int error = 0;  //webrtc engine errors
   bool success = false;
 
   // Are we receiving already? If so, stop receiving and playout
@@ -531,8 +551,7 @@ WebrtcAudioConduit::ConfigureRecvMediaCodecs(
     return condError;
   }
 
-  if(codecConfigList.empty())
-  {
+  if (codecConfigList.empty()) {
     CSFLogError(LOGTAG, "%s Zero number of codecs to configure", __FUNCTION__);
     return kMediaConduitMalformedArgument;
   }
@@ -540,41 +559,40 @@ WebrtcAudioConduit::ConfigureRecvMediaCodecs(
   // Try Applying the codecs in the list.
   // We succeed if at least one codec was applied and reception was
   // started successfully.
-  for(auto codec : codecConfigList)
-  {
+  for (auto codec : codecConfigList) {
     //if the codec param is invalid or diplicate, return error
-    if((condError = ValidateCodecConfig(codec,false)) != kMediaConduitNoError)
-    {
+    if ((condError = ValidateCodecConfig(codec, false)) !=
+        kMediaConduitNoError) {
       return condError;
     }
 
     webrtc::CodecInst cinst;
-    if(!CodecConfigToWebRTCCodec(codec,cinst))
-    {
-      CSFLogError(LOGTAG,"%s CodecConfig to WebRTC Codec Failed ",__FUNCTION__);
+    if (!CodecConfigToWebRTCCodec(codec, cinst)) {
+      CSFLogError(
+          LOGTAG, "%s CodecConfig to WebRTC Codec Failed ", __FUNCTION__);
       continue;
     }
 
-    if(mPtrVoECodec->SetRecPayloadType(mChannel,cinst) == -1)
-    {
+    if (mPtrVoECodec->SetRecPayloadType(mChannel, cinst) == -1) {
       error = mPtrVoEBase->LastError();
-      CSFLogError(LOGTAG,  "%s SetRecvCodec Failed %d ",__FUNCTION__, error);
+      CSFLogError(LOGTAG, "%s SetRecvCodec Failed %d ", __FUNCTION__, error);
       continue;
     }
-    CSFLogDebug(LOGTAG, "%s Successfully Set RecvCodec %s", __FUNCTION__,
-                                        codec->mName.c_str());
+    CSFLogDebug(LOGTAG,
+                "%s Successfully Set RecvCodec %s",
+                __FUNCTION__,
+                codec->mName.c_str());
 
     //copy this to local database
-    if(!CopyCodecToDB(codec)) {
-        CSFLogError(LOGTAG,"%s Unable to updated Codec Database", __FUNCTION__);
-        return kMediaConduitUnknownError;
+    if (!CopyCodecToDB(codec)) {
+      CSFLogError(LOGTAG, "%s Unable to updated Codec Database", __FUNCTION__);
+      return kMediaConduitUnknownError;
     }
     success = true;
 
-  } //end for
+  }  //end for
 
-  if(!success)
-  {
+  if (!success) {
     CSFLogError(LOGTAG, "%s Setting Receive Codec Failed ", __FUNCTION__);
     return kMediaConduitInvalidReceiveCodec;
   }
@@ -592,11 +610,12 @@ WebrtcAudioConduit::ConfigureRecvMediaCodecs(
 MediaConduitErrorCode
 WebrtcAudioConduit::EnableAudioLevelExtension(bool enabled, uint8_t id)
 {
-  CSFLogDebug(LOGTAG,  "%s %d %d ", __FUNCTION__, enabled, id);
+  CSFLogDebug(LOGTAG, "%s %d %d ", __FUNCTION__, enabled, id);
 
-  if (mPtrVoERTP_RTCP->SetSendAudioLevelIndicationStatus(mChannel, enabled, id) == -1)
-  {
-    CSFLogError(LOGTAG, "%s SetSendAudioLevelIndicationStatus Failed", __FUNCTION__);
+  if (mPtrVoERTP_RTCP->SetSendAudioLevelIndicationStatus(
+          mChannel, enabled, id) == -1) {
+    CSFLogError(
+        LOGTAG, "%s SetSendAudioLevelIndicationStatus Failed", __FUNCTION__);
     return kMediaConduitUnknownError;
   }
 
@@ -606,10 +625,9 @@ WebrtcAudioConduit::EnableAudioLevelExtension(bool enabled, uint8_t id)
 MediaConduitErrorCode
 WebrtcAudioConduit::EnableMIDExtension(bool enabled, uint8_t id)
 {
-  CSFLogDebug(LOGTAG,  "%s %d %d ", __FUNCTION__, enabled, id);
+  CSFLogDebug(LOGTAG, "%s %d %d ", __FUNCTION__, enabled, id);
 
-  if (mPtrVoERTP_RTCP->SetSendMIDStatus(mChannel, enabled, id) == -1)
-  {
+  if (mPtrVoERTP_RTCP->SetSendMIDStatus(mChannel, enabled, id) == -1) {
     CSFLogError(LOGTAG, "%s SetSendMIDStatus Failed", __FUNCTION__);
     return kMediaConduitUnknownError;
   }
@@ -619,12 +637,12 @@ WebrtcAudioConduit::EnableMIDExtension(bool enabled, uint8_t id)
 
 MediaConduitErrorCode
 WebrtcAudioConduit::SendAudioFrame(const int16_t audio_data[],
-                                   int32_t lengthSamples, // per channel
+                                   int32_t lengthSamples,  // per channel
                                    int32_t samplingFreqHz,
                                    uint32_t channels,
                                    int32_t capture_delay)
 {
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
   // Following checks need to be performed
   // 1. Non null audio buffer pointer,
   // 2. invalid sampling frequency -  less than 0 or unsupported ones
@@ -634,100 +652,89 @@ WebrtcAudioConduit::SendAudioFrame(const int16_t audio_data[],
   //    Similarly for 32000 sampling rate, valid block length is 320
   //    We do the check by the verify modular operator below to be zero
 
-  if(!audio_data || (lengthSamples <= 0) ||
-                    (IsSamplingFreqSupported(samplingFreqHz) == false) ||
-                    ((lengthSamples % (samplingFreqHz / 100) != 0)) )
-  {
-    CSFLogError(LOGTAG, "%s Invalid Parameters ",__FUNCTION__);
+  if (!audio_data || (lengthSamples <= 0) ||
+      (IsSamplingFreqSupported(samplingFreqHz) == false) ||
+      ((lengthSamples % (samplingFreqHz / 100) != 0))) {
+    CSFLogError(LOGTAG, "%s Invalid Parameters ", __FUNCTION__);
     MOZ_ASSERT(PR_FALSE);
     return kMediaConduitMalformedArgument;
   }
 
   //validate capture time
-  if(capture_delay < 0 )
-  {
-    CSFLogError(LOGTAG,"%s Invalid Capture Delay ", __FUNCTION__);
+  if (capture_delay < 0) {
+    CSFLogError(LOGTAG, "%s Invalid Capture Delay ", __FUNCTION__);
     MOZ_ASSERT(PR_FALSE);
     return kMediaConduitMalformedArgument;
   }
 
   // if transmission is not started .. conduit cannot insert frames
-  if(!mEngineTransmitting)
-  {
+  if (!mEngineTransmitting) {
     CSFLogError(LOGTAG, "%s Engine not transmitting ", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
   if (MOZ_LOG_TEST(GetLatencyLog(), LogLevel::Debug)) {
-    struct Processing insert = { TimeStamp::Now(), 0 };
+    struct Processing insert = {TimeStamp::Now(), 0};
     mProcessing.AppendElement(insert);
   }
 
   capture_delay = mCaptureDelay;
   //Insert the samples
-  mPtrVoEBase->audio_transport()->PushCaptureData(mChannel, audio_data,
-                                                  sizeof(audio_data[0])*8, // bits
-                                                  samplingFreqHz,
-                                                  channels,
-                                                  lengthSamples);
+  mPtrVoEBase->audio_transport()->PushCaptureData(
+      mChannel,
+      audio_data,
+      sizeof(audio_data[0]) * 8,  // bits
+      samplingFreqHz,
+      channels,
+      lengthSamples);
   // we should be good here
   return kMediaConduitNoError;
 }
 
 MediaConduitErrorCode
 WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
-                                   int32_t samplingFreqHz,
-                                   int32_t capture_delay,
-                                   int& lengthSamples)
+                                  int32_t samplingFreqHz,
+                                  int32_t capture_delay,
+                                  int& lengthSamples)
 {
-
-  CSFLogDebug(LOGTAG,  "%s ", __FUNCTION__);
+  CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
   unsigned int numSamples = 0;
 
   //validate params
-  if(!speechData )
-  {
-    CSFLogError(LOGTAG,"%s Null Audio Buffer Pointer", __FUNCTION__);
+  if (!speechData) {
+    CSFLogError(LOGTAG, "%s Null Audio Buffer Pointer", __FUNCTION__);
     MOZ_ASSERT(PR_FALSE);
     return kMediaConduitMalformedArgument;
   }
 
   // Validate sample length
-  if((numSamples = GetNum10msSamplesForFrequency(samplingFreqHz)) == 0  )
-  {
-    CSFLogError(LOGTAG,"%s Invalid Sampling Frequency ", __FUNCTION__);
+  if ((numSamples = GetNum10msSamplesForFrequency(samplingFreqHz)) == 0) {
+    CSFLogError(LOGTAG, "%s Invalid Sampling Frequency ", __FUNCTION__);
     MOZ_ASSERT(PR_FALSE);
     return kMediaConduitMalformedArgument;
   }
 
   //validate capture time
-  if(capture_delay < 0 )
-  {
-    CSFLogError(LOGTAG,"%s Invalid Capture Delay ", __FUNCTION__);
+  if (capture_delay < 0) {
+    CSFLogError(LOGTAG, "%s Invalid Capture Delay ", __FUNCTION__);
     MOZ_ASSERT(PR_FALSE);
     return kMediaConduitMalformedArgument;
   }
 
   //Conduit should have reception enabled before we ask for decoded
   // samples
-  if(!mEngineReceiving)
-  {
+  if (!mEngineReceiving) {
     CSFLogError(LOGTAG, "%s Engine not Receiving ", __FUNCTION__);
     return kMediaConduitSessionNotInited;
   }
 
-
   lengthSamples = 0;  //output paramter
 
-  if(mPtrVoEXmedia->ExternalPlayoutGetData( speechData,
-                                            samplingFreqHz,
-                                            capture_delay,
-                                            lengthSamples) == -1)
-  {
+  if (mPtrVoEXmedia->ExternalPlayoutGetData(
+          speechData, samplingFreqHz, capture_delay, lengthSamples) == -1) {
     int error = mPtrVoEBase->LastError();
-    CSFLogError(LOGTAG,  "%s Getting audio data Failed %d", __FUNCTION__, error);
-    if(error == VE_RUNTIME_PLAY_ERROR)
-    {
+    CSFLogError(LOGTAG, "%s Getting audio data Failed %d", __FUNCTION__, error);
+    if (error == VE_RUNTIME_PLAY_ERROR) {
       return kMediaConduitPlayoutError;
     }
     return kMediaConduitUnknownError;
@@ -750,8 +757,11 @@ WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
                               avsync_offset_ms);
       }
       CSFLogError(LOGTAG,
-                  "A/V sync: sync delta: %dms, audio jitter delay %dms, playout delay %dms",
-                  avsync_offset_ms, jitter_buffer_delay_ms, playout_buffer_delay_ms);
+                  "A/V sync: sync delta: %dms, audio jitter delay %dms, "
+                  "playout delay %dms",
+                  avsync_offset_ms,
+                  jitter_buffer_delay_ms,
+                  playout_buffer_delay_ms);
     } else {
       CSFLogError(LOGTAG, "A/V sync: GetAVStats failed");
     }
@@ -768,11 +778,13 @@ WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
         while (mProcessing.Length() > 0) {
           // FIX! assumes 20ms @ 48000Hz
           // FIX handle wrap-around
-          if (mProcessing[0].mRTPTimeStamp + 20*(48000/1000) >= now) {
+          if (mProcessing[0].mRTPTimeStamp + 20 * (48000 / 1000) >= now) {
             TimeDuration t = TimeStamp::Now() - mProcessing[0].mTimeStamp;
             // Wrap-around?
-            int64_t delta = t.ToMilliseconds() + (now - mProcessing[0].mRTPTimeStamp)/(48000/1000);
-            LogTime(AsyncLatencyLogger::AudioRecvRTP, ((uint64_t) this), delta);
+            int64_t delta =
+                t.ToMilliseconds() +
+                (now - mProcessing[0].mRTPTimeStamp) / (48000 / 1000);
+            LogTime(AsyncLatencyLogger::AudioRecvRTP, ((uint64_t)this), delta);
             break;
           }
           mProcessing.RemoveElementAt(0);
@@ -780,33 +792,32 @@ WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
       }
     }
   }
-  CSFLogDebug(LOGTAG,"%s GetAudioFrame:Got samples: length %d ",__FUNCTION__,
-                                                               lengthSamples);
+  CSFLogDebug(LOGTAG,
+              "%s GetAudioFrame:Got samples: length %d ",
+              __FUNCTION__,
+              lengthSamples);
   return kMediaConduitNoError;
 }
 
 // Transport Layer Callbacks
 MediaConduitErrorCode
-WebrtcAudioConduit::ReceivedRTPPacket(const void *data, int len, uint32_t ssrc)
+WebrtcAudioConduit::ReceivedRTPPacket(const void* data, int len, uint32_t ssrc)
 {
-  CSFLogDebug(LOGTAG,  "%s : channel %d", __FUNCTION__, mChannel);
+  CSFLogDebug(LOGTAG, "%s : channel %d", __FUNCTION__, mChannel);
 
-  if(mEngineReceiving)
-  {
+  if (mEngineReceiving) {
     if (MOZ_LOG_TEST(GetLatencyLog(), LogLevel::Debug)) {
       // timestamp is at 32 bits in ([1])
-      struct Processing insert = { TimeStamp::Now(),
-                                   ntohl(static_cast<const uint32_t *>(data)[1]) };
+      struct Processing insert = {TimeStamp::Now(),
+                                  ntohl(static_cast<const uint32_t*>(data)[1])};
       mProcessing.AppendElement(insert);
     }
 
     // XXX we need to get passed the time the packet was received
-    if(mPtrVoENetwork->ReceivedRTPPacket(mChannel, data, len) == -1)
-    {
+    if (mPtrVoENetwork->ReceivedRTPPacket(mChannel, data, len) == -1) {
       int error = mPtrVoEBase->LastError();
       CSFLogError(LOGTAG, "%s RTP Processing Error %d", __FUNCTION__, error);
-      if(error == VE_RTP_RTCP_MODULE_ERROR)
-      {
+      if (error == VE_RTP_RTCP_MODULE_ERROR) {
         return kMediaConduitRTPRTCPModuleError;
       }
       return kMediaConduitUnknownError;
@@ -820,16 +831,14 @@ WebrtcAudioConduit::ReceivedRTPPacket(const void *data, int len, uint32_t ssrc)
 }
 
 MediaConduitErrorCode
-WebrtcAudioConduit::ReceivedRTCPPacket(const void *data, int len)
+WebrtcAudioConduit::ReceivedRTCPPacket(const void* data, int len)
 {
-  CSFLogDebug(LOGTAG,  "%s : channel %d",__FUNCTION__, mChannel);
+  CSFLogDebug(LOGTAG, "%s : channel %d", __FUNCTION__, mChannel);
 
-  if(mPtrVoENetwork->ReceivedRTCPPacket(mChannel, data, len) == -1)
-  {
+  if (mPtrVoENetwork->ReceivedRTCPPacket(mChannel, data, len) == -1) {
     int error = mPtrVoEBase->LastError();
     CSFLogError(LOGTAG, "%s RTCP Processing Error %d", __FUNCTION__, error);
-    if(error == VE_RTP_RTCP_MODULE_ERROR)
-    {
+    if (error == VE_RTP_RTCP_MODULE_ERROR) {
       return kMediaConduitRTPRTCPModuleError;
     }
     return kMediaConduitUnknownError;
@@ -840,12 +849,13 @@ WebrtcAudioConduit::ReceivedRTCPPacket(const void *data, int len)
 MediaConduitErrorCode
 WebrtcAudioConduit::StopTransmitting()
 {
-  if(mEngineTransmitting)
-  {
-    CSFLogDebug(LOGTAG, "%s Engine Already Sending. Attemping to Stop ", __FUNCTION__);
-    if(mPtrVoEBase->StopSend(mChannel) == -1)
-    {
-      CSFLogError(LOGTAG, "%s StopSend() Failed %d ", __FUNCTION__,
+  if (mEngineTransmitting) {
+    CSFLogDebug(
+        LOGTAG, "%s Engine Already Sending. Attemping to Stop ", __FUNCTION__);
+    if (mPtrVoEBase->StopSend(mChannel) == -1) {
+      CSFLogError(LOGTAG,
+                  "%s StopSend() Failed %d ",
+                  __FUNCTION__,
                   mPtrVoEBase->LastError());
       return kMediaConduitUnknownError;
     }
@@ -860,8 +870,7 @@ WebrtcAudioConduit::StartTransmitting()
 {
   if (!mEngineTransmitting) {
     //Let's Send Transport State-machine on the Engine
-    if(mPtrVoEBase->StartSend(mChannel) == -1)
-    {
+    if (mPtrVoEBase->StartSend(mChannel) == -1) {
       int error = mPtrVoEBase->LastError();
       CSFLogError(LOGTAG, "%s StartSend failed %d", __FUNCTION__, error);
       return kMediaConduitUnknownError;
@@ -875,18 +884,20 @@ WebrtcAudioConduit::StartTransmitting()
 MediaConduitErrorCode
 WebrtcAudioConduit::StopReceiving()
 {
-  if(mEngineReceiving)
-  {
-    CSFLogDebug(LOGTAG, "%s Engine Already Receiving. Attemping to Stop ", __FUNCTION__);
+  if (mEngineReceiving) {
+    CSFLogDebug(LOGTAG,
+                "%s Engine Already Receiving. Attemping to Stop ",
+                __FUNCTION__);
     // AudioEngine doesn't fail fatally on stopping reception. Ref:voe_errors.h.
     // hence we need not be strict in failing here on errors
     mPtrVoEBase->StopReceive(mChannel);
     CSFLogDebug(LOGTAG, "%s Attemping to Stop playout ", __FUNCTION__);
-    if(mPtrVoEBase->StopPlayout(mChannel) == -1)
-    {
-      if( mPtrVoEBase->LastError() == VE_CANNOT_STOP_PLAYOUT)
-      {
-        CSFLogDebug(LOGTAG, "%s Stop-Playout Failed %d", __FUNCTION__, mPtrVoEBase->LastError());
+    if (mPtrVoEBase->StopPlayout(mChannel) == -1) {
+      if (mPtrVoEBase->LastError() == VE_CANNOT_STOP_PLAYOUT) {
+        CSFLogDebug(LOGTAG,
+                    "%s Stop-Playout Failed %d",
+                    __FUNCTION__,
+                    mPtrVoEBase->LastError());
         return kMediaConduitPlayoutError;
       }
     }
@@ -900,19 +911,16 @@ MediaConduitErrorCode
 WebrtcAudioConduit::StartReceiving()
 {
   if (!mEngineReceiving) {
-    if(mPtrVoEBase->StartReceive(mChannel) == -1)
-    {
+    if (mPtrVoEBase->StartReceive(mChannel) == -1) {
       int error = mPtrVoEBase->LastError();
-      CSFLogError(LOGTAG ,  "%s StartReceive Failed %d ",__FUNCTION__, error);
-      if(error == VE_RECV_SOCKET_ERROR)
-      {
+      CSFLogError(LOGTAG, "%s StartReceive Failed %d ", __FUNCTION__, error);
+      if (error == VE_RECV_SOCKET_ERROR) {
         return kMediaConduitSocketError;
       }
       return kMediaConduitUnknownError;
     }
 
-    if(mPtrVoEBase->StartPlayout(mChannel) == -1)
-    {
+    if (mPtrVoEBase->StartPlayout(mChannel) == -1) {
       CSFLogError(LOGTAG, "%s Starting playout Failed", __FUNCTION__);
       return kMediaConduitPlayoutError;
     }
@@ -929,16 +937,17 @@ WebrtcAudioConduit::SendRtp(const uint8_t* data,
                             size_t len,
                             const webrtc::PacketOptions& options)
 {
-  CSFLogDebug(LOGTAG,  "%s: len %lu", __FUNCTION__, (unsigned long)len);
+  CSFLogDebug(LOGTAG, "%s: len %lu", __FUNCTION__, (unsigned long)len);
 
   if (MOZ_LOG_TEST(GetLatencyLog(), LogLevel::Debug)) {
     if (mProcessing.Length() > 0) {
       TimeStamp started = mProcessing[0].mTimeStamp;
       mProcessing.RemoveElementAt(0);
-      mProcessing.RemoveElementAt(0); // 20ms packetization!  Could automate this by watching sizes
+      mProcessing.RemoveElementAt(
+          0);  // 20ms packetization!  Could automate this by watching sizes
       TimeDuration t = TimeStamp::Now() - started;
       int64_t delta = t.ToMilliseconds();
-      LogTime(AsyncLatencyLogger::AudioSendRTP, ((uint64_t) this), delta);
+      LogTime(AsyncLatencyLogger::AudioSendRTP, ((uint64_t)this), delta);
     }
   }
   ReentrantMonitorAutoEnter enter(mTransportMonitor);
@@ -947,9 +956,8 @@ WebrtcAudioConduit::SendRtp(const uint8_t* data,
   // The only field in it is the packet_id, which is used when the header
   // extension for TransportSequenceNumber is being used, which we don't.
   (void)options;
-  if(mTransmitterTransport &&
-     (mTransmitterTransport->SendRtpPacket(data, len) == NS_OK))
-  {
+  if (mTransmitterTransport &&
+      (mTransmitterTransport->SendRtpPacket(data, len) == NS_OK)) {
     CSFLogDebug(LOGTAG, "%s Sent RTP Packet ", __FUNCTION__);
     return true;
   }
@@ -961,18 +969,18 @@ WebrtcAudioConduit::SendRtp(const uint8_t* data,
 bool
 WebrtcAudioConduit::SendRtcp(const uint8_t* data, size_t len)
 {
-  CSFLogDebug(LOGTAG, "%s : len %lu, first rtcp = %u ",
+  CSFLogDebug(LOGTAG,
+              "%s : len %lu, first rtcp = %u ",
               __FUNCTION__,
-              (unsigned long) len,
+              (unsigned long)len,
               static_cast<unsigned>(data[1]));
 
   // We come here if we have only one pipeline/conduit setup,
   // such as for unidirectional streams.
   // We also end up here if we are receiving
   ReentrantMonitorAutoEnter enter(mTransportMonitor);
-  if(mReceiverTransport &&
-     mReceiverTransport->SendRtcpPacket(data, len) == NS_OK)
-  {
+  if (mReceiverTransport &&
+      mReceiverTransport->SendRtcpPacket(data, len) == NS_OK) {
     // Might be a sender report, might be a receiver report, we don't know.
     CSFLogDebug(LOGTAG, "%s Sent RTCP Packet ", __FUNCTION__);
     return true;
@@ -992,27 +1000,26 @@ WebrtcAudioConduit::SendRtcp(const uint8_t* data, size_t len)
 
 bool
 WebrtcAudioConduit::CodecConfigToWebRTCCodec(const AudioCodecConfig* codecInfo,
-                                              webrtc::CodecInst& cinst)
+                                             webrtc::CodecInst& cinst)
 {
   const unsigned int plNameLength = codecInfo->mName.length();
   memset(&cinst, 0, sizeof(webrtc::CodecInst));
-  if(sizeof(cinst.plname) < plNameLength+1)
-  {
-    CSFLogError(LOGTAG, "%s Payload name buffer capacity mismatch ",
-                                                      __FUNCTION__);
+  if (sizeof(cinst.plname) < plNameLength + 1) {
+    CSFLogError(
+        LOGTAG, "%s Payload name buffer capacity mismatch ", __FUNCTION__);
     return false;
   }
   memcpy(cinst.plname, codecInfo->mName.c_str(), plNameLength);
-  cinst.plname[plNameLength]='\0';
-  cinst.pltype   =  codecInfo->mType;
-  cinst.rate     =  codecInfo->mRate;
-  cinst.pacsize  =  codecInfo->mPacSize;
-  cinst.plfreq   =  codecInfo->mFreq;
+  cinst.plname[plNameLength] = '\0';
+  cinst.pltype = codecInfo->mType;
+  cinst.rate = codecInfo->mRate;
+  cinst.pacsize = codecInfo->mPacSize;
+  cinst.plfreq = codecInfo->mFreq;
   if (codecInfo->mName == "G722") {
     // Compensate for G.722 spec error in RFC 1890
     cinst.plfreq = 16000;
   }
-  cinst.channels =  codecInfo->mChannels;
+  cinst.channels = codecInfo->mChannels;
   return true;
 }
 
@@ -1029,13 +1036,17 @@ WebrtcAudioConduit::IsSamplingFreqSupported(int freq) const
 unsigned int
 WebrtcAudioConduit::GetNum10msSamplesForFrequency(int samplingFreqHz) const
 {
-  switch (samplingFreqHz)
-  {
-    case 16000: return 160; //160 samples
-    case 32000: return 320; //320 samples
-    case 44100: return 441; //441 samples
-    case 48000: return 480; //480 samples
-    default:    return 0; // invalid or unsupported
+  switch (samplingFreqHz) {
+    case 16000:
+      return 160;  //160 samples
+    case 32000:
+      return 320;  //320 samples
+    case 44100:
+      return 441;  //441 samples
+    case 48000:
+      return 480;  //480 samples
+    default:
+      return 0;  // invalid or unsupported
   }
 }
 
@@ -1043,7 +1054,6 @@ WebrtcAudioConduit::GetNum10msSamplesForFrequency(int samplingFreqHz) const
 bool
 WebrtcAudioConduit::CopyCodecToDB(const AudioCodecConfig* codecInfo)
 {
-
   AudioCodecConfig* cdcConfig = new AudioCodecConfig(codecInfo->mType,
                                                      codecInfo->mName,
                                                      codecInfo->mFreq,
@@ -1060,20 +1070,18 @@ WebrtcAudioConduit::CopyCodecToDB(const AudioCodecConfig* codecInfo)
  */
 bool
 WebrtcAudioConduit::CheckCodecsForMatch(const AudioCodecConfig* curCodecConfig,
-                                         const AudioCodecConfig* codecInfo) const
+                                        const AudioCodecConfig* codecInfo) const
 {
-  if(!curCodecConfig)
-  {
+  if (!curCodecConfig) {
     return false;
   }
 
-  if(curCodecConfig->mType   == codecInfo->mType &&
+  if (curCodecConfig->mType == codecInfo->mType &&
       (curCodecConfig->mName.compare(codecInfo->mName) == 0) &&
-      curCodecConfig->mFreq   == codecInfo->mFreq &&
+      curCodecConfig->mFreq == codecInfo->mFreq &&
       curCodecConfig->mPacSize == codecInfo->mPacSize &&
       curCodecConfig->mChannels == codecInfo->mChannels &&
-      curCodecConfig->mRate == codecInfo->mRate)
-  {
+      curCodecConfig->mRate == codecInfo->mRate) {
     return true;
   }
 
@@ -1087,10 +1095,8 @@ bool
 WebrtcAudioConduit::CheckCodecForMatch(const AudioCodecConfig* codecInfo) const
 {
   //the db should have atleast one codec
-  for(auto codec : mRecvCodecList)
-  {
-    if(CheckCodecsForMatch(codec,codecInfo))
-    {
+  for (auto codec : mRecvCodecList) {
+    if (CheckCodecsForMatch(codec, codecInfo)) {
       //match
       return true;
     }
@@ -1098,7 +1104,6 @@ WebrtcAudioConduit::CheckCodecForMatch(const AudioCodecConfig* codecInfo) const
   //no match or empty local db
   return false;
 }
-
 
 /**
  * Perform validation on the codecConfig to be applied.
@@ -1110,54 +1115,51 @@ WebrtcAudioConduit::ValidateCodecConfig(const AudioCodecConfig* codecInfo,
 {
   bool codecAppliedAlready = false;
 
-  if(!codecInfo)
-  {
+  if (!codecInfo) {
     CSFLogError(LOGTAG, "%s Null CodecConfig ", __FUNCTION__);
     return kMediaConduitMalformedArgument;
   }
 
-  if((codecInfo->mName.empty()) ||
-     (codecInfo->mName.length() >= CODEC_PLNAME_SIZE))
-  {
+  if ((codecInfo->mName.empty()) ||
+      (codecInfo->mName.length() >= CODEC_PLNAME_SIZE)) {
     CSFLogError(LOGTAG, "%s Invalid Payload Name Length ", __FUNCTION__);
     return kMediaConduitMalformedArgument;
   }
 
   //Only mono or stereo channels supported
-  if( (codecInfo->mChannels != 1) && (codecInfo->mChannels != 2))
-  {
+  if ((codecInfo->mChannels != 1) && (codecInfo->mChannels != 2)) {
     CSFLogError(LOGTAG, "%s Channel Unsupported ", __FUNCTION__);
     return kMediaConduitMalformedArgument;
   }
 
   //check if we have the same codec already applied
-  if(send)
-  {
+  if (send) {
     MutexAutoLock lock(mCodecMutex);
 
-    codecAppliedAlready = CheckCodecsForMatch(mCurSendCodecConfig,codecInfo);
+    codecAppliedAlready = CheckCodecsForMatch(mCurSendCodecConfig, codecInfo);
   } else {
     codecAppliedAlready = CheckCodecForMatch(codecInfo);
   }
 
-  if(codecAppliedAlready)
-  {
-    CSFLogDebug(LOGTAG, "%s Codec %s Already Applied  ", __FUNCTION__, codecInfo->mName.c_str());
+  if (codecAppliedAlready) {
+    CSFLogDebug(LOGTAG,
+                "%s Codec %s Already Applied  ",
+                __FUNCTION__,
+                codecInfo->mName.c_str());
   }
   return kMediaConduitNoError;
 }
 
 void
 WebrtcAudioConduit::DumpCodecDB() const
- {
-    for(auto& codec : mRecvCodecList)
-    {
-      CSFLogDebug(LOGTAG,"Payload Name: %s", codec->mName.c_str());
-      CSFLogDebug(LOGTAG,"Payload Type: %d", codec->mType);
-      CSFLogDebug(LOGTAG,"Payload Frequency: %d", codec->mFreq);
-      CSFLogDebug(LOGTAG,"Payload PacketSize: %d", codec->mPacSize);
-      CSFLogDebug(LOGTAG,"Payload Channels: %d", codec->mChannels);
-      CSFLogDebug(LOGTAG,"Payload Sampling Rate: %d", codec->mRate);
-    }
- }
-}// end namespace
+{
+  for (auto& codec : mRecvCodecList) {
+    CSFLogDebug(LOGTAG, "Payload Name: %s", codec->mName.c_str());
+    CSFLogDebug(LOGTAG, "Payload Type: %d", codec->mType);
+    CSFLogDebug(LOGTAG, "Payload Frequency: %d", codec->mFreq);
+    CSFLogDebug(LOGTAG, "Payload PacketSize: %d", codec->mPacSize);
+    CSFLogDebug(LOGTAG, "Payload Channels: %d", codec->mChannels);
+    CSFLogDebug(LOGTAG, "Payload Sampling Rate: %d", codec->mRate);
+  }
+}
+}  // namespace mozilla

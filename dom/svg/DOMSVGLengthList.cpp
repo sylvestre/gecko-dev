@@ -20,8 +20,9 @@ namespace {
 
 using mozilla::DOMSVGLength;
 
-void UpdateListIndicesFromIndex(FallibleTArray<DOMSVGLength*>& aItemsArray,
-                                uint32_t aStartingIndex)
+void
+UpdateListIndicesFromIndex(FallibleTArray<DOMSVGLength*>& aItemsArray,
+                           uint32_t aStartingIndex)
 {
   uint32_t length = aItemsArray.Length();
 
@@ -32,7 +33,7 @@ void UpdateListIndicesFromIndex(FallibleTArray<DOMSVGLength*>& aItemsArray,
   }
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -69,7 +70,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGLengthList)
 NS_INTERFACE_MAP_END
 
 JSObject*
-DOMSVGLengthList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+DOMSVGLengthList::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::SVGLengthListBinding::Wrap(cx, this, aGivenProto);
 }
@@ -80,14 +81,15 @@ DOMSVGLengthList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
 // DidChangeLengthList.
 class MOZ_RAII AutoChangeLengthListNotifier
 {
-public:
-  explicit AutoChangeLengthListNotifier(DOMSVGLengthList* aLengthList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mLengthList(aLengthList)
+ public:
+  explicit AutoChangeLengthListNotifier(
+      DOMSVGLengthList* aLengthList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mLengthList(aLengthList)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mLengthList, "Expecting non-null lengthList");
     mEmptyOrOldValue =
-      mLengthList->Element()->WillChangeLengthList(mLengthList->AttrEnum());
+        mLengthList->Element()->WillChangeLengthList(mLengthList->AttrEnum());
   }
 
   ~AutoChangeLengthListNotifier()
@@ -99,9 +101,9 @@ public:
     }
   }
 
-private:
+ private:
   DOMSVGLengthList* const mLengthList;
-  nsAttrValue       mEmptyOrOldValue;
+  nsAttrValue mEmptyOrOldValue;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
@@ -146,8 +148,9 @@ DOMSVGLengthList::InternalListLengthWillChange(uint32_t aNewLength)
 SVGLengthList&
 DOMSVGLengthList::InternalList() const
 {
-  SVGAnimatedLengthList *alist = Element()->GetAnimatedLengthList(AttrEnum());
-  return IsAnimValList() && alist->mAnimVal ? *alist->mAnimVal : alist->mBaseVal;
+  SVGAnimatedLengthList* alist = Element()->GetAnimatedLengthList(AttrEnum());
+  return IsAnimValList() && alist->mAnimVal ? *alist->mAnimVal
+                                            : alist->mBaseVal;
 }
 
 // ----------------------------------------------------------------------------
@@ -173,8 +176,7 @@ DOMSVGLengthList::Clear(ErrorResult& aError)
 }
 
 already_AddRefed<DOMSVGLength>
-DOMSVGLengthList::Initialize(DOMSVGLength& newItem,
-                             ErrorResult& error)
+DOMSVGLengthList::Initialize(DOMSVGLength& newItem, ErrorResult& error)
 {
   if (IsAnimValList()) {
     error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -250,7 +252,7 @@ DOMSVGLengthList::InsertItemBefore(DOMSVGLength& newItem,
     return nullptr;
   }
   if (domItem->HasOwner() || domItem->IsReflectingAttribute()) {
-    domItem = domItem->Copy(); // must do this before changing anything!
+    domItem = domItem->Copy();  // must do this before changing anything!
   }
 
   // Ensure we have enough memory so we can avoid complex error handling below:
@@ -261,7 +263,7 @@ DOMSVGLengthList::InsertItemBefore(DOMSVGLength& newItem,
   }
   if (AnimListMirrorsBaseList()) {
     if (!mAList->mAnimVal->mItems.SetCapacity(
-          mAList->mAnimVal->mItems.Length() + 1, fallible)) {
+            mAList->mAnimVal->mItems.Length() + 1, fallible)) {
       error.Throw(NS_ERROR_OUT_OF_MEMORY);
       return nullptr;
     }
@@ -304,7 +306,7 @@ DOMSVGLengthList::ReplaceItem(DOMSVGLength& newItem,
     return nullptr;
   }
   if (domItem->HasOwner() || domItem->IsReflectingAttribute()) {
-    domItem = domItem->Copy(); // must do this before changing anything!
+    domItem = domItem->Copy();  // must do this before changing anything!
   }
 
   AutoChangeLengthListNotifier notifier(this);
@@ -325,8 +327,7 @@ DOMSVGLengthList::ReplaceItem(DOMSVGLength& newItem,
 }
 
 already_AddRefed<DOMSVGLength>
-DOMSVGLengthList::RemoveItem(uint32_t index,
-                             ErrorResult& error)
+DOMSVGLengthList::RemoveItem(uint32_t index, ErrorResult& error)
 {
   if (IsAnimValList()) {
     error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -365,7 +366,8 @@ DOMSVGLengthList::GetItemAt(uint32_t aIndex)
   MOZ_ASSERT(aIndex < mItems.Length());
 
   if (!mItems[aIndex]) {
-    mItems[aIndex] = new DOMSVGLength(this, AttrEnum(), aIndex, IsAnimValList());
+    mItems[aIndex] =
+        new DOMSVGLength(this, AttrEnum(), aIndex, IsAnimValList());
   }
   RefPtr<DOMSVGLength> result = mItems[aIndex];
   return result.forget();
@@ -415,4 +417,4 @@ DOMSVGLengthList::MaybeRemoveItemFromAnimValListAt(uint32_t aIndex)
   UpdateListIndicesFromIndex(animVal->mItems, aIndex);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

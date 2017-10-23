@@ -6,19 +6,19 @@
 #ifndef GFX_ASYNCCOMPOSITIONMANAGER_H
 #define GFX_ASYNCCOMPOSITIONMANAGER_H
 
-#include "Units.h"                      // for ScreenPoint, etc
+#include "Units.h"                                 // for ScreenPoint, etc
 #include "mozilla/layers/LayerManagerComposite.h"  // for LayerManagerComposite
-#include "mozilla/Attributes.h"         // for final, etc
-#include "mozilla/RefPtr.h"             // for RefCounted
-#include "mozilla/TimeStamp.h"          // for TimeStamp
-#include "mozilla/dom/ScreenOrientation.h"  // for ScreenOrientation
-#include "mozilla/gfx/BasePoint.h"      // for BasePoint
-#include "mozilla/gfx/Matrix.h"         // for Matrix4x4
-#include "mozilla/layers/AnimationMetricsTracker.h" // for AnimationMetricsTracker
-#include "mozilla/layers/FrameUniformityData.h" // For FrameUniformityData
-#include "mozilla/layers/LayersMessages.h"  // for TargetConfig
-#include "mozilla/RefPtr.h"                   // for nsRefPtr
-#include "nsISupportsImpl.h"            // for LayerManager::AddRef, etc
+#include "mozilla/Attributes.h"                    // for final, etc
+#include "mozilla/RefPtr.h"                        // for RefCounted
+#include "mozilla/TimeStamp.h"                     // for TimeStamp
+#include "mozilla/dom/ScreenOrientation.h"         // for ScreenOrientation
+#include "mozilla/gfx/BasePoint.h"                 // for BasePoint
+#include "mozilla/gfx/Matrix.h"                    // for Matrix4x4
+#include "mozilla/layers/AnimationMetricsTracker.h"  // for AnimationMetricsTracker
+#include "mozilla/layers/FrameUniformityData.h"      // For FrameUniformityData
+#include "mozilla/layers/LayersMessages.h"           // for TargetConfig
+#include "mozilla/RefPtr.h"                          // for nsRefPtr
+#include "nsISupportsImpl.h"  // for LayerManager::AddRef, etc
 
 namespace mozilla {
 namespace layers {
@@ -30,12 +30,14 @@ class AutoResolveRefLayers;
 class CompositorBridgeParent;
 
 // Represents async transforms consisting of a scale and a translation.
-struct AsyncTransform {
-  explicit AsyncTransform(LayerToParentLayerScale aScale = LayerToParentLayerScale(),
-                          ParentLayerPoint aTranslation = ParentLayerPoint())
-    : mScale(aScale)
-    , mTranslation(aTranslation)
-  {}
+struct AsyncTransform
+{
+  explicit AsyncTransform(
+      LayerToParentLayerScale aScale = LayerToParentLayerScale(),
+      ParentLayerPoint aTranslation = ParentLayerPoint())
+      : mScale(aScale), mTranslation(aTranslation)
+  {
+  }
 
   operator AsyncTransformComponentMatrix() const
   {
@@ -43,13 +45,12 @@ struct AsyncTransform {
         .PostTranslate(mTranslation.x, mTranslation.y, 0);
   }
 
-  bool operator==(const AsyncTransform& rhs) const {
+  bool operator==(const AsyncTransform& rhs) const
+  {
     return mTranslation == rhs.mTranslation && mScale == rhs.mScale;
   }
 
-  bool operator!=(const AsyncTransform& rhs) const {
-    return !(*this == rhs);
-  }
+  bool operator!=(const AsyncTransform& rhs) const { return !(*this == rhs); }
 
   LayerToParentLayerScale mScale;
   ParentLayerPoint mTranslation;
@@ -68,10 +69,11 @@ class AsyncCompositionManager final
   friend class AutoResolveRefLayers;
   ~AsyncCompositionManager();
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(AsyncCompositionManager)
 
-  explicit AsyncCompositionManager(CompositorBridgeParent* aParent, HostLayerManager* aManager);
+  explicit AsyncCompositionManager(CompositorBridgeParent* aParent,
+                                   HostLayerManager* aManager);
 
   /**
    * This forces the is-first-paint flag to true. This is intended to
@@ -84,10 +86,15 @@ public:
 
   // Sample transforms for layer trees.  Return true to request
   // another animation frame.
-  enum class TransformsToSkip : uint8_t { NoneOfThem = 0, APZ = 1 };
-  bool TransformShadowTree(TimeStamp aCurrentFrame,
-                           TimeDuration aVsyncRate,
-                           TransformsToSkip aSkip = TransformsToSkip::NoneOfThem);
+  enum class TransformsToSkip : uint8_t
+  {
+    NoneOfThem = 0,
+    APZ = 1
+  };
+  bool TransformShadowTree(
+      TimeStamp aCurrentFrame,
+      TimeDuration aVsyncRate,
+      TransformsToSkip aSkip = TransformsToSkip::NoneOfThem);
 
   // Calculates the correct rotation and applies the transform to
   // our layer manager
@@ -101,7 +108,8 @@ public:
     mTargetConfig = aTargetConfig;
   }
 
-  bool RequiresReorientation(mozilla::dom::ScreenOrientationInternal aOrientation) const
+  bool RequiresReorientation(
+      mozilla::dom::ScreenOrientationInternal aOrientation) const
   {
     return mTargetConfig.orientation() != aOrientation;
   }
@@ -121,11 +129,13 @@ public:
   // part. When a layer is fixed, the clip needs to be adjusted to account for
   // async transforms. Only the fixed part needs to be adjusted, so we need
   // to store the two parts separately.
-  struct ClipParts {
+  struct ClipParts
+  {
     Maybe<ParentLayerIntRect> mFixedClip;
     Maybe<ParentLayerIntRect> mScrolledClip;
 
-    Maybe<ParentLayerIntRect> Intersect() const {
+    Maybe<ParentLayerIntRect> Intersect() const
+    {
       return IntersectMaybeRects(mFixedClip, mScrolledClip);
     }
   };
@@ -163,14 +173,14 @@ public:
       const ScrollThumbData& aThumbData,
       bool aScrollbarIsDescendant,
       AsyncTransformComponentMatrix* aOutClipTransform);
-private:
+
+ private:
   // Return true if an AsyncPanZoomController content transform was
   // applied for |aLayer|. |*aOutFoundRoot| is set to true on Android only, if
   // one of the metrics on one of the layers was determined to be the "root"
   // and its state was synced to the Java front-end. |aOutFoundRoot| must be
   // non-null.
-  bool ApplyAsyncContentTransformToTree(Layer* aLayer,
-                                        bool* aOutFoundRoot);
+  bool ApplyAsyncContentTransformToTree(Layer* aLayer, bool* aOutFoundRoot);
   /**
    * Update the shadow transform for aLayer assuming that is a scrollbar,
    * so that it stays in sync with the content that is being scrolled by APZ.
@@ -199,13 +209,14 @@ private:
    * where to start the current recursion of the traversal. For the initial
    * call, it should be the same as aTrasnformedSubtreeRoot.
    */
-  void AlignFixedAndStickyLayers(Layer* aTransformedSubtreeRoot,
-                                 Layer* aStartTraversalAt,
-                                 FrameMetrics::ViewID aTransformScrollId,
-                                 const LayerToParentLayerMatrix4x4& aPreviousTransformForRoot,
-                                 const LayerToParentLayerMatrix4x4& aCurrentTransformForRoot,
-                                 const ScreenMargin& aFixedLayerMargins,
-                                 ClipPartsCache* aClipPartsCache);
+  void AlignFixedAndStickyLayers(
+      Layer* aTransformedSubtreeRoot,
+      Layer* aStartTraversalAt,
+      FrameMetrics::ViewID aTransformScrollId,
+      const LayerToParentLayerMatrix4x4& aPreviousTransformForRoot,
+      const LayerToParentLayerMatrix4x4& aCurrentTransformForRoot,
+      const ScreenMargin& aFixedLayerMargins,
+      ClipPartsCache* aClipPartsCache);
 
   /**
    * DRAWING PHASE ONLY
@@ -219,7 +230,8 @@ private:
    *  to linux and windows only, may be null. On return value indicates
    *  if any updates occured.
    */
-  void ResolveRefLayers(CompositorBridgeParent* aCompositor, bool* aHasRemoteContent,
+  void ResolveRefLayers(CompositorBridgeParent* aCompositor,
+                        bool* aHasRemoteContent,
                         bool* aResolvePlugins);
 
   /**
@@ -258,9 +270,10 @@ private:
   CompositorBridgeParent* mCompositorBridge;
 
 #ifdef MOZ_WIDGET_ANDROID
-public:
+ public:
   void SetFixedLayerMargins(ScreenIntCoord aTop, ScreenIntCoord aBottom);
-private:
+
+ private:
   // The following two fields are only needed on Fennec with C++ APZ, because
   // then we need to reposition the gecko scrollbar to deal with the
   // dynamic toolbar shifting content around.
@@ -271,16 +284,18 @@ private:
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(AsyncCompositionManager::TransformsToSkip)
 
-class MOZ_STACK_CLASS AutoResolveRefLayers {
-public:
+class MOZ_STACK_CLASS AutoResolveRefLayers
+{
+ public:
   explicit AutoResolveRefLayers(AsyncCompositionManager* aManager,
                                 CompositorBridgeParent* aCompositor = nullptr,
                                 bool* aHasRemoteContent = nullptr,
-                                bool* aResolvePlugins = nullptr) :
-    mManager(aManager)
+                                bool* aResolvePlugins = nullptr)
+      : mManager(aManager)
   {
     if (mManager) {
-      mManager->ResolveRefLayers(aCompositor, aHasRemoteContent, aResolvePlugins);
+      mManager->ResolveRefLayers(
+          aCompositor, aHasRemoteContent, aResolvePlugins);
     }
   }
 
@@ -291,14 +306,14 @@ public:
     }
   }
 
-private:
+ private:
   AsyncCompositionManager* mManager;
 
   AutoResolveRefLayers(const AutoResolveRefLayers&) = delete;
   AutoResolveRefLayers& operator=(const AutoResolveRefLayers&) = delete;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

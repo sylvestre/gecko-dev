@@ -24,11 +24,12 @@ namespace dom {
 
 class CallbackFunction : public CallbackObject
 {
-public:
+ public:
   // See CallbackObject for an explanation of the arguments.
-  explicit CallbackFunction(JSContext* aCx, JS::Handle<JSObject*> aCallable,
+  explicit CallbackFunction(JSContext* aCx,
+                            JS::Handle<JSObject*> aCallable,
                             nsIGlobalObject* aIncumbentGlobal)
-    : CallbackObject(aCx, aCallable, aIncumbentGlobal)
+      : CallbackObject(aCx, aCallable, aIncumbentGlobal)
   {
   }
 
@@ -36,14 +37,11 @@ public:
   explicit CallbackFunction(JS::Handle<JSObject*> aCallable,
                             JS::Handle<JSObject*> aAsyncStack,
                             nsIGlobalObject* aIncumbentGlobal)
-    : CallbackObject(aCallable, aAsyncStack, aIncumbentGlobal)
+      : CallbackObject(aCallable, aAsyncStack, aIncumbentGlobal)
   {
   }
 
-  JS::Handle<JSObject*> CallableOrNull() const
-  {
-    return CallbackOrNull();
-  }
+  JS::Handle<JSObject*> CallableOrNull() const { return CallbackOrNull(); }
 
   JS::Handle<JSObject*> CallablePreserveColor() const
   {
@@ -56,21 +54,21 @@ public:
     return mCallback && JS::ObjectIsMarkedGray(mCallback);
   }
 
-protected:
+ protected:
   explicit CallbackFunction(CallbackFunction* aCallbackFunction)
-    : CallbackObject(aCallbackFunction)
+      : CallbackObject(aCallbackFunction)
   {
   }
 
   // See CallbackObject for an explanation of the arguments.
   CallbackFunction(JS::Handle<JSObject*> aCallable,
                    const FastCallbackConstructor&)
-    : CallbackObject(aCallable, FastCallbackConstructor())
+      : CallbackObject(aCallable, FastCallbackConstructor())
   {
   }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CallbackFunction_h
+#endif  // mozilla_dom_CallbackFunction_h

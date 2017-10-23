@@ -13,10 +13,10 @@ namespace dom {
 
 DetailedPromise::DetailedPromise(nsIGlobalObject* aGlobal,
                                  const nsACString& aName)
-  : Promise(aGlobal)
-  , mName(aName)
-  , mResponded(false)
-  , mStartTime(TimeStamp::Now())
+    : Promise(aGlobal),
+      mName(aName),
+      mResponded(false),
+      mStartTime(TimeStamp::Now())
 {
 }
 
@@ -24,7 +24,7 @@ DetailedPromise::DetailedPromise(nsIGlobalObject* aGlobal,
                                  const nsACString& aName,
                                  Telemetry::HistogramID aSuccessLatencyProbe,
                                  Telemetry::HistogramID aFailureLatencyProbe)
-  : DetailedPromise(aGlobal, aName)
+    : DetailedPromise(aGlobal, aName)
 {
   mSuccessLatencyProbe.Construct(aSuccessLatencyProbe);
   mFailureLatencyProbe.Construct(aFailureLatencyProbe);
@@ -42,8 +42,10 @@ DetailedPromise::~DetailedPromise()
 void
 DetailedPromise::MaybeReject(nsresult aArg, const nsACString& aReason)
 {
-  nsPrintfCString msg("%s promise rejected 0x%" PRIx32 " '%s'", mName.get(),
-                      static_cast<uint32_t>(aArg), PromiseFlatCString(aReason).get());
+  nsPrintfCString msg("%s promise rejected 0x%" PRIx32 " '%s'",
+                      mName.get(),
+                      static_cast<uint32_t>(aArg),
+                      PromiseFlatCString(aReason).get());
   EME_LOG("%s", msg.get());
 
   MaybeReportTelemetry(kFailed);
@@ -78,7 +80,8 @@ DetailedPromise::Create(nsIGlobalObject* aGlobal,
                         Telemetry::HistogramID aSuccessLatencyProbe,
                         Telemetry::HistogramID aFailureLatencyProbe)
 {
-  RefPtr<DetailedPromise> promise = new DetailedPromise(aGlobal, aName, aSuccessLatencyProbe, aFailureLatencyProbe);
+  RefPtr<DetailedPromise> promise = new DetailedPromise(
+      aGlobal, aName, aSuccessLatencyProbe, aFailureLatencyProbe);
   promise->CreateWrapper(nullptr, aRv);
   return aRv.Failed() ? nullptr : promise.forget();
 }
@@ -94,12 +97,15 @@ DetailedPromise::MaybeReportTelemetry(eStatus aStatus)
     return;
   }
   uint32_t latency = (TimeStamp::Now() - mStartTime).ToMilliseconds();
-  EME_LOG("%s %s latency %ums reported via telemetry", mName.get(),
-          ((aStatus == kSucceeded) ? "succcess" : "failure"), latency);
-  Telemetry::HistogramID tid = (aStatus == kSucceeded) ? mSuccessLatencyProbe.Value()
-                                                      : mFailureLatencyProbe.Value();
+  EME_LOG("%s %s latency %ums reported via telemetry",
+          mName.get(),
+          ((aStatus == kSucceeded) ? "succcess" : "failure"),
+          latency);
+  Telemetry::HistogramID tid = (aStatus == kSucceeded)
+                                   ? mSuccessLatencyProbe.Value()
+                                   : mFailureLatencyProbe.Value();
   Telemetry::Accumulate(tid, latency);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

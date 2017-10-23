@@ -17,15 +17,16 @@
 //   bool var = gfxEnv::DisableContextSharingGLX();
 // and that the value will be checked only once, first time we call it, then cached.
 
-#define DECL_GFX_ENV(Env, Name)  \
-  static bool Name() {                \
-    static bool isSet = IsEnvSet(Env);\
-    return isSet;                     \
+#define DECL_GFX_ENV(Env, Name)        \
+  static bool Name()                   \
+  {                                    \
+    static bool isSet = IsEnvSet(Env); \
+    return isSet;                      \
   }
 
 class gfxEnv final
 {
-public:
+ public:
   // This is where DECL_GFX_ENV for each of the environment variables should go.
   // We will keep these in an alphabetical order by the environment variable,
   // to make it easier to see if a method accessing an entry already exists.
@@ -108,15 +109,16 @@ public:
   // Please make sure that you've added your new envvar to the list above in
   // alphabetical order. Please do not just append it to the end of the list.
 
-private:
+ private:
   // Helper function, can be re-used in the other macros
-  static bool IsEnvSet(const char* aName) {
+  static bool IsEnvSet(const char* aName)
+  {
     const char* val = PR_GetEnv(aName);
     return (val != 0 && *val != '\0');
   }
 
-  gfxEnv() {};
-  ~gfxEnv() {};
+  gfxEnv(){};
+  ~gfxEnv(){};
   gfxEnv(const gfxEnv&) = delete;
   gfxEnv& operator=(const gfxEnv&) = delete;
 };

@@ -30,4 +30,4 @@ FlacDecoder::IsSupportedType(const MediaContainerType& aContainerType)
           aContainerType.Type() == MEDIAMIMETYPE("application/x-flac"));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

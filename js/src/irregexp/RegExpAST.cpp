@@ -34,31 +34,25 @@ using namespace js;
 using namespace js::irregexp;
 
 #define MAKE_ACCEPT(Name)                                            \
-  void* RegExp##Name::Accept(RegExpVisitor* visitor, void* data) {   \
-    return visitor->Visit##Name(this, data);                         \
-  }
+    void* RegExp##Name::Accept(RegExpVisitor* visitor, void* data) { \
+        return visitor->Visit##Name(this, data);                     \
+    }
 FOR_EACH_REG_EXP_TREE_TYPE(MAKE_ACCEPT)
 #undef MAKE_ACCEPT
 
-#define MAKE_TYPE_CASE(Name)                                         \
-  RegExp##Name* RegExpTree::As##Name() {                             \
-    return nullptr;                                                  \
-  }                                                                  \
-  bool RegExpTree::Is##Name() { return false; }
+#define MAKE_TYPE_CASE(Name)                                 \
+    RegExp##Name* RegExpTree::As##Name() { return nullptr; } \
+    bool RegExpTree::Is##Name() { return false; }
 FOR_EACH_REG_EXP_TREE_TYPE(MAKE_TYPE_CASE)
 #undef MAKE_TYPE_CASE
 
-#define MAKE_TYPE_CASE(Name)                                        \
-  RegExp##Name* RegExp##Name::As##Name() {                          \
-    return this;                                                    \
-  }                                                                 \
-  bool RegExp##Name::Is##Name() { return true; }
+#define MAKE_TYPE_CASE(Name)                                \
+    RegExp##Name* RegExp##Name::As##Name() { return this; } \
+    bool RegExp##Name::Is##Name() { return true; }
 FOR_EACH_REG_EXP_TREE_TYPE(MAKE_TYPE_CASE)
 #undef MAKE_TYPE_CASE
 
-static Interval
-ListCaptureRegisters(const RegExpTreeVector& children)
-{
+static Interval ListCaptureRegisters(const RegExpTreeVector& children) {
     Interval result = Interval::Empty();
     for (size_t i = 0; i < children.length(); i++)
         result = result.Union(children[i]->CaptureRegisters());
@@ -69,8 +63,7 @@ ListCaptureRegisters(const RegExpTreeVector& children)
 // RegExpDisjunction
 
 RegExpDisjunction::RegExpDisjunction(RegExpTreeVector* alternatives)
-  : alternatives_(alternatives)
-{
+    : alternatives_(alternatives) {
     MOZ_ASSERT(alternatives->length() > 1);
     RegExpTree* first_alternative = (*alternatives)[0];
     min_match_ = first_alternative->min_match();
@@ -82,30 +75,20 @@ RegExpDisjunction::RegExpDisjunction(RegExpTreeVector* alternatives)
     }
 }
 
-Interval
-RegExpDisjunction::CaptureRegisters()
-{
-    return ListCaptureRegisters(alternatives());
-}
+Interval RegExpDisjunction::CaptureRegisters() { return ListCaptureRegisters(alternatives()); }
 
-bool
-RegExpDisjunction::IsAnchoredAtStart()
-{
+bool RegExpDisjunction::IsAnchoredAtStart() {
     const RegExpTreeVector& alternatives = this->alternatives();
     for (size_t i = 0; i < alternatives.length(); i++) {
-        if (!alternatives[i]->IsAnchoredAtStart())
-            return false;
+        if (!alternatives[i]->IsAnchoredAtStart()) return false;
     }
     return true;
 }
 
-bool
-RegExpDisjunction::IsAnchoredAtEnd()
-{
+bool RegExpDisjunction::IsAnchoredAtEnd() {
     const RegExpTreeVector& alternatives = this->alternatives();
     for (size_t i = 0; i < alternatives.length(); i++) {
-        if (!alternatives[i]->IsAnchoredAtEnd())
-            return false;
+        if (!alternatives[i]->IsAnchoredAtEnd()) return false;
     }
     return true;
 }
@@ -113,18 +96,13 @@ RegExpDisjunction::IsAnchoredAtEnd()
 // ----------------------------------------------------------------------------
 // RegExpAlternative
 
-static int IncreaseBy(int previous, int increase)
-{
-    if (RegExpTree::kInfinity - previous < increase)
-        return RegExpTree::kInfinity;
+static int IncreaseBy(int previous, int increase) {
+    if (RegExpTree::kInfinity - previous < increase) return RegExpTree::kInfinity;
     return previous + increase;
 }
 
 RegExpAlternative::RegExpAlternative(RegExpTreeVector* nodes)
-  : nodes_(nodes),
-    min_match_(0),
-    max_match_(0)
-{
+    : nodes_(nodes), min_match_(0), max_match_(0) {
     MOZ_ASSERT(nodes->length() > 1);
     for (size_t i = 0; i < nodes->length(); i++) {
         RegExpTree* node = (*nodes)[i];
@@ -135,32 +113,32 @@ RegExpAlternative::RegExpAlternative(RegExpTreeVector* nodes)
     }
 }
 
-Interval
-RegExpAlternative::CaptureRegisters()
-{
-    return ListCaptureRegisters(nodes());
-}
+Interval RegExpAlternative::CaptureRegisters() { return ListCaptureRegisters(nodes()); }
 
-bool
-RegExpAlternative::IsAnchoredAtStart()
-{
+bool RegExpAlternative::IsAnchoredAtStart() {
     const RegExpTreeVector& nodes = this->nodes();
     for (size_t i = 0; i < nodes.length(); i++) {
         RegExpTree* node = nodes[i];
-        if (node->IsAnchoredAtStart()) { return true; }
-        if (node->max_match() > 0) { return false; }
+        if (node->IsAnchoredAtStart()) {
+            return true;
+        }
+        if (node->max_match() > 0) {
+            return false;
+        }
     }
     return false;
 }
 
-bool
-RegExpAlternative::IsAnchoredAtEnd()
-{
+bool RegExpAlternative::IsAnchoredAtEnd() {
     const RegExpTreeVector& nodes = this->nodes();
     for (int i = nodes.length() - 1; i >= 0; i--) {
         RegExpTree* node = nodes[i];
-        if (node->IsAnchoredAtEnd()) { return true; }
-        if (node->max_match() > 0) { return false; }
+        if (node->IsAnchoredAtEnd()) {
+            return true;
+        }
+        if (node->max_match() > 0) {
+            return false;
+        }
     }
     return false;
 }
@@ -168,30 +146,22 @@ RegExpAlternative::IsAnchoredAtEnd()
 // ----------------------------------------------------------------------------
 // RegExpAssertion
 
-bool
-RegExpAssertion::IsAnchoredAtStart()
-{
+bool RegExpAssertion::IsAnchoredAtStart() {
     return assertion_type() == RegExpAssertion::START_OF_INPUT;
 }
 
-bool
-RegExpAssertion::IsAnchoredAtEnd()
-{
+bool RegExpAssertion::IsAnchoredAtEnd() {
     return assertion_type() == RegExpAssertion::END_OF_INPUT;
 }
 
 // ----------------------------------------------------------------------------
 // RegExpCharacterClass
 
-void
-RegExpCharacterClass::AppendToText(RegExpText* text)
-{
+void RegExpCharacterClass::AppendToText(RegExpText* text) {
     text->AddElement(TextElement::CharClass(this));
 }
 
-CharacterRangeVector&
-CharacterSet::ranges(LifoAlloc* alloc)
-{
+CharacterRangeVector& CharacterSet::ranges(LifoAlloc* alloc) {
     if (ranges_ == nullptr) {
         ranges_ = alloc->newInfallible<CharacterRangeVector>(*alloc);
         CharacterRange::AddClassEscape(alloc, standard_set_type_, ranges_);
@@ -202,49 +172,28 @@ CharacterSet::ranges(LifoAlloc* alloc)
 // ----------------------------------------------------------------------------
 // RegExpAtom
 
-void
-RegExpAtom::AppendToText(RegExpText* text)
-{
-    text->AddElement(TextElement::Atom(this));
-}
+void RegExpAtom::AppendToText(RegExpText* text) { text->AddElement(TextElement::Atom(this)); }
 
 // ----------------------------------------------------------------------------
 // RegExpText
 
-void
-RegExpText::AppendToText(RegExpText* text)
-{
-    for (size_t i = 0; i < elements().length(); i++)
-        text->AddElement(elements()[i]);
+void RegExpText::AppendToText(RegExpText* text) {
+    for (size_t i = 0; i < elements().length(); i++) text->AddElement(elements()[i]);
 }
 
 // ----------------------------------------------------------------------------
 // RegExpQuantifier
 
-Interval
-RegExpQuantifier::CaptureRegisters()
-{
-    return body()->CaptureRegisters();
-}
+Interval RegExpQuantifier::CaptureRegisters() { return body()->CaptureRegisters(); }
 
 // ----------------------------------------------------------------------------
 // RegExpCapture
 
-bool
-RegExpCapture::IsAnchoredAtStart()
-{
-    return body()->IsAnchoredAtStart();
-}
+bool RegExpCapture::IsAnchoredAtStart() { return body()->IsAnchoredAtStart(); }
 
-bool
-RegExpCapture::IsAnchoredAtEnd()
-{
-    return body()->IsAnchoredAtEnd();
-}
+bool RegExpCapture::IsAnchoredAtEnd() { return body()->IsAnchoredAtEnd(); }
 
-Interval
-RegExpCapture::CaptureRegisters()
-{
+Interval RegExpCapture::CaptureRegisters() {
     Interval self(StartRegister(index()), EndRegister(index()));
     return self.Union(body()->CaptureRegisters());
 }
@@ -252,14 +201,6 @@ RegExpCapture::CaptureRegisters()
 // ----------------------------------------------------------------------------
 // RegExpLookahead
 
-Interval
-RegExpLookahead::CaptureRegisters()
-{
-    return body()->CaptureRegisters();
-}
+Interval RegExpLookahead::CaptureRegisters() { return body()->CaptureRegisters(); }
 
-bool
-RegExpLookahead::IsAnchoredAtStart()
-{
-    return is_positive() && body()->IsAnchoredAtStart();
-}
+bool RegExpLookahead::IsAnchoredAtStart() { return is_positive() && body()->IsAnchoredAtStart(); }

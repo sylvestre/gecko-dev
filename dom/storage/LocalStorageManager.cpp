@@ -36,7 +36,7 @@ namespace {
 
 int32_t gQuotaLimit = DEFAULT_QUOTA_LIMIT;
 
-} // namespace
+}  // namespace
 
 LocalStorageManager* LocalStorageManager::sSelf = nullptr;
 
@@ -46,30 +46,30 @@ LocalStorageManager::GetQuota()
 {
   static bool preferencesInitialized = false;
   if (!preferencesInitialized) {
-    mozilla::Preferences::AddIntVarCache(&gQuotaLimit,
-                                         "dom.storage.default_quota",
-                                         DEFAULT_QUOTA_LIMIT);
+    mozilla::Preferences::AddIntVarCache(
+        &gQuotaLimit, "dom.storage.default_quota", DEFAULT_QUOTA_LIMIT);
     preferencesInitialized = true;
   }
 
-  return gQuotaLimit * 1024; // pref is in kBs
+  return gQuotaLimit * 1024;  // pref is in kBs
 }
 
-NS_IMPL_ISUPPORTS(LocalStorageManager,
-                  nsIDOMStorageManager)
+NS_IMPL_ISUPPORTS(LocalStorageManager, nsIDOMStorageManager)
 
-LocalStorageManager::LocalStorageManager()
-  : mCaches(8)
-  , mLowDiskSpace(false)
+LocalStorageManager::LocalStorageManager() : mCaches(8), mLowDiskSpace(false)
 {
   StorageObserver* observer = StorageObserver::Self();
-  NS_ASSERTION(observer, "No StorageObserver, cannot observe private data delete notifications!");
+  NS_ASSERTION(
+      observer,
+      "No StorageObserver, cannot observe private data delete notifications!");
 
   if (observer) {
     observer->AddSink(this);
   }
 
-  NS_ASSERTION(!sSelf, "Somebody is trying to do_CreateInstance(\"@mozilla/dom/localStorage-manager;1\"");
+  NS_ASSERTION(!sSelf,
+               "Somebody is trying to "
+               "do_CreateInstance(\"@mozilla/dom/localStorage-manager;1\"");
   sSelf = this;
 
   if (!XRE_IsParentProcess()) {
@@ -93,13 +93,12 @@ LocalStorageManager::~LocalStorageManager()
 namespace {
 
 nsresult
-CreateQuotaDBKey(nsIPrincipal* aPrincipal,
-                 nsACString& aKey)
+CreateQuotaDBKey(nsIPrincipal* aPrincipal, nsACString& aKey)
 {
   nsresult rv;
 
-  nsCOMPtr<nsIEffectiveTLDService> eTLDService(do_GetService(
-    NS_EFFECTIVETLDSERVICE_CONTRACTID, &rv));
+  nsCOMPtr<nsIEffectiveTLDService> eTLDService(
+      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIURI> uri;
@@ -127,7 +126,7 @@ CreateQuotaDBKey(nsIPrincipal* aPrincipal,
   return NS_OK;
 }
 
-} // namespace
+}  // namespace
 
 // static
 nsCString
@@ -199,7 +198,9 @@ void
 LocalStorageManager::DropCache(LocalStorageCache* aCache)
 {
   if (!NS_IsMainThread()) {
-    NS_WARNING("StorageManager::DropCache called on a non-main thread, shutting down?");
+    NS_WARNING(
+        "StorageManager::DropCache called on a non-main thread, shutting "
+        "down?");
   }
 
   CacheOriginHashtable* table = mCaches.LookupOrAdd(aCache->OriginSuffix());
@@ -236,7 +237,8 @@ LocalStorageManager::GetStorageInternal(CreateMode aCreateMode,
       // no data stored, bypass creation and preload of the cache.
       StorageDBChild* db = StorageDBChild::Get();
       if (db) {
-        if (!db->ShouldPreloadOrigin(LocalStorageManager::CreateOrigin(originAttrSuffix, originKey))) {
+        if (!db->ShouldPreloadOrigin(LocalStorageManager::CreateOrigin(
+                originAttrSuffix, originKey))) {
           return NS_OK;
         }
       } else {
@@ -255,7 +257,7 @@ LocalStorageManager::GetStorageInternal(CreateMode aCreateMode,
     nsCOMPtr<nsPIDOMWindowInner> inner = nsPIDOMWindowInner::From(aWindow);
 
     nsCOMPtr<nsIDOMStorage> storage = new LocalStorage(
-      inner, this, cache, aDocumentURI, aPrincipal, aPrivate);
+        inner, this, cache, aDocumentURI, aPrincipal, aPrivate);
     storage.forget(aRetval);
   }
 
@@ -266,8 +268,12 @@ NS_IMETHODIMP
 LocalStorageManager::PrecacheStorage(nsIPrincipal* aPrincipal,
                                      nsIDOMStorage** aRetval)
 {
-  return GetStorageInternal(CreateMode::CreateIfShouldPreload, nullptr,
-                            aPrincipal, EmptyString(), false, aRetval);
+  return GetStorageInternal(CreateMode::CreateIfShouldPreload,
+                            nullptr,
+                            aPrincipal,
+                            EmptyString(),
+                            false,
+                            aRetval);
 }
 
 NS_IMETHODIMP
@@ -277,8 +283,12 @@ LocalStorageManager::CreateStorage(mozIDOMWindow* aWindow,
                                    bool aPrivate,
                                    nsIDOMStorage** aRetval)
 {
-  return GetStorageInternal(CreateMode::CreateAlways, aWindow, aPrincipal,
-                            aDocumentURI, aPrivate, aRetval);
+  return GetStorageInternal(CreateMode::CreateAlways,
+                            aWindow,
+                            aPrincipal,
+                            aDocumentURI,
+                            aPrivate,
+                            aRetval);
 }
 
 NS_IMETHODIMP
@@ -287,8 +297,12 @@ LocalStorageManager::GetStorage(mozIDOMWindow* aWindow,
                                 bool aPrivate,
                                 nsIDOMStorage** aRetval)
 {
-  return GetStorageInternal(CreateMode::UseIfExistsNeverCreate, aWindow,
-                            aPrincipal, EmptyString(), aPrivate, aRetval);
+  return GetStorageInternal(CreateMode::UseIfExistsNeverCreate,
+                            aWindow,
+                            aPrincipal,
+                            EmptyString(),
+                            aPrivate,
+                            aRetval);
 }
 
 NS_IMETHODIMP
@@ -438,7 +452,8 @@ LocalStorageManager::Observe(const char* aTopic,
 
   if (!strcmp(aTopic, "test-flushed")) {
     if (!XRE_IsParentProcess()) {
-      nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+      nsCOMPtr<nsIObserverService> obs =
+          mozilla::services::GetObserverService();
       if (obs) {
         obs->NotifyObservers(nullptr, "domstorage-test-flushed", nullptr);
       }
@@ -461,11 +476,11 @@ LocalStorageManager::Ensure()
 
   // Cause sSelf to be populated.
   nsCOMPtr<nsIDOMStorageManager> initializer =
-    do_GetService("@mozilla.org/dom/localStorage-manager;1");
+      do_GetService("@mozilla.org/dom/localStorage-manager;1");
   MOZ_ASSERT(sSelf, "Didn't initialize?");
 
   return sSelf;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

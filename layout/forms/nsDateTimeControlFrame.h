@@ -23,8 +23,8 @@
 namespace mozilla {
 namespace dom {
 struct DateTimeValue;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsDateTimeControlFrame final : public nsContainerFrame,
                                      public nsIAnonymousContentCreator
@@ -33,7 +33,7 @@ class nsDateTimeControlFrame final : public nsContainerFrame,
 
   explicit nsDateTimeControlFrame(nsStyleContext* aContext);
 
-public:
+ public:
   friend nsIFrame* NS_NewDateTimeControlFrame(nsIPresShell* aPresShell,
                                               nsStyleContext* aContext);
 
@@ -44,15 +44,16 @@ public:
   NS_DECL_FRAMEARENA_HELPERS(nsDateTimeControlFrame)
 
 #ifdef DEBUG_FRAME_DUMP
-  nsresult GetFrameName(nsAString& aResult) const override {
+  nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("DateTimeControl"), aResult);
   }
 #endif
 
   bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsContainerFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
+    return nsContainerFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
   }
 
   // Reflow
@@ -70,7 +71,8 @@ public:
   void AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
                                 uint32_t aFilter) override;
 
-  nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
+  nsresult AttributeChanged(int32_t aNameSpaceID,
+                            nsAtom* aAttribute,
                             int32_t aModType) override;
 
   void OnValueChanged();
@@ -81,28 +83,29 @@ public:
   void SetPickerState(bool aOpen);
   bool HasBadInput();
 
-private:
+ private:
   class SyncDisabledStateEvent;
   friend class SyncDisabledStateEvent;
   class SyncDisabledStateEvent : public mozilla::Runnable
   {
-  public:
+   public:
     explicit SyncDisabledStateEvent(nsDateTimeControlFrame* aFrame)
-      : mozilla::Runnable("nsDateTimeControlFrame::SyncDisabledStateEvent")
-      , mFrame(aFrame)
-    {}
+        : mozilla::Runnable("nsDateTimeControlFrame::SyncDisabledStateEvent"),
+          mFrame(aFrame)
+    {
+    }
 
     NS_IMETHOD Run() override
     {
       nsDateTimeControlFrame* frame =
-        static_cast<nsDateTimeControlFrame*>(mFrame.GetFrame());
+          static_cast<nsDateTimeControlFrame*>(mFrame.GetFrame());
       NS_ENSURE_STATE(frame);
 
       frame->SyncDisabledState();
       return NS_OK;
     }
 
-  private:
+   private:
     WeakFrame mFrame;
   };
 
@@ -116,4 +119,4 @@ private:
   nsCOMPtr<nsIContent> mInputAreaContent;
 };
 
-#endif // nsDateTimeControlFrame_h__
+#endif  // nsDateTimeControlFrame_h__

@@ -52,9 +52,10 @@ TouchList::PrefEnabled(JSContext* aCx, JSObject* aGlobal)
 TouchEvent::TouchEvent(EventTarget* aOwner,
                        nsPresContext* aPresContext,
                        WidgetTouchEvent* aEvent)
-  : UIEvent(aOwner, aPresContext,
-            aEvent ? aEvent :
-                     new WidgetTouchEvent(false, eVoidEvent, nullptr))
+    : UIEvent(
+          aOwner,
+          aPresContext,
+          aEvent ? aEvent : new WidgetTouchEvent(false, eVoidEvent, nullptr))
 {
   if (aEvent) {
     mEventIsInternal = false;
@@ -69,10 +70,8 @@ TouchEvent::TouchEvent(EventTarget* aOwner,
   }
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(TouchEvent, UIEvent,
-                                   mTouches,
-                                   mTargetTouches,
-                                   mChangedTouches)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(
+    TouchEvent, UIEvent, mTouches, mTargetTouches, mChangedTouches)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TouchEvent)
 NS_INTERFACE_MAP_END_INHERITING(UIEvent)
@@ -97,8 +96,8 @@ TouchEvent::InitTouchEvent(const nsAString& aType,
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
 
   UIEvent::InitUIEvent(aType, aCanBubble, aCancelable, aView, aDetail);
-  mEvent->AsInputEvent()->InitBasicModifiers(aCtrlKey, aAltKey,
-                                             aShiftKey, aMetaKey);
+  mEvent->AsInputEvent()->InitBasicModifiers(
+      aCtrlKey, aAltKey, aShiftKey, aMetaKey);
   mTouches = aTouches;
   mTargetTouches = aTargetTouches;
   mChangedTouches = aChangedTouches;
@@ -193,13 +192,15 @@ TouchEvent::PrefEnabled(nsIDocShell* aDocShell)
 
   if (!sPrefCached) {
     sPrefCached = true;
-    Preferences::AddIntVarCache(&sPrefCacheValue, "dom.w3c_touch_events.enabled");
+    Preferences::AddIntVarCache(&sPrefCacheValue,
+                                "dom.w3c_touch_events.enabled");
   }
 
   bool enabled = false;
   if (touchEventsOverride == nsIDocShell::TOUCHEVENTS_OVERRIDE_ENABLED) {
     enabled = true;
-  } else if (touchEventsOverride == nsIDocShell::TOUCHEVENTS_OVERRIDE_DISABLED) {
+  } else if (touchEventsOverride ==
+             nsIDocShell::TOUCHEVENTS_OVERRIDE_DISABLED) {
     enabled = false;
   } else {
     if (sPrefCacheValue == 2) {
@@ -212,7 +213,8 @@ TouchEvent::PrefEnabled(nsIDocShell* aDocShell)
       // On Windows and GTK3 we auto-detect based on device support.
       if (!sDidCheckTouchDeviceSupport) {
         sDidCheckTouchDeviceSupport = true;
-        sIsTouchDeviceSupportPresent = WidgetUtils::IsTouchDeviceSupportPresent();
+        sIsTouchDeviceSupportPresent =
+            WidgetUtils::IsTouchDeviceSupportPresent();
         // But touch events are only actually supported if APZ is enabled. If
         // APZ is disabled globally, we can check that once and incorporate that
         // into the cached state. If APZ is enabled, we need to further check
@@ -256,15 +258,22 @@ TouchEvent::Constructor(const GlobalObject& aGlobal,
   RefPtr<TouchList> touches = e->CopyTouches(aParam.mTouches);
   RefPtr<TouchList> targetTouches = e->CopyTouches(aParam.mTargetTouches);
   RefPtr<TouchList> changedTouches = e->CopyTouches(aParam.mChangedTouches);
-  e->InitTouchEvent(aType, aParam.mBubbles, aParam.mCancelable, aParam.mView,
-                    aParam.mDetail, aParam.mCtrlKey, aParam.mAltKey,
-                    aParam.mShiftKey, aParam.mMetaKey, touches, targetTouches,
+  e->InitTouchEvent(aType,
+                    aParam.mBubbles,
+                    aParam.mCancelable,
+                    aParam.mView,
+                    aParam.mDetail,
+                    aParam.mCtrlKey,
+                    aParam.mAltKey,
+                    aParam.mShiftKey,
+                    aParam.mMetaKey,
+                    touches,
+                    targetTouches,
                     changedTouches);
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
 }
-
 
 already_AddRefed<TouchList>
 TouchEvent::CopyTouches(const Sequence<OwningNonNull<Touch>>& aTouches)
@@ -301,8 +310,8 @@ TouchEvent::ShiftKey()
   return mEvent->AsTouchEvent()->IsShift();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

@@ -31,7 +31,8 @@ SVGIntegerPairSMILType::Destroy(nsSMILValue& aValue) const
 }
 
 nsresult
-SVGIntegerPairSMILType::Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const
+SVGIntegerPairSMILType::Assign(nsSMILValue& aDest,
+                               const nsSMILValue& aSrc) const
 {
   NS_PRECONDITION(aDest.mType == aSrc.mType, "Incompatible SMIL types");
   NS_PRECONDITION(aDest.mType == this, "Unexpected SMIL value");
@@ -53,7 +54,8 @@ SVGIntegerPairSMILType::IsEqual(const nsSMILValue& aLeft,
 }
 
 nsresult
-SVGIntegerPairSMILType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+SVGIntegerPairSMILType::Add(nsSMILValue& aDest,
+                            const nsSMILValue& aValueToAdd,
                             uint32_t aCount) const
 {
   NS_PRECONDITION(aValueToAdd.mType == aDest.mType,
@@ -71,7 +73,8 @@ SVGIntegerPairSMILType::ComputeDistance(const nsSMILValue& aFrom,
                                         const nsSMILValue& aTo,
                                         double& aDistance) const
 {
-  NS_PRECONDITION(aFrom.mType == aTo.mType,"Trying to compare different types");
+  NS_PRECONDITION(aFrom.mType == aTo.mType,
+                  "Trying to compare different types");
   NS_PRECONDITION(aFrom.mType == this, "Unexpected source type");
 
   double delta[2];
@@ -95,14 +98,16 @@ SVGIntegerPairSMILType::Interpolate(const nsSMILValue& aStartVal,
   NS_PRECONDITION(aResult.mType == this, "Unexpected result type");
 
   double currentVal[2];
-  currentVal[0] = aStartVal.mU.mIntPair[0] +
-                  (aEndVal.mU.mIntPair[0] - aStartVal.mU.mIntPair[0]) * aUnitDistance;
-  currentVal[1] = aStartVal.mU.mIntPair[1] +
-                  (aEndVal.mU.mIntPair[1] - aStartVal.mU.mIntPair[1]) * aUnitDistance;
+  currentVal[0] =
+      aStartVal.mU.mIntPair[0] +
+      (aEndVal.mU.mIntPair[0] - aStartVal.mU.mIntPair[0]) * aUnitDistance;
+  currentVal[1] =
+      aStartVal.mU.mIntPair[1] +
+      (aEndVal.mU.mIntPair[1] - aStartVal.mU.mIntPair[1]) * aUnitDistance;
 
   aResult.mU.mIntPair[0] = NS_lround(currentVal[0]);
   aResult.mU.mIntPair[1] = NS_lround(currentVal[1]);
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

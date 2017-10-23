@@ -13,25 +13,26 @@ namespace mozilla {
 namespace dom {
 
 SpeechStreamListener::SpeechStreamListener(SpeechRecognition* aRecognition)
-  : mRecognition(aRecognition)
+    : mRecognition(aRecognition)
 {
 }
 
 SpeechStreamListener::~SpeechStreamListener()
 {
-  NS_ReleaseOnMainThreadSystemGroup(
-    "SpeechStreamListener::mRecognition", mRecognition.forget());
+  NS_ReleaseOnMainThreadSystemGroup("SpeechStreamListener::mRecognition",
+                                    mRecognition.forget());
 }
 
 void
-SpeechStreamListener::NotifyQueuedAudioData(MediaStreamGraph* aGraph, TrackID aID,
+SpeechStreamListener::NotifyQueuedAudioData(MediaStreamGraph* aGraph,
+                                            TrackID aID,
                                             StreamTime aTrackOffset,
                                             const AudioSegment& aQueuedMedia,
                                             MediaStream* aInputStream,
                                             TrackID aInputTrackID)
 {
   AudioSegment* audio = const_cast<AudioSegment*>(
-    static_cast<const AudioSegment*>(&aQueuedMedia));
+      static_cast<const AudioSegment*>(&aQueuedMedia));
 
   AudioSegment::ChunkIterator iterator(*audio);
   while (!iterator.IsEnded()) {
@@ -44,21 +45,27 @@ SpeechStreamListener::NotifyQueuedAudioData(MediaStreamGraph* aGraph, TrackID aI
     if (iterator->IsNull()) {
       nsTArray<int16_t> nullData;
       PodZero(nullData.AppendElements(duration), duration);
-      ConvertAndDispatchAudioChunk(duration, iterator->mVolume,
-                                   nullData.Elements(), aGraph->GraphRate());
+      ConvertAndDispatchAudioChunk(duration,
+                                   iterator->mVolume,
+                                   nullData.Elements(),
+                                   aGraph->GraphRate());
     } else {
       AudioSampleFormat format = iterator->mBufferFormat;
 
       MOZ_ASSERT(format == AUDIO_FORMAT_S16 || format == AUDIO_FORMAT_FLOAT32);
 
       if (format == AUDIO_FORMAT_S16) {
-        ConvertAndDispatchAudioChunk(duration,iterator->mVolume,
-                                     static_cast<const int16_t*>(iterator->mChannelData[0]),
-                                     aGraph->GraphRate());
+        ConvertAndDispatchAudioChunk(
+            duration,
+            iterator->mVolume,
+            static_cast<const int16_t*>(iterator->mChannelData[0]),
+            aGraph->GraphRate());
       } else if (format == AUDIO_FORMAT_FLOAT32) {
-        ConvertAndDispatchAudioChunk(duration,iterator->mVolume,
-                                     static_cast<const float*>(iterator->mChannelData[0]),
-                                     aGraph->GraphRate());
+        ConvertAndDispatchAudioChunk(
+            duration,
+            iterator->mVolume,
+            static_cast<const float*>(iterator->mChannelData[0]),
+            aGraph->GraphRate());
       }
     }
 
@@ -66,14 +73,15 @@ SpeechStreamListener::NotifyQueuedAudioData(MediaStreamGraph* aGraph, TrackID aI
   }
 }
 
-template<typename SampleFormatType> void
-SpeechStreamListener::ConvertAndDispatchAudioChunk(int aDuration, float aVolume,
+template<typename SampleFormatType>
+void
+SpeechStreamListener::ConvertAndDispatchAudioChunk(int aDuration,
+                                                   float aVolume,
                                                    SampleFormatType* aData,
                                                    TrackRate aTrackRate)
 {
-  RefPtr<SharedBuffer> samples(SharedBuffer::Create(aDuration *
-                                                      1 * // channel
-                                                      sizeof(int16_t)));
+  RefPtr<SharedBuffer> samples(SharedBuffer::Create(aDuration * 1 *  // channel
+                                                    sizeof(int16_t)));
 
   int16_t* to = static_cast<int16_t*>(samples->Data());
   ConvertAudioSamplesWithScale(aData, to, aDuration, aVolume);
@@ -88,5 +96,5 @@ SpeechStreamListener::NotifyEvent(MediaStreamGraph* aGraph,
   // TODO dispatch SpeechEnd event so services can be informed
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

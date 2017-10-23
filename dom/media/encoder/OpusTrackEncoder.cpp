@@ -33,12 +33,12 @@ static const int MAX_DATA_BYTES = 4096;
 static const int kOpusSamplingRate = 48000;
 
 // The duration of an Opus frame, and it must be 2.5, 5, 10, 20, 40 or 60 ms.
-static const int kFrameDurationMs  = 20;
+static const int kFrameDurationMs = 20;
 
 // The supported sampling rate of input signal (Hz),
 // must be one of the following. Will resampled to 48kHz otherwise.
-static const int kOpusSupportedInputSamplingRates[] =
-                   {8000, 12000, 16000, 24000, 48000};
+static const int kOpusSupportedInputSamplingRates[] = {
+    8000, 12000, 16000, 24000, 48000};
 
 namespace {
 
@@ -62,10 +62,11 @@ SerializeToBuffer(const nsCString& aComment, nsTArray<uint8_t>* aOutput)
   aOutput->AppendElements(aComment.get(), aComment.Length());
 }
 
-
 static void
-SerializeOpusIdHeader(uint8_t aChannelCount, uint16_t aPreskip,
-                      uint32_t aInputSampleRate, nsTArray<uint8_t>* aOutput)
+SerializeOpusIdHeader(uint8_t aChannelCount,
+                      uint16_t aPreskip,
+                      uint32_t aInputSampleRate,
+                      nsTArray<uint8_t>* aOutput)
 {
   // The magic signature, null terminator has to be stripped off from strings.
   static const uint8_t magic[] = "OpusHead";
@@ -122,11 +123,11 @@ SerializeOpusCommentHeader(const nsCString& aVendor,
 }  // Anonymous namespace.
 
 OpusTrackEncoder::OpusTrackEncoder(TrackRate aTrackRate)
-  : AudioTrackEncoder(aTrackRate)
-  , mEncoder(nullptr)
-  , mLookahead(0)
-  , mResampler(nullptr)
-  , mOutputTimeStamp(0)
+    : AudioTrackEncoder(aTrackRate),
+      mEncoder(nullptr),
+      mLookahead(0),
+      mResampler(nullptr),
+      mOutputTimeStamp(0)
 {
 }
 
@@ -160,8 +161,9 @@ OpusTrackEncoder::Init(int aChannels, int aSamplingRate)
   // sampling rate of source signal be one of 8000, 12000, 16000, 24000, or
   // 48000. If this constraint is not satisfied, we resample the input to 48kHz.
   nsTArray<int> supportedSamplingRates;
-  supportedSamplingRates.AppendElements(kOpusSupportedInputSamplingRates,
-                         ArrayLength(kOpusSupportedInputSamplingRates));
+  supportedSamplingRates.AppendElements(
+      kOpusSupportedInputSamplingRates,
+      ArrayLength(kOpusSupportedInputSamplingRates));
   if (!supportedSamplingRates.Contains(aSamplingRate)) {
     int error;
     mResampler = speex_resampler_init(mChannels,
@@ -178,16 +180,16 @@ OpusTrackEncoder::Init(int aChannels, int aSamplingRate)
   NS_ENSURE_TRUE(mSamplingRate > 0, NS_ERROR_FAILURE);
 
   int error = 0;
-  mEncoder = opus_encoder_create(GetOutputSampleRate(), mChannels,
-                                 OPUS_APPLICATION_AUDIO, &error);
-
+  mEncoder = opus_encoder_create(
+      GetOutputSampleRate(), mChannels, OPUS_APPLICATION_AUDIO, &error);
 
   if (error == OPUS_OK) {
     SetInitialized();
   }
 
   if (mAudioBitrate) {
-    opus_encoder_ctl(mEncoder, OPUS_SET_BITRATE(static_cast<int>(mAudioBitrate)));
+    opus_encoder_ctl(mEncoder,
+                     OPUS_SET_BITRATE(static_cast<int>(mAudioBitrate)));
   }
 
   return error == OPUS_OK ? NS_OK : NS_ERROR_FAILURE;
@@ -231,18 +233,20 @@ OpusTrackEncoder::GetMetadata()
   }
 
   // The ogg time stamping and pre-skip is always timed at 48000.
-  SerializeOpusIdHeader(mChannels, mLookahead * (kOpusSamplingRate /
-                        GetOutputSampleRate()), mSamplingRate,
-                        &meta->mIdHeader);
+  SerializeOpusIdHeader(
+      mChannels,
+      mLookahead * (kOpusSamplingRate / GetOutputSampleRate()),
+      mSamplingRate,
+      &meta->mIdHeader);
 
   nsCString vendor;
   vendor.AppendASCII(opus_get_version_string());
 
   nsTArray<nsCString> comments;
-  comments.AppendElement(NS_LITERAL_CSTRING("ENCODER=Mozilla" MOZ_APP_UA_VERSION));
+  comments.AppendElement(
+      NS_LITERAL_CSTRING("ENCODER=Mozilla" MOZ_APP_UA_VERSION));
 
-  SerializeOpusCommentHeader(vendor, comments,
-                             &meta->mCommentHeader);
+  SerializeOpusCommentHeader(vendor, comments, &meta->mCommentHeader);
 
   return meta.forget();
 }
@@ -279,9 +283,11 @@ OpusTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
     MOZ_ASSERT(GetPacketDuration() >= framesLeft);
     // Try to fetch m frames such that there will be n frames
     // where (n + frameLeft) >= GetPacketDuration() after re-sampling.
-    const int framesToFetch = !mResampler ? GetPacketDuration()
-                              : (GetPacketDuration() - framesLeft) * mSamplingRate / kOpusSamplingRate
-                              + frameRoundUp;
+    const int framesToFetch = !mResampler
+                                  ? GetPacketDuration()
+                                  : (GetPacketDuration() - framesLeft) *
+                                            mSamplingRate / kOpusSamplingRate +
+                                        frameRoundUp;
 
     if (!mEndOfStream && mSourceSegment.GetDuration() < framesToFetch) {
       // Not enough raw data
@@ -318,20 +324,22 @@ OpusTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
 
       if (!chunk.IsNull()) {
         // Append the interleaved data to the end of pcm buffer.
-        AudioTrackEncoder::InterleaveTrackData(chunk, frameToCopy, mChannels,
-                                               pcm.Elements() + frameCopied * mChannels);
+        AudioTrackEncoder::InterleaveTrackData(
+            chunk,
+            frameToCopy,
+            mChannels,
+            pcm.Elements() + frameCopied * mChannels);
       } else {
-        CheckedInt<int> memsetLength = CheckedInt<int>(frameToCopy) *
-                                       mChannels *
-                                       sizeof(AudioDataValue);
+        CheckedInt<int> memsetLength =
+            CheckedInt<int>(frameToCopy) * mChannels * sizeof(AudioDataValue);
         if (!memsetLength.isValid()) {
           // This should never happen, but we use a defensive check because
           // we really don't want a bad memset
           MOZ_ASSERT_UNREACHABLE("memsetLength invalid!");
           return NS_ERROR_FAILURE;
         }
-        memset(pcm.Elements() + frameCopied * mChannels, 0,
-               memsetLength.value());
+        memset(
+            pcm.Elements() + frameCopied * mChannels, 0, memsetLength.value());
       }
 
       frameCopied += frameToCopy;
@@ -358,26 +366,28 @@ OpusTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
 #if MOZ_SAMPLE_TYPE_S16
       short* in = reinterpret_cast<short*>(pcm.Elements());
       short* out = reinterpret_cast<short*>(resamplingDest.Elements());
-      speex_resampler_process_interleaved_int(mResampler, in, &inframes,
-                                              out, &outframes);
+      speex_resampler_process_interleaved_int(
+          mResampler, in, &inframes, out, &outframes);
 #else
       float* in = reinterpret_cast<float*>(pcm.Elements());
       float* out = reinterpret_cast<float*>(resamplingDest.Elements());
-      speex_resampler_process_interleaved_float(mResampler, in, &inframes,
-                                                out, &outframes);
+      speex_resampler_process_interleaved_float(
+          mResampler, in, &inframes, out, &outframes);
 #endif
 
       MOZ_ASSERT(pcm.Length() >= mResampledLeftover.Length());
-      PodCopy(pcm.Elements(), mResampledLeftover.Elements(),
+      PodCopy(pcm.Elements(),
+              mResampledLeftover.Elements(),
               mResampledLeftover.Length());
 
-      uint32_t outframesToCopy = std::min(outframes,
-                                          static_cast<uint32_t>(GetPacketDuration() - framesLeft));
+      uint32_t outframesToCopy = std::min(
+          outframes, static_cast<uint32_t>(GetPacketDuration() - framesLeft));
 
       MOZ_ASSERT(pcm.Length() - mResampledLeftover.Length() >=
                  outframesToCopy * mChannels);
       PodCopy(pcm.Elements() + mResampledLeftover.Length(),
-              resamplingDest.Elements(), outframesToCopy * mChannels);
+              resamplingDest.Elements(),
+              outframesToCopy * mChannels);
       int frameLeftover = outframes - outframesToCopy;
       mResampledLeftover.SetLength(frameLeftover * mChannels);
       PodCopy(mResampledLeftover.Elements(),
@@ -418,12 +428,18 @@ OpusTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
     result = 0;
 #ifdef MOZ_SAMPLE_TYPE_S16
     const opus_int16* pcmBuf = static_cast<opus_int16*>(pcm.Elements());
-    result = opus_encode(mEncoder, pcmBuf, GetPacketDuration(),
-                         frameData.Elements(), MAX_DATA_BYTES);
+    result = opus_encode(mEncoder,
+                         pcmBuf,
+                         GetPacketDuration(),
+                         frameData.Elements(),
+                         MAX_DATA_BYTES);
 #else
     const float* pcmBuf = static_cast<float*>(pcm.Elements());
-    result = opus_encode_float(mEncoder, pcmBuf, GetPacketDuration(),
-                               frameData.Elements(), MAX_DATA_BYTES);
+    result = opus_encode_float(mEncoder,
+                               pcmBuf,
+                               GetPacketDuration(),
+                               frameData.Elements(),
+                               MAX_DATA_BYTES);
 #endif
     frameData.SetLength(result >= 0 ? result : 0);
 
@@ -441,12 +457,13 @@ OpusTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
     audiodata->SwapInFrameData(frameData);
     // timestamp should be the time of the first sample
     audiodata->SetTimeStamp(mOutputTimeStamp);
-    mOutputTimeStamp += FramesToUsecs(GetPacketDuration(), kOpusSamplingRate).value();
-    LOG("[Opus] mOutputTimeStamp %lld.",mOutputTimeStamp);
+    mOutputTimeStamp +=
+        FramesToUsecs(GetPacketDuration(), kOpusSamplingRate).value();
+    LOG("[Opus] mOutputTimeStamp %lld.", mOutputTimeStamp);
     aData.AppendEncodedFrame(audiodata);
   }
 
   return result >= 0 ? NS_OK : NS_ERROR_FAILURE;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

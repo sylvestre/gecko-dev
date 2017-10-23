@@ -19,8 +19,9 @@
 namespace mozilla {
 namespace gmp {
 
-class SandboxStarter {
-public:
+class SandboxStarter
+{
+ public:
   virtual ~SandboxStarter() {}
   virtual bool Start(const char* aLibPath) = 0;
 #if defined(XP_MACOSX) && defined(MOZ_GMP_SANDBOX)
@@ -32,8 +33,9 @@ public:
 };
 
 // Interface that adapts a plugin to the GMP API.
-class GMPAdapter {
-public:
+class GMPAdapter
+{
+ public:
   virtual ~GMPAdapter() {}
   // Sets the adapted to plugin library module.
   // Note: the GMPAdapter is responsible for calling PR_UnloadLibrary on aLib
@@ -52,8 +54,9 @@ public:
 // Encapsulates activating the sandbox, and loading the GMP.
 // Load() takes an optional GMPAdapter which can be used to adapt non-GMPs
 // to adhere to the GMP API.
-class GMPLoader {
-public:
+class GMPLoader
+{
+ public:
   GMPLoader();
 
   // Activates the sandbox, then loads the GMP library. If aAdapter is
@@ -84,12 +87,12 @@ public:
 
   bool CanSandbox() const;
 
-private:
+ private:
   UniquePtr<SandboxStarter> mSandboxStarter;
   UniquePtr<GMPAdapter> mAdapter;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMP_LOADER_H__
+#endif  // GMP_LOADER_H__

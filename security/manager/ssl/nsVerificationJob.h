@@ -14,14 +14,14 @@
 
 class nsBaseVerificationJob
 {
-public:
+ public:
   virtual ~nsBaseVerificationJob() {}
   virtual void Run() = 0;
 };
 
 class nsCertVerificationJob : public nsBaseVerificationJob
 {
-public:
+ public:
   nsCOMPtr<nsIX509Cert> mCert;
   nsMainThreadPtrHandle<nsICertVerificationListener> mListener;
 
@@ -30,22 +30,22 @@ public:
 
 class nsCertVerificationResult : public nsICertVerificationResult
 {
-public:
+ public:
   nsCertVerificationResult();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICERTVERIFICATIONRESULT
 
-protected:
+ protected:
   virtual ~nsCertVerificationResult();
 
-private:
+ private:
   nsresult mRV;
   uint32_t mVerified;
   uint32_t mCount;
-  char16_t **mUsages;
+  char16_t** mUsages;
 
-friend class nsCertVerificationJob;
+  friend class nsCertVerificationJob;
 };
 
 #endif

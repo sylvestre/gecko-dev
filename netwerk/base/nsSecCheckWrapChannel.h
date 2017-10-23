@@ -47,13 +47,13 @@ namespace net {
  *
  */
 
-class nsSecCheckWrapChannelBase : public nsIHttpChannel
-                                , public nsIHttpChannelInternal
-                                , public nsISecCheckWrapChannel
-                                , public nsIUploadChannel
-                                , public nsIUploadChannel2
+class nsSecCheckWrapChannelBase : public nsIHttpChannel,
+                                  public nsIHttpChannelInternal,
+                                  public nsISecCheckWrapChannel,
+                                  public nsIUploadChannel,
+                                  public nsIUploadChannel2
 {
-public:
+ public:
   NS_FORWARD_NSIHTTPCHANNEL(mHttpChannel->)
   NS_FORWARD_NSIHTTPCHANNELINTERNAL(mHttpChannelInternal->)
   NS_FORWARD_NSICHANNEL(mChannel->)
@@ -65,16 +65,16 @@ public:
 
   explicit nsSecCheckWrapChannelBase(nsIChannel* aChannel);
 
-protected:
+ protected:
   virtual ~nsSecCheckWrapChannelBase();
 
-  nsCOMPtr<nsIChannel>             mChannel;
+  nsCOMPtr<nsIChannel> mChannel;
   // We do a QI in the constructor to set the following pointers.
-  nsCOMPtr<nsIHttpChannel>         mHttpChannel;
+  nsCOMPtr<nsIHttpChannel> mHttpChannel;
   nsCOMPtr<nsIHttpChannelInternal> mHttpChannelInternal;
-  nsCOMPtr<nsIRequest>             mRequest;
-  nsCOMPtr<nsIUploadChannel>       mUploadChannel;
-  nsCOMPtr<nsIUploadChannel2>      mUploadChannel2;
+  nsCOMPtr<nsIRequest> mRequest;
+  nsCOMPtr<nsIUploadChannel> mUploadChannel;
+  nsCOMPtr<nsIUploadChannel2> mUploadChannel2;
 };
 
 /* We define a separate class here to make it clear that we're overriding
@@ -83,24 +83,24 @@ protected:
  */
 class nsSecCheckWrapChannel : public nsSecCheckWrapChannelBase
 {
-public:
-  NS_IMETHOD GetLoadInfo(nsILoadInfo **aLoadInfo);
-  NS_IMETHOD SetLoadInfo(nsILoadInfo *aLoadInfo);
+ public:
+  NS_IMETHOD GetLoadInfo(nsILoadInfo** aLoadInfo);
+  NS_IMETHOD SetLoadInfo(nsILoadInfo* aLoadInfo);
 
-  NS_IMETHOD AsyncOpen2(nsIStreamListener *aListener);
+  NS_IMETHOD AsyncOpen2(nsIStreamListener* aListener);
   NS_IMETHOD Open2(nsIInputStream** aStream);
 
   nsSecCheckWrapChannel(nsIChannel* aChannel, nsILoadInfo* aLoadInfo);
   static already_AddRefed<nsIChannel> MaybeWrap(nsIChannel* aChannel,
                                                 nsILoadInfo* aLoadInfo);
 
-protected:
+ protected:
   virtual ~nsSecCheckWrapChannel();
 
   nsCOMPtr<nsILoadInfo> mLoadInfo;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // nsSecCheckWrapChannel_h__
+#endif  // nsSecCheckWrapChannel_h__

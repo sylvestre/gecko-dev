@@ -82,20 +82,21 @@ namespace css {
  *   MergeMultiplicativeL for Times_L (coeff * value)
  *   MergeMultiplicativeR for Times_R (value * coeff) and Divided
  */
-template <class CalcOps>
+template<class CalcOps>
 static bool
 ComputeCalc(typename CalcOps::result_type& aResult,
-            const typename CalcOps::input_type& aValue, CalcOps &aOps)
+            const typename CalcOps::input_type& aValue,
+            CalcOps& aOps)
 {
   switch (CalcOps::GetUnit(aValue)) {
     case eCSSUnit_Calc: {
-      typename CalcOps::input_array_type *arr = aValue.GetArrayValue();
+      typename CalcOps::input_array_type* arr = aValue.GetArrayValue();
       MOZ_ASSERT(arr->Count() == 1, "unexpected length");
       return ComputeCalc(aResult, arr->Item(0), aOps);
     }
     case eCSSUnit_Calc_Plus:
     case eCSSUnit_Calc_Minus: {
-      typename CalcOps::input_array_type *arr = aValue.GetArrayValue();
+      typename CalcOps::input_array_type* arr = aValue.GetArrayValue();
       MOZ_ASSERT(arr->Count() == 2, "unexpected length");
       typename CalcOps::result_type lhs, rhs;
       if (!ComputeCalc(lhs, arr->Item(0), aOps) ||
@@ -106,7 +107,7 @@ ComputeCalc(typename CalcOps::result_type& aResult,
       return true;
     }
     case eCSSUnit_Calc_Times_L: {
-      typename CalcOps::input_array_type *arr = aValue.GetArrayValue();
+      typename CalcOps::input_array_type* arr = aValue.GetArrayValue();
       MOZ_ASSERT(arr->Count() == 2, "unexpected length");
       typename CalcOps::coeff_type lhs = aOps.ComputeCoefficient(arr->Item(0));
       typename CalcOps::result_type rhs;
@@ -118,7 +119,7 @@ ComputeCalc(typename CalcOps::result_type& aResult,
     }
     case eCSSUnit_Calc_Times_R:
     case eCSSUnit_Calc_Divided: {
-      typename CalcOps::input_array_type *arr = aValue.GetArrayValue();
+      typename CalcOps::input_array_type* arr = aValue.GetArrayValue();
       MOZ_ASSERT(arr->Count() == 2, "unexpected length");
       typename CalcOps::result_type lhs;
       if (!ComputeCalc(lhs, arr->Item(0), aOps)) {
@@ -146,7 +147,6 @@ struct CSSValueInputCalcOps
   {
     return aValue.GetUnit();
   }
-
 };
 
 /**
@@ -160,33 +160,31 @@ struct BasicCoordCalcOps
   typedef nscoord result_type;
   typedef float coeff_type;
 
-  result_type
-  MergeAdditive(nsCSSUnit aCalcFunction,
-                result_type aValue1, result_type aValue2)
+  result_type MergeAdditive(nsCSSUnit aCalcFunction,
+                            result_type aValue1,
+                            result_type aValue2)
   {
     if (aCalcFunction == eCSSUnit_Calc_Plus) {
       return NSCoordSaturatingAdd(aValue1, aValue2);
     }
-    MOZ_ASSERT(aCalcFunction == eCSSUnit_Calc_Minus,
-               "unexpected unit");
+    MOZ_ASSERT(aCalcFunction == eCSSUnit_Calc_Minus, "unexpected unit");
     return NSCoordSaturatingSubtract(aValue1, aValue2, 0);
   }
 
-  result_type
-  MergeMultiplicativeL(nsCSSUnit aCalcFunction,
-                       coeff_type aValue1, result_type aValue2)
+  result_type MergeMultiplicativeL(nsCSSUnit aCalcFunction,
+                                   coeff_type aValue1,
+                                   result_type aValue2)
   {
-    MOZ_ASSERT(aCalcFunction == eCSSUnit_Calc_Times_L,
-               "unexpected unit");
+    MOZ_ASSERT(aCalcFunction == eCSSUnit_Calc_Times_L, "unexpected unit");
     return NSCoordSaturatingMultiply(aValue2, aValue1);
   }
 
-  result_type
-  MergeMultiplicativeR(nsCSSUnit aCalcFunction,
-                       result_type aValue1, coeff_type aValue2)
+  result_type MergeMultiplicativeR(nsCSSUnit aCalcFunction,
+                                   result_type aValue1,
+                                   coeff_type aValue2)
   {
     MOZ_ASSERT(aCalcFunction == eCSSUnit_Calc_Times_R ||
-               aCalcFunction == eCSSUnit_Calc_Divided,
+                   aCalcFunction == eCSSUnit_Calc_Divided,
                "unexpected unit");
     if (aCalcFunction == eCSSUnit_Calc_Divided) {
       aValue2 = 1.0f / aValue2;
@@ -239,20 +237,21 @@ struct FloatCoeffsAlreadyNormalizedOps : public CSSValueInputCalcOps
  * node representing a calc whose toplevel is not min() or max().
  */
 
-template <class CalcOps>
+template<class CalcOps>
 static void
-SerializeCalcInternal(const typename CalcOps::input_type& aValue, CalcOps &aOps);
+SerializeCalcInternal(const typename CalcOps::input_type& aValue,
+                      CalcOps& aOps);
 
 // Serialize the toplevel value in a calc() tree.  See big comment
 // above.
-template <class CalcOps>
+template<class CalcOps>
 static void
-SerializeCalc(const typename CalcOps::input_type& aValue, CalcOps &aOps)
+SerializeCalc(const typename CalcOps::input_type& aValue, CalcOps& aOps)
 {
   aOps.Append("calc(");
   nsCSSUnit unit = CalcOps::GetUnit(aValue);
   if (unit == eCSSUnit_Calc) {
-    const typename CalcOps::input_array_type *array = aValue.GetArrayValue();
+    const typename CalcOps::input_array_type* array = aValue.GetArrayValue();
     MOZ_ASSERT(array->Count() == 1, "unexpected length");
     SerializeCalcInternal(array->Item(0), aOps);
   } else {
@@ -264,27 +263,25 @@ SerializeCalc(const typename CalcOps::input_type& aValue, CalcOps &aOps)
 static inline bool
 IsCalcAdditiveUnit(nsCSSUnit aUnit)
 {
-  return aUnit == eCSSUnit_Calc_Plus ||
-         aUnit == eCSSUnit_Calc_Minus;
+  return aUnit == eCSSUnit_Calc_Plus || aUnit == eCSSUnit_Calc_Minus;
 }
 
 static inline bool
 IsCalcMultiplicativeUnit(nsCSSUnit aUnit)
 {
-  return aUnit == eCSSUnit_Calc_Times_L ||
-         aUnit == eCSSUnit_Calc_Times_R ||
+  return aUnit == eCSSUnit_Calc_Times_L || aUnit == eCSSUnit_Calc_Times_R ||
          aUnit == eCSSUnit_Calc_Divided;
 }
 
 // Serialize a non-toplevel value in a calc() tree.  See big comment
 // above.
-template <class CalcOps>
+template<class CalcOps>
 /* static */ void
-SerializeCalcInternal(const typename CalcOps::input_type& aValue, CalcOps &aOps)
+SerializeCalcInternal(const typename CalcOps::input_type& aValue, CalcOps& aOps)
 {
   nsCSSUnit unit = CalcOps::GetUnit(aValue);
   if (IsCalcAdditiveUnit(unit)) {
-    const typename CalcOps::input_array_type *array = aValue.GetArrayValue();
+    const typename CalcOps::input_array_type* array = aValue.GetArrayValue();
     MOZ_ASSERT(array->Count() == 2, "unexpected length");
 
     SerializeCalcInternal(array->Item(0), aOps);
@@ -305,7 +302,7 @@ SerializeCalcInternal(const typename CalcOps::input_type& aValue, CalcOps &aOps)
       aOps.Append(")");
     }
   } else if (IsCalcMultiplicativeUnit(unit)) {
-    const typename CalcOps::input_array_type *array = aValue.GetArrayValue();
+    const typename CalcOps::input_array_type* array = aValue.GetArrayValue();
     MOZ_ASSERT(array->Count() == 2, "unexpected length");
 
     bool needParens = IsCalcAdditiveUnit(CalcOps::GetUnit(array->Item(0)));
@@ -329,8 +326,8 @@ SerializeCalcInternal(const typename CalcOps::input_type& aValue, CalcOps &aOps)
     }
 
     nsCSSUnit subUnit = CalcOps::GetUnit(array->Item(1));
-    needParens = IsCalcAdditiveUnit(subUnit) ||
-                 IsCalcMultiplicativeUnit(subUnit);
+    needParens =
+        IsCalcAdditiveUnit(subUnit) || IsCalcMultiplicativeUnit(subUnit);
     if (needParens) {
       aOps.Append("(");
     }
@@ -363,8 +360,8 @@ template<typename type, nsCSSUnit unit>
 struct ReduceCalcOps : public mozilla::css::CSSValueInputCalcOps
 {
   static_assert((std::is_same<type, int>::value && unit == eCSSUnit_Integer) ||
-                (std::is_same<type, float>::value &&
-                 (unit == eCSSUnit_Number || unit == eCSSUnit_Percent)),
+                    (std::is_same<type, float>::value &&
+                     (unit == eCSSUnit_Number || unit == eCSSUnit_Percent)),
                 "ReduceCalcOps: Invalid template arguments: must use "
                 "int coefficient with eCSSUnit_Integer, or "
                 "float coefficient with (eCSSUnit_Number or eCSSUnit_Percent)");
@@ -372,9 +369,9 @@ struct ReduceCalcOps : public mozilla::css::CSSValueInputCalcOps
   typedef type result_type;
   typedef type coeff_type;
 
-  result_type
-  MergeAdditive(nsCSSUnit aCalcFunction,
-                result_type aValue1, result_type aValue2)
+  result_type MergeAdditive(nsCSSUnit aCalcFunction,
+                            result_type aValue1,
+                            result_type aValue2)
   {
     if (aCalcFunction == eCSSUnit_Calc_Plus) {
       return aValue1 + aValue2;
@@ -383,17 +380,17 @@ struct ReduceCalcOps : public mozilla::css::CSSValueInputCalcOps
     return aValue1 - aValue2;
   }
 
-  result_type
-  MergeMultiplicativeL(nsCSSUnit aCalcFunction,
-                       coeff_type aValue1, result_type aValue2)
+  result_type MergeMultiplicativeL(nsCSSUnit aCalcFunction,
+                                   coeff_type aValue1,
+                                   result_type aValue2)
   {
     MOZ_ASSERT(aCalcFunction == eCSSUnit_Calc_Times_L, "unexpected unit");
     return aValue1 * aValue2;
   }
 
-  result_type
-  MergeMultiplicativeR(nsCSSUnit aCalcFunction,
-                       result_type aValue1, coeff_type aValue2)
+  result_type MergeMultiplicativeR(nsCSSUnit aCalcFunction,
+                                   result_type aValue1,
+                                   coeff_type aValue2)
   {
     if (aCalcFunction == eCSSUnit_Calc_Times_R) {
       return aValue1 * aValue2;
@@ -410,9 +407,10 @@ struct ReduceCalcOps : public mozilla::css::CSSValueInputCalcOps
     if (aValue.GetUnit() != unit) {
       return false;
     }
-    aResult = unit == eCSSUnit_Percent ? aValue.GetPercentValue() :
-              unit == eCSSUnit_Integer ? aValue.GetIntValue() :
-                                         aValue.GetFloatValue();
+    aResult = unit == eCSSUnit_Percent
+                  ? aValue.GetPercentValue()
+                  : unit == eCSSUnit_Integer ? aValue.GetIntValue()
+                                             : aValue.GetFloatValue();
     return true;
   }
 
@@ -428,8 +426,8 @@ struct ReduceCalcOps : public mozilla::css::CSSValueInputCalcOps
   }
 };
 
-} // namespace css
+}  // namespace css
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(CSSCalc_h_) */

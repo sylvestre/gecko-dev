@@ -19,36 +19,35 @@
 
 class nsDeckFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsDeckFrame)
 
   friend nsIFrame* NS_NewDeckFrame(nsIPresShell* aPresShell,
                                    nsStyleContext* aContext);
 
-  virtual nsresult AttributeChanged(int32_t         aNameSpaceID,
-                                    nsAtom*        aAttribute,
-                                    int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
   NS_IMETHOD DoXULLayout(nsBoxLayoutState& aState) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
-  virtual void RemoveFrame(ChildListID aListID,
-                           nsIFrame* aOldFrame) override;
+  virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
-  virtual void BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
-                                           const nsDisplayListSet& aLists) override;
+  virtual void BuildDisplayListForChildren(
+      nsDisplayListBuilder* aBuilder, const nsDisplayListSet& aLists) override;
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
   {
-      return MakeFrameName(NS_LITERAL_STRING("Deck"), aResult);
+    return MakeFrameName(NS_LITERAL_STRING("Deck"), aResult);
   }
 #endif
 
@@ -56,17 +55,14 @@ public:
 
   nsIFrame* GetSelectedBox();
 
-protected:
-
+ protected:
   void IndexChanged();
   int32_t GetSelectedIndex();
   void HideBox(nsIFrame* aBox);
 
-private:
-
+ private:
   int32_t mIndex;
 
-}; // class nsDeckFrame
+};  // class nsDeckFrame
 
 #endif
-

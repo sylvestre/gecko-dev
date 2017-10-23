@@ -20,16 +20,16 @@
 #include "vm/HelperThreads.h"
 #include "wasm/WasmTypes.h"
 
-#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || \
-    defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || defined(JS_CODEGEN_MIPS32) || \
+    defined(JS_CODEGEN_MIPS64)
 // Push return addresses callee-side.
-# define JS_USE_LINK_REGISTER
+#define JS_USE_LINK_REGISTER
 #endif
 
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64)
 // JS_SMALL_BRANCH means the range on a branch instruction
 // is smaller than the whole address space
-# define JS_SMALL_BRANCH
+#define JS_SMALL_BRANCH
 #endif
 
 namespace js {
@@ -39,178 +39,136 @@ using mozilla::CheckedInt;
 
 namespace Disassembler {
 class HeapAccess;
-} // namespace Disassembler
+}  // namespace Disassembler
 
 static const uint32_t Simd128DataSize = 4 * sizeof(int32_t);
-static_assert(Simd128DataSize == 4 * sizeof(int32_t), "SIMD data should be able to contain int32x4");
-static_assert(Simd128DataSize == 4 * sizeof(float), "SIMD data should be able to contain float32x4");
-static_assert(Simd128DataSize == 2 * sizeof(double), "SIMD data should be able to contain float64x2");
+static_assert(Simd128DataSize == 4 * sizeof(int32_t),
+              "SIMD data should be able to contain int32x4");
+static_assert(Simd128DataSize == 4 * sizeof(float),
+              "SIMD data should be able to contain float32x4");
+static_assert(Simd128DataSize == 2 * sizeof(double),
+              "SIMD data should be able to contain float64x2");
 
-enum Scale {
-    TimesOne = 0,
-    TimesTwo = 1,
-    TimesFour = 2,
-    TimesEight = 3
-};
+enum Scale { TimesOne = 0, TimesTwo = 1, TimesFour = 2, TimesEight = 3 };
 
-static_assert(sizeof(JS::Value) == 8,
-              "required for TimesEight and 3 below to be correct");
+static_assert(sizeof(JS::Value) == 8, "required for TimesEight and 3 below to be correct");
 static const Scale ValueScale = TimesEight;
 static const size_t ValueShift = 3;
 
-static inline unsigned
-ScaleToShift(Scale scale)
-{
-    return unsigned(scale);
-}
+static inline unsigned ScaleToShift(Scale scale) { return unsigned(scale); }
 
-static inline bool
-IsShiftInScaleRange(int i)
-{
-    return i >= TimesOne && i <= TimesEight;
-}
+static inline bool IsShiftInScaleRange(int i) { return i >= TimesOne && i <= TimesEight; }
 
-static inline Scale
-ShiftToScale(int i)
-{
+static inline Scale ShiftToScale(int i) {
     MOZ_ASSERT(IsShiftInScaleRange(i));
     return Scale(i);
 }
 
-static inline Scale
-ScaleFromElemWidth(int shift)
-{
+static inline Scale ScaleFromElemWidth(int shift) {
     switch (shift) {
-      case 1:
-        return TimesOne;
-      case 2:
-        return TimesTwo;
-      case 4:
-        return TimesFour;
-      case 8:
-        return TimesEight;
+        case 1:
+            return TimesOne;
+        case 2:
+            return TimesTwo;
+        case 4:
+            return TimesFour;
+        case 8:
+            return TimesEight;
     }
 
     MOZ_CRASH("Invalid scale");
 }
 
 // Used for 32-bit immediates which do not require relocation.
-struct Imm32
-{
+struct Imm32 {
     int32_t value;
 
-    explicit Imm32(int32_t value) : value(value)
-    { }
+    explicit Imm32(int32_t value) : value(value) {}
 
     static inline Imm32 ShiftOf(enum Scale s) {
         switch (s) {
-          case TimesOne:
-            return Imm32(0);
-          case TimesTwo:
-            return Imm32(1);
-          case TimesFour:
-            return Imm32(2);
-          case TimesEight:
-            return Imm32(3);
+            case TimesOne:
+                return Imm32(0);
+            case TimesTwo:
+                return Imm32(1);
+            case TimesFour:
+                return Imm32(2);
+            case TimesEight:
+                return Imm32(3);
         };
         MOZ_CRASH("Invalid scale");
     }
 
-    static inline Imm32 FactorOf(enum Scale s) {
-        return Imm32(1 << ShiftOf(s).value);
-    }
+    static inline Imm32 FactorOf(enum Scale s) { return Imm32(1 << ShiftOf(s).value); }
 };
 
 // Pointer-sized integer to be embedded as an immediate in an instruction.
-struct ImmWord
-{
+struct ImmWord {
     uintptr_t value;
 
-    explicit ImmWord(uintptr_t value) : value(value)
-    { }
+    explicit ImmWord(uintptr_t value) : value(value) {}
 };
 
 // Used for 64-bit immediates which do not require relocation.
-struct Imm64
-{
+struct Imm64 {
     uint64_t value;
 
-    explicit Imm64(int64_t value) : value(value)
-    { }
+    explicit Imm64(int64_t value) : value(value) {}
 
-    Imm32 low() const {
-        return Imm32(int32_t(value));
-    }
+    Imm32 low() const { return Imm32(int32_t(value)); }
 
-    Imm32 hi() const {
-        return Imm32(int32_t(value >> 32));
-    }
+    Imm32 hi() const { return Imm32(int32_t(value >> 32)); }
 
     inline Imm32 firstHalf() const;
     inline Imm32 secondHalf() const;
 };
 
 #ifdef DEBUG
-static inline bool
-IsCompilingWasm()
-{
+static inline bool IsCompilingWasm() {
     // wasm compilation pushes a JitContext with a null JSCompartment.
     return GetJitContext()->compartment == nullptr;
 }
 #endif
 
 // Pointer to be embedded as an immediate in an instruction.
-struct ImmPtr
-{
+struct ImmPtr {
     void* value;
 
     struct NoCheckToken {};
 
-    explicit ImmPtr(void* value, NoCheckToken) : value(value)
-    {
+    explicit ImmPtr(void* value, NoCheckToken) : value(value) {
         // A special unchecked variant for contexts where we know it is safe to
         // use an immptr. This is assuming the caller knows what they're doing.
     }
 
-    explicit ImmPtr(const void* value) : value(const_cast<void*>(value))
-    {
+    explicit ImmPtr(const void* value) : value(const_cast<void*>(value)) {
         // To make code serialization-safe, wasm compilation should only
         // compile pointer immediates using a SymbolicAddress.
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
     template <class R>
-    explicit ImmPtr(R (*pf)())
-      : value(JS_FUNC_TO_DATA_PTR(void*, pf))
-    {
+    explicit ImmPtr(R (*pf)()) : value(JS_FUNC_TO_DATA_PTR(void*, pf)) {
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
     template <class R, class A1>
-    explicit ImmPtr(R (*pf)(A1))
-      : value(JS_FUNC_TO_DATA_PTR(void*, pf))
-    {
+    explicit ImmPtr(R (*pf)(A1)) : value(JS_FUNC_TO_DATA_PTR(void*, pf)) {
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
     template <class R, class A1, class A2>
-    explicit ImmPtr(R (*pf)(A1, A2))
-      : value(JS_FUNC_TO_DATA_PTR(void*, pf))
-    {
+    explicit ImmPtr(R (*pf)(A1, A2)) : value(JS_FUNC_TO_DATA_PTR(void*, pf)) {
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
     template <class R, class A1, class A2, class A3>
-    explicit ImmPtr(R (*pf)(A1, A2, A3))
-      : value(JS_FUNC_TO_DATA_PTR(void*, pf))
-    {
+    explicit ImmPtr(R (*pf)(A1, A2, A3)) : value(JS_FUNC_TO_DATA_PTR(void*, pf)) {
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
     template <class R, class A1, class A2, class A3, class A4>
-    explicit ImmPtr(R (*pf)(A1, A2, A3, A4))
-      : value(JS_FUNC_TO_DATA_PTR(void*, pf))
-    {
+    explicit ImmPtr(R (*pf)(A1, A2, A3, A4)) : value(JS_FUNC_TO_DATA_PTR(void*, pf)) {
         MOZ_ASSERT(!IsCompilingWasm());
     }
 };
@@ -221,97 +179,74 @@ struct ImmPtr
 struct PatchedImmPtr {
     void* value;
 
-    explicit PatchedImmPtr()
-      : value(nullptr)
-    { }
-    explicit PatchedImmPtr(const void* value)
-      : value(const_cast<void*>(value))
-    { }
+    explicit PatchedImmPtr() : value(nullptr) {}
+    explicit PatchedImmPtr(const void* value) : value(const_cast<void*>(value)) {}
 };
 
 class AssemblerShared;
 class ImmGCPtr;
 
 // Used for immediates which require relocation.
-class ImmGCPtr
-{
-  public:
+class ImmGCPtr {
+   public:
     const gc::Cell* value;
 
-    explicit ImmGCPtr(const gc::Cell* ptr) : value(ptr)
-    {
+    explicit ImmGCPtr(const gc::Cell* ptr) : value(ptr) {
         // Nursery pointers can't be used if the main thread might be currently
         // performing a minor GC.
-        MOZ_ASSERT_IF(ptr && !ptr->isTenured(),
-                      !CurrentThreadIsIonCompilingSafeForMinorGC());
+        MOZ_ASSERT_IF(ptr && !ptr->isTenured(), !CurrentThreadIsIonCompilingSafeForMinorGC());
 
         // wasm shouldn't be creating GC things
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
-  private:
+   private:
     ImmGCPtr() : value(0) {}
 };
 
 // Pointer to be embedded as an immediate that is loaded/stored from by an
 // instruction.
-struct AbsoluteAddress
-{
+struct AbsoluteAddress {
     void* addr;
 
-    explicit AbsoluteAddress(const void* addr)
-      : addr(const_cast<void*>(addr))
-    {
+    explicit AbsoluteAddress(const void* addr) : addr(const_cast<void*>(addr)) {
         MOZ_ASSERT(!IsCompilingWasm());
     }
 
-    AbsoluteAddress offset(ptrdiff_t delta) {
-        return AbsoluteAddress(((uint8_t*) addr) + delta);
-    }
+    AbsoluteAddress offset(ptrdiff_t delta) { return AbsoluteAddress(((uint8_t*)addr) + delta); }
 };
 
 // The same as AbsoluteAddress except that the intention is to patch this
 // instruction. The initial value of the immediate is 'addr' and this value is
 // either clobbered or used in the patching process.
-struct PatchedAbsoluteAddress
-{
+struct PatchedAbsoluteAddress {
     void* addr;
 
-    explicit PatchedAbsoluteAddress()
-      : addr(nullptr)
-    { }
-    explicit PatchedAbsoluteAddress(const void* addr)
-      : addr(const_cast<void*>(addr))
-    { }
-    explicit PatchedAbsoluteAddress(uintptr_t addr)
-      : addr(reinterpret_cast<void*>(addr))
-    { }
+    explicit PatchedAbsoluteAddress() : addr(nullptr) {}
+    explicit PatchedAbsoluteAddress(const void* addr) : addr(const_cast<void*>(addr)) {}
+    explicit PatchedAbsoluteAddress(uintptr_t addr) : addr(reinterpret_cast<void*>(addr)) {}
 };
 
 // Specifies an address computed in the form of a register base and a constant,
 // 32-bit offset.
-struct Address
-{
+struct Address {
     Register base;
     int32_t offset;
 
-    Address(Register base, int32_t offset) : base(base), offset(offset)
-    { }
+    Address(Register base, int32_t offset) : base(base), offset(offset) {}
 
     Address() { mozilla::PodZero(this); }
 };
 
 #if JS_BITS_PER_WORD == 32
 
-static inline Address
-LowWord(const Address& address) {
+static inline Address LowWord(const Address& address) {
     CheckedInt<int32_t> offset = CheckedInt<int32_t>(address.offset) + INT64LOW_OFFSET;
     MOZ_ALWAYS_TRUE(offset.isValid());
     return Address(address.base, offset.value());
 }
 
-static inline Address
-HighWord(const Address& address) {
+static inline Address HighWord(const Address& address) {
     CheckedInt<int32_t> offset = CheckedInt<int32_t>(address.offset) + INT64HIGH_OFFSET;
     MOZ_ALWAYS_TRUE(offset.isValid());
     return Address(address.base, offset.value());
@@ -321,31 +256,27 @@ HighWord(const Address& address) {
 
 // Specifies an address computed in the form of a register base, a register
 // index with a scale, and a constant, 32-bit offset.
-struct BaseIndex
-{
+struct BaseIndex {
     Register base;
     Register index;
     Scale scale;
     int32_t offset;
 
     BaseIndex(Register base, Register index, Scale scale, int32_t offset = 0)
-      : base(base), index(index), scale(scale), offset(offset)
-    { }
+        : base(base), index(index), scale(scale), offset(offset) {}
 
     BaseIndex() { mozilla::PodZero(this); }
 };
 
 #if JS_BITS_PER_WORD == 32
 
-static inline BaseIndex
-LowWord(const BaseIndex& address) {
+static inline BaseIndex LowWord(const BaseIndex& address) {
     CheckedInt<int32_t> offset = CheckedInt<int32_t>(address.offset) + INT64LOW_OFFSET;
     MOZ_ALWAYS_TRUE(offset.isValid());
     return BaseIndex(address.base, address.index, address.scale, offset.value());
 }
 
-static inline BaseIndex
-HighWord(const BaseIndex& address) {
+static inline BaseIndex HighWord(const BaseIndex& address) {
     CheckedInt<int32_t> offset = CheckedInt<int32_t>(address.offset) + INT64HIGH_OFFSET;
     MOZ_ALWAYS_TRUE(offset.isValid());
     return BaseIndex(address.base, address.index, address.scale, offset.value());
@@ -359,36 +290,29 @@ HighWord(const BaseIndex& address) {
 // stack, values in an arguments object, &c.).  If you're indexing into an
 // object's elements or slots, don't use this directly!  Use
 // BaseObject{Element,Slot}Index instead.
-struct BaseValueIndex : BaseIndex
-{
+struct BaseValueIndex : BaseIndex {
     BaseValueIndex(Register base, Register index, int32_t offset = 0)
-      : BaseIndex(base, index, ValueScale, offset)
-    { }
+        : BaseIndex(base, index, ValueScale, offset) {}
 };
 
 // Specifies the address of an indexed Value within object elements from a
 // base.  The index must not already be scaled by sizeof(Value)!
-struct BaseObjectElementIndex : BaseValueIndex
-{
+struct BaseObjectElementIndex : BaseValueIndex {
     BaseObjectElementIndex(Register base, Register index, int32_t offset = 0)
-      : BaseValueIndex(base, index, offset)
-    {
+        : BaseValueIndex(base, index, offset) {
         NativeObject::elementsSizeMustNotOverflow();
     }
 };
 
 // Like BaseObjectElementIndex, except for object slots.
-struct BaseObjectSlotIndex : BaseValueIndex
-{
-    BaseObjectSlotIndex(Register base, Register index)
-      : BaseValueIndex(base, index)
-    {
+struct BaseObjectSlotIndex : BaseValueIndex {
+    BaseObjectSlotIndex(Register base, Register index) : BaseValueIndex(base, index) {
         NativeObject::slotsSizeMustNotOverflow();
     }
 };
 
 class Relocation {
-  public:
+   public:
     enum Kind {
         // The target is immovable, so patching is only needed if the source
         // buffer is relocated and the reference is relative.
@@ -400,13 +324,12 @@ class Relocation {
     };
 };
 
-class RepatchLabel
-{
+class RepatchLabel {
     static const int32_t INVALID_OFFSET = 0xC0000000;
     int32_t offset_ : 31;
     uint32_t bound_ : 1;
-  public:
 
+   public:
     RepatchLabel() : offset_(INVALID_OFFSET), bound_(0) {}
 
     void use(uint32_t newOffset) {
@@ -414,9 +337,7 @@ class RepatchLabel
         MOZ_ASSERT(newOffset != (uint32_t)INVALID_OFFSET);
         offset_ = newOffset;
     }
-    bool bound() const {
-        return bound_;
-    }
+    bool bound() const { return bound_; }
     void bind(int32_t dest) {
         MOZ_ASSERT(!bound_);
         MOZ_ASSERT(dest != INVALID_OFFSET);
@@ -433,19 +354,15 @@ class RepatchLabel
         MOZ_ASSERT(!bound());
         return offset_;
     }
-    bool used() const {
-        return !bound() && offset_ != (INVALID_OFFSET);
-    }
-
+    bool used() const { return !bound() && offset_ != (INVALID_OFFSET); }
 };
 
-class CodeOffset
-{
+class CodeOffset {
     size_t offset_;
 
     static const size_t NOT_BOUND = size_t(-1);
 
-  public:
+   public:
     explicit CodeOffset(size_t offset) : offset_(offset) {}
     CodeOffset() : offset_(NOT_BOUND) {}
 
@@ -459,9 +376,7 @@ class CodeOffset
         offset_ = offset;
         MOZ_ASSERT(bound());
     }
-    bool bound() const {
-        return offset_ != NOT_BOUND;
-    }
+    bool bound() const { return offset_ != NOT_BOUND; }
 
     void offsetBy(size_t delta) {
         MOZ_ASSERT(bound());
@@ -474,8 +389,7 @@ class CodeOffset
 // cannot be patched until after linking.
 // When the source label is resolved into a memory address, this address is
 // patched into the destination address.
-class CodeLabel
-{
+class CodeLabel {
     // The destination position, where the absolute reference should get
     // patched into.
     CodeOffset patchAt_;
@@ -484,28 +398,15 @@ class CodeLabel
     // get patched to.
     CodeOffset target_;
 
-  public:
-    CodeLabel()
-    { }
-    explicit CodeLabel(const CodeOffset& patchAt)
-      : patchAt_(patchAt)
-    { }
+   public:
+    CodeLabel() {}
+    explicit CodeLabel(const CodeOffset& patchAt) : patchAt_(patchAt) {}
     CodeLabel(const CodeOffset& patchAt, const CodeOffset& target)
-      : patchAt_(patchAt),
-        target_(target)
-    { }
-    CodeOffset* patchAt() {
-        return &patchAt_;
-    }
-    CodeOffset* target() {
-        return &target_;
-    }
-    CodeOffset patchAt() const {
-        return patchAt_;
-    }
-    CodeOffset target() const {
-        return target_;
-    }
+        : patchAt_(patchAt), target_(target) {}
+    CodeOffset* patchAt() { return &patchAt_; }
+    CodeOffset* target() { return &target_; }
+    CodeOffset patchAt() const { return patchAt_; }
+    CodeOffset target() const { return target_; }
 };
 
 typedef Vector<CodeLabel, 0, SystemAllocPolicy> CodeLabelVector;
@@ -513,34 +414,25 @@ typedef Vector<CodeLabel, 0, SystemAllocPolicy> CodeLabelVector;
 // Location of a jump or label in a generated JitCode block, relative to the
 // start of the block.
 
-class CodeOffsetJump
-{
+class CodeOffsetJump {
     size_t offset_;
 
 #ifdef JS_SMALL_BRANCH
     size_t jumpTableIndex_;
 #endif
 
-  public:
-
+   public:
 #ifdef JS_SMALL_BRANCH
     CodeOffsetJump(size_t offset, size_t jumpTableIndex)
-        : offset_(offset), jumpTableIndex_(jumpTableIndex)
-    {}
-    size_t jumpTableIndex() const {
-        return jumpTableIndex_;
-    }
+        : offset_(offset), jumpTableIndex_(jumpTableIndex) {}
+    size_t jumpTableIndex() const { return jumpTableIndex_; }
 #else
     explicit CodeOffsetJump(size_t offset) : offset_(offset) {}
 #endif
 
-    CodeOffsetJump() {
-        mozilla::PodZero(this);
-    }
+    CodeOffsetJump() { mozilla::PodZero(this); }
 
-    size_t offset() const {
-        return offset_;
-    }
+    size_t offset() const { return offset_; }
     void fixup(MacroAssembler* masm);
 };
 
@@ -549,40 +441,30 @@ class CodeOffsetJump
 // set and the absolute location later filled in after the final JitCode is
 // allocated.
 
-class CodeLocationJump
-{
+class CodeLocationJump {
     uint8_t* raw_;
 #ifdef DEBUG
     enum State { Uninitialized, Absolute, Relative };
     State state_;
-    void setUninitialized() {
-        state_ = Uninitialized;
-    }
-    void setAbsolute() {
-        state_ = Absolute;
-    }
-    void setRelative() {
-        state_ = Relative;
-    }
+    void setUninitialized() { state_ = Uninitialized; }
+    void setAbsolute() { state_ = Absolute; }
+    void setRelative() { state_ = Relative; }
 #else
-    void setUninitialized() const {
-    }
-    void setAbsolute() const {
-    }
-    void setRelative() const {
-    }
+    void setUninitialized() const {}
+    void setAbsolute() const {}
+    void setRelative() const {}
 #endif
 
 #ifdef JS_SMALL_BRANCH
     uint8_t* jumpTableEntry_;
 #endif
 
-  public:
+   public:
     CodeLocationJump() {
         raw_ = nullptr;
         setUninitialized();
 #ifdef JS_SMALL_BRANCH
-        jumpTableEntry_ = (uint8_t*) uintptr_t(0xdeadab1e);
+        jumpTableEntry_ = (uint8_t*)uintptr_t(0xdeadab1e);
 #endif
     }
     CodeLocationJump(JitCode* code, CodeOffsetJump base) {
@@ -590,11 +472,11 @@ class CodeLocationJump
         repoint(code);
     }
 
-    void operator = (CodeOffsetJump base) {
-        raw_ = (uint8_t*) base.offset();
+    void operator=(CodeOffsetJump base) {
+        raw_ = (uint8_t*)base.offset();
         setRelative();
 #ifdef JS_SMALL_BRANCH
-        jumpTableEntry_ = (uint8_t*) base.jumpTableIndex();
+        jumpTableEntry_ = (uint8_t*)base.jumpTableIndex();
 #endif
     }
 
@@ -617,31 +499,21 @@ class CodeLocationJump
 #endif
 };
 
-class CodeLocationLabel
-{
+class CodeLocationLabel {
     uint8_t* raw_;
 #ifdef DEBUG
     enum State { Uninitialized, Absolute, Relative };
     State state_;
-    void setUninitialized() {
-        state_ = Uninitialized;
-    }
-    void setAbsolute() {
-        state_ = Absolute;
-    }
-    void setRelative() {
-        state_ = Relative;
-    }
+    void setUninitialized() { state_ = Uninitialized; }
+    void setAbsolute() { state_ = Absolute; }
+    void setRelative() { state_ = Relative; }
 #else
-    void setUninitialized() const {
-    }
-    void setAbsolute() const {
-    }
-    void setRelative() const {
-    }
+    void setUninitialized() const {}
+    void setAbsolute() const {}
+    void setRelative() const {}
 #endif
 
-  public:
+   public:
     CodeLocationLabel() {
         raw_ = nullptr;
         setUninitialized();
@@ -659,20 +531,16 @@ class CodeLocationLabel
         setAbsolute();
     }
 
-    void operator = (CodeOffset base) {
+    void operator=(CodeOffset base) {
         raw_ = (uint8_t*)base.offset();
         setRelative();
     }
-    ptrdiff_t operator - (const CodeLocationLabel& other) {
-        return raw_ - other.raw_;
-    }
+    ptrdiff_t operator-(const CodeLocationLabel& other) { return raw_ - other.raw_; }
 
     void repoint(JitCode* code, MacroAssembler* masm = nullptr);
 
 #ifdef DEBUG
-    bool isSet() const {
-        return state_ != Uninitialized;
-    }
+    bool isSet() const { return state_ != Uninitialized; }
 #endif
 
     uint8_t* raw() const {
@@ -685,7 +553,7 @@ class CodeLocationLabel
     }
 };
 
-} // namespace jit
+}  // namespace jit
 
 namespace wasm {
 
@@ -693,10 +561,9 @@ namespace wasm {
 // links are accumulated in the MacroAssembler, but patching is done outside
 // the MacroAssembler (in Module::staticallyLink).
 
-struct SymbolicAccess
-{
+struct SymbolicAccess {
     SymbolicAccess(jit::CodeOffset patchAt, SymbolicAddress target)
-      : patchAt(patchAt), target(target) {}
+        : patchAt(patchAt), target(target) {}
 
     jit::CodeOffset patchAt;
     SymbolicAddress target;
@@ -707,8 +574,7 @@ typedef Vector<SymbolicAccess, 0, SystemAllocPolicy> SymbolicAccessVector;
 // Describes a single wasm or asm.js memory access for the purpose of generating
 // code and metadata.
 
-class MemoryAccessDesc
-{
+class MemoryAccessDesc {
     uint32_t offset_;
     uint32_t align_;
     Scalar::Type type_;
@@ -717,20 +583,19 @@ class MemoryAccessDesc
     jit::MemoryBarrierBits barrierAfter_;
     mozilla::Maybe<wasm::BytecodeOffset> trapOffset_;
 
-  public:
+   public:
     explicit MemoryAccessDesc(Scalar::Type type, uint32_t align, uint32_t offset,
                               const mozilla::Maybe<BytecodeOffset>& trapOffset,
                               unsigned numSimdElems = 0,
                               jit::MemoryBarrierBits barrierBefore = jit::MembarNobits,
                               jit::MemoryBarrierBits barrierAfter = jit::MembarNobits)
-      : offset_(offset),
-        align_(align),
-        type_(type),
-        numSimdElems_(numSimdElems),
-        barrierBefore_(barrierBefore),
-        barrierAfter_(barrierAfter),
-        trapOffset_(trapOffset)
-    {
+        : offset_(offset),
+          align_(align),
+          type_(type),
+          numSimdElems_(numSimdElems),
+          barrierBefore_(barrierBefore),
+          barrierAfter_(barrierAfter),
+          trapOffset_(trapOffset) {
         MOZ_ASSERT(Scalar::isSimdType(type) == (numSimdElems > 0));
         MOZ_ASSERT(numSimdElems <= jit::ScalarTypeToLength(type));
         MOZ_ASSERT(mozilla::IsPowerOfTwo(align));
@@ -742,11 +607,13 @@ class MemoryAccessDesc
     uint32_t align() const { return align_; }
     Scalar::Type type() const { return type_; }
     unsigned byteSize() const {
-        return Scalar::isSimdType(type())
-               ? Scalar::scalarByteSize(type()) * numSimdElems()
-               : Scalar::byteSize(type());
+        return Scalar::isSimdType(type()) ? Scalar::scalarByteSize(type()) * numSimdElems()
+                                          : Scalar::byteSize(type());
     }
-    unsigned numSimdElems() const { MOZ_ASSERT(isSimd()); return numSimdElems_; }
+    unsigned numSimdElems() const {
+        MOZ_ASSERT(isSimd());
+        return numSimdElems_;
+    }
     jit::MemoryBarrierBits barrierBefore() const { return barrierBefore_; }
     jit::MemoryBarrierBits barrierAfter() const { return barrierAfter_; }
     bool hasTrap() const { return !!trapOffset_; }
@@ -761,11 +628,9 @@ class MemoryAccessDesc
 // Summarizes a global access for a mutable (in asm.js) or immutable value (in
 // asm.js or the wasm MVP) that needs to get patched later.
 
-struct GlobalAccess
-{
+struct GlobalAccess {
     GlobalAccess(jit::CodeOffset patchAt, unsigned globalDataOffset)
-      : patchAt(patchAt), globalDataOffset(globalDataOffset)
-    {}
+        : patchAt(patchAt), globalDataOffset(globalDataOffset) {}
 
     jit::CodeOffset patchAt;
     unsigned globalDataOffset;
@@ -776,18 +641,13 @@ typedef Vector<GlobalAccess, 0, SystemAllocPolicy> GlobalAccessVector;
 // A CallFarJump records the offset of a jump that needs to be patched to a
 // call at the end of the module when all calls have been emitted.
 
-struct CallFarJump
-{
+struct CallFarJump {
     uint32_t funcIndex;
     jit::CodeOffset jump;
 
-    CallFarJump(uint32_t funcIndex, jit::CodeOffset jump)
-      : funcIndex(funcIndex), jump(jump)
-    {}
+    CallFarJump(uint32_t funcIndex, jit::CodeOffset jump) : funcIndex(funcIndex), jump(jump) {}
 
-    void offsetBy(size_t delta) {
-        jump.offsetBy(delta);
-    }
+    void offsetBy(size_t delta) { jump.offsetBy(delta); }
 };
 
 typedef Vector<CallFarJump, 0, SystemAllocPolicy> CallFarJumpVector;
@@ -797,29 +657,24 @@ typedef Vector<CallFarJump, 0, SystemAllocPolicy> CallFarJumpVector;
 // causing the trap, and the stack depth right before control is transferred to
 // the trap out-of-line path.
 
-struct TrapDesc : BytecodeOffset
-{
+struct TrapDesc : BytecodeOffset {
     enum Kind { Jump, MemoryAccess };
     Kind kind;
     Trap trap;
     uint32_t framePushed;
 
     TrapDesc(BytecodeOffset offset, Trap trap, uint32_t framePushed, Kind kind = Jump)
-      : BytecodeOffset(offset), kind(kind), trap(trap), framePushed(framePushed)
-    {}
+        : BytecodeOffset(offset), kind(kind), trap(trap), framePushed(framePushed) {}
 };
 
 // A TrapSite captures all relevant information at the point of emitting the
 // in-line trapping instruction for the purpose of generating the out-of-line
 // trap code (at the end of the function).
 
-struct TrapSite : TrapDesc
-{
+struct TrapSite : TrapDesc {
     uint32_t codeOffset;
 
-    TrapSite(TrapDesc trap, uint32_t codeOffset)
-      : TrapDesc(trap), codeOffset(codeOffset)
-    {}
+    TrapSite(TrapDesc trap, uint32_t codeOffset) : TrapDesc(trap), codeOffset(codeOffset) {}
 };
 
 typedef Vector<TrapSite, 0, SystemAllocPolicy> TrapSiteVector;
@@ -827,29 +682,23 @@ typedef Vector<TrapSite, 0, SystemAllocPolicy> TrapSiteVector;
 // A TrapFarJump records the offset of a jump that needs to be patched to a trap
 // exit at the end of the module when trap exits are emitted.
 
-struct TrapFarJump
-{
+struct TrapFarJump {
     Trap trap;
     jit::CodeOffset jump;
 
-    TrapFarJump(Trap trap, jit::CodeOffset jump)
-      : trap(trap), jump(jump)
-    {}
+    TrapFarJump(Trap trap, jit::CodeOffset jump) : trap(trap), jump(jump) {}
 
-    void offsetBy(size_t delta) {
-        jump.offsetBy(delta);
-    }
+    void offsetBy(size_t delta) { jump.offsetBy(delta); }
 };
 
 typedef Vector<TrapFarJump, 0, SystemAllocPolicy> TrapFarJumpVector;
 
-} // namespace wasm
+}  // namespace wasm
 
 namespace jit {
 
 // The base class of all Assemblers for all archs.
-class AssemblerShared
-{
+class AssemblerShared {
     wasm::CallSiteVector callSites_;
     wasm::CallSiteTargetVector callSiteTargets_;
     wasm::TrapSiteVector trapSites_;
@@ -858,50 +707,29 @@ class AssemblerShared
     wasm::MemoryAccessVector memoryAccesses_;
     wasm::SymbolicAccessVector symbolicAccesses_;
 
-  protected:
+   protected:
     CodeLabelVector codeLabels_;
 
     bool enoughMemory_;
     bool embedsNurseryPointers_;
 
-  public:
-    AssemblerShared()
-     : enoughMemory_(true),
-       embedsNurseryPointers_(false)
-    {}
+   public:
+    AssemblerShared() : enoughMemory_(true), embedsNurseryPointers_(false) {}
 
-    void propagateOOM(bool success) {
-        enoughMemory_ &= success;
-    }
+    void propagateOOM(bool success) { enoughMemory_ &= success; }
 
-    void setOOM() {
-        enoughMemory_ = false;
-    }
+    void setOOM() { enoughMemory_ = false; }
 
-    bool oom() const {
-        return !enoughMemory_;
-    }
+    bool oom() const { return !enoughMemory_; }
 
-    bool embedsNurseryPointers() const {
-        return embedsNurseryPointers_;
-    }
+    bool embedsNurseryPointers() const { return embedsNurseryPointers_; }
 
-    static bool canUseInSingleByteInstruction(Register reg) {
-        return true;
-    }
+    static bool canUseInSingleByteInstruction(Register reg) { return true; }
 
-    void addCodeLabel(CodeLabel label) {
-        propagateOOM(codeLabels_.append(label));
-    }
-    size_t numCodeLabels() const {
-        return codeLabels_.length();
-    }
-    CodeLabel codeLabel(size_t i) {
-        return codeLabels_[i];
-    }
-    CodeLabelVector& codeLabels() {
-        return codeLabels_;
-    }
+    void addCodeLabel(CodeLabel label) { propagateOOM(codeLabels_.append(label)); }
+    size_t numCodeLabels() const { return codeLabels_.length(); }
+    CodeLabel codeLabel(size_t i) { return codeLabels_[i]; }
+    CodeLabelVector& codeLabels() { return codeLabels_; }
 
     // WebAssembly metadata emitted by masm operations accumulated on the
     // MacroAssembler, and swapped into a wasm::CompiledCode after finish().
@@ -911,18 +739,10 @@ class AssemblerShared
         enoughMemory_ &= callSites_.emplaceBack(desc, retAddr.offset());
         enoughMemory_ &= callSiteTargets_.emplaceBack(mozilla::Forward<Args>(args)...);
     }
-    void append(wasm::TrapSite trapSite) {
-        enoughMemory_ &= trapSites_.append(trapSite);
-    }
-    void append(wasm::TrapFarJump jmp) {
-        enoughMemory_ &= trapFarJumps_.append(jmp);
-    }
-    void append(wasm::CallFarJump jmp) {
-        enoughMemory_ &= callFarJumps_.append(jmp);
-    }
-    void append(wasm::MemoryAccess access) {
-        enoughMemory_ &= memoryAccesses_.append(access);
-    }
+    void append(wasm::TrapSite trapSite) { enoughMemory_ &= trapSites_.append(trapSite); }
+    void append(wasm::TrapFarJump jmp) { enoughMemory_ &= trapFarJumps_.append(jmp); }
+    void append(wasm::CallFarJump jmp) { enoughMemory_ &= callFarJumps_.append(jmp); }
+    void append(wasm::MemoryAccess access) { enoughMemory_ &= memoryAccesses_.append(access); }
     void append(const wasm::MemoryAccessDesc& access, size_t codeOffset, size_t framePushed) {
         if (access.hasTrap()) {
             // If a memory access is trapping (wasm, SIMD.js, Atomics), create a
@@ -941,9 +761,7 @@ class AssemblerShared
 #endif
         }
     }
-    void append(wasm::SymbolicAccess access) {
-        enoughMemory_ &= symbolicAccesses_.append(access);
-    }
+    void append(wasm::SymbolicAccess access) { enoughMemory_ &= symbolicAccesses_.append(access); }
 
     wasm::CallSiteVector& callSites() { return callSites_; }
     wasm::CallSiteTargetVector& callSiteTargets() { return callSiteTargets_; }
@@ -954,7 +772,7 @@ class AssemblerShared
     wasm::SymbolicAccessVector& symbolicAccesses() { return symbolicAccesses_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_shared_Assembler_shared_h */

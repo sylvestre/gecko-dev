@@ -9,7 +9,7 @@
 
 #include "mozilla/Likely.h"
 #include "mozilla/WritingModes.h"
-#include "nsBulletFrame.h" // legacy location for list style type to text code
+#include "nsBulletFrame.h"  // legacy location for list style type to text code
 #include "nsContentUtils.h"
 #include "nsIContent.h"
 #include "nsTArray.h"
@@ -50,8 +50,7 @@ nsCounterUseNode::InitTextFrame(nsGenConList* aList,
 void
 nsCounterUseNode::Calc(nsCounterList* aList)
 {
-  NS_ASSERTION(!aList->IsDirty(),
-               "Why are we calculating with a dirty list?");
+  NS_ASSERTION(!aList->IsDirty(), "Why are we calculating with a dirty list?");
   mValueAfter = aList->ValueBefore(this);
 }
 
@@ -85,8 +84,8 @@ nsCounterUseNode::GetText(nsString& aResult)
     }
   }
 
-  WritingMode wm = mPseudoFrame ?
-    mPseudoFrame->GetWritingMode() : WritingMode();
+  WritingMode wm =
+      mPseudoFrame ? mPseudoFrame->GetWritingMode() : WritingMode();
   for (uint32_t i = stack.Length() - 1;; --i) {
     nsCounterNode* n = stack[i];
     nsAutoString text;
@@ -124,15 +123,16 @@ nsCounterList::SetScope(nsCounterNode* aNode)
   // parents.
   nsIContent* nodeContent = aNode->mPseudoFrame->GetContent()->GetParent();
 
-  for (nsCounterNode* prev = Prev(aNode), *start;
-       prev; prev = start->mScopePrev) {
+  for (nsCounterNode *prev = Prev(aNode), *start; prev;
+       prev = start->mScopePrev) {
     // If |prev| starts a scope (because it's a real or implied
     // reset), we want it as the scope start rather than the start
     // of its enclosing scope.  Otherwise, there's no enclosing
     // scope, so the next thing in prev's scope shares its scope
     // start.
     start = (prev->mType == nsCounterNode::RESET || !prev->mScopeStart)
-      ? prev : prev->mScopeStart;
+                ? prev
+                : prev->mScopeStart;
 
     // |startContent| is analogous to |nodeContent| (see above).
     nsIContent* startContent = start->mPseudoFrame->GetContent()->GetParent();
@@ -148,16 +148,15 @@ nsCounterList::SetScope(nsCounterNode* aNode)
         // everything is inside the root (except the case above,
         // a second reset on the root)
         (!startContent ||
-         nsContentUtils::ContentIsDescendantOf(nodeContent,
-                                               startContent))) {
+         nsContentUtils::ContentIsDescendantOf(nodeContent, startContent))) {
       aNode->mScopeStart = start;
-      aNode->mScopePrev  = prev;
+      aNode->mScopePrev = prev;
       return;
     }
   }
 
   aNode->mScopeStart = nullptr;
-  aNode->mScopePrev  = nullptr;
+  aNode->mScopePrev = nullptr;
 }
 
 void
@@ -200,23 +199,26 @@ nsCounterManager::AddCounterResetsAndIncrements(nsIFrame* aFrame)
   int32_t i, i_end;
   bool dirty = false;
   for (i = 0, i_end = styleContent->CounterResetCount(); i != i_end; ++i) {
-    dirty |= AddResetOrIncrement(aFrame, i, styleContent->CounterResetAt(i),
-                                 nsCounterChangeNode::RESET);
+    dirty |= AddResetOrIncrement(
+        aFrame, i, styleContent->CounterResetAt(i), nsCounterChangeNode::RESET);
   }
   for (i = 0, i_end = styleContent->CounterIncrementCount(); i != i_end; ++i) {
-    dirty |= AddResetOrIncrement(aFrame, i, styleContent->CounterIncrementAt(i),
+    dirty |= AddResetOrIncrement(aFrame,
+                                 i,
+                                 styleContent->CounterIncrementAt(i),
                                  nsCounterChangeNode::INCREMENT);
   }
   return dirty;
 }
 
 bool
-nsCounterManager::AddResetOrIncrement(nsIFrame* aFrame, int32_t aIndex,
+nsCounterManager::AddResetOrIncrement(nsIFrame* aFrame,
+                                      int32_t aIndex,
                                       const nsStyleCounterData& aCounterData,
                                       nsCounterNode::Type aType)
 {
   nsCounterChangeNode* node =
-    new nsCounterChangeNode(aFrame, aType, aCounterData.mValue, aIndex);
+      new nsCounterChangeNode(aFrame, aType, aCounterData.mValue, aIndex);
 
   nsCounterList* counterList = CounterListFor(aCounterData.mCounter);
   counterList->Insert(node);
@@ -284,19 +286,23 @@ nsCounterManager::Dump()
 {
   printf("\n\nCounter Manager Lists:\n");
   for (auto iter = mNames.Iter(); !iter.Done(); iter.Next()) {
-    printf("Counter named \"%s\":\n",
-           NS_ConvertUTF16toUTF8(iter.Key()).get());
+    printf("Counter named \"%s\":\n", NS_ConvertUTF16toUTF8(iter.Key()).get());
 
     nsCounterList* list = iter.UserData();
     int32_t i = 0;
     for (nsCounterNode* node = list->First(); node; node = list->Next(node)) {
-      const char* types[] = { "RESET", "INCREMENT", "USE" };
-      printf("  Node #%d @%p frame=%p index=%d type=%s valAfter=%d\n"
-             "       scope-start=%p scope-prev=%p",
-             i++, (void*)node, (void*)node->mPseudoFrame,
-             node->mContentIndex, types[node->mType],
-             node->mValueAfter, (void*)node->mScopeStart,
-             (void*)node->mScopePrev);
+      const char* types[] = {"RESET", "INCREMENT", "USE"};
+      printf(
+          "  Node #%d @%p frame=%p index=%d type=%s valAfter=%d\n"
+          "       scope-start=%p scope-prev=%p",
+          i++,
+          (void*)node,
+          (void*)node->mPseudoFrame,
+          node->mContentIndex,
+          types[node->mType],
+          node->mValueAfter,
+          (void*)node->mScopeStart,
+          (void*)node->mScopePrev);
       if (node->mType == nsCounterNode::USE) {
         nsAutoString text;
         node->UseNode()->GetText(text);

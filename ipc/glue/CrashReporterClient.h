@@ -20,7 +20,7 @@ class CrashReporterMetadataShmem;
 
 class CrashReporterClient
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CrashReporterClient);
 
   // |aTopLevelProtocol| must be a top-level protocol instance, as sub-actors
@@ -31,8 +31,9 @@ public:
   // The parent-side receive function of this message should save the shmem
   // somewhere, and when the top-level actor's ActorDestroy runs (or when the
   // crash reporter needs metadata), the shmem should be parsed.
-  template <typename T>
-  static bool InitSingleton(T* aToplevelProtocol) {
+  template<typename T>
+  static bool InitSingleton(T* aToplevelProtocol)
+  {
     Shmem shmem;
     if (!AllocShmem(aToplevelProtocol, &shmem)) {
       return false;
@@ -40,20 +41,18 @@ public:
 
     InitSingletonWithShmem(shmem);
     Unused << aToplevelProtocol->SendInitCrashReporter(
-      shmem,
-      CrashReporter::CurrentThreadId());
+        shmem, CrashReporter::CurrentThreadId());
     return true;
   }
 
-  template <typename T>
-  static bool AllocShmem(T* aToplevelProtocol, Shmem* aOutShmem) {
+  template<typename T>
+  static bool AllocShmem(T* aToplevelProtocol, Shmem* aOutShmem)
+  {
     // 16KB should be enough for most metadata - see bug 1278717 comment #11.
     static const size_t kShmemSize = 16 * 1024;
 
     return aToplevelProtocol->AllocUnsafeShmem(
-      kShmemSize,
-      SharedMemory::TYPE_BASIC,
-      aOutShmem);
+        kShmemSize, SharedMemory::TYPE_BASIC, aOutShmem);
   }
 
   static void InitSingletonWithShmem(const Shmem& aShmem);
@@ -64,21 +63,20 @@ public:
   void AnnotateCrashReport(const nsCString& aKey, const nsCString& aData);
   void AppendAppNotes(const nsCString& aData);
 
-private:
+ private:
   explicit CrashReporterClient(const Shmem& aShmem);
   ~CrashReporterClient();
 
-private:
+ private:
   static StaticMutex sLock;
   static StaticRefPtr<CrashReporterClient> sClientSingleton;
 
-private:
+ private:
   UniquePtr<CrashReporterMetadataShmem> mMetadata;
 };
 
-} // namespace ipc
-} // namespace mozilla
-#endif // MOZ_CRASHREPORTER
+}  // namespace ipc
+}  // namespace mozilla
+#endif  // MOZ_CRASHREPORTER
 
-#endif // mozilla_ipc_CrashReporterClient_h
-
+#endif  // mozilla_ipc_CrashReporterClient_h

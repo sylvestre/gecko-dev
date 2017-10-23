@@ -47,7 +47,7 @@
 #endif
 #endif
 
-#if defined (XP_WIN)
+#if defined(XP_WIN)
 
 static nsresult
 GetKnownFolder(GUID* aGuid, nsIFile** aFile)
@@ -63,9 +63,7 @@ GetKnownFolder(GUID* aGuid, nsIFile** aFile)
     return NS_ERROR_FAILURE;
   }
 
-  nsresult rv = NS_NewLocalFile(nsDependentString(path),
-                                true,
-                                aFile);
+  nsresult rv = NS_NewLocalFile(nsDependentString(path), true, aFile);
 
   CoTaskMemFree(path);
   return rv;
@@ -85,7 +83,7 @@ GetWindowsFolder(int aFolder, nsIFile** aFile)
   // Append the trailing slash
   int len = wcslen(path);
   if (len > 1 && path[len - 1] != L'\\') {
-    path[len]   = L'\\';
+    path[len] = L'\\';
     path[++len] = L'\0';
   }
 
@@ -94,14 +92,15 @@ GetWindowsFolder(int aFolder, nsIFile** aFile)
 
 #if WINVER < 0x0601
 __inline HRESULT
-SHLoadLibraryFromKnownFolder(REFKNOWNFOLDERID aFolderId, DWORD aMode,
-                             REFIID riid, void** ppv)
+SHLoadLibraryFromKnownFolder(REFKNOWNFOLDERID aFolderId,
+                             DWORD aMode,
+                             REFIID riid,
+                             void** ppv)
 {
   *ppv = nullptr;
   IShellLibrary* plib;
-  HRESULT hr = CoCreateInstance(CLSID_ShellLibrary, nullptr,
-                                CLSCTX_INPROC_SERVER,
-                                IID_PPV_ARGS(&plib));
+  HRESULT hr = CoCreateInstance(
+      CLSID_ShellLibrary, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&plib));
   if (SUCCEEDED(hr)) {
     hr = plib->LoadLibraryFromKnownFolder(aFolderId, aMode);
     if (SUCCEEDED(hr)) {
@@ -118,24 +117,23 @@ SHLoadLibraryFromKnownFolder(REFKNOWNFOLDERID aFolderId, DWORD aMode,
  * through aFolderId.
  */
 static nsresult
-GetLibrarySaveToPath(int aFallbackFolderId, REFKNOWNFOLDERID aFolderId,
+GetLibrarySaveToPath(int aFallbackFolderId,
+                     REFKNOWNFOLDERID aFolderId,
                      nsIFile** aFile)
 {
   RefPtr<IShellLibrary> shellLib;
   RefPtr<IShellItem> savePath;
-  SHLoadLibraryFromKnownFolder(aFolderId, STGM_READ,
-                               IID_IShellLibrary, getter_AddRefs(shellLib));
+  SHLoadLibraryFromKnownFolder(
+      aFolderId, STGM_READ, IID_IShellLibrary, getter_AddRefs(shellLib));
 
-  if (shellLib &&
-      SUCCEEDED(shellLib->GetDefaultSaveFolder(DSFT_DETECT, IID_IShellItem,
-                                               getter_AddRefs(savePath)))) {
+  if (shellLib && SUCCEEDED(shellLib->GetDefaultSaveFolder(
+                      DSFT_DETECT, IID_IShellItem, getter_AddRefs(savePath)))) {
     wchar_t* str = nullptr;
     if (SUCCEEDED(savePath->GetDisplayName(SIGDN_FILESYSPATH, &str))) {
       nsAutoString path;
       path.Assign(str);
       path.Append('\\');
-      nsresult rv =
-        NS_NewLocalFile(path, false, aFile);
+      nsresult rv = NS_NewLocalFile(path, false, aFile);
       CoTaskMemFree(str);
       return rv;
     }
@@ -154,17 +152,20 @@ GetRegWindowsAppDataFolder(bool aLocal, nsIFile** aFile)
 {
   HKEY key;
   LPCWSTR keyName =
-    L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders";
-  DWORD res = ::RegOpenKeyExW(HKEY_CURRENT_USER, keyName, 0, KEY_READ,
-                              &key);
+      L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders";
+  DWORD res = ::RegOpenKeyExW(HKEY_CURRENT_USER, keyName, 0, KEY_READ, &key);
   if (res != ERROR_SUCCESS) {
     return NS_ERROR_FAILURE;
   }
 
   WCHAR path[MAX_PATH + 2];
   DWORD type, size;
-  res = RegQueryValueExW(key, (aLocal ? L"Local AppData" : L"AppData"),
-                         nullptr, &type, (LPBYTE)&path, &size);
+  res = RegQueryValueExW(key,
+                         (aLocal ? L"Local AppData" : L"AppData"),
+                         nullptr,
+                         &type,
+                         (LPBYTE)&path,
+                         &size);
   ::RegCloseKey(key);
   // The call to RegQueryValueExW must succeed, the type must be REG_SZ, the
   // buffer size must not equal 0, and the buffer size be a multiple of 2.
@@ -175,14 +176,14 @@ GetRegWindowsAppDataFolder(bool aLocal, nsIFile** aFile)
   // Append the trailing slash
   int len = wcslen(path);
   if (len > 1 && path[len - 1] != L'\\') {
-    path[len]   = L'\\';
+    path[len] = L'\\';
     path[++len] = L'\0';
   }
 
   return NS_NewLocalFile(nsDependentString(path, len), true, aFile);
 }
 
-#endif // XP_WIN
+#endif  // XP_WIN
 
 #if defined(XP_UNIX)
 static nsresult
@@ -192,8 +193,8 @@ GetUnixHomeDir(nsIFile** aFile)
   // XXX no home dir on android; maybe we should return the sdcard if present?
   return NS_ERROR_FAILURE;
 #else
-  return NS_NewNativeLocalFile(nsDependentCString(PR_GetEnv("HOME")),
-                               true, aFile);
+  return NS_NewNativeLocalFile(
+      nsDependentCString(PR_GetEnv("HOME")), true, aFile);
 #endif
 }
 
@@ -245,8 +246,8 @@ xdg_user_dir_lookup(const char* aType)
 
   config_home = getenv("XDG_CONFIG_HOME");
   if (!config_home || config_home[0] == 0) {
-    config_file = (char*)malloc(strlen(home_dir) +
-                                strlen("/.config/user-dirs.dirs") + 1);
+    config_file =
+        (char*)malloc(strlen(home_dir) + strlen("/.config/user-dirs.dirs") + 1);
     if (!config_file) {
       goto error;
     }
@@ -254,8 +255,8 @@ xdg_user_dir_lookup(const char* aType)
     strcpy(config_file, home_dir);
     strcat(config_file, "/.config/user-dirs.dirs");
   } else {
-    config_file = (char*)malloc(strlen(config_home) +
-                                strlen("/user-dirs.dirs") + 1);
+    config_file =
+        (char*)malloc(strlen(config_home) + strlen("/user-dirs.dirs") + 1);
     if (!config_file) {
       goto error;
     }
@@ -360,38 +361,29 @@ error:
 }
 
 static const char xdg_user_dirs[] =
-  "DESKTOP\0"
-  "DOCUMENTS\0"
-  "DOWNLOAD\0"
-  "MUSIC\0"
-  "PICTURES\0"
-  "PUBLICSHARE\0"
-  "TEMPLATES\0"
-  "VIDEOS";
+    "DESKTOP\0"
+    "DOCUMENTS\0"
+    "DOWNLOAD\0"
+    "MUSIC\0"
+    "PICTURES\0"
+    "PUBLICSHARE\0"
+    "TEMPLATES\0"
+    "VIDEOS";
 
-static const uint8_t xdg_user_dir_offsets[] = {
-  0,
-  8,
-  18,
-  27,
-  33,
-  42,
-  54,
-  64
-};
+static const uint8_t xdg_user_dir_offsets[] = {0, 8, 18, 27, 33, 42, 54, 64};
 
 static nsresult
-GetUnixXDGUserDirectory(SystemDirectories aSystemDirectory,
-                        nsIFile** aFile)
+GetUnixXDGUserDirectory(SystemDirectories aSystemDirectory, nsIFile** aFile)
 {
   char* dir = xdg_user_dir_lookup(
-    xdg_user_dirs + xdg_user_dir_offsets[aSystemDirectory - Unix_XDG_Desktop]);
+      xdg_user_dirs +
+      xdg_user_dir_offsets[aSystemDirectory - Unix_XDG_Desktop]);
 
   nsresult rv;
   nsCOMPtr<nsIFile> file;
   if (dir) {
-    rv = NS_NewNativeLocalFile(nsDependentCString(dir), true,
-                               getter_AddRefs(file));
+    rv = NS_NewNativeLocalFile(
+        nsDependentCString(dir), true, getter_AddRefs(file));
     free(dir);
   } else if (Unix_XDG_Desktop == aSystemDirectory) {
     // for the XDG desktop dir, fall back to HOME/Desktop
@@ -446,9 +438,7 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
       if (!_wgetcwd(path, MAX_PATH)) {
         return NS_ERROR_FAILURE;
       }
-      return NS_NewLocalFile(nsDependentString(path),
-                             true,
-                             aFile);
+      return NS_NewLocalFile(nsDependentString(path), true, aFile);
 #else
       if (!getcwd(path, MAXPATHLEN)) {
         return NS_ERROR_FAILURE;
@@ -456,13 +446,11 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
 #endif
 
 #if !defined(XP_WIN)
-      return NS_NewNativeLocalFile(nsDependentCString(path),
-                                   true,
-                                   aFile);
+      return NS_NewNativeLocalFile(nsDependentCString(path), true, aFile);
 #endif
 
     case OS_DriveDirectory:
-#if defined (XP_WIN)
+#if defined(XP_WIN)
     {
       int32_t len = ::GetWindowsDirectoryW(path, MAX_PATH);
       if (len == 0) {
@@ -472,27 +460,21 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
         path[3] = 0;
       }
 
-      return NS_NewLocalFile(nsDependentString(path),
-                             true,
-                             aFile);
+      return NS_NewLocalFile(nsDependentString(path), true, aFile);
     }
 #else
-    return NS_NewNativeLocalFile(nsDependentCString("/"),
-                                 true,
-                                 aFile);
+      return NS_NewNativeLocalFile(nsDependentCString("/"), true, aFile);
 
 #endif
 
     case OS_TemporaryDirectory:
-#if defined (XP_WIN)
+#if defined(XP_WIN)
     {
       DWORD len = ::GetTempPathW(MAX_PATH, path);
       if (len == 0) {
         break;
       }
-      return NS_NewLocalFile(nsDependentString(path, len),
-                             true,
-                             aFile);
+      return NS_NewLocalFile(nsDependentString(path, len), true, aFile);
     }
 #elif defined(MOZ_WIDGET_COCOA)
     {
@@ -514,14 +496,12 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
           }
         }
       }
-      return NS_NewNativeLocalFile(nsDependentCString(tPath),
-                                   true,
-                                   aFile);
+      return NS_NewNativeLocalFile(nsDependentCString(tPath), true, aFile);
     }
 #else
-    break;
+      break;
 #endif
-#if defined (XP_WIN)
+#if defined(XP_WIN)
     case Win_SystemDirectory: {
       int32_t len = ::GetSystemDirectoryW(path, MAX_PATH);
 
@@ -529,12 +509,10 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
       if (!len || len > MAX_PATH - 2) {
         break;
       }
-      path[len]   = L'\\';
+      path[len] = L'\\';
       path[++len] = L'\0';
 
-      return NS_NewLocalFile(nsDependentString(path, len),
-                             true,
-                             aFile);
+      return NS_NewLocalFile(nsDependentString(path, len), true, aFile);
     }
 
     case Win_WindowsDirectory: {
@@ -545,12 +523,10 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
         break;
       }
 
-      path[len]   = L'\\';
+      path[len] = L'\\';
       path[++len] = L'\0';
 
-      return NS_NewLocalFile(nsDependentString(path, len),
-                             true,
-                             aFile);
+      return NS_NewLocalFile(nsDependentString(path, len), true, aFile);
     }
 
     case Win_ProgramFiles: {
@@ -570,12 +546,10 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
           break;
         }
 
-        path[len]   = L'\\';
+        path[len] = L'\\';
         path[++len] = L'\0';
 
-        rv = NS_NewLocalFile(nsDependentString(path, len),
-                             true,
-                             aFile);
+        rv = NS_NewLocalFile(nsDependentString(path, len), true, aFile);
         if (NS_SUCCEEDED(rv)) {
           return rv;
         }
@@ -596,12 +570,10 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
           break;
         }
 
-        path[len]   = L'\\';
+        path[len] = L'\\';
         path[++len] = L'\0';
 
-        return NS_NewLocalFile(nsDependentString(path, len),
-                               true,
-                               aFile);
+        return NS_NewLocalFile(nsDependentString(path, len), true, aFile);
       }
     }
     case Win_Desktop: {
@@ -614,9 +586,10 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
     case Win_Downloads: {
       // Defined in KnownFolders.h.
       GUID folderid_downloads = {
-        0x374de290, 0x123f, 0x4565,
-        { 0x91, 0x64, 0x39, 0xc4, 0x92, 0x5e, 0x46, 0x7b }
-      };
+          0x374de290,
+          0x123f,
+          0x4565,
+          {0x91, 0x64, 0x39, 0xc4, 0x92, 0x5e, 0x46, 0x7b}};
       nsresult rv = GetKnownFolder(&folderid_downloads, aFile);
       // On WinXP, there is no downloads folder, default
       // to 'Desktop'.
@@ -713,36 +686,28 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
     }
 #endif
     case Win_Documents: {
-      return GetLibrarySaveToPath(CSIDL_MYDOCUMENTS,
-                                  FOLDERID_DocumentsLibrary,
-                                  aFile);
+      return GetLibrarySaveToPath(
+          CSIDL_MYDOCUMENTS, FOLDERID_DocumentsLibrary, aFile);
     }
     case Win_Pictures: {
-      return GetLibrarySaveToPath(CSIDL_MYPICTURES,
-                                  FOLDERID_PicturesLibrary,
-                                  aFile);
+      return GetLibrarySaveToPath(
+          CSIDL_MYPICTURES, FOLDERID_PicturesLibrary, aFile);
     }
     case Win_Music: {
-      return GetLibrarySaveToPath(CSIDL_MYMUSIC,
-                                  FOLDERID_MusicLibrary,
-                                  aFile);
+      return GetLibrarySaveToPath(CSIDL_MYMUSIC, FOLDERID_MusicLibrary, aFile);
     }
     case Win_Videos: {
-      return GetLibrarySaveToPath(CSIDL_MYVIDEO,
-                                  FOLDERID_VideosLibrary,
-                                  aFile);
+      return GetLibrarySaveToPath(CSIDL_MYVIDEO, FOLDERID_VideosLibrary, aFile);
     }
 #endif  // XP_WIN
 
 #if defined(XP_UNIX)
     case Unix_LocalDirectory:
-      return NS_NewNativeLocalFile(nsDependentCString("/usr/local/netscape/"),
-                                   true,
-                                   aFile);
+      return NS_NewNativeLocalFile(
+          nsDependentCString("/usr/local/netscape/"), true, aFile);
     case Unix_LibDirectory:
-      return NS_NewNativeLocalFile(nsDependentCString("/usr/local/lib/netscape/"),
-                                   true,
-                                   aFile);
+      return NS_NewNativeLocalFile(
+          nsDependentCString("/usr/local/lib/netscape/"), true, aFile);
 
     case Unix_HomeDirectory:
       return GetUnixHomeDir(aFile);
@@ -764,7 +729,7 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
   return NS_ERROR_NOT_AVAILABLE;
 }
 
-#if defined (MOZ_WIDGET_COCOA)
+#if defined(MOZ_WIDGET_COCOA)
 nsresult
 GetOSXFolderType(short aDomain, OSType aFolderType, nsIFile** aLocalFile)
 {
@@ -775,7 +740,7 @@ GetOSXFolderType(short aDomain, OSType aFolderType, nsIFile** aLocalFile)
     nsCOMPtr<nsILocalFileMac> localMacFile(do_QueryInterface(*aLocalFile));
     if (localMacFile) {
       rv = localMacFile->InitWithCFURL(
-             CocoaFileUtils::GetTemporaryFolderCFURLRef());
+          CocoaFileUtils::GetTemporaryFolderCFURLRef());
     }
     return rv;
   }
@@ -793,4 +758,3 @@ GetOSXFolderType(short aDomain, OSType aFolderType, nsIFile** aLocalFile)
   return rv;
 }
 #endif
-

@@ -7,14 +7,9 @@
 
 #include "jsapi-tests/tests.h"
 
-static bool
-NativeGetterSetter(JSContext* cx, unsigned argc, JS::Value* vp)
-{
-    return true;
-}
+static bool NativeGetterSetter(JSContext* cx, unsigned argc, JS::Value* vp) { return true; }
 
-BEGIN_TEST(testDefineGetterSetterNonEnumerable)
-{
+BEGIN_TEST(testDefineGetterSetterNonEnumerable) {
     static const char PROPERTY_NAME[] = "foo";
 
     JS::RootedValue vobj(cx);
@@ -34,13 +29,13 @@ BEGIN_TEST(testDefineGetterSetterNonEnumerable)
 
     JS::RootedObject vObject(cx, vobj.toObjectOrNull());
     CHECK(JS_DefineProperty(cx, vObject, PROPERTY_NAME,
-                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*) funGetObj),
-                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*) funSetObj),
+                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*)funGetObj),
+                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*)funSetObj),
                             JSPROP_GETTER | JSPROP_SETTER | JSPROP_ENUMERATE));
 
     CHECK(JS_DefineProperty(cx, vObject, PROPERTY_NAME,
-                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*) funGetObj),
-                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*) funSetObj),
+                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*)funGetObj),
+                            JS_DATA_TO_FUNC_PTR(JSNative, (JSObject*)funSetObj),
                             JSPROP_GETTER | JSPROP_SETTER | JSPROP_PERMANENT));
 
     JS::Rooted<JS::PropertyDescriptor> desc(cx);

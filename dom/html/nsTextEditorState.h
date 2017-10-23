@@ -34,8 +34,8 @@ class ErrorResult;
 
 namespace dom {
 class HTMLInputElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * nsTextEditorState is a class which is responsible for managing the state of
@@ -131,13 +131,13 @@ class HTMLInputElement;
 
 class RestoreSelectionState;
 
-class nsTextEditorState : public mozilla::SupportsWeakPtr<nsTextEditorState> {
-public:
+class nsTextEditorState : public mozilla::SupportsWeakPtr<nsTextEditorState>
+{
+ public:
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(nsTextEditorState)
   explicit nsTextEditorState(nsITextControlElement* aOwningElement);
-  static nsTextEditorState*
-  Construct(nsITextControlElement* aOwningElement,
-            nsTextEditorState** aReusedState);
+  static nsTextEditorState* Construct(nsITextControlElement* aOwningElement,
+                                      nsTextEditorState** aReusedState);
   ~nsTextEditorState();
 
   void Traverse(nsCycleCollectionTraversalCallback& cb);
@@ -156,20 +156,20 @@ public:
   nsFrameSelection* GetConstFrameSelection();
   nsresult BindToFrame(nsTextControlFrame* aFrame);
   void UnbindFromFrame(nsTextControlFrame* aFrame);
-  nsresult PrepareEditor(const nsAString *aValue = nullptr);
+  nsresult PrepareEditor(const nsAString* aValue = nullptr);
   void InitializeKeyboardEventListeners();
 
   enum SetValueFlags
   {
     // The call is for internal processing.
-    eSetValue_Internal              = 0,
+    eSetValue_Internal = 0,
     // The value is changed by a call of setUserInput() from chrome.
-    eSetValue_BySetUserInput        = 1 << 0,
+    eSetValue_BySetUserInput = 1 << 0,
     // The value is changed by changing value attribute of the element or
     // something like setRangeText().
-    eSetValue_ByContent             = 1 << 1,
+    eSetValue_ByContent = 1 << 1,
     // Whether the value change should be notified to the frame/contet nor not.
-    eSetValue_Notify                = 1 << 2,
+    eSetValue_Notify = 1 << 2,
     // Whether to move the cursor to end of the value (in the case when we have
     // cached selection offsets), in the case when the value has changed.  If
     // this is not set, the cached selection offsets will simply be clamped to
@@ -179,13 +179,12 @@ public:
     // The value is changed for a XUL text control as opposed to for an HTML
     // text control.  Such value changes are different in that they preserve the
     // undo history.
-    eSetValue_ForXUL                = 1 << 4,
+    eSetValue_ForXUL = 1 << 4,
   };
   MOZ_MUST_USE bool SetValue(const nsAString& aValue,
                              const nsAString* aOldValue,
                              uint32_t aFlags);
-  MOZ_MUST_USE bool SetValue(const nsAString& aValue,
-                             uint32_t aFlags)
+  MOZ_MUST_USE bool SetValue(const nsAString& aValue, uint32_t aFlags)
   {
     return SetValue(aValue, nullptr, aFlags);
   }
@@ -195,45 +194,38 @@ public:
   // value or not.
   // XXX We might have to add assertion when it is into editable,
   // or reconsider fixing bug 597525 to remove these.
-  void EmptyValue() { if (mValue) mValue->Truncate(); }
+  void EmptyValue()
+  {
+    if (mValue) mValue->Truncate();
+  }
   bool IsEmpty() const { return mValue ? mValue->IsEmpty() : true; }
 
   mozilla::dom::Element* GetRootNode();
   mozilla::dom::Element* GetPlaceholderNode();
   mozilla::dom::Element* GetPreviewNode();
 
-  bool IsSingleLineTextControl() const {
+  bool IsSingleLineTextControl() const
+  {
     return mTextCtrlElement->IsSingleLineTextControl();
   }
-  bool IsTextArea() const {
-    return mTextCtrlElement->IsTextArea();
-  }
-  bool IsPasswordTextControl() const {
+  bool IsTextArea() const { return mTextCtrlElement->IsTextArea(); }
+  bool IsPasswordTextControl() const
+  {
     return mTextCtrlElement->IsPasswordTextControl();
   }
-  int32_t GetCols() {
-    return mTextCtrlElement->GetCols();
-  }
-  int32_t GetWrapCols() {
-    return mTextCtrlElement->GetWrapCols();
-  }
-  int32_t GetRows() {
-    return mTextCtrlElement->GetRows();
-  }
+  int32_t GetCols() { return mTextCtrlElement->GetCols(); }
+  int32_t GetWrapCols() { return mTextCtrlElement->GetWrapCols(); }
+  int32_t GetRows() { return mTextCtrlElement->GetRows(); }
 
   void UpdateOverlayTextVisibility(bool aNotify);
 
   // placeholder methods
-  bool GetPlaceholderVisibility() {
-    return mPlaceholderVisibility;
-  }
+  bool GetPlaceholderVisibility() { return mPlaceholderVisibility; }
 
   // preview methods
   void SetPreviewText(const nsAString& aValue, bool aNotify);
   void GetPreviewText(nsAString& aValue);
-  bool GetPreviewVisibility() {
-    return mPreviewVisibility;
-  }
+  bool GetPreviewVisibility() { return mPreviewVisibility; }
 
   /**
    * Get the maxlength attribute
@@ -244,56 +236,48 @@ public:
 
   void HideSelectionIfBlurred();
 
-  struct SelectionProperties {
-    public:
-      SelectionProperties() : mStart(0), mEnd(0),
-        mDirection(nsITextControlFrame::eForward) {}
-      bool IsDefault() const
-      {
-        return mStart == 0 && mEnd == 0 &&
-               mDirection == nsITextControlFrame::eForward;
-      }
-      uint32_t GetStart() const
-      {
-        return mStart;
-      }
-      void SetStart(uint32_t value)
-      {
-        mIsDirty = true;
-        mStart = value;
-      }
-      uint32_t GetEnd() const
-      {
-        return mEnd;
-      }
-      void SetEnd(uint32_t value)
-      {
-        mIsDirty = true;
-        mEnd = value;
-      }
-      nsITextControlFrame::SelectionDirection GetDirection() const
-      {
-        return mDirection;
-      }
-      void SetDirection(nsITextControlFrame::SelectionDirection value)
-      {
-        mIsDirty = true;
-        mDirection = value;
-      }
-      // return true only if mStart, mEnd, or mDirection have been modified,
-      // or if SetIsDirty() was explicitly called.
-      bool IsDirty() const
-      {
-        return mIsDirty;
-      }
-      void SetIsDirty()
-      {
-        mIsDirty = true;
-      }
-    private:
-      uint32_t mStart, mEnd;
-      bool mIsDirty = false;
-      nsITextControlFrame::SelectionDirection mDirection;
+  struct SelectionProperties
+  {
+   public:
+    SelectionProperties()
+        : mStart(0), mEnd(0), mDirection(nsITextControlFrame::eForward)
+    {
+    }
+    bool IsDefault() const
+    {
+      return mStart == 0 && mEnd == 0 &&
+             mDirection == nsITextControlFrame::eForward;
+    }
+    uint32_t GetStart() const { return mStart; }
+    void SetStart(uint32_t value)
+    {
+      mIsDirty = true;
+      mStart = value;
+    }
+    uint32_t GetEnd() const { return mEnd; }
+    void SetEnd(uint32_t value)
+    {
+      mIsDirty = true;
+      mEnd = value;
+    }
+    nsITextControlFrame::SelectionDirection GetDirection() const
+    {
+      return mDirection;
+    }
+    void SetDirection(nsITextControlFrame::SelectionDirection value)
+    {
+      mIsDirty = true;
+      mDirection = value;
+    }
+    // return true only if mStart, mEnd, or mDirection have been modified,
+    // or if SetIsDirty() was explicitly called.
+    bool IsDirty() const { return mIsDirty; }
+    void SetIsDirty() { mIsDirty = true; }
+
+   private:
+    uint32_t mStart, mEnd;
+    bool mIsDirty = false;
+    nsITextControlFrame::SelectionDirection mDirection;
   };
 
   bool IsSelectionCached() const;
@@ -307,12 +291,13 @@ public:
   void SyncUpSelectionPropertiesBeforeDestruction();
 
   // Get the selection range start and end points in our text.
-  void GetSelectionRange(uint32_t* aSelectionStart, uint32_t* aSelectionEnd,
+  void GetSelectionRange(uint32_t* aSelectionStart,
+                         uint32_t* aSelectionEnd,
                          mozilla::ErrorResult& aRv);
 
   // Get the selection direction
-  nsITextControlFrame::SelectionDirection
-    GetSelectionDirection(mozilla::ErrorResult& aRv);
+  nsITextControlFrame::SelectionDirection GetSelectionDirection(
+      mozilla::ErrorResult& aRv);
 
   // Set the selection range (start, end, direction).  aEnd is allowed to be
   // smaller than aStart; in that case aStart will be reset to the same value as
@@ -326,7 +311,8 @@ public:
   //
   // XXXbz This should really take uint32_t, but none of our guts (either the
   // frame or our cached selection state) work with uint32_t at the moment...
-  void SetSelectionRange(uint32_t aStart, uint32_t aEnd,
+  void SetSelectionRange(uint32_t aStart,
+                         uint32_t aEnd,
                          nsITextControlFrame::SelectionDirection aDirection,
                          mozilla::ErrorResult& aRv);
 
@@ -367,27 +353,29 @@ public:
   void SetRangeText(const nsAString& aReplacement, mozilla::ErrorResult& aRv);
   // The last two arguments are -1 if we don't know our selection range;
   // otherwise they're the start and end of our selection range.
-  void SetRangeText(const nsAString& aReplacement, uint32_t aStart,
-                    uint32_t aEnd, mozilla::dom::SelectionMode aSelectMode,
-                    mozilla::ErrorResult& aRv,
-                    const mozilla::Maybe<uint32_t>& aSelectionStart =
-                      mozilla::Nothing(),
-                    const mozilla::Maybe<uint32_t>& aSelectionEnd =
-                      mozilla::Nothing());
+  void SetRangeText(
+      const nsAString& aReplacement,
+      uint32_t aStart,
+      uint32_t aEnd,
+      mozilla::dom::SelectionMode aSelectMode,
+      mozilla::ErrorResult& aRv,
+      const mozilla::Maybe<uint32_t>& aSelectionStart = mozilla::Nothing(),
+      const mozilla::Maybe<uint32_t>& aSelectionEnd = mozilla::Nothing());
 
-  void UpdateEditableState(bool aNotify) {
+  void UpdateEditableState(bool aNotify)
+  {
     if (auto* root = GetRootNode()) {
       root->UpdateEditableState(aNotify);
     }
   }
 
-private:
+ private:
   friend class RestoreSelectionState;
 
   // not copy constructible
   nsTextEditorState(const nsTextEditorState&);
   // not assignable
-  void operator= (const nsTextEditorState&);
+  void operator=(const nsTextEditorState&);
 
   void ValueWasChanged(bool aNotify);
 
@@ -402,26 +390,26 @@ private:
 
   bool EditorHasComposition();
 
-  class InitializationGuard {
-  public:
-    explicit InitializationGuard(nsTextEditorState& aState) :
-      mState(aState),
-      mGuardSet(false)
+  class InitializationGuard
+  {
+   public:
+    explicit InitializationGuard(nsTextEditorState& aState)
+        : mState(aState), mGuardSet(false)
     {
       if (!mState.mInitializing) {
         mGuardSet = true;
         mState.mInitializing = true;
       }
     }
-    ~InitializationGuard() {
+    ~InitializationGuard()
+    {
       if (mGuardSet) {
         mState.mInitializing = false;
       }
     }
-    bool IsInitializingRecursively() const {
-      return !mGuardSet;
-    }
-  private:
+    bool IsInitializingRecursively() const { return !mGuardSet; }
+
+   private:
     nsTextEditorState& mState;
     bool mGuardSet;
   };
@@ -443,12 +431,14 @@ private:
   // the latest value which is set by SetValue().  So, this is cache for that.
   nsString mValueBeingSet;
   SelectionProperties mSelectionProperties;
-  bool mEverInited; // Have we ever been initialized?
+  bool mEverInited;  // Have we ever been initialized?
   bool mEditorInitialized;
-  bool mInitializing; // Whether we're in the process of initialization
-  bool mValueTransferInProgress; // Whether a value is being transferred to the frame
-  bool mSelectionCached; // Whether mSelectionProperties is valid
-  mutable bool mSelectionRestoreEagerInit; // Whether we're eager initing because of selection restore
+  bool mInitializing;  // Whether we're in the process of initialization
+  bool
+      mValueTransferInProgress;  // Whether a value is being transferred to the frame
+  bool mSelectionCached;         // Whether mSelectionProperties is valid
+  mutable bool
+      mSelectionRestoreEagerInit;  // Whether we're eager initing because of selection restore
   bool mPlaceholderVisibility;
   bool mPreviewVisibility;
   bool mIsCommittingComposition;

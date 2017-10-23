@@ -38,14 +38,16 @@
 #include "secerr.h"
 #include "secitem.h"
 
-namespace mozilla { namespace pkix { namespace test {
+namespace mozilla {
+namespace pkix {
+namespace test {
 
 namespace {
 
 typedef ScopedPtr<SECKEYPublicKey, SECKEY_DestroyPublicKey>
-  ScopedSECKEYPublicKey;
+    ScopedSECKEYPublicKey;
 typedef ScopedPtr<SECKEYPrivateKey, SECKEY_DestroyPrivateKey>
-  ScopedSECKEYPrivateKey;
+    ScopedSECKEYPrivateKey;
 
 inline void
 SECITEM_FreeItem_true(SECItem* item)
@@ -55,7 +57,8 @@ SECITEM_FreeItem_true(SECItem* item)
 
 typedef mozilla::pkix::ScopedPtr<SECItem, SECITEM_FreeItem_true> ScopedSECItem;
 
-TestKeyPair* GenerateKeyPairInner();
+TestKeyPair*
+GenerateKeyPairInner();
 
 void
 InitNSSIfNeeded()
@@ -77,13 +80,12 @@ InitReusedKeyPair()
 
 class NSSTestKeyPair final : public TestKeyPair
 {
-public:
+ public:
   // NSSTestKeyPair takes ownership of privateKey.
   NSSTestKeyPair(const TestPublicKeyAlgorithm& publicKeyAlg,
                  const ByteString& spk,
                  SECKEYPrivateKey* privateKey)
-    : TestKeyPair(publicKeyAlg, spk)
-    , privateKey(privateKey)
+      : TestKeyPair(publicKeyAlg, spk), privateKey(privateKey)
   {
   }
 
@@ -115,16 +117,18 @@ public:
         case TestDigestAlgorithmID::SHA512:
           oidTag = SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION;
           break;
-        MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
+          MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
       }
     } else {
       abort();
     }
 
     SECItem signatureItem;
-    if (SEC_SignData(&signatureItem, tbs.data(),
+    if (SEC_SignData(&signatureItem,
+                     tbs.data(),
                      static_cast<int>(tbs.length()),
-                     privateKey.get(), oidTag) != SECSuccess) {
+                     privateKey.get(),
+                     oidTag) != SECSuccess) {
       return MapPRErrorCodeToResult(PR_GetError());
     }
     signature.assign(signatureItem.data, signatureItem.len);
@@ -134,40 +138,39 @@ public:
 
   TestKeyPair* Clone() const override
   {
-    ScopedSECKEYPrivateKey
-      privateKeyCopy(SECKEY_CopyPrivateKey(privateKey.get()));
+    ScopedSECKEYPrivateKey privateKeyCopy(
+        SECKEY_CopyPrivateKey(privateKey.get()));
     if (!privateKeyCopy) {
       return nullptr;
     }
-    return new (std::nothrow) NSSTestKeyPair(publicKeyAlg,
-                                             subjectPublicKey,
-                                             privateKeyCopy.release());
+    return new (std::nothrow) NSSTestKeyPair(
+        publicKeyAlg, subjectPublicKey, privateKeyCopy.release());
   }
 
-private:
+ private:
   ScopedSECKEYPrivateKey privateKey;
 };
 
-} // namespace
+}  // namespace
 
 // This private function is also used by Gecko's PSM test framework
 // (OCSPCommon.cpp).
 //
 // Ownership of privateKey is transfered.
-TestKeyPair* CreateTestKeyPair(const TestPublicKeyAlgorithm publicKeyAlg,
-                               const SECKEYPublicKey& publicKey,
-                               SECKEYPrivateKey* privateKey)
+TestKeyPair*
+CreateTestKeyPair(const TestPublicKeyAlgorithm publicKeyAlg,
+                  const SECKEYPublicKey& publicKey,
+                  SECKEYPrivateKey* privateKey)
 {
-  ScopedPtr<CERTSubjectPublicKeyInfo, SECKEY_DestroySubjectPublicKeyInfo>
-    spki(SECKEY_CreateSubjectPublicKeyInfo(&publicKey));
+  ScopedPtr<CERTSubjectPublicKeyInfo, SECKEY_DestroySubjectPublicKeyInfo> spki(
+      SECKEY_CreateSubjectPublicKeyInfo(&publicKey));
   if (!spki) {
     return nullptr;
   }
   SECItem spkDER = spki->subjectPublicKey;
-  DER_ConvertBitString(&spkDER); // bits to bytes
-  return new (std::nothrow) NSSTestKeyPair(publicKeyAlg,
-                                           ByteString(spkDER.data, spkDER.len),
-                                           privateKey);
+  DER_ConvertBitString(&spkDER);  // bits to bytes
+  return new (std::nothrow) NSSTestKeyPair(
+      publicKeyAlg, ByteString(spkDER.data, spkDER.len), privateKey);
 }
 
 namespace {
@@ -188,10 +191,14 @@ GenerateKeyPairInner()
     params.keySizeInBits = 2048;
     params.pe = 3;
     SECKEYPublicKey* publicKeyTemp = nullptr;
-    ScopedSECKEYPrivateKey
-      privateKey(PK11_GenerateKeyPair(slot.get(), CKM_RSA_PKCS_KEY_PAIR_GEN,
-                                      &params, &publicKeyTemp, false, true,
-                                      nullptr));
+    ScopedSECKEYPrivateKey privateKey(
+        PK11_GenerateKeyPair(slot.get(),
+                             CKM_RSA_PKCS_KEY_PAIR_GEN,
+                             &params,
+                             &publicKeyTemp,
+                             false,
+                             true,
+                             nullptr));
     ScopedSECKEYPublicKey publicKey(publicKeyTemp);
     if (privateKey) {
       return CreateTestKeyPair(RSA_PKCS1(), *publicKey, privateKey.release());
@@ -206,9 +213,9 @@ GenerateKeyPairInner()
     // Since these keys are only for testing, we don't need them to be good,
     // random keys.
     // https://xkcd.com/221/
-    static const uint8_t RANDOM_NUMBER[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    if (PK11_RandomUpdate((void*) &RANDOM_NUMBER,
-                          sizeof(RANDOM_NUMBER)) != SECSuccess) {
+    static const uint8_t RANDOM_NUMBER[] = {4, 4, 4, 4, 4, 4, 4, 4};
+    if (PK11_RandomUpdate((void*)&RANDOM_NUMBER, sizeof(RANDOM_NUMBER)) !=
+        SECSuccess) {
       break;
     }
   }
@@ -216,7 +223,7 @@ GenerateKeyPairInner()
   abort();
 }
 
-} // namespace
+}  // namespace
 
 TestKeyPair*
 GenerateKeyPair()
@@ -250,27 +257,26 @@ GenerateDSSKeyPair()
   ByteString q(DSS_Q());
   ByteString g(DSS_G());
 
-  static const PQGParams PARAMS = {
-    nullptr,
-    { siBuffer,
-      const_cast<uint8_t*>(p.data()),
-      static_cast<unsigned int>(p.length())
-    },
-    { siBuffer,
-      const_cast<uint8_t*>(q.data()),
-      static_cast<unsigned int>(q.length())
-    },
-    { siBuffer,
-      const_cast<uint8_t*>(g.data()),
-      static_cast<unsigned int>(g.length())
-    }
-  };
+  static const PQGParams PARAMS = {nullptr,
+                                   {siBuffer,
+                                    const_cast<uint8_t*>(p.data()),
+                                    static_cast<unsigned int>(p.length())},
+                                   {siBuffer,
+                                    const_cast<uint8_t*>(q.data()),
+                                    static_cast<unsigned int>(q.length())},
+                                   {siBuffer,
+                                    const_cast<uint8_t*>(g.data()),
+                                    static_cast<unsigned int>(g.length())}};
 
   SECKEYPublicKey* publicKeyTemp = nullptr;
-  ScopedSECKEYPrivateKey
-    privateKey(PK11_GenerateKeyPair(slot.get(), CKM_DSA_KEY_PAIR_GEN,
-                                    const_cast<PQGParams*>(&PARAMS),
-                                    &publicKeyTemp, false, true, nullptr));
+  ScopedSECKEYPrivateKey privateKey(
+      PK11_GenerateKeyPair(slot.get(),
+                           CKM_DSA_KEY_PAIR_GEN,
+                           const_cast<PQGParams*>(&PARAMS),
+                           &publicKeyTemp,
+                           false,
+                           true,
+                           nullptr));
   if (!privateKey) {
     return nullptr;
   }
@@ -283,8 +289,8 @@ TestVerifyECDSASignedDigest(const SignedDigest& signedDigest,
                             Input subjectPublicKeyInfo)
 {
   InitNSSIfNeeded();
-  return VerifyECDSASignedDigestNSS(signedDigest, subjectPublicKeyInfo,
-                                    nullptr);
+  return VerifyECDSASignedDigestNSS(
+      signedDigest, subjectPublicKeyInfo, nullptr);
 }
 
 Result
@@ -292,8 +298,8 @@ TestVerifyRSAPKCS1SignedDigest(const SignedDigest& signedDigest,
                                Input subjectPublicKeyInfo)
 {
   InitNSSIfNeeded();
-  return VerifyRSAPKCS1SignedDigestNSS(signedDigest, subjectPublicKeyInfo,
-                                       nullptr);
+  return VerifyRSAPKCS1SignedDigestNSS(
+      signedDigest, subjectPublicKeyInfo, nullptr);
 }
 
 Result
@@ -306,4 +312,6 @@ TestDigestBuf(Input item,
   return DigestBufNSS(item, digestAlg, digestBuf, digestBufLen);
 }
 
-} } } // namespace mozilla::pkix::test
+}  // namespace test
+}  // namespace pkix
+}  // namespace mozilla

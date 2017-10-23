@@ -5,14 +5,14 @@
 
 #include "JoinNodeTransaction.h"
 
-#include "mozilla/EditorBase.h"         // for EditorBase
+#include "mozilla/EditorBase.h"  // for EditorBase
 #include "nsAString.h"
-#include "nsDebug.h"                    // for NS_ASSERTION, etc.
-#include "nsError.h"                    // for NS_ERROR_NULL_POINTER, etc.
-#include "nsIContent.h"                 // for nsIContent
-#include "nsIDOMCharacterData.h"        // for nsIDOMCharacterData
-#include "nsIEditor.h"                  // for EditorBase::IsModifiableNode
-#include "nsISupportsImpl.h"            // for QueryInterface, etc.
+#include "nsDebug.h"              // for NS_ASSERTION, etc.
+#include "nsError.h"              // for NS_ERROR_NULL_POINTER, etc.
+#include "nsIContent.h"           // for nsIContent
+#include "nsIDOMCharacterData.h"  // for nsIDOMCharacterData
+#include "nsIEditor.h"            // for EditorBase::IsModifiableNode
+#include "nsISupportsImpl.h"      // for QueryInterface, etc.
 
 namespace mozilla {
 
@@ -21,14 +21,15 @@ using namespace dom;
 JoinNodeTransaction::JoinNodeTransaction(EditorBase& aEditorBase,
                                          nsINode& aLeftNode,
                                          nsINode& aRightNode)
-  : mEditorBase(&aEditorBase)
-  , mLeftNode(&aLeftNode)
-  , mRightNode(&aRightNode)
-  , mOffset(0)
+    : mEditorBase(&aEditorBase),
+      mLeftNode(&aLeftNode),
+      mRightNode(&aRightNode),
+      mOffset(0)
 {
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(JoinNodeTransaction, EditTransactionBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(JoinNodeTransaction,
+                                   EditTransactionBase,
                                    mEditorBase,
                                    mLeftNode,
                                    mRightNode,
@@ -40,10 +41,8 @@ NS_INTERFACE_MAP_END_INHERITING(EditTransactionBase)
 bool
 JoinNodeTransaction::CanDoIt() const
 {
-  if (NS_WARN_IF(!mLeftNode) ||
-      NS_WARN_IF(!mRightNode) ||
-      NS_WARN_IF(!mEditorBase) ||
-      !mLeftNode->GetParentNode()) {
+  if (NS_WARN_IF(!mLeftNode) || NS_WARN_IF(!mRightNode) ||
+      NS_WARN_IF(!mEditorBase) || !mLeftNode->GetParentNode()) {
     return false;
   }
   return mEditorBase->IsModifiableNode(mLeftNode->GetParentNode());
@@ -54,8 +53,7 @@ JoinNodeTransaction::CanDoIt() const
 NS_IMETHODIMP
 JoinNodeTransaction::DoTransaction()
 {
-  if (NS_WARN_IF(!mEditorBase) ||
-      NS_WARN_IF(!mLeftNode) ||
+  if (NS_WARN_IF(!mEditorBase) || NS_WARN_IF(!mLeftNode) ||
       NS_WARN_IF(!mRightNode)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
@@ -83,8 +81,7 @@ JoinNodeTransaction::DoTransaction()
 NS_IMETHODIMP
 JoinNodeTransaction::UndoTransaction()
 {
-  if (NS_WARN_IF(!mParent) ||
-      NS_WARN_IF(!mLeftNode) ||
+  if (NS_WARN_IF(!mParent) || NS_WARN_IF(!mLeftNode) ||
       NS_WARN_IF(!mRightNode)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
@@ -120,4 +117,4 @@ JoinNodeTransaction::GetTxnDescription(nsAString& aString)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

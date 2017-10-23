@@ -12,8 +12,9 @@
 #include "nsStyleLinkElement.h"
 #include "nsStubMutationObserver.h"
 
-nsresult NS_NewSVGStyleElement(nsIContent **aResult,
-                               already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGStyleElement(nsIContent** aResult,
+                      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 typedef nsSVGElement SVGStyleElementBase;
 
@@ -24,39 +25,45 @@ class SVGStyleElement final : public SVGStyleElementBase,
                               public nsStyleLinkElement,
                               public nsStubMutationObserver
 {
-protected:
-  friend nsresult (::NS_NewSVGStyleElement(nsIContent **aResult,
-                                           already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+ protected:
+  friend nsresult(::NS_NewSVGStyleElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
   explicit SVGStyleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
   ~SVGStyleElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SVGStyleElement,
-                                           SVGStyleElementBase)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SVGStyleElement, SVGStyleElementBase)
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
   using nsIContent::SetAttr;
-  virtual nsresult SetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                           nsAtom* aPrefix, const nsAString& aValue,
+  virtual nsresult SetAttr(int32_t aNameSpaceID,
+                           nsAtom* aName,
+                           nsAtom* aPrefix,
+                           const nsAString& aValue,
                            nsIPrincipal* aSubjectPrincipal,
                            bool aNotify) override;
-  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttribute,
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID,
+                             nsAtom* aAttribute,
                              bool aNotify) override;
   virtual bool ParseAttribute(int32_t aNamespaceID,
                               nsAtom* aAttribute,
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // nsIMutationObserver
@@ -66,28 +73,26 @@ public:
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
 
   // WebIDL
-  void GetXmlspace(nsAString & aXmlspace);
-  void SetXmlspace(const nsAString & aXmlspace, ErrorResult& rv);
-  void GetMedia(nsAString & aMedia);
+  void GetXmlspace(nsAString& aXmlspace);
+  void SetXmlspace(const nsAString& aXmlspace, ErrorResult& rv);
+  void GetMedia(nsAString& aMedia);
   void SetMedia(const nsAString& aMedia, ErrorResult& rv);
   bool Scoped() const;
   void SetScoped(bool aScoped, ErrorResult& rv);
-  void GetType(nsAString & aType);
+  void GetType(nsAString& aType);
   void SetType(const nsAString& aType, ErrorResult& rv);
-  void GetTitle(nsAString & aTitle);
+  void GetTitle(nsAString& aTitle);
   void SetTitle(const nsAString& aTitle, ErrorResult& rv);
 
-protected:
+ protected:
   // Dummy init method to make the NS_IMPL_NS_NEW_SVG_ELEMENT and
   // NS_IMPL_ELEMENT_CLONE_WITH_INIT usable with this class. This should be
   // completely optimized away.
-  inline nsresult Init()
-  {
-    return NS_OK;
-  }
+  inline nsresult Init() { return NS_OK; }
 
   // nsStyleLinkElement overrides
-  already_AddRefed<nsIURI> GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) override;
+  already_AddRefed<nsIURI> GetStyleSheetURL(
+      bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) override;
 
   void GetStyleSheetInfo(nsAString& aTitle,
                          nsAString& aType,
@@ -104,7 +109,7 @@ protected:
   void ContentChanged(nsIContent* aContent);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGStyleElement_h
+#endif  // mozilla_dom_SVGStyleElement_h

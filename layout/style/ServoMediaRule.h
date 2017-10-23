@@ -18,9 +18,10 @@ class ServoMediaList;
 
 class ServoMediaRule final : public dom::CSSMediaRule
 {
-public:
+ public:
   ServoMediaRule(RefPtr<RawServoMediaRule> aRawRule,
-                 uint32_t aLine, uint32_t aColumn);
+                 uint32_t aLine,
+                 uint32_t aColumn);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ServoMediaRule, dom::CSSMediaRule)
@@ -43,16 +44,16 @@ public:
   using CSSMediaRule::SetConditionText;
   dom::MediaList* Media() override;
 
-  size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-    const override;
+  size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   virtual ~ServoMediaRule();
 
   RefPtr<RawServoMediaRule> mRawRule;
   RefPtr<ServoMediaList> mMediaList;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoMediaRule_h
+#endif  // mozilla_ServoMediaRule_h

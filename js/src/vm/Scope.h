@@ -24,8 +24,7 @@ namespace js {
 class ModuleObject;
 class Scope;
 
-enum class BindingKind : uint8_t
-{
+enum class BindingKind : uint8_t {
     Import,
     FormalParameter,
     Var,
@@ -37,14 +36,11 @@ enum class BindingKind : uint8_t
     NamedLambdaCallee
 };
 
-static inline bool
-BindingKindIsLexical(BindingKind kind)
-{
+static inline bool BindingKindIsLexical(BindingKind kind) {
     return kind == BindingKind::Let || kind == BindingKind::Const;
 }
 
-enum class ScopeKind : uint8_t
-{
+enum class ScopeKind : uint8_t {
     // FunctionScope
     Function,
 
@@ -80,28 +76,20 @@ enum class ScopeKind : uint8_t
     WasmFunction
 };
 
-static inline bool
-ScopeKindIsCatch(ScopeKind kind)
-{
+static inline bool ScopeKindIsCatch(ScopeKind kind) {
     return kind == ScopeKind::SimpleCatch || kind == ScopeKind::Catch;
 }
 
-static inline bool
-ScopeKindIsInBody(ScopeKind kind)
-{
-    return kind == ScopeKind::Lexical ||
-           kind == ScopeKind::SimpleCatch ||
-           kind == ScopeKind::Catch ||
-           kind == ScopeKind::With ||
-           kind == ScopeKind::FunctionBodyVar ||
-           kind == ScopeKind::ParameterExpressionVar;
+static inline bool ScopeKindIsInBody(ScopeKind kind) {
+    return kind == ScopeKind::Lexical || kind == ScopeKind::SimpleCatch ||
+           kind == ScopeKind::Catch || kind == ScopeKind::With ||
+           kind == ScopeKind::FunctionBodyVar || kind == ScopeKind::ParameterExpressionVar;
 }
 
 const char* BindingKindString(BindingKind kind);
 const char* ScopeKindString(ScopeKind kind);
 
-class BindingName
-{
+class BindingName {
     // A JSAtom* with its low bit used as a tag for whether it is closed over
     // (i.e., exists in the environment shape).
     uintptr_t bits_;
@@ -109,51 +97,31 @@ class BindingName
     static const uintptr_t ClosedOverFlag = 0x1;
     static const uintptr_t FlagMask = 0x1;
 
-  public:
-    BindingName()
-      : bits_(0)
-    { }
+   public:
+    BindingName() : bits_(0) {}
 
     BindingName(JSAtom* name, bool closedOver)
-      : bits_(uintptr_t(name) | (closedOver ? ClosedOverFlag : 0x0))
-    { }
+        : bits_(uintptr_t(name) | (closedOver ? ClosedOverFlag : 0x0)) {}
 
-    JSAtom* name() const {
-        return reinterpret_cast<JSAtom*>(bits_ & ~FlagMask);
-    }
+    JSAtom* name() const { return reinterpret_cast<JSAtom*>(bits_ & ~FlagMask); }
 
-    bool closedOver() const {
-        return bits_ & ClosedOverFlag;
-    }
+    bool closedOver() const { return bits_ & ClosedOverFlag; }
 
     void trace(JSTracer* trc);
 };
 
-class BindingLocation
-{
-  public:
-    enum class Kind {
-        Global,
-        Argument,
-        Frame,
-        Environment,
-        Import,
-        NamedLambdaCallee
-    };
+class BindingLocation {
+   public:
+    enum class Kind { Global, Argument, Frame, Environment, Import, NamedLambdaCallee };
 
-  private:
+   private:
     Kind kind_;
     uint32_t slot_;
 
-    BindingLocation(Kind kind, uint32_t slot)
-      : kind_(kind),
-        slot_(slot)
-    { }
+    BindingLocation(Kind kind, uint32_t slot) : kind_(kind), slot_(slot) {}
 
-  public:
-    static BindingLocation Global() {
-        return BindingLocation(Kind::Global, UINT32_MAX);
-    }
+   public:
+    static BindingLocation Global() { return BindingLocation(Kind::Global, UINT32_MAX); }
 
     static BindingLocation Argument(uint16_t slot) {
         return BindingLocation(Kind::Argument, slot);
@@ -169,9 +137,7 @@ class BindingLocation
         return BindingLocation(Kind::Environment, slot);
     }
 
-    static BindingLocation Import() {
-        return BindingLocation(Kind::Import, UINT32_MAX);
-    }
+    static BindingLocation Import() { return BindingLocation(Kind::Import, UINT32_MAX); }
 
     static BindingLocation NamedLambdaCallee() {
         return BindingLocation(Kind::NamedLambdaCallee, UINT32_MAX);
@@ -181,13 +147,9 @@ class BindingLocation
         return kind_ == other.kind_ && slot_ == other.slot_;
     }
 
-    bool operator!=(const BindingLocation& other) const {
-        return !operator==(other);
-    }
+    bool operator!=(const BindingLocation& other) const { return !operator==(other); }
 
-    Kind kind() const {
-        return kind_;
-    }
+    Kind kind() const { return kind_; }
 
     uint32_t slot() const {
         MOZ_ASSERT(kind_ == Kind::Frame || kind_ == Kind::Environment);
@@ -204,9 +166,8 @@ class BindingLocation
 // Allow using is<T> and as<T> on Rooted<Scope*> and Handle<Scope*>.
 //
 template <typename Wrapper>
-class WrappedPtrOperations<Scope*, Wrapper>
-{
-  public:
+class WrappedPtrOperations<Scope*, Wrapper> {
+   public:
     template <class U>
     JS::Handle<U*> as() const {
         const Wrapper& self = *static_cast<const Wrapper*>(this);
@@ -218,8 +179,7 @@ class WrappedPtrOperations<Scope*, Wrapper>
 //
 // The base class of all Scopes.
 //
-class Scope : public js::gc::TenuredCell
-{
+class Scope : public js::gc::TenuredCell {
     friend class GCMarker;
 
     // The kind determines data_.
@@ -232,15 +192,11 @@ class Scope : public js::gc::TenuredCell
     // EnvironmentObject. Otherwise nullptr.
     GCPtrShape environmentShape_;
 
-  protected:
+   protected:
     uintptr_t data_;
 
     Scope(ScopeKind kind, Scope* enclosing, Shape* environmentShape)
-      : kind_(kind),
-        enclosing_(enclosing),
-        environmentShape_(environmentShape),
-        data_(0)
-    { }
+        : kind_(kind), enclosing_(enclosing), environmentShape_(environmentShape), data_(0) {}
 
     static Scope* create(JSContext* cx, ScopeKind kind, HandleScope enclosing,
                          HandleShape envShape);
@@ -261,7 +217,7 @@ class Scope : public js::gc::TenuredCell
         data_ = reinterpret_cast<uintptr_t>(data.release());
     }
 
-  public:
+   public:
     static const JS::TraceKind TraceKind = JS::TraceKind::Scope;
 
     template <typename T>
@@ -281,27 +237,21 @@ class Scope : public js::gc::TenuredCell
         return *static_cast<const T*>(this);
     }
 
-    ScopeKind kind() const {
-        return kind_;
-    }
+    ScopeKind kind() const { return kind_; }
 
-    Scope* enclosing() const {
-        return enclosing_;
-    }
+    Scope* enclosing() const { return enclosing_; }
 
-    Shape* environmentShape() const {
-        return environmentShape_;
-    }
+    Shape* environmentShape() const { return environmentShape_; }
 
     bool hasEnvironment() const {
         switch (kind()) {
-          case ScopeKind::With:
-          case ScopeKind::Global:
-          case ScopeKind::NonSyntactic:
-            return true;
-          default:
-            // If there's a shape, an environment must be created for this scope.
-            return environmentShape_ != nullptr;
+            case ScopeKind::With:
+            case ScopeKind::Global:
+            case ScopeKind::NonSyntactic:
+                return true;
+            default:
+                // If there's a shape, an environment must be created for this scope.
+                return environmentShape_ != nullptr;
         }
     }
 
@@ -311,16 +261,14 @@ class Scope : public js::gc::TenuredCell
     template <typename T>
     bool hasOnChain() const {
         for (const Scope* it = this; it; it = it->enclosing()) {
-            if (it->is<T>())
-                return true;
+            if (it->is<T>()) return true;
         }
         return false;
     }
 
     bool hasOnChain(ScopeKind kind) const {
         for (const Scope* it = this; it; it = it->enclosing()) {
-            if (it->kind() == kind)
-                return true;
+            if (it->kind() == kind) return true;
         }
         return false;
     }
@@ -356,16 +304,14 @@ class Scope : public js::gc::TenuredCell
 // All kinds of LexicalScopes correspond to LexicalEnvironmentObjects on the
 // environment chain.
 //
-class LexicalScope : public Scope
-{
+class LexicalScope : public Scope {
     friend class Scope;
     friend class BindingIter;
 
-  public:
+   public:
     // Data is public because it is created by the frontend. See
     // Parser<FullParseHandler>::newLexicalScopeData.
-    struct Data
-    {
+    struct Data {
         // Bindings are sorted by kind in both frames and environments.
         //
         //   lets - [0, constStart)
@@ -400,27 +346,21 @@ class LexicalScope : public Scope
     static bool XDR(XDRState<mode>* xdr, ScopeKind kind, HandleScope enclosing,
                     MutableHandleScope scope);
 
-  private:
+   private:
     static LexicalScope* createWithData(JSContext* cx, ScopeKind kind,
                                         MutableHandle<UniquePtr<Data>> data,
                                         uint32_t firstFrameSlot, HandleScope enclosing);
 
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
     static uint32_t nextFrameSlot(Scope* start);
 
-  public:
+   public:
     uint32_t firstFrameSlot() const;
 
-    uint32_t nextFrameSlot() const {
-        return data().nextFrameSlot;
-    }
+    uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
 
     // Returns an empty shape for extensible global and non-syntactic lexical
     // scopes.
@@ -428,13 +368,9 @@ class LexicalScope : public Scope
 };
 
 template <>
-inline bool
-Scope::is<LexicalScope>() const
-{
-    return kind_ == ScopeKind::Lexical ||
-           kind_ == ScopeKind::SimpleCatch ||
-           kind_ == ScopeKind::Catch ||
-           kind_ == ScopeKind::NamedLambda ||
+inline bool Scope::is<LexicalScope>() const {
+    return kind_ == ScopeKind::Lexical || kind_ == ScopeKind::SimpleCatch ||
+           kind_ == ScopeKind::Catch || kind_ == ScopeKind::NamedLambda ||
            kind_ == ScopeKind::StrictNamedLambda;
 }
 
@@ -456,19 +392,17 @@ Scope::is<LexicalScope>() const
 //
 // Corresponds to CallObject on environment chain.
 //
-class FunctionScope : public Scope
-{
+class FunctionScope : public Scope {
     friend class GCMarker;
     friend class BindingIter;
     friend class PositionalFormalParameterIter;
     friend class Scope;
     static const ScopeKind classScopeKind_ = ScopeKind::Function;
 
-  public:
+   public:
     // Data is public because it is created by the
     // frontend. See Parser<FullParseHandler>::newFunctionScopeData.
-    struct Data
-    {
+    struct Data {
         // The canonical function of the scope, as during a scope walk we
         // often query properties of the JSFunction (e.g., is the function an
         // arrow).
@@ -516,9 +450,8 @@ class FunctionScope : public Scope
         *length = data->length;
     }
 
-    static FunctionScope* create(JSContext* cx, Handle<Data*> data,
-                                 bool hasParameterExprs, bool needsEnvironment,
-                                 HandleFunction fun, HandleScope enclosing);
+    static FunctionScope* create(JSContext* cx, Handle<Data*> data, bool hasParameterExprs,
+                                 bool needsEnvironment, HandleFunction fun, HandleScope enclosing);
 
     static FunctionScope* clone(JSContext* cx, Handle<FunctionScope*> scope, HandleFunction fun,
                                 HandleScope enclosing);
@@ -527,37 +460,25 @@ class FunctionScope : public Scope
     static bool XDR(XDRState<mode>* xdr, HandleFunction fun, HandleScope enclosing,
                     MutableHandleScope scope);
 
-  private:
+   private:
     static FunctionScope* createWithData(JSContext* cx, MutableHandle<UniquePtr<Data>> data,
                                          bool hasParameterExprs, bool needsEnvironment,
                                          HandleFunction fun, HandleScope enclosing);
 
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
-    uint32_t nextFrameSlot() const {
-        return data().nextFrameSlot;
-    }
+   public:
+    uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
 
-    JSFunction* canonicalFunction() const {
-        return data().canonicalFunction;
-    }
+    JSFunction* canonicalFunction() const { return data().canonicalFunction; }
 
     JSScript* script() const;
 
-    bool hasParameterExprs() const {
-        return data().hasParameterExprs;
-    }
+    bool hasParameterExprs() const { return data().hasParameterExprs; }
 
-    uint32_t numPositionalFormalParameters() const {
-        return data().nonPositionalFormalStart;
-    }
+    uint32_t numPositionalFormalParameters() const { return data().nonPositionalFormalStart; }
 
     static bool isSpecialName(JSContext* cx, JSAtom* name);
 
@@ -583,17 +504,15 @@ class FunctionScope : public Scope
 //
 // Corresponds to VarEnvironmentObject on environment chain.
 //
-class VarScope : public Scope
-{
+class VarScope : public Scope {
     friend class GCMarker;
     friend class BindingIter;
     friend class Scope;
 
-  public:
+   public:
     // Data is public because it is created by the
     // frontend. See Parser<FullParseHandler>::newVarScopeData.
-    struct Data
-    {
+    struct Data {
         // All bindings are vars.
         uint32_t length;
 
@@ -618,40 +537,31 @@ class VarScope : public Scope
     }
 
     static VarScope* create(JSContext* cx, ScopeKind kind, Handle<Data*> data,
-                            uint32_t firstFrameSlot, bool needsEnvironment,
-                            HandleScope enclosing);
+                            uint32_t firstFrameSlot, bool needsEnvironment, HandleScope enclosing);
 
     template <XDRMode mode>
     static bool XDR(XDRState<mode>* xdr, ScopeKind kind, HandleScope enclosing,
                     MutableHandleScope scope);
 
-  private:
-    static VarScope* createWithData(JSContext* cx, ScopeKind kind, MutableHandle<UniquePtr<Data>> data,
-                                    uint32_t firstFrameSlot, bool needsEnvironment,
-                                    HandleScope enclosing);
+   private:
+    static VarScope* createWithData(JSContext* cx, ScopeKind kind,
+                                    MutableHandle<UniquePtr<Data>> data, uint32_t firstFrameSlot,
+                                    bool needsEnvironment, HandleScope enclosing);
 
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
+   public:
     uint32_t firstFrameSlot() const;
 
-    uint32_t nextFrameSlot() const {
-        return data().nextFrameSlot;
-    }
+    uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
 
     static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
 
 template <>
-inline bool
-Scope::is<VarScope>() const
-{
+inline bool Scope::is<VarScope>() const {
     return kind_ == ScopeKind::FunctionBodyVar || kind_ == ScopeKind::ParameterExpressionVar;
 }
 
@@ -674,16 +584,14 @@ Scope::is<VarScope>() const
 //   Corresponds to a non-GlobalObject created by the embedding on the
 //   environment chain. This distinction is important for optimizations.
 //
-class GlobalScope : public Scope
-{
+class GlobalScope : public Scope {
     friend class Scope;
     friend class BindingIter;
 
-  public:
+   public:
     // Data is public because it is created by the frontend. See
     // Parser<FullParseHandler>::newGlobalScopeData.
-    struct Data
-    {
+    struct Data {
         // Bindings are sorted by kind.
         //
         // top-level funcs - [0, varStart)
@@ -722,32 +630,22 @@ class GlobalScope : public Scope
     template <XDRMode mode>
     static bool XDR(XDRState<mode>* xdr, ScopeKind kind, MutableHandleScope scope);
 
-  private:
+   private:
     static GlobalScope* createWithData(JSContext* cx, ScopeKind kind,
                                        MutableHandle<UniquePtr<Data>> data);
 
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
-    bool isSyntactic() const {
-        return kind() != ScopeKind::NonSyntactic;
-    }
+   public:
+    bool isSyntactic() const { return kind() != ScopeKind::NonSyntactic; }
 
-    bool hasBindings() const {
-        return data().length > 0;
-    }
+    bool hasBindings() const { return data().length > 0; }
 };
 
 template <>
-inline bool
-Scope::is<GlobalScope>() const
-{
+inline bool Scope::is<GlobalScope>() const {
     return kind_ == ScopeKind::Global || kind_ == ScopeKind::NonSyntactic;
 }
 
@@ -755,12 +653,11 @@ Scope::is<GlobalScope>() const
 // Scope of a 'with' statement. Has no bindings.
 //
 // Corresponds to a WithEnvironmentObject on the environment chain.
-class WithScope : public Scope
-{
+class WithScope : public Scope {
     friend class Scope;
     static const ScopeKind classScopeKind_ = ScopeKind::With;
 
-  public:
+   public:
     static WithScope* create(JSContext* cx, HandleScope enclosing);
 };
 
@@ -776,16 +673,14 @@ class WithScope : public Scope
 //   detect redeclaration errors. It has no Environment. Any `var`s declared
 //   in the eval code are bound on the nearest enclosing var environment.
 //
-class EvalScope : public Scope
-{
+class EvalScope : public Scope {
     friend class Scope;
     friend class BindingIter;
 
-  public:
+   public:
     // Data is public because it is created by the frontend. See
     // Parser<FullParseHandler>::newEvalScopeData.
-    struct Data
-    {
+    struct Data {
         // All bindings in an eval script are 'var' bindings. The implicit
         // lexical scope around the eval is present regardless of strictness
         // and is its own LexicalScope. However, we need to track top-level
@@ -823,38 +718,27 @@ class EvalScope : public Scope
     static bool XDR(XDRState<mode>* xdr, ScopeKind kind, HandleScope enclosing,
                     MutableHandleScope scope);
 
-  private:
-    static EvalScope* createWithData(JSContext* cx, ScopeKind kind, MutableHandle<UniquePtr<Data>> data,
-                                     HandleScope enclosing);
+   private:
+    static EvalScope* createWithData(JSContext* cx, ScopeKind kind,
+                                     MutableHandle<UniquePtr<Data>> data, HandleScope enclosing);
 
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
+   public:
     // Starting a scope, the nearest var scope that a direct eval can
     // introduce vars on.
     static Scope* nearestVarScopeForDirectEval(Scope* scope);
 
-    uint32_t nextFrameSlot() const {
-        return data().nextFrameSlot;
-    }
+    uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
 
-    bool strict() const {
-        return kind() == ScopeKind::StrictEval;
-    }
+    bool strict() const { return kind() == ScopeKind::StrictEval; }
 
-    bool hasBindings() const {
-        return data().length > 0;
-    }
+    bool hasBindings() const { return data().length > 0; }
 
     bool isNonGlobal() const {
-        if (strict())
-            return true;
+        if (strict()) return true;
         return !nearestVarScopeForDirectEval(enclosing())->is<GlobalScope>();
     }
 
@@ -862,9 +746,7 @@ class EvalScope : public Scope
 };
 
 template <>
-inline bool
-Scope::is<EvalScope>() const
-{
+inline bool Scope::is<EvalScope>() const {
     return kind_ == ScopeKind::Eval || kind_ == ScopeKind::StrictEval;
 }
 
@@ -876,18 +758,16 @@ Scope::is<EvalScope>() const
 //
 // Corresponds to a ModuleEnvironmentObject on the environment chain.
 //
-class ModuleScope : public Scope
-{
+class ModuleScope : public Scope {
     friend class GCMarker;
     friend class BindingIter;
     friend class Scope;
     static const ScopeKind classScopeKind_ = ScopeKind::Module;
 
-  public:
+   public:
     // Data is public because it is created by the frontend. See
     // Parser<FullParseHandler>::newModuleScopeData.
-    struct Data
-    {
+    struct Data {
         // The module of the scope.
         GCPtr<ModuleObject*> module;
 
@@ -923,44 +803,34 @@ class ModuleScope : public Scope
         *length = data->length;
     }
 
-    static ModuleScope* create(JSContext* cx, Handle<Data*> data,
-                               Handle<ModuleObject*> module, HandleScope enclosing);
+    static ModuleScope* create(JSContext* cx, Handle<Data*> data, Handle<ModuleObject*> module,
+                               HandleScope enclosing);
 
-  private:
+   private:
     static ModuleScope* createWithData(JSContext* cx, MutableHandle<UniquePtr<Data>> data,
                                        Handle<ModuleObject*> module, HandleScope enclosing);
 
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
-    uint32_t nextFrameSlot() const {
-        return data().nextFrameSlot;
-    }
+   public:
+    uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
 
-    ModuleObject* module() const {
-        return data().module;
-    }
+    ModuleObject* module() const { return data().module; }
 
     JSScript* script() const;
 
     static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
 
-class WasmInstanceScope : public Scope
-{
+class WasmInstanceScope : public Scope {
     friend class BindingIter;
     friend class Scope;
     static const ScopeKind classScopeKind_ = ScopeKind::WasmInstance;
 
-  public:
-    struct Data
-    {
+   public:
+    struct Data {
         uint32_t memoriesStart;
         uint32_t globalsStart;
         uint32_t length;
@@ -980,31 +850,19 @@ class WasmInstanceScope : public Scope
         return sizeof(Data) + (length ? length - 1 : 0) * sizeof(BindingName);
     }
 
-  private:
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+   private:
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
-    WasmInstanceObject* instance() const {
-        return data().instance;
-    }
+   public:
+    WasmInstanceObject* instance() const { return data().instance; }
 
-    uint32_t memoriesStart() const {
-        return data().memoriesStart;
-    }
+    uint32_t memoriesStart() const { return data().memoriesStart; }
 
-    uint32_t globalsStart() const {
-        return data().globalsStart;
-    }
+    uint32_t globalsStart() const { return data().globalsStart; }
 
-    uint32_t namesCount() const {
-        return data().length;
-    }
+    uint32_t namesCount() const { return data().length; }
 
     static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
@@ -1012,15 +870,13 @@ class WasmInstanceScope : public Scope
 // Scope corresponding to the wasm function. A WasmFunctionScope is used by
 // Debugger only, and not for wasm execution.
 //
-class WasmFunctionScope : public Scope
-{
+class WasmFunctionScope : public Scope {
     friend class BindingIter;
     friend class Scope;
     static const ScopeKind classScopeKind_ = ScopeKind::WasmFunction;
 
-  public:
-    struct Data
-    {
+   public:
+    struct Data {
         uint32_t length;
         uint32_t nextFrameSlot;
         uint32_t funcIndex;
@@ -1036,19 +892,13 @@ class WasmFunctionScope : public Scope
         return sizeof(Data) + (length ? length - 1 : 0) * sizeof(BindingName);
     }
 
-  private:
-    Data& data() {
-        return *reinterpret_cast<Data*>(data_);
-    }
+   private:
+    Data& data() { return *reinterpret_cast<Data*>(data_); }
 
-    const Data& data() const {
-        return *reinterpret_cast<Data*>(data_);
-    }
+    const Data& data() const { return *reinterpret_cast<Data*>(data_); }
 
-  public:
-    uint32_t funcIndex() const {
-        return data().funcIndex;
-    }
+   public:
+    uint32_t funcIndex() const { return data().funcIndex; }
 
     static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
@@ -1065,9 +915,8 @@ class WasmFunctionScope : public Scope
 //     use(bi);
 //   }
 //
-class BindingIter
-{
-  protected:
+class BindingIter {
+   protected:
     // Bindings are sorted by kind. Because different Scopes have differently
     // laid out Data for packing, BindingIter must handle all binding kinds.
     //
@@ -1134,11 +983,9 @@ class BindingIter
     MOZ_INIT_OUTSIDE_CTOR BindingName* names_;
 
     void init(uint32_t positionalFormalStart, uint32_t nonPositionalFormalStart,
-              uint32_t topLevelFunctionStart, uint32_t varStart,
-              uint32_t letStart, uint32_t constStart,
-              uint8_t flags, uint32_t firstFrameSlot, uint32_t firstEnvironmentSlot,
-              BindingName* names, uint32_t length)
-    {
+              uint32_t topLevelFunctionStart, uint32_t varStart, uint32_t letStart,
+              uint32_t constStart, uint8_t flags, uint32_t firstFrameSlot,
+              uint32_t firstEnvironmentSlot, BindingName* names, uint32_t length) {
         positionalFormalStart_ = positionalFormalStart;
         nonPositionalFormalStart_ = nonPositionalFormalStart;
         topLevelFunctionStart_ = topLevelFunctionStart;
@@ -1165,17 +1012,13 @@ class BindingIter
     void init(WasmInstanceScope::Data& data);
     void init(WasmFunctionScope::Data& data);
 
-    bool hasFormalParameterExprs() const {
-        return flags_ & HasFormalParameterExprs;
-    }
+    bool hasFormalParameterExprs() const { return flags_ & HasFormalParameterExprs; }
 
     bool ignoreDestructuredFormalParameters() const {
         return flags_ & IgnoreDestructuredFormalParameters;
     }
 
-    bool isNamedLambda() const {
-        return flags_ & IsNamedLambda;
-    }
+    bool isNamedLambda() const { return flags_ & IsNamedLambda; }
 
     void increment() {
         MOZ_ASSERT(!done());
@@ -1205,12 +1048,11 @@ class BindingIter
 
     void settle() {
         if (ignoreDestructuredFormalParameters()) {
-            while (!done() && !name())
-                increment();
+            while (!done() && !name()) increment();
         }
     }
 
-  public:
+   public:
     explicit BindingIter(Scope* scope);
     explicit BindingIter(JSScript* script);
 
@@ -1219,40 +1061,25 @@ class BindingIter
     }
 
     BindingIter(FunctionScope::Data& data, bool hasParameterExprs) {
-        init(data,
-             IgnoreDestructuredFormalParameters |
-             (hasParameterExprs ? HasFormalParameterExprs : 0));
+        init(data, IgnoreDestructuredFormalParameters |
+                       (hasParameterExprs ? HasFormalParameterExprs : 0));
     }
 
-    BindingIter(VarScope::Data& data, uint32_t firstFrameSlot) {
-        init(data, firstFrameSlot);
-    }
+    BindingIter(VarScope::Data& data, uint32_t firstFrameSlot) { init(data, firstFrameSlot); }
 
-    explicit BindingIter(GlobalScope::Data& data) {
-        init(data);
-    }
+    explicit BindingIter(GlobalScope::Data& data) { init(data); }
 
-    explicit BindingIter(ModuleScope::Data& data) {
-        init(data);
-    }
+    explicit BindingIter(ModuleScope::Data& data) { init(data); }
 
-    explicit BindingIter(WasmFunctionScope::Data& data) {
-        init(data);
-    }
+    explicit BindingIter(WasmFunctionScope::Data& data) { init(data); }
 
-    BindingIter(EvalScope::Data& data, bool strict) {
-        init(data, strict);
-    }
+    BindingIter(EvalScope::Data& data, bool strict) { init(data, strict); }
 
     explicit BindingIter(const BindingIter& bi) = default;
 
-    bool done() const {
-        return index_ == length_;
-    }
+    bool done() const { return index_ == length_; }
 
-    explicit operator bool() const {
-        return !done();
-    }
+    explicit operator bool() const { return !done(); }
 
     void operator++(int) {
         increment();
@@ -1264,17 +1091,11 @@ class BindingIter
         return index_ + 1 == length_;
     }
 
-    bool canHaveArgumentSlots() const {
-        return flags_ & CanHaveArgumentSlots;
-    }
+    bool canHaveArgumentSlots() const { return flags_ & CanHaveArgumentSlots; }
 
-    bool canHaveFrameSlots() const {
-        return flags_ & CanHaveFrameSlots;
-    }
+    bool canHaveFrameSlots() const { return flags_ & CanHaveFrameSlots; }
 
-    bool canHaveEnvironmentSlots() const {
-        return flags_ & CanHaveEnvironmentSlots;
-    }
+    bool canHaveEnvironmentSlots() const { return flags_ & CanHaveEnvironmentSlots; }
 
     JSAtom* name() const {
         MOZ_ASSERT(!done());
@@ -1288,39 +1109,31 @@ class BindingIter
 
     BindingLocation location() const {
         MOZ_ASSERT(!done());
-        if (!(flags_ & CanHaveSlotsMask))
-            return BindingLocation::Global();
-        if (index_ < positionalFormalStart_)
-            return BindingLocation::Import();
+        if (!(flags_ & CanHaveSlotsMask)) return BindingLocation::Global();
+        if (index_ < positionalFormalStart_) return BindingLocation::Import();
         if (closedOver()) {
             MOZ_ASSERT(canHaveEnvironmentSlots());
             return BindingLocation::Environment(environmentSlot_);
         }
         if (index_ < nonPositionalFormalStart_ && canHaveArgumentSlots())
             return BindingLocation::Argument(argumentSlot_);
-        if (canHaveFrameSlots())
-            return BindingLocation::Frame(frameSlot_);
+        if (canHaveFrameSlots()) return BindingLocation::Frame(frameSlot_);
         MOZ_ASSERT(isNamedLambda());
         return BindingLocation::NamedLambdaCallee();
     }
 
     BindingKind kind() const {
         MOZ_ASSERT(!done());
-        if (index_ < positionalFormalStart_)
-            return BindingKind::Import;
+        if (index_ < positionalFormalStart_) return BindingKind::Import;
         if (index_ < topLevelFunctionStart_) {
             // When the parameter list has expressions, the parameters act
             // like lexical bindings and have TDZ.
-            if (hasFormalParameterExprs())
-                return BindingKind::Let;
+            if (hasFormalParameterExprs()) return BindingKind::Let;
             return BindingKind::FormalParameter;
         }
-        if (index_ < letStart_)
-            return BindingKind::Var;
-        if (index_ < constStart_)
-            return BindingKind::Let;
-        if (isNamedLambda())
-            return BindingKind::NamedLambdaCallee;
+        if (index_ < letStart_) return BindingKind::Var;
+        if (index_ < constStart_) return BindingKind::Let;
+        if (isNamedLambda()) return BindingKind::NamedLambdaCallee;
         return BindingKind::Const;
     }
 
@@ -1331,8 +1144,7 @@ class BindingIter
 
     bool hasArgumentSlot() const {
         MOZ_ASSERT(!done());
-        if (hasFormalParameterExprs())
-            return false;
+        if (hasFormalParameterExprs()) return false;
         return index_ >= positionalFormalStart_ && index_ < nonPositionalFormalStart_;
     }
 
@@ -1361,14 +1173,12 @@ JSAtom* FrameSlotName(JSScript* script, jsbytecode* pc);
 // A refinement BindingIter that only iterates over positional formal
 // parameters of a function.
 //
-class PositionalFormalParameterIter : public BindingIter
-{
+class PositionalFormalParameterIter : public BindingIter {
     void settle() {
-        if (index_ >= nonPositionalFormalStart_)
-            index_ = length_;
+        if (index_ >= nonPositionalFormalStart_) index_ = length_;
     }
 
-  public:
+   public:
     explicit PositionalFormalParameterIter(JSScript* script);
 
     void operator++(int) {
@@ -1376,9 +1186,7 @@ class PositionalFormalParameterIter : public BindingIter
         settle();
     }
 
-    bool isDestructured() const {
-        return !name();
-    }
+    bool isDestructured() const { return !name(); }
 };
 
 //
@@ -1392,28 +1200,19 @@ class PositionalFormalParameterIter : public BindingIter
 //     use(si);
 //   }
 //
-class MOZ_STACK_CLASS ScopeIter
-{
+class MOZ_STACK_CLASS ScopeIter {
     Scope* scope_;
 
-  public:
-    explicit ScopeIter(Scope* scope)
-      : scope_(scope)
-    { }
+   public:
+    explicit ScopeIter(Scope* scope) : scope_(scope) {}
 
     explicit ScopeIter(JSScript* script);
 
-    explicit ScopeIter(const ScopeIter& si)
-      : scope_(si.scope_)
-    { }
+    explicit ScopeIter(const ScopeIter& si) : scope_(si.scope_) {}
 
-    bool done() const {
-        return !scope_;
-    }
+    bool done() const { return !scope_; }
 
-    explicit operator bool() const {
-        return !done();
-    }
+    explicit operator bool() const { return !done(); }
 
     void operator++(int) {
         MOZ_ASSERT(!done());
@@ -1432,9 +1231,7 @@ class MOZ_STACK_CLASS ScopeIter
 
     // Returns the shape of the environment if it is known. It is possible to
     // hasSyntacticEnvironment and to have no known shape, e.g., eval.
-    Shape* environmentShape() const {
-        return scope()->environmentShape();
-    }
+    Shape* environmentShape() const { return scope()->environmentShape(); }
 
     // Returns whether this scope has a syntactic environment (i.e., an
     // Environment that isn't a non-syntactic With or NonSyntacticVariables)
@@ -1442,8 +1239,7 @@ class MOZ_STACK_CLASS ScopeIter
     bool hasSyntacticEnvironment() const;
 
     void trace(JSTracer* trc) {
-        if (scope_)
-            TraceRoot(trc, &scope_, "scope iter scope");
+        if (scope_) TraceRoot(trc, &scope_, "scope iter scope");
     }
 };
 
@@ -1452,11 +1248,10 @@ class MOZ_STACK_CLASS ScopeIter
 //
 
 template <typename Wrapper>
-class WrappedPtrOperations<BindingIter, Wrapper>
-{
+class WrappedPtrOperations<BindingIter, Wrapper> {
     const BindingIter& iter() const { return static_cast<const Wrapper*>(this)->get(); }
 
-  public:
+   public:
     bool done() const { return iter().done(); }
     explicit operator bool() const { return !done(); }
     bool isLast() const { return iter().isLast(); }
@@ -1476,20 +1271,18 @@ class WrappedPtrOperations<BindingIter, Wrapper>
 
 template <typename Wrapper>
 class MutableWrappedPtrOperations<BindingIter, Wrapper>
-  : public WrappedPtrOperations<BindingIter, Wrapper>
-{
+    : public WrappedPtrOperations<BindingIter, Wrapper> {
     BindingIter& iter() { return static_cast<Wrapper*>(this)->get(); }
 
-  public:
+   public:
     void operator++(int) { iter().operator++(1); }
 };
 
 template <typename Wrapper>
-class WrappedPtrOperations<ScopeIter, Wrapper>
-{
+class WrappedPtrOperations<ScopeIter, Wrapper> {
     const ScopeIter& iter() const { return static_cast<const Wrapper*>(this)->get(); }
 
-  public:
+   public:
     bool done() const { return iter().done(); }
     explicit operator bool() const { return !done(); }
     Scope* scope() const { return iter().scope(); }
@@ -1500,33 +1293,30 @@ class WrappedPtrOperations<ScopeIter, Wrapper>
 
 template <typename Wrapper>
 class MutableWrappedPtrOperations<ScopeIter, Wrapper>
-  : public WrappedPtrOperations<ScopeIter, Wrapper>
-{
+    : public WrappedPtrOperations<ScopeIter, Wrapper> {
     ScopeIter& iter() { return static_cast<Wrapper*>(this)->get(); }
 
-  public:
+   public:
     void operator++(int) { iter().operator++(1); }
 };
 
-} // namespace js
+}  // namespace js
 
 namespace JS {
 
 template <>
-struct GCPolicy<js::ScopeKind> : public IgnoreGCPolicy<js::ScopeKind>
-{ };
+struct GCPolicy<js::ScopeKind> : public IgnoreGCPolicy<js::ScopeKind> {};
 
 template <typename T>
 struct ScopeDataGCPolicy : public NonGCPointerPolicy<T> {};
 
-#define DEFINE_SCOPE_DATA_GCPOLICY(Data)                        \
-    template <>                                                 \
-    struct MapTypeToRootKind<Data*> {                           \
-        static const RootKind kind = RootKind::Traceable;       \
-    };                                                          \
-    template <>                                                 \
-    struct GCPolicy<Data*> : public ScopeDataGCPolicy<Data*>    \
-    { }
+#define DEFINE_SCOPE_DATA_GCPOLICY(Data)                  \
+    template <>                                           \
+    struct MapTypeToRootKind<Data*> {                     \
+        static const RootKind kind = RootKind::Traceable; \
+    };                                                    \
+    template <>                                           \
+    struct GCPolicy<Data*> : public ScopeDataGCPolicy<Data*> {}
 
 DEFINE_SCOPE_DATA_GCPOLICY(js::LexicalScope::Data);
 DEFINE_SCOPE_DATA_GCPOLICY(js::FunctionScope::Data);
@@ -1541,15 +1331,12 @@ DEFINE_SCOPE_DATA_GCPOLICY(js::WasmFunctionScope::Data);
 namespace ubi {
 
 template <>
-class Concrete<js::Scope> : TracerConcrete<js::Scope>
-{
-  protected:
-    explicit Concrete(js::Scope* ptr) : TracerConcrete<js::Scope>(ptr) { }
+class Concrete<js::Scope> : TracerConcrete<js::Scope> {
+   protected:
+    explicit Concrete(js::Scope* ptr) : TracerConcrete<js::Scope>(ptr) {}
 
-  public:
-    static void construct(void* storage, js::Scope* ptr) {
-        new (storage) Concrete(ptr);
-    }
+   public:
+    static void construct(void* storage, js::Scope* ptr) { new (storage) Concrete(ptr); }
 
     CoarseType coarseType() const final { return CoarseType::Script; }
 
@@ -1559,7 +1346,7 @@ class Concrete<js::Scope> : TracerConcrete<js::Scope>
     static const char16_t concreteTypeName[];
 };
 
-} // namespace ubi
-} // namespace JS
+}  // namespace ubi
+}  // namespace JS
 
-#endif // vm_Scope_h
+#endif  // vm_Scope_h

@@ -25,15 +25,15 @@ class MultiThreadedJobQueue;
 class SyncObject;
 class WorkerThread;
 
-class JobScheduler {
-public:
+class JobScheduler
+{
+ public:
   /// Return one of the queues that the drawing worker threads pull from, chosen
   /// pseudo-randomly.
   static MultiThreadedJobQueue* GetDrawingQueue()
   {
-    return sSingleton->mDrawingQueues[
-      sSingleton->mNextQueue++ % sSingleton->mDrawingQueues.size()
-    ];
+    return sSingleton->mDrawingQueues[sSingleton->mNextQueue++ %
+                                      sSingleton->mDrawingQueues.size()];
   }
 
   /// Return one of the queues that the drawing worker threads pull from with a
@@ -42,9 +42,8 @@ public:
   /// Calling this function several times with the same hash will yield the same queue.
   static MultiThreadedJobQueue* GetDrawingQueue(uint32_t aHash)
   {
-    return sSingleton->mDrawingQueues[
-      aHash % sSingleton->mDrawingQueues.size()
-    ];
+    return sSingleton
+        ->mDrawingQueues[aHash % sSingleton->mDrawingQueues.size()];
   }
 
   /// Return the task queue associated to the worker the task is pinned to if
@@ -87,7 +86,7 @@ public:
   /// The caller looses ownership of the task buffer.
   static JobStatus ProcessJob(Job* aJobs);
 
-protected:
+ protected:
   static JobScheduler* sSingleton;
 
   // queues of Job that are ready to be processed
@@ -99,9 +98,12 @@ protected:
 /// Jobs are not reference-counted because they don't have shared ownership.
 /// The ownership of tasks can change when they are passed to certain methods
 /// of JobScheduler and SyncObject. See the docuumentaion of these classes.
-class Job {
-public:
-  Job(SyncObject* aStart, SyncObject* aCompletion, WorkerThread* aThread = nullptr);
+class Job
+{
+ public:
+  Job(SyncObject* aStart,
+      SyncObject* aCompletion,
+      WorkerThread* aThread = nullptr);
 
   virtual ~Job();
 
@@ -115,7 +117,7 @@ public:
 
   WorkerThread* GetWorkerThread() { return mPinToThread; }
 
-protected:
+ protected:
   // An intrusive linked list of tasks waiting for a sync object to enter the
   // signaled state. When the task is not waiting for a sync object, mNextWaitingJob
   // should be null. This is only accessed from the thread that owns the task.
@@ -136,10 +138,11 @@ class EventObject;
 /// corresponfing EventObject until all of the tasks are processed.
 class SetEventJob : public Job
 {
-public:
+ public:
   explicit SetEventJob(EventObject* aEvent,
-                        SyncObject* aStart, SyncObject* aCompletion = nullptr,
-                        WorkerThread* aPinToWorker = nullptr);
+                       SyncObject* aStart,
+                       SyncObject* aCompletion = nullptr,
+                       WorkerThread* aPinToWorker = nullptr);
 
   ~SetEventJob();
 
@@ -147,7 +150,7 @@ public:
 
   EventObject* GetEvent() { return mEvent; }
 
-protected:
+ protected:
   RefPtr<EventObject> mEvent;
 };
 
@@ -160,8 +163,9 @@ protected:
 /// a Job never gets processed before its startSync is in the signaled state, and
 /// signals its completionSync as soon as it finishes. This is how dependencies
 /// between tasks is expressed.
-class SyncObject final : public external::AtomicRefCounted<SyncObject> {
-public:
+class SyncObject final : public external::AtomicRefCounted<SyncObject>
+{
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(SyncObject)
 
   /// Create a synchronization object.
@@ -210,7 +214,7 @@ public:
   /// specified in the constructor (does nothin in release builds).
   void FreezePrerequisites();
 
-private:
+ private:
   // Called by Job's constructor
   void AddSubsequent(Job* aJob);
   void AddPrerequisite(Job* aJob);
@@ -234,7 +238,7 @@ private:
 /// Base class for worker threads.
 class WorkerThread
 {
-public:
+ public:
   static WorkerThread* Create(MultiThreadedJobQueue* aJobQueue);
 
   virtual ~WorkerThread() {}
@@ -243,7 +247,7 @@ public:
 
   MultiThreadedJobQueue* GetJobQueue() { return mQueue; }
 
-protected:
+ protected:
   explicit WorkerThread(MultiThreadedJobQueue* aJobQueue);
 
   virtual void SetName(const char* aName) {}
@@ -251,7 +255,7 @@ protected:
   MultiThreadedJobQueue* mQueue;
 };
 
-} // namespace
-} // namespace
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif

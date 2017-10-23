@@ -39,7 +39,7 @@ namespace mozilla {
 template<class InnerQueueT>
 class PrioritizedEventQueue final : public AbstractEventQueue
 {
-public:
+ public:
   PrioritizedEventQueue(UniquePtr<InnerQueueT> aHighQueue,
                         UniquePtr<InnerQueueT> aInputQueue,
                         UniquePtr<InnerQueueT> aNormalQueue,
@@ -49,8 +49,8 @@ public:
   void PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
                 EventPriority aPriority,
                 const MutexAutoLock& aProofOfLock) final;
-  already_AddRefed<nsIRunnable> GetEvent(EventPriority* aPriority,
-                                         const MutexAutoLock& aProofOfLock) final;
+  already_AddRefed<nsIRunnable> GetEvent(
+      EventPriority* aPriority, const MutexAutoLock& aProofOfLock) final;
 
   bool IsEmpty(const MutexAutoLock& aProofOfLock) final;
   size_t Count(const MutexAutoLock& aProofOfLock) const final;
@@ -66,7 +66,10 @@ public:
   // nsThread.cpp sends telemetry containing the most recently computed idle
   // deadline. We store a reference to a field in nsThread where this deadline
   // will be stored so that it can be fetched quickly for telemetry.
-  void SetNextIdleDeadlineRef(TimeStamp& aDeadline) { mNextIdleDeadline = &aDeadline; }
+  void SetNextIdleDeadlineRef(TimeStamp& aDeadline)
+  {
+    mNextIdleDeadline = &aDeadline;
+  }
 #endif
 
   void EnableInputEventPrioritization(const MutexAutoLock& aProofOfLock) final;
@@ -74,8 +77,9 @@ public:
   void SuspendInputEventPrioritization(const MutexAutoLock& aProofOfLock) final;
   void ResumeInputEventPrioritization(const MutexAutoLock& aProofOfLock) final;
 
-private:
-  EventPriority SelectQueue(bool aUpdateState, const MutexAutoLock& aProofOfLock);
+ private:
+  EventPriority SelectQueue(bool aUpdateState,
+                            const MutexAutoLock& aProofOfLock);
 
   // Returns a null TimeStamp if we're not in the idle period.
   mozilla::TimeStamp GetIdleDeadline();
@@ -128,6 +132,6 @@ class EventQueue;
 extern template class PrioritizedEventQueue<EventQueue>;
 extern template class PrioritizedEventQueue<LabeledEventQueue>;
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_PrioritizedEventQueue_h
+#endif  // mozilla_PrioritizedEventQueue_h

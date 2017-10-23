@@ -6,8 +6,7 @@
 
 using mozilla::ArrayLength;
 
-BEGIN_TEST(testJSEvaluateScript)
-{
+BEGIN_TEST(testJSEvaluateScript) {
     JS::RootedObject obj(cx, JS_NewPlainObject(cx));
     CHECK(obj);
 
@@ -17,8 +16,8 @@ BEGIN_TEST(testJSEvaluateScript)
     JS::CompileOptions opts(cx);
     JS::AutoObjectVector scopeChain(cx);
     CHECK(scopeChain.append(obj));
-    CHECK(JS::Evaluate(cx, scopeChain, opts.setFileAndLine(__FILE__, __LINE__),
-                       src, ArrayLength(src) - 1, &retval));
+    CHECK(JS::Evaluate(cx, scopeChain, opts.setFileAndLine(__FILE__, __LINE__), src,
+                       ArrayLength(src) - 1, &retval));
 
     bool hasProp = true;
     CHECK(JS_AlreadyHasOwnProperty(cx, obj, "x", &hasProp));
@@ -31,5 +30,3 @@ BEGIN_TEST(testJSEvaluateScript)
     return true;
 }
 END_TEST(testJSEvaluateScript)
-
-

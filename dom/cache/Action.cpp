@@ -20,14 +20,9 @@ Action::CancelOnInitiatingThread()
   mCanceled = true;
 }
 
-Action::Action()
-  : mCanceled(false)
-{
-}
+Action::Action() : mCanceled(false) {}
 
-Action::~Action()
-{
-}
+Action::~Action() {}
 
 bool
 Action::IsCanceled() const
@@ -35,6 +30,6 @@ Action::IsCanceled() const
   return mCanceled;
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

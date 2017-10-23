@@ -4,8 +4,8 @@
 
 #include "Common.h"
 
-#define EXPIRED_TIME_SEC     (PR_Now() / PR_USEC_PER_SEC - 3600)
-#define NOTEXPIRED_TIME_SEC  (PR_Now() / PR_USEC_PER_SEC + 3600)
+#define EXPIRED_TIME_SEC (PR_Now() / PR_USEC_PER_SEC - 3600)
+#define NOTEXPIRED_TIME_SEC (PR_Now() / PR_USEC_PER_SEC + 3600)
 
 static void
 SetupCacheEntry(LookupCacheV2* aLookupCache,
@@ -47,9 +47,10 @@ SetupCacheEntry(LookupCacheV4* aLookupCache,
   CachedFullHashResponse* response = map.LookupOrAdd(prefix.ToUint32());
 
   response->negativeCacheExpirySec =
-    aNegExpired ? EXPIRED_TIME_SEC : NOTEXPIRED_TIME_SEC;
-  response->fullHashes.Put(GeneratePrefix(aCompletion, COMPLETE_SIZE),
-                           aPosExpired ? EXPIRED_TIME_SEC : NOTEXPIRED_TIME_SEC);
+      aNegExpired ? EXPIRED_TIME_SEC : NOTEXPIRED_TIME_SEC;
+  response->fullHashes.Put(
+      GeneratePrefix(aCompletion, COMPLETE_SIZE),
+      aPosExpired ? EXPIRED_TIME_SEC : NOTEXPIRED_TIME_SEC);
 
   aLookupCache->AddFullHashResponseToCache(map);
 }
@@ -69,11 +70,11 @@ TestCache(const Completion aCompletion,
     aCache->Has(aCompletion, &has, &matchLength, &confirmed);
     inCache = aCache->IsInCache(aCompletion.ToUint32());
   } else {
-    _PrefixArray array = { GeneratePrefix(_Fragment("cache.notexpired.com/"), 10),
-                           GeneratePrefix(_Fragment("cache.expired.com/"), 8),
-                           GeneratePrefix(_Fragment("gound.com/"), 5),
-                           GeneratePrefix(_Fragment("small.com/"), 4)
-                         };
+    _PrefixArray array = {
+        GeneratePrefix(_Fragment("cache.notexpired.com/"), 10),
+        GeneratePrefix(_Fragment("cache.expired.com/"), 8),
+        GeneratePrefix(_Fragment("gound.com/"), 5),
+        GeneratePrefix(_Fragment("small.com/"), 4)};
 
     UniquePtr<T> cache = SetupLookupCache<T>(array);
 
@@ -101,7 +102,8 @@ TestCache(const _Fragment& aFragment,
   Completion lookupHash;
   lookupHash.FromPlaintext(aFragment);
 
-  TestCache<T>(lookupHash, aExpectedHas, aExpectedConfirmed, aExpectedInCache, aCache);
+  TestCache<T>(
+      lookupHash, aExpectedHas, aExpectedConfirmed, aExpectedInCache, aCache);
 }
 
 // This testcase check the returned result of |Has| API if fullhash cannot match
@@ -124,8 +126,10 @@ TEST(UrlClassifierCaching, NotInCache)
 // a cache entry in positive cache.
 TEST(UrlClassifierCaching, InPositiveCacheNotExpired)
 {
-  TestCache<LookupCacheV2>(_Fragment("cache.notexpired.com/"), true, true, true);
-  TestCache<LookupCacheV4>(_Fragment("cache.notexpired.com/"), true, true, true);
+  TestCache<LookupCacheV2>(
+      _Fragment("cache.notexpired.com/"), true, true, true);
+  TestCache<LookupCacheV4>(
+      _Fragment("cache.notexpired.com/"), true, true, true);
 }
 
 // This testcase check the returned result of |Has| API if fullhash matches
@@ -177,10 +181,10 @@ TEST(UrlClassifierCaching, InNegativeCacheExpired)
   TestCache<LookupCacheV4>(fullhash, true, false, true);
 }
 
-#define CACHED_URL              _Fragment("cache.com/")
-#define NEG_CACHE_EXPIRED_URL   _Fragment("cache.negExpired.com/")
-#define POS_CACHE_EXPIRED_URL   _Fragment("cache.posExpired.com/")
-#define BOTH_CACHE_EXPIRED_URL  _Fragment("cache.negAndposExpired.com/")
+#define CACHED_URL _Fragment("cache.com/")
+#define NEG_CACHE_EXPIRED_URL _Fragment("cache.negExpired.com/")
+#define POS_CACHE_EXPIRED_URL _Fragment("cache.posExpired.com/")
+#define BOTH_CACHE_EXPIRED_URL _Fragment("cache.negAndposExpired.com/")
 
 // This testcase create 4 cache entries.
 // 1. unexpired entry.
@@ -191,13 +195,13 @@ TEST(UrlClassifierCaching, InNegativeCacheExpired)
 // After calling |InvalidateExpiredCacheEntry| API, entries with expired
 // negative time should be removed from cache(2 & 4)
 template<typename T>
-void TestInvalidateExpiredCacheEntry()
+void
+TestInvalidateExpiredCacheEntry()
 {
-  _PrefixArray array = { GeneratePrefix(CACHED_URL, 10),
-                         GeneratePrefix(NEG_CACHE_EXPIRED_URL, 8),
-                         GeneratePrefix(POS_CACHE_EXPIRED_URL, 5),
-                         GeneratePrefix(BOTH_CACHE_EXPIRED_URL, 4)
-                       };
+  _PrefixArray array = {GeneratePrefix(CACHED_URL, 10),
+                        GeneratePrefix(NEG_CACHE_EXPIRED_URL, 8),
+                        GeneratePrefix(POS_CACHE_EXPIRED_URL, 5),
+                        GeneratePrefix(BOTH_CACHE_EXPIRED_URL, 4)};
   UniquePtr<T> cache = SetupLookupCache<T>(array);
 
   SetupCacheEntry(cache.get(), CACHED_URL, false, false);
@@ -240,10 +244,11 @@ TEST(UrlClassifierCaching, InvalidateExpiredCacheEntryV4)
 // from cache after calling |Has|.
 TEST(UrlClassifierCaching, NegativeCacheExpireV2)
 {
-  _PrefixArray array = { GeneratePrefix(NEG_CACHE_EXPIRED_URL, 8) };
+  _PrefixArray array = {GeneratePrefix(NEG_CACHE_EXPIRED_URL, 8)};
   UniquePtr<LookupCacheV2> cache = SetupLookupCache<LookupCacheV2>(array);
 
-  nsCOMPtr<nsICryptoHash> cryptoHash = do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID);
+  nsCOMPtr<nsICryptoHash> cryptoHash =
+      do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID);
 
   MissPrefixArray misses;
   Prefix* prefix = misses.AppendElement(fallible);
@@ -256,17 +261,19 @@ TEST(UrlClassifierCaching, NegativeCacheExpireV2)
   EXPECT_EQ(cache->IsInCache(prefix->ToUint32()), true);
 
   // It should be removed after calling Has API.
-  TestCache<LookupCacheV2>(NEG_CACHE_EXPIRED_URL, true, false, false, cache.get());
+  TestCache<LookupCacheV2>(
+      NEG_CACHE_EXPIRED_URL, true, false, false, cache.get());
 }
 
 TEST(UrlClassifierCaching, NegativeCacheExpireV4)
 {
-  _PrefixArray array = { GeneratePrefix(NEG_CACHE_EXPIRED_URL, 8) };
+  _PrefixArray array = {GeneratePrefix(NEG_CACHE_EXPIRED_URL, 8)};
   UniquePtr<LookupCacheV4> cache = SetupLookupCache<LookupCacheV4>(array);
 
   FullHashResponseMap map;
   Prefix prefix;
-  nsCOMPtr<nsICryptoHash> cryptoHash = do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID);
+  nsCOMPtr<nsICryptoHash> cryptoHash =
+      do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID);
   prefix.FromPlaintext(NEG_CACHE_EXPIRED_URL);
   CachedFullHashResponse* response = map.LookupOrAdd(prefix.ToUint32());
 
@@ -278,5 +285,6 @@ TEST(UrlClassifierCaching, NegativeCacheExpireV4)
   EXPECT_EQ(cache->IsInCache(prefix.ToUint32()), true);
 
   // It should be removed after calling Has API.
-  TestCache<LookupCacheV4>(NEG_CACHE_EXPIRED_URL, true, false, false, cache.get());
+  TestCache<LookupCacheV4>(
+      NEG_CACHE_EXPIRED_URL, true, false, false, cache.get());
 }

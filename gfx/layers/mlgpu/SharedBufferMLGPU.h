@@ -19,7 +19,7 @@ class MLGBuffer;
 
 class SharedBufferMLGPU
 {
-public:
+ public:
   virtual ~SharedBufferMLGPU();
 
   bool Init();
@@ -30,8 +30,10 @@ public:
   // Call to finish any pending uploads.
   void PrepareForUsage();
 
-protected:
-  SharedBufferMLGPU(MLGDevice* aDevice, MLGBufferType aType, size_t aDefaultSize);
+ protected:
+  SharedBufferMLGPU(MLGDevice* aDevice,
+                    MLGBufferType aType,
+                    size_t aDefaultSize);
 
   bool EnsureMappedBuffer(size_t aBytes);
   bool GrowBuffer(size_t aBytes);
@@ -39,9 +41,11 @@ protected:
   bool Map();
   void Unmap();
 
-  uint8_t* GetBufferPointer(size_t aBytes, ptrdiff_t* aOutOffset, RefPtr<MLGBuffer>* aOutBuffer);
+  uint8_t* GetBufferPointer(size_t aBytes,
+                            ptrdiff_t* aOutOffset,
+                            RefPtr<MLGBuffer>* aOutBuffer);
 
-protected:
+ protected:
   // Note: RefPtr here would cause a cycle. Only MLGDevice should own
   // SharedBufferMLGPU objects for now.
   MLGDevice* mDevice;
@@ -67,30 +71,27 @@ protected:
 class VertexBufferSection final
 {
   friend class SharedVertexBuffer;
-public:
+
+ public:
   VertexBufferSection();
 
-  uint32_t Stride() const {
-    return mStride;
-  }
-  MLGBuffer* GetBuffer() const {
-    return mBuffer;
-  }
-  ptrdiff_t Offset() const {
+  uint32_t Stride() const { return mStride; }
+  MLGBuffer* GetBuffer() const { return mBuffer; }
+  ptrdiff_t Offset() const
+  {
     MOZ_ASSERT(IsValid());
     return mOffset;
   }
-  size_t NumVertices() const {
-    return mNumVertices;
-  }
-  bool IsValid() const {
-    return !!mBuffer;
-  }
+  size_t NumVertices() const { return mNumVertices; }
+  bool IsValid() const { return !!mBuffer; }
 
-protected:
-  void Init(MLGBuffer* aBuffer, ptrdiff_t aOffset, size_t aNumVertices, size_t aStride);
+ protected:
+  void Init(MLGBuffer* aBuffer,
+            ptrdiff_t aOffset,
+            size_t aNumVertices,
+            size_t aStride);
 
-protected:
+ protected:
   RefPtr<MLGBuffer> mBuffer;
   ptrdiff_t mOffset;
   size_t mNumVertices;
@@ -101,37 +102,32 @@ class ConstantBufferSection final
 {
   friend class SharedConstantBuffer;
 
-public:
+ public:
   ConstantBufferSection();
 
-  uint32_t NumConstants() const {
-    return NumConstantsForBytes(mNumBytes);
-  }
-  size_t NumItems() const {
-    return mNumItems;
-  }
-  uint32_t Offset() const {
+  uint32_t NumConstants() const { return NumConstantsForBytes(mNumBytes); }
+  size_t NumItems() const { return mNumItems; }
+  uint32_t Offset() const
+  {
     MOZ_ASSERT(IsValid());
     return mOffset / 16;
   }
-  MLGBuffer* GetBuffer() const {
-    return mBuffer;
-  }
-  bool IsValid() const {
-    return !!mBuffer;
-  }
-  bool HasOffset() const {
-    return mOffset != -1;
-  }
+  MLGBuffer* GetBuffer() const { return mBuffer; }
+  bool IsValid() const { return !!mBuffer; }
+  bool HasOffset() const { return mOffset != -1; }
 
-protected:
-  static constexpr size_t NumConstantsForBytes(size_t aBytes) {
+ protected:
+  static constexpr size_t NumConstantsForBytes(size_t aBytes)
+  {
     return (aBytes + ((256 - (aBytes % 256)) % 256)) / 16;
   }
 
-  void Init(MLGBuffer* aBuffer, ptrdiff_t aOffset, size_t aBytes, size_t aNumItems);
+  void Init(MLGBuffer* aBuffer,
+            ptrdiff_t aOffset,
+            size_t aBytes,
+            size_t aNumItems);
 
-protected:
+ protected:
   RefPtr<MLGBuffer> mBuffer;
   ptrdiff_t mOffset;
   size_t mNumBytes;
@@ -143,11 +139,13 @@ typedef StagingBuffer<0> VertexStagingBuffer;
 
 class SharedVertexBuffer final : public SharedBufferMLGPU
 {
-public:
+ public:
   SharedVertexBuffer(MLGDevice* aDevice, size_t aDefaultSize);
 
   // Allocate a buffer that can be uploaded immediately.
-  bool Allocate(VertexBufferSection* aHolder, const VertexStagingBuffer& aStaging) {
+  bool Allocate(VertexBufferSection* aHolder,
+                const VertexStagingBuffer& aStaging)
+  {
     return Allocate(aHolder,
                     aStaging.NumItems(),
                     aStaging.SizeOfItem(),
@@ -162,8 +160,9 @@ public:
                 size_t aSizeOfItem,
                 const void* aData);
 
-  template <typename T>
-  bool Allocate(VertexBufferSection* aHolder, const T& aItem) {
+  template<typename T>
+  bool Allocate(VertexBufferSection* aHolder, const T& aItem)
+  {
     return Allocate(aHolder, 1, sizeof(T), &aItem);
   }
 };
@@ -175,61 +174,67 @@ public:
 // Note: the unmap is not inline sincce we don't include MLGDevice.h.
 class MOZ_STACK_CLASS AutoBufferUploadBase
 {
-public:
+ public:
   AutoBufferUploadBase();
   ~AutoBufferUploadBase();
 
-  void Init(void* aPtr) {
+  void Init(void* aPtr)
+  {
     MOZ_ASSERT(!mPtr && aPtr);
     mPtr = aPtr;
   }
   void Init(void* aPtr, MLGDevice* aDevice, MLGBuffer* aBuffer);
-  void* get() {
-    return const_cast<void*>(mPtr);
-  }
+  void* get() { return const_cast<void*>(mPtr); }
 
-private:
+ private:
   void UnmapBuffer();
 
-protected:
+ protected:
   RefPtr<MLGDevice> mDevice;
   RefPtr<MLGBuffer> mBuffer;
   void* mPtr;
 };
 
 // This is a typed helper for AutoBufferUploadBase.
-template <typename T>
+template<typename T>
 class AutoBufferUpload : public AutoBufferUploadBase
 {
-public:
-  AutoBufferUpload()
-  {}
+ public:
+  AutoBufferUpload() {}
 
-  T* operator ->() const {
-    return reinterpret_cast<T*>(mPtr);
-  }
+  T* operator->() const { return reinterpret_cast<T*>(mPtr); }
 };
 
 class SharedConstantBuffer final : public SharedBufferMLGPU
 {
-public:
+ public:
   SharedConstantBuffer(MLGDevice* aDevice, size_t aDefaultSize);
 
   // Allocate a buffer that can be immediately uploaded.
-  bool Allocate(ConstantBufferSection* aHolder, const ConstantStagingBuffer& aStaging) {
-    MOZ_ASSERT(aStaging.NumItems() * aStaging.SizeOfItem() == aStaging.NumBytes());
-    return Allocate(aHolder, aStaging.NumItems(), aStaging.SizeOfItem(), aStaging.GetBufferStart());
+  bool Allocate(ConstantBufferSection* aHolder,
+                const ConstantStagingBuffer& aStaging)
+  {
+    MOZ_ASSERT(aStaging.NumItems() * aStaging.SizeOfItem() ==
+               aStaging.NumBytes());
+    return Allocate(aHolder,
+                    aStaging.NumItems(),
+                    aStaging.SizeOfItem(),
+                    aStaging.GetBufferStart());
   }
 
   // Allocate a buffer of one item that can be immediately uploaded.
-  template <typename T>
-  bool Allocate(ConstantBufferSection* aHolder, const T& aItem) {
+  template<typename T>
+  bool Allocate(ConstantBufferSection* aHolder, const T& aItem)
+  {
     return Allocate(aHolder, 1, sizeof(aItem), &aItem);
   }
 
   // Allocate a buffer of N items that can be immediately uploaded.
-  template <typename T>
-  bool Allocate(ConstantBufferSection* aHolder, const T* aItems, size_t aNumItems) {
+  template<typename T>
+  bool Allocate(ConstantBufferSection* aHolder,
+                const T* aItems,
+                size_t aNumItems)
+  {
     return Allocate(aHolder, aNumItems, sizeof(T), aItems);
   }
 
@@ -237,14 +242,15 @@ public:
   // to it. This should method should generally not be used unless copying T
   // is expensive, since the default immediate-upload version has an implicit
   // extra copy to the GPU. This version exposes the mapped memory directly.
-  template <typename T>
-  bool Allocate(ConstantBufferSection* aHolder, AutoBufferUpload<T>* aPtr) {
+  template<typename T>
+  bool Allocate(ConstantBufferSection* aHolder, AutoBufferUpload<T>* aPtr)
+  {
     MOZ_ASSERT(sizeof(T) % 16 == 0, "Items must be padded to 16 bytes");
 
     return Allocate(aHolder, aPtr, 1, sizeof(T));
   }
 
-private:
+ private:
   bool Allocate(ConstantBufferSection* aHolder,
                 size_t aNumItems,
                 size_t aSizeOfItem,
@@ -281,7 +287,8 @@ private:
     // constant buffers start at multiples of 16 elements.
     size_t alignedBytes = AlignUp<256>::calc(aBytes);
 
-    uint8_t* ptr = SharedBufferMLGPU::GetBufferPointer(alignedBytes, aOutOffset, aOutBuffer);
+    uint8_t* ptr = SharedBufferMLGPU::GetBufferPointer(
+        alignedBytes, aOutOffset, aOutBuffer);
     if (!ptr) {
       return false;
     }
@@ -290,13 +297,15 @@ private:
     return true;
   }
 
-  uint8_t* AllocateNewBuffer(size_t aBytes, ptrdiff_t* aOutOffset, RefPtr<MLGBuffer>* aOutBuffer);
+  uint8_t* AllocateNewBuffer(size_t aBytes,
+                             ptrdiff_t* aOutOffset,
+                             RefPtr<MLGBuffer>* aOutBuffer);
 
-private:
+ private:
   size_t mMaxConstantBufferBindSize;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_SharedBufferMLGPU_h
+#endif  // mozilla_gfx_layers_mlgpu_SharedBufferMLGPU_h

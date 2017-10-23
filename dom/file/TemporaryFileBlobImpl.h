@@ -24,23 +24,24 @@ class TemporaryFileBlobImpl final : public FileBlobImpl
   bool mInputStreamCreated;
 #endif
 
-public:
+ public:
   explicit TemporaryFileBlobImpl(nsIFile* aFile, const nsAString& aContentType);
 
   // Overrides
   virtual void CreateInputStream(nsIInputStream** aInputStream,
                                  ErrorResult& aRv) override;
 
-protected:
+ protected:
   virtual ~TemporaryFileBlobImpl();
 
-private:
-  virtual already_AddRefed<BlobImpl>
-  CreateSlice(uint64_t aStart, uint64_t aLength,
-              const nsAString& aContentType, ErrorResult& aRv) override;
+ private:
+  virtual already_AddRefed<BlobImpl> CreateSlice(uint64_t aStart,
+                                                 uint64_t aLength,
+                                                 const nsAString& aContentType,
+                                                 ErrorResult& aRv) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TemporaryFileBlobImpl_h
+#endif  // mozilla_dom_TemporaryFileBlobImpl_h

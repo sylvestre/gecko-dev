@@ -30,7 +30,7 @@ class Directory;
  */
 class HTMLFormSubmission
 {
-public:
+ public:
   /**
    * Get a submission object based on attributes in the form (ENCTYPE and
    * METHOD)
@@ -39,15 +39,11 @@ public:
    * @param aOriginatingElement the originating element (can be null)
    * @param aFormSubmission the form submission object (out param)
    */
-  static nsresult
-  GetFromForm(nsGenericHTMLElement* aForm,
-              nsGenericHTMLElement* aOriginatingElement,
-              HTMLFormSubmission** aFormSubmission);
+  static nsresult GetFromForm(nsGenericHTMLElement* aForm,
+                              nsGenericHTMLElement* aOriginatingElement,
+                              HTMLFormSubmission** aFormSubmission);
 
-  virtual ~HTMLFormSubmission()
-  {
-    MOZ_COUNT_DTOR(HTMLFormSubmission);
-  }
+  virtual ~HTMLFormSubmission() { MOZ_COUNT_DTOR(HTMLFormSubmission); }
 
   /**
    * Submit a name/value pair
@@ -55,8 +51,8 @@ public:
    * @param aName the name of the parameter
    * @param aValue the value of the parameter
    */
-  virtual nsresult
-  AddNameValuePair(const nsAString& aName, const nsAString& aValue) = 0;
+  virtual nsresult AddNameValuePair(const nsAString& aName,
+                                    const nsAString& aValue) = 0;
 
   /**
    * Submit a name/blob pair
@@ -66,8 +62,8 @@ public:
    * is actually a File, otherwise 'blob' string is used instead if the aBlob is
    * not null.
    */
-  virtual nsresult
-  AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob) = 0;
+  virtual nsresult AddNameBlobOrNullPair(const nsAString& aName,
+                                         Blob* aBlob) = 0;
 
   /**
    * Submit a name/directory pair
@@ -86,9 +82,9 @@ public:
    * @param aPostDataStream a data stream for POST data [OUT]
    * @param aPostDataStreamLength a data stream for POST data length [OUT]
    */
-  virtual nsresult
-  GetEncodedSubmission(nsIURI* aURI, nsIInputStream** aPostDataStream,
-                       int64_t* aPostDataStreamLength) = 0;
+  virtual nsresult GetEncodedSubmission(nsIURI* aURI,
+                                        nsIInputStream** aPostDataStream,
+                                        int64_t* aPostDataStreamLength) = 0;
 
   /**
    * Get the charset that will be used for submission.
@@ -100,7 +96,7 @@ public:
     return mOriginatingElement.get();
   }
 
-protected:
+ protected:
   /**
    * Can only be constructed by subclasses.
    *
@@ -109,8 +105,7 @@ protected:
    */
   HTMLFormSubmission(mozilla::NotNull<const mozilla::Encoding*> aEncoding,
                      nsIContent* aOriginatingElement)
-    : mEncoding(aEncoding)
-    , mOriginatingElement(aOriginatingElement)
+      : mEncoding(aEncoding), mOriginatingElement(aOriginatingElement)
   {
     MOZ_COUNT_CTOR(HTMLFormSubmission);
   }
@@ -124,7 +119,7 @@ protected:
 
 class EncodingFormSubmission : public HTMLFormSubmission
 {
-public:
+ public:
   EncodingFormSubmission(mozilla::NotNull<const mozilla::Encoding*> aEncoding,
                          nsIContent* aOriginatingElement);
 
@@ -139,7 +134,8 @@ public:
    *                      all quotes
    * @throws an error if UnicodeToNewBytes fails
    */
-  nsresult EncodeVal(const nsAString& aStr, nsCString& aResult,
+  nsresult EncodeVal(const nsAString& aStr,
+                     nsCString& aResult,
                      bool aHeaderEncode);
 };
 
@@ -149,7 +145,7 @@ public:
  */
 class FSMultipartFormData : public EncodingFormSubmission
 {
-public:
+ public:
   /**
    * @param aEncoding the character encoding of the form
    */
@@ -157,35 +153,35 @@ public:
                       nsIContent* aOriginatingElement);
   ~FSMultipartFormData();
 
-  virtual nsresult
-  AddNameValuePair(const nsAString& aName, const nsAString& aValue) override;
+  virtual nsresult AddNameValuePair(const nsAString& aName,
+                                    const nsAString& aValue) override;
 
-  virtual nsresult
-  AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob) override;
+  virtual nsresult AddNameBlobOrNullPair(const nsAString& aName,
+                                         Blob* aBlob) override;
 
-  virtual nsresult
-  AddNameDirectoryPair(const nsAString& aName, Directory* aDirectory) override;
+  virtual nsresult AddNameDirectoryPair(const nsAString& aName,
+                                        Directory* aDirectory) override;
 
-  virtual nsresult
-  GetEncodedSubmission(nsIURI* aURI, nsIInputStream** aPostDataStream,
-                       int64_t* aPostDataStreamLength) override;
+  virtual nsresult GetEncodedSubmission(
+      nsIURI* aURI,
+      nsIInputStream** aPostDataStream,
+      int64_t* aPostDataStreamLength) override;
 
   void GetContentType(nsACString& aContentType)
   {
     aContentType =
-      NS_LITERAL_CSTRING("multipart/form-data; boundary=") + mBoundary;
+        NS_LITERAL_CSTRING("multipart/form-data; boundary=") + mBoundary;
   }
 
   nsIInputStream* GetSubmissionBody(uint64_t* aContentLength);
 
-protected:
-
+ protected:
   /**
    * Roll up the data we have so far and add it to the multiplexed data stream.
    */
   nsresult AddPostDataStream();
 
-private:
+ private:
   void AddDataChunk(const nsACString& aName,
                     const nsACString& aFilename,
                     const nsACString& aContentType,
@@ -226,7 +222,7 @@ private:
   uint64_t mTotalLength;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLFormSubmission_h */

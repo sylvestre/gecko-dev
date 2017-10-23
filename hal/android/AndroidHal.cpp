@@ -21,7 +21,7 @@ namespace mozilla {
 namespace hal_impl {
 
 void
-Vibrate(const nsTArray<uint32_t> &pattern, const WindowIdentifier &)
+Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier&)
 {
   // Ignore the WindowIdentifier parameter; it's here only because hal::Vibrate,
   // hal_sandbox::Vibrate, and hal_impl::Vibrate all must have the same
@@ -52,7 +52,7 @@ Vibrate(const nsTArray<uint32_t> &pattern, const WindowIdentifier &)
 }
 
 void
-CancelVibrate(const WindowIdentifier &)
+CancelVibrate(const WindowIdentifier&)
 {
   // Ignore WindowIdentifier parameter.
 
@@ -117,7 +117,7 @@ GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration)
 
   nsresult rv;
   nsCOMPtr<nsIScreenManager> screenMgr =
-    do_GetService("@mozilla.org/gfx/screenmanager;1", &rv);
+      do_GetService("@mozilla.org/gfx/screenmanager;1", &rv);
   if (NS_FAILED(rv)) {
     NS_ERROR("Can't find nsIScreenManager!");
     return;
@@ -133,11 +133,12 @@ GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration)
   screen->GetRect(&rect.x, &rect.y, &rect.width, &rect.height);
   screen->GetColorDepth(&colorDepth);
   screen->GetPixelDepth(&pixelDepth);
-  orientation = static_cast<ScreenOrientationInternal>(bridge->GetScreenOrientation());
+  orientation =
+      static_cast<ScreenOrientationInternal>(bridge->GetScreenOrientation());
   angle = bridge->GetScreenAngle();
 
-  *aScreenConfiguration =
-    hal::ScreenConfiguration(rect, orientation, angle, colorDepth, pixelDepth);
+  *aScreenConfiguration = hal::ScreenConfiguration(
+      rect, orientation, angle, colorDepth, pixelDepth);
 }
 
 bool
@@ -145,17 +146,20 @@ LockScreenOrientation(const ScreenOrientationInternal& aOrientation)
 {
   // Force the default orientation to be portrait-primary.
   ScreenOrientationInternal orientation =
-    aOrientation == eScreenOrientation_Default ? eScreenOrientation_PortraitPrimary
-                                               : aOrientation;
+      aOrientation == eScreenOrientation_Default
+          ? eScreenOrientation_PortraitPrimary
+          : aOrientation;
 
   switch (orientation) {
     // The Android backend only supports these orientations.
     case eScreenOrientation_PortraitPrimary:
     case eScreenOrientation_PortraitSecondary:
-    case eScreenOrientation_PortraitPrimary | eScreenOrientation_PortraitSecondary:
+    case eScreenOrientation_PortraitPrimary |
+        eScreenOrientation_PortraitSecondary:
     case eScreenOrientation_LandscapePrimary:
     case eScreenOrientation_LandscapeSecondary:
-    case eScreenOrientation_LandscapePrimary | eScreenOrientation_LandscapeSecondary:
+    case eScreenOrientation_LandscapePrimary |
+        eScreenOrientation_LandscapeSecondary:
     case eScreenOrientation_Default:
       java::GeckoAppShell::LockScreenOrientation(orientation);
       return true;
@@ -170,6 +174,5 @@ UnlockScreenOrientation()
   java::GeckoAppShell::UnlockScreenOrientation();
 }
 
-} // hal_impl
-} // mozilla
-
+}  // namespace hal_impl
+}  // namespace mozilla

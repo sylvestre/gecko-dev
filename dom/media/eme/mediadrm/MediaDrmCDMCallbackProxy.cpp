@@ -18,9 +18,8 @@
 namespace mozilla {
 
 MediaDrmCDMCallbackProxy::MediaDrmCDMCallbackProxy(CDMProxy* aProxy)
-  : mProxy(aProxy)
+    : mProxy(aProxy)
 {
-
 }
 
 void
@@ -63,7 +62,8 @@ MediaDrmCDMCallbackProxy::SessionMessage(const nsCString& aSessionId,
   MOZ_ASSERT(NS_IsMainThread());
   // For removing constness
   nsTArray<uint8_t> message(aMessage);
-  mProxy->OnSessionMessage(NS_ConvertUTF8toUTF16(aSessionId), aMessageType, message);
+  mProxy->OnSessionMessage(
+      NS_ConvertUTF8toUTF16(aSessionId), aMessageType, message);
 }
 
 void
@@ -81,7 +81,8 @@ MediaDrmCDMCallbackProxy::SessionClosed(const nsCString& aSessionId)
   bool keyStatusesChange = false;
   {
     CDMCaps::AutoLock caps(mProxy->Capabilites());
-    keyStatusesChange = caps.RemoveKeysForSession(NS_ConvertUTF8toUTF16(aSessionId));
+    keyStatusesChange =
+        caps.RemoveKeysForSession(NS_ConvertUTF8toUTF16(aSessionId));
   }
   if (keyStatusesChange) {
     mProxy->OnKeyStatusesChange(NS_ConvertUTF8toUTF16(aSessionId));
@@ -103,25 +104,24 @@ MediaDrmCDMCallbackProxy::SessionError(const nsCString& aSessionId,
 }
 
 void
-MediaDrmCDMCallbackProxy::BatchedKeyStatusChanged(const nsCString& aSessionId,
-                                                  const nsTArray<CDMKeyInfo>& aKeyInfos)
+MediaDrmCDMCallbackProxy::BatchedKeyStatusChanged(
+    const nsCString& aSessionId, const nsTArray<CDMKeyInfo>& aKeyInfos)
 {
   MOZ_ASSERT(NS_IsMainThread());
   BatchedKeyStatusChangedInternal(aSessionId, aKeyInfos);
 }
 
 void
-MediaDrmCDMCallbackProxy::BatchedKeyStatusChangedInternal(const nsCString& aSessionId,
-                                                          const nsTArray<CDMKeyInfo>& aKeyInfos)
+MediaDrmCDMCallbackProxy::BatchedKeyStatusChangedInternal(
+    const nsCString& aSessionId, const nsTArray<CDMKeyInfo>& aKeyInfos)
 {
   bool keyStatusesChange = false;
   {
     CDMCaps::AutoLock caps(mProxy->Capabilites());
     for (size_t i = 0; i < aKeyInfos.Length(); i++) {
-      keyStatusesChange |=
-        caps.SetKeyStatus(aKeyInfos[i].mKeyId,
-                          NS_ConvertUTF8toUTF16(aSessionId),
-                          aKeyInfos[i].mStatus);
+      keyStatusesChange |= caps.SetKeyStatus(aKeyInfos[i].mKeyId,
+                                             NS_ConvertUTF8toUTF16(aSessionId),
+                                             aKeyInfos[i].mStatus);
     }
   }
   if (keyStatusesChange) {
@@ -137,4 +137,4 @@ MediaDrmCDMCallbackProxy::Decrypted(uint32_t aId,
   MOZ_ASSERT_UNREACHABLE("Fennec could not handle decrypted event");
 }
 
-} // namespace mozilla
+}  // namespace mozilla

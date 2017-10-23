@@ -16,4 +16,4 @@ struct mozilla::detail::MutexImpl::PlatformData
   CRITICAL_SECTION criticalSection;
 };
 
-#endif // MutexPlatformData_windows_h
+#endif  // MutexPlatformData_windows_h

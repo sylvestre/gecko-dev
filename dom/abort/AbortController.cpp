@@ -36,9 +36,9 @@ AbortController::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 }
 
 AbortController::AbortController(nsIGlobalObject* aGlobal)
-  : mGlobal(aGlobal)
-  , mAborted(false)
-{}
+    : mGlobal(aGlobal), mAborted(false)
+{
+}
 
 JSObject*
 AbortController::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -76,5 +76,5 @@ AbortController::Abort()
   }
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

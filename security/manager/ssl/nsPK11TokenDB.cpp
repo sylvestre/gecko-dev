@@ -22,14 +22,12 @@ extern mozilla::LazyLogModule gPIPNSSLog;
 
 NS_IMPL_ISUPPORTS(nsPK11Token, nsIPK11Token)
 
-nsPK11Token::nsPK11Token(PK11SlotInfo* slot)
-  : mUIContext(new PipUIContext())
+nsPK11Token::nsPK11Token(PK11SlotInfo* slot) : mUIContext(new PipUIContext())
 {
   MOZ_ASSERT(slot);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return;
+  if (isAlreadyShutDown()) return;
 
   mSlot.reset(PK11_ReferenceSlot(slot));
   mSeries = PK11_GetSlotSeries(slot);
@@ -38,7 +36,8 @@ nsPK11Token::nsPK11Token(PK11SlotInfo* slot)
 }
 
 nsresult
-nsPK11Token::refreshTokenInfo(const nsNSSShutDownPreventionLock& /*proofOfLock*/)
+nsPK11Token::refreshTokenInfo(
+    const nsNSSShutDownPreventionLock& /*proofOfLock*/)
 {
   mTokenName = PK11_GetTokenName(mSlot.get());
 
@@ -49,16 +48,16 @@ nsPK11Token::refreshTokenInfo(const nsNSSShutDownPreventionLock& /*proofOfLock*/
   }
 
   // Set the Label field
-  const char* ccLabel = mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(tokInfo.label);
+  const char* ccLabel =
+      mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(tokInfo.label);
   mTokenLabel.Assign(ccLabel, strnlen(ccLabel, sizeof(tokInfo.label)));
   mTokenLabel.Trim(" ", false, true);
 
   // Set the Manufacturer field
   const char* ccManID =
-    mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(tokInfo.manufacturerID);
-  mTokenManufacturerID.Assign(
-    ccManID,
-    strnlen(ccManID, sizeof(tokInfo.manufacturerID)));
+      mozilla::BitwiseCast<char*, CK_UTF8CHAR*>(tokInfo.manufacturerID);
+  mTokenManufacturerID.Assign(ccManID,
+                              strnlen(ccManID, sizeof(tokInfo.manufacturerID)));
   mTokenManufacturerID.Trim(" ", false, true);
 
   // Set the Hardware Version field
@@ -75,7 +74,7 @@ nsPK11Token::refreshTokenInfo(const nsNSSShutDownPreventionLock& /*proofOfLock*/
 
   // Set the Serial Number field
   const char* ccSerial =
-    mozilla::BitwiseCast<char*, CK_CHAR*>(tokInfo.serialNumber);
+      mozilla::BitwiseCast<char*, CK_CHAR*>(tokInfo.serialNumber);
   mTokenSerialNum.Assign(ccSerial,
                          strnlen(ccSerial, sizeof(tokInfo.serialNumber)));
   mTokenSerialNum.Trim(" ", false, true);
@@ -107,7 +106,7 @@ nsPK11Token::destructorSafeDestroyNSSReference()
 
 nsresult
 nsPK11Token::GetAttributeHelper(const nsACString& attribute,
-                        /*out*/ nsACString& xpcomOutParam)
+                                /*out*/ nsACString& xpcomOutParam)
 {
   nsNSSShutDownPreventionLock locker;
   if (isAlreadyShutDown()) {
@@ -168,8 +167,7 @@ nsPK11Token::IsLoggedIn(bool* _retval)
   NS_ENSURE_ARG_POINTER(_retval);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   *_retval = PK11_IsLoggedIn(mSlot.get(), 0);
 
@@ -180,8 +178,7 @@ NS_IMETHODIMP
 nsPK11Token::Login(bool force)
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   nsresult rv;
   bool test;
@@ -201,8 +198,7 @@ NS_IMETHODIMP
 nsPK11Token::LogoutSimple()
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   // PK11_Logout() can fail if the user wasn't logged in beforehand. We want
   // this method to succeed even in this case, so we ignore the return value.
@@ -217,12 +213,10 @@ nsPK11Token::LogoutAndDropAuthenticatedResources()
 
   nsresult rv = LogoutSimple();
 
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   nsCOMPtr<nsINSSComponent> nssComponent(do_GetService(kNSSComponentCID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   return nssComponent->LogoutAuthenticatedPK11();
 }
@@ -231,8 +225,7 @@ NS_IMETHODIMP
 nsPK11Token::Reset()
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   return MapSECStatus(PK11_ResetToken(mSlot.get(), nullptr));
 }
@@ -243,8 +236,7 @@ nsPK11Token::GetNeedsUserInit(bool* aNeedsUserInit)
   NS_ENSURE_ARG_POINTER(aNeedsUserInit);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   *aNeedsUserInit = PK11_NeedUserInit(mSlot.get());
   return NS_OK;
@@ -256,20 +248,19 @@ nsPK11Token::CheckPassword(const nsACString& password, bool* _retval)
   NS_ENSURE_ARG_POINTER(_retval);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   SECStatus srv =
-    PK11_CheckUserPassword(mSlot.get(), PromiseFlatCString(password).get());
+      PK11_CheckUserPassword(mSlot.get(), PromiseFlatCString(password).get());
   if (srv != SECSuccess) {
-    *_retval =  false;
+    *_retval = false;
     PRErrorCode error = PR_GetError();
     if (error != SEC_ERROR_BAD_PASSWORD) {
       /* something really bad happened - throw an exception */
       return mozilla::psm::GetXPCOMFromNSSError(error);
     }
   } else {
-    *_retval =  true;
+    *_retval = true;
   }
   return NS_OK;
 }
@@ -303,17 +294,16 @@ nsPK11Token::ChangePassword(const nsACString& oldPassword,
                             const nsACString& newPassword)
 {
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   // PK11_ChangePW() has different semantics for the empty string and for
   // nullptr. In order to support this difference, we need to check IsVoid() to
   // find out if our caller supplied null/undefined args or just empty strings.
   // See Bug 447589.
   return MapSECStatus(PK11_ChangePW(
-    mSlot.get(),
-    oldPassword.IsVoid() ? nullptr : PromiseFlatCString(oldPassword).get(),
-    newPassword.IsVoid() ? nullptr : PromiseFlatCString(newPassword).get()));
+      mSlot.get(),
+      oldPassword.IsVoid() ? nullptr : PromiseFlatCString(oldPassword).get(),
+      newPassword.IsVoid() ? nullptr : PromiseFlatCString(newPassword).get()));
 }
 
 NS_IMETHODIMP
@@ -339,8 +329,7 @@ nsPK11Token::NeedsLogin(bool* _retval)
   NS_ENSURE_ARG_POINTER(_retval);
 
   nsNSSShutDownPreventionLock locker;
-  if (isAlreadyShutDown())
-    return NS_ERROR_NOT_AVAILABLE;
+  if (isAlreadyShutDown()) return NS_ERROR_NOT_AVAILABLE;
 
   *_retval = PK11_NeedLogin(mSlot.get());
 
@@ -351,9 +340,7 @@ nsPK11Token::NeedsLogin(bool* _retval)
 
 NS_IMPL_ISUPPORTS(nsPK11TokenDB, nsIPK11TokenDB)
 
-nsPK11TokenDB::nsPK11TokenDB()
-{
-}
+nsPK11TokenDB::nsPK11TokenDB() {}
 
 nsPK11TokenDB::~nsPK11TokenDB()
 {
@@ -388,7 +375,7 @@ nsPK11TokenDB::GetInternalKeyToken(nsIPK11Token** _retval)
 
 NS_IMETHODIMP
 nsPK11TokenDB::FindTokenByName(const nsACString& tokenName,
-                       /*out*/ nsIPK11Token** _retval)
+                               /*out*/ nsIPK11Token** _retval)
 {
   NS_ENSURE_ARG_POINTER(_retval);
 
@@ -407,7 +394,7 @@ nsPK11TokenDB::FindTokenByName(const nsACString& tokenName,
   }
 
   UniquePK11SlotInfo slot(
-    PK11_FindSlotByName(PromiseFlatCString(tokenName).get()));
+      PK11_FindSlotByName(PromiseFlatCString(tokenName).get()));
   if (!slot) {
     return NS_ERROR_FAILURE;
   }

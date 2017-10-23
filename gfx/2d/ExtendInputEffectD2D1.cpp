@@ -13,7 +13,8 @@
 #include <vector>
 
 #define TEXTW(x) L##x
-#define XML(X) TEXTW(#X) // This macro creates a single string from multiple lines of text.
+#define XML(X) \
+  TEXTW(#X)  // This macro creates a single string from multiple lines of text.
 
 static const PCWSTR kXmlDescription =
     XML(
@@ -37,13 +38,14 @@ namespace mozilla {
 namespace gfx {
 
 ExtendInputEffectD2D1::ExtendInputEffectD2D1()
-  : mRefCount(0)
-  , mOutputRect(D2D1::Vector4F(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX))
+    : mRefCount(0),
+      mOutputRect(D2D1::Vector4F(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX))
 {
 }
 
 IFACEMETHODIMP
-ExtendInputEffectD2D1::Initialize(ID2D1EffectContext* pContextInternal, ID2D1TransformGraph* pTransformGraph)
+ExtendInputEffectD2D1::Initialize(ID2D1EffectContext* pContextInternal,
+                                  ID2D1TransformGraph* pTransformGraph)
 {
   HRESULT hr;
   hr = pTransformGraph->SetSingleTransformNode(this);
@@ -68,10 +70,7 @@ ExtendInputEffectD2D1::SetGraph(ID2D1TransformGraph* pGraph)
 }
 
 IFACEMETHODIMP_(ULONG)
-ExtendInputEffectD2D1::AddRef()
-{
-  return ++mRefCount;
-}
+ExtendInputEffectD2D1::AddRef() { return ++mRefCount; }
 
 IFACEMETHODIMP_(ULONG)
 ExtendInputEffectD2D1::Release()
@@ -84,7 +83,7 @@ ExtendInputEffectD2D1::Release()
 }
 
 IFACEMETHODIMP
-ExtendInputEffectD2D1::QueryInterface(const IID &aIID, void **aPtr)
+ExtendInputEffectD2D1::QueryInterface(const IID& aIID, void** aPtr)
 {
   if (!aPtr) {
     return E_POINTER;
@@ -130,11 +129,12 @@ IntersectRect(const D2D1_RECT_L& aRect1, const D2D1_RECT_L& aRect2)
 }
 
 IFACEMETHODIMP
-ExtendInputEffectD2D1::MapInputRectsToOutputRect(const D2D1_RECT_L* pInputRects,
-                                                 const D2D1_RECT_L* pInputOpaqueSubRects,
-                                                 UINT32 inputRectCount,
-                                                 D2D1_RECT_L* pOutputRect,
-                                                 D2D1_RECT_L* pOutputOpaqueSubRect)
+ExtendInputEffectD2D1::MapInputRectsToOutputRect(
+    const D2D1_RECT_L* pInputRects,
+    const D2D1_RECT_L* pInputOpaqueSubRects,
+    UINT32 inputRectCount,
+    D2D1_RECT_L* pOutputRect,
+    D2D1_RECT_L* pOutputOpaqueSubRect)
 {
   // This transform only accepts one input, so there will only be one input rect.
   if (inputRectCount != 1) {
@@ -153,7 +153,7 @@ ExtendInputEffectD2D1::MapOutputRectToInputRects(const D2D1_RECT_L* pOutputRect,
                                                  UINT32 inputRectCount) const
 {
   if (inputRectCount != 1) {
-      return E_INVALIDARG;
+    return E_INVALIDARG;
   }
 
   *pInputRects = *pOutputRect;
@@ -172,12 +172,15 @@ ExtendInputEffectD2D1::MapInvalidRect(UINT32 inputIndex,
 }
 
 HRESULT
-ExtendInputEffectD2D1::Register(ID2D1Factory1 *aFactory)
+ExtendInputEffectD2D1::Register(ID2D1Factory1* aFactory)
 {
   D2D1_PROPERTY_BINDING bindings[] = {
-    D2D1_VALUE_TYPE_BINDING(L"OutputRect", &ExtendInputEffectD2D1::SetOutputRect, &ExtendInputEffectD2D1::GetOutputRect),
+      D2D1_VALUE_TYPE_BINDING(L"OutputRect",
+                              &ExtendInputEffectD2D1::SetOutputRect,
+                              &ExtendInputEffectD2D1::GetOutputRect),
   };
-  HRESULT hr = aFactory->RegisterEffectFromString(CLSID_ExtendInputEffect, kXmlDescription, bindings, 1, CreateEffect);
+  HRESULT hr = aFactory->RegisterEffectFromString(
+      CLSID_ExtendInputEffect, kXmlDescription, bindings, 1, CreateEffect);
 
   if (FAILED(hr)) {
     gfxWarning() << "Failed to register extend input effect.";
@@ -186,13 +189,12 @@ ExtendInputEffectD2D1::Register(ID2D1Factory1 *aFactory)
 }
 
 void
-ExtendInputEffectD2D1::Unregister(ID2D1Factory1 *aFactory)
+ExtendInputEffectD2D1::Unregister(ID2D1Factory1* aFactory)
 {
   aFactory->UnregisterEffect(CLSID_ExtendInputEffect);
 }
 
-HRESULT __stdcall
-ExtendInputEffectD2D1::CreateEffect(IUnknown **aEffectImpl)
+HRESULT __stdcall ExtendInputEffectD2D1::CreateEffect(IUnknown** aEffectImpl)
 {
   *aEffectImpl = static_cast<ID2D1EffectImpl*>(new ExtendInputEffectD2D1());
   (*aEffectImpl)->AddRef();
@@ -200,5 +202,5 @@ ExtendInputEffectD2D1::CreateEffect(IUnknown **aEffectImpl)
   return S_OK;
 }
 
-}
-}
+}  // namespace gfx
+}  // namespace mozilla

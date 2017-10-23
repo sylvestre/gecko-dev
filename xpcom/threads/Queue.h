@@ -20,7 +20,7 @@ namespace mozilla {
 template<class T, size_t RequestedItemsPerPage = 256>
 class Queue
 {
-public:
+ public:
   Queue() {}
 
   ~Queue()
@@ -155,9 +155,10 @@ public:
     return count;
   }
 
-private:
-  static_assert((RequestedItemsPerPage & (RequestedItemsPerPage - 1)) == 0,
-                "RequestedItemsPerPage should be a power of two to avoid heap slop.");
+ private:
+  static_assert(
+      (RequestedItemsPerPage & (RequestedItemsPerPage - 1)) == 0,
+      "RequestedItemsPerPage should be a power of two to avoid heap slop.");
 
   // Since a Page must also contain a "next" pointer, we use one of the items to
   // store this pointer. If sizeof(T) > sizeof(Page*), then some space will be
@@ -183,6 +184,6 @@ private:
   uint16_t mOffsetTail = 0;  // offset into mTail where next item is added
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Queue_h
+#endif  // mozilla_Queue_h

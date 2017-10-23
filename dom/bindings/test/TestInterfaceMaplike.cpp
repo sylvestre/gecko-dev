@@ -16,21 +16,21 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(TestInterfaceMaplike)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(TestInterfaceMaplike)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TestInterfaceMaplike)
-NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
 TestInterfaceMaplike::TestInterfaceMaplike(nsPIDOMWindowInner* aParent)
-: mParent(aParent)
+    : mParent(aParent)
 {
 }
 
 //static
 already_AddRefed<TestInterfaceMaplike>
-TestInterfaceMaplike::Constructor(const GlobalObject& aGlobal,
-                                  ErrorResult& aRv)
+TestInterfaceMaplike::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -41,7 +41,8 @@ TestInterfaceMaplike::Constructor(const GlobalObject& aGlobal,
 }
 
 JSObject*
-TestInterfaceMaplike::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+TestInterfaceMaplike::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
   return TestInterfaceMaplikeBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -80,5 +81,5 @@ TestInterfaceMaplike::HasInternal(const nsAString& aKey)
   return TestInterfaceMaplikeBinding::MaplikeHelpers::Has(this, aKey, rv);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

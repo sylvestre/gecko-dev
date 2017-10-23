@@ -65,11 +65,11 @@ namespace mozilla {
 
 class MediaEngineWebRTCAudioCaptureSource : public MediaEngineAudioSource
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   explicit MediaEngineWebRTCAudioCaptureSource(const char* aUuid)
-    : MediaEngineAudioSource(kReleased)
+      : MediaEngineAudioSource(kReleased)
   {
   }
   void GetName(nsAString& aName) const override;
@@ -97,42 +97,45 @@ public:
   nsresult Stop(SourceMediaStream* aMediaStream, TrackID aId) override;
   nsresult Restart(AllocationHandle* aHandle,
                    const dom::MediaTrackConstraints& aConstraints,
-                   const MediaEnginePrefs &aPrefs,
+                   const MediaEnginePrefs& aPrefs,
                    const nsString& aDeviceId,
                    const char** aOutBadConstraint) override;
   void NotifyOutputData(MediaStreamGraph* aGraph,
-                        AudioDataValue* aBuffer, size_t aFrames,
-                        TrackRate aRate, uint32_t aChannels) override
-  {}
-  void DeviceChanged() override
-  {}
+                        AudioDataValue* aBuffer,
+                        size_t aFrames,
+                        TrackRate aRate,
+                        uint32_t aChannels) override
+  {
+  }
+  void DeviceChanged() override {}
   void NotifyInputData(MediaStreamGraph* aGraph,
-                       const AudioDataValue* aBuffer, size_t aFrames,
-                       TrackRate aRate, uint32_t aChannels) override
-  {}
+                       const AudioDataValue* aBuffer,
+                       size_t aFrames,
+                       TrackRate aRate,
+                       uint32_t aChannels) override
+  {
+  }
   void NotifyPull(MediaStreamGraph* aGraph,
                   SourceMediaStream* aSource,
                   TrackID aID,
                   StreamTime aDesiredTime,
                   const PrincipalHandle& aPrincipalHandle) override
-  {}
+  {
+  }
   dom::MediaSourceEnum GetMediaSource() const override
   {
     return dom::MediaSourceEnum::AudioCapture;
   }
-  bool IsFake() override
-  {
-    return false;
-  }
+  bool IsFake() override { return false; }
   nsresult TakePhoto(MediaEnginePhotoCallback* aCallback) override
   {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
   uint32_t GetBestFitnessDistance(
-    const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
-    const nsString& aDeviceId) const override;
+      const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
+      const nsString& aDeviceId) const override;
 
-protected:
+ protected:
   virtual ~MediaEngineWebRTCAudioCaptureSource() {}
   nsCString mUUID;
 };
@@ -140,24 +143,27 @@ protected:
 // Small subset of VoEHardware
 class AudioInput
 {
-public:
-  explicit AudioInput(webrtc::VoiceEngine* aVoiceEngine) : mVoiceEngine(aVoiceEngine) {};
+ public:
+  explicit AudioInput(webrtc::VoiceEngine* aVoiceEngine)
+      : mVoiceEngine(aVoiceEngine){};
   // Threadsafe because it's referenced from an MicrophoneSource, which can
   // had references to it on other threads.
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AudioInput)
 
   virtual int GetNumOfRecordingDevices(int& aDevices) = 0;
-  virtual int GetRecordingDeviceName(int aIndex, char (&aStrNameUTF8)[128],
+  virtual int GetRecordingDeviceName(int aIndex,
+                                     char (&aStrNameUTF8)[128],
                                      char aStrGuidUTF8[128]) = 0;
   virtual int GetRecordingDeviceStatus(bool& aIsAvailable) = 0;
   virtual void GetChannelCount(uint32_t& aChannels) = 0;
   virtual int GetMaxAvailableChannels(uint32_t& aChannels) = 0;
-  virtual void StartRecording(SourceMediaStream *aStream, AudioDataListener *aListener) = 0;
-  virtual void StopRecording(SourceMediaStream *aStream) = 0;
+  virtual void StartRecording(SourceMediaStream* aStream,
+                              AudioDataListener* aListener) = 0;
+  virtual void StopRecording(SourceMediaStream* aStream) = 0;
   virtual int SetRecordingDevice(int aIndex) = 0;
   virtual void SetUserChannelCount(uint32_t aChannels) = 0;
 
-protected:
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~AudioInput() {}
 
@@ -166,9 +172,9 @@ protected:
 
 class AudioInputCubeb final : public AudioInput
 {
-public:
-  explicit AudioInputCubeb(webrtc::VoiceEngine* aVoiceEngine, int aIndex = 0) :
-    AudioInput(aVoiceEngine), mSelectedDevice(aIndex), mInUseCount(0)
+ public:
+  explicit AudioInputCubeb(webrtc::VoiceEngine* aVoiceEngine, int aIndex = 0)
+      : AudioInput(aVoiceEngine), mSelectedDevice(aIndex), mInUseCount(0)
   {
     if (!mDeviceIndexes) {
       mDeviceIndexes = new nsTArray<int>;
@@ -209,19 +215,16 @@ public:
       }
     }
     MOZ_ASSERT(mDeviceIndexes);
-    if (aIndex < 0 || aIndex >= (int) mDeviceIndexes->Length()) {
+    if (aIndex < 0 || aIndex >= (int)mDeviceIndexes->Length()) {
       return -1;
     }
     // Note: if the device is gone, this will be -1
-    return (*mDeviceIndexes)[aIndex]; // translate to mDevices index
+    return (*mDeviceIndexes)[aIndex];  // translate to mDevices index
   }
 
-  static StaticMutex& Mutex()
-  {
-    return sMutex;
-  }
+  static StaticMutex& Mutex() { return sMutex; }
 
-  static bool GetDeviceID(int aDeviceIndex, CubebUtils::AudioDeviceID &aID)
+  static bool GetDeviceID(int aDeviceIndex, CubebUtils::AudioDeviceID& aID)
   {
     // Assert sMutex is held
     sMutex.AssertCurrentThreadOwns();
@@ -238,7 +241,8 @@ public:
 #endif
   }
 
-  int GetRecordingDeviceName(int aIndex, char (&aStrNameUTF8)[128],
+  int GetRecordingDeviceName(int aIndex,
+                             char (&aStrNameUTF8)[128],
                              char aStrGuidUTF8[128])
   {
 #ifdef MOZ_WIDGET_ANDROID
@@ -249,7 +253,9 @@ public:
     if (mDevices.count == 0 || devindex < 0) {
       return 1;
     }
-    SprintfLiteral(aStrNameUTF8, "%s%s", aIndex == -1 ? "default: " : "",
+    SprintfLiteral(aStrNameUTF8,
+                   "%s%s",
+                   aIndex == -1 ? "default: " : "",
                    mDevices.device[devindex].friendly_name);
     aStrGuidUTF8[0] = '\0';
 #endif
@@ -296,7 +302,7 @@ public:
   void SetUserChannelCount(uint32_t aChannels)
   {
     if (GetDeviceMaxChannels(mSelectedDevice, sUserChannelCount)) {
-      sUserChannelCount = 1; // error capture mono
+      sUserChannelCount = 1;  // error capture mono
       return;
     }
 
@@ -305,7 +311,7 @@ public:
     }
   }
 
-  void StartRecording(SourceMediaStream *aStream, AudioDataListener *aListener)
+  void StartRecording(SourceMediaStream* aStream, AudioDataListener* aListener)
   {
 #ifdef MOZ_WIDGET_ANDROID
     // OpenSL ES does not support enumerating devices.
@@ -327,7 +333,7 @@ public:
     aStream->OpenAudioInput(mSelectedDevice, aListener);
   }
 
-  void StopRecording(SourceMediaStream *aStream)
+  void StopRecording(SourceMediaStream* aStream)
   {
     aStream->CloseAudioInput();
     if (--mInUseCount == 0) {
@@ -341,12 +347,10 @@ public:
     return 0;
   }
 
-protected:
-  ~AudioInputCubeb() {
-    MOZ_RELEASE_ASSERT(mInUseCount == 0);
-  }
+ protected:
+  ~AudioInputCubeb() { MOZ_RELEASE_ASSERT(mInUseCount == 0); }
 
-private:
+ private:
   // It would be better to watch for device-change notifications
   void UpdateDeviceList();
 
@@ -361,7 +365,7 @@ private:
 
   // pointers to avoid static constructors
   static nsTArray<int>* mDeviceIndexes;
-  static int mDefaultDevice; // -1 == not set
+  static int mDefaultDevice;  // -1 == not set
   static nsTArray<nsCString>* mDeviceNames;
   static cubeb_device_collection mDevices;
   static bool mAnyInUse;
@@ -371,46 +375,50 @@ private:
 
 class AudioInputWebRTC final : public AudioInput
 {
-public:
-  explicit AudioInputWebRTC(webrtc::VoiceEngine* aVoiceEngine) : AudioInput(aVoiceEngine) {}
+ public:
+  explicit AudioInputWebRTC(webrtc::VoiceEngine* aVoiceEngine)
+      : AudioInput(aVoiceEngine)
+  {
+  }
 
   int GetNumOfRecordingDevices(int& aDevices)
   {
     ScopedCustomReleasePtr<webrtc::VoEBase> ptrVoEBase;
     ptrVoEBase = webrtc::VoEBase::GetInterface(mVoiceEngine);
-    if (!ptrVoEBase)  {
+    if (!ptrVoEBase) {
       return 1;
     }
     aDevices = ptrVoEBase->audio_device_module()->RecordingDevices();
     return 0;
   }
 
-  int GetRecordingDeviceName(int aIndex, char (&aStrNameUTF8)[128],
+  int GetRecordingDeviceName(int aIndex,
+                             char (&aStrNameUTF8)[128],
                              char aStrGuidUTF8[128])
   {
     ScopedCustomReleasePtr<webrtc::VoEBase> ptrVoEBase;
     ptrVoEBase = webrtc::VoEBase::GetInterface(mVoiceEngine);
-    if (!ptrVoEBase)  {
+    if (!ptrVoEBase) {
       return 1;
     }
-    return ptrVoEBase->audio_device_module()->RecordingDeviceName(aIndex,
-                                                                  aStrNameUTF8,
-                                                                  aStrGuidUTF8);
+    return ptrVoEBase->audio_device_module()->RecordingDeviceName(
+        aIndex, aStrNameUTF8, aStrGuidUTF8);
   }
 
   int GetRecordingDeviceStatus(bool& aIsAvailable)
   {
     ScopedCustomReleasePtr<webrtc::VoEBase> ptrVoEBase;
     ptrVoEBase = webrtc::VoEBase::GetInterface(mVoiceEngine);
-    if (!ptrVoEBase)  {
+    if (!ptrVoEBase) {
       return 1;
     }
-    return ptrVoEBase->audio_device_module()->RecordingIsAvailable(&aIsAvailable);
+    return ptrVoEBase->audio_device_module()->RecordingIsAvailable(
+        &aIsAvailable);
   }
 
   void GetChannelCount(uint32_t& aChannels)
   {
-    aChannels = 1; // default to mono
+    aChannels = 1;  // default to mono
   }
 
   int GetMaxAvailableChannels(uint32_t& aChannels)
@@ -419,52 +427,58 @@ public:
     return 0;
   }
 
-  void SetUserChannelCount(uint32_t aChannels)
-  {}
+  void SetUserChannelCount(uint32_t aChannels) {}
 
-  void StartRecording(SourceMediaStream *aStream, AudioDataListener *aListener) {}
-  void StopRecording(SourceMediaStream *aStream) {}
+  void StartRecording(SourceMediaStream* aStream, AudioDataListener* aListener)
+  {
+  }
+  void StopRecording(SourceMediaStream* aStream) {}
 
   int SetRecordingDevice(int aIndex)
   {
     ScopedCustomReleasePtr<webrtc::VoEBase> ptrVoEBase;
     ptrVoEBase = webrtc::VoEBase::GetInterface(mVoiceEngine);
-    if (!ptrVoEBase)  {
+    if (!ptrVoEBase) {
       return 1;
     }
     return ptrVoEBase->audio_device_module()->SetRecordingDevice(aIndex);
   }
 
-protected:
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
   ~AudioInputWebRTC() {}
 };
 
 class WebRTCAudioDataListener : public AudioDataListener
 {
-protected:
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~WebRTCAudioDataListener() {}
 
-public:
+ public:
   explicit WebRTCAudioDataListener(MediaEngineAudioSource* aAudioSource)
-    : mMutex("WebRTCAudioDataListener")
-    , mAudioSource(aAudioSource)
-  {}
+      : mMutex("WebRTCAudioDataListener"), mAudioSource(aAudioSource)
+  {
+  }
 
   // AudioDataListenerInterface methods
   virtual void NotifyOutputData(MediaStreamGraph* aGraph,
-                                AudioDataValue* aBuffer, size_t aFrames,
-                                TrackRate aRate, uint32_t aChannels) override
+                                AudioDataValue* aBuffer,
+                                size_t aFrames,
+                                TrackRate aRate,
+                                uint32_t aChannels) override
   {
     MutexAutoLock lock(mMutex);
     if (mAudioSource) {
-      mAudioSource->NotifyOutputData(aGraph, aBuffer, aFrames, aRate, aChannels);
+      mAudioSource->NotifyOutputData(
+          aGraph, aBuffer, aFrames, aRate, aChannels);
     }
   }
   virtual void NotifyInputData(MediaStreamGraph* aGraph,
-                               const AudioDataValue* aBuffer, size_t aFrames,
-                               TrackRate aRate, uint32_t aChannels) override
+                               const AudioDataValue* aBuffer,
+                               size_t aFrames,
+                               TrackRate aRate,
+                               uint32_t aChannels) override
   {
     MutexAutoLock lock(mMutex);
     if (mAudioSource) {
@@ -485,7 +499,7 @@ public:
     mAudioSource = nullptr;
   }
 
-private:
+ private:
   Mutex mMutex;
   RefPtr<MediaEngineAudioSource> mAudioSource;
 };
@@ -494,7 +508,8 @@ class MediaEngineWebRTCMicrophoneSource : public MediaEngineAudioSource,
                                           public webrtc::VoEMediaProcess
 {
   typedef MediaEngineAudioSource Super;
-public:
+
+ public:
   MediaEngineWebRTCMicrophoneSource(webrtc::VoiceEngine* aVoiceEnginePtr,
                                     mozilla::AudioInput* aAudioInput,
                                     int aIndex,
@@ -513,7 +528,7 @@ public:
   nsresult Stop(SourceMediaStream* aSource, TrackID aID) override;
   nsresult Restart(AllocationHandle* aHandle,
                    const dom::MediaTrackConstraints& aConstraints,
-                   const MediaEnginePrefs &aPrefs,
+                   const MediaEnginePrefs& aPrefs,
                    const nsString& aDeviceId,
                    const char** aOutBadConstraint) override;
 
@@ -525,19 +540,22 @@ public:
 
   // AudioDataListenerInterface methods
   void NotifyOutputData(MediaStreamGraph* aGraph,
-                        AudioDataValue* aBuffer, size_t aFrames,
-                        TrackRate aRate, uint32_t aChannels) override;
+                        AudioDataValue* aBuffer,
+                        size_t aFrames,
+                        TrackRate aRate,
+                        uint32_t aChannels) override;
   void NotifyInputData(MediaStreamGraph* aGraph,
-                       const AudioDataValue* aBuffer, size_t aFrames,
-                       TrackRate aRate, uint32_t aChannels) override;
+                       const AudioDataValue* aBuffer,
+                       size_t aFrames,
+                       TrackRate aRate,
+                       uint32_t aChannels) override;
 
   void DeviceChanged() override;
 
-  bool IsFake() override {
-    return false;
-  }
+  bool IsFake() override { return false; }
 
-  dom::MediaSourceEnum GetMediaSource() const override {
+  dom::MediaSourceEnum GetMediaSource() const override
+  {
     return dom::MediaSourceEnum::Microphone;
   }
 
@@ -551,24 +569,26 @@ public:
       const nsString& aDeviceId) const override;
 
   // VoEMediaProcess.
-  virtual void Process(int channel, webrtc::ProcessingTypes type,
-                       int16_t audio10ms[], size_t length,
-                       int samplingFreq, bool isStereo) override;
+  virtual void Process(int channel,
+                       webrtc::ProcessingTypes type,
+                       int16_t audio10ms[],
+                       size_t length,
+                       int samplingFreq,
+                       bool isStereo) override;
 
   void Shutdown() override;
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
-protected:
+ protected:
   ~MediaEngineWebRTCMicrophoneSource() {}
 
-private:
-  nsresult
-  UpdateSingleSource(const AllocationHandle* aHandle,
-                     const NormalizedConstraints& aNetConstraints,
-                     const MediaEnginePrefs& aPrefs,
-                     const nsString& aDeviceId,
-                     const char** aOutBadConstraint) override;
+ private:
+  nsresult UpdateSingleSource(const AllocationHandle* aHandle,
+                              const NormalizedConstraints& aNetConstraints,
+                              const MediaEnginePrefs& aPrefs,
+                              const nsString& aDeviceId,
+                              const char** aOutBadConstraint) override;
 
   void SetLastPrefs(const MediaEnginePrefs& aPrefs);
 
@@ -581,13 +601,9 @@ private:
 
   // This is true when all processing is disabled, we can skip
   // packetization, resampling and other processing passes.
-  bool PassThrough() {
-    return mSkipProcessing;
-  }
+  bool PassThrough() { return mSkipProcessing; }
   template<typename T>
-  void InsertInGraph(const T* aBuffer,
-                     size_t aFrames,
-                     uint32_t aChannels);
+  void InsertInGraph(const T* aBuffer, size_t aFrames, uint32_t aChannels);
 
   void PacketizeAndProcess(MediaStreamGraph* aGraph,
                            const AudioDataValue* aBuffer,
@@ -608,7 +624,6 @@ private:
   static ScopedCustomReleasePtr<webrtc::VoENetwork> mVoENetwork;
   static ScopedCustomReleasePtr<webrtc::VoEAudioProcessing> mVoEProcessing;
 
-
   // accessed from the GraphDriver thread except for deletion
   nsAutoPtr<AudioPacketizer<AudioDataValue, int16_t>> mPacketizer;
   ScopedCustomReleasePtr<webrtc::VoEExternalMedia> mVoERenderListener;
@@ -619,7 +634,7 @@ private:
   // threads.
   Monitor mMonitor;
   nsTArray<RefPtr<SourceMediaStream>> mSources;
-  nsTArray<PrincipalHandle> mPrincipalHandles; // Maps to mSources.
+  nsTArray<PrincipalHandle> mPrincipalHandles;  // Maps to mSources.
 
   int mCapIndex;
   int mChannel;
@@ -636,7 +651,7 @@ private:
   uint64_t mLastLogFrames;
   int32_t mPlayoutDelay;
 
-  NullTransport *mNullTransport;
+  NullTransport* mNullTransport;
 
   nsTArray<int16_t> mInputBuffer;
   // mSkipProcessing is true if none of the processing passes are enabled,
@@ -653,7 +668,8 @@ private:
 class MediaEngineWebRTC : public MediaEngine
 {
   typedef MediaEngine Super;
-public:
+
+ public:
   explicit MediaEngineWebRTC(MediaEnginePrefs& aPrefs);
 
   virtual void SetFakeDeviceChangeEvents() override;
@@ -665,11 +681,12 @@ public:
   // Returns whether the host supports duplex audio stream.
   bool SupportsDuplex();
 
-  void EnumerateVideoDevices(dom::MediaSourceEnum,
-                             nsTArray<RefPtr<MediaEngineVideoSource>>*) override;
-  void EnumerateAudioDevices(dom::MediaSourceEnum,
-                             nsTArray<RefPtr<MediaEngineAudioSource>>*) override;
-private:
+  void EnumerateVideoDevices(
+      dom::MediaSourceEnum, nsTArray<RefPtr<MediaEngineVideoSource>>*) override;
+  void EnumerateAudioDevices(
+      dom::MediaSourceEnum, nsTArray<RefPtr<MediaEngineAudioSource>>*) override;
+
+ private:
   ~MediaEngineWebRTC() {}
 
   nsCOMPtr<nsIThread> mThread;
@@ -689,6 +706,6 @@ private:
   nsRefPtrHashtable<nsStringHashKey, MediaEngineAudioSource> mAudioSources;
 };
 
-}
+}  // namespace mozilla
 
 #endif /* NSMEDIAENGINEWEBRTC_H_ */

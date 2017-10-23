@@ -13,19 +13,15 @@ namespace js {
 
 class ProxyObject;
 
-enum DeadObjectProxyFlags
-{
-    DeadObjectProxyIsCallable            = 1 << 0,
-    DeadObjectProxyIsConstructor         = 1 << 1,
+enum DeadObjectProxyFlags {
+    DeadObjectProxyIsCallable = 1 << 0,
+    DeadObjectProxyIsConstructor = 1 << 1,
     DeadObjectProxyIsBackgroundFinalized = 1 << 2
 };
 
-class DeadObjectProxy : public BaseProxyHandler
-{
-  public:
-    explicit constexpr DeadObjectProxy()
-      : BaseProxyHandler(&family)
-    { }
+class DeadObjectProxy : public BaseProxyHandler {
+   public:
+    explicit constexpr DeadObjectProxy() : BaseProxyHandler(&family) {}
 
     /* Standard internal methods. */
     virtual bool getOwnPropertyDescriptor(JSContext* cx, HandleObject wrapper, HandleId id,
@@ -55,7 +51,8 @@ class DeadObjectProxy : public BaseProxyHandler
     virtual bool hasInstance(JSContext* cx, HandleObject proxy, MutableHandleValue v,
                              bool* bp) const override;
     virtual bool getBuiltinClass(JSContext* cx, HandleObject proxy, ESClass* cls) const override;
-    virtual bool isArray(JSContext* cx, HandleObject proxy, JS::IsArrayAnswer* answer) const override;
+    virtual bool isArray(JSContext* cx, HandleObject proxy,
+                         JS::IsArrayAnswer* answer) const override;
     virtual const char* className(JSContext* cx, HandleObject proxy) const override;
     virtual JSString* fun_toString(JSContext* cx, HandleObject proxy,
                                    bool isToSource) const override;
@@ -75,20 +72,15 @@ class DeadObjectProxy : public BaseProxyHandler
     static const DeadObjectProxy singleton;
     static const char family;
 
-  private:
-    static int32_t flags(JSObject* obj) {
-        return GetProxyPrivate(obj).toInt32();
-    }
+   private:
+    static int32_t flags(JSObject* obj) { return GetProxyPrivate(obj).toInt32(); }
 };
 
-bool
-IsDeadProxyObject(JSObject* obj);
+bool IsDeadProxyObject(JSObject* obj);
 
-Value
-DeadProxyTargetValue(ProxyObject* obj);
+Value DeadProxyTargetValue(ProxyObject* obj);
 
-JSObject*
-NewDeadProxyObject(JSContext* cx, JSObject* origObj = nullptr);
+JSObject* NewDeadProxyObject(JSContext* cx, JSObject* origObj = nullptr);
 
 } /* namespace js */
 

@@ -10,21 +10,21 @@
 #include "ipc/IPCMessageUtils.h"
 
 namespace IPC {
-template<typename T> struct ParamTraits;
-} // namespace IPC
+template<typename T>
+struct ParamTraits;
+}  // namespace IPC
 
 namespace mozilla {
 namespace dom {
 class ContentParent;
 class TabParent;
 
-
 template<typename T>
 class IdType
 {
   friend struct IPC::ParamTraits<IdType<T>>;
 
-public:
+ public:
   IdType() : mId(0) {}
   explicit IdType(uint64_t aId) : mId(aId) {}
 
@@ -36,19 +36,17 @@ public:
     return *this;
   }
 
-  bool operator<(const IdType& rhs)
-  {
-    return mId < rhs.mId;
-  }
-private:
+  bool operator<(const IdType& rhs) { return mId < rhs.mId; }
+
+ private:
   uint64_t mId;
 };
 
 typedef IdType<TabParent> TabId;
 typedef IdType<ContentParent> ContentParentId;
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -62,12 +60,14 @@ struct ParamTraits<mozilla::dom::IdType<T>>
     WriteParam(aMsg, aParam.mId);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->mId);
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_dom_IdType_h
+#endif  // mozilla_dom_IdType_h

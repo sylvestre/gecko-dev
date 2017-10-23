@@ -10,8 +10,8 @@
 
 using namespace mozilla::a11y;
 
-GtkWindowAccessible::GtkWindowAccessible(AtkObject* aAccessible) :
-  DummyAccessible()
+GtkWindowAccessible::GtkWindowAccessible(AtkObject* aAccessible)
+    : DummyAccessible()
 {
   g_object_ref(aAccessible);
   mAtkObject = aAccessible;

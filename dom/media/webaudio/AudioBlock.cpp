@@ -20,14 +20,15 @@ namespace mozilla {
  *
  * We guarantee 16 byte alignment of the channel data.
  */
-class AudioBlockBuffer final : public ThreadSharedObject {
-public:
-
+class AudioBlockBuffer final : public ThreadSharedObject
+{
+ public:
   virtual AudioBlockBuffer* AsAudioBlockBuffer() override { return this; };
 
   float* ChannelData(uint32_t aChannel)
   {
-    float* base = reinterpret_cast<float*>(((uintptr_t)(this + 1) + 15) & ~0x0F);
+    float* base =
+        reinterpret_cast<float*>(((uintptr_t)(this + 1) + 15) & ~0x0F);
     ASSERT_ALIGNED16(base);
     return base + aChannel * WEBAUDIO_BLOCK_SIZE;
   }
@@ -45,14 +46,18 @@ public:
 
     void* m = operator new(size.value());
     RefPtr<AudioBlockBuffer> p = new (m) AudioBlockBuffer();
-    NS_ASSERTION((reinterpret_cast<char*>(p.get() + 1) - reinterpret_cast<char*>(p.get())) % 4 == 0,
+    NS_ASSERTION((reinterpret_cast<char*>(p.get() + 1) -
+                  reinterpret_cast<char*>(p.get())) %
+                         4 ==
+                     0,
                  "AudioBlockBuffers should be at least 4-byte aligned");
     return p.forget();
   }
 
   // Graph thread only.
   void DownstreamRefAdded() { ++mDownstreamRefCount; }
-  void DownstreamRefRemoved() {
+  void DownstreamRefRemoved()
+  {
     MOZ_ASSERT(mDownstreamRefCount > 0);
     --mDownstreamRefCount;
   }
@@ -85,17 +90,14 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   AudioBlockBuffer() {}
   ~AudioBlockBuffer() override { MOZ_ASSERT(mDownstreamRefCount == 0); }
 
   nsAutoRefCnt mDownstreamRefCount;
 };
 
-AudioBlock::~AudioBlock()
-{
-  ClearDownstreamMark();
-}
+AudioBlock::~AudioBlock() { ClearDownstreamMark(); }
 
 void
 AudioBlock::SetBuffer(ThreadSharedObject* aNewBuffer)
@@ -120,7 +122,8 @@ AudioBlock::SetBuffer(ThreadSharedObject* aNewBuffer)
 }
 
 void
-AudioBlock::ClearDownstreamMark() {
+AudioBlock::ClearDownstreamMark()
+{
   if (mBufferIsDownstreamRef) {
     mBuffer->AsAudioBlockBuffer()->DownstreamRefRemoved();
     mBufferIsDownstreamRef = false;
@@ -128,11 +131,12 @@ AudioBlock::ClearDownstreamMark() {
 }
 
 bool
-AudioBlock::CanWrite() {
+AudioBlock::CanWrite()
+{
   // If mBufferIsDownstreamRef is set then the buffer is not ours to use.
   // It may be in use by another node which is not downstream.
   return !mBufferIsDownstreamRef &&
-    !mBuffer->AsAudioBlockBuffer()->HasLastingShares();
+         !mBuffer->AsAudioBlockBuffer()->HasLastingShares();
 }
 
 void
@@ -163,4 +167,4 @@ AudioBlock::AllocateChannels(uint32_t aChannelCount)
   mBufferFormat = AUDIO_FORMAT_FLOAT32;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

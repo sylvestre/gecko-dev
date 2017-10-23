@@ -21,20 +21,28 @@ static_assert(sizeof(Result<Ok, Failed&>) == sizeof(uintptr_t),
               "Result with empty value type should be pointer-sized");
 static_assert(sizeof(Result<int*, Failed&>) == sizeof(uintptr_t),
               "Result with two aligned pointer types should be pointer-sized");
-static_assert(sizeof(Result<char*, Failed*>) > sizeof(char*),
-              "Result with unaligned success type `char*` must not be pointer-sized");
-static_assert(sizeof(Result<int*, char*>) > sizeof(char*),
-              "Result with unaligned error type `char*` must not be pointer-sized");
+static_assert(
+    sizeof(Result<char*, Failed*>) > sizeof(char*),
+    "Result with unaligned success type `char*` must not be pointer-sized");
+static_assert(
+    sizeof(Result<int*, char*>) > sizeof(char*),
+    "Result with unaligned error type `char*` must not be pointer-sized");
 
-enum Foo8 : uint8_t {};
-enum Foo16 : uint16_t {};
-enum Foo32 : uint32_t {};
+enum Foo8 : uint8_t
+{
+};
+enum Foo16 : uint16_t
+{
+};
+enum Foo32 : uint32_t
+{
+};
 static_assert(sizeof(Result<Ok, Foo8>) <= sizeof(uintptr_t),
               "Result with small types should be pointer-sized");
 static_assert(sizeof(Result<Ok, Foo16>) <= sizeof(uintptr_t),
               "Result with small types should be pointer-sized");
 static_assert(sizeof(Foo32) >= sizeof(uintptr_t) ||
-              sizeof(Result<Ok, Foo32>) <= sizeof(uintptr_t),
+                  sizeof(Result<Ok, Foo32>) <= sizeof(uintptr_t),
               "Result with small types should be pointer-sized");
 
 static_assert(sizeof(Result<Foo16, Foo8>) <= sizeof(uintptr_t),
@@ -42,10 +50,10 @@ static_assert(sizeof(Result<Foo16, Foo8>) <= sizeof(uintptr_t),
 static_assert(sizeof(Result<Foo8, Foo16>) <= sizeof(uintptr_t),
               "Result with small types should be pointer-sized");
 static_assert(sizeof(Foo32) >= sizeof(uintptr_t) ||
-              sizeof(Result<Foo32, Foo16>) <= sizeof(uintptr_t),
+                  sizeof(Result<Foo32, Foo16>) <= sizeof(uintptr_t),
               "Result with small types should be pointer-sized");
 static_assert(sizeof(Foo32) >= sizeof(uintptr_t) ||
-              sizeof(Result<Foo16, Foo32>) <= sizeof(uintptr_t),
+                  sizeof(Result<Foo16, Foo32>) <= sizeof(uintptr_t),
               "Result with small types should be pointer-sized");
 
 static GenericErrorResult<Failed&>
@@ -67,8 +75,9 @@ Task1(bool pass)
 static Result<int, Failed&>
 Task2(bool pass, int value)
 {
-  MOZ_TRY(Task1(pass)); // converts one type of result to another in the error case
-  return value;  // implicit conversion from T to Result<T, E>
+  MOZ_TRY(
+      Task1(pass));  // converts one type of result to another in the error case
+  return value;      // implicit conversion from T to Result<T, E>
 }
 
 static Result<int, Failed&>
@@ -138,10 +147,11 @@ BasicTests()
   }
 }
 
-
 /* * */
 
-struct Snafu : Failed {};
+struct Snafu : Failed
+{
+};
 
 static Result<Ok, Snafu*>
 Explode()
@@ -166,7 +176,9 @@ TypeConversionTests()
 static void
 EmptyValueTest()
 {
-  struct Fine {};
+  struct Fine
+  {
+  };
   mozilla::Result<Fine, int&> res((Fine()));
   res.unwrap();
   MOZ_RELEASE_ASSERT(res.isOk());
@@ -177,7 +189,10 @@ EmptyValueTest()
 static void
 ReferenceTest()
 {
-  struct MyError { int x = 0; };
+  struct MyError
+  {
+    int x = 0;
+  };
   MyError merror;
   Result<int, MyError&> res(merror);
   MOZ_RELEASE_ASSERT(&res.unwrapErr() == &merror);
@@ -186,10 +201,11 @@ ReferenceTest()
 static void
 MapTest()
 {
-  struct MyError {
+  struct MyError
+  {
     int x;
 
-    explicit MyError(int y) : x(y) { }
+    explicit MyError(int y) : x(y) {}
   };
 
   // Mapping over success values.
@@ -227,9 +243,8 @@ AndThenTest()
 {
   // `andThen`ing over success results.
   Result<int, const char*> r1(10);
-  Result<int, const char*> r2 = r1.andThen([](int x) {
-    return Result<int, const char*>(x + 1);
-  });
+  Result<int, const char*> r2 =
+      r1.andThen([](int x) { return Result<int, const char*>(x + 1); });
   MOZ_RELEASE_ASSERT(r2.isOk());
   MOZ_RELEASE_ASSERT(r2.unwrap() == 11);
 
@@ -245,7 +260,8 @@ AndThenTest()
 
 /* * */
 
-int main()
+int
+main()
 {
   BasicTests();
   TypeConversionTests();

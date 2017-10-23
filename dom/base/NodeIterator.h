@@ -26,97 +26,89 @@ class NodeIterator final : public nsIDOMNodeIterator,
                            public nsTraversal,
                            public nsStubMutationObserver
 {
-public:
-    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-    NS_DECL_NSIDOMNODEITERATOR
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_NSIDOMNODEITERATOR
 
-    NodeIterator(nsINode *aRoot,
-                 uint32_t aWhatToShow,
-                 NodeFilterHolder aFilter);
+  NodeIterator(nsINode* aRoot, uint32_t aWhatToShow, NodeFilterHolder aFilter);
 
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
 
-    NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(NodeIterator, nsIDOMNodeIterator)
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(NodeIterator, nsIDOMNodeIterator)
 
-    // WebIDL API
-    nsINode* Root() const
-    {
-        return mRoot;
+  // WebIDL API
+  nsINode* Root() const { return mRoot; }
+  nsINode* GetReferenceNode() const { return mPointer.mNode; }
+  bool PointerBeforeReferenceNode() const { return mPointer.mBeforeNode; }
+  uint32_t WhatToShow() const { return mWhatToShow; }
+  already_AddRefed<NodeFilter> GetFilter()
+  {
+    return mFilter.ToWebIDLCallback();
+  }
+  already_AddRefed<nsINode> NextNode(ErrorResult& aResult)
+  {
+    return NextOrPrevNode(&NodePointer::MoveToNext, aResult);
+  }
+  already_AddRefed<nsINode> PreviousNode(ErrorResult& aResult)
+  {
+    return NextOrPrevNode(&NodePointer::MoveToPrevious, aResult);
+  }
+  // The XPCOM Detach() is fine for our purposes
+
+  bool WrapObject(JSContext* cx,
+                  JS::Handle<JSObject*> aGivenProto,
+                  JS::MutableHandle<JSObject*> aReflector);
+
+ private:
+  virtual ~NodeIterator();
+
+  struct NodePointer
+  {
+    NodePointer() : mNode(nullptr) {}
+    NodePointer(nsINode* aNode, bool aBeforeNode);
+
+    typedef bool (NodePointer::*MoveToMethodType)(nsINode*);
+    bool MoveToNext(nsINode* aRoot);
+    bool MoveToPrevious(nsINode* aRoot);
+
+    bool MoveForward(nsINode* aRoot, nsINode* aNode);
+    void MoveBackward(nsINode* aParent, nsINode* aNode);
+
+    void AdjustAfterRemoval(nsINode* aRoot,
+                            nsINode* aContainer,
+                            nsIContent* aChild,
+                            nsIContent* aPreviousSibling);
+
+    void Clear() { mNode = nullptr; }
+
+    nsINode* mNode;
+    bool mBeforeNode;
+  };
+
+  // Implementation for some of our XPCOM getters
+  typedef already_AddRefed<nsINode> (NodeIterator::*NodeGetter)(ErrorResult&);
+  inline nsresult ImplNodeGetter(NodeGetter aGetter, nsIDOMNode** aRetval)
+  {
+    mozilla::ErrorResult rv;
+    nsCOMPtr<nsINode> node = (this->*aGetter)(rv);
+    if (rv.Failed()) {
+      return rv.StealNSResult();
     }
-    nsINode* GetReferenceNode() const
-    {
-        return mPointer.mNode;
-    }
-    bool PointerBeforeReferenceNode() const
-    {
-        return mPointer.mBeforeNode;
-    }
-    uint32_t WhatToShow() const
-    {
-        return mWhatToShow;
-    }
-    already_AddRefed<NodeFilter> GetFilter()
-    {
-        return mFilter.ToWebIDLCallback();
-    }
-    already_AddRefed<nsINode> NextNode(ErrorResult& aResult)
-    {
-        return NextOrPrevNode(&NodePointer::MoveToNext, aResult);
-    }
-    already_AddRefed<nsINode> PreviousNode(ErrorResult& aResult)
-    {
-        return NextOrPrevNode(&NodePointer::MoveToPrevious, aResult);
-    }
-    // The XPCOM Detach() is fine for our purposes
+    *aRetval = node ? node.forget().take()->AsDOMNode() : nullptr;
+    return NS_OK;
+  }
 
-    bool WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto, JS::MutableHandle<JSObject*> aReflector);
+  // Have to return a strong ref, because the act of testing the node can
+  // remove it from the DOM so we're holding the only ref to it.
+  already_AddRefed<nsINode> NextOrPrevNode(NodePointer::MoveToMethodType aMove,
+                                           ErrorResult& aResult);
 
-private:
-    virtual ~NodeIterator();
-
-    struct NodePointer {
-        NodePointer() : mNode(nullptr) {}
-        NodePointer(nsINode *aNode, bool aBeforeNode);
-
-        typedef bool (NodePointer::*MoveToMethodType)(nsINode*);
-        bool MoveToNext(nsINode *aRoot);
-        bool MoveToPrevious(nsINode *aRoot);
-
-        bool MoveForward(nsINode *aRoot, nsINode *aNode);
-        void MoveBackward(nsINode *aParent, nsINode *aNode);
-
-        void AdjustAfterRemoval(nsINode *aRoot, nsINode *aContainer, nsIContent *aChild, nsIContent *aPreviousSibling);
-
-        void Clear() { mNode = nullptr; }
-
-        nsINode *mNode;
-        bool mBeforeNode;
-    };
-
-    // Implementation for some of our XPCOM getters
-    typedef already_AddRefed<nsINode> (NodeIterator::*NodeGetter)(ErrorResult&);
-    inline nsresult ImplNodeGetter(NodeGetter aGetter, nsIDOMNode** aRetval)
-    {
-        mozilla::ErrorResult rv;
-        nsCOMPtr<nsINode> node = (this->*aGetter)(rv);
-        if (rv.Failed()) {
-            return rv.StealNSResult();
-        }
-        *aRetval = node ? node.forget().take()->AsDOMNode() : nullptr;
-        return NS_OK;
-    }
-
-    // Have to return a strong ref, because the act of testing the node can
-    // remove it from the DOM so we're holding the only ref to it.
-    already_AddRefed<nsINode>
-    NextOrPrevNode(NodePointer::MoveToMethodType aMove, ErrorResult& aResult);
-
-    NodePointer mPointer;
-    NodePointer mWorkingPointer;
+  NodePointer mPointer;
+  NodePointer mWorkingPointer;
 };
 
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_dom_NodeIterator_h
+#endif  // mozilla_dom_NodeIterator_h

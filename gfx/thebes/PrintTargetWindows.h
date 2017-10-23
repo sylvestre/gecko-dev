@@ -19,9 +19,8 @@ namespace gfx {
  */
 class PrintTargetWindows final : public PrintTarget
 {
-public:
-  static already_AddRefed<PrintTargetWindows>
-  CreateOrNull(HDC aDC);
+ public:
+  static already_AddRefed<PrintTargetWindows> CreateOrNull(HDC aDC);
 
   virtual nsresult BeginPrinting(const nsAString& aTitle,
                                  const nsAString& aPrintToFileName,
@@ -32,14 +31,14 @@ public:
   virtual nsresult BeginPage() override;
   virtual nsresult EndPage() override;
 
-private:
+ private:
   PrintTargetWindows(cairo_surface_t* aCairoSurface,
                      const IntSize& aSize,
                      HDC aDC);
   HDC mDC;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_PRINTTARGETWINDOWS_H */

@@ -6,28 +6,28 @@
 
 #include "mozilla/layers/CompositorVsyncScheduler.h"
 
-#include <stdio.h>                      // for fprintf, stdout
-#include <stdint.h>                     // for uint64_t
-#include "base/task.h"                  // for CancelableTask, etc
-#include "base/thread.h"                // for Thread
-#include "gfxPlatform.h"                // for gfxPlatform
+#include <stdio.h>        // for fprintf, stdout
+#include <stdint.h>       // for uint64_t
+#include "base/task.h"    // for CancelableTask, etc
+#include "base/thread.h"  // for Thread
+#include "gfxPlatform.h"  // for gfxPlatform
 #ifdef MOZ_WIDGET_GTK
-#include "gfxPlatformGtk.h"             // for gfxPlatform
+#include "gfxPlatformGtk.h"  // for gfxPlatform
 #endif
-#include "gfxPrefs.h"                   // for gfxPrefs
-#include "mozilla/AutoRestore.h"        // for AutoRestore
-#include "mozilla/DebugOnly.h"          // for DebugOnly
-#include "mozilla/gfx/2D.h"             // for DrawTarget
-#include "mozilla/gfx/Point.h"          // for IntSize
-#include "mozilla/gfx/Rect.h"           // for IntSize
+#include "gfxPrefs.h"             // for gfxPrefs
+#include "mozilla/AutoRestore.h"  // for AutoRestore
+#include "mozilla/DebugOnly.h"    // for DebugOnly
+#include "mozilla/gfx/2D.h"       // for DrawTarget
+#include "mozilla/gfx/Point.h"    // for IntSize
+#include "mozilla/gfx/Rect.h"     // for IntSize
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/CompositorVsyncSchedulerOwner.h"
-#include "mozilla/mozalloc.h"           // for operator new, etc
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsDebug.h"                    // for NS_ASSERTION, etc
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsIWidget.h"                  // for nsIWidget
-#include "nsThreadUtils.h"              // for NS_IsMainThread
+#include "mozilla/mozalloc.h"  // for operator new, etc
+#include "nsCOMPtr.h"          // for already_AddRefed
+#include "nsDebug.h"           // for NS_ASSERTION, etc
+#include "nsISupportsImpl.h"   // for MOZ_COUNT_CTOR, etc
+#include "nsIWidget.h"         // for nsIWidget
+#include "nsThreadUtils.h"     // for NS_IsMainThread
 #include "mozilla/Telemetry.h"
 #include "mozilla/VsyncDispatcher.h"
 #if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
@@ -45,15 +45,11 @@ using namespace mozilla::gfx;
 using namespace std;
 
 CompositorVsyncScheduler::Observer::Observer(CompositorVsyncScheduler* aOwner)
-  : mMutex("CompositorVsyncScheduler.Observer.Mutex")
-  , mOwner(aOwner)
+    : mMutex("CompositorVsyncScheduler.Observer.Mutex"), mOwner(aOwner)
 {
 }
 
-CompositorVsyncScheduler::Observer::~Observer()
-{
-  MOZ_ASSERT(!mOwner);
-}
+CompositorVsyncScheduler::Observer::~Observer() { MOZ_ASSERT(!mOwner); }
 
 bool
 CompositorVsyncScheduler::Observer::NotifyVsync(TimeStamp aVsyncTimestamp)
@@ -72,20 +68,21 @@ CompositorVsyncScheduler::Observer::Destroy()
   mOwner = nullptr;
 }
 
-CompositorVsyncScheduler::CompositorVsyncScheduler(CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
-                                                   widget::CompositorWidget* aWidget)
-  : mVsyncSchedulerOwner(aVsyncSchedulerOwner)
-  , mLastCompose(TimeStamp::Now())
-  , mIsObservingVsync(false)
-  , mNeedsComposite(0)
-  , mVsyncNotificationsSkipped(0)
-  , mWidget(aWidget)
-  , mCurrentCompositeTaskMonitor("CurrentCompositeTaskMonitor")
-  , mCurrentCompositeTask(nullptr)
-  , mSetNeedsCompositeMonitor("SetNeedsCompositeMonitor")
-  , mSetNeedsCompositeTask(nullptr)
-  , mCurrentVRListenerTaskMonitor("CurrentVRTaskMonitor")
-  , mCurrentVRListenerTask(nullptr)
+CompositorVsyncScheduler::CompositorVsyncScheduler(
+    CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
+    widget::CompositorWidget* aWidget)
+    : mVsyncSchedulerOwner(aVsyncSchedulerOwner),
+      mLastCompose(TimeStamp::Now()),
+      mIsObservingVsync(false),
+      mNeedsComposite(0),
+      mVsyncNotificationsSkipped(0),
+      mWidget(aWidget),
+      mCurrentCompositeTaskMonitor("CurrentCompositeTaskMonitor"),
+      mCurrentCompositeTask(nullptr),
+      mSetNeedsCompositeMonitor("SetNeedsCompositeMonitor"),
+      mSetNeedsCompositeTask(nullptr),
+      mCurrentVRListenerTaskMonitor("CurrentVRTaskMonitor"),
+      mCurrentVRListenerTask(nullptr)
 {
   mVsyncObserver = new Observer(this);
 
@@ -126,19 +123,19 @@ CompositorVsyncScheduler::PostCompositeTask(TimeStamp aCompositeTimestamp)
   MonitorAutoLock lock(mCurrentCompositeTaskMonitor);
   if (mCurrentCompositeTask == nullptr && CompositorThreadHolder::Loop()) {
     RefPtr<CancelableRunnable> task = NewCancelableRunnableMethod<TimeStamp>(
-      "layers::CompositorVsyncScheduler::Composite",
-      this,
-      &CompositorVsyncScheduler::Composite,
-      aCompositeTimestamp);
+        "layers::CompositorVsyncScheduler::Composite",
+        this,
+        &CompositorVsyncScheduler::Composite,
+        aCompositeTimestamp);
     mCurrentCompositeTask = task;
     ScheduleTask(task.forget(), 0);
   }
   if (mCurrentVRListenerTask == nullptr && VRListenerThreadHolder::Loop()) {
     RefPtr<CancelableRunnable> task = NewCancelableRunnableMethod<TimeStamp>(
-      "layers::CompositorVsyncScheduler::DispatchVREvents",
-      this,
-      &CompositorVsyncScheduler::DispatchVREvents,
-      aCompositeTimestamp);
+        "layers::CompositorVsyncScheduler::DispatchVREvents",
+        this,
+        &CompositorVsyncScheduler::DispatchVREvents,
+        aCompositeTimestamp);
     mCurrentVRListenerTask = task;
     MOZ_ASSERT(VRListenerThreadHolder::Loop());
     VRListenerThreadHolder::Loop()->PostDelayedTask(Move(task.forget()), 0);
@@ -197,9 +194,9 @@ CompositorVsyncScheduler::SetNeedsComposite()
   if (!CompositorThreadHolder::IsInCompositorThread()) {
     MonitorAutoLock lock(mSetNeedsCompositeMonitor);
     RefPtr<CancelableRunnable> task = NewCancelableRunnableMethod(
-      "layers::CompositorVsyncScheduler::SetNeedsComposite",
-      this,
-      &CompositorVsyncScheduler::SetNeedsComposite);
+        "layers::CompositorVsyncScheduler::SetNeedsComposite",
+        this,
+        &CompositorVsyncScheduler::SetNeedsComposite);
     mSetNeedsCompositeTask = task;
     ScheduleTask(task.forget(), 0);
     return;
@@ -224,8 +221,10 @@ CompositorVsyncScheduler::NotifyVsync(TimeStamp aVsyncTimestamp)
 {
   // Called from the vsync dispatch thread. When in the GPU Process, that's
   // the same as the compositor thread.
-  MOZ_ASSERT_IF(XRE_IsParentProcess(), !CompositorThreadHolder::IsInCompositorThread());
-  MOZ_ASSERT_IF(XRE_GetProcessType() == GeckoProcessType_GPU, CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT_IF(XRE_IsParentProcess(),
+                !CompositorThreadHolder::IsInCompositorThread());
+  MOZ_ASSERT_IF(XRE_GetProcessType() == GeckoProcessType_GPU,
+                CompositorThreadHolder::IsInCompositorThread());
   MOZ_ASSERT(!NS_IsMainThread());
   PostCompositeTask(aVsyncTimestamp);
   return true;
@@ -234,7 +233,8 @@ CompositorVsyncScheduler::NotifyVsync(TimeStamp aVsyncTimestamp)
 void
 CompositorVsyncScheduler::CancelCurrentCompositeTask()
 {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread() || NS_IsMainThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread() ||
+             NS_IsMainThread());
   MonitorAutoLock lock(mCurrentCompositeTaskMonitor);
   if (mCurrentCompositeTask) {
     mCurrentCompositeTask->Cancel();
@@ -275,9 +275,11 @@ CompositorVsyncScheduler::Composite(TimeStamp aVsyncTimestamp)
     mVsyncNotificationsSkipped = 0;
 
     TimeDuration compositeFrameTotal = TimeStamp::Now() - aVsyncTimestamp;
-    mozilla::Telemetry::Accumulate(mozilla::Telemetry::COMPOSITE_FRAME_ROUNDTRIP_TIME,
-                                   compositeFrameTotal.ToMilliseconds());
-  } else if (mVsyncNotificationsSkipped++ > gfxPrefs::CompositorUnobserveCount()) {
+    mozilla::Telemetry::Accumulate(
+        mozilla::Telemetry::COMPOSITE_FRAME_ROUNDTRIP_TIME,
+        compositeFrameTotal.ToMilliseconds());
+  } else if (mVsyncNotificationsSkipped++ >
+             gfxPrefs::CompositorUnobserveCount()) {
     UnobserveVsync();
   }
 }
@@ -300,7 +302,8 @@ CompositorVsyncScheduler::OnForceComposeToTarget()
 }
 
 void
-CompositorVsyncScheduler::ForceComposeToTarget(gfx::DrawTarget* aTarget, const IntRect* aRect)
+CompositorVsyncScheduler::ForceComposeToTarget(gfx::DrawTarget* aTarget,
+                                               const IntRect* aRect)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   OnForceComposeToTarget();
@@ -350,8 +353,8 @@ CompositorVsyncScheduler::DispatchVREvents(TimeStamp aVsyncTimestamp)
 }
 
 void
-CompositorVsyncScheduler::ScheduleTask(already_AddRefed<CancelableRunnable> aTask,
-                                       int aTime)
+CompositorVsyncScheduler::ScheduleTask(
+    already_AddRefed<CancelableRunnable> aTask, int aTime)
 {
   MOZ_ASSERT(CompositorThreadHolder::Loop());
   MOZ_ASSERT(aTime >= 0);
@@ -367,12 +370,13 @@ CompositorVsyncScheduler::ResumeComposition()
 }
 
 void
-CompositorVsyncScheduler::ComposeToTarget(gfx::DrawTarget* aTarget, const IntRect* aRect)
+CompositorVsyncScheduler::ComposeToTarget(gfx::DrawTarget* aTarget,
+                                          const IntRect* aRect)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   MOZ_ASSERT(mVsyncSchedulerOwner);
   mVsyncSchedulerOwner->CompositeToTarget(aTarget, aRect);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

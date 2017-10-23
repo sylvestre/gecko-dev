@@ -49,7 +49,8 @@ struct DebugFilesAutoLockTraits
 class DebugFilesAutoLock : public Scoped<DebugFilesAutoLockTraits>
 {
   static PRLock* Lock;
-public:
+
+ public:
   static PRLock* getDebugFileIDsLock()
   {
     // On windows this static is not thread safe, but we know that the first
@@ -67,8 +68,7 @@ public:
     return Lock;
   }
 
-  DebugFilesAutoLock()
-    : Scoped<DebugFilesAutoLockTraits>(getDebugFileIDsLock())
+  DebugFilesAutoLock() : Scoped<DebugFilesAutoLockTraits>(getDebugFileIDsLock())
   {
     PR_Lock(get());
   }
@@ -86,11 +86,13 @@ PRLock* DebugFilesAutoLock::Lock;
 // never deallocated (except in the destructor).
 // All operations are essentially O(N) but N is not expected to be large
 // enough to matter.
-template <typename T, size_t chunk_size=64>
-class ChunkedList {
-  struct ListChunk {
-    static const size_t kLength = \
-      (chunk_size - sizeof(ListChunk*)) / sizeof(mozilla::Atomic<T>);
+template<typename T, size_t chunk_size = 64>
+class ChunkedList
+{
+  struct ListChunk
+  {
+    static const size_t kLength =
+        (chunk_size - sizeof(ListChunk*)) / sizeof(mozilla::Atomic<T>);
 
     mozilla::Atomic<T> mElements[kLength];
     mozilla::UniquePtr<ListChunk> mNext;
@@ -101,10 +103,11 @@ class ChunkedList {
   ListChunk mList;
   mozilla::Atomic<size_t> mLength;
 
-public:
+ public:
   ChunkedList() : mLength(0) {}
 
-  ~ChunkedList() {
+  ~ChunkedList()
+  {
     // There can be writes happening after this destructor runs, so keep
     // the list contents and don't reset mLength. But if there are more
     // elements left than the first chunk can hold, then all hell breaks
@@ -118,7 +121,7 @@ public:
   // This is not thread-safe with another thread calling Add or Remove.
   void Add(T aValue)
   {
-    ListChunk *list = &mList;
+    ListChunk* list = &mList;
     size_t position = mLength;
     for (; position >= ListChunk::kLength; position -= ListChunk::kLength) {
       if (!list->mNext) {
@@ -140,14 +143,14 @@ public:
     if (!mLength) {
       return;
     }
-    ListChunk *list = &mList;
+    ListChunk* list = &mList;
     size_t last = mLength - 1;
     do {
       size_t position = 0;
       // Look for an element matching the given value.
       for (; position < ListChunk::kLength; position++) {
         if (aValue == list->mElements[position]) {
-          ListChunk *last_list = list;
+          ListChunk* last_list = list;
           // Look for the last element in the list, starting from where we are
           // instead of starting over.
           for (; last >= ListChunk::kLength; last -= ListChunk::kLength) {
@@ -171,7 +174,7 @@ public:
   // if another thread adds or removes an element while this function runs.
   bool Contains(T aValue)
   {
-    ListChunk *list = &mList;
+    ListChunk* list = &mList;
     // Fix the range of the lookup to whatever the list length is when the
     // function is called.
     size_t length = mLength;
@@ -202,7 +205,7 @@ getDebugFileIDs()
   return DebugFileIDs;
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -214,7 +217,7 @@ IsDebugFile(intptr_t aFileID)
   return getDebugFileIDs().Contains(aFileID);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 extern "C" {
 

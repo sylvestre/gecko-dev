@@ -18,7 +18,7 @@ namespace mozilla {
 
 class ProfileUnlockerWin final : public nsIProfileUnlocker
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPROFILEUNLOCKER
 
@@ -29,32 +29,33 @@ public:
   DWORD StartSession(DWORD& aHandle);
   void EndSession(DWORD aHandle);
 
-private:
+ private:
   ~ProfileUnlockerWin();
   nsresult TryToTerminate(RM_UNIQUE_PROCESS& aProcess);
 
-private:
-  typedef DWORD (WINAPI *RMSTARTSESSION)(DWORD*, DWORD, WCHAR[]);
-  typedef DWORD (WINAPI *RMREGISTERRESOURCES)(DWORD, UINT, LPCWSTR[], UINT,
-                                              RM_UNIQUE_PROCESS[], UINT,
-                                              LPCWSTR[]);
-  typedef DWORD (WINAPI *RMGETLIST)(DWORD, UINT*, UINT*, RM_PROCESS_INFO[],
-                                    LPDWORD);
-  typedef DWORD (WINAPI *RMENDSESSION)(DWORD);
-  typedef BOOL (WINAPI *QUERYFULLPROCESSIMAGENAME)(HANDLE, DWORD, LPWSTR, PDWORD);
+ private:
+  typedef DWORD(WINAPI* RMSTARTSESSION)(DWORD*, DWORD, WCHAR[]);
+  typedef DWORD(WINAPI* RMREGISTERRESOURCES)(
+      DWORD, UINT, LPCWSTR[], UINT, RM_UNIQUE_PROCESS[], UINT, LPCWSTR[]);
+  typedef DWORD(WINAPI* RMGETLIST)(
+      DWORD, UINT*, UINT*, RM_PROCESS_INFO[], LPDWORD);
+  typedef DWORD(WINAPI* RMENDSESSION)(DWORD);
+  typedef BOOL(WINAPI* QUERYFULLPROCESSIMAGENAME)(HANDLE,
+                                                  DWORD,
+                                                  LPWSTR,
+                                                  PDWORD);
 
-private:
-  nsModuleHandle            mRestartMgrModule;
-  RMSTARTSESSION            mRmStartSession;
-  RMREGISTERRESOURCES       mRmRegisterResources;
-  RMGETLIST                 mRmGetList;
-  RMENDSESSION              mRmEndSession;
+ private:
+  nsModuleHandle mRestartMgrModule;
+  RMSTARTSESSION mRmStartSession;
+  RMREGISTERRESOURCES mRmRegisterResources;
+  RMGETLIST mRmGetList;
+  RMENDSESSION mRmEndSession;
   QUERYFULLPROCESSIMAGENAME mQueryFullProcessImageName;
 
-  nsString                  mFileName;
+  nsString mFileName;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ProfileUnlockerWin_h
-
+#endif  // ProfileUnlockerWin_h

@@ -26,15 +26,10 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(EditTransactionBase)
 NS_IMPL_CYCLE_COLLECTING_RELEASE_WITH_LAST_RELEASE(EditTransactionBase,
                                                    LastRelease())
 
-EditTransactionBase::~EditTransactionBase()
-{
-}
+EditTransactionBase::~EditTransactionBase() {}
 
 NS_IMETHODIMP
-EditTransactionBase::RedoTransaction()
-{
-  return DoTransaction();
-}
+EditTransactionBase::RedoTransaction() { return DoTransaction(); }
 
 NS_IMETHODIMP
 EditTransactionBase::GetIsTransient(bool* aIsTransient)
@@ -52,4 +47,4 @@ EditTransactionBase::Merge(nsITransaction* aTransaction, bool* aDidMerge)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

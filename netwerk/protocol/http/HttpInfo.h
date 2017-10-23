@@ -14,12 +14,12 @@ struct HttpRetParams;
 
 class HttpInfo
 {
-public:
-    /* Calls getConnectionData method in nsHttpConnectionMgr. */
-    static void GetHttpConnectionData(nsTArray<HttpRetParams> *);
+ public:
+  /* Calls getConnectionData method in nsHttpConnectionMgr. */
+  static void GetHttpConnectionData(nsTArray<HttpRetParams>*);
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // nsHttpInfo__
+#endif  // nsHttpInfo__

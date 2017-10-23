@@ -14,7 +14,8 @@
 #include <unistd.h>
 
 #ifdef MOZ_MEMORY
-extern "C" int posix_memalign(void** memptr, size_t alignment, size_t size);
+extern "C" int
+posix_memalign(void** memptr, size_t alignment, size_t size);
 #endif
 
 #define MIN_VOLATILE_ALLOC_SIZE 8192
@@ -22,11 +23,7 @@ extern "C" int posix_memalign(void** memptr, size_t alignment, size_t size);
 namespace mozilla {
 
 VolatileBuffer::VolatileBuffer()
-  : mMutex("VolatileBuffer")
-  , mBuf(nullptr)
-  , mSize(0)
-  , mLockCount(0)
-  , mFd(-1)
+    : mMutex("VolatileBuffer"), mBuf(nullptr), mSize(0), mLockCount(0), mFd(-1)
 {
 }
 
@@ -34,8 +31,8 @@ bool
 VolatileBuffer::Init(size_t aSize, size_t aAlignment)
 {
   MOZ_ASSERT(!mSize && !mBuf, "Init called twice");
-  MOZ_ASSERT(!(aAlignment % sizeof(void *)),
-         "Alignment must be multiple of pointer size");
+  MOZ_ASSERT(!(aAlignment % sizeof(void*)),
+             "Alignment must be multiple of pointer size");
 
   mSize = aSize;
   if (aSize < MIN_VOLATILE_ALLOC_SIZE) {
@@ -96,7 +93,7 @@ VolatileBuffer::Lock(void** aBuf)
   }
 
   // Zero offset and zero length means we want to pin/unpin the entire thing.
-  struct ashmem_pin pin = { 0, 0 };
+  struct ashmem_pin pin = {0, 0};
   return ioctl(mFd, ASHMEM_PIN, &pin) == ASHMEM_NOT_PURGED;
 }
 
@@ -110,7 +107,7 @@ VolatileBuffer::Unlock()
     return;
   }
 
-  struct ashmem_pin pin = { 0, 0 };
+  struct ashmem_pin pin = {0, 0};
   ioctl(mFd, ASHMEM_UNPIN, &pin);
 }
 
@@ -136,4 +133,4 @@ VolatileBuffer::NonHeapSizeOfExcludingThis() const
   return (mSize + (PAGE_SIZE - 1)) & PAGE_MASK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

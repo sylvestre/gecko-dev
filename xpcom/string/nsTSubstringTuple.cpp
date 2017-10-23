@@ -10,7 +10,7 @@
  * computes the aggregate string length
  */
 
-template <typename T>
+template<typename T>
 typename nsTSubstringTuple<T>::size_type
 nsTSubstringTuple<T>::Length() const
 {
@@ -26,14 +26,13 @@ nsTSubstringTuple<T>::Length() const
   return len.value();
 }
 
-
 /**
  * writes the aggregate string to the given buffer. aBufLen is assumed
  * to be equal to or greater than the value returned by the Length()
  * method.  the string written to |aBuf| is not null-terminated.
  */
 
-template <typename T>
+template<typename T>
 void
 nsTSubstringTuple<T>::WriteTo(char_type* aBuf, uint32_t aBufLen) const
 {
@@ -49,13 +48,12 @@ nsTSubstringTuple<T>::WriteTo(char_type* aBuf, uint32_t aBufLen) const
   char_traits::copy(aBuf + headLen, mFragB->Data(), mFragB->Length());
 }
 
-
 /**
  * returns true if this tuple is dependent on (i.e., overlapping with)
  * the given char sequence.
  */
 
-template <typename T>
+template<typename T>
 bool
 nsTSubstringTuple<T>::IsDependentOn(const char_type* aStart,
                                     const char_type* aEnd) const

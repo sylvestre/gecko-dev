@@ -36,7 +36,6 @@
 // information, and can write that information out as a Breakpad
 // symbol file.
 
-
 //  (C) Copyright Greg Colvin and Beman Dawes 1998, 1999.
 //  Copyright (c) 2001, 2002 Peter Dimov
 //
@@ -47,7 +46,6 @@
 //
 //  See http://www.boost.org/libs/smart_ptr/scoped_ptr.htm for documentation.
 //
-
 
 // This file is derived from the following files in
 // toolkit/crashreporter/google-breakpad:
@@ -67,15 +65,14 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <cstddef>            // for std::ptrdiff_t
+#include <cstddef>  // for std::ptrdiff_t
 
 #include "mozilla/Assertions.h"
 
 namespace lul {
 
-using std::string;
 using std::map;
-
+using std::string;
 
 ////////////////////////////////////////////////////////////////
 // UniqueString
@@ -85,41 +82,43 @@ using std::map;
 class UniqueString;
 
 // Get the contained C string (debugging only)
-const char* FromUniqueString(const UniqueString*);
+const char*
+FromUniqueString(const UniqueString*);
 
 // Is the given string empty (that is, "") ?
-bool IsEmptyUniqueString(const UniqueString*);
-
+bool
+IsEmptyUniqueString(const UniqueString*);
 
 ////////////////////////////////////////////////////////////////
 // UniqueStringUniverse
 //
 
 // All UniqueStrings live in some specific UniqueStringUniverse.
-class UniqueStringUniverse {
-public:
+class UniqueStringUniverse
+{
+ public:
   UniqueStringUniverse() {}
   ~UniqueStringUniverse();
   // Convert a |string| to a UniqueString, that lives in this universe.
   const UniqueString* ToUniqueString(string str);
-private:
+
+ private:
   map<string, UniqueString*> map_;
 };
-
 
 ////////////////////////////////////////////////////////////////
 // GUID
 //
 
-typedef struct {
+typedef struct
+{
   uint32_t data1;
   uint16_t data2;
   uint16_t data3;
-  uint8_t  data4[8];
+  uint8_t data4[8];
 } MDGUID;  // GUID
 
 typedef MDGUID GUID;
-
 
 ////////////////////////////////////////////////////////////////
 // scoped_ptr
@@ -162,85 +161,88 @@ typedef MDGUID GUID;
 //  Use this to conditionally transfer ownership of a heap-allocated object
 //  to the caller, usually on method success.
 
-template <typename T>
-class scoped_ptr {
+template<typename T>
+class scoped_ptr
+{
  private:
-
   T* ptr;
 
-  scoped_ptr(scoped_ptr const &);
-  scoped_ptr & operator=(scoped_ptr const &);
+  scoped_ptr(scoped_ptr const&);
+  scoped_ptr& operator=(scoped_ptr const&);
 
  public:
-
   typedef T element_type;
 
-  explicit scoped_ptr(T* p = 0): ptr(p) {}
+  explicit scoped_ptr(T* p = 0) : ptr(p) {}
 
-  ~scoped_ptr() {
-    delete ptr;
-  }
+  ~scoped_ptr() { delete ptr; }
 
-  void reset(T* p = 0) {
+  void reset(T* p = 0)
+  {
     if (ptr != p) {
       delete ptr;
       ptr = p;
     }
   }
 
-  T& operator*() const {
+  T& operator*() const
+  {
     MOZ_ASSERT(ptr != 0);
     return *ptr;
   }
 
-  T* operator->() const  {
+  T* operator->() const
+  {
     MOZ_ASSERT(ptr != 0);
     return ptr;
   }
 
-  bool operator==(T* p) const {
-    return ptr == p;
-  }
+  bool operator==(T* p) const { return ptr == p; }
 
-  bool operator!=(T* p) const {
-    return ptr != p;
-  }
+  bool operator!=(T* p) const { return ptr != p; }
 
-  T* get() const  {
-    return ptr;
-  }
+  T* get() const { return ptr; }
 
-  void swap(scoped_ptr & b) {
+  void swap(scoped_ptr& b)
+  {
     T* tmp = b.ptr;
     b.ptr = ptr;
     ptr = tmp;
   }
 
-  T* release() {
+  T* release()
+  {
     T* tmp = ptr;
     ptr = 0;
     return tmp;
   }
 
  private:
-
   // no reason to use these: each scoped_ptr should have its own object
-  template <typename U> bool operator==(scoped_ptr<U> const& p) const;
-  template <typename U> bool operator!=(scoped_ptr<U> const& p) const;
+  template<typename U>
+  bool operator==(scoped_ptr<U> const& p) const;
+  template<typename U>
+  bool operator!=(scoped_ptr<U> const& p) const;
 };
 
-template<typename T> inline
-void swap(scoped_ptr<T>& a, scoped_ptr<T>& b) {
+template<typename T>
+inline void
+swap(scoped_ptr<T>& a, scoped_ptr<T>& b)
+{
   a.swap(b);
 }
 
-template<typename T> inline
-bool operator==(T* p, const scoped_ptr<T>& b) {
+template<typename T>
+inline bool
+operator==(T* p, const scoped_ptr<T>& b)
+{
   return p == b.get();
 }
 
-template<typename T> inline
-bool operator!=(T* p, const scoped_ptr<T>& b) {
+template<typename T>
+inline bool
+operator!=(T* p, const scoped_ptr<T>& b)
+{
   return p != b.get();
 }
 
@@ -249,185 +251,185 @@ bool operator!=(T* p, const scoped_ptr<T>& b) {
 //  reset(). Use shared_array or std::vector if your needs are more complex.
 
 template<typename T>
-class scoped_array {
+class scoped_array
+{
  private:
-
   T* ptr;
 
-  scoped_array(scoped_array const &);
-  scoped_array & operator=(scoped_array const &);
+  scoped_array(scoped_array const&);
+  scoped_array& operator=(scoped_array const&);
 
  public:
-
   typedef T element_type;
 
   explicit scoped_array(T* p = 0) : ptr(p) {}
 
-  ~scoped_array() {
-    delete[] ptr;
-  }
+  ~scoped_array() { delete[] ptr; }
 
-  void reset(T* p = 0) {
+  void reset(T* p = 0)
+  {
     if (ptr != p) {
-      delete [] ptr;
+      delete[] ptr;
       ptr = p;
     }
   }
 
-  T& operator[](std::ptrdiff_t i) const {
+  T& operator[](std::ptrdiff_t i) const
+  {
     MOZ_ASSERT(ptr != 0);
     MOZ_ASSERT(i >= 0);
     return ptr[i];
   }
 
-  bool operator==(T* p) const {
-    return ptr == p;
-  }
+  bool operator==(T* p) const { return ptr == p; }
 
-  bool operator!=(T* p) const {
-    return ptr != p;
-  }
+  bool operator!=(T* p) const { return ptr != p; }
 
-  T* get() const {
-    return ptr;
-  }
+  T* get() const { return ptr; }
 
-  void swap(scoped_array & b) {
+  void swap(scoped_array& b)
+  {
     T* tmp = b.ptr;
     b.ptr = ptr;
     ptr = tmp;
   }
 
-  T* release() {
+  T* release()
+  {
     T* tmp = ptr;
     ptr = 0;
     return tmp;
   }
 
  private:
-
   // no reason to use these: each scoped_array should have its own object
-  template <typename U> bool operator==(scoped_array<U> const& p) const;
-  template <typename U> bool operator!=(scoped_array<U> const& p) const;
+  template<typename U>
+  bool operator==(scoped_array<U> const& p) const;
+  template<typename U>
+  bool operator!=(scoped_array<U> const& p) const;
 };
 
-template<class T> inline
-void swap(scoped_array<T>& a, scoped_array<T>& b) {
+template<class T>
+inline void
+swap(scoped_array<T>& a, scoped_array<T>& b)
+{
   a.swap(b);
 }
 
-template<typename T> inline
-bool operator==(T* p, const scoped_array<T>& b) {
+template<typename T>
+inline bool
+operator==(T* p, const scoped_array<T>& b)
+{
   return p == b.get();
 }
 
-template<typename T> inline
-bool operator!=(T* p, const scoped_array<T>& b) {
+template<typename T>
+inline bool
+operator!=(T* p, const scoped_array<T>& b)
+{
   return p != b.get();
 }
 
-
 // This class wraps the c library function free() in a class that can be
 // passed as a template argument to scoped_ptr_malloc below.
-class ScopedPtrMallocFree {
+class ScopedPtrMallocFree
+{
  public:
-  inline void operator()(void* x) const {
-    free(x);
-  }
+  inline void operator()(void* x) const { free(x); }
 };
 
 // scoped_ptr_malloc<> is similar to scoped_ptr<>, but it accepts a
 // second template argument, the functor used to free the object.
 
 template<typename T, typename FreeProc = ScopedPtrMallocFree>
-class scoped_ptr_malloc {
+class scoped_ptr_malloc
+{
  private:
-
   T* ptr;
 
-  scoped_ptr_malloc(scoped_ptr_malloc const &);
-  scoped_ptr_malloc & operator=(scoped_ptr_malloc const &);
+  scoped_ptr_malloc(scoped_ptr_malloc const&);
+  scoped_ptr_malloc& operator=(scoped_ptr_malloc const&);
 
  public:
-
   typedef T element_type;
 
-  explicit scoped_ptr_malloc(T* p = 0): ptr(p) {}
+  explicit scoped_ptr_malloc(T* p = 0) : ptr(p) {}
 
-  ~scoped_ptr_malloc() {
-    free_((void*) ptr);
-  }
+  ~scoped_ptr_malloc() { free_((void*)ptr); }
 
-  void reset(T* p = 0) {
+  void reset(T* p = 0)
+  {
     if (ptr != p) {
-      free_((void*) ptr);
+      free_((void*)ptr);
       ptr = p;
     }
   }
 
-  T& operator*() const {
+  T& operator*() const
+  {
     MOZ_ASSERT(ptr != 0);
     return *ptr;
   }
 
-  T* operator->() const {
+  T* operator->() const
+  {
     MOZ_ASSERT(ptr != 0);
     return ptr;
   }
 
-  bool operator==(T* p) const {
-    return ptr == p;
-  }
+  bool operator==(T* p) const { return ptr == p; }
 
-  bool operator!=(T* p) const {
-    return ptr != p;
-  }
+  bool operator!=(T* p) const { return ptr != p; }
 
-  T* get() const {
-    return ptr;
-  }
+  T* get() const { return ptr; }
 
-  void swap(scoped_ptr_malloc & b) {
+  void swap(scoped_ptr_malloc& b)
+  {
     T* tmp = b.ptr;
     b.ptr = ptr;
     ptr = tmp;
   }
 
-  T* release() {
+  T* release()
+  {
     T* tmp = ptr;
     ptr = 0;
     return tmp;
   }
 
  private:
-
   // no reason to use these: each scoped_ptr_malloc should have its own object
-  template <typename U, typename GP>
+  template<typename U, typename GP>
   bool operator==(scoped_ptr_malloc<U, GP> const& p) const;
-  template <typename U, typename GP>
+  template<typename U, typename GP>
   bool operator!=(scoped_ptr_malloc<U, GP> const& p) const;
 
   static FreeProc const free_;
 };
 
 template<typename T, typename FP>
-FP const scoped_ptr_malloc<T,FP>::free_ = FP();
+FP const scoped_ptr_malloc<T, FP>::free_ = FP();
 
-template<typename T, typename FP> inline
-void swap(scoped_ptr_malloc<T,FP>& a, scoped_ptr_malloc<T,FP>& b) {
+template<typename T, typename FP>
+inline void
+swap(scoped_ptr_malloc<T, FP>& a, scoped_ptr_malloc<T, FP>& b)
+{
   a.swap(b);
 }
 
-template<typename T, typename FP> inline
-bool operator==(T* p, const scoped_ptr_malloc<T,FP>& b) {
+template<typename T, typename FP>
+inline bool
+operator==(T* p, const scoped_ptr_malloc<T, FP>& b)
+{
   return p == b.get();
 }
 
-template<typename T, typename FP> inline
-bool operator!=(T* p, const scoped_ptr_malloc<T,FP>& b) {
+template<typename T, typename FP>
+inline bool
+operator!=(T* p, const scoped_ptr_malloc<T, FP>& b)
+{
   return p != b.get();
 }
-
 
 ////////////////////////////////////////////////////////////////
 // Module
@@ -437,8 +439,9 @@ bool operator!=(T* p, const scoped_ptr_malloc<T,FP>& b) {
 // for adding information produced by parsing STABS or DWARF data
 // --- possibly both from the same file --- and then writing out the
 // unified contents as a Breakpad-format symbol file.
-class Module {
-public:
+class Module
+{
+ public:
   // The type of addresses and sizes in a symbol table.
   typedef uint64_t Address;
 
@@ -446,16 +449,19 @@ public:
   // expression, in which case it is stored as a string, or a simple
   // expression of the form (identifier + imm) or *(identifier + imm).
   // It can also be invalid (denoting "no value").
-  enum ExprHow {
+  enum ExprHow
+  {
     kExprInvalid = 1,
     kExprPostfix,
     kExprSimple,
     kExprSimpleMem
   };
 
-  struct Expr {
+  struct Expr
+  {
     // Construct a simple-form expression
-    Expr(const UniqueString* ident, long offset, bool deref) {
+    Expr(const UniqueString* ident, long offset, bool deref)
+    {
       if (IsEmptyUniqueString(ident)) {
         Expr();
       } else {
@@ -467,7 +473,8 @@ public:
     }
 
     // Construct an invalid expression
-    Expr() {
+    Expr()
+    {
       postfix_ = "";
       ident_ = nullptr;
       offset_ = 0;
@@ -477,15 +484,19 @@ public:
     // Return the postfix expression string, either directly,
     // if this is a postfix expression, or by synthesising it
     // for a simple expression.
-    std::string getExprPostfix() const {
+    std::string getExprPostfix() const
+    {
       switch (how_) {
         case kExprPostfix:
           return postfix_;
         case kExprSimple:
         case kExprSimpleMem: {
           char buf[40];
-          sprintf(buf, " %ld %c%s", labs(offset_), offset_ < 0 ? '-' : '+',
-                                    how_ == kExprSimple ? "" : " ^");
+          sprintf(buf,
+                  " %ld %c%s",
+                  labs(offset_),
+                  offset_ < 0 ? '-' : '+',
+                  how_ == kExprSimple ? "" : " ^");
           return std::string(FromUniqueString(ident_)) + std::string(buf);
         }
         case kExprInvalid:
@@ -498,11 +509,11 @@ public:
     // The identifier that gives the starting value for simple expressions.
     const UniqueString* ident_;
     // The offset to add for simple expressions.
-    long        offset_;
+    long offset_;
     // The Postfix expression string to evaluate for non-simple expressions.
     std::string postfix_;
     // The operation expressed by this expression.
-    ExprHow     how_;
+    ExprHow how_;
   };
 
   // A map from register names to expressions that recover
@@ -520,7 +531,8 @@ public:
   // A range of 'STACK CFI' stack walking information. An instance of
   // this structure corresponds to a 'STACK CFI INIT' record and the
   // subsequent 'STACK CFI' records that fall within its range.
-  struct StackFrameEntry {
+  struct StackFrameEntry
+  {
     // The starting address and number of bytes of machine code this
     // entry covers.
     Address address, size;
@@ -538,17 +550,17 @@ public:
 
   // Create a new module with the given name, operating system,
   // architecture, and ID string.
-  Module(const std::string &name, const std::string &os,
-         const std::string &architecture, const std::string &id);
+  Module(const std::string& name,
+         const std::string& os,
+         const std::string& architecture,
+         const std::string& id);
   ~Module();
 
-private:
-
+ private:
   // Module header entries.
   std::string name_, os_, architecture_, id_;
 };
 
-
 }  // namespace lul
 
-#endif // LulCommonExt_h
+#endif  // LulCommonExt_h

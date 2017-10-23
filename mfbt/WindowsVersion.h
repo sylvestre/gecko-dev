@@ -44,7 +44,7 @@ IsWindowsVersionOrLater(uint32_t aVersion)
 
   if (VerifyVersionInfo(&info,
                         VER_MAJORVERSION | VER_MINORVERSION |
-                        VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
+                            VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
                         conditionMask)) {
     minVersion = aVersion;
     return true;
@@ -112,9 +112,10 @@ IsWindows10BuildOrLater(uint32_t aBuild)
   VER_SET_CONDITION(conditionMask, VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
   VER_SET_CONDITION(conditionMask, VER_SERVICEPACKMINOR, VER_GREATER_EQUAL);
 
-  if (VerifyVersionInfo(&info, VER_MAJORVERSION | VER_MINORVERSION |
-                        VER_BUILDNUMBER | VER_SERVICEPACKMAJOR |
-                        VER_SERVICEPACKMINOR, conditionMask)) {
+  if (VerifyVersionInfo(&info,
+                        VER_MAJORVERSION | VER_MINORVERSION | VER_BUILDNUMBER |
+                            VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
+                        conditionMask)) {
     minBuild = aBuild;
     return true;
   }
@@ -160,7 +161,8 @@ IsNotWin7PreRTM()
 }
 
 inline bool
-IsWin7AndPre2000Compatible() {
+IsWin7AndPre2000Compatible()
+{
   /*
    * See Bug 1279171.
    * We'd like to avoid using WMF on specific OS version when compatibility
@@ -185,8 +187,8 @@ IsWin7AndPre2000Compatible() {
 
   info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
 #pragma warning(push)
-#pragma warning(disable:4996)
-  bool success = GetVersionEx((LPOSVERSIONINFO) &info);
+#pragma warning(disable : 4996)
+  bool success = GetVersionEx((LPOSVERSIONINFO)&info);
 #pragma warning(pop)
   if (!success) {
     return false;
@@ -194,6 +196,6 @@ IsWin7AndPre2000Compatible() {
   return info.dwMajorVersion < 5;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_WindowsVersion_h */

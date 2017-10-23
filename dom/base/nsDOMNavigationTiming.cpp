@@ -28,9 +28,7 @@ nsDOMNavigationTiming::nsDOMNavigationTiming(nsDocShell* aDocShell)
   mDocShell = aDocShell;
 }
 
-nsDOMNavigationTiming::~nsDOMNavigationTiming()
-{
-}
+nsDOMNavigationTiming::~nsDOMNavigationTiming() {}
 
 void
 nsDOMNavigationTiming::Clear()
@@ -68,7 +66,8 @@ nsDOMNavigationTiming::NotifyNavigationStart(DocShellState aDocShellState)
 {
   mNavigationStartHighRes = (double)PR_Now() / PR_USEC_PER_MSEC;
   mNavigationStart = TimeStamp::Now();
-  mDocShellHasBeenActiveSinceNavigationStart = (aDocShellState == DocShellState::eActive);
+  mDocShellHasBeenActiveSinceNavigationStart =
+      (aDocShellState == DocShellState::eActive);
   PROFILER_ADD_MARKER("Navigation::Start");
 }
 
@@ -199,8 +198,8 @@ nsDOMNavigationTiming::NotifyDOMContentLoadedStart(nsIURI* aURI)
   PROFILER_TRACING("Navigation", "DOMContentLoaded", TRACING_INTERVAL_START);
 
   if (IsTopLevelContentDocumentInContentProcess()) {
-    Telemetry::AccumulateTimeDelta(Telemetry::TIME_TO_DOM_CONTENT_LOADED_START_MS,
-                                   mNavigationStart);
+    Telemetry::AccumulateTimeDelta(
+        Telemetry::TIME_TO_DOM_CONTENT_LOADED_START_MS, mNavigationStart);
   }
 }
 
@@ -242,8 +241,13 @@ nsDOMNavigationTiming::NotifyNonBlankPaintForRootContentDocument()
       mLoadedURI->GetSpec(spec);
     }
     nsPrintfCString marker("Non-blank paint after %dms for URL %s, %s",
-                           int(elapsed.ToMilliseconds()), spec.get(),
-                           mDocShellHasBeenActiveSinceNavigationStart ? "foreground tab" : "this tab was inactive some of the time between navigation start and first non-blank paint");
+                           int(elapsed.ToMilliseconds()),
+                           spec.get(),
+                           mDocShellHasBeenActiveSinceNavigationStart
+                               ? "foreground tab"
+                               : "this tab was inactive some of the time "
+                                 "between navigation start and first non-blank "
+                                 "paint");
     profiler_add_marker(marker.get());
   }
 #endif
@@ -259,7 +263,7 @@ void
 nsDOMNavigationTiming::NotifyDocShellStateChanged(DocShellState aDocShellState)
 {
   mDocShellHasBeenActiveSinceNavigationStart &=
-    (aDocShellState == DocShellState::eActive);
+      (aDocShellState == DocShellState::eActive);
 }
 
 mozilla::TimeStamp

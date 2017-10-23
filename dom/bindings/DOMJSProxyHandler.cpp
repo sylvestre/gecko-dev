@@ -42,8 +42,8 @@ DOMProxyShadows(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id)
       return js::ShadowCheckFailed;
 
     if (hasOwn) {
-      return isOverrideBuiltins ?
-        js::ShadowsViaIndirectExpando : js::ShadowsViaDirectExpando;
+      return isOverrideBuiltins ? js::ShadowsViaIndirectExpando
+                                : js::ShadowsViaDirectExpando;
     }
   }
 
@@ -62,8 +62,9 @@ DOMProxyShadows(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id)
 // Store the information for the specialized ICs.
 struct SetDOMProxyInformation
 {
-  SetDOMProxyInformation() {
-    js::SetDOMProxyInformation((const void*) &DOMProxyHandler::family,
+  SetDOMProxyInformation()
+  {
+    js::SetDOMProxyInformation((const void*)&DOMProxyHandler::family,
                                DOMProxyShadows);
   }
 };
@@ -84,7 +85,7 @@ DOMProxyHandler::GetAndClearExpandoObject(JSObject* obj)
     js::SetProxyPrivate(obj, UndefinedValue());
   } else {
     js::ExpandoAndGeneration* expandoAndGeneration =
-      static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
+        static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
     v = expandoAndGeneration->expando;
     if (v.isUndefined()) {
       return nullptr;
@@ -105,7 +106,6 @@ DOMProxyHandler::GetAndClearExpandoObject(JSObject* obj)
     expandoAndGeneration->expando = UndefinedValue();
   }
 
-
   return &v.toObject();
 }
 
@@ -121,7 +121,8 @@ DOMProxyHandler::EnsureExpandoObject(JSContext* cx, JS::Handle<JSObject*> obj)
 
   js::ExpandoAndGeneration* expandoAndGeneration;
   if (!v.isUndefined()) {
-    expandoAndGeneration = static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
+    expandoAndGeneration =
+        static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
     if (expandoAndGeneration->expando.isObject()) {
       return &expandoAndGeneration->expando.toObject();
     }
@@ -129,8 +130,8 @@ DOMProxyHandler::EnsureExpandoObject(JSContext* cx, JS::Handle<JSObject*> obj)
     expandoAndGeneration = nullptr;
   }
 
-  JS::Rooted<JSObject*> expando(cx,
-    JS_NewObjectWithGivenProto(cx, nullptr, nullptr));
+  JS::Rooted<JSObject*> expando(
+      cx, JS_NewObjectWithGivenProto(cx, nullptr, nullptr));
   if (!expando) {
     return nullptr;
   }
@@ -151,7 +152,8 @@ DOMProxyHandler::EnsureExpandoObject(JSContext* cx, JS::Handle<JSObject*> obj)
 }
 
 bool
-DOMProxyHandler::preventExtensions(JSContext* cx, JS::Handle<JSObject*> proxy,
+DOMProxyHandler::preventExtensions(JSContext* cx,
+                                   JS::Handle<JSObject*> proxy,
                                    JS::ObjectOpResult& result) const
 {
   // always extensible per WebIDL
@@ -159,26 +161,32 @@ DOMProxyHandler::preventExtensions(JSContext* cx, JS::Handle<JSObject*> proxy,
 }
 
 bool
-DOMProxyHandler::isExtensible(JSContext *cx, JS::Handle<JSObject*> proxy, bool *extensible) const
+DOMProxyHandler::isExtensible(JSContext* cx,
+                              JS::Handle<JSObject*> proxy,
+                              bool* extensible) const
 {
   *extensible = true;
   return true;
 }
 
 bool
-BaseDOMProxyHandler::getOwnPropertyDescriptor(JSContext* cx,
-                                              JS::Handle<JSObject*> proxy,
-                                              JS::Handle<jsid> id,
-                                              MutableHandle<PropertyDescriptor> desc) const
+BaseDOMProxyHandler::getOwnPropertyDescriptor(
+    JSContext* cx,
+    JS::Handle<JSObject*> proxy,
+    JS::Handle<jsid> id,
+    MutableHandle<PropertyDescriptor> desc) const
 {
-  return getOwnPropDescriptor(cx, proxy, id, /* ignoreNamedProps = */ false,
-                              desc);
+  return getOwnPropDescriptor(
+      cx, proxy, id, /* ignoreNamedProps = */ false, desc);
 }
 
 bool
-DOMProxyHandler::defineProperty(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
+DOMProxyHandler::defineProperty(JSContext* cx,
+                                JS::Handle<JSObject*> proxy,
+                                JS::Handle<jsid> id,
                                 Handle<PropertyDescriptor> desc,
-                                JS::ObjectOpResult &result, bool *defined) const
+                                JS::ObjectOpResult& result,
+                                bool* defined) const
 {
   if (xpc::WrapperFactory::IsXrayWrapper(proxy)) {
     return result.succeed();
@@ -197,9 +205,12 @@ DOMProxyHandler::defineProperty(JSContext* cx, JS::Handle<JSObject*> proxy, JS::
 }
 
 bool
-DOMProxyHandler::set(JSContext *cx, Handle<JSObject*> proxy, Handle<jsid> id,
-                     Handle<JS::Value> v, Handle<JS::Value> receiver,
-                     ObjectOpResult &result) const
+DOMProxyHandler::set(JSContext* cx,
+                     Handle<JSObject*> proxy,
+                     Handle<jsid> id,
+                     Handle<JS::Value> v,
+                     Handle<JS::Value> receiver,
+                     ObjectOpResult& result) const
 {
   MOZ_ASSERT(!xpc::WrapperFactory::IsXrayWrapper(proxy),
              "Should not have a XrayWrapper here");
@@ -214,19 +225,23 @@ DOMProxyHandler::set(JSContext *cx, Handle<JSObject*> proxy, Handle<jsid> id,
   // Make sure to ignore our named properties when checking for own
   // property descriptors for a set.
   JS::Rooted<PropertyDescriptor> ownDesc(cx);
-  if (!getOwnPropDescriptor(cx, proxy, id, /* ignoreNamedProps = */ true,
-                            &ownDesc)) {
+  if (!getOwnPropDescriptor(
+          cx, proxy, id, /* ignoreNamedProps = */ true, &ownDesc)) {
     return false;
   }
-  return js::SetPropertyIgnoringNamedGetter(cx, proxy, id, v, receiver, ownDesc, result);
+  return js::SetPropertyIgnoringNamedGetter(
+      cx, proxy, id, v, receiver, ownDesc, result);
 }
 
 bool
-DOMProxyHandler::delete_(JSContext* cx, JS::Handle<JSObject*> proxy,
-                         JS::Handle<jsid> id, JS::ObjectOpResult &result) const
+DOMProxyHandler::delete_(JSContext* cx,
+                         JS::Handle<JSObject*> proxy,
+                         JS::Handle<jsid> id,
+                         JS::ObjectOpResult& result) const
 {
   JS::Rooted<JSObject*> expando(cx);
-  if (!xpc::WrapperFactory::IsXrayWrapper(proxy) && (expando = GetExpandoObject(proxy))) {
+  if (!xpc::WrapperFactory::IsXrayWrapper(proxy) &&
+      (expando = GetExpandoObject(proxy))) {
     return JS_DeletePropertyById(cx, expando, id, result);
   }
 
@@ -234,14 +249,18 @@ DOMProxyHandler::delete_(JSContext* cx, JS::Handle<JSObject*> proxy,
 }
 
 bool
-BaseDOMProxyHandler::watch(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
+BaseDOMProxyHandler::watch(JSContext* cx,
+                           JS::Handle<JSObject*> proxy,
+                           JS::Handle<jsid> id,
                            JS::Handle<JSObject*> callable) const
 {
   return js::WatchGuts(cx, proxy, id, callable);
 }
 
 bool
-BaseDOMProxyHandler::unwatch(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id) const
+BaseDOMProxyHandler::unwatch(JSContext* cx,
+                             JS::Handle<JSObject*> proxy,
+                             JS::Handle<jsid> id) const
 {
   return js::UnwatchGuts(cx, proxy, id);
 }
@@ -251,13 +270,16 @@ BaseDOMProxyHandler::ownPropertyKeys(JSContext* cx,
                                      JS::Handle<JSObject*> proxy,
                                      JS::AutoIdVector& props) const
 {
-  return ownPropNames(cx, proxy, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, props);
+  return ownPropNames(
+      cx, proxy, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, props);
 }
 
 bool
-BaseDOMProxyHandler::getPrototypeIfOrdinary(JSContext* cx, JS::Handle<JSObject*> proxy,
-                                            bool* isOrdinary,
-                                            JS::MutableHandle<JSObject*> proto) const
+BaseDOMProxyHandler::getPrototypeIfOrdinary(
+    JSContext* cx,
+    JS::Handle<JSObject*> proxy,
+    bool* isOrdinary,
+    JS::MutableHandle<JSObject*> proto) const
 {
   *isOrdinary = true;
   proto.set(GetStaticPrototype(proxy));
@@ -273,16 +295,19 @@ BaseDOMProxyHandler::getOwnEnumerablePropertyKeys(JSContext* cx,
 }
 
 bool
-DOMProxyHandler::setCustom(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
-                           JS::Handle<JS::Value> v, bool *done) const
+DOMProxyHandler::setCustom(JSContext* cx,
+                           JS::Handle<JSObject*> proxy,
+                           JS::Handle<jsid> id,
+                           JS::Handle<JS::Value> v,
+                           bool* done) const
 {
   *done = false;
   return true;
 }
 
 //static
-JSObject *
-DOMProxyHandler::GetExpandoObject(JSObject *obj)
+JSObject*
+DOMProxyHandler::GetExpandoObject(JSObject* obj)
 {
   MOZ_ASSERT(IsDOMProxy(obj), "expected a DOM proxy object");
   JS::Value v = js::GetProxyPrivate(obj);
@@ -295,7 +320,7 @@ DOMProxyHandler::GetExpandoObject(JSObject *obj)
   }
 
   js::ExpandoAndGeneration* expandoAndGeneration =
-    static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
+      static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
   v = expandoAndGeneration->expando;
   return v.isUndefined() ? nullptr : &v.toObject();
 }
@@ -314,10 +339,10 @@ ShadowingDOMProxyHandler::trace(JSTracer* trc, JSObject* proxy) const
   MOZ_ASSERT(!v.isUndefined());
 
   js::ExpandoAndGeneration* expandoAndGeneration =
-    static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
-  JS::TraceEdge(trc, &expandoAndGeneration->expando,
-                "Shadowing DOM proxy expando");
+      static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
+  JS::TraceEdge(
+      trc, &expandoAndGeneration->expando, "Shadowing DOM proxy expando");
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

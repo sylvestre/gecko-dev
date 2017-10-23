@@ -21,14 +21,16 @@ class TextTrackCue;
 class TextTrackCueList;
 class HTMLTrackElement;
 
-enum TextTrackSource {
+enum TextTrackSource
+{
   Track,
   AddTextTrack,
   MediaResourceSpecific
 };
 
 // Constants for numeric readyState property values.
-enum TextTrackReadyState {
+enum TextTrackReadyState
+{
   NotLoaded = 0U,
   Loading = 1U,
   Loaded = 2U,
@@ -37,7 +39,7 @@ enum TextTrackReadyState {
 
 class TextTrack final : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TextTrack, DOMEventTargetHelper)
 
@@ -59,12 +61,10 @@ public:
 
   void SetDefaultSettings();
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  TextTrackKind Kind() const
-  {
-    return mKind;
-  }
+  TextTrackKind Kind() const { return mKind; }
   void GetLabel(nsAString& aLabel) const;
   void GetLanguage(nsAString& aLanguage) const;
   void GetInBandMetadataTrackDispatchType(nsAString& aType) const
@@ -73,10 +73,7 @@ public:
   }
   void GetId(nsAString& aId) const;
 
-  TextTrackMode Mode() const
-  {
-    return mMode;
-  }
+  TextTrackMode Mode() const { return mMode; }
   void SetMode(TextTrackMode aValue);
 
   TextTrackCueList* GetCues() const
@@ -108,19 +105,17 @@ public:
   HTMLTrackElement* GetTrackElement();
   void SetTrackElement(HTMLTrackElement* aTrackElement);
 
-  TextTrackSource GetTextTrackSource() {
-    return mTextTrackSource;
-  }
+  TextTrackSource GetTextTrackSource() { return mTextTrackSource; }
 
   void SetCuesInactive();
 
-  void NotifyCueUpdated(TextTrackCue *aCue);
+  void NotifyCueUpdated(TextTrackCue* aCue);
 
   void DispatchAsyncTrustedEvent(const nsString& aEventName);
 
   bool IsLoaded();
 
-private:
+ private:
   ~TextTrack();
 
   RefPtr<TextTrackList> mTextTrackList;
@@ -143,7 +138,7 @@ private:
   TextTrackSource mTextTrackSource;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TextTrack_h
+#endif  // mozilla_dom_TextTrack_h

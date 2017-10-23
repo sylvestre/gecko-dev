@@ -25,15 +25,16 @@ using ::testing::_;
 // Windows 8.1 has intermittents at 50 ms. Raise limit to 5 vsync intervals.
 const int kVsyncTimeoutMS = 80;
 
-class TestVsyncObserver : public VsyncObserver {
-public:
+class TestVsyncObserver : public VsyncObserver
+{
+ public:
   TestVsyncObserver()
-    : mDidGetVsyncNotification(false)
-    , mVsyncMonitor("VsyncMonitor")
+      : mDidGetVsyncNotification(false), mVsyncMonitor("VsyncMonitor")
   {
   }
 
-  virtual bool NotifyVsync(TimeStamp aVsyncTimeStamp) override {
+  virtual bool NotifyVsync(TimeStamp aVsyncTimeStamp) override
+  {
     MonitorAutoLock lock(mVsyncMonitor);
     mDidGetVsyncNotification = true;
     mVsyncMonitor.Notify();
@@ -47,7 +48,7 @@ public:
       return;
     }
 
-    { // scope lock
+    {  // scope lock
       MonitorAutoLock lock(mVsyncMonitor);
       PRIntervalTime timeout = PR_MillisecondsToInterval(kVsyncTimeoutMS);
       lock.Wait(timeout);
@@ -66,15 +67,16 @@ public:
     mDidGetVsyncNotification = false;
   }
 
-private:
+ private:
   bool mDidGetVsyncNotification;
 
-private:
+ private:
   Monitor mVsyncMonitor;
 };
 
-class VsyncTester : public ::testing::Test {
-protected:
+class VsyncTester : public ::testing::Test
+{
+ protected:
   explicit VsyncTester()
   {
     gfxPlatform::GetPlatform();
@@ -83,10 +85,7 @@ protected:
     MOZ_RELEASE_ASSERT(mVsyncSource, "GFX: Vsync source not found.");
   }
 
-  virtual ~VsyncTester()
-  {
-    mVsyncSource = nullptr;
-  }
+  virtual ~VsyncTester() { mVsyncSource = nullptr; }
 
   RefPtr<VsyncSource> mVsyncSource;
 };
@@ -129,7 +128,8 @@ TEST_F(VsyncTester, CompositorGetVsyncNotifications)
   globalDisplay.DisableVsync();
   ASSERT_FALSE(globalDisplay.IsVsyncEnabled());
 
-  RefPtr<CompositorVsyncDispatcher> vsyncDispatcher = new CompositorVsyncDispatcher();
+  RefPtr<CompositorVsyncDispatcher> vsyncDispatcher =
+      new CompositorVsyncDispatcher();
   RefPtr<TestVsyncObserver> testVsyncObserver = new TestVsyncObserver();
 
   vsyncDispatcher->SetCompositorVsyncObserver(testVsyncObserver);
@@ -150,7 +150,8 @@ TEST_F(VsyncTester, ParentRefreshDriverGetVsyncNotifications)
   globalDisplay.DisableVsync();
   ASSERT_FALSE(globalDisplay.IsVsyncEnabled());
 
-  RefPtr<RefreshTimerVsyncDispatcher> vsyncDispatcher = globalDisplay.GetRefreshTimerVsyncDispatcher();
+  RefPtr<RefreshTimerVsyncDispatcher> vsyncDispatcher =
+      globalDisplay.GetRefreshTimerVsyncDispatcher();
   ASSERT_TRUE(vsyncDispatcher != nullptr);
 
   RefPtr<TestVsyncObserver> testVsyncObserver = new TestVsyncObserver();
@@ -176,7 +177,8 @@ TEST_F(VsyncTester, ChildRefreshDriverGetVsyncNotifications)
   globalDisplay.DisableVsync();
   ASSERT_FALSE(globalDisplay.IsVsyncEnabled());
 
-  RefPtr<RefreshTimerVsyncDispatcher> vsyncDispatcher = globalDisplay.GetRefreshTimerVsyncDispatcher();
+  RefPtr<RefreshTimerVsyncDispatcher> vsyncDispatcher =
+      globalDisplay.GetRefreshTimerVsyncDispatcher();
   ASSERT_TRUE(vsyncDispatcher != nullptr);
 
   RefPtr<TestVsyncObserver> testVsyncObserver = new TestVsyncObserver();

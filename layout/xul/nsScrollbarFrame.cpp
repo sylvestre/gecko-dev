@@ -37,13 +37,13 @@ NS_NewScrollbarFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsScrollbarFrame)
 
 NS_QUERYFRAME_HEAD(nsScrollbarFrame)
-  NS_QUERYFRAME_ENTRY(nsScrollbarFrame)
+NS_QUERYFRAME_ENTRY(nsScrollbarFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsBoxFrame)
 
 void
-nsScrollbarFrame::Init(nsIContent*       aContent,
+nsScrollbarFrame::Init(nsIContent* aContent,
                        nsContainerFrame* aParent,
-                       nsIFrame*         aPrevInFlow)
+                       nsIFrame* aPrevInFlow)
 {
   nsBoxFrame::Init(aContent, aParent, aPrevInFlow);
 
@@ -55,10 +55,10 @@ nsScrollbarFrame::Init(nsIContent*       aContent,
 }
 
 void
-nsScrollbarFrame::Reflow(nsPresContext*          aPresContext,
-                         ReflowOutput&     aDesiredSize,
+nsScrollbarFrame::Reflow(nsPresContext* aPresContext,
+                         ReflowOutput& aDesiredSize,
                          const ReflowInput& aReflowInput,
-                         nsReflowStatus&          aStatus)
+                         nsReflowStatus& aStatus)
 {
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
 
@@ -79,17 +79,15 @@ nsScrollbarFrame::AttributeChanged(int32_t aNameSpaceID,
                                    nsAtom* aAttribute,
                                    int32_t aModType)
 {
-  nsresult rv = nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                             aModType);
+  nsresult rv =
+      nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 
   // if the current position changes, notify any nsGfxScrollFrame
   // parent we may have
-  if (aAttribute != nsGkAtoms::curpos)
-    return rv;
+  if (aAttribute != nsGkAtoms::curpos) return rv;
 
   nsIScrollableFrame* scrollable = do_QueryFrame(GetParent());
-  if (!scrollable)
-    return rv;
+  if (!scrollable) return rv;
 
   nsCOMPtr<nsIContent> content(mContent);
   scrollable->CurPosAttributeChanged(content);
@@ -166,16 +164,17 @@ nsresult
 nsScrollbarFrame::GetXULMargin(nsMargin& aMargin)
 {
   nsresult rv = NS_ERROR_FAILURE;
-  aMargin.SizeTo(0,0,0,0);
+  aMargin.SizeTo(0, 0, 0, 0);
 
   if (LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars) != 0) {
     nsPresContext* presContext = PresContext();
     nsITheme* theme = presContext->GetTheme();
-    if (theme && theme->ThemeSupportsWidget(presContext, this, NS_THEME_SCROLLBAR)) {
+    if (theme &&
+        theme->ThemeSupportsWidget(presContext, this, NS_THEME_SCROLLBAR)) {
       LayoutDeviceIntSize size;
       bool isOverridable;
-      theme->GetMinimumWidgetSize(presContext, this, NS_THEME_SCROLLBAR, &size,
-                                  &isOverridable);
+      theme->GetMinimumWidgetSize(
+          presContext, this, NS_THEME_SCROLLBAR, &size, &isOverridable);
       if (IsXULHorizontal()) {
         aMargin.top = -presContext->DevPixelsToAppUnits(size.height);
       } else {
@@ -262,11 +261,13 @@ nsScrollbarFrame::MoveToNewPosition()
 
   AutoWeakFrame weakFrame(this);
   if (mSmoothScroll) {
-    content->SetAttr(kNameSpaceID_None, nsGkAtoms::smooth, NS_LITERAL_STRING("true"), false);
+    content->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::smooth, NS_LITERAL_STRING("true"), false);
   }
   content->SetAttr(kNameSpaceID_None, nsGkAtoms::curpos, curposStr, false);
   // notify the nsScrollbarFrame of the change
-  AttributeChanged(kNameSpaceID_None, nsGkAtoms::curpos, nsIDOMMutationEvent::MODIFICATION);
+  AttributeChanged(
+      kNameSpaceID_None, nsGkAtoms::curpos, nsIDOMMutationEvent::MODIFICATION);
   if (!weakFrame.IsAlive()) {
     return curpos;
   }
@@ -278,7 +279,9 @@ nsScrollbarFrame::MoveToNewPosition()
       nsIFrame* f = childFrames.get();
       nsSliderFrame* sliderFrame = do_QueryFrame(f);
       if (sliderFrame) {
-        sliderFrame->AttributeChanged(kNameSpaceID_None, nsGkAtoms::curpos, nsIDOMMutationEvent::MODIFICATION);
+        sliderFrame->AttributeChanged(kNameSpaceID_None,
+                                      nsGkAtoms::curpos,
+                                      nsIDOMMutationEvent::MODIFICATION);
         if (!weakFrame.IsAlive()) {
           return curpos;
         }

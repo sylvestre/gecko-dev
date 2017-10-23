@@ -12,8 +12,9 @@
 namespace mozilla {
 
 template<class T>
-class SelfReference {
-public:
+class SelfReference
+{
+ public:
   SelfReference() : mHeld(false) {}
   ~SelfReference()
   {
@@ -39,10 +40,11 @@ public:
 
   SelfReference(const SelfReference& aOther) = delete;
   void operator=(const SelfReference& aOther) = delete;
-private:
+
+ private:
   bool mHeld;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // SELF_REF_H
+#endif  // SELF_REF_H

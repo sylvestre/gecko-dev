@@ -19,17 +19,17 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CredentialsContainer)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-CredentialsContainer::CredentialsContainer(nsPIDOMWindowInner* aParent) :
-  mParent(aParent)
+CredentialsContainer::CredentialsContainer(nsPIDOMWindowInner* aParent)
+    : mParent(aParent)
 {
   MOZ_ASSERT(aParent);
 }
 
-CredentialsContainer::~CredentialsContainer()
-{}
+CredentialsContainer::~CredentialsContainer() {}
 
 JSObject*
-CredentialsContainer::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+CredentialsContainer::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
   return CredentialsContainerBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -55,5 +55,5 @@ CredentialsContainer::Store(const Credential& aCredential)
   return mgr->Store(mParent, aCredential);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -49,17 +49,22 @@ MFBT_API void
 MozTagAnonymousMemory(const void* aPtr, size_t aLength, const char* aTag);
 
 MFBT_API void*
-MozTaggedAnonymousMmap(void* aAddr, size_t aLength, int aProt, int aFlags,
-                         int aFd, off_t aOffset, const char* aTag);
+MozTaggedAnonymousMmap(void* aAddr,
+                       size_t aLength,
+                       int aProt,
+                       int aFlags,
+                       int aFd,
+                       off_t aOffset,
+                       const char* aTag);
 
 MFBT_API int
 MozTaggedMemoryIsSupported(void);
 
 #ifdef __cplusplus
-} // extern "C"
+}  // extern "C"
 #endif
 
-#else // ANDROID
+#else  // ANDROID
 
 static inline void
 MozTagAnonymousMemory(const void* aPtr, size_t aLength, const char* aTag)
@@ -67,8 +72,13 @@ MozTagAnonymousMemory(const void* aPtr, size_t aLength, const char* aTag)
 }
 
 static inline void*
-MozTaggedAnonymousMmap(void* aAddr, size_t aLength, int aProt, int aFlags,
-                       int aFd, off_t aOffset, const char* aTag)
+MozTaggedAnonymousMmap(void* aAddr,
+                       size_t aLength,
+                       int aProt,
+                       int aFlags,
+                       int aFd,
+                       off_t aOffset,
+                       const char* aTag)
 {
   return mmap(aAddr, aLength, aProt, aFlags, aFd, aOffset);
 }
@@ -79,8 +89,8 @@ MozTaggedMemoryIsSupported(void)
   return 0;
 }
 
-#endif // ANDROID
+#endif  // ANDROID
 
-#endif // !XP_WIN
+#endif  // !XP_WIN
 
-#endif // mozilla_TaggedAnonymousMemory_h
+#endif  // mozilla_TaggedAnonymousMemory_h

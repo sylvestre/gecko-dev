@@ -9,20 +9,22 @@
 
 #include "mozilla/Vector.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 typedef Vector<uint8_t> Buffer;
-
-} } // namespace mozilla::ct
+}
+}  // namespace mozilla
 
 namespace mozilla {
 
 // Comparison operators are placed under mozilla namespace since
 // mozilla::ct::Buffer is actually mozilla::Vector.
-bool operator==(const ct::Buffer& a, const ct::Buffer& b);
-bool operator!=(const ct::Buffer& a, const ct::Buffer& b);
+bool
+operator==(const ct::Buffer& a, const ct::Buffer& b);
+bool
+operator!=(const ct::Buffer& a, const ct::Buffer& b);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-
-#endif // Buffer_h
+#endif  // Buffer_h

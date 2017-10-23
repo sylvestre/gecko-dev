@@ -7,8 +7,9 @@
 
 namespace mozilla {
 
-RemoteSpellcheckEngineChild::RemoteSpellcheckEngineChild(mozSpellChecker *aOwner)
-  : mOwner(aOwner)
+RemoteSpellcheckEngineChild::RemoteSpellcheckEngineChild(
+    mozSpellChecker* aOwner)
+    : mOwner(aOwner)
 {
 }
 
@@ -21,13 +22,12 @@ RemoteSpellcheckEngineChild::~RemoteSpellcheckEngineChild()
 
 RefPtr<GenericPromise>
 RemoteSpellcheckEngineChild::SetCurrentDictionaryFromList(
-  const nsTArray<nsString>& aList)
+    const nsTArray<nsString>& aList)
 {
   MozPromiseHolder<GenericPromise>* promiseHolder =
-    new MozPromiseHolder<GenericPromise>();
-  if (!SendSetDictionaryFromList(
-         aList,
-         reinterpret_cast<intptr_t>(promiseHolder))) {
+      new MozPromiseHolder<GenericPromise>();
+  if (!SendSetDictionaryFromList(aList,
+                                 reinterpret_cast<intptr_t>(promiseHolder))) {
     delete promiseHolder;
     return GenericPromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
   }
@@ -37,11 +37,10 @@ RemoteSpellcheckEngineChild::SetCurrentDictionaryFromList(
 
 mozilla::ipc::IPCResult
 RemoteSpellcheckEngineChild::RecvNotifyOfCurrentDictionary(
-                               const nsString& aDictionary,
-                               const intptr_t& aId)
+    const nsString& aDictionary, const intptr_t& aId)
 {
   MozPromiseHolder<GenericPromise>* promiseHolder =
-    reinterpret_cast<MozPromiseHolder<GenericPromise>*>(aId);
+      reinterpret_cast<MozPromiseHolder<GenericPromise>*>(aId);
   mOwner->mCurrentDictionary = aDictionary;
   if (aDictionary.IsEmpty()) {
     promiseHolder->RejectIfExists(NS_ERROR_NOT_AVAILABLE, __func__);
@@ -52,4 +51,4 @@ RemoteSpellcheckEngineChild::RecvNotifyOfCurrentDictionary(
   return IPC_OK();
 }
 
-} //namespace mozilla
+}  //namespace mozilla

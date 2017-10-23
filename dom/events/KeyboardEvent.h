@@ -15,10 +15,9 @@
 namespace mozilla {
 namespace dom {
 
-class KeyboardEvent : public UIEvent,
-                      public nsIDOMKeyEvent
+class KeyboardEvent : public UIEvent, public nsIDOMKeyEvent
 {
-public:
+ public:
   KeyboardEvent(EventTarget* aOwner,
                 nsPresContext* aPresContext,
                 WidgetKeyboardEvent* aEvent);
@@ -32,12 +31,13 @@ public:
   NS_FORWARD_TO_UIEVENT
 
   static already_AddRefed<KeyboardEvent> Constructor(
-                                           const GlobalObject& aGlobal,
-                                           const nsAString& aType,
-                                           const KeyboardEventInit& aParam,
-                                           ErrorResult& aRv);
+      const GlobalObject& aGlobal,
+      const nsAString& aType,
+      const KeyboardEventInit& aParam,
+      ErrorResult& aRv);
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return KeyboardEventBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -62,23 +62,43 @@ public:
   void GetCode(nsAString& aCode);
   void GetInitDict(KeyboardEventInit& aParam);
 
-  void InitKeyEvent(const nsAString& aType, bool aCanBubble, bool aCancelable,
-                    nsGlobalWindow* aView, bool aCtrlKey, bool aAltKey,
-                    bool aShiftKey, bool aMetaKey,
-                    uint32_t aKeyCode, uint32_t aCharCode)
+  void InitKeyEvent(const nsAString& aType,
+                    bool aCanBubble,
+                    bool aCancelable,
+                    nsGlobalWindow* aView,
+                    bool aCtrlKey,
+                    bool aAltKey,
+                    bool aShiftKey,
+                    bool aMetaKey,
+                    uint32_t aKeyCode,
+                    uint32_t aCharCode)
   {
     auto* view = aView ? aView->AsInner() : nullptr;
-    InitKeyEvent(aType, aCanBubble, aCancelable, view, aCtrlKey, aAltKey,
-                 aShiftKey, aMetaKey, aKeyCode, aCharCode);
+    InitKeyEvent(aType,
+                 aCanBubble,
+                 aCancelable,
+                 view,
+                 aCtrlKey,
+                 aAltKey,
+                 aShiftKey,
+                 aMetaKey,
+                 aKeyCode,
+                 aCharCode);
   }
 
   void InitKeyboardEvent(const nsAString& aType,
-                         bool aCanBubble, bool aCancelable,
-                         nsGlobalWindow* aView, const nsAString& aKey,
-                         uint32_t aLocation, bool aCtrlKey, bool aAltKey,
-                         bool aShiftKey, bool aMetaKey, ErrorResult& aRv);
+                         bool aCanBubble,
+                         bool aCancelable,
+                         nsGlobalWindow* aView,
+                         const nsAString& aKey,
+                         uint32_t aLocation,
+                         bool aCtrlKey,
+                         bool aAltKey,
+                         bool aShiftKey,
+                         bool aMetaKey,
+                         ErrorResult& aRv);
 
-protected:
+ protected:
   ~KeyboardEvent() {}
 
   void InitWithKeyboardEventInit(EventTarget* aOwner,
@@ -86,7 +106,7 @@ protected:
                                  const KeyboardEventInit& aParam,
                                  ErrorResult& aRv);
 
-private:
+ private:
   // True, if the instance is created with Constructor().
   bool mInitializedByCtor;
 
@@ -96,12 +116,12 @@ private:
   uint32_t mInitializedWhichValue;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::KeyboardEvent>
 NS_NewDOMKeyboardEvent(mozilla::dom::EventTarget* aOwner,
                        nsPresContext* aPresContext,
                        mozilla::WidgetKeyboardEvent* aEvent);
 
-#endif // mozilla_dom_KeyboardEvent_h_
+#endif  // mozilla_dom_KeyboardEvent_h_

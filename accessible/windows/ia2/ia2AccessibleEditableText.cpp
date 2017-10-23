@@ -25,11 +25,9 @@ ia2AccessibleEditableText::copyText(long aStartOffset, long aEndOffset)
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
   HyperTextAccessible* textAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (textAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (textAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!textAcc->IsValidRange(aStartOffset, aEndOffset))
-    return E_INVALIDARG;
+  if (!textAcc->IsValidRange(aStartOffset, aEndOffset)) return E_INVALIDARG;
 
   textAcc->CopyText(aStartOffset, aEndOffset);
   return S_OK;
@@ -41,29 +39,25 @@ ia2AccessibleEditableText::deleteText(long aStartOffset, long aEndOffset)
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
   HyperTextAccessible* textAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (textAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (textAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!textAcc->IsValidRange(aStartOffset, aEndOffset))
-    return E_INVALIDARG;
+  if (!textAcc->IsValidRange(aStartOffset, aEndOffset)) return E_INVALIDARG;
 
   textAcc->DeleteText(aStartOffset, aEndOffset);
   return S_OK;
 }
 
 STDMETHODIMP
-ia2AccessibleEditableText::insertText(long aOffset, BSTR *aText)
+ia2AccessibleEditableText::insertText(long aOffset, BSTR* aText)
 {
   uint32_t length = ::SysStringLen(*aText);
   nsAutoString text(*aText, length);
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
   HyperTextAccessible* textAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (textAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (textAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!textAcc->IsValidOffset(aOffset))
-    return E_INVALIDARG;
+  if (!textAcc->IsValidOffset(aOffset)) return E_INVALIDARG;
 
   textAcc->InsertText(text, aOffset);
   return S_OK;
@@ -75,11 +69,9 @@ ia2AccessibleEditableText::cutText(long aStartOffset, long aEndOffset)
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
   HyperTextAccessible* textAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (textAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (textAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!textAcc->IsValidRange(aStartOffset, aEndOffset))
-    return E_INVALIDARG;
+  if (!textAcc->IsValidRange(aStartOffset, aEndOffset)) return E_INVALIDARG;
 
   textAcc->CutText(aStartOffset, aEndOffset);
   return S_OK;
@@ -91,26 +83,23 @@ ia2AccessibleEditableText::pasteText(long aOffset)
   MOZ_ASSERT(!HyperTextProxyFor(this));
 
   HyperTextAccessible* textAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (textAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (textAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!textAcc->IsValidOffset(aOffset))
-    return E_INVALIDARG;
+  if (!textAcc->IsValidOffset(aOffset)) return E_INVALIDARG;
 
   textAcc->PasteText(aOffset);
   return S_OK;
 }
 
 STDMETHODIMP
-ia2AccessibleEditableText::replaceText(long aStartOffset, long aEndOffset,
-                                       BSTR *aText)
+ia2AccessibleEditableText::replaceText(long aStartOffset,
+                                       long aEndOffset,
+                                       BSTR* aText)
 {
   HyperTextAccessible* textAcc = static_cast<HyperTextAccessibleWrap*>(this);
-  if (textAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (textAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (!textAcc->IsValidRange(aStartOffset, aEndOffset))
-    return E_INVALIDARG;
+  if (!textAcc->IsValidRange(aStartOffset, aEndOffset)) return E_INVALIDARG;
 
   textAcc->DeleteText(aStartOffset, aEndOffset);
 
@@ -122,8 +111,9 @@ ia2AccessibleEditableText::replaceText(long aStartOffset, long aEndOffset,
 }
 
 STDMETHODIMP
-ia2AccessibleEditableText::setAttributes(long aStartOffset, long aEndOffset,
-                                         BSTR *aAttributes)
+ia2AccessibleEditableText::setAttributes(long aStartOffset,
+                                         long aEndOffset,
+                                         BSTR* aAttributes)
 {
   return E_NOTIMPL;
 }

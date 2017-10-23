@@ -26,7 +26,7 @@ static const size_t MaxCodeBytesPerProcess = 1 * 1024 * 1024 * 1024;
 static const size_t ExecutableCodePageSize = 64 * 1024;
 
 enum class ProtectionSetting {
-    Protected, // Not readable, writable, or executable.
+    Protected,  // Not readable, writable, or executable.
     Writable,
     Executable,
 };
@@ -55,7 +55,7 @@ extern bool CanLikelyAllocateMoreExecutableMemory();
 // the process allocate executable memory.
 extern size_t LikelyAvailableExecutableMemory();
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
-#endif // jit_ProcessExecutableMemory_h
+#endif  // jit_ProcessExecutableMemory_h

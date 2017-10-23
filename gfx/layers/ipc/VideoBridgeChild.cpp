@@ -20,9 +20,8 @@ VideoBridgeChild::Startup()
 
   MessageLoop* loop = CompositorThreadHolder::Loop();
 
-  sVideoBridgeChildSingleton->Open(parent->GetIPCChannel(),
-                                   loop,
-                                   ipc::ChildSide);
+  sVideoBridgeChildSingleton->Open(
+      parent->GetIPCChannel(), loop, ipc::ChildSide);
   sVideoBridgeChildSingleton->mIPDLSelfRef = sVideoBridgeChildSingleton;
   parent->SetOtherProcessId(base::GetCurrentProcId());
 }
@@ -37,14 +36,11 @@ VideoBridgeChild::Shutdown()
 }
 
 VideoBridgeChild::VideoBridgeChild()
-  : mMessageLoop(MessageLoop::current())
-  , mCanSend(true)
+    : mMessageLoop(MessageLoop::current()), mCanSend(true)
 {
 }
 
-VideoBridgeChild::~VideoBridgeChild()
-{
-}
+VideoBridgeChild::~VideoBridgeChild() {}
 
 VideoBridgeChild*
 VideoBridgeChild::GetSingleton()
@@ -115,10 +111,11 @@ VideoBridgeChild::CreateTexture(const SurfaceDescriptor& aSharedData,
   return SendPTextureConstructor(aSharedData, aLayersBackend, aFlags, aSerial);
 }
 
-bool VideoBridgeChild::IsSameProcess() const
+bool
+VideoBridgeChild::IsSameProcess() const
 {
   return OtherPid() == base::GetCurrentProcId();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

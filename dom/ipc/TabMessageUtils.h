@@ -24,8 +24,10 @@ struct RemoteDOMEvent
   nsCOMPtr<nsIDOMEvent> mEvent;
 };
 
-bool ReadRemoteEvent(const IPC::Message* aMsg, PickleIterator* aIter,
-                     mozilla::dom::RemoteDOMEvent* aResult);
+bool
+ReadRemoteEvent(const IPC::Message* aMsg,
+                PickleIterator* aIter,
+                mozilla::dom::RemoteDOMEvent* aResult);
 
 #ifdef MOZ_CRASHREPORTER
 typedef CrashReporter::ThreadId NativeThreadId;
@@ -34,8 +36,8 @@ typedef CrashReporter::ThreadId NativeThreadId;
 typedef int32_t NativeThreadId;
 #endif
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -49,37 +51,40 @@ struct ParamTraits<mozilla::dom::RemoteDOMEvent>
     aParam.mEvent->Serialize(aMsg, true);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return mozilla::dom::ReadRemoteEvent(aMsg, aIter, aResult);
   }
 
-  static void Log(const paramType& aParam, std::wstring* aLog)
-  {
-  }
+  static void Log(const paramType& aParam, std::wstring* aLog) {}
 };
 
-template <>
+template<>
 struct ParamTraits<nsEventStatus>
-  : public ContiguousEnumSerializer<nsEventStatus,
-                                    nsEventStatus_eIgnore,
-                                    nsEventStatus_eSentinel>
-{};
+    : public ContiguousEnumSerializer<nsEventStatus,
+                                      nsEventStatus_eIgnore,
+                                      nsEventStatus_eSentinel>
+{
+};
 
 template<>
 struct ParamTraits<nsSizeMode>
-  : public ContiguousEnumSerializer<nsSizeMode,
-                                    nsSizeMode_Normal,
-                                    nsSizeMode_Invalid>
-{};
+    : public ContiguousEnumSerializer<nsSizeMode,
+                                      nsSizeMode_Normal,
+                                      nsSizeMode_Invalid>
+{
+};
 
 template<>
 struct ParamTraits<UIStateChangeType>
-  : public ContiguousEnumSerializer<UIStateChangeType,
-                                    UIStateChangeType_NoChange,
-                                    UIStateChangeType_Invalid>
-{ };
+    : public ContiguousEnumSerializer<UIStateChangeType,
+                                      UIStateChangeType_NoChange,
+                                      UIStateChangeType_Invalid>
+{
+};
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // TABMESSAGE_UTILS_H
+#endif  // TABMESSAGE_UTILS_H

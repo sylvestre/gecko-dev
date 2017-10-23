@@ -33,34 +33,35 @@ struct ActiveScrolledRoot;
  * The clip chain can skip over active scrolled roots. That just means that
  * there is no clip that moves with the skipped ASR in this chain.
  */
-struct DisplayItemClipChain {
-
+struct DisplayItemClipChain
+{
   /**
    * Get the display item clip in this chain that moves with aASR, or nullptr
    * if no such clip exists. aClipChain can be null.
    */
-  static const DisplayItemClip* ClipForASR(const DisplayItemClipChain* aClipChain,
-                                           const ActiveScrolledRoot* aASR);
+  static const DisplayItemClip* ClipForASR(
+      const DisplayItemClipChain* aClipChain, const ActiveScrolledRoot* aASR);
 
-  static bool Equal(const DisplayItemClipChain* aClip1, const DisplayItemClipChain* aClip2);
+  static bool Equal(const DisplayItemClipChain* aClip1,
+                    const DisplayItemClipChain* aClip2);
 
   static nsCString ToString(const DisplayItemClipChain* aClipChain);
 
   bool HasRoundedCorners() const;
 
-  void AddRef() {
-    mRefCount++;
-  }
-  void Release() {
+  void AddRef() { mRefCount++; }
+  void Release()
+  {
     MOZ_ASSERT(mRefCount > 0);
     mRefCount--;
   }
 
-  DisplayItemClipChain(const DisplayItemClip& aClip, const ActiveScrolledRoot* aASR, const DisplayItemClipChain* aParent)
-    : mClip(aClip)
-    , mASR(aASR)
-    , mParent(aParent)
-  {}
+  DisplayItemClipChain(const DisplayItemClip& aClip,
+                       const ActiveScrolledRoot* aASR,
+                       const DisplayItemClipChain* aParent)
+      : mClip(aClip), mASR(aASR), mParent(aParent)
+  {
+  }
 
   DisplayItemClipChain() {}
 
@@ -70,6 +71,6 @@ struct DisplayItemClipChain {
   mutable uint32_t mRefCount = 0;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* DISPLAYITEMCLIPCHAIN_H_ */

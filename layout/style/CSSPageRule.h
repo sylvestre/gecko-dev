@@ -16,14 +16,13 @@
 namespace mozilla {
 namespace dom {
 
-class CSSPageRule : public css::Rule
-                  , public nsIDOMCSSPageRule
+class CSSPageRule : public css::Rule, public nsIDOMCSSPageRule
 {
-protected:
+ protected:
   using Rule::Rule;
-  virtual ~CSSPageRule() {};
+  virtual ~CSSPageRule(){};
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // nsIDOMCSSPageRule interface
@@ -39,14 +38,14 @@ public:
   virtual void GetCssTextImpl(nsAString& aCssText) const override = 0;
   virtual nsICSSDeclaration* Style() = 0;
 
-  virtual size_t
-  SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override = 0;
+  virtual size_t SizeOfIncludingThis(
+      MallocSizeOf aMallocSizeOf) const override = 0;
 
-  JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSPageRule_h
+#endif  // mozilla_dom_CSSPageRule_h

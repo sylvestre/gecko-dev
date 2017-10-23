@@ -18,25 +18,25 @@ class gfxContext;
 
 class nsSVGMaskFrame final : public nsSVGContainerFrame
 {
-  friend nsIFrame*
-  NS_NewSVGMaskFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewSVGMaskFrame(nsIPresShell* aPresShell,
+                                      nsStyleContext* aContext);
 
   typedef mozilla::gfx::Matrix Matrix;
   typedef mozilla::gfx::SourceSurface SourceSurface;
   typedef mozilla::image::imgDrawingParams imgDrawingParams;
 
-protected:
+ protected:
   explicit nsSVGMaskFrame(nsStyleContext* aContext)
-    : nsSVGContainerFrame(aContext, kClassID)
-    , mInUse(false)
+      : nsSVGContainerFrame(aContext, kClassID), mInUse(false)
   {
     AddStateBits(NS_FRAME_IS_NONDISPLAY);
   }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSVGMaskFrame)
 
-  struct MaskParams {
+  struct MaskParams
+  {
     gfxContext* ctx;
     nsIFrame* maskedFrame;
     const gfxMatrix& toUserSpace;
@@ -45,14 +45,22 @@ public:
     uint8_t maskMode;
     imgDrawingParams& imgParams;
 
-    explicit MaskParams(gfxContext* aCtx, nsIFrame* aMaskedFrame,
-                        const gfxMatrix& aToUserSpace, float aOpacity,
-                        Matrix* aMaskTransform, uint8_t aMaskMode,
+    explicit MaskParams(gfxContext* aCtx,
+                        nsIFrame* aMaskedFrame,
+                        const gfxMatrix& aToUserSpace,
+                        float aOpacity,
+                        Matrix* aMaskTransform,
+                        uint8_t aMaskMode,
                         imgDrawingParams& aImgParams)
-    : ctx(aCtx), maskedFrame(aMaskedFrame), toUserSpace(aToUserSpace),
-      opacity(aOpacity), maskTransform(aMaskTransform), maskMode(aMaskMode),
-      imgParams(aImgParams)
-    { }
+        : ctx(aCtx),
+          maskedFrame(aMaskedFrame),
+          toUserSpace(aToUserSpace),
+          opacity(aOpacity),
+          maskTransform(aMaskTransform),
+          maskMode(aMaskMode),
+          imgParams(aImgParams)
+    {
+    }
   };
 
   // nsSVGMaskFrame method:
@@ -63,24 +71,24 @@ public:
    * The return surface can be null, it's the caller's responsibility to
    * null-check before dereferencing.
    */
-  already_AddRefed<SourceSurface>
-  GetMaskForMaskedFrame(MaskParams& aParams);
+  already_AddRefed<SourceSurface> GetMaskForMaskedFrame(MaskParams& aParams);
 
-  gfxRect
-  GetMaskArea(nsIFrame* aMaskedFrame);
+  gfxRect GetMaskArea(nsIFrame* aMaskedFrame);
 
-  virtual nsresult AttributeChanged(int32_t         aNameSpaceID,
-                                    nsAtom*        aAttribute,
-                                    int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
-                                const nsDisplayListSet& aLists) override {}
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
+                                const nsDisplayListSet& aLists) override
+  {
+  }
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
@@ -89,7 +97,7 @@ public:
   }
 #endif
 
-private:
+ private:
   /**
    * If the mask element transforms its children due to
    * maskContentUnits="objectBoundingBox" being set on it, this function

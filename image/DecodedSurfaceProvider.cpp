@@ -18,11 +18,12 @@ namespace image {
 DecodedSurfaceProvider::DecodedSurfaceProvider(NotNull<RasterImage*> aImage,
                                                const SurfaceKey& aSurfaceKey,
                                                NotNull<Decoder*> aDecoder)
-  : ISurfaceProvider(ImageKey(aImage.get()), aSurfaceKey,
-                     AvailabilityState::StartAsPlaceholder())
-  , mImage(aImage.get())
-  , mMutex("mozilla::image::DecodedSurfaceProvider")
-  , mDecoder(aDecoder.get())
+    : ISurfaceProvider(ImageKey(aImage.get()),
+                       aSurfaceKey,
+                       AvailabilityState::StartAsPlaceholder()),
+      mImage(aImage.get()),
+      mMutex("mozilla::image::DecodedSurfaceProvider"),
+      mDecoder(aDecoder.get())
 {
   MOZ_ASSERT(!mDecoder->IsMetadataDecode(),
              "Use MetadataDecodingTask for metadata decodes");
@@ -30,10 +31,7 @@ DecodedSurfaceProvider::DecodedSurfaceProvider(NotNull<RasterImage*> aImage,
              "Use AnimationSurfaceProvider for animation decodes");
 }
 
-DecodedSurfaceProvider::~DecodedSurfaceProvider()
-{
-  DropImageReference();
-}
+DecodedSurfaceProvider::~DecodedSurfaceProvider() { DropImageReference(); }
 
 void
 DecodedSurfaceProvider::DropImageReference()
@@ -113,8 +111,7 @@ DecodedSurfaceProvider::SetLocked(bool aLocked)
 
   // If we're locked, hold a DrawableFrameRef to |mSurface|, which will keep any
   // volatile buffer it owns in memory.
-  mLockRef = aLocked ? mSurface->DrawableRef()
-                     : DrawableFrameRef();
+  mLockRef = aLocked ? mSurface->DrawableRef() : DrawableFrameRef();
 }
 
 size_t
@@ -226,5 +223,5 @@ DecodedSurfaceProvider::ShouldPreferSyncRun() const
   return mDecoder->ShouldSyncDecode(gfxPrefs::ImageMemDecodeBytesAtATime());
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

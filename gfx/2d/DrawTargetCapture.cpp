@@ -10,7 +10,6 @@
 namespace mozilla {
 namespace gfx {
 
-
 DrawTargetCaptureImpl::~DrawTargetCaptureImpl()
 {
   uint8_t* start = &mDrawCommandStorage.front();
@@ -18,7 +17,8 @@ DrawTargetCaptureImpl::~DrawTargetCaptureImpl()
   uint8_t* current = start;
 
   while (current < start + mDrawCommandStorage.size()) {
-    reinterpret_cast<DrawingCommand*>(current + sizeof(uint32_t))->~DrawingCommand();
+    reinterpret_cast<DrawingCommand*>(current + sizeof(uint32_t))
+        ->~DrawingCommand();
     current += *(uint32_t*)current;
   }
 }
@@ -26,7 +26,7 @@ DrawTargetCaptureImpl::~DrawTargetCaptureImpl()
 DrawTargetCaptureImpl::DrawTargetCaptureImpl(BackendType aBackend,
                                              const IntSize& aSize,
                                              SurfaceFormat aFormat)
-  : mSize(aSize)
+    : mSize(aSize)
 {
   RefPtr<DrawTarget> screenRefDT =
       gfxPlatform::GetPlatform()->ScreenReferenceDrawTarget();
@@ -73,7 +73,8 @@ DrawTargetCaptureImpl::Snapshot()
 
 void
 DrawTargetCaptureImpl::DetachAllSnapshots()
-{}
+{
+}
 
 #define AppendCommand(arg) new (AppendToCommandList<arg>()) arg
 
@@ -89,21 +90,22 @@ DrawTargetCaptureImpl::SetPermitSubpixelAA(bool aPermitSubpixelAA)
 }
 
 void
-DrawTargetCaptureImpl::DrawSurface(SourceSurface *aSurface,
-                                   const Rect &aDest,
-                                   const Rect &aSource,
-                                   const DrawSurfaceOptions &aSurfOptions,
-                                   const DrawOptions &aOptions)
+DrawTargetCaptureImpl::DrawSurface(SourceSurface* aSurface,
+                                   const Rect& aDest,
+                                   const Rect& aSource,
+                                   const DrawSurfaceOptions& aSurfOptions,
+                                   const DrawOptions& aOptions)
 {
   aSurface->GuaranteePersistance();
-  AppendCommand(DrawSurfaceCommand)(aSurface, aDest, aSource, aSurfOptions, aOptions);
+  AppendCommand(DrawSurfaceCommand)(
+      aSurface, aDest, aSource, aSurfOptions, aOptions);
 }
 
 void
-DrawTargetCaptureImpl::DrawFilter(FilterNode *aNode,
-                                  const Rect &aSourceRect,
-                                  const Point &aDestPoint,
-                                  const DrawOptions &aOptions)
+DrawTargetCaptureImpl::DrawFilter(FilterNode* aNode,
+                                  const Rect& aSourceRect,
+                                  const Point& aDestPoint,
+                                  const DrawOptions& aOptions)
 {
   // @todo XXX - this won't work properly long term yet due to filternodes not
   // being immutable.
@@ -111,16 +113,16 @@ DrawTargetCaptureImpl::DrawFilter(FilterNode *aNode,
 }
 
 void
-DrawTargetCaptureImpl::ClearRect(const Rect &aRect)
+DrawTargetCaptureImpl::ClearRect(const Rect& aRect)
 {
   AppendCommand(ClearRectCommand)(aRect);
 }
 
 void
-DrawTargetCaptureImpl::MaskSurface(const Pattern &aSource,
-                                   SourceSurface *aMask,
+DrawTargetCaptureImpl::MaskSurface(const Pattern& aSource,
+                                   SourceSurface* aMask,
                                    Point aOffset,
-                                   const DrawOptions &aOptions)
+                                   const DrawOptions& aOptions)
 {
   aMask->GuaranteePersistance();
   AppendCommand(MaskSurfaceCommand)(aSource, aMask, aOffset, aOptions);
@@ -159,7 +161,8 @@ DrawTargetCaptureImpl::StrokeLine(const Point& aStart,
                                   const StrokeOptions& aStrokeOptions,
                                   const DrawOptions& aOptions)
 {
-  AppendCommand(StrokeLineCommand)(aStart, aEnd, aPattern, aStrokeOptions, aOptions);
+  AppendCommand(StrokeLineCommand)(
+      aStart, aEnd, aPattern, aStrokeOptions, aOptions);
 }
 
 void
@@ -180,29 +183,34 @@ DrawTargetCaptureImpl::Fill(const Path* aPath,
 }
 
 void
-DrawTargetCaptureImpl::FillGlyphs(ScaledFont* aFont,
-                                  const GlyphBuffer& aBuffer,
-                                  const Pattern& aPattern,
-                                  const DrawOptions& aOptions,
-                                  const GlyphRenderingOptions* aRenderingOptions)
+DrawTargetCaptureImpl::FillGlyphs(
+    ScaledFont* aFont,
+    const GlyphBuffer& aBuffer,
+    const Pattern& aPattern,
+    const DrawOptions& aOptions,
+    const GlyphRenderingOptions* aRenderingOptions)
 {
-  AppendCommand(FillGlyphsCommand)(aFont, aBuffer, aPattern, aOptions, aRenderingOptions);
-}
-
-void DrawTargetCaptureImpl::StrokeGlyphs(ScaledFont* aFont,
-                                         const GlyphBuffer& aBuffer,
-                                         const Pattern& aPattern,
-                                         const StrokeOptions& aStrokeOptions,
-                                         const DrawOptions& aOptions,
-                                         const GlyphRenderingOptions* aRenderingOptions)
-{
-  AppendCommand(StrokeGlyphsCommand)(aFont, aBuffer, aPattern, aStrokeOptions, aOptions, aRenderingOptions);
+  AppendCommand(FillGlyphsCommand)(
+      aFont, aBuffer, aPattern, aOptions, aRenderingOptions);
 }
 
 void
-DrawTargetCaptureImpl::Mask(const Pattern &aSource,
-                            const Pattern &aMask,
-                            const DrawOptions &aOptions)
+DrawTargetCaptureImpl::StrokeGlyphs(
+    ScaledFont* aFont,
+    const GlyphBuffer& aBuffer,
+    const Pattern& aPattern,
+    const StrokeOptions& aStrokeOptions,
+    const DrawOptions& aOptions,
+    const GlyphRenderingOptions* aRenderingOptions)
+{
+  AppendCommand(StrokeGlyphsCommand)(
+      aFont, aBuffer, aPattern, aStrokeOptions, aOptions, aRenderingOptions);
+}
+
+void
+DrawTargetCaptureImpl::Mask(const Pattern& aSource,
+                            const Pattern& aMask,
+                            const DrawOptions& aOptions)
 {
   AppendCommand(MaskCommand)(aSource, aMask, aOptions);
 }
@@ -234,12 +242,8 @@ DrawTargetCaptureImpl::PushLayer(bool aOpaque,
   mPushedLayers.push_back(layer);
   DrawTarget::SetPermitSubpixelAA(aOpaque);
 
-  AppendCommand(PushLayerCommand)(aOpaque,
-                                  aOpacity,
-                                  aMask,
-                                  aMaskTransform,
-                                  aBounds,
-                                  aCopyBackground);
+  AppendCommand(PushLayerCommand)(
+      aOpaque, aOpacity, aMask, aMaskTransform, aBounds, aCopyBackground);
 }
 
 void
@@ -270,22 +274,23 @@ DrawTargetCaptureImpl::SetTransform(const Matrix& aTransform)
 }
 
 void
-DrawTargetCaptureImpl::ReplayToDrawTarget(DrawTarget* aDT, const Matrix& aTransform)
+DrawTargetCaptureImpl::ReplayToDrawTarget(DrawTarget* aDT,
+                                          const Matrix& aTransform)
 {
   uint8_t* start = &mDrawCommandStorage.front();
 
   uint8_t* current = start;
 
   while (current < start + mDrawCommandStorage.size()) {
-    reinterpret_cast<DrawingCommand*>(current + sizeof(uint32_t))->ExecuteOnDT(aDT, &aTransform);
+    reinterpret_cast<DrawingCommand*>(current + sizeof(uint32_t))
+        ->ExecuteOnDT(aDT, &aTransform);
     current += *(uint32_t*)current;
   }
 }
 
 bool
-DrawTargetCaptureImpl::ContainsOnlyColoredGlyphs(RefPtr<ScaledFont>& aScaledFont,
-                                                 Color& aColor,
-                                                 std::vector<Glyph>& aGlyphs)
+DrawTargetCaptureImpl::ContainsOnlyColoredGlyphs(
+    RefPtr<ScaledFont>& aScaledFont, Color& aColor, std::vector<Glyph>& aGlyphs)
 {
   uint8_t* start = &mDrawCommandStorage.front();
   uint8_t* current = start;
@@ -293,7 +298,7 @@ DrawTargetCaptureImpl::ContainsOnlyColoredGlyphs(RefPtr<ScaledFont>& aScaledFont
 
   while (current < start + mDrawCommandStorage.size()) {
     DrawingCommand* command =
-      reinterpret_cast<DrawingCommand*>(current + sizeof(uint32_t));
+        reinterpret_cast<DrawingCommand*>(current + sizeof(uint32_t));
     current += *(uint32_t*)current;
 
     if (command->GetType() != CommandType::FILLGLYPHS &&
@@ -302,7 +307,8 @@ DrawTargetCaptureImpl::ContainsOnlyColoredGlyphs(RefPtr<ScaledFont>& aScaledFont
     }
 
     if (command->GetType() == CommandType::SETTRANSFORM) {
-      SetTransformCommand* transform = static_cast<SetTransformCommand*>(command);
+      SetTransformCommand* transform =
+          static_cast<SetTransformCommand*>(command);
       if (transform->mTransform != Matrix()) {
         return false;
       }
@@ -334,13 +340,12 @@ DrawTargetCaptureImpl::ContainsOnlyColoredGlyphs(RefPtr<ScaledFont>& aScaledFont
 
     //TODO: Deal with AA on the DrawOptions, and the GlyphRenderingOptions
 
-    aGlyphs.insert(aGlyphs.end(),
-                   fillGlyphs->mGlyphs.begin(),
-                   fillGlyphs->mGlyphs.end());
+    aGlyphs.insert(
+        aGlyphs.end(), fillGlyphs->mGlyphs.begin(), fillGlyphs->mGlyphs.end());
     result = true;
   }
   return result;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

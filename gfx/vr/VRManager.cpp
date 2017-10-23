@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "VRManager.h"
 #include "VRManagerParent.h"
 #include "VRThread.h"
@@ -20,7 +19,8 @@
 #if defined(XP_WIN)
 #include "gfxVROculus.h"
 #endif
-#if defined(XP_WIN) || defined(XP_MACOSX) || (defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID))
+#if defined(XP_WIN) || defined(XP_MACOSX) || \
+    (defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID))
 #include "gfxVROpenVR.h"
 #include "gfxVROSVR.h"
 #endif
@@ -48,9 +48,7 @@ VRManager::ManagerInit()
   }
 }
 
-VRManager::VRManager()
-  : mInitialized(false)
-  , mVRTestSystemCreated(false)
+VRManager::VRManager() : mInitialized(false), mVRTestSystemCreated(false)
 {
   MOZ_COUNT_CTOR(VRManager);
   MOZ_ASSERT(sVRManagerSingleton == nullptr);
@@ -79,7 +77,8 @@ VRManager::VRManager()
   }
 #endif
 
-#if defined(XP_WIN) || defined(XP_MACOSX) || (defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID))
+#if defined(XP_WIN) || defined(XP_MACOSX) || \
+    (defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID))
   // OpenVR is cross platform compatible
   mgr = VRSystemManagerOpenVR::Create();
   if (mgr) {
@@ -89,7 +88,7 @@ VRManager::VRManager()
   // OSVR is cross platform compatible
   mgr = VRSystemManagerOSVR::Create();
   if (mgr) {
-      mManagers.AppendElement(mgr);
+    mManagers.AppendElement(mgr);
   }
 #endif
   // Enable gamepad extensions while VR is enabled.
@@ -134,7 +133,7 @@ VRManager::Init()
   mInitialized = true;
 }
 
-/* static */VRManager*
+/* static */ VRManager*
 VRManager::Get()
 {
   MOZ_ASSERT(sVRManagerSingleton != nullptr);
@@ -164,14 +163,14 @@ void
 VRManager::NotifyVsync(const TimeStamp& aVsyncTimestamp)
 {
   MOZ_ASSERT(VRListenerThreadHolder::IsInVRListenerThread());
-  const double kVRDisplayRefreshMaxDuration = 5000; // milliseconds
-  const double kVRDisplayInactiveMaxDuration = 30000; // milliseconds
+  const double kVRDisplayRefreshMaxDuration = 5000;    // milliseconds
+  const double kVRDisplayInactiveMaxDuration = 30000;  // milliseconds
 
   bool bHaveEventListener = false;
   bool bHaveControllerListener = false;
 
   for (auto iter = mVRManagerParents.Iter(); !iter.Done(); iter.Next()) {
-    VRManagerParent *vmp = iter.Get()->GetKey();
+    VRManagerParent* vmp = iter.Get()->GetKey();
     bHaveEventListener |= vmp->HaveEventListener();
     bHaveControllerListener |= vmp->HaveControllerListener();
   }
@@ -182,7 +181,7 @@ VRManager::NotifyVsync(const TimeStamp& aVsyncTimestamp)
   for (auto iter = mVRDisplays.Iter(); !iter.Done(); iter.Next()) {
     displays.AppendElement(iter.UserData());
   }
-  for (const auto& display: displays) {
+  for (const auto& display : displays) {
     display->NotifyVSync();
   }
 
@@ -214,7 +213,7 @@ VRManager::NotifyVsync(const TimeStamp& aVsyncTimestamp)
     }
 
     if (bHaveControllerListener) {
-      for (const auto& manager: mManagers) {
+      for (const auto& manager : mManagers) {
         if (!manager->GetIsPresenting()) {
           manager->HandleInput();
         }
@@ -240,7 +239,7 @@ void
 VRManager::NotifyVRVsync(const uint32_t& aDisplayID)
 {
   MOZ_ASSERT(VRListenerThreadHolder::IsInVRListenerThread());
-  for (const auto& manager: mManagers) {
+  for (const auto& manager : mManagers) {
     if (manager->GetIsPresenting()) {
       manager->HandleInput();
     }
@@ -257,7 +256,7 @@ VRManager::NotifyVRVsync(const uint32_t& aDisplayID)
 void
 VRManager::RefreshVRDisplays(bool aMustDispatch)
 {
-  nsTArray<RefPtr<gfx::VRDisplayHost> > displays;
+  nsTArray<RefPtr<gfx::VRDisplayHost>> displays;
 
   /** We don't wish to enumerate the same display from multiple managers,
    * so stop as soon as we get a display.
@@ -284,7 +283,7 @@ VRManager::RefreshVRDisplays(bool aMustDispatch)
     displaySetChanged = true;
   }
 
-  for (const auto& display: displays) {
+  for (const auto& display : displays) {
     if (!GetDisplay(display->GetDisplayInfo().GetDisplayID())) {
       // This is a new display
       displaySetChanged = true;
@@ -301,7 +300,7 @@ VRManager::RefreshVRDisplays(bool aMustDispatch)
   // Rebuild the HashMap if there are additions or removals
   if (displaySetChanged) {
     mVRDisplays.Clear();
-    for (const auto& display: displays) {
+    for (const auto& display : displays) {
       mVRDisplays.Put(display->GetDisplayInfo().GetDisplayID(), display);
     }
   }
@@ -321,7 +320,6 @@ VRManager::DispatchVRDisplayInfoUpdate()
     Unused << iter.Get()->GetKey()->SendUpdateDisplayInfo(update);
   }
 }
-
 
 /**
  * Get any VR displays that have already been enumerated without
@@ -363,7 +361,8 @@ VRManager::GetVRControllerInfo(nsTArray<VRControllerInfo>& aControllerInfo)
   aControllerInfo.Clear();
   for (auto iter = mVRControllers.Iter(); !iter.Done(); iter.Next()) {
     gfx::VRControllerHost* controller = iter.UserData();
-    aControllerInfo.AppendElement(VRControllerInfo(controller->GetControllerInfo()));
+    aControllerInfo.AppendElement(
+        VRControllerInfo(controller->GetControllerInfo()));
   }
 }
 
@@ -374,8 +373,8 @@ VRManager::RefreshVRControllers()
 
   ScanForControllers();
 
-  for (uint32_t i = 0; i < mManagers.Length()
-      && controllers.Length() == 0; ++i) {
+  for (uint32_t i = 0; i < mManagers.Length() && controllers.Length() == 0;
+       ++i) {
     mManagers[i]->GetControllers(controllers);
   }
 
@@ -386,7 +385,7 @@ VRManager::RefreshVRControllers()
     controllerInfoChanged = true;
   }
 
-  for (const auto& controller: controllers) {
+  for (const auto& controller : controllers) {
     if (!GetController(controller->GetControllerInfo().GetControllerID())) {
       // This is a new controller
       controllerInfoChanged = true;
@@ -396,7 +395,7 @@ VRManager::RefreshVRControllers()
 
   if (controllerInfoChanged) {
     mVRControllers.Clear();
-    for (const auto& controller: controllers) {
+    for (const auto& controller : controllers) {
       mVRControllers.Put(controller->GetControllerInfo().GetControllerID(),
                          controller);
     }
@@ -447,20 +446,23 @@ VRManager::NotifyGamepadChange(uint32_t aIndex, const T& aInfo)
 }
 
 void
-VRManager::VibrateHaptic(uint32_t aControllerIdx, uint32_t aHapticIndex,
-                         double aIntensity, double aDuration, uint32_t aPromiseID)
+VRManager::VibrateHaptic(uint32_t aControllerIdx,
+                         uint32_t aHapticIndex,
+                         double aIntensity,
+                         double aDuration,
+                         uint32_t aPromiseID)
 
 {
   for (uint32_t i = 0; i < mManagers.Length(); ++i) {
-    mManagers[i]->VibrateHaptic(aControllerIdx, aHapticIndex,
-                                aIntensity, aDuration, aPromiseID);
+    mManagers[i]->VibrateHaptic(
+        aControllerIdx, aHapticIndex, aIntensity, aDuration, aPromiseID);
   }
 }
 
 void
 VRManager::StopVibrateHaptic(uint32_t aControllerIdx)
 {
-  for (const auto& manager: mManagers) {
+  for (const auto& manager : mManagers) {
     manager->StopVibrateHaptic(aControllerIdx);
   }
 }
@@ -474,12 +476,14 @@ VRManager::NotifyVibrateHapticCompleted(uint32_t aPromiseID)
 }
 
 void
-VRManager::DispatchSubmitFrameResult(uint32_t aDisplayID, const VRSubmitFrameResultInfo& aResult)
+VRManager::DispatchSubmitFrameResult(uint32_t aDisplayID,
+                                     const VRSubmitFrameResultInfo& aResult)
 {
   for (auto iter = mVRManagerParents.Iter(); !iter.Done(); iter.Next()) {
-    Unused << iter.Get()->GetKey()->SendDispatchSubmitFrameResult(aDisplayID, aResult);
+    Unused << iter.Get()->GetKey()->SendDispatchSubmitFrameResult(aDisplayID,
+                                                                  aResult);
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -19,9 +19,8 @@ class TaskQueue;
 
 class AppleATDecoder : public MediaDataDecoder
 {
-public:
-  AppleATDecoder(const AudioInfo& aConfig,
-                 TaskQueue* aTaskQueue);
+ public:
+  AppleATDecoder(const AudioInfo& aConfig, TaskQueue* aTaskQueue);
   ~AppleATDecoder();
 
   RefPtr<InitPromise> Init() override;
@@ -46,7 +45,7 @@ public:
 
   const RefPtr<TaskQueue> mTaskQueue;
 
-private:
+ private:
   AudioConverterRef mConverter;
   AudioStreamBasicDescription mOutputFormat;
   UInt32 mFormatID;
@@ -71,6 +70,6 @@ private:
   bool mErrored;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AppleATDecoder_h
+#endif  // mozilla_AppleATDecoder_h

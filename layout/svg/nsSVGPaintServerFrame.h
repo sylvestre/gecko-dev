@@ -18,8 +18,8 @@
 namespace mozilla {
 namespace gfx {
 class DrawTarget;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 class gfxContext;
 class gfxPattern;
@@ -32,11 +32,10 @@ class nsStyleContext;
  */
 class MOZ_RAII AutoSetRestorePaintServerState
 {
-public:
+ public:
   explicit AutoSetRestorePaintServerState(
-             nsIFrame* aFrame
-             MOZ_GUARD_OBJECT_NOTIFIER_PARAM) :
-    mFrame(aFrame)
+      nsIFrame* aFrame MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mFrame(aFrame)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     mFrame->AddStateBits(NS_FRAME_DRAWING_AS_PAINTSERVER);
@@ -46,23 +45,23 @@ public:
     mFrame->RemoveStateBits(NS_FRAME_DRAWING_AS_PAINTSERVER);
   }
 
-private:
+ private:
   nsIFrame* mFrame;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 class nsSVGPaintServerFrame : public nsSVGContainerFrame
 {
-protected:
+ protected:
   typedef mozilla::gfx::DrawTarget DrawTarget;
 
   nsSVGPaintServerFrame(nsStyleContext* aContext, ClassID aID)
-    : nsSVGContainerFrame(aContext, aID)
+      : nsSVGContainerFrame(aContext, aID)
   {
     AddStateBits(NS_FRAME_IS_NONDISPLAY);
   }
 
-public:
+ public:
   typedef mozilla::image::imgDrawingParams imgDrawingParams;
 
   NS_DECL_ABSTRACT_FRAME(nsSVGPaintServerFrame)
@@ -75,23 +74,26 @@ public:
    *   that surfaces of the correct size can be created. (SVG gradients are
    *   vector based, so it's not used there.)
    */
-  virtual already_AddRefed<gfxPattern>
-    GetPaintServerPattern(nsIFrame *aSource,
-                          const DrawTarget* aDrawTarget,
-                          const gfxMatrix& aContextMatrix,
-                          nsStyleSVGPaint nsStyleSVG::*aFillOrStroke,
-                          float aOpacity,
-                          imgDrawingParams& aImgParams,
-                          const gfxRect* aOverrideBounds = nullptr) = 0;
+  virtual already_AddRefed<gfxPattern> GetPaintServerPattern(
+      nsIFrame* aSource,
+      const DrawTarget* aDrawTarget,
+      const gfxMatrix& aContextMatrix,
+      nsStyleSVGPaint nsStyleSVG::*aFillOrStroke,
+      float aOpacity,
+      imgDrawingParams& aImgParams,
+      const gfxRect* aOverrideBounds = nullptr) = 0;
 
   // nsIFrame methods:
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
-                                const nsDisplayListSet& aLists) override {}
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
+                                const nsDisplayListSet& aLists) override
+  {
+  }
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsSVGContainerFrame::IsFrameOfType(aFlags & ~nsIFrame::eSVGPaintServer);
+    return nsSVGContainerFrame::IsFrameOfType(aFlags &
+                                              ~nsIFrame::eSVGPaintServer);
   }
 };
 
-#endif // __NS_SVGPAINTSERVERFRAME_H__
+#endif  // __NS_SVGPAINTSERVERFRAME_H__

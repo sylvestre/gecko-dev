@@ -17,7 +17,7 @@ namespace layers {
 
 class DIBTextureData : public TextureData
 {
-public:
+ public:
   virtual bool Lock(OpenMode) override { return true; }
 
   virtual void Unlock() override {}
@@ -26,16 +26,15 @@ public:
 
   virtual already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
 
-  static
-  DIBTextureData* Create(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
-                         LayersIPCChannel* aAllocator);
+  static DIBTextureData* Create(gfx::IntSize aSize,
+                                gfx::SurfaceFormat aFormat,
+                                LayersIPCChannel* aAllocator);
 
-protected:
-  DIBTextureData(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+ protected:
+  DIBTextureData(gfx::IntSize aSize,
+                 gfx::SurfaceFormat aFormat,
                  gfxWindowsSurface* aSurface)
-  : mSurface(aSurface)
-  , mSize(aSize)
-  , mFormat(aFormat)
+      : mSurface(aSurface), mSize(aSize), mFormat(aFormat)
   {
     MOZ_ASSERT(aSurface);
   }
@@ -52,19 +51,18 @@ protected:
   */
 class TextureHostDirectUpload : public TextureHost
 {
-public:
+ public:
   TextureHostDirectUpload(TextureFlags aFlags,
                           gfx::SurfaceFormat aFormat,
                           gfx::IntSize aSize)
-    : TextureHost(aFlags)
-    , mFormat(aFormat)
-    , mSize(aSize)
-    , mIsLocked(false)
-  { }
+      : TextureHost(aFlags), mFormat(aFormat), mSize(aSize), mIsLocked(false)
+  {
+  }
 
   virtual void DeallocateDeviceData() override;
 
-  virtual void SetTextureSourceProvider(TextureSourceProvider* aProvider) override;
+  virtual void SetTextureSourceProvider(
+      TextureSourceProvider* aProvider) override;
 
   virtual gfx::SurfaceFormat GetFormat() const override { return mFormat; }
 
@@ -76,10 +74,12 @@ public:
 
   virtual bool HasIntermediateBuffer() const { return true; }
 
-  virtual bool BindTextureSource(CompositableTextureSourceRef& aTexture) override;
-  virtual bool AcquireTextureSource(CompositableTextureSourceRef& aTexture) override;
+  virtual bool BindTextureSource(
+      CompositableTextureSourceRef& aTexture) override;
+  virtual bool AcquireTextureSource(
+      CompositableTextureSourceRef& aTexture) override;
 
-protected:
+ protected:
   RefPtr<TextureSourceProvider> mProvider;
   RefPtr<DataTextureSource> mTextureSource;
   gfx::SurfaceFormat mFormat;
@@ -89,16 +89,15 @@ protected:
 
 class DIBTextureHost : public TextureHostDirectUpload
 {
-public:
-  DIBTextureHost(TextureFlags aFlags,
-                 const SurfaceDescriptorDIB& aDescriptor);
+ public:
+  DIBTextureHost(TextureFlags aFlags, const SurfaceDescriptorDIB& aDescriptor);
 
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override
   {
-    return nullptr; // TODO: cf bug 872568
+    return nullptr;  // TODO: cf bug 872568
   }
 
-protected:
+ protected:
   virtual void UpdatedInternal(const nsIntRegion* aRegion = nullptr) override;
 
   RefPtr<gfxWindowsSurface> mSurface;
@@ -106,7 +105,7 @@ protected:
 
 class TextureHostFileMapping : public TextureHostDirectUpload
 {
-public:
+ public:
   TextureHostFileMapping(TextureFlags aFlags,
                          const SurfaceDescriptorFileMapping& aDescriptor);
   ~TextureHostFileMapping();
@@ -114,18 +113,18 @@ public:
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override
   {
     MOZ_CRASH("GFX: TextureHostFileMapping::GetAsSurface not implemented");
-                 // Not implemented! It would be tricky to keep track of the
-                 // scope of the file mapping. We could do this through UserData
-                 // on the DataSourceSurface but we don't need this right now.
+    // Not implemented! It would be tricky to keep track of the
+    // scope of the file mapping. We could do this through UserData
+    // on the DataSourceSurface but we don't need this right now.
   }
 
-protected:
+ protected:
   virtual void UpdatedInternal(const nsIntRegion* aRegion = nullptr) override;
 
   HANDLE mFileMapping;
 };
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_TEXTUREDIB_H */

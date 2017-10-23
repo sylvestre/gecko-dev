@@ -106,41 +106,46 @@ AppendRoundedRectToPath(PathBuilder* aPathBuilder,
 
   const Float alpha = Float(0.55191497064665766025);
 
-  typedef struct { Float a, b; } twoFloats;
+  typedef struct
+  {
+    Float a, b;
+  } twoFloats;
 
-  twoFloats cwCornerMults[4] = { { -1,  0 },    // cc == clockwise
-                                 {  0, -1 },
-                                 { +1,  0 },
-                                 {  0, +1 } };
-  twoFloats ccwCornerMults[4] = { { +1,  0 },   // ccw == counter-clockwise
-                                  {  0, -1 },
-                                  { -1,  0 },
-                                  {  0, +1 } };
+  twoFloats cwCornerMults[4] = {{-1, 0},  // cc == clockwise
+                                {0, -1},
+                                {+1, 0},
+                                {0, +1}};
+  twoFloats ccwCornerMults[4] = {{+1, 0},  // ccw == counter-clockwise
+                                 {0, -1},
+                                 {-1, 0},
+                                 {0, +1}};
 
-  twoFloats *cornerMults = aDrawClockwise ? cwCornerMults : ccwCornerMults;
+  twoFloats* cornerMults = aDrawClockwise ? cwCornerMults : ccwCornerMults;
 
-  Point cornerCoords[] = { aRect.TopLeft(), aRect.TopRight(),
-                           aRect.BottomRight(), aRect.BottomLeft() };
+  Point cornerCoords[] = {aRect.TopLeft(),
+                          aRect.TopRight(),
+                          aRect.BottomRight(),
+                          aRect.BottomLeft()};
 
   Point pc, p0, p1, p2, p3;
 
   if (aDrawClockwise) {
-    aPathBuilder->MoveTo(Point(aRect.X() + aRadii[eCornerTopLeft].width,
-                               aRect.Y()));
+    aPathBuilder->MoveTo(
+        Point(aRect.X() + aRadii[eCornerTopLeft].width, aRect.Y()));
   } else {
-    aPathBuilder->MoveTo(Point(aRect.X() + aRect.Width() - aRadii[eCornerTopRight].width,
-                               aRect.Y()));
+    aPathBuilder->MoveTo(Point(
+        aRect.X() + aRect.Width() - aRadii[eCornerTopRight].width, aRect.Y()));
   }
 
   for (int i = 0; i < 4; ++i) {
     // the corner index -- either 1 2 3 0 (cw) or 0 3 2 1 (ccw)
-    int c = aDrawClockwise ? ((i+1) % 4) : ((4-i) % 4);
+    int c = aDrawClockwise ? ((i + 1) % 4) : ((4 - i) % 4);
 
     // i+2 and i+3 respectively.  These are used to index into the corner
     // multiplier table, and were deduced by calculating out the long form
     // of each corner and finding a pattern in the signs and values.
-    int i2 = (i+2) % 4;
-    int i3 = (i+3) % 4;
+    int i2 = (i + 2) % 4;
+    int i3 = (i + 3) % 4;
 
     pc = cornerCoords[c];
 
@@ -180,7 +185,8 @@ AppendEllipseToPath(PathBuilder* aPathBuilder,
 }
 
 bool
-SnapLineToDevicePixelsForStroking(Point& aP1, Point& aP2,
+SnapLineToDevicePixelsForStroking(Point& aP1,
+                                  Point& aP2,
                                   const DrawTarget& aDrawTarget,
                                   Float aLineWidth)
 {
@@ -189,13 +195,13 @@ SnapLineToDevicePixelsForStroking(Point& aP1, Point& aP2,
     return false;
   }
   if (aP1.x != aP2.x && aP1.y != aP2.y) {
-    return false; // not a horizontal or vertical line
+    return false;  // not a horizontal or vertical line
   }
-  Point p1 = aP1 + mat.GetTranslation(); // into device space
+  Point p1 = aP1 + mat.GetTranslation();  // into device space
   Point p2 = aP2 + mat.GetTranslation();
   p1.Round();
   p2.Round();
-  p1 -= mat.GetTranslation(); // back into user space
+  p1 -= mat.GetTranslation();  // back into user space
   p2 -= mat.GetTranslation();
 
   aP1 = p1;
@@ -217,9 +223,10 @@ SnapLineToDevicePixelsForStroking(Point& aP1, Point& aP2,
 }
 
 void
-StrokeSnappedEdgesOfRect(const Rect& aRect, DrawTarget& aDrawTarget,
-                        const ColorPattern& aColor,
-                        const StrokeOptions& aStrokeOptions)
+StrokeSnappedEdgesOfRect(const Rect& aRect,
+                         DrawTarget& aDrawTarget,
+                         const ColorPattern& aColor,
+                         const StrokeOptions& aStrokeOptions)
 {
   if (aRect.IsEmpty()) {
     return;
@@ -227,33 +234,32 @@ StrokeSnappedEdgesOfRect(const Rect& aRect, DrawTarget& aDrawTarget,
 
   Point p1 = aRect.TopLeft();
   Point p2 = aRect.BottomLeft();
-  SnapLineToDevicePixelsForStroking(p1, p2, aDrawTarget,
-                                    aStrokeOptions.mLineWidth);
+  SnapLineToDevicePixelsForStroking(
+      p1, p2, aDrawTarget, aStrokeOptions.mLineWidth);
   aDrawTarget.StrokeLine(p1, p2, aColor, aStrokeOptions);
 
   p1 = aRect.BottomLeft();
   p2 = aRect.BottomRight();
-  SnapLineToDevicePixelsForStroking(p1, p2, aDrawTarget,
-                                    aStrokeOptions.mLineWidth);
+  SnapLineToDevicePixelsForStroking(
+      p1, p2, aDrawTarget, aStrokeOptions.mLineWidth);
   aDrawTarget.StrokeLine(p1, p2, aColor, aStrokeOptions);
 
   p1 = aRect.TopLeft();
   p2 = aRect.TopRight();
-  SnapLineToDevicePixelsForStroking(p1, p2, aDrawTarget,
-                                    aStrokeOptions.mLineWidth);
+  SnapLineToDevicePixelsForStroking(
+      p1, p2, aDrawTarget, aStrokeOptions.mLineWidth);
   aDrawTarget.StrokeLine(p1, p2, aColor, aStrokeOptions);
 
   p1 = aRect.TopRight();
   p2 = aRect.BottomRight();
-  SnapLineToDevicePixelsForStroking(p1, p2, aDrawTarget,
-                                    aStrokeOptions.mLineWidth);
+  SnapLineToDevicePixelsForStroking(
+      p1, p2, aDrawTarget, aStrokeOptions.mLineWidth);
   aDrawTarget.StrokeLine(p1, p2, aColor, aStrokeOptions);
 }
 
 // The logic for this comes from _cairo_stroke_style_max_distance_from_path
 Margin
-MaxStrokeExtents(const StrokeOptions& aStrokeOptions,
-                 const Matrix& aTransform)
+MaxStrokeExtents(const StrokeOptions& aStrokeOptions, const Matrix& aTransform)
 {
   double styleExpansionFactor = 0.5f;
 
@@ -279,5 +285,5 @@ MaxStrokeExtents(const StrokeOptions& aStrokeOptions,
   return Margin(dy, dx, dy, dx);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

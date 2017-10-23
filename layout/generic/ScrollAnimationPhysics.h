@@ -13,7 +13,7 @@ namespace mozilla {
 
 class ScrollAnimationPhysics
 {
-public:
+ public:
   virtual void Update(const TimeStamp& aTime,
                       const nsPoint& aDestination,
                       const nsSize& aCurrentVelocity) = 0;
@@ -41,8 +41,8 @@ ComputeAcceleratedWheelDelta(double aDelta, int32_t aCounter, int32_t aFactor)
   return (aDelta * aCounter * double(aFactor) / 10);
 }
 
-static const uint32_t kScrollSeriesTimeoutMs = 80; // in milliseconds
+static const uint32_t kScrollSeriesTimeoutMs = 80;  // in milliseconds
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_layout_ScrollAnimationPhysics_h_
+#endif  // mozilla_layout_ScrollAnimationPhysics_h_

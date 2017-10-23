@@ -20,7 +20,10 @@
 struct ObserverRef
 {
   ObserverRef(const ObserverRef& aO) : isWeakRef(aO.isWeakRef), ref(aO.ref) {}
-  explicit ObserverRef(nsIObserver* aObserver) : isWeakRef(false), ref(aObserver) {}
+  explicit ObserverRef(nsIObserver* aObserver)
+      : isWeakRef(false), ref(aObserver)
+  {
+  }
   explicit ObserverRef(nsIWeakReference* aWeak) : isWeakRef(true), ref(aWeak) {}
 
   bool isWeakRef;
@@ -45,16 +48,13 @@ class nsObserverList : public nsCharPtrHashKey
 {
   friend class nsObserverService;
 
-public:
+ public:
   explicit nsObserverList(const char* aKey) : nsCharPtrHashKey(aKey)
   {
     MOZ_COUNT_CTOR(nsObserverList);
   }
 
-  ~nsObserverList()
-  {
-    MOZ_COUNT_DTOR(nsObserverList);
-  }
+  ~nsObserverList() { MOZ_COUNT_DTOR(nsObserverList); }
 
   MOZ_MUST_USE nsresult AddObserver(nsIObserver* aObserver, bool aOwnsWeak);
   MOZ_MUST_USE nsresult RemoveObserver(nsIObserver* aObserver);
@@ -71,22 +71,22 @@ public:
   // Like FillObserverArray(), but only for strongly held observers.
   void AppendStrongObservers(nsCOMArray<nsIObserver>& aArray);
 
-private:
+ private:
   nsTArray<ObserverRef> mObservers;
 };
 
 class nsObserverEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISIMPLEENUMERATOR
 
   explicit nsObserverEnumerator(nsObserverList* aObserverList);
 
-private:
+ private:
   ~nsObserverEnumerator() {}
 
-  int32_t mIndex; // Counts up from 0
+  int32_t mIndex;  // Counts up from 0
   nsCOMArray<nsIObserver> mObservers;
 };
 

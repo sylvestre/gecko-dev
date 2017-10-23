@@ -33,14 +33,17 @@ namespace media {
  * Note this class is not thread-safe and should be called from the state
  * machine thread only.
  */
-class MediaSink {
-public:
+class MediaSink
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaSink);
   typedef mozilla::TrackInfo::TrackType TrackType;
 
-  struct PlaybackParams {
-    PlaybackParams()
-      : mVolume(1.0) , mPlaybackRate(1.0) , mPreservesPitch(true) {}
+  struct PlaybackParams
+  {
+    PlaybackParams() : mVolume(1.0), mPlaybackRate(1.0), mPreservesPitch(true)
+    {
+    }
     double mVolume;
     double mPlaybackRate;
     bool mPreservesPitch;
@@ -96,7 +99,7 @@ public:
   // Single frame rendering operation may need to be done before playback
   // started (1st frame) or right after seek completed or playback stopped.
   // Do nothing if this sink has no video track. Can be called in any state.
-  virtual void Redraw(const VideoInfo& aInfo) {};
+  virtual void Redraw(const VideoInfo& aInfo){};
 
   // Begin a playback session with the provided start time and media info.
   // Must be called when playback is stopped.
@@ -123,11 +126,11 @@ public:
   // Can be called in any phase.
   virtual nsCString GetDebugInfo() { return nsCString(); }
 
-protected:
+ protected:
   virtual ~MediaSink() {}
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif //MediaSink_h_
+#endif  //MediaSink_h_

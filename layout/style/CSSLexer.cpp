@@ -13,8 +13,8 @@ namespace dom {
 
 // Ensure that constants are consistent.
 
-#define CHECK(X, Y) \
-  static_assert(static_cast<int>(X) == static_cast<int>(Y),       \
+#define CHECK(X, Y)                                         \
+  static_assert(static_cast<int>(X) == static_cast<int>(Y), \
                 "nsCSSToken and CSSTokenType should have identical values")
 
 CHECK(eCSSToken_Whitespace, CSSTokenType::Whitespace);
@@ -42,18 +42,15 @@ CHECK(eCSSToken_HTMLComment, CSSTokenType::Htmlcomment);
 
 #undef CHECK
 
-CSSLexer::CSSLexer(const nsAString& aText)
-  : mInput(aText)
-  , mScanner(mInput, 1)
+CSSLexer::CSSLexer(const nsAString& aText) : mInput(aText), mScanner(mInput, 1)
 {
 }
 
-CSSLexer::~CSSLexer()
-{
-}
+CSSLexer::~CSSLexer() {}
 
 bool
-CSSLexer::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto,
+CSSLexer::WrapObject(JSContext* aCx,
+                     JS::Handle<JSObject*> aGivenProto,
                      JS::MutableHandle<JSObject*> aReflector)
 {
   return CSSLexerBinding::Wrap(aCx, this, aGivenProto, aReflector);
@@ -74,7 +71,8 @@ CSSLexer::ColumnNumber()
 }
 
 void
-CSSLexer::PerformEOFFixup(const nsAString& aInputString, bool aPreserveBackslash,
+CSSLexer::PerformEOFFixup(const nsAString& aInputString,
+                          bool aPreserveBackslash,
                           nsAString& aResult)
 {
   aResult.Append(aInputString);
@@ -93,8 +91,8 @@ CSSLexer::PerformEOFFixup(const nsAString& aInputString, bool aPreserveBackslash
     aResult.Truncate(aResult.Length() - 1);
   }
 
-  nsCSSScanner::AppendImpliedEOFCharacters(nsCSSScanner::EOFCharacters(eofChars),
-                                           aResult);
+  nsCSSScanner::AppendImpliedEOFCharacters(
+      nsCSSScanner::EOFCharacters(eofChars), aResult);
 }
 
 void
@@ -162,5 +160,5 @@ CSSLexer::NextToken(Nullable<CSSToken>& aResult)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

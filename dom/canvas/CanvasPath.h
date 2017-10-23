@@ -18,16 +18,16 @@ namespace dom {
 enum class CanvasWindingRule : uint8_t;
 class SVGMatrix;
 
-class CanvasPath final :
-  public nsWrapperCache
+class CanvasPath final : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(CanvasPath)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(CanvasPath)
 
   nsCOMPtr<nsISupports> GetParentObject() { return mParent; }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   static already_AddRefed<CanvasPath> Constructor(const GlobalObject& aGlobal,
                                                   ErrorResult& rv);
@@ -42,18 +42,31 @@ public:
   void MoveTo(double x, double y);
   void LineTo(double x, double y);
   void QuadraticCurveTo(double cpx, double cpy, double x, double y);
-  void BezierCurveTo(double cp1x, double cp1y,
-                     double cp2x, double cp2y,
-                     double x, double y);
-  void ArcTo(double x1, double y1, double x2, double y2, double radius,
+  void BezierCurveTo(
+      double cp1x, double cp1y, double cp2x, double cp2y, double x, double y);
+  void ArcTo(double x1,
+             double y1,
+             double x2,
+             double y2,
+             double radius,
              ErrorResult& error);
   void Rect(double x, double y, double w, double h);
-  void Arc(double x, double y, double radius,
-           double startAngle, double endAngle, bool anticlockwise,
+  void Arc(double x,
+           double y,
+           double radius,
+           double startAngle,
+           double endAngle,
+           bool anticlockwise,
            ErrorResult& error);
-  void Ellipse(double x, double y, double radiusX, double radiusY,
-               double rotation, double startAngle, double endAngle,
-               bool anticlockwise, ErrorResult& error);
+  void Ellipse(double x,
+               double y,
+               double radiusX,
+               double radiusY,
+               double rotation,
+               double startAngle,
+               double endAngle,
+               bool anticlockwise,
+               ErrorResult& error);
 
   void LineTo(const gfx::Point& aPoint);
   void BezierTo(const gfx::Point& aCP1,
@@ -61,7 +74,7 @@ public:
                 const gfx::Point& aCP3);
 
   already_AddRefed<gfx::Path> GetPath(const CanvasWindingRule& aWinding,
-                                  const gfx::DrawTarget* aTarget) const;
+                                      const gfx::DrawTarget* aTarget) const;
 
   explicit CanvasPath(nsISupports* aParent);
   // already_AddRefed arg because the return value from Path::CopyToBuilder()
@@ -72,7 +85,7 @@ public:
   void AddPath(CanvasPath& aCanvasPath,
                const Optional<NonNull<SVGMatrix>>& aMatrix);
 
-private:
+ private:
   virtual ~CanvasPath() {}
 
   nsCOMPtr<nsISupports> mParent;
@@ -84,8 +97,7 @@ private:
   void EnsurePathBuilder() const;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* CanvasPath_h */
-

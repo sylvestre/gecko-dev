@@ -32,5 +32,5 @@ CSSPageRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return CSSPageRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

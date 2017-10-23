@@ -13,10 +13,9 @@
 #include "nsIIPCSerializableURI.h"
 #include "nsINestedURI.h"
 
-class nsMozIconURI : public nsIMozIconURI
-                   , public nsIIPCSerializableURI
+class nsMozIconURI : public nsIMozIconURI, public nsIIPCSerializableURI
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURI
   NS_DECL_NSIMOZICONURI
@@ -25,15 +24,15 @@ public:
   // nsMozIconURI
   nsMozIconURI();
 
-protected:
+ protected:
   virtual ~nsMozIconURI();
-  nsCOMPtr<nsIURL> mIconURL; // a URL that we want the icon for
-  uint32_t mSize; // the # of pixels in a row that we want for this image.
-                  // Typically 16, 32, 128, etc.
-  nsCString mContentType; // optional field explicitly specifying the content
-                          // type
-  nsCString mFileName; // for if we don't have an actual file path, we're just
-                       // given a filename with an extension
+  nsCOMPtr<nsIURL> mIconURL;  // a URL that we want the icon for
+  uint32_t mSize;  // the # of pixels in a row that we want for this image.
+                   // Typically 16, 32, 128, etc.
+  nsCString mContentType;  // optional field explicitly specifying the content
+                           // type
+  nsCString mFileName;  // for if we don't have an actual file path, we're just
+                        // given a filename with an extension
   nsCString mStockIcon;
   int32_t mIconSize;   // -1 if not specified, otherwise index into
                        // kSizeStrings
@@ -43,8 +42,7 @@ protected:
 
 // For moz-icon URIs that point to an actual file on disk and are
 // therefore nested URIs
-class nsNestedMozIconURI final : public nsMozIconURI
-                               , public nsINestedURI
+class nsNestedMozIconURI final : public nsMozIconURI, public nsINestedURI
 {
   NS_DECL_ISUPPORTS_INHERITED
   NS_FORWARD_NSIURI(nsMozIconURI::)
@@ -55,9 +53,8 @@ class nsNestedMozIconURI final : public nsMozIconURI
 
   nsNestedMozIconURI();
 
-protected:
+ protected:
   virtual ~nsNestedMozIconURI();
-
 };
 
-#endif // mozilla_image_decoders_icon_nsIconURI_h
+#endif  // mozilla_image_decoders_icon_nsIconURI_h

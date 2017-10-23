@@ -121,7 +121,7 @@ EncodeInputStream_Encoder(nsIInputStream* aStream,
   NS_ASSERTION(aCount > 0, "Er, what?");
 
   EncodeInputStream_State<T>* state =
-    static_cast<EncodeInputStream_State<T>*>(aClosure);
+      static_cast<EncodeInputStream_State<T>*>(aClosure);
 
   // If we have any data left from last time, encode it now.
   uint32_t countRemaining = aCount;
@@ -148,8 +148,7 @@ EncodeInputStream_Encoder(nsIInputStream* aStream,
 
   // Encode the bulk of the
   uint32_t encodeLength = countRemaining - countRemaining % 3;
-  MOZ_ASSERT(encodeLength % 3 == 0,
-             "Should have an exact number of triplets!");
+  MOZ_ASSERT(encodeLength % 3 == 0, "Should have an exact number of triplets!");
   Encode(src, encodeLength, state->buffer);
   state->buffer += (encodeLength / 3) * 4;
   src += encodeLength;
@@ -189,8 +188,7 @@ EncodeInputStream(nsIInputStream* aInputStream,
     aCount = (uint32_t)count64;
   }
 
-  uint64_t countlong =
-    (count64 + 2) / 3 * 4; // +2 due to integer math.
+  uint64_t countlong = (count64 + 2) / 3 * 4;  // +2 due to integer math.
   if (countlong + aOffset > UINT32_MAX) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -209,10 +207,8 @@ EncodeInputStream(nsIInputStream* aInputStream,
   while (1) {
     uint32_t read = 0;
 
-    rv = aInputStream->ReadSegments(&EncodeInputStream_Encoder<T>,
-                                    (void*)&state,
-                                    aCount,
-                                    &read);
+    rv = aInputStream->ReadSegments(
+        &EncodeInputStream_Encoder<T>, (void*)&state, aCount, &read);
     if (NS_FAILED(rv)) {
       if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
         MOZ_CRASH("Not implemented for async streams!");
@@ -245,27 +241,136 @@ EncodeInputStream(nsIInputStream* aInputStream,
 // Maps an encoded character to a value in the Base64 alphabet, per
 // RFC 4648, Table 1. Invalid input characters map to UINT8_MAX.
 static const uint8_t kBase64DecodeTable[] = {
-  /* 0 */  255, 255, 255, 255, 255, 255, 255, 255,
-  /* 8 */  255, 255, 255, 255, 255, 255, 255, 255,
-  /* 16 */ 255, 255, 255, 255, 255, 255, 255, 255,
-  /* 24 */ 255, 255, 255, 255, 255, 255, 255, 255,
-  /* 32 */ 255, 255, 255, 255, 255, 255, 255, 255,
-  /* 40 */ 255, 255, 255,
-  62 /* + */,
-  255, 255, 255,
-  63 /* / */,
+    /* 0 */ 255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    /* 8 */ 255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    /* 16 */ 255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    /* 24 */ 255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    /* 32 */ 255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    /* 40 */ 255,
+    255,
+    255,
+    62 /* + */,
+    255,
+    255,
+    255,
+    63 /* / */,
 
-  /* 48 */ /* 0 - 9 */ 52, 53, 54, 55, 56, 57, 58, 59,
-  /* 56 */ 60, 61, 255, 255, 255, 255, 255, 255,
+    /* 48 */ /* 0 - 9 */ 52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    /* 56 */ 60,
+    61,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
 
-  /* 64 */ 255, /* A - Z */ 0, 1, 2, 3, 4, 5, 6,
-  /* 72 */ 7, 8, 9, 10, 11, 12, 13, 14,
-  /* 80 */ 15, 16, 17, 18, 19, 20, 21, 22,
-  /* 88 */ 23, 24, 25, 255, 255, 255, 255, 255,
-  /* 96 */ 255, /* a - z */ 26, 27, 28, 29, 30, 31, 32,
-  /* 104 */ 33, 34, 35, 36, 37, 38, 39, 40,
-  /* 112 */ 41, 42, 43, 44, 45, 46, 47, 48,
-  /* 120 */ 49, 50, 51, 255, 255, 255, 255, 255,
+    /* 64 */ 255,
+    /* A - Z */ 0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    /* 72 */ 7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    /* 80 */ 15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    /* 88 */ 23,
+    24,
+    25,
+    255,
+    255,
+    255,
+    255,
+    255,
+    /* 96 */ 255,
+    /* a - z */ 26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    /* 104 */ 33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    /* 112 */ 41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    /* 120 */ 49,
+    50,
+    51,
+    255,
+    255,
+    255,
+    255,
+    255,
 };
 
 template<typename T>
@@ -273,8 +378,9 @@ MOZ_MUST_USE bool
 Base64CharToValue(T aChar, uint8_t* aValue)
 {
   static const size_t mask = 0x7f;
-  static_assert((mask + 1) == sizeof(kBase64DecodeTable)/sizeof(kBase64DecodeTable[0]),
-                "wrong mask");
+  static_assert(
+      (mask + 1) == sizeof(kBase64DecodeTable) / sizeof(kBase64DecodeTable[0]),
+      "wrong mask");
   size_t index = static_cast<uint8_t>(aChar);
 
   if (index & ~mask) {
@@ -286,39 +392,34 @@ Base64CharToValue(T aChar, uint8_t* aValue)
 }
 
 static const char kBase64URLAlphabet[] =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 // Maps an encoded character to a value in the Base64 URL alphabet, per
 // RFC 4648, Table 2. Invalid input characters map to UINT8_MAX.
 static const uint8_t kBase64URLDecodeTable[] = {
-  255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255,
-  62 /* - */,
-  255, 255,
-  52, 53, 54, 55, 56, 57, 58, 59, 60, 61, /* 0 - 9 */
-  255, 255, 255, 255, 255, 255, 255,
-  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-  16, 17, 18, 19, 20, 21, 22, 23, 24, 25, /* A - Z */
-  255, 255, 255, 255,
-  63 /* _ */,
-  255,
-  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-  42, 43, 44, 45, 46, 47, 48, 49, 50, 51, /* a - z */
-  255, 255, 255, 255,
+    255, 255, 255, 255, 255,        255, 255, 255, 255, 255,        255, 255,
+    255, 255, 255, 255, 255,        255, 255, 255, 255, 255,        255, 255,
+    255, 255, 255, 255, 255,        255, 255, 255, 255, 255,        255, 255,
+    255, 255, 255, 255, 255,        255, 255, 255, 255, 62 /* - */, 255, 255,
+    52,  53,  54,  55,  56,         57,  58,  59,  60,  61, /* 0 - 9 */
+    255, 255, 255, 255, 255,        255, 255, 0,   1,   2,          3,   4,
+    5,   6,   7,   8,   9,          10,  11,  12,  13,  14,         15,  16,
+    17,  18,  19,  20,  21,         22,  23,  24,  25, /* A - Z */
+    255, 255, 255, 255, 63 /* _ */, 255, 26,  27,  28,  29,         30,  31,
+    32,  33,  34,  35,  36,         37,  38,  39,  40,  41,         42,  43,
+    44,  45,  46,  47,  48,         49,  50,  51, /* a - z */
+    255, 255, 255, 255,
 };
 
 bool
-Base64URLCharToValue(char aChar, uint8_t* aValue) {
+Base64URLCharToValue(char aChar, uint8_t* aValue)
+{
   uint8_t index = static_cast<uint8_t>(aChar);
   *aValue = kBase64URLDecodeTable[index & 0x7f];
   return (*aValue != 255) && !(index & ~0x7f);
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -416,9 +517,7 @@ static bool
 Decode4to3(const T* aSrc, U* aDest, Decoder aToVal)
 {
   uint8_t w, x, y, z;
-  if (!aToVal(aSrc[0], &w) ||
-      !aToVal(aSrc[1], &x) ||
-      !aToVal(aSrc[2], &y) ||
+  if (!aToVal(aSrc[0], &w) || !aToVal(aSrc[1], &x) || !aToVal(aSrc[2], &y) ||
       !aToVal(aSrc[3], &z)) {
     return false;
   }
@@ -433,9 +532,7 @@ static bool
 Decode3to2(const T* aSrc, U* aDest, Decoder aToVal)
 {
   uint8_t w, x, y;
-  if (!aToVal(aSrc[0], &w) ||
-      !aToVal(aSrc[1], &x) ||
-      !aToVal(aSrc[2], &y)) {
+  if (!aToVal(aSrc[0], &w) || !aToVal(aSrc[1], &x) || !aToVal(aSrc[2], &y)) {
     return false;
   }
   aDest[0] = U(uint8_t(w << 2 | x >> 4));
@@ -448,8 +545,7 @@ static bool
 Decode2to1(const T* aSrc, U* aDest, Decoder aToVal)
 {
   uint8_t w, x;
-  if (!aToVal(aSrc[0], &w) ||
-      !aToVal(aSrc[1], &x)) {
+  if (!aToVal(aSrc[0], &w) || !aToVal(aSrc[1], &x)) {
     return false;
   }
   aDest[0] = U(uint8_t(w << 2 | x >> 4));
@@ -458,7 +554,9 @@ Decode2to1(const T* aSrc, U* aDest, Decoder aToVal)
 
 template<typename SrcT, typename DestT>
 static nsresult
-Base64DecodeHelper(const SrcT* aBase64, uint32_t aBase64Len, DestT* aBinary,
+Base64DecodeHelper(const SrcT* aBase64,
+                   uint32_t aBase64Len,
+                   DestT* aBinary,
                    uint32_t* aBinaryLen)
 {
   MOZ_ASSERT(aBinary);
@@ -491,24 +589,24 @@ Base64DecodeHelper(const SrcT* aBase64, uint32_t aBase64Len, DestT* aBinary,
   }
 
   switch (inputLength) {
-  case 3:
-    if (!Decode3to2(input, binary, Base64CharToValue<SrcT>)) {
+    case 3:
+      if (!Decode3to2(input, binary, Base64CharToValue<SrcT>)) {
+        return NS_ERROR_INVALID_ARG;
+      }
+      binaryLength += 2;
+      break;
+    case 2:
+      if (!Decode2to1(input, binary, Base64CharToValue<SrcT>)) {
+        return NS_ERROR_INVALID_ARG;
+      }
+      binaryLength += 1;
+      break;
+    case 1:
       return NS_ERROR_INVALID_ARG;
-    }
-    binaryLength += 2;
-    break;
-  case 2:
-    if (!Decode2to1(input, binary, Base64CharToValue<SrcT>)) {
-      return NS_ERROR_INVALID_ARG;
-    }
-    binaryLength += 1;
-    break;
-  case 1:
-    return NS_ERROR_INVALID_ARG;
-  case 0:
-    break;
-  default:
-    MOZ_CRASH("Too many characters leftover");
+    case 0:
+      break;
+    default:
+      MOZ_CRASH("Too many characters leftover");
   }
 
   aBinary[binaryLength] = DestT('\0');
@@ -518,7 +616,9 @@ Base64DecodeHelper(const SrcT* aBase64, uint32_t aBase64Len, DestT* aBinary,
 }
 
 nsresult
-Base64Decode(const char* aBase64, uint32_t aBase64Len, char** aBinary,
+Base64Decode(const char* aBase64,
+             uint32_t aBase64Len,
+             char** aBinary,
              uint32_t* aBinaryLen)
 {
   // Check for overflow.
@@ -544,7 +644,7 @@ Base64Decode(const char* aBase64, uint32_t aBase64Len, char** aBinary,
   }
 
   nsresult rv =
-    Base64DecodeHelper(aBase64, aBase64Len, binary.get(), aBinaryLen);
+      Base64DecodeHelper(aBase64, aBase64Len, binary.get(), aBinaryLen);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -576,8 +676,8 @@ Base64DecodeString(const T& aBase64, T& aBinary)
   }
 
   typename T::char_type* binary = aBinary.BeginWriting();
-  nsresult rv = Base64DecodeHelper(aBase64.BeginReading(), aBase64.Length(),
-                                   binary, &binaryLen);
+  nsresult rv = Base64DecodeHelper(
+      aBase64.BeginReading(), aBase64.Length(), binary, &binaryLen);
   if (NS_FAILED(rv)) {
     aBinary.Truncate();
     return rv;
@@ -685,7 +785,8 @@ Base64URLDecode(const nsACString& aBase64,
 }
 
 nsresult
-Base64URLEncode(uint32_t aBinaryLen, const uint8_t* aBinary,
+Base64URLEncode(uint32_t aBinaryLen,
+                const uint8_t* aBinary,
                 Base64URLEncodePaddingPolicy aPaddingPolicy,
                 nsACString& aBase64)
 {
@@ -753,4 +854,4 @@ Base64URLEncode(uint32_t aBinaryLen, const uint8_t* aBinary,
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

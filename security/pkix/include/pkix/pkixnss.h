@@ -29,19 +29,22 @@
 #include "prerror.h"
 #include "seccomon.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 // Verifies the PKCS#1.5 signature on the given data using the given RSA public
 // key.
-Result VerifyRSAPKCS1SignedDigestNSS(const SignedDigest& sd,
-                                     Input subjectPublicKeyInfo,
-                                     void* pkcs11PinArg);
+Result
+VerifyRSAPKCS1SignedDigestNSS(const SignedDigest& sd,
+                              Input subjectPublicKeyInfo,
+                              void* pkcs11PinArg);
 
 // Verifies the ECDSA signature on the given data using the given ECC public
 // key.
-Result VerifyECDSASignedDigestNSS(const SignedDigest& sd,
-                                  Input subjectPublicKeyInfo,
-                                  void* pkcs11PinArg);
+Result
+VerifyECDSASignedDigestNSS(const SignedDigest& sd,
+                           Input subjectPublicKeyInfo,
+                           void* pkcs11PinArg);
 
 // Computes the digest of the given data using the given digest algorithm.
 //
@@ -54,13 +57,16 @@ Result VerifyECDSASignedDigestNSS(const SignedDigest& sd,
 // TODO: Taking the output buffer as (uint8_t*, size_t) is counter to our
 // other, extensive, memory safety efforts in mozilla::pkix, and we should find
 // a way to provide a more-obviously-safe interface.
-Result DigestBufNSS(Input item,
-                    DigestAlgorithm digestAlg,
-                    /*out*/ uint8_t* digestBuf,
-                    size_t digestBufLen);
+Result
+DigestBufNSS(Input item,
+             DigestAlgorithm digestAlg,
+             /*out*/ uint8_t* digestBuf,
+             size_t digestBufLen);
 
-Result MapPRErrorCodeToResult(PRErrorCode errorCode);
-PRErrorCode MapResultToPRErrorCode(Result result);
+Result
+MapPRErrorCodeToResult(PRErrorCode errorCode);
+PRErrorCode
+MapResultToPRErrorCode(Result result);
 
 // The error codes within each module must fit in 16 bits. We want these
 // errors to fit in the same module as the NSS errors but not overlap with
@@ -90,20 +96,20 @@ enum ErrorCode
   END_OF_LIST
 };
 
-void RegisterErrorTable();
+void
+RegisterErrorTable();
 
-inline SECItem UnsafeMapInputToSECItem(Input input)
+inline SECItem
+UnsafeMapInputToSECItem(Input input)
 {
   SECItem result = {
-    siBuffer,
-    const_cast<uint8_t*>(input.UnsafeGetData()),
-    input.GetLength()
-  };
+      siBuffer, const_cast<uint8_t*>(input.UnsafeGetData()), input.GetLength()};
   static_assert(sizeof(decltype(input.GetLength())) <= sizeof(result.len),
                 "input.GetLength() must fit in a SECItem");
   return result;
 }
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_pkixnss_h
+#endif  // mozilla_pkix_pkixnss_h

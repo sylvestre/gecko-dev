@@ -33,14 +33,24 @@ SplitAt(const char* aDelims,
 }
 
 nsCString
-ToHexString(const uint8_t * aBytes, uint32_t aLength)
+ToHexString(const uint8_t* aBytes, uint32_t aLength)
 {
-  static const char hex[] = {
-    '0', '1', '2', '3',
-    '4', '5', '6', '7',
-    '8', '9', 'a', 'b',
-    'c', 'd', 'e', 'f'
-  };
+  static const char hex[] = {'0',
+                             '1',
+                             '2',
+                             '3',
+                             '4',
+                             '5',
+                             '6',
+                             '7',
+                             '8',
+                             '9',
+                             'a',
+                             'b',
+                             'c',
+                             'd',
+                             'e',
+                             'f'};
   nsCString str;
   for (uint32_t i = 0; i < aLength; i++) {
     char buf[3];
@@ -66,7 +76,7 @@ FileExists(nsIFile* aFile)
 }
 
 DirectoryEnumerator::DirectoryEnumerator(nsIFile* aPath, Mode aMode)
-  : mMode(aMode)
+    : mMode(aMode)
 {
   aPath->GetDirectoryEntries(getter_AddRefs(mIter));
 }
@@ -103,9 +113,7 @@ DirectoryEnumerator::Next()
 }
 
 bool
-ReadIntoArray(nsIFile* aFile,
-              nsTArray<uint8_t>& aOutDst,
-              size_t aMaxLength)
+ReadIntoArray(nsIFile* aFile, nsTArray<uint8_t>& aOutDst, size_t aMaxLength)
 {
   if (!FileExists(aFile)) {
     return false;
@@ -132,14 +140,12 @@ ReadIntoArray(nsIFile* aFile,
 }
 
 bool
-ReadIntoString(nsIFile* aFile,
-               nsCString& aOutDst,
-               size_t aMaxLength)
+ReadIntoString(nsIFile* aFile, nsCString& aOutDst, size_t aMaxLength)
 {
   nsTArray<uint8_t> buf;
   bool rv = ReadIntoArray(aFile, buf, aMaxLength);
   if (rv) {
-    buf.AppendElement(0); // Append null terminator, required by nsC*String.
+    buf.AppendElement(0);  // Append null terminator, required by nsC*String.
     aOutDst = nsDependentCString((const char*)buf.Elements(), buf.Length() - 1);
   }
   return rv;
@@ -176,21 +182,23 @@ GMPInfoFileParser::Init(nsIFile* aInfoFile)
 
     nsCString* value = new nsCString(Substring(line, colon + 1));
     value->Trim(" ");
-    mValues.Put(key, value); // Hashtable assumes ownership of value.
+    mValues.Put(key, value);  // Hashtable assumes ownership of value.
   }
 
   return true;
 }
 
 bool
-GMPInfoFileParser::Contains(const nsCString& aKey) const {
+GMPInfoFileParser::Contains(const nsCString& aKey) const
+{
   nsCString key(aKey);
   ToLowerCase(key);
   return mValues.Contains(key);
 }
 
 nsCString
-GMPInfoFileParser::Get(const nsCString& aKey) const {
+GMPInfoFileParser::Get(const nsCString& aKey) const
+{
   MOZ_ASSERT(Contains(aKey));
   nsCString key(aKey);
   ToLowerCase(key);
@@ -202,11 +210,10 @@ GMPInfoFileParser::Get(const nsCString& aKey) const {
 }
 
 bool
-HaveGMPFor(const nsCString& aAPI,
-           nsTArray<nsCString>&& aTags)
+HaveGMPFor(const nsCString& aAPI, nsTArray<nsCString>&& aTags)
 {
   nsCOMPtr<mozIGeckoMediaPluginService> mps =
-    do_GetService("@mozilla.org/gecko-media-plugin-service;1");
+      do_GetService("@mozilla.org/gecko-media-plugin-service;1");
   if (NS_WARN_IF(!mps)) {
     return false;
   }
@@ -222,7 +229,7 @@ void
 LogToConsole(const nsAString& aMsg)
 {
   nsCOMPtr<nsIConsoleService> console(
-    do_GetService("@mozilla.org/consoleservice;1"));
+      do_GetService("@mozilla.org/consoleservice;1"));
   if (!console) {
     NS_WARNING("Failed to log message to console.");
     return;
@@ -235,14 +242,14 @@ RefPtr<AbstractThread>
 GetGMPAbstractThread()
 {
   RefPtr<gmp::GeckoMediaPluginService> service =
-    gmp::GeckoMediaPluginService::GetGeckoMediaPluginService();
+      gmp::GeckoMediaPluginService::GetGeckoMediaPluginService();
   return service ? service->GetAbstractGMPThread() : nullptr;
 }
 
 static size_t
 Align16(size_t aNumber)
 {
-  const size_t mask = 15; // Alignment - 1.
+  const size_t mask = 15;  // Alignment - 1.
   return (aNumber + mask) & ~mask;
 }
 
@@ -258,4 +265,4 @@ I420FrameBufferSizePadded(int32_t aWidth, int32_t aHeight)
   return ySize + (ySize / 4) * 2;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -17,35 +17,29 @@ namespace dom {
 
 class CSSNamespaceRule : public css::Rule
 {
-protected:
+ protected:
   using Rule::Rule;
 
-public:
-  bool IsCCLeaf() const final {
-    return Rule::IsCCLeaf();
-  }
-  int32_t GetType() const final {
-    return Rule::NAMESPACE_RULE;
-  }
+ public:
+  bool IsCCLeaf() const final { return Rule::IsCCLeaf(); }
+  int32_t GetType() const final { return Rule::NAMESPACE_RULE; }
   using Rule::GetType;
 
   virtual nsAtom* GetPrefix() const = 0;
   virtual void GetURLSpec(nsString& aURLSpec) const = 0;
 
   // WebIDL interfaces
-  uint16_t Type() const final {
-    return nsIDOMCSSRule::NAMESPACE_RULE;
-  }
+  uint16_t Type() const final { return nsIDOMCSSRule::NAMESPACE_RULE; }
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const = 0;
 
-  JSObject* WrapObject(JSContext* aCx,
-                       JS::Handle<JSObject*> aGivenProto) final {
+  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) final
+  {
     return CSSNamespaceRuleBinding::Wrap(aCx, this, aGivenProto);
   }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSNamespaceRule_h
+#endif  // mozilla_dom_CSSNamespaceRule_h

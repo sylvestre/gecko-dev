@@ -29,7 +29,7 @@ class TextureSource;
 
 class LayerMLGPU : public HostLayer
 {
-public:
+ public:
   LayerMLGPU* AsLayerMLGPU() override { return this; }
   virtual PaintedLayerMLGPU* AsPaintedLayerMLGPU() { return nullptr; }
   virtual ImageLayerMLGPU* AsImageLayerMLGPU() { return nullptr; }
@@ -43,20 +43,16 @@ public:
 
   // Ask the layer to acquire any resources or per-frame information needed
   // to render. If this returns false, the layer will be skipped entirely.
-  bool PrepareToRender(FrameBuilder* aBuilder, const RenderTargetIntRect& aClipRect);
+  bool PrepareToRender(FrameBuilder* aBuilder,
+                       const RenderTargetIntRect& aClipRect);
 
-  Layer::LayerType GetType() {
-    return GetLayer()->GetType();
-  }
-  const RenderTargetIntRect& GetComputedClipRect() const {
+  Layer::LayerType GetType() { return GetLayer()->GetType(); }
+  const RenderTargetIntRect& GetComputedClipRect() const
+  {
     return mComputedClipRect;
   }
-  MaskOperation* GetMask() const {
-    return mMask;
-  }
-  float GetComputedOpacity() const {
-    return mComputedOpacity;
-  }
+  MaskOperation* GetMask() const { return mMask; }
+  float GetComputedOpacity() const { return mComputedOpacity; }
 
   // Return the bounding box of this layer in render target space, clipped to
   // the computed clip rect, and rounded out to an integer rect.
@@ -66,9 +62,7 @@ public:
   // If this layer has already been prepared for the current frame, return
   // true. This should only be used to guard against double-processing
   // container layers after 3d-sorting.
-  bool IsPrepared() const {
-    return mFrameKey == sFrameKey && mPrepared;
-  }
+  bool IsPrepared() const { return mFrameKey == sFrameKey && mPrepared; }
 
   // Return true if the content in this layer is opaque (not factoring in
   // blend modes or opacity), false otherwise.
@@ -77,9 +71,7 @@ public:
   // This is used by RenderPasses for deciding which rects to draw. This
   // region factors in occulsion culling and any layer-specific adjustments,
   // whereas the local/shadow visible region does not.
-  const LayerIntRegion& GetRenderRegion() const {
-    return mRenderRegion;
-  }
+  const LayerIntRegion& GetRenderRegion() const { return mRenderRegion; }
 
   // Some layers have visible regions that extend beyond what is actually drawn.
   // When performing CPU-based occlusion culling we must clamp the visible region
@@ -94,16 +86,12 @@ public:
 
   // Callback for when PrepareToRender has finished successfully. If this
   // returns false, PrepareToRender will return false.
-  virtual bool OnPrepareToRender(FrameBuilder* aBuilder) {
-    return true;
-  }
+  virtual bool OnPrepareToRender(FrameBuilder* aBuilder) { return true; }
 
   virtual void ClearCachedResources() {}
-  virtual CompositableHost* GetCompositableHost() override {
-    return nullptr;
-  }
+  virtual CompositableHost* GetCompositableHost() override { return nullptr; }
 
-protected:
+ protected:
   LayerMLGPU(LayerManagerMLGPU* aManager);
   LayerManagerMLGPU* GetManager();
 
@@ -118,12 +106,12 @@ protected:
   void SetLayerManager(HostLayerManager* aManager) override;
   virtual void OnLayerManagerChange(LayerManagerMLGPU* aManager) {}
 
-private:
+ private:
   // This is a monotonic counter used to check whether a layer appears twice
   // when 3d sorting.
   static uint64_t sFrameKey;
 
-protected:
+ protected:
   // These are set during PrepareToRender.
   RenderTargetIntRect mComputedClipRect;
   RefPtr<MaskOperation> mMask;
@@ -133,10 +121,9 @@ protected:
   LayerIntRegion mRenderRegion;
 };
 
-class RefLayerMLGPU final : public RefLayer
-                          , public LayerMLGPU
+class RefLayerMLGPU final : public RefLayer, public LayerMLGPU
 {
-public:
+ public:
   explicit RefLayerMLGPU(LayerManagerMLGPU* aManager);
   ~RefLayerMLGPU() override;
 
@@ -146,7 +133,8 @@ public:
   Layer* GetLayer() override { return this; }
 
   // ContainerLayer
-  void ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSurface) override
+  void ComputeEffectiveTransforms(
+      const gfx::Matrix4x4& aTransformToSurface) override
   {
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
@@ -154,17 +142,14 @@ public:
   MOZ_LAYER_DECL_NAME("RefLayerMLGPU", TYPE_REF)
 };
 
-class ColorLayerMLGPU final : public ColorLayer
-                            , public LayerMLGPU
+class ColorLayerMLGPU final : public ColorLayer, public LayerMLGPU
 {
-public:
+ public:
   explicit ColorLayerMLGPU(LayerManagerMLGPU* aManager);
   ~ColorLayerMLGPU() override;
 
   // LayerMLGPU
-  bool IsContentOpaque() override {
-    return mColor.a >= 1.0f;
-  }
+  bool IsContentOpaque() override { return mColor.a >= 1.0f; }
 
   // Layer
   HostLayer* AsHostLayer() override { return this; }
@@ -174,7 +159,7 @@ public:
   MOZ_LAYER_DECL_NAME("ColorLayerMLGPU", TYPE_COLOR)
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_LayerMLGPU_h
+#endif  // mozilla_gfx_layers_mlgpu_LayerMLGPU_h

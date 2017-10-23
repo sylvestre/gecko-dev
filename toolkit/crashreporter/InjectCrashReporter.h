@@ -13,16 +13,16 @@ namespace mozilla {
 
 class InjectCrashRunnable : public Runnable
 {
-public:
+ public:
   explicit InjectCrashRunnable(DWORD pid);
 
   NS_IMETHOD Run();
 
-private:
+ private:
   DWORD mPID;
   nsString mInjectorPath;
 };
 
-} // Namespace mozilla
+}  // Namespace mozilla
 
 #endif

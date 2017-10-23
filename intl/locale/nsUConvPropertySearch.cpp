@@ -13,12 +13,13 @@ struct PropertyComparator
 {
   const nsCString& mKey;
   explicit PropertyComparator(const nsCString& aKey) : mKey(aKey) {}
-  int operator()(const nsUConvProp& aProperty) const {
+  int operator()(const nsUConvProp& aProperty) const
+  {
     return mKey.Compare(aProperty.mKey);
   }
 };
 
-} // namespace
+}  // namespace
 
 // static
 nsresult
@@ -31,8 +32,11 @@ nsUConvPropertySearch::SearchPropertyValue(const nsUConvProp aProperties[],
 
   const nsCString& flat = PromiseFlatCString(aKey);
   size_t index;
-  if (BinarySearchIf(aProperties, 0, aNumberOfProperties,
-                     PropertyComparator(flat), &index)) {
+  if (BinarySearchIf(aProperties,
+                     0,
+                     aNumberOfProperties,
+                     PropertyComparator(flat),
+                     &index)) {
     nsDependentCString val(aProperties[index].mValue,
                            aProperties[index].mValueLength);
     aValue.Assign(val);

@@ -36,19 +36,14 @@ namespace extensions {
 StreamFilter::StreamFilter(nsIGlobalObject* aParent,
                            uint64_t aRequestId,
                            const nsAString& aAddonId)
-  : mParent(aParent)
-  , mChannelId(aRequestId)
-  , mAddonId(NS_Atomize(aAddonId))
+    : mParent(aParent), mChannelId(aRequestId), mAddonId(NS_Atomize(aAddonId))
 {
   MOZ_ASSERT(aParent);
 
   Connect();
 };
 
-StreamFilter::~StreamFilter()
-{
-  ForgetActor();
-}
+StreamFilter::~StreamFilter() { ForgetActor(); }
 
 void
 StreamFilter::ForgetActor()
@@ -59,9 +54,10 @@ StreamFilter::ForgetActor()
   }
 }
 
-
 /* static */ already_AddRefed<StreamFilter>
-StreamFilter::Create(GlobalObject& aGlobal, uint64_t aRequestId, const nsAString& aAddonId)
+StreamFilter::Create(GlobalObject& aGlobal,
+                     uint64_t aRequestId,
+                     const nsAString& aAddonId)
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   MOZ_ASSERT(global);
@@ -89,31 +85,34 @@ StreamFilter::Connect()
   if (cc) {
     RefPtr<StreamFilter> self(this);
 
-    cc->SendInitStreamFilter(mChannelId, addonId)->Then(
-      GetCurrentThreadSerialEventTarget(),
-      __func__,
-      [=] (mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint) {
-        self->FinishConnect(Move(aEndpoint));
-      },
-      [=] (mozilla::ipc::PromiseRejectReason aReason) {
-        self->mActor->RecvInitialized(false);
-      });
+    cc->SendInitStreamFilter(mChannelId, addonId)
+        ->Then(GetCurrentThreadSerialEventTarget(),
+               __func__,
+               [=](mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint) {
+                 self->FinishConnect(Move(aEndpoint));
+               },
+               [=](mozilla::ipc::PromiseRejectReason aReason) {
+                 self->mActor->RecvInitialized(false);
+               });
   } else {
     mozilla::ipc::Endpoint<PStreamFilterChild> endpoint;
-    Unused << StreamFilterParent::Create(nullptr, mChannelId, addonId, &endpoint);
+    Unused << StreamFilterParent::Create(
+        nullptr, mChannelId, addonId, &endpoint);
 
     // Always dispatch asynchronously so JS callers have a chance to attach
     // event listeners before we dispatch events.
     NS_DispatchToCurrentThread(
-      NewRunnableMethod<mozilla::ipc::Endpoint<PStreamFilterChild>&&>(
-        "StreamFilter::FinishConnect",
-        this, &StreamFilter::FinishConnect,
-        Move(endpoint)));
+        NewRunnableMethod<mozilla::ipc::Endpoint<PStreamFilterChild>&&>(
+            "StreamFilter::FinishConnect",
+            this,
+            &StreamFilter::FinishConnect,
+            Move(endpoint)));
   }
 }
 
 void
-StreamFilter::FinishConnect(mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint)
+StreamFilter::FinishConnect(
+    mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint)
 {
   if (aEndpoint.IsValid()) {
     MOZ_RELEASE_ASSERT(aEndpoint.Bind(mActor));
@@ -143,7 +142,7 @@ StreamFilter::CheckAlive()
  * Binding methods
  *****************************************************************************/
 
-template <typename T>
+template<typename T>
 static inline bool
 ReadTypedArrayData(nsTArray<uint8_t>& aData, const T& aArray, ErrorResult& aRv)
 {
@@ -268,7 +267,7 @@ StreamFilter::FireDataEvent(const nsTArray<uint8_t>& aData)
   init.mData.Init(buffer);
 
   RefPtr<StreamFilterDataEvent> event =
-    StreamFilterDataEvent::Constructor(this, NS_LITERAL_STRING("data"), init);
+      StreamFilterDataEvent::Constructor(this, NS_LITERAL_STRING("data"), init);
   event->SetTrusted(true);
 
   bool defaultPrevented;
@@ -291,7 +290,8 @@ StreamFilter::FireErrorEvent(const nsAString& aError)
 /* static */ bool
 StreamFilter::IsAllowedInContext(JSContext* aCx, JSObject* /* unused */)
 {
-  return nsContentUtils::CallerHasPermission(aCx, nsGkAtoms::webRequestBlocking);
+  return nsContentUtils::CallerHasPermission(aCx,
+                                             nsGkAtoms::webRequestBlocking);
 }
 
 JSObject*
@@ -305,19 +305,22 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(StreamFilter)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(StreamFilter)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(StreamFilter, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(StreamFilter,
+                                                DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(StreamFilter, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(StreamFilter,
+                                                  DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParent)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(StreamFilter, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(StreamFilter,
+                                               DOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_ADDREF_INHERITED(StreamFilter, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(StreamFilter, DOMEventTargetHelper)
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla

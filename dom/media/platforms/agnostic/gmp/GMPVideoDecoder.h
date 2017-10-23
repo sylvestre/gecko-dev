@@ -30,7 +30,7 @@ struct GMPVideoDecoderParams
 class GMPVideoDecoder : public MediaDataDecoder,
                         public GMPVideoDecoderCallbackProxy
 {
-public:
+ public:
   explicit GMPVideoDecoder(const GMPVideoDecoderParams& aParams);
 
   RefPtr<InitPromise> Init() override;
@@ -59,20 +59,18 @@ public:
   void Error(GMPErr aErr) override;
   void Terminated() override;
 
-protected:
+ protected:
   virtual void InitTags(nsTArray<nsCString>& aTags);
   virtual nsCString GetNodeId();
   virtual uint32_t DecryptorId() const { return 0; }
   virtual GMPUniquePtr<GMPVideoEncodedFrame> CreateFrame(MediaRawData* aSample);
   virtual const VideoInfo& GetConfig() const;
 
-private:
-
+ private:
   class GMPInitDoneCallback : public GetGMPVideoDecoderCallback
   {
-  public:
-    explicit GMPInitDoneCallback(GMPVideoDecoder* aDecoder)
-      : mDecoder(aDecoder)
+   public:
+    explicit GMPInitDoneCallback(GMPVideoDecoder* aDecoder) : mDecoder(aDecoder)
     {
     }
 
@@ -81,7 +79,7 @@ private:
       mDecoder->GMPInitDone(aGMP, aHost);
     }
 
-  private:
+   private:
     RefPtr<GMPVideoDecoder> mDecoder;
   };
   void GMPInitDone(GMPVideoDecoderProxy* aGMP, GMPVideoHost* aHost);
@@ -104,6 +102,6 @@ private:
   bool mConvertToAnnexB = false;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // GMPVideoDecoder_h_
+#endif  // GMPVideoDecoder_h_

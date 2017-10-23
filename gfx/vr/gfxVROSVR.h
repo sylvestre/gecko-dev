@@ -27,10 +27,10 @@ namespace impl {
 
 class VRDisplayOSVR : public VRDisplayHost
 {
-public:
+ public:
   void ZeroSensor() override;
 
-protected:
+ protected:
   VRHMDSensorState GetSensorState() override;
   virtual void StartPresentation() override;
   virtual void StopPresentation() override;
@@ -47,12 +47,12 @@ protected:
                            const gfx::Rect& aRightEyeRect) override;
 #endif
 
-public:
+ public:
   explicit VRDisplayOSVR(OSVR_ClientContext* context,
                          OSVR_ClientInterface* iface,
                          OSVR_DisplayConfig* display);
 
-protected:
+ protected:
   virtual ~VRDisplayOSVR()
   {
     Destroy();
@@ -65,34 +65,37 @@ protected:
   OSVR_DisplayConfig* m_display;
 };
 
-} // namespace impl
+}  // namespace impl
 
 class VRSystemManagerOSVR : public VRSystemManager
 {
-public:
+ public:
   static already_AddRefed<VRSystemManagerOSVR> Create();
   virtual void Destroy() override;
   virtual void Shutdown() override;
   virtual bool GetHMDs(nsTArray<RefPtr<VRDisplayHost>>& aHMDResult) override;
   virtual bool GetIsPresenting() override;
   virtual void HandleInput() override;
-  virtual void GetControllers(nsTArray<RefPtr<VRControllerHost>>&
-                              aControllerResult) override;
+  virtual void GetControllers(
+      nsTArray<RefPtr<VRControllerHost>>& aControllerResult) override;
   virtual void ScanForControllers() override;
   virtual void RemoveControllers() override;
-  virtual void VibrateHaptic(uint32_t aControllerIdx, uint32_t aHapticIndex,
-                             double aIntensity, double aDuration, uint32_t aPromiseID) override;
+  virtual void VibrateHaptic(uint32_t aControllerIdx,
+                             uint32_t aHapticIndex,
+                             double aIntensity,
+                             double aDuration,
+                             uint32_t aPromiseID) override;
   virtual void StopVibrateHaptic(uint32_t aControllerIdx) override;
 
-protected:
+ protected:
   VRSystemManagerOSVR()
-    : mOSVRInitialized(false)
-    , mClientContextInitialized(false)
-    , mDisplayConfigInitialized(false)
-    , mInterfaceInitialized(false)
-    , m_ctx(nullptr)
-    , m_iface(nullptr)
-    , m_display(nullptr)
+      : mOSVRInitialized(false),
+        mClientContextInitialized(false),
+        mDisplayConfigInitialized(false),
+        mInterfaceInitialized(false),
+        m_ctx(nullptr),
+        m_iface(nullptr),
+        m_display(nullptr)
   {
   }
 
@@ -109,7 +112,7 @@ protected:
   OSVR_ClientInterface m_iface;
   OSVR_DisplayConfig m_display;
 
-private:
+ private:
   // check if all components are initialized
   // and if not, it will try to initialize them
   void CheckOSVRStatus();
@@ -118,7 +121,7 @@ private:
   void InitializeInterface();
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* GFX_VR_OSVR_H */

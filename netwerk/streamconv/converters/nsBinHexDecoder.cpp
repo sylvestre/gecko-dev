@@ -23,10 +23,17 @@
 namespace mozilla {
 namespace net {
 
-nsBinHexDecoder::nsBinHexDecoder() :
-  mState(0), mCRC(0), mFileCRC(0), mOctetin(26),
-  mDonePos(3), mInCRC(0), mCount(0), mMarker(0), mPosInbuff(0),
-  mPosOutputBuff(0)
+nsBinHexDecoder::nsBinHexDecoder()
+    : mState(0),
+      mCRC(0),
+      mFileCRC(0),
+      mOctetin(26),
+      mDonePos(3),
+      mInCRC(0),
+      mCount(0),
+      mMarker(0),
+      mPosInbuff(0),
+      mPosOutputBuff(0)
 {
   mDataBuffer = nullptr;
   mOutgoingBuffer = nullptr;
@@ -43,10 +50,8 @@ nsBinHexDecoder::nsBinHexDecoder() :
 
 nsBinHexDecoder::~nsBinHexDecoder()
 {
-  if (mDataBuffer)
-    free(mDataBuffer);
-  if (mOutgoingBuffer)
-    free(mOutgoingBuffer);
+  if (mDataBuffer) free(mDataBuffer);
+  if (mOutgoingBuffer) free(mOutgoingBuffer);
 }
 
 NS_IMPL_ADDREF(nsBinHexDecoder)
@@ -59,50 +64,46 @@ NS_INTERFACE_MAP_BEGIN(nsBinHexDecoder)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-
 // The binhex 4.0 decoder table....
 
-static const signed char binhex_decode[256] =
-{
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -1, -1,
-  13, 14, 15, 16, 17, 18, 19, -1, 20, 21, -1, -1, -1, -1, -1, -1,
-  22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, -1,
-  37, 38, 39, 40, 41, 42, 43, -1, 44, 45, 46, 47, -1, -1, -1, -1,
-  48, 49, 50, 51, 52, 53, 54, -1, 55, 56, 57, 58, 59, 60, -1, -1,
-  61, 62, 63, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+static const signed char binhex_decode[256] = {
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0,  1,  2,  3,  4,
+    5,  6,  7,  8,  9,  10, 11, 12, -1, -1, 13, 14, 15, 16, 17, 18, 19, -1, 20,
+    21, -1, -1, -1, -1, -1, -1, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+    34, 35, 36, -1, 37, 38, 39, 40, 41, 42, 43, -1, 44, 45, 46, 47, -1, -1, -1,
+    -1, 48, 49, 50, 51, 52, 53, 54, -1, 55, 56, 57, 58, 59, 60, -1, -1, 61, 62,
+    63, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1,
 };
 
-#define BHEXVAL(c) (binhex_decode[(unsigned char) c])
+#define BHEXVAL(c) (binhex_decode[(unsigned char)c])
 
 //////////////////////////////////////////////////////
 // nsIStreamConverter methods...
 //////////////////////////////////////////////////////
 
 NS_IMETHODIMP
-nsBinHexDecoder::Convert(nsIInputStream *aFromStream,
-                         const char *aFromType,
-                         const char *aToType,
-                         nsISupports *aCtxt,
-                         nsIInputStream **aResultStream)
+nsBinHexDecoder::Convert(nsIInputStream* aFromStream,
+                         const char* aFromType,
+                         const char* aToType,
+                         nsISupports* aCtxt,
+                         nsIInputStream** aResultStream)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsBinHexDecoder::AsyncConvertData(const char *aFromType,
-                                  const char *aToType,
-                                  nsIStreamListener *aListener,
-                                  nsISupports *aCtxt)
+nsBinHexDecoder::AsyncConvertData(const char* aFromType,
+                                  const char* aToType,
+                                  nsIStreamListener* aListener,
+                                  nsISupports* aCtxt)
 {
   NS_ASSERTION(aListener && aFromType && aToType,
                "null pointer passed into bin hex converter");
@@ -119,21 +120,23 @@ nsBinHexDecoder::AsyncConvertData(const char *aFromType,
 //////////////////////////////////////////////////////
 NS_IMETHODIMP
 nsBinHexDecoder::OnDataAvailable(nsIRequest* request,
-                                 nsISupports *aCtxt,
-                                 nsIInputStream *aStream,
+                                 nsISupports* aCtxt,
+                                 nsIInputStream* aStream,
                                  uint64_t aSourceOffset,
                                  uint32_t aCount)
 {
   nsresult rv = NS_OK;
 
-  if (mOutputStream && mDataBuffer && aCount > 0)
-  {
+  if (mOutputStream && mDataBuffer && aCount > 0) {
     uint32_t numBytesRead = 0;
-    while (aCount > 0) // while we still have bytes to copy...
+    while (aCount > 0)  // while we still have bytes to copy...
     {
-      aStream->Read(mDataBuffer, std::min(aCount, nsIOService::gDefaultSegmentSize - 1), &numBytesRead);
+      aStream->Read(mDataBuffer,
+                    std::min(aCount, nsIOService::gDefaultSegmentSize - 1),
+                    &numBytesRead);
       if (aCount >= numBytesRead)
-        aCount -= numBytesRead; // subtract off the number of bytes we just read
+        aCount -=
+            numBytesRead;  // subtract off the number of bytes we just read
       else
         aCount = 0;
 
@@ -145,7 +148,8 @@ nsBinHexDecoder::OnDataAvailable(nsIRequest* request,
   return rv;
 }
 
-nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * aContext)
+nsresult
+nsBinHexDecoder::ProcessNextState(nsIRequest* aRequest, nsISupports* aContext)
 {
   nsresult status = NS_OK;
   uint16_t tmpcrc, cval;
@@ -154,13 +158,14 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
   /* do CRC */
   ctmp = mInCRC ? c : 0;
   cval = mCRC & 0xf000;
-  tmpcrc = ((uint16_t) (mCRC << 4) | (ctmp >> 4)) ^ (cval | (cval >> 7) | (cval >> 12));
+  tmpcrc = ((uint16_t)(mCRC << 4) | (ctmp >> 4)) ^
+           (cval | (cval >> 7) | (cval >> 12));
   cval = tmpcrc & 0xf000;
-  mCRC = ((uint16_t) (tmpcrc << 4) | (ctmp & 0x0f)) ^ (cval | (cval >> 7) | (cval >> 12));
+  mCRC = ((uint16_t)(tmpcrc << 4) | (ctmp & 0x0f)) ^
+         (cval | (cval >> 7) | (cval >> 12));
 
   /* handle state */
-  switch (mState)
-  {
+  switch (mState) {
     case BINHEX_STATE_START:
       mState = BINHEX_STATE_FNAME;
       mCount = 0;
@@ -179,8 +184,7 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
         mName.BeginWriting()[mCount] = c;
       }
 
-      if (++mCount > mName.Length())
-      {
+      if (++mCount > mName.Length()) {
         // okay we've figured out the file name....set the content type on the channel
         // based on the file name AND issue our delayed on start request....
 
@@ -194,16 +198,15 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
       break;
 
     case BINHEX_STATE_HEADER:
-      ((char *) &mHeader)[mCount] = c;
-      if (++mCount == 18)
-      {
-        if (sizeof(binhex_header) != 18)  /* fix an alignment problem in some OSes */
+      ((char*)&mHeader)[mCount] = c;
+      if (++mCount == 18) {
+        if (sizeof(binhex_header) !=
+            18) /* fix an alignment problem in some OSes */
         {
-          char *p = (char *)&mHeader;
+          char* p = (char*)&mHeader;
           p += 19;
-          for (c = 0; c < 8; c++)
-          {
-            *p = *(p-2);
+          for (c = 0; c < 8; c++) {
+            *p = *(p - 2);
             --p;
           }
         }
@@ -217,21 +220,20 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
     case BINHEX_STATE_DFORK:
     case BINHEX_STATE_RFORK:
       mOutgoingBuffer[mPosOutputBuff++] = c;
-      if (--mCount == 0)
-      {
+      if (--mCount == 0) {
         /* only output data fork in the non-mac system.      */
-        if (mState == BINHEX_STATE_DFORK)
-        {
+        if (mState == BINHEX_STATE_DFORK) {
           uint32_t numBytesWritten = 0;
-          mOutputStream->Write(mOutgoingBuffer, mPosOutputBuff, &numBytesWritten);
+          mOutputStream->Write(
+              mOutgoingBuffer, mPosOutputBuff, &numBytesWritten);
           if (int32_t(numBytesWritten) != mPosOutputBuff)
             status = NS_ERROR_FAILURE;
 
           // now propagate the data we just wrote
-          mNextListener->OnDataAvailable(aRequest, aContext, mInputStream, 0, numBytesWritten);
-        }
-        else
-          status = NS_OK;        /* do nothing for resource fork.  */
+          mNextListener->OnDataAvailable(
+              aRequest, aContext, mInputStream, 0, numBytesWritten);
+        } else
+          status = NS_OK; /* do nothing for resource fork.  */
 
         mPosOutputBuff = 0;
 
@@ -241,17 +243,16 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
           ++mState;
 
         mInCRC = 1;
-      }
-      else if (mPosOutputBuff >= (int32_t) nsIOService::gDefaultSegmentSize)
-      {
-        if (mState == BINHEX_STATE_DFORK)
-        {
+      } else if (mPosOutputBuff >= (int32_t)nsIOService::gDefaultSegmentSize) {
+        if (mState == BINHEX_STATE_DFORK) {
           uint32_t numBytesWritten = 0;
-          mOutputStream->Write(mOutgoingBuffer, mPosOutputBuff, &numBytesWritten);
+          mOutputStream->Write(
+              mOutgoingBuffer, mPosOutputBuff, &numBytesWritten);
           if (int32_t(numBytesWritten) != mPosOutputBuff)
             status = NS_ERROR_FAILURE;
 
-          mNextListener->OnDataAvailable(aRequest, aContext, mInputStream, 0, numBytesWritten);
+          mNextListener->OnDataAvailable(
+              aRequest, aContext, mInputStream, 0, numBytesWritten);
           mPosOutputBuff = 0;
         }
       }
@@ -261,19 +262,16 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
     case BINHEX_STATE_DCRC:
     case BINHEX_STATE_RCRC:
       if (!mCount++)
-        mFileCRC = (unsigned short) c << 8;
-      else
-      {
-        if ((mFileCRC | c) != mCRC)
-        {
+        mFileCRC = (unsigned short)c << 8;
+      else {
+        if ((mFileCRC | c) != mCRC) {
           mState = BINHEX_STATE_DONE;
           break;
         }
 
         /* passed the CRC check!!!*/
         mCRC = 0;
-        if (++mState == BINHEX_STATE_FINISH)
-        {
+        if (++mState == BINHEX_STATE_FINISH) {
           // when we reach the finished state...fire an on stop request on the event listener...
           mNextListener->OnStopRequest(aRequest, aContext, NS_OK);
           mNextListener = nullptr;
@@ -285,8 +283,7 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
 
         if (mState == BINHEX_STATE_DFORK)
           mCount = PR_ntohl(mHeader.dlen);
-        else
-        {
+        else {
           // we aren't processing the resurce Fork. uncomment this line if we make this converter
           // smart enough to do this in the future.
           // mCount = PR_ntohl(mHeader.rlen);  /* it should in host byte order */
@@ -306,73 +303,64 @@ nsresult nsBinHexDecoder::ProcessNextState(nsIRequest * aRequest, nsISupports * 
   return NS_OK;
 }
 
-nsresult nsBinHexDecoder::ProcessNextChunk(nsIRequest * aRequest, nsISupports * aContext, uint32_t numBytesInBuffer)
+nsresult
+nsBinHexDecoder::ProcessNextChunk(nsIRequest* aRequest,
+                                  nsISupports* aContext,
+                                  uint32_t numBytesInBuffer)
 {
   bool foundStart;
   int16_t octetpos, c = 0;
   uint32_t val;
-  mPosInDataBuffer = 0; // use member variable.
+  mPosInDataBuffer = 0;  // use member variable.
 
   NS_ENSURE_TRUE(numBytesInBuffer > 0, NS_ERROR_FAILURE);
 
   //  if it is the first time, seek to the right start place.
-  if (mState == BINHEX_STATE_START)
-  {
+  if (mState == BINHEX_STATE_START) {
     foundStart = false;
     // go through the line, until we get a ':'
-    while (mPosInDataBuffer < numBytesInBuffer)
-    {
+    while (mPosInDataBuffer < numBytesInBuffer) {
       c = mDataBuffer[mPosInDataBuffer++];
-      while (c == nsCRT::CR || c == nsCRT::LF)
-      {
-        if (mPosInDataBuffer >= numBytesInBuffer)
-          break;
+      while (c == nsCRT::CR || c == nsCRT::LF) {
+        if (mPosInDataBuffer >= numBytesInBuffer) break;
 
         c = mDataBuffer[mPosInDataBuffer++];
-        if (c == ':')
-        {
+        if (c == ':') {
           foundStart = true;
           break;
         }
       }
-      if (foundStart)  break;    /* we got the start point. */
+      if (foundStart) break; /* we got the start point. */
     }
 
     if (mPosInDataBuffer >= numBytesInBuffer)
-      return NS_OK;      /* we meet buff end before we get the start point, wait till next fills. */
+      return NS_OK; /* we meet buff end before we get the start point, wait till next fills. */
 
     if (c != ':')
-      return NS_ERROR_FAILURE;    /* can't find the start character.  */
+      return NS_ERROR_FAILURE; /* can't find the start character.  */
   }
 
-  while (mState != BINHEX_STATE_DONE)
-  {
+  while (mState != BINHEX_STATE_DONE) {
     /* fill in octetbuf */
-    do
-    {
+    do {
       if (mPosInDataBuffer >= numBytesInBuffer)
-        return NS_OK;      /* end of buff, go on for the nxet calls. */
+        return NS_OK; /* end of buff, go on for the nxet calls. */
 
       c = GetNextChar(numBytesInBuffer);
-      if (c == 0)  return NS_OK;
+      if (c == 0) return NS_OK;
 
-      if ((val = BHEXVAL(c)) == uint32_t(-1))
-      {
+      if ((val = BHEXVAL(c)) == uint32_t(-1)) {
         /* we incount an invalid character.  */
-        if (c)
-        {
+        if (c) {
           /* rolling back. */
           --mDonePos;
-          if (mOctetin >= 14)
-            --mDonePos;
-          if (mOctetin >= 20)
-            --mDonePos;
+          if (mOctetin >= 14) --mDonePos;
+          if (mOctetin >= 20) --mDonePos;
         }
         break;
       }
       mOctetBuf.val |= val << mOctetin;
-    }
-    while ((mOctetin -= 6) > 2);
+    } while ((mOctetin -= 6) > 2);
 
     /* handle decoded characters -- run length encoding (rle) detection */
 
@@ -382,60 +370,48 @@ nsresult nsBinHexDecoder::ProcessNextChunk(nsIRequest * aRequest, nsISupports * 
     // these bytes to be in network order.
     mOctetBuf.val = PR_htonl(mOctetBuf.val);
 
-    for (octetpos = 0; octetpos < mDonePos; ++octetpos)
-    {
+    for (octetpos = 0; octetpos < mDonePos; ++octetpos) {
       c = mOctetBuf.c[octetpos];
 
-      if (c == 0x90 && !mMarker++)
-        continue;
+      if (c == 0x90 && !mMarker++) continue;
 
-      if (mMarker)
-      {
-        if (c == 0)
-        {
+      if (mMarker) {
+        if (c == 0) {
           mRlebuf = 0x90;
           ProcessNextState(aRequest, aContext);
-        }
-        else
-        {
+        } else {
           /* we are in the run length mode */
-          while (--c > 0)
-            ProcessNextState(aRequest, aContext);
+          while (--c > 0) ProcessNextState(aRequest, aContext);
         }
         mMarker = 0;
-      }
-      else
-      {
-        mRlebuf = (unsigned char) c;
+      } else {
+        mRlebuf = (unsigned char)c;
         ProcessNextState(aRequest, aContext);
       }
 
-      if (mState >= BINHEX_STATE_DONE)
-        break;
+      if (mState >= BINHEX_STATE_DONE) break;
     }
 
     /* prepare for next 3 characters.  */
-    if (mDonePos < 3 && mState < BINHEX_STATE_DONE)
-      mState = BINHEX_STATE_DONE;
+    if (mDonePos < 3 && mState < BINHEX_STATE_DONE) mState = BINHEX_STATE_DONE;
 
     mOctetin = 26;
     mOctetBuf.val = 0;
   }
 
-  return   NS_OK;
+  return NS_OK;
 }
 
-int16_t nsBinHexDecoder::GetNextChar(uint32_t numBytesInBuffer)
+int16_t
+nsBinHexDecoder::GetNextChar(uint32_t numBytesInBuffer)
 {
   char c = 0;
 
-  while (mPosInDataBuffer < numBytesInBuffer)
-  {
+  while (mPosInDataBuffer < numBytesInBuffer) {
     c = mDataBuffer[mPosInDataBuffer++];
-    if (c != nsCRT::LF && c != nsCRT::CR)
-      break;
+    if (c != nsCRT::LF && c != nsCRT::CR) break;
   }
-  return (c == nsCRT::LF || c == nsCRT::CR) ? 0 : (int) c;
+  return (c == nsCRT::LF || c == nsCRT::CR) ? 0 : (int)c;
 }
 
 //////////////////////////////////////////////////////
@@ -443,21 +419,26 @@ int16_t nsBinHexDecoder::GetNextChar(uint32_t numBytesInBuffer)
 //////////////////////////////////////////////////////
 
 NS_IMETHODIMP
-nsBinHexDecoder::OnStartRequest(nsIRequest* request, nsISupports *aCtxt)
+nsBinHexDecoder::OnStartRequest(nsIRequest* request, nsISupports* aCtxt)
 {
   nsresult rv = NS_OK;
 
   NS_ENSURE_TRUE(mNextListener, NS_ERROR_FAILURE);
 
-  mDataBuffer = (char *) malloc((sizeof(char) * nsIOService::gDefaultSegmentSize));
-  mOutgoingBuffer = (char *) malloc((sizeof(char) * nsIOService::gDefaultSegmentSize));
-  if (!mDataBuffer || !mOutgoingBuffer) return NS_ERROR_FAILURE; // out of memory;
+  mDataBuffer =
+      (char*)malloc((sizeof(char) * nsIOService::gDefaultSegmentSize));
+  mOutgoingBuffer =
+      (char*)malloc((sizeof(char) * nsIOService::gDefaultSegmentSize));
+  if (!mDataBuffer || !mOutgoingBuffer)
+    return NS_ERROR_FAILURE;  // out of memory;
 
   // now we want to create a pipe which we'll use to write our converted data...
-  rv = NS_NewPipe(getter_AddRefs(mInputStream), getter_AddRefs(mOutputStream),
+  rv = NS_NewPipe(getter_AddRefs(mInputStream),
+                  getter_AddRefs(mOutputStream),
                   nsIOService::gDefaultSegmentSize,
                   nsIOService::gDefaultSegmentSize,
-                  true, true);
+                  true,
+                  true);
 
   // don't propagate the on start request to mNextListener until we have determined the content type.
   return rv;
@@ -467,8 +448,9 @@ nsBinHexDecoder::OnStartRequest(nsIRequest* request, nsISupports *aCtxt)
 // content type and set it on the channel associated with the request.  If the
 // filename tells us nothing useful, just report an unknown type and let the
 // unknown decoder handle things.
-nsresult nsBinHexDecoder::DetectContentType(nsIRequest* aRequest,
-                                            const nsCString& aFilename)
+nsresult
+nsBinHexDecoder::DetectContentType(nsIRequest* aRequest,
+                                   const nsCString& aFilename)
 {
   if (aFilename.IsEmpty()) {
     // Nothing to do here.
@@ -479,13 +461,14 @@ nsresult nsBinHexDecoder::DetectContentType(nsIRequest* aRequest,
   nsCOMPtr<nsIChannel> channel(do_QueryInterface(aRequest, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIMIMEService> mimeService(do_GetService("@mozilla.org/mime;1", &rv));
+  nsCOMPtr<nsIMIMEService> mimeService(
+      do_GetService("@mozilla.org/mime;1", &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString contentType;
 
   // extract the extension from aFilename and look it up.
-  const char * fileExt = strrchr(aFilename.get(), '.');
+  const char* fileExt = strrchr(aFilename.get(), '.');
   if (!fileExt) {
     return NS_OK;
   }
@@ -504,8 +487,9 @@ nsresult nsBinHexDecoder::DetectContentType(nsIRequest* aRequest,
 }
 
 NS_IMETHODIMP
-nsBinHexDecoder::OnStopRequest(nsIRequest* request, nsISupports *aCtxt,
-                                nsresult aStatus)
+nsBinHexDecoder::OnStopRequest(nsIRequest* request,
+                               nsISupports* aCtxt,
+                               nsresult aStatus)
 {
   nsresult rv = NS_OK;
 
@@ -516,5 +500,5 @@ nsBinHexDecoder::OnStopRequest(nsIRequest* request, nsISupports *aCtxt,
   return rv;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

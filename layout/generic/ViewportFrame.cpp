@@ -32,13 +32,13 @@ NS_NewViewportFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 
 NS_IMPL_FRAMEARENA_HELPERS(ViewportFrame)
 NS_QUERYFRAME_HEAD(ViewportFrame)
-  NS_QUERYFRAME_ENTRY(ViewportFrame)
+NS_QUERYFRAME_ENTRY(ViewportFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 void
-ViewportFrame::Init(nsIContent*       aContent,
+ViewportFrame::Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow)
+                    nsIFrame* aPrevInFlow)
 {
   nsContainerFrame::Init(aContent, aParent, aPrevInFlow);
   // No need to call CreateView() here - the frame ctor will call SetView()
@@ -53,7 +53,7 @@ ViewportFrame::Init(nsIContent*       aContent,
 }
 
 void
-ViewportFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+ViewportFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists)
 {
   AUTO_PROFILER_LABEL("ViewportFrame::BuildDisplayList", GRAPHICS);
@@ -71,9 +71,9 @@ ViewportFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     // Wrap the whole top layer in a single item with maximum z-index,
     // and append it at the very end, so that it stays at the topmost.
     nsDisplayWrapList* wrapList =
-      new (aBuilder) nsDisplayWrapList(aBuilder, this, &topLayerList);
+        new (aBuilder) nsDisplayWrapList(aBuilder, this, &topLayerList);
     wrapList->SetOverrideZIndex(
-      std::numeric_limits<decltype(wrapList->ZIndex())>::max());
+        std::numeric_limits<decltype(wrapList->ZIndex())>::max());
     aLists.PositionedDescendants()->AppendNewToTop(wrapList);
   }
 }
@@ -95,7 +95,7 @@ ShouldInTopLayerForFullscreen(Element* aElement)
   }
   return true;
 }
-#endif // DEBUG
+#endif  // DEBUG
 
 static void
 BuildDisplayListForTopLayerFrame(nsDisplayListBuilder* aBuilder,
@@ -106,8 +106,8 @@ BuildDisplayListForTopLayerFrame(nsDisplayListBuilder* aBuilder,
   nsRect dirty;
   DisplayListClipState::AutoClipMultiple clipState(aBuilder);
   nsDisplayListBuilder::AutoCurrentActiveScrolledRootSetter asrSetter(aBuilder);
-  nsDisplayListBuilder::OutOfFlowDisplayData*
-    savedOutOfFlowData = nsDisplayListBuilder::GetOutOfFlowData(aFrame);
+  nsDisplayListBuilder::OutOfFlowDisplayData* savedOutOfFlowData =
+      nsDisplayListBuilder::GetOutOfFlowData(aFrame);
   if (savedOutOfFlowData) {
     visible = savedOutOfFlowData->mVisibleRect;
     dirty = savedOutOfFlowData->mDirtyRect;
@@ -119,15 +119,18 @@ BuildDisplayListForTopLayerFrame(nsDisplayListBuilder* aBuilder,
     // that we saved earlier. The combined clip will include the clip from the
     // root scroll frame.
     clipState.SetClipChainForContainingBlockDescendants(
-      savedOutOfFlowData->mCombinedClipChain);
+        savedOutOfFlowData->mCombinedClipChain);
     clipState.ClipContainingBlockDescendantsExtra(
-      dirty + aBuilder->ToReferenceFrame(aFrame), nullptr);
+        dirty + aBuilder->ToReferenceFrame(aFrame), nullptr);
     asrSetter.SetCurrentActiveScrolledRoot(
-      savedOutOfFlowData->mContainingBlockActiveScrolledRoot);
+        savedOutOfFlowData->mContainingBlockActiveScrolledRoot);
   }
-  nsDisplayListBuilder::AutoBuildingDisplayList
-    buildingForChild(aBuilder, aFrame, visible, dirty,
-                     aBuilder->IsAtRootOfPseudoStackingContext());
+  nsDisplayListBuilder::AutoBuildingDisplayList buildingForChild(
+      aBuilder,
+      aFrame,
+      visible,
+      dirty,
+      aBuilder->IsAtRootOfPseudoStackingContext());
 
   nsDisplayList list(aBuilder);
   aFrame->BuildDisplayListForStackingContext(aBuilder, &list);
@@ -161,15 +164,16 @@ ViewportFrame::BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
       // elements are not allowed to be out-of-flow. They should not
       // be handled as top layer element here.
       if (!(frame->GetStateBits() & NS_FRAME_OUT_OF_FLOW)) {
-        MOZ_ASSERT(!elem->GetParent()->IsHTMLElement(), "HTML element "
+        MOZ_ASSERT(!elem->GetParent()->IsHTMLElement(),
+                   "HTML element "
                    "should always be out-of-flow if in the top layer");
         continue;
       }
       if (nsIFrame* backdropPh =
-          frame->GetChildList(kBackdropList).FirstChild()) {
+              frame->GetChildList(kBackdropList).FirstChild()) {
         MOZ_ASSERT(backdropPh->IsPlaceholderFrame());
         nsIFrame* backdropFrame =
-          static_cast<nsPlaceholderFrame*>(backdropPh)->GetOutOfFlowFrame();
+            static_cast<nsPlaceholderFrame*>(backdropPh)->GetOutOfFlowFrame();
         MOZ_ASSERT(backdropFrame);
         BuildDisplayListForTopLayerFrame(aBuilder, backdropFrame, aList);
       }
@@ -189,8 +193,7 @@ ViewportFrame::BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
 
 #ifdef DEBUG
 void
-ViewportFrame::AppendFrames(ChildListID     aListID,
-                            nsFrameList&    aFrameList)
+ViewportFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList)
 {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
   NS_ASSERTION(GetChildList(aListID).IsEmpty(), "Shouldn't have any kids!");
@@ -198,9 +201,9 @@ ViewportFrame::AppendFrames(ChildListID     aListID,
 }
 
 void
-ViewportFrame::InsertFrames(ChildListID     aListID,
-                            nsIFrame*       aPrevFrame,
-                            nsFrameList&    aFrameList)
+ViewportFrame::InsertFrames(ChildListID aListID,
+                            nsIFrame* aPrevFrame,
+                            nsFrameList& aFrameList)
 {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
   NS_ASSERTION(GetChildList(aListID).IsEmpty(), "Shouldn't have any kids!");
@@ -208,8 +211,7 @@ ViewportFrame::InsertFrames(ChildListID     aListID,
 }
 
 void
-ViewportFrame::RemoveFrame(ChildListID     aListID,
-                           nsIFrame*       aOldFrame)
+ViewportFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
   nsContainerFrame::RemoveFrame(aListID, aOldFrame);
@@ -217,7 +219,7 @@ ViewportFrame::RemoveFrame(ChildListID     aListID,
 #endif
 
 /* virtual */ nscoord
-ViewportFrame::GetMinISize(gfxContext *aRenderingContext)
+ViewportFrame::GetMinISize(gfxContext* aRenderingContext)
 {
   nscoord result;
   DISPLAY_MIN_WIDTH(this, result);
@@ -230,7 +232,7 @@ ViewportFrame::GetMinISize(gfxContext *aRenderingContext)
 }
 
 /* virtual */ nscoord
-ViewportFrame::GetPrefISize(gfxContext *aRenderingContext)
+ViewportFrame::GetPrefISize(gfxContext* aRenderingContext)
 {
   nscoord result;
   DISPLAY_PREF_WIDTH(this, result);
@@ -256,28 +258,30 @@ ViewportFrame::AdjustReflowInputForScrollbars(ReflowInput* aReflowInput) const
                                    scrollbars.IStartEnd(wm));
     aReflowInput->AvailableISize() -= scrollbars.IStartEnd(wm);
     aReflowInput->SetComputedBSizeWithoutResettingResizeFlags(
-      aReflowInput->ComputedBSize() - scrollbars.BStartEnd(wm));
+        aReflowInput->ComputedBSize() - scrollbars.BStartEnd(wm));
     return nsPoint(scrollbars.Left(wm), scrollbars.Top(wm));
   }
   return nsPoint(0, 0);
 }
 
 nsRect
-ViewportFrame::AdjustReflowInputAsContainingBlock(ReflowInput* aReflowInput) const
+ViewportFrame::AdjustReflowInputAsContainingBlock(
+    ReflowInput* aReflowInput) const
 {
 #ifdef DEBUG
   nsPoint offset =
 #endif
-    AdjustReflowInputForScrollbars(aReflowInput);
+      AdjustReflowInputForScrollbars(aReflowInput);
 
   NS_ASSERTION(GetAbsoluteContainingBlock()->GetChildList().IsEmpty() ||
-               (offset.x == 0 && offset.y == 0),
+                   (offset.x == 0 && offset.y == 0),
                "We don't handle correct positioning of fixed frames with "
                "scrollbars in odd positions");
 
   // If a scroll position clamping scroll-port size has been set, layout
   // fixed position elements to this size instead of the computed size.
-  nsRect rect(0, 0, aReflowInput->ComputedWidth(), aReflowInput->ComputedHeight());
+  nsRect rect(
+      0, 0, aReflowInput->ComputedWidth(), aReflowInput->ComputedHeight());
   nsIPresShell* ps = PresContext()->PresShell();
   if (ps->IsScrollPositionClampingScrollPortSizeSet()) {
     rect.SizeTo(ps->GetScrollPositionClampingScrollPortSize());
@@ -287,10 +291,10 @@ ViewportFrame::AdjustReflowInputAsContainingBlock(ReflowInput* aReflowInput) con
 }
 
 void
-ViewportFrame::Reflow(nsPresContext*           aPresContext,
-                      ReflowOutput&     aDesiredSize,
+ViewportFrame::Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus)
+                      nsReflowStatus& aStatus)
 {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("ViewportFrame");
@@ -316,24 +320,30 @@ ViewportFrame::Reflow(nsPresContext*           aPresContext,
   if (mFrames.NotEmpty()) {
     // Deal with a non-incremental reflow or an incremental reflow
     // targeted at our one-and-only principal child frame.
-    if (aReflowInput.ShouldReflowAllKids() ||
-        aReflowInput.IsBResize() ||
+    if (aReflowInput.ShouldReflowAllKids() || aReflowInput.IsBResize() ||
         NS_SUBTREE_DIRTY(mFrames.FirstChild())) {
       // Reflow our one-and-only principal child frame
-      nsIFrame*           kidFrame = mFrames.FirstChild();
+      nsIFrame* kidFrame = mFrames.FirstChild();
       ReflowOutput kidDesiredSize(aReflowInput);
-      WritingMode         wm = kidFrame->GetWritingMode();
-      LogicalSize         availableSpace = aReflowInput.AvailableSize(wm);
-      ReflowInput   kidReflowInput(aPresContext, aReflowInput,
-                                         kidFrame, availableSpace);
+      WritingMode wm = kidFrame->GetWritingMode();
+      LogicalSize availableSpace = aReflowInput.AvailableSize(wm);
+      ReflowInput kidReflowInput(
+          aPresContext, aReflowInput, kidFrame, availableSpace);
 
       // Reflow the frame
       kidReflowInput.SetComputedBSize(aReflowInput.ComputedBSize());
-      ReflowChild(kidFrame, aPresContext, kidDesiredSize, kidReflowInput,
-                  0, 0, 0, aStatus);
+      ReflowChild(kidFrame,
+                  aPresContext,
+                  kidDesiredSize,
+                  kidReflowInput,
+                  0,
+                  0,
+                  0,
+                  aStatus);
       kidBSize = kidDesiredSize.BSize(wm);
 
-      FinishReflowChild(kidFrame, aPresContext, kidDesiredSize, nullptr, 0, 0, 0);
+      FinishReflowChild(
+          kidFrame, aPresContext, kidDesiredSize, nullptr, 0, 0, 0);
     } else {
       kidBSize = LogicalSize(wm, mFrames.FirstChild()->GetSize()).BSize(wm);
     }
@@ -343,12 +353,13 @@ ViewportFrame::Reflow(nsPresContext*           aPresContext,
                "shouldn't happen anymore");
 
   // Return the max size as our desired size
-  LogicalSize maxSize(wm, aReflowInput.AvailableISize(),
+  LogicalSize maxSize(wm,
+                      aReflowInput.AvailableISize(),
                       // Being flowed initially at an unconstrained block size
                       // means we should return our child's intrinsic size.
                       aReflowInput.ComputedBSize() != NS_UNCONSTRAINEDSIZE
-                        ? aReflowInput.ComputedBSize()
-                        : kidBSize);
+                          ? aReflowInput.ComputedBSize()
+                          : kidBSize);
   aDesiredSize.SetSize(wm, maxSize);
   aDesiredSize.SetOverflowAreasToDesiredBounds();
 
@@ -362,22 +373,23 @@ ViewportFrame::Reflow(nsPresContext*           aPresContext,
       // Set the available height and mComputedHeight to our chosen height.
       reflowInput.AvailableBSize() = maxSize.BSize(wm);
       // Not having border/padding simplifies things
-      NS_ASSERTION(reflowInput.ComputedPhysicalBorderPadding() == nsMargin(0,0,0,0),
-                   "Viewports can't have border/padding");
+      NS_ASSERTION(
+          reflowInput.ComputedPhysicalBorderPadding() == nsMargin(0, 0, 0, 0),
+          "Viewports can't have border/padding");
       reflowInput.SetComputedBSize(maxSize.BSize(wm));
     }
 
     nsRect rect = AdjustReflowInputAsContainingBlock(&reflowInput);
     nsOverflowAreas* overflowAreas = &aDesiredSize.mOverflowAreas;
     nsIScrollableFrame* rootScrollFrame =
-                    aPresContext->PresShell()->GetRootScrollFrameAsScrollable();
+        aPresContext->PresShell()->GetRootScrollFrameAsScrollable();
     if (rootScrollFrame && !rootScrollFrame->IsIgnoringViewportClipping()) {
       overflowAreas = nullptr;
     }
     AbsPosReflowFlags flags =
-      AbsPosReflowFlags::eCBWidthAndHeightChanged; // XXX could be optimized
-    GetAbsoluteContainingBlock()->Reflow(this, aPresContext, reflowInput, aStatus,
-                                         rect, flags, overflowAreas);
+        AbsPosReflowFlags::eCBWidthAndHeightChanged;  // XXX could be optimized
+    GetAbsoluteContainingBlock()->Reflow(
+        this, aPresContext, reflowInput, aStatus, rect, flags, overflowAreas);
   }
 
   if (mFrames.NotEmpty()) {
@@ -395,11 +407,11 @@ ViewportFrame::Reflow(nsPresContext*           aPresContext,
   if (overflowChanged) {
     // We may need to alert our container to get it to pick up the
     // overflow change.
-    nsSubDocumentFrame* container = static_cast<nsSubDocumentFrame*>
-      (nsLayoutUtils::GetCrossDocParentFrame(this));
+    nsSubDocumentFrame* container = static_cast<nsSubDocumentFrame*>(
+        nsLayoutUtils::GetCrossDocParentFrame(this));
     if (container && !container->ShouldClipSubdocument()) {
-      container->PresContext()->PresShell()->
-        FrameNeedsReflow(container, nsIPresShell::eResize, NS_FRAME_IS_DIRTY);
+      container->PresContext()->PresShell()->FrameNeedsReflow(
+          container, nsIPresShell::eResize, NS_FRAME_IS_DIRTY);
     }
   }
 
@@ -411,7 +423,7 @@ bool
 ViewportFrame::ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas)
 {
   nsIScrollableFrame* rootScrollFrame =
-    PresContext()->PresShell()->GetRootScrollFrameAsScrollable();
+      PresContext()->PresShell()->GetRootScrollFrameAsScrollable();
   if (rootScrollFrame && !rootScrollFrame->IsIgnoringViewportClipping()) {
     return false;
   }
@@ -425,7 +437,8 @@ ViewportFrame::UpdateStyle(ServoRestyleState& aRestyleState)
   ServoStyleContext* oldContext = StyleContext()->AsServo();
   nsAtom* pseudo = oldContext->GetPseudo();
   RefPtr<ServoStyleContext> newContext =
-    aRestyleState.StyleSet().ResolveInheritingAnonymousBoxStyle(pseudo, nullptr);
+      aRestyleState.StyleSet().ResolveInheritingAnonymousBoxStyle(pseudo,
+                                                                  nullptr);
 
   // We're special because we have a null GetContent(), so don't call things
   // like UpdateStyleOfOwnedChildFrame that try to append changes for the

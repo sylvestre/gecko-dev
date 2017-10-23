@@ -19,21 +19,16 @@ namespace js {
  * lookupForAdd() and relookupOrAdd().
  */
 template <class T>
-struct DependentAddPtr
-{
+struct DependentAddPtr {
     typedef typename T::AddPtr AddPtr;
     typedef typename T::Entry Entry;
 
     template <class Lookup>
     DependentAddPtr(const JSContext* cx, const T& table, const Lookup& lookup)
-      : addPtr(table.lookupForAdd(lookup))
-      , originalGcNumber(cx->zone()->gcNumber())
-    {}
+        : addPtr(table.lookupForAdd(lookup)), originalGcNumber(cx->zone()->gcNumber()) {}
 
     DependentAddPtr(DependentAddPtr&& other)
-      : addPtr(other.addPtr)
-      , originalGcNumber(other.originalGcNumber)
-    {}
+        : addPtr(other.addPtr), originalGcNumber(other.originalGcNumber) {}
 
     template <class KeyInput, class ValueInput>
     bool add(JSContext* cx, T& table, const KeyInput& key, const ValueInput& value) {
@@ -51,20 +46,19 @@ struct DependentAddPtr
         table.remove(addPtr);
     }
 
-    bool found() const                 { return addPtr.found(); }
-    explicit operator bool() const     { return found(); }
-    const Entry& operator*() const     { return *addPtr; }
-    const Entry* operator->() const    { return &*addPtr; }
+    bool found() const { return addPtr.found(); }
+    explicit operator bool() const { return found(); }
+    const Entry& operator*() const { return *addPtr; }
+    const Entry* operator->() const { return &*addPtr; }
 
-  private:
-    AddPtr addPtr ;
+   private:
+    AddPtr addPtr;
     const uint64_t originalGcNumber;
 
     template <class KeyInput>
     void refreshAddPtr(JSContext* cx, T& table, const KeyInput& key) {
         bool gcHappened = originalGcNumber != cx->zone()->gcNumber();
-        if (gcHappened)
-            addPtr = table.lookupForAdd(key);
+        if (gcHappened) addPtr = table.lookupForAdd(key);
     }
 
     DependentAddPtr() = delete;
@@ -73,14 +67,12 @@ struct DependentAddPtr
 };
 
 template <typename T, typename Lookup>
-inline auto
-MakeDependentAddPtr(const JSContext* cx, T& table, const Lookup& lookup)
-  -> DependentAddPtr<typename mozilla::RemoveReference<decltype(table)>::Type>
-{
+inline auto MakeDependentAddPtr(const JSContext* cx, T& table, const Lookup& lookup)
+    -> DependentAddPtr<typename mozilla::RemoveReference<decltype(table)>::Type> {
     using Ptr = DependentAddPtr<typename mozilla::RemoveReference<decltype(table)>::Type>;
     return Ptr(cx, table, lookup);
 }
 
-} // namespace js
+}  // namespace js
 
 #endif

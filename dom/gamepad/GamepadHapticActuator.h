@@ -16,14 +16,14 @@ namespace mozilla {
 namespace dom {
 class Promise;
 
-class GamepadHapticActuator : public nsISupports,
-                              public nsWrapperCache
+class GamepadHapticActuator : public nsISupports, public nsWrapperCache
 {
-public:
-  GamepadHapticActuator(nsISupports* aParent, uint32_t aGamepadId,
+ public:
+  GamepadHapticActuator(nsISupports* aParent,
+                        uint32_t aGamepadId,
                         uint32_t aIndex);
   explicit GamepadHapticActuator(nsISupports* aParent)
-    : mParent(aParent), mType(GamepadHapticActuatorType::Vibration)
+      : mParent(aParent), mType(GamepadHapticActuatorType::Vibration)
   {
   }
 
@@ -32,25 +32,28 @@ public:
 
   nsISupports* GetParentObject() const;
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  already_AddRefed<Promise> Pulse(double aValue, double aDuration, ErrorResult& aRv);
+  already_AddRefed<Promise> Pulse(double aValue,
+                                  double aDuration,
+                                  ErrorResult& aRv);
 
   GamepadHapticActuatorType Type() const;
 
   void Set(const GamepadHapticActuator* aOther);
 
-private:
+ private:
   virtual ~GamepadHapticActuator() {}
 
-protected:
+ protected:
   nsCOMPtr<nsISupports> mParent;
   uint32_t mGamepadId;
   GamepadHapticActuatorType mType;
   uint32_t mIndex;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_gamepad_GamepadHapticActuator_h
+#endif  // mozilla_dom_gamepad_GamepadHapticActuator_h

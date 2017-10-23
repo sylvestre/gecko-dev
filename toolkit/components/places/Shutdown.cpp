@@ -12,9 +12,7 @@ uint16_t PlacesShutdownBlocker::sCounter = 0;
 Atomic<bool> PlacesShutdownBlocker::sIsStarted(false);
 
 PlacesShutdownBlocker::PlacesShutdownBlocker(const nsString& aName)
-  : mName(aName)
-  , mState(NOT_STARTED)
-  , mCounter(sCounter++)
+    : mName(aName), mState(NOT_STARTED), mCounter(sCounter++)
 {
   MOZ_ASSERT(NS_IsMainThread());
   // During tests, we can end up with the Database singleton being resurrected.
@@ -24,7 +22,8 @@ PlacesShutdownBlocker::PlacesShutdownBlocker(const nsString& aName)
   }
   // Create a barrier that will be exposed to clients through GetClient(), so
   // they can block Places shutdown.
-  nsCOMPtr<nsIAsyncShutdownService> asyncShutdown = services::GetAsyncShutdown();
+  nsCOMPtr<nsIAsyncShutdownService> asyncShutdown =
+      services::GetAsyncShutdown();
   MOZ_ASSERT(asyncShutdown);
   if (asyncShutdown) {
     nsCOMPtr<nsIAsyncShutdownBarrier> barrier;
@@ -32,7 +31,7 @@ PlacesShutdownBlocker::PlacesShutdownBlocker(const nsString& aName)
     MOZ_ALWAYS_SUCCEEDS(rv);
     if (NS_SUCCEEDED(rv) && barrier) {
       mBarrier = new nsMainThreadPtrHolder<nsIAsyncShutdownBarrier>(
-        "PlacesShutdownBlocker::mBarrier", barrier);
+          "PlacesShutdownBlocker::mBarrier", barrier);
     }
   }
 }
@@ -52,7 +51,7 @@ PlacesShutdownBlocker::GetState(nsIPropertyBag** _state)
   NS_ENSURE_ARG_POINTER(_state);
 
   nsCOMPtr<nsIWritablePropertyBag2> bag =
-    do_CreateInstance("@mozilla.org/hash-property-bag;1");
+      do_CreateInstance("@mozilla.org/hash-property-bag;1");
   NS_ENSURE_TRUE(bag, NS_ERROR_OUT_OF_MEMORY);
   bag.forget(_state);
 
@@ -61,7 +60,7 @@ PlacesShutdownBlocker::GetState(nsIPropertyBag** _state)
   nsresult rv = progress->SetAsUint8(mState);
   if (NS_WARN_IF(NS_FAILED(rv))) return rv;
   rv = static_cast<nsIWritablePropertyBag2*>(*_state)->SetPropertyAsInterface(
-    NS_LITERAL_STRING("progress"), progress);
+      NS_LITERAL_STRING("progress"), progress);
   if (NS_WARN_IF(NS_FAILED(rv))) return rv;
 
   // Put `mBarrier`'s state in field `barrier`, if possible
@@ -78,7 +77,7 @@ PlacesShutdownBlocker::GetState(nsIPropertyBag** _state)
   rv = barrier->SetAsInterface(NS_GET_IID(nsIPropertyBag), barrierState);
   if (NS_WARN_IF(NS_FAILED(rv))) return rv;
   rv = static_cast<nsIWritablePropertyBag2*>(*_state)->SetPropertyAsInterface(
-    NS_LITERAL_STRING("Barrier"), barrier);
+      NS_LITERAL_STRING("Barrier"), barrier);
   if (NS_WARN_IF(NS_FAILED(rv))) return rv;
 
   return NS_OK;
@@ -100,7 +99,7 @@ PlacesShutdownBlocker::BlockShutdown(nsIAsyncShutdownClient* aParentClient)
 {
   MOZ_ASSERT(NS_IsMainThread());
   mParentClient = new nsMainThreadPtrHolder<nsIAsyncShutdownClient>(
-    "ClientsShutdownBlocker::mParentClient", aParentClient);
+      "ClientsShutdownBlocker::mParentClient", aParentClient);
   mState = RECEIVED_BLOCK_SHUTDOWN;
 
   if (NS_WARN_IF(!mBarrier)) {
@@ -122,16 +121,14 @@ PlacesShutdownBlocker::Done()
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(
-  PlacesShutdownBlocker,
-  nsIAsyncShutdownBlocker,
-  nsIAsyncShutdownCompletionCallback
-)
+NS_IMPL_ISUPPORTS(PlacesShutdownBlocker,
+                  nsIAsyncShutdownBlocker,
+                  nsIAsyncShutdownCompletionCallback)
 
 ////////////////////////////////////////////////////////////////////////////////
 
 ClientsShutdownBlocker::ClientsShutdownBlocker()
-  : PlacesShutdownBlocker(NS_LITERAL_STRING("Places Clients shutdown"))
+    : PlacesShutdownBlocker(NS_LITERAL_STRING("Places Clients shutdown"))
 {
   // Do nothing.
 }
@@ -154,16 +151,13 @@ ClientsShutdownBlocker::Done()
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS_INHERITED0(
-  ClientsShutdownBlocker,
-  PlacesShutdownBlocker
-)
+NS_IMPL_ISUPPORTS_INHERITED0(ClientsShutdownBlocker, PlacesShutdownBlocker)
 
 ////////////////////////////////////////////////////////////////////////////////
 
 ConnectionShutdownBlocker::ConnectionShutdownBlocker(Database* aDatabase)
-  : PlacesShutdownBlocker(NS_LITERAL_STRING("Places Connection shutdown"))
-  , mDatabase(aDatabase)
+    : PlacesShutdownBlocker(NS_LITERAL_STRING("Places Connection shutdown")),
+      mDatabase(aDatabase)
 {
   // Do nothing.
 }
@@ -182,7 +176,8 @@ ConnectionShutdownBlocker::Done()
   // At this stage, any use of this database is forbidden. Get rid of
   // `gDatabase`. Note, however, that the database could be
   // resurrected.  This can happen in particular during tests.
-  MOZ_ASSERT(Database::gDatabase == nullptr || Database::gDatabase == mDatabase);
+  MOZ_ASSERT(Database::gDatabase == nullptr ||
+             Database::gDatabase == mDatabase);
   Database::gDatabase = nullptr;
 
   // Database::Shutdown will invoke Complete once the connection is closed.
@@ -207,9 +202,8 @@ ConnectionShutdownBlocker::Complete(nsresult, nsISupports*)
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
   MOZ_ASSERT(os);
   if (os) {
-    MOZ_ALWAYS_SUCCEEDS(os->NotifyObservers(nullptr,
-              TOPIC_PLACES_CONNECTION_CLOSED,
-              nullptr));
+    MOZ_ALWAYS_SUCCEEDS(
+        os->NotifyObservers(nullptr, TOPIC_PLACES_CONNECTION_CLOSED, nullptr));
   }
   mState = NOTIFIED_OBSERVERS_PLACES_CONNECTION_CLOSED;
 
@@ -222,11 +216,9 @@ ConnectionShutdownBlocker::Complete(nsresult, nsISupports*)
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS_INHERITED(
-  ConnectionShutdownBlocker,
-  PlacesShutdownBlocker,
-  mozIStorageCompletionCallback
-)
+NS_IMPL_ISUPPORTS_INHERITED(ConnectionShutdownBlocker,
+                            PlacesShutdownBlocker,
+                            mozIStorageCompletionCallback)
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla

@@ -17,24 +17,19 @@ namespace js {
 
 namespace detail {
 
-template <typename InlineEntry,
-          typename Entry,
-          typename Table,
-          typename HashPolicy,
-          typename AllocPolicy,
-          size_t InlineEntries>
-class InlineTable
-{
-  private:
-    using TablePtr    = typename Table::Ptr;
+template <typename InlineEntry, typename Entry, typename Table, typename HashPolicy,
+          typename AllocPolicy, size_t InlineEntries>
+class InlineTable {
+   private:
+    using TablePtr = typename Table::Ptr;
     using TableAddPtr = typename Table::AddPtr;
-    using TableRange  = typename Table::Range;
-    using Lookup      = typename HashPolicy::Lookup;
+    using TableRange = typename Table::Range;
+    using Lookup = typename HashPolicy::Lookup;
 
-    size_t      inlNext_;
-    size_t      inlCount_;
+    size_t inlNext_;
+    size_t inlCount_;
     InlineEntry inl_[InlineEntries];
-    Table       table_;
+    Table table_;
 
 #ifdef DEBUG
     template <typename Key>
@@ -64,9 +59,7 @@ class InlineTable
         return inl_ + inlNext_;
     }
 
-    bool usingTable() const {
-        return inlNext_ > InlineEntries;
-    }
+    bool usingTable() const { return inlNext_ > InlineEntries; }
 
     MOZ_MUST_USE bool switchToTable() {
         MOZ_ASSERT(inlNext_ == InlineEntries);
@@ -74,15 +67,13 @@ class InlineTable
         if (table_.initialized()) {
             table_.clear();
         } else {
-            if (!table_.init(count()))
-                return false;
+            if (!table_.init(count())) return false;
             MOZ_ASSERT(table_.initialized());
         }
 
         InlineEntry* end = inlineEnd();
         for (InlineEntry* it = inlineStart(); it != end; ++it) {
-            if (it->key && !it->moveTo(table_))
-                return false;
+            if (it->key && !it->moveTo(table_)) return false;
         }
 
         inlNext_ = InlineEntries + 1;
@@ -93,76 +84,56 @@ class InlineTable
 
     MOZ_NEVER_INLINE
     MOZ_MUST_USE bool switchAndAdd(const InlineEntry& entry) {
-        if (!switchToTable())
-            return false;
+        if (!switchToTable()) return false;
 
         return entry.putNew(table_);
     }
 
-  public:
+   public:
     static const size_t SizeOfInlineEntries = sizeof(InlineEntry) * InlineEntries;
 
-    explicit InlineTable(AllocPolicy a = AllocPolicy())
-      : inlNext_(0),
-        inlCount_(0),
-        table_(a)
-    { }
+    explicit InlineTable(AllocPolicy a = AllocPolicy()) : inlNext_(0), inlCount_(0), table_(a) {}
 
-    class Ptr
-    {
+    class Ptr {
         friend class InlineTable;
 
-      protected:
-        MOZ_INIT_OUTSIDE_CTOR Entry        entry_;
-        MOZ_INIT_OUTSIDE_CTOR TablePtr     tablePtr_;
+       protected:
+        MOZ_INIT_OUTSIDE_CTOR Entry entry_;
+        MOZ_INIT_OUTSIDE_CTOR TablePtr tablePtr_;
         MOZ_INIT_OUTSIDE_CTOR InlineEntry* inlPtr_;
-        MOZ_INIT_OUTSIDE_CTOR bool         isInlinePtr_;
+        MOZ_INIT_OUTSIDE_CTOR bool isInlinePtr_;
 
         explicit Ptr(TablePtr p)
-          : entry_(p.found() ? &*p : nullptr),
-            tablePtr_(p),
-            isInlinePtr_(false)
-        { }
+            : entry_(p.found() ? &*p : nullptr), tablePtr_(p), isInlinePtr_(false) {}
 
         explicit Ptr(InlineEntry* inlineEntry)
-          : entry_(inlineEntry),
-            inlPtr_(inlineEntry),
-            isInlinePtr_(true)
-        { }
+            : entry_(inlineEntry), inlPtr_(inlineEntry), isInlinePtr_(true) {}
 
         void operator==(const Ptr& other);
 
-      public:
+       public:
         // Leaves Ptr uninitialized.
         Ptr() {
 #ifdef DEBUG
-            inlPtr_ = (InlineEntry*) 0xbad;
+            inlPtr_ = (InlineEntry*)0xbad;
             isInlinePtr_ = true;
 #endif
         }
 
         // Default copy constructor works for this structure.
 
-        bool found() const {
-            return isInlinePtr_ ? bool(inlPtr_) : tablePtr_.found();
-        }
+        bool found() const { return isInlinePtr_ ? bool(inlPtr_) : tablePtr_.found(); }
 
-        explicit operator bool() const {
-            return found();
-        }
+        explicit operator bool() const { return found(); }
 
         bool operator==(const Ptr& other) const {
             MOZ_ASSERT(found() && other.found());
-            if (isInlinePtr_ != other.isInlinePtr_)
-                return false;
-            if (isInlinePtr_)
-                return inlPtr_ == other.inlPtr_;
+            if (isInlinePtr_ != other.isInlinePtr_) return false;
+            if (isInlinePtr_) return inlPtr_ == other.inlPtr_;
             return tablePtr_ == other.tablePtr_;
         }
 
-        bool operator!=(const Ptr& other) const {
-            return !(*this == other);
-        }
+        bool operator!=(const Ptr& other) const { return !(*this == other); }
 
         Entry& operator*() {
             MOZ_ASSERT(found());
@@ -175,54 +146,38 @@ class InlineTable
         }
     };
 
-    class AddPtr
-    {
+    class AddPtr {
         friend class InlineTable;
 
-      protected:
-        MOZ_INIT_OUTSIDE_CTOR Entry        entry_;
-        MOZ_INIT_OUTSIDE_CTOR TableAddPtr  tableAddPtr_;
+       protected:
+        MOZ_INIT_OUTSIDE_CTOR Entry entry_;
+        MOZ_INIT_OUTSIDE_CTOR TableAddPtr tableAddPtr_;
         MOZ_INIT_OUTSIDE_CTOR InlineEntry* inlAddPtr_;
-        MOZ_INIT_OUTSIDE_CTOR bool         isInlinePtr_;
+        MOZ_INIT_OUTSIDE_CTOR bool isInlinePtr_;
         // Indicates whether inlAddPtr is a found result or an add pointer.
-        MOZ_INIT_OUTSIDE_CTOR bool         inlPtrFound_;
+        MOZ_INIT_OUTSIDE_CTOR bool inlPtrFound_;
 
         AddPtr(InlineEntry* ptr, bool found)
-          : entry_(ptr),
-            inlAddPtr_(ptr),
-            isInlinePtr_(true),
-            inlPtrFound_(found)
-        {}
+            : entry_(ptr), inlAddPtr_(ptr), isInlinePtr_(true), inlPtrFound_(found) {}
 
         explicit AddPtr(const TableAddPtr& p)
-          : entry_(p.found() ? &*p : nullptr),
-            tableAddPtr_(p),
-            isInlinePtr_(false)
-        { }
+            : entry_(p.found() ? &*p : nullptr), tableAddPtr_(p), isInlinePtr_(false) {}
 
-      public:
+       public:
         AddPtr() {}
 
-        bool found() const {
-            return isInlinePtr_ ? inlPtrFound_ : tableAddPtr_.found();
-        }
+        bool found() const { return isInlinePtr_ ? inlPtrFound_ : tableAddPtr_.found(); }
 
-        explicit operator bool() const {
-            return found();
-        }
+        explicit operator bool() const { return found(); }
 
         bool operator==(const AddPtr& other) const {
             MOZ_ASSERT(found() && other.found());
-            if (isInlinePtr_ != other.isInlinePtr_)
-                return false;
-            if (isInlinePtr_)
-                return inlAddPtr_ == other.inlAddPtr_;
+            if (isInlinePtr_ != other.isInlinePtr_) return false;
+            if (isInlinePtr_) return inlAddPtr_ == other.inlAddPtr_;
             return tableAddPtr_ == other.tableAddPtr_;
         }
 
-        bool operator!=(const AddPtr& other) const {
-            return !(*this == other);
-        }
+        bool operator!=(const AddPtr& other) const { return !(*this == other); }
 
         Entry& operator*() {
             MOZ_ASSERT(found());
@@ -235,13 +190,9 @@ class InlineTable
         }
     };
 
-    size_t count() const {
-        return usingTable() ? table_.count() : inlCount_;
-    }
+    size_t count() const { return usingTable() ? table_.count() : inlCount_; }
 
-    bool empty() const {
-        return usingTable() ? table_.empty() : !inlCount_;
-    }
+    bool empty() const { return usingTable() ? table_.empty() : !inlCount_; }
 
     void clear() {
         inlNext_ = 0;
@@ -252,13 +203,11 @@ class InlineTable
     Ptr lookup(const Lookup& l) {
         MOZ_ASSERT(keyNonZero(l));
 
-        if (usingTable())
-            return Ptr(table_.lookup(l));
+        if (usingTable()) return Ptr(table_.lookup(l));
 
         InlineEntry* end = inlineEnd();
         for (InlineEntry* it = inlineStart(); it != end; ++it) {
-            if (it->key && HashPolicy::match(it->key, l))
-                return Ptr(it);
+            if (it->key && HashPolicy::match(it->key, l)) return Ptr(it);
         }
 
         return Ptr(nullptr);
@@ -268,13 +217,11 @@ class InlineTable
     AddPtr lookupForAdd(const Lookup& l) {
         MOZ_ASSERT(keyNonZero(l));
 
-        if (usingTable())
-            return AddPtr(table_.lookupForAdd(l));
+        if (usingTable()) return AddPtr(table_.lookupForAdd(l));
 
         InlineEntry* end = inlineEnd();
         for (InlineEntry* it = inlineStart(); it != end; ++it) {
-            if (it->key && HashPolicy::match(it->key, l))
-                return AddPtr(it, true);
+            if (it->key && HashPolicy::match(it->key, l)) return AddPtr(it, true);
         }
 
         // The add pointer that's returned here may indicate the limit entry of
@@ -283,10 +230,8 @@ class InlineTable
         return AddPtr(inlineEnd(), false);
     }
 
-    template <typename KeyInput,
-              typename... Args>
-    MOZ_ALWAYS_INLINE
-    MOZ_MUST_USE bool add(AddPtr& p, KeyInput&& key, Args&&... args) {
+    template <typename KeyInput, typename... Args>
+    MOZ_ALWAYS_INLINE MOZ_MUST_USE bool add(AddPtr& p, KeyInput&& key, Args&&... args) {
         MOZ_ASSERT(!p);
         MOZ_ASSERT(keyNonZero(key));
 
@@ -296,23 +241,20 @@ class InlineTable
 
             // Switching to table mode before we add this pointer.
             if (addPtr == inlineStart() + InlineEntries) {
-                if (!switchToTable())
-                    return false;
+                if (!switchToTable()) return false;
                 return table_.putNew(mozilla::Forward<KeyInput>(key),
                                      mozilla::Forward<Args>(args)...);
             }
 
             MOZ_ASSERT(!p.found());
             MOZ_ASSERT(uintptr_t(inlineEnd()) == uintptr_t(p.inlAddPtr_));
-            addPtr->update(mozilla::Forward<KeyInput>(key),
-                           mozilla::Forward<Args>(args)...);
+            addPtr->update(mozilla::Forward<KeyInput>(key), mozilla::Forward<Args>(args)...);
             ++inlCount_;
             ++inlNext_;
             return true;
         }
 
-        return table_.add(p.tableAddPtr_,
-                          mozilla::Forward<KeyInput>(key),
+        return table_.add(p.tableAddPtr_, mozilla::Forward<KeyInput>(key),
                           mozilla::Forward<Args>(args)...);
     }
 
@@ -330,34 +272,27 @@ class InlineTable
     }
 
     void remove(const Lookup& l) {
-        if (Ptr p = lookup(l))
-            remove(p);
+        if (Ptr p = lookup(l)) remove(p);
     }
 
-    class Range
-    {
+    class Range {
         friend class InlineTable;
 
-      protected:
-        TableRange   tableRange_;
+       protected:
+        TableRange tableRange_;
         InlineEntry* cur_;
         InlineEntry* end_;
-        bool         isInline_;
+        bool isInline_;
 
-        explicit Range(TableRange r)
-          : cur_(nullptr),
-            end_(nullptr),
-            isInline_(false)
-        {
+        explicit Range(TableRange r) : cur_(nullptr), end_(nullptr), isInline_(false) {
             tableRange_ = r;
             MOZ_ASSERT(!isInlineRange());
         }
 
         Range(const InlineEntry* begin, const InlineEntry* end)
-          : cur_(const_cast<InlineEntry*>(begin)),
-            end_(const_cast<InlineEntry*>(end)),
-            isInline_(true)
-        {
+            : cur_(const_cast<InlineEntry*>(begin)),
+              end_(const_cast<InlineEntry*>(end)),
+              isInline_(true) {
             advancePastNulls(cur_);
             MOZ_ASSERT(isInlineRange());
         }
@@ -375,8 +310,7 @@ class InlineTable
 
         void advancePastNulls(InlineEntry* begin) {
             InlineEntry* newCur = begin;
-            while (newCur < end_ && nullptr == newCur->key)
-                ++newCur;
+            while (newCur < end_ && nullptr == newCur->key) ++newCur;
             MOZ_ASSERT(uintptr_t(newCur) <= uintptr_t(end_));
             cur_ = newCur;
         }
@@ -386,15 +320,12 @@ class InlineTable
             advancePastNulls(cur_ + 1);
         }
 
-      public:
-        bool empty() const {
-            return isInlineRange() ? cur_ == end_ : tableRange_.empty();
-        }
+       public:
+        bool empty() const { return isInlineRange() ? cur_ == end_ : tableRange_.empty(); }
 
         Entry front() {
             MOZ_ASSERT(!empty());
-            if (isInlineRange())
-                return Entry(cur_);
+            if (isInlineRange()) return Entry(cur_);
             return Entry(&tableRange_.front());
         }
 
@@ -412,7 +343,7 @@ class InlineTable
     }
 };
 
-} // namespace detail
+}  // namespace detail
 
 // A map with InlineEntries number of entries kept inline in an array.
 //
@@ -420,18 +351,13 @@ class InlineTable
 // The Value type must have a default constructor.
 //
 // The API is very much like HashMap's.
-template <typename Key,
-          typename Value,
-          size_t InlineEntries,
-          typename HashPolicy = DefaultHasher<Key>,
-          typename AllocPolicy = TempAllocPolicy>
-class InlineMap
-{
+template <typename Key, typename Value, size_t InlineEntries,
+          typename HashPolicy = DefaultHasher<Key>, typename AllocPolicy = TempAllocPolicy>
+class InlineMap {
     using Map = HashMap<Key, Value, HashPolicy, AllocPolicy>;
 
-    struct InlineEntry
-    {
-        Key   key;
+    struct InlineEntry {
+        Key key;
         Value value;
 
         template <typename KeyInput, typename ValueInput>
@@ -445,94 +371,67 @@ class InlineMap
         }
     };
 
-    class Entry
-    {
+    class Entry {
         using MapEntry = typename Map::Entry;
 
-        MapEntry*    mapEntry_;
+        MapEntry* mapEntry_;
         InlineEntry* inlineEntry_;
 
-      public:
+       public:
         Entry() = default;
 
-        explicit Entry(MapEntry* mapEntry)
-          : mapEntry_(mapEntry),
-            inlineEntry_(nullptr)
-        { }
+        explicit Entry(MapEntry* mapEntry) : mapEntry_(mapEntry), inlineEntry_(nullptr) {}
 
-        explicit Entry(InlineEntry* inlineEntry)
-          : mapEntry_(nullptr),
-            inlineEntry_(inlineEntry)
-        { }
+        explicit Entry(InlineEntry* inlineEntry) : mapEntry_(nullptr), inlineEntry_(inlineEntry) {}
 
         const Key& key() const {
             MOZ_ASSERT(!!mapEntry_ != !!inlineEntry_);
-            if (mapEntry_)
-                return mapEntry_->key();
+            if (mapEntry_) return mapEntry_->key();
             return inlineEntry_->key;
         }
 
         Value& value() {
             MOZ_ASSERT(!!mapEntry_ != !!inlineEntry_);
-            if (mapEntry_)
-                return mapEntry_->value();
+            if (mapEntry_) return mapEntry_->value();
             return inlineEntry_->value;
         }
     };
 
-    using Impl = detail::InlineTable<InlineEntry, Entry,
-                                     Map, HashPolicy, AllocPolicy,
-                                     InlineEntries>;
+    using Impl =
+        detail::InlineTable<InlineEntry, Entry, Map, HashPolicy, AllocPolicy, InlineEntries>;
 
     Impl impl_;
 
-  public:
-    using Table  = Map;
-    using Ptr    = typename Impl::Ptr;
+   public:
+    using Table = Map;
+    using Ptr = typename Impl::Ptr;
     using AddPtr = typename Impl::AddPtr;
-    using Range  = typename Impl::Range;
+    using Range = typename Impl::Range;
     using Lookup = typename HashPolicy::Lookup;
 
     static const size_t SizeOfInlineEntries = Impl::SizeOfInlineEntries;
 
-    explicit InlineMap(AllocPolicy a = AllocPolicy())
-      : impl_(a)
-    { }
+    explicit InlineMap(AllocPolicy a = AllocPolicy()) : impl_(a) {}
 
-    size_t count() const {
-        return impl_.count();
-    }
+    size_t count() const { return impl_.count(); }
 
-    bool empty() const {
-        return impl_.empty();
-    }
+    bool empty() const { return impl_.empty(); }
 
-    void clear() {
-        impl_.clear();
-    }
+    void clear() { impl_.clear(); }
 
-    Range all() const {
-        return impl_.all();
-    }
+    Range all() const { return impl_.all(); }
 
     MOZ_ALWAYS_INLINE
-    Ptr lookup(const Lookup& l) {
-        return impl_.lookup(l);
-    }
+    Ptr lookup(const Lookup& l) { return impl_.lookup(l); }
 
     MOZ_ALWAYS_INLINE
-    bool has(const Lookup& l) const {
-        return const_cast<InlineMap*>(this)->lookup(l).found();
-    }
+    bool has(const Lookup& l) const { return const_cast<InlineMap*>(this)->lookup(l).found(); }
 
     MOZ_ALWAYS_INLINE
-    AddPtr lookupForAdd(const Lookup& l) {
-        return impl_.lookupForAdd(l);
-    }
+    AddPtr lookupForAdd(const Lookup& l) { return impl_.lookupForAdd(l); }
 
     template <typename KeyInput, typename ValueInput>
-    MOZ_ALWAYS_INLINE
-    MOZ_MUST_USE bool add(AddPtr& p, KeyInput&& key, ValueInput&& value) {
+    MOZ_ALWAYS_INLINE MOZ_MUST_USE bool add(AddPtr& p, KeyInput&& key, ValueInput&& value) {
         return impl_.add(p, mozilla::Forward<KeyInput>(key), mozilla::Forward<ValueInput>(value));
     }
 
@@ -546,13 +445,9 @@ class InlineMap
         return add(p, mozilla::Forward<KeyInput>(key), mozilla::Forward<ValueInput>(value));
     }
 
-    void remove(Ptr& p) {
-        impl_.remove(p);
-    }
+    void remove(Ptr& p) { impl_.remove(p); }
 
-    void remove(const Lookup& l) {
-        impl_.remove(l);
-    }
+    void remove(const Lookup& l) { impl_.remove(l); }
 };
 
 // A set with InlineEntries number of entries kept inline in an array.
@@ -561,16 +456,12 @@ class InlineMap
 // The T type must have a default constructor.
 //
 // The API is very much like HashMap's.
-template <typename T,
-          size_t InlineEntries,
-          typename HashPolicy = DefaultHasher<T>,
+template <typename T, size_t InlineEntries, typename HashPolicy = DefaultHasher<T>,
           typename AllocPolicy = TempAllocPolicy>
-class InlineSet
-{
+class InlineSet {
     using Set = HashSet<T, HashPolicy, AllocPolicy>;
 
-    struct InlineEntry
-    {
+    struct InlineEntry {
         T key;
 
         template <typename TInput>
@@ -578,92 +469,65 @@ class InlineSet
             this->key = mozilla::Forward<TInput>(key);
         }
 
-        MOZ_MUST_USE bool moveTo(Set& set) {
-            return set.putNew(mozilla::Move(key));
-        }
+        MOZ_MUST_USE bool moveTo(Set& set) { return set.putNew(mozilla::Move(key)); }
     };
 
-    class Entry
-    {
+    class Entry {
         using SetEntry = typename Set::Entry;
 
-        SetEntry*    setEntry_;
+        SetEntry* setEntry_;
         InlineEntry* inlineEntry_;
 
-      public:
+       public:
         Entry() = default;
 
         explicit Entry(const SetEntry* setEntry)
-          : setEntry_(const_cast<SetEntry*>(setEntry)),
-            inlineEntry_(nullptr)
-        { }
+            : setEntry_(const_cast<SetEntry*>(setEntry)), inlineEntry_(nullptr) {}
 
-        explicit Entry(InlineEntry* inlineEntry)
-          : setEntry_(nullptr),
-            inlineEntry_(inlineEntry)
-        { }
+        explicit Entry(InlineEntry* inlineEntry) : setEntry_(nullptr), inlineEntry_(inlineEntry) {}
 
         operator T() const {
             MOZ_ASSERT(!!setEntry_ != !!inlineEntry_);
-            if (setEntry_)
-                return *setEntry_;
+            if (setEntry_) return *setEntry_;
             return inlineEntry_->key;
         }
     };
 
-    using Impl = detail::InlineTable<InlineEntry, Entry,
-                                     Set, HashPolicy, AllocPolicy,
-                                     InlineEntries>;
+    using Impl =
+        detail::InlineTable<InlineEntry, Entry, Set, HashPolicy, AllocPolicy, InlineEntries>;
 
     Impl impl_;
 
-  public:
-    using Table  = Set;
-    using Ptr    = typename Impl::Ptr;
+   public:
+    using Table = Set;
+    using Ptr = typename Impl::Ptr;
     using AddPtr = typename Impl::AddPtr;
-    using Range  = typename Impl::Range;
+    using Range = typename Impl::Range;
     using Lookup = typename HashPolicy::Lookup;
 
     static const size_t SizeOfInlineEntries = Impl::SizeOfInlineEntries;
 
-    explicit InlineSet(AllocPolicy a = AllocPolicy())
-      : impl_(a)
-    { }
+    explicit InlineSet(AllocPolicy a = AllocPolicy()) : impl_(a) {}
 
-    size_t count() const {
-        return impl_.count();
-    }
+    size_t count() const { return impl_.count(); }
 
-    bool empty() const {
-        return impl_.empty();
-    }
+    bool empty() const { return impl_.empty(); }
 
-    void clear() {
-        impl_.clear();
-    }
+    void clear() { impl_.clear(); }
 
-    Range all() const {
-        return impl_.all();
-    }
+    Range all() const { return impl_.all(); }
 
     MOZ_ALWAYS_INLINE
-    Ptr lookup(const Lookup& l) {
-        return impl_.lookup(l);
-    }
+    Ptr lookup(const Lookup& l) { return impl_.lookup(l); }
 
     MOZ_ALWAYS_INLINE
-    bool has(const Lookup& l) const {
-        return const_cast<InlineSet*>(this)->lookup(l).found();
-    }
+    bool has(const Lookup& l) const { return const_cast<InlineSet*>(this)->lookup(l).found(); }
 
     MOZ_ALWAYS_INLINE
-    AddPtr lookupForAdd(const Lookup& l) {
-        return impl_.lookupForAdd(l);
-    }
+    AddPtr lookupForAdd(const Lookup& l) { return impl_.lookupForAdd(l); }
 
     template <typename TInput>
-    MOZ_ALWAYS_INLINE
-    MOZ_MUST_USE bool add(AddPtr& p, TInput&& key) {
+    MOZ_ALWAYS_INLINE MOZ_MUST_USE bool add(AddPtr& p, TInput&& key) {
         return impl_.add(p, mozilla::Forward<TInput>(key));
     }
 
@@ -673,15 +537,11 @@ class InlineSet
         return p ? true : add(p, mozilla::Forward<TInput>(key));
     }
 
-    void remove(Ptr& p) {
-        impl_.remove(p);
-    }
+    void remove(Ptr& p) { impl_.remove(p); }
 
-    void remove(const Lookup& l) {
-        impl_.remove(l);
-    }
+    void remove(const Lookup& l) { impl_.remove(l); }
 };
 
-} // namespace js
+}  // namespace js
 
-#endif // ds_InlineTable_h
+#endif  // ds_InlineTable_h

@@ -16,7 +16,7 @@ class nsINode;
 namespace mozilla {
 
 namespace a11y {
-  class Accessible;
+class Accessible;
 }
 
 namespace dom {
@@ -24,16 +24,16 @@ namespace dom {
 class DOMStringList;
 struct ParentObject;
 
-class AccessibleNode : public nsISupports,
-                       public nsWrapperCache
+class AccessibleNode : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   explicit AccessibleNode(nsINode* aNode);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS;
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AccessibleNode);
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
   virtual dom::ParentObject GetParentObject() const final;
 
   void GetRole(nsAString& aRole);
@@ -43,13 +43,14 @@ public:
 
   bool Is(const Sequence<nsString>& aFlavors);
   bool Has(const Sequence<nsString>& aAttributes);
-  void Get(JSContext* cx, const nsAString& aAttribute,
+  void Get(JSContext* cx,
+           const nsAString& aAttribute,
            JS::MutableHandle<JS::Value> aValue,
            ErrorResult& aRv);
 
   a11y::Accessible* Internal() const { return mIntl; }
 
-protected:
+ protected:
   AccessibleNode(const AccessibleNode& aCopy) = delete;
   AccessibleNode& operator=(const AccessibleNode& aCopy) = delete;
   virtual ~AccessibleNode();
@@ -59,8 +60,7 @@ protected:
   RefPtr<dom::DOMStringList> mStates;
 };
 
-} // dom
-} // mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-
-#endif // A11Y_JSAPI_ACCESSIBLENODE
+#endif  // A11Y_JSAPI_ACCESSIBLENODE

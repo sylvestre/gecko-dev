@@ -12,13 +12,12 @@
 #include "nsCOMPtr.h"
 #include "nsCSSPseudoElements.h"
 
-class nsMeterFrame : public nsContainerFrame,
-                     public nsIAnonymousContentCreator
+class nsMeterFrame : public nsContainerFrame, public nsIAnonymousContentCreator
 
 {
   typedef mozilla::dom::Element Element;
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMeterFrame)
 
@@ -27,43 +26,45 @@ public:
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
-  virtual void Reflow(nsPresContext*           aCX,
-                      ReflowOutput&     aDesiredSize,
+  virtual void Reflow(nsPresContext* aCX,
+                      ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
 #ifdef DEBUG_FRAME_DUMP
-  virtual nsresult GetFrameName(nsAString& aResult) const override {
+  virtual nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("Meter"), aResult);
   }
 #endif
 
   // nsIAnonymousContentCreator
-  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements) override;
+  virtual nsresult CreateAnonymousContent(
+      nsTArray<ContentInfo>& aElements) override;
   virtual void AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
                                         uint32_t aFilter) override;
 
-  virtual nsresult AttributeChanged(int32_t  aNameSpaceID,
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
-                                    int32_t  aModType) override;
+                                    int32_t aModType) override;
 
-  virtual mozilla::LogicalSize
-  ComputeAutoSize(gfxContext*                 aRenderingContext,
-                  mozilla::WritingMode        aWM,
-                  const mozilla::LogicalSize& aCBSize,
-                  nscoord                     aAvailableISize,
-                  const mozilla::LogicalSize& aMargin,
-                  const mozilla::LogicalSize& aBorder,
-                  const mozilla::LogicalSize& aPadding,
-                  ComputeSizeFlags            aFlags) override;
+  virtual mozilla::LogicalSize ComputeAutoSize(
+      gfxContext* aRenderingContext,
+      mozilla::WritingMode aWM,
+      const mozilla::LogicalSize& aCBSize,
+      nscoord aAvailableISize,
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorder,
+      const mozilla::LogicalSize& aPadding,
+      ComputeSizeFlags aFlags) override;
 
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  virtual nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsContainerFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
+    return nsContainerFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
   }
 
   /**
@@ -71,14 +72,15 @@ public:
    */
   bool ShouldUseNativeStyle() const;
 
-  virtual Element* GetPseudoElement(mozilla::CSSPseudoElementType aType) override;
+  virtual Element* GetPseudoElement(
+      mozilla::CSSPseudoElementType aType) override;
 
-protected:
+ protected:
   // Helper function which reflow the anonymous div frame.
-  void ReflowBarFrame(nsIFrame*                aBarFrame,
-                      nsPresContext*           aPresContext,
+  void ReflowBarFrame(nsIFrame* aBarFrame,
+                      nsPresContext* aPresContext,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&          aStatus);
+                      nsReflowStatus& aStatus);
   /**
    * The div used to show the meter bar.
    * @see nsMeterFrame::CreateAnonymousContent

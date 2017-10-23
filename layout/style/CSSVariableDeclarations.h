@@ -12,14 +12,14 @@
 
 namespace mozilla {
 class CSSVariableResolver;
-} // namespace mozilla
+}  // namespace mozilla
 struct nsRuleData;
 
 namespace mozilla {
 
 class CSSVariableDeclarations
 {
-public:
+ public:
   CSSVariableDeclarations();
   CSSVariableDeclarations(const CSSVariableDeclarations& aOther);
 #ifdef DEBUG
@@ -39,7 +39,8 @@ public:
   /**
    * Represents the type of a variable value.
    */
-  enum Type {
+  enum Type
+  {
     eTokenStream,  // a stream of CSS tokens (the usual type for variables)
     eInitial,      // 'initial'
     eInherit,      // 'inherit'
@@ -125,7 +126,7 @@ public:
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   /**
    * Adds all the variable declarations from aOther into this object.
    */
@@ -134,6 +135,6 @@ private:
   nsDataHashtable<nsStringHashKey, nsString> mVariables;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

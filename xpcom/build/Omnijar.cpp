@@ -20,9 +20,7 @@ StaticRefPtr<nsZipArchive> Omnijar::sOuterReader[2];
 bool Omnijar::sInitialized = false;
 bool Omnijar::sIsUnified = false;
 
-static const char* sProp[2] = {
-  NS_GRE_DIR, NS_XPCOM_CURRENT_PROCESS_DIR
-};
+static const char* sProp[2] = {NS_GRE_DIR, NS_XPCOM_CURRENT_PROCESS_DIR};
 
 #define SPROP(Type) ((Type == mozilla::Omnijar::GRE) ? sProp[GRE] : sProp[APP])
 
@@ -48,8 +46,8 @@ Omnijar::InitOne(nsIFile* aPath, Type aType)
     file = aPath;
   } else {
     nsCOMPtr<nsIFile> dir;
-    nsDirectoryService::gService->Get(SPROP(aType), NS_GET_IID(nsIFile),
-                                      getter_AddRefs(dir));
+    nsDirectoryService::gService->Get(
+        SPROP(aType), NS_GET_IID(nsIFile), getter_AddRefs(dir));
     NS_NAMED_LITERAL_CSTRING(kOmnijarName, NS_STRINGIFY(OMNIJAR_NAME));
     if (NS_FAILED(dir->Clone(getter_AddRefs(file))) ||
         NS_FAILED(file->AppendNative(kOmnijarName))) {
@@ -63,10 +61,10 @@ Omnijar::InitOne(nsIFile* aPath, Type aType)
     if ((aType == APP) && (!sPath[GRE])) {
       nsCOMPtr<nsIFile> greDir, appDir;
       bool equals;
-      nsDirectoryService::gService->Get(sProp[GRE], NS_GET_IID(nsIFile),
-                                        getter_AddRefs(greDir));
-      nsDirectoryService::gService->Get(sProp[APP], NS_GET_IID(nsIFile),
-                                        getter_AddRefs(appDir));
+      nsDirectoryService::gService->Get(
+          sProp[GRE], NS_GET_IID(nsIFile), getter_AddRefs(greDir));
+      nsDirectoryService::gService->Get(
+          sProp[APP], NS_GET_IID(nsIFile), getter_AddRefs(appDir));
       if (NS_SUCCEEDED(greDir->Equals(appDir, &equals)) && equals) {
         sIsUnified = true;
       }
@@ -90,8 +88,8 @@ Omnijar::InitOne(nsIFile* aPath, Type aType)
 
   RefPtr<nsZipArchive> outerReader;
   RefPtr<nsZipHandle> handle;
-  if (NS_SUCCEEDED(nsZipHandle::Init(zipReader, NS_STRINGIFY(OMNIJAR_NAME),
-                                     getter_AddRefs(handle)))) {
+  if (NS_SUCCEEDED(nsZipHandle::Init(
+          zipReader, NS_STRINGIFY(OMNIJAR_NAME), getter_AddRefs(handle)))) {
     outerReader = zipReader;
     zipReader = new nsZipArchive();
     if (NS_FAILED(zipReader->OpenArchive(handle))) {
@@ -174,8 +172,8 @@ Omnijar::GetURIString(Type aType, nsACString& aResult)
     }
   } else {
     nsCOMPtr<nsIFile> dir;
-    nsDirectoryService::gService->Get(SPROP(aType), NS_GET_IID(nsIFile),
-                                      getter_AddRefs(dir));
+    nsDirectoryService::gService->Get(
+        SPROP(aType), NS_GET_IID(nsIFile), getter_AddRefs(dir));
     nsresult rv = NS_GetURLSpecFromActualFile(dir, aResult);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;

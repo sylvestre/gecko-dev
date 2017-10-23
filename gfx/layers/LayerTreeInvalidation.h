@@ -6,8 +6,8 @@
 #ifndef GFX_LAYER_TREE_INVALIDATION_H
 #define GFX_LAYER_TREE_INVALIDATION_H
 
-#include "nsRegion.h"                   // for nsIntRegion
-#include "mozilla/UniquePtr.h"          // for UniquePtr
+#include "nsRegion.h"           // for nsIntRegion
+#include "mozilla/UniquePtr.h"  // for UniquePtr
 #include "mozilla/gfx/Point.h"
 
 namespace mozilla {
@@ -32,13 +32,13 @@ typedef void (*NotifySubDocInvalidationFunc)(ContainerLayer* aLayer,
  */
 struct LayerProperties
 {
-protected:
+ protected:
   LayerProperties() {}
 
   LayerProperties(const LayerProperties& a) = delete;
   LayerProperties& operator=(const LayerProperties& a) = delete;
 
-public:
+ public:
   virtual ~LayerProperties() {}
 
   /**
@@ -73,7 +73,7 @@ public:
   virtual void MoveBy(const gfx::IntPoint& aOffset) = 0;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_LAYER_TREE_INVALIDATON_H */

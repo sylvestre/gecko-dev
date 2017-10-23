@@ -23,14 +23,14 @@ AudioBlockCopyChannelWithScale_SSE(const float aInput[WEBAUDIO_BLOCK_SIZE],
                                    float aOutput[WEBAUDIO_BLOCK_SIZE]);
 
 void
-AudioBufferInPlaceScale_SSE(float* aBlock,
-                            float aScale,
-                            uint32_t aSize);
+AudioBufferInPlaceScale_SSE(float* aBlock, float aScale, uint32_t aSize);
 
 void
 AudioBlockPanStereoToStereo_SSE(const float aInputL[WEBAUDIO_BLOCK_SIZE],
                                 const float aInputR[WEBAUDIO_BLOCK_SIZE],
-                                float aGainL, float aGainR, bool aIsOnTheLeft,
+                                float aGainL,
+                                float aGainR,
+                                bool aIsOnTheLeft,
                                 float aOutputL[WEBAUDIO_BLOCK_SIZE],
                                 float aOutputR[WEBAUDIO_BLOCK_SIZE]);
 
@@ -42,4 +42,4 @@ BufferComplexMultiply_SSE(const float* aInput,
                           const float* aScale,
                           float* aOutput,
                           uint32_t aSize);
-}
+}  // namespace mozilla

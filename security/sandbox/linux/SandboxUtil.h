@@ -9,13 +9,15 @@
 
 namespace mozilla {
 
-bool IsSingleThreaded();
+bool
+IsSingleThreaded();
 
 // Unshare the user namespace, and set up id mappings so that the
 // process's subjective uid and gid are unchanged.  This will always
 // fail if the process is multithreaded.
-bool UnshareUserNamespace();
+bool
+UnshareUserNamespace();
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxUtil_h
+#endif  // mozilla_SandboxUtil_h

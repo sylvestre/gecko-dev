@@ -32,24 +32,23 @@
 // This list of DLLs have been found to cause instability in sandboxed child
 // processes and so they will be unloaded if they attempt to load.
 const std::vector<std::wstring> kDllsToUnload = {
-  // HitmanPro - SurfRight now part of Sophos (bug 1400637)
-  L"hmpalert.dll",
+    // HitmanPro - SurfRight now part of Sophos (bug 1400637)
+    L"hmpalert.dll",
 
-  // K7 Computing (bug 1400637)
-  L"k7pswsen.dll",
+    // K7 Computing (bug 1400637)
+    L"k7pswsen.dll",
 
-  // Avast Antivirus (bug 1400637)
-  L"snxhk64.dll",
-  L"snxhk.dll",
+    // Avast Antivirus (bug 1400637)
+    L"snxhk64.dll",
+    L"snxhk.dll",
 
-  // Webroot SecureAnywhere (bug 1400637)
-  L"wrusr.dll",
+    // Webroot SecureAnywhere (bug 1400637)
+    L"wrusr.dll",
 };
 
-namespace mozilla
-{
+namespace mozilla {
 
-sandbox::BrokerServices *SandboxBroker::sBrokerService = nullptr;
+sandbox::BrokerServices* SandboxBroker::sBrokerService = nullptr;
 
 // This is set to true in Initialize when our exe file name has a drive type of
 // DRIVE_REMOTE, so that we can tailor the sandbox policy as some settings break
@@ -101,12 +100,13 @@ SandboxBroker::Initialize(sandbox::BrokerServices* aBrokerServices)
 }
 
 static void
-CacheDirAndAutoClear(nsIProperties* aDirSvc, const char* aDirKey,
+CacheDirAndAutoClear(nsIProperties* aDirSvc,
+                     const char* aDirKey,
                      UniquePtr<nsString>* cacheVar)
 {
   nsCOMPtr<nsIFile> dirToCache;
   nsresult rv =
-    aDirSvc->Get(aDirKey, NS_GET_IID(nsIFile), getter_AddRefs(dirToCache));
+      aDirSvc->Get(aDirKey, NS_GET_IID(nsIFile), getter_AddRefs(dirToCache));
   if (NS_FAILED(rv)) {
     // This can only be an NS_WARNING, because it can fail for xpcshell tests.
     NS_WARNING("Failed to get directory to cache.");
@@ -132,19 +132,24 @@ SandboxBroker::CacheRulesDirectories()
 
   nsresult rv;
   nsCOMPtr<nsIProperties> dirSvc =
-    do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
   if (NS_FAILED(rv)) {
-    MOZ_ASSERT(false, "Failed to get directory service, cannot cache directories for rules.");
-    LOG_E("Failed to get directory service, cannot cache directories for rules.");
+    MOZ_ASSERT(
+        false,
+        "Failed to get directory service, cannot cache directories for rules.");
+    LOG_E(
+        "Failed to get directory service, cannot cache directories for rules.");
     return;
   }
 
   CacheDirAndAutoClear(dirSvc, NS_GRE_DIR, &sBinDir);
   CacheDirAndAutoClear(dirSvc, NS_APP_USER_PROFILE_50_DIR, &sProfileDir);
-  CacheDirAndAutoClear(dirSvc, NS_APP_CONTENT_PROCESS_TEMP_DIR, &sContentTempDir);
+  CacheDirAndAutoClear(
+      dirSvc, NS_APP_CONTENT_PROCESS_TEMP_DIR, &sContentTempDir);
   CacheDirAndAutoClear(dirSvc, NS_WIN_APPDATA_DIR, &sRoamingAppDataDir);
   CacheDirAndAutoClear(dirSvc, NS_WIN_LOCAL_APPDATA_DIR, &sLocalAppDataDir);
-  CacheDirAndAutoClear(dirSvc, XRE_USER_SYS_EXTENSION_DEV_DIR, &sUserExtensionsDevDir);
+  CacheDirAndAutoClear(
+      dirSvc, XRE_USER_SYS_EXTENSION_DEV_DIR, &sUserExtensionsDevDir);
 #ifdef ENABLE_SYSTEM_EXTENSION_DIRS
   CacheDirAndAutoClear(dirSvc, XRE_USER_SYS_EXTENSION_DIR, &sUserExtensionsDir);
 #endif
@@ -163,11 +168,11 @@ SandboxBroker::SandboxBroker()
 }
 
 bool
-SandboxBroker::LaunchApp(const wchar_t *aPath,
-                         const wchar_t *aArguments,
+SandboxBroker::LaunchApp(const wchar_t* aPath,
+                         const wchar_t* aArguments,
                          GeckoProcessType aProcessType,
                          const bool aEnableLogging,
-                         void **aProcessHandle)
+                         void** aProcessHandle)
 {
   if (!sBrokerService || !mPolicy) {
     return false;
@@ -193,7 +198,8 @@ SandboxBroker::LaunchApp(const wchar_t *aPath,
     tempPath[pathLen] = L'*';
     tempPath[pathLen + 1] = L'\0';
     mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
-                     sandbox::TargetPolicy::FILES_ALLOW_ANY, tempPath);
+                     sandbox::TargetPolicy::FILES_ALLOW_ANY,
+                     tempPath);
   }
 #endif
 
@@ -202,31 +208,35 @@ SandboxBroker::LaunchApp(const wchar_t *aPath,
   char const* logFileModules = getenv("MOZ_LOG");
   if (logFileName && logFileModules) {
     bool rotate = false;
-    NSPRLogModulesParser(logFileModules,
-      [&rotate](const char* aName, LogLevel aLevel, int32_t aValue) mutable {
-        if (strcmp(aName, "rotate") == 0) {
-          // Less or eq zero means to turn rotate off.
-          rotate = aValue > 0;
-        }
-      }
-    );
+    NSPRLogModulesParser(
+        logFileModules,
+        [&rotate](const char* aName, LogLevel aLevel, int32_t aValue) mutable {
+          if (strcmp(aName, "rotate") == 0) {
+            // Less or eq zero means to turn rotate off.
+            rotate = aValue > 0;
+          }
+        });
 
     if (rotate) {
       wchar_t logFileNameWild[MAX_PATH + 2];
-      _snwprintf(logFileNameWild, sizeof(logFileNameWild), L"%s.?", logFileName);
+      _snwprintf(
+          logFileNameWild, sizeof(logFileNameWild), L"%s.?", logFileName);
 
       mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
-                       sandbox::TargetPolicy::FILES_ALLOW_ANY, logFileNameWild);
+                       sandbox::TargetPolicy::FILES_ALLOW_ANY,
+                       logFileNameWild);
     } else {
       mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
-                       sandbox::TargetPolicy::FILES_ALLOW_ANY, logFileName);
+                       sandbox::TargetPolicy::FILES_ALLOW_ANY,
+                       logFileName);
     }
   }
 
   logFileName = _wgetenv(L"NSPR_LOG_FILE");
   if (logFileName) {
     mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
-                     sandbox::TargetPolicy::FILES_ALLOW_ANY, logFileName);
+                     sandbox::TargetPolicy::FILES_ALLOW_ANY,
+                     logFileName);
   }
 
   // Add DLLs to the policy that have been found to cause instability with the
@@ -245,8 +255,8 @@ SandboxBroker::LaunchApp(const wchar_t *aPath,
   PROCESS_INFORMATION targetInfo = {0};
   sandbox::ResultCode last_warning = sandbox::SBOX_ALL_OK;
   DWORD last_error = ERROR_SUCCESS;
-  result = sBrokerService->SpawnTarget(aPath, aArguments, mPolicy,
-                                       &last_warning, &last_error, &targetInfo);
+  result = sBrokerService->SpawnTarget(
+      aPath, aArguments, mPolicy, &last_warning, &last_error, &targetInfo);
   if (sandbox::SBOX_ALL_OK != result) {
     nsAutoCString key;
     key.AppendASCII(XRE_ChildProcessTypeToString(aProcessType));
@@ -260,18 +270,24 @@ SandboxBroker::LaunchApp(const wchar_t *aPath,
 
     // Only accumulate for each combination once per session.
     if (!sLaunchErrors->Contains(key)) {
-      Telemetry::Accumulate(Telemetry::SANDBOX_FAILED_LAUNCH_KEYED, key, result);
+      Telemetry::Accumulate(
+          Telemetry::SANDBOX_FAILED_LAUNCH_KEYED, key, result);
       sLaunchErrors->PutEntry(key);
     }
 
-    LOG_E("Failed (ResultCode %d) to SpawnTarget with last_error=%d, last_warning=%d",
-          result, last_error, last_warning);
+    LOG_E(
+        "Failed (ResultCode %d) to SpawnTarget with last_error=%d, "
+        "last_warning=%d",
+        result,
+        last_error,
+        last_warning);
 
     return false;
   } else if (sandbox::SBOX_ALL_OK != last_warning) {
     // If there was a warning (but the result was still ok), log it and proceed.
     LOG_W("Warning on SpawnTarget with last_error=%d, last_warning=%d",
-          last_error, last_warning);
+          last_error,
+          last_warning);
   }
 
   // The sandboxed process is started in a suspended state, resume it now that
@@ -295,20 +311,22 @@ AddCachedDirRule(sandbox::TargetPolicy* aPolicy,
     // This can only be an NS_WARNING, because it can null for xpcshell tests.
     NS_WARNING("Tried to add rule with null base dir.");
     LOG_E("Tried to add rule with null base dir. Relative path: %S, Access: %d",
-          aRelativePath.get(), aAccess);
+          aRelativePath.get(),
+          aAccess);
     return;
   }
 
   nsAutoString rulePath(*aBaseDir);
   rulePath.Append(aRelativePath);
 
-  sandbox::ResultCode result =
-    aPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES, aAccess,
-                     rulePath.get());
+  sandbox::ResultCode result = aPolicy->AddRule(
+      sandbox::TargetPolicy::SUBSYS_FILES, aAccess, rulePath.get());
   if (sandbox::SBOX_ALL_OK != result) {
     NS_ERROR("Failed to add file policy rule.");
     LOG_E("Failed (ResultCode %d) to add %d access to: %S",
-          result, aAccess, rulePath.get());
+          result,
+          aAccess,
+          rulePath.get());
   }
 }
 
@@ -334,13 +352,17 @@ CanUseJob()
 
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {};
   // If we can't get the job object flags then again assume we can use a job.
-  if (!::QueryInformationJobObject(nullptr, JobObjectExtendedLimitInformation,
-                                   &job_info, sizeof(job_info), nullptr)) {
+  if (!::QueryInformationJobObject(nullptr,
+                                   JobObjectExtendedLimitInformation,
+                                   &job_info,
+                                   sizeof(job_info),
+                                   nullptr)) {
     return true;
   }
 
   // If we can break away from the current job then we are free to set our own.
-  if (job_info.BasicLimitInformation.LimitFlags & JOB_OBJECT_LIMIT_BREAKAWAY_OK) {
+  if (job_info.BasicLimitInformation.LimitFlags &
+      JOB_OBJECT_LIMIT_BREAKAWAY_OK) {
     return true;
   }
 
@@ -351,8 +373,8 @@ CanUseJob()
   // with Firefox for some security benefits (see bug 1228880). This is now a
   // counterproductive technique, but allowing both the remote and local case
   // for now and adding telemetry to see if we can restrict this to just remote.
-  nsAutoString localRemote(::GetSystemMetrics(SM_REMOTESESSION)
-                           ? u"remote" : u"local");
+  nsAutoString localRemote(::GetSystemMetrics(SM_REMOTESESSION) ? u"remote"
+                                                                : u"local");
   Telemetry::ScalarSet(Telemetry::ScalarID::SANDBOX_NO_JOB, localRemote, true);
 
   // Allow running without the job object in this case. This slightly reduces the
@@ -362,7 +384,8 @@ CanUseJob()
 }
 
 static sandbox::ResultCode
-SetJobLevel(sandbox::TargetPolicy* aPolicy, sandbox::JobLevel aJobLevel,
+SetJobLevel(sandbox::TargetPolicy* aPolicy,
+            sandbox::JobLevel aJobLevel,
             uint32_t aUiExceptions)
 {
   static bool sCanUseJob = CanUseJob();
@@ -389,7 +412,8 @@ SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
   // The setting of these levels is pretty arbitrary, but they are a useful (if
   // crude) tool while we are tightening the policy. Gaps are left to try and
   // avoid changing their meaning.
-  MOZ_RELEASE_ASSERT(aSandboxLevel >= 1, "Should not be called with aSandboxLevel < 1");
+  MOZ_RELEASE_ASSERT(aSandboxLevel >= 1,
+                     "Should not be called with aSandboxLevel < 1");
   if (aSandboxLevel >= 20) {
     jobLevel = sandbox::JOB_LOCKDOWN;
     accessTokenLevel = sandbox::USER_LOCKDOWN;
@@ -437,33 +461,34 @@ SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
 #endif
   sandbox::ResultCode result = SetJobLevel(mPolicy, jobLevel, uiExceptions);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "Setting job level failed, have you set memory limit when jobLevel == JOB_NONE?");
+                     "Setting job level failed, have you set memory limit when "
+                     "jobLevel == JOB_NONE?");
 
   // If the delayed access token is not restricted we don't want the initial one
   // to be either, because it can interfere with running from a network drive.
   sandbox::TokenLevel initialAccessTokenLevel =
-    (accessTokenLevel == sandbox::USER_UNPROTECTED ||
-     accessTokenLevel == sandbox::USER_NON_ADMIN)
-    ? sandbox::USER_UNPROTECTED : sandbox::USER_RESTRICTED_SAME_ACCESS;
+      (accessTokenLevel == sandbox::USER_UNPROTECTED ||
+       accessTokenLevel == sandbox::USER_NON_ADMIN)
+          ? sandbox::USER_UNPROTECTED
+          : sandbox::USER_RESTRICTED_SAME_ACCESS;
 
   result = mPolicy->SetTokenLevel(initialAccessTokenLevel, accessTokenLevel);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "Lockdown level cannot be USER_UNPROTECTED or USER_LAST if initial level was USER_RESTRICTED_SAME_ACCESS");
+                     "Lockdown level cannot be USER_UNPROTECTED or USER_LAST "
+                     "if initial level was USER_RESTRICTED_SAME_ACCESS");
 
   result = mPolicy->SetIntegrityLevel(initialIntegrityLevel);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                      "SetIntegrityLevel should never fail, what happened?");
   result = mPolicy->SetDelayedIntegrityLevel(delayedIntegrityLevel);
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "SetDelayedIntegrityLevel should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "SetDelayedIntegrityLevel should never fail, what happened?");
 
   sandbox::MitigationFlags mitigations =
-    sandbox::MITIGATION_BOTTOM_UP_ASLR |
-    sandbox::MITIGATION_HEAP_TERMINATE |
-    sandbox::MITIGATION_SEHOP |
-    sandbox::MITIGATION_DEP_NO_ATL_THUNK |
-    sandbox::MITIGATION_DEP |
-    sandbox::MITIGATION_EXTENSION_POINT_DISABLE;
+      sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
+      sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_DEP_NO_ATL_THUNK |
+      sandbox::MITIGATION_DEP | sandbox::MITIGATION_EXTENSION_POINT_DISABLE;
 
   if (aSandboxLevel > 3) {
     result = mPolicy->SetAlternateDesktop(false);
@@ -478,14 +503,12 @@ SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
     }
   }
 
-
   result = mPolicy->SetProcessMitigations(mitigations);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                      "Invalid flags for SetProcessMitigations.");
 
-  mitigations =
-    sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
-    sandbox::MITIGATION_DLL_SEARCH_ORDER;
+  mitigations = sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
+                sandbox::MITIGATION_DLL_SEARCH_ORDER;
 
   result = mPolicy->SetDelayedProcessMitigations(mitigations);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
@@ -495,8 +518,10 @@ SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
   // reason the addition of the content temp failed, this will give write access
   // to the normal TEMP dir. However such failures should be pretty rare and
   // without this printing will not currently work.
-  AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_ANY,
-                   sContentTempDir, NS_LITERAL_STRING("\\*"));
+  AddCachedDirRule(mPolicy,
+                   sandbox::TargetPolicy::FILES_ALLOW_ANY,
+                   sContentTempDir,
+                   NS_LITERAL_STRING("\\*"));
 
   // We still have edge cases where the child at low integrity can't read some
   // files, so add a rule to allow read access to everything when required.
@@ -505,28 +530,39 @@ SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
                               sandbox::TargetPolicy::FILES_ALLOW_READONLY,
                               L"*");
     MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                       "With these static arguments AddRule should never fail, what happened?");
+                       "With these static arguments AddRule should never fail, "
+                       "what happened?");
   } else {
     // Add rule to allow read access to installation directory.
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-                     sBinDir, NS_LITERAL_STRING("\\*"));
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_READONLY,
+                     sBinDir,
+                     NS_LITERAL_STRING("\\*"));
 
     // Add rule to allow read access to the chrome directory within profile.
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-                     sProfileDir, NS_LITERAL_STRING("\\chrome\\*"));
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_READONLY,
+                     sProfileDir,
+                     NS_LITERAL_STRING("\\chrome\\*"));
 
     // Add rule to allow read access to the extensions directory within profile.
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-                     sProfileDir, NS_LITERAL_STRING("\\extensions\\*"));
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_READONLY,
+                     sProfileDir,
+                     NS_LITERAL_STRING("\\extensions\\*"));
 
     // Read access to a directory for system extension dev (see bug 1393805)
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-                     sUserExtensionsDevDir, NS_LITERAL_STRING("\\*"));
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_READONLY,
+                     sUserExtensionsDevDir,
+                     NS_LITERAL_STRING("\\*"));
 
 #ifdef ENABLE_SYSTEM_EXTENSION_DIRS
     // Add rule to allow read access to the per-user extensions directory.
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-                     sUserExtensionsDir, NS_LITERAL_STRING("\\*"));
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_READONLY,
+                     sUserExtensionsDir,
+                     NS_LITERAL_STRING("\\*"));
 #endif
   }
 
@@ -536,49 +572,56 @@ SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\chrome.*");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // Add the policy for the client side of the crash server pipe.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\gecko-crash-server-pipe.*");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The content process needs to be able to duplicate named pipes back to the
   // broker process, which are File type handles.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_BROKER,
                             L"File");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The content process needs to be able to duplicate shared memory handles,
   // which are Section handles, to the broker process and other child processes.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_BROKER,
                             L"Section");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_ANY,
                             L"Section");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The content process needs to be able to duplicate semaphore handles,
   // to the broker process and other child processes.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_BROKER,
                             L"Semaphore");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_ANY,
                             L"Semaphore");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 }
 #endif
 
@@ -595,7 +638,8 @@ SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel)
   // The setting of these levels is pretty arbitrary, but they are a useful (if
   // crude) tool while we are tightening the policy. Gaps are left to try and
   // avoid changing their meaning.
-  MOZ_RELEASE_ASSERT(aSandboxLevel >= 1, "Should not be called with aSandboxLevel < 1");
+  MOZ_RELEASE_ASSERT(aSandboxLevel >= 1,
+                     "Should not be called with aSandboxLevel < 1");
   if (aSandboxLevel >= 2) {
     jobLevel = sandbox::JOB_NONE;
     accessTokenLevel = sandbox::USER_LIMITED;
@@ -608,43 +652,44 @@ SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel)
     delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
   }
 
-  sandbox::ResultCode result = SetJobLevel(mPolicy, jobLevel,
-                                           0 /* ui_exceptions */);
+  sandbox::ResultCode result =
+      SetJobLevel(mPolicy, jobLevel, 0 /* ui_exceptions */);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "Setting job level failed, have you set memory limit when jobLevel == JOB_NONE?");
+                     "Setting job level failed, have you set memory limit when "
+                     "jobLevel == JOB_NONE?");
 
   // If the delayed access token is not restricted we don't want the initial one
   // to be either, because it can interfere with running from a network drive.
   sandbox::TokenLevel initialAccessTokenLevel =
-    (accessTokenLevel == sandbox::USER_UNPROTECTED ||
-     accessTokenLevel == sandbox::USER_NON_ADMIN)
-    ? sandbox::USER_UNPROTECTED : sandbox::USER_RESTRICTED_SAME_ACCESS;
+      (accessTokenLevel == sandbox::USER_UNPROTECTED ||
+       accessTokenLevel == sandbox::USER_NON_ADMIN)
+          ? sandbox::USER_UNPROTECTED
+          : sandbox::USER_RESTRICTED_SAME_ACCESS;
 
   result = mPolicy->SetTokenLevel(initialAccessTokenLevel, accessTokenLevel);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "Lockdown level cannot be USER_UNPROTECTED or USER_LAST if initial level was USER_RESTRICTED_SAME_ACCESS");
+                     "Lockdown level cannot be USER_UNPROTECTED or USER_LAST "
+                     "if initial level was USER_RESTRICTED_SAME_ACCESS");
 
   result = mPolicy->SetIntegrityLevel(initialIntegrityLevel);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                      "SetIntegrityLevel should never fail, what happened?");
   result = mPolicy->SetDelayedIntegrityLevel(delayedIntegrityLevel);
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "SetDelayedIntegrityLevel should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "SetDelayedIntegrityLevel should never fail, what happened?");
 
   sandbox::MitigationFlags mitigations =
-    sandbox::MITIGATION_BOTTOM_UP_ASLR |
-    sandbox::MITIGATION_HEAP_TERMINATE |
-    sandbox::MITIGATION_SEHOP |
-    sandbox::MITIGATION_DEP_NO_ATL_THUNK |
-    sandbox::MITIGATION_DEP;
+      sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
+      sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_DEP_NO_ATL_THUNK |
+      sandbox::MITIGATION_DEP;
 
   result = mPolicy->SetProcessMitigations(mitigations);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                      "Invalid flags for SetProcessMitigations.");
 
-  mitigations =
-    sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
-    sandbox::MITIGATION_DLL_SEARCH_ORDER;
+  mitigations = sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
+                sandbox::MITIGATION_DLL_SEARCH_ORDER;
 
   result = mPolicy->SetDelayedProcessMitigations(mitigations);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
@@ -656,35 +701,38 @@ SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\chrome.*");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // Add the policy for the client side of the crash server pipe.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\gecko-crash-server-pipe.*");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The process needs to be able to duplicate shared memory handles,
   // which are Section handles, to the broker process and other child processes.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_BROKER,
                             L"Section");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_ANY,
                             L"Section");
-  MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
-                     "With these static arguments AddRule should never fail, what happened?");
+  MOZ_RELEASE_ASSERT(
+      sandbox::SBOX_ALL_OK == result,
+      "With these static arguments AddRule should never fail, what happened?");
 }
 
-#define SANDBOX_ENSURE_SUCCESS(result, message) \
-  do { \
+#define SANDBOX_ENSURE_SUCCESS(result, message)          \
+  do {                                                   \
     MOZ_ASSERT(sandbox::SBOX_ALL_OK == result, message); \
-    if (sandbox::SBOX_ALL_OK != result) \
-      return false; \
+    if (sandbox::SBOX_ALL_OK != result) return false;    \
   } while (0)
 
 bool
@@ -718,66 +766,75 @@ SandboxBroker::SetSecurityLevelForPluginProcess(int32_t aSandboxLevel)
 
   mPolicy->SetDoNotUseRestrictingSIDs();
 
-  sandbox::ResultCode result = SetJobLevel(mPolicy, jobLevel,
-                                           0 /* ui_exceptions */);
+  sandbox::ResultCode result =
+      SetJobLevel(mPolicy, jobLevel, 0 /* ui_exceptions */);
   SANDBOX_ENSURE_SUCCESS(result,
-                         "Setting job level failed, have you set memory limit when jobLevel == JOB_NONE?");
+                         "Setting job level failed, have you set memory limit "
+                         "when jobLevel == JOB_NONE?");
 
   result = mPolicy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
                                   accessTokenLevel);
   SANDBOX_ENSURE_SUCCESS(result,
-                         "Lockdown level cannot be USER_UNPROTECTED or USER_LAST if initial level was USER_RESTRICTED_SAME_ACCESS");
+                         "Lockdown level cannot be USER_UNPROTECTED or "
+                         "USER_LAST if initial level was "
+                         "USER_RESTRICTED_SAME_ACCESS");
 
   result = mPolicy->SetIntegrityLevel(initialIntegrityLevel);
   SANDBOX_ENSURE_SUCCESS(result,
                          "SetIntegrityLevel should never fail, what happened?");
 
   result = mPolicy->SetDelayedIntegrityLevel(delayedIntegrityLevel);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "SetDelayedIntegrityLevel should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result, "SetDelayedIntegrityLevel should never fail, what happened?");
 
   sandbox::MitigationFlags mitigations =
-    sandbox::MITIGATION_BOTTOM_UP_ASLR |
-    sandbox::MITIGATION_HEAP_TERMINATE |
-    sandbox::MITIGATION_SEHOP |
-    sandbox::MITIGATION_DEP_NO_ATL_THUNK |
-    sandbox::MITIGATION_DEP;
+      sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
+      sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_DEP_NO_ATL_THUNK |
+      sandbox::MITIGATION_DEP;
 
   result = mPolicy->SetProcessMitigations(mitigations);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "Invalid flags for SetProcessMitigations.");
+  SANDBOX_ENSURE_SUCCESS(result, "Invalid flags for SetProcessMitigations.");
 
   if (aSandboxLevel >= 2) {
     // Level 2 and above uses low integrity, so we need to give write access to
     // the Flash directories.
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_ANY,
                      sRoamingAppDataDir,
                      NS_LITERAL_STRING("\\Macromedia\\Flash Player\\*"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_ANY,
                      sLocalAppDataDir,
                      NS_LITERAL_STRING("\\Macromedia\\Flash Player\\*"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_ANY,
                      sRoamingAppDataDir,
                      NS_LITERAL_STRING("\\Adobe\\Flash Player\\*"));
 
     // Access also has to be given to create the parent directories as they may
     // not exist.
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
                      sRoamingAppDataDir,
                      NS_LITERAL_STRING("\\Macromedia"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
                      sRoamingAppDataDir,
                      NS_LITERAL_STRING("\\Macromedia\\Flash Player"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
                      sLocalAppDataDir,
                      NS_LITERAL_STRING("\\Macromedia"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
                      sLocalAppDataDir,
                      NS_LITERAL_STRING("\\Macromedia\\Flash Player"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
                      sRoamingAppDataDir,
                      NS_LITERAL_STRING("\\Adobe"));
-    AddCachedDirRule(mPolicy, sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
+    AddCachedDirRule(mPolicy,
+                     sandbox::TargetPolicy::FILES_ALLOW_DIR_ANY,
                      sRoamingAppDataDir,
                      NS_LITERAL_STRING("\\Adobe\\Flash Player"));
   }
@@ -788,15 +845,17 @@ SandboxBroker::SetSecurityLevelForPluginProcess(int32_t aSandboxLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\chrome.*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // Add the policy for the client side of the crash server pipe.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\gecko-crash-server-pipe.*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The NPAPI process needs to be able to duplicate shared memory to the
   // content process and broker process, which are Section type handles.
@@ -804,28 +863,37 @@ SandboxBroker::SetSecurityLevelForPluginProcess(int32_t aSandboxLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_ANY,
                             L"Section");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
                             sandbox::TargetPolicy::HANDLES_DUP_BROKER,
                             L"Section");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // These register keys are used by the file-browser dialog box.  They
   // remember the most-recently-used folders.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
                             sandbox::TargetPolicy::REG_ALLOW_ANY,
-                            L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\OpenSavePidlMRU\\*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+                            L"HKEY_CURRENT_"
+                            L"USER\\Software\\Microsoft\\Windows\\CurrentVersio"
+                            L"n\\Explorer\\ComDlg32\\OpenSavePidlMRU\\*");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
-  result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                            sandbox::TargetPolicy::REG_ALLOW_ANY,
-                            L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\LastVisitedPidlMRULegacy\\*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  result =
+      mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
+                       sandbox::TargetPolicy::REG_ALLOW_ANY,
+                       L"HKEY_CURRENT_"
+                       L"USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Ex"
+                       L"plorer\\ComDlg32\\LastVisitedPidlMRULegacy\\*");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   return true;
 }
@@ -837,15 +905,17 @@ SandboxBroker::SetSecurityLevelForGMPlugin(SandboxLevel aLevel)
     return false;
   }
 
-  auto result = SetJobLevel(mPolicy, sandbox::JOB_LOCKDOWN,
-                            0 /* ui_exceptions */);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "SetJobLevel should never fail with these arguments, what happened?");
-  auto level = (aLevel == Restricted) ?
-    sandbox::USER_RESTRICTED : sandbox::USER_LOCKDOWN;
+  auto result =
+      SetJobLevel(mPolicy, sandbox::JOB_LOCKDOWN, 0 /* ui_exceptions */);
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "SetJobLevel should never fail with these arguments, what happened?");
+  auto level = (aLevel == Restricted) ? sandbox::USER_RESTRICTED
+                                      : sandbox::USER_LOCKDOWN;
   result = mPolicy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS, level);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "SetTokenLevel should never fail with these arguments, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "SetTokenLevel should never fail with these arguments, what happened?");
 
   result = mPolicy->SetAlternateDesktop(true);
   SANDBOX_ENSURE_SUCCESS(result,
@@ -853,27 +923,25 @@ SandboxBroker::SetSecurityLevelForGMPlugin(SandboxLevel aLevel)
 
   result = mPolicy->SetIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
   MOZ_ASSERT(sandbox::SBOX_ALL_OK == result,
-             "SetIntegrityLevel should never fail with these arguments, what happened?");
+             "SetIntegrityLevel should never fail with these arguments, what "
+             "happened?");
 
   result =
-    mPolicy->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_UNTRUSTED);
+      mPolicy->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_UNTRUSTED);
   SANDBOX_ENSURE_SUCCESS(result,
-                         "SetIntegrityLevel should never fail with these arguments, what happened?");
+                         "SetIntegrityLevel should never fail with these "
+                         "arguments, what happened?");
 
   sandbox::MitigationFlags mitigations =
-    sandbox::MITIGATION_BOTTOM_UP_ASLR |
-    sandbox::MITIGATION_HEAP_TERMINATE |
-    sandbox::MITIGATION_SEHOP |
-    sandbox::MITIGATION_DEP_NO_ATL_THUNK |
-    sandbox::MITIGATION_DEP;
+      sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
+      sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_DEP_NO_ATL_THUNK |
+      sandbox::MITIGATION_DEP;
 
   result = mPolicy->SetProcessMitigations(mitigations);
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "Invalid flags for SetProcessMitigations.");
+  SANDBOX_ENSURE_SUCCESS(result, "Invalid flags for SetProcessMitigations.");
 
-  mitigations =
-    sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
-    sandbox::MITIGATION_DLL_SEARCH_ORDER;
+  mitigations = sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
+                sandbox::MITIGATION_DLL_SEARCH_ORDER;
 
   result = mPolicy->SetDelayedProcessMitigations(mitigations);
   SANDBOX_ENSURE_SUCCESS(result,
@@ -885,15 +953,17 @@ SandboxBroker::SetSecurityLevelForGMPlugin(SandboxLevel aLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\chrome.*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // Add the policy for the client side of the crash server pipe.
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_ANY,
                             L"\\??\\pipe\\gecko-crash-server-pipe.*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
 #ifdef DEBUG
   // The plugin process can't create named events, but we'll
@@ -902,8 +972,9 @@ SandboxBroker::SetSecurityLevelForGMPlugin(SandboxLevel aLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_SYNC,
                             sandbox::TargetPolicy::EVENTS_ALLOW_ANY,
                             L"ChromeIPCLog.*");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 #endif
 
   // The following rules were added because, during analysis of an EME
@@ -914,56 +985,72 @@ SandboxBroker::SetSecurityLevelForGMPlugin(SandboxLevel aLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
                             sandbox::TargetPolicy::REG_ALLOW_READONLY,
                             L"HKEY_CURRENT_USER");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
                             sandbox::TargetPolicy::REG_ALLOW_READONLY,
                             L"HKEY_CURRENT_USER\\Control Panel\\Desktop");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
+
+  result = mPolicy->AddRule(
+      sandbox::TargetPolicy::SUBSYS_REGISTRY,
+      sandbox::TargetPolicy::REG_ALLOW_READONLY,
+      L"HKEY_CURRENT_USER\\Control Panel\\Desktop\\LanguageConfiguration");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
                             sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_CURRENT_USER\\Control Panel\\Desktop\\LanguageConfiguration");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
-
-  result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                            sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SideBySide");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
-
+                            L"HKEY_LOCAL_"
+                            L"MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVer"
+                            L"sion\\SideBySide");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The following rules were added because, during analysis of an EME
   // plugin during development, these registry keys were accessed when
   // loading the plugin. Commenting out these policy exceptions did not
   // cause anything to break during initial testing, but might cause
   // unforeseen issues down the road.
-  result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                            sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Microsoft\\MUI\\Settings");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  result = mPolicy->AddRule(
+      sandbox::TargetPolicy::SUBSYS_REGISTRY,
+      sandbox::TargetPolicy::REG_ALLOW_READONLY,
+      L"HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Microsoft\\MUI\\Settings");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
                             sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Control Panel\\Desktop");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+                            L"HKEY_CURRENT_"
+                            L"USER\\Software\\Policies\\Microsoft\\Control "
+                            L"Panel\\Desktop");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
+
+  result = mPolicy->AddRule(
+      sandbox::TargetPolicy::SUBSYS_REGISTRY,
+      sandbox::TargetPolicy::REG_ALLOW_READONLY,
+      L"HKEY_CURRENT_USER\\Control Panel\\Desktop\\PreferredUILanguages");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
                             sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_CURRENT_USER\\Control Panel\\Desktop\\PreferredUILanguages");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
-
-  result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                            sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SideBySide\\PreferExternalManifest");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+                            L"HKEY_LOCAL_"
+                            L"MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVer"
+                            L"sion\\SideBySide\\PreferExternalManifest");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   // The following rules were added to allow a GMP to be loaded when any
   // AppLocker DLL rules are specified. If the rules specifically block the DLL
@@ -971,36 +1058,39 @@ SandboxBroker::SetSecurityLevelForGMPlugin(SandboxLevel aLevel)
   result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
                             sandbox::TargetPolicy::FILES_ALLOW_READONLY,
                             L"\\Device\\SrpDevice");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
-  result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                            sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Srp\\GP\\");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
+  result = mPolicy->AddRule(
+      sandbox::TargetPolicy::SUBSYS_REGISTRY,
+      sandbox::TargetPolicy::REG_ALLOW_READONLY,
+      L"HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Srp\\GP\\");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
   // On certain Windows versions there is a double slash before GP in the path.
-  result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                            sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                            L"HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Srp\\\\GP\\");
-  SANDBOX_ENSURE_SUCCESS(result,
-                         "With these static arguments AddRule should never fail, what happened?");
-
+  result = mPolicy->AddRule(
+      sandbox::TargetPolicy::SUBSYS_REGISTRY,
+      sandbox::TargetPolicy::REG_ALLOW_READONLY,
+      L"HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Srp\\\\GP\\");
+  SANDBOX_ENSURE_SUCCESS(
+      result,
+      "With these static arguments AddRule should never fail, what happened?");
 
   return true;
 }
 #undef SANDBOX_ENSURE_SUCCESS
 
 bool
-SandboxBroker::AllowReadFile(wchar_t const *file)
+SandboxBroker::AllowReadFile(wchar_t const* file)
 {
   if (!mPolicy) {
     return false;
   }
 
-  auto result =
-    mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
-                     sandbox::TargetPolicy::FILES_ALLOW_READONLY,
-                     file);
+  auto result = mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_FILES,
+                                 sandbox::TargetPolicy::FILES_ALLOW_READONLY,
+                                 file);
   if (sandbox::SBOX_ALL_OK != result) {
     LOG_E("Failed (ResultCode %d) to add read access to: %S", result, file);
     return false;
@@ -1030,16 +1120,20 @@ SandboxBroker::ApplyLoggingPolicy()
   // Also, passing just "dummy" for file system policy causes win_utils.cc
   // IsReparsePoint() to loop.
   mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_NAMED_PIPES,
-                  sandbox::TargetPolicy::NAMEDPIPES_ALLOW_ANY, L"dummy");
+                   sandbox::TargetPolicy::NAMEDPIPES_ALLOW_ANY,
+                   L"dummy");
   mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_PROCESS,
-                  sandbox::TargetPolicy::PROCESS_MIN_EXEC, L"dummy");
+                   sandbox::TargetPolicy::PROCESS_MIN_EXEC,
+                   L"dummy");
   mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_REGISTRY,
-                  sandbox::TargetPolicy::REG_ALLOW_READONLY,
-                  L"HKEY_CURRENT_USER\\dummy");
+                   sandbox::TargetPolicy::REG_ALLOW_READONLY,
+                   L"HKEY_CURRENT_USER\\dummy");
   mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_SYNC,
-                  sandbox::TargetPolicy::EVENTS_ALLOW_READONLY, L"dummy");
+                   sandbox::TargetPolicy::EVENTS_ALLOW_READONLY,
+                   L"dummy");
   mPolicy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
-                  sandbox::TargetPolicy::HANDLES_DUP_BROKER, L"dummy");
+                   sandbox::TargetPolicy::HANDLES_DUP_BROKER,
+                   L"dummy");
 }
 
 SandboxBroker::~SandboxBroker()
@@ -1050,4 +1144,4 @@ SandboxBroker::~SandboxBroker()
   }
 }
 
-}
+}  // namespace mozilla

@@ -21,7 +21,8 @@ namespace {
  *  the source tree.
  */
 
-class BitBuffer {
+class BitBuffer
+{
  public:
   BitBuffer(const uint8_t* bytes, size_t byte_count);
 
@@ -61,7 +62,7 @@ class BitBuffer {
   size_t bit_offset_;
 };
 
-} // end of unnamed namespace
+}  // end of unnamed namespace
 
 static void
 ReverseByte(uint8_t& b)
@@ -76,8 +77,7 @@ namespace safebrowsing {
 
 RiceDeltaDecoder::RiceDeltaDecoder(uint8_t* aEncodedData,
                                    size_t aEncodedDataSize)
-  : mEncodedData(aEncodedData)
-  , mEncodedDataSize(aEncodedDataSize)
+    : mEncodedData(aEncodedData), mEncodedDataSize(aEncodedDataSize)
 {
 }
 
@@ -129,8 +129,8 @@ RiceDeltaDecoder::Decode(uint32_t aRiceParameter,
   return true;
 }
 
-} // end of namespace mozilla
-} // end of namespace safebrowsing
+}  // namespace safebrowsing
+}  // namespace mozilla
 
 namespace {
 //////////////////////////////////////////////////////////////////////////
@@ -138,13 +138,17 @@ namespace {
 //
 
 // Returns the lowest (right-most) |bit_count| bits in |byte|.
-uint8_t LowestBits(uint8_t byte, size_t bit_count) {
+uint8_t
+LowestBits(uint8_t byte, size_t bit_count)
+{
   return byte & ((1 << bit_count) - 1);
 }
 
 // Returns the highest (left-most) |bit_count| bits in |byte|, shifted to the
 // lowest bits (to the right).
-uint8_t HighestBits(uint8_t byte, size_t bit_count) {
+uint8_t
+HighestBits(uint8_t byte, size_t bit_count)
+{
   MOZ_ASSERT(bit_count < 8u);
   uint8_t shift = 8 - static_cast<uint8_t>(bit_count);
   uint8_t mask = 0xFF << shift;
@@ -152,16 +156,21 @@ uint8_t HighestBits(uint8_t byte, size_t bit_count) {
 }
 
 BitBuffer::BitBuffer(const uint8_t* bytes, size_t byte_count)
-    : bytes_(bytes), byte_count_(byte_count), byte_offset_(), bit_offset_() {
+    : bytes_(bytes), byte_count_(byte_count), byte_offset_(), bit_offset_()
+{
   MOZ_ASSERT(static_cast<uint64_t>(byte_count_) <=
              std::numeric_limits<uint32_t>::max());
 }
 
-uint64_t BitBuffer::RemainingBitCount() const {
+uint64_t
+BitBuffer::RemainingBitCount() const
+{
   return (static_cast<uint64_t>(byte_count_) - byte_offset_) * 8 - bit_offset_;
 }
 
-bool BitBuffer::PeekBits(uint32_t* val, size_t bit_count) {
+bool
+BitBuffer::PeekBits(uint32_t* val, size_t bit_count)
+{
   if (!val || bit_count > RemainingBitCount() || bit_count > 32) {
     return false;
   }
@@ -191,11 +200,15 @@ bool BitBuffer::PeekBits(uint32_t* val, size_t bit_count) {
   return true;
 }
 
-bool BitBuffer::ReadBits(uint32_t* val, size_t bit_count) {
+bool
+BitBuffer::ReadBits(uint32_t* val, size_t bit_count)
+{
   return PeekBits(val, bit_count) && ConsumeBits(bit_count);
 }
 
-bool BitBuffer::ConsumeBits(size_t bit_count) {
+bool
+BitBuffer::ConsumeBits(size_t bit_count)
+{
   if (bit_count > RemainingBitCount()) {
     return false;
   }
@@ -205,7 +218,9 @@ bool BitBuffer::ConsumeBits(size_t bit_count) {
   return true;
 }
 
-bool BitBuffer::ReadExponentialGolomb(uint32_t* val) {
+bool
+BitBuffer::ReadExponentialGolomb(uint32_t* val)
+{
   if (!val) {
     return false;
   }
@@ -220,10 +235,10 @@ bool BitBuffer::ReadExponentialGolomb(uint32_t* val) {
     ConsumeBits(1);
   }
   if (!ConsumeBits(1)) {
-    return false; // The stream is incorrectly terminated at '1'.
+    return false;  // The stream is incorrectly terminated at '1'.
   }
 
   *val = one_bit_count;
   return true;
 }
-}
+}  // namespace

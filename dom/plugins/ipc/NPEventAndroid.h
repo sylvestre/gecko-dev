@@ -16,40 +16,41 @@ namespace mozilla {
 
 namespace plugins {
 
-struct NPRemoteEvent {
-    NPEvent event;
+struct NPRemoteEvent
+{
+  NPEvent event;
 };
 
-}
+}  // namespace plugins
 
-}
-
+}  // namespace mozilla
 
 namespace IPC {
 
-template <>
+template<>
 struct ParamTraits<mozilla::plugins::NPRemoteEvent>
 {
-    typedef mozilla::plugins::NPRemoteEvent paramType;
+  typedef mozilla::plugins::NPRemoteEvent paramType;
 
-    static void Write(Message* aMsg, const paramType& aParam)
-    {
-        aMsg->WriteBytes(&aParam, sizeof(paramType));
-    }
+  static void Write(Message* aMsg, const paramType& aParam)
+  {
+    aMsg->WriteBytes(&aParam, sizeof(paramType));
+  }
 
-    static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-    {
-        return aMsg->ReadBytesInto(aIter, aResult, sizeof(paramType));
-    }
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
+  {
+    return aMsg->ReadBytesInto(aIter, aResult, sizeof(paramType));
+  }
 
-    static void Log(const paramType& aParam, std::wstring* aLog)
-    {
-        // TODO
-        aLog->append(L"(AndroidEvent)");
-    }
+  static void Log(const paramType& aParam, std::wstring* aLog)
+  {
+    // TODO
+    aLog->append(L"(AndroidEvent)");
+  }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-
-#endif // mozilla_dom_plugins_NPEventAndroid_h
+#endif  // mozilla_dom_plugins_NPEventAndroid_h

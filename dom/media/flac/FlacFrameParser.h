@@ -9,20 +9,19 @@
 
 #include "mozilla/Maybe.h"
 #include "nsAutoPtr.h"
-#include "MediaDecoder.h" // For MetadataTags
+#include "MediaDecoder.h"  // For MetadataTags
 #include "MediaInfo.h"
 #include "MediaResource.h"
 
-namespace mozilla
-{
+namespace mozilla {
 
-#define FLAC_MAX_CHANNELS           8
-#define FLAC_MIN_BLOCKSIZE         16
-#define FLAC_MAX_BLOCKSIZE      65535
-#define FLAC_MIN_FRAME_SIZE        11
+#define FLAC_MAX_CHANNELS 8
+#define FLAC_MIN_BLOCKSIZE 16
+#define FLAC_MAX_BLOCKSIZE 65535
+#define FLAC_MIN_FRAME_SIZE 11
 #define FLAC_MAX_FRAME_HEADER_SIZE 16
-#define FLAC_MAX_FRAME_SIZE (FLAC_MAX_FRAME_HEADER_SIZE \
-                             +FLAC_MAX_BLOCKSIZE*FLAC_MAX_CHANNELS*3)
+#define FLAC_MAX_FRAME_SIZE \
+  (FLAC_MAX_FRAME_HEADER_SIZE + FLAC_MAX_BLOCKSIZE * FLAC_MAX_CHANNELS * 3)
 
 class OpusParser;
 
@@ -32,7 +31,7 @@ class OpusParser;
 
 class FlacFrameParser
 {
-public:
+ public:
   FlacFrameParser();
   ~FlacFrameParser();
 
@@ -52,7 +51,7 @@ public:
 
   AudioInfo mInfo;
 
-private:
+ private:
   bool ReconstructFlacGranulepos(void);
   Maybe<uint32_t> mNumHeaders;
   uint32_t mMinBlockSize;
@@ -66,7 +65,6 @@ private:
   // Used to decode the vorbis comment metadata.
   nsAutoPtr<OpusParser> mParser;
 };
-
 }
 
-#endif // FLAC_FRAME_PARSER_H_
+#endif  // FLAC_FRAME_PARSER_H_

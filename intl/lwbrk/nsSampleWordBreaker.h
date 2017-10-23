@@ -5,25 +5,28 @@
 #ifndef nsSampleWordBreaker_h__
 #define nsSampleWordBreaker_h__
 
-
 #include "nsIWordBreaker.h"
 
 class nsSampleWordBreaker : public nsIWordBreaker
 {
   NS_DECL_ISUPPORTS
-public:
+ public:
+  nsSampleWordBreaker();
 
-  nsSampleWordBreaker() ;
-
-  bool BreakInBetween(const char16_t* aText1 , uint32_t aTextLen1,
-                        const char16_t* aText2 , uint32_t aTextLen2) override;
-  nsWordRange FindWord(const char16_t* aText1 , uint32_t aTextLen1,
+  bool BreakInBetween(const char16_t* aText1,
+                      uint32_t aTextLen1,
+                      const char16_t* aText2,
+                      uint32_t aTextLen2) override;
+  nsWordRange FindWord(const char16_t* aText1,
+                       uint32_t aTextLen1,
                        uint32_t aOffset) override;
 
-  int32_t NextWord(const char16_t* aText, uint32_t aLen, uint32_t aPos) override;
+  int32_t NextWord(const char16_t* aText,
+                   uint32_t aLen,
+                   uint32_t aPos) override;
 
-protected:
+ protected:
   virtual ~nsSampleWordBreaker();
 };
 
-#endif  /* nsSampleWordBreaker_h__ */
+#endif /* nsSampleWordBreaker_h__ */

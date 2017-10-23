@@ -19,6 +19,6 @@ enum class StyleBackendType : uint8_t
   Servo
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_StyleBackendType_h
+#endif  // mozilla_StyleBackendType_h

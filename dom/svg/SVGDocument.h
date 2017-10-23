@@ -19,32 +19,33 @@ class SVGForeignObjectElement;
 
 class SVGDocument final : public XMLDocument
 {
-  friend class SVGForeignObjectElement; // To call EnsureNonSVGUserAgentStyleSheetsLoaded
+  friend class
+      SVGForeignObjectElement;  // To call EnsureNonSVGUserAgentStyleSheetsLoaded
 
-public:
+ public:
   SVGDocument()
-    : XMLDocument("image/svg+xml")
-    , mHasLoadedNonSVGUserAgentStyleSheets(false)
+      : XMLDocument("image/svg+xml"),
+        mHasLoadedNonSVGUserAgentStyleSheets(false)
   {
     mType = eSVG;
   }
 
-  virtual nsresult InsertChildAt(nsIContent* aKid, uint32_t aIndex,
+  virtual nsresult InsertChildAt(nsIContent* aKid,
+                                 uint32_t aIndex,
                                  bool aNotify) override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-  virtual SVGDocument* AsSVGDocument() override {
-    return this;
-  }
+  virtual SVGDocument* AsSVGDocument() override { return this; }
 
-private:
+ private:
   void EnsureNonSVGUserAgentStyleSheetsLoaded();
 
   bool mHasLoadedNonSVGUserAgentStyleSheets;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGDocument_h
+#endif  // mozilla_dom_SVGDocument_h

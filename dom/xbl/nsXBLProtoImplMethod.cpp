@@ -25,9 +25,8 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-nsXBLProtoImplMethod::nsXBLProtoImplMethod(const char16_t* aName) :
-  nsXBLProtoImplMember(aName),
-  mMethod()
+nsXBLProtoImplMethod::nsXBLProtoImplMethod(const char16_t* aName)
+    : nsXBLProtoImplMember(aName), mMethod()
 {
   MOZ_COUNT_CTOR(nsXBLProtoImplMethod);
 }
@@ -101,7 +100,8 @@ nsXBLProtoImplMethod::InstallMember(JSContext* aCx,
 
 #ifdef DEBUG
   {
-    JS::Rooted<JSObject*> globalObject(aCx, JS_GetGlobalForObject(aCx, aTargetClassObject));
+    JS::Rooted<JSObject*> globalObject(
+        aCx, JS_GetGlobalForObject(aCx, aTargetClassObject));
     MOZ_ASSERT(xpc::IsInContentXBLScope(globalObject) ||
                xpc::IsInAddonScope(globalObject) ||
                globalObject == xpc::GetXBLScope(aCx, globalObject));
@@ -113,12 +113,15 @@ nsXBLProtoImplMethod::InstallMember(JSContext* aCx,
   if (jsMethodObject) {
     nsDependentString name(mName);
 
-    JS::Rooted<JSObject*> method(aCx, JS::CloneFunctionObject(aCx, jsMethodObject));
+    JS::Rooted<JSObject*> method(aCx,
+                                 JS::CloneFunctionObject(aCx, jsMethodObject));
     NS_ENSURE_TRUE(method, NS_ERROR_OUT_OF_MEMORY);
 
-    if (!::JS_DefineUCProperty(aCx, aTargetClassObject,
+    if (!::JS_DefineUCProperty(aCx,
+                               aTargetClassObject,
                                static_cast<const char16_t*>(mName),
-                               name.Length(), method,
+                               name.Length(),
+                               method,
                                JSPROP_ENUMERATE)) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
@@ -127,14 +130,14 @@ nsXBLProtoImplMethod::InstallMember(JSContext* aCx,
 }
 
 nsresult
-nsXBLProtoImplMethod::CompileMember(AutoJSAPI& jsapi, const nsString& aClassStr,
+nsXBLProtoImplMethod::CompileMember(AutoJSAPI& jsapi,
+                                    const nsString& aClassStr,
                                     JS::Handle<JSObject*> aClassObject)
 {
   AssertInCompilationScope();
   NS_PRECONDITION(!IsCompiled(),
                   "Trying to compile an already-compiled method");
-  NS_PRECONDITION(aClassObject,
-                  "Must have class object to compile");
+  NS_PRECONDITION(aClassObject, "Must have class object to compile");
 
   nsXBLUncompiledMethod* uncompiledMethod = GetUncompiledMethod();
 
@@ -165,8 +168,7 @@ nsXBLProtoImplMethod::CompileMember(AutoJSAPI& jsapi, const nsString& aClassStr,
 
     // Add our parameters to our args array.
     int32_t argPos = 0;
-    for (nsXBLParameter* curr = uncompiledMethod->mParameters;
-         curr;
+    for (nsXBLParameter* curr = uncompiledMethod->mParameters; curr;
          curr = curr->mNext) {
       args[argPos] = curr->mName;
       argPos++;
@@ -175,9 +177,8 @@ nsXBLProtoImplMethod::CompileMember(AutoJSAPI& jsapi, const nsString& aClassStr,
 
   // Get the body
   nsDependentString body;
-  char16_t *bodyText = uncompiledMethod->mBodyText.GetText();
-  if (bodyText)
-    body.Rebind(bodyText);
+  char16_t* bodyText = uncompiledMethod->mBodyText.GetText();
+  if (bodyText) body.Rebind(bodyText);
 
   // Now that we have a body and args, compile the function
   // and then define it.
@@ -188,22 +189,27 @@ nsXBLProtoImplMethod::CompileMember(AutoJSAPI& jsapi, const nsString& aClassStr,
     functionUri.Truncate(hash);
   }
 
-  JSContext *cx = jsapi.cx();
+  JSContext* cx = jsapi.cx();
   JSAutoCompartment ac(cx, aClassObject);
   JS::CompileOptions options(cx);
-  options.setFileAndLine(functionUri.get(),
-                         uncompiledMethod->mBodyText.GetLineNumber())
-         .setVersion(JSVERSION_DEFAULT);
+  options
+      .setFileAndLine(functionUri.get(),
+                      uncompiledMethod->mBodyText.GetLineNumber())
+      .setVersion(JSVERSION_DEFAULT);
   JS::Rooted<JSObject*> methodObject(cx);
   JS::AutoObjectVector emptyVector(cx);
-  nsresult rv = nsJSUtils::CompileFunction(jsapi, emptyVector, options, cname,
+  nsresult rv = nsJSUtils::CompileFunction(jsapi,
+                                           emptyVector,
+                                           options,
+                                           cname,
                                            paramCount,
                                            const_cast<const char**>(args),
-                                           body, methodObject.address());
+                                           body,
+                                           methodObject.address());
 
   // Destroy our uncompiled method and delete our arg list.
   delete uncompiledMethod;
-  delete [] args;
+  delete[] args;
   if (NS_FAILED(rv)) {
     SetUncompiledMethod(nullptr);
     return rv;
@@ -215,7 +221,7 @@ nsXBLProtoImplMethod::CompileMember(AutoJSAPI& jsapi, const nsString& aClassStr,
 }
 
 void
-nsXBLProtoImplMethod::Trace(const TraceCallbacks& aCallbacks, void *aClosure)
+nsXBLProtoImplMethod::Trace(const TraceCallbacks& aCallbacks, void* aClosure)
 {
   if (IsCompiled() && GetCompiledMethodPreserveColor()) {
     aCallbacks.Trace(&mMethod.AsHeapObject(), "mMethod", aClosure);
@@ -261,7 +267,8 @@ nsXBLProtoImplMethod::Write(nsIObjectOutputStream* aStream)
 }
 
 nsresult
-nsXBLProtoImplAnonymousMethod::Execute(nsIContent* aBoundElement, JSAddonId* aAddonId)
+nsXBLProtoImplAnonymousMethod::Execute(nsIContent* aBoundElement,
+                                       JSAddonId* aAddonId)
 {
   MOZ_ASSERT(aBoundElement->IsElement());
   NS_PRECONDITION(IsCompiled(), "Can't execute uncompiled method");
@@ -276,7 +283,7 @@ nsXBLProtoImplAnonymousMethod::Execute(nsIContent* aBoundElement, JSAddonId* aAd
   nsIDocument* document = aBoundElement->OwnerDoc();
 
   nsCOMPtr<nsIGlobalObject> global =
-    do_QueryInterface(document->GetInnerWindow());
+      do_QueryInterface(document->GetInnerWindow());
   if (!global) {
     return NS_OK;
   }
@@ -295,17 +302,17 @@ nsXBLProtoImplAnonymousMethod::Execute(nsIContent* aBoundElement, JSAddonId* aAd
 
   JS::Rooted<JSObject*> globalObject(jsapi.cx(), global->GetGlobalJSObject());
 
-  JS::Rooted<JSObject*> scopeObject(jsapi.cx(),
-    xpc::GetScopeForXBLExecution(jsapi.cx(), globalObject, aAddonId));
+  JS::Rooted<JSObject*> scopeObject(
+      jsapi.cx(),
+      xpc::GetScopeForXBLExecution(jsapi.cx(), globalObject, aAddonId));
   NS_ENSURE_TRUE(scopeObject, NS_ERROR_OUT_OF_MEMORY);
 
-  dom::AutoEntryScript aes(scopeObject,
-                           "XBL <constructor>/<destructor> invocation",
-                           true);
+  dom::AutoEntryScript aes(
+      scopeObject, "XBL <constructor>/<destructor> invocation", true);
   JSContext* cx = aes.cx();
   JS::AutoObjectVector scopeChain(cx);
-  if (!nsJSUtils::GetScopeChainForElement(cx, aBoundElement->AsElement(),
-                                          scopeChain)) {
+  if (!nsJSUtils::GetScopeChainForElement(
+          cx, aBoundElement->AsElement(), scopeChain)) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
   MOZ_ASSERT(scopeChain.length() != 0);
@@ -313,10 +320,9 @@ nsXBLProtoImplAnonymousMethod::Execute(nsIContent* aBoundElement, JSAddonId* aAd
   // Clone the function object, using our scope chain (for backwards
   // compat to the days when this was an event handler).
   JS::Rooted<JSObject*> jsMethodObject(cx, GetCompiledMethod());
-  JS::Rooted<JSObject*> method(cx, JS::CloneFunctionObject(cx, jsMethodObject,
-                                                           scopeChain));
-  if (!method)
-    return NS_ERROR_OUT_OF_MEMORY;
+  JS::Rooted<JSObject*> method(
+      cx, JS::CloneFunctionObject(cx, jsMethodObject, scopeChain));
+  if (!method) return NS_ERROR_OUT_OF_MEMORY;
 
   // Now call the method
 
@@ -328,7 +334,8 @@ nsXBLProtoImplAnonymousMethod::Execute(nsIContent* aBoundElement, JSAddonId* aAd
     JS::Rooted<JS::Value> methodVal(cx, JS::ObjectValue(*method));
     // No need to check the return here as AutoEntryScript has taken ownership
     // of error reporting.
-    ::JS::Call(cx, scopeChain[0], methodVal, JS::HandleValueArray::empty(), &retval);
+    ::JS::Call(
+        cx, scopeChain[0], methodVal, JS::HandleValueArray::empty(), &retval);
   }
 
   return NS_OK;

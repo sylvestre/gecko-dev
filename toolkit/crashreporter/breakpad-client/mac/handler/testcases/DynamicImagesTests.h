@@ -40,7 +40,8 @@
 
 #include <CPlusTest/CPlusTest.h>
 
-class DynamicImagesTests : public TestCase {
+class DynamicImagesTests : public TestCase
+{
  public:
   explicit DynamicImagesTests(TestInvocation* invocation);
   virtual ~DynamicImagesTests();

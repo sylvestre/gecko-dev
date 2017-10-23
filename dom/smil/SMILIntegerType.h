@@ -14,13 +14,15 @@ namespace mozilla {
 
 class SMILIntegerType : public nsISMILType
 {
-public:
+ public:
   virtual void Init(nsSMILValue& aValue) const override;
   virtual void Destroy(nsSMILValue& aValue) const override;
-  virtual nsresult Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const override;
+  virtual nsresult Assign(nsSMILValue& aDest,
+                          const nsSMILValue& aSrc) const override;
   virtual bool IsEqual(const nsSMILValue& aLeft,
                        const nsSMILValue& aRight) const override;
-  virtual nsresult Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+  virtual nsresult Add(nsSMILValue& aDest,
+                       const nsSMILValue& aValueToAdd,
                        uint32_t aCount) const override;
   virtual nsresult ComputeDistance(const nsSMILValue& aFrom,
                                    const nsSMILValue& aTo,
@@ -30,17 +32,16 @@ public:
                                double aUnitDistance,
                                nsSMILValue& aResult) const override;
 
-  static SMILIntegerType*
-  Singleton()
+  static SMILIntegerType* Singleton()
   {
     static SMILIntegerType sSingleton;
     return &sSingleton;
   }
 
-private:
+ private:
   constexpr SMILIntegerType() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SMILINTEGERTYPE_H_
+#endif  // MOZILLA_SMILINTEGERTYPE_H_

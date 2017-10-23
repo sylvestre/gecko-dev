@@ -13,7 +13,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGSetElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGSetElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGSetElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -21,8 +21,9 @@ SVGSetElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGSetElement::SVGSetElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGAnimationElement(aNodeInfo)
+SVGSetElement::SVGSetElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGAnimationElement(aNodeInfo)
 {
 }
 
@@ -39,6 +40,5 @@ SVGSetElement::AnimationFunction()
   return mAnimationFunction;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

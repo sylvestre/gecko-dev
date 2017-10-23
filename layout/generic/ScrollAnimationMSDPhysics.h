@@ -15,7 +15,7 @@ namespace mozilla {
 // adapts the animation duration based on the scrolling rate.
 class ScrollAnimationMSDPhysics : public ScrollAnimationPhysics
 {
-public:
+ public:
   typedef mozilla::layers::AxisPhysicsMSDModel AxisPhysicsMSDModel;
 
   explicit ScrollAnimationMSDPhysics(const nsPoint& aStartPos);
@@ -31,12 +31,13 @@ public:
   // units, relative to the scroll frame.
   nsPoint PositionAt(const TimeStamp& aTime) override;
 
-  bool IsFinished(const TimeStamp& aTime) override {
+  bool IsFinished(const TimeStamp& aTime) override
+  {
     SimulateUntil(aTime);
     return mModelX.IsFinished(1) && mModelY.IsFinished(1);
   }
 
-protected:
+ protected:
   double ComputeSpringConstant(const TimeStamp& aTime);
   void SimulateUntil(const TimeStamp& aTime);
 
@@ -53,6 +54,6 @@ protected:
   bool mIsFirstIteration;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_layout_ScrollAnimationMSDPhysics_h_
+#endif  // mozilla_layout_ScrollAnimationMSDPhysics_h_

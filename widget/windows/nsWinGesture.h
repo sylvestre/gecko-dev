@@ -18,42 +18,53 @@
 #include "mozilla/TouchEvents.h"
 
 // WM_TABLET_QUERYSYSTEMGESTURESTATUS return values
-#define TABLET_ROTATE_GESTURE_ENABLE    0x02000000
+#define TABLET_ROTATE_GESTURE_ENABLE 0x02000000
 
 class nsPointWin : public nsIntPoint
 {
-public:
-   nsPointWin& operator=(const POINTS& aPoint) {
-     x = aPoint.x; y = aPoint.y;
-     return *this;
-   }
-   nsPointWin& operator=(const POINT& aPoint) {
-     x = aPoint.x; y = aPoint.y;
-     return *this;
-   }
-   nsPointWin& operator=(int val) {
-     x = y = val;
-     return *this;
-   }
-   void ScreenToClient(HWND hWnd) {
-     POINT tmp;
-     tmp.x = x; tmp.y = y;
-     ::ScreenToClient(hWnd, &tmp);
-     *this = tmp;
-   }
+ public:
+  nsPointWin& operator=(const POINTS& aPoint)
+  {
+    x = aPoint.x;
+    y = aPoint.y;
+    return *this;
+  }
+  nsPointWin& operator=(const POINT& aPoint)
+  {
+    x = aPoint.x;
+    y = aPoint.y;
+    return *this;
+  }
+  nsPointWin& operator=(int val)
+  {
+    x = y = val;
+    return *this;
+  }
+  void ScreenToClient(HWND hWnd)
+  {
+    POINT tmp;
+    tmp.x = x;
+    tmp.y = y;
+    ::ScreenToClient(hWnd, &tmp);
+    *this = tmp;
+  }
 };
 
 class nsWinGesture
 {
-public:
+ public:
   nsWinGesture();
 
-public:
-  bool SetWinGestureSupport(HWND hWnd, mozilla::WidgetGestureNotifyEvent::PanDirection aDirection);
+ public:
+  bool SetWinGestureSupport(
+      HWND hWnd, mozilla::WidgetGestureNotifyEvent::PanDirection aDirection);
   bool ShutdownWinGestureSupport();
 
   // Simple gesture process
-  bool ProcessGestureMessage(HWND hWnd, WPARAM wParam, LPARAM lParam, mozilla::WidgetSimpleGestureEvent& evt);
+  bool ProcessGestureMessage(HWND hWnd,
+                             WPARAM wParam,
+                             LPARAM lParam,
+                             mozilla::WidgetSimpleGestureEvent& evt);
 
   // Pan processing
   bool IsPanEvent(LPARAM lParam);
@@ -63,8 +74,8 @@ public:
   void UpdatePanFeedbackY(HWND hWnd, int32_t scrollOverflow, bool& endFeedback);
   void PanFeedbackFinalize(HWND hWnd, bool endFeedback);
 
-private:
-  // Delay load info 
+ private:
+  // Delay load info
   bool InitLibrary();
 
   // Pan and feedback state

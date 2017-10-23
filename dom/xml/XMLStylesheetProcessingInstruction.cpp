@@ -22,25 +22,24 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(XMLStylesheetProcessingInstruction,
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(XMLStylesheetProcessingInstruction)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(XMLStylesheetProcessingInstruction,
-                                                  ProcessingInstruction)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(
+    XMLStylesheetProcessingInstruction, ProcessingInstruction)
   tmp->nsStyleLinkElement::Traverse(cb);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(XMLStylesheetProcessingInstruction,
-                                                ProcessingInstruction)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(
+    XMLStylesheetProcessingInstruction, ProcessingInstruction)
   tmp->nsStyleLinkElement::Unlink();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-
-XMLStylesheetProcessingInstruction::~XMLStylesheetProcessingInstruction()
-{
-}
+XMLStylesheetProcessingInstruction::~XMLStylesheetProcessingInstruction() {}
 
 JSObject*
-XMLStylesheetProcessingInstruction::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+XMLStylesheetProcessingInstruction::WrapNode(JSContext* aCx,
+                                             JS::Handle<JSObject*> aGivenProto)
 {
-  return XMLStylesheetProcessingInstructionBinding::Wrap(aCx, this, aGivenProto);
+  return XMLStylesheetProcessingInstructionBinding::Wrap(
+      aCx, this, aGivenProto);
 }
 
 // nsIContent
@@ -51,15 +50,14 @@ XMLStylesheetProcessingInstruction::BindToTree(nsIDocument* aDocument,
                                                nsIContent* aBindingParent,
                                                bool aCompileEventHandlers)
 {
-  nsresult rv = ProcessingInstruction::BindToTree(aDocument, aParent,
-                                                  aBindingParent,
-                                                  aCompileEventHandlers);
+  nsresult rv = ProcessingInstruction::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   void (XMLStylesheetProcessingInstruction::*update)() =
-    &XMLStylesheetProcessingInstruction::UpdateStyleSheetInternal;
+      &XMLStylesheetProcessingInstruction::UpdateStyleSheetInternal;
   nsContentUtils::AddScriptRunner(NewRunnableMethod(
-    "dom::XMLStylesheetProcessingInstruction::BindToTree", this, update));
+      "dom::XMLStylesheetProcessingInstruction::BindToTree", this, update));
 
   return rv;
 }
@@ -76,8 +74,8 @@ XMLStylesheetProcessingInstruction::UnbindFromTree(bool aDeep, bool aNullParent)
 // nsIDOMNode
 
 void
-XMLStylesheetProcessingInstruction::SetNodeValueInternal(const nsAString& aNodeValue,
-                                                         ErrorResult& aError)
+XMLStylesheetProcessingInstruction::SetNodeValueInternal(
+    const nsAString& aNodeValue, ErrorResult& aError)
 {
   nsGenericDOMDataNode::SetNodeValueInternal(aNodeValue, aError);
   if (!aError.Failed()) {
@@ -100,7 +98,8 @@ XMLStylesheetProcessingInstruction::OverrideBaseURI(nsIURI* aNewBaseURI)
 }
 
 already_AddRefed<nsIURI>
-XMLStylesheetProcessingInstruction::GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal)
+XMLStylesheetProcessingInstruction::GetStyleSheetURL(
+    bool* aIsInline, nsIPrincipal** aTriggeringPrincipal)
 {
   *aIsInline = false;
   *aTriggeringPrincipal = nullptr;
@@ -110,11 +109,10 @@ XMLStylesheetProcessingInstruction::GetStyleSheetURL(bool* aIsInline, nsIPrincip
     return nullptr;
   }
 
-  nsIURI *baseURL;
-  nsIDocument *document = OwnerDoc();
-  baseURL = mOverriddenBaseURI ?
-            mOverriddenBaseURI.get() :
-            document->GetDocBaseURI();
+  nsIURI* baseURL;
+  nsIDocument* document = OwnerDoc();
+  baseURL =
+      mOverriddenBaseURI ? mOverriddenBaseURI.get() : document->GetDocBaseURI();
   auto encoding = document->GetDocumentCharacterSet();
 
   nsCOMPtr<nsIURI> aURI;
@@ -146,13 +144,12 @@ XMLStylesheetProcessingInstruction::GetStyleSheetInfo(nsAString& aTitle,
   nsContentUtils::GetPseudoAttributeValue(data, nsGkAtoms::title, aTitle);
 
   nsAutoString alternate;
-  nsContentUtils::GetPseudoAttributeValue(data,
-                                          nsGkAtoms::alternate,
-                                          alternate);
+  nsContentUtils::GetPseudoAttributeValue(
+      data, nsGkAtoms::alternate, alternate);
 
   // if alternate, does it have title?
   if (alternate.EqualsLiteral("yes")) {
-    if (aTitle.IsEmpty()) { // alternates must have title
+    if (aTitle.IsEmpty()) {  // alternates must have title
       return;
     }
 
@@ -177,8 +174,8 @@ XMLStylesheetProcessingInstruction::GetStyleSheetInfo(nsAString& aTitle,
 }
 
 nsGenericDOMDataNode*
-XMLStylesheetProcessingInstruction::CloneDataNode(mozilla::dom::NodeInfo *aNodeInfo,
-                                                  bool aCloneText) const
+XMLStylesheetProcessingInstruction::CloneDataNode(
+    mozilla::dom::NodeInfo* aNodeInfo, bool aCloneText) const
 {
   nsAutoString data;
   nsGenericDOMDataNode::GetData(data);
@@ -186,5 +183,5 @@ XMLStylesheetProcessingInstruction::CloneDataNode(mozilla::dom::NodeInfo *aNodeI
   return new XMLStylesheetProcessingInstruction(ni.forget(), data);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

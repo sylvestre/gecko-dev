@@ -14,7 +14,8 @@
 namespace mozilla {
 
 MOZ_DEFINE_STYLO_METHODS(RestyleManager,
-                         GeckoRestyleManager, ServoRestyleManager)
+                         GeckoRestyleManager,
+                         ServoRestyleManager)
 
 void
 RestyleManager::PostRestyleEvent(dom::Element* aElement,
@@ -58,8 +59,8 @@ RestyleManager::AttributeWillChange(dom::Element* aElement,
                                     int32_t aModType,
                                     const nsAttrValue* aNewValue)
 {
-  MOZ_STYLO_FORWARD(AttributeWillChange, (aElement, aNameSpaceID, aAttribute,
-                                          aModType, aNewValue));
+  MOZ_STYLO_FORWARD(AttributeWillChange,
+                    (aElement, aNameSpaceID, aAttribute, aModType, aNewValue));
 }
 
 void
@@ -69,8 +70,8 @@ RestyleManager::AttributeChanged(dom::Element* aElement,
                                  int32_t aModType,
                                  const nsAttrValue* aOldValue)
 {
-  MOZ_STYLO_FORWARD(AttributeChanged, (aElement, aNameSpaceID, aAttribute,
-                                       aModType, aOldValue));
+  MOZ_STYLO_FORWARD(AttributeChanged,
+                    (aElement, aNameSpaceID, aAttribute, aModType, aOldValue));
 }
 
 nsresult
@@ -85,6 +86,6 @@ RestyleManager::UpdateOnlyAnimationStyles()
   MOZ_STYLO_FORWARD(UpdateOnlyAnimationStyles, ());
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_RestyleManagerInlines_h
+#endif  // mozilla_RestyleManagerInlines_h

@@ -19,10 +19,10 @@ RegisterProfilerLabelEnterExit(ProfilerLabelEnter aEnter,
   sExit = aExit;
 }
 
-AutoProfilerLabel::AutoProfilerLabel(const char* aLabel,
-                                     const char* aDynamicString,
-                                     uint32_t aLine
-                                     MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+AutoProfilerLabel::AutoProfilerLabel(
+    const char* aLabel,
+    const char* aDynamicString,
+    uint32_t aLine MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
 {
   MOZ_GUARD_OBJECT_NOTIFIER_INIT;
 
@@ -36,5 +36,4 @@ AutoProfilerLabel::~AutoProfilerLabel()
   }
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

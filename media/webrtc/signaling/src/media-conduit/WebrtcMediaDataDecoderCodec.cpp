@@ -13,13 +13,13 @@
 namespace mozilla {
 
 WebrtcMediaDataDecoder::WebrtcMediaDataDecoder()
-  : mTaskQueue(
-      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLATFORM_DECODER),
-                    "WebrtcMediaDataDecoder::mTaskQueue"))
-  , mImageContainer(layers::LayerManager::CreateImageContainer(
-      layers::ImageContainer::ASYNCHRONOUS))
-  , mFactory(new PDMFactory())
-  , mMonitor("WebrtcMediaDataDecoder")
+    : mTaskQueue(
+          new TaskQueue(GetMediaThreadPool(MediaThreadType::PLATFORM_DECODER),
+                        "WebrtcMediaDataDecoder::mTaskQueue")),
+      mImageContainer(layers::LayerManager::CreateImageContainer(
+          layers::ImageContainer::ASYNCHRONOUS)),
+      mFactory(new PDMFactory()),
+      mMonitor("WebrtcMediaDataDecoder")
 {
 }
 
@@ -54,15 +54,15 @@ WebrtcMediaDataDecoder::InitDecode(const webrtc::VideoCodec* aCodecSettings,
   mInfo.mMimeType = codec;
 
   RefPtr<layers::KnowsCompositor> knowsCompositor =
-    layers::ImageBridgeChild::GetSingleton();
+      layers::ImageBridgeChild::GetSingleton();
 
   mDecoder = mFactory->CreateDecoder(
-    { mInfo,
-      mTaskQueue,
-      CreateDecoderParams::OptionSet(CreateDecoderParams::Option::LowLatency),
-      mTrackType,
-      mImageContainer,
-      knowsCompositor });
+      {mInfo,
+       mTaskQueue,
+       CreateDecoderParams::OptionSet(CreateDecoderParams::Option::LowLatency),
+       mTrackType,
+       mImageContainer,
+       knowsCompositor});
 
   if (!mDecoder) {
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -88,16 +88,17 @@ WebrtcMediaDataDecoder::InitDecode(const webrtc::VideoCodec* aCodecSettings,
     mMonitor.Wait();
   }
 
-  return NS_SUCCEEDED(mError) ? WEBRTC_VIDEO_CODEC_OK : WEBRTC_VIDEO_CODEC_ERROR;
+  return NS_SUCCEEDED(mError) ? WEBRTC_VIDEO_CODEC_OK
+                              : WEBRTC_VIDEO_CODEC_ERROR;
 }
 
 int32_t
 WebrtcMediaDataDecoder::Decode(
-  const webrtc::EncodedImage& aInputImage,
-  bool aMissingFrames,
-  const webrtc::RTPFragmentationHeader* aFragmentation,
-  const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
-  int64_t aRenderTimeMs)
+    const webrtc::EncodedImage& aInputImage,
+    bool aMissingFrames,
+    const webrtc::RTPFragmentationHeader* aFragmentation,
+    const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
+    int64_t aRenderTimeMs)
 {
   if (!mCallback || !mDecoder) {
     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
@@ -120,35 +121,35 @@ WebrtcMediaDataDecoder::Decode(
   }
 
   RefPtr<MediaRawData> compressedFrame =
-    new MediaRawData(aInputImage._buffer, aInputImage._length);
+      new MediaRawData(aInputImage._buffer, aInputImage._length);
   if (!compressedFrame->Data()) {
     return WEBRTC_VIDEO_CODEC_MEMORY;
   }
 
   compressedFrame->mTime =
-    media::TimeUnit::FromMicroseconds(aInputImage._timeStamp);
+      media::TimeUnit::FromMicroseconds(aInputImage._timeStamp);
   compressedFrame->mTimecode =
-    media::TimeUnit::FromMicroseconds(aRenderTimeMs * 1000);
+      media::TimeUnit::FromMicroseconds(aRenderTimeMs * 1000);
   compressedFrame->mKeyframe =
-    aInputImage._frameType == webrtc::FrameType::kVideoFrameKey;
+      aInputImage._frameType == webrtc::FrameType::kVideoFrameKey;
   {
     MonitorAutoLock lock(mMonitor);
     bool done = false;
-    mDecoder->Decode(compressedFrame)->Then(
-      mTaskQueue,
-      __func__,
-      [&](const MediaDataDecoder::DecodedData& aResults) {
-        MonitorAutoLock lock(mMonitor);
-        mResults = aResults;
-        done = true;
-        mMonitor.Notify();
-      },
-      [&](const MediaResult& aError) {
-        MonitorAutoLock lock(mMonitor);
-        mError = aError;
-        done = true;
-        mMonitor.Notify();
-      });
+    mDecoder->Decode(compressedFrame)
+        ->Then(mTaskQueue,
+               __func__,
+               [&](const MediaDataDecoder::DecodedData& aResults) {
+                 MonitorAutoLock lock(mMonitor);
+                 mResults = aResults;
+                 done = true;
+                 mMonitor.Notify();
+               },
+               [&](const MediaResult& aError) {
+                 MonitorAutoLock lock(mMonitor);
+                 mError = aError;
+                 done = true;
+                 mMonitor.Notify();
+               });
 
     while (!done) {
       mMonitor.Wait();
@@ -163,7 +164,7 @@ WebrtcMediaDataDecoder::Decode(
         continue;
       }
       rtc::scoped_refptr<ImageBuffer> image(
-        new rtc::RefCountedObject<ImageBuffer>(Move(video->mImage)));
+          new rtc::RefCountedObject<ImageBuffer>(Move(video->mImage)));
 
       webrtc::VideoFrame videoFrame(image,
                                     frame->mTime.ToMicroseconds(),
@@ -179,7 +180,7 @@ WebrtcMediaDataDecoder::Decode(
 
 int32_t
 WebrtcMediaDataDecoder::RegisterDecodeCompleteCallback(
-  webrtc::DecodedImageCallback* aCallback)
+    webrtc::DecodedImageCallback* aCallback)
 {
   mCallback = aCallback;
   return WEBRTC_VIDEO_CODEC_OK;
@@ -191,18 +192,19 @@ WebrtcMediaDataDecoder::Release()
   MonitorAutoLock lock(mMonitor);
   bool done = false;
   mDecoder->Flush()
-    ->Then(mTaskQueue,
-           __func__,
-           [this]() { return mDecoder->Shutdown(); },
-           [this](const MediaResult& aError) { return mDecoder->Shutdown(); })
-    ->Then(mTaskQueue,
-           __func__,
-           [&]() {
-             MonitorAutoLock lock(mMonitor);
-             done = true;
-             mMonitor.Notify();
-           },
-           []() { MOZ_ASSERT_UNREACHABLE("Shutdown promise always resolved"); });
+      ->Then(mTaskQueue,
+             __func__,
+             [this]() { return mDecoder->Shutdown(); },
+             [this](const MediaResult& aError) { return mDecoder->Shutdown(); })
+      ->Then(
+          mTaskQueue,
+          __func__,
+          [&]() {
+            MonitorAutoLock lock(mMonitor);
+            done = true;
+            mMonitor.Notify();
+          },
+          []() { MOZ_ASSERT_UNREACHABLE("Shutdown promise always resolved"); });
 
   while (!done) {
     mMonitor.Wait();
@@ -221,10 +223,9 @@ WebrtcMediaDataDecoder::OnTaskQueue() const
 }
 
 ImageBuffer::ImageBuffer(RefPtr<layers::Image>&& aImage)
-  : webrtc::NativeHandleBuffer(aImage,
-                               aImage->GetSize().width,
-                               aImage->GetSize().height)
-  , mImage(Move(aImage))
+    : webrtc::NativeHandleBuffer(
+          aImage, aImage->GetSize().width, aImage->GetSize().height),
+      mImage(Move(aImage))
 {
 }
 
@@ -239,17 +240,17 @@ ImageBuffer::NativeToI420Buffer()
   rtc::scoped_refptr<layers::PlanarYCbCrImage> refImage(image);
   const layers::PlanarYCbCrData* data = image->GetData();
   rtc::scoped_refptr<webrtc::VideoFrameBuffer> buf(
-    new rtc::RefCountedObject<webrtc::WrappedI420Buffer>(
-      data->mPicSize.width,
-      data->mPicSize.height,
-      data->mYChannel,
-      data->mYStride,
-      data->mCbChannel,
-      data->mCbCrStride,
-      data->mCrChannel,
-      data->mCbCrStride,
-      rtc::KeepRefUntilDone(refImage)));
+      new rtc::RefCountedObject<webrtc::WrappedI420Buffer>(
+          data->mPicSize.width,
+          data->mPicSize.height,
+          data->mYChannel,
+          data->mYStride,
+          data->mCbChannel,
+          data->mCbCrStride,
+          data->mCrChannel,
+          data->mCbCrStride,
+          rtc::KeepRefUntilDone(refImage)));
   return buf;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

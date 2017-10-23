@@ -3,11 +3,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "GLContext.h"                  // for GLContext, etc
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
+#include "GLContext.h"           // for GLContext, etc
+#include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
 #include "mozilla/layers/ISurfaceAllocator.h"
 #include "mozilla/layers/TextureClientOGL.h"
-#include "mozilla/gfx/Point.h"          // for IntSize
+#include "mozilla/gfx/Point.h"  // for IntSize
 #include "GLLibraryEGL.h"
 
 using namespace mozilla::gl;
@@ -23,34 +23,32 @@ class CompositableForwarder;
 #ifdef MOZ_WIDGET_ANDROID
 
 already_AddRefed<TextureClient>
-AndroidSurfaceTextureData::CreateTextureClient(AndroidSurfaceTextureHandle aHandle,
-                                               gfx::IntSize aSize,
-                                               bool aContinuous,
-                                               gl::OriginPos aOriginPos,
-                                               LayersIPCChannel* aAllocator,
-                                               TextureFlags aFlags)
+AndroidSurfaceTextureData::CreateTextureClient(
+    AndroidSurfaceTextureHandle aHandle,
+    gfx::IntSize aSize,
+    bool aContinuous,
+    gl::OriginPos aOriginPos,
+    LayersIPCChannel* aAllocator,
+    TextureFlags aFlags)
 {
   if (aOriginPos == gl::OriginPos::BottomLeft) {
     aFlags |= TextureFlags::ORIGIN_BOTTOM_LEFT;
   }
 
   return TextureClient::CreateWithData(
-    new AndroidSurfaceTextureData(aHandle, aSize, aContinuous),
-    aFlags, aAllocator
-  );
+      new AndroidSurfaceTextureData(aHandle, aSize, aContinuous),
+      aFlags,
+      aAllocator);
 }
 
-AndroidSurfaceTextureData::AndroidSurfaceTextureData(AndroidSurfaceTextureHandle aHandle,
-                                                     gfx::IntSize aSize, bool aContinuous)
-  : mHandle(aHandle)
-  , mSize(aSize)
-  , mContinuous(aContinuous)
+AndroidSurfaceTextureData::AndroidSurfaceTextureData(
+    AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aContinuous)
+    : mHandle(aHandle), mSize(aSize), mContinuous(aContinuous)
 {
   MOZ_ASSERT(mHandle);
 }
 
-AndroidSurfaceTextureData::~AndroidSurfaceTextureData()
-{}
+AndroidSurfaceTextureData::~AndroidSurfaceTextureData() {}
 
 void
 AndroidSurfaceTextureData::FillInfo(TextureData::Info& aInfo) const
@@ -70,7 +68,7 @@ AndroidSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor)
   return true;
 }
 
-#endif // MOZ_WIDGET_ANDROID
+#endif  // MOZ_WIDGET_ANDROID
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

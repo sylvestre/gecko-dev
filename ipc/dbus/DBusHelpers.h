@@ -31,7 +31,8 @@ DBusSendMessage(DBusConnection* aConnection, DBusMessage* aMessage);
 
 nsresult
 DBusSendMessageWithReply(DBusConnection* aConnection,
-                         DBusReplyCallback aCallback, void* aData,
+                         DBusReplyCallback aCallback,
+                         void* aData,
                          int aTimeout,
                          DBusMessage* aMessage);
 
@@ -59,7 +60,7 @@ DBusSendMessageWithReply(DBusConnection* aConnection,
                          int aFirstArgType,
                          ...);
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_DBusHelpers_h
+#endif  // mozilla_ipc_DBusHelpers_h

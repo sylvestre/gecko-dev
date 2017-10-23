@@ -29,11 +29,11 @@ nsWrapperCache::GetWrapperPreserveColor() const
 inline JSObject*
 nsWrapperCache::GetWrapper() const
 {
-    JSObject* obj = GetWrapperPreserveColor();
-    if (obj) {
-      JS::ExposeObjectToActiveJS(obj);
-    }
-    return obj;
+  JSObject* obj = GetWrapperPreserveColor();
+  if (obj) {
+    JS::ExposeObjectToActiveJS(obj);
+  }
+  return obj;
 }
 
 inline bool

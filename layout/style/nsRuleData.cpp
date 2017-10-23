@@ -32,9 +32,9 @@ nsRuleData::nsRuleData(uint32_t aSIDs,
                        nsCSSValue* aValueStorage,
                        nsPresContext* aContext,
                        GeckoStyleContext* aStyleContext)
-  : GenericSpecifiedValues(StyleBackendType::Gecko, aContext, aSIDs)
-  , mStyleContext(aStyleContext)
-  , mValueStorage(aValueStorage)
+    : GenericSpecifiedValues(StyleBackendType::Gecko, aContext, aSIDs),
+      mStyleContext(aStyleContext),
+      mValueStorage(aValueStorage)
 {
 #ifndef MOZ_VALGRIND
   size_t framePoisonOffset = GetPoisonOffset();

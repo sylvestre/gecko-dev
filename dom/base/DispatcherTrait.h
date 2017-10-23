@@ -22,8 +22,9 @@ class TabGroup;
 // that have a DocGroup or TabGroup attached to them. The methods here should
 // delegate to the DocGroup or TabGroup. We can't use the Dispatcher class
 // directly because it inherits from nsISupports.
-class DispatcherTrait {
-public:
+class DispatcherTrait
+{
+ public:
   // This method may or may not be safe off of the main thread. For nsIDocument
   // it is safe. For nsIGlobalWindow it is not safe.
   virtual nsresult Dispatch(TaskCategory aCategory,
@@ -39,7 +40,7 @@ public:
   virtual AbstractThread* AbstractMainThreadFor(TaskCategory aCategory);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_DispatcherTrait_h
+#endif  // mozilla_dom_DispatcherTrait_h

@@ -21,8 +21,7 @@ namespace js {
  * objects, T objects stored in the tree will not be explicitly destroyed.
  */
 template <class T, class C>
-class SplayTree
-{
+class SplayTree {
     struct Node {
         T item;
         Node* left;
@@ -30,8 +29,7 @@ class SplayTree
         Node* parent;
 
         explicit Node(const T& item)
-          : item(item), left(nullptr), right(nullptr), parent(nullptr)
-        {}
+            : item(item), left(nullptr), right(nullptr), parent(nullptr) {}
     };
 
     LifoAlloc* alloc;
@@ -45,18 +43,19 @@ class SplayTree
     SplayTree(const SplayTree&) = delete;
     SplayTree& operator=(const SplayTree&) = delete;
 
-  public:
-
+   public:
     explicit SplayTree(LifoAlloc* alloc = nullptr)
-      : alloc(alloc), root(nullptr), freeList(nullptr)
+        : alloc(alloc),
+          root(nullptr),
+          freeList(nullptr)
 #ifdef DEBUG
-      , enableCheckCoherency(true)
+          ,
+          enableCheckCoherency(true)
 #endif
-    {}
-
-    void setAllocator(LifoAlloc* alloc) {
-        this->alloc = alloc;
+    {
     }
+
+    void setAllocator(LifoAlloc* alloc) { this->alloc = alloc; }
 
     void disableCheckCoherency() {
 #ifdef DEBUG
@@ -64,22 +63,16 @@ class SplayTree
 #endif
     }
 
-    bool empty() const {
-        return !root;
-    }
+    bool empty() const { return !root; }
 
-    T* maybeLookup(const T& v)
-    {
-        if (!root)
-            return nullptr;
+    T* maybeLookup(const T& v) {
+        if (!root) return nullptr;
         Node* last = lookup(v);
         return (C::compare(v, last->item) == 0) ? &(last->item) : nullptr;
     }
 
-    bool contains(const T& v, T* res)
-    {
-        if (!root)
-            return false;
+    bool contains(const T& v, T* res) {
+        if (!root) return false;
         Node* last = lookup(v);
         splay(last);
         checkCoherency(root, nullptr);
@@ -90,11 +83,9 @@ class SplayTree
         return false;
     }
 
-    MOZ_MUST_USE bool insert(const T& v)
-    {
+    MOZ_MUST_USE bool insert(const T& v) {
         Node* element = allocateNode(v);
-        if (!element)
-            return false;
+        if (!element) return false;
 
         if (!root) {
             root = element;
@@ -116,8 +107,7 @@ class SplayTree
         return true;
     }
 
-    void remove(const T& v)
-    {
+    void remove(const T& v) {
         Node* last = lookup(v);
         MOZ_ASSERT(last && C::compare(v, last->item) == 0);
 
@@ -131,13 +121,11 @@ class SplayTree
         Node* swapChild;
         if (root->left) {
             swap = root->left;
-            while (swap->right)
-                swap = swap->right;
+            while (swap->right) swap = swap->right;
             swapChild = swap->left;
         } else if (root->right) {
             swap = root->right;
-            while (swap->left)
-                swap = swap->left;
+            while (swap->left) swap = swap->left;
             swapChild = swap->right;
         } else {
             freeNode(root);
@@ -151,8 +139,7 @@ class SplayTree
             swap->parent->left = swapChild;
         else
             swap->parent->right = swapChild;
-        if (swapChild)
-            swapChild->parent = swap->parent;
+        if (swapChild) swapChild->parent = swap->parent;
 
         root->item = swap->item;
         freeNode(swap);
@@ -161,15 +148,12 @@ class SplayTree
     }
 
     template <class Op>
-    void forEach(Op op)
-    {
+    void forEach(Op op) {
         forEachInner<Op>(op, root);
     }
 
-  private:
-
-    Node* lookup(const T& v)
-    {
+   private:
+    Node* lookup(const T& v) {
         MOZ_ASSERT(root);
         Node* node = root;
         Node* parent;
@@ -186,25 +170,22 @@ class SplayTree
         return parent;
     }
 
-    Node* allocateNode(const T& v)
-    {
+    Node* allocateNode(const T& v) {
         Node* node = freeList;
         if (node) {
             freeList = node->left;
-            new(node) Node(v);
+            new (node) Node(v);
             return node;
         }
         return alloc->new_<Node>(v);
     }
 
-    void freeNode(Node* node)
-    {
+    void freeNode(Node* node) {
         node->left = freeList;
         freeList = node;
     }
 
-    void splay(Node* node)
-    {
+    void splay(Node* node) {
         // Rotate the element until it is at the root of the tree. Performing
         // the rotations in this fashion preserves the amortized balancing of
         // the tree.
@@ -230,8 +211,7 @@ class SplayTree
         }
     }
 
-    void rotate(Node* node)
-    {
+    void rotate(Node* node) {
         // Rearrange nodes so that node becomes the parent of its current
         // parent, while preserving the sortedness of the tree.
         Node* parent = node->parent;
@@ -240,8 +220,7 @@ class SplayTree
             //   y  c  ==>  a  x
             //  a b           b c
             parent->left = node->right;
-            if (node->right)
-                node->right->parent = parent;
+            if (node->right) node->right->parent = parent;
             node->right = parent;
         } else {
             MOZ_ASSERT(parent->right == node);
@@ -249,8 +228,7 @@ class SplayTree
             //  a  y   ==>   x  c
             //    b c       a b
             parent->right = node->left;
-            if (node->left)
-                node->left->parent = parent;
+            if (node->left) node->left->parent = parent;
             node->left = parent;
         }
         node->parent = parent->parent;
@@ -266,21 +244,17 @@ class SplayTree
     }
 
     template <class Op>
-    void forEachInner(Op op, Node* node)
-    {
-        if (!node)
-            return;
+    void forEachInner(Op op, Node* node) {
+        if (!node) return;
 
         forEachInner<Op>(op, node->left);
         op(node->item);
         forEachInner<Op>(op, node->right);
     }
 
-    Node* checkCoherency(Node* node, Node* minimum)
-    {
+    Node* checkCoherency(Node* node, Node* minimum) {
 #ifdef DEBUG
-        if (!enableCheckCoherency)
-            return nullptr;
+        if (!enableCheckCoherency) return nullptr;
         if (!node) {
             MOZ_ASSERT(!root);
             return nullptr;
@@ -303,6 +277,6 @@ class SplayTree
     }
 };
 
-}  /* namespace js */
+} /* namespace js */
 
 #endif /* ds_SplayTree_h */

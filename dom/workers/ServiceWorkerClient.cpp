@@ -31,11 +31,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ServiceWorkerClient)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-ServiceWorkerClientInfo::ServiceWorkerClientInfo(nsIDocument* aDoc, uint32_t aOrdinal)
-  : mType(ClientType::Window)
-  , mOrdinal(aOrdinal)
-  , mWindowId(0)
-  , mFrameType(FrameType::None)
+ServiceWorkerClientInfo::ServiceWorkerClientInfo(nsIDocument* aDoc,
+                                                 uint32_t aOrdinal)
+    : mType(ClientType::Window),
+      mOrdinal(aOrdinal),
+      mWindowId(0),
+      mFrameType(FrameType::None)
 {
   MOZ_ASSERT(aDoc);
   nsresult rv = aDoc->GetOrCreateId(mClientId);
@@ -43,7 +44,8 @@ ServiceWorkerClientInfo::ServiceWorkerClientInfo(nsIDocument* aDoc, uint32_t aOr
     NS_WARNING("Failed to get the UUID of the document.");
   }
 
-  RefPtr<nsGlobalWindow> innerWindow = nsGlobalWindow::Cast(aDoc->GetInnerWindow());
+  RefPtr<nsGlobalWindow> innerWindow =
+      nsGlobalWindow::Cast(aDoc->GetInnerWindow());
   if (innerWindow) {
     // XXXcatalinb: The inner window can be null if the document is navigating
     // and was detached.
@@ -107,12 +109,12 @@ bool
 ServiceWorkerClientInfo::operator==(const ServiceWorkerClientInfo& aRight) const
 {
   return mLastFocusTime == aRight.mLastFocusTime &&
-         mOrdinal == aRight.mOrdinal &&
-         mClientId == aRight.mClientId;
+         mOrdinal == aRight.mOrdinal && mClientId == aRight.mClientId;
 }
 
 JSObject*
-ServiceWorkerClient::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+ServiceWorkerClient::WrapObject(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return ClientBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -126,25 +128,26 @@ ServiceWorkerClient::Type() const
 namespace {
 
 class ServiceWorkerClientPostMessageRunnable final
-  : public Runnable
-  , public StructuredCloneHolder
+    : public Runnable,
+      public StructuredCloneHolder
 {
   const uint64_t mSourceID;
   const nsCString mSourceScope;
   const uint64_t mWindowId;
 
-public:
+ public:
   ServiceWorkerClientPostMessageRunnable(uint64_t aSourceID,
                                          const nsACString& aSourceScope,
                                          uint64_t aWindowId)
-    : mozilla::Runnable("ServiceWorkerClientPostMessageRunnable")
-    , StructuredCloneHolder(CloningSupported,
-                            TransferringSupported,
-                            StructuredCloneScope::SameProcessDifferentThread)
-    , mSourceID(aSourceID)
-    , mSourceScope(aSourceScope)
-    , mWindowId(aWindowId)
-  {}
+      : mozilla::Runnable("ServiceWorkerClientPostMessageRunnable"),
+        StructuredCloneHolder(CloningSupported,
+                              TransferringSupported,
+                              StructuredCloneScope::SameProcessDifferentThread),
+        mSourceID(aSourceID),
+        mSourceScope(aSourceScope),
+        mWindowId(aWindowId)
+  {
+  }
 
   NS_IMETHOD
   Run() override
@@ -170,9 +173,10 @@ public:
     return DispatchDOMEvent(cx, window->AsInner(), container);
   }
 
-private:
+ private:
   NS_IMETHOD
-  DispatchDOMEvent(JSContext* aCx, nsPIDOMWindowInner* aWindow,
+  DispatchDOMEvent(JSContext* aCx,
+                   nsPIDOMWindowInner* aWindow,
                    ServiceWorkerContainer* aTargetContainer)
   {
     AssertIsOnMainThread();
@@ -190,7 +194,8 @@ private:
 
     RootedDictionary<MessageEventInit> init(aCx);
 
-    nsCOMPtr<nsIPrincipal> principal = aTargetContainer->GetParentObject()->PrincipalOrNull();
+    nsCOMPtr<nsIPrincipal> principal =
+        aTargetContainer->GetParentObject()->PrincipalOrNull();
     NS_WARNING_ASSERTION(principal, "Why is the principal null here?");
 
     bool isNullPrincipal = false;
@@ -209,16 +214,15 @@ private:
     }
     init.mOrigin = NS_ConvertUTF8toUTF16(origin);
 
-
     RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
     if (swm) {
       RefPtr<ServiceWorkerRegistrationInfo> reg =
-        swm->GetRegistration(principal, mSourceScope);
+          swm->GetRegistration(principal, mSourceScope);
       if (reg) {
         RefPtr<ServiceWorkerInfo> serviceWorker = reg->GetByID(mSourceID);
         if (serviceWorker) {
           init.mSource.SetValue().SetAsServiceWorker() =
-            serviceWorker->GetOrCreateInstance(aWindow);
+              serviceWorker->GetOrCreateInstance(aWindow);
         }
       }
     }
@@ -227,9 +231,8 @@ private:
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    RefPtr<MessageEvent> event =
-      MessageEvent::Constructor(aTargetContainer, NS_LITERAL_STRING("message"),
-                                init);
+    RefPtr<MessageEvent> event = MessageEvent::Constructor(
+        aTargetContainer, NS_LITERAL_STRING("message"), init);
 
     event->SetTrusted(true);
     bool status = false;
@@ -244,10 +247,11 @@ private:
   }
 };
 
-} // namespace
+}  // namespace
 
 void
-ServiceWorkerClient::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
+ServiceWorkerClient::PostMessage(JSContext* aCx,
+                                 JS::Handle<JS::Value> aMessage,
                                  const Sequence<JSObject*>& aTransferable,
                                  ErrorResult& aRv)
 {
@@ -257,8 +261,8 @@ ServiceWorkerClient::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
 
   JS::Rooted<JS::Value> transferable(aCx, JS::UndefinedValue());
 
-  aRv = nsContentUtils::CreateJSValueFromSequenceOfObject(aCx, aTransferable,
-                                                          &transferable);
+  aRv = nsContentUtils::CreateJSValueFromSequenceOfObject(
+      aCx, aTransferable, &transferable);
   if (NS_WARN_IF(aRv.Failed())) {
     return;
   }
@@ -269,10 +273,13 @@ ServiceWorkerClient::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
   nsCString scope = workerPrivate->ServiceWorkerScope();
 
   RefPtr<ServiceWorkerClientPostMessageRunnable> runnable =
-    new ServiceWorkerClientPostMessageRunnable(serviceWorkerID, scope,
-                                               mWindowId);
+      new ServiceWorkerClientPostMessageRunnable(
+          serviceWorkerID, scope, mWindowId);
 
-  runnable->Write(aCx, aMessage, transferable, JS::CloneDataPolicy().denySharedArrayBuffer(),
+  runnable->Write(aCx,
+                  aMessage,
+                  transferable,
+                  JS::CloneDataPolicy().denySharedArrayBuffer(),
                   aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return;
@@ -283,4 +290,3 @@ ServiceWorkerClient::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
     return;
   }
 }
-

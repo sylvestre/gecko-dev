@@ -24,9 +24,10 @@ using namespace mozilla;
 class nsGenConImageContent final : public nsXMLElement,
                                    public nsImageLoadingContent
 {
-public:
-  explicit nsGenConImageContent(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsXMLElement(aNodeInfo)
+ public:
+  explicit nsGenConImageContent(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsXMLElement(aNodeInfo)
   {
     // nsImageLoadingContent starts out broken, so we start out
     // suppressed to match it.
@@ -40,7 +41,8 @@ public:
   }
 
   // nsIContent overrides
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
@@ -57,13 +59,13 @@ public:
     return nsXMLElement::GetEventTargetParent(aVisitor);
   }
 
-protected:
+ protected:
   nsIContent* AsContent() override { return this; }
 
-private:
+ private:
   virtual ~nsGenConImageContent();
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 };
 
@@ -74,35 +76,33 @@ NS_IMPL_ISUPPORTS_INHERITED(nsGenConImageContent,
                             imgIOnloadBlocker)
 
 nsresult
-NS_NewGenConImageContent(nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
+NS_NewGenConImageContent(nsIContent** aResult,
+                         already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
                          imgRequestProxy* aImageRequest)
 {
   NS_PRECONDITION(aImageRequest, "Must have request!");
-  nsGenConImageContent *it = new nsGenConImageContent(aNodeInfo);
+  nsGenConImageContent* it = new nsGenConImageContent(aNodeInfo);
   NS_ADDREF(*aResult = it);
   nsresult rv = it->Init(aImageRequest);
-  if (NS_FAILED(rv))
-    NS_RELEASE(*aResult);
+  if (NS_FAILED(rv)) NS_RELEASE(*aResult);
   return rv;
 }
 
-nsGenConImageContent::~nsGenConImageContent()
-{
-  DestroyImageLoadingContent();
-}
+nsGenConImageContent::~nsGenConImageContent() { DestroyImageLoadingContent(); }
 
 nsresult
-nsGenConImageContent::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+nsGenConImageContent::BindToTree(nsIDocument* aDocument,
+                                 nsIContent* aParent,
                                  nsIContent* aBindingParent,
                                  bool aCompileEventHandlers)
 {
   nsresult rv;
-  rv = nsXMLElement::BindToTree(aDocument, aParent, aBindingParent,
-                                aCompileEventHandlers);
+  rv = nsXMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsImageLoadingContent::BindToTree(aDocument, aParent, aBindingParent,
-                                    aCompileEventHandlers);
+  nsImageLoadingContent::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   return NS_OK;
 }
 
@@ -119,7 +119,8 @@ nsGenConImageContent::IntrinsicState() const
   EventStates state = nsXMLElement::IntrinsicState();
 
   EventStates imageState = nsImageLoadingContent::ImageState();
-  if (imageState.HasAtLeastOneOfStates(NS_EVENT_STATE_BROKEN | NS_EVENT_STATE_USERDISABLED)) {
+  if (imageState.HasAtLeastOneOfStates(NS_EVENT_STATE_BROKEN |
+                                       NS_EVENT_STATE_USERDISABLED)) {
     // We should never be in an error state; if the image fails to load, we
     // just go to the suppressed state.
     imageState |= NS_EVENT_STATE_SUPPRESSED;

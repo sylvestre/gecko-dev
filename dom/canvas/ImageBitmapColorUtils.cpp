@@ -13,15 +13,21 @@ namespace dom {
 /*
  * Utility function form libyuv source files.
  */
-static __inline int32 clamp0(int32 v) {
+static __inline int32
+clamp0(int32 v)
+{
   return ((-(v) >> 31) & (v));
 }
 
-static __inline int32 clamp255(int32 v) {
+static __inline int32
+clamp255(int32 v)
+{
   return (((255 - (v)) >> 31) | (v)) & 255;
 }
 
-static __inline uint32 Clamp(int32 val) {
+static __inline uint32
+Clamp(int32 val)
+{
   int v = clamp0(val);
   return (uint32)(clamp255(v));
 }
@@ -44,7 +50,7 @@ static __inline uint32 Clamp(int32 val) {
 static __inline void
 YuvPixel(uint8 y, uint8 u, uint8 v, uint8* b, uint8* g, uint8* r)
 {
-  int32 y1 = ((int32)(y) - 16) * YG;
+  int32 y1 = ((int32)(y)-16) * YG;
   *b = Clamp((int32)((u * UB + v * VB) - (BB) + y1) >> 6);
   *g = Clamp((int32)((u * UG + v * VG) - (BG) + y1) >> 6);
   *r = Clamp((int32)((u * UR + v * VR) - (BR) + y1) >> 6);
@@ -53,7 +59,7 @@ YuvPixel(uint8 y, uint8 u, uint8 v, uint8* b, uint8* g, uint8* r)
 static __inline int
 RGBToY(uint8 r, uint8 g, uint8 b)
 {
-  return (66 * r + 129 * g +  25 * b + 0x1080) >> 8;
+  return (66 * r + 129 * g + 25 * b + 0x1080) >> 8;
 }
 
 static __inline int
@@ -71,12 +77,20 @@ RGBToV(uint8 r, uint8 g, uint8 b)
 /*
  * Generic functions.
  */
-template<int aSrcRIndex, int aSrcGIndex, int aSrcBIndex,
-         int aDstRIndex, int aDstGIndex, int aDstBIndex, int aDstAIndex>
+template<int aSrcRIndex,
+         int aSrcGIndex,
+         int aSrcBIndex,
+         int aDstRIndex,
+         int aDstGIndex,
+         int aDstBIndex,
+         int aDstAIndex>
 static int
-RGBFamilyToRGBAFamily(const uint8_t* aSrcBuffer, int aSrcStride,
-                      uint8_t* aDstBuffer, int aDstStride,
-                      int aWidth, int aHeight)
+RGBFamilyToRGBAFamily(const uint8_t* aSrcBuffer,
+                      int aSrcStride,
+                      uint8_t* aDstBuffer,
+                      int aDstStride,
+                      int aWidth,
+                      int aHeight)
 {
   static_assert(aSrcRIndex == 0 || aSrcRIndex == 2, "Wrong SrcR index.");
   static_assert(aSrcGIndex == 1, "Wrong SrcG index.");
@@ -106,12 +120,19 @@ RGBFamilyToRGBAFamily(const uint8_t* aSrcBuffer, int aSrcStride,
   return 0;
 }
 
-template<int aSrcRIndex, int aSrcGIndex, int aSrcBIndex,
-         int aDstRIndex, int aDstGIndex, int aDstBIndex>
+template<int aSrcRIndex,
+         int aSrcGIndex,
+         int aSrcBIndex,
+         int aDstRIndex,
+         int aDstGIndex,
+         int aDstBIndex>
 static int
-RGBAFamilyToRGBFamily(const uint8_t* aSrcBuffer, int aSrcStride,
-                      uint8_t* aDstBuffer, int aDstStride,
-                      int aWidth, int aHeight)
+RGBAFamilyToRGBFamily(const uint8_t* aSrcBuffer,
+                      int aSrcStride,
+                      uint8_t* aDstBuffer,
+                      int aDstStride,
+                      int aWidth,
+                      int aHeight)
 {
   static_assert(aSrcRIndex == 0 || aSrcRIndex == 2, "Wrong SrcR index.");
   static_assert(aSrcGIndex == 1, "Wrong SrcG index.");
@@ -139,10 +160,18 @@ RGBAFamilyToRGBFamily(const uint8_t* aSrcBuffer, int aSrcStride,
   return 0;
 }
 
-template<int aPixel1YOffset, int aPixel1UOffset, int aPixel1VOffset,
-         int aPixel2YOffset, int aPixel2UOffset, int aPixel2VOffset,
-         int aYStep, int aUStep, int aVStep,
-         int aRIndex, int aGIndex, int aBIndex>
+template<int aPixel1YOffset,
+         int aPixel1UOffset,
+         int aPixel1VOffset,
+         int aPixel2YOffset,
+         int aPixel2UOffset,
+         int aPixel2VOffset,
+         int aYStep,
+         int aUStep,
+         int aVStep,
+         int aRIndex,
+         int aGIndex,
+         int aBIndex>
 void
 YUVFamilyToRGBFamily_Row(const uint8_t* aYBuffer,
                          const uint8_t* aUBuffer,
@@ -155,10 +184,18 @@ YUVFamilyToRGBFamily_Row(const uint8_t* aYBuffer,
   static_assert(aBIndex == 0 || aBIndex == 2, "Wrong B index.");
 
   for (int j = 0; j < aWidth - 1; j += 2) {
-    YuvPixel(aYBuffer[aPixel1YOffset], aUBuffer[aPixel1UOffset], aVBuffer[aPixel1VOffset],
-             aDstBuffer + aBIndex, aDstBuffer + aGIndex, aDstBuffer + aRIndex);
-    YuvPixel(aYBuffer[aPixel2YOffset], aUBuffer[aPixel2UOffset], aVBuffer[aPixel2VOffset],
-             aDstBuffer + aBIndex + 3, aDstBuffer + aGIndex + 3, aDstBuffer + aRIndex + 3);
+    YuvPixel(aYBuffer[aPixel1YOffset],
+             aUBuffer[aPixel1UOffset],
+             aVBuffer[aPixel1VOffset],
+             aDstBuffer + aBIndex,
+             aDstBuffer + aGIndex,
+             aDstBuffer + aRIndex);
+    YuvPixel(aYBuffer[aPixel2YOffset],
+             aUBuffer[aPixel2UOffset],
+             aVBuffer[aPixel2VOffset],
+             aDstBuffer + aBIndex + 3,
+             aDstBuffer + aGIndex + 3,
+             aDstBuffer + aRIndex + 3);
     aYBuffer += aYStep;
     aUBuffer += aUStep;
     aVBuffer += aVStep;
@@ -166,15 +203,28 @@ YUVFamilyToRGBFamily_Row(const uint8_t* aYBuffer,
   }
 
   if (aWidth & 1) {
-    YuvPixel(aYBuffer[aPixel1YOffset], aUBuffer[aPixel1UOffset], aVBuffer[aPixel1VOffset],
-             aDstBuffer + aBIndex, aDstBuffer + aGIndex, aDstBuffer + aRIndex);
+    YuvPixel(aYBuffer[aPixel1YOffset],
+             aUBuffer[aPixel1UOffset],
+             aVBuffer[aPixel1VOffset],
+             aDstBuffer + aBIndex,
+             aDstBuffer + aGIndex,
+             aDstBuffer + aRIndex);
   }
 }
 
-template<int aPixel1YOffset, int aPixel1UOffset, int aPixel1VOffset,
-         int aPixel2YOffset, int aPixel2UOffset, int aPixel2VOffset,
-         int aYStep, int aUStep, int aVStep,
-         int aRIndex, int aGIndex, int aBIndex, int aAIndex>
+template<int aPixel1YOffset,
+         int aPixel1UOffset,
+         int aPixel1VOffset,
+         int aPixel2YOffset,
+         int aPixel2UOffset,
+         int aPixel2VOffset,
+         int aYStep,
+         int aUStep,
+         int aVStep,
+         int aRIndex,
+         int aGIndex,
+         int aBIndex,
+         int aAIndex>
 void
 YUVFamilyToRGBAFamily_Row(const uint8_t* aYBuffer,
                           const uint8_t* aUBuffer,
@@ -188,10 +238,18 @@ YUVFamilyToRGBAFamily_Row(const uint8_t* aYBuffer,
   static_assert(aAIndex == 3, "Wrong A index.");
 
   for (int j = 0; j < aWidth - 1; j += 2) {
-    YuvPixel(aYBuffer[aPixel1YOffset], aUBuffer[aPixel1UOffset], aVBuffer[aPixel1VOffset],
-             aDstBuffer + aBIndex, aDstBuffer + aGIndex, aDstBuffer + aRIndex);
-    YuvPixel(aYBuffer[aPixel2YOffset], aUBuffer[aPixel2UOffset], aVBuffer[aPixel2VOffset],
-             aDstBuffer + aBIndex + 4, aDstBuffer + aGIndex + 4, aDstBuffer + aRIndex + 4);
+    YuvPixel(aYBuffer[aPixel1YOffset],
+             aUBuffer[aPixel1UOffset],
+             aVBuffer[aPixel1VOffset],
+             aDstBuffer + aBIndex,
+             aDstBuffer + aGIndex,
+             aDstBuffer + aRIndex);
+    YuvPixel(aYBuffer[aPixel2YOffset],
+             aUBuffer[aPixel2UOffset],
+             aVBuffer[aPixel2VOffset],
+             aDstBuffer + aBIndex + 4,
+             aDstBuffer + aGIndex + 4,
+             aDstBuffer + aRIndex + 4);
     aDstBuffer[aAIndex] = 255;
     aDstBuffer[aAIndex + 4] = 255;
 
@@ -202,13 +260,17 @@ YUVFamilyToRGBAFamily_Row(const uint8_t* aYBuffer,
   }
 
   if (aWidth & 1) {
-    YuvPixel(aYBuffer[aPixel1YOffset], aUBuffer[aPixel1UOffset], aVBuffer[aPixel1VOffset],
-             aDstBuffer + aBIndex, aDstBuffer + aGIndex, aDstBuffer + aRIndex);
+    YuvPixel(aYBuffer[aPixel1YOffset],
+             aUBuffer[aPixel1UOffset],
+             aVBuffer[aPixel1VOffset],
+             aDstBuffer + aBIndex,
+             aDstBuffer + aGIndex,
+             aDstBuffer + aRIndex);
     aDstBuffer[aAIndex] = 255;
   }
 }
 
-template< int aRIndex, int aGIndex, int aBIndex>
+template<int aRIndex, int aGIndex, int aBIndex>
 static void
 RGBFamilyToY_Row(const uint8_t* aSrcBuffer, uint8_t* aYBuffer, int aWidth)
 {
@@ -217,22 +279,29 @@ RGBFamilyToY_Row(const uint8_t* aSrcBuffer, uint8_t* aYBuffer, int aWidth)
   static_assert(aBIndex == 0 || aBIndex == 2, "Wrong B index.");
 
   for (int j = 0; j < aWidth - 1; j += 2) {
-    aYBuffer[0] = RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
-    aYBuffer[1] = RGBToY(aSrcBuffer[aRIndex + 3], aSrcBuffer[aGIndex + 3], aSrcBuffer[aBIndex + 3]);
+    aYBuffer[0] =
+        RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
+    aYBuffer[1] = RGBToY(aSrcBuffer[aRIndex + 3],
+                         aSrcBuffer[aGIndex + 3],
+                         aSrcBuffer[aBIndex + 3]);
 
     aYBuffer += 2;
     aSrcBuffer += 3 * 2;
   }
 
   if (aWidth & 1) {
-    aYBuffer[0] = RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
+    aYBuffer[0] =
+        RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
   }
 }
 
-template< int aRIndex, int aGIndex, int aBIndex, int aUStep, int aVStep>
+template<int aRIndex, int aGIndex, int aBIndex, int aUStep, int aVStep>
 static void
-RGBFamilyToUV_Row(const uint8_t* aSrcBuffer, int aSrcStride,
-                  uint8_t* aUBuffer, uint8_t* aVBuffer, int aWidth)
+RGBFamilyToUV_Row(const uint8_t* aSrcBuffer,
+                  int aSrcStride,
+                  uint8_t* aUBuffer,
+                  uint8_t* aVBuffer,
+                  int aWidth)
 {
   static_assert(aRIndex == 0 || aRIndex == 2, "Wrong R index.");
   static_assert(aGIndex == 1, "Wrong G index.");
@@ -244,9 +313,15 @@ RGBFamilyToUV_Row(const uint8_t* aSrcBuffer, int aSrcStride,
 
   const uint8_t* aSrcBufferNextRow = aSrcBuffer + aSrcStride;
   for (int j = 0; j < aWidth - 1; j += 2) {
-    averageR = (aSrcBuffer[aRIndex] + aSrcBuffer[aRIndex + 3] + aSrcBufferNextRow[aRIndex] + aSrcBufferNextRow[aRIndex + 3]) >> 2;
-    averageG = (aSrcBuffer[aGIndex] + aSrcBuffer[aGIndex + 3] + aSrcBufferNextRow[aGIndex] + aSrcBufferNextRow[aGIndex + 3]) >> 2;
-    averageB = (aSrcBuffer[aBIndex] + aSrcBuffer[aBIndex + 3] + aSrcBufferNextRow[aBIndex] + aSrcBufferNextRow[aBIndex + 3]) >> 2;
+    averageR = (aSrcBuffer[aRIndex] + aSrcBuffer[aRIndex + 3] +
+                aSrcBufferNextRow[aRIndex] + aSrcBufferNextRow[aRIndex + 3]) >>
+               2;
+    averageG = (aSrcBuffer[aGIndex] + aSrcBuffer[aGIndex + 3] +
+                aSrcBufferNextRow[aGIndex] + aSrcBufferNextRow[aGIndex + 3]) >>
+               2;
+    averageB = (aSrcBuffer[aBIndex] + aSrcBuffer[aBIndex + 3] +
+                aSrcBufferNextRow[aBIndex] + aSrcBufferNextRow[aBIndex + 3]) >>
+               2;
 
     aUBuffer[0] = RGBToU(averageR, averageG, averageB);
     aVBuffer[0] = RGBToV(averageR, averageG, averageB);
@@ -267,7 +342,7 @@ RGBFamilyToUV_Row(const uint8_t* aSrcBuffer, int aSrcStride,
   }
 }
 
-template< int aRIndex, int aGIndex, int aBIndex>
+template<int aRIndex, int aGIndex, int aBIndex>
 static void
 RGBAFamilyToY_Row(const uint8_t* aSrcBuffer, uint8_t* aYBuffer, int aWidth)
 {
@@ -276,22 +351,29 @@ RGBAFamilyToY_Row(const uint8_t* aSrcBuffer, uint8_t* aYBuffer, int aWidth)
   static_assert(aBIndex == 0 || aBIndex == 2, "Wrong B index.");
 
   for (int j = 0; j < aWidth - 1; j += 2) {
-    aYBuffer[0] = RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
-    aYBuffer[1] = RGBToY(aSrcBuffer[aRIndex + 4], aSrcBuffer[aGIndex + 4], aSrcBuffer[aBIndex + 4]);
+    aYBuffer[0] =
+        RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
+    aYBuffer[1] = RGBToY(aSrcBuffer[aRIndex + 4],
+                         aSrcBuffer[aGIndex + 4],
+                         aSrcBuffer[aBIndex + 4]);
 
     aYBuffer += 2;
     aSrcBuffer += 4 * 2;
   }
 
   if (aWidth & 1) {
-    aYBuffer[0] = RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
+    aYBuffer[0] =
+        RGBToY(aSrcBuffer[aRIndex], aSrcBuffer[aGIndex], aSrcBuffer[aBIndex]);
   }
 }
 
-template< int aRIndex, int aGIndex, int aBIndex, int aUStep, int aVStep>
+template<int aRIndex, int aGIndex, int aBIndex, int aUStep, int aVStep>
 static void
-RGBAFamilyToUV_Row(const uint8_t* aSrcBuffer, int aSrcStride,
-                   uint8_t* aUBuffer, uint8_t* aVBuffer, int aWidth)
+RGBAFamilyToUV_Row(const uint8_t* aSrcBuffer,
+                   int aSrcStride,
+                   uint8_t* aUBuffer,
+                   uint8_t* aVBuffer,
+                   int aWidth)
 {
   static_assert(aRIndex == 0 || aRIndex == 2, "Wrong R index.");
   static_assert(aGIndex == 1, "Wrong G index.");
@@ -303,9 +385,15 @@ RGBAFamilyToUV_Row(const uint8_t* aSrcBuffer, int aSrcStride,
 
   const uint8_t* aSrcBufferNextRow = aSrcBuffer + aSrcStride;
   for (int j = 0; j < aWidth - 1; j += 2) {
-    averageR = (aSrcBuffer[aRIndex] + aSrcBuffer[aRIndex + 4] + aSrcBufferNextRow[aRIndex] + aSrcBufferNextRow[aRIndex + 4]) >> 2;
-    averageG = (aSrcBuffer[aGIndex] + aSrcBuffer[aGIndex + 4] + aSrcBufferNextRow[aGIndex] + aSrcBufferNextRow[aGIndex + 4]) >> 2;
-    averageB = (aSrcBuffer[aBIndex] + aSrcBuffer[aBIndex + 4] + aSrcBufferNextRow[aBIndex] + aSrcBufferNextRow[aBIndex + 4]) >> 2;
+    averageR = (aSrcBuffer[aRIndex] + aSrcBuffer[aRIndex + 4] +
+                aSrcBufferNextRow[aRIndex] + aSrcBufferNextRow[aRIndex + 4]) >>
+               2;
+    averageG = (aSrcBuffer[aGIndex] + aSrcBuffer[aGIndex + 4] +
+                aSrcBufferNextRow[aGIndex] + aSrcBufferNextRow[aGIndex + 4]) >>
+               2;
+    averageB = (aSrcBuffer[aBIndex] + aSrcBuffer[aBIndex + 4] +
+                aSrcBufferNextRow[aBIndex] + aSrcBufferNextRow[aBIndex + 4]) >>
+               2;
 
     aUBuffer[0] = RGBToU(averageR, averageG, averageB);
     aVBuffer[0] = RGBToV(averageR, averageG, averageB);
@@ -330,95 +418,114 @@ RGBAFamilyToUV_Row(const uint8_t* aSrcBuffer, int aSrcStride,
  * RGB family -> RGBA family.
  */
 int
-RGB24ToRGBA32(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+RGB24ToRGBA32(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBFamilyToRGBAFamily<0, 1, 2, 0, 1, 2, 3>(aSrcBuffer, aSrcStride,
-                                                    aDstBuffer, aDstStride,
-                                                    aWidth, aHeight);
+  return RGBFamilyToRGBAFamily<0, 1, 2, 0, 1, 2, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGR24ToRGBA32(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+BGR24ToRGBA32(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBFamilyToRGBAFamily<2, 1, 0, 0, 1, 2, 3>(aSrcBuffer, aSrcStride,
-                                                    aDstBuffer, aDstStride,
-                                                    aWidth, aHeight);
+  return RGBFamilyToRGBAFamily<2, 1, 0, 0, 1, 2, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-RGB24ToBGRA32(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+RGB24ToBGRA32(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBFamilyToRGBAFamily<0, 1, 2, 2, 1, 0, 3>(aSrcBuffer, aSrcStride,
-                                                    aDstBuffer, aDstStride,
-                                                    aWidth, aHeight);
+  return RGBFamilyToRGBAFamily<0, 1, 2, 2, 1, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGR24ToBGRA32(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+BGR24ToBGRA32(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBFamilyToRGBAFamily<2, 1, 0, 2, 1, 0, 3>(aSrcBuffer, aSrcStride,
-                                                    aDstBuffer, aDstStride,
-                                                    aWidth, aHeight);
+  return RGBFamilyToRGBAFamily<2, 1, 0, 2, 1, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 /*
  * RGBA family -> RGB family.
  */
 int
-RGBA32ToRGB24(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+RGBA32ToRGB24(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBAFamilyToRGBFamily<0, 1, 2, 0, 1, 2>(aSrcBuffer, aSrcStride,
-                                                 aDstBuffer, aDstStride,
-                                                 aWidth, aHeight);
+  return RGBAFamilyToRGBFamily<0, 1, 2, 0, 1, 2>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGRA32ToRGB24(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+BGRA32ToRGB24(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBAFamilyToRGBFamily<2, 1, 0, 0, 1, 2>(aSrcBuffer, aSrcStride,
-                                                 aDstBuffer, aDstStride,
-                                                 aWidth, aHeight);
+  return RGBAFamilyToRGBFamily<2, 1, 0, 0, 1, 2>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-RGBA32ToBGR24(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+RGBA32ToBGR24(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBAFamilyToRGBFamily<0, 1, 2, 2, 1, 0>(aSrcBuffer, aSrcStride,
-                                                 aDstBuffer, aDstStride,
-                                                 aWidth, aHeight);
+  return RGBAFamilyToRGBFamily<0, 1, 2, 2, 1, 0>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGRA32ToBGR24(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+BGRA32ToBGR24(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBAFamilyToRGBFamily<2, 1, 0, 2, 1, 0>(aSrcBuffer, aSrcStride,
-                                                 aDstBuffer, aDstStride,
-                                                 aWidth, aHeight);
+  return RGBAFamilyToRGBFamily<2, 1, 0, 2, 1, 0>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 /*
  * Among RGB family.
  */
 int
-RGB24Copy(const uint8_t* aSrcBuffer, int aSrcStride,
-          uint8_t* aDstBuffer, int aDstStride,
-          int aWidth, int aHeight)
+RGB24Copy(const uint8_t* aSrcBuffer,
+          int aSrcStride,
+          uint8_t* aDstBuffer,
+          int aDstStride,
+          int aWidth,
+          int aHeight)
 {
   MOZ_ASSERT(aSrcStride == aDstStride, "RGB24Copy: aSrcStride != aDstStride");
 
@@ -428,9 +535,12 @@ RGB24Copy(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGB24ToBGR24(const uint8_t* aSrcBuffer, int aSrcStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+RGB24ToBGR24(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -452,11 +562,16 @@ RGB24ToBGR24(const uint8_t* aSrcBuffer, int aSrcStride,
  * YUV family -> RGB family.
  */
 int
-YUV444PToRGB24(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t* aUBuffer, int aUStride,
-               const uint8_t* aVBuffer, int aVStride,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV444PToRGB24(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t* aUBuffer,
+               int aUStride,
+               const uint8_t* aVBuffer,
+               int aVStride,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -464,22 +579,24 @@ YUV444PToRGB24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 1, 2>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 1, 2>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV422PToRGB24(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t* aUBuffer, int aUStride,
-               const uint8_t* aVBuffer, int aVStride,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV422PToRGB24(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t* aUBuffer,
+               int aUStride,
+               const uint8_t* aVBuffer,
+               int aVStride,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -487,22 +604,24 @@ YUV422PToRGB24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV420PToRGB24(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t* aUBuffer, int aUStride,
-               const uint8_t* aVBuffer, int aVStride,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV420PToRGB24(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t* aUBuffer,
+               int aUStride,
+               const uint8_t* aVBuffer,
+               int aVStride,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -510,21 +629,22 @@ YUV420PToRGB24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV12ToRGB24(const uint8_t* aYBuffer, int aYStride,
-            const uint8_t* aUVBuffer, int aUVStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+NV12ToRGB24(const uint8_t* aYBuffer,
+            int aYStride,
+            const uint8_t* aUVBuffer,
+            int aUVStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -532,21 +652,22 @@ NV12ToRGB24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV21ToRGB24(const uint8_t* aYBuffer, int aYStride,
-            const uint8_t* aVUBuffer, int aVUStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+NV21ToRGB24(const uint8_t* aYBuffer,
+            int aYStride,
+            const uint8_t* aVUBuffer,
+            int aVUStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -554,22 +675,24 @@ NV21ToRGB24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV444PToBGR24(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t* aUBuffer, int aUStride,
-               const uint8_t* aVBuffer, int aVStride,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV444PToBGR24(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t* aUBuffer,
+               int aUStride,
+               const uint8_t* aVBuffer,
+               int aVStride,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -577,22 +700,24 @@ YUV444PToBGR24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 0>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 0>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV422PToBGR24(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t* aUBuffer, int aUStride,
-               const uint8_t* aVBuffer, int aVStride,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV422PToBGR24(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t* aUBuffer,
+               int aUStride,
+               const uint8_t* aVBuffer,
+               int aVStride,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -600,22 +725,24 @@ YUV422PToBGR24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV420PToBGR24(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t* aUBuffer, int aUStride,
-               const uint8_t* aVBuffer, int aVStride,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV420PToBGR24(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t* aUBuffer,
+               int aUStride,
+               const uint8_t* aVBuffer,
+               int aVStride,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -623,21 +750,22 @@ YUV420PToBGR24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV12ToBGR24(const uint8_t* aYBuffer, int aYStride,
-            const uint8_t* aUVBuffer, int aUVStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+NV12ToBGR24(const uint8_t* aYBuffer,
+            int aYStride,
+            const uint8_t* aUVBuffer,
+            int aUVStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -645,21 +773,22 @@ NV12ToBGR24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV21ToBGR24(const uint8_t* aYBuffer, int aYStride,
-            const uint8_t* aVUBuffer, int aVUStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+NV21ToBGR24(const uint8_t* aYBuffer,
+            int aYStride,
+            const uint8_t* aVUBuffer,
+            int aVUStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -667,11 +796,8 @@ NV21ToBGR24(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0>(yBuffer,
-                                                                 uBuffer,
-                                                                 vBuffer,
-                                                                 dstBuffer,
-                                                                 aWidth);
+    YUVFamilyToRGBFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
@@ -681,11 +807,16 @@ NV21ToBGR24(const uint8_t* aYBuffer, int aYStride,
  * YUV family -> RGBA family.
  */
 int
-YUV444PToRGBA32(const uint8_t* aYBuffer, int aYStride,
-                const uint8_t* aUBuffer, int aUStride,
-                const uint8_t* aVBuffer, int aVStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+YUV444PToRGBA32(const uint8_t* aYBuffer,
+                int aYStride,
+                const uint8_t* aUBuffer,
+                int aUStride,
+                const uint8_t* aVBuffer,
+                int aVStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -693,22 +824,24 @@ YUV444PToRGBA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 1, 2, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 1, 2, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV422PToRGBA32(const uint8_t* aYBuffer, int aYStride,
-                const uint8_t* aUBuffer, int aUStride,
-                const uint8_t* aVBuffer, int aVStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+YUV422PToRGBA32(const uint8_t* aYBuffer,
+                int aYStride,
+                const uint8_t* aUBuffer,
+                int aUStride,
+                const uint8_t* aVBuffer,
+                int aVStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -716,22 +849,24 @@ YUV422PToRGBA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV420PToRGBA32(const uint8_t* aYBuffer, int aYStride,
-                const uint8_t* aUBuffer, int aUStride,
-                const uint8_t* aVBuffer, int aVStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+YUV420PToRGBA32(const uint8_t* aYBuffer,
+                int aYStride,
+                const uint8_t* aUBuffer,
+                int aUStride,
+                const uint8_t* aVBuffer,
+                int aVStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -739,21 +874,22 @@ YUV420PToRGBA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 0, 1, 2, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV12ToRGBA32(const uint8_t* aYBuffer, int aYStride,
-             const uint8_t* aUVBuffer, int aUVStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+NV12ToRGBA32(const uint8_t* aYBuffer,
+             int aYStride,
+             const uint8_t* aUVBuffer,
+             int aUVStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -761,21 +897,22 @@ NV12ToRGBA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV21ToRGBA32(const uint8_t* aYBuffer, int aYStride,
-             const uint8_t* aVUBuffer, int aVUStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+NV21ToRGBA32(const uint8_t* aYBuffer,
+             int aYStride,
+             const uint8_t* aVUBuffer,
+             int aVUStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -783,22 +920,24 @@ NV21ToRGBA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 0, 1, 2, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV444PToBGRA32(const uint8_t* aYBuffer, int aYStride,
-                const uint8_t* aUBuffer, int aUStride,
-                const uint8_t* aVBuffer, int aVStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+YUV444PToBGRA32(const uint8_t* aYBuffer,
+                int aYStride,
+                const uint8_t* aUBuffer,
+                int aUStride,
+                const uint8_t* aVBuffer,
+                int aVStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -806,22 +945,24 @@ YUV444PToBGRA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 0, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 0, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV422PToBGRA32(const uint8_t* aYBuffer, int aYStride,
-                const uint8_t* aUBuffer, int aUStride,
-                const uint8_t* aVBuffer, int aVStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+YUV422PToBGRA32(const uint8_t* aYBuffer,
+                int aYStride,
+                const uint8_t* aUBuffer,
+                int aUStride,
+                const uint8_t* aVBuffer,
+                int aVStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -829,22 +970,24 @@ YUV422PToBGRA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * i;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-YUV420PToBGRA32(const uint8_t* aYBuffer, int aYStride,
-                const uint8_t* aUBuffer, int aUStride,
-                const uint8_t* aVBuffer, int aVStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+YUV420PToBGRA32(const uint8_t* aYBuffer,
+                int aYStride,
+                const uint8_t* aUBuffer,
+                int aUStride,
+                const uint8_t* aVBuffer,
+                int aVStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -852,21 +995,22 @@ YUV420PToBGRA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 1, 1, 2, 1, 0, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV12ToBGRA32(const uint8_t* aYBuffer, int aYStride,
-             const uint8_t* aUVBuffer, int aUVStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+NV12ToBGRA32(const uint8_t* aYBuffer,
+             int aYStride,
+             const uint8_t* aUVBuffer,
+             int aUVStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -874,21 +1018,22 @@ NV12ToBGRA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
 }
 
 int
-NV21ToBGRA32(const uint8_t* aYBuffer, int aYStride,
-             const uint8_t* aVUBuffer, int aVUStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+NV21ToBGRA32(const uint8_t* aYBuffer,
+             int aYStride,
+             const uint8_t* aVUBuffer,
+             int aVUStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* yBuffer = aYBuffer + aYStride * i;
@@ -896,11 +1041,8 @@ NV21ToBGRA32(const uint8_t* aYBuffer, int aYStride,
     const uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
-    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0, 3>(yBuffer,
-                                                                     uBuffer,
-                                                                     vBuffer,
-                                                                     dstBuffer,
-                                                                     aWidth);
+    YUVFamilyToRGBAFamily_Row<0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 1, 0, 3>(
+        yBuffer, uBuffer, vBuffer, dstBuffer, aWidth);
   }
 
   return 0;
@@ -910,11 +1052,16 @@ NV21ToBGRA32(const uint8_t* aYBuffer, int aYStride,
  * RGB family -> YUV family.
  */
 int
-RGB24ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+RGB24ToYUV444P(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               uint8_t* aYBuffer,
+               int aYStride,
+               uint8_t* aUBuffer,
+               int aUStride,
+               uint8_t* aVBuffer,
+               int aVStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -938,11 +1085,16 @@ RGB24ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGB24ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+RGB24ToYUV422P(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               uint8_t* aYBuffer,
+               int aYStride,
+               uint8_t* aUBuffer,
+               int aUStride,
+               uint8_t* aVBuffer,
+               int aVStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -960,11 +1112,16 @@ RGB24ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGB24ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+RGB24ToYUV420P(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               uint8_t* aYBuffer,
+               int aYStride,
+               uint8_t* aUBuffer,
+               int aUStride,
+               uint8_t* aVBuffer,
+               int aVStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -973,8 +1130,10 @@ RGB24ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
 
     RGBFamilyToY_Row<0, 1, 2>(srcBuffer, yBuffer, aWidth);
-    RGBFamilyToY_Row<0, 1, 2>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBFamilyToUV_Row<0, 1, 2, 1, 1>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBFamilyToY_Row<0, 1, 2>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBFamilyToUV_Row<0, 1, 2, 1, 1>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -994,10 +1153,14 @@ RGB24ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGB24ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aUVBuffer, int aUVStride,
-            int aWidth, int aHeight)
+RGB24ToNV12(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aYBuffer,
+            int aYStride,
+            uint8_t* aUVBuffer,
+            int aUVStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1006,8 +1169,10 @@ RGB24ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
 
     RGBFamilyToY_Row<0, 1, 2>(srcBuffer, yBuffer, aWidth);
-    RGBFamilyToY_Row<0, 1, 2>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBFamilyToUV_Row<0, 1, 2, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBFamilyToY_Row<0, 1, 2>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBFamilyToUV_Row<0, 1, 2, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1027,10 +1192,14 @@ RGB24ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGB24ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aVUBuffer, int aVUStride,
-            int aWidth, int aHeight)
+RGB24ToNV21(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aYBuffer,
+            int aYStride,
+            uint8_t* aVUBuffer,
+            int aVUStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1039,8 +1208,10 @@ RGB24ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
 
     RGBFamilyToY_Row<0, 1, 2>(srcBuffer, yBuffer, aWidth);
-    RGBFamilyToY_Row<0, 1, 2>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBFamilyToUV_Row<0, 1, 2, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBFamilyToY_Row<0, 1, 2>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBFamilyToUV_Row<0, 1, 2, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1060,11 +1231,16 @@ RGB24ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGR24ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+BGR24ToYUV444P(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               uint8_t* aYBuffer,
+               int aYStride,
+               uint8_t* aUBuffer,
+               int aUStride,
+               uint8_t* aVBuffer,
+               int aVStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1088,11 +1264,16 @@ BGR24ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGR24ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+BGR24ToYUV422P(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               uint8_t* aYBuffer,
+               int aYStride,
+               uint8_t* aUBuffer,
+               int aUStride,
+               uint8_t* aVBuffer,
+               int aVStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1110,11 +1291,16 @@ BGR24ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGR24ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+BGR24ToYUV420P(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               uint8_t* aYBuffer,
+               int aYStride,
+               uint8_t* aUBuffer,
+               int aUStride,
+               uint8_t* aVBuffer,
+               int aVStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1123,8 +1309,10 @@ BGR24ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
 
     RGBFamilyToY_Row<2, 1, 0>(srcBuffer, yBuffer, aWidth);
-    RGBFamilyToY_Row<2, 1, 0>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBFamilyToUV_Row<2, 1, 0, 1, 1>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBFamilyToY_Row<2, 1, 0>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBFamilyToUV_Row<2, 1, 0, 1, 1>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1144,10 +1332,14 @@ BGR24ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGR24ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aUVBuffer, int aUVStride,
-            int aWidth, int aHeight)
+BGR24ToNV12(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aYBuffer,
+            int aYStride,
+            uint8_t* aUVBuffer,
+            int aUVStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1156,8 +1348,10 @@ BGR24ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
 
     RGBFamilyToY_Row<2, 1, 0>(srcBuffer, yBuffer, aWidth);
-    RGBFamilyToY_Row<2, 1, 0>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBFamilyToUV_Row<2, 1, 0, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBFamilyToY_Row<2, 1, 0>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBFamilyToUV_Row<2, 1, 0, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1177,10 +1371,14 @@ BGR24ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGR24ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aVUBuffer, int aVUStride,
-            int aWidth, int aHeight)
+BGR24ToNV21(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aYBuffer,
+            int aYStride,
+            uint8_t* aVUBuffer,
+            int aVUStride,
+            int aWidth,
+            int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1189,8 +1387,10 @@ BGR24ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
 
     RGBFamilyToY_Row<2, 1, 0>(srcBuffer, yBuffer, aWidth);
-    RGBFamilyToY_Row<2, 1, 0>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBFamilyToUV_Row<2, 1, 0, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBFamilyToY_Row<2, 1, 0>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBFamilyToUV_Row<2, 1, 0, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1213,11 +1413,16 @@ BGR24ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
  * RGBA family -> YUV family.
  */
 int
-RGBA32ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+RGBA32ToYUV444P(const uint8_t* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aYBuffer,
+                int aYStride,
+                uint8_t* aUBuffer,
+                int aUStride,
+                uint8_t* aVBuffer,
+                int aVStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1241,11 +1446,16 @@ RGBA32ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGBA32ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+RGBA32ToYUV422P(const uint8_t* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aYBuffer,
+                int aYStride,
+                uint8_t* aUBuffer,
+                int aUStride,
+                uint8_t* aVBuffer,
+                int aVStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1263,11 +1473,16 @@ RGBA32ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGBA32ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+RGBA32ToYUV420P(const uint8_t* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aYBuffer,
+                int aYStride,
+                uint8_t* aUBuffer,
+                int aUStride,
+                uint8_t* aVBuffer,
+                int aVStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1276,8 +1491,10 @@ RGBA32ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
 
     RGBAFamilyToY_Row<0, 1, 2>(srcBuffer, yBuffer, aWidth);
-    RGBAFamilyToY_Row<0, 1, 2>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBAFamilyToUV_Row<0, 1, 2, 1, 1>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBAFamilyToY_Row<0, 1, 2>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBAFamilyToUV_Row<0, 1, 2, 1, 1>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1297,10 +1514,14 @@ RGBA32ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGBA32ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aUVBuffer, int aUVStride,
-            int aWidth, int aHeight)
+RGBA32ToNV12(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aYBuffer,
+             int aYStride,
+             uint8_t* aUVBuffer,
+             int aUVStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1309,8 +1530,10 @@ RGBA32ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
 
     RGBAFamilyToY_Row<0, 1, 2>(srcBuffer, yBuffer, aWidth);
-    RGBAFamilyToY_Row<0, 1, 2>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBAFamilyToUV_Row<0, 1, 2, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBAFamilyToY_Row<0, 1, 2>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBAFamilyToUV_Row<0, 1, 2, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1330,10 +1553,14 @@ RGBA32ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGBA32ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aVUBuffer, int aVUStride,
-            int aWidth, int aHeight)
+RGBA32ToNV21(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aYBuffer,
+             int aYStride,
+             uint8_t* aVUBuffer,
+             int aVUStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1342,8 +1569,10 @@ RGBA32ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
 
     RGBAFamilyToY_Row<0, 1, 2>(srcBuffer, yBuffer, aWidth);
-    RGBAFamilyToY_Row<0, 1, 2>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBAFamilyToUV_Row<0, 1, 2, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBAFamilyToY_Row<0, 1, 2>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBAFamilyToUV_Row<0, 1, 2, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1363,11 +1592,16 @@ RGBA32ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGRA32ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+BGRA32ToYUV444P(const uint8_t* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aYBuffer,
+                int aYStride,
+                uint8_t* aUBuffer,
+                int aUStride,
+                uint8_t* aVBuffer,
+                int aVStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1391,11 +1625,16 @@ BGRA32ToYUV444P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGRA32ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+BGRA32ToYUV422P(const uint8_t* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aYBuffer,
+                int aYStride,
+                uint8_t* aUBuffer,
+                int aUStride,
+                uint8_t* aVBuffer,
+                int aVStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1413,11 +1652,16 @@ BGRA32ToYUV422P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGRA32ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
-               uint8_t* aYBuffer, int aYStride,
-               uint8_t* aUBuffer, int aUStride,
-               uint8_t* aVBuffer, int aVStride,
-               int aWidth, int aHeight)
+BGRA32ToYUV420P(const uint8_t* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aYBuffer,
+                int aYStride,
+                uint8_t* aUBuffer,
+                int aUStride,
+                uint8_t* aVBuffer,
+                int aVStride,
+                int aWidth,
+                int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1426,8 +1670,10 @@ BGRA32ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVBuffer + aVStride * (i / 2);
 
     RGBAFamilyToY_Row<2, 1, 0>(srcBuffer, yBuffer, aWidth);
-    RGBAFamilyToY_Row<2, 1, 0>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBAFamilyToUV_Row<2, 1, 0, 1, 1>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBAFamilyToY_Row<2, 1, 0>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBAFamilyToUV_Row<2, 1, 0, 1, 1>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1447,10 +1693,14 @@ BGRA32ToYUV420P(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGRA32ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aUVBuffer, int aUVStride,
-            int aWidth, int aHeight)
+BGRA32ToNV12(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aYBuffer,
+             int aYStride,
+             uint8_t* aUVBuffer,
+             int aUVStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1459,8 +1709,10 @@ BGRA32ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aUVBuffer + aUVStride * (i / 2) + 1;
 
     RGBAFamilyToY_Row<2, 1, 0>(srcBuffer, yBuffer, aWidth);
-    RGBAFamilyToY_Row<2, 1, 0>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBAFamilyToUV_Row<2, 1, 0, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBAFamilyToY_Row<2, 1, 0>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBAFamilyToUV_Row<2, 1, 0, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1480,10 +1732,14 @@ BGRA32ToNV12(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-BGRA32ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
-            uint8_t* aYBuffer, int aYStride,
-            uint8_t* aVUBuffer, int aVUStride,
-            int aWidth, int aHeight)
+BGRA32ToNV21(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aYBuffer,
+             int aYStride,
+             uint8_t* aVUBuffer,
+             int aVUStride,
+             int aWidth,
+             int aHeight)
 {
   for (int i = 0; i < aHeight - 1; i += 2) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1492,8 +1748,10 @@ BGRA32ToNV21(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* vBuffer = aVUBuffer + aVUStride * (i / 2);
 
     RGBAFamilyToY_Row<2, 1, 0>(srcBuffer, yBuffer, aWidth);
-    RGBAFamilyToY_Row<2, 1, 0>(srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
-    RGBAFamilyToUV_Row<2, 1, 0, 2, 2>(srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
+    RGBAFamilyToY_Row<2, 1, 0>(
+        srcBuffer + aSrcStride, yBuffer + aYStride, aWidth);
+    RGBAFamilyToUV_Row<2, 1, 0, 2, 2>(
+        srcBuffer, aSrcStride, uBuffer, vBuffer, aWidth);
   }
 
   if (aHeight & 1) {
@@ -1523,9 +1781,12 @@ const float EPSILON = 1e-10f;
 
 template<int aRIndex, int aGIndex, int aBIndex, int aSrcStep>
 int
-RGBFamilyToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
-               float* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+RGBFamilyToHSV(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               float* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcBuffer = aSrcBuffer + aSrcStride * i;
@@ -1547,7 +1808,7 @@ RGBFamilyToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
       if (g > max) max = g;
       if (b > max) max = b;
 
-      const float diff = max - min + EPSILON; // Prevent dividing by zero.
+      const float diff = max - min + EPSILON;  // Prevent dividing by zero.
 
       // Calculate v.
       v = max;
@@ -1581,23 +1842,29 @@ RGBFamilyToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
   return 0;
 }
 
-static const int sector_data[][3]= {{0,3,1}, {2,0,1}, {1,0,3}, {1,2,0}, {3,1,0}, {0,1,2}};
+static const int sector_data[][3] = {
+    {0, 3, 1}, {2, 0, 1}, {1, 0, 3}, {1, 2, 0}, {3, 1, 0}, {0, 1, 2}};
 
 // If the destination is a RGB24 or BGR24, set the aAIndex to be 0, 1 or 2,
 // so that the r, g or b value will be set to 255 first than to the right value.
 template<int aRIndex, int aGIndex, int aBIndex, int aAIndex, int aDstStep>
 int
-HSVToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+HSVToRGBAFamily(const float* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   static_assert(aRIndex == 0 || aRIndex == 2, "Wrong R index.");
   static_assert(aGIndex == 1, "Wrong G index.");
   static_assert(aBIndex == 0 || aBIndex == 2, "Wrong B index.");
-  static_assert(aAIndex == 0 || aAIndex == 1 || aAIndex == 2 || aAIndex == 3, "Wrong A index.");
+  static_assert(aAIndex == 0 || aAIndex == 1 || aAIndex == 2 || aAIndex == 3,
+                "Wrong A index.");
 
   for (int i = 0; i < aHeight; ++i) {
-    const float* srcBuffer = (const float*)((const uint8_t*)(aSrcBuffer) + aSrcStride * i);
+    const float* srcBuffer =
+        (const float*)((const uint8_t*)(aSrcBuffer) + aSrcStride * i);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
     for (int j = 0; j < aWidth; ++j) {
@@ -1608,10 +1875,13 @@ HSVToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
       // Calculate h-prime which should be in range [0, 6). -> h should be in
       // range [0, 360).
       float hPrime = h / 60.0f;
-      if (hPrime < 0.0f)
-          do hPrime += 6.0f; while (hPrime < 0.0f);
+      if (hPrime < 0.0f) do
+          hPrime += 6.0f;
+        while (hPrime < 0.0f);
       else if (hPrime >= 6.0f)
-          do hPrime -= 6.0f; while (hPrime >= 6.0f);
+        do
+          hPrime -= 6.0f;
+        while (hPrime >= 6.0f);
       const int sector = floor(hPrime);
       const float hMod1 = hPrime - sector;
 
@@ -1636,83 +1906,99 @@ HSVToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGBA32ToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
-            float* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+RGBA32ToHSV(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            float* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return RGBFamilyToHSV<0, 1, 2, 4>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToHSV<0, 1, 2, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGRA32ToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
-            float* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+BGRA32ToHSV(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            float* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return RGBFamilyToHSV<2, 1, 0, 4>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToHSV<2, 1, 0, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-RGB24ToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
-           float* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+RGB24ToHSV(const uint8_t* aSrcBuffer,
+           int aSrcStride,
+           float* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return RGBFamilyToHSV<0, 1, 2, 3>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToHSV<0, 1, 2, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGR24ToHSV(const uint8_t* aSrcBuffer, int aSrcStride,
-           float* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+BGR24ToHSV(const uint8_t* aSrcBuffer,
+           int aSrcStride,
+           float* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return RGBFamilyToHSV<2, 1, 0, 3>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToHSV<2, 1, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-HSVToRGBA32(const float* aSrcBuffer, int aSrcStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+HSVToRGBA32(const float* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return HSVToRGBAFamily<0, 1, 2, 3, 4>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return HSVToRGBAFamily<0, 1, 2, 3, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-HSVToBGRA32(const float* aSrcBuffer, int aSrcStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+HSVToBGRA32(const float* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return HSVToRGBAFamily<2, 1, 0, 3, 4>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return HSVToRGBAFamily<2, 1, 0, 3, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-HSVToRGB24(const float* aSrcBuffer, int aSrcStride,
-           uint8_t* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+HSVToRGB24(const float* aSrcBuffer,
+           int aSrcStride,
+           uint8_t* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return HSVToRGBAFamily<0, 1, 2, 0, 3>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return HSVToRGBAFamily<0, 1, 2, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-HSVToBGR24(const float* aSrcBuffer, int aSrcStride,
-           uint8_t* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+HSVToBGR24(const float* aSrcBuffer,
+           int aSrcStride,
+           uint8_t* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return HSVToRGBAFamily<2, 1, 0, 0, 3>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return HSVToRGBAFamily<2, 1, 0, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 /*
@@ -1723,23 +2009,40 @@ HSVToBGR24(const float* aSrcBuffer, int aSrcStride,
  * (3) OpenCV implementation:
  *     http://docs.opencv.org/3.1.0/de/d25/imgproc_color_conversions.html
  */
-static const float sRGBToXYZ_D65[] = {0.412453f, 0.357580f, 0.180423f,
-                                      0.212671f, 0.715160f, 0.072169f,
-                                      0.019334f, 0.119193f, 0.950227f};
-static const float XYZTosRGB_D65[] = {3.240479f,  -1.53715f,  -0.498535f,
-                                      -0.969256f, 1.875991f,  0.041556f,
-                                      0.055648f,  -0.204043f, 1.057311f};
+static const float sRGBToXYZ_D65[] = {0.412453f,
+                                      0.357580f,
+                                      0.180423f,
+                                      0.212671f,
+                                      0.715160f,
+                                      0.072169f,
+                                      0.019334f,
+                                      0.119193f,
+                                      0.950227f};
+static const float XYZTosRGB_D65[] = {3.240479f,
+                                      -1.53715f,
+                                      -0.498535f,
+                                      -0.969256f,
+                                      1.875991f,
+                                      0.041556f,
+                                      0.055648f,
+                                      -0.204043f,
+                                      1.057311f};
 static const float whitept_D65[] = {0.950456f, 1.0f, 1.088754f};
-static const float _magic = std::pow((6.0 / 29.0), 3.0); // should be around 0.008856.
+static const float _magic =
+    std::pow((6.0 / 29.0), 3.0);  // should be around 0.008856.
 static const float _1_3 = 1.0f / 3.0f;
-static const float _a = std::pow((29.0 / 6.0), 2.0) / 3.0; // should be around 7.787.
-static const float _b = 16.0f / 116.0f; // should be around 0.1379.
+static const float _a =
+    std::pow((29.0 / 6.0), 2.0) / 3.0;   // should be around 7.787.
+static const float _b = 16.0f / 116.0f;  // should be around 0.1379.
 
 template<int aRIndex, int aGIndex, int aBIndex, int aSrcStep>
 int
-RGBFamilyToLab(const uint8_t* aSrcBuffer, int aSrcStride,
-               float* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+RGBFamilyToLab(const uint8_t* aSrcBuffer,
+               int aSrcStride,
+               float* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
   static_assert(aRIndex == 0 || aRIndex == 2, "Wrong R index.");
   static_assert(aGIndex == 1, "Wrong G index.");
@@ -1793,14 +2096,18 @@ RGBFamilyToLab(const uint8_t* aSrcBuffer, int aSrcStride,
 // so that the r, g or b value will be set to 255 first than to the right value.
 template<int aRIndex, int aGIndex, int aBIndex, int aAIndex, int aDstStep>
 int
-LabToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
-                uint8_t* aDstBuffer, int aDstStride,
-                int aWidth, int aHeight)
+LabToRGBAFamily(const float* aSrcBuffer,
+                int aSrcStride,
+                uint8_t* aDstBuffer,
+                int aDstStride,
+                int aWidth,
+                int aHeight)
 {
   static_assert(aRIndex == 0 || aRIndex == 2, "Wrong R index.");
   static_assert(aGIndex == 1, "Wrong G index.");
   static_assert(aBIndex == 0 || aBIndex == 2, "Wrong B index.");
-  static_assert(aAIndex == 0 || aAIndex == 1 || aAIndex == 2 || aAIndex == 3, "Wrong A index.");
+  static_assert(aAIndex == 0 || aAIndex == 1 || aAIndex == 2 || aAIndex == 3,
+                "Wrong A index.");
 
   const float C0 = XYZTosRGB_D65[0] * whitept_D65[0],
               C1 = XYZTosRGB_D65[1] * whitept_D65[1],
@@ -1813,7 +2120,8 @@ LabToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
               C8 = XYZTosRGB_D65[8] * whitept_D65[2];
 
   for (int i = 0; i < aHeight; ++i) {
-    const float* srcBuffer = (const float*)((const uint8_t*)(aSrcBuffer) + aSrcStride * i);
+    const float* srcBuffer =
+        (const float*)((const uint8_t*)(aSrcBuffer) + aSrcStride * i);
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
     for (int j = 0; j < aWidth; ++j) {
@@ -1825,9 +2133,15 @@ LabToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
       const float FX = (a / 500.0f) + FY;
       const float FZ = FY - (b / 200.0f);
 
-      const float X = FX > 6.0f / 29.0f ? std::pow((double)FX, 3.0) : 3.0 * std::pow((6.0 / 29.0), 2.0) * (FX - (4.0 / 29.0));
-      const float Y = FY > 6.0f / 29.0f ? std::pow((double)FY, 3.0) : 3.0 * std::pow((6.0 / 29.0), 2.0) * (FY - (4.0 / 29.0));
-      const float Z = FZ > 6.0f / 29.0f ? std::pow((double)FZ, 3.0) : 3.0 * std::pow((6.0 / 29.0), 2.0) * (FZ - (4.0 / 29.0));
+      const float X = FX > 6.0f / 29.0f ? std::pow((double)FX, 3.0)
+                                        : 3.0 * std::pow((6.0 / 29.0), 2.0) *
+                                              (FX - (4.0 / 29.0));
+      const float Y = FY > 6.0f / 29.0f ? std::pow((double)FY, 3.0)
+                                        : 3.0 * std::pow((6.0 / 29.0), 2.0) *
+                                              (FY - (4.0 / 29.0));
+      const float Z = FZ > 6.0f / 29.0f ? std::pow((double)FZ, 3.0)
+                                        : 3.0 * std::pow((6.0 / 29.0), 2.0) *
+                                              (FZ - (4.0 / 29.0));
 
       const float r0 = C0 * X + C1 * Y + C2 * Z;
       const float g0 = C3 * X + C4 * Y + C5 * Z;
@@ -1835,9 +2149,18 @@ LabToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
 
       // Apply gamma curve of sRGB to the linear rgb values.
       dstBuffer[aAIndex] = 255;
-      dstBuffer[aRIndex] = Clamp((r0 <= 0.0031308f ? r0 * 12.92f : 1.055 * std::pow((double)r0, 1.0 / 2.4) - 0.055) * 255.0);
-      dstBuffer[aGIndex] = Clamp((g0 <= 0.0031308f ? g0 * 12.92f : 1.055 * std::pow((double)g0, 1.0 / 2.4) - 0.055) * 255.0);
-      dstBuffer[aBIndex] = Clamp((b0 <= 0.0031308f ? b0 * 12.92f : 1.055 * std::pow((double)b0, 1.0 / 2.4) - 0.055) * 255.0);
+      dstBuffer[aRIndex] = Clamp(
+          (r0 <= 0.0031308f ? r0 * 12.92f
+                            : 1.055 * std::pow((double)r0, 1.0 / 2.4) - 0.055) *
+          255.0);
+      dstBuffer[aGIndex] = Clamp(
+          (g0 <= 0.0031308f ? g0 * 12.92f
+                            : 1.055 * std::pow((double)g0, 1.0 / 2.4) - 0.055) *
+          255.0);
+      dstBuffer[aBIndex] = Clamp(
+          (b0 <= 0.0031308f ? b0 * 12.92f
+                            : 1.055 * std::pow((double)b0, 1.0 / 2.4) - 0.055) *
+          255.0);
 
       // Step one pixel.
       srcBuffer += 3;
@@ -1848,83 +2171,99 @@ LabToRGBAFamily(const float* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGBA32ToLab(const uint8_t* aSrcBuffer, int aSrcStride,
-            float* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+RGBA32ToLab(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            float* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return RGBFamilyToLab<0, 1, 2, 4>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToLab<0, 1, 2, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGRA32ToLab(const uint8_t* aSrcBuffer, int aSrcStride,
-            float* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+BGRA32ToLab(const uint8_t* aSrcBuffer,
+            int aSrcStride,
+            float* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return RGBFamilyToLab<2, 1, 0, 4>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToLab<2, 1, 0, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-RGB24ToLab(const uint8_t* aSrcBuffer, int aSrcStride,
-           float* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+RGB24ToLab(const uint8_t* aSrcBuffer,
+           int aSrcStride,
+           float* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return RGBFamilyToLab<0, 1, 2, 3>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToLab<0, 1, 2, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGR24ToLab(const uint8_t* aSrcBuffer, int aSrcStride,
-           float* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+BGR24ToLab(const uint8_t* aSrcBuffer,
+           int aSrcStride,
+           float* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return RGBFamilyToLab<2, 1, 0, 3>(aSrcBuffer, aSrcStride,
-                                    aDstBuffer, aDstStride,
-                                    aWidth, aHeight);
+  return RGBFamilyToLab<2, 1, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-LabToRGBA32(const float* aSrcBuffer, int aSrcStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+LabToRGBA32(const float* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return LabToRGBAFamily<0, 1, 2, 3, 4>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return LabToRGBAFamily<0, 1, 2, 3, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-LabToBGRA32(const float* aSrcBuffer, int aSrcStride,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+LabToBGRA32(const float* aSrcBuffer,
+            int aSrcStride,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return LabToRGBAFamily<2, 1, 0, 3, 4>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return LabToRGBAFamily<2, 1, 0, 3, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-LabToRGB24(const float* aSrcBuffer, int aSrcStride,
-           uint8_t* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+LabToRGB24(const float* aSrcBuffer,
+           int aSrcStride,
+           uint8_t* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return LabToRGBAFamily<0, 1, 2, 0, 3>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return LabToRGBAFamily<0, 1, 2, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-LabToBGR24(const float* aSrcBuffer, int aSrcStride,
-           uint8_t* aDstBuffer, int aDstStride,
-           int aWidth, int aHeight)
+LabToBGR24(const float* aSrcBuffer,
+           int aSrcStride,
+           uint8_t* aDstBuffer,
+           int aDstStride,
+           int aWidth,
+           int aHeight)
 {
-  return LabToRGBAFamily<2, 1, 0, 0, 3>(aSrcBuffer, aSrcStride,
-                                        aDstBuffer, aDstStride,
-                                        aWidth, aHeight);
+  return LabToRGBAFamily<2, 1, 0, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 /*
@@ -1935,9 +2274,12 @@ LabToBGR24(const float* aSrcBuffer, int aSrcStride,
  */
 template<int aRIndex, int aGIndex, int aBIndex, int aSrcStep>
 int
-RGBFamilyToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
-                 uint8_t* aDstBuffer, int aDstStride,
-                 int aWidth, int aHeight)
+RGBFamilyToGray8(const uint8_t* aSrcBuffer,
+                 int aSrcStride,
+                 uint8_t* aDstBuffer,
+                 int aDstStride,
+                 int aWidth,
+                 int aHeight)
 {
   static_assert(aRIndex == 0 || aRIndex == 2, "Wrong R index.");
   static_assert(aGIndex == 1, "Wrong G index.");
@@ -1948,8 +2290,7 @@ RGBFamilyToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
     uint8_t* dstBuffer = aDstBuffer + aDstStride * i;
 
     for (int j = 0; j < aWidth; ++j) {
-      dstBuffer[j] = 0.299 * srcBuffer[aRIndex] +
-                     0.587 * srcBuffer[aGIndex] +
+      dstBuffer[j] = 0.299 * srcBuffer[aRIndex] + 0.587 * srcBuffer[aGIndex] +
                      0.114 * srcBuffer[aBIndex];
       srcBuffer += aSrcStep;
     }
@@ -1959,43 +2300,51 @@ RGBFamilyToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
 }
 
 int
-RGB24ToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+RGB24ToGray8(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
-  return RGBFamilyToGray8<0, 1, 2, 3>(aSrcBuffer, aSrcStride,
-                                      aDstBuffer, aDstStride,
-                                      aWidth, aHeight);
+  return RGBFamilyToGray8<0, 1, 2, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGR24ToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
-             uint8_t* aDstBuffer, int aDstStride,
-             int aWidth, int aHeight)
+BGR24ToGray8(const uint8_t* aSrcBuffer,
+             int aSrcStride,
+             uint8_t* aDstBuffer,
+             int aDstStride,
+             int aWidth,
+             int aHeight)
 {
-  return RGBFamilyToGray8<2, 1, 0, 3>(aSrcBuffer, aSrcStride,
-                                      aDstBuffer, aDstStride,
-                                      aWidth, aHeight);
+  return RGBFamilyToGray8<2, 1, 0, 3>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-RGBA32ToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+RGBA32ToGray8(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBFamilyToGray8<0, 1, 2, 4>(aSrcBuffer, aSrcStride,
-                                      aDstBuffer, aDstStride,
-                                      aWidth, aHeight);
+  return RGBFamilyToGray8<0, 1, 2, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-BGRA32ToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
-              uint8_t* aDstBuffer, int aDstStride,
-              int aWidth, int aHeight)
+BGRA32ToGray8(const uint8_t* aSrcBuffer,
+              int aSrcStride,
+              uint8_t* aDstBuffer,
+              int aDstStride,
+              int aWidth,
+              int aHeight)
 {
-  return RGBFamilyToGray8<2, 1, 0, 4>(aSrcBuffer, aSrcStride,
-                                      aDstBuffer, aDstStride,
-                                      aWidth, aHeight);
+  return RGBFamilyToGray8<2, 1, 0, 4>(
+      aSrcBuffer, aSrcStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 /*
@@ -2005,9 +2354,12 @@ BGRA32ToGray8(const uint8_t* aSrcBuffer, int aSrcStride,
  * http://docs.opencv.org/3.1.0/de/d25/imgproc_color_conversions.html
  */
 int
-YUVFamilyToGray8(const uint8_t* aSrcYBuffer, int aSrcYStride,
-                 uint8_t* aDstBuffer, int aDstStride,
-                 int aWidth, int aHeight)
+YUVFamilyToGray8(const uint8_t* aSrcYBuffer,
+                 int aSrcYStride,
+                 uint8_t* aDstBuffer,
+                 int aDstStride,
+                 int aWidth,
+                 int aHeight)
 {
   for (int i = 0; i < aHeight; ++i) {
     const uint8_t* srcYBuffer = aSrcYBuffer + aSrcYStride * i;
@@ -2020,62 +2372,80 @@ YUVFamilyToGray8(const uint8_t* aSrcYBuffer, int aSrcYStride,
 }
 
 int
-YUV444PToGray8(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t*, int,
-               const uint8_t*, int,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV444PToGray8(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t*,
+               int,
+               const uint8_t*,
+               int,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
-  return YUVFamilyToGray8(aYBuffer, aYStride,
-                          aDstBuffer, aDstStride,
-                          aWidth, aHeight);
+  return YUVFamilyToGray8(
+      aYBuffer, aYStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-YUV422PToGray8(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t*, int,
-               const uint8_t*, int,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV422PToGray8(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t*,
+               int,
+               const uint8_t*,
+               int,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
-  return YUVFamilyToGray8(aYBuffer, aYStride,
-                          aDstBuffer, aDstStride,
-                          aWidth, aHeight);
+  return YUVFamilyToGray8(
+      aYBuffer, aYStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-YUV420PToGray8(const uint8_t* aYBuffer, int aYStride,
-               const uint8_t*, int,
-               const uint8_t*, int,
-               uint8_t* aDstBuffer, int aDstStride,
-               int aWidth, int aHeight)
+YUV420PToGray8(const uint8_t* aYBuffer,
+               int aYStride,
+               const uint8_t*,
+               int,
+               const uint8_t*,
+               int,
+               uint8_t* aDstBuffer,
+               int aDstStride,
+               int aWidth,
+               int aHeight)
 {
-  return YUVFamilyToGray8(aYBuffer, aYStride,
-                          aDstBuffer, aDstStride,
-                          aWidth, aHeight);
+  return YUVFamilyToGray8(
+      aYBuffer, aYStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-NV12ToGray8(const uint8_t* aYBuffer, int aYStride,
-            const uint8_t*, int,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+NV12ToGray8(const uint8_t* aYBuffer,
+            int aYStride,
+            const uint8_t*,
+            int,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return YUVFamilyToGray8(aYBuffer, aYStride,
-                          aDstBuffer, aDstStride,
-                          aWidth, aHeight);
+  return YUVFamilyToGray8(
+      aYBuffer, aYStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
 int
-NV21ToGray8(const uint8_t* aYBuffer, int aYStride,
-            const uint8_t*, int,
-            uint8_t* aDstBuffer, int aDstStride,
-            int aWidth, int aHeight)
+NV21ToGray8(const uint8_t* aYBuffer,
+            int aYStride,
+            const uint8_t*,
+            int,
+            uint8_t* aDstBuffer,
+            int aDstStride,
+            int aWidth,
+            int aHeight)
 {
-  return YUVFamilyToGray8(aYBuffer, aYStride,
-                          aDstBuffer, aDstStride,
-                          aWidth, aHeight);
+  return YUVFamilyToGray8(
+      aYBuffer, aYStride, aDstBuffer, aDstStride, aWidth, aHeight);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

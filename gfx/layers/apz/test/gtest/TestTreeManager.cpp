@@ -8,7 +8,8 @@
 #include "APZTestCommon.h"
 #include "InputUtils.h"
 
-TEST_F(APZCTreeManagerTester, ScrollablePaintedLayers) {
+TEST_F(APZCTreeManagerTester, ScrollablePaintedLayers)
+{
   CreateSimpleMultiLayerTree();
   ScopedLayerTreeRegistration registration(manager, 0, root, mcc);
 
@@ -36,7 +37,8 @@ TEST_F(APZCTreeManagerTester, ScrollablePaintedLayers) {
   EXPECT_EQ(ApzcOf(layers[1]), ApzcOf(layers[2]));
 }
 
-TEST_F(APZCTreeManagerTester, Bug1068268) {
+TEST_F(APZCTreeManagerTester, Bug1068268)
+{
   CreatePotentiallyLeakingTree();
   ScopedLayerTreeRegistration registration(manager, 0, root, mcc);
 
@@ -58,7 +60,8 @@ TEST_F(APZCTreeManagerTester, Bug1068268) {
   EXPECT_EQ(ApzcOf(layers[5]), ApzcOf(layers[6])->GetParent());
 }
 
-TEST_F(APZCTreeManagerTester, Bug1194876) {
+TEST_F(APZCTreeManagerTester, Bug1194876)
+{
   CreateBug1194876Tree();
   ScopedLayerTreeRegistration registration(manager, 0, root, mcc);
   manager->UpdateHitTestingTree(0, root, false, 0, 0);
@@ -70,7 +73,8 @@ TEST_F(APZCTreeManagerTester, Bug1194876) {
   // layers[0], but we tell it the real target APZC is layers[0].
   MultiTouchInput mti;
   mti = CreateMultiTouchInput(MultiTouchInput::MULTITOUCH_START, mcc->Time());
-  mti.mTouches.AppendElement(SingleTouchData(0, ParentLayerPoint(25, 50), ScreenSize(0, 0), 0, 0));
+  mti.mTouches.AppendElement(
+      SingleTouchData(0, ParentLayerPoint(25, 50), ScreenSize(0, 0), 0, 0));
   manager->ReceiveInputEvent(mti, nullptr, &blockId);
   manager->ContentReceivedInputBlock(blockId, false);
   targets.AppendElement(ApzcOf(layers[0])->GetGuid());
@@ -81,7 +85,8 @@ TEST_F(APZCTreeManagerTester, Bug1194876) {
   // Second touch goes down (first touch remains down), APZCTM will again hit
   // layers[1]. Again we tell it both touches landed on layers[0], but because
   // layers[1] is the RCD layer, it will end up being the multitouch target.
-  mti.mTouches.AppendElement(SingleTouchData(1, ParentLayerPoint(75, 50), ScreenSize(0, 0), 0, 0));
+  mti.mTouches.AppendElement(
+      SingleTouchData(1, ParentLayerPoint(75, 50), ScreenSize(0, 0), 0, 0));
   manager->ReceiveInputEvent(mti, nullptr, &blockId);
   manager->ContentReceivedInputBlock(blockId, false);
   targets.AppendElement(ApzcOf(layers[0])->GetGuid());
@@ -94,7 +99,8 @@ TEST_F(APZCTreeManagerTester, Bug1194876) {
   EXPECT_CALL(*mcc, HandleTap(TapType::eLongTap, _, _, _, _)).Times(0);
 }
 
-TEST_F(APZCTreeManagerTester, Bug1198900) {
+TEST_F(APZCTreeManagerTester, Bug1198900)
+{
   // This is just a test that cancels a wheel event to make sure it doesn't
   // crash.
   CreateSimpleDTCScrollingLayer();
@@ -102,11 +108,16 @@ TEST_F(APZCTreeManagerTester, Bug1198900) {
   manager->UpdateHitTestingTree(0, root, false, 0, 0);
 
   ScreenPoint origin(100, 50);
-  ScrollWheelInput swi(MillisecondsSinceStartup(mcc->Time()), mcc->Time(), 0,
-    ScrollWheelInput::SCROLLMODE_INSTANT, ScrollWheelInput::SCROLLDELTA_PIXEL,
-    origin, 0, 10, false);
+  ScrollWheelInput swi(MillisecondsSinceStartup(mcc->Time()),
+                       mcc->Time(),
+                       0,
+                       ScrollWheelInput::SCROLLMODE_INSTANT,
+                       ScrollWheelInput::SCROLLDELTA_PIXEL,
+                       origin,
+                       0,
+                       10,
+                       false);
   uint64_t blockId;
   manager->ReceiveInputEvent(swi, nullptr, &blockId);
   manager->ContentReceivedInputBlock(blockId, /* preventDefault= */ true);
 }
-

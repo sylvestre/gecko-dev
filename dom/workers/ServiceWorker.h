@@ -9,7 +9,7 @@
 
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/BindingDeclarations.h"
-#include "mozilla/dom/ServiceWorkerBinding.h" // For ServiceWorkerState.
+#include "mozilla/dom/ServiceWorkerBinding.h"  // For ServiceWorkerState.
 
 class nsPIDOMWindowInner;
 
@@ -28,45 +28,38 @@ ServiceWorkerVisible(JSContext* aCx, JSObject* aObj);
 class ServiceWorker final : public DOMEventTargetHelper
 {
   friend class ServiceWorkerInfo;
-public:
+
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   IMPL_EVENT_HANDLER(statechange)
   IMPL_EVENT_HANDLER(error)
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  ServiceWorkerState
-  State() const
+  ServiceWorkerState State() const { return mState; }
+
+  void SetState(ServiceWorkerState aState) { mState = aState; }
+
+  void GetScriptURL(nsString& aURL) const;
+
+  void DispatchStateChange(ServiceWorkerState aState)
   {
-    return mState;
-  }
-
-  void
-  SetState(ServiceWorkerState aState)
-  {
-    mState = aState;
-  }
-
-  void
-  GetScriptURL(nsString& aURL) const;
-
-  void
-  DispatchStateChange(ServiceWorkerState aState)
-  {
-    DOMEventTargetHelper::DispatchTrustedEvent(NS_LITERAL_STRING("statechange"));
+    DOMEventTargetHelper::DispatchTrustedEvent(
+        NS_LITERAL_STRING("statechange"));
   }
 
 #ifdef XP_WIN
 #undef PostMessage
 #endif
 
-  void
-  PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
-              const Sequence<JSObject*>& aTransferable, ErrorResult& aRv);
+  void PostMessage(JSContext* aCx,
+                   JS::Handle<JS::Value> aMessage,
+                   const Sequence<JSObject*>& aTransferable,
+                   ErrorResult& aRv);
 
-private:
+ private:
   // This class can only be created from ServiceWorkerInfo::GetOrCreateInstance().
   ServiceWorker(nsPIDOMWindowInner* aWindow, ServiceWorkerInfo* aInfo);
 
@@ -77,8 +70,8 @@ private:
   const RefPtr<ServiceWorkerInfo> mInfo;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworker_h__
+#endif  // mozilla_dom_workers_serviceworker_h__

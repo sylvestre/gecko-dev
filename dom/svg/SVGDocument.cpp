@@ -51,7 +51,8 @@ SVGDocument::InsertChildAt(nsIContent* aKid, uint32_t aIndex, bool aNotify)
 }
 
 nsresult
-SVGDocument::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+SVGDocument::Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                   nsINode** aResult,
                    bool aPreallocateChildren) const
 {
   NS_ASSERTION(aNodeInfo->NodeInfoManager() == mNodeInfoManager,
@@ -97,7 +98,7 @@ SVGDocument::EnsureNonSVGUserAgentStyleSheetsLoaded()
     // EnsureOnDemandBuiltInUASheet prepends, and B2G/Fennec's
     // content.css must come after UASheet() etc.
     nsCOMPtr<nsICategoryManager> catMan =
-    do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
+        do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
     if (catMan) {
       nsCOMPtr<nsISimpleEnumerator> sheets;
       catMan->EnumerateCategory("agent-style-sheets", getter_AddRefs(sheets));
@@ -105,8 +106,7 @@ SVGDocument::EnsureNonSVGUserAgentStyleSheetsLoaded()
         bool hasMore;
         while (NS_SUCCEEDED(sheets->HasMoreElements(&hasMore)) && hasMore) {
           nsCOMPtr<nsISupports> sheet;
-          if (NS_FAILED(sheets->GetNext(getter_AddRefs(sheet))))
-            break;
+          if (NS_FAILED(sheets->GetNext(getter_AddRefs(sheet)))) break;
 
           nsCOMPtr<nsISupportsCString> icStr = do_QueryInterface(sheet);
           MOZ_ASSERT(icStr,
@@ -116,8 +116,8 @@ SVGDocument::EnsureNonSVGUserAgentStyleSheetsLoaded()
           icStr->GetData(name);
 
           nsCString spec;
-          catMan->GetCategoryEntry("agent-style-sheets", name.get(),
-                                   getter_Copies(spec));
+          catMan->GetCategoryEntry(
+              "agent-style-sheets", name.get(), getter_Copies(spec));
 
           mozilla::css::Loader* cssLoader = CSSLoader();
           if (cssLoader->GetEnabled()) {
@@ -125,9 +125,8 @@ SVGDocument::EnsureNonSVGUserAgentStyleSheetsLoaded()
             NS_NewURI(getter_AddRefs(uri), spec);
             if (uri) {
               RefPtr<StyleSheet> sheet;
-              cssLoader->LoadSheetSync(uri,
-                                       mozilla::css::eAgentSheetFeatures,
-                                       true, &sheet);
+              cssLoader->LoadSheetSync(
+                  uri, mozilla::css::eAgentSheetFeatures, true, &sheet);
               if (sheet) {
                 EnsureOnDemandBuiltInUASheet(sheet);
               }
@@ -159,8 +158,8 @@ SVGDocument::EnsureNonSVGUserAgentStyleSheetsLoaded()
   EndUpdate(UPDATE_STYLE);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 ////////////////////////////////////////////////////////////////////////
 // Exported creation functions

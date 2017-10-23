@@ -23,9 +23,13 @@ class nsISSLStatus;
 using mozilla::OriginAttributes;
 
 // {16955eee-6c48-4152-9309-c42a465138a1}
-#define NS_SITE_SECURITY_SERVICE_CID \
-  {0x16955eee, 0x6c48, 0x4152, \
-    {0x93, 0x09, 0xc4, 0x2a, 0x46, 0x51, 0x38, 0xa1} }
+#define NS_SITE_SECURITY_SERVICE_CID                 \
+  {                                                  \
+    0x16955eee, 0x6c48, 0x4152,                      \
+    {                                                \
+      0x93, 0x09, 0xc4, 0x2a, 0x46, 0x51, 0x38, 0xa1 \
+    }                                                \
+  }
 
 /**
  * SecurityPropertyState: A utility enum for representing the different states
@@ -36,14 +40,16 @@ using mozilla::OriginAttributes;
  * overridden, and the associated site does not have the security property
  * in question.
  */
-enum SecurityPropertyState {
+enum SecurityPropertyState
+{
   SecurityPropertyUnset = nsISiteSecurityState::SECURITY_PROPERTY_UNSET,
   SecurityPropertySet = nsISiteSecurityState::SECURITY_PROPERTY_SET,
   SecurityPropertyKnockout = nsISiteSecurityState::SECURITY_PROPERTY_KNOCKOUT,
   SecurityPropertyNegative = nsISiteSecurityState::SECURITY_PROPERTY_NEGATIVE,
 };
 
-enum SecurityPropertySource {
+enum SecurityPropertySource
+{
   SourceUnknown = nsISiteSecurityService::SOURCE_UNKNOWN,
   SourcePreload = nsISiteSecurityService::SOURCE_PRELOAD_LIST,
   SourceOrganic = nsISiteSecurityService::SOURCE_ORGANIC_REQUEST,
@@ -63,7 +69,7 @@ enum SecurityPropertySource {
  */
 class SiteHPKPState : public nsISiteHPKPState
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISITEHPKPSTATE
   NS_DECL_NSISITESECURITYSTATE
@@ -74,8 +80,10 @@ public:
                 const nsCString& aStateString);
   SiteHPKPState(const nsCString& aHost,
                 const OriginAttributes& aOriginAttributes,
-                PRTime aExpireTime, SecurityPropertyState aState,
-                bool aIncludeSubdomains, nsTArray<nsCString>& SHA256keys);
+                PRTime aExpireTime,
+                SecurityPropertyState aState,
+                bool aIncludeSubdomains,
+                nsTArray<nsCString>& SHA256keys);
 
   nsCString mHostname;
   OriginAttributes mOriginAttributes;
@@ -86,8 +94,8 @@ public:
 
   bool IsExpired(mozilla::pkix::Time aTime)
   {
-    if (aTime > mozilla::pkix::TimeFromEpochInSeconds(mExpireTime /
-                                                      PR_MSEC_PER_SEC)) {
+    if (aTime >
+        mozilla::pkix::TimeFromEpochInSeconds(mExpireTime / PR_MSEC_PER_SEC)) {
       return true;
     }
     return false;
@@ -95,8 +103,8 @@ public:
 
   void ToString(nsCString& aString);
 
-protected:
-  virtual ~SiteHPKPState() {};
+ protected:
+  virtual ~SiteHPKPState(){};
 };
 
 /**
@@ -111,7 +119,7 @@ protected:
  */
 class SiteHSTSState : public nsISiteHSTSState
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISITEHSTSSTATE
   NS_DECL_NSISITESECURITYSTATE
@@ -121,7 +129,8 @@ public:
                 const nsCString& aStateString);
   SiteHSTSState(const nsCString& aHost,
                 const OriginAttributes& aOriginAttributes,
-                PRTime aHSTSExpireTime, SecurityPropertyState aHSTSState,
+                PRTime aHSTSExpireTime,
+                SecurityPropertyState aHSTSState,
                 bool aHSTSIncludeSubdomains,
                 SecurityPropertySource aSource);
 
@@ -148,18 +157,17 @@ public:
     return false;
   }
 
-  void ToString(nsCString &aString);
+  void ToString(nsCString& aString);
 
-protected:
+ protected:
   virtual ~SiteHSTSState() {}
 };
 
 struct nsSTSPreload;
 
-class nsSiteSecurityService : public nsISiteSecurityService
-                            , public nsIObserver
+class nsSiteSecurityService : public nsISiteSecurityService, public nsIObserver
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
   NS_DECL_NSISITESECURITYSERVICE
@@ -167,54 +175,75 @@ public:
   nsSiteSecurityService();
   nsresult Init();
 
-protected:
+ protected:
   virtual ~nsSiteSecurityService();
 
-private:
-  nsresult GetHost(nsIURI *aURI, nsACString &aResult);
-  nsresult SetHSTSState(uint32_t aType, const char* aHost, int64_t maxage,
-                        bool includeSubdomains, uint32_t flags,
+ private:
+  nsresult GetHost(nsIURI* aURI, nsACString& aResult);
+  nsresult SetHSTSState(uint32_t aType,
+                        const char* aHost,
+                        int64_t maxage,
+                        bool includeSubdomains,
+                        uint32_t flags,
                         SecurityPropertyState aHSTSState,
                         SecurityPropertySource aSource,
                         const OriginAttributes& aOriginAttributes);
-  nsresult ProcessHeaderInternal(uint32_t aType, nsIURI* aSourceURI,
+  nsresult ProcessHeaderInternal(uint32_t aType,
+                                 nsIURI* aSourceURI,
                                  const nsCString& aHeader,
                                  nsISSLStatus* aSSLStatus,
                                  uint32_t aFlags,
                                  SecurityPropertySource aSource,
                                  const OriginAttributes& aOriginAttributes,
-                                 uint64_t* aMaxAge, bool* aIncludeSubdomains,
+                                 uint64_t* aMaxAge,
+                                 bool* aIncludeSubdomains,
                                  uint32_t* aFailureResult);
-  nsresult ProcessSTSHeader(nsIURI* aSourceURI, const nsCString& aHeader,
+  nsresult ProcessSTSHeader(nsIURI* aSourceURI,
+                            const nsCString& aHeader,
                             uint32_t flags,
                             SecurityPropertySource aSource,
                             const OriginAttributes& aOriginAttributes,
-                            uint64_t* aMaxAge, bool* aIncludeSubdomains,
+                            uint64_t* aMaxAge,
+                            bool* aIncludeSubdomains,
                             uint32_t* aFailureResult);
-  nsresult ProcessPKPHeader(nsIURI* aSourceURI, const nsCString& aHeader,
-                            nsISSLStatus* aSSLStatus, uint32_t flags,
+  nsresult ProcessPKPHeader(nsIURI* aSourceURI,
+                            const nsCString& aHeader,
+                            nsISSLStatus* aSSLStatus,
+                            uint32_t flags,
                             const OriginAttributes& aOriginAttributes,
-                            uint64_t* aMaxAge, bool* aIncludeSubdomains,
+                            uint64_t* aMaxAge,
+                            bool* aIncludeSubdomains,
                             uint32_t* aFailureResult);
-  nsresult SetHPKPState(const char* aHost, SiteHPKPState& entry, uint32_t flags,
+  nsresult SetHPKPState(const char* aHost,
+                        SiteHPKPState& entry,
+                        uint32_t flags,
                         bool aIsPreload,
                         const OriginAttributes& aOriginAttributes);
-  nsresult RemoveStateInternal(uint32_t aType, nsIURI* aURI, uint32_t aFlags,
+  nsresult RemoveStateInternal(uint32_t aType,
+                               nsIURI* aURI,
+                               uint32_t aFlags,
                                const OriginAttributes& aOriginAttributes);
-  nsresult RemoveStateInternal(uint32_t aType, const nsAutoCString& aHost,
-                               uint32_t aFlags, bool aIsPreload,
+  nsresult RemoveStateInternal(uint32_t aType,
+                               const nsAutoCString& aHost,
+                               uint32_t aFlags,
+                               bool aIsPreload,
                                const OriginAttributes& aOriginAttributes);
   bool HostHasHSTSEntry(const nsAutoCString& aHost,
-                        bool aRequireIncludeSubdomains, uint32_t aFlags,
-                        const OriginAttributes& aOriginAttributes,
-                        bool* aResult, bool* aCached,
-                        SecurityPropertySource* aSource);
-  bool GetPreloadStatus(const nsACString& aHost,
-                        /*optional out*/ bool* aIncludeSubdomains = nullptr) const;
-  nsresult IsSecureHost(uint32_t aType, const nsACString& aHost,
+                        bool aRequireIncludeSubdomains,
                         uint32_t aFlags,
                         const OriginAttributes& aOriginAttributes,
-                        bool* aCached, SecurityPropertySource* aSource,
+                        bool* aResult,
+                        bool* aCached,
+                        SecurityPropertySource* aSource);
+  bool GetPreloadStatus(
+      const nsACString& aHost,
+      /*optional out*/ bool* aIncludeSubdomains = nullptr) const;
+  nsresult IsSecureHost(uint32_t aType,
+                        const nsACString& aHost,
+                        uint32_t aFlags,
+                        const OriginAttributes& aOriginAttributes,
+                        bool* aCached,
+                        SecurityPropertySource* aSource,
                         bool* aResult);
 
   uint64_t mMaxMaxAge;
@@ -226,4 +255,4 @@ private:
   const mozilla::Dafsa mDafsa;
 };
 
-#endif // __nsSiteSecurityService_h__
+#endif  // __nsSiteSecurityService_h__

@@ -33,21 +33,23 @@ namespace mozilla {
  *
  * The implementation uses a circular buffer using absolute virtual indices.
  */
-template <typename InputType, typename OutputType>
+template<typename InputType, typename OutputType>
 class AudioPacketizer
 {
-public:
+ public:
   AudioPacketizer(uint32_t aPacketSize, uint32_t aChannels)
-    : mPacketSize(aPacketSize)
-    , mChannels(aChannels)
-    , mReadIndex(0)
-    , mWriteIndex(0)
-    // Start off with a single packet
-    , mStorage(new InputType[aPacketSize * aChannels])
-    , mLength(aPacketSize * aChannels)
+      : mPacketSize(aPacketSize),
+        mChannels(aChannels),
+        mReadIndex(0),
+        mWriteIndex(0)
+        // Start off with a single packet
+        ,
+        mStorage(new InputType[aPacketSize * aChannels]),
+        mLength(aPacketSize * aChannels)
   {
-     MOZ_ASSERT(aPacketSize > 0 && aChannels > 0,
-       "The packet size and the number of channel should be strictly positive");
+    MOZ_ASSERT(aPacketSize > 0 && aChannels > 0,
+               "The packet size and the number of channel should be strictly "
+               "positive");
   }
 
   void Input(const InputType* aFrames, uint32_t aFrameCount)
@@ -66,15 +68,13 @@ public:
       mStorage = mozilla::MakeUnique<InputType[]>(newLength);
       // Copy the old data at the beginning of the new storage.
       if (WriteIndex() >= ReadIndex()) {
-        PodCopy(mStorage.get(),
-                oldStorage.get() + ReadIndex(),
-                AvailableSamples());
+        PodCopy(
+            mStorage.get(), oldStorage.get() + ReadIndex(), AvailableSamples());
       } else {
         uint32_t firstPartLength = mLength - ReadIndex();
         uint32_t secondPartLength = AvailableSamples() - firstPartLength;
-        PodCopy(mStorage.get(),
-                oldStorage.get() + ReadIndex(),
-                firstPartLength);
+        PodCopy(
+            mStorage.get(), oldStorage.get() + ReadIndex(), firstPartLength);
         PodCopy(mStorage.get() + firstPartLength,
                 oldStorage.get(),
                 secondPartLength);
@@ -114,9 +114,12 @@ public:
     if (AvailableSamples() < samplesNeeded) {
 #ifdef LOG_PACKETIZER_UNDERRUN
       char buf[256];
-      snprintf(buf, 256,
+      snprintf(buf,
+               256,
                "AudioPacketizer %p underrun: available: %u, needed: %u\n",
-               this, AvailableSamples(), samplesNeeded);
+               this,
+               AvailableSamples(),
+               samplesNeeded);
       NS_WARNING(buf);
 #endif
       uint32_t zeros = samplesNeeded - AvailableSamples();
@@ -124,58 +127,40 @@ public:
       samplesNeeded -= zeros;
     }
     if (ReadIndex() + samplesNeeded <= mLength) {
-      ConvertAudioSamples<InputType,OutputType>(mStorage.get() + ReadIndex(),
-                                                aOutputBuffer,
-                                                samplesNeeded);
+      ConvertAudioSamples<InputType, OutputType>(
+          mStorage.get() + ReadIndex(), aOutputBuffer, samplesNeeded);
     } else {
       uint32_t firstPartLength = mLength - ReadIndex();
       uint32_t secondPartLength = samplesNeeded - firstPartLength;
-      ConvertAudioSamples<InputType, OutputType>(mStorage.get() + ReadIndex(),
-                                                 aOutputBuffer,
-                                                 firstPartLength);
-      ConvertAudioSamples<InputType, OutputType>(mStorage.get(),
-                                                 aOutputBuffer + firstPartLength,
-                                                 secondPartLength);
+      ConvertAudioSamples<InputType, OutputType>(
+          mStorage.get() + ReadIndex(), aOutputBuffer, firstPartLength);
+      ConvertAudioSamples<InputType, OutputType>(
+          mStorage.get(), aOutputBuffer + firstPartLength, secondPartLength);
     }
     mReadIndex += samplesNeeded;
   }
 
-  uint32_t PacketsAvailable() const {
+  uint32_t PacketsAvailable() const
+  {
     return AvailableSamples() / mChannels / mPacketSize;
   }
 
-  bool Empty() const {
-   return mWriteIndex == mReadIndex;
-  }
+  bool Empty() const { return mWriteIndex == mReadIndex; }
 
-  bool Full() const {
-    return mWriteIndex - mReadIndex == mLength;
-  }
+  bool Full() const { return mWriteIndex - mReadIndex == mLength; }
 
-  uint32_t PacketSize() const {
-    return mPacketSize;
-  }
+  uint32_t PacketSize() const { return mPacketSize; }
 
-  uint32_t Channels() const {
-    return mChannels;
-  }
+  uint32_t Channels() const { return mChannels; }
 
-private:
-  uint32_t ReadIndex() const {
-    return mReadIndex % mLength;
-  }
+ private:
+  uint32_t ReadIndex() const { return mReadIndex % mLength; }
 
-  uint32_t WriteIndex() const {
-    return mWriteIndex % mLength;
-  }
+  uint32_t WriteIndex() const { return mWriteIndex % mLength; }
 
-  uint32_t AvailableSamples() const {
-    return mWriteIndex - mReadIndex;
-  }
+  uint32_t AvailableSamples() const { return mWriteIndex - mReadIndex; }
 
-  uint32_t EmptySlots() const {
-    return mLength - AvailableSamples();
-  }
+  uint32_t EmptySlots() const { return mLength - AvailableSamples(); }
 
   // Size of one packet of audio, in frames
   uint32_t mPacketSize;
@@ -191,6 +176,6 @@ private:
   uint32_t mLength;
 };
 
-} // mozilla
+}  // namespace mozilla
 
-#endif // AudioPacketizer_h_
+#endif  // AudioPacketizer_h_

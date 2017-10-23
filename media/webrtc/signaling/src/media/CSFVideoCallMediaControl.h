@@ -9,20 +9,19 @@
 
 #if __cplusplus
 
-namespace CSF
+namespace CSF {
+class VideoCallMediaControl
 {
-	class VideoCallMediaControl
-	{
-	public:
-		virtual void setVideoMode( VideoEnableMode mode ) = 0;
+ public:
+  virtual void setVideoMode(VideoEnableMode mode) = 0;
 
-		// window type is platform-specific
-		virtual void setRemoteWindow( VideoWindowHandle window ) = 0;
-		virtual void showRemoteWindow( bool show ) = 0;
-	};
+  // window type is platform-specific
+  virtual void setRemoteWindow(VideoWindowHandle window) = 0;
+  virtual void showRemoteWindow(bool show) = 0;
+};
 
-} // namespace
+}  // namespace CSF
 
-#endif // __cplusplus
+#endif  // __cplusplus
 
 #endif /* CSFVIDEOCALLMEDIACONTROL_H_ */

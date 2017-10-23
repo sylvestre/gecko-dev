@@ -16,7 +16,8 @@ WidevineFileIO::Open(const char* aFilename, uint32_t aFilenameLength)
 {
   mName = std::string(aFilename, aFilename + aFilenameLength);
   GMPRecord* record = nullptr;
-  GMPErr err = sPlatform->createrecord(aFilename, aFilenameLength, &record, static_cast<GMPRecordClient*>(this));
+  GMPErr err = sPlatform->createrecord(
+      aFilename, aFilenameLength, &record, static_cast<GMPRecordClient*>(this));
   if (GMP_FAILED(err)) {
     GMP_LOG("WidevineFileIO::Open() '%s' GMPCreateRecord failed",
             mName.c_str());
@@ -71,9 +72,12 @@ static FileIOClient::Status
 GMPToWidevineFileStatus(GMPErr aStatus)
 {
   switch (aStatus) {
-    case GMPRecordInUse: return FileIOClient::kInUse;
-    case GMPNoErr: return FileIOClient::kSuccess;
-    default: return FileIOClient::kError;
+    case GMPRecordInUse:
+      return FileIOClient::kInUse;
+    case GMPNoErr:
+      return FileIOClient::kSuccess;
+    default:
+      return FileIOClient::kError;
   }
 }
 
@@ -81,7 +85,7 @@ void
 WidevineFileIO::OpenComplete(GMPErr aStatus)
 {
   GMP_LOG(
-    "WidevineFileIO::OpenComplete() '%s' status=%d", mName.c_str(), aStatus);
+      "WidevineFileIO::OpenComplete() '%s' status=%d", mName.c_str(), aStatus);
   mClient->OnOpenComplete(GMPToWidevineFileStatus(aStatus));
 }
 
@@ -90,8 +94,9 @@ WidevineFileIO::ReadComplete(GMPErr aStatus,
                              const uint8_t* aData,
                              uint32_t aDataSize)
 {
-  GMP_LOG(
-    "WidevineFileIO::OnReadComplete() '%s' status=%d", mName.c_str(), aStatus);
+  GMP_LOG("WidevineFileIO::OnReadComplete() '%s' status=%d",
+          mName.c_str(),
+          aStatus);
   mClient->OnReadComplete(GMPToWidevineFileStatus(aStatus), aData, aDataSize);
 }
 
@@ -99,8 +104,8 @@ void
 WidevineFileIO::WriteComplete(GMPErr aStatus)
 {
   GMP_LOG(
-    "WidevineFileIO::WriteComplete() '%s' status=%d", mName.c_str(), aStatus);
+      "WidevineFileIO::WriteComplete() '%s' status=%d", mName.c_str(), aStatus);
   mClient->OnWriteComplete(GMPToWidevineFileStatus(aStatus));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

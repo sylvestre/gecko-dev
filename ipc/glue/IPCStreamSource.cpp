@@ -22,14 +22,14 @@ using mozilla::wr::ByteBuffer;
 namespace mozilla {
 namespace ipc {
 
-class IPCStreamSource::Callback final : public nsIInputStreamCallback
-                                      , public nsIRunnable
-                                      , public nsICancelableRunnable
+class IPCStreamSource::Callback final : public nsIInputStreamCallback,
+                                        public nsIRunnable,
+                                        public nsICancelableRunnable
 {
-public:
+ public:
   explicit Callback(IPCStreamSource* aSource)
-    : mSource(aSource)
-    , mOwningEventTarget(GetCurrentThreadSerialEventTarget())
+      : mSource(aSource),
+        mOwningEventTarget(GetCurrentThreadSerialEventTarget())
   {
     MOZ_ASSERT(mSource);
   }
@@ -45,7 +45,8 @@ public:
     // If this fails, then it means the owning thread is a Worker that has
     // been shutdown.  Its ok to lose the event in this case because the
     // IPCStreamChild listens for this event through the WorkerHolder.
-    nsresult rv = mOwningEventTarget->Dispatch(this, nsIThread::DISPATCH_NORMAL);
+    nsresult rv =
+        mOwningEventTarget->Dispatch(this, nsIThread::DISPATCH_NORMAL);
     if (NS_FAILED(rv)) {
       NS_WARNING("Failed to dispatch stream readable event to owning thread");
     }
@@ -63,8 +64,7 @@ public:
     return NS_OK;
   }
 
-  nsresult
-  Cancel() override
+  nsresult Cancel() override
   {
     // Cancel() gets called when the Worker thread is being shutdown.  We have
     // nothing to do here because IPCStreamChild handles this case via
@@ -72,15 +72,14 @@ public:
     return NS_OK;
   }
 
-  void
-  ClearSource()
+  void ClearSource()
   {
     MOZ_ASSERT(mOwningEventTarget->IsOnCurrentThread());
     MOZ_ASSERT(mSource);
     mSource = nullptr;
   }
 
-private:
+ private:
   ~Callback()
   {
     // called on any thread
@@ -99,14 +98,13 @@ private:
   NS_DECL_THREADSAFE_ISUPPORTS
 };
 
-NS_IMPL_ISUPPORTS(IPCStreamSource::Callback, nsIInputStreamCallback,
-                                             nsIRunnable,
-                                             nsICancelableRunnable);
+NS_IMPL_ISUPPORTS(IPCStreamSource::Callback,
+                  nsIInputStreamCallback,
+                  nsIRunnable,
+                  nsICancelableRunnable);
 
 IPCStreamSource::IPCStreamSource(nsIAsyncInputStream* aInputStream)
-  : mStream(aInputStream)
-  , mWorkerPrivate(nullptr)
-  , mState(ePending)
+    : mStream(aInputStream), mWorkerPrivate(nullptr), mState(ePending)
 {
   MOZ_ASSERT(aInputStream);
 }
@@ -308,5 +306,5 @@ IPCStreamSource::OnEnd(nsresult aRv)
   Close(aRv);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

@@ -19,79 +19,77 @@ using namespace mozilla::ipc;
 
 AutoMemMap::~AutoMemMap()
 {
-    if (fileMap) {
-        if (addr) {
-            Unused << NS_WARN_IF(PR_MemUnmap(addr, size()) != PR_SUCCESS);
-            addr = nullptr;
-        }
-
-        Unused << NS_WARN_IF(PR_CloseFileMap(fileMap) != PR_SUCCESS);
-        fileMap = nullptr;
+  if (fileMap) {
+    if (addr) {
+      Unused << NS_WARN_IF(PR_MemUnmap(addr, size()) != PR_SUCCESS);
+      addr = nullptr;
     }
+
+    Unused << NS_WARN_IF(PR_CloseFileMap(fileMap) != PR_SUCCESS);
+    fileMap = nullptr;
+  }
 }
 
 FileDescriptor
 AutoMemMap::cloneFileDescriptor()
 {
-    if (fd.get()) {
-        auto handle = FileDescriptor::PlatformHandleType(PR_FileDesc2NativeHandle(fd.get()));
-        return FileDescriptor(handle);
-    }
-    return FileDescriptor();
+  if (fd.get()) {
+    auto handle =
+        FileDescriptor::PlatformHandleType(PR_FileDesc2NativeHandle(fd.get()));
+    return FileDescriptor(handle);
+  }
+  return FileDescriptor();
 }
 
 Result<Ok, nsresult>
 AutoMemMap::init(nsIFile* file, int flags, int mode, PRFileMapProtect prot)
 {
-    MOZ_ASSERT(!fd);
+  MOZ_ASSERT(!fd);
 
-    MOZ_TRY(file->OpenNSPRFileDesc(flags, mode, &fd.rwget()));
+  MOZ_TRY(file->OpenNSPRFileDesc(flags, mode, &fd.rwget()));
 
-    return initInternal(prot);
+  return initInternal(prot);
 }
 
 Result<Ok, nsresult>
 AutoMemMap::init(const FileDescriptor& file)
 {
-    MOZ_ASSERT(!fd);
-    if (!file.IsValid()) {
-        return Err(NS_ERROR_INVALID_ARG);
-    }
+  MOZ_ASSERT(!fd);
+  if (!file.IsValid()) {
+    return Err(NS_ERROR_INVALID_ARG);
+  }
 
-    auto handle = file.ClonePlatformHandle();
+  auto handle = file.ClonePlatformHandle();
 
-    fd = PR_ImportFile(PROsfd(handle.get()));
-    if (!fd) {
-        return Err(NS_ERROR_FAILURE);
-    }
-    Unused << handle.release();
+  fd = PR_ImportFile(PROsfd(handle.get()));
+  if (!fd) {
+    return Err(NS_ERROR_FAILURE);
+  }
+  Unused << handle.release();
 
-    return initInternal();
+  return initInternal();
 }
 
 Result<Ok, nsresult>
 AutoMemMap::initInternal(PRFileMapProtect prot)
 {
-    MOZ_ASSERT(!fileMap);
-    MOZ_ASSERT(!addr);
+  MOZ_ASSERT(!fileMap);
+  MOZ_ASSERT(!addr);
 
-    PRFileInfo64 fileInfo;
-    MOZ_TRY(PR_GetOpenFileInfo64(fd.get(), &fileInfo));
+  PRFileInfo64 fileInfo;
+  MOZ_TRY(PR_GetOpenFileInfo64(fd.get(), &fileInfo));
 
-    if (fileInfo.size > UINT32_MAX)
-        return Err(NS_ERROR_INVALID_ARG);
+  if (fileInfo.size > UINT32_MAX) return Err(NS_ERROR_INVALID_ARG);
 
-    fileMap = PR_CreateFileMap(fd, 0, prot);
-    if (!fileMap)
-        return Err(NS_ERROR_FAILURE);
+  fileMap = PR_CreateFileMap(fd, 0, prot);
+  if (!fileMap) return Err(NS_ERROR_FAILURE);
 
-    size_ = fileInfo.size;
-    addr = PR_MemMap(fileMap, 0, size_);
-    if (!addr)
-        return Err(NS_ERROR_FAILURE);
+  size_ = fileInfo.size;
+  addr = PR_MemMap(fileMap, 0, size_);
+  if (!addr) return Err(NS_ERROR_FAILURE);
 
-    return Ok();
+  return Ok();
 }
 
-} // namespace loader
-} // namespace mozilla
+}  // namespace loader
+}  // namespace mozilla

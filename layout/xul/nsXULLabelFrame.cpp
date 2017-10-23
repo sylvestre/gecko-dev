@@ -28,22 +28,19 @@ nsresult
 nsXULLabelFrame::RegUnregAccessKey(bool aDoReg)
 {
   // if we have no content, we can't do anything
-  if (!mContent)
-    return NS_ERROR_FAILURE;
+  if (!mContent) return NS_ERROR_FAILURE;
 
   // To filter out <label>s without a control attribute.
   // XXXjag a side-effect is that we filter out anonymous <label>s
   // in e.g. <menu>, <menuitem>, <button>. These <label>s inherit
   // |accesskey| and would otherwise register themselves, overwriting
   // the content we really meant to be registered.
-  if (!mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::control))
-    return NS_OK;
+  if (!mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::control)) return NS_OK;
 
   nsAutoString accessKey;
   mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::accesskey, accessKey);
 
-  if (accessKey.IsEmpty())
-    return NS_OK;
+  if (accessKey.IsEmpty()) return NS_OK;
 
   // With a valid PresContext we can get the ESM
   // and register the access key
@@ -62,9 +59,9 @@ nsXULLabelFrame::RegUnregAccessKey(bool aDoReg)
 // nsIFrame
 
 void
-nsXULLabelFrame::Init(nsIContent*       aContent,
+nsXULLabelFrame::Init(nsIContent* aContent,
                       nsContainerFrame* aParent,
-                      nsIFrame*         aPrevInFlow)
+                      nsIFrame* aPrevInFlow)
 {
   nsBlockFrame::Init(aContent, aParent, aPrevInFlow);
 
@@ -85,8 +82,8 @@ nsXULLabelFrame::AttributeChanged(int32_t aNameSpaceID,
                                   nsAtom* aAttribute,
                                   int32_t aModType)
 {
-  nsresult rv = nsBlockFrame::AttributeChanged(aNameSpaceID,
-                                               aAttribute, aModType);
+  nsresult rv =
+      nsBlockFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 
   // If the accesskey changed, register for the new value
   // The old value has been unregistered in nsXULElement::SetAttr
@@ -96,8 +93,8 @@ nsXULLabelFrame::AttributeChanged(int32_t aNameSpaceID,
   return rv;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Diagnostics
+  /////////////////////////////////////////////////////////////////////////////
+  // Diagnostics
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult

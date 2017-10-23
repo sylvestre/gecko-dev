@@ -77,16 +77,17 @@ struct CacheEntry
   UniquePtr<char[]> data;
   uint32_t size;
 
-  CacheEntry() : size(0) { }
+  CacheEntry() : size(0) {}
 
   // Takes possession of buf
-  CacheEntry(UniquePtr<char[]> buf, uint32_t len) : data(Move(buf)), size(len) { }
-
-  ~CacheEntry()
+  CacheEntry(UniquePtr<char[]> buf, uint32_t len) : data(Move(buf)), size(len)
   {
   }
 
-  size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
+  ~CacheEntry() {}
+
+  size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf)
+  {
     return mallocSizeOf(this) + mallocSizeOf(data.get());
   }
 };
@@ -102,18 +103,19 @@ class StartupCacheListener final : public nsIObserver
 
 class StartupCache : public nsIMemoryReporter
 {
+  friend class StartupCacheListener;
+  friend class StartupCacheWrapper;
 
-friend class StartupCacheListener;
-friend class StartupCacheWrapper;
-
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIMEMORYREPORTER
 
   // StartupCache methods. See above comments for a more detailed description.
 
   // Returns a buffer that was previously stored, caller takes ownership.
-  nsresult GetBuffer(const char* id, UniquePtr<char[]>* outbuf, uint32_t* length);
+  nsresult GetBuffer(const char* id,
+                     UniquePtr<char[]>* outbuf,
+                     uint32_t* length);
 
   // Stores a buffer. Caller keeps ownership, we make a copy.
   nsresult PutBuffer(const char* id, const char* inbuf, uint32_t length);
@@ -141,7 +143,8 @@ public:
   // FOR TESTING ONLY
   nsresult ResetStartupWriteTimer();
   bool StartupWriteComplete();
-private:
+
+ private:
   StartupCache();
   virtual ~StartupCache();
 
@@ -151,8 +154,8 @@ private:
   void WaitOnWriteThread();
 
   static nsresult InitSingleton();
-  static void WriteTimeout(nsITimer *aTimer, void *aClosure);
-  static void ThreadedWrite(void *aClosure);
+  static void WriteTimeout(nsITimer* aTimer, void* aClosure);
+  static void ThreadedWrite(void* aClosure);
 
   nsClassHashtable<nsCStringHashKey, CacheEntry> mTable;
   nsTArray<nsCString> mPendingWrites;
@@ -168,7 +171,7 @@ private:
   static StaticRefPtr<StartupCache> gStartupCache;
   static bool gShutdownInitiated;
   static bool gIgnoreDiskCache;
-  PRThread *mWriteThread;
+  PRThread* mWriteThread;
 #ifdef DEBUG
   nsTHashtable<nsISupportsHashKey> mWriteObjectMap;
 #endif
@@ -178,17 +181,18 @@ private:
 // references to the same object. We only support that if that object
 // is a singleton.
 #ifdef DEBUG
-class StartupCacheDebugOutputStream final
-  : public nsIObjectOutputStream
+class StartupCacheDebugOutputStream final : public nsIObjectOutputStream
 {
   ~StartupCacheDebugOutputStream() {}
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBJECTOUTPUTSTREAM
 
-  StartupCacheDebugOutputStream (nsIObjectOutputStream* binaryStream,
-                                   nsTHashtable<nsISupportsHashKey>* objectMap)
-  : mBinaryStream(binaryStream), mObjectMap(objectMap) { }
+  StartupCacheDebugOutputStream(nsIObjectOutputStream* binaryStream,
+                                nsTHashtable<nsISupportsHashKey>* objectMap)
+      : mBinaryStream(binaryStream), mObjectMap(objectMap)
+  {
+  }
 
   NS_FORWARD_SAFE_NSIBINARYOUTPUTSTREAM(mBinaryStream)
   NS_FORWARD_SAFE_NSIOUTPUTSTREAM(mBinaryStream)
@@ -196,18 +200,21 @@ class StartupCacheDebugOutputStream final
   bool CheckReferences(nsISupports* aObject);
 
   nsCOMPtr<nsIObjectOutputStream> mBinaryStream;
-  nsTHashtable<nsISupportsHashKey> *mObjectMap;
+  nsTHashtable<nsISupportsHashKey>* mObjectMap;
 };
-#endif // DEBUG
+#endif  // DEBUG
 
 // XPCOM wrapper interface provided for tests only.
-#define NS_STARTUPCACHE_CID \
-      {0xae4505a9, 0x87ab, 0x477c, \
-      {0xb5, 0x77, 0xf9, 0x23, 0x57, 0xed, 0xa8, 0x84}}
+#define NS_STARTUPCACHE_CID                          \
+  {                                                  \
+    0xae4505a9, 0x87ab, 0x477c,                      \
+    {                                                \
+      0xb5, 0x77, 0xf9, 0x23, 0x57, 0xed, 0xa8, 0x84 \
+    }                                                \
+  }
 // contract id: "@mozilla.org/startupcache/cache;1"
 
-class StartupCacheWrapper final
-  : public nsIStartupCache
+class StartupCacheWrapper final : public nsIStartupCache
 {
   ~StartupCacheWrapper() {}
 
@@ -215,10 +222,10 @@ class StartupCacheWrapper final
   NS_DECL_NSISTARTUPCACHE
 
   static StartupCacheWrapper* GetSingleton();
-  static StartupCacheWrapper *gStartupCacheWrapper;
+  static StartupCacheWrapper* gStartupCacheWrapper;
 };
 
-} // namespace scache
-} // namespace mozilla
+}  // namespace scache
+}  // namespace mozilla
 
-#endif //StartupCache_h_
+#endif  //StartupCache_h_

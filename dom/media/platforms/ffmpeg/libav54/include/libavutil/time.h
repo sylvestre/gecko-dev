@@ -24,7 +24,8 @@
 /**
  * Get the current time in microseconds.
  */
-int64_t av_gettime(void);
+int64_t
+av_gettime(void);
 
 /**
  * Sleep for a period of time.  Although the duration is expressed in
@@ -34,6 +35,7 @@ int64_t av_gettime(void);
  * @param  usec Number of microseconds to sleep.
  * @return zero on success or (negative) error code.
  */
-int av_usleep(unsigned usec);
+int
+av_usleep(unsigned usec);
 
 #endif /* AVUTIL_TIME_H */

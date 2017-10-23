@@ -20,10 +20,9 @@ namespace dom {
 struct TreeCellInfo;
 class DOMRect;
 
-class TreeBoxObject final : public BoxObject,
-                            public nsITreeBoxObject
+class TreeBoxObject final : public BoxObject, public nsITreeBoxObject
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TreeBoxObject, BoxObject)
   NS_DECL_NSITREEBOXOBJECT
@@ -38,7 +37,8 @@ public:
   virtual void ClearCachedValues() override;
 
   // WebIDL
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   already_AddRefed<nsTreeColumns> GetColumns();
 
@@ -79,7 +79,8 @@ public:
 
   // Deprecated APIs from old IDL
   void GetCellAt(JSContext* cx,
-                 int32_t x, int32_t y,
+                 int32_t x,
+                 int32_t y,
                  JS::Handle<JSObject*> rowOut,
                  JS::Handle<JSObject*> colOut,
                  JS::Handle<JSObject*> childEltOut,
@@ -116,15 +117,15 @@ public:
   // void InvalidateColumnRange(int32_t startIndex, int32_t endIndex, nsITreeColumn* col);
   // void RowCountChanged(int32_t index, int32_t count);
 
-protected:
+ protected:
   nsTreeBodyFrame* mTreeBody;
   nsCOMPtr<nsITreeView> mView;
 
-private:
+ private:
   ~TreeBoxObject();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

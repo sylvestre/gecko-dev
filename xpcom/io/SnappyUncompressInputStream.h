@@ -16,16 +16,16 @@
 
 namespace mozilla {
 
-class SnappyUncompressInputStream final : public nsIInputStream
-                                        , protected detail::SnappyFrameUtils
+class SnappyUncompressInputStream final : public nsIInputStream,
+                                          protected detail::SnappyFrameUtils
 {
-public:
+ public:
   // Construct a new blocking stream to uncompress the given base stream.  The
   // base stream must also be blocking.  The base stream does not have to be
   // buffered.
   explicit SnappyUncompressInputStream(nsIInputStream* aBaseStream);
 
-private:
+ private:
   virtual ~SnappyUncompressInputStream();
 
   // Parse the next chunk of data.  This may populate mBuffer and set
@@ -44,7 +44,9 @@ private:
   //                  NS_ERROR_CORRUPTED_CONTENT.  If nothing was read due
   //                  due to EOF (aBytesReadOut == 0), then NS_OK is returned.
   // aBytesReadOut  - An out parameter indicating how many bytes were read.
-  nsresult ReadAll(char* aBuf, uint32_t aCount, uint32_t aMinValidCount,
+  nsresult ReadAll(char* aBuf,
+                   uint32_t aCount,
+                   uint32_t aMinValidCount,
                    uint32_t* aBytesReadOut);
 
   // Convenience routine to determine how many bytes of uncompressed data
@@ -80,11 +82,11 @@ private:
   // expecting it?
   bool mNeedFirstStreamIdentifier;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINPUTSTREAM
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SnappyUncompressInputStream_h__
+#endif  // mozilla_SnappyUncompressInputStream_h__

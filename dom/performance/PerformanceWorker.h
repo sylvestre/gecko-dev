@@ -18,7 +18,7 @@ class WorkerPrivate;
 
 class PerformanceWorker final : public Performance
 {
-public:
+ public:
   explicit PerformanceWorker(workers::WorkerPrivate* aWorkerPrivate);
 
   virtual PerformanceTiming* Timing() override
@@ -43,7 +43,7 @@ public:
 
   DOMHighResTimeStamp CreationTime() const override;
 
-  virtual void GetMozMemory(JSContext *aCx,
+  virtual void GetMozMemory(JSContext* aCx,
                             JS::MutableHandle<JSObject*> aObj) override
   {
     MOZ_CRASH("This should not be called on workers.");
@@ -61,7 +61,7 @@ public:
     return nullptr;
   }
 
-protected:
+ protected:
   ~PerformanceWorker();
 
   void InsertUserEntry(PerformanceEntry* aEntry) override;
@@ -71,11 +71,11 @@ protected:
     MOZ_CRASH("This should not be called on workers.");
   }
 
-private:
+ private:
   workers::WorkerPrivate* mWorkerPrivate;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PerformanceWorker_h
+#endif  // mozilla_dom_PerformanceWorker_h

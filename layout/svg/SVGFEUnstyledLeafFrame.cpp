@@ -12,20 +12,23 @@
 
 class SVGFEUnstyledLeafFrame : public nsFrame
 {
-  friend nsIFrame*
-  NS_NewSVGFEUnstyledLeafFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
-protected:
+  friend nsIFrame* NS_NewSVGFEUnstyledLeafFrame(nsIPresShell* aPresShell,
+                                                nsStyleContext* aContext);
+
+ protected:
   explicit SVGFEUnstyledLeafFrame(nsStyleContext* aContext)
-    : nsFrame(aContext, kClassID)
+      : nsFrame(aContext, kClassID)
   {
     AddStateBits(NS_FRAME_SVG_LAYOUT | NS_FRAME_IS_NONDISPLAY);
   }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(SVGFEUnstyledLeafFrame)
 
   virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
-                                const nsDisplayListSet& aLists) override {}
+                                const nsDisplayListSet& aLists) override
+  {
+  }
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
@@ -39,11 +42,12 @@ public:
   }
 #endif
 
-  virtual nsresult AttributeChanged(int32_t  aNameSpaceID,
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
-                                    int32_t  aModType) override;
+                                    int32_t aModType) override;
 
-  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override {
+  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override
+  {
     // We don't maintain a visual overflow rect
     return false;
   }
@@ -58,15 +62,18 @@ NS_NewSVGFEUnstyledLeafFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(SVGFEUnstyledLeafFrame)
 
 nsresult
-SVGFEUnstyledLeafFrame::AttributeChanged(int32_t  aNameSpaceID,
+SVGFEUnstyledLeafFrame::AttributeChanged(int32_t aNameSpaceID,
                                          nsAtom* aAttribute,
-                                         int32_t  aModType)
+                                         int32_t aModType)
 {
-  SVGFEUnstyledElement *element = static_cast<SVGFEUnstyledElement*>(GetContent());
+  SVGFEUnstyledElement* element =
+      static_cast<SVGFEUnstyledElement*>(GetContent());
   if (element->AttributeAffectsRendering(aNameSpaceID, aAttribute)) {
-    MOZ_ASSERT(GetParent()->GetParent()->IsSVGFilterFrame(),
-               "Observers observe the filter, so that's what we must invalidate");
-    SVGObserverUtils::InvalidateDirectRenderingObservers(GetParent()->GetParent());
+    MOZ_ASSERT(
+        GetParent()->GetParent()->IsSVGFilterFrame(),
+        "Observers observe the filter, so that's what we must invalidate");
+    SVGObserverUtils::InvalidateDirectRenderingObservers(
+        GetParent()->GetParent());
   }
 
   return nsFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);

@@ -9,12 +9,14 @@
 
 #include "nsStringGlue.h"
 
-inline bool DOMStringIsNull(const nsAString& aString)
+inline bool
+DOMStringIsNull(const nsAString& aString)
 {
   return aString.IsVoid();
 }
 
-inline void SetDOMStringToNull(nsAString& aString)
+inline void
+SetDOMStringToNull(nsAString& aString)
 {
   aString.SetIsVoid(true);
 }

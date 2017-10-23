@@ -22,26 +22,34 @@ CrossProcessMutex::CrossProcessMutex(CrossProcessMutexHandle)
 
 CrossProcessMutex::~CrossProcessMutex()
 {
-  MOZ_CRASH("Cross-process mutices not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process mutices not allowed on this platform - woah! We should've "
+      "aborted by now!");
 }
 
 void
 CrossProcessMutex::Lock()
 {
-  MOZ_CRASH("Cross-process mutices not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process mutices not allowed on this platform - woah! We should've "
+      "aborted by now!");
 }
 
 void
 CrossProcessMutex::Unlock()
 {
-  MOZ_CRASH("Cross-process mutices not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process mutices not allowed on this platform - woah! We should've "
+      "aborted by now!");
 }
 
 CrossProcessMutexHandle
 CrossProcessMutex::ShareToProcess(base::ProcessId aTargetPid)
 {
-  MOZ_CRASH("Cross-process mutices not allowed on this platform - woah! We should've aborted by now!");
+  MOZ_CRASH(
+      "Cross-process mutices not allowed on this platform - woah! We should've "
+      "aborted by now!");
   return 0;
 }
 
-}
+}  // namespace mozilla

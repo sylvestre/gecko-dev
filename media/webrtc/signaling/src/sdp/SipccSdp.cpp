@@ -14,8 +14,7 @@
 #endif
 #define CRLF "\r\n"
 
-namespace mozilla
-{
+namespace mozilla {
 
 const SdpOrigin&
 SipccSdp::GetOrigin() const
@@ -53,9 +52,11 @@ SipccSdp::GetMediaSection(size_t level)
 
 SdpMediaSection&
 SipccSdp::AddMediaSection(SdpMediaSection::MediaType mediaType,
-                          SdpDirectionAttribute::Direction dir, uint16_t port,
+                          SdpDirectionAttribute::Direction dir,
+                          uint16_t port,
                           SdpMediaSection::Protocol protocol,
-                          sdp::AddrType addrType, const std::string& addr)
+                          sdp::AddrType addrType,
+                          const std::string& addr)
 {
   size_t level = mMediaSections.values.size();
   SipccSdpMediaSection* media =
@@ -153,7 +154,8 @@ SipccSdp::Serialize(std::ostream& os) const
 }
 
 bool
-SipccSdpBandwidths::Load(sdp_t* sdp, uint16_t level,
+SipccSdpBandwidths::Load(sdp_t* sdp,
+                         uint16_t level,
                          SdpErrorHolder& errorHolder)
 {
   size_t count = sdp_get_num_bw_lines(sdp, level);
@@ -177,4 +179,4 @@ SipccSdpBandwidths::Serialize(std::ostream& os) const
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

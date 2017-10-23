@@ -15,17 +15,19 @@ class MediaSystemResourceManager;
 
 namespace ipc {
 class BackgroundChildImpl;
-} // namespace ipc
+}  // namespace ipc
 
 namespace media {
 
 /**
  * Handle MediaSystemResourceManager's IPC
  */
-class MediaSystemResourceManagerChild final : public PMediaSystemResourceManagerChild
+class MediaSystemResourceManagerChild final
+    : public PMediaSystemResourceManagerChild
 {
-public:
-  struct ResourceListener {
+ public:
+  struct ResourceListener
+  {
     /* The resource is reserved and can be granted.
      * The client can allocate the requested resource.
      */
@@ -42,16 +44,13 @@ public:
 
   void Destroy();
 
-  void SetManager(MediaSystemResourceManager* aManager)
-  {
-    mManager = aManager;
-  }
+  void SetManager(MediaSystemResourceManager* aManager) { mManager = aManager; }
 
-protected:
+ protected:
   mozilla::ipc::IPCResult RecvResponse(const uint32_t& aId,
                                        const bool& aSuccess) override;
 
-private:
+ private:
   void ActorDestroy(ActorDestroyReason aActorDestroyReason) override;
 
   bool mDestroyed;
@@ -60,7 +59,7 @@ private:
   friend class mozilla::ipc::BackgroundChildImpl;
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
 #endif

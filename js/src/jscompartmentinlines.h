@@ -15,40 +15,29 @@
 
 #include "jscntxtinlines.h"
 
-inline void
-JSCompartment::initGlobal(js::GlobalObject& global)
-{
+inline void JSCompartment::initGlobal(js::GlobalObject& global) {
     MOZ_ASSERT(global.compartment() == this);
     MOZ_ASSERT(!global_);
     global_.set(&global);
 }
 
-js::GlobalObject*
-JSCompartment::maybeGlobal() const
-{
+js::GlobalObject* JSCompartment::maybeGlobal() const {
     MOZ_ASSERT_IF(global_, global_->compartment() == this);
     return global_;
 }
 
-js::GlobalObject*
-JSCompartment::unsafeUnbarrieredMaybeGlobal() const
-{
+js::GlobalObject* JSCompartment::unsafeUnbarrieredMaybeGlobal() const {
     return *global_.unsafeGet();
 }
 
-inline bool
-JSCompartment::globalIsAboutToBeFinalized()
-{
+inline bool JSCompartment::globalIsAboutToBeFinalized() {
     MOZ_ASSERT(zone_->isGCSweeping());
     return global_ && js::gc::IsAboutToBeFinalizedUnbarriered(global_.unsafeGet());
 }
 
 template <typename T>
 js::AutoCompartment::AutoCompartment(JSContext* cx, const T& target)
-  : cx_(cx),
-    origin_(cx->compartment()),
-    maybeLock_(nullptr)
-{
+    : cx_(cx), origin_(cx->compartment()), maybeLock_(nullptr) {
     cx_->enterCompartmentOf(target);
 }
 
@@ -56,10 +45,7 @@ js::AutoCompartment::AutoCompartment(JSContext* cx, const T& target)
 // only for entering the atoms compartment.
 js::AutoCompartment::AutoCompartment(JSContext* cx, JSCompartment* target,
                                      js::AutoLockForExclusiveAccess& lock)
-  : cx_(cx),
-    origin_(cx->compartment()),
-    maybeLock_(&lock)
-{
+    : cx_(cx), origin_(cx->compartment()), maybeLock_(&lock) {
     MOZ_ASSERT(target->isAtomsCompartment());
     cx_->enterAtomsCompartment(target, lock);
 }
@@ -67,34 +53,22 @@ js::AutoCompartment::AutoCompartment(JSContext* cx, JSCompartment* target,
 // Protected constructor that bypasses assertions in enterCompartmentOf. Should
 // not be used to enter the atoms compartment.
 js::AutoCompartment::AutoCompartment(JSContext* cx, JSCompartment* target)
-  : cx_(cx),
-    origin_(cx->compartment()),
-    maybeLock_(nullptr)
-{
+    : cx_(cx), origin_(cx->compartment()), maybeLock_(nullptr) {
     MOZ_ASSERT(!target->isAtomsCompartment());
     cx_->enterNonAtomsCompartment(target);
 }
 
-js::AutoCompartment::~AutoCompartment()
-{
-    cx_->leaveCompartment(origin_, maybeLock_);
-}
+js::AutoCompartment::~AutoCompartment() { cx_->leaveCompartment(origin_, maybeLock_); }
 
-js::AutoAtomsCompartment::AutoAtomsCompartment(JSContext* cx,
-                                               js::AutoLockForExclusiveAccess& lock)
-  : AutoCompartment(cx, cx->atomsCompartment(lock), lock)
-{}
+js::AutoAtomsCompartment::AutoAtomsCompartment(JSContext* cx, js::AutoLockForExclusiveAccess& lock)
+    : AutoCompartment(cx, cx->atomsCompartment(lock), lock) {}
 
 js::AutoCompartmentUnchecked::AutoCompartmentUnchecked(JSContext* cx, JSCompartment* target)
-  : AutoCompartment(cx, target)
-{}
+    : AutoCompartment(cx, target) {}
 
-inline bool
-JSCompartment::wrap(JSContext* cx, JS::MutableHandleValue vp)
-{
+inline bool JSCompartment::wrap(JSContext* cx, JS::MutableHandleValue vp) {
     /* Only GC things have to be wrapped or copied. */
-    if (!vp.isGCThing())
-        return true;
+    if (!vp.isGCThing()) return true;
 
     /*
      * Symbols are GC things, but never need to be wrapped or copied because
@@ -109,8 +83,7 @@ JSCompartment::wrap(JSContext* cx, JS::MutableHandleValue vp)
     /* Handle strings. */
     if (vp.isString()) {
         JS::RootedString str(cx, vp.toString());
-        if (!wrap(cx, &str))
-            return false;
+        if (!wrap(cx, &str)) return false;
         vp.setString(str);
         return true;
     }
@@ -152,26 +125,21 @@ JSCompartment::wrap(JSContext* cx, JS::MutableHandleValue vp)
     }
 
     JS::RootedObject obj(cx, &vp.toObject());
-    if (!wrap(cx, &obj))
-        return false;
+    if (!wrap(cx, &obj)) return false;
     vp.setObject(*obj);
     MOZ_ASSERT_IF(cacheResult, obj == cacheResult);
     return true;
 }
 
-MOZ_ALWAYS_INLINE bool
-JSCompartment::objectMaybeInIteration(JSObject* obj)
-{
+MOZ_ALWAYS_INLINE bool JSCompartment::objectMaybeInIteration(JSObject* obj) {
     MOZ_ASSERT(obj->compartment() == this);
 
     // If the list is empty we're not iterating any objects.
     js::NativeIterator* next = enumerators->next();
-    if (enumerators == next)
-        return false;
+    if (enumerators == next) return false;
 
     // If the list contains a single object, check if it's |obj|.
-    if (next->next() == enumerators)
-        return next->obj == obj;
+    if (next->next() == enumerators) return next->obj == obj;
 
     return true;
 }

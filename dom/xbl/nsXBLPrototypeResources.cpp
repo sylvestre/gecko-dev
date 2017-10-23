@@ -25,7 +25,8 @@
 using namespace mozilla;
 using mozilla::dom::IsChromeURI;
 
-nsXBLPrototypeResources::nsXBLPrototypeResources(nsXBLPrototypeBinding* aBinding)
+nsXBLPrototypeResources::nsXBLPrototypeResources(
+    nsXBLPrototypeBinding* aBinding)
 {
   MOZ_COUNT_CTOR(nsXBLPrototypeResources);
 
@@ -44,10 +45,10 @@ nsXBLPrototypeResources::~nsXBLPrototypeResources()
 }
 
 void
-nsXBLPrototypeResources::AddResource(nsAtom* aResourceType, const nsAString& aSrc)
+nsXBLPrototypeResources::AddResource(nsAtom* aResourceType,
+                                     const nsAString& aSrc)
 {
-  if (mLoader)
-    mLoader->AddResource(aResourceType, aSrc);
+  if (mLoader) mLoader->AddResource(aResourceType, aSrc);
 }
 
 bool
@@ -57,24 +58,22 @@ nsXBLPrototypeResources::LoadResources(nsIContent* aBoundElement)
     return mLoader->LoadResources(aBoundElement);
   }
 
-  return true; // All resources loaded.
+  return true;  // All resources loaded.
 }
 
 void
 nsXBLPrototypeResources::AddResourceListener(nsIContent* aBoundElement)
 {
-  if (mLoader)
-    mLoader->AddResourceListener(aBoundElement);
+  if (mLoader) mLoader->AddResourceListener(aBoundElement);
 }
 
 nsresult
 nsXBLPrototypeResources::FlushSkinSheets()
 {
-  if (mStyleSheetList.Length() == 0)
-    return NS_OK;
+  if (mStyleSheetList.Length() == 0) return NS_OK;
 
   nsCOMPtr<nsIDocument> doc =
-    mLoader->mBinding->XBLDocumentInfo()->GetDocument();
+      mLoader->mBinding->XBLDocumentInfo()->GetDocument();
 
   // If doc is null, we're in the process of tearing things down, so just
   // return without rebuilding anything.
@@ -101,10 +100,8 @@ nsXBLPrototypeResources::FlushSkinSheets()
 
     RefPtr<StyleSheet> newSheet;
     if (!oldSheet->IsInline() && IsChromeURI(uri)) {
-      if (NS_FAILED(cssLoader->LoadSheetSync(uri, &newSheet)))
-        continue;
-    }
-    else {
+      if (NS_FAILED(cssLoader->LoadSheetSync(uri, &newSheet))) continue;
+    } else {
       newSheet = oldSheet;
     }
 
@@ -130,13 +127,12 @@ nsXBLPrototypeResources::FlushSkinSheets()
 nsresult
 nsXBLPrototypeResources::Write(nsIObjectOutputStream* aStream)
 {
-  if (mLoader)
-    return mLoader->Write(aStream);
+  if (mLoader) return mLoader->Write(aStream);
   return NS_OK;
 }
 
 void
-nsXBLPrototypeResources::Traverse(nsCycleCollectionTraversalCallback &cb)
+nsXBLPrototypeResources::Traverse(nsCycleCollectionTraversalCallback& cb)
 {
   NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "proto mResources mLoader");
   cb.NoteXPCOMChild(mLoader);
@@ -169,10 +165,8 @@ nsXBLPrototypeResources::GatherRuleProcessor()
                "backends");
     sheets.AppendElement(sheet->AsGecko());
   }
-  mRuleProcessor = new nsCSSRuleProcessor(Move(sheets),
-                                          SheetType::Doc,
-                                          nullptr,
-                                          mRuleProcessor);
+  mRuleProcessor = new nsCSSRuleProcessor(
+      Move(sheets), SheetType::Doc, nullptr, mRuleProcessor);
 }
 
 void
@@ -226,7 +220,7 @@ nsXBLPrototypeResources::HasStyleSheets() const
 
 void
 nsXBLPrototypeResources::AppendStyleSheetsTo(
-                                      nsTArray<StyleSheet*>& aResult) const
+    nsTArray<StyleSheet*>& aResult) const
 {
   aResult.AppendElements(mStyleSheetList);
 }

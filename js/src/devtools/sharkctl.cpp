@@ -14,10 +14,10 @@
 
 #include "jsutil.h"
 
-#define SHARK_MSG_ACQUIRE   0x29a
-#define SHARK_MSG_RELEASE   0x29b
-#define SHARK_MSG_STOP      0x29c
-#define SHARK_MSG_START     0x29d
+#define SHARK_MSG_ACQUIRE 0x29a
+#define SHARK_MSG_RELEASE 0x29b
+#define SHARK_MSG_STOP 0x29c
+#define SHARK_MSG_START 0x29d
 
 #define RECV_SIZEOF(ty) offsetof(ty, out)
 
@@ -27,24 +27,24 @@ extern "C" void bootstrap_look_up(mach_port_t special_port, const char* name,
 
 struct chud_client_acquire_msg {
     mach_msg_header_t hdr;
-    uint32_t unk0;          // always 0
-    uint32_t unk1;          // always 1
+    uint32_t unk0;  // always 0
+    uint32_t unk1;  // always 1
     uint32_t pid;
     uint32_t out[2];
 };
 
 struct chud_client_start_msg {
     mach_msg_header_t hdr;
-    uint32_t unk0;          // always 1
+    uint32_t unk0;  // always 1
     uint32_t name0;
-    uint32_t arg2;          // always 6
-    uint8_t unk1;           // always 0
-    uint8_t unk2;           // always 1
-    uint8_t unk3;           // uninitialized
-    uint8_t unk4;           // always 1
-    uint32_t unk5;          // always 0
-    uint32_t unk6;          // always 1
-    uint32_t name1;         // same as name0
+    uint32_t arg2;   // always 6
+    uint8_t unk1;    // always 0
+    uint8_t unk2;    // always 1
+    uint8_t unk3;    // uninitialized
+    uint8_t unk4;    // always 1
+    uint32_t unk5;   // always 0
+    uint32_t unk6;   // always 1
+    uint32_t name1;  // same as name0
 };
 
 struct chud_client_stop_msg {
@@ -54,25 +54,20 @@ struct chud_client_stop_msg {
 
 struct chud_client_release_msg {
     mach_msg_header_t hdr;
-    uint32_t unk0;          // always 0
-    uint32_t unk1;          // always 1
+    uint32_t unk0;  // always 0
+    uint32_t unk1;  // always 1
     uint32_t pid;
     uint32_t out[2];
 };
 
-static mach_port_t
-CreatePort(void)
-{
+static mach_port_t CreatePort(void) {
     mach_port_t bootstrap_port, shark_port = 0;
-    task_get_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT,
-                          &bootstrap_port);
+    task_get_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT, &bootstrap_port);
     bootstrap_look_up(bootstrap_port, "CHUD_IPC", &shark_port);
     return shark_port;
 }
 
-static mach_msg_return_t
-Connect(mach_port_t shark_port)
-{
+static mach_msg_return_t Connect(mach_port_t shark_port) {
     mach_port_t reply_port = mig_get_reply_port();
 
     struct chud_client_acquire_msg msg;
@@ -88,16 +83,14 @@ Connect(mach_port_t shark_port)
 
     MOZ_ASSERT(RECV_SIZEOF(struct chud_client_acquire_msg) == 0x24);
     MOZ_ASSERT(sizeof(msg) == 0x2c);
-    mach_msg_return_t result = mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG,
-                                        RECV_SIZEOF(struct chud_client_acquire_msg),
-                                        sizeof(msg), reply_port, 0, 0);
+    mach_msg_return_t result =
+        mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG,
+                 RECV_SIZEOF(struct chud_client_acquire_msg), sizeof(msg), reply_port, 0, 0);
     mig_dealloc_reply_port(reply_port);
     return result;
 }
 
-static mach_msg_return_t
-Start(mach_port_t shark_port, uint32_t name)
-{
+static mach_msg_return_t Start(mach_port_t shark_port, uint32_t name) {
     mach_port_t reply_port = mig_get_reply_port();
 
     struct chud_client_start_msg msg;
@@ -119,15 +112,13 @@ Start(mach_port_t shark_port, uint32_t name)
     msg.name1 = name;
 
     MOZ_ASSERT(sizeof(msg) == 0x34);
-    mach_msg_return_t result = mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG,
-                                        sizeof(msg), 0x30, reply_port, 0, 0);
+    mach_msg_return_t result =
+        mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG, sizeof(msg), 0x30, reply_port, 0, 0);
     mig_dealloc_reply_port(reply_port);
     return result;
 }
 
-mach_msg_return_t
-Stop(mach_port_t shark_port)
-{
+mach_msg_return_t Stop(mach_port_t shark_port) {
     mach_port_t reply_port = mig_get_reply_port();
 
     struct chud_client_stop_msg msg;
@@ -140,16 +131,14 @@ Stop(mach_port_t shark_port)
 
     MOZ_ASSERT(RECV_SIZEOF(struct chud_client_stop_msg) == 0x18);
     MOZ_ASSERT(sizeof(msg) == 0x2c);
-    mach_msg_return_t result = mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG,
-                                        RECV_SIZEOF(struct chud_client_stop_msg),
-                                        sizeof(msg), reply_port, 0, 0);
+    mach_msg_return_t result =
+        mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG, RECV_SIZEOF(struct chud_client_stop_msg),
+                 sizeof(msg), reply_port, 0, 0);
     mig_dealloc_reply_port(reply_port);
     return result;
 }
 
-static mach_msg_return_t
-Disconnect(mach_port_t shark_port)
-{
+static mach_msg_return_t Disconnect(mach_port_t shark_port) {
     mach_port_t reply_port = mig_get_reply_port();
 
     struct chud_client_release_msg msg;
@@ -165,9 +154,9 @@ Disconnect(mach_port_t shark_port)
 
     MOZ_ASSERT(RECV_SIZEOF(struct chud_client_release_msg) == 0x24);
     MOZ_ASSERT(sizeof(msg) == 0x2c);
-    mach_msg_return_t result = mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG,
-                                        RECV_SIZEOF(struct chud_client_release_msg),
-                                        sizeof(msg), reply_port, 0, 0);
+    mach_msg_return_t result =
+        mach_msg(&msg.hdr, MACH_SEND_MSG | MACH_RCV_MSG,
+                 RECV_SIZEOF(struct chud_client_release_msg), sizeof(msg), reply_port, 0, 0);
     mig_dealloc_reply_port(reply_port);
     return result;
 }
@@ -178,30 +167,22 @@ static bool running = false;
 
 namespace Shark {
 
-bool
-Start()
-{
-    if (!shark_port && !(shark_port = CreatePort()))
-        return false;
-    if (!connected && Connect(shark_port))
-        return false;
+bool Start() {
+    if (!shark_port && !(shark_port = CreatePort())) return false;
+    if (!connected && Connect(shark_port)) return false;
     connected = true;
-    if (!running && ::Start(shark_port, 0xdeadbeef))
-        return false;
+    if (!running && ::Start(shark_port, 0xdeadbeef)) return false;
     return running = true;
 }
 
-void
-Stop()
-{
-    if (!shark_port || !connected)
-        return;
+void Stop() {
+    if (!shark_port || !connected) return;
     ::Stop(shark_port);
     running = false;
     Disconnect(shark_port);
     connected = false;
 }
 
-} // namespace Shark
+}  // namespace Shark
 
 #endif

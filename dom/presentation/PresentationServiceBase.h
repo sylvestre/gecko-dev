@@ -22,38 +22,34 @@ namespace dom {
 template<class T>
 class PresentationServiceBase
 {
-public:
+ public:
   PresentationServiceBase() = default;
 
-  already_AddRefed<T>
-  GetSessionInfo(const nsAString& aSessionId, const uint8_t aRole)
+  already_AddRefed<T> GetSessionInfo(const nsAString& aSessionId,
+                                     const uint8_t aRole)
   {
     MOZ_ASSERT(aRole == nsIPresentationService::ROLE_CONTROLLER ||
                aRole == nsIPresentationService::ROLE_RECEIVER);
 
     RefPtr<T> info;
     if (aRole == nsIPresentationService::ROLE_CONTROLLER) {
-      return mSessionInfoAtController.Get(aSessionId, getter_AddRefs(info)) ?
-             info.forget() : nullptr;
+      return mSessionInfoAtController.Get(aSessionId, getter_AddRefs(info))
+                 ? info.forget()
+                 : nullptr;
     } else {
-      return mSessionInfoAtReceiver.Get(aSessionId, getter_AddRefs(info)) ?
-             info.forget() : nullptr;
+      return mSessionInfoAtReceiver.Get(aSessionId, getter_AddRefs(info))
+                 ? info.forget()
+                 : nullptr;
     }
   }
 
-protected:
+ protected:
   class SessionIdManager final
   {
-  public:
-    explicit SessionIdManager()
-    {
-      MOZ_COUNT_CTOR(SessionIdManager);
-    }
+   public:
+    explicit SessionIdManager() { MOZ_COUNT_CTOR(SessionIdManager); }
 
-    ~SessionIdManager()
-    {
-      MOZ_COUNT_DTOR(SessionIdManager);
-    }
+    ~SessionIdManager() { MOZ_COUNT_DTOR(SessionIdManager); }
 
     nsresult GetWindowId(const nsAString& aSessionId, uint64_t* aWindowId)
     {
@@ -113,7 +109,8 @@ protected:
       }
     }
 
-    nsresult UpdateWindowId(const nsAString& aSessionId, const uint64_t aWindowId)
+    nsresult UpdateWindowId(const nsAString& aSessionId,
+                            const uint64_t aWindowId)
     {
       MOZ_ASSERT(NS_IsMainThread());
 
@@ -128,36 +125,28 @@ protected:
       mRespondingWindowIds.Clear();
     }
 
-  private:
+   private:
     nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mRespondingSessionIds;
     nsDataHashtable<nsStringHashKey, uint64_t> mRespondingWindowIds;
   };
 
   class AvailabilityManager final
   {
-  public:
-    explicit AvailabilityManager()
-    {
-      MOZ_COUNT_CTOR(AvailabilityManager);
-    }
+   public:
+    explicit AvailabilityManager() { MOZ_COUNT_CTOR(AvailabilityManager); }
 
-    ~AvailabilityManager()
-    {
-      MOZ_COUNT_DTOR(AvailabilityManager);
-    }
+    ~AvailabilityManager() { MOZ_COUNT_DTOR(AvailabilityManager); }
 
-    void AddAvailabilityListener(
-                               const nsTArray<nsString>& aAvailabilityUrls,
-                               nsIPresentationAvailabilityListener* aListener)
+    void AddAvailabilityListener(const nsTArray<nsString>& aAvailabilityUrls,
+                                 nsIPresentationAvailabilityListener* aListener)
     {
       nsTArray<nsString> dummy;
       AddAvailabilityListener(aAvailabilityUrls, aListener, dummy);
     }
 
-    void AddAvailabilityListener(
-                               const nsTArray<nsString>& aAvailabilityUrls,
-                               nsIPresentationAvailabilityListener* aListener,
-                               nsTArray<nsString>& aAddedUrls)
+    void AddAvailabilityListener(const nsTArray<nsString>& aAvailabilityUrls,
+                                 nsIPresentationAvailabilityListener* aListener,
+                                 nsTArray<nsString>& aAddedUrls)
     {
       if (!aListener) {
         MOZ_ASSERT(false, "aListener should not be null.");
@@ -187,35 +176,31 @@ protected:
       }
 
       if (!knownAvailableUrls.IsEmpty()) {
-        Unused <<
-          NS_WARN_IF(
-            NS_FAILED(aListener->NotifyAvailableChange(knownAvailableUrls,
-                                                       true)));
+        Unused << NS_WARN_IF(NS_FAILED(
+            aListener->NotifyAvailableChange(knownAvailableUrls, true)));
       } else {
         // If we can't find any known available url and there is no newly
         // added url, we still need to notify the listener of the result.
         // So, the promise returned by |getAvailability| can be resolved.
         if (aAddedUrls.IsEmpty()) {
-          Unused <<
-            NS_WARN_IF(
-              NS_FAILED(aListener->NotifyAvailableChange(aAvailabilityUrls,
-                                                         false)));
+          Unused << NS_WARN_IF(NS_FAILED(
+              aListener->NotifyAvailableChange(aAvailabilityUrls, false)));
         }
       }
     }
 
     void RemoveAvailabilityListener(
-                               const nsTArray<nsString>& aAvailabilityUrls,
-                               nsIPresentationAvailabilityListener* aListener)
+        const nsTArray<nsString>& aAvailabilityUrls,
+        nsIPresentationAvailabilityListener* aListener)
     {
       nsTArray<nsString> dummy;
       RemoveAvailabilityListener(aAvailabilityUrls, aListener, dummy);
     }
 
     void RemoveAvailabilityListener(
-                               const nsTArray<nsString>& aAvailabilityUrls,
-                               nsIPresentationAvailabilityListener* aListener,
-                               nsTArray<nsString>& aRemovedUrls)
+        const nsTArray<nsString>& aAvailabilityUrls,
+        nsIPresentationAvailabilityListener* aListener,
+        nsTArray<nsString>& aRemovedUrls)
     {
       if (!aListener) {
         MOZ_ASSERT(false, "aListener should not be null.");
@@ -240,11 +225,11 @@ protected:
       }
     }
 
-    nsresult DoNotifyAvailableChange(const nsTArray<nsString>& aAvailabilityUrls,
-                                     bool aAvailable)
+    nsresult DoNotifyAvailableChange(
+        const nsTArray<nsString>& aAvailabilityUrls, bool aAvailable)
     {
-      typedef nsClassHashtable<nsISupportsHashKey,
-                               nsTArray<nsString>> ListenerToUrlsMap;
+      typedef nsClassHashtable<nsISupportsHashKey, nsTArray<nsString>>
+          ListenerToUrlsMap;
       ListenerToUrlsMap availabilityListenerTable;
       // Create a mapping from nsIPresentationAvailabilityListener to
       // availabilityUrls.
@@ -255,7 +240,7 @@ protected:
 
           for (uint32_t i = 0; i < entry->mListeners.Length(); ++i) {
             nsIPresentationAvailabilityListener* listener =
-              entry->mListeners.ObjectAt(i);
+                entry->mListeners.ObjectAt(i);
             nsTArray<nsString>* urlArray;
             if (!availabilityListenerTable.Get(listener, &urlArray)) {
               urlArray = new nsTArray<nsString>();
@@ -268,11 +253,10 @@ protected:
 
       for (auto it = availabilityListenerTable.Iter(); !it.Done(); it.Next()) {
         auto listener =
-          static_cast<nsIPresentationAvailabilityListener*>(it.Key());
+            static_cast<nsIPresentationAvailabilityListener*>(it.Key());
 
-        Unused <<
-          NS_WARN_IF(NS_FAILED(listener->NotifyAvailableChange(*it.UserData(),
-                                                               aAvailable)));
+        Unused << NS_WARN_IF(NS_FAILED(
+            listener->NotifyAvailableChange(*it.UserData(), aAvailable)));
       }
       return NS_OK;
     }
@@ -289,17 +273,12 @@ protected:
       }
     }
 
-    void Clear()
-    {
-      mAvailabilityUrlTable.Clear();
-    }
+    void Clear() { mAvailabilityUrlTable.Clear(); }
 
-  private:
+   private:
     struct AvailabilityEntry
     {
-      explicit AvailabilityEntry()
-        : mAvailable(false)
-      {}
+      explicit AvailabilityEntry() : mAvailable(false) {}
 
       bool mAvailable;
       nsCOMArray<nsIPresentationAvailabilityListener> mListeners;
@@ -349,8 +328,7 @@ protected:
     }
   }
 
-  void RemoveRespondingSessionId(const nsAString& aSessionId,
-                                 uint8_t aRole)
+  void RemoveRespondingSessionId(const nsAString& aSessionId, uint8_t aRole)
   {
     MOZ_ASSERT(aRole == nsIPresentationService::ROLE_CONTROLLER ||
                aRole == nsIPresentationService::ROLE_RECEIVER);
@@ -379,7 +357,7 @@ protected:
   // Store the responding listener based on the window ID of the (in-process or
   // OOP) receiver page.
   nsRefPtrHashtable<nsUint64HashKey, nsIPresentationRespondingListener>
-  mRespondingListeners;
+      mRespondingListeners;
 
   // Store the mapping between the window ID of the in-process and OOP page and the ID
   // of the responding session. It's used for both controller and receiver page
@@ -395,7 +373,7 @@ protected:
   AvailabilityManager mAvailabilityManager;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationServiceBase_h
+#endif  // mozilla_dom_PresentationServiceBase_h

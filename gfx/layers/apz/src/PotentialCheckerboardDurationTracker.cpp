@@ -6,14 +6,13 @@
 
 #include "PotentialCheckerboardDurationTracker.h"
 
-#include "mozilla/Telemetry.h"          // for Telemetry
+#include "mozilla/Telemetry.h"  // for Telemetry
 
 namespace mozilla {
 namespace layers {
 
 PotentialCheckerboardDurationTracker::PotentialCheckerboardDurationTracker()
-  : mInCheckerboard(false)
-  , mInTransform(false)
+    : mInCheckerboard(false), mInTransform(false)
 {
 }
 
@@ -75,5 +74,5 @@ PotentialCheckerboardDurationTracker::Tracking() const
   return mInTransform || mInCheckerboard;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

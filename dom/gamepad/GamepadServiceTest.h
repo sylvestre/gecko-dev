@@ -23,14 +23,17 @@ class Promise;
 class GamepadServiceTest final : public DOMEventTargetHelper,
                                  public nsIIPCBackgroundChildCreateCallback
 {
-public:
+ public:
   NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(GamepadServiceTest,
                                            DOMEventTargetHelper)
 
   GamepadMappingType NoMapping() const { return GamepadMappingType::_empty; }
-  GamepadMappingType StandardMapping() const { return GamepadMappingType::Standard; }
+  GamepadMappingType StandardMapping() const
+  {
+    return GamepadMappingType::Standard;
+  }
   GamepadHand NoHand() const { return GamepadHand::_empty; }
   GamepadHand LeftHand() const { return GamepadHand::Left; }
   GamepadHand RightHand() const { return GamepadHand::Right; }
@@ -43,8 +46,14 @@ public:
                                        uint32_t aNumHaptics,
                                        ErrorResult& aRv);
   void RemoveGamepad(uint32_t aIndex);
-  void NewButtonEvent(uint32_t aIndex, uint32_t aButton, bool aPressed, bool aTouched);
-  void NewButtonValueEvent(uint32_t aIndex, uint32_t aButton, bool aPressed, bool aTouched,
+  void NewButtonEvent(uint32_t aIndex,
+                      uint32_t aButton,
+                      bool aPressed,
+                      bool aTouched);
+  void NewButtonValueEvent(uint32_t aIndex,
+                           uint32_t aButton,
+                           bool aPressed,
+                           bool aTouched,
                            double aValue);
   void NewAxisMoveEvent(uint32_t aIndex, uint32_t aAxis, double aValue);
   void NewPoseMove(uint32_t aIndex,
@@ -56,20 +65,23 @@ public:
                    const Nullable<Float32Array>& aLinAcceleration);
   void Shutdown();
 
-  static already_AddRefed<GamepadServiceTest> CreateTestService(nsPIDOMWindowInner* aWindow);
+  static already_AddRefed<GamepadServiceTest> CreateTestService(
+      nsPIDOMWindowInner* aWindow);
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
   JSObject* WrapObject(JSContext* aCx, JS::HandleObject aGivenProto) override;
 
-private:
-
+ private:
   // We need to asynchronously create IPDL channel, it is possible that
   // we send commands before the channel is created, so we have to buffer
   // them until the channel is created in that case.
-  struct PendingOperation {
+  struct PendingOperation
+  {
     explicit PendingOperation(const uint32_t& aID,
                               const GamepadChangeEvent& aEvent,
                               Promise* aPromise = nullptr)
-               : mID(aID), mEvent(aEvent), mPromise(aPromise) {}
+        : mID(aID), mEvent(aEvent), mPromise(aPromise)
+    {
+    }
     uint32_t mID;
     const GamepadChangeEvent& mEvent;
     RefPtr<Promise> mPromise;
@@ -93,10 +105,9 @@ private:
   void InitPBackgroundActor();
   void DestroyPBackgroundActor();
   void FlushPendingOperations();
-
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

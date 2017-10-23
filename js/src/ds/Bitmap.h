@@ -25,12 +25,11 @@
 
 namespace js {
 
-class DenseBitmap
-{
+class DenseBitmap {
     typedef Vector<uintptr_t, 0, SystemAllocPolicy> Data;
     Data data;
 
-  public:
+   public:
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
         return data.sizeOfExcludingThis(mallocSizeOf);
     }
@@ -50,13 +49,11 @@ class DenseBitmap
     }
 
     void bitwiseOrRangeInto(size_t wordStart, size_t numWords, uintptr_t* target) const {
-        for (size_t i = 0; i < numWords; i++)
-            target[i] |= data[wordStart + i];
+        for (size_t i = 0; i < numWords; i++) target[i] |= data[wordStart + i];
     }
 };
 
-class SparseBitmap
-{
+class SparseBitmap {
     // The number of words of bits to use for each block mainly affects the
     // memory usage of the bitmap. To minimize overhead, bitmaps which are
     // expected to be fairly dense should have a large block size, and bitmaps
@@ -67,9 +64,7 @@ class SparseBitmap
     typedef HashMap<size_t, BitBlock*, DefaultHasher<size_t>, SystemAllocPolicy> Data;
     Data data;
 
-    static size_t blockStartWord(size_t word) {
-        return word & ~(WordsInBlock - 1);
-    }
+    static size_t blockStartWord(size_t word) { return word & ~(WordsInBlock - 1); }
 
     // Return the number of words in a BitBlock starting at |blockWord| which
     // are in |other|.
@@ -87,12 +82,11 @@ class SparseBitmap
 
     MOZ_ALWAYS_INLINE BitBlock& getOrCreateBlock(size_t blockId) {
         Data::AddPtr p = data.lookupForAdd(blockId);
-        if (p)
-            return *p->value();
+        if (p) return *p->value();
         return createBlock(p, blockId);
     }
 
-  public:
+   public:
     bool init() { return data.init(); }
     ~SparseBitmap();
 
@@ -115,6 +109,6 @@ class SparseBitmap
     void bitwiseOrRangeInto(size_t wordStart, size_t numWords, uintptr_t* target) const;
 };
 
-} // namespace js
+}  // namespace js
 
-#endif // ds_Bitmap_h
+#endif  // ds_Bitmap_h

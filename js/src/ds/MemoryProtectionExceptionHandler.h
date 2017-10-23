@@ -17,8 +17,7 @@ namespace js {
  * from other heap corruption crashes.
  */
 
-struct MemoryProtectionExceptionHandler
-{
+struct MemoryProtectionExceptionHandler {
     /* Installs the exception handler; called early during initialization. */
     static bool install();
 

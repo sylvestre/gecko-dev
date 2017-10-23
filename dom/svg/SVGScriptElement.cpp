@@ -17,56 +17,57 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGScriptElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGScriptElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGScriptElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGScriptElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::href, kNameSpaceID_None, false },
-  { &nsGkAtoms::href, kNameSpaceID_XLink, false }
-};
+nsSVGElement::StringInfo SVGScriptElement::sStringInfo[2] = {
+    {&nsGkAtoms::href, kNameSpaceID_None, false},
+    {&nsGkAtoms::href, kNameSpaceID_XLink, false}};
 
 //----------------------------------------------------------------------
 // nsISupports methods
 
-NS_IMPL_ISUPPORTS_INHERITED(SVGScriptElement, SVGScriptElementBase,
-                            nsIDOMNode, nsIDOMElement,
+NS_IMPL_ISUPPORTS_INHERITED(SVGScriptElement,
+                            SVGScriptElementBase,
+                            nsIDOMNode,
+                            nsIDOMElement,
                             nsIDOMSVGElement,
                             nsIScriptLoaderObserver,
-                            nsIScriptElement, nsIMutationObserver)
+                            nsIScriptElement,
+                            nsIMutationObserver)
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGScriptElement::SVGScriptElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                                   FromParser aFromParser)
-  : SVGScriptElementBase(aNodeInfo)
-  , ScriptElement(aFromParser)
+SVGScriptElement::SVGScriptElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo, FromParser aFromParser)
+    : SVGScriptElementBase(aNodeInfo), ScriptElement(aFromParser)
 {
   AddMutationObserver(this);
 }
 
-SVGScriptElement::~SVGScriptElement()
-{
-}
+SVGScriptElement::~SVGScriptElement() {}
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
 nsresult
-SVGScriptElement::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+SVGScriptElement::Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                        nsINode** aResult,
                         bool aPreallocateChildren) const
 {
   *aResult = nullptr;
 
-  already_AddRefed<mozilla::dom::NodeInfo> ni = RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();
+  already_AddRefed<mozilla::dom::NodeInfo> ni =
+      RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();
   SVGScriptElement* it = new SVGScriptElement(ni, NOT_FROM_PARSER);
 
   nsCOMPtr<nsINode> kungFuDeathGrip = it;
   nsresult rv1 = it->Init();
-  nsresult rv2 = const_cast<SVGScriptElement*>(this)->CopyInnerTo(it, aPreallocateChildren);
+  nsresult rv2 = const_cast<SVGScriptElement*>(this)->CopyInnerTo(
+      it, aPreallocateChildren);
   NS_ENSURE_SUCCESS(rv1, rv1);
   NS_ENSURE_SUCCESS(rv2, rv2);
 
@@ -82,19 +83,19 @@ SVGScriptElement::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
 
 //----------------------------------------------------------------------
 void
-SVGScriptElement::GetType(nsAString & aType)
+SVGScriptElement::GetType(nsAString& aType)
 {
   GetScriptType(aType);
 }
 
 void
-SVGScriptElement::SetType(const nsAString & aType, ErrorResult& rv)
+SVGScriptElement::SetType(const nsAString& aType, ErrorResult& rv)
 {
   rv = SetAttr(kNameSpaceID_None, nsGkAtoms::type, aType, true);
 }
 
 void
-SVGScriptElement::GetCrossOrigin(nsAString & aCrossOrigin)
+SVGScriptElement::GetCrossOrigin(nsAString& aCrossOrigin)
 {
   // Null for both missing and invalid defaults is ok, since we
   // always parse to an enum value, so we don't need an invalid
@@ -103,7 +104,7 @@ SVGScriptElement::GetCrossOrigin(nsAString & aCrossOrigin)
 }
 
 void
-SVGScriptElement::SetCrossOrigin(const nsAString & aCrossOrigin,
+SVGScriptElement::SetCrossOrigin(const nsAString& aCrossOrigin,
                                  ErrorResult& aError)
 {
   SetOrRemoveNullableStringAttr(nsGkAtoms::crossorigin, aCrossOrigin, aError);
@@ -113,8 +114,8 @@ already_AddRefed<SVGAnimatedString>
 SVGScriptElement::Href()
 {
   return mStringAttributes[HREF].IsExplicitlySet()
-         ? mStringAttributes[HREF].ToDOMAnimatedString(this)
-         : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
+             ? mStringAttributes[HREF].ToDOMAnimatedString(this)
+             : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
 }
 
 //----------------------------------------------------------------------
@@ -164,22 +165,33 @@ SVGScriptElement::FreezeUriAsyncDefer()
       NS_NewURI(getter_AddRefs(mUri), src, nullptr, baseURI);
 
       if (!mUri) {
-        const char16_t* params[] = { isHref ? u"href" : u"xlink:href", src.get() };
+        const char16_t* params[] = {isHref ? u"href" : u"xlink:href",
+                                    src.get()};
 
         nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
-          NS_LITERAL_CSTRING("SVG"), OwnerDoc(),
-          nsContentUtils::eDOM_PROPERTIES, "ScriptSourceInvalidUri",
-          params, ArrayLength(params), nullptr,
-          EmptyString(), GetScriptLineNumber());
+                                        NS_LITERAL_CSTRING("SVG"),
+                                        OwnerDoc(),
+                                        nsContentUtils::eDOM_PROPERTIES,
+                                        "ScriptSourceInvalidUri",
+                                        params,
+                                        ArrayLength(params),
+                                        nullptr,
+                                        EmptyString(),
+                                        GetScriptLineNumber());
       }
     } else {
-      const char16_t* params[] = { isHref ? u"href" : u"xlink:href" };
+      const char16_t* params[] = {isHref ? u"href" : u"xlink:href"};
 
       nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
-        NS_LITERAL_CSTRING("SVG"), OwnerDoc(),
-        nsContentUtils::eDOM_PROPERTIES, "ScriptSourceEmpty",
-        params, ArrayLength(params), nullptr,
-        EmptyString(), GetScriptLineNumber());
+                                      NS_LITERAL_CSTRING("SVG"),
+                                      OwnerDoc(),
+                                      nsContentUtils::eDOM_PROPERTIES,
+                                      "ScriptSourceEmpty",
+                                      params,
+                                      ArrayLength(params),
+                                      nullptr,
+                                      EmptyString(),
+                                      GetScriptLineNumber());
     }
 
     // At this point mUri will be null for invalid URLs.
@@ -197,7 +209,7 @@ SVGScriptElement::HasScriptContent()
 {
   return (mFrozen ? mExternal
                   : mStringAttributes[HREF].IsExplicitlySet() ||
-                    mStringAttributes[XLINK_HREF].IsExplicitlySet()) ||
+                        mStringAttributes[XLINK_HREF].IsExplicitlySet()) ||
          nsContentUtils::HasNonEmptyTextContent(this);
 }
 
@@ -207,21 +219,21 @@ SVGScriptElement::HasScriptContent()
 nsSVGElement::StringAttributesInfo
 SVGScriptElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
 //----------------------------------------------------------------------
 // nsIContent methods
 
 nsresult
-SVGScriptElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+SVGScriptElement::BindToTree(nsIDocument* aDocument,
+                             nsIContent* aParent,
                              nsIContent* aBindingParent,
                              bool aCompileEventHandlers)
 {
-  nsresult rv = SVGScriptElementBase::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = SVGScriptElementBase::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (aDocument) {
@@ -232,7 +244,8 @@ SVGScriptElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
 }
 
 nsresult
-SVGScriptElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+SVGScriptElement::AfterSetAttr(int32_t aNamespaceID,
+                               nsAtom* aName,
                                const nsAttrValue* aValue,
                                const nsAttrValue* aOldValue,
                                nsIPrincipal* aSubjectPrincipal,
@@ -243,9 +256,8 @@ SVGScriptElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       aName == nsGkAtoms::href) {
     MaybeProcessScript();
   }
-  return SVGScriptElementBase::AfterSetAttr(aNamespaceID, aName,
-                                            aValue, aOldValue,
-                                            aSubjectPrincipal, aNotify);
+  return SVGScriptElementBase::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 bool
@@ -260,8 +272,8 @@ SVGScriptElement::ParseAttribute(int32_t aNamespaceID,
     return true;
   }
 
-  return SVGScriptElementBase::ParseAttribute(aNamespaceID, aAttribute,
-                                              aValue, aResult);
+  return SVGScriptElementBase::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 CORSMode
@@ -270,5 +282,5 @@ SVGScriptElement::GetCORSMode() const
   return AttrValueToCORSMode(GetParsedAttr(nsGkAtoms::crossorigin));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

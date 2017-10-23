@@ -15,16 +15,18 @@ namespace mozilla {
 template<>
 struct RefPtrTraits<DBusPendingCall>
 {
-  static void AddRef(DBusPendingCall* aPendingCall) {
+  static void AddRef(DBusPendingCall* aPendingCall)
+  {
     MOZ_ASSERT(aPendingCall);
     dbus_pending_call_ref(aPendingCall);
   }
-  static void Release(DBusPendingCall* aPendingCall) {
+  static void Release(DBusPendingCall* aPendingCall)
+  {
     MOZ_ASSERT(aPendingCall);
     dbus_pending_call_unref(aPendingCall);
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ipc_DBusPendingCallRefPtr_h
+#endif  // mozilla_ipc_DBusPendingCallRefPtr_h

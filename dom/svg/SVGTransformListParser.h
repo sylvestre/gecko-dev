@@ -23,21 +23,24 @@ class nsSVGTransform;
 
 class SVGTransformListParser : public nsSVGDataParser
 {
-public:
+ public:
   explicit SVGTransformListParser(const nsAString& aValue)
-    : nsSVGDataParser(aValue) {}
+      : nsSVGDataParser(aValue)
+  {
+  }
 
   bool Parse();
 
-  const nsTArray<nsSVGTransform>& GetTransformList() const {
+  const nsTArray<nsSVGTransform>& GetTransformList() const
+  {
     return mTransforms;
   }
 
-private:
+ private:
   // helpers
-  bool ParseArguments(float *aResult,
+  bool ParseArguments(float* aResult,
                       uint32_t aMaxCount,
-                      uint32_t *aParsedCount);
+                      uint32_t* aParsedCount);
 
   bool ParseTransforms();
 
@@ -53,6 +56,6 @@ private:
   FallibleTArray<nsSVGTransform> mTransforms;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGTRANSFORMLISTPARSER_H__
+#endif  // MOZILLA_SVGTRANSFORMLISTPARSER_H__

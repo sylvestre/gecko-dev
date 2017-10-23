@@ -14,7 +14,8 @@
 namespace mozilla {
 
 #ifndef IC_LOG
-LogModule* GetICLog();
+LogModule*
+GetICLog();
 #define IC_LOG(...) MOZ_LOG(GetICLog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
 #endif
 
@@ -39,7 +40,7 @@ class VideoStreamTrack;
 
 class ImageCapture final : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ImageCapture, DOMEventTargetHelper)
 
@@ -53,7 +54,8 @@ public:
   VideoStreamTrack* GetVideoStreamTrack() const;
 
   // nsWrapperCache member
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override
   {
     return ImageCaptureBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -78,7 +80,7 @@ public:
 
   bool CheckPrincipal();
 
-protected:
+ protected:
   virtual ~ImageCapture();
 
   // Capture image by MediaEngine. If it's not support taking photo, this function
@@ -88,7 +90,7 @@ protected:
   RefPtr<VideoStreamTrack> mVideoStreamTrack;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // IMAGECAPTURE_H
+#endif  // IMAGECAPTURE_H

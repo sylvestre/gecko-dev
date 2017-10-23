@@ -19,11 +19,12 @@ namespace dom {
 class HTMLButtonElement final : public nsGenericHTMLFormElementWithState,
                                 public nsIConstraintValidation
 {
-public:
+ public:
   using nsIConstraintValidation::GetValidationMessage;
 
-  explicit HTMLButtonElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                             FromParser aFromParser = NOT_FROM_PARSER);
+  explicit HTMLButtonElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
+      FromParser aFromParser = NOT_FROM_PARSER);
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(HTMLButtonElement,
                                            nsGenericHTMLFormElementWithState)
@@ -52,17 +53,19 @@ public:
 
   // nsIDOMEventTarget
   virtual nsresult GetEventTargetParent(
-                     EventChainPreVisitor& aVisitor) override;
-  virtual nsresult PostHandleEvent(
-                     EventChainPostVisitor& aVisitor) override;
+      EventChainPreVisitor& aVisitor) override;
+  virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
   // nsINode
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
@@ -75,13 +78,15 @@ public:
   /**
    * Called when an attribute is about to be changed
    */
-  virtual nsresult BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult BeforeSetAttr(int32_t aNameSpaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override;
   /**
    * Called when an attribute has just been changed
    */
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -97,18 +102,12 @@ public:
                                int32_t* aTabIndex) override;
 
   // WebIDL
-  bool Autofocus() const
-  {
-    return GetBoolAttr(nsGkAtoms::autofocus);
-  }
+  bool Autofocus() const { return GetBoolAttr(nsGkAtoms::autofocus); }
   void SetAutofocus(bool aAutofocus, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::autofocus, aAutofocus, aError);
   }
-  bool Disabled() const
-  {
-    return GetBoolAttr(nsGkAtoms::disabled);
-  }
+  bool Disabled() const { return GetBoolAttr(nsGkAtoms::disabled); }
   void SetDisabled(bool aDisabled, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::disabled, aDisabled, aError);
@@ -130,10 +129,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::formmethod, aFormMethod, aRv);
   }
-  bool FormNoValidate() const
-  {
-    return GetBoolAttr(nsGkAtoms::formnovalidate);
-  }
+  bool FormNoValidate() const { return GetBoolAttr(nsGkAtoms::formnovalidate); }
   void SetFormNoValidate(bool aFormNoValidate, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::formnovalidate, aFormNoValidate, aError);
@@ -146,10 +142,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::formtarget, aFormTarget, aRv);
   }
-  void GetName(DOMString& aName)
-  {
-    GetHTMLAttr(nsGkAtoms::name, aName);
-  }
+  void GetName(DOMString& aName) { GetHTMLAttr(nsGkAtoms::name, aName); }
   void SetName(const nsAString& aName, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::name, aName, aRv);
@@ -159,10 +152,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::type, aType, aRv);
   }
-  void GetValue(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::value, aValue);
-  }
+  void GetValue(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::value, aValue); }
   void SetValue(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::value, aValue, aRv);
@@ -172,7 +162,7 @@ public:
   // via bindings.
   void SetCustomValidity(const nsAString& aError);
 
-protected:
+ protected:
   virtual ~HTMLButtonElement();
 
   bool mDisabledChanged;
@@ -180,7 +170,7 @@ protected:
   bool mInhibitStateRestoration;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLButtonElement_h
+#endif  // mozilla_dom_HTMLButtonElement_h

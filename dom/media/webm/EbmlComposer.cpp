@@ -19,13 +19,14 @@ static const unsigned long TIME_CODE_SCALE = 1000000;
 // The WebM header size without audio CodecPrivateData
 static const int32_t DEFAULT_HEADER_SIZE = 1024;
 
-void EbmlComposer::GenerateHeader()
+void
+EbmlComposer::GenerateHeader()
 {
   // Write the EBML header.
   EbmlGlobal ebml;
   // The WEbM header default size usually smaller than 1k.
-  auto buffer = MakeUnique<uint8_t[]>(DEFAULT_HEADER_SIZE +
-                                      mCodecPrivateData.Length());
+  auto buffer =
+      MakeUnique<uint8_t[]>(DEFAULT_HEADER_SIZE + mCodecPrivateData.Length());
   ebml.buf = buffer.get();
   ebml.offset = 0;
   writeHeader(&ebml);
@@ -44,22 +45,33 @@ void EbmlComposer::GenerateHeader()
         {
           // Video
           if (mWidth > 0 && mHeight > 0) {
-            writeVideoTrack(&ebml, 0x1, 0, "V_VP8",
-                            mWidth, mHeight,
-                            mDisplayWidth, mDisplayHeight);
+            writeVideoTrack(&ebml,
+                            0x1,
+                            0,
+                            "V_VP8",
+                            mWidth,
+                            mHeight,
+                            mDisplayWidth,
+                            mDisplayHeight);
           }
           // Audio
           if (mCodecPrivateData.Length() > 0) {
             // Extract the pre-skip from mCodecPrivateData
             // then convert it to nanoseconds.
             // Details in OpusTrackEncoder.cpp.
-            mCodecDelay =
-              (uint64_t)LittleEndian::readUint16(mCodecPrivateData.Elements() + 10)
-              * PR_NSEC_PER_SEC / 48000;
+            mCodecDelay = (uint64_t)LittleEndian::readUint16(
+                              mCodecPrivateData.Elements() + 10) *
+                          PR_NSEC_PER_SEC / 48000;
             // Fixed 80ms, convert into nanoseconds.
             uint64_t seekPreRoll = 80 * PR_NSEC_PER_MSEC;
-            writeAudioTrack(&ebml, 0x2, 0x0, "A_OPUS", mSampleFreq,
-                            mChannels, mCodecDelay, seekPreRoll,
+            writeAudioTrack(&ebml,
+                            0x2,
+                            0x0,
+                            "A_OPUS",
+                            mSampleFreq,
+                            mChannels,
+                            mCodecDelay,
+                            seekPreRoll,
                             mCodecPrivateData.Elements(),
                             mCodecPrivateData.Length());
           }
@@ -78,7 +90,8 @@ void EbmlComposer::GenerateHeader()
   mFlushState |= FLUSH_METADATA;
 }
 
-void EbmlComposer::FinishMetadata()
+void
+EbmlComposer::FinishMetadata()
 {
   if (mFlushState & FLUSH_METADATA) {
     // We don't remove the first element of mClusterBuffs because the
@@ -88,7 +101,8 @@ void EbmlComposer::FinishMetadata()
   }
 }
 
-void EbmlComposer::FinishCluster()
+void
+EbmlComposer::FinishCluster()
 {
   FinishMetadata();
   if (!(mFlushState & FLUSH_CLUSTER)) {
@@ -132,9 +146,10 @@ EbmlComposer::WriteSimpleBlock(EncodedFrame* aFrame)
     flush = true;
   } else {
     // Force it to calculate timecode using signed math via cast
-    int64_t timeCode = (aFrame->GetTimeStamp() / ((int) PR_USEC_PER_MSEC) - mClusterTimecode) +
-                       (mCodecDelay / PR_NSEC_PER_MSEC);
-    if (timeCode < SHRT_MIN || timeCode > SHRT_MAX ) {
+    int64_t timeCode =
+        (aFrame->GetTimeStamp() / ((int)PR_USEC_PER_MSEC) - mClusterTimecode) +
+        (mCodecDelay / PR_NSEC_PER_MSEC);
+    if (timeCode < SHRT_MIN || timeCode > SHRT_MAX) {
       // We're probably going to overflow (or underflow) the timeCode value later!
       FinishCluster();
       flush = true;
@@ -160,23 +175,31 @@ EbmlComposer::WriteSimpleBlock(EncodedFrame* aFrame)
 
   bool isOpus = (frameType == EncodedFrame::FrameType::OPUS_AUDIO_FRAME);
   // Can't underflow/overflow now
-  int64_t timeCode = aFrame->GetTimeStamp() / ((int) PR_USEC_PER_MSEC) - mClusterTimecode;
+  int64_t timeCode =
+      aFrame->GetTimeStamp() / ((int)PR_USEC_PER_MSEC) - mClusterTimecode;
   if (isOpus) {
     timeCode += mCodecDelay / PR_NSEC_PER_MSEC;
   }
   MOZ_ASSERT(timeCode >= SHRT_MIN && timeCode <= SHRT_MAX);
-  writeSimpleBlock(&ebml, isOpus ? 0x2 : 0x1, static_cast<short>(timeCode), isVP8IFrame,
-                   0, 0, (unsigned char*)aFrame->GetFrameData().Elements(),
+  writeSimpleBlock(&ebml,
+                   isOpus ? 0x2 : 0x1,
+                   static_cast<short>(timeCode),
+                   isVP8IFrame,
+                   0,
+                   0,
+                   (unsigned char*)aFrame->GetFrameData().Elements(),
                    aFrame->GetFrameData().Length());
-  MOZ_ASSERT(ebml.offset <= DEFAULT_HEADER_SIZE +
-             aFrame->GetFrameData().Length(),
-             "write more data > EBML_BUFFER_SIZE");
+  MOZ_ASSERT(
+      ebml.offset <= DEFAULT_HEADER_SIZE + aFrame->GetFrameData().Length(),
+      "write more data > EBML_BUFFER_SIZE");
   block->SetLength(ebml.offset);
 }
 
 void
-EbmlComposer::SetVideoConfig(uint32_t aWidth, uint32_t aHeight,
-                             uint32_t aDisplayWidth, uint32_t aDisplayHeight)
+EbmlComposer::SetVideoConfig(uint32_t aWidth,
+                             uint32_t aHeight,
+                             uint32_t aDisplayWidth,
+                             uint32_t aDisplayHeight)
 {
   MOZ_ASSERT(aWidth > 0, "Width should > 0");
   MOZ_ASSERT(aHeight > 0, "Height should > 0");
@@ -202,12 +225,10 @@ EbmlComposer::ExtractBuffer(nsTArray<nsTArray<uint8_t> >* aDestBufs,
                             uint32_t aFlag)
 {
   if ((aFlag & ContainerWriter::FLUSH_NEEDED) ||
-      (aFlag & ContainerWriter::GET_HEADER))
-  {
+      (aFlag & ContainerWriter::GET_HEADER)) {
     FinishMetadata();
   }
-  if (aFlag & ContainerWriter::FLUSH_NEEDED)
-  {
+  if (aFlag & ContainerWriter::FLUSH_NEEDED) {
     FinishCluster();
   }
   // aDestBufs may have some element
@@ -218,15 +239,16 @@ EbmlComposer::ExtractBuffer(nsTArray<nsTArray<uint8_t> >* aDestBufs,
 }
 
 EbmlComposer::EbmlComposer()
-  : mFlushState(FLUSH_NONE)
-  , mClusterHeaderIndex(0)
-  , mClusterLengthLoc(0)
-  , mCodecDelay(0)
-  , mClusterTimecode(0)
-  , mWidth(0)
-  , mHeight(0)
-  , mSampleFreq(0)
-  , mChannels(0)
-{}
+    : mFlushState(FLUSH_NONE),
+      mClusterHeaderIndex(0),
+      mClusterLengthLoc(0),
+      mCodecDelay(0),
+      mClusterTimecode(0),
+      mWidth(0),
+      mHeight(0),
+      mSampleFreq(0),
+      mChannels(0)
+{
+}
 
-} // namespace mozilla
+}  // namespace mozilla

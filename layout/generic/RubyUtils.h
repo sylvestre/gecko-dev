@@ -54,7 +54,7 @@ namespace mozilla {
 
 class RubyUtils
 {
-public:
+ public:
   static inline bool IsRubyContentBox(LayoutFrameType aFrameType)
   {
     return aFrameType == mozilla::LayoutFrameType::RubyBase ||
@@ -98,9 +98,9 @@ public:
  * of the given ruby base container.
  */
 class MOZ_RAII AutoRubyTextContainerArray final
-  : public AutoTArray<nsRubyTextContainerFrame*, RTC_ARRAY_SIZE>
+    : public AutoTArray<nsRubyTextContainerFrame*, RTC_ARRAY_SIZE>
 {
-public:
+ public:
   explicit AutoRubyTextContainerArray(nsRubyBaseContainerFrame* aBaseContainer);
 };
 
@@ -109,18 +109,15 @@ public:
  */
 class MOZ_STACK_CLASS RubySegmentEnumerator
 {
-public:
+ public:
   explicit RubySegmentEnumerator(nsRubyFrame* aRubyFrame);
 
   void Next();
   bool AtEnd() const { return !mBaseContainer; }
 
-  nsRubyBaseContainerFrame* GetBaseContainer() const
-  {
-    return mBaseContainer;
-  }
+  nsRubyBaseContainerFrame* GetBaseContainer() const { return mBaseContainer; }
 
-private:
+ private:
   nsRubyBaseContainerFrame* mBaseContainer;
 };
 
@@ -135,17 +132,27 @@ struct MOZ_STACK_CLASS RubyColumn
   AutoTArray<nsRubyTextFrame*, RTC_ARRAY_SIZE> mTextFrames;
   bool mIsIntraLevelWhitespace;
 
-  RubyColumn() : mBaseFrame(nullptr), mIsIntraLevelWhitespace(false) { }
+  RubyColumn() : mBaseFrame(nullptr), mIsIntraLevelWhitespace(false) {}
 
   // Helper class to support iteration across the frames within a single
   // RubyColumn (the column's ruby base and its annotations).
   class MOZ_STACK_CLASS Iterator
   {
-  public:
+   public:
     nsIFrame* operator*() const;
 
-    Iterator& operator++() { ++mIndex; SkipUntilExistingFrame(); return *this; }
-    Iterator operator++(int) { auto ret = *this; ++*this; return ret; }
+    Iterator& operator++()
+    {
+      ++mIndex;
+      SkipUntilExistingFrame();
+      return *this;
+    }
+    Iterator operator++(int)
+    {
+      auto ret = *this;
+      ++*this;
+      return ret;
+    }
 
     friend bool operator==(const Iterator& aIter1, const Iterator& aIter2)
     {
@@ -158,17 +165,16 @@ struct MOZ_STACK_CLASS RubyColumn
       return !(aIter1 == aIter2);
     }
 
-  private:
+   private:
     Iterator(const RubyColumn& aColumn, int32_t aIndex)
-      : mColumn(aColumn)
-      , mIndex(aIndex)
+        : mColumn(aColumn), mIndex(aIndex)
     {
-      MOZ_ASSERT(aIndex == -1 ||
-                 (aIndex >= 0 &&
-                  aIndex <= int32_t(aColumn.mTextFrames.Length())));
+      MOZ_ASSERT(
+          aIndex == -1 ||
+          (aIndex >= 0 && aIndex <= int32_t(aColumn.mTextFrames.Length())));
       SkipUntilExistingFrame();
     }
-    friend struct RubyColumn; // for the constructor
+    friend struct RubyColumn;  // for the constructor
 
     void SkipUntilExistingFrame();
 
@@ -190,7 +196,7 @@ struct MOZ_STACK_CLASS RubyColumn
  */
 class MOZ_STACK_CLASS RubyColumnEnumerator
 {
-public:
+ public:
   RubyColumnEnumerator(nsRubyBaseContainerFrame* aRBCFrame,
                        const AutoRubyTextContainerArray& aRTCFrames);
 
@@ -201,7 +207,7 @@ public:
   nsRubyContentFrame* GetFrameAtLevel(uint32_t aIndex) const;
   void GetColumn(RubyColumn& aColumn) const;
 
-private:
+ private:
   // Frames in this array are NOT necessary part of the current column.
   // When in doubt, use GetFrameAtLevel to access it.
   // See GetFrameAtLevel() and Next() for more info.
@@ -218,18 +224,18 @@ struct RubyBlockLeadings
   nscoord mStart = 0;
   nscoord mEnd = 0;
 
-  void Reset() {
-    mStart = mEnd = 0;
-  }
-  void Update(nscoord aStart, nscoord aEnd) {
+  void Reset() { mStart = mEnd = 0; }
+  void Update(nscoord aStart, nscoord aEnd)
+  {
     mStart = std::max(mStart, aStart);
     mEnd = std::max(mEnd, aEnd);
   }
-  void Update(const RubyBlockLeadings& aOther) {
+  void Update(const RubyBlockLeadings& aOther)
+  {
     Update(aOther.mStart, aOther.mEnd);
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(mozilla_RubyUtils_h_) */

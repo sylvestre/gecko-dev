@@ -54,4 +54,4 @@ XREAppData::operator=(const XREAppData& aOther)
   return *this;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

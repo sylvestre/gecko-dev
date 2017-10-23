@@ -19,13 +19,14 @@ namespace mozilla {
 
 class AppleVTDecoder : public MediaDataDecoder
 {
-public:
+ public:
   AppleVTDecoder(const VideoInfo& aConfig,
                  TaskQueue* aTaskQueue,
                  layers::ImageContainer* aImageContainer);
 
-  class AppleFrameRef {
-  public:
+  class AppleFrameRef
+  {
+   public:
     media::TimeUnit decode_timestamp;
     media::TimeUnit composition_timestamp;
     media::TimeUnit duration;
@@ -33,11 +34,11 @@ public:
     bool is_sync_point;
 
     explicit AppleFrameRef(const MediaRawData& aSample)
-      : decode_timestamp(aSample.mTimecode)
-      , composition_timestamp(aSample.mTime)
-      , duration(aSample.mDuration)
-      , byte_offset(aSample.mOffset)
-      , is_sync_point(aSample.mKeyframe)
+        : decode_timestamp(aSample.mTimecode),
+          composition_timestamp(aSample.mTime),
+          duration(aSample.mDuration),
+          byte_offset(aSample.mOffset),
+          is_sync_point(aSample.mKeyframe)
     {
     }
   };
@@ -57,8 +58,8 @@ public:
   nsCString GetDescriptionName() const override
   {
     return mIsHardwareAccelerated
-           ? NS_LITERAL_CSTRING("apple hardware VT decoder")
-           : NS_LITERAL_CSTRING("apple software VT decoder");
+               ? NS_LITERAL_CSTRING("apple hardware VT decoder")
+               : NS_LITERAL_CSTRING("apple software VT decoder");
   }
 
   ConversionRequired NeedsConversion() const override
@@ -70,7 +71,7 @@ public:
   // OutputFrame is thread-safe.
   void OutputFrame(CVPixelBufferRef aImage, AppleFrameRef aFrameRef);
 
-private:
+ private:
   virtual ~AppleVTDecoder();
   RefPtr<FlushPromise> ProcessFlush();
   RefPtr<DecodePromise> ProcessDrain();
@@ -121,6 +122,6 @@ private:
   Atomic<bool> mIsHardwareAccelerated;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AppleVTDecoder_h
+#endif  // mozilla_AppleVTDecoder_h

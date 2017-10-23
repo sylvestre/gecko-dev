@@ -27,8 +27,9 @@
  *     can reduce instruction cache misses and perhaps improve branch
  *     prediction)
  */
-class nsStubMutationObserver : public nsIMutationObserver {
-public:
+class nsStubMutationObserver : public nsIMutationObserver
+{
+ public:
   NS_DECL_NSIMUTATIONOBSERVER
 };
 

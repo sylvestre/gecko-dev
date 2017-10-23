@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "nsHtml5ViewSourceUtils.h"
 #include "nsHtml5AttributeName.h"
 #include "mozilla/Preferences.h"
@@ -25,7 +24,7 @@ nsHtml5ViewSourceUtils::NewBodyAttributes()
   }
   if (!klass.IsEmpty()) {
     bodyAttrs->addAttribute(
-      nsHtml5AttributeName::ATTR_CLASS, nsHtml5String::FromString(klass), -1);
+        nsHtml5AttributeName::ATTR_CLASS, nsHtml5String::FromString(klass), -1);
   }
 
   int32_t tabSize = mozilla::Preferences::GetInt("view_source.tab_size", 4);
@@ -34,7 +33,7 @@ nsHtml5ViewSourceUtils::NewBodyAttributes()
     style.AssignASCII("-moz-tab-size: ");
     style.AppendInt(tabSize);
     bodyAttrs->addAttribute(
-      nsHtml5AttributeName::ATTR_STYLE, nsHtml5String::FromString(style), -1);
+        nsHtml5AttributeName::ATTR_STYLE, nsHtml5String::FromString(style), -1);
   }
 
   return bodyAttrs;
@@ -50,7 +49,7 @@ nsHtml5ViewSourceUtils::NewLinkAttributes()
   nsHtml5String type = nsHtml5Portability::newStringFromLiteral("text/css");
   linkAttrs->addAttribute(nsHtml5AttributeName::ATTR_TYPE, type, -1);
   nsHtml5String href = nsHtml5Portability::newStringFromLiteral(
-    "resource://content-accessible/viewsource.css");
+      "resource://content-accessible/viewsource.css");
   linkAttrs->addAttribute(nsHtml5AttributeName::ATTR_HREF, href, -1);
   return linkAttrs;
 }

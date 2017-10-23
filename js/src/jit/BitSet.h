@@ -18,16 +18,13 @@ namespace jit {
 // set operations such as intersection, difference, and union.
 // N.B. All set operations must be performed on sets with the same number
 // of bits.
-class BitSet
-{
-  public:
+class BitSet {
+   public:
     static const size_t BitsPerWord = 8 * sizeof(uint32_t);
 
-    static size_t RawLengthForBits(size_t bits) {
-        return (bits + BitsPerWord - 1) / BitsPerWord;
-    }
+    static size_t RawLengthForBits(size_t bits) { return (bits + BitsPerWord - 1) / BitsPerWord; }
 
-  private:
+   private:
     uint32_t* bits_;
     const unsigned int numBits_;
 
@@ -35,29 +32,21 @@ class BitSet
         return 1l << uint32_t(value % BitsPerWord);
     }
 
-    static inline unsigned int wordForValue(unsigned int value) {
-        return value / BitsPerWord;
-    }
+    static inline unsigned int wordForValue(unsigned int value) { return value / BitsPerWord; }
 
-    inline unsigned int numWords() const {
-        return RawLengthForBits(numBits_);
-    }
+    inline unsigned int numWords() const { return RawLengthForBits(numBits_); }
 
     BitSet(const BitSet&) = delete;
     void operator=(const BitSet&) = delete;
 
-  public:
+   public:
     class Iterator;
 
-    explicit BitSet(unsigned int numBits) :
-        bits_(nullptr),
-        numBits_(numBits) {}
+    explicit BitSet(unsigned int numBits) : bits_(nullptr), numBits_(numBits) {}
 
     MOZ_MUST_USE bool init(TempAllocator& alloc);
 
-    unsigned int getNumBits() const {
-        return numBits_;
-    }
+    unsigned int getNumBits() const { return numBits_; }
 
     // O(1): Check if this set contains the given value.
     bool contains(unsigned int value) const {
@@ -105,17 +94,12 @@ class BitSet
     // O(numBits): Clear this set.
     void clear();
 
-    uint32_t* raw() const {
-        return bits_;
-    }
-    size_t rawLength() const {
-        return numWords();
-    }
+    uint32_t* raw() const { return bits_; }
+    size_t rawLength() const { return numWords(); }
 };
 
-class BitSet::Iterator
-{
-  private:
+class BitSet::Iterator {
+   private:
     BitSet& set_;
     unsigned index_;
     unsigned word_;
@@ -127,8 +111,7 @@ class BitSet::Iterator
         const uint32_t* bits = set_.bits_;
         while (value_ == 0) {
             word_++;
-            if (word_ == numWords)
-                return;
+            if (word_ == numWords) return;
 
             index_ = word_ * BitSet::BitsPerWord;
             value_ = bits[word_];
@@ -143,22 +126,13 @@ class BitSet::Iterator
         MOZ_ASSERT_IF(index_ < set_.numBits_, set_.contains(index_));
     }
 
-  public:
-    explicit Iterator(BitSet& set) :
-      set_(set),
-      index_(0),
-      word_(0),
-      value_(set.bits_[0])
-    {
+   public:
+    explicit Iterator(BitSet& set) : set_(set), index_(0), word_(0), value_(set.bits_[0]) {
         skipEmpty();
     }
 
-    inline bool more() const {
-        return word_ < set_.numWords();
-    }
-    explicit operator bool() const {
-        return more();
-    }
+    inline bool more() const { return word_ < set_.numWords(); }
+    explicit operator bool() const { return more(); }
 
     inline void operator++() {
         MOZ_ASSERT(more());
@@ -176,7 +150,7 @@ class BitSet::Iterator
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_BitSet_h */

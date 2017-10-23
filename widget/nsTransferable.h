@@ -22,32 +22,36 @@ class nsIMutableArray;
 //
 struct DataStruct
 {
-  explicit DataStruct ( const char* aFlavor )
-    : mDataLen(0), mFlavor(aFlavor), mCacheFileName(nullptr) { }
+  explicit DataStruct(const char* aFlavor)
+      : mDataLen(0), mFlavor(aFlavor), mCacheFileName(nullptr)
+  {
+  }
   ~DataStruct();
-  
-  const nsCString& GetFlavor() const { return mFlavor; }
-  void SetData( nsISupports* inData, uint32_t inDataLen, bool aIsPrivateData );
-  void GetData( nsISupports** outData, uint32_t *outDataLen );
-  already_AddRefed<nsIFile> GetFileSpec(const char* aFileName);
-  bool IsDataAvailable() const { return (mData && mDataLen > 0) || (!mData && mCacheFileName); }
-  
-protected:
 
-  enum {
+  const nsCString& GetFlavor() const { return mFlavor; }
+  void SetData(nsISupports* inData, uint32_t inDataLen, bool aIsPrivateData);
+  void GetData(nsISupports** outData, uint32_t* outDataLen);
+  already_AddRefed<nsIFile> GetFileSpec(const char* aFileName);
+  bool IsDataAvailable() const
+  {
+    return (mData && mDataLen > 0) || (!mData && mCacheFileName);
+  }
+
+ protected:
+  enum
+  {
     // The size of data over which we write the data to disk rather than
     // keep it around in memory.
-    kLargeDatasetSize = 1000000        // 1 million bytes
+    kLargeDatasetSize = 1000000  // 1 million bytes
   };
-  
-  nsresult WriteCache(nsISupports* aData, uint32_t aDataLen );
-  nsresult ReadCache(nsISupports** aData, uint32_t* aDataLen );
-  
-  nsCOMPtr<nsISupports> mData;   // OWNER - some varient of primitive wrapper
+
+  nsresult WriteCache(nsISupports* aData, uint32_t aDataLen);
+  nsresult ReadCache(nsISupports** aData, uint32_t* aDataLen);
+
+  nsCOMPtr<nsISupports> mData;  // OWNER - some varient of primitive wrapper
   uint32_t mDataLen;
   const nsCString mFlavor;
-  char *   mCacheFileName;
-
+  char* mCacheFileName;
 };
 
 /**
@@ -56,20 +60,19 @@ protected:
 
 class nsTransferable : public nsITransferable
 {
-public:
-
+ public:
   nsTransferable();
 
-    // nsISupports
+  // nsISupports
   NS_DECL_ISUPPORTS
   NS_DECL_NSITRANSFERABLE
 
-protected:
+ protected:
   virtual ~nsTransferable();
 
-    // get flavors w/out converter
+  // get flavors w/out converter
   already_AddRefed<nsIMutableArray> GetTransferDataFlavors();
- 
+
   nsTArray<DataStruct> mDataArray;
   nsCOMPtr<nsIFormatConverter> mFormatConv;
   bool mPrivateData;
@@ -78,7 +81,6 @@ protected:
 #if DEBUG
   bool mInitialized;
 #endif
-
 };
 
-#endif // nsTransferable_h__
+#endif  // nsTransferable_h__

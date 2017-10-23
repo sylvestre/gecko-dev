@@ -35,16 +35,18 @@ namespace mozilla {
 // become available).
 class CooperativeThreadPool
 {
-public:
+ public:
   // Every pool must have a controller object, on which callbacks are invoked.
   class Controller
   {
-  public:
+   public:
     // Called when a new thread in the pool is started. aIndex is the index of
     // the thread within the pool. aName is the thread name (e.g., Main#4), and
     // aStackTop is the guess for the address of the top of the stack. The
     // thread will begin processing events immediately after OnStartThread is called.
-    virtual void OnStartThread(size_t aIndex, const nsACString& aName, void* aStackTop) = 0;
+    virtual void OnStartThread(size_t aIndex,
+                               const nsACString& aName,
+                               void* aStackTop) = 0;
 
     // Called when a thread in the pool is about to be shut down.
     virtual void OnStopThread(size_t aIndex) = 0;
@@ -74,8 +76,9 @@ public:
   // are an event queue (where IsAvailable would check if the queue is
   // non-empty) or an object that can be owned by only one thread at a time
   // (where IsAvailable would check if the object is unowned).
-  class Resource {
-  public:
+  class Resource
+  {
+   public:
     virtual bool IsAvailable(const MutexAutoLock& aProofOfLock) = 0;
   };
 
@@ -92,21 +95,23 @@ public:
 
   static bool IsCooperativeThread();
 
-  enum class AllThreadsBlocked { Blocked };
+  enum class AllThreadsBlocked
+  {
+    Blocked
+  };
   using SelectedThread = Variant<size_t, AllThreadsBlocked>;
 
   SelectedThread CurrentThreadIndex(const MutexAutoLock& aProofOfLock) const;
 
   static const size_t kMaxThreads = 16;
 
-private:
+ private:
   class CooperativeThread
   {
     friend class CooperativeThreadPool;
 
-  public:
-    CooperativeThread(CooperativeThreadPool* aPool,
-                      size_t aIndex);
+   public:
+    CooperativeThread(CooperativeThreadPool* aPool, size_t aIndex);
 
     void BeginShutdown();
     void EndShutdown();
@@ -118,7 +123,7 @@ private:
 
     void Yield(const MutexAutoLock& aProofOfLock);
 
-  private:
+   private:
     static void ThreadFunc(void* aArg);
     void ThreadMethod();
 
@@ -148,6 +153,6 @@ private:
   static MOZ_THREAD_LOCAL(CooperativeThread*) sTlsCurrentThread;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_CooperativeThreadPool_h
+#endif  // mozilla_CooperativeThreadPool_h

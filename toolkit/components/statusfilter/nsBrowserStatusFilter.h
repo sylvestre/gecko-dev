@@ -19,63 +19,63 @@
 // the frequency of certain events to improve page load performance.
 //-----------------------------------------------------------------------------
 
-class nsBrowserStatusFilter : public nsIWebProgress
-                            , public nsIWebProgressListener2
-                            , public nsSupportsWeakReference
+class nsBrowserStatusFilter : public nsIWebProgress,
+                              public nsIWebProgressListener2,
+                              public nsSupportsWeakReference
 {
-public:
-    nsBrowserStatusFilter();
+ public:
+  nsBrowserStatusFilter();
 
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIWEBPROGRESS
-    NS_DECL_NSIWEBPROGRESSLISTENER
-    NS_DECL_NSIWEBPROGRESSLISTENER2
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIWEBPROGRESS
+  NS_DECL_NSIWEBPROGRESSLISTENER
+  NS_DECL_NSIWEBPROGRESSLISTENER2
 
-protected:
-    virtual ~nsBrowserStatusFilter();
+ protected:
+  virtual ~nsBrowserStatusFilter();
 
-private:
-    nsresult StartDelayTimer();
-    void ProcessTimeout();
-    void MaybeSendProgress();
-    void MaybeSendStatus();
-    void ResetMembers();
-    bool DelayInEffect() { return mDelayedStatus || mDelayedProgress; }
+ private:
+  nsresult StartDelayTimer();
+  void ProcessTimeout();
+  void MaybeSendProgress();
+  void MaybeSendStatus();
+  void ResetMembers();
+  bool DelayInEffect() { return mDelayedStatus || mDelayedProgress; }
 
-    static void TimeoutHandler(nsITimer *aTimer, void *aClosure);
+  static void TimeoutHandler(nsITimer* aTimer, void* aClosure);
 
-private:
-    nsCOMPtr<nsIWebProgressListener> mListener;
-    nsCOMPtr<nsIEventTarget>         mTarget;
-    nsCOMPtr<nsITimer>               mTimer;
+ private:
+  nsCOMPtr<nsIWebProgressListener> mListener;
+  nsCOMPtr<nsIEventTarget> mTarget;
+  nsCOMPtr<nsITimer> mTimer;
 
-    // delayed values
-    nsString                         mStatusMsg;
-    int64_t                          mCurProgress;
-    int64_t                          mMaxProgress;
+  // delayed values
+  nsString mStatusMsg;
+  int64_t mCurProgress;
+  int64_t mMaxProgress;
 
-    nsString                         mCurrentStatusMsg;
-    bool                             mStatusIsDirty;
-    int32_t                          mCurrentPercentage;
+  nsString mCurrentStatusMsg;
+  bool mStatusIsDirty;
+  int32_t mCurrentPercentage;
 
-    // used to convert OnStart/OnStop notifications into progress notifications
-    int32_t                          mTotalRequests;
-    int32_t                          mFinishedRequests;
-    bool                             mUseRealProgressFlag;
+  // used to convert OnStart/OnStop notifications into progress notifications
+  int32_t mTotalRequests;
+  int32_t mFinishedRequests;
+  bool mUseRealProgressFlag;
 
-    // indicates whether a timeout is pending
-    bool                             mDelayedStatus;
-    bool                             mDelayedProgress;
+  // indicates whether a timeout is pending
+  bool mDelayedStatus;
+  bool mDelayedProgress;
 };
 
 #define NS_BROWSERSTATUSFILTER_CONTRACTID \
-    "@mozilla.org/appshell/component/browser-status-filter;1"
+  "@mozilla.org/appshell/component/browser-status-filter;1"
 #define NS_BROWSERSTATUSFILTER_CID                   \
-{ /* 6356aa16-7916-4215-a825-cbc2692ca87a */         \
-    0x6356aa16,                                      \
-    0x7916,                                          \
-    0x4215,                                          \
-    {0xa8, 0x25, 0xcb, 0xc2, 0x69, 0x2c, 0xa8, 0x7a} \
-}
+  { /* 6356aa16-7916-4215-a825-cbc2692ca87a */       \
+    0x6356aa16, 0x7916, 0x4215,                      \
+    {                                                \
+      0xa8, 0x25, 0xcb, 0xc2, 0x69, 0x2c, 0xa8, 0x7a \
+    }                                                \
+  }
 
-#endif // !nsBrowserStatusFilter_h__
+#endif  // !nsBrowserStatusFilter_h__

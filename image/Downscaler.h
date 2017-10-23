@@ -51,14 +51,17 @@ struct DownscalerInvalidRect
  */
 class Downscaler
 {
-public:
+ public:
   /// Constructs a new Downscaler which to scale to size @aTargetSize.
   explicit Downscaler(const nsIntSize& aTargetSize);
   ~Downscaler();
 
   const nsIntSize& OriginalSize() const { return mOriginalSize; }
   const nsIntSize& TargetSize() const { return mTargetSize; }
-  const nsIntSize FrameSize() const { return nsIntSize(mFrameRect.Width(), mFrameRect.Height()); }
+  const nsIntSize FrameSize() const
+  {
+    return nsIntSize(mFrameRect.Width(), mFrameRect.Height());
+  }
   const gfxSize& Scale() const { return mScale; }
 
   /**
@@ -84,7 +87,10 @@ public:
                       bool aHasAlpha,
                       bool aFlipVertically = false);
 
-  bool IsFrameComplete() const { return mCurrentInLine >= mOriginalSize.height; }
+  bool IsFrameComplete() const
+  {
+    return mCurrentInLine >= mOriginalSize.height;
+  }
 
   /// Retrieves the buffer into which the Decoder should write each row.
   uint8_t* RowBuffer()
@@ -114,7 +120,7 @@ public:
    */
   void ResetForNextProgressivePass();
 
-private:
+ private:
   void DownscaleInputLine();
   void ReleaseWindow();
   void SkipToRow(int32_t aRow);
@@ -127,7 +133,7 @@ private:
   uint8_t* mOutputBuffer;
 
   UniquePtr<uint8_t[]> mRowBuffer;
-  UniquePtr<uint8_t*[]> mWindow;
+  UniquePtr<uint8_t* []> mWindow;
 
   gfx::ConvolutionFilter mXFilter;
   gfx::ConvolutionFilter mYFilter;
@@ -152,7 +158,7 @@ private:
 
 class Downscaler
 {
-public:
+ public:
   explicit Downscaler(const nsIntSize&) : mScale(1.0, 1.0)
   {
     MOZ_RELEASE_ASSERT(false, "Skia is not enabled");
@@ -162,30 +168,30 @@ public:
   const nsIntSize& TargetSize() const { return mSize; }
   const gfxSize& Scale() const { return mScale; }
 
-  nsresult BeginFrame(const nsIntSize&, const Maybe<nsIntRect>&, uint8_t*, bool, bool = false)
+  nsresult BeginFrame(
+      const nsIntSize&, const Maybe<nsIntRect>&, uint8_t*, bool, bool = false)
   {
     return NS_ERROR_FAILURE;
   }
 
   bool IsFrameComplete() const { return false; }
   uint8_t* RowBuffer() { return nullptr; }
-  void ClearRow() { }
-  void ClearRestOfRow(uint32_t) { }
-  void CommitRow() { }
+  void ClearRow() {}
+  void ClearRestOfRow(uint32_t) {}
+  void CommitRow() {}
   bool HasInvalidation() const { return false; }
   DownscalerInvalidRect TakeInvalidRect() { return DownscalerInvalidRect(); }
-  void ResetForNextProgressivePass() { }
+  void ResetForNextProgressivePass() {}
   const nsIntSize FrameSize() const { return nsIntSize(0, 0); }
-private:
+
+ private:
   nsIntSize mSize;
   gfxSize mScale;
 };
 
-#endif // MOZ_ENABLE_SKIA
+#endif  // MOZ_ENABLE_SKIA
 
+}  // namespace image
+}  // namespace mozilla
 
-
-} // namespace image
-} // namespace mozilla
-
-#endif // mozilla_image_Downscaler_h
+#endif  // mozilla_image_Downscaler_h

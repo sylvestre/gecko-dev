@@ -29,11 +29,11 @@ class TrackMetadataHolder;
 // will never be called from more than one thread at once.
 class MediaDataDemuxer
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaDataDemuxer)
 
-  typedef
-    MozPromise<MediaResult, MediaResult, /* IsExclusive = */ true> InitPromise;
+  typedef MozPromise<MediaResult, MediaResult, /* IsExclusive = */ true>
+      InitPromise;
 
   // Initializes the demuxer. Other methods cannot be called unless
   // initialization has completed and succeeded.
@@ -54,7 +54,7 @@ public:
   // The actual Track ID is to be retrieved by calling
   // MediaTrackDemuxer::TrackInfo.
   virtual already_AddRefed<MediaTrackDemuxer> GetTrackDemuxer(
-    TrackInfo::TrackType aType, uint32_t aTrackNumber) = 0;
+      TrackInfo::TrackType aType, uint32_t aTrackNumber) = 0;
 
   // Returns true if the underlying resource allows seeking.
   virtual bool IsSeekable() const = 0;
@@ -65,67 +65,64 @@ public:
 
   // Returns the media's crypto information, or nullptr if media isn't
   // encrypted.
-  virtual UniquePtr<EncryptionInfo> GetCrypto()
-  {
-    return nullptr;
-  }
+  virtual UniquePtr<EncryptionInfo> GetCrypto() { return nullptr; }
 
   // Notifies the demuxer that the underlying resource has received more data
   // since the demuxer was initialized.
   // The demuxer can use this mechanism to inform all track demuxers that new
   // data is available and to refresh its buffered range.
-  virtual void NotifyDataArrived() { }
+  virtual void NotifyDataArrived() {}
 
   // Notifies the demuxer that the underlying resource has had data removed
   // since the demuxer was initialized.
   // The demuxer can use this mechanism to inform all track demuxers to update
   // its buffered range.
   // This will be called should the demuxer be used with MediaSource.
-  virtual void NotifyDataRemoved() { }
+  virtual void NotifyDataRemoved() {}
 
   // Indicate to MediaFormatReader if it should compute the start time
   // of the demuxed data. If true (default) the first sample returned will be
   // used as reference time base.
   virtual bool ShouldComputeStartTime() const { return true; }
 
-protected:
-  virtual ~MediaDataDemuxer()
-  {
-  }
+ protected:
+  virtual ~MediaDataDemuxer() {}
 };
 
 class MediaTrackDemuxer
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaTrackDemuxer)
 
   class SamplesHolder
   {
-  public:
+   public:
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SamplesHolder)
     nsTArray<RefPtr<MediaRawData>> mSamples;
-  private:
-    ~SamplesHolder() { }
+
+   private:
+    ~SamplesHolder() {}
   };
 
   class SkipFailureHolder
   {
-  public:
+   public:
     SkipFailureHolder(const MediaResult& aFailure, uint32_t aSkipped)
-      : mFailure(aFailure)
-      , mSkipped(aSkipped)
-    {}
+        : mFailure(aFailure), mSkipped(aSkipped)
+    {
+    }
     MediaResult mFailure;
     uint32_t mSkipped;
   };
 
   typedef MozPromise<media::TimeUnit, MediaResult, /* IsExclusive = */ true>
-    SeekPromise;
-  typedef MozPromise<RefPtr<SamplesHolder>, MediaResult,
+      SeekPromise;
+  typedef MozPromise<RefPtr<SamplesHolder>,
+                     MediaResult,
                      /* IsExclusive = */ true>
-    SamplesPromise;
+      SamplesPromise;
   typedef MozPromise<uint32_t, SkipFailureHolder, /* IsExclusive = */ true>
-    SkipAccessPointPromise;
+      SkipAccessPointPromise;
 
   // Returns the TrackInfo (a.k.a Track Description) for this track.
   // The TrackInfo returned will be:
@@ -150,10 +147,7 @@ public:
   // underlying resource to return the data.
   // This is used by the MediaFormatReader to determine if buffering heuristics
   // should be used.
-  virtual bool GetSamplesMayBlock() const
-  {
-    return true;
-  }
+  virtual bool GetSamplesMayBlock() const { return true; }
 
   // Cancel all pending actions (Seek, GetSamples) and reset current state
   // All pending promises are to be rejected with CANCEL.
@@ -180,20 +174,14 @@ public:
   // The first frame returned by the next call to GetSamples() will be the
   // first random access point found after aTimeThreshold.
   // Upon success, returns the number of frames skipped.
-  virtual RefPtr<SkipAccessPointPromise>
-  SkipToNextRandomAccessPoint(const media::TimeUnit& aTimeThreshold) = 0;
+  virtual RefPtr<SkipAccessPointPromise> SkipToNextRandomAccessPoint(
+      const media::TimeUnit& aTimeThreshold) = 0;
 
   // Gets the resource's offset used for the last Seek() or GetSample().
   // A negative value indicates that this functionality isn't supported.
-  virtual int64_t GetResourceOffset() const
-  {
-    return -1;
-  }
+  virtual int64_t GetResourceOffset() const { return -1; }
 
-  virtual TrackInfo::TrackType GetType() const
-  {
-    return GetInfo()->GetType();
-  }
+  virtual TrackInfo::TrackType GetType() const { return GetInfo()->GetType(); }
 
   virtual media::TimeIntervals GetBuffered() = 0;
 
@@ -206,14 +194,12 @@ public:
 
   // If the MediaTrackDemuxer and MediaDataDemuxer hold cross references.
   // BreakCycles must be overridden.
-  virtual void BreakCycles()
-  {
-  }
+  virtual void BreakCycles() {}
 
-protected:
-  virtual ~MediaTrackDemuxer() { }
+ protected:
+  virtual ~MediaTrackDemuxer() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MediaDataDemuxer_h
+#endif  // MediaDataDemuxer_h

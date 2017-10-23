@@ -25,7 +25,7 @@ class OrientedImage : public ImageWrapper
 {
   typedef gfx::SourceSurface SourceSurface;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_IMETHOD GetWidth(int32_t* aWidth) override;
@@ -34,48 +34,49 @@ public:
   NS_IMETHOD GetIntrinsicSize(nsSize* aSize) override;
   NS_IMETHOD GetIntrinsicRatio(nsSize* aRatio) override;
   NS_IMETHOD_(already_AddRefed<SourceSurface>)
-    GetFrame(uint32_t aWhichFrame, uint32_t aFlags) override;
+  GetFrame(uint32_t aWhichFrame, uint32_t aFlags) override;
   NS_IMETHOD_(already_AddRefed<SourceSurface>)
-    GetFrameAtSize(const gfx::IntSize& aSize,
-                   uint32_t aWhichFrame,
-                   uint32_t aFlags) override;
-  NS_IMETHOD_(bool) IsImageContainerAvailable(layers::LayerManager* aManager,
-                                              uint32_t aFlags) override;
+  GetFrameAtSize(const gfx::IntSize& aSize,
+                 uint32_t aWhichFrame,
+                 uint32_t aFlags) override;
+  NS_IMETHOD_(bool)
+  IsImageContainerAvailable(layers::LayerManager* aManager,
+                            uint32_t aFlags) override;
   NS_IMETHOD_(already_AddRefed<layers::ImageContainer>)
-    GetImageContainer(layers::LayerManager* aManager,
-                      uint32_t aFlags) override;
-  NS_IMETHOD_(DrawResult) Draw(gfxContext* aContext,
-                               const nsIntSize& aSize,
-                               const ImageRegion& aRegion,
-                               uint32_t aWhichFrame,
-                               gfx::SamplingFilter aSamplingFilter,
-                               const Maybe<SVGImageContext>& aSVGContext,
-                               uint32_t aFlags,
-                               float aOpacity) override;
-  NS_IMETHOD_(nsIntRect) GetImageSpaceInvalidationRect(
-                                           const nsIntRect& aRect) override;
+  GetImageContainer(layers::LayerManager* aManager, uint32_t aFlags) override;
+  NS_IMETHOD_(DrawResult)
+  Draw(gfxContext* aContext,
+       const nsIntSize& aSize,
+       const ImageRegion& aRegion,
+       uint32_t aWhichFrame,
+       gfx::SamplingFilter aSamplingFilter,
+       const Maybe<SVGImageContext>& aSVGContext,
+       uint32_t aFlags,
+       float aOpacity) override;
+  NS_IMETHOD_(nsIntRect)
+  GetImageSpaceInvalidationRect(const nsIntRect& aRect) override;
   nsIntSize OptimalImageSizeForDest(const gfxSize& aDest,
                                     uint32_t aWhichFrame,
                                     gfx::SamplingFilter aSamplingFilter,
                                     uint32_t aFlags) override;
 
-protected:
+ protected:
   OrientedImage(Image* aImage, Orientation aOrientation)
-    : ImageWrapper(aImage)
-    , mOrientation(aOrientation)
-  { }
+      : ImageWrapper(aImage), mOrientation(aOrientation)
+  {
+  }
 
-  virtual ~OrientedImage() { }
+  virtual ~OrientedImage() {}
 
   gfxMatrix OrientationMatrix(const nsIntSize& aSize, bool aInvert = false);
 
-private:
+ private:
   Orientation mOrientation;
 
   friend class ImageOps;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_OrientedImage_h
+#endif  // mozilla_image_OrientedImage_h

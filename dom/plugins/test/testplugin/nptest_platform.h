@@ -39,51 +39,60 @@
 /**
  * Returns true if the plugin supports windowed mode
  */
-bool    pluginSupportsWindowMode();
+bool
+pluginSupportsWindowMode();
 
 /**
  * Returns true if the plugin supports windowless mode. At least one of
  * "pluginSupportsWindowMode" and "pluginSupportsWindowlessMode" must
  * return true.
  */
-bool    pluginSupportsWindowlessMode();
+bool
+pluginSupportsWindowlessMode();
 
 /**
  * Initialize the plugin instance. Returning an error here will cause the
  * plugin instantiation to fail.
  */
-NPError pluginInstanceInit(InstanceData* instanceData);
+NPError
+pluginInstanceInit(InstanceData* instanceData);
 
 /**
  * Shutdown the plugin instance.
  */
-void    pluginInstanceShutdown(InstanceData* instanceData);
+void
+pluginInstanceShutdown(InstanceData* instanceData);
 
 /**
  * Set the instanceData's window to newWindow.
  */
-void    pluginDoSetWindow(InstanceData* instanceData, NPWindow* newWindow);
+void
+pluginDoSetWindow(InstanceData* instanceData, NPWindow* newWindow);
 
 /**
  * Initialize the window for a windowed plugin. oldWindow is the old
  * native window value. This will never be called for windowless plugins.
  */
-void    pluginWidgetInit(InstanceData* instanceData, void* oldWindow);
+void
+pluginWidgetInit(InstanceData* instanceData, void* oldWindow);
 
 /**
  * Handle an event for a windowless plugin. (Windowed plugins are
  * responsible for listening for their own events.)
  */
-int16_t pluginHandleEvent(InstanceData* instanceData, void* event);
+int16_t
+pluginHandleEvent(InstanceData* instanceData, void* event);
 
-enum RectEdge {
+enum RectEdge
+{
   EDGE_LEFT = 0,
   EDGE_TOP = 1,
   EDGE_RIGHT = 2,
   EDGE_BOTTOM = 3
 };
 
-enum {
+enum
+{
   NPTEST_INT32_ERROR = 0x7FFFFFFF
 };
 
@@ -94,14 +103,16 @@ enum {
  * and Mac plugins.
  * Returns NPTEST_ERROR on error.
  */
-int32_t pluginGetEdge(InstanceData* instanceData, RectEdge edge);
+int32_t
+pluginGetEdge(InstanceData* instanceData, RectEdge edge);
 
 /**
  * Return the number of rectangles in the plugin's clip region. Only
  * works for window-mode plugins and Mac plugins.
  * Returns NPTEST_ERROR on error.
  */
-int32_t pluginGetClipRegionRectCount(InstanceData* instanceData);
+int32_t
+pluginGetClipRegionRectCount(InstanceData* instanceData);
 
 /**
  * Return the coordinate of the given edge of a rectangle in the plugin's
@@ -110,21 +121,26 @@ int32_t pluginGetClipRegionRectCount(InstanceData* instanceData);
  * window-mode plugins and Mac plugins.
  * Returns NPTEST_ERROR on error.
  */
-int32_t pluginGetClipRegionRectEdge(InstanceData* instanceData,
-    int32_t rectIndex, RectEdge edge);
+int32_t
+pluginGetClipRegionRectEdge(InstanceData* instanceData,
+                            int32_t rectIndex,
+                            RectEdge edge);
 
 /**
  * Check that the platform-specific plugin state is internally consistent.
  * Just return if everything is OK, otherwise append error messages
  * to 'error' separated by \n.
  */
-void pluginDoInternalConsistencyCheck(InstanceData* instanceData, std::string& error);
+void
+pluginDoInternalConsistencyCheck(InstanceData* instanceData,
+                                 std::string& error);
 
 /**
  * Get the current clipboard item as text.  If the clipboard item
  * isn't text, the returned value is undefined.
  */
-std::string pluginGetClipboardText(InstanceData* instanceData);
+std::string
+pluginGetClipboardText(InstanceData* instanceData);
 
 /**
  * Crash while in a nested event loop.  The goal is to catch the
@@ -132,12 +148,14 @@ std::string pluginGetClipboardText(InstanceData* instanceData);
  * crash while other plugin code is still on the stack.
  * See https://bugzilla.mozilla.org/show_bug.cgi?id=550026.
  */
-bool pluginCrashInNestedLoop(InstanceData* instanceData);
+bool
+pluginCrashInNestedLoop(InstanceData* instanceData);
 
 /**
  * Generate an X11 protocol error to terminate the plugin process.
  */
-bool pluginTriggerXError(InstanceData* instanceData);
+bool
+pluginTriggerXError(InstanceData* instanceData);
 
 /**
  * Destroy gfx things that might be shared with the parent process
@@ -148,13 +166,15 @@ bool pluginTriggerXError(InstanceData* instanceData);
  * This call leaves the plugin subprocess in an undefined state.  It
  * must not be used after this call or weird things will happen.
  */
-bool pluginDestroySharedGfxStuff(InstanceData* instanceData);
+bool
+pluginDestroySharedGfxStuff(InstanceData* instanceData);
 
 /**
  * Checks to see if the native widget is marked as visible. Works
  * in e10s and non-e10s. Useful in testing e10s related compositor
  * plugin window functionality. Supported on Windows.
  */
-bool pluginNativeWidgetIsVisible(InstanceData* instanceData);
+bool
+pluginNativeWidgetIsVisible(InstanceData* instanceData);
 
-#endif // nptest_platform_h_
+#endif  // nptest_platform_h_

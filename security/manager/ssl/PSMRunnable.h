@@ -10,39 +10,43 @@
 #include "nsIObserver.h"
 #include "nsProxyRelease.h"
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 // Wait for the event to run on the target thread without spinning the event
 // loop on the calling thread. (Dispatching events to a thread using
 // NS_DISPATCH_SYNC would cause the event loop on the calling thread to spin.)
 class SyncRunnableBase : public Runnable
 {
-public:
+ public:
   NS_DECL_NSIRUNNABLE
   nsresult DispatchToMainThreadAndWait();
-protected:
+
+ protected:
   SyncRunnableBase();
   virtual void RunOnTargetThread() = 0;
-private:
+
+ private:
   mozilla::Monitor monitor;
 };
 
 class NotifyObserverRunnable : public Runnable
 {
-public:
-  NotifyObserverRunnable(nsIObserver * observer,
-                         const char * topicStringLiteral)
-    : Runnable("psm::NotifyObserverRunnable"),
-      mObserver(new nsMainThreadPtrHolder<nsIObserver>(
-        "psm::NotifyObserverRunnable::mObserver", observer)),
-      mTopic(topicStringLiteral) {
+ public:
+  NotifyObserverRunnable(nsIObserver* observer, const char* topicStringLiteral)
+      : Runnable("psm::NotifyObserverRunnable"),
+        mObserver(new nsMainThreadPtrHolder<nsIObserver>(
+            "psm::NotifyObserverRunnable::mObserver", observer)),
+        mTopic(topicStringLiteral)
+  {
   }
   NS_DECL_NSIRUNNABLE
-private:
+ private:
   nsMainThreadPtrHandle<nsIObserver> mObserver;
-  const char * const mTopic;
+  const char* const mTopic;
 };
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla
 
 #endif

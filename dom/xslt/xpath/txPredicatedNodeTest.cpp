@@ -9,11 +9,10 @@
 
 txPredicatedNodeTest::txPredicatedNodeTest(txNodeTest* aNodeTest,
                                            Expr* aPredicate)
-    : mNodeTest(aNodeTest),
-      mPredicate(aPredicate)
+    : mNodeTest(aNodeTest), mPredicate(aPredicate)
 {
-    NS_ASSERTION(!mPredicate->isSensitiveTo(Expr::NODESET_CONTEXT),
-                 "predicate must not be context-nodeset-sensitive");
+  NS_ASSERTION(!mPredicate->isSensitiveTo(Expr::NODESET_CONTEXT),
+               "predicate must not be context-nodeset-sensitive");
 }
 
 nsresult
@@ -21,42 +20,42 @@ txPredicatedNodeTest::matches(const txXPathNode& aNode,
                               txIMatchContext* aContext,
                               bool& aMatched)
 {
-    nsresult rv = mNodeTest->matches(aNode, aContext, aMatched);
-    NS_ENSURE_SUCCESS(rv, rv);
+  nsresult rv = mNodeTest->matches(aNode, aContext, aMatched);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-    if (!aMatched) {
-        return NS_OK;
-    }
-
-    txSingleNodeContext context(aNode, aContext);
-    RefPtr<txAExprResult> res;
-    rv = mPredicate->evaluate(&context, getter_AddRefs(res));
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    aMatched = res->booleanValue();
+  if (!aMatched) {
     return NS_OK;
+  }
+
+  txSingleNodeContext context(aNode, aContext);
+  RefPtr<txAExprResult> res;
+  rv = mPredicate->evaluate(&context, getter_AddRefs(res));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  aMatched = res->booleanValue();
+  return NS_OK;
 }
 
 double
 txPredicatedNodeTest::getDefaultPriority()
 {
-    return 0.5;
+  return 0.5;
 }
 
 bool
 txPredicatedNodeTest::isSensitiveTo(Expr::ContextSensitivity aContext)
 {
-    return mNodeTest->isSensitiveTo(aContext) ||
-           mPredicate->isSensitiveTo(aContext);
+  return mNodeTest->isSensitiveTo(aContext) ||
+         mPredicate->isSensitiveTo(aContext);
 }
 
 #ifdef TX_TO_STRING
 void
 txPredicatedNodeTest::toString(nsAString& aDest)
 {
-    mNodeTest->toString(aDest);
-    aDest.Append(char16_t('['));
-    mPredicate->toString(aDest);
-    aDest.Append(char16_t(']'));
+  mNodeTest->toString(aDest);
+  aDest.Append(char16_t('['));
+  mPredicate->toString(aDest);
+  aDest.Append(char16_t(']'));
 }
 #endif

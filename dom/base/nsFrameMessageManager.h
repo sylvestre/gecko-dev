@@ -48,7 +48,8 @@ namespace ipc {
 // of 1 ms actually captures from 500us and above.
 static const uint32_t kMinTelemetrySyncMessageManagerLatencyMs = 1;
 
-enum MessageManagerFlags {
+enum MessageManagerFlags
+{
   MM_CHILD = 0,
   MM_CHROME = 1,
   MM_GLOBAL = 2,
@@ -59,10 +60,11 @@ enum MessageManagerFlags {
 
 class MessageManagerCallback
 {
-public:
+ public:
   virtual ~MessageManagerCallback() {}
 
-  virtual bool DoLoadMessageManagerScript(const nsAString& aURL, bool aRunInGlobalScope)
+  virtual bool DoLoadMessageManagerScript(const nsAString& aURL,
+                                          bool aRunInGlobalScope)
   {
     return true;
   }
@@ -87,10 +89,7 @@ public:
     return NS_OK;
   }
 
-  virtual nsIMessageSender* GetProcessMessageManager() const
-  {
-    return nullptr;
-  }
+  virtual nsIMessageSender* GetProcessMessageManager() const { return nullptr; }
 
   virtual nsresult DoGetRemoteType(nsAString& aRemoteType) const
   {
@@ -102,7 +101,7 @@ public:
     return NS_OK;
   }
 
-protected:
+ protected:
   bool BuildClonedMessageDataForParent(nsIContentParent* aParent,
                                        StructuredCloneData& aData,
                                        ClonedMessageData& aClonedData);
@@ -111,15 +110,17 @@ protected:
                                       ClonedMessageData& aClonedData);
 };
 
-void UnpackClonedMessageDataForParent(const ClonedMessageData& aClonedData,
-                                      StructuredCloneData& aData);
+void
+UnpackClonedMessageDataForParent(const ClonedMessageData& aClonedData,
+                                 StructuredCloneData& aData);
 
-void UnpackClonedMessageDataForChild(const ClonedMessageData& aClonedData,
-                                     StructuredCloneData& aData);
+void
+UnpackClonedMessageDataForChild(const ClonedMessageData& aClonedData,
+                                StructuredCloneData& aData);
 
-} // namespace ipc
-} // namespace dom
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace dom
+}  // namespace mozilla
 
 struct nsMessageListenerInfo
 {
@@ -134,19 +135,19 @@ struct nsMessageListenerInfo
   bool mListenWhenClosed;
 };
 
-
 class MOZ_STACK_CLASS SameProcessCpowHolder : public mozilla::jsipc::CpowHolder
 {
-public:
-  SameProcessCpowHolder(JS::RootingContext* aRootingCx, JS::Handle<JSObject*> aObj)
-    : mObj(aRootingCx, aObj)
+ public:
+  SameProcessCpowHolder(JS::RootingContext* aRootingCx,
+                        JS::Handle<JSObject*> aObj)
+      : mObj(aRootingCx, aObj)
   {
   }
 
-  virtual bool ToObject(JSContext* aCx, JS::MutableHandle<JSObject*> aObjp)
-    override;
+  virtual bool ToObject(JSContext* aCx,
+                        JS::MutableHandle<JSObject*> aObjp) override;
 
-private:
+ private:
   JS::Rooted<JSObject*> mObj;
 };
 
@@ -157,18 +158,20 @@ class nsFrameMessageManager final : public nsIContentFrameMessageManager,
 {
   friend class mozilla::dom::MessageManagerReporter;
   typedef mozilla::dom::ipc::StructuredCloneData StructuredCloneData;
-public:
-  nsFrameMessageManager(mozilla::dom::ipc::MessageManagerCallback* aCallback,
-                        nsFrameMessageManager* aParentManager,
-                        /* mozilla::dom::ipc::MessageManagerFlags */ uint32_t aFlags);
 
-private:
+ public:
+  nsFrameMessageManager(
+      mozilla::dom::ipc::MessageManagerCallback* aCallback,
+      nsFrameMessageManager* aParentManager,
+      /* mozilla::dom::ipc::MessageManagerFlags */ uint32_t aFlags);
+
+ private:
   ~nsFrameMessageManager();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsFrameMessageManager,
-                                                         nsIContentFrameMessageManager)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(
+      nsFrameMessageManager, nsIContentFrameMessageManager)
   NS_DECL_NSIMESSAGELISTENERMANAGER
   NS_DECL_NSIMESSAGESENDER
   NS_DECL_NSIMESSAGEBROADCASTER
@@ -179,13 +182,15 @@ public:
   NS_DECL_NSIPROCESSSCRIPTLOADER
   NS_DECL_NSIGLOBALPROCESSSCRIPTLOADER
 
-  static nsFrameMessageManager*
-  NewProcessMessageManager(bool aIsRemote);
+  static nsFrameMessageManager* NewProcessMessageManager(bool aIsRemote);
 
-  nsresult ReceiveMessage(nsISupports* aTarget, nsIFrameLoader* aTargetFrameLoader,
+  nsresult ReceiveMessage(nsISupports* aTarget,
+                          nsIFrameLoader* aTargetFrameLoader,
                           const nsAString& aMessage,
-                          bool aIsSync, StructuredCloneData* aCloneData,
-                          mozilla::jsipc::CpowHolder* aCpows, nsIPrincipal* aPrincipal,
+                          bool aIsSync,
+                          StructuredCloneData* aCloneData,
+                          mozilla::jsipc::CpowHolder* aCpows,
+                          nsIPrincipal* aPrincipal,
                           nsTArray<StructuredCloneData>* aRetVal);
 
   void AddChildManager(nsFrameMessageManager* aManager);
@@ -199,10 +204,7 @@ public:
   void InitWithCallback(mozilla::dom::ipc::MessageManagerCallback* aCallback);
   void SetCallback(mozilla::dom::ipc::MessageManagerCallback* aCallback);
 
-  mozilla::dom::ipc::MessageManagerCallback* GetCallback()
-  {
-    return mCallback;
-  }
+  mozilla::dom::ipc::MessageManagerCallback* GetCallback() { return mCallback; }
 
   nsresult DispatchAsyncMessage(const nsAString& aMessageName,
                                 const JS::Value& aJSON,
@@ -245,7 +247,7 @@ public:
 
   void LoadPendingScripts();
 
-private:
+ private:
   nsresult SendMessage(const nsAString& aMessageName,
                        JS::Handle<JS::Value> aJSON,
                        JS::Handle<JS::Value> aObjects,
@@ -255,32 +257,39 @@ private:
                        JS::MutableHandle<JS::Value> aRetval,
                        bool aIsSync);
 
-  nsresult ReceiveMessage(nsISupports* aTarget, nsIFrameLoader* aTargetFrameLoader,
-                          bool aTargetClosed, const nsAString& aMessage,
-                          bool aIsSync, StructuredCloneData* aCloneData,
-                          mozilla::jsipc::CpowHolder* aCpows, nsIPrincipal* aPrincipal,
+  nsresult ReceiveMessage(nsISupports* aTarget,
+                          nsIFrameLoader* aTargetFrameLoader,
+                          bool aTargetClosed,
+                          const nsAString& aMessage,
+                          bool aIsSync,
+                          StructuredCloneData* aCloneData,
+                          mozilla::jsipc::CpowHolder* aCpows,
+                          nsIPrincipal* aPrincipal,
                           nsTArray<StructuredCloneData>* aRetVal);
 
   NS_IMETHOD LoadScript(const nsAString& aURL,
                         bool aAllowDelayedLoad,
                         bool aRunInGlobalScope);
   NS_IMETHOD RemoveDelayedScript(const nsAString& aURL);
-  NS_IMETHOD GetDelayedScripts(JSContext* aCx, JS::MutableHandle<JS::Value> aList);
+  NS_IMETHOD GetDelayedScripts(JSContext* aCx,
+                               JS::MutableHandle<JS::Value> aList);
 
-protected:
+ protected:
   friend class MMListenerRemover;
   // We keep the message listeners as arrays in a hastable indexed by the
   // message name. That gives us fast lookups in ReceiveMessage().
   nsClassHashtable<nsStringHashKey,
-                   nsAutoTObserverArray<nsMessageListenerInfo, 1>> mListeners;
+                   nsAutoTObserverArray<nsMessageListenerInfo, 1>>
+      mListeners;
   nsCOMArray<nsIContentFrameMessageManager> mChildManagers;
-  bool mChrome;     // true if we're in the chrome process
-  bool mGlobal;     // true if we're the global frame message manager
-  bool mIsProcessManager; // true if the message manager belongs to the process realm
-  bool mIsBroadcaster; // true if the message manager is a broadcaster
+  bool mChrome;  // true if we're in the chrome process
+  bool mGlobal;  // true if we're the global frame message manager
+  bool
+      mIsProcessManager;  // true if the message manager belongs to the process realm
+  bool mIsBroadcaster;  // true if the message manager is a broadcaster
   bool mOwnsCallback;
   bool mHandlingMessage;
-  bool mClosed;    // true if we can no longer send messages
+  bool mClosed;  // true if we can no longer send messages
   bool mDisconnected;
   mozilla::dom::ipc::MessageManagerCallback* mCallback;
   nsAutoPtr<mozilla::dom::ipc::MessageManagerCallback> mOwnedCallback;
@@ -291,13 +300,16 @@ protected:
 
   void LoadPendingScripts(nsFrameMessageManager* aManager,
                           nsFrameMessageManager* aChildMM);
-public:
+
+ public:
   static nsFrameMessageManager* sParentProcessManager;
   static nsFrameMessageManager* sSameProcessParentManager;
-  static nsTArray<nsCOMPtr<nsIRunnable> >* sPendingSameProcessAsyncMessages;
-private:
+  static nsTArray<nsCOMPtr<nsIRunnable>>* sPendingSameProcessAsyncMessages;
+
+ private:
   static nsFrameMessageManager* sChildProcessManager;
-  enum ProcessCheckerType {
+  enum ProcessCheckerType
+  {
     PROCESS_CHECKER_PERMISSION,
     PROCESS_CHECKER_MANIFEST_URL,
     ASSERT_APP_HAS_PERMISSION
@@ -327,7 +339,7 @@ private:
 */
 class nsSameProcessAsyncMessageBase
 {
-public:
+ public:
   typedef mozilla::dom::ipc::StructuredCloneData StructuredCloneData;
 
   nsSameProcessAsyncMessageBase(JS::RootingContext* aRootingCx,
@@ -336,9 +348,11 @@ public:
                 StructuredCloneData& aData,
                 nsIPrincipal* aPrincipal);
 
-  void ReceiveMessage(nsISupports* aTarget, nsIFrameLoader* aTargetFrameLoader,
+  void ReceiveMessage(nsISupports* aTarget,
+                      nsIFrameLoader* aTargetFrameLoader,
                       nsFrameMessageManager* aManager);
-private:
+
+ private:
   nsSameProcessAsyncMessageBase(const nsSameProcessAsyncMessageBase&);
 
   nsString mMessage;
@@ -357,11 +371,15 @@ struct nsMessageManagerScriptHolder
   nsMessageManagerScriptHolder(JSContext* aCx,
                                JSScript* aScript,
                                bool aRunInGlobalScope)
-   : mScript(aCx, aScript), mRunInGlobalScope(aRunInGlobalScope)
-  { MOZ_COUNT_CTOR(nsMessageManagerScriptHolder); }
+      : mScript(aCx, aScript), mRunInGlobalScope(aRunInGlobalScope)
+  {
+    MOZ_COUNT_CTOR(nsMessageManagerScriptHolder);
+  }
 
   ~nsMessageManagerScriptHolder()
-  { MOZ_COUNT_DTOR(nsMessageManagerScriptHolder); }
+  {
+    MOZ_COUNT_DTOR(nsMessageManagerScriptHolder);
+  }
 
   bool WillRunInGlobalScope() { return mRunInGlobalScope; }
 
@@ -371,19 +389,23 @@ struct nsMessageManagerScriptHolder
 
 class nsMessageManagerScriptExecutor
 {
-public:
+ public:
   static void PurgeCache();
   static void Shutdown();
-  JSObject* GetGlobal()
-  {
-    return mGlobal;
-  }
+  JSObject* GetGlobal() { return mGlobal; }
 
   void MarkScopesForCC();
-protected:
+
+ protected:
   friend class nsMessageManagerScriptCx;
-  nsMessageManagerScriptExecutor() { MOZ_COUNT_CTOR(nsMessageManagerScriptExecutor); }
-  ~nsMessageManagerScriptExecutor() { MOZ_COUNT_DTOR(nsMessageManagerScriptExecutor); }
+  nsMessageManagerScriptExecutor()
+  {
+    MOZ_COUNT_CTOR(nsMessageManagerScriptExecutor);
+  }
+  ~nsMessageManagerScriptExecutor()
+  {
+    MOZ_COUNT_DTOR(nsMessageManagerScriptExecutor);
+  }
 
   void DidCreateGlobal();
   void LoadScriptInternal(const nsAString& aURL, bool aRunInGlobalScope);
@@ -400,7 +422,8 @@ protected:
   nsCOMPtr<nsIPrincipal> mPrincipal;
   AutoTArray<JS::Heap<JSObject*>, 2> mAnonymousGlobalScopes;
 
-  static nsDataHashtable<nsStringHashKey, nsMessageManagerScriptHolder*>* sCachedScripts;
+  static nsDataHashtable<nsStringHashKey, nsMessageManagerScriptHolder*>*
+      sCachedScripts;
   static mozilla::StaticRefPtr<nsScriptCacheCleaner> sScriptCacheCleaner;
 };
 
@@ -412,16 +435,17 @@ class nsScriptCacheCleaner final : public nsIObserver
 
   nsScriptCacheCleaner()
   {
-    nsCOMPtr<nsIObserverService> obsSvc = mozilla::services::GetObserverService();
+    nsCOMPtr<nsIObserverService> obsSvc =
+        mozilla::services::GetObserverService();
     if (obsSvc) {
       obsSvc->AddObserver(this, "message-manager-flush-caches", false);
       obsSvc->AddObserver(this, "xpcom-shutdown", false);
     }
   }
 
-  NS_IMETHOD Observe(nsISupports *aSubject,
-                     const char *aTopic,
-                     const char16_t *aData) override
+  NS_IMETHOD Observe(nsISupports* aSubject,
+                     const char* aTopic,
+                     const char16_t* aData) override
   {
     if (strcmp("message-manager-flush-caches", aTopic) == 0) {
       nsMessageManagerScriptExecutor::PurgeCache();

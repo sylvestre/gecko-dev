@@ -11,14 +11,9 @@
 
 namespace mozilla {
 
-CDMCaps::CDMCaps()
-  : mMonitor("CDMCaps")
-{
-}
+CDMCaps::CDMCaps() : mMonitor("CDMCaps") {}
 
-CDMCaps::~CDMCaps()
-{
-}
+CDMCaps::~CDMCaps() {}
 
 void
 CDMCaps::Lock()
@@ -32,16 +27,12 @@ CDMCaps::Unlock()
   mMonitor.Unlock();
 }
 
-CDMCaps::AutoLock::AutoLock(CDMCaps& aInstance)
-  : mData(aInstance)
+CDMCaps::AutoLock::AutoLock(CDMCaps& aInstance) : mData(aInstance)
 {
   mData.Lock();
 }
 
-CDMCaps::AutoLock::~AutoLock()
-{
-  mData.Unlock();
-}
+CDMCaps::AutoLock::~AutoLock() { mData.Unlock(); }
 
 // Keys with MediaKeyStatus::Usable, MediaKeyStatus::Output_downscaled,
 // or MediaKeyStatus::Output_restricted status can be used by the CDM
@@ -67,18 +58,18 @@ CDMCaps::AutoLock::IsKeyUsable(const CencKeyId& aKeyId)
 }
 
 bool
-CDMCaps::AutoLock::SetKeyStatus(const CencKeyId& aKeyId,
-                                const nsString& aSessionId,
-                                const dom::Optional<dom::MediaKeyStatus>& aStatus)
+CDMCaps::AutoLock::SetKeyStatus(
+    const CencKeyId& aKeyId,
+    const nsString& aSessionId,
+    const dom::Optional<dom::MediaKeyStatus>& aStatus)
 {
   mData.mMonitor.AssertCurrentThreadOwns();
 
   if (!aStatus.WasPassed()) {
     // Called from ForgetKeyStatus.
     // Return true if the element is found to notify key changes.
-    return mData.mKeyStatuses.RemoveElement(KeyStatus(aKeyId,
-                                                      aSessionId,
-                                                      dom::MediaKeyStatus::Internal_error));
+    return mData.mKeyStatuses.RemoveElement(
+        KeyStatus(aKeyId, aSessionId, dom::MediaKeyStatus::Internal_error));
   }
 
   KeyStatus key(aKeyId, aSessionId, aStatus.Value());
@@ -132,8 +123,8 @@ CDMCaps::AutoLock::NotifyWhenKeyIdUsable(const CencKeyId& aKey,
 }
 
 void
-CDMCaps::AutoLock::GetKeyStatusesForSession(const nsAString& aSessionId,
-                                            nsTArray<KeyStatus>& aOutKeyStatuses)
+CDMCaps::AutoLock::GetKeyStatusesForSession(
+    const nsAString& aSessionId, nsTArray<KeyStatus>& aOutKeyStatuses)
 {
   for (const KeyStatus& keyStatus : mData.mKeyStatuses) {
     if (keyStatus.mSessionId.Equals(aSessionId)) {
@@ -160,11 +151,10 @@ CDMCaps::AutoLock::RemoveKeysForSession(const nsString& aSessionId)
   nsTArray<KeyStatus> statuses;
   GetKeyStatusesForSession(aSessionId, statuses);
   for (const KeyStatus& status : statuses) {
-    changed |= SetKeyStatus(status.mId,
-                            aSessionId,
-                            dom::Optional<dom::MediaKeyStatus>());
+    changed |= SetKeyStatus(
+        status.mId, aSessionId, dom::Optional<dom::MediaKeyStatus>());
   }
   return changed;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

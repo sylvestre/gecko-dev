@@ -21,15 +21,12 @@
  */
 class nsSMILValue
 {
-public:
-  nsSMILValue() : mU(), mType(nsSMILNullType::Singleton()) { }
+ public:
+  nsSMILValue() : mU(), mType(nsSMILNullType::Singleton()) {}
   explicit nsSMILValue(const nsISMILType* aType);
   nsSMILValue(const nsSMILValue& aVal);
 
-  ~nsSMILValue()
-  {
-    mType->Destroy(*this);
-  }
+  ~nsSMILValue() { mType->Destroy(*this); }
 
   const nsSMILValue& operator=(const nsSMILValue& aVal);
 
@@ -40,14 +37,9 @@ public:
   // Equality operators. These are allowed to be conservative (return false
   // more than you'd expect) - see comment above nsISMILType::IsEqual.
   bool operator==(const nsSMILValue& aVal) const;
-  bool operator!=(const nsSMILValue& aVal) const {
-    return !(*this == aVal);
-  }
+  bool operator!=(const nsSMILValue& aVal) const { return !(*this == aVal); }
 
-  bool IsNull() const
-  {
-    return (mType == nsSMILNullType::Singleton());
-  }
+  bool IsNull() const { return (mType == nsSMILNullType::Singleton()); }
 
   nsresult Add(const nsSMILValue& aValueToAdd, uint32_t aCount = 1);
   nsresult SandwichAdd(const nsSMILValue& aValueToAdd);
@@ -61,7 +53,8 @@ public:
     uint64_t mUint;
     int64_t mInt;
     double mDouble;
-    struct {
+    struct
+    {
       float mAngle;
       uint16_t mUnit;
       uint16_t mOrientType;
@@ -72,7 +65,7 @@ public:
   } mU;
   const nsISMILType* mType;
 
-protected:
+ protected:
   void InitAndCheckPostcondition(const nsISMILType* aNewType);
   void DestroyAndCheckPostcondition();
   void DestroyAndReinit(const nsISMILType* aNewType);

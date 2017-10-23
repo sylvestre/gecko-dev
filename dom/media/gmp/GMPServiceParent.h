@@ -17,7 +17,8 @@
 #include "mozilla/MozPromise.h"
 #include "GMPStorage.h"
 
-template <class> struct already_AddRefed;
+template<class>
+struct already_AddRefed;
 
 namespace mozilla {
 namespace gmp {
@@ -25,11 +26,12 @@ namespace gmp {
 class GMPParent;
 class GMPServiceParent;
 
-class GeckoMediaPluginServiceParent final : public GeckoMediaPluginService
-                                          , public mozIGeckoMediaPluginChromeService
-                                          , public nsIAsyncShutdownBlocker
+class GeckoMediaPluginServiceParent final
+    : public GeckoMediaPluginService,
+      public mozIGeckoMediaPluginChromeService,
+      public nsIAsyncShutdownBlocker
 {
-public:
+ public:
   static already_AddRefed<GeckoMediaPluginServiceParent> GetSingleton();
 
   GeckoMediaPluginServiceParent();
@@ -41,7 +43,7 @@ public:
   // mozIGeckoMediaPluginService
   NS_IMETHOD HasPluginForAPI(const nsACString& aAPI,
                              nsTArray<nsCString>* aTags,
-                             bool *aRetVal) override;
+                             bool* aRetVal) override;
   NS_IMETHOD GetNodeId(const nsAString& aOrigin,
                        const nsAString& aTopLevelOrigin,
                        const nsAString& aGMPName,
@@ -57,8 +59,8 @@ public:
   bool IsShuttingDown();
 
   already_AddRefed<GMPStorage> GetMemoryStorageFor(const nsACString& aNodeId);
-  nsresult ForgetThisSiteNative(const nsAString& aSite,
-                                const mozilla::OriginAttributesPattern& aPattern);
+  nsresult ForgetThisSiteNative(
+      const nsAString& aSite, const mozilla::OriginAttributesPattern& aPattern);
 
   // Notifies that some user of this class is created/destroyed.
   void ServiceUserCreated(GMPServiceParent* aServiceParent);
@@ -68,24 +70,28 @@ public:
 
   AbstractThread* MainThread() const { return mMainThread; }
 
-private:
+ private:
   friend class GMPServiceParent;
 
   virtual ~GeckoMediaPluginServiceParent();
 
   void ClearStorage();
 
-  already_AddRefed<GMPParent> SelectPluginForAPI(const nsACString& aNodeId,
-                                                 const nsCString& aAPI,
-                                                 const nsTArray<nsCString>& aTags);
+  already_AddRefed<GMPParent> SelectPluginForAPI(
+      const nsACString& aNodeId,
+      const nsCString& aAPI,
+      const nsTArray<nsCString>& aTags);
 
-  already_AddRefed<GMPParent> FindPluginForAPIFrom(size_t aSearchStartIndex,
-                                                   const nsCString& aAPI,
-                                                   const nsTArray<nsCString>& aTags,
-                                                   size_t* aOutPluginIndex);
+  already_AddRefed<GMPParent> FindPluginForAPIFrom(
+      size_t aSearchStartIndex,
+      const nsCString& aAPI,
+      const nsTArray<nsCString>& aTags,
+      size_t* aOutPluginIndex);
 
-  nsresult GetNodeId(const nsAString& aOrigin, const nsAString& aTopLevelOrigin,
-                     const nsAString& aGMPName, nsACString& aOutId);
+  nsresult GetNodeId(const nsAString& aOrigin,
+                     const nsAString& aTopLevelOrigin,
+                     const nsAString& aGMPName,
+                     nsACString& aOutId);
 
   void UnloadPlugins();
   void CrashPlugins();
@@ -97,20 +103,22 @@ private:
                          const bool aDeleteFromDisk,
                          const bool aCanDefer);
 
-  struct DirectoryFilter {
+  struct DirectoryFilter
+  {
     virtual bool operator()(nsIFile* aPath) = 0;
     ~DirectoryFilter() {}
   };
   void ClearNodeIdAndPlugin(DirectoryFilter& aFilter);
   void ClearNodeIdAndPlugin(nsIFile* aPluginStorageDir,
                             DirectoryFilter& aFilter);
-  void ForgetThisSiteOnGMPThread(const nsACString& aOrigin,
-                                 const mozilla::OriginAttributesPattern& aPattern);
+  void ForgetThisSiteOnGMPThread(
+      const nsACString& aOrigin,
+      const mozilla::OriginAttributesPattern& aPattern);
   void ClearRecentHistoryOnGMPThread(PRTime aSince);
 
   already_AddRefed<GMPParent> GetById(uint32_t aPluginId);
 
-protected:
+ protected:
   friend class GMPParent;
   void ReAddOnGMPThread(const RefPtr<GMPParent>& aOld);
   void PluginTerminated(const RefPtr<GMPParent>& aOld);
@@ -119,18 +127,18 @@ protected:
   RefPtr<GenericPromise> AddOnGMPThread(nsString aDirectory);
 
   virtual RefPtr<GetGMPContentParentPromise> GetContentParent(
-    GMPCrashHelper* aHelper,
-    const nsACString& aNodeIdString,
-    const nsCString& aAPI,
-    const nsTArray<nsCString>& aTags) override;
+      GMPCrashHelper* aHelper,
+      const nsACString& aNodeIdString,
+      const nsCString& aAPI,
+      const nsTArray<nsCString>& aTags) override;
 
   RefPtr<GetGMPContentParentPromise> GetContentParent(
-    GMPCrashHelper* aHelper,
-    const NodeId& aNodeId,
-    const nsCString& aAPI,
-    const nsTArray<nsCString>& aTags) override;
+      GMPCrashHelper* aHelper,
+      const NodeId& aNodeId,
+      const nsCString& aAPI,
+      const nsTArray<nsCString>& aTags) override;
 
-private:
+ private:
   // Creates a copy of aOriginal. Note that the caller is responsible for
   // adding this to GeckoMediaPluginServiceParent::mPlugins.
   already_AddRefed<GMPParent> ClonePlugin(const GMPParent* aOriginal);
@@ -139,8 +147,9 @@ private:
 
   class PathRunnable : public Runnable
   {
-  public:
-    enum EOperation {
+   public:
+    enum EOperation
+    {
       REMOVE,
       REMOVE_AND_DELETE_FROM_DISK,
     };
@@ -149,16 +158,17 @@ private:
                  const nsAString& aPath,
                  EOperation aOperation,
                  bool aDefer = false)
-      : Runnable("gmp::GeckoMediaPluginServiceParent::PathRunnable")
-      , mService(aService)
-      , mPath(aPath)
-      , mOperation(aOperation)
-      , mDefer(aDefer)
-    { }
+        : Runnable("gmp::GeckoMediaPluginServiceParent::PathRunnable"),
+          mService(aService),
+          mPath(aPath),
+          mOperation(aOperation),
+          mDefer(aDefer)
+    {
+    }
 
     NS_DECL_NSIRUNNABLE
 
-  private:
+   private:
     RefPtr<GeckoMediaPluginServiceParent> mService;
     nsString mPath;
     EOperation mOperation;
@@ -174,17 +184,17 @@ private:
   Atomic<bool> mScannedPluginOnDisk;
 
   template<typename T>
-  class MainThreadOnly {
-  public:
-    MOZ_IMPLICIT MainThreadOnly(T aValue)
-      : mValue(aValue)
-    {}
-    operator T&() {
+  class MainThreadOnly
+  {
+   public:
+    MOZ_IMPLICIT MainThreadOnly(T aValue) : mValue(aValue) {}
+    operator T&()
+    {
       MOZ_ASSERT(NS_IsMainThread());
       return mValue;
     }
 
-  private:
+   private:
     T mValue;
   };
 
@@ -219,14 +229,16 @@ private:
   const RefPtr<AbstractThread> mMainThread;
 };
 
-nsresult ReadSalt(nsIFile* aPath, nsACString& aOutData);
-bool MatchOrigin(nsIFile* aPath,
-                 const nsACString& aSite,
-                 const mozilla::OriginAttributesPattern& aPattern);
+nsresult
+ReadSalt(nsIFile* aPath, nsACString& aOutData);
+bool
+MatchOrigin(nsIFile* aPath,
+            const nsACString& aSite,
+            const mozilla::OriginAttributesPattern& aPattern);
 
 class GMPServiceParent final : public PGMPServiceParent
 {
-public:
+ public:
   explicit GMPServiceParent(GeckoMediaPluginServiceParent* aService);
   virtual ~GMPServiceParent();
 
@@ -249,23 +261,23 @@ public:
                                nsresult* aOutRv) override;
 
   ipc::IPCResult RecvLaunchGMPForNodeId(
-    const NodeIdData& nodeId,
-    const nsCString& aAPI,
-    nsTArray<nsCString>&& aTags,
-    nsTArray<ProcessId>&& aAlreadyBridgedTo,
-    uint32_t* aOutPluginId,
-    ProcessId* aOutID,
-    nsCString* aOutDisplayName,
-    Endpoint<PGMPContentParent>* aOutEndpoint,
-    nsresult* aOutRv) override;
+      const NodeIdData& nodeId,
+      const nsCString& aAPI,
+      nsTArray<nsCString>&& aTags,
+      nsTArray<ProcessId>&& aAlreadyBridgedTo,
+      uint32_t* aOutPluginId,
+      ProcessId* aOutID,
+      nsCString* aOutDisplayName,
+      Endpoint<PGMPContentParent>* aOutEndpoint,
+      nsresult* aOutRv) override;
 
-private:
+ private:
   void CloseTransport(Monitor* aSyncMonitor, bool* aCompleted);
 
   RefPtr<GeckoMediaPluginServiceParent> mService;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPServiceParent_h_
+#endif  // GMPServiceParent_h_

@@ -35,4 +35,4 @@ NS_NewInterfaceRequestorAggregation(nsIInterfaceRequestor* aFirst,
                                     nsIEventTarget* aTarget,
                                     nsIInterfaceRequestor** aResult);
 
-#endif // !defined( nsInterfaceRequestorAgg_h__ )
+#endif  // !defined( nsInterfaceRequestorAgg_h__ )

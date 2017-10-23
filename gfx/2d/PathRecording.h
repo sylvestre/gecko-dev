@@ -17,7 +17,8 @@ namespace gfx {
 
 struct PathOp
 {
-  enum OpType {
+  enum OpType
+  {
     OP_MOVETO = 0,
     OP_LINETO,
     OP_BEZIERTO,
@@ -31,17 +32,17 @@ struct PathOp
   Point mP3;
 };
 
-const int32_t sPointCount[] = { 1, 1, 3, 2, 0, 0 };
+const int32_t sPointCount[] = {1, 1, 3, 2, 0, 0};
 
 class PathRecording;
 class DrawEventRecorderPrivate;
 
 class PathBuilderRecording : public PathBuilder
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(PathBuilderRecording)
-  PathBuilderRecording(PathBuilder *aBuilder, FillRule aFillRule)
-    : mPathBuilder(aBuilder), mFillRule(aFillRule)
+  PathBuilderRecording(PathBuilder* aBuilder, FillRule aFillRule)
+      : mPathBuilder(aBuilder), mFillRule(aFillRule)
   {
   }
 
@@ -49,25 +50,32 @@ public:
    * be considered closed during fill operations, however when stroking the
    * closing line segment will not be drawn.
    */
-  virtual void MoveTo(const Point &aPoint);
+  virtual void MoveTo(const Point& aPoint);
   /* Add a linesegment to the current figure */
-  virtual void LineTo(const Point &aPoint);
+  virtual void LineTo(const Point& aPoint);
   /* Add a cubic bezier curve to the current figure */
-  virtual void BezierTo(const Point &aCP1,
-                        const Point &aCP2,
-                        const Point &aCP3);
+  virtual void BezierTo(const Point& aCP1,
+                        const Point& aCP2,
+                        const Point& aCP3);
   /* Add a quadratic bezier curve to the current figure */
-  virtual void QuadraticBezierTo(const Point &aCP1,
-                                 const Point &aCP2);
+  virtual void QuadraticBezierTo(const Point& aCP1, const Point& aCP2);
   /* Close the current figure, this will essentially generate a line segment
    * from the current point to the starting point for the current figure
    */
   virtual void Close();
 
   /* Add an arc to the current figure */
-  virtual void Arc(const Point &aOrigin, float aRadius, float aStartAngle,
-                   float aEndAngle, bool aAntiClockwise) {
-    ArcToBezier(this, aOrigin, Size(aRadius, aRadius), aStartAngle, aEndAngle,
+  virtual void Arc(const Point& aOrigin,
+                   float aRadius,
+                   float aStartAngle,
+                   float aEndAngle,
+                   bool aAntiClockwise)
+  {
+    ArcToBezier(this,
+                aOrigin,
+                Size(aRadius, aRadius),
+                aStartAngle,
+                aEndAngle,
                 aAntiClockwise);
   }
 
@@ -80,7 +88,7 @@ public:
 
   virtual BackendType GetBackendType() const { return BackendType::RECORDING; }
 
-private:
+ private:
   friend class PathRecording;
 
   RefPtr<PathBuilder> mPathBuilder;
@@ -90,10 +98,10 @@ private:
 
 class PathRecording : public Path
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(PathRecording)
-  PathRecording(Path *aPath, const std::vector<PathOp> aOps, FillRule aFillRule)
-    : mPath(aPath), mPathOps(aOps), mFillRule(aFillRule)
+  PathRecording(Path* aPath, const std::vector<PathOp> aOps, FillRule aFillRule)
+      : mPath(aPath), mPathOps(aOps), mFillRule(aFillRule)
   {
   }
 
@@ -101,30 +109,42 @@ public:
 
   virtual BackendType GetBackendType() const { return BackendType::RECORDING; }
   virtual already_AddRefed<PathBuilder> CopyToBuilder(FillRule aFillRule) const;
-  virtual already_AddRefed<PathBuilder> TransformedCopyToBuilder(const Matrix &aTransform,
-                                                             FillRule aFillRule) const;
-  virtual bool ContainsPoint(const Point &aPoint, const Matrix &aTransform) const
-  { return mPath->ContainsPoint(aPoint, aTransform); }
-  virtual bool StrokeContainsPoint(const StrokeOptions &aStrokeOptions,
-                                   const Point &aPoint,
-                                   const Matrix &aTransform) const
-  { return mPath->StrokeContainsPoint(aStrokeOptions, aPoint, aTransform); }
-  
-  virtual Rect GetBounds(const Matrix &aTransform = Matrix()) const
-  { return mPath->GetBounds(aTransform); }
-  
-  virtual Rect GetStrokedBounds(const StrokeOptions &aStrokeOptions,
-                                const Matrix &aTransform = Matrix()) const
-  { return mPath->GetStrokedBounds(aStrokeOptions, aTransform); }
+  virtual already_AddRefed<PathBuilder> TransformedCopyToBuilder(
+      const Matrix& aTransform, FillRule aFillRule) const;
+  virtual bool ContainsPoint(const Point& aPoint,
+                             const Matrix& aTransform) const
+  {
+    return mPath->ContainsPoint(aPoint, aTransform);
+  }
+  virtual bool StrokeContainsPoint(const StrokeOptions& aStrokeOptions,
+                                   const Point& aPoint,
+                                   const Matrix& aTransform) const
+  {
+    return mPath->StrokeContainsPoint(aStrokeOptions, aPoint, aTransform);
+  }
 
-  virtual void StreamToSink(PathSink *aSink) const { mPath->StreamToSink(aSink); }
+  virtual Rect GetBounds(const Matrix& aTransform = Matrix()) const
+  {
+    return mPath->GetBounds(aTransform);
+  }
+
+  virtual Rect GetStrokedBounds(const StrokeOptions& aStrokeOptions,
+                                const Matrix& aTransform = Matrix()) const
+  {
+    return mPath->GetStrokedBounds(aStrokeOptions, aTransform);
+  }
+
+  virtual void StreamToSink(PathSink* aSink) const
+  {
+    mPath->StreamToSink(aSink);
+  }
 
   virtual FillRule GetFillRule() const { return mFillRule; }
 
-  void StorePath(std::ostream &aStream) const;
-  static void ReadPathToBuilder(std::istream &aStream, PathBuilder *aBuilder);
+  void StorePath(std::ostream& aStream) const;
+  static void ReadPathToBuilder(std::istream& aStream, PathBuilder* aBuilder);
 
-private:
+ private:
   friend class DrawTargetWrapAndRecord;
   friend class DrawTargetRecording;
   friend class RecordedPathCreation;
@@ -137,7 +157,7 @@ private:
   std::vector<RefPtr<DrawEventRecorderPrivate>> mStoredRecorders;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_PATHRECORDING_H_ */

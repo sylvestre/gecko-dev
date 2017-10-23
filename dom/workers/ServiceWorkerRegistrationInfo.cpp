@@ -15,19 +15,15 @@ class ContinueActivateRunnable final : public LifeCycleEventCallback
   nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> mRegistration;
   bool mSuccess;
 
-public:
-  explicit ContinueActivateRunnable(const nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo>& aRegistration)
-    : mRegistration(aRegistration)
-    , mSuccess(false)
+ public:
+  explicit ContinueActivateRunnable(
+      const nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo>& aRegistration)
+      : mRegistration(aRegistration), mSuccess(false)
   {
     AssertIsOnMainThread();
   }
 
-  void
-  SetResult(bool aResult) override
-  {
-    mSuccess = aResult;
-  }
+  void SetResult(bool aResult) override { mSuccess = aResult; }
 
   NS_IMETHOD
   Run() override
@@ -39,7 +35,7 @@ public:
   }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 void
 ServiceWorkerRegistrationInfo::Clear()
@@ -49,8 +45,9 @@ ServiceWorkerRegistrationInfo::Clear()
   }
 
   UpdateRegistrationStateProperties(WhichServiceWorker::INSTALLING_WORKER |
-                                    WhichServiceWorker::WAITING_WORKER |
-                                    WhichServiceWorker::ACTIVE_WORKER, Invalidate);
+                                        WhichServiceWorker::WAITING_WORKER |
+                                        WhichServiceWorker::ACTIVE_WORKER,
+                                    Invalidate);
 
   if (mInstallingWorker) {
     mInstallingWorker->UpdateState(ServiceWorkerState::Redundant);
@@ -81,25 +78,30 @@ ServiceWorkerRegistrationInfo::ServiceWorkerRegistrationInfo(
     const nsACString& aScope,
     nsIPrincipal* aPrincipal,
     ServiceWorkerUpdateViaCache aUpdateViaCache)
-  : mControlledDocumentsCounter(0)
-  , mUpdateState(NoUpdate)
-  , mCreationTime(PR_Now())
-  , mCreationTimeStamp(TimeStamp::Now())
-  , mLastUpdateTime(0)
-  , mUpdateViaCache(aUpdateViaCache)
-  , mScope(aScope)
-  , mPrincipal(aPrincipal)
-  , mPendingUninstall(false)
-{}
+    : mControlledDocumentsCounter(0),
+      mUpdateState(NoUpdate),
+      mCreationTime(PR_Now()),
+      mCreationTimeStamp(TimeStamp::Now()),
+      mLastUpdateTime(0),
+      mUpdateViaCache(aUpdateViaCache),
+      mScope(aScope),
+      mPrincipal(aPrincipal),
+      mPendingUninstall(false)
+{
+}
 
 ServiceWorkerRegistrationInfo::~ServiceWorkerRegistrationInfo()
 {
   if (IsControllingDocuments()) {
-    NS_WARNING("ServiceWorkerRegistrationInfo is still controlling documents. This can be a bug or a leak in ServiceWorker API or in any other API that takes the document alive.");
+    NS_WARNING(
+        "ServiceWorkerRegistrationInfo is still controlling documents. This "
+        "can be a bug or a leak in ServiceWorker API or in any other API that "
+        "takes the document alive.");
   }
 }
 
-NS_IMPL_ISUPPORTS(ServiceWorkerRegistrationInfo, nsIServiceWorkerRegistrationInfo)
+NS_IMPL_ISUPPORTS(ServiceWorkerRegistrationInfo,
+                  nsIServiceWorkerRegistrationInfo)
 
 NS_IMETHODIMP
 ServiceWorkerRegistrationInfo::GetPrincipal(nsIPrincipal** aPrincipal)
@@ -131,8 +133,8 @@ ServiceWorkerRegistrationInfo::GetScriptSpec(nsAString& aScriptSpec)
 NS_IMETHODIMP
 ServiceWorkerRegistrationInfo::GetUpdateViaCache(uint16_t* aUpdateViaCache)
 {
-    *aUpdateViaCache = static_cast<uint16_t>(GetUpdateViaCache());
-    return NS_OK;
+  *aUpdateViaCache = static_cast<uint16_t>(GetUpdateViaCache());
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -145,7 +147,8 @@ ServiceWorkerRegistrationInfo::GetLastUpdateTime(PRTime* _retval)
 }
 
 NS_IMETHODIMP
-ServiceWorkerRegistrationInfo::GetInstallingWorker(nsIServiceWorkerInfo **aResult)
+ServiceWorkerRegistrationInfo::GetInstallingWorker(
+    nsIServiceWorkerInfo** aResult)
 {
   AssertIsOnMainThread();
   nsCOMPtr<nsIServiceWorkerInfo> info = do_QueryInterface(mInstallingWorker);
@@ -154,7 +157,7 @@ ServiceWorkerRegistrationInfo::GetInstallingWorker(nsIServiceWorkerInfo **aResul
 }
 
 NS_IMETHODIMP
-ServiceWorkerRegistrationInfo::GetWaitingWorker(nsIServiceWorkerInfo **aResult)
+ServiceWorkerRegistrationInfo::GetWaitingWorker(nsIServiceWorkerInfo** aResult)
 {
   AssertIsOnMainThread();
   nsCOMPtr<nsIServiceWorkerInfo> info = do_QueryInterface(mWaitingWorker);
@@ -163,7 +166,7 @@ ServiceWorkerRegistrationInfo::GetWaitingWorker(nsIServiceWorkerInfo **aResult)
 }
 
 NS_IMETHODIMP
-ServiceWorkerRegistrationInfo::GetActiveWorker(nsIServiceWorkerInfo **aResult)
+ServiceWorkerRegistrationInfo::GetActiveWorker(nsIServiceWorkerInfo** aResult)
 {
   AssertIsOnMainThread();
   nsCOMPtr<nsIServiceWorkerInfo> info = do_QueryInterface(mActiveWorker);
@@ -172,7 +175,8 @@ ServiceWorkerRegistrationInfo::GetActiveWorker(nsIServiceWorkerInfo **aResult)
 }
 
 NS_IMETHODIMP
-ServiceWorkerRegistrationInfo::GetWorkerByID(uint64_t aID, nsIServiceWorkerInfo **aResult)
+ServiceWorkerRegistrationInfo::GetWorkerByID(uint64_t aID,
+                                             nsIServiceWorkerInfo** aResult)
 {
   AssertIsOnMainThread();
   MOZ_ASSERT(aResult);
@@ -185,7 +189,7 @@ ServiceWorkerRegistrationInfo::GetWorkerByID(uint64_t aID, nsIServiceWorkerInfo 
 
 NS_IMETHODIMP
 ServiceWorkerRegistrationInfo::AddListener(
-                            nsIServiceWorkerRegistrationInfoListener *aListener)
+    nsIServiceWorkerRegistrationInfoListener* aListener)
 {
   AssertIsOnMainThread();
 
@@ -200,7 +204,7 @@ ServiceWorkerRegistrationInfo::AddListener(
 
 NS_IMETHODIMP
 ServiceWorkerRegistrationInfo::RemoveListener(
-                            nsIServiceWorkerRegistrationInfoListener *aListener)
+    nsIServiceWorkerRegistrationInfoListener* aListener)
 {
   AssertIsOnMainThread();
 
@@ -235,10 +239,10 @@ ServiceWorkerRegistrationInfo::GetServiceWorkerInfoById(uint64_t aId)
 void
 ServiceWorkerRegistrationInfo::TryToActivateAsync()
 {
-  MOZ_ALWAYS_SUCCEEDS(
-    NS_DispatchToMainThread(NewRunnableMethod("ServiceWorkerRegistrationInfo::TryToActivate",
-                                              this,
-                                              &ServiceWorkerRegistrationInfo::TryToActivate)));
+  MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(
+      NewRunnableMethod("ServiceWorkerRegistrationInfo::TryToActivate",
+                        this,
+                        &ServiceWorkerRegistrationInfo::TryToActivate)));
 }
 
 /*
@@ -275,28 +279,29 @@ ServiceWorkerRegistrationInfo::Activate()
 
   // "Queue a task to fire a simple event named controllerchange..."
   nsCOMPtr<nsIRunnable> controllerChangeRunnable =
-    NewRunnableMethod<RefPtr<ServiceWorkerRegistrationInfo>>(
-      "dom::workers::ServiceWorkerManager::FireControllerChange",
-      swm,
-      &ServiceWorkerManager::FireControllerChange,
-      this);
+      NewRunnableMethod<RefPtr<ServiceWorkerRegistrationInfo>>(
+          "dom::workers::ServiceWorkerManager::FireControllerChange",
+          swm,
+          &ServiceWorkerManager::FireControllerChange,
+          this);
   NS_DispatchToMainThread(controllerChangeRunnable);
 
   nsCOMPtr<nsIRunnable> failRunnable = NewRunnableMethod<bool>(
-    "dom::workers::ServiceWorkerRegistrationInfo::FinishActivate",
-    this,
-    &ServiceWorkerRegistrationInfo::FinishActivate,
-    false /* success */);
+      "dom::workers::ServiceWorkerRegistrationInfo::FinishActivate",
+      this,
+      &ServiceWorkerRegistrationInfo::FinishActivate,
+      false /* success */);
 
   nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> handle(
-    new nsMainThreadPtrHolder<ServiceWorkerRegistrationInfo>(
-      "ServiceWorkerRegistrationInfo", this));
-  RefPtr<LifeCycleEventCallback> callback = new ContinueActivateRunnable(handle);
+      new nsMainThreadPtrHolder<ServiceWorkerRegistrationInfo>(
+          "ServiceWorkerRegistrationInfo", this));
+  RefPtr<LifeCycleEventCallback> callback =
+      new ContinueActivateRunnable(handle);
 
   ServiceWorkerPrivate* workerPrivate = mActiveWorker->WorkerPrivate();
   MOZ_ASSERT(workerPrivate);
-  nsresult rv = workerPrivate->SendLifeCycleEvent(NS_LITERAL_STRING("activate"),
-                                                  callback, failRunnable);
+  nsresult rv = workerPrivate->SendLifeCycleEvent(
+      NS_LITERAL_STRING("activate"), callback, failRunnable);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(failRunnable));
     return;
@@ -330,8 +335,9 @@ ServiceWorkerRegistrationInfo::RefreshLastUpdateCheckTime()
   AssertIsOnMainThread();
 
   mLastUpdateTime =
-    mCreationTime + static_cast<PRTime>((TimeStamp::Now() -
-                                         mCreationTimeStamp).ToMicroseconds());
+      mCreationTime +
+      static_cast<PRTime>(
+          (TimeStamp::Now() - mCreationTimeStamp).ToMicroseconds());
   NotifyChromeRegistrationListeners();
 }
 
@@ -347,8 +353,9 @@ ServiceWorkerRegistrationInfo::IsLastUpdateCheckTimeOverOneDay() const
 
   const int64_t kSecondsPerDay = 86400;
   const int64_t nowMicros =
-    mCreationTime + static_cast<PRTime>((TimeStamp::Now() -
-                                         mCreationTimeStamp).ToMicroseconds());
+      mCreationTime +
+      static_cast<PRTime>(
+          (TimeStamp::Now() - mCreationTimeStamp).ToMicroseconds());
 
   // now < mLastUpdateTime if the system time is reset between storing
   // and loading mLastUpdateTime from ServiceWorkerRegistrar.
@@ -360,8 +367,8 @@ ServiceWorkerRegistrationInfo::IsLastUpdateCheckTimeOverOneDay() const
 }
 
 void
-ServiceWorkerRegistrationInfo::AsyncUpdateRegistrationStateProperties(WhichServiceWorker aWorker,
-                                                                      TransitionType aTransition)
+ServiceWorkerRegistrationInfo::AsyncUpdateRegistrationStateProperties(
+    WhichServiceWorker aWorker, TransitionType aTransition)
 {
   AssertIsOnMainThread();
   RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
@@ -383,13 +390,13 @@ ServiceWorkerRegistrationInfo::AsyncUpdateRegistrationStateProperties(WhichServi
 }
 
 void
-ServiceWorkerRegistrationInfo::UpdateRegistrationStateProperties(WhichServiceWorker aWorker,
-                                                                 TransitionType aTransition)
+ServiceWorkerRegistrationInfo::UpdateRegistrationStateProperties(
+    WhichServiceWorker aWorker, TransitionType aTransition)
 {
   AssertIsOnMainThread();
 
-  nsCOMPtr<nsIRunnable> runnable =
-    NewRunnableMethod<WhichServiceWorker, TransitionType>(
+  nsCOMPtr<nsIRunnable> runnable = NewRunnableMethod<WhichServiceWorker,
+                                                     TransitionType>(
       "dom::workers::ServiceWorkerRegistrationInfo::"
       "AsyncUpdateRegistrationStateProperties",
       this,
@@ -402,7 +409,8 @@ ServiceWorkerRegistrationInfo::UpdateRegistrationStateProperties(WhichServiceWor
 void
 ServiceWorkerRegistrationInfo::NotifyChromeRegistrationListeners()
 {
-  nsTArray<nsCOMPtr<nsIServiceWorkerRegistrationInfoListener>> listeners(mListeners);
+  nsTArray<nsCOMPtr<nsIServiceWorkerRegistrationInfoListener>> listeners(
+      mListeners);
   for (size_t index = 0; index < listeners.Length(); ++index) {
     listeners[index]->OnChange();
   }
@@ -447,9 +455,9 @@ ServiceWorkerRegistrationInfo::CheckAndClearIfUpdateNeeded()
 {
   AssertIsOnMainThread();
 
-  bool result = mUpdateState == NeedUpdate ||
-               (mUpdateState == NeedTimeCheckAndUpdate &&
-                IsLastUpdateCheckTimeOverOneDay());
+  bool result =
+      mUpdateState == NeedUpdate || (mUpdateState == NeedTimeCheckAndUpdate &&
+                                     IsLastUpdateCheckTimeOverOneDay());
 
   mUpdateState = NoUpdate;
 
@@ -611,10 +619,12 @@ ServiceWorkerRegistrationInfo::SetActive(ServiceWorkerInfo* aServiceWorker)
   // another process activating a worker.  Move straight to the
   // Activated state.
   mActiveWorker = aServiceWorker;
-  mActiveWorker->SetActivateStateUncheckedWithoutEvent(ServiceWorkerState::Activated);
+  mActiveWorker->SetActivateStateUncheckedWithoutEvent(
+      ServiceWorkerState::Activated);
   // We don't need to update activated time when we load registration from
   // registrar.
-  UpdateRegistrationStateProperties(WhichServiceWorker::ACTIVE_WORKER, Invalidate);
+  UpdateRegistrationStateProperties(WhichServiceWorker::ACTIVE_WORKER,
+                                    Invalidate);
   NotifyChromeRegistrationListeners();
 }
 

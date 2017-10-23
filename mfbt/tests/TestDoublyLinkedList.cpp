@@ -10,14 +10,15 @@
 using mozilla::DoublyLinkedList;
 using mozilla::DoublyLinkedListElement;
 
-struct SomeClass : public DoublyLinkedListElement<SomeClass> {
+struct SomeClass : public DoublyLinkedListElement<SomeClass>
+{
   unsigned int mValue;
   explicit SomeClass(int aValue) : mValue(aValue) {}
   void incr() { ++mValue; }
   bool operator==(const SomeClass& other) { return mValue == other.mValue; }
 };
 
-template <typename ListType, size_t N>
+template<typename ListType, size_t N>
 static void
 CheckListValues(ListType& list, unsigned int (&values)[N])
 {
@@ -46,7 +47,10 @@ TestDoublyLinkedList()
   }
 
   list.pushFront(&one);
-  { unsigned int check[] { 1 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{1};
+    CheckListValues(list, check);
+  }
 
   MOZ_RELEASE_ASSERT(list.contains(one));
   MOZ_RELEASE_ASSERT(!list.contains(two));
@@ -57,56 +61,98 @@ TestDoublyLinkedList()
   MOZ_RELEASE_ASSERT(!list.end());
 
   list.pushFront(&two);
-  { unsigned int check[] { 2, 1 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 1};
+    CheckListValues(list, check);
+  }
 
   MOZ_RELEASE_ASSERT(list.begin()->mValue == 2);
   MOZ_RELEASE_ASSERT(!list.end());
   MOZ_RELEASE_ASSERT(!list.contains(three));
 
   list.pushBack(&three);
-  { unsigned int check[] { 2, 1, 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 1, 3};
+    CheckListValues(list, check);
+  }
 
   MOZ_RELEASE_ASSERT(list.begin()->mValue == 2);
   MOZ_RELEASE_ASSERT(!list.end());
 
   list.remove(&one);
-  { unsigned int check[] { 2, 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 3};
+    CheckListValues(list, check);
+  }
 
   list.insertBefore(list.find(three), &one);
-  { unsigned int check[] { 2, 1, 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 1, 3};
+    CheckListValues(list, check);
+  }
 
   list.remove(&three);
-  { unsigned int check[] { 2, 1 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 1};
+    CheckListValues(list, check);
+  }
 
   list.insertBefore(list.find(two), &three);
-  { unsigned int check[] { 3, 2, 1 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{3, 2, 1};
+    CheckListValues(list, check);
+  }
 
   list.remove(&three);
-  { unsigned int check[] { 2, 1 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 1};
+    CheckListValues(list, check);
+  }
 
   list.insertBefore(++list.find(two), &three);
-  { unsigned int check[] { 2, 3, 1 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 3, 1};
+    CheckListValues(list, check);
+  }
 
   list.remove(&one);
-  { unsigned int check[] { 2, 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 3};
+    CheckListValues(list, check);
+  }
 
   list.remove(&two);
-  { unsigned int check[] { 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{3};
+    CheckListValues(list, check);
+  }
 
   list.insertBefore(list.find(three), &two);
-  { unsigned int check[] { 2, 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 3};
+    CheckListValues(list, check);
+  }
 
   list.remove(&three);
-  { unsigned int check[] { 2 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2};
+    CheckListValues(list, check);
+  }
 
   list.remove(&two);
   MOZ_RELEASE_ASSERT(list.isEmpty());
 
   list.pushBack(&three);
-  { unsigned int check[] { 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{3};
+    CheckListValues(list, check);
+  }
 
   list.pushFront(&two);
-  { unsigned int check[] { 2, 3 }; CheckListValues(list, check); }
+  {
+    unsigned int check[]{2, 3};
+    CheckListValues(list, check);
+  }
 
   // This should modify the values of |two| and |three| as pointers to them are
   // stored in the list, not copies.
@@ -121,25 +167,34 @@ TestDoublyLinkedList()
   MOZ_RELEASE_ASSERT(++list.begin() == list.find(four));
 }
 
-struct InTwoLists {
+struct InTwoLists
+{
   explicit InTwoLists(unsigned int aValue) : mValue(aValue) {}
   DoublyLinkedListElement<InTwoLists> mListOne;
   DoublyLinkedListElement<InTwoLists> mListTwo;
   unsigned int mValue;
 
-  struct GetListOneTrait {
-    static DoublyLinkedListElement<InTwoLists>& Get(InTwoLists *aThis) { return aThis->mListOne; }
+  struct GetListOneTrait
+  {
+    static DoublyLinkedListElement<InTwoLists>& Get(InTwoLists* aThis)
+    {
+      return aThis->mListOne;
+    }
   };
 };
 
 namespace mozilla {
 
 template<>
-struct GetDoublyLinkedListElement<InTwoLists> {
-  static DoublyLinkedListElement<InTwoLists>& Get(InTwoLists* aThis) { return aThis->mListTwo; }
+struct GetDoublyLinkedListElement<InTwoLists>
+{
+  static DoublyLinkedListElement<InTwoLists>& Get(InTwoLists* aThis)
+  {
+    return aThis->mListTwo;
+  }
 };
 
-}
+}  // namespace mozilla
 
 static void
 TestCustomAccessor()
@@ -152,20 +207,41 @@ TestCustomAccessor()
 
   listOne.pushBack(&one);
   listOne.pushBack(&two);
-  { unsigned int check[] { 1, 2 }; CheckListValues(listOne, check); }
+  {
+    unsigned int check[]{1, 2};
+    CheckListValues(listOne, check);
+  }
 
   listTwo.pushBack(&one);
   listTwo.pushBack(&two);
-  { unsigned int check[] { 1, 2 }; CheckListValues(listOne, check); }
-  { unsigned int check[] { 1, 2 }; CheckListValues(listTwo, check); }
+  {
+    unsigned int check[]{1, 2};
+    CheckListValues(listOne, check);
+  }
+  {
+    unsigned int check[]{1, 2};
+    CheckListValues(listTwo, check);
+  }
 
   (void)listTwo.popBack();
-  { unsigned int check[] { 1, 2 }; CheckListValues(listOne, check); }
-  { unsigned int check[] { 1 }; CheckListValues(listTwo, check); }
+  {
+    unsigned int check[]{1, 2};
+    CheckListValues(listOne, check);
+  }
+  {
+    unsigned int check[]{1};
+    CheckListValues(listTwo, check);
+  }
 
   (void)listOne.popBack();
-  { unsigned int check[] { 1 }; CheckListValues(listOne, check); }
-  { unsigned int check[] { 1 }; CheckListValues(listTwo, check); }
+  {
+    unsigned int check[]{1};
+    CheckListValues(listOne, check);
+  }
+  {
+    unsigned int check[]{1};
+    CheckListValues(listTwo, check);
+  }
 }
 
 int

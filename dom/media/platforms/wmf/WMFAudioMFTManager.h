@@ -16,7 +16,7 @@ namespace mozilla {
 
 class WMFAudioMFTManager : public MFTManager
 {
-public:
+ public:
   explicit WMFAudioMFTManager(const AudioInfo& aConfig);
   ~WMFAudioMFTManager();
 
@@ -31,17 +31,14 @@ public:
 
   void Shutdown() override;
 
-  TrackInfo::TrackType GetType() override
-  {
-    return TrackInfo::kAudioTrack;
-  }
+  TrackInfo::TrackType GetType() override { return TrackInfo::kAudioTrack; }
 
   nsCString GetDescriptionName() const override
   {
     return NS_LITERAL_CSTRING("wmf audio decoder");
   }
 
-private:
+ private:
   HRESULT UpdateOutputType();
 
   uint32_t mAudioChannels;
@@ -72,6 +69,6 @@ private:
   bool mMustRecaptureAudioPosition = true;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // WMFAudioOutputSource_h_
+#endif  // WMFAudioOutputSource_h_

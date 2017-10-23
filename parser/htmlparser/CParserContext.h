@@ -27,44 +27,52 @@
  * data in a parsercontext. Hey, that what it's for!
  */
 
-class CParserContext {
-public:
-   enum eContextType {eCTNone,eCTURL,eCTString,eCTStream};
+class CParserContext
+{
+ public:
+  enum eContextType
+  {
+    eCTNone,
+    eCTURL,
+    eCTString,
+    eCTStream
+  };
 
-   CParserContext(CParserContext* aPrevContext,
-                  nsScanner* aScanner,
-                  void* aKey = 0,
-                  eParserCommands aCommand = eViewNormal,
-                  nsIRequestObserver* aListener = 0,
-                  eAutoDetectResult aStatus = eUnknownDetect,
-                  bool aCopyUnused = false);
+  CParserContext(CParserContext* aPrevContext,
+                 nsScanner* aScanner,
+                 void* aKey = 0,
+                 eParserCommands aCommand = eViewNormal,
+                 nsIRequestObserver* aListener = 0,
+                 eAutoDetectResult aStatus = eUnknownDetect,
+                 bool aCopyUnused = false);
 
-    ~CParserContext();
+  ~CParserContext();
 
-    nsresult GetTokenizer(nsIDTD* aDTD,
-                          nsIContentSink* aSink,
-                          nsITokenizer*& aTokenizer);
-    void  SetMimeType(const nsACString& aMimeType);
+  nsresult GetTokenizer(nsIDTD* aDTD,
+                        nsIContentSink* aSink,
+                        nsITokenizer*& aTokenizer);
+  void SetMimeType(const nsACString& aMimeType);
 
-    nsCOMPtr<nsIRequest> mRequest; // provided by necko to differnciate different input streams
-                                   // why is mRequest strongly referenced? see bug 102376.
-    nsCOMPtr<nsIRequestObserver> mListener;
-    void* const          mKey;
-    nsCOMPtr<nsITokenizer> mTokenizer;
-    CParserContext* const mPrevContext;
-    nsAutoPtr<nsScanner> mScanner;
+  nsCOMPtr<nsIRequest>
+      mRequest;  // provided by necko to differnciate different input streams
+                 // why is mRequest strongly referenced? see bug 102376.
+  nsCOMPtr<nsIRequestObserver> mListener;
+  void* const mKey;
+  nsCOMPtr<nsITokenizer> mTokenizer;
+  CParserContext* const mPrevContext;
+  nsAutoPtr<nsScanner> mScanner;
 
-    nsCString            mMimeType;
-    nsDTDMode            mDTDMode;
+  nsCString mMimeType;
+  nsDTDMode mDTDMode;
 
-    eParserDocType       mDocType;
-    eStreamState         mStreamListenerState;
-    eContextType         mContextType;
-    eAutoDetectResult    mAutoDetectStatus;
-    eParserCommands      mParserCommand;
+  eParserDocType mDocType;
+  eStreamState mStreamListenerState;
+  eContextType mContextType;
+  eAutoDetectResult mAutoDetectStatus;
+  eParserCommands mParserCommand;
 
-    bool                 mMultipart;
-    bool                 mCopyUnused;
+  bool mMultipart;
+  bool mCopyUnused;
 };
 
 #endif

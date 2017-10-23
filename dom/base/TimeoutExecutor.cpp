@@ -33,7 +33,7 @@ TimeoutExecutor::ScheduleImmediate(const TimeStamp& aDeadline,
   MOZ_DIAGNOSTIC_ASSERT(aDeadline <= (aNow + mAllowedEarlyFiringTime));
 
   nsresult rv =
-    mOwner->EventTarget()->Dispatch(this, nsIEventTarget::DISPATCH_NORMAL);
+      mOwner->EventTarget()->Dispatch(this, nsIEventTarget::DISPATCH_NORMAL);
   NS_ENSURE_SUCCESS(rv, rv);
 
   mMode = Mode::Immediate;
@@ -59,7 +59,8 @@ TimeoutExecutor::ScheduleDelayed(const TimeStamp& aDeadline,
     NS_ENSURE_TRUE(mTimer, NS_ERROR_OUT_OF_MEMORY);
 
     uint32_t earlyMicros = 0;
-    MOZ_ALWAYS_SUCCEEDS(mTimer->GetAllowedEarlyFiringMicroseconds(&earlyMicros));
+    MOZ_ALWAYS_SUCCEEDS(
+        mTimer->GetAllowedEarlyFiringMicroseconds(&earlyMicros));
     mAllowedEarlyFiringTime = TimeDuration::FromMicroseconds(earlyMicros);
   }
 
@@ -98,8 +99,8 @@ TimeoutExecutor::ScheduleDelayed(const TimeStamp& aDeadline,
   // schedule a new nsITimer for g().  Its only 500us in the future, though.  We
   // must be able to pass this fractional value to nsITimer in order to get an
   // accurate wakeup time.
-  rv = mTimer->InitHighResolutionWithCallback(this, delay,
-                                              nsITimer::TYPE_ONE_SHOT);
+  rv = mTimer->InitHighResolutionWithCallback(
+      this, delay, nsITimer::TYPE_ONE_SHOT);
   NS_ENSURE_SUCCESS(rv, rv);
 
   mMode = Mode::Delayed;
@@ -129,8 +130,7 @@ TimeoutExecutor::MaybeReschedule(const TimeStamp& aDeadline,
                                  const TimeDuration& aMinDelay)
 {
   MOZ_DIAGNOSTIC_ASSERT(!mDeadline.IsNull());
-  MOZ_DIAGNOSTIC_ASSERT(mMode == Mode::Immediate ||
-                        mMode == Mode::Delayed);
+  MOZ_DIAGNOSTIC_ASSERT(mMode == Mode::Immediate || mMode == Mode::Delayed);
 
   if (aDeadline >= mDeadline) {
     return NS_OK;
@@ -172,8 +172,7 @@ TimeoutExecutor::MaybeExecute()
 }
 
 TimeoutExecutor::TimeoutExecutor(TimeoutManager* aOwner)
-  : mOwner(aOwner)
-  , mMode(Mode::None)
+    : mOwner(aOwner), mMode(Mode::None)
 {
   MOZ_DIAGNOSTIC_ASSERT(mOwner);
 }
@@ -248,5 +247,5 @@ TimeoutExecutor::GetName(nsACString& aNameOut)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

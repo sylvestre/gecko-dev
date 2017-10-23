@@ -43,8 +43,7 @@ BitwiseCast(const From aFrom, To* aResult)
 {
   static_assert(sizeof(From) == sizeof(To),
                 "To and From must have the same size");
-  union
-  {
+  union {
     From mFrom;
     To mTo;
   } u;
@@ -63,8 +62,16 @@ BitwiseCast(const From aFrom)
 
 namespace detail {
 
-enum ToSignedness { ToIsSigned, ToIsUnsigned };
-enum FromSignedness { FromIsSigned, FromIsUnsigned };
+enum ToSignedness
+{
+  ToIsSigned,
+  ToIsUnsigned
+};
+enum FromSignedness
+{
+  FromIsSigned,
+  FromIsUnsigned
+};
 
 template<typename From,
          typename To,
@@ -77,40 +84,38 @@ struct BoundsCheckImpl;
 // that are obviously the same type (and will undergo no further conversions),
 // even when it's not strictly necessary, for explicitness.
 
-enum UUComparison { FromIsBigger, FromIsNotBigger };
+enum UUComparison
+{
+  FromIsBigger,
+  FromIsNotBigger
+};
 
 // Unsigned-to-unsigned range check
 
-template<typename From, typename To,
-         UUComparison = (sizeof(From) > sizeof(To))
-                        ? FromIsBigger
-                        : FromIsNotBigger>
+template<typename From,
+         typename To,
+         UUComparison =
+             (sizeof(From) > sizeof(To)) ? FromIsBigger : FromIsNotBigger>
 struct UnsignedUnsignedCheck;
 
 template<typename From, typename To>
 struct UnsignedUnsignedCheck<From, To, FromIsBigger>
 {
-public:
-  static bool checkBounds(const From aFrom)
-  {
-    return aFrom <= From(To(-1));
-  }
+ public:
+  static bool checkBounds(const From aFrom) { return aFrom <= From(To(-1)); }
 };
 
 template<typename From, typename To>
 struct UnsignedUnsignedCheck<From, To, FromIsNotBigger>
 {
-public:
-  static bool checkBounds(const From aFrom)
-  {
-    return true;
-  }
+ public:
+  static bool checkBounds(const From aFrom) { return true; }
 };
 
 template<typename From, typename To>
 struct BoundsCheckImpl<From, To, FromIsUnsigned, ToIsUnsigned>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom)
   {
     return UnsignedUnsignedCheck<From, To>::checkBounds(aFrom);
@@ -122,7 +127,7 @@ public:
 template<typename From, typename To>
 struct BoundsCheckImpl<From, To, FromIsSigned, ToIsUnsigned>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom)
   {
     if (aFrom < 0) {
@@ -137,28 +142,29 @@ public:
 
 // Unsigned-to-signed range check
 
-enum USComparison { FromIsSmaller, FromIsNotSmaller };
+enum USComparison
+{
+  FromIsSmaller,
+  FromIsNotSmaller
+};
 
-template<typename From, typename To,
-         USComparison = (sizeof(From) < sizeof(To))
-                        ? FromIsSmaller
-                        : FromIsNotSmaller>
+template<typename From,
+         typename To,
+         USComparison =
+             (sizeof(From) < sizeof(To)) ? FromIsSmaller : FromIsNotSmaller>
 struct UnsignedSignedCheck;
 
 template<typename From, typename To>
 struct UnsignedSignedCheck<From, To, FromIsSmaller>
 {
-public:
-  static bool checkBounds(const From aFrom)
-  {
-    return true;
-  }
+ public:
+  static bool checkBounds(const From aFrom) { return true; }
 };
 
 template<typename From, typename To>
 struct UnsignedSignedCheck<From, To, FromIsNotSmaller>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom)
   {
     const To MaxValue = To((1ULL << (CHAR_BIT * sizeof(To) - 1)) - 1);
@@ -169,7 +175,7 @@ public:
 template<typename From, typename To>
 struct BoundsCheckImpl<From, To, FromIsUnsigned, ToIsSigned>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom)
   {
     return UnsignedSignedCheck<From, To>::checkBounds(aFrom);
@@ -181,7 +187,7 @@ public:
 template<typename From, typename To>
 struct BoundsCheckImpl<From, To, FromIsSigned, ToIsSigned>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom)
   {
     if (sizeof(From) <= sizeof(To)) {
@@ -189,27 +195,27 @@ public:
     }
     const To MaxValue = To((1ULL << (CHAR_BIT * sizeof(To) - 1)) - 1);
     const To MinValue = -MaxValue - To(1);
-    return From(MinValue) <= aFrom &&
-           From(aFrom) <= From(MaxValue);
+    return From(MinValue) <= aFrom && From(aFrom) <= From(MaxValue);
   }
 };
 
-template<typename From, typename To,
-         bool TypesAreIntegral = IsIntegral<From>::value &&
-                                 IsIntegral<To>::value>
+template<typename From,
+         typename To,
+         bool TypesAreIntegral =
+             IsIntegral<From>::value&& IsIntegral<To>::value>
 class BoundsChecker;
 
 template<typename From>
 class BoundsChecker<From, From, true>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom) { return true; }
 };
 
 template<typename From, typename To>
 class BoundsChecker<From, To, true>
 {
-public:
+ public:
   static bool checkBounds(const From aFrom)
   {
     return BoundsCheckImpl<From, To>::checkBounds(aFrom);
@@ -223,7 +229,7 @@ IsInBounds(const From aFrom)
   return BoundsChecker<From, To>::checkBounds(aFrom);
 }
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * Cast a value of integral type |From| to a value of integral type |To|,
@@ -251,6 +257,6 @@ ReleaseAssertedCast(const From aFrom)
   return static_cast<To>(aFrom);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_Casting_h */

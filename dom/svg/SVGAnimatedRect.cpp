@@ -19,8 +19,7 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(SVGAnimatedRect, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(SVGAnimatedRect, Release)
 
 SVGAnimatedRect::SVGAnimatedRect(nsSVGViewBox* aVal, nsSVGElement* aSVGElement)
-  : mVal(aVal)
-  , mSVGElement(aSVGElement)
+    : mVal(aVal), mSVGElement(aSVGElement)
 {
 }
 
@@ -47,5 +46,5 @@ SVGAnimatedRect::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return SVGAnimatedRectBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

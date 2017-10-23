@@ -15,17 +15,18 @@
 /******************************************************************************
  * nsSubDocumentFrame
  *****************************************************************************/
-class nsSubDocumentFrame final
-  : public nsAtomicContainerFrame
-  , public nsIReflowCallback
+class nsSubDocumentFrame final : public nsAtomicContainerFrame,
+                                 public nsIReflowCallback
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSubDocumentFrame)
 
   explicit nsSubDocumentFrame(nsStyleContext* aContext);
 
 #ifdef DEBUG_FRAME_DUMP
-  void List(FILE* out = stderr, const char* aPrefix = "", uint32_t aFlags = 0) const override;
+  void List(FILE* out = stderr,
+            const char* aPrefix = "",
+            uint32_t aFlags = 0) const override;
   nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
@@ -33,50 +34,47 @@ public:
 
   bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsAtomicContainerFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced |
-        nsIFrame::eReplacedSizing |
-        nsIFrame::eReplacedContainsBlock));
+    return nsAtomicContainerFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedSizing |
+                   nsIFrame::eReplacedContainsBlock));
   }
 
-  void Init(nsIContent*       aContent,
+  void Init(nsIContent* aContent,
             nsContainerFrame* aParent,
-            nsIFrame*         aPrevInFlow) override;
+            nsIFrame* aPrevInFlow) override;
 
   void DestroyFrom(nsIFrame* aDestructRoot) override;
 
-  nscoord GetMinISize(gfxContext *aRenderingContext) override;
-  nscoord GetPrefISize(gfxContext *aRenderingContext) override;
+  nscoord GetMinISize(gfxContext* aRenderingContext) override;
+  nscoord GetPrefISize(gfxContext* aRenderingContext) override;
 
   mozilla::IntrinsicSize GetIntrinsicSize() override;
-  nsSize  GetIntrinsicRatio() override;
+  nsSize GetIntrinsicRatio() override;
 
-  mozilla::LogicalSize
-  ComputeAutoSize(gfxContext*                 aRenderingContext,
-                  mozilla::WritingMode        aWritingMode,
-                  const mozilla::LogicalSize& aCBSize,
-                  nscoord                     aAvailableISize,
-                  const mozilla::LogicalSize& aMargin,
-                  const mozilla::LogicalSize& aBorder,
-                  const mozilla::LogicalSize& aPadding,
-                  ComputeSizeFlags            aFlags) override;
+  mozilla::LogicalSize ComputeAutoSize(gfxContext* aRenderingContext,
+                                       mozilla::WritingMode aWritingMode,
+                                       const mozilla::LogicalSize& aCBSize,
+                                       nscoord aAvailableISize,
+                                       const mozilla::LogicalSize& aMargin,
+                                       const mozilla::LogicalSize& aBorder,
+                                       const mozilla::LogicalSize& aPadding,
+                                       ComputeSizeFlags aFlags) override;
 
-  mozilla::LogicalSize
-  ComputeSize(gfxContext*                 aRenderingContext,
-              mozilla::WritingMode        aWritingMode,
-              const mozilla::LogicalSize& aCBSize,
-              nscoord                     aAvailableISize,
-              const mozilla::LogicalSize& aMargin,
-              const mozilla::LogicalSize& aBorder,
-              const mozilla::LogicalSize& aPadding,
-              ComputeSizeFlags            aFlags) override;
+  mozilla::LogicalSize ComputeSize(gfxContext* aRenderingContext,
+                                   mozilla::WritingMode aWritingMode,
+                                   const mozilla::LogicalSize& aCBSize,
+                                   nscoord aAvailableISize,
+                                   const mozilla::LogicalSize& aMargin,
+                                   const mozilla::LogicalSize& aBorder,
+                                   const mozilla::LogicalSize& aPadding,
+                                   ComputeSizeFlags aFlags) override;
 
-  void Reflow(nsPresContext*     aPresContext,
-              ReflowOutput&      aDesiredSize,
+  void Reflow(nsPresContext* aPresContext,
+              ReflowOutput& aDesiredSize,
               const ReflowInput& aReflowInput,
-              nsReflowStatus&    aStatus) override;
+              nsReflowStatus& aStatus) override;
 
-  void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                         const nsDisplayListSet& aLists) override;
 
   nsresult AttributeChanged(int32_t aNameSpaceID,
@@ -93,12 +91,13 @@ public:
   mozilla::a11y::AccType AccessibleType() override;
 #endif
 
-  nsresult GetDocShell(nsIDocShell **aDocShell);
+  nsresult GetDocShell(nsIDocShell** aDocShell);
   nsresult BeginSwapDocShells(nsIFrame* aOther);
   void EndSwapDocShells(nsIFrame* aOther);
   nsView* EnsureInnerView();
   nsIFrame* GetSubdocumentRootFrame();
-  enum {
+  enum
+  {
     IGNORE_PAINT_SUPPRESSION = 0x1
   };
   nsIPresShell* GetSubdocumentPresShellForPainting(uint32_t aFlags);
@@ -133,7 +132,7 @@ public:
     }
   }
 
-protected:
+ protected:
   friend class AsyncFrameInit;
 
   // Helper method to look up the HTML marginwidth & marginheight attributes.

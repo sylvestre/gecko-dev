@@ -16,7 +16,7 @@ namespace dom {
 // implementation:
 
 SVGRect::SVGRect(nsIContent* aParent, float x, float y, float w, float h)
-  : SVGIRect(), mParent(aParent), mX(x), mY(y), mWidth(w), mHeight(h)
+    : SVGIRect(), mParent(aParent), mX(x), mY(y), mWidth(w), mHeight(h)
 {
 }
 
@@ -33,18 +33,18 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SVGRect)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 ////////////////////////////////////////////////////////////////////////
 // Exported creation functions:
 
 already_AddRefed<mozilla::dom::SVGRect>
-NS_NewSVGRect(nsIContent* aParent, float aX, float aY, float aWidth,
-              float aHeight)
+NS_NewSVGRect(
+    nsIContent* aParent, float aX, float aY, float aWidth, float aHeight)
 {
   RefPtr<mozilla::dom::SVGRect> rect =
-    new mozilla::dom::SVGRect(aParent, aX, aY, aWidth, aHeight);
+      new mozilla::dom::SVGRect(aParent, aX, aY, aWidth, aHeight);
 
   return rect.forget();
 }
@@ -52,7 +52,5 @@ NS_NewSVGRect(nsIContent* aParent, float aX, float aY, float aWidth,
 already_AddRefed<mozilla::dom::SVGRect>
 NS_NewSVGRect(nsIContent* aParent, const Rect& aRect)
 {
-  return NS_NewSVGRect(aParent, aRect.x, aRect.y,
-                       aRect.width, aRect.height);
+  return NS_NewSVGRect(aParent, aRect.x, aRect.y, aRect.width, aRect.height);
 }
-

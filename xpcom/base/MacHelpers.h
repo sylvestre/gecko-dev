@@ -11,8 +11,9 @@
 
 namespace mozilla {
 
-nsresult GetSelectedCityInfo(nsAString& aCountryCode);
+nsresult
+GetSelectedCityInfo(nsAString& aCountryCode);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

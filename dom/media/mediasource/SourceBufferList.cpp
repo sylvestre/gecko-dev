@@ -16,11 +16,19 @@
 #include "nsThreadUtils.h"
 #include "mozilla/Logging.h"
 
-extern mozilla::LogModule* GetMediaSourceLog();
-extern mozilla::LogModule* GetMediaSourceAPILog();
+extern mozilla::LogModule*
+GetMediaSourceLog();
+extern mozilla::LogModule*
+GetMediaSourceAPILog();
 
-#define MSE_API(arg, ...) MOZ_LOG(GetMediaSourceAPILog(), mozilla::LogLevel::Debug, ("SourceBufferList(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
-#define MSE_DEBUG(arg, ...) MOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Debug, ("SourceBufferList(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define MSE_API(arg, ...)           \
+  MOZ_LOG(GetMediaSourceAPILog(),   \
+          mozilla::LogLevel::Debug, \
+          ("SourceBufferList(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define MSE_DEBUG(arg, ...)         \
+  MOZ_LOG(GetMediaSourceLog(),      \
+          mozilla::LogLevel::Debug, \
+          ("SourceBufferList(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 struct JSContext;
 class JSObject;
@@ -29,9 +37,7 @@ namespace mozilla {
 
 namespace dom {
 
-SourceBufferList::~SourceBufferList()
-{
-}
+SourceBufferList::~SourceBufferList() {}
 
 SourceBuffer*
 SourceBufferList::IndexedGetter(uint32_t aIndex, bool& aFound)
@@ -145,7 +151,8 @@ SourceBufferList::GetHighestBufferedEndTime()
   MOZ_ASSERT(NS_IsMainThread());
   double highestEndTime = 0;
   for (uint32_t i = 0; i < mSourceBuffers.Length(); ++i) {
-    highestEndTime = std::max(highestEndTime, mSourceBuffers[i]->GetBufferedEnd());
+    highestEndTime =
+        std::max(highestEndTime, mSourceBuffers[i]->GetBufferedEnd());
   }
   return highestEndTime;
 }
@@ -162,14 +169,15 @@ void
 SourceBufferList::QueueAsyncSimpleEvent(const char* aName)
 {
   MSE_DEBUG("Queue event '%s'", aName);
-  nsCOMPtr<nsIRunnable> event = new AsyncEventRunner<SourceBufferList>(this, aName);
+  nsCOMPtr<nsIRunnable> event =
+      new AsyncEventRunner<SourceBufferList>(this, aName);
   mAbstractMainThread->Dispatch(event.forget());
 }
 
 SourceBufferList::SourceBufferList(MediaSource* aMediaSource)
-  : DOMEventTargetHelper(aMediaSource->GetParentObject())
-  , mMediaSource(aMediaSource)
-  , mAbstractMainThread(mMediaSource->AbstractMainThread())
+    : DOMEventTargetHelper(aMediaSource->GetParentObject()),
+      mMediaSource(aMediaSource),
+      mAbstractMainThread(mMediaSource->AbstractMainThread())
 {
   MOZ_ASSERT(aMediaSource);
 }
@@ -187,7 +195,7 @@ SourceBufferList::HighestStartTime()
   double highestStartTime = 0;
   for (auto& sourceBuffer : mSourceBuffers) {
     highestStartTime =
-      std::max(sourceBuffer->HighestStartTime(), highestStartTime);
+        std::max(sourceBuffer->HighestStartTime(), highestStartTime);
   }
   return highestStartTime;
 }
@@ -198,8 +206,7 @@ SourceBufferList::HighestEndTime()
   MOZ_ASSERT(NS_IsMainThread());
   double highestEndTime = 0;
   for (auto& sourceBuffer : mSourceBuffers) {
-    highestEndTime =
-      std::max(sourceBuffer->HighestEndTime(), highestEndTime);
+    highestEndTime = std::max(sourceBuffer->HighestEndTime(), highestEndTime);
   }
   return highestEndTime;
 }
@@ -210,8 +217,10 @@ SourceBufferList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return SourceBufferListBinding::Wrap(aCx, this, aGivenProto);
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(SourceBufferList, DOMEventTargetHelper,
-                                   mMediaSource, mSourceBuffers)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(SourceBufferList,
+                                   DOMEventTargetHelper,
+                                   mMediaSource,
+                                   mSourceBuffers)
 
 NS_IMPL_ADDREF_INHERITED(SourceBufferList, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(SourceBufferList, DOMEventTargetHelper)
@@ -221,6 +230,6 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 #undef MSE_API
 #undef MSE_DEBUG
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla

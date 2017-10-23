@@ -44,7 +44,8 @@
 #include <mach/mach.h>
 
 //
-class ProtectedMemoryAllocator {
+class ProtectedMemoryAllocator
+{
  public:
   ProtectedMemoryAllocator(vm_size_t pool_size);
   ~ProtectedMemoryAllocator();
@@ -53,33 +54,33 @@ class ProtectedMemoryAllocator {
   // Fails by returning NULL is no more space is available.
   // Please note that the pointers returned from this method should not
   // be freed in any way (for example by calling free() on them ).
-  char *         Allocate(vm_size_t n);
+  char* Allocate(vm_size_t n);
 
   // Returns the base address of the allocation pool.
-  char *         GetBaseAddress() { return (char*)base_address_; }
+  char* GetBaseAddress() { return (char*)base_address_; }
 
   // Returns the size of the allocation pool, including allocated
   // plus free space.
-  vm_size_t      GetTotalSize() { return pool_size_; }
+  vm_size_t GetTotalSize() { return pool_size_; }
 
   // Returns the number of bytes already allocated in the pool.
-  vm_size_t      GetAllocatedSize() { return next_alloc_offset_; }
+  vm_size_t GetAllocatedSize() { return next_alloc_offset_; }
 
   // Returns the number of bytes available for allocation.
-  vm_size_t      GetFreeSize() { return pool_size_ - next_alloc_offset_; }
+  vm_size_t GetFreeSize() { return pool_size_ - next_alloc_offset_; }
 
   // Makes the entire allocation pool read-only including, of course,
   // all allocations made from the pool.
-  kern_return_t  Protect();
+  kern_return_t Protect();
 
   // Makes the entire allocation pool read/write.
-  kern_return_t  Unprotect();
+  kern_return_t Unprotect();
 
  private:
-  vm_size_t      pool_size_;
-  vm_address_t   base_address_;
-  vm_size_t      next_alloc_offset_;
-  bool           valid_;
+  vm_size_t pool_size_;
+  vm_address_t base_address_;
+  vm_size_t next_alloc_offset_;
+  bool valid_;
 };
 
-#endif // PROTECTED_MEMORY_ALLOCATOR_H__
+#endif  // PROTECTED_MEMORY_ALLOCATOR_H__

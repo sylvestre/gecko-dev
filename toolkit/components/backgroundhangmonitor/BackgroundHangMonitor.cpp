@@ -47,10 +47,13 @@ static const int32_t kCheckCPUIntervalMilliseconds = 2000;
 
 // An utility comparator function used by std::unique to collapse "(* script)" entries in
 // a vector representing a call stack.
-bool StackScriptEntriesCollapser(const char* aStackEntry, const char *aAnotherStackEntry)
+bool
+StackScriptEntriesCollapser(const char* aStackEntry,
+                            const char* aAnotherStackEntry)
 {
   return !strcmp(aStackEntry, aAnotherStackEntry) &&
-         (!strcmp(aStackEntry, "(chrome script)") || !strcmp(aStackEntry, "(content script)"));
+         (!strcmp(aStackEntry, "(chrome script)") ||
+          !strcmp(aStackEntry, "(content script)"));
 }
 
 namespace mozilla {
@@ -61,7 +64,7 @@ namespace mozilla {
  */
 class BackgroundHangManager : public nsIObserver
 {
-private:
+ private:
   // Background hang monitor thread function
   static void MonitorThread(void* aData)
   {
@@ -85,7 +88,7 @@ private:
   BackgroundHangManager& operator=(const BackgroundHangManager&);
   void RunMonitorThread();
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
   static StaticRefPtr<BackgroundHangManager> sInstance;
@@ -120,18 +123,23 @@ public:
   }
 
   BackgroundHangManager();
-private:
+
+ private:
   virtual ~BackgroundHangManager();
 };
 
 NS_IMPL_ISUPPORTS(BackgroundHangManager, nsIObserver)
 
 NS_IMETHODIMP
-BackgroundHangManager::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData) {
+BackgroundHangManager::Observe(nsISupports* aSubject,
+                               const char* aTopic,
+                               const char16_t* aData)
+{
   NS_ENSURE_TRUE(!strcmp(aTopic, "profile-after-change"), NS_ERROR_UNEXPECTED);
   BackgroundHangMonitor::DisableOnBeta();
 
-  nsCOMPtr<nsIObserverService> observerService = mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
   MOZ_ASSERT(observerService);
   observerService->RemoveObserver(this, "profile-after-change");
 
@@ -144,7 +152,7 @@ BackgroundHangManager::Observe(nsISupports* aSubject, const char* aTopic, const 
  */
 class BackgroundHangThread : public LinkedListElement<BackgroundHangThread>
 {
-private:
+ private:
   static MOZ_THREAD_LOCAL(BackgroundHangThread*) sTlsKey;
   static bool sTlsKeyInitialized;
 
@@ -160,7 +168,7 @@ private:
 
   void Update();
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(BackgroundHangThread)
   /**
    * Returns the BackgroundHangThread associated with the
@@ -210,7 +218,8 @@ public:
   BackgroundHangThread(const char* aName,
                        uint32_t aTimeoutMs,
                        uint32_t aMaxTimeoutMs,
-                       BackgroundHangMonitor::ThreadType aThreadType = BackgroundHangMonitor::THREAD_SHARED);
+                       BackgroundHangMonitor::ThreadType aThreadType =
+                           BackgroundHangMonitor::THREAD_SHARED);
 
   // Report a hang; aManager->mLock IS locked. The hang will be processed
   // off-main-thread, and will then be submitted back.
@@ -238,7 +247,8 @@ public:
 
   // Returns true if this thread is (or might be) shared between other
   // BackgroundHangMonitors for the monitored thread.
-  bool IsShared() {
+  bool IsShared()
+  {
     return mThreadType == BackgroundHangMonitor::THREAD_SHARED;
   }
 };
@@ -250,17 +260,21 @@ MOZ_THREAD_LOCAL(BackgroundHangThread*) BackgroundHangThread::sTlsKey;
 bool BackgroundHangThread::sTlsKeyInitialized;
 
 BackgroundHangManager::BackgroundHangManager()
-  : mShutdown(false)
-  , mLock("BackgroundHangManager")
-  , mIntervalNow(0)
-  , mSTS(do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID))
+    : mShutdown(false),
+      mLock("BackgroundHangManager"),
+      mIntervalNow(0),
+      mSTS(do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID))
 {
   // Lock so we don't race against the new monitor thread
   MonitorAutoLock autoLock(mLock);
 
-  mHangMonitorThread = PR_CreateThread(
-    PR_USER_THREAD, MonitorThread, this,
-    PR_PRIORITY_LOW, PR_GLOBAL_THREAD, PR_JOINABLE_THREAD, 0);
+  mHangMonitorThread = PR_CreateThread(PR_USER_THREAD,
+                                       MonitorThread,
+                                       this,
+                                       PR_PRIORITY_LOW,
+                                       PR_GLOBAL_THREAD,
+                                       PR_JOINABLE_THREAD,
+                                       0);
 
   MOZ_ASSERT(mHangMonitorThread, "Failed to create monitor thread");
 }
@@ -296,7 +310,7 @@ BackgroundHangManager::RunMonitorThread()
   PRIntervalTime recheckTimeout = PR_INTERVAL_NO_WAIT;
   PRIntervalTime lastCheckedCPUUsage = systemTime;
   PRIntervalTime checkCPUUsageInterval =
-    PR_MillisecondsToInterval(kCheckCPUIntervalMilliseconds);
+      PR_MillisecondsToInterval(kCheckCPUIntervalMilliseconds);
 
   while (!mShutdown) {
     nsresult rv = autoLock.Wait(waitTime);
@@ -322,8 +336,7 @@ BackgroundHangManager::RunMonitorThread()
        interrupted, we can keep the current waitTime and skip iterating
        through hang monitors. */
     if (MOZ_LIKELY(systemInterval < recheckTimeout &&
-                   systemInterval >= waitTime &&
-                   rv == NS_OK)) {
+                   systemInterval >= waitTime && rv == NS_OK)) {
       recheckTimeout -= systemInterval;
       continue;
     }
@@ -342,8 +355,8 @@ BackgroundHangManager::RunMonitorThread()
 
     // iterate through hang monitors
     for (BackgroundHangThread* currentThread = mHangThreads.getFirst();
-         currentThread; currentThread = currentThread->getNext()) {
-
+         currentThread;
+         currentThread = currentThread->getNext()) {
       if (currentThread->mWaiting) {
         // Thread is waiting, not hanging
         continue;
@@ -364,9 +377,7 @@ BackgroundHangManager::RunMonitorThread()
 #ifdef MOZ_GECKO_PROFILER
           // A hang started, collect a stack
           currentThread->mStackHelper.GetStack(
-            currentThread->mHangStack,
-            currentThread->mRunnableName,
-            true);
+              currentThread->mHangStack, currentThread->mRunnableName, true);
 #endif
 
           // If we hang immediately on waking, then the most recently collected
@@ -381,7 +392,7 @@ BackgroundHangManager::RunMonitorThread()
           currentThread->mHangStart = interval;
           currentThread->mHanging = true;
           currentThread->mAnnotations =
-            currentThread->mAnnotators.GatherAnnotations();
+              currentThread->mAnnotators.GatherAnnotations();
         }
       } else {
         if (MOZ_LIKELY(interval != currentThread->mHangStart)) {
@@ -417,25 +428,25 @@ BackgroundHangManager::RunMonitorThread()
   }
 }
 
-
-BackgroundHangThread::BackgroundHangThread(const char* aName,
-                                           uint32_t aTimeoutMs,
-                                           uint32_t aMaxTimeoutMs,
-                                           BackgroundHangMonitor::ThreadType aThreadType)
-  : mManager(BackgroundHangManager::sInstance)
-  , mThreadID(PR_GetCurrentThread())
-  , mTimeout(aTimeoutMs == BackgroundHangMonitor::kNoTimeout
-             ? PR_INTERVAL_NO_TIMEOUT
-             : PR_MillisecondsToInterval(aTimeoutMs))
-  , mMaxTimeout(aMaxTimeoutMs == BackgroundHangMonitor::kNoTimeout
-                ? PR_INTERVAL_NO_TIMEOUT
-                : PR_MillisecondsToInterval(aMaxTimeoutMs))
-  , mInterval(mManager->mIntervalNow)
-  , mHangStart(mInterval)
-  , mHanging(false)
-  , mWaiting(true)
-  , mThreadType(aThreadType)
-  , mThreadName(aName)
+BackgroundHangThread::BackgroundHangThread(
+    const char* aName,
+    uint32_t aTimeoutMs,
+    uint32_t aMaxTimeoutMs,
+    BackgroundHangMonitor::ThreadType aThreadType)
+    : mManager(BackgroundHangManager::sInstance),
+      mThreadID(PR_GetCurrentThread()),
+      mTimeout(aTimeoutMs == BackgroundHangMonitor::kNoTimeout
+                   ? PR_INTERVAL_NO_TIMEOUT
+                   : PR_MillisecondsToInterval(aTimeoutMs)),
+      mMaxTimeout(aMaxTimeoutMs == BackgroundHangMonitor::kNoTimeout
+                      ? PR_INTERVAL_NO_TIMEOUT
+                      : PR_MillisecondsToInterval(aMaxTimeoutMs)),
+      mInterval(mManager->mIntervalNow),
+      mHangStart(mInterval),
+      mHanging(false),
+      mWaiting(true),
+      mThreadType(aThreadType),
+      mThreadName(aName)
 {
   if (sTlsKeyInitialized && IsShared()) {
     sTlsKey.set(this);
@@ -480,10 +491,11 @@ BackgroundHangThread::ReportHang(PRIntervalTime aHangTime)
   // we just report without one.
   if (mManager->mSTS) {
     nsCOMPtr<nsIRunnable> processHangStackRunnable =
-      new ProcessHangStackRunnable(Move(hangDetails));
+        new ProcessHangStackRunnable(Move(hangDetails));
     mManager->mSTS->Dispatch(processHangStackRunnable.forget());
   } else {
-    NS_WARNING("Unable to report native stack without a StreamTransportService");
+    NS_WARNING(
+        "Unable to report native stack without a StreamTransportService");
     RefPtr<nsHangDetails> hd = new nsHangDetails(Move(hangDetails));
     hd->Submit();
   }
@@ -545,8 +557,8 @@ BackgroundHangThread::FindThread()
   PRThread* threadID = PR_GetCurrentThread();
   // Lock thread list for traversal
   MonitorAutoLock autoLock(manager->mLock);
-  for (BackgroundHangThread* thread = manager->mHangThreads.getFirst();
-       thread; thread = thread->getNext()) {
+  for (BackgroundHangThread* thread = manager->mHangThreads.getFirst(); thread;
+       thread = thread->getNext()) {
     if (thread->mThreadID == threadID && thread->IsShared()) {
       return thread;
     }
@@ -557,14 +569,16 @@ BackgroundHangThread::FindThread()
 }
 
 bool
-BackgroundHangMonitor::ShouldDisableOnBeta(const nsCString &clientID) {
+BackgroundHangMonitor::ShouldDisableOnBeta(const nsCString& clientID)
+{
   MOZ_ASSERT(clientID.Length() == 36, "clientID is invalid");
-  const char *suffix = clientID.get() + clientID.Length() - 4;
+  const char* suffix = clientID.get() + clientID.Length() - 4;
   return strtol(suffix, NULL, 16) % BHR_BETA_MOD;
 }
 
 bool
-BackgroundHangMonitor::IsDisabled() {
+BackgroundHangMonitor::IsDisabled()
+{
 #ifdef MOZ_ENABLE_BACKGROUND_HANG_MONITOR
   return BackgroundHangManager::sDisabled;
 #else
@@ -573,10 +587,11 @@ BackgroundHangMonitor::IsDisabled() {
 }
 
 bool
-BackgroundHangMonitor::DisableOnBeta() {
+BackgroundHangMonitor::DisableOnBeta()
+{
   nsAutoCString clientID;
   nsresult rv =
-    Preferences::GetCString("toolkit.telemetry.cachedClientID", clientID);
+      Preferences::GetCString("toolkit.telemetry.cachedClientID", clientID);
   bool telemetryEnabled = Preferences::GetBool("toolkit.telemetry.enabled");
 
   if (!telemetryEnabled || NS_FAILED(rv) ||
@@ -600,24 +615,28 @@ BackgroundHangMonitor::Startup()
   MOZ_ASSERT(!BackgroundHangManager::sInstance, "Already initialized");
 
   if (!strcmp(NS_STRINGIFY(MOZ_UPDATE_CHANNEL), "beta")) {
-    if (XRE_IsParentProcess()) { // cached ClientID hasn't been read yet
+    if (XRE_IsParentProcess()) {  // cached ClientID hasn't been read yet
       BackgroundHangThread::Startup();
       BackgroundHangManager::sInstance = new BackgroundHangManager();
-      Unused << NS_WARN_IF(BackgroundHangManager::sInstance->mCPUUsageWatcher.Init().isErr());
+      Unused << NS_WARN_IF(
+          BackgroundHangManager::sInstance->mCPUUsageWatcher.Init().isErr());
 
-      nsCOMPtr<nsIObserverService> observerService = mozilla::services::GetObserverService();
+      nsCOMPtr<nsIObserverService> observerService =
+          mozilla::services::GetObserverService();
       MOZ_ASSERT(observerService);
 
-      observerService->AddObserver(BackgroundHangManager::sInstance, "profile-after-change", false);
+      observerService->AddObserver(
+          BackgroundHangManager::sInstance, "profile-after-change", false);
       return;
-    } else if(DisableOnBeta()){
+    } else if (DisableOnBeta()) {
       return;
     }
   }
 
   BackgroundHangThread::Startup();
   BackgroundHangManager::sInstance = new BackgroundHangManager();
-  Unused << NS_WARN_IF(BackgroundHangManager::sInstance->mCPUUsageWatcher.Init().isErr());
+  Unused << NS_WARN_IF(
+      BackgroundHangManager::sInstance->mCPUUsageWatcher.Init().isErr());
 #endif
 }
 
@@ -645,18 +664,19 @@ BackgroundHangMonitor::BackgroundHangMonitor(const char* aName,
                                              uint32_t aTimeoutMs,
                                              uint32_t aMaxTimeoutMs,
                                              ThreadType aThreadType)
-  : mThread(aThreadType == THREAD_SHARED ? BackgroundHangThread::FindThread() : nullptr)
+    : mThread(aThreadType == THREAD_SHARED ? BackgroundHangThread::FindThread()
+                                           : nullptr)
 {
 #ifdef MOZ_ENABLE_BACKGROUND_HANG_MONITOR
   if (!BackgroundHangManager::sDisabled && !mThread) {
-    mThread = new BackgroundHangThread(aName, aTimeoutMs, aMaxTimeoutMs,
-                                       aThreadType);
+    mThread =
+        new BackgroundHangThread(aName, aTimeoutMs, aMaxTimeoutMs, aThreadType);
   }
 #endif
 }
 
 BackgroundHangMonitor::BackgroundHangMonitor()
-  : mThread(BackgroundHangThread::FindThread())
+    : mThread(BackgroundHangThread::FindThread())
 {
 #ifdef MOZ_ENABLE_BACKGROUND_HANG_MONITOR
   if (BackgroundHangManager::sDisabled) {
@@ -665,9 +685,7 @@ BackgroundHangMonitor::BackgroundHangMonitor()
 #endif
 }
 
-BackgroundHangMonitor::~BackgroundHangMonitor()
-{
-}
+BackgroundHangMonitor::~BackgroundHangMonitor() {}
 
 void
 BackgroundHangMonitor::NotifyActivity()
@@ -729,4 +747,4 @@ BackgroundHangMonitor::UnregisterAnnotator(HangMonitor::Annotator& aAnnotator)
 #endif
 }
 
-} // namespace mozilla
+}  // namespace mozilla

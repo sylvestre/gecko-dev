@@ -17,20 +17,22 @@ namespace mozilla {
 
 class MediaDataDecoderProxy : public MediaDataDecoder
 {
-public:
+ public:
   explicit MediaDataDecoderProxy(already_AddRefed<AbstractThread> aProxyThread)
-    : mProxyThread(aProxyThread)
+      : mProxyThread(aProxyThread)
 #if defined(DEBUG)
-    , mIsShutdown(false)
+        ,
+        mIsShutdown(false)
 #endif
   {
   }
 
   explicit MediaDataDecoderProxy(
-    already_AddRefed<MediaDataDecoder> aProxyDecoder)
-    : mProxyDecoder(aProxyDecoder)
+      already_AddRefed<MediaDataDecoder> aProxyDecoder)
+      : mProxyDecoder(aProxyDecoder)
 #if defined(DEBUG)
-    , mIsShutdown(false)
+        ,
+        mIsShutdown(false)
 #endif
   {
   }
@@ -52,7 +54,7 @@ public:
   bool SupportDecoderRecycling() const override;
   ConversionRequired NeedsConversion() const override;
 
-private:
+ private:
   RefPtr<MediaDataDecoder> mProxyDecoder;
   RefPtr<AbstractThread> mProxyThread;
 
@@ -61,6 +63,6 @@ private:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MediaDataDecoderProxy_h_
+#endif  // MediaDataDecoderProxy_h_

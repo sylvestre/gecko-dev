@@ -33,7 +33,7 @@ using namespace mozilla;
 // Creates a new Toolbar frame and returns it
 //
 nsIFrame*
-NS_NewLeafBoxFrame (nsIPresShell* aPresShell, nsStyleContext* aContext)
+NS_NewLeafBoxFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsLeafBoxFrame(aContext);
 }
@@ -44,18 +44,17 @@ NS_IMPL_FRAMEARENA_HELPERS(nsLeafBoxFrame)
 void
 nsLeafBoxFrame::GetBoxName(nsAutoString& aName)
 {
-   GetFrameName(aName);
+  GetFrameName(aName);
 }
 #endif
-
 
 /**
  * Initialize us. This is a good time to get the alignment of the box
  */
 void
-nsLeafBoxFrame::Init(nsIContent*       aContent,
+nsLeafBoxFrame::Init(nsIContent* aContent,
                      nsContainerFrame* aParent,
-                     nsIFrame*         aPrevInFlow)
+                     nsIFrame* aPrevInFlow)
 {
   nsLeafFrame::Init(aContent, aParent, aPrevInFlow);
 
@@ -71,36 +70,39 @@ nsLeafBoxFrame::AttributeChanged(int32_t aNameSpaceID,
                                  nsAtom* aAttribute,
                                  int32_t aModType)
 {
-  nsresult rv = nsLeafFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                              aModType);
+  nsresult rv =
+      nsLeafFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 
-  if (aAttribute == nsGkAtoms::mousethrough)
-    UpdateMouseThrough();
+  if (aAttribute == nsGkAtoms::mousethrough) UpdateMouseThrough();
 
   return rv;
 }
 
-void nsLeafBoxFrame::UpdateMouseThrough()
+void
+nsLeafBoxFrame::UpdateMouseThrough()
 {
   if (mContent) {
-    static nsIContent::AttrValuesArray strings[] =
-      {&nsGkAtoms::never, &nsGkAtoms::always, nullptr};
-    switch (mContent->FindAttrValueIn(kNameSpaceID_None,
-                                      nsGkAtoms::mousethrough,
-                                      strings, eCaseMatters)) {
-      case 0: AddStateBits(NS_FRAME_MOUSE_THROUGH_NEVER); break;
-      case 1: AddStateBits(NS_FRAME_MOUSE_THROUGH_ALWAYS); break;
+    static nsIContent::AttrValuesArray strings[] = {
+        &nsGkAtoms::never, &nsGkAtoms::always, nullptr};
+    switch (mContent->FindAttrValueIn(
+        kNameSpaceID_None, nsGkAtoms::mousethrough, strings, eCaseMatters)) {
+      case 0:
+        AddStateBits(NS_FRAME_MOUSE_THROUGH_NEVER);
+        break;
+      case 1:
+        AddStateBits(NS_FRAME_MOUSE_THROUGH_ALWAYS);
+        break;
       case 2: {
-          RemoveStateBits(NS_FRAME_MOUSE_THROUGH_ALWAYS);
-          RemoveStateBits(NS_FRAME_MOUSE_THROUGH_NEVER);
-          break;
+        RemoveStateBits(NS_FRAME_MOUSE_THROUGH_ALWAYS);
+        RemoveStateBits(NS_FRAME_MOUSE_THROUGH_NEVER);
+        break;
       }
     }
   }
 }
 
 void
-nsLeafBoxFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsLeafBoxFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                  const nsDisplayListSet& aLists)
 {
   // REVIEW: GetFrameForPoint used to not report events for the background
@@ -114,11 +116,11 @@ nsLeafBoxFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     return;
 
   aLists.Content()->AppendNewToTop(new (aBuilder)
-    nsDisplayEventReceiver(aBuilder, this));
+                                       nsDisplayEventReceiver(aBuilder, this));
 }
 
 /* virtual */ nscoord
-nsLeafBoxFrame::GetMinISize(gfxContext *aRenderingContext)
+nsLeafBoxFrame::GetMinISize(gfxContext* aRenderingContext)
 {
   nscoord result;
   DISPLAY_MIN_WIDTH(this, result);
@@ -140,7 +142,7 @@ nsLeafBoxFrame::GetMinISize(gfxContext *aRenderingContext)
 }
 
 /* virtual */ nscoord
-nsLeafBoxFrame::GetPrefISize(gfxContext *aRenderingContext)
+nsLeafBoxFrame::GetPrefISize(gfxContext* aRenderingContext)
 {
   nscoord result;
   DISPLAY_PREF_WIDTH(this, result);
@@ -169,26 +171,31 @@ nsLeafBoxFrame::GetIntrinsicISize()
 }
 
 LogicalSize
-nsLeafBoxFrame::ComputeAutoSize(gfxContext*         aRenderingContext,
-                                WritingMode         aWM,
-                                const LogicalSize&  aCBSize,
-                                nscoord             aAvailableISize,
-                                const LogicalSize&  aMargin,
-                                const LogicalSize&  aBorder,
-                                const LogicalSize&  aPadding,
-                                ComputeSizeFlags    aFlags)
+nsLeafBoxFrame::ComputeAutoSize(gfxContext* aRenderingContext,
+                                WritingMode aWM,
+                                const LogicalSize& aCBSize,
+                                nscoord aAvailableISize,
+                                const LogicalSize& aMargin,
+                                const LogicalSize& aBorder,
+                                const LogicalSize& aPadding,
+                                ComputeSizeFlags aFlags)
 {
   // Important: NOT calling our direct superclass here!
-  return nsFrame::ComputeAutoSize(aRenderingContext, aWM,
-                                  aCBSize, aAvailableISize,
-                                  aMargin, aBorder, aPadding, aFlags);
+  return nsFrame::ComputeAutoSize(aRenderingContext,
+                                  aWM,
+                                  aCBSize,
+                                  aAvailableISize,
+                                  aMargin,
+                                  aBorder,
+                                  aPadding,
+                                  aFlags);
 }
 
 void
-nsLeafBoxFrame::Reflow(nsPresContext*   aPresContext,
-                     ReflowOutput&     aDesiredSize,
-                     const ReflowInput& aReflowInput,
-                     nsReflowStatus&          aStatus)
+nsLeafBoxFrame::Reflow(nsPresContext* aPresContext,
+                       ReflowOutput& aDesiredSize,
+                       const ReflowInput& aReflowInput,
+                       nsReflowStatus& aStatus)
 {
   // This is mostly a copy of nsBoxFrame::Reflow().
   // We aren't able to share an implementation because of the frame
@@ -200,25 +207,34 @@ nsLeafBoxFrame::Reflow(nsPresContext*   aPresContext,
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
 
-  NS_ASSERTION(aReflowInput.ComputedWidth() >=0 &&
-               aReflowInput.ComputedHeight() >= 0, "Computed Size < 0");
+  NS_ASSERTION(
+      aReflowInput.ComputedWidth() >= 0 && aReflowInput.ComputedHeight() >= 0,
+      "Computed Size < 0");
 
 #ifdef DO_NOISY_REFLOW
-  printf("\n-------------Starting LeafBoxFrame Reflow ----------------------------\n");
+  printf(
+      "\n-------------Starting LeafBoxFrame Reflow "
+      "----------------------------\n");
   printf("%p ** nsLBF::Reflow %d R: ", this, myCounter++);
   switch (aReflowInput.reason) {
     case eReflowReason_Initial:
-      printf("Ini");break;
+      printf("Ini");
+      break;
     case eReflowReason_Incremental:
-      printf("Inc");break;
+      printf("Inc");
+      break;
     case eReflowReason_Resize:
-      printf("Rsz");break;
+      printf("Rsz");
+      break;
     case eReflowReason_StyleChange:
-      printf("Sty");break;
+      printf("Sty");
+      break;
     case eReflowReason_Dirty:
       printf("Drt ");
       break;
-    default:printf("<unknown>%d", aReflowInput.reason);break;
+    default:
+      printf("<unknown>%d", aReflowInput.reason);
+      break;
   }
 
   printSize("AW", aReflowInput.AvailableWidth());
@@ -233,7 +249,8 @@ nsLeafBoxFrame::Reflow(nsPresContext*   aPresContext,
   // create the layout state
   nsBoxLayoutState state(aPresContext, aReflowInput.mRenderingContext);
 
-  nsSize computedSize(aReflowInput.ComputedWidth(),aReflowInput.ComputedHeight());
+  nsSize computedSize(aReflowInput.ComputedWidth(),
+                      aReflowInput.ComputedHeight());
 
   nsMargin m;
   m = aReflowInput.ComputedPhysicalBorderPadding();
@@ -246,14 +263,15 @@ nsLeafBoxFrame::Reflow(nsPresContext*   aPresContext,
     computedSize.height = minSize.height - m.top - m.bottom;
   }
 
-  nsSize prefSize(0,0);
+  nsSize prefSize(0, 0);
 
   // if we are told to layout intrinic then get our preferred size.
-  if (computedSize.width == NS_INTRINSICSIZE || computedSize.height == NS_INTRINSICSIZE) {
-     prefSize = GetXULPrefSize(state);
-     nsSize minSize = GetXULMinSize(state);
-     nsSize maxSize = GetXULMaxSize(state);
-     prefSize = BoundsCheck(minSize, prefSize, maxSize);
+  if (computedSize.width == NS_INTRINSICSIZE ||
+      computedSize.height == NS_INTRINSICSIZE) {
+    prefSize = GetXULPrefSize(state);
+    nsSize minSize = GetXULMinSize(state);
+    nsSize maxSize = GetXULMaxSize(state);
+    prefSize = BoundsCheck(minSize, prefSize, maxSize);
   }
 
   // get our desiredSize
@@ -306,14 +324,16 @@ nsLeafBoxFrame::Reflow(nsPresContext*   aPresContext,
 
 #ifdef DO_NOISY_REFLOW
   {
-    printf("%p ** nsLBF(done) W:%d H:%d  ", this, aDesiredSize.Width(), aDesiredSize.Height());
+    printf("%p ** nsLBF(done) W:%d H:%d  ",
+           this,
+           aDesiredSize.Width(),
+           aDesiredSize.Height());
 
     if (maxElementWidth) {
       printf("MW:%d\n", *maxElementWidth);
     } else {
       printf("MW:?\n");
     }
-
   }
 #endif
 }
@@ -336,31 +356,31 @@ nsLeafBoxFrame::CharacterDataChanged(CharacterDataChangeInfo* aInfo)
 /* virtual */ nsSize
 nsLeafBoxFrame::GetXULPrefSize(nsBoxLayoutState& aState)
 {
-    return nsBox::GetXULPrefSize(aState);
+  return nsBox::GetXULPrefSize(aState);
 }
 
 /* virtual */ nsSize
 nsLeafBoxFrame::GetXULMinSize(nsBoxLayoutState& aState)
 {
-    return nsBox::GetXULMinSize(aState);
+  return nsBox::GetXULMinSize(aState);
 }
 
 /* virtual */ nsSize
 nsLeafBoxFrame::GetXULMaxSize(nsBoxLayoutState& aState)
 {
-    return nsBox::GetXULMaxSize(aState);
+  return nsBox::GetXULMaxSize(aState);
 }
 
 /* virtual */ nscoord
 nsLeafBoxFrame::GetXULFlex()
 {
-    return nsBox::GetXULFlex();
+  return nsBox::GetXULFlex();
 }
 
 /* virtual */ nscoord
 nsLeafBoxFrame::GetXULBoxAscent(nsBoxLayoutState& aState)
 {
-    return nsBox::GetXULBoxAscent(aState);
+  return nsBox::GetXULBoxAscent(aState);
 }
 
 /* virtual */ void
@@ -373,5 +393,5 @@ nsLeafBoxFrame::MarkIntrinsicISizesDirty()
 NS_IMETHODIMP
 nsLeafBoxFrame::DoXULLayout(nsBoxLayoutState& aState)
 {
-    return nsBox::DoXULLayout(aState);
+  return nsBox::DoXULLayout(aState);
 }

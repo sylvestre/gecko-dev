@@ -46,25 +46,23 @@ SubstitutingURL::EnsureFile()
   nsCOMPtr<nsIProtocolHandler> handler;
   rv = io->GetProtocolHandler(ourScheme.get(), getter_AddRefs(handler));
   NS_ENSURE_SUCCESS(rv, rv);
-  nsCOMPtr<nsISubstitutingProtocolHandler> substHandler = do_QueryInterface(handler);
+  nsCOMPtr<nsISubstitutingProtocolHandler> substHandler =
+      do_QueryInterface(handler);
   MOZ_ASSERT(substHandler);
 
   nsAutoCString spec;
   rv = substHandler->ResolveURI(this, spec);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   nsAutoCString scheme;
   rv = net_ExtractURLScheme(spec, scheme);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // Bug 585869:
   // In most cases, the scheme is jar if it's not file.
   // Regardless, net_GetFileFromURLSpec should be avoided
   // when the scheme isn't file.
-  if (!scheme.EqualsLiteral("file"))
-    return NS_ERROR_NO_INTERFACE;
+  if (!scheme.EqualsLiteral("file")) return NS_ERROR_NO_INTERFACE;
 
   return net_GetFileFromURLSpec(spec, getter_AddRefs(mFile));
 }
@@ -72,31 +70,28 @@ SubstitutingURL::EnsureFile()
 /* virtual */ nsStandardURL*
 SubstitutingURL::StartClone()
 {
-  SubstitutingURL *clone = new SubstitutingURL();
+  SubstitutingURL* clone = new SubstitutingURL();
   return clone;
 }
 
 NS_IMETHODIMP
-SubstitutingURL::GetClassIDNoAlloc(nsCID *aClassIDNoAlloc)
+SubstitutingURL::GetClassIDNoAlloc(nsCID* aClassIDNoAlloc)
 {
   *aClassIDNoAlloc = kSubstitutingURLCID;
   return NS_OK;
 }
 
-SubstitutingProtocolHandler::SubstitutingProtocolHandler(const char* aScheme, uint32_t aFlags,
+SubstitutingProtocolHandler::SubstitutingProtocolHandler(const char* aScheme,
+                                                         uint32_t aFlags,
                                                          bool aEnforceFileOrJar)
-  : mScheme(aScheme)
-  , mSubstitutions(16)
-  , mEnforceFileOrJar(aEnforceFileOrJar)
+    : mScheme(aScheme), mSubstitutions(16), mEnforceFileOrJar(aEnforceFileOrJar)
 {
   mFlags.emplace(aFlags);
   ConstructInternal();
 }
 
 SubstitutingProtocolHandler::SubstitutingProtocolHandler(const char* aScheme)
-  : mScheme(aScheme)
-  , mSubstitutions(16)
-  , mEnforceFileOrJar(true)
+    : mScheme(aScheme), mSubstitutions(16), mEnforceFileOrJar(true)
 {
   ConstructInternal();
 }
@@ -114,7 +109,8 @@ SubstitutingProtocolHandler::ConstructInternal()
 //
 
 nsresult
-SubstitutingProtocolHandler::CollectSubstitutions(InfallibleTArray<SubstitutionMapping>& aMappings)
+SubstitutingProtocolHandler::CollectSubstitutions(
+    InfallibleTArray<SubstitutionMapping>& aMappings)
 {
   for (auto iter = mSubstitutions.ConstIter(); !iter.Done(); iter.Next()) {
     SubstitutionEntry& entry = iter.Data();
@@ -124,7 +120,8 @@ SubstitutingProtocolHandler::CollectSubstitutions(InfallibleTArray<SubstitutionM
       nsresult rv = uri->GetSpec(serialized.spec);
       NS_ENSURE_SUCCESS(rv, rv);
     }
-    SubstitutionMapping substitution = { mScheme, nsCString(iter.Key()), serialized, entry.flags };
+    SubstitutionMapping substitution = {
+        mScheme, nsCString(iter.Key()), serialized, entry.flags};
     aMappings.AppendElement(substitution);
   }
 
@@ -132,7 +129,9 @@ SubstitutingProtocolHandler::CollectSubstitutions(InfallibleTArray<SubstitutionM
 }
 
 nsresult
-SubstitutingProtocolHandler::SendSubstitution(const nsACString& aRoot, nsIURI* aBaseURI, uint32_t aFlags)
+SubstitutingProtocolHandler::SendSubstitution(const nsACString& aRoot,
+                                              nsIURI* aBaseURI,
+                                              uint32_t aFlags)
 {
   if (GeckoProcessType_Content == XRE_GetProcessType()) {
     return NS_OK;
@@ -165,24 +164,26 @@ SubstitutingProtocolHandler::SendSubstitution(const nsACString& aRoot, nsIURI* a
 //----------------------------------------------------------------------------
 
 nsresult
-SubstitutingProtocolHandler::GetScheme(nsACString &result)
+SubstitutingProtocolHandler::GetScheme(nsACString& result)
 {
   result = mScheme;
   return NS_OK;
 }
 
 nsresult
-SubstitutingProtocolHandler::GetDefaultPort(int32_t *result)
+SubstitutingProtocolHandler::GetDefaultPort(int32_t* result)
 {
   *result = -1;
   return NS_OK;
 }
 
 nsresult
-SubstitutingProtocolHandler::GetProtocolFlags(uint32_t *result)
+SubstitutingProtocolHandler::GetProtocolFlags(uint32_t* result)
 {
   if (mFlags.isNothing()) {
-    NS_WARNING("Trying to get protocol flags the wrong way - use nsIProtocolHandlerWithDynamicFlags instead");
+    NS_WARNING(
+        "Trying to get protocol flags the wrong way - use "
+        "nsIProtocolHandlerWithDynamicFlags instead");
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -191,49 +192,48 @@ SubstitutingProtocolHandler::GetProtocolFlags(uint32_t *result)
 }
 
 nsresult
-SubstitutingProtocolHandler::NewURI(const nsACString &aSpec,
-                                    const char *aCharset,
-                                    nsIURI *aBaseURI,
-                                    nsIURI **result)
+SubstitutingProtocolHandler::NewURI(const nsACString& aSpec,
+                                    const char* aCharset,
+                                    nsIURI* aBaseURI,
+                                    nsIURI** result)
 {
   nsresult rv;
 
   RefPtr<SubstitutingURL> url = new SubstitutingURL();
-  if (!url)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!url) return NS_ERROR_OUT_OF_MEMORY;
 
   // unescape any %2f and %2e to make sure nsStandardURL coalesces them.
   // Later net_GetFileFromURLSpec() will do a full unescape and we want to
   // treat them the same way the file system will. (bugs 380994, 394075)
   nsAutoCString spec;
-  const char *src = aSpec.BeginReading();
-  const char *end = aSpec.EndReading();
-  const char *last = src;
+  const char* src = aSpec.BeginReading();
+  const char* end = aSpec.EndReading();
+  const char* last = src;
 
-  spec.SetCapacity(aSpec.Length()+1);
-  for ( ; src < end; ++src) {
-    if (*src == '%' && (src < end-2) && *(src+1) == '2') {
+  spec.SetCapacity(aSpec.Length() + 1);
+  for (; src < end; ++src) {
+    if (*src == '%' && (src < end - 2) && *(src + 1) == '2') {
       char ch = '\0';
-      if (*(src+2) == 'f' || *(src+2) == 'F') {
+      if (*(src + 2) == 'f' || *(src + 2) == 'F') {
         ch = '/';
-      } else if (*(src+2) == 'e' || *(src+2) == 'E') {
+      } else if (*(src + 2) == 'e' || *(src + 2) == 'E') {
         ch = '.';
       }
 
       if (ch) {
         if (last < src) {
-          spec.Append(last, src-last);
+          spec.Append(last, src - last);
         }
         spec.Append(ch);
         src += 2;
-        last = src+1; // src will be incremented by the loop
+        last = src + 1;  // src will be incremented by the loop
       }
     }
   }
-  if (last < src)
-    spec.Append(last, src-last);
+  if (last < src) spec.Append(last, src - last);
 
-  rv = url->Init(nsIStandardURL::URLTYPE_STANDARD, -1, spec, aCharset, aBaseURI);
+  rv =
+      url->Init(nsIStandardURL::URLTYPE_STANDARD, -1, spec, aCharset, aBaseURI);
   if (NS_SUCCEEDED(rv)) {
     url.forget(result);
   }
@@ -260,7 +260,8 @@ SubstitutingProtocolHandler::NewChannel2(nsIURI* uri,
   // principal URI since we want either |uri| or anything pre-set by upper
   // layers to prevail.
   nsCOMPtr<nsIURI> savedResultPrincipalURI;
-  rv = aLoadInfo->GetResultPrincipalURI(getter_AddRefs(savedResultPrincipalURI));
+  rv =
+      aLoadInfo->GetResultPrincipalURI(getter_AddRefs(savedResultPrincipalURI));
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = NS_NewChannelInternal(result, newURI, aLoadInfo);
@@ -275,13 +276,15 @@ SubstitutingProtocolHandler::NewChannel2(nsIURI* uri,
 }
 
 nsresult
-SubstitutingProtocolHandler::NewChannel(nsIURI* uri, nsIChannel* *result)
+SubstitutingProtocolHandler::NewChannel(nsIURI* uri, nsIChannel** result)
 {
   return NewChannel2(uri, nullptr, result);
 }
 
 nsresult
-SubstitutingProtocolHandler::AllowPort(int32_t port, const char *scheme, bool *_retval)
+SubstitutingProtocolHandler::AllowPort(int32_t port,
+                                       const char* scheme,
+                                       bool* _retval)
 {
   // don't override anything.
   *_retval = false;
@@ -293,7 +296,8 @@ SubstitutingProtocolHandler::AllowPort(int32_t port, const char *scheme, bool *_
 //----------------------------------------------------------------------------
 
 nsresult
-SubstitutingProtocolHandler::SetSubstitution(const nsACString& root, nsIURI *baseURI)
+SubstitutingProtocolHandler::SetSubstitution(const nsACString& root,
+                                             nsIURI* baseURI)
 {
   // Add-ons use this API but they should not be able to make anything
   // content-accessible.
@@ -301,7 +305,9 @@ SubstitutingProtocolHandler::SetSubstitution(const nsACString& root, nsIURI *bas
 }
 
 nsresult
-SubstitutingProtocolHandler::SetSubstitutionWithFlags(const nsACString& root, nsIURI *baseURI, uint32_t flags)
+SubstitutingProtocolHandler::SetSubstitutionWithFlags(const nsACString& root,
+                                                      nsIURI* baseURI,
+                                                      uint32_t flags)
 {
   if (!baseURI) {
     mSubstitutions.Remove(root);
@@ -314,8 +320,8 @@ SubstitutingProtocolHandler::SetSubstitutionWithFlags(const nsACString& root, ns
   nsresult rv = baseURI->GetScheme(scheme);
   NS_ENSURE_SUCCESS(rv, rv);
   if (!scheme.Equals(mScheme)) {
-    if (mEnforceFileOrJar && !scheme.EqualsLiteral("file") && !scheme.EqualsLiteral("jar")
-        && !scheme.EqualsLiteral("app")) {
+    if (mEnforceFileOrJar && !scheme.EqualsLiteral("file") &&
+        !scheme.EqualsLiteral("jar") && !scheme.EqualsLiteral("app")) {
       NS_WARNING("Refusing to create substituting URI to non-file:// target");
       return NS_ERROR_INVALID_ARG;
     }
@@ -333,7 +339,8 @@ SubstitutingProtocolHandler::SetSubstitutionWithFlags(const nsACString& root, ns
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIURI> newBaseURI;
-  rv = mIOService->NewURI(newBase, nullptr, nullptr, getter_AddRefs(newBaseURI));
+  rv =
+      mIOService->NewURI(newBase, nullptr, nullptr, getter_AddRefs(newBaseURI));
   NS_ENSURE_SUCCESS(rv, rv);
 
   SubstitutionEntry& entry = mSubstitutions.GetOrInsert(root);
@@ -344,7 +351,8 @@ SubstitutingProtocolHandler::SetSubstitutionWithFlags(const nsACString& root, ns
 }
 
 nsresult
-SubstitutingProtocolHandler::GetSubstitution(const nsACString& root, nsIURI **result)
+SubstitutingProtocolHandler::GetSubstitution(const nsACString& root,
+                                             nsIURI** result)
 {
   NS_ENSURE_ARG_POINTER(result);
 
@@ -360,7 +368,8 @@ SubstitutingProtocolHandler::GetSubstitution(const nsACString& root, nsIURI **re
 }
 
 nsresult
-SubstitutingProtocolHandler::GetSubstitutionFlags(const nsACString& root, uint32_t* flags)
+SubstitutingProtocolHandler::GetSubstitutionFlags(const nsACString& root,
+                                                  uint32_t* flags)
 {
   *flags = 0;
   SubstitutionEntry entry;
@@ -374,7 +383,8 @@ SubstitutingProtocolHandler::GetSubstitutionFlags(const nsACString& root, uint32
 }
 
 nsresult
-SubstitutingProtocolHandler::HasSubstitution(const nsACString& root, bool *result)
+SubstitutingProtocolHandler::HasSubstitution(const nsACString& root,
+                                             bool* result)
 {
   NS_ENSURE_ARG_POINTER(result);
   *result = HasSubstitution(root);
@@ -382,7 +392,7 @@ SubstitutingProtocolHandler::HasSubstitution(const nsACString& root, bool *resul
 }
 
 nsresult
-SubstitutingProtocolHandler::ResolveURI(nsIURI *uri, nsACString &result)
+SubstitutingProtocolHandler::ResolveURI(nsIURI* uri, nsACString& result)
 {
   nsresult rv;
 
@@ -433,7 +443,8 @@ SubstitutingProtocolHandler::ResolveURI(nsIURI *uri, nsACString &result)
     if (baseDir) {
       nsAutoCString basePath;
       rv = baseURI->GetFilePath(basePath);
-      if (NS_SUCCEEDED(rv) && !StringEndsWith(basePath, NS_LITERAL_CSTRING("/"))) {
+      if (NS_SUCCEEDED(rv) &&
+          !StringEndsWith(basePath, NS_LITERAL_CSTRING("/"))) {
         // Cf. the assertion above, path already starts with a /, so prefixing
         // with a string that doesn't end with one will leave us wit the right
         // amount of /.
@@ -456,7 +467,9 @@ SubstitutingProtocolHandler::ResolveURI(nsIURI *uri, nsACString &result)
   if (MOZ_LOG_TEST(gResLog, LogLevel::Debug)) {
     nsAutoCString spec;
     uri->GetAsciiSpec(spec);
-    MOZ_LOG(gResLog, LogLevel::Debug, ("%s\n -> %s\n", spec.get(), PromiseFlatCString(result).get()));
+    MOZ_LOG(gResLog,
+            LogLevel::Debug,
+            ("%s\n -> %s\n", spec.get(), PromiseFlatCString(result).get()));
   }
   return rv;
 }
@@ -494,5 +507,5 @@ SubstitutingProtocolHandler::NotifyObservers(const nsACString& aRoot,
   }
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -14,11 +14,11 @@
 namespace mozilla {
 namespace widget {
 
-X11CompositorWidget::X11CompositorWidget(const X11CompositorWidgetInitData& aInitData,
-                                         const CompositorOptions& aOptions,
-                                         nsWindow* aWindow)
-      : CompositorWidget(aOptions)
-      , mWidget(aWindow)
+X11CompositorWidget::X11CompositorWidget(
+    const X11CompositorWidgetInitData& aInitData,
+    const CompositorOptions& aOptions,
+    nsWindow* aWindow)
+    : CompositorWidget(aOptions), mWidget(aWindow)
 {
   // If we have a nsWindow, then grab the already existing display connection
   // If we don't, then use the init data to connect to the display
@@ -33,16 +33,11 @@ X11CompositorWidget::X11CompositorWidget(const X11CompositorWidgetInitData& aIni
   XWindowAttributes windowAttrs;
   XGetWindowAttributes(mXDisplay, mXWindow, &windowAttrs);
 
-  Visual*   visual = windowAttrs.visual;
-  int       depth = windowAttrs.depth;
+  Visual* visual = windowAttrs.visual;
+  int depth = windowAttrs.depth;
 
   // Initialize the window surface provider
-  mProvider.Initialize(
-    mXDisplay,
-    mXWindow,
-    visual,
-    depth
-    );
+  mProvider.Initialize(mXDisplay, mXWindow, visual, depth);
 
   mClientSize = aInitData.InitialClientSize();
 }
@@ -69,27 +64,28 @@ X11CompositorWidget::EndRemoteDrawing()
 }
 
 already_AddRefed<gfx::DrawTarget>
-X11CompositorWidget::StartRemoteDrawingInRegion(LayoutDeviceIntRegion& aInvalidRegion,
-                                                layers::BufferMode* aBufferMode)
+X11CompositorWidget::StartRemoteDrawingInRegion(
+    LayoutDeviceIntRegion& aInvalidRegion, layers::BufferMode* aBufferMode)
 {
-  return mProvider.StartRemoteDrawingInRegion(aInvalidRegion,
-                                              aBufferMode);
+  return mProvider.StartRemoteDrawingInRegion(aInvalidRegion, aBufferMode);
 }
 
-void X11CompositorWidget::EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
-                              LayoutDeviceIntRegion& aInvalidRegion)
+void
+X11CompositorWidget::EndRemoteDrawingInRegion(
+    gfx::DrawTarget* aDrawTarget, LayoutDeviceIntRegion& aInvalidRegion)
 {
-  mProvider.EndRemoteDrawingInRegion(aDrawTarget,
-                                     aInvalidRegion);
+  mProvider.EndRemoteDrawingInRegion(aDrawTarget, aInvalidRegion);
 }
 
-nsIWidget* X11CompositorWidget::RealWidget()
+nsIWidget*
+X11CompositorWidget::RealWidget()
 {
   return mWidget;
 }
 
 void
-X11CompositorWidget::NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize)
+X11CompositorWidget::NotifyClientSizeChanged(
+    const LayoutDeviceIntSize& aClientSize)
 {
   mClientSize = aClientSize;
 }
@@ -106,5 +102,5 @@ X11CompositorWidget::GetWidgetKey()
   return reinterpret_cast<uintptr_t>(mWidget);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

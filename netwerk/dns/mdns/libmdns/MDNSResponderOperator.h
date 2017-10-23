@@ -21,7 +21,7 @@ class MDNSResponderOperator
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MDNSResponderOperator)
 
-public:
+ public:
   MDNSResponderOperator();
 
   virtual nsresult Start();
@@ -29,24 +29,24 @@ public:
   void Cancel() { mIsCancelled = true; }
   nsIThread* GetThread() const { return mThread; }
 
-protected:
+ protected:
   virtual ~MDNSResponderOperator();
 
   bool IsServing() const { return mService; }
   nsresult ResetService(DNSServiceRef aService);
 
-private:
+ private:
   class ServiceWatcher;
 
   DNSServiceRef mService;
   RefPtr<ServiceWatcher> mWatcher;
-  nsCOMPtr<nsIThread> mThread; // remember caller thread for callback
+  nsCOMPtr<nsIThread> mThread;  // remember caller thread for callback
   Atomic<bool> mIsCancelled;
 };
 
 class BrowseOperator final : public MDNSResponderOperator
 {
-public:
+ public:
   BrowseOperator(const nsACString& aServiceType,
                  nsIDNSServiceDiscoveryListener* aListener);
 
@@ -61,7 +61,7 @@ public:
              const nsACString& aRegType,
              const nsACString& aReplyDomain);
 
-private:
+ private:
   ~BrowseOperator() = default;
 
   nsCString mServiceType;
@@ -70,9 +70,12 @@ private:
 
 class RegisterOperator final : public MDNSResponderOperator
 {
-  enum { TXT_BUFFER_SIZE = 256 };
+  enum
+  {
+    TXT_BUFFER_SIZE = 256
+  };
 
-public:
+ public:
   RegisterOperator(nsIDNSServiceInfo* aServiceInfo,
                    nsIDNSRegistrationListener* aListener);
 
@@ -86,7 +89,7 @@ public:
              const nsACString& aRegType,
              const nsACString& aDomain);
 
-private:
+ private:
   ~RegisterOperator() = default;
 
   nsCOMPtr<nsIDNSServiceInfo> mServiceInfo;
@@ -95,9 +98,12 @@ private:
 
 class ResolveOperator final : public MDNSResponderOperator
 {
-  enum { TXT_BUFFER_SIZE = 256 };
+  enum
+  {
+    TXT_BUFFER_SIZE = 256
+  };
 
-public:
+ public:
   ResolveOperator(nsIDNSServiceInfo* aServiceInfo,
                   nsIDNSServiceResolveListener* aListener);
 
@@ -113,7 +119,7 @@ public:
              uint16_t aTxtLen,
              const unsigned char* aTxtRecord);
 
-private:
+ private:
   ~ResolveOperator() = default;
   void GetAddrInfor(nsIDNSServiceInfo* aServiceInfo);
 
@@ -125,7 +131,7 @@ union NetAddr;
 
 class GetAddrInfoOperator final : public MDNSResponderOperator
 {
-public:
+ public:
   GetAddrInfoOperator(nsIDNSServiceInfo* aServiceInfo,
                       nsIDNSServiceResolveListener* aListener);
 
@@ -139,14 +145,14 @@ public:
              const NetAddr& aAddress,
              uint32_t aTTL);
 
-private:
+ private:
   ~GetAddrInfoOperator() = default;
 
   nsCOMPtr<nsIDNSServiceInfo> mServiceInfo;
   nsCOMPtr<nsIDNSServiceResolveListener> mListener;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_netwerk_dns_mdns_libmdns_MDNSResponderOperator_h
+#endif  // mozilla_netwerk_dns_mdns_libmdns_MDNSResponderOperator_h

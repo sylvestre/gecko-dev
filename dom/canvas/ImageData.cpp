@@ -52,8 +52,7 @@ ImageData::Constructor(const GlobalObject& aGlobal,
     return nullptr;
   }
   js::AssertSameCompartment(aGlobal.Context(), aGlobal.Get());
-  JSObject* data = Uint8ClampedArray::Create(aGlobal.Context(),
-                                             length.value());
+  JSObject* data = Uint8ClampedArray::Create(aGlobal.Context(), length.value());
   if (!data) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return nullptr;
@@ -90,7 +89,8 @@ ImageData::Constructor(const GlobalObject& aGlobal,
   }
   if (JS_GetTypedArraySharedness(aData.Obj())) {
     // Throw if the object is mapping shared memory (must opt in).
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(NS_LITERAL_STRING("Argument of ImageData constructor"));
+    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(
+        NS_LITERAL_STRING("Argument of ImageData constructor"));
     return nullptr;
   }
   RefPtr<ImageData> imageData = new ImageData(aWidth, height, *aData.Obj());
@@ -113,10 +113,12 @@ ImageData::DropData()
 }
 
 bool
-ImageData::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto, JS::MutableHandle<JSObject*> aReflector)
+ImageData::WrapObject(JSContext* aCx,
+                      JS::Handle<JSObject*> aGivenProto,
+                      JS::MutableHandle<JSObject*> aReflector)
 {
   return ImageDataBinding::Wrap(aCx, this, aGivenProto, aReflector);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

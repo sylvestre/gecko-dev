@@ -29,8 +29,8 @@ ReadStructuredCloneImageData(JSContext* aCx, JSStructuredCloneReader* aReader)
   JS::Rooted<JSObject*> result(aCx);
   {
     // Construct the ImageData.
-    RefPtr<ImageData> imageData = new ImageData(width, height,
-                                                  dataArray.toObject());
+    RefPtr<ImageData> imageData =
+        new ImageData(width, height, dataArray.toObject());
     // Wrap it in a JS::Value.
     if (!imageData->WrapObject(aCx, nullptr, &result)) {
       return nullptr;
@@ -40,7 +40,8 @@ ReadStructuredCloneImageData(JSContext* aCx, JSStructuredCloneReader* aReader)
 }
 
 bool
-WriteStructuredCloneImageData(JSContext* aCx, JSStructuredCloneWriter* aWriter,
+WriteStructuredCloneImageData(JSContext* aCx,
+                              JSStructuredCloneWriter* aWriter,
                               ImageData* aImageData)
 {
   uint32_t width = aImageData->Width();
@@ -54,5 +55,5 @@ WriteStructuredCloneImageData(JSContext* aCx, JSStructuredCloneWriter* aWriter,
          JS_WriteTypedArray(aWriter, arrayValue);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -13,24 +13,21 @@
 
 using namespace mozilla;
 
-class CheckResponsivenessTask : public Runnable,
-                                public nsITimerCallback {
-public:
+class CheckResponsivenessTask : public Runnable, public nsITimerCallback
+{
+ public:
   CheckResponsivenessTask()
-    : Runnable("CheckResponsivenessTask")
-    , mStartToPrevTracer_us(uint64_t(profiler_time() * 1000.0))
-    , mStop(false)
-    , mHasEverBeenSuccessfullyDispatched(false)
+      : Runnable("CheckResponsivenessTask"),
+        mStartToPrevTracer_us(uint64_t(profiler_time() * 1000.0)),
+        mStop(false),
+        mHasEverBeenSuccessfullyDispatched(false)
   {
   }
 
-protected:
-  ~CheckResponsivenessTask()
-  {
-  }
+ protected:
+  ~CheckResponsivenessTask() {}
 
-public:
-
+ public:
   // Must be called from the same thread every time. Call that the update
   // thread, because it's the thread that ThreadResponsiveness::Update() is
   // called on. In reality it's the profiler's sampler thread.
@@ -62,8 +59,7 @@ public:
 
     if (!mStop) {
       if (!mTimer) {
-        mTimer = NS_NewTimer(
-          SystemGroup::EventTargetFor(TaskCategory::Other));
+        mTimer = NS_NewTimer(SystemGroup::EventTargetFor(TaskCategory::Other));
       }
       mTimer->InitWithCallback(this, 16, nsITimer::TYPE_ONE_SHOT);
     }
@@ -74,24 +70,22 @@ public:
   // Main thread only
   NS_IMETHOD Notify(nsITimer* aTimer) final
   {
-    SystemGroup::Dispatch(TaskCategory::Other,
-                          do_AddRef(this));
+    SystemGroup::Dispatch(TaskCategory::Other, do_AddRef(this));
     return NS_OK;
   }
 
   // Can be called on any thread.
-  void Terminate() {
-    mStop = true;
-  }
+  void Terminate() { mStop = true; }
 
   // Can be called on any thread.
-  double GetStartToPrevTracer_ms() const {
+  double GetStartToPrevTracer_ms() const
+  {
     return mStartToPrevTracer_us / 1000.0;
   }
 
   NS_DECL_ISUPPORTS_INHERITED
 
-private:
+ private:
   // The timer that's responsible for redispatching this event to the main
   // thread. This field is only accessed on the main thread.
   nsCOMPtr<nsITimer> mTimer;
@@ -112,11 +106,12 @@ private:
   bool mHasEverBeenSuccessfullyDispatched;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED(CheckResponsivenessTask, mozilla::Runnable,
+NS_IMPL_ISUPPORTS_INHERITED(CheckResponsivenessTask,
+                            mozilla::Runnable,
                             nsITimerCallback)
 
 ThreadResponsiveness::ThreadResponsiveness()
-  : mActiveTracerEvent(new CheckResponsivenessTask())
+    : mActiveTracerEvent(new CheckResponsivenessTask())
 {
   MOZ_COUNT_CTOR(ThreadResponsiveness);
 }
@@ -133,4 +128,3 @@ ThreadResponsiveness::Update()
   mActiveTracerEvent->DoFirstDispatchIfNeeded();
   mStartToPrevTracer_ms = Some(mActiveTracerEvent->GetStartToPrevTracer_ms());
 }
-

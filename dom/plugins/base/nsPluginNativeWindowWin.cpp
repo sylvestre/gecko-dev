@@ -28,16 +28,16 @@ using namespace mozilla;
 
 #define NP_POPUP_API_VERSION 16
 
-#define nsMajorVersion(v)       (((int32_t)(v) >> 16) & 0xffff)
-#define nsMinorVersion(v)       ((int32_t)(v) & 0xffff)
-#define versionOK(suppliedV, requiredV)                   \
-  (nsMajorVersion(suppliedV) == nsMajorVersion(requiredV) \
-   && nsMinorVersion(suppliedV) >= nsMinorVersion(requiredV))
+#define nsMajorVersion(v) (((int32_t)(v) >> 16) & 0xffff)
+#define nsMinorVersion(v) ((int32_t)(v)&0xffff)
+#define versionOK(suppliedV, requiredV)                      \
+  (nsMajorVersion(suppliedV) == nsMajorVersion(requiredV) && \
+   nsMinorVersion(suppliedV) >= nsMinorVersion(requiredV))
 
-
-#define NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION TEXT("MozillaPluginWindowPropertyAssociation")
+#define NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION \
+  TEXT("MozillaPluginWindowPropertyAssociation")
 #define NS_PLUGIN_CUSTOM_MSG_ID TEXT("MozFlashUserRelay")
-#define WM_USER_FLASH WM_USER+1
+#define WM_USER_FLASH WM_USER + 1
 static UINT sWM_FLASHBOUNCEMSG = 0;
 
 typedef nsTWeakRef<class nsPluginNativeWindowWin> PluginWindowWeakRef;
@@ -45,50 +45,58 @@ typedef nsTWeakRef<class nsPluginNativeWindowWin> PluginWindowWeakRef;
 /**
  *  PLEvent handling code
  */
-class PluginWindowEvent : public Runnable {
-public:
+class PluginWindowEvent : public Runnable
+{
+ public:
   PluginWindowEvent();
-  void Init(const PluginWindowWeakRef &ref, HWND hWnd, UINT msg, WPARAM wParam,
+  void Init(const PluginWindowWeakRef& ref,
+            HWND hWnd,
+            UINT msg,
+            WPARAM wParam,
             LPARAM lParam);
   void Clear();
-  HWND   GetWnd()    { return mWnd; };
-  UINT   GetMsg()    { return mMsg; };
+  HWND GetWnd() { return mWnd; };
+  UINT GetMsg() { return mMsg; };
   WPARAM GetWParam() { return mWParam; };
   LPARAM GetLParam() { return mLParam; };
-  bool InUse()       { return mWnd != nullptr; };
+  bool InUse() { return mWnd != nullptr; };
 
   NS_DECL_NSIRUNNABLE
 
-protected:
+ protected:
   PluginWindowWeakRef mPluginWindowRef;
-  HWND   mWnd;
-  UINT   mMsg;
+  HWND mWnd;
+  UINT mMsg;
   WPARAM mWParam;
   LPARAM mLParam;
 };
 
-PluginWindowEvent::PluginWindowEvent() :
-  Runnable("PluginWindowEvent")
+PluginWindowEvent::PluginWindowEvent() : Runnable("PluginWindowEvent")
 {
   Clear();
 }
 
-void PluginWindowEvent::Clear()
+void
+PluginWindowEvent::Clear()
 {
-  mWnd    = nullptr;
-  mMsg    = 0;
+  mWnd = nullptr;
+  mMsg = 0;
   mWParam = 0;
   mLParam = 0;
 }
 
-void PluginWindowEvent::Init(const PluginWindowWeakRef &ref, HWND aWnd,
-                             UINT aMsg, WPARAM aWParam, LPARAM aLParam)
+void
+PluginWindowEvent::Init(const PluginWindowWeakRef& ref,
+                        HWND aWnd,
+                        UINT aMsg,
+                        WPARAM aWParam,
+                        LPARAM aLParam)
 {
   NS_ASSERTION(aWnd != nullptr, "invalid plugin event value");
   NS_ASSERTION(mWnd == nullptr, "event already in use");
   mPluginWindowRef = ref;
-  mWnd    = aWnd;
-  mMsg    = aMsg;
+  mWnd = aWnd;
+  mMsg = aMsg;
   mWParam = aWParam;
   mLParam = aLParam;
 }
@@ -97,28 +105,30 @@ void PluginWindowEvent::Init(const PluginWindowWeakRef &ref, HWND aWnd,
  *  nsPluginNativeWindow Windows specific class declaration
  */
 
-class nsPluginNativeWindowWin : public nsPluginNativeWindow {
-public:
+class nsPluginNativeWindowWin : public nsPluginNativeWindow
+{
+ public:
   nsPluginNativeWindowWin();
   virtual ~nsPluginNativeWindowWin();
 
-  virtual nsresult CallSetWindow(RefPtr<nsNPAPIPluginInstance> &aPluginInstance);
+  virtual nsresult CallSetWindow(
+      RefPtr<nsNPAPIPluginInstance>& aPluginInstance);
 
-private:
+ private:
   nsresult SubclassAndAssociateWindow();
   nsresult UndoSubclassAndAssociateWindow();
 
-public:
+ public:
   // locals
   WNDPROC GetPrevWindowProc();
   void SetPrevWindowProc(WNDPROC proc) { mPluginWinProc = proc; }
   WNDPROC GetWindowProc();
-  PluginWindowEvent * GetPluginWindowEvent(HWND aWnd,
-                                           UINT aMsg,
-                                           WPARAM aWParam,
-                                           LPARAM aLParam);
+  PluginWindowEvent* GetPluginWindowEvent(HWND aWnd,
+                                          UINT aMsg,
+                                          WPARAM aWParam,
+                                          LPARAM aLParam);
 
-private:
+ private:
   WNDPROC mPluginWinProc;
   WNDPROC mPrevWinProc;
   PluginWindowWeakRef mWeakRef;
@@ -126,30 +136,39 @@ private:
 
   HWND mParentWnd;
   LONG_PTR mParentProc;
-public:
+
+ public:
   nsPluginHost::SpecialType mPluginType;
 };
 
 static bool sInPreviousMessageDispatch = false;
 
-static bool ProcessFlashMessageDelayed(nsPluginNativeWindowWin * aWin, nsNPAPIPluginInstance * aInst,
-                                         HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static bool
+ProcessFlashMessageDelayed(nsPluginNativeWindowWin* aWin,
+                           nsNPAPIPluginInstance* aInst,
+                           HWND hWnd,
+                           UINT msg,
+                           WPARAM wParam,
+                           LPARAM lParam)
 {
   NS_ENSURE_TRUE(aWin, false);
   NS_ENSURE_TRUE(aInst, false);
 
   if (msg == sWM_FLASHBOUNCEMSG) {
     // See PluginWindowEvent::Run() below.
-    NS_ASSERTION((sWM_FLASHBOUNCEMSG != 0), "RegisterWindowMessage failed in flash plugin WM_USER message handling!");
-    ::CallWindowProc((WNDPROC)aWin->GetWindowProc(), hWnd, WM_USER_FLASH, wParam, lParam);
+    NS_ASSERTION((sWM_FLASHBOUNCEMSG != 0),
+                 "RegisterWindowMessage failed in flash plugin WM_USER message "
+                 "handling!");
+    ::CallWindowProc(
+        (WNDPROC)aWin->GetWindowProc(), hWnd, WM_USER_FLASH, wParam, lParam);
     return true;
   }
 
-  if (msg != WM_USER_FLASH)
-    return false; // no need to delay
+  if (msg != WM_USER_FLASH) return false;  // no need to delay
 
   // do stuff
-  nsCOMPtr<nsIRunnable> pwe = aWin->GetPluginWindowEvent(hWnd, msg, wParam, lParam);
+  nsCOMPtr<nsIRunnable> pwe =
+      aWin->GetPluginWindowEvent(hWnd, msg, wParam, lParam);
   if (pwe) {
     NS_DispatchToCurrentThread(pwe);
     return true;
@@ -159,25 +178,27 @@ static bool ProcessFlashMessageDelayed(nsPluginNativeWindowWin * aWin, nsNPAPIPl
 
 class nsDelayedPopupsEnabledEvent : public Runnable
 {
-public:
-  explicit nsDelayedPopupsEnabledEvent(nsNPAPIPluginInstance *inst)
-    : Runnable("nsDelayedPopupsEnabledEvent"),
-      mInst(inst)
-  {}
+ public:
+  explicit nsDelayedPopupsEnabledEvent(nsNPAPIPluginInstance* inst)
+      : Runnable("nsDelayedPopupsEnabledEvent"), mInst(inst)
+  {
+  }
 
   NS_DECL_NSIRUNNABLE
 
-private:
+ private:
   RefPtr<nsNPAPIPluginInstance> mInst;
 };
 
-NS_IMETHODIMP nsDelayedPopupsEnabledEvent::Run()
+NS_IMETHODIMP
+nsDelayedPopupsEnabledEvent::Run()
 {
   mInst->PushPopupsEnabledState(false);
   return NS_OK;
 }
 
-static LRESULT CALLBACK PluginWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK
+PluginWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 /**
  * New plugin window procedure
@@ -189,11 +210,12 @@ static LRESULT CALLBACK PluginWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
  * already been supplanted by code in PluginInstanceChild. The rest we eventually want
  * to rip out.
  */
-static LRESULT CALLBACK PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK
+PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  nsPluginNativeWindowWin * win = (nsPluginNativeWindowWin *)::GetProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
-  if (!win)
-    return TRUE;
+  nsPluginNativeWindowWin* win = (nsPluginNativeWindowWin*)::GetProp(
+      hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
+  if (!win) return TRUE;
 
   // The DispatchEvent(ePluginActivate) below can trigger a reentrant focus
   // event which might destroy us.  Hold a strong ref on the plugin instance
@@ -214,8 +236,7 @@ static LRESULT CALLBACK PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam
     case WM_RBUTTONDOWN: {
       nsCOMPtr<nsIWidget> widget;
       win->GetPluginWidget(getter_AddRefs(widget));
-      if (widget)
-        widget->CaptureMouse(true);
+      if (widget) widget->CaptureMouse(true);
       break;
     }
     case WM_LBUTTONUP:
@@ -226,8 +247,7 @@ static LRESULT CALLBACK PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam
     case WM_RBUTTONUP: {
       nsCOMPtr<nsIWidget> widget;
       win->GetPluginWidget(getter_AddRefs(widget));
-      if (widget)
-        widget->CaptureMouse(false);
+      if (widget) widget->CaptureMouse(false);
       break;
     }
     case WM_KEYDOWN:
@@ -265,8 +285,7 @@ static LRESULT CALLBACK PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam
           widget->DispatchEvent(&event, status);
         }
       }
-    }
-    break;
+    } break;
 
     case WM_SETFOCUS:
     case WM_KILLFOCUS: {
@@ -302,8 +321,9 @@ static LRESULT CALLBACK PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam
   LRESULT res;
   WNDPROC proc = (WNDPROC)win->GetWindowProc();
   if (PluginWndProc == proc) {
-    NS_WARNING("Previous plugin window procedure references PluginWndProc! "
-               "Report this bug!");
+    NS_WARNING(
+        "Previous plugin window procedure references PluginWndProc! "
+        "Report this bug!");
     res = CallWindowProc(DefWindowProc, hWnd, msg, wParam, lParam);
   } else {
     res = CallWindowProc(proc, hWnd, msg, wParam, lParam);
@@ -325,16 +345,17 @@ static LRESULT CALLBACK PluginWndProcInternal(HWND hWnd, UINT msg, WPARAM wParam
     // destruction.
 
     nsCOMPtr<nsIRunnable> event = new nsDelayedPopupsEnabledEvent(inst);
-    if (event)
-      NS_DispatchToCurrentThread(event);
+    if (event) NS_DispatchToCurrentThread(event);
   }
 
   return res;
 }
 
-static LRESULT CALLBACK PluginWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK
+PluginWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  return mozilla::CallWindowProcCrashProtected(PluginWndProcInternal, hWnd, msg, wParam, lParam);
+  return mozilla::CallWindowProcCrashProtected(
+      PluginWndProcInternal, hWnd, msg, wParam, lParam);
 }
 
 /*
@@ -349,35 +370,29 @@ static LRESULT CALLBACK PluginWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
 static WindowsDllInterceptor sUser32Intercept;
 
 #ifdef _WIN64
-typedef LONG_PTR
-  (WINAPI *User32SetWindowLongPtrA)(HWND hWnd,
-                                    int nIndex,
-                                    LONG_PTR dwNewLong);
-typedef LONG_PTR
-  (WINAPI *User32SetWindowLongPtrW)(HWND hWnd,
-                                    int nIndex,
-                                    LONG_PTR dwNewLong);
+typedef LONG_PTR(WINAPI* User32SetWindowLongPtrA)(HWND hWnd,
+                                                  int nIndex,
+                                                  LONG_PTR dwNewLong);
+typedef LONG_PTR(WINAPI* User32SetWindowLongPtrW)(HWND hWnd,
+                                                  int nIndex,
+                                                  LONG_PTR dwNewLong);
 static User32SetWindowLongPtrA sUser32SetWindowLongAHookStub = nullptr;
 static User32SetWindowLongPtrW sUser32SetWindowLongWHookStub = nullptr;
 #else
-typedef LONG
-(WINAPI *User32SetWindowLongA)(HWND hWnd,
-                               int nIndex,
-                               LONG dwNewLong);
-typedef LONG
-(WINAPI *User32SetWindowLongW)(HWND hWnd,
-                               int nIndex,
-                               LONG dwNewLong);
+typedef LONG(WINAPI* User32SetWindowLongA)(HWND hWnd,
+                                           int nIndex,
+                                           LONG dwNewLong);
+typedef LONG(WINAPI* User32SetWindowLongW)(HWND hWnd,
+                                           int nIndex,
+                                           LONG dwNewLong);
 static User32SetWindowLongA sUser32SetWindowLongAHookStub = nullptr;
 static User32SetWindowLongW sUser32SetWindowLongWHookStub = nullptr;
 #endif
 static inline bool
-SetWindowLongHookCheck(HWND hWnd,
-                       int nIndex,
-                       LONG_PTR newLong)
+SetWindowLongHookCheck(HWND hWnd, int nIndex, LONG_PTR newLong)
 {
-  nsPluginNativeWindowWin * win =
-    (nsPluginNativeWindowWin *)GetProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
+  nsPluginNativeWindowWin* win = (nsPluginNativeWindowWin*)GetProp(
+      hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
   if (!win || (win && win->mPluginType != nsPluginHost::eSpecialType_Flash) ||
       (nIndex == GWLP_WNDPROC &&
        newLong == reinterpret_cast<LONG_PTR>(PluginWndProc)))
@@ -387,59 +402,51 @@ SetWindowLongHookCheck(HWND hWnd,
 
 #ifdef _WIN64
 LONG_PTR WINAPI
-SetWindowLongPtrAHook(HWND hWnd,
-                      int nIndex,
-                      LONG_PTR newLong)
+SetWindowLongPtrAHook(HWND hWnd, int nIndex, LONG_PTR newLong)
 #else
 LONG WINAPI
-SetWindowLongAHook(HWND hWnd,
-                   int nIndex,
-                   LONG newLong)
+SetWindowLongAHook(HWND hWnd, int nIndex, LONG newLong)
 #endif
 {
   if (SetWindowLongHookCheck(hWnd, nIndex, newLong))
-      return sUser32SetWindowLongAHookStub(hWnd, nIndex, newLong);
+    return sUser32SetWindowLongAHookStub(hWnd, nIndex, newLong);
 
   // Set flash's new subclass to get the result.
   LONG_PTR proc = sUser32SetWindowLongAHookStub(hWnd, nIndex, newLong);
 
   // We already checked this in SetWindowLongHookCheck
-  nsPluginNativeWindowWin * win =
-    (nsPluginNativeWindowWin *)GetProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
+  nsPluginNativeWindowWin* win = (nsPluginNativeWindowWin*)GetProp(
+      hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
 
   // Hook our subclass back up, just like we do on setwindow.
   win->SetPrevWindowProc(
-    reinterpret_cast<WNDPROC>(sUser32SetWindowLongWHookStub(hWnd, nIndex,
-      reinterpret_cast<LONG_PTR>(PluginWndProc))));
+      reinterpret_cast<WNDPROC>(sUser32SetWindowLongWHookStub(
+          hWnd, nIndex, reinterpret_cast<LONG_PTR>(PluginWndProc))));
   return proc;
 }
 
 #ifdef _WIN64
 LONG_PTR WINAPI
-SetWindowLongPtrWHook(HWND hWnd,
-                      int nIndex,
-                      LONG_PTR newLong)
+SetWindowLongPtrWHook(HWND hWnd, int nIndex, LONG_PTR newLong)
 #else
 LONG WINAPI
-SetWindowLongWHook(HWND hWnd,
-                   int nIndex,
-                   LONG newLong)
+SetWindowLongWHook(HWND hWnd, int nIndex, LONG newLong)
 #endif
 {
   if (SetWindowLongHookCheck(hWnd, nIndex, newLong))
-      return sUser32SetWindowLongWHookStub(hWnd, nIndex, newLong);
+    return sUser32SetWindowLongWHookStub(hWnd, nIndex, newLong);
 
   // Set flash's new subclass to get the result.
   LONG_PTR proc = sUser32SetWindowLongWHookStub(hWnd, nIndex, newLong);
 
   // We already checked this in SetWindowLongHookCheck
-  nsPluginNativeWindowWin * win =
-    (nsPluginNativeWindowWin *)GetProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
+  nsPluginNativeWindowWin* win = (nsPluginNativeWindowWin*)GetProp(
+      hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
 
   // Hook our subclass back up, just like we do on setwindow.
   win->SetPrevWindowProc(
-    reinterpret_cast<WNDPROC>(sUser32SetWindowLongWHookStub(hWnd, nIndex,
-      reinterpret_cast<LONG_PTR>(PluginWndProc))));
+      reinterpret_cast<WNDPROC>(sUser32SetWindowLongWHookStub(
+          hWnd, nIndex, reinterpret_cast<LONG_PTR>(PluginWndProc))));
   return proc;
 }
 
@@ -451,20 +458,20 @@ HookSetWindowLongPtr()
   if (!sUser32SetWindowLongAHookStub)
     sUser32Intercept.AddHook("SetWindowLongPtrA",
                              reinterpret_cast<intptr_t>(SetWindowLongPtrAHook),
-                             (void**) &sUser32SetWindowLongAHookStub);
+                             (void**)&sUser32SetWindowLongAHookStub);
   if (!sUser32SetWindowLongWHookStub)
     sUser32Intercept.AddHook("SetWindowLongPtrW",
                              reinterpret_cast<intptr_t>(SetWindowLongPtrWHook),
-                             (void**) &sUser32SetWindowLongWHookStub);
+                             (void**)&sUser32SetWindowLongWHookStub);
 #else
   if (!sUser32SetWindowLongAHookStub)
     sUser32Intercept.AddHook("SetWindowLongA",
                              reinterpret_cast<intptr_t>(SetWindowLongAHook),
-                             (void**) &sUser32SetWindowLongAHookStub);
+                             (void**)&sUser32SetWindowLongAHookStub);
   if (!sUser32SetWindowLongWHookStub)
     sUser32Intercept.AddHook("SetWindowLongW",
                              reinterpret_cast<intptr_t>(SetWindowLongWHook),
-                             (void**) &sUser32SetWindowLongWHookStub);
+                             (void**)&sUser32SetWindowLongWHookStub);
 #endif
 }
 
@@ -499,25 +506,26 @@ nsPluginNativeWindowWin::~nsPluginNativeWindowWin()
   mWeakRef.forget();
 }
 
-WNDPROC nsPluginNativeWindowWin::GetPrevWindowProc()
+WNDPROC
+nsPluginNativeWindowWin::GetPrevWindowProc()
 {
   return mPrevWinProc;
 }
 
-WNDPROC nsPluginNativeWindowWin::GetWindowProc()
+WNDPROC
+nsPluginNativeWindowWin::GetWindowProc()
 {
   return mPluginWinProc;
 }
 
-NS_IMETHODIMP PluginWindowEvent::Run()
+NS_IMETHODIMP
+PluginWindowEvent::Run()
 {
-  nsPluginNativeWindowWin *win = mPluginWindowRef.get();
-  if (!win)
-    return NS_OK;
+  nsPluginNativeWindowWin* win = mPluginWindowRef.get();
+  if (!win) return NS_OK;
 
   HWND hWnd = GetWnd();
-  if (!hWnd)
-    return NS_OK;
+  if (!hWnd) return NS_OK;
 
   RefPtr<nsNPAPIPluginInstance> inst;
   win->GetPluginInstance(inst);
@@ -526,46 +534,39 @@ NS_IMETHODIMP PluginWindowEvent::Run()
     // XXX Unwind issues related to runnable event callback depth for this
     // event and destruction of the plugin. (Bug 493601)
     ::PostMessage(hWnd, sWM_FLASHBOUNCEMSG, GetWParam(), GetLParam());
-  }
-  else {
+  } else {
     // Currently not used, but added so that processing events here
     // is more generic.
-    ::CallWindowProc(win->GetWindowProc(),
-                     hWnd,
-                     GetMsg(),
-                     GetWParam(),
-                     GetLParam());
+    ::CallWindowProc(
+        win->GetWindowProc(), hWnd, GetMsg(), GetWParam(), GetLParam());
   }
 
   Clear();
   return NS_OK;
 }
 
-PluginWindowEvent *
-nsPluginNativeWindowWin::GetPluginWindowEvent(HWND aWnd, UINT aMsg, WPARAM aWParam, LPARAM aLParam)
+PluginWindowEvent*
+nsPluginNativeWindowWin::GetPluginWindowEvent(HWND aWnd,
+                                              UINT aMsg,
+                                              WPARAM aWParam,
+                                              LPARAM aLParam)
 {
   if (!mWeakRef) {
     mWeakRef = this;
-    if (!mWeakRef)
-      return nullptr;
+    if (!mWeakRef) return nullptr;
   }
 
-  PluginWindowEvent *event;
+  PluginWindowEvent* event;
 
   // We have the ability to alloc if needed in case in the future some plugin
   // should post multiple PostMessages. However, this could lead to many
   // alloc's per second which could become a performance issue. See bug 169247.
-  if (!mCachedPluginWindowEvent)
-  {
+  if (!mCachedPluginWindowEvent) {
     event = new PluginWindowEvent();
     mCachedPluginWindowEvent = event;
-  }
-  else if (mCachedPluginWindowEvent->InUse())
-  {
+  } else if (mCachedPluginWindowEvent->InUse()) {
     event = new PluginWindowEvent();
-  }
-  else
-  {
+  } else {
     event = mCachedPluginWindowEvent;
   }
 
@@ -573,7 +574,9 @@ nsPluginNativeWindowWin::GetPluginWindowEvent(HWND aWnd, UINT aMsg, WPARAM aWPar
   return event;
 }
 
-nsresult nsPluginNativeWindowWin::CallSetWindow(RefPtr<nsNPAPIPluginInstance> &aPluginInstance)
+nsresult
+nsPluginNativeWindowWin::CallSetWindow(
+    RefPtr<nsNPAPIPluginInstance>& aPluginInstance)
 {
   // Note, 'window' can be null
 
@@ -608,7 +611,7 @@ nsresult nsPluginNativeWindowWin::CallSetWindow(RefPtr<nsNPAPIPluginInstance> &a
     // setwindow. We'll use this in PluginWndProc for forwarding focus
     // events to the widget.
     WNDPROC currentWndProc =
-      (WNDPROC)::GetWindowLongPtr((HWND)window, GWLP_WNDPROC);
+        (WNDPROC)::GetWindowLongPtr((HWND)window, GWLP_WNDPROC);
     if (!mPrevWinProc && currentWndProc != PluginWndProc)
       mPrevWinProc = currentWndProc;
   }
@@ -625,17 +628,16 @@ nsresult nsPluginNativeWindowWin::CallSetWindow(RefPtr<nsNPAPIPluginInstance> &a
   return NS_OK;
 }
 
-nsresult nsPluginNativeWindowWin::SubclassAndAssociateWindow()
+nsresult
+nsPluginNativeWindowWin::SubclassAndAssociateWindow()
 {
-  if (type != NPWindowTypeWindow || !window)
-    return NS_ERROR_FAILURE;
+  if (type != NPWindowTypeWindow || !window) return NS_ERROR_FAILURE;
 
   HWND hWnd = (HWND)window;
 
   // check if we need to subclass
   WNDPROC currentWndProc = (WNDPROC)::GetWindowLongPtr(hWnd, GWLP_WNDPROC);
-  if (currentWndProc == PluginWndProc)
-    return NS_OK;
+  if (currentWndProc == PluginWndProc) return NS_OK;
 
   // If the plugin reset the subclass, set it back.
   if (mPluginWinProc) {
@@ -662,12 +664,14 @@ nsresult nsPluginNativeWindowWin::SubclassAndAssociateWindow()
     style |= WS_CLIPCHILDREN;
   SetWindowLongPtr(hWnd, GWL_STYLE, style);
 
-  mPluginWinProc = (WNDPROC)SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)PluginWndProc);
-  if (!mPluginWinProc)
-    return NS_ERROR_FAILURE;
+  mPluginWinProc =
+      (WNDPROC)SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)PluginWndProc);
+  if (!mPluginWinProc) return NS_ERROR_FAILURE;
 
-  DebugOnly<nsPluginNativeWindowWin *> win = (nsPluginNativeWindowWin *)::GetProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
-  NS_ASSERTION(!win || (win == this), "plugin window already has property and this is not us");
+  DebugOnly<nsPluginNativeWindowWin*> win = (nsPluginNativeWindowWin*)::GetProp(
+      hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
+  NS_ASSERTION(!win || (win == this),
+               "plugin window already has property and this is not us");
 
   if (!::SetProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION, (HANDLE)this))
     return NS_ERROR_FAILURE;
@@ -675,12 +679,12 @@ nsresult nsPluginNativeWindowWin::SubclassAndAssociateWindow()
   return NS_OK;
 }
 
-nsresult nsPluginNativeWindowWin::UndoSubclassAndAssociateWindow()
+nsresult
+nsPluginNativeWindowWin::UndoSubclassAndAssociateWindow()
 {
   // remove window property
   HWND hWnd = (HWND)window;
-  if (IsWindow(hWnd))
-    ::RemoveProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
+  if (IsWindow(hWnd)) ::RemoveProp(hWnd, NS_PLUGIN_WINDOW_PROPERTY_ASSOCIATION);
 
   // restore the original win proc
   // but only do this if this were us last time
@@ -704,7 +708,8 @@ nsresult nsPluginNativeWindowWin::UndoSubclassAndAssociateWindow()
   return NS_OK;
 }
 
-nsresult PLUG_NewPluginNativeWindow(nsPluginNativeWindow ** aPluginNativeWindow)
+nsresult
+PLUG_NewPluginNativeWindow(nsPluginNativeWindow** aPluginNativeWindow)
 {
   NS_ENSURE_ARG_POINTER(aPluginNativeWindow);
 
@@ -712,10 +717,11 @@ nsresult PLUG_NewPluginNativeWindow(nsPluginNativeWindow ** aPluginNativeWindow)
   return NS_OK;
 }
 
-nsresult PLUG_DeletePluginNativeWindow(nsPluginNativeWindow * aPluginNativeWindow)
+nsresult
+PLUG_DeletePluginNativeWindow(nsPluginNativeWindow* aPluginNativeWindow)
 {
   NS_ENSURE_ARG_POINTER(aPluginNativeWindow);
-  nsPluginNativeWindowWin *p = (nsPluginNativeWindowWin *)aPluginNativeWindow;
+  nsPluginNativeWindowWin* p = (nsPluginNativeWindowWin*)aPluginNativeWindow;
   delete p;
   return NS_OK;
 }

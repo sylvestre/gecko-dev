@@ -15,9 +15,10 @@ namespace dom {
 
 class HTMLHeadingElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLHeadingElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLHeadingElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -27,7 +28,8 @@ public:
                               nsAttrValue& aResult) override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
   nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   void SetAlign(const nsAString& aAlign, ErrorResult& aError)
@@ -39,17 +41,18 @@ public:
     return GetHTMLAttr(nsGkAtoms::align, aAlign);
   }
 
-protected:
+ protected:
   virtual ~HTMLHeadingElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLHeadingElement_h
+#endif  // mozilla_dom_HTMLHeadingElement_h

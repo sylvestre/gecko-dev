@@ -17,8 +17,8 @@ CryptoBuffer::Assign(const CryptoBuffer& aData)
 {
   // Same as in nsTArray_Impl::operator=, but return the value
   // returned from ReplaceElementsAt to enable OOM detection
-  return ReplaceElementsAt(0, Length(), aData.Elements(), aData.Length(),
-                           fallible);
+  return ReplaceElementsAt(
+      0, Length(), aData.Elements(), aData.Length(), fallible);
 }
 
 uint8_t*
@@ -44,8 +44,8 @@ CryptoBuffer::Assign(const SECItem* aItem)
 uint8_t*
 CryptoBuffer::Assign(const InfallibleTArray<uint8_t>& aData)
 {
-  return ReplaceElementsAt(0, Length(), aData.Elements(), aData.Length(),
-                           fallible);
+  return ReplaceElementsAt(
+      0, Length(), aData.Elements(), aData.Length(), fallible);
 }
 
 uint8_t*
@@ -116,8 +116,8 @@ CryptoBuffer::FromJwkBase64(const nsString& aBase64)
   temp.StripWhitespace();
 
   // JWK prohibits padding per RFC 7515, section 2.
-  nsresult rv = Base64URLDecode(temp, Base64URLDecodePaddingPolicy::Reject,
-                                *this);
+  nsresult rv =
+      Base64URLDecode(temp, Base64URLDecodePaddingPolicy::Reject, *this);
   NS_ENSURE_SUCCESS(rv, rv);
 
   return NS_OK;
@@ -133,8 +133,8 @@ CryptoBuffer::ToJwkBase64(nsString& aBase64) const
   }
 
   nsAutoCString base64;
-  nsresult rv = Base64URLEncode(Length(), Elements(),
-                                Base64URLEncodePaddingPolicy::Omit, base64);
+  nsresult rv = Base64URLEncode(
+      Length(), Elements(), Base64URLEncodePaddingPolicy::Omit, base64);
   NS_ENSURE_SUCCESS(rv, rv);
 
   CopyASCIItoUTF16(base64, aBase64);
@@ -142,7 +142,7 @@ CryptoBuffer::ToJwkBase64(nsString& aBase64) const
 }
 
 bool
-CryptoBuffer::ToSECItem(PLArenaPool *aArena, SECItem* aItem) const
+CryptoBuffer::ToSECItem(PLArenaPool* aArena, SECItem* aItem) const
 {
   aItem->type = siBuffer;
   aItem->data = nullptr;
@@ -196,11 +196,11 @@ CryptoBuffer::GetBigIntValue(unsigned long& aRetVal)
   }
 
   aRetVal = 0;
-  for (size_t i=0; i < Length(); ++i) {
+  for (size_t i = 0; i < Length(); ++i) {
     aRetVal = (aRetVal << 8) + ElementAt(i);
   }
   return true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

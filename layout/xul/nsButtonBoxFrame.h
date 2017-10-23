@@ -11,19 +11,19 @@
 
 class nsButtonBoxFrame : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsButtonBoxFrame)
 
   friend nsIFrame* NS_NewButtonBoxFrame(nsIPresShell* aPresShell);
 
   explicit nsButtonBoxFrame(nsStyleContext* aContext, ClassID = kClassID);
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual void BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
-                                           const nsDisplayListSet& aLists) override;
+  virtual void BuildDisplayListForChildren(
+      nsDisplayListBuilder* aBuilder, const nsDisplayListSet& aLists) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
@@ -32,12 +32,15 @@ public:
                                nsEventStatus* aEventStatus) override;
 
   virtual void MouseClicked(mozilla::WidgetGUIEvent* aEvent)
-  { DoMouseClick(aEvent, false); }
+  {
+    DoMouseClick(aEvent, false);
+  }
 
   void Blurred();
 
 #ifdef DEBUG_FRAME_DUMP
-  virtual nsresult GetFrameName(nsAString& aResult) const override {
+  virtual nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("ButtonBoxFrame"), aResult);
   }
 #endif
@@ -47,28 +50,32 @@ public:
    * @param aTrustEvent if true and aEvent as null, then assume the event was trusted
    */
   void DoMouseClick(mozilla::WidgetGUIEvent* aEvent, bool aTrustEvent);
-  void UpdateMouseThrough() override { AddStateBits(NS_FRAME_MOUSE_THROUGH_NEVER); }
+  void UpdateMouseThrough() override
+  {
+    AddStateBits(NS_FRAME_MOUSE_THROUGH_NEVER);
+  }
 
-private:
+ private:
   class nsButtonBoxListener final : public nsIDOMEventListener
   {
-  public:
-    explicit nsButtonBoxListener(nsButtonBoxFrame* aButtonBoxFrame) :
-      mButtonBoxFrame(aButtonBoxFrame)
-      { }
+   public:
+    explicit nsButtonBoxListener(nsButtonBoxFrame* aButtonBoxFrame)
+        : mButtonBoxFrame(aButtonBoxFrame)
+    {
+    }
 
     NS_IMETHOD HandleEvent(nsIDOMEvent* aEvent) override;
 
     NS_DECL_ISUPPORTS
 
-  private:
+   private:
     friend class nsButtonBoxFrame;
-    virtual ~nsButtonBoxListener() { }
+    virtual ~nsButtonBoxListener() {}
     nsButtonBoxFrame* mButtonBoxFrame;
   };
 
   RefPtr<nsButtonBoxListener> mButtonBoxListener;
   bool mIsHandlingKeyEvent;
-}; // class nsButtonBoxFrame
+};  // class nsButtonBoxFrame
 
 #endif /* nsButtonBoxFrame_h___ */

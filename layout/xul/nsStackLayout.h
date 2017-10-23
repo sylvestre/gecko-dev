@@ -21,12 +21,12 @@
 
 class nsIPresShell;
 
-nsresult NS_NewStackLayout(nsCOMPtr<nsBoxLayout>& aNewLayout);
+nsresult
+NS_NewStackLayout(nsCOMPtr<nsBoxLayout>& aNewLayout);
 
 class nsStackLayout : public nsBoxLayout
 {
-public:
-
+ public:
   friend nsresult NS_NewStackLayout(nsCOMPtr<nsBoxLayout>& aNewLayout);
   static void Shutdown();
 
@@ -34,10 +34,14 @@ public:
 
   NS_IMETHOD XULLayout(nsIFrame* aBox, nsBoxLayoutState& aState) override;
 
-  virtual nsSize GetXULPrefSize(nsIFrame* aBox, nsBoxLayoutState& aBoxLayoutState) override;
-  virtual nsSize GetXULMinSize(nsIFrame* aBox, nsBoxLayoutState& aBoxLayoutState) override;
-  virtual nsSize GetXULMaxSize(nsIFrame* aBox, nsBoxLayoutState& aBoxLayoutState) override;
-  virtual nscoord GetAscent(nsIFrame* aBox, nsBoxLayoutState& aBoxLayoutState) override;
+  virtual nsSize GetXULPrefSize(nsIFrame* aBox,
+                                nsBoxLayoutState& aBoxLayoutState) override;
+  virtual nsSize GetXULMinSize(nsIFrame* aBox,
+                               nsBoxLayoutState& aBoxLayoutState) override;
+  virtual nsSize GetXULMaxSize(nsIFrame* aBox,
+                               nsBoxLayoutState& aBoxLayoutState) override;
+  virtual nscoord GetAscent(nsIFrame* aBox,
+                            nsBoxLayoutState& aBoxLayoutState) override;
 
   // get the child offsets for aChild and set them in aMargin. Returns a
   // bitfield mask of the SPECIFIED_LEFT, SPECIFIED_RIGHT, SPECIFIED_TOP and
@@ -45,12 +49,9 @@ public:
   // attributes.
   static uint8_t GetOffset(nsIFrame* aChild, nsMargin& aMargin);
 
-private:
+ private:
   static nsBoxLayout* gInstance;
 
-}; // class nsStackLayout
-
-
+};  // class nsStackLayout
 
 #endif
-

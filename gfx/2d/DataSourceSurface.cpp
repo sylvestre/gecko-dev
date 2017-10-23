@@ -13,9 +13,9 @@ already_AddRefed<DataSourceSurface>
 DataSourceSurface::GetDataSurface()
 {
   RefPtr<DataSourceSurface> surface =
-    IsDataSourceSurface() ? this : new DataSourceSurfaceWrapper(this);
+      IsDataSourceSurface() ? this : new DataSourceSurfaceWrapper(this);
   return surface.forget();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

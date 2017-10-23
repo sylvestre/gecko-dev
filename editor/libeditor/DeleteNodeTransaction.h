@@ -24,8 +24,9 @@ class RangeUpdater;
  */
 class DeleteNodeTransaction final : public EditTransactionBase
 {
-public:
-  DeleteNodeTransaction(EditorBase& aEditorBase, nsINode& aNodeToDelete,
+ public:
+  DeleteNodeTransaction(EditorBase& aEditorBase,
+                        nsINode& aNodeToDelete,
                         RangeUpdater* aRangeUpdater);
 
   /**
@@ -42,7 +43,7 @@ public:
 
   NS_IMETHOD RedoTransaction() override;
 
-protected:
+ protected:
   virtual ~DeleteNodeTransaction();
 
   // The editor for this transaction.
@@ -61,6 +62,6 @@ protected:
   RangeUpdater* mRangeUpdater;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef DeleteNodeTransaction_h
+#endif  // #ifndef DeleteNodeTransaction_h

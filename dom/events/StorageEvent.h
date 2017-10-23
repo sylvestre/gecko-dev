@@ -22,13 +22,13 @@ class Storage;
 
 class StorageEvent : public Event
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(StorageEvent, Event)
 
   explicit StorageEvent(EventTarget* aOwner);
 
-protected:
+ protected:
   virtual ~StorageEvent();
 
   nsString mKey;
@@ -38,50 +38,41 @@ protected:
   RefPtr<Storage> mStorageArea;
   nsCOMPtr<nsIPrincipal> mPrincipal;
 
-public:
+ public:
   virtual StorageEvent* AsStorageEvent();
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<StorageEvent>
-  Constructor(EventTarget* aOwner, const nsAString& aType,
-              const StorageEventInit& aEventInitDict);
+  static already_AddRefed<StorageEvent> Constructor(
+      EventTarget* aOwner,
+      const nsAString& aType,
+      const StorageEventInit& aEventInitDict);
 
-  static already_AddRefed<StorageEvent>
-  Constructor(const GlobalObject& aGlobal, const nsAString& aType,
-              const StorageEventInit& aEventInitDict, ErrorResult& aRv);
+  static already_AddRefed<StorageEvent> Constructor(
+      const GlobalObject& aGlobal,
+      const nsAString& aType,
+      const StorageEventInit& aEventInitDict,
+      ErrorResult& aRv);
 
-  void InitStorageEvent(const nsAString& aType, bool aCanBubble,
-                        bool aCancelable, const nsAString& aKey,
+  void InitStorageEvent(const nsAString& aType,
+                        bool aCanBubble,
+                        bool aCancelable,
+                        const nsAString& aKey,
                         const nsAString& aOldValue,
                         const nsAString& aNewValue,
                         const nsAString& aURL,
                         Storage* aStorageArea);
 
-  void GetKey(nsString& aRetVal) const
-  {
-    aRetVal = mKey;
-  }
+  void GetKey(nsString& aRetVal) const { aRetVal = mKey; }
 
-  void GetOldValue(nsString& aRetVal) const
-  {
-    aRetVal = mOldValue;
-  }
+  void GetOldValue(nsString& aRetVal) const { aRetVal = mOldValue; }
 
-  void GetNewValue(nsString& aRetVal) const
-  {
-    aRetVal = mNewValue;
-  }
+  void GetNewValue(nsString& aRetVal) const { aRetVal = mNewValue; }
 
-  void GetUrl(nsString& aRetVal) const
-  {
-    aRetVal = mUrl;
-  }
+  void GetUrl(nsString& aRetVal) const { aRetVal = mUrl; }
 
-  Storage* GetStorageArea() const
-  {
-    return mStorageArea;
-  }
+  Storage* GetStorageArea() const { return mStorageArea; }
 
   // Non WebIDL methods
   void SetPrincipal(nsIPrincipal* aPrincipal)
@@ -90,13 +81,10 @@ public:
     mPrincipal = aPrincipal;
   }
 
-  nsIPrincipal* GetPrincipal() const
-  {
-    return mPrincipal;
-  }
+  nsIPrincipal* GetPrincipal() const { return mPrincipal; }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_StorageEvent_h
+#endif  // mozilla_dom_StorageEvent_h

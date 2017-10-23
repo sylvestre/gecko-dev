@@ -21,7 +21,6 @@ class ShutdownTrackerImpl;
 // Whether we've observed shutdown starting yet.
 static bool sShutdownHasStarted = false;
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Implementation
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,12 +44,11 @@ struct ShutdownObserver : public nsIObserver
     return NS_OK;
   }
 
-private:
-  virtual ~ShutdownObserver() { }
+ private:
+  virtual ~ShutdownObserver() {}
 };
 
 NS_IMPL_ISUPPORTS(ShutdownObserver, nsIObserver)
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // Public API
@@ -71,5 +69,5 @@ ShutdownTracker::ShutdownHasStarted()
   return sShutdownHasStarted;
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

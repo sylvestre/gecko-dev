@@ -8,8 +8,8 @@
 #include "SVGContentUtils.h"
 
 nsSVGDataParser::nsSVGDataParser(const nsAString& aValue)
-  : mIter(SVGContentUtils::GetStartRangedPtr(aValue)),
-    mEnd(SVGContentUtils::GetEndRangedPtr(aValue))
+    : mIter(SVGContentUtils::GetStartRangedPtr(aValue)),
+      mEnd(SVGContentUtils::GetEndRangedPtr(aValue))
 {
 }
 

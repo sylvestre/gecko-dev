@@ -11,7 +11,7 @@
   by Alex Musil
  */
 
-#include "mozilla/ArrayUtils.h" // ArrayLength
+#include "mozilla/ArrayUtils.h"  // ArrayLength
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Printf.h"
 
@@ -51,8 +51,8 @@ ShouldProtectPluginCurrentDirectory(char16ptr_t pluginFilePath)
   // Shockwave versions before 1202122 will break if you call SetDllDirectory
   const uint64_t kFixedShockwaveVersion = 1202122;
   uint64_t version;
-  int found = swscanf(passedInFilename, SHOCKWAVE_BASE_FILENAME L"_%llu.dll",
-                      &version);
+  int found =
+      swscanf(passedInFilename, SHOCKWAVE_BASE_FILENAME L"_%llu.dll", &version);
   if (found && version < kFixedShockwaveVersion) {
     return false;
   }
@@ -65,44 +65,49 @@ using namespace mozilla;
 
 /* Local helper functions */
 
-static char* GetKeyValue(void* verbuf, const WCHAR* key,
-                         UINT language, UINT codepage)
+static char*
+GetKeyValue(void* verbuf, const WCHAR* key, UINT language, UINT codepage)
 {
-  WCHAR keybuf[64]; // plenty for the template below, with the longest key
-                    // we use (currently "FileDescription")
+  WCHAR keybuf[64];  // plenty for the template below, with the longest key
+                     // we use (currently "FileDescription")
   const WCHAR keyFormat[] = L"\\StringFileInfo\\%04X%04X\\%ls";
-  WCHAR *buf = nullptr;
+  WCHAR* buf = nullptr;
   UINT blen;
 
-  if (_snwprintf_s(keybuf, ArrayLength(keybuf), _TRUNCATE,
-                   keyFormat, language, codepage, key) < 0)
-  {
+  if (_snwprintf_s(keybuf,
+                   ArrayLength(keybuf),
+                   _TRUNCATE,
+                   keyFormat,
+                   language,
+                   codepage,
+                   key) < 0) {
     NS_NOTREACHED("plugin info key too long for buffer!");
     return nullptr;
   }
 
-  if (::VerQueryValueW(verbuf, keybuf, (void **)&buf, &blen) == 0 ||
-      buf == nullptr || blen == 0)
-  {
+  if (::VerQueryValueW(verbuf, keybuf, (void**)&buf, &blen) == 0 ||
+      buf == nullptr || blen == 0) {
     return nullptr;
   }
 
   return PL_strdup(NS_ConvertUTF16toUTF8(buf, blen).get());
 }
 
-static char* GetVersion(void* verbuf)
+static char*
+GetVersion(void* verbuf)
 {
-  VS_FIXEDFILEINFO *fileInfo;
+  VS_FIXEDFILEINFO* fileInfo;
   UINT fileInfoLen;
 
-  ::VerQueryValueW(verbuf, L"\\", (void **)&fileInfo, &fileInfoLen);
+  ::VerQueryValueW(verbuf, L"\\", (void**)&fileInfo, &fileInfoLen);
 
   if (fileInfo) {
     return mozilla::Smprintf("%ld.%ld.%ld.%ld",
-                      HIWORD(fileInfo->dwFileVersionMS),
-                      LOWORD(fileInfo->dwFileVersionMS),
-                      HIWORD(fileInfo->dwFileVersionLS),
-                      LOWORD(fileInfo->dwFileVersionLS)).release();
+                             HIWORD(fileInfo->dwFileVersionMS),
+                             LOWORD(fileInfo->dwFileVersionMS),
+                             HIWORD(fileInfo->dwFileVersionLS),
+                             LOWORD(fileInfo->dwFileVersionLS))
+        .release();
   }
 
   return nullptr;
@@ -110,8 +115,8 @@ static char* GetVersion(void* verbuf)
 
 // Returns a boolean indicating if the key's value contains a string
 // entry equal to "1" or "0". No entry for the key returns false.
-static bool GetBooleanFlag(void* verbuf, const WCHAR* key,
-                           UINT language, UINT codepage)
+static bool
+GetBooleanFlag(void* verbuf, const WCHAR* key, UINT language, UINT codepage)
 {
   char* flagStr = GetKeyValue(verbuf, key, language, codepage);
   if (!flagStr) {
@@ -122,24 +127,24 @@ static bool GetBooleanFlag(void* verbuf, const WCHAR* key,
   return result;
 }
 
-static uint32_t CalculateVariantCount(char* mimeTypes)
+static uint32_t
+CalculateVariantCount(char* mimeTypes)
 {
   uint32_t variants = 1;
 
-  if (!mimeTypes)
-    return 0;
+  if (!mimeTypes) return 0;
 
   char* index = mimeTypes;
   while (*index) {
-    if (*index == '|')
-      variants++;
+    if (*index == '|') variants++;
 
     ++index;
   }
   return variants;
 }
 
-static char** MakeStringArray(uint32_t variants, char* data)
+static char**
+MakeStringArray(uint32_t variants, char* data)
 {
   // The number of variants has been calculated based on the mime
   // type array. Plugins are not explicitely required to match
@@ -147,27 +152,23 @@ static char** MakeStringArray(uint32_t variants, char* data)
   // description array, and some of them actually don't.
   // We should handle such situations gracefully
 
-  if ((variants <= 0) || !data)
-    return nullptr;
+  if ((variants <= 0) || !data) return nullptr;
 
-  char** array = (char**) calloc(variants, sizeof(char *));
-  if (!array)
-    return nullptr;
+  char** array = (char**)calloc(variants, sizeof(char*));
+  if (!array) return nullptr;
 
-  char * start = data;
+  char* start = data;
 
   for (uint32_t i = 0; i < variants; i++) {
-    char * p = PL_strchr(start, '|');
-    if (p)
-      *p = 0;
+    char* p = PL_strchr(start, '|');
+    if (p) *p = 0;
 
     array[i] = PL_strdup(start);
 
     if (!p) {
       // nothing more to look for, fill everything left
       // with empty strings and break
-      while(++i < variants)
-        array[i] = PL_strdup("");
+      while (++i < variants) array[i] = PL_strdup("");
 
       break;
     }
@@ -177,10 +178,10 @@ static char** MakeStringArray(uint32_t variants, char* data)
   return array;
 }
 
-static void FreeStringArray(uint32_t variants, char ** array)
+static void
+FreeStringArray(uint32_t variants, char** array)
 {
-  if ((variants == 0) || !array)
-    return;
+  if ((variants == 0) || !array) return;
 
   for (uint32_t i = 0; i < variants; i++) {
     if (array[i]) {
@@ -191,24 +192,31 @@ static void FreeStringArray(uint32_t variants, char ** array)
   free(array);
 }
 
-static bool CanLoadPlugin(char16ptr_t aBinaryPath)
+static bool
+CanLoadPlugin(char16ptr_t aBinaryPath)
 {
 #if defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64)
   bool canLoad = false;
 
-  HANDLE file = CreateFileW(aBinaryPath, GENERIC_READ,
-                            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  HANDLE file = CreateFileW(aBinaryPath,
+                            GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE,
+                            nullptr,
+                            OPEN_EXISTING,
+                            FILE_ATTRIBUTE_NORMAL,
+                            nullptr);
   if (file != INVALID_HANDLE_VALUE) {
-    HANDLE map = CreateFileMappingW(file, nullptr, PAGE_READONLY, 0,
-                                    GetFileSize(file, nullptr), nullptr);
+    HANDLE map = CreateFileMappingW(
+        file, nullptr, PAGE_READONLY, 0, GetFileSize(file, nullptr), nullptr);
     if (map != nullptr) {
       LPVOID mapView = MapViewOfFile(map, FILE_MAP_READ, 0, 0, 0);
       if (mapView != nullptr) {
         if (((IMAGE_DOS_HEADER*)mapView)->e_magic == IMAGE_DOS_SIGNATURE) {
           long peImageHeaderStart = (((IMAGE_DOS_HEADER*)mapView)->e_lfanew);
           if (peImageHeaderStart != 0L) {
-            DWORD arch = (((IMAGE_NT_HEADERS*)((LPBYTE)mapView + peImageHeaderStart))->FileHeader.Machine);
+            DWORD arch =
+                (((IMAGE_NT_HEADERS*)((LPBYTE)mapView + peImageHeaderStart))
+                     ->FileHeader.Machine);
 #ifdef _M_IX86
             canLoad = (arch == IMAGE_FILE_MACHINE_I386);
 #elif defined(_M_X64)
@@ -235,13 +243,13 @@ static bool CanLoadPlugin(char16ptr_t aBinaryPath)
 /* nsPluginsDir implementation */
 
 // The file name must be in the form "np*.dll"
-bool nsPluginsDir::IsPluginFile(nsIFile* file)
+bool
+nsPluginsDir::IsPluginFile(nsIFile* file)
 {
   nsAutoCString path;
-  if (NS_FAILED(file->GetNativePath(path)))
-    return false;
+  if (NS_FAILED(file->GetNativePath(path))) return false;
 
-  const char *cPath = path.get();
+  const char* cPath = path.get();
 
   // this is most likely a path, so skip to the filename
   const char* filename = PL_strrchr(cPath, '\\');
@@ -251,13 +259,13 @@ bool nsPluginsDir::IsPluginFile(nsIFile* file)
     filename = cPath;
 
   char* extension = PL_strrchr(filename, '.');
-  if (extension)
-    ++extension;
+  if (extension) ++extension;
 
   uint32_t fullLength = strlen(filename);
   uint32_t extLength = extension ? strlen(extension) : 0;
   if (fullLength >= 7 && extLength == 3) {
-    if (!PL_strncasecmp(filename, "np", 2) && !PL_strncasecmp(extension, "dll", 3)) {
+    if (!PL_strncasecmp(filename, "np", 2) &&
+        !PL_strncasecmp(extension, "dll", 3)) {
       // don't load OJI-based Java plugins
       if (!PL_strncasecmp(filename, "npoji", 5) ||
           !PL_strncasecmp(filename, "npjava", 6))
@@ -271,8 +279,7 @@ bool nsPluginsDir::IsPluginFile(nsIFile* file)
 
 /* nsPluginFile implementation */
 
-nsPluginFile::nsPluginFile(nsIFile* file)
-: mPlugin(file)
+nsPluginFile::nsPluginFile(nsIFile* file) : mPlugin(file)
 {
   // nada
 }
@@ -286,17 +293,17 @@ nsPluginFile::~nsPluginFile()
  * Loads the plugin into memory using NSPR's shared-library loading
  * mechanism. Handles platform differences in loading shared libraries.
  */
-nsresult nsPluginFile::LoadPlugin(PRLibrary **outLibrary)
+nsresult
+nsPluginFile::LoadPlugin(PRLibrary** outLibrary)
 {
-  if (!mPlugin)
-    return NS_ERROR_NULL_POINTER;
+  if (!mPlugin) return NS_ERROR_NULL_POINTER;
 
   bool protectCurrentDirectory = true;
 
   nsAutoString pluginFilePath;
   mPlugin->GetPath(pluginFilePath);
   protectCurrentDirectory =
-    ShouldProtectPluginCurrentDirectory(pluginFilePath.BeginReading());
+      ShouldProtectPluginCurrentDirectory(pluginFilePath.BeginReading());
 
   nsAutoString pluginFolderPath = pluginFilePath;
   int32_t idx = pluginFilePath.RFindChar('\\');
@@ -317,8 +324,7 @@ nsresult nsPluginFile::LoadPlugin(PRLibrary **outLibrary)
   }
 
   nsresult rv = mPlugin->Load(outLibrary);
-  if (NS_FAILED(rv))
-      *outLibrary = nullptr;
+  if (NS_FAILED(rv)) *outLibrary = nullptr;
 
   if (protectCurrentDirectory) {
     SetDllDirectory(L"");
@@ -335,7 +341,8 @@ nsresult nsPluginFile::LoadPlugin(PRLibrary **outLibrary)
 /**
  * Obtains all of the information currently available for this plugin.
  */
-nsresult nsPluginFile::GetPluginInfo(nsPluginInfo& info, PRLibrary **outLibrary)
+nsresult
+nsPluginFile::GetPluginInfo(nsPluginInfo& info, PRLibrary** outLibrary)
 {
   *outLibrary = nullptr;
 
@@ -343,45 +350,40 @@ nsresult nsPluginFile::GetPluginInfo(nsPluginInfo& info, PRLibrary **outLibrary)
   DWORD zerome, versionsize;
   void* verbuf = nullptr;
 
-  if (!mPlugin)
-    return NS_ERROR_NULL_POINTER;
+  if (!mPlugin) return NS_ERROR_NULL_POINTER;
 
   nsAutoString fullPath;
-  if (NS_FAILED(rv = mPlugin->GetPath(fullPath)))
-    return rv;
+  if (NS_FAILED(rv = mPlugin->GetPath(fullPath))) return rv;
 
-  if (!CanLoadPlugin(fullPath.get()))
-    return NS_ERROR_FAILURE;
+  if (!CanLoadPlugin(fullPath.get())) return NS_ERROR_FAILURE;
 
   nsAutoString fileName;
-  if (NS_FAILED(rv = mPlugin->GetLeafName(fileName)))
-    return rv;
+  if (NS_FAILED(rv = mPlugin->GetLeafName(fileName))) return rv;
 
   LPCWSTR lpFilepath = fullPath.get();
 
   versionsize = ::GetFileVersionInfoSizeW(lpFilepath, &zerome);
 
-  if (versionsize > 0)
-    verbuf = malloc(versionsize);
-  if (!verbuf)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (versionsize > 0) verbuf = malloc(versionsize);
+  if (!verbuf) return NS_ERROR_OUT_OF_MEMORY;
 
-  if (::GetFileVersionInfoW(lpFilepath, 0, versionsize, verbuf))
-  {
+  if (::GetFileVersionInfoW(lpFilepath, 0, versionsize, verbuf)) {
     // TODO: get appropriately-localized info from plugin file
-    UINT lang = 1033; // language = English, 0x409
-    UINT cp = 1252;   // codepage = Western, 0x4E4
+    UINT lang = 1033;  // language = English, 0x409
+    UINT cp = 1252;    // codepage = Western, 0x4E4
     info.fName = GetKeyValue(verbuf, L"ProductName", lang, cp);
     info.fDescription = GetKeyValue(verbuf, L"FileDescription", lang, cp);
-    info.fSupportsAsyncRender = GetBooleanFlag(verbuf, L"AsyncDrawingSupport", lang, cp);
+    info.fSupportsAsyncRender =
+        GetBooleanFlag(verbuf, L"AsyncDrawingSupport", lang, cp);
 
-    char *mimeType = GetKeyValue(verbuf, L"MIMEType", lang, cp);
-    char *mimeDescription = GetKeyValue(verbuf, L"FileOpenName", lang, cp);
-    char *extensions = GetKeyValue(verbuf, L"FileExtents", lang, cp);
+    char* mimeType = GetKeyValue(verbuf, L"MIMEType", lang, cp);
+    char* mimeDescription = GetKeyValue(verbuf, L"FileOpenName", lang, cp);
+    char* extensions = GetKeyValue(verbuf, L"FileExtents", lang, cp);
 
     info.fVariantCount = CalculateVariantCount(mimeType);
     info.fMimeTypeArray = MakeStringArray(info.fVariantCount, mimeType);
-    info.fMimeDescriptionArray = MakeStringArray(info.fVariantCount, mimeDescription);
+    info.fMimeDescriptionArray =
+        MakeStringArray(info.fVariantCount, mimeDescription);
     info.fExtensionArray = MakeStringArray(info.fVariantCount, extensions);
     info.fFullPath = PL_strdup(NS_ConvertUTF16toUTF8(fullPath).get());
     info.fFileName = PL_strdup(NS_ConvertUTF16toUTF8(fileName).get());
@@ -390,8 +392,7 @@ nsresult nsPluginFile::GetPluginInfo(nsPluginInfo& info, PRLibrary **outLibrary)
     PL_strfree(mimeType);
     PL_strfree(mimeDescription);
     PL_strfree(extensions);
-  }
-  else {
+  } else {
     rv = NS_ERROR_FAILURE;
   }
 
@@ -400,13 +401,12 @@ nsresult nsPluginFile::GetPluginInfo(nsPluginInfo& info, PRLibrary **outLibrary)
   return rv;
 }
 
-nsresult nsPluginFile::FreePluginInfo(nsPluginInfo& info)
+nsresult
+nsPluginFile::FreePluginInfo(nsPluginInfo& info)
 {
-  if (info.fName)
-    PL_strfree(info.fName);
+  if (info.fName) PL_strfree(info.fName);
 
-  if (info.fDescription)
-    PL_strfree(info.fDescription);
+  if (info.fDescription) PL_strfree(info.fDescription);
 
   if (info.fMimeTypeArray)
     FreeStringArray(info.fVariantCount, info.fMimeTypeArray);
@@ -417,16 +417,13 @@ nsresult nsPluginFile::FreePluginInfo(nsPluginInfo& info)
   if (info.fExtensionArray)
     FreeStringArray(info.fVariantCount, info.fExtensionArray);
 
-  if (info.fFullPath)
-    PL_strfree(info.fFullPath);
+  if (info.fFullPath) PL_strfree(info.fFullPath);
 
-  if (info.fFileName)
-    PL_strfree(info.fFileName);
+  if (info.fFileName) PL_strfree(info.fFileName);
 
-  if (info.fVersion)
-    free(info.fVersion);
+  if (info.fVersion) free(info.fVersion);
 
-  ZeroMemory((void *)&info, sizeof(info));
+  ZeroMemory((void*)&info, sizeof(info));
 
   return NS_OK;
 }

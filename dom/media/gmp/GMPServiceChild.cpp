@@ -42,7 +42,7 @@ GeckoMediaPluginServiceChild::GetSingleton()
 {
   MOZ_ASSERT(!XRE_IsParentProcess());
   RefPtr<GeckoMediaPluginService> service(
-    GeckoMediaPluginService::GetGeckoMediaPluginService());
+      GeckoMediaPluginService::GetGeckoMediaPluginService());
 #ifdef DEBUG
   if (service) {
     nsCOMPtr<mozIGeckoMediaPluginChromeService> chromeService;
@@ -61,7 +61,8 @@ GeckoMediaPluginServiceChild::GetContentParent(GMPCrashHelper* aHelper,
 {
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
 
-  MozPromiseHolder<GetGMPContentParentPromise>* rawHolder = new MozPromiseHolder<GetGMPContentParentPromise>();
+  MozPromiseHolder<GetGMPContentParentPromise>* rawHolder =
+      new MozPromiseHolder<GetGMPContentParentPromise>();
   RefPtr<GetGMPContentParentPromise> promise = rawHolder->Ensure(__func__);
   RefPtr<AbstractThread> thread(GetAbstractGMPThread());
 
@@ -71,59 +72,63 @@ GeckoMediaPluginServiceChild::GetContentParent(GMPCrashHelper* aHelper,
   RefPtr<GMPCrashHelper> helper(aHelper);
   RefPtr<GeckoMediaPluginServiceChild> self(this);
   GetServiceChild()->Then(
-    thread,
-    __func__,
-    [self, nodeIdString, api, tags, helper, rawHolder](GMPServiceChild* child) {
-      UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(rawHolder);
-      nsresult rv;
+      thread,
+      __func__,
+      [self, nodeIdString, api, tags, helper, rawHolder](
+          GMPServiceChild* child) {
+        UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(
+            rawHolder);
+        nsresult rv;
 
-      nsTArray<base::ProcessId> alreadyBridgedTo;
-      child->GetAlreadyBridgedTo(alreadyBridgedTo);
+        nsTArray<base::ProcessId> alreadyBridgedTo;
+        child->GetAlreadyBridgedTo(alreadyBridgedTo);
 
-      base::ProcessId otherProcess;
-      nsCString displayName;
-      uint32_t pluginId = 0;
-      ipc::Endpoint<PGMPContentParent> endpoint;
-      bool ok = child->SendLaunchGMP(nodeIdString,
-                                     api,
-                                     tags,
-                                     alreadyBridgedTo,
-                                     &pluginId,
-                                     &otherProcess,
-                                     &displayName,
-                                     &endpoint,
-                                     &rv);
-      if (helper && pluginId) {
-        // Note: Even if the launch failed, we need to connect the crash
-        // helper so that if the launch failed due to the plugin crashing,
-        // we can report the crash via the crash reporter. The crash
-        // handling notification will arrive shortly if the launch failed
-        // due to the plugin crashing.
-        self->ConnectCrashHelper(pluginId, helper);
-      }
+        base::ProcessId otherProcess;
+        nsCString displayName;
+        uint32_t pluginId = 0;
+        ipc::Endpoint<PGMPContentParent> endpoint;
+        bool ok = child->SendLaunchGMP(nodeIdString,
+                                       api,
+                                       tags,
+                                       alreadyBridgedTo,
+                                       &pluginId,
+                                       &otherProcess,
+                                       &displayName,
+                                       &endpoint,
+                                       &rv);
+        if (helper && pluginId) {
+          // Note: Even if the launch failed, we need to connect the crash
+          // helper so that if the launch failed due to the plugin crashing,
+          // we can report the crash via the crash reporter. The crash
+          // handling notification will arrive shortly if the launch failed
+          // due to the plugin crashing.
+          self->ConnectCrashHelper(pluginId, helper);
+        }
 
-      if (!ok || NS_FAILED(rv)) {
-        LOGD(("GeckoMediaPluginServiceChild::GetContentParent SendLaunchGMP "
-              "failed rv=0x%x",
-              static_cast<uint32_t>(rv)));
+        if (!ok || NS_FAILED(rv)) {
+          LOGD(
+              ("GeckoMediaPluginServiceChild::GetContentParent SendLaunchGMP "
+               "failed rv=0x%x",
+               static_cast<uint32_t>(rv)));
+          holder->Reject(rv, __func__);
+          return;
+        }
+
+        RefPtr<GMPContentParent> parent =
+            child->GetBridgedGMPContentParent(otherProcess, Move(endpoint));
+        if (!alreadyBridgedTo.Contains(otherProcess)) {
+          parent->SetDisplayName(displayName);
+          parent->SetPluginId(pluginId);
+        }
+        RefPtr<GMPContentParent::CloseBlocker> blocker(
+            new GMPContentParent::CloseBlocker(parent));
+        holder->Resolve(blocker, __func__);
+      },
+      [rawHolder](nsresult rv) {
+        UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(
+            rawHolder);
         holder->Reject(rv, __func__);
-        return;
-      }
-
-      RefPtr<GMPContentParent> parent =
-        child->GetBridgedGMPContentParent(otherProcess, Move(endpoint));
-      if (!alreadyBridgedTo.Contains(otherProcess)) {
-        parent->SetDisplayName(displayName);
-        parent->SetPluginId(pluginId);
-      }
-      RefPtr<GMPContentParent::CloseBlocker> blocker(
-        new GMPContentParent::CloseBlocker(parent));
-      holder->Resolve(blocker, __func__);
-    },
-    [rawHolder](nsresult rv) {
-      UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(rawHolder);
-      holder->Reject(rv, __func__);
-    });
+      });
 
   return promise;
 }
@@ -137,7 +142,7 @@ GeckoMediaPluginServiceChild::GetContentParent(GMPCrashHelper* aHelper,
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
 
   MozPromiseHolder<GetGMPContentParentPromise>* rawHolder =
-    new MozPromiseHolder<GetGMPContentParentPromise>();
+      new MozPromiseHolder<GetGMPContentParentPromise>();
   RefPtr<GetGMPContentParentPromise> promise = rawHolder->Ensure(__func__);
   RefPtr<AbstractThread> thread(GetAbstractGMPThread());
 
@@ -146,59 +151,66 @@ GeckoMediaPluginServiceChild::GetContentParent(GMPCrashHelper* aHelper,
   nsTArray<nsCString> tags(aTags);
   RefPtr<GMPCrashHelper> helper(aHelper);
   RefPtr<GeckoMediaPluginServiceChild> self(this);
-  GetServiceChild()->Then(thread, __func__,
-    [self, nodeId, api, tags, helper, rawHolder](GMPServiceChild* child) {
-      UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(rawHolder);
-      nsresult rv;
+  GetServiceChild()->Then(
+      thread,
+      __func__,
+      [self, nodeId, api, tags, helper, rawHolder](GMPServiceChild* child) {
+        UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(
+            rawHolder);
+        nsresult rv;
 
-      nsTArray<base::ProcessId> alreadyBridgedTo;
-      child->GetAlreadyBridgedTo(alreadyBridgedTo);
+        nsTArray<base::ProcessId> alreadyBridgedTo;
+        child->GetAlreadyBridgedTo(alreadyBridgedTo);
 
-      base::ProcessId otherProcess;
-      nsCString displayName;
-      uint32_t pluginId = 0;
-      ipc::Endpoint<PGMPContentParent> endpoint;
+        base::ProcessId otherProcess;
+        nsCString displayName;
+        uint32_t pluginId = 0;
+        ipc::Endpoint<PGMPContentParent> endpoint;
 
-      bool ok = child->SendLaunchGMPForNodeId(nodeId,
-                                              api,
-                                              tags,
-                                              alreadyBridgedTo,
-                                              &pluginId,
-                                              &otherProcess,
-                                              &displayName,
-                                              &endpoint,
-                                              &rv);
+        bool ok = child->SendLaunchGMPForNodeId(nodeId,
+                                                api,
+                                                tags,
+                                                alreadyBridgedTo,
+                                                &pluginId,
+                                                &otherProcess,
+                                                &displayName,
+                                                &endpoint,
+                                                &rv);
 
-      if (helper && pluginId) {
-        // Note: Even if the launch failed, we need to connect the crash
-        // helper so that if the launch failed due to the plugin crashing,
-        // we can report the crash via the crash reporter. The crash
-        // handling notification will arrive shortly if the launch failed
-        // due to the plugin crashing.
-        self->ConnectCrashHelper(pluginId, helper);
-      }
+        if (helper && pluginId) {
+          // Note: Even if the launch failed, we need to connect the crash
+          // helper so that if the launch failed due to the plugin crashing,
+          // we can report the crash via the crash reporter. The crash
+          // handling notification will arrive shortly if the launch failed
+          // due to the plugin crashing.
+          self->ConnectCrashHelper(pluginId, helper);
+        }
 
-      if (!ok || NS_FAILED(rv)) {
-        LOGD(("GeckoMediaPluginServiceChild::GetContentParent SendLaunchGMP failed rv=%" PRIu32,
-              static_cast<uint32_t>(rv)));
+        if (!ok || NS_FAILED(rv)) {
+          LOGD(
+              ("GeckoMediaPluginServiceChild::GetContentParent SendLaunchGMP "
+               "failed rv=%" PRIu32,
+               static_cast<uint32_t>(rv)));
+          holder->Reject(rv, __func__);
+          return;
+        }
+
+        RefPtr<GMPContentParent> parent =
+            child->GetBridgedGMPContentParent(otherProcess, Move(endpoint));
+        if (!alreadyBridgedTo.Contains(otherProcess)) {
+          parent->SetDisplayName(displayName);
+          parent->SetPluginId(pluginId);
+        }
+
+        RefPtr<GMPContentParent::CloseBlocker> blocker(
+            new GMPContentParent::CloseBlocker(parent));
+        holder->Resolve(blocker, __func__);
+      },
+      [rawHolder](nsresult rv) {
+        UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(
+            rawHolder);
         holder->Reject(rv, __func__);
-        return;
-      }
-
-      RefPtr<GMPContentParent> parent = child->GetBridgedGMPContentParent(otherProcess,
-                                                                          Move(endpoint));
-      if (!alreadyBridgedTo.Contains(otherProcess)) {
-        parent->SetDisplayName(displayName);
-        parent->SetPluginId(pluginId);
-      }
-
-      RefPtr<GMPContentParent::CloseBlocker> blocker(new GMPContentParent::CloseBlocker(parent));
-      holder->Resolve(blocker, __func__);
-    },
-    [rawHolder](nsresult rv) {
-      UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>> holder(rawHolder);
-      holder->Reject(rv, __func__);
-    });
+      });
 
   return promise;
 }
@@ -209,8 +221,7 @@ typedef mozilla::dom::GMPAPITags GMPAPITags;
 struct GMPCapabilityAndVersion
 {
   explicit GMPCapabilityAndVersion(const GMPCapabilityData& aCapabilities)
-    : mName(aCapabilities.name())
-    , mVersion(aCapabilities.version())
+      : mName(aCapabilities.name()), mVersion(aCapabilities.version())
   {
     for (const GMPAPITags& tags : aCapabilities.capabilities()) {
       GMPCapability cap;
@@ -268,7 +279,8 @@ GMPCapabilitiesToString()
 
 /* static */
 void
-GeckoMediaPluginServiceChild::UpdateGMPCapabilities(nsTArray<GMPCapabilityData>&& aCapabilities)
+GeckoMediaPluginServiceChild::UpdateGMPCapabilities(
+    nsTArray<GMPCapabilityData>&& aCapabilities)
 {
   {
     // The mutex should unlock before sending the "gmp-changed" observer service notification.
@@ -287,7 +299,8 @@ GeckoMediaPluginServiceChild::UpdateGMPCapabilities(nsTArray<GMPCapabilityData>&
 
   // Fire a notification so that any MediaKeySystemAccess
   // requests waiting on a CDM to download will retry.
-  nsCOMPtr<nsIObserverService> obsService = mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> obsService =
+      mozilla::services::GetObserverService();
   MOZ_ASSERT(obsService);
   if (obsService) {
     obsService->NotifyObservers(nullptr, "gmp-changed", nullptr);
@@ -325,10 +338,11 @@ GeckoMediaPluginServiceChild::HasPluginForAPI(const nsACString& aAPI,
 }
 
 NS_IMETHODIMP
-GeckoMediaPluginServiceChild::GetNodeId(const nsAString& aOrigin,
-                                        const nsAString& aTopLevelOrigin,
-                                        const nsAString& aGMPName,
-                                        UniquePtr<GetNodeIdCallback>&& aCallback)
+GeckoMediaPluginServiceChild::GetNodeId(
+    const nsAString& aOrigin,
+    const nsAString& aTopLevelOrigin,
+    const nsAString& aGMPName,
+    UniquePtr<GetNodeIdCallback>&& aCallback)
 {
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
 
@@ -337,22 +351,23 @@ GeckoMediaPluginServiceChild::GetNodeId(const nsAString& aOrigin,
   nsString origin(aOrigin);
   nsString topLevelOrigin(aTopLevelOrigin);
   nsString gmpName(aGMPName);
-  GetServiceChild()->Then(thread, __func__,
-    [rawCallback, origin, topLevelOrigin, gmpName](GMPServiceChild* child) {
-      UniquePtr<GetNodeIdCallback> callback(rawCallback);
-      nsCString outId;
-      if (!child->SendGetGMPNodeId(origin, topLevelOrigin,
-                                   gmpName, &outId)) {
-        callback->Done(NS_ERROR_FAILURE, EmptyCString());
-        return;
-      }
+  GetServiceChild()->Then(
+      thread,
+      __func__,
+      [rawCallback, origin, topLevelOrigin, gmpName](GMPServiceChild* child) {
+        UniquePtr<GetNodeIdCallback> callback(rawCallback);
+        nsCString outId;
+        if (!child->SendGetGMPNodeId(origin, topLevelOrigin, gmpName, &outId)) {
+          callback->Done(NS_ERROR_FAILURE, EmptyCString());
+          return;
+        }
 
-      callback->Done(NS_OK, outId);
-    },
-    [rawCallback](nsresult rv) {
-      UniquePtr<GetNodeIdCallback> callback(rawCallback);
-      callback->Done(NS_ERROR_FAILURE, EmptyCString());
-    });
+        callback->Done(NS_OK, outId);
+      },
+      [rawCallback](nsresult rv) {
+        UniquePtr<GetNodeIdCallback> callback(rawCallback);
+        callback->Done(NS_ERROR_FAILURE, EmptyCString());
+      });
 
   return NS_OK;
 }
@@ -365,9 +380,9 @@ GeckoMediaPluginServiceChild::Observe(nsISupports* aSubject,
   LOGD(("%s::%s: %s", __CLASS__, __FUNCTION__, aTopic));
   if (!strcmp(NS_XPCOM_SHUTDOWN_THREADS_OBSERVER_ID, aTopic)) {
     if (mServiceChild) {
-      mozilla::SyncRunnable::DispatchToThread(mGMPThread,
-                                              WrapRunnable(mServiceChild.get(),
-                                                           &PGMPServiceChild::Close));
+      mozilla::SyncRunnable::DispatchToThread(
+          mGMPThread,
+          WrapRunnable(mServiceChild.get(), &PGMPServiceChild::Close));
       mServiceChild = nullptr;
     }
     ShutdownGMPThread();
@@ -391,22 +406,26 @@ GeckoMediaPluginServiceChild::GetServiceChild()
     }
     dom::ContentChild* contentChild = dom::ContentChild::GetSingleton();
     if (!contentChild) {
-      return GetServiceChildPromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
+      return GetServiceChildPromise::CreateAndReject(NS_ERROR_FAILURE,
+                                                     __func__);
     }
-    MozPromiseHolder<GetServiceChildPromise>* holder = mGetServiceChildPromises.AppendElement();
+    MozPromiseHolder<GetServiceChildPromise>* holder =
+        mGetServiceChildPromises.AppendElement();
     RefPtr<GetServiceChildPromise> promise = holder->Ensure(__func__);
     if (mGetServiceChildPromises.Length() == 1) {
-      nsCOMPtr<nsIRunnable> r = WrapRunnable(
-        contentChild, &dom::ContentChild::SendCreateGMPService);
+      nsCOMPtr<nsIRunnable> r =
+          WrapRunnable(contentChild, &dom::ContentChild::SendCreateGMPService);
       SystemGroup::Dispatch(TaskCategory::Other, r.forget());
     }
     return promise;
   }
-  return GetServiceChildPromise::CreateAndResolve(mServiceChild.get(), __func__);
+  return GetServiceChildPromise::CreateAndResolve(mServiceChild.get(),
+                                                  __func__);
 }
 
 void
-GeckoMediaPluginServiceChild::SetServiceChild(UniquePtr<GMPServiceChild>&& aServiceChild)
+GeckoMediaPluginServiceChild::SetServiceChild(
+    UniquePtr<GMPServiceChild>&& aServiceChild)
 {
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
 
@@ -420,7 +439,8 @@ GeckoMediaPluginServiceChild::SetServiceChild(UniquePtr<GMPServiceChild>&& aServ
 }
 
 void
-GeckoMediaPluginServiceChild::RemoveGMPContentParent(GMPContentParent* aGMPContentParent)
+GeckoMediaPluginServiceChild::RemoveGMPContentParent(
+    GMPContentParent* aGMPContentParent)
 {
   MOZ_ASSERT(mGMPThread->EventTarget()->IsOnCurrentThread());
 
@@ -433,17 +453,13 @@ GeckoMediaPluginServiceChild::RemoveGMPContentParent(GMPContentParent* aGMPConte
   }
 }
 
-GMPServiceChild::GMPServiceChild()
-{
-}
+GMPServiceChild::GMPServiceChild() {}
 
-GMPServiceChild::~GMPServiceChild()
-{
-}
+GMPServiceChild::~GMPServiceChild() {}
 
 already_AddRefed<GMPContentParent>
-GMPServiceChild::GetBridgedGMPContentParent(ProcessId aOtherPid,
-                                            ipc::Endpoint<PGMPContentParent>&& endpoint)
+GMPServiceChild::GetBridgedGMPContentParent(
+    ProcessId aOtherPid, ipc::Endpoint<PGMPContentParent>&& endpoint)
 {
   RefPtr<GMPContentParent> parent;
   mContentParents.Get(aOtherPid, getter_AddRefs(parent));
@@ -477,7 +493,8 @@ GMPServiceChild::RemoveGMPContentParent(GMPContentParent* aGMPContentParent)
 }
 
 void
-GMPServiceChild::GetAlreadyBridgedTo(nsTArray<base::ProcessId>& aAlreadyBridgedTo)
+GMPServiceChild::GetAlreadyBridgedTo(
+    nsTArray<base::ProcessId>& aAlreadyBridgedTo)
 {
   aAlreadyBridgedTo.SetCapacity(mContentParents.Count());
   for (auto iter = mContentParents.Iter(); !iter.Done(); iter.Next()) {
@@ -488,19 +505,19 @@ GMPServiceChild::GetAlreadyBridgedTo(nsTArray<base::ProcessId>& aAlreadyBridgedT
 
 class OpenPGMPServiceChild : public mozilla::Runnable
 {
-public:
+ public:
   OpenPGMPServiceChild(UniquePtr<GMPServiceChild>&& aGMPServiceChild,
                        ipc::Endpoint<PGMPServiceChild>&& aEndpoint)
-    : Runnable("gmp::OpenPGMPServiceChild")
-    , mGMPServiceChild(Move(aGMPServiceChild))
-    , mEndpoint(Move(aEndpoint))
+      : Runnable("gmp::OpenPGMPServiceChild"),
+        mGMPServiceChild(Move(aGMPServiceChild)),
+        mEndpoint(Move(aEndpoint))
   {
   }
 
   NS_IMETHOD Run() override
   {
     RefPtr<GeckoMediaPluginServiceChild> gmp =
-      GeckoMediaPluginServiceChild::GetSingleton();
+        GeckoMediaPluginServiceChild::GetSingleton();
     MOZ_ASSERT(!gmp->mServiceChild);
     if (mEndpoint.Bind(mGMPServiceChild.get())) {
       gmp->SetServiceChild(Move(mGMPServiceChild));
@@ -510,7 +527,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   UniquePtr<GMPServiceChild> mGMPServiceChild;
   ipc::Endpoint<PGMPServiceChild> mEndpoint;
 };
@@ -520,7 +537,7 @@ bool
 GMPServiceChild::Create(Endpoint<PGMPServiceChild>&& aGMPService)
 {
   RefPtr<GeckoMediaPluginServiceChild> gmp =
-    GeckoMediaPluginServiceChild::GetSingleton();
+      GeckoMediaPluginServiceChild::GetSingleton();
   MOZ_ASSERT(!gmp->mServiceChild);
 
   UniquePtr<GMPServiceChild> serviceChild(new GMPServiceChild());
@@ -529,9 +546,9 @@ GMPServiceChild::Create(Endpoint<PGMPServiceChild>&& aGMPService)
   nsresult rv = gmp->GetThread(getter_AddRefs(gmpThread));
   NS_ENSURE_SUCCESS(rv, false);
 
-  rv = gmpThread->Dispatch(new OpenPGMPServiceChild(Move(serviceChild),
-                                                    Move(aGMPService)),
-                           NS_DISPATCH_NORMAL);
+  rv = gmpThread->Dispatch(
+      new OpenPGMPServiceChild(Move(serviceChild), Move(aGMPService)),
+      NS_DISPATCH_NORMAL);
   return NS_SUCCEEDED(rv);
 }
 
@@ -539,7 +556,7 @@ ipc::IPCResult
 GMPServiceChild::RecvBeginShutdown()
 {
   RefPtr<GeckoMediaPluginServiceChild> service =
-    GeckoMediaPluginServiceChild::GetSingleton();
+      GeckoMediaPluginServiceChild::GetSingleton();
   MOZ_ASSERT(service && service->mServiceChild.get() == this);
   if (service) {
     service->BeginShutdown();
@@ -553,5 +570,5 @@ GMPServiceChild::HaveContentParents() const
   return mContentParents.Count() > 0;
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

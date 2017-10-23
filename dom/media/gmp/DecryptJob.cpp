@@ -11,8 +11,7 @@ namespace mozilla {
 static Atomic<uint32_t> sDecryptJobInstanceCount(0u);
 
 DecryptJob::DecryptJob(MediaRawData* aSample)
-  : mId(++sDecryptJobInstanceCount )
-  , mSample(aSample)
+    : mId(++sDecryptJobInstanceCount), mSample(aSample)
 {
 }
 
@@ -53,4 +52,4 @@ DecryptJob::PostResult(DecryptStatus aResult,
   mPromise.Resolve(DecryptResult(aResult, mSample), __func__);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -21,23 +21,21 @@ using namespace mozilla;
 // =======================
 
 NS_QUERYFRAME_HEAD(nsRubyBaseFrame)
-  NS_QUERYFRAME_ENTRY(nsRubyBaseFrame)
+NS_QUERYFRAME_ENTRY(nsRubyBaseFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsRubyContentFrame)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsRubyBaseFrame)
 
 nsContainerFrame*
-NS_NewRubyBaseFrame(nsIPresShell* aPresShell,
-                    nsStyleContext* aContext)
+NS_NewRubyBaseFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsRubyBaseFrame(aContext);
 }
 
+  //----------------------------------------------------------------------
 
-//----------------------------------------------------------------------
-
-// nsRubyBaseFrame Method Implementations
-// ======================================
+  // nsRubyBaseFrame Method Implementations
+  // ======================================
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult

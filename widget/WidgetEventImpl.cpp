@@ -28,10 +28,9 @@ const char*
 ToChar(EventMessage aEventMessage)
 {
   switch (aEventMessage) {
-
 #define NS_EVENT_MESSAGE(aMessage) \
-    case aMessage: \
-      return #aMessage;
+  case aMessage:                   \
+    return #aMessage;
 
 #include "mozilla/EventMessageList.h"
 
@@ -45,14 +44,13 @@ const char*
 ToChar(EventClassID aEventClassID)
 {
   switch (aEventClassID) {
-
 #define NS_ROOT_EVENT_CLASS(aPrefix, aName) \
-    case eBasic##aName##Class: \
-      return "eBasic" #aName "Class";
+  case eBasic##aName##Class:                \
+    return "eBasic" #aName "Class";
 
 #define NS_EVENT_CLASS(aPrefix, aName) \
-    case e##aName##Class: \
-      return "e" #aName "Class";
+  case e##aName##Class:                \
+    return "e" #aName "Class";
 
 #include "mozilla/EventClassList.h"
 
@@ -91,8 +89,8 @@ GetDOMKeyCodeName(uint32_t aKeyCode)
   switch (aKeyCode) {
 #define NS_DISALLOW_SAME_KEYCODE
 #define NS_DEFINE_VK(aDOMKeyName, aDOMKeyCode) \
-    case aDOMKeyCode: \
-      return NS_LITERAL_CSTRING(#aDOMKeyName);
+  case aDOMKeyCode:                            \
+    return NS_LITERAL_CSTRING(#aDOMKeyName);
 
 #include "mozilla/VirtualKeyCodeList.h"
 
@@ -172,23 +170,18 @@ ToSelectionType(TextRangeType aTextRangeType)
   }
 }
 
-/******************************************************************************
+  /******************************************************************************
  * As*Event() implementation
  ******************************************************************************/
 
 #define NS_ROOT_EVENT_CLASS(aPrefix, aName)
-#define NS_EVENT_CLASS(aPrefix, aName) \
-aPrefix##aName* \
-WidgetEvent::As##aName() \
-{ \
-  return nullptr; \
-} \
-\
-const aPrefix##aName* \
-WidgetEvent::As##aName() const \
-{ \
-  return const_cast<WidgetEvent*>(this)->As##aName(); \
-}
+#define NS_EVENT_CLASS(aPrefix, aName)                         \
+  aPrefix##aName* WidgetEvent::As##aName() { return nullptr; } \
+                                                               \
+  const aPrefix##aName* WidgetEvent::As##aName() const         \
+  {                                                            \
+    return const_cast<WidgetEvent*>(this)->As##aName();        \
+  }
 
 #include "mozilla/EventClassList.h"
 
@@ -224,7 +217,6 @@ WidgetEvent::IsNativeEventDelivererForPlugin() const
 {
   return mClass == ePluginEventClass;
 }
-
 
 /******************************************************************************
  * mozilla::WidgetEvent
@@ -307,8 +299,7 @@ WidgetEvent::HasIMEEventMessage() const
 bool
 WidgetEvent::HasPluginActivationEventMessage() const
 {
-  return mMessage == ePluginActivate ||
-         mMessage == ePluginFocus;
+  return mMessage == ePluginActivate || mMessage == ePluginFocus;
 }
 
 /******************************************************************************
@@ -326,8 +317,7 @@ WidgetEvent::CanBeSentToRemoteProcess() const
     return false;
   }
 
-  if (mClass == eKeyboardEventClass ||
-      mClass == eWheelEventClass) {
+  if (mClass == eKeyboardEventClass || mClass == eWheelEventClass) {
     return true;
   }
 
@@ -399,8 +389,7 @@ WidgetEvent::IsUsingCoordinates() const
   }
   return !HasKeyEventMessage() && !IsIMERelatedEvent() &&
          !HasPluginActivationEventMessage() &&
-         !IsNativeEventDelivererForPlugin() &&
-         !IsContentCommandEvent();
+         !IsNativeEventDelivererForPlugin() && !IsContentCommandEvent();
 }
 
 bool
@@ -411,8 +400,7 @@ WidgetEvent::IsTargetedAtFocusedWindow() const
     return mouseEvent->IsContextMenuKeyEvent();
   }
   return HasKeyEventMessage() || IsIMERelatedEvent() ||
-         IsContentCommandEvent() ||
-         IsRetargetedNativeEventDelivererForPlugin();
+         IsContentCommandEvent() || IsRetargetedNativeEventDelivererForPlugin();
 }
 
 bool
@@ -597,8 +585,8 @@ WidgetWheelEvent::ComputeOverriddenDelta(double aDelta, bool aIsForVertical)
     return aDelta;
   }
   int32_t intFactor = aIsForVertical
-                      ? gfxPrefs::MouseWheelRootScrollVerticalFactor()
-                      : gfxPrefs::MouseWheelRootScrollHorizontalFactor();
+                          ? gfxPrefs::MouseWheelRootScrollVerticalFactor()
+                          : gfxPrefs::MouseWheelRootScrollHorizontalFactor();
   // Making the scroll speed slower doesn't make sense. So, ignore odd factor
   // which is less than 1.0.
   if (intFactor <= 100) {
@@ -626,7 +614,7 @@ WidgetWheelEvent::OverriddenDeltaY() const
   return ComputeOverriddenDelta(mDeltaY, true);
 }
 
-/******************************************************************************
+  /******************************************************************************
  * mozilla::WidgetKeyboardEvent (TextEvents.h)
  ******************************************************************************/
 
@@ -637,16 +625,16 @@ const char16_t* const WidgetKeyboardEvent::kKeyNames[] = {
 #undef NS_DEFINE_KEYNAME
 
 #define NS_DEFINE_PHYSICAL_KEY_CODE_NAME(aCPPName, aDOMCodeName) \
-    (u"" aDOMCodeName),
+  (u"" aDOMCodeName),
 const char16_t* const WidgetKeyboardEvent::kCodeNames[] = {
 #include "mozilla/PhysicalKeyCodeNameList.h"
 };
 #undef NS_DEFINE_PHYSICAL_KEY_CODE_NAME
 
 WidgetKeyboardEvent::KeyNameIndexHashtable*
-  WidgetKeyboardEvent::sKeyNameIndexHashtable = nullptr;
+    WidgetKeyboardEvent::sKeyNameIndexHashtable = nullptr;
 WidgetKeyboardEvent::CodeNameIndexHashtable*
-  WidgetKeyboardEvent::sCodeNameIndexHashtable = nullptr;
+    WidgetKeyboardEvent::sCodeNameIndexHashtable = nullptr;
 
 void
 WidgetKeyboardEvent::InitAllEditCommands()
@@ -663,10 +651,11 @@ WidgetKeyboardEvent::InitAllEditCommands()
     return;
   }
 
-  MOZ_ASSERT(XRE_IsParentProcess(),
-    "It's too expensive to retrieve all edit commands from remote process");
+  MOZ_ASSERT(
+      XRE_IsParentProcess(),
+      "It's too expensive to retrieve all edit commands from remote process");
   MOZ_ASSERT(!AreAllEditCommandsInitialized(),
-    "Shouldn't be called two or more times");
+             "Shouldn't be called two or more times");
 
   InitEditCommandsFor(nsIWidget::NativeKeyBindingsForSingleLineEditor);
   InitEditCommandsFor(nsIWidget::NativeKeyBindingsForMultiLineEditor);
@@ -752,8 +741,7 @@ HasASCIIDigit(const ShortcutKeyCandidateArray& aCandidates)
 {
   for (uint32_t i = 0; i < aCandidates.Length(); ++i) {
     uint32_t ch = aCandidates[i].mCharCode;
-    if (ch >= '0' && ch <= '9')
-      return true;
+    if (ch >= '0' && ch <= '9') return true;
   }
   return false;
 }
@@ -761,23 +749,21 @@ HasASCIIDigit(const ShortcutKeyCandidateArray& aCandidates)
 static bool
 CharsCaseInsensitiveEqual(uint32_t aChar1, uint32_t aChar2)
 {
-  return aChar1 == aChar2 ||
-         (IS_IN_BMP(aChar1) && IS_IN_BMP(aChar2) &&
-          ToLowerCase(static_cast<char16_t>(aChar1)) ==
-            ToLowerCase(static_cast<char16_t>(aChar2)));
+  return aChar1 == aChar2 || (IS_IN_BMP(aChar1) && IS_IN_BMP(aChar2) &&
+                              ToLowerCase(static_cast<char16_t>(aChar1)) ==
+                                  ToLowerCase(static_cast<char16_t>(aChar2)));
 }
 
 static bool
 IsCaseChangeableChar(uint32_t aChar)
 {
-  return IS_IN_BMP(aChar) &&
-         ToLowerCase(static_cast<char16_t>(aChar)) !=
-           ToUpperCase(static_cast<char16_t>(aChar));
+  return IS_IN_BMP(aChar) && ToLowerCase(static_cast<char16_t>(aChar)) !=
+                                 ToUpperCase(static_cast<char16_t>(aChar));
 }
 
 void
 WidgetKeyboardEvent::GetShortcutKeyCandidates(
-                       ShortcutKeyCandidateArray& aCandidates) const
+    ShortcutKeyCandidateArray& aCandidates) const
 {
   MOZ_ASSERT(aCandidates.IsEmpty(), "aCandidates must be empty");
 
@@ -871,7 +857,8 @@ WidgetKeyboardEvent::GetShortcutKeyCandidates(
 }
 
 void
-WidgetKeyboardEvent::GetAccessKeyCandidates(nsTArray<uint32_t>& aCandidates) const
+WidgetKeyboardEvent::GetAccessKeyCandidates(
+    nsTArray<uint32_t>& aCandidates) const
 {
   MOZ_ASSERT(aCandidates.IsEmpty(), "aCandidates must be empty");
 
@@ -887,9 +874,8 @@ WidgetKeyboardEvent::GetAccessKeyCandidates(nsTArray<uint32_t>& aCandidates) con
     aCandidates.AppendElement(ch);
   }
   for (uint32_t i = 0; i < mAlternativeCharCodes.Length(); ++i) {
-    uint32_t ch[2] =
-      { mAlternativeCharCodes[i].mUnshiftedCharCode,
-        mAlternativeCharCodes[i].mShiftedCharCode };
+    uint32_t ch[2] = {mAlternativeCharCodes[i].mUnshiftedCharCode,
+                      mAlternativeCharCodes[i].mShiftedCharCode};
     for (uint32_t j = 0; j < 2; ++j) {
       if (!ch[j]) {
         continue;
@@ -915,13 +901,14 @@ WidgetKeyboardEvent::GetAccessKeyCandidates(nsTArray<uint32_t>& aCandidates) con
 }
 
 // mask values for ui.key.chromeAccess and ui.key.contentAccess
-#define NS_MODIFIER_SHIFT    1
-#define NS_MODIFIER_CONTROL  2
-#define NS_MODIFIER_ALT      4
-#define NS_MODIFIER_META     8
-#define NS_MODIFIER_OS       16
+#define NS_MODIFIER_SHIFT 1
+#define NS_MODIFIER_CONTROL 2
+#define NS_MODIFIER_ALT 4
+#define NS_MODIFIER_META 8
+#define NS_MODIFIER_OS 16
 
-static Modifiers PrefFlagsToModifiers(int32_t aPrefFlags)
+static Modifiers
+PrefFlagsToModifiers(int32_t aPrefFlags)
 {
   Modifiers result = 0;
   if (aPrefFlags & NS_MODIFIER_SHIFT) {
@@ -954,9 +941,9 @@ WidgetKeyboardEvent::ModifiersMatchWithAccessKey(AccessKeyType aType) const
 Modifiers
 WidgetKeyboardEvent::ModifiersForAccessKeyMatching() const
 {
-  static const Modifiers kModifierMask =
-    MODIFIER_SHIFT | MODIFIER_CONTROL |
-    MODIFIER_ALT | MODIFIER_META | MODIFIER_OS;
+  static const Modifiers kModifierMask = MODIFIER_SHIFT | MODIFIER_CONTROL |
+                                         MODIFIER_ALT | MODIFIER_META |
+                                         MODIFIER_OS;
   return mModifiers & kModifierMask;
 }
 
@@ -966,7 +953,7 @@ WidgetKeyboardEvent::AccessKeyModifiers(AccessKeyType aType)
 {
   switch (GenericAccessModifierKeyPref()) {
     case -1:
-      break; // use the individual prefs
+      break;  // use the individual prefs
     case NS_VK_SHIFT:
       return MODIFIER_SHIFT;
     case NS_VK_CONTROL:
@@ -999,7 +986,7 @@ WidgetKeyboardEvent::GenericAccessModifierKeyPref()
   static int32_t sValue = -1;
   if (!sInitialized) {
     nsresult rv =
-      Preferences::AddIntVarCache(&sValue, "ui.key.generalAccessKey", sValue);
+        Preferences::AddIntVarCache(&sValue, "ui.key.generalAccessKey", sValue);
     sInitialized = NS_SUCCEEDED(rv);
     MOZ_ASSERT(sInitialized);
   }
@@ -1014,7 +1001,7 @@ WidgetKeyboardEvent::ChromeAccessModifierMaskPref()
   static int32_t sValue = 0;
   if (!sInitialized) {
     nsresult rv =
-      Preferences::AddIntVarCache(&sValue, "ui.key.chromeAccess", sValue);
+        Preferences::AddIntVarCache(&sValue, "ui.key.chromeAccess", sValue);
     sInitialized = NS_SUCCEEDED(rv);
     MOZ_ASSERT(sInitialized);
   }
@@ -1029,7 +1016,7 @@ WidgetKeyboardEvent::ContentAccessModifierMaskPref()
   static int32_t sValue = 0;
   if (!sInitialized) {
     nsresult rv =
-      Preferences::AddIntVarCache(&sValue, "ui.key.contentAccess", sValue);
+        Preferences::AddIntVarCache(&sValue, "ui.key.contentAccess", sValue);
     sInitialized = NS_SUCCEEDED(rv);
     MOZ_ASSERT(sInitialized);
   }
@@ -1054,9 +1041,9 @@ WidgetKeyboardEvent::GetDOMKeyName(KeyNameIndex aKeyNameIndex,
     return;
   }
 
-  MOZ_RELEASE_ASSERT(static_cast<size_t>(aKeyNameIndex) <
-                       ArrayLength(kKeyNames),
-                     "Illegal key enumeration value");
+  MOZ_RELEASE_ASSERT(
+      static_cast<size_t>(aKeyNameIndex) < ArrayLength(kKeyNames),
+      "Illegal key enumeration value");
   aKeyName = kKeyNames[aKeyNameIndex];
 }
 
@@ -1069,9 +1056,9 @@ WidgetKeyboardEvent::GetDOMCodeName(CodeNameIndex aCodeNameIndex,
     return;
   }
 
-  MOZ_RELEASE_ASSERT(static_cast<size_t>(aCodeNameIndex) <
-                       ArrayLength(kCodeNames),
-                     "Illegal physical code enumeration value");
+  MOZ_RELEASE_ASSERT(
+      static_cast<size_t>(aCodeNameIndex) < ArrayLength(kCodeNames),
+      "Illegal physical code enumeration value");
   aCodeName = kCodeNames[aCodeNameIndex];
 }
 
@@ -1079,8 +1066,7 @@ WidgetKeyboardEvent::GetDOMCodeName(CodeNameIndex aCodeNameIndex,
 WidgetKeyboardEvent::GetKeyNameIndex(const nsAString& aKeyValue)
 {
   if (!sKeyNameIndexHashtable) {
-    sKeyNameIndexHashtable =
-      new KeyNameIndexHashtable(ArrayLength(kKeyNames));
+    sKeyNameIndexHashtable = new KeyNameIndexHashtable(ArrayLength(kKeyNames));
     for (size_t i = 0; i < ArrayLength(kKeyNames); i++) {
       sKeyNameIndexHashtable->Put(nsDependentString(kKeyNames[i]),
                                   static_cast<KeyNameIndex>(i));
@@ -1096,7 +1082,7 @@ WidgetKeyboardEvent::GetCodeNameIndex(const nsAString& aCodeValue)
 {
   if (!sCodeNameIndexHashtable) {
     sCodeNameIndexHashtable =
-      new CodeNameIndexHashtable(ArrayLength(kCodeNames));
+        new CodeNameIndexHashtable(ArrayLength(kCodeNames));
     for (size_t i = 0; i < ArrayLength(kCodeNames); i++) {
       sCodeNameIndexHashtable->Put(nsDependentString(kCodeNames[i]),
                                    static_cast<CodeNameIndex>(i));
@@ -1112,7 +1098,7 @@ WidgetKeyboardEvent::GetCommandStr(Command aCommand)
 {
 #define NS_DEFINE_COMMAND(aName, aCommandStr) , #aCommandStr
   static const char* const kCommands[] = {
-    "" // CommandDoNothing
+      ""  // CommandDoNothing
 #include "mozilla/CommandList.h"
   };
 #undef NS_DEFINE_COMMAND
@@ -1255,8 +1241,8 @@ WidgetKeyboardEvent::ComputeKeyCodeFromKeyNameIndex(KeyNameIndex aKeyNameIndex)
     case KEY_NAME_INDEX_Delete:
       return nsIDOMKeyEvent::DOM_VK_DELETE;
     case KEY_NAME_INDEX_OS:
-    // case KEY_NAME_INDEX_Super:
-    // case KEY_NAME_INDEX_Hyper:
+      // case KEY_NAME_INDEX_Super:
+      // case KEY_NAME_INDEX_Hyper:
       return nsIDOMKeyEvent::DOM_VK_WIN;
     case KEY_NAME_INDEX_ContextMenu:
       return nsIDOMKeyEvent::DOM_VK_CONTEXT_MENU;
@@ -1395,4 +1381,4 @@ WidgetKeyboardEvent::IsLockableModifier(KeyNameIndex aKeyNameIndex)
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

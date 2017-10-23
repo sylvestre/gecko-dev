@@ -14,16 +14,20 @@ class nsIDocShell;
 class nsIInputStream;
 class nsIRequest;
 
-#define NS_ILINKHANDLER_IID \
-  { 0xceb9aade, 0x43da, 0x4f1a, \
-    { 0xac, 0x8a, 0xc7, 0x09, 0xfb, 0x22, 0x46, 0x64 } }
+#define NS_ILINKHANDLER_IID                          \
+  {                                                  \
+    0xceb9aade, 0x43da, 0x4f1a,                      \
+    {                                                \
+      0xac, 0x8a, 0xc7, 0x09, 0xfb, 0x22, 0x46, 0x64 \
+    }                                                \
+  }
 
 /**
  * Interface used for handling clicks on links
  */
 class nsILinkHandler : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ILINKHANDLER_IID)
 
   /**

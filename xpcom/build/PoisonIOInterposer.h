@@ -17,22 +17,28 @@ MOZ_BEGIN_EXTERN_C
  * between binaries not using the same CRT on Windows (which happens when one of
  * them links the static CRT). In such cases, giving file descriptors or FILEs
  * doesn't work because _get_osfhandle fails with "invalid parameter". */
-void MozillaRegisterDebugHandle(intptr_t aHandle);
+void
+MozillaRegisterDebugHandle(intptr_t aHandle);
 
 /** Register file descriptor to be ignored by poisoning IO interposer */
-void MozillaRegisterDebugFD(int aFd);
+void
+MozillaRegisterDebugFD(int aFd);
 
 /** Register file to be ignored by poisoning IO interposer */
-void MozillaRegisterDebugFILE(FILE* aFile);
+void
+MozillaRegisterDebugFILE(FILE* aFile);
 
 /** Unregister file handle from being ignored by poisoning IO interposer */
-void MozillaUnRegisterDebugHandle(intptr_t aHandle);
+void
+MozillaUnRegisterDebugHandle(intptr_t aHandle);
 
 /** Unregister file descriptor from being ignored by poisoning IO interposer */
-void MozillaUnRegisterDebugFD(int aFd);
+void
+MozillaUnRegisterDebugFD(int aFd);
 
 /** Unregister file from being ignored by poisoning IO interposer */
-void MozillaUnRegisterDebugFILE(FILE* aFile);
+void
+MozillaUnRegisterDebugFILE(FILE* aFile);
 
 MOZ_END_EXTERN_C
 
@@ -44,7 +50,8 @@ namespace mozilla {
 /**
  * Check if a file is registered as a debug file.
  */
-bool IsDebugFile(intptr_t aFileID);
+bool
+IsDebugFile(intptr_t aFileID);
 
 /**
  * Initialize IO poisoning, this is only safe to do on the main-thread when no
@@ -52,7 +59,8 @@ bool IsDebugFile(intptr_t aFileID);
  *
  * Please, note that this probably has performance implications as all
  */
-void InitPoisonIOInterposer();
+void
+InitPoisonIOInterposer();
 
 #ifdef XP_MACOSX
 /**
@@ -61,31 +69,46 @@ void InitPoisonIOInterposer();
  * from file to see if we're writing dirty bits is expensive, so we don't want
  * to do this for everything else that uses
  */
-void OnlyReportDirtyWrites();
+void
+OnlyReportDirtyWrites();
 #endif /* XP_MACOSX */
 
 /**
  * Clear IO poisoning, this is only safe to do on the main-thread when no other
  * threads are running.
  */
-void ClearPoisonIOInterposer();
+void
+ClearPoisonIOInterposer();
 
-} // namespace mozilla
+}  // namespace mozilla
 #endif /* __cplusplus */
 
 #else /* XP_WIN || XP_MACOSX */
 
 #ifdef __cplusplus
 namespace mozilla {
-inline bool IsDebugFile(intptr_t aFileID) { return true; }
-inline void InitPoisonIOInterposer() {}
-inline void ClearPoisonIOInterposer() {}
+inline bool
+IsDebugFile(intptr_t aFileID)
+{
+  return true;
+}
+inline void
+InitPoisonIOInterposer()
+{
+}
+inline void
+ClearPoisonIOInterposer()
+{
+}
 #ifdef XP_MACOSX
-inline void OnlyReportDirtyWrites() {}
+inline void
+OnlyReportDirtyWrites()
+{
+}
 #endif /* XP_MACOSX */
-} // namespace mozilla
+}  // namespace mozilla
 #endif /* __cplusplus */
 
 #endif /* XP_WIN || XP_MACOSX */
 
-#endif // mozilla_PoisonIOInterposer_h
+#endif  // mozilla_PoisonIOInterposer_h

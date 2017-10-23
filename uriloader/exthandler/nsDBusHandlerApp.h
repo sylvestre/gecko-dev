@@ -12,15 +12,15 @@
 
 class nsDBusHandlerApp : public nsIDBusHandlerApp
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIHANDLERAPP
   NS_DECL_NSIDBUSHANDLERAPP
 
-  nsDBusHandlerApp() { }
+  nsDBusHandlerApp() {}
 
-protected:
-  virtual ~nsDBusHandlerApp() { }
+ protected:
+  virtual ~nsDBusHandlerApp() {}
 
   nsString mName;
   nsString mDetailedDescription;
@@ -28,6 +28,5 @@ protected:
   nsCString mMethod;
   nsCString mInterface;
   nsCString mObjpath;
-
 };
 #endif

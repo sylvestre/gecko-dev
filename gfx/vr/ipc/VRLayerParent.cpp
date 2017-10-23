@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "VRLayerParent.h"
 #include "mozilla/Unused.h"
 #include "VRDisplayHost.h"
@@ -14,16 +13,11 @@ using namespace layers;
 namespace gfx {
 
 VRLayerParent::VRLayerParent(uint32_t aVRDisplayID, const uint32_t aGroup)
-  : mIPCOpen(true)
-  , mVRDisplayID(aVRDisplayID)
-  , mGroup(aGroup)
+    : mIPCOpen(true), mVRDisplayID(aVRDisplayID), mGroup(aGroup)
 {
 }
 
-VRLayerParent::~VRLayerParent()
-{
-  MOZ_COUNT_DTOR(VRLayerParent);
-}
+VRLayerParent::~VRLayerParent() { MOZ_COUNT_DTOR(VRLayerParent); }
 
 mozilla::ipc::IPCResult
 VRLayerParent::RecvDestroy()
@@ -58,7 +52,7 @@ VRLayerParent::Destroy()
 }
 
 mozilla::ipc::IPCResult
-VRLayerParent::RecvSubmitFrame(const layers::SurfaceDescriptor &aTexture,
+VRLayerParent::RecvSubmitFrame(const layers::SurfaceDescriptor& aTexture,
                                const uint64_t& aFrameId,
                                const gfx::Rect& aLeftEyeRect,
                                const gfx::Rect& aRightEyeRect)
@@ -71,11 +65,19 @@ VRLayerParent::RecvSubmitFrame(const layers::SurfaceDescriptor &aTexture,
       // Because VR compositor still shares the same graphics device with Compositor thread.
       // We have to post sumbit frame tasks to Compositor thread.
       // TODO: Move SubmitFrame to Bug 1392217.
-      loop->PostTask(NewRunnableMethod<VRDisplayHost*, const layers::SurfaceDescriptor, uint64_t,
-                                       const gfx::Rect&, const gfx::Rect&>(
-                     "gfx::VRLayerParent::SubmitFrame",
-                     this,
-                     &VRLayerParent::SubmitFrame, display, aTexture, aFrameId, aLeftEyeRect, aRightEyeRect));
+      loop->PostTask(
+          NewRunnableMethod<VRDisplayHost*,
+                            const layers::SurfaceDescriptor,
+                            uint64_t,
+                            const gfx::Rect&,
+                            const gfx::Rect&>("gfx::VRLayerParent::SubmitFrame",
+                                              this,
+                                              &VRLayerParent::SubmitFrame,
+                                              display,
+                                              aTexture,
+                                              aFrameId,
+                                              aLeftEyeRect,
+                                              aRightEyeRect));
     }
   }
 
@@ -83,12 +85,14 @@ VRLayerParent::RecvSubmitFrame(const layers::SurfaceDescriptor &aTexture,
 }
 
 void
-VRLayerParent::SubmitFrame(VRDisplayHost* aDisplay, const layers::SurfaceDescriptor& aTexture,
-                           uint64_t aFrameId, const gfx::Rect& aLeftEyeRect, const gfx::Rect& aRightEyeRect)
+VRLayerParent::SubmitFrame(VRDisplayHost* aDisplay,
+                           const layers::SurfaceDescriptor& aTexture,
+                           uint64_t aFrameId,
+                           const gfx::Rect& aLeftEyeRect,
+                           const gfx::Rect& aRightEyeRect)
 {
-  aDisplay->SubmitFrame(this, aTexture, aFrameId,
-                        aLeftEyeRect, aRightEyeRect);
+  aDisplay->SubmitFrame(this, aTexture, aFrameId, aLeftEyeRect, aRightEyeRect);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -18,19 +18,17 @@ class ServiceWorkerManagerService;
 
 class ServiceWorkerUpdaterParent final : public PServiceWorkerUpdaterParent
 {
-public:
-  void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+ public:
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  bool
-  Proceed(ServiceWorkerManagerService* aService);
+  bool Proceed(ServiceWorkerManagerService* aService);
 
-private:
+ private:
   RefPtr<ServiceWorkerManagerService> mService;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ServiceWorkerUpdaterParent_h
+#endif  // mozilla_dom_ServiceWorkerUpdaterParent_h

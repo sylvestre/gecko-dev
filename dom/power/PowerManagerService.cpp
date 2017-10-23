@@ -59,21 +59,21 @@ PowerManagerService::~PowerManagerService()
 }
 
 void
-PowerManagerService::ComputeWakeLockState(const WakeLockInformation& aWakeLockInfo,
-                                          nsAString &aState)
+PowerManagerService::ComputeWakeLockState(
+    const WakeLockInformation& aWakeLockInfo, nsAString& aState)
 {
   WakeLockState state = hal::ComputeWakeLockState(aWakeLockInfo.numLocks(),
                                                   aWakeLockInfo.numHidden());
   switch (state) {
-  case WAKE_LOCK_STATE_UNLOCKED:
-    aState.AssignLiteral("unlocked");
-    break;
-  case WAKE_LOCK_STATE_HIDDEN:
-    aState.AssignLiteral("locked-background");
-    break;
-  case WAKE_LOCK_STATE_VISIBLE:
-    aState.AssignLiteral("locked-foreground");
-    break;
+    case WAKE_LOCK_STATE_UNLOCKED:
+      aState.AssignLiteral("unlocked");
+      break;
+    case WAKE_LOCK_STATE_HIDDEN:
+      aState.AssignLiteral("locked-background");
+      break;
+    case WAKE_LOCK_STATE_VISIBLE:
+      aState.AssignLiteral("locked-foreground");
+      break;
   }
 }
 
@@ -88,7 +88,8 @@ PowerManagerService::Notify(const WakeLockInformation& aWakeLockInfo)
    * because the callbacks may install new listeners. We expect no
    * more than one listener per window, so it shouldn't be too long.
    */
-  AutoTArray<nsCOMPtr<nsIDOMMozWakeLockListener>, 2> listeners(mWakeLockListeners);
+  AutoTArray<nsCOMPtr<nsIDOMMozWakeLockListener>, 2> listeners(
+      mWakeLockListeners);
 
   for (uint32_t i = 0; i < listeners.Length(); ++i) {
     listeners[i]->Callback(aWakeLockInfo.topic(), state);
@@ -96,24 +97,25 @@ PowerManagerService::Notify(const WakeLockInformation& aWakeLockInfo)
 }
 
 NS_IMETHODIMP
-PowerManagerService::AddWakeLockListener(nsIDOMMozWakeLockListener *aListener)
+PowerManagerService::AddWakeLockListener(nsIDOMMozWakeLockListener* aListener)
 {
-  if (mWakeLockListeners.Contains(aListener))
-    return NS_OK;
+  if (mWakeLockListeners.Contains(aListener)) return NS_OK;
 
   mWakeLockListeners.AppendElement(aListener);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-PowerManagerService::RemoveWakeLockListener(nsIDOMMozWakeLockListener *aListener)
+PowerManagerService::RemoveWakeLockListener(
+    nsIDOMMozWakeLockListener* aListener)
 {
   mWakeLockListeners.RemoveElement(aListener);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-PowerManagerService::GetWakeLockState(const nsAString &aTopic, nsAString &aState)
+PowerManagerService::GetWakeLockState(const nsAString& aTopic,
+                                      nsAString& aState)
 {
   WakeLockInformation info;
   GetWakeLockInfo(aTopic, &info);
@@ -138,13 +140,13 @@ PowerManagerService::NewWakeLock(const nsAString& aTopic,
 }
 
 NS_IMETHODIMP
-PowerManagerService::NewWakeLock(const nsAString &aTopic,
-                                 mozIDOMWindow *aWindow,
-                                 nsISupports **aWakeLock)
+PowerManagerService::NewWakeLock(const nsAString& aTopic,
+                                 mozIDOMWindow* aWindow,
+                                 nsISupports** aWakeLock)
 {
   mozilla::ErrorResult rv;
   RefPtr<WakeLock> wakelock =
-    NewWakeLock(aTopic, nsPIDOMWindowInner::From(aWindow), rv);
+      NewWakeLock(aTopic, nsPIDOMWindowInner::From(aWindow), rv);
   if (rv.Failed()) {
     return rv.StealNSResult();
   }
@@ -164,6 +166,6 @@ PowerManagerService::NewWakeLockOnBehalfOfProcess(const nsAString& aTopic,
   return wakelock.forget();
 }
 
-} // namespace power
-} // namespace dom
-} // namespace mozilla
+}  // namespace power
+}  // namespace dom
+}  // namespace mozilla

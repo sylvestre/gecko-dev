@@ -33,13 +33,19 @@
 
 #include "nptest.h"
 
-NPUTF8* createCStringFromNPVariant(const NPVariant* variant);
+NPUTF8*
+createCStringFromNPVariant(const NPVariant* variant);
 
-NPIdentifier variantToIdentifier(NPVariant variant);
-NPIdentifier stringVariantToIdentifier(NPVariant variant);
-NPIdentifier int32VariantToIdentifier(NPVariant variant);
-NPIdentifier doubleVariantToIdentifier(NPVariant variant);
+NPIdentifier
+variantToIdentifier(NPVariant variant);
+NPIdentifier
+stringVariantToIdentifier(NPVariant variant);
+NPIdentifier
+int32VariantToIdentifier(NPVariant variant);
+NPIdentifier
+doubleVariantToIdentifier(NPVariant variant);
 
-uint32_t parseHexColor(const char* color, int len);
+uint32_t
+parseHexColor(const char* color, int len);
 
-#endif // nptest_utils_h_
+#endif  // nptest_utils_h_

@@ -11,7 +11,7 @@
 
 #include "mozilla/Alignment.h"
 #include "mozilla/AllocPolicy.h"
-#include "mozilla/ArrayUtils.h" // for PointerRangeSize
+#include "mozilla/ArrayUtils.h"  // for PointerRangeSize
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/MathAlgorithms.h"
@@ -22,12 +22,12 @@
 #include "mozilla/TemplateLib.h"
 #include "mozilla/TypeTraits.h"
 
-#include <new> // for placement new
+#include <new>  // for placement new
 
 /* Silence dire "bugs in previous versions of MSVC have been fixed" warnings */
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable:4345)
+#pragma warning(disable : 4345)
 #endif
 
 namespace mozilla {
@@ -43,7 +43,8 @@ namespace detail {
  * power-of-two as possible. growStorageBy() is responsible for ensuring this.
  */
 template<typename T>
-static bool CapacityHasExcessSpace(size_t aCapacity)
+static bool
+CapacityHasExcessSpace(size_t aCapacity)
 {
   size_t size = aCapacity * sizeof(T);
   return RoundUpPow2(size) - size >= sizeof(T);
@@ -63,7 +64,7 @@ struct VectorImpl
   MOZ_NONNULL(1)
   static inline void new_(T* aDst, Args&&... aArgs)
   {
-    new(KnownNotNull, aDst) T(Forward<Args>(aArgs)...);
+    new (KnownNotNull, aDst) T(Forward<Args>(aArgs)...);
   }
 
   /* Destroys constructed objects in the range [aBegin, aEnd). */
@@ -90,10 +91,11 @@ struct VectorImpl
    */
   template<typename U>
   static inline void copyConstruct(T* aDst,
-                                   const U* aSrcStart, const U* aSrcEnd)
+                                   const U* aSrcStart,
+                                   const U* aSrcEnd)
   {
     MOZ_ASSERT(aSrcStart <= aSrcEnd);
-    for (const U* p = aSrcStart; p < aSrcEnd; ++p, ++aDst) {
+    for (const U *p = aSrcStart; p < aSrcEnd; ++p, ++aDst) {
       new_(aDst, *p);
     }
   }
@@ -106,7 +108,7 @@ struct VectorImpl
   static inline void moveConstruct(T* aDst, U* aSrcStart, U* aSrcEnd)
   {
     MOZ_ASSERT(aSrcStart <= aSrcEnd);
-    for (U* p = aSrcStart; p < aSrcEnd; ++p, ++aDst) {
+    for (U *p = aSrcStart; p < aSrcEnd; ++p, ++aDst) {
       new_(aDst, Move(*p));
     }
   }
@@ -129,8 +131,7 @@ struct VectorImpl
    * aNewCap has not overflowed, and (2) multiplying aNewCap by sizeof(T) will
    * not overflow.
    */
-  static inline MOZ_MUST_USE bool
-  growTo(Vector<T, N, AP>& aV, size_t aNewCap)
+  static inline MOZ_MUST_USE bool growTo(Vector<T, N, AP>& aV, size_t aNewCap)
   {
     MOZ_ASSERT(!aV.usingInlineStorage());
     MOZ_ASSERT(!CapacityHasExcessSpace<T>(aNewCap));
@@ -192,7 +193,8 @@ struct VectorImpl<T, N, AP, true>
 
   template<typename U>
   static inline void copyConstruct(T* aDst,
-                                   const U* aSrcStart, const U* aSrcEnd)
+                                   const U* aSrcStart,
+                                   const U* aSrcEnd)
   {
     /*
      * See above memset comment. Also, notice that copyConstruct is
@@ -202,14 +204,15 @@ struct VectorImpl<T, N, AP, true>
      * memcpy(aDst, aSrcStart, sizeof(T) * (aSrcEnd - aSrcStart));
      */
     MOZ_ASSERT(aSrcStart <= aSrcEnd);
-    for (const U* p = aSrcStart; p < aSrcEnd; ++p, ++aDst) {
+    for (const U *p = aSrcStart; p < aSrcEnd; ++p, ++aDst) {
       new_(aDst, *p);
     }
   }
 
   template<typename U>
   static inline void moveConstruct(T* aDst,
-                                   const U* aSrcStart, const U* aSrcEnd)
+                                   const U* aSrcStart,
+                                   const U* aSrcEnd)
   {
     copyConstruct(aDst, aSrcStart, aSrcEnd);
   }
@@ -221,13 +224,12 @@ struct VectorImpl<T, N, AP, true>
     }
   }
 
-  static inline MOZ_MUST_USE bool
-  growTo(Vector<T, N, AP>& aV, size_t aNewCap)
+  static inline MOZ_MUST_USE bool growTo(Vector<T, N, AP>& aV, size_t aNewCap)
   {
     MOZ_ASSERT(!aV.usingInlineStorage());
     MOZ_ASSERT(!CapacityHasExcessSpace<T>(aNewCap));
     T* newbuf =
-      aV.template pod_realloc<T>(aV.mBegin, aV.mTail.mCapacity, aNewCap);
+        aV.template pod_realloc<T>(aV.mBegin, aV.mTail.mCapacity, aNewCap);
     if (MOZ_UNLIKELY(!newbuf)) {
       return false;
     }
@@ -237,8 +239,7 @@ struct VectorImpl<T, N, AP, true>
     return true;
   }
 
-  static inline void
-  podResizeToFit(Vector<T, N, AP>& aV)
+  static inline void podResizeToFit(Vector<T, N, AP>& aV)
   {
     if (aV.usingInlineStorage() || aV.mLength == aV.mTail.mCapacity) {
       return;
@@ -253,7 +254,7 @@ struct VectorImpl<T, N, AP, true>
       return;
     }
     T* newbuf =
-      aV.template pod_realloc<T>(aV.mBegin, aV.mTail.mCapacity, aV.mLength);
+        aV.template pod_realloc<T>(aV.mBegin, aV.mTail.mCapacity, aV.mLength);
     if (MOZ_UNLIKELY(!newbuf)) {
       return;
     }
@@ -269,7 +270,7 @@ struct VectorImpl<T, N, AP, true>
 // DO NOT DEFINE IN YOUR OWN CODE.
 struct VectorTesting;
 
-} // namespace detail
+}  // namespace detail
 
 /*
  * STL-like container providing a short-lived, dynamic buffer.  Vector calls the
@@ -297,8 +298,10 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
   /* utilities */
 
   static const bool kElemIsPod = IsPod<T>::value;
-  typedef detail::VectorImpl<T, MinInlineCapacity, AllocPolicy, kElemIsPod> Impl;
-  friend struct detail::VectorImpl<T, MinInlineCapacity, AllocPolicy, kElemIsPod>;
+  typedef detail::VectorImpl<T, MinInlineCapacity, AllocPolicy, kElemIsPod>
+      Impl;
+  friend struct detail::
+      VectorImpl<T, MinInlineCapacity, AllocPolicy, kElemIsPod>;
 
   friend struct detail::VectorTesting;
 
@@ -315,7 +318,8 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
    * fields likely consume to attempt to play well with binary size classes.
    */
   static constexpr size_t kMaxInlineBytes =
-    1024 - (sizeof(AllocPolicy) + sizeof(T*) + sizeof(size_t) + sizeof(size_t));
+      1024 -
+      (sizeof(AllocPolicy) + sizeof(T*) + sizeof(size_t) + sizeof(size_t));
 
   /**
    * The number of T elements of inline capacity built into this Vector.  This
@@ -330,7 +334,7 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
   struct ComputeCapacity
   {
     static constexpr size_t value =
-      tl::Min<MinimumInlineCapacity, kMaxInlineBytes / sizeof(T)>::value;
+        tl::Min<MinimumInlineCapacity, kMaxInlineBytes / sizeof(T)>::value;
   };
 
   template<size_t Dummy>
@@ -341,7 +345,7 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
 
   /** The actual inline capacity in number of elements T.  This may be zero! */
   static constexpr size_t kInlineCapacity =
-    ComputeCapacity<MinInlineCapacity, 0>::value;
+      ComputeCapacity<MinInlineCapacity, 0>::value;
 
   /* member data */
 
@@ -379,11 +383,13 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
   struct CapacityAndReserved
   {
     explicit CapacityAndReserved(size_t aCapacity, size_t aReserved)
-      : mCapacity(aCapacity)
+        : mCapacity(aCapacity)
 #ifdef DEBUG
-      , mReserved(aReserved)
+          ,
+          mReserved(aReserved)
 #endif
-    {}
+    {
+    }
     CapacityAndReserved() = default;
 
     /* Max number of elements storable in the vector without resizing. */
@@ -398,16 +404,17 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
 // Silence warnings about this struct possibly being padded dued to the
 // alignas() in it -- there's nothing we can do to avoid it.
 #ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable:4324)
-#endif // _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4324)
+#endif  // _MSC_VER
 
   template<size_t Capacity, size_t Dummy>
   struct CRAndStorage : CapacityAndReserved
   {
     explicit CRAndStorage(size_t aCapacity, size_t aReserved)
-      : CapacityAndReserved(aCapacity, aReserved)
-    {}
+        : CapacityAndReserved(aCapacity, aReserved)
+    {
+    }
     CRAndStorage() = default;
 
     alignas(T) unsigned char mBytes[Capacity * sizeof(T)];
@@ -423,8 +430,9 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
   struct CRAndStorage<0, Dummy> : CapacityAndReserved
   {
     explicit CRAndStorage(size_t aCapacity, size_t aReserved)
-      : CapacityAndReserved(aCapacity, aReserved)
-    {}
+        : CapacityAndReserved(aCapacity, aReserved)
+    {
+    }
     CRAndStorage() = default;
 
     T* storage() { return nullptr; }
@@ -433,8 +441,8 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
   CRAndStorage<kInlineCapacity, 0> mTail;
 
 #ifdef _MSC_VER
-#  pragma warning(pop)
-#endif // _MSC_VER
+#pragma warning(pop)
+#endif  // _MSC_VER
 
 #ifdef DEBUG
   friend class ReentrancyGuard;
@@ -448,25 +456,13 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
     return mBegin == const_cast<Vector*>(this)->inlineStorage();
   }
 
-  T* inlineStorage()
-  {
-    return mTail.storage();
-  }
+  T* inlineStorage() { return mTail.storage(); }
 
-  T* beginNoCheck() const
-  {
-    return mBegin;
-  }
+  T* beginNoCheck() const { return mBegin; }
 
-  T* endNoCheck()
-  {
-    return mBegin + mLength;
-  }
+  T* endNoCheck() { return mBegin + mLength; }
 
-  const T* endNoCheck() const
-  {
-    return mBegin + mLength;
-  }
+  const T* endNoCheck() const { return mBegin + mLength; }
 
 #ifdef DEBUG
   /**
@@ -485,19 +481,21 @@ class MOZ_NON_PARAM Vector final : private AllocPolicy
 #endif
 
   /* Append operations guaranteed to succeed due to pre-reserved space. */
-  template<typename U> void internalAppend(U&& aU);
+  template<typename U>
+  void internalAppend(U&& aU);
   template<typename U, size_t O, class BP>
   void internalAppendAll(const Vector<U, O, BP>& aU);
   void internalAppendN(const T& aT, size_t aN);
-  template<typename U> void internalAppend(const U* aBegin, size_t aLength);
+  template<typename U>
+  void internalAppend(const U* aBegin, size_t aLength);
 
-public:
+ public:
   static const size_t sMaxInlineStorage = MinInlineCapacity;
 
   typedef T ElementType;
 
   explicit Vector(AllocPolicy = AllocPolicy());
-  Vector(Vector&&); /* Move constructor. */
+  Vector(Vector&&);            /* Move constructor. */
   Vector& operator=(Vector&&); /* Move assignment. */
   ~Vector();
 
@@ -507,7 +505,10 @@ public:
 
   AllocPolicy& allocPolicy() { return *this; }
 
-  enum { InlineLength = MinInlineCapacity };
+  enum
+  {
+    InlineLength = MinInlineCapacity
+  };
 
   size_t length() const { return mLength; }
 
@@ -572,19 +573,29 @@ public:
     friend class Vector;
     T* mCur;
     T* mEnd;
-    Range(T* aCur, T* aEnd)
-      : mCur(aCur)
-      , mEnd(aEnd)
+    Range(T* aCur, T* aEnd) : mCur(aCur), mEnd(aEnd)
     {
       MOZ_ASSERT(aCur <= aEnd);
     }
 
-  public:
+   public:
     bool empty() const { return mCur == mEnd; }
     size_t remain() const { return PointerRangeSize(mCur, mEnd); }
-    T& front() const { MOZ_ASSERT(!empty()); return *mCur; }
-    void popFront() { MOZ_ASSERT(!empty()); ++mCur; }
-    T popCopyFront() { MOZ_ASSERT(!empty()); return *mCur++; }
+    T& front() const
+    {
+      MOZ_ASSERT(!empty());
+      return *mCur;
+    }
+    void popFront()
+    {
+      MOZ_ASSERT(!empty());
+      ++mCur;
+    }
+    T popCopyFront()
+    {
+      MOZ_ASSERT(!empty());
+      return *mCur++;
+    }
   };
 
   class ConstRange
@@ -592,19 +603,29 @@ public:
     friend class Vector;
     const T* mCur;
     const T* mEnd;
-    ConstRange(const T* aCur, const T* aEnd)
-      : mCur(aCur)
-      , mEnd(aEnd)
+    ConstRange(const T* aCur, const T* aEnd) : mCur(aCur), mEnd(aEnd)
     {
       MOZ_ASSERT(aCur <= aEnd);
     }
 
-  public:
+   public:
     bool empty() const { return mCur == mEnd; }
     size_t remain() const { return PointerRangeSize(mCur, mEnd); }
-    const T& front() const { MOZ_ASSERT(!empty()); return *mCur; }
-    void popFront() { MOZ_ASSERT(!empty()); ++mCur; }
-    T popCopyFront() { MOZ_ASSERT(!empty()); return *mCur++; }
+    const T& front() const
+    {
+      MOZ_ASSERT(!empty());
+      return *mCur;
+    }
+    void popFront()
+    {
+      MOZ_ASSERT(!empty());
+      ++mCur;
+    }
+    T popCopyFront()
+    {
+      MOZ_ASSERT(!empty());
+      return *mCur++;
+    }
   };
 
   Range all() { return Range(begin(), end()); }
@@ -696,7 +717,8 @@ public:
    * vector, instead of copying it. If it fails, |aU| is left unmoved. ("We are
    * not amused.")
    */
-  template<typename U> MOZ_MUST_USE bool append(U&& aU);
+  template<typename U>
+  MOZ_MUST_USE bool append(U&& aU);
 
   /**
    * Construct a T in-place as a new entry at the end of this vector.
@@ -704,8 +726,7 @@ public:
   template<typename... Args>
   MOZ_MUST_USE bool emplaceBack(Args&&... aArgs)
   {
-    if (!growByUninitialized(1))
-      return false;
+    if (!growByUninitialized(1)) return false;
     Impl::new_(&back(), Forward<Args>(aArgs)...);
     return true;
   }
@@ -713,27 +734,29 @@ public:
   template<typename U, size_t O, class BP>
   MOZ_MUST_USE bool appendAll(const Vector<U, O, BP>& aU);
   MOZ_MUST_USE bool appendN(const T& aT, size_t aN);
-  template<typename U> MOZ_MUST_USE bool append(const U* aBegin, const U* aEnd);
-  template<typename U> MOZ_MUST_USE bool append(const U* aBegin, size_t aLength);
+  template<typename U>
+  MOZ_MUST_USE bool append(const U* aBegin, const U* aEnd);
+  template<typename U>
+  MOZ_MUST_USE bool append(const U* aBegin, size_t aLength);
 
   /*
    * Guaranteed-infallible append operations for use upon vectors whose
    * memory has been pre-reserved.  Don't use this if you haven't reserved the
    * memory!
    */
-  template<typename U> void infallibleAppend(U&& aU)
+  template<typename U>
+  void infallibleAppend(U&& aU)
   {
     internalAppend(Forward<U>(aU));
   }
-  void infallibleAppendN(const T& aT, size_t aN)
-  {
-    internalAppendN(aT, aN);
-  }
-  template<typename U> void infallibleAppend(const U* aBegin, const U* aEnd)
+  void infallibleAppendN(const T& aT, size_t aN) { internalAppendN(aT, aN); }
+  template<typename U>
+  void infallibleAppend(const U* aBegin, const U* aEnd)
   {
     internalAppend(aBegin, PointerRangeSize(aBegin, aEnd));
   }
-  template<typename U> void infallibleAppend(const U* aBegin, size_t aLength)
+  template<typename U>
+  void infallibleAppend(const U* aBegin, size_t aLength)
   {
     internalAppend(aBegin, aLength);
   }
@@ -843,17 +866,17 @@ public:
 
   void swap(Vector& aOther);
 
-private:
+ private:
   Vector(const Vector&) = delete;
   void operator=(const Vector&) = delete;
 };
 
 /* This does the re-entrancy check plus several other sanity checks. */
-#define MOZ_REENTRANCY_GUARD_ET_AL \
-  ReentrancyGuard g(*this); \
+#define MOZ_REENTRANCY_GUARD_ET_AL                                         \
+  ReentrancyGuard g(*this);                                                \
   MOZ_ASSERT_IF(usingInlineStorage(), mTail.mCapacity == kInlineCapacity); \
-  MOZ_ASSERT(reserved() <= mTail.mCapacity); \
-  MOZ_ASSERT(mLength <= reserved()); \
+  MOZ_ASSERT(reserved() <= mTail.mCapacity);                               \
+  MOZ_ASSERT(mLength <= reserved());                                       \
   MOZ_ASSERT(mLength <= mTail.mCapacity)
 
 /* Vector Implementation */
@@ -861,11 +884,12 @@ private:
 template<typename T, size_t N, class AP>
 MOZ_ALWAYS_INLINE
 Vector<T, N, AP>::Vector(AP aAP)
-  : AP(aAP)
-  , mLength(0)
-  , mTail(kInlineCapacity, 0)
+    : AP(aAP),
+      mLength(0),
+      mTail(kInlineCapacity, 0)
 #ifdef DEBUG
-  , mEntered(false)
+      ,
+      mEntered(false)
 #endif
 {
   mBegin = inlineStorage();
@@ -875,9 +899,10 @@ Vector<T, N, AP>::Vector(AP aAP)
 template<typename T, size_t N, class AllocPolicy>
 MOZ_ALWAYS_INLINE
 Vector<T, N, AllocPolicy>::Vector(Vector&& aRhs)
-  : AllocPolicy(Move(aRhs))
+    : AllocPolicy(Move(aRhs))
 #ifdef DEBUG
-  , mEntered(false)
+      ,
+      mEntered(false)
 #endif
 {
   mLength = aRhs.mLength;
@@ -916,13 +941,12 @@ Vector<T, N, AP>::operator=(Vector&& aRhs)
 {
   MOZ_ASSERT(this != &aRhs, "self-move assignment is prohibited");
   this->~Vector();
-  new(KnownNotNull, this) Vector(Move(aRhs));
+  new (KnownNotNull, this) Vector(Move(aRhs));
   return *this;
 }
 
 template<typename T, size_t N, class AP>
-MOZ_ALWAYS_INLINE
-Vector<T, N, AP>::~Vector()
+MOZ_ALWAYS_INLINE Vector<T, N, AP>::~Vector()
 {
   MOZ_REENTRANCY_GUARD_ET_AL;
   Impl::destroy(beginNoCheck(), endNoCheck());
@@ -933,7 +957,8 @@ Vector<T, N, AP>::~Vector()
 
 template<typename T, size_t N, class AP>
 MOZ_ALWAYS_INLINE void
-Vector<T, N, AP>::reverse() {
+Vector<T, N, AP>::reverse()
+{
   MOZ_REENTRANCY_GUARD_ET_AL;
   T* elems = mBegin;
   size_t len = mLength;
@@ -992,7 +1017,7 @@ Vector<T, N, AP>::growStorageBy(size_t aIncr)
     if (usingInlineStorage()) {
       /* This case occurs in ~70--80% of the calls to this function. */
       size_t newSize =
-        tl::RoundUpPow2<(kInlineCapacity + 1) * sizeof(T)>::value;
+          tl::RoundUpPow2<(kInlineCapacity + 1) * sizeof(T)>::value;
       newCap = newSize / sizeof(T);
       goto convert;
     }
@@ -1034,8 +1059,7 @@ Vector<T, N, AP>::growStorageBy(size_t aIncr)
 
     /* Did mLength + aIncr overflow?  Will newCap * sizeof(T) overflow? */
     if (MOZ_UNLIKELY(newMinCap < mLength ||
-                     newMinCap & tl::MulOverflowMask<2 * sizeof(T)>::value))
-    {
+                     newMinCap & tl::MulOverflowMask<2 * sizeof(T)>::value)) {
       this->reportAllocOverflow();
       return false;
     }
@@ -1046,7 +1070,7 @@ Vector<T, N, AP>::growStorageBy(size_t aIncr)
   }
 
   if (usingInlineStorage()) {
-convert:
+  convert:
     return convertToHeapStorage(newCap);
   }
 
@@ -1377,7 +1401,7 @@ Vector<T, N, AP>::append(const U* aInsBegin, const U* aInsEnd)
       return false;
     }
   } else if (!maybeCheckSimulatedOOM(mLength + aNeeded)) {
-      return false;
+    return false;
   }
 #ifdef DEBUG
   if (mLength + aNeeded > mTail.mReserved) {
@@ -1410,7 +1434,7 @@ Vector<T, N, AP>::append(U&& aU)
       return false;
     }
   } else if (!maybeCheckSimulatedOOM(mLength + 1)) {
-      return false;
+    return false;
   }
 #ifdef DEBUG
   if (mLength + 1 > mTail.mReserved) {
@@ -1562,8 +1586,7 @@ template<typename T, size_t N, class AP>
 inline void
 Vector<T, N, AP>::swap(Vector& aOther)
 {
-  static_assert(N == 0,
-                "still need to implement this for N != 0");
+  static_assert(N == 0, "still need to implement this for N != 0");
 
   // This only works when inline storage is always empty.
   if (!usingInlineStorage() && aOther.usingInlineStorage()) {
@@ -1585,7 +1608,7 @@ Vector<T, N, AP>::swap(Vector& aOther)
 #endif
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #ifdef _MSC_VER
 #pragma warning(pop)

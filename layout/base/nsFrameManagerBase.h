@@ -19,7 +19,7 @@ class nsIPresShell;
 
 class nsFrameManagerBase
 {
-public:
+ public:
   nsFrameManagerBase();
 
   bool IsDestroyingFrames() { return mIsDestroyingFrames; }
@@ -30,21 +30,21 @@ public:
    * destroyed, it destroys the entire frame hierarchy.
    */
   nsIFrame* GetRootFrame() const { return mRootFrame; }
-  void      SetRootFrame(nsIFrame* aRootFrame)
+  void SetRootFrame(nsIFrame* aRootFrame)
   {
     NS_ASSERTION(!mRootFrame, "already have a root frame");
     mRootFrame = aRootFrame;
   }
 
-protected:
+ protected:
   class UndisplayedMap;
 
   // weak link, because the pres shell owns us
   nsIPresShell* MOZ_NON_OWNING_REF mPresShell;
-  nsIFrame*                       mRootFrame;
-  UndisplayedMap*                 mDisplayNoneMap;
-  UndisplayedMap*                 mDisplayContentsMap;
-  bool                            mIsDestroyingFrames;  // The frame manager is destroying some frame(s).
+  nsIFrame* mRootFrame;
+  UndisplayedMap* mDisplayNoneMap;
+  UndisplayedMap* mDisplayContentsMap;
+  bool mIsDestroyingFrames;  // The frame manager is destroying some frame(s).
 };
 
 #endif

@@ -17,22 +17,20 @@
 class nsDeviceContext;
 
 // Script "screen" object
-class nsScreen : public mozilla::DOMEventTargetHelper
-               , public nsIDOMScreen
+class nsScreen : public mozilla::DOMEventTargetHelper, public nsIDOMScreen
 {
   typedef mozilla::ErrorResult ErrorResult;
-public:
+
+ public:
   static already_AddRefed<nsScreen> Create(nsPIDOMWindowInner* aWindow);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMSCREEN
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsScreen, mozilla::DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsScreen,
+                                           mozilla::DOMEventTargetHelper)
   NS_REALLY_FORWARD_NSIDOMEVENTTARGET(mozilla::DOMEventTargetHelper)
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   nsPIDOMWindowOuter* GetOuter() const;
 
@@ -81,10 +79,7 @@ public:
   }
 
   int32_t GetPixelDepth(ErrorResult& aRv);
-  int32_t GetColorDepth(ErrorResult& aRv)
-  {
-    return GetPixelDepth(aRv);
-  }
+  int32_t GetColorDepth(ErrorResult& aRv) { return GetPixelDepth(aRv); }
 
   int32_t GetAvailTop(ErrorResult& aRv)
   {
@@ -121,20 +116,22 @@ public:
   IMPL_EVENT_HANDLER(mozorientationchange)
 
   bool MozLockOrientation(const nsAString& aOrientation, ErrorResult& aRv);
-  bool MozLockOrientation(const mozilla::dom::Sequence<nsString>& aOrientations, ErrorResult& aRv);
+  bool MozLockOrientation(const mozilla::dom::Sequence<nsString>& aOrientations,
+                          ErrorResult& aRv);
   void MozUnlockOrientation();
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   mozilla::dom::ScreenOrientation* Orientation() const;
 
-protected:
+ protected:
   nsDeviceContext* GetDeviceContext();
   nsresult GetRect(nsRect& aRect);
   nsresult GetAvailRect(nsRect& aRect);
   nsresult GetWindowInnerRect(nsRect& aRect);
 
-private:
+ private:
   explicit nsScreen(nsPIDOMWindowInner* aWindow);
   virtual ~nsScreen();
 

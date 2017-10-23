@@ -36,24 +36,28 @@ namespace google_breakpad {
 
 // Automatically enters the critical section in the constructor and leaves
 // the critical section in the destructor.
-class AutoCriticalSection {
+class AutoCriticalSection
+{
  public:
   // Creates a new instance with the given critical section object
   // and enters the critical section immediately.
-  explicit AutoCriticalSection(CRITICAL_SECTION* cs) : cs_(cs), taken_(false) {
+  explicit AutoCriticalSection(CRITICAL_SECTION* cs) : cs_(cs), taken_(false)
+  {
     assert(cs_);
     Acquire();
   }
 
   // Destructor: leaves the critical section.
-  ~AutoCriticalSection() {
+  ~AutoCriticalSection()
+  {
     if (taken_) {
       Release();
     }
   }
 
   // Enters the critical section. Recursive Acquire() calls are not allowed.
-  void Acquire() {
+  void Acquire()
+  {
     assert(!taken_);
     EnterCriticalSection(cs_);
     taken_ = true;
@@ -61,7 +65,8 @@ class AutoCriticalSection {
 
   // Leaves the critical section. The caller should not call Release() unless
   // the critical seciton has been entered already.
-  void Release() {
+  void Release()
+  {
     assert(taken_);
     taken_ = false;
     LeaveCriticalSection(cs_);

@@ -11,7 +11,7 @@
 #include "mozilla/Move.h"
 
 #if !defined(XP_WIN)
-# include <pthread.h>
+#include <pthread.h>
 #endif
 
 namespace mozilla {
@@ -22,21 +22,22 @@ class ConditionVariableImpl;
 
 class MutexImpl
 {
-public:
+ public:
   struct PlatformData;
 
   MFBT_API MutexImpl();
   MFBT_API ~MutexImpl();
 
-  bool operator==(const MutexImpl& rhs) {
+  bool operator==(const MutexImpl& rhs)
+  {
     return platformData_ == rhs.platformData_;
   }
 
-protected:
+ protected:
   MFBT_API void lock();
   MFBT_API void unlock();
 
-private:
+ private:
   MutexImpl(const MutexImpl&) = delete;
   void operator=(const MutexImpl&) = delete;
   MutexImpl(MutexImpl&&) = delete;
@@ -47,7 +48,7 @@ private:
 #if !defined(XP_WIN)
   void* platformData_[sizeof(pthread_mutex_t) / sizeof(void*)];
   static_assert(sizeof(pthread_mutex_t) / sizeof(void*) != 0 &&
-                sizeof(pthread_mutex_t) % sizeof(void*) == 0,
+                    sizeof(pthread_mutex_t) % sizeof(void*) == 0,
                 "pthread_mutex_t must have pointer alignment");
 #else
   void* platformData_[6];
@@ -56,8 +57,8 @@ private:
   friend class mozilla::detail::ConditionVariableImpl;
 };
 
-} // namespace detail
+}  // namespace detail
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_PlatformMutex_h
+#endif  // mozilla_PlatformMutex_h

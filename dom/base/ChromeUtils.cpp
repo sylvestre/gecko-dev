@@ -12,17 +12,18 @@
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/IdleDeadline.h"
-#include "mozilla/dom/WindowBinding.h" // For IdleRequestCallback/Options
+#include "mozilla/dom/WindowBinding.h"  // For IdleRequestCallback/Options
 #include "nsThreadUtils.h"
 
 namespace mozilla {
 namespace dom {
 
 /* static */ void
-ThreadSafeChromeUtils::NondeterministicGetWeakMapKeys(GlobalObject& aGlobal,
-                                                      JS::Handle<JS::Value> aMap,
-                                                      JS::MutableHandle<JS::Value> aRetval,
-                                                      ErrorResult& aRv)
+ThreadSafeChromeUtils::NondeterministicGetWeakMapKeys(
+    GlobalObject& aGlobal,
+    JS::Handle<JS::Value> aMap,
+    JS::MutableHandle<JS::Value> aRetval,
+    ErrorResult& aRv)
 {
   if (!aMap.isObject()) {
     aRetval.setUndefined();
@@ -39,10 +40,11 @@ ThreadSafeChromeUtils::NondeterministicGetWeakMapKeys(GlobalObject& aGlobal,
 }
 
 /* static */ void
-ThreadSafeChromeUtils::NondeterministicGetWeakSetKeys(GlobalObject& aGlobal,
-                                                      JS::Handle<JS::Value> aSet,
-                                                      JS::MutableHandle<JS::Value> aRetval,
-                                                      ErrorResult& aRv)
+ThreadSafeChromeUtils::NondeterministicGetWeakSetKeys(
+    GlobalObject& aGlobal,
+    JS::Handle<JS::Value> aSet,
+    JS::MutableHandle<JS::Value> aRetval,
+    ErrorResult& aRv)
 {
   if (!aSet.isObject()) {
     aRetval.setUndefined();
@@ -59,11 +61,12 @@ ThreadSafeChromeUtils::NondeterministicGetWeakSetKeys(GlobalObject& aGlobal,
 }
 
 /* static */ void
-ThreadSafeChromeUtils::Base64URLEncode(GlobalObject& aGlobal,
-                                       const ArrayBufferViewOrArrayBuffer& aSource,
-                                       const Base64URLEncodeOptions& aOptions,
-                                       nsACString& aResult,
-                                       ErrorResult& aRv)
+ThreadSafeChromeUtils::Base64URLEncode(
+    GlobalObject& aGlobal,
+    const ArrayBufferViewOrArrayBuffer& aSource,
+    const Base64URLEncodeOptions& aOptions,
+    nsACString& aResult,
+    ErrorResult& aRv)
 {
   size_t length = 0;
   uint8_t* data = nullptr;
@@ -81,8 +84,8 @@ ThreadSafeChromeUtils::Base64URLEncode(GlobalObject& aGlobal,
     MOZ_CRASH("Uninitialized union: expected buffer or view");
   }
 
-  auto paddingPolicy = aOptions.mPad ? Base64URLEncodePaddingPolicy::Include :
-                                       Base64URLEncodePaddingPolicy::Omit;
+  auto paddingPolicy = aOptions.mPad ? Base64URLEncodePaddingPolicy::Include
+                                     : Base64URLEncodePaddingPolicy::Omit;
   nsresult rv = mozilla::Base64URLEncode(length, data, paddingPolicy, aResult);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aResult.Truncate();
@@ -122,10 +125,9 @@ ThreadSafeChromeUtils::Base64URLDecode(GlobalObject& aGlobal,
     return;
   }
 
-  JS::Rooted<JSObject*> buffer(aGlobal.Context(),
-                               ArrayBuffer::Create(aGlobal.Context(),
-                                                   data.Length(),
-                                                   data.Elements()));
+  JS::Rooted<JSObject*> buffer(
+      aGlobal.Context(),
+      ArrayBuffer::Create(aGlobal.Context(), data.Length(), data.Elements()));
   if (NS_WARN_IF(!buffer)) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
@@ -154,11 +156,12 @@ ChromeUtils::UnwaiveXrays(GlobalObject& aGlobal,
                           ErrorResult& aRv)
 {
   if (!aVal.isObject()) {
-      aRetval.set(aVal);
-      return;
+    aRetval.set(aVal);
+    return;
   }
 
-  JS::RootedObject obj(aGlobal.Context(), js::UncheckedUnwrap(&aVal.toObject()));
+  JS::RootedObject obj(aGlobal.Context(),
+                       js::UncheckedUnwrap(&aVal.toObject()));
   if (!JS_WrapObject(aGlobal.Context(), &obj)) {
     aRv.NoteJSContextException(aGlobal.Context());
   } else {
@@ -177,7 +180,8 @@ ChromeUtils::GetClassName(GlobalObject& aGlobal,
     obj = js::UncheckedUnwrap(obj, /* stopAtWindowProxy = */ false);
   }
 
-  aRetval = NS_ConvertUTF8toUTF16(nsDependentCString(js::GetObjectClass(obj)->name));
+  aRetval =
+      NS_ConvertUTF8toUTF16(nsDependentCString(js::GetObjectClass(obj)->name));
 }
 
 /* static */ void
@@ -189,9 +193,7 @@ ChromeUtils::ShallowClone(GlobalObject& aGlobal,
 {
   JSContext* cx = aGlobal.Context();
 
-  auto cleanup = MakeScopeExit([&] () {
-    aRv.NoteJSContextException(cx);
-  });
+  auto cleanup = MakeScopeExit([&]() { aRv.NoteJSContextException(cx); });
 
   JS::Rooted<JS::IdVector> ids(cx, JS::IdVector(cx));
   JS::AutoValueVector values(cx);
@@ -210,8 +212,7 @@ ChromeUtils::ShallowClone(GlobalObject& aGlobal,
 
     JSAutoCompartment ac(cx, obj);
 
-    if (!JS_Enumerate(cx, obj, &ids) ||
-        !values.reserve(ids.length())) {
+    if (!JS_Enumerate(cx, obj, &ids) || !values.reserve(ids.length())) {
       return;
     }
 
@@ -269,87 +270,81 @@ ChromeUtils::ShallowClone(GlobalObject& aGlobal,
 }
 
 namespace {
-  class IdleDispatchRunnable final : public IdleRunnable
-                                   , public nsITimerCallback
+class IdleDispatchRunnable final : public IdleRunnable, public nsITimerCallback
+{
+ public:
+  NS_DECL_ISUPPORTS_INHERITED
+
+  IdleDispatchRunnable(nsIGlobalObject* aParent, IdleRequestCallback& aCallback)
+      : IdleRunnable("ChromeUtils::IdleDispatch"),
+        mCallback(&aCallback),
+        mParent(aParent)
   {
-  public:
-    NS_DECL_ISUPPORTS_INHERITED
+  }
 
-    IdleDispatchRunnable(nsIGlobalObject* aParent,
-                         IdleRequestCallback& aCallback)
-      : IdleRunnable("ChromeUtils::IdleDispatch")
-      , mCallback(&aCallback)
-      , mParent(aParent)
-    {}
+  NS_IMETHOD Run() override
+  {
+    if (mCallback) {
+      CancelTimer();
 
-    NS_IMETHOD Run() override
-    {
-      if (mCallback) {
-        CancelTimer();
+      auto deadline = mDeadline - TimeStamp::ProcessCreation();
 
-        auto deadline = mDeadline - TimeStamp::ProcessCreation();
-
-        ErrorResult rv;
-        RefPtr<IdleDeadline> idleDeadline =
+      ErrorResult rv;
+      RefPtr<IdleDeadline> idleDeadline =
           new IdleDeadline(mParent, mTimedOut, deadline.ToMilliseconds());
 
-        mCallback->Call(*idleDeadline, rv, "ChromeUtils::IdleDispatch handler");
-        mCallback = nullptr;
-        mParent = nullptr;
+      mCallback->Call(*idleDeadline, rv, "ChromeUtils::IdleDispatch handler");
+      mCallback = nullptr;
+      mParent = nullptr;
 
-        rv.SuppressException();
-        return rv.StealNSResult();
-      }
-      return NS_OK;
+      rv.SuppressException();
+      return rv.StealNSResult();
     }
+    return NS_OK;
+  }
 
-    void SetDeadline(TimeStamp aDeadline) override
-    {
-      mDeadline = aDeadline;
+  void SetDeadline(TimeStamp aDeadline) override { mDeadline = aDeadline; }
+
+  NS_IMETHOD Notify(nsITimer* aTimer) override
+  {
+    mTimedOut = true;
+    SetDeadline(TimeStamp::Now());
+    return Run();
+  }
+
+  void SetTimer(uint32_t aDelay, nsIEventTarget* aTarget) override
+  {
+    MOZ_ASSERT(aTarget);
+    MOZ_ASSERT(!mTimer);
+    NS_NewTimerWithCallback(
+        getter_AddRefs(mTimer), this, aDelay, nsITimer::TYPE_ONE_SHOT, aTarget);
+  }
+
+ protected:
+  virtual ~IdleDispatchRunnable() { CancelTimer(); }
+
+ private:
+  void CancelTimer()
+  {
+    if (mTimer) {
+      mTimer->Cancel();
+      mTimer = nullptr;
     }
+  }
 
-    NS_IMETHOD Notify(nsITimer* aTimer) override
-    {
-      mTimedOut = true;
-      SetDeadline(TimeStamp::Now());
-      return Run();
-    }
+  RefPtr<IdleRequestCallback> mCallback;
+  nsCOMPtr<nsIGlobalObject> mParent;
 
-    void SetTimer(uint32_t aDelay, nsIEventTarget* aTarget) override
-    {
-      MOZ_ASSERT(aTarget);
-      MOZ_ASSERT(!mTimer);
-      NS_NewTimerWithCallback(getter_AddRefs(mTimer),
-                              this, aDelay, nsITimer::TYPE_ONE_SHOT,
-                              aTarget);
-    }
+  nsCOMPtr<nsITimer> mTimer;
 
-  protected:
-    virtual ~IdleDispatchRunnable()
-    {
-      CancelTimer();
-    }
+  TimeStamp mDeadline{};
+  bool mTimedOut = false;
+};
 
-  private:
-    void CancelTimer()
-    {
-      if (mTimer) {
-        mTimer->Cancel();
-        mTimer = nullptr;
-      }
-    }
-
-    RefPtr<IdleRequestCallback> mCallback;
-    nsCOMPtr<nsIGlobalObject> mParent;
-
-    nsCOMPtr<nsITimer> mTimer;
-
-    TimeStamp mDeadline{};
-    bool mTimedOut = false;
-  };
-
-  NS_IMPL_ISUPPORTS_INHERITED(IdleDispatchRunnable, IdleRunnable, nsITimerCallback)
-} // anonymous namespace
+NS_IMPL_ISUPPORTS_INHERITED(IdleDispatchRunnable,
+                            IdleRunnable,
+                            nsITimerCallback)
+}  // anonymous namespace
 
 /* static */ void
 ChromeUtils::IdleDispatch(const GlobalObject& aGlobal,
@@ -363,16 +358,18 @@ ChromeUtils::IdleDispatch(const GlobalObject& aGlobal,
   auto runnable = MakeRefPtr<IdleDispatchRunnable>(global, aCallback);
 
   if (aOptions.mTimeout.WasPassed()) {
-    aRv = NS_IdleDispatchToCurrentThread(runnable.forget(), aOptions.mTimeout.Value());
+    aRv = NS_IdleDispatchToCurrentThread(runnable.forget(),
+                                         aOptions.mTimeout.Value());
   } else {
     aRv = NS_IdleDispatchToCurrentThread(runnable.forget());
   }
 }
 
 /* static */ void
-ChromeUtils::OriginAttributesToSuffix(dom::GlobalObject& aGlobal,
-                                      const dom::OriginAttributesDictionary& aAttrs,
-                                      nsCString& aSuffix)
+ChromeUtils::OriginAttributesToSuffix(
+    dom::GlobalObject& aGlobal,
+    const dom::OriginAttributesDictionary& aAttrs,
+    nsCString& aSuffix)
 
 {
   OriginAttributes attrs(aAttrs);
@@ -380,9 +377,10 @@ ChromeUtils::OriginAttributesToSuffix(dom::GlobalObject& aGlobal,
 }
 
 /* static */ bool
-ChromeUtils::OriginAttributesMatchPattern(dom::GlobalObject& aGlobal,
-                                          const dom::OriginAttributesDictionary& aAttrs,
-                                          const dom::OriginAttributesPatternDictionary& aPattern)
+ChromeUtils::OriginAttributesMatchPattern(
+    dom::GlobalObject& aGlobal,
+    const dom::OriginAttributesDictionary& aAttrs,
+    const dom::OriginAttributesPatternDictionary& aPattern)
 {
   OriginAttributes attrs(aAttrs);
   OriginAttributesPattern pattern(aPattern);
@@ -390,10 +388,11 @@ ChromeUtils::OriginAttributesMatchPattern(dom::GlobalObject& aGlobal,
 }
 
 /* static */ void
-ChromeUtils::CreateOriginAttributesFromOrigin(dom::GlobalObject& aGlobal,
-                                       const nsAString& aOrigin,
-                                       dom::OriginAttributesDictionary& aAttrs,
-                                       ErrorResult& aRv)
+ChromeUtils::CreateOriginAttributesFromOrigin(
+    dom::GlobalObject& aGlobal,
+    const nsAString& aOrigin,
+    dom::OriginAttributesDictionary& aAttrs,
+    ErrorResult& aRv)
 {
   OriginAttributes attrs;
   nsAutoCString suffix;
@@ -405,13 +404,13 @@ ChromeUtils::CreateOriginAttributesFromOrigin(dom::GlobalObject& aGlobal,
 }
 
 /* static */ void
-ChromeUtils::FillNonDefaultOriginAttributes(dom::GlobalObject& aGlobal,
-                                 const dom::OriginAttributesDictionary& aAttrs,
-                                 dom::OriginAttributesDictionary& aNewAttrs)
+ChromeUtils::FillNonDefaultOriginAttributes(
+    dom::GlobalObject& aGlobal,
+    const dom::OriginAttributesDictionary& aAttrs,
+    dom::OriginAttributesDictionary& aNewAttrs)
 {
   aNewAttrs = aAttrs;
 }
-
 
 /* static */ bool
 ChromeUtils::IsOriginAttributesEqual(dom::GlobalObject& aGlobal,
@@ -431,5 +430,5 @@ ChromeUtils::IsOriginAttributesEqual(const dom::OriginAttributesDictionary& aA,
          aA.mPrivateBrowsingId == aB.mPrivateBrowsingId;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

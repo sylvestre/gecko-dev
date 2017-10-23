@@ -13,10 +13,7 @@
 namespace mozilla {
 namespace layers {
 
-DragTracker::DragTracker()
-  : mInDrag(false)
-{
-}
+DragTracker::DragTracker() : mInDrag(false) {}
 
 /*static*/ bool
 DragTracker::StartsDrag(const MouseInput& aInput)
@@ -33,8 +30,8 @@ DragTracker::EndsDrag(const MouseInput& aInput)
   // to content, but we're specially routing to APZ for this purpose. Bug
   // 1265105 tracks a solution to this at the Windows widget layer; once
   // that is implemented, this workaround can be removed.
-  return (aInput.IsLeftButton() && aInput.mType == MouseInput::MOUSE_UP)
-      || aInput.mType == MouseInput::MOUSE_DRAG_END;
+  return (aInput.IsLeftButton() && aInput.mType == MouseInput::MOUSE_UP) ||
+         aInput.mType == MouseInput::MOUSE_DRAG_END;
 }
 
 void
@@ -66,5 +63,5 @@ DragTracker::IsOnScrollbar(bool aOnScrollbar)
   return mOnScrollbar.value();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

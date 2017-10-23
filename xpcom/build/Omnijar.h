@@ -19,7 +19,7 @@ namespace mozilla {
 
 class Omnijar
 {
-private:
+ private:
   /**
    * Store an nsIFile for an omni.jar. We can store two paths here, one
    * for GRE (corresponding to resource://gre/) and one for APP
@@ -49,14 +49,14 @@ private:
    */
   static bool sIsUnified;
 
-public:
+ public:
   enum Type
   {
     GRE = 0,
     APP = 1
   };
 
-private:
+ private:
   /**
    * Returns whether we are using nested jars.
    */
@@ -78,7 +78,7 @@ private:
     return reader.forget();
   }
 
-public:
+ public:
   /**
    * Returns whether SetBase has been called at least once with
    * a valid nsIFile
@@ -147,7 +147,7 @@ public:
    */
   static nsresult GetURIString(Type aType, nsACString& aResult);
 
-private:
+ private:
   /**
    * Used internally, respectively by Init() and CleanUp()
    */

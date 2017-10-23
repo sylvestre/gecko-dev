@@ -23,12 +23,13 @@ CreateTextureHostBasic(const SurfaceDescriptor& aDesc,
 #ifdef XP_MACOSX
   if (aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorMacIOSurface) {
     const SurfaceDescriptorMacIOSurface& desc =
-      aDesc.get_SurfaceDescriptorMacIOSurface();
+        aDesc.get_SurfaceDescriptorMacIOSurface();
     return MakeAndAddRef<MacIOSurfaceTextureHostBasic>(aFlags, desc);
   }
 #endif
-  return CreateBackendIndependentTextureHost(aDesc, aDeallocator, aBackend, aFlags);
+  return CreateBackendIndependentTextureHost(
+      aDesc, aDeallocator, aBackend, aFlags);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

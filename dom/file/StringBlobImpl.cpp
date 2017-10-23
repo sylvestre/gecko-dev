@@ -22,24 +22,20 @@ StringBlobImpl::Create(const nsACString& aData, const nsAString& aContentType)
 
 StringBlobImpl::StringBlobImpl(const nsACString& aData,
                                const nsAString& aContentType)
-  : BaseBlobImpl(aContentType, aData.Length())
-  , mData(aData)
+    : BaseBlobImpl(aContentType, aData.Length()), mData(aData)
 {
 }
 
-StringBlobImpl::~StringBlobImpl()
-{
-  UnregisterWeakMemoryReporter(this);
-}
+StringBlobImpl::~StringBlobImpl() { UnregisterWeakMemoryReporter(this); }
 
 already_AddRefed<BlobImpl>
-StringBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
+StringBlobImpl::CreateSlice(uint64_t aStart,
+                            uint64_t aLength,
                             const nsAString& aContentType,
                             ErrorResult& aRv)
 {
   RefPtr<BlobImpl> impl =
-    new StringBlobImpl(Substring(mData, aStart, aLength),
-                       aContentType);
+      new StringBlobImpl(Substring(mData, aStart, aLength), aContentType);
   return impl.forget();
 }
 
@@ -51,14 +47,16 @@ StringBlobImpl::CreateInputStream(nsIInputStream** aStream, ErrorResult& aRv)
 
 NS_IMETHODIMP
 StringBlobImpl::CollectReports(nsIHandleReportCallback* aHandleReport,
-                               nsISupports* aData, bool aAnonymize)
+                               nsISupports* aData,
+                               bool aAnonymize)
 {
-  MOZ_COLLECT_REPORT(
-    "explicit/dom/memory-file-data/string", KIND_HEAP, UNITS_BYTES,
-    mData.SizeOfExcludingThisIfUnshared(MallocSizeOf),
-    "Memory used to back a File/Blob based on a string.");
+  MOZ_COLLECT_REPORT("explicit/dom/memory-file-data/string",
+                     KIND_HEAP,
+                     UNITS_BYTES,
+                     mData.SizeOfExcludingThisIfUnshared(MallocSizeOf),
+                     "Memory used to back a File/Blob based on a string.");
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

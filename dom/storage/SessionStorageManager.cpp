@@ -20,7 +20,9 @@ NS_IMPL_ISUPPORTS(SessionStorageManager, nsIDOMStorageManager)
 SessionStorageManager::SessionStorageManager()
 {
   StorageObserver* observer = StorageObserver::Self();
-  NS_ASSERTION(observer, "No StorageObserver, cannot observe private data delete notifications!");
+  NS_ASSERTION(
+      observer,
+      "No StorageObserver, cannot observe private data delete notifications!");
 
   if (observer) {
     observer->AddSink(this);
@@ -71,8 +73,8 @@ SessionStorageManager::CreateStorage(mozIDOMWindow* aWindow,
 
   nsCOMPtr<nsPIDOMWindowInner> inner = nsPIDOMWindowInner::From(aWindow);
 
-  RefPtr<SessionStorage> storage =
-    new SessionStorage(inner, aPrincipal, cache, this, aDocumentURI, aPrivate);
+  RefPtr<SessionStorage> storage = new SessionStorage(
+      inner, aPrincipal, cache, this, aDocumentURI, aPrivate);
 
   storage.forget(aRetval);
   return NS_OK;
@@ -105,8 +107,8 @@ SessionStorageManager::GetStorage(mozIDOMWindow* aWindow,
 
   nsCOMPtr<nsPIDOMWindowInner> inner = nsPIDOMWindowInner::From(aWindow);
 
-  RefPtr<SessionStorage> storage =
-    new SessionStorage(inner, aPrincipal, cache, this, EmptyString(), aPrivate);
+  RefPtr<SessionStorage> storage = new SessionStorage(
+      inner, aPrincipal, cache, this, EmptyString(), aPrivate);
 
   storage.forget(aRetval);
   return NS_OK;
@@ -126,8 +128,8 @@ SessionStorageManager::CloneStorage(nsIDOMStorage* aStorage)
 
   nsAutoCString originKey;
   nsAutoCString originAttributes;
-  nsresult rv = GenerateOriginKey(storage->Principal(), originAttributes,
-                                  originKey);
+  nsresult rv =
+      GenerateOriginKey(storage->Principal(), originAttributes, originKey);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -189,7 +191,7 @@ SessionStorageManager::CheckStorage(nsIPrincipal* aPrincipal,
   }
 
   RefPtr<SessionStorage> sessionStorage =
-    static_cast<SessionStorage*>(aStorage);
+      static_cast<SessionStorage*>(aStorage);
   if (sessionStorage->Cache() != cache) {
     return NS_OK;
   }
@@ -273,5 +275,5 @@ SessionStorageManager::Observe(const char* aTopic,
   return NS_OK;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

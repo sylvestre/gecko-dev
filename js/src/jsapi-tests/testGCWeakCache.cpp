@@ -16,8 +16,7 @@
 using namespace js;
 
 // Exercise WeakCache<GCHashSet>.
-BEGIN_TEST(testWeakCacheSet)
-{
+BEGIN_TEST(testWeakCacheSet) {
     // Create two objects tenured and two in the nursery. If zeal is on,
     // this may fail and we'll get more tenured objects. That's fine:
     // the test will continue to work, it will just not test as much.
@@ -27,9 +26,8 @@ BEGIN_TEST(testWeakCacheSet)
     JS::RootedObject nursery1(cx, JS_NewPlainObject(cx));
     JS::RootedObject nursery2(cx, JS_NewPlainObject(cx));
 
-    using ObjectSet = GCHashSet<JS::Heap<JSObject*>,
-                                MovableCellHasher<JS::Heap<JSObject*>>,
-                                SystemAllocPolicy>;
+    using ObjectSet =
+        GCHashSet<JS::Heap<JSObject*>, MovableCellHasher<JS::Heap<JSObject*>>, SystemAllocPolicy>;
     using Cache = JS::WeakCache<ObjectSet>;
     Cache cache(JS::GetObjectZone(tenured1));
     CHECK(cache.init());
@@ -58,8 +56,7 @@ BEGIN_TEST(testWeakCacheSet)
 END_TEST(testWeakCacheSet)
 
 // Exercise WeakCache<GCHashMap>.
-BEGIN_TEST(testWeakCacheMap)
-{
+BEGIN_TEST(testWeakCacheMap) {
     // Create two objects tenured and two in the nursery. If zeal is on,
     // this may fail and we'll get more tenured objects. That's fine:
     // the test will continue to work, it will just not test as much.
@@ -69,8 +66,8 @@ BEGIN_TEST(testWeakCacheMap)
     JS::RootedObject nursery1(cx, JS_NewPlainObject(cx));
     JS::RootedObject nursery2(cx, JS_NewPlainObject(cx));
 
-    using ObjectMap = js::GCHashMap<JS::Heap<JSObject*>, uint32_t,
-                                    js::MovableCellHasher<JS::Heap<JSObject*>>>;
+    using ObjectMap =
+        js::GCHashMap<JS::Heap<JSObject*>, uint32_t, js::MovableCellHasher<JS::Heap<JSObject*>>>;
     using Cache = JS::WeakCache<ObjectMap>;
     Cache cache(JS::GetObjectZone(tenured1), cx);
     CHECK(cache.init());
@@ -97,8 +94,7 @@ BEGIN_TEST(testWeakCacheMap)
 END_TEST(testWeakCacheMap)
 
 // Exercise WeakCache<GCVector>.
-BEGIN_TEST(testWeakCacheGCVector)
-{
+BEGIN_TEST(testWeakCacheGCVector) {
     // Create two objects tenured and two in the nursery. If zeal is on,
     // this may fail and we'll get more tenured objects. That's fine:
     // the test will continue to work, it will just not test as much.
@@ -137,31 +133,21 @@ END_TEST(testWeakCacheGCVector)
 
 // A simple structure that embeds an object pointer. We cripple the hash
 // implementation so that we can test hash table collisions.
-struct ObjectEntry
-{
+struct ObjectEntry {
     JS::Heap<JSObject*> obj;
     explicit ObjectEntry(JSObject* o) : obj(o) {}
-    bool operator==(const ObjectEntry& other) const {
-        return obj == other.obj;
-    }
-    bool needsSweep() {
-        return JS::GCPolicy<JS::Heap<JSObject*>>::needsSweep(&obj);
-    }
+    bool operator==(const ObjectEntry& other) const { return obj == other.obj; }
+    bool needsSweep() { return JS::GCPolicy<JS::Heap<JSObject*>>::needsSweep(&obj); }
 };
 
 namespace js {
 template <>
-struct MovableCellHasher<ObjectEntry>
-{
+struct MovableCellHasher<ObjectEntry> {
     using Key = ObjectEntry;
     using Lookup = JSObject*;
 
-    static bool hasHash(const Lookup& l) {
-        return MovableCellHasher<JSObject*>::hasHash(l);
-    }
-    static bool ensureHash(const Lookup& l) {
-        return MovableCellHasher<JSObject*>::ensureHash(l);
-    }
+    static bool hasHash(const Lookup& l) { return MovableCellHasher<JSObject*>::hasHash(l); }
+    static bool ensureHash(const Lookup& l) { return MovableCellHasher<JSObject*>::ensureHash(l); }
     static HashNumber hash(const Lookup& l) {
         // Reduce hash code to single bit to generate hash collisions.
         return MovableCellHasher<JS::Heap<JSObject*>>::hash(l) & 0x1;
@@ -170,12 +156,11 @@ struct MovableCellHasher<ObjectEntry>
         return MovableCellHasher<JS::Heap<JSObject*>>::match(k.obj, l);
     }
 };
-} // namespace js
+}  // namespace js
 
 // A structure that contains a pointer to a JSObject but is keyed based on an
 // integer. This lets us test replacing dying entries in a set.
-struct NumberAndObjectEntry
-{
+struct NumberAndObjectEntry {
     uint32_t number;
     JS::Heap<JSObject*> obj;
 
@@ -183,32 +168,25 @@ struct NumberAndObjectEntry
     bool operator==(const NumberAndObjectEntry& other) const {
         return number == other.number && obj == other.obj;
     }
-    bool needsSweep() {
-        return JS::GCPolicy<JS::Heap<JSObject*>>::needsSweep(&obj);
-    }
+    bool needsSweep() { return JS::GCPolicy<JS::Heap<JSObject*>>::needsSweep(&obj); }
 };
 
-struct NumberAndObjectLookup
-{
+struct NumberAndObjectLookup {
     uint32_t number;
     JS::Heap<JSObject*> obj;
 
     NumberAndObjectLookup(uint32_t n, JSObject* o) : number(n), obj(o) {}
     MOZ_IMPLICIT NumberAndObjectLookup(const NumberAndObjectEntry& entry)
-      : number(entry.number), obj(entry.obj)
-    {}
+        : number(entry.number), obj(entry.obj) {}
 };
 
 namespace js {
 template <>
-struct MovableCellHasher<NumberAndObjectEntry>
-{
+struct MovableCellHasher<NumberAndObjectEntry> {
     using Key = NumberAndObjectEntry;
     using Lookup = NumberAndObjectLookup;
 
-    static bool hasHash(const Lookup& l) {
-        return MovableCellHasher<JSObject*>::hasHash(l.obj);
-    }
+    static bool hasHash(const Lookup& l) { return MovableCellHasher<JSObject*>::hasHash(l.obj); }
     static bool ensureHash(const Lookup& l) {
         return MovableCellHasher<JSObject*>::ensureHash(l.obj);
     }
@@ -220,10 +198,9 @@ struct MovableCellHasher<NumberAndObjectEntry>
         return k.number == l.number && MovableCellHasher<JS::Heap<JSObject*>>::match(k.obj, l.obj);
     }
 };
-} // namespace js
+}  // namespace js
 
-BEGIN_TEST(testIncrementalWeakCacheSweeping)
-{
+BEGIN_TEST(testIncrementalWeakCacheSweeping) {
     AutoLeaveZeal nozeal(cx);
 
     JS_SetGCParameter(cx, JSGC_MODE, JSGC_MODE_INCREMENTAL);
@@ -242,9 +219,7 @@ BEGIN_TEST(testIncrementalWeakCacheSweeping)
 }
 
 template <typename Cache>
-bool
-GCUntilCacheSweep(JSContext *cx, const Cache& cache)
-{
+bool GCUntilCacheSweep(JSContext* cx, const Cache& cache) {
     CHECK(!IsIncrementalGCInProgress(cx));
 
     JS::Zone* zone = JS::GetObjectZone(global);
@@ -260,9 +235,7 @@ GCUntilCacheSweep(JSContext *cx, const Cache& cache)
 }
 
 template <typename Cache>
-bool
-SweepCacheAndFinishGC(JSContext* cx, const Cache& cache)
-{
+bool SweepCacheAndFinishGC(JSContext* cx, const Cache& cache) {
     CHECK(IsIncrementalGCInProgress(cx));
 
     PrepareForIncrementalGC(cx);
@@ -276,12 +249,9 @@ SweepCacheAndFinishGC(JSContext* cx, const Cache& cache)
     return true;
 }
 
-bool
-TestSet()
-{
-    using ObjectSet = GCHashSet<JS::Heap<JSObject*>,
-                                MovableCellHasher<JS::Heap<JSObject*>>,
-                                TempAllocPolicy>;
+bool TestSet() {
+    using ObjectSet =
+        GCHashSet<JS::Heap<JSObject*>, MovableCellHasher<JS::Heap<JSObject*>>, TempAllocPolicy>;
     using Cache = JS::WeakCache<ObjectSet>;
     Cache cache(JS::GetObjectZone(global), cx);
     CHECK(cache.init());
@@ -410,12 +380,9 @@ TestSet()
     return true;
 }
 
-bool
-TestMap()
-{
+bool TestMap() {
     using ObjectMap = GCHashMap<JS::Heap<JSObject*>, uint32_t,
-                                MovableCellHasher<JS::Heap<JSObject*>>,
-                                TempAllocPolicy>;
+                                MovableCellHasher<JS::Heap<JSObject*>>, TempAllocPolicy>;
     using Cache = JS::WeakCache<ObjectMap>;
     Cache cache(JS::GetObjectZone(global), cx);
     CHECK(cache.init());
@@ -546,15 +513,12 @@ TestMap()
     return true;
 }
 
-bool
-TestReplaceDyingInSet()
-{
+bool TestReplaceDyingInSet() {
     // Test replacing dying entries with ones that have the same key using the
     // various APIs.
 
-    using Cache = JS::WeakCache<GCHashSet<NumberAndObjectEntry,
-                                          MovableCellHasher<NumberAndObjectEntry>,
-                                          TempAllocPolicy>>;
+    using Cache = JS::WeakCache<
+        GCHashSet<NumberAndObjectEntry, MovableCellHasher<NumberAndObjectEntry>, TempAllocPolicy>>;
     Cache cache(JS::GetObjectZone(global), cx);
     CHECK(cache.init());
 
@@ -586,15 +550,13 @@ TestReplaceDyingInSet()
 
     auto ptr2 = cache.lookupForAdd(NumberAndObjectLookup(3, value1));
     CHECK(!ptr2);
-    CHECK(cache.relookupOrAdd(ptr2,
-                              NumberAndObjectLookup(3, value1),
+    CHECK(cache.relookupOrAdd(ptr2, NumberAndObjectLookup(3, value1),
                               NumberAndObjectEntry(3, value1)));
 
     CHECK(cache.put(NumberAndObjectEntry(4, value1)));
     CHECK(cache.putNew(NumberAndObjectEntry(5, value1)));
 
-    CHECK(cache.putNew(NumberAndObjectLookup(6, value1),
-                       NumberAndObjectEntry(6, value1)));
+    CHECK(cache.putNew(NumberAndObjectLookup(6, value1), NumberAndObjectEntry(6, value1)));
 
     CHECK(SweepCacheAndFinishGC(cx, cache));
 
@@ -609,16 +571,12 @@ TestReplaceDyingInSet()
     return true;
 }
 
-bool
-TestReplaceDyingInMap()
-{
+bool TestReplaceDyingInMap() {
     // Test replacing dying entries with ones that have the same key using the
     // various APIs.
 
-    using Cache = JS::WeakCache<GCHashMap<uint32_t,
-                                          JS::Heap<JSObject*>,
-                                          DefaultHasher<uint32_t>,
-                                          TempAllocPolicy>>;
+    using Cache = JS::WeakCache<
+        GCHashMap<uint32_t, JS::Heap<JSObject*>, DefaultHasher<uint32_t>, TempAllocPolicy>>;
     Cache cache(JS::GetObjectZone(global), cx);
     CHECK(cache.init());
 
@@ -671,9 +629,7 @@ TestReplaceDyingInMap()
     return true;
 }
 
-bool
-TestUniqueIDLookups()
-{
+bool TestUniqueIDLookups() {
     // Test hash table lookups during incremental sweeping where the hash is
     // generated based on a unique ID. The problem is that the unique ID table
     // will have already been swept by this point so looking up a dead pointer
@@ -683,9 +639,8 @@ TestUniqueIDLookups()
     const size_t DeadFactor = 3;
     const size_t ObjectCount = 100;
 
-    using Cache = JS::WeakCache<GCHashSet<ObjectEntry,
-                                          MovableCellHasher<ObjectEntry>,
-                                          TempAllocPolicy>>;
+    using Cache =
+        JS::WeakCache<GCHashSet<ObjectEntry, MovableCellHasher<ObjectEntry>, TempAllocPolicy>>;
     Cache cache(JS::GetObjectZone(global), cx);
     CHECK(cache.init());
 
@@ -695,16 +650,14 @@ TestUniqueIDLookups()
         JSObject* obj = JS_NewPlainObject(cx);
         CHECK(obj);
         CHECK(cache.put(obj));
-        if (j % DeadFactor == 0)
-            CHECK(liveObjects.get().append(obj));
+        if (j % DeadFactor == 0) CHECK(liveObjects.get().append(obj));
     }
 
     CHECK(cache.count() == ObjectCount);
 
     CHECK(GCUntilCacheSweep(cx, cache));
 
-    for (size_t j = 0; j < liveObjects.length(); j++)
-        CHECK(cache.has(liveObjects[j]));
+    for (size_t j = 0; j < liveObjects.length(); j++) CHECK(cache.has(liveObjects[j]));
 
     CHECK(SweepCacheAndFinishGC(cx, cache));
 
@@ -715,4 +668,4 @@ TestUniqueIDLookups()
 
 END_TEST(testIncrementalWeakCacheSweeping)
 
-#endif // defined JS_GC_ZEAL
+#endif  // defined JS_GC_ZEAL

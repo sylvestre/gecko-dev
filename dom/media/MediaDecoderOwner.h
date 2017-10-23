@@ -19,11 +19,11 @@ class MediaResult;
 
 namespace dom {
 class HTMLMediaElement;
-} // namespace dom
+}  // namespace dom
 
 class MediaDecoderOwner
 {
-public:
+ public:
   // Called by the media decoder to indicate that the download is progressing.
   virtual void DownloadProgressed() = 0;
 
@@ -104,7 +104,8 @@ public:
   virtual void NotifyDecoderPrincipalChanged() = 0;
 
   // The status of the next frame which might be available from the decoder
-  enum NextFrameStatus {
+  enum NextFrameStatus
+  {
     // The next frame of audio/video is available
     NEXT_FRAME_AVAILABLE,
     // The next frame of audio/video is unavailable because the decoder
@@ -186,7 +187,6 @@ public:
    */
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif
-

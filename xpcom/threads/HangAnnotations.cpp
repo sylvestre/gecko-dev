@@ -61,8 +61,7 @@ HangAnnotations::AddAnnotation(const nsAString& aName, const bool aData)
 
 namespace Observer {
 
-Annotators::Annotators()
-  : mMutex("HangMonitor::Annotators::mMutex")
+Annotators::Annotators() : mMutex("HangMonitor::Annotators::mMutex")
 {
   MOZ_COUNT_CTOR(Annotators);
 }
@@ -95,26 +94,26 @@ HangAnnotations
 Annotators::GatherAnnotations()
 {
   HangAnnotations annotations;
-  { // Scope for lock
+  {  // Scope for lock
     MutexAutoLock lock(mMutex);
     for (std::set<Annotator*>::iterator i = mAnnotators.begin(),
                                         e = mAnnotators.end();
-         i != e; ++i) {
+         i != e;
+         ++i) {
       (*i)->AnnotateHang(annotations);
     }
   }
   return annotations;
 }
 
-} // namespace Observer
+}  // namespace Observer
 
 void
 RegisterAnnotator(Annotator& aAnnotator)
 {
   BackgroundHangMonitor::RegisterAnnotator(aAnnotator);
   // We still register annotators for ChromeHangs
-  if (NS_IsMainThread() &&
-      GeckoProcessType_Default == XRE_GetProcessType()) {
+  if (NS_IsMainThread() && GeckoProcessType_Default == XRE_GetProcessType()) {
     if (!gChromehangAnnotators) {
       gChromehangAnnotators = new Observer::Annotators();
     }
@@ -127,8 +126,7 @@ UnregisterAnnotator(Annotator& aAnnotator)
 {
   BackgroundHangMonitor::UnregisterAnnotator(aAnnotator);
   // We still register annotators for ChromeHangs
-  if (NS_IsMainThread() &&
-      GeckoProcessType_Default == XRE_GetProcessType()) {
+  if (NS_IsMainThread() && GeckoProcessType_Default == XRE_GetProcessType()) {
     if (gChromehangAnnotators->Unregister(aAnnotator)) {
       gChromehangAnnotators = nullptr;
     }
@@ -144,8 +142,8 @@ ChromeHangAnnotatorCallout()
   return gChromehangAnnotators->GatherAnnotations();
 }
 
-} // namespace HangMonitor
-} // namespace mozilla
+}  // namespace HangMonitor
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -172,4 +170,4 @@ ParamTraits<Annotation>::Read(const Message* aMsg,
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC

@@ -10,13 +10,9 @@
 #include "nsContentPolicyUtils.h"
 #include "nsIContentViewer.h"
 
-nsWebBrowserContentPolicy::nsWebBrowserContentPolicy()
-{
-}
+nsWebBrowserContentPolicy::nsWebBrowserContentPolicy() {}
 
-nsWebBrowserContentPolicy::~nsWebBrowserContentPolicy()
-{
-}
+nsWebBrowserContentPolicy::~nsWebBrowserContentPolicy() {}
 
 NS_IMPL_ISUPPORTS(nsWebBrowserContentPolicy, nsIContentPolicy)
 
@@ -32,8 +28,10 @@ nsWebBrowserContentPolicy::ShouldLoad(uint32_t aContentType,
 {
   NS_PRECONDITION(aShouldLoad, "Null out param");
 
-  MOZ_ASSERT(aContentType == nsContentUtils::InternalContentPolicyTypeToExternal(aContentType),
-             "We should only see external content policy types here.");
+  MOZ_ASSERT(
+      aContentType ==
+          nsContentUtils::InternalContentPolicyTypeToExternal(aContentType),
+      "We should only see external content policy types here.");
 
   *aShouldLoad = nsIContentPolicy::ACCEPT;
 
@@ -85,8 +83,10 @@ nsWebBrowserContentPolicy::ShouldProcess(uint32_t aContentType,
 {
   NS_PRECONDITION(aShouldProcess, "Null out param");
 
-  MOZ_ASSERT(aContentType == nsContentUtils::InternalContentPolicyTypeToExternal(aContentType),
-             "We should only see external content policy types here.");
+  MOZ_ASSERT(
+      aContentType ==
+          nsContentUtils::InternalContentPolicyTypeToExternal(aContentType),
+      "We should only see external content policy types here.");
 
   *aShouldProcess = nsIContentPolicy::ACCEPT;
 

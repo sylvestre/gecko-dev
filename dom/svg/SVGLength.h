@@ -30,34 +30,34 @@ namespace mozilla {
  */
 class SVGLength
 {
-public:
-
+ public:
   SVGLength()
 #ifdef DEBUG
-    : mValue(0.0f)
-    , mUnit(nsIDOMSVGLength::SVG_LENGTHTYPE_UNKNOWN) // caught by IsValid()
+      : mValue(0.0f),
+        mUnit(nsIDOMSVGLength::SVG_LENGTHTYPE_UNKNOWN)  // caught by IsValid()
 #endif
-  {}
+  {
+  }
 
-  SVGLength(float aValue, uint8_t aUnit)
-    : mValue(aValue)
-    , mUnit(aUnit)
+  SVGLength(float aValue, uint8_t aUnit) : mValue(aValue), mUnit(aUnit)
   {
     NS_ASSERTION(IsValid(), "Constructed an invalid length");
   }
 
-  SVGLength(const SVGLength &aOther)
-    : mValue(aOther.mValue)
-    , mUnit(aOther.mUnit)
-  {}
+  SVGLength(const SVGLength& aOther)
+      : mValue(aOther.mValue), mUnit(aOther.mUnit)
+  {
+  }
 
-  SVGLength& operator=(const SVGLength &rhs) {
+  SVGLength& operator=(const SVGLength& rhs)
+  {
     mValue = rhs.mValue;
     mUnit = rhs.mUnit;
     return *this;
   }
 
-  bool operator==(const SVGLength &rhs) const {
+  bool operator==(const SVGLength& rhs) const
+  {
     return mValue == rhs.mValue && mUnit == rhs.mUnit;
   }
 
@@ -73,20 +73,18 @@ public:
    * This will usually return a valid, finite number. There is one exception
    * though - see the comment in SetValueAndUnit().
    */
-  float GetValueInCurrentUnits() const {
-    return mValue;
-  }
+  float GetValueInCurrentUnits() const { return mValue; }
 
-  uint8_t GetUnit() const {
-    return mUnit;
-  }
+  uint8_t GetUnit() const { return mUnit; }
 
-  void SetValueInCurrentUnits(float aValue) {
+  void SetValueInCurrentUnits(float aValue)
+  {
     mValue = aValue;
     NS_ASSERTION(IsValid(), "Set invalid SVGLength");
   }
 
-  void SetValueAndUnit(float aValue, uint8_t aUnit) {
+  void SetValueAndUnit(float aValue, uint8_t aUnit)
+  {
     mValue = aValue;
     mUnit = aUnit;
 
@@ -105,7 +103,8 @@ public:
    * If it's not possible to convert this length's value to user units, then
    * this method will return numeric_limits<float>::quiet_NaN().
    */
-  float GetValueInUserUnits(const nsSVGElement *aElement, uint8_t aAxis) const {
+  float GetValueInUserUnits(const nsSVGElement* aElement, uint8_t aAxis) const
+  {
     return mValue * GetUserUnitsPerUnit(aElement, aAxis);
   }
 
@@ -116,14 +115,16 @@ public:
    * possible to convert the value to the specified unit.
    */
   float GetValueInSpecifiedUnit(uint8_t aUnit,
-                                const nsSVGElement *aElement,
+                                const nsSVGElement* aElement,
                                 uint8_t aAxis) const;
 
-  bool IsPercentage() const {
+  bool IsPercentage() const
+  {
     return mUnit == nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE;
   }
 
-  static bool IsValidUnitType(uint16_t unit) {
+  static bool IsValidUnitType(uint16_t unit)
+  {
     return unit > nsIDOMSVGLength::SVG_LENGTHTYPE_UNKNOWN &&
            unit <= nsIDOMSVGLength::SVG_LENGTHTYPE_PC;
   }
@@ -135,24 +136,18 @@ public:
    * factor between the length's current unit and user units is undefined (see
    * the comments for GetUserUnitsPerInch and GetUserUnitsPerPercent).
    */
-  float GetUserUnitsPerUnit(const nsSVGElement *aElement, uint8_t aAxis) const;
+  float GetUserUnitsPerUnit(const nsSVGElement* aElement, uint8_t aAxis) const;
 
-private:
-
+ private:
 #ifdef DEBUG
-  bool IsValid() const {
-    return IsFinite(mValue) && IsValidUnitType(mUnit);
-  }
+  bool IsValid() const { return IsFinite(mValue) && IsValidUnitType(mUnit); }
 #endif
 
   /**
    * The conversion factor between user units (CSS px) and CSS inches is
    * constant: 96 px per inch.
    */
-  static float GetUserUnitsPerInch()
-  {
-    return 96.0;
-  }
+  static float GetUserUnitsPerInch() { return 96.0; }
 
   /**
    * The conversion factor between user units and percentage units depends on
@@ -163,12 +158,13 @@ private:
    * This function returns a non-negative value if the conversion factor is
    * defined, otherwise it returns numeric_limits<float>::quiet_NaN().
    */
-  static float GetUserUnitsPerPercent(const nsSVGElement *aElement, uint8_t aAxis);
+  static float GetUserUnitsPerPercent(const nsSVGElement* aElement,
+                                      uint8_t aAxis);
 
   float mValue;
   uint8_t mUnit;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGLENGTH_H__
+#endif  // MOZILLA_SVGLENGTH_H__

@@ -45,9 +45,8 @@ DirectMediaStreamTrackListener::MirrorAndDisableSegment(VideoSegment& aFrom,
 }
 
 void
-DirectMediaStreamTrackListener::NotifyRealtimeTrackDataAndApplyTrackDisabling(MediaStreamGraph* aGraph,
-                                                                             StreamTime aTrackOffset,
-                                                                             MediaSegment& aMedia)
+DirectMediaStreamTrackListener::NotifyRealtimeTrackDataAndApplyTrackDisabling(
+    MediaStreamGraph* aGraph, StreamTime aTrackOffset, MediaSegment& aMedia)
 {
   if (mDisabledFreezeCount == 0 && mDisabledBlackCount == 0) {
     NotifyRealtimeTrackData(aGraph, aTrackOffset, aMedia);
@@ -55,8 +54,8 @@ DirectMediaStreamTrackListener::NotifyRealtimeTrackDataAndApplyTrackDisabling(Me
   }
 
   DisabledTrackMode mode = mDisabledBlackCount > 0
-                           ? DisabledTrackMode::SILENCE_BLACK
-                           : DisabledTrackMode::SILENCE_FREEZE;
+                               ? DisabledTrackMode::SILENCE_BLACK
+                               : DisabledTrackMode::SILENCE_FREEZE;
   if (!mMedia) {
     mMedia = aMedia.CreateEmptyClone();
   }
@@ -84,12 +83,13 @@ DirectMediaStreamTrackListener::IncreaseDisabled(DisabledTrackMode aMode)
     MOZ_ASSERT(false, "Unknown disabled mode");
   }
 
-  LOG(LogLevel::Debug, ("DirectMediaStreamTrackListener %p increased disabled "
-                        "mode %s. Current counts are: freeze=%d, black=%d",
-                        this,
-                        aMode == DisabledTrackMode::SILENCE_FREEZE ? "freeze" : "black",
-                        int32_t(mDisabledFreezeCount),
-                        int32_t(mDisabledBlackCount)));
+  LOG(LogLevel::Debug,
+      ("DirectMediaStreamTrackListener %p increased disabled "
+       "mode %s. Current counts are: freeze=%d, black=%d",
+       this,
+       aMode == DisabledTrackMode::SILENCE_FREEZE ? "freeze" : "black",
+       int32_t(mDisabledFreezeCount),
+       int32_t(mDisabledBlackCount)));
 }
 
 void
@@ -105,12 +105,13 @@ DirectMediaStreamTrackListener::DecreaseDisabled(DisabledTrackMode aMode)
     MOZ_ASSERT(false, "Unknown disabled mode");
   }
 
-  LOG(LogLevel::Debug, ("DirectMediaStreamTrackListener %p decreased disabled "
-                        "mode %s. Current counts are: freeze=%d, black=%d",
-                        this,
-                        aMode == DisabledTrackMode::SILENCE_FREEZE ? "freeze" : "black",
-                        int32_t(mDisabledFreezeCount),
-                        int32_t(mDisabledBlackCount)));
+  LOG(LogLevel::Debug,
+      ("DirectMediaStreamTrackListener %p decreased disabled "
+       "mode %s. Current counts are: freeze=%d, black=%d",
+       this,
+       aMode == DisabledTrackMode::SILENCE_FREEZE ? "freeze" : "black",
+       int32_t(mDisabledFreezeCount),
+       int32_t(mDisabledBlackCount)));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -12,7 +12,8 @@ namespace hal_impl {
 
 void
 AdjustSystemClock(int64_t aDeltaMilliseconds)
-{}
+{
+}
 
 void
 EnableSystemClockChangeNotifications()
@@ -34,5 +35,5 @@ DisableSystemTimezoneChangeNotifications()
 {
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

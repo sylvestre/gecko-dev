@@ -116,7 +116,7 @@ nsObserverList::NotifyObservers(nsISupports* aSubject,
 NS_IMPL_ISUPPORTS(nsObserverEnumerator, nsISimpleEnumerator)
 
 nsObserverEnumerator::nsObserverEnumerator(nsObserverList* aObserverList)
-  : mIndex(0)
+    : mIndex(0)
 {
   aObserverList->FillObserverArray(mObservers);
 }

@@ -23,26 +23,22 @@
 
 namespace mozilla {
 
-class TransportLayerPrsock : public TransportLayer {
+class TransportLayerPrsock : public TransportLayer
+{
  public:
   TransportLayerPrsock() : fd_(nullptr), handler_() {}
 
-  virtual ~TransportLayerPrsock() {
-    Detach();
-  }
-
+  virtual ~TransportLayerPrsock() { Detach(); }
 
   // Internal initializer
   nsresult InitInternal() override;
 
-  void Import(PRFileDesc *fd, nsresult *result);
+  void Import(PRFileDesc* fd, nsresult* result);
 
-  void Detach() {
-    handler_->Detach();
-  }
+  void Detach() { handler_->Detach(); }
 
   // Implement TransportLayer
-  TransportResult SendPacket(const unsigned char *data, size_t len) override;
+  TransportResult SendPacket(const unsigned char* data, size_t len) override;
 
   TRANSPORT_LAYER_ID("prsock")
 
@@ -50,71 +46,74 @@ class TransportLayerPrsock : public TransportLayer {
   DISALLOW_COPY_ASSIGN(TransportLayerPrsock);
 
   // Inner class
-  class SocketHandler : public nsASocketHandler {
+  class SocketHandler : public nsASocketHandler
+  {
    public:
-      SocketHandler(TransportLayerPrsock *prsock, PRFileDesc *fd) :
-        prsock_(prsock), fd_(fd) {
-        mPollFlags = PR_POLL_READ;
+    SocketHandler(TransportLayerPrsock* prsock, PRFileDesc* fd)
+        : prsock_(prsock), fd_(fd)
+    {
+      mPollFlags = PR_POLL_READ;
+    }
+
+    void Detach()
+    {
+      mCondition = NS_BASE_STREAM_CLOSED;
+      prsock_ = nullptr;
+    }
+
+    // Implement nsASocket
+    virtual void OnSocketReady(PRFileDesc* fd, int16_t outflags) override
+    {
+      if (prsock_) {
+        prsock_->OnSocketReady(fd, outflags);
       }
+    }
 
-      void Detach() {
-        mCondition = NS_BASE_STREAM_CLOSED;
-        prsock_ = nullptr;
+    virtual void OnSocketDetached(PRFileDesc* fd) override
+    {
+      if (prsock_) {
+        prsock_->OnSocketDetached(fd);
       }
+      PR_Close(fd_);
+    }
 
-      // Implement nsASocket
-      virtual void OnSocketReady(PRFileDesc *fd, int16_t outflags) override {
-        if (prsock_) {
-          prsock_->OnSocketReady(fd, outflags);
-        }
-      }
+    virtual void IsLocal(bool* aIsLocal) override
+    {
+      // TODO(jesup): better check? Does it matter? (likely no)
+      *aIsLocal = false;
+    }
 
-      virtual void OnSocketDetached(PRFileDesc *fd) override {
-        if (prsock_) {
-          prsock_->OnSocketDetached(fd);
-        }
-        PR_Close(fd_);
-      }
+    virtual uint64_t ByteCountSent() override { return 0; }
+    virtual uint64_t ByteCountReceived() override { return 0; }
 
-      virtual void IsLocal(bool *aIsLocal) override {
-        // TODO(jesup): better check? Does it matter? (likely no)
-        *aIsLocal = false;
-      }
+    // nsISupports methods
+    NS_DECL_THREADSAFE_ISUPPORTS
 
-      virtual uint64_t ByteCountSent() override { return 0; }
-      virtual uint64_t ByteCountReceived() override { return 0; }
-
-      // nsISupports methods
-      NS_DECL_THREADSAFE_ISUPPORTS
-
-      private:
-      TransportLayerPrsock *prsock_;
-      PRFileDesc *fd_;
    private:
-      DISALLOW_COPY_ASSIGN(SocketHandler);
-      virtual ~SocketHandler() {}
+    TransportLayerPrsock* prsock_;
+    PRFileDesc* fd_;
+
+   private:
+    DISALLOW_COPY_ASSIGN(SocketHandler);
+    virtual ~SocketHandler() {}
   };
 
   // Allow SocketHandler to talk to our APIs
   friend class SocketHandler;
 
   // Functions to be called by SocketHandler
-  void OnSocketReady(PRFileDesc *fd, int16_t outflags);
-  void OnSocketDetached(PRFileDesc *fd) {
-    TL_SET_STATE(TS_CLOSED);
-  }
-  void IsLocal(bool *aIsLocal) {
+  void OnSocketReady(PRFileDesc* fd, int16_t outflags);
+  void OnSocketDetached(PRFileDesc* fd) { TL_SET_STATE(TS_CLOSED); }
+  void IsLocal(bool* aIsLocal)
+  {
     // TODO(jesup): better check? Does it matter? (likely no)
     *aIsLocal = false;
   }
 
-  PRFileDesc *fd_;
+  PRFileDesc* fd_;
   RefPtr<SocketHandler> handler_;
   nsCOMPtr<nsISocketTransportService> stservice_;
-
 };
 
-
-
-}  // close namespace
+}  // namespace mozilla
 #endif

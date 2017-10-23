@@ -27,13 +27,12 @@ class Element;
 class HTMLContentElement;
 class ShadowRootStyleSheetList;
 
-class ShadowRoot final : public DocumentFragment,
-                         public nsStubMutationObserver
+class ShadowRoot final : public DocumentFragment, public nsStubMutationObserver
 {
   friend class ShadowRootStyleSheetList;
-public:
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ShadowRoot,
-                                           DocumentFragment)
+
+ public:
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ShadowRoot, DocumentFragment)
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
@@ -59,7 +58,7 @@ public:
    */
   void DistributeAllNodes();
 
-private:
+ private:
   /**
    * Distributes a single explicit child of the pool host to the content
    * insertion points in this ShadowRoot.
@@ -95,30 +94,33 @@ private:
 
   bool IsPooledNode(nsIContent* aChild) const;
 
-public:
+ public:
   void AddInsertionPoint(HTMLContentElement* aInsertionPoint);
   void RemoveInsertionPoint(HTMLContentElement* aInsertionPoint);
 
   void SetInsertionPointChanged() { mInsertionPointChanged = true; }
 
-  void SetAssociatedBinding(nsXBLBinding* aBinding) { mAssociatedBinding = aBinding; }
+  void SetAssociatedBinding(nsXBLBinding* aBinding)
+  {
+    mAssociatedBinding = aBinding;
+  }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   static ShadowRoot* FromNode(nsINode* aNode);
 
-  static void RemoveDestInsertionPoint(nsIContent* aInsertionPoint,
-                                       nsTArray<nsIContent*>& aDestInsertionPoints);
+  static void RemoveDestInsertionPoint(
+      nsIContent* aInsertionPoint, nsTArray<nsIContent*>& aDestInsertionPoints);
 
   // WebIDL methods.
   Element* GetElementById(const nsAString& aElementId);
-  already_AddRefed<nsContentList>
-    GetElementsByTagName(const nsAString& aNamespaceURI);
-  already_AddRefed<nsContentList>
-    GetElementsByTagNameNS(const nsAString& aNamespaceURI,
-                           const nsAString& aLocalName);
-  already_AddRefed<nsContentList>
-    GetElementsByClassName(const nsAString& aClasses);
+  already_AddRefed<nsContentList> GetElementsByTagName(
+      const nsAString& aNamespaceURI);
+  already_AddRefed<nsContentList> GetElementsByTagNameNS(
+      const nsAString& aNamespaceURI, const nsAString& aLocalName);
+  already_AddRefed<nsContentList> GetElementsByClassName(
+      const nsAString& aClasses);
   void GetInnerHTML(nsAString& aInnerHTML);
   void SetInnerHTML(const nsAString& aInnerHTML, ErrorResult& aError);
   Element* Host();
@@ -130,7 +132,7 @@ public:
     mIsComposedDocParticipant = aIsComposedDocParticipant;
   }
 
-protected:
+ protected:
   virtual ~ShadowRoot();
 
   // An array of content insertion points that are a descendant of the ShadowRoot
@@ -162,34 +164,32 @@ protected:
   // so instead we track it here.
   bool mIsComposedDocParticipant;
 
-  nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                 nsINode** aResult,
                  bool aPreallocateChildren) const override;
 };
 
 class ShadowRootStyleSheetList : public StyleSheetList
 {
-public:
+ public:
   explicit ShadowRootStyleSheetList(ShadowRoot* aShadowRoot);
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ShadowRootStyleSheetList, StyleSheetList)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ShadowRootStyleSheetList,
+                                           StyleSheetList)
 
-  virtual nsINode* GetParentObject() const override
-  {
-    return mShadowRoot;
-  }
+  virtual nsINode* GetParentObject() const override { return mShadowRoot; }
 
   uint32_t Length() override;
   StyleSheet* IndexedGetter(uint32_t aIndex, bool& aFound) override;
 
-protected:
+ protected:
   virtual ~ShadowRootStyleSheetList();
 
   RefPtr<ShadowRoot> mShadowRoot;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_shadowroot_h__
-
+#endif  // mozilla_dom_shadowroot_h__

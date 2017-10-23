@@ -37,7 +37,7 @@ DDLogMessage::Print(const DDLifetimes& aLifetimes) const
     AppendToString(mValue, str);
   } else {
     const DDLifetime* lifetime2 =
-      aLifetimes.FindLifetime(mValue.as<DDLogObject>(), mIndex);
+        aLifetimes.FindLifetime(mValue.as<DDLogObject>(), mIndex);
     if (lifetime2) {
       lifetime2->AppendPrintf(str);
     } else {
@@ -47,4 +47,4 @@ DDLogMessage::Print(const DDLifetimes& aLifetimes) const
   return str;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

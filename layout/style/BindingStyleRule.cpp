@@ -9,10 +9,9 @@
 namespace mozilla {
 
 /* virtual */ JSObject*
-BindingStyleRule::WrapObject(JSContext* aCx,
-			     JS::Handle<JSObject*> aGivenProto)
+BindingStyleRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return dom::CSSStyleRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

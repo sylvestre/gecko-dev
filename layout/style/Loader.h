@@ -37,23 +37,24 @@ namespace mozilla {
 namespace dom {
 class DocGroup;
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 namespace mozilla {
 
 class URIPrincipalReferrerPolicyAndCORSModeHashKey : public nsURIHashKey
 {
-public:
+ public:
   typedef URIPrincipalReferrerPolicyAndCORSModeHashKey* KeyType;
   typedef const URIPrincipalReferrerPolicyAndCORSModeHashKey* KeyTypePointer;
   typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
 
-  explicit URIPrincipalReferrerPolicyAndCORSModeHashKey(const URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey)
-    : nsURIHashKey(aKey->mKey),
-      mPrincipal(aKey->mPrincipal),
-      mCORSMode(aKey->mCORSMode),
-      mReferrerPolicy(aKey->mReferrerPolicy)
+  explicit URIPrincipalReferrerPolicyAndCORSModeHashKey(
+      const URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey)
+      : nsURIHashKey(aKey->mKey),
+        mPrincipal(aKey->mPrincipal),
+        mCORSMode(aKey->mCORSMode),
+        mReferrerPolicy(aKey->mReferrerPolicy)
   {
     MOZ_COUNT_CTOR(URIPrincipalReferrerPolicyAndCORSModeHashKey);
   }
@@ -62,18 +63,19 @@ public:
                                                nsIPrincipal* aPrincipal,
                                                CORSMode aCORSMode,
                                                ReferrerPolicy aReferrerPolicy)
-    : nsURIHashKey(aURI),
-      mPrincipal(aPrincipal),
-      mCORSMode(aCORSMode),
-      mReferrerPolicy(aReferrerPolicy)
+      : nsURIHashKey(aURI),
+        mPrincipal(aPrincipal),
+        mCORSMode(aCORSMode),
+        mReferrerPolicy(aReferrerPolicy)
   {
     MOZ_COUNT_CTOR(URIPrincipalReferrerPolicyAndCORSModeHashKey);
   }
-  URIPrincipalReferrerPolicyAndCORSModeHashKey(const URIPrincipalReferrerPolicyAndCORSModeHashKey& toCopy)
-    : nsURIHashKey(toCopy),
-      mPrincipal(toCopy.mPrincipal),
-      mCORSMode(toCopy.mCORSMode),
-      mReferrerPolicy(toCopy.mReferrerPolicy)
+  URIPrincipalReferrerPolicyAndCORSModeHashKey(
+      const URIPrincipalReferrerPolicyAndCORSModeHashKey& toCopy)
+      : nsURIHashKey(toCopy),
+        mPrincipal(toCopy.mPrincipal),
+        mCORSMode(toCopy.mCORSMode),
+        mReferrerPolicy(toCopy.mReferrerPolicy)
   {
     MOZ_COUNT_CTOR(URIPrincipalReferrerPolicyAndCORSModeHashKey);
   }
@@ -82,12 +84,17 @@ public:
     MOZ_COUNT_DTOR(URIPrincipalReferrerPolicyAndCORSModeHashKey);
   }
 
-  URIPrincipalReferrerPolicyAndCORSModeHashKey* GetKey() const {
+  URIPrincipalReferrerPolicyAndCORSModeHashKey* GetKey() const
+  {
     return const_cast<URIPrincipalReferrerPolicyAndCORSModeHashKey*>(this);
   }
-  const URIPrincipalReferrerPolicyAndCORSModeHashKey* GetKeyPointer() const { return this; }
+  const URIPrincipalReferrerPolicyAndCORSModeHashKey* GetKeyPointer() const
+  {
+    return this;
+  }
 
-  bool KeyEquals(const URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey) const {
+  bool KeyEquals(const URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey) const
+  {
     if (!nsURIHashKey::KeyEquals(aKey->mKey)) {
       return false;
     }
@@ -109,26 +116,32 @@ public:
 
     bool eq;
     return !mPrincipal ||
-      (NS_SUCCEEDED(mPrincipal->Equals(aKey->mPrincipal, &eq)) && eq);
+           (NS_SUCCEEDED(mPrincipal->Equals(aKey->mPrincipal, &eq)) && eq);
   }
 
-  static const URIPrincipalReferrerPolicyAndCORSModeHashKey*
-  KeyToPointer(URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey) { return aKey; }
-  static PLDHashNumber HashKey(const URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey) {
+  static const URIPrincipalReferrerPolicyAndCORSModeHashKey* KeyToPointer(
+      URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey)
+  {
+    return aKey;
+  }
+  static PLDHashNumber HashKey(
+      const URIPrincipalReferrerPolicyAndCORSModeHashKey* aKey)
+  {
     return nsURIHashKey::HashKey(aKey->mKey);
   }
 
   nsIURI* GetURI() const { return nsURIHashKey::GetKey(); }
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-protected:
+ protected:
   nsCOMPtr<nsIPrincipal> mPrincipal;
   CORSMode mCORSMode;
   ReferrerPolicy mReferrerPolicy;
 };
-
-
 
 namespace css {
 
@@ -141,10 +154,8 @@ class ImportRule;
 
 class MOZ_RAII LoaderReusableStyleSheets
 {
-public:
-  LoaderReusableStyleSheets()
-  {
-  }
+ public:
+  LoaderReusableStyleSheets() {}
 
   /**
    * Look for a reusable sheet (see AddReusableSheet) matching the
@@ -164,13 +175,15 @@ public:
    *
    * @param aSheet the sheet which can be reused
    */
-  void AddReusableSheet(StyleSheet* aSheet) {
+  void AddReusableSheet(StyleSheet* aSheet)
+  {
     mReusableSheets.AppendElement(aSheet);
   }
 
-private:
+ private:
   LoaderReusableStyleSheets(const LoaderReusableStyleSheets&) = delete;
-  LoaderReusableStyleSheets& operator=(const LoaderReusableStyleSheets&) = delete;
+  LoaderReusableStyleSheets& operator=(const LoaderReusableStyleSheets&) =
+      delete;
 
   // The sheets that can be reused.
   nsTArray<RefPtr<StyleSheet>> mReusableSheets;
@@ -179,7 +192,8 @@ private:
 /***********************************************************************
  * Enum that describes the state of the sheet returned by CreateSheet. *
  ***********************************************************************/
-enum StyleSheetState {
+enum StyleSheetState
+{
   eSheetStateUnknown = 0,
   eSheetNeedsParser,
   eSheetPending,
@@ -187,10 +201,11 @@ enum StyleSheetState {
   eSheetComplete
 };
 
-class Loader final {
+class Loader final
+{
   typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
 
-public:
+ public:
   // aDocGroup is used for dispatching SheetLoadData in PostLoadEvent(). It
   // can be null if you want to use this constructor, and there's no
   // document when the Loader is constructed.
@@ -206,10 +221,12 @@ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(Loader)
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(Loader)
 
-  void DropDocumentReference(); // notification that doc is going away
+  void DropDocumentReference();  // notification that doc is going away
 
   void SetCompatibilityMode(nsCompatibility aCompatMode)
-  { mCompatMode = aCompatMode; }
+  {
+    mCompatMode = aCompatMode;
+  }
   nsCompatibility GetCompatibilityMode() { return mCompatMode; }
   nsresult SetPreferredSheet(const nsAString& aTitle);
 
@@ -338,7 +355,8 @@ public:
    * As above, but defaults aParsingMode to eAuthorSheetFeatures and
    * aUseSystemPrincipal to false.
    */
-  nsresult LoadSheetSync(nsIURI* aURL, RefPtr<StyleSheet>* aSheet) {
+  nsresult LoadSheetSync(nsIURI* aURL, RefPtr<StyleSheet>* aSheet)
+  {
     return LoadSheetSync(aURL, eAuthorSheetFeatures, false, aSheet);
   }
 
@@ -464,7 +482,7 @@ public:
   // is selected and aHasAlternateRel is false.
   bool IsAlternate(const nsAString& aTitle, bool aHasAlternateRel);
 
-  typedef nsTArray<RefPtr<SheetLoadData> > LoadDataArray;
+  typedef nsTArray<RefPtr<SheetLoadData>> LoadDataArray;
 
   // Measure our size.
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
@@ -473,7 +491,7 @@ public:
   // cache.
   nsresult ObsoleteSheet(nsIURI* aURI);
 
-private:
+ private:
   friend class SheetLoadData;
   friend class StreamLoader;
 
@@ -498,7 +516,7 @@ private:
                        bool aHasAlternateRel,
                        const nsAString& aTitle,
                        StyleSheetState& aSheetState,
-                       bool *aIsAlternate,
+                       bool* aIsAlternate,
                        RefPtr<StyleSheet>* aSheet);
 
   // Pass in either a media string or the MediaList from the CSSParser.  Don't
@@ -521,17 +539,17 @@ private:
                             ImportRule* aGeckoParentRule);
 
   nsresult InternalLoadNonDocumentSheet(
-    nsIURI* aURL,
-    bool aIsPreload,
-    SheetParsingMode aParsingMode,
-    bool aUseSystemPrincipal,
-    nsIPrincipal* aOriginPrincipal,
-    const Encoding* aPreloadEncoding,
-    RefPtr<StyleSheet>* aSheet,
-    nsICSSLoaderObserver* aObserver,
-    CORSMode aCORSMode = CORS_NONE,
-    ReferrerPolicy aReferrerPolicy = mozilla::net::RP_Unset,
-    const nsAString& aIntegrity = EmptyString());
+      nsIURI* aURL,
+      bool aIsPreload,
+      SheetParsingMode aParsingMode,
+      bool aUseSystemPrincipal,
+      nsIPrincipal* aOriginPrincipal,
+      const Encoding* aPreloadEncoding,
+      RefPtr<StyleSheet>* aSheet,
+      nsICSSLoaderObserver* aObserver,
+      CORSMode aCORSMode = CORS_NONE,
+      ReferrerPolicy aReferrerPolicy = mozilla::net::RP_Unset,
+      const nsAString& aIntegrity = EmptyString());
 
   // Post a load event for aObserver to be notified about aSheet.  The
   // notification will be sent with status NS_OK unless the load event is
@@ -575,19 +593,24 @@ private:
   // The guts of SheetComplete.  This may be called recursively on parent datas
   // or datas that had glommed on to a single load.  The array is there so load
   // datas whose observers need to be notified can be added to it.
-  void DoSheetComplete(SheetLoadData* aLoadData, nsresult aStatus,
+  void DoSheetComplete(SheetLoadData* aLoadData,
+                       nsresult aStatus,
                        LoadDataArray& aDatasToNotify);
 
   StyleBackendType GetStyleBackendType() const;
 
-  struct Sheets {
+  struct Sheets
+  {
     nsBaseHashtable<URIPrincipalReferrerPolicyAndCORSModeHashKey,
                     RefPtr<StyleSheet>,
-                    StyleSheet*> mCompleteSheets;
-    nsDataHashtable<URIPrincipalReferrerPolicyAndCORSModeHashKey, SheetLoadData*>
-                      mLoadingDatas; // weak refs
-    nsDataHashtable<URIPrincipalReferrerPolicyAndCORSModeHashKey, SheetLoadData*>
-                      mPendingDatas; // weak refs
+                    StyleSheet*>
+        mCompleteSheets;
+    nsDataHashtable<URIPrincipalReferrerPolicyAndCORSModeHashKey,
+                    SheetLoadData*>
+        mLoadingDatas;  // weak refs
+    nsDataHashtable<URIPrincipalReferrerPolicyAndCORSModeHashKey,
+                    SheetLoadData*>
+        mPendingDatas;  // weak refs
   };
   nsAutoPtr<Sheets> mSheets;
 
@@ -597,10 +620,10 @@ private:
 
   // The array of posted stylesheet loaded events (SheetLoadDatas) we have.
   // Note that these are rare.
-  LoadDataArray     mPostedEvents;
+  LoadDataArray mPostedEvents;
 
   // Our array of "global" observers
-  nsTObserverArray<nsCOMPtr<nsICSSLoaderObserver> > mObservers;
+  nsTObserverArray<nsCOMPtr<nsICSSLoaderObserver>> mObservers;
 
   // This reference is nulled by the Document in it's destructor through
   // DropDocumentReference().
@@ -613,25 +636,25 @@ private:
   // whole bunch at once (e.g. in one of the stop methods).  This is used to
   // make sure that HasPendingLoads() won't return false until we're notifying
   // on the last data we're working with.
-  uint32_t          mDatasToNotifyOn;
+  uint32_t mDatasToNotifyOn;
 
-  nsCompatibility   mCompatMode;
-  nsString          mPreferredSheet;  // title of preferred sheet
+  nsCompatibility mCompatMode;
+  nsString mPreferredSheet;  // title of preferred sheet
 
   // Set explicitly when the Loader(StyleBackendType) constructor is used, or
   // taken from the document when the Loader(nsIDocument*) constructor is used.
   mozilla::Maybe<StyleBackendType> mStyleBackendType;
 
-  bool              mEnabled; // is enabled to load new styles
+  bool mEnabled;  // is enabled to load new styles
 
   nsCOMPtr<nsIConsoleReportCollector> mReporter;
 
 #ifdef DEBUG
-  bool              mSyncCallback;
+  bool mSyncCallback;
 #endif
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 #endif /* mozilla_css_Loader_h */

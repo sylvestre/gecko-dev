@@ -24,7 +24,7 @@ using mozilla::dom::NotificationTelemetryService;
 
 namespace {
 StaticRefPtr<nsXULAlerts> gXULAlerts;
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_IMPL_CYCLE_COLLECTION(nsXULAlertObserver, mAlertWindow)
 
@@ -37,11 +37,13 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(nsXULAlertObserver)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsXULAlertObserver)
 
 NS_IMETHODIMP
-nsXULAlertObserver::Observe(nsISupports* aSubject, const char* aTopic,
+nsXULAlertObserver::Observe(nsISupports* aSubject,
+                            const char* aTopic,
                             const char16_t* aData)
 {
   if (!strcmp("alertfinished", aTopic)) {
-    mozIDOMWindowProxy* currentAlert = mXULAlerts->mNamedWindows.GetWeak(mAlertName);
+    mozIDOMWindowProxy* currentAlert =
+        mXULAlerts->mNamedWindows.GetWeak(mAlertName);
     // The window in mNamedWindows might be a replacement, thus it should only
     // be removed if it is the same window that is associated with this listener.
     if (currentAlert == mAlertWindow) {
@@ -62,18 +64,21 @@ nsXULAlertObserver::Observe(nsISupports* aSubject, const char* aTopic,
 
 // We don't cycle collect nsXULAlerts since gXULAlerts will keep the instance
 // alive till shutdown anyway.
-NS_IMPL_ISUPPORTS(nsXULAlerts, nsIAlertsService, nsIAlertsDoNotDisturb, nsIAlertsIconURI)
+NS_IMPL_ISUPPORTS(nsXULAlerts,
+                  nsIAlertsService,
+                  nsIAlertsDoNotDisturb,
+                  nsIAlertsIconURI)
 
 /* static */ already_AddRefed<nsXULAlerts>
 nsXULAlerts::GetInstance()
 {
-  // Gecko on Android does not fully support XUL windows.
+// Gecko on Android does not fully support XUL windows.
 #ifndef MOZ_WIDGET_ANDROID
   if (!gXULAlerts) {
     gXULAlerts = new nsXULAlerts();
     ClearOnShutdown(&gXULAlerts);
   }
-#endif // MOZ_WIDGET_ANDROID
+#endif  // MOZ_WIDGET_ANDROID
   RefPtr<nsXULAlerts> instance = gXULAlerts.get();
   return instance.forget();
 }
@@ -94,21 +99,34 @@ nsXULAlerts::PersistentAlertFinished()
 }
 
 NS_IMETHODIMP
-nsXULAlerts::ShowAlertNotification(const nsAString& aImageUrl, const nsAString& aAlertTitle,
-                                   const nsAString& aAlertText, bool aAlertTextClickable,
-                                   const nsAString& aAlertCookie, nsIObserver* aAlertListener,
-                                   const nsAString& aAlertName, const nsAString& aBidi,
-                                   const nsAString& aLang, const nsAString& aData,
-                                   nsIPrincipal* aPrincipal, bool aInPrivateBrowsing,
+nsXULAlerts::ShowAlertNotification(const nsAString& aImageUrl,
+                                   const nsAString& aAlertTitle,
+                                   const nsAString& aAlertText,
+                                   bool aAlertTextClickable,
+                                   const nsAString& aAlertCookie,
+                                   nsIObserver* aAlertListener,
+                                   const nsAString& aAlertName,
+                                   const nsAString& aBidi,
+                                   const nsAString& aLang,
+                                   const nsAString& aData,
+                                   nsIPrincipal* aPrincipal,
+                                   bool aInPrivateBrowsing,
                                    bool aRequireInteraction)
 {
   nsCOMPtr<nsIAlertNotification> alert =
-    do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
+      do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
   NS_ENSURE_TRUE(alert, NS_ERROR_FAILURE);
-  nsresult rv = alert->Init(aAlertName, aImageUrl, aAlertTitle,
-                            aAlertText, aAlertTextClickable,
-                            aAlertCookie, aBidi, aLang, aData,
-                            aPrincipal, aInPrivateBrowsing,
+  nsresult rv = alert->Init(aAlertName,
+                            aImageUrl,
+                            aAlertTitle,
+                            aAlertText,
+                            aAlertTextClickable,
+                            aAlertCookie,
+                            aBidi,
+                            aLang,
+                            aData,
+                            aPrincipal,
+                            aInPrivateBrowsing,
                             aRequireInteraction);
   NS_ENSURE_SUCCESS(rv, rv);
   return ShowAlert(alert, aAlertListener);
@@ -135,7 +153,8 @@ nsXULAlerts::ShowAlert(nsIAlertNotification* aAlert,
   if (!mPendingPersistentAlerts.IsEmpty()) {
     for (uint32_t i = 0; i < mPendingPersistentAlerts.Length(); i++) {
       nsAutoString pendingAlertName;
-      nsCOMPtr<nsIAlertNotification> pendingAlert = mPendingPersistentAlerts[i].mAlert;
+      nsCOMPtr<nsIAlertNotification> pendingAlert =
+          mPendingPersistentAlerts[i].mAlert;
       rv = pendingAlert->GetName(pendingAlertName);
       NS_ENSURE_SUCCESS(rv, rv);
 
@@ -145,7 +164,8 @@ nsXULAlerts::ShowAlert(nsIAlertNotification* aAlert,
         NS_ENSURE_SUCCESS(rv, rv);
 
         if (mPendingPersistentAlerts[i].mListener) {
-          rv = mPendingPersistentAlerts[i].mListener->Observe(nullptr, "alertfinished", cookie.get());
+          rv = mPendingPersistentAlerts[i].mListener->Observe(
+              nullptr, "alertfinished", cookie.get());
           NS_ENSURE_SUCCESS(rv, rv);
         }
 
@@ -159,10 +179,10 @@ nsXULAlerts::ShowAlert(nsIAlertNotification* aAlert,
   rv = aAlert->GetRequireInteraction(&requireInteraction);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (requireInteraction &&
-      !mNamedWindows.Contains(name) &&
+  if (requireInteraction && !mNamedWindows.Contains(name) &&
       static_cast<int32_t>(mPersistentAlertCount) >=
-        Preferences::GetInt("dom.webnotifications.requireinteraction.count", 0)) {
+          Preferences::GetInt("dom.webnotifications.requireinteraction.count",
+                              0)) {
     PendingAlert* pa = mPendingPersistentAlerts.AppendElement();
     pa->Init(aAlert, aAlertListener);
     return NS_OK;
@@ -231,81 +251,91 @@ nsXULAlerts::ShowAlertWithIconURI(nsIAlertNotification* aAlert,
   nsCOMPtr<nsIMutableArray> argsArray = nsArray::Create();
 
   // create scriptable versions of our strings that we can store in our nsIMutableArray....
-  nsCOMPtr<nsISupportsString> scriptableImageUrl (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableImageUrl(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableImageUrl, NS_ERROR_FAILURE);
 
   scriptableImageUrl->SetData(imageUrl);
-  rv = argsArray->AppendElement(scriptableImageUrl, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableImageUrl, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsString> scriptableAlertTitle (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableAlertTitle(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableAlertTitle, NS_ERROR_FAILURE);
 
   scriptableAlertTitle->SetData(title);
-  rv = argsArray->AppendElement(scriptableAlertTitle, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableAlertTitle, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsString> scriptableAlertText (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableAlertText(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableAlertText, NS_ERROR_FAILURE);
 
   scriptableAlertText->SetData(text);
-  rv = argsArray->AppendElement(scriptableAlertText, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableAlertText, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsPRBool> scriptableIsClickable (do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID));
+  nsCOMPtr<nsISupportsPRBool> scriptableIsClickable(
+      do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID));
   NS_ENSURE_TRUE(scriptableIsClickable, NS_ERROR_FAILURE);
 
   scriptableIsClickable->SetData(textClickable);
-  rv = argsArray->AppendElement(scriptableIsClickable, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableIsClickable, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsString> scriptableAlertCookie (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableAlertCookie(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableAlertCookie, NS_ERROR_FAILURE);
 
   scriptableAlertCookie->SetData(cookie);
-  rv = argsArray->AppendElement(scriptableAlertCookie, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableAlertCookie, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsPRInt32> scriptableOrigin (do_CreateInstance(NS_SUPPORTS_PRINT32_CONTRACTID));
+  nsCOMPtr<nsISupportsPRInt32> scriptableOrigin(
+      do_CreateInstance(NS_SUPPORTS_PRINT32_CONTRACTID));
   NS_ENSURE_TRUE(scriptableOrigin, NS_ERROR_FAILURE);
 
   int32_t origin =
-    LookAndFeel::GetInt(LookAndFeel::eIntID_AlertNotificationOrigin);
+      LookAndFeel::GetInt(LookAndFeel::eIntID_AlertNotificationOrigin);
   scriptableOrigin->SetData(origin);
 
-  rv = argsArray->AppendElement(scriptableOrigin, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableOrigin, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsString> scriptableBidi (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableBidi(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableBidi, NS_ERROR_FAILURE);
 
   scriptableBidi->SetData(bidi);
-  rv = argsArray->AppendElement(scriptableBidi, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableBidi, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsString> scriptableLang (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableLang(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableLang, NS_ERROR_FAILURE);
 
   scriptableLang->SetData(lang);
-  rv = argsArray->AppendElement(scriptableLang, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableLang, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsPRBool> scriptableRequireInteraction (do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID));
+  nsCOMPtr<nsISupportsPRBool> scriptableRequireInteraction(
+      do_CreateInstance(NS_SUPPORTS_PRBOOL_CONTRACTID));
   NS_ENSURE_TRUE(scriptableRequireInteraction, NS_ERROR_FAILURE);
 
   scriptableRequireInteraction->SetData(requireInteraction);
-  rv = argsArray->AppendElement(scriptableRequireInteraction, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableRequireInteraction, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Alerts with the same name should replace the old alert in the same position.
   // Provide the new alert window with a pointer to the replaced window so that
   // it may take the same position.
-  nsCOMPtr<nsISupportsInterfacePointer> replacedWindow = do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
+  nsCOMPtr<nsISupportsInterfacePointer> replacedWindow =
+      do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
   NS_ENSURE_TRUE(replacedWindow, NS_ERROR_FAILURE);
   mozIDOMWindowProxy* previousAlert = mNamedWindows.GetWeak(name);
   replacedWindow->SetData(previousAlert);
   replacedWindow->SetDataIID(&NS_GET_IID(mozIDOMWindowProxy));
-  rv = argsArray->AppendElement(replacedWindow, /*weak =*/ false);
+  rv = argsArray->AppendElement(replacedWindow, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (requireInteraction) {
@@ -314,24 +344,28 @@ nsXULAlerts::ShowAlertWithIconURI(nsIAlertNotification* aAlert,
 
   // Add an observer (that wraps aAlertListener) to remove the window from
   // mNamedWindows when it is closed.
-  nsCOMPtr<nsISupportsInterfacePointer> ifptr = do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
+  nsCOMPtr<nsISupportsInterfacePointer> ifptr =
+      do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
-  RefPtr<nsXULAlertObserver> alertObserver = new nsXULAlertObserver(this, name, aAlertListener, requireInteraction);
+  RefPtr<nsXULAlertObserver> alertObserver =
+      new nsXULAlertObserver(this, name, aAlertListener, requireInteraction);
   nsCOMPtr<nsISupports> iSupports(do_QueryInterface(alertObserver));
   ifptr->SetData(iSupports);
   ifptr->SetDataIID(&NS_GET_IID(nsIObserver));
-  rv = argsArray->AppendElement(ifptr, /*weak =*/ false);
+  rv = argsArray->AppendElement(ifptr, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // The source contains the host and port of the site that sent the
   // notification. It is empty for system alerts.
-  nsCOMPtr<nsISupportsString> scriptableAlertSource (do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> scriptableAlertSource(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableAlertSource, NS_ERROR_FAILURE);
   scriptableAlertSource->SetData(source);
-  rv = argsArray->AppendElement(scriptableAlertSource, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableAlertSource, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsISupportsCString> scriptableIconURL (do_CreateInstance(NS_SUPPORTS_CSTRING_CONTRACTID));
+  nsCOMPtr<nsISupportsCString> scriptableIconURL(
+      do_CreateInstance(NS_SUPPORTS_CSTRING_CONTRACTID));
   NS_ENSURE_TRUE(scriptableIconURL, NS_ERROR_FAILURE);
   if (aIconURI) {
     nsAutoCString iconURL;
@@ -339,7 +373,7 @@ nsXULAlerts::ShowAlertWithIconURI(nsIAlertNotification* aAlert,
     NS_ENSURE_SUCCESS(rv, rv);
     scriptableIconURL->SetData(iconURL);
   }
-  rv = argsArray->AppendElement(scriptableIconURL, /*weak =*/ false);
+  rv = argsArray->AppendElement(scriptableIconURL, /*weak =*/false);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<mozIDOMWindowProxy> newWindow;
@@ -347,8 +381,12 @@ nsXULAlerts::ShowAlertWithIconURI(nsIAlertNotification* aAlert,
   if (inPrivateBrowsing) {
     features.AppendLiteral(",private");
   }
-  rv = wwatch->OpenWindow(nullptr, ALERT_CHROME_URL, "_blank", features.get(),
-                          argsArray, getter_AddRefs(newWindow));
+  rv = wwatch->OpenWindow(nullptr,
+                          ALERT_CHROME_URL,
+                          "_blank",
+                          features.get(),
+                          argsArray,
+                          getter_AddRefs(newWindow));
   NS_ENSURE_SUCCESS(rv, rv);
 
   mNamedWindows.Put(name, newWindow);
@@ -372,13 +410,12 @@ nsXULAlerts::GetManualDoNotDisturb(bool* aRetVal)
 }
 
 NS_IMETHODIMP
-nsXULAlerts::CloseAlert(const nsAString& aAlertName,
-                        nsIPrincipal* aPrincipal)
+nsXULAlerts::CloseAlert(const nsAString& aAlertName, nsIPrincipal* aPrincipal)
 {
   mozIDOMWindowProxy* alert = mNamedWindows.GetWeak(aAlertName);
-  if (nsCOMPtr<nsPIDOMWindowOuter> domWindow = nsPIDOMWindowOuter::From(alert)) {
+  if (nsCOMPtr<nsPIDOMWindowOuter> domWindow =
+          nsPIDOMWindowOuter::From(alert)) {
     domWindow->DispatchCustomEvent(NS_LITERAL_STRING("XULAlertClose"));
   }
   return NS_OK;
 }
-

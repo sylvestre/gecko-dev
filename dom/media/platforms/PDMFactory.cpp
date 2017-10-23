@@ -49,12 +49,14 @@
 
 namespace mozilla {
 
-extern already_AddRefed<PlatformDecoderModule> CreateBlankDecoderModule();
-extern already_AddRefed<PlatformDecoderModule> CreateNullDecoderModule();
+extern already_AddRefed<PlatformDecoderModule>
+CreateBlankDecoderModule();
+extern already_AddRefed<PlatformDecoderModule>
+CreateNullDecoderModule();
 
 class PDMFactoryImpl final
 {
-public:
+ public:
   PDMFactoryImpl()
   {
 #ifdef XP_WIN
@@ -77,7 +79,7 @@ StaticMutex PDMFactory::sMonitor;
 
 class SupportChecker
 {
-public:
+ public:
   enum class Reason : uint8_t
   {
     kSupported,
@@ -90,8 +92,7 @@ public:
   {
     explicit CheckResult(Reason aReason,
                          MediaResult aResult = MediaResult(NS_OK))
-      : mReason(aReason),
-        mMediaResult(mozilla::Move(aResult))
+        : mReason(aReason), mMediaResult(mozilla::Move(aResult))
     {
     }
     CheckResult(const CheckResult& aOther) = default;
@@ -104,19 +105,17 @@ public:
   };
 
   template<class Func>
-  void
-  AddToCheckList(Func&& aChecker)
+  void AddToCheckList(Func&& aChecker)
   {
     mCheckerList.AppendElement(mozilla::Forward<Func>(aChecker));
   }
 
-  void
-  AddMediaFormatChecker(const TrackInfo& aTrackConfig)
+  void AddMediaFormatChecker(const TrackInfo& aTrackConfig)
   {
     if (aTrackConfig.IsVideo()) {
       auto mimeType = aTrackConfig.GetAsVideoInfo()->mMimeType;
       RefPtr<MediaByteBuffer> extraData =
-        aTrackConfig.GetAsVideoInfo()->mExtraData;
+          aTrackConfig.GetAsVideoInfo()->mExtraData;
       AddToCheckList([mimeType, extraData]() {
         if (MP4Decoder::IsH264(mimeType)) {
           mp4_demuxer::SPSData spsdata;
@@ -127,11 +126,12 @@ public:
               (spsdata.profile_idc == 244 /* Hi444PP */ ||
                spsdata.chroma_format_idc == PDMFactory::kYUV444)) {
             return CheckResult(
-              SupportChecker::Reason::kVideoFormatNotSupported,
-              MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                          RESULT_DETAIL("Decoder may not have the capability "
-                                        "to handle the requested video format "
-                                        "with YUV444 chroma subsampling.")));
+                SupportChecker::Reason::kVideoFormatNotSupported,
+                MediaResult(
+                    NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                    RESULT_DETAIL("Decoder may not have the capability "
+                                  "to handle the requested video format "
+                                  "with YUV444 chroma subsampling.")));
           }
         }
         return CheckResult(SupportChecker::Reason::kSupported);
@@ -139,13 +139,12 @@ public:
     }
   }
 
-  SupportChecker::CheckResult
-  Check()
+  SupportChecker::CheckResult Check()
   {
     for (auto& checker : mCheckerList) {
       auto result = checker();
-        if (result.mReason != SupportChecker::Reason::kSupported) {
-          return result;
+      if (result.mReason != SupportChecker::Reason::kSupported) {
+        return result;
       }
     }
     return CheckResult(SupportChecker::Reason::kSupported);
@@ -153,9 +152,9 @@ public:
 
   void Clear() { mCheckerList.Clear(); }
 
-private:
+ private:
   nsTArray<std::function<CheckResult()>> mCheckerList;
-}; // SupportChecker
+};  // SupportChecker
 
 PDMFactory::PDMFactory()
 {
@@ -164,9 +163,7 @@ PDMFactory::PDMFactory()
   CreateNullPDM();
 }
 
-PDMFactory::~PDMFactory()
-{
-}
+PDMFactory::~PDMFactory() {}
 
 void
 PDMFactory::EnsureInit() const
@@ -188,13 +185,13 @@ PDMFactory::EnsureInit() const
   // Not on the main thread -> Sync-dispatch creation to main thread.
   nsCOMPtr<nsIEventTarget> mainTarget = GetMainThreadEventTarget();
   nsCOMPtr<nsIRunnable> runnable =
-    NS_NewRunnableFunction("PDMFactory::EnsureInit", []() {
-      StaticMutexAutoLock mon(sMonitor);
-      if (!sInstance) {
-        sInstance = new PDMFactoryImpl();
-        ClearOnShutdown(&sInstance);
-      }
-    });
+      NS_NewRunnableFunction("PDMFactory::EnsureInit", []() {
+        StaticMutexAutoLock mon(sMonitor);
+        if (!sInstance) {
+          sInstance = new PDMFactoryImpl();
+          ClearOnShutdown(&sInstance);
+        }
+      });
   SyncRunnable::DispatchToThread(mainTarget, runnable);
 }
 
@@ -256,16 +253,16 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
   auto checkResult = supportChecker.Check();
   if (checkResult.mReason != SupportChecker::Reason::kSupported) {
     DecoderDoctorDiagnostics* diagnostics = aParams.mDiagnostics;
-    if (checkResult.mReason
-        == SupportChecker::Reason::kVideoFormatNotSupported) {
+    if (checkResult.mReason ==
+        SupportChecker::Reason::kVideoFormatNotSupported) {
       if (diagnostics) {
         diagnostics->SetVideoNotSupported();
       }
       if (result) {
         *result = checkResult.mMediaResult;
       }
-    } else if (checkResult.mReason
-               == SupportChecker::Reason::kAudioFormatNotSupported) {
+    } else if (checkResult.mReason ==
+               SupportChecker::Reason::kAudioFormatNotSupported) {
       if (diagnostics) {
         diagnostics->SetAudioNotSupported();
       }
@@ -283,8 +280,8 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
 
   if (!config.IsVideo()) {
     *result = MediaResult(
-      NS_ERROR_DOM_MEDIA_FATAL_ERR,
-      RESULT_DETAIL("Decoder configuration error, expected audio or video."));
+        NS_ERROR_DOM_MEDIA_FATAL_ERR,
+        RESULT_DETAIL("Decoder configuration error, expected audio or video."));
     return nullptr;
   }
 
@@ -371,7 +368,7 @@ PDMFactory::CreatePDMs()
   StartupPDM(m);
 #endif
 #ifdef MOZ_WIDGET_ANDROID
-  if(MediaPrefs::PDMAndroidMediaCodecEnabled()){
+  if (MediaPrefs::PDMAndroidMediaCodecEnabled()) {
     m = new AndroidDecoderModule();
     StartupPDM(m, MediaPrefs::PDMAndroidMediaCodecPreferred());
   }

@@ -39,12 +39,13 @@ class VideoSegment;
  * callback to notify of the initial blocking state. Also, if a listener is
  * attached to a stream that has already finished, we'll call NotifyFinished.
  */
-class MediaStreamListener {
-protected:
+class MediaStreamListener
+{
+ protected:
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~MediaStreamListener() {}
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaStreamListener)
 
   /**
@@ -61,7 +62,8 @@ public:
    */
   virtual void NotifyPull(MediaStreamGraph* aGraph, StreamTime aDesiredTime) {}
 
-  enum Blocking {
+  enum Blocking
+  {
     BLOCKED,
     UNBLOCKED
   };
@@ -69,7 +71,10 @@ public:
    * Notify that the blocking status of the stream changed. The initial state
    * is assumed to be BLOCKED.
    */
-  virtual void NotifyBlockingChanged(MediaStreamGraph* aGraph, Blocking aBlocked) {}
+  virtual void NotifyBlockingChanged(MediaStreamGraph* aGraph,
+                                     Blocking aBlocked)
+  {
+  }
 
   /**
    * Notify that the stream has data in each track
@@ -89,7 +94,10 @@ public:
   /**
    * Notify that an event has occurred on the Stream
    */
-  virtual void NotifyEvent(MediaStreamGraph* aGraph, MediaStreamGraphEvent aEvent) {}
+  virtual void NotifyEvent(MediaStreamGraph* aGraph,
+                           MediaStreamGraphEvent aEvent)
+  {
+  }
 
   /**
    * Notify that changes to one of the stream tracks have been queued.
@@ -100,22 +108,28 @@ public:
    * from an input stream's track. In practice they will only be used for
    * ProcessedMediaStreams.
    */
-  virtual void NotifyQueuedTrackChanges(MediaStreamGraph* aGraph, TrackID aID,
+  virtual void NotifyQueuedTrackChanges(MediaStreamGraph* aGraph,
+                                        TrackID aID,
                                         StreamTime aTrackOffset,
                                         TrackEventCommand aTrackEvents,
                                         const MediaSegment& aQueuedMedia,
                                         MediaStream* aInputStream = nullptr,
-                                        TrackID aInputTrackID = TRACK_INVALID) {}
+                                        TrackID aInputTrackID = TRACK_INVALID)
+  {
+  }
 
   /**
    * Notify queued audio data. Only audio data need to be queued. The video data
    * will be notified by MediaStreamVideoSink::SetCurrentFrame.
    */
-  virtual void NotifyQueuedAudioData(MediaStreamGraph* aGraph, TrackID aID,
+  virtual void NotifyQueuedAudioData(MediaStreamGraph* aGraph,
+                                     TrackID aID,
                                      StreamTime aTrackOffset,
                                      const AudioSegment& aQueuedMedia,
                                      MediaStream* aInputStream = nullptr,
-                                     TrackID aInputTrackID = TRACK_INVALID) {}
+                                     TrackID aInputTrackID = TRACK_INVALID)
+  {
+  }
 
   /**
    * Notify that all new tracks this iteration have been created.
@@ -146,19 +160,23 @@ class MediaStreamTrackListener
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaStreamTrackListener)
 
-public:
+ public:
   virtual void NotifyQueuedChanges(MediaStreamGraph* aGraph,
                                    StreamTime aTrackOffset,
-                                   const MediaSegment& aQueuedMedia) {}
+                                   const MediaSegment& aQueuedMedia)
+  {
+  }
 
-  virtual void NotifyPrincipalHandleChanged(MediaStreamGraph* aGraph,
-                                            const PrincipalHandle& aNewPrincipalHandle) {}
+  virtual void NotifyPrincipalHandleChanged(
+      MediaStreamGraph* aGraph, const PrincipalHandle& aNewPrincipalHandle)
+  {
+  }
 
   virtual void NotifyEnded() {}
 
   virtual void NotifyRemoved() {}
 
-protected:
+ protected:
   virtual ~MediaStreamTrackListener() {}
 };
 
@@ -183,7 +201,7 @@ class DirectMediaStreamTrackListener : public MediaStreamTrackListener
   friend class SourceMediaStream;
   friend class TrackUnionStream;
 
-public:
+ public:
   /*
    * This will be called on any DirectMediaStreamTrackListener added to a
    * SourceMediaStream when AppendToTrack() is called for the listener's bound
@@ -196,7 +214,9 @@ public:
    */
   virtual void NotifyRealtimeTrackData(MediaStreamGraph* aGraph,
                                        StreamTime aTrackOffset,
-                                       const MediaSegment& aMedia) {}
+                                       const MediaSegment& aMedia)
+  {
+  }
 
   /**
    * When a direct listener is processed for installation by the
@@ -216,7 +236,8 @@ public:
    *    Installation was successful and this listener will start receiving
    *    NotifyRealtimeData on the next AppendToTrack().
    */
-  enum class InstallationResult {
+  enum class InstallationResult
+  {
     TRACK_NOT_FOUND_AT_SOURCE,
     TRACK_TYPE_NOT_SUPPORTED,
     STREAM_NOT_SUPPORTED,
@@ -228,7 +249,7 @@ public:
 
   virtual MediaStreamVideoSink* AsMediaStreamVideoSink() { return nullptr; }
 
-protected:
+ protected:
   virtual ~DirectMediaStreamTrackListener() {}
 
   void MirrorAndDisableSegment(AudioSegment& aFrom, AudioSegment& aTo);
@@ -251,6 +272,6 @@ protected:
   nsAutoPtr<MediaSegment> mMedia;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_MEDIASTREAMLISTENER_h_
+#endif  // MOZILLA_MEDIASTREAMLISTENER_h_

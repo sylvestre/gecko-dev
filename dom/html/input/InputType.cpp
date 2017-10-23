@@ -21,11 +21,12 @@
 const mozilla::Decimal InputType::kStepAny = mozilla::Decimal(0);
 
 /* static */ mozilla::UniquePtr<InputType, DoNotDelete>
-InputType::Create(mozilla::dom::HTMLInputElement* aInputElement, uint8_t aType,
+InputType::Create(mozilla::dom::HTMLInputElement* aInputElement,
+                  uint8_t aType,
                   void* aMemory)
 {
   mozilla::UniquePtr<InputType, DoNotDelete> inputType;
-  switch(aType) {
+  switch (aType) {
     // Single line text
     case NS_FORM_INPUT_TEXT:
       inputType.reset(TextInputType::Create(aInputElement, aMemory));
@@ -203,54 +204,55 @@ InputType::HasBadInput() const
 }
 
 nsresult
-InputType::GetValidationMessage(nsAString& aValidationMessage,
-                                nsIConstraintValidation::ValidityStateType aType)
+InputType::GetValidationMessage(
+    nsAString& aValidationMessage,
+    nsIConstraintValidation::ValidityStateType aType)
 {
   nsresult rv = NS_OK;
 
-  switch (aType)
-  {
-    case nsIConstraintValidation::VALIDITY_STATE_TOO_LONG:
-    {
+  switch (aType) {
+    case nsIConstraintValidation::VALIDITY_STATE_TOO_LONG: {
       nsAutoString message;
       int32_t maxLength = mInputElement->MaxLength();
       int32_t textLength =
-        mInputElement->InputTextLength(mozilla::dom::CallerType::System);
+          mInputElement->InputTextLength(mozilla::dom::CallerType::System);
       nsAutoString strMaxLength;
       nsAutoString strTextLength;
 
       strMaxLength.AppendInt(maxLength);
       strTextLength.AppendInt(textLength);
 
-      const char16_t* params[] = { strMaxLength.get(), strTextLength.get() };
-      rv = nsContentUtils::FormatLocalizedString(
-        nsContentUtils::eDOM_PROPERTIES, "FormValidationTextTooLong",
-        params, message);
+      const char16_t* params[] = {strMaxLength.get(), strTextLength.get()};
+      rv =
+          nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
+                                                "FormValidationTextTooLong",
+                                                params,
+                                                message);
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_TOO_SHORT:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_TOO_SHORT: {
       nsAutoString message;
       int32_t minLength = mInputElement->MinLength();
       int32_t textLength =
-        mInputElement->InputTextLength(mozilla::dom::CallerType::System);
+          mInputElement->InputTextLength(mozilla::dom::CallerType::System);
       nsAutoString strMinLength;
       nsAutoString strTextLength;
 
       strMinLength.AppendInt(minLength);
       strTextLength.AppendInt(textLength);
 
-      const char16_t* params[] = { strMinLength.get(), strTextLength.get() };
-      rv = nsContentUtils::FormatLocalizedString(
-        nsContentUtils::eDOM_PROPERTIES, "FormValidationTextTooShort",
-        params, message);
+      const char16_t* params[] = {strMinLength.get(), strTextLength.get()};
+      rv =
+          nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
+                                                "FormValidationTextTooShort",
+                                                params,
+                                                message);
 
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_VALUE_MISSING:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_VALUE_MISSING: {
       nsAutoString message;
       rv = GetValueMissingMessage(message);
       if (NS_FAILED(rv)) {
@@ -260,8 +262,7 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_TYPE_MISMATCH:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_TYPE_MISMATCH: {
       nsAutoString message;
       rv = GetTypeMismatchMessage(message);
       if (NS_FAILED(rv)) {
@@ -271,30 +272,31 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_PATTERN_MISMATCH:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_PATTERN_MISMATCH: {
       nsAutoString message;
       nsAutoString title;
       mInputElement->GetAttr(kNameSpaceID_None, nsGkAtoms::title, title);
       if (title.IsEmpty()) {
         rv = nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-          "FormValidationPatternMismatch", message);
+                                                "FormValidationPatternMismatch",
+                                                message);
       } else {
         if (title.Length() >
             nsIConstraintValidation::sContentSpecifiedMaxLengthMessage) {
           title.Truncate(
-            nsIConstraintValidation::sContentSpecifiedMaxLengthMessage);
+              nsIConstraintValidation::sContentSpecifiedMaxLengthMessage);
         }
-        const char16_t* params[] = { title.get() };
+        const char16_t* params[] = {title.get()};
         rv = nsContentUtils::FormatLocalizedString(
-          nsContentUtils::eDOM_PROPERTIES,
-          "FormValidationPatternMismatchWithTitle", params, message);
+            nsContentUtils::eDOM_PROPERTIES,
+            "FormValidationPatternMismatchWithTitle",
+            params,
+            message);
       }
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_RANGE_OVERFLOW:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_RANGE_OVERFLOW: {
       nsAutoString message;
       rv = GetRangeOverflowMessage(message);
       if (NS_FAILED(rv)) {
@@ -304,8 +306,7 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_RANGE_UNDERFLOW:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_RANGE_UNDERFLOW: {
       nsAutoString message;
       rv = GetRangeUnderflowMessage(message);
       if (NS_FAILED(rv)) {
@@ -315,8 +316,7 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_STEP_MISMATCH:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_STEP_MISMATCH: {
       nsAutoString message;
 
       mozilla::Decimal value = mInputElement->GetValueAsDecimal();
@@ -328,9 +328,9 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
       mozilla::Decimal stepBase = mInputElement->GetStepBase();
 
       mozilla::Decimal valueLow =
-        value - NS_floorModulo(value - stepBase, step);
+          value - NS_floorModulo(value - stepBase, step);
       mozilla::Decimal valueHigh =
-        value + step - NS_floorModulo(value - stepBase, step);
+          value + step - NS_floorModulo(value - stepBase, step);
 
       mozilla::Decimal maximum = mInputElement->GetMaximum();
 
@@ -340,31 +340,36 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
         ConvertNumberToString(valueHigh, valueHighStr);
 
         if (valueLowStr.Equals(valueHighStr)) {
-          const char16_t* params[] = { valueLowStr.get() };
+          const char16_t* params[] = {valueLowStr.get()};
           rv = nsContentUtils::FormatLocalizedString(
-            nsContentUtils::eDOM_PROPERTIES,
-            "FormValidationStepMismatchOneValue", params, message);
+              nsContentUtils::eDOM_PROPERTIES,
+              "FormValidationStepMismatchOneValue",
+              params,
+              message);
         } else {
-          const char16_t* params[] = { valueLowStr.get(), valueHighStr.get() };
+          const char16_t* params[] = {valueLowStr.get(), valueHighStr.get()};
           rv = nsContentUtils::FormatLocalizedString(
-            nsContentUtils::eDOM_PROPERTIES,
-            "FormValidationStepMismatch", params, message);
+              nsContentUtils::eDOM_PROPERTIES,
+              "FormValidationStepMismatch",
+              params,
+              message);
         }
       } else {
         nsAutoString valueLowStr;
         ConvertNumberToString(valueLow, valueLowStr);
 
-        const char16_t* params[] = { valueLowStr.get() };
+        const char16_t* params[] = {valueLowStr.get()};
         rv = nsContentUtils::FormatLocalizedString(
-          nsContentUtils::eDOM_PROPERTIES,
-          "FormValidationStepMismatchOneValue", params, message);
+            nsContentUtils::eDOM_PROPERTIES,
+            "FormValidationStepMismatchOneValue",
+            params,
+            message);
       }
 
       aValidationMessage = message;
       break;
     }
-    case nsIConstraintValidation::VALIDITY_STATE_BAD_INPUT:
-    {
+    case nsIConstraintValidation::VALIDITY_STATE_BAD_INPUT: {
       nsAutoString message;
       rv = GetBadInputMessage(message);
       if (NS_FAILED(rv)) {
@@ -384,8 +389,8 @@ InputType::GetValidationMessage(nsAString& aValidationMessage,
 nsresult
 InputType::GetValueMissingMessage(nsAString& aMessage)
 {
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationValueMissing", aMessage);
+  return nsContentUtils::GetLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "FormValidationValueMissing", aMessage);
 }
 
 nsresult
@@ -437,7 +442,9 @@ InputType::ConvertNumberToString(mozilla::Decimal aValue,
 }
 
 bool
-InputType::ParseDate(const nsAString& aValue, uint32_t* aYear, uint32_t* aMonth,
+InputType::ParseDate(const nsAString& aValue,
+                     uint32_t* aYear,
+                     uint32_t* aMonth,
                      uint32_t* aDay) const
 {
   // TODO: move this function and implementation to DateTimeInpuTypeBase when
@@ -455,7 +462,8 @@ InputType::ParseTime(const nsAString& aValue, uint32_t* aResult) const
 }
 
 bool
-InputType::ParseMonth(const nsAString& aValue, uint32_t* aYear,
+InputType::ParseMonth(const nsAString& aValue,
+                      uint32_t* aYear,
                       uint32_t* aMonth) const
 {
   // see comment in InputType::ParseDate().
@@ -463,7 +471,8 @@ InputType::ParseMonth(const nsAString& aValue, uint32_t* aYear,
 }
 
 bool
-InputType::ParseWeek(const nsAString& aValue, uint32_t* aYear,
+InputType::ParseWeek(const nsAString& aValue,
+                     uint32_t* aYear,
                      uint32_t* aWeek) const
 {
   // see comment in InputType::ParseDate().
@@ -471,9 +480,11 @@ InputType::ParseWeek(const nsAString& aValue, uint32_t* aYear,
 }
 
 bool
-InputType::ParseDateTimeLocal(const nsAString& aValue, uint32_t* aYear,
-                              uint32_t* aMonth, uint32_t* aDay, uint32_t* aTime)
-                              const
+InputType::ParseDateTimeLocal(const nsAString& aValue,
+                              uint32_t* aYear,
+                              uint32_t* aMonth,
+                              uint32_t* aDay,
+                              uint32_t* aTime) const
 {
   // see comment in InputType::ParseDate().
   return mInputElement->ParseDateTimeLocal(aValue, aYear, aMonth, aDay, aTime);
@@ -494,7 +505,9 @@ InputType::DaysSinceEpochFromWeek(uint32_t aYear, uint32_t aWeek) const
 }
 
 uint32_t
-InputType::DayOfWeek(uint32_t aYear, uint32_t aMonth, uint32_t aDay,
+InputType::DayOfWeek(uint32_t aYear,
+                     uint32_t aMonth,
+                     uint32_t aDay,
                      bool isoWeek) const
 {
   // see comment in InputType::ParseDate().

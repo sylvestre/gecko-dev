@@ -7,35 +7,32 @@
 #include "nsAutoRef.h"
 #include "gtest/gtest.h"
 
-struct TestObjectA {
-public:
-  TestObjectA() : mRefCnt(0) {
-  }
+struct TestObjectA
+{
+ public:
+  TestObjectA() : mRefCnt(0) {}
 
-  ~TestObjectA() {
-    EXPECT_EQ(mRefCnt, 0);
-  }
+  ~TestObjectA() { EXPECT_EQ(mRefCnt, 0); }
 
-public:
+ public:
   int mRefCnt;
 };
 
-template <>
+template<>
 class nsAutoRefTraits<TestObjectA> : public nsPointerRefTraits<TestObjectA>
 {
-public:
+ public:
   static int mTotalRefsCnt;
 
-  static void Release(TestObjectA *ptr) {
+  static void Release(TestObjectA* ptr)
+  {
     ptr->mRefCnt--;
     if (ptr->mRefCnt == 0) {
       delete ptr;
     }
   }
 
-  static void AddRef(TestObjectA *ptr) {
-    ptr->mRefCnt++;
-  }
+  static void AddRef(TestObjectA* ptr) { ptr->mRefCnt++; }
 };
 
 int nsAutoRefTraits<TestObjectA>::mTotalRefsCnt = 0;

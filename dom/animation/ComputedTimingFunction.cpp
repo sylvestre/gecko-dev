@@ -5,18 +5,20 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ComputedTimingFunction.h"
-#include "nsAlgorithm.h" // For clamped()
+#include "nsAlgorithm.h"  // For clamped()
 #include "nsStyleUtil.h"
 
 namespace mozilla {
 
 void
-ComputedTimingFunction::Init(const nsTimingFunction &aFunction)
+ComputedTimingFunction::Init(const nsTimingFunction& aFunction)
 {
   mType = aFunction.mType;
   if (nsTimingFunction::IsSplineType(mType)) {
-    mTimingFunction.Init(aFunction.mFunc.mX1, aFunction.mFunc.mY1,
-                         aFunction.mFunc.mX2, aFunction.mFunc.mY2);
+    mTimingFunction.Init(aFunction.mFunc.mX1,
+                         aFunction.mFunc.mY1,
+                         aFunction.mFunc.mX2,
+                         aFunction.mFunc.mY2);
   } else {
     mStepsOrFrames = aFunction.mStepsOrFrames;
   }
@@ -29,7 +31,8 @@ StepTiming(uint32_t aSteps,
            nsTimingFunction::Type aType)
 {
   MOZ_ASSERT(aType == nsTimingFunction::Type::StepStart ||
-             aType == nsTimingFunction::Type::StepEnd, "invalid type");
+                 aType == nsTimingFunction::Type::StepEnd,
+             "invalid type");
 
   // Calculate current step using step-end behavior
   int32_t step = floor(aPortion * aSteps);
@@ -79,8 +82,7 @@ FramesTiming(uint32_t aFrames, double aPortion)
 
 double
 ComputedTimingFunction::GetValue(
-    double aPortion,
-    ComputedTimingFunction::BeforeFlag aBeforeFlag) const
+    double aPortion, ComputedTimingFunction::BeforeFlag aBeforeFlag) const
 {
   if (HasSpline()) {
     // Check for a linear curve.
@@ -115,11 +117,11 @@ ComputedTimingFunction::GetValue(
     // if p2 is coincident with p3, with (p1 - p3).
     if (aPortion > 1.0) {
       if (mTimingFunction.X2() < 1.0) {
-        return 1.0 + (aPortion - 1.0) *
-          (mTimingFunction.Y2() - 1) / (mTimingFunction.X2() - 1);
+        return 1.0 + (aPortion - 1.0) * (mTimingFunction.Y2() - 1) /
+                         (mTimingFunction.X2() - 1);
       } else if (mTimingFunction.Y2() == 1 && mTimingFunction.X1() < 1.0) {
-        return 1.0 + (aPortion - 1.0) *
-          (mTimingFunction.Y1() - 1) / (mTimingFunction.X1() - 1);
+        return 1.0 + (aPortion - 1.0) * (mTimingFunction.Y1() - 1) /
+                         (mTimingFunction.X1() - 1);
       }
       // If we can't calculate a sensible tangent, don't extrapolate at all.
       return 1.0;
@@ -129,8 +131,8 @@ ComputedTimingFunction::GetValue(
   }
 
   return mType == nsTimingFunction::Type::Frames
-         ? FramesTiming(mStepsOrFrames, aPortion)
-         : StepTiming(mStepsOrFrames, aPortion, aBeforeFlag, mType);
+             ? FramesTiming(mStepsOrFrames, aPortion)
+             : StepTiming(mStepsOrFrames, aPortion, aBeforeFlag, mType);
 }
 
 int32_t
@@ -187,10 +189,10 @@ ComputedTimingFunction::Compare(const Maybe<ComputedTimingFunction>& aLhs,
   // We can't use |operator<| for const Maybe<>& here because
   // 'ease' is prior to 'linear' which is represented by Nothing().
   // So we have to convert Nothing() as 'linear' and check it first.
-  nsTimingFunction::Type lhsType = aLhs.isNothing() ?
-    nsTimingFunction::Type::Linear : aLhs->GetType();
-  nsTimingFunction::Type rhsType = aRhs.isNothing() ?
-    nsTimingFunction::Type::Linear : aRhs->GetType();
+  nsTimingFunction::Type lhsType =
+      aLhs.isNothing() ? nsTimingFunction::Type::Linear : aLhs->GetType();
+  nsTimingFunction::Type rhsType =
+      aRhs.isNothing() ? nsTimingFunction::Type::Linear : aRhs->GetType();
 
   if (lhsType != rhsType) {
     return int32_t(lhsType) - int32_t(rhsType);
@@ -205,4 +207,4 @@ ComputedTimingFunction::Compare(const Maybe<ComputedTimingFunction>& aLhs,
   return aLhs->Compare(aRhs.value());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

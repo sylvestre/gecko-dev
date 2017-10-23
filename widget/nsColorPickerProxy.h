@@ -13,16 +13,17 @@
 class nsColorPickerProxy final : public nsIColorPicker,
                                  public mozilla::dom::PColorPickerChild
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICOLORPICKER
 
   nsColorPickerProxy() {}
 
   virtual mozilla::ipc::IPCResult RecvUpdate(const nsString& aColor) override;
-  virtual mozilla::ipc::IPCResult Recv__delete__(const nsString& aColor) override;
+  virtual mozilla::ipc::IPCResult Recv__delete__(
+      const nsString& aColor) override;
 
-private:
+ private:
   ~nsColorPickerProxy() {}
 
   nsCOMPtr<nsIColorPickerShownCallback> mCallback;
@@ -30,4 +31,4 @@ private:
   nsString mInitialColor;
 };
 
-#endif // nsColorPickerProxy_h
+#endif  // nsColorPickerProxy_h

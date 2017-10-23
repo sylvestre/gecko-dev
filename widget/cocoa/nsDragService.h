@@ -20,7 +20,7 @@ extern NSString* const kMozFileUrlsPboardType;
 
 class nsDragService : public nsBaseDragService
 {
-public:
+ public:
   nsDragService();
 
   // nsBaseDragService
@@ -29,20 +29,21 @@ public:
                                          uint32_t aActionType);
   // nsIDragService
   NS_IMETHOD EndDragSession(bool aDoneDrag, uint32_t aKeyModifiers);
-  NS_IMETHOD UpdateDragImage(nsIDOMNode* aImage, int32_t aImageX, int32_t aImageY);
+  NS_IMETHOD UpdateDragImage(nsIDOMNode* aImage,
+                             int32_t aImageX,
+                             int32_t aImageY);
 
   // nsIDragSession
-  NS_IMETHOD GetData(nsITransferable * aTransferable, uint32_t aItemIndex);
-  NS_IMETHOD IsDataFlavorSupported(const char *aDataFlavor, bool *_retval);
-  NS_IMETHOD GetNumDropItems(uint32_t * aNumItems);
+  NS_IMETHOD GetData(nsITransferable* aTransferable, uint32_t aItemIndex);
+  NS_IMETHOD IsDataFlavorSupported(const char* aDataFlavor, bool* _retval);
+  NS_IMETHOD GetNumDropItems(uint32_t* aNumItems);
 
   void DragMovedWithView(NSDraggingSession* aSession, NSPoint aPoint);
 
-protected:
+ protected:
   virtual ~nsDragService();
 
-private:
-
+ private:
   // Creates and returns the drag image for a drag. aImagePoint will be set to
   // the origin of the drag relative to mNativeDragView.
   NSImage* ConstructDragImage(nsIDOMNode* aDOMNode,
@@ -58,16 +59,17 @@ private:
                               mozilla::LayoutDeviceIntRect* aDragRect);
 
   bool IsValidType(NSString* availableType, bool allowFileURL);
-  NSString* GetStringForType(NSPasteboardItem* item, const NSString* type,
+  NSString* GetStringForType(NSPasteboardItem* item,
+                             const NSString* type,
                              bool allowFileURL = false);
   NSString* GetTitleForURL(NSPasteboardItem* item);
   NSString* GetFilePath(NSPasteboardItem* item);
 
-  nsCOMPtr<nsIArray> mDataItems; // only valid for a drag started within gecko
+  nsCOMPtr<nsIArray> mDataItems;  // only valid for a drag started within gecko
   ChildView* mNativeDragView;
   NSEvent* mNativeDragEvent;
 
   bool mDragImageChanged;
 };
 
-#endif // nsDragService_h_
+#endif  // nsDragService_h_

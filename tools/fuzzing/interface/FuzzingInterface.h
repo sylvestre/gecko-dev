@@ -29,33 +29,38 @@
 
 namespace mozilla {
 
-typedef int(*FuzzingTestFuncRaw)(const uint8_t*, size_t);
-typedef int(*FuzzingTestFuncStream)(nsCOMPtr<nsIInputStream>);
+typedef int (*FuzzingTestFuncRaw)(const uint8_t*, size_t);
+typedef int (*FuzzingTestFuncStream)(nsCOMPtr<nsIInputStream>);
 
 #ifdef __AFL_COMPILER
-void afl_interface_stream(const char* testFile, FuzzingTestFuncStream testFunc);
-void afl_interface_raw(const char* testFile, FuzzingTestFuncRaw testFunc);
+void
+afl_interface_stream(const char* testFile, FuzzingTestFuncStream testFunc);
+void
+afl_interface_raw(const char* testFile, FuzzingTestFuncRaw testFunc);
 
-#define MOZ_AFL_INTERFACE_COMMON(initFunc)                                                    \
-  initFunc(NULL, NULL);                                                                       \
-  char* testFilePtr = getenv("MOZ_FUZZ_TESTFILE");                                            \
-  if (!testFilePtr) {                                                                         \
-    EXPECT_TRUE(false) << "Must specify testfile in MOZ_FUZZ_TESTFILE environment variable."; \
-    return;                                                                                   \
-  }                                                                                           \
-  /* Make a copy of testFilePtr so the testing function can safely call getenv */             \
+#define MOZ_AFL_INTERFACE_COMMON(initFunc)                                        \
+  initFunc(NULL, NULL);                                                           \
+  char* testFilePtr = getenv("MOZ_FUZZ_TESTFILE");                                \
+  if (!testFilePtr) {                                                             \
+    EXPECT_TRUE(false)                                                            \
+        << "Must specify testfile in MOZ_FUZZ_TESTFILE environment variable.";    \
+    return;                                                                       \
+  }                                                                               \
+  /* Make a copy of testFilePtr so the testing function can safely call getenv */ \
   std::string testFile(testFilePtr);
 
 #define MOZ_AFL_INTERFACE_STREAM(initFunc, testFunc, moduleName) \
-  TEST(AFL, moduleName) {                                        \
+  TEST(AFL, moduleName)                                          \
+  {                                                              \
     MOZ_AFL_INTERFACE_COMMON(initFunc);                          \
     ::mozilla::afl_interface_stream(testFile.c_str(), testFunc); \
   }
 
-#define MOZ_AFL_INTERFACE_RAW(initFunc, testFunc, moduleName)    \
-  TEST(AFL, moduleName) {                                        \
-    MOZ_AFL_INTERFACE_COMMON(initFunc);                          \
-    ::mozilla::afl_interface_raw(testFile.c_str(), testFunc);    \
+#define MOZ_AFL_INTERFACE_RAW(initFunc, testFunc, moduleName) \
+  TEST(AFL, moduleName)                                       \
+  {                                                           \
+    MOZ_AFL_INTERFACE_COMMON(initFunc);                       \
+    ::mozilla::afl_interface_raw(testFile.c_str(), testFunc); \
   }
 #else
 #define MOZ_AFL_INTERFACE_STREAM(initFunc, testFunc, moduleName) /* Nothing */
@@ -63,42 +68,46 @@ void afl_interface_raw(const char* testFile, FuzzingTestFuncRaw testFunc);
 #endif
 
 #ifdef LIBFUZZER
-#define MOZ_LIBFUZZER_INTERFACE_STREAM(initFunc, testFunc, moduleName)      \
-  static int LibFuzzerTest##moduleName (const uint8_t *data, size_t size) { \
-    if (size > INT32_MAX)                                                   \
-      return 0;                                                             \
-    nsCOMPtr<nsIInputStream> stream;                                        \
-    nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream),             \
-      (const char*)data, size, NS_ASSIGNMENT_DEPEND);                       \
-    MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));                                   \
-    testFunc(stream.forget());                                              \
-    return 0;                                                               \
-  }                                                                         \
-  static void __attribute__ ((constructor)) LibFuzzerRegister() {           \
-    ::mozilla::LibFuzzerRegistry::getInstance().registerModule(             \
-      #moduleName, initFunc, LibFuzzerTest##moduleName                      \
-    );                                                                      \
+#define MOZ_LIBFUZZER_INTERFACE_STREAM(initFunc, testFunc, moduleName)   \
+  static int LibFuzzerTest##moduleName(const uint8_t* data, size_t size) \
+  {                                                                      \
+    if (size > INT32_MAX) return 0;                                      \
+    nsCOMPtr<nsIInputStream> stream;                                     \
+    nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream),          \
+                                        (const char*)data,               \
+                                        size,                            \
+                                        NS_ASSIGNMENT_DEPEND);           \
+    MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));                                \
+    testFunc(stream.forget());                                           \
+    return 0;                                                            \
+  }                                                                      \
+  static void __attribute__((constructor)) LibFuzzerRegister()           \
+  {                                                                      \
+    ::mozilla::LibFuzzerRegistry::getInstance().registerModule(          \
+        #moduleName, initFunc, LibFuzzerTest##moduleName);               \
   }
 
-#define MOZ_LIBFUZZER_INTERFACE_RAW(initFunc, testFunc, moduleName)         \
-  static void __attribute__ ((constructor)) LibFuzzerRegister() {           \
-    ::mozilla::LibFuzzerRegistry::getInstance().registerModule(             \
-      #moduleName, initFunc, testFunc                                       \
-    );                                                                      \
+#define MOZ_LIBFUZZER_INTERFACE_RAW(initFunc, testFunc, moduleName) \
+  static void __attribute__((constructor)) LibFuzzerRegister()      \
+  {                                                                 \
+    ::mozilla::LibFuzzerRegistry::getInstance().registerModule(     \
+        #moduleName, initFunc, testFunc);                           \
   }
 #else
-#define MOZ_LIBFUZZER_INTERFACE_STREAM(initFunc, testFunc, moduleName) /* Nothing */
-#define MOZ_LIBFUZZER_INTERFACE_RAW(initFunc, testFunc, moduleName)    /* Nothing */
+#define MOZ_LIBFUZZER_INTERFACE_STREAM( \
+    initFunc, testFunc, moduleName) /* Nothing */
+#define MOZ_LIBFUZZER_INTERFACE_RAW( \
+    initFunc, testFunc, moduleName) /* Nothing */
 #endif
 
 #define MOZ_FUZZING_INTERFACE_STREAM(initFunc, testFunc, moduleName) \
   MOZ_LIBFUZZER_INTERFACE_STREAM(initFunc, testFunc, moduleName);    \
   MOZ_AFL_INTERFACE_STREAM(initFunc, testFunc, moduleName);
 
-#define MOZ_FUZZING_INTERFACE_RAW(initFunc, testFunc, moduleName)    \
-  MOZ_LIBFUZZER_INTERFACE_RAW(initFunc, testFunc, moduleName);       \
+#define MOZ_FUZZING_INTERFACE_RAW(initFunc, testFunc, moduleName) \
+  MOZ_LIBFUZZER_INTERFACE_RAW(initFunc, testFunc, moduleName);    \
   MOZ_AFL_INTERFACE_RAW(initFunc, testFunc, moduleName);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif  // FuzzingInterface_h__

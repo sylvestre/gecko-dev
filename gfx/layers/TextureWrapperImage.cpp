@@ -9,16 +9,15 @@ namespace layers {
 
 using namespace mozilla::gfx;
 
-TextureWrapperImage::TextureWrapperImage(TextureClient* aClient, const IntRect& aPictureRect)
- : Image(nullptr, ImageFormat::TEXTURE_WRAPPER),
-   mPictureRect(aPictureRect),
-   mTextureClient(aClient)
+TextureWrapperImage::TextureWrapperImage(TextureClient* aClient,
+                                         const IntRect& aPictureRect)
+    : Image(nullptr, ImageFormat::TEXTURE_WRAPPER),
+      mPictureRect(aPictureRect),
+      mTextureClient(aClient)
 {
 }
 
-TextureWrapperImage::~TextureWrapperImage()
-{
-}
+TextureWrapperImage::~TextureWrapperImage() {}
 
 gfx::IntSize
 TextureWrapperImage::GetSize()
@@ -54,5 +53,5 @@ TextureWrapperImage::GetTextureClient(KnowsCompositor* aForwarder)
   return mTextureClient;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

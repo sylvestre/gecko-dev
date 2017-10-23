@@ -18,28 +18,30 @@ namespace mozilla {
 namespace gfx {
 class DrawTarget;
 class DrawTargetCapture;
-};
+};  // namespace gfx
 
 namespace layers {
 
 // Holds the key parts from a RotatedBuffer::PaintState
 // required to draw the captured paint state
-class CapturedPaintState {
+class CapturedPaintState
+{
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CapturedPaintState)
-public:
+ public:
   CapturedPaintState(nsIntRegion& aRegionToDraw,
                      gfx::DrawTarget* aTarget,
                      gfx::DrawTarget* aTargetOnWhite,
                      const gfx::Matrix& aTargetTransform,
                      SurfaceMode aSurfaceMode,
                      gfxContentType aContentType)
-  : mRegionToDraw(aRegionToDraw)
-  , mTarget(aTarget)
-  , mTargetOnWhite(aTargetOnWhite)
-  , mTargetTransform(aTargetTransform)
-  , mSurfaceMode(aSurfaceMode)
-  , mContentType(aContentType)
-  {}
+      : mRegionToDraw(aRegionToDraw),
+        mTarget(aTarget),
+        mTargetOnWhite(aTargetOnWhite),
+        mTargetTransform(aTargetTransform),
+        mSurfaceMode(aSurfaceMode),
+        mContentType(aContentType)
+  {
+  }
 
   nsIntRegion mRegionToDraw;
   RefPtr<TextureClient> mTextureClient;
@@ -51,11 +53,12 @@ public:
   SurfaceMode mSurfaceMode;
   gfxContentType mContentType;
 
-protected:
+ protected:
   virtual ~CapturedPaintState() {}
 };
 
-typedef bool (*PrepDrawTargetForPaintingCallback)(CapturedPaintState* aPaintState);
+typedef bool (*PrepDrawTargetForPaintingCallback)(
+    CapturedPaintState* aPaintState);
 
 class CompositorBridgeChild;
 
@@ -63,7 +66,7 @@ class PaintThread final
 {
   friend void DestroyPaintThread(UniquePtr<PaintThread>&& aPaintThread);
 
-public:
+ public:
   static void Start();
   static void Shutdown();
   static PaintThread* Get();
@@ -94,7 +97,7 @@ public:
   void Release();
   void AddRef();
 
-private:
+ private:
   bool Init();
   void ShutdownOnPaintThread();
   void InitOnPaintThread();
@@ -115,7 +118,7 @@ private:
   nsTArray<RefPtr<gfx::DrawTarget>> mDrawTargetsToFlush;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

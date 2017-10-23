@@ -29,7 +29,8 @@ namespace gfx {
 //            |
 //            |
 // mPoints[0] +
-struct Bezier {
+struct Bezier
+{
   Point mPoints[4];
 };
 
@@ -55,12 +56,16 @@ struct Bezier {
 //            |
 //            |
 // mPoints[0] + P(0)
-Point GetBezierPoint(const Bezier& aBezier, Float t);
-Point GetBezierDifferential(const Bezier& aBezier, Float t);
-Point GetBezierDifferential2(const Bezier& aBezier, Float t);
+Point
+GetBezierPoint(const Bezier& aBezier, Float t);
+Point
+GetBezierDifferential(const Bezier& aBezier, Float t);
+Point
+GetBezierDifferential2(const Bezier& aBezier, Float t);
 
 // Calculate length of a simple bezier curve formed by aBezier and range [a, b].
-Float GetBezierLength(const Bezier& aBezier, Float a, Float b);
+Float
+GetBezierLength(const Bezier& aBezier, Float a, Float b);
 
 // Split bezier curve formed by aBezier into [0,t1], [t1,t2], [t2,1] parts, and
 // stores control points for [t1,t2] to aSubBezier.
@@ -79,8 +84,8 @@ Float GetBezierLength(const Bezier& aBezier, Float a, Float b);
 //   |
 //   |
 //   + P(0)
-void GetSubBezier(Bezier* aSubBezier, const Bezier& aBezier,
-                  Float t1, Float t2);
+void
+GetSubBezier(Bezier* aSubBezier, const Bezier& aBezier, Float t1, Float t2);
 
 // Find a nearest point on bezier curve formed by aBezier to a point aTarget.
 // aInitialT is a hint to find the parameter t for the nearest point.
@@ -103,8 +108,11 @@ void GetSubBezier(Bezier* aSubBezier, const Bezier& aBezier,
 //   |
 //   |
 //   +
-Point FindBezierNearestPoint(const Bezier& aBezier, const Point& aTarget,
-                             Float aInitialT, Float* aT=nullptr);
+Point
+FindBezierNearestPoint(const Bezier& aBezier,
+                       const Point& aTarget,
+                       Float aInitialT,
+                       Float* aT = nullptr);
 
 // Calculate control points for a bezier curve that is an approximation of
 // an elliptic arc.
@@ -127,9 +135,11 @@ Point FindBezierNearestPoint(const Bezier& aBezier, const Point& aTarget,
 //                    |            |
 //                    v mPoints[0] |
 //                    -------------+
-void GetBezierPointsForCorner(Bezier* aBezier, mozilla::Corner aCorner,
-                              const Point& aCornerPoint,
-                              const Size& aCornerSize);
+void
+GetBezierPointsForCorner(Bezier* aBezier,
+                         mozilla::Corner aCorner,
+                         const Point& aCornerPoint,
+                         const Size& aCornerSize);
 
 // Calculate the approximate length of a quarter elliptic arc formed by radii
 // (a, b).
@@ -151,7 +161,8 @@ void GetBezierPointsForCorner(Bezier* aBezier, mozilla::Corner aCorner,
 //   |  |
 //   v  |
 //   ---+
-Float GetQuarterEllipticArcLength(Float a, Float b);
+Float
+GetQuarterEllipticArcLength(Float a, Float b);
 
 // Calculate the distance between an elliptic arc formed by (origin, width,
 // height), and a point P, along a line formed by |P + n * normal|.
@@ -175,11 +186,14 @@ Float GetQuarterEllipticArcLength(Float a, Float b);
 //          |          |
 //          v          |
 //          -----------+
-Float CalculateDistanceToEllipticArc(const Point& P, const Point& normal,
-                                     const Point& origin,
-                                     Float width, Float height);
+Float
+CalculateDistanceToEllipticArc(const Point& P,
+                               const Point& normal,
+                               const Point& origin,
+                               Float width,
+                               Float height);
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* mozilla_BezierUtils_h_ */

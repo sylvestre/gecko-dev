@@ -24,8 +24,7 @@ namespace net {
 
 class TCPFastOpen
 {
-public:
-
+ public:
   // Check if we have a transaction that is safe to be used with TFO.
   // Connections over TLS are always safe and some http requests (e.g. GET).
   virtual bool FastOpenEnabled() = 0;
@@ -41,7 +40,7 @@ public:
   virtual void SetFastOpenStatus(uint8_t tfoStatus) = 0;
 };
 
-}
-}
+}  // namespace net
+}  // namespace mozilla
 
-#endif //TCPFASTOPEN_H__
+#endif  //TCPFASTOPEN_H__

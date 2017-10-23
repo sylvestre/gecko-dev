@@ -19,7 +19,7 @@ class nsITimerCallback;
  */
 class nsIPageSequenceFrame : public nsQueryFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIPageSequenceFrame)
 
   /**
@@ -35,10 +35,10 @@ public:
    *            and the start page is greater than the total number of pages
    *          NS_ERROR_FAILURE if there is an error
    */
-  NS_IMETHOD StartPrint(nsPresContext*    aPresContext,
+  NS_IMETHOD StartPrint(nsPresContext* aPresContext,
                         nsIPrintSettings* aPrintOptions,
-                        const nsAString&  aDocTitle,
-                        const nsAString&  aDocURL) = 0;
+                        const nsAString& aDocTitle,
+                        const nsAString& aDocURL) = 0;
 
   NS_IMETHOD PrePrintNextPage(nsITimerCallback* aCallback, bool* aDone) = 0;
   NS_IMETHOD PrintNextPage() = 0;
@@ -58,5 +58,3 @@ public:
 };
 
 #endif /* nsIPageSequenceFrame_h___ */
-
-

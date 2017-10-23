@@ -15,12 +15,12 @@ namespace mozilla {
 namespace gmp {
 
 GMPVideoDecoderChild::GMPVideoDecoderChild(GMPContentChild* aPlugin)
-  : GMPSharedMemManager(aPlugin)
-  , mPlugin(aPlugin)
-  , mVideoDecoder(nullptr)
-  , mVideoHost(this)
-  , mNeedShmemIntrCount(0)
-  , mPendingDecodeComplete(false)
+    : GMPSharedMemManager(aPlugin),
+      mPlugin(aPlugin),
+      mVideoDecoder(nullptr),
+      mVideoHost(this),
+      mNeedShmemIntrCount(0),
+      mPendingDecodeComplete(false)
 {
   MOZ_ASSERT(mPlugin);
 }
@@ -33,7 +33,8 @@ GMPVideoDecoderChild::~GMPVideoDecoderChild()
 void
 GMPVideoDecoderChild::Init(GMPVideoDecoder* aDecoder)
 {
-  MOZ_ASSERT(aDecoder, "Cannot initialize video decoder child without a video decoder!");
+  MOZ_ASSERT(aDecoder,
+             "Cannot initialize video decoder child without a video decoder!");
   mVideoDecoder = aDecoder;
 }
 
@@ -228,9 +229,9 @@ GMPVideoDecoderChild::Alloc(size_t aSize,
   if (mPendingDecodeComplete && mNeedShmemIntrCount == 0) {
     mPendingDecodeComplete = false;
     mPlugin->GMPMessageLoop()->PostTask(
-      NewRunnableMethod("gmp::GMPVideoDecoderChild::RecvDecodingComplete",
-                        this,
-                        &GMPVideoDecoderChild::RecvDecodingComplete));
+        NewRunnableMethod("gmp::GMPVideoDecoderChild::RecvDecodingComplete",
+                          this,
+                          &GMPVideoDecoderChild::RecvDecodingComplete));
   }
 #else
 #ifdef GMP_SAFE_SHMEM
@@ -252,5 +253,5 @@ GMPVideoDecoderChild::Dealloc(Shmem& aMem)
 #endif
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

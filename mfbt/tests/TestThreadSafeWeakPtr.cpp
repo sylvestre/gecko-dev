@@ -13,15 +13,13 @@ using mozilla::ThreadSafeWeakPtr;
 // To have a class C support weak pointers, inherit from SupportsThreadSafeWeakPtr<C>.
 class C : public SupportsThreadSafeWeakPtr<C>
 {
-public:
+ public:
   MOZ_DECLARE_THREADSAFEWEAKREFERENCE_TYPENAME(C)
   MOZ_DECLARE_REFCOUNTED_TYPENAME(C)
 
   int mNum;
 
-  C()
-    : mNum(0)
-  {}
+  C() : mNum(0) {}
 
   ~C()
   {
@@ -81,7 +79,7 @@ main()
   c2->mNum = 2;
   {
     RefPtr<C> s2(w2);
-    MOZ_RELEASE_ASSERT(s2->mNum == 1); // w2 was pointing to c1
+    MOZ_RELEASE_ASSERT(s2->mNum == 1);  // w2 was pointing to c1
   }
   w2 = c2;
   {
@@ -96,9 +94,13 @@ main()
   // Destroying the underlying object clears weak pointers to it.
   // It should not affect pointers that are not currently pointing to it.
   c1 = nullptr;
-  MOZ_RELEASE_ASSERT(!bool(w1), "Deleting an object should clear ThreadSafeWeakPtr's to it.");
-  MOZ_RELEASE_ASSERT(bool(w2), "Deleting an object should not clear ThreadSafeWeakPtr that are not pointing to it.");
+  MOZ_RELEASE_ASSERT(
+      !bool(w1), "Deleting an object should clear ThreadSafeWeakPtr's to it.");
+  MOZ_RELEASE_ASSERT(bool(w2),
+                     "Deleting an object should not clear ThreadSafeWeakPtr "
+                     "that are not pointing to it.");
 
   c2 = nullptr;
-  MOZ_RELEASE_ASSERT(!bool(w2), "Deleting an object should clear ThreadSafeWeakPtr's to it.");
+  MOZ_RELEASE_ASSERT(
+      !bool(w2), "Deleting an object should clear ThreadSafeWeakPtr's to it.");
 }

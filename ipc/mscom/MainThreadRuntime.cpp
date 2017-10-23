@@ -15,7 +15,7 @@
 #include "mozilla/UniquePtr.h"
 #if defined(ACCESSIBILITY) && defined(MOZ_CRASHREPORTER)
 #include "nsExceptionHandler.h"
-#endif // defined(ACCESSIBILITY) && defined(MOZ_CRASHREPORTER)
+#endif  // defined(ACCESSIBILITY) && defined(MOZ_CRASHREPORTER)
 #include "nsWindowsHelpers.h"
 #include "nsXULAppAPI.h"
 
@@ -28,13 +28,10 @@ namespace {
 
 struct LocalFreeDeleter
 {
-  void operator()(void* aPtr)
-  {
-    ::LocalFree(aPtr);
-  }
+  void operator()(void* aPtr) { ::LocalFree(aPtr); }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // This API from oleaut32.dll is not declared in Windows SDK headers
 extern "C" void __cdecl SetOaNoCache(void);
@@ -45,10 +42,11 @@ namespace mscom {
 MainThreadRuntime* MainThreadRuntime::sInstance = nullptr;
 
 MainThreadRuntime::MainThreadRuntime()
-  : mInitResult(E_UNEXPECTED)
+    : mInitResult(E_UNEXPECTED)
 #if defined(ACCESSIBILITY)
-  , mActCtxRgn(a11y::Compatibility::GetActCtxResourceId())
-#endif // defined(ACCESSIBILITY)
+      ,
+      mActCtxRgn(a11y::Compatibility::GetActCtxResourceId())
+#endif  // defined(ACCESSIBILITY)
 {
 #if defined(ACCESSIBILITY) && defined(MOZ_CRASHREPORTER)
   GeckoProcessType procType = XRE_GetProcessType();
@@ -62,10 +60,10 @@ MainThreadRuntime::MainThreadRuntime()
       strActCtx.AppendPrintf("HRESULT 0x%08X", actctx.unwrapErr());
     }
 
-    CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("AssemblyManifestCtx"),
-                                       strActCtx);
+    CrashReporter::AnnotateCrashReport(
+        NS_LITERAL_CSTRING("AssemblyManifestCtx"), strActCtx);
   }
-#endif // defined(ACCESSIBILITY) && defined(MOZ_CRASHREPORTER)
+#endif  // defined(ACCESSIBILITY) && defined(MOZ_CRASHREPORTER)
 
   // We must be the outermost COM initialization on this thread. The COM runtime
   // cannot be configured once we start manipulating objects
@@ -82,8 +80,10 @@ MainThreadRuntime::MainThreadRuntime()
   }
 
   RefPtr<IGlobalOptions> globalOpts;
-  mInitResult = ::CoCreateInstance(CLSID_GlobalOptions, nullptr,
-                                   CLSCTX_INPROC_SERVER, IID_IGlobalOptions,
+  mInitResult = ::CoCreateInstance(CLSID_GlobalOptions,
+                                   nullptr,
+                                   CLSCTX_INPROC_SERVER,
+                                   IID_IGlobalOptions,
                                    (void**)getter_AddRefs(globalOpts));
   MOZ_ASSERT(SUCCEEDED(mInitResult));
   if (FAILED(mInitResult)) {
@@ -187,9 +187,9 @@ MainThreadRuntime::InitializeSecurity()
 
   auto tokenPrimaryGroupBuf = MakeUnique<BYTE[]>(len);
   TOKEN_PRIMARY_GROUP& tokenPrimaryGroup =
-    *reinterpret_cast<TOKEN_PRIMARY_GROUP*>(tokenPrimaryGroupBuf.get());
-  ok = ::GetTokenInformation(token, TokenPrimaryGroup, tokenPrimaryGroupBuf.get(),
-                             len, &len);
+      *reinterpret_cast<TOKEN_PRIMARY_GROUP*>(tokenPrimaryGroupBuf.get());
+  ok = ::GetTokenInformation(
+      token, TokenPrimaryGroup, tokenPrimaryGroupBuf.get(), len, &len);
   if (!ok) {
     return HRESULT_FROM_WIN32(::GetLastError());
   }
@@ -201,34 +201,48 @@ MainThreadRuntime::InitializeSecurity()
 
   BYTE systemSid[SECURITY_MAX_SID_SIZE];
   DWORD systemSidSize = sizeof(systemSid);
-  if (!::CreateWellKnownSid(WinLocalSystemSid, nullptr, systemSid,
-                            &systemSidSize)) {
+  if (!::CreateWellKnownSid(
+          WinLocalSystemSid, nullptr, systemSid, &systemSidSize)) {
     return HRESULT_FROM_WIN32(::GetLastError());
   }
 
   BYTE adminSid[SECURITY_MAX_SID_SIZE];
   DWORD adminSidSize = sizeof(adminSid);
-  if (!::CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr, adminSid,
-                            &adminSidSize)) {
+  if (!::CreateWellKnownSid(
+          WinBuiltinAdministratorsSid, nullptr, adminSid, &adminSidSize)) {
     return HRESULT_FROM_WIN32(::GetLastError());
   }
 
   // Grant access to SYSTEM, Administrators, and the user.
   EXPLICIT_ACCESS entries[] = {
-    {COM_RIGHTS_EXECUTE, GRANT_ACCESS, NO_INHERITANCE,
-      {nullptr, NO_MULTIPLE_TRUSTEE, TRUSTEE_IS_SID, TRUSTEE_IS_USER,
-       reinterpret_cast<LPWSTR>(systemSid)}},
-    {COM_RIGHTS_EXECUTE, GRANT_ACCESS, NO_INHERITANCE,
-      {nullptr, NO_MULTIPLE_TRUSTEE, TRUSTEE_IS_SID, TRUSTEE_IS_WELL_KNOWN_GROUP,
-       reinterpret_cast<LPWSTR>(adminSid)}},
-    {COM_RIGHTS_EXECUTE, GRANT_ACCESS, NO_INHERITANCE,
-      {nullptr, NO_MULTIPLE_TRUSTEE, TRUSTEE_IS_SID, TRUSTEE_IS_USER,
-       reinterpret_cast<LPWSTR>(tokenUser.User.Sid)}}
-  };
+      {COM_RIGHTS_EXECUTE,
+       GRANT_ACCESS,
+       NO_INHERITANCE,
+       {nullptr,
+        NO_MULTIPLE_TRUSTEE,
+        TRUSTEE_IS_SID,
+        TRUSTEE_IS_USER,
+        reinterpret_cast<LPWSTR>(systemSid)}},
+      {COM_RIGHTS_EXECUTE,
+       GRANT_ACCESS,
+       NO_INHERITANCE,
+       {nullptr,
+        NO_MULTIPLE_TRUSTEE,
+        TRUSTEE_IS_SID,
+        TRUSTEE_IS_WELL_KNOWN_GROUP,
+        reinterpret_cast<LPWSTR>(adminSid)}},
+      {COM_RIGHTS_EXECUTE,
+       GRANT_ACCESS,
+       NO_INHERITANCE,
+       {nullptr,
+        NO_MULTIPLE_TRUSTEE,
+        TRUSTEE_IS_SID,
+        TRUSTEE_IS_USER,
+        reinterpret_cast<LPWSTR>(tokenUser.User.Sid)}}};
 
   PACL rawDacl = nullptr;
-  win32Error = ::SetEntriesInAcl(ArrayLength(entries), entries, nullptr,
-                                 &rawDacl);
+  win32Error =
+      ::SetEntriesInAcl(ArrayLength(entries), entries, nullptr, &rawDacl);
   if (win32Error != ERROR_SUCCESS) {
     return HRESULT_FROM_WIN32(win32Error);
   }
@@ -243,15 +257,21 @@ MainThreadRuntime::InitializeSecurity()
     return HRESULT_FROM_WIN32(::GetLastError());
   }
 
-  if (!::SetSecurityDescriptorGroup(&sd, tokenPrimaryGroup.PrimaryGroup, FALSE)) {
+  if (!::SetSecurityDescriptorGroup(
+          &sd, tokenPrimaryGroup.PrimaryGroup, FALSE)) {
     return HRESULT_FROM_WIN32(::GetLastError());
   }
 
-  return ::CoInitializeSecurity(&sd, -1, nullptr, nullptr,
+  return ::CoInitializeSecurity(&sd,
+                                -1,
+                                nullptr,
+                                nullptr,
                                 RPC_C_AUTHN_LEVEL_DEFAULT,
-                                RPC_C_IMP_LEVEL_IDENTIFY, nullptr, EOAC_NONE,
+                                RPC_C_IMP_LEVEL_IDENTIFY,
+                                nullptr,
+                                EOAC_NONE,
                                 nullptr);
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

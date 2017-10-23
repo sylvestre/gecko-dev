@@ -26,12 +26,11 @@ class KeepAliveToken;
 
 class LifeCycleEventCallback : public Runnable
 {
-public:
+ public:
   LifeCycleEventCallback() : Runnable("dom::workers::LifeCycleEventCallback") {}
 
   // Called on the worker thread.
-  virtual void
-  SetResult(bool aResult) = 0;
+  virtual void SetResult(bool aResult) = 0;
 };
 
 // ServiceWorkerPrivate is a wrapper for managing the on-demand aspect of
@@ -68,102 +67,86 @@ class ServiceWorkerPrivate final
 {
   friend class KeepAliveToken;
 
-public:
+ public:
   NS_IMETHOD_(MozExternalRefCountType) AddRef();
   NS_IMETHOD_(MozExternalRefCountType) Release();
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(ServiceWorkerPrivate)
 
   typedef mozilla::FalseType HasThreadSafeRefCnt;
 
-protected:
+ protected:
   nsCycleCollectingAutoRefCnt mRefCnt;
   NS_DECL_OWNINGTHREAD
 
-public:
+ public:
   explicit ServiceWorkerPrivate(ServiceWorkerInfo* aInfo);
 
-  nsresult
-  SendMessageEvent(JSContext* aCx, JS::Handle<JS::Value> aMessage,
-                   const Sequence<JSObject*>& aTransferable,
-                   UniquePtr<ServiceWorkerClientInfo>&& aClientInfo);
+  nsresult SendMessageEvent(JSContext* aCx,
+                            JS::Handle<JS::Value> aMessage,
+                            const Sequence<JSObject*>& aTransferable,
+                            UniquePtr<ServiceWorkerClientInfo>&& aClientInfo);
 
   // This is used to validate the worker script and continue the installation
   // process.
-  nsresult
-  CheckScriptEvaluation(LifeCycleEventCallback* aCallback);
+  nsresult CheckScriptEvaluation(LifeCycleEventCallback* aCallback);
 
-  nsresult
-  SendLifeCycleEvent(const nsAString& aEventType,
-                     LifeCycleEventCallback* aCallback,
-                     nsIRunnable* aLoadFailure);
+  nsresult SendLifeCycleEvent(const nsAString& aEventType,
+                              LifeCycleEventCallback* aCallback,
+                              nsIRunnable* aLoadFailure);
 
-  nsresult
-  SendPushEvent(const nsAString& aMessageId,
-                const Maybe<nsTArray<uint8_t>>& aData,
-                ServiceWorkerRegistrationInfo* aRegistration);
+  nsresult SendPushEvent(const nsAString& aMessageId,
+                         const Maybe<nsTArray<uint8_t>>& aData,
+                         ServiceWorkerRegistrationInfo* aRegistration);
 
-  nsresult
-  SendPushSubscriptionChangeEvent();
+  nsresult SendPushSubscriptionChangeEvent();
 
-  nsresult
-  SendNotificationEvent(const nsAString& aEventName,
-                        const nsAString& aID,
-                        const nsAString& aTitle,
-                        const nsAString& aDir,
-                        const nsAString& aLang,
-                        const nsAString& aBody,
-                        const nsAString& aTag,
-                        const nsAString& aIcon,
-                        const nsAString& aData,
-                        const nsAString& aBehavior,
-                        const nsAString& aScope);
+  nsresult SendNotificationEvent(const nsAString& aEventName,
+                                 const nsAString& aID,
+                                 const nsAString& aTitle,
+                                 const nsAString& aDir,
+                                 const nsAString& aLang,
+                                 const nsAString& aBody,
+                                 const nsAString& aTag,
+                                 const nsAString& aIcon,
+                                 const nsAString& aData,
+                                 const nsAString& aBehavior,
+                                 const nsAString& aScope);
 
-  nsresult
-  SendFetchEvent(nsIInterceptedChannel* aChannel,
-                 nsILoadGroup* aLoadGroup,
-                 const nsAString& aDocumentId,
-                 bool aIsReload);
+  nsresult SendFetchEvent(nsIInterceptedChannel* aChannel,
+                          nsILoadGroup* aLoadGroup,
+                          const nsAString& aDocumentId,
+                          bool aIsReload);
 
-  void
-  StoreISupports(nsISupports* aSupports);
+  void StoreISupports(nsISupports* aSupports);
 
-  void
-  RemoveISupports(nsISupports* aSupports);
+  void RemoveISupports(nsISupports* aSupports);
 
   // This will terminate the current running worker thread and drop the
   // workerPrivate reference.
   // Called by ServiceWorkerInfo when [[Clear Registration]] is invoked
   // or whenever the spec mandates that we terminate the worker.
   // This is a no-op if the worker has already been stopped.
-  void
-  TerminateWorker();
+  void TerminateWorker();
 
-  void
-  NoteDeadServiceWorkerInfo();
+  void NoteDeadServiceWorkerInfo();
 
-  void
-  NoteStoppedControllingDocuments();
+  void NoteStoppedControllingDocuments();
 
-  void
-  Activated();
+  void Activated();
 
-  nsresult
-  GetDebugger(nsIWorkerDebugger** aResult);
+  nsresult GetDebugger(nsIWorkerDebugger** aResult);
 
-  nsresult
-  AttachDebugger();
+  nsresult AttachDebugger();
 
-  nsresult
-  DetachDebugger();
+  nsresult DetachDebugger();
 
-  bool
-  IsIdle() const;
+  bool IsIdle() const;
 
-  void
-  SetHandlesFetch(bool aValue);
+  void SetHandlesFetch(bool aValue);
 
-private:
-  enum WakeUpReason {
+ private:
+  enum WakeUpReason
+  {
     FetchEvent = 0,
     PushEvent,
     PushSubscriptionChangeEvent,
@@ -175,36 +158,28 @@ private:
   };
 
   // Timer callbacks
-  void
-  NoteIdleWorkerCallback(nsITimer* aTimer);
+  void NoteIdleWorkerCallback(nsITimer* aTimer);
 
-  void
-  TerminateWorkerCallback(nsITimer* aTimer);
+  void TerminateWorkerCallback(nsITimer* aTimer);
 
-  void
-  RenewKeepAliveToken(WakeUpReason aWhy);
+  void RenewKeepAliveToken(WakeUpReason aWhy);
 
-  void
-  ResetIdleTimeout();
+  void ResetIdleTimeout();
 
-  void
-  AddToken();
+  void AddToken();
 
-  void
-  ReleaseToken();
+  void ReleaseToken();
 
   // |aLoadFailedRunnable| is a runnable dispatched to the main thread
   // if the script loader failed for some reason, but can be null.
-  nsresult
-  SpawnWorkerIfNeeded(WakeUpReason aWhy,
-                      nsIRunnable* aLoadFailedRunnable,
-                      bool* aNewWorkerCreated = nullptr,
-                      nsILoadGroup* aLoadGroup = nullptr);
+  nsresult SpawnWorkerIfNeeded(WakeUpReason aWhy,
+                               nsIRunnable* aLoadFailedRunnable,
+                               bool* aNewWorkerCreated = nullptr,
+                               nsILoadGroup* aLoadGroup = nullptr);
 
   ~ServiceWorkerPrivate();
 
-  already_AddRefed<KeepAliveToken>
-  CreateEventKeepAliveToken();
+  already_AddRefed<KeepAliveToken> CreateEventKeepAliveToken();
 
   // The info object owns us. It is possible to outlive it for a brief period
   // of time if there are pending waitUntil promises, in which case it
@@ -237,8 +212,8 @@ private:
   nsTArray<RefPtr<WorkerRunnable>> mPendingFunctionalEvents;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerprivate_h
+#endif  // mozilla_dom_workers_serviceworkerprivate_h

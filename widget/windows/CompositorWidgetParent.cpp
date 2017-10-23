@@ -11,16 +11,15 @@
 namespace mozilla {
 namespace widget {
 
-CompositorWidgetParent::CompositorWidgetParent(const CompositorWidgetInitData& aInitData,
-                                               const layers::CompositorOptions& aOptions)
- : WinCompositorWidget(aInitData.get_WinCompositorWidgetInitData(), aOptions)
+CompositorWidgetParent::CompositorWidgetParent(
+    const CompositorWidgetInitData& aInitData,
+    const layers::CompositorOptions& aOptions)
+    : WinCompositorWidget(aInitData.get_WinCompositorWidgetInitData(), aOptions)
 {
   MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_GPU);
 }
 
-CompositorWidgetParent::~CompositorWidgetParent()
-{
-}
+CompositorWidgetParent::~CompositorWidgetParent() {}
 
 mozilla::ipc::IPCResult
 CompositorWidgetParent::RecvEnterPresentLock()
@@ -79,5 +78,5 @@ CompositorWidgetParent::ActorDestroy(ActorDestroyReason aWhy)
 {
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

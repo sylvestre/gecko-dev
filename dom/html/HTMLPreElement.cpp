@@ -18,9 +18,7 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Pre)
 namespace mozilla {
 namespace dom {
 
-HTMLPreElement::~HTMLPreElement()
-{
-}
+HTMLPreElement::~HTMLPreElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLPreElement, nsGenericHTMLElement)
 
@@ -38,8 +36,8 @@ HTMLPreElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
@@ -50,7 +48,8 @@ HTMLPreElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
     if (!aData->PropertyIsSet(eCSSProperty_white_space)) {
       // wrap: empty
       if (aAttributes->GetAttr(nsGkAtoms::wrap))
-        aData->SetKeywordValue(eCSSProperty_white_space, StyleWhiteSpace::PreWrap);
+        aData->SetKeywordValue(eCSSProperty_white_space,
+                               StyleWhiteSpace::PreWrap);
     }
   }
 
@@ -65,13 +64,13 @@ HTMLPreElement::IsAttributeMapped(const nsAtom* aAttribute) const
   }
 
   static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::wrap },
-    { nullptr },
+      {&nsGkAtoms::wrap},
+      {nullptr},
   };
 
   static const MappedAttributeEntry* const map[] = {
-    attributes,
-    sCommonAttributeMap,
+      attributes,
+      sCommonAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
@@ -88,10 +87,10 @@ HTMLPreElement::GetAttributeMappingFunction() const
 }
 
 JSObject*
-HTMLPreElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLPreElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLPreElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

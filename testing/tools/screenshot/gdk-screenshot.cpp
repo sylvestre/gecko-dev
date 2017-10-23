@@ -43,28 +43,33 @@
 #include <errno.h>
 #include <stdio.h>
 
-gboolean save_to_stdout(const gchar *buf, gsize count,
-                        GError **error, gpointer data)
+gboolean
+save_to_stdout(const gchar* buf, gsize count, GError** error, gpointer data)
 {
   size_t written = fwrite(buf, 1, count, stdout);
   if (written != count) {
-    g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
-                "Write to stdout failed: %s", g_strerror(errno));
+    g_set_error(error,
+                G_FILE_ERROR,
+                g_file_error_from_errno(errno),
+                "Write to stdout failed: %s",
+                g_strerror(errno));
     return FALSE;
   }
 
   return TRUE;
 }
 
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
   gdk_init(&argc, &argv);
 
 #if defined(HAVE_LIBXSS) && defined(MOZ_WIDGET_GTK)
   int event_base, error_base;
-  Bool have_xscreensaver =
-    XScreenSaverQueryExtension(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()),
-                               &event_base, &error_base);
+  Bool have_xscreensaver = XScreenSaverQueryExtension(
+      GDK_DISPLAY_XDISPLAY(gdk_display_get_default()),
+      &event_base,
+      &error_base);
 
   if (!have_xscreensaver) {
     fprintf(stderr, "No XScreenSaver extension on display\n");
@@ -75,43 +80,45 @@ int main(int argc, char** argv)
       return 1;
     }
     XScreenSaverQueryInfo(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()),
-                          GDK_ROOT_WINDOW(), info);
+                          GDK_ROOT_WINDOW(),
+                          info);
 
     const char* state;
     const char* til_or_since = nullptr;
     switch (info->state) {
-    case ScreenSaverOff:
-      state = "Off";
-      til_or_since = "XScreenSaver will activate after another %lu seconds idle time\n";
-      break;
-    case ScreenSaverOn:
-      state = "On";
-      if (info->til_or_since) {
-        til_or_since = "XScreenSaver idle timer activated %lu seconds ago\n";
-      } else {
-        til_or_since = "XScreenSaver idle activation is disabled\n";
-      }
-      break;
-    case ScreenSaverDisabled:
-      state = "Disabled";
-      break;
-    default:
-      state = "unknown";
+      case ScreenSaverOff:
+        state = "Off";
+        til_or_since =
+            "XScreenSaver will activate after another %lu seconds idle time\n";
+        break;
+      case ScreenSaverOn:
+        state = "On";
+        if (info->til_or_since) {
+          til_or_since = "XScreenSaver idle timer activated %lu seconds ago\n";
+        } else {
+          til_or_since = "XScreenSaver idle activation is disabled\n";
+        }
+        break;
+      case ScreenSaverDisabled:
+        state = "Disabled";
+        break;
+      default:
+        state = "unknown";
     }
 
     const char* kind;
     switch (info->kind) {
-    case ScreenSaverBlanked:
-      kind = "Blanked";
-      break;
-    case ScreenSaverInternal:
-      state = "Internal";
-      break;
-    case ScreenSaverExternal:
-      state = "External";
-      break;
-    default:
-      state = "unknown";
+      case ScreenSaverBlanked:
+        kind = "Blanked";
+        break;
+      case ScreenSaverInternal:
+        state = "Internal";
+        break;
+      case ScreenSaverExternal:
+        state = "External";
+        break;
+      default:
+        state = "unknown";
     }
 
     fprintf(stderr, "XScreenSaver state: %s\n", state);
@@ -121,7 +128,9 @@ int main(int argc, char** argv)
       fprintf(stderr, til_or_since, info->til_or_since / 1000);
     }
 
-    fprintf(stderr, "User input has been idle for %lu seconds\n", info->idle / 1000);
+    fprintf(stderr,
+            "User input has been idle for %lu seconds\n",
+            info->idle / 1000);
 
     XFree(info);
   }
@@ -130,12 +139,19 @@ int main(int argc, char** argv)
   GdkPixbuf* screenshot = nullptr;
   GdkWindow* window = gdk_get_default_root_window();
 #if (MOZ_WIDGET_GTK == 2)
-  screenshot = gdk_pixbuf_get_from_drawable(nullptr, window, nullptr,
-                                            0, 0, 0, 0,
+  screenshot = gdk_pixbuf_get_from_drawable(nullptr,
+                                            window,
+                                            nullptr,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
                                             gdk_screen_width(),
                                             gdk_screen_height());
 #else
-  screenshot = gdk_pixbuf_get_from_window(window, 0, 0,
+  screenshot = gdk_pixbuf_get_from_window(window,
+                                          0,
+                                          0,
                                           gdk_window_get_width(window),
                                           gdk_window_get_height(window));
 #endif
@@ -148,12 +164,14 @@ int main(int argc, char** argv)
   if (argc > 1) {
     gdk_pixbuf_save(screenshot, argv[1], "png", &error, nullptr);
   } else {
-    gdk_pixbuf_save_to_callback(screenshot, save_to_stdout, nullptr,
-                                "png", &error, nullptr);
+    gdk_pixbuf_save_to_callback(
+        screenshot, save_to_stdout, nullptr, "png", &error, nullptr);
   }
   if (error) {
-    fprintf(stderr, "%s: failed to write screenshot as png: %s\n",
-            argv[0], error->message);
+    fprintf(stderr,
+            "%s: failed to write screenshot as png: %s\n",
+            argv[0],
+            error->message);
     return error->code;
   }
 
@@ -162,8 +180,9 @@ int main(int argc, char** argv)
 
 // These options are copied from mozglue/build/AsanOptions.cpp
 #ifdef MOZ_ASAN
-extern "C"
-const char* __asan_default_options() {
+extern "C" const char*
+__asan_default_options()
+{
   return "allow_user_segv_handler=1:alloc_dealloc_mismatch=0:detect_leaks=0";
 }
 #endif

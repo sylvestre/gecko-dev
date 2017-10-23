@@ -50,7 +50,7 @@ Blob::MakeValidBlobType(nsAString& aType)
   char16_t* iter = aType.BeginWriting();
   char16_t* end = aType.EndWriting();
 
-  for ( ; iter != end; ++iter) {
+  for (; iter != end; ++iter) {
     char16_t c = *iter;
     if (c < 0x20 || c > 0x7E) {
       // Non-ASCII char, bail out.
@@ -69,12 +69,12 @@ Blob::Create(nsISupports* aParent, BlobImpl* aImpl)
 {
   MOZ_ASSERT(aImpl);
 
-  return aImpl->IsFile() ? new File(aParent, aImpl)
-                         : new Blob(aParent, aImpl);
+  return aImpl->IsFile() ? new File(aParent, aImpl) : new Blob(aParent, aImpl);
 }
 
 /* static */ already_AddRefed<Blob>
-Blob::CreateStringBlob(nsISupports* aParent, const nsACString& aData,
+Blob::CreateStringBlob(nsISupports* aParent,
+                       const nsACString& aData,
                        const nsAString& aContentType)
 {
   RefPtr<BlobImpl> blobImpl = StringBlobImpl::Create(aData, aContentType);
@@ -84,18 +84,19 @@ Blob::CreateStringBlob(nsISupports* aParent, const nsACString& aData,
 }
 
 /* static */ already_AddRefed<Blob>
-Blob::CreateMemoryBlob(nsISupports* aParent, void* aMemoryBuffer,
-                       uint64_t aLength, const nsAString& aContentType)
+Blob::CreateMemoryBlob(nsISupports* aParent,
+                       void* aMemoryBuffer,
+                       uint64_t aLength,
+                       const nsAString& aContentType)
 {
-  RefPtr<Blob> blob = Blob::Create(aParent,
-    new MemoryBlobImpl(aMemoryBuffer, aLength, aContentType));
+  RefPtr<Blob> blob = Blob::Create(
+      aParent, new MemoryBlobImpl(aMemoryBuffer, aLength, aContentType));
   MOZ_ASSERT(!blob->mImpl->IsFile());
   return blob.forget();
 }
 
 Blob::Blob(nsISupports* aParent, BlobImpl* aImpl)
-  : mImpl(aImpl)
-  , mParent(aParent)
+    : mImpl(aImpl), mParent(aParent)
 {
   MOZ_ASSERT(mImpl);
 
@@ -109,8 +110,7 @@ Blob::Blob(nsISupports* aParent, BlobImpl* aImpl)
 #endif
 }
 
-Blob::~Blob()
-{}
+Blob::~Blob() {}
 
 bool
 Blob::IsFile() const
@@ -150,7 +150,7 @@ Blob::ToFile(const nsAString& aName, ErrorResult& aRv) const
   mImpl->GetType(contentType);
 
   RefPtr<MultipartBlobImpl> impl =
-    MultipartBlobImpl::Create(Move(blobImpls), aName, contentType, aRv);
+      MultipartBlobImpl::Create(Move(blobImpls), aName, contentType, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -160,12 +160,13 @@ Blob::ToFile(const nsAString& aName, ErrorResult& aRv) const
 }
 
 already_AddRefed<Blob>
-Blob::CreateSlice(uint64_t aStart, uint64_t aLength,
+Blob::CreateSlice(uint64_t aStart,
+                  uint64_t aLength,
                   const nsAString& aContentType,
                   ErrorResult& aRv)
 {
-  RefPtr<BlobImpl> impl = mImpl->CreateSlice(aStart, aLength,
-                                             aContentType, aRv);
+  RefPtr<BlobImpl> impl =
+      mImpl->CreateSlice(aStart, aLength, aContentType, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -181,7 +182,7 @@ Blob::GetSize(ErrorResult& aRv)
 }
 
 void
-Blob::GetType(nsAString &aType)
+Blob::GetType(nsAString& aType)
 {
   mImpl->GetType(aType);
 }
@@ -197,8 +198,7 @@ Blob::Slice(const Optional<int64_t>& aStart,
     contentType = aContentType.Value();
   }
 
-  RefPtr<BlobImpl> impl =
-    mImpl->Slice(aStart, aEnd, contentType, aRv);
+  RefPtr<BlobImpl> impl = mImpl->Slice(aStart, aEnd, contentType, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -223,16 +223,10 @@ Blob::GetSendInfo(nsIInputStream** aBody,
 }
 
 NS_IMETHODIMP
-Blob::GetMutable(bool* aMutable)
-{
-  return mImpl->GetMutable(aMutable);
-}
+Blob::GetMutable(bool* aMutable) { return mImpl->GetMutable(aMutable); }
 
 NS_IMETHODIMP
-Blob::SetMutable(bool aMutable)
-{
-  return mImpl->SetMutable(aMutable);
-}
+Blob::SetMutable(bool aMutable) { return mImpl->SetMutable(aMutable); }
 
 JSObject*
 Blob::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -251,8 +245,8 @@ Blob::Constructor(const GlobalObject& aGlobal,
   if (aData.WasPassed()) {
     nsAutoString type(aBag.mType);
     MakeValidBlobType(type);
-    impl->InitializeBlob(aData.Value(), type,
-                         aBag.mEndings == EndingTypes::Native, aRv);
+    impl->InitializeBlob(
+        aData.Value(), type, aBag.mEndings == EndingTypes::Native, aRv);
   } else {
     impl->InitializeBlob(aRv);
   }
@@ -292,5 +286,5 @@ BindingJSObjectMallocBytes(Blob* aBlob)
   return aBlob->GetAllocationSize();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

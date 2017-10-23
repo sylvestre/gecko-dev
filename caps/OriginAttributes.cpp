@@ -28,8 +28,9 @@ OriginAttributes::InitPrefs()
     sInited = true;
     Preferences::AddBoolVarCache(&sFirstPartyIsolation,
                                  "privacy.firstparty.isolate");
-    Preferences::AddBoolVarCache(&sRestrictedOpenerAccess,
-                                 "privacy.firstparty.isolate.restrict_opener_access");
+    Preferences::AddBoolVarCache(
+        &sRestrictedOpenerAccess,
+        "privacy.firstparty.isolate.restrict_opener_access");
   }
 }
 
@@ -45,7 +46,7 @@ OriginAttributes::SetFirstPartyDomain(const bool aIsTopLevelDocument,
   }
 
   nsCOMPtr<nsIEffectiveTLDService> tldService =
-    do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
+      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
   MOZ_ASSERT(tldService);
   if (!tldService) {
     return;
@@ -120,7 +121,6 @@ OriginAttributes::CreateSuffix(nsACString& aStr) const
     params.Set(NS_LITERAL_STRING("userContextId"), value);
   }
 
-
   if (mPrivateBrowsingId) {
     value.Truncate();
     value.AppendInt(mPrivateBrowsingId);
@@ -128,7 +128,9 @@ OriginAttributes::CreateSuffix(nsACString& aStr) const
   }
 
   if (!mFirstPartyDomain.IsEmpty()) {
-    MOZ_RELEASE_ASSERT(mFirstPartyDomain.FindCharInSet(dom::quota::QuotaManager::kReplaceChars) == kNotFound);
+    MOZ_RELEASE_ASSERT(mFirstPartyDomain.FindCharInSet(
+                           dom::quota::QuotaManager::kReplaceChars) ==
+                       kNotFound);
     params.Set(NS_LITERAL_STRING("firstPartyDomain"), mFirstPartyDomain);
   }
 
@@ -144,7 +146,8 @@ OriginAttributes::CreateSuffix(nsACString& aStr) const
 #ifdef DEBUG
   nsAutoCString str;
   str.Assign(aStr);
-  MOZ_ASSERT(str.FindCharInSet(dom::quota::QuotaManager::kReplaceChars) == kNotFound);
+  MOZ_ASSERT(str.FindCharInSet(dom::quota::QuotaManager::kReplaceChars) ==
+             kNotFound);
 #endif
 }
 
@@ -163,11 +166,11 @@ OriginAttributes::CreateAnonymizedSuffix(nsACString& aStr) const
 namespace {
 
 class MOZ_STACK_CLASS PopulateFromSuffixIterator final
-  : public URLParams::ForEachIterator
+    : public URLParams::ForEachIterator
 {
-public:
+ public:
   explicit PopulateFromSuffixIterator(OriginAttributes* aOriginAttributes)
-    : mOriginAttributes(aOriginAttributes)
+      : mOriginAttributes(aOriginAttributes)
   {
     MOZ_ASSERT(aOriginAttributes);
     // If mPrivateBrowsingId is passed in as >0 and is not present in the suffix,
@@ -176,12 +179,11 @@ public:
     mOriginAttributes->mPrivateBrowsingId = 0;
   }
 
-  bool URLParamsIterator(const nsString& aName,
-                         const nsString& aValue) override
+  bool URLParamsIterator(const nsString& aName, const nsString& aValue) override
   {
     if (aName.EqualsLiteral("appId")) {
       nsresult rv;
-      int64_t val  = aValue.ToInteger64(&rv);
+      int64_t val = aValue.ToInteger64(&rv);
       NS_ENSURE_SUCCESS(rv, false);
       NS_ENSURE_TRUE(val <= UINT32_MAX, false);
       mOriginAttributes->mAppId = static_cast<uint32_t>(val);
@@ -206,10 +208,10 @@ public:
 
     if (aName.EqualsLiteral("userContextId")) {
       nsresult rv;
-      int64_t val  = aValue.ToInteger64(&rv);
+      int64_t val = aValue.ToInteger64(&rv);
       NS_ENSURE_SUCCESS(rv, false);
       NS_ENSURE_TRUE(val <= UINT32_MAX, false);
-      mOriginAttributes->mUserContextId  = static_cast<uint32_t>(val);
+      mOriginAttributes->mUserContextId = static_cast<uint32_t>(val);
 
       return true;
     }
@@ -234,11 +236,11 @@ public:
     return false;
   }
 
-private:
+ private:
   OriginAttributes* mOriginAttributes;
 };
 
-} // namespace
+}  // namespace
 
 bool
 OriginAttributes::PopulateFromSuffix(const nsACString& aStr)
@@ -294,4 +296,4 @@ OriginAttributes::IsPrivateBrowsing(const nsACString& aOrigin)
   return !!attrs.mPrivateBrowsingId;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

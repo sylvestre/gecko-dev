@@ -16,7 +16,7 @@ class HLSResourceCallbacksSupport;
 
 class HLSDecoder final : public MediaDecoder
 {
-public:
+ public:
   // MediaDecoder interface.
   explicit HLSDecoder(MediaDecoderInit& aInit);
 
@@ -41,7 +41,7 @@ public:
   void Resume() override;
   void Shutdown() override;
 
-private:
+ private:
   friend class HLSResourceCallbacksSupport;
 
   void PinForSeek() override {}
@@ -65,6 +65,6 @@ private:
   RefPtr<HLSResourceCallbacksSupport> mCallbackSupport;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* HLSDecoder_h_ */

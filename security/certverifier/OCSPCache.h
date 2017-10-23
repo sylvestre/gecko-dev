@@ -37,11 +37,14 @@ namespace mozilla {
 class OriginAttributes;
 }
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 struct CertID;
-} } // namespace mozilla::pkix
+}
+}  // namespace mozilla
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 // make SHA384Buffer be of type "array of uint8_t of length SHA384_LENGTH"
 typedef uint8_t SHA384Buffer[SHA384_LENGTH];
@@ -54,7 +57,7 @@ typedef uint8_t SHA384Buffer[SHA384_LENGTH];
 // OCSPCache is thread-safe.
 class OCSPCache
 {
-public:
+ public:
   OCSPCache();
   ~OCSPCache();
 
@@ -91,16 +94,16 @@ public:
   // Removes everything from the cache.
   void Clear();
 
-private:
+ private:
   class Entry
   {
-  public:
+   public:
     Entry(mozilla::pkix::Result aResult,
           mozilla::pkix::Time aThisUpdate,
           mozilla::pkix::Time aValidThrough)
-      : mResult(aResult)
-      , mThisUpdate(aThisUpdate)
-      , mValidThrough(aValidThrough)
+        : mResult(aResult),
+          mThisUpdate(aThisUpdate),
+          mValidThrough(aValidThrough)
     {
     }
     mozilla::pkix::Result Init(const mozilla::pkix::CertID& aCertID,
@@ -133,6 +136,7 @@ private:
   Vector<Entry*, 256> mEntries;
 };
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla
 
-#endif // mozilla_psm_OCSPCache_h
+#endif  // mozilla_psm_OCSPCache_h

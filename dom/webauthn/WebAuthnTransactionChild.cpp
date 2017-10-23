@@ -56,5 +56,5 @@ WebAuthnTransactionChild::ActorDestroy(ActorDestroyReason why)
   }
 }
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla

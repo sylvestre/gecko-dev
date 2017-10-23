@@ -11,33 +11,31 @@ namespace mozilla {
 namespace gmp {
 
 GMPVideoi420FrameImpl::GMPVideoi420FrameImpl(GMPVideoHostImpl* aHost)
-: mYPlane(aHost),
-  mUPlane(aHost),
-  mVPlane(aHost),
-  mWidth(0),
-  mHeight(0),
-  mTimestamp(0ll),
-  mDuration(0ll)
+    : mYPlane(aHost),
+      mUPlane(aHost),
+      mVPlane(aHost),
+      mWidth(0),
+      mHeight(0),
+      mTimestamp(0ll),
+      mDuration(0ll)
 {
   MOZ_ASSERT(aHost);
 }
 
-GMPVideoi420FrameImpl::GMPVideoi420FrameImpl(const GMPVideoi420FrameData& aFrameData,
-                                             GMPVideoHostImpl* aHost)
-: mYPlane(aFrameData.mYPlane(), aHost),
-  mUPlane(aFrameData.mUPlane(), aHost),
-  mVPlane(aFrameData.mVPlane(), aHost),
-  mWidth(aFrameData.mWidth()),
-  mHeight(aFrameData.mHeight()),
-  mTimestamp(aFrameData.mTimestamp()),
-  mDuration(aFrameData.mDuration())
+GMPVideoi420FrameImpl::GMPVideoi420FrameImpl(
+    const GMPVideoi420FrameData& aFrameData, GMPVideoHostImpl* aHost)
+    : mYPlane(aFrameData.mYPlane(), aHost),
+      mUPlane(aFrameData.mUPlane(), aHost),
+      mVPlane(aFrameData.mVPlane(), aHost),
+      mWidth(aFrameData.mWidth()),
+      mHeight(aFrameData.mHeight()),
+      mTimestamp(aFrameData.mTimestamp()),
+      mDuration(aFrameData.mDuration())
 {
   MOZ_ASSERT(aHost);
 }
 
-GMPVideoi420FrameImpl::~GMPVideoi420FrameImpl()
-{
-}
+GMPVideoi420FrameImpl::~GMPVideoi420FrameImpl() {}
 
 bool
 GMPVideoi420FrameImpl::InitFrameData(GMPVideoi420FrameData& aFrameData)
@@ -71,41 +69,54 @@ GMPVideoi420FrameImpl::CheckFrameData(const GMPVideoi420FrameData& aFrameData)
   // This implies a bug or serious error on the child size.  Ignore this frame if so.
   // Note: Size() greater than expected is also an error, but with no negative consequences
   int32_t half_width = (aFrameData.mWidth() + 1) / 2;
-  if ((aFrameData.mYPlane().mStride() <= 0) || (aFrameData.mYPlane().mSize() <= 0) ||
-      (aFrameData.mUPlane().mStride() <= 0) || (aFrameData.mUPlane().mSize() <= 0) ||
-      (aFrameData.mVPlane().mStride() <= 0) || (aFrameData.mVPlane().mSize() <= 0) ||
-      (aFrameData.mYPlane().mSize() > (int32_t) aFrameData.mYPlane().mBuffer().Size<uint8_t>()) ||
-      (aFrameData.mUPlane().mSize() > (int32_t) aFrameData.mUPlane().mBuffer().Size<uint8_t>()) ||
-      (aFrameData.mVPlane().mSize() > (int32_t) aFrameData.mVPlane().mBuffer().Size<uint8_t>()) ||
+  if ((aFrameData.mYPlane().mStride() <= 0) ||
+      (aFrameData.mYPlane().mSize() <= 0) ||
+      (aFrameData.mUPlane().mStride() <= 0) ||
+      (aFrameData.mUPlane().mSize() <= 0) ||
+      (aFrameData.mVPlane().mStride() <= 0) ||
+      (aFrameData.mVPlane().mSize() <= 0) ||
+      (aFrameData.mYPlane().mSize() >
+       (int32_t)aFrameData.mYPlane().mBuffer().Size<uint8_t>()) ||
+      (aFrameData.mUPlane().mSize() >
+       (int32_t)aFrameData.mUPlane().mBuffer().Size<uint8_t>()) ||
+      (aFrameData.mVPlane().mSize() >
+       (int32_t)aFrameData.mVPlane().mBuffer().Size<uint8_t>()) ||
       (aFrameData.mYPlane().mStride() < aFrameData.mWidth()) ||
       (aFrameData.mUPlane().mStride() < half_width) ||
       (aFrameData.mVPlane().mStride() < half_width) ||
-      (aFrameData.mYPlane().mSize() < aFrameData.mYPlane().mStride() * aFrameData.mHeight()) ||
-      (aFrameData.mUPlane().mSize() < aFrameData.mUPlane().mStride() * ((aFrameData.mHeight()+1)/2)) ||
-      (aFrameData.mVPlane().mSize() < aFrameData.mVPlane().mStride() * ((aFrameData.mHeight()+1)/2)))
-  {
+      (aFrameData.mYPlane().mSize() <
+       aFrameData.mYPlane().mStride() * aFrameData.mHeight()) ||
+      (aFrameData.mUPlane().mSize() <
+       aFrameData.mUPlane().mStride() * ((aFrameData.mHeight() + 1) / 2)) ||
+      (aFrameData.mVPlane().mSize() <
+       aFrameData.mVPlane().mStride() * ((aFrameData.mHeight() + 1) / 2))) {
     return false;
   }
   return true;
 }
 
 bool
-GMPVideoi420FrameImpl::CheckDimensions(int32_t aWidth, int32_t aHeight,
-                                       int32_t aStride_y, int32_t aStride_u, int32_t aStride_v)
+GMPVideoi420FrameImpl::CheckDimensions(int32_t aWidth,
+                                       int32_t aHeight,
+                                       int32_t aStride_y,
+                                       int32_t aStride_u,
+                                       int32_t aStride_v)
 {
   int32_t half_width = (aWidth + 1) / 2;
-  if (aWidth < 1 || aHeight < 1 ||
-      aStride_y < aWidth || aStride_u < half_width || aStride_v < half_width ||
-      !(CheckedInt<int32_t>(aHeight) * aStride_y
-        + ((CheckedInt<int32_t>(aHeight) + 1) / 2)
-          * (CheckedInt<int32_t>(aStride_u) + aStride_v)).isValid()) {
+  if (aWidth < 1 || aHeight < 1 || aStride_y < aWidth ||
+      aStride_u < half_width || aStride_v < half_width ||
+      !(CheckedInt<int32_t>(aHeight) * aStride_y +
+        ((CheckedInt<int32_t>(aHeight) + 1) / 2) *
+            (CheckedInt<int32_t>(aStride_u) + aStride_v))
+           .isValid()) {
     return false;
   }
   return true;
 }
 
 const GMPPlaneImpl*
-GMPVideoi420FrameImpl::GetPlane(GMPPlaneType aType) const {
+GMPVideoi420FrameImpl::GetPlane(GMPPlaneType aType) const
+{
   switch (aType) {
     case kGMPYPlane:
       return &mYPlane;
@@ -120,13 +131,14 @@ GMPVideoi420FrameImpl::GetPlane(GMPPlaneType aType) const {
 }
 
 GMPPlaneImpl*
-GMPVideoi420FrameImpl::GetPlane(GMPPlaneType aType) {
+GMPVideoi420FrameImpl::GetPlane(GMPPlaneType aType)
+{
   switch (aType) {
-    case kGMPYPlane :
+    case kGMPYPlane:
       return &mYPlane;
-    case kGMPUPlane :
+    case kGMPUPlane:
       return &mUPlane;
-    case kGMPVPlane :
+    case kGMPVPlane:
       return &mVPlane;
     default:
       MOZ_CRASH("Unknown plane type!");
@@ -135,8 +147,11 @@ GMPVideoi420FrameImpl::GetPlane(GMPPlaneType aType) {
 }
 
 GMPErr
-GMPVideoi420FrameImpl::CreateEmptyFrame(int32_t aWidth, int32_t aHeight,
-                                        int32_t aStride_y, int32_t aStride_u, int32_t aStride_v)
+GMPVideoi420FrameImpl::CreateEmptyFrame(int32_t aWidth,
+                                        int32_t aHeight,
+                                        int32_t aStride_y,
+                                        int32_t aStride_u,
+                                        int32_t aStride_v)
 {
   if (!CheckDimensions(aWidth, aHeight, aStride_y, aStride_u, aStride_v)) {
     return GMPGenericErr;
@@ -169,11 +184,17 @@ GMPVideoi420FrameImpl::CreateEmptyFrame(int32_t aWidth, int32_t aHeight,
 }
 
 GMPErr
-GMPVideoi420FrameImpl::CreateFrame(int32_t aSize_y, const uint8_t* aBuffer_y,
-                                   int32_t aSize_u, const uint8_t* aBuffer_u,
-                                   int32_t aSize_v, const uint8_t* aBuffer_v,
-                                   int32_t aWidth, int32_t aHeight,
-                                   int32_t aStride_y, int32_t aStride_u, int32_t aStride_v)
+GMPVideoi420FrameImpl::CreateFrame(int32_t aSize_y,
+                                   const uint8_t* aBuffer_y,
+                                   int32_t aSize_u,
+                                   const uint8_t* aBuffer_u,
+                                   int32_t aSize_v,
+                                   const uint8_t* aBuffer_v,
+                                   int32_t aWidth,
+                                   int32_t aHeight,
+                                   int32_t aStride_y,
+                                   int32_t aStride_u,
+                                   int32_t aStride_v)
 {
   MOZ_ASSERT(aBuffer_y);
   MOZ_ASSERT(aBuffer_u);
@@ -260,7 +281,7 @@ GMPVideoi420FrameImpl::Buffer(GMPPlaneType aType)
 const uint8_t*
 GMPVideoi420FrameImpl::Buffer(GMPPlaneType aType) const
 {
- const GMPPlane* p = GetPlane(aType);
+  const GMPPlane* p = GetPlane(aType);
   if (p) {
     return p->Buffer();
   }
@@ -290,8 +311,10 @@ GMPVideoi420FrameImpl::Stride(GMPPlaneType aType) const
 GMPErr
 GMPVideoi420FrameImpl::SetWidth(int32_t aWidth)
 {
-  if (!CheckDimensions(aWidth, mHeight,
-                       mYPlane.Stride(), mUPlane.Stride(),
+  if (!CheckDimensions(aWidth,
+                       mHeight,
+                       mYPlane.Stride(),
+                       mUPlane.Stride(),
                        mVPlane.Stride())) {
     return GMPGenericErr;
   }
@@ -302,8 +325,10 @@ GMPVideoi420FrameImpl::SetWidth(int32_t aWidth)
 GMPErr
 GMPVideoi420FrameImpl::SetHeight(int32_t aHeight)
 {
-  if (!CheckDimensions(mWidth, aHeight,
-                       mYPlane.Stride(), mUPlane.Stride(),
+  if (!CheckDimensions(mWidth,
+                       aHeight,
+                       mYPlane.Stride(),
+                       mUPlane.Stride(),
                        mVPlane.Stride())) {
     return GMPGenericErr;
   }
@@ -361,5 +386,5 @@ GMPVideoi420FrameImpl::ResetSize()
   mVPlane.ResetSize();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

@@ -21,14 +21,16 @@
 namespace mozilla {
 
 class VideoFrameContainer;
-template <class T> class MediaQueue;
+template<class T>
+class MediaQueue;
 
 namespace media {
 
 class VideoSink : public MediaSink
 {
   typedef mozilla::layers::ImageContainer::ProducerID ProducerID;
-public:
+
+ public:
   VideoSink(AbstractThread* aThread,
             MediaSink* aAudioSink,
             MediaQueue<VideoData>& aVideoQueue,
@@ -70,7 +72,7 @@ public:
 
   nsCString GetDebugInfo() override;
 
-private:
+ private:
   virtual ~VideoSink();
 
   // VideoQueue listener related.
@@ -85,7 +87,8 @@ private:
   // timestamps for the frames; when omitted, aMaxFrames must be 1 and
   // a null timestamp is passed to the VideoFrameContainer.
   // If the VideoQueue is empty, this does nothing.
-  void RenderVideoFrames(int32_t aMaxFrames, int64_t aClockTime = 0,
+  void RenderVideoFrames(int32_t aMaxFrames,
+                         int64_t aClockTime = 0,
                          const TimeStamp& aClickTimeStamp = TimeStamp());
 
   // Triggered while videosink is started, videosink becomes "playing" status,
@@ -106,9 +109,7 @@ private:
     MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
   }
 
-  MediaQueue<VideoData>& VideoQueue() const {
-    return mVideoQueue;
-  }
+  MediaQueue<VideoData>& VideoQueue() const { return mVideoQueue; }
 
   const RefPtr<AbstractThread> mOwnerThread;
   RefPtr<MediaSink> mAudioSink;
@@ -153,7 +154,7 @@ private:
   const uint32_t mMinVideoQueueSize;
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
 #endif

@@ -19,12 +19,11 @@ class ICStub;
 
 enum class BaselineCacheIRStubKind { Regular, Monitored, Updated };
 
-ICStub* AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
-                                  CacheKind kind, BaselineCacheIRStubKind stubKind,
-                                  ICStubEngine engine, JSScript* outerScript,
-                                  ICFallbackStub* stub, bool* attached);
+ICStub* AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer, CacheKind kind,
+                                  BaselineCacheIRStubKind stubKind, ICStubEngine engine,
+                                  JSScript* outerScript, ICFallbackStub* stub, bool* attached);
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_BaselineCacheIRCompiler_h */

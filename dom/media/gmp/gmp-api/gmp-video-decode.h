@@ -43,7 +43,7 @@
 // ALL METHODS MUST BE CALLED ON THE MAIN THREAD
 class GMPVideoDecoderCallback
 {
-public:
+ public:
   virtual ~GMPVideoDecoderCallback() {}
 
   virtual void Decoded(GMPVideoi420Frame* aDecodedFrame) = 0;
@@ -74,7 +74,7 @@ public:
 // ALL METHODS MUST BE CALLED ON THE MAIN THREAD
 class GMPVideoDecoder
 {
-public:
+ public:
   virtual ~GMPVideoDecoder() {}
 
   // - aCodecSettings: Details of decoder to create.
@@ -124,4 +124,4 @@ public:
   virtual void DecodingComplete() = 0;
 };
 
-#endif // GMP_VIDEO_DECODE_h_
+#endif  // GMP_VIDEO_DECODE_h_

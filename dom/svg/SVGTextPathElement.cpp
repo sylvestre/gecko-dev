@@ -18,60 +18,50 @@ namespace dom {
 class SVGAnimatedLength;
 
 JSObject*
-SVGTextPathElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGTextPathElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGTextPathElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGTextPathElement::sLengthInfo[2] =
-{
-  // from SVGTextContentElement:
-  { &nsGkAtoms::textLength, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::XY },
-  // from SVGTextPathElement:
-  { &nsGkAtoms::startOffset, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X }
-};
+nsSVGElement::LengthInfo SVGTextPathElement::sLengthInfo[2] = {
+    // from SVGTextContentElement:
+    {&nsGkAtoms::textLength,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::XY},
+    // from SVGTextPathElement:
+    {&nsGkAtoms::startOffset,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X}};
 
 nsSVGEnumMapping SVGTextPathElement::sMethodMap[] = {
-  {&nsGkAtoms::align, TEXTPATH_METHODTYPE_ALIGN},
-  {&nsGkAtoms::stretch, TEXTPATH_METHODTYPE_STRETCH},
-  {nullptr, 0}
-};
+    {&nsGkAtoms::align, TEXTPATH_METHODTYPE_ALIGN},
+    {&nsGkAtoms::stretch, TEXTPATH_METHODTYPE_STRETCH},
+    {nullptr, 0}};
 
 nsSVGEnumMapping SVGTextPathElement::sSpacingMap[] = {
-  {&nsGkAtoms::_auto, TEXTPATH_SPACINGTYPE_AUTO},
-  {&nsGkAtoms::exact, TEXTPATH_SPACINGTYPE_EXACT},
-  {nullptr, 0}
-};
+    {&nsGkAtoms::_auto, TEXTPATH_SPACINGTYPE_AUTO},
+    {&nsGkAtoms::exact, TEXTPATH_SPACINGTYPE_EXACT},
+    {nullptr, 0}};
 
-nsSVGElement::EnumInfo SVGTextPathElement::sEnumInfo[3] =
-{
-  // from SVGTextContentElement:
-  { &nsGkAtoms::lengthAdjust,
-    sLengthAdjustMap,
-    SVG_LENGTHADJUST_SPACING
-  },
-  // from SVGTextPathElement:
-  { &nsGkAtoms::method,
-    sMethodMap,
-    TEXTPATH_METHODTYPE_ALIGN
-  },
-  { &nsGkAtoms::spacing,
-    sSpacingMap,
-    TEXTPATH_SPACINGTYPE_EXACT
-  }
-};
+nsSVGElement::EnumInfo SVGTextPathElement::sEnumInfo[3] = {
+    // from SVGTextContentElement:
+    {&nsGkAtoms::lengthAdjust, sLengthAdjustMap, SVG_LENGTHADJUST_SPACING},
+    // from SVGTextPathElement:
+    {&nsGkAtoms::method, sMethodMap, TEXTPATH_METHODTYPE_ALIGN},
+    {&nsGkAtoms::spacing, sSpacingMap, TEXTPATH_SPACINGTYPE_EXACT}};
 
-nsSVGElement::StringInfo SVGTextPathElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::href, kNameSpaceID_None, true },
-  { &nsGkAtoms::href, kNameSpaceID_XLink, true }
-};
+nsSVGElement::StringInfo SVGTextPathElement::sStringInfo[2] = {
+    {&nsGkAtoms::href, kNameSpaceID_None, true},
+    {&nsGkAtoms::href, kNameSpaceID_XLink, true}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGTextPathElement::SVGTextPathElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGTextPathElementBase(aNodeInfo)
+SVGTextPathElement::SVGTextPathElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGTextPathElementBase(aNodeInfo)
 {
 }
 
@@ -84,8 +74,8 @@ already_AddRefed<SVGAnimatedString>
 SVGTextPathElement::Href()
 {
   return mStringAttributes[HREF].IsExplicitlySet()
-         ? mStringAttributes[HREF].ToDOMAnimatedString(this)
-         : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
+             ? mStringAttributes[HREF].ToDOMAnimatedString(this)
+             : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
 }
 
 //----------------------------------------------------------------------
@@ -114,16 +104,14 @@ SVGTextPathElement::Spacing()
 NS_IMETHODIMP_(bool)
 SVGTextPathElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sColorMap,
-    sFillStrokeMap,
-    sFontSpecificationMap,
-    sGraphicsMap,
-    sTextContentElementsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sColorMap,
+                                                    sFillStrokeMap,
+                                                    sFontSpecificationMap,
+                                                    sGraphicsMap,
+                                                    sTextContentElementsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGTextPathElementBase::IsAttributeMapped(name);
+         SVGTextPathElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -132,23 +120,22 @@ SVGTextPathElement::IsAttributeMapped(const nsAtom* name) const
 nsSVGElement::LengthAttributesInfo
 SVGTextPathElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGTextPathElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGTextPathElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

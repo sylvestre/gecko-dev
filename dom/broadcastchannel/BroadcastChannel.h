@@ -21,21 +21,20 @@ namespace mozilla {
 
 namespace ipc {
 class PrincipalInfo;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 
 namespace workers {
 class WorkerHolder;
-} // namespace workers
+}  // namespace workers
 
 class BroadcastChannelChild;
 class BroadcastChannelMessage;
 
-class BroadcastChannel final
-  : public DOMEventTargetHelper
-  , public nsIIPCBackgroundChildCreateCallback
-  , public nsIObserver
+class BroadcastChannel final : public DOMEventTargetHelper,
+                               public nsIIPCBackgroundChildCreateCallback,
+                               public nsIObserver
 {
   friend class BroadcastChannelChild;
 
@@ -44,25 +43,22 @@ class BroadcastChannel final
 
   typedef mozilla::ipc::PrincipalInfo PrincipalInfo;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BroadcastChannel,
                                            DOMEventTargetHelper)
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<BroadcastChannel>
-  Constructor(const GlobalObject& aGlobal, const nsAString& aChannel,
-              ErrorResult& aRv);
+  static already_AddRefed<BroadcastChannel> Constructor(
+      const GlobalObject& aGlobal, const nsAString& aChannel, ErrorResult& aRv);
 
-  void GetName(nsAString& aName) const
-  {
-    aName = mChannel;
-  }
+  void GetName(nsAString& aName) const { aName = mChannel; }
 
-  void PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
+  void PostMessage(JSContext* aCx,
+                   JS::Handle<JS::Value> aMessage,
                    ErrorResult& aRv);
 
   void Close();
@@ -72,7 +68,7 @@ public:
 
   void Shutdown();
 
-private:
+ private:
   BroadcastChannel(nsPIDOMWindowInner* aWindow,
                    const PrincipalInfo& aPrincipalInfo,
                    const nsACString& aOrigin,
@@ -82,7 +78,8 @@ private:
 
   void PostMessageData(BroadcastChannelMessage* aData);
 
-  void PostMessageInternal(JSContext* aCx, JS::Handle<JS::Value> aMessage,
+  void PostMessageInternal(JSContext* aCx,
+                           JS::Handle<JS::Value> aMessage,
                            ErrorResult& aRv);
 
   void RemoveDocFromBFCache();
@@ -99,14 +96,15 @@ private:
 
   uint64_t mInnerID;
 
-  enum {
+  enum
+  {
     StateActive,
     StateClosing,
     StateClosed
   } mState;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_BroadcastChannel_h
+#endif  // mozilla_dom_BroadcastChannel_h

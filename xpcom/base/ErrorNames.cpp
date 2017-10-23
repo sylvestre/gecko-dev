@@ -43,11 +43,10 @@ GetErrorName(nsresult rv, nsACString& name)
 
   name.AppendASCII(", ");
 
-  const char * nsprName = nullptr;
+  const char* nsprName = nullptr;
   if (isSecurityError) {
     // Invert the logic from NSSErrorsService::GetXPCOMFromNSSError
-    PRErrorCode nsprCode
-      = -1 * static_cast<PRErrorCode>(NS_ERROR_GET_CODE(rv));
+    PRErrorCode nsprCode = -1 * static_cast<PRErrorCode>(NS_ERROR_GET_CODE(rv));
     nsprName = PR_ErrorToName(nsprCode);
 
     // All NSPR error codes defined by NSPR or NSS should have a name mapping.
@@ -63,7 +62,7 @@ GetErrorName(nsresult rv, nsACString& name)
   name.AppendASCII(")");
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 extern "C" {
 
@@ -74,5 +73,4 @@ Gecko_GetErrorName(nsresult aRv, nsACString& aName)
 {
   mozilla::GetErrorName(aRv, aName);
 }
-
 }

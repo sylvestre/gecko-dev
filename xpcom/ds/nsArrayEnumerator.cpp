@@ -17,7 +17,7 @@
 
 class nsSimpleArrayEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   // nsISupports interface
   NS_DECL_ISUPPORTS
 
@@ -26,15 +26,14 @@ public:
 
   // nsSimpleArrayEnumerator methods
   explicit nsSimpleArrayEnumerator(nsIArray* aValueArray)
-    : mValueArray(aValueArray)
-    , mIndex(0)
+      : mValueArray(aValueArray), mIndex(0)
   {
   }
 
-private:
+ private:
   ~nsSimpleArrayEnumerator() = default;
 
-protected:
+ protected:
   nsCOMPtr<nsIArray> mValueArray;
   uint32_t mIndex;
 };
@@ -85,8 +84,8 @@ nsSimpleArrayEnumerator::GetNext(nsISupports** aResult)
     return NS_ERROR_UNEXPECTED;
   }
 
-  return mValueArray->QueryElementAt(mIndex++, NS_GET_IID(nsISupports),
-                                     (void**)aResult);
+  return mValueArray->QueryElementAt(
+      mIndex++, NS_GET_IID(nsISupports), (void**)aResult);
 }
 
 nsresult
@@ -105,7 +104,7 @@ NS_NewArrayEnumerator(nsISimpleEnumerator** aResult, nsIArray* aArray)
 // allocation is done correctly
 class nsCOMArrayEnumerator final : public nsISimpleEnumerator
 {
-public:
+ public:
   // nsISupports interface
   NS_DECL_ISUPPORTS
 
@@ -119,12 +118,12 @@ public:
   void* operator new(size_t aSize, const nsCOMArray_base& aArray) CPP_THROW_NEW;
   void operator delete(void* aPtr) { ::operator delete(aPtr); }
 
-private:
+ private:
   ~nsCOMArrayEnumerator(void);
 
-protected:
-  uint32_t mIndex;            // current position
-  uint32_t mArraySize;        // size of the array
+ protected:
+  uint32_t mIndex;      // current position
+  uint32_t mArraySize;  // size of the array
 
   // this is actually bigger
   nsISupports* mValueArray[1];
@@ -187,7 +186,7 @@ nsCOMArrayEnumerator::operator new(size_t aSize,
 
   // do the actual allocation
   nsCOMArrayEnumerator* result =
-    static_cast<nsCOMArrayEnumerator*>(::operator new(aSize));
+      static_cast<nsCOMArrayEnumerator*>(::operator new(aSize));
 
   // now need to copy over the values, and addref each one
   // now this might seem like a lot of work, but we're actually just

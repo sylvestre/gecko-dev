@@ -15,36 +15,32 @@
 namespace mozilla {
 namespace dom {
 
-class SVGAnimatedNumber : public nsISupports
-                        , public nsWrapperCache
+class SVGAnimatedNumber : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SVGAnimatedNumber)
 
-  nsSVGElement* GetParentObject() const
-  {
-    return mSVGElement;
-  }
+  nsSVGElement* GetParentObject() const { return mSVGElement; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-    override final;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
 
   virtual float BaseVal() = 0;
   virtual void SetBaseVal(float aBaseVal) = 0;
   virtual float AnimVal() = 0;
 
-protected:
+ protected:
   explicit SVGAnimatedNumber(nsSVGElement* aSVGElement)
-    : mSVGElement(aSVGElement)
+      : mSVGElement(aSVGElement)
   {
   }
-  virtual ~SVGAnimatedNumber() {};
+  virtual ~SVGAnimatedNumber(){};
 
   RefPtr<nsSVGElement> mSVGElement;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGAnimatedNumber_h
+#endif  // mozilla_dom_SVGAnimatedNumber_h

@@ -12,15 +12,15 @@
 #include "mozilla/gfx/GPUProcessManager.h"  // for GPUProcessManager
 
 #include <functional>
-#include <utility> // for std::make_pair
+#include <utility>  // for std::make_pair
 
 namespace mozilla {
 namespace layers {
 
 static StaticAutoPtr<LayerTreeOwnerTracker> sSingleton;
 
-LayerTreeOwnerTracker::LayerTreeOwnerTracker() :
-  mLayerIdsLock("LayerTreeOwnerTrackerLock")
+LayerTreeOwnerTracker::LayerTreeOwnerTracker()
+    : mLayerIdsLock("LayerTreeOwnerTrackerLock")
 {
 }
 
@@ -71,7 +71,9 @@ LayerTreeOwnerTracker::IsMapped(uint64_t aLayersId, base::ProcessId aProcessId)
 }
 
 void
-LayerTreeOwnerTracker::Iterate(const std::function<void(uint64_t aLayersId, base::ProcessId aProcessId)>& aCallback)
+LayerTreeOwnerTracker::Iterate(
+    const std::function<void(uint64_t aLayersId, base::ProcessId aProcessId)>&
+        aCallback)
 {
   MutexAutoLock lock(mLayerIdsLock);
 
@@ -80,5 +82,5 @@ LayerTreeOwnerTracker::Iterate(const std::function<void(uint64_t aLayersId, base
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

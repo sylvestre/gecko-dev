@@ -40,8 +40,7 @@ DeallocPCacheStreamControlChild(PCacheStreamControlChild* aActor)
 }
 
 CacheStreamControlChild::CacheStreamControlChild()
-  : mDestroyStarted(false)
-  , mDestroyDelayed(false)
+    : mDestroyStarted(false), mDestroyDelayed(false)
 {
   MOZ_COUNT_CTOR(cache::CacheStreamControlChild);
 }
@@ -94,19 +93,22 @@ CacheStreamControlChild::SerializeControl(CacheReadStream* aReadStreamOut)
 }
 
 void
-CacheStreamControlChild::SerializeStream(CacheReadStream* aReadStreamOut,
-                                         nsIInputStream* aStream,
-                                         nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList)
+CacheStreamControlChild::SerializeStream(
+    CacheReadStream* aReadStreamOut,
+    nsIInputStream* aStream,
+    nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList)
 {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlChild);
   MOZ_DIAGNOSTIC_ASSERT(aReadStreamOut);
-  UniquePtr<AutoIPCStream> autoStream(new AutoIPCStream(aReadStreamOut->stream()));
+  UniquePtr<AutoIPCStream> autoStream(
+      new AutoIPCStream(aReadStreamOut->stream()));
   autoStream->Serialize(aStream, Manager());
   aStreamCleanupList.AppendElement(Move(autoStream));
 }
 
 void
-CacheStreamControlChild::OpenStream(const nsID& aId, InputStreamResolver&& aResolver)
+CacheStreamControlChild::OpenStream(const nsID& aId,
+                                    InputStreamResolver&& aResolver)
 {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlChild);
 
@@ -122,13 +124,14 @@ CacheStreamControlChild::OpenStream(const nsID& aId, InputStreamResolver&& aReso
   // worker wants to shut down.
   RefPtr<CacheWorkerHolder> holder = GetWorkerHolder();
 
-  SendOpenStream(aId)->Then(GetCurrentThreadSerialEventTarget(), __func__,
-  [aResolver, holder](const OptionalIPCStream& aOptionalStream) {
-    nsCOMPtr<nsIInputStream> stream = DeserializeIPCStream(aOptionalStream);
-    aResolver(Move(stream));
-  }, [aResolver, holder](PromiseRejectReason aReason) {
-    aResolver(nullptr);
-  });
+  SendOpenStream(aId)->Then(
+      GetCurrentThreadSerialEventTarget(),
+      __func__,
+      [aResolver, holder](const OptionalIPCStream& aOptionalStream) {
+        nsCOMPtr<nsIInputStream> stream = DeserializeIPCStream(aOptionalStream);
+        aResolver(Move(stream));
+      },
+      [aResolver, holder](PromiseRejectReason aReason) { aResolver(nullptr); });
 }
 
 void
@@ -179,6 +182,6 @@ CacheStreamControlChild::RecvCloseAll()
   return IPC_OK();
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

@@ -21,7 +21,7 @@ namespace mozilla {
 
 #undef LOG
 LazyLogModule gMemoryBlockCacheLog("MemoryBlockCache");
-#define LOG(x, ...)                                                            \
+#define LOG(x, ...) \
   MOZ_LOG(gMemoryBlockCacheLog, LogLevel::Debug, ("%p " x, this, ##__VA_ARGS__))
 
 // Combined sizes of all MemoryBlockCache buffers.
@@ -30,11 +30,10 @@ LazyLogModule gMemoryBlockCacheLog("MemoryBlockCache");
 // writes), decreases when a MemoryBlockCache (with its buffer) is destroyed.
 static Atomic<size_t> gCombinedSizes;
 
-class MemoryBlockCacheTelemetry final
-  : public nsIObserver
-  , public nsSupportsWeakReference
+class MemoryBlockCacheTelemetry final : public nsIObserver,
+                                        public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -44,7 +43,7 @@ public:
   // Returns current watermark.
   static size_t NotifyCombinedSizeGrown(size_t aNewSize);
 
-private:
+ private:
   MemoryBlockCacheTelemetry() {}
   ~MemoryBlockCacheTelemetry() {}
 
@@ -59,7 +58,7 @@ private:
 
 // Initialized to nullptr by non-local static initialization.
 /* static */ StaticRefPtr<MemoryBlockCacheTelemetry>
-  MemoryBlockCacheTelemetry::gMemoryBlockCacheTelemetry;
+    MemoryBlockCacheTelemetry::gMemoryBlockCacheTelemetry;
 
 // Initialized to 0 by non-local static initialization.
 /* static */ Atomic<size_t> MemoryBlockCacheTelemetry::gCombinedSizesWatermark;
@@ -78,10 +77,10 @@ MemoryBlockCacheTelemetry::NotifyCombinedSizeGrown(size_t aNewSize)
     gMemoryBlockCacheTelemetry = new MemoryBlockCacheTelemetry();
 
     nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
+        mozilla::services::GetObserverService();
     if (observerService) {
       observerService->AddObserver(
-        gMemoryBlockCacheTelemetry, "profile-change-teardown", true);
+          gMemoryBlockCacheTelemetry, "profile-change-teardown", true);
     }
 
     // Clearing gMemoryBlockCacheTelemetry when handling
@@ -98,7 +97,7 @@ MemoryBlockCacheTelemetry::NotifyCombinedSizeGrown(size_t aNewSize)
       return oldSize;
     }
     if (gMemoryBlockCacheTelemetry->gCombinedSizesWatermark.compareExchange(
-          oldSize, aNewSize)) {
+            oldSize, aNewSize)) {
       return aNewSize;
     }
   }
@@ -143,19 +142,19 @@ CalculateMaxBlocks(int64_t aContentLength)
   // Note: It doesn't matter if calculations overflow, Init() would later fail.
   // We want at least enough blocks to contain the original content length.
   const int32_t requiredBlocks =
-    int32_t((aContentLength - 1) / MediaBlockCacheBase::BLOCK_SIZE + 1);
+      int32_t((aContentLength - 1) / MediaBlockCacheBase::BLOCK_SIZE + 1);
   // Allow at least 1s of ultra HD (25Mbps).
   const int32_t workableBlocks =
-    25 * 1024 * 1024 / 8 / MediaBlockCacheBase::BLOCK_SIZE;
+      25 * 1024 * 1024 / 8 / MediaBlockCacheBase::BLOCK_SIZE;
   return std::max(requiredBlocks, workableBlocks);
 }
 
 MemoryBlockCache::MemoryBlockCache(int64_t aContentLength)
-  // Buffer whole blocks.
-  : mInitialContentLength((aContentLength >= 0) ? size_t(aContentLength) : 0)
-  , mMaxBlocks(CalculateMaxBlocks(aContentLength))
-  , mMutex("MemoryBlockCache")
-  , mHasGrown(false)
+    // Buffer whole blocks.
+    : mInitialContentLength((aContentLength >= 0) ? size_t(aContentLength) : 0),
+      mMaxBlocks(CalculateMaxBlocks(aContentLength)),
+      mMutex("MemoryBlockCache"),
+      mHasGrown(false)
 {
   if (aContentLength <= 0) {
     LOG("MemoryBlockCache() MEMORYBLOCKCACHE_ERRORS='InitUnderuse'");
@@ -182,7 +181,7 @@ MemoryBlockCache::EnsureBufferCanContain(size_t aContentLength)
   }
   const size_t initialLength = mBuffer.Length();
   const size_t desiredLength =
-    ((aContentLength - 1) / BLOCK_SIZE + 1) * BLOCK_SIZE;
+      ((aContentLength - 1) / BLOCK_SIZE + 1) * BLOCK_SIZE;
   if (initialLength >= desiredLength) {
     // Already large enough.
     return true;
@@ -202,10 +201,10 @@ MemoryBlockCache::EnsureBufferCanContain(size_t aContentLength)
     // failure; but this would have meant potentially preventing other (small
     // but successful) allocations.
     static const size_t sysmem =
-      std::max<size_t>(PR_GetPhysicalMemorySize(), 32 * 1024 * 1024);
+        std::max<size_t>(PR_GetPhysicalMemorySize(), 32 * 1024 * 1024);
     const size_t limit = std::min(
-      size_t(MediaPrefs::MediaMemoryCachesCombinedLimitKb()) * 1024,
-      sysmem * MediaPrefs::MediaMemoryCachesCombinedLimitPcSysmem() / 100);
+        size_t(MediaPrefs::MediaMemoryCachesCombinedLimitKb()) * 1024,
+        sysmem * MediaPrefs::MediaMemoryCachesCombinedLimitPcSysmem() / 100);
     const size_t currentSizes = static_cast<size_t>(gCombinedSizes);
     if (currentSizes + extra > limit) {
       LOG("EnsureBufferCanContain(%zu) - buffer size %zu, wanted + %zu = %zu;"
@@ -239,9 +238,9 @@ MemoryBlockCache::EnsureBufferCanContain(size_t aContentLength)
     mBuffer.SetLength(capacity);
   }
   size_t newSizes =
-    static_cast<size_t>(gCombinedSizes += (extra + extraCapacity));
+      static_cast<size_t>(gCombinedSizes += (extra + extraCapacity));
   size_t watermark =
-    MemoryBlockCacheTelemetry::NotifyCombinedSizeGrown(newSizes);
+      MemoryBlockCacheTelemetry::NotifyCombinedSizeGrown(newSizes);
   LOG("EnsureBufferCanContain(%zu) - buffer size %zu + requested %zu + bonus "
       "%zu = %zu; combined "
       "sizes %zu, watermark %zu",
@@ -367,7 +366,7 @@ MemoryBlockCache::MoveBlock(int32_t aSourceBlockIndex, int32_t aDestBlockIndex)
   return NS_OK;
 }
 
-} // End namespace mozilla.
+}  // End namespace mozilla.
 
 // avoid redefined macro in unified build
 #undef LOG

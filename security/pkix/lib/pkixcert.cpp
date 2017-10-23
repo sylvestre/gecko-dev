@@ -24,7 +24,8 @@
 
 #include "pkixutil.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 Result
 BackCert::Init()
@@ -99,8 +100,8 @@ BackCert::Init()
   if (rv != Success) {
     return rv;
   }
-  rv = der::ExpectTagAndGetTLV(tbsCertificate, der::SEQUENCE,
-                               subjectPublicKeyInfo);
+  rv = der::ExpectTagAndGetTLV(
+      tbsCertificate, der::SEQUENCE, subjectPublicKeyInfo);
   if (rv != Success) {
     return rv;
   }
@@ -128,12 +129,15 @@ BackCert::Init()
     }
   }
 
-  rv = der::OptionalExtensions(
-         tbsCertificate, CSC | 3,
-         [this](Reader& extnID, const Input& extnValue, bool critical,
-                /*out*/ bool& understood) {
-           return RememberExtension(extnID, extnValue, critical, understood);
-         });
+  rv = der::OptionalExtensions(tbsCertificate,
+                               CSC | 3,
+                               [this](Reader& extnID,
+                                      const Input& extnValue,
+                                      bool critical,
+                                      /*out*/ bool& understood) {
+                                 return RememberExtension(
+                                     extnID, extnValue, critical, understood);
+                               });
   if (rv != Success) {
     return rv;
   }
@@ -170,64 +174,45 @@ BackCert::Init()
 }
 
 Result
-BackCert::RememberExtension(Reader& extnID, Input extnValue,
-                            bool critical, /*out*/ bool& understood)
+BackCert::RememberExtension(Reader& extnID,
+                            Input extnValue,
+                            bool critical,
+                            /*out*/ bool& understood)
 {
   understood = false;
 
   // python DottedOIDToCode.py id-ce-keyUsage 2.5.29.15
-  static const uint8_t id_ce_keyUsage[] = {
-    0x55, 0x1d, 0x0f
-  };
+  static const uint8_t id_ce_keyUsage[] = {0x55, 0x1d, 0x0f};
   // python DottedOIDToCode.py id-ce-subjectAltName 2.5.29.17
-  static const uint8_t id_ce_subjectAltName[] = {
-    0x55, 0x1d, 0x11
-  };
+  static const uint8_t id_ce_subjectAltName[] = {0x55, 0x1d, 0x11};
   // python DottedOIDToCode.py id-ce-basicConstraints 2.5.29.19
-  static const uint8_t id_ce_basicConstraints[] = {
-    0x55, 0x1d, 0x13
-  };
+  static const uint8_t id_ce_basicConstraints[] = {0x55, 0x1d, 0x13};
   // python DottedOIDToCode.py id-ce-nameConstraints 2.5.29.30
-  static const uint8_t id_ce_nameConstraints[] = {
-    0x55, 0x1d, 0x1e
-  };
+  static const uint8_t id_ce_nameConstraints[] = {0x55, 0x1d, 0x1e};
   // python DottedOIDToCode.py id-ce-certificatePolicies 2.5.29.32
-  static const uint8_t id_ce_certificatePolicies[] = {
-    0x55, 0x1d, 0x20
-  };
+  static const uint8_t id_ce_certificatePolicies[] = {0x55, 0x1d, 0x20};
   // python DottedOIDToCode.py id-ce-policyConstraints 2.5.29.36
-  static const uint8_t id_ce_policyConstraints[] = {
-    0x55, 0x1d, 0x24
-  };
+  static const uint8_t id_ce_policyConstraints[] = {0x55, 0x1d, 0x24};
   // python DottedOIDToCode.py id-ce-extKeyUsage 2.5.29.37
-  static const uint8_t id_ce_extKeyUsage[] = {
-    0x55, 0x1d, 0x25
-  };
+  static const uint8_t id_ce_extKeyUsage[] = {0x55, 0x1d, 0x25};
   // python DottedOIDToCode.py id-ce-inhibitAnyPolicy 2.5.29.54
-  static const uint8_t id_ce_inhibitAnyPolicy[] = {
-    0x55, 0x1d, 0x36
-  };
+  static const uint8_t id_ce_inhibitAnyPolicy[] = {0x55, 0x1d, 0x36};
   // python DottedOIDToCode.py id-pe-authorityInfoAccess 1.3.6.1.5.5.7.1.1
   static const uint8_t id_pe_authorityInfoAccess[] = {
-    0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x01
-  };
+      0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x01};
   // python DottedOIDToCode.py id-pkix-ocsp-nocheck 1.3.6.1.5.5.7.48.1.5
   static const uint8_t id_pkix_ocsp_nocheck[] = {
-    0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x05
-  };
+      0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x05};
   // python DottedOIDToCode.py Netscape-certificate-type 2.16.840.1.113730.1.1
   static const uint8_t Netscape_certificate_type[] = {
-    0x60, 0x86, 0x48, 0x01, 0x86, 0xf8, 0x42, 0x01, 0x01
-  };
+      0x60, 0x86, 0x48, 0x01, 0x86, 0xf8, 0x42, 0x01, 0x01};
   // python DottedOIDToCode.py id-pe-tlsfeature 1.3.6.1.5.5.7.1.24
   static const uint8_t id_pe_tlsfeature[] = {
-    0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x18
-  };
+      0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x18};
   // python DottedOIDToCode.py id-embeddedSctList 1.3.6.1.4.1.11129.2.4.2
   // See Section 3.3 of RFC 6962.
   static const uint8_t id_embeddedSctList[] = {
-    0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79, 0x02, 0x04, 0x02
-  };
+      0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79, 0x02, 0x04, 0x02};
 
   Input* out = nullptr;
 
@@ -312,12 +297,13 @@ ExtractSignedCertificateTimestampListFromExtension(Input extnValue,
                                                    Input& sctList)
 {
   Reader decodedValue;
-  Result rv = der::ExpectTagAndGetValueAtEnd(extnValue, der::OCTET_STRING,
-                                             decodedValue);
+  Result rv = der::ExpectTagAndGetValueAtEnd(
+      extnValue, der::OCTET_STRING, decodedValue);
   if (rv != Success) {
     return rv;
   }
   return decodedValue.SkipToEnd(sctList);
 }
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla

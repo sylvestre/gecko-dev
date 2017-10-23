@@ -28,7 +28,7 @@
 #include "nsDirectoryServiceDefs.h"
 #include "nsDirectoryServiceUtils.h"
 #include "ContentHandlerService.h"
-#include "prenv.h"      // for PR_GetEnv()
+#include "prenv.h"  // for PR_GetEnv()
 #include "nsAutoPtr.h"
 #include "mozilla/Preferences.h"
 
@@ -58,8 +58,7 @@ nsOSHelperAppService::nsOSHelperAppService() : nsExternalHelperAppService()
   mPermissions = 0666 & ~mask;
 }
 
-nsOSHelperAppService::~nsOSHelperAppService()
-{}
+nsOSHelperAppService::~nsOSHelperAppService() {}
 
 /*
  * Take a command with all the mailcap escapes in it and unescape it
@@ -71,17 +70,19 @@ nsresult
 nsOSHelperAppService::UnescapeCommand(const nsAString& aEscapedCommand,
                                       const nsAString& aMajorType,
                                       const nsAString& aMinorType,
-                                      nsACString& aUnEscapedCommand) {
+                                      nsACString& aUnEscapedCommand)
+{
   LOG(("-- UnescapeCommand"));
   LOG(("Command to escape: '%s'\n",
        NS_LossyConvertUTF16toASCII(aEscapedCommand).get()));
   //  XXX This function will need to get the mime type and various stuff like that being passed in to work properly
 
-  LOG(("UnescapeCommand really needs some work -- it should actually do some unescaping\n"));
+  LOG(
+      ("UnescapeCommand really needs some work -- it should actually do some "
+       "unescaping\n"));
 
   CopyUTF16toUTF8(aEscapedCommand, aUnEscapedCommand);
-  LOG(("Escaped command: '%s'\n",
-       PromiseFlatCString(aUnEscapedCommand).get()));
+  LOG(("Escaped command: '%s'\n", PromiseFlatCString(aUnEscapedCommand).get()));
   return NS_OK;
 }
 
@@ -91,19 +92,20 @@ nsOSHelperAppService::UnescapeCommand(const nsAString& aEscapedCommand,
 
 static nsresult
 FindSemicolon(nsAString::const_iterator& aSemicolon_iter,
-              const nsAString::const_iterator& aEnd_iter) {
+              const nsAString::const_iterator& aEnd_iter)
+{
   bool semicolonFound = false;
   while (aSemicolon_iter != aEnd_iter && !semicolonFound) {
-    switch(*aSemicolon_iter) {
-    case '\\':
-      aSemicolon_iter.advance(2);
-      break;
-    case ';':
-      semicolonFound = true;
-      break;
-    default:
-      ++aSemicolon_iter;
-      break;
+    switch (*aSemicolon_iter) {
+      case '\\':
+        aSemicolon_iter.advance(2);
+        break;
+      case ';':
+        semicolonFound = true;
+        break;
+      default:
+        ++aSemicolon_iter;
+        break;
     }
   }
   return NS_OK;
@@ -115,7 +117,8 @@ ParseMIMEType(const nsAString::const_iterator& aStart_iter,
               nsAString::const_iterator& aMajorTypeEnd,
               nsAString::const_iterator& aMinorTypeStart,
               nsAString::const_iterator& aMinorTypeEnd,
-              const nsAString::const_iterator& aEnd_iter) {
+              const nsAString::const_iterator& aEnd_iter)
+{
   nsAString::const_iterator iter(aStart_iter);
 
   // skip leading whitespace
@@ -163,7 +166,8 @@ ParseMIMEType(const nsAString::const_iterator& aStart_iter,
 nsresult
 nsOSHelperAppService::GetFileLocation(const char* aPrefName,
                                       const char* aEnvVarName,
-                                      nsAString& aFileLocation) {
+                                      nsAString& aFileLocation)
+{
   LOG(("-- GetFileLocation.  Pref: '%s'  EnvVar: '%s'\n",
        aPrefName,
        aEnvVarName));
@@ -210,7 +214,6 @@ nsOSHelperAppService::GetFileLocation(const char* aPrefName,
   return Preferences::GetString(aPrefName, aFileLocation);
 }
 
-
 /* Get the mime.types file names from prefs and look up info in them
    based on extension */
 // static
@@ -219,22 +222,20 @@ nsOSHelperAppService::LookUpTypeAndDescription(const nsAString& aFileExtension,
                                                nsAString& aMajorType,
                                                nsAString& aMinorType,
                                                nsAString& aDescription,
-                                               bool aUserData) {
+                                               bool aUserData)
+{
   LOG(("-- LookUpTypeAndDescription for extension '%s'\n",
        NS_LossyConvertUTF16toASCII(aFileExtension).get()));
   nsresult rv = NS_OK;
   nsAutoString mimeFileName;
 
-  const char* filenamePref = aUserData ?
-    "helpers.private_mime_types_file" : "helpers.global_mime_types_file";
+  const char* filenamePref = aUserData ? "helpers.private_mime_types_file"
+                                       : "helpers.global_mime_types_file";
 
   rv = GetFileLocation(filenamePref, nullptr, mimeFileName);
   if (NS_SUCCEEDED(rv) && !mimeFileName.IsEmpty()) {
-    rv = GetTypeAndDescriptionFromMimetypesFile(mimeFileName,
-                                                aFileExtension,
-                                                aMajorType,
-                                                aMinorType,
-                                                aDescription);
+    rv = GetTypeAndDescriptionFromMimetypesFile(
+        mimeFileName, aFileExtension, aMajorType, aMinorType, aDescription);
   } else {
     rv = NS_ERROR_NOT_AVAILABLE;
   }
@@ -243,9 +244,14 @@ nsOSHelperAppService::LookUpTypeAndDescription(const nsAString& aFileExtension,
 }
 
 inline bool
-IsNetscapeFormat(const nsACString& aBuffer) {
-  return StringBeginsWith(aBuffer, NS_LITERAL_CSTRING("#--Netscape Communications Corporation MIME Information")) ||
-         StringBeginsWith(aBuffer, NS_LITERAL_CSTRING("#--MCOM MIME Information"));
+IsNetscapeFormat(const nsACString& aBuffer)
+{
+  return StringBeginsWith(
+             aBuffer,
+             NS_LITERAL_CSTRING(
+                 "#--Netscape Communications Corporation MIME Information")) ||
+         StringBeginsWith(aBuffer,
+                          NS_LITERAL_CSTRING("#--MCOM MIME Information"));
 }
 
 /*
@@ -256,27 +262,25 @@ IsNetscapeFormat(const nsACString& aBuffer) {
 // static
 nsresult
 nsOSHelperAppService::CreateInputStream(const nsAString& aFilename,
-                                        nsIFileInputStream ** aFileInputStream,
-                                        nsILineInputStream ** aLineInputStream,
+                                        nsIFileInputStream** aFileInputStream,
+                                        nsILineInputStream** aLineInputStream,
                                         nsACString& aBuffer,
-                                        bool * aNetscapeFormat,
-                                        bool * aMore) {
+                                        bool* aNetscapeFormat,
+                                        bool* aMore)
+{
   LOG(("-- CreateInputStream"));
   nsresult rv = NS_OK;
 
   nsCOMPtr<nsIFile> file(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
   rv = file->InitWithPath(aFilename);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
-  nsCOMPtr<nsIFileInputStream> fileStream(do_CreateInstance(NS_LOCALFILEINPUTSTREAM_CONTRACTID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  nsCOMPtr<nsIFileInputStream> fileStream(
+      do_CreateInstance(NS_LOCALFILEINPUTSTREAM_CONTRACTID, &rv));
+  if (NS_FAILED(rv)) return rv;
   rv = fileStream->Init(file, -1, -1, false);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   nsCOMPtr<nsILineInputStream> lineStream(do_QueryInterface(fileStream, &rv));
 
@@ -305,11 +309,13 @@ nsOSHelperAppService::CreateInputStream(const nsAString& aFilename,
    then get info based on extension */
 // static
 nsresult
-nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aFilename,
-                                                             const nsAString& aFileExtension,
-                                                             nsAString& aMajorType,
-                                                             nsAString& aMinorType,
-                                                             nsAString& aDescription) {
+nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(
+    const nsAString& aFilename,
+    const nsAString& aFileExtension,
+    nsAString& aMajorType,
+    nsAString& aMinorType,
+    nsAString& aDescription)
+{
   LOG(("-- GetTypeAndDescriptionFromMimetypesFile\n"));
   LOG(("Getting type and description from types file '%s'\n",
        NS_LossyConvertUTF16toASCII(aFilename).get()));
@@ -322,8 +328,12 @@ nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aF
   nsAutoString buf;
   nsAutoCString cBuf;
   bool more = false;
-  rv = CreateInputStream(aFilename, getter_AddRefs(mimeFile), getter_AddRefs(mimeTypes),
-                         cBuf, &netscapeFormat, &more);
+  rv = CreateInputStream(aFilename,
+                         getter_AddRefs(mimeFile),
+                         getter_AddRefs(mimeTypes),
+                         cBuf,
+                         &netscapeFormat,
+                         &more);
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -332,9 +342,8 @@ nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aF
   nsAutoString extensions;
   nsString entry;
   entry.SetCapacity(100);
-  nsAString::const_iterator majorTypeStart, majorTypeEnd,
-                            minorTypeStart, minorTypeEnd,
-                            descriptionStart, descriptionEnd;
+  nsAString::const_iterator majorTypeStart, majorTypeEnd, minorTypeStart,
+      minorTypeEnd, descriptionStart, descriptionEnd;
 
   do {
     CopyASCIItoUTF16(cBuf, buf);
@@ -346,47 +355,60 @@ nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aF
       entry.Append(buf);
       if (entry.Last() == '\\') {
         entry.Truncate(entry.Length() - 1);
-        entry.Append(char16_t(' '));  // in case there is no trailing whitespace on this line
-      } else {  // we have a full entry
+        entry.Append(char16_t(
+            ' '));  // in case there is no trailing whitespace on this line
+      } else {      // we have a full entry
         LOG(("Current entry: '%s'\n",
              NS_LossyConvertUTF16toASCII(entry).get()));
         if (netscapeFormat) {
           rv = ParseNetscapeMIMETypesEntry(entry,
-                                           majorTypeStart, majorTypeEnd,
-                                           minorTypeStart, minorTypeEnd,
+                                           majorTypeStart,
+                                           majorTypeEnd,
+                                           minorTypeStart,
+                                           minorTypeEnd,
                                            extensions,
-                                           descriptionStart, descriptionEnd);
+                                           descriptionStart,
+                                           descriptionEnd);
           if (NS_FAILED(rv)) {
             // We sometimes get things like RealPlayer appending
             // "normal" entries to "Netscape" .mime.types files.  Try
             // to handle that.  Bug 106381.
             LOG(("Bogus entry; trying 'normal' mode\n"));
             rv = ParseNormalMIMETypesEntry(entry,
-                                           majorTypeStart, majorTypeEnd,
-                                           minorTypeStart, minorTypeEnd,
+                                           majorTypeStart,
+                                           majorTypeEnd,
+                                           minorTypeStart,
+                                           minorTypeEnd,
                                            extensions,
-                                           descriptionStart, descriptionEnd);
+                                           descriptionStart,
+                                           descriptionEnd);
           }
         } else {
           rv = ParseNormalMIMETypesEntry(entry,
-                                         majorTypeStart, majorTypeEnd,
-                                         minorTypeStart, minorTypeEnd,
+                                         majorTypeStart,
+                                         majorTypeEnd,
+                                         minorTypeStart,
+                                         minorTypeEnd,
                                          extensions,
-                                         descriptionStart, descriptionEnd);
+                                         descriptionStart,
+                                         descriptionEnd);
           if (NS_FAILED(rv)) {
             // We sometimes get things like StarOffice prepending
             // "normal" entries to "Netscape" .mime.types files.  Try
             // to handle that.  Bug 136670.
             LOG(("Bogus entry; trying 'Netscape' mode\n"));
             rv = ParseNetscapeMIMETypesEntry(entry,
-                                             majorTypeStart, majorTypeEnd,
-                                             minorTypeStart, minorTypeEnd,
+                                             majorTypeStart,
+                                             majorTypeEnd,
+                                             minorTypeStart,
+                                             minorTypeEnd,
                                              extensions,
-                                             descriptionStart, descriptionEnd);
+                                             descriptionStart,
+                                             descriptionEnd);
           }
         }
 
-        if (NS_SUCCEEDED(rv)) { // entry parses
+        if (NS_SUCCEEDED(rv)) {  // entry parses
           nsAString::const_iterator start, end;
           extensions.BeginReading(start);
           extensions.EndReading(end);
@@ -394,8 +416,9 @@ nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aF
 
           while (start != end) {
             FindCharInReadable(',', iter, end);
-            if (Substring(start, iter).Equals(aFileExtension,
-                                              nsCaseInsensitiveStringComparator())) {
+            if (Substring(start, iter)
+                    .Equals(aFileExtension,
+                            nsCaseInsensitiveStringComparator())) {
               // it's a match.  Assign the type and description and run
               aMajorType.Assign(Substring(majorTypeStart, majorTypeEnd));
               aMinorType.Assign(Substring(minorTypeStart, minorTypeEnd));
@@ -409,7 +432,8 @@ nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aF
             start = iter;
           }
         } else {
-          LOG(("Failed to parse entry: %s\n", NS_LossyConvertUTF16toASCII(entry).get()));
+          LOG(("Failed to parse entry: %s\n",
+               NS_LossyConvertUTF16toASCII(entry).get()));
         }
         // truncate the entry for the next iteration
         entry.Truncate();
@@ -431,35 +455,32 @@ nsOSHelperAppService::GetTypeAndDescriptionFromMimetypesFile(const nsAString& aF
    based on mimetype  */
 // static
 nsresult
-nsOSHelperAppService::LookUpExtensionsAndDescription(const nsAString& aMajorType,
-                                                     const nsAString& aMinorType,
-                                                     nsAString& aFileExtensions,
-                                                     nsAString& aDescription) {
+nsOSHelperAppService::LookUpExtensionsAndDescription(
+    const nsAString& aMajorType,
+    const nsAString& aMinorType,
+    nsAString& aFileExtensions,
+    nsAString& aDescription)
+{
   LOG(("-- LookUpExtensionsAndDescription for type '%s/%s'\n",
        NS_LossyConvertUTF16toASCII(aMajorType).get(),
        NS_LossyConvertUTF16toASCII(aMinorType).get()));
   nsresult rv = NS_OK;
   nsAutoString mimeFileName;
 
-  rv = GetFileLocation("helpers.private_mime_types_file", nullptr, mimeFileName);
+  rv =
+      GetFileLocation("helpers.private_mime_types_file", nullptr, mimeFileName);
   if (NS_SUCCEEDED(rv) && !mimeFileName.IsEmpty()) {
-    rv = GetExtensionsAndDescriptionFromMimetypesFile(mimeFileName,
-                                                      aMajorType,
-                                                      aMinorType,
-                                                      aFileExtensions,
-                                                      aDescription);
+    rv = GetExtensionsAndDescriptionFromMimetypesFile(
+        mimeFileName, aMajorType, aMinorType, aFileExtensions, aDescription);
   } else {
     rv = NS_ERROR_NOT_AVAILABLE;
   }
   if (NS_FAILED(rv) || aFileExtensions.IsEmpty()) {
-    rv = GetFileLocation("helpers.global_mime_types_file",
-                         nullptr, mimeFileName);
+    rv = GetFileLocation(
+        "helpers.global_mime_types_file", nullptr, mimeFileName);
     if (NS_SUCCEEDED(rv) && !mimeFileName.IsEmpty()) {
-      rv = GetExtensionsAndDescriptionFromMimetypesFile(mimeFileName,
-                                                        aMajorType,
-                                                        aMinorType,
-                                                        aFileExtensions,
-                                                        aDescription);
+      rv = GetExtensionsAndDescriptionFromMimetypesFile(
+          mimeFileName, aMajorType, aMinorType, aFileExtensions, aDescription);
     } else {
       rv = NS_ERROR_NOT_AVAILABLE;
     }
@@ -471,11 +492,13 @@ nsOSHelperAppService::LookUpExtensionsAndDescription(const nsAString& aMajorType
    then get info based on extension */
 // static
 nsresult
-nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAString& aFilename,
-                                                                   const nsAString& aMajorType,
-                                                                   const nsAString& aMinorType,
-                                                                   nsAString& aFileExtensions,
-                                                                   nsAString& aDescription) {
+nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(
+    const nsAString& aFilename,
+    const nsAString& aMajorType,
+    const nsAString& aMinorType,
+    nsAString& aFileExtensions,
+    nsAString& aDescription)
+{
   LOG(("-- GetExtensionsAndDescriptionFromMimetypesFile\n"));
   LOG(("Getting extensions and description from types file '%s'\n",
        NS_LossyConvertUTF16toASCII(aFilename).get()));
@@ -490,8 +513,12 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
   nsAutoCString cBuf;
   nsAutoString buf;
   bool more = false;
-  rv = CreateInputStream(aFilename, getter_AddRefs(mimeFile), getter_AddRefs(mimeTypes),
-                         cBuf, &netscapeFormat, &more);
+  rv = CreateInputStream(aFilename,
+                         getter_AddRefs(mimeFile),
+                         getter_AddRefs(mimeTypes),
+                         cBuf,
+                         &netscapeFormat,
+                         &more);
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -500,9 +527,8 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
   nsAutoString extensions;
   nsString entry;
   entry.SetCapacity(100);
-  nsAString::const_iterator majorTypeStart, majorTypeEnd,
-                            minorTypeStart, minorTypeEnd,
-                            descriptionStart, descriptionEnd;
+  nsAString::const_iterator majorTypeStart, majorTypeEnd, minorTypeStart,
+      minorTypeEnd, descriptionStart, descriptionEnd;
 
   do {
     CopyASCIItoUTF16(cBuf, buf);
@@ -514,16 +540,20 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
       entry.Append(buf);
       if (entry.Last() == '\\') {
         entry.Truncate(entry.Length() - 1);
-        entry.Append(char16_t(' '));  // in case there is no trailing whitespace on this line
-      } else {  // we have a full entry
+        entry.Append(char16_t(
+            ' '));  // in case there is no trailing whitespace on this line
+      } else {      // we have a full entry
         LOG(("Current entry: '%s'\n",
              NS_LossyConvertUTF16toASCII(entry).get()));
         if (netscapeFormat) {
           rv = ParseNetscapeMIMETypesEntry(entry,
-                                           majorTypeStart, majorTypeEnd,
-                                           minorTypeStart, minorTypeEnd,
+                                           majorTypeStart,
+                                           majorTypeEnd,
+                                           minorTypeStart,
+                                           minorTypeEnd,
                                            extensions,
-                                           descriptionStart, descriptionEnd);
+                                           descriptionStart,
+                                           descriptionEnd);
 
           if (NS_FAILED(rv)) {
             // We sometimes get things like RealPlayer appending
@@ -531,17 +561,23 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
             // to handle that.  Bug 106381.
             LOG(("Bogus entry; trying 'normal' mode\n"));
             rv = ParseNormalMIMETypesEntry(entry,
-                                           majorTypeStart, majorTypeEnd,
-                                           minorTypeStart, minorTypeEnd,
+                                           majorTypeStart,
+                                           majorTypeEnd,
+                                           minorTypeStart,
+                                           minorTypeEnd,
                                            extensions,
-                                           descriptionStart, descriptionEnd);
+                                           descriptionStart,
+                                           descriptionEnd);
           }
         } else {
           rv = ParseNormalMIMETypesEntry(entry,
-                                         majorTypeStart, majorTypeEnd,
+                                         majorTypeStart,
+                                         majorTypeEnd,
                                          minorTypeStart,
-                                         minorTypeEnd, extensions,
-                                         descriptionStart, descriptionEnd);
+                                         minorTypeEnd,
+                                         extensions,
+                                         descriptionStart,
+                                         descriptionEnd);
 
           if (NS_FAILED(rv)) {
             // We sometimes get things like StarOffice prepending
@@ -549,20 +585,21 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
             // to handle that.  Bug 136670.
             LOG(("Bogus entry; trying 'Netscape' mode\n"));
             rv = ParseNetscapeMIMETypesEntry(entry,
-                                             majorTypeStart, majorTypeEnd,
-                                             minorTypeStart, minorTypeEnd,
+                                             majorTypeStart,
+                                             majorTypeEnd,
+                                             minorTypeStart,
+                                             minorTypeEnd,
                                              extensions,
-                                             descriptionStart, descriptionEnd);
+                                             descriptionStart,
+                                             descriptionEnd);
           }
         }
 
         if (NS_SUCCEEDED(rv) &&
-            Substring(majorTypeStart,
-                      majorTypeEnd).Equals(aMajorType,
-                                           nsCaseInsensitiveStringComparator())&&
-            Substring(minorTypeStart,
-                      minorTypeEnd).Equals(aMinorType,
-                                           nsCaseInsensitiveStringComparator())) {
+            Substring(majorTypeStart, majorTypeEnd)
+                .Equals(aMajorType, nsCaseInsensitiveStringComparator()) &&
+            Substring(minorTypeStart, minorTypeEnd)
+                .Equals(aMinorType, nsCaseInsensitiveStringComparator())) {
           // it's a match
           aFileExtensions.Assign(extensions);
           aDescription.Assign(Substring(descriptionStart, descriptionEnd));
@@ -570,7 +607,8 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
           return NS_OK;
         }
         if (NS_FAILED(rv)) {
-          LOG(("Failed to parse entry: %s\n", NS_LossyConvertUTF16toASCII(entry).get()));
+          LOG(("Failed to parse entry: %s\n",
+               NS_LossyConvertUTF16toASCII(entry).get()));
         }
 
         entry.Truncate();
@@ -600,16 +638,19 @@ nsOSHelperAppService::GetExtensionsAndDescriptionFromMimetypesFile(const nsAStri
  */
 // static
 nsresult
-nsOSHelperAppService::ParseNetscapeMIMETypesEntry(const nsAString& aEntry,
-                                                  nsAString::const_iterator& aMajorTypeStart,
-                                                  nsAString::const_iterator& aMajorTypeEnd,
-                                                  nsAString::const_iterator& aMinorTypeStart,
-                                                  nsAString::const_iterator& aMinorTypeEnd,
-                                                  nsAString& aExtensions,
-                                                  nsAString::const_iterator& aDescriptionStart,
-                                                  nsAString::const_iterator& aDescriptionEnd) {
+nsOSHelperAppService::ParseNetscapeMIMETypesEntry(
+    const nsAString& aEntry,
+    nsAString::const_iterator& aMajorTypeStart,
+    nsAString::const_iterator& aMajorTypeEnd,
+    nsAString::const_iterator& aMinorTypeStart,
+    nsAString::const_iterator& aMinorTypeEnd,
+    nsAString& aExtensions,
+    nsAString::const_iterator& aDescriptionStart,
+    nsAString::const_iterator& aDescriptionEnd)
+{
   LOG(("-- ParseNetscapeMIMETypesEntry\n"));
-  NS_ASSERTION(!aEntry.IsEmpty(), "Empty Netscape MIME types entry being parsed.");
+  NS_ASSERTION(!aEntry.IsEmpty(),
+               "Empty Netscape MIME types entry being parsed.");
 
   nsAString::const_iterator start_iter, end_iter, match_start, match_end;
 
@@ -619,25 +660,22 @@ nsOSHelperAppService::ParseNetscapeMIMETypesEntry(const nsAString& aEntry,
   // skip trailing whitespace
   do {
     --end_iter;
-  } while (end_iter != start_iter &&
-           nsCRT::IsAsciiSpace(*end_iter));
+  } while (end_iter != start_iter && nsCRT::IsAsciiSpace(*end_iter));
   // if we're pointing to a quote, don't advance -- we don't want to
   // include the quote....
-  if (*end_iter != '"')
-    ++end_iter;
+  if (*end_iter != '"') ++end_iter;
   match_start = start_iter;
   match_end = end_iter;
 
   // Get the major and minor types
   // First the major type
-  if (! FindInReadable(NS_LITERAL_STRING("type="), match_start, match_end)) {
+  if (!FindInReadable(NS_LITERAL_STRING("type="), match_start, match_end)) {
     return NS_ERROR_FAILURE;
   }
 
   match_start = match_end;
 
-  while (match_end != end_iter &&
-         *match_end != '/') {
+  while (match_end != end_iter && *match_end != '/') {
     ++match_end;
   }
   if (match_end == end_iter) {
@@ -654,8 +692,7 @@ nsOSHelperAppService::ParseNetscapeMIMETypesEntry(const nsAString& aEntry,
 
   match_start = match_end;
 
-  while (match_end != end_iter &&
-         !nsCRT::IsAsciiSpace(*match_end) &&
+  while (match_end != end_iter && !nsCRT::IsAsciiSpace(*match_end) &&
          *match_end != ';') {
     ++match_end;
   }
@@ -692,8 +729,7 @@ nsOSHelperAppService::ParseNetscapeMIMETypesEntry(const nsAString& aEntry,
 
       do {
         --extEnd;
-      } while (extEnd != extStart &&
-               nsCRT::IsAsciiSpace(*extEnd));
+      } while (extEnd != extStart && nsCRT::IsAsciiSpace(*extEnd));
 
       if (extEnd != extStart && *extEnd == '"') {
         --extEnd;
@@ -746,16 +782,19 @@ nsOSHelperAppService::ParseNetscapeMIMETypesEntry(const nsAString& aEntry,
  */
 // static
 nsresult
-nsOSHelperAppService::ParseNormalMIMETypesEntry(const nsAString& aEntry,
-                                                nsAString::const_iterator& aMajorTypeStart,
-                                                nsAString::const_iterator& aMajorTypeEnd,
-                                                nsAString::const_iterator& aMinorTypeStart,
-                                                nsAString::const_iterator& aMinorTypeEnd,
-                                                nsAString& aExtensions,
-                                                nsAString::const_iterator& aDescriptionStart,
-                                                nsAString::const_iterator& aDescriptionEnd) {
+nsOSHelperAppService::ParseNormalMIMETypesEntry(
+    const nsAString& aEntry,
+    nsAString::const_iterator& aMajorTypeStart,
+    nsAString::const_iterator& aMajorTypeEnd,
+    nsAString::const_iterator& aMinorTypeStart,
+    nsAString::const_iterator& aMinorTypeEnd,
+    nsAString& aExtensions,
+    nsAString::const_iterator& aDescriptionStart,
+    nsAString::const_iterator& aDescriptionEnd)
+{
   LOG(("-- ParseNormalMIMETypesEntry\n"));
-  NS_ASSERTION(!aEntry.IsEmpty(), "Empty Normal MIME types entry being parsed.");
+  NS_ASSERTION(!aEntry.IsEmpty(),
+               "Empty Normal MIME types entry being parsed.");
 
   nsAString::const_iterator start_iter, end_iter, iter;
 
@@ -778,16 +817,15 @@ nsOSHelperAppService::ParseNormalMIMETypesEntry(const nsAString& aEntry,
     --end_iter;
   } while (end_iter != start_iter && nsCRT::IsAsciiSpace(*end_iter));
 
-  ++end_iter; // point to first whitespace char (or to end of string)
+  ++end_iter;  // point to first whitespace char (or to end of string)
   iter = start_iter;
 
   // get the major type
-  if (! FindCharInReadable('/', iter, end_iter))
-    return NS_ERROR_FAILURE;
+  if (!FindCharInReadable('/', iter, end_iter)) return NS_ERROR_FAILURE;
 
   nsAString::const_iterator equals_sign_iter(start_iter);
   if (FindCharInReadable('=', equals_sign_iter, iter))
-    return NS_ERROR_FAILURE; // see bug 136670
+    return NS_ERROR_FAILURE;  // see bug 136670
 
   aMajorTypeStart = start_iter;
   aMajorTypeEnd = iter;
@@ -816,7 +854,7 @@ nsOSHelperAppService::ParseNormalMIMETypesEntry(const nsAString& aEntry,
       ++iter;
     }
     aExtensions.Append(Substring(start_iter, iter));
-    if (iter != end_iter) { // not the last extension
+    if (iter != end_iter) {  // not the last extension
       aExtensions.Append(char16_t(','));
     }
   }
@@ -830,8 +868,8 @@ nsOSHelperAppService::LookUpHandlerAndDescription(const nsAString& aMajorType,
                                                   const nsAString& aMinorType,
                                                   nsAString& aHandler,
                                                   nsAString& aDescription,
-                                                  nsAString& aMozillaFlags) {
-
+                                                  nsAString& aMozillaFlags)
+{
   // The mailcap lookup is two-pass to handle the case of mailcap files
   // that have something like:
   //
@@ -839,19 +877,11 @@ nsOSHelperAppService::LookUpHandlerAndDescription(const nsAString& aMajorType,
   // text/rtf; soffice %s
   //
   // in that order.  We want to pick up "soffice" for text/rtf in such cases
-  nsresult rv = DoLookUpHandlerAndDescription(aMajorType,
-                                              aMinorType,
-                                              aHandler,
-                                              aDescription,
-                                              aMozillaFlags,
-                                              true);
+  nsresult rv = DoLookUpHandlerAndDescription(
+      aMajorType, aMinorType, aHandler, aDescription, aMozillaFlags, true);
   if (NS_FAILED(rv)) {
-    rv = DoLookUpHandlerAndDescription(aMajorType,
-                                       aMinorType,
-                                       aHandler,
-                                       aDescription,
-                                       aMozillaFlags,
-                                       false);
+    rv = DoLookUpHandlerAndDescription(
+        aMajorType, aMinorType, aHandler, aDescription, aMozillaFlags, false);
   }
 
   // maybe we have an entry for "aMajorType/*"?
@@ -883,17 +913,17 @@ nsOSHelperAppService::DoLookUpHandlerAndDescription(const nsAString& aMajorType,
                                                     nsAString& aHandler,
                                                     nsAString& aDescription,
                                                     nsAString& aMozillaFlags,
-                                                    bool aUserData) {
+                                                    bool aUserData)
+{
   LOG(("-- LookUpHandlerAndDescription for type '%s/%s'\n",
        NS_LossyConvertUTF16toASCII(aMajorType).get(),
        NS_LossyConvertUTF16toASCII(aMinorType).get()));
   nsresult rv = NS_OK;
   nsAutoString mailcapFileName;
 
-  const char * filenamePref = aUserData ?
-    "helpers.private_mailcap_file" : "helpers.global_mailcap_file";
-  const char * filenameEnvVar = aUserData ?
-    "PERSONAL_MAILCAP" : "MAILCAP";
+  const char* filenamePref = aUserData ? "helpers.private_mailcap_file"
+                                       : "helpers.global_mailcap_file";
+  const char* filenameEnvVar = aUserData ? "PERSONAL_MAILCAP" : "MAILCAP";
 
   rv = GetFileLocation(filenamePref, filenameEnvVar, mailcapFileName);
   if (NS_SUCCEEDED(rv) && !mailcapFileName.IsEmpty()) {
@@ -912,13 +942,14 @@ nsOSHelperAppService::DoLookUpHandlerAndDescription(const nsAString& aMajorType,
 
 // static
 nsresult
-nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& aFilename,
-                                                              const nsAString& aMajorType,
-                                                              const nsAString& aMinorType,
-                                                              nsAString& aHandler,
-                                                              nsAString& aDescription,
-                                                              nsAString& aMozillaFlags) {
-
+nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(
+    const nsAString& aFilename,
+    const nsAString& aMajorType,
+    const nsAString& aMinorType,
+    nsAString& aHandler,
+    nsAString& aDescription,
+    nsAString& aMozillaFlags)
+{
   LOG(("-- GetHandlerAndDescriptionFromMailcapFile\n"));
   LOG(("Getting handler and description from mailcap file '%s'\n",
        NS_LossyConvertUTF16toASCII(aFilename).get()));
@@ -930,20 +961,17 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
   bool more = false;
 
   nsCOMPtr<nsIFile> file(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
   rv = file->InitWithPath(aFilename);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
-  nsCOMPtr<nsIFileInputStream> mailcapFile(do_CreateInstance(NS_LOCALFILEINPUTSTREAM_CONTRACTID, &rv));
-  if (NS_FAILED(rv))
-    return rv;
+  nsCOMPtr<nsIFileInputStream> mailcapFile(
+      do_CreateInstance(NS_LOCALFILEINPUTSTREAM_CONTRACTID, &rv));
+  if (NS_FAILED(rv)) return rv;
   rv = mailcapFile->Init(file, -1, -1, false);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
-  nsCOMPtr<nsILineInputStream> mailcap (do_QueryInterface(mailcapFile, &rv));
+  nsCOMPtr<nsILineInputStream> mailcap(do_QueryInterface(mailcapFile, &rv));
 
   if (NS_FAILED(rv)) {
     LOG(("Interface trouble in stream land!"));
@@ -966,32 +994,36 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
     if (!buffer.IsEmpty() && buffer.First() != '#') {
       entry.Append(buffer);
       if (entry.Last() == '\\') {  // entry continues on next line
-        entry.Truncate(entry.Length()-1);
-        entry.Append(char16_t(' ')); // in case there is no trailing whitespace on this line
-      } else {  // we have a full entry in entry.  Check it for the type
+        entry.Truncate(entry.Length() - 1);
+        entry.Append(char16_t(
+            ' '));  // in case there is no trailing whitespace on this line
+      } else {      // we have a full entry in entry.  Check it for the type
         LOG(("Current entry: '%s'\n",
              NS_LossyConvertUTF16toASCII(entry).get()));
 
-        nsAString::const_iterator semicolon_iter,
-                                  start_iter, end_iter,
-                                  majorTypeStart, majorTypeEnd,
-                                  minorTypeStart, minorTypeEnd;
+        nsAString::const_iterator semicolon_iter, start_iter, end_iter,
+            majorTypeStart, majorTypeEnd, minorTypeStart, minorTypeEnd;
         entry.BeginReading(start_iter);
         entry.EndReading(end_iter);
         semicolon_iter = start_iter;
         FindSemicolon(semicolon_iter, end_iter);
-        if (semicolon_iter != end_iter) { // we have something resembling a valid entry
-          rv = ParseMIMEType(start_iter, majorTypeStart, majorTypeEnd,
-                             minorTypeStart, minorTypeEnd, semicolon_iter);
+        if (semicolon_iter !=
+            end_iter) {  // we have something resembling a valid entry
+          rv = ParseMIMEType(start_iter,
+                             majorTypeStart,
+                             majorTypeEnd,
+                             minorTypeStart,
+                             minorTypeEnd,
+                             semicolon_iter);
           if (NS_SUCCEEDED(rv) &&
-              Substring(majorTypeStart,
-                        majorTypeEnd).Equals(aMajorType,
-                                             nsCaseInsensitiveStringComparator()) &&
-              Substring(minorTypeStart,
-                        minorTypeEnd).Equals(aMinorType,
-                                             nsCaseInsensitiveStringComparator())) { // we have a match
+              Substring(majorTypeStart, majorTypeEnd)
+                  .Equals(aMajorType, nsCaseInsensitiveStringComparator()) &&
+              Substring(minorTypeStart, minorTypeEnd)
+                  .Equals(
+                      aMinorType,
+                      nsCaseInsensitiveStringComparator())) {  // we have a match
             bool match = true;
-            ++semicolon_iter;             // point at the first char past the semicolon
+            ++semicolon_iter;  // point at the first char past the semicolon
             start_iter = semicolon_iter;  // handler string starts here
             FindSemicolon(semicolon_iter, end_iter);
             while (start_iter != semicolon_iter &&
@@ -1000,8 +1032,9 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
             }
 
             LOG(("The real handler is: '%s'\n",
-                 NS_LossyConvertUTF16toASCII(Substring(start_iter,
-                                                      semicolon_iter)).get()));
+                 NS_LossyConvertUTF16toASCII(
+                     Substring(start_iter, semicolon_iter))
+                     .get()));
 
             // XXX ugly hack.  Just grab the executable name
             nsAString::const_iterator end_handler_iter = semicolon_iter;
@@ -1014,18 +1047,19 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
 
             aHandler = Substring(start_iter, end_executable_iter);
 
-            nsAString::const_iterator start_option_iter, end_optionname_iter, equal_sign_iter;
+            nsAString::const_iterator start_option_iter, end_optionname_iter,
+                equal_sign_iter;
             bool equalSignFound;
-            while (match &&
-                   semicolon_iter != end_iter &&
-                   ++semicolon_iter != end_iter) { // there are options left and we still match
+            while (match && semicolon_iter != end_iter &&
+                   ++semicolon_iter !=
+                       end_iter) {  // there are options left and we still match
               start_option_iter = semicolon_iter;
               // skip over leading whitespace
               while (start_option_iter != end_iter &&
                      nsCRT::IsAsciiSpace(*start_option_iter)) {
                 ++start_option_iter;
               }
-              if (start_option_iter == end_iter) { // nothing actually here
+              if (start_option_iter == end_iter) {  // nothing actually here
                 break;
               }
               semicolon_iter = start_option_iter;
@@ -1033,16 +1067,16 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
               equal_sign_iter = start_option_iter;
               equalSignFound = false;
               while (equal_sign_iter != semicolon_iter && !equalSignFound) {
-                switch(*equal_sign_iter) {
-                case '\\':
-                  equal_sign_iter.advance(2);
-                  break;
-                case '=':
-                  equalSignFound = true;
-                  break;
-                default:
-                  ++equal_sign_iter;
-                  break;
+                switch (*equal_sign_iter) {
+                  case '\\':
+                    equal_sign_iter.advance(2);
+                    break;
+                  case '=':
+                    equalSignFound = true;
+                    break;
+                  default:
+                    ++equal_sign_iter;
+                    break;
                 }
               }
               end_optionname_iter = start_option_iter;
@@ -1051,7 +1085,8 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
                      !nsCRT::IsAsciiSpace(*end_optionname_iter)) {
                 ++end_optionname_iter;
               }
-              nsDependentSubstring optionName(start_option_iter, end_optionname_iter);
+              nsDependentSubstring optionName(start_option_iter,
+                                              end_optionname_iter);
               if (equalSignFound) {
                 // This is an option that has a name and value
                 if (optionName.EqualsLiteral("description")) {
@@ -1060,33 +1095,29 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
                   aMozillaFlags = Substring(++equal_sign_iter, semicolon_iter);
                 } else if (optionName.EqualsLiteral("test")) {
                   nsAutoCString testCommand;
-                  rv = UnescapeCommand(Substring(++equal_sign_iter, semicolon_iter),
-                                       aMajorType,
-                                       aMinorType,
-                                       testCommand);
-                  if (NS_FAILED(rv))
-                    continue;
-                  nsCOMPtr<nsIProcess> process = do_CreateInstance(NS_PROCESS_CONTRACTID, &rv);
-                  if (NS_FAILED(rv))
-                    continue;
-                  nsCOMPtr<nsIFile> file(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID, &rv));
-                  if (NS_FAILED(rv))
-                    continue;
+                  rv = UnescapeCommand(
+                      Substring(++equal_sign_iter, semicolon_iter),
+                      aMajorType,
+                      aMinorType,
+                      testCommand);
+                  if (NS_FAILED(rv)) continue;
+                  nsCOMPtr<nsIProcess> process =
+                      do_CreateInstance(NS_PROCESS_CONTRACTID, &rv);
+                  if (NS_FAILED(rv)) continue;
+                  nsCOMPtr<nsIFile> file(
+                      do_CreateInstance(NS_LOCAL_FILE_CONTRACTID, &rv));
+                  if (NS_FAILED(rv)) continue;
                   rv = file->InitWithNativePath(NS_LITERAL_CSTRING("/bin/sh"));
-                  if (NS_FAILED(rv))
-                    continue;
+                  if (NS_FAILED(rv)) continue;
                   rv = process->Init(file);
-                  if (NS_FAILED(rv))
-                    continue;
-                  const char *args[] = { "-c", testCommand.get() };
+                  if (NS_FAILED(rv)) continue;
+                  const char* args[] = {"-c", testCommand.get()};
                   LOG(("Running Test: %s\n", testCommand.get()));
                   rv = process->Run(true, args, 2);
-                  if (NS_FAILED(rv))
-                    continue;
+                  if (NS_FAILED(rv)) continue;
                   int32_t exitValue;
                   rv = process->GetExitValue(&exitValue);
-                  if (NS_FAILED(rv))
-                    continue;
+                  if (NS_FAILED(rv)) continue;
                   LOG(("Exit code: %d\n", exitValue));
                   if (exitValue) {
                     match = false;
@@ -1100,8 +1131,7 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
               }
             }
 
-
-            if (match) { // we did not fail any test clauses; all is good
+            if (match) {  // we did not fail any test clauses; all is good
               // get out of here
               mailcapFile->Close();
               return NS_OK;
@@ -1126,7 +1156,9 @@ nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(const nsAString& a
   return rv;
 }
 
-nsresult nsOSHelperAppService::OSProtocolHandlerExists(const char * aProtocolScheme, bool * aHandlerExists)
+nsresult
+nsOSHelperAppService::OSProtocolHandlerExists(const char* aProtocolScheme,
+                                              bool* aHandlerExists)
 {
   nsresult rv = NS_OK;
 
@@ -1139,16 +1171,20 @@ nsresult nsOSHelperAppService::OSProtocolHandlerExists(const char * aProtocolSch
 #endif
   } else {
     *aHandlerExists = false;
-    nsCOMPtr<nsIHandlerService> handlerSvc = do_GetService(NS_HANDLERSERVICE_CONTRACTID, &rv);
+    nsCOMPtr<nsIHandlerService> handlerSvc =
+        do_GetService(NS_HANDLERSERVICE_CONTRACTID, &rv);
     if (NS_SUCCEEDED(rv) && handlerSvc) {
-      rv = handlerSvc->ExistsForProtocol(nsCString(aProtocolScheme), aHandlerExists);
+      rv = handlerSvc->ExistsForProtocol(nsCString(aProtocolScheme),
+                                         aHandlerExists);
     }
   }
 
   return rv;
 }
 
-NS_IMETHODIMP nsOSHelperAppService::GetApplicationDescription(const nsACString& aScheme, nsAString& _retval)
+NS_IMETHODIMP
+nsOSHelperAppService::GetApplicationDescription(const nsACString& aScheme,
+                                                nsAString& _retval)
 {
 #ifdef MOZ_WIDGET_GTK
   nsGNOMERegistry::GetAppDescForScheme(aScheme, _retval);
@@ -1158,29 +1194,30 @@ NS_IMETHODIMP nsOSHelperAppService::GetApplicationDescription(const nsACString& 
 #endif
 }
 
-nsresult nsOSHelperAppService::GetFileTokenForPath(const char16_t * platformAppPath, nsIFile ** aFile)
+nsresult
+nsOSHelperAppService::GetFileTokenForPath(const char16_t* platformAppPath,
+                                          nsIFile** aFile)
 {
   LOG(("-- nsOSHelperAppService::GetFileTokenForPath: '%s'\n",
        NS_LossyConvertUTF16toASCII(platformAppPath).get()));
-  if (! *platformAppPath) { // empty filename--return error
+  if (!*platformAppPath) {  // empty filename--return error
     NS_WARNING("Empty filename passed in.");
     return NS_ERROR_INVALID_ARG;
   }
 
   // first check if the base class implementation finds anything
-  nsresult rv = nsExternalHelperAppService::GetFileTokenForPath(platformAppPath, aFile);
-  if (NS_SUCCEEDED(rv))
-    return rv;
+  nsresult rv =
+      nsExternalHelperAppService::GetFileTokenForPath(platformAppPath, aFile);
+  if (NS_SUCCEEDED(rv)) return rv;
   // If the reason for failure was that the file doesn't exist, return too
   // (because it means the path was absolute, and so that we shouldn't search in
   // the path)
-  if (rv == NS_ERROR_FILE_NOT_FOUND)
-    return rv;
+  if (rv == NS_ERROR_FILE_NOT_FOUND) return rv;
 
   // If we get here, we really should have a relative path.
   NS_ASSERTION(*platformAppPath != char16_t('/'), "Unexpected absolute path");
 
-  nsCOMPtr<nsIFile> localFile (do_CreateInstance(NS_LOCAL_FILE_CONTRACTID));
+  nsCOMPtr<nsIFile> localFile(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID));
 
   if (!localFile) return NS_ERROR_NOT_INITIALIZED;
 
@@ -1226,16 +1263,15 @@ nsresult nsOSHelperAppService::GetFileTokenForPath(const char16_t * platformAppP
 }
 
 already_AddRefed<nsMIMEInfoBase>
-nsOSHelperAppService::GetFromExtension(const nsCString& aFileExt) {
+nsOSHelperAppService::GetFromExtension(const nsCString& aFileExt)
+{
   // if the extension is empty, return immediately
-  if (aFileExt.IsEmpty())
-    return nullptr;
+  if (aFileExt.IsEmpty()) return nullptr;
 
   LOG(("Here we do an extension lookup for '%s'\n", aFileExt.get()));
 
-  nsAutoString majorType, minorType,
-               mime_types_description, mailcap_description,
-               handler, mozillaFlags;
+  nsAutoString majorType, minorType, mime_types_description,
+      mailcap_description, handler, mozillaFlags;
 
   nsresult rv = LookUpTypeAndDescription(NS_ConvertUTF8toUTF16(aFileExt),
                                          majorType,
@@ -1244,11 +1280,10 @@ nsOSHelperAppService::GetFromExtension(const nsCString& aFileExt) {
                                          true);
 
   if (NS_FAILED(rv) || majorType.IsEmpty()) {
-
 #ifdef MOZ_WIDGET_GTK
     LOG(("Looking in GNOME registry\n"));
     RefPtr<nsMIMEInfoBase> gnomeInfo =
-      nsGNOMERegistry::GetFromExtension(aFileExt);
+        nsGNOMERegistry::GetFromExtension(aFileExt);
     if (gnomeInfo) {
       LOG(("Got MIMEInfo from GNOME registry\n"));
       return gnomeInfo.forget();
@@ -1262,33 +1297,36 @@ nsOSHelperAppService::GetFromExtension(const nsCString& aFileExt) {
                                   false);
   }
 
-  if (NS_FAILED(rv))
-    return nullptr;
+  if (NS_FAILED(rv)) return nullptr;
 
   NS_LossyConvertUTF16toASCII asciiMajorType(majorType);
   NS_LossyConvertUTF16toASCII asciiMinorType(minorType);
 
-  LOG(("Type/Description results:  majorType='%s', minorType='%s', description='%s'\n",
-          asciiMajorType.get(),
-          asciiMinorType.get(),
-          NS_LossyConvertUTF16toASCII(mime_types_description).get()));
+  LOG(
+      ("Type/Description results:  majorType='%s', minorType='%s', "
+       "description='%s'\n",
+       asciiMajorType.get(),
+       asciiMinorType.get(),
+       NS_LossyConvertUTF16toASCII(mime_types_description).get()));
 
   if (majorType.IsEmpty() && minorType.IsEmpty()) {
     // we didn't get a type mapping, so we can't do anything useful
     return nullptr;
   }
 
-  nsAutoCString mimeType(asciiMajorType + NS_LITERAL_CSTRING("/") + asciiMinorType);
+  nsAutoCString mimeType(asciiMajorType + NS_LITERAL_CSTRING("/") +
+                         asciiMinorType);
   RefPtr<nsMIMEInfoUnix> mimeInfo = new nsMIMEInfoUnix(mimeType);
 
   mimeInfo->AppendExtension(aFileExt);
-  rv = LookUpHandlerAndDescription(majorType, minorType,
-                                   handler, mailcap_description,
-                                   mozillaFlags);
-  LOG(("Handler/Description results:  handler='%s', description='%s', mozillaFlags='%s'\n",
-          NS_LossyConvertUTF16toASCII(handler).get(),
-          NS_LossyConvertUTF16toASCII(mailcap_description).get(),
-          NS_LossyConvertUTF16toASCII(mozillaFlags).get()));
+  rv = LookUpHandlerAndDescription(
+      majorType, minorType, handler, mailcap_description, mozillaFlags);
+  LOG(
+      ("Handler/Description results:  handler='%s', description='%s', "
+       "mozillaFlags='%s'\n",
+       NS_LossyConvertUTF16toASCII(handler).get(),
+       NS_LossyConvertUTF16toASCII(mailcap_description).get(),
+       NS_LossyConvertUTF16toASCII(mozillaFlags).get()));
   mailcap_description.Trim(" \t\"");
   mozillaFlags.Trim(" \t");
   if (!mime_types_description.IsEmpty()) {
@@ -1320,25 +1358,28 @@ nsOSHelperAppService::GetFromExtension(const nsCString& aFileExt) {
 }
 
 already_AddRefed<nsMIMEInfoBase>
-nsOSHelperAppService::GetFromType(const nsCString& aMIMEType) {
+nsOSHelperAppService::GetFromType(const nsCString& aMIMEType)
+{
   // if the type is empty, return immediately
-  if (aMIMEType.IsEmpty())
-    return nullptr;
+  if (aMIMEType.IsEmpty()) return nullptr;
 
   LOG(("Here we do a mimetype lookup for '%s'\n", aMIMEType.get()));
 
   // extract the major and minor types
   NS_ConvertASCIItoUTF16 mimeType(aMIMEType);
-  nsAString::const_iterator start_iter, end_iter,
-                            majorTypeStart, majorTypeEnd,
-                            minorTypeStart, minorTypeEnd;
+  nsAString::const_iterator start_iter, end_iter, majorTypeStart, majorTypeEnd,
+      minorTypeStart, minorTypeEnd;
 
   mimeType.BeginReading(start_iter);
   mimeType.EndReading(end_iter);
 
   // XXX FIXME: add typeOptions parsing in here
-  nsresult rv = ParseMIMEType(start_iter, majorTypeStart, majorTypeEnd,
-                              minorTypeStart, minorTypeEnd, end_iter);
+  nsresult rv = ParseMIMEType(start_iter,
+                              majorTypeStart,
+                              majorTypeEnd,
+                              minorTypeStart,
+                              minorTypeEnd,
+                              end_iter);
 
   if (NS_FAILED(rv)) {
     return nullptr;
@@ -1349,30 +1390,26 @@ nsOSHelperAppService::GetFromType(const nsCString& aMIMEType) {
 
   // First check the user's private mailcap file
   nsAutoString mailcap_description, handler, mozillaFlags;
-  DoLookUpHandlerAndDescription(majorType,
-                                minorType,
-                                handler,
-                                mailcap_description,
-                                mozillaFlags,
-                                true);
+  DoLookUpHandlerAndDescription(
+      majorType, minorType, handler, mailcap_description, mozillaFlags, true);
 
   LOG(("Private Handler/Description results:  handler='%s', description='%s'\n",
-          NS_LossyConvertUTF16toASCII(handler).get(),
-          NS_LossyConvertUTF16toASCII(mailcap_description).get()));
+       NS_LossyConvertUTF16toASCII(handler).get(),
+       NS_LossyConvertUTF16toASCII(mailcap_description).get()));
 
   // Now look up our extensions
   nsAutoString extensions, mime_types_description;
-  LookUpExtensionsAndDescription(majorType,
-                                 minorType,
-                                 extensions,
-                                 mime_types_description);
+  LookUpExtensionsAndDescription(
+      majorType, minorType, extensions, mime_types_description);
 
 #ifdef MOZ_WIDGET_GTK
   if (handler.IsEmpty()) {
     RefPtr<nsMIMEInfoBase> gnomeInfo = nsGNOMERegistry::GetFromType(aMIMEType);
     if (gnomeInfo) {
-      LOG(("Got MIMEInfo from GNOME registry without extensions; setting them "
-           "to %s\n", NS_LossyConvertUTF16toASCII(extensions).get()));
+      LOG(
+          ("Got MIMEInfo from GNOME registry without extensions; setting them "
+           "to %s\n",
+           NS_LossyConvertUTF16toASCII(extensions).get()));
 
       NS_ASSERTION(!gnomeInfo->HasExtensions(), "How'd that happen?");
       gnomeInfo->SetFileExtensions(NS_ConvertUTF16toUTF8(extensions));
@@ -1408,10 +1445,12 @@ nsOSHelperAppService::GetFromType(const nsCString& aMIMEType) {
                                   false);
   }
 
-  LOG(("Handler/Description results:  handler='%s', description='%s', mozillaFlags='%s'\n",
-          NS_LossyConvertUTF16toASCII(handler).get(),
-          NS_LossyConvertUTF16toASCII(mailcap_description).get(),
-          NS_LossyConvertUTF16toASCII(mozillaFlags).get()));
+  LOG(
+      ("Handler/Description results:  handler='%s', description='%s', "
+       "mozillaFlags='%s'\n",
+       NS_LossyConvertUTF16toASCII(handler).get(),
+       NS_LossyConvertUTF16toASCII(mailcap_description).get(),
+       NS_LossyConvertUTF16toASCII(mozillaFlags).get()));
 
   mailcap_description.Trim(" \t\"");
   mozillaFlags.Trim(" \t");
@@ -1425,7 +1464,7 @@ nsOSHelperAppService::GetFromType(const nsCString& aMIMEType) {
   RefPtr<nsMIMEInfoUnix> mimeInfo = new nsMIMEInfoUnix(aMIMEType);
 
   mimeInfo->SetFileExtensions(NS_ConvertUTF16toUTF8(extensions));
-  if (! mime_types_description.IsEmpty()) {
+  if (!mime_types_description.IsEmpty()) {
     mimeInfo->SetDescription(mime_types_description);
   } else {
     mimeInfo->SetDescription(mailcap_description);
@@ -1448,26 +1487,24 @@ nsOSHelperAppService::GetFromType(const nsCString& aMIMEType) {
   return mimeInfo.forget();
 }
 
-
 already_AddRefed<nsIMIMEInfo>
 nsOSHelperAppService::GetMIMEInfoFromOS(const nsACString& aType,
                                         const nsACString& aFileExt,
-                                        bool       *aFound) {
+                                        bool* aFound)
+{
   *aFound = true;
   RefPtr<nsMIMEInfoBase> retval = GetFromType(PromiseFlatCString(aType));
   bool hasDefault = false;
-  if (retval)
-    retval->GetHasDefaultHandler(&hasDefault);
+  if (retval) retval->GetHasDefaultHandler(&hasDefault);
   if (!retval || !hasDefault) {
-    RefPtr<nsMIMEInfoBase> miByExt = GetFromExtension(PromiseFlatCString(aFileExt));
+    RefPtr<nsMIMEInfoBase> miByExt =
+        GetFromExtension(PromiseFlatCString(aFileExt));
     // If we had no extension match, but a type match, use that
-    if (!miByExt && retval)
-      return retval.forget();
+    if (!miByExt && retval) return retval.forget();
     // If we had an extension match but no type match, set the mimetype and use
     // it
     if (!retval && miByExt) {
-      if (!aType.IsEmpty())
-        miByExt->SetMIMEType(aType);
+      if (!aType.IsEmpty()) miByExt->SetMIMEType(aType);
       miByExt.swap(retval);
 
       return retval.forget();
@@ -1477,8 +1514,7 @@ nsOSHelperAppService::GetMIMEInfoFromOS(const nsACString& aType,
       *aFound = false;
       retval = new nsMIMEInfoUnix(aType);
       if (retval) {
-        if (!aFileExt.IsEmpty())
-          retval->AppendExtension(aFileExt);
+        if (!aFileExt.IsEmpty()) retval->AppendExtension(aFileExt);
       }
 
       return retval.forget();
@@ -1498,19 +1534,18 @@ nsOSHelperAppService::GetMIMEInfoFromOS(const nsACString& aType,
 }
 
 NS_IMETHODIMP
-nsOSHelperAppService::GetProtocolHandlerInfoFromOS(const nsACString &aScheme,
-                                                   bool *found,
-                                                   nsIHandlerInfo **_retval)
+nsOSHelperAppService::GetProtocolHandlerInfoFromOS(const nsACString& aScheme,
+                                                   bool* found,
+                                                   nsIHandlerInfo** _retval)
 {
   NS_ASSERTION(!aScheme.IsEmpty(), "No scheme was specified!");
 
-  nsresult rv = OSProtocolHandlerExists(nsPromiseFlatCString(aScheme).get(),
-                                        found);
-  if (NS_FAILED(rv))
-    return rv;
+  nsresult rv =
+      OSProtocolHandlerExists(nsPromiseFlatCString(aScheme).get(), found);
+  if (NS_FAILED(rv)) return rv;
 
-  nsMIMEInfoUnix *handlerInfo =
-    new nsMIMEInfoUnix(aScheme, nsMIMEInfoBase::eProtocolInfo);
+  nsMIMEInfoUnix* handlerInfo =
+      new nsMIMEInfoUnix(aScheme, nsMIMEInfoBase::eProtocolInfo);
   NS_ENSURE_TRUE(handlerInfo, NS_ERROR_OUT_OF_MEMORY);
   NS_ADDREF(*_retval = handlerInfo);
 

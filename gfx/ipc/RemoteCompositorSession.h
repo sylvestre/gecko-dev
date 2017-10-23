@@ -15,7 +15,7 @@ namespace layers {
 
 class RemoteCompositorSession final : public CompositorSession
 {
-public:
+ public:
   RemoteCompositorSession(nsBaseWidget* aWidget,
                           CompositorBridgeChild* aChild,
                           CompositorWidgetDelegate* aWidgetDelegate,
@@ -32,13 +32,13 @@ public:
 
   void NotifySessionLost();
 
-private:
+ private:
   nsBaseWidget* mWidget;
   RefPtr<APZCTreeManagerChild> mAPZ;
   RefPtr<GeckoContentController> mContentController;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // include_mozilla_gfx_ipc_RemoteCompositorSession_h
+#endif  // include_mozilla_gfx_ipc_RemoteCompositorSession_h

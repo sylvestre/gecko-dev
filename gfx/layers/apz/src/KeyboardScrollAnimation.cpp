@@ -38,17 +38,19 @@ SettingsForType(KeyboardScrollAction::KeyboardScrollActionType aType)
   }
 
   // The pref is 100-based int percentage, while mIntervalRatio is 1-based ratio
-  double intervalRatio = ((double)gfxPrefs::SmoothScrollDurationToIntervalRatio()) / 100.0;
+  double intervalRatio =
+      ((double)gfxPrefs::SmoothScrollDurationToIntervalRatio()) / 100.0;
   intervalRatio = std::max(1.0, intervalRatio);
-  return ScrollAnimationBezierPhysicsSettings { minMS, maxMS, intervalRatio };
+  return ScrollAnimationBezierPhysicsSettings{minMS, maxMS, intervalRatio};
 }
 
-KeyboardScrollAnimation::KeyboardScrollAnimation(AsyncPanZoomController& aApzc,
-                                                 const nsPoint& aInitialPosition,
-                                                 KeyboardScrollAction::KeyboardScrollActionType aType)
-  : GenericScrollAnimation(aApzc, aInitialPosition, SettingsForType(aType))
+KeyboardScrollAnimation::KeyboardScrollAnimation(
+    AsyncPanZoomController& aApzc,
+    const nsPoint& aInitialPosition,
+    KeyboardScrollAction::KeyboardScrollActionType aType)
+    : GenericScrollAnimation(aApzc, aInitialPosition, SettingsForType(aType))
 {
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

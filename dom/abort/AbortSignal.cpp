@@ -29,16 +29,14 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(AbortSignal, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(AbortSignal, DOMEventTargetHelper)
 
-AbortSignal::AbortSignal(AbortController* aController,
-                         bool aAborted)
-  : DOMEventTargetHelper(aController->GetParentObject())
-  , mController(aController)
-  , mAborted(aAborted)
-{}
+AbortSignal::AbortSignal(AbortController* aController, bool aAborted)
+    : DOMEventTargetHelper(aController->GetParentObject()),
+      mController(aController),
+      mAborted(aAborted)
+{
+}
 
-AbortSignal::AbortSignal(bool aAborted)
-  : mAborted(aAborted)
-{}
+AbortSignal::AbortSignal(bool aAborted) : mAborted(aAborted) {}
 
 JSObject*
 AbortSignal::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -68,7 +66,7 @@ AbortSignal::Abort()
   init.mCancelable = false;
 
   RefPtr<Event> event =
-    Event::Constructor(this, NS_LITERAL_STRING("abort"), init);
+      Event::Constructor(this, NS_LITERAL_STRING("abort"), init);
   event->SetTrusted(true);
 
   bool dummy;
@@ -94,10 +92,7 @@ AbortSignal::RemoveFollower(AbortFollower* aFollower)
 // AbortFollower
 // ----------------------------------------------------------------------------
 
-AbortFollower::~AbortFollower()
-{
-  Unfollow();
-}
+AbortFollower::~AbortFollower() { Unfollow(); }
 
 void
 AbortFollower::Follow(AbortSignal* aSignal)
@@ -125,5 +120,5 @@ AbortFollower::IsFollowing() const
   return !!mFollowingSignal;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

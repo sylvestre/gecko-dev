@@ -25,40 +25,37 @@ class txXPathNode;
 
 class txIParseContext
 {
-public:
-    virtual ~txIParseContext()
-    {
-    }
+ public:
+  virtual ~txIParseContext() {}
 
-    /*
+  /*
      * Return a namespaceID for a given prefix.
      */
-    virtual nsresult resolveNamespacePrefix(nsAtom* aPrefix, int32_t& aID) = 0;
+  virtual nsresult resolveNamespacePrefix(nsAtom* aPrefix, int32_t& aID) = 0;
 
-    /*
+  /*
      * Create a FunctionCall, needed for extension function calls and
      * XSLT. XPath function calls are resolved by the Parser.
      */
-    virtual nsresult resolveFunctionCall(nsAtom* aName, int32_t aID,
-                                         FunctionCall** aFunction) = 0;
+  virtual nsresult resolveFunctionCall(nsAtom* aName,
+                                       int32_t aID,
+                                       FunctionCall** aFunction) = 0;
 
-    /**
+  /**
      * Should nametests parsed in this context be case-sensitive
      */
-    virtual bool caseInsensitiveNameTests() = 0;
+  virtual bool caseInsensitiveNameTests() = 0;
 
-    /*
+  /*
      * Callback to be used by the Parser if errors are detected.
      */
-    virtual void SetErrorOffset(uint32_t aOffset) = 0;
+  virtual void SetErrorOffset(uint32_t aOffset) = 0;
 
-    enum Allowed {
-        KEY_FUNCTION = 1 << 0
-    };
-    virtual bool allowed(Allowed aAllowed)
-    {
-        return true;
-    }
+  enum Allowed
+  {
+    KEY_FUNCTION = 1 << 0
+  };
+  virtual bool allowed(Allowed aAllowed) { return true; }
 };
 
 /*
@@ -72,70 +69,69 @@ public:
  */
 class txIMatchContext
 {
-public:
-    virtual ~txIMatchContext()
-    {
-    }
+ public:
+  virtual ~txIMatchContext() {}
 
-    /*
+  /*
      * Return the ExprResult associated with the variable with the
      * given namespace and local name.
      */
-    virtual nsresult getVariable(int32_t aNamespace, nsAtom* aLName,
-                                 txAExprResult*& aResult) = 0;
+  virtual nsresult getVariable(int32_t aNamespace,
+                               nsAtom* aLName,
+                               txAExprResult*& aResult) = 0;
 
-    /*
+  /*
      * Is whitespace stripping allowed for the given node?
      * See http://www.w3.org/TR/xslt#strip
      */
-    virtual nsresult isStripSpaceAllowed(const txXPathNode& aNode,
-                                         bool& aAllowed) = 0;
+  virtual nsresult isStripSpaceAllowed(const txXPathNode& aNode,
+                                       bool& aAllowed) = 0;
 
-    /**
+  /**
      * Returns a pointer to the private context
      */
-    virtual void* getPrivateContext() = 0;
+  virtual void* getPrivateContext() = 0;
 
-    virtual txResultRecycler* recycler() = 0;
+  virtual txResultRecycler* recycler() = 0;
 
-    /*
+  /*
      * Callback to be used by the expression/pattern if errors are detected.
      */
-    virtual void receiveError(const nsAString& aMsg, nsresult aRes) = 0;
+  virtual void receiveError(const nsAString& aMsg, nsresult aRes) = 0;
 };
 
-#define TX_DECL_MATCH_CONTEXT \
-    nsresult getVariable(int32_t aNamespace, nsAtom* aLName, \
-                         txAExprResult*& aResult); \
-    nsresult isStripSpaceAllowed(const txXPathNode& aNode, bool& aAllowed); \
-    void* getPrivateContext(); \
-    txResultRecycler* recycler(); \
-    void receiveError(const nsAString& aMsg, nsresult aRes)
+#define TX_DECL_MATCH_CONTEXT                                             \
+  nsresult getVariable(                                                   \
+      int32_t aNamespace, nsAtom* aLName, txAExprResult*& aResult);       \
+  nsresult isStripSpaceAllowed(const txXPathNode& aNode, bool& aAllowed); \
+  void* getPrivateContext();                                              \
+  txResultRecycler* recycler();                                           \
+  void receiveError(const nsAString& aMsg, nsresult aRes)
 
 class txIEvalContext : public txIMatchContext
 {
-public:
-    /*
+ public:
+  /*
      * Get the context node.
      */
-    virtual const txXPathNode& getContextNode() = 0;
+  virtual const txXPathNode& getContextNode() = 0;
 
-    /*
+  /*
      * Get the size of the context node set.
      */
-    virtual uint32_t size() = 0;
+  virtual uint32_t size() = 0;
 
-    /*
+  /*
      * Get the position of the context node in the context node set,
      * starting with 1.
      */
-    virtual uint32_t position() = 0;
+  virtual uint32_t position() = 0;
 };
 
-#define TX_DECL_EVAL_CONTEXT \
-    TX_DECL_MATCH_CONTEXT; \
-    const txXPathNode& getContextNode(); \
-    uint32_t size(); \
-    uint32_t position()
+#define TX_DECL_EVAL_CONTEXT           \
+  TX_DECL_MATCH_CONTEXT;               \
+  const txXPathNode& getContextNode(); \
+  uint32_t size();                     \
+  uint32_t position()
 
-#endif // __TX_I_XPATH_CONTEXT
+#endif  // __TX_I_XPATH_CONTEXT

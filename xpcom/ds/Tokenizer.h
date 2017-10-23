@@ -16,7 +16,7 @@ namespace mozilla {
 
 class TokenizerBase
 {
-public:
+ public:
   /**
    * The analyzer works with elements in the input cut to a sequence of token
    * where each token has an elementary type
@@ -67,7 +67,7 @@ public:
 
     static Token Raw();
 
-  public:
+   public:
     Token();
     Token(const Token& aOther);
     Token& operator=(const Token& aOther);
@@ -99,11 +99,16 @@ public:
    * AddCustomToken() returns a reference to a token that can then be comapred using
    * Token::Equals() againts the output from Next*() or be passed to Check*().
    */
-  Token AddCustomToken(const nsACString& aValue, ECaseSensitivity aCaseInsensitivity, bool aEnabled = true);
-  template <uint32_t N>
-  Token AddCustomToken(const char(&aValue)[N], ECaseSensitivity aCaseInsensitivity, bool aEnabled = true)
+  Token AddCustomToken(const nsACString& aValue,
+                       ECaseSensitivity aCaseInsensitivity,
+                       bool aEnabled = true);
+  template<uint32_t N>
+  Token AddCustomToken(const char (&aValue)[N],
+                       ECaseSensitivity aCaseInsensitivity,
+                       bool aEnabled = true)
   {
-    return AddCustomToken(nsDependentCSubstring(aValue, N - 1), aCaseInsensitivity, aEnabled);
+    return AddCustomToken(
+        nsDependentCSubstring(aValue, N - 1), aCaseInsensitivity, aEnabled);
   }
   void RemoveCustomToken(Token& aToken);
   /**
@@ -133,7 +138,7 @@ public:
    */
   MOZ_MUST_USE bool HasFailed() const;
 
-protected:
+ protected:
   explicit TokenizerBase(const char* aWhitespaces = nullptr,
                          const char* aAdditionalWordChars = nullptr);
 
@@ -146,7 +151,7 @@ protected:
   bool IsEnd(const nsACString::const_char_iterator& caret) const;
   // True, when we are at the end of the input data, but it has not been marked
   // as complete yet.  In that case we cannot proceed with providing a multi-char token.
-  bool IsPending(const nsACString::const_char_iterator & caret) const;
+  bool IsPending(const nsACString::const_char_iterator& caret) const;
   // Is read cursor on a character that is a word start?
   bool IsWordFirst(const char aInput) const;
   // Is read cursor on a character that is an in-word letter?
@@ -156,7 +161,8 @@ protected:
   bool IsNumber(const char aInput) const;
   // Is equal to the given custom token?
   bool IsCustom(const nsACString::const_char_iterator& caret,
-                const Token& aCustomToken, uint32_t* aLongest = nullptr) const;
+                const Token& aCustomToken,
+                uint32_t* aLongest = nullptr) const;
 
   // Friendly helper to assign a fragment on a Token
   static void AssignFragment(Token& aToken,
@@ -182,19 +188,20 @@ protected:
 
   // All these point to the original buffer passed to the constructor or to the incremental
   // buffer after FeedInput.
-  nsACString::const_char_iterator mCursor; // Position of the current (actually next to read) token start
-  nsACString::const_char_iterator mEnd; // End of the input position
+  nsACString::const_char_iterator
+      mCursor;  // Position of the current (actually next to read) token start
+  nsACString::const_char_iterator mEnd;  // End of the input position
 
   // This is the list of tokens user has registered with AddCustomToken()
   nsTArray<UniquePtr<Token>> mCustomTokens;
   uint32_t mNextCustomTokenID;
 
-private:
+ private:
   TokenizerBase() = delete;
   TokenizerBase(const TokenizerBase&) = delete;
   TokenizerBase(TokenizerBase&&) = delete;
   TokenizerBase(const TokenizerBase&&) = delete;
-  TokenizerBase &operator=(const TokenizerBase&) = delete;
+  TokenizerBase& operator=(const TokenizerBase&) = delete;
 };
 
 /**
@@ -207,7 +214,7 @@ private:
  */
 class Tokenizer : public TokenizerBase
 {
-public:
+ public:
   /**
    * @param aSource
    *    The string to parse.
@@ -260,7 +267,8 @@ public:
   /**
    * SkipWhites method (below) may also skip new line characters automatically.
    */
-  enum WhiteSkipping {
+  enum WhiteSkipping
+  {
     /**
      * SkipWhites will only skip what is defined as a white space (default).
      */
@@ -314,9 +322,11 @@ public:
   /**
    * Shortcut for literal const word check with compile time length calculation.
    */
-  template <uint32_t N>
-  MOZ_MUST_USE
-  bool CheckWord(const char (&aWord)[N]) { return Check(Token::Word(nsDependentCString(aWord, N - 1))); }
+  template<uint32_t N>
+  MOZ_MUST_USE bool CheckWord(const char (&aWord)[N])
+  {
+    return Check(Token::Word(nsDependentCString(aWord, N - 1)));
+  }
   /**
    * Checks \r, \n or \r\n.
    */
@@ -346,7 +356,7 @@ public:
    * Otherwise true is returned, aValue is filled with the integral number
    * and the cursor is moved forward.
    */
-  template <typename T>
+  template<typename T>
   MOZ_MUST_USE bool ReadInteger(T* aValue)
   {
     MOZ_RELEASE_ASSERT(aValue);
@@ -387,7 +397,8 @@ public:
    * descent parser or simple parser the Tokenizer is used to read the input for.
    * Inlucsion of a token that has just been parsed can be controlled using an arguemnt.
    */
-  enum ClaimInclusion {
+  enum ClaimInclusion
+  {
     /**
      * Include resulting (or passed) token of the last lexical analyzer operation in the result.
      */
@@ -410,7 +421,8 @@ public:
    * token.
    */
   void Claim(nsACString& aResult, ClaimInclusion aInclude = EXCLUDE_LAST);
-  void Claim(nsDependentCSubstring& aResult, ClaimInclusion aInclude = EXCLUDE_LAST);
+  void Claim(nsDependentCSubstring& aResult,
+             ClaimInclusion aInclude = EXCLUDE_LAST);
 
   /**
    * If aToken is found, aResult is set to the substring between the current
@@ -423,24 +435,28 @@ public:
    * Calling Rollback() after ReadUntil() will return the read cursor to the
    * position it had before ReadUntil was called.
    */
-  MOZ_MUST_USE bool ReadUntil(Token const& aToken, nsDependentCSubstring& aResult,
+  MOZ_MUST_USE bool ReadUntil(Token const& aToken,
+                              nsDependentCSubstring& aResult,
                               ClaimInclusion aInclude = EXCLUDE_LAST);
-  MOZ_MUST_USE bool ReadUntil(Token const& aToken, nsACString& aResult,
+  MOZ_MUST_USE bool ReadUntil(Token const& aToken,
+                              nsACString& aResult,
                               ClaimInclusion aInclude = EXCLUDE_LAST);
 
-protected:
+ protected:
   // All these point to the original buffer passed to the Tokenizer's constructor
-  nsACString::const_char_iterator mRecord; // Position where the recorded sub-string for Claim() is
-  nsACString::const_char_iterator mRollback; // Position of the previous token start
+  nsACString::const_char_iterator
+      mRecord;  // Position where the recorded sub-string for Claim() is
+  nsACString::const_char_iterator
+      mRollback;  // Position of the previous token start
 
-private:
+ private:
   Tokenizer() = delete;
   Tokenizer(const Tokenizer&) = delete;
   Tokenizer(Tokenizer&&) = delete;
   Tokenizer(const Tokenizer&&) = delete;
-  Tokenizer &operator=(const Tokenizer&) = delete;
+  Tokenizer& operator=(const Tokenizer&) = delete;
 };
 
-} // mozilla
+}  // namespace mozilla
 
-#endif // Tokenizer_h__
+#endif  // Tokenizer_h__

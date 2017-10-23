@@ -18,16 +18,16 @@ namespace layers {
 // your input events to update the internal state.
 class TouchCounter
 {
-public:
+ public:
   TouchCounter();
   void Update(const MultiTouchInput& aInput);
   uint32_t GetActiveTouchCount() const;
 
-private:
+ private:
   uint32_t mActiveTouchCount;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_TouchCounter_h */

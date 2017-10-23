@@ -37,9 +37,10 @@ class nsDOMCSSRGBColor;
 class nsROCSSPrimitiveValue final : public mozilla::dom::CSSValue,
                                     public nsIDOMCSSPrimitiveValue
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsROCSSPrimitiveValue, mozilla::dom::CSSValue)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsROCSSPrimitiveValue,
+                                                         mozilla::dom::CSSValue)
 
   // nsIDOMCSSPrimitiveValue
   NS_DECL_NSIDOMCSSPRIMITIVEVALUE
@@ -48,8 +49,10 @@ public:
   NS_DECL_NSIDOMCSSVALUE
 
   // CSSValue
-  virtual void GetCssText(nsString& aText, mozilla::ErrorResult& aRv) override final;
-  virtual void SetCssText(const nsAString& aText, mozilla::ErrorResult& aRv) override final;
+  virtual void GetCssText(nsString& aText,
+                          mozilla::ErrorResult& aRv) override final;
+  virtual void SetCssText(const nsAString& aText,
+                          mozilla::ErrorResult& aRv) override final;
   virtual uint16_t CssValueType() const override final;
 
   // CSSPrimitiveValue
@@ -65,15 +68,17 @@ public:
     }
     return mType;
   }
-  void SetFloatValue(uint16_t aUnitType, float aValue,
+  void SetFloatValue(uint16_t aUnitType,
+                     float aValue,
                      mozilla::ErrorResult& aRv);
   float GetFloatValue(uint16_t aUnitType, mozilla::ErrorResult& aRv);
   void GetStringValue(nsString& aString, mozilla::ErrorResult& aRv);
-  void SetStringValue(uint16_t aUnitType, const nsAString& aString,
+  void SetStringValue(uint16_t aUnitType,
+                      const nsAString& aString,
                       mozilla::ErrorResult& aRv);
   already_AddRefed<nsIDOMCounter> GetCounterValue(mozilla::ErrorResult& aRv);
   nsDOMCSSRect* GetRectValue(mozilla::ErrorResult& aRv);
-  nsDOMCSSRGBColor *GetRGBColorValue(mozilla::ErrorResult& aRv);
+  nsDOMCSSRGBColor* GetRGBColorValue(mozilla::ErrorResult& aRv);
 
   // nsROCSSPrimitiveValue
   nsROCSSPrimitiveValue();
@@ -93,43 +98,42 @@ public:
   void SetString(const nsACString& aString, uint16_t aType = CSS_STRING);
   // FIXME: CSS_STRING should imply a string with "" and a need for escaping.
   void SetString(const nsAString& aString, uint16_t aType = CSS_STRING);
-  void SetURI(nsIURI *aURI);
+  void SetURI(nsIURI* aURI);
   void SetColor(nsDOMCSSRGBColor* aColor);
   void SetRect(nsDOMCSSRect* aRect);
   void SetTime(float aValue);
   void Reset();
 
-  nsISupports* GetParentObject() const
-  {
-    return nullptr;
-  }
+  nsISupports* GetParentObject() const { return nullptr; }
 
-  virtual JSObject *WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   ~nsROCSSPrimitiveValue();
 
   uint16_t mType;
 
   union {
-    nscoord         mAppUnits;
-    float           mFloat;
-    int32_t         mInt32;
-    uint32_t        mUint32;
+    nscoord mAppUnits;
+    float mFloat;
+    int32_t mInt32;
+    uint32_t mUint32;
     // These can't be nsCOMPtr/nsRefPtr's because they are used inside a union.
     nsDOMCSSRGBColor* MOZ_OWNING_REF mColor;
     nsDOMCSSRect* MOZ_OWNING_REF mRect;
-    char16_t*      mString;
+    char16_t* mString;
     nsIURI* MOZ_OWNING_REF mURI;
-    nsCSSKeyword    mKeyword;
+    nsCSSKeyword mKeyword;
   } mValue;
 };
 
-inline nsROCSSPrimitiveValue *mozilla::dom::CSSValue::AsPrimitiveValue()
+inline nsROCSSPrimitiveValue*
+mozilla::dom::CSSValue::AsPrimitiveValue()
 {
-  return CssValueType() == nsIDOMCSSValue::CSS_PRIMITIVE_VALUE ?
-    static_cast<nsROCSSPrimitiveValue*>(this) : nullptr;
+  return CssValueType() == nsIDOMCSSValue::CSS_PRIMITIVE_VALUE
+             ? static_cast<nsROCSSPrimitiveValue*>(this)
+             : nullptr;
 }
 
 #endif /* nsROCSSPrimitiveValue_h___ */
-

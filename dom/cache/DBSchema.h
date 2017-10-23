@@ -41,13 +41,15 @@ nsresult
 CreateCacheId(mozIStorageConnection* aConn, CacheId* aCacheIdOut);
 
 nsresult
-DeleteCacheId(mozIStorageConnection* aConn, CacheId aCacheId,
+DeleteCacheId(mozIStorageConnection* aConn,
+              CacheId aCacheId,
               nsTArray<nsID>& aDeletedBodyIdListOut,
               int64_t* aDeletedPaddingSizeOut);
 
 // TODO: Consider removing unused IsCacheOrphaned after writing cleanup code. (bug 1110446)
 nsresult
-IsCacheOrphaned(mozIStorageConnection* aConn, CacheId aCacheId,
+IsCacheOrphaned(mozIStorageConnection* aConn,
+                CacheId aCacheId,
                 bool* aOrphanedOut);
 
 nsresult
@@ -62,18 +64,23 @@ nsresult
 GetKnownBodyIds(mozIStorageConnection* aConn, nsTArray<nsID>& aBodyIdListOut);
 
 nsresult
-CacheMatch(mozIStorageConnection* aConn, CacheId aCacheId,
-           const CacheRequest& aRequest, const CacheQueryParams& aParams,
-           bool* aFoundResponseOut, SavedResponse* aSavedResponseOut);
+CacheMatch(mozIStorageConnection* aConn,
+           CacheId aCacheId,
+           const CacheRequest& aRequest,
+           const CacheQueryParams& aParams,
+           bool* aFoundResponseOut,
+           SavedResponse* aSavedResponseOut);
 
 nsresult
-CacheMatchAll(mozIStorageConnection* aConn, CacheId aCacheId,
+CacheMatchAll(mozIStorageConnection* aConn,
+              CacheId aCacheId,
               const CacheRequestOrVoid& aRequestOrVoid,
               const CacheQueryParams& aParams,
               nsTArray<SavedResponse>& aSavedResponsesOut);
 
 nsresult
-CachePut(mozIStorageConnection* aConn, CacheId aCacheId,
+CachePut(mozIStorageConnection* aConn,
+         CacheId aCacheId,
          const CacheRequest& aRequest,
          const nsID* aRequestBodyId,
          const CacheResponse& aResponse,
@@ -82,7 +89,8 @@ CachePut(mozIStorageConnection* aConn, CacheId aCacheId,
          int64_t* aDeletedPaddingSizeOut);
 
 nsresult
-CacheDelete(mozIStorageConnection* aConn, CacheId aCacheId,
+CacheDelete(mozIStorageConnection* aConn,
+            CacheId aCacheId,
             const CacheRequest& aRequest,
             const CacheQueryParams& aParams,
             nsTArray<nsID>& aDeletedBodyIdListOut,
@@ -90,7 +98,8 @@ CacheDelete(mozIStorageConnection* aConn, CacheId aCacheId,
             bool* aSuccessOut);
 
 nsresult
-CacheKeys(mozIStorageConnection* aConn, CacheId aCacheId,
+CacheKeys(mozIStorageConnection* aConn,
+          CacheId aCacheId,
           const CacheRequestOrVoid& aRequestOrVoid,
           const CacheQueryParams& aParams,
           nsTArray<SavedRequest>& aSavedRequestsOut);
@@ -104,20 +113,26 @@ StorageMatch(mozIStorageConnection* aConn,
              SavedResponse* aSavedResponseOut);
 
 nsresult
-StorageGetCacheId(mozIStorageConnection* aConn, Namespace aNamespace,
-                  const nsAString& aKey, bool* aFoundCacheOut,
+StorageGetCacheId(mozIStorageConnection* aConn,
+                  Namespace aNamespace,
+                  const nsAString& aKey,
+                  bool* aFoundCacheOut,
                   CacheId* aCacheIdOut);
 
 nsresult
-StoragePutCache(mozIStorageConnection* aConn, Namespace aNamespace,
-                const nsAString& aKey, CacheId aCacheId);
+StoragePutCache(mozIStorageConnection* aConn,
+                Namespace aNamespace,
+                const nsAString& aKey,
+                CacheId aCacheId);
 
 nsresult
-StorageForgetCache(mozIStorageConnection* aConn, Namespace aNamespace,
+StorageForgetCache(mozIStorageConnection* aConn,
+                   Namespace aNamespace,
                    const nsAString& aKey);
 
 nsresult
-StorageGetKeys(mozIStorageConnection* aConn, Namespace aNamespace,
+StorageGetKeys(mozIStorageConnection* aConn,
+               Namespace aNamespace,
                nsTArray<nsString>& aKeysOut);
 
 // Note, this works best when its NOT executed within a transaction.
@@ -128,9 +143,9 @@ IncrementalVacuum(mozIStorageConnection* aConn);
 // versions will be migrated on open to the latest schema version.
 extern const int32_t kFirstShippedSchemaVersion;
 
-} // namespace db
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace db
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_DBSchema_h
+#endif  // mozilla_dom_cache_DBSchema_h

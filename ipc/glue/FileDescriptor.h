@@ -35,7 +35,7 @@ namespace ipc {
 // can be called to return the platform file handle.
 class FileDescriptor
 {
-public:
+ public:
   typedef base::ProcessId ProcessId;
 
 #ifdef XP_WIN
@@ -50,24 +50,26 @@ public:
   {
     MOZ_IMPLICIT PlatformHandleHelper(PlatformHandleType aHandle);
     MOZ_IMPLICIT PlatformHandleHelper(std::nullptr_t);
-    bool operator != (std::nullptr_t) const;
-    operator PlatformHandleType () const;
+    bool operator!=(std::nullptr_t) const;
+    operator PlatformHandleType() const;
 #ifdef XP_WIN
-    operator std::intptr_t () const;
+    operator std::intptr_t() const;
 #endif
-  private:
+   private:
     PlatformHandleType mHandle;
   };
   struct PlatformHandleDeleter
   {
     typedef PlatformHandleHelper pointer;
-    void operator () (PlatformHandleHelper aHelper);
+    void operator()(PlatformHandleHelper aHelper);
   };
-  typedef UniquePtr<PlatformHandleType, PlatformHandleDeleter> UniquePlatformHandle;
+  typedef UniquePtr<PlatformHandleType, PlatformHandleDeleter>
+      UniquePlatformHandle;
 
   // This should only ever be created by IPDL.
   struct IPDLPrivate
-  {};
+  {
+  };
 
   // Represents an invalid handle.
   FileDescriptor();
@@ -87,54 +89,43 @@ public:
 
   ~FileDescriptor();
 
-  FileDescriptor&
-  operator=(const FileDescriptor& aOther);
+  FileDescriptor& operator=(const FileDescriptor& aOther);
 
-  FileDescriptor&
-  operator=(FileDescriptor&& aOther);
+  FileDescriptor& operator=(FileDescriptor&& aOther);
 
   // Performs platform-specific actions to duplicate mHandle in the other
   // process (e.g. dup() on POSIX, DuplicateHandle() on Windows). Returns a
   // pickled value that can be passed to the other process via IPC.
-  PickleType
-  ShareTo(const IPDLPrivate&, ProcessId aTargetPid) const;
+  PickleType ShareTo(const IPDLPrivate&, ProcessId aTargetPid) const;
 
   // Tests mHandle against a well-known invalid platform-specific file handle
   // (e.g. -1 on POSIX, INVALID_HANDLE_VALUE on Windows).
-  bool
-  IsValid() const;
+  bool IsValid() const;
 
   // Returns a duplicated handle, it is caller's responsibility to close the
   // handle.
-  UniquePlatformHandle
-  ClonePlatformHandle() const;
+  UniquePlatformHandle ClonePlatformHandle() const;
 
   // Only used in nsTArray.
-  bool
-  operator==(const FileDescriptor& aOther) const;
+  bool operator==(const FileDescriptor& aOther) const;
 
-private:
+ private:
   friend struct PlatformHandleTrait;
 
-  void
-  Assign(const FileDescriptor& aOther);
+  void Assign(const FileDescriptor& aOther);
 
-  void
-  Close();
+  void Close();
 
-  static bool
-  IsValid(PlatformHandleType aHandle);
+  static bool IsValid(PlatformHandleType aHandle);
 
-  static PlatformHandleType
-  Clone(PlatformHandleType aHandle);
+  static PlatformHandleType Clone(PlatformHandleType aHandle);
 
-  static void
-  Close(PlatformHandleType aHandle);
+  static void Close(PlatformHandleType aHandle);
 
   PlatformHandleType mHandle;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_FileDescriptor_h
+#endif  // mozilla_ipc_FileDescriptor_h

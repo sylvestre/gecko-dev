@@ -11,7 +11,8 @@
 NS_IMPL_ISUPPORTS(nsErrorService, nsIErrorService)
 
 nsresult
-nsErrorService::Create(nsISupports* aOuter, const nsIID& aIID,
+nsErrorService::Create(nsISupports* aOuter,
+                       const nsIID& aIID,
                        void** aInstancePtr)
 {
   if (NS_WARN_IF(aOuter)) {

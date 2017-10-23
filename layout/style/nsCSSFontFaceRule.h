@@ -23,34 +23,36 @@ struct CSSFontFaceDescriptors
   const nsCSSValue& Get(nsCSSFontDesc aFontDescID) const;
   nsCSSValue& Get(nsCSSFontDesc aFontDescID);
 
-private:
-  static nsCSSValue CSSFontFaceDescriptors::* const Fields[];
+ private:
+  static nsCSSValue CSSFontFaceDescriptors::*const Fields[];
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 // A nsCSSFontFaceStyleDecl is always embedded in a nsCSSFontFaceRule.
 class nsCSSFontFaceRule;
 class nsCSSFontFaceStyleDecl final : public nsICSSDeclaration
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMCSSSTYLEDECLARATION_HELPER
   NS_DECL_NSICSSDECLARATION
-  virtual already_AddRefed<mozilla::dom::CSSValue>
-  GetPropertyCSSValue(const nsAString& aProp, mozilla::ErrorResult& aRv)
-    override;
+  virtual already_AddRefed<mozilla::dom::CSSValue> GetPropertyCSSValue(
+      const nsAString& aProp, mozilla::ErrorResult& aRv) override;
   using nsICSSDeclaration::GetPropertyCSSValue;
 
-  virtual nsINode *GetParentObject() override;
-  virtual void IndexedGetter(uint32_t aIndex, bool& aFound, nsAString& aPropName) override;
+  virtual nsINode* GetParentObject() override;
+  virtual void IndexedGetter(uint32_t aIndex,
+                             bool& aFound,
+                             nsAString& aPropName) override;
 
   nsresult GetPropertyValue(nsCSSFontDesc aFontDescID,
-                            nsAString & aResult) const;
+                            nsAString& aResult) const;
 
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   ~nsCSSFontFaceStyleDecl() {}
 
   friend class nsCSSFontFaceRule;
@@ -63,7 +65,7 @@ protected:
   // The actual implementation of GetCssText, so we can make it const.
   void GetCssTextImpl(nsAString& aCssText) const;
 
-private:
+ private:
   // NOT TO BE IMPLEMENTED
   // This object cannot be allocated on its own, only as part of
   // nsCSSFontFaceRule.
@@ -73,15 +75,15 @@ private:
 class nsCSSFontFaceRule final : public mozilla::css::Rule,
                                 public nsIDOMCSSFontFaceRule
 {
-public:
+ public:
   nsCSSFontFaceRule(uint32_t aLineNumber, uint32_t aColumnNumber)
-    : mozilla::css::Rule(aLineNumber, aColumnNumber)
+      : mozilla::css::Rule(aLineNumber, aColumnNumber)
   {
   }
 
   nsCSSFontFaceRule(const nsCSSFontFaceRule& aCopy)
-    // copy everything except our reference count
-    : mozilla::css::Rule(aCopy), mDecl(aCopy.mDecl)
+      // copy everything except our reference count
+      : mozilla::css::Rule(aCopy), mDecl(aCopy.mDecl)
   {
   }
 
@@ -100,23 +102,26 @@ public:
   // nsIDOMCSSFontFaceRule interface
   NS_DECL_NSIDOMCSSFONTFACERULE
 
-  void SetDesc(nsCSSFontDesc aDescID, nsCSSValue const & aValue);
-  void GetDesc(nsCSSFontDesc aDescID, nsCSSValue & aValue);
+  void SetDesc(nsCSSFontDesc aDescID, nsCSSValue const& aValue);
+  void GetDesc(nsCSSFontDesc aDescID, nsCSSValue& aValue);
 
   // WebIDL interface
   uint16_t Type() const override;
   void GetCssTextImpl(nsAString& aCssText) const override;
   nsICSSDeclaration* Style();
 
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   void GetDescriptors(mozilla::CSSFontFaceDescriptors& aDescriptors) const
-    { aDescriptors = mDecl.mDescriptors; }
+  {
+    aDescriptors = mDecl.mDescriptors;
+  }
 
-protected:
+ protected:
   ~nsCSSFontFaceRule() {}
 
   friend class nsCSSFontFaceStyleDecl;
@@ -125,7 +130,8 @@ protected:
 
 // nsFontFaceRuleContainer - used for associating sheet type with
 // specific @font-face rules
-struct nsFontFaceRuleContainer {
+struct nsFontFaceRuleContainer
+{
   RefPtr<nsCSSFontFaceRule> mRule;
   mozilla::SheetType mSheetType;
 };
@@ -133,15 +139,15 @@ struct nsFontFaceRuleContainer {
 inline nsCSSFontFaceRule*
 nsCSSFontFaceStyleDecl::ContainingRule()
 {
-  return reinterpret_cast<nsCSSFontFaceRule*>
-    (reinterpret_cast<char*>(this) - offsetof(nsCSSFontFaceRule, mDecl));
+  return reinterpret_cast<nsCSSFontFaceRule*>(
+      reinterpret_cast<char*>(this) - offsetof(nsCSSFontFaceRule, mDecl));
 }
 
 inline const nsCSSFontFaceRule*
 nsCSSFontFaceStyleDecl::ContainingRule() const
 {
-  return reinterpret_cast<const nsCSSFontFaceRule*>
-    (reinterpret_cast<const char*>(this) - offsetof(nsCSSFontFaceRule, mDecl));
+  return reinterpret_cast<const nsCSSFontFaceRule*>(
+      reinterpret_cast<const char*>(this) - offsetof(nsCSSFontFaceRule, mDecl));
 }
 
-#endif // nsCSSFontFaceRule_h
+#endif  // nsCSSFontFaceRule_h

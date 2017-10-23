@@ -16,21 +16,22 @@
 namespace mozilla {
 
 // Range<T> is a tuple containing a pointer and a length.
-template <typename T>
+template<typename T>
 class Range
 {
   const RangedPtr<T> mStart;
   const RangedPtr<T> mEnd;
 
-public:
+ public:
   Range() : mStart(nullptr, 0), mEnd(nullptr, 0) {}
   Range(T* aPtr, size_t aLength)
-    : mStart(aPtr, aPtr, aPtr + aLength),
-      mEnd(aPtr + aLength, aPtr, aPtr + aLength)
-  {}
+      : mStart(aPtr, aPtr, aPtr + aLength),
+        mEnd(aPtr + aLength, aPtr, aPtr + aLength)
+  {
+  }
   Range(const RangedPtr<T>& aStart, const RangedPtr<T>& aEnd)
-    : mStart(aStart.get(), aStart.get(), aEnd.get()),
-      mEnd(aEnd.get(), aStart.get(), aEnd.get())
+      : mStart(aStart.get(), aStart.get(), aEnd.get()),
+        mEnd(aEnd.get(), aStart.get(), aEnd.get())
   {
     // Only accept two RangedPtrs within the same range.
     aStart.checkIdenticalRange(aEnd);
@@ -41,20 +42,17 @@ public:
            class = typename EnableIf<IsConvertible<U (*)[], T (*)[]>::value,
                                      int>::Type>
   MOZ_IMPLICIT Range(const Range<U>& aOther)
-    : mStart(aOther.mStart),
-      mEnd(aOther.mEnd)
-  {}
-
-  MOZ_IMPLICIT Range(Span<T> aSpan)
-    : Range(aSpan.Elements(), aSpan.Length())
+      : mStart(aOther.mStart), mEnd(aOther.mEnd)
   {
   }
+
+  MOZ_IMPLICIT Range(Span<T> aSpan) : Range(aSpan.Elements(), aSpan.Length()) {}
 
   template<typename U,
            class = typename EnableIf<IsConvertible<U (*)[], T (*)[]>::value,
                                      int>::Type>
   MOZ_IMPLICIT Range(const Span<U>& aSpan)
-    : Range(aSpan.Elements(), aSpan.Length())
+      : Range(aSpan.Elements(), aSpan.Length())
   {
   }
 
@@ -85,6 +83,6 @@ MakeSpan(const Range<T>& aRange)
   return aRange;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_Range_h */

@@ -29,12 +29,20 @@ static const char* rlLogTag = "RtpLogger";
 
 namespace mozilla {
 
-bool RtpLogger::IsPacketLoggingOn() {
+bool
+RtpLogger::IsPacketLoggingOn()
+{
   return CSFLogTestLevel(CSF_LOG_DEBUG);
 }
 
-void RtpLogger::LogPacket(const unsigned char *data, int len, bool input,
-                          bool isRtp, int headerLength, std::string desc) {
+void
+RtpLogger::LogPacket(const unsigned char* data,
+                     int len,
+                     bool input,
+                     bool isRtp,
+                     int headerLength,
+                     std::string desc)
+{
   if (CSFLogTestLevel(CSF_LOG_DEBUG)) {
     std::stringstream ss;
     /* This creates text2pcap compatible format, e.g.:
@@ -64,18 +72,19 @@ void RtpLogger::LogPacket(const unsigned char *data, int len, bool input,
       // Allow the first 5 bytes of the payload in clear
       offset_ += 5;
     }
-    for (int i=0; i < len; ++i) {
+    for (int i = 0; i < len; ++i) {
       if (isRtp && i > offset_) {
         ss << " 00";
-      }
-      else {
+      } else {
         ss << " " << std::setw(2) << (int)data[i];
       }
     }
-    CSFLogDebug(LOGTAG, "%s%s%s", ss.str().c_str(),
-                (isRtp ? " RTP_PACKET " : " RTCP_PACKET "), desc.c_str());
+    CSFLogDebug(LOGTAG,
+                "%s%s%s",
+                ss.str().c_str(),
+                (isRtp ? " RTP_PACKET " : " RTCP_PACKET "),
+                desc.c_str());
   }
 }
 
-}  // end of namespace
-
+}  // namespace mozilla

@@ -105,11 +105,11 @@ WMFDecoderModule::CreateVideoDecoder(const CreateDecoderParams& aParams)
   }
 
   nsAutoPtr<WMFVideoMFTManager> manager(
-    new WMFVideoMFTManager(aParams.VideoConfig(),
-                           aParams.mKnowsCompositor,
-                           aParams.mImageContainer,
-                           aParams.mRate.mValue,
-                           sDXVAEnabled));
+      new WMFVideoMFTManager(aParams.VideoConfig(),
+                             aParams.mKnowsCompositor,
+                             aParams.mImageContainer,
+                             aParams.mRate.mValue,
+                             sDXVAEnabled));
 
   MediaResult result = manager->Init();
   if (NS_FAILED(result)) {
@@ -120,7 +120,7 @@ WMFDecoderModule::CreateVideoDecoder(const CreateDecoderParams& aParams)
   }
 
   RefPtr<MediaDataDecoder> decoder =
-    new WMFMediaDataDecoder(manager.forget(), aParams.mTaskQueue);
+      new WMFMediaDataDecoder(manager.forget(), aParams.mTaskQueue);
 
   return decoder.forget();
 }
@@ -129,14 +129,14 @@ already_AddRefed<MediaDataDecoder>
 WMFDecoderModule::CreateAudioDecoder(const CreateDecoderParams& aParams)
 {
   nsAutoPtr<WMFAudioMFTManager> manager(
-    new WMFAudioMFTManager(aParams.AudioConfig()));
+      new WMFAudioMFTManager(aParams.AudioConfig()));
 
   if (!manager->Init()) {
     return nullptr;
   }
 
   RefPtr<MediaDataDecoder> decoder =
-    new WMFMediaDataDecoder(manager.forget(), aParams.mTaskQueue);
+      new WMFMediaDataDecoder(manager.forget(), aParams.mTaskQueue);
   return decoder.forget();
 }
 
@@ -187,9 +187,8 @@ WMFDecoderModule::HasAAC()
 }
 
 bool
-WMFDecoderModule::SupportsMimeType(
-  const nsACString& aMimeType,
-  DecoderDoctorDiagnostics* aDiagnostics) const
+WMFDecoderModule::SupportsMimeType(const nsACString& aMimeType,
+                                   DecoderDoctorDiagnostics* aDiagnostics) const
 {
   UniquePtr<TrackInfo> trackInfo = CreateTrackInfoWithMIMEType(aMimeType);
   if (!trackInfo) {
@@ -209,7 +208,7 @@ WMFDecoderModule::Supports(const TrackInfo& aTrackInfo,
 
   if ((aTrackInfo.mMimeType.EqualsLiteral("audio/mp4a-latm") ||
        aTrackInfo.mMimeType.EqualsLiteral("audio/mp4")) &&
-       WMFDecoderModule::HasAAC()) {
+      WMFDecoderModule::HasAAC()) {
     return true;
   }
   if (MP4Decoder::IsH264(aTrackInfo.mMimeType) && WMFDecoderModule::HasH264()) {
@@ -238,4 +237,4 @@ WMFDecoderModule::Supports(const TrackInfo& aTrackInfo,
   return false;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

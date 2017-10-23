@@ -18,11 +18,10 @@ class nsIRDFNode;
  */
 class nsRDFTestNode : public TestNode
 {
-public:
-    explicit nsRDFTestNode(TestNode* aParent)
-        : TestNode(aParent) {}
+ public:
+  explicit nsRDFTestNode(TestNode* aParent) : TestNode(aParent) {}
 
-    /**
+  /**
      * Determine whether the node can propagate an assertion
      * with the specified source, property, and target. If the
      * assertion can be propagated, aInitialBindings will be
@@ -33,17 +32,17 @@ public:
      * @return true if the node can propagate the specified
      * assertion.
      */
-    virtual bool CanPropagate(nsIRDFResource* aSource,
-                                nsIRDFResource* aProperty,
-                                nsIRDFNode* aTarget,
-                                Instantiation& aInitialBindings) const = 0;
+  virtual bool CanPropagate(nsIRDFResource* aSource,
+                            nsIRDFResource* aProperty,
+                            nsIRDFNode* aTarget,
+                            Instantiation& aInitialBindings) const = 0;
 
-    /**
+  /**
      *
      */
-    virtual void Retract(nsIRDFResource* aSource,
-                         nsIRDFResource* aProperty,
-                         nsIRDFNode* aTarget) const = 0;
+  virtual void Retract(nsIRDFResource* aSource,
+                       nsIRDFResource* aProperty,
+                       nsIRDFNode* aTarget) const = 0;
 };
 
-#endif // nsRDFTestNode_h__
+#endif  // nsRDFTestNode_h__

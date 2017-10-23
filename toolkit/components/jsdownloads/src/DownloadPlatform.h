@@ -12,22 +12,20 @@ class nsIURI;
 
 class DownloadPlatform : public mozIDownloadPlatform
 {
-protected:
+ protected:
+  virtual ~DownloadPlatform() {}
 
-  virtual ~DownloadPlatform() { }
-
-public:
-
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_MOZIDOWNLOADPLATFORM
 
-  DownloadPlatform() { }
+  DownloadPlatform() {}
 
-  static DownloadPlatform *gDownloadPlatformService;
+  static DownloadPlatform* gDownloadPlatformService;
 
   static DownloadPlatform* GetDownloadPlatform();
 
-private:
+ private:
   static bool IsURLPossiblyFromWeb(nsIURI* aURI);
 };
 

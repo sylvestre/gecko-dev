@@ -36,18 +36,17 @@ namespace mozilla {
 namespace dom {
 namespace indexedDB {
 
-class MOZ_STACK_CLASS LoggingIdString final
-  : public nsAutoCStringN<NSID_LENGTH>
+class MOZ_STACK_CLASS LoggingIdString final : public nsAutoCStringN<NSID_LENGTH>
 {
-public:
+ public:
   LoggingIdString()
   {
     using mozilla::ipc::BackgroundChildImpl;
 
     if (IndexedDatabaseManager::GetLoggingMode() !=
-          IndexedDatabaseManager::Logging_Disabled) {
+        IndexedDatabaseManager::Logging_Disabled) {
       const BackgroundChildImpl::ThreadLocal* threadLocal =
-        BackgroundChildImpl::GetThreadLocalForCurrentThread();
+          BackgroundChildImpl::GetThreadLocalForCurrentThread();
       if (threadLocal) {
         const ThreadLocal* idbThreadLocal = threadLocal->mIndexedDBThreadLocal;
         if (idbThreadLocal) {
@@ -57,8 +56,7 @@ public:
     }
   }
 
-  explicit
-  LoggingIdString(const nsID& aID)
+  explicit LoggingIdString(const nsID& aID)
   {
     static_assert(NSID_LENGTH > 1, "NSID_LENGTH is set incorrectly!");
     static_assert(NSID_LENGTH <= kStorageSize,
@@ -67,18 +65,17 @@ public:
     MOZ_ASSERT(Capacity() + 1 == NSID_LENGTH);
 
     if (IndexedDatabaseManager::GetLoggingMode() !=
-          IndexedDatabaseManager::Logging_Disabled) {
+        IndexedDatabaseManager::Logging_Disabled) {
       // NSID_LENGTH counts the null terminator, SetLength() does not.
       SetLength(NSID_LENGTH - 1);
 
       aID.ToProvidedString(
-        *reinterpret_cast<char(*)[NSID_LENGTH]>(BeginWriting()));
+          *reinterpret_cast<char(*)[NSID_LENGTH]>(BeginWriting()));
     }
   }
 };
 
-class MOZ_STACK_CLASS LoggingString final
-  : public nsAutoCString
+class MOZ_STACK_CLASS LoggingString final : public nsAutoCString
 {
   static const char kQuote = '\"';
   static const char kOpenBracket = '[';
@@ -86,10 +83,8 @@ class MOZ_STACK_CLASS LoggingString final
   static const char kOpenParen = '(';
   static const char kCloseParen = ')';
 
-public:
-  explicit
-  LoggingString(IDBDatabase* aDatabase)
-    : nsAutoCString(kQuote)
+ public:
+  explicit LoggingString(IDBDatabase* aDatabase) : nsAutoCString(kQuote)
   {
     MOZ_ASSERT(aDatabase);
 
@@ -97,9 +92,8 @@ public:
     Append(kQuote);
   }
 
-  explicit
-  LoggingString(IDBTransaction* aTransaction)
-    : nsAutoCString(kOpenBracket)
+  explicit LoggingString(IDBTransaction* aTransaction)
+      : nsAutoCString(kOpenBracket)
   {
     MOZ_ASSERT(aTransaction);
 
@@ -141,9 +135,7 @@ public:
     };
   }
 
-  explicit
-  LoggingString(IDBObjectStore* aObjectStore)
-    : nsAutoCString(kQuote)
+  explicit LoggingString(IDBObjectStore* aObjectStore) : nsAutoCString(kQuote)
   {
     MOZ_ASSERT(aObjectStore);
 
@@ -151,9 +143,7 @@ public:
     Append(kQuote);
   }
 
-  explicit
-  LoggingString(IDBIndex* aIndex)
-    : nsAutoCString(kQuote)
+  explicit LoggingString(IDBIndex* aIndex) : nsAutoCString(kQuote)
   {
     MOZ_ASSERT(aIndex);
 
@@ -161,8 +151,7 @@ public:
     Append(kQuote);
   }
 
-  explicit
-  LoggingString(IDBKeyRange* aKeyRange)
+  explicit LoggingString(IDBKeyRange* aKeyRange)
   {
     if (aKeyRange) {
       if (aKeyRange->IsOnly()) {
@@ -189,8 +178,7 @@ public:
     }
   }
 
-  explicit
-  LoggingString(const Key& aKey)
+  explicit LoggingString(const Key& aKey)
   {
     if (aKey.IsUnset()) {
       AssignLiteral("<undefined>");
@@ -210,8 +198,7 @@ public:
     }
   }
 
-  explicit
-  LoggingString(const IDBCursor::Direction aDirection)
+  explicit LoggingString(const IDBCursor::Direction aDirection)
   {
     switch (aDirection) {
       case IDBCursor::NEXT:
@@ -231,8 +218,7 @@ public:
     };
   }
 
-  explicit
-  LoggingString(const Optional<uint64_t>& aVersion)
+  explicit LoggingString(const Optional<uint64_t>& aVersion)
   {
     if (aVersion.WasPassed()) {
       AppendInt(aVersion.Value());
@@ -241,8 +227,7 @@ public:
     }
   }
 
-  explicit
-  LoggingString(const Optional<uint32_t>& aLimit)
+  explicit LoggingString(const Optional<uint32_t>& aLimit)
   {
     if (aLimit.WasPassed()) {
       AppendInt(aLimit.Value());
@@ -261,7 +246,7 @@ public:
   }
 
   LoggingString(nsIDOMEvent* aEvent, const char16_t* aDefault)
-    : nsAutoCString(kQuote)
+      : nsAutoCString(kQuote)
   {
     MOZ_ASSERT(aDefault);
 
@@ -279,10 +264,10 @@ public:
 };
 
 inline void MOZ_FORMAT_PRINTF(2, 3)
-LoggingHelper(bool aUseProfiler, const char* aFmt, ...)
+    LoggingHelper(bool aUseProfiler, const char* aFmt, ...)
 {
   MOZ_ASSERT(IndexedDatabaseManager::GetLoggingMode() !=
-               IndexedDatabaseManager::Logging_Disabled);
+             IndexedDatabaseManager::Logging_Disabled);
   MOZ_ASSERT(aFmt);
 
   mozilla::LogModule* logModule = IndexedDatabaseManager::GetLoggingModule();
@@ -296,7 +281,7 @@ LoggingHelper(bool aUseProfiler, const char* aFmt, ...)
 #else
       false
 #endif
-     ) {
+  ) {
     nsAutoCString message;
 
     {
@@ -316,16 +301,16 @@ LoggingHelper(bool aUseProfiler, const char* aFmt, ...)
   }
 }
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla
 
 #define IDB_LOG_MARK(_detailedFmt, _conciseFmt, ...)                           \
   do {                                                                         \
     using namespace mozilla::dom::indexedDB;                                   \
                                                                                \
     const IndexedDatabaseManager::LoggingMode mode =                           \
-      IndexedDatabaseManager::GetLoggingMode();                                \
+        IndexedDatabaseManager::GetLoggingMode();                              \
                                                                                \
     if (mode != IndexedDatabaseManager::Logging_Disabled) {                    \
       const char* _fmt;                                                        \
@@ -333,24 +318,24 @@ LoggingHelper(bool aUseProfiler, const char* aFmt, ...)
           mode == IndexedDatabaseManager::Logging_ConciseProfilerMarks) {      \
         _fmt = _conciseFmt;                                                    \
       } else {                                                                 \
-        MOZ_ASSERT(                                                            \
-          mode == IndexedDatabaseManager::Logging_Detailed ||                  \
-          mode == IndexedDatabaseManager::Logging_DetailedProfilerMarks);      \
+        MOZ_ASSERT(mode == IndexedDatabaseManager::Logging_Detailed ||         \
+                   mode ==                                                     \
+                       IndexedDatabaseManager::Logging_DetailedProfilerMarks); \
         _fmt = _detailedFmt;                                                   \
       }                                                                        \
                                                                                \
       const bool _useProfiler =                                                \
-        mode == IndexedDatabaseManager::Logging_ConciseProfilerMarks ||        \
-        mode == IndexedDatabaseManager::Logging_DetailedProfilerMarks;         \
+          mode == IndexedDatabaseManager::Logging_ConciseProfilerMarks ||      \
+          mode == IndexedDatabaseManager::Logging_DetailedProfilerMarks;       \
                                                                                \
       LoggingHelper(_useProfiler, _fmt, ##__VA_ARGS__);                        \
     }                                                                          \
   } while (0)
 
-#define IDB_LOG_ID_STRING(...)                                                 \
+#define IDB_LOG_ID_STRING(...) \
   mozilla::dom::indexedDB::LoggingIdString(__VA_ARGS__).get()
 
-#define IDB_LOG_STRINGIFY(...)                                                 \
+#define IDB_LOG_STRINGIFY(...) \
   mozilla::dom::indexedDB::LoggingString(__VA_ARGS__).get()
 
-#endif // mozilla_dom_indexeddb_profilerhelpers_h__
+#endif  // mozilla_dom_indexeddb_profilerhelpers_h__

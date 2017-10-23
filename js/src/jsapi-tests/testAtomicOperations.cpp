@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -30,8 +30,7 @@ void* hidePointerValue(void* p) {
 //
 // Lock-freedom predicates
 
-BEGIN_TEST(testAtomicLockFree8)
-{
+BEGIN_TEST(testAtomicLockFree8) {
     // isLockfree8() must not return true if there are no 8-byte atomics
 
     CHECK(!jit::AtomicOperations::isLockfree8() || jit::AtomicOperations::hasAtomic8());
@@ -46,20 +45,19 @@ END_TEST(testAtomicLockFree8)
 
 // The JS spec requires specific behavior for all but 1 and 2.
 
-BEGIN_TEST(testAtomicLockFreeJS)
-{
-    CHECK(jit::AtomicOperations::isLockfreeJS(1) == true);  // false is allowed by spec but not in SpiderMonkey
-    CHECK(jit::AtomicOperations::isLockfreeJS(2) == true);  // ditto
-    CHECK(jit::AtomicOperations::isLockfreeJS(3) == false); // required
-    CHECK(jit::AtomicOperations::isLockfreeJS(4) == true);  // required
-    CHECK(jit::AtomicOperations::isLockfreeJS(5) == false); // required
-    CHECK(jit::AtomicOperations::isLockfreeJS(6) == false); // required
-    CHECK(jit::AtomicOperations::isLockfreeJS(7) == false); // required
-    CHECK(jit::AtomicOperations::isLockfreeJS(8) == false); // required
+BEGIN_TEST(testAtomicLockFreeJS) {
+    CHECK(jit::AtomicOperations::isLockfreeJS(1) ==
+          true);  // false is allowed by spec but not in SpiderMonkey
+    CHECK(jit::AtomicOperations::isLockfreeJS(2) == true);   // ditto
+    CHECK(jit::AtomicOperations::isLockfreeJS(3) == false);  // required
+    CHECK(jit::AtomicOperations::isLockfreeJS(4) == true);   // required
+    CHECK(jit::AtomicOperations::isLockfreeJS(5) == false);  // required
+    CHECK(jit::AtomicOperations::isLockfreeJS(6) == false);  // required
+    CHECK(jit::AtomicOperations::isLockfreeJS(7) == false);  // required
+    CHECK(jit::AtomicOperations::isLockfreeJS(8) == false);  // required
     return true;
 }
 END_TEST(testAtomicLockFreeJS)
-
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -68,13 +66,11 @@ END_TEST(testAtomicLockFreeJS)
 // This only tests that fenceSeqCst is defined and that it doesn't crash if we
 // call it, but it has no return value and its effect is not observable here.
 
-BEGIN_TEST(testAtomicFence)
-{
+BEGIN_TEST(testAtomicFence) {
     jit::AtomicOperations::fenceSeqCst();
     return true;
 }
 END_TEST(testAtomicFence)
-
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -95,120 +91,112 @@ MOZ_ALIGNED_DECL(static uint8_t atomicMem2[8], 8);
 //
 // No bytes of A and B should be 0 or FF.  A+B and A-B must not overflow.
 
-#define ATOMIC_TESTS(T, A, B) \
-    T* q = (T*)hidePointerValue((void*)atomicMem);                      \
-    *q = A;                                                             \
-    SharedMem<T*> p = SharedMem<T*>::shared((T*)hidePointerValue((T*)atomicMem)); \
-    CHECK(*q == A);                                                     \
-    CHECK(jit::AtomicOperations::loadSeqCst(p) == A);                   \
-    CHECK(*q == A);                                                     \
-    jit::AtomicOperations::storeSeqCst(p, B);                           \
-    CHECK(*q == B);                                                     \
-    CHECK(jit::AtomicOperations::exchangeSeqCst(p, A) == B);            \
-    CHECK(*q == A);                                                     \
+#define ATOMIC_TESTS(T, A, B)                                                            \
+    T* q = (T*)hidePointerValue((void*)atomicMem);                                       \
+    *q = A;                                                                              \
+    SharedMem<T*> p = SharedMem<T*>::shared((T*)hidePointerValue((T*)atomicMem));        \
+    CHECK(*q == A);                                                                      \
+    CHECK(jit::AtomicOperations::loadSeqCst(p) == A);                                    \
+    CHECK(*q == A);                                                                      \
+    jit::AtomicOperations::storeSeqCst(p, B);                                            \
+    CHECK(*q == B);                                                                      \
+    CHECK(jit::AtomicOperations::exchangeSeqCst(p, A) == B);                             \
+    CHECK(*q == A);                                                                      \
     CHECK(jit::AtomicOperations::compareExchangeSeqCst(p, (T)0, (T)1) == A); /*failure*/ \
-    CHECK(*q == A);                                                     \
-    CHECK(jit::AtomicOperations::compareExchangeSeqCst(p, A, B) == A);  /*success*/ \
-    CHECK(*q == B);                                                     \
-    *q = A;                                                             \
-    CHECK(jit::AtomicOperations::fetchAddSeqCst(p, B) == A);            \
-    CHECK(*q == A+B);                                                   \
-    *q = A;                                                             \
-    CHECK(jit::AtomicOperations::fetchSubSeqCst(p, B) == A);            \
-    CHECK(*q == A-B);                                                   \
-    *q = A;                                                             \
-    CHECK(jit::AtomicOperations::fetchAndSeqCst(p, B) == A);            \
-    CHECK(*q == (A&B));                                                 \
-    *q = A;                                                             \
-    CHECK(jit::AtomicOperations::fetchOrSeqCst(p, B) == A);             \
-    CHECK(*q == (A|B));                                                 \
-    *q = A;                                                             \
-    CHECK(jit::AtomicOperations::fetchXorSeqCst(p, B) == A);            \
-    CHECK(*q == (A^B));                                                 \
-    *q = A;                                                             \
-    CHECK(jit::AtomicOperations::loadSafeWhenRacy(p) == A);             \
-    jit::AtomicOperations::storeSafeWhenRacy(p, B);                     \
-    CHECK(*q == B);                                                     \
-    T* q2 = (T*)hidePointerValue((void*)atomicMem2);                    \
-    SharedMem<T*> p2 = SharedMem<T*>::shared((T*)hidePointerValue((void*)atomicMem2)); \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memcpySafeWhenRacy(p2, p, sizeof(T));        \
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memcpySafeWhenRacy(p2, p.unwrap(), sizeof(T));\
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memcpySafeWhenRacy(p2.unwrap(), p, sizeof(T));\
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memmoveSafeWhenRacy(p2, p, sizeof(T));       \
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::podCopySafeWhenRacy(p2, p, 1);               \
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::podMoveSafeWhenRacy(p2, p, 1);               \
-    CHECK(*q2 == A);                                                    \
+    CHECK(*q == A);                                                                      \
+    CHECK(jit::AtomicOperations::compareExchangeSeqCst(p, A, B) == A); /*success*/       \
+    CHECK(*q == B);                                                                      \
+    *q = A;                                                                              \
+    CHECK(jit::AtomicOperations::fetchAddSeqCst(p, B) == A);                             \
+    CHECK(*q == A + B);                                                                  \
+    *q = A;                                                                              \
+    CHECK(jit::AtomicOperations::fetchSubSeqCst(p, B) == A);                             \
+    CHECK(*q == A - B);                                                                  \
+    *q = A;                                                                              \
+    CHECK(jit::AtomicOperations::fetchAndSeqCst(p, B) == A);                             \
+    CHECK(*q == (A & B));                                                                \
+    *q = A;                                                                              \
+    CHECK(jit::AtomicOperations::fetchOrSeqCst(p, B) == A);                              \
+    CHECK(*q == (A | B));                                                                \
+    *q = A;                                                                              \
+    CHECK(jit::AtomicOperations::fetchXorSeqCst(p, B) == A);                             \
+    CHECK(*q == (A ^ B));                                                                \
+    *q = A;                                                                              \
+    CHECK(jit::AtomicOperations::loadSafeWhenRacy(p) == A);                              \
+    jit::AtomicOperations::storeSafeWhenRacy(p, B);                                      \
+    CHECK(*q == B);                                                                      \
+    T* q2 = (T*)hidePointerValue((void*)atomicMem2);                                     \
+    SharedMem<T*> p2 = SharedMem<T*>::shared((T*)hidePointerValue((void*)atomicMem2));   \
+    *q = A;                                                                              \
+    *q2 = B;                                                                             \
+    jit::AtomicOperations::memcpySafeWhenRacy(p2, p, sizeof(T));                         \
+    CHECK(*q2 == A);                                                                     \
+    *q = A;                                                                              \
+    *q2 = B;                                                                             \
+    jit::AtomicOperations::memcpySafeWhenRacy(p2, p.unwrap(), sizeof(T));                \
+    CHECK(*q2 == A);                                                                     \
+    *q = A;                                                                              \
+    *q2 = B;                                                                             \
+    jit::AtomicOperations::memcpySafeWhenRacy(p2.unwrap(), p, sizeof(T));                \
+    CHECK(*q2 == A);                                                                     \
+    *q = A;                                                                              \
+    *q2 = B;                                                                             \
+    jit::AtomicOperations::memmoveSafeWhenRacy(p2, p, sizeof(T));                        \
+    CHECK(*q2 == A);                                                                     \
+    *q = A;                                                                              \
+    *q2 = B;                                                                             \
+    jit::AtomicOperations::podCopySafeWhenRacy(p2, p, 1);                                \
+    CHECK(*q2 == A);                                                                     \
+    *q = A;                                                                              \
+    *q2 = B;                                                                             \
+    jit::AtomicOperations::podMoveSafeWhenRacy(p2, p, 1);                                \
+    CHECK(*q2 == A);                                                                     \
     return true
 
-BEGIN_TEST(testAtomicOperationsU8)
-{
+BEGIN_TEST(testAtomicOperationsU8) {
     const uint8_t A = 0xab;
     const uint8_t B = 0x37;
     ATOMIC_TESTS(uint8_t, A, B);
 }
 END_TEST(testAtomicOperationsU8)
 
-BEGIN_TEST(testAtomicOperationsI8)
-{
+BEGIN_TEST(testAtomicOperationsI8) {
     const int8_t A = 0x3b;
     const int8_t B = 0x27;
     ATOMIC_TESTS(int8_t, A, B);
 }
 END_TEST(testAtomicOperationsI8)
 
-BEGIN_TEST(testAtomicOperationsU16)
-{
+BEGIN_TEST(testAtomicOperationsU16) {
     const uint16_t A = 0xabdc;
     const uint16_t B = 0x3789;
     ATOMIC_TESTS(uint16_t, A, B);
 }
 END_TEST(testAtomicOperationsU16)
 
-BEGIN_TEST(testAtomicOperationsI16)
-{
+BEGIN_TEST(testAtomicOperationsI16) {
     const int16_t A = 0x3bdc;
     const int16_t B = 0x2737;
     ATOMIC_TESTS(int16_t, A, B);
 }
 END_TEST(testAtomicOperationsI16)
 
-BEGIN_TEST(testAtomicOperationsU32)
-{
+BEGIN_TEST(testAtomicOperationsU32) {
     const uint32_t A = 0xabdc0588;
     const uint32_t B = 0x37891942;
     ATOMIC_TESTS(uint32_t, A, B);
 }
 END_TEST(testAtomicOperationsU32)
 
-BEGIN_TEST(testAtomicOperationsI32)
-{
+BEGIN_TEST(testAtomicOperationsI32) {
     const int32_t A = 0x3bdc0588;
     const int32_t B = 0x27371843;
     ATOMIC_TESTS(int32_t, A, B);
 }
 END_TEST(testAtomicOperationsI32)
 
-BEGIN_TEST(testAtomicOperationsU64)
-{
-    if (!jit::AtomicOperations::hasAtomic8())
-        return true;
+BEGIN_TEST(testAtomicOperationsU64) {
+    if (!jit::AtomicOperations::hasAtomic8()) return true;
 
     const uint64_t A(0x9aadf00ddeadbeef);
     const uint64_t B(0x4eedbead1337f001);
@@ -216,10 +204,8 @@ BEGIN_TEST(testAtomicOperationsU64)
 }
 END_TEST(testAtomicOperationsU64)
 
-BEGIN_TEST(testAtomicOperationsI64)
-{
-    if (!jit::AtomicOperations::hasAtomic8())
-        return true;
+BEGIN_TEST(testAtomicOperationsI64) {
+    if (!jit::AtomicOperations::hasAtomic8()) return true;
 
     const int64_t A(0x2aadf00ddeadbeef);
     const int64_t B(0x4eedbead1337f001);
@@ -232,70 +218,67 @@ END_TEST(testAtomicOperationsI64)
 //
 // Stay away from 0, NaN, infinities, and denormals.
 
-#define ATOMIC_FLOAT_TESTS(T, A, B) \
-    T* q = (T*)hidePointerValue((void*)atomicMem);                      \
-    *q = A;                                                             \
-    SharedMem<T*> p = SharedMem<T*>::shared((T*)hidePointerValue((T*)atomicMem)); \
-    CHECK(*q == A);                                                     \
-    CHECK(jit::AtomicOperations::loadSafeWhenRacy(p) == A);             \
-    jit::AtomicOperations::storeSafeWhenRacy(p, B);                     \
-    CHECK(*q == B);                                                     \
-    T* q2 = (T*)hidePointerValue((void*)atomicMem2);                    \
+#define ATOMIC_FLOAT_TESTS(T, A, B)                                                    \
+    T* q = (T*)hidePointerValue((void*)atomicMem);                                     \
+    *q = A;                                                                            \
+    SharedMem<T*> p = SharedMem<T*>::shared((T*)hidePointerValue((T*)atomicMem));      \
+    CHECK(*q == A);                                                                    \
+    CHECK(jit::AtomicOperations::loadSafeWhenRacy(p) == A);                            \
+    jit::AtomicOperations::storeSafeWhenRacy(p, B);                                    \
+    CHECK(*q == B);                                                                    \
+    T* q2 = (T*)hidePointerValue((void*)atomicMem2);                                   \
     SharedMem<T*> p2 = SharedMem<T*>::shared((T*)hidePointerValue((void*)atomicMem2)); \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memcpySafeWhenRacy(p2, p, sizeof(T));        \
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memcpySafeWhenRacy(p2, p.unwrap(), sizeof(T));\
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memcpySafeWhenRacy(p2.unwrap(), p, sizeof(T));\
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::memmoveSafeWhenRacy(p2, p, sizeof(T));       \
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::podCopySafeWhenRacy(p2, p, 1);               \
-    CHECK(*q2 == A);                                                    \
-    *q = A;                                                             \
-    *q2 = B;                                                            \
-    jit::AtomicOperations::podMoveSafeWhenRacy(p2, p, 1);               \
-    CHECK(*q2 == A);                                                    \
+    *q = A;                                                                            \
+    *q2 = B;                                                                           \
+    jit::AtomicOperations::memcpySafeWhenRacy(p2, p, sizeof(T));                       \
+    CHECK(*q2 == A);                                                                   \
+    *q = A;                                                                            \
+    *q2 = B;                                                                           \
+    jit::AtomicOperations::memcpySafeWhenRacy(p2, p.unwrap(), sizeof(T));              \
+    CHECK(*q2 == A);                                                                   \
+    *q = A;                                                                            \
+    *q2 = B;                                                                           \
+    jit::AtomicOperations::memcpySafeWhenRacy(p2.unwrap(), p, sizeof(T));              \
+    CHECK(*q2 == A);                                                                   \
+    *q = A;                                                                            \
+    *q2 = B;                                                                           \
+    jit::AtomicOperations::memmoveSafeWhenRacy(p2, p, sizeof(T));                      \
+    CHECK(*q2 == A);                                                                   \
+    *q = A;                                                                            \
+    *q2 = B;                                                                           \
+    jit::AtomicOperations::podCopySafeWhenRacy(p2, p, 1);                              \
+    CHECK(*q2 == A);                                                                   \
+    *q = A;                                                                            \
+    *q2 = B;                                                                           \
+    jit::AtomicOperations::podMoveSafeWhenRacy(p2, p, 1);                              \
+    CHECK(*q2 == A);                                                                   \
     return true
 
-BEGIN_TEST(testAtomicOperationsF32)
-{
+BEGIN_TEST(testAtomicOperationsF32) {
     const float A(123.25);
     const float B(-987.75);
     ATOMIC_FLOAT_TESTS(float, A, B);
 }
 END_TEST(testAtomicOperationsF32)
 
-BEGIN_TEST(testAtomicOperationsF64)
-{
+BEGIN_TEST(testAtomicOperationsF64) {
     const double A(123.25);
     const double B(-987.75);
     ATOMIC_FLOAT_TESTS(double, A, B);
 }
 END_TEST(testAtomicOperationsF64)
 
-#define ATOMIC_CLAMPED_TESTS(T, A, B) \
-    T* q = (T*)hidePointerValue((void*)atomicMem);                      \
-    *q = A;                                                             \
+#define ATOMIC_CLAMPED_TESTS(T, A, B)                                             \
+    T* q = (T*)hidePointerValue((void*)atomicMem);                                \
+    *q = A;                                                                       \
     SharedMem<T*> p = SharedMem<T*>::shared((T*)hidePointerValue((T*)atomicMem)); \
-    CHECK(*q == A);                                                     \
-    CHECK(jit::AtomicOperations::loadSafeWhenRacy(p) == A);             \
-    jit::AtomicOperations::storeSafeWhenRacy(p, B);                     \
-    CHECK(*q == B);                                                     \
+    CHECK(*q == A);                                                               \
+    CHECK(jit::AtomicOperations::loadSafeWhenRacy(p) == A);                       \
+    jit::AtomicOperations::storeSafeWhenRacy(p, B);                               \
+    CHECK(*q == B);                                                               \
     return true
 
-BEGIN_TEST(testAtomicOperationsU8Clamped)
-{
+BEGIN_TEST(testAtomicOperationsU8Clamped) {
     const uint8_clamped A(0xab);
     const uint8_clamped B(0x37);
     ATOMIC_CLAMPED_TESTS(uint8_clamped, A, B);

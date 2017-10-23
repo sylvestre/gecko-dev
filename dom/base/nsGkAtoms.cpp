@@ -18,13 +18,13 @@ using namespace mozilla;
 #undef GK_ATOM
 
 static const nsStaticAtomSetup sGkAtomSetup[] = {
-  #define GK_ATOM(name_, value_) NS_STATIC_ATOM_SETUP(nsGkAtoms, name_)
-  #include "nsGkAtomList.h"
-  #undef GK_ATOM
+#define GK_ATOM(name_, value_) NS_STATIC_ATOM_SETUP(nsGkAtoms, name_)
+#include "nsGkAtomList.h"
+#undef GK_ATOM
 };
 
-void nsGkAtoms::AddRefAtoms()
+void
+nsGkAtoms::AddRefAtoms()
 {
   NS_RegisterStaticAtoms(sGkAtomSetup);
 }
-

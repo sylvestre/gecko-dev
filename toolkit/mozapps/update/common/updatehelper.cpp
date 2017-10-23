@@ -21,10 +21,12 @@
 using mozilla::MakeUnique;
 using mozilla::UniquePtr;
 
-BOOL PathAppendSafe(LPWSTR base, LPCWSTR extra);
-BOOL PathGetSiblingFilePath(LPWSTR destinationBuffer,
-                            LPCWSTR siblingFilePath,
-                            LPCWSTR newFileName);
+BOOL
+PathAppendSafe(LPWSTR base, LPCWSTR extra);
+BOOL
+PathGetSiblingFilePath(LPWSTR destinationBuffer,
+                       LPCWSTR siblingFilePath,
+                       LPCWSTR newFileName);
 
 /**
  * Obtains the path of a file in the same directory as the specified file.
@@ -67,15 +69,13 @@ BOOL
 StartServiceUpdate(LPCWSTR installDir)
 {
   // Get a handle to the local computer SCM database
-  SC_HANDLE manager = OpenSCManager(nullptr, nullptr,
-                                    SC_MANAGER_ALL_ACCESS);
+  SC_HANDLE manager = OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS);
   if (!manager) {
     return FALSE;
   }
 
   // Open the service
-  SC_HANDLE svc = OpenServiceW(manager, SVC_NAME,
-                               SERVICE_ALL_ACCESS);
+  SC_HANDLE svc = OpenServiceW(manager, SVC_NAME, SERVICE_ALL_ACCESS);
   if (!svc) {
     CloseServiceHandle(manager);
     return FALSE;
@@ -97,32 +97,34 @@ StartServiceUpdate(LPCWSTR installDir)
   // Get the service config information, in particular we want the binary
   // path of the service.
   UniquePtr<char[]> serviceConfigBuffer = MakeUnique<char[]>(bytesNeeded);
-  if (!QueryServiceConfigW(svc,
-      reinterpret_cast<QUERY_SERVICE_CONFIGW*>(serviceConfigBuffer.get()),
-      bytesNeeded, &bytesNeeded)) {
+  if (!QueryServiceConfigW(
+          svc,
+          reinterpret_cast<QUERY_SERVICE_CONFIGW*>(serviceConfigBuffer.get()),
+          bytesNeeded,
+          &bytesNeeded)) {
     CloseServiceHandle(svc);
     return FALSE;
   }
 
   CloseServiceHandle(svc);
 
-  QUERY_SERVICE_CONFIGW &serviceConfig =
-    *reinterpret_cast<QUERY_SERVICE_CONFIGW*>(serviceConfigBuffer.get());
+  QUERY_SERVICE_CONFIGW& serviceConfig =
+      *reinterpret_cast<QUERY_SERVICE_CONFIGW*>(serviceConfigBuffer.get());
 
   PathUnquoteSpacesW(serviceConfig.lpBinaryPathName);
 
   // Obtain the temp path of the maintenance service binary
-  WCHAR tmpService[MAX_PATH + 1] = { L'\0' };
-  if (!PathGetSiblingFilePath(tmpService, serviceConfig.lpBinaryPathName,
+  WCHAR tmpService[MAX_PATH + 1] = {L'\0'};
+  if (!PathGetSiblingFilePath(tmpService,
+                              serviceConfig.lpBinaryPathName,
                               L"maintenanceservice_tmp.exe")) {
     return FALSE;
   }
 
   // Get the new maintenance service path from the install dir
-  WCHAR newMaintServicePath[MAX_PATH + 1] = { L'\0' };
+  WCHAR newMaintServicePath[MAX_PATH + 1] = {L'\0'};
   wcsncpy(newMaintServicePath, installDir, MAX_PATH);
-  PathAppendSafe(newMaintServicePath,
-                 L"maintenanceservice.exe");
+  PathAppendSafe(newMaintServicePath, L"maintenanceservice.exe");
 
   // Copy the temp file in alongside the maintenace service.
   // This is a requirement for maintenance service upgrades.
@@ -136,14 +138,20 @@ StartServiceUpdate(LPCWSTR installDir)
   // No particular desktop because no UI
   si.lpDesktop = L"";
   PROCESS_INFORMATION pi = {0};
-  WCHAR cmdLine[64] = { '\0' };
-  wcsncpy(cmdLine, L"dummyparam.exe upgrade",
+  WCHAR cmdLine[64] = {'\0'};
+  wcsncpy(cmdLine,
+          L"dummyparam.exe upgrade",
           sizeof(cmdLine) / sizeof(cmdLine[0]) - 1);
   BOOL svcUpdateProcessStarted = CreateProcessW(tmpService,
                                                 cmdLine,
-                                                nullptr, nullptr, FALSE,
+                                                nullptr,
+                                                nullptr,
+                                                FALSE,
                                                 0,
-                                                nullptr, installDir, &si, &pi);
+                                                nullptr,
+                                                installDir,
+                                                &si,
+                                                &pi);
   if (svcUpdateProcessStarted) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
@@ -174,17 +182,14 @@ StartServiceCommand(int argc, LPCWSTR* argv)
   }
 
   // Get a handle to the SCM database.
-  SC_HANDLE serviceManager = OpenSCManager(nullptr, nullptr,
-                                           SC_MANAGER_CONNECT |
-                                           SC_MANAGER_ENUMERATE_SERVICE);
-  if (!serviceManager)  {
+  SC_HANDLE serviceManager = OpenSCManager(
+      nullptr, nullptr, SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
+  if (!serviceManager) {
     return 17001;
   }
 
   // Get a handle to the service.
-  SC_HANDLE service = OpenServiceW(serviceManager,
-                                   SVC_NAME,
-                                   SERVICE_START);
+  SC_HANDLE service = OpenServiceW(serviceManager, SVC_NAME, SERVICE_START);
   if (!service) {
     CloseServiceHandle(serviceManager);
     return 17002;
@@ -229,7 +234,7 @@ LaunchServiceSoftwareUpdateCommand(int argc, LPCWSTR* argv)
   // The service command is the same as the updater.exe command line except
   // it has 2 extra args: 1) The Path to udpater.exe, and 2) the command
   // being executed which is "software-update"
-  LPCWSTR *updaterServiceArgv = new LPCWSTR[argc + 2];
+  LPCWSTR* updaterServiceArgv = new LPCWSTR[argc + 2];
   updaterServiceArgv[0] = L"MozillaMaintenance";
   updaterServiceArgv[1] = L"software-update";
 
@@ -272,13 +277,19 @@ WriteStatusFailure(LPCWSTR updateDirPath, int errorCode)
 {
   // The temp file is not removed on failure since there is client code that
   // will remove it.
-  WCHAR tmpUpdateStatusFilePath[MAX_PATH + 1] = { L'\0' };
-  if (GetTempFileNameW(updateDirPath, L"svc", 0, tmpUpdateStatusFilePath) == 0) {
+  WCHAR tmpUpdateStatusFilePath[MAX_PATH + 1] = {L'\0'};
+  if (GetTempFileNameW(updateDirPath, L"svc", 0, tmpUpdateStatusFilePath) ==
+      0) {
     return FALSE;
   }
 
-  HANDLE tmpStatusFile = CreateFileW(tmpUpdateStatusFilePath, GENERIC_WRITE, 0,
-                                     nullptr, CREATE_ALWAYS, 0, nullptr);
+  HANDLE tmpStatusFile = CreateFileW(tmpUpdateStatusFilePath,
+                                     GENERIC_WRITE,
+                                     0,
+                                     nullptr,
+                                     CREATE_ALWAYS,
+                                     0,
+                                     nullptr);
   if (tmpStatusFile == INVALID_HANDLE_VALUE) {
     return FALSE;
   }
@@ -287,21 +298,21 @@ WriteStatusFailure(LPCWSTR updateDirPath, int errorCode)
   sprintf(failure, "failed: %d", errorCode);
   DWORD toWrite = strlen(failure);
   DWORD wrote;
-  BOOL ok = WriteFile(tmpStatusFile, failure,
-                      toWrite, &wrote, nullptr);
+  BOOL ok = WriteFile(tmpStatusFile, failure, toWrite, &wrote, nullptr);
   CloseHandle(tmpStatusFile);
 
   if (!ok || wrote != toWrite) {
     return FALSE;
   }
 
-  WCHAR updateStatusFilePath[MAX_PATH + 1] = { L'\0' };
+  WCHAR updateStatusFilePath[MAX_PATH + 1] = {L'\0'};
   wcsncpy(updateStatusFilePath, updateDirPath, MAX_PATH);
   if (!PathAppendSafe(updateStatusFilePath, L"update.status")) {
     return FALSE;
   }
 
-  if (MoveFileExW(tmpUpdateStatusFilePath, updateStatusFilePath,
+  if (MoveFileExW(tmpUpdateStatusFilePath,
+                  updateStatusFilePath,
                   MOVEFILE_REPLACE_EXISTING) == 0) {
     return FALSE;
   }
@@ -350,39 +361,37 @@ WaitForServiceStop(LPCWSTR serviceName, DWORD maxWaitSeconds)
   DWORD lastServiceState = 0x000000CF;
 
   // Get a handle to the SCM database.
-  SC_HANDLE serviceManager = OpenSCManager(nullptr, nullptr,
-                                           SC_MANAGER_CONNECT |
-                                           SC_MANAGER_ENUMERATE_SERVICE);
-  if (!serviceManager)  {
+  SC_HANDLE serviceManager = OpenSCManager(
+      nullptr, nullptr, SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
+  if (!serviceManager) {
     DWORD lastError = GetLastError();
-    switch(lastError) {
-    case ERROR_ACCESS_DENIED:
-      return 0x000000FD;
-    case ERROR_DATABASE_DOES_NOT_EXIST:
-      return 0x000000FE;
-    default:
-      return 0x000000FF;
+    switch (lastError) {
+      case ERROR_ACCESS_DENIED:
+        return 0x000000FD;
+      case ERROR_DATABASE_DOES_NOT_EXIST:
+        return 0x000000FE;
+      default:
+        return 0x000000FF;
     }
   }
 
   // Get a handle to the service.
-  SC_HANDLE service = OpenServiceW(serviceManager,
-                                   serviceName,
-                                   SERVICE_QUERY_STATUS);
+  SC_HANDLE service =
+      OpenServiceW(serviceManager, serviceName, SERVICE_QUERY_STATUS);
   if (!service) {
     DWORD lastError = GetLastError();
     CloseServiceHandle(serviceManager);
-    switch(lastError) {
-    case ERROR_ACCESS_DENIED:
-      return 0x000000EB;
-    case ERROR_INVALID_HANDLE:
-      return 0x000000EC;
-    case ERROR_INVALID_NAME:
-      return 0x000000ED;
-    case ERROR_SERVICE_DOES_NOT_EXIST:
-      return 0x000000EE;
-    default:
-      return 0x000000EF;
+    switch (lastError) {
+      case ERROR_ACCESS_DENIED:
+        return 0x000000EB;
+      case ERROR_INVALID_HANDLE:
+        return 0x000000EC;
+      case ERROR_INVALID_NAME:
+        return 0x000000ED;
+      case ERROR_SERVICE_DOES_NOT_EXIST:
+        return 0x000000EE;
+      default:
+        return 0x000000EF;
     }
   }
 
@@ -391,38 +400,41 @@ WaitForServiceStop(LPCWSTR serviceName, DWORD maxWaitSeconds)
   ssp.dwCurrentState = lastServiceState;
   while (currentWaitMS < maxWaitSeconds * 1000) {
     DWORD bytesNeeded;
-    if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssp,
-                              sizeof(SERVICE_STATUS_PROCESS), &bytesNeeded)) {
+    if (!QueryServiceStatusEx(service,
+                              SC_STATUS_PROCESS_INFO,
+                              (LPBYTE)&ssp,
+                              sizeof(SERVICE_STATUS_PROCESS),
+                              &bytesNeeded)) {
       DWORD lastError = GetLastError();
       switch (lastError) {
-      case ERROR_INVALID_HANDLE:
-        ssp.dwCurrentState = 0x000000D9;
-        break;
-      case ERROR_ACCESS_DENIED:
-        ssp.dwCurrentState = 0x000000DA;
-        break;
-      case ERROR_INSUFFICIENT_BUFFER:
-        ssp.dwCurrentState = 0x000000DB;
-        break;
-      case ERROR_INVALID_PARAMETER:
-        ssp.dwCurrentState = 0x000000DC;
-        break;
-      case ERROR_INVALID_LEVEL:
-        ssp.dwCurrentState = 0x000000DD;
-        break;
-      case ERROR_SHUTDOWN_IN_PROGRESS:
-        ssp.dwCurrentState = 0x000000DE;
-        break;
-      // These 3 errors can occur when the service is not yet stopped but
-      // it is stopping.
-      case ERROR_INVALID_SERVICE_CONTROL:
-      case ERROR_SERVICE_CANNOT_ACCEPT_CTRL:
-      case ERROR_SERVICE_NOT_ACTIVE:
-        currentWaitMS += 50;
-        Sleep(50);
-        continue;
-      default:
-        ssp.dwCurrentState = 0x000000DF;
+        case ERROR_INVALID_HANDLE:
+          ssp.dwCurrentState = 0x000000D9;
+          break;
+        case ERROR_ACCESS_DENIED:
+          ssp.dwCurrentState = 0x000000DA;
+          break;
+        case ERROR_INSUFFICIENT_BUFFER:
+          ssp.dwCurrentState = 0x000000DB;
+          break;
+        case ERROR_INVALID_PARAMETER:
+          ssp.dwCurrentState = 0x000000DC;
+          break;
+        case ERROR_INVALID_LEVEL:
+          ssp.dwCurrentState = 0x000000DD;
+          break;
+        case ERROR_SHUTDOWN_IN_PROGRESS:
+          ssp.dwCurrentState = 0x000000DE;
+          break;
+        // These 3 errors can occur when the service is not yet stopped but
+        // it is stopping.
+        case ERROR_INVALID_SERVICE_CONTROL:
+        case ERROR_SERVICE_CANNOT_ACCEPT_CTRL:
+        case ERROR_SERVICE_NOT_ACTIVE:
+          currentWaitMS += 50;
+          Sleep(50);
+          continue;
+        default:
+          ssp.dwCurrentState = 0x000000DF;
       }
 
       // We couldn't query the status so just break out
@@ -495,7 +507,7 @@ DWORD
 WaitForProcessExit(LPCWSTR filename, DWORD maxSeconds)
 {
   DWORD applicationRunningError = WAIT_TIMEOUT;
-  for(DWORD i = 0; i < maxSeconds; i++) {
+  for (DWORD i = 0; i < maxSeconds; i++) {
     DWORD applicationRunningError = IsProcessRunning(filename);
     if (ERROR_NOT_FOUND == applicationRunningError) {
       return ERROR_SUCCESS;
@@ -520,7 +532,8 @@ DoesFallbackKeyExist()
 {
   HKEY testOnlyFallbackKey;
   if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                    TEST_ONLY_FALLBACK_KEY_PATH, 0,
+                    TEST_ONLY_FALLBACK_KEY_PATH,
+                    0,
                     KEY_READ | KEY_WOW64_64KEY,
                     &testOnlyFallbackKey) != ERROR_SUCCESS) {
     return FALSE;
@@ -539,9 +552,9 @@ DoesFallbackKeyExist()
  * @return TRUE if the call succeeded
 */
 BOOL
-IsLocalFile(LPCWSTR file, BOOL &isLocal)
+IsLocalFile(LPCWSTR file, BOOL& isLocal)
 {
-  WCHAR rootPath[MAX_PATH + 1] = { L'\0' };
+  WCHAR rootPath[MAX_PATH + 1] = {L'\0'};
   if (wcslen(file) > MAX_PATH) {
     return FALSE;
   }
@@ -552,7 +565,6 @@ IsLocalFile(LPCWSTR file, BOOL &isLocal)
   return TRUE;
 }
 
-
 /**
  * Determines the DWORD value of a registry key value
  *
@@ -562,10 +574,13 @@ IsLocalFile(LPCWSTR file, BOOL &isLocal)
  * @return TRUE on success
 */
 static BOOL
-GetDWORDValue(HKEY key, LPCWSTR valueName, DWORD &retValue)
+GetDWORDValue(HKEY key, LPCWSTR valueName, DWORD& retValue)
 {
   DWORD regDWORDValueSize = sizeof(DWORD);
-  LONG retCode = RegQueryValueExW(key, valueName, 0, nullptr,
+  LONG retCode = RegQueryValueExW(key,
+                                  valueName,
+                                  0,
+                                  nullptr,
                                   reinterpret_cast<LPBYTE>(&retValue),
                                   &regDWORDValueSize);
   return ERROR_SUCCESS == retCode;
@@ -581,25 +596,23 @@ GetDWORDValue(HKEY key, LPCWSTR valueName, DWORD &retValue)
  *         successfully.
 */
 BOOL
-IsUnpromptedElevation(BOOL &isUnpromptedElevation)
+IsUnpromptedElevation(BOOL& isUnpromptedElevation)
 {
   if (!UACHelper::CanUserElevate()) {
     return FALSE;
   }
 
   LPCWSTR UACBaseRegKey =
-    L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
+      L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
   HKEY baseKey;
-  LONG retCode = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                               UACBaseRegKey, 0,
-                               KEY_READ, &baseKey);
+  LONG retCode =
+      RegOpenKeyExW(HKEY_LOCAL_MACHINE, UACBaseRegKey, 0, KEY_READ, &baseKey);
   if (retCode != ERROR_SUCCESS) {
     return FALSE;
   }
 
   DWORD consent, secureDesktop;
-  BOOL success = GetDWORDValue(baseKey, L"ConsentPromptBehaviorAdmin",
-                               consent);
+  BOOL success = GetDWORDValue(baseKey, L"ConsentPromptBehaviorAdmin", consent);
   success = success &&
             GetDWORDValue(baseKey, L"PromptOnSecureDesktop", secureDesktop);
 

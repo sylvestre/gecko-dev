@@ -63,14 +63,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(BoxObject)
 
 // Constructors/Destructors
-BoxObject::BoxObject()
-  : mContent(nullptr)
-{
-}
+BoxObject::BoxObject() : mContent(nullptr) {}
 
-BoxObject::~BoxObject()
-{
-}
+BoxObject::~BoxObject() {}
 
 NS_IMETHODIMP
 BoxObject::GetElement(nsIDOMElement** aResult)
@@ -108,8 +103,7 @@ nsIFrame*
 BoxObject::GetFrame(bool aFlushLayout)
 {
   nsIPresShell* shell = GetPresShell(aFlushLayout);
-  if (!shell)
-    return nullptr;
+  if (!shell) return nullptr;
 
   if (!aFlushLayout) {
     // If we didn't flush layout when getting the presshell, we should at least
@@ -151,8 +145,7 @@ BoxObject::GetOffsetRect(nsIntRect& aRect)
 {
   aRect.SetRect(0, 0, 0, 0);
 
-  if (!mContent)
-    return NS_ERROR_NOT_INITIALIZED;
+  if (!mContent) return NS_ERROR_NOT_INITIALIZED;
 
   // Get the Frame for our content
   nsIFrame* frame = GetFrame(true);
@@ -212,8 +205,7 @@ BoxObject::GetScreenPosition(nsIntPoint& aPoint)
 {
   aPoint.x = aPoint.y = 0;
 
-  if (!mContent)
-    return NS_ERROR_NOT_INITIALIZED;
+  if (!mContent) return NS_ERROR_NOT_INITIALIZED;
 
   nsIFrame* frame = GetFrame(true);
   if (frame) {
@@ -262,7 +254,7 @@ BoxObject::GetHeight(int32_t* aResult)
 }
 
 NS_IMETHODIMP
-BoxObject::GetScreenX(int32_t *_retval)
+BoxObject::GetScreenX(int32_t* _retval)
 {
   nsIntPoint position;
   nsresult rv = GetScreenPosition(position);
@@ -272,7 +264,7 @@ BoxObject::GetScreenX(int32_t *_retval)
 }
 
 NS_IMETHODIMP
-BoxObject::GetScreenY(int32_t *_retval)
+BoxObject::GetScreenY(int32_t* _retval)
 {
   nsIntPoint position;
   nsresult rv = GetScreenPosition(position);
@@ -282,7 +274,8 @@ BoxObject::GetScreenY(int32_t *_retval)
 }
 
 NS_IMETHODIMP
-BoxObject::GetPropertyAsSupports(const char16_t* aPropertyName, nsISupports** aResult)
+BoxObject::GetPropertyAsSupports(const char16_t* aPropertyName,
+                                 nsISupports** aResult)
 {
   NS_ENSURE_ARG(aPropertyName && *aPropertyName);
   if (!mPropertyTable) {
@@ -290,17 +283,18 @@ BoxObject::GetPropertyAsSupports(const char16_t* aPropertyName, nsISupports** aR
     return NS_OK;
   }
   nsDependentString propertyName(aPropertyName);
-  mPropertyTable->Get(propertyName, aResult); // Addref here.
+  mPropertyTable->Get(propertyName, aResult);  // Addref here.
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BoxObject::SetPropertyAsSupports(const char16_t* aPropertyName, nsISupports* aValue)
+BoxObject::SetPropertyAsSupports(const char16_t* aPropertyName,
+                                 nsISupports* aValue)
 {
   NS_ENSURE_ARG(aPropertyName && *aPropertyName);
 
   if (!mPropertyTable) {
-    mPropertyTable = new nsInterfaceHashtable<nsStringHashKey,nsISupports>(4);
+    mPropertyTable = new nsInterfaceHashtable<nsStringHashKey, nsISupports>(4);
   }
 
   nsDependentString propertyName(aPropertyName);
@@ -312,7 +306,7 @@ NS_IMETHODIMP
 BoxObject::GetProperty(const char16_t* aPropertyName, char16_t** aResult)
 {
   nsCOMPtr<nsISupports> data;
-  nsresult rv = GetPropertyAsSupports(aPropertyName,getter_AddRefs(data));
+  nsresult rv = GetPropertyAsSupports(aPropertyName, getter_AddRefs(data));
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (!data) {
@@ -329,7 +323,8 @@ BoxObject::GetProperty(const char16_t* aPropertyName, char16_t** aResult)
 }
 
 NS_IMETHODIMP
-BoxObject::SetProperty(const char16_t* aPropertyName, const char16_t* aPropertyValue)
+BoxObject::SetProperty(const char16_t* aPropertyName,
+                       const char16_t* aPropertyValue)
 {
   NS_ENSURE_ARG(aPropertyName && *aPropertyName);
 
@@ -341,11 +336,12 @@ BoxObject::SetProperty(const char16_t* aPropertyName, const char16_t* aPropertyV
     propertyValue.SetIsVoid(true);
   }
 
-  nsCOMPtr<nsISupportsString> supportsStr(do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
+  nsCOMPtr<nsISupportsString> supportsStr(
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID));
   NS_ENSURE_TRUE(supportsStr, NS_ERROR_OUT_OF_MEMORY);
   supportsStr->SetData(propertyValue);
 
-  return SetPropertyAsSupports(aPropertyName,supportsStr);
+  return SetPropertyAsSupports(aPropertyName, supportsStr);
 }
 
 NS_IMETHODIMP
@@ -361,7 +357,7 @@ BoxObject::RemoveProperty(const char16_t* aPropertyName)
 }
 
 NS_IMETHODIMP
-BoxObject::GetParentBox(nsIDOMElement * *aParentBox)
+BoxObject::GetParentBox(nsIDOMElement** aParentBox)
 {
   *aParentBox = nullptr;
   nsIFrame* frame = GetFrame(false);
@@ -376,7 +372,7 @@ BoxObject::GetParentBox(nsIDOMElement * *aParentBox)
 }
 
 NS_IMETHODIMP
-BoxObject::GetFirstChild(nsIDOMElement * *aFirstVisibleChild)
+BoxObject::GetFirstChild(nsIDOMElement** aFirstVisibleChild)
 {
   *aFirstVisibleChild = nullptr;
   nsIFrame* frame = GetFrame(false);
@@ -390,7 +386,7 @@ BoxObject::GetFirstChild(nsIDOMElement * *aFirstVisibleChild)
 }
 
 NS_IMETHODIMP
-BoxObject::GetLastChild(nsIDOMElement * *aLastVisibleChild)
+BoxObject::GetLastChild(nsIDOMElement** aLastVisibleChild)
 {
   *aLastVisibleChild = nullptr;
   nsIFrame* frame = GetFrame(false);
@@ -399,7 +395,7 @@ BoxObject::GetLastChild(nsIDOMElement * *aLastVisibleChild)
 }
 
 NS_IMETHODIMP
-BoxObject::GetNextSibling(nsIDOMElement **aNextOrdinalSibling)
+BoxObject::GetNextSibling(nsIDOMElement** aNextOrdinalSibling)
 {
   *aNextOrdinalSibling = nullptr;
   nsIFrame* frame = GetFrame(false);
@@ -413,7 +409,7 @@ BoxObject::GetNextSibling(nsIDOMElement **aNextOrdinalSibling)
 }
 
 NS_IMETHODIMP
-BoxObject::GetPreviousSibling(nsIDOMElement **aPreviousOrdinalSibling)
+BoxObject::GetPreviousSibling(nsIDOMElement** aPreviousOrdinalSibling)
 {
   *aPreviousOrdinalSibling = nullptr;
   nsIFrame* frame = GetFrame(false);
@@ -424,15 +420,15 @@ BoxObject::GetPreviousSibling(nsIDOMElement **aPreviousOrdinalSibling)
 }
 
 nsresult
-BoxObject::GetPreviousSibling(nsIFrame* aParentFrame, nsIFrame* aFrame,
+BoxObject::GetPreviousSibling(nsIFrame* aParentFrame,
+                              nsIFrame* aFrame,
                               nsIDOMElement** aResult)
 {
   *aResult = nullptr;
   nsIFrame* nextFrame = aParentFrame->PrincipalChildList().FirstChild();
   nsIFrame* prevFrame = nullptr;
   while (nextFrame) {
-    if (nextFrame == aFrame)
-      break;
+    if (nextFrame == aFrame) break;
     prevFrame = nextFrame;
     nextFrame = nextFrame->GetNextSibling();
   }
@@ -514,18 +510,22 @@ already_AddRefed<nsISupports>
 BoxObject::GetPropertyAsSupports(const nsAString& propertyName)
 {
   nsCOMPtr<nsISupports> ret;
-  GetPropertyAsSupports(PromiseFlatString(propertyName).get(), getter_AddRefs(ret));
+  GetPropertyAsSupports(PromiseFlatString(propertyName).get(),
+                        getter_AddRefs(ret));
   return ret.forget();
 }
 
 void
-BoxObject::SetPropertyAsSupports(const nsAString& propertyName, nsISupports* value)
+BoxObject::SetPropertyAsSupports(const nsAString& propertyName,
+                                 nsISupports* value)
 {
   SetPropertyAsSupports(PromiseFlatString(propertyName).get(), value);
 }
 
 void
-BoxObject::GetProperty(const nsAString& propertyName, nsString& aRetVal, ErrorResult& aRv)
+BoxObject::GetProperty(const nsAString& propertyName,
+                       nsString& aRetVal,
+                       ErrorResult& aRv)
 {
   nsCOMPtr<nsISupports> data(GetPropertyAsSupports(propertyName));
   if (!data) {
@@ -542,9 +542,11 @@ BoxObject::GetProperty(const nsAString& propertyName, nsString& aRetVal, ErrorRe
 }
 
 void
-BoxObject::SetProperty(const nsAString& propertyName, const nsAString& propertyValue)
+BoxObject::SetProperty(const nsAString& propertyName,
+                       const nsAString& propertyValue)
 {
-  SetProperty(PromiseFlatString(propertyName).get(), PromiseFlatString(propertyValue).get());
+  SetProperty(PromiseFlatString(propertyName).get(),
+              PromiseFlatString(propertyValue).get());
 }
 
 void
@@ -598,8 +600,8 @@ BoxObject::GetPreviousSibling()
   return ret.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 // Creation Routine ///////////////////////////////////////////////////////////////////////
 

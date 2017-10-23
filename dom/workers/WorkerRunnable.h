@@ -20,7 +20,7 @@ class nsIEventTarget;
 
 namespace mozilla {
 class ErrorResult;
-} // namespace mozilla
+}  // namespace mozilla
 
 BEGIN_WORKERS_NAMESPACE
 
@@ -29,11 +29,11 @@ class WorkerPrivate;
 // Use this runnable to communicate from the worker to its parent or vice-versa.
 // The busy count must be taken into consideration and declared at construction
 // time.
-class WorkerRunnable : public nsIRunnable,
-                       public nsICancelableRunnable
+class WorkerRunnable : public nsIRunnable, public nsICancelableRunnable
 {
-public:
-  enum TargetAndBusyBehavior {
+ public:
+  enum TargetAndBusyBehavior
+  {
     // Target the main thread for top-level workers, otherwise target the
     // WorkerThread of the worker's parent. No change to the busy count.
     ParentThreadUnchangedBusyCount,
@@ -49,7 +49,7 @@ public:
     WorkerThreadUnchangedBusyCount
   };
 
-protected:
+ protected:
   // The WorkerPrivate that this runnable is associated with.
   WorkerPrivate* mWorkerPrivate;
 
@@ -60,70 +60,62 @@ protected:
   // thread. To be safe we're using an atomic but it's likely overkill.
   Atomic<uint32_t> mCanceled;
 
-private:
+ private:
   // Whether or not Cancel() is currently being called from inside the Run()
   // method. Avoids infinite recursion when a subclass calls Run() from inside
   // Cancel(). Only checked and modified on the target thread.
   bool mCallingCancelWithinRun;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   // If you override Cancel() then you'll need to either call the base class
   // Cancel() method or override IsCanceled() so that the Run() method bails out
   // appropriately.
-  nsresult
-  Cancel() override;
+  nsresult Cancel() override;
 
   // The return value is true if and only if both PreDispatch and
   // DispatchInternal return true.
-  bool
-  Dispatch();
+  bool Dispatch();
 
   // See above note about Cancel().
-  virtual bool
-  IsCanceled() const
-  {
-    return mCanceled != 0;
-  }
+  virtual bool IsCanceled() const { return mCanceled != 0; }
 
-  static WorkerRunnable*
-  FromRunnable(nsIRunnable* aRunnable);
+  static WorkerRunnable* FromRunnable(nsIRunnable* aRunnable);
 
-protected:
+ protected:
   WorkerRunnable(WorkerPrivate* aWorkerPrivate,
                  TargetAndBusyBehavior aBehavior = WorkerThreadModifyBusyCount)
 #ifdef DEBUG
-  ;
+      ;
 #else
-  : mWorkerPrivate(aWorkerPrivate), mBehavior(aBehavior), mCanceled(0),
-    mCallingCancelWithinRun(false)
-  { }
+      : mWorkerPrivate(aWorkerPrivate),
+        mBehavior(aBehavior),
+        mCanceled(0),
+        mCallingCancelWithinRun(false)
+  {
+  }
 #endif
 
   // This class is reference counted.
-  virtual ~WorkerRunnable()
-  { }
+  virtual ~WorkerRunnable() {}
 
   // Returns true if this runnable should be dispatched to the debugger queue,
   // and false otherwise.
-  virtual bool
-  IsDebuggerRunnable() const;
+  virtual bool IsDebuggerRunnable() const;
 
-  nsIGlobalObject*
-  DefaultGlobalObject() const;
+  nsIGlobalObject* DefaultGlobalObject() const;
 
   // By default asserts that Dispatch() is being called on the right thread
   // (ParentThread if |mTarget| is WorkerThread, or WorkerThread otherwise).
   // Also increments the busy count of |mWorkerPrivate| if targeting the
   // WorkerThread.
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate);
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate);
 
   // By default asserts that Dispatch() is being called on the right thread
   // (ParentThread if |mTarget| is WorkerThread, or WorkerThread otherwise).
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult);
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult);
 
   // May be implemented by subclasses if desired if they need to do some sort of
   // setup before we try to set up our JSContext and compartment for real.
@@ -132,8 +124,7 @@ protected:
   //
   // If false is returned, WorkerRun will not be called at all.  PostRun will
   // still be called, with false passed for aRunResult.
-  virtual bool
-  PreRun(WorkerPrivate* aWorkerPrivate);
+  virtual bool PreRun(WorkerPrivate* aWorkerPrivate);
 
   // Must be implemented by subclasses. Called on the target thread.  The return
   // value will be passed to PostRun().  The JSContext passed in here comes from
@@ -155,8 +146,7 @@ protected:
   // Immediately after WorkerRun returns, the caller will assert that either it
   // returns false or there is no exception pending on aCx.  Then it will report
   // any pending exceptions on aCx.
-  virtual bool
-  WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) = 0;
+  virtual bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) = 0;
 
   // By default asserts that Run() (and WorkerRun()) were called on the correct
   // thread.  Also sends an asynchronous message to the ParentThread if the
@@ -166,11 +156,11 @@ protected:
   // still in the same compartment.  PostRun implementations must NOT leave an
   // exception on the JSContext and must not run script, because the incoming
   // JSContext may be in the null compartment.
-  virtual void
-  PostRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate, bool aRunResult);
+  virtual void PostRun(JSContext* aCx,
+                       WorkerPrivate* aWorkerPrivate,
+                       bool aRunResult);
 
-  virtual bool
-  DispatchInternal();
+  virtual bool DispatchInternal();
 
   // Calling Run() directly is not supported. Just call Dispatch() and
   // WorkerRun() will be called on the correct thread automatically.
@@ -180,38 +170,32 @@ protected:
 // This runnable is used to send a message to a worker debugger.
 class WorkerDebuggerRunnable : public WorkerRunnable
 {
-protected:
+ protected:
   explicit WorkerDebuggerRunnable(WorkerPrivate* aWorkerPrivate)
-  : WorkerRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
+      : WorkerRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
   {
   }
 
-  virtual ~WorkerDebuggerRunnable()
-  { }
+  virtual ~WorkerDebuggerRunnable() {}
 
-private:
-  virtual bool
-  IsDebuggerRunnable() const override
-  {
-    return true;
-  }
+ private:
+  virtual bool IsDebuggerRunnable() const override { return true; }
 
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override final
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate) override final
   {
     AssertIsOnMainThread();
 
     return true;
   }
 
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) override;
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult) override;
 };
 
 // This runnable is used to send a message directly to a worker's sync loop.
 class WorkerSyncRunnable : public WorkerRunnable
 {
-protected:
+ protected:
   nsCOMPtr<nsIEventTarget> mSyncLoopTarget;
 
   // Passing null for aSyncLoopTarget is allowed and will result in the behavior
@@ -224,8 +208,7 @@ protected:
 
   virtual ~WorkerSyncRunnable();
 
-  virtual bool
-  DispatchInternal() override;
+  virtual bool DispatchInternal() override;
 };
 
 // This runnable is identical to WorkerSyncRunnable except it is meant to be
@@ -233,36 +216,35 @@ protected:
 // will run on the worker thread.
 class MainThreadWorkerSyncRunnable : public WorkerSyncRunnable
 {
-protected:
+ protected:
   // Passing null for aSyncLoopTarget is allowed and will result in the behavior
   // of a normal WorkerRunnable.
   MainThreadWorkerSyncRunnable(WorkerPrivate* aWorkerPrivate,
                                nsIEventTarget* aSyncLoopTarget)
-  : WorkerSyncRunnable(aWorkerPrivate, aSyncLoopTarget)
+      : WorkerSyncRunnable(aWorkerPrivate, aSyncLoopTarget)
   {
     AssertIsOnMainThread();
   }
 
-  MainThreadWorkerSyncRunnable(WorkerPrivate* aWorkerPrivate,
-                               already_AddRefed<nsIEventTarget>&& aSyncLoopTarget)
-  : WorkerSyncRunnable(aWorkerPrivate, Move(aSyncLoopTarget))
+  MainThreadWorkerSyncRunnable(
+      WorkerPrivate* aWorkerPrivate,
+      already_AddRefed<nsIEventTarget>&& aSyncLoopTarget)
+      : WorkerSyncRunnable(aWorkerPrivate, Move(aSyncLoopTarget))
   {
     AssertIsOnMainThread();
   }
 
-  virtual ~MainThreadWorkerSyncRunnable()
-  { }
+  virtual ~MainThreadWorkerSyncRunnable() {}
 
-private:
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override
+ private:
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate) override
   {
     AssertIsOnMainThread();
     return true;
   }
 
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) override;
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult) override;
 };
 
 // This runnable is processed as soon as it is received by the worker,
@@ -274,28 +256,27 @@ class WorkerControlRunnable : public WorkerRunnable
 {
   friend class WorkerPrivate;
 
-protected:
-  WorkerControlRunnable(WorkerPrivate* aWorkerPrivate,
-                        TargetAndBusyBehavior aBehavior = WorkerThreadModifyBusyCount)
+ protected:
+  WorkerControlRunnable(
+      WorkerPrivate* aWorkerPrivate,
+      TargetAndBusyBehavior aBehavior = WorkerThreadModifyBusyCount)
 #ifdef DEBUG
-  ;
+      ;
 #else
-  : WorkerRunnable(aWorkerPrivate, aBehavior)
-  { }
+      : WorkerRunnable(aWorkerPrivate, aBehavior)
+  {
+  }
 #endif
 
-  virtual ~WorkerControlRunnable()
-  { }
+  virtual ~WorkerControlRunnable() {}
 
-  nsresult
-  Cancel() override;
+  nsresult Cancel() override;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-private:
-  virtual bool
-  DispatchInternal() override;
+ private:
+  virtual bool DispatchInternal() override;
 
   // Should only be called by WorkerPrivate::DoRunLoop.
   using WorkerRunnable::Cancel;
@@ -305,26 +286,23 @@ private:
 // thread.
 class MainThreadWorkerRunnable : public WorkerRunnable
 {
-protected:
+ protected:
   explicit MainThreadWorkerRunnable(WorkerPrivate* aWorkerPrivate)
-  : WorkerRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
+      : WorkerRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
   {
     AssertIsOnMainThread();
   }
 
-  virtual ~MainThreadWorkerRunnable()
-  {}
+  virtual ~MainThreadWorkerRunnable() {}
 
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate) override
   {
     AssertIsOnMainThread();
     return true;
   }
 
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate,
-               bool aDispatchResult) override
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult) override
   {
     AssertIsOnMainThread();
   }
@@ -334,23 +312,22 @@ protected:
 // thread.
 class MainThreadWorkerControlRunnable : public WorkerControlRunnable
 {
-protected:
+ protected:
   explicit MainThreadWorkerControlRunnable(WorkerPrivate* aWorkerPrivate)
-  : WorkerControlRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
-  { }
+      : WorkerControlRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
+  {
+  }
 
-  virtual ~MainThreadWorkerControlRunnable()
-  { }
+  virtual ~MainThreadWorkerControlRunnable() {}
 
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate) override
   {
     AssertIsOnMainThread();
     return true;
   }
 
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) override
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult) override
   {
     AssertIsOnMainThread();
   }
@@ -364,19 +341,18 @@ protected:
 // a WorkerSameThreadRunnable keeps the Worker from being GCed.
 class WorkerSameThreadRunnable : public WorkerRunnable
 {
-protected:
+ protected:
   explicit WorkerSameThreadRunnable(WorkerPrivate* aWorkerPrivate)
-  : WorkerRunnable(aWorkerPrivate, WorkerThreadModifyBusyCount)
-  { }
+      : WorkerRunnable(aWorkerPrivate, WorkerThreadModifyBusyCount)
+  {
+  }
 
-  virtual ~WorkerSameThreadRunnable()
-  { }
+  virtual ~WorkerSameThreadRunnable() {}
 
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override;
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate) override;
 
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) override;
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult) override;
 
   // We just delegate PostRun to WorkerRunnable, since it does exactly
   // what we want.
@@ -388,7 +364,7 @@ protected:
 // Note that the derived class must override MainThreadRun.
 class WorkerMainThreadRunnable : public Runnable
 {
-protected:
+ protected:
   WorkerPrivate* mWorkerPrivate;
   nsCOMPtr<nsIEventTarget> mSyncLoopTarget;
   const nsCString mTelemetryKey;
@@ -399,7 +375,7 @@ protected:
 
   virtual bool MainThreadRun() = 0;
 
-public:
+ public:
   // Dispatch the runnable to the main thread.  If dispatch to main thread
   // fails, or if the worker is in a state equal or greater of aFailStatus, an
   // error will be reported on aRv. Normally you want to use 'Terminating' for
@@ -408,7 +384,7 @@ public:
   // In that case the error MUST be propagated out to script.
   void Dispatch(Status aFailStatus, ErrorResult& aRv);
 
-private:
+ private:
   NS_IMETHOD Run() override;
 };
 
@@ -423,7 +399,7 @@ private:
 // runnables.
 class WorkerProxyToMainThreadRunnable : public Runnable
 {
-protected:
+ protected:
   explicit WorkerProxyToMainThreadRunnable(WorkerPrivate* aWorkerPrivate);
 
   virtual ~WorkerProxyToMainThreadRunnable();
@@ -434,10 +410,10 @@ protected:
   // After this second method is called on the worker-thread.
   virtual void RunBackOnWorkerThreadForCleanup() = 0;
 
-public:
+ public:
   bool Dispatch();
 
-private:
+ private:
   NS_IMETHOD Run() override;
 
   void PostDispatchOnMainThread();
@@ -445,7 +421,7 @@ private:
   bool HoldWorker();
   void ReleaseWorker();
 
-protected:
+ protected:
   WorkerPrivate* mWorkerPrivate;
   UniquePtr<WorkerHolder> mWorkerHolder;
 };
@@ -458,13 +434,12 @@ protected:
 //
 // Do NOT copy what this class is doing elsewhere.  Just don't.
 class WorkerCheckAPIExposureOnMainThreadRunnable
-  : public WorkerMainThreadRunnable
+    : public WorkerMainThreadRunnable
 {
-public:
-  explicit
-  WorkerCheckAPIExposureOnMainThreadRunnable(WorkerPrivate* aWorkerPrivate);
-  virtual
-  ~WorkerCheckAPIExposureOnMainThreadRunnable();
+ public:
+  explicit WorkerCheckAPIExposureOnMainThreadRunnable(
+      WorkerPrivate* aWorkerPrivate);
+  virtual ~WorkerCheckAPIExposureOnMainThreadRunnable();
 
   // Returns whether the dispatch succeeded.  If this returns false, the API
   // should not be exposed.
@@ -479,40 +454,36 @@ class MainThreadStopSyncLoopRunnable : public WorkerSyncRunnable
 {
   bool mResult;
 
-public:
+ public:
   // Passing null for aSyncLoopTarget is not allowed.
   MainThreadStopSyncLoopRunnable(
-                               WorkerPrivate* aWorkerPrivate,
-                               already_AddRefed<nsIEventTarget>&& aSyncLoopTarget,
-                               bool aResult);
+      WorkerPrivate* aWorkerPrivate,
+      already_AddRefed<nsIEventTarget>&& aSyncLoopTarget,
+      bool aResult);
 
   // By default StopSyncLoopRunnables cannot be canceled since they could leave
   // a sync loop spinning forever.
-  nsresult
-  Cancel() override;
+  nsresult Cancel() override;
 
-protected:
-  virtual ~MainThreadStopSyncLoopRunnable()
-  { }
+ protected:
+  virtual ~MainThreadStopSyncLoopRunnable() {}
 
-private:
-  virtual bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override final
+ private:
+  virtual bool PreDispatch(WorkerPrivate* aWorkerPrivate) override final
   {
     AssertIsOnMainThread();
     return true;
   }
 
-  virtual void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) override;
+  virtual void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                            bool aDispatchResult) override;
 
-  virtual bool
-  WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override;
+  virtual bool WorkerRun(JSContext* aCx,
+                         WorkerPrivate* aWorkerPrivate) override;
 
-  virtual bool
-  DispatchInternal() override final;
+  virtual bool DispatchInternal() override final;
 };
 
 END_WORKERS_NAMESPACE
 
-#endif // mozilla_dom_workers_workerrunnable_h__
+#endif  // mozilla_dom_workers_workerrunnable_h__

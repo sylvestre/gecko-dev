@@ -19,8 +19,7 @@ namespace js {
  * Proxy objects use ShapedObject::shape_ primarily to record flags.  Property
  * information, &c. is all dynamically computed.
  */
-class ProxyObject : public ShapedObject
-{
+class ProxyObject : public ShapedObject {
     // GetProxyDataLayout computes the address of this field.
     detail::ProxyDataLayout data;
 
@@ -33,31 +32,27 @@ class ProxyObject : public ShapedObject
                       "Proxy reservedSlots must overlay native object slots field");
     }
 
-    static JS::Result<ProxyObject*, JS::OOM&>
-    create(JSContext* cx, const js::Class* clasp, Handle<TaggedProto> proto,
-           js::gc::AllocKind allocKind, js::NewObjectKind newKind);
+    static JS::Result<ProxyObject*, JS::OOM&> create(JSContext* cx, const js::Class* clasp,
+                                                     Handle<TaggedProto> proto,
+                                                     js::gc::AllocKind allocKind,
+                                                     js::NewObjectKind newKind);
 
-  public:
+   public:
     static ProxyObject* New(JSContext* cx, const BaseProxyHandler* handler, HandleValue priv,
                             TaggedProto proto_, const ProxyOptions& options);
 
     // Proxies usually store their ProxyValueArray inline in the object.
     // There's one unfortunate exception: when a proxy is swapped with another
     // object, and the sizes don't match, we malloc the ProxyValueArray.
-    void* inlineDataStart() const {
-        return (void*)(uintptr_t(this) + sizeof(ProxyObject));
-    }
-    bool usingInlineValueArray() const {
-        return data.values() == inlineDataStart();
-    }
+    void* inlineDataStart() const { return (void*)(uintptr_t(this) + sizeof(ProxyObject)); }
+    bool usingInlineValueArray() const { return data.values() == inlineDataStart(); }
     void setInlineValueArray() {
-        data.reservedSlots = &reinterpret_cast<detail::ProxyValueArray*>(inlineDataStart())->reservedSlots;
+        data.reservedSlots =
+            &reinterpret_cast<detail::ProxyValueArray*>(inlineDataStart())->reservedSlots;
     }
     MOZ_MUST_USE bool initExternalValueArrayAfterSwap(JSContext* cx, const Vector<Value>& values);
 
-    const Value& private_() {
-        return GetProxyPrivate(this);
-    }
+    const Value& private_() { return GetProxyPrivate(this); }
 
     void setCrossCompartmentPrivate(const Value& priv);
     void setSameCompartmentPrivate(const Value& priv);
@@ -70,37 +65,29 @@ class ProxyObject : public ShapedObject
         return GetProxyHandler(const_cast<ProxyObject*>(this));
     }
 
-    void setHandler(const BaseProxyHandler* handler) {
-        SetProxyHandler(this, handler);
-    }
+    void setHandler(const BaseProxyHandler* handler) { SetProxyHandler(this, handler); }
 
-    static size_t offsetOfReservedSlots() {
-        return offsetof(ProxyObject, data.reservedSlots);
-    }
-    static size_t offsetOfHandler() {
-        return offsetof(ProxyObject, data.handler);
-    }
+    static size_t offsetOfReservedSlots() { return offsetof(ProxyObject, data.reservedSlots); }
+    static size_t offsetOfHandler() { return offsetof(ProxyObject, data.handler); }
 
-    size_t numReservedSlots() const {
-        return JSCLASS_RESERVED_SLOTS(getClass());
-    }
+    size_t numReservedSlots() const { return JSCLASS_RESERVED_SLOTS(getClass()); }
     const Value& reservedSlot(size_t n) const {
         return GetProxyReservedSlot(const_cast<ProxyObject*>(this), n);
     }
 
-    void setReservedSlot(size_t n, const Value& extra) {
-        SetProxyReservedSlot(this, n, extra);
-    }
+    void setReservedSlot(size_t n, const Value& extra) { SetProxyReservedSlot(this, n, extra); }
 
     gc::AllocKind allocKindForTenure() const;
 
-  private:
+   private:
     GCPtrValue* reservedSlotPtr(size_t n) {
-        return reinterpret_cast<GCPtrValue*>(&detail::GetProxyDataLayout(this)->reservedSlots->slots[n]);
+        return reinterpret_cast<GCPtrValue*>(
+            &detail::GetProxyDataLayout(this)->reservedSlots->slots[n]);
     }
 
     GCPtrValue* slotOfPrivate() {
-        return reinterpret_cast<GCPtrValue*>(&detail::GetProxyDataLayout(this)->values()->privateSlot);
+        return reinterpret_cast<GCPtrValue*>(
+            &detail::GetProxyDataLayout(this)->values()->privateSlot);
     }
 
     void setPrivate(const Value& priv);
@@ -112,12 +99,11 @@ class ProxyObject : public ShapedObject
 
         // Proxy classes are not allowed to have call or construct hooks directly. Their
         // callability is instead decided by handler()->isCallable().
-        return clasp->isProxy() &&
-               clasp->isTrace(ProxyObject::trace) &&
-               !clasp->getCall() && !clasp->getConstruct();
+        return clasp->isProxy() && clasp->isTrace(ProxyObject::trace) && !clasp->getCall() &&
+               !clasp->getConstruct();
     }
 
-  public:
+   public:
     static unsigned grayLinkReservedSlot(JSObject* obj);
 
     void renew(const BaseProxyHandler* handler, const Value& priv);
@@ -134,20 +120,14 @@ class ProxyObject : public ShapedObject
     static const Class proxyClass;
 };
 
-inline bool
-IsProxyClass(const Class* clasp)
-{
-    return clasp->isProxy();
-}
+inline bool IsProxyClass(const Class* clasp) { return clasp->isProxy(); }
 
 bool IsDerivedProxyObject(const JSObject* obj, const js::BaseProxyHandler* handler);
 
-} // namespace js
+}  // namespace js
 
-template<>
-inline bool
-JSObject::is<js::ProxyObject>() const
-{
+template <>
+inline bool JSObject::is<js::ProxyObject>() const {
     // Note: this method is implemented in terms of the IsProxy() friend API
     // functions to ensure the implementations are tied together.
     // Note 2: this specialization isn't used for subclasses of ProxyObject
@@ -155,8 +135,7 @@ JSObject::is<js::ProxyObject>() const
     return js::IsProxy(const_cast<JSObject*>(this));
 }
 
-inline bool
-js::IsDerivedProxyObject(const JSObject* obj, const js::BaseProxyHandler* handler) {
+inline bool js::IsDerivedProxyObject(const JSObject* obj, const js::BaseProxyHandler* handler) {
     return obj->is<js::ProxyObject>() && obj->as<js::ProxyObject>().handler() == handler;
 }
 

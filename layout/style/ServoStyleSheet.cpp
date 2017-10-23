@@ -18,7 +18,6 @@
 #include "nsIStyleSheetLinkingElement.h"
 #include "Loader.h"
 
-
 #include "mozAutoDocUpdate.h"
 #include "nsIDOMCSSStyleSheet.h"
 
@@ -34,7 +33,7 @@ ServoStyleSheetInner::ServoStyleSheetInner(CORSMode aCORSMode,
                                            ReferrerPolicy aReferrerPolicy,
                                            const SRIMetadata& aIntegrity,
                                            css::SheetParsingMode aParsingMode)
-  : StyleSheetInfo(aCORSMode, aReferrerPolicy, aIntegrity)
+    : StyleSheetInfo(aCORSMode, aReferrerPolicy, aIntegrity)
 {
   mContents = Servo_StyleSheet_Empty(aParsingMode).Consume();
   mURLData = URLExtraData::Dummy();
@@ -43,14 +42,13 @@ ServoStyleSheetInner::ServoStyleSheetInner(CORSMode aCORSMode,
 
 ServoStyleSheetInner::ServoStyleSheetInner(ServoStyleSheetInner& aCopy,
                                            ServoStyleSheet* aPrimarySheet)
-  : StyleSheetInfo(aCopy, aPrimarySheet)
-  , mURLData(aCopy.mURLData)
+    : StyleSheetInfo(aCopy, aPrimarySheet), mURLData(aCopy.mURLData)
 {
   MOZ_COUNT_CTOR(ServoStyleSheetInner);
 
   // Actually clone aCopy's mContents and use that as ours.
-  mContents = Servo_StyleSheet_Clone(
-    aCopy.mContents.get(), aPrimarySheet).Consume();
+  mContents =
+      Servo_StyleSheet_Clone(aCopy.mContents.get(), aPrimarySheet).Consume();
 
   // Our child list is fixed up by our parent.
 }
@@ -63,14 +61,13 @@ ServoStyleSheet::BuildChildListAfterInnerClone()
   MOZ_ASSERT(!Inner()->mFirstChild);
 
   auto* contents = Inner()->mContents.get();
-  RefPtr<ServoCssRules> rules =
-    Servo_StyleSheet_GetRules(contents).Consume();
+  RefPtr<ServoCssRules> rules = Servo_StyleSheet_GetRules(contents).Consume();
 
   uint32_t index = 0;
   while (true) {
-    uint32_t line, column; // Actually unused.
+    uint32_t line, column;  // Actually unused.
     RefPtr<RawServoImportRule> import =
-      Servo_CssRules_GetImportRuleAt(rules, index, &line, &column).Consume();
+        Servo_CssRules_GetImportRuleAt(rules, index, &line, &column).Consume();
     if (!import) {
       // Note that only @charset rules come before @import rules, and @charset
       // rules are parsed but skipped, so we can stop iterating as soon as we
@@ -78,7 +75,7 @@ ServoStyleSheet::BuildChildListAfterInnerClone()
       break;
     }
     auto* sheet =
-      const_cast<ServoStyleSheet*>(Servo_ImportRule_GetSheet(import));
+        const_cast<ServoStyleSheet*>(Servo_ImportRule_GetSheet(import));
     MOZ_ASSERT(sheet);
     PrependStyleSheetSilently(sheet);
     index++;
@@ -89,17 +86,12 @@ already_AddRefed<ServoStyleSheet>
 ServoStyleSheet::CreateEmptyChildSheet(
     already_AddRefed<dom::MediaList> aMediaList) const
 {
-  RefPtr<ServoStyleSheet> child =
-    new ServoStyleSheet(
-        ParsingMode(),
-        CORSMode::CORS_NONE,
-        GetReferrerPolicy(),
-        SRIMetadata());
+  RefPtr<ServoStyleSheet> child = new ServoStyleSheet(
+      ParsingMode(), CORSMode::CORS_NONE, GetReferrerPolicy(), SRIMetadata());
 
   child->mMedia = aMediaList;
   return child.forget();
 }
-
 
 ServoStyleSheetInner::~ServoStyleSheetInner()
 {
@@ -120,10 +112,10 @@ size_t
 ServoStyleSheetInner::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
 {
   size_t n = aMallocSizeOf(this);
-  n += Servo_StyleSheet_SizeOfIncludingThis(
-      ServoStyleSheetMallocSizeOf,
-      ServoStyleSheetMallocEnclosingSizeOf,
-      mContents);
+  n +=
+      Servo_StyleSheet_SizeOfIncludingThis(ServoStyleSheetMallocSizeOf,
+                                           ServoStyleSheetMallocEnclosingSizeOf,
+                                           mContents);
   return n;
 }
 
@@ -131,10 +123,10 @@ ServoStyleSheet::ServoStyleSheet(css::SheetParsingMode aParsingMode,
                                  CORSMode aCORSMode,
                                  net::ReferrerPolicy aReferrerPolicy,
                                  const dom::SRIMetadata& aIntegrity)
-  : StyleSheet(StyleBackendType::Servo, aParsingMode)
+    : StyleSheet(StyleBackendType::Servo, aParsingMode)
 {
   mInner = new ServoStyleSheetInner(
-    aCORSMode, aReferrerPolicy, aIntegrity, aParsingMode);
+      aCORSMode, aReferrerPolicy, aIntegrity, aParsingMode);
   mInner->AddSheet(this);
 }
 
@@ -143,13 +135,13 @@ ServoStyleSheet::ServoStyleSheet(const ServoStyleSheet& aCopy,
                                  dom::CSSImportRule* aOwnerRuleToUse,
                                  nsIDocument* aDocumentToUse,
                                  nsINode* aOwningNodeToUse)
-  : StyleSheet(aCopy,
-               aParentToUse,
-               aOwnerRuleToUse,
-               aDocumentToUse,
-               aOwningNodeToUse)
+    : StyleSheet(aCopy,
+                 aParentToUse,
+                 aOwnerRuleToUse,
+                 aDocumentToUse,
+                 aOwningNodeToUse)
 {
-  if (mDirty) { // CSSOM's been there, force full copy now
+  if (mDirty) {  // CSSOM's been there, force full copy now
     NS_ASSERTION(mInner->mComplete,
                  "Why have rules been accessed on an incomplete sheet?");
     // FIXME: handle failure?
@@ -160,9 +152,7 @@ ServoStyleSheet::ServoStyleSheet(const ServoStyleSheet& aCopy,
   }
 }
 
-ServoStyleSheet::~ServoStyleSheet()
-{
-}
+ServoStyleSheet::~ServoStyleSheet() {}
 
 void
 ServoStyleSheet::LastRelease()
@@ -208,7 +198,7 @@ ServoStyleSheet::ParseSheet(css::Loader* aLoader,
 {
   MOZ_ASSERT(!mMedia || mMedia->IsServo());
   RefPtr<URLExtraData> extraData =
-    new URLExtraData(aBaseURI, aSheetURI, aSheetPrincipal);
+      new URLExtraData(aBaseURI, aSheetURI, aSheetPrincipal);
 
   Inner()->mContents = Servo_StyleSheet_FromUTF8Bytes(aLoader,
                                                       this,
@@ -219,7 +209,7 @@ ServoStyleSheet::ParseSheet(css::Loader* aLoader,
                                                       aLineNumber,
                                                       aCompatMode,
                                                       aReusableSheets)
-                         .Consume();
+                           .Consume();
 
   nsString sourceMapURL;
   Servo_StyleSheet_GetSourceMapURL(Inner()->mContents, &sourceMapURL);
@@ -263,7 +253,7 @@ ServoStyleSheet::ReparseSheet(const nsAString& aInput)
   }
 
   // clean up child sheets list
-  for (StyleSheet* child = GetFirstChild(); child; ) {
+  for (StyleSheet* child = GetFirstChild(); child;) {
     StyleSheet* next = child->mNext;
     child->mParent = nullptr;
     child->SetAssociatedDocument(nullptr, NotOwnedByDocument);
@@ -292,7 +282,7 @@ ServoStyleSheet::ReparseSheet(const nsAString& aInput)
       MOZ_ASSERT(rule);
       if (rule->GetType() == css::Rule::IMPORT_RULE &&
           RuleHasPendingChildSheet(rule)) {
-        continue; // notify when loaded (see StyleSheetLoaded)
+        continue;  // notify when loaded (see StyleSheetLoaded)
       }
       mDocument->StyleRuleRemoved(this, rule);
 
@@ -329,7 +319,7 @@ ServoStyleSheet::ReparseSheet(const nsAString& aInput)
       MOZ_ASSERT(rule);
       if (rule->GetType() == css::Rule::IMPORT_RULE &&
           RuleHasPendingChildSheet(rule)) {
-        continue; // notify when loaded (see StyleSheetLoaded)
+        continue;  // notify when loaded (see StyleSheetLoaded)
       }
 
       mDocument->StyleRuleAdded(this, rule);
@@ -356,10 +346,11 @@ ServoStyleSheet::StyleSheetLoaded(StyleSheet* aSheet,
 
   ServoStyleSheet* sheet = aSheet->AsServo();
   if (sheet->GetParentSheet() == nullptr) {
-    return NS_OK; // ignore if sheet has been detached already
+    return NS_OK;  // ignore if sheet has been detached already
   }
   NS_ASSERTION(this == sheet->GetParentSheet(),
-               "We are being notified of a sheet load for a sheet that is not our child!");
+               "We are being notified of a sheet load for a sheet that is not "
+               "our child!");
 
   if (mDocument && NS_SUCCEEDED(aStatus)) {
     mozAutoDocUpdate updateBatch(mDocument, UPDATE_STYLE, true);
@@ -384,11 +375,12 @@ ServoStyleSheet::Clone(StyleSheet* aCloneParent,
                        nsIDocument* aCloneDocument,
                        nsINode* aCloneOwningNode) const
 {
-  RefPtr<StyleSheet> clone = new ServoStyleSheet(*this,
-    static_cast<ServoStyleSheet*>(aCloneParent),
-    aCloneOwnerRule,
-    aCloneDocument,
-    aCloneOwningNode);
+  RefPtr<StyleSheet> clone =
+      new ServoStyleSheet(*this,
+                          static_cast<ServoStyleSheet*>(aCloneParent),
+                          aCloneOwnerRule,
+                          aCloneDocument,
+                          aCloneOwningNode);
   return clone.forget();
 }
 
@@ -404,7 +396,7 @@ ServoStyleSheet::GetCssRulesInternal(bool aRequireUniqueInner)
     }
 
     RefPtr<ServoCssRules> rawRules =
-      Servo_StyleSheet_GetRules(Inner()->mContents).Consume();
+        Servo_StyleSheet_GetRules(Inner()->mContents).Consume();
     MOZ_ASSERT(rawRules);
     mRuleList = new ServoCSSRuleList(rawRules.forget(), this);
   }
@@ -413,7 +405,8 @@ ServoStyleSheet::GetCssRulesInternal(bool aRequireUniqueInner)
 
 uint32_t
 ServoStyleSheet::InsertRuleInternal(const nsAString& aRule,
-                                    uint32_t aIndex, ErrorResult& aRv)
+                                    uint32_t aIndex,
+                                    ErrorResult& aRv)
 {
   // Ensure mRuleList is constructed.
   GetCssRulesInternal();
@@ -492,7 +485,7 @@ OriginFlags
 ServoStyleSheet::GetOrigin()
 {
   return static_cast<OriginFlags>(
-    Servo_StyleSheet_GetOrigin(Inner()->mContents));
+      Servo_StyleSheet_GetOrigin(Inner()->mContents));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

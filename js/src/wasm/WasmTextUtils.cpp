@@ -27,10 +27,8 @@ using namespace wasm;
 
 using mozilla::IsNaN;
 
-template<size_t base>
-bool
-wasm::RenderInBase(StringBuffer& sb, uint64_t num)
-{
+template <size_t base>
+bool wasm::RenderInBase(StringBuffer& sb, uint64_t num) {
     uint64_t n = num;
     uint64_t pow = 1;
     while (n) {
@@ -41,8 +39,7 @@ wasm::RenderInBase(StringBuffer& sb, uint64_t num)
 
     n = num;
     while (pow) {
-        if (!sb.append("0123456789abcdef"[n / pow]))
-            return false;
+        if (!sb.append("0123456789abcdef"[n / pow])) return false;
         n -= (n / pow) * pow;
         pow /= base;
     }
@@ -52,28 +49,22 @@ wasm::RenderInBase(StringBuffer& sb, uint64_t num)
 
 template bool wasm::RenderInBase<10>(StringBuffer& sb, uint64_t num);
 
-template<class T>
-bool
-wasm::RenderNaN(StringBuffer& sb, T num)
-{
+template <class T>
+bool wasm::RenderNaN(StringBuffer& sb, T num) {
     typedef typename mozilla::SelectTrait<T> Traits;
     typedef typename Traits::Bits Bits;
 
     MOZ_ASSERT(IsNaN(num));
 
     Bits bits = mozilla::BitwiseCast<Bits>(num);
-    if ((bits & Traits::kSignBit) && !sb.append("-"))
-        return false;
-    if (!sb.append("nan"))
-        return false;
+    if ((bits & Traits::kSignBit) && !sb.append("-")) return false;
+    if (!sb.append("nan")) return false;
 
     Bits payload = bits & Traits::kSignificandBits;
     // Only render the payload if it's not the spec's default NaN.
-    if (payload == ((Traits::kSignificandBits + 1) >> 1))
-        return true;
+    if (payload == ((Traits::kSignificandBits + 1) >> 1)) return true;
 
-    return sb.append(":0x") &&
-           RenderInBase<16>(sb, payload);
+    return sb.append(":0x") && RenderInBase<16>(sb, payload);
 }
 
 template MOZ_MUST_USE bool wasm::RenderNaN(StringBuffer& b, float num);

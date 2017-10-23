@@ -6,7 +6,7 @@
 #define _WEBRTC_GLOBAL_INFORMATION_H_
 
 #include "nsString.h"
-#include "mozilla/dom/BindingDeclarations.h" // for Optional
+#include "mozilla/dom/BindingDeclarations.h"  // for Optional
 
 namespace mozilla {
 class PeerConnectionImpl;
@@ -20,7 +20,7 @@ class WebrtcGlobalLoggingCallback;
 
 class WebrtcGlobalInformation
 {
-public:
+ public:
   static void GetAllStats(const GlobalObject& aGlobal,
                           WebrtcGlobalStatisticsCallback& aStatsCallback,
                           const Optional<nsAString>& pcIdFilter,
@@ -44,14 +44,14 @@ public:
 
   static void StoreLongTermICEStatistics(PeerConnectionImpl& aPc);
 
-private:
+ private:
   WebrtcGlobalInformation() = delete;
   WebrtcGlobalInformation(const WebrtcGlobalInformation& aOrig) = delete;
-  WebrtcGlobalInformation& operator=(
-    const WebrtcGlobalInformation& aRhs) = delete;
+  WebrtcGlobalInformation& operator=(const WebrtcGlobalInformation& aRhs) =
+      delete;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif  // _WEBRTC_GLOBAL_INFORMATION_H_

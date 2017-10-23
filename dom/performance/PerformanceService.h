@@ -25,16 +25,14 @@ namespace dom {
 
 class PerformanceService
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(PerformanceService)
 
-  static PerformanceService*
-  GetOrCreate();
+  static PerformanceService* GetOrCreate();
 
-  DOMHighResTimeStamp
-  TimeOrigin(const TimeStamp& aCreationTimeStamp) const;
+  DOMHighResTimeStamp TimeOrigin(const TimeStamp& aCreationTimeStamp) const;
 
-private:
+ private:
   PerformanceService();
   ~PerformanceService() = default;
 
@@ -42,7 +40,7 @@ private:
   PRTime mCreationEpochTime;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // dom_performance_PerformanceService_h
+#endif  // dom_performance_PerformanceService_h

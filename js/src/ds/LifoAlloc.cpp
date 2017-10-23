@@ -17,14 +17,11 @@ namespace js {
 namespace detail {
 
 /* static */
-UniquePtr<BumpChunk>
-BumpChunk::newWithCapacity(size_t size)
-{
+UniquePtr<BumpChunk> BumpChunk::newWithCapacity(size_t size) {
     MOZ_ASSERT(RoundUpPow2(size) == size);
     MOZ_ASSERT(size >= sizeof(BumpChunk));
     void* mem = js_malloc(size);
-    if (!mem)
-        return nullptr;
+    if (!mem) return nullptr;
 
     UniquePtr<BumpChunk> result(new (mem) BumpChunk(size));
 
@@ -35,21 +32,17 @@ BumpChunk::newWithCapacity(size_t size)
     return result;
 }
 
-bool
-BumpChunk::canAlloc(size_t n)
-{
+bool BumpChunk::canAlloc(size_t n) {
     uint8_t* aligned = AlignPtr(bump_);
     uint8_t* newBump = aligned + n;
     // bump_ <= newBump, is necessary to catch overflow.
     return bump_ <= newBump && newBump <= capacity_;
 }
 
-} // namespace detail
-} // namespace js
+}  // namespace detail
+}  // namespace js
 
-void
-LifoAlloc::freeAll()
-{
+void LifoAlloc::freeAll() {
     while (!chunks_.empty()) {
         BumpChunk bc = mozilla::Move(chunks_.popFirst());
         decrementCurSize(bc->computedSizeOfIncludingThis());
@@ -64,9 +57,7 @@ LifoAlloc::freeAll()
     MOZ_ASSERT(curSize_ == 0);
 }
 
-LifoAlloc::BumpChunk
-LifoAlloc::newChunkWithCapacity(size_t n)
-{
+LifoAlloc::BumpChunk LifoAlloc::newChunkWithCapacity(size_t n) {
     MOZ_ASSERT(fallibleScope_, "[OOM] Cannot allocate a new chunk in an infallible scope.");
 
     // Compute the size which should be requested in order to be able to fit |n|
@@ -79,8 +70,7 @@ LifoAlloc::newChunkWithCapacity(size_t n)
 
         // Guard for overflow.
         if (allocSizeWithCanaries < n ||
-            (allocSizeWithCanaries & (size_t(1) << (BitSize<size_t>::value - 1))))
-        {
+            (allocSizeWithCanaries & (size_t(1) << (BitSize<size_t>::value - 1)))) {
             return nullptr;
         }
 
@@ -91,15 +81,12 @@ LifoAlloc::newChunkWithCapacity(size_t n)
 
     // Create a new BumpChunk, and allocate space for it.
     BumpChunk result = detail::BumpChunk::newWithCapacity(chunkSize);
-    if (!result)
-        return nullptr;
+    if (!result) return nullptr;
     MOZ_ASSERT(result->computedSizeOfIncludingThis() == chunkSize);
     return result;
 }
 
-bool
-LifoAlloc::getOrCreateChunk(size_t n)
-{
+bool LifoAlloc::getOrCreateChunk(size_t n) {
     // Look for existing unused BumpChunks to satisfy the request, and pick the
     // first one which is large enough, and move it into the list of used
     // chunks.
@@ -124,17 +111,14 @@ LifoAlloc::getOrCreateChunk(size_t n)
 
     // Allocate a new BumpChunk with enough space for the next allocation.
     BumpChunk newChunk = newChunkWithCapacity(n);
-    if (!newChunk)
-        return false;
+    if (!newChunk) return false;
     size_t size = newChunk->computedSizeOfIncludingThis();
     chunks_.append(mozilla::Move(newChunk));
     incrementCurSize(size);
     return true;
 }
 
-void
-LifoAlloc::transferFrom(LifoAlloc* other)
-{
+void LifoAlloc::transferFrom(LifoAlloc* other) {
     MOZ_ASSERT(!markCount);
     MOZ_ASSERT(!other->markCount);
 
@@ -144,14 +128,11 @@ LifoAlloc::transferFrom(LifoAlloc* other)
     other->curSize_ = 0;
 }
 
-void
-LifoAlloc::transferUnusedFrom(LifoAlloc* other)
-{
+void LifoAlloc::transferUnusedFrom(LifoAlloc* other) {
     MOZ_ASSERT(!markCount);
 
     size_t size = 0;
-    for (detail::BumpChunk& bc : other->unused_)
-        size += bc.computedSizeOfIncludingThis();
+    for (detail::BumpChunk& bc : other->unused_) size += bc.computedSizeOfIncludingThis();
 
     appendUnused(mozilla::Move(other->unused_));
     incrementCurSize(size);

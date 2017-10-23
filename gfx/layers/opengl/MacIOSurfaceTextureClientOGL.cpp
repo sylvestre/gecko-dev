@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MacIOSurfaceTextureClientOGL.h"
-#include "mozilla/gfx/MacIOSurface.h" 
+#include "mozilla/gfx/MacIOSurface.h"
 #include "MacIOSurfaceHelpers.h"
 #include "gfxPlatform.h"
 
@@ -15,8 +15,7 @@ using namespace gfx;
 
 MacIOSurfaceTextureData::MacIOSurfaceTextureData(MacIOSurface* aSurface,
                                                  BackendType aBackend)
-  : mSurface(aSurface)
-  , mBackend(aBackend)
+    : mSurface(aSurface), mBackend(aBackend)
 {
   MOZ_ASSERT(mSurface);
 }
@@ -44,9 +43,8 @@ MacIOSurfaceTextureData::Create(const IntSize& aSize,
     return nullptr;
   }
 
-  RefPtr<MacIOSurface> surf = MacIOSurface::CreateIOSurface(aSize.width, aSize.height,
-                                                            1.0,
-                                                            aFormat == SurfaceFormat::B8G8R8A8);
+  RefPtr<MacIOSurface> surf = MacIOSurface::CreateIOSurface(
+      aSize.width, aSize.height, 1.0, aFormat == SurfaceFormat::B8G8R8A8);
   if (!surf) {
     return nullptr;
   }
@@ -57,25 +55,27 @@ MacIOSurfaceTextureData::Create(const IntSize& aSize,
 bool
 MacIOSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor)
 {
-  aOutDescriptor = SurfaceDescriptorMacIOSurface(mSurface->GetIOSurfaceID(),
-                                                 mSurface->GetContentsScaleFactor(),
-                                                 !mSurface->HasAlpha());
+  aOutDescriptor =
+      SurfaceDescriptorMacIOSurface(mSurface->GetIOSurfaceID(),
+                                    mSurface->GetContentsScaleFactor(),
+                                    !mSurface->HasAlpha());
   return true;
 }
 
 void
 MacIOSurfaceTextureData::FillInfo(TextureData::Info& aInfo) const
 {
-  aInfo.size = gfx::IntSize(mSurface->GetDevicePixelWidth(), mSurface->GetDevicePixelHeight());
-  aInfo.format = mSurface->HasAlpha() ? SurfaceFormat::B8G8R8A8 : SurfaceFormat::B8G8R8X8;
+  aInfo.size = gfx::IntSize(mSurface->GetDevicePixelWidth(),
+                            mSurface->GetDevicePixelHeight());
+  aInfo.format =
+      mSurface->HasAlpha() ? SurfaceFormat::B8G8R8A8 : SurfaceFormat::B8G8R8X8;
   aInfo.hasIntermediateBuffer = false;
   aInfo.hasSynchronization = false;
   aInfo.supportsMoz2D = true;
   aInfo.canExposeMappedData = false;
 }
 
-bool
-MacIOSurfaceTextureData::Lock(OpenMode)
+bool MacIOSurfaceTextureData::Lock(OpenMode)
 {
   mSurface->Lock(false);
   return true;
@@ -131,9 +131,10 @@ MacIOSurfaceTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface)
     return false;
   }
 
-  dt->CopySurface(aSurface, IntRect(IntPoint(), aSurface->GetSize()), IntPoint());
+  dt->CopySurface(
+      aSurface, IntRect(IntPoint(), aSurface->GetSize()), IntPoint());
   return true;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

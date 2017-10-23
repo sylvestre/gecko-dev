@@ -28,7 +28,8 @@ class OuterDocAccessible;
 
 namespace logging {
 
-enum EModules {
+enum EModules
+{
   eDocLoad = 1 << 0,
   eDocCreate = 1 << 1,
   eDocDestroy = 1 << 2,
@@ -53,174 +54,223 @@ enum EModules {
 /**
  * Return true if any of the given modules is logged.
  */
-bool IsEnabled(uint32_t aModules);
+bool
+IsEnabled(uint32_t aModules);
 
 /**
  * Return true if all of the given modules are logged.
  */
-bool IsEnabledAll(uint32_t aModules);
+bool
+IsEnabledAll(uint32_t aModules);
 
 /**
  * Return true if the given module is logged.
  */
-bool IsEnabled(const nsAString& aModules);
+bool
+IsEnabled(const nsAString& aModules);
 
 /**
  * Log the document loading progress.
  */
-void DocLoad(const char* aMsg, nsIWebProgress* aWebProgress,
-             nsIRequest* aRequest, uint32_t aStateFlags);
-void DocLoad(const char* aMsg, nsIDocument* aDocumentNode);
-void DocCompleteLoad(DocAccessible* aDocument, bool aIsLoadEventTarget);
+void
+DocLoad(const char* aMsg,
+        nsIWebProgress* aWebProgress,
+        nsIRequest* aRequest,
+        uint32_t aStateFlags);
+void
+DocLoad(const char* aMsg, nsIDocument* aDocumentNode);
+void
+DocCompleteLoad(DocAccessible* aDocument, bool aIsLoadEventTarget);
 
 /**
  * Log that document load event was fired.
  */
-void DocLoadEventFired(AccEvent* aEvent);
+void
+DocLoadEventFired(AccEvent* aEvent);
 
 /**
  * Log that document laod event was handled.
  */
-void DocLoadEventHandled(AccEvent* aEvent);
+void
+DocLoadEventHandled(AccEvent* aEvent);
 
 /**
  * Log the document was created.
  */
-void DocCreate(const char* aMsg, nsIDocument* aDocumentNode,
-               DocAccessible* aDocument = nullptr);
+void
+DocCreate(const char* aMsg,
+          nsIDocument* aDocumentNode,
+          DocAccessible* aDocument = nullptr);
 
 /**
  * Log the document was destroyed.
  */
-void DocDestroy(const char* aMsg, nsIDocument* aDocumentNode,
-                DocAccessible* aDocument = nullptr);
+void
+DocDestroy(const char* aMsg,
+           nsIDocument* aDocumentNode,
+           DocAccessible* aDocument = nullptr);
 
 /**
  * Log the outer document was destroyed.
  */
-void OuterDocDestroy(OuterDocAccessible* OuterDoc);
+void
+OuterDocDestroy(OuterDocAccessible* OuterDoc);
 
 /**
  * Log the focus notification target.
  */
-void FocusNotificationTarget(const char* aMsg, const char* aTargetDescr,
-                             Accessible* aTarget);
-void FocusNotificationTarget(const char* aMsg, const char* aTargetDescr,
-                             nsINode* aTargetNode);
-void FocusNotificationTarget(const char* aMsg, const char* aTargetDescr,
-                             nsISupports* aTargetThing);
+void
+FocusNotificationTarget(const char* aMsg,
+                        const char* aTargetDescr,
+                        Accessible* aTarget);
+void
+FocusNotificationTarget(const char* aMsg,
+                        const char* aTargetDescr,
+                        nsINode* aTargetNode);
+void
+FocusNotificationTarget(const char* aMsg,
+                        const char* aTargetDescr,
+                        nsISupports* aTargetThing);
 
 /**
  * Log a cause of active item descendant change (submessage).
  */
-void ActiveItemChangeCausedBy(const char* aMsg, Accessible* aTarget);
+void
+ActiveItemChangeCausedBy(const char* aMsg, Accessible* aTarget);
 
 /**
  * Log the active widget (submessage).
  */
-void ActiveWidget(Accessible* aWidget);
+void
+ActiveWidget(Accessible* aWidget);
 
 /**
  * Log the focus event was dispatched (submessage).
  */
-void FocusDispatched(Accessible* aTarget);
+void
+FocusDispatched(Accessible* aTarget);
 
 /**
  * Log the selection change.
  */
-void SelChange(nsISelection* aSelection, DocAccessible* aDocument,
-               int16_t aReason);
+void
+SelChange(nsISelection* aSelection, DocAccessible* aDocument, int16_t aReason);
 
 /**
  * Log the given accessible elements info.
  */
-void TreeInfo(const char* aMsg, uint32_t aExtraFlags, ...);
-void TreeInfo(const char* aMsg, uint32_t aExtraFlags,
-              const char* aMsg1, Accessible* aAcc,
-              const char* aMsg2, nsINode* aNode);
-void TreeInfo(const char* aMsg, uint32_t aExtraFlags, Accessible* aParent);
+void
+TreeInfo(const char* aMsg, uint32_t aExtraFlags, ...);
+void
+TreeInfo(const char* aMsg,
+         uint32_t aExtraFlags,
+         const char* aMsg1,
+         Accessible* aAcc,
+         const char* aMsg2,
+         nsINode* aNode);
+void
+TreeInfo(const char* aMsg, uint32_t aExtraFlags, Accessible* aParent);
 
 /**
  * Log the accessible/DOM tree.
  */
 typedef const char* (*GetTreePrefix)(void* aData, Accessible*);
-void Tree(const char* aTitle, const char* aMsgText, Accessible* aRoot,
-          GetTreePrefix aPrefixFunc = nullptr, void* aGetTreePrefixData = nullptr);
-void DOMTree(const char* aTitle, const char* aMsgText, DocAccessible* aDoc);
+void
+Tree(const char* aTitle,
+     const char* aMsgText,
+     Accessible* aRoot,
+     GetTreePrefix aPrefixFunc = nullptr,
+     void* aGetTreePrefixData = nullptr);
+void
+DOMTree(const char* aTitle, const char* aMsgText, DocAccessible* aDoc);
 
 /**
  * Log the message ('title: text' format) on new line. Print the start and end
  * boundaries of the message body designated by '{' and '}' (2 spaces indent for
  * body).
  */
-void MsgBegin(const char* aTitle, const char* aMsgText, ...) MOZ_FORMAT_PRINTF(2, 3);
-void MsgEnd();
+void
+MsgBegin(const char* aTitle, const char* aMsgText, ...) MOZ_FORMAT_PRINTF(2, 3);
+void
+MsgEnd();
 
 /**
  * Print start and end boundaries of the message body designated by '{' and '}'
  * (2 spaces indent for body).
  */
-void SubMsgBegin();
-void SubMsgEnd();
+void
+SubMsgBegin();
+void
+SubMsgEnd();
 
 /**
  * Log the entry into message body (4 spaces indent).
  */
-void MsgEntry(const char* aEntryText, ...) MOZ_FORMAT_PRINTF(1, 2);
+void
+MsgEntry(const char* aEntryText, ...) MOZ_FORMAT_PRINTF(1, 2);
 
 /**
  * Log the text, two spaces offset is used.
  */
-void Text(const char* aText);
+void
+Text(const char* aText);
 
 /**
  * Log the accessible object address as message entry (4 spaces indent).
  */
-void Address(const char* aDescr, Accessible* aAcc);
+void
+Address(const char* aDescr, Accessible* aAcc);
 
 /**
  * Log the DOM node info as message entry.
  */
-void Node(const char* aDescr, nsINode* aNode);
+void
+Node(const char* aDescr, nsINode* aNode);
 
 /**
  * Log the document accessible info as message entry.
  */
-void Document(DocAccessible* aDocument);
+void
+Document(DocAccessible* aDocument);
 
 /**
  * Log the accessible and its DOM node as a message entry.
  */
-void AccessibleInfo(const char* aDescr, Accessible* aAccessible);
-void AccessibleNNode(const char* aDescr, Accessible* aAccessible);
-void AccessibleNNode(const char* aDescr, nsINode* aNode);
+void
+AccessibleInfo(const char* aDescr, Accessible* aAccessible);
+void
+AccessibleNNode(const char* aDescr, Accessible* aAccessible);
+void
+AccessibleNNode(const char* aDescr, nsINode* aNode);
 
 /**
  * Log the DOM event.
  */
-void DOMEvent(const char* aDescr, nsINode* aOrigTarget,
-              const nsAString& aEventType);
+void
+DOMEvent(const char* aDescr, nsINode* aOrigTarget, const nsAString& aEventType);
 
 /**
  * Log the call stack, two spaces offset is used.
  */
-void Stack();
+void
+Stack();
 
 /**
  * Enable logging of the specified modules, all other modules aren't logged.
  */
-void Enable(const nsCString& aModules);
+void
+Enable(const nsCString& aModules);
 
 /**
  * Enable logging of modules specified by A11YLOG environment variable,
  * all other modules aren't logged.
  */
-void CheckEnv();
+void
+CheckEnv();
 
-} // namespace logging
+}  // namespace logging
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

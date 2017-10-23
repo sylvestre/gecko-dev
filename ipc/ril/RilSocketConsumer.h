@@ -21,7 +21,7 @@ class UnixSocketBuffer;
  */
 class RilSocketConsumer
 {
-public:
+ public:
   /**
    * Method to be called whenever data is received. RIL-worker only.
    *
@@ -54,11 +54,11 @@ public:
    */
   virtual void OnDisconnect(int aIndex) = 0;
 
-protected:
+ protected:
   virtual ~RilSocketConsumer();
 };
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif

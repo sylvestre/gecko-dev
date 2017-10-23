@@ -38,8 +38,7 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(ModuleScript)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(ModuleScript)
 
 ModuleScript::ModuleScript(ScriptLoader* aLoader, nsIURI* aBaseURL)
- : mLoader(aLoader),
-   mBaseURL(aBaseURL)
+    : mLoader(aLoader), mBaseURL(aBaseURL)
 {
   MOZ_ASSERT(mLoader);
   MOZ_ASSERT(mBaseURL);
@@ -114,5 +113,5 @@ ModuleScript::Error() const
   return JS::GetModuleError(mModuleRecord);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

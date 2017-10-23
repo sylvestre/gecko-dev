@@ -19,20 +19,25 @@ CompositorWidget::CreateLocal(const CompositorWidgetInitData& aInitData,
                               const layers::CompositorOptions& aOptions,
                               nsIWidget* aWidget)
 {
-  if (aInitData.type() == CompositorWidgetInitData::THeadlessCompositorWidgetInitData) {
-    return new HeadlessCompositorWidget(aInitData.get_HeadlessCompositorWidgetInitData(),
-                                        aOptions, static_cast<HeadlessWidget*>(aWidget));
+  if (aInitData.type() ==
+      CompositorWidgetInitData::THeadlessCompositorWidgetInitData) {
+    return new HeadlessCompositorWidget(
+        aInitData.get_HeadlessCompositorWidgetInitData(),
+        aOptions,
+        static_cast<HeadlessWidget*>(aWidget));
   } else {
-    return new InProcessWinCompositorWidget(aInitData.get_WinCompositorWidgetInitData(),
-                                            aOptions, static_cast<nsWindow*>(aWidget));
+    return new InProcessWinCompositorWidget(
+        aInitData.get_WinCompositorWidgetInitData(),
+        aOptions,
+        static_cast<nsWindow*>(aWidget));
   }
 }
 
-InProcessWinCompositorWidget::InProcessWinCompositorWidget(const WinCompositorWidgetInitData& aInitData,
-                                                           const layers::CompositorOptions& aOptions,
-                                                           nsWindow* aWindow)
- : WinCompositorWidget(aInitData, aOptions),
-   mWindow(aWindow)
+InProcessWinCompositorWidget::InProcessWinCompositorWidget(
+    const WinCompositorWidgetInitData& aInitData,
+    const layers::CompositorOptions& aOptions,
+    nsWindow* aWindow)
+    : WinCompositorWidget(aInitData, aOptions), mWindow(aWindow)
 {
   MOZ_ASSERT(mWindow);
 }
@@ -46,10 +51,11 @@ InProcessWinCompositorWidget::RealWidget()
 void
 InProcessWinCompositorWidget::ObserveVsync(VsyncObserver* aObserver)
 {
-  if (RefPtr<CompositorVsyncDispatcher> cvd = mWindow->GetCompositorVsyncDispatcher()) {
+  if (RefPtr<CompositorVsyncDispatcher> cvd =
+          mWindow->GetCompositorVsyncDispatcher()) {
     cvd->SetCompositorVsyncObserver(aObserver);
   }
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

@@ -19,23 +19,19 @@ class XPCShellEnvironment;
 
 class TestShellChild : public PTestShellChild
 {
-public:
+ public:
   TestShellChild();
 
-  mozilla::ipc::IPCResult
-  RecvExecuteCommand(const nsString& aCommand);
+  mozilla::ipc::IPCResult RecvExecuteCommand(const nsString& aCommand);
 
-  PTestShellCommandChild*
-  AllocPTestShellCommandChild(const nsString& aCommand);
+  PTestShellCommandChild* AllocPTestShellCommandChild(const nsString& aCommand);
 
-  mozilla::ipc::IPCResult
-  RecvPTestShellCommandConstructor(PTestShellCommandChild* aActor,
-                                   const nsString& aCommand);
+  mozilla::ipc::IPCResult RecvPTestShellCommandConstructor(
+      PTestShellCommandChild* aActor, const nsString& aCommand);
 
-  bool
-  DeallocPTestShellCommandChild(PTestShellCommandChild* aCommand);
+  bool DeallocPTestShellCommandChild(PTestShellCommandChild* aCommand);
 
-private:
+ private:
   nsAutoPtr<XPCShellEnvironment> mXPCShell;
 };
 

@@ -42,7 +42,7 @@ HashString(const nsACString& aStr)
   return HashString(aStr.BeginReading(), aStr.Length());
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /** @file nsHashKeys.h
  * standard HashKey classes for nsBaseHashtable and relatives. Each of these
@@ -74,7 +74,7 @@ HashString(const nsACString& aStr)
  */
 class nsStringHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const nsAString& KeyType;
   typedef const nsAString* KeyTypePointer;
 
@@ -83,10 +83,7 @@ public:
   ~nsStringHashKey() {}
 
   KeyType GetKey() const { return mStr; }
-  bool KeyEquals(const KeyTypePointer aKey) const
-  {
-    return mStr.Equals(*aKey);
-  }
+  bool KeyEquals(const KeyTypePointer aKey) const { return mStr.Equals(*aKey); }
 
   static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
   static PLDHashNumber HashKey(const KeyTypePointer aKey)
@@ -102,9 +99,12 @@ public:
   }
 #endif
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const nsString mStr;
 };
 
@@ -120,17 +120,16 @@ private:
  */
 class nsStringCaseInsensitiveHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const nsAString& KeyType;
   typedef const nsAString* KeyTypePointer;
 
-  explicit nsStringCaseInsensitiveHashKey(KeyTypePointer aStr)
-    : mStr(*aStr)
+  explicit nsStringCaseInsensitiveHashKey(KeyTypePointer aStr) : mStr(*aStr)
   {
     // take it easy just deal HashKey
   }
   nsStringCaseInsensitiveHashKey(const nsStringCaseInsensitiveHashKey& aToCopy)
-    : mStr(aToCopy.mStr)
+      : mStr(aToCopy.mStr)
   {
   }
   ~nsStringCaseInsensitiveHashKey() {}
@@ -148,7 +147,10 @@ public:
     ToLowerCase(tmKey);
     return mozilla::HashString(tmKey);
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
   // To avoid double-counting, only measure the string if it is unshared.
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
@@ -156,7 +158,7 @@ public:
     return GetKey().SizeOfExcludingThisIfUnshared(aMallocSizeOf);
   }
 
-private:
+ private:
   const nsString mStr;
 };
 
@@ -169,7 +171,7 @@ private:
  */
 class nsCStringHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const nsACString& KeyType;
   typedef const nsACString* KeyTypePointer;
 
@@ -194,9 +196,12 @@ public:
   }
 #endif
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const nsCString mStr;
 };
 
@@ -207,7 +212,7 @@ private:
  */
 class nsUint32HashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const uint32_t& KeyType;
   typedef const uint32_t* KeyTypePointer;
 
@@ -220,9 +225,12 @@ public:
 
   static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
   static PLDHashNumber HashKey(KeyTypePointer aKey) { return *aKey; }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const uint32_t mValue;
 };
 
@@ -233,7 +241,7 @@ private:
  */
 class nsUint64HashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const uint64_t& KeyType;
   typedef const uint64_t* KeyTypePointer;
 
@@ -249,9 +257,12 @@ public:
   {
     return PLDHashNumber(*aKey);
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const uint64_t mValue;
 };
 
@@ -262,7 +273,7 @@ private:
  */
 class nsFloatHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const float& KeyType;
   typedef const float* KeyTypePointer;
 
@@ -278,9 +289,12 @@ public:
   {
     return *reinterpret_cast<const uint32_t*>(aKey);
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const float mValue;
 };
 
@@ -291,16 +305,16 @@ private:
  */
 class nsISupportsHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef nsISupports* KeyType;
   typedef const nsISupports* KeyTypePointer;
 
   explicit nsISupportsHashKey(const nsISupports* aKey)
-    : mSupports(const_cast<nsISupports*>(aKey))
+      : mSupports(const_cast<nsISupports*>(aKey))
   {
   }
   nsISupportsHashKey(const nsISupportsHashKey& aToCopy)
-    : mSupports(aToCopy.mSupports)
+      : mSupports(aToCopy.mSupports)
   {
   }
   ~nsISupportsHashKey() {}
@@ -313,9 +327,12 @@ public:
   {
     return NS_PTR_TO_UINT32(aKey) >> 2;
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   nsCOMPtr<nsISupports> mSupports;
 };
 
@@ -327,7 +344,7 @@ private:
 template<class T>
 class nsRefPtrHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef T* KeyType;
   typedef const T* KeyTypePointer;
 
@@ -343,9 +360,12 @@ public:
   {
     return NS_PTR_TO_UINT32(aKey) >> 2;
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   RefPtr<T> mKey;
 };
 
@@ -370,10 +390,10 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
 template<class T>
 class nsClearingPtrHashKey : public nsPtrHashKey<T>
 {
-public:
+ public:
   explicit nsClearingPtrHashKey(const T* aKey) : nsPtrHashKey<T>(aKey) {}
   nsClearingPtrHashKey(const nsClearingPtrHashKey<T>& aToCopy)
-    : nsPtrHashKey<T>(aToCopy)
+      : nsPtrHashKey<T>(aToCopy)
   {
   }
   ~nsClearingPtrHashKey() { nsPtrHashKey<T>::mKey = nullptr; }
@@ -389,7 +409,7 @@ typedef nsClearingPtrHashKey<const void> nsClearingVoidPtrHashKey;
 template<class T>
 class nsFuncPtrHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef T& KeyType;
   typedef const T* KeyTypePointer;
 
@@ -405,9 +425,12 @@ public:
   {
     return NS_PTR_TO_UINT32(*aKey) >> 2;
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-protected:
+ protected:
   T mKey;
 };
 
@@ -418,7 +441,7 @@ protected:
  */
 class nsIDHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const nsID& KeyType;
   typedef const nsID* KeyTypePointer;
 
@@ -436,9 +459,12 @@ public:
     return mozilla::HashBytes(aKey, sizeof(KeyType));
   }
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const nsID mID;
 };
 
@@ -454,7 +480,7 @@ private:
  */
 class nsDepCharHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const char* KeyType;
   typedef const char* KeyTypePointer;
 
@@ -470,9 +496,12 @@ public:
   {
     return mozilla::HashString(aKey);
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const char* mKey;
 };
 
@@ -483,18 +512,16 @@ private:
  */
 class nsCharPtrHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const char* KeyType;
   typedef const char* KeyTypePointer;
 
   explicit nsCharPtrHashKey(const char* aKey) : mKey(strdup(aKey)) {}
-  nsCharPtrHashKey(const nsCharPtrHashKey& aToCopy)
-    : mKey(strdup(aToCopy.mKey))
+  nsCharPtrHashKey(const nsCharPtrHashKey& aToCopy) : mKey(strdup(aToCopy.mKey))
   {
   }
 
-  nsCharPtrHashKey(nsCharPtrHashKey&& aOther)
-    : mKey(aOther.mKey)
+  nsCharPtrHashKey(nsCharPtrHashKey&& aOther) : mKey(aOther.mKey)
   {
     aOther.mKey = nullptr;
   }
@@ -520,9 +547,12 @@ public:
     return aMallocSizeOf(mKey);
   }
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const char* mKey;
 };
 
@@ -533,18 +563,17 @@ private:
  */
 class nsUnicharPtrHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const char16_t* KeyType;
   typedef const char16_t* KeyTypePointer;
 
   explicit nsUnicharPtrHashKey(const char16_t* aKey) : mKey(NS_strdup(aKey)) {}
   nsUnicharPtrHashKey(const nsUnicharPtrHashKey& aToCopy)
-    : mKey(NS_strdup(aToCopy.mKey))
+      : mKey(NS_strdup(aToCopy.mKey))
   {
   }
 
-  nsUnicharPtrHashKey(nsUnicharPtrHashKey&& aOther)
-    : mKey(aOther.mKey)
+  nsUnicharPtrHashKey(nsUnicharPtrHashKey&& aOther) : mKey(aOther.mKey)
   {
     aOther.mKey = nullptr;
   }
@@ -570,9 +599,12 @@ public:
     return aMallocSizeOf(mKey);
   }
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   const char16_t* mKey;
 };
 
@@ -581,12 +613,12 @@ private:
  */
 class nsHashableHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef nsIHashable* KeyType;
   typedef const nsIHashable* KeyTypePointer;
 
   explicit nsHashableHashKey(const nsIHashable* aKey)
-    : mKey(const_cast<nsIHashable*>(aKey))
+      : mKey(const_cast<nsIHashable*>(aKey))
   {
   }
   nsHashableHashKey(const nsHashableHashKey& aToCopy) : mKey(aToCopy.mKey) {}
@@ -606,31 +638,34 @@ public:
   static const nsIHashable* KeyToPointer(nsIHashable* aKey) { return aKey; }
   static PLDHashNumber HashKey(const nsIHashable* aKey)
   {
-    uint32_t code = 8888; // magic number if GetHashCode fails :-(
+    uint32_t code = 8888;  // magic number if GetHashCode fails :-(
 #ifdef DEBUG
     nsresult rv =
 #endif
-      const_cast<nsIHashable*>(aKey)->GetHashCode(&code);
+        const_cast<nsIHashable*>(aKey)->GetHashCode(&code);
     NS_ASSERTION(NS_SUCCEEDED(rv), "GetHashCode should not throw!");
     return code;
   }
 
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   nsCOMPtr<nsIHashable> mKey;
 };
 
 namespace mozilla {
 
-template <typename T>
+template<typename T>
 PLDHashNumber
 Hash(const T& aValue)
 {
   return aValue.Hash();
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * Hashtable key class to use with objects for which Hash() and operator==()
@@ -639,7 +674,7 @@ Hash(const T& aValue)
 template<typename T>
 class nsGenericHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef const T& KeyType;
   typedef const T* KeyTypePointer;
 
@@ -650,11 +685,17 @@ public:
   bool KeyEquals(KeyTypePointer aKey) const { return *aKey == mKey; }
 
   static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
-  static PLDHashNumber HashKey(KeyTypePointer aKey) { return ::mozilla::Hash(*aKey); }
-  enum { ALLOW_MEMMOVE = true };
+  static PLDHashNumber HashKey(KeyTypePointer aKey)
+  {
+    return ::mozilla::Hash(*aKey);
+  }
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-private:
+ private:
   T mKey;
 };
 
-#endif // nsTHashKeys_h__
+#endif  // nsTHashKeys_h__

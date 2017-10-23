@@ -29,7 +29,7 @@ class DocManager : public nsIWebProgressListener,
                    public nsIDOMEventListener,
                    public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWEBPROGRESSLISTENER
   NS_DECL_NSIDOMEVENTLISTENER
@@ -44,12 +44,10 @@ public:
    */
   DocAccessible* GetDocAccessible(const nsIPresShell* aPresShell)
   {
-    if (!aPresShell)
-      return nullptr;
+    if (!aPresShell) return nullptr;
 
     DocAccessible* doc = aPresShell->GetDocAccessible();
-    if (doc)
-      return doc;
+    if (doc) return doc;
 
     return GetDocAccessible(aPresShell->GetDocument());
   }
@@ -73,7 +71,9 @@ public:
    */
   xpcAccessibleDocument* GetXPCDocument(DocAccessible* aDocument);
   xpcAccessibleDocument* GetCachedXPCDocument(DocAccessible* aDocument) const
-    { return mXPCDocumentCache.GetWeak(aDocument); }
+  {
+    return mXPCDocumentCache.GetWeak(aDocument);
+  }
 
   /*
    * Notification that a top level document in a content process has gone away.
@@ -90,7 +90,9 @@ public:
   static void RemoteDocAdded(DocAccessibleParent* aDoc);
 
   static const nsTArray<DocAccessibleParent*>* TopLevelRemoteDocs()
-    { return sRemoteDocuments; }
+  {
+    return sRemoteDocuments;
+  }
 
   /**
    * Remove the xpc document for a remote document if there is one.
@@ -103,19 +105,20 @@ public:
    * Get a XPC document for a remote document.
    */
   static xpcAccessibleDocument* GetXPCDocument(DocAccessibleParent* aDoc);
-  static xpcAccessibleDocument* GetCachedXPCDocument(const DocAccessibleParent* aDoc)
+  static xpcAccessibleDocument* GetCachedXPCDocument(
+      const DocAccessibleParent* aDoc)
   {
     return sRemoteXPCDocumentCache ? sRemoteXPCDocumentCache->GetWeak(aDoc)
-      : nullptr;
+                                   : nullptr;
   }
 
 #ifdef DEBUG
   bool IsProcessingRefreshDriverNotification() const;
 #endif
 
-protected:
+ protected:
   DocManager();
-  virtual ~DocManager() { }
+  virtual ~DocManager() {}
 
   /**
    * Initialize the manager.
@@ -133,11 +136,11 @@ protected:
            (sRemoteXPCDocumentCache && sRemoteXPCDocumentCache->Count() > 0);
   }
 
-private:
+ private:
   DocManager(const DocManager&);
-  DocManager& operator =(const DocManager&);
+  DocManager& operator=(const DocManager&);
 
-private:
+ private:
   /**
    * Create an accessible document if it was't created and fire accessibility
    * events if needed.
@@ -146,13 +149,12 @@ private:
    * @param  aLoadEventType  [in] specifies the event type to fire load event,
    *                           if 0 then no event is fired
    */
-  void HandleDOMDocumentLoad(nsIDocument* aDocument,
-                             uint32_t aLoadEventType);
+  void HandleDOMDocumentLoad(nsIDocument* aDocument, uint32_t aLoadEventType);
 
   /**
    * Add/remove 'pagehide' and 'DOMContentLoaded' event listeners.
    */
-  void AddListeners(nsIDocument *aDocument, bool aAddPageShowListener);
+  void AddListeners(nsIDocument* aDocument, bool aAddPageShowListener);
   void RemoveListeners(nsIDocument* aDocument);
 
   /**
@@ -166,14 +168,15 @@ private:
   void ClearDocCache();
 
   typedef nsRefPtrHashtable<nsPtrHashKey<const nsIDocument>, DocAccessible>
-    DocAccessibleHashtable;
+      DocAccessibleHashtable;
   DocAccessibleHashtable mDocAccessibleCache;
 
-  typedef nsRefPtrHashtable<nsPtrHashKey<const DocAccessible>, xpcAccessibleDocument>
-    XPCDocumentHashtable;
+  typedef nsRefPtrHashtable<nsPtrHashKey<const DocAccessible>,
+                            xpcAccessibleDocument>
+      XPCDocumentHashtable;
   XPCDocumentHashtable mXPCDocumentCache;
-  static nsRefPtrHashtable<nsPtrHashKey<const DocAccessibleParent>, xpcAccessibleDocument>*
-    sRemoteXPCDocumentCache;
+  static nsRefPtrHashtable<nsPtrHashKey<const DocAccessibleParent>,
+                           xpcAccessibleDocument>* sRemoteXPCDocumentCache;
 
   /*
    * The list of remote top level documents.
@@ -193,7 +196,7 @@ GetExistingDocAccessible(const nsIDocument* aDocument)
   return ps ? ps->GetDocAccessible() : nullptr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11_DocManager_h_
+#endif  // mozilla_a11_DocManager_h_

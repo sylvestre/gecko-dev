@@ -27,23 +27,16 @@
 
 class ProfilerMarker;
 
-#define FOR_EACH_PROFILE_BUFFER_ENTRY_KIND(macro) \
-  macro(Category,              int) \
-  macro(CollectionStart,       double) \
-  macro(CollectionEnd,         double) \
-  macro(Label,                 const char*) \
-  macro(DynamicStringFragment, char*) /* char[kNumChars], really */ \
-  macro(JitReturnAddr,         void*) \
-  macro(LineNumber,            int) \
-  macro(NativeLeafAddr,        void*) \
-  macro(Marker,                ProfilerMarker*) \
-  macro(Pause,                 double) \
-  macro(ResidentMemory,        double) \
-  macro(Responsiveness,        double) \
-  macro(Resume,                double) \
-  macro(ThreadId,              int) \
-  macro(Time,                  double) \
-  macro(UnsharedMemory,        double)
+#define FOR_EACH_PROFILE_BUFFER_ENTRY_KIND(macro)                           \
+  macro(Category, int) macro(CollectionStart, double)                       \
+      macro(CollectionEnd, double) macro(Label, const char*)                \
+          macro(DynamicStringFragment, char*) /* char[kNumChars], really */ \
+      macro(JitReturnAddr, void*) macro(LineNumber, int)                    \
+          macro(NativeLeafAddr, void*) macro(Marker, ProfilerMarker*)       \
+              macro(Pause, double) macro(ResidentMemory, double)            \
+                  macro(Responsiveness, double) macro(Resume, double)       \
+                      macro(ThreadId, int) macro(Time, double)              \
+                          macro(UnsharedMemory, double)
 
 // NB: Packing this structure has been shown to cause SIGBUS issues on ARM.
 #if !defined(GP_ARCH_arm)
@@ -52,13 +45,14 @@ class ProfilerMarker;
 
 class ProfileBufferEntry
 {
-public:
-  enum class Kind : uint8_t {
+ public:
+  enum class Kind : uint8_t
+  {
     INVALID = 0,
-    #define KIND(k, t) k,
+#define KIND(k, t) k,
     FOR_EACH_PROFILE_BUFFER_ENTRY_KIND(KIND)
-    #undef KIND
-    LIMIT
+#undef KIND
+        LIMIT
   };
 
   ProfileBufferEntry();
@@ -67,30 +61,32 @@ public:
   // |u|.
   static const size_t kNumChars = 8;
 
-private:
+ private:
   // aString must be a static string.
-  ProfileBufferEntry(Kind aKind, const char *aString);
+  ProfileBufferEntry(Kind aKind, const char* aString);
   ProfileBufferEntry(Kind aKind, char aChars[kNumChars]);
-  ProfileBufferEntry(Kind aKind, void *aPtr);
-  ProfileBufferEntry(Kind aKind, ProfilerMarker *aMarker);
+  ProfileBufferEntry(Kind aKind, void* aPtr);
+  ProfileBufferEntry(Kind aKind, ProfilerMarker* aMarker);
   ProfileBufferEntry(Kind aKind, double aDouble);
   ProfileBufferEntry(Kind aKind, int aInt);
 
-public:
-  #define CTOR(k, t) \
-    static ProfileBufferEntry k(t aVal) { \
-      return ProfileBufferEntry(Kind::k, aVal); \
-    }
+ public:
+#define CTOR(k, t)                            \
+  static ProfileBufferEntry k(t aVal)         \
+  {                                           \
+    return ProfileBufferEntry(Kind::k, aVal); \
+  }
   FOR_EACH_PROFILE_BUFFER_ENTRY_KIND(CTOR)
-  #undef CTOR
+#undef CTOR
 
   Kind GetKind() const { return mKind; }
 
-  #define IS_KIND(k, t) bool Is##k() const { return mKind == Kind::k; }
+#define IS_KIND(k, t) \
+  bool Is##k() const { return mKind == Kind::k; }
   FOR_EACH_PROFILE_BUFFER_ENTRY_KIND(IS_KIND)
-  #undef IS_KIND
+#undef IS_KIND
 
-private:
+ private:
   FRIEND_TEST(ThreadProfile, InsertOneEntry);
   FRIEND_TEST(ThreadProfile, InsertOneEntryWithTinyBuffer);
   FRIEND_TEST(ThreadProfile, InsertEntriesNoWrap);
@@ -100,12 +96,12 @@ private:
 
   Kind mKind;
   union {
-    const char*     mString;
-    char            mChars[kNumChars];
-    void*           mPtr;
+    const char* mString;
+    char mChars[kNumChars];
+    void* mPtr;
     ProfilerMarker* mMarker;
-    double          mDouble;
-    int             mInt;
+    double mDouble;
+    int mInt;
   } u;
 };
 
@@ -117,64 +113,67 @@ static_assert(sizeof(ProfileBufferEntry) == 9, "bad ProfileBufferEntry size");
 
 class UniqueJSONStrings
 {
-public:
-  UniqueJSONStrings() {
-    mStringTableWriter.StartBareList();
-  }
+ public:
+  UniqueJSONStrings() { mStringTableWriter.StartBareList(); }
 
-  void SpliceStringTableElements(SpliceableJSONWriter& aWriter) {
+  void SpliceStringTableElements(SpliceableJSONWriter& aWriter)
+  {
     aWriter.TakeAndSplice(mStringTableWriter.WriteFunc());
   }
 
-  void WriteProperty(mozilla::JSONWriter& aWriter, const char* aName, const char* aStr) {
+  void WriteProperty(mozilla::JSONWriter& aWriter,
+                     const char* aName,
+                     const char* aStr)
+  {
     aWriter.IntProperty(aName, GetOrAddIndex(aStr));
   }
 
-  void WriteElement(mozilla::JSONWriter& aWriter, const char* aStr) {
+  void WriteElement(mozilla::JSONWriter& aWriter, const char* aStr)
+  {
     aWriter.IntElement(GetOrAddIndex(aStr));
   }
 
   uint32_t GetOrAddIndex(const char* aStr);
 
-  struct StringKey {
-
-    explicit StringKey(const char* aStr)
-     : mStr(strdup(aStr))
+  struct StringKey
+  {
+    explicit StringKey(const char* aStr) : mStr(strdup(aStr))
     {
       mHash = mozilla::HashString(mStr);
     }
 
-    StringKey(const StringKey& aOther)
-      : mStr(strdup(aOther.mStr))
+    StringKey(const StringKey& aOther) : mStr(strdup(aOther.mStr))
     {
       mHash = aOther.mHash;
     }
 
-    ~StringKey() {
-      free(mStr);
-    }
+    ~StringKey() { free(mStr); }
 
     uint32_t Hash() const;
-    bool operator==(const StringKey& aOther) const {
+    bool operator==(const StringKey& aOther) const
+    {
       return strcmp(mStr, aOther.mStr) == 0;
     }
-    bool operator<(const StringKey& aOther) const {
+    bool operator<(const StringKey& aOther) const
+    {
       return mHash < aOther.mHash;
     }
 
-  private:
+   private:
     uint32_t mHash;
     char* mStr;
   };
-private:
+
+ private:
   SpliceableChunkedJSONWriter mStringTableWriter;
   std::map<StringKey, uint32_t> mStringToIndexMap;
 };
 
 class UniqueStacks
 {
-public:
-  struct FrameKey {
+ public:
+  struct FrameKey
+  {
     // This cannot be a std::string, as it is not memmove compatible, which
     // is used by nsHashTable
     nsCString mLocation;
@@ -183,101 +182,104 @@ public:
     mozilla::Maybe<void*> mJITAddress;
     mozilla::Maybe<uint32_t> mJITDepth;
 
-    explicit FrameKey(const char* aLocation)
-     : mLocation(aLocation)
+    explicit FrameKey(const char* aLocation) : mLocation(aLocation)
     {
       mHash = Hash();
     }
 
     FrameKey(const FrameKey& aToCopy)
-     : mLocation(aToCopy.mLocation)
-     , mLine(aToCopy.mLine)
-     , mCategory(aToCopy.mCategory)
-     , mJITAddress(aToCopy.mJITAddress)
-     , mJITDepth(aToCopy.mJITDepth)
+        : mLocation(aToCopy.mLocation),
+          mLine(aToCopy.mLine),
+          mCategory(aToCopy.mCategory),
+          mJITAddress(aToCopy.mJITAddress),
+          mJITDepth(aToCopy.mJITDepth)
     {
       mHash = Hash();
     }
 
     FrameKey(void* aJITAddress, uint32_t aJITDepth)
-     : mJITAddress(mozilla::Some(aJITAddress))
-     , mJITDepth(mozilla::Some(aJITDepth))
+        : mJITAddress(mozilla::Some(aJITAddress)),
+          mJITDepth(mozilla::Some(aJITDepth))
     {
       mHash = Hash();
     }
 
     uint32_t Hash() const;
     bool operator==(const FrameKey& aOther) const;
-    bool operator<(const FrameKey& aOther) const {
+    bool operator<(const FrameKey& aOther) const
+    {
       return mHash < aOther.mHash;
     }
 
-  private:
+   private:
     uint32_t mHash;
   };
 
   // A FrameKey that holds a scoped reference to a JIT FrameHandle.
-  struct MOZ_STACK_CLASS OnStackFrameKey : public FrameKey {
+  struct MOZ_STACK_CLASS OnStackFrameKey : public FrameKey
+  {
     explicit OnStackFrameKey(const char* aLocation)
-      : FrameKey(aLocation)
-      , mJITFrameHandle(nullptr)
-    { }
+        : FrameKey(aLocation), mJITFrameHandle(nullptr)
+    {
+    }
 
     OnStackFrameKey(const OnStackFrameKey& aToCopy)
-      : FrameKey(aToCopy)
-      , mJITFrameHandle(aToCopy.mJITFrameHandle)
-    { }
+        : FrameKey(aToCopy), mJITFrameHandle(aToCopy.mJITFrameHandle)
+    {
+    }
 
     const JS::ForEachProfiledFrameOp::FrameHandle* mJITFrameHandle;
 
     OnStackFrameKey(void* aJITAddress, unsigned aJITDepth)
-      : FrameKey(aJITAddress, aJITDepth)
-      , mJITFrameHandle(nullptr)
-    { }
+        : FrameKey(aJITAddress, aJITDepth), mJITFrameHandle(nullptr)
+    {
+    }
 
-    OnStackFrameKey(void* aJITAddress, unsigned aJITDepth,
-                    const JS::ForEachProfiledFrameOp::FrameHandle& aJITFrameHandle)
-      : FrameKey(aJITAddress, aJITDepth)
-      , mJITFrameHandle(&aJITFrameHandle)
-    { }
+    OnStackFrameKey(
+        void* aJITAddress,
+        unsigned aJITDepth,
+        const JS::ForEachProfiledFrameOp::FrameHandle& aJITFrameHandle)
+        : FrameKey(aJITAddress, aJITDepth), mJITFrameHandle(&aJITFrameHandle)
+    {
+    }
   };
 
-  struct StackKey {
+  struct StackKey
+  {
     mozilla::Maybe<uint32_t> mPrefixHash;
     mozilla::Maybe<uint32_t> mPrefix;
     uint32_t mFrame;
 
-    explicit StackKey(uint32_t aFrame)
-     : mFrame(aFrame)
-    {
-      mHash = Hash();
-    }
+    explicit StackKey(uint32_t aFrame) : mFrame(aFrame) { mHash = Hash(); }
 
     uint32_t Hash() const;
     bool operator==(const StackKey& aOther) const;
-    bool operator<(const StackKey& aOther) const {
+    bool operator<(const StackKey& aOther) const
+    {
       return mHash < aOther.mHash;
     }
 
-    void UpdateHash(uint32_t aPrefixHash, uint32_t aPrefix, uint32_t aFrame) {
+    void UpdateHash(uint32_t aPrefixHash, uint32_t aPrefix, uint32_t aFrame)
+    {
       mPrefixHash = mozilla::Some(aPrefixHash);
       mPrefix = mozilla::Some(aPrefix);
       mFrame = aFrame;
       mHash = Hash();
     }
 
-  private:
+   private:
     uint32_t mHash;
   };
 
-  class Stack {
-  public:
+  class Stack
+  {
+   public:
     Stack(UniqueStacks& aUniqueStacks, const OnStackFrameKey& aRoot);
 
     void AppendFrame(const OnStackFrameKey& aFrame);
     uint32_t GetOrAddIndex() const;
 
-  private:
+   private:
     UniqueStacks& mUniqueStacks;
     StackKey mStack;
   };
@@ -290,16 +292,16 @@ public:
   void SpliceFrameTableElements(SpliceableJSONWriter& aWriter);
   void SpliceStackTableElements(SpliceableJSONWriter& aWriter);
 
-private:
+ private:
   uint32_t GetOrAddFrameIndex(const OnStackFrameKey& aFrame);
   uint32_t GetOrAddStackIndex(const StackKey& aStack);
   void StreamFrame(const OnStackFrameKey& aFrame);
   void StreamStack(const StackKey& aStack);
 
-public:
+ public:
   UniqueJSONStrings mUniqueStrings;
 
-private:
+ private:
   JSContext* mContext;
 
   // To avoid incurring JitcodeGlobalTable lookup costs for every JIT frame,

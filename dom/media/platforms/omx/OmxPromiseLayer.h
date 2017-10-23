@@ -16,8 +16,7 @@
 
 namespace mozilla {
 
-namespace layers
-{
+namespace layers {
 class ImageContainer;
 }
 
@@ -42,10 +41,10 @@ class TrackInfo;
  */
 class OmxPromiseLayer
 {
-protected:
-  virtual ~OmxPromiseLayer() { }
+ protected:
+  virtual ~OmxPromiseLayer() {}
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(OmxPromiseLayer)
 
   OmxPromiseLayer(TaskQueue* aTaskQueue,
@@ -56,11 +55,11 @@ public:
 
   typedef nsTArray<RefPtr<BufferData>> BUFFERLIST;
 
-  class OmxBufferFailureHolder {
-  public:
+  class OmxBufferFailureHolder
+  {
+   public:
     OmxBufferFailureHolder(OMX_ERRORTYPE aError, BufferData* aBuffer)
-      : mError(aError)
-      , mBuffer(aBuffer)
+        : mError(aError), mBuffer(aBuffer)
     {
     }
 
@@ -68,15 +67,17 @@ public:
     BufferData* mBuffer;
   };
 
-  typedef MozPromise<BufferData*, OmxBufferFailureHolder, /* IsExclusive = */ false> OmxBufferPromise;
+  typedef MozPromise<BufferData*,
+                     OmxBufferFailureHolder,
+                     /* IsExclusive = */ false>
+      OmxBufferPromise;
 
   class OmxCommandFailureHolder
   {
-  public:
+   public:
     OmxCommandFailureHolder(OMX_ERRORTYPE aErrorType,
                             OMX_COMMANDTYPE aCommandType)
-      : mErrorType(aErrorType)
-      , mCommandType(aCommandType)
+        : mErrorType(aErrorType), mCommandType(aCommandType)
     {
     }
 
@@ -84,9 +85,13 @@ public:
     OMX_COMMANDTYPE mCommandType;
   };
 
-  typedef MozPromise<OMX_COMMANDTYPE, OmxCommandFailureHolder, /* IsExclusive = */ true> OmxCommandPromise;
+  typedef MozPromise<OMX_COMMANDTYPE,
+                     OmxCommandFailureHolder,
+                     /* IsExclusive = */ true>
+      OmxCommandPromise;
 
-  typedef MozPromise<uint32_t, bool, /* IsExclusive = */ true> OmxPortConfigPromise;
+  typedef MozPromise<uint32_t, bool, /* IsExclusive = */ true>
+      OmxPortConfigPromise;
 
   // TODO: maybe a generic promise is good enough for this case?
   RefPtr<OmxCommandPromise> Init(const TrackInfo* aInfo);
@@ -126,14 +131,12 @@ public:
   // And a promise because OMX buffer working among different threads.
   class BufferData
   {
-  protected:
-    virtual ~BufferData() { }
+   protected:
+    virtual ~BufferData() {}
 
-  public:
+   public:
     explicit BufferData(OMX_BUFFERHEADERTYPE* aBuffer)
-      : mEos(false)
-      , mStatus(BufferStatus::FREE)
-      , mBuffer(aBuffer)
+        : mEos(false), mStatus(BufferStatus::FREE), mBuffer(aBuffer)
     {
     }
 
@@ -143,10 +146,7 @@ public:
 
     // In most cases, the ID of this buffer is the pointer address of mBuffer.
     // However, on some platforms it may be another value.
-    virtual BufferID ID()
-    {
-      return mBuffer;
-    }
+    virtual BufferID ID() { return mBuffer; }
 
     // Return the platform dependent MediaData().
     // For example, it returns the MediaData with Gralloc texture.
@@ -206,16 +206,16 @@ public:
 
   void EmptyFillBufferDone(OMX_DIRTYPE aType, BufferData* aData);
 
-  already_AddRefed<BufferData>
-  FindBufferById(OMX_DIRTYPE aType, BufferData::BufferID aId);
+  already_AddRefed<BufferData> FindBufferById(OMX_DIRTYPE aType,
+                                              BufferData::BufferID aId);
 
-  already_AddRefed<BufferData>
-  FindAndRemoveBufferHolder(OMX_DIRTYPE aType, BufferData::BufferID aId);
+  already_AddRefed<BufferData> FindAndRemoveBufferHolder(
+      OMX_DIRTYPE aType, BufferData::BufferID aId);
 
   // Return true if event is handled.
   bool Event(OMX_EVENTTYPE aEvent, OMX_U32 aData1, OMX_U32 aData2);
 
-protected:
+ protected:
   struct FlushCommand
   {
     OMX_DIRTYPE type;
@@ -240,7 +240,7 @@ protected:
 
   nsAutoPtr<OmxPlatformLayer> mPlatformLayer;
 
-private:
+ private:
   // Elements are added to holders when FillBuffer() or FillBuffer(). And
   // removing element when the promise is resolved. Buffers in these lists
   // should NOT be used by other component; for example, output it to audio
@@ -255,6 +255,6 @@ private:
   nsTArray<RefPtr<MediaRawData>> mRawDatas;
 };
 
-}
+}  // namespace mozilla
 
 #endif /* OmxPromiseLayer_h_ */

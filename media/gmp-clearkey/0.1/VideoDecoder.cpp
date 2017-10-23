@@ -27,9 +27,7 @@
 using namespace wmf;
 using namespace cdm;
 
-VideoDecoder::VideoDecoder(Host_8 *aHost)
-  : mHost(aHost)
-  , mHasShutdown(false)
+VideoDecoder::VideoDecoder(Host_8* aHost) : mHost(aHost), mHasShutdown(false)
 {
   CK_LOGD("VideoDecoder created");
 
@@ -43,10 +41,7 @@ VideoDecoder::VideoDecoder(Host_8 *aHost)
   HRESULT hr = mDecoder->Init(cores);
 }
 
-VideoDecoder::~VideoDecoder()
-{
-  CK_LOGD("VideoDecoder destroyed");
-}
+VideoDecoder::~VideoDecoder() { CK_LOGD("VideoDecoder destroyed"); }
 
 Status
 VideoDecoder::InitDecode(const VideoDecoderConfig& aConfig)
@@ -92,7 +87,7 @@ VideoDecoder::Decode(const InputBuffer& aInputBuffer, VideoFrame* aVideoFrame)
 
   if (data->mCrypto.IsValid()) {
     Status rv =
-      ClearKeyDecryptionManager::Get()->Decrypt(buffer, data->mCrypto);
+        ClearKeyDecryptionManager::Get()->Decrypt(buffer, data->mCrypto);
 
     if (STATUS_FAILED(rv)) {
       CK_LOGARRAY("Failed to decrypt video using key ",
@@ -102,19 +97,16 @@ VideoDecoder::Decode(const InputBuffer& aInputBuffer, VideoFrame* aVideoFrame)
     }
   }
 
-  hr = mDecoder->Input(buffer.data(),
-                       buffer.size(),
-                       data->mTimestamp);
+  hr = mDecoder->Input(buffer.data(), buffer.size(), data->mTimestamp);
 
   CK_LOGD("VideoDecoder::Decode() Input ret hr=0x%x", hr);
-
 
   if (FAILED(hr)) {
     assert(hr != MF_E_TRANSFORM_NEED_MORE_INPUT);
 
     CK_LOGE("VideoDecoder::Decode() decode failed ret=0x%x%s",
-      hr,
-      ((hr == MF_E_NOTACCEPTING) ? " (MF_E_NOTACCEPTING)" : ""));
+            hr,
+            ((hr == MF_E_NOTACCEPTING) ? " (MF_E_NOTACCEPTING)" : ""));
     CK_LOGD("Decode failed. The decoder is not accepting input");
     return Status::kDecodeError;
   }
@@ -122,7 +114,9 @@ VideoDecoder::Decode(const InputBuffer& aInputBuffer, VideoFrame* aVideoFrame)
   return OutputFrame(aVideoFrame);
 }
 
-Status VideoDecoder::OutputFrame(VideoFrame* aVideoFrame) {
+Status
+VideoDecoder::OutputFrame(VideoFrame* aVideoFrame)
+{
   CK_LOGD("VideoDecoder::OutputFrame");
 
   HRESULT hr = S_OK;
@@ -283,7 +277,7 @@ VideoDecoder::SampleToVideoFrame(IMFSample* aSample,
   // Copy the pixel data, excluding WMF's padding.
   memcpy(outBuffer, data, stride * aPictureHeight);
   memcpy(
-    outBuffer + dstUOffset, data + srcYSize, (stride * aPictureHeight) / 4);
+      outBuffer + dstUOffset, data + srcYSize, (stride * aPictureHeight) / 4);
   memcpy(outBuffer + dstVOffset,
          data + srcYSize + srcUVSize,
          (stride * aPictureHeight) / 4);

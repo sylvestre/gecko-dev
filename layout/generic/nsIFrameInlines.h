@@ -29,8 +29,7 @@ nsIFrame::IsFlexOrGridContainer() const
 bool
 nsIFrame::IsFlexOrGridItem() const
 {
-  return !(GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&
-         GetParent() &&
+  return !(GetStateBits() & NS_FRAME_OUT_OF_FLOW) && GetParent() &&
          GetParent()->IsFlexOrGridContainer();
 }
 
@@ -38,7 +37,8 @@ bool
 nsIFrame::IsTableCaption() const
 {
   return StyleDisplay()->mDisplay == mozilla::StyleDisplay::TableCaption &&
-    GetParent()->StyleContext()->GetPseudo() == nsCSSAnonBoxes::tableWrapper;
+         GetParent()->StyleContext()->GetPseudo() ==
+             nsCSSAnonBoxes::tableWrapper;
 }
 
 bool
@@ -98,8 +98,7 @@ nsIFrame::GetDisplay() const
 
 nscoord
 nsIFrame::SynthesizeBaselineBOffsetFromMarginBox(
-            mozilla::WritingMode aWM,
-            BaselineSharingGroup aGroup) const
+    mozilla::WritingMode aWM, BaselineSharingGroup aGroup) const
 {
   MOZ_ASSERT(!aWM.IsOrthogonalTo(GetWritingMode()));
   auto margin = GetLogicalUsedMargin(aWM);
@@ -128,8 +127,7 @@ nsIFrame::SynthesizeBaselineBOffsetFromMarginBox(
 
 nscoord
 nsIFrame::SynthesizeBaselineBOffsetFromBorderBox(
-            mozilla::WritingMode aWM,
-            BaselineSharingGroup aGroup) const
+    mozilla::WritingMode aWM, BaselineSharingGroup aGroup) const
 {
   MOZ_ASSERT(!aWM.IsOrthogonalTo(GetWritingMode()));
   nscoord borderBoxSize = BSize(aWM);
@@ -146,7 +144,7 @@ nsIFrame::SynthesizeBaselineBOffsetFromBorderBox(
 nscoord
 nsIFrame::BaselineBOffset(mozilla::WritingMode aWM,
                           BaselineSharingGroup aBaselineGroup,
-                          AlignmentContext     aAlignmentContext) const
+                          AlignmentContext aAlignmentContext) const
 {
   MOZ_ASSERT(!aWM.IsOrthogonalTo(GetWritingMode()));
   nscoord baseline;
@@ -173,7 +171,8 @@ nsContainerFrame*
 nsIFrame::GetInFlowParent()
 {
   if (GetStateBits() & NS_FRAME_OUT_OF_FLOW) {
-    nsIFrame* ph = FirstContinuation()->GetProperty(nsIFrame::PlaceholderFrameProperty());
+    nsIFrame* ph =
+        FirstContinuation()->GetProperty(nsIFrame::PlaceholderFrameProperty());
     return ph->GetParent();
   }
 

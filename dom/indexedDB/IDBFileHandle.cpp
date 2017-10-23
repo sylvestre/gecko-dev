@@ -37,27 +37,27 @@ GenerateFileRequest(IDBFileHandle* aFileHandle)
   aFileHandle->AssertIsOnOwningThread();
 
   RefPtr<IDBFileRequest> fileRequest =
-    IDBFileRequest::Create(aFileHandle, /* aWrapAsDOMRequest */ false);
+      IDBFileRequest::Create(aFileHandle, /* aWrapAsDOMRequest */ false);
   MOZ_ASSERT(fileRequest);
 
   return fileRequest.forget();
 }
 
-} // namespace
+}  // namespace
 
-IDBFileHandle::IDBFileHandle(IDBMutableFile* aMutableFile,
-                             FileMode aMode)
-  : mMutableFile(aMutableFile)
-  , mBackgroundActor(nullptr)
-  , mLocation(0)
-  , mPendingRequestCount(0)
-  , mReadyState(INITIAL)
-  , mMode(aMode)
-  , mAborted(false)
-  , mCreating(false)
+IDBFileHandle::IDBFileHandle(IDBMutableFile* aMutableFile, FileMode aMode)
+    : mMutableFile(aMutableFile),
+      mBackgroundActor(nullptr),
+      mLocation(0),
+      mPendingRequestCount(0),
+      mReadyState(INITIAL),
+      mMode(aMode),
+      mAborted(false),
+      mCreating(false)
 #ifdef DEBUG
-  , mSentFinishOrAbort(false)
-  , mFiredCompleteOrAbort(false)
+      ,
+      mSentFinishOrAbort(false),
+      mFiredCompleteOrAbort(false)
 #endif
 {
   MOZ_ASSERT(aMutableFile);
@@ -83,15 +83,13 @@ IDBFileHandle::~IDBFileHandle()
 
 // static
 already_AddRefed<IDBFileHandle>
-IDBFileHandle::Create(IDBMutableFile* aMutableFile,
-                      FileMode aMode)
+IDBFileHandle::Create(IDBMutableFile* aMutableFile, FileMode aMode)
 {
   MOZ_ASSERT(aMutableFile);
   aMutableFile->AssertIsOnOwningThread();
   MOZ_ASSERT(aMode == FileMode::Readonly || aMode == FileMode::Readwrite);
 
-  RefPtr<IDBFileHandle> fileHandle =
-    new IDBFileHandle(aMutableFile, aMode);
+  RefPtr<IDBFileHandle> fileHandle = new IDBFileHandle(aMutableFile, aMode);
 
   fileHandle->BindToOwner(aMutableFile);
 
@@ -115,7 +113,7 @@ IDBFileHandle::GetCurrent()
   MOZ_ASSERT(BackgroundChild::GetForCurrentThread());
 
   BackgroundChildImpl::ThreadLocal* threadLocal =
-    BackgroundChildImpl::GetThreadLocalForCurrentThread();
+      BackgroundChildImpl::GetThreadLocalForCurrentThread();
   MOZ_ASSERT(threadLocal);
 
   return threadLocal->mCurrentFileHandle;
@@ -130,7 +128,7 @@ IDBFileHandle::AssertIsOnOwningThread() const
   mMutableFile->AssertIsOnOwningThread();
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 void
 IDBFileHandle::SetBackgroundActor(BackgroundFileHandleChild* aActor)
@@ -151,7 +149,7 @@ IDBFileHandle::StartRequest(IDBFileRequest* aFileRequest,
   MOZ_ASSERT(aParams.type() != FileRequestParams::T__None);
 
   BackgroundFileRequestChild* actor =
-    new BackgroundFileRequestChild(aFileRequest);
+      new BackgroundFileRequestChild(aFileRequest);
 
   mBackgroundActor->SendPBackgroundFileRequestConstructor(actor, aParams);
 
@@ -190,8 +188,8 @@ IDBFileHandle::OnRequestFinished(bool aActorDestroyedNormally)
         SendAbort();
       }
     } else {
-      // Don't try to send any more messages to the parent if the request actor
-      // was killed.
+    // Don't try to send any more messages to the parent if the request actor
+    // was killed.
 #ifdef DEBUG
       MOZ_ASSERT(!mSentFinishOrAbort);
       mSentFinishOrAbort = true;
@@ -214,11 +212,13 @@ IDBFileHandle::FireCompleteOrAbortEvents(bool aAborted)
 
   nsCOMPtr<nsIDOMEvent> event;
   if (aAborted) {
-    event = CreateGenericEvent(this, nsDependentString(kAbortEventType),
-                               eDoesBubble, eNotCancelable);
+    event = CreateGenericEvent(
+        this, nsDependentString(kAbortEventType), eDoesBubble, eNotCancelable);
   } else {
-    event = CreateGenericEvent(this, nsDependentString(kCompleteEventType),
-                               eDoesNotBubble, eNotCancelable);
+    event = CreateGenericEvent(this,
+                               nsDependentString(kCompleteEventType),
+                               eDoesNotBubble,
+                               eNotCancelable);
   }
   if (NS_WARN_IF(!event)) {
     return;
@@ -299,7 +299,7 @@ IDBFileHandle::GetMetadata(const IDBFileMetadataParameters& aParameters,
     return nullptr;
   }
 
- // Do nothing if the window is closed
+  // Do nothing if the window is closed
   if (!CheckWindow()) {
     return nullptr;
   }
@@ -474,8 +474,10 @@ IDBFileHandle::CheckWindow()
 }
 
 already_AddRefed<IDBFileRequest>
-IDBFileHandle::Read(uint64_t aSize, bool aHasEncoding,
-                    const nsAString& aEncoding, ErrorResult& aRv)
+IDBFileHandle::Read(uint64_t aSize,
+                    bool aHasEncoding,
+                    const nsAString& aEncoding,
+                    ErrorResult& aRv)
 {
   AssertIsOnOwningThread();
 
@@ -507,9 +509,9 @@ IDBFileHandle::Read(uint64_t aSize, bool aHasEncoding,
 
 already_AddRefed<IDBFileRequest>
 IDBFileHandle::WriteOrAppend(
-                       const StringOrArrayBufferOrArrayBufferViewOrBlob& aValue,
-                       bool aAppend,
-                       ErrorResult& aRv)
+    const StringOrArrayBufferOrArrayBufferViewOrBlob& aValue,
+    bool aAppend,
+    ErrorResult& aRv)
 {
   AssertIsOnOwningThread();
 
@@ -543,7 +545,8 @@ IDBFileHandle::WriteOrAppend(const nsAString& aValue,
 
   NS_ConvertUTF16toUTF8 cstr(aValue);
 
-  uint64_t dataLength = cstr.Length();;
+  uint64_t dataLength = cstr.Length();
+  ;
   if (!dataLength) {
     return nullptr;
   }
@@ -572,7 +575,8 @@ IDBFileHandle::WriteOrAppend(const ArrayBuffer& aValue,
 
   aValue.ComputeLengthAndData();
 
-  uint64_t dataLength = aValue.Length();;
+  uint64_t dataLength = aValue.Length();
+  ;
   if (!dataLength) {
     return nullptr;
   }
@@ -580,8 +584,8 @@ IDBFileHandle::WriteOrAppend(const ArrayBuffer& aValue,
   const char* data = reinterpret_cast<const char*>(aValue.Data());
 
   FileRequestStringData stringData;
-  if (NS_WARN_IF(!stringData.string().Assign(data, aValue.Length(),
-                                             fallible_t()))) {
+  if (NS_WARN_IF(
+          !stringData.string().Assign(data, aValue.Length(), fallible_t()))) {
     aRv.Throw(NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
     return nullptr;
   }
@@ -608,7 +612,8 @@ IDBFileHandle::WriteOrAppend(const ArrayBufferView& aValue,
 
   aValue.ComputeLengthAndData();
 
-  uint64_t dataLength = aValue.Length();;
+  uint64_t dataLength = aValue.Length();
+  ;
   if (!dataLength) {
     return nullptr;
   }
@@ -616,8 +621,8 @@ IDBFileHandle::WriteOrAppend(const ArrayBufferView& aValue,
   const char* data = reinterpret_cast<const char*>(aValue.Data());
 
   FileRequestStringData stringData;
-  if (NS_WARN_IF(!stringData.string().Assign(data, aValue.Length(),
-                                             fallible_t()))) {
+  if (NS_WARN_IF(
+          !stringData.string().Assign(data, aValue.Length(), fallible_t()))) {
     aRv.Throw(NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
     return nullptr;
   }
@@ -631,9 +636,7 @@ IDBFileHandle::WriteOrAppend(const ArrayBufferView& aValue,
 }
 
 already_AddRefed<IDBFileRequest>
-IDBFileHandle::WriteOrAppend(Blob& aValue,
-                             bool aAppend,
-                             ErrorResult& aRv)
+IDBFileHandle::WriteOrAppend(Blob& aValue, bool aAppend, ErrorResult& aRv)
 {
   AssertIsOnOwningThread();
 
@@ -658,7 +661,7 @@ IDBFileHandle::WriteOrAppend(Blob& aValue,
 
   IPCBlob ipcBlob;
   nsresult rv =
-    IPCBlobUtils::Serialize(aValue.Impl(), backgroundActor, ipcBlob);
+      IPCBlobUtils::Serialize(aValue.Impl(), backgroundActor, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
     return nullptr;
@@ -701,8 +704,7 @@ IDBFileHandle::WriteInternal(const FileRequestData& aData,
 
   if (aAppend) {
     mLocation = UINT64_MAX;
-  }
-  else {
+  } else {
     mLocation += aDataLength;
   }
 
@@ -799,5 +801,5 @@ IDBFileHandle::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return IDBFileHandleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -17,16 +17,16 @@
 namespace mozilla {
 namespace dom {
 
-class TextClause final : public nsISupports
-                       , public nsWrapperCache
+class TextClause final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TextClause)
 
   nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
-  TextClause(nsPIDOMWindowInner* aWindow, const TextRange& aRange,
+  TextClause(nsPIDOMWindowInner* aWindow,
+             const TextRange& aRange,
              const TextRange* targetRange);
 
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -40,7 +40,7 @@ public:
 
   inline bool IsTargetClause() const { return mIsTargetClause; }
 
-private:
+ private:
   ~TextClause();
   nsCOMPtr<nsPIDOMWindowInner> mOwner;
 
@@ -51,7 +51,7 @@ private:
   bool mIsTargetClause;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TextClause_h
+#endif  // mozilla_dom_TextClause_h

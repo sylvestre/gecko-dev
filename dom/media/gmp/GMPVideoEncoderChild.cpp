@@ -15,12 +15,12 @@ namespace mozilla {
 namespace gmp {
 
 GMPVideoEncoderChild::GMPVideoEncoderChild(GMPContentChild* aPlugin)
-  : GMPSharedMemManager(aPlugin)
-  , mPlugin(aPlugin)
-  , mVideoEncoder(nullptr)
-  , mVideoHost(this)
-  , mNeedShmemIntrCount(0)
-  , mPendingEncodeComplete(false)
+    : GMPSharedMemManager(aPlugin),
+      mPlugin(aPlugin),
+      mVideoEncoder(nullptr),
+      mVideoHost(this),
+      mNeedShmemIntrCount(0),
+      mPendingEncodeComplete(false)
 {
   MOZ_ASSERT(mPlugin);
 }
@@ -33,7 +33,8 @@ GMPVideoEncoderChild::~GMPVideoEncoderChild()
 void
 GMPVideoEncoderChild::Init(GMPVideoEncoder* aEncoder)
 {
-  MOZ_ASSERT(aEncoder, "Cannot initialize video encoder child without a video encoder!");
+  MOZ_ASSERT(aEncoder,
+             "Cannot initialize video encoder child without a video encoder!");
   mVideoEncoder = aEncoder;
 }
 
@@ -92,9 +93,10 @@ GMPVideoEncoderChild::RecvInitEncode(const GMPVideoCodec& aCodecSettings,
 }
 
 mozilla::ipc::IPCResult
-GMPVideoEncoderChild::RecvEncode(const GMPVideoi420FrameData& aInputFrame,
-                                 InfallibleTArray<uint8_t>&& aCodecSpecificInfo,
-                                 InfallibleTArray<GMPVideoFrameType>&& aFrameTypes)
+GMPVideoEncoderChild::RecvEncode(
+    const GMPVideoi420FrameData& aInputFrame,
+    InfallibleTArray<uint8_t>&& aCodecSpecificInfo,
+    InfallibleTArray<GMPVideoFrameType>&& aFrameTypes)
 {
   if (!mVideoEncoder) {
     return IPC_FAIL_NO_REASON(this);
@@ -209,9 +211,9 @@ GMPVideoEncoderChild::Alloc(size_t aSize,
   if (mPendingEncodeComplete && mNeedShmemIntrCount == 0) {
     mPendingEncodeComplete = false;
     mPlugin->GMPMessageLoop()->PostTask(
-      NewRunnableMethod("gmp::GMPVideoEncoderChild::RecvEncodingComplete",
-                        this,
-                        &GMPVideoEncoderChild::RecvEncodingComplete));
+        NewRunnableMethod("gmp::GMPVideoEncoderChild::RecvEncodingComplete",
+                          this,
+                          &GMPVideoEncoderChild::RecvEncodingComplete));
   }
 #else
 #ifdef GMP_SAFE_SHMEM
@@ -233,5 +235,5 @@ GMPVideoEncoderChild::Dealloc(Shmem& aMem)
 #endif
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

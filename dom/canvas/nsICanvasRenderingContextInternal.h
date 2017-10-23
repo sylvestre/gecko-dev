@@ -17,9 +17,13 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/NotNull.h"
 
-#define NS_ICANVASRENDERINGCONTEXTINTERNAL_IID \
-{ 0xb84f2fed, 0x9d4b, 0x430b, \
-  { 0xbd, 0xfb, 0x85, 0x57, 0x8a, 0xc2, 0xb4, 0x4b } }
+#define NS_ICANVASRENDERINGCONTEXTINTERNAL_IID       \
+  {                                                  \
+    0xb84f2fed, 0x9d4b, 0x430b,                      \
+    {                                                \
+      0xbd, 0xfb, 0x85, 0x57, 0x8a, 0xc2, 0xb4, 0x4b \
+    }                                                \
+  }
 
 class nsDisplayListBuilder;
 
@@ -29,17 +33,16 @@ class CanvasLayer;
 class CanvasRenderer;
 class Layer;
 class LayerManager;
-} // namespace layers
+}  // namespace layers
 namespace gfx {
 class SourceSurface;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-class nsICanvasRenderingContextInternal :
-  public nsISupports,
-  public nsAPostRefreshObserver
+class nsICanvasRenderingContextInternal : public nsISupports,
+                                          public nsAPostRefreshObserver
 {
-public:
+ public:
   typedef mozilla::layers::CanvasLayer CanvasLayer;
   typedef mozilla::layers::CanvasRenderer CanvasRenderer;
   typedef mozilla::layers::Layer Layer;
@@ -54,7 +57,8 @@ public:
     AddPostRefreshObserverIfNecessary();
   }
 
-  virtual nsIPresShell *GetPresShell() {
+  virtual nsIPresShell* GetPresShell()
+  {
     if (mCanvasElement) {
       return mCanvasElement->OwnerDoc()->GetShell();
     }
@@ -71,8 +75,7 @@ public:
 
   void AddPostRefreshObserverIfNecessary()
   {
-    if (!GetPresShell() ||
-        !GetPresShell()->GetPresContext() ||
+    if (!GetPresShell() || !GetPresShell()->GetPresContext() ||
         !GetPresShell()->GetPresContext()->RefreshDriver()) {
       return;
     }
@@ -100,8 +103,9 @@ public:
 
   // Initializes with an nsIDocShell and DrawTarget. The size is taken from the
   // DrawTarget.
-  NS_IMETHOD InitializeWithDrawTarget(nsIDocShell *aDocShell,
-                                      mozilla::NotNull<mozilla::gfx::DrawTarget*> aTarget) = 0;
+  NS_IMETHOD InitializeWithDrawTarget(
+      nsIDocShell* aDocShell,
+      mozilla::NotNull<mozilla::gfx::DrawTarget*> aTarget) = 0;
 
   // Creates an image buffer. Returns null on failure.
   virtual mozilla::UniquePtr<uint8_t[]> GetImageBuffer(int32_t* format) = 0;
@@ -112,17 +116,17 @@ public:
   // If the image format does not support transparency or includeTransparency
   // is false, alpha will be discarded and the result will be the image
   // composited on black.
-  NS_IMETHOD GetInputStream(const char *mimeType,
-                            const char16_t *encoderOptions,
-                            nsIInputStream **stream) = 0;
+  NS_IMETHOD GetInputStream(const char* mimeType,
+                            const char16_t* encoderOptions,
+                            nsIInputStream** stream) = 0;
 
   // This gets an Azure SourceSurface for the canvas, this will be a snapshot
   // of the canvas at the time it was called.
   // If premultAlpha is provided, then it assumed the callee can handle
   // un-premultiplied surfaces, and *premultAlpha will be set to false
   // if one is returned.
-  virtual already_AddRefed<mozilla::gfx::SourceSurface>
-  GetSurfaceSnapshot(gfxAlphaType* out_alphaType = nullptr) = 0;
+  virtual already_AddRefed<mozilla::gfx::SourceSurface> GetSurfaceSnapshot(
+      gfxAlphaType* out_alphaType = nullptr) = 0;
 
   // If this context is opaque, the backing store of the canvas should
   // be created as opaque; all compositing operators should assume the
@@ -138,15 +142,18 @@ public:
   // Return the CanvasLayer for this context, creating
   // one for the given layer manager if not available.
   virtual already_AddRefed<Layer> GetCanvasLayer(nsDisplayListBuilder* builder,
-                                                 Layer *oldLayer,
-                                                 LayerManager *manager) = 0;
+                                                 Layer* oldLayer,
+                                                 LayerManager* manager) = 0;
   virtual bool InitializeCanvasRenderer(nsDisplayListBuilder* aBuilder,
-                                        CanvasRenderer* aRenderer) { return true; }
+                                        CanvasRenderer* aRenderer)
+  {
+    return true;
+  }
 
   // Return true if the canvas should be forced to be "inactive" to ensure
   // it can be drawn to the screen even if it's too large to be blitted by
   // an accelerated CanvasLayer.
-  virtual bool ShouldForceInactiveLayer(LayerManager *manager) { return false; }
+  virtual bool ShouldForceInactiveLayer(LayerManager* manager) { return false; }
 
   virtual void MarkContextClean() = 0;
 
@@ -158,19 +165,26 @@ public:
   virtual bool IsContextCleanForFrameCapture() = 0;
 
   // Redraw the dirty rectangle of this canvas.
-  NS_IMETHOD Redraw(const gfxRect &dirty) = 0;
+  NS_IMETHOD Redraw(const gfxRect& dirty) = 0;
 
-  NS_IMETHOD SetContextOptions(JSContext* cx, JS::Handle<JS::Value> options,
+  NS_IMETHOD SetContextOptions(JSContext* cx,
+                               JS::Handle<JS::Value> options,
                                mozilla::ErrorResult& aRvForDictionaryInit)
   {
     return NS_OK;
   }
 
   // return true and fills in the bounding rect if elementis a child and has a hit region.
-  virtual bool GetHitRegionRect(mozilla::dom::Element* element, nsRect& rect) { return false; }
+  virtual bool GetHitRegionRect(mozilla::dom::Element* element, nsRect& rect)
+  {
+    return false;
+  }
 
   // Given a point, return hit region ID if it exists or an empty string if it doesn't
-  virtual nsString GetHitRegion(const mozilla::gfx::Point& point) { return nsString(); }
+  virtual nsString GetHitRegion(const mozilla::gfx::Point& point)
+  {
+    return nsString();
+  }
 
   virtual void OnVisibilityChange() {}
 
@@ -186,7 +200,7 @@ public:
   // lost.
   NS_IMETHOD SetIsIPC(bool isIPC) = 0;
 
-protected:
+ protected:
   RefPtr<mozilla::dom::HTMLCanvasElement> mCanvasElement;
   RefPtr<mozilla::dom::OffscreenCanvas> mOffscreenCanvas;
   RefPtr<nsRefreshDriver> mRefreshDriver;

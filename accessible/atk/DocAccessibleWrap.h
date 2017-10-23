@@ -18,14 +18,14 @@ namespace a11y {
 
 class DocAccessibleWrap : public DocAccessible
 {
-public:
+ public:
   DocAccessibleWrap(nsIDocument* aDocument, nsIPresShell* aPresShell);
   virtual ~DocAccessibleWrap();
 
   bool mActivated;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

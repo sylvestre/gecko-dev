@@ -41,7 +41,8 @@ namespace google_breakpad {
 class CrashGenerationServer;
 
 // Abstraction for a crash client process.
-class ClientInfo {
+class ClientInfo
+{
  public:
   // Creates an instance with the given values. Gets the process
   // handle for the given process id and creates necessary event
@@ -66,15 +67,18 @@ class ClientInfo {
   HANDLE dump_requested_handle() const { return dump_requested_handle_; }
   HANDLE dump_generated_handle() const { return dump_generated_handle_; }
   DWORD crash_id() const { return crash_id_; }
-  const CustomClientInfo& custom_client_info() const {
+  const CustomClientInfo& custom_client_info() const
+  {
     return custom_client_info_;
   }
 
-  void set_dump_request_wait_handle(HANDLE value) {
+  void set_dump_request_wait_handle(HANDLE value)
+  {
     dump_request_wait_handle_ = value;
   }
 
-  void set_process_exit_wait_handle(HANDLE value) {
+  void set_process_exit_wait_handle(HANDLE value)
+  {
     process_exit_wait_handle_ = value;
   }
 

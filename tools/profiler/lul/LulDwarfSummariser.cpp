@@ -14,7 +14,9 @@
 namespace lul {
 
 // Do |s64|'s lowest 32 bits sign extend back to |s64| itself?
-static inline bool fitsIn32Bits(int64 s64) {
+static inline bool
+fitsIn32Bits(int64 s64)
+{
   return s64 == ((s64 & 0xffffffff) ^ 0x80000000) - 0x80000000;
 }
 
@@ -34,25 +36,22 @@ checkPfxExpr(const vector<PfxInstr>* pfxInstrs, int64_t start)
   size_t i;
   for (i = start; i < nInstrs; i++) {
     PfxInstr pxi = (*pfxInstrs)[i];
-    if (pxi.mOpcode == PX_End)
-      break;
+    if (pxi.mOpcode == PX_End) break;
     if (pxi.mOpcode == PX_DwReg &&
         !registerIsTracked((DW_REG_NUMBER)pxi.mOperand)) {
       return "uses untracked reg";
     }
   }
-  return nullptr; // success
+  return nullptr;  // success
 }
 
-
-Summariser::Summariser(SecMap* aSecMap, uintptr_t aTextBias,
-                       void(*aLog)(const char*))
-  : mSecMap(aSecMap)
-  , mTextBias(aTextBias)
-  , mLog(aLog)
+Summariser::Summariser(SecMap* aSecMap,
+                       uintptr_t aTextBias,
+                       void (*aLog)(const char*))
+    : mSecMap(aSecMap), mTextBias(aTextBias), mLog(aLog)
 {
   mCurrAddr = 0;
-  mMax1Addr = 0; // Gives an empty range.
+  mMax1Addr = 0;  // Gives an empty range.
 
   // Initialise the running RuleSet to "haven't got a clue" status.
   new (&mCurrRules) RuleSet();
@@ -79,8 +78,11 @@ Summariser::Entry(uintptr_t aAddress, uintptr_t aLength)
 }
 
 void
-Summariser::Rule(uintptr_t aAddress, int aNewReg,
-                 LExprHow how, int16_t oldReg, int64_t offset)
+Summariser::Rule(uintptr_t aAddress,
+                 int aNewReg,
+                 LExprHow how,
+                 int16_t oldReg,
+                 int64_t offset)
 {
   aAddress += mTextBias;
   if (DEBUG_SUMMARISER) {
@@ -89,18 +91,23 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
       bool deref = how == DEREF;
       SprintfLiteral(buf,
                      "LUL  0x%llx  old-r%d = %sr%d + %lld%s\n",
-                     (unsigned long long int)aAddress, aNewReg,
-                     deref ? "*(" : "", (int)oldReg, (long long int)offset,
+                     (unsigned long long int)aAddress,
+                     aNewReg,
+                     deref ? "*(" : "",
+                     (int)oldReg,
+                     (long long int)offset,
                      deref ? ")" : "");
     } else if (how == PFXEXPR) {
       SprintfLiteral(buf,
                      "LUL  0x%llx  old-r%d = pfx-expr-at %lld\n",
-                     (unsigned long long int)aAddress, aNewReg,
+                     (unsigned long long int)aAddress,
+                     aNewReg,
                      (long long int)offset);
     } else {
       SprintfLiteral(buf,
                      "LUL  0x%llx  old-r%d = (invalid LExpr!)\n",
-                     (unsigned long long int)aAddress, aNewReg);
+                     (unsigned long long int)aAddress,
+                     aNewReg);
     }
     mLog(buf);
   }
@@ -108,10 +115,11 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
   if (mCurrAddr < aAddress) {
     // Flush the existing summary first.
     mCurrRules.mAddr = mCurrAddr;
-    mCurrRules.mLen  = aAddress - mCurrAddr;
+    mCurrRules.mLen = aAddress - mCurrAddr;
     mSecMap->AddRuleSet(&mCurrRules);
     if (DEBUG_SUMMARISER) {
-      mLog("LUL  "); mCurrRules.Print(mLog);
+      mLog("LUL  ");
+      mCurrRules.Print(mLog);
       mLog("\n");
     }
     mCurrAddr = aAddress;
@@ -132,7 +140,7 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
     goto cant_summarise;
   }
 
-  // FIXME: factor out common parts of the arch-dependent summarisers.
+    // FIXME: factor out common parts of the arch-dependent summarisers.
 
 #if defined(GP_ARCH_arm)
 
@@ -142,7 +150,6 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
   // the registers and the overall expression are representable.  This
   // is the heart of the summarisation process.
   switch (aNewReg) {
-
     case DW_REG_CFA:
       // This is a rule that defines the CFA.  The only forms we
       // choose to represent are: r7/11/12/13 + offset.  The offset
@@ -153,8 +160,10 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
         goto cant_summarise;
       }
       switch (oldReg) {
-        case DW_REG_ARM_R7:  case DW_REG_ARM_R11:
-        case DW_REG_ARM_R12: case DW_REG_ARM_R13:
+        case DW_REG_ARM_R7:
+        case DW_REG_ARM_R11:
+        case DW_REG_ARM_R12:
+        case DW_REG_ARM_R13:
           break;
         default:
           reason1 = "rule for DW_REG_CFA: invalid |oldReg|";
@@ -163,12 +172,17 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
       mCurrRules.mCfaExpr = LExpr(how, oldReg, offset);
       break;
 
-    case DW_REG_ARM_R7:  case DW_REG_ARM_R11: case DW_REG_ARM_R12:
-    case DW_REG_ARM_R13: case DW_REG_ARM_R14: case DW_REG_ARM_R15: {
+    case DW_REG_ARM_R7:
+    case DW_REG_ARM_R11:
+    case DW_REG_ARM_R12:
+    case DW_REG_ARM_R13:
+    case DW_REG_ARM_R14:
+    case DW_REG_ARM_R15: {
       // This is a new rule for R7, R11, R12, R13 (SP), R14 (LR) or
       // R15 (the return address).
       switch (how) {
-        case NODEREF: case DEREF:
+        case NODEREF:
+        case DEREF:
           // Check the old register is one we're tracking.
           if (!registerIsTracked((DW_REG_NUMBER)oldReg) &&
               oldReg != DW_REG_CFA) {
@@ -191,13 +205,26 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
       }
       LExpr expr = LExpr(how, oldReg, offset);
       switch (aNewReg) {
-        case DW_REG_ARM_R7:  mCurrRules.mR7expr  = expr; break;
-        case DW_REG_ARM_R11: mCurrRules.mR11expr = expr; break;
-        case DW_REG_ARM_R12: mCurrRules.mR12expr = expr; break;
-        case DW_REG_ARM_R13: mCurrRules.mR13expr = expr; break;
-        case DW_REG_ARM_R14: mCurrRules.mR14expr = expr; break;
-        case DW_REG_ARM_R15: mCurrRules.mR15expr = expr; break;
-        default: MOZ_ASSERT(0);
+        case DW_REG_ARM_R7:
+          mCurrRules.mR7expr = expr;
+          break;
+        case DW_REG_ARM_R11:
+          mCurrRules.mR11expr = expr;
+          break;
+        case DW_REG_ARM_R12:
+          mCurrRules.mR12expr = expr;
+          break;
+        case DW_REG_ARM_R13:
+          mCurrRules.mR13expr = expr;
+          break;
+        case DW_REG_ARM_R14:
+          mCurrRules.mR14expr = expr;
+          break;
+        case DW_REG_ARM_R15:
+          mCurrRules.mR15expr = expr;
+          break;
+        default:
+          MOZ_ASSERT(0);
       }
       break;
     }
@@ -245,7 +272,6 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
   // the registers and the overall expression are representable.  This
   // is the heart of the summarisation process.
   switch (aNewReg) {
-
     case DW_REG_CFA: {
       // This is a rule that defines the CFA.  The only forms we choose to
       // represent are: = SP+offset, = FP+offset, or =prefix-expr.
@@ -276,10 +302,13 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
       break;
     }
 
-    case DW_REG_INTEL_XSP: case DW_REG_INTEL_XBP: case DW_REG_INTEL_XIP: {
+    case DW_REG_INTEL_XSP:
+    case DW_REG_INTEL_XBP:
+    case DW_REG_INTEL_XIP: {
       // This is a new rule for XSP, XBP or XIP (the return address).
       switch (how) {
-        case NODEREF: case DEREF:
+        case NODEREF:
+        case DEREF:
           // Check the old register is one we're tracking.
           if (!registerIsTracked((DW_REG_NUMBER)oldReg) &&
               oldReg != DW_REG_CFA) {
@@ -302,10 +331,17 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
       }
       LExpr expr = LExpr(how, oldReg, offset);
       switch (aNewReg) {
-        case DW_REG_INTEL_XBP: mCurrRules.mXbpExpr = expr; break;
-        case DW_REG_INTEL_XSP: mCurrRules.mXspExpr = expr; break;
-        case DW_REG_INTEL_XIP: mCurrRules.mXipExpr = expr; break;
-        default: MOZ_CRASH("impossible value for aNewReg");
+        case DW_REG_INTEL_XBP:
+          mCurrRules.mXbpExpr = expr;
+          break;
+        case DW_REG_INTEL_XSP:
+          mCurrRules.mXspExpr = expr;
+          break;
+        case DW_REG_INTEL_XIP:
+          mCurrRules.mXipExpr = expr;
+          break;
+        default:
+          MOZ_CRASH("impossible value for aNewReg");
       }
       break;
     }
@@ -314,7 +350,6 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
       // Leave |reason1| and |reason2| unset here, for the reasons
       // explained in the analogous point in the ARM case just above.
       goto cant_summarise;
-
   }
 
   // On Intel, it seems the old SP value before the call is always the
@@ -331,20 +366,23 @@ Summariser::Rule(uintptr_t aAddress, int aNewReg,
 
 #else
 
-# error "Unsupported arch"
+#error "Unsupported arch"
 #endif
 
   return;
 
- cant_summarise:
+cant_summarise:
   if (reason1 || reason2) {
     char buf[200];
-    SprintfLiteral(buf, "LUL  can't summarise: "
-                        "SVMA=0x%llx: %s%s, expr=LExpr(%s,%u,%lld)\n",
+    SprintfLiteral(buf,
+                   "LUL  can't summarise: "
+                   "SVMA=0x%llx: %s%s, expr=LExpr(%s,%u,%lld)\n",
                    (unsigned long long int)(aAddress - mTextBias),
-                   reason1 ? reason1 : "", reason2 ? reason2 : "",
+                   reason1 ? reason1 : "",
+                   reason2 ? reason2 : "",
                    NameOf_LExprHow(how),
-                   (unsigned int)oldReg, (long long int)offset);
+                   (unsigned int)oldReg,
+                   (long long int)offset);
     mLog(buf);
   }
 }
@@ -363,13 +401,14 @@ Summariser::End()
   }
   if (mCurrAddr < mMax1Addr) {
     mCurrRules.mAddr = mCurrAddr;
-    mCurrRules.mLen  = mMax1Addr - mCurrAddr;
+    mCurrRules.mLen = mMax1Addr - mCurrAddr;
     mSecMap->AddRuleSet(&mCurrRules);
     if (DEBUG_SUMMARISER) {
-      mLog("LUL  "); mCurrRules.Print(mLog);
+      mLog("LUL  ");
+      mCurrRules.Print(mLog);
       mLog("\n");
     }
   }
 }
 
-} // namespace lul
+}  // namespace lul

@@ -18,7 +18,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGPolygonElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGPolygonElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGPolygonElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -26,8 +26,9 @@ SVGPolygonElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGPolygonElement::SVGPolygonElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGPolygonElementBase(aNodeInfo)
+SVGPolygonElement::SVGPolygonElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGPolygonElementBase(aNodeInfo)
 {
 }
 
@@ -40,7 +41,7 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGPolygonElement)
 // SVGGeometryElement methods
 
 void
-SVGPolygonElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
+SVGPolygonElement::GetMarkPoints(nsTArray<nsSVGMark>* aMarks)
 {
   SVGPolyElement::GetMarkPoints(aMarks);
 
@@ -48,8 +49,8 @@ SVGPolygonElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
     return;
   }
 
-  nsSVGMark *endMark = &aMarks->LastElement();
-  nsSVGMark *startMark = &aMarks->ElementAt(0);
+  nsSVGMark* endMark = &aMarks->LastElement();
+  nsSVGMark* startMark = &aMarks->ElementAt(0);
   float angle = atan2(startMark->y - endMark->y, startMark->x - endMark->x);
 
   endMark->type = nsSVGMark::eMid;
@@ -58,14 +59,14 @@ SVGPolygonElement::GetMarkPoints(nsTArray<nsSVGMark> *aMarks)
   // for a polygon (as opposed to a polyline) there's an implicit extra point
   // co-located with the start point that SVGPolyElement::GetMarkPoints
   // doesn't return
-  aMarks->AppendElement(nsSVGMark(startMark->x, startMark->y, startMark->angle,
-                                  nsSVGMark::eEnd));
+  aMarks->AppendElement(
+      nsSVGMark(startMark->x, startMark->y, startMark->angle, nsSVGMark::eEnd));
 }
 
 already_AddRefed<Path>
 SVGPolygonElement::BuildPath(PathBuilder* aBuilder)
 {
-  const SVGPointList &points = mPoints.GetAnimValue();
+  const SVGPointList& points = mPoints.GetAnimValue();
 
   if (points.IsEmpty()) {
     return nullptr;
@@ -81,5 +82,5 @@ SVGPolygonElement::BuildPath(PathBuilder* aBuilder)
   return aBuilder->Finish();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

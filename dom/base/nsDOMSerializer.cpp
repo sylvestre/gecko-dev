@@ -18,13 +18,9 @@
 
 using namespace mozilla;
 
-nsDOMSerializer::nsDOMSerializer()
-{
-}
+nsDOMSerializer::nsDOMSerializer() {}
 
-nsDOMSerializer::~nsDOMSerializer()
-{
-}
+nsDOMSerializer::~nsDOMSerializer() {}
 
 // QueryInterface implementation for nsDOMSerializer
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMSerializer)
@@ -38,35 +34,34 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsDOMSerializer, mOwner)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMSerializer)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMSerializer)
 
-
 static nsresult
-SetUpEncoder(nsIDOMNode *aRoot, const nsACString& aCharset,
-             nsIDocumentEncoder **aEncoder)
+SetUpEncoder(nsIDOMNode* aRoot,
+             const nsACString& aCharset,
+             nsIDocumentEncoder** aEncoder)
 {
   *aEncoder = nullptr;
 
   nsresult rv;
-  nsCOMPtr<nsIDocumentEncoder> encoder =
-    do_CreateInstance(NS_DOC_ENCODER_CONTRACTID_BASE "application/xhtml+xml", &rv);
-  if (NS_FAILED(rv))
-    return rv;
+  nsCOMPtr<nsIDocumentEncoder> encoder = do_CreateInstance(
+      NS_DOC_ENCODER_CONTRACTID_BASE "application/xhtml+xml", &rv);
+  if (NS_FAILED(rv)) return rv;
 
   bool entireDocument = true;
   nsCOMPtr<nsIDOMDocument> domDoc(do_QueryInterface(aRoot));
   if (!domDoc) {
     entireDocument = false;
     rv = aRoot->GetOwnerDocument(getter_AddRefs(domDoc));
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
   }
 
   // This method will fail if no document
-  rv = encoder->Init(domDoc, NS_LITERAL_STRING("application/xhtml+xml"),
-                     nsIDocumentEncoder::OutputRaw |
-                     nsIDocumentEncoder::OutputDontRewriteEncodingDeclaration);
+  rv = encoder->Init(
+      domDoc,
+      NS_LITERAL_STRING("application/xhtml+xml"),
+      nsIDocumentEncoder::OutputRaw |
+          nsIDocumentEncoder::OutputDontRewriteEncodingDeclaration);
 
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   nsAutoCString charset(aCharset);
   if (charset.IsEmpty()) {
@@ -75,8 +70,7 @@ SetUpEncoder(nsIDOMNode *aRoot, const nsACString& aCharset,
     doc->GetDocumentCharacterSet()->Name(charset);
   }
   rv = encoder->SetCharset(charset);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   // If we are working on the entire document we do not need to
   // specify which part to serialize
@@ -92,14 +86,15 @@ SetUpEncoder(nsIDOMNode *aRoot, const nsACString& aCharset,
 }
 
 void
-nsDOMSerializer::SerializeToString(nsINode& aRoot, nsAString& aStr,
+nsDOMSerializer::SerializeToString(nsINode& aRoot,
+                                   nsAString& aStr,
                                    ErrorResult& rv)
 {
   rv = nsDOMSerializer::SerializeToString(aRoot.AsDOMNode(), aStr);
 }
 
 NS_IMETHODIMP
-nsDOMSerializer::SerializeToString(nsIDOMNode *aRoot, nsAString& _retval)
+nsDOMSerializer::SerializeToString(nsIDOMNode* aRoot, nsAString& _retval)
 {
   NS_ENSURE_ARG_POINTER(aRoot);
 
@@ -111,23 +106,24 @@ nsDOMSerializer::SerializeToString(nsIDOMNode *aRoot, nsAString& _retval)
 
   nsCOMPtr<nsIDocumentEncoder> encoder;
   nsresult rv = SetUpEncoder(aRoot, EmptyCString(), getter_AddRefs(encoder));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   return encoder->EncodeToString(_retval);
 }
 
 void
-nsDOMSerializer::SerializeToStream(nsINode& aRoot, nsIOutputStream* aStream,
-                                   const nsAString& aCharset, ErrorResult& rv)
+nsDOMSerializer::SerializeToStream(nsINode& aRoot,
+                                   nsIOutputStream* aStream,
+                                   const nsAString& aCharset,
+                                   ErrorResult& rv)
 {
-  rv = nsDOMSerializer::SerializeToStream(aRoot.AsDOMNode(), aStream,
-                                          NS_ConvertUTF16toUTF8(aCharset));
+  rv = nsDOMSerializer::SerializeToStream(
+      aRoot.AsDOMNode(), aStream, NS_ConvertUTF16toUTF8(aCharset));
 }
 
 NS_IMETHODIMP
-nsDOMSerializer::SerializeToStream(nsIDOMNode *aRoot,
-                                   nsIOutputStream *aStream,
+nsDOMSerializer::SerializeToStream(nsIDOMNode* aRoot,
+                                   nsIOutputStream* aStream,
                                    const nsACString& aCharset)
 {
   NS_ENSURE_ARG_POINTER(aRoot);
@@ -141,8 +137,7 @@ nsDOMSerializer::SerializeToStream(nsIDOMNode *aRoot,
 
   nsCOMPtr<nsIDocumentEncoder> encoder;
   nsresult rv = SetUpEncoder(aRoot, aCharset, getter_AddRefs(encoder));
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   return encoder->EncodeToStream(aStream);
 }

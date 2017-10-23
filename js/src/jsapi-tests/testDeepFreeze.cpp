@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testDeepFreeze_bug535703)
-{
+BEGIN_TEST(testDeepFreeze_bug535703) {
     JS::RootedValue v(cx);
     EVAL("var x = {}; x;", &v);
     JS::RootedObject obj(cx, v.toObjectOrNull());
@@ -19,12 +18,12 @@ BEGIN_TEST(testDeepFreeze_bug535703)
 }
 END_TEST(testDeepFreeze_bug535703)
 
-BEGIN_TEST(testDeepFreeze_deep)
-{
+BEGIN_TEST(testDeepFreeze_deep) {
     JS::RootedValue a(cx), o(cx);
-    EXEC("var a = {}, o = a;\n"
-         "for (var i = 0; i < 5000; i++)\n"
-         "    a = {x: a, y: a};\n");
+    EXEC(
+        "var a = {}, o = a;\n"
+        "for (var i = 0; i < 5000; i++)\n"
+        "    a = {x: a, y: a};\n");
     EVAL("a", &a);
     EVAL("o", &o);
 
@@ -40,8 +39,7 @@ BEGIN_TEST(testDeepFreeze_deep)
 }
 END_TEST(testDeepFreeze_deep)
 
-BEGIN_TEST(testDeepFreeze_loop)
-{
+BEGIN_TEST(testDeepFreeze_loop) {
     JS::RootedValue x(cx), y(cx);
     EXEC("var x = [], y = {x: x}; y.y = y; x.push(x, y);");
     EVAL("x", &x);

@@ -22,7 +22,7 @@ class SpeechRecognition;
 class SpeechRecognitionAlternative final : public nsISupports,
                                            public nsWrapperCache
 {
-public:
+ public:
   explicit SpeechRecognitionAlternative(SpeechRecognition* aParent);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -30,7 +30,8 @@ public:
 
   nsISupports* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   void GetTranscript(nsString& aRetVal) const;
 
@@ -38,13 +39,14 @@ public:
 
   nsString mTranscript;
   float mConfidence;
-private:
+
+ private:
   ~SpeechRecognitionAlternative();
 
   RefPtr<SpeechRecognition> mParent;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

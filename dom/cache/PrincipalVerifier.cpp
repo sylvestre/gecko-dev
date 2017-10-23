@@ -36,9 +36,8 @@ PrincipalVerifier::CreateAndDispatch(Listener* aListener,
   // only works on the PBackground thread.
   AssertIsOnBackgroundThread();
 
-  RefPtr<PrincipalVerifier> verifier = new PrincipalVerifier(aListener,
-                                                               aActor,
-                                                               aPrincipalInfo);
+  RefPtr<PrincipalVerifier> verifier =
+      new PrincipalVerifier(aListener, aActor, aPrincipalInfo);
 
   MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(verifier));
 
@@ -65,11 +64,11 @@ PrincipalVerifier::RemoveListener(Listener* aListener)
 PrincipalVerifier::PrincipalVerifier(Listener* aListener,
                                      PBackgroundParent* aActor,
                                      const PrincipalInfo& aPrincipalInfo)
-  : Runnable("dom::cache::PrincipalVerifier")
-  , mActor(BackgroundParent::GetContentParent(aActor))
-  , mPrincipalInfo(aPrincipalInfo)
-  , mInitiatingEventTarget(GetCurrentThreadSerialEventTarget())
-  , mResult(NS_OK)
+    : Runnable("dom::cache::PrincipalVerifier"),
+      mActor(BackgroundParent::GetContentParent(aActor)),
+      mPrincipalInfo(aPrincipalInfo),
+      mInitiatingEventTarget(GetCurrentThreadSerialEventTarget()),
+      mResult(NS_OK)
 {
   AssertIsOnBackgroundThread();
   MOZ_DIAGNOSTIC_ASSERT(mInitiatingEventTarget);
@@ -117,8 +116,8 @@ PrincipalVerifier::VerifyOnMainThread()
   actor.swap(mActor);
 
   nsresult rv;
-  RefPtr<nsIPrincipal> principal = PrincipalInfoToPrincipal(mPrincipalInfo,
-                                                              &rv);
+  RefPtr<nsIPrincipal> principal =
+      PrincipalInfoToPrincipal(mPrincipalInfo, &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     DispatchToInitiatingThread(rv);
     return;
@@ -204,12 +203,14 @@ PrincipalVerifier::DispatchToInitiatingThread(nsresult aRv)
   // This will result in a new CacheStorage object delaying operations until
   // shutdown completes and the browser goes away.  This is as graceful as
   // we can get here.
-  nsresult rv = mInitiatingEventTarget->Dispatch(this, nsIThread::DISPATCH_NORMAL);
+  nsresult rv =
+      mInitiatingEventTarget->Dispatch(this, nsIThread::DISPATCH_NORMAL);
   if (NS_FAILED(rv)) {
-    NS_WARNING("Cache unable to complete principal verification due to shutdown.");
+    NS_WARNING(
+        "Cache unable to complete principal verification due to shutdown.");
   }
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

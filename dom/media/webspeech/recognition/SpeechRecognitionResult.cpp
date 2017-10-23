@@ -21,16 +21,15 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechRecognitionResult)
 NS_INTERFACE_MAP_END
 
 SpeechRecognitionResult::SpeechRecognitionResult(SpeechRecognition* aParent)
-  : mParent(aParent)
+    : mParent(aParent)
 {
 }
 
-SpeechRecognitionResult::~SpeechRecognitionResult()
-{
-}
+SpeechRecognitionResult::~SpeechRecognitionResult() {}
 
 JSObject*
-SpeechRecognitionResult::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SpeechRecognitionResult::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto)
 {
   return SpeechRecognitionResultBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -69,8 +68,8 @@ SpeechRecognitionResult::Item(uint32_t aIndex)
 bool
 SpeechRecognitionResult::IsFinal() const
 {
-  return true; // TODO
+  return true;  // TODO
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

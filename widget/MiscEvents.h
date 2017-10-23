@@ -16,9 +16,9 @@
 namespace mozilla {
 
 namespace dom {
-  class PBrowserParent;
-  class PBrowserChild;
-} // namespace dom
+class PBrowserParent;
+class PBrowserChild;
+}  // namespace dom
 
 /******************************************************************************
  * mozilla::WidgetContentCommandEvent
@@ -26,19 +26,21 @@ namespace dom {
 
 class WidgetContentCommandEvent : public WidgetGUIEvent
 {
-public:
+ public:
   virtual WidgetContentCommandEvent* AsContentCommandEvent() override
   {
     return this;
   }
 
-  WidgetContentCommandEvent(bool aIsTrusted, EventMessage aMessage,
+  WidgetContentCommandEvent(bool aIsTrusted,
+                            EventMessage aMessage,
                             nsIWidget* aWidget,
                             bool aOnlyEnabledCheck = false)
-    : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eContentCommandEventClass)
-    , mOnlyEnabledCheck(aOnlyEnabledCheck)
-    , mSucceeded(false)
-    , mIsEnabled(false)
+      : WidgetGUIEvent(
+            aIsTrusted, aMessage, aWidget, eContentCommandEventClass),
+        mOnlyEnabledCheck(aOnlyEnabledCheck),
+        mSucceeded(false),
+        mIsEnabled(false)
   {
   }
 
@@ -46,13 +48,13 @@ public:
   {
     // This event isn't an internal event of any DOM event.
     NS_ASSERTION(!IsAllowedToDispatchDOMEvent(),
-      "WidgetQueryContentEvent needs to support Duplicate()");
+                 "WidgetQueryContentEvent needs to support Duplicate()");
     MOZ_CRASH("WidgetQueryContentEvent doesn't support Duplicate()");
     return nullptr;
   }
 
   // eContentCommandPasteTransferable
-  nsCOMPtr<nsITransferable> mTransferable; // [in]
+  nsCOMPtr<nsITransferable> mTransferable;  // [in]
 
   // eContentCommandScroll
   // for mScroll.mUnit
@@ -65,20 +67,19 @@ public:
 
   struct ScrollInfo
   {
-    ScrollInfo() :
-      mAmount(0), mUnit(eCmdScrollUnit_Line), mIsHorizontal(false)
+    ScrollInfo() : mAmount(0), mUnit(eCmdScrollUnit_Line), mIsHorizontal(false)
     {
     }
 
-    int32_t mAmount;    // [in]
-    uint8_t mUnit;      // [in]
-    bool mIsHorizontal; // [in]
+    int32_t mAmount;     // [in]
+    uint8_t mUnit;       // [in]
+    bool mIsHorizontal;  // [in]
   } mScroll;
 
-  bool mOnlyEnabledCheck; // [in]
+  bool mOnlyEnabledCheck;  // [in]
 
-  bool mSucceeded; // [out]
-  bool mIsEnabled; // [out]
+  bool mSucceeded;  // [out]
+  bool mIsEnabled;  // [out]
 
   void AssignContentCommandEventData(const WidgetContentCommandEvent& aEvent,
                                      bool aCopyTargets)
@@ -103,14 +104,16 @@ public:
 
 class WidgetCommandEvent : public WidgetGUIEvent
 {
-public:
+ public:
   virtual WidgetCommandEvent* AsCommandEvent() override { return this; }
 
-  WidgetCommandEvent(bool aIsTrusted, nsAtom* aEventType,
-                     nsAtom* aCommand, nsIWidget* aWidget)
-    : WidgetGUIEvent(aIsTrusted, eUnidentifiedEvent, aWidget,
-                     eCommandEventClass)
-    , mCommand(aCommand)
+  WidgetCommandEvent(bool aIsTrusted,
+                     nsAtom* aEventType,
+                     nsAtom* aCommand,
+                     nsIWidget* aWidget)
+      : WidgetGUIEvent(
+            aIsTrusted, eUnidentifiedEvent, aWidget, eCommandEventClass),
+        mCommand(aCommand)
   {
     mSpecifiedEventType = aEventType;
   }
@@ -121,7 +124,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     WidgetCommandEvent* result =
-      new WidgetCommandEvent(false, mSpecifiedEventType, mCommand, nullptr);
+        new WidgetCommandEvent(false, mSpecifiedEventType, mCommand, nullptr);
     result->AssignCommandEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -147,16 +150,16 @@ public:
 
 class WidgetPluginEvent : public WidgetGUIEvent
 {
-private:
+ private:
   friend class dom::PBrowserParent;
   friend class dom::PBrowserChild;
 
-public:
+ public:
   virtual WidgetPluginEvent* AsPluginEvent() override { return this; }
 
   WidgetPluginEvent(bool aIsTrusted, EventMessage aMessage, nsIWidget* aWidget)
-    : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, ePluginEventClass)
-    , mRetargetToFocusedDocument(false)
+      : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, ePluginEventClass),
+        mRetargetToFocusedDocument(false)
   {
   }
 
@@ -177,20 +180,17 @@ public:
   // Otherwise, never retargeted. Defaults to false.
   bool mRetargetToFocusedDocument;
 
-  void AssignPluginEventData(const WidgetPluginEvent& aEvent,
-                             bool aCopyTargets)
+  void AssignPluginEventData(const WidgetPluginEvent& aEvent, bool aCopyTargets)
   {
     AssignGUIEventData(aEvent, aCopyTargets);
 
     mRetargetToFocusedDocument = aEvent.mRetargetToFocusedDocument;
   }
 
-protected:
-  WidgetPluginEvent()
-  {
-  }
+ protected:
+  WidgetPluginEvent() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_MiscEvents_h__
+#endif  // mozilla_MiscEvents_h__

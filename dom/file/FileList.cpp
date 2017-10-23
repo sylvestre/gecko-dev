@@ -63,16 +63,14 @@ FileList::IndexedGetter(uint32_t aIndex, bool& aFound) const
 }
 
 void
-FileList::ToSequence(Sequence<RefPtr<File>>& aSequence,
-                     ErrorResult& aRv) const
+FileList::ToSequence(Sequence<RefPtr<File>>& aSequence, ErrorResult& aRv) const
 {
   MOZ_ASSERT(aSequence.IsEmpty());
   if (mFiles.IsEmpty()) {
     return;
   }
 
-  if (!aSequence.SetLength(mFiles.Length(),
-                           mozilla::fallible_t())) {
+  if (!aSequence.SetLength(mFiles.Length(), mozilla::fallible_t())) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
   }
@@ -82,5 +80,5 @@ FileList::ToSequence(Sequence<RefPtr<File>>& aSequence,
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

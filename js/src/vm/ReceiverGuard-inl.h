@@ -18,9 +18,7 @@
 namespace js {
 
 MOZ_ALWAYS_INLINE
-ReceiverGuard::ReceiverGuard(JSObject* obj)
-  : group(nullptr), shape(nullptr)
-{
+ReceiverGuard::ReceiverGuard(JSObject* obj) : group(nullptr), shape(nullptr) {
     if (!obj->isNative()) {
         if (obj->is<UnboxedPlainObject>()) {
             group = obj->group();
@@ -37,9 +35,7 @@ ReceiverGuard::ReceiverGuard(JSObject* obj)
 }
 
 MOZ_ALWAYS_INLINE
-ReceiverGuard::ReceiverGuard(ObjectGroup* group, Shape* shape)
-  : group(group), shape(shape)
-{
+ReceiverGuard::ReceiverGuard(ObjectGroup* group, Shape* shape) : group(group), shape(shape) {
     if (group) {
         const Class* clasp = group->clasp();
         if (clasp == &UnboxedPlainObject::class_) {
@@ -52,6 +48,6 @@ ReceiverGuard::ReceiverGuard(ObjectGroup* group, Shape* shape)
     }
 }
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_ReceiverGuard_inl_h */

@@ -16,7 +16,7 @@ namespace mozilla {
 
 namespace devtools {
 class HeapSnapshot;
-} // namespace devtools
+}  // namespace devtools
 
 namespace dom {
 
@@ -28,7 +28,7 @@ class Promise;
 
 class ThreadSafeChromeUtils
 {
-private:
+ private:
   // Implemented in devtools/shared/heapsnapshot/HeapSnapshot.cpp
   static void SaveHeapSnapshotShared(GlobalObject& global,
                                      const HeapSnapshotBoundaries& boundaries,
@@ -36,7 +36,7 @@ private:
                                      nsAString& snapshotId,
                                      ErrorResult& rv);
 
-public:
+ public:
   // Implemented in devtools/shared/heapsnapshot/HeapSnapshot.cpp
   static void SaveHeapSnapshot(GlobalObject& global,
                                const HeapSnapshotBoundaries& boundaries,
@@ -50,19 +50,20 @@ public:
                                     ErrorResult& rv);
 
   // Implemented in devtools/shared/heapsnapshot/HeapSnapshot.cpp
-  static already_AddRefed<devtools::HeapSnapshot> ReadHeapSnapshot(GlobalObject& global,
-                                                                   const nsAString& filePath,
-                                                                   ErrorResult& rv);
+  static already_AddRefed<devtools::HeapSnapshot> ReadHeapSnapshot(
+      GlobalObject& global, const nsAString& filePath, ErrorResult& rv);
 
-  static void NondeterministicGetWeakMapKeys(GlobalObject& aGlobal,
-                                             JS::Handle<JS::Value> aMap,
-                                             JS::MutableHandle<JS::Value> aRetval,
-                                             ErrorResult& aRv);
+  static void NondeterministicGetWeakMapKeys(
+      GlobalObject& aGlobal,
+      JS::Handle<JS::Value> aMap,
+      JS::MutableHandle<JS::Value> aRetval,
+      ErrorResult& aRv);
 
-  static void NondeterministicGetWeakSetKeys(GlobalObject& aGlobal,
-                                             JS::Handle<JS::Value> aSet,
-                                             JS::MutableHandle<JS::Value> aRetval,
-                                             ErrorResult& aRv);
+  static void NondeterministicGetWeakSetKeys(
+      GlobalObject& aGlobal,
+      JS::Handle<JS::Value> aSet,
+      JS::MutableHandle<JS::Value> aRetval,
+      ErrorResult& aRv);
 
   static void Base64URLEncode(GlobalObject& aGlobal,
                               const ArrayBufferViewOrArrayBuffer& aSource,
@@ -79,40 +80,40 @@ public:
 
 class ChromeUtils : public ThreadSafeChromeUtils
 {
-public:
-  static void
-  OriginAttributesToSuffix(GlobalObject& aGlobal,
-                           const dom::OriginAttributesDictionary& aAttrs,
-                           nsCString& aSuffix);
+ public:
+  static void OriginAttributesToSuffix(
+      GlobalObject& aGlobal,
+      const dom::OriginAttributesDictionary& aAttrs,
+      nsCString& aSuffix);
 
-  static bool
-  OriginAttributesMatchPattern(dom::GlobalObject& aGlobal,
-                               const dom::OriginAttributesDictionary& aAttrs,
-                               const dom::OriginAttributesPatternDictionary& aPattern);
+  static bool OriginAttributesMatchPattern(
+      dom::GlobalObject& aGlobal,
+      const dom::OriginAttributesDictionary& aAttrs,
+      const dom::OriginAttributesPatternDictionary& aPattern);
 
-  static void
-  CreateOriginAttributesFromOrigin(dom::GlobalObject& aGlobal,
-                                   const nsAString& aOrigin,
-                                   dom::OriginAttributesDictionary& aAttrs,
-                                   ErrorResult& aRv);
+  static void CreateOriginAttributesFromOrigin(
+      dom::GlobalObject& aGlobal,
+      const nsAString& aOrigin,
+      dom::OriginAttributesDictionary& aAttrs,
+      ErrorResult& aRv);
 
-  static void
-  FillNonDefaultOriginAttributes(dom::GlobalObject& aGlobal,
-                                 const dom::OriginAttributesDictionary& aAttrs,
-                                 dom::OriginAttributesDictionary& aNewAttrs);
+  static void FillNonDefaultOriginAttributes(
+      dom::GlobalObject& aGlobal,
+      const dom::OriginAttributesDictionary& aAttrs,
+      dom::OriginAttributesDictionary& aNewAttrs);
 
-  static bool
-  IsOriginAttributesEqual(dom::GlobalObject& aGlobal,
-                          const dom::OriginAttributesDictionary& aA,
-                          const dom::OriginAttributesDictionary& aB);
+  static bool IsOriginAttributesEqual(
+      dom::GlobalObject& aGlobal,
+      const dom::OriginAttributesDictionary& aA,
+      const dom::OriginAttributesDictionary& aB);
 
-  static bool
-  IsOriginAttributesEqual(const dom::OriginAttributesDictionary& aA,
-                          const dom::OriginAttributesDictionary& aB);
+  static bool IsOriginAttributesEqual(
+      const dom::OriginAttributesDictionary& aA,
+      const dom::OriginAttributesDictionary& aB);
 
-  static bool
-  IsOriginAttributesEqualIgnoringFPD(const dom::OriginAttributesDictionary& aA,
-                                     const dom::OriginAttributesDictionary& aB)
+  static bool IsOriginAttributesEqualIgnoringFPD(
+      const dom::OriginAttributesDictionary& aA,
+      const dom::OriginAttributesDictionary& aB)
   {
     return aA.mAppId == aB.mAppId &&
            aA.mInIsolatedMozBrowser == aB.mInIsolatedMozBrowser &&
@@ -121,11 +122,11 @@ public:
   }
 
   // Implemented in js/xpconnect/loader/ChromeScriptLoader.cpp
-  static already_AddRefed<Promise>
-  CompileScript(GlobalObject& aGlobal,
-                const nsAString& aUrl,
-                const dom::CompileScriptOptionsDictionary& aOptions,
-                ErrorResult& aRv);
+  static already_AddRefed<Promise> CompileScript(
+      GlobalObject& aGlobal,
+      const nsAString& aUrl,
+      const dom::CompileScriptOptionsDictionary& aOptions,
+      ErrorResult& aRv);
 
   static void WaiveXrays(GlobalObject& aGlobal,
                          JS::HandleValue aVal,
@@ -154,7 +155,7 @@ public:
                            ErrorResult& aRv);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ChromeUtils__
+#endif  // mozilla_dom_ChromeUtils__

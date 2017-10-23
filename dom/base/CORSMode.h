@@ -11,7 +11,8 @@
 
 namespace mozilla {
 
-enum CORSMode : uint8_t {
+enum CORSMode : uint8_t
+{
   /**
    * The default of not using CORS to validate cross-origin loads.
    */
@@ -30,6 +31,6 @@ enum CORSMode : uint8_t {
   CORS_USE_CREDENTIALS
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* CORSMode_h_ */

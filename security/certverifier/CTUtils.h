@@ -10,21 +10,25 @@
 #include "pkix/Input.h"
 #include "pkix/Result.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Reads a TLS-encoded variable length unsigned integer from |in|.
 // The integer is expected to be in big-endian order, which is used by TLS.
 // Note: checks if the output parameter overflows while reading.
 // |length| indicates the size (in bytes) of the serialized integer.
-template <size_t length, typename T>
-pkix::Result ReadUint(Reader& in, T& out);
+template<size_t length, typename T>
+pkix::Result
+ReadUint(Reader& in, T& out);
 
 // Reads a length-prefixed variable amount of bytes from |in|, updating |out|
 // on success. |prefixLength| indicates the number of bytes needed to represent
 // the length.
-template <size_t prefixLength>
-pkix::Result ReadVariableBytes(Reader& in, Input& out);
+template<size_t prefixLength>
+pkix::Result
+ReadVariableBytes(Reader& in, Input& out);
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
-#endif //CTUtils_h
+#endif  //CTUtils_h

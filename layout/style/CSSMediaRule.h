@@ -13,14 +13,13 @@
 namespace mozilla {
 namespace dom {
 
-class CSSMediaRule : public css::ConditionRule
-                   , public nsIDOMCSSMediaRule
+class CSSMediaRule : public css::ConditionRule, public nsIDOMCSSMediaRule
 {
-protected:
+ protected:
   using ConditionRule::ConditionRule;
   virtual ~CSSMediaRule() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   int32_t GetType() const override { return css::Rule::MEDIA_RULE; }
@@ -48,7 +47,7 @@ public:
                        JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSMediaRule_h
+#endif  // mozilla_dom_CSSMediaRule_h

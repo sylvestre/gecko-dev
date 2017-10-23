@@ -16,7 +16,7 @@ using namespace mozilla;
 
 class SystemGroupImpl final : public SchedulerGroup
 {
-public:
+ public:
   SystemGroupImpl();
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SystemGroupImpl)
 
@@ -26,7 +26,7 @@ public:
 
   static bool Initialized() { return !!sSingleton; }
 
-private:
+ private:
   ~SystemGroupImpl() = default;
   static StaticRefPtr<SystemGroupImpl> sSingleton;
 };

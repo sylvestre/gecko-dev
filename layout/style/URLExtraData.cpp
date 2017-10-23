@@ -18,9 +18,8 @@ StaticRefPtr<URLExtraData> URLExtraData::sDummy;
 /* static */ void
 URLExtraData::InitDummy()
 {
-  sDummy = new URLExtraData(NullPrincipalURI::Create(),
-                            nullptr,
-                            NullPrincipal::Create());
+  sDummy = new URLExtraData(
+      NullPrincipalURI::Create(), nullptr, NullPrincipal::Create());
 }
 
 /* static */ void
@@ -41,4 +40,4 @@ URLExtraData::~URLExtraData()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

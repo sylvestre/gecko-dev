@@ -52,8 +52,8 @@ GetCertLifetimeInFullMonths(PRTime certNotBefore,
   PR_ExplodeTime(certNotAfter, PR_LocalTimeParameters, &explodedNotAfter);
 
   PRInt32 signedMonths =
-    (explodedNotAfter.tm_year - explodedNotBefore.tm_year) * 12 +
-    (explodedNotAfter.tm_month - explodedNotBefore.tm_month);
+      (explodedNotAfter.tm_year - explodedNotBefore.tm_year) * 12 +
+      (explodedNotAfter.tm_month - explodedNotBefore.tm_month);
   if (explodedNotAfter.tm_mday < explodedNotBefore.tm_mday) {
     --signedMonths;
   }
@@ -69,7 +69,8 @@ GetCertLifetimeInFullMonths(PRTime certNotBefore,
   return Success;
 }
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 const CertVerifier::Flags CertVerifier::FLAG_LOCAL_ONLY = 1;
 const CertVerifier::Flags CertVerifier::FLAG_MUST_BE_EV = 2;
@@ -94,24 +95,22 @@ CertVerifier::CertVerifier(OcspDownloadConfig odc,
                            BRNameMatchingPolicy::Mode nameMatchingMode,
                            NetscapeStepUpPolicy netscapeStepUpPolicy,
                            CertificateTransparencyMode ctMode)
-  : mOCSPDownloadConfig(odc)
-  , mOCSPStrict(osc == ocspStrict)
-  , mOCSPGETEnabled(ogc == ocspGetEnabled)
-  , mOCSPTimeoutSoft(ocspTimeoutSoft)
-  , mOCSPTimeoutHard(ocspTimeoutHard)
-  , mCertShortLifetimeInDays(certShortLifetimeInDays)
-  , mPinningMode(pinningMode)
-  , mSHA1Mode(sha1Mode)
-  , mNameMatchingMode(nameMatchingMode)
-  , mNetscapeStepUpPolicy(netscapeStepUpPolicy)
-  , mCTMode(ctMode)
+    : mOCSPDownloadConfig(odc),
+      mOCSPStrict(osc == ocspStrict),
+      mOCSPGETEnabled(ogc == ocspGetEnabled),
+      mOCSPTimeoutSoft(ocspTimeoutSoft),
+      mOCSPTimeoutHard(ocspTimeoutHard),
+      mCertShortLifetimeInDays(certShortLifetimeInDays),
+      mPinningMode(pinningMode),
+      mSHA1Mode(sha1Mode),
+      mNameMatchingMode(nameMatchingMode),
+      mNetscapeStepUpPolicy(netscapeStepUpPolicy),
+      mCTMode(ctMode)
 {
   LoadKnownCTLogs();
 }
 
-CertVerifier::~CertVerifier()
-{
-}
+CertVerifier::~CertVerifier() {}
 
 Result
 IsCertChainRootBuiltInRoot(const UniqueCERTCertList& chain, bool& result)
@@ -154,7 +153,7 @@ IsCertBuiltInRoot(CERTCertificate* cert, bool& result)
   if (result) {
     return Success;
   }
-#endif // DEBUG
+#endif  // DEBUG
   AutoSECMODListReadLock lock;
   for (SECMODModuleList* list = SECMOD_GetDefaultModuleList(); list;
        list = list->next) {
@@ -176,8 +175,8 @@ IsCertBuiltInRoot(CERTCertificate* cert, bool& result)
       if (PK11_IsPresent(slot) && PK11_HasRootCerts(slot)) {
         CK_OBJECT_HANDLE handle = PK11_FindCertInSlot(slot, cert, nullptr);
         if (handle != CK_INVALID_HANDLE &&
-            PK11_HasAttributeSet(slot, handle, CKA_NSS_MOZILLA_CA_POLICY,
-                                 false)) {
+            PK11_HasAttributeSet(
+                slot, handle, CKA_NSS_MOZILLA_CA_POLICY, false)) {
           // Attribute was found, and is set to true
           result = true;
           break;
@@ -189,28 +188,47 @@ IsCertBuiltInRoot(CERTCertificate* cert, bool& result)
 }
 
 static Result
-BuildCertChainForOneKeyUsage(NSSCertDBTrustDomain& trustDomain, Input certDER,
-                             Time time, KeyUsage ku1, KeyUsage ku2,
-                             KeyUsage ku3, KeyPurposeId eku,
-                             const CertPolicyId& requiredPolicy,
-                             const Input* stapledOCSPResponse,
-                             /*optional out*/ CertVerifier::OCSPStaplingStatus*
-                                                ocspStaplingStatus)
+BuildCertChainForOneKeyUsage(
+    NSSCertDBTrustDomain& trustDomain,
+    Input certDER,
+    Time time,
+    KeyUsage ku1,
+    KeyUsage ku2,
+    KeyUsage ku3,
+    KeyPurposeId eku,
+    const CertPolicyId& requiredPolicy,
+    const Input* stapledOCSPResponse,
+    /*optional out*/ CertVerifier::OCSPStaplingStatus* ocspStaplingStatus)
 {
   trustDomain.ResetAccumulatedState();
-  Result rv = BuildCertChain(trustDomain, certDER, time,
-                             EndEntityOrCA::MustBeEndEntity, ku1,
-                             eku, requiredPolicy, stapledOCSPResponse);
+  Result rv = BuildCertChain(trustDomain,
+                             certDER,
+                             time,
+                             EndEntityOrCA::MustBeEndEntity,
+                             ku1,
+                             eku,
+                             requiredPolicy,
+                             stapledOCSPResponse);
   if (rv == Result::ERROR_INADEQUATE_KEY_USAGE) {
     trustDomain.ResetAccumulatedState();
-    rv = BuildCertChain(trustDomain, certDER, time,
-                        EndEntityOrCA::MustBeEndEntity, ku2,
-                        eku, requiredPolicy, stapledOCSPResponse);
+    rv = BuildCertChain(trustDomain,
+                        certDER,
+                        time,
+                        EndEntityOrCA::MustBeEndEntity,
+                        ku2,
+                        eku,
+                        requiredPolicy,
+                        stapledOCSPResponse);
     if (rv == Result::ERROR_INADEQUATE_KEY_USAGE) {
       trustDomain.ResetAccumulatedState();
-      rv = BuildCertChain(trustDomain, certDER, time,
-                          EndEntityOrCA::MustBeEndEntity, ku3,
-                          eku, requiredPolicy, stapledOCSPResponse);
+      rv = BuildCertChain(trustDomain,
+                          certDER,
+                          time,
+                          EndEntityOrCA::MustBeEndEntity,
+                          ku3,
+                          eku,
+                          requiredPolicy,
+                          stapledOCSPResponse);
       if (rv != Success) {
         rv = Result::ERROR_INADEQUATE_KEY_USAGE;
       }
@@ -229,7 +247,7 @@ CertVerifier::LoadKnownCTLogs()
   for (const CTLogInfo& log : kCTLogList) {
     Input publicKey;
     Result rv = publicKey.Init(
-      BitwiseCast<const uint8_t*, const char*>(log.key), log.keyLength);
+        BitwiseCast<const uint8_t*, const char*>(log.key), log.keyLength);
     if (rv != Success) {
       MOZ_ASSERT_UNREACHABLE("Failed reading a log key for a known CT Log");
       continue;
@@ -237,9 +255,9 @@ CertVerifier::LoadKnownCTLogs()
 
     CTLogVerifier logVerifier;
     const CTLogOperatorInfo& logOperator =
-      kCTLogOperatorList[log.operatorIndex];
-    rv = logVerifier.Init(publicKey, logOperator.id, log.status,
-                          log.disqualificationTime);
+        kCTLogOperatorList[log.operatorIndex];
+    rv = logVerifier.Init(
+        publicKey, logOperator.id, log.status, log.disqualificationTime);
     if (rv != Success) {
       MOZ_ASSERT_UNREACHABLE("Failed initializing a known CT Log");
       continue;
@@ -258,9 +276,11 @@ CertVerifier::LoadKnownCTLogs()
 
 Result
 CertVerifier::VerifyCertificateTransparencyPolicy(
-  NSSCertDBTrustDomain& trustDomain, const UniqueCERTCertList& builtChain,
-  Input sctsFromTLS, Time time,
-  /*optional out*/ CertificateTransparencyInfo* ctInfo)
+    NSSCertDBTrustDomain& trustDomain,
+    const UniqueCERTCertList& builtChain,
+    Input sctsFromTLS,
+    Time time,
+    /*optional out*/ CertificateTransparencyInfo* ctInfo)
 {
   if (ctInfo) {
     ctInfo->Reset();
@@ -278,20 +298,23 @@ CertVerifier::VerifyCertificateTransparencyPolicy(
 
   Input embeddedSCTs = trustDomain.GetSCTListFromCertificate();
   if (embeddedSCTs.GetLength() > 0) {
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("Got embedded SCT data of length %zu\n",
-              static_cast<size_t>(embeddedSCTs.GetLength())));
+             static_cast<size_t>(embeddedSCTs.GetLength())));
   }
   Input sctsFromOCSP = trustDomain.GetSCTListFromOCSPStapling();
   if (sctsFromOCSP.GetLength() > 0) {
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("Got OCSP SCT data of length %zu\n",
-              static_cast<size_t>(sctsFromOCSP.GetLength())));
+             static_cast<size_t>(sctsFromOCSP.GetLength())));
   }
   if (sctsFromTLS.GetLength() > 0) {
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("Got TLS SCT data of length %zu\n",
-              static_cast<size_t>(sctsFromTLS.GetLength())));
+             static_cast<size_t>(sctsFromTLS.GetLength())));
   }
 
   CERTCertListNode* endEntityNode = CERT_LIST_HEAD(builtChain);
@@ -311,14 +334,15 @@ CertVerifier::VerifyCertificateTransparencyPolicy(
   }
 
   if (endEntity->subjectName) {
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("Verifying CT Policy compliance of subject %s\n",
              endEntity->subjectName));
   }
 
   Input endEntityDER;
-  Result rv = endEntityDER.Init(endEntity->derCert.data,
-                                endEntity->derCert.len);
+  Result rv =
+      endEntityDER.Init(endEntity->derCert.data, endEntity->derCert.len);
   if (rv != Success) {
     return rv;
   }
@@ -331,11 +355,16 @@ CertVerifier::VerifyCertificateTransparencyPolicy(
   }
 
   CTVerifyResult result;
-  rv = mCTVerifier->Verify(endEntityDER, issuerPublicKeyDER,
-                           embeddedSCTs, sctsFromOCSP, sctsFromTLS, time,
+  rv = mCTVerifier->Verify(endEntityDER,
+                           issuerPublicKeyDER,
+                           embeddedSCTs,
+                           sctsFromOCSP,
+                           sctsFromTLS,
+                           time,
                            result);
   if (rv != Success) {
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("SCT verification failed with fatal error %" PRId32 "\n",
              static_cast<uint32_t>(rv)));
     return rv;
@@ -369,13 +398,17 @@ CertVerifier::VerifyCertificateTransparencyPolicy(
           MOZ_ASSERT_UNREACHABLE("Unexpected SCT verification status");
       }
     }
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("SCT verification result: "
              "valid=%zu unknownLog=%zu disqualifiedLog=%zu "
              "invalidSignature=%zu invalidTimestamp=%zu "
              "decodingErrors=%zu\n",
-             validCount, unknownLogCount, disqualifiedLogCount,
-             invalidSignatureCount, invalidTimestampCount,
+             validCount,
+             unknownLogCount,
+             disqualifiedLogCount,
+             invalidSignatureCount,
+             invalidTimestampCount,
              result.decodingErrors));
   }
 
@@ -391,25 +424,27 @@ CertVerifier::VerifyCertificateTransparencyPolicy(
   }
 
   CTLogOperatorList allOperators;
-  rv = GetCTLogOperatorsFromVerifiedSCTList(result.verifiedScts,
-                                            allOperators);
+  rv = GetCTLogOperatorsFromVerifiedSCTList(result.verifiedScts, allOperators);
   if (rv != Success) {
     return rv;
   }
 
   CTLogOperatorList dependentOperators;
-  rv = mCTDiversityPolicy->GetDependentOperators(builtChain, allOperators,
-                                                 dependentOperators);
+  rv = mCTDiversityPolicy->GetDependentOperators(
+      builtChain, allOperators, dependentOperators);
   if (rv != Success) {
     return rv;
   }
 
   CTPolicyEnforcer ctPolicyEnforcer;
   CTPolicyCompliance ctPolicyCompliance;
-  rv = ctPolicyEnforcer.CheckCompliance(result.verifiedScts, lifetimeInMonths,
-                                        dependentOperators, ctPolicyCompliance);
+  rv = ctPolicyEnforcer.CheckCompliance(result.verifiedScts,
+                                        lifetimeInMonths,
+                                        dependentOperators,
+                                        ctPolicyCompliance);
   if (rv != Success) {
-    MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+    MOZ_LOG(gCertVerifierLog,
+            LogLevel::Debug,
             ("CT policy check failed with fatal error %" PRIu32 "\n",
              static_cast<uint32_t>(rv)));
     return rv;
@@ -446,19 +481,23 @@ static const unsigned int MIN_RSA_BITS = 2048;
 static const unsigned int MIN_RSA_BITS_WEAK = 1024;
 
 Result
-CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
-                         Time time, void* pinArg, const char* hostname,
-                 /*out*/ UniqueCERTCertList& builtChain,
-            /*optional*/ const Flags flags,
-            /*optional*/ const SECItem* stapledOCSPResponseSECItem,
-            /*optional*/ const SECItem* sctsFromTLSSECItem,
-            /*optional*/ const OriginAttributes& originAttributes,
-        /*optional out*/ SECOidTag* evOidPolicy,
-        /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus,
-        /*optional out*/ KeySizeStatus* keySizeStatus,
-        /*optional out*/ SHA1ModeResult* sha1ModeResult,
-        /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo,
-        /*optional out*/ CertificateTransparencyInfo* ctInfo)
+CertVerifier::VerifyCert(
+    CERTCertificate* cert,
+    SECCertificateUsage usage,
+    Time time,
+    void* pinArg,
+    const char* hostname,
+    /*out*/ UniqueCERTCertList& builtChain,
+    /*optional*/ const Flags flags,
+    /*optional*/ const SECItem* stapledOCSPResponseSECItem,
+    /*optional*/ const SECItem* sctsFromTLSSECItem,
+    /*optional*/ const OriginAttributes& originAttributes,
+    /*optional out*/ SECOidTag* evOidPolicy,
+    /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus,
+    /*optional out*/ KeySizeStatus* keySizeStatus,
+    /*optional out*/ SHA1ModeResult* sha1ModeResult,
+    /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo,
+    /*optional out*/ CertificateTransparencyInfo* ctInfo)
 {
   MOZ_LOG(gCertVerifierLog, LogLevel::Debug, ("Top of VerifyCert\n"));
 
@@ -511,15 +550,15 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
 
   // We configure the OCSP fetching modes separately for EV and non-EV
   // verifications.
-  NSSCertDBTrustDomain::OCSPFetching defaultOCSPFetching
-    = (mOCSPDownloadConfig == ocspOff) ||
-      (mOCSPDownloadConfig == ocspEVOnly) ||
-      (flags & FLAG_LOCAL_ONLY) ? NSSCertDBTrustDomain::NeverFetchOCSP
-    : !mOCSPStrict              ? NSSCertDBTrustDomain::FetchOCSPForDVSoftFail
-                                : NSSCertDBTrustDomain::FetchOCSPForDVHardFail;
+  NSSCertDBTrustDomain::OCSPFetching defaultOCSPFetching =
+      (mOCSPDownloadConfig == ocspOff) || (mOCSPDownloadConfig == ocspEVOnly) ||
+              (flags & FLAG_LOCAL_ONLY)
+          ? NSSCertDBTrustDomain::NeverFetchOCSP
+          : !mOCSPStrict ? NSSCertDBTrustDomain::FetchOCSPForDVSoftFail
+                         : NSSCertDBTrustDomain::FetchOCSPForDVHardFail;
 
-  OcspGetConfig ocspGETConfig = mOCSPGETEnabled ? ocspGetEnabled
-                                                : ocspGetDisabled;
+  OcspGetConfig ocspGETConfig =
+      mOCSPGETEnabled ? ocspGetEnabled : ocspGetDisabled;
 
   Input stapledOCSPResponseInput;
   const Input* stapledOCSPResponse = nullptr;
@@ -546,21 +585,31 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
     case certificateUsageSSLClient: {
       // XXX: We don't really have a trust bit for SSL client authentication so
       // just use trustEmail as it is the closest alternative.
-      NSSCertDBTrustDomain trustDomain(trustEmail, defaultOCSPFetching,
-                                       mOCSPCache, pinArg, ocspGETConfig,
-                                       mOCSPTimeoutSoft, mOCSPTimeoutHard,
+      NSSCertDBTrustDomain trustDomain(trustEmail,
+                                       defaultOCSPFetching,
+                                       mOCSPCache,
+                                       pinArg,
+                                       ocspGETConfig,
+                                       mOCSPTimeoutSoft,
+                                       mOCSPTimeoutHard,
                                        mCertShortLifetimeInDays,
-                                       pinningDisabled, MIN_RSA_BITS_WEAK,
+                                       pinningDisabled,
+                                       MIN_RSA_BITS_WEAK,
                                        ValidityCheckingMode::CheckingOff,
                                        SHA1Mode::Allowed,
                                        NetscapeStepUpPolicy::NeverMatch,
                                        originAttributes,
-                                       builtChain, nullptr, nullptr);
-      rv = BuildCertChain(trustDomain, certDER, time,
+                                       builtChain,
+                                       nullptr,
+                                       nullptr);
+      rv = BuildCertChain(trustDomain,
+                          certDER,
+                          time,
                           EndEntityOrCA::MustBeEndEntity,
                           KeyUsage::digitalSignature,
                           KeyPurposeId::id_kp_clientAuth,
-                          CertPolicyId::anyPolicy, stapledOCSPResponse);
+                          CertPolicyId::anyPolicy,
+                          stapledOCSPResponse);
       break;
     }
 
@@ -573,32 +622,33 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
       // restrictive. This enables us to gather telemetry on the expected
       // results of setting the default policy to a particular configuration.
       SHA1Mode sha1ModeConfigurations[] = {
-        SHA1Mode::Forbidden,
-        SHA1Mode::ImportedRoot,
-        SHA1Mode::ImportedRootOrBefore2016,
-        SHA1Mode::Allowed,
+          SHA1Mode::Forbidden,
+          SHA1Mode::ImportedRoot,
+          SHA1Mode::ImportedRootOrBefore2016,
+          SHA1Mode::Allowed,
       };
 
       SHA1ModeResult sha1ModeResults[] = {
-        SHA1ModeResult::SucceededWithoutSHA1,
-        SHA1ModeResult::SucceededWithImportedRoot,
-        SHA1ModeResult::SucceededWithImportedRootOrSHA1Before2016,
-        SHA1ModeResult::SucceededWithSHA1,
+          SHA1ModeResult::SucceededWithoutSHA1,
+          SHA1ModeResult::SucceededWithImportedRoot,
+          SHA1ModeResult::SucceededWithImportedRootOrSHA1Before2016,
+          SHA1ModeResult::SucceededWithSHA1,
       };
 
-      size_t sha1ModeConfigurationsCount = MOZ_ARRAY_LENGTH(sha1ModeConfigurations);
+      size_t sha1ModeConfigurationsCount =
+          MOZ_ARRAY_LENGTH(sha1ModeConfigurations);
 
       static_assert(MOZ_ARRAY_LENGTH(sha1ModeConfigurations) ==
-                    MOZ_ARRAY_LENGTH(sha1ModeResults),
+                        MOZ_ARRAY_LENGTH(sha1ModeResults),
                     "digestAlgorithm array lengths differ");
 
       rv = Result::ERROR_UNKNOWN_ERROR;
 
       // Try to validate for EV first.
-      NSSCertDBTrustDomain::OCSPFetching evOCSPFetching
-        = (mOCSPDownloadConfig == ocspOff) ||
-          (flags & FLAG_LOCAL_ONLY) ? NSSCertDBTrustDomain::LocalOnlyOCSPForEV
-                                    : NSSCertDBTrustDomain::FetchOCSPForEV;
+      NSSCertDBTrustDomain::OCSPFetching evOCSPFetching =
+          (mOCSPDownloadConfig == ocspOff) || (flags & FLAG_LOCAL_ONLY)
+              ? NSSCertDBTrustDomain::LocalOnlyOCSPForEV
+              : NSSCertDBTrustDomain::FetchOCSPForEV;
 
       CertPolicyId evPolicy;
       SECOidTag evPolicyOidTag;
@@ -622,22 +672,34 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
           pinningTelemetryInfo->Reset();
         }
 
-        NSSCertDBTrustDomain
-          trustDomain(trustSSL, evOCSPFetching,
-                      mOCSPCache, pinArg, ocspGETConfig,
-                      mOCSPTimeoutSoft, mOCSPTimeoutHard,
-                      mCertShortLifetimeInDays, mPinningMode, MIN_RSA_BITS,
-                      ValidityCheckingMode::CheckForEV,
-                      sha1ModeConfigurations[i], mNetscapeStepUpPolicy,
-                      originAttributes, builtChain, pinningTelemetryInfo,
-                      hostname);
-        rv = BuildCertChainForOneKeyUsage(trustDomain, certDER, time,
-                                          KeyUsage::digitalSignature,// (EC)DHE
-                                          KeyUsage::keyEncipherment, // RSA
-                                          KeyUsage::keyAgreement,    // (EC)DH
-                                          KeyPurposeId::id_kp_serverAuth,
-                                          evPolicy, stapledOCSPResponse,
-                                          ocspStaplingStatus);
+        NSSCertDBTrustDomain trustDomain(trustSSL,
+                                         evOCSPFetching,
+                                         mOCSPCache,
+                                         pinArg,
+                                         ocspGETConfig,
+                                         mOCSPTimeoutSoft,
+                                         mOCSPTimeoutHard,
+                                         mCertShortLifetimeInDays,
+                                         mPinningMode,
+                                         MIN_RSA_BITS,
+                                         ValidityCheckingMode::CheckForEV,
+                                         sha1ModeConfigurations[i],
+                                         mNetscapeStepUpPolicy,
+                                         originAttributes,
+                                         builtChain,
+                                         pinningTelemetryInfo,
+                                         hostname);
+        rv =
+            BuildCertChainForOneKeyUsage(trustDomain,
+                                         certDER,
+                                         time,
+                                         KeyUsage::digitalSignature,  // (EC)DHE
+                                         KeyUsage::keyEncipherment,   // RSA
+                                         KeyUsage::keyAgreement,      // (EC)DH
+                                         KeyPurposeId::id_kp_serverAuth,
+                                         evPolicy,
+                                         stapledOCSPResponse,
+                                         ocspStaplingStatus);
         if (rv == Success &&
             sha1ModeConfigurations[i] == SHA1Mode::ImportedRoot) {
           bool isBuiltInRoot = false;
@@ -650,17 +712,18 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
           }
         }
         if (rv == Success) {
-          MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
-                  ("cert is EV with status %i\n", static_cast<int>(sha1ModeResults[i])));
+          MOZ_LOG(gCertVerifierLog,
+                  LogLevel::Debug,
+                  ("cert is EV with status %i\n",
+                   static_cast<int>(sha1ModeResults[i])));
           if (evOidPolicy) {
             *evOidPolicy = evPolicyOidTag;
           }
           if (sha1ModeResult) {
             *sha1ModeResult = sha1ModeResults[i];
           }
-          rv = VerifyCertificateTransparencyPolicy(trustDomain, builtChain,
-                                                   sctsFromTLSInput, time,
-                                                   ctInfo);
+          rv = VerifyCertificateTransparencyPolicy(
+              trustDomain, builtChain, sctsFromTLSInput, time, ctInfo);
           if (rv != Success) {
             break;
           }
@@ -676,19 +739,14 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
       }
 
       // Now try non-EV.
-      unsigned int keySizeOptions[] = {
-        MIN_RSA_BITS,
-        MIN_RSA_BITS_WEAK
-      };
+      unsigned int keySizeOptions[] = {MIN_RSA_BITS, MIN_RSA_BITS_WEAK};
 
-      KeySizeStatus keySizeStatuses[] = {
-        KeySizeStatus::LargeMinimumSucceeded,
-        KeySizeStatus::CompatibilityRisk
-      };
+      KeySizeStatus keySizeStatuses[] = {KeySizeStatus::LargeMinimumSucceeded,
+                                         KeySizeStatus::CompatibilityRisk};
 
-      static_assert(MOZ_ARRAY_LENGTH(keySizeOptions) ==
-                    MOZ_ARRAY_LENGTH(keySizeStatuses),
-                    "keySize array lengths differ");
+      static_assert(
+          MOZ_ARRAY_LENGTH(keySizeOptions) == MOZ_ARRAY_LENGTH(keySizeStatuses),
+          "keySize array lengths differ");
 
       size_t keySizeOptionsCount = MOZ_ARRAY_LENGTH(keySizeStatuses);
 
@@ -710,24 +768,34 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
             pinningTelemetryInfo->Reset();
           }
 
-          NSSCertDBTrustDomain trustDomain(trustSSL, defaultOCSPFetching,
-                                           mOCSPCache, pinArg, ocspGETConfig,
-                                           mOCSPTimeoutSoft, mOCSPTimeoutHard,
+          NSSCertDBTrustDomain trustDomain(trustSSL,
+                                           defaultOCSPFetching,
+                                           mOCSPCache,
+                                           pinArg,
+                                           ocspGETConfig,
+                                           mOCSPTimeoutSoft,
+                                           mOCSPTimeoutHard,
                                            mCertShortLifetimeInDays,
-                                           mPinningMode, keySizeOptions[i],
+                                           mPinningMode,
+                                           keySizeOptions[i],
                                            ValidityCheckingMode::CheckingOff,
                                            sha1ModeConfigurations[j],
                                            mNetscapeStepUpPolicy,
-                                           originAttributes, builtChain,
-                                           pinningTelemetryInfo, hostname);
-          rv = BuildCertChainForOneKeyUsage(trustDomain, certDER, time,
-                                            KeyUsage::digitalSignature,//(EC)DHE
-                                            KeyUsage::keyEncipherment,//RSA
-                                            KeyUsage::keyAgreement,//(EC)DH
-                                            KeyPurposeId::id_kp_serverAuth,
-                                            CertPolicyId::anyPolicy,
-                                            stapledOCSPResponse,
-                                            ocspStaplingStatus);
+                                           originAttributes,
+                                           builtChain,
+                                           pinningTelemetryInfo,
+                                           hostname);
+          rv = BuildCertChainForOneKeyUsage(
+              trustDomain,
+              certDER,
+              time,
+              KeyUsage::digitalSignature,  //(EC)DHE
+              KeyUsage::keyEncipherment,   //RSA
+              KeyUsage::keyAgreement,      //(EC)DH
+              KeyPurposeId::id_kp_serverAuth,
+              CertPolicyId::anyPolicy,
+              stapledOCSPResponse,
+              ocspStaplingStatus);
           if (rv == Success &&
               sha1ModeConfigurations[j] == SHA1Mode::ImportedRoot) {
             bool isBuiltInRoot = false;
@@ -746,9 +814,8 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
             if (sha1ModeResult) {
               *sha1ModeResult = sha1ModeResults[j];
             }
-            rv = VerifyCertificateTransparencyPolicy(trustDomain, builtChain,
-                                                     sctsFromTLSInput, time,
-                                                     ctInfo);
+            rv = VerifyCertificateTransparencyPolicy(
+                trustDomain, builtChain, sctsFromTLSInput, time, ctInfo);
             if (rv != Success) {
               break;
             }
@@ -775,44 +842,69 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
     }
 
     case certificateUsageSSLCA: {
-      NSSCertDBTrustDomain trustDomain(trustSSL, defaultOCSPFetching,
-                                       mOCSPCache, pinArg, ocspGETConfig,
-                                       mOCSPTimeoutSoft, mOCSPTimeoutHard,
+      NSSCertDBTrustDomain trustDomain(trustSSL,
+                                       defaultOCSPFetching,
+                                       mOCSPCache,
+                                       pinArg,
+                                       ocspGETConfig,
+                                       mOCSPTimeoutSoft,
+                                       mOCSPTimeoutHard,
                                        mCertShortLifetimeInDays,
-                                       pinningDisabled, MIN_RSA_BITS_WEAK,
+                                       pinningDisabled,
+                                       MIN_RSA_BITS_WEAK,
                                        ValidityCheckingMode::CheckingOff,
-                                       SHA1Mode::Allowed, mNetscapeStepUpPolicy,
-                                       originAttributes, builtChain, nullptr,
+                                       SHA1Mode::Allowed,
+                                       mNetscapeStepUpPolicy,
+                                       originAttributes,
+                                       builtChain,
+                                       nullptr,
                                        nullptr);
-      rv = BuildCertChain(trustDomain, certDER, time,
-                          EndEntityOrCA::MustBeCA, KeyUsage::keyCertSign,
+      rv = BuildCertChain(trustDomain,
+                          certDER,
+                          time,
+                          EndEntityOrCA::MustBeCA,
+                          KeyUsage::keyCertSign,
                           KeyPurposeId::id_kp_serverAuth,
-                          CertPolicyId::anyPolicy, stapledOCSPResponse);
+                          CertPolicyId::anyPolicy,
+                          stapledOCSPResponse);
       break;
     }
 
     case certificateUsageEmailSigner: {
-      NSSCertDBTrustDomain trustDomain(trustEmail, defaultOCSPFetching,
-                                       mOCSPCache, pinArg, ocspGETConfig,
-                                       mOCSPTimeoutSoft, mOCSPTimeoutHard,
+      NSSCertDBTrustDomain trustDomain(trustEmail,
+                                       defaultOCSPFetching,
+                                       mOCSPCache,
+                                       pinArg,
+                                       ocspGETConfig,
+                                       mOCSPTimeoutSoft,
+                                       mOCSPTimeoutHard,
                                        mCertShortLifetimeInDays,
-                                       pinningDisabled, MIN_RSA_BITS_WEAK,
+                                       pinningDisabled,
+                                       MIN_RSA_BITS_WEAK,
                                        ValidityCheckingMode::CheckingOff,
                                        SHA1Mode::Allowed,
                                        NetscapeStepUpPolicy::NeverMatch,
-                                       originAttributes, builtChain, nullptr,
+                                       originAttributes,
+                                       builtChain,
+                                       nullptr,
                                        nullptr);
-      rv = BuildCertChain(trustDomain, certDER, time,
+      rv = BuildCertChain(trustDomain,
+                          certDER,
+                          time,
                           EndEntityOrCA::MustBeEndEntity,
                           KeyUsage::digitalSignature,
                           KeyPurposeId::id_kp_emailProtection,
-                          CertPolicyId::anyPolicy, stapledOCSPResponse);
+                          CertPolicyId::anyPolicy,
+                          stapledOCSPResponse);
       if (rv == Result::ERROR_INADEQUATE_KEY_USAGE) {
-        rv = BuildCertChain(trustDomain, certDER, time,
+        rv = BuildCertChain(trustDomain,
+                            certDER,
+                            time,
                             EndEntityOrCA::MustBeEndEntity,
                             KeyUsage::nonRepudiation,
                             KeyPurposeId::id_kp_emailProtection,
-                            CertPolicyId::anyPolicy, stapledOCSPResponse);
+                            CertPolicyId::anyPolicy,
+                            stapledOCSPResponse);
       }
       break;
     }
@@ -821,27 +913,40 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
       // TODO: The higher level S/MIME processing should pass in which key
       // usage it is trying to verify for, and base its algorithm choices
       // based on the result of the verification(s).
-      NSSCertDBTrustDomain trustDomain(trustEmail, defaultOCSPFetching,
-                                       mOCSPCache, pinArg, ocspGETConfig,
-                                       mOCSPTimeoutSoft, mOCSPTimeoutHard,
+      NSSCertDBTrustDomain trustDomain(trustEmail,
+                                       defaultOCSPFetching,
+                                       mOCSPCache,
+                                       pinArg,
+                                       ocspGETConfig,
+                                       mOCSPTimeoutSoft,
+                                       mOCSPTimeoutHard,
                                        mCertShortLifetimeInDays,
-                                       pinningDisabled, MIN_RSA_BITS_WEAK,
+                                       pinningDisabled,
+                                       MIN_RSA_BITS_WEAK,
                                        ValidityCheckingMode::CheckingOff,
                                        SHA1Mode::Allowed,
                                        NetscapeStepUpPolicy::NeverMatch,
-                                       originAttributes, builtChain, nullptr,
+                                       originAttributes,
+                                       builtChain,
+                                       nullptr,
                                        nullptr);
-      rv = BuildCertChain(trustDomain, certDER, time,
+      rv = BuildCertChain(trustDomain,
+                          certDER,
+                          time,
                           EndEntityOrCA::MustBeEndEntity,
-                          KeyUsage::keyEncipherment, // RSA
+                          KeyUsage::keyEncipherment,  // RSA
                           KeyPurposeId::id_kp_emailProtection,
-                          CertPolicyId::anyPolicy, stapledOCSPResponse);
+                          CertPolicyId::anyPolicy,
+                          stapledOCSPResponse);
       if (rv == Result::ERROR_INADEQUATE_KEY_USAGE) {
-        rv = BuildCertChain(trustDomain, certDER, time,
+        rv = BuildCertChain(trustDomain,
+                            certDER,
+                            time,
                             EndEntityOrCA::MustBeEndEntity,
-                            KeyUsage::keyAgreement, // ECDH/DH
+                            KeyUsage::keyAgreement,  // ECDH/DH
                             KeyPurposeId::id_kp_emailProtection,
-                            CertPolicyId::anyPolicy, stapledOCSPResponse);
+                            CertPolicyId::anyPolicy,
+                            stapledOCSPResponse);
       }
       break;
     }
@@ -858,22 +963,23 @@ CertVerifier::VerifyCert(CERTCertificate* cert, SECCertificateUsage usage,
 }
 
 Result
-CertVerifier::VerifySSLServerCert(const UniqueCERTCertificate& peerCert,
-                     /*optional*/ const SECItem* stapledOCSPResponse,
-                     /*optional*/ const SECItem* sctsFromTLS,
-                                  Time time,
-                     /*optional*/ void* pinarg,
-                                  const nsACString& hostname,
-                          /*out*/ UniqueCERTCertList& builtChain,
-                     /*optional*/ bool saveIntermediatesInPermanentDatabase,
-                     /*optional*/ Flags flags,
-                     /*optional*/ const OriginAttributes& originAttributes,
-                 /*optional out*/ SECOidTag* evOidPolicy,
-                 /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus,
-                 /*optional out*/ KeySizeStatus* keySizeStatus,
-                 /*optional out*/ SHA1ModeResult* sha1ModeResult,
-                 /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo,
-                 /*optional out*/ CertificateTransparencyInfo* ctInfo)
+CertVerifier::VerifySSLServerCert(
+    const UniqueCERTCertificate& peerCert,
+    /*optional*/ const SECItem* stapledOCSPResponse,
+    /*optional*/ const SECItem* sctsFromTLS,
+    Time time,
+    /*optional*/ void* pinarg,
+    const nsACString& hostname,
+    /*out*/ UniqueCERTCertList& builtChain,
+    /*optional*/ bool saveIntermediatesInPermanentDatabase,
+    /*optional*/ Flags flags,
+    /*optional*/ const OriginAttributes& originAttributes,
+    /*optional out*/ SECOidTag* evOidPolicy,
+    /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus,
+    /*optional out*/ KeySizeStatus* keySizeStatus,
+    /*optional out*/ SHA1ModeResult* sha1ModeResult,
+    /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo,
+    /*optional out*/ CertificateTransparencyInfo* ctInfo)
 {
   MOZ_ASSERT(peerCert);
   // XXX: MOZ_ASSERT(pinarg);
@@ -889,11 +995,21 @@ CertVerifier::VerifySSLServerCert(const UniqueCERTCertificate& peerCert,
 
   // CreateCertErrorRunnable assumes that CheckCertHostname is only called
   // if VerifyCert succeeded.
-  Result rv = VerifyCert(peerCert.get(), certificateUsageSSLServer, time,
-                         pinarg, PromiseFlatCString(hostname).get(), builtChain,
-                         flags, stapledOCSPResponse, sctsFromTLS,
-                         originAttributes, evOidPolicy, ocspStaplingStatus,
-                         keySizeStatus, sha1ModeResult, pinningTelemetryInfo,
+  Result rv = VerifyCert(peerCert.get(),
+                         certificateUsageSSLServer,
+                         time,
+                         pinarg,
+                         PromiseFlatCString(hostname).get(),
+                         builtChain,
+                         flags,
+                         stapledOCSPResponse,
+                         sctsFromTLS,
+                         originAttributes,
+                         evOidPolicy,
+                         ocspStaplingStatus,
+                         keySizeStatus,
+                         sha1ModeResult,
+                         pinningTelemetryInfo,
                          ctInfo);
   if (rv != Success) {
     return rv;
@@ -926,8 +1042,8 @@ CertVerifier::VerifySSLServerCert(const UniqueCERTCertificate& peerCert,
 
   Input hostnameInput;
   rv = hostnameInput.Init(
-    BitwiseCast<const uint8_t*, const char*>(hostname.BeginReading()),
-    hostname.Length());
+      BitwiseCast<const uint8_t*, const char*>(hostname.BeginReading()),
+      hostname.Length());
   if (rv != Success) {
     return Result::FATAL_ERROR_INVALID_ARGS;
   }
@@ -937,8 +1053,8 @@ CertVerifier::VerifySSLServerCert(const UniqueCERTCertificate& peerCert,
     return rv;
   }
   BRNameMatchingPolicy nameMatchingPolicy(
-    isBuiltInRoot ? mNameMatchingMode
-                  : BRNameMatchingPolicy::Mode::DoNotEnforce);
+      isBuiltInRoot ? mNameMatchingMode
+                    : BRNameMatchingPolicy::Mode::DoNotEnforce);
   rv = CheckCertHostname(peerCertInput, hostnameInput, nameMatchingPolicy);
   if (rv != Success) {
     // Treat malformed name information as a domain mismatch.
@@ -956,4 +1072,5 @@ CertVerifier::VerifySSLServerCert(const UniqueCERTCertificate& peerCert,
   return Success;
 }
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla

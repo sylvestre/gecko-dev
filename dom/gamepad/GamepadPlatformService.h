@@ -37,9 +37,12 @@ class GamepadPlatformService final
   static already_AddRefed<GamepadPlatformService> GetParentService();
 
   // Add a gamepad to the list of known gamepads, and return its index.
-  uint32_t AddGamepad(const char* aID, GamepadMappingType aMapping,
-                      GamepadHand aHand, uint32_t aNumButtons,
-                      uint32_t aNumAxes, uint32_t aNumHaptics);
+  uint32_t AddGamepad(const char* aID,
+                      GamepadMappingType aMapping,
+                      GamepadHand aHand,
+                      uint32_t aNumButtons,
+                      uint32_t aNumAxes,
+                      uint32_t aNumHaptics);
   // Remove the gamepad at |aIndex| from the list of known gamepads.
   void RemoveGamepad(uint32_t aIndex);
 
@@ -48,12 +51,17 @@ class GamepadPlatformService final
   // a gamepadbutton{up,down} event at them as well.
   // aPressed is used for digital buttons, aTouched is for detecting touched
   // events, aValue is for analog buttons.
-  void NewButtonEvent(uint32_t aIndex, uint32_t aButton, bool aPressed,
-                      bool aTouched, double aValue);
+  void NewButtonEvent(uint32_t aIndex,
+                      uint32_t aButton,
+                      bool aPressed,
+                      bool aTouched,
+                      double aValue);
   // When only a digital button is available the value will be synthesized.
   void NewButtonEvent(uint32_t aIndex, uint32_t aButton, bool aPressed);
   // When only a digital button are available the value will be synthesized.
-  void NewButtonEvent(uint32_t aIndex, uint32_t aButton, bool aPressed,
+  void NewButtonEvent(uint32_t aIndex,
+                      uint32_t aButton,
+                      bool aPressed,
                       bool aTouched);
 
   // Update the state of |aAxis| for the gamepad at |aIndex| for all
@@ -81,7 +89,8 @@ class GamepadPlatformService final
  private:
   GamepadPlatformService();
   ~GamepadPlatformService();
-  template<class T> void NotifyGamepadChange(uint32_t aIndex, const T& aInfo);
+  template<class T>
+  void NotifyGamepadChange(uint32_t aIndex, const T& aInfo);
 
   // Flush all pending events buffered in mPendingEvents, must be called
   // with mMutex held
@@ -106,7 +115,7 @@ class GamepadPlatformService final
   nsTArray<GamepadChangeEvent> mPendingEvents;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

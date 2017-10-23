@@ -46,12 +46,13 @@ EventTarget::SetEventHandler(const nsAString& aType,
     return;
   }
   SetEventHandler(nullptr,
-                  Substring(aType, 2), // Remove "on"
+                  Substring(aType, 2),  // Remove "on"
                   aHandler);
 }
 
 void
-EventTarget::SetEventHandler(nsAtom* aType, const nsAString& aTypeString,
+EventTarget::SetEventHandler(nsAtom* aType,
+                             const nsAString& aTypeString,
                              EventHandlerNonNull* aHandler)
 {
   GetOrCreateListenerManager()->SetEventHandler(aType, aTypeString, aHandler);
@@ -68,7 +69,8 @@ bool
 EventTarget::HasNonPassiveNonSystemGroupListenersForUntrustedKeyEvents() const
 {
   EventListenerManager* elm = GetExistingListenerManager();
-  return elm && elm->HasNonPassiveNonSystemGroupListenersForUntrustedKeyEvents();
+  return elm &&
+         elm->HasNonPassiveNonSystemGroupListenersForUntrustedKeyEvents();
 }
 
 bool
@@ -88,5 +90,5 @@ EventTarget::DispatchEvent(Event& aEvent,
   return !aEvent.DefaultPrevented(aCallerType);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

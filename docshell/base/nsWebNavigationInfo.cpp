@@ -66,14 +66,14 @@ nsWebNavigationInfo::IsTypeSupported(const nsACString& aType,
   // there's no need to try and find a plugin to handle it.
   nsCOMPtr<nsIDocShell> docShell(do_QueryInterface(aWebNav));
   bool allowed;
-  if (docShell &&
-      NS_SUCCEEDED(docShell->GetAllowPlugins(&allowed)) && !allowed) {
+  if (docShell && NS_SUCCEEDED(docShell->GetAllowPlugins(&allowed)) &&
+      !allowed) {
     return NS_OK;
   }
 
   // Try reloading plugins in case they've changed.
   nsCOMPtr<nsIPluginHost> pluginHost =
-    do_GetService(MOZ_PLUGIN_HOST_CONTRACTID);
+      do_GetService(MOZ_PLUGIN_HOST_CONTRACTID);
   if (pluginHost) {
     // false will ensure that currently running plugins will not
     // be shut down
@@ -99,7 +99,7 @@ nsWebNavigationInfo::IsTypeSupportedInternal(const nsCString& aType,
   nsContentUtils::ContentViewerType vtype = nsContentUtils::TYPE_UNSUPPORTED;
 
   nsCOMPtr<nsIDocumentLoaderFactory> docLoaderFactory =
-    nsContentUtils::FindInternalContentViewer(aType, &vtype);
+      nsContentUtils::FindInternalContentViewer(aType, &vtype);
 
   switch (vtype) {
     case nsContentUtils::TYPE_UNSUPPORTED:

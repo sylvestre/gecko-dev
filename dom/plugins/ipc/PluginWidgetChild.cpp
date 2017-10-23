@@ -20,8 +20,7 @@
 namespace mozilla {
 namespace plugins {
 
-PluginWidgetChild::PluginWidgetChild() :
-  mWidget(nullptr)
+PluginWidgetChild::PluginWidgetChild() : mWidget(nullptr)
 {
   PWLOG("PluginWidgetChild::PluginWidgetChild()\n");
   MOZ_COUNT_CTOR(PluginWidgetChild);
@@ -65,5 +64,5 @@ PluginWidgetChild::ActorDestroy(ActorDestroyReason aWhy)
   KillWidget();
 }
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla

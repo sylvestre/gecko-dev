@@ -16,22 +16,23 @@
 
 class Spinner : public AsyncStatementSpinner
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_ASYNCSTATEMENTSPINNER
   Spinner() {}
-protected:
+
+ protected:
   ~Spinner() override = default;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED0(Spinner,
-                             AsyncStatementSpinner)
+NS_IMPL_ISUPPORTS_INHERITED0(Spinner, AsyncStatementSpinner)
 
 NS_IMETHODIMP
-Spinner::HandleResult(mozIStorageResultSet *aResultSet)
+Spinner::HandleResult(mozIStorageResultSet* aResultSet)
 {
   nsCOMPtr<mozIStorageRow> row;
-  do_check_true(NS_SUCCEEDED(aResultSet->GetNextRow(getter_AddRefs(row))) && row);
+  do_check_true(NS_SUCCEEDED(aResultSet->GetNextRow(getter_AddRefs(row))) &&
+                row);
 
   do_check_eq(row->AsInt32(0), 0);
   do_check_eq(row->AsInt64(0), 0);
@@ -56,9 +57,8 @@ TEST(storage_AsXXX_helpers, NULLFallback)
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   nsCOMPtr<mozIStorageStatement> stmt;
-  (void)db->CreateStatement(NS_LITERAL_CSTRING(
-    "SELECT NULL"
-  ), getter_AddRefs(stmt));
+  (void)db->CreateStatement(NS_LITERAL_CSTRING("SELECT NULL"),
+                            getter_AddRefs(stmt));
 
   nsCOMPtr<mozIStorageValueArray> valueArray = do_QueryInterface(stmt);
   do_check_true(valueArray);
@@ -100,16 +100,15 @@ TEST(storage_AsXXX_helpers, asyncNULLFallback)
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
-  (void)db->CreateAsyncStatement(NS_LITERAL_CSTRING(
-    "SELECT NULL"
-  ), getter_AddRefs(stmt));
+  (void)db->CreateAsyncStatement(NS_LITERAL_CSTRING("SELECT NULL"),
+                                 getter_AddRefs(stmt));
 
   nsCOMPtr<mozIStoragePendingStatement> pendingStmt;
-  do_check_true(NS_SUCCEEDED(stmt->ExecuteAsync(nullptr, getter_AddRefs(pendingStmt))));
+  do_check_true(
+      NS_SUCCEEDED(stmt->ExecuteAsync(nullptr, getter_AddRefs(pendingStmt))));
   do_check_true(pendingStmt);
   stmt->Finalize();
   RefPtr<Spinner> asyncSpin(new Spinner());
   db->AsyncClose(asyncSpin);
   asyncSpin->SpinUntilCompleted();
 }
-

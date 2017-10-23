@@ -27,40 +27,47 @@
 
 #include "pkix/pkixtypes.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 class BackCert;
 
-Result CheckIssuerIndependentProperties(
-          TrustDomain& trustDomain,
-          const BackCert& cert,
-          Time time,
-          KeyUsage requiredKeyUsageIfPresent,
-          KeyPurposeId requiredEKUIfPresent,
-          const CertPolicyId& requiredPolicy,
-          unsigned int subCACount,
-          /*out*/ TrustLevel& trustLevel);
+Result
+CheckIssuerIndependentProperties(TrustDomain& trustDomain,
+                                 const BackCert& cert,
+                                 Time time,
+                                 KeyUsage requiredKeyUsageIfPresent,
+                                 KeyPurposeId requiredEKUIfPresent,
+                                 const CertPolicyId& requiredPolicy,
+                                 unsigned int subCACount,
+                                 /*out*/ TrustLevel& trustLevel);
 
-Result CheckNameConstraints(Input encodedNameConstraints,
-                            const BackCert& firstChild,
-                            KeyPurposeId requiredEKUIfPresent);
+Result
+CheckNameConstraints(Input encodedNameConstraints,
+                     const BackCert& firstChild,
+                     KeyPurposeId requiredEKUIfPresent);
 
-Result CheckIssuer(Input encodedIssuer);
+Result
+CheckIssuer(Input encodedIssuer);
 
 // ParseValidity and CheckValidity are usually used together.  First you parse
 // the dates from the DER Validity sequence, then you compare them to the time
 // at which you are validating.  They are separate so that the notBefore and
 // notAfter times can be used for other things before they are checked against
 // the time of validation.
-Result ParseValidity(Input encodedValidity,
-                     /*optional out*/ Time* notBeforeOut = nullptr,
-                     /*optional out*/ Time* notAfterOut = nullptr);
-Result CheckValidity(Time time, Time notBefore, Time notAfter);
+Result
+ParseValidity(Input encodedValidity,
+              /*optional out*/ Time* notBeforeOut = nullptr,
+              /*optional out*/ Time* notAfterOut = nullptr);
+Result
+CheckValidity(Time time, Time notBefore, Time notAfter);
 
 // Check that a subject has TLS Feature (rfc7633) requirements that match its
 // potential issuer
-Result CheckTLSFeatures(const BackCert& subject, BackCert& potentialIssuer);
+Result
+CheckTLSFeatures(const BackCert& subject, BackCert& potentialIssuer);
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_pkixcheck_h
+#endif  // mozilla_pkix_pkixcheck_h

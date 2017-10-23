@@ -26,8 +26,9 @@ WebMWriter::WriteEncodedTrack(const EncodedFrameContainer& aData,
                               uint32_t aFlags)
 {
   AUTO_PROFILER_LABEL("WebMWriter::WriteEncodedTrack", OTHER);
-  for (uint32_t i = 0 ; i < aData.GetEncodedFrames().Length(); i++) {
-    mEbmlComposer->WriteSimpleBlock(aData.GetEncodedFrames().ElementAt(i).get());
+  for (uint32_t i = 0; i < aData.GetEncodedFrames().Length(); i++) {
+    mEbmlComposer->WriteSimpleBlock(
+        aData.GetEncodedFrames().ElementAt(i).get());
   }
   return NS_OK;
 }
@@ -53,9 +54,10 @@ WebMWriter::SetMetadata(TrackMetadataBase* aMetadata)
   if (aMetadata->GetKind() == TrackMetadataBase::METADATA_VP8) {
     VP8Metadata* meta = static_cast<VP8Metadata*>(aMetadata);
     MOZ_ASSERT(meta, "Cannot find vp8 encoder metadata");
-    mEbmlComposer->SetVideoConfig(meta->mWidth, meta->mHeight,
-                                  meta->mDisplayWidth, meta->mDisplayHeight);
-    mMetadataRequiredFlag = mMetadataRequiredFlag & ~ContainerWriter::CREATE_VIDEO_TRACK;
+    mEbmlComposer->SetVideoConfig(
+        meta->mWidth, meta->mHeight, meta->mDisplayWidth, meta->mDisplayHeight);
+    mMetadataRequiredFlag =
+        mMetadataRequiredFlag & ~ContainerWriter::CREATE_VIDEO_TRACK;
   }
 
   if (aMetadata->GetKind() == TrackMetadataBase::METADATA_VORBIS) {
@@ -63,7 +65,8 @@ WebMWriter::SetMetadata(TrackMetadataBase* aMetadata)
     MOZ_ASSERT(meta, "Cannot find vorbis encoder metadata");
     mEbmlComposer->SetAudioConfig(meta->mSamplingFrequency, meta->mChannels);
     mEbmlComposer->SetAudioCodecPrivateData(meta->mData);
-    mMetadataRequiredFlag = mMetadataRequiredFlag & ~ContainerWriter::CREATE_AUDIO_TRACK;
+    mMetadataRequiredFlag =
+        mMetadataRequiredFlag & ~ContainerWriter::CREATE_AUDIO_TRACK;
   }
 
   if (aMetadata->GetKind() == TrackMetadataBase::METADATA_OPUS) {
@@ -71,7 +74,8 @@ WebMWriter::SetMetadata(TrackMetadataBase* aMetadata)
     MOZ_ASSERT(meta, "Cannot find Opus encoder metadata");
     mEbmlComposer->SetAudioConfig(meta->mSamplingFrequency, meta->mChannels);
     mEbmlComposer->SetAudioCodecPrivateData(meta->mIdHeader);
-    mMetadataRequiredFlag = mMetadataRequiredFlag & ~ContainerWriter::CREATE_AUDIO_TRACK;
+    mMetadataRequiredFlag =
+        mMetadataRequiredFlag & ~ContainerWriter::CREATE_AUDIO_TRACK;
   }
 
   if (!mMetadataRequiredFlag) {
@@ -80,4 +84,4 @@ WebMWriter::SetMetadata(TrackMetadataBase* aMetadata)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -18,34 +18,39 @@ namespace layers {
 
 class AsyncPanZoomController;
 
-class GenericScrollAnimation
-  : public AsyncPanZoomAnimation
+class GenericScrollAnimation : public AsyncPanZoomAnimation
 {
-public:
+ public:
   GenericScrollAnimation(AsyncPanZoomController& aApzc,
                          const nsPoint& aInitialPosition,
                          const ScrollAnimationBezierPhysicsSettings& aSettings);
 
-  bool DoSample(FrameMetrics& aFrameMetrics, const TimeDuration& aDelta) override;
+  bool DoSample(FrameMetrics& aFrameMetrics,
+                const TimeDuration& aDelta) override;
 
-  void UpdateDelta(TimeStamp aTime, nsPoint aDelta, const nsSize& aCurrentVelocity);
-  void UpdateDestination(TimeStamp aTime, nsPoint aDestination, const nsSize& aCurrentVelocity);
+  void UpdateDelta(TimeStamp aTime,
+                   nsPoint aDelta,
+                   const nsSize& aCurrentVelocity);
+  void UpdateDestination(TimeStamp aTime,
+                         nsPoint aDestination,
+                         const nsSize& aCurrentVelocity);
 
-  CSSPoint GetDestination() const {
+  CSSPoint GetDestination() const
+  {
     return CSSPoint::FromAppUnits(mFinalDestination);
   }
 
-private:
+ private:
   void Update(TimeStamp aTime, const nsSize& aCurrentVelocity);
 
-protected:
+ protected:
   AsyncPanZoomController& mApzc;
   UniquePtr<ScrollAnimationPhysics> mAnimationPhysics;
   nsPoint mFinalDestination;
   bool mForceVerticalOverscroll;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_GenericScrollAnimation_h_
+#endif  // mozilla_layers_GenericScrollAnimation_h_

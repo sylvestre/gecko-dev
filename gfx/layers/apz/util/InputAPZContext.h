@@ -18,14 +18,14 @@ namespace layers {
 // that has been processed by APZ directly from a widget.
 class MOZ_STACK_CLASS InputAPZContext
 {
-private:
+ private:
   static ScrollableLayerGuid sGuid;
   static uint64_t sBlockId;
   static nsEventStatus sApzResponse;
   static bool sRoutedToChildProcess;
   static bool sPendingLayerization;
 
-public:
+ public:
   static ScrollableLayerGuid GetTargetLayerGuid();
   static uint64_t GetInputBlockId();
   static nsEventStatus GetApzResponse();
@@ -40,7 +40,7 @@ public:
   static bool WasRoutedToChildProcess();
   static bool HavePendingLayerization();
 
-private:
+ private:
   ScrollableLayerGuid mOldGuid;
   uint64_t mOldBlockId;
   nsEventStatus mOldApzResponse;
@@ -48,7 +48,7 @@ private:
   bool mOldPendingLayerization;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_InputAPZContext_h */

@@ -18,10 +18,9 @@ namespace mozilla {
 namespace dom {
 
 // https://www.w3.org/TR/navigation-timing-2/#sec-PerformanceNavigationTiming
-class PerformanceNavigationTiming final
-  : public PerformanceResourceTiming
+class PerformanceNavigationTiming final : public PerformanceResourceTiming
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // Note that aPerformanceTiming must be initalized with zeroTime = 0
@@ -31,23 +30,24 @@ public:
   explicit PerformanceNavigationTiming(PerformanceTiming* aPerformanceTiming,
                                        Performance* aPerformance,
                                        nsIHttpChannel* aChannel)
-    : PerformanceResourceTiming(aPerformanceTiming, aPerformance,
-                                NS_LITERAL_STRING("document"), aChannel) {
-      SetEntryType(NS_LITERAL_STRING("navigation"));
-      SetInitiatorType(NS_LITERAL_STRING("navigation"));
-    }
+      : PerformanceResourceTiming(aPerformanceTiming,
+                                  aPerformance,
+                                  NS_LITERAL_STRING("document"),
+                                  aChannel)
+  {
+    SetEntryType(NS_LITERAL_STRING("navigation"));
+    SetInitiatorType(NS_LITERAL_STRING("navigation"));
+  }
 
   DOMHighResTimeStamp Duration() const override
   {
     return LoadEventEnd() - StartTime();
   }
 
-  DOMHighResTimeStamp StartTime() const override
-  {
-    return 0;
-  }
+  DOMHighResTimeStamp StartTime() const override { return 0; }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   DOMHighResTimeStamp UnloadEventStart() const;
   DOMHighResTimeStamp UnloadEventEnd() const;
@@ -61,11 +61,11 @@ public:
   NavigationType Type() const;
   uint16_t RedirectCount() const;
 
-private:
+ private:
   ~PerformanceNavigationTiming() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PerformanceNavigationTiming_h___
+#endif  // mozilla_dom_PerformanceNavigationTiming_h___

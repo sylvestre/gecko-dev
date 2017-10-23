@@ -18,9 +18,10 @@ namespace mozilla {
 
 namespace dom {
 class Blob;
-} // namespace dom
+}  // namespace dom
 
-enum {
+enum
+{
   kVideoTrack = 1,
   kAudioTrack = 2,
   kTrackCount
@@ -35,7 +36,8 @@ enum {
 class MediaEngineVideoSource;
 class MediaEngineAudioSource;
 
-enum MediaEngineState {
+enum MediaEngineState
+{
   kAllocated,
   kStarted,
   kStopped,
@@ -44,7 +46,7 @@ enum MediaEngineState {
 
 class MediaEngine : public DeviceChangeCallback
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaEngine)
 
   static const int DEFAULT_VIDEO_FPS = 30;
@@ -63,52 +65,54 @@ public:
 
   /* Populate an array of video sources in the nsTArray. Also include devices
    * that are currently unavailable. */
-  virtual void EnumerateVideoDevices(dom::MediaSourceEnum,
-                                     nsTArray<RefPtr<MediaEngineVideoSource> >*) = 0;
+  virtual void EnumerateVideoDevices(
+      dom::MediaSourceEnum, nsTArray<RefPtr<MediaEngineVideoSource>>*) = 0;
 
   /* Populate an array of audio sources in the nsTArray. Also include devices
    * that are currently unavailable. */
-  virtual void EnumerateAudioDevices(dom::MediaSourceEnum,
-                                     nsTArray<RefPtr<MediaEngineAudioSource> >*) = 0;
+  virtual void EnumerateAudioDevices(
+      dom::MediaSourceEnum, nsTArray<RefPtr<MediaEngineAudioSource>>*) = 0;
 
   virtual void Shutdown() = 0;
 
   virtual void SetFakeDeviceChangeEvents() {}
 
-protected:
+ protected:
   virtual ~MediaEngine() {}
 };
 
 /**
  * Video source and friends.
  */
-class MediaEnginePrefs {
-public:
+class MediaEnginePrefs
+{
+ public:
   MediaEnginePrefs()
-    : mWidth(0)
-    , mHeight(0)
-    , mFPS(0)
-    , mMinFPS(0)
-    , mFreq(0)
-    , mAecOn(false)
-    , mAgcOn(false)
-    , mNoiseOn(false)
-    , mAec(0)
-    , mAgc(0)
-    , mNoise(0)
-    , mPlayoutDelay(0)
-    , mFullDuplex(false)
-    , mExtendedFilter(false)
-    , mDelayAgnostic(false)
-    , mFakeDeviceChangeEventOn(false)
-    , mChannels(0)
-  {}
+      : mWidth(0),
+        mHeight(0),
+        mFPS(0),
+        mMinFPS(0),
+        mFreq(0),
+        mAecOn(false),
+        mAgcOn(false),
+        mNoiseOn(false),
+        mAec(0),
+        mAgc(0),
+        mNoise(0),
+        mPlayoutDelay(0),
+        mFullDuplex(false),
+        mExtendedFilter(false),
+        mDelayAgnostic(false),
+        mFakeDeviceChangeEventOn(false),
+        mChannels(0)
+  {
+  }
 
   int32_t mWidth;
   int32_t mHeight;
   int32_t mFPS;
   int32_t mMinFPS;
-  int32_t mFreq; // for test tones (fake:true)
+  int32_t mFreq;  // for test tones (fake:true)
   bool mAecOn;
   bool mAgcOn;
   bool mNoiseOn;
@@ -124,19 +128,23 @@ public:
 
   // mWidth and/or mHeight may be zero (=adaptive default), so use functions.
 
-  int32_t GetWidth(bool aHD = false) const {
-    return mWidth? mWidth : (mHeight?
-                             (mHeight * GetDefWidth(aHD)) / GetDefHeight(aHD) :
-                             GetDefWidth(aHD));
+  int32_t GetWidth(bool aHD = false) const
+  {
+    return mWidth ? mWidth
+                  : (mHeight ? (mHeight * GetDefWidth(aHD)) / GetDefHeight(aHD)
+                             : GetDefWidth(aHD));
   }
 
-  int32_t GetHeight(bool aHD = false) const {
-    return mHeight? mHeight : (mWidth?
-                               (mWidth * GetDefHeight(aHD)) / GetDefWidth(aHD) :
-                               GetDefHeight(aHD));
+  int32_t GetHeight(bool aHD = false) const
+  {
+    return mHeight ? mHeight
+                   : (mWidth ? (mWidth * GetDefHeight(aHD)) / GetDefWidth(aHD)
+                             : GetDefHeight(aHD));
   }
-private:
-  static int32_t GetDefWidth(bool aHD = false) {
+
+ private:
+  static int32_t GetDefWidth(bool aHD = false)
+  {
     // It'd be nice if we could use the ternary operator here, but we can't
     // because of bug 1002729.
     if (aHD) {
@@ -146,7 +154,8 @@ private:
     return MediaEngine::DEFAULT_43_VIDEO_WIDTH;
   }
 
-  static int32_t GetDefHeight(bool aHD = false) {
+  static int32_t GetDefHeight(bool aHD = false)
+  {
     // It'd be nice if we could use the ternary operator here, but we can't
     // because of bug 1002729.
     if (aHD) {
@@ -161,8 +170,9 @@ private:
  * Callback interface for TakePhoto(). Either PhotoComplete() or PhotoError()
  * should be called.
  */
-class MediaEnginePhotoCallback {
-public:
+class MediaEnginePhotoCallback
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaEnginePhotoCallback)
 
   // aBlob is the image captured by MediaEngineSource. It is
@@ -172,7 +182,7 @@ public:
   // It is called on main thread. aRv is the error code.
   virtual nsresult PhotoError(nsresult aRv) = 0;
 
-protected:
+ protected:
   virtual ~MediaEnginePhotoCallback() {}
 };
 
@@ -186,10 +196,9 @@ protected:
  * Classes that don't operate as a single shared device can override Allocate
  * and Deallocate and simply not pass the methods up.
  */
-class MediaEngineSource : public nsISupports,
-                          protected MediaConstraintsHelper
+class MediaEngineSource : public nsISupports, protected MediaConstraintsHelper
 {
-public:
+ public:
   // code inside webrtc.org assumes these sizes; don't use anything smaller
   // without verifying it's ok
   static const unsigned int kMaxDeviceNameLength = 128;
@@ -202,10 +211,7 @@ public:
     }
   }
 
-  virtual void Shutdown()
-  {
-    mInShutdown = true;
-  };
+  virtual void Shutdown() { mInShutdown = true; };
 
   /* Populate the human readable name of this device in the nsAString */
   virtual void GetName(nsAString&) const = 0;
@@ -218,21 +224,26 @@ public:
 
   class AllocationHandle
   {
-  public:
+   public:
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AllocationHandle);
-  protected:
+
+   protected:
     ~AllocationHandle() {}
-  public:
+
+   public:
     AllocationHandle(const dom::MediaTrackConstraints& aConstraints,
                      const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
                      const MediaEnginePrefs& aPrefs,
                      const nsString& aDeviceId)
 
-    : mConstraints(aConstraints),
-      mPrincipalInfo(aPrincipalInfo),
-      mPrefs(aPrefs),
-      mDeviceId(aDeviceId) {}
-  public:
+        : mConstraints(aConstraints),
+          mPrincipalInfo(aPrincipalInfo),
+          mPrefs(aPrefs),
+          mDeviceId(aDeviceId)
+    {
+    }
+
+   public:
     NormalizedConstraints mConstraints;
     mozilla::ipc::PrincipalInfo mPrincipalInfo;
     MediaEnginePrefs mPrefs;
@@ -245,10 +256,12 @@ public:
     MOZ_ASSERT(aHandle);
     RefPtr<AllocationHandle> handle = aHandle;
 
-    class Comparator {
-    public:
+    class Comparator
+    {
+     public:
       static bool Equals(const RefPtr<AllocationHandle>& a,
-                         const RefPtr<AllocationHandle>& b) {
+                         const RefPtr<AllocationHandle>& b)
+      {
         return a.get() == b.get();
       }
     };
@@ -264,8 +277,8 @@ public:
       // Whenever constraints are removed, other parties may get closer to ideal.
       auto& first = mRegisteredHandles[0];
       const char* badConstraint = nullptr;
-      return ReevaluateAllocation(nullptr, nullptr, first->mPrefs,
-                                  first->mDeviceId, &badConstraint);
+      return ReevaluateAllocation(
+          nullptr, nullptr, first->mPrefs, first->mDeviceId, &badConstraint);
     }
     return NS_OK;
   }
@@ -273,22 +286,24 @@ public:
   /* Start the device and add the track to the provided SourceMediaStream, with
    * the provided TrackID. You may start appending data to the track
    * immediately after. */
-  virtual nsresult Start(SourceMediaStream*, TrackID, const PrincipalHandle&) = 0;
+  virtual nsresult Start(SourceMediaStream*,
+                         TrackID,
+                         const PrincipalHandle&) = 0;
 
   /* Called when the stream wants more data */
   virtual void NotifyPull(MediaStreamGraph* aGraph,
-                          SourceMediaStream *aSource,
+                          SourceMediaStream* aSource,
                           TrackID aId,
                           StreamTime aDesiredTime,
                           const PrincipalHandle& aPrincipalHandle) = 0;
 
   /* Stop the device and release the corresponding MediaStream */
-  virtual nsresult Stop(SourceMediaStream *aSource, TrackID aID) = 0;
+  virtual nsresult Stop(SourceMediaStream* aSource, TrackID aID) = 0;
 
   /* Restart with new capability */
   virtual nsresult Restart(AllocationHandle* aHandle,
                            const dom::MediaTrackConstraints& aConstraints,
-                           const MediaEnginePrefs &aPrefs,
+                           const MediaEnginePrefs& aPrefs,
                            const nsString& aDeviceId,
                            const char** aOutBadConstraint) = 0;
 
@@ -306,7 +321,8 @@ public:
   virtual nsresult TakePhoto(MediaEnginePhotoCallback* aCallback) = 0;
 
   /* Return false if device is currently allocated or started */
-  bool IsAvailable() {
+  bool IsAvailable()
+  {
     if (mState == kAllocated || mState == kStarted) {
       return false;
     } else {
@@ -318,8 +334,8 @@ public:
    * a Start(). Only Allocate() may be called after a Deallocate(). */
 
   /* This call reserves but does not start the device. */
-  virtual nsresult Allocate(const dom::MediaTrackConstraints &aConstraints,
-                            const MediaEnginePrefs &aPrefs,
+  virtual nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
+                            const MediaEnginePrefs& aPrefs,
                             const nsString& aDeviceId,
                             const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
                             AllocationHandle** aOutHandle,
@@ -328,9 +344,9 @@ public:
     AssertIsOnOwningThread();
     MOZ_ASSERT(aOutHandle);
     RefPtr<AllocationHandle> handle =
-      new AllocationHandle(aConstraints, aPrincipalInfo, aPrefs, aDeviceId);
-    nsresult rv = ReevaluateAllocation(handle, nullptr, aPrefs, aDeviceId,
-                                       aOutBadConstraint);
+        new AllocationHandle(aConstraints, aPrincipalInfo, aPrefs, aDeviceId);
+    nsresult rv = ReevaluateAllocation(
+        handle, nullptr, aPrefs, aDeviceId, aOutBadConstraint);
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -349,13 +365,14 @@ public:
     aOutSettings = *mSettings;
   }
 
-protected:
+ protected:
   // Only class' own members can be initialized in constructor initializer list.
   explicit MediaEngineSource(MediaEngineState aState)
-    : mState(aState)
-    , mInShutdown(false)
-    , mSettings(MakeRefPtr<media::Refcountable<dom::MediaTrackSettings>>())
-  {}
+      : mState(aState),
+        mInShutdown(false),
+        mSettings(MakeRefPtr<media::Refcountable<dom::MediaTrackSettings>>())
+  {
+  }
 
   /* UpdateSingleSource - Centralized abstract function to implement in those
    * cases where a single device is being shared between users. Should apply net
@@ -368,12 +385,13 @@ protected:
    * aOutBadConstraint - Result: nonzero if failed to apply. Name of culprit.
    */
 
-  virtual nsresult
-  UpdateSingleSource(const AllocationHandle* aHandle,
-                     const NormalizedConstraints& aNetConstraints,
-                     const MediaEnginePrefs& aPrefs,
-                     const nsString& aDeviceId,
-                     const char** aOutBadConstraint) {
+  virtual nsresult UpdateSingleSource(
+      const AllocationHandle* aHandle,
+      const NormalizedConstraints& aNetConstraints,
+      const MediaEnginePrefs& aPrefs,
+      const nsString& aDeviceId,
+      const char** aOutBadConstraint)
+  {
     return NS_ERROR_NOT_IMPLEMENTED;
   };
 
@@ -389,19 +407,18 @@ protected:
    * aOutBadConstraint  - Result: nonzero if failed to apply. Name of culprit.
    */
 
-  nsresult
-  ReevaluateAllocation(AllocationHandle* aHandle,
-                       NormalizedConstraints* aConstraintsUpdate,
-                       const MediaEnginePrefs& aPrefs,
-                       const nsString& aDeviceId,
-                       const char** aOutBadConstraint)
+  nsresult ReevaluateAllocation(AllocationHandle* aHandle,
+                                NormalizedConstraints* aConstraintsUpdate,
+                                const MediaEnginePrefs& aPrefs,
+                                const nsString& aDeviceId,
+                                const char** aOutBadConstraint)
   {
     // aHandle and/or aConstraintsUpdate may be nullptr (see below)
 
     AutoTArray<const NormalizedConstraints*, 10> allConstraints;
     for (auto& registered : mRegisteredHandles) {
       if (aConstraintsUpdate && registered.get() == aHandle) {
-        continue; // Don't count old constraints
+        continue;  // Don't count old constraints
       }
       allConstraints.AppendElement(&registered->mConstraints);
     }
@@ -418,8 +435,8 @@ protected:
       return NS_ERROR_FAILURE;
     }
 
-    nsresult rv = UpdateSingleSource(aHandle, netConstraints, aPrefs, aDeviceId,
-                                     aOutBadConstraint);
+    nsresult rv = UpdateSingleSource(
+        aHandle, netConstraints, aPrefs, aDeviceId, aOutBadConstraint);
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -429,10 +446,7 @@ protected:
     return NS_OK;
   }
 
-  void AssertIsOnOwningThread()
-  {
-    NS_ASSERT_OWNINGTHREAD(MediaEngineSource);
-  }
+  void AssertIsOnOwningThread() { NS_ASSERT_OWNINGTHREAD(MediaEngineSource); }
 
   MediaEngineState mState;
 
@@ -449,14 +463,15 @@ protected:
 
 class MediaEngineVideoSource : public MediaEngineSource
 {
-public:
+ public:
   virtual ~MediaEngineVideoSource() {}
 
-protected:
+ protected:
   explicit MediaEngineVideoSource(MediaEngineState aState)
-    : MediaEngineSource(aState) {}
-  MediaEngineVideoSource()
-    : MediaEngineSource(kReleased) {}
+      : MediaEngineSource(aState)
+  {
+  }
+  MediaEngineVideoSource() : MediaEngineSource(kReleased) {}
 };
 
 /**
@@ -465,17 +480,17 @@ protected:
 class MediaEngineAudioSource : public MediaEngineSource,
                                public AudioDataListenerInterface
 {
-public:
+ public:
   virtual ~MediaEngineAudioSource() {}
 
-protected:
+ protected:
   explicit MediaEngineAudioSource(MediaEngineState aState)
-    : MediaEngineSource(aState) {}
-  MediaEngineAudioSource()
-    : MediaEngineSource(kReleased) {}
-
+      : MediaEngineSource(aState)
+  {
+  }
+  MediaEngineAudioSource() : MediaEngineSource(kReleased) {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MEDIAENGINE_H_ */

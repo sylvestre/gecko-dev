@@ -59,11 +59,13 @@ typedef GMPErr (*GMPInitFunc)(const GMPPlatformAPI* aPlatformAPI);
 //   May be null.
 // - 'aPluginAPI' is for returning the requested API. Destruction of the requsted
 //   API object is defined by the API.
-typedef GMPErr (*GMPGetAPIFunc)(const char* aAPIName, void* aHostAPI, void** aPluginAPI);
+typedef GMPErr (*GMPGetAPIFunc)(const char* aAPIName,
+                                void* aHostAPI,
+                                void** aPluginAPI);
 
 // GMPShutdown
 // - Called once before exiting process (unloading library).
 // - Called on main thread.
-typedef void   (*GMPShutdownFunc)(void);
+typedef void (*GMPShutdownFunc)(void);
 
-#endif // GMP_ENTRYPOINTS_h_
+#endif  // GMP_ENTRYPOINTS_h_

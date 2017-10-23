@@ -12,9 +12,7 @@ using namespace mozilla::dom;
 
 namespace mozilla {
 
-ServoNamespaceRule::~ServoNamespaceRule()
-{
-}
+ServoNamespaceRule::~ServoNamespaceRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoNamespaceRule, CSSNamespaceRule)
 NS_IMPL_RELEASE_INHERITED(ServoNamespaceRule, CSSNamespaceRule)
@@ -70,4 +68,4 @@ ServoNamespaceRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
   return aMallocSizeOf(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

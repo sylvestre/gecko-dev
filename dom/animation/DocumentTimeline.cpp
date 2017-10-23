@@ -58,12 +58,12 @@ DocumentTimeline::Constructor(const GlobalObject& aGlobal,
     return nullptr;
   }
   TimeDuration originTime =
-    TimeDuration::FromMilliseconds(aOptions.mOriginTime);
+      TimeDuration::FromMilliseconds(aOptions.mOriginTime);
 
   if (originTime == TimeDuration::Forever() ||
       originTime == -TimeDuration::Forever()) {
     aRv.ThrowTypeError<dom::MSG_TIME_VALUE_OUT_OF_RANGE>(
-      NS_LITERAL_STRING("Origin time"));
+        NS_LITERAL_STRING("Origin time"));
     return nullptr;
   }
   RefPtr<DocumentTimeline> timeline = new DocumentTimeline(doc, originTime);
@@ -81,14 +81,12 @@ TimeStamp
 DocumentTimeline::GetCurrentTimeStamp() const
 {
   nsRefreshDriver* refreshDriver = GetRefreshDriver();
-  TimeStamp refreshTime = refreshDriver
-                          ? refreshDriver->MostRecentRefresh()
-                          : TimeStamp();
+  TimeStamp refreshTime =
+      refreshDriver ? refreshDriver->MostRecentRefresh() : TimeStamp();
 
   // Always return the same object to benefit from return-value optimization.
-  TimeStamp result = !refreshTime.IsNull()
-                     ? refreshTime
-                     : mLastRefreshDriverTime;
+  TimeStamp result =
+      !refreshTime.IsNull() ? refreshTime : mLastRefreshDriverTime;
 
   // If we don't have a refresh driver and we've never had one use the
   // timeline's zero time.
@@ -113,7 +111,7 @@ DocumentTimeline::GetCurrentTimeStamp() const
 Nullable<TimeDuration>
 DocumentTimeline::ToTimelineTime(const TimeStamp& aTimeStamp) const
 {
-  Nullable<TimeDuration> result; // Initializes to null
+  Nullable<TimeDuration> result;  // Initializes to null
   if (aTimeStamp.IsNull()) {
     return result;
   }
@@ -123,9 +121,8 @@ DocumentTimeline::ToTimelineTime(const TimeStamp& aTimeStamp) const
     return result;
   }
 
-  result.SetValue(aTimeStamp
-                  - timing->GetNavigationStartTimeStamp()
-                  - mOriginTime);
+  result.SetValue(aTimeStamp - timing->GetNavigationStartTimeStamp() -
+                  mOriginTime);
   return result;
 }
 
@@ -138,8 +135,8 @@ DocumentTimeline::NotifyAnimationUpdated(Animation& aAnimation)
     nsRefreshDriver* refreshDriver = GetRefreshDriver();
     if (refreshDriver) {
       MOZ_ASSERT(isInList(),
-                "We should not register with the refresh driver if we are not"
-                " in the document's list of timelines");
+                 "We should not register with the refresh driver if we are not"
+                 " in the document's list of timelines");
       refreshDriver->AddRefreshObserver(this, FlushType::Style);
       mIsObservingRefreshDriver = true;
     }
@@ -243,7 +240,7 @@ DocumentTimeline::ToTimeStamp(const TimeDuration& aTimeDuration) const
   }
 
   result =
-    timing->GetNavigationStartTimeStamp() + (aTimeDuration + mOriginTime);
+      timing->GetNavigationStartTimeStamp() + (aTimeDuration + mOriginTime);
   return result;
 }
 
@@ -279,5 +276,5 @@ DocumentTimeline::UnregisterFromRefreshDriver()
   mIsObservingRefreshDriver = false;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

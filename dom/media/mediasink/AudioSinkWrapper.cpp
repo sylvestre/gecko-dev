@@ -10,9 +10,7 @@
 namespace mozilla {
 namespace media {
 
-AudioSinkWrapper::~AudioSinkWrapper()
-{
-}
+AudioSinkWrapper::~AudioSinkWrapper() {}
 
 void
 AudioSinkWrapper::Shutdown()
@@ -193,11 +191,13 @@ AudioSinkWrapper::Start(const TimeUnit& aStartTime, const MediaInfo& aInfo)
     mAudioSink.reset(mCreator->Create());
     mEndPromise = mAudioSink->Init(mParams);
 
-    mEndPromise->Then(
-      mOwnerThread.get(), __func__, this,
-      &AudioSinkWrapper::OnAudioEnded,
-      &AudioSinkWrapper::OnAudioEnded
-    )->Track(mAudioSinkPromise);
+    mEndPromise
+        ->Then(mOwnerThread.get(),
+               __func__,
+               this,
+               &AudioSinkWrapper::OnAudioEnded,
+               &AudioSinkWrapper::OnAudioEnded)
+        ->Track(mAudioSinkPromise);
   }
 }
 
@@ -244,6 +244,5 @@ AudioSinkWrapper::OnAudioEnded()
   mAudioEnded = true;
 }
 
-} // namespace media
-} // namespace mozilla
-
+}  // namespace media
+}  // namespace mozilla

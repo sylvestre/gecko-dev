@@ -9,8 +9,11 @@
 #ifndef MacApplicationDelegate_h_
 #define MacApplicationDelegate_h_
 
-void EnsureUseCocoaDockAPI(void);
-void SetupMacApplicationDelegate(void);
-void ProcessPendingGetURLAppleEvents(void);
+void
+EnsureUseCocoaDockAPI(void);
+void
+SetupMacApplicationDelegate(void);
+void
+ProcessPendingGetURLAppleEvents(void);
 
 #endif

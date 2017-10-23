@@ -19,7 +19,7 @@ class nsOnPK11LogoutCancelObject;
 // Singleton, owned by nsNSSShutDownList
 class nsNSSActivityState
 {
-public:
+ public:
   nsNSSActivityState();
   ~nsNSSActivityState();
 
@@ -34,7 +34,7 @@ public:
   // Go back to normal state.
   void releaseCurrentThreadActivityRestriction();
 
-private:
+ private:
   // The lock protecting all our member variables.
   mozilla::Mutex mNSSActivityStateLock;
 
@@ -54,10 +54,11 @@ private:
 // Helper class that automatically enters/leaves the global activity state
 class nsNSSShutDownPreventionLock
 {
-public:
+ public:
   nsNSSShutDownPreventionLock();
   ~nsNSSShutDownPreventionLock();
-private:
+
+ private:
   // Keeps track of whether or not we actually managed to enter the NSS activity
   // state. This is important because if we're attempting to shut down and we
   // can't enter the NSS activity state, we need to not attempt to leave it when
@@ -69,15 +70,15 @@ private:
 // which hold NSS resources and support the "early cleanup mechanism".
 class nsNSSShutDownList
 {
-public:
+ public:
   // track instances that support early cleanup
-  static void remember(nsNSSShutDownObject *o);
-  static void forget(nsNSSShutDownObject *o);
+  static void remember(nsNSSShutDownObject* o);
+  static void forget(nsNSSShutDownObject* o);
 
   // track instances that would like notification when
   // a PK11 logout operation is performed.
-  static void remember(nsOnPK11LogoutCancelObject *o);
-  static void forget(nsOnPK11LogoutCancelObject *o);
+  static void remember(nsOnPK11LogoutCancelObject* o);
+  static void forget(nsOnPK11LogoutCancelObject* o);
 
   // Release all tracked NSS resources and prevent nsNSSShutDownObjects from
   // using NSS functions.
@@ -93,13 +94,13 @@ public:
   static void enterActivityState(/*out*/ bool& enteredActivityState);
   static void leaveActivityState();
 
-private:
+ private:
   static bool construct(const mozilla::StaticMutexAutoLock& /*proofOfLock*/);
 
   nsNSSShutDownList();
   ~nsNSSShutDownList();
 
-protected:
+ protected:
   PLDHashTable mObjects;
   PLDHashTable mPK11LogoutCancelObjects;
   nsNSSActivityState mActivityState;
@@ -199,8 +200,9 @@ protected:
 
 class nsNSSShutDownObject
 {
-public:
-  enum class ShutdownCalledFrom {
+ public:
+  enum class ShutdownCalledFrom
+  {
     List,
     Object,
   };
@@ -237,25 +239,22 @@ public:
 
   bool isAlreadyShutDown() const;
 
-protected:
+ protected:
   virtual void virtualDestroyNSSReference() = 0;
-private:
+
+ private:
   volatile bool mAlreadyShutDown;
 };
 
 class nsOnPK11LogoutCancelObject
 {
-public:
-  nsOnPK11LogoutCancelObject()
-    : mIsLoggedOut(false)
+ public:
+  nsOnPK11LogoutCancelObject() : mIsLoggedOut(false)
   {
     nsNSSShutDownList::remember(this);
   }
 
-  virtual ~nsOnPK11LogoutCancelObject()
-  {
-    nsNSSShutDownList::forget(this);
-  }
+  virtual ~nsOnPK11LogoutCancelObject() { nsNSSShutDownList::forget(this); }
 
   void logout()
   {
@@ -266,13 +265,10 @@ public:
     mIsLoggedOut = true;
   }
 
-  bool isPK11LoggedOut()
-  {
-    return mIsLoggedOut;
-  }
+  bool isPK11LoggedOut() { return mIsLoggedOut; }
 
-private:
+ private:
   volatile bool mIsLoggedOut;
 };
 
-#endif // nsNSSShutDown_h
+#endif  // nsNSSShutDown_h

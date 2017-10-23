@@ -13,8 +13,8 @@
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/KeyframeEffectReadOnly.h"
-#include "nsHashKeys.h" // For nsPtrHashKey
-#include "nsTHashtable.h" // For nsTHashtable
+#include "nsHashKeys.h"    // For nsPtrHashKey
+#include "nsTHashtable.h"  // For nsTHashtable
 
 class nsPresContext;
 
@@ -22,7 +22,7 @@ namespace mozilla {
 
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 enum class CSSPseudoElementType : uint8_t;
 
@@ -30,16 +30,18 @@ enum class CSSPseudoElementType : uint8_t;
 // storing the set as a property of an element.
 class EffectSet
 {
-public:
+ public:
   EffectSet()
-    : mCascadeNeedsUpdate(false)
-    , mAnimationGeneration(0)
+      : mCascadeNeedsUpdate(false),
+        mAnimationGeneration(0)
 #ifdef DEBUG
-    , mActiveIterators(0)
-    , mCalledPropertyDtor(false)
+        ,
+        mActiveIterators(0),
+        mCalledPropertyDtor(false)
 #endif
-    , mMayHaveOpacityAnim(false)
-    , mMayHaveTransformAnim(false)
+        ,
+        mMayHaveOpacityAnim(false),
+        mMayHaveTransformAnim(false)
   {
     MOZ_COUNT_CTOR(EffectSet);
   }
@@ -53,8 +55,10 @@ public:
                "enumerated");
     MOZ_COUNT_DTOR(EffectSet);
   }
-  static void PropertyDtor(void* aObject, nsAtom* aPropertyName,
-                           void* aPropertyValue, void* aData);
+  static void PropertyDtor(void* aObject,
+                           nsAtom* aPropertyName,
+                           void* aPropertyValue,
+                           void* aData);
 
   // Methods for supporting cycle-collection
   void Traverse(nsCycleCollectionTraversalCallback& aCallback);
@@ -75,11 +79,11 @@ public:
   void SetMayHaveTransformAnimation() { mMayHaveTransformAnim = true; }
   bool MayHaveTransformAnimation() const { return mMayHaveTransformAnim; }
 
-private:
+ private:
   typedef nsTHashtable<nsRefPtrHashKey<dom::KeyframeEffectReadOnly>>
-    OwningEffectSet;
+      OwningEffectSet;
 
-public:
+ public:
   // A simple iterator to support iterating over the effects in this object in
   // range-based for loops.
   //
@@ -88,11 +92,11 @@ public:
   // the rather complicated: iter.Get()->GetKey().
   class Iterator
   {
-  public:
+   public:
     explicit Iterator(EffectSet& aEffectSet)
-      : mEffectSet(aEffectSet)
-      , mHashIterator(mozilla::Move(aEffectSet.mEffects.Iter()))
-      , mIsEndIterator(false)
+        : mEffectSet(aEffectSet),
+          mHashIterator(mozilla::Move(aEffectSet.mEffects.Iter())),
+          mIsEndIterator(false)
     {
 #ifdef DEBUG
       mEffectSet.mActiveIterators++;
@@ -100,9 +104,9 @@ public:
     }
 
     Iterator(Iterator&& aOther)
-      : mEffectSet(aOther.mEffectSet)
-      , mHashIterator(mozilla::Move(aOther.mHashIterator))
-      , mIsEndIterator(aOther.mIsEndIterator)
+        : mEffectSet(aOther.mEffectSet),
+          mHashIterator(mozilla::Move(aOther.mHashIterator)),
+          mIsEndIterator(aOther.mIsEndIterator)
     {
 #ifdef DEBUG
       mEffectSet.mActiveIterators++;
@@ -124,34 +128,34 @@ public:
 #endif
     }
 
-    bool operator!=(const Iterator& aOther) const {
+    bool operator!=(const Iterator& aOther) const
+    {
       if (Done() || aOther.Done()) {
         return Done() != aOther.Done();
       }
       return mHashIterator.Get() != aOther.mHashIterator.Get();
     }
 
-    Iterator& operator++() {
+    Iterator& operator++()
+    {
       MOZ_ASSERT(!Done());
       mHashIterator.Next();
       return *this;
     }
 
-    dom::KeyframeEffectReadOnly* operator* ()
+    dom::KeyframeEffectReadOnly* operator*()
     {
       MOZ_ASSERT(!Done());
       return mHashIterator.Get()->GetKey();
     }
 
-  private:
+   private:
     Iterator() = delete;
     Iterator(const Iterator&) = delete;
     Iterator& operator=(const Iterator&) = delete;
     Iterator& operator=(const Iterator&&) = delete;
 
-    bool Done() const {
-      return mIsEndIterator || mHashIterator.Done();
-    }
+    bool Done() const { return mIsEndIterator || mHashIterator.Done(); }
 
     EffectSet& mEffectSet;
     OwningEffectSet::Iterator mHashIterator;
@@ -170,8 +174,8 @@ public:
 
   size_t Count() const { return mEffects.Count(); }
 
-  RefPtr<AnimValuesStyleRule>&
-  AnimationRule(EffectCompositor::CascadeLevel aCascadeLevel)
+  RefPtr<AnimValuesStyleRule>& AnimationRule(
+      EffectCompositor::CascadeLevel aCascadeLevel)
   {
     return mAnimationRule[aCascadeLevel];
   }
@@ -207,7 +211,7 @@ public:
     return mPropertiesForAnimationsLevel;
   }
 
-private:
+ private:
   static nsAtom* GetEffectSetPropertyAtom(CSSPseudoElementType aPseudoType);
 
   OwningEffectSet mEffects;
@@ -219,8 +223,9 @@ private:
   // afterwards with animation.
   EnumeratedArray<EffectCompositor::CascadeLevel,
                   EffectCompositor::CascadeLevel(
-                    EffectCompositor::kCascadeLevelCount),
-                  RefPtr<AnimValuesStyleRule>> mAnimationRule;
+                      EffectCompositor::kCascadeLevelCount),
+                  RefPtr<AnimValuesStyleRule>>
+      mAnimationRule;
 
   // Refresh driver timestamp from the moment when transform animations in this
   // effect set were last updated and sent to the compositor. This is used for
@@ -264,6 +269,6 @@ private:
   bool mMayHaveTransformAnim;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_EffectSet_h
+#endif  // mozilla_EffectSet_h

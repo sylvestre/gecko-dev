@@ -18,8 +18,7 @@ namespace mozilla {
 namespace widget {
 
 static already_AddRefed<nsIFile>
-GetFileViaSpecialDirectory(const char* aSpecialDirName,
-                           const char* aFileName)
+GetFileViaSpecialDirectory(const char* aSpecialDirName, const char* aFileName)
 {
   nsCOMPtr<nsIFile> file;
   nsresult rv = NS_GetSpecialDirectory(aSpecialDirName, getter_AddRefs(file));
@@ -36,12 +35,12 @@ GetFilePathViaSpecialDirectory(const char* aSpecialDirName,
                                const char* aFileName,
                                nsAutoString& aPath)
 {
-  nsCOMPtr<nsIFile> file = GetFileViaSpecialDirectory(aSpecialDirName,
-                                                      aFileName);
+  nsCOMPtr<nsIFile> file =
+      GetFileViaSpecialDirectory(aSpecialDirName, aFileName);
   NS_ENSURE_TRUE(file, NS_ERROR_FAILURE);
 
   nsAutoCString path;
-  nsresult rv  = file->GetNativePath(path);
+  nsresult rv = file->GetNativePath(path);
   if (NS_SUCCEEDED(rv)) {
     aPath = NS_ConvertUTF8toUTF16(path);
   }
@@ -51,12 +50,12 @@ GetFilePathViaSpecialDirectory(const char* aSpecialDirName,
 static bool
 SetupPrintHelper(const char* aFileName, PDFViaEMFPrintHelper* aHelper)
 {
-  nsCOMPtr<nsIFile> file = GetFileViaSpecialDirectory(NS_OS_CURRENT_WORKING_DIR,
-                                                      aFileName);
+  nsCOMPtr<nsIFile> file =
+      GetFileViaSpecialDirectory(NS_OS_CURRENT_WORKING_DIR, aFileName);
   NS_ENSURE_TRUE(file, false);
 
   UniquePtr<PDFViaEMFPrintHelper> PDFPrintHelper =
-    MakeUnique<PDFViaEMFPrintHelper>();
+      MakeUnique<PDFViaEMFPrintHelper>();
   nsresult rv = aHelper->OpenDocument(file);
   NS_ENSURE_SUCCESS(rv, false);
 
@@ -114,20 +113,21 @@ CompareTwoFiles(const nsAutoString& aTestFile, const nsAutoString& aRefFile)
   ASSERT_TRUE(memcmp(testContents.begin(), refContents.begin(), testSize) == 0);
 }
 
-class EMFViaExtDLLHelper: public PDFViaEMFPrintHelper
+class EMFViaExtDLLHelper : public PDFViaEMFPrintHelper
 {
-public:
+ public:
   EMFViaExtDLLHelper() {}
   ~EMFViaExtDLLHelper() {}
 
-protected:
-  virtual bool CreatePDFiumEngineIfNeed() override {
+ protected:
+  virtual bool CreatePDFiumEngineIfNeed() override
+  {
     if (!mPDFiumEngine) {
-    #ifdef _WIN64
+#ifdef _WIN64
       nsAutoCString externalDll("pdfium_ref_x64.dll");
-    #else
+#else
       nsAutoCString externalDll("pdfium_ref_x86.dll");
-    #endif
+#endif
       mPDFiumEngine = PDFiumEngineShim::GetInstanceOrNull(externalDll);
     }
 
@@ -140,7 +140,7 @@ protected:
 TEST(TestEMFConversion, CompareEMFWithReference)
 {
   UniquePtr<PDFViaEMFPrintHelper> PDFHelper =
-    MakeUnique<PDFViaEMFPrintHelper>();
+      MakeUnique<PDFViaEMFPrintHelper>();
   ASSERT_TRUE(SetupPrintHelper("PrinterTestPage.pdf", PDFHelper.get()));
 
   const int pageWidth = 4961;
@@ -148,11 +148,10 @@ TEST(TestEMFConversion, CompareEMFWithReference)
 
   // Convert a PDF file to an EMF file(PrinterTestPage.pdf -> gtest.emf)
   nsAutoString emfPath;
-  ASSERT_TRUE(NS_SUCCEEDED(GetFilePathViaSpecialDirectory(NS_OS_TEMP_DIR,
-                                                        "gtest.emf",
-                                                        emfPath)));
-  ASSERT_TRUE(PDFHelper->DrawPageToFile(emfPath.get(), 0,
-                                        pageWidth, pageHeight));
+  ASSERT_TRUE(NS_SUCCEEDED(
+      GetFilePathViaSpecialDirectory(NS_OS_TEMP_DIR, "gtest.emf", emfPath)));
+  ASSERT_TRUE(
+      PDFHelper->DrawPageToFile(emfPath.get(), 0, pageWidth, pageHeight));
   PDFHelper->CloseDocument();
 #ifdef _WIN64
   // Convert a PDF file to an EMF file by external library.
@@ -161,12 +160,11 @@ TEST(TestEMFConversion, CompareEMFWithReference)
   ASSERT_TRUE(SetupPrintHelper("PrinterTestPage.pdf", ExtHelper.get()));
 
   nsAutoString emfPathRef;
-  ASSERT_TRUE(NS_SUCCEEDED(GetFilePathViaSpecialDirectory(NS_OS_TEMP_DIR,
-                                                          "gtestRef.emf",
-                                                          emfPathRef)));
+  ASSERT_TRUE(NS_SUCCEEDED(GetFilePathViaSpecialDirectory(
+      NS_OS_TEMP_DIR, "gtestRef.emf", emfPathRef)));
 
-  ASSERT_TRUE(ExtHelper->DrawPageToFile(emfPathRef.get(), 0,
-                                        pageWidth, pageHeight));
+  ASSERT_TRUE(
+      ExtHelper->DrawPageToFile(emfPathRef.get(), 0, pageWidth, pageHeight));
   ExtHelper->CloseDocument();
 
   CompareTwoFiles(emfPath, emfPathRef);
@@ -177,7 +175,7 @@ TEST(TestEMFConversion, CompareEMFWithReference)
 TEST(TestEMFConversion, TestInputNonExistingPDF)
 {
   UniquePtr<PDFViaEMFPrintHelper> PDFHelper =
-    MakeUnique<PDFViaEMFPrintHelper>();
+      MakeUnique<PDFViaEMFPrintHelper>();
   ASSERT_FALSE(SetupPrintHelper("null.pdf", PDFHelper.get()));
 }
 
@@ -185,13 +183,12 @@ TEST(TestEMFConversion, TestInputNonExistingPDF)
 TEST(TestEMFConversion, TestInsufficientWidthAndHeight)
 {
   UniquePtr<PDFViaEMFPrintHelper> PDFHelper =
-    MakeUnique<PDFViaEMFPrintHelper>();
+      MakeUnique<PDFViaEMFPrintHelper>();
   ASSERT_TRUE(SetupPrintHelper("PrinterTestPage.pdf", PDFHelper.get()));
 
   nsAutoString emfPath;
-  ASSERT_TRUE(NS_SUCCEEDED(GetFilePathViaSpecialDirectory(NS_OS_TEMP_DIR,
-                                                         "gtest.emf",
-                                                          emfPath)));
+  ASSERT_TRUE(NS_SUCCEEDED(
+      GetFilePathViaSpecialDirectory(NS_OS_TEMP_DIR, "gtest.emf", emfPath)));
 
   ASSERT_FALSE(PDFHelper->DrawPageToFile(emfPath.get(), 0, 0, 0));
   ASSERT_FALSE(PDFHelper->DrawPageToFile(emfPath.get(), 0, 100, -1));
@@ -199,5 +196,5 @@ TEST(TestEMFConversion, TestInsufficientWidthAndHeight)
   PDFHelper->CloseDocument();
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

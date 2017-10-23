@@ -34,18 +34,11 @@ typedef InlineForwardListIterator<MResumePoint> MResumePointIterator;
 
 class LBlock;
 
-class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
-{
-  public:
-    enum Kind {
-        NORMAL,
-        PENDING_LOOP_HEADER,
-        LOOP_HEADER,
-        SPLIT_EDGE,
-        DEAD
-    };
+class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
+   public:
+    enum Kind { NORMAL, PENDING_LOOP_HEADER, LOOP_HEADER, SPLIT_EDGE, DEAD };
 
-  private:
+   private:
     MBasicBlock(MIRGraph& graph, const CompileInfo& info, BytecodeSite* site, Kind kind);
     MOZ_MUST_USE bool init();
     void copySlots(MBasicBlock* from);
@@ -61,9 +54,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     bool specialized_;
 
     // Pushes a copy of a local variable or argument.
-    void pushVariable(uint32_t slot) {
-        push(slots_[slot]);
-    }
+    void pushVariable(uint32_t slot) { push(slots_[slot]); }
 
     // Sets a variable slot to the top of the stack, correctly creating copies
     // as needed.
@@ -85,18 +76,16 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         RefType_DiscardInstruction = 1 << 3,
 
         // Discard operands of the instruction and its resume point.
-        RefType_DefaultNoAssert = RefType_DiscardOperands |
-                                  RefType_DiscardResumePoint |
-                                  RefType_DiscardInstruction,
+        RefType_DefaultNoAssert =
+            RefType_DiscardOperands | RefType_DiscardResumePoint | RefType_DiscardInstruction,
 
         // Discard everything and assert that the instruction is not used.
         RefType_Default = RefType_AssertNoUses | RefType_DefaultNoAssert,
 
         // Discard resume point operands only, without discarding the operands
         // of the current instruction.  Asserts that the instruction is unused.
-        RefType_IgnoreOperands = RefType_AssertNoUses |
-                                 RefType_DiscardOperands |
-                                 RefType_DiscardResumePoint
+        RefType_IgnoreOperands =
+            RefType_AssertNoUses | RefType_DiscardOperands | RefType_DiscardResumePoint
     };
 
     void discardResumePoint(MResumePoint* rp, ReferencesType refType = RefType_Default);
@@ -107,7 +96,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     // present.
     void prepareForDiscard(MInstruction* ins, ReferencesType refType = RefType_Default);
 
-  public:
+   public:
     ///////////////////////////////////////////////////////
     ////////// BEGIN GRAPH BUILDING INSTRUCTIONS //////////
     ///////////////////////////////////////////////////////
@@ -116,37 +105,32 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     // its slots and stack depth are initialized from |pred|.
     static MBasicBlock* New(MIRGraph& graph, size_t stackDepth, const CompileInfo& info,
                             MBasicBlock* maybePred, BytecodeSite* site, Kind kind);
-    static MBasicBlock* New(MIRGraph& graph, const CompileInfo& info, MBasicBlock* pred, Kind kind);
-    static MBasicBlock* NewPopN(MIRGraph& graph, const CompileInfo& info,
-                                MBasicBlock* pred, BytecodeSite* site, Kind kind, uint32_t popn);
+    static MBasicBlock* New(MIRGraph& graph, const CompileInfo& info, MBasicBlock* pred,
+                            Kind kind);
+    static MBasicBlock* NewPopN(MIRGraph& graph, const CompileInfo& info, MBasicBlock* pred,
+                                BytecodeSite* site, Kind kind, uint32_t popn);
     static MBasicBlock* NewWithResumePoint(MIRGraph& graph, const CompileInfo& info,
                                            MBasicBlock* pred, BytecodeSite* site,
                                            MResumePoint* resumePoint);
     static MBasicBlock* NewPendingLoopHeader(MIRGraph& graph, const CompileInfo& info,
                                              MBasicBlock* pred, BytecodeSite* site,
                                              unsigned loopStateSlots);
-    static MBasicBlock* NewSplitEdge(MIRGraph& graph, MBasicBlock* pred,
-                                     size_t predEdgeIdx, MBasicBlock* succ);
+    static MBasicBlock* NewSplitEdge(MIRGraph& graph, MBasicBlock* pred, size_t predEdgeIdx,
+                                     MBasicBlock* succ);
 
     bool dominates(const MBasicBlock* other) const {
         return other->domIndex() - domIndex() < numDominated();
     }
 
-    void setId(uint32_t id) {
-        id_ = id;
-    }
+    void setId(uint32_t id) { id_ = id; }
 
     // Mark this block (and only this block) as unreachable.
     void setUnreachable() {
         MOZ_ASSERT(!unreachable_);
         setUnreachableUnchecked();
     }
-    void setUnreachableUnchecked() {
-        unreachable_ = true;
-    }
-    bool unreachable() const {
-        return unreachable_;
-    }
+    void setUnreachableUnchecked() { unreachable_ = true; }
+    bool unreachable() const { return unreachable_; }
     // Move the definition to the top of the stack.
     void pick(int32_t depth);
 
@@ -177,8 +161,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     // operations, as it will not create new SSA names for copies.
     void initSlot(uint32_t slot, MDefinition* ins) {
         slots_[slot] = ins;
-        if (entryResumePoint())
-            entryResumePoint()->initOperand(slot, ins);
+        if (entryResumePoint()) entryResumePoint()->initOperand(slot, ins);
     }
 
     // Discard the slot at the given depth, lowering all slots above.
@@ -190,21 +173,13 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
 
     // Sets the instruction associated with various slot types. The
     // instruction must lie at the top of the stack.
-    void setLocal(uint32_t local) {
-        setVariable(info_.localSlot(local));
-    }
-    void setArg(uint32_t arg) {
-        setVariable(info_.argSlot(arg));
-    }
-    void setSlot(uint32_t slot, MDefinition* ins) {
-        slots_[slot] = ins;
-    }
+    void setLocal(uint32_t local) { setVariable(info_.localSlot(local)); }
+    void setArg(uint32_t arg) { setVariable(info_.argSlot(arg)); }
+    void setSlot(uint32_t slot, MDefinition* ins) { slots_[slot] = ins; }
 
     // Rewrites a slot directly, bypassing the stack transition. This should
     // not be used under most circumstances.
-    void rewriteSlot(uint32_t slot, MDefinition* ins) {
-        setSlot(slot, ins);
-    }
+    void rewriteSlot(uint32_t slot, MDefinition* ins) { setSlot(slot, ins); }
 
     // Rewrites a slot based on its depth (same as argument to peek()).
     void rewriteAtDepth(int32_t depth, MDefinition* ins);
@@ -214,15 +189,9 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         MOZ_ASSERT(stackPosition_ < nslots());
         slots_[stackPosition_++] = ins;
     }
-    void pushArg(uint32_t arg) {
-        pushVariable(info_.argSlot(arg));
-    }
-    void pushLocal(uint32_t local) {
-        pushVariable(info_.localSlot(local));
-    }
-    void pushSlot(uint32_t slot) {
-        pushVariable(slot);
-    }
+    void pushArg(uint32_t arg) { pushVariable(info_.argSlot(arg)); }
+    void pushLocal(uint32_t local) { pushVariable(info_.localSlot(local)); }
+    void pushSlot(uint32_t slot) { pushVariable(slot); }
     void setEnvironmentChain(MDefinition* ins);
     void setArgumentsObject(MDefinition* ins);
 
@@ -243,7 +212,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     // Marks the last instruction of the block; no further instructions
     // can be added.
     void end(MControlInstruction* ins) {
-        MOZ_ASSERT(!hasLastIns()); // Existing control instructions should be removed first.
+        MOZ_ASSERT(!hasLastIns());  // Existing control instructions should be removed first.
         MOZ_ASSERT(ins);
         add(ins);
     }
@@ -335,10 +304,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     // Move an instruction. Movement may cross block boundaries.
     void moveBefore(MInstruction* at, MInstruction* ins);
 
-    enum IgnoreTop {
-        IgnoreNone = 0,
-        IgnoreRecover = 1 << 0
-    };
+    enum IgnoreTop { IgnoreNone = 0, IgnoreRecover = 1 << 0 };
 
     // Locate the top of the |block|, where it is safe to insert a new
     // instruction.
@@ -379,49 +345,30 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     /////////// END GRAPH BUILDING INSTRUCTIONS ///////////
     ///////////////////////////////////////////////////////
 
-    MIRGraph& graph() {
-        return graph_;
-    }
-    const CompileInfo& info() const {
-        return info_;
-    }
-    jsbytecode* pc() const {
-        return pc_;
-    }
-    uint32_t nslots() const {
-        return slots_.length();
-    }
-    uint32_t id() const {
-        return id_;
-    }
-    uint32_t numPredecessors() const {
-        return predecessors_.length();
-    }
+    MIRGraph& graph() { return graph_; }
+    const CompileInfo& info() const { return info_; }
+    jsbytecode* pc() const { return pc_; }
+    uint32_t nslots() const { return slots_.length(); }
+    uint32_t id() const { return id_; }
+    uint32_t numPredecessors() const { return predecessors_.length(); }
 
     uint32_t domIndex() const {
         MOZ_ASSERT(!isDead());
         return domIndex_;
     }
-    void setDomIndex(uint32_t d) {
-        domIndex_ = d;
-    }
+    void setDomIndex(uint32_t d) { domIndex_ = d; }
 
-    MBasicBlock* getPredecessor(uint32_t i) const {
-        return predecessors_[i];
-    }
+    MBasicBlock* getPredecessor(uint32_t i) const { return predecessors_[i]; }
     size_t indexForPredecessor(MBasicBlock* block) const {
         // This should only be called before critical edge splitting.
         MOZ_ASSERT(!block->successorWithPhis());
 
         for (size_t i = 0; i < predecessors_.length(); i++) {
-            if (predecessors_[i] == block)
-                return i;
+            if (predecessors_[i] == block) return i;
         }
         MOZ_CRASH();
     }
-    bool hasAnyIns() const {
-        return !instructions_.empty();
-    }
+    bool hasAnyIns() const { return !instructions_.empty(); }
     bool hasLastIns() const {
         return hasAnyIns() && instructions_.rbegin()->isControlInstruction();
     }
@@ -431,58 +378,33 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     }
     // Find or allocate an optimized out constant.
     MConstant* optimizedOutConstant(TempAllocator& alloc);
-    MPhiIterator phisBegin() const {
-        return phis_.begin();
-    }
-    MPhiIterator phisBegin(MPhi* at) const {
-        return phis_.begin(at);
-    }
-    MPhiIterator phisEnd() const {
-        return phis_.end();
-    }
-    bool phisEmpty() const {
-        return phis_.empty();
-    }
+    MPhiIterator phisBegin() const { return phis_.begin(); }
+    MPhiIterator phisBegin(MPhi* at) const { return phis_.begin(at); }
+    MPhiIterator phisEnd() const { return phis_.end(); }
+    bool phisEmpty() const { return phis_.empty(); }
 #ifdef DEBUG
-    MResumePointIterator resumePointsBegin() const {
-        return resumePoints_.begin();
-    }
-    MResumePointIterator resumePointsEnd() const {
-        return resumePoints_.end();
-    }
-    bool resumePointsEmpty() const {
-        return resumePoints_.empty();
-    }
+    MResumePointIterator resumePointsBegin() const { return resumePoints_.begin(); }
+    MResumePointIterator resumePointsEnd() const { return resumePoints_.end(); }
+    bool resumePointsEmpty() const { return resumePoints_.empty(); }
 #endif
-    MInstructionIterator begin() {
-        return instructions_.begin();
-    }
+    MInstructionIterator begin() { return instructions_.begin(); }
     MInstructionIterator begin(MInstruction* at) {
         MOZ_ASSERT(at->block() == this);
         return instructions_.begin(at);
     }
-    MInstructionIterator end() {
-        return instructions_.end();
-    }
-    MInstructionReverseIterator rbegin() {
-        return instructions_.rbegin();
-    }
+    MInstructionIterator end() { return instructions_.end(); }
+    MInstructionReverseIterator rbegin() { return instructions_.rbegin(); }
     MInstructionReverseIterator rbegin(MInstruction* at) {
         MOZ_ASSERT(at->block() == this);
         return instructions_.rbegin(at);
     }
-    MInstructionReverseIterator rend() {
-        return instructions_.rend();
-    }
-    bool isLoopHeader() const {
-        return kind_ == LOOP_HEADER;
-    }
+    MInstructionReverseIterator rend() { return instructions_.rend(); }
+    bool isLoopHeader() const { return kind_ == LOOP_HEADER; }
     bool hasUniqueBackedge() const {
         MOZ_ASSERT(isLoopHeader());
         MOZ_ASSERT(numPredecessors() >= 2);
-        if (numPredecessors() == 2)
-            return true;
-        if (numPredecessors() == 3) // fixup block added by ValueNumbering phase.
+        if (numPredecessors() == 2) return true;
+        if (numPredecessors() == 3)  // fixup block added by ValueNumbering phase.
             return getPredecessor(1)->numPredecessors() == 0;
         return false;
     }
@@ -499,69 +421,41 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         return getPredecessor(0);
     }
     bool isLoopBackedge() const {
-        if (!numSuccessors())
-            return false;
+        if (!numSuccessors()) return false;
         MBasicBlock* lastSuccessor = getSuccessor(numSuccessors() - 1);
-        return lastSuccessor->isLoopHeader() &&
-               lastSuccessor->hasUniqueBackedge() &&
+        return lastSuccessor->isLoopHeader() && lastSuccessor->hasUniqueBackedge() &&
                lastSuccessor->backedge() == this;
     }
-    bool isSplitEdge() const {
-        return kind_ == SPLIT_EDGE;
-    }
-    bool isDead() const {
-        return kind_ == DEAD;
-    }
+    bool isSplitEdge() const { return kind_ == SPLIT_EDGE; }
+    bool isDead() const { return kind_ == DEAD; }
 
-    uint32_t stackDepth() const {
-        return stackPosition_;
-    }
-    void setStackDepth(uint32_t depth) {
-        stackPosition_ = depth;
-    }
-    bool isMarked() const {
-        return mark_;
-    }
+    uint32_t stackDepth() const { return stackPosition_; }
+    void setStackDepth(uint32_t depth) { stackPosition_ = depth; }
+    bool isMarked() const { return mark_; }
     void mark() {
         MOZ_ASSERT(!mark_, "Marking already-marked block");
         markUnchecked();
     }
-    void markUnchecked() {
-        mark_ = true;
-    }
+    void markUnchecked() { mark_ = true; }
     void unmark() {
         MOZ_ASSERT(mark_, "Unarking unmarked block");
         unmarkUnchecked();
     }
-    void unmarkUnchecked() {
-        mark_ = false;
-    }
+    void unmarkUnchecked() { mark_ = false; }
 
-    MBasicBlock* immediateDominator() const {
-        return immediateDominator_;
-    }
+    MBasicBlock* immediateDominator() const { return immediateDominator_; }
 
-    void setImmediateDominator(MBasicBlock* dom) {
-        immediateDominator_ = dom;
-    }
+    void setImmediateDominator(MBasicBlock* dom) { immediateDominator_ = dom; }
 
     MTest* immediateDominatorBranch(BranchDirection* pdirection);
 
-    size_t numImmediatelyDominatedBlocks() const {
-        return immediatelyDominated_.length();
-    }
+    size_t numImmediatelyDominatedBlocks() const { return immediatelyDominated_.length(); }
 
-    MBasicBlock* getImmediatelyDominatedBlock(size_t i) const {
-        return immediatelyDominated_[i];
-    }
+    MBasicBlock* getImmediatelyDominatedBlock(size_t i) const { return immediatelyDominated_[i]; }
 
-    MBasicBlock** immediatelyDominatedBlocksBegin() {
-        return immediatelyDominated_.begin();
-    }
+    MBasicBlock** immediatelyDominatedBlocksBegin() { return immediatelyDominated_.begin(); }
 
-    MBasicBlock** immediatelyDominatedBlocksEnd() {
-        return immediatelyDominated_.end();
-    }
+    MBasicBlock** immediatelyDominatedBlocksEnd() { return immediatelyDominated_.end(); }
 
     // Return the number of blocks dominated by this block. All blocks
     // dominate at least themselves, so this will always be non-zero.
@@ -570,9 +464,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         return numDominated_;
     }
 
-    void addNumDominated(size_t n) {
-        numDominated_ += n;
-    }
+    void addNumDominated(size_t n) { numDominated_ += n; }
 
     // Add |child| to this block's immediately-dominated set.
     bool addImmediatelyDominatedBlock(MBasicBlock* child);
@@ -588,19 +480,13 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         return slots_[index];
     }
 
-    MResumePoint* entryResumePoint() const {
-        return entryResumePoint_;
-    }
-    void setEntryResumePoint(MResumePoint* rp) {
-        entryResumePoint_ = rp;
-    }
+    MResumePoint* entryResumePoint() const { return entryResumePoint_; }
+    void setEntryResumePoint(MResumePoint* rp) { entryResumePoint_ = rp; }
     void clearEntryResumePoint() {
         discardResumePoint(entryResumePoint_);
         entryResumePoint_ = nullptr;
     }
-    MResumePoint* outerResumePoint() const {
-        return outerResumePoint_;
-    }
+    MResumePoint* outerResumePoint() const { return outerResumePoint_; }
     void setOuterResumePoint(MResumePoint* outer) {
         MOZ_ASSERT(!outerResumePoint_);
         outerResumePoint_ = outer;
@@ -609,31 +495,21 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         discardResumePoint(outerResumePoint_);
         outerResumePoint_ = nullptr;
     }
-    MResumePoint* callerResumePoint() const {
-        return callerResumePoint_;
-    }
-    void setCallerResumePoint(MResumePoint* caller) {
-        callerResumePoint_ = caller;
-    }
-    size_t numEntrySlots() const {
-        return entryResumePoint()->stackDepth();
-    }
+    MResumePoint* callerResumePoint() const { return callerResumePoint_; }
+    void setCallerResumePoint(MResumePoint* caller) { callerResumePoint_ = caller; }
+    size_t numEntrySlots() const { return entryResumePoint()->stackDepth(); }
     MDefinition* getEntrySlot(size_t i) const {
         MOZ_ASSERT(i < numEntrySlots());
         return entryResumePoint()->getOperand(i);
     }
 
-    LBlock* lir() const {
-        return lir_;
-    }
+    LBlock* lir() const { return lir_; }
     void assignLir(LBlock* lir) {
         MOZ_ASSERT(!lir_);
         lir_ = lir;
     }
 
-    MBasicBlock* successorWithPhis() const {
-        return successorWithPhis_;
-    }
+    MBasicBlock* successorWithPhis() const { return successorWithPhis_; }
     uint32_t positionInPhiSuccessor() const {
         MOZ_ASSERT(successorWithPhis());
         return positionInPhiSuccessor_;
@@ -642,9 +518,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         successorWithPhis_ = successor;
         positionInPhiSuccessor_ = id;
     }
-    void clearSuccessorWithPhis() {
-        successorWithPhis_ = nullptr;
-    }
+    void clearSuccessorWithPhis() { successorWithPhis_ = nullptr; }
     size_t numSuccessors() const {
         MOZ_ASSERT(lastIns());
         return lastIns()->numSuccessors();
@@ -656,16 +530,10 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     size_t getSuccessorIndex(MBasicBlock*) const;
     size_t getPredecessorIndex(MBasicBlock*) const;
 
-    void setLoopDepth(uint32_t loopDepth) {
-        loopDepth_ = loopDepth;
-    }
-    uint32_t loopDepth() const {
-        return loopDepth_;
-    }
+    void setLoopDepth(uint32_t loopDepth) { loopDepth_ = loopDepth; }
+    uint32_t loopDepth() const { return loopDepth_; }
 
-    bool strict() const {
-        return info_.script()->strict();
-    }
+    bool strict() const { return info_.script()->strict(); }
 
     void dumpStack(GenericPrinter& out);
     void dumpStack();
@@ -687,9 +555,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         // in the graph.
         Frequency
     };
-    HitState getHitState() const {
-        return hitState_;
-    }
+    HitState getHitState() const { return hitState_; }
     void setHitCount(uint64_t count) {
         hitCount_ = count;
         hitState_ = HitState::Count;
@@ -706,15 +572,9 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         MOZ_ASSERT(site->tree() == trackedSite_->tree());
         trackedSite_ = site;
     }
-    BytecodeSite* trackedSite() const {
-        return trackedSite_;
-    }
-    jsbytecode* trackedPc() const {
-        return trackedSite_ ? trackedSite_->pc() : nullptr;
-    }
-    InlineScriptTree* trackedTree() const {
-        return trackedSite_ ? trackedSite_->tree() : nullptr;
-    }
+    BytecodeSite* trackedSite() const { return trackedSite_; }
+    jsbytecode* trackedPc() const { return trackedSite_ ? trackedSite_->pc() : nullptr; }
+    InlineScriptTree* trackedTree() const { return trackedSite_ ? trackedSite_->tree() : nullptr; }
 
     // This class is used for reverting the graph within IonBuilder.
     class BackupPoint {
@@ -737,7 +597,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         size_t computePredecessorsCheckSum(MBasicBlock* block);
         HashNumber computeInstructionsCheckSum(MBasicBlock* block);
 #endif
-      public:
+       public:
         explicit BackupPoint(MBasicBlock* current);
         MOZ_MUST_USE bool init(TempAllocator& alloc);
         MBasicBlock* restore();
@@ -745,16 +605,16 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
 
     friend BackupPoint;
 
-  private:
+   private:
     MIRGraph& graph_;
-    const CompileInfo& info_; // Each block originates from a particular script.
+    const CompileInfo& info_;  // Each block originates from a particular script.
     InlineList<MInstruction> instructions_;
     Vector<MBasicBlock*, 1, JitAllocPolicy> predecessors_;
     InlineList<MPhi> phis_;
     FixedList<MDefinition*> slots_;
     uint32_t stackPosition_;
     uint32_t id_;
-    uint32_t domIndex_; // Index in the dominator tree.
+    uint32_t domIndex_;  // Index in the dominator tree.
     uint32_t numDominated_;
     jsbytecode* pc_;
     LBlock* lir_;
@@ -800,7 +660,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     unsigned lineno_;
     unsigned columnIndex_;
 
-  public:
+   public:
     void setLineno(unsigned l) { lineno_ = l; }
     unsigned lineno() const { return lineno_; }
     void setColumnIndex(unsigned c) { columnIndex_ = c; }
@@ -814,8 +674,7 @@ typedef InlineListReverseIterator<MBasicBlock> PostorderIterator;
 
 typedef Vector<MBasicBlock*, 1, JitAllocPolicy> MIRGraphReturns;
 
-class MIRGraph
-{
+class MIRGraph {
     InlineList<MBasicBlock> blocks_;
     TempAllocator* alloc_;
     MIRGraphReturns* returnAccumulator_;
@@ -829,21 +688,18 @@ class MIRGraph
     InlineList<MPhi> phiFreeList_;
     size_t phiFreeListLength_;
 
-  public:
+   public:
     explicit MIRGraph(TempAllocator* alloc)
-      : alloc_(alloc),
-        returnAccumulator_(nullptr),
-        blockIdGen_(0),
-        idGen_(0),
-        osrBlock_(nullptr),
-        numBlocks_(0),
-        hasTryBlock_(false),
-        phiFreeListLength_(0)
-    { }
+        : alloc_(alloc),
+          returnAccumulator_(nullptr),
+          blockIdGen_(0),
+          idGen_(0),
+          osrBlock_(nullptr),
+          numBlocks_(0),
+          hasTryBlock_(false),
+          phiFreeListLength_(0) {}
 
-    TempAllocator& alloc() const {
-        return *alloc_;
-    }
+    TempAllocator& alloc() const { return *alloc_; }
 
     void addBlock(MBasicBlock* block);
     void insertBlockAfter(MBasicBlock* at, MBasicBlock* block);
@@ -853,50 +709,25 @@ class MIRGraph
 
     void unmarkBlocks();
 
-    void setReturnAccumulator(MIRGraphReturns* accum) {
-        returnAccumulator_ = accum;
-    }
-    MIRGraphReturns* returnAccumulator() const {
-        return returnAccumulator_;
-    }
+    void setReturnAccumulator(MIRGraphReturns* accum) { returnAccumulator_ = accum; }
+    MIRGraphReturns* returnAccumulator() const { return returnAccumulator_; }
 
     MOZ_MUST_USE bool addReturn(MBasicBlock* returnBlock) {
-        if (!returnAccumulator_)
-            return true;
+        if (!returnAccumulator_) return true;
 
         return returnAccumulator_->append(returnBlock);
     }
 
-    MBasicBlock* entryBlock() {
-        return *blocks_.begin();
-    }
-    MBasicBlockIterator begin() {
-        return blocks_.begin();
-    }
-    MBasicBlockIterator begin(MBasicBlock* at) {
-        return blocks_.begin(at);
-    }
-    MBasicBlockIterator end() {
-        return blocks_.end();
-    }
-    PostorderIterator poBegin() {
-        return blocks_.rbegin();
-    }
-    PostorderIterator poBegin(MBasicBlock* at) {
-        return blocks_.rbegin(at);
-    }
-    PostorderIterator poEnd() {
-        return blocks_.rend();
-    }
-    ReversePostorderIterator rpoBegin() {
-        return blocks_.begin();
-    }
-    ReversePostorderIterator rpoBegin(MBasicBlock* at) {
-        return blocks_.begin(at);
-    }
-    ReversePostorderIterator rpoEnd() {
-        return blocks_.end();
-    }
+    MBasicBlock* entryBlock() { return *blocks_.begin(); }
+    MBasicBlockIterator begin() { return blocks_.begin(); }
+    MBasicBlockIterator begin(MBasicBlock* at) { return blocks_.begin(at); }
+    MBasicBlockIterator end() { return blocks_.end(); }
+    PostorderIterator poBegin() { return blocks_.rbegin(); }
+    PostorderIterator poBegin(MBasicBlock* at) { return blocks_.rbegin(at); }
+    PostorderIterator poEnd() { return blocks_.rend(); }
+    ReversePostorderIterator rpoBegin() { return blocks_.begin(); }
+    ReversePostorderIterator rpoBegin(MBasicBlock* at) { return blocks_.begin(at); }
+    ReversePostorderIterator rpoEnd() { return blocks_.end(); }
     MOZ_MUST_USE bool removeSuccessorBlocks(MBasicBlock* block);
     void removeBlock(MBasicBlock* block);
     void removeBlockIncludingPhis(MBasicBlock* block);
@@ -914,21 +745,11 @@ class MIRGraph
         blocks_.remove(block);
         numBlocks_--;
     }
-    size_t numBlocks() const {
-        return numBlocks_;
-    }
-    uint32_t numBlockIds() const {
-        return blockIdGen_;
-    }
-    void allocDefinitionId(MDefinition* ins) {
-        ins->setId(idGen_++);
-    }
-    uint32_t getNumInstructionIds() {
-        return idGen_;
-    }
-    MResumePoint* entryResumePoint() {
-        return entryBlock()->entryResumePoint();
-    }
+    size_t numBlocks() const { return numBlocks_; }
+    uint32_t numBlockIds() const { return blockIdGen_; }
+    void allocDefinitionId(MDefinition* ins) { ins->setId(idGen_++); }
+    uint32_t getNumInstructionIds() { return idGen_; }
+    MResumePoint* entryResumePoint() { return entryBlock()->entryResumePoint(); }
 
     void copyIds(const MIRGraph& other) {
         idGen_ = other.idGen_;
@@ -940,16 +761,10 @@ class MIRGraph
         MOZ_ASSERT(!osrBlock_);
         osrBlock_ = osrBlock;
     }
-    MBasicBlock* osrBlock() {
-        return osrBlock_;
-    }
+    MBasicBlock* osrBlock() { return osrBlock_; }
 
-    bool hasTryBlock() const {
-        return hasTryBlock_;
-    }
-    void setHasTryBlock() {
-        hasTryBlock_ = true;
-    }
+    bool hasTryBlock() const { return hasTryBlock_; }
+    void setHasTryBlock() { hasTryBlock_ = true; }
 
     void dump(GenericPrinter& out);
     void dump();
@@ -958,9 +773,7 @@ class MIRGraph
         phiFreeList_.pushBack(phi);
         phiFreeListLength_++;
     }
-    size_t phiFreeListLength() const {
-        return phiFreeListLength_;
-    }
+    size_t phiFreeListLength() const { return phiFreeListLength_; }
     MPhi* takePhiFromFreeList() {
         MOZ_ASSERT(phiFreeListLength_ > 0);
         phiFreeListLength_--;
@@ -968,38 +781,29 @@ class MIRGraph
     }
 };
 
-class MDefinitionIterator
-{
-  friend class MBasicBlock;
-  friend class MNodeIterator;
+class MDefinitionIterator {
+    friend class MBasicBlock;
+    friend class MNodeIterator;
 
-  private:
+   private:
     MBasicBlock* block_;
     MPhiIterator phiIter_;
     MInstructionIterator iter_;
 
-    bool atPhi() const {
-        return phiIter_ != block_->phisEnd();
-    }
+    bool atPhi() const { return phiIter_ != block_->phisEnd(); }
 
     MDefinition* getIns() {
-        if (atPhi())
-            return *phiIter_;
+        if (atPhi()) return *phiIter_;
         return *iter_;
     }
 
-    bool more() const {
-        return atPhi() || (*iter_) != block_->lastIns();
-    }
+    bool more() const { return atPhi() || (*iter_) != block_->lastIns(); }
 
-  public:
+   public:
     explicit MDefinitionIterator(MBasicBlock* block)
-      : block_(block),
-        phiIter_(block->phisBegin()),
-        iter_(block->begin())
-    { }
+        : block_(block), phiIter_(block->phisBegin()), iter_(block->begin()) {}
 
-    MDefinitionIterator operator ++() {
+    MDefinitionIterator operator++() {
         MOZ_ASSERT(more());
         if (atPhi())
             ++phiIter_;
@@ -1008,31 +812,24 @@ class MDefinitionIterator
         return *this;
     }
 
-    MDefinitionIterator operator ++(int) {
+    MDefinitionIterator operator++(int) {
         MDefinitionIterator old(*this);
-        operator++ ();
+        operator++();
         return old;
     }
 
-    explicit operator bool() const {
-        return more();
-    }
+    explicit operator bool() const { return more(); }
 
-    MDefinition* operator*() {
-        return getIns();
-    }
+    MDefinition* operator*() { return getIns(); }
 
-    MDefinition* operator ->() {
-        return getIns();
-    }
+    MDefinition* operator->() { return getIns(); }
 };
 
 // Iterates on all resume points, phis, and instructions of a MBasicBlock.
 // Resume points are visited as long as the instruction which holds it is not
 // discarded.
-class MNodeIterator
-{
-  private:
+class MNodeIterator {
+   private:
     // Last instruction which holds a resume point. To handle the entry point
     // resume point, it is set to the last instruction, assuming that the last
     // instruction is not discarded before we visit it.
@@ -1043,24 +840,18 @@ class MNodeIterator
     // on a discarded instruction.
     MDefinitionIterator defIter_;
 
-    MBasicBlock* block() const {
-        return defIter_.block_;
-    }
+    MBasicBlock* block() const { return defIter_.block_; }
 
-    bool atResumePoint() const {
-        return last_ && !last_->isDiscarded();
-    }
+    bool atResumePoint() const { return last_ && !last_->isDiscarded(); }
 
     MNode* getNode() {
-        if (!atResumePoint())
-            return *defIter_;
+        if (!atResumePoint()) return *defIter_;
 
         // We use the last instruction as a sentinelle to iterate over the entry
         // resume point of the basic block, before even starting to iterate on
         // the instruction list.  Otherwise, the last_ corresponds to the
         // previous instruction.
-        if (last_ != block()->lastIns())
-            return last_->resumePoint();
+        if (last_ != block()->lastIns()) return last_->resumePoint();
         return block()->entryResumePoint();
     }
 
@@ -1078,15 +869,11 @@ class MNodeIterator
         }
     }
 
-    bool more() const {
-        return defIter_ || atResumePoint();
-    }
+    bool more() const { return defIter_ || atResumePoint(); }
 
-  public:
+   public:
     explicit MNodeIterator(MBasicBlock* block)
-      : last_(block->entryResumePoint() ? block->lastIns() : nullptr),
-        defIter_(block)
-    {
+        : last_(block->entryResumePoint() ? block->lastIns() : nullptr), defIter_(block) {
         MOZ_ASSERT(bool(block->entryResumePoint()) == atResumePoint());
 
         // We use the last instruction to check for the entry resume point,
@@ -1095,30 +882,20 @@ class MNodeIterator
         MOZ_ASSERT(!block->lastIns()->resumePoint());
     }
 
-    MNodeIterator operator ++(int) {
+    MNodeIterator operator++(int) {
         MNodeIterator old(*this);
-        if (more())
-            next();
+        if (more()) next();
         return old;
     }
 
-    explicit operator bool() const {
-        return more();
-    }
+    explicit operator bool() const { return more(); }
 
-    MNode* operator*() {
-        return getNode();
-    }
+    MNode* operator*() { return getNode(); }
 
-    MNode* operator ->() {
-        return getNode();
-    }
-
+    MNode* operator->() { return getNode(); }
 };
 
-void
-MBasicBlock::add(MInstruction* ins)
-{
+void MBasicBlock::add(MInstruction* ins) {
     MOZ_ASSERT(!hasLastIns());
     ins->setBlock(this);
     graph().allocDefinitionId(ins);
@@ -1126,7 +903,7 @@ MBasicBlock::add(MInstruction* ins)
     ins->setTrackedSite(trackedSite_);
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_MIRGraph_h */

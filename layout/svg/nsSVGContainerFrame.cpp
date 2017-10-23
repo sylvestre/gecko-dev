@@ -21,20 +21,19 @@ using namespace mozilla;
 using namespace mozilla::image;
 
 NS_QUERYFRAME_HEAD(nsSVGContainerFrame)
-  NS_QUERYFRAME_ENTRY(nsSVGContainerFrame)
+NS_QUERYFRAME_ENTRY(nsSVGContainerFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 NS_QUERYFRAME_HEAD(nsSVGDisplayContainerFrame)
-  NS_QUERYFRAME_ENTRY(nsSVGDisplayContainerFrame)
-  NS_QUERYFRAME_ENTRY(nsSVGDisplayableFrame)
+NS_QUERYFRAME_ENTRY(nsSVGDisplayContainerFrame)
+NS_QUERYFRAME_ENTRY(nsSVGDisplayableFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsSVGContainerFrame)
 
 nsIFrame*
-NS_NewSVGContainerFrame(nsIPresShell* aPresShell,
-                        nsStyleContext* aContext)
+NS_NewSVGContainerFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
-  nsIFrame* frame =
-    new (aPresShell) nsSVGContainerFrame(aContext, nsSVGContainerFrame::kClassID);
+  nsIFrame* frame = new (aPresShell)
+      nsSVGContainerFrame(aContext, nsSVGContainerFrame::kClassID);
   // If we were called directly, then the frame is for a <defs> or
   // an unknown element type. In both cases we prevent the content
   // from displaying directly.
@@ -45,8 +44,7 @@ NS_NewSVGContainerFrame(nsIPresShell* aPresShell,
 NS_IMPL_FRAMEARENA_HELPERS(nsSVGContainerFrame)
 
 void
-nsSVGContainerFrame::AppendFrames(ChildListID  aListID,
-                                  nsFrameList& aFrameList)
+nsSVGContainerFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList)
 {
   InsertFrames(aListID, mFrames.LastChild(), aFrameList);
 }
@@ -64,8 +62,7 @@ nsSVGContainerFrame::InsertFrames(ChildListID aListID,
 }
 
 void
-nsSVGContainerFrame::RemoveFrame(ChildListID aListID,
-                                 nsIFrame* aOldFrame)
+nsSVGContainerFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
 
@@ -113,7 +110,7 @@ nsSVGContainerFrame::ReflowSVGNonDisplayText(nsIFrame* aContainer)
     return;
   }
   NS_ASSERTION((aContainer->GetStateBits() & NS_FRAME_IS_NONDISPLAY) ||
-               !aContainer->IsFrameOfType(nsIFrame::eSVG),
+                   !aContainer->IsFrameOfType(nsIFrame::eSVG),
                "it is wasteful to call ReflowSVGNonDisplayText on a container "
                "frame that is not NS_FRAME_IS_NONDISPLAY");
   for (nsIFrame* kid : aContainer->PrincipalChildList()) {
@@ -131,9 +128,9 @@ nsSVGContainerFrame::ReflowSVGNonDisplayText(nsIFrame* aContainer)
 }
 
 void
-nsSVGDisplayContainerFrame::Init(nsIContent*       aContent,
+nsSVGDisplayContainerFrame::Init(nsIContent* aContent,
                                  nsContainerFrame* aParent,
-                                 nsIFrame*         aPrevInFlow)
+                                 nsIFrame* aPrevInFlow)
 {
   if (!(GetStateBits() & NS_STATE_IS_OUTER_SVG)) {
     AddStateBits(aParent->GetStateBits() & NS_STATE_SVG_CLIPPATH_CHILD);
@@ -142,7 +139,7 @@ nsSVGDisplayContainerFrame::Init(nsIContent*       aContent,
 }
 
 void
-nsSVGDisplayContainerFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsSVGDisplayContainerFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                              const nsDisplayListSet& aLists)
 {
   // mContent could be a XUL element so check for an SVG element before casting
@@ -162,8 +159,8 @@ nsSVGDisplayContainerFrame::InsertFrames(ChildListID aListID,
   // memorize first old frame after insertion point
   // XXXbz once again, this would work a lot better if the nsIFrame
   // methods returned framelist iterators....
-  nsIFrame* nextFrame = aPrevFrame ?
-    aPrevFrame->GetNextSibling() : GetChildList(aListID).FirstChild();
+  nsIFrame* nextFrame = aPrevFrame ? aPrevFrame->GetNextSibling()
+                                   : GetChildList(aListID).FirstChild();
   nsIFrame* firstNewFrame = aFrameList.FirstChild();
 
   // Insert the new frames
@@ -171,9 +168,8 @@ nsSVGDisplayContainerFrame::InsertFrames(ChildListID aListID,
 
   // If we are not a non-display SVG frame and we do not have a bounds update
   // pending, then we need to schedule one for our new children:
-  if (!(GetStateBits() &
-        (NS_FRAME_IS_DIRTY | NS_FRAME_HAS_DIRTY_CHILDREN |
-         NS_FRAME_IS_NONDISPLAY))) {
+  if (!(GetStateBits() & (NS_FRAME_IS_DIRTY | NS_FRAME_HAS_DIRTY_CHILDREN |
+                          NS_FRAME_IS_NONDISPLAY))) {
     for (nsIFrame* kid = firstNewFrame; kid != nextFrame;
          kid = kid->GetNextSibling()) {
       nsSVGDisplayableFrame* SVGFrame = do_QueryFrame(kid);
@@ -207,7 +203,7 @@ nsSVGDisplayContainerFrame::RemoveFrame(ChildListID aListID,
   // need to schedule a repaint and schedule an update to our overflow rects.
   SchedulePaint();
   PresContext()->RestyleManager()->PostRestyleEvent(
-    mContent->AsElement(), nsRestyleHint(0), nsChangeHint_UpdateOverflow);
+      mContent->AsElement(), nsRestyleHint(0), nsChangeHint_UpdateOverflow);
 
   nsSVGContainerFrame::RemoveFrame(aListID, aOldFrame);
 
@@ -217,30 +213,30 @@ nsSVGDisplayContainerFrame::RemoveFrame(ChildListID aListID,
 }
 
 bool
-nsSVGDisplayContainerFrame::IsSVGTransformed(gfx::Matrix *aOwnTransform,
-                                             gfx::Matrix *aFromParentTransform) const
+nsSVGDisplayContainerFrame::IsSVGTransformed(
+    gfx::Matrix* aOwnTransform, gfx::Matrix* aFromParentTransform) const
 {
   bool foundTransform = false;
 
   // Check if our parent has children-only transforms:
-  nsIFrame *parent = GetParent();
+  nsIFrame* parent = GetParent();
   if (parent &&
       parent->IsFrameOfType(nsIFrame::eSVG | nsIFrame::eSVGContainer)) {
-    foundTransform = static_cast<nsSVGContainerFrame*>(parent)->
-                       HasChildrenOnlyTransform(aFromParentTransform);
+    foundTransform =
+        static_cast<nsSVGContainerFrame*>(parent)->HasChildrenOnlyTransform(
+            aFromParentTransform);
   }
 
   // mContent could be a XUL element so check for an SVG element before casting
   if (mContent->IsSVGElement()) {
-    nsSVGElement *content = static_cast<nsSVGElement*>(GetContent());
+    nsSVGElement* content = static_cast<nsSVGElement*>(GetContent());
     nsSVGAnimatedTransformList* transformList =
-      content->GetAnimatedTransformList();
+        content->GetAnimatedTransformList();
     if ((transformList && transformList->HasTransform()) ||
         content->GetAnimateMotionTransform()) {
       if (aOwnTransform) {
         *aOwnTransform = gfx::ToMatrix(
-                           content->PrependLocalTransformsTo(
-                             gfxMatrix(), eUserSpaceToParent));
+            content->PrependLocalTransformsTo(gfxMatrix(), eUserSpaceToParent));
       }
       foundTransform = true;
     }
@@ -255,11 +251,11 @@ void
 nsSVGDisplayContainerFrame::PaintSVG(gfxContext& aContext,
                                      const gfxMatrix& aTransform,
                                      imgDrawingParams& aImgParams,
-                                     const nsIntRect *aDirtyRect)
+                                     const nsIntRect* aDirtyRect)
 {
   NS_ASSERTION(!NS_SVGDisplayListPaintingEnabled() ||
-               (mState & NS_FRAME_IS_NONDISPLAY) ||
-               PresContext()->IsGlyph(),
+                   (mState & NS_FRAME_IS_NONDISPLAY) ||
+                   PresContext()->IsGlyph(),
                "If display lists are enabled, only painting of non-display "
                "SVG should take this code path");
 
@@ -268,24 +264,23 @@ nsSVGDisplayContainerFrame::PaintSVG(gfxContext& aContext,
   }
 
   gfxMatrix matrix = aTransform;
-  if (GetContent()->IsSVGElement()) { // must check before cast
-    matrix = static_cast<const nsSVGElement*>(GetContent())->
-               PrependLocalTransformsTo(matrix, eChildToUserSpace);
+  if (GetContent()->IsSVGElement()) {  // must check before cast
+    matrix = static_cast<const nsSVGElement*>(GetContent())
+                 ->PrependLocalTransformsTo(matrix, eChildToUserSpace);
     if (matrix.IsSingular()) {
       return;
     }
   }
 
-  for (nsIFrame* kid = mFrames.FirstChild(); kid;
-       kid = kid->GetNextSibling()) {
+  for (nsIFrame* kid = mFrames.FirstChild(); kid; kid = kid->GetNextSibling()) {
     gfxMatrix m = matrix;
     // PaintFrameWithEffects() expects the transform that is passed to it to
     // include the transform to the passed frame's user space, so add it:
     const nsIContent* content = kid->GetContent();
-    if (content->IsSVGElement()) { // must check before cast
+    if (content->IsSVGElement()) {  // must check before cast
       const nsSVGElement* element = static_cast<const nsSVGElement*>(content);
       if (!element->HasValidDimensions()) {
-        continue; // nothing to paint for kid
+        continue;  // nothing to paint for kid
       }
       m = element->PrependLocalTransformsTo(m, eUserSpaceToParent);
       if (m.IsSingular()) {
@@ -300,7 +295,7 @@ nsIFrame*
 nsSVGDisplayContainerFrame::GetFrameForPoint(const gfxPoint& aPoint)
 {
   NS_ASSERTION(!NS_SVGDisplayListHitTestingEnabled() ||
-               (mState & NS_FRAME_IS_NONDISPLAY),
+                   (mState & NS_FRAME_IS_NONDISPLAY),
                "If display lists are enabled, only hit-testing of a "
                "clipPath's contents should take this code path");
   return nsSVGUtils::HitTestChildren(this, aPoint);
@@ -331,16 +326,15 @@ nsSVGDisplayContainerFrame::ReflowSVG()
   bool isFirstReflow = (mState & NS_FRAME_FIRST_REFLOW);
 
   bool outerSVGHasHadFirstReflow =
-    (GetParent()->GetStateBits() & NS_FRAME_FIRST_REFLOW) == 0;
+      (GetParent()->GetStateBits() & NS_FRAME_FIRST_REFLOW) == 0;
 
   if (outerSVGHasHadFirstReflow) {
-    RemoveStateBits(NS_FRAME_FIRST_REFLOW); // tell our children
+    RemoveStateBits(NS_FRAME_FIRST_REFLOW);  // tell our children
   }
 
   nsOverflowAreas overflowRects;
 
-  for (nsIFrame* kid = mFrames.FirstChild(); kid;
-       kid = kid->GetNextSibling()) {
+  for (nsIFrame* kid = mFrames.FirstChild(); kid; kid = kid->GetNextSibling()) {
     nsSVGDisplayableFrame* SVGFrame = do_QueryFrame(kid);
     if (SVGFrame) {
       MOZ_ASSERT(!(kid->GetStateBits() & NS_FRAME_IS_NONDISPLAY),
@@ -375,9 +369,9 @@ nsSVGDisplayContainerFrame::ReflowSVG()
   // Note that we rely on |overflow:visible| to allow display list items to be
   // created for our children.
   MOZ_ASSERT(mContent->IsAnyOfSVGElements(nsGkAtoms::svg, nsGkAtoms::symbol) ||
-             (mContent->IsSVGElement(nsGkAtoms::use) &&
-              mRect.Size() == nsSize(0,0)) ||
-             mRect.IsEqualEdges(nsRect()),
+                 (mContent->IsSVGElement(nsGkAtoms::use) &&
+                  mRect.Size() == nsSize(0, 0)) ||
+                 mRect.IsEqualEdges(nsRect()),
              "Only inner-<svg>/<use> is expected to have mRect set");
 
   if (isFirstReflow) {
@@ -410,28 +404,29 @@ nsSVGDisplayContainerFrame::NotifySVGChanged(uint32_t aFlags)
 }
 
 SVGBBox
-nsSVGDisplayContainerFrame::GetBBoxContribution(
-  const Matrix &aToBBoxUserspace,
-  uint32_t aFlags)
+nsSVGDisplayContainerFrame::GetBBoxContribution(const Matrix& aToBBoxUserspace,
+                                                uint32_t aFlags)
 {
   SVGBBox bboxUnion;
 
   nsIFrame* kid = mFrames.FirstChild();
   while (kid) {
-    nsIContent *content = kid->GetContent();
+    nsIContent* content = kid->GetContent();
     nsSVGDisplayableFrame* svgKid = do_QueryFrame(kid);
     // content could be a XUL element so check for an SVG element before casting
-    if (svgKid && (!content->IsSVGElement() ||
-                   static_cast<const nsSVGElement*>(content)->HasValidDimensions())) {
-
+    if (svgKid &&
+        (!content->IsSVGElement() ||
+         static_cast<const nsSVGElement*>(content)->HasValidDimensions())) {
       gfxMatrix transform = gfx::ThebesMatrix(aToBBoxUserspace);
       if (content->IsSVGElement()) {
-        transform = static_cast<nsSVGElement*>(content)->
-                      PrependLocalTransformsTo(transform);
+        transform =
+            static_cast<nsSVGElement*>(content)->PrependLocalTransformsTo(
+                transform);
       }
       // We need to include zero width/height vertical/horizontal lines, so we have
       // to use UnionEdges.
-      bboxUnion.UnionEdges(svgKid->GetBBoxContribution(gfx::ToMatrix(transform), aFlags));
+      bboxUnion.UnionEdges(
+          svgKid->GetBBoxContribution(gfx::ToMatrix(transform), aFlags));
     }
     kid = kid->GetNextSibling();
   }
@@ -445,8 +440,9 @@ nsSVGDisplayContainerFrame::GetCanvasTM()
   if (!mCanvasTM) {
     NS_ASSERTION(GetParent(), "null parent");
 
-    nsSVGContainerFrame *parent = static_cast<nsSVGContainerFrame*>(GetParent());
-    nsSVGElement *content = static_cast<nsSVGElement*>(GetContent());
+    nsSVGContainerFrame* parent =
+        static_cast<nsSVGContainerFrame*>(GetParent());
+    nsSVGElement* content = static_cast<nsSVGElement*>(GetContent());
 
     gfxMatrix tm = content->PrependLocalTransformsTo(parent->GetCanvasTM());
 

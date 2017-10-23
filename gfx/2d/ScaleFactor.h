@@ -23,63 +23,74 @@ namespace gfx {
  * ScaleFactors2D.
  */
 template<class src, class dst>
-struct ScaleFactor {
+struct ScaleFactor
+{
   float scale;
 
   constexpr ScaleFactor() : scale(1.0) {}
-  constexpr ScaleFactor(const ScaleFactor<src, dst>& aCopy) : scale(aCopy.scale) {}
+  constexpr ScaleFactor(const ScaleFactor<src, dst>& aCopy) : scale(aCopy.scale)
+  {
+  }
   explicit constexpr ScaleFactor(float aScale) : scale(aScale) {}
 
-  ScaleFactor<dst, src> Inverse() {
-    return ScaleFactor<dst, src>(1 / scale);
-  }
+  ScaleFactor<dst, src> Inverse() { return ScaleFactor<dst, src>(1 / scale); }
 
-  bool operator==(const ScaleFactor<src, dst>& aOther) const {
+  bool operator==(const ScaleFactor<src, dst>& aOther) const
+  {
     return scale == aOther.scale;
   }
 
-  bool operator!=(const ScaleFactor<src, dst>& aOther) const {
+  bool operator!=(const ScaleFactor<src, dst>& aOther) const
+  {
     return !(*this == aOther);
   }
 
-  bool operator<(const ScaleFactor<src, dst>& aOther) const {
+  bool operator<(const ScaleFactor<src, dst>& aOther) const
+  {
     return scale < aOther.scale;
   }
 
-  bool operator<=(const ScaleFactor<src, dst>& aOther) const {
+  bool operator<=(const ScaleFactor<src, dst>& aOther) const
+  {
     return scale <= aOther.scale;
   }
 
-  bool operator>(const ScaleFactor<src, dst>& aOther) const {
+  bool operator>(const ScaleFactor<src, dst>& aOther) const
+  {
     return scale > aOther.scale;
   }
 
-  bool operator>=(const ScaleFactor<src, dst>& aOther) const {
+  bool operator>=(const ScaleFactor<src, dst>& aOther) const
+  {
     return scale >= aOther.scale;
   }
 
   template<class other>
-  ScaleFactor<other, dst> operator/(const ScaleFactor<src, other>& aOther) const {
+  ScaleFactor<other, dst> operator/(const ScaleFactor<src, other>& aOther) const
+  {
     return ScaleFactor<other, dst>(scale / aOther.scale);
   }
 
   template<class other>
-  ScaleFactor<src, other> operator/(const ScaleFactor<other, dst>& aOther) const {
+  ScaleFactor<src, other> operator/(const ScaleFactor<other, dst>& aOther) const
+  {
     return ScaleFactor<src, other>(scale / aOther.scale);
   }
 
   template<class other>
-  ScaleFactor<src, other> operator*(const ScaleFactor<dst, other>& aOther) const {
+  ScaleFactor<src, other> operator*(const ScaleFactor<dst, other>& aOther) const
+  {
     return ScaleFactor<src, other>(scale * aOther.scale);
   }
 
   template<class other>
-  ScaleFactor<other, dst> operator*(const ScaleFactor<other, src>& aOther) const {
+  ScaleFactor<other, dst> operator*(const ScaleFactor<other, src>& aOther) const
+  {
     return ScaleFactor<other, dst>(scale * aOther.scale);
   }
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SCALEFACTOR_H_ */

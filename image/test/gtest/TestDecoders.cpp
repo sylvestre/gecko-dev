@@ -33,8 +33,7 @@ static already_AddRefed<SourceSurface>
 CheckDecoderState(const ImageTestCase& aTestCase, Decoder* aDecoder)
 {
   EXPECT_TRUE(aDecoder->GetDecodeDone());
-  EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_HAS_ERROR),
-            aDecoder->HasError());
+  EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_HAS_ERROR), aDecoder->HasError());
 
   // Verify that the decoder made the expected progress.
   Progress progress = aDecoder->TakeProgress();
@@ -85,14 +84,16 @@ CheckDecoderResults(const ImageTestCase& aTestCase, Decoder* aDecoder)
   }
 
   // Check the output.
-  EXPECT_TRUE(IsSolidColor(surface, BGRAColor::Green(),
+  EXPECT_TRUE(IsSolidColor(surface,
+                           BGRAColor::Green(),
                            aTestCase.mFlags & TEST_CASE_IS_FUZZY ? 1 : 0));
 }
 
-template <typename Func>
-void WithSingleChunkDecode(const ImageTestCase& aTestCase,
-                           const Maybe<IntSize>& aOutputSize,
-                           Func aResultChecker)
+template<typename Func>
+void
+WithSingleChunkDecode(const ImageTestCase& aTestCase,
+                      const Maybe<IntSize>& aOutputSize,
+                      Func aResultChecker)
 {
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(aTestCase.mPath);
   ASSERT_TRUE(inputStream != nullptr);
@@ -110,11 +111,9 @@ void WithSingleChunkDecode(const ImageTestCase& aTestCase,
   sourceBuffer->Complete(NS_OK);
 
   // Create a decoder.
-  DecoderType decoderType =
-    DecoderFactory::GetDecoderType(aTestCase.mMimeType);
-  RefPtr<Decoder> decoder =
-    DecoderFactory::CreateAnonymousDecoder(decoderType, sourceBuffer, aOutputSize,
-                                           DefaultSurfaceFlags());
+  DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
+  RefPtr<Decoder> decoder = DecoderFactory::CreateAnonymousDecoder(
+      decoderType, sourceBuffer, aOutputSize, DefaultSurfaceFlags());
   ASSERT_TRUE(decoder != nullptr);
   RefPtr<IDecodingTask> task = new AnonymousDecodingTask(WrapNotNull(decoder));
 
@@ -147,15 +146,13 @@ CheckDecoderMultiChunk(const ImageTestCase& aTestCase)
   // Create a SourceBuffer and a decoder.
   auto sourceBuffer = MakeNotNull<RefPtr<SourceBuffer>>();
   sourceBuffer->ExpectLength(length);
-  DecoderType decoderType =
-    DecoderFactory::GetDecoderType(aTestCase.mMimeType);
-  RefPtr<Decoder> decoder =
-    DecoderFactory::CreateAnonymousDecoder(decoderType, sourceBuffer, Nothing(),
-                                           DefaultSurfaceFlags());
+  DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
+  RefPtr<Decoder> decoder = DecoderFactory::CreateAnonymousDecoder(
+      decoderType, sourceBuffer, Nothing(), DefaultSurfaceFlags());
   ASSERT_TRUE(decoder != nullptr);
   RefPtr<IDecodingTask> task = new AnonymousDecodingTask(WrapNotNull(decoder));
 
-  for (uint64_t read = 0; read < length ; ++read) {
+  for (uint64_t read = 0; read < length; ++read) {
     uint64_t available = 0;
     rv = inputStream->Available(&available);
     ASSERT_TRUE(available > 0);
@@ -196,16 +193,20 @@ CheckDownscaleDuringDecode(const ImageTestCase& aTestCase)
     // the transitions between colors, since the downscaler does not produce a
     // sharp boundary at these points. Even some of the rows we test need a
     // small amount of fuzz; this is just the nature of Lanczos downscaling.
-    EXPECT_TRUE(RowsAreSolidColor(surface, 0, 4, BGRAColor::Green(), /* aFuzz = */ 47));
-    EXPECT_TRUE(RowsAreSolidColor(surface, 6, 3, BGRAColor::Red(), /* aFuzz = */ 27));
-    EXPECT_TRUE(RowsAreSolidColor(surface, 11, 3, BGRAColor::Green(), /* aFuzz = */ 47));
-    EXPECT_TRUE(RowsAreSolidColor(surface, 16, 4, BGRAColor::Red(), /* aFuzz = */ 27));
+    EXPECT_TRUE(
+        RowsAreSolidColor(surface, 0, 4, BGRAColor::Green(), /* aFuzz = */ 47));
+    EXPECT_TRUE(
+        RowsAreSolidColor(surface, 6, 3, BGRAColor::Red(), /* aFuzz = */ 27));
+    EXPECT_TRUE(RowsAreSolidColor(
+        surface, 11, 3, BGRAColor::Green(), /* aFuzz = */ 47));
+    EXPECT_TRUE(
+        RowsAreSolidColor(surface, 16, 4, BGRAColor::Red(), /* aFuzz = */ 27));
   });
 }
 
 class ImageDecoders : public ::testing::Test
 {
-protected:
+ protected:
   AutoInitializeImageLib mInit;
 };
 
@@ -379,8 +380,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_FIRST)
   // imgIContainer::FRAME_FIRST is requested.
 
   // Create an image.
-  RefPtr<Image> image =
-    ImageFactory::CreateAnonymousImage(nsDependentCString(testCase.mMimeType));
+  RefPtr<Image> image = ImageFactory::CreateAnonymousImage(
+      nsDependentCString(testCase.mMimeType));
   ASSERT_TRUE(!image->HasError());
 
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(testCase.mPath);
@@ -392,8 +393,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_FIRST)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Write the data into the image.
-  rv = image->OnImageDataAvailable(nullptr, nullptr, inputStream, 0,
-                                   static_cast<uint32_t>(length));
+  rv = image->OnImageDataAvailable(
+      nullptr, nullptr, inputStream, 0, static_cast<uint32_t>(length));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Let the image know we've sent all the data.
@@ -408,9 +409,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_FIRST)
 
   // Use GetFrame() to force a sync decode of the image, specifying FRAME_FIRST
   // to ensure that we don't get an animated decode.
-  RefPtr<SourceSurface> surface =
-    image->GetFrame(imgIContainer::FRAME_FIRST,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> surface = image->GetFrame(
+      imgIContainer::FRAME_FIRST, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that the image's metadata meets our expectations.
   IntSize imageSize(0, 0);
@@ -429,38 +429,34 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_FIRST)
 
   // Ensure that we decoded the static version of the image.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eStatic));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eStatic));
     ASSERT_EQ(MatchType::EXACT, result.Type());
     EXPECT_TRUE(bool(result.Surface()));
   }
 
   // Ensure that we didn't decode the animated version of the image.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eAnimated));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
     ASSERT_EQ(MatchType::NOT_FOUND, result.Type());
   }
 
   // Use GetFrame() to force a sync decode of the image, this time specifying
   // FRAME_CURRENT to ensure that we get an animated decode.
-  RefPtr<SourceSurface> animatedSurface =
-    image->GetFrame(imgIContainer::FRAME_CURRENT,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> animatedSurface = image->GetFrame(
+      imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that we decoded both frames of the animated version of the image.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eAnimated));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
     ASSERT_EQ(MatchType::EXACT, result.Type());
 
     EXPECT_TRUE(NS_SUCCEEDED(result.Surface().Seek(0)));
@@ -472,11 +468,10 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_FIRST)
 
   // Ensure that the static version is still around.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eStatic));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eStatic));
     ASSERT_EQ(MatchType::EXACT, result.Type());
     EXPECT_TRUE(bool(result.Surface()));
   }
@@ -492,8 +487,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_CURRENT)
   // imgIContainer::FRAME_CURRENT is requested.
 
   // Create an image.
-  RefPtr<Image> image =
-    ImageFactory::CreateAnonymousImage(nsDependentCString(testCase.mMimeType));
+  RefPtr<Image> image = ImageFactory::CreateAnonymousImage(
+      nsDependentCString(testCase.mMimeType));
   ASSERT_TRUE(!image->HasError());
 
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(testCase.mPath);
@@ -505,8 +500,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_CURRENT)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Write the data into the image.
-  rv = image->OnImageDataAvailable(nullptr, nullptr, inputStream, 0,
-                                   static_cast<uint32_t>(length));
+  rv = image->OnImageDataAvailable(
+      nullptr, nullptr, inputStream, 0, static_cast<uint32_t>(length));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Let the image know we've sent all the data.
@@ -521,9 +516,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_CURRENT)
 
   // Use GetFrame() to force a sync decode of the image, specifying
   // FRAME_CURRENT to ensure we get an animated decode.
-  RefPtr<SourceSurface> surface =
-    image->GetFrame(imgIContainer::FRAME_CURRENT,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> surface = image->GetFrame(
+      imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that the image's metadata meets our expectations.
   IntSize imageSize(0, 0);
@@ -542,11 +536,10 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_CURRENT)
 
   // Ensure that we decoded both frames of the animated version of the image.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eAnimated));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
     ASSERT_EQ(MatchType::EXACT, result.Type());
 
     EXPECT_TRUE(NS_SUCCEEDED(result.Surface().Seek(0)));
@@ -558,38 +551,34 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_CURRENT)
 
   // Ensure that we didn't decode the static version of the image.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eStatic));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eStatic));
     ASSERT_EQ(MatchType::NOT_FOUND, result.Type());
   }
 
   // Use GetFrame() to force a sync decode of the image, this time specifying
   // FRAME_FIRST to ensure that we get a single-frame decode.
-  RefPtr<SourceSurface> animatedSurface =
-    image->GetFrame(imgIContainer::FRAME_FIRST,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> animatedSurface = image->GetFrame(
+      imgIContainer::FRAME_FIRST, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that we decoded the static version of the image.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eStatic));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eStatic));
     ASSERT_EQ(MatchType::EXACT, result.Type());
     EXPECT_TRUE(bool(result.Surface()));
   }
 
   // Ensure that both frames of the animated version are still around.
   {
-    LookupResult result =
-      SurfaceCache::Lookup(ImageKey(image.get()),
-                           RasterSurfaceKey(imageSize,
-                                            DefaultSurfaceFlags(),
-                                            PlaybackType::eAnimated));
+    LookupResult result = SurfaceCache::Lookup(
+        ImageKey(image.get()),
+        RasterSurfaceKey(
+            imageSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
     ASSERT_EQ(MatchType::EXACT, result.Type());
 
     EXPECT_TRUE(NS_SUCCEEDED(result.Surface().Seek(0)));
@@ -609,8 +598,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks)
   // extra data shouldn't confuse the decoder or cause the decode to fail.
 
   // Create an image.
-  RefPtr<Image> image =
-    ImageFactory::CreateAnonymousImage(nsDependentCString(testCase.mMimeType));
+  RefPtr<Image> image = ImageFactory::CreateAnonymousImage(
+      nsDependentCString(testCase.mMimeType));
   ASSERT_TRUE(!image->HasError());
 
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(testCase.mPath);
@@ -622,8 +611,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Write the data into the image.
-  rv = image->OnImageDataAvailable(nullptr, nullptr, inputStream, 0,
-                                   static_cast<uint32_t>(length));
+  rv = image->OnImageDataAvailable(
+      nullptr, nullptr, inputStream, 0, static_cast<uint32_t>(length));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Let the image know we've sent all the data.
@@ -634,9 +623,8 @@ TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks)
   tracker->SyncNotifyProgress(FLAG_LOAD_COMPLETE);
 
   // Use GetFrame() to force a sync decode of the image.
-  RefPtr<SourceSurface> surface =
-    image->GetFrame(imgIContainer::FRAME_CURRENT,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> surface = image->GetFrame(
+      imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that the image's metadata meets our expectations.
   IntSize imageSize(0, 0);
@@ -654,11 +642,10 @@ TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks)
   EXPECT_TRUE(bool(imageProgress & FLAG_IS_ANIMATED) == true);
 
   // Ensure that we decoded both frames of the image.
-  LookupResult result =
-    SurfaceCache::Lookup(ImageKey(image.get()),
-                         RasterSurfaceKey(imageSize,
-                                          DefaultSurfaceFlags(),
-                                          PlaybackType::eAnimated));
+  LookupResult result = SurfaceCache::Lookup(
+      ImageKey(image.get()),
+      RasterSurfaceKey(
+          imageSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
   ASSERT_EQ(MatchType::EXACT, result.Type());
 
   EXPECT_TRUE(NS_SUCCEEDED(result.Surface().Seek(0)));
@@ -698,8 +685,8 @@ TEST_F(ImageDecoders, MultipleSizesICOSingleChunk)
   ImageTestCase testCase = GreenMultipleSizesICOTestCase();
 
   // Create an image.
-  RefPtr<Image> image =
-    ImageFactory::CreateAnonymousImage(nsDependentCString(testCase.mMimeType));
+  RefPtr<Image> image = ImageFactory::CreateAnonymousImage(
+      nsDependentCString(testCase.mMimeType));
   ASSERT_TRUE(!image->HasError());
 
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(testCase.mPath);
@@ -711,8 +698,8 @@ TEST_F(ImageDecoders, MultipleSizesICOSingleChunk)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Write the data into the image.
-  rv = image->OnImageDataAvailable(nullptr, nullptr, inputStream, 0,
-                                   static_cast<uint32_t>(length));
+  rv = image->OnImageDataAvailable(
+      nullptr, nullptr, inputStream, 0, static_cast<uint32_t>(length));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Let the image know we've sent all the data.
@@ -723,9 +710,8 @@ TEST_F(ImageDecoders, MultipleSizesICOSingleChunk)
   tracker->SyncNotifyProgress(FLAG_LOAD_COMPLETE);
 
   // Use GetFrame() to force a sync decode of the image.
-  RefPtr<SourceSurface> surface =
-    image->GetFrame(imgIContainer::FRAME_CURRENT,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> surface = image->GetFrame(
+      imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that the image's metadata meets our expectations.
   IntSize imageSize(0, 0);
@@ -742,21 +728,19 @@ TEST_F(ImageDecoders, MultipleSizesICOSingleChunk)
   EXPECT_TRUE(NS_SUCCEEDED(rv));
   ASSERT_EQ(6u, nativeSizes.Length());
 
-  IntSize expectedSizes[] = {
-    IntSize(16, 16),
-    IntSize(32, 32),
-    IntSize(64, 64),
-    IntSize(128, 128),
-    IntSize(256, 256),
-    IntSize(256, 128)
-  };
+  IntSize expectedSizes[] = {IntSize(16, 16),
+                             IntSize(32, 32),
+                             IntSize(64, 64),
+                             IntSize(128, 128),
+                             IntSize(256, 256),
+                             IntSize(256, 128)};
 
   for (int i = 0; i < 6; ++i) {
     EXPECT_EQ(expectedSizes[i], nativeSizes[i]);
   }
 
   RefPtr<Image> image90 =
-    ImageOps::Orient(image, Orientation(Angle::D90, Flip::Unflipped));
+      ImageOps::Orient(image, Orientation(Angle::D90, Flip::Unflipped));
   rv = image90->GetNativeSizes(nativeSizes);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
   ASSERT_EQ(6u, nativeSizes.Length());
@@ -767,7 +751,7 @@ TEST_F(ImageDecoders, MultipleSizesICOSingleChunk)
   EXPECT_EQ(IntSize(128, 256), nativeSizes[5]);
 
   RefPtr<Image> image180 =
-    ImageOps::Orient(image, Orientation(Angle::D180, Flip::Unflipped));
+      ImageOps::Orient(image, Orientation(Angle::D180, Flip::Unflipped));
   rv = image180->GetNativeSizes(nativeSizes);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
   ASSERT_EQ(6u, nativeSizes.Length());

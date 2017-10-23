@@ -17,35 +17,34 @@
 #ifndef __CborDynamicOutput_H_
 #define __CborDynamicOutput_H_
 
-
 #include "output.h"
 
 namespace cbor {
-    class output_dynamic : public output {
-    private:
-        unsigned char *_buffer;
-        unsigned int _capacity;
-        unsigned int _offset;
-    public:
-        output_dynamic();
+class output_dynamic : public output
+{
+ private:
+  unsigned char* _buffer;
+  unsigned int _capacity;
+  unsigned int _offset;
 
-        explicit output_dynamic(unsigned int inital_capacity);
+ public:
+  output_dynamic();
 
-        ~output_dynamic();
+  explicit output_dynamic(unsigned int inital_capacity);
 
-        virtual unsigned char *data();
+  ~output_dynamic();
 
-        virtual unsigned int size();
+  virtual unsigned char* data();
 
-        virtual void put_byte(unsigned char value);
+  virtual unsigned int size();
 
-        virtual void put_bytes(const unsigned char *data, int size);
+  virtual void put_byte(unsigned char value);
 
-    private:
-        void init(unsigned int initalCapacity);
-    };
-}
+  virtual void put_bytes(const unsigned char* data, int size);
 
+ private:
+  void init(unsigned int initalCapacity);
+};
+}  // namespace cbor
 
-
-#endif //__CborDynamicOutput_H_
+#endif  //__CborDynamicOutput_H_

@@ -16,20 +16,20 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-static nsSVGAttrTearoffTable<nsSVGIntegerPair, nsSVGIntegerPair::DOMAnimatedInteger>
-  sSVGFirstAnimatedIntegerTearoffTable;
-static nsSVGAttrTearoffTable<nsSVGIntegerPair, nsSVGIntegerPair::DOMAnimatedInteger>
-  sSVGSecondAnimatedIntegerTearoffTable;
+static nsSVGAttrTearoffTable<nsSVGIntegerPair,
+                             nsSVGIntegerPair::DOMAnimatedInteger>
+    sSVGFirstAnimatedIntegerTearoffTable;
+static nsSVGAttrTearoffTable<nsSVGIntegerPair,
+                             nsSVGIntegerPair::DOMAnimatedInteger>
+    sSVGSecondAnimatedIntegerTearoffTable;
 
 /* Implementation */
 
 static nsresult
-ParseIntegerOptionalInteger(const nsAString& aValue,
-                            int32_t aValues[2])
+ParseIntegerOptionalInteger(const nsAString& aValue, int32_t aValues[2])
 {
-  nsCharSeparatedTokenizerTemplate<IsSVGWhitespace>
-    tokenizer(aValue, ',',
-              nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
+  nsCharSeparatedTokenizerTemplate<IsSVGWhitespace> tokenizer(
+      aValue, ',', nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
   if (tokenizer.whitespaceBeforeFirstToken()) {
     return NS_ERROR_DOM_SYNTAX_ERR;
   }
@@ -44,7 +44,7 @@ ParseIntegerOptionalInteger(const nsAString& aValue,
     aValues[1] = aValues[0];
   }
 
-  if (i == 0                    ||                // Too few values.
+  if (i == 0 ||                                   // Too few values.
       tokenizer.hasMoreTokens() ||                // Too many values.
       tokenizer.whitespaceAfterCurrentToken() ||  // Trailing whitespace.
       tokenizer.separatorAfterCurrentToken()) {   // Trailing comma.
@@ -55,8 +55,8 @@ ParseIntegerOptionalInteger(const nsAString& aValue,
 }
 
 nsresult
-nsSVGIntegerPair::SetBaseValueString(const nsAString &aValueAsString,
-                                     nsSVGElement *aSVGElement)
+nsSVGIntegerPair::SetBaseValueString(const nsAString& aValueAsString,
+                                     nsSVGElement* aSVGElement)
 {
   int32_t val[2];
 
@@ -72,8 +72,7 @@ nsSVGIntegerPair::SetBaseValueString(const nsAString &aValueAsString,
   if (!mIsAnimated) {
     mAnimVal[0] = mBaseVal[0];
     mAnimVal[1] = mBaseVal[1];
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
 
@@ -84,7 +83,7 @@ nsSVGIntegerPair::SetBaseValueString(const nsAString &aValueAsString,
 }
 
 void
-nsSVGIntegerPair::GetBaseValueString(nsAString &aValueAsString) const
+nsSVGIntegerPair::GetBaseValueString(nsAString& aValueAsString) const
 {
   aValueAsString.Truncate();
   aValueAsString.AppendInt(mBaseVal[0]);
@@ -95,8 +94,9 @@ nsSVGIntegerPair::GetBaseValueString(nsAString &aValueAsString) const
 }
 
 void
-nsSVGIntegerPair::SetBaseValue(int32_t aValue, PairIndex aPairIndex,
-                               nsSVGElement *aSVGElement)
+nsSVGIntegerPair::SetBaseValue(int32_t aValue,
+                               PairIndex aPairIndex,
+                               nsSVGElement* aSVGElement)
 {
   uint32_t index = (aPairIndex == eFirst ? 0 : 1);
   if (mIsBaseSet && mBaseVal[index] == aValue) {
@@ -108,16 +108,16 @@ nsSVGIntegerPair::SetBaseValue(int32_t aValue, PairIndex aPairIndex,
   mIsBaseSet = true;
   if (!mIsAnimated) {
     mAnimVal[index] = aValue;
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
   aSVGElement->DidChangeIntegerPair(mAttrEnum, emptyOrOldValue);
 }
 
 void
-nsSVGIntegerPair::SetBaseValues(int32_t aValue1, int32_t aValue2,
-                                nsSVGElement *aSVGElement)
+nsSVGIntegerPair::SetBaseValues(int32_t aValue1,
+                                int32_t aValue2,
+                                nsSVGElement* aSVGElement)
 {
   if (mIsBaseSet && mBaseVal[0] == aValue1 && mBaseVal[1] == aValue2) {
     return;
@@ -130,15 +130,15 @@ nsSVGIntegerPair::SetBaseValues(int32_t aValue1, int32_t aValue2,
   if (!mIsAnimated) {
     mAnimVal[0] = aValue1;
     mAnimVal[1] = aValue2;
-  }
-  else {
+  } else {
     aSVGElement->AnimationNeedsResample();
   }
   aSVGElement->DidChangeIntegerPair(mAttrEnum, emptyOrOldValue);
 }
 
 void
-nsSVGIntegerPair::SetAnimValue(const int32_t aValue[2], nsSVGElement *aSVGElement)
+nsSVGIntegerPair::SetAnimValue(const int32_t aValue[2],
+                               nsSVGElement* aSVGElement)
 {
   if (mIsAnimated && mAnimVal[0] == aValue[0] && mAnimVal[1] == aValue[1]) {
     return;
@@ -154,14 +154,15 @@ nsSVGIntegerPair::ToDOMAnimatedInteger(PairIndex aIndex,
                                        nsSVGElement* aSVGElement)
 {
   RefPtr<DOMAnimatedInteger> domAnimatedInteger =
-    aIndex == eFirst ? sSVGFirstAnimatedIntegerTearoffTable.GetTearoff(this) :
-                       sSVGSecondAnimatedIntegerTearoffTable.GetTearoff(this);
+      aIndex == eFirst ? sSVGFirstAnimatedIntegerTearoffTable.GetTearoff(this)
+                       : sSVGSecondAnimatedIntegerTearoffTable.GetTearoff(this);
   if (!domAnimatedInteger) {
     domAnimatedInteger = new DOMAnimatedInteger(this, aIndex, aSVGElement);
     if (aIndex == eFirst) {
       sSVGFirstAnimatedIntegerTearoffTable.AddTearoff(this, domAnimatedInteger);
     } else {
-      sSVGSecondAnimatedIntegerTearoffTable.AddTearoff(this, domAnimatedInteger);
+      sSVGSecondAnimatedIntegerTearoffTable.AddTearoff(this,
+                                                       domAnimatedInteger);
     }
   }
 
@@ -178,16 +179,17 @@ nsSVGIntegerPair::DOMAnimatedInteger::~DOMAnimatedInteger()
 }
 
 UniquePtr<nsISMILAttr>
-nsSVGIntegerPair::ToSMILAttr(nsSVGElement *aSVGElement)
+nsSVGIntegerPair::ToSMILAttr(nsSVGElement* aSVGElement)
 {
   return MakeUnique<SMILIntegerPair>(this, aSVGElement);
 }
 
 nsresult
-nsSVGIntegerPair::SMILIntegerPair::ValueFromString(const nsAString& aStr,
-                                                   const dom::SVGAnimationElement* /*aSrcElement*/,
-                                                   nsSMILValue& aValue,
-                                                   bool& aPreventCachingOfSandwich) const
+nsSVGIntegerPair::SMILIntegerPair::ValueFromString(
+    const nsAString& aStr,
+    const dom::SVGAnimationElement* /*aSrcElement*/,
+    nsSMILValue& aValue,
+    bool& aPreventCachingOfSandwich) const
 {
   int32_t values[2];
 

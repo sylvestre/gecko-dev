@@ -12,14 +12,12 @@ namespace mozilla {
 namespace dom {
 
 TemporaryIPCBlobChild::TemporaryIPCBlobChild(MutableBlobStorage* aStorage)
-  : mMutableBlobStorage(aStorage)
-  , mActive(true)
+    : mMutableBlobStorage(aStorage), mActive(true)
 {
   MOZ_ASSERT(aStorage);
 }
 
-TemporaryIPCBlobChild::~TemporaryIPCBlobChild()
-{}
+TemporaryIPCBlobChild::~TemporaryIPCBlobChild() {}
 
 mozilla::ipc::IPCResult
 TemporaryIPCBlobChild::RecvFileDesc(const FileDescriptor& aFD)
@@ -48,7 +46,7 @@ TemporaryIPCBlobChild::Recv__delete__(const IPCBlobOrError& aData)
     if (mCallback) {
       mCallback->OperationSucceeded(blobImpl);
     }
-  } else if(mCallback) {
+  } else if (mCallback) {
     MOZ_ASSERT(aData.type() == IPCBlobOrError::Tnsresult);
     mCallback->OperationFailed(aData.get_nsresult());
   }
@@ -86,5 +84,5 @@ TemporaryIPCBlobChild::AskForBlob(TemporaryIPCBlobChildCallback* aCallback,
   SendOperationDone(true, nsCString(aContentType));
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

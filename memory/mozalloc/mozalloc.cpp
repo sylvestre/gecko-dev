@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <stddef.h>             // for size_t
+#include <stddef.h>  // for size_t
 
 // Building with USE_STATIC_LIBS = True sets -MT instead of -MD. -MT sets _MT,
 // while -MD sets _MT and _DLL.
@@ -20,7 +20,7 @@
 #include "mozmemory_wrap.h"
 
 #if defined(XP_DARWIN)
-#include <malloc/malloc.h> // for malloc_size
+#include <malloc/malloc.h>  // for malloc_size
 #endif
 
 // See mozmemory_wrap.h for more details. This file is part of libmozglue, so
@@ -28,24 +28,26 @@
 // becoming cumbersome, so we will likely use a malloc.h wrapper of some sort
 // and allow the use of the functions without a _impl suffix.
 #define MALLOC_DECL(name, return_type, ...) \
-  MOZ_MEMORY_API return_type name ## _impl(__VA_ARGS__);
+  MOZ_MEMORY_API return_type name##_impl(__VA_ARGS__);
 #define MALLOC_FUNCS MALLOC_FUNCS_MALLOC
 #include "malloc_decls.h"
 
-MOZ_MEMORY_API char *strdup_impl(const char *);
-MOZ_MEMORY_API char *strndup_impl(const char *, size_t);
+MOZ_MEMORY_API char*
+strdup_impl(const char*);
+MOZ_MEMORY_API char*
+strndup_impl(const char*, size_t);
 
 #else
 // When jemalloc is disabled, or when building the static runtime variant,
 // we need not to use the suffixes.
 
 #if defined(MALLOC_H)
-#  include MALLOC_H             // for memalign, valloc, malloc_size, malloc_us
-#endif // if defined(MALLOC_H)
-#include <stdlib.h>             // for malloc, free
+#include MALLOC_H    // for memalign, valloc, malloc_size, malloc_us
+#endif               // if defined(MALLOC_H)
+#include <stdlib.h>  // for malloc, free
 #if defined(XP_UNIX)
-#  include <unistd.h>           // for valloc on *BSD
-#endif //if defined(XP_UNIX)
+#include <unistd.h>  // for valloc on *BSD
+#endif               //if defined(XP_UNIX)
 
 #define malloc_impl malloc
 #define posix_memalign_impl posix_memalign
@@ -61,7 +63,7 @@ MOZ_MEMORY_API char *strndup_impl(const char *, size_t);
 #endif
 
 #include <errno.h>
-#include <new>                  // for std::bad_alloc
+#include <new>  // for std::bad_alloc
 #include <string.h>
 
 #include <sys/types.h>
@@ -71,154 +73,151 @@ MOZ_MEMORY_API char *strndup_impl(const char *, size_t);
 #include "mozilla/mozalloc_oom.h"  // for mozalloc_handle_oom
 
 #ifdef __GNUC__
-#define LIKELY(x)    (__builtin_expect(!!(x), 1))
-#define UNLIKELY(x)  (__builtin_expect(!!(x), 0))
+#define LIKELY(x) (__builtin_expect(!!(x), 1))
+#define UNLIKELY(x) (__builtin_expect(!!(x), 0))
 #else
-#define LIKELY(x)    (x)
-#define UNLIKELY(x)  (x)
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
 #endif
 
 void*
 moz_xmalloc(size_t size)
 {
-    void* ptr = malloc_impl(size);
-    if (UNLIKELY(!ptr && size)) {
-        mozalloc_handle_oom(size);
-        return moz_xmalloc(size);
-    }
-    return ptr;
+  void* ptr = malloc_impl(size);
+  if (UNLIKELY(!ptr && size)) {
+    mozalloc_handle_oom(size);
+    return moz_xmalloc(size);
+  }
+  return ptr;
 }
 
 void*
 moz_xcalloc(size_t nmemb, size_t size)
 {
-    void* ptr = calloc_impl(nmemb, size);
-    if (UNLIKELY(!ptr && nmemb && size)) {
-        mozalloc_handle_oom(size);
-        return moz_xcalloc(nmemb, size);
-    }
-    return ptr;
+  void* ptr = calloc_impl(nmemb, size);
+  if (UNLIKELY(!ptr && nmemb && size)) {
+    mozalloc_handle_oom(size);
+    return moz_xcalloc(nmemb, size);
+  }
+  return ptr;
 }
 
 void*
 moz_xrealloc(void* ptr, size_t size)
 {
-    void* newptr = realloc_impl(ptr, size);
-    if (UNLIKELY(!newptr && size)) {
-        mozalloc_handle_oom(size);
-        return moz_xrealloc(ptr, size);
-    }
-    return newptr;
+  void* newptr = realloc_impl(ptr, size);
+  if (UNLIKELY(!newptr && size)) {
+    mozalloc_handle_oom(size);
+    return moz_xrealloc(ptr, size);
+  }
+  return newptr;
 }
 
 char*
 moz_xstrdup(const char* str)
 {
-    char* dup = strdup_impl(str);
-    if (UNLIKELY(!dup)) {
-        mozalloc_handle_oom(0);
-        return moz_xstrdup(str);
-    }
-    return dup;
+  char* dup = strdup_impl(str);
+  if (UNLIKELY(!dup)) {
+    mozalloc_handle_oom(0);
+    return moz_xstrdup(str);
+  }
+  return dup;
 }
 
 #if defined(HAVE_STRNDUP)
 char*
 moz_xstrndup(const char* str, size_t strsize)
 {
-    char* dup = strndup_impl(str, strsize);
-    if (UNLIKELY(!dup)) {
-        mozalloc_handle_oom(strsize);
-        return moz_xstrndup(str, strsize);
-    }
-    return dup;
+  char* dup = strndup_impl(str, strsize);
+  if (UNLIKELY(!dup)) {
+    mozalloc_handle_oom(strsize);
+    return moz_xstrndup(str, strsize);
+  }
+  return dup;
 }
 #endif  // if defined(HAVE_STRNDUP)
 
 #if defined(HAVE_POSIX_MEMALIGN)
 int
-moz_xposix_memalign(void **ptr, size_t alignment, size_t size)
+moz_xposix_memalign(void** ptr, size_t alignment, size_t size)
 {
-    int err = posix_memalign_impl(ptr, alignment, size);
-    if (UNLIKELY(err && ENOMEM == err)) {
-        mozalloc_handle_oom(size);
-        return moz_xposix_memalign(ptr, alignment, size);
-    }
-    // else: (0 == err) or (EINVAL == err)
-    return err;
+  int err = posix_memalign_impl(ptr, alignment, size);
+  if (UNLIKELY(err && ENOMEM == err)) {
+    mozalloc_handle_oom(size);
+    return moz_xposix_memalign(ptr, alignment, size);
+  }
+  // else: (0 == err) or (EINVAL == err)
+  return err;
 }
 int
-moz_posix_memalign(void **ptr, size_t alignment, size_t size)
+moz_posix_memalign(void** ptr, size_t alignment, size_t size)
 {
-    int code = posix_memalign_impl(ptr, alignment, size);
-    if (code)
-        return code;
+  int code = posix_memalign_impl(ptr, alignment, size);
+  if (code) return code;
 
 #if defined(XP_DARWIN)
-    // Workaround faulty OSX posix_memalign, which provides memory with the
-    // incorrect alignment sometimes, but returns 0 as if nothing was wrong.
-    size_t mask = alignment - 1;
-    if (((size_t)(*ptr) & mask) != 0) {
-        void* old = *ptr;
-        code = moz_posix_memalign(ptr, alignment, size);
-        free(old);
-    }
+  // Workaround faulty OSX posix_memalign, which provides memory with the
+  // incorrect alignment sometimes, but returns 0 as if nothing was wrong.
+  size_t mask = alignment - 1;
+  if (((size_t)(*ptr) & mask) != 0) {
+    void* old = *ptr;
+    code = moz_posix_memalign(ptr, alignment, size);
+    free(old);
+  }
 #endif
 
-    return code;
-
+  return code;
 }
-#endif // if defined(HAVE_POSIX_MEMALIGN)
+#endif  // if defined(HAVE_POSIX_MEMALIGN)
 
 #if defined(HAVE_MEMALIGN)
 void*
 moz_xmemalign(size_t boundary, size_t size)
 {
-    void* ptr = memalign_impl(boundary, size);
-    if (UNLIKELY(!ptr && EINVAL != errno)) {
-        mozalloc_handle_oom(size);
-        return moz_xmemalign(boundary, size);
-    }
-    // non-NULL ptr or errno == EINVAL
-    return ptr;
+  void* ptr = memalign_impl(boundary, size);
+  if (UNLIKELY(!ptr && EINVAL != errno)) {
+    mozalloc_handle_oom(size);
+    return moz_xmemalign(boundary, size);
+  }
+  // non-NULL ptr or errno == EINVAL
+  return ptr;
 }
-#endif // if defined(HAVE_MEMALIGN)
+#endif  // if defined(HAVE_MEMALIGN)
 
 #if defined(HAVE_VALLOC)
 void*
 moz_xvalloc(size_t size)
 {
-    void* ptr = valloc_impl(size);
-    if (UNLIKELY(!ptr)) {
-        mozalloc_handle_oom(size);
-        return moz_xvalloc(size);
-    }
-    return ptr;
+  void* ptr = valloc_impl(size);
+  if (UNLIKELY(!ptr)) {
+    mozalloc_handle_oom(size);
+    return moz_xvalloc(size);
+  }
+  return ptr;
 }
-#endif // if defined(HAVE_VALLOC)
+#endif  // if defined(HAVE_VALLOC)
 
 #ifndef MOZ_STATIC_RUNTIME
 size_t
-moz_malloc_usable_size(void *ptr)
+moz_malloc_usable_size(void* ptr)
 {
-    if (!ptr)
-        return 0;
+  if (!ptr) return 0;
 
 #if defined(XP_DARWIN)
-    return malloc_size(ptr);
+  return malloc_size(ptr);
 #elif defined(HAVE_MALLOC_USABLE_SIZE) || defined(MOZ_MEMORY)
-    return malloc_usable_size_impl(ptr);
+  return malloc_usable_size_impl(ptr);
 #elif defined(XP_WIN)
-    return _msize(ptr);
+  return _msize(ptr);
 #else
-    return 0;
+  return 0;
 #endif
 }
 
 size_t
-moz_malloc_size_of(const void *ptr)
+moz_malloc_size_of(const void* ptr)
 {
-    return moz_malloc_usable_size((void *)ptr);
+  return moz_malloc_usable_size((void*)ptr);
 }
 
 #if defined(MOZ_MEMORY)
@@ -226,19 +225,19 @@ moz_malloc_size_of(const void *ptr)
 // mozmemory.h declares jemalloc_ptr_info(), but including that header in this
 // file is complicated. So we just redeclare it here instead, and include
 // mozjemalloc_types.h for jemalloc_ptr_info_t.
-MOZ_JEMALLOC_API void jemalloc_ptr_info(const void* ptr,
-                                        jemalloc_ptr_info_t* info);
+MOZ_JEMALLOC_API void
+jemalloc_ptr_info(const void* ptr, jemalloc_ptr_info_t* info);
 #endif
 
 size_t
-moz_malloc_enclosing_size_of(const void *ptr)
+moz_malloc_enclosing_size_of(const void* ptr)
 {
 #if defined(MOZ_MEMORY)
-    jemalloc_ptr_info_t info;
-    jemalloc_ptr_info(ptr, &info);
-    return jemalloc_ptr_is_live(&info) ? info.size : 0;
+  jemalloc_ptr_info_t info;
+  jemalloc_ptr_info(ptr, &info);
+  return jemalloc_ptr_is_live(&info) ? info.size : 0;
 #else
-    return 0;
+  return 0;
 #endif
 }
 #endif

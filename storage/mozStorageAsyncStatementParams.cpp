@@ -30,17 +30,19 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(AsyncStatementParams)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(AsyncStatementParams)
 
-AsyncStatementParams::AsyncStatementParams(nsPIDOMWindowInner* aWindow, AsyncStatement *aStatement)
-: mWindow(aWindow),
-  mStatement(aStatement)
+AsyncStatementParams::AsyncStatementParams(nsPIDOMWindowInner* aWindow,
+                                           AsyncStatement* aStatement)
+    : mWindow(aWindow), mStatement(aStatement)
 {
   NS_ASSERTION(mStatement != nullptr, "mStatement is null");
 }
 
 JSObject*
-AsyncStatementParams::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+AsyncStatementParams::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
-  return dom::MozStorageAsyncStatementParamsBinding::Wrap(aCx, this, aGivenProto);
+  return dom::MozStorageAsyncStatementParamsBinding::Wrap(
+      aCx, this, aGivenProto);
 }
 
 void
@@ -124,5 +126,5 @@ AsyncStatementParams::IndexedSetter(JSContext* aCx,
   aRv = mStatement->BindByIndex(aIndex, variant);
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla

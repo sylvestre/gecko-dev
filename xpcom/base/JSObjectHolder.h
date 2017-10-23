@@ -25,19 +25,19 @@ namespace mozilla {
 // NS_ReleaseOnMainThreadSystemGroup.
 class JSObjectHolder final : public nsISupports
 {
-public:
+ public:
   JSObjectHolder(JSContext* aCx, JSObject* aObject) : mJSObject(aCx, aObject) {}
 
   NS_DECL_ISUPPORTS
 
   JSObject* GetJSObject() { return mJSObject; }
 
-private:
+ private:
   ~JSObjectHolder() {}
 
   JS::PersistentRooted<JSObject*> mJSObject;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_JSObjectHolder_h
+#endif  // mozilla_JSObjectHolder_h

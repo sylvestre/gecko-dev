@@ -34,7 +34,7 @@ nsPIDOMWindow<T>::AsOuter() const
   return reinterpret_cast<const nsPIDOMWindowOuter*>(this);
 }
 
-template <class T>
+template<class T>
 bool
 nsPIDOMWindow<T>::IsLoading() const
 {
@@ -59,7 +59,7 @@ nsPIDOMWindow<T>::IsLoading() const
   return !mIsDocumentLoaded;
 }
 
-template <class T>
+template<class T>
 bool
 nsPIDOMWindow<T>::IsHandlingResizeEvent() const
 {
@@ -94,9 +94,8 @@ bool
 nsPIDOMWindowInner::HasActiveDocument()
 {
   return IsCurrentInnerWindow() ||
-    (mOuterWindow &&
-     mOuterWindow->GetCurrentInnerWindow() &&
-     mOuterWindow->GetCurrentInnerWindow()->GetDoc() == mDoc);
+         (mOuterWindow && mOuterWindow->GetCurrentInnerWindow() &&
+          mOuterWindow->GetCurrentInnerWindow()->GetDoc() == mDoc);
 }
 
 bool
@@ -105,7 +104,7 @@ nsPIDOMWindowInner::IsTopInnerWindow() const
   return mTopInnerWindow == this;
 }
 
-template <class T>
+template<class T>
 nsIDocShell*
 nsPIDOMWindow<T>::GetDocShell() const
 {
@@ -116,7 +115,7 @@ nsPIDOMWindow<T>::GetDocShell() const
   return mDocShell;
 }
 
-template <class T>
+template<class T>
 nsIContent*
 nsPIDOMWindow<T>::GetFocusedNode() const
 {

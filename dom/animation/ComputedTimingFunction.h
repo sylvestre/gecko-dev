@@ -14,24 +14,25 @@ namespace mozilla {
 
 class ComputedTimingFunction
 {
-public:
-  static ComputedTimingFunction
-  CubicBezier(double x1, double y1, double x2, double y2)
+ public:
+  static ComputedTimingFunction CubicBezier(double x1,
+                                            double y1,
+                                            double x2,
+                                            double y2)
   {
     return ComputedTimingFunction(x1, y1, x2, y2);
   }
-  static ComputedTimingFunction
-  Steps(nsTimingFunction::Type aType, uint32_t aSteps)
+  static ComputedTimingFunction Steps(nsTimingFunction::Type aType,
+                                      uint32_t aSteps)
   {
     MOZ_ASSERT(aType == nsTimingFunction::Type::StepStart ||
-               aType == nsTimingFunction::Type::StepEnd,
+                   aType == nsTimingFunction::Type::StepEnd,
                "The type of timing function should be either step-start or "
                "step-end");
     MOZ_ASSERT(aSteps > 0, "The number of steps should be 1 or more");
     return ComputedTimingFunction(aType, aSteps);
   }
-  static ComputedTimingFunction
-  Frames(uint32_t aFrames)
+  static ComputedTimingFunction Frames(uint32_t aFrames)
   {
     MOZ_ASSERT(aFrames > 1, "The number of frames should be 2 or more");
     return ComputedTimingFunction(nsTimingFunction::Type::Frames, aFrames);
@@ -46,7 +47,8 @@ public:
 
   // BeforeFlag is used in step timing function.
   // https://w3c.github.io/web-animations/#before-flag
-  enum class BeforeFlag {
+  enum class BeforeFlag
+  {
     Unset,
     Set
   };
@@ -72,9 +74,8 @@ public:
   bool operator==(const ComputedTimingFunction& aOther) const
   {
     return mType == aOther.mType &&
-           (HasSpline() ?
-            mTimingFunction == aOther.mTimingFunction :
-            mStepsOrFrames == aOther.mStepsOrFrames);
+           (HasSpline() ? mTimingFunction == aOther.mTimingFunction
+                        : mStepsOrFrames == aOther.mStepsOrFrames);
   }
   bool operator!=(const ComputedTimingFunction& aOther) const
   {
@@ -83,12 +84,11 @@ public:
   bool operator==(const nsTimingFunction& aOther) const
   {
     return mType == aOther.mType &&
-           (HasSpline()
-            ? mTimingFunction.X1() == aOther.mFunc.mX1 &&
-              mTimingFunction.Y1() == aOther.mFunc.mY1 &&
-              mTimingFunction.X2() == aOther.mFunc.mX2 &&
-              mTimingFunction.Y2() == aOther.mFunc.mY2
-            : mStepsOrFrames == aOther.mStepsOrFrames);
+           (HasSpline() ? mTimingFunction.X1() == aOther.mFunc.mX1 &&
+                              mTimingFunction.Y1() == aOther.mFunc.mY1 &&
+                              mTimingFunction.X2() == aOther.mFunc.mX2 &&
+                              mTimingFunction.Y2() == aOther.mFunc.mY2
+                        : mStepsOrFrames == aOther.mStepsOrFrames);
   }
   bool operator!=(const nsTimingFunction& aOther) const
   {
@@ -106,13 +106,16 @@ public:
   static int32_t Compare(const Maybe<ComputedTimingFunction>& aLhs,
                          const Maybe<ComputedTimingFunction>& aRhs);
 
-private:
+ private:
   ComputedTimingFunction(double x1, double y1, double x2, double y2)
-    : mType(nsTimingFunction::Type::CubicBezier)
-    , mTimingFunction(x1, y1, x2, y2) { }
+      : mType(nsTimingFunction::Type::CubicBezier),
+        mTimingFunction(x1, y1, x2, y2)
+  {
+  }
   ComputedTimingFunction(nsTimingFunction::Type aType, uint32_t aStepsOrFrames)
-    : mType(aType)
-    , mStepsOrFrames(aStepsOrFrames) { }
+      : mType(aType), mStepsOrFrames(aStepsOrFrames)
+  {
+  }
 
   nsTimingFunction::Type mType = nsTimingFunction::Type::Linear;
   nsSMILKeySpline mTimingFunction;
@@ -136,6 +139,6 @@ operator!=(const Maybe<ComputedTimingFunction>& aLHS,
   return !(aLHS == aRHS);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ComputedTimingFunction_h
+#endif  // mozilla_ComputedTimingFunction_h

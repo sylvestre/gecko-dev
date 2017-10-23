@@ -24,7 +24,7 @@
 #if ENABLE_INTL_API
 #include "unicode/uclean.h"
 #include "unicode/utypes.h"
-#endif // ENABLE_INTL_API
+#endif  // ENABLE_INTL_API
 #include "vm/DateTime.h"
 #include "vm/HelperThreads.h"
 #include "vm/Runtime.h"
@@ -41,35 +41,31 @@ using js::FutexThread;
 InitState JS::detail::libraryInitState;
 
 #ifdef DEBUG
-static unsigned
-MessageParameterCount(const char* format)
-{
+static unsigned MessageParameterCount(const char* format) {
     unsigned numfmtspecs = 0;
     for (const char* fmt = format; *fmt != '\0'; fmt++) {
-        if (*fmt == '{' && isdigit(fmt[1]))
-            ++numfmtspecs;
+        if (*fmt == '{' && isdigit(fmt[1])) ++numfmtspecs;
     }
     return numfmtspecs;
 }
 
-static void
-CheckMessageParameterCounts()
-{
-    // Assert that each message format has the correct number of braced
-    // parameters.
-# define MSG_DEF(name, count, exception, format)           \
-        MOZ_ASSERT(MessageParameterCount(format) == count);
-# include "js.msg"
-# undef MSG_DEF
+static void CheckMessageParameterCounts() {
+// Assert that each message format has the correct number of braced
+// parameters.
+#define MSG_DEF(name, count, exception, format) MOZ_ASSERT(MessageParameterCount(format) == count);
+#include "js.msg"
+#undef MSG_DEF
 }
 #endif /* DEBUG */
 
-#define RETURN_IF_FAIL(code) do { if (!code) return #code " failed"; } while (0)
+#define RETURN_IF_FAIL(code)               \
+    do {                                   \
+        if (!code) return #code " failed"; \
+    } while (0)
 
 JS_PUBLIC_API(const char*)
-JS::detail::InitWithFailureDiagnostic(bool isDebugBuild)
-{
-    // Verify that our DEBUG setting matches the caller's.
+JS::detail::InitWithFailureDiagnostic(bool isDebugBuild) {
+// Verify that our DEBUG setting matches the caller's.
 #ifdef DEBUG
     MOZ_RELEASE_ASSERT(isDebugBuild);
 #else
@@ -79,8 +75,7 @@ JS::detail::InitWithFailureDiagnostic(bool isDebugBuild)
     MOZ_ASSERT(libraryInitState == InitState::Uninitialized,
                "must call JS_Init once before any JSAPI operation except "
                "JS_SetICUMemoryFunctions");
-    MOZ_ASSERT(!JSRuntime::hasLiveRuntimes(),
-               "how do we have live runtimes before JS_Init?");
+    MOZ_ASSERT(!JSRuntime::hasLiveRuntimes(), "how do we have live runtimes before JS_Init?");
 
     PRMJ_NowInit();
 
@@ -104,7 +99,7 @@ JS::detail::InitWithFailureDiagnostic(bool isDebugBuild)
 
     RETURN_IF_FAIL(js::wasm::InitInstanceStaticData());
 
-    js::gc::InitMemorySubsystem(); // Ensure gc::SystemPageSize() works.
+    js::gc::InitMemorySubsystem();  // Ensure gc::SystemPageSize() works.
 
     RETURN_IF_FAIL(js::jit::InitProcessExecutableMemory());
 
@@ -121,9 +116,8 @@ JS::detail::InitWithFailureDiagnostic(bool isDebugBuild)
 #if EXPOSE_INTL_API
     UErrorCode err = U_ZERO_ERROR;
     u_init(&err);
-    if (U_FAILURE(err))
-        return "u_init() failed";
-#endif // EXPOSE_INTL_API
+    if (U_FAILURE(err)) return "u_init() failed";
+#endif  // EXPOSE_INTL_API
 
     RETURN_IF_FAIL(js::CreateHelperThreadsState());
     RETURN_IF_FAIL(FutexThread::initialize());
@@ -140,8 +134,7 @@ JS::detail::InitWithFailureDiagnostic(bool isDebugBuild)
 #undef RETURN_IF_FAIL
 
 JS_PUBLIC_API(void)
-JS_ShutDown(void)
-{
+JS_ShutDown(void) {
     MOZ_ASSERT(libraryInitState == InitState::Running,
                "JS_ShutDown must only be called after JS_Init and can't race with it");
 #ifdef DEBUG
@@ -186,11 +179,11 @@ JS_ShutDown(void)
 
 #if EXPOSE_INTL_API
     u_cleanup();
-#endif // EXPOSE_INTL_API
+#endif  // EXPOSE_INTL_API
 
 #ifdef MOZ_VTUNE
     js::vtune::Shutdown();
-#endif // MOZ_VTUNE
+#endif  // MOZ_VTUNE
 
     js::FinishDateTimeState();
 
@@ -203,8 +196,7 @@ JS_ShutDown(void)
 }
 
 JS_PUBLIC_API(bool)
-JS_SetICUMemoryFunctions(JS_ICUAllocFn allocFn, JS_ICUReallocFn reallocFn, JS_ICUFreeFn freeFn)
-{
+JS_SetICUMemoryFunctions(JS_ICUAllocFn allocFn, JS_ICUReallocFn reallocFn, JS_ICUFreeFn freeFn) {
     MOZ_ASSERT(libraryInitState == InitState::Uninitialized,
                "must call JS_SetICUMemoryFunctions before any other JSAPI "
                "operation (including JS_Init)");

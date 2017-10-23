@@ -16,9 +16,10 @@
 // local helper functions
 namespace {
 
-void UpdateListIndicesFromIndex(
-  FallibleTArray<mozilla::dom::SVGTransform*>& aItemsArray,
-  uint32_t aStartingIndex)
+void
+UpdateListIndicesFromIndex(
+    FallibleTArray<mozilla::dom::SVGTransform*>& aItemsArray,
+    uint32_t aStartingIndex)
 {
   uint32_t length = aItemsArray.Length();
 
@@ -29,7 +30,7 @@ void UpdateListIndicesFromIndex(
   }
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -71,7 +72,8 @@ NS_INTERFACE_MAP_END
 // DOMSVGTransformList methods:
 
 JSObject*
-DOMSVGTransformList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+DOMSVGTransformList::WrapObject(JSContext* cx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::SVGTransformListBinding::Wrap(cx, this, aGivenProto);
 }
@@ -82,14 +84,14 @@ DOMSVGTransformList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto
 // DidChangeTransformList.
 class MOZ_RAII AutoChangeTransformListNotifier
 {
-public:
-  explicit AutoChangeTransformListNotifier(DOMSVGTransformList* aTransformList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mTransformList(aTransformList)
+ public:
+  explicit AutoChangeTransformListNotifier(
+      DOMSVGTransformList* aTransformList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mTransformList(aTransformList)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mTransformList, "Expecting non-null transformList");
-    mEmptyOrOldValue =
-      mTransformList->Element()->WillChangeTransformList();
+    mEmptyOrOldValue = mTransformList->Element()->WillChangeTransformList();
   }
 
   ~AutoChangeTransformListNotifier()
@@ -100,9 +102,9 @@ public:
     }
   }
 
-private:
+ private:
   DOMSVGTransformList* const mTransformList;
-  nsAttrValue          mEmptyOrOldValue;
+  nsAttrValue mEmptyOrOldValue;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
@@ -147,10 +149,9 @@ DOMSVGTransformList::InternalListLengthWillChange(uint32_t aNewLength)
 SVGTransformList&
 DOMSVGTransformList::InternalList() const
 {
-  nsSVGAnimatedTransformList *alist = Element()->GetAnimatedTransformList();
-  return IsAnimValList() && alist->mAnimVal ?
-    *alist->mAnimVal :
-    alist->mBaseVal;
+  nsSVGAnimatedTransformList* alist = Element()->GetAnimatedTransformList();
+  return IsAnimValList() && alist->mAnimVal ? *alist->mAnimVal
+                                            : alist->mBaseVal;
 }
 
 //----------------------------------------------------------------------
@@ -212,7 +213,8 @@ DOMSVGTransformList::GetItem(uint32_t index, ErrorResult& error)
 }
 
 already_AddRefed<SVGTransform>
-DOMSVGTransformList::IndexedGetter(uint32_t index, bool& found,
+DOMSVGTransformList::IndexedGetter(uint32_t index,
+                                   bool& found,
                                    ErrorResult& error)
 {
   if (IsAnimValList()) {
@@ -227,7 +229,8 @@ DOMSVGTransformList::IndexedGetter(uint32_t index, bool& found,
 
 already_AddRefed<SVGTransform>
 DOMSVGTransformList::InsertItemBefore(SVGTransform& newItem,
-                                      uint32_t index, ErrorResult& error)
+                                      uint32_t index,
+                                      ErrorResult& error)
 {
   if (IsAnimValList()) {
     error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -242,7 +245,7 @@ DOMSVGTransformList::InsertItemBefore(SVGTransform& newItem,
 
   RefPtr<SVGTransform> domItem = &newItem;
   if (newItem.HasOwner()) {
-    domItem = newItem.Clone(); // must do this before changing anything!
+    domItem = newItem.Clone();  // must do this before changing anything!
   }
 
   // Ensure we have enough memory so we can avoid complex error handling below:
@@ -253,7 +256,7 @@ DOMSVGTransformList::InsertItemBefore(SVGTransform& newItem,
   }
   if (AnimListMirrorsBaseList()) {
     if (!mAList->mAnimVal->mItems.SetCapacity(
-          mAList->mAnimVal->mItems.Length() + 1, fallible)) {
+            mAList->mAnimVal->mItems.Length() + 1, fallible)) {
       error.Throw(NS_ERROR_OUT_OF_MEMORY);
       return nullptr;
     }
@@ -278,7 +281,8 @@ DOMSVGTransformList::InsertItemBefore(SVGTransform& newItem,
 
 already_AddRefed<SVGTransform>
 DOMSVGTransformList::ReplaceItem(SVGTransform& newItem,
-                                 uint32_t index, ErrorResult& error)
+                                 uint32_t index,
+                                 ErrorResult& error)
 {
   if (IsAnimValList()) {
     error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -292,7 +296,7 @@ DOMSVGTransformList::ReplaceItem(SVGTransform& newItem,
 
   RefPtr<SVGTransform> domItem = &newItem;
   if (newItem.HasOwner()) {
-    domItem = newItem.Clone(); // must do this before changing anything!
+    domItem = newItem.Clone();  // must do this before changing anything!
   }
 
   AutoChangeTransformListNotifier notifier(this);
@@ -441,4 +445,4 @@ DOMSVGTransformList::MaybeRemoveItemFromAnimValListAt(uint32_t aIndex)
   UpdateListIndicesFromIndex(animVal->mItems, aIndex);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

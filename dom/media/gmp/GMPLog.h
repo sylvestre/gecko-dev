@@ -10,10 +10,12 @@
 
 namespace mozilla {
 
-extern LogModule* GetGMPLog();
+extern LogModule*
+GetGMPLog();
 
-#define GMP_LOG(msg, ...) MOZ_LOG(GetGMPLog(), LogLevel::Debug, (msg, ##__VA_ARGS__))
+#define GMP_LOG(msg, ...) \
+  MOZ_LOG(GetGMPLog(), LogLevel::Debug, (msg, ##__VA_ARGS__))
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // GMP_LOG_h_
+#endif  // GMP_LOG_h_

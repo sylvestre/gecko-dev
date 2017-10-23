@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-   /* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -27,17 +27,17 @@ using mozilla::UniquePtr;
 using mozilla::Unused;
 using std::pair;
 
-#define CHECK(c) \
-  do { \
-    bool cond = !!(c); \
+#define CHECK(c)                                       \
+  do {                                                 \
+    bool cond = !!(c);                                 \
     MOZ_RELEASE_ASSERT(cond, "Failed assertion: " #c); \
   } while (false)
 
 // The second argument is the expected type. It's variadic to allow the
 // type to contain commas.
-#define CHECK_TYPE(expression, ...)  \
+#define CHECK_TYPE(expression, ...)                               \
   static_assert(IsSame<decltype(expression), __VA_ARGS__>::value, \
-      "Type mismatch!")
+                "Type mismatch!")
 
 struct ConvertibleToInt
 {
@@ -194,7 +194,8 @@ TestAssignmentFromStdPair()
   CHECK(j == 42);
 
   // Move assignment.
-  Tuple<UniquePtr<int>, UniquePtr<int>> e{MakeUnique<int>(0), MakeUnique<int>(0)};
+  Tuple<UniquePtr<int>, UniquePtr<int>> e{MakeUnique<int>(0),
+                                          MakeUnique<int>(0)};
   // XXX: On some platforms std::pair doesn't support move constructor.
   pair<UniquePtr<int>, UniquePtr<int>> f;
   f.first = MakeUnique<int>(42);
@@ -259,8 +260,8 @@ TestTie()
   CHECK(f == Get<1>(rhs1));
   CHECK(c == Get<2>(rhs1));
   // Test conversions
-  Tuple<ConvertibleToInt, double, unsigned char> rhs2(ConvertibleToInt(),
-      0.7f, 'd');
+  Tuple<ConvertibleToInt, double, unsigned char> rhs2(
+      ConvertibleToInt(), 0.7f, 'd');
   Tie(i, f, c) = rhs2;
   CHECK(i == Get<0>(rhs2));
   CHECK(f == Get<1>(rhs2));

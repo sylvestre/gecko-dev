@@ -19,21 +19,25 @@ namespace mozilla {
 using namespace mozilla::dom;
 
 static bool
-IsValidHost(const nsACString& host) {
+IsValidHost(const nsACString& host)
+{
   // This hidden pref allows users to disable mozAddonManager entirely if they want
   // for fingerprinting resistance. Someone like Tor browser will use this pref.
-  if (Preferences::GetBool("privacy.resistFingerprinting.block_mozAddonManager")) {
+  if (Preferences::GetBool(
+          "privacy.resistFingerprinting.block_mozAddonManager")) {
     return false;
   }
 
   // This is ugly, but Preferences.h doesn't have support
   // for default prefs or locked prefs
-  nsCOMPtr<nsIPrefService> prefService (do_GetService(NS_PREFSERVICE_CONTRACTID));
+  nsCOMPtr<nsIPrefService> prefService(
+      do_GetService(NS_PREFSERVICE_CONTRACTID));
   nsCOMPtr<nsIPrefBranch> prefs;
   if (prefService) {
     prefService->GetDefaultBranch(nullptr, getter_AddRefs(prefs));
     bool isEnabled;
-    if (NS_SUCCEEDED(prefs->GetBoolPref("xpinstall.enabled", &isEnabled)) && !isEnabled) {
+    if (NS_SUCCEEDED(prefs->GetBoolPref("xpinstall.enabled", &isEnabled)) &&
+        !isEnabled) {
       bool isLocked;
       prefs->PrefIsLocked("xpinstall.enabled", &isLocked);
       if (isLocked) {
@@ -155,7 +159,6 @@ AddonManagerWebAPI::IsAPIEnabled(JSContext* cx, JSObject* obj)
       return false;
     }
 
-
     win = doc->GetInnerWindow();
   }
 
@@ -166,12 +169,12 @@ AddonManagerWebAPI::IsAPIEnabled(JSContext* cx, JSObject* obj)
 namespace dom {
 
 bool
-AddonManagerPermissions::IsHostPermitted(const GlobalObject& /*unused*/, const nsAString& host)
+AddonManagerPermissions::IsHostPermitted(const GlobalObject& /*unused*/,
+                                         const nsAString& host)
 {
   return IsValidHost(NS_ConvertUTF16toUTF8(host));
 }
 
-} // namespace mozilla::dom
+}  // namespace dom
 
-
-} // namespace mozilla
+}  // namespace mozilla

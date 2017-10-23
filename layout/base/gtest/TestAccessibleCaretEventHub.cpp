@@ -29,16 +29,12 @@ using ::testing::_;
 // This file test the state transitions of AccessibleCaretEventHub under
 // various combination of events and callbacks.
 
-namespace mozilla
-{
+namespace mozilla {
 
 class MockAccessibleCaretManager : public AccessibleCaretManager
 {
-public:
-  MockAccessibleCaretManager()
-    : AccessibleCaretManager(nullptr)
-  {
-  }
+ public:
+  MockAccessibleCaretManager() : AccessibleCaretManager(nullptr) {}
 
   MOCK_METHOD2(PressCaret,
                nsresult(const nsPoint& aPoint, EventClassID aEventClass));
@@ -54,18 +50,17 @@ public:
 
 class MockAccessibleCaretEventHub : public AccessibleCaretEventHub
 {
-public:
-  using AccessibleCaretEventHub::NoActionState;
-  using AccessibleCaretEventHub::PressCaretState;
+ public:
   using AccessibleCaretEventHub::DragCaretState;
+  using AccessibleCaretEventHub::FireScrollEnd;
+  using AccessibleCaretEventHub::LongTapState;
+  using AccessibleCaretEventHub::NoActionState;
+  using AccessibleCaretEventHub::PostScrollState;
+  using AccessibleCaretEventHub::PressCaretState;
   using AccessibleCaretEventHub::PressNoCaretState;
   using AccessibleCaretEventHub::ScrollState;
-  using AccessibleCaretEventHub::PostScrollState;
-  using AccessibleCaretEventHub::LongTapState;
-  using AccessibleCaretEventHub::FireScrollEnd;
 
-  MockAccessibleCaretEventHub()
-    : AccessibleCaretEventHub(nullptr)
+  MockAccessibleCaretEventHub() : AccessibleCaretEventHub(nullptr)
   {
     mManager = MakeUnique<MockAccessibleCaretManager>();
     mInitialized = true;
@@ -93,15 +88,16 @@ public:
 };
 
 // Print the name of the state for debugging.
-::std::ostream& operator<<(::std::ostream& aOstream,
-                           const MockAccessibleCaretEventHub::State* aState)
+::std::ostream&
+operator<<(::std::ostream& aOstream,
+           const MockAccessibleCaretEventHub::State* aState)
 {
   return aOstream << aState->Name();
 }
 
 class AccessibleCaretEventHubTester : public ::testing::Test
 {
-public:
+ public:
   AccessibleCaretEventHubTester()
   {
     DefaultValue<nsresult>::Set(NS_OK);
@@ -122,8 +118,8 @@ public:
                                                  nscoord aX,
                                                  nscoord aY)
   {
-    auto event = MakeUnique<WidgetMouseEvent>(true, aMessage, nullptr,
-                                              WidgetMouseEvent::eReal);
+    auto event = MakeUnique<WidgetMouseEvent>(
+        true, aMessage, nullptr, WidgetMouseEvent::eReal);
 
     event->button = WidgetMouseEvent::eLeftButton;
     event->mRefPoint = LayoutDeviceIntPoint(aX, aY);
@@ -163,7 +159,7 @@ public:
     float force = 1;
 
     RefPtr<dom::Touch> touch(
-      new dom::Touch(identifier, point, radius, rotationAngle, force));
+        new dom::Touch(identifier, point, radius, rotationAngle, force));
     event->mTouches.AppendElement(touch);
 
     return Move(event);
@@ -196,9 +192,10 @@ public:
     return Move(event);
   }
 
-  void HandleEventAndCheckState(UniquePtr<WidgetEvent> aEvent,
-                                MockAccessibleCaretEventHub::State* aExpectedState,
-                                nsEventStatus aExpectedEventStatus)
+  void HandleEventAndCheckState(
+      UniquePtr<WidgetEvent> aEvent,
+      MockAccessibleCaretEventHub::State* aExpectedState,
+      nsEventStatus aExpectedEventStatus)
   {
     nsEventStatus rv = mHub->HandleEvent(aEvent.get());
     EXPECT_EQ(mHub->GetState(), aExpectedState);
@@ -210,46 +207,50 @@ public:
     EXPECT_EQ(mHub->GetState(), aExpectedState);
   }
 
-  template <typename PressEventCreator, typename ReleaseEventCreator>
+  template<typename PressEventCreator, typename ReleaseEventCreator>
   void TestPressReleaseOnNoCaret(PressEventCreator aPressEventCreator,
                                  ReleaseEventCreator aReleaseEventCreator);
 
-  template <typename PressEventCreator, typename ReleaseEventCreator>
+  template<typename PressEventCreator, typename ReleaseEventCreator>
   void TestPressReleaseOnCaret(PressEventCreator aPressEventCreator,
                                ReleaseEventCreator aReleaseEventCreator);
 
-  template <typename PressEventCreator, typename MoveEventCreator,
-            typename ReleaseEventCreator>
+  template<typename PressEventCreator,
+           typename MoveEventCreator,
+           typename ReleaseEventCreator>
   void TestPressMoveReleaseOnNoCaret(PressEventCreator aPressEventCreator,
                                      MoveEventCreator aMoveEventCreator,
                                      ReleaseEventCreator aReleaseEventCreator);
 
-  template <typename PressEventCreator, typename MoveEventCreator,
-            typename ReleaseEventCreator>
+  template<typename PressEventCreator,
+           typename MoveEventCreator,
+           typename ReleaseEventCreator>
   void TestPressMoveReleaseOnCaret(PressEventCreator aPressEventCreator,
                                    MoveEventCreator aMoveEventCreator,
                                    ReleaseEventCreator aReleaseEventCreator);
 
-  template <typename PressEventCreator, typename ReleaseEventCreator>
+  template<typename PressEventCreator, typename ReleaseEventCreator>
   void TestLongTapWithSelectWordSuccessful(
-    PressEventCreator aPressEventCreator,
-    ReleaseEventCreator aReleaseEventCreator);
+      PressEventCreator aPressEventCreator,
+      ReleaseEventCreator aReleaseEventCreator);
 
-  template <typename PressEventCreator, typename ReleaseEventCreator>
+  template<typename PressEventCreator, typename ReleaseEventCreator>
   void TestLongTapWithSelectWordFailed(
-    PressEventCreator aPressEventCreator,
-    ReleaseEventCreator aReleaseEventCreator);
+      PressEventCreator aPressEventCreator,
+      ReleaseEventCreator aReleaseEventCreator);
 
-  template <typename PressEventCreator, typename MoveEventCreator,
-            typename ReleaseEventCreator>
+  template<typename PressEventCreator,
+           typename MoveEventCreator,
+           typename ReleaseEventCreator>
   void TestEventDrivenAsyncPanZoomScroll(
-    PressEventCreator aPressEventCreator, MoveEventCreator aMoveEventCreator,
-    ReleaseEventCreator aReleaseEventCreator);
+      PressEventCreator aPressEventCreator,
+      MoveEventCreator aMoveEventCreator,
+      ReleaseEventCreator aReleaseEventCreator);
 
   // Member variables
   RefPtr<MockAccessibleCaretEventHub> mHub{new MockAccessibleCaretEventHub()};
 
-}; // class AccessibleCaretEventHubTester
+};  // class AccessibleCaretEventHubTester
 
 TEST_F(AccessibleCaretEventHubTester, TestMousePressReleaseOnNoCaret)
 {
@@ -261,14 +262,14 @@ TEST_F(AccessibleCaretEventHubTester, TestTouchPressReleaseOnNoCaret)
   TestPressReleaseOnNoCaret(CreateTouchStartEvent, CreateTouchEndEvent);
 }
 
-template <typename PressEventCreator, typename ReleaseEventCreator>
+template<typename PressEventCreator, typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestPressReleaseOnNoCaret(
-  PressEventCreator aPressEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-    .WillOnce(Return(NS_ERROR_FAILURE));
+      .WillOnce(Return(NS_ERROR_FAILURE));
 
   EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), ReleaseCaret()).Times(0);
 
@@ -293,20 +294,20 @@ TEST_F(AccessibleCaretEventHubTester, TestTouchPressReleaseOnCaret)
   TestPressReleaseOnCaret(CreateTouchStartEvent, CreateTouchEndEvent);
 }
 
-template <typename PressEventCreator, typename ReleaseEventCreator>
+template<typename PressEventCreator, typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestPressReleaseOnCaret(
-  PressEventCreator aPressEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   {
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), SelectWordOrShortcut(_))
-      .Times(0);
+        .Times(0);
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), ReleaseCaret());
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), TapCaret(_));
@@ -327,22 +328,24 @@ AccessibleCaretEventHubTester::TestPressReleaseOnCaret(
 
 TEST_F(AccessibleCaretEventHubTester, TestMousePressMoveReleaseOnNoCaret)
 {
-  TestPressMoveReleaseOnNoCaret(CreateMousePressEvent, CreateMouseMoveEvent,
-                                CreateMouseReleaseEvent);
+  TestPressMoveReleaseOnNoCaret(
+      CreateMousePressEvent, CreateMouseMoveEvent, CreateMouseReleaseEvent);
 }
 
 TEST_F(AccessibleCaretEventHubTester, TestTouchPressMoveReleaseOnNoCaret)
 {
-  TestPressMoveReleaseOnNoCaret(CreateTouchStartEvent, CreateTouchMoveEvent,
-                                CreateTouchEndEvent);
+  TestPressMoveReleaseOnNoCaret(
+      CreateTouchStartEvent, CreateTouchMoveEvent, CreateTouchEndEvent);
 }
 
-template <typename PressEventCreator, typename MoveEventCreator,
-          typename ReleaseEventCreator>
+template<typename PressEventCreator,
+         typename MoveEventCreator,
+         typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestPressMoveReleaseOnNoCaret(
-  PressEventCreator aPressEventCreator, MoveEventCreator aMoveEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    MoveEventCreator aMoveEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   nscoord x0 = 0, y0 = 0;
   nscoord x1 = 100, y1 = 100;
@@ -353,7 +356,7 @@ AccessibleCaretEventHubTester::TestPressMoveReleaseOnNoCaret(
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), DragCaret(_)).Times(0);
   }
@@ -381,22 +384,24 @@ AccessibleCaretEventHubTester::TestPressMoveReleaseOnNoCaret(
 
 TEST_F(AccessibleCaretEventHubTester, TestMousePressMoveReleaseOnCaret)
 {
-  TestPressMoveReleaseOnCaret(CreateMousePressEvent, CreateMouseMoveEvent,
-                              CreateMouseReleaseEvent);
+  TestPressMoveReleaseOnCaret(
+      CreateMousePressEvent, CreateMouseMoveEvent, CreateMouseReleaseEvent);
 }
 
 TEST_F(AccessibleCaretEventHubTester, TestTouchPressMoveReleaseOnCaret)
 {
-  TestPressMoveReleaseOnCaret(CreateTouchStartEvent, CreateTouchMoveEvent,
-                              CreateTouchEndEvent);
+  TestPressMoveReleaseOnCaret(
+      CreateTouchStartEvent, CreateTouchMoveEvent, CreateTouchEndEvent);
 }
 
-template <typename PressEventCreator, typename MoveEventCreator,
-          typename ReleaseEventCreator>
+template<typename PressEventCreator,
+         typename MoveEventCreator,
+         typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestPressMoveReleaseOnCaret(
-  PressEventCreator aPressEventCreator, MoveEventCreator aMoveEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    MoveEventCreator aMoveEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   nscoord x0 = 0, y0 = 0;
   nscoord x1 = 100, y1 = 100;
@@ -407,14 +412,14 @@ AccessibleCaretEventHubTester::TestPressMoveReleaseOnCaret(
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), DragCaret(_))
-      .Times(2) // two valid drag operations
-      .WillRepeatedly(Return(NS_OK));
+        .Times(2)  // two valid drag operations
+        .WillRepeatedly(Return(NS_OK));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), ReleaseCaret())
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
   }
 
   HandleEventAndCheckState(aPressEventCreator(x0, y0),
@@ -457,13 +462,13 @@ TEST_F(AccessibleCaretEventHubTester,
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), DragCaret(_))
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), ReleaseCaret())
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
   }
 
   // All the eTouchCancel events should be ignored in this test.
@@ -502,7 +507,8 @@ TEST_F(AccessibleCaretEventHubTester,
 
   HandleEventAndCheckState(CreateTouchCancelEvent(x3, y3),
                            MockAccessibleCaretEventHub::NoActionState(),
-                           nsEventStatus_eIgnore);}
+                           nsEventStatus_eIgnore);
+}
 
 TEST_F(AccessibleCaretEventHubTester, TestMouseLongTapWithSelectWordSuccessful)
 {
@@ -516,29 +522,29 @@ TEST_F(AccessibleCaretEventHubTester, TestTouchLongTapWithSelectWordSuccessful)
                                       CreateTouchEndEvent);
 }
 
-template <typename PressEventCreator, typename ReleaseEventCreator>
+template<typename PressEventCreator, typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestLongTapWithSelectWordSuccessful(
-  PressEventCreator aPressEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   MockFunction<void(::std::string aCheckPointName)> check;
   {
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), SelectWordOrShortcut(_))
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
 
     EXPECT_CALL(check, Call("longtap with scrolling"));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), SelectWordOrShortcut(_))
-      .WillOnce(Return(NS_OK));
+        .WillOnce(Return(NS_OK));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), OnScrollStart());
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), OnScrollEnd());
@@ -596,24 +602,23 @@ TEST_F(AccessibleCaretEventHubTester, TestMouseLongTapWithSelectWordFailed)
 
 TEST_F(AccessibleCaretEventHubTester, TestTouchLongTapWithSelectWordFailed)
 {
-  TestLongTapWithSelectWordFailed(CreateTouchStartEvent,
-                                  CreateTouchEndEvent);
+  TestLongTapWithSelectWordFailed(CreateTouchStartEvent, CreateTouchEndEvent);
 }
 
-template <typename PressEventCreator, typename ReleaseEventCreator>
+template<typename PressEventCreator, typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestLongTapWithSelectWordFailed(
-  PressEventCreator aPressEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   {
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), SelectWordOrShortcut(_))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
   }
 
   HandleEventAndCheckState(aPressEventCreator(0, 0),
@@ -631,29 +636,31 @@ AccessibleCaretEventHubTester::TestLongTapWithSelectWordFailed(
 
 TEST_F(AccessibleCaretEventHubTester, TestTouchEventDrivenAsyncPanZoomScroll)
 {
-  TestEventDrivenAsyncPanZoomScroll(CreateTouchStartEvent, CreateTouchMoveEvent,
-                                    CreateTouchEndEvent);
+  TestEventDrivenAsyncPanZoomScroll(
+      CreateTouchStartEvent, CreateTouchMoveEvent, CreateTouchEndEvent);
 }
 
 TEST_F(AccessibleCaretEventHubTester, TestMouseEventDrivenAsyncPanZoomScroll)
 {
-  TestEventDrivenAsyncPanZoomScroll(CreateMousePressEvent, CreateMouseMoveEvent,
-                                    CreateMouseReleaseEvent);
+  TestEventDrivenAsyncPanZoomScroll(
+      CreateMousePressEvent, CreateMouseMoveEvent, CreateMouseReleaseEvent);
 }
 
-template <typename PressEventCreator, typename MoveEventCreator,
-          typename ReleaseEventCreator>
+template<typename PressEventCreator,
+         typename MoveEventCreator,
+         typename ReleaseEventCreator>
 void
 AccessibleCaretEventHubTester::TestEventDrivenAsyncPanZoomScroll(
-  PressEventCreator aPressEventCreator, MoveEventCreator aMoveEventCreator,
-  ReleaseEventCreator aReleaseEventCreator)
+    PressEventCreator aPressEventCreator,
+    MoveEventCreator aMoveEventCreator,
+    ReleaseEventCreator aReleaseEventCreator)
 {
   MockFunction<void(::std::string aCheckPointName)> check;
   {
     InSequence dummy;
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), DragCaret(_)).Times(0);
 
     EXPECT_CALL(check, Call("1"));
@@ -663,7 +670,7 @@ AccessibleCaretEventHubTester::TestEventDrivenAsyncPanZoomScroll(
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), OnScrollEnd());
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
-      .WillOnce(Return(NS_ERROR_FAILURE));
+        .WillOnce(Return(NS_ERROR_FAILURE));
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), DragCaret(_)).Times(0);
 
     EXPECT_CALL(check, Call("3"));
@@ -748,7 +755,8 @@ TEST_F(AccessibleCaretEventHubTester, TestAsyncPanZoomScroll)
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), OnScrollStart());
 
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(),
-                OnScrollPositionChanged()).Times(2);
+                OnScrollPositionChanged())
+        .Times(2);
 
     EXPECT_CALL(check, Call("2"));
     EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), OnScrollEnd());
@@ -824,4 +832,4 @@ TEST_F(AccessibleCaretEventHubTester, TestAsyncPanZoomScrollEndedThenBlur)
   EXPECT_EQ(mHub->GetState(), MockAccessibleCaretEventHub::NoActionState());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -25,23 +25,22 @@ class EffectSet;
 
 class AnimationUtils
 {
-public:
-  static dom::Nullable<double>
-  TimeDurationToDouble(const dom::Nullable<TimeDuration>& aTime)
+ public:
+  static dom::Nullable<double> TimeDurationToDouble(
+      const dom::Nullable<TimeDuration>& aTime)
   {
     dom::Nullable<double> result;
 
     if (!aTime.IsNull()) {
-      result.SetValue(
-        nsRFPService::ReduceTimePrecisionAsMSecs(aTime.Value().ToMilliseconds())
-      );
+      result.SetValue(nsRFPService::ReduceTimePrecisionAsMSecs(
+          aTime.Value().ToMilliseconds()));
     }
 
     return result;
   }
 
-  static dom::Nullable<TimeDuration>
-  DoubleToTimeDuration(const dom::Nullable<double>& aTime)
+  static dom::Nullable<TimeDuration> DoubleToTimeDuration(
+      const dom::Nullable<double>& aTime)
   {
     dom::Nullable<TimeDuration> result;
 
@@ -58,14 +57,12 @@ public:
   /**
    * Get the document from the JS context to use when parsing CSS properties.
    */
-  static nsIDocument*
-  GetCurrentRealmDocument(JSContext* aCx);
+  static nsIDocument* GetCurrentRealmDocument(JSContext* aCx);
 
   /**
    * Checks if offscreen animation throttling is enabled.
    */
-  static bool
-  IsOffscreenThrottlingEnabled();
+  static bool IsOffscreenThrottlingEnabled();
 
   /**
    * Returns true if the preference to enable the core Web Animations API is
@@ -87,6 +84,6 @@ public:
                                              const nsIFrame* aFrame);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

@@ -19,17 +19,18 @@ namespace mozilla {
 namespace gfx {
 class DataSourceSurface;
 class SourceSurface;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 /**
  * A raw image buffer. The format can be set in the constructor. Its main
  * purpose is for storing read-only images and using it as a source surface,
  * but it can also be drawn to.
  */
-class gfxImageSurface : public gfxASurface {
-public:
-    /**
+class gfxImageSurface : public gfxASurface
+{
+ public:
+  /**
      * Construct an image surface around an existing buffer of image data.
      * @param aData A buffer containing the image data
      * @param aSize The size of the buffer
@@ -38,19 +39,23 @@ public:
      *
      * @see gfxImageFormat
      */
-    gfxImageSurface(unsigned char *aData, const mozilla::gfx::IntSize& aSize,
-                    long aStride, gfxImageFormat aFormat);
+  gfxImageSurface(unsigned char* aData,
+                  const mozilla::gfx::IntSize& aSize,
+                  long aStride,
+                  gfxImageFormat aFormat);
 
-    /**
+  /**
      * Construct an image surface.
      * @param aSize The size of the buffer
      * @param format Format of the data
      *
      * @see gfxImageFormat
      */
-    gfxImageSurface(const mozilla::gfx::IntSize& size, gfxImageFormat format, bool aClear = true);
+  gfxImageSurface(const mozilla::gfx::IntSize& size,
+                  gfxImageFormat format,
+                  bool aClear = true);
 
-    /**
+  /**
      * Construct an image surface, with a specified stride and allowing the
      * allocation of more memory than required for the storage of the surface
      * itself.  When aStride and aMinimalAllocation are <=0, this constructor
@@ -65,124 +70,139 @@ public:
      *
      * @see gfxImageFormat
      */
-    gfxImageSurface(const mozilla::gfx::IntSize& aSize, gfxImageFormat aFormat,
-                    long aStride, int32_t aMinimalAllocation, bool aClear);
+  gfxImageSurface(const mozilla::gfx::IntSize& aSize,
+                  gfxImageFormat aFormat,
+                  long aStride,
+                  int32_t aMinimalAllocation,
+                  bool aClear);
 
-    explicit gfxImageSurface(cairo_surface_t *csurf);
+  explicit gfxImageSurface(cairo_surface_t* csurf);
 
-    virtual ~gfxImageSurface();
+  virtual ~gfxImageSurface();
 
-    // ImageSurface methods
-    gfxImageFormat Format() const { return mFormat; }
+  // ImageSurface methods
+  gfxImageFormat Format() const { return mFormat; }
 
-    virtual const mozilla::gfx::IntSize GetSize() const override { return mSize; }
-    int32_t Width() const {
-        if (mSize.width < 0) {
-            return 0;
-        }
-        return mSize.width;
+  virtual const mozilla::gfx::IntSize GetSize() const override { return mSize; }
+  int32_t Width() const
+  {
+    if (mSize.width < 0) {
+      return 0;
     }
-    int32_t Height() const {
-        if (mSize.height < 0) {
-            return 0;
-        }
-        return mSize.height;
+    return mSize.width;
+  }
+  int32_t Height() const
+  {
+    if (mSize.height < 0) {
+      return 0;
     }
+    return mSize.height;
+  }
 
-    /**
+  /**
      * Distance in bytes between the start of a line and the start of the
      * next line.
      */
-    int32_t Stride() const { return mStride; }
-    /**
+  int32_t Stride() const { return mStride; }
+  /**
      * Returns a pointer for the image data. Users of this function can
      * write to it, but must not attempt to free the buffer.
      */
-    unsigned char* Data() const { return mData; } // delete this data under us and die.
-    /**
+  unsigned char* Data() const
+  {
+    return mData;
+  }  // delete this data under us and die.
+  /**
      * Returns the total size of the image data.
      */
-    int32_t GetDataSize() const {
-        if (mStride < 0 || mSize.height < 0) {
-            return 0;
-        }
-        return mStride*mSize.height;
+  int32_t GetDataSize() const
+  {
+    if (mStride < 0 || mSize.height < 0) {
+      return 0;
     }
+    return mStride * mSize.height;
+  }
 
-    /* Fast copy from another image surface; returns TRUE if successful, FALSE otherwise */
-    bool CopyFrom (gfxImageSurface *other);
+  /* Fast copy from another image surface; returns TRUE if successful, FALSE otherwise */
+  bool CopyFrom(gfxImageSurface* other);
 
-    /**
+  /**
      * Fast copy from a source surface; returns TRUE if successful, FALSE otherwise
      * Assumes that the format of this surface is compatable with aSurface
      */
-    bool CopyFrom (mozilla::gfx::SourceSurface *aSurface);
+  bool CopyFrom(mozilla::gfx::SourceSurface* aSurface);
 
-    /**
+  /**
      * Fast copy to a source surface; returns TRUE if successful, FALSE otherwise
      * Assumes that the format of this surface is compatible with aSurface
      */
-    bool CopyTo (mozilla::gfx::SourceSurface *aSurface);
+  bool CopyTo(mozilla::gfx::SourceSurface* aSurface);
 
-    /**
+  /**
      * Copy to a Moz2D DataSourceSurface.
      * Marked as virtual so that browsercomps can access this method.
      */
-    virtual already_AddRefed<mozilla::gfx::DataSourceSurface> CopyToB8G8R8A8DataSourceSurface();
+  virtual already_AddRefed<mozilla::gfx::DataSourceSurface>
+  CopyToB8G8R8A8DataSourceSurface();
 
-    /* return new Subimage with pointing to original image starting from aRect.pos
+  /* return new Subimage with pointing to original image starting from aRect.pos
      * and size of aRect.size. New subimage keeping current image reference
      */
-    already_AddRefed<gfxSubimageSurface> GetSubimage(const gfxRect& aRect);
+  already_AddRefed<gfxSubimageSurface> GetSubimage(const gfxRect& aRect);
 
-    virtual already_AddRefed<gfxImageSurface> GetAsImageSurface() override;
+  virtual already_AddRefed<gfxImageSurface> GetAsImageSurface() override;
 
-    /** See gfxASurface.h. */
-    static long ComputeStride(const mozilla::gfx::IntSize&, gfxImageFormat);
+  /** See gfxASurface.h. */
+  static long ComputeStride(const mozilla::gfx::IntSize&, gfxImageFormat);
 
-    virtual size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
-        override;
-    virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
-        override;
-    virtual bool SizeOfIsMeasured() const override;
+  virtual size_t SizeOfExcludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual bool SizeOfIsMeasured() const override;
 
-protected:
-    gfxImageSurface();
-    void InitWithData(unsigned char *aData, const mozilla::gfx::IntSize& aSize,
-                      long aStride, gfxImageFormat aFormat);
-    /**
+ protected:
+  gfxImageSurface();
+  void InitWithData(unsigned char* aData,
+                    const mozilla::gfx::IntSize& aSize,
+                    long aStride,
+                    gfxImageFormat aFormat);
+  /**
      * See the parameters to the matching constructor.  This should only
      * be called once, in the constructor, which has already set mSize
      * and mFormat.
      */
-    void AllocateAndInit(long aStride, int32_t aMinimalAllocation, bool aClear);
-    void InitFromSurface(cairo_surface_t *csurf);
+  void AllocateAndInit(long aStride, int32_t aMinimalAllocation, bool aClear);
+  void InitFromSurface(cairo_surface_t* csurf);
 
-    long ComputeStride() const { 
-        if (mSize.height < 0 || mSize.width < 0) {
-            return 0;
-        }
-        return ComputeStride(mSize, mFormat);
+  long ComputeStride() const
+  {
+    if (mSize.height < 0 || mSize.width < 0) {
+      return 0;
     }
+    return ComputeStride(mSize, mFormat);
+  }
 
-    void MakeInvalid();
+  void MakeInvalid();
 
-    mozilla::gfx::IntSize mSize;
-    bool mOwnsData;
-    unsigned char *mData;
-    gfxImageFormat mFormat;
-    long mStride;
+  mozilla::gfx::IntSize mSize;
+  bool mOwnsData;
+  unsigned char* mData;
+  gfxImageFormat mFormat;
+  long mStride;
 };
 
-class gfxSubimageSurface : public gfxImageSurface {
-protected:
-    friend class gfxImageSurface;
-    gfxSubimageSurface(gfxImageSurface* aParent,
-                       unsigned char* aData,
-                       const mozilla::gfx::IntSize& aSize,
-                       gfxImageFormat aFormat);
-private:
-    RefPtr<gfxImageSurface> mParent;
+class gfxSubimageSurface : public gfxImageSurface
+{
+ protected:
+  friend class gfxImageSurface;
+  gfxSubimageSurface(gfxImageSurface* aParent,
+                     unsigned char* aData,
+                     const mozilla::gfx::IntSize& aSize,
+                     gfxImageFormat aFormat);
+
+ private:
+  RefPtr<gfxImageSurface> mParent;
 };
 
 #endif /* GFX_IMAGESURFACE_H */

@@ -17,7 +17,7 @@ namespace dom {
 
 class VideoPlaybackQuality final : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(VideoPlaybackQuality)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(VideoPlaybackQuality)
 
@@ -29,29 +29,18 @@ public:
 
   HTMLMediaElement* GetParentObject() const;
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  DOMHighResTimeStamp CreationTime() const
-  {
-    return mCreationTime;
-  }
+  DOMHighResTimeStamp CreationTime() const { return mCreationTime; }
 
-  uint32_t TotalVideoFrames() const
-  {
-    return mTotalFrames;
-  }
+  uint32_t TotalVideoFrames() const { return mTotalFrames; }
 
-  uint32_t DroppedVideoFrames() const
-  {
-    return mDroppedFrames;
-  }
+  uint32_t DroppedVideoFrames() const { return mDroppedFrames; }
 
-  uint32_t CorruptedVideoFrames() const
-  {
-    return mCorruptedFrames;
-  }
+  uint32_t CorruptedVideoFrames() const { return mCorruptedFrames; }
 
-private:
+ private:
   ~VideoPlaybackQuality() {}
 
   RefPtr<HTMLMediaElement> mElement;
@@ -61,7 +50,7 @@ private:
   uint32_t mCorruptedFrames;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_VideoPlaybackQuality_h_
+#endif  // mozilla_dom_VideoPlaybackQuality_h_

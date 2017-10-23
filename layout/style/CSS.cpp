@@ -28,8 +28,7 @@ struct SupportsParsingInfo
 };
 
 static nsresult
-GetParsingInfo(const GlobalObject& aGlobal,
-               SupportsParsingInfo& aInfo)
+GetParsingInfo(const GlobalObject& aGlobal, SupportsParsingInfo& aInfo)
 {
   nsGlobalWindow* win = xpc::WindowOrNull(aGlobal.Get());
   if (!win) {
@@ -69,8 +68,8 @@ CSS::Supports(const GlobalObject& aGlobal,
   }
 
   nsCSSParser parser;
-  return parser.EvaluateSupportsDeclaration(aProperty, aValue, info.mDocURI,
-                                            info.mBaseURI, info.mPrincipal);
+  return parser.EvaluateSupportsDeclaration(
+      aProperty, aValue, info.mDocURI, info.mBaseURI, info.mPrincipal);
 }
 
 /* static */ bool
@@ -92,9 +91,12 @@ CSS::Supports(const GlobalObject& aGlobal,
   }
 
   nsCSSParser parser;
-  return parser.EvaluateSupportsCondition(aCondition, info.mDocURI,
-                                          info.mBaseURI, info.mPrincipal,
-                                          css::SupportsParsingSettings::ImpliedParentheses);
+  return parser.EvaluateSupportsCondition(
+      aCondition,
+      info.mDocURI,
+      info.mBaseURI,
+      info.mPrincipal,
+      css::SupportsParsingSettings::ImpliedParentheses);
 }
 
 /* static */ void
@@ -105,5 +107,5 @@ CSS::Escape(const GlobalObject& aGlobal,
   nsStyleUtil::AppendEscapedCSSIdent(aIdent, aReturn);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

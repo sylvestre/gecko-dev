@@ -7,7 +7,7 @@
 #ifndef mozilla_BinaryPath_h
 #define mozilla_BinaryPath_h
 
-#include "nsXPCOMPrivate.h" // for MAXPATHLEN
+#include "nsXPCOMPrivate.h"  // for MAXPATHLEN
 #ifdef XP_WIN
 #include <windows.h>
 #elif defined(XP_MACOSX)
@@ -18,8 +18,7 @@
 #include <string.h>
 #endif
 #if defined(__FreeBSD__) || defined(__DragonFly__) || \
-    defined(__FreeBSD_kernel__) || defined(__NetBSD__) || \
-    defined(__OpenBSD__)
+    defined(__FreeBSD_kernel__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #include <sys/sysctl.h>
 #endif
 #if defined(__OpenBSD__)
@@ -38,7 +37,7 @@ namespace mozilla {
 
 class BinaryPath
 {
-public:
+ public:
 #ifdef XP_WIN
   static nsresult Get(char aResult[MAXPATHLEN])
   {
@@ -47,8 +46,8 @@ public:
     if (NS_FAILED(rv)) {
       return rv;
     }
-    WideCharToMultiByte(CP_UTF8, 0, wide_path, -1,
-                        aResult, MAXPATHLEN, nullptr, nullptr);
+    WideCharToMultiByte(
+        CP_UTF8, 0, wide_path, -1, aResult, MAXPATHLEN, nullptr, nullptr);
     return NS_OK;
   }
 
@@ -78,7 +77,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   static nsresult GetW(wchar_t aResult[MAXPATHLEN])
   {
     static bool cached = false;
@@ -114,8 +113,8 @@ private:
     }
 
     nsresult rv;
-    if (CFURLGetFileSystemRepresentation(executableURL, false, (UInt8*)aResult,
-                                         MAXPATHLEN)) {
+    if (CFURLGetFileSystemRepresentation(
+            executableURL, false, (UInt8*)aResult, MAXPATHLEN)) {
       // Sanitize path in case the app was launched from Terminal via
       // './firefox' for example.
       size_t readPos = 0;
@@ -157,11 +156,11 @@ private:
 #elif defined(XP_LINUX) || defined(XP_SOLARIS)
   static nsresult Get(char aResult[MAXPATHLEN])
   {
-#  if defined(XP_SOLARIS)
+#if defined(XP_SOLARIS)
     const char path[] = "/proc/self/path/a.out";
-#  else
+#else
     const char path[] = "/proc/self/exe";
-#  endif
+#endif
 
     ssize_t len = readlink(path, aResult, MAXPATHLEN - 1);
     if (len < 0) {
@@ -172,7 +171,7 @@ private:
   }
 
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || \
-      defined(__FreeBSD_kernel__) || defined(__NetBSD__)
+    defined(__FreeBSD_kernel__) || defined(__NetBSD__)
   static nsresult Get(char aResult[MAXPATHLEN])
   {
     int mib[4];
@@ -209,7 +208,7 @@ private:
       return NS_ERROR_FAILURE;
     }
 
-    auto argv = MakeUnique<const char*[]>(len / sizeof(const char*));
+    auto argv = MakeUnique<const char* []>(len / sizeof(const char*));
     if (sysctl(mib, 4, argv.get(), &len, nullptr, 0) < 0) {
       return NS_ERROR_FAILURE;
     }
@@ -261,7 +260,7 @@ private:
 #error Oops, you need platform-specific code here
 #endif
 
-public:
+ public:
   static UniqueFreePtr<char> Get()
   {
     char path[MAXPATHLEN];
@@ -288,11 +287,10 @@ public:
       return rv;
     }
 #ifdef XP_WIN
-    rv = NS_NewLocalFile(nsDependentString(exePath), true,
-                         getter_AddRefs(lf));
+    rv = NS_NewLocalFile(nsDependentString(exePath), true, getter_AddRefs(lf));
 #else
-    rv = NS_NewNativeLocalFile(nsDependentCString(exePath), true,
-                               getter_AddRefs(lf));
+    rv = NS_NewNativeLocalFile(
+        nsDependentCString(exePath), true, getter_AddRefs(lf));
 #endif
     if (NS_FAILED(rv)) {
       return rv;
@@ -303,6 +301,6 @@ public:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_BinaryPath_h */

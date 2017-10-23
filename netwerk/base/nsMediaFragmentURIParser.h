@@ -21,7 +21,8 @@ class nsIURI;
 //    using e.g. HasStartTime().
 // c) If the values are valid, obtain them using e.g. GetStartTime().
 
-namespace mozilla { namespace net {
+namespace mozilla {
+namespace net {
 
 enum ClipUnit
 {
@@ -31,7 +32,7 @@ enum ClipUnit
 
 class nsMediaFragmentURIParser
 {
-public:
+ public:
   // Create a parser with the provided URI.
   explicit nsMediaFragmentURIParser(nsIURI* aURI);
 
@@ -64,7 +65,7 @@ public:
   // returns the unit used.
   ClipUnit GetClipUnit() const { return mClipUnit; }
 
-private:
+ private:
   // Parse the URI ref provided, looking for media fragments. This is
   // the top-level parser the invokes the others below.
   void Parse(nsACString& aRef);
@@ -88,13 +89,13 @@ private:
   bool ParseMozResolution(nsDependentSubstring aString);
 
   // Media fragment information.
-  Maybe<double>    mStart;
-  Maybe<double>    mEnd;
+  Maybe<double> mStart;
+  Maybe<double> mEnd;
   Maybe<nsIntRect> mClip;
-  ClipUnit         mClipUnit;
+  ClipUnit mClipUnit;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

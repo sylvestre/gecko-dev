@@ -14,7 +14,7 @@
 #include "nsDebugImpl.h"
 #include "nsDebug.h"
 #ifdef MOZ_CRASHREPORTER
-# include "nsExceptionHandler.h"
+#include "nsExceptionHandler.h"
 #endif
 #include "nsString.h"
 #include "nsXULAppAPI.h"
@@ -44,8 +44,8 @@
 #include "nsString.h"
 #endif
 
-#if defined(XP_MACOSX) || defined(__DragonFly__) || defined(__FreeBSD__) \
- || defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(XP_MACOSX) || defined(__DragonFly__) || defined(__FreeBSD__) || \
+    defined(__NetBSD__) || defined(__OpenBSD__)
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/param.h>
@@ -95,7 +95,7 @@ Break(const char* aMsg);
 #if defined(_WIN32)
 #include <windows.h>
 #include <signal.h>
-#include <malloc.h> // for _alloca
+#include <malloc.h>  // for _alloca
 #elif defined(XP_UNIX)
 #include <stdlib.h>
 #endif
@@ -109,20 +109,16 @@ static Atomic<int32_t> gAssertionCount;
 NS_IMPL_QUERY_INTERFACE(nsDebugImpl, nsIDebug2)
 
 NS_IMETHODIMP_(MozExternalRefCountType)
-nsDebugImpl::AddRef()
-{
-  return 2;
-}
+nsDebugImpl::AddRef() { return 2; }
 
 NS_IMETHODIMP_(MozExternalRefCountType)
-nsDebugImpl::Release()
-{
-  return 1;
-}
+nsDebugImpl::Release() { return 1; }
 
 NS_IMETHODIMP
-nsDebugImpl::Assertion(const char* aStr, const char* aExpr,
-                       const char* aFile, int32_t aLine)
+nsDebugImpl::Assertion(const char* aStr,
+                       const char* aExpr,
+                       const char* aFile,
+                       int32_t aLine)
 {
   NS_DebugBreak(NS_DEBUG_ASSERTION, aStr, aExpr, aFile, aLine);
   return NS_OK;
@@ -150,7 +146,8 @@ nsDebugImpl::Abort(const char* aFile, int32_t aLine)
 }
 
 // From toolkit/library/rust/lib.rs
-extern "C" void intentional_panic(const char* message);
+extern "C" void
+intentional_panic(const char* message);
 
 NS_IMETHODIMP
 nsDebugImpl::RustPanic(const char* aMessage)
@@ -184,8 +181,8 @@ nsDebugImpl::GetIsDebuggerAttached(bool* aResult)
 
 #if defined(XP_WIN)
   *aResult = ::IsDebuggerPresent();
-#elif defined(XP_MACOSX) || defined(__DragonFly__) || defined(__FreeBSD__) \
-   || defined(__NetBSD__) || defined(__OpenBSD__)
+#elif defined(XP_MACOSX) || defined(__DragonFly__) || defined(__FreeBSD__) || \
+    defined(__NetBSD__) || defined(__OpenBSD__)
   // Specify the info we're looking for
   int mib[] = {
     CTL_KERN,
@@ -278,10 +275,7 @@ GetAssertBehavior()
 
 struct FixedBuffer final : public mozilla::PrintfTarget
 {
-  FixedBuffer() : curlen(0)
-  {
-    buffer[0] = '\0';
-  }
+  FixedBuffer() : curlen(0) { buffer[0] = '\0'; }
 
   char buffer[500];
   uint32_t curlen;
@@ -310,8 +304,11 @@ FixedBuffer::append(const char* aBuf, size_t aLen)
 }
 
 EXPORT_XPCOM_API(void)
-NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
-              const char* aFile, int32_t aLine)
+NS_DebugBreak(uint32_t aSeverity,
+              const char* aStr,
+              const char* aExpr,
+              const char* aFile,
+              int32_t aLine)
 {
   FixedBuffer nonPIDBuf;
   FixedBuffer buf;
@@ -355,17 +352,22 @@ NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
   }
 
   bool isMainthread = (NS_IsMainThreadTLSInitialized() && NS_IsMainThread());
-  PRThread *currentThread = PR_GetCurrentThread();
-  const char *currentThreadName = isMainthread
-    ? "Main Thread"
-    : PR_GetThreadName(currentThread);
-  if(currentThreadName) {
-    buf.print("%d, %s] %s", base::GetCurrentProcId(), currentThreadName , nonPIDBuf.buffer);
+  PRThread* currentThread = PR_GetCurrentThread();
+  const char* currentThreadName =
+      isMainthread ? "Main Thread" : PR_GetThreadName(currentThread);
+  if (currentThreadName) {
+    buf.print("%d, %s] %s",
+              base::GetCurrentProcId(),
+              currentThreadName,
+              nonPIDBuf.buffer);
   } else {
-    buf.print("%d, Unnamed thread %p] %s", base::GetCurrentProcId(), currentThread, nonPIDBuf.buffer);
+    buf.print("%d, Unnamed thread %p] %s",
+              base::GetCurrentProcId(),
+              currentThread,
+              nonPIDBuf.buffer);
   }
 
-  // errors on platforms without a debugdlg ring a bell on stderr
+    // errors on platforms without a debugdlg ring a bell on stderr
 #if !defined(XP_WIN)
   if (aSeverity != NS_DEBUG_WARNING) {
     fprintf(stderr, "\07");
@@ -403,8 +405,9 @@ NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
         note += nonPIDBuf.buffer;
         note += ")";
         CrashReporter::AppendAppNotesToCrashReport(note);
-        CrashReporter::AnnotateCrashReport(NS_LITERAL_CSTRING("AbortMessage"),
-                                           nsDependentCString(nonPIDBuf.buffer));
+        CrashReporter::AnnotateCrashReport(
+            NS_LITERAL_CSTRING("AbortMessage"),
+            nsDependentCString(nonPIDBuf.buffer));
       }
 #endif  // MOZ_CRASHREPORTER
 
@@ -449,7 +452,7 @@ NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
       return;
 
     case NS_ASSERT_TRAP:
-    case NS_ASSERT_UNINITIALIZED: // Default to "trap" behavior
+    case NS_ASSERT_UNINITIALIZED:  // Default to "trap" behavior
       Break(buf.buffer);
       return;
   }
@@ -468,19 +471,20 @@ RealBreak()
   ::DebugBreak();
 #elif defined(XP_MACOSX)
   raise(SIGTRAP);
-#elif defined(__GNUC__) && (defined(__i386__) || defined(__i386) || defined(__x86_64__))
+#elif defined(__GNUC__) && \
+    (defined(__i386__) || defined(__i386) || defined(__x86_64__))
   asm("int $3");
 #elif defined(__arm__)
   asm(
 #ifdef __ARM_ARCH_4T__
-    /* ARMv4T doesn't support the BKPT instruction, so if the compiler target
+      /* ARMv4T doesn't support the BKPT instruction, so if the compiler target
      * is ARMv4T, we want to ensure the assembler will understand that ARMv5T
      * instruction, while keeping the resulting object tagged as ARMv4T.
      */
-    ".arch armv5t\n"
-    ".object_arch armv4t\n"
+      ".arch armv5t\n"
+      ".object_arch armv4t\n"
 #endif
-    "BKPT #0");
+      "BKPT #0");
 #elif defined(__aarch64__)
   asm("brk #0");
 #elif defined(SOLARIS)
@@ -503,7 +507,7 @@ Break(const char* aMsg)
   if (!ignoreDebugger) {
     const char* shouldIgnoreDebugger = getenv("XPCOM_DEBUG_DLG");
     ignoreDebugger =
-      1 + (shouldIgnoreDebugger && !strcmp(shouldIgnoreDebugger, "1"));
+        1 + (shouldIgnoreDebugger && !strcmp(shouldIgnoreDebugger, "1"));
   }
   if ((ignoreDebugger == 2) || !::IsDebuggerPresent()) {
     DWORD code = IDRETRY;
@@ -521,19 +525,27 @@ Break(const char* aMsg)
     memset(&pi, 0, sizeof(pi));
 
     memset(&si, 0, sizeof(si));
-    si.cb          = sizeof(si);
+    si.cb = sizeof(si);
     si.wShowWindow = SW_SHOW;
 
     // 2nd arg of CreateProcess is in/out
     wchar_t* msgCopy = (wchar_t*)_alloca((strlen(aMsg) + 1) * sizeof(wchar_t));
     wcscpy(msgCopy, NS_ConvertUTF8toUTF16(aMsg).get());
 
-    if (GetModuleFileNameW(GetModuleHandleW(L"xpcom.dll"), executable, MAX_PATH) &&
+    if (GetModuleFileNameW(
+            GetModuleHandleW(L"xpcom.dll"), executable, MAX_PATH) &&
         (pName = wcsrchr(executable, '\\')) != nullptr &&
         wcscpy(pName + 1, L"windbgdlg.exe") &&
-        CreateProcessW(executable, msgCopy, nullptr, nullptr,
-                       false, DETACHED_PROCESS | NORMAL_PRIORITY_CLASS,
-                       nullptr, nullptr, &si, &pi)) {
+        CreateProcessW(executable,
+                       msgCopy,
+                       nullptr,
+                       nullptr,
+                       false,
+                       DETACHED_PROCESS | NORMAL_PRIORITY_CLASS,
+                       nullptr,
+                       nullptr,
+                       &si,
+                       &pi)) {
       WaitForSingleObject(pi.hProcess, INFINITE);
       GetExitCodeProcess(pi.hProcess, &code);
       CloseHandle(pi.hProcess);
@@ -559,7 +571,8 @@ Break(const char* aMsg)
    * impls to be the same.
    */
   RealBreak();
-#elif defined(__GNUC__) && (defined(__i386__) || defined(__i386) || defined(__x86_64__))
+#elif defined(__GNUC__) && \
+    (defined(__i386__) || defined(__i386) || defined(__x86_64__))
   RealBreak();
 #elif defined(__arm__) || defined(__aarch64__)
   RealBreak();
@@ -593,21 +606,36 @@ NS_ErrorAccordingToNSPR()
 {
   PRErrorCode err = PR_GetError();
   switch (err) {
-    case PR_OUT_OF_MEMORY_ERROR:         return NS_ERROR_OUT_OF_MEMORY;
-    case PR_WOULD_BLOCK_ERROR:           return NS_BASE_STREAM_WOULD_BLOCK;
-    case PR_FILE_NOT_FOUND_ERROR:        return NS_ERROR_FILE_NOT_FOUND;
-    case PR_READ_ONLY_FILESYSTEM_ERROR:  return NS_ERROR_FILE_READ_ONLY;
-    case PR_NOT_DIRECTORY_ERROR:         return NS_ERROR_FILE_NOT_DIRECTORY;
-    case PR_IS_DIRECTORY_ERROR:          return NS_ERROR_FILE_IS_DIRECTORY;
-    case PR_LOOP_ERROR:                  return NS_ERROR_FILE_UNRESOLVABLE_SYMLINK;
-    case PR_FILE_EXISTS_ERROR:           return NS_ERROR_FILE_ALREADY_EXISTS;
-    case PR_FILE_IS_LOCKED_ERROR:        return NS_ERROR_FILE_IS_LOCKED;
-    case PR_FILE_TOO_BIG_ERROR:          return NS_ERROR_FILE_TOO_BIG;
-    case PR_NO_DEVICE_SPACE_ERROR:       return NS_ERROR_FILE_NO_DEVICE_SPACE;
-    case PR_NAME_TOO_LONG_ERROR:         return NS_ERROR_FILE_NAME_TOO_LONG;
-    case PR_DIRECTORY_NOT_EMPTY_ERROR:   return NS_ERROR_FILE_DIR_NOT_EMPTY;
-    case PR_NO_ACCESS_RIGHTS_ERROR:      return NS_ERROR_FILE_ACCESS_DENIED;
-    default:                             return NS_ERROR_FAILURE;
+    case PR_OUT_OF_MEMORY_ERROR:
+      return NS_ERROR_OUT_OF_MEMORY;
+    case PR_WOULD_BLOCK_ERROR:
+      return NS_BASE_STREAM_WOULD_BLOCK;
+    case PR_FILE_NOT_FOUND_ERROR:
+      return NS_ERROR_FILE_NOT_FOUND;
+    case PR_READ_ONLY_FILESYSTEM_ERROR:
+      return NS_ERROR_FILE_READ_ONLY;
+    case PR_NOT_DIRECTORY_ERROR:
+      return NS_ERROR_FILE_NOT_DIRECTORY;
+    case PR_IS_DIRECTORY_ERROR:
+      return NS_ERROR_FILE_IS_DIRECTORY;
+    case PR_LOOP_ERROR:
+      return NS_ERROR_FILE_UNRESOLVABLE_SYMLINK;
+    case PR_FILE_EXISTS_ERROR:
+      return NS_ERROR_FILE_ALREADY_EXISTS;
+    case PR_FILE_IS_LOCKED_ERROR:
+      return NS_ERROR_FILE_IS_LOCKED;
+    case PR_FILE_TOO_BIG_ERROR:
+      return NS_ERROR_FILE_TOO_BIG;
+    case PR_NO_DEVICE_SPACE_ERROR:
+      return NS_ERROR_FILE_NO_DEVICE_SPACE;
+    case PR_NAME_TOO_LONG_ERROR:
+      return NS_ERROR_FILE_NAME_TOO_LONG;
+    case PR_DIRECTORY_NOT_EMPTY_ERROR:
+      return NS_ERROR_FILE_DIR_NOT_EMPTY;
+    case PR_NO_ACCESS_RIGHTS_ERROR:
+      return NS_ERROR_FILE_ACCESS_DENIED;
+    default:
+      return NS_ERROR_FAILURE;
   }
 }
 

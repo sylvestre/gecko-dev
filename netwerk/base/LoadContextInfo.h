@@ -15,16 +15,16 @@ namespace net {
 
 class LoadContextInfo : public nsILoadContextInfo
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSILOADCONTEXTINFO
 
   LoadContextInfo(bool aIsAnonymous, OriginAttributes aOriginAttributes);
 
-private:
+ private:
   virtual ~LoadContextInfo();
 
-protected:
+ protected:
   bool mIsAnonymous : 1;
   OriginAttributes mOriginAttributes;
 };
@@ -32,30 +32,29 @@ protected:
 class LoadContextInfoFactory : public nsILoadContextInfoFactory
 {
   virtual ~LoadContextInfoFactory() {}
-public:
-  NS_DECL_ISUPPORTS // deliberately not thread-safe
-  NS_DECL_NSILOADCONTEXTINFOFACTORY
+
+ public:
+  NS_DECL_ISUPPORTS  // deliberately not thread-safe
+      NS_DECL_NSILOADCONTEXTINFOFACTORY
 };
 
 LoadContextInfo*
-GetLoadContextInfo(nsIChannel *aChannel);
+GetLoadContextInfo(nsIChannel* aChannel);
 
 LoadContextInfo*
-GetLoadContextInfo(nsILoadContext *aLoadContext,
-                   bool aIsAnonymous);
+GetLoadContextInfo(nsILoadContext* aLoadContext, bool aIsAnonymous);
 
 LoadContextInfo*
-GetLoadContextInfo(nsIDOMWindow *aLoadContext,
-                   bool aIsAnonymous);
+GetLoadContextInfo(nsIDOMWindow* aLoadContext, bool aIsAnonymous);
 
 LoadContextInfo*
-GetLoadContextInfo(nsILoadContextInfo *aInfo);
+GetLoadContextInfo(nsILoadContextInfo* aInfo);
 
 LoadContextInfo*
 GetLoadContextInfo(bool const aIsAnonymous,
-                   OriginAttributes const &aOriginAttributes);
+                   OriginAttributes const& aOriginAttributes);
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

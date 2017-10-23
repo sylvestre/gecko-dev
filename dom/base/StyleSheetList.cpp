@@ -43,5 +43,5 @@ StyleSheetList::SlowItem(uint32_t aIndex, nsIDOMStyleSheet** aItem)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

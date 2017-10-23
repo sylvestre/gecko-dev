@@ -25,8 +25,8 @@ class gfxGdkNativeRenderer
     : private gfxXlibNativeRenderer
 #endif
 {
-public:
-    /**
+ public:
+  /**
      * Perform the native drawing.
      * @param offsetX draw at this offset into the given drawable
      * @param offsetY draw at this offset into the given drawable
@@ -36,51 +36,59 @@ public:
      */
 
 #if (MOZ_WIDGET_GTK == 2)
-    virtual nsresult DrawWithGDK(GdkDrawable * drawable, gint offsetX, 
-            gint offsetY, GdkRectangle * clipRects, uint32_t numClipRects) = 0;
+  virtual nsresult DrawWithGDK(GdkDrawable* drawable,
+                               gint offsetX,
+                               gint offsetY,
+                               GdkRectangle* clipRects,
+                               uint32_t numClipRects) = 0;
 #endif
 
-    enum {
-        // If set, then Draw() is opaque, i.e., every pixel in the intersection
-        // of the clipRect and (offset.x,offset.y,bounds.width,bounds.height)
-        // will be set and there is no dependence on what the existing pixels
-        // in the drawable are set to.
-        DRAW_IS_OPAQUE =
+  enum
+  {
+    // If set, then Draw() is opaque, i.e., every pixel in the intersection
+    // of the clipRect and (offset.x,offset.y,bounds.width,bounds.height)
+    // will be set and there is no dependence on what the existing pixels
+    // in the drawable are set to.
+    DRAW_IS_OPAQUE =
 #ifdef MOZ_X11
-            gfxXlibNativeRenderer::DRAW_IS_OPAQUE
+        gfxXlibNativeRenderer::DRAW_IS_OPAQUE
 #else
-            0x1
+        0x1
 #endif
-        // If set, then numClipRects can be zero or one.
-        // If not set, then numClipRects will be zero.
-        , DRAW_SUPPORTS_CLIP_RECT =
+    // If set, then numClipRects can be zero or one.
+    // If not set, then numClipRects will be zero.
+    ,
+    DRAW_SUPPORTS_CLIP_RECT =
 #ifdef MOZ_X11
-            gfxXlibNativeRenderer::DRAW_SUPPORTS_CLIP_RECT
+        gfxXlibNativeRenderer::DRAW_SUPPORTS_CLIP_RECT
 #else
-            0x2
+        0x2
 #endif
-    };
+  };
 
-    /**
+  /**
      * @param flags see above
      * @param bounds Draw()'s drawing is guaranteed to be restricted to
      * the rectangle (offset.x,offset.y,bounds.width,bounds.height)
      * @param dpy a display to use for the drawing if ctx doesn't have one
      */
 #if (MOZ_WIDGET_GTK == 2)
-    void Draw(gfxContext* ctx, mozilla::gfx::IntSize size,
-              uint32_t flags, GdkColormap* colormap);
+  void Draw(gfxContext* ctx,
+            mozilla::gfx::IntSize size,
+            uint32_t flags,
+            GdkColormap* colormap);
 #endif
 
-private:
+ private:
 #ifdef MOZ_X11
-    // for gfxXlibNativeRenderer:
-    virtual nsresult DrawWithXlib(cairo_surface_t* surface,
-                                  nsIntPoint offset,
-                                  mozilla::gfx::IntRect* clipRects, uint32_t numClipRects) override;
+  // for gfxXlibNativeRenderer:
+  virtual nsresult DrawWithXlib(cairo_surface_t* surface,
+                                nsIntPoint offset,
+                                mozilla::gfx::IntRect* clipRects,
+                                uint32_t numClipRects) override;
 
 #if (MOZ_WIDGET_GTK == 2)
-    GdkColormap *mColormap;
+  GdkColormap* mColormap;
 #endif
 #endif
 };

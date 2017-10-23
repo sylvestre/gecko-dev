@@ -12,7 +12,7 @@
 // Public methods
 
 nsSMILValue::nsSMILValue(const nsISMILType* aType)
-  : mType(nsSMILNullType::Singleton())
+    : mType(nsSMILNullType::Singleton())
 {
   if (!aType) {
     NS_ERROR("Trying to construct nsSMILValue with null mType pointer");
@@ -23,7 +23,7 @@ nsSMILValue::nsSMILValue(const nsISMILType* aType)
 }
 
 nsSMILValue::nsSMILValue(const nsSMILValue& aVal)
-  : mType(nsSMILNullType::Singleton())
+    : mType(nsSMILNullType::Singleton())
 {
   InitAndCheckPostcondition(aVal.mType);
   mType->Assign(*this, aVal);
@@ -32,8 +32,7 @@ nsSMILValue::nsSMILValue(const nsSMILValue& aVal)
 const nsSMILValue&
 nsSMILValue::operator=(const nsSMILValue& aVal)
 {
-  if (&aVal == this)
-    return *this;
+  if (&aVal == this) return *this;
 
   if (mType != aVal.mType) {
     DestroyAndReinit(aVal.mType);
@@ -46,8 +45,8 @@ nsSMILValue::operator=(const nsSMILValue& aVal)
 
 // Move constructor / reassignment operator:
 nsSMILValue::nsSMILValue(nsSMILValue&& aVal)
-  : mU(aVal.mU), // Copying union is only OK because we clear aVal.mType below.
-    mType(aVal.mType)
+    : mU(aVal.mU),  // Copying union is only OK because we clear aVal.mType below.
+      mType(aVal.mType)
 {
   // Leave aVal with a null type, so that it's safely destructible (and won't
   // mess with anything referenced by its union, which we've copied).
@@ -76,8 +75,7 @@ nsSMILValue::operator=(nsSMILValue&& aVal)
 bool
 nsSMILValue::operator==(const nsSMILValue& aVal) const
 {
-  if (&aVal == this)
-    return true;
+  if (&aVal == this) return true;
 
   return mType == aVal.mType && mType->IsEqual(*this, aVal);
 }

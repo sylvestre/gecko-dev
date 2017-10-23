@@ -21,8 +21,7 @@ class GraphStoreInfo;
 typedef MDefinitionVector BlockStoreInfo;
 typedef Vector<BlockStoreInfo*, 50, JitAllocPolicy> GraphStoreVector;
 
-class FlowAliasAnalysis : public AliasAnalysisShared
-{
+class FlowAliasAnalysis : public AliasAnalysisShared {
     // Info on the graph.
     LoopInfo* loop_;
     GraphStoreInfo* stores_;
@@ -31,11 +30,11 @@ class FlowAliasAnalysis : public AliasAnalysisShared
     MDefinitionVector output_;
     MDefinitionVector worklist_;
 
-  public:
+   public:
     FlowAliasAnalysis(MIRGenerator* mir, MIRGraph& graph);
     MOZ_MUST_USE bool analyze() override;
 
-  protected:
+   protected:
     /* Process instructions. */
     MOZ_MUST_USE bool processStore(BlockStoreInfo& stores, MDefinition* store);
     MOZ_MUST_USE bool processLoad(BlockStoreInfo& stores, MDefinition* load);
@@ -62,10 +61,9 @@ class FlowAliasAnalysis : public AliasAnalysisShared
     MOZ_MUST_USE bool computeBlockStores(MBasicBlock* block);
     MOZ_MUST_USE bool isLoopInvariant(MDefinition* load, MDefinition* store, bool* loopinvariant);
     bool loopIsFinished(MBasicBlock* loopheader);
-
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_FlowAliasAnalysis_h */

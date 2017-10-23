@@ -15,12 +15,12 @@
 namespace mozilla {
 namespace a11y {
 
-class ApplicationAccessibleWrap: public ApplicationAccessible,
-                                 public IAccessibleApplication
+class ApplicationAccessibleWrap : public ApplicationAccessible,
+                                  public IAccessibleApplication
 {
   ~ApplicationAccessibleWrap() {}
 
-public:
+ public:
   // nsISupporst
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -32,21 +32,19 @@ public:
 
   // IAccessibleApplication
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_appName(
-            /* [retval][out] */ BSTR *name);
+      /* [retval][out] */ BSTR* name);
 
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_appVersion(
-      /* [retval][out] */ BSTR *version);
+      /* [retval][out] */ BSTR* version);
 
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_toolkitName(
-      /* [retval][out] */ BSTR *name);
+      /* [retval][out] */ BSTR* name);
 
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_toolkitVersion(
-          /* [retval][out] */ BSTR *version);
-
+      /* [retval][out] */ BSTR* version);
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

@@ -7,9 +7,7 @@
 
 #include "threading/CpuCount.h"
 
-uint32_t
-js::GetCPUCount()
-{
+uint32_t js::GetCPUCount() {
     static uint32_t ncpus = 0;
 
     if (ncpus == 0) {

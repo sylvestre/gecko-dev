@@ -19,12 +19,11 @@ NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(CSSPseudoElement, Release)
 
 CSSPseudoElement::CSSPseudoElement(Element* aElement,
                                    CSSPseudoElementType aType)
-  : mParentElement(aElement)
-  , mPseudoType(aType)
+    : mParentElement(aElement), mPseudoType(aType)
 {
   MOZ_ASSERT(aElement);
   MOZ_ASSERT(aType == CSSPseudoElementType::after ||
-             aType == CSSPseudoElementType::before,
+                 aType == CSSPseudoElementType::before,
              "Unexpected Pseudo Type");
 }
 
@@ -33,7 +32,7 @@ CSSPseudoElement::~CSSPseudoElement()
   // Element might have been unlinked already, so we have to do null check.
   if (mParentElement) {
     mParentElement->DeleteProperty(
-      GetCSSPseudoElementPropertyAtom(mPseudoType));
+        GetCSSPseudoElementPropertyAtom(mPseudoType));
   }
 }
 
@@ -84,7 +83,7 @@ CSSPseudoElement::GetCSSPseudoElement(Element* aElement,
 
   nsAtom* propName = CSSPseudoElement::GetCSSPseudoElementPropertyAtom(aType);
   RefPtr<CSSPseudoElement> pseudo =
-    static_cast<CSSPseudoElement*>(aElement->GetProperty(propName));
+      static_cast<CSSPseudoElement*>(aElement->GetProperty(propName));
   if (pseudo) {
     return pseudo.forget();
   }
@@ -113,11 +112,12 @@ CSSPseudoElement::GetCSSPseudoElementPropertyAtom(CSSPseudoElementType aType)
       return nsGkAtoms::cssPseudoElementAfterProperty;
 
     default:
-      NS_NOTREACHED("Should not try to get CSSPseudoElement "
-                    "other than ::before or ::after");
+      NS_NOTREACHED(
+          "Should not try to get CSSPseudoElement "
+          "other than ::before or ::after");
       return nullptr;
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

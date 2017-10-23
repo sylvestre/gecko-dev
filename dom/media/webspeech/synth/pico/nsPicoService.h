@@ -27,13 +27,12 @@ typedef void* pico_System;
 typedef void* pico_Resource;
 typedef void* pico_Engine;
 
-class nsPicoService : public nsIObserver,
-                      public nsISpeechService
+class nsPicoService : public nsIObserver, public nsISpeechService
 {
   friend class PicoCallbackRunnable;
   friend class PicoInitRunnable;
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISPEECHSERVICE
   NS_DECL_NSIOBSERVER
@@ -46,8 +45,7 @@ public:
 
   static void Shutdown();
 
-private:
-
+ private:
   virtual ~nsPicoService();
 
   void Init();
@@ -87,7 +85,7 @@ private:
   static StaticRefPtr<nsPicoService> sSingleton;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

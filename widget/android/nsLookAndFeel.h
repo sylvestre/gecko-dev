@@ -10,28 +10,30 @@
 
 class nsLookAndFeel final : public nsXPLookAndFeel
 {
-public:
-    nsLookAndFeel();
-    virtual ~nsLookAndFeel();
+ public:
+  nsLookAndFeel();
+  virtual ~nsLookAndFeel();
 
-    virtual nsresult NativeGetColor(ColorID aID, nscolor &aResult);
-    virtual void NativeInit() final {};
-    virtual nsresult GetIntImpl(IntID aID, int32_t &aResult);
-    virtual nsresult GetFloatImpl(FloatID aID, float &aResult);
-    virtual bool GetFontImpl(FontID aID, nsString& aName, gfxFontStyle& aStyle,
-                             float aDevPixPerCSSPixel);
-    virtual bool GetEchoPasswordImpl();
-    virtual uint32_t GetPasswordMaskDelayImpl();
-    virtual char16_t GetPasswordCharacterImpl();
+  virtual nsresult NativeGetColor(ColorID aID, nscolor& aResult);
+  virtual void NativeInit() final{};
+  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
+  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
+  virtual bool GetFontImpl(FontID aID,
+                           nsString& aName,
+                           gfxFontStyle& aStyle,
+                           float aDevPixPerCSSPixel);
+  virtual bool GetEchoPasswordImpl();
+  virtual uint32_t GetPasswordMaskDelayImpl();
+  virtual char16_t GetPasswordCharacterImpl();
 
-protected:
-    static bool mInitializedSystemColors;
-    static mozilla::AndroidSystemColors mSystemColors;
-    static bool mInitializedShowPassword;
-    static bool mShowPassword;
+ protected:
+  static bool mInitializedSystemColors;
+  static mozilla::AndroidSystemColors mSystemColors;
+  static bool mInitializedShowPassword;
+  static bool mShowPassword;
 
-    nsresult GetSystemColors();
-    nsresult CallRemoteGetSystemColors();
+  nsresult GetSystemColors();
+  nsresult CallRemoteGetSystemColors();
 };
 
 #endif

@@ -18,7 +18,7 @@ class TestPaintThreadParent;
 // Analagous to LayerTransactionParent.
 class TestOffMainThreadPaintingParent final : public PTestLayoutThreadParent
 {
-public:
+ public:
   static bool RunTestInThreads() { return false; }
   static bool RunTestInProcesses() { return true; }
 
@@ -35,7 +35,7 @@ public:
 
   void NotifyFinishedPaint(const uint64_t& aTxnId);
 
-private:
+ private:
   RefPtr<TestPaintThreadParent> mPaintActor;
   Maybe<uint64_t> mCompletedTxn;
   Maybe<uint64_t> mPaintedTxn;
@@ -46,18 +46,19 @@ private:
 // Analagous to LayerTransactionChild.
 class TestOffMainThreadPaintingChild final : public PTestLayoutThreadChild
 {
-public:
+ public:
   TestOffMainThreadPaintingChild();
   ~TestOffMainThreadPaintingChild() override;
 
-  ipc::IPCResult RecvStartTest(ipc::Endpoint<PTestPaintThreadChild>&& aEndpoint) override;
+  ipc::IPCResult RecvStartTest(
+      ipc::Endpoint<PTestPaintThreadChild>&& aEndpoint) override;
   void ActorDestroy(ActorDestroyReason aWhy) override;
   void ProcessingError(Result aCode, const char* aReason) override;
 
-private:
+ private:
   void IssueTransaction();
 
-private:
+ private:
   UniquePtr<base::Thread> mPaintThread;
   RefPtr<TestPaintThreadChild> mPaintActor;
   uint64_t mNextTxnId;
@@ -69,7 +70,7 @@ private:
 
 class TestPaintThreadParent final : public PTestPaintThreadParent
 {
-public:
+ public:
   explicit TestPaintThreadParent(TestOffMainThreadPaintingParent* aMainBridge);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(TestPaintThreadParent);
@@ -79,16 +80,16 @@ public:
   void ActorDestroy(ActorDestroyReason aWhy) override;
   void DeallocPTestPaintThreadParent() override;
 
-private:
+ private:
   ~TestPaintThreadParent() override;
 
-private:
+ private:
   TestOffMainThreadPaintingParent* mMainBridge;
 };
 
 class TestPaintThreadChild final : public PTestPaintThreadChild
 {
-public:
+ public:
   explicit TestPaintThreadChild(MessageChannel* aOtherChannel);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(TestPaintThreadChild);
@@ -99,14 +100,14 @@ public:
   void DeallocPTestPaintThreadChild() override;
   void Close();
 
-private:
+ private:
   ~TestPaintThreadChild() override;
 
   bool mCanSend;
   MessageChannel* mMainChannel;
 };
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla
 
-#endif // ifndef mozilla__ipdltest_TestOffMainThreadPainting_h
+#endif  // ifndef mozilla__ipdltest_TestOffMainThreadPainting_h

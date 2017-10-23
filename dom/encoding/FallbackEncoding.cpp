@@ -35,11 +35,9 @@ NS_IMPL_ISUPPORTS(FallbackEncoding, nsIObserver)
 FallbackEncoding* FallbackEncoding::sInstance = nullptr;
 bool FallbackEncoding::sGuessFallbackFromTopLevelDomain = true;
 
-FallbackEncoding::FallbackEncoding()
-  : mFallback(nullptr)
+FallbackEncoding::FallbackEncoding() : mFallback(nullptr)
 {
-  MOZ_ASSERT(!FallbackEncoding::sInstance,
-             "Singleton already exists.");
+  MOZ_ASSERT(!FallbackEncoding::sInstance, "Singleton already exists.");
 }
 
 NotNull<const Encoding*>
@@ -70,15 +68,13 @@ FallbackEncoding::Get()
 
   // Let's lower case the string just in case unofficial language packs
   // don't stick to conventions.
-  ToLowerCase(locale); // ASCII lowercasing with CString input!
+  ToLowerCase(locale);  // ASCII lowercasing with CString input!
 
   // Special case Traditional Chinese before throwing away stuff after the
   // language itself. Today we only ship zh-TW, but be defensive about
   // possible future values.
-  if (locale.EqualsLiteral("zh-tw") ||
-      locale.EqualsLiteral("zh-hk") ||
-      locale.EqualsLiteral("zh-mo") ||
-      locale.EqualsLiteral("zh-hant")) {
+  if (locale.EqualsLiteral("zh-tw") || locale.EqualsLiteral("zh-hk") ||
+      locale.EqualsLiteral("zh-mo") || locale.EqualsLiteral("zh-hant")) {
     mFallback = BIG5_ENCODING;
     return WrapNotNull(mFallback);
   }
@@ -92,7 +88,7 @@ FallbackEncoding::Get()
 
   nsAutoCString fallback;
   if (NS_FAILED(nsUConvPropertySearch::SearchPropertyValue(
-      localesFallbacks, ArrayLength(localesFallbacks), locale, fallback))) {
+          localesFallbacks, ArrayLength(localesFallbacks), locale, fallback))) {
     mFallback = WINDOWS_1252_ENCODING;
   } else {
     mFallback = Encoding::ForName(fallback);
@@ -119,8 +115,9 @@ FallbackEncoding::PrefChanged(const char*, void*)
 }
 
 NS_IMETHODIMP
-FallbackEncoding::Observe(nsISupports *aSubject, const char *aTopic,
-                         const char16_t *aData)
+FallbackEncoding::Observe(nsISupports* aSubject,
+                          const char* aTopic,
+                          const char16_t* aData)
 {
   MOZ_ASSERT(FallbackEncoding::sInstance,
              "Observe callback called with null fallback cache.");
@@ -134,9 +131,8 @@ FallbackEncoding::Initialize()
   MOZ_ASSERT(!FallbackEncoding::sInstance,
              "Initializing pre-existing fallback cache.");
   FallbackEncoding::sInstance = new FallbackEncoding;
-  Preferences::RegisterCallback(FallbackEncoding::PrefChanged,
-                                "intl.charset.fallback.override",
-                                nullptr);
+  Preferences::RegisterCallback(
+      FallbackEncoding::PrefChanged, "intl.charset.fallback.override", nullptr);
   Preferences::AddBoolVarCache(&sGuessFallbackFromTopLevelDomain,
                                "intl.charset.fallback.tld");
 
@@ -175,11 +171,11 @@ FallbackEncoding::FromTopLevelDomain(const nsACString& aTLD)
 {
   nsAutoCString fallback;
   if (NS_FAILED(nsUConvPropertySearch::SearchPropertyValue(
-      domainsFallbacks, ArrayLength(domainsFallbacks), aTLD, fallback))) {
+          domainsFallbacks, ArrayLength(domainsFallbacks), aTLD, fallback))) {
     return WINDOWS_1252_ENCODING;
   }
   return Encoding::ForName(fallback);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

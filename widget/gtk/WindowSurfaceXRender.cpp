@@ -17,9 +17,9 @@ WindowSurfaceXRender::WindowSurfaceXRender(Display* aDisplay,
                                            Window aWindow,
                                            Visual* aVisual,
                                            unsigned int aDepth)
-  : WindowSurfaceX11(aDisplay, aWindow, aVisual, aDepth)
-  , mXlibSurface(nullptr)
-  , mGC(X11None)
+    : WindowSurfaceX11(aDisplay, aWindow, aVisual, aDepth),
+      mXlibSurface(nullptr),
+      mGC(X11None)
 {
 }
 
@@ -37,16 +37,15 @@ WindowSurfaceXRender::Lock(const LayoutDeviceIntRegion& aRegion)
   gfx::IntSize size(bounds.XMost(), bounds.YMost());
   if (!mXlibSurface || mXlibSurface->CairoStatus() ||
       !(size <= mXlibSurface->GetSize())) {
-    mXlibSurface = gfxXlibSurface::Create(DefaultScreenOfDisplay(mDisplay),
-                                          mVisual,
-                                          size,
-                                          mWindow);
+    mXlibSurface = gfxXlibSurface::Create(
+        DefaultScreenOfDisplay(mDisplay), mVisual, size, mWindow);
   }
   if (!mXlibSurface || mXlibSurface->CairoStatus()) {
     return nullptr;
   }
 
-  return gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(mXlibSurface, size);
+  return gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(mXlibSurface,
+                                                                size);
 }
 
 void
@@ -56,8 +55,11 @@ WindowSurfaceXRender::Commit(const LayoutDeviceIntRegion& aInvalidRegion)
   xrects.SetCapacity(aInvalidRegion.GetNumRects());
 
   for (auto iter = aInvalidRegion.RectIter(); !iter.Done(); iter.Next()) {
-    const LayoutDeviceIntRect &r = iter.Get();
-    XRectangle xrect = { (short)r.x, (short)r.y, (unsigned short)r.width, (unsigned short)r.height };
+    const LayoutDeviceIntRect& r = iter.Get();
+    XRectangle xrect = {(short)r.x,
+                        (short)r.y,
+                        (unsigned short)r.width,
+                        (unsigned short)r.height};
     xrects.AppendElement(xrect);
   }
 
@@ -69,14 +71,23 @@ WindowSurfaceXRender::Commit(const LayoutDeviceIntRegion& aInvalidRegion)
     }
   }
 
-  XSetClipRectangles(mDisplay, mGC, 0, 0, xrects.Elements(), xrects.Length(), YXBanded);
+  XSetClipRectangles(
+      mDisplay, mGC, 0, 0, xrects.Elements(), xrects.Length(), YXBanded);
 
   MOZ_ASSERT(mXlibSurface && mXlibSurface->CairoStatus() == 0,
              "Attempted to commit invalid surface!");
   gfx::IntRect bounds = aInvalidRegion.GetBounds().ToUnknownRect();
   gfx::IntSize size(bounds.XMost(), bounds.YMost());
-  XCopyArea(mDisplay, mXlibSurface->XDrawable(), mWindow, mGC, bounds.x, bounds.y,
-            size.width, size.height, bounds.x, bounds.y);
+  XCopyArea(mDisplay,
+            mXlibSurface->XDrawable(),
+            mWindow,
+            mGC,
+            bounds.x,
+            bounds.y,
+            size.width,
+            size.height,
+            bounds.x,
+            bounds.y);
 }
 
 }  // namespace widget

@@ -23,9 +23,7 @@
 
 using namespace mozilla;
 
-nsPresArena::nsPresArena()
-{
-}
+nsPresArena::nsPresArena() {}
 
 nsPresArena::~nsPresArena()
 {
@@ -52,7 +50,8 @@ nsPresArena::ClearArenaRefPtrWithoutDeregistering(void* aPtr,
     // or GeckoStyleContext. GeckoStyleContext is actually arena managed,
     // but ServoStyleContext isn't.
     case eArenaObjectID_GeckoStyleContext:
-      static_cast<ArenaRefPtr<nsStyleContext>*>(aPtr)->ClearWithoutDeregistering();
+      static_cast<ArenaRefPtr<nsStyleContext>*>(aPtr)
+          ->ClearWithoutDeregistering();
       return;
     default:
       MOZ_ASSERT(false, "unexpected ArenaObjectID value");
@@ -126,14 +125,16 @@ nsPresArena::Allocate(uint32_t aCode, size_t aSize)
         uintptr_t val = *reinterpret_cast<uintptr_t*>(p);
         if (val != mozPoisonValue()) {
           MOZ_ReportAssertionFailure(
-            nsPrintfCString("PresArena: poison overwritten; "
-                            "wanted %.16" PRIx64 " "
-                            "found %.16" PRIx64 " "
-                            "errors in bits %.16" PRIx64 " ",
-                            uint64_t(mozPoisonValue()),
-                            uint64_t(val),
-                            uint64_t(mozPoisonValue() ^ val)).get(),
-            __FILE__, __LINE__);
+              nsPrintfCString("PresArena: poison overwritten; "
+                              "wanted %.16" PRIx64 " "
+                              "found %.16" PRIx64 " "
+                              "errors in bits %.16" PRIx64 " ",
+                              uint64_t(mozPoisonValue()),
+                              uint64_t(val),
+                              uint64_t(mozPoisonValue() ^ val))
+                  .get(),
+              __FILE__,
+              __LINE__);
           MOZ_CRASH();
         }
       }
@@ -180,8 +181,7 @@ nsPresArena::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const
   size_t mallocSize = mPool.SizeOfExcludingThis(aSizes.mState.mMallocSizeOf);
 
   size_t totalSizeInFreeLists = 0;
-  for (const FreeList* entry = mFreeLists;
-       entry != ArrayEnd(mFreeLists);
+  for (const FreeList* entry = mFreeLists; entry != ArrayEnd(mFreeLists);
        ++entry) {
     mallocSize += entry->SizeOfExcludingThis(aSizes.mState.mMallocSizeOf);
 
@@ -193,10 +193,10 @@ nsPresArena::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const
     size_t totalSize = entry->mEntrySize * entry->mEntriesEverAllocated;
 
     switch (entry - mFreeLists) {
-#define FRAME_ID(classname, ...) \
-      case nsQueryFrame::classname##_id: \
-        aSizes.mArenaSizes.NS_ARENA_SIZES_FIELD(classname) += totalSize; \
-        break;
+#define FRAME_ID(classname, ...)                                     \
+  case nsQueryFrame::classname##_id:                                 \
+    aSizes.mArenaSizes.NS_ARENA_SIZES_FIELD(classname) += totalSize; \
+    break;
 #define ABSTRACT_FRAME_ID(...)
 #include "nsFrameIdList.h"
 #undef FRAME_ID
@@ -210,11 +210,11 @@ nsPresArena::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const
       case eArenaObjectID_GeckoStyleContext:
         aSizes.mArenaSizes.mStyleContexts += totalSize;
         break;
-#define STYLE_STRUCT(name_, cb_) \
-      case eArenaObjectID_nsStyle##name_: \
-        aSizes.mArenaSizes.mGeckoStyleSizes.NS_STYLE_SIZES_FIELD(name_) += \
-          totalSize; \
-        break;
+#define STYLE_STRUCT(name_, cb_)                                       \
+  case eArenaObjectID_nsStyle##name_:                                  \
+    aSizes.mArenaSizes.mGeckoStyleSizes.NS_STYLE_SIZES_FIELD(name_) += \
+        totalSize;                                                     \
+    break;
 #define STYLE_STRUCT_LIST_IGNORE_VARIABLES
 #include "nsStyleStructList.h"
 #undef STYLE_STRUCT

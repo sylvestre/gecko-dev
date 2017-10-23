@@ -26,13 +26,13 @@ namespace IPC {
 
 class SerializedLoadContext
 {
-public:
+ public:
   SerializedLoadContext()
-    : mIsNotNull(false)
-    , mIsPrivateBitValid(false)
-    , mIsContent(false)
-    , mUseRemoteTabs(false)
-    , mUseTrackingProtection(false)
+      : mIsNotNull(false),
+        mIsPrivateBitValid(false),
+        mIsContent(false),
+        mUseRemoteTabs(false),
+        mUseTrackingProtection(false)
   {
     Init(nullptr);
   }
@@ -76,7 +76,9 @@ struct ParamTraits<SerializedLoadContext>
     WriteParam(aMsg, suffix);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     nsAutoCString suffix;
     if (!ReadParam(aMsg, aIter, &aResult->mIsNotNull) ||
@@ -91,6 +93,6 @@ struct ParamTraits<SerializedLoadContext>
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // SerializedLoadContext_h
+#endif  // SerializedLoadContext_h

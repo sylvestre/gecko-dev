@@ -13,12 +13,13 @@
 
 namespace {
 
-using mozilla::detail::SnappyFrameUtils;
 using mozilla::NativeEndian;
+using mozilla::detail::SnappyFrameUtils;
 
-SnappyFrameUtils::ChunkType ReadChunkType(uint8_t aByte)
+SnappyFrameUtils::ChunkType
+ReadChunkType(uint8_t aByte)
 {
-  if (aByte == 0xff)  {
+  if (aByte == 0xff) {
     return SnappyFrameUtils::StreamIdentifier;
   } else if (aByte == 0x00) {
     return SnappyFrameUtils::CompressedData;
@@ -31,7 +32,8 @@ SnappyFrameUtils::ChunkType ReadChunkType(uint8_t aByte)
   return SnappyFrameUtils::Reserved;
 }
 
-void WriteChunkType(char* aDest, SnappyFrameUtils::ChunkType aType)
+void
+WriteChunkType(char* aDest, SnappyFrameUtils::ChunkType aType)
 {
   unsigned char* dest = reinterpret_cast<unsigned char*>(aDest);
   if (aType == SnappyFrameUtils::StreamIdentifier) {
@@ -47,14 +49,16 @@ void WriteChunkType(char* aDest, SnappyFrameUtils::ChunkType aType)
   }
 }
 
-void WriteUInt24(char* aBuf, uint32_t aVal)
+void
+WriteUInt24(char* aBuf, uint32_t aVal)
 {
   MOZ_ASSERT(!(aVal & 0xff000000));
   uint32_t tmp = NativeEndian::swapToLittleEndian(aVal);
   memcpy(aBuf, &tmp, 3);
 }
 
-uint32_t ReadUInt24(const char* aBuf)
+uint32_t
+ReadUInt24(const char* aBuf)
 {
   uint32_t val = 0;
   memcpy(&val, aBuf, 3);
@@ -62,12 +66,13 @@ uint32_t ReadUInt24(const char* aBuf)
 }
 
 // This mask is explicitly defined in the snappy framing_format.txt file.
-uint32_t MaskChecksum(uint32_t aValue)
+uint32_t
+MaskChecksum(uint32_t aValue)
 {
   return ((aValue >> 15) | (aValue << 17)) + 0xa282ead8;
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace detail {
@@ -76,7 +81,8 @@ using mozilla::LittleEndian;
 
 // static
 nsresult
-SnappyFrameUtils::WriteStreamIdentifier(char* aDest, size_t aDestLength,
+SnappyFrameUtils::WriteStreamIdentifier(char* aDest,
+                                        size_t aDestLength,
                                         size_t* aBytesWrittenOut)
 {
   if (NS_WARN_IF(aDestLength < (kHeaderLength + kStreamIdentifierDataLength))) {
@@ -103,8 +109,10 @@ SnappyFrameUtils::WriteStreamIdentifier(char* aDest, size_t aDestLength,
 
 // static
 nsresult
-SnappyFrameUtils::WriteCompressedData(char* aDest, size_t aDestLength,
-                                      const char* aData, size_t aDataLength,
+SnappyFrameUtils::WriteCompressedData(char* aDest,
+                                      size_t aDestLength,
+                                      const char* aData,
+                                      size_t aDataLength,
                                       size_t* aBytesWrittenOut)
 {
   *aBytesWrittenOut = 0;
@@ -123,8 +131,8 @@ SnappyFrameUtils::WriteCompressedData(char* aDest, size_t aDestLength,
   size_t lengthOffset = offset;
   offset += kChunkLengthLength;
 
-  uint32_t crc = ComputeCrc32c(~0, reinterpret_cast<const unsigned char*>(aData),
-                               aDataLength);
+  uint32_t crc = ComputeCrc32c(
+      ~0, reinterpret_cast<const unsigned char*>(aData), aDataLength);
   uint32_t maskedCrc = MaskChecksum(crc);
   LittleEndian::writeUint32(aDest + offset, maskedCrc);
   offset += kCRCLength;
@@ -143,8 +151,10 @@ SnappyFrameUtils::WriteCompressedData(char* aDest, size_t aDestLength,
 
 // static
 nsresult
-SnappyFrameUtils::ParseHeader(const char* aSource, size_t aSourceLength,
-                              ChunkType* aTypeOut, size_t* aDataLengthOut)
+SnappyFrameUtils::ParseHeader(const char* aSource,
+                              size_t aSourceLength,
+                              ChunkType* aTypeOut,
+                              size_t* aDataLengthOut)
 {
   if (NS_WARN_IF(aSourceLength < kHeaderLength)) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -158,19 +168,30 @@ SnappyFrameUtils::ParseHeader(const char* aSource, size_t aSourceLength,
 
 // static
 nsresult
-SnappyFrameUtils::ParseData(char* aDest, size_t aDestLength,
-                            ChunkType aType, const char* aData,
+SnappyFrameUtils::ParseData(char* aDest,
+                            size_t aDestLength,
+                            ChunkType aType,
+                            const char* aData,
                             size_t aDataLength,
-                            size_t* aBytesWrittenOut, size_t* aBytesReadOut)
+                            size_t* aBytesWrittenOut,
+                            size_t* aBytesReadOut)
 {
-  switch(aType) {
+  switch (aType) {
     case StreamIdentifier:
-      return ParseStreamIdentifier(aDest, aDestLength, aData, aDataLength,
-                                   aBytesWrittenOut, aBytesReadOut);
+      return ParseStreamIdentifier(aDest,
+                                   aDestLength,
+                                   aData,
+                                   aDataLength,
+                                   aBytesWrittenOut,
+                                   aBytesReadOut);
 
     case CompressedData:
-      return ParseCompressedData(aDest, aDestLength, aData, aDataLength,
-                                 aBytesWrittenOut, aBytesReadOut);
+      return ParseCompressedData(aDest,
+                                 aDestLength,
+                                 aData,
+                                 aDataLength,
+                                 aBytesWrittenOut,
+                                 aBytesReadOut);
 
     // TODO: support other snappy chunk types
     default:
@@ -181,20 +202,18 @@ SnappyFrameUtils::ParseData(char* aDest, size_t aDestLength,
 
 // static
 nsresult
-SnappyFrameUtils::ParseStreamIdentifier(char*, size_t,
-                                        const char* aData, size_t aDataLength,
+SnappyFrameUtils::ParseStreamIdentifier(char*,
+                                        size_t,
+                                        const char* aData,
+                                        size_t aDataLength,
                                         size_t* aBytesWrittenOut,
                                         size_t* aBytesReadOut)
 {
   *aBytesWrittenOut = 0;
   *aBytesReadOut = 0;
   if (NS_WARN_IF(aDataLength != kStreamIdentifierDataLength ||
-                 aData[0] != 0x73 ||
-                 aData[1] != 0x4e ||
-                 aData[2] != 0x61 ||
-                 aData[3] != 0x50 ||
-                 aData[4] != 0x70 ||
-                 aData[5] != 0x59)) {
+                 aData[0] != 0x73 || aData[1] != 0x4e || aData[2] != 0x61 ||
+                 aData[3] != 0x50 || aData[4] != 0x70 || aData[5] != 0x59)) {
     return NS_ERROR_CORRUPTED_CONTENT;
   }
   *aBytesReadOut = aDataLength;
@@ -203,8 +222,10 @@ SnappyFrameUtils::ParseStreamIdentifier(char*, size_t,
 
 // static
 nsresult
-SnappyFrameUtils::ParseCompressedData(char* aDest, size_t aDestLength,
-                                      const char* aData, size_t aDataLength,
+SnappyFrameUtils::ParseCompressedData(char* aDest,
+                                      size_t aDestLength,
+                                      const char* aData,
+                                      size_t aDataLength,
                                       size_t* aBytesWrittenOut,
                                       size_t* aBytesReadOut)
 {
@@ -216,9 +237,8 @@ SnappyFrameUtils::ParseCompressedData(char* aDest, size_t aDestLength,
   offset += kCRCLength;
 
   size_t uncompressedLength;
-  if (NS_WARN_IF(!snappy::GetUncompressedLength(aData + offset,
-                                                aDataLength - offset,
-                                                &uncompressedLength))) {
+  if (NS_WARN_IF(!snappy::GetUncompressedLength(
+          aData + offset, aDataLength - offset, &uncompressedLength))) {
     return NS_ERROR_CORRUPTED_CONTENT;
   }
 
@@ -226,13 +246,13 @@ SnappyFrameUtils::ParseCompressedData(char* aDest, size_t aDestLength,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  if (NS_WARN_IF(!snappy::RawUncompress(aData + offset, aDataLength - offset,
-                                        aDest))) {
+  if (NS_WARN_IF(!snappy::RawUncompress(
+          aData + offset, aDataLength - offset, aDest))) {
     return NS_ERROR_CORRUPTED_CONTENT;
   }
 
-  uint32_t crc = ComputeCrc32c(~0, reinterpret_cast<const unsigned char*>(aDest),
-                               uncompressedLength);
+  uint32_t crc = ComputeCrc32c(
+      ~0, reinterpret_cast<const unsigned char*>(aDest), uncompressedLength);
   uint32_t maskedCrc = MaskChecksum(crc);
   if (NS_WARN_IF(readCrc != maskedCrc)) {
     return NS_ERROR_CORRUPTED_CONTENT;
@@ -254,5 +274,5 @@ SnappyFrameUtils::MaxCompressedBufferLength(size_t aSourceLength)
   return neededLength;
 }
 
-} // namespace detail
-} // namespace mozilla
+}  // namespace detail
+}  // namespace mozilla

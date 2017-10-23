@@ -53,6 +53,6 @@ NoteIntentionalCrash(const char* aProcessType)
   fclose(processfd);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_IntentionalCrash_h
+#endif  // mozilla_IntentionalCrash_h

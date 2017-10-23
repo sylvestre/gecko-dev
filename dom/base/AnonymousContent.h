@@ -20,7 +20,7 @@ class UnrestrictedDoubleOrAnonymousKeyframeAnimationOptions;
 
 class AnonymousContent final
 {
-public:
+ public:
   // Ref counting and cycle collection
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(AnonymousContent)
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(AnonymousContent)
@@ -29,7 +29,9 @@ public:
   Element* GetContentNode();
   Element* GetElementById(const nsAString& aElementId);
   void SetContentNode(Element* aContentNode);
-  bool WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto, JS::MutableHandle<JSObject*> aReflector);
+  bool WrapObject(JSContext* aCx,
+                  JS::Handle<JSObject*> aGivenProto,
+                  JS::MutableHandle<JSObject*> aReflector);
 
   // WebIDL methods
   void SetTextContentForElement(const nsAString& aElementId,
@@ -59,11 +61,12 @@ public:
                                                  const nsAString& aContextId,
                                                  ErrorResult& aRv);
 
-  already_AddRefed<Animation> SetAnimationForElement(JSContext* aContext,
-                                                     const nsAString& aElementId,
-                                                     JS::Handle<JSObject*> aKeyframes,
-                                                     const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
-                                                     ErrorResult& aError);
+  already_AddRefed<Animation> SetAnimationForElement(
+      JSContext* aContext,
+      const nsAString& aElementId,
+      JS::Handle<JSObject*> aKeyframes,
+      const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
+      ErrorResult& aError);
 
   void SetCutoutRectsForElement(const nsAString& aElementId,
                                 const Sequence<OwningNonNull<DOMRect>>& aRects,
@@ -74,12 +77,12 @@ public:
                                      DOMString& aResult,
                                      ErrorResult& aRv);
 
-private:
+ private:
   ~AnonymousContent();
   nsCOMPtr<Element> mContentNode;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_AnonymousContent_h
+#endif  // mozilla_dom_AnonymousContent_h

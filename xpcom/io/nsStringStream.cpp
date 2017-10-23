@@ -32,14 +32,13 @@ using mozilla::Some;
 // nsIStringInputStream implementation
 //-----------------------------------------------------------------------------
 
-class nsStringInputStream final
-  : public nsIStringInputStream
-  , public nsISeekableStream
-  , public nsISupportsCString
-  , public nsIIPCSerializableInputStream
-  , public nsICloneableInputStream
+class nsStringInputStream final : public nsIStringInputStream,
+                                  public nsISeekableStream,
+                                  public nsISupportsCString,
+                                  public nsIIPCSerializableInputStream,
+                                  public nsICloneableInputStream
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINPUTSTREAM
   NS_DECL_NSISTRINGINPUTSTREAM
@@ -49,35 +48,18 @@ public:
   NS_DECL_NSIIPCSERIALIZABLEINPUTSTREAM
   NS_DECL_NSICLONEABLEINPUTSTREAM
 
-  nsStringInputStream()
-  {
-    Clear();
-  }
+  nsStringInputStream() { Clear(); }
 
-private:
-  ~nsStringInputStream()
-  {
-  }
+ private:
+  ~nsStringInputStream() {}
 
-  uint32_t Length() const
-  {
-    return mData.Length();
-  }
+  uint32_t Length() const { return mData.Length(); }
 
-  uint32_t LengthRemaining() const
-  {
-    return Length() - mOffset;
-  }
+  uint32_t LengthRemaining() const { return Length() - mOffset; }
 
-  void Clear()
-  {
-    mData.SetIsVoid(true);
-  }
+  void Clear() { mData.SetIsVoid(true); }
 
-  bool Closed()
-  {
-    return mData.IsVoid();
-  }
+  bool Closed() { return mData.IsVoid(); }
 
   nsDependentCSubstring mData;
   uint32_t mOffset;
@@ -88,7 +70,9 @@ private:
 NS_IMPL_ADDREF(nsStringInputStream)
 NS_IMPL_RELEASE(nsStringInputStream)
 
-NS_IMPL_CLASSINFO(nsStringInputStream, nullptr, nsIClassInfo::THREADSAFE,
+NS_IMPL_CLASSINFO(nsStringInputStream,
+                  nullptr,
+                  nsIClassInfo::THREADSAFE,
                   NS_STRINGINPUTSTREAM_CID)
 NS_IMPL_QUERY_INTERFACE_CI(nsStringInputStream,
                            nsIStringInputStream,
@@ -233,8 +217,10 @@ nsStringInputStream::Read(char* aBuf, uint32_t aCount, uint32_t* aReadCount)
 }
 
 NS_IMETHODIMP
-nsStringInputStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                                  uint32_t aCount, uint32_t* aResult)
+nsStringInputStream::ReadSegments(nsWriteSegmentFun aWriter,
+                                  void* aClosure,
+                                  uint32_t aCount,
+                                  uint32_t* aResult)
 {
   NS_ASSERTION(aResult, "null ptr");
   NS_ASSERTION(Length() >= mOffset, "bad stream state");
@@ -253,8 +239,8 @@ nsStringInputStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
   if (aCount > maxCount) {
     aCount = maxCount;
   }
-  nsresult rv = aWriter(this, aClosure, mData.BeginReading() + mOffset, 0,
-                        aCount, aResult);
+  nsresult rv = aWriter(
+      this, aClosure, mData.BeginReading() + mOffset, 0, aCount, aResult);
   if (NS_SUCCEEDED(rv)) {
     NS_ASSERTION(*aResult <= aCount,
                  "writer should not write more than we asked it to write");
@@ -352,8 +338,7 @@ nsStringInputStream::Deserialize(const InputStreamParams& aParams,
     return false;
   }
 
-  const StringInputStreamParams& params =
-    aParams.get_StringInputStreamParams();
+  const StringInputStreamParams& params = aParams.get_StringInputStreamParams();
 
   if (NS_FAILED(SetData(params.data()))) {
     NS_WARNING("SetData failed!");
@@ -398,7 +383,8 @@ nsStringInputStream::Clone(nsIInputStream** aCloneOut)
 
 nsresult
 NS_NewByteInputStream(nsIInputStream** aStreamResult,
-                      const char* aStringToRead, int32_t aLength,
+                      const char* aStringToRead,
+                      int32_t aLength,
                       nsAssignmentType aAssignment)
 {
   NS_PRECONDITION(aStreamResult, "null out ptr");
@@ -448,7 +434,8 @@ NS_NewCStringInputStream(nsIInputStream** aStreamResult,
 
 // factory method for constructing a nsStringInputStream object
 nsresult
-nsStringInputStreamConstructor(nsISupports* aOuter, REFNSIID aIID,
+nsStringInputStreamConstructor(nsISupports* aOuter,
+                               REFNSIID aIID,
                                void** aResult)
 {
   *aResult = nullptr;

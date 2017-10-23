@@ -16,7 +16,7 @@ namespace ipc {
 
 class ScopedXREEmbed
 {
-public:
+ public:
   ScopedXREEmbed();
   ~ScopedXREEmbed();
 
@@ -24,7 +24,7 @@ public:
   void Stop();
   void SetAppDir(const nsACString& aPath);
 
-private:
+ private:
   bool mShouldKillEmbedding;
   nsCOMPtr<nsIFile> mAppDir;
 };

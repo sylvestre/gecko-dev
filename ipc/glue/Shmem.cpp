@@ -11,33 +11,34 @@
 
 #include "mozilla/Unused.h"
 
-
 namespace mozilla {
 namespace ipc {
 
 class ShmemCreated : public IPC::Message
 {
-private:
+ private:
   typedef Shmem::id_t id_t;
 
-public:
+ public:
   ShmemCreated(int32_t routingId,
                id_t aIPDLId,
                size_t aSize,
-               SharedMemory::SharedMemoryType aType) :
-    IPC::Message(routingId, SHMEM_CREATED_MESSAGE_TYPE, 0,
-                 HeaderFlags(NESTED_INSIDE_CPOW))
+               SharedMemory::SharedMemoryType aType)
+      : IPC::Message(routingId,
+                     SHMEM_CREATED_MESSAGE_TYPE,
+                     0,
+                     HeaderFlags(NESTED_INSIDE_CPOW))
   {
     IPC::WriteParam(this, aIPDLId);
     IPC::WriteParam(this, aSize);
     IPC::WriteParam(this, int32_t(aType));
   }
 
-  static bool
-  ReadInfo(const Message* msg, PickleIterator* iter,
-           id_t* aIPDLId,
-           size_t* aSize,
-           SharedMemory::SharedMemoryType* aType)
+  static bool ReadInfo(const Message* msg,
+                       PickleIterator* iter,
+                       id_t* aIPDLId,
+                       size_t* aSize,
+                       SharedMemory::SharedMemoryType* aType)
   {
     if (!IPC::ReadParam(msg, iter, aIPDLId) ||
         !IPC::ReadParam(msg, iter, aSize) ||
@@ -46,8 +47,7 @@ public:
     return true;
   }
 
-  void Log(const std::string& aPrefix,
-           FILE* aOutf) const
+  void Log(const std::string& aPrefix, FILE* aOutf) const
   {
     fputs("(special ShmemCreated msg)", aOutf);
   }
@@ -55,13 +55,12 @@ public:
 
 class ShmemDestroyed : public IPC::Message
 {
-private:
+ private:
   typedef Shmem::id_t id_t;
 
-public:
-  ShmemDestroyed(int32_t routingId,
-                 id_t aIPDLId) :
-    IPC::Message(routingId, SHMEM_DESTROYED_MESSAGE_TYPE)
+ public:
+  ShmemDestroyed(int32_t routingId, id_t aIPDLId)
+      : IPC::Message(routingId, SHMEM_DESTROYED_MESSAGE_TYPE)
   {
     IPC::WriteParam(this, aIPDLId);
   }
@@ -79,7 +78,9 @@ NewSegment(SharedMemory::SharedMemoryType aType)
 }
 
 static already_AddRefed<SharedMemory>
-CreateSegment(SharedMemory::SharedMemoryType aType, size_t aNBytes, size_t aExtraSize)
+CreateSegment(SharedMemory::SharedMemoryType aType,
+              size_t aNBytes,
+              size_t aExtraSize)
 {
   RefPtr<SharedMemory> segment = NewSegment(aType);
   if (!segment) {
@@ -93,7 +94,10 @@ CreateSegment(SharedMemory::SharedMemoryType aType, size_t aNBytes, size_t aExtr
 }
 
 static already_AddRefed<SharedMemory>
-ReadSegment(const IPC::Message& aDescriptor, Shmem::id_t* aId, size_t* aNBytes, size_t aExtraSize)
+ReadSegment(const IPC::Message& aDescriptor,
+            Shmem::id_t* aId,
+            size_t* aNBytes,
+            size_t aExtraSize)
 {
   if (SHMEM_CREATED_MESSAGE_TYPE != aDescriptor.type()) {
     NS_ERROR("expected 'shmem created' message");
@@ -131,7 +135,6 @@ DestroySegment(SharedMemory* aSegment)
   }
 }
 
-
 #if defined(DEBUG)
 
 static const char sMagic[] =
@@ -141,8 +144,8 @@ static const char sMagic[] =
     "This little piggy had none.\n"
     "And this little piggy cried \"Wee! Wee! Wee!\" all the way home";
 
-
-struct Header {
+struct Header
+{
   // Don't use size_t or bool here because their size depends on the
   // architecture.
   uint32_t mSize;
@@ -248,10 +251,9 @@ Unprotect(SharedMemory* aSegment)
 //
 
 Shmem::Shmem(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
-             SharedMemory* aSegment, id_t aId) :
-    mSegment(aSegment),
-    mData(nullptr),
-    mSize(0)
+             SharedMemory* aSegment,
+             id_t aId)
+    : mSegment(aSegment), mData(nullptr), mSize(0)
 {
   MOZ_ASSERT(mSegment, "null segment");
   MOZ_ASSERT(aId != 0, "invalid ID");
@@ -299,8 +301,7 @@ Shmem::AssertInvariants() const
   Unused << checkMappingBack;
 }
 
-void
-Shmem::RevokeRights(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead)
+void Shmem::RevokeRights(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead)
 {
   AssertInvariants();
 
@@ -330,15 +331,15 @@ Shmem::Alloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
 
   size_t pageSize = SharedMemory::SystemPageSize();
   // |2*pageSize| is for the front and back sentinel
-  RefPtr<SharedMemory> segment = CreateSegment(aType, aNBytes, 2*pageSize);
+  RefPtr<SharedMemory> segment = CreateSegment(aType, aNBytes, 2 * pageSize);
   if (!segment) {
     return nullptr;
   }
 
   Header* header;
-  char *frontSentinel;
-  char *data;
-  char *backSentinel;
+  char* frontSentinel;
+  char* data;
+  char* backSentinel;
   GetSections(segment, &header, &frontSentinel, &data, &backSentinel);
 
   // initialize the segment with Shmem-internal information
@@ -346,14 +347,12 @@ Shmem::Alloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
   // NB: this can't be a static assert because technically pageSize
   // isn't known at compile time, event though in practice it's always
   // going to be 4KiB
-  MOZ_ASSERT(sizeof(Header) <= pageSize,
-             "Shmem::Header has gotten too big");
+  MOZ_ASSERT(sizeof(Header) <= pageSize, "Shmem::Header has gotten too big");
   memcpy(header->mMagic, sMagic, sizeof(sMagic));
   header->mSize = static_cast<uint32_t>(aNBytes);
   header->mUnsafe = aUnsafe;
 
-  if (aProtect)
-    Protect(segment);
+  if (aProtect) Protect(segment);
 
   return segment.forget();
 }
@@ -368,7 +367,8 @@ Shmem::OpenExisting(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
   size_t size;
   size_t pageSize = SharedMemory::SystemPageSize();
   // |2*pageSize| is for the front and back sentinels
-  RefPtr<SharedMemory> segment = ReadSegment(aDescriptor, aId, &size, 2*pageSize);
+  RefPtr<SharedMemory> segment =
+      ReadSegment(aDescriptor, aId, &size, 2 * pageSize);
   if (!segment) {
     return nullptr;
   }
@@ -378,7 +378,8 @@ Shmem::OpenExisting(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
   if (size != header->mSize) {
     // Deallocation should zero out the header, so check for that.
     if (header->mSize || header->mUnsafe || header->mMagic[0] ||
-        memcmp(header->mMagic, &header->mMagic[1], sizeof(header->mMagic)-1)) {
+        memcmp(
+            header->mMagic, &header->mMagic[1], sizeof(header->mMagic) - 1)) {
       NS_ERROR("Wrong size for this Shmem!");
     } else {
       NS_WARNING("Shmem was deallocated");
@@ -388,8 +389,7 @@ Shmem::OpenExisting(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
 
   // The caller of this function may not know whether the segment is
   // unsafe or not
-  if (!header->mUnsafe && aProtect)
-    Protect(segment);
+  if (!header->mUnsafe && aProtect) Protect(segment);
 
   return segment.forget();
 }
@@ -399,24 +399,22 @@ void
 Shmem::Dealloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
                SharedMemory* aSegment)
 {
-  if (!aSegment)
-    return;
+  if (!aSegment) return;
 
   size_t pageSize = SharedMemory::SystemPageSize();
   Header* header;
-  char *frontSentinel;
-  char *data;
-  char *backSentinel;
+  char* frontSentinel;
+  char* data;
+  char* backSentinel;
   GetSections(aSegment, &header, &frontSentinel, &data, &backSentinel);
 
   aSegment->Protect(frontSentinel, pageSize, RightsWrite | RightsRead);
   memset(header->mMagic, 0, sizeof(sMagic));
   header->mSize = 0;
-  header->mUnsafe = false;          // make it "safe" so as to catch errors
+  header->mUnsafe = false;  // make it "safe" so as to catch errors
 
   DestroySegment(aSegment);
 }
-
 
 #else  // !defined(DEBUG)
 
@@ -428,7 +426,8 @@ Shmem::Alloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
              bool /*unused*/,
              bool /*unused*/)
 {
-  RefPtr<SharedMemory> segment = CreateSegment(aType, aNBytes, sizeof(uint32_t));
+  RefPtr<SharedMemory> segment =
+      CreateSegment(aType, aNBytes, sizeof(uint32_t));
   if (!segment) {
     return nullptr;
   }
@@ -446,7 +445,8 @@ Shmem::OpenExisting(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
                     bool /*unused*/)
 {
   size_t size;
-  RefPtr<SharedMemory> segment = ReadSegment(aDescriptor, aId, &size, sizeof(uint32_t));
+  RefPtr<SharedMemory> segment =
+      ReadSegment(aDescriptor, aId, &size, sizeof(uint32_t));
   if (!segment) {
     return nullptr;
   }
@@ -476,7 +476,7 @@ Shmem::ShareTo(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
 {
   AssertInvariants();
 
-  IPC::Message *msg = new ShmemCreated(routingId, mId, mSize, mSegment->Type());
+  IPC::Message* msg = new ShmemCreated(routingId, mId, mSize, mSegment->Type());
   if (!mSegment->ShareHandle(aTargetPid, msg)) {
     return nullptr;
   }
@@ -494,5 +494,5 @@ Shmem::UnshareFrom(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
   return new ShmemDestroyed(routingId, mId);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

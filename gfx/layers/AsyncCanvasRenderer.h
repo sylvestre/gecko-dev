@@ -8,9 +8,9 @@
 #define MOZILLA_LAYERS_ASYNCCANVASRENDERER_H_
 
 #include "LayersTypes.h"
-#include "mozilla/gfx/Point.h"          // for IntSize
+#include "mozilla/gfx/Point.h"  // for IntSize
 #include "mozilla/Mutex.h"
-#include "nsCOMPtr.h"                   // for nsCOMPtr
+#include "nsCOMPtr.h"  // for nsCOMPtr
 
 class nsICanvasRenderingContextInternal;
 class nsIInputStream;
@@ -55,7 +55,7 @@ class AsyncCanvasRenderer final
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AsyncCanvasRenderer)
 
-public:
+ public:
   AsyncCanvasRenderer();
 
   void NotifyElementAboutAttributesChanged();
@@ -63,15 +63,9 @@ public:
 
   void SetCanvasClient(CanvasClient* aClient);
 
-  void SetWidth(uint32_t aWidth)
-  {
-    mWidth = aWidth;
-  }
+  void SetWidth(uint32_t aWidth) { mWidth = aWidth; }
 
-  void SetHeight(uint32_t aHeight)
-  {
-    mHeight = aHeight;
-  }
+  void SetHeight(uint32_t aHeight) { mHeight = aHeight; }
 
   void SetIsAlphaPremultiplied(bool aIsAlphaPremultiplied)
   {
@@ -91,30 +85,23 @@ public:
   // we readback it to a texture client because SharedSurface_Basic cannot shared.
   // We don't want to readback it again here, so just copy the content of that
   // texture client here to avoid readback again.
-  void CopyFromTextureClient(TextureClient *aClient);
+  void CopyFromTextureClient(TextureClient* aClient);
 
   // Readback current WebGL's content and convert it to InputStream. This
   // function called GetSurface implicitly and GetSurface handles only get
   // called in the main thread. So this function can be called in main thread.
-  nsresult
-  GetInputStream(const char *aMimeType,
-                 const char16_t *aEncoderOptions,
-                 nsIInputStream **aStream);
+  nsresult GetInputStream(const char* aMimeType,
+                          const char16_t* aEncoderOptions,
+                          nsIInputStream** aStream);
 
-  gfx::IntSize GetSize() const
-  {
-    return gfx::IntSize(mWidth, mHeight);
-  }
+  gfx::IntSize GetSize() const { return gfx::IntSize(mWidth, mHeight); }
 
   CompositableHandle GetCanvasClientAsyncHandle() const
   {
     return mCanvasClientAsyncHandle;
   }
 
-  CanvasClient* GetCanvasClient() const
-  {
-    return mCanvasClient;
-  }
+  CanvasClient* GetCanvasClient() const { return mCanvasClient; }
 
   already_AddRefed<nsISerialEventTarget> GetActiveEventTarget();
 
@@ -129,8 +116,8 @@ public:
   // canvas' surface texture destructor will deref and destroy it too early
   // Only accessed in active thread.
   RefPtr<gl::GLContext> mGLContext;
-private:
 
+ private:
   virtual ~AsyncCanvasRenderer();
 
   // Readback current WebGL's content and return it as DataSourceSurface.
@@ -162,7 +149,7 @@ private:
   nsCOMPtr<nsISerialEventTarget> mActiveEventTarget;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // MOZILLA_LAYERS_ASYNCCANVASRENDERER_H_
+#endif  // MOZILLA_LAYERS_ASYNCCANVASRENDERER_H_

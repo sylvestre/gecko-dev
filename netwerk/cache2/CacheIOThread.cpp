@@ -24,11 +24,11 @@
 namespace mozilla {
 namespace net {
 
-namespace { // anon
+namespace {  // anon
 
 class CacheIOTelemetry
 {
-public:
+ public:
   typedef CacheIOThread::EventQueue::size_type size_type;
   static size_type mMinLengthToReport[CacheIOThread::LAST_LEVEL];
   static void Report(uint32_t aLevel, size_type aLength);
@@ -37,29 +37,34 @@ public:
 static CacheIOTelemetry::size_type const kGranularity = 30;
 
 CacheIOTelemetry::size_type
-CacheIOTelemetry::mMinLengthToReport[CacheIOThread::LAST_LEVEL] = {
-  kGranularity, kGranularity, kGranularity, kGranularity,
-  kGranularity, kGranularity, kGranularity, kGranularity
-};
+    CacheIOTelemetry::mMinLengthToReport[CacheIOThread::LAST_LEVEL] = {
+        kGranularity,
+        kGranularity,
+        kGranularity,
+        kGranularity,
+        kGranularity,
+        kGranularity,
+        kGranularity,
+        kGranularity};
 
 // static
-void CacheIOTelemetry::Report(uint32_t aLevel, CacheIOTelemetry::size_type aLength)
+void
+CacheIOTelemetry::Report(uint32_t aLevel, CacheIOTelemetry::size_type aLength)
 {
   if (mMinLengthToReport[aLevel] > aLength) {
     return;
   }
 
   static Telemetry::HistogramID telemetryID[] = {
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_OPEN_PRIORITY,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_READ_PRIORITY,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_MANAGEMENT,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_OPEN,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_READ,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_WRITE_PRIORITY,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_WRITE,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_INDEX,
-    Telemetry::HTTP_CACHE_IO_QUEUE_2_EVICT
-  };
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_OPEN_PRIORITY,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_READ_PRIORITY,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_MANAGEMENT,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_OPEN,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_READ,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_WRITE_PRIORITY,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_WRITE,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_INDEX,
+      Telemetry::HTTP_CACHE_IO_QUEUE_2_EVICT};
 
   // Each bucket is a multiply of kGranularity (30, 60, 90..., 300+)
   aLength = (aLength / kGranularity);
@@ -69,10 +74,10 @@ void CacheIOTelemetry::Report(uint32_t aLevel, CacheIOTelemetry::size_type aLeng
   // 10 is number of buckets we have in each probe
   aLength = std::min<size_type>(aLength, 10);
 
-  Telemetry::Accumulate(telemetryID[aLevel], aLength - 1); // counted from 0
+  Telemetry::Accumulate(telemetryID[aLevel], aLength - 1);  // counted from 0
 }
 
-} // anon
+}  // namespace
 
 namespace detail {
 
@@ -93,7 +98,7 @@ class BlockingIOWatcher
   HANDLE mEvent;
 #endif
 
-public:
+ public:
   // Created and destroyed on the main thread only
   BlockingIOWatcher();
   ~BlockingIOWatcher();
@@ -116,9 +121,7 @@ public:
 #ifdef XP_WIN
 
 BlockingIOWatcher::BlockingIOWatcher()
-  : mCancelSynchronousIo(NULL)
-  , mThread(NULL)
-  , mEvent(NULL)
+    : mCancelSynchronousIo(NULL), mThread(NULL), mEvent(NULL)
 {
   HMODULE kernel32_dll = GetModuleHandle("kernel32.dll");
   if (!kernel32_dll) {
@@ -145,20 +148,21 @@ BlockingIOWatcher::~BlockingIOWatcher()
   }
 }
 
-void BlockingIOWatcher::InitThread()
+void
+BlockingIOWatcher::InitThread()
 {
   // GetCurrentThread() only returns a pseudo handle, hence DuplicateHandle
-  ::DuplicateHandle(
-    GetCurrentProcess(),
-    GetCurrentThread(),
-    GetCurrentProcess(),
-    &mThread,
-    0,
-    FALSE,
-    DUPLICATE_SAME_ACCESS);
+  ::DuplicateHandle(GetCurrentProcess(),
+                    GetCurrentThread(),
+                    GetCurrentProcess(),
+                    &mThread,
+                    0,
+                    FALSE,
+                    DUPLICATE_SAME_ACCESS);
 }
 
-void BlockingIOWatcher::WatchAndCancel(Monitor& aMonitor)
+void
+BlockingIOWatcher::WatchAndCancel(Monitor& aMonitor)
 {
   if (!mEvent) {
     return;
@@ -184,7 +188,8 @@ void BlockingIOWatcher::WatchAndCancel(Monitor& aMonitor)
   // for an operation to finish.  When that times out and cancelation
   // succeeds, there will be no other IO operation permitted.  By default
   // this is two seconds.
-  uint32_t maxLag = std::min<uint32_t>(5, CacheObserver::MaxShutdownIOLag()) * 1000;
+  uint32_t maxLag =
+      std::min<uint32_t>(5, CacheObserver::MaxShutdownIOLag()) * 1000;
 
   DWORD result = ::WaitForSingleObject(mEvent, maxLag);
   if (result == WAIT_TIMEOUT) {
@@ -199,44 +204,55 @@ void BlockingIOWatcher::WatchAndCancel(Monitor& aMonitor)
   }
 }
 
-void BlockingIOWatcher::NotifyOperationDone()
+void
+BlockingIOWatcher::NotifyOperationDone()
 {
   if (mEvent) {
     ::SetEvent(mEvent);
   }
 }
 
-#else // WIN
+#else  // WIN
 
 // Stub code only (we don't implement IO cancelation for this platform)
 
-BlockingIOWatcher::BlockingIOWatcher() { }
-BlockingIOWatcher::~BlockingIOWatcher() { }
-void BlockingIOWatcher::InitThread() { }
-void BlockingIOWatcher::WatchAndCancel(Monitor&) { }
-void BlockingIOWatcher::NotifyOperationDone() { }
+BlockingIOWatcher::BlockingIOWatcher() {}
+BlockingIOWatcher::~BlockingIOWatcher() {}
+void
+BlockingIOWatcher::InitThread()
+{
+}
+void
+BlockingIOWatcher::WatchAndCancel(Monitor&)
+{
+}
+void
+BlockingIOWatcher::NotifyOperationDone()
+{
+}
 
 #endif
 
-} // detail
+}  // namespace detail
 
 CacheIOThread* CacheIOThread::sSelf = nullptr;
 
 NS_IMPL_ISUPPORTS(CacheIOThread, nsIThreadObserver)
 
 CacheIOThread::CacheIOThread()
-: mMonitor("CacheIOThread")
-, mThread(nullptr)
-, mXPCOMThread(nullptr)
-, mLowestLevelWaiting(LAST_LEVEL)
-, mCurrentlyExecutingLevel(0)
-, mHasXPCOMEvents(false)
-, mRerunCurrentEvent(false)
-, mShutdown(false)
-, mIOCancelableEvents(0)
-, mEventCounter(0)
+    : mMonitor("CacheIOThread"),
+      mThread(nullptr),
+      mXPCOMThread(nullptr),
+      mLowestLevelWaiting(LAST_LEVEL),
+      mCurrentlyExecutingLevel(0),
+      mHasXPCOMEvents(false),
+      mRerunCurrentEvent(false),
+      mShutdown(false),
+      mIOCancelableEvents(0),
+      mEventCounter(0)
 #ifdef DEBUG
-, mInsideLoop(true)
+      ,
+      mInsideLoop(true)
 #endif
 {
   for (uint32_t i = 0; i < LAST_LEVEL; ++i) {
@@ -249,7 +265,7 @@ CacheIOThread::CacheIOThread()
 CacheIOThread::~CacheIOThread()
 {
   if (mXPCOMThread) {
-    nsIThread *thread = mXPCOMThread;
+    nsIThread* thread = mXPCOMThread;
     thread->Release();
   }
 
@@ -261,7 +277,8 @@ CacheIOThread::~CacheIOThread()
 #endif
 }
 
-nsresult CacheIOThread::Init()
+nsresult
+CacheIOThread::Init()
 {
   {
     MonitorAutoLock lock(mMonitor);
@@ -270,9 +287,13 @@ nsresult CacheIOThread::Init()
     mBlockingIOWatcher = MakeUnique<detail::BlockingIOWatcher>();
   }
 
-  mThread = PR_CreateThread(PR_USER_THREAD, ThreadFunc, this,
-                            PR_PRIORITY_NORMAL, PR_GLOBAL_THREAD,
-                            PR_JOINABLE_THREAD, 128 * 1024);
+  mThread = PR_CreateThread(PR_USER_THREAD,
+                            ThreadFunc,
+                            this,
+                            PR_PRIORITY_NORMAL,
+                            PR_GLOBAL_THREAD,
+                            PR_JOINABLE_THREAD,
+                            128 * 1024);
   if (!mThread) {
     return NS_ERROR_FAILURE;
   }
@@ -280,13 +301,15 @@ nsresult CacheIOThread::Init()
   return NS_OK;
 }
 
-nsresult CacheIOThread::Dispatch(nsIRunnable* aRunnable, uint32_t aLevel)
+nsresult
+CacheIOThread::Dispatch(nsIRunnable* aRunnable, uint32_t aLevel)
 {
   return Dispatch(do_AddRef(aRunnable), aLevel);
 }
 
-nsresult CacheIOThread::Dispatch(already_AddRefed<nsIRunnable> aRunnable,
-				 uint32_t aLevel)
+nsresult
+CacheIOThread::Dispatch(already_AddRefed<nsIRunnable> aRunnable,
+                        uint32_t aLevel)
 {
   NS_ENSURE_ARG(aLevel < LAST_LEVEL);
 
@@ -303,7 +326,8 @@ nsresult CacheIOThread::Dispatch(already_AddRefed<nsIRunnable> aRunnable,
   return DispatchInternal(runnable.forget(), aLevel);
 }
 
-nsresult CacheIOThread::DispatchAfterPendingOpens(nsIRunnable* aRunnable)
+nsresult
+CacheIOThread::DispatchAfterPendingOpens(nsIRunnable* aRunnable)
 {
   // Runnable is always expected to be non-null, hard null-check bellow.
   MOZ_ASSERT(aRunnable);
@@ -323,38 +347,39 @@ nsresult CacheIOThread::DispatchAfterPendingOpens(nsIRunnable* aRunnable)
   return DispatchInternal(do_AddRef(aRunnable), OPEN_PRIORITY);
 }
 
-nsresult CacheIOThread::DispatchInternal(already_AddRefed<nsIRunnable> aRunnable,
-					 uint32_t aLevel)
+nsresult
+CacheIOThread::DispatchInternal(already_AddRefed<nsIRunnable> aRunnable,
+                                uint32_t aLevel)
 {
   nsCOMPtr<nsIRunnable> runnable(aRunnable);
 #ifdef MOZ_TASK_TRACER
   if (tasktracer::IsStartLogging()) {
-      runnable = tasktracer::CreateTracedRunnable(runnable.forget());
-      (static_cast<tasktracer::TracedRunnable*>(runnable.get()))->DispatchTask();
+    runnable = tasktracer::CreateTracedRunnable(runnable.forget());
+    (static_cast<tasktracer::TracedRunnable*>(runnable.get()))->DispatchTask();
   }
 #endif
 
-  if (NS_WARN_IF(!runnable))
-    return NS_ERROR_NULL_POINTER;
+  if (NS_WARN_IF(!runnable)) return NS_ERROR_NULL_POINTER;
 
   mMonitor.AssertCurrentThreadOwns();
 
   ++mQueueLength[aLevel];
   mEventQueue[aLevel].AppendElement(runnable.forget());
-  if (mLowestLevelWaiting > aLevel)
-    mLowestLevelWaiting = aLevel;
+  if (mLowestLevelWaiting > aLevel) mLowestLevelWaiting = aLevel;
 
   mMonitor.NotifyAll();
 
   return NS_OK;
 }
 
-bool CacheIOThread::IsCurrentThread()
+bool
+CacheIOThread::IsCurrentThread()
 {
   return mThread == PR_GetCurrentThread();
 }
 
-uint32_t CacheIOThread::QueueSize(bool highPriority)
+uint32_t
+CacheIOThread::QueueSize(bool highPriority)
 {
   MonitorAutoLock lock(mMonitor);
   if (highPriority) {
@@ -365,11 +390,13 @@ uint32_t CacheIOThread::QueueSize(bool highPriority)
          mQueueLength[MANAGEMENT] + mQueueLength[OPEN] + mQueueLength[READ];
 }
 
-bool CacheIOThread::YieldInternal()
+bool
+CacheIOThread::YieldInternal()
 {
   if (!IsCurrentThread()) {
-    NS_WARNING("Trying to yield to priority events on non-cache2 I/O thread? "
-               "You probably do something wrong.");
+    NS_WARNING(
+        "Trying to yield to priority events on non-cache2 I/O thread? "
+        "You probably do something wrong.");
     return false;
   }
 
@@ -379,14 +406,14 @@ bool CacheIOThread::YieldInternal()
     return false;
   }
 
-  if (!EventsPending(mCurrentlyExecutingLevel))
-    return false;
+  if (!EventsPending(mCurrentlyExecutingLevel)) return false;
 
   mRerunCurrentEvent = true;
   return true;
 }
 
-void CacheIOThread::Shutdown()
+void
+CacheIOThread::Shutdown()
 {
   if (!mThread) {
     return;
@@ -402,7 +429,8 @@ void CacheIOThread::Shutdown()
   mThread = nullptr;
 }
 
-void CacheIOThread::CancelBlockingIO()
+void
+CacheIOThread::CancelBlockingIO()
 {
   // This is an attempt to cancel any blocking I/O operation taking
   // too long time.
@@ -420,13 +448,13 @@ void CacheIOThread::CancelBlockingIO()
   mBlockingIOWatcher->WatchAndCancel(mMonitor);
 }
 
-already_AddRefed<nsIEventTarget> CacheIOThread::Target()
+already_AddRefed<nsIEventTarget>
+CacheIOThread::Target()
 {
   nsCOMPtr<nsIEventTarget> target;
 
   target = mXPCOMThread;
-  if (!target && mThread)
-  {
+  if (!target && mThread) {
     MonitorAutoLock lock(mMonitor);
     while (!mXPCOMThread) {
       lock.Wait();
@@ -439,7 +467,8 @@ already_AddRefed<nsIEventTarget> CacheIOThread::Target()
 }
 
 // static
-void CacheIOThread::ThreadFunc(void* aClosure)
+void
+CacheIOThread::ThreadFunc(void* aClosure)
 {
   // XXXmstange We'd like to register this thread with the profiler, but doing
   // so causes leaks, see bug 1323100.
@@ -451,7 +480,8 @@ void CacheIOThread::ThreadFunc(void* aClosure)
   mozilla::IOInterposer::UnregisterCurrentThread();
 }
 
-void CacheIOThread::ThreadFunc()
+void
+CacheIOThread::ThreadFunc()
 {
   nsCOMPtr<nsIThreadInternal> threadInternal;
 
@@ -465,15 +495,14 @@ void CacheIOThread::ThreadFunc()
     nsCOMPtr<nsIThread> xpcomThread = NS_GetCurrentThread();
 
     threadInternal = do_QueryInterface(xpcomThread);
-    if (threadInternal)
-      threadInternal->SetObserver(this);
+    if (threadInternal) threadInternal->SetObserver(this);
 
     mXPCOMThread = xpcomThread.forget().take();
 
     lock.NotifyAll();
 
     do {
-loopStart:
+    loopStart:
       // Reset the lowest level now, so that we can detect a new event on
       // a lower level (i.e. higher priority) has been scheduled while
       // executing any previously scheduled event.
@@ -489,7 +518,7 @@ loopStart:
         bool processedEvent;
         nsresult rv;
         do {
-          nsIThread *thread = mXPCOMThread;
+          nsIThread* thread = mXPCOMThread;
           rv = thread->ProcessNextEvent(false, &processedEvent);
 
           ++mEventCounter;
@@ -529,13 +558,13 @@ loopStart:
     // This is for correct assertion on XPCOM events dispatch.
     mInsideLoop = false;
 #endif
-  } // lock
+  }  // lock
 
-  if (threadInternal)
-    threadInternal->SetObserver(nullptr);
+  if (threadInternal) threadInternal->SetObserver(nullptr);
 }
 
-void CacheIOThread::LoopOneLevel(uint32_t aLevel)
+void
+CacheIOThread::LoopOneLevel(uint32_t aLevel)
 {
   EventQueue events;
   events.SwapElements(mEventQueue[aLevel]);
@@ -587,15 +616,18 @@ void CacheIOThread::LoopOneLevel(uint32_t aLevel)
   }
 
   if (returnEvents)
-    mEventQueue[aLevel].InsertElementsAt(0, events.Elements() + index, length - index);
+    mEventQueue[aLevel].InsertElementsAt(
+        0, events.Elements() + index, length - index);
 }
 
-bool CacheIOThread::EventsPending(uint32_t aLastLevel)
+bool
+CacheIOThread::EventsPending(uint32_t aLastLevel)
 {
   return mLowestLevelWaiting < aLastLevel || mHasXPCOMEvents;
 }
 
-NS_IMETHODIMP CacheIOThread::OnDispatchedEvent()
+NS_IMETHODIMP
+CacheIOThread::OnDispatchedEvent()
 {
   MonitorAutoLock lock(mMonitor);
   mHasXPCOMEvents = true;
@@ -604,20 +636,23 @@ NS_IMETHODIMP CacheIOThread::OnDispatchedEvent()
   return NS_OK;
 }
 
-NS_IMETHODIMP CacheIOThread::OnProcessNextEvent(nsIThreadInternal *thread, bool mayWait)
+NS_IMETHODIMP
+CacheIOThread::OnProcessNextEvent(nsIThreadInternal* thread, bool mayWait)
 {
   return NS_OK;
 }
 
-NS_IMETHODIMP CacheIOThread::AfterProcessNextEvent(nsIThreadInternal *thread,
-                                                   bool eventWasProcessed)
+NS_IMETHODIMP
+CacheIOThread::AfterProcessNextEvent(nsIThreadInternal* thread,
+                                     bool eventWasProcessed)
 {
   return NS_OK;
 }
 
 // Memory reporting
 
-size_t CacheIOThread::SizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const
+size_t
+CacheIOThread::SizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const
 {
   MonitorAutoLock lock(const_cast<CacheIOThread*>(this)->mMonitor);
 
@@ -633,13 +668,14 @@ size_t CacheIOThread::SizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) co
   return n;
 }
 
-size_t CacheIOThread::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const
+size_t
+CacheIOThread::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const
 {
   return mallocSizeOf(this) + SizeOfExcludingThis(mallocSizeOf);
 }
 
 CacheIOThread::Cancelable::Cancelable(bool aCancelable)
-  : mCancelable(aCancelable)
+    : mCancelable(aCancelable)
 {
   // This will only ever be used on the I/O thread,
   // which is expected to be alive longer than this class.
@@ -660,5 +696,5 @@ CacheIOThread::Cancelable::~Cancelable()
   }
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -14,9 +14,11 @@ namespace gmp {
 
 class GMPChild;
 
-void InitPlatformAPI(GMPPlatformAPI& aPlatformAPI, GMPChild* aChild);
+void
+InitPlatformAPI(GMPPlatformAPI& aPlatformAPI, GMPChild* aChild);
 
-GMPErr RunOnMainThread(GMPTask* aTask);
+GMPErr
+RunOnMainThread(GMPTask* aTask);
 
 GMPTask*
 NewGMPTask(std::function<void()>&& aFunction);
@@ -24,7 +26,7 @@ NewGMPTask(std::function<void()>&& aFunction);
 GMPErr
 SetTimerOnMainThread(GMPTask* aTask, int64_t aTimeoutMS);
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPPlatform_h_
+#endif  // GMPPlatform_h_

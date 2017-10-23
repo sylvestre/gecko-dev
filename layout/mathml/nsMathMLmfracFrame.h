@@ -49,75 +49,73 @@ environment, but can be set explicitly only on the <mstyle>
 element.
 */
 
-class nsMathMLmfracFrame : public nsMathMLContainerFrame {
-public:
+class nsMathMLmfracFrame : public nsMathMLContainerFrame
+{
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmfracFrame)
 
-  friend nsIFrame* NS_NewMathMLmfracFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewMathMLmfracFrame(nsIPresShell* aPresShell,
+                                          nsStyleContext* aContext);
 
   virtual eMathMLFrameType GetMathMLFrameType() override;
 
-  virtual nsresult
-  MeasureForWidth(DrawTarget* aDrawTarget,
-                  ReflowOutput& aDesiredSize) override;
+  virtual nsresult MeasureForWidth(DrawTarget* aDrawTarget,
+                                   ReflowOutput& aDesiredSize) override;
 
-  virtual nsresult
-  Place(DrawTarget*          aDrawTarget,
-        bool                 aPlaceOrigin,
-        ReflowOutput& aDesiredSize) override;
+  virtual nsresult Place(DrawTarget* aDrawTarget,
+                         bool aPlaceOrigin,
+                         ReflowOutput& aDesiredSize) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
-  virtual nsresult
-  AttributeChanged(int32_t  aNameSpaceID,
-                   nsAtom* aAttribute,
-                   int32_t  aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
   NS_IMETHOD
   TransmitAutomaticData() override;
 
   // override the base method so that we can deal with the fraction line
-  virtual nscoord
-  FixInterFrameSpacing(ReflowOutput& aDesiredSize) override;
+  virtual nscoord FixInterFrameSpacing(ReflowOutput& aDesiredSize) override;
 
   // helper to translate the thickness attribute into a usable form
-  static nscoord
-  CalcLineThickness(nsPresContext*  aPresContext,
-                    nsStyleContext*  aStyleContext,
-                    nsString&        aThicknessAttribute,
-                    nscoord          onePixel,
-                    nscoord          aDefaultRuleThickness,
-                    float            aFontSizeInflation);
+  static nscoord CalcLineThickness(nsPresContext* aPresContext,
+                                   nsStyleContext* aStyleContext,
+                                   nsString& aThicknessAttribute,
+                                   nscoord onePixel,
+                                   nscoord aDefaultRuleThickness,
+                                   float aFontSizeInflation);
 
-  uint8_t
-  ScriptIncrement(nsIFrame* aFrame) override;
+  uint8_t ScriptIncrement(nsIFrame* aFrame) override;
 
-protected:
+ protected:
   explicit nsMathMLmfracFrame(nsStyleContext* aContext)
-    : nsMathMLContainerFrame(aContext, kClassID)
-    , mLineRect()
-    , mSlashChar(nullptr)
-    , mLineThickness(0)
-    , mIsBevelled(false)
-  {}
+      : nsMathMLContainerFrame(aContext, kClassID),
+        mLineRect(),
+        mSlashChar(nullptr),
+        mLineThickness(0),
+        mIsBevelled(false)
+  {
+  }
   virtual ~nsMathMLmfracFrame();
 
-  nsresult PlaceInternal(DrawTarget*          aDrawTarget,
-                         bool                 aPlaceOrigin,
+  nsresult PlaceInternal(DrawTarget* aDrawTarget,
+                         bool aPlaceOrigin,
                          ReflowOutput& aDesiredSize,
-                         bool                 aWidthOnly);
+                         bool aWidthOnly);
 
   // Display a slash
   void DisplaySlash(nsDisplayListBuilder* aBuilder,
-                    nsIFrame* aFrame, const nsRect& aRect,
+                    nsIFrame* aFrame,
+                    const nsRect& aRect,
                     nscoord aThickness,
                     const nsDisplayListSet& aLists);
 
-  nsRect        mLineRect;
+  nsRect mLineRect;
   nsMathMLChar* mSlashChar;
-  nscoord       mLineThickness;
-  bool          mIsBevelled;
+  nscoord mLineThickness;
+  bool mIsBevelled;
 };
 
 #endif /* nsMathMLmfracFrame_h___ */

@@ -21,7 +21,11 @@
 #ifdef MOZ_WIDGET_COCOA
 // prototype for private API
 extern "C" {
-CGPathRef CGFontGetGlyphPath(CGFontRef fontRef, CGAffineTransform *textTransform, int unknown, CGGlyph glyph);
+CGPathRef
+CGFontGetGlyphPath(CGFontRef fontRef,
+                   CGAffineTransform* textTransform,
+                   int unknown,
+                   CGGlyph glyph);
 };
 #endif
 
@@ -37,11 +41,8 @@ namespace gfx {
 template<class T>
 class AutoRelease
 {
-public:
-  explicit AutoRelease(T aObject)
-    : mObject(aObject)
-  {
-  }
+ public:
+  explicit AutoRelease(T aObject) : mObject(aObject) {}
 
   ~AutoRelease()
   {
@@ -50,10 +51,7 @@ public:
     }
   }
 
-  operator T()
-  {
-    return mObject;
-  }
+  operator T() { return mObject; }
 
   T forget()
   {
@@ -62,11 +60,12 @@ public:
     return obj;
   }
 
-private:
+ private:
   T mObject;
 };
 
-ScaledFontMac::CTFontDrawGlyphsFuncT* ScaledFontMac::CTFontDrawGlyphsPtr = nullptr;
+ScaledFontMac::CTFontDrawGlyphsFuncT* ScaledFontMac::CTFontDrawGlyphsPtr =
+    nullptr;
 bool ScaledFontMac::sSymbolLookupDone = false;
 
 // Helper to create a CTFont from a CGFont, copying any variations that were
@@ -74,44 +73,44 @@ bool ScaledFontMac::sSymbolLookupDone = false;
 static CTFontRef
 CreateCTFontFromCGFontWithVariations(CGFontRef aCGFont, CGFloat aSize)
 {
-    // Avoid calling potentially buggy variation APIs on pre-Sierra macOS
-    // versions (see bug 1331683)
-    if (!nsCocoaFeatures::OnSierraOrLater()) {
-        return CTFontCreateWithGraphicsFont(aCGFont, aSize, nullptr, nullptr);
-    }
+  // Avoid calling potentially buggy variation APIs on pre-Sierra macOS
+  // versions (see bug 1331683)
+  if (!nsCocoaFeatures::OnSierraOrLater()) {
+    return CTFontCreateWithGraphicsFont(aCGFont, aSize, nullptr, nullptr);
+  }
 
-    CFDictionaryRef vars = CGFontCopyVariations(aCGFont);
-    CTFontRef ctFont;
-    if (vars) {
-        CFDictionaryRef varAttr =
-            CFDictionaryCreate(nullptr,
-                               (const void**)&kCTFontVariationAttribute,
-                               (const void**)&vars, 1,
-                               &kCFTypeDictionaryKeyCallBacks,
-                               &kCFTypeDictionaryValueCallBacks);
-        CFRelease(vars);
+  CFDictionaryRef vars = CGFontCopyVariations(aCGFont);
+  CTFontRef ctFont;
+  if (vars) {
+    CFDictionaryRef varAttr =
+        CFDictionaryCreate(nullptr,
+                           (const void**)&kCTFontVariationAttribute,
+                           (const void**)&vars,
+                           1,
+                           &kCFTypeDictionaryKeyCallBacks,
+                           &kCFTypeDictionaryValueCallBacks);
+    CFRelease(vars);
 
-        CTFontDescriptorRef varDesc = CTFontDescriptorCreateWithAttributes(varAttr);
-        CFRelease(varAttr);
+    CTFontDescriptorRef varDesc = CTFontDescriptorCreateWithAttributes(varAttr);
+    CFRelease(varAttr);
 
-        ctFont = CTFontCreateWithGraphicsFont(aCGFont, aSize, nullptr, varDesc);
-        CFRelease(varDesc);
-    } else {
-        ctFont = CTFontCreateWithGraphicsFont(aCGFont, aSize, nullptr, nullptr);
-    }
-    return ctFont;
+    ctFont = CTFontCreateWithGraphicsFont(aCGFont, aSize, nullptr, varDesc);
+    CFRelease(varDesc);
+  } else {
+    ctFont = CTFontCreateWithGraphicsFont(aCGFont, aSize, nullptr, nullptr);
+  }
+  return ctFont;
 }
 
 ScaledFontMac::ScaledFontMac(CGFontRef aFont,
                              const RefPtr<UnscaledFont>& aUnscaledFont,
                              Float aSize,
                              bool aOwnsFont)
-  : ScaledFontBase(aUnscaledFont, aSize)
-  , mFont(aFont)
+    : ScaledFontBase(aUnscaledFont, aSize), mFont(aFont)
 {
   if (!sSymbolLookupDone) {
     CTFontDrawGlyphsPtr =
-      (CTFontDrawGlyphsFuncT*)dlsym(RTLD_DEFAULT, "CTFontDrawGlyphs");
+        (CTFontDrawGlyphsFuncT*)dlsym(RTLD_DEFAULT, "CTFontDrawGlyphs");
     sSymbolLookupDone = true;
   }
 
@@ -137,7 +136,8 @@ ScaledFontMac::~ScaledFontMac()
 }
 
 #ifdef USE_SKIA
-SkTypeface* ScaledFontMac::GetSkTypeface()
+SkTypeface*
+ScaledFontMac::GetSkTypeface()
 {
   if (!mTypeface) {
     if (mCTFont) {
@@ -160,157 +160,169 @@ SkTypeface* ScaledFontMac::GetSkTypeface()
 // safe just to use?
 
 already_AddRefed<Path>
-ScaledFontMac::GetPathForGlyphs(const GlyphBuffer &aBuffer, const DrawTarget *aTarget)
+ScaledFontMac::GetPathForGlyphs(const GlyphBuffer& aBuffer,
+                                const DrawTarget* aTarget)
 {
   return ScaledFontBase::GetPathForGlyphs(aBuffer, aTarget);
 }
 
 uint32_t
-CalcTableChecksum(const uint32_t *tableStart, uint32_t length, bool skipChecksumAdjust = false)
+CalcTableChecksum(const uint32_t* tableStart,
+                  uint32_t length,
+                  bool skipChecksumAdjust = false)
 {
-    uint32_t sum = 0L;
-    const uint32_t *table = tableStart;
-    const uint32_t *end = table+((length+3) & ~3) / sizeof(uint32_t);
-    while (table < end) {
-        if (skipChecksumAdjust && (table - tableStart) == 2) {
-            table++;
-        } else {
-            sum += CFSwapInt32BigToHost(*table++);
-        }
+  uint32_t sum = 0L;
+  const uint32_t* table = tableStart;
+  const uint32_t* end = table + ((length + 3) & ~3) / sizeof(uint32_t);
+  while (table < end) {
+    if (skipChecksumAdjust && (table - tableStart) == 2) {
+      table++;
+    } else {
+      sum += CFSwapInt32BigToHost(*table++);
     }
-    return sum;
+  }
+  return sum;
 }
 
-struct TableRecord {
-    uint32_t tag;
-    uint32_t checkSum;
-    uint32_t offset;
-    uint32_t length;
-    CFDataRef data;
+struct TableRecord
+{
+  uint32_t tag;
+  uint32_t checkSum;
+  uint32_t offset;
+  uint32_t length;
+  CFDataRef data;
 };
 
-int maxPow2LessThan(int a)
+int
+maxPow2LessThan(int a)
 {
-    int x = 1;
-    int shift = 0;
-    while ((x<<(shift+1)) < a) {
-        shift++;
-    }
-    return shift;
+  int x = 1;
+  int shift = 0;
+  while ((x << (shift + 1)) < a) {
+    shift++;
+  }
+  return shift;
 }
 
 struct writeBuf
 {
-    explicit writeBuf(int size)
-    {
-        this->data = new unsigned char [size];
-        this->offset = 0;
-    }
-    ~writeBuf() {
-        delete[] this->data;
-    }
+  explicit writeBuf(int size)
+  {
+    this->data = new unsigned char[size];
+    this->offset = 0;
+  }
+  ~writeBuf() { delete[] this->data; }
 
-    template <class T>
-    void writeElement(T a)
-    {
-        *reinterpret_cast<T*>(&this->data[this->offset]) = a;
-        this->offset += sizeof(T);
-    }
+  template<class T>
+  void writeElement(T a)
+  {
+    *reinterpret_cast<T*>(&this->data[this->offset]) = a;
+    this->offset += sizeof(T);
+  }
 
-    void writeMem(const void *data, unsigned long length)
-    {
-        memcpy(&this->data[this->offset], data, length);
-        this->offset += length;
-    }
+  void writeMem(const void* data, unsigned long length)
+  {
+    memcpy(&this->data[this->offset], data, length);
+    this->offset += length;
+  }
 
-    void align()
-    {
-        while (this->offset & 3) {
-            this->data[this->offset] = 0;
-            this->offset++;
-        }
+  void align()
+  {
+    while (this->offset & 3) {
+      this->data[this->offset] = 0;
+      this->offset++;
     }
+  }
 
-    unsigned char *data;
-    int offset;
+  unsigned char* data;
+  int offset;
 };
 
 bool
-UnscaledFontMac::GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton)
+UnscaledFontMac::GetFontFileData(FontFileDataOutput aDataCallback, void* aBaton)
 {
-    // We'll reconstruct a TTF font from the tables we can get from the CGFont
-    CFArrayRef tags = CGFontCopyTableTags(mFont);
-    CFIndex count = CFArrayGetCount(tags);
+  // We'll reconstruct a TTF font from the tables we can get from the CGFont
+  CFArrayRef tags = CGFontCopyTableTags(mFont);
+  CFIndex count = CFArrayGetCount(tags);
 
-    TableRecord *records = new TableRecord[count];
-    uint32_t offset = 0;
-    offset += sizeof(uint32_t)*3;
-    offset += sizeof(uint32_t)*4*count;
-    bool CFF = false;
-    for (CFIndex i = 0; i<count; i++) {
-        uint32_t tag = (uint32_t)(uintptr_t)CFArrayGetValueAtIndex(tags, i);
-        if (tag == 0x43464620) // 'CFF '
-            CFF = true;
-        CFDataRef data = CGFontCopyTableForTag(mFont, tag);
-        records[i].tag = tag;
-        records[i].offset = offset;
-        records[i].data = data;
-        records[i].length = CFDataGetLength(data);
-        bool skipChecksumAdjust = (tag == 0x68656164); // 'head'
-        records[i].checkSum = CalcTableChecksum(reinterpret_cast<const uint32_t*>(CFDataGetBytePtr(data)),
-                                                records[i].length, skipChecksumAdjust);
-        offset += records[i].length;
-        // 32 bit align the tables
-        offset = (offset + 3) & ~3;
+  TableRecord* records = new TableRecord[count];
+  uint32_t offset = 0;
+  offset += sizeof(uint32_t) * 3;
+  offset += sizeof(uint32_t) * 4 * count;
+  bool CFF = false;
+  for (CFIndex i = 0; i < count; i++) {
+    uint32_t tag = (uint32_t)(uintptr_t)CFArrayGetValueAtIndex(tags, i);
+    if (tag == 0x43464620)  // 'CFF '
+      CFF = true;
+    CFDataRef data = CGFontCopyTableForTag(mFont, tag);
+    records[i].tag = tag;
+    records[i].offset = offset;
+    records[i].data = data;
+    records[i].length = CFDataGetLength(data);
+    bool skipChecksumAdjust = (tag == 0x68656164);  // 'head'
+    records[i].checkSum = CalcTableChecksum(
+        reinterpret_cast<const uint32_t*>(CFDataGetBytePtr(data)),
+        records[i].length,
+        skipChecksumAdjust);
+    offset += records[i].length;
+    // 32 bit align the tables
+    offset = (offset + 3) & ~3;
+  }
+  CFRelease(tags);
+
+  struct writeBuf buf(offset);
+  // write header/offset table
+  if (CFF) {
+    buf.writeElement(CFSwapInt32HostToBig(0x4f54544f));
+  } else {
+    buf.writeElement(CFSwapInt32HostToBig(0x00010000));
+  }
+  buf.writeElement(CFSwapInt16HostToBig(count));
+  buf.writeElement(CFSwapInt16HostToBig((1 << maxPow2LessThan(count)) * 16));
+  buf.writeElement(CFSwapInt16HostToBig(maxPow2LessThan(count)));
+  buf.writeElement(
+      CFSwapInt16HostToBig(count * 16 - ((1 << maxPow2LessThan(count)) * 16)));
+
+  // write table record entries
+  for (CFIndex i = 0; i < count; i++) {
+    buf.writeElement(CFSwapInt32HostToBig(records[i].tag));
+    buf.writeElement(CFSwapInt32HostToBig(records[i].checkSum));
+    buf.writeElement(CFSwapInt32HostToBig(records[i].offset));
+    buf.writeElement(CFSwapInt32HostToBig(records[i].length));
+  }
+
+  // write tables
+  int checkSumAdjustmentOffset = 0;
+  for (CFIndex i = 0; i < count; i++) {
+    if (records[i].tag == 0x68656164) {
+      checkSumAdjustmentOffset = buf.offset + 2 * 4;
     }
-    CFRelease(tags);
+    buf.writeMem(CFDataGetBytePtr(records[i].data),
+                 CFDataGetLength(records[i].data));
+    buf.align();
+    CFRelease(records[i].data);
+  }
+  delete[] records;
 
-    struct writeBuf buf(offset);
-    // write header/offset table
-    if (CFF) {
-      buf.writeElement(CFSwapInt32HostToBig(0x4f54544f));
-    } else {
-      buf.writeElement(CFSwapInt32HostToBig(0x00010000));
-    }
-    buf.writeElement(CFSwapInt16HostToBig(count));
-    buf.writeElement(CFSwapInt16HostToBig((1<<maxPow2LessThan(count))*16));
-    buf.writeElement(CFSwapInt16HostToBig(maxPow2LessThan(count)));
-    buf.writeElement(CFSwapInt16HostToBig(count*16-((1<<maxPow2LessThan(count))*16)));
+  // clear the checksumAdjust field before checksumming the whole font
+  memset(&buf.data[checkSumAdjustmentOffset], 0, sizeof(uint32_t));
+  uint32_t fontChecksum = CFSwapInt32HostToBig(
+      0xb1b0afba -
+      CalcTableChecksum(reinterpret_cast<const uint32_t*>(buf.data), offset));
+  // set checkSumAdjust to the computed checksum
+  memcpy(
+      &buf.data[checkSumAdjustmentOffset], &fontChecksum, sizeof(fontChecksum));
 
-    // write table record entries
-    for (CFIndex i = 0; i<count; i++) {
-        buf.writeElement(CFSwapInt32HostToBig(records[i].tag));
-        buf.writeElement(CFSwapInt32HostToBig(records[i].checkSum));
-        buf.writeElement(CFSwapInt32HostToBig(records[i].offset));
-        buf.writeElement(CFSwapInt32HostToBig(records[i].length));
-    }
+  // we always use an index of 0
+  aDataCallback(buf.data, buf.offset, 0, aBaton);
 
-    // write tables
-    int checkSumAdjustmentOffset = 0;
-    for (CFIndex i = 0; i<count; i++) {
-        if (records[i].tag == 0x68656164) {
-            checkSumAdjustmentOffset = buf.offset + 2*4;
-        }
-        buf.writeMem(CFDataGetBytePtr(records[i].data), CFDataGetLength(records[i].data));
-        buf.align();
-        CFRelease(records[i].data);
-    }
-    delete[] records;
-
-    // clear the checksumAdjust field before checksumming the whole font
-    memset(&buf.data[checkSumAdjustmentOffset], 0, sizeof(uint32_t));
-    uint32_t fontChecksum = CFSwapInt32HostToBig(0xb1b0afba - CalcTableChecksum(reinterpret_cast<const uint32_t*>(buf.data), offset));
-    // set checkSumAdjust to the computed checksum
-    memcpy(&buf.data[checkSumAdjustmentOffset], &fontChecksum, sizeof(fontChecksum));
-
-    // we always use an index of 0
-    aDataCallback(buf.data, buf.offset, 0, aBaton);
-
-    return true;
+  return true;
 }
 
 static void
-CollectVariationsFromDictionary(const void* aKey, const void* aValue, void* aContext)
+CollectVariationsFromDictionary(const void* aKey,
+                                const void* aValue,
+                                void* aContext)
 {
   auto keyPtr = static_cast<const CFTypeRef>(aKey);
   auto valuePtr = static_cast<const CFTypeRef>(aValue);
@@ -319,15 +331,18 @@ CollectVariationsFromDictionary(const void* aKey, const void* aValue, void* aCon
       CFGetTypeID(valuePtr) == CFNumberGetTypeID()) {
     uint64_t t;
     double v;
-    if (CFNumberGetValue(static_cast<CFNumberRef>(keyPtr), kCFNumberSInt64Type, &t) &&
-        CFNumberGetValue(static_cast<CFNumberRef>(valuePtr), kCFNumberDoubleType, &v)) {
+    if (CFNumberGetValue(
+            static_cast<CFNumberRef>(keyPtr), kCFNumberSInt64Type, &t) &&
+        CFNumberGetValue(
+            static_cast<CFNumberRef>(valuePtr), kCFNumberDoubleType, &v)) {
       outVariations->push_back(FontVariation{uint32_t(t), float(v)});
     }
   }
 }
 
 static bool
-GetVariationsForCTFont(CTFontRef aCTFont, std::vector<FontVariation>* aOutVariations)
+GetVariationsForCTFont(CTFontRef aCTFont,
+                       std::vector<FontVariation>* aOutVariations)
 {
   // Avoid calling potentially buggy variation APIs on pre-Sierra macOS
   // versions (see bug 1331683)
@@ -341,7 +356,8 @@ GetVariationsForCTFont(CTFontRef aCTFont, std::vector<FontVariation>* aOutVariat
   CFIndex count = dict ? CFDictionaryGetCount(dict) : 0;
   if (count > 0) {
     aOutVariations->reserve(count);
-    CFDictionaryApplyFunction(dict, CollectVariationsFromDictionary, aOutVariations);
+    CFDictionaryApplyFunction(
+        dict, CollectVariationsFromDictionary, aOutVariations);
   }
   return true;
 }
@@ -349,28 +365,30 @@ GetVariationsForCTFont(CTFontRef aCTFont, std::vector<FontVariation>* aOutVariat
 bool
 ScaledFontMac::GetFontInstanceData(FontInstanceDataOutput aCb, void* aBaton)
 {
-    // Collect any variation settings that were incorporated into the CTFont.
-    std::vector<FontVariation> variations;
-    if (!GetVariationsForCTFont(mCTFont, &variations)) {
-      return false;
-    }
-    aCb(nullptr, 0, variations.data(), variations.size(), aBaton);
-    return true;
+  // Collect any variation settings that were incorporated into the CTFont.
+  std::vector<FontVariation> variations;
+  if (!GetVariationsForCTFont(mCTFont, &variations)) {
+    return false;
+  }
+  aCb(nullptr, 0, variations.data(), variations.size(), aBaton);
+  return true;
 }
 
 bool
-ScaledFontMac::GetWRFontInstanceOptions(Maybe<wr::FontInstanceOptions>* aOutOptions,
-                                        Maybe<wr::FontInstancePlatformOptions>* aOutPlatformOptions,
-                                        std::vector<FontVariation>* aOutVariations)
+ScaledFontMac::GetWRFontInstanceOptions(
+    Maybe<wr::FontInstanceOptions>* aOutOptions,
+    Maybe<wr::FontInstancePlatformOptions>* aOutPlatformOptions,
+    std::vector<FontVariation>* aOutVariations)
 {
-    if (!GetVariationsForCTFont(mCTFont, aOutVariations)) {
-      return false;
-    }
-    return true;
+  if (!GetVariationsForCTFont(mCTFont, aOutVariations)) {
+    return false;
+  }
+  return true;
 }
 
 static CFDictionaryRef
-CreateVariationDictionaryOrNull(CGFontRef aCGFont, uint32_t aVariationCount,
+CreateVariationDictionaryOrNull(CGFontRef aCGFont,
+                                uint32_t aVariationCount,
                                 const FontVariation* aVariations)
 {
   // Avoid calling potentially buggy variation APIs on pre-Sierra macOS
@@ -379,18 +397,19 @@ CreateVariationDictionaryOrNull(CGFontRef aCGFont, uint32_t aVariationCount,
     return nullptr;
   }
 
-  AutoRelease<CTFontRef>
-    ctFont(CTFontCreateWithGraphicsFont(aCGFont, 0, nullptr, nullptr));
+  AutoRelease<CTFontRef> ctFont(
+      CTFontCreateWithGraphicsFont(aCGFont, 0, nullptr, nullptr));
   AutoRelease<CFArrayRef> axes(CTFontCopyVariationAxes(ctFont));
   if (!axes) {
     return nullptr;
   }
 
   CFIndex axisCount = CFArrayGetCount(axes);
-  AutoRelease<CFMutableDictionaryRef>
-    dict(CFDictionaryCreateMutable(kCFAllocatorDefault, axisCount,
-                                   &kCFTypeDictionaryKeyCallBacks,
-                                   &kCFTypeDictionaryValueCallBacks));
+  AutoRelease<CFMutableDictionaryRef> dict(
+      CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                axisCount,
+                                &kCFTypeDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks));
 
   // Number of variation settings passed in the aVariations parameter.
   // This will typically be a very low value, so we just linear-search them.
@@ -411,43 +430,45 @@ CreateVariationDictionaryOrNull(CGFontRef aCGFont, uint32_t aVariationCount,
       return nullptr;
     }
     int64_t tagLong;
-    if (!CFNumberGetValue(static_cast<CFNumberRef>(axisTag),
-                          kCFNumberSInt64Type, &tagLong)) {
+    if (!CFNumberGetValue(
+            static_cast<CFNumberRef>(axisTag), kCFNumberSInt64Type, &tagLong)) {
       return nullptr;
     }
 
     CFTypeRef axisName =
-      CFDictionaryGetValue(axis, kCTFontVariationAxisNameKey);
+        CFDictionaryGetValue(axis, kCTFontVariationAxisNameKey);
     if (!axisName || CFGetTypeID(axisName) != CFStringGetTypeID()) {
       return nullptr;
     }
 
     // Clamp axis values to the supported range.
-    CFTypeRef min = CFDictionaryGetValue(axis, kCTFontVariationAxisMinimumValueKey);
-    CFTypeRef max = CFDictionaryGetValue(axis, kCTFontVariationAxisMaximumValueKey);
-    CFTypeRef def = CFDictionaryGetValue(axis, kCTFontVariationAxisDefaultValueKey);
-    if (!min || CFGetTypeID(min) != CFNumberGetTypeID() ||
-        !max || CFGetTypeID(max) != CFNumberGetTypeID() ||
-        !def || CFGetTypeID(def) != CFNumberGetTypeID()) {
+    CFTypeRef min =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisMinimumValueKey);
+    CFTypeRef max =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisMaximumValueKey);
+    CFTypeRef def =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisDefaultValueKey);
+    if (!min || CFGetTypeID(min) != CFNumberGetTypeID() || !max ||
+        CFGetTypeID(max) != CFNumberGetTypeID() || !def ||
+        CFGetTypeID(def) != CFNumberGetTypeID()) {
       return nullptr;
     }
     double minDouble;
     double maxDouble;
     double defDouble;
-    if (!CFNumberGetValue(static_cast<CFNumberRef>(min), kCFNumberDoubleType,
-                          &minDouble) ||
-        !CFNumberGetValue(static_cast<CFNumberRef>(max), kCFNumberDoubleType,
-                          &maxDouble) ||
-        !CFNumberGetValue(static_cast<CFNumberRef>(def), kCFNumberDoubleType,
-                          &defDouble)) {
+    if (!CFNumberGetValue(
+            static_cast<CFNumberRef>(min), kCFNumberDoubleType, &minDouble) ||
+        !CFNumberGetValue(
+            static_cast<CFNumberRef>(max), kCFNumberDoubleType, &maxDouble) ||
+        !CFNumberGetValue(
+            static_cast<CFNumberRef>(def), kCFNumberDoubleType, &defDouble)) {
       return nullptr;
     }
 
     double value = defDouble;
     for (uint32_t j = 0; j < aVariationCount; ++j) {
       if (aVariations[j].mTag == tagLong) {
-        value = std::min(std::max<double>(aVariations[j].mValue,
-                                          minDouble),
+        value = std::min(std::max<double>(aVariations[j].mValue, minDouble),
                          maxDouble);
         if (value != defDouble) {
           allDefaultValues = false;
@@ -455,9 +476,8 @@ CreateVariationDictionaryOrNull(CGFontRef aCGFont, uint32_t aVariationCount,
         break;
       }
     }
-    AutoRelease<CFNumberRef> valueNumber(CFNumberCreate(kCFAllocatorDefault,
-                                                        kCFNumberDoubleType,
-                                                        &value));
+    AutoRelease<CFNumberRef> valueNumber(
+        CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &value));
     CFDictionaryAddValue(dict, axisName, valueNumber);
   }
 
@@ -478,8 +498,8 @@ UnscaledFontMac::CreateCGFontWithVariations(CGFontRef aFont,
   MOZ_ASSERT(aVariationCount > 0);
   MOZ_ASSERT(aVariations);
 
-  AutoRelease<CFDictionaryRef>
-    varDict(CreateVariationDictionaryOrNull(aFont, aVariationCount, aVariations));
+  AutoRelease<CFDictionaryRef> varDict(
+      CreateVariationDictionaryOrNull(aFont, aVariationCount, aVariations));
   if (!varDict) {
     return nullptr;
   }
@@ -498,14 +518,14 @@ UnscaledFontMac::CreateScaledFont(Float aGlyphSize,
   CGFontRef fontRef = mFont;
   if (aNumVariations > 0) {
     CGFontRef varFont =
-      CreateCGFontWithVariations(mFont, aNumVariations, aVariations);
+        CreateCGFontWithVariations(mFont, aNumVariations, aVariations);
     if (varFont) {
       fontRef = varFont;
     }
   }
 
   RefPtr<ScaledFontMac> scaledFont =
-    new ScaledFontMac(fontRef, this, aGlyphSize, fontRef != mFont);
+      new ScaledFontMac(fontRef, this, aGlyphSize, fontRef != mFont);
 
   if (!scaledFont->PopulateCairoScaledFont()) {
     gfxWarning() << "Unable to create cairo scaled Mac font.";
@@ -524,5 +544,5 @@ ScaledFontMac::GetCairoFontFace()
 }
 #endif
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

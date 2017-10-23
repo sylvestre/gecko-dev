@@ -87,7 +87,7 @@ struct BaseClass
 struct DerivedClass : BaseClass
 {
 };
-}
+}  // namespace
 
 void
 AssertSpanOfThreeInts(Span<const int> s)
@@ -154,7 +154,7 @@ SPAN_TEST(default_constructor)
 #ifdef CONFIRM_COMPILATION_ERRORS
     Span<int, 1> s;
     ASSERT_EQ(s.Length(), 1U);
-    ASSERT_EQ(s.data(), SLICE_INT_PTR); // explains why it can't compile
+    ASSERT_EQ(s.data(), SLICE_INT_PTR);  // explains why it can't compile
 #endif
   }
 
@@ -208,26 +208,26 @@ SPAN_TEST(from_nullptr_constructor)
 #ifdef CONFIRM_COMPILATION_ERRORS
     Span<int, 1> s = nullptr;
     ASSERT_EQ(s.Length(), 1U);
-    ASSERT_EQ(s.data(), SLICE_INT_PTR); // explains why it can't compile
+    ASSERT_EQ(s.data(), SLICE_INT_PTR);  // explains why it can't compile
 #endif
   }
 
   {
-    Span<int> s{ nullptr };
+    Span<int> s{nullptr};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR);
 
-    Span<const int> cs{ nullptr };
+    Span<const int> cs{nullptr};
     ASSERT_EQ(cs.Length(), 0U);
     ASSERT_EQ(cs.data(), SLICE_CONST_INT_PTR);
   }
 
   {
-    Span<int*> s{ nullptr };
+    Span<int*> s{nullptr};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR_PTR);
 
-    Span<const int*> cs{ nullptr };
+    Span<const int*> cs{nullptr};
     ASSERT_EQ(cs.Length(), 0U);
     ASSERT_EQ(cs.data(), SLICE_CONST_INT_PTR_PTR);
   }
@@ -236,21 +236,21 @@ SPAN_TEST(from_nullptr_constructor)
 SPAN_TEST(from_nullptr_length_constructor)
 {
   {
-    Span<int> s{ nullptr, static_cast<Span<int>::index_type>(0) };
+    Span<int> s{nullptr, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR);
 
-    Span<const int> cs{ nullptr, static_cast<Span<int>::index_type>(0) };
+    Span<const int> cs{nullptr, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(cs.Length(), 0U);
     ASSERT_EQ(cs.data(), SLICE_CONST_INT_PTR);
   }
 
   {
-    Span<int, 0> s{ nullptr, static_cast<Span<int>::index_type>(0) };
+    Span<int, 0> s{nullptr, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR);
 
-    Span<const int, 0> cs{ nullptr, static_cast<Span<int>::index_type>(0) };
+    Span<const int, 0> cs{nullptr, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(cs.Length(), 0U);
     ASSERT_EQ(cs.data(), SLICE_CONST_INT_PTR);
   }
@@ -278,11 +278,11 @@ SPAN_TEST(from_nullptr_length_constructor)
         }
 #endif
   {
-    Span<int*> s{ nullptr, static_cast<Span<int>::index_type>(0) };
+    Span<int*> s{nullptr, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR_PTR);
 
-    Span<const int*> cs{ nullptr, static_cast<Span<int>::index_type>(0) };
+    Span<const int*> cs{nullptr, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(cs.Length(), 0U);
     ASSERT_EQ(cs.data(), SLICE_CONST_INT_PTR_PTR);
   }
@@ -290,10 +290,10 @@ SPAN_TEST(from_nullptr_length_constructor)
 
 SPAN_TEST(from_pointer_length_constructor)
 {
-  int arr[4] = { 1, 2, 3, 4 };
+  int arr[4] = {1, 2, 3, 4};
 
   {
-    Span<int> s{ &arr[0], 2 };
+    Span<int> s{&arr[0], 2};
     ASSERT_EQ(s.Length(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
     ASSERT_EQ(s[0], 1);
@@ -301,7 +301,7 @@ SPAN_TEST(from_pointer_length_constructor)
   }
 
   {
-    Span<int, 2> s{ &arr[0], 2 };
+    Span<int, 2> s{&arr[0], 2};
     ASSERT_EQ(s.Length(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
     ASSERT_EQ(s[0], 1);
@@ -310,7 +310,7 @@ SPAN_TEST(from_pointer_length_constructor)
 
   {
     int* p = nullptr;
-    Span<int> s{ p, static_cast<Span<int>::index_type>(0) };
+    Span<int> s{p, static_cast<Span<int>::index_type>(0)};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR);
   }
@@ -349,10 +349,10 @@ SPAN_TEST(from_pointer_length_constructor)
 
 SPAN_TEST(from_pointer_pointer_constructor)
 {
-  int arr[4] = { 1, 2, 3, 4 };
+  int arr[4] = {1, 2, 3, 4};
 
   {
-    Span<int> s{ &arr[0], &arr[2] };
+    Span<int> s{&arr[0], &arr[2]};
     ASSERT_EQ(s.Length(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
     ASSERT_EQ(s[0], 1);
@@ -360,7 +360,7 @@ SPAN_TEST(from_pointer_pointer_constructor)
   }
 
   {
-    Span<int, 2> s{ &arr[0], &arr[2] };
+    Span<int, 2> s{&arr[0], &arr[2]};
     ASSERT_EQ(s.Length(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
     ASSERT_EQ(s[0], 1);
@@ -368,13 +368,13 @@ SPAN_TEST(from_pointer_pointer_constructor)
   }
 
   {
-    Span<int> s{ &arr[0], &arr[0] };
+    Span<int> s{&arr[0], &arr[0]};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<int, 0> s{ &arr[0], &arr[0] };
+    Span<int, 0> s{&arr[0], &arr[0]};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
@@ -394,14 +394,14 @@ SPAN_TEST(from_pointer_pointer_constructor)
 
   {
     int* p = nullptr;
-    Span<int> s{ p, p };
+    Span<int> s{p, p};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR);
   }
 
   {
     int* p = nullptr;
-    Span<int, 0> s{ p, p };
+    Span<int, 0> s{p, p};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), SLICE_INT_PTR);
   }
@@ -437,35 +437,35 @@ SPAN_TEST(from_pointer_pointer_constructor)
 
 SPAN_TEST(from_array_constructor)
 {
-  int arr[5] = { 1, 2, 3, 4, 5 };
+  int arr[5] = {1, 2, 3, 4, 5};
 
   {
-    Span<int> s{ arr };
+    Span<int> s{arr};
     ASSERT_EQ(s.Length(), 5U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<int, 5> s{ arr };
+    Span<int, 5> s{arr};
     ASSERT_EQ(s.Length(), 5U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
-  int arr2d[2][3] = { { 1, 2, 3 }, { 4, 5, 6 } };
+  int arr2d[2][3] = {{1, 2, 3}, {4, 5, 6}};
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<int, 6> s{ arr };
+    Span<int, 6> s{arr};
   }
 
   {
-    Span<int, 0> s{ arr };
+    Span<int, 0> s{arr};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<int> s{ arr2d };
+    Span<int> s{arr2d};
     ASSERT_EQ(s.Length(), 6U);
     ASSERT_EQ(s.data(), &arr2d[0][0]);
     ASSERT_EQ(s[0], 1);
@@ -473,27 +473,26 @@ SPAN_TEST(from_array_constructor)
   }
 
   {
-    Span<int, 0> s{ arr2d };
+    Span<int, 0> s{arr2d};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), &arr2d[0][0]);
   }
 
   {
-    Span<int, 6> s{ arr2d };
+    Span<int, 6> s{arr2d};
   }
 #endif
   {
-    Span<int[3]> s{ &(arr2d[0]), 1 };
+    Span<int[3]> s{&(arr2d[0]), 1};
     ASSERT_EQ(s.Length(), 1U);
     ASSERT_EQ(s.data(), &arr2d[0]);
   }
 
-  int arr3d[2][3][2] = { { { 1, 2 }, { 3, 4 }, { 5, 6 } },
-                         { { 7, 8 }, { 9, 10 }, { 11, 12 } } };
+  int arr3d[2][3][2] = {{{1, 2}, {3, 4}, {5, 6}}, {{7, 8}, {9, 10}, {11, 12}}};
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<int> s{ arr3d };
+    Span<int> s{arr3d};
     ASSERT_EQ(s.Length(), 12U);
     ASSERT_EQ(s.data(), &arr3d[0][0][0]);
     ASSERT_EQ(s[0], 1);
@@ -501,17 +500,17 @@ SPAN_TEST(from_array_constructor)
   }
 
   {
-    Span<int, 0> s{ arr3d };
+    Span<int, 0> s{arr3d};
     ASSERT_EQ(s.Length(), 0U);
     ASSERT_EQ(s.data(), &arr3d[0][0][0]);
   }
 
   {
-    Span<int, 11> s{ arr3d };
+    Span<int, 11> s{arr3d};
   }
 
   {
-    Span<int, 12> s{ arr3d };
+    Span<int, 12> s{arr3d};
     ASSERT_EQ(s.Length(), 12U);
     ASSERT_EQ(s.data(), &arr3d[0][0][0]);
     ASSERT_EQ(s[0], 1);
@@ -519,7 +518,7 @@ SPAN_TEST(from_array_constructor)
   }
 #endif
   {
-    Span<int[3][2]> s{ &arr3d[0], 1 };
+    Span<int[3][2]> s{&arr3d[0], 1};
     ASSERT_EQ(s.Length(), 1U);
     ASSERT_EQ(s.data(), &arr3d[0]);
   }
@@ -564,55 +563,55 @@ SPAN_TEST(from_dynamic_array_constructor)
 
 SPAN_TEST(from_std_array_constructor)
 {
-  std::array<int, 4> arr = { { 1, 2, 3, 4 } };
+  std::array<int, 4> arr = {{1, 2, 3, 4}};
 
   {
-    Span<int> s{ arr };
+    Span<int> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(s.data(), arr.data());
 
-    Span<const int> cs{ arr };
+    Span<const int> cs{arr};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(cs.data(), arr.data());
   }
 
   {
-    Span<int, 4> s{ arr };
+    Span<int, 4> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(s.data(), arr.data());
 
-    Span<const int, 4> cs{ arr };
+    Span<const int, 4> cs{arr};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(cs.data(), arr.data());
   }
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<int, 2> s{ arr };
+    Span<int, 2> s{arr};
     ASSERT_EQ(s.size(), 2U);
     ASSERT_EQ(s.data(), arr.data());
 
-    Span<const int, 2> cs{ arr };
+    Span<const int, 2> cs{arr};
     ASSERT_EQ(cs.size(), 2U);
     ASSERT_EQ(cs.data(), arr.data());
   }
 
   {
-    Span<int, 0> s{ arr };
+    Span<int, 0> s{arr};
     ASSERT_EQ(s.size(), 0U);
     ASSERT_EQ(s.data(), arr.data());
 
-    Span<const int, 0> cs{ arr };
+    Span<const int, 0> cs{arr};
     ASSERT_EQ(cs.size(), 0U);
     ASSERT_EQ(cs.data(), arr.data());
   }
 
   {
-    Span<int, 5> s{ arr };
+    Span<int, 5> s{arr};
   }
 
   {
-    auto get_an_array = []() -> std::array<int, 4> { return { 1, 2, 3, 4 }; };
+    auto get_an_array = []() -> std::array<int, 4> { return {1, 2, 3, 4}; };
     auto take_a_Span = [](Span<int> s) { static_cast<void>(s); };
     // try to take a temporary std::array
     take_a_Span(get_an_array());
@@ -620,9 +619,7 @@ SPAN_TEST(from_std_array_constructor)
 #endif
 
   {
-    auto get_an_array = []() -> std::array<int, 4> {
-      return { { 1, 2, 3, 4 } };
-    };
+    auto get_an_array = []() -> std::array<int, 4> { return {{1, 2, 3, 4}}; };
     auto take_a_Span = [](Span<const int> s) { static_cast<void>(s); };
     // try to take a temporary std::array
     take_a_Span(get_an_array());
@@ -637,41 +634,41 @@ SPAN_TEST(from_std_array_constructor)
 
 SPAN_TEST(from_const_std_array_constructor)
 {
-  const std::array<int, 4> arr = { { 1, 2, 3, 4 } };
+  const std::array<int, 4> arr = {{1, 2, 3, 4}};
 
   {
-    Span<const int> s{ arr };
+    Span<const int> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(s.data(), arr.data());
   }
 
   {
-    Span<const int, 4> s{ arr };
+    Span<const int, 4> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(s.data(), arr.data());
   }
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<const int, 2> s{ arr };
+    Span<const int, 2> s{arr};
     ASSERT_EQ(s.size(), 2U);
     ASSERT_EQ(s.data(), arr.data());
   }
 
   {
-    Span<const int, 0> s{ arr };
+    Span<const int, 0> s{arr};
     ASSERT_EQ(s.size(), 0U);
     ASSERT_EQ(s.data(), arr.data());
   }
 
   {
-    Span<const int, 5> s{ arr };
+    Span<const int, 5> s{arr};
   }
 #endif
 
   {
     auto get_an_array = []() -> const std::array<int, 4> {
-      return { { 1, 2, 3, 4 } };
+      return {{1, 2, 3, 4}};
     };
     auto take_a_Span = [](Span<const int> s) { static_cast<void>(s); };
     // try to take a temporary std::array
@@ -687,39 +684,39 @@ SPAN_TEST(from_const_std_array_constructor)
 
 SPAN_TEST(from_std_array_const_constructor)
 {
-  std::array<const int, 4> arr = { { 1, 2, 3, 4 } };
+  std::array<const int, 4> arr = {{1, 2, 3, 4}};
 
   {
-    Span<const int> s{ arr };
+    Span<const int> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(s.data(), arr.data());
   }
 
   {
-    Span<const int, 4> s{ arr };
+    Span<const int, 4> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.size()));
     ASSERT_EQ(s.data(), arr.data());
   }
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<const int, 2> s{ arr };
+    Span<const int, 2> s{arr};
     ASSERT_EQ(s.size(), 2U);
     ASSERT_EQ(s.data(), arr.data());
   }
 
   {
-    Span<const int, 0> s{ arr };
+    Span<const int, 0> s{arr};
     ASSERT_EQ(s.size(), 0U);
     ASSERT_EQ(s.data(), arr.data());
   }
 
   {
-    Span<const int, 5> s{ arr };
+    Span<const int, 5> s{arr};
   }
 
   {
-    Span<int, 4> s{ arr };
+    Span<int, 4> s{arr};
   }
 #endif
 
@@ -735,54 +732,52 @@ SPAN_TEST(from_mozilla_array_constructor)
   mozilla::Array<int, 4> arr(1, 2, 3, 4);
 
   {
-    Span<int> s{ arr };
+    Span<int> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(s.data(), &arr[0]);
 
-    Span<const int> cs{ arr };
+    Span<const int> cs{arr};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(cs.data(), &arr[0]);
   }
 
   {
-    Span<int, 4> s{ arr };
+    Span<int, 4> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(s.data(), &arr[0]);
 
-    Span<const int, 4> cs{ arr };
+    Span<const int, 4> cs{arr};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(cs.data(), &arr[0]);
   }
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<int, 2> s{ arr };
+    Span<int, 2> s{arr};
     ASSERT_EQ(s.size(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
 
-    Span<const int, 2> cs{ arr };
+    Span<const int, 2> cs{arr};
     ASSERT_EQ(cs.size(), 2U);
     ASSERT_EQ(cs.data(), &arr[0]);
   }
 
   {
-    Span<int, 0> s{ arr };
+    Span<int, 0> s{arr};
     ASSERT_EQ(s.size(), 0U);
     ASSERT_EQ(s.data(), &arr[0]);
 
-    Span<const int, 0> cs{ arr };
+    Span<const int, 0> cs{arr};
     ASSERT_EQ(cs.size(), 0U);
     ASSERT_EQ(cs.data(), &arr[0]);
   }
 
   {
-    Span<int, 5> s{ arr };
+    Span<int, 5> s{arr};
   }
 
   {
-    auto get_an_array = []() -> mozilla::Array<int, 4> {
-      return { 1, 2, 3, 4 };
-    };
+    auto get_an_array = []() -> mozilla::Array<int, 4> { return {1, 2, 3, 4}; };
     auto take_a_Span = [](Span<int> s) { static_cast<void>(s); };
     // try to take a temporary mozilla::Array
     take_a_Span(get_an_array());
@@ -790,9 +785,7 @@ SPAN_TEST(from_mozilla_array_constructor)
 #endif
 
   {
-    auto get_an_array = []() -> mozilla::Array<int, 4> {
-      return { 1, 2, 3, 4 };
-    };
+    auto get_an_array = []() -> mozilla::Array<int, 4> { return {1, 2, 3, 4}; };
     auto take_a_Span = [](Span<const int> s) { static_cast<void>(s); };
     // try to take a temporary mozilla::Array
     take_a_Span(get_an_array());
@@ -810,32 +803,32 @@ SPAN_TEST(from_const_mozilla_array_constructor)
   const mozilla::Array<int, 4> arr(1, 2, 3, 4);
 
   {
-    Span<const int> s{ arr };
+    Span<const int> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<const int, 4> s{ arr };
+    Span<const int, 4> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<const int, 2> s{ arr };
+    Span<const int, 2> s{arr};
     ASSERT_EQ(s.size(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<const int, 0> s{ arr };
+    Span<const int, 0> s{arr};
     ASSERT_EQ(s.size(), 0U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<const int, 5> s{ arr };
+    Span<const int, 5> s{arr};
   }
 #endif
 
@@ -862,36 +855,36 @@ SPAN_TEST(from_mozilla_array_const_constructor)
   mozilla::Array<const int, 4> arr(1, 2, 3, 4);
 
   {
-    Span<const int> s{ arr };
+    Span<const int> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<const int, 4> s{ arr };
+    Span<const int, 4> s{arr};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(arr.cend() - arr.cbegin()));
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
 #ifdef CONFIRM_COMPILATION_ERRORS
   {
-    Span<const int, 2> s{ arr };
+    Span<const int, 2> s{arr};
     ASSERT_EQ(s.size(), 2U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<const int, 0> s{ arr };
+    Span<const int, 0> s{arr};
     ASSERT_EQ(s.size(), 0U);
     ASSERT_EQ(s.data(), &arr[0]);
   }
 
   {
-    Span<const int, 5> s{ arr };
+    Span<const int, 5> s{arr};
   }
 
   {
-    Span<int, 4> s{ arr };
+    Span<int, 4> s{arr};
   }
 #endif
 
@@ -904,17 +897,17 @@ SPAN_TEST(from_mozilla_array_const_constructor)
 
 SPAN_TEST(from_container_constructor)
 {
-  std::vector<int> v = { 1, 2, 3 };
+  std::vector<int> v = {1, 2, 3};
   const std::vector<int> cv = v;
 
   {
     AssertSpanOfThreeInts(v);
 
-    Span<int> s{ v };
+    Span<int> s{v};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(v.size()));
     ASSERT_EQ(s.data(), v.data());
 
-    Span<const int> cs{ v };
+    Span<const int> cs{v};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(v.size()));
     ASSERT_EQ(cs.data(), v.data());
   }
@@ -924,20 +917,20 @@ SPAN_TEST(from_container_constructor)
 
   {
 #ifdef CONFIRM_COMPILATION_ERRORS
-    Span<char> s{ str };
+    Span<char> s{str};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(str.size()));
     ASSERT_EQ(s.data(), str.data());
 #endif
-    Span<const char> cs{ str };
+    Span<const char> cs{str};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(str.size()));
     ASSERT_EQ(cs.data(), str.data());
   }
 
   {
 #ifdef CONFIRM_COMPILATION_ERRORS
-    Span<char> s{ cstr };
+    Span<char> s{cstr};
 #endif
-    Span<const char> cs{ cstr };
+    Span<const char> cs{cstr};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(cstr.size()));
     ASSERT_EQ(cs.data(), cstr.data());
   }
@@ -987,7 +980,7 @@ SPAN_TEST(from_container_constructor)
   {
 #ifdef CONFIRM_COMPILATION_ERRORS
     std::map<int, int> m;
-    Span<int> s{ m };
+    Span<int> s{m};
 #endif
   }
 
@@ -1012,12 +1005,12 @@ SPAN_TEST(from_xpcom_collections)
 
     AssertSpanOfThreeInts(v);
 
-    Span<int> s{ v };
+    Span<int> s{v};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(s.data(), v.Elements());
     ASSERT_EQ(s[2], 3);
 
-    Span<const int> cs{ v };
+    Span<const int> cs{v};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(cs.data(), v.Elements());
     ASSERT_EQ(cs[2], 3);
@@ -1043,12 +1036,12 @@ SPAN_TEST(from_xpcom_collections)
 
     AssertSpanOfThreeInts(v);
 
-    Span<int> s{ v };
+    Span<int> s{v};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(s.data(), v.Elements());
     ASSERT_EQ(s[2], 3);
 
-    Span<const int> cs{ v };
+    Span<const int> cs{v};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(cs.data(), v.Elements());
     ASSERT_EQ(cs[2], 3);
@@ -1074,12 +1067,12 @@ SPAN_TEST(from_xpcom_collections)
 
     AssertSpanOfThreeInts(v);
 
-    Span<int> s{ v };
+    Span<int> s{v};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(s.data(), v.Elements());
     ASSERT_EQ(s[2], 3);
 
-    Span<const int> cs{ v };
+    Span<const int> cs{v};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(cs.data(), v.Elements());
     ASSERT_EQ(cs[2], 3);
@@ -1104,12 +1097,12 @@ SPAN_TEST(from_xpcom_collections)
     AssertSpanOfThreeChar16s(str);
     AssertSpanOfThreeChar16sViaString(str);
 
-    Span<char16_t> s{ str };
+    Span<char16_t> s{str};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(str.Length()));
     ASSERT_EQ(s.data(), str.BeginWriting());
     ASSERT_EQ(s[2], 'c');
 
-    Span<const char16_t> cs{ str };
+    Span<const char16_t> cs{str};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(str.Length()));
     ASSERT_EQ(cs.data(), str.BeginReading());
     ASSERT_EQ(cs[2], 'c');
@@ -1133,12 +1126,12 @@ SPAN_TEST(from_xpcom_collections)
     AssertSpanOfThreeChars(str);
     AssertSpanOfThreeCharsViaString(str);
 
-    Span<uint8_t> s{ str };
+    Span<uint8_t> s{str};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(str.Length()));
     ASSERT_EQ(s.data(), reinterpret_cast<uint8_t*>(str.BeginWriting()));
     ASSERT_EQ(s[2], 'c');
 
-    Span<const uint8_t> cs{ str };
+    Span<const uint8_t> cs{str};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(str.Length()));
     ASSERT_EQ(cs.data(), reinterpret_cast<const uint8_t*>(str.BeginReading()));
     ASSERT_EQ(cs[2], 'c');
@@ -1165,12 +1158,12 @@ SPAN_TEST(from_xpcom_collections)
 
     AssertSpanOfThreeInts(r);
 
-    Span<int> s{ r };
+    Span<int> s{r};
     ASSERT_EQ(s.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(s.data(), v.Elements());
     ASSERT_EQ(s[2], 3);
 
-    Span<const int> cs{ r };
+    Span<const int> cs{r};
     ASSERT_EQ(cs.size(), narrow_cast<size_t>(v.Length()));
     ASSERT_EQ(cs.data(), v.Elements());
     ASSERT_EQ(cs[2], 3);
@@ -1203,12 +1196,12 @@ SPAN_TEST(from_cstring)
     ASSERT_EQ(cs[2], 'c');
 
 #ifdef CONFIRM_COMPILATION_ERRORS
-    Span<const char> scccl("literal"); // error
+    Span<const char> scccl("literal");  // error
 
     Span<const char> sccel;
-    sccel = "literal"; // error
+    sccel = "literal";  // error
 
-    cs = MakeSpan("literal"); // error
+    cs = MakeSpan("literal");  // error
 #endif
   }
   {
@@ -1220,17 +1213,17 @@ SPAN_TEST(from_cstring)
     ASSERT_EQ(cs[2], 'c');
 
     cs = MakeSpan(arr);
-    ASSERT_EQ(cs.size(), 4U); // zero terminator is part of the array span.
+    ASSERT_EQ(cs.size(), 4U);  // zero terminator is part of the array span.
     ASSERT_EQ(cs.data(), arr);
     ASSERT_EQ(cs[2], 'c');
-    ASSERT_EQ(cs[3], '\0'); // zero terminator is part of the array span.
+    ASSERT_EQ(cs[3], '\0');  // zero terminator is part of the array span.
 
 #ifdef CONFIRM_COMPILATION_ERRORS
-    Span<char> scca(arr); // error
-    Span<const char> sccca(arr); // error
+    Span<char> scca(arr);         // error
+    Span<const char> sccca(arr);  // error
 
     Span<const char> scccea;
-    scccea = arr; // error
+    scccea = arr;  // error
 #endif
   }
   {
@@ -1248,60 +1241,58 @@ SPAN_TEST(from_cstring)
     ASSERT_EQ(cs[2], 'c');
 
     cs = MakeSpan(arr);
-    ASSERT_EQ(cs.size(), 4U); // zero terminator is part of the array span.
+    ASSERT_EQ(cs.size(), 4U);  // zero terminator is part of the array span.
     ASSERT_EQ(cs.data(), str);
     ASSERT_EQ(cs[2], 'c');
-    ASSERT_EQ(cs[3], '\0'); // zero terminator is part of the array span.
+    ASSERT_EQ(cs[3], '\0');  // zero terminator is part of the array span.
 
 #ifdef CONFIRM_COMPILATION_ERRORS
-    Span<char16_t> scca(arr); // error
+    Span<char16_t> scca(arr);  // error
 
     Span<const char16_t> scccea;
-    scccea = arr; // error
+    scccea = arr;  // error
 
-    Span<const char16_t> scccl(u"literal"); // error
+    Span<const char16_t> scccl(u"literal");  // error
 
-    Span<const char16_t> *sccel;
-    *sccel = u"literal"; // error
+    Span<const char16_t>* sccel;
+    *sccel = u"literal";  // error
 
-    cs = MakeSpan(u"literal"); // error
+    cs = MakeSpan(u"literal");  // error
 #endif
   }
 }
 
-SPAN_TEST(from_convertible_Span_constructor){
-  {
-    Span<DerivedClass> avd;
-    Span<const DerivedClass> avcd = avd;
-    static_cast<void>(avcd);
-  }
+SPAN_TEST(from_convertible_Span_constructor){{Span<DerivedClass> avd;
+Span<const DerivedClass> avcd = avd;
+static_cast<void>(avcd);
+}
 
-  {
+{
 #ifdef CONFIRM_COMPILATION_ERRORS
   Span<DerivedClass> avd;
   Span<BaseClass> avb = avd;
   static_cast<void>(avb);
 #endif
-  }
+}
 
 #ifdef CONFIRM_COMPILATION_ERRORS
-  {
-    Span<int> s;
-    Span<unsigned int> s2 = s;
-    static_cast<void>(s2);
-  }
+{
+  Span<int> s;
+  Span<unsigned int> s2 = s;
+  static_cast<void>(s2);
+}
 
-  {
-    Span<int> s;
-    Span<const unsigned int> s2 = s;
-    static_cast<void>(s2);
-  }
+{
+  Span<int> s;
+  Span<const unsigned int> s2 = s;
+  static_cast<void>(s2);
+}
 
-  {
-    Span<int> s;
-    Span<short> s2 = s;
-    static_cast<void>(s2);
-  }
+{
+  Span<int> s;
+  Span<short> s2 = s;
+  static_cast<void>(s2);
+}
 #endif
 }
 
@@ -1310,7 +1301,7 @@ SPAN_TEST(copy_move_and_assignment)
   Span<int> s1;
   ASSERT_TRUE(s1.empty());
 
-  int arr[] = { 3, 4, 5 };
+  int arr[] = {3, 4, 5};
 
   Span<const int> s2 = arr;
   ASSERT_EQ(s2.Length(), 3U);
@@ -1319,7 +1310,7 @@ SPAN_TEST(copy_move_and_assignment)
   s2 = s1;
   ASSERT_TRUE(s2.empty());
 
-  auto get_temp_Span = [&]() -> Span<int> { return { &arr[1], 2 }; };
+  auto get_temp_Span = [&]() -> Span<int> { return {&arr[1], 2}; };
   auto use_Span = [&](Span<const int> s) {
     ASSERT_EQ(s.Length(), 2U);
     ASSERT_EQ(s.data(), &arr[1]);
@@ -1333,7 +1324,7 @@ SPAN_TEST(copy_move_and_assignment)
 
 SPAN_TEST(first)
 {
-  int arr[5] = { 1, 2, 3, 4, 5 };
+  int arr[5] = {1, 2, 3, 4, 5};
 
   {
     Span<int, 5> av = arr;
@@ -1373,7 +1364,7 @@ SPAN_TEST(first)
 
 SPAN_TEST(last)
 {
-  int arr[5] = { 1, 2, 3, 4, 5 };
+  int arr[5] = {1, 2, 3, 4, 5};
 
   {
     Span<int, 5> av = arr;
@@ -1412,7 +1403,7 @@ SPAN_TEST(last)
 
 SPAN_TEST(from_to)
 {
-  int arr[5] = { 1, 2, 3, 4, 5 };
+  int arr[5] = {1, 2, 3, 4, 5};
 
   {
     Span<int, 5> av = arr;
@@ -1465,7 +1456,7 @@ SPAN_TEST(from_to)
 
 SPAN_TEST(Subspan)
 {
-  int arr[5] = { 1, 2, 3, 4, 5 };
+  int arr[5] = {1, 2, 3, 4, 5};
 
   {
     Span<int, 5> av = arr;
@@ -1517,8 +1508,7 @@ SPAN_TEST(Subspan)
     ASSERT_EQ(av.Subspan(5).Length(), 0U);
     CHECK_THROW(av.Subspan(6).Length(), fail_fast);
     auto av2 = av.Subspan(1);
-    for (int i = 0; i < 4; ++i)
-      ASSERT_EQ(av2[i], i + 2);
+    for (int i = 0; i < 4; ++i) ASSERT_EQ(av2[i], i + 2);
   }
 
   {
@@ -1529,14 +1519,13 @@ SPAN_TEST(Subspan)
     ASSERT_EQ(av.Subspan(5).Length(), 0U);
     CHECK_THROW(av.Subspan(6).Length(), fail_fast);
     auto av2 = av.Subspan(1);
-    for (int i = 0; i < 4; ++i)
-      ASSERT_EQ(av2[i], i + 2);
+    for (int i = 0; i < 4; ++i) ASSERT_EQ(av2[i], i + 2);
   }
 }
 
 SPAN_TEST(at_call)
 {
-  int arr[4] = { 1, 2, 3, 4 };
+  int arr[4] = {1, 2, 3, 4};
 
   {
     Span<int> s = arr;
@@ -1545,7 +1534,7 @@ SPAN_TEST(at_call)
   }
 
   {
-    int arr2d[2] = { 1, 6 };
+    int arr2d[2] = {1, 6};
     Span<int, 2> s = arr2d;
     ASSERT_EQ(s.at(0), 1);
     ASSERT_EQ(s.at(1), 6);
@@ -1555,7 +1544,7 @@ SPAN_TEST(at_call)
 
 SPAN_TEST(operator_function_call)
 {
-  int arr[4] = { 1, 2, 3, 4 };
+  int arr[4] = {1, 2, 3, 4};
 
   {
     Span<int> s = arr;
@@ -1564,7 +1553,7 @@ SPAN_TEST(operator_function_call)
   }
 
   {
-    int arr2d[2] = { 1, 6 };
+    int arr2d[2] = {1, 6};
     Span<int, 2> s = arr2d;
     ASSERT_EQ(s(0), 1);
     ASSERT_EQ(s(1), 6);
@@ -1592,7 +1581,7 @@ SPAN_TEST(iterator_conversions)
   Span<int>::const_iterator badConstIt;
   ASSERT_EQ(badIt, badConstIt);
 
-  int a[] = { 1, 2, 3, 4 };
+  int a[] = {1, 2, 3, 4};
   Span<int> s = a;
 
   auto it = s.begin();
@@ -1610,7 +1599,7 @@ SPAN_TEST(iterator_conversions)
 
 SPAN_TEST(iterator_comparisons)
 {
-  int a[] = { 1, 2, 3, 4 };
+  int a[] = {1, 2, 3, 4};
   {
     Span<int> s = a;
     Span<int>::iterator it = s.begin();
@@ -1658,7 +1647,7 @@ SPAN_TEST(iterator_comparisons)
 SPAN_TEST(begin_end)
 {
   {
-    int a[] = { 1, 2, 3, 4 };
+    int a[] = {1, 2, 3, 4};
     Span<int> s = a;
 
     Span<int>::iterator it = s.begin();
@@ -1671,7 +1660,7 @@ SPAN_TEST(begin_end)
   }
 
   {
-    int a[] = { 1, 2, 3, 4 };
+    int a[] = {1, 2, 3, 4};
     Span<int> s = a;
 
     auto it = s.begin();
@@ -1727,7 +1716,7 @@ SPAN_TEST(cbegin_cend)
           }
 #endif
   {
-    int a[] = { 1, 2, 3, 4 };
+    int a[] = {1, 2, 3, 4};
     Span<int> s = a;
 
     auto it = s.cbegin();
@@ -1766,7 +1755,7 @@ SPAN_TEST(cbegin_cend)
 SPAN_TEST(rbegin_rend)
 {
   {
-    int a[] = { 1, 2, 3, 4 };
+    int a[] = {1, 2, 3, 4};
     Span<int> s = a;
 
     auto it = s.rbegin();
@@ -1808,7 +1797,7 @@ SPAN_TEST(rbegin_rend)
 SPAN_TEST(crbegin_crend)
 {
   {
-    int a[] = { 1, 2, 3, 4 };
+    int a[] = {1, 2, 3, 4};
     Span<int> s = a;
 
     auto it = s.crbegin();
@@ -1864,7 +1853,7 @@ SPAN_TEST(comparison_operators)
   }
 
   {
-    int arr[] = { 2, 1 };
+    int arr[] = {2, 1};
     Span<int> s1 = arr;
     Span<int> s2 = arr;
 
@@ -1883,7 +1872,7 @@ SPAN_TEST(comparison_operators)
   }
 
   {
-    int arr[] = { 2, 1 }; // bigger
+    int arr[] = {2, 1};  // bigger
 
     Span<int> s1 = nullptr;
     Span<int> s2 = arr;
@@ -1903,8 +1892,8 @@ SPAN_TEST(comparison_operators)
   }
 
   {
-    int arr1[] = { 1, 2 };
-    int arr2[] = { 1, 2 };
+    int arr1[] = {1, 2};
+    int arr2[] = {1, 2};
     Span<int> s1 = arr1;
     Span<int> s2 = arr2;
 
@@ -1923,12 +1912,12 @@ SPAN_TEST(comparison_operators)
   }
 
   {
-    int arr[] = { 1, 2, 3 };
+    int arr[] = {1, 2, 3};
 
     AssertSpanOfThreeInts(arr);
 
-    Span<int> s1 = { &arr[0], 2 }; // shorter
-    Span<int> s2 = arr;            // longer
+    Span<int> s1 = {&arr[0], 2};  // shorter
+    Span<int> s2 = arr;           // longer
 
     ASSERT_NE(s1, s2);
     ASSERT_NE(s2, s1);
@@ -1945,8 +1934,8 @@ SPAN_TEST(comparison_operators)
   }
 
   {
-    int arr1[] = { 1, 2 }; // smaller
-    int arr2[] = { 2, 1 }; // bigger
+    int arr1[] = {1, 2};  // smaller
+    int arr2[] = {2, 1};  // bigger
 
     Span<int> s1 = arr1;
     Span<int> s2 = arr2;
@@ -1968,7 +1957,7 @@ SPAN_TEST(comparison_operators)
 
 SPAN_TEST(as_bytes)
 {
-  int a[] = { 1, 2, 3, 4 };
+  int a[] = {1, 2, 3, 4};
 
   {
     Span<const int> s = a;
@@ -2001,7 +1990,7 @@ SPAN_TEST(as_bytes)
 
 SPAN_TEST(as_writable_bytes)
 {
-  int a[] = { 1, 2, 3, 4 };
+  int a[] = {1, 2, 3, 4};
 
   {
 #ifdef CONFIRM_COMPILATION_ERRORS
@@ -2034,7 +2023,7 @@ SPAN_TEST(as_writable_bytes)
 
 SPAN_TEST(fixed_size_conversions)
 {
-  int arr[] = { 1, 2, 3, 4 };
+  int arr[] = {1, 2, 3, 4};
 
   // converting to an Span from an equal size array is ok
   Span<int, 4> s4 = arr;
@@ -2074,7 +2063,7 @@ SPAN_TEST(fixed_size_conversions)
 
   // you can convert statically
   {
-    Span<int, 2> s2 = { arr, 2 };
+    Span<int, 2> s2 = {arr, 2};
     static_cast<void>(s2);
   }
   {

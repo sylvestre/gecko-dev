@@ -13,27 +13,27 @@ class txExecutionState;
 
 class txUnknownHandler : public txBufferingHandler
 {
-public:
-    explicit txUnknownHandler(txExecutionState* aEs);
-    virtual ~txUnknownHandler();
+ public:
+  explicit txUnknownHandler(txExecutionState* aEs);
+  virtual ~txUnknownHandler();
 
-    TX_DECL_TXAXMLEVENTHANDLER
+  TX_DECL_TXAXMLEVENTHANDLER
 
-private:
-    nsresult createHandlerAndFlush(bool aHTMLRoot,
-                                   const nsAString& aName,
-                                   const int32_t aNsID);
+ private:
+  nsresult createHandlerAndFlush(bool aHTMLRoot,
+                                 const nsAString& aName,
+                                 const int32_t aNsID);
 
-    /*
+  /*
      * XXX we shouldn't hold to the txExecutionState, as we're supposed
      * to live without it. But as a standalone handler, we don't.
      * The right fix may need a txOutputFormat here.
      */
-    txExecutionState* mEs;
+  txExecutionState* mEs;
 
-    // If mFlushed is true then we've replaced mEs->mResultHandler with a
-    // different handler and we should forward to that handler.
-    bool mFlushed;
+  // If mFlushed is true then we've replaced mEs->mResultHandler with a
+  // different handler and we should forward to that handler.
+  bool mFlushed;
 };
 
 #endif /* txUnknownHandler_h___ */

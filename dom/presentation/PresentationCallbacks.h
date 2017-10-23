@@ -26,7 +26,7 @@ class Promise;
 
 class PresentationRequesterCallback : public nsIPresentationServiceCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRESENTATIONSERVICECALLBACK
 
@@ -34,7 +34,7 @@ public:
                                 const nsAString& aSessionId,
                                 Promise* aPromise);
 
-protected:
+ protected:
   virtual ~PresentationRequesterCallback();
 
   RefPtr<PresentationRequest> mRequest;
@@ -44,7 +44,7 @@ protected:
 
 class PresentationReconnectCallback final : public PresentationRequesterCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIPRESENTATIONSERVICECALLBACK
 
@@ -53,16 +53,17 @@ public:
                                 Promise* aPromise,
                                 PresentationConnection* aConnection);
 
-private:
+ private:
   virtual ~PresentationReconnectCallback();
 
   RefPtr<PresentationConnection> mConnection;
 };
 
-class PresentationResponderLoadingCallback final : public nsIWebProgressListener
-                                                 , public nsSupportsWeakReference
+class PresentationResponderLoadingCallback final
+    : public nsIWebProgressListener,
+      public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIWEBPROGRESSLISTENER
 
@@ -70,7 +71,7 @@ public:
 
   nsresult Init(nsIDocShell* aDocShell);
 
-private:
+ private:
   ~PresentationResponderLoadingCallback();
 
   nsresult NotifyReceiverReady(bool aIsLoading);
@@ -79,7 +80,7 @@ private:
   nsCOMPtr<nsIWebProgress> mProgress;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationCallbacks_h
+#endif  // mozilla_dom_PresentationCallbacks_h

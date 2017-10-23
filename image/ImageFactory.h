@@ -23,7 +23,7 @@ class ProgressTracker;
 
 class ImageFactory
 {
-public:
+ public:
   /**
    * Registers vars with Preferences. Should only be called on the main thread.
    */
@@ -53,8 +53,8 @@ public:
    * @param aMimeType      The mimetype of the image.
    * @param aSizeHint      The length of the source data for the image.
    */
-  static already_AddRefed<Image>
-  CreateAnonymousImage(const nsCString& aMimeType, uint32_t aSizeHint = 0);
+  static already_AddRefed<Image> CreateAnonymousImage(
+      const nsCString& aMimeType, uint32_t aSizeHint = 0);
 
   /**
    * Creates a new multipart/x-mixed-replace image wrapper, and initializes it
@@ -65,32 +65,32 @@ public:
    *                         stream.
    * @param aProgressTracker A progress tracker for the multipart image.
    */
-  static already_AddRefed<MultipartImage>
-  CreateMultipartImage(Image* aFirstPart, ProgressTracker* aProgressTracker);
+  static already_AddRefed<MultipartImage> CreateMultipartImage(
+      Image* aFirstPart, ProgressTracker* aProgressTracker);
 
-private:
+ private:
   // Factory functions that create specific types of image containers.
-  static already_AddRefed<Image>
-  CreateRasterImage(nsIRequest* aRequest,
-                    ProgressTracker* aProgressTracker,
-                    const nsCString& aMimeType,
-                    ImageURL* aURI,
-                    uint32_t aImageFlags,
-                    uint32_t aInnerWindowId);
+  static already_AddRefed<Image> CreateRasterImage(
+      nsIRequest* aRequest,
+      ProgressTracker* aProgressTracker,
+      const nsCString& aMimeType,
+      ImageURL* aURI,
+      uint32_t aImageFlags,
+      uint32_t aInnerWindowId);
 
-  static already_AddRefed<Image>
-  CreateVectorImage(nsIRequest* aRequest,
-                    ProgressTracker* aProgressTracker,
-                    const nsCString& aMimeType,
-                    ImageURL* aURI,
-                    uint32_t aImageFlags,
-                    uint32_t aInnerWindowId);
+  static already_AddRefed<Image> CreateVectorImage(
+      nsIRequest* aRequest,
+      ProgressTracker* aProgressTracker,
+      const nsCString& aMimeType,
+      ImageURL* aURI,
+      uint32_t aImageFlags,
+      uint32_t aInnerWindowId);
 
   // This is a static factory class, so disallow instantiation.
   virtual ~ImageFactory() = 0;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ImageFactory_h
+#endif  // mozilla_image_ImageFactory_h

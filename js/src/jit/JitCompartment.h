@@ -27,12 +27,8 @@ namespace jit {
 
 class FrameSizeClass;
 
-struct EnterJitData
-{
-    explicit EnterJitData(JSContext* cx)
-      : envChain(cx),
-        result(cx)
-    {}
+struct EnterJitData {
+    explicit EnterJitData(JSContext* cx) : envChain(cx), result(cx) {}
 
     uint8_t* jitcode;
     InterpreterFrame* osrFrame;
@@ -51,33 +47,29 @@ struct EnterJitData
 };
 
 typedef void (*EnterJitCode)(void* code, unsigned argc, Value* argv, InterpreterFrame* fp,
-                             CalleeToken calleeToken, JSObject* envChain,
-                             size_t numStackValues, Value* vp);
+                             CalleeToken calleeToken, JSObject* envChain, size_t numStackValues,
+                             Value* vp);
 
 class JitcodeGlobalTable;
 
 // Information about a loop backedge in the runtime, which can be set to
 // point to either the loop header or to an OOL interrupt checking stub,
 // if signal handlers are being used to implement interrupts.
-class PatchableBackedge : public InlineListNode<PatchableBackedge>
-{
+class PatchableBackedge : public InlineListNode<PatchableBackedge> {
     friend class JitZoneGroup;
 
     CodeLocationJump backedge;
     CodeLocationLabel loopHeader;
     CodeLocationLabel interruptCheck;
 
-  public:
-    PatchableBackedge(CodeLocationJump backedge,
-                      CodeLocationLabel loopHeader,
+   public:
+    PatchableBackedge(CodeLocationJump backedge, CodeLocationLabel loopHeader,
                       CodeLocationLabel interruptCheck)
-      : backedge(backedge), loopHeader(loopHeader), interruptCheck(interruptCheck)
-    {}
+        : backedge(backedge), loopHeader(loopHeader), interruptCheck(interruptCheck) {}
 };
 
-class JitRuntime
-{
-  private:
+class JitRuntime {
+   private:
     friend class JitCompartment;
 
     // Executable allocator for all code except wasm code and Ion code with
@@ -146,7 +138,7 @@ class JitRuntime
     // Global table of jitcode native address => bytecode address mappings.
     UnprotectedData<JitcodeGlobalTable*> jitcodeGlobalTable_;
 
-  private:
+   private:
     JitCode* generateLazyLinkStub(JSContext* cx);
     JitCode* generateProfilerExitFrameTailStub(JSContext* cx);
     JitCode* generateExceptionTailStub(JSContext* cx, void* handler);
@@ -172,7 +164,7 @@ class JitRuntime
         return generateTLEventVM(cx, masm, f, /* enter = */ false);
     }
 
-  public:
+   public:
     explicit JitRuntime(JSRuntime* rt);
     ~JitRuntime();
     MOZ_MUST_USE bool initialize(JSContext* cx, js::AutoLockForExclusiveAccess& lock);
@@ -182,26 +174,21 @@ class JitRuntime
     static MOZ_MUST_USE bool MarkJitcodeGlobalTableIteratively(GCMarker* marker);
     static void SweepJitcodeGlobalTable(JSRuntime* rt);
 
-    ExecutableAllocator& execAlloc() {
-        return execAlloc_.ref();
-    }
-    ExecutableAllocator& backedgeExecAlloc() {
-        return backedgeExecAlloc_.ref();
-    }
+    ExecutableAllocator& execAlloc() { return execAlloc_.ref(); }
+    ExecutableAllocator& backedgeExecAlloc() { return backedgeExecAlloc_.ref(); }
 
-    class AutoPreventBackedgePatching
-    {
+    class AutoPreventBackedgePatching {
         mozilla::DebugOnly<JSRuntime*> rt_;
         JitRuntime* jrt_;
         bool prev_;
 
-      public:
+       public:
         // This two-arg constructor is provided for JSRuntime::createJitRuntime,
         // where we have a JitRuntime but didn't set rt->jitRuntime_ yet.
         AutoPreventBackedgePatching(JSRuntime* rt, JitRuntime* jrt)
-          : rt_(rt),
-            jrt_(jrt),
-            prev_(false)  // silence GCC warning
+            : rt_(rt),
+              jrt_(jrt),
+              prev_(false)  // silence GCC warning
         {
             if (jrt_) {
                 prev_ = jrt_->preventBackedgePatching_;
@@ -209,8 +196,7 @@ class JitRuntime
             }
         }
         explicit AutoPreventBackedgePatching(JSRuntime* rt)
-          : AutoPreventBackedgePatching(rt, rt->jitRuntime())
-        {}
+            : AutoPreventBackedgePatching(rt, rt->jitRuntime()) {}
         ~AutoPreventBackedgePatching() {
             MOZ_ASSERT(jrt_ == rt_->jitRuntime());
             if (jrt_) {
@@ -220,99 +206,73 @@ class JitRuntime
         }
     };
 
-    bool preventBackedgePatching() const {
-        return preventBackedgePatching_;
-    }
+    bool preventBackedgePatching() const { return preventBackedgePatching_; }
 
     JitCode* getVMWrapper(const VMFunction& f) const;
     JitCode* debugTrapHandler(JSContext* cx);
     JitCode* getBaselineDebugModeOSRHandler(JSContext* cx);
     void* getBaselineDebugModeOSRHandlerAddress(JSContext* cx, bool popFrameReg);
 
-    JitCode* getGenericBailoutHandler() const {
-        return bailoutHandler_;
-    }
+    JitCode* getGenericBailoutHandler() const { return bailoutHandler_; }
 
-    JitCode* getExceptionTail() const {
-        return exceptionTail_;
-    }
+    JitCode* getExceptionTail() const { return exceptionTail_; }
 
-    JitCode* getBailoutTail() const {
-        return bailoutTail_;
-    }
+    JitCode* getBailoutTail() const { return bailoutTail_; }
 
-    JitCode* getProfilerExitFrameTail() const {
-        return profilerExitFrameTail_;
-    }
+    JitCode* getProfilerExitFrameTail() const { return profilerExitFrameTail_; }
 
     JitCode* getBailoutTable(const FrameSizeClass& frameClass) const;
 
-    JitCode* getArgumentsRectifier() const {
-        return argumentsRectifier_;
-    }
+    JitCode* getArgumentsRectifier() const { return argumentsRectifier_; }
 
-    void* getArgumentsRectifierReturnAddr() const {
-        return argumentsRectifierReturnAddr_;
-    }
+    void* getArgumentsRectifierReturnAddr() const { return argumentsRectifierReturnAddr_; }
 
-    JitCode* getInvalidationThunk() const {
-        return invalidator_;
-    }
+    JitCode* getInvalidationThunk() const { return invalidator_; }
 
-    EnterJitCode enterJit() const {
-        return enterJIT_->as<EnterJitCode>();
-    }
+    EnterJitCode enterJit() const { return enterJIT_->as<EnterJitCode>(); }
 
     JitCode* preBarrier(MIRType type) const {
         switch (type) {
-          case MIRType::Value: return valuePreBarrier_;
-          case MIRType::String: return stringPreBarrier_;
-          case MIRType::Object: return objectPreBarrier_;
-          case MIRType::Shape: return shapePreBarrier_;
-          case MIRType::ObjectGroup: return objectGroupPreBarrier_;
-          default: MOZ_CRASH();
+            case MIRType::Value:
+                return valuePreBarrier_;
+            case MIRType::String:
+                return stringPreBarrier_;
+            case MIRType::Object:
+                return objectPreBarrier_;
+            case MIRType::Shape:
+                return shapePreBarrier_;
+            case MIRType::ObjectGroup:
+                return objectGroupPreBarrier_;
+            default:
+                MOZ_CRASH();
         }
     }
 
-    JitCode* mallocStub() const {
-        return mallocStub_;
-    }
+    JitCode* mallocStub() const { return mallocStub_; }
 
-    JitCode* freeStub() const {
-        return freeStub_;
-    }
+    JitCode* freeStub() const { return freeStub_; }
 
-    JitCode* lazyLinkStub() const {
-        return lazyLinkStub_;
-    }
+    JitCode* lazyLinkStub() const { return lazyLinkStub_; }
 
-    bool hasJitcodeGlobalTable() const {
-        return jitcodeGlobalTable_ != nullptr;
-    }
+    bool hasJitcodeGlobalTable() const { return jitcodeGlobalTable_ != nullptr; }
 
     JitcodeGlobalTable* getJitcodeGlobalTable() {
         MOZ_ASSERT(hasJitcodeGlobalTable());
         return jitcodeGlobalTable_;
     }
 
-    bool isProfilerInstrumentationEnabled(JSRuntime* rt) {
-        return rt->geckoProfiler().enabled();
-    }
+    bool isProfilerInstrumentationEnabled(JSRuntime* rt) { return rt->geckoProfiler().enabled(); }
 
     bool isOptimizationTrackingEnabled(ZoneGroup* group) {
         return isProfilerInstrumentationEnabled(group->runtime);
     }
 };
 
-class JitZoneGroup
-{
-  public:
-    enum BackedgeTarget {
-        BackedgeLoopHeader,
-        BackedgeInterruptCheck
-    };
+class JitZoneGroup {
+   public:
+    enum BackedgeTarget { BackedgeLoopHeader, BackedgeInterruptCheck };
 
-  private:
+   private:
     // Whether patchable backedges currently jump to the loop header or the
     // interrupt check.
     ZoneGroupData<BackedgeTarget> backedgeTarget_;
@@ -324,12 +284,10 @@ class JitZoneGroup
     ZoneGroupData<InlineList<PatchableBackedge>> backedgeList_;
     InlineList<PatchableBackedge>& backedgeList() { return backedgeList_.ref(); }
 
-  public:
+   public:
     explicit JitZoneGroup(ZoneGroup* group);
 
-    BackedgeTarget backedgeTarget() const {
-        return backedgeTarget_;
-    }
+    BackedgeTarget backedgeTarget() const { return backedgeTarget_; }
     void addPatchableBackedge(JitRuntime* jrt, PatchableBackedge* backedge) {
         MOZ_ASSERT(jrt->preventBackedgePatching());
         backedgeList().pushFront(backedge);
@@ -364,8 +322,7 @@ struct CacheIRStubKey : public DefaultHasher<CacheIRStubKey> {
         uint32_t length;
 
         Lookup(CacheKind kind, ICStubEngine engine, const uint8_t* code, uint32_t length)
-          : kind(kind), engine(engine), code(code), length(length)
-        {}
+            : kind(kind), engine(engine), code(code), length(length) {}
     };
 
     static HashNumber hash(const Lookup& l);
@@ -374,23 +331,19 @@ struct CacheIRStubKey : public DefaultHasher<CacheIRStubKey> {
     UniquePtr<CacheIRStubInfo, JS::FreePolicy> stubInfo;
 
     explicit CacheIRStubKey(CacheIRStubInfo* info) : stubInfo(info) {}
-    CacheIRStubKey(CacheIRStubKey&& other) : stubInfo(Move(other.stubInfo)) { }
+    CacheIRStubKey(CacheIRStubKey&& other) : stubInfo(Move(other.stubInfo)) {}
 
-    void operator=(CacheIRStubKey&& other) {
-        stubInfo = Move(other.stubInfo);
-    }
+    void operator=(CacheIRStubKey&& other) { stubInfo = Move(other.stubInfo); }
 };
 
-template<typename Key>
-struct IcStubCodeMapGCPolicy
-{
+template <typename Key>
+struct IcStubCodeMapGCPolicy {
     static bool needsSweep(Key*, ReadBarrieredJitCode* value) {
         return IsAboutToBeFinalized(value);
     }
 };
 
-class JitZone
-{
+class JitZone {
     // Allocated space for optimized baseline stubs.
     OptimizedICStubSpace optimizedStubSpace_;
     // Allocated space for cached cfg.
@@ -401,28 +354,20 @@ class JitZone
     IonCacheIRStubInfoSet ionCacheIRStubInfoSet_;
 
     // Map CacheIRStubKey to shared JitCode objects.
-    using BaselineCacheIRStubCodeMap = GCHashMap<CacheIRStubKey,
-                                                 ReadBarrieredJitCode,
-                                                 CacheIRStubKey,
-                                                 SystemAllocPolicy,
-                                                 IcStubCodeMapGCPolicy<CacheIRStubKey>>;
+    using BaselineCacheIRStubCodeMap =
+        GCHashMap<CacheIRStubKey, ReadBarrieredJitCode, CacheIRStubKey, SystemAllocPolicy,
+                  IcStubCodeMapGCPolicy<CacheIRStubKey>>;
     BaselineCacheIRStubCodeMap baselineCacheIRStubCodes_;
 
-  public:
+   public:
     MOZ_MUST_USE bool init(JSContext* cx);
     void sweep(FreeOp* fop);
 
-    void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
-                                size_t* jitZone,
-                                size_t* baselineStubsOptimized,
-                                size_t* cachedCFG) const;
+    void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, size_t* jitZone,
+                                size_t* baselineStubsOptimized, size_t* cachedCFG) const;
 
-    OptimizedICStubSpace* optimizedStubSpace() {
-        return &optimizedStubSpace_;
-    }
-    CFGSpace* cfgSpace() {
-        return &cfgSpace_;
-    }
+    OptimizedICStubSpace* optimizedStubSpace() { return &optimizedStubSpace_; }
+    CFGSpace* cfgSpace() { return &cfgSpace_; }
 
     JitCode* getBaselineCacheIRStubCode(const CacheIRStubKey::Lookup& key,
                                         CacheIRStubInfo** stubInfo) {
@@ -435,68 +380,48 @@ class JitZone
         return nullptr;
     }
     MOZ_MUST_USE bool putBaselineCacheIRStubCode(const CacheIRStubKey::Lookup& lookup,
-                                                 CacheIRStubKey& key,
-                                                 JitCode* stubCode)
-    {
+                                                 CacheIRStubKey& key, JitCode* stubCode) {
         auto p = baselineCacheIRStubCodes_.lookupForAdd(lookup);
         MOZ_ASSERT(!p);
         return baselineCacheIRStubCodes_.add(p, Move(key), stubCode);
     }
 
     CacheIRStubInfo* getIonCacheIRStubInfo(const CacheIRStubKey::Lookup& key) {
-        if (!ionCacheIRStubInfoSet_.initialized())
-            return nullptr;
+        if (!ionCacheIRStubInfoSet_.initialized()) return nullptr;
         IonCacheIRStubInfoSet::Ptr p = ionCacheIRStubInfoSet_.lookup(key);
         return p ? p->stubInfo.get() : nullptr;
     }
     MOZ_MUST_USE bool putIonCacheIRStubInfo(const CacheIRStubKey::Lookup& lookup,
-                                            CacheIRStubKey& key)
-    {
-        if (!ionCacheIRStubInfoSet_.initialized() && !ionCacheIRStubInfoSet_.init())
-            return false;
+                                            CacheIRStubKey& key) {
+        if (!ionCacheIRStubInfoSet_.initialized() && !ionCacheIRStubInfoSet_.init()) return false;
         IonCacheIRStubInfoSet::AddPtr p = ionCacheIRStubInfoSet_.lookupForAdd(lookup);
         MOZ_ASSERT(!p);
         return ionCacheIRStubInfoSet_.add(p, Move(key));
     }
-    void purgeIonCacheIRStubInfo() {
-        ionCacheIRStubInfoSet_.finish();
-    }
+    void purgeIonCacheIRStubInfo() { ionCacheIRStubInfoSet_.finish(); }
 };
 
-enum class BailoutReturnStub {
-    GetProp,
-    GetPropSuper,
-    SetProp,
-    Call,
-    New,
-    Count
-};
+enum class BailoutReturnStub { GetProp, GetPropSuper, SetProp, Call, New, Count };
 
-class JitCompartment
-{
+class JitCompartment {
     friend class JitActivation;
 
     // Map ICStub keys to ICStub shared code objects.
-    using ICStubCodeMap = GCHashMap<uint32_t,
-                                    ReadBarrieredJitCode,
-                                    DefaultHasher<uint32_t>,
-                                    ZoneAllocPolicy,
-                                    IcStubCodeMapGCPolicy<uint32_t>>;
+    using ICStubCodeMap = GCHashMap<uint32_t, ReadBarrieredJitCode, DefaultHasher<uint32_t>,
+                                    ZoneAllocPolicy, IcStubCodeMapGCPolicy<uint32_t>>;
     ICStubCodeMap* stubCodes_;
 
     // Keep track of offset into various baseline stubs' code at return
     // point from called script.
-    struct BailoutReturnStubInfo
-    {
+    struct BailoutReturnStubInfo {
         void* addr;
         uint32_t key;
 
-        BailoutReturnStubInfo() : addr(nullptr), key(0) { }
-        BailoutReturnStubInfo(void* addr_, uint32_t key_) : addr(addr_), key(key_) { }
+        BailoutReturnStubInfo() : addr(nullptr), key(0) {}
+        BailoutReturnStubInfo(void* addr_, uint32_t key_) : addr(addr_), key(key_) {}
     };
-    mozilla::EnumeratedArray<BailoutReturnStub,
-                             BailoutReturnStub::Count,
-                             BailoutReturnStubInfo> bailoutReturnStubInfo_;
+    mozilla::EnumeratedArray<BailoutReturnStub, BailoutReturnStub::Count, BailoutReturnStubInfo>
+        bailoutReturnStubInfo_;
 
     // Stubs to concatenate two strings inline, or perform RegExp calls inline.
     // These bake in zone and compartment specific pointers and can't be stored
@@ -516,11 +441,10 @@ class JitCompartment
     JitCode* generateRegExpSearcherStub(JSContext* cx);
     JitCode* generateRegExpTesterStub(JSContext* cx);
 
-  public:
+   public:
     JSObject* getSimdTemplateObjectFor(JSContext* cx, Handle<SimdTypeDescr*> descr) {
         ReadBarrieredObject& tpl = simdTemplateObjects_[descr->type()];
-        if (!tpl)
-            tpl.set(TypedObject::createZeroed(cx, descr, 0, gc::TenuredHeap));
+        if (!tpl) tpl.set(TypedObject::createZeroed(cx, descr, 0, gc::TenuredHeap));
         return tpl.get();
     }
 
@@ -543,8 +467,7 @@ class JitCompartment
 
     JitCode* getStubCode(uint32_t key) {
         ICStubCodeMap::Ptr p = stubCodes_->lookup(key);
-        if (p)
-            return p->value();
+        if (p) return p->value();
         return nullptr;
     }
     MOZ_MUST_USE bool putStubCode(JSContext* cx, uint32_t key, Handle<JitCode*> stubCode) {
@@ -557,7 +480,7 @@ class JitCompartment
     }
     void initBailoutReturnAddr(void* addr, uint32_t key, BailoutReturnStub kind) {
         MOZ_ASSERT(bailoutReturnStubInfo_[kind].addr == nullptr);
-        bailoutReturnStubInfo_[kind] = BailoutReturnStubInfo { addr, key };
+        bailoutReturnStubInfo_[kind] = BailoutReturnStubInfo{addr, key};
     }
     void* bailoutReturnAddr(BailoutReturnStub kind) {
         MOZ_ASSERT(bailoutReturnStubInfo_[kind].addr);
@@ -574,39 +497,28 @@ class JitCompartment
 
     void sweep(FreeOp* fop, JSCompartment* compartment);
 
-    JitCode* stringConcatStubNoBarrier() const {
-        return stringConcatStub_;
-    }
+    JitCode* stringConcatStubNoBarrier() const { return stringConcatStub_; }
 
-    JitCode* regExpMatcherStubNoBarrier() const {
-        return regExpMatcherStub_;
-    }
+    JitCode* regExpMatcherStubNoBarrier() const { return regExpMatcherStub_; }
 
     MOZ_MUST_USE bool ensureRegExpMatcherStubExists(JSContext* cx) {
-        if (regExpMatcherStub_)
-            return true;
+        if (regExpMatcherStub_) return true;
         regExpMatcherStub_ = generateRegExpMatcherStub(cx);
         return regExpMatcherStub_ != nullptr;
     }
 
-    JitCode* regExpSearcherStubNoBarrier() const {
-        return regExpSearcherStub_;
-    }
+    JitCode* regExpSearcherStubNoBarrier() const { return regExpSearcherStub_; }
 
     MOZ_MUST_USE bool ensureRegExpSearcherStubExists(JSContext* cx) {
-        if (regExpSearcherStub_)
-            return true;
+        if (regExpSearcherStub_) return true;
         regExpSearcherStub_ = generateRegExpSearcherStub(cx);
         return regExpSearcherStub_ != nullptr;
     }
 
-    JitCode* regExpTesterStubNoBarrier() const {
-        return regExpTesterStub_;
-    }
+    JitCode* regExpTesterStubNoBarrier() const { return regExpTesterStub_; }
 
     MOZ_MUST_USE bool ensureRegExpTesterStubExists(JSContext* cx) {
-        if (regExpTesterStub_)
-            return true;
+        if (regExpTesterStub_) return true;
         regExpTesterStub_ = generateRegExpTesterStub(cx);
         return regExpTesterStub_ != nullptr;
     }
@@ -627,8 +539,7 @@ const unsigned WINDOWS_BIG_FRAME_TOUCH_INCREMENT = 4096 - 1;
 // If NON_WRITABLE_JIT_CODE is enabled, this class will ensure
 // JIT code is writable (has RW permissions) in its scope.
 // Otherwise it's a no-op.
-class MOZ_STACK_CLASS AutoWritableJitCode
-{
+class MOZ_STACK_CLASS AutoWritableJitCode {
     // Backedge patching from the signal handler will change memory protection
     // flags, so don't allow it in a AutoWritableJitCode scope.
     JitRuntime::AutoPreventBackedgePatching preventPatching_;
@@ -636,43 +547,36 @@ class MOZ_STACK_CLASS AutoWritableJitCode
     void* addr_;
     size_t size_;
 
-  public:
+   public:
     AutoWritableJitCode(JSRuntime* rt, void* addr, size_t size)
-      : preventPatching_(rt), rt_(rt), addr_(addr), size_(size)
-    {
+        : preventPatching_(rt), rt_(rt), addr_(addr), size_(size) {
         rt_->toggleAutoWritableJitCodeActive(true);
-        if (!ExecutableAllocator::makeWritable(addr_, size_))
-            MOZ_CRASH();
+        if (!ExecutableAllocator::makeWritable(addr_, size_)) MOZ_CRASH();
     }
     AutoWritableJitCode(void* addr, size_t size)
-      : AutoWritableJitCode(TlsContext.get()->runtime(), addr, size)
-    {}
+        : AutoWritableJitCode(TlsContext.get()->runtime(), addr, size) {}
     explicit AutoWritableJitCode(JitCode* code)
-      : AutoWritableJitCode(code->runtimeFromActiveCooperatingThread(), code->raw(), code->bufferSize())
-    {}
+        : AutoWritableJitCode(code->runtimeFromActiveCooperatingThread(), code->raw(),
+                              code->bufferSize()) {}
     ~AutoWritableJitCode() {
-        if (!ExecutableAllocator::makeExecutable(addr_, size_))
-            MOZ_CRASH();
+        if (!ExecutableAllocator::makeExecutable(addr_, size_)) MOZ_CRASH();
         rt_->toggleAutoWritableJitCodeActive(false);
     }
 };
 
-class MOZ_STACK_CLASS MaybeAutoWritableJitCode
-{
+class MOZ_STACK_CLASS MaybeAutoWritableJitCode {
     mozilla::Maybe<AutoWritableJitCode> awjc_;
 
-  public:
+   public:
     MaybeAutoWritableJitCode(void* addr, size_t size, ReprotectCode reprotect) {
-        if (reprotect)
-            awjc_.emplace(addr, size);
+        if (reprotect) awjc_.emplace(addr, size);
     }
     MaybeAutoWritableJitCode(JitCode* code, ReprotectCode reprotect) {
-        if (reprotect)
-            awjc_.emplace(code);
+        if (reprotect) awjc_.emplace(code);
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_JitCompartment_h */

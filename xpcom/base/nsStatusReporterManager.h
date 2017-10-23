@@ -4,20 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "nsIStatusReporter.h"
 #include "nsCOMArray.h"
 #include "nsString.h"
 
 class nsStatusReporter final : public nsIStatusReporter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISTATUSREPORTER
 
   nsStatusReporter(nsACString& aProcess, nsACString& aDesc);
 
-private:
+ private:
   nsCString sProcess;
   nsCString sName;
   nsCString sDesc;
@@ -25,16 +24,15 @@ private:
   virtual ~nsStatusReporter();
 };
 
-
 class nsStatusReporterManager : public nsIStatusReporterManager
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISTATUSREPORTERMANAGER
 
   nsStatusReporterManager();
 
-private:
+ private:
   nsCOMArray<nsIStatusReporter> mReporters;
 
   virtual ~nsStatusReporterManager();

@@ -34,8 +34,8 @@ const wchar_t* kPropNameTabContent = L"AccessibleTabWindow";
 /**
  * WindowProc to process WM_GETOBJECT messages, used in windows emulation mode.
  */
-static LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg,
-                                   WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK
+WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 bool nsWinUtils::sWindowEmulationStarted = false;
 
@@ -43,13 +43,11 @@ already_AddRefed<nsIDOMCSSStyleDeclaration>
 nsWinUtils::GetComputedStyleDeclaration(nsIContent* aContent)
 {
   nsIContent* elm = nsCoreUtils::GetDOMElementFor(aContent);
-  if (!elm)
-    return nullptr;
+  if (!elm) return nullptr;
 
   // Returns number of items in style declaration
   nsCOMPtr<nsPIDOMWindowInner> window = elm->OwnerDoc()->GetInnerWindow();
-  if (!window)
-    return nullptr;
+  if (!window) return nullptr;
 
   ErrorResult dummy;
   nsCOMPtr<nsICSSDeclaration> cssDecl;
@@ -65,12 +63,10 @@ nsWinUtils::MaybeStartWindowEmulation()
 {
   // Register window class that'll be used for document accessibles associated
   // with tabs.
-  if (IPCAccessibilityActive())
-    return false;
+  if (IPCAccessibilityActive()) return false;
 
   if (Compatibility::IsJAWS() || Compatibility::IsWE() ||
-      Compatibility::IsDolphin() ||
-      XRE_IsContentProcess()) {
+      Compatibility::IsDolphin() || XRE_IsContentProcess()) {
     RegisterNativeWindow(kClassNameTabContent);
     sWindowEmulationStarted = true;
     return true;
@@ -108,15 +104,23 @@ nsWinUtils::RegisterNativeWindow(LPCWSTR aWindowClass)
 }
 
 HWND
-nsWinUtils::CreateNativeWindow(LPCWSTR aWindowClass, HWND aParentWnd,
-                               int aX, int aY, int aWidth, int aHeight,
+nsWinUtils::CreateNativeWindow(LPCWSTR aWindowClass,
+                               HWND aParentWnd,
+                               int aX,
+                               int aY,
+                               int aWidth,
+                               int aHeight,
                                bool aIsActive,
                                NativeWindowCreateProc* aOnCreateProc)
 {
-  return ::CreateWindowExW(WS_EX_TRANSPARENT, aWindowClass,
+  return ::CreateWindowExW(WS_EX_TRANSPARENT,
+                           aWindowClass,
                            L"NetscapeDispatchWnd",
                            WS_CHILD | (aIsActive ? WS_VISIBLE : 0),
-                           aX, aY, aWidth, aHeight,
+                           aX,
+                           aY,
+                           aWidth,
+                           aHeight,
                            aParentWnd,
                            nullptr,
                            GetModuleHandle(nullptr),
@@ -132,9 +136,14 @@ nsWinUtils::ShowNativeWindow(HWND aWnd)
 void
 nsWinUtils::HideNativeWindow(HWND aWnd)
 {
-  ::SetWindowPos(aWnd, nullptr, 0, 0, 0, 0,
-                 SWP_HIDEWINDOW | SWP_NOSIZE | SWP_NOMOVE |
-                 SWP_NOZORDER | SWP_NOACTIVATE);
+  ::SetWindowPos(
+      aWnd,
+      nullptr,
+      0,
+      0,
+      0,
+      0,
+      SWP_HIDEWINDOW | SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 LRESULT CALLBACK
@@ -145,14 +154,13 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   // message semantics.
 
   switch (msg) {
-    case WM_CREATE:
-    {
+    case WM_CREATE: {
       // Mark this window so that ipc related code can identify it.
       ::SetPropW(hWnd, kPropNameTabContent, reinterpret_cast<HANDLE>(1));
 
       auto createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
       auto createProc = reinterpret_cast<nsWinUtils::NativeWindowCreateProc*>(
-        createStruct->lpCreateParams);
+          createStruct->lpCreateParams);
 
       if (createProc && *createProc) {
         (*createProc)(hWnd);
@@ -160,39 +168,40 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
       return 0;
     }
-    case WM_GETOBJECT:
-    {
+    case WM_GETOBJECT: {
       // Do explicit casting to make it working on 64bit systems (see bug 649236
       // for details).
       int32_t objId = static_cast<DWORD>(lParam);
       if (objId == OBJID_CLIENT) {
         IAccessible* msaaAccessible = nullptr;
         DocAccessible* document =
-          reinterpret_cast<DocAccessible*>(::GetPropW(hWnd, kPropNameDocAcc));
+            reinterpret_cast<DocAccessible*>(::GetPropW(hWnd, kPropNameDocAcc));
         if (document) {
-          document->GetNativeInterface((void**)&msaaAccessible); // does an addref
+          document->GetNativeInterface(
+              (void**)&msaaAccessible);  // does an addref
         } else {
           DocAccessibleParent* docParent = static_cast<DocAccessibleParent*>(
-            ::GetPropW(hWnd, kPropNameDocAccParent));
+              ::GetPropW(hWnd, kPropNameDocAccParent));
           if (docParent) {
             auto wrapper = WrapperFor(docParent);
-            wrapper->GetNativeInterface((void**)&msaaAccessible); // does an addref
+            wrapper->GetNativeInterface(
+                (void**)&msaaAccessible);  // does an addref
           }
         }
         if (msaaAccessible) {
-          LRESULT result = ::LresultFromObject(IID_IAccessible, wParam,
-                                               msaaAccessible); // does an addref
-          msaaAccessible->Release(); // release extra addref
+          LRESULT result =
+              ::LresultFromObject(IID_IAccessible,
+                                  wParam,
+                                  msaaAccessible);  // does an addref
+          msaaAccessible->Release();                // release extra addref
           return result;
         }
       }
       return 0;
     }
-    case WM_NCHITTEST:
-    {
+    case WM_NCHITTEST: {
       LRESULT lRet = ::DefWindowProc(hWnd, msg, wParam, lParam);
-      if (HTCLIENT == lRet)
-        lRet = HTTRANSPARENT;
+      if (HTCLIENT == lRet) lRet = HTTRANSPARENT;
       return lRet;
     }
   }

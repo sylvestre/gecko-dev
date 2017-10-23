@@ -11,8 +11,7 @@
 
 #include "jsobjinlines.h"
 
-BEGIN_TEST(testLookup_bug522590)
-{
+BEGIN_TEST(testLookup_bug522590) {
     // Define a function that makes method-bearing objects.
     JS::RootedValue x(cx);
     EXEC("function mkobj() { return {f: function () {return 2;}} }");
@@ -37,32 +36,23 @@ BEGIN_TEST(testLookup_bug522590)
 }
 END_TEST(testLookup_bug522590)
 
-static const JSClass DocumentAllClass = {
-    "DocumentAll",
-    JSCLASS_EMULATES_UNDEFINED
-};
+static const JSClass DocumentAllClass = {"DocumentAll", JSCLASS_EMULATES_UNDEFINED};
 
-bool
-document_resolve(JSContext* cx, JS::HandleObject obj, JS::HandleId id, bool* resolvedp)
-{
+bool document_resolve(JSContext* cx, JS::HandleObject obj, JS::HandleId id, bool* resolvedp) {
     // If id is "all", resolve document.all=true.
     JS::RootedValue v(cx);
-    if (!JS_IdToValue(cx, id, &v))
-        return false;
+    if (!JS_IdToValue(cx, id, &v)) return false;
 
     if (v.isString()) {
         JSString* str = v.toString();
         JSFlatString* flatStr = JS_FlattenString(cx, str);
-        if (!flatStr)
-            return false;
+        if (!flatStr) return false;
         if (JS_FlatStringEqualsAscii(flatStr, "all")) {
             JS::Rooted<JSObject*> docAll(cx, JS_NewObject(cx, &DocumentAllClass));
-            if (!docAll)
-                return false;
+            if (!docAll) return false;
 
             JS::Rooted<JS::Value> allValue(cx, JS::ObjectValue(*docAll));
-            if (!JS_DefinePropertyById(cx, obj, id, allValue, JSPROP_RESOLVING))
-                return false;
+            if (!JS_DefinePropertyById(cx, obj, id, allValue, JSPROP_RESOLVING)) return false;
 
             *resolvedp = true;
             return true;
@@ -73,18 +63,12 @@ document_resolve(JSContext* cx, JS::HandleObject obj, JS::HandleId id, bool* res
     return true;
 }
 
-static const JSClassOps document_classOps = {
-    nullptr, nullptr, nullptr, nullptr,
-    document_resolve, nullptr
-};
+static const JSClassOps document_classOps = {nullptr, nullptr,          nullptr,
+                                             nullptr, document_resolve, nullptr};
 
-static const JSClass document_class = {
-    "document", 0,
-    &document_classOps
-};
+static const JSClass document_class = {"document", 0, &document_classOps};
 
-BEGIN_TEST(testLookup_bug570195)
-{
+BEGIN_TEST(testLookup_bug570195) {
     JS::RootedObject obj(cx, JS_NewObject(cx, &document_class));
     CHECK(obj);
     CHECK(JS_DefineProperty(cx, global, "document", obj, 0));

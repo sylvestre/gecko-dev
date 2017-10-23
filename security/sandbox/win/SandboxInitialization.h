@@ -10,11 +10,12 @@
 namespace sandbox {
 class BrokerServices;
 class TargetServices;
-}
+}  // namespace sandbox
 
 // Things that use this file will probably want access to the IsSandboxedProcess
 // function defined in one of the Chromium sandbox cc files.
-extern "C" bool IsSandboxedProcess();
+extern "C" bool
+IsSandboxedProcess();
 
 namespace mozilla {
 // Note the Chromium code just uses a bare sandbox namespace, which makes using
@@ -28,24 +29,28 @@ class PermissionsService;
  *
  * @return the TargetServices or null if the creation or initialization failed.
  */
-sandbox::TargetServices* GetInitializedTargetServices();
+sandbox::TargetServices*
+GetInitializedTargetServices();
 
 /**
  * Lowers the permissions on the process sandbox.
  * Provided because the GMP sandbox needs to be lowered from the executable.
  */
-void LowerSandbox();
+void
+LowerSandbox();
 
 /**
  * Initializes (if required) and returns the Chromium sandbox BrokerServices.
  *
  * @return the BrokerServices or null if the creation or initialization failed.
  */
-sandbox::BrokerServices* GetInitializedBrokerServices();
+sandbox::BrokerServices*
+GetInitializedBrokerServices();
 
-PermissionsService* GetPermissionsService();
+PermissionsService*
+GetPermissionsService();
 
-} // sandboxing
-} // mozilla
+}  // namespace sandboxing
+}  // namespace mozilla
 
-#endif // mozilla_sandboxing_SandboxInitialization_h
+#endif  // mozilla_sandboxing_SandboxInitialization_h

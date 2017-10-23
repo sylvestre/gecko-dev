@@ -14,14 +14,15 @@ namespace css {
  * Enum defining the type of URL matching function for a @-moz-document rule
  * condition.
  */
-enum class URLMatchingFunction {
+enum class URLMatchingFunction
+{
   eURL = 0,
   eURLPrefix,
   eDomain,
   eRegExp,
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
-#endif // mozilla_css_URLMatchingFunction_h
+#endif  // mozilla_css_URLMatchingFunction_h

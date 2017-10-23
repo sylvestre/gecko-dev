@@ -41,10 +41,7 @@ HTMLOptionsCollection::HTMLOptionsCollection(HTMLSelectElement* aSelect)
   mSelect = aSelect;
 }
 
-HTMLOptionsCollection::~HTMLOptionsCollection()
-{
-  DropReference();
-}
+HTMLOptionsCollection::~HTMLOptionsCollection() { DropReference(); }
 
 void
 HTMLOptionsCollection::DropReference()
@@ -87,7 +84,6 @@ HTMLOptionsCollection::GetOptionIndex(Element* aOption,
   return NS_ERROR_FAILURE;
 }
 
-
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(HTMLOptionsCollection, mElements)
 
 // nsISupports
@@ -102,13 +98,12 @@ NS_INTERFACE_TABLE_HEAD(HTMLOptionsCollection)
   NS_INTERFACE_TABLE_TO_MAP_SEGUE_CYCLE_COLLECTION(HTMLOptionsCollection)
 NS_INTERFACE_MAP_END
 
-
 NS_IMPL_CYCLE_COLLECTING_ADDREF(HTMLOptionsCollection)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(HTMLOptionsCollection)
 
-
 JSObject*
-HTMLOptionsCollection::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLOptionsCollection::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLOptionsCollectionBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -250,10 +245,10 @@ HTMLOptionsCollection::NamedGetter(const nsAString& aName, bool& aFound)
   for (uint32_t i = 0; i < count; i++) {
     HTMLOptionElement* content = mElements.ElementAt(i);
     if (content &&
-        (content->AttrValueIs(kNameSpaceID_None, nsGkAtoms::name, aName,
-                              eCaseMatters) ||
-         content->AttrValueIs(kNameSpaceID_None, nsGkAtoms::id, aName,
-                              eCaseMatters))) {
+        (content->AttrValueIs(
+             kNameSpaceID_None, nsGkAtoms::name, aName, eCaseMatters) ||
+         content->AttrValueIs(
+             kNameSpaceID_None, nsGkAtoms::id, aName, eCaseMatters))) {
       aFound = true;
       return content;
     }
@@ -270,8 +265,7 @@ HTMLOptionsCollection::GetParentObject()
 }
 
 NS_IMETHODIMP
-HTMLOptionsCollection::NamedItem(const nsAString& aName,
-                                 nsIDOMNode** aReturn)
+HTMLOptionsCollection::NamedItem(const nsAString& aName, nsIDOMNode** aReturn)
 {
   NS_IF_ADDREF(*aReturn = GetNamedItem(aName));
 
@@ -356,8 +350,7 @@ HTMLOptionsCollection::Remove(int32_t aIndex, ErrorResult& aError)
 
   uint32_t len = 0;
   mSelect->GetLength(&len);
-  if (aIndex < 0 || (uint32_t)aIndex >= len)
-    aIndex = 0;
+  if (aIndex < 0 || (uint32_t)aIndex >= len) aIndex = 0;
 
   aError = mSelect->Remove(aIndex);
 }
@@ -370,5 +363,5 @@ HTMLOptionsCollection::Remove(int32_t aIndex)
   return rv.StealNSResult();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

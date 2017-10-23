@@ -57,9 +57,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_BeforeInit)
 {
   // GetFlatThreadAnnotation() should not return anything before init.
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
-    ASSERT_STREQ(aAnnotation, "");
-  };
+      [&](const char* aAnnotation) -> void { ASSERT_STREQ(aAnnotation, ""); };
   GetFlatThreadAnnotation(getThreadAnnotationCB);
 }
 
@@ -70,9 +68,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_AfterShutdown)
   ShutdownThreadAnnotation();
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
-    ASSERT_STREQ(aAnnotation, "");
-  };
+      [&](const char* aAnnotation) -> void { ASSERT_STREQ(aAnnotation, ""); };
   GetFlatThreadAnnotation(getThreadAnnotationCB);
 }
 
@@ -80,13 +76,13 @@ already_AddRefed<nsIThread>
 CreateTestThread(const char* aName, Monitor& aMonitor, bool& aDone)
 {
   nsCOMPtr<nsIRunnable> setNameRunnable = NS_NewRunnableFunction(
-    "CrashReporter::CreateTestThread", [aName, &aMonitor, &aDone]() -> void {
-      NS_SetCurrentThreadName(aName);
+      "CrashReporter::CreateTestThread", [aName, &aMonitor, &aDone]() -> void {
+        NS_SetCurrentThreadName(aName);
 
-      MonitorAutoLock lock(aMonitor);
-      aDone = true;
-      aMonitor.NotifyAll();
-    });
+        MonitorAutoLock lock(aMonitor);
+        aDone = true;
+        aMonitor.NotifyAll();
+      });
   nsCOMPtr<nsIThread> thread;
   mozilla::Unused << NS_NewThread(getter_AddRefs(thread), setNameRunnable);
 
@@ -99,7 +95,8 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_OneThread)
 
   Monitor monitor("TestCrashThreadAnnotation");
   bool threadNameSet = false;
-  nsCOMPtr<nsIThread> thread = CreateTestThread("Thread1", monitor, threadNameSet);
+  nsCOMPtr<nsIThread> thread =
+      CreateTestThread("Thread1", monitor, threadNameSet);
   ASSERT_TRUE(!!thread);
 
   {
@@ -110,7 +107,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_OneThread)
   }
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     ASSERT_TRUE(!!strstr(aAnnotation, "Thread1"));
   };
   GetFlatThreadAnnotation(getThreadAnnotationCB);
@@ -128,17 +125,17 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_SetNameTwice)
   bool threadNameSet = false;
 
   nsCOMPtr<nsIRunnable> setNameRunnable = NS_NewRunnableFunction(
-    "CrashReporter::TestCrashThreadAnnotation_TestGetFlatThreadAnnotation_"
-    "SetNameTwice_Test::TestBody",
-    [&]() -> void {
-      NS_SetCurrentThreadName("Thread1");
-      // Set the name again. We should get the latest name.
-      NS_SetCurrentThreadName("Thread1Again");
+      "CrashReporter::TestCrashThreadAnnotation_TestGetFlatThreadAnnotation_"
+      "SetNameTwice_Test::TestBody",
+      [&]() -> void {
+        NS_SetCurrentThreadName("Thread1");
+        // Set the name again. We should get the latest name.
+        NS_SetCurrentThreadName("Thread1Again");
 
-      MonitorAutoLock lock(monitor);
-      threadNameSet = true;
-      monitor.NotifyAll();
-    });
+        MonitorAutoLock lock(monitor);
+        threadNameSet = true;
+        monitor.NotifyAll();
+      });
   nsCOMPtr<nsIThread> thread;
   nsresult rv = NS_NewThread(getter_AddRefs(thread), setNameRunnable);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
@@ -151,7 +148,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_SetNameTwice)
   }
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     ASSERT_TRUE(!!strstr(aAnnotation, "Thread1Again"));
   };
   GetFlatThreadAnnotation(getThreadAnnotationCB);
@@ -169,10 +166,12 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TwoThreads)
   bool thread1NameSet = false;
   bool thread2NameSet = false;
 
-  nsCOMPtr<nsIThread> thread1 = CreateTestThread("Thread1", monitor, thread1NameSet);
+  nsCOMPtr<nsIThread> thread1 =
+      CreateTestThread("Thread1", monitor, thread1NameSet);
   ASSERT_TRUE(!!thread1);
 
-  nsCOMPtr<nsIThread> thread2 = CreateTestThread("Thread2", monitor, thread2NameSet);
+  nsCOMPtr<nsIThread> thread2 =
+      CreateTestThread("Thread2", monitor, thread2NameSet);
   ASSERT_TRUE(!!thread2);
 
   {
@@ -183,7 +182,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TwoThreads)
   }
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     // Assert that Thread1 and Thread2 are both in the annotation data.
     ASSERT_TRUE(!!strstr(aAnnotation, "Thread1"));
     ASSERT_TRUE(!!strstr(aAnnotation, "Thread2"));
@@ -204,10 +203,12 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_ShutdownOneThread)
   bool thread1NameSet = false;
   bool thread2NameSet = false;
 
-  nsCOMPtr<nsIThread> thread1 = CreateTestThread("Thread1", monitor, thread1NameSet);
+  nsCOMPtr<nsIThread> thread1 =
+      CreateTestThread("Thread1", monitor, thread1NameSet);
   ASSERT_TRUE(!!thread1);
 
-  nsCOMPtr<nsIThread> thread2 = CreateTestThread("Thread2", monitor, thread2NameSet);
+  nsCOMPtr<nsIThread> thread2 =
+      CreateTestThread("Thread2", monitor, thread2NameSet);
   ASSERT_TRUE(!!thread2);
 
   {
@@ -221,7 +222,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_ShutdownOneThread)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     // Assert that only Thread2 is present in the annotation data.
     ASSERT_TRUE(!strstr(aAnnotation, "Thread1"));
     ASSERT_TRUE(!!strstr(aAnnotation, "Thread2"));
@@ -241,10 +242,12 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_ShutdownBothThreads)
   bool thread1NameSet = false;
   bool thread2NameSet = false;
 
-  nsCOMPtr<nsIThread> thread1 = CreateTestThread("Thread1", monitor, thread1NameSet);
+  nsCOMPtr<nsIThread> thread1 =
+      CreateTestThread("Thread1", monitor, thread1NameSet);
   ASSERT_TRUE(!!thread1);
 
-  nsCOMPtr<nsIThread> thread2 = CreateTestThread("Thread2", monitor, thread2NameSet);
+  nsCOMPtr<nsIThread> thread2 =
+      CreateTestThread("Thread2", monitor, thread2NameSet);
   ASSERT_TRUE(!!thread2);
 
   {
@@ -261,7 +264,7 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_ShutdownBothThreads)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     // No leftover in annnotation data.
     ASSERT_STREQ(aAnnotation, "");
   };
@@ -270,20 +273,23 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_ShutdownBothThreads)
   ShutdownThreadAnnotation();
 }
 
-TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TestNameOfBaseThread)
+TEST(TestCrashThreadAnnotation,
+     TestGetFlatThreadAnnotation_TestNameOfBaseThread)
 {
   InitThreadAnnotation();
 
   Monitor monitor("TestCrashThreadAnnotation");
 
-  UniquePtr<base::Thread> thread1 = mozilla::MakeUnique<base::Thread>("base thread 1");
+  UniquePtr<base::Thread> thread1 =
+      mozilla::MakeUnique<base::Thread>("base thread 1");
   ASSERT_TRUE(!!thread1 && thread1->Start());
 
-  UniquePtr<base::Thread> thread2 = mozilla::MakeUnique<base::Thread>("base thread 2");
+  UniquePtr<base::Thread> thread2 =
+      mozilla::MakeUnique<base::Thread>("base thread 2");
   ASSERT_TRUE(!!thread2 && thread2->Start());
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     ASSERT_TRUE(!!strstr(aAnnotation, "base thread 1"));
     ASSERT_TRUE(!!strstr(aAnnotation, "base thread 2"));
   };
@@ -295,22 +301,25 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TestNameOfBaseThread
   ShutdownThreadAnnotation();
 }
 
-TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TestShutdownBaseThread)
+TEST(TestCrashThreadAnnotation,
+     TestGetFlatThreadAnnotation_TestShutdownBaseThread)
 {
   InitThreadAnnotation();
 
   Monitor monitor("TestCrashThreadAnnotation");
 
-  UniquePtr<base::Thread> thread1 = mozilla::MakeUnique<base::Thread>("base thread 1");
+  UniquePtr<base::Thread> thread1 =
+      mozilla::MakeUnique<base::Thread>("base thread 1");
   ASSERT_TRUE(!!thread1 && thread1->Start());
 
-  UniquePtr<base::Thread> thread2 = mozilla::MakeUnique<base::Thread>("base thread 2");
+  UniquePtr<base::Thread> thread2 =
+      mozilla::MakeUnique<base::Thread>("base thread 2");
   ASSERT_TRUE(!!thread2 && thread2->Start());
 
   thread1->Stop();
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     ASSERT_TRUE(!strstr(aAnnotation, "base thread 1"));
     ASSERT_TRUE(!!strstr(aAnnotation, "base thread 2"));
   };
@@ -321,23 +330,26 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TestShutdownBaseThre
   ShutdownThreadAnnotation();
 }
 
-TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TestShutdownBothBaseThreads)
+TEST(TestCrashThreadAnnotation,
+     TestGetFlatThreadAnnotation_TestShutdownBothBaseThreads)
 {
   InitThreadAnnotation();
 
   Monitor monitor("TestCrashThreadAnnotation");
 
-  UniquePtr<base::Thread> thread1 = mozilla::MakeUnique<base::Thread>("base thread 1");
+  UniquePtr<base::Thread> thread1 =
+      mozilla::MakeUnique<base::Thread>("base thread 1");
   ASSERT_TRUE(!!thread1 && thread1->Start());
 
-  UniquePtr<base::Thread> thread2 = mozilla::MakeUnique<base::Thread>("base thread 2");
+  UniquePtr<base::Thread> thread2 =
+      mozilla::MakeUnique<base::Thread>("base thread 2");
   ASSERT_TRUE(!!thread2 && thread2->Start());
 
   thread1->Stop();
   thread2->Stop();
 
   std::function<void(const char*)> getThreadAnnotationCB =
-        [&] (const char * aAnnotation) -> void {
+      [&](const char* aAnnotation) -> void {
     ASSERT_TRUE(!strlen(aAnnotation));
   };
   GetFlatThreadAnnotation(getThreadAnnotationCB);
@@ -345,5 +357,5 @@ TEST(TestCrashThreadAnnotation, TestGetFlatThreadAnnotation_TestShutdownBothBase
   ShutdownThreadAnnotation();
 }
 
-} // Anonymous namespace.
-} // namespace CrashReporter
+}  // Anonymous namespace.
+}  // namespace CrashReporter

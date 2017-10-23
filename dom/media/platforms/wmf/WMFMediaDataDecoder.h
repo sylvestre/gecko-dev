@@ -20,8 +20,8 @@ namespace mozilla {
 // by the MFT into a MediaData object.
 class MFTManager
 {
-public:
-  virtual ~MFTManager() { }
+ public:
+  virtual ~MFTManager() {}
 
   // Submit a compressed sample for decoding.
   // This should forward to the MFTDecoder after performing
@@ -34,8 +34,7 @@ public:
   // enough data to produce more output. If this returns a failure code other
   // than MF_E_TRANSFORM_NEED_MORE_INPUT, an error will be reported to the
   // MP4Reader.
-  virtual HRESULT Output(int64_t aStreamOffset,
-                         RefPtr<MediaData>& aOutput) = 0;
+  virtual HRESULT Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutput) = 0;
 
   virtual void Flush()
   {
@@ -72,7 +71,7 @@ public:
     return MediaDataDecoder::ConversionRequired::kNeedNone;
   }
 
-protected:
+ protected:
   // IMFTransform wrapper that performs the decoding.
   RefPtr<MFTDecoder> mDecoder;
 
@@ -86,7 +85,7 @@ protected:
 // type are handled by MFTManager and the MFTDecoder it creates.
 class WMFMediaDataDecoder : public MediaDataDecoder
 {
-public:
+ public:
   WMFMediaDataDecoder(MFTManager* aOutputSource, TaskQueue* aTaskQueue);
   ~WMFMediaDataDecoder();
 
@@ -104,8 +103,8 @@ public:
 
   nsCString GetDescriptionName() const override
   {
-    return mMFTManager
-           ? mMFTManager->GetDescriptionName() : NS_LITERAL_CSTRING("");
+    return mMFTManager ? mMFTManager->GetDescriptionName()
+                       : NS_LITERAL_CSTRING("");
   }
 
   ConversionRequired NeedsConversion() const override
@@ -116,8 +115,7 @@ public:
 
   virtual void SetSeekThreshold(const media::TimeUnit& aTime) override;
 
-private:
-
+ private:
   RefPtr<DecodePromise> ProcessError(HRESULT aError, const char* aReason);
 
   // Called on the task queue. Inserts the sample into the decoder, and
@@ -161,6 +159,6 @@ private:
   bool mRecordedError = false;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // WMFMediaDataDecoder_h_
+#endif  // WMFMediaDataDecoder_h_

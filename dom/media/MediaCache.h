@@ -184,12 +184,14 @@ class MediaCache;
  *
  * This class can be directly embedded as a value.
  */
-class MediaCacheStream {
-public:
+class MediaCacheStream
+{
+ public:
   // This needs to be a power of two
   static const int64_t BLOCK_SIZE = 32768;
 
-  enum ReadMode {
+  enum ReadMode
+  {
     MODE_METADATA,
     MODE_PLAYBACK
   };
@@ -232,7 +234,7 @@ public:
   bool IsAvailableForSharing() const
   {
     return !mClosed && !mIsPrivateBrowsing &&
-      (!mDidNotifyDataEnded || NS_SUCCEEDED(mNotifyDataEndedStatus));
+           (!mDidNotifyDataEnded || NS_SUCCEEDED(mNotifyDataEndedStatus));
   }
   // Get the principal for this stream. Anything accessing the contents of
   // this stream must have a principal that subsumes this principal.
@@ -309,9 +311,7 @@ public:
   // in the cache. Will not mark blocks as read. Can be called from the main
   // thread. It's the caller's responsibility to wrap the call in a pin/unpin,
   // and also to check that the range they want is cached before calling this.
-  nsresult ReadFromCache(char* aBuffer,
-                         int64_t aOffset,
-                         int64_t aCount);
+  nsresult ReadFromCache(char* aBuffer, int64_t aOffset, int64_t aCount);
 
   // IsDataCachedToEndOfStream returns true if all the data from
   // aOffset to the end of the stream (the server-reported end, if the
@@ -346,8 +346,10 @@ public:
   nsresult Read(char* aBuffer, uint32_t aCount, uint32_t* aBytes);
   // Seeks to aOffset in the stream then performs a Read operation. See
   // 'Read' for argument and return details.
-  nsresult ReadAt(int64_t aOffset, char* aBuffer,
-                  uint32_t aCount, uint32_t* aBytes);
+  nsresult ReadAt(int64_t aOffset,
+                  char* aBuffer,
+                  uint32_t aCount,
+                  uint32_t* aBytes);
 
   void ThrottleReadahead(bool bThrottle);
 
@@ -357,7 +359,7 @@ public:
   // been received from aPrincipal
   void UpdatePrincipal(nsIPrincipal* aPrincipal);
 
-private:
+ private:
   friend class MediaCache;
 
   /**
@@ -369,10 +371,12 @@ private:
    * Blocks can belong to more than one list at the same time, because
    * the next/prev pointers are not stored in the block.
    */
-  class BlockList {
-  public:
+  class BlockList
+  {
+   public:
     BlockList() : mFirstBlock(-1), mCount(0) {}
-    ~BlockList() {
+    ~BlockList()
+    {
       NS_ASSERTION(mFirstBlock == -1 && mCount == 0,
                    "Destroying non-empty block list");
     }
@@ -402,11 +406,16 @@ private:
 
     size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-  private:
-    struct Entry : public nsUint32HashKey {
-      explicit Entry(KeyTypePointer aKey) : nsUint32HashKey(aKey) { }
-      Entry(const Entry& toCopy) : nsUint32HashKey(&toCopy.GetKey()),
-        mNextBlock(toCopy.mNextBlock), mPrevBlock(toCopy.mPrevBlock) {}
+   private:
+    struct Entry : public nsUint32HashKey
+    {
+      explicit Entry(KeyTypePointer aKey) : nsUint32HashKey(aKey) {}
+      Entry(const Entry& toCopy)
+          : nsUint32HashKey(&toCopy.GetKey()),
+            mNextBlock(toCopy.mNextBlock),
+            mPrevBlock(toCopy.mPrevBlock)
+      {
+      }
 
       int32_t mNextBlock;
       int32_t mPrevBlock;
@@ -433,7 +442,8 @@ private:
   // Used by |NotifyDataEnded| and |FlushPartialBlock|.
   // If |aNotifyAll| is true, this function will wake up readers who may be
   // waiting on the media cache monitor. Called on the main thread only.
-  void FlushPartialBlockInternal(bool aNotify, ReentrantMonitorAutoEnter& aReentrantMonitor);
+  void FlushPartialBlockInternal(bool aNotify,
+                                 ReentrantMonitorAutoEnter& aReentrantMonitor);
 
   // Instance of MediaCache to use with this MediaCacheStream.
   RefPtr<MediaCache> mMediaCache;
@@ -443,7 +453,7 @@ private:
   // These fields are main-thread-only.
   nsCOMPtr<nsIPrincipal> mPrincipal;
   // True if CacheClientNotifyDataEnded has been called for this stream.
-  bool                   mDidNotifyDataEnded;
+  bool mDidNotifyDataEnded;
 
   // The following fields must be written holding the cache's monitor and
   // only on the main thread, thus can be read either on the main thread
@@ -473,30 +483,30 @@ private:
   // The offset where the next data from the channel will arrive
   int64_t mChannelOffset = 0;
   // The offset where the reader is positioned in the stream
-  int64_t           mStreamOffset;
+  int64_t mStreamOffset;
   // For each block in the stream data, maps to the cache entry for the
   // block, or -1 if the block is not cached.
   nsTArray<int32_t> mBlocks;
   // The list of read-ahead blocks, ordered by stream offset; the first
   // block is the earliest in the stream (so the last block will be the
   // least valuable).
-  BlockList         mReadaheadBlocks;
+  BlockList mReadaheadBlocks;
   // The list of metadata blocks; the first block is the most recently used
-  BlockList         mMetadataBlocks;
+  BlockList mMetadataBlocks;
   // The list of played-back blocks; the first block is the most recently used
-  BlockList         mPlayedBlocks;
+  BlockList mPlayedBlocks;
   // The last reported estimate of the decoder's playback rate
-  uint32_t          mPlaybackBytesPerSecond;
+  uint32_t mPlaybackBytesPerSecond;
   // The number of times this stream has been Pinned without a
   // corresponding Unpin
-  uint32_t          mPinCount;
+  uint32_t mPinCount;
   // The status used when we did CacheClientNotifyDataEnded. Only valid
   // when mDidNotifyDataEnded is true.
-  nsresult          mNotifyDataEndedStatus;
+  nsresult mNotifyDataEndedStatus;
   // The last reported read mode
-  ReadMode          mCurrentMode;
+  ReadMode mCurrentMode;
   // True if some data in mPartialBlockBuffer has been read as metadata
-  bool              mMetadataInPartialBlockBuffer;
+  bool mMetadataInPartialBlockBuffer;
   // The load ID of the current channel. Used to check whether the data is
   // coming from an old channel and should be discarded.
   uint32_t mLoadID = 0;
@@ -511,12 +521,12 @@ private:
   // slop when combined with the rest of the object members.
   // This partial buffer should always be read/write within the cache's monitor.
   const UniquePtr<uint8_t[]> mPartialBlockBuffer =
-    MakeUnique<uint8_t[]>(BLOCK_SIZE);
+      MakeUnique<uint8_t[]>(BLOCK_SIZE);
 
   // True if associated with a private browsing window.
   const bool mIsPrivateBrowsing;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

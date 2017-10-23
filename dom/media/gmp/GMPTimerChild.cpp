@@ -13,8 +13,7 @@ namespace mozilla {
 namespace gmp {
 
 GMPTimerChild::GMPTimerChild(GMPChild* aPlugin)
-  : mTimerCount(1)
-  , mPlugin(aPlugin)
+    : mTimerCount(1), mPlugin(aPlugin)
 {
   MOZ_ASSERT(mPlugin->GMPMessageLoop() == MessageLoop::current());
 }
@@ -63,5 +62,5 @@ GMPTimerChild::RecvTimerExpired(const uint32_t& aTimerId)
   return IPC_OK();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

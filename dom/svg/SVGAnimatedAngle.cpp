@@ -33,4 +33,3 @@ SVGAnimatedAngle::AnimVal()
 {
   return mVal->ToDOMAnimVal(mSVGElement);
 }
-

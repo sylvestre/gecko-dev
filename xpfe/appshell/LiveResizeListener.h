@@ -11,17 +11,18 @@
 
 namespace mozilla {
 
-class LiveResizeListener {
-public:
+class LiveResizeListener
+{
+ public:
   virtual void LiveResizeStarted() = 0;
   virtual void LiveResizeStopped() = 0;
 
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
-protected:
+ protected:
   virtual ~LiveResizeListener() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_LiveResizeListener_h
+#endif  // mozilla_LiveResizeListener_h

@@ -9,7 +9,8 @@
 
 #include "pkix/pkixtypes.h"
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 // According to the Baseline Requirements version 1.3.3 section 7.1.4.2.2.a,
 // the requirements of the subject common name field are as follows:
@@ -32,28 +33,27 @@ namespace mozilla { namespace psm {
 
 class BRNameMatchingPolicy : public mozilla::pkix::NameMatchingPolicy
 {
-public:
-  enum class Mode {
+ public:
+  enum class Mode
+  {
     DoNotEnforce = 0,
     EnforceAfter23August2016 = 1,
     EnforceAfter23August2015 = 2,
     Enforce = 3,
   };
 
-  explicit BRNameMatchingPolicy(Mode mode)
-    : mMode(mode)
-  {
-  }
+  explicit BRNameMatchingPolicy(Mode mode) : mMode(mode) {}
 
   virtual mozilla::pkix::Result FallBackToCommonName(
-    mozilla::pkix::Time notBefore,
-    /*out*/ mozilla::pkix::FallBackToSearchWithinSubject& fallBacktoCommonName)
-    override;
+      mozilla::pkix::Time notBefore,
+      /*out*/ mozilla::pkix::FallBackToSearchWithinSubject&
+          fallBacktoCommonName) override;
 
-private:
+ private:
   Mode mMode;
 };
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla
 
-#endif // BRNameMatchingPolicy_h
+#endif  // BRNameMatchingPolicy_h

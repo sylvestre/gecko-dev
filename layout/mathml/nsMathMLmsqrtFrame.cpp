@@ -18,19 +18,17 @@ NS_NewMathMLmsqrtFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmsqrtFrame)
 
-nsMathMLmsqrtFrame::nsMathMLmsqrtFrame(nsStyleContext* aContext) :
-  nsMathMLmencloseFrame(aContext, kClassID)
+nsMathMLmsqrtFrame::nsMathMLmsqrtFrame(nsStyleContext* aContext)
+    : nsMathMLmencloseFrame(aContext, kClassID)
 {
 }
 
-nsMathMLmsqrtFrame::~nsMathMLmsqrtFrame()
-{
-}
+nsMathMLmsqrtFrame::~nsMathMLmsqrtFrame() {}
 
 void
-nsMathMLmsqrtFrame::Init(nsIContent*       aContent,
+nsMathMLmsqrtFrame::Init(nsIContent* aContent,
                          nsContainerFrame* aParent,
-                         nsIFrame*         aPrevInFlow)
+                         nsIFrame* aPrevInFlow)
 {
   nsMathMLContainerFrame::Init(aContent, aParent, aPrevInFlow);
   AllocateMathMLChar(NOTATION_RADICAL);
@@ -48,10 +46,10 @@ nsMathMLmsqrtFrame::InheritAutomaticData(nsIFrame* aParent)
 }
 
 nsresult
-nsMathMLmsqrtFrame::AttributeChanged(int32_t         aNameSpaceID,
-                                     nsAtom*        aAttribute,
-                                     int32_t         aModType)
+nsMathMLmsqrtFrame::AttributeChanged(int32_t aNameSpaceID,
+                                     nsAtom* aAttribute,
+                                     int32_t aModType)
 {
-  return nsMathMLContainerFrame::
-    AttributeChanged(aNameSpaceID, aAttribute, aModType);
+  return nsMathMLContainerFrame::AttributeChanged(
+      aNameSpaceID, aAttribute, aModType);
 }

@@ -11,23 +11,27 @@
 
 #include "nsIUnicodeNormalizer.h"
 
-nsresult NS_NewUnicodeNormalizer(nsISupports** oResult);
+nsresult
+NS_NewUnicodeNormalizer(nsISupports** oResult);
 
+class nsUnicodeNormalizer : public nsIUnicodeNormalizer
+{
+ public:
+  nsUnicodeNormalizer() {}
 
-class nsUnicodeNormalizer : public nsIUnicodeNormalizer {
-public:
-   nsUnicodeNormalizer() { }
+  NS_DECL_ISUPPORTS
 
-   NS_DECL_ISUPPORTS
+  NS_IMETHOD NormalizeUnicodeNFD(const nsAString& aSrc,
+                                 nsAString& aDest) override;
+  NS_IMETHOD NormalizeUnicodeNFC(const nsAString& aSrc,
+                                 nsAString& aDest) override;
+  NS_IMETHOD NormalizeUnicodeNFKD(const nsAString& aSrc,
+                                  nsAString& aDest) override;
+  NS_IMETHOD NormalizeUnicodeNFKC(const nsAString& aSrc,
+                                  nsAString& aDest) override;
 
-   NS_IMETHOD NormalizeUnicodeNFD( const nsAString& aSrc, nsAString& aDest) override;
-   NS_IMETHOD NormalizeUnicodeNFC( const nsAString& aSrc, nsAString& aDest) override;
-   NS_IMETHOD NormalizeUnicodeNFKD( const nsAString& aSrc, nsAString& aDest) override;
-   NS_IMETHOD NormalizeUnicodeNFKC( const nsAString& aSrc, nsAString& aDest) override;
-
-private:
-   virtual ~nsUnicodeNormalizer() { }
+ private:
+  virtual ~nsUnicodeNormalizer() {}
 };
 
-#endif //nsUnicodeNormalizer_h__
-
+#endif  //nsUnicodeNormalizer_h__

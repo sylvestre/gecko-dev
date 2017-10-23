@@ -10,16 +10,13 @@
 namespace mozilla {
 namespace gfx {
 
-VsyncBridgeChild::VsyncBridgeChild(RefPtr<VsyncIOThreadHolder> aThread, const uint64_t& aProcessToken)
- : mThread(aThread),
-   mLoop(nullptr),
-   mProcessToken(aProcessToken)
+VsyncBridgeChild::VsyncBridgeChild(RefPtr<VsyncIOThreadHolder> aThread,
+                                   const uint64_t& aProcessToken)
+    : mThread(aThread), mLoop(nullptr), mProcessToken(aProcessToken)
 {
 }
 
-VsyncBridgeChild::~VsyncBridgeChild()
-{
-}
+VsyncBridgeChild::~VsyncBridgeChild() {}
 
 /* static */ RefPtr<VsyncBridgeChild>
 VsyncBridgeChild::Create(RefPtr<VsyncIOThreadHolder> aThread,
@@ -29,10 +26,10 @@ VsyncBridgeChild::Create(RefPtr<VsyncIOThreadHolder> aThread,
   RefPtr<VsyncBridgeChild> child = new VsyncBridgeChild(aThread, aProcessToken);
 
   RefPtr<nsIRunnable> task = NewRunnableMethod<Endpoint<PVsyncBridgeChild>&&>(
-    "gfx::VsyncBridgeChild::Open",
-    child,
-    &VsyncBridgeChild::Open,
-    Move(aEndpoint));
+      "gfx::VsyncBridgeChild::Open",
+      child,
+      &VsyncBridgeChild::Open,
+      Move(aEndpoint));
   aThread->GetThread()->Dispatch(task.forget(), nsIThread::DISPATCH_NORMAL);
 
   return child;
@@ -57,22 +54,24 @@ VsyncBridgeChild::Open(Endpoint<PVsyncBridgeChild>&& aEndpoint)
 
 class NotifyVsyncTask : public Runnable
 {
-public:
+ public:
   NotifyVsyncTask(RefPtr<VsyncBridgeChild> aVsyncBridge,
                   TimeStamp aTimeStamp,
                   const uint64_t& aLayersId)
-    : Runnable("gfx::NotifyVsyncTask")
-    , mVsyncBridge(aVsyncBridge)
-    , mTimeStamp(aTimeStamp)
-    , mLayersId(aLayersId)
-  {}
+      : Runnable("gfx::NotifyVsyncTask"),
+        mVsyncBridge(aVsyncBridge),
+        mTimeStamp(aTimeStamp),
+        mLayersId(aLayersId)
+  {
+  }
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     mVsyncBridge->NotifyVsyncImpl(mTimeStamp, mLayersId);
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<VsyncBridgeChild> mVsyncBridge;
   TimeStamp mTimeStamp;
   uint64_t mLayersId;
@@ -90,12 +89,14 @@ VsyncBridgeChild::NotifyVsync(TimeStamp aTimeStamp, const uint64_t& aLayersId)
   // This should be on the Vsync thread (not the Vsync I/O thread).
   MOZ_ASSERT(!IsOnVsyncIOThread());
 
-  RefPtr<NotifyVsyncTask> task = new NotifyVsyncTask(this, aTimeStamp, aLayersId);
+  RefPtr<NotifyVsyncTask> task =
+      new NotifyVsyncTask(this, aTimeStamp, aLayersId);
   mLoop->PostTask(task.forget());
 }
 
 void
-VsyncBridgeChild::NotifyVsyncImpl(TimeStamp aTimeStamp, const uint64_t& aLayersId)
+VsyncBridgeChild::NotifyVsyncImpl(TimeStamp aTimeStamp,
+                                  const uint64_t& aLayersId)
 {
   // This should be on the Vsync I/O thread.
   MOZ_ASSERT(IsOnVsyncIOThread());
@@ -111,7 +112,7 @@ VsyncBridgeChild::Close()
 {
   if (!IsOnVsyncIOThread()) {
     mLoop->PostTask(NewRunnableMethod(
-      "gfx::VsyncBridgeChild::Close", this, &VsyncBridgeChild::Close));
+        "gfx::VsyncBridgeChild::Close", this, &VsyncBridgeChild::Close));
     return;
   }
 
@@ -147,7 +148,8 @@ VsyncBridgeChild::DeallocPVsyncBridgeChild()
 void
 VsyncBridgeChild::ProcessingError(Result aCode, const char* aReason)
 {
-  MOZ_RELEASE_ASSERT(aCode == MsgDropped, "Processing error in VsyncBridgeChild");
+  MOZ_RELEASE_ASSERT(aCode == MsgDropped,
+                     "Processing error in VsyncBridgeChild");
 }
 
 void
@@ -156,5 +158,5 @@ VsyncBridgeChild::HandleFatalError(const char* aName, const char* aMsg) const
   dom::ContentChild::FatalErrorIfNotUsingGPUProcess(aName, aMsg, OtherPid());
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

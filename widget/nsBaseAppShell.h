@@ -19,10 +19,11 @@
  * A singleton that manages the UI thread's event queue.  Subclass this class
  * to enable platform-specific event queue support.
  */
-class nsBaseAppShell : public nsIAppShell, public nsIThreadObserver,
+class nsBaseAppShell : public nsIAppShell,
+                       public nsIThreadObserver,
                        public nsIObserver
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIAPPSHELL
 
@@ -31,7 +32,7 @@ public:
 
   nsBaseAppShell();
 
-protected:
+ protected:
   virtual ~nsBaseAppShell();
 
   /**
@@ -75,7 +76,7 @@ protected:
   int32_t mSuspendNativeCount;
   uint32_t mEventloopNestingLevel;
 
-private:
+ private:
   bool DoProcessNextNativeEvent(bool mayWait);
 
   bool DispatchDummyEvent(nsIThread* target);
@@ -90,15 +91,16 @@ private:
    * it to false to unblock an outer loop, since all events may
    * have been consumed by the inner event loop(s).
    */
-  bool *mBlockedWait;
+  bool* mBlockedWait;
   int32_t mFavorPerf;
   mozilla::Atomic<bool> mNativeEventPending;
   PRIntervalTime mStarvationDelay;
   PRIntervalTime mSwitchTime;
   PRIntervalTime mLastNativeEventTime;
-  enum EventloopNestingState {
-    eEventloopNone,  // top level thread execution
-    eEventloopXPCOM, // innermost native event loop is ProcessNextNativeEvent
+  enum EventloopNestingState
+  {
+    eEventloopNone,   // top level thread execution
+    eEventloopXPCOM,  // innermost native event loop is ProcessNextNativeEvent
     eEventloopOther  // innermost native event loop is a native library/plugin etc
   };
   EventloopNestingState mEventloopNestingState;
@@ -132,4 +134,4 @@ private:
   bool mProcessedGeckoEvents;
 };
 
-#endif // nsBaseAppShell_h__
+#endif  // nsBaseAppShell_h__

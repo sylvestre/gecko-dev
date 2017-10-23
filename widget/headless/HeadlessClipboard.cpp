@@ -14,14 +14,14 @@ namespace widget {
 NS_IMPL_ISUPPORTS(HeadlessClipboard, nsIClipboard)
 
 HeadlessClipboard::HeadlessClipboard()
-  : mClipboard(MakeUnique<HeadlessClipboardData>())
+    : mClipboard(MakeUnique<HeadlessClipboardData>())
 {
 }
 
 NS_IMETHODIMP
-HeadlessClipboard::SetData(nsITransferable *aTransferable,
-                     nsIClipboardOwner *anOwner,
-                     int32_t aWhichClipboard)
+HeadlessClipboard::SetData(nsITransferable* aTransferable,
+                           nsIClipboardOwner* anOwner,
+                           int32_t aWhichClipboard)
 {
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
@@ -33,9 +33,8 @@ HeadlessClipboard::SetData(nsITransferable *aTransferable,
   // Only support plain text for now.
   nsCOMPtr<nsISupports> clip;
   uint32_t len;
-  nsresult rv = aTransferable->GetTransferData(kUnicodeMime,
-                                               getter_AddRefs(clip),
-                                               &len);
+  nsresult rv =
+      aTransferable->GetTransferData(kUnicodeMime, getter_AddRefs(clip), &len);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -51,8 +50,8 @@ HeadlessClipboard::SetData(nsITransferable *aTransferable,
 }
 
 NS_IMETHODIMP
-HeadlessClipboard::GetData(nsITransferable *aTransferable,
-                     int32_t aWhichClipboard)
+HeadlessClipboard::GetData(nsITransferable* aTransferable,
+                           int32_t aWhichClipboard)
 {
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
@@ -60,7 +59,7 @@ HeadlessClipboard::GetData(nsITransferable *aTransferable,
 
   nsresult rv;
   nsCOMPtr<nsISupportsString> dataWrapper =
-    do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
+      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
   rv = dataWrapper->SetData(mClipboard->GetText());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -85,9 +84,10 @@ HeadlessClipboard::EmptyClipboard(int32_t aWhichClipboard)
 }
 
 NS_IMETHODIMP
-HeadlessClipboard::HasDataMatchingFlavors(const char **aFlavorList,
-                                    uint32_t aLength, int32_t aWhichClipboard,
-                                    bool *aHasType)
+HeadlessClipboard::HasDataMatchingFlavors(const char** aFlavorList,
+                                          uint32_t aLength,
+                                          int32_t aWhichClipboard,
+                                          bool* aHasType)
 {
   *aHasType = false;
   if (aWhichClipboard != kGlobalClipboard) {
@@ -95,7 +95,7 @@ HeadlessClipboard::HasDataMatchingFlavors(const char **aFlavorList,
   }
   // Retrieve the union of all aHasType in aFlavorList
   for (uint32_t i = 0; i < aLength; ++i) {
-    const char *flavor = aFlavorList[i];
+    const char* flavor = aFlavorList[i];
     if (!flavor) {
       continue;
     }
@@ -107,7 +107,7 @@ HeadlessClipboard::HasDataMatchingFlavors(const char **aFlavorList,
 }
 
 NS_IMETHODIMP
-HeadlessClipboard::SupportsSelectionClipboard(bool *aIsSupported)
+HeadlessClipboard::SupportsSelectionClipboard(bool* aIsSupported)
 {
   *aIsSupported = false;
   return NS_OK;
@@ -122,5 +122,5 @@ HeadlessClipboard::SupportsFindClipboard(bool* _retval)
   return NS_OK;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

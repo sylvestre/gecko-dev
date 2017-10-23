@@ -58,17 +58,17 @@
 // is identical to the one in mfbt/Attributes.h, which we don't use here because
 // this file avoids depending on Mozilla headers.
 #if defined(__clang__) && __cplusplus >= 201103L
-   /* clang's fallthrough annotations are only available starting in C++11. */
-#  define MOZ_FALLTHROUGH [[clang::fallthrough]]
+/* clang's fallthrough annotations are only available starting in C++11. */
+#define MOZ_FALLTHROUGH [[clang::fallthrough]]
 #elif defined(_MSC_VER)
-   /*
+/*
     * MSVC's __fallthrough annotations are checked by /analyze (Code Analysis):
     * https://msdn.microsoft.com/en-us/library/ms235402%28VS.80%29.aspx
     */
-#  include <sal.h>
-#  define MOZ_FALLTHROUGH __fallthrough
+#include <sal.h>
+#define MOZ_FALLTHROUGH __fallthrough
 #else
-#  define MOZ_FALLTHROUGH /* FALLTHROUGH */
+#define MOZ_FALLTHROUGH /* FALLTHROUGH */
 #endif
 
 // The value of argv[0] passed to main(). Used in error messages.
@@ -113,14 +113,14 @@ PrintAndFlush(const char* aFormat, ...)
   fflush(stdout);
 }
 
-//---------------------------------------------------------------------------
-// Mac-specific code
-//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // Mac-specific code
+  //---------------------------------------------------------------------------
 
 #if defined(__APPLE__)
 
-// Because of the pkg_energy_statistics_t::pkes_version check below, the
-// earliest OS X version this code will work with is 10.9.0 (xnu-2422.1.72).
+  // Because of the pkg_energy_statistics_t::pkes_version check below, the
+  // earliest OS X version this code will work with is 10.9.0 (xnu-2422.1.72).
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -168,79 +168,81 @@ PrintAndFlush(const char* aFormat, ...)
 //   source code, but it could be defined at compile-time via compiler flags.)
 //   pkg_energy_statistics_t::pkes_version did not change, though.
 
-typedef struct {
-        uint64_t caperf;
-        uint64_t cmperf;
-        uint64_t ccres[6];
-        uint64_t crtimes[CPU_RTIME_BINS];
-        uint64_t citimes[CPU_ITIME_BINS];
-        uint64_t crtime_total;
-        uint64_t citime_total;
-        uint64_t cpu_idle_exits;
-        uint64_t cpu_insns;
-        uint64_t cpu_ucc;
-        uint64_t cpu_urc;
-#if     DIAG_ALL_PMCS           // Added in 10.10.2 (xnu-2782.10.72).
-        uint64_t gpmcs[4];      // Added in 10.10.2 (xnu-2782.10.72).
-#endif /* DIAG_ALL_PMCS */      // Added in 10.10.2 (xnu-2782.10.72).
+typedef struct
+{
+  uint64_t caperf;
+  uint64_t cmperf;
+  uint64_t ccres[6];
+  uint64_t crtimes[CPU_RTIME_BINS];
+  uint64_t citimes[CPU_ITIME_BINS];
+  uint64_t crtime_total;
+  uint64_t citime_total;
+  uint64_t cpu_idle_exits;
+  uint64_t cpu_insns;
+  uint64_t cpu_ucc;
+  uint64_t cpu_urc;
+#if DIAG_ALL_PMCS           // Added in 10.10.2 (xnu-2782.10.72).
+  uint64_t gpmcs[4];        // Added in 10.10.2 (xnu-2782.10.72).
+#endif /* DIAG_ALL_PMCS */  // Added in 10.10.2 (xnu-2782.10.72).
 } core_energy_stat_t;
 
-typedef struct {
-        uint64_t pkes_version;  // Added in 10.9.0 (xnu-2422.1.72).
-        uint64_t pkg_cres[2][7];
+typedef struct
+{
+  uint64_t pkes_version;  // Added in 10.9.0 (xnu-2422.1.72).
+  uint64_t pkg_cres[2][7];
 
-        // This is read from MSR 0x606, which Intel calls MSR_RAPL_POWER_UNIT
-        // and XNU calls MSR_IA32_PKG_POWER_SKU_UNIT.
-        uint64_t pkg_power_unit;
+  // This is read from MSR 0x606, which Intel calls MSR_RAPL_POWER_UNIT
+  // and XNU calls MSR_IA32_PKG_POWER_SKU_UNIT.
+  uint64_t pkg_power_unit;
 
-        // These are the four fields for the four RAPL domains. For each field
-        // we list:
-        //
-        // - the corresponding MSR number;
-        // - Intel's name for that MSR;
-        // - XNU's name for that MSR;
-        // - which Intel processors the MSR is supported on.
-        //
-        // The last of these is determined from chapter 35 of Volume 3 of the
-        // "Intel 64 and IA-32 Architecture's Software Developer's Manual",
-        // Order Number 325384. (Note that chapter 35 contradicts section 14.9
-        // to some degree.)
+  // These are the four fields for the four RAPL domains. For each field
+  // we list:
+  //
+  // - the corresponding MSR number;
+  // - Intel's name for that MSR;
+  // - XNU's name for that MSR;
+  // - which Intel processors the MSR is supported on.
+  //
+  // The last of these is determined from chapter 35 of Volume 3 of the
+  // "Intel 64 and IA-32 Architecture's Software Developer's Manual",
+  // Order Number 325384. (Note that chapter 35 contradicts section 14.9
+  // to some degree.)
 
-        // 0x611 == MSR_PKG_ENERGY_STATUS == MSR_IA32_PKG_ENERGY_STATUS
-        // Atom (various), Sandy Bridge, Next Gen Xeon Phi (model 0x57).
-        uint64_t pkg_energy;
+  // 0x611 == MSR_PKG_ENERGY_STATUS == MSR_IA32_PKG_ENERGY_STATUS
+  // Atom (various), Sandy Bridge, Next Gen Xeon Phi (model 0x57).
+  uint64_t pkg_energy;
 
-        // 0x639 == MSR_PP0_ENERGY_STATUS == MSR_IA32_PP0_ENERGY_STATUS
-        // Atom (various), Sandy Bridge, Next Gen Xeon Phi (model 0x57).
-        uint64_t pp0_energy;
+  // 0x639 == MSR_PP0_ENERGY_STATUS == MSR_IA32_PP0_ENERGY_STATUS
+  // Atom (various), Sandy Bridge, Next Gen Xeon Phi (model 0x57).
+  uint64_t pp0_energy;
 
-        // 0x641 == MSR_PP1_ENERGY_STATUS == MSR_PP1_ENERGY_STATUS
-        // Sandy Bridge, Haswell.
-        uint64_t pp1_energy;
+  // 0x641 == MSR_PP1_ENERGY_STATUS == MSR_PP1_ENERGY_STATUS
+  // Sandy Bridge, Haswell.
+  uint64_t pp1_energy;
 
-        // 0x619 == MSR_DRAM_ENERGY_STATUS == MSR_IA32_DDR_ENERGY_STATUS
-        // Xeon E5, Xeon E5 v2, Haswell/Haswell-E, Next Gen Xeon Phi (model
-        // 0x57)
-        uint64_t ddr_energy;
+  // 0x619 == MSR_DRAM_ENERGY_STATUS == MSR_IA32_DDR_ENERGY_STATUS
+  // Xeon E5, Xeon E5 v2, Haswell/Haswell-E, Next Gen Xeon Phi (model
+  // 0x57)
+  uint64_t ddr_energy;
 
-        uint64_t llc_flushed_cycles;
-        uint64_t ring_ratio_instantaneous;
-        uint64_t IA_frequency_clipping_cause;
-        uint64_t GT_frequency_clipping_cause;
-        uint64_t pkg_idle_exits;
-        uint64_t pkg_rtimes[CPU_RTIME_BINS];
-        uint64_t pkg_itimes[CPU_ITIME_BINS];
-        uint64_t mbus_delay_time;
-        uint64_t mint_delay_time;
-        uint32_t ncpus;
-        core_energy_stat_t cest[];
+  uint64_t llc_flushed_cycles;
+  uint64_t ring_ratio_instantaneous;
+  uint64_t IA_frequency_clipping_cause;
+  uint64_t GT_frequency_clipping_cause;
+  uint64_t pkg_idle_exits;
+  uint64_t pkg_rtimes[CPU_RTIME_BINS];
+  uint64_t pkg_itimes[CPU_ITIME_BINS];
+  uint64_t mbus_delay_time;
+  uint64_t mint_delay_time;
+  uint32_t ncpus;
+  core_energy_stat_t cest[];
 } pkg_energy_statistics_t;
 
 static int
 diagCall64(uint64_t aMode, void* aBuf)
 {
-  // We cannot use syscall() here because it doesn't work with diagnostic
-  // system calls -- it raises SIGSYS if you try. So we have to use asm.
+// We cannot use syscall() here because it doesn't work with diagnostic
+// system calls -- it raises SIGSYS if you try. So we have to use asm.
 
 #ifdef __x86_64__
   // The 0x40000 prefix indicates it's a diagnostic system call. The 0x01
@@ -251,19 +253,18 @@ diagCall64(uint64_t aMode, void* aBuf)
   uint64_t rv;
 
   __asm__ __volatile__(
-    "syscall"
+      "syscall"
 
-    // Return value goes in "a" (%rax).
-    : /* outputs */ "=a"(rv)
+      // Return value goes in "a" (%rax).
+      : /* outputs */ "=a"(rv)
 
-    // The syscall number goes in "0", a synonym (from outputs) for "a" (%rax).
-    // The syscall arguments go in "D" (%rdi) and "S" (%rsi).
-    : /* inputs */ "0"(diagCallNum), "D"(aMode), "S"(aBuf)
+      // The syscall number goes in "0", a synonym (from outputs) for "a" (%rax).
+      // The syscall arguments go in "D" (%rdi) and "S" (%rsi).
+      : /* inputs */ "0"(diagCallNum), "D"(aMode), "S"(aBuf)
 
-    // The |syscall| instruction clobbers %rcx, %r11, and %rflags ("cc"). And
-    // this particular syscall also writes memory (aBuf).
-    : /* clobbers */ "rcx", "r11", "cc", "memory"
-  );
+      // The |syscall| instruction clobbers %rcx, %r11, and %rflags ("cc"). And
+      // this particular syscall also writes memory (aBuf).
+      : /* clobbers */ "rcx", "r11", "cc", "memory");
   return rv;
 #else
 #error Sorry, only x86-64 is supported
@@ -292,8 +293,8 @@ diagCall64_dgPowerStat(pkg_energy_statistics_t* aPkes)
 
 class RAPL
 {
-  bool mIsGpuSupported;   // Is the GPU domain supported by the processor?
-  bool mIsRamSupported;   // Is the RAM domain supported by the processor?
+  bool mIsGpuSupported;  // Is the GPU domain supported by the processor?
+  bool mIsRamSupported;  // Is the RAM domain supported by the processor?
 
   // The DRAM domain on Haswell servers has a fixed energy unit (1/65536 J ==
   // 15.3 microJoules) which is different to the power unit MSR. (See the
@@ -314,9 +315,8 @@ class RAPL
   // The struct passed to diagCall64().
   pkg_energy_statistics_t* mPkes;
 
-public:
-  RAPL()
-    : mHasRamUnitsQuirk(false)
+ public:
+  RAPL() : mHasRamUnitsQuirk(false)
   {
     // Work out which RAPL MSRs this CPU model supports.
     int cpuModel;
@@ -363,8 +363,8 @@ public:
     // |mPkes|.
     int logicalcpu_max;
     size = sizeof(logicalcpu_max);
-    if (sysctlbyname("hw.logicalcpu_max",
-                     &logicalcpu_max, &size, NULL, 0) != 0) {
+    if (sysctlbyname("hw.logicalcpu_max", &logicalcpu_max, &size, NULL, 0) !=
+        0) {
       Abort("sysctlbyname(\"hw.logicalcpu_max\") failed");
     }
 
@@ -375,7 +375,7 @@ public:
     size_t pkesSize = sizeof(pkg_energy_statistics_t) +
                       logicalcpu_max * sizeof(core_energy_stat_t) +
                       logicalcpu_max * 1024;
-    mPkes = (pkg_energy_statistics_t*) malloc(pkesSize);
+    mPkes = (pkg_energy_statistics_t*)malloc(pkesSize);
     if (!mPkes) {
       Abort("malloc() failed");
     }
@@ -385,17 +385,16 @@ public:
     EnergyEstimates(dummy1, dummy2, dummy3, dummy4);
   }
 
-  ~RAPL()
-  {
-    free(mPkes);
-  }
+  ~RAPL() { free(mPkes); }
 
   static double Joules(uint64_t aTicks, double aJoulesPerTick)
   {
     return double(aTicks) * aJoulesPerTick;
   }
 
-  void EnergyEstimates(double& aPkg_J, double& aCores_J, double& aGpu_J,
+  void EnergyEstimates(double& aPkg_J,
+                       double& aCores_J,
+                       double& aGpu_J,
                        double& aRam_J)
   {
     diagCall64_dgPowerStat(mPkes);
@@ -405,16 +404,16 @@ public:
     uint32_t energyStatusUnits = (mPkes->pkg_power_unit >> 8) & 0x1f;
     double joulesPerTick = ((double)1 / (1 << energyStatusUnits));
 
-    aPkg_J   = Joules(mPkes->pkg_energy - mPrevPkgTicks, joulesPerTick);
+    aPkg_J = Joules(mPkes->pkg_energy - mPrevPkgTicks, joulesPerTick);
     aCores_J = Joules(mPkes->pp0_energy - mPrevPp0Ticks, joulesPerTick);
-    aGpu_J   = mIsGpuSupported
-             ? Joules(mPkes->pp1_energy - mPrevPp1Ticks, joulesPerTick)
-             : kUnsupported_j;
-    aRam_J   = mIsRamSupported
-             ? Joules(mPkes->ddr_energy - mPrevDdrTicks,
-                      mHasRamUnitsQuirk ? kQuirkyRamJoulesPerTick
-                                        : joulesPerTick)
-             : kUnsupported_j;
+    aGpu_J = mIsGpuSupported
+                 ? Joules(mPkes->pp1_energy - mPrevPp1Ticks, joulesPerTick)
+                 : kUnsupported_j;
+    aRam_J = mIsRamSupported
+                 ? Joules(mPkes->ddr_energy - mPrevDdrTicks,
+                          mHasRamUnitsQuirk ? kQuirkyRamJoulesPerTick
+                                            : joulesPerTick)
+                 : kUnsupported_j;
 
     mPrevPkgTicks = mPkes->pkg_energy;
     mPrevPp0Ticks = mPkes->pp0_energy;
@@ -440,25 +439,34 @@ public:
 
 // There is no glibc wrapper for this system call so we provide our own.
 static int
-perf_event_open(struct perf_event_attr* aAttr, pid_t aPid, int aCpu,
-                int aGroupFd, unsigned long aFlags)
+perf_event_open(struct perf_event_attr* aAttr,
+                pid_t aPid,
+                int aCpu,
+                int aGroupFd,
+                unsigned long aFlags)
 {
   return syscall(__NR_perf_event_open, aAttr, aPid, aCpu, aGroupFd, aFlags);
 }
 
 // Returns false if the file cannot be opened.
-template <typename T>
+template<typename T>
 static bool
-ReadValueFromPowerFile(const char* aStr1, const char* aStr2, const char* aStr3,
-                       const char* aScanfString, T* aOut)
+ReadValueFromPowerFile(const char* aStr1,
+                       const char* aStr2,
+                       const char* aStr3,
+                       const char* aScanfString,
+                       T* aOut)
 {
   // The filenames going into this buffer are under our control and the longest
   // one is "/sys/bus/event_source/devices/power/events/energy-cores.scale".
   // So 256 chars is plenty.
   char filename[256];
 
-  sprintf(filename, "/sys/bus/event_source/devices/power/%s%s%s",
-          aStr1, aStr2, aStr3);
+  sprintf(filename,
+          "/sys/bus/event_source/devices/power/%s%s%s",
+          aStr1,
+          aStr2,
+          aStr3);
   FILE* fp = fopen(filename, "r");
   if (!fp) {
     return false;
@@ -474,26 +482,32 @@ ReadValueFromPowerFile(const char* aStr1, const char* aStr2, const char* aStr3,
 // This class encapsulates the reading of a single RAPL domain.
 class Domain
 {
-  bool mIsSupported;      // Is the domain supported by the processor?
+  bool mIsSupported;  // Is the domain supported by the processor?
 
   // These three are only set if |mIsSupported| is true.
   double mJoulesPerTick;  // How many Joules each tick of the MSR represents.
   int mFd;                // The fd through which the MSR is read.
   double mPrevTicks;      // The previous sample's MSR value.
 
-public:
-  enum IsOptional { Optional, NonOptional };
+ public:
+  enum IsOptional
+  {
+    Optional,
+    NonOptional
+  };
 
   Domain(const char* aName, uint32_t aType, IsOptional aOptional = NonOptional)
   {
     uint64_t config;
-    if (!ReadValueFromPowerFile("events/energy-", aName, "", "event=%llx",
-         &config)) {
+    if (!ReadValueFromPowerFile(
+            "events/energy-", aName, "", "event=%llx", &config)) {
       // Failure is allowed for optional domains.
       if (aOptional == NonOptional) {
-        Abort("failed to open file for non-optional domain '%s'\n"
-              "- Is your kernel version 3.14 or later, as required? "
-              "Run |uname -r| to see.", aName);
+        Abort(
+            "failed to open file for non-optional domain '%s'\n"
+            "- Is your kernel version 3.14 or later, as required? "
+            "Run |uname -r| to see.",
+            aName);
       }
       mIsSupported = false;
       return;
@@ -501,8 +515,8 @@ public:
 
     mIsSupported = true;
 
-    ReadValueFromPowerFile("events/energy-", aName, ".scale", "%lf",
-                           &mJoulesPerTick);
+    ReadValueFromPowerFile(
+        "events/energy-", aName, ".scale", "%lf", &mJoulesPerTick);
 
     // The unit should be "Joules", so 128 chars should be plenty.
     char unit[128];
@@ -518,12 +532,16 @@ public:
     attr.config = config;
 
     // Measure all processes/threads. The specified CPU doesn't matter.
-    mFd = perf_event_open(&attr, /* aPid = */ -1, /* aCpu = */ 0,
-                          /* aGroupFd = */ -1, /* aFlags = */ 0);
+    mFd = perf_event_open(&attr,
+                          /* aPid = */ -1,
+                          /* aCpu = */ 0,
+                          /* aGroupFd = */ -1,
+                          /* aFlags = */ 0);
     if (mFd < 0) {
-      Abort("perf_event_open() failed\n"
-            "- Did you run as root (e.g. with |sudo|) or set\n"
-            "  /proc/sys/kernel/perf_event_paranoid to 0, as required?");
+      Abort(
+          "perf_event_open() failed\n"
+          "- Did you run as root (e.g. with |sudo|) or set\n"
+          "  /proc/sys/kernel/perf_event_paranoid to 0, as required?");
     }
 
     mPrevTicks = 0;
@@ -561,16 +579,16 @@ class RAPL
   Domain* mGpu;
   Domain* mRam;
 
-public:
+ public:
   RAPL()
   {
     uint32_t type;
     ReadValueFromPowerFile("type", "", "", "%u", &type);
 
-    mPkg   = new Domain("pkg",   type);
+    mPkg = new Domain("pkg", type);
     mCores = new Domain("cores", type);
-    mGpu   = new Domain("gpu",   type, Domain::Optional);
-    mRam   = new Domain("ram",   type, Domain::Optional);
+    mGpu = new Domain("gpu", type, Domain::Optional);
+    mRam = new Domain("ram", type, Domain::Optional);
     if (!mPkg || !mCores || !mGpu || !mRam) {
       Abort("new Domain() failed");
     }
@@ -584,25 +602,27 @@ public:
     delete mRam;
   }
 
-  void EnergyEstimates(double& aPkg_J, double& aCores_J, double& aGpu_J,
+  void EnergyEstimates(double& aPkg_J,
+                       double& aCores_J,
+                       double& aGpu_J,
                        double& aRam_J)
   {
-    aPkg_J   = mPkg->EnergyEstimate();
+    aPkg_J = mPkg->EnergyEstimate();
     aCores_J = mCores->EnergyEstimate();
-    aGpu_J   = mGpu->EnergyEstimate();
-    aRam_J   = mRam->EnergyEstimate();
+    aGpu_J = mGpu->EnergyEstimate();
+    aRam_J = mRam->EnergyEstimate();
   }
 };
 
 #else
 
-//---------------------------------------------------------------------------
-// Unsupported platforms
-//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // Unsupported platforms
+  //---------------------------------------------------------------------------
 
 #error Sorry, this platform is not supported
 
-#endif // platform
+#endif  // platform
 
 //---------------------------------------------------------------------------
 // The main loop
@@ -649,7 +669,7 @@ SigAlrmHandler(int aSigNum, siginfo_t* aInfo, void* aContext)
 
   // We should have pkg and cores estimates, but might not have gpu and ram
   // estimates.
-  assert(pkg_J   != kUnsupported_j);
+  assert(pkg_J != kUnsupported_j);
   assert(cores_J != kUnsupported_j);
 
   // This needs to be big enough to print watt values to two decimal places. 16
@@ -657,11 +677,11 @@ SigAlrmHandler(int aSigNum, siginfo_t* aInfo, void* aContext)
   static const size_t kNumStrLen = 16;
 
   static char pkgStr[kNumStrLen], coresStr[kNumStrLen], gpuStr[kNumStrLen],
-              ramStr[kNumStrLen];
-  NormalizeAndPrintAsWatts(pkgStr,   pkg_J);
+      ramStr[kNumStrLen];
+  NormalizeAndPrintAsWatts(pkgStr, pkg_J);
   NormalizeAndPrintAsWatts(coresStr, cores_J);
-  NormalizeAndPrintAsWatts(gpuStr,   gpu_J);
-  NormalizeAndPrintAsWatts(ramStr,   ram_J);
+  NormalizeAndPrintAsWatts(gpuStr, gpu_J);
+  NormalizeAndPrintAsWatts(ramStr, ram_J);
 
   // Core and GPU power are a subset of the package power.
   assert(pkg_J >= cores_J + gpu_J);
@@ -682,7 +702,12 @@ SigAlrmHandler(int aSigNum, siginfo_t* aInfo, void* aContext)
   // Print and flush so that the output appears immediately even if being
   // redirected through |tee| or anything like that.
   PrintAndFlush("#%02d %s W = %s (%s + %s + %s) + %s W\n",
-                sampleNumber++, totalStr, pkgStr, coresStr, gpuStr, otherStr,
+                sampleNumber++,
+                totalStr,
+                pkgStr,
+                coresStr,
+                gpuStr,
+                otherStr,
                 ramStr);
 }
 
@@ -697,8 +722,10 @@ Finish()
 
   printf("\n");
   printf("%d sample%s taken over a period of %.3f second%s\n",
-    int(n), n == 1 ? "" : "s",
-    n * gSampleInterval_sec, time == 1.0 ? "" : "s");
+         int(n),
+         n == 1 ? "" : "s",
+         n * gSampleInterval_sec,
+         time == 1.0 ? "" : "s");
 
   if (n == 0 || n == 1) {
     exit(0);
@@ -719,7 +746,7 @@ Finish()
   // |n - 1|, and would be appropriate if we were using a random sample of a
   // larger population.
   double sumOfSquaredDeviations = 0;
-  for (double & iter : gTotals_W) {
+  for (double& iter : gTotals_W) {
     double deviation = (iter - mean);
     sumOfSquaredDeviations += deviation * deviation;
   }
@@ -746,7 +773,7 @@ Finish()
 }
 
 static void
-SigIntHandler(int aSigNum, siginfo_t* aInfo, void *aContext)
+SigIntHandler(int aSigNum, siginfo_t* aInfo, void* aContext)
 {
   Finish();
 }
@@ -755,24 +782,25 @@ static void
 PrintUsage()
 {
   printf(
-"usage: rapl [options]\n"
-"\n"
-"Options:\n"
-"\n"
-"  -h --help                 show this message\n"
-"  -i --sample-interval <N>  sample every N ms [default=1000]\n"
-"  -n --sample-count <N>     get N samples (0 means unlimited) [default=0]\n"
-"\n"
+      "usage: rapl [options]\n"
+      "\n"
+      "Options:\n"
+      "\n"
+      "  -h --help                 show this message\n"
+      "  -i --sample-interval <N>  sample every N ms [default=1000]\n"
+      "  -n --sample-count <N>     get N samples (0 means unlimited) "
+      "[default=0]\n"
+      "\n"
 #if defined(__APPLE__)
-"On Mac this program can be run by any user.\n"
+      "On Mac this program can be run by any user.\n"
 #elif defined(__linux__)
-"On Linux this program can only be run by the super-user unless the contents\n"
-"of /proc/sys/kernel/perf_event_paranoid is set to 0 or lower.\n"
+      "On Linux this program can only be run by the super-user unless the "
+      "contents\n"
+      "of /proc/sys/kernel/perf_event_paranoid is set to 0 or lower.\n"
 #else
 #error Sorry, this platform is not supported
 #endif
-"\n"
-  );
+      "\n");
 }
 
 int
@@ -787,11 +815,10 @@ main(int argc, char** argv)
   int sampleCount = 0;
 
   struct option longOptions[] = {
-    { "help",            no_argument,       NULL, 'h' },
-    { "sample-interval", required_argument, NULL, 'i' },
-    { "sample-count",    required_argument, NULL, 'n' },
-    { NULL,              0,                 NULL, 0   }
-  };
+      {"help", no_argument, NULL, 'h'},
+      {"sample-interval", required_argument, NULL, 'i'},
+      {"sample-count", required_argument, NULL, 'n'},
+      {NULL, 0, NULL, 0}};
   const char* shortOptions = "hi:n:";
 
   int c;

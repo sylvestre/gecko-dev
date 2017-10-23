@@ -22,7 +22,8 @@ namespace mozilla {
 // external CPU usage.
 static const float kTolerableExternalCPUUsageFloor = 0.5f;
 
-struct CPUStats {
+struct CPUStats
+{
   // The average CPU usage time, which can be summed across all cores in the
   // system, or averaged between them. Whichever it is, it needs to be in the
   // same units as updateTime.
@@ -38,25 +39,31 @@ static const uint64_t kMicrosecondsPerSecond = 1000000LL;
 static const uint64_t kNanosecondsPerMicrosecond = 1000LL;
 static const uint64_t kCPUCheckInterval = kMicrosecondsPerSecond / 2LL;
 
-uint64_t GetMicroseconds(timeval time) {
-    return ((uint64_t)time.tv_sec) * kMicrosecondsPerSecond +
-           (uint64_t)time.tv_usec;
+uint64_t
+GetMicroseconds(timeval time)
+{
+  return ((uint64_t)time.tv_sec) * kMicrosecondsPerSecond +
+         (uint64_t)time.tv_usec;
 }
 
-uint64_t GetMicroseconds(mach_timespec_t time) {
-    return ((uint64_t)time.tv_sec) * kMicrosecondsPerSecond +
-           ((uint64_t)time.tv_nsec) / kNanosecondsPerMicrosecond;
+uint64_t
+GetMicroseconds(mach_timespec_t time)
+{
+  return ((uint64_t)time.tv_sec) * kMicrosecondsPerSecond +
+         ((uint64_t)time.tv_nsec) / kNanosecondsPerMicrosecond;
 }
 
 Result<CPUStats, CPUUsageWatcherError>
-GetProcessCPUStats(int32_t numCPUs) {
+GetProcessCPUStats(int32_t numCPUs)
+{
   CPUStats result = {};
   rusage usage;
   int32_t rusageResult = getrusage(RUSAGE_SELF, &usage);
   if (rusageResult == -1) {
     return Err(GetProcessTimesError);
   }
-  result.usageTime = GetMicroseconds(usage.ru_utime) + GetMicroseconds(usage.ru_stime);
+  result.usageTime =
+      GetMicroseconds(usage.ru_utime) + GetMicroseconds(usage.ru_stime);
 
   clock_serv_t realtimeClock;
   kern_return_t errorResult =
@@ -78,7 +85,8 @@ GetProcessCPUStats(int32_t numCPUs) {
 }
 
 Result<CPUStats, CPUUsageWatcherError>
-GetGlobalCPUStats() {
+GetGlobalCPUStats()
+{
   CPUStats result = {};
   host_cpu_load_info_data_t loadInfo;
   mach_msg_type_number_t loadInfoCount = HOST_CPU_LOAD_INFO_COUNT;
@@ -97,7 +105,7 @@ GetGlobalCPUStats() {
   return result;
 }
 
-#endif // XP_MACOSX
+#endif  // XP_MACOSX
 
 #ifdef XP_WIN
 
@@ -106,12 +114,15 @@ static const uint64_t kFILETIMETicksPerSecond = 10000000;
 static const uint64_t kCPUCheckInterval = kFILETIMETicksPerSecond / 2;
 
 uint64_t
-FiletimeToInteger(FILETIME filetime) {
-  return ((uint64_t)filetime.dwLowDateTime) |
-         (uint64_t)filetime.dwHighDateTime << 32;
+FiletimeToInteger(FILETIME filetime)
+{
+  return ((uint64_t)filetime.dwLowDateTime) | (uint64_t)filetime.dwHighDateTime
+                                                  << 32;
 }
 
-Result<CPUStats, CPUUsageWatcherError> GetProcessCPUStats(int32_t numCPUs) {
+Result<CPUStats, CPUUsageWatcherError>
+GetProcessCPUStats(int32_t numCPUs)
+{
   CPUStats result = {};
   FILETIME creationFiletime;
   FILETIME exitFiletime;
@@ -126,8 +137,8 @@ Result<CPUStats, CPUUsageWatcherError> GetProcessCPUStats(int32_t numCPUs) {
     return Err(GetProcessTimesError);
   }
 
-  result.usageTime = FiletimeToInteger(kernelFiletime) +
-                     FiletimeToInteger(userFiletime);
+  result.usageTime =
+      FiletimeToInteger(kernelFiletime) + FiletimeToInteger(userFiletime);
 
   FILETIME nowFiletime;
   GetSystemTimeAsFileTime(&nowFiletime);
@@ -139,27 +150,26 @@ Result<CPUStats, CPUUsageWatcherError> GetProcessCPUStats(int32_t numCPUs) {
 }
 
 Result<CPUStats, CPUUsageWatcherError>
-GetGlobalCPUStats() {
+GetGlobalCPUStats()
+{
   CPUStats result = {};
   FILETIME idleFiletime;
   FILETIME kernelFiletime;
   FILETIME userFiletime;
-  bool success = GetSystemTimes(&idleFiletime,
-                                &kernelFiletime,
-                                &userFiletime);
+  bool success = GetSystemTimes(&idleFiletime, &kernelFiletime, &userFiletime);
 
   if (!success) {
     return Err(GetSystemTimesError);
   }
 
-  result.usageTime = FiletimeToInteger(kernelFiletime) +
-                     FiletimeToInteger(userFiletime);
+  result.usageTime =
+      FiletimeToInteger(kernelFiletime) + FiletimeToInteger(userFiletime);
   result.updateTime = result.usageTime + FiletimeToInteger(idleFiletime);
 
   return result;
 }
 
-#endif // XP_WIN
+#endif  // XP_WIN
 
 Result<Ok, CPUUsageWatcherError>
 CPUUsageWatcher::Init()
@@ -169,8 +179,8 @@ CPUUsageWatcher::Init()
     mExternalUsageThreshold = 1.0f;
     return Err(GetNumberOfProcessorsError);
   }
-  mExternalUsageThreshold = std::max(1.0f - 1.0f / (float)mNumCPUs,
-                                     kTolerableExternalCPUUsageFloor);
+  mExternalUsageThreshold =
+      std::max(1.0f - 1.0f / (float)mNumCPUs, kTolerableExternalCPUUsageFloor);
 
   CPUStats processTimes;
   MOZ_TRY_VAR(processTimes, GetProcessCPUStats(mNumCPUs));
@@ -186,8 +196,8 @@ CPUUsageWatcher::Init()
 
   CPUUsageWatcher* self = this;
   NS_DispatchToMainThread(
-    NS_NewRunnableFunction("CPUUsageWatcher::Init",
-                           [=]() { HangMonitor::RegisterAnnotator(*self); }));
+      NS_NewRunnableFunction("CPUUsageWatcher::Init",
+                             [=]() { HangMonitor::RegisterAnnotator(*self); }));
 
   return Ok();
 }
@@ -217,29 +227,31 @@ CPUUsageWatcher::CollectCPUUsage()
 
   uint64_t processUsageDelta = processTimes.usageTime - mProcessUsageTime;
   uint64_t processUpdateDelta = processTimes.updateTime - mProcessUpdateTime;
-  float processUsageNormalized = processUsageDelta > 0 ?
-                                (float)processUsageDelta / (float)processUpdateDelta :
-                                0.0f;
+  float processUsageNormalized =
+      processUsageDelta > 0
+          ? (float)processUsageDelta / (float)processUpdateDelta
+          : 0.0f;
 
   uint64_t globalUsageDelta = globalTimes.usageTime - mGlobalUsageTime;
   uint64_t globalUpdateDelta = globalTimes.updateTime - mGlobalUpdateTime;
-  float globalUsageNormalized = globalUsageDelta > 0 ?
-                                (float)globalUsageDelta / (float)globalUpdateDelta :
-                                0.0f;
+  float globalUsageNormalized =
+      globalUsageDelta > 0 ? (float)globalUsageDelta / (float)globalUpdateDelta
+                           : 0.0f;
 
   mProcessUsageTime = processTimes.usageTime;
   mProcessUpdateTime = processTimes.updateTime;
   mGlobalUsageTime = globalTimes.usageTime;
   mGlobalUpdateTime = globalTimes.updateTime;
 
-  mExternalUsageRatio = std::max(0.0f,
-                                 globalUsageNormalized - processUsageNormalized);
+  mExternalUsageRatio =
+      std::max(0.0f, globalUsageNormalized - processUsageNormalized);
 
   return Ok();
 }
 
 void
-CPUUsageWatcher::AnnotateHang(HangMonitor::HangAnnotations& aAnnotations) {
+CPUUsageWatcher::AnnotateHang(HangMonitor::HangAnnotations& aAnnotations)
+{
   if (!mInitialized) {
     return;
   }
@@ -249,7 +261,7 @@ CPUUsageWatcher::AnnotateHang(HangMonitor::HangAnnotations& aAnnotations) {
   }
 }
 
-#else // !CPU_USAGE_WATCHER_ACTIVE
+#else  // !CPU_USAGE_WATCHER_ACTIVE
 
 Result<Ok, CPUUsageWatcherError>
 CPUUsageWatcher::Init()
@@ -257,7 +269,10 @@ CPUUsageWatcher::Init()
   return Ok();
 }
 
-void CPUUsageWatcher::Uninit() {}
+void
+CPUUsageWatcher::Uninit()
+{
+}
 
 Result<Ok, CPUUsageWatcherError>
 CPUUsageWatcher::CollectCPUUsage()
@@ -265,8 +280,11 @@ CPUUsageWatcher::CollectCPUUsage()
   return Ok();
 }
 
-void CPUUsageWatcher::AnnotateHang(HangMonitor::HangAnnotations& aAnnotations) {}
+void
+CPUUsageWatcher::AnnotateHang(HangMonitor::HangAnnotations& aAnnotations)
+{
+}
 
-#endif // CPU_USAGE_WATCHER_ACTIVE
+#endif  // CPU_USAGE_WATCHER_ACTIVE
 
-} // namespace mozilla
+}  // namespace mozilla

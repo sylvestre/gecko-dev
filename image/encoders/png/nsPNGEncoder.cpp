@@ -14,19 +14,26 @@ using namespace mozilla;
 
 static LazyLogModule sPNGEncoderLog("PNGEncoder");
 
-NS_IMPL_ISUPPORTS(nsPNGEncoder, imgIEncoder, nsIInputStream,
+NS_IMPL_ISUPPORTS(nsPNGEncoder,
+                  imgIEncoder,
+                  nsIInputStream,
                   nsIAsyncInputStream)
 
-nsPNGEncoder::nsPNGEncoder() : mPNG(nullptr), mPNGinfo(nullptr),
-                               mIsAnimation(false),
-                               mFinished(false),
-                               mImageBuffer(nullptr), mImageBufferSize(0),
-                               mImageBufferUsed(0), mImageBufferReadPoint(0),
-                               mCallback(nullptr),
-                               mCallbackTarget(nullptr), mNotifyThreshold(0),
-                               mReentrantMonitor(
-                                              "nsPNGEncoder.mReentrantMonitor")
-{ }
+nsPNGEncoder::nsPNGEncoder()
+    : mPNG(nullptr),
+      mPNGinfo(nullptr),
+      mIsAnimation(false),
+      mFinished(false),
+      mImageBuffer(nullptr),
+      mImageBufferSize(0),
+      mImageBufferUsed(0),
+      mImageBufferReadPoint(0),
+      mCallback(nullptr),
+      mCallbackTarget(nullptr),
+      mNotifyThreshold(0),
+      mReentrantMonitor("nsPNGEncoder.mReentrantMonitor")
+{
+}
 
 nsPNGEncoder::~nsPNGEncoder()
 {
@@ -50,7 +57,7 @@ nsPNGEncoder::~nsPNGEncoder()
 
 NS_IMETHODIMP
 nsPNGEncoder::InitFromData(const uint8_t* aData,
-                           uint32_t aLength, // (unused, req'd by JS)
+                           uint32_t aLength,  // (unused, req'd by JS)
                            uint32_t aWidth,
                            uint32_t aHeight,
                            uint32_t aStride,
@@ -65,8 +72,8 @@ nsPNGEncoder::InitFromData(const uint8_t* aData,
     return rv;
   }
 
-  rv = AddImageFrame(aData, aLength, aWidth, aHeight, aStride,
-                     aInputFormat, aOutputOptions);
+  rv = AddImageFrame(
+      aData, aLength, aWidth, aHeight, aStride, aInputFormat, aOutputOptions);
   if (!NS_SUCCEEDED(rv)) {
     return rv;
   }
@@ -75,7 +82,6 @@ nsPNGEncoder::InitFromData(const uint8_t* aData,
 
   return rv;
 }
-
 
 // nsPNGEncoder::StartImageEncode
 //
@@ -89,7 +95,7 @@ nsPNGEncoder::StartImageEncode(uint32_t aWidth,
 {
   bool useTransparency = true, skipFirstFrame = false;
   uint32_t numFrames = 1;
-  uint32_t numPlays = 0; // For animations, 0 == forever
+  uint32_t numPlays = 0;  // For animations, 0 == forever
 
   // can't initialize more than once
   if (mImageBuffer != nullptr) {
@@ -97,15 +103,21 @@ nsPNGEncoder::StartImageEncode(uint32_t aWidth,
   }
 
   // validate input format
-  if (aInputFormat != INPUT_FORMAT_RGB &&
-      aInputFormat != INPUT_FORMAT_RGBA &&
+  if (aInputFormat != INPUT_FORMAT_RGB && aInputFormat != INPUT_FORMAT_RGBA &&
       aInputFormat != INPUT_FORMAT_HOSTARGB)
     return NS_ERROR_INVALID_ARG;
 
   // parse and check any provided output options
-  nsresult rv = ParseOptions(aOutputOptions, &useTransparency, &skipFirstFrame,
-                             &numFrames, &numPlays, nullptr, nullptr,
-                             nullptr, nullptr, nullptr);
+  nsresult rv = ParseOptions(aOutputOptions,
+                             &useTransparency,
+                             &skipFirstFrame,
+                             &numFrames,
+                             &numPlays,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr);
   if (rv != NS_OK) {
     return rv;
   }
@@ -118,10 +130,8 @@ nsPNGEncoder::StartImageEncode(uint32_t aWidth,
 #endif
 
   // initialize
-  mPNG = png_create_write_struct(PNG_LIBPNG_VER_STRING,
-                                 nullptr,
-                                 ErrorCallback,
-                                 WarningCallback);
+  mPNG = png_create_write_struct(
+      PNG_LIBPNG_VER_STRING, nullptr, ErrorCallback, WarningCallback);
   if (!mPNG) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -157,14 +167,20 @@ nsPNGEncoder::StartImageEncode(uint32_t aWidth,
   // include alpha?
   int colorType;
   if ((aInputFormat == INPUT_FORMAT_HOSTARGB ||
-       aInputFormat == INPUT_FORMAT_RGBA)  &&
-       useTransparency)
+       aInputFormat == INPUT_FORMAT_RGBA) &&
+      useTransparency)
     colorType = PNG_COLOR_TYPE_RGB_ALPHA;
   else
     colorType = PNG_COLOR_TYPE_RGB;
 
-  png_set_IHDR(mPNG, mPNGinfo, aWidth, aHeight, 8, colorType,
-               PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
+  png_set_IHDR(mPNG,
+               mPNGinfo,
+               aWidth,
+               aHeight,
+               8,
+               colorType,
+               PNG_INTERLACE_NONE,
+               PNG_COMPRESSION_TYPE_DEFAULT,
                PNG_FILTER_TYPE_DEFAULT);
 
 #ifdef PNG_APNG_SUPPORTED
@@ -201,14 +217,14 @@ nsPNGEncoder::GetImageBuffer(char** aOutputBuffer)
 
 NS_IMETHODIMP
 nsPNGEncoder::AddImageFrame(const uint8_t* aData,
-                            uint32_t aLength, // (unused, req'd by JS)
+                            uint32_t aLength,  // (unused, req'd by JS)
                             uint32_t aWidth,
                             uint32_t aHeight,
                             uint32_t aStride,
                             uint32_t aInputFormat,
                             const nsAString& aFrameOptions)
 {
-  bool useTransparency= true;
+  bool useTransparency = true;
   uint32_t delay_ms = 500;
 #ifdef PNG_APNG_SUPPORTED
   uint32_t dispose_op = PNG_DISPOSE_OP_NONE;
@@ -230,8 +246,7 @@ nsPNGEncoder::AddImageFrame(const uint8_t* aData,
   }
 
   // validate input format
-  if (aInputFormat != INPUT_FORMAT_RGB &&
-      aInputFormat != INPUT_FORMAT_RGBA &&
+  if (aInputFormat != INPUT_FORMAT_RGB && aInputFormat != INPUT_FORMAT_RGBA &&
       aInputFormat != INPUT_FORMAT_HOSTARGB)
     return NS_ERROR_INVALID_ARG;
 
@@ -242,9 +257,16 @@ nsPNGEncoder::AddImageFrame(const uint8_t* aData,
   }
 
   // parse and check any provided output options
-  nsresult rv = ParseOptions(aFrameOptions, &useTransparency, nullptr,
-                             nullptr, nullptr, &dispose_op, &blend_op,
-                             &delay_ms, &x_offset, &y_offset);
+  nsresult rv = ParseOptions(aFrameOptions,
+                             &useTransparency,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             &dispose_op,
+                             &blend_op,
+                             &delay_ms,
+                             &x_offset,
+                             &y_offset);
   if (rv != NS_OK) {
     return rv;
   }
@@ -252,20 +274,27 @@ nsPNGEncoder::AddImageFrame(const uint8_t* aData,
 #ifdef PNG_APNG_SUPPORTED
   if (mIsAnimation) {
     // XXX the row pointers arg (#3) is unused, can it be removed?
-    png_write_frame_head(mPNG, mPNGinfo, nullptr,
-                         aWidth, aHeight, x_offset, y_offset,
-                         delay_ms, 1000, dispose_op, blend_op);
+    png_write_frame_head(mPNG,
+                         mPNGinfo,
+                         nullptr,
+                         aWidth,
+                         aHeight,
+                         x_offset,
+                         y_offset,
+                         delay_ms,
+                         1000,
+                         dispose_op,
+                         blend_op);
   }
 #endif
 
   // Stride is the padded width of each row, so it better be longer
   // (I'm afraid people will not understand what stride means, so
   // check it well)
-  if ((aInputFormat == INPUT_FORMAT_RGB &&
-      aStride < aWidth * 3) ||
+  if ((aInputFormat == INPUT_FORMAT_RGB && aStride < aWidth * 3) ||
       ((aInputFormat == INPUT_FORMAT_RGBA ||
-      aInputFormat == INPUT_FORMAT_HOSTARGB) &&
-      aStride < aWidth * 4)) {
+        aInputFormat == INPUT_FORMAT_HOSTARGB) &&
+       aStride < aWidth * 4)) {
     NS_WARNING("Invalid stride for InitFromData/AddImageFrame");
     return NS_ERROR_INVALID_ARG;
   }
@@ -281,7 +310,8 @@ nsPNGEncoder::AddImageFrame(const uint8_t* aData,
     // convert
     UniquePtr<uint8_t[]> row = MakeUnique<uint8_t[]>(aWidth * 4);
     for (uint32_t y = 0; y < aHeight; y++) {
-      ConvertHostARGBRow(&aData[y * aStride], row.get(), aWidth, useTransparency);
+      ConvertHostARGBRow(
+          &aData[y * aStride], row.get(), aWidth, useTransparency);
       png_write_row(mPNG, row.get());
     }
   } else if (aInputFormat == INPUT_FORMAT_RGBA && !useTransparency) {
@@ -311,7 +341,6 @@ nsPNGEncoder::AddImageFrame(const uint8_t* aData,
 
   return NS_OK;
 }
-
 
 NS_IMETHODIMP
 nsPNGEncoder::EndImageEncode()
@@ -347,7 +376,6 @@ nsPNGEncoder::EndImageEncode()
   return NS_OK;
 }
 
-
 nsresult
 nsPNGEncoder::ParseOptions(const nsAString& aOptions,
                            bool* useTransparency,
@@ -370,7 +398,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
     // If there's an '=' character, split the token around it.
     char* equals = token;
     char* value = nullptr;
-    while(*equals != '=' && *equals) {
+    while (*equals != '=' && *equals) {
       ++equals;
     }
     if (*equals == '=') {
@@ -378,7 +406,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
     }
 
     if (value) {
-      *equals = '\0'; // temporary null
+      *equals = '\0';  // temporary null
     }
 
     // transparency=[yes|no|none]
@@ -396,9 +424,8 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // skipfirstframe=[yes|no]
-    } else if (nsCRT::strcmp(token, "skipfirstframe") == 0 &&
-               skipFirstFrame) {
+      // skipfirstframe=[yes|no]
+    } else if (nsCRT::strcmp(token, "skipfirstframe") == 0 && skipFirstFrame) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
       }
@@ -411,7 +438,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // frames=#
+      // frames=#
     } else if (nsCRT::strcmp(token, "frames") == 0 && numFrames) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -426,7 +453,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // plays=#
+      // plays=#
     } else if (nsCRT::strcmp(token, "plays") == 0 && numPlays) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -438,7 +465,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // dispose=[none|background|previous]
+      // dispose=[none|background|previous]
     } else if (nsCRT::strcmp(token, "dispose") == 0 && frameDispose) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -454,7 +481,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // blend=[source|over]
+      // blend=[source|over]
     } else if (nsCRT::strcmp(token, "blend") == 0 && frameBlend) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -468,7 +495,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // delay=# (in ms)
+      // delay=# (in ms)
     } else if (nsCRT::strcmp(token, "delay") == 0 && frameDelay) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -478,7 +505,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // xoffset=#
+      // xoffset=#
     } else if (nsCRT::strcmp(token, "xoffset") == 0 && offsetX) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -488,7 +515,7 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // yoffset=#
+      // yoffset=#
     } else if (nsCRT::strcmp(token, "yoffset") == 0 && offsetY) {
       if (!value) {
         return NS_ERROR_INVALID_ARG;
@@ -498,19 +525,18 @@ nsPNGEncoder::ParseOptions(const nsAString& aOptions,
         return NS_ERROR_INVALID_ARG;
       }
 
-    // unknown token name
+      // unknown token name
     } else
       return NS_ERROR_INVALID_ARG;
 
     if (value) {
-      *equals = '='; // restore '=' so strtok doesn't get lost
+      *equals = '=';  // restore '=' so strtok doesn't get lost
     }
   }
 
 #endif
   return NS_OK;
 }
-
 
 NS_IMETHODIMP
 nsPNGEncoder::Close()
@@ -530,7 +556,7 @@ nsPNGEncoder::Available(uint64_t* _retval)
 {
   if (!mImageBuffer) {
     return NS_BASE_STREAM_CLOSED;
-    }
+  }
 
   *_retval = mImageBufferUsed - mImageBufferReadPoint;
   return NS_OK;
@@ -544,7 +570,8 @@ nsPNGEncoder::Read(char* aBuf, uint32_t aCount, uint32_t* _retval)
 
 NS_IMETHODIMP
 nsPNGEncoder::ReadSegments(nsWriteSegmentFun aWriter,
-                           void* aClosure, uint32_t aCount,
+                           void* aClosure,
+                           uint32_t aCount,
                            uint32_t* _retval)
 {
   // Avoid another thread reallocing the buffer underneath us
@@ -560,10 +587,13 @@ nsPNGEncoder::ReadSegments(nsWriteSegmentFun aWriter,
     aCount = maxCount;
   }
 
-  nsresult rv =
-      aWriter(this, aClosure,
-              reinterpret_cast<const char*>(mImageBuffer+mImageBufferReadPoint),
-              0, aCount, _retval);
+  nsresult rv = aWriter(
+      this,
+      aClosure,
+      reinterpret_cast<const char*>(mImageBuffer + mImageBufferReadPoint),
+      0,
+      aCount,
+      _retval);
   if (NS_SUCCEEDED(rv)) {
     NS_ASSERTION(*_retval <= aCount, "bad write count");
     mImageBufferReadPoint += *_retval;
@@ -598,7 +628,7 @@ nsPNGEncoder::AsyncWait(nsIInputStreamCallback* aCallback,
   // 0 means "any number of bytes except 0"
   mNotifyThreshold = aRequestedCount;
   if (!aRequestedCount) {
-    mNotifyThreshold = 1024; // We don't want to notify incessantly
+    mNotifyThreshold = 1024;  // We don't want to notify incessantly
   }
 
   // We set the callback absolutely last, because NotifyListener uses it to
@@ -614,10 +644,7 @@ nsPNGEncoder::AsyncWait(nsIInputStreamCallback* aCallback,
 }
 
 NS_IMETHODIMP
-nsPNGEncoder::CloseWithStatus(nsresult aStatus)
-{
-  return Close();
-}
+nsPNGEncoder::CloseWithStatus(nsresult aStatus) { return Close(); }
 
 // nsPNGEncoder::ConvertHostARGBRow
 //
@@ -627,7 +654,8 @@ nsPNGEncoder::CloseWithStatus(nsresult aStatus)
 //    Copied from gfx/cairo/cairo/src/cairo-png.c
 
 void
-nsPNGEncoder::ConvertHostARGBRow(const uint8_t* aSrc, uint8_t* aDest,
+nsPNGEncoder::ConvertHostARGBRow(const uint8_t* aSrc,
+                                 uint8_t* aDest,
                                  uint32_t aPixelWidth,
                                  bool aUseTransparency)
 {
@@ -637,29 +665,29 @@ nsPNGEncoder::ConvertHostARGBRow(const uint8_t* aSrc, uint8_t* aDest,
     uint8_t* pixelOut = &aDest[x * pixelStride];
 
     uint8_t alpha = (pixelIn & 0xff000000) >> 24;
-    pixelOut[pixelStride - 1] = alpha; // overwritten below if pixelStride == 3
+    pixelOut[pixelStride - 1] = alpha;  // overwritten below if pixelStride == 3
     if (alpha == 255) {
       pixelOut[0] = (pixelIn & 0xff0000) >> 16;
-      pixelOut[1] = (pixelIn & 0x00ff00) >>  8;
-      pixelOut[2] = (pixelIn & 0x0000ff)      ;
+      pixelOut[1] = (pixelIn & 0x00ff00) >> 8;
+      pixelOut[2] = (pixelIn & 0x0000ff);
     } else if (alpha == 0) {
       pixelOut[0] = pixelOut[1] = pixelOut[2] = 0;
     } else {
       pixelOut[0] = (((pixelIn & 0xff0000) >> 16) * 255 + alpha / 2) / alpha;
-      pixelOut[1] = (((pixelIn & 0x00ff00) >>  8) * 255 + alpha / 2) / alpha;
-      pixelOut[2] = (((pixelIn & 0x0000ff)      ) * 255 + alpha / 2) / alpha;
+      pixelOut[1] = (((pixelIn & 0x00ff00) >> 8) * 255 + alpha / 2) / alpha;
+      pixelOut[2] = (((pixelIn & 0x0000ff)) * 255 + alpha / 2) / alpha;
     }
   }
 }
-
 
 // nsPNGEncoder::StripAlpha
 //
 //    Input is RGBA, output is RGB
 
 void
-nsPNGEncoder::StripAlpha(const uint8_t* aSrc, uint8_t* aDest,
-                          uint32_t aPixelWidth)
+nsPNGEncoder::StripAlpha(const uint8_t* aSrc,
+                         uint8_t* aDest,
+                         uint32_t aPixelWidth)
 {
   for (uint32_t x = 0; x < aPixelWidth; x++) {
     const uint8_t* pixelIn = &aSrc[x * 4];
@@ -670,23 +698,19 @@ nsPNGEncoder::StripAlpha(const uint8_t* aSrc, uint8_t* aDest,
   }
 }
 
-
 // nsPNGEncoder::WarningCallback
 
 void
-nsPNGEncoder::WarningCallback(png_structp png_ptr,
-                            png_const_charp warning_msg)
+nsPNGEncoder::WarningCallback(png_structp png_ptr, png_const_charp warning_msg)
 {
-  MOZ_LOG(sPNGEncoderLog, LogLevel::Warning,
-         ("libpng warning: %s\n", warning_msg));
+  MOZ_LOG(
+      sPNGEncoderLog, LogLevel::Warning, ("libpng warning: %s\n", warning_msg));
 }
-
 
 // nsPNGEncoder::ErrorCallback
 
 void
-nsPNGEncoder::ErrorCallback(png_structp png_ptr,
-                            png_const_charp error_msg)
+nsPNGEncoder::ErrorCallback(png_structp png_ptr, png_const_charp error_msg)
 {
   MOZ_LOG(sPNGEncoderLog, LogLevel::Error, ("libpng error: %s\n", error_msg));
   png_longjmp(png_ptr, 1);
@@ -694,9 +718,8 @@ nsPNGEncoder::ErrorCallback(png_structp png_ptr,
 
 // nsPNGEncoder::WriteCallback
 
-void // static
-nsPNGEncoder::WriteCallback(png_structp png, png_bytep data,
-                            png_size_t size)
+void  // static
+nsPNGEncoder::WriteCallback(png_structp png, png_bytep data, png_size_t size)
 {
   nsPNGEncoder* that = static_cast<nsPNGEncoder*>(png_get_io_ptr(png));
   if (!that->mImageBuffer) {
@@ -710,8 +733,8 @@ nsPNGEncoder::WriteCallback(png_structp png, png_bytep data,
 
     // expand buffer, just double each time
     that->mImageBufferSize *= 2;
-    uint8_t* newBuf = (uint8_t*)realloc(that->mImageBuffer,
-                                        that->mImageBufferSize);
+    uint8_t* newBuf =
+        (uint8_t*)realloc(that->mImageBuffer, that->mImageBufferSize);
     if (!newBuf) {
       // can't resize, just zero (this will keep us from writing more)
       free(that->mImageBuffer);
@@ -741,8 +764,8 @@ nsPNGEncoder::NotifyListener()
        mFinished)) {
     nsCOMPtr<nsIInputStreamCallback> callback;
     if (mCallbackTarget) {
-      callback = NS_NewInputStreamReadyEvent("nsPNGEncoder::NotifyListener",
-                                             mCallback, mCallbackTarget);
+      callback = NS_NewInputStreamReadyEvent(
+          "nsPNGEncoder::NotifyListener", mCallback, mCallbackTarget);
     } else {
       callback = mCallback;
     }

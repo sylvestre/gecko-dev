@@ -33,18 +33,20 @@ namespace mozilla {
 template<typename T>
 class SmallPointerArray
 {
-public:
+ public:
   SmallPointerArray()
   {
     mInlineElements[0] = mInlineElements[1] = nullptr;
     static_assert(sizeof(SmallPointerArray<T>) == (2 * sizeof(void*)),
-      "SmallPointerArray must compile to the size of 2 pointers");
-    static_assert(offsetof(SmallPointerArray<T>, mArray) ==
-                  offsetof(SmallPointerArray<T>, mInlineElements) + sizeof(T*),
-      "mArray and mInlineElements[1] are expected to overlap in memory");
-    static_assert(offsetof(SmallPointerArray<T>, mPadding) ==
-      offsetof(SmallPointerArray<T>, mInlineElements),
-      "mPadding and mInlineElements[0] are expected to overlap in memory");
+                  "SmallPointerArray must compile to the size of 2 pointers");
+    static_assert(
+        offsetof(SmallPointerArray<T>, mArray) ==
+            offsetof(SmallPointerArray<T>, mInlineElements) + sizeof(T*),
+        "mArray and mInlineElements[1] are expected to overlap in memory");
+    static_assert(
+        offsetof(SmallPointerArray<T>, mPadding) ==
+            offsetof(SmallPointerArray<T>, mInlineElements),
+        "mPadding and mInlineElements[0] are expected to overlap in memory");
   }
   ~SmallPointerArray()
   {
@@ -53,7 +55,8 @@ public:
     }
   }
 
-  void Clear() {
+  void Clear()
+  {
     if (!mInlineElements[0] && mArray) {
       delete mArray;
       mArray = nullptr;
@@ -62,7 +65,8 @@ public:
     mInlineElements[0] = mInlineElements[1] = nullptr;
   }
 
-  void AppendElement(T* aElement) {
+  void AppendElement(T* aElement)
+  {
     // Storing nullptr as an element is not permitted, but we do check for it
     // to avoid corruption issues in non-debug builds.
 
@@ -93,11 +97,13 @@ public:
       return;
     }
 
-    mArray = new std::vector<T*>({ mInlineElements[0], mInlineElements[1], aElement });
+    mArray =
+        new std::vector<T*>({mInlineElements[0], mInlineElements[1], aElement});
     mInlineElements[0] = nullptr;
   }
 
-  bool RemoveElement(T* aElement) {
+  bool RemoveElement(T* aElement)
+  {
     MOZ_ASSERT(aElement != nullptr);
     if (aElement == nullptr) {
       return false;
@@ -129,7 +135,8 @@ public:
     return false;
   }
 
-  bool Contains(T* aElement) const {
+  bool Contains(T* aElement) const
+  {
     MOZ_ASSERT(aElement != nullptr);
     if (aElement == nullptr) {
       return false;
@@ -147,10 +154,10 @@ public:
     }
 
     if (mArray) {
-      return std::find(mArray->begin(), mArray->end(), aElement) != mArray->end();
+      return std::find(mArray->begin(), mArray->end(), aElement) !=
+             mArray->end();
     }
     return false;
-
   }
 
   size_t Length() const
@@ -169,7 +176,8 @@ public:
     return 0;
   }
 
-  T* ElementAt(size_t aIndex) const {
+  T* ElementAt(size_t aIndex) const
+  {
     MOZ_ASSERT(aIndex < Length());
     if (mInlineElements[0]) {
       return mInlineElements[aIndex];
@@ -178,32 +186,22 @@ public:
     return (*mArray)[aIndex];
   }
 
-  T* operator[](size_t aIndex) const
-  {
-    return ElementAt(aIndex);
-  }
+  T* operator[](size_t aIndex) const { return ElementAt(aIndex); }
 
-  typedef T**                        iterator;
-  typedef const T**                  const_iterator;
+  typedef T** iterator;
+  typedef const T** const_iterator;
 
   // Methods for range-based for loops. Manipulation invalidates these.
-  iterator begin() {
-    return beginInternal();
-  }
-  const_iterator begin() const {
-    return beginInternal();
-  }
+  iterator begin() { return beginInternal(); }
+  const_iterator begin() const { return beginInternal(); }
   const_iterator cbegin() const { return begin(); }
-  iterator end() {
-    return beginInternal() + Length();
-  }
-  const_iterator end() const {
-    return beginInternal() + Length();
-  }
+  iterator end() { return beginInternal() + Length(); }
+  const_iterator end() const { return beginInternal() + Length(); }
   const_iterator cend() const { return end(); }
 
-private:
-  T** beginInternal() const {
+ private:
+  T** beginInternal() const
+  {
     if (mInlineElements[0] || !mArray) {
       return const_cast<T**>(&mInlineElements[0]);
     }
@@ -230,13 +228,14 @@ private:
   // of the array and is of arbitrary size.
   union {
     T* mInlineElements[2];
-    struct {
+    struct
+    {
       void* mPadding;
       std::vector<T*>* mArray;
     };
   };
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SmallPointerArray_h
+#endif  // mozilla_SmallPointerArray_h

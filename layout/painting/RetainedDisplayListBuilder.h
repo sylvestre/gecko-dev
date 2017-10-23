@@ -7,17 +7,15 @@
 
 #include "nsDisplayList.h"
 
-struct RetainedDisplayListBuilder {
+struct RetainedDisplayListBuilder
+{
   RetainedDisplayListBuilder(nsIFrame* aReferenceFrame,
                              nsDisplayListBuilderMode aMode,
                              bool aBuildCaret)
-    : mBuilder(aReferenceFrame, aMode, aBuildCaret, true)
-    , mList(&mBuilder)
-  {}
-  ~RetainedDisplayListBuilder()
+      : mBuilder(aReferenceFrame, aMode, aBuildCaret, true), mList(&mBuilder)
   {
-    mList.DeleteAll(&mBuilder);
   }
+  ~RetainedDisplayListBuilder() { mList.DeleteAll(&mBuilder); }
 
   nsDisplayListBuilder* Builder() { return &mBuilder; }
 
@@ -27,7 +25,7 @@ struct RetainedDisplayListBuilder {
 
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(Cached, RetainedDisplayListBuilder)
 
-private:
+ private:
   void PreProcessDisplayList(nsDisplayList* aList, AnimatedGeometryRoot* aAGR);
 
   void MergeDisplayLists(nsDisplayList* aNewList,
@@ -44,7 +42,6 @@ private:
   nsDisplayListBuilder mBuilder;
   nsDisplayList mList;
   WeakFrame mPreviousCaret;
-
 };
 
-#endif // RETAINEDDISPLAYLISTBUILDER_H_
+#endif  // RETAINEDDISPLAYLISTBUILDER_H_

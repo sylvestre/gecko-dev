@@ -17,21 +17,18 @@ namespace gfx {
 using namespace ipc;
 
 GPUProcessHost::GPUProcessHost(Listener* aListener)
- : GeckoChildProcessHost(GeckoProcessType_GPU),
-   mListener(aListener),
-   mTaskFactory(this),
-   mLaunchPhase(LaunchPhase::Unlaunched),
-   mProcessToken(0),
-   mShutdownRequested(false),
-   mChannelClosed(false)
+    : GeckoChildProcessHost(GeckoProcessType_GPU),
+      mListener(aListener),
+      mTaskFactory(this),
+      mLaunchPhase(LaunchPhase::Unlaunched),
+      mProcessToken(0),
+      mShutdownRequested(false),
+      mChannelClosed(false)
 {
   MOZ_COUNT_CTOR(GPUProcessHost);
 }
 
-GPUProcessHost::~GPUProcessHost()
-{
-  MOZ_COUNT_DTOR(GPUProcessHost);
-}
+GPUProcessHost::~GPUProcessHost() { MOZ_COUNT_DTOR(GPUProcessHost); }
 
 bool
 GPUProcessHost::Launch()
@@ -65,7 +62,8 @@ GPUProcessHost::WaitForLaunch()
 
   // If one of the following environment variables are set we can effectively
   // ignore the timeout - as we can guarantee the compositor process will be terminated
-  if (PR_GetEnv("MOZ_DEBUG_CHILD_PROCESS") || PR_GetEnv("MOZ_DEBUG_CHILD_PAUSE")) {
+  if (PR_GetEnv("MOZ_DEBUG_CHILD_PROCESS") ||
+      PR_GetEnv("MOZ_DEBUG_CHILD_PAUSE")) {
     timeoutMs = 0;
   }
 
@@ -89,7 +87,8 @@ GPUProcessHost::OnChannelConnected(int32_t peer_pid)
   RefPtr<Runnable> runnable;
   {
     MonitorAutoLock lock(mMonitor);
-    runnable = mTaskFactory.NewRunnableMethod(&GPUProcessHost::OnChannelConnectedTask);
+    runnable =
+        mTaskFactory.NewRunnableMethod(&GPUProcessHost::OnChannelConnectedTask);
   }
   NS_DispatchToMainThread(runnable);
 }
@@ -106,7 +105,8 @@ GPUProcessHost::OnChannelError()
   RefPtr<Runnable> runnable;
   {
     MonitorAutoLock lock(mMonitor);
-    runnable = mTaskFactory.NewRunnableMethod(&GPUProcessHost::OnChannelErrorTask);
+    runnable =
+        mTaskFactory.NewRunnableMethod(&GPUProcessHost::OnChannelErrorTask);
   }
   NS_DispatchToMainThread(runnable);
 }
@@ -141,7 +141,7 @@ GPUProcessHost::InitAfterConnect(bool aSucceeded)
     mProcessToken = ++sProcessTokenCounter;
     mGPUChild = MakeUnique<GPUChild>(this);
     DebugOnly<bool> rv =
-      mGPUChild->Open(GetChannel(), base::GetProcId(GetChildProcessHandle()));
+        mGPUChild->Open(GetChannel(), base::GetProcId(GetChildProcessHandle()));
     MOZ_ASSERT(rv);
 
     mGPUChild->Init();
@@ -231,8 +231,8 @@ GPUProcessHost::GetProcessToken() const
 static void
 DelayedDeleteSubprocess(GeckoChildProcessHost* aSubprocess)
 {
-  XRE_GetIOMessageLoop()->
-    PostTask(mozilla::MakeAndAddRef<DeleteTask<GeckoChildProcessHost>>(aSubprocess));
+  XRE_GetIOMessageLoop()->PostTask(
+      mozilla::MakeAndAddRef<DeleteTask<GeckoChildProcessHost>>(aSubprocess));
 }
 
 void
@@ -251,9 +251,9 @@ GPUProcessHost::DestroyProcess()
     mTaskFactory.RevokeAll();
   }
 
-  MessageLoop::current()->
-    PostTask(NewRunnableFunction(DelayedDeleteSubprocess, this));
+  MessageLoop::current()->PostTask(
+      NewRunnableFunction(DelayedDeleteSubprocess, this));
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

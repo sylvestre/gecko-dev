@@ -19,8 +19,9 @@ class VideoFrameContainer;
 /**
  * Base class of MediaStreamVideoSink family. This is the output of MediaStream.
  */
-class MediaStreamVideoSink : public DirectMediaStreamTrackListener {
-public:
+class MediaStreamVideoSink : public DirectMediaStreamTrackListener
+{
+ public:
   // Method of DirectMediaStreamTrackListener.
   void NotifyRealtimeTrackData(MediaStreamGraph* aGraph,
                                StreamTime aTrackOffset,
@@ -33,12 +34,15 @@ public:
   virtual VideoFrameContainer* AsVideoFrameContainer() { return nullptr; }
   virtual void Invalidate() {}
 
-  virtual MediaStreamVideoSink* AsMediaStreamVideoSink() override { return this; }
+  virtual MediaStreamVideoSink* AsMediaStreamVideoSink() override
+  {
+    return this;
+  }
 
-protected:
-  virtual ~MediaStreamVideoSink() {};
+ protected:
+  virtual ~MediaStreamVideoSink(){};
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MEDIASTREAMVIDEOSINK_H_ */

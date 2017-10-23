@@ -72,8 +72,7 @@
 #include "signaling/src/sdp/SdpAttributeList.h"
 #include "signaling/src/sdp/SdpEnum.h"
 
-namespace mozilla
-{
+namespace mozilla {
 
 class SdpOrigin;
 class SdpEncryptionKey;
@@ -84,7 +83,7 @@ class SdpMediaSection;
  */
 class Sdp
 {
-public:
+ public:
   Sdp(){};
   virtual ~Sdp(){};
 
@@ -111,7 +110,8 @@ public:
   std::string ToString() const;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Sdp& sdp)
+inline std::ostream&
+operator<<(std::ostream& os, const Sdp& sdp)
 {
   sdp.Serialize(os);
   return os;
@@ -127,9 +127,12 @@ Sdp::ToString() const
 
 class SdpOrigin
 {
-public:
-  SdpOrigin(const std::string& username, uint64_t sessId, uint64_t sessVer,
-            sdp::AddrType addrType, const std::string& addr)
+ public:
+  SdpOrigin(const std::string& username,
+            uint64_t sessId,
+            uint64_t sessVer,
+            sdp::AddrType addrType,
+            const std::string& addr)
       : mUsername(username),
         mSessionId(sessId),
         mSessionVersion(sessVer),
@@ -138,45 +141,24 @@ public:
   {
   }
 
-  const std::string&
-  GetUsername() const
-  {
-    return mUsername;
-  }
+  const std::string& GetUsername() const { return mUsername; }
 
-  uint64_t
-  GetSessionId() const
-  {
-    return mSessionId;
-  }
+  uint64_t GetSessionId() const { return mSessionId; }
 
-  uint64_t
-  GetSessionVersion() const
-  {
-    return mSessionVersion;
-  }
+  uint64_t GetSessionVersion() const { return mSessionVersion; }
 
-  sdp::AddrType
-  GetAddrType() const
-  {
-    return mAddrType;
-  }
+  sdp::AddrType GetAddrType() const { return mAddrType; }
 
-  const std::string&
-  GetAddress() const
-  {
-    return mAddress;
-  }
+  const std::string& GetAddress() const { return mAddress; }
 
-  void
-  Serialize(std::ostream& os) const
+  void Serialize(std::ostream& os) const
   {
     sdp::NetType netType = sdp::kInternet;
     os << "o=" << mUsername << " " << mSessionId << " " << mSessionVersion
        << " " << netType << " " << mAddrType << " " << mAddress << "\r\n";
   }
 
-private:
+ private:
   std::string mUsername;
   uint64_t mSessionId;
   uint64_t mSessionVersion;
@@ -184,12 +166,13 @@ private:
   std::string mAddress;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const SdpOrigin& origin)
+inline std::ostream&
+operator<<(std::ostream& os, const SdpOrigin& origin)
 {
   origin.Serialize(os);
   return os;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

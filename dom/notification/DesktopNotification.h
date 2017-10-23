@@ -25,7 +25,6 @@
 #include "mozilla/ErrorResult.h"
 #include "nsWrapperCache.h"
 
-
 namespace mozilla {
 namespace dom {
 
@@ -39,7 +38,7 @@ class DesktopNotification;
 class DesktopNotificationCenter final : public nsISupports,
                                         public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DesktopNotificationCenter)
 
@@ -55,26 +54,20 @@ public:
     MOZ_ASSERT(mPrincipal);
   }
 
-  void Shutdown() {
-    mOwner = nullptr;
-  }
+  void Shutdown() { mOwner = nullptr; }
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  already_AddRefed<DesktopNotification>
-  CreateNotification(const nsAString& title,
-                     const nsAString& description,
-                     const nsAString& iconURL);
+  already_AddRefed<DesktopNotification> CreateNotification(
+      const nsAString& title,
+      const nsAString& description,
+      const nsAString& iconURL);
 
-private:
-  virtual ~DesktopNotificationCenter()
-  {
-  }
+ private:
+  virtual ~DesktopNotificationCenter() {}
 
   nsCOMPtr<nsPIDOMWindowInner> mOwner;
   nsCOMPtr<nsIPrincipal> mPrincipal;
@@ -86,8 +79,7 @@ class DesktopNotification final : public DOMEventTargetHelper
 {
   friend class DesktopNotificationRequest;
 
-public:
-
+ public:
   DesktopNotification(const nsAString& aTitle,
                       const nsAString& aDescription,
                       const nsAString& aIconURL,
@@ -111,24 +103,21 @@ public:
    */
   void DispatchNotificationEvent(const nsString& aName);
 
-  void HandleAlertServiceNotification(const char *aTopic);
+  void HandleAlertServiceNotification(const char* aTopic);
 
   // WebIDL
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   void Show(ErrorResult& aRv);
 
   IMPL_EVENT_HANDLER(click)
   IMPL_EVENT_HANDLER(close)
 
-protected:
-
+ protected:
   nsString mTitle;
   nsString mDescription;
   nsString mIconURL;
@@ -141,13 +130,15 @@ protected:
   static uint32_t sCount;
 };
 
-class AlertServiceObserver: public nsIObserver
+class AlertServiceObserver : public nsIObserver
 {
  public:
   NS_DECL_ISUPPORTS
 
   explicit AlertServiceObserver(DesktopNotification* notification)
-    : mNotification(notification) {}
+      : mNotification(notification)
+  {
+  }
 
   void Disconnect() { mNotification = nullptr; }
 
@@ -156,7 +147,6 @@ class AlertServiceObserver: public nsIObserver
           const char* aTopic,
           const char16_t* aData) override
   {
-
     // forward to parent
     if (mNotification) {
       mNotification->HandleAlertServiceNotification(aTopic);
@@ -170,7 +160,7 @@ class AlertServiceObserver: public nsIObserver
   DesktopNotification* mNotification;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_DesktopNotification_h */

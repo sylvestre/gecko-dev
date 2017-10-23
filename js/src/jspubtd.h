@@ -24,7 +24,7 @@
 #include "js/TypeDecls.h"
 
 #if defined(JS_GC_ZEAL) || defined(DEBUG)
-# define JSGC_HASH_TABLE_CHECKS
+#define JSGC_HASH_TABLE_CHECKS
 #endif
 
 namespace JS {
@@ -44,7 +44,7 @@ class JS_PUBLIC_API(CompartmentOptions);
 class Value;
 struct Zone;
 
-} // namespace JS
+}  // namespace JS
 
 /*
  * Run-time version enumeration.  For compile-time version checking, please use
@@ -52,35 +52,35 @@ struct Zone;
  * MOZJS_MINOR_VERSION, MOZJS_PATCH_VERSION, and MOZJS_ALPHA definitions.
  */
 enum JSVersion {
-    JSVERSION_ECMA_3  = 148,
-    JSVERSION_1_6     = 160,
-    JSVERSION_1_7     = 170,
-    JSVERSION_1_8     = 180,
-    JSVERSION_ECMA_5  = 185,
+    JSVERSION_ECMA_3 = 148,
+    JSVERSION_1_6 = 160,
+    JSVERSION_1_7 = 170,
+    JSVERSION_1_8 = 180,
+    JSVERSION_ECMA_5 = 185,
     JSVERSION_DEFAULT = 0,
     JSVERSION_UNKNOWN = -1,
-    JSVERSION_LATEST  = JSVERSION_ECMA_5
+    JSVERSION_LATEST = JSVERSION_ECMA_5
 };
 
 /* Result of typeof operator enumeration. */
 enum JSType {
-    JSTYPE_UNDEFINED,           /* undefined */
-    JSTYPE_OBJECT,              /* object */
-    JSTYPE_FUNCTION,            /* function */
-    JSTYPE_STRING,              /* string */
-    JSTYPE_NUMBER,              /* number */
-    JSTYPE_BOOLEAN,             /* boolean */
-    JSTYPE_NULL,                /* null */
-    JSTYPE_SYMBOL,              /* symbol */
+    JSTYPE_UNDEFINED, /* undefined */
+    JSTYPE_OBJECT,    /* object */
+    JSTYPE_FUNCTION,  /* function */
+    JSTYPE_STRING,    /* string */
+    JSTYPE_NUMBER,    /* number */
+    JSTYPE_BOOLEAN,   /* boolean */
+    JSTYPE_NULL,      /* null */
+    JSTYPE_SYMBOL,    /* symbol */
     JSTYPE_LIMIT
 };
 
 /* Dense index into cached prototypes and class atoms for standard objects. */
 enum JSProtoKey {
-#define PROTOKEY_AND_INITIALIZER(name,init,clasp) JSProto_##name,
+#define PROTOKEY_AND_INITIALIZER(name, init, clasp) JSProto_##name,
     JS_FOR_EACH_PROTOTYPE(PROTOKEY_AND_INITIALIZER)
 #undef PROTOKEY_AND_INITIALIZER
-    JSProto_LIMIT
+        JSProto_LIMIT
 };
 
 /* Struct forward declarations. */
@@ -101,9 +101,10 @@ class JS_PUBLIC_API(JSTracer);
 
 class JSFlatString;
 
-typedef bool                    (*JSInitCallback)(void);
+typedef bool (*JSInitCallback)(void);
 
-template<typename T> struct JSConstScalarSpec;
+template <typename T>
+struct JSConstScalarSpec;
 typedef JSConstScalarSpec<double> JSConstDoubleSpec;
 typedef JSConstScalarSpec<int32_t> JSConstIntegerSpec;
 
@@ -111,14 +112,13 @@ typedef JSConstScalarSpec<int32_t> JSConstIntegerSpec;
  * Generic trace operation that calls JS::TraceEdge on each traceable thing's
  * location reachable from data.
  */
-typedef void
-(* JSTraceDataOp)(JSTracer* trc, void* data);
+typedef void (*JSTraceDataOp)(JSTracer* trc, void* data);
 
 namespace js {
 namespace gc {
 class AutoTraceSession;
 class StoreBuffer;
-} // namespace gc
+}  // namespace gc
 
 class CooperatingContext;
 
@@ -135,7 +135,7 @@ JS_FRIEND_API(bool)
 CurrentThreadIsPerformingGC();
 #endif
 
-} // namespace js
+}  // namespace js
 
 namespace JS {
 
@@ -156,53 +156,40 @@ enum class HeapState {
 JS_PUBLIC_API(HeapState)
 CurrentThreadHeapState();
 
-static inline bool
-CurrentThreadIsHeapBusy()
-{
+static inline bool CurrentThreadIsHeapBusy() {
     return CurrentThreadHeapState() != HeapState::Idle;
 }
 
-static inline bool
-CurrentThreadIsHeapTracing()
-{
+static inline bool CurrentThreadIsHeapTracing() {
     return CurrentThreadHeapState() == HeapState::Tracing;
 }
 
-static inline bool
-CurrentThreadIsHeapMajorCollecting()
-{
+static inline bool CurrentThreadIsHeapMajorCollecting() {
     return CurrentThreadHeapState() == HeapState::MajorCollecting;
 }
 
-static inline bool
-CurrentThreadIsHeapMinorCollecting()
-{
+static inline bool CurrentThreadIsHeapMinorCollecting() {
     return CurrentThreadHeapState() == HeapState::MinorCollecting;
 }
 
-static inline bool
-CurrentThreadIsHeapCollecting()
-{
+static inline bool CurrentThreadIsHeapCollecting() {
     HeapState state = CurrentThreadHeapState();
     return state == HeapState::MajorCollecting || state == HeapState::MinorCollecting;
 }
 
-static inline bool
-CurrentThreadIsHeapCycleCollecting()
-{
+static inline bool CurrentThreadIsHeapCycleCollecting() {
     return CurrentThreadHeapState() == HeapState::CycleCollecting;
 }
 
 // Decorates the Unlinking phase of CycleCollection so that accidental use
 // of barriered accessors results in assertions instead of leaks.
-class MOZ_STACK_CLASS JS_PUBLIC_API(AutoEnterCycleCollection)
-{
+class MOZ_STACK_CLASS JS_PUBLIC_API(AutoEnterCycleCollection) {
 #ifdef DEBUG
-  public:
+   public:
     explicit AutoEnterCycleCollection(JSRuntime* rt);
     ~AutoEnterCycleCollection();
 #else
-  public:
+   public:
     explicit AutoEnterCycleCollection(JSRuntime* rt) {}
     ~AutoEnterCycleCollection() {}
 #endif
@@ -217,19 +204,17 @@ struct MapTypeToRootKind<void*> {
     static const RootKind kind = RootKind::Traceable;
 };
 
-using RootedListHeads = mozilla::EnumeratedArray<RootKind, RootKind::Limit,
-                                                 Rooted<void*>*>;
+using RootedListHeads = mozilla::EnumeratedArray<RootKind, RootKind::Limit, Rooted<void*>*>;
 
 /*
  * This list enumerates the different types of conceptual stacks we have in
  * SpiderMonkey. In reality, they all share the C stack, but we allow different
  * stack limits depending on the type of code running.
  */
-enum StackKind
-{
-    StackForSystemCode,      // C++, such as the GC, running on behalf of the VM.
-    StackForTrustedScript,   // Script running with trusted principals.
-    StackForUntrustedScript, // Script running with untrusted principals.
+enum StackKind {
+    StackForSystemCode,       // C++, such as the GC, running on behalf of the VM.
+    StackForTrustedScript,    // Script running with trusted principals.
+    StackForUntrustedScript,  // Script running with untrusted principals.
     StackKindCount
 };
 
@@ -237,34 +222,34 @@ class JS_PUBLIC_API(AutoGCRooter);
 
 // Superclass of JSContext which can be used for rooting data in use by the
 // current thread but that does not provide all the functions of a JSContext.
-class RootingContext
-{
+class RootingContext {
     // Stack GC roots for Rooted GC heap pointers.
     RootedListHeads stackRoots_;
-    template <typename T> friend class JS::Rooted;
+    template <typename T>
+    friend class JS::Rooted;
 
     // Stack GC roots for AutoFooRooter classes.
     JS::AutoGCRooter* autoGCRooters_;
     friend class JS::AutoGCRooter;
 
-  public:
+   public:
     RootingContext();
 
     void traceStackRoots(JSTracer* trc);
     void checkNoGCRooters();
 
-  protected:
+   protected:
     // The remaining members in this class should only be accessed through
     // JSContext pointers. They are unrelated to rooting and are in place so
     // that inlined API functions can directly access the data.
 
     /* The current compartment. */
-    JSCompartment*      compartment_;
+    JSCompartment* compartment_;
 
     /* The current zone. */
-    JS::Zone*           zone_;
+    JS::Zone* zone_;
 
-  public:
+   public:
     /* Limit pointer for checking native stack consumption. */
     uintptr_t nativeStackLimit[StackKindCount];
 
@@ -272,25 +257,17 @@ class RootingContext
         return reinterpret_cast<const RootingContext*>(cx);
     }
 
-    static RootingContext* get(JSContext* cx) {
-        return reinterpret_cast<RootingContext*>(cx);
-    }
+    static RootingContext* get(JSContext* cx) { return reinterpret_cast<RootingContext*>(cx); }
 
     friend JSCompartment* js::GetContextCompartment(const JSContext* cx);
     friend JS::Zone* js::GetContextZone(const JSContext* cx);
 };
 
-class JS_PUBLIC_API(AutoGCRooter)
-{
-  public:
-    AutoGCRooter(JSContext* cx, ptrdiff_t tag)
-      : AutoGCRooter(JS::RootingContext::get(cx), tag)
-    {}
+class JS_PUBLIC_API(AutoGCRooter) {
+   public:
+    AutoGCRooter(JSContext* cx, ptrdiff_t tag) : AutoGCRooter(JS::RootingContext::get(cx), tag) {}
     AutoGCRooter(JS::RootingContext* cx, ptrdiff_t tag)
-      : down(cx->autoGCRooters_),
-        tag_(tag),
-        stackTop(&cx->autoGCRooters_)
-    {
+        : down(cx->autoGCRooters_), tag_(tag), stackTop(&cx->autoGCRooters_) {
         MOZ_ASSERT(this != *stackTop);
         *stackTop = this;
     }
@@ -305,8 +282,8 @@ class JS_PUBLIC_API(AutoGCRooter)
     static void traceAll(const js::CooperatingContext& target, JSTracer* trc);
     static void traceAllWrappers(const js::CooperatingContext& target, JSTracer* trc);
 
-  protected:
-    AutoGCRooter * const down;
+   protected:
+    AutoGCRooter* const down;
 
     /*
      * Discriminates actual subclass of this being used.  If non-negative, the
@@ -318,23 +295,23 @@ class JS_PUBLIC_API(AutoGCRooter)
     ptrdiff_t tag_;
 
     enum {
-        VALARRAY =     -2, /* js::AutoValueArray */
-        PARSER =       -3, /* js::frontend::Parser */
-        VALVECTOR =   -10, /* js::AutoValueVector */
-        IDVECTOR =    -11, /* js::AutoIdVector */
-        OBJVECTOR =   -14, /* js::AutoObjectVector */
-        IONMASM =     -19, /* js::jit::MacroAssembler */
-        WRAPVECTOR =  -20, /* js::AutoWrapperVector */
-        WRAPPER =     -21, /* js::AutoWrapperRooter */
-        CUSTOM =      -26  /* js::CustomAutoRooter */
+        VALARRAY = -2,    /* js::AutoValueArray */
+        PARSER = -3,      /* js::frontend::Parser */
+        VALVECTOR = -10,  /* js::AutoValueVector */
+        IDVECTOR = -11,   /* js::AutoIdVector */
+        OBJVECTOR = -14,  /* js::AutoObjectVector */
+        IONMASM = -19,    /* js::jit::MacroAssembler */
+        WRAPVECTOR = -20, /* js::AutoWrapperVector */
+        WRAPPER = -21,    /* js::AutoWrapperRooter */
+        CUSTOM = -26      /* js::CustomAutoRooter */
     };
 
     static ptrdiff_t GetTag(const Value& value) { return VALVECTOR; }
     static ptrdiff_t GetTag(const jsid& id) { return IDVECTOR; }
     static ptrdiff_t GetTag(JSObject* obj) { return OBJVECTOR; }
 
-  private:
-    AutoGCRooter ** const stackTop;
+   private:
+    AutoGCRooter** const stackTop;
 
     /* No copy or assignment semantics. */
     AutoGCRooter(AutoGCRooter& ida) = delete;
@@ -355,17 +332,11 @@ namespace js {
  *   usable without resorting to jsfriendapi.h, and when JSContext is an
  *   incomplete type.
  */
-inline JSCompartment*
-GetContextCompartment(const JSContext* cx)
-{
+inline JSCompartment* GetContextCompartment(const JSContext* cx) {
     return JS::RootingContext::get(cx)->compartment_;
 }
 
-inline JS::Zone*
-GetContextZone(const JSContext* cx)
-{
-    return JS::RootingContext::get(cx)->zone_;
-}
+inline JS::Zone* GetContextZone(const JSContext* cx) { return JS::RootingContext::get(cx)->zone_; }
 
 } /* namespace js */
 

@@ -23,12 +23,12 @@
 #include "mozilla/Services.h"
 
 #if defined(XP_WIN)
-#   include "nsWindowsDllInterceptor.h"
-#   include <windows.h>
+#include "nsWindowsDllInterceptor.h"
+#include <windows.h>
 #endif
 
 #if defined(MOZ_MEMORY)
-#   include "mozmemory.h"
+#include "mozmemory.h"
 #endif  // MOZ_MEMORY
 
 using namespace mozilla;
@@ -36,7 +36,6 @@ using namespace mozilla;
 namespace {
 
 #if defined(_M_IX86) && defined(XP_WIN)
-
 
 uint32_t sLowVirtualMemoryThreshold = 0;
 uint32_t sLowCommitSpaceThreshold = 0;
@@ -63,16 +62,24 @@ volatile PRIntervalTime sLastLowMemoryNotificationTime;
 
 // These are function pointers to the functions we wrap in Init().
 
-void* (WINAPI* sVirtualAllocOrig)(LPVOID aAddress, SIZE_T aSize,
-                                  DWORD aAllocationType, DWORD aProtect);
+void*(WINAPI* sVirtualAllocOrig)(LPVOID aAddress,
+                                 SIZE_T aSize,
+                                 DWORD aAllocationType,
+                                 DWORD aProtect);
 
-void* (WINAPI* sMapViewOfFileOrig)(HANDLE aFileMappingObject,
-                                   DWORD aDesiredAccess, DWORD aFileOffsetHigh,
-                                   DWORD aFileOffsetLow, SIZE_T aNumBytesToMap);
+void*(WINAPI* sMapViewOfFileOrig)(HANDLE aFileMappingObject,
+                                  DWORD aDesiredAccess,
+                                  DWORD aFileOffsetHigh,
+                                  DWORD aFileOffsetLow,
+                                  SIZE_T aNumBytesToMap);
 
-HBITMAP(WINAPI* sCreateDIBSectionOrig)(HDC aDC, const BITMAPINFO* aBitmapInfo,
-                                       UINT aUsage, VOID** aBits,
-                                       HANDLE aSection, DWORD aOffset);
+HBITMAP(WINAPI* sCreateDIBSectionOrig)
+(HDC aDC,
+ const BITMAPINFO* aBitmapInfo,
+ UINT aUsage,
+ VOID** aBits,
+ HANDLE aSection,
+ DWORD aOffset);
 
 /**
  * Fire a memory pressure event if it's been long enough since the last one we
@@ -86,7 +93,6 @@ MaybeScheduleMemoryPressureEvent()
   PRIntervalTime interval = PR_IntervalNow() - sLastLowMemoryNotificationTime;
   if (sHasScheduledOneLowMemoryNotification &&
       PR_IntervalToMilliseconds(interval) < sLowMemoryNotificationIntervalMS) {
-
     return false;
   }
 
@@ -135,7 +141,8 @@ CheckMemAvailable()
 }
 
 LPVOID WINAPI
-VirtualAllocHook(LPVOID aAddress, SIZE_T aSize,
+VirtualAllocHook(LPVOID aAddress,
+                 SIZE_T aSize,
                  DWORD aAllocationType,
                  DWORD aProtect)
 {
@@ -171,8 +178,10 @@ MapViewOfFileHook(HANDLE aFileMappingObject,
                   DWORD aFileOffsetLow,
                   SIZE_T aNumBytesToMap)
 {
-  LPVOID result = sMapViewOfFileOrig(aFileMappingObject, aDesiredAccess,
-                                     aFileOffsetHigh, aFileOffsetLow,
+  LPVOID result = sMapViewOfFileOrig(aFileMappingObject,
+                                     aDesiredAccess,
+                                     aFileOffsetHigh,
+                                     aFileOffsetLow,
                                      aNumBytesToMap);
   CheckMemAvailable();
   return result;
@@ -205,7 +214,7 @@ CreateDIBSectionHook(HDC aDC,
     // negative (indicating the direction the DIB is drawn in), so we take the
     // absolute value.
     int64_t size = bitCount * aBitmapInfo->bmiHeader.biWidth *
-                              aBitmapInfo->bmiHeader.biHeight;
+                   aBitmapInfo->bmiHeader.biHeight;
     if (size < 0) {
       size *= -1;
     }
@@ -217,8 +226,8 @@ CreateDIBSectionHook(HDC aDC,
     }
   }
 
-  HBITMAP result = sCreateDIBSectionOrig(aDC, aBitmapInfo, aUsage, aBits,
-                                         aSection, aOffset);
+  HBITMAP result =
+      sCreateDIBSectionOrig(aDC, aBitmapInfo, aUsage, aBits, aSection, aOffset);
 
   if (doCheck) {
     CheckMemAvailable();
@@ -243,45 +252,62 @@ class LowEventsReporter final : public nsIMemoryReporter
 {
   ~LowEventsReporter() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   NS_IMETHOD CollectReports(nsIHandleReportCallback* aHandleReport,
-                            nsISupports* aData, bool aAnonymize) override
+                            nsISupports* aData,
+                            bool aAnonymize) override
   {
-    MOZ_COLLECT_REPORT(
-      "low-memory-events/virtual", KIND_OTHER, UNITS_COUNT_CUMULATIVE,
-      LowMemoryEventsVirtualDistinguishedAmount(),
-"Number of low-virtual-memory events fired since startup. We fire such an "
-"event if we notice there is less than memory.low_virtual_mem_threshold_mb of "
-"virtual address space available (if zero, this behavior is disabled). The "
-"process will probably crash if it runs out of virtual address space, so "
-"this event is dire.");
+    MOZ_COLLECT_REPORT("low-memory-events/virtual",
+                       KIND_OTHER,
+                       UNITS_COUNT_CUMULATIVE,
+                       LowMemoryEventsVirtualDistinguishedAmount(),
+                       "Number of low-virtual-memory events fired since "
+                       "startup. We fire such an "
+                       "event if we notice there is less than "
+                       "memory.low_virtual_mem_threshold_mb of "
+                       "virtual address space available (if zero, this "
+                       "behavior is disabled). The "
+                       "process will probably crash if it runs out of virtual "
+                       "address space, so "
+                       "this event is dire.");
+
+    MOZ_COLLECT_REPORT("low-memory-events/commit-space",
+                       KIND_OTHER,
+                       UNITS_COUNT_CUMULATIVE,
+                       sNumLowCommitSpaceEvents,
+                       "Number of low-commit-space events fired since startup. "
+                       "We fire such an "
+                       "event if we notice there is less than "
+                       "memory.low_commit_space_threshold_mb of "
+                       "commit space available (if zero, this behavior is "
+                       "disabled). Windows will "
+                       "likely kill the process if it runs out of commit "
+                       "space, so this event is "
+                       "dire.");
 
     MOZ_COLLECT_REPORT(
-      "low-memory-events/commit-space", KIND_OTHER, UNITS_COUNT_CUMULATIVE,
-      sNumLowCommitSpaceEvents,
-"Number of low-commit-space events fired since startup. We fire such an "
-"event if we notice there is less than memory.low_commit_space_threshold_mb of "
-"commit space available (if zero, this behavior is disabled). Windows will "
-"likely kill the process if it runs out of commit space, so this event is "
-"dire.");
-
-    MOZ_COLLECT_REPORT(
-      "low-memory-events/physical", KIND_OTHER, UNITS_COUNT_CUMULATIVE,
-      LowMemoryEventsPhysicalDistinguishedAmount(),
-"Number of low-physical-memory events fired since startup. We fire such an "
-"event if we notice there is less than memory.low_physical_memory_threshold_mb "
-"of physical memory available (if zero, this behavior is disabled).  The "
-"machine will start to page if it runs out of physical memory.  This may "
-"cause it to run slowly, but it shouldn't cause it to crash.");
+        "low-memory-events/physical",
+        KIND_OTHER,
+        UNITS_COUNT_CUMULATIVE,
+        LowMemoryEventsPhysicalDistinguishedAmount(),
+        "Number of low-physical-memory events fired since startup. We fire "
+        "such an "
+        "event if we notice there is less than "
+        "memory.low_physical_memory_threshold_mb "
+        "of physical memory available (if zero, this behavior is disabled).  "
+        "The "
+        "machine will start to page if it runs out of physical memory.  This "
+        "may "
+        "cause it to run slowly, but it shouldn't cause it to crash.");
 
     return NS_OK;
   }
 };
 NS_IMPL_ISUPPORTS(LowEventsReporter, nsIMemoryReporter)
 
-#endif // defined(_M_IX86) && defined(XP_WIN)
+#endif  // defined(_M_IX86) && defined(XP_WIN)
 
 /**
  * This runnable is executed in response to a memory-pressure event; we spin
@@ -293,7 +319,7 @@ class nsJemallocFreeDirtyPagesRunnable final : public nsIRunnable
 {
   ~nsJemallocFreeDirtyPagesRunnable() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIRUNNABLE
 };
@@ -321,13 +347,13 @@ class nsMemoryPressureWatcher final : public nsIObserver
 {
   ~nsMemoryPressureWatcher() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
   void Init();
 
-private:
+ private:
   static bool sFreeDirtyPages;
 };
 
@@ -349,8 +375,8 @@ nsMemoryPressureWatcher::Init()
     os->AddObserver(this, "memory-pressure", /* ownsWeak */ false);
   }
 
-  Preferences::AddBoolVarCache(&sFreeDirtyPages, "memory.free_dirty_pages",
-                               true);
+  Preferences::AddBoolVarCache(
+      &sFreeDirtyPages, "memory.free_dirty_pages", true);
 }
 
 /**
@@ -358,7 +384,8 @@ nsMemoryPressureWatcher::Init()
  * free dirty pages held by jemalloc.
  */
 NS_IMETHODIMP
-nsMemoryPressureWatcher::Observe(nsISupports* aSubject, const char* aTopic,
+nsMemoryPressureWatcher::Observe(nsISupports* aSubject,
+                                 const char* aTopic,
                                  const char16_t* aData)
 {
   MOZ_ASSERT(!strcmp(aTopic, "memory-pressure"), "Unknown topic");
@@ -372,7 +399,7 @@ nsMemoryPressureWatcher::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace AvailableMemoryTracker {
@@ -384,21 +411,22 @@ Activate()
   MOZ_ASSERT(sInitialized);
   MOZ_ASSERT(!sHooksActive);
 
-  Preferences::AddUintVarCache(&sLowVirtualMemoryThreshold,
-                               "memory.low_virtual_mem_threshold_mb", 256);
+  Preferences::AddUintVarCache(
+      &sLowVirtualMemoryThreshold, "memory.low_virtual_mem_threshold_mb", 256);
   Preferences::AddUintVarCache(&sLowPhysicalMemoryThreshold,
-                               "memory.low_physical_memory_threshold_mb", 0);
-  Preferences::AddUintVarCache(&sLowCommitSpaceThreshold,
-                               "memory.low_commit_space_threshold_mb", 256);
+                               "memory.low_physical_memory_threshold_mb",
+                               0);
+  Preferences::AddUintVarCache(
+      &sLowCommitSpaceThreshold, "memory.low_commit_space_threshold_mb", 256);
   Preferences::AddUintVarCache(&sLowMemoryNotificationIntervalMS,
                                "memory.low_memory_notification_interval_ms",
                                10000);
 
   RegisterStrongMemoryReporter(new LowEventsReporter());
   RegisterLowMemoryEventsVirtualDistinguishedAmount(
-    LowMemoryEventsVirtualDistinguishedAmount);
+      LowMemoryEventsVirtualDistinguishedAmount);
   RegisterLowMemoryEventsPhysicalDistinguishedAmount(
-    LowMemoryEventsPhysicalDistinguishedAmount);
+      LowMemoryEventsPhysicalDistinguishedAmount);
   sHooksActive = true;
 #endif
 
@@ -410,14 +438,14 @@ Activate()
 void
 Init()
 {
-  // Do nothing on x86-64, because nsWindowsDllInterceptor is not thread-safe
-  // on 64-bit.  (On 32-bit, it's probably thread-safe.)  Even if we run Init()
-  // before any other of our threads are running, another process may have
-  // started a remote thread which could call VirtualAlloc!
-  //
-  // Moreover, the benefit of this code is less clear when we're a 64-bit
-  // process, because we aren't going to run out of virtual memory, and the
-  // system is likely to have a fair bit of physical memory.
+// Do nothing on x86-64, because nsWindowsDllInterceptor is not thread-safe
+// on 64-bit.  (On 32-bit, it's probably thread-safe.)  Even if we run Init()
+// before any other of our threads are running, another process may have
+// started a remote thread which could call VirtualAlloc!
+//
+// Moreover, the benefit of this code is less clear when we're a 64-bit
+// process, because we aren't going to run out of virtual memory, and the
+// system is likely to have a fair bit of physical memory.
 
 #if defined(_M_IX86) && defined(XP_WIN)
   // Don't register the hooks if we're a build instrumented for PGO: If we're
@@ -443,5 +471,5 @@ Init()
 #endif
 }
 
-} // namespace AvailableMemoryTracker
-} // namespace mozilla
+}  // namespace AvailableMemoryTracker
+}  // namespace mozilla

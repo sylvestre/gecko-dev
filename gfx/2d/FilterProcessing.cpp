@@ -13,7 +13,8 @@ already_AddRefed<DataSourceSurface>
 FilterProcessing::ExtractAlpha(DataSourceSurface* aSource)
 {
   IntSize size = aSource->GetSize();
-  RefPtr<DataSourceSurface> alpha = Factory::CreateDataSourceSurface(size, SurfaceFormat::A8);
+  RefPtr<DataSourceSurface> alpha =
+      Factory::CreateDataSourceSurface(size, SurfaceFormat::A8);
   if (MOZ2D_WARN_IF(!alpha)) {
     return nullptr;
   }
@@ -52,7 +53,8 @@ FilterProcessing::ConvertToB8G8R8A8(SourceSurface* aSurface)
 }
 
 already_AddRefed<DataSourceSurface>
-FilterProcessing::ApplyBlending(DataSourceSurface* aInput1, DataSourceSurface* aInput2,
+FilterProcessing::ApplyBlending(DataSourceSurface* aInput1,
+                                DataSourceSurface* aInput2,
                                 BlendMode aBlendMode)
 {
   if (Factory::HasSSE2()) {
@@ -64,41 +66,68 @@ FilterProcessing::ApplyBlending(DataSourceSurface* aInput1, DataSourceSurface* a
 }
 
 void
-FilterProcessing::ApplyMorphologyHorizontal(uint8_t* aSourceData, int32_t aSourceStride,
-                                            uint8_t* aDestData, int32_t aDestStride,
-                                            const IntRect& aDestRect, int32_t aRadius,
+FilterProcessing::ApplyMorphologyHorizontal(uint8_t* aSourceData,
+                                            int32_t aSourceStride,
+                                            uint8_t* aDestData,
+                                            int32_t aDestStride,
+                                            const IntRect& aDestRect,
+                                            int32_t aRadius,
                                             MorphologyOperator aOp)
 {
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
-    ApplyMorphologyHorizontal_SSE2(
-      aSourceData, aSourceStride, aDestData, aDestStride, aDestRect, aRadius, aOp);
+    ApplyMorphologyHorizontal_SSE2(aSourceData,
+                                   aSourceStride,
+                                   aDestData,
+                                   aDestStride,
+                                   aDestRect,
+                                   aRadius,
+                                   aOp);
 #endif
   } else {
-    ApplyMorphologyHorizontal_Scalar(
-      aSourceData, aSourceStride, aDestData, aDestStride, aDestRect, aRadius, aOp);
+    ApplyMorphologyHorizontal_Scalar(aSourceData,
+                                     aSourceStride,
+                                     aDestData,
+                                     aDestStride,
+                                     aDestRect,
+                                     aRadius,
+                                     aOp);
   }
 }
 
 void
-FilterProcessing::ApplyMorphologyVertical(uint8_t* aSourceData, int32_t aSourceStride,
-                                            uint8_t* aDestData, int32_t aDestStride,
-                                            const IntRect& aDestRect, int32_t aRadius,
-                                            MorphologyOperator aOp)
+FilterProcessing::ApplyMorphologyVertical(uint8_t* aSourceData,
+                                          int32_t aSourceStride,
+                                          uint8_t* aDestData,
+                                          int32_t aDestStride,
+                                          const IntRect& aDestRect,
+                                          int32_t aRadius,
+                                          MorphologyOperator aOp)
 {
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
-    ApplyMorphologyVertical_SSE2(
-      aSourceData, aSourceStride, aDestData, aDestStride, aDestRect, aRadius, aOp);
+    ApplyMorphologyVertical_SSE2(aSourceData,
+                                 aSourceStride,
+                                 aDestData,
+                                 aDestStride,
+                                 aDestRect,
+                                 aRadius,
+                                 aOp);
 #endif
   } else {
-    ApplyMorphologyVertical_Scalar(
-      aSourceData, aSourceStride, aDestData, aDestStride, aDestRect, aRadius, aOp);
+    ApplyMorphologyVertical_Scalar(aSourceData,
+                                   aSourceStride,
+                                   aDestData,
+                                   aDestStride,
+                                   aDestRect,
+                                   aRadius,
+                                   aOp);
   }
 }
 
 already_AddRefed<DataSourceSurface>
-FilterProcessing::ApplyColorMatrix(DataSourceSurface* aInput, const Matrix5x4 &aMatrix)
+FilterProcessing::ApplyColorMatrix(DataSourceSurface* aInput,
+                                   const Matrix5x4& aMatrix)
 {
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
@@ -109,7 +138,8 @@ FilterProcessing::ApplyColorMatrix(DataSourceSurface* aInput, const Matrix5x4 &a
 }
 
 void
-FilterProcessing::ApplyComposition(DataSourceSurface* aSource, DataSourceSurface* aDest,
+FilterProcessing::ApplyComposition(DataSourceSurface* aSource,
+                                   DataSourceSurface* aDest,
                                    CompositeOperator aOperator)
 {
   if (Factory::HasSSE2()) {
@@ -142,9 +172,9 @@ FilterProcessing::SeparateColorChannels(DataSourceSurface* aSource,
   DataSourceSurface::ScopedMap channel1Map(aChannel1, DataSourceSurface::WRITE);
   DataSourceSurface::ScopedMap channel2Map(aChannel2, DataSourceSurface::WRITE);
   DataSourceSurface::ScopedMap channel3Map(aChannel3, DataSourceSurface::WRITE);
-  if (MOZ2D_WARN_IF(!(sourceMap.IsMapped() &&
-                      channel0Map.IsMapped() && channel1Map.IsMapped() &&
-                      channel2Map.IsMapped() && channel3Map.IsMapped()))) {
+  if (MOZ2D_WARN_IF(!(sourceMap.IsMapped() && channel0Map.IsMapped() &&
+                      channel1Map.IsMapped() && channel2Map.IsMapped() &&
+                      channel3Map.IsMapped()))) {
     return;
   }
   uint8_t* sourceData = sourceMap.GetData();
@@ -157,20 +187,36 @@ FilterProcessing::SeparateColorChannels(DataSourceSurface* aSource,
 
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
-    SeparateColorChannels_SSE2(size, sourceData, sourceStride, channel0Data, channel1Data, channel2Data, channel3Data, channelStride);
+    SeparateColorChannels_SSE2(size,
+                               sourceData,
+                               sourceStride,
+                               channel0Data,
+                               channel1Data,
+                               channel2Data,
+                               channel3Data,
+                               channelStride);
 #endif
   } else {
-    SeparateColorChannels_Scalar(size, sourceData, sourceStride, channel0Data, channel1Data, channel2Data, channel3Data, channelStride);
+    SeparateColorChannels_Scalar(size,
+                                 sourceData,
+                                 sourceStride,
+                                 channel0Data,
+                                 channel1Data,
+                                 channel2Data,
+                                 channel3Data,
+                                 channelStride);
   }
 }
 
 already_AddRefed<DataSourceSurface>
-FilterProcessing::CombineColorChannels(DataSourceSurface* aChannel0, DataSourceSurface* aChannel1,
-                                       DataSourceSurface* aChannel2, DataSourceSurface* aChannel3)
+FilterProcessing::CombineColorChannels(DataSourceSurface* aChannel0,
+                                       DataSourceSurface* aChannel1,
+                                       DataSourceSurface* aChannel2,
+                                       DataSourceSurface* aChannel3)
 {
   IntSize size = aChannel0->GetSize();
   RefPtr<DataSourceSurface> result =
-    Factory::CreateDataSourceSurface(size, SurfaceFormat::B8G8R8A8);
+      Factory::CreateDataSourceSurface(size, SurfaceFormat::B8G8R8A8);
   if (MOZ2D_WARN_IF(!result)) {
     return nullptr;
   }
@@ -179,9 +225,9 @@ FilterProcessing::CombineColorChannels(DataSourceSurface* aChannel0, DataSourceS
   DataSourceSurface::ScopedMap channel1Map(aChannel1, DataSourceSurface::READ);
   DataSourceSurface::ScopedMap channel2Map(aChannel2, DataSourceSurface::READ);
   DataSourceSurface::ScopedMap channel3Map(aChannel3, DataSourceSurface::READ);
-  if (MOZ2D_WARN_IF(!(resultMap.IsMapped() &&
-                      channel0Map.IsMapped() && channel1Map.IsMapped() &&
-                      channel2Map.IsMapped() && channel3Map.IsMapped()))) {
+  if (MOZ2D_WARN_IF(!(resultMap.IsMapped() && channel0Map.IsMapped() &&
+                      channel1Map.IsMapped() && channel2Map.IsMapped() &&
+                      channel3Map.IsMapped()))) {
     return nullptr;
   }
   int32_t resultStride = resultMap.GetStride();
@@ -194,10 +240,24 @@ FilterProcessing::CombineColorChannels(DataSourceSurface* aChannel0, DataSourceS
 
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
-    CombineColorChannels_SSE2(size, resultStride, resultData, channelStride, channel0Data, channel1Data, channel2Data, channel3Data);
+    CombineColorChannels_SSE2(size,
+                              resultStride,
+                              resultData,
+                              channelStride,
+                              channel0Data,
+                              channel1Data,
+                              channel2Data,
+                              channel3Data);
 #endif
   } else {
-    CombineColorChannels_Scalar(size, resultStride, resultData, channelStride, channel0Data, channel1Data, channel2Data, channel3Data);
+    CombineColorChannels_Scalar(size,
+                                resultStride,
+                                resultData,
+                                channelStride,
+                                channel0Data,
+                                channel1Data,
+                                channel2Data,
+                                channel3Data);
   }
 
   return result.forget();
@@ -205,50 +265,79 @@ FilterProcessing::CombineColorChannels(DataSourceSurface* aChannel0, DataSourceS
 
 void
 FilterProcessing::DoPremultiplicationCalculation(const IntSize& aSize,
-                                                 uint8_t* aTargetData, int32_t aTargetStride,
-                                                 uint8_t* aSourceData, int32_t aSourceStride)
+                                                 uint8_t* aTargetData,
+                                                 int32_t aTargetStride,
+                                                 uint8_t* aSourceData,
+                                                 int32_t aSourceStride)
 {
   if (Factory::HasSSE2()) {
-#ifdef USE_SSE2 
+#ifdef USE_SSE2
     DoPremultiplicationCalculation_SSE2(
-      aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
+        aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
 #endif
   } else {
     DoPremultiplicationCalculation_Scalar(
-      aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
+        aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
   }
 }
 
 void
 FilterProcessing::DoUnpremultiplicationCalculation(const IntSize& aSize,
-                                                   uint8_t* aTargetData, int32_t aTargetStride,
-                                                   uint8_t* aSourceData, int32_t aSourceStride)
-{
-  if (Factory::HasSSE2()) {
-#ifdef USE_SSE2 
-    DoUnpremultiplicationCalculation_SSE2(
-      aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
-#endif
-  } else {
-    DoUnpremultiplicationCalculation_Scalar(
-      aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
-  }
-}
-
-already_AddRefed<DataSourceSurface>
-FilterProcessing::RenderTurbulence(const IntSize &aSize, const Point &aOffset, const Size &aBaseFrequency,
-                                   int32_t aSeed, int aNumOctaves, TurbulenceType aType, bool aStitch, const Rect &aTileRect)
+                                                   uint8_t* aTargetData,
+                                                   int32_t aTargetStride,
+                                                   uint8_t* aSourceData,
+                                                   int32_t aSourceStride)
 {
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
-    return RenderTurbulence_SSE2(aSize, aOffset, aBaseFrequency, aSeed, aNumOctaves, aType, aStitch, aTileRect);
+    DoUnpremultiplicationCalculation_SSE2(
+        aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
 #endif
+  } else {
+    DoUnpremultiplicationCalculation_Scalar(
+        aSize, aTargetData, aTargetStride, aSourceData, aSourceStride);
   }
-  return RenderTurbulence_Scalar(aSize, aOffset, aBaseFrequency, aSeed, aNumOctaves, aType, aStitch, aTileRect);
 }
 
 already_AddRefed<DataSourceSurface>
-FilterProcessing::ApplyArithmeticCombine(DataSourceSurface* aInput1, DataSourceSurface* aInput2, Float aK1, Float aK2, Float aK3, Float aK4)
+FilterProcessing::RenderTurbulence(const IntSize& aSize,
+                                   const Point& aOffset,
+                                   const Size& aBaseFrequency,
+                                   int32_t aSeed,
+                                   int aNumOctaves,
+                                   TurbulenceType aType,
+                                   bool aStitch,
+                                   const Rect& aTileRect)
+{
+  if (Factory::HasSSE2()) {
+#ifdef USE_SSE2
+    return RenderTurbulence_SSE2(aSize,
+                                 aOffset,
+                                 aBaseFrequency,
+                                 aSeed,
+                                 aNumOctaves,
+                                 aType,
+                                 aStitch,
+                                 aTileRect);
+#endif
+  }
+  return RenderTurbulence_Scalar(aSize,
+                                 aOffset,
+                                 aBaseFrequency,
+                                 aSeed,
+                                 aNumOctaves,
+                                 aType,
+                                 aStitch,
+                                 aTileRect);
+}
+
+already_AddRefed<DataSourceSurface>
+FilterProcessing::ApplyArithmeticCombine(DataSourceSurface* aInput1,
+                                         DataSourceSurface* aInput2,
+                                         Float aK1,
+                                         Float aK2,
+                                         Float aK3,
+                                         Float aK4)
 {
   if (Factory::HasSSE2()) {
 #ifdef USE_SSE2
@@ -258,5 +347,5 @@ FilterProcessing::ApplyArithmeticCombine(DataSourceSurface* aInput1, DataSourceS
   return ApplyArithmeticCombine_Scalar(aInput1, aInput2, aK1, aK2, aK3, aK4);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

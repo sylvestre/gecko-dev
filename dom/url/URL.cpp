@@ -33,8 +33,10 @@ URL::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 /* static */ already_AddRefed<URL>
-URL::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-                 const Optional<nsAString>& aBase, ErrorResult& aRv)
+URL::Constructor(const GlobalObject& aGlobal,
+                 const nsAString& aURL,
+                 const Optional<nsAString>& aBase,
+                 ErrorResult& aRv)
 {
   if (NS_IsMainThread()) {
     return URLMainThread::Constructor(aGlobal, aURL, aBase, aRv);
@@ -44,15 +46,19 @@ URL::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
 }
 
 /* static */ already_AddRefed<URL>
-URL::WorkerConstructor(const GlobalObject& aGlobal, const nsAString& aURL,
-                       const nsAString& aBase, ErrorResult& aRv)
+URL::WorkerConstructor(const GlobalObject& aGlobal,
+                       const nsAString& aURL,
+                       const nsAString& aBase,
+                       ErrorResult& aRv)
 {
   return URLWorker::Constructor(aGlobal, aURL, aBase, aRv);
 }
 
 void
-URL::CreateObjectURL(const GlobalObject& aGlobal, Blob& aBlob,
-                     nsAString& aResult, ErrorResult& aRv)
+URL::CreateObjectURL(const GlobalObject& aGlobal,
+                     Blob& aBlob,
+                     nsAString& aResult,
+                     ErrorResult& aRv)
 {
   if (NS_IsMainThread()) {
     URLMainThread::CreateObjectURL(aGlobal, aBlob, aResult, aRv);
@@ -62,8 +68,10 @@ URL::CreateObjectURL(const GlobalObject& aGlobal, Blob& aBlob,
 }
 
 void
-URL::CreateObjectURL(const GlobalObject& aGlobal, DOMMediaStream& aStream,
-                     nsAString& aResult, ErrorResult& aRv)
+URL::CreateObjectURL(const GlobalObject& aGlobal,
+                     DOMMediaStream& aStream,
+                     nsAString& aResult,
+                     ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -73,15 +81,18 @@ URL::CreateObjectURL(const GlobalObject& aGlobal, DOMMediaStream& aStream,
 }
 
 void
-URL::CreateObjectURL(const GlobalObject& aGlobal, MediaSource& aSource,
-                     nsAString& aResult, ErrorResult& aRv)
+URL::CreateObjectURL(const GlobalObject& aGlobal,
+                     MediaSource& aSource,
+                     nsAString& aResult,
+                     ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
   URLMainThread::CreateObjectURL(aGlobal, aSource, aResult, aRv);
 }
 
 void
-URL::RevokeObjectURL(const GlobalObject& aGlobal, const nsAString& aURL,
+URL::RevokeObjectURL(const GlobalObject& aGlobal,
+                     const nsAString& aURL,
                      ErrorResult& aRv)
 {
   if (NS_IsMainThread()) {
@@ -92,7 +103,8 @@ URL::RevokeObjectURL(const GlobalObject& aGlobal, const nsAString& aURL,
 }
 
 bool
-URL::IsValidURL(const GlobalObject& aGlobal, const nsAString& aURL,
+URL::IsValidURL(const GlobalObject& aGlobal,
+                const nsAString& aURL,
                 ErrorResult& aRv)
 {
   if (NS_IsMainThread()) {
@@ -108,11 +120,11 @@ URL::SearchParams()
   return mSearchParams;
 }
 
-bool IsChromeURI(nsIURI* aURI)
+bool
+IsChromeURI(nsIURI* aURI)
 {
   bool isChrome = false;
-  if (NS_SUCCEEDED(aURI->SchemeIs("chrome", &isChrome)))
-      return isChrome;
+  if (NS_SUCCEEDED(aURI->SchemeIs("chrome", &isChrome))) return isChrome;
   return false;
 }
 
@@ -147,5 +159,5 @@ URL::URLSearchParamsUpdated(URLSearchParams* aSearchParams)
   rv.SuppressException();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

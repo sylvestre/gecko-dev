@@ -12,17 +12,15 @@ namespace layers {
 
 using namespace gfx;
 
-GPUVideoTextureData::GPUVideoTextureData(dom::VideoDecoderManagerChild* aManager,
-                                         const SurfaceDescriptorGPUVideo& aSD,
-                                         const gfx::IntSize& aSize)
-  : mManager(aManager)
-  , mSD(aSD)
-  , mSize(aSize)
-{}
-
-GPUVideoTextureData::~GPUVideoTextureData()
+GPUVideoTextureData::GPUVideoTextureData(
+    dom::VideoDecoderManagerChild* aManager,
+    const SurfaceDescriptorGPUVideo& aSD,
+    const gfx::IntSize& aSize)
+    : mManager(aManager), mSD(aSD), mSize(aSize)
 {
 }
+
+GPUVideoTextureData::~GPUVideoTextureData() {}
 
 bool
 GPUVideoTextureData::Serialize(SurfaceDescriptor& aOutDescriptor)
@@ -68,5 +66,5 @@ GPUVideoTextureData::Forget(LayersIPCChannel* aAllocator)
   Deallocate(aAllocator);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

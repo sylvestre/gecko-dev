@@ -15,8 +15,7 @@ namespace js {
 namespace jit {
 
 // Basic information about bytecodes in the script.  Used to help baseline compilation.
-struct BytecodeInfo
-{
+struct BytecodeInfo {
     static const uint16_t MAX_STACK_DEPTH = 0xffffU;
     uint16_t stackDepth;
     bool initialized : 1;
@@ -33,15 +32,14 @@ struct BytecodeInfo
     }
 };
 
-class BytecodeAnalysis
-{
+class BytecodeAnalysis {
     JSScript* script_;
     Vector<BytecodeInfo, 0, JitAllocPolicy> infos_;
 
     bool usesEnvironmentChain_;
     bool hasTryFinally_;
 
-  public:
+   public:
     explicit BytecodeAnalysis(TempAllocator& alloc, JSScript* script);
 
     MOZ_MUST_USE bool init(TempAllocator& alloc, GSNCache& gsn);
@@ -52,22 +50,16 @@ class BytecodeAnalysis
     }
 
     BytecodeInfo* maybeInfo(jsbytecode* pc) {
-        if (infos_[script_->pcToOffset(pc)].initialized)
-            return &infos_[script_->pcToOffset(pc)];
+        if (infos_[script_->pcToOffset(pc)].initialized) return &infos_[script_->pcToOffset(pc)];
         return nullptr;
     }
 
-    bool usesEnvironmentChain() const {
-        return usesEnvironmentChain_;
-    }
+    bool usesEnvironmentChain() const { return usesEnvironmentChain_; }
 
-    bool hasTryFinally() const {
-        return hasTryFinally_;
-    }
+    bool hasTryFinally() const { return hasTryFinally_; }
 };
 
-
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_BytecodeAnalysis_h */

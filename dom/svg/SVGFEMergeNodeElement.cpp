@@ -13,15 +13,14 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEMergeNodeElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEMergeNodeElement::WrapNode(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEMergeNodeElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGFEMergeNodeElement::sStringInfo[1] =
-{
-  { &nsGkAtoms::in, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEMergeNodeElement::sStringInfo[1] = {
+    {&nsGkAtoms::in, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -50,9 +49,9 @@ SVGFEMergeNodeElement::In1()
 nsSVGElement::StringAttributesInfo
 SVGFEMergeNodeElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

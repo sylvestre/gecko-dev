@@ -27,33 +27,35 @@
 
 using namespace cdm;
 
-bool AllZero(const std::vector<uint32_t>& aBytes)
+bool
+AllZero(const std::vector<uint32_t>& aBytes)
 {
-  return all_of(aBytes.begin(), aBytes.end(), [](uint32_t b) { return b == 0; });
+  return all_of(
+      aBytes.begin(), aBytes.end(), [](uint32_t b) { return b == 0; });
 }
 
 class ClearKeyDecryptor : public RefCounted
 {
-public:
+ public:
   ClearKeyDecryptor();
 
   void InitKey(const Key& aKey);
   bool HasKey() const { return !mKey.empty(); }
 
-  Status Decrypt(uint8_t* aBuffer, uint32_t aBufferSize,
+  Status Decrypt(uint8_t* aBuffer,
+                 uint32_t aBufferSize,
                  const CryptoMetaData& aMetadata);
 
   const Key& DecryptionKey() const { return mKey; }
 
-private:
+ private:
   ~ClearKeyDecryptor();
 
   Key mKey;
 };
 
-
-/* static */ ClearKeyDecryptionManager*
-ClearKeyDecryptionManager::sInstance = nullptr;
+/* static */ ClearKeyDecryptionManager* ClearKeyDecryptionManager::sInstance =
+    nullptr;
 
 /* static */ ClearKeyDecryptionManager*
 ClearKeyDecryptionManager::Get()
@@ -117,9 +119,7 @@ ClearKeyDecryptionManager::GetDecryptionKey(const KeyId& aKeyId)
 void
 ClearKeyDecryptionManager::InitKey(KeyId aKeyId, Key aKey)
 {
-  CK_LOGD("ClearKeyDecryptionManager::InitKey ",
-          aKeyId.data(),
-          aKeyId.size());
+  CK_LOGD("ClearKeyDecryptionManager::InitKey ", aKeyId.data(), aKeyId.size());
   if (IsExpectingKeyForKeyId(aKeyId)) {
     CK_LOGARRAY("Initialized Key ", aKeyId.data(), aKeyId.size());
     mDecryptors[aKeyId]->InitKey(aKey);
@@ -131,9 +131,8 @@ ClearKeyDecryptionManager::InitKey(KeyId aKeyId, Key aKey)
 void
 ClearKeyDecryptionManager::ExpectKeyId(KeyId aKeyId)
 {
-  CK_LOGD("ClearKeyDecryptionManager::ExpectKeyId ",
-          aKeyId.data(),
-          aKeyId.size());
+  CK_LOGD(
+      "ClearKeyDecryptionManager::ExpectKeyId ", aKeyId.data(), aKeyId.size());
   if (!HasSeenKeyId(aKeyId)) {
     mDecryptors[aKeyId] = new ClearKeyDecryptor();
   }
@@ -160,7 +159,8 @@ ClearKeyDecryptionManager::Decrypt(std::vector<uint8_t>& aBuffer,
 }
 
 Status
-ClearKeyDecryptionManager::Decrypt(uint8_t* aBuffer, uint32_t aBufferSize,
+ClearKeyDecryptionManager::Decrypt(uint8_t* aBuffer,
+                                   uint32_t aBufferSize,
                                    const CryptoMetaData& aMetadata)
 {
   CK_LOGD("ClearKeyDecryptionManager::Decrypt");
@@ -174,22 +174,16 @@ ClearKeyDecryptionManager::Decrypt(uint8_t* aBuffer, uint32_t aBufferSize,
   CK_LOGARRAY("Found decryptor for keyId: ",
               aMetadata.mKeyId.data(),
               aMetadata.mKeyId.size());
-  return mDecryptors[aMetadata.mKeyId]->Decrypt(aBuffer,
-                                                aBufferSize,
-                                                aMetadata);
+  return mDecryptors[aMetadata.mKeyId]->Decrypt(
+      aBuffer, aBufferSize, aMetadata);
 }
 
-ClearKeyDecryptor::ClearKeyDecryptor()
-{
-  CK_LOGD("ClearKeyDecryptor ctor");
-}
+ClearKeyDecryptor::ClearKeyDecryptor() { CK_LOGD("ClearKeyDecryptor ctor"); }
 
 ClearKeyDecryptor::~ClearKeyDecryptor()
 {
   if (HasKey()) {
-    CK_LOGARRAY("ClearKeyDecryptor dtor; key = ",
-                mKey.data(),
-                mKey.size());
+    CK_LOGARRAY("ClearKeyDecryptor dtor; key = ", mKey.data(), mKey.size());
   } else {
     CK_LOGD("ClearKeyDecryptor dtor");
   }
@@ -202,7 +196,8 @@ ClearKeyDecryptor::InitKey(const Key& aKey)
 }
 
 Status
-ClearKeyDecryptor::Decrypt(uint8_t* aBuffer, uint32_t aBufferSize,
+ClearKeyDecryptor::Decrypt(uint8_t* aBuffer,
+                           uint32_t aBufferSize,
                            const CryptoMetaData& aMetadata)
 {
   CK_LOGD("ClearKeyDecryptor::Decrypt");
@@ -217,7 +212,7 @@ ClearKeyDecryptor::Decrypt(uint8_t* aBuffer, uint32_t aBufferSize,
                   "We need uintptr_t to be exactly the same size as a pointer");
     mozilla::CheckedInt<uintptr_t> data = reinterpret_cast<uintptr_t>(aBuffer);
     const uintptr_t endBuffer =
-      reinterpret_cast<uintptr_t>(aBuffer + aBufferSize);
+        reinterpret_cast<uintptr_t>(aBuffer + aBufferSize);
     uint8_t* iter = &tmp[0];
     for (size_t i = 0; i < aMetadata.NumSubsamples(); i++) {
       data += aMetadata.mClearBytes[i];
@@ -246,9 +241,8 @@ ClearKeyDecryptor::Decrypt(uint8_t* aBuffer, uint32_t aBufferSize,
   // It is possible that we could be passed an unencrypted sample, if all
   // encrypted sample lengths are zero, and in this case, a zero length
   // IV is allowed.
-  assert(aMetadata.mIV.size() == 8 \
-         || aMetadata.mIV.size() == 16 \
-         || (aMetadata.mIV.size() == 0 && AllZero(aMetadata.mCipherBytes)));
+  assert(aMetadata.mIV.size() == 8 || aMetadata.mIV.size() == 16 ||
+         (aMetadata.mIV.size() == 0 && AllZero(aMetadata.mCipherBytes)));
 
   std::vector<uint8_t> iv(aMetadata.mIV);
   iv.insert(iv.end(), CENC_KEY_LEN - aMetadata.mIV.size(), 0);

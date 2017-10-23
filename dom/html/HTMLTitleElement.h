@@ -19,11 +19,12 @@ namespace dom {
 class HTMLTitleElement final : public nsGenericHTMLElement,
                                public nsStubMutationObserver
 {
-public:
+ public:
   using Element::GetText;
   using Element::SetText;
 
-  explicit HTMLTitleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+  explicit HTMLTitleElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -38,11 +39,13 @@ public:
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-  virtual nsresult BindToTree(nsIDocument *aDocument, nsIContent *aParent,
-                              nsIContent *aBindingParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
+                              nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
 
   virtual void UnbindFromTree(bool aDeep = true,
@@ -50,17 +53,17 @@ public:
 
   virtual void DoneAddingChildren(bool aHaveNotified) override;
 
-protected:
+ protected:
   virtual ~HTMLTitleElement();
 
-  virtual JSObject* WrapNode(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
-    override final;
+  virtual JSObject* WrapNode(JSContext* cx,
+                             JS::Handle<JSObject*> aGivenProto) override final;
 
-private:
+ private:
   void SendTitleChangeEvent(bool aBound);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLTitleElement_h_
+#endif  // mozilla_dom_HTMLTitleElement_h_

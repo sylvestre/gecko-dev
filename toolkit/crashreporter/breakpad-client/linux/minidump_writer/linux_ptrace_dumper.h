@@ -39,7 +39,8 @@
 
 namespace google_breakpad {
 
-class LinuxPtraceDumper : public LinuxDumper {
+class LinuxPtraceDumper : public LinuxDumper
+{
  public:
   // Constructs a dumper for extracting information of a given process
   // with a process ID of |pid|.
@@ -56,7 +57,9 @@ class LinuxPtraceDumper : public LinuxDumper {
   // Copies content of |length| bytes from a given process |child|,
   // starting from |src|, into |dest|. This method uses ptrace to extract
   // the content from the target process. Always returns true.
-  virtual bool CopyFromProcess(void* dest, pid_t child, const void* src,
+  virtual bool CopyFromProcess(void* dest,
+                               pid_t child,
+                               const void* src,
                                size_t length);
 
   // Implements LinuxDumper::GetThreadInfoByIndex().

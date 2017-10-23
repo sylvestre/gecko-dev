@@ -26,30 +26,26 @@ using namespace mozilla::dom::indexedDB;
 
 IDBFileRequest::IDBFileRequest(IDBFileHandle* aFileHandle,
                                bool aWrapAsDOMRequest)
-  : DOMRequest(aFileHandle->GetOwner())
-  , mFileHandle(aFileHandle)
-  , mWrapAsDOMRequest(aWrapAsDOMRequest)
-  , mHasEncoding(false)
+    : DOMRequest(aFileHandle->GetOwner()),
+      mFileHandle(aFileHandle),
+      mWrapAsDOMRequest(aWrapAsDOMRequest),
+      mHasEncoding(false)
 {
   MOZ_ASSERT(aFileHandle);
   aFileHandle->AssertIsOnOwningThread();
 }
 
-IDBFileRequest::~IDBFileRequest()
-{
-  AssertIsOnOwningThread();
-}
+IDBFileRequest::~IDBFileRequest() { AssertIsOnOwningThread(); }
 
 // static
 already_AddRefed<IDBFileRequest>
-IDBFileRequest::Create(IDBFileHandle* aFileHandle,
-                       bool aWrapAsDOMRequest)
+IDBFileRequest::Create(IDBFileHandle* aFileHandle, bool aWrapAsDOMRequest)
 {
   MOZ_ASSERT(aFileHandle);
   aFileHandle->AssertIsOnOwningThread();
 
   RefPtr<IDBFileRequest> request =
-    new IDBFileRequest(aFileHandle, aWrapAsDOMRequest);
+      new IDBFileRequest(aFileHandle, aWrapAsDOMRequest);
 
   return request.forget();
 }
@@ -71,7 +67,7 @@ IDBFileRequest::FireProgressEvent(uint64_t aLoaded, uint64_t aTotal)
   init.mTotal = aTotal;
 
   RefPtr<ProgressEvent> event =
-    ProgressEvent::Constructor(this, NS_LITERAL_STRING("progress"), init);
+      ProgressEvent::Constructor(this, NS_LITERAL_STRING("progress"), init);
   DispatchTrustedEvent(event);
 }
 
@@ -104,8 +100,7 @@ NS_IMPL_RELEASE_INHERITED(IDBFileRequest, DOMRequest)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IDBFileRequest)
 NS_INTERFACE_MAP_END_INHERITING(DOMRequest)
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(IDBFileRequest, DOMRequest,
-                                   mFileHandle)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(IDBFileRequest, DOMRequest, mFileHandle)
 
 nsresult
 IDBFileRequest::GetEventTargetParent(EventChainPreVisitor& aVisitor)
@@ -129,5 +124,5 @@ IDBFileRequest::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return IDBFileRequestBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

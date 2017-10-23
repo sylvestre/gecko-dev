@@ -15,7 +15,8 @@
 
 namespace mozilla {
 
-enum ChaosFeature {
+enum ChaosFeature
+{
   None = 0x0,
   // Altering thread scheduling.
   ThreadScheduling = 0x1,
@@ -35,7 +36,7 @@ enum ChaosFeature {
 namespace detail {
 extern MFBT_DATA Atomic<uint32_t> gChaosModeCounter;
 extern MFBT_DATA ChaosFeature gChaosFeatures;
-} // namespace detail
+}  // namespace detail
 
 /**
  * When "chaos mode" is activated, code that makes implicitly nondeterministic
@@ -44,7 +45,7 @@ extern MFBT_DATA ChaosFeature gChaosFeatures;
  */
 class ChaosMode
 {
-public:
+ public:
   static void SetChaosFeature(ChaosFeature aChaosFeature)
   {
     detail::gChaosFeatures = aChaosFeature;
@@ -64,10 +65,7 @@ public:
    * chaos mode state. If the activation level is nonzero all chaos mode
    * features are activated.
    */
-  static void enterChaosMode()
-  {
-    detail::gChaosModeCounter++;
-  }
+  static void enterChaosMode() { detail::gChaosModeCounter++; }
 
   /**
    * Decrease the chaos mode activation level. See enterChaosMode().

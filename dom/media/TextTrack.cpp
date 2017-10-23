@@ -37,13 +37,13 @@ TextTrack::TextTrack(nsPIDOMWindowInner* aOwnerWindow,
                      TextTrackMode aMode,
                      TextTrackReadyState aReadyState,
                      TextTrackSource aTextTrackSource)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mKind(aKind)
-  , mLabel(aLabel)
-  , mLanguage(aLanguage)
-  , mMode(aMode)
-  , mReadyState(aReadyState)
-  , mTextTrackSource(aTextTrackSource)
+    : DOMEventTargetHelper(aOwnerWindow),
+      mKind(aKind),
+      mLabel(aLabel),
+      mLanguage(aLanguage),
+      mMode(aMode),
+      mReadyState(aReadyState),
+      mTextTrackSource(aTextTrackSource)
 {
   SetDefaultSettings();
 }
@@ -56,21 +56,19 @@ TextTrack::TextTrack(nsPIDOMWindowInner* aOwnerWindow,
                      TextTrackMode aMode,
                      TextTrackReadyState aReadyState,
                      TextTrackSource aTextTrackSource)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mTextTrackList(aTextTrackList)
-  , mKind(aKind)
-  , mLabel(aLabel)
-  , mLanguage(aLanguage)
-  , mMode(aMode)
-  , mReadyState(aReadyState)
-  , mTextTrackSource(aTextTrackSource)
+    : DOMEventTargetHelper(aOwnerWindow),
+      mTextTrackList(aTextTrackList),
+      mKind(aKind),
+      mLabel(aLabel),
+      mLanguage(aLanguage),
+      mMode(aMode),
+      mReadyState(aReadyState),
+      mTextTrackSource(aTextTrackSource)
 {
   SetDefaultSettings();
 }
 
-TextTrack::~TextTrack()
-{
-}
+TextTrack::~TextTrack() {}
 
 void
 TextTrack::SetDefaultSettings()
@@ -214,7 +212,8 @@ TextTrack::UpdateActiveCueList()
   // We can stop iterating safely once we encounter a cue that does not have
   // a valid start time as the cue list is sorted.
   for (; mCuePos < mCueList->Length() &&
-         (*mCueList)[mCuePos]->StartTime() <= playbackTime; mCuePos++) {
+         (*mCueList)[mCuePos]->StartTime() <= playbackTime;
+       mCuePos++) {
     if ((*mCueList)[mCuePos]->EndTime() > playbackTime) {
       mActiveCueList->AddCue(*(*mCueList)[mCuePos]);
     }
@@ -222,7 +221,8 @@ TextTrack::UpdateActiveCueList()
 }
 
 TextTrackCueList*
-TextTrack::GetActiveCues() {
+TextTrack::GetActiveCues()
+{
   if (mMode != TextTrackMode::Disabled) {
     return mActiveCueList;
   }
@@ -261,8 +261,8 @@ TextTrack::SetReadyState(TextTrackReadyState aState)
   }
 
   HTMLMediaElement* mediaElement = mTextTrackList->GetMediaElement();
-  if (mediaElement && (mReadyState == TextTrackReadyState::Loaded||
-      mReadyState == TextTrackReadyState::FailedToLoad)) {
+  if (mediaElement && (mReadyState == TextTrackReadyState::Loaded ||
+                       mReadyState == TextTrackReadyState::FailedToLoad)) {
     mediaElement->RemoveTextTrack(this, true);
     mediaElement->UpdateReadyState();
   }
@@ -281,12 +281,14 @@ TextTrack::SetTextTrackList(TextTrackList* aTextTrackList)
 }
 
 HTMLTrackElement*
-TextTrack::GetTrackElement() {
+TextTrack::GetTrackElement()
+{
   return mTrackElement;
 }
 
 void
-TextTrack::SetTrackElement(HTMLTrackElement* aTrackElement) {
+TextTrack::SetTrackElement(HTMLTrackElement* aTrackElement)
+{
   mTrackElement = aTrackElement;
 }
 
@@ -297,7 +299,7 @@ TextTrack::SetCuesInactive()
 }
 
 void
-TextTrack::NotifyCueUpdated(TextTrackCue *aCue)
+TextTrack::NotifyCueUpdated(TextTrackCue* aCue)
 {
   mCueList->NotifyCueUpdated(aCue);
   if (mTextTrackList) {
@@ -337,10 +339,10 @@ TextTrack::DispatchAsyncTrustedEvent(const nsString& aEventName)
   }
   RefPtr<TextTrack> self = this;
   nsGlobalWindow::Cast(win)->Dispatch(
-    TaskCategory::Other,
-    NS_NewRunnableFunction(
-      "dom::TextTrack::DispatchAsyncTrustedEvent",
-      [self, aEventName]() { self->DispatchTrustedEvent(aEventName); }));
+      TaskCategory::Other,
+      NS_NewRunnableFunction(
+          "dom::TextTrack::DispatchAsyncTrustedEvent",
+          [self, aEventName]() { self->DispatchTrustedEvent(aEventName); }));
 }
 
 bool
@@ -360,5 +362,5 @@ TextTrack::IsLoaded()
   return (mReadyState >= Loaded);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

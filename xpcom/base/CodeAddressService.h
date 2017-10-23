@@ -29,9 +29,7 @@ namespace mozilla {
 // |DescribeCodeAddressLock| is needed when the callers may be holding a lock
 // used by MozDescribeCodeAddress.  |DescribeCodeAddressLock| must implement
 // static methods IsLocked(), Unlock() and Lock().
-template <class StringTable,
-          class StringAlloc,
-          class DescribeCodeAddressLock>
+template<class StringTable, class StringAlloc, class DescribeCodeAddressLock>
 class CodeAddressService
 {
   // GetLocation() is the key function in this class.  It's basically a wrapper
@@ -57,18 +55,24 @@ class CodeAddressService
   struct Entry
   {
     const void* mPc;
-    char*       mFunction;  // owned by the Entry;  may be null
-    const char* mLibrary;   // owned by mLibraryStrings;  never null
-                            //   in a non-empty entry is in use
-    ptrdiff_t   mLOffset;
-    char*       mFileName;  // owned by the Entry; may be null
-    uint32_t    mLineNo:31;
-    uint32_t    mInUse:1;   // is the entry used?
+    char* mFunction;       // owned by the Entry;  may be null
+    const char* mLibrary;  // owned by mLibraryStrings;  never null
+                           //   in a non-empty entry is in use
+    ptrdiff_t mLOffset;
+    char* mFileName;  // owned by the Entry; may be null
+    uint32_t mLineNo : 31;
+    uint32_t mInUse : 1;  // is the entry used?
 
     Entry()
-      : mPc(0), mFunction(nullptr), mLibrary(nullptr), mLOffset(0),
-        mFileName(nullptr), mLineNo(0), mInUse(0)
-    {}
+        : mPc(0),
+          mFunction(nullptr),
+          mLibrary(nullptr),
+          mLOffset(0),
+          mFileName(nullptr),
+          mLineNo(0),
+          mInUse(0)
+    {
+    }
 
     ~Entry()
     {
@@ -77,9 +81,12 @@ class CodeAddressService
       StringAlloc::free(mFileName);
     }
 
-    void Replace(const void* aPc, const char* aFunction,
-                 const char* aLibrary, ptrdiff_t aLOffset,
-                 const char* aFileName, unsigned long aLineNo)
+    void Replace(const void* aPc,
+                 const char* aFunction,
+                 const char* aLibrary,
+                 ptrdiff_t aLOffset,
+                 const char* aFileName,
+                 unsigned long aLineNo)
     {
       mPc = aPc;
 
@@ -119,13 +126,12 @@ class CodeAddressService
   size_t mNumCacheHits;
   size_t mNumCacheMisses;
 
-public:
-  CodeAddressService()
-    : mEntries(), mNumCacheHits(0), mNumCacheMisses(0)
-  {
-  }
+ public:
+  CodeAddressService() : mEntries(), mNumCacheHits(0), mNumCacheMisses(0) {}
 
-  void GetLocation(uint32_t aFrameNumber, const void* aPc, char* aBuf,
+  void GetLocation(uint32_t aFrameNumber,
+                   const void* aPc,
+                   char* aBuf,
                    size_t aBufLen)
   {
     MOZ_ASSERT(DescribeCodeAddressLock::IsLocked());
@@ -150,8 +156,12 @@ public:
       }
 
       const char* library = mLibraryStrings.Intern(details.library);
-      entry.Replace(aPc, details.function, library, details.loffset,
-                    details.filename, details.lineno);
+      entry.Replace(aPc,
+                    details.function,
+                    library,
+                    details.loffset,
+                    details.filename,
+                    details.lineno);
 
     } else {
       mNumCacheHits++;
@@ -159,9 +169,15 @@ public:
 
     MOZ_ASSERT(entry.mPc == aPc);
 
-    MozFormatCodeAddress(aBuf, aBufLen, aFrameNumber, entry.mPc,
-                         entry.mFunction, entry.mLibrary, entry.mLOffset,
-                         entry.mFileName, entry.mLineNo);
+    MozFormatCodeAddress(aBuf,
+                         aBufLen,
+                         aFrameNumber,
+                         entry.mPc,
+                         entry.mFunction,
+                         entry.mLibrary,
+                         entry.mLOffset,
+                         entry.mFileName,
+                         entry.mLineNo);
   }
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
@@ -189,10 +205,10 @@ public:
     return n;
   }
 
-  size_t NumCacheHits()   const { return mNumCacheHits; }
+  size_t NumCacheHits() const { return mNumCacheHits; }
   size_t NumCacheMisses() const { return mNumCacheMisses; }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // CodeAddressService_h__
+#endif  // CodeAddressService_h__

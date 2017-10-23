@@ -8,12 +8,13 @@
 
 class txMapItemComparator
 {
-  public:
-    bool Equals(const txExpandedNameMap_base::MapItem& aItem,
-                  const txExpandedName& aKey) const {
-      return aItem.mNamespaceID == aKey.mNamespaceID &&
-             aItem.mLocalName == aKey.mLocalName;
-    }
+ public:
+  bool Equals(const txExpandedNameMap_base::MapItem& aItem,
+              const txExpandedName& aKey) const
+  {
+    return aItem.mNamespaceID == aKey.mNamespaceID &&
+           aItem.mLocalName == aKey.mLocalName;
+  }
 };
 
 /**
@@ -23,22 +24,22 @@ class txMapItemComparator
  * @param  aValue value of item to add
  * @return errorcode
  */
-nsresult txExpandedNameMap_base::addItem(const txExpandedName& aKey,
-                                         void* aValue)
+nsresult
+txExpandedNameMap_base::addItem(const txExpandedName& aKey, void* aValue)
 {
-    size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
-    if (pos != mItems.NoIndex) {
-        return NS_ERROR_XSLT_ALREADY_SET;
-    }
+  size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
+  if (pos != mItems.NoIndex) {
+    return NS_ERROR_XSLT_ALREADY_SET;
+  }
 
-    MapItem* item = mItems.AppendElement();
-    NS_ENSURE_TRUE(item, NS_ERROR_OUT_OF_MEMORY);
+  MapItem* item = mItems.AppendElement();
+  NS_ENSURE_TRUE(item, NS_ERROR_OUT_OF_MEMORY);
 
-    item->mNamespaceID = aKey.mNamespaceID;
-    item->mLocalName = aKey.mLocalName;
-    item->mValue = aValue;
+  item->mNamespaceID = aKey.mNamespaceID;
+  item->mLocalName = aKey.mLocalName;
+  item->mValue = aValue;
 
-    return NS_OK;
+  return NS_OK;
 }
 
 /**
@@ -48,26 +49,27 @@ nsresult txExpandedNameMap_base::addItem(const txExpandedName& aKey,
  * @param  aValue value of item to set
  * @return errorcode
  */
-nsresult txExpandedNameMap_base::setItem(const txExpandedName& aKey,
-                                         void* aValue,
-                                         void** aOldValue)
+nsresult
+txExpandedNameMap_base::setItem(const txExpandedName& aKey,
+                                void* aValue,
+                                void** aOldValue)
 {
-    *aOldValue = nullptr;
-    size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
-    if (pos != mItems.NoIndex) {
-        *aOldValue = mItems[pos].mValue;
-        mItems[pos].mValue = aValue;
-        return NS_OK;
-    }
-
-    MapItem* item = mItems.AppendElement();
-    NS_ENSURE_TRUE(item, NS_ERROR_OUT_OF_MEMORY);
-
-    item->mNamespaceID = aKey.mNamespaceID;
-    item->mLocalName = aKey.mLocalName;
-    item->mValue = aValue;
-
+  *aOldValue = nullptr;
+  size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
+  if (pos != mItems.NoIndex) {
+    *aOldValue = mItems[pos].mValue;
+    mItems[pos].mValue = aValue;
     return NS_OK;
+  }
+
+  MapItem* item = mItems.AppendElement();
+  NS_ENSURE_TRUE(item, NS_ERROR_OUT_OF_MEMORY);
+
+  item->mNamespaceID = aKey.mNamespaceID;
+  item->mLocalName = aKey.mLocalName;
+  item->mValue = aValue;
+
+  return NS_OK;
 }
 
 /**
@@ -75,14 +77,15 @@ nsresult txExpandedNameMap_base::setItem(const txExpandedName& aKey,
  * @param  aKey  key for item to get
  * @return item with specified key, or null if no such item exists
  */
-void* txExpandedNameMap_base::getItem(const txExpandedName& aKey) const
+void*
+txExpandedNameMap_base::getItem(const txExpandedName& aKey) const
 {
-    size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
-    if (pos != mItems.NoIndex) {
-        return mItems[pos].mValue;
-    }
+  size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
+  if (pos != mItems.NoIndex) {
+    return mItems[pos].mValue;
+  }
 
-    return nullptr;
+  return nullptr;
 }
 
 /**
@@ -91,14 +94,15 @@ void* txExpandedNameMap_base::getItem(const txExpandedName& aKey) const
  * @return item with specified key, or null if it has been deleted
  *         or no such item exists
  */
-void* txExpandedNameMap_base::removeItem(const txExpandedName& aKey)
+void*
+txExpandedNameMap_base::removeItem(const txExpandedName& aKey)
 {
-    void* value = nullptr;
-    size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
-    if (pos != mItems.NoIndex) {
-        value = mItems[pos].mValue;
-        mItems.RemoveElementAt(pos);
-    }
+  void* value = nullptr;
+  size_t pos = mItems.IndexOf(aKey, 0, txMapItemComparator());
+  if (pos != mItems.NoIndex) {
+    value = mItems[pos].mValue;
+    mItems.RemoveElementAt(pos);
+  }
 
-    return value;
+  return value;
 }

@@ -108,7 +108,7 @@ namespace mozilla {
 // places we don't want it to.
 class JSONWriteFunc
 {
-public:
+ public:
   virtual void Write(const char* aStr) = 0;
   virtual ~JSONWriteFunc() {}
 };
@@ -117,7 +117,7 @@ public:
 // on Linux that caused link errors, whereas this formulation didn't.
 namespace detail {
 extern MFBT_DATA const char gTwoCharEscapes[256];
-} // namespace detail
+}  // namespace detail
 
 class JSONWriter
 {
@@ -145,8 +145,8 @@ class JSONWriter
 
     void SanityCheck() const
     {
-      MOZ_ASSERT_IF( mIsOwned,  mOwnedStr.get() && !mUnownedStr);
-      MOZ_ASSERT_IF(!mIsOwned, !mOwnedStr.get() &&  mUnownedStr);
+      MOZ_ASSERT_IF(mIsOwned, mOwnedStr.get() && !mUnownedStr);
+      MOZ_ASSERT_IF(!mIsOwned, !mOwnedStr.get() && mUnownedStr);
     }
 
     static char hexDigitToAsciiChar(uint8_t u)
@@ -155,10 +155,9 @@ class JSONWriter
       return u < 10 ? '0' + u : 'a' + (u - 10);
     }
 
-  public:
+   public:
     explicit EscapedString(const char* aStr)
-      : mUnownedStr(nullptr)
-      , mOwnedStr(nullptr)
+        : mUnownedStr(nullptr), mOwnedStr(nullptr)
     {
       const char* p;
 
@@ -166,7 +165,7 @@ class JSONWriter
       size_t nExtra = 0;
       p = aStr;
       while (true) {
-        uint8_t u = *p;   // ensure it can't be interpreted as negative
+        uint8_t u = *p;  // ensure it can't be interpreted as negative
         if (u == 0) {
           break;
         }
@@ -194,7 +193,7 @@ class JSONWriter
       size_t i = 0;
 
       while (true) {
-        uint8_t u = *p;   // ensure it can't be interpreted as negative
+        uint8_t u = *p;  // ensure it can't be interpreted as negative
         if (u == 0) {
           mOwnedStr[i] = 0;
           break;
@@ -216,10 +215,7 @@ class JSONWriter
       }
     }
 
-    ~EscapedString()
-    {
-      SanityCheck();
-    }
+    ~EscapedString() { SanityCheck(); }
 
     const char* get() const
     {
@@ -228,18 +224,19 @@ class JSONWriter
     }
   };
 
-public:
+ public:
   // Collections (objects and arrays) are printed in a multi-line style by
   // default. This can be changed to a single-line style if SingleLineStyle is
   // specified. If a collection is printed in single-line style, every nested
   // collection within it is also printed in single-line style, even if
   // multi-line style is requested.
-  enum CollectionStyle {
-    MultiLineStyle,   // the default
+  enum CollectionStyle
+  {
+    MultiLineStyle,  // the default
     SingleLineStyle
   };
 
-protected:
+ protected:
   const UniquePtr<JSONWriteFunc> mWriter;
   Vector<bool, 8> mNeedComma;     // do we need a comma at depth N?
   Vector<bool, 8> mNeedNewlines;  // do we need newlines at depth N?
@@ -308,7 +305,8 @@ protected:
     mNeedNewlines[mDepth] = true;
   }
 
-  void StartCollection(const char* aMaybePropertyName, const char* aStartChar,
+  void StartCollection(const char* aMaybePropertyName,
+                       const char* aStartChar,
                        CollectionStyle aStyle = MultiLineStyle)
   {
     Separator();
@@ -322,7 +320,7 @@ protected:
     mDepth++;
     NewVectorEntries();
     mNeedNewlines[mDepth] =
-      mNeedNewlines[mDepth - 1] && aStyle == MultiLineStyle;
+        mNeedNewlines[mDepth - 1] && aStyle == MultiLineStyle;
   }
 
   // Adds the whitespace and closing char necessary to end a collection.
@@ -338,12 +336,9 @@ protected:
     mWriter->Write(aEndChar);
   }
 
-public:
+ public:
   explicit JSONWriter(UniquePtr<JSONWriteFunc> aWriter)
-    : mWriter(Move(aWriter))
-    , mNeedComma()
-    , mNeedNewlines()
-    , mDepth(0)
+      : mWriter(Move(aWriter)), mNeedComma(), mNeedNewlines(), mDepth(0)
   {
     NewVectorEntries();
   }
@@ -368,10 +363,7 @@ public:
   void End() { EndCollection("}\n"); }
 
   // Prints: "<aName>": null
-  void NullProperty(const char* aName)
-  {
-    Scalar(aName, "null");
-  }
+  void NullProperty(const char* aName) { Scalar(aName, "null"); }
 
   // Prints: null
   void NullElement() { NullProperty(nullptr); }
@@ -401,8 +393,8 @@ public:
   {
     static const size_t buflen = 64;
     char buf[buflen];
-    const double_conversion::DoubleToStringConverter &converter =
-      double_conversion::DoubleToStringConverter::EcmaScriptConverter();
+    const double_conversion::DoubleToStringConverter& converter =
+        double_conversion::DoubleToStringConverter::EcmaScriptConverter();
     double_conversion::StringBuilder builder(buf, buflen);
     converter.ToShortest(aDouble, &builder);
     Scalar(aName, builder.Finalize());
@@ -454,7 +446,6 @@ public:
   void EndObject() { EndCollection("}"); }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_JSONWriter_h */
-

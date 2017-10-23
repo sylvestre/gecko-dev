@@ -25,11 +25,8 @@ namespace mozilla {
 
 class InternalScrollPortEvent : public WidgetGUIEvent
 {
-public:
-  virtual InternalScrollPortEvent* AsScrollPortEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual InternalScrollPortEvent* AsScrollPortEvent() override { return this; }
 
   enum OrientType
   {
@@ -38,10 +35,11 @@ public:
     eBoth
   };
 
-  InternalScrollPortEvent(bool aIsTrusted, EventMessage aMessage,
+  InternalScrollPortEvent(bool aIsTrusted,
+                          EventMessage aMessage,
                           nsIWidget* aWidget)
-    : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eScrollPortEventClass)
-    , mOrient(eVertical)
+      : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eScrollPortEventClass),
+        mOrient(eVertical)
   {
   }
 
@@ -51,7 +49,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     InternalScrollPortEvent* result =
-      new InternalScrollPortEvent(false, mMessage, nullptr);
+        new InternalScrollPortEvent(false, mMessage, nullptr);
     result->AssignScrollPortEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -74,15 +72,13 @@ public:
 
 class InternalScrollAreaEvent : public WidgetGUIEvent
 {
-public:
-  virtual InternalScrollAreaEvent* AsScrollAreaEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual InternalScrollAreaEvent* AsScrollAreaEvent() override { return this; }
 
-  InternalScrollAreaEvent(bool aIsTrusted, EventMessage aMessage,
+  InternalScrollAreaEvent(bool aIsTrusted,
+                          EventMessage aMessage,
                           nsIWidget* aWidget)
-    : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eScrollAreaEventClass)
+      : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eScrollAreaEventClass)
   {
   }
 
@@ -92,7 +88,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     InternalScrollAreaEvent* result =
-      new InternalScrollAreaEvent(false, mMessage, nullptr);
+        new InternalScrollAreaEvent(false, mMessage, nullptr);
     result->AssignScrollAreaEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -118,12 +114,11 @@ public:
 
 class InternalFormEvent : public WidgetEvent
 {
-public:
+ public:
   virtual InternalFormEvent* AsFormEvent() override { return this; }
 
   InternalFormEvent(bool aIsTrusted, EventMessage aMessage)
-    : WidgetEvent(aIsTrusted, aMessage, eFormEventClass)
-    , mOriginator(nullptr)
+      : WidgetEvent(aIsTrusted, aMessage, eFormEventClass), mOriginator(nullptr)
   {
   }
 
@@ -153,14 +148,11 @@ public:
 
 class InternalClipboardEvent : public WidgetEvent
 {
-public:
-  virtual InternalClipboardEvent* AsClipboardEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual InternalClipboardEvent* AsClipboardEvent() override { return this; }
 
   InternalClipboardEvent(bool aIsTrusted, EventMessage aMessage)
-    : WidgetEvent(aIsTrusted, aMessage, eClipboardEventClass)
+      : WidgetEvent(aIsTrusted, aMessage, eClipboardEventClass)
   {
   }
 
@@ -169,7 +161,7 @@ public:
     MOZ_ASSERT(mClass == eClipboardEventClass,
                "Duplicate() must be overridden by sub class");
     InternalClipboardEvent* result =
-      new InternalClipboardEvent(false, mMessage);
+        new InternalClipboardEvent(false, mMessage);
     result->AssignClipboardEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -192,13 +184,13 @@ public:
 
 class InternalFocusEvent : public InternalUIEvent
 {
-public:
+ public:
   virtual InternalFocusEvent* AsFocusEvent() override { return this; }
 
   InternalFocusEvent(bool aIsTrusted, EventMessage aMessage)
-    : InternalUIEvent(aIsTrusted, aMessage, eFocusEventClass)
-    , mFromRaise(false)
-    , mIsRefocus(false)
+      : InternalUIEvent(aIsTrusted, aMessage, eFocusEventClass),
+        mFromRaise(false),
+        mIsRefocus(false)
   {
   }
 
@@ -234,15 +226,12 @@ public:
 
 class InternalTransitionEvent : public WidgetEvent
 {
-public:
-  virtual InternalTransitionEvent* AsTransitionEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual InternalTransitionEvent* AsTransitionEvent() override { return this; }
 
   InternalTransitionEvent(bool aIsTrusted, EventMessage aMessage)
-    : WidgetEvent(aIsTrusted, aMessage, eTransitionEventClass)
-    , mElapsedTime(0.0)
+      : WidgetEvent(aIsTrusted, aMessage, eTransitionEventClass),
+        mElapsedTime(0.0)
   {
   }
 
@@ -251,7 +240,7 @@ public:
     MOZ_ASSERT(mClass == eTransitionEventClass,
                "Duplicate() must be overridden by sub class");
     InternalTransitionEvent* result =
-      new InternalTransitionEvent(false, mMessage);
+        new InternalTransitionEvent(false, mMessage);
     result->AssignTransitionEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -278,15 +267,12 @@ public:
 
 class InternalAnimationEvent : public WidgetEvent
 {
-public:
-  virtual InternalAnimationEvent* AsAnimationEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual InternalAnimationEvent* AsAnimationEvent() override { return this; }
 
   InternalAnimationEvent(bool aIsTrusted, EventMessage aMessage)
-    : WidgetEvent(aIsTrusted, aMessage, eAnimationEventClass)
-    , mElapsedTime(0.0)
+      : WidgetEvent(aIsTrusted, aMessage, eAnimationEventClass),
+        mElapsedTime(0.0)
   {
   }
 
@@ -295,7 +281,7 @@ public:
     MOZ_ASSERT(mClass == eAnimationEventClass,
                "Duplicate() must be overridden by sub class");
     InternalAnimationEvent* result =
-      new InternalAnimationEvent(false, mMessage);
+        new InternalAnimationEvent(false, mMessage);
     result->AssignAnimationEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -322,14 +308,11 @@ public:
 
 class InternalSMILTimeEvent : public InternalUIEvent
 {
-public:
-  virtual InternalSMILTimeEvent* AsSMILTimeEvent() override
-  {
-    return this;
-  }
+ public:
+  virtual InternalSMILTimeEvent* AsSMILTimeEvent() override { return this; }
 
   InternalSMILTimeEvent(bool aIsTrusted, EventMessage aMessage)
-    : InternalUIEvent(aIsTrusted, aMessage, eSMILTimeEventClass)
+      : InternalUIEvent(aIsTrusted, aMessage, eSMILTimeEventClass)
   {
   }
 
@@ -350,7 +333,6 @@ public:
   }
 };
 
+}  // namespace mozilla
 
-} // namespace mozilla
-
-#endif // mozilla_ContentEvents_h__
+#endif  // mozilla_ContentEvents_h__

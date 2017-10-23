@@ -29,10 +29,10 @@ MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(ProxyStreamFlags);
 
 class ProxyStream final
 {
-public:
+ public:
   class MOZ_RAII Environment
   {
-  public:
+   public:
     virtual ~Environment() = default;
     virtual bool Push() = 0;
     virtual bool Pop() = 0;
@@ -40,15 +40,19 @@ public:
 
   class MOZ_RAII DefaultEnvironment : public Environment
   {
-  public:
+   public:
     bool Push() override { return true; }
     bool Pop() override { return true; }
   };
 
   ProxyStream();
-  ProxyStream(REFIID aIID, IUnknown* aObject, Environment* aEnv,
+  ProxyStream(REFIID aIID,
+              IUnknown* aObject,
+              Environment* aEnv,
               ProxyStreamFlags aFlags = ProxyStreamFlags::eDefault);
-  ProxyStream(REFIID aIID, const BYTE* aInitBuf, const int aInitBufSize,
+  ProxyStream(REFIID aIID,
+              const BYTE* aInitBuf,
+              const int aInitBufSize,
               Environment* aEnv);
 
   ~ProxyStream();
@@ -60,40 +64,34 @@ public:
   ProxyStream(ProxyStream&& aOther);
   ProxyStream& operator=(ProxyStream&& aOther);
 
-  inline bool IsValid() const
-  {
-    return !(mUnmarshaledProxy && mStream);
-  }
+  inline bool IsValid() const { return !(mUnmarshaledProxy && mStream); }
 
   bool GetInterface(void** aOutInterface);
   const BYTE* GetBuffer(int& aReturnedBufSize) const;
 
   PreservedStreamPtr GetPreservedStream();
 
-  bool operator==(const ProxyStream& aOther) const
-  {
-    return this == &aOther;
-  }
+  bool operator==(const ProxyStream& aOther) const { return this == &aOther; }
 
-private:
+ private:
   RefPtr<IStream> mStream;
-  BYTE*           mGlobalLockedBuf;
-  HGLOBAL         mHGlobal;
-  int             mBufSize;
+  BYTE* mGlobalLockedBuf;
+  HGLOBAL mHGlobal;
+  int mBufSize;
   ProxyUniquePtr<IUnknown> mUnmarshaledProxy;
-  bool            mPreserveStream;
+  bool mPreserveStream;
 };
 
 namespace detail {
 
-template <typename Interface>
+template<typename Interface>
 struct EnvironmentSelector
 {
   typedef ProxyStream::DefaultEnvironment Type;
 };
 
-} // namespace detail
-} // namespace mscom
-} // namespace mozilla
+}  // namespace detail
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_ProxyStream_h
+#endif  // mozilla_mscom_ProxyStream_h

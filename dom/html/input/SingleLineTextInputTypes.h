@@ -11,7 +11,7 @@
 
 class SingleLineTextInputTypeBase : public ::InputType
 {
-public:
+ public:
   ~SingleLineTextInputTypeBase() override {}
 
   bool IsTooLong() const override;
@@ -19,11 +19,12 @@ public:
   bool IsValueMissing() const override;
   bool HasPatternMismatch() const override;
 
-protected:
+ protected:
   explicit SingleLineTextInputTypeBase(
-    mozilla::dom::HTMLInputElement* aInputElement)
+      mozilla::dom::HTMLInputElement* aInputElement)
       : InputType(aInputElement)
-  {}
+  {
+  }
 
   bool IsMutable() const override;
 };
@@ -31,57 +32,60 @@ protected:
 // input type=text
 class TextInputType : public SingleLineTextInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) TextInputType(aInputElement);
   }
 
-private:
+ private:
   explicit TextInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : SingleLineTextInputTypeBase(aInputElement)
-  {}
+      : SingleLineTextInputTypeBase(aInputElement)
+  {
+  }
 };
 
 // input type=search
 class SearchInputType : public SingleLineTextInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) SearchInputType(aInputElement);
   }
 
-private:
+ private:
   explicit SearchInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : SingleLineTextInputTypeBase(aInputElement)
-  {}
+      : SingleLineTextInputTypeBase(aInputElement)
+  {
+  }
 };
 
 // input type=tel
 class TelInputType : public SingleLineTextInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) TelInputType(aInputElement);
   }
 
-private:
+ private:
   explicit TelInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : SingleLineTextInputTypeBase(aInputElement)
-  {}
+      : SingleLineTextInputTypeBase(aInputElement)
+  {
+  }
 };
 
 // input type=url
 class URLInputType : public SingleLineTextInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) URLInputType(aInputElement);
   }
@@ -90,18 +94,19 @@ public:
 
   nsresult GetTypeMismatchMessage(nsAString& aMessage) override;
 
-private:
+ private:
   explicit URLInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : SingleLineTextInputTypeBase(aInputElement)
-  {}
+      : SingleLineTextInputTypeBase(aInputElement)
+  {
+  }
 };
 
 // input type=email
 class EmailInputType : public SingleLineTextInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) EmailInputType(aInputElement);
   }
@@ -112,10 +117,11 @@ public:
   nsresult GetTypeMismatchMessage(nsAString& aMessage) override;
   nsresult GetBadInputMessage(nsAString& aMessage) override;
 
-private:
+ private:
   explicit EmailInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : SingleLineTextInputTypeBase(aInputElement)
-  {}
+      : SingleLineTextInputTypeBase(aInputElement)
+  {
+  }
 
   /**
    * This helper method returns true if aValue is a valid email address.
@@ -155,25 +161,26 @@ private:
    * for 'user.name@sld.tld' it would treat "name@sld" as a label. We want to
    * encode the domain part only.
    */
- static bool PunycodeEncodeEmailAddress(const nsAString& aEmail,
-                                        nsAutoCString& aEncodedEmail,
-                                        uint32_t* aIndexOfAt);
+  static bool PunycodeEncodeEmailAddress(const nsAString& aEmail,
+                                         nsAutoCString& aEncodedEmail,
+                                         uint32_t* aIndexOfAt);
 };
 
 // input type=password
 class PasswordInputType : public SingleLineTextInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) PasswordInputType(aInputElement);
   }
 
-private:
+ private:
   explicit PasswordInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : SingleLineTextInputTypeBase(aInputElement)
-  {}
+      : SingleLineTextInputTypeBase(aInputElement)
+  {
+  }
 };
 
 #endif /* SingleLineTextInputTypes_h__ */

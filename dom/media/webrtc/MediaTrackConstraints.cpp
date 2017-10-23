@@ -40,7 +40,8 @@ NormalizedConstraintSet::Range<ValueType>::SetFrom(const ConstrainRange& aOther)
 // The Range code works surprisingly well for bool, except when averaging ideals.
 template<>
 bool
-NormalizedConstraintSet::Range<bool>::Merge(const Range& aOther) {
+NormalizedConstraintSet::Range<bool>::Merge(const Range& aOther)
+{
   if (!Intersects(aOther)) {
     return false;
   }
@@ -87,9 +88,11 @@ NormalizedConstraintSet::LongRange::LongRange(
     const dom::OwningLongOrConstrainLongRange& aOther,
     bool advanced,
     nsTArray<MemberPtrType>* aList)
-: Range<int32_t>((MemberPtrType)aMemberPtr, aName,
-                 1 + INT32_MIN, INT32_MAX, // +1 avoids Windows compiler bug
-                 aList)
+    : Range<int32_t>((MemberPtrType)aMemberPtr,
+                     aName,
+                     1 + INT32_MIN,
+                     INT32_MAX,  // +1 avoids Windows compiler bug
+                     aList)
 {
   if (aOther.IsLong()) {
     if (advanced) {
@@ -107,9 +110,11 @@ NormalizedConstraintSet::LongLongRange::LongLongRange(
     const char* aName,
     const long long& aOther,
     nsTArray<MemberPtrType>* aList)
-: Range<int64_t>((MemberPtrType)aMemberPtr, aName,
-                 1 + INT64_MIN, INT64_MAX, // +1 avoids Windows compiler bug
-                 aList)
+    : Range<int64_t>((MemberPtrType)aMemberPtr,
+                     aName,
+                     1 + INT64_MIN,
+                     INT64_MAX,  // +1 avoids Windows compiler bug
+                     aList)
 {
   mIdeal.emplace(aOther);
 }
@@ -117,11 +122,14 @@ NormalizedConstraintSet::LongLongRange::LongLongRange(
 NormalizedConstraintSet::DoubleRange::DoubleRange(
     DoublePtrType aMemberPtr,
     const char* aName,
-    const dom::OwningDoubleOrConstrainDoubleRange& aOther, bool advanced,
+    const dom::OwningDoubleOrConstrainDoubleRange& aOther,
+    bool advanced,
     nsTArray<MemberPtrType>* aList)
-: Range<double>((MemberPtrType)aMemberPtr, aName,
-                -std::numeric_limits<double>::infinity(),
-                std::numeric_limits<double>::infinity(), aList)
+    : Range<double>((MemberPtrType)aMemberPtr,
+                    aName,
+                    -std::numeric_limits<double>::infinity(),
+                    std::numeric_limits<double>::infinity(),
+                    aList)
 {
   if (aOther.IsDouble()) {
     if (advanced) {
@@ -140,7 +148,7 @@ NormalizedConstraintSet::BooleanRange::BooleanRange(
     const dom::OwningBooleanOrConstrainBooleanParameters& aOther,
     bool advanced,
     nsTArray<MemberPtrType>* aList)
-: Range<bool>((MemberPtrType)aMemberPtr, aName, false, true, aList)
+    : Range<bool>((MemberPtrType)aMemberPtr, aName, false, true, aList)
 {
   if (aOther.IsBoolean()) {
     if (advanced) {
@@ -149,7 +157,8 @@ NormalizedConstraintSet::BooleanRange::BooleanRange(
       mIdeal.emplace(aOther.GetAsBoolean());
     }
   } else {
-    const dom::ConstrainBooleanParameters& r = aOther.GetAsConstrainBooleanParameters();
+    const dom::ConstrainBooleanParameters& r =
+        aOther.GetAsConstrainBooleanParameters();
     if (r.mIdeal.WasPassed()) {
       mIdeal.emplace(r.mIdeal.Value());
     }
@@ -163,10 +172,11 @@ NormalizedConstraintSet::BooleanRange::BooleanRange(
 NormalizedConstraintSet::StringRange::StringRange(
     StringPtrType aMemberPtr,
     const char* aName,
-    const dom::OwningStringOrStringSequenceOrConstrainDOMStringParameters& aOther,
+    const dom::OwningStringOrStringSequenceOrConstrainDOMStringParameters&
+        aOther,
     bool advanced,
     nsTArray<MemberPtrType>* aList)
-  : BaseRange((MemberPtrType)aMemberPtr, aName, aList)
+    : BaseRange((MemberPtrType)aMemberPtr, aName, aList)
 {
   if (aOther.IsString()) {
     if (advanced) {
@@ -218,7 +228,8 @@ NormalizedConstraintSet::StringRange::SetFrom(
 }
 
 auto
-NormalizedConstraintSet::StringRange::Clamp(const ValueType& n) const -> ValueType
+NormalizedConstraintSet::StringRange::Clamp(const ValueType& n) const
+    -> ValueType
 {
   if (mExact.empty()) {
     return n;
@@ -233,15 +244,18 @@ NormalizedConstraintSet::StringRange::Clamp(const ValueType& n) const -> ValueTy
 }
 
 bool
-NormalizedConstraintSet::StringRange::Intersects(const StringRange& aOther) const
+NormalizedConstraintSet::StringRange::Intersects(
+    const StringRange& aOther) const
 {
   if (mExact.empty() || aOther.mExact.empty()) {
     return true;
   }
 
   ValueType intersection;
-  set_intersection(mExact.begin(), mExact.end(),
-                   aOther.mExact.begin(), aOther.mExact.end(),
+  set_intersection(mExact.begin(),
+                   mExact.end(),
+                   aOther.mExact.begin(),
+                   aOther.mExact.end(),
                    std::inserter(intersection, intersection.begin()));
   return !intersection.empty();
 }
@@ -254,8 +268,10 @@ NormalizedConstraintSet::StringRange::Intersect(const StringRange& aOther)
   }
 
   ValueType intersection;
-  set_intersection(mExact.begin(), mExact.end(),
-                   aOther.mExact.begin(), aOther.mExact.end(),
+  set_intersection(mExact.begin(),
+                   mExact.end(),
+                   aOther.mExact.begin(),
+                   aOther.mExact.end(),
                    std::inserter(intersection, intersection.begin()));
   mExact = intersection;
 }
@@ -269,18 +285,18 @@ NormalizedConstraintSet::StringRange::Merge(const StringRange& aOther)
   Intersect(aOther);
 
   ValueType unioned;
-  set_union(mIdeal.begin(), mIdeal.end(),
-            aOther.mIdeal.begin(), aOther.mIdeal.end(),
+  set_union(mIdeal.begin(),
+            mIdeal.end(),
+            aOther.mIdeal.begin(),
+            aOther.mIdeal.end(),
             std::inserter(unioned, unioned.begin()));
   mIdeal = unioned;
   return true;
 }
 
 NormalizedConstraints::NormalizedConstraints(
-    const dom::MediaTrackConstraints& aOther,
-    nsTArray<MemberPtrType>* aList)
-  : NormalizedConstraintSet(aOther, false, aList)
-  , mBadConstraint(nullptr)
+    const dom::MediaTrackConstraints& aOther, nsTArray<MemberPtrType>* aList)
+    : NormalizedConstraintSet(aOther, false, aList), mBadConstraint(nullptr)
 {
   if (aOther.mAdvanced.WasPassed()) {
     for (auto& entry : aOther.mAdvanced.Value()) {
@@ -295,8 +311,7 @@ NormalizedConstraints::NormalizedConstraints(
 
 NormalizedConstraints::NormalizedConstraints(
     const nsTArray<const NormalizedConstraints*>& aOthers)
-  : NormalizedConstraintSet(*aOthers[0])
-  , mBadConstraint(nullptr)
+    : NormalizedConstraintSet(*aOthers[0]), mBadConstraint(nullptr)
 {
   for (auto& entry : aOthers[0]->mAdvanced) {
     mAdvanced.push_back(entry);
@@ -357,29 +372,28 @@ NormalizedConstraints::NormalizedConstraints(
 }
 
 FlattenedConstraints::FlattenedConstraints(const NormalizedConstraints& aOther)
-: NormalizedConstraintSet(aOther)
+    : NormalizedConstraintSet(aOther)
 {
   for (auto& set : aOther.mAdvanced) {
     // Must only apply compatible i.e. inherently non-overconstraining sets
     // This rule is pretty much why this code is centralized here.
-    if (mWidth.Intersects(set.mWidth) &&
-        mHeight.Intersects(set.mHeight) &&
+    if (mWidth.Intersects(set.mWidth) && mHeight.Intersects(set.mHeight) &&
         mFrameRate.Intersects(set.mFrameRate)) {
       mWidth.Intersect(set.mWidth);
       mHeight.Intersect(set.mHeight);
       mFrameRate.Intersect(set.mFrameRate);
     }
     if (mEchoCancellation.Intersects(set.mEchoCancellation)) {
-        mEchoCancellation.Intersect(set.mEchoCancellation);
+      mEchoCancellation.Intersect(set.mEchoCancellation);
     }
     if (mNoiseSuppression.Intersects(set.mNoiseSuppression)) {
-        mNoiseSuppression.Intersect(set.mNoiseSuppression);
+      mNoiseSuppression.Intersect(set.mNoiseSuppression);
     }
     if (mAutoGainControl.Intersects(set.mAutoGainControl)) {
-        mAutoGainControl.Intersect(set.mAutoGainControl);
+      mAutoGainControl.Intersect(set.mAutoGainControl);
     }
     if (mChannelCount.Intersects(set.mChannelCount)) {
-        mChannelCount.Intersect(set.mChannelCount);
+      mChannelCount.Intersect(set.mChannelCount);
     }
   }
 }
@@ -396,8 +410,7 @@ FlattenedConstraints::FlattenedConstraints(const NormalizedConstraints& aOther)
 
 uint32_t
 MediaConstraintsHelper::GetMinimumFitnessDistance(
-    const NormalizedConstraintSet &aConstraints,
-    const nsString& aDeviceId)
+    const NormalizedConstraintSet& aConstraints, const nsString& aDeviceId)
 {
   return FitnessDistance(aDeviceId, aConstraints.mDeviceId);
 }
@@ -413,21 +426,23 @@ MediaConstraintsHelper::FitnessDistance(ValueType aN,
   if (aN == aRange.mIdeal.valueOr(aN)) {
     return 0;
   }
-  return uint32_t(ValueType((std::abs(aN - aRange.mIdeal.value()) * 1000) /
-                            std::max(std::abs(aN), std::abs(aRange.mIdeal.value()))));
+  return uint32_t(
+      ValueType((std::abs(aN - aRange.mIdeal.value()) * 1000) /
+                std::max(std::abs(aN), std::abs(aRange.mIdeal.value()))));
 }
 
 // Fitness distance returned as integer math * 1000. Infinity = UINT32_MAX
 
 /* static */ uint32_t
 MediaConstraintsHelper::FitnessDistance(
-    nsString aN,
-    const NormalizedConstraintSet::StringRange& aParams)
+    nsString aN, const NormalizedConstraintSet::StringRange& aParams)
 {
-  if (!aParams.mExact.empty() && aParams.mExact.find(aN) == aParams.mExact.end()) {
+  if (!aParams.mExact.empty() &&
+      aParams.mExact.find(aN) == aParams.mExact.end()) {
     return UINT32_MAX;
   }
-  if (!aParams.mIdeal.empty() && aParams.mIdeal.find(aN) == aParams.mIdeal.end()) {
+  if (!aParams.mIdeal.empty() &&
+      aParams.mIdeal.find(aN) == aParams.mIdeal.end()) {
     return 1000;
   }
   return 0;
@@ -442,14 +457,17 @@ MediaConstraintsHelper::FindBadConstraint(
 {
   class MockDevice
   {
-  public:
+   public:
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MockDevice);
 
     explicit MockDevice(const MediaEngineSourceType* aMediaEngineSource,
                         const nsString& aDeviceId)
-    : mMediaEngineSource(aMediaEngineSource),
-      // The following dud code exists to avoid 'unused typedef' error on linux.
-      mDeviceId(MockDevice::HasThreadSafeRefCnt::value ? aDeviceId : nsString()) {}
+        : mMediaEngineSource(aMediaEngineSource),
+          // The following dud code exists to avoid 'unused typedef' error on linux.
+          mDeviceId(MockDevice::HasThreadSafeRefCnt::value ? aDeviceId
+                                                           : nsString())
+    {
+    }
 
     uint32_t GetBestFitnessDistance(
         const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
@@ -459,7 +477,7 @@ MediaConstraintsHelper::FindBadConstraint(
                                                         mDeviceId);
     }
 
-  private:
+   private:
     ~MockDevice() {}
 
     const MediaEngineSourceType* mMediaEngineSource;
@@ -478,7 +496,8 @@ MediaConstraintsHelper::ConvertOldWithWarning(
     const dom::OwningBooleanOrConstrainBooleanParameters& old,
     dom::OwningBooleanOrConstrainBooleanParameters& to,
     const char* aMessageName,
-    nsPIDOMWindowInner* aWindow) {
+    nsPIDOMWindowInner* aWindow)
+{
   if ((old.IsBoolean() ||
        old.GetAsConstrainBooleanParameters().mExact.WasPassed() ||
        old.GetAsConstrainBooleanParameters().mIdeal.WasPassed()) &&
@@ -488,16 +507,18 @@ MediaConstraintsHelper::ConvertOldWithWarning(
     nsCOMPtr<nsIDocument> doc = aWindow->GetDoc();
     if (doc) {
       nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
-                                      NS_LITERAL_CSTRING("DOM"), doc,
+                                      NS_LITERAL_CSTRING("DOM"),
+                                      doc,
                                       nsContentUtils::eDOM_PROPERTIES,
                                       aMessageName);
     }
     if (old.IsBoolean()) {
       to.SetAsBoolean() = old.GetAsBoolean();
     } else {
-      to.SetAsConstrainBooleanParameters() = old.GetAsConstrainBooleanParameters();
+      to.SetAsConstrainBooleanParameters() =
+          old.GetAsConstrainBooleanParameters();
     }
   }
 }
 
-}
+}  // namespace mozilla

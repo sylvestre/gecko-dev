@@ -20,24 +20,21 @@
 
 class AutoCriticalSection
 {
-public:
-  explicit AutoCriticalSection(LPCRITICAL_SECTION aSection)
-    : mSection(aSection)
+ public:
+  explicit AutoCriticalSection(LPCRITICAL_SECTION aSection) : mSection(aSection)
   {
     ::EnterCriticalSection(mSection);
   }
-  ~AutoCriticalSection()
-  {
-    ::LeaveCriticalSection(mSection);
-  }
-private:
+  ~AutoCriticalSection() { ::LeaveCriticalSection(mSection); }
+
+ private:
   LPCRITICAL_SECTION mSection;
 };
 
 // Estimate of the smallest duration of time we can measure.
 static volatile ULONGLONG sResolution;
 static volatile ULONGLONG sResolutionSigDigs;
-static const double   kNsPerSecd  = 1000000000.0;
+static const double kNsPerSecd = 1000000000.0;
 static const LONGLONG kNsPerMillisec = 1000000;
 
 // ----------------------------------------------------------------------------
@@ -75,7 +72,7 @@ static const DWORD kDefaultTimeIncrement = 156001;
  * have the same units to allow simple arithmentic with both QPC and GTC.
  */
 
-#define ms2mt(x) ((x) * sFrequencyPerSec)
+#define ms2mt(x) ((x)*sFrequencyPerSec)
 #define mt2ms(x) ((x) / sFrequencyPerSec)
 #define mt2ms_f(x) (double(x) / sFrequencyPerSec)
 
@@ -187,9 +184,8 @@ InitThresholds()
 {
   DWORD timeAdjustment = 0, timeIncrement = 0;
   BOOL timeAdjustmentDisabled;
-  GetSystemTimeAdjustment(&timeAdjustment,
-                          &timeIncrement,
-                          &timeAdjustmentDisabled);
+  GetSystemTimeAdjustment(
+      &timeAdjustment, &timeIncrement, &timeAdjustmentDisabled);
 
   LOG(("TimeStamp: timeIncrement=%d [100ns]", timeIncrement));
 
@@ -211,11 +207,11 @@ InitThresholds()
 
   // How many milli-ticks has the interval rounded up
   LONGLONG ticksPerGetTickCountResolutionCeiling =
-    (int64_t(timeIncrementCeil) * sFrequencyPerSec) / 10000LL;
+      (int64_t(timeIncrementCeil) * sFrequencyPerSec) / 10000LL;
 
   // GTC may jump by 32 (2*16) ms in two steps, therefor use the ceiling value.
   sGTCResolutionThreshold =
-    LONGLONG(kGTCTickLeapTolerance * ticksPerGetTickCountResolutionCeiling);
+      LONGLONG(kGTCTickLeapTolerance * ticksPerGetTickCountResolutionCeiling);
 
   sHardFailureLimit = ms2mt(kHardFailureLimit);
   sFailureFreeInterval = ms2mt(kFailureFreeInterval);
@@ -262,9 +258,9 @@ InitResolution()
   // find the number of significant digits in mResolution, for the
   // sake of ToSecondsSigDigits()
   ULONGLONG sigDigs;
-  for (sigDigs = 1;
-       !(sigDigs == result || 10 * sigDigs > result);
-       sigDigs *= 10);
+  for (sigDigs = 1; !(sigDigs == result || 10 * sigDigs > result);
+       sigDigs *= 10)
+    ;
 
   sResolutionSigDigs = sigDigs;
 }
@@ -274,10 +270,7 @@ InitResolution()
 // ----------------------------------------------------------------------------
 MFBT_API
 TimeStampValue::TimeStampValue(ULONGLONG aGTC, ULONGLONG aQPC, bool aHasQPC)
-  : mGTC(aGTC)
-  , mQPC(aQPC)
-  , mHasQPC(aHasQPC)
-  , mIsNull(false)
+    : mGTC(aGTC), mQPC(aQPC), mHasQPC(aHasQPC), mIsNull(false)
 {
 }
 
@@ -304,13 +297,13 @@ TimeStampValue::CheckQPC(const TimeStampValue& aOther) const
 {
   uint64_t deltaGTC = mGTC - aOther.mGTC;
 
-  if (!mHasQPC || !aOther.mHasQPC) { // Both not holding QPC
+  if (!mHasQPC || !aOther.mHasQPC) {  // Both not holding QPC
     return deltaGTC;
   }
 
   uint64_t deltaQPC = mQPC - aOther.mQPC;
 
-  if (sHasStableTSC) { // For stable TSC there is no need to check
+  if (sHasStableTSC) {  // For stable TSC there is no need to check
     return deltaQPC;
   }
 
@@ -325,7 +318,8 @@ TimeStampValue::CheckQPC(const TimeStampValue& aOther) const
   int64_t overflow = diff - sGTCResolutionThreshold;
 
   LOG(("TimeStamp: QPC check after %llums with overflow %1.4fms",
-       mt2ms(duration), mt2ms_f(overflow)));
+       mt2ms(duration),
+       mt2ms_f(overflow)));
 
   if (overflow <= sFailureThreshold) {  // We are in the limit, let go.
     return deltaQPC;
@@ -333,7 +327,7 @@ TimeStampValue::CheckQPC(const TimeStampValue& aOther) const
 
   // QPC deviates, don't use it, since now this method may only return deltaGTC.
 
-  if (!sUseQPC) { // QPC already disabled, no need to run the fault tolerance algorithm.
+  if (!sUseQPC) {  // QPC already disabled, no need to run the fault tolerance algorithm.
     return deltaGTC;
   }
 
@@ -351,8 +345,8 @@ TimeStampValue::CheckQPC(const TimeStampValue& aOther) const
       // Time since now to the checkpoint actually holds information on how many
       // failures there were in the failure free interval we have defined.
       uint64_t failureCount =
-        (sFaultIntoleranceCheckpoint - now + sFailureFreeInterval - 1) /
-        sFailureFreeInterval;
+          (sFaultIntoleranceCheckpoint - now + sFailureFreeInterval - 1) /
+          sFailureFreeInterval;
       if (failureCount > kMaxFailuresPerInterval) {
         sUseQPC = false;
         LOG(("TimeStamp: QPC disabled"));
@@ -428,8 +422,7 @@ BaseTimeDurationPlatformUtils::ResolutionInTicks()
 static bool
 HasStableTSC()
 {
-  union
-  {
+  union {
     int regs[4];
     struct
     {
@@ -442,10 +435,8 @@ HasStableTSC()
   // Only allow Intel or AMD CPUs for now.
   // The order of the registers is reg[1], reg[3], reg[2].  We just adjust the
   // string so that we can compare in one go.
-  if (_strnicmp(cpuInfo.cpuString, "GenuntelineI",
-                sizeof(cpuInfo.cpuString)) &&
-      _strnicmp(cpuInfo.cpuString, "AuthcAMDenti",
-                sizeof(cpuInfo.cpuString))) {
+  if (_strnicmp(cpuInfo.cpuString, "GenuntelineI", sizeof(cpuInfo.cpuString)) &&
+      _strnicmp(cpuInfo.cpuString, "AuthcAMDenti", sizeof(cpuInfo.cpuString))) {
     return false;
   }
 
@@ -555,16 +546,10 @@ TimeStamp::ComputeProcessUptime()
     return 0;
   }
 
-  ULARGE_INTEGER startUsec = {{
-     start.dwLowDateTime,
-     start.dwHighDateTime
-  }};
-  ULARGE_INTEGER nowUsec = {{
-    now.dwLowDateTime,
-    now.dwHighDateTime
-  }};
+  ULARGE_INTEGER startUsec = {{start.dwLowDateTime, start.dwHighDateTime}};
+  ULARGE_INTEGER nowUsec = {{now.dwLowDateTime, now.dwHighDateTime}};
 
   return (nowUsec.QuadPart - startUsec.QuadPart) / 10ULL;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

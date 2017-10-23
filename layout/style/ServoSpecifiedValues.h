@@ -19,7 +19,7 @@ namespace mozilla {
 
 class ServoSpecifiedValues final : public GenericSpecifiedValues
 {
-public:
+ public:
   ServoSpecifiedValues(nsPresContext* aContext,
                        RawServoDeclarationBlock* aDecl);
 
@@ -52,10 +52,10 @@ public:
   void SetTextDecorationColorOverride();
   void SetBackgroundImage(nsAttrValue& aValue);
 
-private:
+ private:
   RefPtr<RawServoDeclarationBlock> mDecl;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoSpecifiedValues_h
+#endif  // mozilla_ServoSpecifiedValues_h

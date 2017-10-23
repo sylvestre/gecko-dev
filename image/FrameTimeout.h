@@ -52,7 +52,7 @@ struct FrameTimeout
     //   Opera 7 final/Win:
     //     10ms is normalized to 100ms.
     //     >10ms is used unnormalized.
-    if (aRawMilliseconds >= 0 && aRawMilliseconds <= 10 ) {
+    if (aRawMilliseconds >= 0 && aRawMilliseconds <= 10) {
       return FrameTimeout(100);
     }
 
@@ -65,7 +65,10 @@ struct FrameTimeout
     return mTimeout == aOther.mTimeout;
   }
 
-  bool operator!=(const FrameTimeout& aOther) const { return !(*this == aOther); }
+  bool operator!=(const FrameTimeout& aOther) const
+  {
+    return !(*this == aOther);
+  }
 
   FrameTimeout operator+(const FrameTimeout& aOther)
   {
@@ -89,7 +92,8 @@ struct FrameTimeout
   uint32_t AsMilliseconds() const
   {
     if (*this == Forever()) {
-      MOZ_ASSERT_UNREACHABLE("Calling AsMilliseconds() on an infinite FrameTimeout");
+      MOZ_ASSERT_UNREACHABLE(
+          "Calling AsMilliseconds() on an infinite FrameTimeout");
       return 100;  // Fail to something sane.
     }
 
@@ -105,15 +109,13 @@ struct FrameTimeout
    */
   int32_t AsEncodedValueDeprecated() const { return mTimeout; }
 
-private:
-  explicit FrameTimeout(int32_t aTimeout)
-    : mTimeout(aTimeout)
-  { }
+ private:
+  explicit FrameTimeout(int32_t aTimeout) : mTimeout(aTimeout) {}
 
   int32_t mTimeout;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_FrameTimeout_h
+#endif  // mozilla_image_FrameTimeout_h

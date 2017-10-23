@@ -18,7 +18,7 @@
 
 class nsProfiler final : public nsIProfiler, public nsIObserver
 {
-public:
+ public:
   nsProfiler();
 
   NS_DECL_ISUPPORTS
@@ -30,13 +30,13 @@ public:
   static nsProfiler* GetOrCreate()
   {
     nsCOMPtr<nsIProfiler> iprofiler =
-      do_GetService("@mozilla.org/tools/profiler;1");
+        do_GetService("@mozilla.org/tools/profiler;1");
     return static_cast<nsProfiler*>(iprofiler.get());
   }
 
   void GatheredOOPProfile(const nsACString& aProfile);
 
-private:
+ private:
   ~nsProfiler();
 
   typedef mozilla::MozPromise<nsCString, nsresult, false> GatheringPromise;
@@ -47,7 +47,8 @@ private:
 
   bool mLockedForPrivateBrowsing;
 
-  struct ExitProfile {
+  struct ExitProfile
+  {
     nsCString mJSON;
     mozilla::TimeStamp mGatherTime;
   };
@@ -60,5 +61,4 @@ private:
   bool mGathering;
 };
 
-#endif // nsProfiler_h
-
+#endif  // nsProfiler_h

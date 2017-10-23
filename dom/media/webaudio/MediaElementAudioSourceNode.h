@@ -17,20 +17,23 @@ struct MediaElementAudioSourceOptions;
 
 class MediaElementAudioSourceNode final : public MediaStreamAudioSourceNode
 {
-public:
-  static already_AddRefed<MediaElementAudioSourceNode>
-  Create(AudioContext& aAudioContext,
-         const MediaElementAudioSourceOptions& aOptions,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<MediaElementAudioSourceNode> Create(
+      AudioContext& aAudioContext,
+      const MediaElementAudioSourceOptions& aOptions,
+      ErrorResult& aRv);
 
-  static already_AddRefed<MediaElementAudioSourceNode>
-  Constructor(const GlobalObject& aGlobal, AudioContext& aAudioContext,
-              const MediaElementAudioSourceOptions& aOptions, ErrorResult& aRv)
+  static already_AddRefed<MediaElementAudioSourceNode> Constructor(
+      const GlobalObject& aGlobal,
+      AudioContext& aAudioContext,
+      const MediaElementAudioSourceOptions& aOptions,
+      ErrorResult& aRv)
   {
     return Create(aAudioContext, aOptions, aRv);
   }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   const char* NodeType() const override
   {
@@ -46,11 +49,12 @@ public:
   {
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
-private:
+
+ private:
   explicit MediaElementAudioSourceNode(AudioContext* aContext);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

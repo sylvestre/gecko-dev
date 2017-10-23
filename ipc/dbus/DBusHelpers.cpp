@@ -14,7 +14,7 @@
 #include "nsThreadUtils.h"
 
 #undef CHROMIUM_LOG
-#define CHROMIUM_LOG(args...)  printf(args);
+#define CHROMIUM_LOG(args...) printf(args);
 
 namespace mozilla {
 namespace ipc {
@@ -27,11 +27,11 @@ namespace {
 
 class Notification final
 {
-public:
+ public:
   Notification(DBusReplyCallback aCallback, void* aData)
-    : mCallback(aCallback)
-    , mData(aData)
-  { }
+      : mCallback(aCallback), mData(aData)
+  {
+  }
 
   // Callback function for DBus replies. Only run it on I/O thread.
   //
@@ -43,8 +43,8 @@ public:
 
     UniquePtr<Notification> ntfn(static_cast<Notification*>(aData));
 
-    RefPtr<DBusMessage> reply = already_AddRefed<DBusMessage>(
-      dbus_pending_call_steal_reply(call));
+    RefPtr<DBusMessage> reply =
+        already_AddRefed<DBusMessage>(dbus_pending_call_steal_reply(call));
 
     // The reply can be null if the timeout has been reached.
     if (reply) {
@@ -54,7 +54,7 @@ public:
     dbus_pending_call_cancel(call);
   }
 
-private:
+ private:
   void RunCallback(DBusMessage* aMessage)
   {
     if (mCallback) {
@@ -63,7 +63,7 @@ private:
   }
 
   DBusReplyCallback mCallback;
-  void*             mData;
+  void* mData;
 };
 
 static already_AddRefed<DBusMessage>
@@ -75,7 +75,7 @@ BuildDBusMessage(const char* aDestination,
                  va_list aArgs)
 {
   RefPtr<DBusMessage> msg = already_AddRefed<DBusMessage>(
-    dbus_message_new_method_call(aDestination, aPath, aIntf, aFunc));
+      dbus_message_new_method_call(aDestination, aPath, aIntf, aFunc));
 
   if (!msg) {
     CHROMIUM_LOG("dbus_message_new_method_call failed");
@@ -92,7 +92,7 @@ BuildDBusMessage(const char* aDestination,
   return msg.forget();
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 nsresult
 DBusWatchConnection(DBusConnection* aConnection)
@@ -101,11 +101,12 @@ DBusWatchConnection(DBusConnection* aConnection)
   MOZ_ASSERT(aConnection);
 
   auto success =
-    dbus_connection_set_watch_functions(aConnection,
-                                        DBusWatcher::AddWatchFunction,
-                                        DBusWatcher::RemoveWatchFunction,
-                                        DBusWatcher::ToggleWatchFunction,
-                                        aConnection, nullptr);
+      dbus_connection_set_watch_functions(aConnection,
+                                          DBusWatcher::AddWatchFunction,
+                                          DBusWatcher::RemoveWatchFunction,
+                                          DBusWatcher::ToggleWatchFunction,
+                                          aConnection,
+                                          nullptr);
   if (!success) {
     CHROMIUM_LOG("dbus_connection_set_watch_functions failed");
     return NS_ERROR_FAILURE;
@@ -120,9 +121,8 @@ DBusUnwatchConnection(DBusConnection* aConnection)
   MOZ_ASSERT(!NS_IsMainThread());
   MOZ_ASSERT(aConnection);
 
-  auto success = dbus_connection_set_watch_functions(aConnection,
-                                                     nullptr, nullptr, nullptr,
-                                                     nullptr, nullptr);
+  auto success = dbus_connection_set_watch_functions(
+      aConnection, nullptr, nullptr, nullptr, nullptr, nullptr);
   if (!success) {
     CHROMIUM_LOG("dbus_connection_set_watch_functions failed");
   }
@@ -147,7 +147,8 @@ DBusSendMessage(DBusConnection* aConnection, DBusMessage* aMessage)
 
 nsresult
 DBusSendMessageWithReply(DBusConnection* aConnection,
-                         DBusReplyCallback aCallback, void* aData,
+                         DBusReplyCallback aCallback,
+                         void* aData,
                          int aTimeout,
                          DBusMessage* aMessage)
 {
@@ -159,23 +160,21 @@ DBusSendMessageWithReply(DBusConnection* aConnection,
 
   auto call = static_cast<DBusPendingCall*>(nullptr);
 
-  auto success = dbus_connection_send_with_reply(aConnection,
-                                                 aMessage,
-                                                 &call,
-                                                 aTimeout);
+  auto success =
+      dbus_connection_send_with_reply(aConnection, aMessage, &call, aTimeout);
   if (!success) {
     CHROMIUM_LOG("dbus_connection_send_with_reply failed");
     return NS_ERROR_FAILURE;
   }
 
-  success = dbus_pending_call_set_notify(call, Notification::Handle,
-                                         ntfn.get(), nullptr);
+  success = dbus_pending_call_set_notify(
+      call, Notification::Handle, ntfn.get(), nullptr);
   if (!success) {
     CHROMIUM_LOG("dbus_pending_call_set_notify failed");
     return NS_ERROR_FAILURE;
   }
 
-  Unused << ntfn.release(); // Picked up in |Notification::Handle|
+  Unused << ntfn.release();  // Picked up in |Notification::Handle|
 
   return NS_OK;
 }
@@ -196,7 +195,7 @@ DBusSendMessageWithReply(DBusConnection* aConnection,
   MOZ_ASSERT(aConnection);
 
   RefPtr<DBusMessage> msg =
-    BuildDBusMessage(aDestination, aPath, aIntf, aFunc, aFirstArgType, aArgs);
+      BuildDBusMessage(aDestination, aPath, aIntf, aFunc, aFirstArgType, aArgs);
 
   if (!msg) {
     return NS_ERROR_FAILURE;
@@ -224,10 +223,15 @@ DBusSendMessageWithReply(DBusConnection* aConnection,
   va_start(args, aFirstArgType);
 
   auto rv = DBusSendMessageWithReply(aConnection,
-                                     aCallback, aData,
+                                     aCallback,
+                                     aData,
                                      aTimeout,
-                                     aDestination, aPath, aIntf, aFunc,
-                                     aFirstArgType, args);
+                                     aDestination,
+                                     aPath,
+                                     aIntf,
+                                     aFunc,
+                                     aFirstArgType,
+                                     args);
   va_end(args);
 
   if (NS_FAILED(rv)) {
@@ -237,5 +241,5 @@ DBusSendMessageWithReply(DBusConnection* aConnection,
   return NS_OK;
 }
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla

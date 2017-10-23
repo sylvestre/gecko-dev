@@ -16,8 +16,7 @@ VideoTrackList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return VideoTrackListBinding::Wrap(aCx, this, aGivenProto);
 }
 
-VideoTrack*
-VideoTrackList::operator[](uint32_t aIndex)
+VideoTrack* VideoTrackList::operator[](uint32_t aIndex)
 {
   MediaTrack* track = MediaTrackList::operator[](aIndex);
   return track->AsVideoTrack();
@@ -38,7 +37,8 @@ VideoTrackList::RemoveTrack(const RefPtr<MediaTrack>& aTrack)
     return;
   }
   MOZ_ASSERT(found, "When mSelectedIndex is set it should point to a track");
-  MOZ_ASSERT(selectedVideoTrack, "The mSelectedIndex should be set to video track only");
+  MOZ_ASSERT(selectedVideoTrack,
+             "The mSelectedIndex should be set to video track only");
 
   // Let the caller of RemoveTrack deal with choosing the new selected track if
   // it removes the currently-selected track.
@@ -65,9 +65,11 @@ VideoTrackList::EmptyTracks()
   MediaTrackList::EmptyTracks();
 }
 
-VideoTrack* VideoTrackList::GetSelectedTrack()
+VideoTrack*
+VideoTrackList::GetSelectedTrack()
 {
-  if (mSelectedIndex < 0 || static_cast<size_t>(mSelectedIndex) >= mTracks.Length()) {
+  if (mSelectedIndex < 0 ||
+      static_cast<size_t>(mSelectedIndex) >= mTracks.Length()) {
     return nullptr;
   }
 
@@ -88,5 +90,5 @@ VideoTrackList::GetTrackById(const nsAString& aId)
   return track ? track->AsVideoTrack() : nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

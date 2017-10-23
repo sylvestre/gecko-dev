@@ -89,8 +89,8 @@ CallbackObject::Trace(JSTracer* aTracer)
 {
   JS::TraceEdge(aTracer, &mCallback, "CallbackObject.mCallback");
   JS::TraceEdge(aTracer, &mCreationStack, "CallbackObject.mCreationStack");
-  JS::TraceEdge(aTracer, &mIncumbentJSGlobal,
-                "CallbackObject.mIncumbentJSGlobal");
+  JS::TraceEdge(
+      aTracer, &mIncumbentJSGlobal, "CallbackObject.mIncumbentJSGlobal");
 }
 
 void
@@ -134,11 +134,11 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
                                      ExceptionHandling aExceptionHandling,
                                      JSCompartment* aCompartment,
                                      bool aIsJSImplementedWebIDL)
-  : mCx(nullptr)
-  , mCompartment(aCompartment)
-  , mErrorResult(aRv)
-  , mExceptionHandling(aExceptionHandling)
-  , mIsMainThread(NS_IsMainThread())
+    : mCx(nullptr),
+      mCompartment(aCompartment),
+      mErrorResult(aRv),
+      mExceptionHandling(aExceptionHandling),
+      mIsMainThread(NS_IsMainThread())
 {
   if (mIsMainThread) {
     CycleCollectedJSContext* ccjs = CycleCollectedJSContext::Get();
@@ -151,13 +151,16 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
   // do anything that might perturb the relevant state.
   nsIPrincipal* webIDLCallerPrincipal = nullptr;
   if (aIsJSImplementedWebIDL) {
-    webIDLCallerPrincipal = nsContentUtils::SubjectPrincipalOrSystemIfNativeCaller();
+    webIDLCallerPrincipal =
+        nsContentUtils::SubjectPrincipalOrSystemIfNativeCaller();
   }
 
   JSObject* wrappedCallback = aCallback->CallbackPreserveColor();
   if (!wrappedCallback) {
-    aRv.ThrowDOMException(NS_ERROR_DOM_NOT_SUPPORTED_ERR,
-      NS_LITERAL_CSTRING("Cannot execute callback from a nuked compartment."));
+    aRv.ThrowDOMException(
+        NS_ERROR_DOM_NOT_SUPPORTED_ERR,
+        NS_LITERAL_CSTRING(
+            "Cannot execute callback from a nuked compartment."));
     return;
   }
 
@@ -173,9 +176,11 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
       // Make sure to use realCallback to get the global of the callback
       // object, not the wrapper.
       if (!xpc::Scriptability::Get(realCallback).Allowed()) {
-        aRv.ThrowDOMException(NS_ERROR_DOM_NOT_SUPPORTED_ERR,
-          NS_LITERAL_CSTRING("Refusing to execute function from global in which "
-                             "script is disabled."));
+        aRv.ThrowDOMException(
+            NS_ERROR_DOM_NOT_SUPPORTED_ERR,
+            NS_LITERAL_CSTRING(
+                "Refusing to execute function from global in which "
+                "script is disabled."));
         return;
       }
     }
@@ -183,16 +188,17 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
     // Now get the global for this callback. Note that for the case of
     // JS-implemented WebIDL we never have a window here.
     nsGlobalWindow* win = mIsMainThread && !aIsJSImplementedWebIDL
-                            ? xpc::WindowGlobalOrNull(realCallback)
-                            : nullptr;
+                              ? xpc::WindowGlobalOrNull(realCallback)
+                              : nullptr;
     if (win) {
       MOZ_ASSERT(win->IsInnerWindow());
       // We don't want to run script in windows that have been navigated away
       // from.
       if (!win->AsInner()->HasActiveDocument()) {
-        aRv.ThrowDOMException(NS_ERROR_DOM_NOT_SUPPORTED_ERR,
-          NS_LITERAL_CSTRING("Refusing to execute function from window "
-                             "whose document is no longer active."));
+        aRv.ThrowDOMException(
+            NS_ERROR_DOM_NOT_SUPPORTED_ERR,
+            NS_LITERAL_CSTRING("Refusing to execute function from window "
+                               "whose document is no longer active."));
         return;
       }
       globalObject = win;
@@ -208,9 +214,10 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
   // on gaia-ui tests, probably because nsInProcessTabChildGlobal is returning
   // null in some kind of teardown state.
   if (!globalObject->GetGlobalJSObject()) {
-    aRv.ThrowDOMException(NS_ERROR_DOM_NOT_SUPPORTED_ERR,
-      NS_LITERAL_CSTRING("Refusing to execute function from global which is "
-                         "being torn down."));
+    aRv.ThrowDOMException(
+        NS_ERROR_DOM_NOT_SUPPORTED_ERR,
+        NS_LITERAL_CSTRING("Refusing to execute function from global which is "
+                           "being torn down."));
     return;
   }
 
@@ -224,9 +231,10 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
     // nsIGlobalObject has severed its reference to the JS global. Let's just
     // be safe here, so that nobody has to waste a day debugging gaia-ui tests.
     if (!incumbent->GetGlobalJSObject()) {
-      aRv.ThrowDOMException(NS_ERROR_DOM_NOT_SUPPORTED_ERR,
-        NS_LITERAL_CSTRING("Refusing to execute function because our "
-                           "incumbent global is being torn down."));
+      aRv.ThrowDOMException(
+          NS_ERROR_DOM_NOT_SUPPORTED_ERR,
+          NS_LITERAL_CSTRING("Refusing to execute function because our "
+                             "incumbent global is being torn down."));
       return;
     }
     mAutoIncumbentScript.emplace(incumbent);
@@ -260,7 +268,8 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
 }
 
 bool
-CallbackObject::CallSetup::ShouldRethrowException(JS::Handle<JS::Value> aException)
+CallbackObject::CallSetup::ShouldRethrowException(
+    JS::Handle<JS::Value> aException)
 {
   if (mExceptionHandling == eRethrowExceptions) {
     if (!mCompartment) {
@@ -281,7 +290,7 @@ CallbackObject::CallSetup::ShouldRethrowException(JS::Handle<JS::Value> aExcepti
     // just check whether the principal of mCompartment subsumes that of the
     // current compartment/global of mCx.
     nsIPrincipal* callerPrincipal =
-      nsJSPrincipals::get(JS_GetCompartmentPrincipals(mCompartment));
+        nsJSPrincipals::get(JS_GetCompartmentPrincipals(mCompartment));
     nsIPrincipal* calleePrincipal = nsContentUtils::SubjectPrincipal();
     if (callerPrincipal->SubsumesConsideringDomain(calleePrincipal)) {
       return true;
@@ -383,7 +392,7 @@ CallbackObjectHolderBase::ToXPCOMCallback(CallbackObject* aCallback,
   JSAutoCompartment ac(cx, callback);
   RefPtr<nsXPCWrappedJS> wrappedJS;
   nsresult rv =
-    nsXPCWrappedJS::GetNewOrUsed(callback, aIID, getter_AddRefs(wrappedJS));
+      nsXPCWrappedJS::GetNewOrUsed(callback, aIID, getter_AddRefs(wrappedJS));
   if (NS_FAILED(rv) || !wrappedJS) {
     return nullptr;
   }
@@ -397,5 +406,5 @@ CallbackObjectHolderBase::ToXPCOMCallback(CallbackObject* aCallback,
   return retval.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

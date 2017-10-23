@@ -13,25 +13,20 @@
 
 JSAPITest* JSAPITest::list;
 
-bool JSAPITest::init()
-{
+bool JSAPITest::init() {
     cx = createContext();
-    if (!cx)
-        return false;
+    if (!cx) return false;
     js::UseInternalJobQueues(cx);
-    if (!JS::InitSelfHostedCode(cx))
-        return false;
+    if (!JS::InitSelfHostedCode(cx)) return false;
     JS_BeginRequest(cx);
     global.init(cx);
     createGlobal();
-    if (!global)
-        return false;
+    if (!global) return false;
     JS_EnterCompartment(cx, global);
     return true;
 }
 
-void JSAPITest::uninit()
-{
+void JSAPITest::uninit() {
     if (oldCompartment) {
         JS_LeaveCompartment(cx, oldCompartment);
         oldCompartment = nullptr;
@@ -47,17 +42,15 @@ void JSAPITest::uninit()
     }
 }
 
-bool JSAPITest::exec(const char* bytes, const char* filename, int lineno)
-{
+bool JSAPITest::exec(const char* bytes, const char* filename, int lineno) {
     JS::RootedValue v(cx);
     JS::CompileOptions opts(cx);
     opts.setFileAndLine(filename, lineno);
     return JS::Evaluate(cx, opts, bytes, strlen(bytes), &v) ||
-        fail(JSAPITestString(bytes), filename, lineno);
+           fail(JSAPITestString(bytes), filename, lineno);
 }
 
-bool JSAPITest::execDontReport(const char* bytes, const char* filename, int lineno)
-{
+bool JSAPITest::execDontReport(const char* bytes, const char* filename, int lineno) {
     JS::RootedValue v(cx);
     JS::CompileOptions opts(cx);
     opts.setFileAndLine(filename, lineno);
@@ -65,21 +58,18 @@ bool JSAPITest::execDontReport(const char* bytes, const char* filename, int line
 }
 
 bool JSAPITest::evaluate(const char* bytes, const char* filename, int lineno,
-                         JS::MutableHandleValue vp)
-{
+                         JS::MutableHandleValue vp) {
     JS::CompileOptions opts(cx);
     opts.setFileAndLine(filename, lineno);
     return JS::Evaluate(cx, opts, bytes, strlen(bytes), vp) ||
-        fail(JSAPITestString(bytes), filename, lineno);
+           fail(JSAPITestString(bytes), filename, lineno);
 }
 
-bool JSAPITest::definePrint()
-{
-    return JS_DefineFunction(cx, global, "print", (JSNative) print, 0, 0);
+bool JSAPITest::definePrint() {
+    return JS_DefineFunction(cx, global, "print", (JSNative)print, 0, 0);
 }
 
-JSObject* JSAPITest::createGlobal(JSPrincipals* principals)
-{
+JSObject* JSAPITest::createGlobal(JSPrincipals* principals) {
     /* Create the global object. */
     JS::RootedObject newGlobal(cx);
     JS::CompartmentOptions options;
@@ -87,24 +77,21 @@ JSObject* JSAPITest::createGlobal(JSPrincipals* principals)
     options.creationOptions().setStreamsEnabled(true);
 #endif
     options.behaviors().setVersion(JSVERSION_DEFAULT);
-    newGlobal = JS_NewGlobalObject(cx, getGlobalClass(), principals, JS::FireOnNewGlobalHook,
-                                   options);
-    if (!newGlobal)
-        return nullptr;
+    newGlobal =
+        JS_NewGlobalObject(cx, getGlobalClass(), principals, JS::FireOnNewGlobalHook, options);
+    if (!newGlobal) return nullptr;
 
     JSAutoCompartment ac(cx, newGlobal);
 
     // Populate the global object with the standard globals like Object and
     // Array.
-    if (!JS_InitStandardClasses(cx, newGlobal))
-        return nullptr;
+    if (!JS_InitStandardClasses(cx, newGlobal)) return nullptr;
 
     global = newGlobal;
     return newGlobal;
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     int total = 0;
     int failures = 0;
     const char* filter = (argc == 2) ? argv[1] : nullptr;
@@ -116,8 +103,7 @@ int main(int argc, char* argv[])
 
     for (JSAPITest* test = JSAPITest::list; test; test = test->next) {
         const char* name = test->name();
-        if (filter && strstr(name, filter) == nullptr)
-            continue;
+        if (filter && strstr(name, filter) == nullptr) continue;
 
         total += 1;
 
@@ -134,10 +120,9 @@ int main(int argc, char* argv[])
         } else {
             JSAPITestString messages = test->messages();
             printf("%s | %s | %.*s\n",
-                   (test->knownFail ? "TEST-KNOWN-FAIL" : "TEST-UNEXPECTED-FAIL"),
-                   name, (int) messages.length(), messages.begin());
-            if (!test->knownFail)
-                failures++;
+                   (test->knownFail ? "TEST-KNOWN-FAIL" : "TEST-UNEXPECTED-FAIL"), name,
+                   (int)messages.length(), messages.begin());
+            if (!test->knownFail) failures++;
         }
         test->uninit();
     }

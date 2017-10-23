@@ -25,11 +25,14 @@
 #include "mozilla/net/ReferrerPolicy.h"
 
 #define BEGIN_WORKERS_NAMESPACE \
-  namespace mozilla { namespace dom { namespace workers {
+  namespace mozilla {           \
+  namespace dom {               \
+  namespace workers {
 #define END_WORKERS_NAMESPACE \
-  } /* namespace workers */ } /* namespace dom */ } /* namespace mozilla */
-#define USING_WORKERS_NAMESPACE \
-  using namespace mozilla::dom::workers;
+  } /* namespace workers */   \
+  } /* namespace dom */       \
+  } /* namespace mozilla */
+#define USING_WORKERS_NAMESPACE using namespace mozilla::dom::workers;
 
 #define WORKERS_SHUTDOWN_TOPIC "web-workers-shutdown"
 
@@ -47,7 +50,7 @@ class nsIURI;
 namespace mozilla {
 namespace ipc {
 class PrincipalInfo;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 // If you change this, the corresponding list in nsIWorkerDebugger.idl needs to
@@ -59,15 +62,16 @@ enum WorkerType
   WorkerTypeService
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_WORKERS_NAMESPACE
 
 class WorkerPrivate;
 
 struct PrivatizableBase
-{ };
+{
+};
 
 #ifdef DEBUG
 void
@@ -75,12 +79,14 @@ AssertIsOnMainThread();
 #else
 inline void
 AssertIsOnMainThread()
-{ }
+{
+}
 #endif
 
 struct JSSettings
 {
-  enum {
+  enum
+  {
     // All the GC parameters that we support.
     JSSettings_JSGC_MAX_BYTES = 0,
     JSSettings_JSGC_MAX_MALLOC_BYTES,
@@ -106,9 +112,7 @@ struct JSSettings
     mozilla::Maybe<JSGCParamKey> key;
     uint32_t value;
 
-    JSGCSetting()
-    : key(), value(0)
-    { }
+    JSGCSetting() : key(), value(0) {}
   };
 
   // There are several settings that we know we need so it makes sense to
@@ -121,9 +125,7 @@ struct JSSettings
     JS::CompartmentOptions compartmentOptions;
     int32_t maxScriptRuntime;
 
-    JSContentChromeSettings()
-    : compartmentOptions(), maxScriptRuntime(0)
-    { }
+    JSContentChromeSettings() : compartmentOptions(), maxScriptRuntime(0) {}
   };
 
   JSContentChromeSettings chrome;
@@ -138,7 +140,7 @@ struct JSSettings
 
   JSSettings()
 #ifdef JS_GC_ZEAL
-  : gcZeal(0), gcZealFrequency(0)
+      : gcZeal(0), gcZealFrequency(0)
 #endif
   {
     for (uint32_t index = 0; index < ArrayLength(gcSettings); index++) {
@@ -146,8 +148,7 @@ struct JSSettings
     }
   }
 
-  bool
-  ApplyGCSetting(JSGCParamKey aKey, uint32_t aValue)
+  bool ApplyGCSetting(JSGCParamKey aKey, uint32_t aValue)
   {
     JSSettings::JSGCSetting* firstEmptySetting = nullptr;
     JSSettings::JSGCSetting* foundSetting = nullptr;
@@ -187,7 +188,7 @@ struct JSSettings
 
 enum WorkerPreference
 {
-#define WORKER_SIMPLE_PREF(name, getter, NAME) WORKERPREF_ ## NAME,
+#define WORKER_SIMPLE_PREF(name, getter, NAME) WORKERPREF_##NAME,
 #define WORKER_PREF(name, callback)
 #include "mozilla/dom/WorkerPrefs.h"
 #undef WORKER_SIMPLE_PREF
@@ -219,13 +220,13 @@ struct WorkerLoadInfo
   {
     NS_DECL_ISUPPORTS
 
-  public:
+   public:
     InterfaceRequestor(nsIPrincipal* aPrincipal, nsILoadGroup* aLoadGroup);
     void MaybeAddTabChild(nsILoadGroup* aLoadGroup);
     NS_IMETHOD GetInterface(const nsIID& aIID, void** aSink) override;
 
-  private:
-    ~InterfaceRequestor() { }
+   private:
+    ~InterfaceRequestor() {}
 
     already_AddRefed<nsITabChild> GetAnyLiveTabChild();
 
@@ -242,7 +243,7 @@ struct WorkerLoadInfo
 
   nsAutoPtr<mozilla::ipc::PrincipalInfo> mPrincipalInfo;
   nsCString mDomain;
-  nsString mOrigin; // Derived from mPrincipal; can be used on worker thread.
+  nsString mOrigin;  // Derived from mPrincipal; can be used on worker thread.
 
   nsString mServiceWorkerCacheName;
 
@@ -267,34 +268,28 @@ struct WorkerLoadInfo
 
   void StealFrom(WorkerLoadInfo& aOther);
 
-  nsresult
-  SetPrincipalOnMainThread(nsIPrincipal* aPrincipal, nsILoadGroup* aLoadGroup);
+  nsresult SetPrincipalOnMainThread(nsIPrincipal* aPrincipal,
+                                    nsILoadGroup* aLoadGroup);
 
-  nsresult
-  GetPrincipalAndLoadGroupFromChannel(nsIChannel* aChannel,
-                                      nsIPrincipal** aPrincipalOut,
-                                      nsILoadGroup** aLoadGroupOut);
+  nsresult GetPrincipalAndLoadGroupFromChannel(nsIChannel* aChannel,
+                                               nsIPrincipal** aPrincipalOut,
+                                               nsILoadGroup** aLoadGroupOut);
 
-  nsresult
-  SetPrincipalFromChannel(nsIChannel* aChannel);
+  nsresult SetPrincipalFromChannel(nsIChannel* aChannel);
 
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  bool
-  FinalChannelPrincipalIsValid(nsIChannel* aChannel);
+  bool FinalChannelPrincipalIsValid(nsIChannel* aChannel);
 
-  bool
-  PrincipalIsValid() const;
+  bool PrincipalIsValid() const;
 
-  bool
-  PrincipalURIMatchesScriptURL();
+  bool PrincipalURIMatchesScriptURL();
 #endif
 
-  bool
-  ProxyReleaseMainThreadObjects(WorkerPrivate* aWorkerPrivate);
+  bool ProxyReleaseMainThreadObjects(WorkerPrivate* aWorkerPrivate);
 
-  bool
-  ProxyReleaseMainThreadObjects(WorkerPrivate* aWorkerPrivate,
-                                nsCOMPtr<nsILoadGroup>& aLoadGroupToCancel);
+  bool ProxyReleaseMainThreadObjects(
+      WorkerPrivate* aWorkerPrivate,
+      nsCOMPtr<nsILoadGroup>& aLoadGroupToCancel);
 };
 
 // All of these are implemented in RuntimeService.cpp
@@ -318,38 +313,34 @@ ResumeWorkersForWindow(nsPIDOMWindowInner* aWindow);
 // bit of C++ code on the worker thread.
 class WorkerTask
 {
-protected:
-  WorkerTask()
-  { }
+ protected:
+  WorkerTask() {}
 
-  virtual ~WorkerTask()
-  { }
+  virtual ~WorkerTask() {}
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WorkerTask)
 
   // The return value here has the same semantics as the return value
   // of WorkerRunnable::WorkerRun.
-  virtual bool
-  RunTask(JSContext* aCx) = 0;
+  virtual bool RunTask(JSContext* aCx) = 0;
 };
 
 class WorkerCrossThreadDispatcher
 {
-   friend class WorkerPrivate;
+  friend class WorkerPrivate;
 
   // Must be acquired *before* the WorkerPrivate's mutex, when they're both
   // held.
   Mutex mMutex;
   WorkerPrivate* mWorkerPrivate;
 
-private:
+ private:
   // Only created by WorkerPrivate.
   explicit WorkerCrossThreadDispatcher(WorkerPrivate* aWorkerPrivate);
 
   // Only called by WorkerPrivate.
-  void
-  Forget()
+  void Forget()
   {
     MutexAutoLock lock(mMutex);
     mWorkerPrivate = nullptr;
@@ -357,13 +348,12 @@ private:
 
   ~WorkerCrossThreadDispatcher() {}
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WorkerCrossThreadDispatcher)
 
   // Generically useful function for running a bit of C++ code on the worker
   // thread.
-  bool
-  PostTask(WorkerTask* aTask);
+  bool PostTask(WorkerTask* aTask);
 };
 
 WorkerCrossThreadDispatcher*
@@ -383,4 +373,4 @@ IsDebuggerSandbox(JSObject* object);
 
 END_WORKERS_NAMESPACE
 
-#endif // mozilla_dom_workers_workers_h__
+#endif  // mozilla_dom_workers_workers_h__

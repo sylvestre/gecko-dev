@@ -46,6 +46,5 @@ CoalescedWheelData::CanCoalesce(const WidgetWheelEvent& aEvent,
           mCoalescedInputEvent->mModifiers == aEvent.mModifiers &&
           mCoalescedInputEvent->mDeltaMode == aEvent.mDeltaMode &&
           mCoalescedInputEvent->mCanTriggerSwipe == aEvent.mCanTriggerSwipe &&
-          mGuid == aGuid &&
-          mInputBlockId == aInputBlockId);
+          mGuid == aGuid && mInputBlockId == aInputBlockId);
 }

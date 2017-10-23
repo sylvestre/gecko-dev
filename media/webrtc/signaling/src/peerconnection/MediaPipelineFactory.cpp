@@ -40,8 +40,7 @@ JsepCodecDescToCodecConfig(const JsepCodecDescription& aCodec,
                            AudioCodecConfig** aConfig)
 {
   MOZ_ASSERT(aCodec.mType == SdpMediaSection::kAudio);
-  if (aCodec.mType != SdpMediaSection::kAudio)
-    return NS_ERROR_INVALID_ARG;
+  if (aCodec.mType != SdpMediaSection::kAudio) return NS_ERROR_INVALID_ARG;
 
   const JsepAudioCodecDescription& desc =
       static_cast<const JsepAudioCodecDescription&>(aCodec);
@@ -123,12 +122,12 @@ JsepCodecDescToCodecConfig(const JsepCodecDescription& aCodec,
     h264Config->sprop_parameter_sets[spropSize - 1] = '\0';
     h264Config->packetization_mode = desc.mPacketizationMode;
     h264Config->profile_level_id = desc.mProfileLevelId;
-    h264Config->tias_bw = 0; // TODO. Issue 165.
+    h264Config->tias_bw = 0;  // TODO. Issue 165.
   }
 
   VideoCodecConfig* configRaw;
-  configRaw = new VideoCodecConfig(
-      pt, desc.mName, desc.mConstraints, h264Config.get());
+  configRaw =
+      new VideoCodecConfig(pt, desc.mName, desc.mConstraints, h264Config.get());
 
   configRaw->mAckFbTypes = desc.mAckFbTypes;
   configRaw->mNackFbTypes = desc.mNackFbTypes;
@@ -178,22 +177,22 @@ NegotiatedDetailsToVideoCodecConfigs(const JsepTrackNegotiatedDetails& aDetails,
 // the ICE data is destroyed on the STS.
 static void
 FinalizeTransportFlow_s(RefPtr<PeerConnectionMedia> aPCMedia,
-                        RefPtr<TransportFlow> aFlow, size_t aLevel,
+                        RefPtr<TransportFlow> aFlow,
+                        size_t aLevel,
                         bool aIsRtcp,
                         nsAutoPtr<PtrVector<TransportLayer> > aLayerList)
 {
   TransportLayerIce* ice =
       static_cast<TransportLayerIce*>(aLayerList->values.front());
-  ice->SetParameters(aPCMedia->ice_ctx(),
-                     aPCMedia->ice_media_stream(aLevel),
-                     aIsRtcp ? 2 : 1);
+  ice->SetParameters(
+      aPCMedia->ice_ctx(), aPCMedia->ice_media_stream(aLevel), aIsRtcp ? 2 : 1);
   nsAutoPtr<std::queue<TransportLayer*> > layerQueue(
       new std::queue<TransportLayer*>);
   for (auto& value : aLayerList->values) {
     layerQueue->push(value);
   }
   aLayerList->values.clear();
-  (void)aFlow->PushLayers(layerQueue); // TODO(bug 854518): Process errors.
+  (void)aFlow->PushLayers(layerQueue);  // TODO(bug 854518): Process errors.
 }
 
 static void
@@ -204,9 +203,8 @@ AddNewIceStreamForRestart_s(RefPtr<PeerConnectionMedia> aPCMedia,
 {
   TransportLayerIce* ice =
       static_cast<TransportLayerIce*>(aFlow->GetLayer("ice"));
-  ice->SetParameters(aPCMedia->ice_ctx(),
-                     aPCMedia->ice_media_stream(aLevel),
-                     aIsRtcp ? 2 : 1);
+  ice->SetParameters(
+      aPCMedia->ice_ctx(), aPCMedia->ice_media_stream(aLevel), aIsRtcp ? 2 : 1);
 }
 
 nsresult
@@ -222,13 +220,14 @@ MediaPipelineFactory::CreateOrGetTransportFlow(
   flow = mPCMedia->GetTransportFlow(aLevel, aIsRtcp);
   if (flow) {
     if (mPCMedia->IsIceRestarting()) {
-      MOZ_MTLOG(ML_INFO, "Flow[" << flow->id() << "]: "
-                                 << "detected ICE restart - level: "
-                                 << aLevel << " rtcp: " << aIsRtcp);
+      MOZ_MTLOG(ML_INFO,
+                "Flow[" << flow->id() << "]: "
+                        << "detected ICE restart - level: " << aLevel
+                        << " rtcp: " << aIsRtcp);
 
       rv = mPCMedia->GetSTSThread()->Dispatch(
-          WrapRunnableNM(AddNewIceStreamForRestart_s,
-                         mPCMedia, flow, aLevel, aIsRtcp),
+          WrapRunnableNM(
+              AddNewIceStreamForRestart_s, mPCMedia, flow, aLevel, aIsRtcp),
           NS_DISPATCH_NORMAL);
       if (NS_FAILED(rv)) {
         MOZ_MTLOG(ML_ERROR, "Failed to dispatch AddNewIceStreamForRestart_s");
@@ -265,8 +264,8 @@ MediaPipelineFactory::CreateOrGetTransportFlow(
   for (const auto& fingerprint : fingerprints.mFingerprints) {
     std::ostringstream ss;
     ss << fingerprint.hashFunc;
-    rv = dtls->SetVerificationDigest(ss.str(), &fingerprint.fingerprint[0],
-                                     fingerprint.fingerprint.size());
+    rv = dtls->SetVerificationDigest(
+        ss.str(), &fingerprint.fingerprint[0], fingerprint.fingerprint.size());
     if (NS_FAILED(rv)) {
       MOZ_MTLOG(ML_ERROR, "Could not set fingerprint");
       return rv;
@@ -304,8 +303,8 @@ MediaPipelineFactory::CreateOrGetTransportFlow(
   layers->values.push_back(dtls.release());
 
   rv = mPCMedia->GetSTSThread()->Dispatch(
-      WrapRunnableNM(FinalizeTransportFlow_s, mPCMedia, flow, aLevel, aIsRtcp,
-                     layers),
+      WrapRunnableNM(
+          FinalizeTransportFlow_s, mPCMedia, flow, aLevel, aIsRtcp, layers),
       NS_DISPATCH_NORMAL);
   if (NS_FAILED(rv)) {
     MOZ_MTLOG(ML_ERROR, "Failed to dispatch FinalizeTransportFlow_s");
@@ -330,9 +329,8 @@ MediaPipelineFactory::GetTransportParameters(
 {
   *aLevelOut = aTrackPair.mLevel;
 
-  size_t transportLevel = aTrackPair.HasBundleLevel() ?
-                          aTrackPair.BundleLevel() :
-                          aTrackPair.mLevel;
+  size_t transportLevel = aTrackPair.HasBundleLevel() ? aTrackPair.BundleLevel()
+                                                      : aTrackPair.mLevel;
 
   nsresult rv = CreateOrGetTransportFlow(
       transportLevel, false, *aTrackPair.mRtpTransport, aRtpOut);
@@ -377,8 +375,7 @@ MediaPipelineFactory::GetTransportParameters(
 
 nsresult
 MediaPipelineFactory::CreateOrUpdateMediaPipeline(
-    const JsepTrackPair& aTrackPair,
-    const JsepTrack& aTrack)
+    const JsepTrackPair& aTrackPair, const JsepTrack& aTrack)
 {
   // The GMP code is all the way on the other side of webrtc.org, and it is not
   // feasible to plumb this information all the way through. So, we set it (for
@@ -395,15 +392,12 @@ MediaPipelineFactory::CreateOrUpdateMediaPipeline(
   RefPtr<TransportFlow> rtcpFlow;
   nsAutoPtr<MediaPipelineFilter> filter;
 
-  nsresult rv = GetTransportParameters(aTrackPair,
-                                       aTrack,
-                                       &level,
-                                       &rtpFlow,
-                                       &rtcpFlow,
-                                       &filter);
+  nsresult rv = GetTransportParameters(
+      aTrackPair, aTrack, &level, &rtpFlow, &rtcpFlow, &filter);
   if (NS_FAILED(rv)) {
-    MOZ_MTLOG(ML_ERROR, "Failed to get transport parameters for pipeline, rv="
-              << static_cast<unsigned>(rv));
+    MOZ_MTLOG(ML_ERROR,
+              "Failed to get transport parameters for pipeline, rv="
+                  << static_cast<unsigned>(rv));
     return rv;
   }
 
@@ -422,15 +416,17 @@ MediaPipelineFactory::CreateOrUpdateMediaPipeline(
   }
 
   if (!stream) {
-    MOZ_MTLOG(ML_ERROR, "Negotiated " << (receiving ? "recv" : "send")
-              << " stream id " << aTrack.GetStreamId() << " was never added");
+    MOZ_MTLOG(ML_ERROR,
+              "Negotiated " << (receiving ? "recv" : "send") << " stream id "
+                            << aTrack.GetStreamId() << " was never added");
     MOZ_ASSERT(false);
     return NS_ERROR_FAILURE;
   }
 
   if (!stream->HasTrack(aTrack.GetTrackId())) {
-    MOZ_MTLOG(ML_ERROR, "Negotiated " << (receiving ? "recv" : "send")
-              << " track id " << aTrack.GetTrackId() << " was never added");
+    MOZ_MTLOG(ML_ERROR,
+              "Negotiated " << (receiving ? "recv" : "send") << " track id "
+                            << aTrack.GetTrackId() << " was never added");
     MOZ_ASSERT(false);
     return NS_ERROR_FAILURE;
   }
@@ -483,16 +479,17 @@ MediaPipelineFactory::CreateOrUpdateMediaPipeline(
   }
 
   RefPtr<MediaPipeline> pipeline =
-    stream->GetPipelineByTrackId_m(aTrack.GetTrackId());
+      stream->GetPipelineByTrackId_m(aTrack.GetTrackId());
 
   if (pipeline && pipeline->level() != static_cast<int>(level)) {
-    MOZ_MTLOG(ML_WARNING, "Track " << aTrack.GetTrackId() <<
-                          " has moved from level " << pipeline->level() <<
-                          " to level " << level <<
-                          ". This requires re-creating the MediaPipeline.");
+    MOZ_MTLOG(ML_WARNING,
+              "Track " << aTrack.GetTrackId() << " has moved from level "
+                       << pipeline->level() << " to level " << level
+                       << ". This requires re-creating the MediaPipeline.");
     RefPtr<dom::MediaStreamTrack> domTrack =
-      stream->GetTrackById(aTrack.GetTrackId());
-    MOZ_ASSERT(domTrack, "MediaPipeline existed for a track, but no MediaStreamTrack");
+        stream->GetTrackById(aTrack.GetTrackId());
+    MOZ_ASSERT(domTrack,
+               "MediaPipeline existed for a track, but no MediaStreamTrack");
 
     // Since we do not support changing the conduit on a pre-existing
     // MediaPipeline
@@ -513,17 +510,13 @@ MediaPipelineFactory::CreateOrUpdateMediaPipeline(
                 << " direction=" << aTrack.GetDirection());
 
   if (receiving) {
-    rv = CreateMediaPipelineReceiving(aTrackPair, aTrack,
-                                      level, rtpFlow, rtcpFlow, filter,
-                                      conduit);
-    if (NS_FAILED(rv))
-      return rv;
+    rv = CreateMediaPipelineReceiving(
+        aTrackPair, aTrack, level, rtpFlow, rtcpFlow, filter, conduit);
+    if (NS_FAILED(rv)) return rv;
   } else {
-    rv = CreateMediaPipelineSending(aTrackPair, aTrack,
-                                    level, rtpFlow, rtcpFlow, filter,
-                                    conduit);
-    if (NS_FAILED(rv))
-      return rv;
+    rv = CreateMediaPipelineSending(
+        aTrackPair, aTrack, level, rtpFlow, rtcpFlow, filter, conduit);
+    if (NS_FAILED(rv)) return rv;
   }
 
   return NS_OK;
@@ -548,8 +541,9 @@ MediaPipelineFactory::CreateMediaPipelineReceiving(
   TrackID numericTrackId = stream->GetNumericTrackId(aTrack.GetTrackId());
   MOZ_ASSERT(IsTrackIDExplicit(numericTrackId));
 
-  MOZ_MTLOG(ML_DEBUG, __FUNCTION__ << ": Creating pipeline for "
-            << numericTrackId << " -> " << aTrack.GetTrackId());
+  MOZ_MTLOG(ML_DEBUG,
+            __FUNCTION__ << ": Creating pipeline for " << numericTrackId
+                         << " -> " << aTrack.GetTrackId());
 
   if (aTrack.GetMediaType() == SdpMediaSection::kAudio) {
     pipeline = new MediaPipelineReceiveAudio(
@@ -560,7 +554,7 @@ MediaPipelineFactory::CreateMediaPipelineReceiving(
         aTrack.GetTrackId(),
         numericTrackId,
         aLevel,
-        static_cast<AudioSessionConduit*>(aConduit.get()), // Ugly downcast.
+        static_cast<AudioSessionConduit*>(aConduit.get()),  // Ugly downcast.
         aRtpFlow,
         aRtcpFlow,
         aFilter);
@@ -573,7 +567,7 @@ MediaPipelineFactory::CreateMediaPipelineReceiving(
         aTrack.GetTrackId(),
         numericTrackId,
         aLevel,
-        static_cast<VideoSessionConduit*>(aConduit.get()), // Ugly downcast.
+        static_cast<VideoSessionConduit*>(aConduit.get()),  // Ugly downcast.
         aRtpFlow,
         aRtcpFlow,
         aFilter);
@@ -592,8 +586,9 @@ MediaPipelineFactory::CreateMediaPipelineReceiving(
   rv = stream->StorePipeline(aTrack.GetTrackId(),
                              RefPtr<MediaPipeline>(pipeline));
   if (NS_FAILED(rv)) {
-    MOZ_MTLOG(ML_ERROR, "Couldn't store receiving pipeline " <<
-                        static_cast<unsigned>(rv));
+    MOZ_MTLOG(
+        ML_ERROR,
+        "Couldn't store receiving pipeline " << static_cast<unsigned>(rv));
     return rv;
   }
 
@@ -618,32 +613,30 @@ MediaPipelineFactory::CreateMediaPipelineSending(
   RefPtr<LocalSourceStreamInfo> stream =
       mPCMedia->GetLocalStreamById(aTrack.GetStreamId());
 
-  dom::MediaStreamTrack* track =
-    stream->GetTrackById(aTrack.GetTrackId());
+  dom::MediaStreamTrack* track = stream->GetTrackById(aTrack.GetTrackId());
   MOZ_ASSERT(track);
 
   // Now we have all the pieces, create the pipeline
-  RefPtr<MediaPipelineTransmit> pipeline = new MediaPipelineTransmit(
-      mPC->GetHandle(),
-      mPC->GetMainThread().get(),
-      mPC->GetSTSThread(),
-      track,
-      aTrack.GetTrackId(),
-      aLevel,
-      aConduit,
-      aRtpFlow,
-      aRtcpFlow,
-      aFilter);
+  RefPtr<MediaPipelineTransmit> pipeline =
+      new MediaPipelineTransmit(mPC->GetHandle(),
+                                mPC->GetMainThread().get(),
+                                mPC->GetSTSThread(),
+                                track,
+                                aTrack.GetTrackId(),
+                                aLevel,
+                                aConduit,
+                                aRtpFlow,
+                                aRtcpFlow,
+                                aFilter);
 
   // implement checking for peerIdentity (where failure == black/silence)
   nsIDocument* doc = mPC->GetWindow()->GetExtantDoc();
   if (doc) {
-    pipeline->UpdateSinkIdentity_m(track,
-                                   doc->NodePrincipal(),
-                                   mPC->GetPeerIdentity());
+    pipeline->UpdateSinkIdentity_m(
+        track, doc->NodePrincipal(), mPC->GetPeerIdentity());
   } else {
     MOZ_MTLOG(ML_ERROR, "Cannot initialize pipeline without attached doc");
-    return NS_ERROR_FAILURE; // Don't remove this till we know it's safe.
+    return NS_ERROR_FAILURE;  // Don't remove this till we know it's safe.
   }
 
   rv = pipeline->Init();
@@ -655,8 +648,9 @@ MediaPipelineFactory::CreateMediaPipelineSending(
   rv = stream->StorePipeline(aTrack.GetTrackId(),
                              RefPtr<MediaPipeline>(pipeline));
   if (NS_FAILED(rv)) {
-    MOZ_MTLOG(ML_ERROR, "Couldn't store receiving pipeline " <<
-                        static_cast<unsigned>(rv));
+    MOZ_MTLOG(
+        ML_ERROR,
+        "Couldn't store receiving pipeline " << static_cast<unsigned>(rv));
     return rv;
   }
 
@@ -669,7 +663,6 @@ MediaPipelineFactory::GetOrCreateAudioConduit(
     const JsepTrack& aTrack,
     RefPtr<MediaSessionConduit>* aConduitp)
 {
-
   if (!aTrack.GetNegotiatedDetails()) {
     MOZ_ASSERT(false, "Track is missing negotiated details");
     return NS_ERROR_INVALID_ARG;
@@ -678,7 +671,7 @@ MediaPipelineFactory::GetOrCreateAudioConduit(
   bool receiving = aTrack.GetDirection() == sdp::kRecv;
 
   RefPtr<AudioSessionConduit> conduit =
-    mPCMedia->GetAudioConduit(aTrackPair.mLevel);
+      mPCMedia->GetAudioConduit(aTrackPair.mLevel);
 
   if (!conduit) {
     conduit = AudioSessionConduit::Create();
@@ -695,8 +688,9 @@ MediaPipelineFactory::GetOrCreateAudioConduit(
       *aTrack.GetNegotiatedDetails(), &configs);
 
   if (NS_FAILED(rv)) {
-    MOZ_MTLOG(ML_ERROR, "Failed to convert JsepCodecDescriptions to "
-                        "AudioCodecConfigs.");
+    MOZ_MTLOG(ML_ERROR,
+              "Failed to convert JsepCodecDescriptions to "
+              "AudioCodecConfigs.");
     return rv;
   }
 
@@ -716,7 +710,8 @@ MediaPipelineFactory::GetOrCreateAudioConduit(
     if (!aTrackPair.mSending) {
       // No send track, but we still need to configure an SSRC for receiver
       // reports.
-      if (!conduit->SetLocalSSRCs(std::vector<unsigned int>(1,aTrackPair.mRecvonlySsrc))) {
+      if (!conduit->SetLocalSSRCs(
+              std::vector<unsigned int>(1, aTrackPair.mRecvonlySsrc))) {
         MOZ_MTLOG(ML_ERROR, "SetLocalSSRC failed");
         return NS_ERROR_FAILURE;
       }
@@ -733,7 +728,7 @@ MediaPipelineFactory::GetOrCreateAudioConduit(
     conduit->SetLocalCNAME(aTrack.GetCNAME().c_str());
     conduit->SetLocalMID(aTrackPair.mRtpTransport->mTransportId);
 
-    for (auto value: configs.values) {
+    for (auto value : configs.values) {
       if (value->mName == "telephone-event") {
         // we have a telephone event codec, so we need to make sure
         // the dynamic pt is set properly
@@ -796,7 +791,7 @@ MediaPipelineFactory::GetOrCreateVideoConduit(
   bool receiving = aTrack.GetDirection() == sdp::kRecv;
 
   RefPtr<VideoSessionConduit> conduit =
-    mPCMedia->GetVideoConduit(aTrackPair.mLevel);
+      mPCMedia->GetVideoConduit(aTrackPair.mLevel);
 
   if (!conduit) {
     conduit = VideoSessionConduit::Create(mPCMedia->mCall);
@@ -813,8 +808,9 @@ MediaPipelineFactory::GetOrCreateVideoConduit(
       *aTrack.GetNegotiatedDetails(), &configs);
 
   if (NS_FAILED(rv)) {
-    MOZ_MTLOG(ML_ERROR, "Failed to convert JsepCodecDescriptions to "
-                        "VideoCodecConfigs.");
+    MOZ_MTLOG(ML_ERROR,
+              "Failed to convert JsepCodecDescriptions to "
+              "VideoCodecConfigs.");
     return rv;
   }
 
@@ -830,10 +826,9 @@ MediaPipelineFactory::GetOrCreateVideoConduit(
   if (details) {
     // @@NG read extmap from track
     details->ForEachRTPHeaderExtension(
-      [&extmaps](const SdpExtmapAttributeList::Extmap& extmap)
-    {
-      extmaps.emplace_back(extmap.extensionname,extmap.entry);
-    });
+        [&extmaps](const SdpExtmapAttributeList::Extmap& extmap) {
+          extmaps.emplace_back(extmap.extensionname, extmap.entry);
+        });
   }
 
   if (receiving) {
@@ -847,7 +842,8 @@ MediaPipelineFactory::GetOrCreateVideoConduit(
     } else {
       // No send track, but we still need to configure an SSRC for receiver
       // reports.
-      if (!conduit->SetLocalSSRCs(std::vector<unsigned int>(1,aTrackPair.mRecvonlySsrc))) {
+      if (!conduit->SetLocalSSRCs(
+              std::vector<unsigned int>(1, aTrackPair.mRecvonlySsrc))) {
         MOZ_MTLOG(ML_ERROR, "SetLocalSSRCs failed");
         return NS_ERROR_FAILURE;
       }
@@ -869,7 +865,7 @@ MediaPipelineFactory::GetOrCreateVideoConduit(
       MOZ_MTLOG(ML_ERROR, "ConfigureRecvMediaCodecs failed: " << error);
       return NS_ERROR_FAILURE;
     }
-  } else { //Create a send side
+  } else {  //Create a send side
     // For now we only expect to have one ssrc per local track.
     ssrcs = &aTrack.GetSsrcs();
     if (ssrcs->empty()) {
@@ -911,14 +907,14 @@ MediaPipelineFactory::ConfigureVideoCodecMode(const JsepTrack& aTrack,
                                               VideoSessionConduit& aConduit)
 {
   RefPtr<LocalSourceStreamInfo> stream =
-    mPCMedia->GetLocalStreamByTrackId(aTrack.GetTrackId());
+      mPCMedia->GetLocalStreamByTrackId(aTrack.GetTrackId());
 
   //get video track
   RefPtr<mozilla::dom::MediaStreamTrack> track =
-    stream->GetTrackById(aTrack.GetTrackId());
+      stream->GetTrackById(aTrack.GetTrackId());
 
   RefPtr<mozilla::dom::VideoStreamTrack> videotrack =
-    track->AsVideoStreamTrack();
+      track->AsVideoStreamTrack();
 
   if (!videotrack) {
     MOZ_MTLOG(ML_ERROR, "video track not available");
@@ -950,5 +946,4 @@ MediaPipelineFactory::ConfigureVideoCodecMode(const JsepTrack& aTrack,
   return NS_OK;
 }
 
-
-} // namespace mozilla
+}  // namespace mozilla

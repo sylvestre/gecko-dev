@@ -28,8 +28,7 @@
 
 class nsDiscriminatedUnion
 {
-public:
-
+ public:
   nsDiscriminatedUnion() : mType(nsIDataType::VTYPE_EMPTY) {}
   nsDiscriminatedUnion(const nsDiscriminatedUnion&) = delete;
   nsDiscriminatedUnion(nsDiscriminatedUnion&&) = delete;
@@ -64,13 +63,18 @@ public:
   MOZ_MUST_USE nsresult ConvertToACString(nsACString& aResult) const;
   MOZ_MUST_USE nsresult ConvertToString(char** aResult) const;
   MOZ_MUST_USE nsresult ConvertToWString(char16_t** aResult) const;
-  MOZ_MUST_USE nsresult ConvertToStringWithSize(uint32_t* aSize, char** aStr) const;
-  MOZ_MUST_USE nsresult ConvertToWStringWithSize(uint32_t* aSize, char16_t** aStr) const;
+  MOZ_MUST_USE nsresult ConvertToStringWithSize(uint32_t* aSize,
+                                                char** aStr) const;
+  MOZ_MUST_USE nsresult ConvertToWStringWithSize(uint32_t* aSize,
+                                                 char16_t** aStr) const;
 
   MOZ_MUST_USE nsresult ConvertToISupports(nsISupports** aResult) const;
-  MOZ_MUST_USE nsresult ConvertToInterface(nsIID** aIID, void** aInterface) const;
-  MOZ_MUST_USE nsresult ConvertToArray(uint16_t* aType, nsIID* aIID,
-                                       uint32_t* aCount, void** aPtr) const;
+  MOZ_MUST_USE nsresult ConvertToInterface(nsIID** aIID,
+                                           void** aInterface) const;
+  MOZ_MUST_USE nsresult ConvertToArray(uint16_t* aType,
+                                       nsIID* aIID,
+                                       uint32_t* aCount,
+                                       void** aPtr) const;
 
   MOZ_MUST_USE nsresult SetFromVariant(nsIVariant* aValue);
 
@@ -96,8 +100,10 @@ public:
   MOZ_MUST_USE nsresult SetFromWString(const char16_t* aValue);
   void SetFromISupports(nsISupports* aValue);
   void SetFromInterface(const nsIID& aIID, nsISupports* aValue);
-  MOZ_MUST_USE nsresult SetFromArray(uint16_t aType, const nsIID* aIID,
-                                     uint32_t aCount, void* aValue);
+  MOZ_MUST_USE nsresult SetFromArray(uint16_t aType,
+                                     const nsIID* aIID,
+                                     uint32_t aCount,
+                                     void* aValue);
   MOZ_MUST_USE nsresult SetFromStringWithSize(uint32_t aSize,
                                               const char* aValue);
   MOZ_MUST_USE nsresult SetFromWStringWithSize(uint32_t aSize,
@@ -113,60 +119,59 @@ public:
 
   void Traverse(nsCycleCollectionTraversalCallback& aCb) const;
 
-private:
+ private:
   MOZ_MUST_USE nsresult
   ToManageableNumber(nsDiscriminatedUnion* aOutData) const;
   void FreeArray();
   MOZ_MUST_USE bool String2ID(nsID* aPid) const;
   MOZ_MUST_USE nsresult ToString(nsACString& aOutString) const;
 
-public:
-  union
-  {
-    int8_t         mInt8Value;
-    int16_t        mInt16Value;
-    int32_t        mInt32Value;
-    int64_t        mInt64Value;
-    uint8_t        mUint8Value;
-    uint16_t       mUint16Value;
-    uint32_t       mUint32Value;
-    uint64_t       mUint64Value;
-    float          mFloatValue;
-    double         mDoubleValue;
-    bool           mBoolValue;
-    char           mCharValue;
-    char16_t       mWCharValue;
-    nsIID          mIDValue;
-    nsAString*     mAStringValue;
+ public:
+  union {
+    int8_t mInt8Value;
+    int16_t mInt16Value;
+    int32_t mInt32Value;
+    int64_t mInt64Value;
+    uint8_t mUint8Value;
+    uint16_t mUint16Value;
+    uint32_t mUint32Value;
+    uint64_t mUint64Value;
+    float mFloatValue;
+    double mDoubleValue;
+    bool mBoolValue;
+    char mCharValue;
+    char16_t mWCharValue;
+    nsIID mIDValue;
+    nsAString* mAStringValue;
     nsAUTF8String* mUTF8StringValue;
-    nsACString*    mCStringValue;
+    nsACString* mCStringValue;
     struct
     {
       // This is an owning reference that cannot be an nsCOMPtr because
       // nsDiscriminatedUnion needs to be POD.  AddRef/Release are manually
       // called on this.
       nsISupports* MOZ_OWNING_REF mInterfaceValue;
-      nsIID        mInterfaceID;
+      nsIID mInterfaceID;
     } iface;
     struct
     {
-      nsIID        mArrayInterfaceID;
-      void*        mArrayValue;
-      uint32_t     mArrayCount;
-      uint16_t     mArrayType;
+      nsIID mArrayInterfaceID;
+      void* mArrayValue;
+      uint32_t mArrayCount;
+      uint16_t mArrayType;
     } array;
     struct
     {
-      char*        mStringValue;
-      uint32_t     mStringLength;
+      char* mStringValue;
+      uint32_t mStringLength;
     } str;
     struct
     {
-      char16_t*    mWStringValue;
-      uint32_t     mWStringLength;
+      char16_t* mWStringValue;
+      uint32_t mWStringLength;
     } wstr;
   } u;
-  uint16_t       mType;
+  uint16_t mType;
 };
 
 /**
@@ -178,14 +183,14 @@ public:
  */
 class nsVariantBase : public nsIWritableVariant
 {
-public:
+ public:
   NS_DECL_NSIVARIANT
   NS_DECL_NSIWRITABLEVARIANT
 
   nsVariantBase();
 
-protected:
-  ~nsVariantBase() {};
+ protected:
+  ~nsVariantBase(){};
 
   nsDiscriminatedUnion mData;
   bool mWritable;
@@ -193,25 +198,25 @@ protected:
 
 class nsVariant final : public nsVariantBase
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  nsVariant() {};
+  nsVariant(){};
 
-private:
-  ~nsVariant() {};
+ private:
+  ~nsVariant(){};
 };
 
 class nsVariantCC final : public nsVariantBase
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(nsVariantCC)
 
-  nsVariantCC() {};
+  nsVariantCC(){};
 
-private:
-  ~nsVariantCC() {};
+ private:
+  ~nsVariantCC(){};
 };
 
 /**
@@ -219,11 +224,12 @@ private:
  *  - see NS_VARIANT_CONTRACTID in nsIVariant.idl.
  */
 
-#define NS_VARIANT_CID \
-{ /* 0D6EA1D0-879C-11d5-90EF-0010A4E73D9A */ \
-    0xd6ea1d0,                               \
-    0x879c,                                  \
-    0x11d5,                                  \
-    {0x90, 0xef, 0x0, 0x10, 0xa4, 0xe7, 0x3d, 0x9a}}
+#define NS_VARIANT_CID                              \
+  { /* 0D6EA1D0-879C-11d5-90EF-0010A4E73D9A */      \
+    0xd6ea1d0, 0x879c, 0x11d5,                      \
+    {                                               \
+      0x90, 0xef, 0x0, 0x10, 0xa4, 0xe7, 0x3d, 0x9a \
+    }                                               \
+  }
 
-#endif // nsVariant_h
+#endif  // nsVariant_h

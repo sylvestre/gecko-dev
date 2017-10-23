@@ -15,7 +15,8 @@ NS_IMPL_ISUPPORTS(PresentationContentSessionInfo,
                   nsIPresentationSessionTransportCallback);
 
 nsresult
-PresentationContentSessionInfo::Init() {
+PresentationContentSessionInfo::Init()
+{
   if (NS_WARN_IF(NS_FAILED(mTransport->SetCallback(this)))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -82,12 +83,12 @@ PresentationContentSessionInfo::NotifyTransportClosed(nsresult aReason)
   // potential subsequent |Shutdown| calls.
   mTransport = nullptr;
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  return static_cast<PresentationIPCService*>(service.get())->
-           NotifyTransportClosed(mSessionId, mRole, aReason);
+  return static_cast<PresentationIPCService*>(service.get())
+      ->NotifyTransportClosed(mSessionId, mRole, aReason);
 }
 
 NS_IMETHODIMP
@@ -97,13 +98,13 @@ PresentationContentSessionInfo::NotifyData(const nsACString& aData,
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIPresentationService> service =
-    do_GetService(PRESENTATION_SERVICE_CONTRACTID);
+      do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  return static_cast<PresentationIPCService*>(service.get())->
-           NotifyMessage(mSessionId, aData, aIsBinary);
+  return static_cast<PresentationIPCService*>(service.get())
+      ->NotifyMessage(mSessionId, aData, aIsBinary);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -20,16 +20,17 @@ class HTMLSelectElement;
 class HTMLOptionElement final : public nsGenericHTMLElement,
                                 public nsIDOMHTMLOptionElement
 {
-public:
-  explicit HTMLOptionElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLOptionElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
-  static already_AddRefed<HTMLOptionElement>
-    Option(const GlobalObject& aGlobal,
-           const nsAString& aText,
-           const Optional<nsAString>& aValue,
-           bool aDefaultSelected,
-           bool aSelected,
-           ErrorResult& aError);
+  static already_AddRefed<HTMLOptionElement> Option(
+      const GlobalObject& aGlobal,
+      const nsAString& aText,
+      const Optional<nsAString>& aValue,
+      bool aDefaultSelected,
+      bool aSelected,
+      ErrorResult& aError);
 
   NS_IMPL_FROMCONTENT_HTML_WITH_TAG(HTMLOptionElement, option)
 
@@ -37,25 +38,24 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // nsIDOMHTMLOptionElement
-  using mozilla::dom::Element::SetText;
   using mozilla::dom::Element::GetText;
+  using mozilla::dom::Element::SetText;
   NS_DECL_NSIDOMHTMLOPTIONELEMENT
 
   bool Selected() const;
   bool DefaultSelected() const;
 
-  void SetSelectedChanged(bool aValue)
-  {
-    mSelectedChanged = aValue;
-  }
+  void SetSelectedChanged(bool aValue) { mSelectedChanged = aValue; }
 
   virtual nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                               int32_t aModType) const override;
 
-  virtual nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult BeforeSetAttr(int32_t aNamespaceID,
+                                 nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override;
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -76,7 +76,8 @@ public:
    */
   void UpdateDisabledState(bool aNotify);
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
@@ -85,19 +86,18 @@ public:
   // nsIContent
   virtual EventStates IntrinsicState() const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   nsresult CopyInnerTo(mozilla::dom::Element* aDest, bool aPreallocateChildren);
 
-  virtual bool IsDisabled() const override {
+  virtual bool IsDisabled() const override
+  {
     return State().HasState(NS_EVENT_STATE_DISABLED);
   }
 
-  bool Disabled() const
-  {
-    return GetBoolAttr(nsGkAtoms::disabled);
-  }
+  bool Disabled() const { return GetBoolAttr(nsGkAtoms::disabled); }
 
   void SetDisabled(bool aValue, ErrorResult& aRv)
   {
@@ -119,10 +119,7 @@ public:
   }
 
   // The XPCOM Selected is OK for us
-  void SetSelected(bool aValue, ErrorResult& aRv)
-  {
-    aRv = SetSelected(aValue);
-  }
+  void SetSelected(bool aValue, ErrorResult& aRv) { aRv = SetSelected(aValue); }
 
   // The XPCOM GetValue is OK for us
   void SetValue(const nsAString& aValue, ErrorResult& aRv)
@@ -138,10 +135,11 @@ public:
 
   int32_t Index();
 
-protected:
+ protected:
   virtual ~HTMLOptionElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   /**
    * Get the select content element that contains this option, this
@@ -158,7 +156,7 @@ protected:
   bool mIsInSetDefaultSelected;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLOptionElement_h__
+#endif  // mozilla_dom_HTMLOptionElement_h__

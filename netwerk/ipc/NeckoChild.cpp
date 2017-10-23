@@ -35,19 +35,17 @@
 #include "mozilla/ipc/URIUtils.h"
 #include "nsNetUtil.h"
 
-using mozilla::dom::TCPSocketChild;
 using mozilla::dom::TCPServerSocketChild;
+using mozilla::dom::TCPSocketChild;
 using mozilla::dom::UDPSocketChild;
 
 namespace mozilla {
 namespace net {
 
-PNeckoChild *gNeckoChild = nullptr;
+PNeckoChild* gNeckoChild = nullptr;
 
 // C++ file contents
-NeckoChild::NeckoChild()
-{
-}
+NeckoChild::NeckoChild() {}
 
 NeckoChild::~NeckoChild()
 {
@@ -55,13 +53,14 @@ NeckoChild::~NeckoChild()
   gNeckoChild = nullptr;
 }
 
-void NeckoChild::InitNeckoChild()
+void
+NeckoChild::InitNeckoChild()
 {
   MOZ_ASSERT(IsNeckoChild(), "InitNeckoChild called by non-child!");
 
   if (!gNeckoChild) {
-    mozilla::dom::ContentChild * cpc =
-      mozilla::dom::ContentChild::GetSingleton();
+    mozilla::dom::ContentChild* cpc =
+        mozilla::dom::ContentChild::GetSingleton();
     NS_ASSERTION(cpc, "Content Protocol is NULL!");
     if (NS_WARN_IF(cpc->IsShuttingDown())) {
       return;
@@ -112,9 +111,8 @@ NeckoChild::DeallocPStunAddrsRequestChild(PStunAddrsRequestChild* aActor)
 }
 
 PAltDataOutputStreamChild*
-NeckoChild::AllocPAltDataOutputStreamChild(
-        const nsCString& type,
-        PHttpChannelChild* channel)
+NeckoChild::AllocPAltDataOutputStreamChild(const nsCString& type,
+                                           PHttpChannelChild* channel)
 {
   // We don't allocate here: see HttpChannelChild::OpenAlternativeOutputStream()
   NS_NOTREACHED("AllocPAltDataOutputStreamChild should not be called");
@@ -124,7 +122,8 @@ NeckoChild::AllocPAltDataOutputStreamChild(
 bool
 NeckoChild::DeallocPAltDataOutputStreamChild(PAltDataOutputStreamChild* aActor)
 {
-  AltDataOutputStreamChild* child = static_cast<AltDataOutputStreamChild*>(aActor);
+  AltDataOutputStreamChild* child =
+      static_cast<AltDataOutputStreamChild*>(aActor);
   child->ReleaseIPDLReference();
   return true;
 }
@@ -160,9 +159,10 @@ NeckoChild::AllocPCookieServiceChild()
 bool
 NeckoChild::DeallocPCookieServiceChild(PCookieServiceChild* cs)
 {
-  NS_ASSERTION(IsNeckoChild(), "DeallocPCookieServiceChild called by non-child!");
+  NS_ASSERTION(IsNeckoChild(),
+               "DeallocPCookieServiceChild called by non-child!");
 
-  CookieServiceChild *p = static_cast<CookieServiceChild*>(cs);
+  CookieServiceChild* p = static_cast<CookieServiceChild*>(cs);
   p->Release();
   return true;
 }
@@ -178,9 +178,10 @@ NeckoChild::AllocPWyciwygChannelChild()
 bool
 NeckoChild::DeallocPWyciwygChannelChild(PWyciwygChannelChild* channel)
 {
-  MOZ_ASSERT(IsNeckoChild(), "DeallocPWyciwygChannelChild called by non-child!");
+  MOZ_ASSERT(IsNeckoChild(),
+             "DeallocPWyciwygChannelChild called by non-child!");
 
-  WyciwygChannelChild *p = static_cast<WyciwygChannelChild*>(channel);
+  WyciwygChannelChild* p = static_cast<WyciwygChannelChild*>(channel);
   p->ReleaseIPDLReference();
   return true;
 }
@@ -206,12 +207,13 @@ PWebSocketEventListenerChild*
 NeckoChild::AllocPWebSocketEventListenerChild(const uint64_t& aInnerWindowID)
 {
   nsCOMPtr<nsIEventTarget> target;
-  if (nsGlobalWindow* win = nsGlobalWindow::GetInnerWindowWithId(aInnerWindowID)) {
+  if (nsGlobalWindow* win =
+          nsGlobalWindow::GetInnerWindowWithId(aInnerWindowID)) {
     target = win->EventTargetFor(TaskCategory::Other);
   }
 
   RefPtr<WebSocketEventListenerChild> c =
-    new WebSocketEventListenerChild(aInnerWindowID, target);
+      new WebSocketEventListenerChild(aInnerWindowID, target);
 
   if (target) {
     gNeckoChild->SetEventTargetForActor(c, target);
@@ -221,10 +223,11 @@ NeckoChild::AllocPWebSocketEventListenerChild(const uint64_t& aInnerWindowID)
 }
 
 bool
-NeckoChild::DeallocPWebSocketEventListenerChild(PWebSocketEventListenerChild* aActor)
+NeckoChild::DeallocPWebSocketEventListenerChild(
+    PWebSocketEventListenerChild* aActor)
 {
   RefPtr<WebSocketEventListenerChild> c =
-    dont_AddRef(static_cast<WebSocketEventListenerChild*>(aActor));
+      dont_AddRef(static_cast<WebSocketEventListenerChild*>(aActor));
   MOZ_ASSERT(c);
   return true;
 }
@@ -272,8 +275,7 @@ NeckoChild::DeallocPSimpleChannelChild(PSimpleChannelChild* child)
 }
 
 PTCPSocketChild*
-NeckoChild::AllocPTCPSocketChild(const nsString& host,
-                                 const uint16_t& port)
+NeckoChild::AllocPTCPSocketChild(const nsString& host, const uint16_t& port)
 {
   TCPSocketChild* p = new TCPSocketChild(host, port, nullptr);
   p->AddIPDLReference();
@@ -290,8 +292,8 @@ NeckoChild::DeallocPTCPSocketChild(PTCPSocketChild* child)
 
 PTCPServerSocketChild*
 NeckoChild::AllocPTCPServerSocketChild(const uint16_t& aLocalPort,
-                                  const uint16_t& aBacklog,
-                                  const bool& aUseArrayBuffers)
+                                       const uint16_t& aBacklog,
+                                       const bool& aUseArrayBuffers)
 {
   NS_NOTREACHED("AllocPTCPServerSocket should not be called");
   return nullptr;
@@ -316,7 +318,6 @@ NeckoChild::AllocPUDPSocketChild(const Principal& aPrincipal,
 bool
 NeckoChild::DeallocPUDPSocketChild(PUDPSocketChild* child)
 {
-
   UDPSocketChild* p = static_cast<UDPSocketChild*>(child);
   p->ReleaseIPDLReference();
   return true;
@@ -337,7 +338,7 @@ NeckoChild::AllocPDNSRequestChild(const nsCString& aHost,
 bool
 NeckoChild::DeallocPDNSRequestChild(PDNSRequestChild* aChild)
 {
-  DNSRequestChild *p = static_cast<DNSRequestChild*>(aChild);
+  DNSRequestChild* p = static_cast<DNSRequestChild*>(aChild);
   p->ReleaseIPDLReference();
   return true;
 }
@@ -345,7 +346,8 @@ NeckoChild::DeallocPDNSRequestChild(PDNSRequestChild* aChild)
 PChannelDiverterChild*
 NeckoChild::AllocPChannelDiverterChild(const ChannelDiverterArgs& channel)
 {
-  return new ChannelDiverterChild();;
+  return new ChannelDiverterChild();
+  ;
 }
 
 bool
@@ -391,15 +393,16 @@ mozilla::ipc::IPCResult
 NeckoChild::RecvPredOnPredictPrefetch(const URIParams& aURI,
                                       const uint32_t& aHttpStatus)
 {
-  MOZ_ASSERT(NS_IsMainThread(), "PredictorChild::RecvOnPredictPrefetch "
-                                "off main thread.");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "PredictorChild::RecvOnPredictPrefetch "
+             "off main thread.");
 
   nsCOMPtr<nsIURI> uri = DeserializeURI(aURI);
 
   // Get the current predictor
   nsresult rv = NS_OK;
   nsCOMPtr<nsINetworkPredictorVerifier> predictor =
-    do_GetService("@mozilla.org/network/predictor;1", &rv);
+      do_GetService("@mozilla.org/network/predictor;1", &rv);
   NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
 
   predictor->OnPredictPrefetch(uri, aHttpStatus);
@@ -409,15 +412,16 @@ NeckoChild::RecvPredOnPredictPrefetch(const URIParams& aURI,
 mozilla::ipc::IPCResult
 NeckoChild::RecvPredOnPredictPreconnect(const URIParams& aURI)
 {
-  MOZ_ASSERT(NS_IsMainThread(), "PredictorChild::RecvOnPredictPreconnect "
-                                "off main thread.");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "PredictorChild::RecvOnPredictPreconnect "
+             "off main thread.");
 
   nsCOMPtr<nsIURI> uri = DeserializeURI(aURI);
 
   // Get the current predictor
   nsresult rv = NS_OK;
   nsCOMPtr<nsINetworkPredictorVerifier> predictor =
-    do_GetService("@mozilla.org/network/predictor;1", &rv);
+      do_GetService("@mozilla.org/network/predictor;1", &rv);
   NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
 
   predictor->OnPredictPreconnect(uri);
@@ -427,15 +431,16 @@ NeckoChild::RecvPredOnPredictPreconnect(const URIParams& aURI)
 mozilla::ipc::IPCResult
 NeckoChild::RecvPredOnPredictDNS(const URIParams& aURI)
 {
-  MOZ_ASSERT(NS_IsMainThread(), "PredictorChild::RecvOnPredictDNS off "
-                                "main thread.");
+  MOZ_ASSERT(NS_IsMainThread(),
+             "PredictorChild::RecvOnPredictDNS off "
+             "main thread.");
 
   nsCOMPtr<nsIURI> uri = DeserializeURI(aURI);
 
   // Get the current predictor
   nsresult rv = NS_OK;
   nsCOMPtr<nsINetworkPredictorVerifier> predictor =
-    do_GetService("@mozilla.org/network/predictor;1", &rv);
+      do_GetService("@mozilla.org/network/predictor;1", &rv);
   NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
 
   predictor->OnPredictDNS(uri);
@@ -447,12 +452,11 @@ NeckoChild::RecvSpeculativeConnectRequest()
 {
   nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
   if (obsService) {
-    obsService->NotifyObservers(nullptr, "speculative-connect-request",
-                                nullptr);
+    obsService->NotifyObservers(
+        nullptr, "speculative-connect-request", nullptr);
   }
   return IPC_OK();
 }
 
-} // namespace net
-} // namespace mozilla
-
+}  // namespace net
+}  // namespace mozilla

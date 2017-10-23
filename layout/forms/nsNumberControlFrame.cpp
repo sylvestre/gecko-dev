@@ -43,23 +43,23 @@ NS_NewNumberControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsNumberControlFrame)
 
 NS_QUERYFRAME_HEAD(nsNumberControlFrame)
-  NS_QUERYFRAME_ENTRY(nsNumberControlFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
-  NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
+NS_QUERYFRAME_ENTRY(nsNumberControlFrame)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 nsNumberControlFrame::nsNumberControlFrame(nsStyleContext* aContext)
-  : nsContainerFrame(aContext, kClassID)
-  , mHandlingInputEvent(false)
+    : nsContainerFrame(aContext, kClassID), mHandlingInputEvent(false)
 {
 }
 
 void
 nsNumberControlFrame::DestroyFrom(nsIFrame* aDestructRoot)
 {
-  NS_ASSERTION(!GetPrevContinuation() && !GetNextContinuation(),
-               "nsNumberControlFrame should not have continuations; if it does we "
-               "need to call RegUnregAccessKey only for the first");
+  NS_ASSERTION(
+      !GetPrevContinuation() && !GetNextContinuation(),
+      "nsNumberControlFrame should not have continuations; if it does we "
+      "need to call RegUnregAccessKey only for the first");
   nsCheckboxRadioFrame::RegUnRegAccessKey(static_cast<nsIFrame*>(this), false);
   DestroyAnonymousContent(mOuterWrapper.forget());
   nsContainerFrame::DestroyFrom(aDestructRoot);
@@ -72,10 +72,9 @@ nsNumberControlFrame::GetMinISize(gfxContext* aRenderingContext)
   DISPLAY_MIN_WIDTH(this, result);
 
   nsIFrame* kid = mFrames.FirstChild();
-  if (kid) { // display:none?
-    result = nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
-                                                  kid,
-                                                  nsLayoutUtils::MIN_ISIZE);
+  if (kid) {  // display:none?
+    result = nsLayoutUtils::IntrinsicForContainer(
+        aRenderingContext, kid, nsLayoutUtils::MIN_ISIZE);
   } else {
     result = 0;
   }
@@ -90,10 +89,9 @@ nsNumberControlFrame::GetPrefISize(gfxContext* aRenderingContext)
   DISPLAY_PREF_WIDTH(this, result);
 
   nsIFrame* kid = mFrames.FirstChild();
-  if (kid) { // display:none?
-    result = nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
-                                                  kid,
-                                                  nsLayoutUtils::PREF_ISIZE);
+  if (kid) {  // display:none?
+    result = nsLayoutUtils::IntrinsicForContainer(
+        aRenderingContext, kid, nsLayoutUtils::PREF_ISIZE);
   } else {
     result = 0;
   }
@@ -114,12 +112,12 @@ nsNumberControlFrame::Reflow(nsPresContext* aPresContext,
 
   NS_ASSERTION(mOuterWrapper, "Outer wrapper div must exist!");
 
-  NS_ASSERTION(!GetPrevContinuation() && !GetNextContinuation(),
-               "nsNumberControlFrame should not have continuations; if it does we "
-               "need to call RegUnregAccessKey only for the first");
+  NS_ASSERTION(
+      !GetPrevContinuation() && !GetNextContinuation(),
+      "nsNumberControlFrame should not have continuations; if it does we "
+      "need to call RegUnregAccessKey only for the first");
 
-  NS_ASSERTION(!mFrames.FirstChild() ||
-               !mFrames.FirstChild()->GetNextSibling(),
+  NS_ASSERTION(!mFrames.FirstChild() || !mFrames.FirstChild()->GetNextSibling(),
                "We expect at most one direct child frame");
 
   if (mState & NS_FRAME_FIRST_REFLOW) {
@@ -135,22 +133,24 @@ nsNumberControlFrame::Reflow(nsPresContext* aPresContext,
 
   // Figure out our border-box sizes as well (by adding borderPadding to
   // content-box sizes):
-  const nscoord borderBoxISize = contentBoxISize +
-    aReflowInput.ComputedLogicalBorderPadding().IStartEnd(myWM);
+  const nscoord borderBoxISize =
+      contentBoxISize +
+      aReflowInput.ComputedLogicalBorderPadding().IStartEnd(myWM);
 
   nscoord borderBoxBSize;
   if (contentBoxBSize != NS_INTRINSICSIZE) {
-    borderBoxBSize = contentBoxBSize +
-      aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
-  } // else, we'll figure out borderBoxBSize after we resolve contentBoxBSize.
+    borderBoxBSize =
+        contentBoxBSize +
+        aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
+  }  // else, we'll figure out borderBoxBSize after we resolve contentBoxBSize.
 
   nsIFrame* outerWrapperFrame = mOuterWrapper->GetPrimaryFrame();
 
-  if (!outerWrapperFrame) { // display:none?
+  if (!outerWrapperFrame) {  // display:none?
     if (contentBoxBSize == NS_INTRINSICSIZE) {
       contentBoxBSize = 0;
       borderBoxBSize =
-        aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
+          aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
     }
   } else {
     NS_ASSERTION(outerWrapperFrame == mFrames.FirstChild(), "huh?");
@@ -161,34 +161,40 @@ nsNumberControlFrame::Reflow(nsPresContext* aPresContext,
     LogicalSize availSize = aReflowInput.ComputedSize(wrapperWM);
     availSize.BSize(wrapperWM) = NS_UNCONSTRAINEDSIZE;
 
-    ReflowInput wrapperReflowInput(aPresContext, aReflowInput,
-                                         outerWrapperFrame, availSize);
+    ReflowInput wrapperReflowInput(
+        aPresContext, aReflowInput, outerWrapperFrame, availSize);
 
     // Convert wrapper margin into my own writing-mode (in case it differs):
     LogicalMargin wrapperMargin =
-      wrapperReflowInput.ComputedLogicalMargin().ConvertTo(myWM, wrapperWM);
+        wrapperReflowInput.ComputedLogicalMargin().ConvertTo(myWM, wrapperWM);
 
     // offsets of wrapper frame within this frame:
-    LogicalPoint
-      wrapperOffset(myWM,
-                    aReflowInput.ComputedLogicalBorderPadding().IStart(myWM) +
-                    wrapperMargin.IStart(myWM),
-                    aReflowInput.ComputedLogicalBorderPadding().BStart(myWM) +
-                    wrapperMargin.BStart(myWM));
+    LogicalPoint wrapperOffset(
+        myWM,
+        aReflowInput.ComputedLogicalBorderPadding().IStart(myWM) +
+            wrapperMargin.IStart(myWM),
+        aReflowInput.ComputedLogicalBorderPadding().BStart(myWM) +
+            wrapperMargin.BStart(myWM));
 
     nsReflowStatus childStatus;
     // We initially reflow the child with a dummy containerSize; positioning
     // will be fixed later.
     const nsSize dummyContainerSize;
-    ReflowChild(outerWrapperFrame, aPresContext, wrappersDesiredSize,
-                wrapperReflowInput, myWM, wrapperOffset, dummyContainerSize, 0,
+    ReflowChild(outerWrapperFrame,
+                aPresContext,
+                wrappersDesiredSize,
+                wrapperReflowInput,
+                myWM,
+                wrapperOffset,
+                dummyContainerSize,
+                0,
                 childStatus);
     MOZ_ASSERT(childStatus.IsFullyComplete(),
                "We gave our child unconstrained available block-size, "
                "so it should be complete");
 
     nscoord wrappersMarginBoxBSize =
-      wrappersDesiredSize.BSize(myWM) + wrapperMargin.BStartEnd(myWM);
+        wrappersDesiredSize.BSize(myWM) + wrapperMargin.BStartEnd(myWM);
 
     if (contentBoxBSize == NS_INTRINSICSIZE) {
       // We are intrinsically sized -- we should shrinkwrap the outer wrapper's
@@ -200,13 +206,13 @@ nsNumberControlFrame::Reflow(nsPresContext* aPresContext,
       // aReflowInput.ComputedBSize()).  Note that we do this before
       // adjusting for borderpadding, since ComputedMaxBSize and
       // ComputedMinBSize are content heights.
-      contentBoxBSize =
-        NS_CSS_MINMAX(contentBoxBSize,
-                      aReflowInput.ComputedMinBSize(),
-                      aReflowInput.ComputedMaxBSize());
+      contentBoxBSize = NS_CSS_MINMAX(contentBoxBSize,
+                                      aReflowInput.ComputedMinBSize(),
+                                      aReflowInput.ComputedMaxBSize());
 
-      borderBoxBSize = contentBoxBSize +
-        aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
+      borderBoxBSize =
+          contentBoxBSize +
+          aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
     }
 
     // Center child in block axis
@@ -214,21 +220,25 @@ nsNumberControlFrame::Reflow(nsPresContext* aPresContext,
     wrapperOffset.B(myWM) += std::max(0, extraSpace / 2);
 
     // Needed in FinishReflowChild, for logical-to-physical conversion:
-    nsSize borderBoxSize = LogicalSize(myWM, borderBoxISize, borderBoxBSize).
-                           GetPhysicalSize(myWM);
+    nsSize borderBoxSize =
+        LogicalSize(myWM, borderBoxISize, borderBoxBSize).GetPhysicalSize(myWM);
 
     // Place the child
-    FinishReflowChild(outerWrapperFrame, aPresContext, wrappersDesiredSize,
-                      &wrapperReflowInput, myWM, wrapperOffset,
-                      borderBoxSize, 0);
+    FinishReflowChild(outerWrapperFrame,
+                      aPresContext,
+                      wrappersDesiredSize,
+                      &wrapperReflowInput,
+                      myWM,
+                      wrapperOffset,
+                      borderBoxSize,
+                      0);
 
-    nsSize contentBoxSize =
-      LogicalSize(myWM, contentBoxISize, contentBoxBSize).
-        GetPhysicalSize(myWM);
+    nsSize contentBoxSize = LogicalSize(myWM, contentBoxISize, contentBoxBSize)
+                                .GetPhysicalSize(myWM);
     aDesiredSize.SetBlockStartAscent(
-       wrappersDesiredSize.BlockStartAscent() +
-       outerWrapperFrame->BStart(aReflowInput.GetWritingMode(),
-                                 contentBoxSize));
+        wrappersDesiredSize.BlockStartAscent() +
+        outerWrapperFrame->BStart(aReflowInput.GetWritingMode(),
+                                  contentBoxSize));
   }
 
   LogicalSize logicalDesiredSize(myWM, borderBoxISize, borderBoxBSize);
@@ -252,17 +262,17 @@ nsNumberControlFrame::SyncDisabledState()
 {
   EventStates eventStates = mContent->AsElement()->State();
   if (eventStates.HasState(NS_EVENT_STATE_DISABLED)) {
-    mTextField->SetAttr(kNameSpaceID_None, nsGkAtoms::disabled, EmptyString(),
-                        true);
+    mTextField->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::disabled, EmptyString(), true);
   } else {
     mTextField->UnsetAttr(kNameSpaceID_None, nsGkAtoms::disabled, true);
   }
 }
 
 nsresult
-nsNumberControlFrame::AttributeChanged(int32_t  aNameSpaceID,
+nsNumberControlFrame::AttributeChanged(int32_t aNameSpaceID,
                                        nsAtom* aAttribute,
-                                       int32_t  aModType)
+                                       int32_t aModType)
 {
   // nsGkAtoms::disabled is handled by SyncDisabledState
   if (aNameSpaceID == kNameSpaceID_None) {
@@ -281,8 +291,7 @@ nsNumberControlFrame::AttributeChanged(int32_t  aNameSpaceID,
     }
   }
 
-  return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                            aModType);
+  return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 }
 
 void
@@ -301,12 +310,13 @@ nsNumberControlFrame::GetTextFieldFrame()
 
 class FocusTextField : public Runnable
 {
-public:
+ public:
   FocusTextField(nsIContent* aNumber, nsIContent* aTextField)
-    : mozilla::Runnable("FocusTextField")
-    , mNumber(aNumber)
-    , mTextField(aTextField)
-  {}
+      : mozilla::Runnable("FocusTextField"),
+        mNumber(aNumber),
+        mTextField(aTextField)
+  {
+  }
 
   NS_IMETHOD Run() override
   {
@@ -318,7 +328,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   nsCOMPtr<nsIContent> mNumber;
   nsCOMPtr<nsIContent> mTextField;
 };
@@ -341,8 +351,8 @@ nsNumberControlFrame::MakeAnonymousElement(Element** aResult,
 
   if (aPseudoType == CSSPseudoElementType::mozNumberSpinDown ||
       aPseudoType == CSSPseudoElementType::mozNumberSpinUp) {
-    resultElement->SetAttr(kNameSpaceID_None, nsGkAtoms::role,
-                           NS_LITERAL_STRING("button"), false);
+    resultElement->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::role, NS_LITERAL_STRING("button"), false);
   }
 
   resultElement.forget(aResult);
@@ -367,7 +377,6 @@ nsNumberControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
   // If you change this, be careful to change the destruction order in
   // nsNumberControlFrame::DestroyFrom.
 
-
   // Create the anonymous outer wrapper:
   rv = MakeAnonymousElement(getter_AddRefs(mOuterWrapper),
                             aElements,
@@ -384,8 +393,8 @@ nsNumberControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
                             CSSPseudoElementType::mozNumberText);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mTextField->SetAttr(kNameSpaceID_None, nsGkAtoms::type,
-                      NS_LITERAL_STRING("text"), PR_FALSE);
+  mTextField->SetAttr(
+      kNameSpaceID_None, nsGkAtoms::type, NS_LITERAL_STRING("text"), PR_FALSE);
 
   HTMLInputElement* content = HTMLInputElement::FromContent(mContent);
   HTMLInputElement* textField = HTMLInputElement::FromContent(mTextField);
@@ -398,7 +407,8 @@ nsNumberControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
   // If we're readonly, make sure our anonymous text control is too:
   nsAutoString readonly;
   if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::readonly, readonly)) {
-    mTextField->SetAttr(kNameSpaceID_None, nsGkAtoms::readonly, readonly, false);
+    mTextField->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::readonly, readonly, false);
   }
 
   // Propogate our tabindex:
@@ -407,8 +417,10 @@ nsNumberControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
 
   // Initialize the text field's placeholder, if ours is set:
   nsAutoString placeholder;
-  if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::placeholder, placeholder)) {
-    mTextField->SetAttr(kNameSpaceID_None, nsGkAtoms::placeholder, placeholder, false);
+  if (mContent->GetAttr(
+          kNameSpaceID_None, nsGkAtoms::placeholder, placeholder)) {
+    mTextField->SetAttr(
+        kNameSpaceID_None, nsGkAtoms::placeholder, placeholder, false);
   }
 
   if (mContent->AsElement()->State().HasState(NS_EVENT_STATE_FOCUS)) {
@@ -477,12 +489,14 @@ nsNumberControlFrame::GetNumberControlFrameForTextField(nsIFrame* aFrame)
   // extra frames will be wrapped around any of the elements between aFrame and
   // the nsNumberControlFrame that we're looking for (e.g. flex wrappers).
   nsIContent* content = aFrame->GetContent();
-  if (content->IsInNativeAnonymousSubtree() &&
-      content->GetParent() && content->GetParent()->GetParent()) {
+  if (content->IsInNativeAnonymousSubtree() && content->GetParent() &&
+      content->GetParent()->GetParent()) {
     nsIContent* grandparent = content->GetParent()->GetParent();
     if (grandparent->IsHTMLElement(nsGkAtoms::input) &&
-        grandparent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                                 nsGkAtoms::number, eCaseMatters)) {
+        grandparent->AttrValueIs(kNameSpaceID_None,
+                                 nsGkAtoms::type,
+                                 nsGkAtoms::number,
+                                 eCaseMatters)) {
       return do_QueryFrame(grandparent->GetPrimaryFrame());
     }
   }
@@ -498,13 +512,16 @@ nsNumberControlFrame::GetNumberControlFrameForSpinButton(nsIFrame* aFrame)
   // extra frames will be wrapped around any of the elements between aFrame and
   // the nsNumberControlFrame that we're looking for (e.g. flex wrappers).
   nsIContent* content = aFrame->GetContent();
-  if (content->IsInNativeAnonymousSubtree() &&
-      content->GetParent() && content->GetParent()->GetParent() &&
+  if (content->IsInNativeAnonymousSubtree() && content->GetParent() &&
+      content->GetParent()->GetParent() &&
       content->GetParent()->GetParent()->GetParent()) {
-    nsIContent* greatgrandparent = content->GetParent()->GetParent()->GetParent();
+    nsIContent* greatgrandparent =
+        content->GetParent()->GetParent()->GetParent();
     if (greatgrandparent->IsHTMLElement(nsGkAtoms::input) &&
-        greatgrandparent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                                      nsGkAtoms::number, eCaseMatters)) {
+        greatgrandparent->AttrValueIs(kNameSpaceID_None,
+                                      nsGkAtoms::type,
+                                      nsGkAtoms::number,
+                                      eCaseMatters)) {
       return do_QueryFrame(greatgrandparent->GetPrimaryFrame());
     }
   }
@@ -533,9 +550,8 @@ nsNumberControlFrame::GetSpinButtonForPointerEvent(WidgetGUIEvent* aEvent) const
     // important to handle since this is the state things are in for the
     // default UA style sheet. See the comment in forms.css for why.
     LayoutDeviceIntPoint absPoint = aEvent->mRefPoint;
-    nsPoint point =
-      nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent,
-                       absPoint, mSpinBox->GetPrimaryFrame());
+    nsPoint point = nsLayoutUtils::GetEventCoordinatesRelativeTo(
+        aEvent, absPoint, mSpinBox->GetPrimaryFrame());
     if (point != nsPoint(NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE)) {
       if (point.y < mSpinBox->GetPrimaryFrame()->GetSize().height / 2) {
         return eSpinButtonUp;
@@ -565,15 +581,15 @@ nsNumberControlFrame::SpinnerStateChanged() const
 bool
 nsNumberControlFrame::SpinnerUpButtonIsDepressed() const
 {
-  return HTMLInputElement::FromContent(mContent)->
-           NumberSpinnerUpButtonIsDepressed();
+  return HTMLInputElement::FromContent(mContent)
+      ->NumberSpinnerUpButtonIsDepressed();
 }
 
 bool
 nsNumberControlFrame::SpinnerDownButtonIsDepressed() const
 {
-  return HTMLInputElement::FromContent(mContent)->
-           NumberSpinnerDownButtonIsDepressed();
+  return HTMLInputElement::FromContent(mContent)
+      ->NumberSpinnerDownButtonIsDepressed();
 }
 
 bool
@@ -602,10 +618,9 @@ nsNumberControlFrame::HandleSelectCall()
   HTMLInputElement::FromContent(mTextField)->Select();
 }
 
-#define STYLES_DISABLING_NATIVE_THEMING \
-  NS_AUTHOR_SPECIFIED_BACKGROUND | \
-  NS_AUTHOR_SPECIFIED_PADDING | \
-  NS_AUTHOR_SPECIFIED_BORDER
+#define STYLES_DISABLING_NATIVE_THEMING                          \
+  NS_AUTHOR_SPECIFIED_BACKGROUND | NS_AUTHOR_SPECIFIED_PADDING | \
+      NS_AUTHOR_SPECIFIED_BORDER
 
 bool
 nsNumberControlFrame::ShouldUseNativeStyleForSpinner() const
@@ -617,13 +632,15 @@ nsNumberControlFrame::ShouldUseNativeStyleForSpinner() const
   nsIFrame* spinDownFrame = mSpinDown->GetPrimaryFrame();
 
   return spinUpFrame &&
-    spinUpFrame->StyleDisplay()->mAppearance == NS_THEME_SPINNER_UPBUTTON &&
-    !PresContext()->HasAuthorSpecifiedRules(spinUpFrame,
-                                            STYLES_DISABLING_NATIVE_THEMING) &&
-    spinDownFrame &&
-    spinDownFrame->StyleDisplay()->mAppearance == NS_THEME_SPINNER_DOWNBUTTON &&
-    !PresContext()->HasAuthorSpecifiedRules(spinDownFrame,
-                                            STYLES_DISABLING_NATIVE_THEMING);
+         spinUpFrame->StyleDisplay()->mAppearance ==
+             NS_THEME_SPINNER_UPBUTTON &&
+         !PresContext()->HasAuthorSpecifiedRules(
+             spinUpFrame, STYLES_DISABLING_NATIVE_THEMING) &&
+         spinDownFrame &&
+         spinDownFrame->StyleDisplay()->mAppearance ==
+             NS_THEME_SPINNER_DOWNBUTTON &&
+         !PresContext()->HasAuthorSpecifiedRules(
+             spinDownFrame, STYLES_DISABLING_NATIVE_THEMING);
 }
 
 void
@@ -673,9 +690,8 @@ nsNumberControlFrame::SetValueOfAnonTextControl(const nsAString& aValue)
   // inputs, and be safe in case our input has a type we don't expect for some
   // reason.
   IgnoredErrorResult rv;
-  HTMLInputElement::FromContent(mTextField)->SetValue(localizedValue,
-                                                      CallerType::NonSystem,
-                                                      rv);
+  HTMLInputElement::FromContent(mTextField)
+      ->SetValue(localizedValue, CallerType::NonSystem, rv);
 }
 
 void
@@ -686,7 +702,8 @@ nsNumberControlFrame::GetValueOfAnonTextControl(nsAString& aValue)
     return;
   }
 
-  HTMLInputElement::FromContent(mTextField)->GetValue(aValue, CallerType::System);
+  HTMLInputElement::FromContent(mTextField)
+      ->GetValue(aValue, CallerType::System);
 
   // Here we need to de-localize any number typed in by the user. That is, we
   // need to convert it from the number format of the user's language, region,
@@ -737,7 +754,8 @@ nsNumberControlFrame::AnonTextControlIsEmpty()
     return true;
   }
   nsAutoString value;
-  HTMLInputElement::FromContent(mTextField)->GetValue(value, CallerType::System);
+  HTMLInputElement::FromContent(mTextField)
+      ->GetValue(value, CallerType::System);
   return value.IsEmpty();
 }
 

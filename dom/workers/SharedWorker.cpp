@@ -21,9 +21,9 @@
 #include "RuntimeService.h"
 #include "WorkerPrivate.h"
 
+using mozilla::dom::MessagePort;
 using mozilla::dom::Optional;
 using mozilla::dom::Sequence;
-using mozilla::dom::MessagePort;
 using namespace mozilla;
 
 USING_WORKERS_NAMESPACE
@@ -31,20 +31,17 @@ USING_WORKERS_NAMESPACE
 SharedWorker::SharedWorker(nsPIDOMWindowInner* aWindow,
                            WorkerPrivate* aWorkerPrivate,
                            MessagePort* aMessagePort)
-  : DOMEventTargetHelper(aWindow)
-  , mWorkerPrivate(aWorkerPrivate)
-  , mMessagePort(aMessagePort)
-  , mFrozen(false)
+    : DOMEventTargetHelper(aWindow),
+      mWorkerPrivate(aWorkerPrivate),
+      mMessagePort(aMessagePort),
+      mFrozen(false)
 {
   AssertIsOnMainThread();
   MOZ_ASSERT(aWorkerPrivate);
   MOZ_ASSERT(aMessagePort);
 }
 
-SharedWorker::~SharedWorker()
-{
-  AssertIsOnMainThread();
-}
+SharedWorker::~SharedWorker() { AssertIsOnMainThread(); }
 
 // static
 already_AddRefed<SharedWorker>
@@ -70,8 +67,8 @@ SharedWorker::Constructor(const GlobalObject& aGlobal,
   }
 
   RefPtr<SharedWorker> sharedWorker;
-  nsresult rv = rts->CreateSharedWorker(aGlobal, aScriptURL, name,
-                                        getter_AddRefs(sharedWorker));
+  nsresult rv = rts->CreateSharedWorker(
+      aGlobal, aScriptURL, name, getter_AddRefs(sharedWorker));
   if (NS_FAILED(rv)) {
     aRv = rv;
     return nullptr;
@@ -146,7 +143,8 @@ SharedWorker::Close()
 }
 
 void
-SharedWorker::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
+SharedWorker::PostMessage(JSContext* aCx,
+                          JS::Handle<JS::Value> aMessage,
                           const Sequence<JSObject*>& aTransferable,
                           ErrorResult& aRv)
 {
@@ -195,7 +193,8 @@ SharedWorker::GetEventTargetParent(EventChainPreVisitor& aVisitor)
     if (!event) {
       event = EventDispatcher::CreateEvent(aVisitor.mEvent->mOriginalTarget,
                                            aVisitor.mPresContext,
-                                           aVisitor.mEvent, EmptyString());
+                                           aVisitor.mEvent,
+                                           EmptyString());
     }
 
     QueueEvent(event);

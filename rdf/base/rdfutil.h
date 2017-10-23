@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 /*
 
   A bunch of useful RDF utility routines.  Many of these will
@@ -28,11 +27,9 @@ nsresult
 rdf_MakeRelativeRef(const nsACString& aBaseURI, nsCString& aURI);
 
 void
-rdf_FormatDate(PRTime aTime, nsACString &aResult);
+rdf_FormatDate(PRTime aTime, nsACString& aResult);
 
 PRTime
-rdf_ParseDate(const nsACString &aTime);
+rdf_ParseDate(const nsACString& aTime);
 
-#endif // rdfutil_h__
-
-
+#endif  // rdfutil_h__

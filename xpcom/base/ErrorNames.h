@@ -17,8 +17,9 @@ namespace mozilla {
 // When the symbolic name is unknown, name will be of the form
 // "NS_ERROR_GENERATE_SUCCESS(<module>, <code>)" or
 // "NS_ERROR_GENERATE_FAILURE(<module>, <code>)".
-void GetErrorName(nsresult rv, nsACString& name);
+void
+GetErrorName(nsresult rv, nsACString& name);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ErrorNames_h
+#endif  // mozilla_ErrorNames_h

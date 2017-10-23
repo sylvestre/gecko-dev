@@ -6,8 +6,7 @@
 
 #include "signaling/src/sdp/SdpMediaSection.h"
 
-namespace mozilla
-{
+namespace mozilla {
 const SdpFmtpAttributeList::Parameters*
 SdpMediaSection::FindFmtp(const std::string& pt) const
 {
@@ -217,5 +216,4 @@ SdpMediaSection::FindRid(const std::string& id) const
   return nullptr;
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

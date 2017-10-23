@@ -16,14 +16,12 @@ namespace dom {
 ScrollAreaEvent::ScrollAreaEvent(EventTarget* aOwner,
                                  nsPresContext* aPresContext,
                                  InternalScrollAreaEvent* aEvent)
-  : UIEvent(aOwner, aPresContext, aEvent)
-  , mClientArea(new DOMRect(nullptr))
+    : UIEvent(aOwner, aPresContext, aEvent), mClientArea(new DOMRect(nullptr))
 {
   mClientArea->SetLayoutRect(aEvent ? aEvent->mArea : nsRect());
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(ScrollAreaEvent, UIEvent,
-                                   mClientArea)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(ScrollAreaEvent, UIEvent, mClientArea)
 
 NS_IMPL_ADDREF_INHERITED(ScrollAreaEvent, UIEvent)
 NS_IMPL_RELEASE_INHERITED(ScrollAreaEvent, UIEvent)
@@ -49,8 +47,7 @@ ScrollAreaEvent::InitScrollAreaEvent(const nsAString& aEventType,
 }
 
 NS_IMETHODIMP_(void)
-ScrollAreaEvent::Serialize(IPC::Message* aMsg,
-                           bool aSerializeInterfaceType)
+ScrollAreaEvent::Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType)
 {
   if (aSerializeInterfaceType) {
     IPC::WriteParam(aMsg, NS_LITERAL_STRING("scrollareaevent"));
@@ -79,8 +76,8 @@ ScrollAreaEvent::Deserialize(const IPC::Message* aMsg, PickleIterator* aIter)
   return true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -91,6 +88,6 @@ NS_NewDOMScrollAreaEvent(EventTarget* aOwner,
                          InternalScrollAreaEvent* aEvent)
 {
   RefPtr<ScrollAreaEvent> ev =
-    new ScrollAreaEvent(aOwner, aPresContext, aEvent);
+      new ScrollAreaEvent(aOwner, aPresContext, aEvent);
   return ev.forget();
 }

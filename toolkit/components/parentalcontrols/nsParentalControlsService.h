@@ -14,8 +14,8 @@
 #if defined(XP_WIN)
 // wpcevents.h requires this be elevated
 #if (WINVER < 0x0600)
-# undef WINVER
-# define WINVER 0x0600
+#undef WINVER
+#define WINVER 0x0600
 #endif
 #include <wpcapi.h>
 #include <wpcevent.h>
@@ -23,21 +23,21 @@
 
 class nsParentalControlsService : public nsIParentalControlsService
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPARENTALCONTROLSSERVICE
 
   nsParentalControlsService();
 
-protected:
+ protected:
   virtual ~nsParentalControlsService();
 
-private:
+ private:
   bool mEnabled;
 #if defined(XP_WIN)
   REGHANDLE mProvider;
-  IWindowsParentalControls * mPC;
-  void LogFileDownload(bool blocked, nsIURI *aSource, nsIFile *aTarget);
+  IWindowsParentalControls* mPC;
+  void LogFileDownload(bool blocked, nsIURI* aSource, nsIFile* aTarget);
 #endif
 };
 

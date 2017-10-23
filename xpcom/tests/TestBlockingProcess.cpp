@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include "mozilla/Unused.h"
 
-int main()
+int
+main()
 {
   char tmp;
   mozilla::Unused << fread(&tmp, sizeof(tmp), 1, stdin);

@@ -27,7 +27,7 @@ struct ProfileTimelineMarker;
 // allowed to exist. See TimelineConsumers for register/unregister logic.
 class ObservedDocShell : public MarkersStorage
 {
-private:
+ private:
   RefPtr<nsIDocShell> mDocShell;
 
   // Main thread only.
@@ -37,16 +37,17 @@ private:
   // Off the main thread only.
   nsTArray<UniquePtr<AbstractTimelineMarker>> mOffTheMainThreadTimelineMarkers;
 
-public:
+ public:
   explicit ObservedDocShell(nsIDocShell* aDocShell);
   nsIDocShell* operator*() const { return mDocShell.get(); }
 
   void AddMarker(UniquePtr<AbstractTimelineMarker>&& aMarker) override;
   void AddOTMTMarker(UniquePtr<AbstractTimelineMarker>&& aMarker) override;
   void ClearMarkers() override;
-  void PopMarkers(JSContext* aCx, nsTArray<dom::ProfileTimelineMarker>& aStore) override;
+  void PopMarkers(JSContext* aCx,
+                  nsTArray<dom::ProfileTimelineMarker>& aStore) override;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_ObservedDocShell_h_ */

@@ -12,23 +12,22 @@
 #include "nsIDocument.h"
 #include "nsContentUtils.h"
 
-
 NS_IMPL_NS_NEW_HTML_ELEMENT(Title)
 
 namespace mozilla {
 namespace dom {
 
-HTMLTitleElement::HTMLTitleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLTitleElement::HTMLTitleElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
   AddMutationObserver(this);
 }
 
-HTMLTitleElement::~HTMLTitleElement()
-{
-}
+HTMLTitleElement::~HTMLTitleElement() {}
 
-NS_IMPL_ISUPPORTS_INHERITED(HTMLTitleElement, nsGenericHTMLElement,
+NS_IMPL_ISUPPORTS_INHERITED(HTMLTitleElement,
+                            nsGenericHTMLElement,
                             nsIMutationObserver)
 
 NS_IMPL_ELEMENT_CLONE(HTMLTitleElement)
@@ -54,48 +53,47 @@ HTMLTitleElement::SetText(const nsAString& aText, ErrorResult& aError)
 }
 
 void
-HTMLTitleElement::CharacterDataChanged(nsIDocument *aDocument,
-                                       nsIContent *aContent,
-                                       CharacterDataChangeInfo *aInfo)
+HTMLTitleElement::CharacterDataChanged(nsIDocument* aDocument,
+                                       nsIContent* aContent,
+                                       CharacterDataChangeInfo* aInfo)
 {
   SendTitleChangeEvent(false);
 }
 
 void
-HTMLTitleElement::ContentAppended(nsIDocument *aDocument,
-                                  nsIContent *aContainer,
-                                  nsIContent *aFirstNewContent)
+HTMLTitleElement::ContentAppended(nsIDocument* aDocument,
+                                  nsIContent* aContainer,
+                                  nsIContent* aFirstNewContent)
 {
   SendTitleChangeEvent(false);
 }
 
 void
-HTMLTitleElement::ContentInserted(nsIDocument *aDocument,
-                                  nsIContent *aContainer,
-                                  nsIContent *aChild)
+HTMLTitleElement::ContentInserted(nsIDocument* aDocument,
+                                  nsIContent* aContainer,
+                                  nsIContent* aChild)
 {
   SendTitleChangeEvent(false);
 }
 
 void
-HTMLTitleElement::ContentRemoved(nsIDocument *aDocument,
-                                 nsIContent *aContainer,
-                                 nsIContent *aChild,
-                                 nsIContent *aPreviousSibling)
+HTMLTitleElement::ContentRemoved(nsIDocument* aDocument,
+                                 nsIContent* aContainer,
+                                 nsIContent* aChild,
+                                 nsIContent* aPreviousSibling)
 {
   SendTitleChangeEvent(false);
 }
 
 nsresult
-HTMLTitleElement::BindToTree(nsIDocument *aDocument,
-                             nsIContent *aParent,
-                             nsIContent *aBindingParent,
+HTMLTitleElement::BindToTree(nsIDocument* aDocument,
+                             nsIContent* aParent,
+                             nsIContent* aBindingParent,
                              bool aCompileEventHandlers)
 {
   // Let this fall through.
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   SendTitleChangeEvent(true);
@@ -129,5 +127,5 @@ HTMLTitleElement::SendTitleChangeEvent(bool aBound)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

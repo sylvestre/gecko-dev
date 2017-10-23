@@ -57,46 +57,47 @@
 
 class gfxScriptItemizer
 {
-public:
-    typedef mozilla::unicode::Script Script;
+ public:
+  typedef mozilla::unicode::Script Script;
 
-    gfxScriptItemizer(const char16_t *src, uint32_t length);
+  gfxScriptItemizer(const char16_t* src, uint32_t length);
 
-    void SetText(const char16_t *src, uint32_t length);
+  void SetText(const char16_t* src, uint32_t length);
 
-    bool Next(uint32_t& aRunStart, uint32_t& aRunLimit,
-              Script& aRunScript);
+  bool Next(uint32_t& aRunStart, uint32_t& aRunLimit, Script& aRunScript);
 
-protected:
-    void reset() {
-        scriptStart = 0;
-        scriptLimit = 0;
-        scriptCode  = Script::INVALID;
-        parenSP     = -1;
-        pushCount   =  0;
-        fixupCount  =  0;
-    }
+ protected:
+  void reset()
+  {
+    scriptStart = 0;
+    scriptLimit = 0;
+    scriptCode = Script::INVALID;
+    parenSP = -1;
+    pushCount = 0;
+    fixupCount = 0;
+  }
 
-    void push(uint32_t endPairChar, Script newScriptCode);
-    void pop();
-    void fixup(Script newScriptCode);
+  void push(uint32_t endPairChar, Script newScriptCode);
+  void pop();
+  void fixup(Script newScriptCode);
 
-    struct ParenStackEntry {
-        uint32_t endPairChar;
-        Script  scriptCode;
-    };
+  struct ParenStackEntry
+  {
+    uint32_t endPairChar;
+    Script scriptCode;
+  };
 
-    const char16_t *textPtr;
-    uint32_t textLength;
+  const char16_t* textPtr;
+  uint32_t textLength;
 
-    uint32_t scriptStart;
-    uint32_t scriptLimit;
-    Script  scriptCode;
+  uint32_t scriptStart;
+  uint32_t scriptLimit;
+  Script scriptCode;
 
-    struct ParenStackEntry parenStack[PAREN_STACK_DEPTH];
-    uint32_t parenSP;
-    uint32_t pushCount;
-    uint32_t fixupCount;
+  struct ParenStackEntry parenStack[PAREN_STACK_DEPTH];
+  uint32_t parenSP;
+  uint32_t pushCount;
+  uint32_t fixupCount;
 };
 
 #endif /* GFX_SCRIPTITEMIZER_H */

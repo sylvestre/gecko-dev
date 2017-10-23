@@ -22,7 +22,7 @@ class SRICheckDataVerifier;
 
 class ScriptLoadHandler final : public nsIIncrementalStreamLoaderObserver
 {
-public:
+ public:
   explicit ScriptLoadHandler(ScriptLoader* aScriptLoader,
                              ScriptLoadRequest* aRequest,
                              SRICheckDataVerifier* aSRIDataVerifier);
@@ -30,14 +30,15 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIINCREMENTALSTREAMLOADEROBSERVER
 
-private:
+ private:
   virtual ~ScriptLoadHandler();
 
   /*
    * Once the charset is found by the EnsureDecoder function, we can
    * incrementally convert the charset to the one expected by the JS Parser.
    */
-  nsresult DecodeRawData(const uint8_t* aData, uint32_t aDataLength,
+  nsresult DecodeRawData(const uint8_t* aData,
+                         uint32_t aDataLength,
                          bool aEndOfStream);
 
   /*
@@ -46,11 +47,14 @@ private:
    * discovered.
    */
   bool EnsureDecoder(nsIIncrementalStreamLoader* aLoader,
-                     const uint8_t* aData, uint32_t aDataLength,
+                     const uint8_t* aData,
+                     uint32_t aDataLength,
                      bool aEndOfStream);
   bool EnsureDecoder(nsIIncrementalStreamLoader* aLoader,
-                     const uint8_t* aData, uint32_t aDataLength,
-                     bool aEndOfStream, nsCString& oCharset);
+                     const uint8_t* aData,
+                     uint32_t aDataLength,
+                     bool aEndOfStream,
+                     nsCString& oCharset);
 
   /*
    * When streaming bytecode, we have the opportunity to fallback early if SRI
@@ -77,7 +81,7 @@ private:
   mozilla::UniquePtr<mozilla::Decoder> mDecoder;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ScriptLoadHandler_h
+#endif  // mozilla_dom_ScriptLoadHandler_h

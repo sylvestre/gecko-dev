@@ -23,8 +23,7 @@ class DecoderDoctorDiagnostics;
 
 class H264Converter : public MediaDataDecoder
 {
-public:
-
+ public:
   H264Converter(PlatformDecoderModule* aPDM,
                 const CreateDecoderParams& aParams);
   virtual ~H264Converter();
@@ -61,12 +60,12 @@ public:
   }
   MediaResult GetLastError() const { return mLastError; }
 
-private:
+ private:
   // Will create the required MediaDataDecoder if need AVCC and we have a SPS NAL.
   // Returns NS_ERROR_FAILURE if error is permanent and can't be recovered and
   // will set mError accordingly.
   MediaResult CreateDecoder(const VideoInfo& aConfig,
-                         DecoderDoctorDiagnostics* aDiagnostics);
+                            DecoderDoctorDiagnostics* aDiagnostics);
   MediaResult CreateDecoderAndInit(MediaRawData* aSample);
   MediaResult CheckForSPSChange(MediaRawData* aSample);
   void UpdateConfigFromExtraData(MediaByteBuffer* aExtraData);
@@ -108,6 +107,6 @@ private:
   Maybe<bool> mCanRecycleDecoder;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_H264Converter_h
+#endif  // mozilla_H264Converter_h

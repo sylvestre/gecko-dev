@@ -12,17 +12,21 @@
 #include "stdlib.h"
 #include "gtest/gtest.h"
 
-static char int_to_hex_digit(int32_t i) {
+static char
+int_to_hex_digit(int32_t i)
+{
   NS_ASSERTION((i >= 0) && (i <= 15), "int too big in int_to_hex_digit");
   return static_cast<char>(((i < 10) ? (i + '0') : ((i - 10) + 'A')));
 }
 
-static void CheckEquals(nsCString& expected, nsCString& actual)
+static void
+CheckEquals(nsCString& expected, nsCString& actual)
 {
   ASSERT_TRUE((expected).Equals((actual)));
 }
 
-void TestUnescapeHelper(const char* in, const char* expected)
+void
+TestUnescapeHelper(const char* in, const char* expected)
 {
   nsCString out, strIn(in), strExp(expected);
 
@@ -51,10 +55,8 @@ TEST(UrlClassifierUtils, Unescape)
   }
 
   nsCString out;
-  NS_UnescapeURL(allCharsEncoded.get(),
-                 allCharsEncoded.Length(),
-                 esc_AlwaysCopy,
-                 out);
+  NS_UnescapeURL(
+      allCharsEncoded.get(), allCharsEncoded.Length(), esc_AlwaysCopy, out);
 
   CheckEquals(allCharsAsString, out);
 
@@ -81,7 +83,8 @@ TEST(UrlClassifierUtils, Unescape)
   TestUnescapeHelper("%25%32%35", "%25");
 }
 
-void TestEncodeHelper(const char* in, const char* expected)
+void
+TestEncodeHelper(const char* in, const char* expected)
 {
   nsCString out, strIn(in), strExp(expected);
   RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
@@ -99,7 +102,7 @@ TEST(UrlClassifierUtils, Enc)
   // Test that all characters we shouldn't encode ([33-36],[38,126]) are not.
   nsCString noenc;
   for (int32_t i = 33; i < 127; i++) {
-    if (i != 37) {                      // skip %
+    if (i != 37) {  // skip %
       noenc.Append(static_cast<char>(i));
     }
   }
@@ -127,7 +130,8 @@ TEST(UrlClassifierUtils, Enc)
   TestEncodeHelper("blah//blah", "blah/blah");
 }
 
-void TestCanonicalizeHelper(const char* in, const char* expected)
+void
+TestCanonicalizeHelper(const char* in, const char* expected)
 {
   nsCString out, strIn(in), strExp(expected);
   RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
@@ -146,19 +150,27 @@ TEST(UrlClassifierUtils, Canonicalize)
   TestCanonicalizeHelper("%%%25%32%35asd%%", "%25%25%25asd%25%25");
   TestCanonicalizeHelper("%25%32%35%25%32%35%25%32%35", "%25%25%25");
   TestCanonicalizeHelper("%25", "%25");
-  TestCanonicalizeHelper("%257Ea%2521b%2540c%2523d%2524e%25f%255E00%252611%252A22%252833%252944_55%252B",
+  TestCanonicalizeHelper(
+      "%257Ea%2521b%2540c%2523d%2524e%25f%255E00%252611%252A22%252833%252944_"
+      "55%252B",
       "~a!b@c#d$e%25f^00&11*22(33)44_55+");
 
   TestCanonicalizeHelper("", "");
-  TestCanonicalizeHelper("%31%36%38%2e%31%38%38%2e%39%39%2e%32%36/%2E%73%65%63%75%72%65/%77%77%77%2E%65%62%61%79%2E%63%6F%6D/",
-                         "168.188.99.26/.secure/www.ebay.com/");
-  TestCanonicalizeHelper("195.127.0.11/uploads/%20%20%20%20/.verify/.eBaysecure=updateuserdataxplimnbqmn-xplmvalidateinfoswqpcmlx=hgplmcx/",
-                         "195.127.0.11/uploads/%20%20%20%20/.verify/.eBaysecure=updateuserdataxplimnbqmn-xplmvalidateinfoswqpcmlx=hgplmcx/");
+  TestCanonicalizeHelper(
+      "%31%36%38%2e%31%38%38%2e%39%39%2e%32%36/%2E%73%65%63%75%72%65/"
+      "%77%77%77%2E%65%62%61%79%2E%63%6F%6D/",
+      "168.188.99.26/.secure/www.ebay.com/");
+  TestCanonicalizeHelper(
+      "195.127.0.11/uploads/%20%20%20%20/.verify/"
+      ".eBaysecure=updateuserdataxplimnbqmn-xplmvalidateinfoswqpcmlx=hgplmcx/",
+      "195.127.0.11/uploads/%20%20%20%20/.verify/"
+      ".eBaysecure=updateuserdataxplimnbqmn-xplmvalidateinfoswqpcmlx=hgplmcx/");
   // Added in bug 489455.  %00 should no longer be changed to %01.
   TestCanonicalizeHelper("%00", "%00");
 }
 
-void TestParseIPAddressHelper(const char *in, const char *expected)
+void
+TestParseIPAddressHelper(const char* in, const char* expected)
 {
   nsCString out, strIn(in), strExp(expected);
   RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
@@ -190,8 +202,11 @@ TEST(UrlClassifierUtils, ParseIPAddress)
   TestParseIPAddressHelper("1.2.3.4", "1.2.3.4");
 }
 
-void TestCanonicalNumHelper(const char *in, uint32_t bytes,
-                            bool allowOctal, const char *expected)
+void
+TestCanonicalNumHelper(const char* in,
+                       uint32_t bytes,
+                       bool allowOctal,
+                       const char* expected)
 {
   nsCString out, strIn(in), strExp(expected);
   RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
@@ -219,7 +234,8 @@ TEST(UrlClassifierUtils, CanonicalNum)
   TestCanonicalNumHelper("0x0000067", 1, true, "103");
 }
 
-void TestHostnameHelper(const char *in, const char *expected)
+void
+TestHostnameHelper(const char* in, const char* expected)
 {
   nsCString out, strIn(in), strExp(expected);
   RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
@@ -256,7 +272,7 @@ TEST(UrlClassifierUtils, Hostname)
 TEST(UrlClassifierUtils, LongHostname)
 {
   static const int kTestSize = 1024 * 150;
-  char *str = static_cast<char*>(malloc(kTestSize + 1));
+  char* str = static_cast<char*>(malloc(kTestSize + 1));
   memset(str, 'x', kTestSize);
   str[kTestSize] = '\0';
 

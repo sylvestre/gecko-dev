@@ -23,12 +23,14 @@ typedef ProgressMeterAccessible<1> HTMLProgressMeterAccessible;
  */
 class HTMLCheckboxAccessible : public LeafAccessible
 {
+ public:
+  enum
+  {
+    eAction_Click = 0
+  };
 
-public:
-  enum { eAction_Click = 0 };
-
-  HTMLCheckboxAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    LeafAccessible(aContent, aDoc)
+  HTMLCheckboxAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : LeafAccessible(aContent, aDoc)
   {
     // Ignore "CheckboxStateChange" DOM event in lieu of document observer
     // state change notification.
@@ -48,16 +50,14 @@ public:
   virtual bool IsWidget() const override;
 };
 
-
 /**
  * Accessible for HTML input@type="radio" element.
  */
 class HTMLRadioButtonAccessible : public RadioButtonAccessible
 {
-
-public:
-  HTMLRadioButtonAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    RadioButtonAccessible(aContent, aDoc)
+ public:
+  HTMLRadioButtonAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : RadioButtonAccessible(aContent, aDoc)
   {
     // Ignore "RadioStateChange" DOM event in lieu of document observer
     // state change notification.
@@ -66,10 +66,9 @@ public:
 
   // Accessible
   virtual uint64_t NativeState() override;
-  virtual void GetPositionAndSizeInternal(int32_t *aPosInSet,
-                                          int32_t *aSetSize) override;
+  virtual void GetPositionAndSizeInternal(int32_t* aPosInSet,
+                                          int32_t* aSetSize) override;
 };
-
 
 /**
  * Accessible for HTML input@type="button", @type="submit", @type="image"
@@ -77,9 +76,11 @@ public:
  */
 class HTMLButtonAccessible : public HyperTextAccessibleWrap
 {
-
-public:
-  enum { eAction_Click = 0 };
+ public:
+  enum
+  {
+    eAction_Click = 0
+  };
 
   HTMLButtonAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
@@ -96,11 +97,10 @@ public:
   // Widgets
   virtual bool IsWidget() const override;
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 };
-
 
 /**
  * Accessible for HTML input@type="text", input@type="password", textarea and
@@ -108,9 +108,11 @@ protected:
  */
 class HTMLTextFieldAccessible final : public HyperTextAccessibleWrap
 {
-
-public:
-  enum { eAction_Click = 0 };
+ public:
+  enum
+  {
+    eAction_Click = 0
+  };
 
   HTMLTextFieldAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
@@ -135,7 +137,7 @@ public:
   virtual bool IsWidget() const override;
   virtual Accessible* ContainerWidget() const override;
 
-protected:
+ protected:
   virtual ~HTMLTextFieldAccessible() {}
 
   // Accessible
@@ -147,13 +149,12 @@ protected:
   nsIContent* XULWidgetElm() const { return mContent->GetBindingParent(); }
 };
 
-
 /**
  * Accessible for input@type="file" element.
  */
 class HTMLFileInputAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLFileInputAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -161,18 +162,17 @@ public:
   virtual nsresult HandleAccEvent(AccEvent* aAccEvent) override;
 };
 
-
 /**
  * Used for HTML input@type="number".
  */
 class HTMLSpinnerAccessible : public AccessibleWrap
 {
-public:
-  HTMLSpinnerAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    AccessibleWrap(aContent, aDoc)
+ public:
+  HTMLSpinnerAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : AccessibleWrap(aContent, aDoc)
   {
     mStateFlags |= eHasNumericValue;
-}
+  }
 
   // Accessible
   virtual mozilla::a11y::role NativeRole() override;
@@ -185,15 +185,14 @@ public:
   virtual bool SetCurValue(double aValue) override;
 };
 
-
 /**
   * Used for input@type="range" element.
   */
 class HTMLRangeAccessible : public LeafAccessible
 {
-public:
-  HTMLRangeAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    LeafAccessible(aContent, aDoc)
+ public:
+  HTMLRangeAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : LeafAccessible(aContent, aDoc)
   {
     mStateFlags |= eHasNumericValue;
   }
@@ -213,20 +212,19 @@ public:
   virtual bool IsWidget() const override;
 };
 
-
 /**
  * Accessible for HTML fieldset element.
  */
 class HTMLGroupboxAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLGroupboxAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual mozilla::a11y::role NativeRole() override;
   virtual Relation RelationByType(RelationType aType) override;
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 
@@ -234,13 +232,12 @@ protected:
   nsIContent* GetLegend() const;
 };
 
-
 /**
  * Accessible for HTML legend element.
  */
 class HTMLLegendAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLLegendAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -252,13 +249,13 @@ public:
  */
 class HTMLFigureAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLFigureAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual Relation RelationByType(RelationType aType) override;
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 
@@ -266,20 +263,19 @@ protected:
   nsIContent* Caption() const;
 };
 
-
 /**
  * Accessible for HTML5 figcaption element.
  */
 class HTMLFigcaptionAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLFigcaptionAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual Relation RelationByType(RelationType aType) override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

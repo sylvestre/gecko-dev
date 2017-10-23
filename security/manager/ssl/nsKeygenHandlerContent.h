@@ -15,8 +15,9 @@
 
 class nsIDOMHTMLElement;
 
-class nsKeygenFormProcessorContent final : public nsIFormProcessor {
-public:
+class nsKeygenFormProcessorContent final : public nsIFormProcessor
+{
+ public:
   nsKeygenFormProcessorContent();
 
   virtual nsresult ProcessValue(nsIDOMHTMLElement* aElement,
@@ -35,8 +36,8 @@ public:
 
   NS_DECL_ISUPPORTS
 
-protected:
+ protected:
   ~nsKeygenFormProcessorContent();
 };
 
-#endif // nsKeygenHandlerContent_h
+#endif  // nsKeygenHandlerContent_h

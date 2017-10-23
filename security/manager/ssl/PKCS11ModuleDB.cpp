@@ -15,13 +15,12 @@
 #include "nsPKCS11Slot.h"
 #include "nsServiceManagerUtils.h"
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 NS_IMPL_ISUPPORTS(PKCS11ModuleDB, nsIPKCS11ModuleDB)
 
-PKCS11ModuleDB::PKCS11ModuleDB()
-{
-}
+PKCS11ModuleDB::PKCS11ModuleDB() {}
 
 PKCS11ModuleDB::~PKCS11ModuleDB()
 {
@@ -67,7 +66,7 @@ PKCS11ModuleDB::DeleteModule(const nsAString& aModuleName)
 // hard-code the value here.)
 void
 GetModuleNameForTelemetry(/*in*/ const SECMODModule* module,
-                          /*out*/nsString& result)
+                          /*out*/ nsString& result)
 {
   result.Truncate();
   if (module->dllName) {
@@ -124,8 +123,8 @@ PKCS11ModuleDB::AddModule(const nsAString& aModuleName,
   NS_CopyUnicodeToNative(aLibraryFullPath, fullPath);
   uint32_t mechFlags = SECMOD_PubMechFlagstoInternal(aCryptoMechanismFlags);
   uint32_t cipherFlags = SECMOD_PubCipherFlagstoInternal(aCipherFlags);
-  SECStatus srv = SECMOD_AddNewModule(moduleName.get(), fullPath.get(),
-                                      mechFlags, cipherFlags);
+  SECStatus srv = SECMOD_AddNewModule(
+      moduleName.get(), fullPath.get(), mechFlags, cipherFlags);
   if (srv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
@@ -143,15 +142,15 @@ PKCS11ModuleDB::AddModule(const nsAString& aModuleName,
   // returned an empty result, however, we need to not attempt to record this
   // (it wouldn't give us anything useful anyway).
   if (scalarKey.Length() > 0) {
-    Telemetry::ScalarSet(Telemetry::ScalarID::SECURITY_PKCS11_MODULES_LOADED,
-                         scalarKey, true);
+    Telemetry::ScalarSet(
+        Telemetry::ScalarID::SECURITY_PKCS11_MODULES_LOADED, scalarKey, true);
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
 PKCS11ModuleDB::FindModuleByName(const nsACString& name,
-                         /*out*/ nsIPKCS11Module** _retval)
+                                 /*out*/ nsIPKCS11Module** _retval)
 {
   NS_ENSURE_ARG_POINTER(_retval);
 
@@ -233,7 +232,6 @@ PKCS11ModuleDB::GetCanToggleFIPS(bool* aCanToggleFIPS)
   return NS_OK;
 }
 
-
 NS_IMETHODIMP
 PKCS11ModuleDB::ToggleFIPSMode()
 {
@@ -278,4 +276,5 @@ PKCS11ModuleDB::GetIsFIPSEnabled(bool* aIsFIPSEnabled)
   return NS_OK;
 }
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla

@@ -21,9 +21,9 @@ struct BrowserElementDownloadOptions;
 struct BrowserElementExecuteScriptOptions;
 class BrowserElementNextPaintEventCallback;
 class DOMRequest;
-enum class BrowserFindCaseSensitivity: uint8_t;
-enum class BrowserFindDirection: uint8_t;
-} // namespace dom
+enum class BrowserFindCaseSensitivity : uint8_t;
+enum class BrowserFindDirection : uint8_t;
+}  // namespace dom
 
 class ErrorResult;
 
@@ -32,7 +32,7 @@ class ErrorResult;
  */
 class nsBrowserElement
 {
-public:
+ public:
   nsBrowserElement() {}
   virtual ~nsBrowserElement() {}
 
@@ -59,18 +59,17 @@ public:
   void Reload(bool aHardReload, ErrorResult& aRv);
   void Stop(ErrorResult& aRv);
 
-  already_AddRefed<dom::DOMRequest>
-  Download(const nsAString& aUrl,
-           const dom::BrowserElementDownloadOptions& options,
-           ErrorResult& aRv);
+  already_AddRefed<dom::DOMRequest> Download(
+      const nsAString& aUrl,
+      const dom::BrowserElementDownloadOptions& options,
+      ErrorResult& aRv);
 
   already_AddRefed<dom::DOMRequest> PurgeHistory(ErrorResult& aRv);
 
-  already_AddRefed<dom::DOMRequest>
-  GetScreenshot(uint32_t aWidth,
-                uint32_t aHeight,
-                const nsAString& aMimeType,
-                ErrorResult& aRv);
+  already_AddRefed<dom::DOMRequest> GetScreenshot(uint32_t aWidth,
+                                                  uint32_t aHeight,
+                                                  const nsAString& aMimeType,
+                                                  ErrorResult& aRv);
 
   void Zoom(float aZoom, ErrorResult& aRv);
 
@@ -78,33 +77,35 @@ public:
   already_AddRefed<dom::DOMRequest> GetCanGoForward(ErrorResult& aRv);
   already_AddRefed<dom::DOMRequest> GetContentDimensions(ErrorResult& aRv);
 
-  void FindAll(const nsAString& aSearchString, dom::BrowserFindCaseSensitivity aCaseSensitivity,
+  void FindAll(const nsAString& aSearchString,
+               dom::BrowserFindCaseSensitivity aCaseSensitivity,
                ErrorResult& aRv);
   void FindNext(dom::BrowserFindDirection aDirection, ErrorResult& aRv);
   void ClearMatch(ErrorResult& aRv);
 
   void AddNextPaintListener(dom::BrowserElementNextPaintEventCallback& listener,
                             ErrorResult& aRv);
-  void RemoveNextPaintListener(dom::BrowserElementNextPaintEventCallback& listener,
-                               ErrorResult& aRv);
+  void RemoveNextPaintListener(
+      dom::BrowserElementNextPaintEventCallback& listener, ErrorResult& aRv);
 
-  already_AddRefed<dom::DOMRequest> ExecuteScript(const nsAString& aScript,
-                                                  const dom::BrowserElementExecuteScriptOptions& aOptions,
-                                                  ErrorResult& aRv);
+  already_AddRefed<dom::DOMRequest> ExecuteScript(
+      const nsAString& aScript,
+      const dom::BrowserElementExecuteScriptOptions& aOptions,
+      ErrorResult& aRv);
 
   already_AddRefed<dom::DOMRequest> GetWebManifest(ErrorResult& aRv);
 
-protected:
+ protected:
   NS_IMETHOD_(already_AddRefed<nsFrameLoader>) GetFrameLoader() = 0;
 
   void InitBrowserElementAPI();
   void DestroyBrowserElementFrameScripts();
   nsCOMPtr<nsIBrowserElementAPI> mBrowserElementAPI;
 
-private:
+ private:
   bool IsBrowserElementOrThrow(ErrorResult& aRv);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // nsBrowserElement_h
+#endif  // nsBrowserElement_h

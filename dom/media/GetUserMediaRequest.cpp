@@ -17,20 +17,18 @@ GetUserMediaRequest::GetUserMediaRequest(
     const nsAString& aCallID,
     const MediaStreamConstraints& aConstraints,
     bool aIsSecure)
-  : mInnerWindowID(aInnerWindow->WindowID())
-  , mOuterWindowID(aInnerWindow->GetOuterWindow()->WindowID())
-  , mCallID(aCallID)
-  , mConstraints(new MediaStreamConstraints(aConstraints))
-  , mIsSecure(aIsSecure)
+    : mInnerWindowID(aInnerWindow->WindowID()),
+      mOuterWindowID(aInnerWindow->GetOuterWindow()->WindowID()),
+      mCallID(aCallID),
+      mConstraints(new MediaStreamConstraints(aConstraints)),
+      mIsSecure(aIsSecure)
 {
 }
 
-GetUserMediaRequest::GetUserMediaRequest(
-    nsPIDOMWindowInner* aInnerWindow,
-    const nsAString& aRawId,
-    const nsAString& aMediaSource)
-  : mRawID(aRawId)
-  , mMediaSource(aMediaSource)
+GetUserMediaRequest::GetUserMediaRequest(nsPIDOMWindowInner* aInnerWindow,
+                                         const nsAString& aRawId,
+                                         const nsAString& aMediaSource)
+    : mRawID(aRawId), mMediaSource(aMediaSource)
 {
   if (aInnerWindow && aInnerWindow->GetOuterWindow()) {
     mOuterWindowID = aInnerWindow->GetOuterWindow()->WindowID();
@@ -46,51 +44,59 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GetUserMediaRequest)
 NS_INTERFACE_MAP_END
 
 JSObject*
-GetUserMediaRequest::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+GetUserMediaRequest::WrapObject(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return GetUserMediaRequestBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsISupports* GetUserMediaRequest::GetParentObject()
+nsISupports*
+GetUserMediaRequest::GetParentObject()
 {
   return nullptr;
 }
 
-void GetUserMediaRequest::GetCallID(nsString& retval)
+void
+GetUserMediaRequest::GetCallID(nsString& retval)
 {
   retval = mCallID;
 }
 
-void GetUserMediaRequest::GetRawID(nsString& retval)
+void
+GetUserMediaRequest::GetRawID(nsString& retval)
 {
   retval = mRawID;
 }
 
-void GetUserMediaRequest::GetMediaSource(nsString& retval)
+void
+GetUserMediaRequest::GetMediaSource(nsString& retval)
 {
   retval = mMediaSource;
 }
 
-uint64_t GetUserMediaRequest::WindowID()
+uint64_t
+GetUserMediaRequest::WindowID()
 {
   return mOuterWindowID;
 }
 
-uint64_t GetUserMediaRequest::InnerWindowID()
+uint64_t
+GetUserMediaRequest::InnerWindowID()
 {
   return mInnerWindowID;
 }
 
-bool GetUserMediaRequest::IsSecure()
+bool
+GetUserMediaRequest::IsSecure()
 {
   return mIsSecure;
 }
 
 void
-GetUserMediaRequest::GetConstraints(MediaStreamConstraints &result)
+GetUserMediaRequest::GetConstraints(MediaStreamConstraints& result)
 {
   result = *mConstraints;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

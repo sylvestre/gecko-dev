@@ -23,32 +23,21 @@
 using namespace js;
 using namespace js::jit;
 
-class js::jit::OutOfLineTableSwitch : public OutOfLineCodeBase<CodeGeneratorMIPS>
-{
+class js::jit::OutOfLineTableSwitch : public OutOfLineCodeBase<CodeGeneratorMIPS> {
     MTableSwitch* mir_;
     CodeLabel jumpLabel_;
 
-    void accept(CodeGeneratorMIPS* codegen) {
-        codegen->visitOutOfLineTableSwitch(this);
-    }
+    void accept(CodeGeneratorMIPS* codegen) { codegen->visitOutOfLineTableSwitch(this); }
 
-  public:
-    OutOfLineTableSwitch(MTableSwitch* mir)
-      : mir_(mir)
-    {}
+   public:
+    OutOfLineTableSwitch(MTableSwitch* mir) : mir_(mir) {}
 
-    MTableSwitch* mir() const {
-        return mir_;
-    }
+    MTableSwitch* mir() const { return mir_; }
 
-    CodeLabel* jumpLabel() {
-        return &jumpLabel_;
-    }
+    CodeLabel* jumpLabel() { return &jumpLabel_; }
 };
 
-void
-CodeGeneratorMIPS::visitOutOfLineBailout(OutOfLineBailout* ool)
-{
+void CodeGeneratorMIPS::visitOutOfLineBailout(OutOfLineBailout* ool) {
     // Push snapshotOffset and make sure stack is aligned.
     masm.subPtr(Imm32(2 * sizeof(void*)), StackPointer);
     masm.storePtr(ImmWord(ool->snapshot()->snapshotOffset()), Address(StackPointer, 0));
@@ -56,9 +45,7 @@ CodeGeneratorMIPS::visitOutOfLineBailout(OutOfLineBailout* ool)
     masm.jump(&deoptLabel_);
 }
 
-void
-CodeGeneratorMIPS::visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool)
-{
+void CodeGeneratorMIPS::visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool) {
     MTableSwitch* mir = ool->mir();
 
     masm.haltingAlign(sizeof(void*));
@@ -80,15 +67,12 @@ CodeGeneratorMIPS::visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool)
     }
 }
 
-void
-CodeGeneratorMIPS::emitTableSwitchDispatch(MTableSwitch* mir, Register index,
-                                           Register address)
-{
+void CodeGeneratorMIPS::emitTableSwitchDispatch(MTableSwitch* mir, Register index,
+                                                Register address) {
     Label* defaultcase = skipTrivialBlocks(mir->getDefault())->lir()->label();
 
     // Lower value with low value
-    if (mir->low() != 0)
-        masm.subPtr(Imm32(mir->low()), index);
+    if (mir->low() != 0) masm.subPtr(Imm32(mir->low()), index);
 
     // Jump to default case if input is out of range
     int32_t cases = mir->numCases();
@@ -97,7 +81,7 @@ CodeGeneratorMIPS::emitTableSwitchDispatch(MTableSwitch* mir, Register index,
     // To fill in the CodeLabels for the case entries, we need to first
     // generate the case entries (we don't yet know their offsets in the
     // instruction stream).
-    OutOfLineTableSwitch* ool = new(alloc()) OutOfLineTableSwitch(mir);
+    OutOfLineTableSwitch* ool = new (alloc()) OutOfLineTableSwitch(mir);
     addOutOfLineCode(ool, mir);
 
     // Compute the position where a pointer to the right case stands.
@@ -108,61 +92,44 @@ CodeGeneratorMIPS::emitTableSwitchDispatch(MTableSwitch* mir, Register index,
     masm.branch(address);
 }
 
-static const uint32_t FrameSizes[] = { 128, 256, 512, 1024 };
+static const uint32_t FrameSizes[] = {128, 256, 512, 1024};
 
-FrameSizeClass
-FrameSizeClass::FromDepth(uint32_t frameDepth)
-{
+FrameSizeClass FrameSizeClass::FromDepth(uint32_t frameDepth) {
     for (uint32_t i = 0; i < JS_ARRAY_LENGTH(FrameSizes); i++) {
-        if (frameDepth < FrameSizes[i])
-            return FrameSizeClass(i);
+        if (frameDepth < FrameSizes[i]) return FrameSizeClass(i);
     }
 
     return FrameSizeClass::None();
 }
 
-FrameSizeClass
-FrameSizeClass::ClassLimit()
-{
-    return FrameSizeClass(JS_ARRAY_LENGTH(FrameSizes));
-}
+FrameSizeClass FrameSizeClass::ClassLimit() { return FrameSizeClass(JS_ARRAY_LENGTH(FrameSizes)); }
 
-uint32_t
-FrameSizeClass::frameSize() const
-{
+uint32_t FrameSizeClass::frameSize() const {
     MOZ_ASSERT(class_ != NO_FRAME_SIZE_CLASS_ID);
     MOZ_ASSERT(class_ < JS_ARRAY_LENGTH(FrameSizes));
 
     return FrameSizes[class_];
 }
 
-ValueOperand
-CodeGeneratorMIPS::ToValue(LInstruction* ins, size_t pos)
-{
+ValueOperand CodeGeneratorMIPS::ToValue(LInstruction* ins, size_t pos) {
     Register typeReg = ToRegister(ins->getOperand(pos + TYPE_INDEX));
     Register payloadReg = ToRegister(ins->getOperand(pos + PAYLOAD_INDEX));
     return ValueOperand(typeReg, payloadReg);
 }
 
-ValueOperand
-CodeGeneratorMIPS::ToOutValue(LInstruction* ins)
-{
+ValueOperand CodeGeneratorMIPS::ToOutValue(LInstruction* ins) {
     Register typeReg = ToRegister(ins->getDef(TYPE_INDEX));
     Register payloadReg = ToRegister(ins->getDef(PAYLOAD_INDEX));
     return ValueOperand(typeReg, payloadReg);
 }
 
-ValueOperand
-CodeGeneratorMIPS::ToTempValue(LInstruction* ins, size_t pos)
-{
+ValueOperand CodeGeneratorMIPS::ToTempValue(LInstruction* ins, size_t pos) {
     Register typeReg = ToRegister(ins->getTemp(pos + TYPE_INDEX));
     Register payloadReg = ToRegister(ins->getTemp(pos + PAYLOAD_INDEX));
     return ValueOperand(typeReg, payloadReg);
 }
 
-void
-CodeGeneratorMIPS::visitBox(LBox* box)
-{
+void CodeGeneratorMIPS::visitBox(LBox* box) {
     const LDefinition* type = box->getDef(TYPE_INDEX);
 
     MOZ_ASSERT(!box->getOperand(0)->isConstant());
@@ -173,18 +140,14 @@ CodeGeneratorMIPS::visitBox(LBox* box)
     masm.move32(Imm32(MIRTypeToTag(box->type())), ToRegister(type));
 }
 
-void
-CodeGeneratorMIPS::visitBoxFloatingPoint(LBoxFloatingPoint* box)
-{
+void CodeGeneratorMIPS::visitBoxFloatingPoint(LBoxFloatingPoint* box) {
     const AnyRegister in = ToAnyRegister(box->getOperand(0));
     const ValueOperand out = ToOutValue(box);
 
     masm.moveValue(TypedOrValueRegister(box->type(), in), out);
 }
 
-void
-CodeGeneratorMIPS::visitUnbox(LUnbox* unbox)
-{
+void CodeGeneratorMIPS::visitUnbox(LUnbox* unbox) {
     // Note that for unbox, the type and payload indexes are switched on the
     // inputs.
     MUnbox* mir = unbox->mir();
@@ -196,15 +159,9 @@ CodeGeneratorMIPS::visitUnbox(LUnbox* unbox)
     }
 }
 
-Register
-CodeGeneratorMIPS::splitTagForTest(const ValueOperand& value)
-{
-    return value.typeReg();
-}
+Register CodeGeneratorMIPS::splitTagForTest(const ValueOperand& value) { return value.typeReg(); }
 
-void
-CodeGeneratorMIPS::visitCompareB(LCompareB* lir)
-{
+void CodeGeneratorMIPS::visitCompareB(LCompareB* lir) {
     MCompare* mir = lir->mir();
 
     const ValueOperand lhs = ToValue(lir, LCompareB::Lhs);
@@ -225,16 +182,12 @@ CodeGeneratorMIPS::visitCompareB(LCompareB* lir)
     }
 
     masm.bind(&notBoolean);
-    {
-        masm.move32(Imm32(mir->jsop() == JSOP_STRICTNE), output);
-    }
+    { masm.move32(Imm32(mir->jsop() == JSOP_STRICTNE), output); }
 
     masm.bind(&done);
 }
 
-void
-CodeGeneratorMIPS::visitCompareBAndBranch(LCompareBAndBranch* lir)
-{
+void CodeGeneratorMIPS::visitCompareBAndBranch(LCompareBAndBranch* lir) {
     MCompare* mir = lir->cmpMir();
     const ValueOperand lhs = ToValue(lir, LCompareBAndBranch::Lhs);
     const LAllocation* rhs = lir->rhs();
@@ -252,9 +205,7 @@ CodeGeneratorMIPS::visitCompareBAndBranch(LCompareBAndBranch* lir)
         emitBranch(lhs.payloadReg(), ToRegister(rhs), cond, lir->ifTrue(), lir->ifFalse());
 }
 
-void
-CodeGeneratorMIPS::visitCompareBitwise(LCompareBitwise* lir)
-{
+void CodeGeneratorMIPS::visitCompareBitwise(LCompareBitwise* lir) {
     MCompare* mir = lir->mir();
     Assembler::Condition cond = JSOpToCondition(mir->compareType(), mir->jsop());
     const ValueOperand lhs = ToValue(lir, LCompareBitwise::LhsInput);
@@ -270,23 +221,19 @@ CodeGeneratorMIPS::visitCompareBitwise(LCompareBitwise* lir)
         masm.ma_b(&done, ShortJump);
     }
     masm.bind(&notEqual);
-    {
-        masm.move32(Imm32(cond == Assembler::NotEqual), output);
-    }
+    { masm.move32(Imm32(cond == Assembler::NotEqual), output); }
 
     masm.bind(&done);
 }
 
-void
-CodeGeneratorMIPS::visitCompareBitwiseAndBranch(LCompareBitwiseAndBranch* lir)
-{
+void CodeGeneratorMIPS::visitCompareBitwiseAndBranch(LCompareBitwiseAndBranch* lir) {
     MCompare* mir = lir->cmpMir();
     Assembler::Condition cond = JSOpToCondition(mir->compareType(), mir->jsop());
     const ValueOperand lhs = ToValue(lir, LCompareBitwiseAndBranch::LhsInput);
     const ValueOperand rhs = ToValue(lir, LCompareBitwiseAndBranch::RhsInput);
 
-    MOZ_ASSERT(mir->jsop() == JSOP_EQ || mir->jsop() == JSOP_STRICTEQ ||
-               mir->jsop() == JSOP_NE || mir->jsop() == JSOP_STRICTNE);
+    MOZ_ASSERT(mir->jsop() == JSOP_EQ || mir->jsop() == JSOP_STRICTEQ || mir->jsop() == JSOP_NE ||
+               mir->jsop() == JSOP_STRICTNE);
 
     MBasicBlock* notEqual = (cond == Assembler::Equal) ? lir->ifFalse() : lir->ifTrue();
 
@@ -294,9 +241,7 @@ CodeGeneratorMIPS::visitCompareBitwiseAndBranch(LCompareBitwiseAndBranch* lir)
     emitBranch(lhs.payloadReg(), rhs.payloadReg(), cond, lir->ifTrue(), lir->ifFalse());
 }
 
-void
-CodeGeneratorMIPS::visitCompareI64(LCompareI64* lir)
-{
+void CodeGeneratorMIPS::visitCompareI64(LCompareI64* lir) {
     MCompare* mir = lir->mir();
     MOZ_ASSERT(mir->compareType() == MCompare::Compare_Int64 ||
                mir->compareType() == MCompare::Compare_UInt64);
@@ -323,9 +268,7 @@ CodeGeneratorMIPS::visitCompareI64(LCompareI64* lir)
     masm.bind(&done);
 }
 
-void
-CodeGeneratorMIPS::visitCompareI64AndBranch(LCompareI64AndBranch* lir)
-{
+void CodeGeneratorMIPS::visitCompareI64AndBranch(LCompareI64AndBranch* lir) {
     MCompare* mir = lir->cmpMir();
     MOZ_ASSERT(mir->compareType() == MCompare::Compare_Int64 ||
                mir->compareType() == MCompare::Compare_UInt64);
@@ -357,9 +300,7 @@ CodeGeneratorMIPS::visitCompareI64AndBranch(LCompareI64AndBranch* lir)
     }
 }
 
-void
-CodeGeneratorMIPS::visitDivOrModI64(LDivOrModI64* lir)
-{
+void CodeGeneratorMIPS::visitDivOrModI64(LDivOrModI64* lir) {
     Register64 lhs = ToRegister64(lir->getInt64Operand(LDivOrModI64::Lhs));
     Register64 rhs = ToRegister64(lir->getInt64Operand(LDivOrModI64::Rhs));
     Register64 output = ToOutRegister64(lir);
@@ -380,7 +321,8 @@ CodeGeneratorMIPS::visitDivOrModI64(LDivOrModI64* lir)
 
     // Handle divide by zero.
     if (lir->canBeDivideByZero())
-        masm.branchTest64(Assembler::Zero, rhs, rhs, temp, trap(lir, wasm::Trap::IntegerDivideByZero));
+        masm.branchTest64(Assembler::Zero, rhs, rhs, temp,
+                          trap(lir, wasm::Trap::IntegerDivideByZero));
 
     // Handle an integer overflow exception from INT64_MIN / -1.
     if (lir->canBeNegativeOverflow()) {
@@ -412,9 +354,7 @@ CodeGeneratorMIPS::visitDivOrModI64(LDivOrModI64* lir)
     masm.bind(&done);
 }
 
-void
-CodeGeneratorMIPS::visitUDivOrModI64(LUDivOrModI64* lir)
-{
+void CodeGeneratorMIPS::visitUDivOrModI64(LUDivOrModI64* lir) {
     Register64 lhs = ToRegister64(lir->getInt64Operand(LDivOrModI64::Lhs));
     Register64 rhs = ToRegister64(lir->getInt64Operand(LDivOrModI64::Rhs));
 
@@ -433,7 +373,8 @@ CodeGeneratorMIPS::visitUDivOrModI64(LUDivOrModI64* lir)
 
     // Prevent divide by zero.
     if (lir->canBeDivideByZero())
-        masm.branchTest64(Assembler::Zero, rhs, rhs, temp, trap(lir, wasm::Trap::IntegerDivideByZero));
+        masm.branchTest64(Assembler::Zero, rhs, rhs, temp,
+                          trap(lir, wasm::Trap::IntegerDivideByZero));
 
     masm.setupWasmABICall();
     masm.passABIArg(lhs.high);
@@ -449,9 +390,7 @@ CodeGeneratorMIPS::visitUDivOrModI64(LUDivOrModI64* lir)
 }
 
 template <typename T>
-void
-CodeGeneratorMIPS::emitWasmLoadI64(T* lir)
-{
+void CodeGeneratorMIPS::emitWasmLoadI64(T* lir) {
     const MWasmLoad* mir = lir->mir();
     Register64 output = ToOutRegister64(lir);
 
@@ -471,14 +410,29 @@ CodeGeneratorMIPS::emitWasmLoadI64(T* lir)
     unsigned byteSize = mir->access().byteSize();
     bool isSigned;
     switch (mir->access().type()) {
-        case Scalar::Int8:   isSigned = true; break;
-        case Scalar::Uint8:  isSigned = false; break;
-        case Scalar::Int16:  isSigned = true; break;
-        case Scalar::Uint16: isSigned = false; break;
-        case Scalar::Int32:  isSigned = true; break;
-        case Scalar::Uint32: isSigned = false; break;
-        case Scalar::Int64:  isSigned = true; break;
-        default: MOZ_CRASH("unexpected array type");
+        case Scalar::Int8:
+            isSigned = true;
+            break;
+        case Scalar::Uint8:
+            isSigned = false;
+            break;
+        case Scalar::Int16:
+            isSigned = true;
+            break;
+        case Scalar::Uint16:
+            isSigned = false;
+            break;
+        case Scalar::Int32:
+            isSigned = true;
+            break;
+        case Scalar::Uint32:
+            isSigned = false;
+            break;
+        case Scalar::Int64:
+            isSigned = true;
+            break;
+        default:
+            MOZ_CRASH("unexpected array type");
     }
 
     masm.memoryBarrier(mir->access().barrierBefore());
@@ -488,8 +442,8 @@ CodeGeneratorMIPS::emitWasmLoadI64(T* lir)
         Register temp = ToRegister(lir->getTemp(1));
 
         if (byteSize <= 4) {
-            masm.ma_load_unaligned(output.low, BaseIndex(HeapReg, ptr, TimesOne),
-                                   temp, static_cast<LoadStoreSize>(8 * byteSize),
+            masm.ma_load_unaligned(output.low, BaseIndex(HeapReg, ptr, TimesOne), temp,
+                                   static_cast<LoadStoreSize>(8 * byteSize),
                                    isSigned ? SignExtend : ZeroExtend);
             if (!isSigned)
                 masm.move32(Imm32(0), output.high);
@@ -498,11 +452,11 @@ CodeGeneratorMIPS::emitWasmLoadI64(T* lir)
         } else {
             ScratchRegisterScope scratch(masm);
             MOZ_ASSERT(output.low != ptr);
-            masm.ma_load_unaligned(output.low, BaseIndex(HeapReg, ptr, TimesOne),
-                                   temp, SizeWord, isSigned ? SignExtend : ZeroExtend);
+            masm.ma_load_unaligned(output.low, BaseIndex(HeapReg, ptr, TimesOne), temp, SizeWord,
+                                   isSigned ? SignExtend : ZeroExtend);
             masm.ma_addu(scratch, ptr, Imm32(INT64HIGH_OFFSET));
-            masm.ma_load_unaligned(output.high, BaseIndex(HeapReg, scratch, TimesOne),
-                                   temp, SizeWord, isSigned ? SignExtend : ZeroExtend);
+            masm.ma_load_unaligned(output.high, BaseIndex(HeapReg, scratch, TimesOne), temp,
+                                   SizeWord, isSigned ? SignExtend : ZeroExtend);
         }
         return;
     }
@@ -525,22 +479,14 @@ CodeGeneratorMIPS::emitWasmLoadI64(T* lir)
     masm.memoryBarrier(mir->access().barrierAfter());
 }
 
-void
-CodeGeneratorMIPS::visitWasmLoadI64(LWasmLoadI64* lir)
-{
-    emitWasmLoadI64(lir);
-}
+void CodeGeneratorMIPS::visitWasmLoadI64(LWasmLoadI64* lir) { emitWasmLoadI64(lir); }
 
-void
-CodeGeneratorMIPS::visitWasmUnalignedLoadI64(LWasmUnalignedLoadI64* lir)
-{
+void CodeGeneratorMIPS::visitWasmUnalignedLoadI64(LWasmUnalignedLoadI64* lir) {
     emitWasmLoadI64(lir);
 }
 
 template <typename T>
-void
-CodeGeneratorMIPS::emitWasmStoreI64(T* lir)
-{
+void CodeGeneratorMIPS::emitWasmStoreI64(T* lir) {
     const MWasmStore* mir = lir->mir();
     Register64 value = ToRegister64(lir->getInt64Operand(lir->ValueIndex));
 
@@ -560,14 +506,29 @@ CodeGeneratorMIPS::emitWasmStoreI64(T* lir)
     unsigned byteSize = mir->access().byteSize();
     bool isSigned;
     switch (mir->access().type()) {
-        case Scalar::Int8:   isSigned = true; break;
-        case Scalar::Uint8:  isSigned = false; break;
-        case Scalar::Int16:  isSigned = true; break;
-        case Scalar::Uint16: isSigned = false; break;
-        case Scalar::Int32:  isSigned = true; break;
-        case Scalar::Uint32: isSigned = false; break;
-        case Scalar::Int64:  isSigned = true; break;
-        default: MOZ_CRASH("unexpected array type");
+        case Scalar::Int8:
+            isSigned = true;
+            break;
+        case Scalar::Uint8:
+            isSigned = false;
+            break;
+        case Scalar::Int16:
+            isSigned = true;
+            break;
+        case Scalar::Uint16:
+            isSigned = false;
+            break;
+        case Scalar::Int32:
+            isSigned = true;
+            break;
+        case Scalar::Uint32:
+            isSigned = false;
+            break;
+        case Scalar::Int64:
+            isSigned = true;
+            break;
+        default:
+            MOZ_CRASH("unexpected array type");
     }
 
     masm.memoryBarrier(mir->access().barrierBefore());
@@ -577,16 +538,16 @@ CodeGeneratorMIPS::emitWasmStoreI64(T* lir)
         Register temp = ToRegister(lir->getTemp(1));
 
         if (byteSize <= 4) {
-            masm.ma_store_unaligned(value.low, BaseIndex(HeapReg, ptr, TimesOne),
-                                    temp, static_cast<LoadStoreSize>(8 * byteSize),
+            masm.ma_store_unaligned(value.low, BaseIndex(HeapReg, ptr, TimesOne), temp,
+                                    static_cast<LoadStoreSize>(8 * byteSize),
                                     isSigned ? SignExtend : ZeroExtend);
         } else {
             ScratchRegisterScope scratch(masm);
-            masm.ma_store_unaligned(value.low, BaseIndex(HeapReg, ptr, TimesOne),
-                                    temp, SizeWord, isSigned ? SignExtend : ZeroExtend);
+            masm.ma_store_unaligned(value.low, BaseIndex(HeapReg, ptr, TimesOne), temp, SizeWord,
+                                    isSigned ? SignExtend : ZeroExtend);
             masm.ma_addu(scratch, ptr, Imm32(INT64HIGH_OFFSET));
-            masm.ma_store_unaligned(value.high, BaseIndex(HeapReg, scratch, TimesOne),
-                                    temp, SizeWord, isSigned ? SignExtend : ZeroExtend);
+            masm.ma_store_unaligned(value.high, BaseIndex(HeapReg, scratch, TimesOne), temp,
+                                    SizeWord, isSigned ? SignExtend : ZeroExtend);
         }
         return;
     }
@@ -604,21 +565,13 @@ CodeGeneratorMIPS::emitWasmStoreI64(T* lir)
     masm.memoryBarrier(mir->access().barrierAfter());
 }
 
-void
-CodeGeneratorMIPS::visitWasmStoreI64(LWasmStoreI64* lir)
-{
+void CodeGeneratorMIPS::visitWasmStoreI64(LWasmStoreI64* lir) { emitWasmStoreI64(lir); }
+
+void CodeGeneratorMIPS::visitWasmUnalignedStoreI64(LWasmUnalignedStoreI64* lir) {
     emitWasmStoreI64(lir);
 }
 
-void
-CodeGeneratorMIPS::visitWasmUnalignedStoreI64(LWasmUnalignedStoreI64* lir)
-{
-    emitWasmStoreI64(lir);
-}
-
-void
-CodeGeneratorMIPS::visitWasmSelectI64(LWasmSelectI64* lir)
-{
+void CodeGeneratorMIPS::visitWasmSelectI64(LWasmSelectI64* lir) {
     MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
     Register cond = ToRegister(lir->condExpr());
     const LInt64Allocation trueExpr = lir->trueExpr();
@@ -640,9 +593,7 @@ CodeGeneratorMIPS::visitWasmSelectI64(LWasmSelectI64* lir)
     }
 }
 
-void
-CodeGeneratorMIPS::visitWasmReinterpretFromI64(LWasmReinterpretFromI64* lir)
-{
+void CodeGeneratorMIPS::visitWasmReinterpretFromI64(LWasmReinterpretFromI64* lir) {
     MOZ_ASSERT(lir->mir()->type() == MIRType::Double);
     MOZ_ASSERT(lir->mir()->input()->type() == MIRType::Int64);
     Register64 input = ToRegister64(lir->getInt64Operand(0));
@@ -652,9 +603,7 @@ CodeGeneratorMIPS::visitWasmReinterpretFromI64(LWasmReinterpretFromI64* lir)
     masm.moveToDoubleHi(input.high, output);
 }
 
-void
-CodeGeneratorMIPS::visitWasmReinterpretToI64(LWasmReinterpretToI64* lir)
-{
+void CodeGeneratorMIPS::visitWasmReinterpretToI64(LWasmReinterpretToI64* lir) {
     MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
     MOZ_ASSERT(lir->mir()->input()->type() == MIRType::Double);
     FloatRegister input = ToFloatRegister(lir->getOperand(0));
@@ -664,23 +613,18 @@ CodeGeneratorMIPS::visitWasmReinterpretToI64(LWasmReinterpretToI64* lir)
     masm.moveFromDoubleHi(input, output.high);
 }
 
-void
-CodeGeneratorMIPS::visitExtendInt32ToInt64(LExtendInt32ToInt64* lir)
-{
+void CodeGeneratorMIPS::visitExtendInt32ToInt64(LExtendInt32ToInt64* lir) {
     Register input = ToRegister(lir->input());
     Register64 output = ToOutRegister64(lir);
 
-    if (input != output.low)
-        masm.move32(input, output.low);
+    if (input != output.low) masm.move32(input, output.low);
     if (lir->mir()->isUnsigned())
         masm.move32(Imm32(0), output.high);
     else
         masm.ma_sra(output.high, output.low, Imm32(31));
 }
 
-void
-CodeGeneratorMIPS::visitWrapInt64ToInt32(LWrapInt64ToInt32* lir)
-{
+void CodeGeneratorMIPS::visitWrapInt64ToInt32(LWrapInt64ToInt32* lir) {
     const LInt64Allocation& input = lir->getInt64Operand(0);
     Register output = ToRegister(lir->output());
 
@@ -690,46 +634,38 @@ CodeGeneratorMIPS::visitWrapInt64ToInt32(LWrapInt64ToInt32* lir)
         masm.move32(ToRegister(input.high()), output);
 }
 
-void
-CodeGeneratorMIPS::visitSignExtendInt64(LSignExtendInt64* lir)
-{
+void CodeGeneratorMIPS::visitSignExtendInt64(LSignExtendInt64* lir) {
     Register64 input = ToRegister64(lir->getInt64Operand(0));
     Register64 output = ToOutRegister64(lir);
     switch (lir->mode()) {
-      case MSignExtendInt64::Byte:
-        masm.move8SignExtend(input.low, output.low);
-        break;
-      case MSignExtendInt64::Half:
-        masm.move16SignExtend(input.low, output.low);
-        break;
-      case MSignExtendInt64::Word:
-        masm.move32(input.low, output.low);
-        break;
+        case MSignExtendInt64::Byte:
+            masm.move8SignExtend(input.low, output.low);
+            break;
+        case MSignExtendInt64::Half:
+            masm.move16SignExtend(input.low, output.low);
+            break;
+        case MSignExtendInt64::Word:
+            masm.move32(input.low, output.low);
+            break;
     }
     masm.ma_sra(output.high, output.low, Imm32(31));
 }
 
-void
-CodeGeneratorMIPS::visitClzI64(LClzI64* lir)
-{
+void CodeGeneratorMIPS::visitClzI64(LClzI64* lir) {
     Register64 input = ToRegister64(lir->getInt64Operand(0));
     Register64 output = ToOutRegister64(lir);
     masm.clz64(input, output.low);
     masm.move32(Imm32(0), output.high);
 }
 
-void
-CodeGeneratorMIPS::visitCtzI64(LCtzI64* lir)
-{
+void CodeGeneratorMIPS::visitCtzI64(LCtzI64* lir) {
     Register64 input = ToRegister64(lir->getInt64Operand(0));
     Register64 output = ToOutRegister64(lir);
     masm.ctz64(input, output.low);
     masm.move32(Imm32(0), output.high);
 }
 
-void
-CodeGeneratorMIPS::visitNotI64(LNotI64* lir)
-{
+void CodeGeneratorMIPS::visitNotI64(LNotI64* lir) {
     Register64 input = ToRegister64(lir->getInt64Operand(0));
     Register output = ToRegister(lir->output());
 
@@ -737,16 +673,14 @@ CodeGeneratorMIPS::visitNotI64(LNotI64* lir)
     masm.cmp32Set(Assembler::Equal, output, Imm32(0), output);
 }
 
-void
-CodeGeneratorMIPS::visitWasmTruncateToInt64(LWasmTruncateToInt64* lir)
-{
+void CodeGeneratorMIPS::visitWasmTruncateToInt64(LWasmTruncateToInt64* lir) {
     FloatRegister input = ToFloatRegister(lir->input());
     FloatRegister scratch = input;
     Register64 output = ToOutRegister64(lir);
     MWasmTruncateToInt64* mir = lir->mir();
     MIRType fromType = mir->input()->type();
 
-    auto* ool = new(alloc()) OutOfLineWasmTruncateCheck(mir, input);
+    auto* ool = new (alloc()) OutOfLineWasmTruncateCheck(mir, input);
     addOutOfLineCode(ool, mir);
 
     if (fromType == MIRType::Double) {
@@ -779,9 +713,7 @@ CodeGeneratorMIPS::visitWasmTruncateToInt64(LWasmTruncateToInt64* lir)
     MOZ_ASSERT(ReturnReg64 == output);
 }
 
-void
-CodeGeneratorMIPS::visitInt64ToFloatingPoint(LInt64ToFloatingPoint* lir)
-{
+void CodeGeneratorMIPS::visitInt64ToFloatingPoint(LInt64ToFloatingPoint* lir) {
     Register64 input = ToRegister64(lir->getInt64Operand(0));
     FloatRegister output = ToFloatRegister(lir->output());
 
@@ -799,31 +731,30 @@ CodeGeneratorMIPS::visitInt64ToFloatingPoint(LInt64ToFloatingPoint* lir)
 
     if (lir->mir()->isUnsigned())
         if (toType == MIRType::Double)
-            masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Uint64ToDouble, MoveOp::DOUBLE);
+            masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Uint64ToDouble,
+                             MoveOp::DOUBLE);
         else
-            masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Uint64ToFloat32, MoveOp::FLOAT32);
+            masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Uint64ToFloat32,
+                             MoveOp::FLOAT32);
+    else if (toType == MIRType::Double)
+        masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Int64ToDouble,
+                         MoveOp::DOUBLE);
     else
-        if (toType == MIRType::Double)
-            masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Int64ToDouble, MoveOp::DOUBLE);
-        else
-            masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Int64ToFloat32, MoveOp::FLOAT32);
+        masm.callWithABI(mir->bytecodeOffset(), wasm::SymbolicAddress::Int64ToFloat32,
+                         MoveOp::FLOAT32);
 
     MOZ_ASSERT_IF(toType == MIRType::Double, output == ReturnDoubleReg);
     MOZ_ASSERT_IF(toType == MIRType::Float32, output == ReturnFloat32Reg);
 }
 
-void
-CodeGeneratorMIPS::visitTestI64AndBranch(LTestI64AndBranch* lir)
-{
+void CodeGeneratorMIPS::visitTestI64AndBranch(LTestI64AndBranch* lir) {
     Register64 input = ToRegister64(lir->getInt64Operand(0));
 
     branchToBlock(input.high, Imm32(0), lir->ifTrue(), Assembler::NonZero);
     emitBranch(input.low, Imm32(0), Assembler::NonZero, lir->ifTrue(), lir->ifFalse());
 }
 
-void
-CodeGeneratorMIPS::setReturnDoubleRegs(LiveRegisterSet* regs)
-{
+void CodeGeneratorMIPS::setReturnDoubleRegs(LiveRegisterSet* regs) {
     MOZ_ASSERT(ReturnFloat32Reg.code_ == ReturnDoubleReg.code_);
     regs->add(ReturnFloat32Reg);
     regs->add(ReturnDoubleReg.singleOverlay(1));

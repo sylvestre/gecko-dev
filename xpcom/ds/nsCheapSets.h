@@ -12,8 +12,8 @@
 
 enum nsCheapSetOperator
 {
-  OpNext = 0,   // enumerator says continue
-  OpRemove = 1, // enumerator says remove and continue
+  OpNext = 0,    // enumerator says continue
+  OpRemove = 1,  // enumerator says remove and continue
 };
 
 /**
@@ -23,7 +23,7 @@ enum nsCheapSetOperator
 template<typename EntryType>
 class nsCheapSet
 {
-public:
+ public:
   typedef typename EntryType::KeyType KeyType;
   typedef nsCheapSetOperator (*Enumerator)(EntryType* aEntry, void* userArg);
 
@@ -97,7 +97,7 @@ public:
     }
   }
 
-private:
+ private:
   EntryType* GetSingleEntry()
   {
     return reinterpret_cast<EntryType*>(&mUnion.singleEntry[0]);
@@ -110,8 +110,7 @@ private:
     MANY
   };
 
-  union
-  {
+  union {
     nsTHashtable<EntryType>* table;
     char singleEntry[sizeof(EntryType)];
   } mUnion;
@@ -135,7 +134,7 @@ nsCheapSet<EntryType>::Put(const KeyType aVal)
       mUnion.table = table;
       mState = MANY;
     }
-    MOZ_FALLTHROUGH;
+      MOZ_FALLTHROUGH;
 
     case MANY:
       mUnion.table->PutEntry(aVal);

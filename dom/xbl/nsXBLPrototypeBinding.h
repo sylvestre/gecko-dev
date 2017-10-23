@@ -35,10 +35,10 @@ class nsXBLProtoImplField;
 // Instances of this class are owned by the nsXBLDocumentInfo object returned
 // by XBLDocumentInfo().  Consumers who want to refcount things should refcount
 // that.
-class nsXBLPrototypeBinding final :
-  public mozilla::SupportsWeakPtr<nsXBLPrototypeBinding>
+class nsXBLPrototypeBinding final
+    : public mozilla::SupportsWeakPtr<nsXBLPrototypeBinding>
 {
-public:
+ public:
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(nsXBLPrototypeBinding)
 
   nsIContent* GetBindingElement() const { return mBinding; }
@@ -67,7 +67,10 @@ public:
   void SetInheritsStyle(bool aInheritStyle) { mInheritStyle = aInheritStyle; }
 
   nsXBLPrototypeHandler* GetPrototypeHandlers() { return mPrototypeHandler; }
-  void SetPrototypeHandlers(nsXBLPrototypeHandler* aHandler) { mPrototypeHandler = aHandler; }
+  void SetPrototypeHandlers(nsXBLPrototypeHandler* aHandler)
+  {
+    mPrototypeHandler = aHandler;
+  }
 
   nsXBLProtoImplAnonymousMethod* GetConstructor();
   nsresult SetConstructor(nsXBLProtoImplAnonymousMethod* aConstructor);
@@ -88,17 +91,20 @@ public:
 
   // Undefine all our fields from object |obj| (which should be a
   // JSObject for a bound element).
-  void UndefineFields(JSContext* cx, JS::Handle<JSObject*> obj) const {
+  void UndefineFields(JSContext* cx, JS::Handle<JSObject*> obj) const
+  {
     if (mImplementation) {
       mImplementation->UndefineFields(cx, obj);
     }
   }
 
-  const nsString& ClassName() const {
+  const nsString& ClassName() const
+  {
     return mImplementation ? mImplementation->mClassName : EmptyString();
   }
 
-  nsresult InitClass(const nsString& aClassName, JSContext* aContext,
+  nsresult InitClass(const nsString& aClassName,
+                     JSContext* aContext,
                      JS::Handle<JSObject*> aScriptObject,
                      JS::MutableHandle<JSObject*> aClassObject,
                      bool* aNew);
@@ -110,9 +116,12 @@ public:
   nsresult InstallImplementation(nsXBLBinding* aBinding);
   bool HasImplementation() const { return mImplementation != nullptr; }
 
-  void AttributeChanged(nsAtom* aAttribute, int32_t aNameSpaceID,
-                        bool aRemoveFlag, nsIContent* aChangedElement,
-                        nsIContent* aAnonymousContent, bool aNotify);
+  void AttributeChanged(nsAtom* aAttribute,
+                        int32_t aNameSpaceID,
+                        bool aRemoveFlag,
+                        nsIContent* aChangedElement,
+                        nsIContent* aAnonymousContent,
+                        bool aNotify);
 
   void SetBasePrototype(nsXBLPrototypeBinding* aBinding);
   nsXBLPrototypeBinding* GetBasePrototype() { return mBaseBinding; }
@@ -120,7 +129,8 @@ public:
   nsXBLDocumentInfo* XBLDocumentInfo() const { return mXBLDocInfoWeak; }
   bool IsChrome() { return mXBLDocInfoWeak->IsChrome(); }
 
-  void SetInitialAttributes(nsIContent* aBoundElement, nsIContent* aAnonymousContent);
+  void SetInitialAttributes(nsIContent* aBoundElement,
+                            nsIContent* aAnonymousContent);
 
   void AppendStyleSheet(mozilla::StyleSheet* aSheet);
   void RemoveStyleSheet(mozilla::StyleSheet* aSheet);
@@ -157,7 +167,7 @@ public:
     return &mKeyHandlers;
   }
 
-private:
+ private:
   nsresult Read(nsIObjectInputStream* aStream,
                 nsXBLDocumentInfo* aDocInfo,
                 nsIDocument* aDocument,
@@ -174,7 +184,7 @@ private:
    * XBLBinding_Serialize_BindToUntrustedContent indicates that
    * nsXBLPrototypeBinding::mBindToUntrustedContent should be true.
    */
-public:
+ public:
   static nsresult ReadNewBinding(nsIObjectInputStream* aStream,
                                  nsXBLDocumentInfo* aDocInfo,
                                  nsIDocument* aDocument,
@@ -236,7 +246,7 @@ public:
   nsresult ReadNamespace(nsIObjectInputStream* aStream, int32_t& aNameSpaceID);
   nsresult WriteNamespace(nsIObjectOutputStream* aStream, int32_t aNameSpaceID);
 
-public:
+ public:
   nsXBLPrototypeBinding();
   ~nsXBLPrototypeBinding();
 
@@ -249,12 +259,12 @@ public:
                 nsIContent* aElement,
                 bool aFirstBinding = false);
 
-  void Traverse(nsCycleCollectionTraversalCallback &cb) const;
+  void Traverse(nsCycleCollectionTraversalCallback& cb) const;
   void Unlink();
-  void Trace(const TraceCallbacks& aCallbacks, void *aClosure) const;
+  void Trace(const TraceCallbacks& aCallbacks, void* aClosure) const;
 
-// Internal member functions.
-public:
+  // Internal member functions.
+ public:
   /**
    * GetImmediateChild locates the immediate child of our binding element which
    * has the localname given by aTag and is in the XBL namespace.
@@ -268,33 +278,40 @@ public:
   bool ChromeOnlyContent() { return mChromeOnlyContent; }
   bool BindToUntrustedContent() { return mBindToUntrustedContent; }
 
-  typedef nsClassHashtable<nsRefPtrHashKey<nsAtom>, nsXBLAttributeEntry> InnerAttributeTable;
+  typedef nsClassHashtable<nsRefPtrHashKey<nsAtom>, nsXBLAttributeEntry>
+      InnerAttributeTable;
 
-protected:
+ protected:
   // Ensure that mAttributeTable has been created.
   void EnsureAttributeTable();
   // Ad an entry to the attribute table
-  void AddToAttributeTable(int32_t aSourceNamespaceID, nsAtom* aSourceTag,
-                           int32_t aDestNamespaceID, nsAtom* aDestTag,
+  void AddToAttributeTable(int32_t aSourceNamespaceID,
+                           nsAtom* aSourceTag,
+                           int32_t aDestNamespaceID,
+                           nsAtom* aDestTag,
                            nsIContent* aContent);
   void ConstructAttributeTable(nsIContent* aElement);
   void CreateKeyHandlers();
 
-private:
+ private:
   void EnsureResources();
 
-// MEMBER VARIABLES
-protected:
+  // MEMBER VARIABLES
+ protected:
   nsCOMPtr<nsIURI> mBindingURI;
-  nsCOMPtr<nsIURI> mAlternateBindingURI; // Alternate id-less URI that is only non-null on the first binding.
-  nsCOMPtr<nsIContent> mBinding; // Strong. We own a ref to our content element in the binding doc.
-  nsAutoPtr<nsXBLPrototypeHandler> mPrototypeHandler; // Strong. DocInfo owns us, and we own the handlers.
+  nsCOMPtr<nsIURI>
+      mAlternateBindingURI;  // Alternate id-less URI that is only non-null on the first binding.
+  nsCOMPtr<nsIContent>
+      mBinding;  // Strong. We own a ref to our content element in the binding doc.
+  nsAutoPtr<nsXBLPrototypeHandler>
+      mPrototypeHandler;  // Strong. DocInfo owns us, and we own the handlers.
 
   // the url of the base binding
   nsCOMPtr<nsIURI> mBaseBindingURI;
 
-  nsXBLProtoImpl* mImplementation; // Our prototype implementation (includes methods, properties, fields,
-                                   // the constructor, and the destructor).
+  nsXBLProtoImpl*
+      mImplementation;  // Our prototype implementation (includes methods, properties, fields,
+                        // the constructor, and the destructor).
 
   // Weak.  The docinfo will own our base binding.
   mozilla::WeakPtr<nsXBLPrototypeBinding> mBaseBinding;
@@ -304,57 +321,54 @@ protected:
   bool mChromeOnlyContent;
   bool mBindToUntrustedContent;
 
-  nsAutoPtr<nsXBLPrototypeResources> mResources; // If we have any resources, this will be non-null.
+  nsAutoPtr<nsXBLPrototypeResources>
+      mResources;  // If we have any resources, this will be non-null.
 
-  nsXBLDocumentInfo* mXBLDocInfoWeak; // A pointer back to our doc info.  Weak, since it owns us.
+  nsXBLDocumentInfo*
+      mXBLDocInfoWeak;  // A pointer back to our doc info.  Weak, since it owns us.
 
   // A table for attribute containers. Namespace IDs are used as
   // keys in the table. Containers are InnerAttributeTables.
   // This table is used to efficiently handle attribute changes.
-  nsAutoPtr<nsClassHashtable<nsUint32HashKey, InnerAttributeTable>> mAttributeTable;
+  nsAutoPtr<nsClassHashtable<nsUint32HashKey, InnerAttributeTable>>
+      mAttributeTable;
 
   class IIDHashKey : public PLDHashEntryHdr
   {
-  public:
+   public:
     typedef const nsIID& KeyType;
     typedef const nsIID* KeyTypePointer;
 
-    explicit IIDHashKey(const nsIID* aKey)
-      : mKey(*aKey)
-    {}
-    IIDHashKey(const IIDHashKey& aOther)
-      : mKey(aOther.GetKey())
-    {}
-    ~IIDHashKey()
-    {}
+    explicit IIDHashKey(const nsIID* aKey) : mKey(*aKey) {}
+    IIDHashKey(const IIDHashKey& aOther) : mKey(aOther.GetKey()) {}
+    ~IIDHashKey() {}
 
-    KeyType GetKey() const
-    {
-      return mKey;
-    }
+    KeyType GetKey() const { return mKey; }
     bool KeyEquals(const KeyTypePointer aKey) const
     {
       return mKey.Equals(*aKey);
     }
 
-    static KeyTypePointer KeyToPointer(KeyType aKey)
-    {
-      return &aKey;
-    }
+    static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
     static PLDHashNumber HashKey(const KeyTypePointer aKey)
     {
       // Just use the 32-bit m0 field.
       return aKey->m0;
     }
 
-    enum { ALLOW_MEMMOVE = true };
+    enum
+    {
+      ALLOW_MEMMOVE = true
+    };
 
-  private:
+   private:
     nsIID mKey;
   };
-  nsInterfaceHashtable<IIDHashKey, nsIContent> mInterfaceTable; // A table of cached interfaces that we support.
+  nsInterfaceHashtable<IIDHashKey, nsIContent>
+      mInterfaceTable;  // A table of cached interfaces that we support.
 
-  int32_t mBaseNameSpaceID;    // If we extend a tagname/namespace, then that information will
+  int32_t
+      mBaseNameSpaceID;  // If we extend a tagname/namespace, then that information will
   RefPtr<nsAtom> mBaseTag;  // be stored in here.
 
   nsCOMArray<nsXBLKeyEventHandler> mKeyHandlers;

@@ -38,17 +38,16 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WorkletGlobalScope)
 NS_INTERFACE_MAP_END
 
 WorkletGlobalScope::WorkletGlobalScope(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
+    : mWindow(aWindow)
 {
   MOZ_ASSERT(aWindow);
 }
 
-WorkletGlobalScope::~WorkletGlobalScope()
-{
-}
+WorkletGlobalScope::~WorkletGlobalScope() {}
 
 JSObject*
-WorkletGlobalScope::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+WorkletGlobalScope::WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto)
 {
   MOZ_CRASH("We should never get here!");
   return nullptr;
@@ -88,5 +87,5 @@ WorkletGlobalScope::Dump(const Optional<nsAString>& aString) const
   fflush(stdout);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

@@ -15,7 +15,7 @@
 #include "mozilla/mscom/SpinEvent.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/SystemGroup.h"
-#include "private/prpriv.h" // For PR_GetThreadID
+#include "private/prpriv.h"  // For PR_GetThreadID
 #include "WinUtils.h"
 
 namespace {
@@ -29,11 +29,11 @@ namespace {
  */
 class SyncRunnable : public mozilla::Runnable
 {
-public:
+ public:
   explicit SyncRunnable(already_AddRefed<nsIRunnable> aRunnable)
-    : mozilla::Runnable("MainThreadInvoker")
-    , mRunnable(aRunnable)
-  {}
+      : mozilla::Runnable("MainThreadInvoker"), mRunnable(aRunnable)
+  {
+  }
 
   ~SyncRunnable() = default;
 
@@ -59,19 +59,16 @@ public:
     return mEvent.Wait(mozilla::mscom::MainThreadInvoker::GetTargetThread());
   }
 
-  const mozilla::TimeDuration& GetDuration() const
-  {
-    return mDuration;
-  }
+  const mozilla::TimeDuration& GetDuration() const { return mDuration; }
 
-private:
-  bool                      mHasRun = false;
-  nsCOMPtr<nsIRunnable>     mRunnable;
+ private:
+  bool mHasRun = false;
+  nsCOMPtr<nsIRunnable> mRunnable;
   mozilla::mscom::SpinEvent mEvent;
-  mozilla::TimeDuration     mDuration;
+  mozilla::TimeDuration mDuration;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 namespace mozilla {
 namespace mscom {
@@ -120,15 +117,16 @@ MainThreadInvoker::Invoke(already_AddRefed<nsIRunnable>&& aRunnable)
 
   RefPtr<SyncRunnable> syncRunnable = new SyncRunnable(runnable.forget());
 
-  if (NS_FAILED(SystemGroup::Dispatch(
-                  TaskCategory::Other, do_AddRef(syncRunnable)))) {
+  if (NS_FAILED(SystemGroup::Dispatch(TaskCategory::Other,
+                                      do_AddRef(syncRunnable)))) {
     return false;
   }
 
   // This ref gets released in MainThreadAPC when it runs.
   SyncRunnable* syncRunnableRef = syncRunnable.get();
   NS_ADDREF(syncRunnableRef);
-  if (!::QueueUserAPC(&MainThreadAPC, sMainThread,
+  if (!::QueueUserAPC(&MainThreadAPC,
+                      sMainThread,
                       reinterpret_cast<UINT_PTR>(syncRunnableRef))) {
     return false;
   }
@@ -149,5 +147,5 @@ MainThreadInvoker::MainThreadAPC(ULONG_PTR aParam)
   NS_RELEASE(runnable);
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

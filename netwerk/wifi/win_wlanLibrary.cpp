@@ -6,12 +6,10 @@
 
 // Moz headers (alphabetical)
 
-
-
 WinWLANLibrary*
 WinWLANLibrary::Load()
 {
-  WinWLANLibrary *ret = new WinWLANLibrary();
+  WinWLANLibrary* ret = new WinWLANLibrary();
   if (!ret) {
     return nullptr;
   }
@@ -25,61 +23,58 @@ WinWLANLibrary::Load()
 }
 
 WinWLANLibrary::WinWLANLibrary()
-  : mWlanLibrary(nullptr),
-    mWlanHandle(nullptr),
-    mWlanEnumInterfacesPtr(nullptr),
-    mWlanGetNetworkBssListPtr(nullptr),
-    mWlanFreeMemoryPtr(nullptr),
-    mWlanCloseHandlePtr(nullptr),
-    mWlanOpenHandlePtr(nullptr),
-    mWlanRegisterNotificationPtr(nullptr),
-    mWlanScanPtr(nullptr)
+    : mWlanLibrary(nullptr),
+      mWlanHandle(nullptr),
+      mWlanEnumInterfacesPtr(nullptr),
+      mWlanGetNetworkBssListPtr(nullptr),
+      mWlanFreeMemoryPtr(nullptr),
+      mWlanCloseHandlePtr(nullptr),
+      mWlanOpenHandlePtr(nullptr),
+      mWlanRegisterNotificationPtr(nullptr),
+      mWlanScanPtr(nullptr)
 {
 }
 
 HANDLE
-WinWLANLibrary::GetWLANHandle() const
-{
-  return mWlanHandle;
-}
+WinWLANLibrary::GetWLANHandle() const { return mWlanHandle; }
 
-decltype(::WlanEnumInterfaces)*
+decltype(::WlanEnumInterfaces) *
 WinWLANLibrary::GetWlanEnumInterfacesPtr() const
 {
   return mWlanEnumInterfacesPtr;
 }
 
-decltype(::WlanGetNetworkBssList)*
+decltype(::WlanGetNetworkBssList) *
 WinWLANLibrary::GetWlanGetNetworkBssListPtr() const
 {
   return mWlanGetNetworkBssListPtr;
 }
 
-decltype(::WlanFreeMemory)*
+decltype(::WlanFreeMemory) *
 WinWLANLibrary::GetWlanFreeMemoryPtr() const
 {
   return mWlanFreeMemoryPtr;
 }
 
-decltype(::WlanCloseHandle)*
+decltype(::WlanCloseHandle) *
 WinWLANLibrary::GetWlanCloseHandlePtr() const
 {
   return mWlanCloseHandlePtr;
 }
 
-decltype(::WlanOpenHandle)*
+decltype(::WlanOpenHandle) *
 WinWLANLibrary::GetWlanOpenHandlePtr() const
 {
   return mWlanOpenHandlePtr;
 }
 
-decltype(::WlanRegisterNotification)*
+decltype(::WlanRegisterNotification) *
 WinWLANLibrary::GetWlanRegisterNotificationPtr() const
 {
   return mWlanRegisterNotificationPtr;
 }
 
-decltype(::WlanScan)*
+decltype(::WlanScan) *
 WinWLANLibrary::GetWlanScanPtr() const
 {
   return mWlanScanPtr;
@@ -93,35 +88,27 @@ WinWLANLibrary::Initialize()
     return false;
   }
 
-  mWlanOpenHandlePtr =
-    (decltype(::WlanOpenHandle)*) GetProcAddress(mWlanLibrary,
-                                                 "WlanOpenHandle");
-  mWlanEnumInterfacesPtr =
-    (decltype(::WlanEnumInterfaces)*) GetProcAddress(mWlanLibrary,
-                                                     "WlanEnumInterfaces");
+  mWlanOpenHandlePtr = (decltype(::WlanOpenHandle)*)GetProcAddress(
+      mWlanLibrary, "WlanOpenHandle");
+  mWlanEnumInterfacesPtr = (decltype(::WlanEnumInterfaces)*)GetProcAddress(
+      mWlanLibrary, "WlanEnumInterfaces");
   mWlanRegisterNotificationPtr =
-    (decltype(::WlanRegisterNotification)*) GetProcAddress(mWlanLibrary,
-                                                           "WlanRegisterNotification");
+      (decltype(::WlanRegisterNotification)*)GetProcAddress(
+          mWlanLibrary, "WlanRegisterNotification");
   mWlanScanPtr =
-    (decltype(::WlanScan)*) GetProcAddress(mWlanLibrary, "WlanScan");
+      (decltype(::WlanScan)*)GetProcAddress(mWlanLibrary, "WlanScan");
 
-  mWlanFreeMemoryPtr =
-    (decltype(::WlanFreeMemory)*) GetProcAddress(mWlanLibrary,
-                                                 "WlanFreeMemory");
-  mWlanCloseHandlePtr =
-    (decltype(::WlanCloseHandle)*) GetProcAddress(mWlanLibrary,
-                                                  "WlanCloseHandle");
+  mWlanFreeMemoryPtr = (decltype(::WlanFreeMemory)*)GetProcAddress(
+      mWlanLibrary, "WlanFreeMemory");
+  mWlanCloseHandlePtr = (decltype(::WlanCloseHandle)*)GetProcAddress(
+      mWlanLibrary, "WlanCloseHandle");
   mWlanGetNetworkBssListPtr =
-    (decltype(::WlanGetNetworkBssList)*) GetProcAddress(mWlanLibrary,
-                                                        "WlanGetNetworkBssList");
+      (decltype(::WlanGetNetworkBssList)*)GetProcAddress(
+          mWlanLibrary, "WlanGetNetworkBssList");
 
-  if (!mWlanOpenHandlePtr ||
-      !mWlanEnumInterfacesPtr ||
-      !mWlanRegisterNotificationPtr ||
-      !mWlanGetNetworkBssListPtr ||
-      !mWlanScanPtr ||
-      !mWlanFreeMemoryPtr ||
-      !mWlanCloseHandlePtr) {
+  if (!mWlanOpenHandlePtr || !mWlanEnumInterfacesPtr ||
+      !mWlanRegisterNotificationPtr || !mWlanGetNetworkBssListPtr ||
+      !mWlanScanPtr || !mWlanFreeMemoryPtr || !mWlanCloseHandlePtr) {
     return false;
   }
 
@@ -132,10 +119,8 @@ WinWLANLibrary::Initialize()
   // is the Vista version irrespective of what we pass!
   static const int kXpWlanClientVersion = 1;
   if (ERROR_SUCCESS !=
-      (*mWlanOpenHandlePtr)(kXpWlanClientVersion,
-                            nullptr,
-                            &negotiated_version,
-                            &mWlanHandle)) {
+      (*mWlanOpenHandlePtr)(
+          kXpWlanClientVersion, nullptr, &negotiated_version, &mWlanHandle)) {
     return false;
   }
 

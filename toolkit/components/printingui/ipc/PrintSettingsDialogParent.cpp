@@ -23,6 +23,5 @@ PrintSettingsDialogParent::ActorDestroy(ActorDestroyReason aWhy)
 {
 }
 
-} // namespace embedding
-} // namespace mozilla
-
+}  // namespace embedding
+}  // namespace mozilla

@@ -22,8 +22,9 @@ namespace mozilla {
 namespace dom {
 // For nsWindow
 const wchar_t* kPluginWidgetContentParentProperty =
-  L"kPluginWidgetParentProperty";
-} }
+    L"kPluginWidgetParentProperty";
+}  // namespace dom
+}  // namespace mozilla
 
 namespace mozilla {
 namespace plugins {
@@ -32,12 +33,13 @@ static NS_DEFINE_CID(kWidgetCID, NS_CHILD_CID);
 
 // This macro returns IPC_OK() to prevent an abort in the child process when
 // ipc message delivery fails.
-#define ENSURE_CHANNEL {                                      \
-  if (!mWidget) {                                             \
-    NS_WARNING("called on an invalid remote widget.");        \
-    return IPC_OK();                                          \
-  }                                                           \
-}
+#define ENSURE_CHANNEL                                   \
+  {                                                      \
+    if (!mWidget) {                                      \
+      NS_WARNING("called on an invalid remote widget."); \
+      return IPC_OK();                                   \
+    }                                                    \
+  }
 
 PluginWidgetParent::PluginWidgetParent()
 {
@@ -78,7 +80,8 @@ PluginWidgetParent::SetParent(nsIWidget* aParent)
 // makes use of some of the utility functions as well.
 
 mozilla::ipc::IPCResult
-PluginWidgetParent::RecvCreate(nsresult* aResult, uint64_t* aScrollCaptureId,
+PluginWidgetParent::RecvCreate(nsresult* aResult,
+                               uint64_t* aScrollCaptureId,
                                uintptr_t* aPluginInstanceId)
 {
   PWLOG("PluginWidgetParent::RecvCreate()\n");
@@ -103,8 +106,8 @@ PluginWidgetParent::RecvCreate(nsresult* aResult, uint64_t* aScrollCaptureId,
   initData.mUnicode = false;
   initData.clipChildren = true;
   initData.clipSiblings = true;
-  *aResult = mWidget->Create(parentWidget.get(), nullptr,
-                             LayoutDeviceIntRect(0, 0, 0, 0), &initData);
+  *aResult = mWidget->Create(
+      parentWidget.get(), nullptr, LayoutDeviceIntRect(0, 0, 0, 0), &initData);
   if (NS_FAILED(*aResult)) {
     KillWidget();
     // This should never fail, abort.
@@ -180,5 +183,5 @@ PluginWidgetParent::RecvSetNativeChildWindow(const uintptr_t& aChildWindow)
   return IPC_OK();
 }
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla

@@ -11,116 +11,113 @@
 
 NS_IMPL_ISUPPORTS(nsXULTemplateResultStorage, nsIXULTemplateResult)
 
-nsXULTemplateResultStorage::nsXULTemplateResultStorage(nsXULTemplateResultSetStorage* aResultSet)
+nsXULTemplateResultStorage::nsXULTemplateResultStorage(
+    nsXULTemplateResultSetStorage* aResultSet)
 {
-    static NS_DEFINE_CID(kRDFServiceCID, NS_RDFSERVICE_CID);
-    nsCOMPtr<nsIRDFService> rdfService = do_GetService(kRDFServiceCID);
-    rdfService->GetAnonymousResource(getter_AddRefs(mNode));
-    mResultSet = aResultSet;
-    if (aResultSet) {
-        mResultSet->FillColumnValues(mValues);
-    }
+  static NS_DEFINE_CID(kRDFServiceCID, NS_RDFSERVICE_CID);
+  nsCOMPtr<nsIRDFService> rdfService = do_GetService(kRDFServiceCID);
+  rdfService->GetAnonymousResource(getter_AddRefs(mNode));
+  mResultSet = aResultSet;
+  if (aResultSet) {
+    mResultSet->FillColumnValues(mValues);
+  }
 }
 
-nsXULTemplateResultStorage::~nsXULTemplateResultStorage()
-{
-}
+nsXULTemplateResultStorage::~nsXULTemplateResultStorage() {}
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetIsContainer(bool* aIsContainer)
 {
-    *aIsContainer = false;
-    return NS_OK;
+  *aIsContainer = false;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetIsEmpty(bool* aIsEmpty)
 {
-    *aIsEmpty = true;
-    return NS_OK;
+  *aIsEmpty = true;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetMayProcessChildren(bool* aMayProcessChildren)
 {
-    *aMayProcessChildren = false;
-    return NS_OK;
+  *aMayProcessChildren = false;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetId(nsAString& aId)
 {
-    const char* uri = nullptr;
-    mNode->GetValueConst(&uri);
+  const char* uri = nullptr;
+  mNode->GetValueConst(&uri);
 
-    aId.Assign(NS_ConvertUTF8toUTF16(uri));
+  aId.Assign(NS_ConvertUTF8toUTF16(uri));
 
-    return NS_OK;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetResource(nsIRDFResource** aResource)
 {
-    *aResource = mNode;
-    NS_IF_ADDREF(*aResource);
-    return NS_OK;
+  *aResource = mNode;
+  NS_IF_ADDREF(*aResource);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetType(nsAString& aType)
 {
-    aType.Truncate();
-    return NS_OK;
+  aType.Truncate();
+  return NS_OK;
 }
-
 
 NS_IMETHODIMP
 nsXULTemplateResultStorage::GetBindingFor(nsAtom* aVar, nsAString& aValue)
 {
-    NS_ENSURE_ARG_POINTER(aVar);
+  NS_ENSURE_ARG_POINTER(aVar);
 
-    aValue.Truncate();
-    if (!mResultSet) {
-        return NS_OK;
-    }
+  aValue.Truncate();
+  if (!mResultSet) {
+    return NS_OK;
+  }
 
+  int32_t idx = mResultSet->GetColumnIndex(aVar);
+  if (idx < 0) {
+    return NS_OK;
+  }
+
+  nsIVariant* value = mValues[idx];
+  if (value) {
+    value->GetAsAString(aValue);
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXULTemplateResultStorage::GetBindingObjectFor(nsAtom* aVar,
+                                                nsISupports** aValue)
+{
+  NS_ENSURE_ARG_POINTER(aVar);
+
+  if (mResultSet) {
     int32_t idx = mResultSet->GetColumnIndex(aVar);
-    if (idx < 0) {
-        return NS_OK;
+    if (idx >= 0) {
+      *aValue = mValues[idx];
+      NS_IF_ADDREF(*aValue);
+      return NS_OK;
     }
-
-    nsIVariant * value = mValues[idx];
-    if (value) {
-        value->GetAsAString(aValue);
-    }
-    return NS_OK;
+  }
+  *aValue = nullptr;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-nsXULTemplateResultStorage::GetBindingObjectFor(nsAtom* aVar, nsISupports** aValue)
+nsXULTemplateResultStorage::RuleMatched(nsISupports* aQuery,
+                                        nsIDOMNode* aRuleNode)
 {
-    NS_ENSURE_ARG_POINTER(aVar);
-
-    if (mResultSet) {
-        int32_t idx = mResultSet->GetColumnIndex(aVar);
-        if (idx >= 0) {
-            *aValue = mValues[idx];
-            NS_IF_ADDREF(*aValue);
-            return NS_OK;
-        }
-    }
-    *aValue = nullptr;
-    return NS_OK;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-nsXULTemplateResultStorage::RuleMatched(nsISupports* aQuery, nsIDOMNode* aRuleNode)
-{
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-nsXULTemplateResultStorage::HasBeenRemoved()
-{
-    return NS_OK;
-}
+nsXULTemplateResultStorage::HasBeenRemoved() { return NS_OK; }

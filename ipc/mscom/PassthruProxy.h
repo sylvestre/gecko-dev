@@ -18,33 +18,32 @@ namespace mozilla {
 namespace mscom {
 namespace detail {
 
-template <typename Iface>
+template<typename Iface>
 struct VTableSizer;
 
-template <>
+template<>
 struct VTableSizer<IDispatch>
 {
-  enum {
+  enum
+  {
     Size = 7
   };
 };
 
-} // namespace detail
+}  // namespace detail
 
-class PassthruProxy final : public IMarshal
-                          , public IClientSecurity
+class PassthruProxy final : public IMarshal, public IClientSecurity
 {
-public:
-  template <typename Iface>
+ public:
+  template<typename Iface>
   static RefPtr<Iface> Wrap(NotNull<Iface*> aIn)
   {
     static_assert(detail::VTableSizer<Iface>::Size >= 3, "VTable too small");
 
     typename detail::EnvironmentSelector<Iface>::Type env;
 
-    RefPtr<PassthruProxy> passthru(new PassthruProxy(&env, __uuidof(Iface),
-                                                     detail::VTableSizer<Iface>::Size,
-                                                     aIn));
+    RefPtr<PassthruProxy> passthru(new PassthruProxy(
+        &env, __uuidof(Iface), detail::VTableSizer<Iface>::Size, aIn));
 
     RefPtr<Iface> result;
     if (FAILED(passthru->QueryProxyInterface(getter_AddRefs(result)))) {
@@ -64,54 +63,81 @@ public:
   STDMETHODIMP_(ULONG) Release() override;
 
   // IMarshal
-  STDMETHODIMP GetUnmarshalClass(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+  STDMETHODIMP GetUnmarshalClass(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  CLSID* pCid) override;
-  STDMETHODIMP GetMarshalSizeMax(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+  STDMETHODIMP GetMarshalSizeMax(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  DWORD* pSize) override;
-  STDMETHODIMP MarshalInterface(IStream* pStm, REFIID riid, void* pv,
-                                DWORD dwDestContext, void* pvDestContext,
+  STDMETHODIMP MarshalInterface(IStream* pStm,
+                                REFIID riid,
+                                void* pv,
+                                DWORD dwDestContext,
+                                void* pvDestContext,
                                 DWORD mshlflags) override;
-  STDMETHODIMP UnmarshalInterface(IStream* pStm, REFIID riid,
+  STDMETHODIMP UnmarshalInterface(IStream* pStm,
+                                  REFIID riid,
                                   void** ppv) override;
   STDMETHODIMP ReleaseMarshalData(IStream* pStm) override;
   STDMETHODIMP DisconnectObject(DWORD dwReserved) override;
 
   // IClientSecurity - we don't actually implement this interface, but its
   // presence signals to mscom::IsProxy() that we are a proxy.
-  STDMETHODIMP QueryBlanket(IUnknown* aProxy, DWORD* aAuthnSvc,
-                            DWORD* aAuthzSvc, OLECHAR** aSrvPrincName,
-                            DWORD* aAuthnLevel, DWORD* aImpLevel,
-                            void** aAuthInfo, DWORD* aCapabilities) override
-  { return E_NOTIMPL; }
+  STDMETHODIMP QueryBlanket(IUnknown* aProxy,
+                            DWORD* aAuthnSvc,
+                            DWORD* aAuthzSvc,
+                            OLECHAR** aSrvPrincName,
+                            DWORD* aAuthnLevel,
+                            DWORD* aImpLevel,
+                            void** aAuthInfo,
+                            DWORD* aCapabilities) override
+  {
+    return E_NOTIMPL;
+  }
 
-  STDMETHODIMP SetBlanket(IUnknown* aProxy, DWORD aAuthnSvc, DWORD aAuthzSvc,
-                          OLECHAR* aSrvPrincName, DWORD aAuthnLevel,
-                          DWORD aImpLevel, void* aAuthInfo, DWORD aCapabilities) override
-  { return E_NOTIMPL; }
+  STDMETHODIMP SetBlanket(IUnknown* aProxy,
+                          DWORD aAuthnSvc,
+                          DWORD aAuthzSvc,
+                          OLECHAR* aSrvPrincName,
+                          DWORD aAuthnLevel,
+                          DWORD aImpLevel,
+                          void* aAuthInfo,
+                          DWORD aCapabilities) override
+  {
+    return E_NOTIMPL;
+  }
 
   STDMETHODIMP CopyProxy(IUnknown* aProxy, IUnknown** aOutCopy) override
-  { return E_NOTIMPL; }
+  {
+    return E_NOTIMPL;
+  }
 
-private:
-  PassthruProxy(ProxyStream::Environment* aEnv, REFIID aIidToWrap,
-                uint32_t aVTableSize, NotNull<IUnknown*> aObjToWrap);
+ private:
+  PassthruProxy(ProxyStream::Environment* aEnv,
+                REFIID aIidToWrap,
+                uint32_t aVTableSize,
+                NotNull<IUnknown*> aObjToWrap);
   ~PassthruProxy();
 
   bool IsInitialMarshal() const { return !mStream; }
   HRESULT QueryProxyInterface(void** aOutInterface);
 
-  Atomic<ULONG>     mRefCnt;
-  IID               mWrappedIid;
-  PreservedStreamPtr  mPreservedStream;
-  RefPtr<IStream>   mStream;
-  uint32_t          mVTableSize;
-  IUnknown*         mVTable;
-  bool              mForgetPreservedStream;
+  Atomic<ULONG> mRefCnt;
+  IID mWrappedIid;
+  PreservedStreamPtr mPreservedStream;
+  RefPtr<IStream> mStream;
+  uint32_t mVTableSize;
+  IUnknown* mVTable;
+  bool mForgetPreservedStream;
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_PassthruProxy_h
+#endif  // mozilla_mscom_PassthruProxy_h

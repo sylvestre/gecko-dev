@@ -17,18 +17,18 @@
 namespace mozilla {
 namespace dom {
 
-class FlyWebDiscoveryManager final : public nsISupports
-                                   , public nsWrapperCache
+class FlyWebDiscoveryManager final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(FlyWebDiscoveryManager)
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
   nsISupports* GetParentObject() const;
 
-  static already_AddRefed<FlyWebDiscoveryManager> Constructor(const GlobalObject& aGlobal,
-                                                              ErrorResult& rv);
+  static already_AddRefed<FlyWebDiscoveryManager> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& rv);
 
   void ListServices(nsTArray<FlyWebDiscoveredService>& aServices);
   uint32_t StartDiscovery(FlyWebDiscoveryCallback& aCallback);
@@ -39,13 +39,11 @@ public:
 
   void NotifyDiscoveredServicesChanged();
 
-private:
+ private:
   FlyWebDiscoveryManager(nsISupports* mParent, FlyWebService* aService);
   ~FlyWebDiscoveryManager();
 
-  uint32_t GenerateId() {
-    return ++mNextId;
-  }
+  uint32_t GenerateId() { return ++mNextId; }
 
   nsCOMPtr<nsISupports> mParent;
   RefPtr<FlyWebService> mService;
@@ -55,7 +53,7 @@ private:
   nsRefPtrHashtable<nsUint32HashKey, FlyWebDiscoveryCallback> mCallbackMap;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlyWebDiscoveryManager_h
+#endif  // mozilla_dom_FlyWebDiscoveryManager_h

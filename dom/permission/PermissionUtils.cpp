@@ -9,17 +9,15 @@
 namespace mozilla {
 namespace dom {
 
-const char* kPermissionTypes[] = {
-  "geo",
-  "desktop-notification",
-  // Alias `push` to `desktop-notification`.
-  "desktop-notification",
-  "persistent-storage"
-};
+const char* kPermissionTypes[] = {"geo",
+                                  "desktop-notification",
+                                  // Alias `push` to `desktop-notification`.
+                                  "desktop-notification",
+                                  "persistent-storage"};
 
 // `-1` for the last null entry.
 const size_t kPermissionNameCount =
-  MOZ_ARRAY_LENGTH(PermissionNameValues::strings) - 1;
+    MOZ_ARRAY_LENGTH(PermissionNameValues::strings) - 1;
 
 static_assert(MOZ_ARRAY_LENGTH(kPermissionTypes) == kPermissionNameCount,
               "kPermissionTypes and PermissionName count should match");
@@ -59,5 +57,5 @@ ActionToPermissionState(uint32_t aAction)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

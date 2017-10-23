@@ -13,31 +13,23 @@ namespace gfx {
 
 static const uint32_t kByteAlign = 1 << gfxAlphaRecovery::GoodAlignmentLog2();
 static const uint32_t kHeaderBytes =
-  (uint32_t(sizeof(BITMAPV4HEADER)) + kByteAlign - 1) & ~(kByteAlign - 1);
+    (uint32_t(sizeof(BITMAPV4HEADER)) + kByteAlign - 1) & ~(kByteAlign - 1);
 
-SharedDIBWin::SharedDIBWin() :
-    mSharedHdc(nullptr)
-  , mSharedBmp(nullptr)
-  , mOldObj(nullptr)
+SharedDIBWin::SharedDIBWin()
+    : mSharedHdc(nullptr), mSharedBmp(nullptr), mOldObj(nullptr)
 {
 }
 
-SharedDIBWin::~SharedDIBWin()
-{
-  Close();
-}
+SharedDIBWin::~SharedDIBWin() { Close(); }
 
 nsresult
 SharedDIBWin::Close()
 {
-  if (mSharedHdc && mOldObj)
-    ::SelectObject(mSharedHdc, mOldObj);
+  if (mSharedHdc && mOldObj) ::SelectObject(mSharedHdc, mOldObj);
 
-  if (mSharedHdc)
-    ::DeleteObject(mSharedHdc);
+  if (mSharedHdc) ::DeleteObject(mSharedHdc);
 
-  if (mSharedBmp)
-    ::DeleteObject(mSharedBmp);
+  if (mSharedBmp) ::DeleteObject(mSharedBmp);
 
   mSharedHdc = nullptr;
   mOldObj = mSharedBmp = nullptr;
@@ -48,7 +40,9 @@ SharedDIBWin::Close()
 }
 
 nsresult
-SharedDIBWin::Create(HDC aHdc, uint32_t aWidth, uint32_t aHeight,
+SharedDIBWin::Create(HDC aHdc,
+                     uint32_t aWidth,
+                     uint32_t aHeight,
                      bool aTransparent)
 {
   Close();
@@ -58,8 +52,7 @@ SharedDIBWin::Create(HDC aHdc, uint32_t aWidth, uint32_t aHeight,
   uint32_t size = SetupBitmapHeader(aWidth, aHeight, aTransparent, &bmih);
 
   nsresult rv = SharedDIB::Create(size);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   if (NS_FAILED(SetupSurface(aHdc, &bmih))) {
     Close();
@@ -70,7 +63,9 @@ SharedDIBWin::Create(HDC aHdc, uint32_t aWidth, uint32_t aHeight,
 }
 
 nsresult
-SharedDIBWin::Attach(Handle aHandle, uint32_t aWidth, uint32_t aHeight,
+SharedDIBWin::Attach(Handle aHandle,
+                     uint32_t aWidth,
+                     uint32_t aHeight,
                      bool aTransparent)
 {
   Close();
@@ -79,8 +74,7 @@ SharedDIBWin::Attach(Handle aHandle, uint32_t aWidth, uint32_t aHeight,
   SetupBitmapHeader(aWidth, aHeight, aTransparent, &bmih);
 
   nsresult rv = SharedDIB::Attach(aHandle, 0);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   if (NS_FAILED(SetupSurface(nullptr, &bmih))) {
     Close();
@@ -91,35 +85,36 @@ SharedDIBWin::Attach(Handle aHandle, uint32_t aWidth, uint32_t aHeight,
 }
 
 uint32_t
-SharedDIBWin::SetupBitmapHeader(uint32_t aWidth, uint32_t aHeight,
-                                bool aTransparent, BITMAPV4HEADER *aHeader)
+SharedDIBWin::SetupBitmapHeader(uint32_t aWidth,
+                                uint32_t aHeight,
+                                bool aTransparent,
+                                BITMAPV4HEADER* aHeader)
 {
   // D3D cannot handle an offscreen memory that pitch (SysMemPitch) is negative.
   // So we create top-to-bottom DIB.
   memset((void*)aHeader, 0, sizeof(BITMAPV4HEADER));
-  aHeader->bV4Size          = sizeof(BITMAPV4HEADER);
-  aHeader->bV4Width         = aWidth;
-  aHeader->bV4Height        = -LONG(aHeight); // top-to-buttom DIB
-  aHeader->bV4Planes        = 1;
-  aHeader->bV4BitCount      = 32;
+  aHeader->bV4Size = sizeof(BITMAPV4HEADER);
+  aHeader->bV4Width = aWidth;
+  aHeader->bV4Height = -LONG(aHeight);  // top-to-buttom DIB
+  aHeader->bV4Planes = 1;
+  aHeader->bV4BitCount = 32;
   aHeader->bV4V4Compression = BI_BITFIELDS;
-  aHeader->bV4RedMask       = 0x00FF0000;
-  aHeader->bV4GreenMask     = 0x0000FF00;
-  aHeader->bV4BlueMask      = 0x000000FF;
+  aHeader->bV4RedMask = 0x00FF0000;
+  aHeader->bV4GreenMask = 0x0000FF00;
+  aHeader->bV4BlueMask = 0x000000FF;
 
-  if (aTransparent)
-    aHeader->bV4AlphaMask     = 0xFF000000;
+  if (aTransparent) aHeader->bV4AlphaMask = 0xFF000000;
 
-  return (kHeaderBytes + (-aHeader->bV4Height * aHeader->bV4Width * kBytesPerPixel));
+  return (kHeaderBytes +
+          (-aHeader->bV4Height * aHeader->bV4Width * kBytesPerPixel));
 }
 
 nsresult
-SharedDIBWin::SetupSurface(HDC aHdc, BITMAPV4HEADER *aHdr)
+SharedDIBWin::SetupSurface(HDC aHdc, BITMAPV4HEADER* aHdr)
 {
   mSharedHdc = ::CreateCompatibleDC(aHdc);
 
-  if (!mSharedHdc)
-    return NS_ERROR_FAILURE;
+  if (!mSharedHdc) return NS_ERROR_FAILURE;
 
   mSharedBmp = ::CreateDIBSection(mSharedHdc,
                                   (BITMAPINFO*)aHdr,
@@ -127,13 +122,12 @@ SharedDIBWin::SetupSurface(HDC aHdc, BITMAPV4HEADER *aHdr)
                                   &mBitmapBits,
                                   mShMem->handle(),
                                   kHeaderBytes);
-  if (!mSharedBmp)
-    return NS_ERROR_FAILURE;
+  if (!mSharedBmp) return NS_ERROR_FAILURE;
 
   mOldObj = SelectObject(mSharedHdc, mSharedBmp);
 
   return NS_OK;
 }
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla

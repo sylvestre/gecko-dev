@@ -26,7 +26,7 @@ template<class ArrayT>
 static void
 TraceArray(JSTracer* trc, void* data)
 {
-  ArrayT* array = static_cast<ArrayT *>(data);
+  ArrayT* array = static_cast<ArrayT*>(data);
   for (unsigned i = 0; i < array->Length(); ++i)
     JS::TraceEdge(trc, &array->ElementAt(i), "array-element");
 }
@@ -84,24 +84,29 @@ RunTest(JSContext* cx, ArrayT* array)
 static void
 CreateGlobalAndRunTest(JSContext* cx)
 {
-  static const JSClassOps GlobalClassOps = {
-    nullptr, nullptr, nullptr, nullptr,
-    nullptr, nullptr, nullptr, nullptr,
-    nullptr, nullptr, JS_GlobalObjectTraceHook
-  };
+  static const JSClassOps GlobalClassOps = {nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr,
+                                            JS_GlobalObjectTraceHook};
 
   static const JSClass GlobalClass = {
-    "global", JSCLASS_GLOBAL_FLAGS,
-    &GlobalClassOps
-  };
+      "global", JSCLASS_GLOBAL_FLAGS, &GlobalClassOps};
 
   JS::CompartmentOptions options;
   options.behaviors().setVersion(JSVERSION_DEFAULT);
   JS::PersistentRootedObject global(cx);
-  global = JS_NewGlobalObject(cx, &GlobalClass, nullptr, JS::FireOnNewGlobalHook, options);
+  global = JS_NewGlobalObject(
+      cx, &GlobalClass, nullptr, JS::FireOnNewGlobalHook, options);
   ASSERT_TRUE(global != nullptr);
 
-  JSCompartment *oldCompartment = JS_EnterCompartment(cx, global);
+  JSCompartment* oldCompartment = JS_EnterCompartment(cx, global);
 
   typedef Heap<JSObject*> ElementT;
 
@@ -112,7 +117,8 @@ CreateGlobalAndRunTest(JSContext* cx)
   }
 
   {
-    FallibleTArray<ElementT>* array = new FallibleTArray<ElementT>(InitialElements);
+    FallibleTArray<ElementT>* array =
+        new FallibleTArray<ElementT>(InitialElements);
     RunTest(cx, array);
     delete array;
   }
@@ -125,7 +131,8 @@ CreateGlobalAndRunTest(JSContext* cx)
   JS_LeaveCompartment(cx, oldCompartment);
 }
 
-TEST(GCPostBarriers, nsTArray) {
+TEST(GCPostBarriers, nsTArray)
+{
   CycleCollectedJSContext* ccjscx = CycleCollectedJSContext::Get();
   ASSERT_TRUE(ccjscx != nullptr);
   JSContext* cx = ccjscx->Context();

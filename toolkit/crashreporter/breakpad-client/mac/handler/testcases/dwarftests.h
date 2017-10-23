@@ -36,11 +36,9 @@
 
 #import <SenTestingKit/SenTestingKit.h>
 
-
 @interface dwarftests : SenTestCase {
-
 }
 
-- (void) testDWARFSymbolFileGeneration;
+- (void)testDWARFSymbolFileGeneration;
 
 @end

@@ -57,7 +57,7 @@ Directory::WebkitBlinkDirectoryPickerEnabled(JSContext* aCx, JSObject* aObj)
   // aCx can be null when this function is called by something else than WebIDL
   // binding code.
   workers::WorkerPrivate* workerPrivate =
-    workers::GetCurrentThreadWorkerPrivate();
+      workers::GetCurrentThreadWorkerPrivate();
   if (!workerPrivate) {
     return false;
   }
@@ -80,7 +80,8 @@ Directory::Constructor(const GlobalObject& aGlobal,
 }
 
 /* static */ already_AddRefed<Directory>
-Directory::Create(nsISupports* aParent, nsIFile* aFile,
+Directory::Create(nsISupports* aParent,
+                  nsIFile* aFile,
                   FileSystemBase* aFileSystem)
 {
   MOZ_ASSERT(aParent);
@@ -93,8 +94,7 @@ Directory::Create(nsISupports* aParent, nsIFile* aFile,
 Directory::Directory(nsISupports* aParent,
                      nsIFile* aFile,
                      FileSystemBase* aFileSystem)
-  : mParent(aParent)
-  , mFile(aFile)
+    : mParent(aParent), mFile(aFile)
 {
   MOZ_ASSERT(aFile);
 
@@ -108,9 +108,7 @@ Directory::Directory(nsISupports* aParent,
   }
 }
 
-Directory::~Directory()
-{
-}
+Directory::~Directory() {}
 
 nsISupports*
 Directory::GetParentObject() const
@@ -176,7 +174,7 @@ Directory::GetFilesAndDirectories(ErrorResult& aRv)
   }
 
   RefPtr<GetDirectoryListingTaskChild> task =
-    GetDirectoryListingTaskChild::Create(fs, this, mFile, mFilters, aRv);
+      GetDirectoryListingTaskChild::Create(fs, this, mFile, mFilters, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -197,7 +195,7 @@ Directory::GetFiles(bool aRecursiveFlag, ErrorResult& aRv)
   }
 
   RefPtr<GetFilesTaskChild> task =
-    GetFilesTaskChild::Create(fs, this, mFile, aRecursiveFlag, rv);
+      GetFilesTaskChild::Create(fs, this, mFile, aRecursiveFlag, rv);
   if (NS_WARN_IF(rv.Failed())) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return nullptr;
@@ -233,5 +231,5 @@ Directory::GetFileSystem(ErrorResult& aRv)
   return mFileSystem;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

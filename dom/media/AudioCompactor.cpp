@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "AudioCompactor.h"
 #if defined(MOZ_MEMORY)
-# include "mozmemory.h"
+#include "mozmemory.h"
 #endif
 
 namespace mozilla {
@@ -13,11 +13,11 @@ namespace mozilla {
 static size_t
 MallocGoodSize(size_t aSize)
 {
-# if defined(MOZ_MEMORY)
+#if defined(MOZ_MEMORY)
   return malloc_good_size(aSize);
-# else
+#else
   return aSize;
-# endif
+#endif
 }
 
 static size_t
@@ -31,7 +31,8 @@ TooMuchSlop(size_t aSize, size_t aAllocSize, size_t aMaxSlop)
 }
 
 uint32_t
-AudioCompactor::GetChunkSamples(uint32_t aFrames, uint32_t aChannels,
+AudioCompactor::GetChunkSamples(uint32_t aFrames,
+                                uint32_t aChannels,
                                 size_t aMaxSlop)
 {
   size_t size = AudioDataSize(aFrames, aChannels);
@@ -49,7 +50,7 @@ AudioCompactor::GetChunkSamples(uint32_t aFrames, uint32_t aChannels,
 }
 
 uint32_t
-AudioCompactor::NativeCopy::operator()(AudioDataValue *aBuffer,
+AudioCompactor::NativeCopy::operator()(AudioDataValue* aBuffer,
                                        uint32_t aSamples)
 {
   NS_ASSERTION(aBuffer, "cannot copy to null buffer pointer");
@@ -70,4 +71,4 @@ AudioCompactor::NativeCopy::operator()(AudioDataValue *aBuffer,
   return frames;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

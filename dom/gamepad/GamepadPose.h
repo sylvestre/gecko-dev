@@ -16,11 +16,12 @@ namespace dom {
 
 class GamepadPose final : public Pose
 {
-public:
+ public:
   GamepadPose(nsISupports* aParent, const GamepadPoseState& aState);
   explicit GamepadPose(nsISupports* aParent);
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   bool HasOrientation() const;
   bool HasPosition() const;
@@ -45,14 +46,14 @@ public:
   void SetPoseState(const GamepadPoseState& aPose);
   const GamepadPoseState& GetPoseState();
 
-private:
+ private:
   virtual ~GamepadPose();
 
   nsCOMPtr<nsISupports> mParent;
   GamepadPoseState mPoseState;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_gamepad_GamepadPose_h
+#endif  // mozilla_dom_gamepad_GamepadPose_h

@@ -18,24 +18,23 @@ namespace workers {
 // spec algorithms.
 class ServiceWorkerRegisterJob final : public ServiceWorkerUpdateJob
 {
-public:
+ public:
   ServiceWorkerRegisterJob(nsIPrincipal* aPrincipal,
                            const nsACString& aScope,
                            const nsACString& aScriptSpec,
                            nsILoadGroup* aLoadGroup,
                            ServiceWorkerUpdateViaCache aUpdateViaCache);
 
-private:
+ private:
   // Implement the Register algorithm steps and then call the parent class
   // Update() to complete the job execution.
-  virtual void
-  AsyncExecute() override;
+  virtual void AsyncExecute() override;
 
   virtual ~ServiceWorkerRegisterJob();
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerregisterjob_h
+#endif  // mozilla_dom_workers_serviceworkerregisterjob_h

@@ -10,10 +10,10 @@
 namespace mozilla {
 namespace MainThreadIOLogger {
 
-bool Init();
+bool
+Init();
 
-} // namespace MainThreadIOLogger
-} // namespace mozilla
+}  // namespace MainThreadIOLogger
+}  // namespace mozilla
 
-#endif // mozilla_MainThreadIOLogger_h
-
+#endif  // mozilla_MainThreadIOLogger_h

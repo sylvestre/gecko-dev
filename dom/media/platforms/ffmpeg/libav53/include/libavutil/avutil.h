@@ -108,7 +108,6 @@
  * @}
  */
 
-
 /**
  * @defgroup preproc_misc Preprocessor String Macros
  *
@@ -117,10 +116,10 @@
  * @{
  */
 
-#define AV_STRINGIFY(s)         AV_TOSTRING(s)
+#define AV_STRINGIFY(s) AV_TOSTRING(s)
 #define AV_TOSTRING(s) #s
 
-#define AV_GLUE(a, b) a ## b
+#define AV_GLUE(a, b) a##b
 #define AV_JOIN(a, b) AV_GLUE(a, b)
 
 #define AV_PRAGMA(s) _Pragma(#s)
@@ -138,8 +137,8 @@
  * @{
  */
 
-#define AV_VERSION_INT(a, b, c) (a<<16 | b<<8 | c)
-#define AV_VERSION_DOT(a, b, c) a ##.## b ##.## c
+#define AV_VERSION_INT(a, b, c) (a << 16 | b << 8 | c)
+#define AV_VERSION_DOT(a, b, c) a##.##b##.##c
 #define AV_VERSION(a, b, c) AV_VERSION_DOT(a, b, c)
 
 /**
@@ -155,17 +154,19 @@
 
 #define LIBAVUTIL_VERSION_MAJOR 51
 #define LIBAVUTIL_VERSION_MINOR 22
-#define LIBAVUTIL_VERSION_MICRO  1
+#define LIBAVUTIL_VERSION_MICRO 1
 
-#define LIBAVUTIL_VERSION_INT   AV_VERSION_INT(LIBAVUTIL_VERSION_MAJOR, \
-                                               LIBAVUTIL_VERSION_MINOR, \
-                                               LIBAVUTIL_VERSION_MICRO)
-#define LIBAVUTIL_VERSION       AV_VERSION(LIBAVUTIL_VERSION_MAJOR,     \
-                                           LIBAVUTIL_VERSION_MINOR,     \
-                                           LIBAVUTIL_VERSION_MICRO)
-#define LIBAVUTIL_BUILD         LIBAVUTIL_VERSION_INT
+#define LIBAVUTIL_VERSION_INT             \
+  AV_VERSION_INT(LIBAVUTIL_VERSION_MAJOR, \
+                 LIBAVUTIL_VERSION_MINOR, \
+                 LIBAVUTIL_VERSION_MICRO)
+#define LIBAVUTIL_VERSION             \
+  AV_VERSION(LIBAVUTIL_VERSION_MAJOR, \
+             LIBAVUTIL_VERSION_MINOR, \
+             LIBAVUTIL_VERSION_MICRO)
+#define LIBAVUTIL_BUILD LIBAVUTIL_VERSION_INT
 
-#define LIBAVUTIL_IDENT         "Lavu" AV_STRINGIFY(LIBAVUTIL_VERSION)
+#define LIBAVUTIL_IDENT "Lavu" AV_STRINGIFY(LIBAVUTIL_VERSION)
 
 /**
  * @}
@@ -183,13 +184,13 @@
 #define FF_API_GET_BITS_PER_SAMPLE_FMT (LIBAVUTIL_VERSION_MAJOR < 52)
 #endif
 #ifndef FF_API_FIND_OPT
-#define FF_API_FIND_OPT                 (LIBAVUTIL_VERSION_MAJOR < 52)
+#define FF_API_FIND_OPT (LIBAVUTIL_VERSION_MAJOR < 52)
 #endif
 #ifndef FF_API_AV_FIFO_PEEK
-#define FF_API_AV_FIFO_PEEK             (LIBAVUTIL_VERSION_MAJOR < 52)
+#define FF_API_AV_FIFO_PEEK (LIBAVUTIL_VERSION_MAJOR < 52)
 #endif
 #ifndef FF_API_OLD_AVOPTIONS
-#define FF_API_OLD_AVOPTIONS            (LIBAVUTIL_VERSION_MAJOR < 52)
+#define FF_API_OLD_AVOPTIONS (LIBAVUTIL_VERSION_MAJOR < 52)
 #endif
 
 /**
@@ -204,17 +205,20 @@
 /**
  * Return the LIBAVUTIL_VERSION_INT constant.
  */
-unsigned avutil_version(void);
+unsigned
+avutil_version(void);
 
 /**
  * Return the libavutil build-time configuration.
  */
-const char *avutil_configuration(void);
+const char*
+avutil_configuration(void);
 
 /**
  * Return the libavutil license.
  */
-const char *avutil_license(void);
+const char*
+avutil_license(void);
 
 /**
  * @}
@@ -225,14 +229,15 @@ const char *avutil_license(void);
  * @brief Media Type
  */
 
-enum AVMediaType {
-    AVMEDIA_TYPE_UNKNOWN = -1,  ///< Usually treated as AVMEDIA_TYPE_DATA
-    AVMEDIA_TYPE_VIDEO,
-    AVMEDIA_TYPE_AUDIO,
-    AVMEDIA_TYPE_DATA,          ///< Opaque data information usually continuous
-    AVMEDIA_TYPE_SUBTITLE,
-    AVMEDIA_TYPE_ATTACHMENT,    ///< Opaque data information usually sparse
-    AVMEDIA_TYPE_NB
+enum AVMediaType
+{
+  AVMEDIA_TYPE_UNKNOWN = -1,  ///< Usually treated as AVMEDIA_TYPE_DATA
+  AVMEDIA_TYPE_VIDEO,
+  AVMEDIA_TYPE_AUDIO,
+  AVMEDIA_TYPE_DATA,  ///< Opaque data information usually continuous
+  AVMEDIA_TYPE_SUBTITLE,
+  AVMEDIA_TYPE_ATTACHMENT,  ///< Opaque data information usually sparse
+  AVMEDIA_TYPE_NB
 };
 
 /**
@@ -246,11 +251,11 @@ enum AVMediaType {
  */
 
 #define FF_LAMBDA_SHIFT 7
-#define FF_LAMBDA_SCALE (1<<FF_LAMBDA_SHIFT)
-#define FF_QP2LAMBDA 118 ///< factor to convert from H.263 QP to lambda
-#define FF_LAMBDA_MAX (256*128-1)
+#define FF_LAMBDA_SCALE (1 << FF_LAMBDA_SHIFT)
+#define FF_QP2LAMBDA 118  ///< factor to convert from H.263 QP to lambda
+#define FF_LAMBDA_MAX (256 * 128 - 1)
 
-#define FF_QUALITY_SCALE FF_LAMBDA_SCALE //FIXME maybe remove
+#define FF_QUALITY_SCALE FF_LAMBDA_SCALE  //FIXME maybe remove
 
 /**
  * @}
@@ -268,19 +273,20 @@ enum AVMediaType {
  * either pts or dts.
  */
 
-#define AV_NOPTS_VALUE          INT64_C(0x8000000000000000)
+#define AV_NOPTS_VALUE INT64_C(0x8000000000000000)
 
 /**
  * Internal time base represented as integer
  */
 
-#define AV_TIME_BASE            1000000
+#define AV_TIME_BASE 1000000
 
 /**
  * Internal time base represented as fractional value
  */
 
-#define AV_TIME_BASE_Q          (AVRational){1, AV_TIME_BASE}
+#define AV_TIME_BASE_Q \
+  (AVRational) { 1, AV_TIME_BASE }
 
 /**
  * @}
@@ -292,14 +298,15 @@ enum AVMediaType {
  * @{
  */
 
-enum AVPictureType {
-    AV_PICTURE_TYPE_I = 1, ///< Intra
-    AV_PICTURE_TYPE_P,     ///< Predicted
-    AV_PICTURE_TYPE_B,     ///< Bi-dir predicted
-    AV_PICTURE_TYPE_S,     ///< S(GMC)-VOP MPEG4
-    AV_PICTURE_TYPE_SI,    ///< Switching Intra
-    AV_PICTURE_TYPE_SP,    ///< Switching Predicted
-    AV_PICTURE_TYPE_BI,    ///< BI type
+enum AVPictureType
+{
+  AV_PICTURE_TYPE_I = 1,  ///< Intra
+  AV_PICTURE_TYPE_P,      ///< Predicted
+  AV_PICTURE_TYPE_B,      ///< Bi-dir predicted
+  AV_PICTURE_TYPE_S,      ///< S(GMC)-VOP MPEG4
+  AV_PICTURE_TYPE_SI,     ///< Switching Intra
+  AV_PICTURE_TYPE_SP,     ///< Switching Predicted
+  AV_PICTURE_TYPE_BI,     ///< BI type
 };
 
 /**
@@ -309,7 +316,8 @@ enum AVPictureType {
  * @param[in] pict_type the picture type @return a single character
  * representing the picture type, '?' if pict_type is unknown
  */
-char av_get_picture_type_char(enum AVPictureType pict_type);
+char
+av_get_picture_type_char(enum AVPictureType pict_type);
 
 /**
  * @}

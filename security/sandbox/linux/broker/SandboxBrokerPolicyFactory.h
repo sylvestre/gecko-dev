@@ -11,21 +11,23 @@
 
 namespace mozilla {
 
-class SandboxBrokerPolicyFactory {
-public:
+class SandboxBrokerPolicyFactory
+{
+ public:
   SandboxBrokerPolicyFactory();
 
 #ifdef MOZ_CONTENT_SANDBOX
-  UniquePtr<SandboxBroker::Policy> GetContentPolicy(int aPid, bool aFileProcess);
+  UniquePtr<SandboxBroker::Policy> GetContentPolicy(int aPid,
+                                                    bool aFileProcess);
 #endif
 
-private:
+ private:
   UniquePtr<const SandboxBroker::Policy> mCommonContentPolicy;
-  static void AddDynamicPathList(SandboxBroker::Policy *policy,
+  static void AddDynamicPathList(SandboxBroker::Policy* policy,
                                  const char* aPathListPref,
                                  int perms);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxBrokerPolicyFactory_h
+#endif  // mozilla_SandboxBrokerPolicyFactory_h

@@ -4,28 +4,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/ContentClient.h"
-#include "BasicLayers.h"                // for BasicLayerManager
-#include "gfxContext.h"                 // for gfxContext, etc
-#include "gfxPlatform.h"                // for gfxPlatform
-#include "gfxEnv.h"                     // for gfxEnv
-#include "gfxPrefs.h"                   // for gfxPrefs
-#include "gfxPoint.h"                   // for IntSize, gfxPoint
-#include "gfxUtils.h"                   // for gfxUtils
-#include "ipc/ShadowLayers.h"           // for ShadowLayerForwarder
-#include "mozilla/ArrayUtils.h"         // for ArrayLength
+#include "BasicLayers.h"         // for BasicLayerManager
+#include "gfxContext.h"          // for gfxContext, etc
+#include "gfxPlatform.h"         // for gfxPlatform
+#include "gfxEnv.h"              // for gfxEnv
+#include "gfxPrefs.h"            // for gfxPrefs
+#include "gfxPoint.h"            // for IntSize, gfxPoint
+#include "gfxUtils.h"            // for gfxUtils
+#include "ipc/ShadowLayers.h"    // for ShadowLayerForwarder
+#include "mozilla/ArrayUtils.h"  // for ArrayLength
 #include "mozilla/Maybe.h"
-#include "mozilla/gfx/2D.h"             // for DrawTarget, Factory
-#include "mozilla/gfx/BasePoint.h"      // for BasePoint
-#include "mozilla/gfx/BaseSize.h"       // for BaseSize
-#include "mozilla/gfx/Rect.h"           // for Rect
+#include "mozilla/gfx/2D.h"         // for DrawTarget, Factory
+#include "mozilla/gfx/BasePoint.h"  // for BasePoint
+#include "mozilla/gfx/BaseSize.h"   // for BaseSize
+#include "mozilla/gfx/Rect.h"       // for Rect
 #include "mozilla/gfx/Types.h"
-#include "mozilla/layers/CompositorBridgeChild.h" // for CompositorBridgeChild
+#include "mozilla/layers/CompositorBridgeChild.h"  // for CompositorBridgeChild
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/LayersMessages.h"  // for ThebesBufferData
 #include "mozilla/layers/LayersTypes.h"
-#include "nsDebug.h"                    // for NS_ASSERTION, NS_WARNING, etc
-#include "nsISupportsImpl.h"            // for gfxContext::Release, etc
-#include "nsIWidget.h"                  // for nsIWidget
+#include "nsDebug.h"          // for NS_ASSERTION, NS_WARNING, etc
+#include "nsISupportsImpl.h"  // for gfxContext::Release, etc
+#include "nsIWidget.h"        // for nsIWidget
 #include "nsLayoutUtils.h"
 #ifdef XP_WIN
 #include "gfxWindowsPlatform.h"
@@ -45,7 +45,8 @@ using namespace gfx;
 
 namespace layers {
 
-static TextureFlags TextureFlagsForRotatedContentBufferFlags(uint32_t aBufferFlags)
+static TextureFlags
+TextureFlagsForRotatedContentBufferFlags(uint32_t aBufferFlags)
 {
   TextureFlags result = TextureFlags::NO_FLAGS;
 
@@ -75,11 +76,11 @@ ContentClient::CreateContentClient(CompositableForwarder* aForwarder)
   } else
 #endif
 #ifdef MOZ_WIDGET_GTK
-  // We can't use double buffering when using image content with
-  // Xrender support on Linux, as ContentHostDoubleBuffered is not
-  // suited for direct uploads to the server.
-  if (!gfxPlatformGtk::GetPlatform()->UseImageOffscreenSurfaces() ||
-      !gfxVars::UseXRender())
+      // We can't use double buffering when using image content with
+      // Xrender support on Linux, as ContentHostDoubleBuffered is not
+      // suited for direct uploads to the server.
+      if (!gfxPlatformGtk::GetPlatform()->UseImageOffscreenSurfaces() ||
+          !gfxVars::UseXRender())
 #endif
   {
     useDoubleBuffering = backend == LayersBackend::LAYERS_BASIC;
@@ -113,10 +114,11 @@ ContentClient::PrintInfo(std::stringstream& aStream, const char* aPrefix)
 // We pass a null pointer for the ContentClient Forwarder argument, which means
 // this client will not have a ContentHost on the other side.
 ContentClientBasic::ContentClientBasic(gfx::BackendType aBackend)
-  : ContentClient(nullptr)
-  , RotatedContentBuffer(ContainsVisibleBounds)
-  , mBackend(aBackend)
-{}
+    : ContentClient(nullptr),
+      RotatedContentBuffer(ContainsVisibleBounds),
+      mBackend(aBackend)
+{
+}
 
 void
 ContentClientBasic::CreateBuffer(ContentType aType,
@@ -127,17 +129,21 @@ ContentClientBasic::CreateBuffer(ContentType aType,
 {
   MOZ_ASSERT(!(aFlags & BUFFER_COMPONENT_ALPHA));
   if (aFlags & BUFFER_COMPONENT_ALPHA) {
-    gfxDevCrash(LogReason::AlphaWithBasicClient) << "Asking basic content client for component alpha";
+    gfxDevCrash(LogReason::AlphaWithBasicClient)
+        << "Asking basic content client for component alpha";
   }
 
   IntSize size(aRect.Width(), aRect.Height());
 #ifdef XP_WIN
-  if (mBackend == BackendType::CAIRO && 
-      (aType == gfxContentType::COLOR || aType == gfxContentType::COLOR_ALPHA)) {
-    RefPtr<gfxASurface> surf =
-      new gfxWindowsSurface(size, aType == gfxContentType::COLOR ? gfxImageFormat::X8R8G8B8_UINT32 :
-                                                                   gfxImageFormat::A8R8G8B8_UINT32);
-    *aBlackDT = gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(surf, size);
+  if (mBackend == BackendType::CAIRO &&
+      (aType == gfxContentType::COLOR ||
+       aType == gfxContentType::COLOR_ALPHA)) {
+    RefPtr<gfxASurface> surf = new gfxWindowsSurface(
+        size,
+        aType == gfxContentType::COLOR ? gfxImageFormat::X8R8G8B8_UINT32
+                                       : gfxImageFormat::A8R8G8B8_UINT32);
+    *aBlackDT =
+        gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(surf, size);
 
     if (*aBlackDT) {
       return;
@@ -146,13 +152,14 @@ ContentClientBasic::CreateBuffer(ContentType aType,
 #endif
 
   *aBlackDT = gfxPlatform::GetPlatform()->CreateDrawTargetForBackend(
-    mBackend, size,
-    gfxPlatform::GetPlatform()->Optimal2DFormatForContent(aType));
+      mBackend,
+      size,
+      gfxPlatform::GetPlatform()->Optimal2DFormatForContent(aType));
 }
 
 RefPtr<CapturedPaintState>
-ContentClientBasic::BorrowDrawTargetForRecording(PaintState& aPaintState,
-                                                 RotatedContentBuffer::DrawIterator* aIter)
+ContentClientBasic::BorrowDrawTargetForRecording(
+    PaintState& aPaintState, RotatedContentBuffer::DrawIterator* aIter)
 {
   // BasicLayers does not yet support OMTP.
   return nullptr;
@@ -176,10 +183,11 @@ ContentClientRemoteBuffer::DestroyBuffers()
 }
 
 RefPtr<CapturedPaintState>
-ContentClientRemoteBuffer::BorrowDrawTargetForRecording(PaintState& aPaintState,
-                                                        RotatedContentBuffer::DrawIterator* aIter)
+ContentClientRemoteBuffer::BorrowDrawTargetForRecording(
+    PaintState& aPaintState, RotatedContentBuffer::DrawIterator* aIter)
 {
-  RefPtr<CapturedPaintState> cps = RotatedContentBuffer::BorrowDrawTargetForRecording(aPaintState, aIter);
+  RefPtr<CapturedPaintState> cps =
+      RotatedContentBuffer::BorrowDrawTargetForRecording(aPaintState, aIter);
   if (!cps) {
     return nullptr;
   }
@@ -191,21 +199,24 @@ ContentClientRemoteBuffer::BorrowDrawTargetForRecording(PaintState& aPaintState,
 
 class RemoteBufferReadbackProcessor : public TextureReadbackSink
 {
-public:
-  RemoteBufferReadbackProcessor(nsTArray<ReadbackProcessor::Update>* aReadbackUpdates,
-                                const IntRect& aBufferRect, const nsIntPoint& aBufferRotation)
-    : mReadbackUpdates(*aReadbackUpdates)
-    , mBufferRect(aBufferRect)
-    , mBufferRotation(aBufferRotation)
+ public:
+  RemoteBufferReadbackProcessor(
+      nsTArray<ReadbackProcessor::Update>* aReadbackUpdates,
+      const IntRect& aBufferRect,
+      const nsIntPoint& aBufferRotation)
+      : mReadbackUpdates(*aReadbackUpdates),
+        mBufferRect(aBufferRect),
+        mBufferRotation(aBufferRotation)
   {
     for (uint32_t i = 0; i < mReadbackUpdates.Length(); ++i) {
       mLayerRefs.push_back(mReadbackUpdates[i].mLayer);
     }
   }
 
-  virtual void ProcessReadback(gfx::DataSourceSurface *aSourceSurface)
+  virtual void ProcessReadback(gfx::DataSourceSurface* aSourceSurface)
   {
-    SourceRotatedBuffer rotBuffer(aSourceSurface, nullptr, mBufferRect, mBufferRotation);
+    SourceRotatedBuffer rotBuffer(
+        aSourceSurface, nullptr, mBufferRect, mBufferRotation);
 
     for (uint32_t i = 0; i < mReadbackUpdates.Length(); ++i) {
       ReadbackProcessor::Update& update = mReadbackUpdates[i];
@@ -222,8 +233,8 @@ public:
         continue;
       }
 
-      RefPtr<DrawTarget> dt =
-        sink->BeginUpdate(update.mUpdateRect + offset, update.mSequenceCounter);
+      RefPtr<DrawTarget> dt = sink->BeginUpdate(update.mUpdateRect + offset,
+                                                update.mSequenceCounter);
       if (!dt) {
         continue;
       }
@@ -236,7 +247,7 @@ public:
     }
   }
 
-private:
+ private:
   nsTArray<ReadbackProcessor::Update> mReadbackUpdates;
   // This array is used to keep the layers alive until the callback.
   vector<RefPtr<Layer>> mLayerRefs;
@@ -268,15 +279,17 @@ ContentClientRemoteBuffer::BeginAsyncPaint()
 }
 
 void
-ContentClientRemoteBuffer::EndPaint(nsTArray<ReadbackProcessor::Update>* aReadbackUpdates)
+ContentClientRemoteBuffer::EndPaint(
+    nsTArray<ReadbackProcessor::Update>* aReadbackUpdates)
 {
-  MOZ_ASSERT(!mTextureClientOnWhite || !aReadbackUpdates || aReadbackUpdates->Length() == 0);
+  MOZ_ASSERT(!mTextureClientOnWhite || !aReadbackUpdates ||
+             aReadbackUpdates->Length() == 0);
 
   // XXX: We might still not have a texture client if PaintThebes
   // decided we didn't need one yet because the region to draw was empty.
   SetBufferProvider(nullptr);
   SetBufferProviderOnWhite(nullptr);
-  for (unsigned i = 0; i< mOldTextures.Length(); ++i) {
+  for (unsigned i = 0; i < mOldTextures.Length(); ++i) {
     if (mOldTextures[i]->IsLocked()) {
       mOldTextures[i]->Unlock();
     }
@@ -285,7 +298,9 @@ ContentClientRemoteBuffer::EndPaint(nsTArray<ReadbackProcessor::Update>* aReadba
 
   if (mTextureClient && mTextureClient->IsLocked()) {
     if (aReadbackUpdates && aReadbackUpdates->Length() > 0) {
-      RefPtr<TextureReadbackSink> readbackSink = new RemoteBufferReadbackProcessor(aReadbackUpdates, mBufferRect, mBufferRotation);
+      RefPtr<TextureReadbackSink> readbackSink =
+          new RemoteBufferReadbackProcessor(
+              aReadbackUpdates, mBufferRect, mBufferRotation);
 
       mTextureClient->SetReadbackSink(readbackSink);
     }
@@ -334,16 +349,17 @@ void
 ContentClientRemoteBuffer::CreateBackBuffer(const IntRect& aBufferRect)
 {
   // gfx::BackendType::NONE means fallback to the content backend
-  TextureAllocationFlags textureAllocFlags
-                         = (mTextureFlags & TextureFlags::COMPONENT_ALPHA) ?
-                            TextureAllocationFlags::ALLOC_CLEAR_BUFFER_BLACK :
-                            TextureAllocationFlags::ALLOC_CLEAR_BUFFER;
+  TextureAllocationFlags textureAllocFlags =
+      (mTextureFlags & TextureFlags::COMPONENT_ALPHA)
+          ? TextureAllocationFlags::ALLOC_CLEAR_BUFFER_BLACK
+          : TextureAllocationFlags::ALLOC_CLEAR_BUFFER;
 
-  mTextureClient = CreateTextureClientForDrawing(
-    mSurfaceFormat, mSize, BackendSelector::Content,
-    mTextureFlags | ExtraTextureFlags(),
-    textureAllocFlags
-  );
+  mTextureClient =
+      CreateTextureClientForDrawing(mSurfaceFormat,
+                                    mSize,
+                                    BackendSelector::Content,
+                                    mTextureFlags | ExtraTextureFlags(),
+                                    textureAllocFlags);
   if (!mTextureClient || !AddTextureClient(mTextureClient)) {
     AbortTextureClientCreation();
     return;
@@ -352,10 +368,9 @@ ContentClientRemoteBuffer::CreateBackBuffer(const IntRect& aBufferRect)
 
   if (mTextureFlags & TextureFlags::COMPONENT_ALPHA) {
     mTextureClientOnWhite = mTextureClient->CreateSimilar(
-      mForwarder->GetCompositorBackendType(),
-      mTextureFlags | ExtraTextureFlags(),
-      TextureAllocationFlags::ALLOC_CLEAR_BUFFER_WHITE
-    );
+        mForwarder->GetCompositorBackendType(),
+        mTextureFlags | ExtraTextureFlags(),
+        TextureAllocationFlags::ALLOC_CLEAR_BUFFER_WHITE);
     if (!mTextureClientOnWhite || !AddTextureClient(mTextureClientOnWhite)) {
       AbortTextureClientCreation();
       return;
@@ -373,7 +388,10 @@ ContentClientRemoteBuffer::CreateBuffer(ContentType aType,
                                         RefPtr<gfx::DrawTarget>* aBlackDT,
                                         RefPtr<gfx::DrawTarget>* aWhiteDT)
 {
-  BuildTextureClients(gfxPlatform::GetPlatform()->Optimal2DFormatForContent(aType), aRect, aFlags);
+  BuildTextureClients(
+      gfxPlatform::GetPlatform()->Optimal2DFormatForContent(aType),
+      aRect,
+      aFlags);
   if (!mTextureClient) {
     return;
   }
@@ -391,7 +409,8 @@ ContentClientRemoteBuffer::CreateBuffer(ContentType aType,
   *aBlackDT = mTextureClient->BorrowDrawTarget();
   if (aFlags & BUFFER_COMPONENT_ALPHA) {
     locked = mTextureClientOnWhite->Lock(mode);
-    MOZ_ASSERT(locked, "Could not lock the second TextureClient for component alpha");
+    MOZ_ASSERT(locked,
+               "Could not lock the second TextureClient for component alpha");
 
     *aWhiteDT = mTextureClientOnWhite->BorrowDrawTarget();
   }
@@ -429,16 +448,15 @@ ContentClientRemoteBuffer::Updated(const nsIntRegion& aRegionToDraw,
                                    const nsIntRegion& aVisibleRegion,
                                    bool aDidSelfCopy)
 {
-  nsIntRegion updatedRegion = GetUpdatedRegion(aRegionToDraw,
-                                               aVisibleRegion,
-                                               aDidSelfCopy);
+  nsIntRegion updatedRegion =
+      GetUpdatedRegion(aRegionToDraw, aVisibleRegion, aDidSelfCopy);
 
   MOZ_ASSERT(mTextureClient);
   if (mTextureClientOnWhite) {
-    mForwarder->UseComponentAlphaTextures(this, mTextureClient,
-                                          mTextureClientOnWhite);
+    mForwarder->UseComponentAlphaTextures(
+        this, mTextureClient, mTextureClientOnWhite);
   } else {
-    AutoTArray<CompositableForwarder::TimedTextureClient,1> textures;
+    AutoTArray<CompositableForwarder::TimedTextureClient, 1> textures;
     CompositableForwarder::TimedTextureClient* t = textures.AppendElement();
     t->mTextureClient = mTextureClient;
     IntSize size = mTextureClient->GetSize();
@@ -448,10 +466,8 @@ ContentClientRemoteBuffer::Updated(const nsIntRegion& aRegionToDraw,
   // This forces a synchronous transaction, so we can swap buffers now
   // and know that we'll have sole ownership of the old front buffer
   // by the time we paint next.
-  mForwarder->UpdateTextureRegion(this,
-                                  ThebesBufferData(BufferRect(),
-                                                   BufferRotation()),
-                                  updatedRegion);
+  mForwarder->UpdateTextureRegion(
+      this, ThebesBufferData(BufferRect(), BufferRotation()), updatedRegion);
   SwapBuffers(updatedRegion);
 }
 
@@ -498,7 +514,8 @@ ContentClientRemoteBuffer::UnlockBuffers()
 void
 ContentClientRemoteBuffer::Dump(std::stringstream& aStream,
                                 const char* aPrefix,
-                                bool aDumpHtml, TextureDumpMode aCompress)
+                                bool aDumpHtml,
+                                TextureDumpMode aCompress)
 {
   // TODO We should combine the OnWhite/OnBlack here an just output a single image.
   if (!aDumpHtml) {
@@ -510,7 +527,8 @@ ContentClientRemoteBuffer::Dump(std::stringstream& aStream,
 void
 ContentClientDoubleBuffered::Dump(std::stringstream& aStream,
                                   const char* aPrefix,
-                                  bool aDumpHtml, TextureDumpMode aCompress)
+                                  bool aDumpHtml,
+                                  TextureDumpMode aCompress)
 {
   // TODO We should combine the OnWhite/OnBlack here an just output a single image.
   if (!aDumpHtml) {
@@ -538,7 +556,8 @@ ContentClientDoubleBuffered::Updated(const nsIntRegion& aRegionToDraw,
                                      const nsIntRegion& aVisibleRegion,
                                      bool aDidSelfCopy)
 {
-  ContentClientRemoteBuffer::Updated(aRegionToDraw, aVisibleRegion, aDidSelfCopy);
+  ContentClientRemoteBuffer::Updated(
+      aRegionToDraw, aVisibleRegion, aDidSelfCopy);
 }
 
 void
@@ -606,7 +625,9 @@ void
 ContentClientDoubleBuffered::FinalizeFrame(const nsIntRegion& aRegionToDraw)
 {
   if (!mFrontAndBackBufferDiffer) {
-    MOZ_ASSERT(!mDidSelfCopy, "If we have to copy the world, then our buffers are different, right?");
+    MOZ_ASSERT(
+        !mDidSelfCopy,
+        "If we have to copy the world, then our buffers are different, right?");
     return;
   }
   MOZ_ASSERT(mFrontClient);
@@ -614,12 +635,13 @@ ContentClientDoubleBuffered::FinalizeFrame(const nsIntRegion& aRegionToDraw)
     return;
   }
 
-  MOZ_LAYERS_LOG(("BasicShadowableThebes(%p): reading back <x=%d,y=%d,w=%d,h=%d>",
-                  this,
-                  mFrontUpdatedRegion.GetBounds().x,
-                  mFrontUpdatedRegion.GetBounds().y,
-                  mFrontUpdatedRegion.GetBounds().Width(),
-                  mFrontUpdatedRegion.GetBounds().Height()));
+  MOZ_LAYERS_LOG(
+      ("BasicShadowableThebes(%p): reading back <x=%d,y=%d,w=%d,h=%d>",
+       this,
+       mFrontUpdatedRegion.GetBounds().x,
+       mFrontUpdatedRegion.GetBounds().y,
+       mFrontUpdatedRegion.GetBounds().Width(),
+       mFrontUpdatedRegion.GetBounds().Height()));
 
   mFrontAndBackBufferDiffer = false;
 
@@ -654,19 +676,19 @@ ContentClientDoubleBuffered::FinalizeFrame(const nsIntRegion& aRegionToDraw)
   // sure there is no more external references to the DrawTargets
   // when we Unlock the TextureClients.
   gfx::DrawTarget* dt = mFrontClient->BorrowDrawTarget();
-  gfx::DrawTarget* dtw = mFrontClientOnWhite ? mFrontClientOnWhite->BorrowDrawTarget() : nullptr;
+  gfx::DrawTarget* dtw =
+      mFrontClientOnWhite ? mFrontClientOnWhite->BorrowDrawTarget() : nullptr;
   if (dt && dt->IsValid()) {
     RefPtr<SourceSurface> surf = dt->Snapshot();
     RefPtr<SourceSurface> surfOnWhite = dtw ? dtw->Snapshot() : nullptr;
-    SourceRotatedBuffer frontBuffer(surf,
-                                    surfOnWhite,
-                                    mFrontBufferRect,
-                                    mFrontBufferRotation);
+    SourceRotatedBuffer frontBuffer(
+        surf, surfOnWhite, mFrontBufferRect, mFrontBufferRotation);
     UpdateDestinationFrom(frontBuffer, updateRegion);
   } else {
     // We know this can happen, but we want to track it somewhat, in case it leads
     // to other problems.
-    gfxCriticalNote << "Invalid draw target(s) " << hexa(dt) << " and " << hexa(dtw);
+    gfxCriticalNote << "Invalid draw target(s) " << hexa(dt) << " and "
+                    << hexa(dtw);
   }
 }
 
@@ -682,18 +704,19 @@ ContentClientDoubleBuffered::EnsureBackBufferIfFrontBuffer()
 }
 
 void
-ContentClientDoubleBuffered::UpdateDestinationFrom(const RotatedBuffer& aSource,
-                                                   const nsIntRegion& aUpdateRegion)
+ContentClientDoubleBuffered::UpdateDestinationFrom(
+    const RotatedBuffer& aSource, const nsIntRegion& aUpdateRegion)
 {
   DrawIterator iter;
-  while (DrawTarget* destDT =
-    BorrowDrawTargetForQuadrantUpdate(aUpdateRegion.GetBounds(), BUFFER_BLACK, &iter)) {
+  while (DrawTarget* destDT = BorrowDrawTargetForQuadrantUpdate(
+             aUpdateRegion.GetBounds(), BUFFER_BLACK, &iter)) {
     bool isClippingCheap = IsClippingCheap(destDT, iter.mDrawRegion);
     if (isClippingCheap) {
       gfxUtils::ClipToRegion(destDT, iter.mDrawRegion);
     }
 
-    aSource.DrawBufferWithRotation(destDT, BUFFER_BLACK, 1.0, CompositionOp::OP_SOURCE);
+    aSource.DrawBufferWithRotation(
+        destDT, BUFFER_BLACK, 1.0, CompositionOp::OP_SOURCE);
     if (isClippingCheap) {
       destDT->PopClip();
     }
@@ -705,14 +728,15 @@ ContentClientDoubleBuffered::UpdateDestinationFrom(const RotatedBuffer& aSource,
   if (aSource.HaveBufferOnWhite()) {
     MOZ_ASSERT(HaveBufferOnWhite());
     DrawIterator whiteIter;
-    while (DrawTarget* destDT =
-      BorrowDrawTargetForQuadrantUpdate(aUpdateRegion.GetBounds(), BUFFER_WHITE, &whiteIter)) {
+    while (DrawTarget* destDT = BorrowDrawTargetForQuadrantUpdate(
+               aUpdateRegion.GetBounds(), BUFFER_WHITE, &whiteIter)) {
       bool isClippingCheap = IsClippingCheap(destDT, whiteIter.mDrawRegion);
       if (isClippingCheap) {
         gfxUtils::ClipToRegion(destDT, whiteIter.mDrawRegion);
       }
 
-      aSource.DrawBufferWithRotation(destDT, BUFFER_WHITE, 1.0, CompositionOp::OP_SOURCE);
+      aSource.DrawBufferWithRotation(
+          destDT, BUFFER_WHITE, 1.0, CompositionOp::OP_SOURCE);
       if (isClippingCheap) {
         destDT->PopClip();
       }
@@ -723,5 +747,5 @@ ContentClientDoubleBuffered::UpdateDestinationFrom(const RotatedBuffer& aSource,
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

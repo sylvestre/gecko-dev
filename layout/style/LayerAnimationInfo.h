@@ -8,17 +8,19 @@
 
 #include "nsChangeHint.h"
 #include "nsCSSPropertyID.h"
-#include "nsDisplayList.h" // For nsDisplayItem::Type
+#include "nsDisplayList.h"  // For nsDisplayItem::Type
 
 namespace mozilla {
 
-struct LayerAnimationInfo {
+struct LayerAnimationInfo
+{
 #ifdef DEBUG
   static void Initialize();
 #endif
   // For CSS properties that may be animated on a separate layer, represents
   // a record of the corresponding layer type and change hint.
-  struct Record {
+  struct Record
+  {
     nsCSSPropertyID mProperty;
     DisplayItemType mLayerType;
     nsChangeHint mChangeHint;
@@ -28,6 +30,6 @@ struct LayerAnimationInfo {
   static const Record sRecords[kRecords];
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(mozilla_LayerAnimationInfo_h) */

@@ -11,7 +11,7 @@
 #include "jit/CompileInfo.h"
 #include "jit/JitSpewer.h"
 #ifdef TRACK_SNAPSHOTS
-# include "jit/LIR.h"
+#include "jit/LIR.h"
 #endif
 #include "jit/MIR.h"
 #include "jit/Recover.h"
@@ -123,147 +123,91 @@ using namespace js::jit;
 //           offset on the stack.
 //
 
-const RValueAllocation::Layout&
-RValueAllocation::layoutFromMode(Mode mode)
-{
+const RValueAllocation::Layout& RValueAllocation::layoutFromMode(Mode mode) {
     switch (mode) {
-      case CONSTANT: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_INDEX,
-            PAYLOAD_NONE,
-            "constant"
-        };
-        return layout;
-      }
+        case CONSTANT: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_INDEX, PAYLOAD_NONE,
+                                                            "constant"};
+            return layout;
+        }
 
-      case CST_UNDEFINED: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_NONE,
-            PAYLOAD_NONE,
-            "undefined"
-        };
-        return layout;
-      }
+        case CST_UNDEFINED: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_NONE, PAYLOAD_NONE,
+                                                            "undefined"};
+            return layout;
+        }
 
-      case CST_NULL: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_NONE,
-            PAYLOAD_NONE,
-            "null"
-        };
-        return layout;
-      }
+        case CST_NULL: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_NONE, PAYLOAD_NONE, "null"};
+            return layout;
+        }
 
-      case DOUBLE_REG: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_FPU,
-            PAYLOAD_NONE,
-            "double"
-        };
-        return layout;
-      }
-      case ANY_FLOAT_REG: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_FPU,
-            PAYLOAD_NONE,
-            "float register content"
-        };
-        return layout;
-      }
-      case ANY_FLOAT_STACK: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_STACK_OFFSET,
-            PAYLOAD_NONE,
-            "float register content"
-        };
-        return layout;
-      }
+        case DOUBLE_REG: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_FPU, PAYLOAD_NONE, "double"};
+            return layout;
+        }
+        case ANY_FLOAT_REG: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_FPU, PAYLOAD_NONE,
+                                                            "float register content"};
+            return layout;
+        }
+        case ANY_FLOAT_STACK: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_STACK_OFFSET, PAYLOAD_NONE,
+                                                            "float register content"};
+            return layout;
+        }
 #if defined(JS_NUNBOX32)
-      case UNTYPED_REG_REG: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_GPR,
-            PAYLOAD_GPR,
-            "value"
-        };
-        return layout;
-      }
-      case UNTYPED_REG_STACK: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_GPR,
-            PAYLOAD_STACK_OFFSET,
-            "value"
-        };
-        return layout;
-      }
-      case UNTYPED_STACK_REG: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_STACK_OFFSET,
-            PAYLOAD_GPR,
-            "value"
-        };
-        return layout;
-      }
-      case UNTYPED_STACK_STACK: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_STACK_OFFSET,
-            PAYLOAD_STACK_OFFSET,
-            "value"
-        };
-        return layout;
-      }
+        case UNTYPED_REG_REG: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_GPR, PAYLOAD_GPR, "value"};
+            return layout;
+        }
+        case UNTYPED_REG_STACK: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_GPR, PAYLOAD_STACK_OFFSET,
+                                                            "value"};
+            return layout;
+        }
+        case UNTYPED_STACK_REG: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_STACK_OFFSET, PAYLOAD_GPR,
+                                                            "value"};
+            return layout;
+        }
+        case UNTYPED_STACK_STACK: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_STACK_OFFSET,
+                                                            PAYLOAD_STACK_OFFSET, "value"};
+            return layout;
+        }
 #elif defined(JS_PUNBOX64)
-      case UNTYPED_REG: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_GPR,
-            PAYLOAD_NONE,
-            "value"
-        };
-        return layout;
-      }
-      case UNTYPED_STACK: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_STACK_OFFSET,
-            PAYLOAD_NONE,
-            "value"
-        };
-        return layout;
-      }
+        case UNTYPED_REG: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_GPR, PAYLOAD_NONE, "value"};
+            return layout;
+        }
+        case UNTYPED_STACK: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_STACK_OFFSET, PAYLOAD_NONE,
+                                                            "value"};
+            return layout;
+        }
 #endif
-      case RECOVER_INSTRUCTION: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_INDEX,
-            PAYLOAD_NONE,
-            "instruction"
-        };
-        return layout;
-      }
-      case RI_WITH_DEFAULT_CST: {
-        static const RValueAllocation::Layout layout = {
-            PAYLOAD_INDEX,
-            PAYLOAD_INDEX,
-            "instruction with default"
-        };
-        return layout;
-      }
+        case RECOVER_INSTRUCTION: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_INDEX, PAYLOAD_NONE,
+                                                            "instruction"};
+            return layout;
+        }
+        case RI_WITH_DEFAULT_CST: {
+            static const RValueAllocation::Layout layout = {PAYLOAD_INDEX, PAYLOAD_INDEX,
+                                                            "instruction with default"};
+            return layout;
+        }
 
-      default: {
-        static const RValueAllocation::Layout regLayout = {
-            PAYLOAD_PACKED_TAG,
-            PAYLOAD_GPR,
-            "typed value"
-        };
+        default: {
+            static const RValueAllocation::Layout regLayout = {PAYLOAD_PACKED_TAG, PAYLOAD_GPR,
+                                                               "typed value"};
 
-        static const RValueAllocation::Layout stackLayout = {
-            PAYLOAD_PACKED_TAG,
-            PAYLOAD_STACK_OFFSET,
-            "typed value"
-        };
+            static const RValueAllocation::Layout stackLayout = {
+                PAYLOAD_PACKED_TAG, PAYLOAD_STACK_OFFSET, "typed value"};
 
-        if (mode >= TYPED_REG_MIN && mode <= TYPED_REG_MAX)
-            return regLayout;
-        if (mode >= TYPED_STACK_MIN && mode <= TYPED_STACK_MAX)
-            return stackLayout;
-      }
+            if (mode >= TYPED_REG_MIN && mode <= TYPED_REG_MAX) return regLayout;
+            if (mode >= TYPED_STACK_MIN && mode <= TYPED_STACK_MAX) return stackLayout;
+        }
     }
 
     MOZ_CRASH("Wrong mode type?");
@@ -284,35 +228,31 @@ RValueAllocation::layoutFromMode(Mode mode)
 // allocation, and the saving made in snapshot indexes.
 static const size_t ALLOCATION_TABLE_ALIGNMENT = 2; /* bytes */
 
-void
-RValueAllocation::readPayload(CompactBufferReader& reader, PayloadType type,
-                              uint8_t* mode, Payload* p)
-{
+void RValueAllocation::readPayload(CompactBufferReader& reader, PayloadType type, uint8_t* mode,
+                                   Payload* p) {
     switch (type) {
-      case PAYLOAD_NONE:
-        break;
-      case PAYLOAD_INDEX:
-        p->index = reader.readUnsigned();
-        break;
-      case PAYLOAD_STACK_OFFSET:
-        p->stackOffset = reader.readSigned();
-        break;
-      case PAYLOAD_GPR:
-        p->gpr = Register::FromCode(reader.readByte());
-        break;
-      case PAYLOAD_FPU:
-        p->fpu.data = reader.readByte();
-        break;
-      case PAYLOAD_PACKED_TAG:
-        p->type = JSValueType(*mode & PACKED_TAG_MASK);
-        *mode = *mode & ~PACKED_TAG_MASK;
-        break;
+        case PAYLOAD_NONE:
+            break;
+        case PAYLOAD_INDEX:
+            p->index = reader.readUnsigned();
+            break;
+        case PAYLOAD_STACK_OFFSET:
+            p->stackOffset = reader.readSigned();
+            break;
+        case PAYLOAD_GPR:
+            p->gpr = Register::FromCode(reader.readByte());
+            break;
+        case PAYLOAD_FPU:
+            p->fpu.data = reader.readByte();
+            break;
+        case PAYLOAD_PACKED_TAG:
+            p->type = JSValueType(*mode & PACKED_TAG_MASK);
+            *mode = *mode & ~PACKED_TAG_MASK;
+            break;
     }
 }
 
-RValueAllocation
-RValueAllocation::read(CompactBufferReader& reader)
-{
+RValueAllocation RValueAllocation::read(CompactBufferReader& reader) {
     uint8_t mode = reader.readByte();
     const Layout& layout = layoutFromMode(Mode(mode & MODE_BITS_MASK));
     Payload arg1, arg2;
@@ -322,53 +262,45 @@ RValueAllocation::read(CompactBufferReader& reader)
     return RValueAllocation(Mode(mode), arg1, arg2);
 }
 
-void
-RValueAllocation::writePayload(CompactBufferWriter& writer, PayloadType type, Payload p)
-{
+void RValueAllocation::writePayload(CompactBufferWriter& writer, PayloadType type, Payload p) {
     switch (type) {
-      case PAYLOAD_NONE:
-        break;
-      case PAYLOAD_INDEX:
-        writer.writeUnsigned(p.index);
-        break;
-      case PAYLOAD_STACK_OFFSET:
-        writer.writeSigned(p.stackOffset);
-        break;
-      case PAYLOAD_GPR:
-        static_assert(Registers::Total <= 0x100,
-                      "Not enough bytes to encode all registers.");
-        writer.writeByte(p.gpr.code());
-        break;
-      case PAYLOAD_FPU:
-        static_assert(FloatRegisters::Total <= 0x100,
-                      "Not enough bytes to encode all float registers.");
-        writer.writeByte(p.fpu.code());
-        break;
-      case PAYLOAD_PACKED_TAG: {
-        // This code assumes that the PACKED_TAG payload is following the
-        // writeByte of the mode.
-        if (!writer.oom()) {
-            MOZ_ASSERT(writer.length());
-            uint8_t* mode = writer.buffer() + (writer.length() - 1);
-            MOZ_ASSERT((*mode & PACKED_TAG_MASK) == 0 && (p.type & ~PACKED_TAG_MASK) == 0);
-            *mode = *mode | p.type;
+        case PAYLOAD_NONE:
+            break;
+        case PAYLOAD_INDEX:
+            writer.writeUnsigned(p.index);
+            break;
+        case PAYLOAD_STACK_OFFSET:
+            writer.writeSigned(p.stackOffset);
+            break;
+        case PAYLOAD_GPR:
+            static_assert(Registers::Total <= 0x100, "Not enough bytes to encode all registers.");
+            writer.writeByte(p.gpr.code());
+            break;
+        case PAYLOAD_FPU:
+            static_assert(FloatRegisters::Total <= 0x100,
+                          "Not enough bytes to encode all float registers.");
+            writer.writeByte(p.fpu.code());
+            break;
+        case PAYLOAD_PACKED_TAG: {
+            // This code assumes that the PACKED_TAG payload is following the
+            // writeByte of the mode.
+            if (!writer.oom()) {
+                MOZ_ASSERT(writer.length());
+                uint8_t* mode = writer.buffer() + (writer.length() - 1);
+                MOZ_ASSERT((*mode & PACKED_TAG_MASK) == 0 && (p.type & ~PACKED_TAG_MASK) == 0);
+                *mode = *mode | p.type;
+            }
+            break;
         }
-        break;
-      }
     }
 }
 
-void
-RValueAllocation::writePadding(CompactBufferWriter& writer)
-{
+void RValueAllocation::writePadding(CompactBufferWriter& writer) {
     // Write 0x7f in all padding bytes.
-    while (writer.length() % ALLOCATION_TABLE_ALIGNMENT)
-        writer.writeByte(0x7f);
+    while (writer.length() % ALLOCATION_TABLE_ALIGNMENT) writer.writeByte(0x7f);
 }
 
-void
-RValueAllocation::write(CompactBufferWriter& writer) const
-{
+void RValueAllocation::write(CompactBufferWriter& writer) const {
     const Layout& layout = layoutFromMode(mode());
     MOZ_ASSERT(layout.type2 != PAYLOAD_PACKED_TAG);
     MOZ_ASSERT(writer.length() % ALLOCATION_TABLE_ALIGNMENT == 0);
@@ -379,8 +311,7 @@ RValueAllocation::write(CompactBufferWriter& writer) const
     writePadding(writer);
 }
 
-HashNumber
-RValueAllocation::hash() const {
+HashNumber RValueAllocation::hash() const {
     HashNumber res = 0;
     res = HashNumber(mode_);
     res = arg1_.index + (res << 6) + (res << 16) - res;
@@ -388,84 +319,73 @@ RValueAllocation::hash() const {
     return res;
 }
 
-static const char*
-ValTypeToString(JSValueType type)
-{
+static const char* ValTypeToString(JSValueType type) {
     switch (type) {
-      case JSVAL_TYPE_INT32:
-        return "int32_t";
-      case JSVAL_TYPE_DOUBLE:
-        return "double";
-      case JSVAL_TYPE_STRING:
-        return "string";
-      case JSVAL_TYPE_SYMBOL:
-        return "symbol";
-      case JSVAL_TYPE_BOOLEAN:
-        return "boolean";
-      case JSVAL_TYPE_OBJECT:
-        return "object";
-      case JSVAL_TYPE_MAGIC:
-        return "magic";
-      default:
-        MOZ_CRASH("no payload");
+        case JSVAL_TYPE_INT32:
+            return "int32_t";
+        case JSVAL_TYPE_DOUBLE:
+            return "double";
+        case JSVAL_TYPE_STRING:
+            return "string";
+        case JSVAL_TYPE_SYMBOL:
+            return "symbol";
+        case JSVAL_TYPE_BOOLEAN:
+            return "boolean";
+        case JSVAL_TYPE_OBJECT:
+            return "object";
+        case JSVAL_TYPE_MAGIC:
+            return "magic";
+        default:
+            MOZ_CRASH("no payload");
     }
 }
 
-void
-RValueAllocation::dumpPayload(GenericPrinter& out, PayloadType type, Payload p)
-{
+void RValueAllocation::dumpPayload(GenericPrinter& out, PayloadType type, Payload p) {
     switch (type) {
-      case PAYLOAD_NONE:
-        break;
-      case PAYLOAD_INDEX:
-        out.printf("index %u", p.index);
-        break;
-      case PAYLOAD_STACK_OFFSET:
-        out.printf("stack %d", p.stackOffset);
-        break;
-      case PAYLOAD_GPR:
-        out.printf("reg %s", p.gpr.name());
-        break;
-      case PAYLOAD_FPU:
-        out.printf("reg %s", p.fpu.name());
-        break;
-      case PAYLOAD_PACKED_TAG:
-        out.printf("%s", ValTypeToString(p.type));
-        break;
+        case PAYLOAD_NONE:
+            break;
+        case PAYLOAD_INDEX:
+            out.printf("index %u", p.index);
+            break;
+        case PAYLOAD_STACK_OFFSET:
+            out.printf("stack %d", p.stackOffset);
+            break;
+        case PAYLOAD_GPR:
+            out.printf("reg %s", p.gpr.name());
+            break;
+        case PAYLOAD_FPU:
+            out.printf("reg %s", p.fpu.name());
+            break;
+        case PAYLOAD_PACKED_TAG:
+            out.printf("%s", ValTypeToString(p.type));
+            break;
     }
 }
 
-void
-RValueAllocation::dump(GenericPrinter& out) const
-{
+void RValueAllocation::dump(GenericPrinter& out) const {
     const Layout& layout = layoutFromMode(mode());
     out.printf("%s", layout.name);
 
-    if (layout.type1 != PAYLOAD_NONE)
-        out.printf(" (");
+    if (layout.type1 != PAYLOAD_NONE) out.printf(" (");
     dumpPayload(out, layout.type1, arg1_);
-    if (layout.type2 != PAYLOAD_NONE)
-        out.printf(", ");
+    if (layout.type2 != PAYLOAD_NONE) out.printf(", ");
     dumpPayload(out, layout.type2, arg2_);
-    if (layout.type1 != PAYLOAD_NONE)
-        out.printf(")");
+    if (layout.type1 != PAYLOAD_NONE) out.printf(")");
 }
 
-SnapshotReader::SnapshotReader(const uint8_t* snapshots, uint32_t offset,
-                               uint32_t RVATableSize, uint32_t listSize)
-  : reader_(snapshots + offset, snapshots + listSize),
-    allocReader_(snapshots + listSize, snapshots + listSize + RVATableSize),
-    allocTable_(snapshots + listSize),
-    allocRead_(0)
-{
-    if (!snapshots)
-        return;
+SnapshotReader::SnapshotReader(const uint8_t* snapshots, uint32_t offset, uint32_t RVATableSize,
+                               uint32_t listSize)
+    : reader_(snapshots + offset, snapshots + listSize),
+      allocReader_(snapshots + listSize, snapshots + listSize + RVATableSize),
+      allocTable_(snapshots + listSize),
+      allocRead_(0) {
+    if (!snapshots) return;
     JitSpew(JitSpew_IonSnapshots, "Creating snapshot reader");
     readSnapshotHeader();
 }
 
-#define COMPUTE_SHIFT_AFTER_(name) (name ## _BITS + name ##_SHIFT)
-#define COMPUTE_MASK_(name) ((uint32_t(1 << name ## _BITS) - 1) << name ##_SHIFT)
+#define COMPUTE_SHIFT_AFTER_(name) (name##_BITS + name##_SHIFT)
+#define COMPUTE_MASK_(name) ((uint32_t(1 << name##_BITS) - 1) << name##_SHIFT)
 
 // Details of snapshot header packing.
 static const uint32_t SNAPSHOT_BAILOUTKIND_SHIFT = 0;
@@ -488,16 +408,13 @@ static const uint32_t RECOVER_RINSCOUNT_MASK = COMPUTE_MASK_(RECOVER_RINSCOUNT);
 #undef COMPUTE_MASK_
 #undef COMPUTE_SHIFT_AFTER_
 
-void
-SnapshotReader::readSnapshotHeader()
-{
+void SnapshotReader::readSnapshotHeader() {
     uint32_t bits = reader_.readUnsigned();
 
     bailoutKind_ = BailoutKind((bits & SNAPSHOT_BAILOUTKIND_MASK) >> SNAPSHOT_BAILOUTKIND_SHIFT);
     recoverOffset_ = (bits & SNAPSHOT_ROFFSET_MASK) >> SNAPSHOT_ROFFSET_SHIFT;
 
-    JitSpew(JitSpew_IonSnapshots, "Read snapshot header with bailout kind %u",
-            bailoutKind_);
+    JitSpew(JitSpew_IonSnapshots, "Read snapshot header with bailout kind %u", bailoutKind_);
 
 #ifdef TRACK_SNAPSHOTS
     readTrackSnapshot();
@@ -505,19 +422,15 @@ SnapshotReader::readSnapshotHeader()
 }
 
 #ifdef TRACK_SNAPSHOTS
-void
-SnapshotReader::readTrackSnapshot()
-{
-    pcOpcode_  = reader_.readUnsigned();
+void SnapshotReader::readTrackSnapshot() {
+    pcOpcode_ = reader_.readUnsigned();
     mirOpcode_ = reader_.readUnsigned();
-    mirId_     = reader_.readUnsigned();
+    mirId_ = reader_.readUnsigned();
     lirOpcode_ = reader_.readUnsigned();
-    lirId_     = reader_.readUnsigned();
+    lirId_ = reader_.readUnsigned();
 }
 
-void
-SnapshotReader::spewBailingFrom() const
-{
+void SnapshotReader::spewBailingFrom() const {
     if (JitSpewEnabled(JitSpew_IonBailouts)) {
         JitSpewHeader(JitSpew_IonBailouts);
         Fprinter& out = JitSpewPrinter();
@@ -531,25 +444,19 @@ SnapshotReader::spewBailingFrom() const
 }
 #endif
 
-uint32_t
-SnapshotReader::readAllocationIndex()
-{
+uint32_t SnapshotReader::readAllocationIndex() {
     allocRead_++;
     return reader_.readUnsigned();
 }
 
-RValueAllocation
-SnapshotReader::readAllocation()
-{
+RValueAllocation SnapshotReader::readAllocation() {
     JitSpew(JitSpew_IonSnapshots, "Reading slot %u", allocRead_);
     uint32_t offset = readAllocationIndex() * ALLOCATION_TABLE_ALIGNMENT;
     allocReader_.seek(allocTable_, offset);
     return RValueAllocation::read(allocReader_);
 }
 
-bool
-SnapshotWriter::init()
-{
+bool SnapshotWriter::init() {
     // Based on the measurements made in Bug 962555 comment 20, this should be
     // enough to prevent the reallocation of the hash table for at least half of
     // the compilations.
@@ -557,43 +464,34 @@ SnapshotWriter::init()
 }
 
 RecoverReader::RecoverReader(SnapshotReader& snapshot, const uint8_t* recovers, uint32_t size)
-  : reader_(nullptr, nullptr),
-    numInstructions_(0),
-    numInstructionsRead_(0),
-    resumeAfter_(false)
-{
-    if (!recovers)
-        return;
+    : reader_(nullptr, nullptr),
+      numInstructions_(0),
+      numInstructionsRead_(0),
+      resumeAfter_(false) {
+    if (!recovers) return;
     reader_ = CompactBufferReader(recovers + snapshot.recoverOffset(), recovers + size);
     readRecoverHeader();
     readInstruction();
 }
 
 RecoverReader::RecoverReader(const RecoverReader& rr)
-  : reader_(rr.reader_),
-    numInstructions_(rr.numInstructions_),
-    numInstructionsRead_(rr.numInstructionsRead_),
-    resumeAfter_(rr.resumeAfter_)
-{
-    if (reader_.currentPosition())
-        rr.instruction()->cloneInto(&rawData_);
+    : reader_(rr.reader_),
+      numInstructions_(rr.numInstructions_),
+      numInstructionsRead_(rr.numInstructionsRead_),
+      resumeAfter_(rr.resumeAfter_) {
+    if (reader_.currentPosition()) rr.instruction()->cloneInto(&rawData_);
 }
 
-RecoverReader&
-RecoverReader::operator=(const RecoverReader& rr)
-{
+RecoverReader& RecoverReader::operator=(const RecoverReader& rr) {
     reader_ = rr.reader_;
     numInstructions_ = rr.numInstructions_;
     numInstructionsRead_ = rr.numInstructionsRead_;
     resumeAfter_ = rr.resumeAfter_;
-    if (reader_.currentPosition())
-        rr.instruction()->cloneInto(&rawData_);
+    if (reader_.currentPosition()) rr.instruction()->cloneInto(&rawData_);
     return *this;
 }
 
-void
-RecoverReader::readRecoverHeader()
-{
+void RecoverReader::readRecoverHeader() {
     uint32_t bits = reader_.readUnsigned();
 
     numInstructions_ = (bits & RECOVER_RINSCOUNT_MASK) >> RECOVER_RINSCOUNT_SHIFT;
@@ -604,17 +502,13 @@ RecoverReader::readRecoverHeader()
             numInstructions_, resumeAfter_);
 }
 
-void
-RecoverReader::readInstruction()
-{
+void RecoverReader::readInstruction() {
     MOZ_ASSERT(moreInstructions());
     RInstruction::readRecoverData(reader_, &rawData_);
     numInstructionsRead_++;
 }
 
-SnapshotOffset
-SnapshotWriter::startSnapshot(RecoverOffset recoverOffset, BailoutKind kind)
-{
+SnapshotOffset SnapshotWriter::startSnapshot(RecoverOffset recoverOffset, BailoutKind kind) {
     lastStart_ = writer_.length();
     allocWritten_ = 0;
 
@@ -624,18 +518,15 @@ SnapshotWriter::startSnapshot(RecoverOffset recoverOffset, BailoutKind kind)
     MOZ_ASSERT(uint32_t(kind) < (1 << SNAPSHOT_BAILOUTKIND_BITS));
     MOZ_ASSERT(recoverOffset < (1 << SNAPSHOT_ROFFSET_BITS));
     uint32_t bits =
-        (uint32_t(kind) << SNAPSHOT_BAILOUTKIND_SHIFT) |
-        (recoverOffset << SNAPSHOT_ROFFSET_SHIFT);
+        (uint32_t(kind) << SNAPSHOT_BAILOUTKIND_SHIFT) | (recoverOffset << SNAPSHOT_ROFFSET_SHIFT);
 
     writer_.writeUnsigned(bits);
     return lastStart_;
 }
 
 #ifdef TRACK_SNAPSHOTS
-void
-SnapshotWriter::trackSnapshot(uint32_t pcOpcode, uint32_t mirOpcode, uint32_t mirId,
-                              uint32_t lirOpcode, uint32_t lirId)
-{
+void SnapshotWriter::trackSnapshot(uint32_t pcOpcode, uint32_t mirOpcode, uint32_t mirId,
+                                   uint32_t lirOpcode, uint32_t lirId) {
     writer_.writeUnsigned(pcOpcode);
     writer_.writeUnsigned(mirOpcode);
     writer_.writeUnsigned(mirId);
@@ -644,9 +535,7 @@ SnapshotWriter::trackSnapshot(uint32_t pcOpcode, uint32_t mirOpcode, uint32_t mi
 }
 #endif
 
-bool
-SnapshotWriter::add(const RValueAllocation& alloc)
-{
+bool SnapshotWriter::add(const RValueAllocation& alloc) {
     MOZ_ASSERT(allocMap_.initialized());
 
     uint32_t offset;
@@ -675,10 +564,8 @@ SnapshotWriter::add(const RValueAllocation& alloc)
     return true;
 }
 
-void
-SnapshotWriter::endSnapshot()
-{
-    // Place a sentinel for asserting on the other end.
+void SnapshotWriter::endSnapshot() {
+// Place a sentinel for asserting on the other end.
 #ifdef DEBUG
     writer_.writeSigned(-1);
 #endif
@@ -687,37 +574,26 @@ SnapshotWriter::endSnapshot()
             uint32_t(writer_.length() - lastStart_), lastStart_);
 }
 
-RecoverOffset
-RecoverWriter::startRecover(uint32_t instructionCount, bool resumeAfter)
-{
+RecoverOffset RecoverWriter::startRecover(uint32_t instructionCount, bool resumeAfter) {
     MOZ_ASSERT(instructionCount);
     instructionCount_ = instructionCount;
     instructionsWritten_ = 0;
 
-    JitSpew(JitSpew_IonSnapshots, "starting recover with %u instruction(s)",
-            instructionCount);
+    JitSpew(JitSpew_IonSnapshots, "starting recover with %u instruction(s)", instructionCount);
 
-    MOZ_ASSERT(!(uint32_t(resumeAfter) &~ RECOVER_RESUMEAFTER_MASK));
+    MOZ_ASSERT(!(uint32_t(resumeAfter) & ~RECOVER_RESUMEAFTER_MASK));
     MOZ_ASSERT(instructionCount < uint32_t(1 << RECOVER_RINSCOUNT_BITS));
-    uint32_t bits =
-        (uint32_t(resumeAfter) << RECOVER_RESUMEAFTER_SHIFT) |
-        (instructionCount << RECOVER_RINSCOUNT_SHIFT);
+    uint32_t bits = (uint32_t(resumeAfter) << RECOVER_RESUMEAFTER_SHIFT) |
+                    (instructionCount << RECOVER_RINSCOUNT_SHIFT);
 
     RecoverOffset recoverOffset = writer_.length();
     writer_.writeUnsigned(bits);
     return recoverOffset;
 }
 
-void
-RecoverWriter::writeInstruction(const MNode* rp)
-{
-    if (!rp->writeRecoverData(writer_))
-        writer_.setOOM();
+void RecoverWriter::writeInstruction(const MNode* rp) {
+    if (!rp->writeRecoverData(writer_)) writer_.setOOM();
     instructionsWritten_++;
 }
 
-void
-RecoverWriter::endRecover()
-{
-    MOZ_ASSERT(instructionCount_ == instructionsWritten_);
-}
+void RecoverWriter::endRecover() { MOZ_ASSERT(instructionCount_ == instructionsWritten_); }

@@ -11,7 +11,8 @@ namespace mozilla {
 
 // The different kinds of tasks we can dispatch to a SystemGroup, TabGroup, or
 // DocGroup.
-enum class TaskCategory {
+enum class TaskCategory
+{
   // User input (clicks, keypresses, etc.)
   UI,
 
@@ -39,6 +40,6 @@ enum class TaskCategory {
   Count
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_TaskCategory_h
+#endif  // mozilla_TaskCategory_h

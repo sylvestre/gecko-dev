@@ -28,7 +28,6 @@ FileSystem::Create(nsIGlobalObject* aGlobalObject)
 {
   MOZ_ASSERT(aGlobalObject);
 
-
   nsID id;
   nsresult rv = nsContentUtils::GenerateUUIDInPlace(id);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -43,20 +42,18 @@ FileSystem::Create(nsIGlobalObject* aGlobalObject)
   nsAutoCString name(Substring(chars + 1, chars + NSID_LENGTH - 2));
 
   RefPtr<FileSystem> fs =
-    new FileSystem(aGlobalObject, NS_ConvertUTF8toUTF16(name));
+      new FileSystem(aGlobalObject, NS_ConvertUTF8toUTF16(name));
 
   return fs.forget();
 }
 
 FileSystem::FileSystem(nsIGlobalObject* aGlobal, const nsAString& aName)
-  : mParent(aGlobal)
-  , mName(aName)
+    : mParent(aGlobal), mName(aName)
 {
   MOZ_ASSERT(aGlobal);
 }
 
-FileSystem::~FileSystem()
-{}
+FileSystem::~FileSystem() {}
 
 JSObject*
 FileSystem::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -71,5 +68,5 @@ FileSystem::CreateRoot(const Sequence<RefPtr<FileSystemEntry>>& aEntries)
   mRoot = new FileSystemRootDirectoryEntry(mParent, aEntries, this);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

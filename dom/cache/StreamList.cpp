@@ -16,11 +16,11 @@ namespace dom {
 namespace cache {
 
 StreamList::StreamList(Manager* aManager, Context* aContext)
-  : mManager(aManager)
-  , mContext(aContext)
-  , mCacheId(INVALID_CACHE_ID)
-  , mStreamControl(nullptr)
-  , mActivated(false)
+    : mManager(aManager),
+      mContext(aContext),
+      mCacheId(INVALID_CACHE_ID),
+      mStreamControl(nullptr),
+      mActivated(false)
 {
   MOZ_DIAGNOSTIC_ASSERT(mManager);
   mContext->AddActivity(this);
@@ -188,6 +188,6 @@ StreamList::~StreamList()
   mContext->RemoveActivity(this);
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

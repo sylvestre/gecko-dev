@@ -6,17 +6,17 @@
 #ifndef MOZILLA_LAYERS_EFFECTS_H
 #define MOZILLA_LAYERS_EFFECTS_H
 
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/RefPtr.h"             // for RefPtr, already_AddRefed, etc
-#include "mozilla/gfx/Matrix.h"         // for Matrix4x4
-#include "mozilla/gfx/Point.h"          // for IntSize
-#include "mozilla/gfx/Rect.h"           // for Rect
-#include "mozilla/gfx/Types.h"          // for SamplingFilter, etc
+#include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
+#include "mozilla/RefPtr.h"      // for RefPtr, already_AddRefed, etc
+#include "mozilla/gfx/Matrix.h"  // for Matrix4x4
+#include "mozilla/gfx/Point.h"   // for IntSize
+#include "mozilla/gfx/Rect.h"    // for Rect
+#include "mozilla/gfx/Types.h"   // for SamplingFilter, etc
 #include "mozilla/layers/CompositorTypes.h"  // for EffectTypes, etc
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/TextureHost.h"  // for CompositingRenderTarget, etc
-#include "mozilla/mozalloc.h"           // for operator delete, etc
-#include "nscore.h"                     // for nsACString
+#include "mozilla/mozalloc.h"            // for operator delete, etc
+#include "nscore.h"                      // for nsACString
 #include "mozilla/EnumeratedArray.h"
 
 namespace mozilla {
@@ -51,7 +51,7 @@ struct Effect
   virtual TexturedEffect* AsTexturedEffect() { return nullptr; }
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix) = 0;
 
-protected:
+ protected:
   virtual ~Effect() {}
 };
 
@@ -59,15 +59,16 @@ protected:
 struct TexturedEffect : public Effect
 {
   TexturedEffect(EffectTypes aType,
-                 TextureSource *aTexture,
+                 TextureSource* aTexture,
                  bool aPremultiplied,
                  gfx::SamplingFilter aSamplingFilter)
-     : Effect(aType)
-     , mTextureCoords(0, 0, 1.0f, 1.0f)
-     , mTexture(aTexture)
-     , mPremultiplied(aPremultiplied)
-     , mSamplingFilter(aSamplingFilter)
-  {}
+      : Effect(aType),
+        mTextureCoords(0, 0, 1.0f, 1.0f),
+        mTexture(aTexture),
+        mPremultiplied(aPremultiplied),
+        mSamplingFilter(aSamplingFilter)
+  {
+  }
 
   virtual TexturedEffect* AsTexturedEffect() { return this; }
   virtual const char* Name() = 0;
@@ -82,14 +83,15 @@ struct TexturedEffect : public Effect
 // Support an alpha mask.
 struct EffectMask : public Effect
 {
-  EffectMask(TextureSource *aMaskTexture,
+  EffectMask(TextureSource* aMaskTexture,
              gfx::IntSize aSize,
-             const gfx::Matrix4x4 &aMaskTransform)
-    : Effect(EffectTypes::MASK)
-    , mMaskTexture(aMaskTexture)
-    , mSize(aSize)
-    , mMaskTransform(aMaskTransform)
-  {}
+             const gfx::Matrix4x4& aMaskTransform)
+      : Effect(EffectTypes::MASK),
+        mMaskTexture(aMaskTexture),
+        mSize(aSize),
+        mMaskTransform(aMaskTransform)
+  {
+  }
 
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
 
@@ -101,9 +103,9 @@ struct EffectMask : public Effect
 struct EffectBlendMode : public Effect
 {
   explicit EffectBlendMode(gfx::CompositionOp aBlendMode)
-    : Effect(EffectTypes::BLEND_MODE)
-    , mBlendMode(aBlendMode)
-  { }
+      : Effect(EffectTypes::BLEND_MODE), mBlendMode(aBlendMode)
+  {
+  }
 
   virtual const char* Name() { return "EffectBlendMode"; }
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
@@ -114,58 +116,66 @@ struct EffectBlendMode : public Effect
 // Render to a render target rather than the screen.
 struct EffectRenderTarget : public TexturedEffect
 {
-  explicit EffectRenderTarget(CompositingRenderTarget *aRenderTarget)
-    : TexturedEffect(EffectTypes::RENDER_TARGET, aRenderTarget, true,
-                     gfx::SamplingFilter::LINEAR)
-    , mRenderTarget(aRenderTarget)
-  {}
+  explicit EffectRenderTarget(CompositingRenderTarget* aRenderTarget)
+      : TexturedEffect(EffectTypes::RENDER_TARGET,
+                       aRenderTarget,
+                       true,
+                       gfx::SamplingFilter::LINEAR),
+        mRenderTarget(aRenderTarget)
+  {
+  }
 
   virtual const char* Name() { return "EffectRenderTarget"; }
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
 
   RefPtr<CompositingRenderTarget> mRenderTarget;
 
-protected:
-  EffectRenderTarget(EffectTypes aType, CompositingRenderTarget *aRenderTarget)
-    : TexturedEffect(aType, aRenderTarget, true, gfx::SamplingFilter::LINEAR)
-    , mRenderTarget(aRenderTarget)
-  {}
-
+ protected:
+  EffectRenderTarget(EffectTypes aType, CompositingRenderTarget* aRenderTarget)
+      : TexturedEffect(aType, aRenderTarget, true, gfx::SamplingFilter::LINEAR),
+        mRenderTarget(aRenderTarget)
+  {
+  }
 };
 
 // Render to a render target rather than the screen.
 struct EffectColorMatrix : public Effect
 {
   explicit EffectColorMatrix(gfx::Matrix5x4 aMatrix)
-    : Effect(EffectTypes::COLOR_MATRIX)
-    , mColorMatrix(aMatrix)
-  {}
+      : Effect(EffectTypes::COLOR_MATRIX), mColorMatrix(aMatrix)
+  {
+  }
 
   virtual const char* Name() { return "EffectColorMatrix"; }
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
   const gfx::Matrix5x4 mColorMatrix;
 };
 
-
 struct EffectRGB : public TexturedEffect
 {
-  EffectRGB(TextureSource *aTexture,
+  EffectRGB(TextureSource* aTexture,
             bool aPremultiplied,
             gfx::SamplingFilter aSamplingFilter,
             bool aFlipped = false)
-    : TexturedEffect(EffectTypes::RGB, aTexture, aPremultiplied, aSamplingFilter)
-  {}
+      : TexturedEffect(
+            EffectTypes::RGB, aTexture, aPremultiplied, aSamplingFilter)
+  {
+  }
 
   virtual const char* Name() { return "EffectRGB"; }
 };
 
 struct EffectYCbCr : public TexturedEffect
 {
-  EffectYCbCr(TextureSource *aSource, YUVColorSpace aYUVColorSpace, uint32_t aBitDepth, gfx::SamplingFilter aSamplingFilter)
-    : TexturedEffect(EffectTypes::YCBCR, aSource, false, aSamplingFilter)
-    , mYUVColorSpace(aYUVColorSpace)
-    , mBitDepth(aBitDepth)
-  {}
+  EffectYCbCr(TextureSource* aSource,
+              YUVColorSpace aYUVColorSpace,
+              uint32_t aBitDepth,
+              gfx::SamplingFilter aSamplingFilter)
+      : TexturedEffect(EffectTypes::YCBCR, aSource, false, aSamplingFilter),
+        mYUVColorSpace(aYUVColorSpace),
+        mBitDepth(aBitDepth)
+  {
+  }
 
   virtual const char* Name() { return "EffectYCbCr"; }
 
@@ -175,22 +185,25 @@ struct EffectYCbCr : public TexturedEffect
 
 struct EffectNV12 : public TexturedEffect
 {
-  EffectNV12(TextureSource *aSource, gfx::SamplingFilter aSamplingFilter)
-    : TexturedEffect(EffectTypes::NV12, aSource, false, aSamplingFilter)
-  {}
+  EffectNV12(TextureSource* aSource, gfx::SamplingFilter aSamplingFilter)
+      : TexturedEffect(EffectTypes::NV12, aSource, false, aSamplingFilter)
+  {
+  }
 
   virtual const char* Name() { return "EffectNV12"; }
 };
 
 struct EffectComponentAlpha : public TexturedEffect
 {
-  EffectComponentAlpha(TextureSource *aOnBlack,
-                       TextureSource *aOnWhite,
+  EffectComponentAlpha(TextureSource* aOnBlack,
+                       TextureSource* aOnWhite,
                        gfx::SamplingFilter aSamplingFilter)
-    : TexturedEffect(EffectTypes::COMPONENT_ALPHA, nullptr, false, aSamplingFilter)
-    , mOnBlack(aOnBlack)
-    , mOnWhite(aOnWhite)
-  {}
+      : TexturedEffect(
+            EffectTypes::COMPONENT_ALPHA, nullptr, false, aSamplingFilter),
+        mOnBlack(aOnBlack),
+        mOnWhite(aOnWhite)
+  {
+  }
 
   virtual const char* Name() { return "EffectComponentAlpha"; }
 
@@ -200,10 +213,10 @@ struct EffectComponentAlpha : public TexturedEffect
 
 struct EffectSolidColor : public Effect
 {
-  explicit EffectSolidColor(const gfx::Color &aColor)
-    : Effect(EffectTypes::SOLID_COLOR)
-    , mColor(aColor)
-  {}
+  explicit EffectSolidColor(const gfx::Color& aColor)
+      : Effect(EffectTypes::SOLID_COLOR), mColor(aColor)
+  {
+  }
 
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
 
@@ -217,8 +230,8 @@ struct EffectChain
 
   RefPtr<Effect> mPrimaryEffect;
   EnumeratedArray<EffectTypes, EffectTypes::MAX_SECONDARY, RefPtr<Effect>>
-    mSecondaryEffects;
-  void* mLayerRef; //!< For LayerScope logging
+      mSecondaryEffects;
+  void* mLayerRef;  //!< For LayerScope logging
 };
 
 /**
@@ -239,22 +252,22 @@ CreateTexturedEffect(gfx::SurfaceFormat aFormat,
   MOZ_ASSERT(aSource);
   RefPtr<TexturedEffect> result;
   switch (aFormat) {
-  case gfx::SurfaceFormat::B8G8R8A8:
-  case gfx::SurfaceFormat::B8G8R8X8:
-  case gfx::SurfaceFormat::R8G8B8X8:
-  case gfx::SurfaceFormat::R5G6B5_UINT16:
-  case gfx::SurfaceFormat::R8G8B8A8:
-    result = new EffectRGB(aSource, isAlphaPremultiplied, aSamplingFilter);
-    break;
-  case gfx::SurfaceFormat::NV12:
-    result = new EffectNV12(aSource, aSamplingFilter);
-    break;
-  case gfx::SurfaceFormat::YUV:
-    MOZ_ASSERT_UNREACHABLE("gfx::SurfaceFormat::YUV is invalid");
-    break;
-  default:
-    NS_WARNING("unhandled program type");
-    break;
+    case gfx::SurfaceFormat::B8G8R8A8:
+    case gfx::SurfaceFormat::B8G8R8X8:
+    case gfx::SurfaceFormat::R8G8B8X8:
+    case gfx::SurfaceFormat::R5G6B5_UINT16:
+    case gfx::SurfaceFormat::R8G8B8A8:
+      result = new EffectRGB(aSource, isAlphaPremultiplied, aSamplingFilter);
+      break;
+    case gfx::SurfaceFormat::NV12:
+      result = new EffectNV12(aSource, aSamplingFilter);
+      break;
+    case gfx::SurfaceFormat::YUV:
+      MOZ_ASSERT_UNREACHABLE("gfx::SurfaceFormat::YUV is invalid");
+      break;
+    default:
+      NS_WARNING("unhandled program type");
+      break;
   }
 
   return result.forget();
@@ -272,13 +285,13 @@ CreateTexturedEffect(TextureHost* aHost,
   RefPtr<TexturedEffect> result;
   if (aHost->GetReadFormat() == gfx::SurfaceFormat::YUV) {
     MOZ_ASSERT(aHost->GetYUVColorSpace() != YUVColorSpace::UNKNOWN);
-    result = new EffectYCbCr(
-      aSource, aHost->GetYUVColorSpace(), aHost->GetBitDepth(), aSamplingFilter);
+    result = new EffectYCbCr(aSource,
+                             aHost->GetYUVColorSpace(),
+                             aHost->GetBitDepth(),
+                             aSamplingFilter);
   } else {
-    result = CreateTexturedEffect(aHost->GetReadFormat(),
-                                  aSource,
-                                  aSamplingFilter,
-                                  isAlphaPremultiplied);
+    result = CreateTexturedEffect(
+        aHost->GetReadFormat(), aSource, aSamplingFilter, isAlphaPremultiplied);
   }
   return result.forget();
 }
@@ -300,14 +313,12 @@ CreateTexturedEffect(TextureSource* aSource,
     MOZ_ASSERT(aSource->GetFormat() == gfx::SurfaceFormat::R8G8B8X8 ||
                aSource->GetFormat() == gfx::SurfaceFormat::B8G8R8X8);
     MOZ_ASSERT(aSource->GetFormat() == aSourceOnWhite->GetFormat());
-    return MakeAndAddRef<EffectComponentAlpha>(aSource, aSourceOnWhite,
-                                               aSamplingFilter);
+    return MakeAndAddRef<EffectComponentAlpha>(
+        aSource, aSourceOnWhite, aSamplingFilter);
   }
 
-  return CreateTexturedEffect(aSource->GetFormat(),
-                              aSource,
-                              aSamplingFilter,
-                              isAlphaPremultiplied);
+  return CreateTexturedEffect(
+      aSource->GetFormat(), aSource, aSamplingFilter, isAlphaPremultiplied);
 }
 
 /**
@@ -316,14 +327,13 @@ CreateTexturedEffect(TextureSource* aSource,
  * This version excudes the possibility of component alpha.
  */
 inline already_AddRefed<TexturedEffect>
-CreateTexturedEffect(TextureSource *aTexture,
+CreateTexturedEffect(TextureSource* aTexture,
                      const gfx::SamplingFilter aSamplingFilter)
 {
   return CreateTexturedEffect(aTexture, nullptr, aSamplingFilter, true);
 }
 
-
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

@@ -25,22 +25,23 @@ namespace gfx {
 /// destructor or to manually call the allocated objects destructors.
 /// If the pool is growable, its allocated objects must be safely moveable in
 /// in memory (through memcpy).
-class IterableArena {
-protected:
+class IterableArena
+{
+ protected:
   struct Header
   {
     size_t mBlocSize;
   };
-public:
-  enum ArenaType {
+
+ public:
+  enum ArenaType
+  {
     FIXED_SIZE,
     GROWABLE
   };
 
   IterableArena(ArenaType aType, size_t aStorageSize)
-  : mSize(aStorageSize)
-  , mCursor(0)
-  , mIsGrowable(aType == GROWABLE)
+      : mSize(aStorageSize), mCursor(0), mIsGrowable(aType == GROWABLE)
   {
     if (mSize == 0) {
       mSize = 128;
@@ -48,15 +49,13 @@ public:
 
     mStorage = (uint8_t*)malloc(mSize);
     if (mStorage == nullptr) {
-      gfxCriticalError() << "Not enough Memory allocate a memory pool of size " << aStorageSize;
+      gfxCriticalError() << "Not enough Memory allocate a memory pool of size "
+                         << aStorageSize;
       MOZ_CRASH("GFX: Out of memory IterableArena");
     }
   }
 
-  ~IterableArena()
-  {
-    free(mStorage);
-  }
+  ~IterableArena() { free(mStorage); }
 
   /// Constructs a new item in the pool and returns a positive offset in case of
   /// success.
@@ -69,8 +68,7 @@ public:
   /// If for any reason the pool fails to allocate enough space for the new item
   /// Alloc returns a negative offset and the object's constructor is not called.
   template<typename T, typename... Args>
-  ptrdiff_t
-  Alloc(Args&&... aArgs)
+  ptrdiff_t Alloc(Args&&... aArgs)
   {
     void* storage = nullptr;
     auto offset = AllocRaw(sizeof(T), &storage);
@@ -97,7 +95,8 @@ public:
 
       uint8_t* newStorage = (uint8_t*)realloc(mStorage, newSize);
       if (!newStorage) {
-         gfxCriticalError() << "Not enough Memory to grow the memory pool, size: " << newSize;
+        gfxCriticalError()
+            << "Not enough Memory to grow the memory pool, size: " << newSize;
         return -1;
       }
 
@@ -108,7 +107,7 @@ public:
     GetHeader(offset)->mBlocSize = blocSize;
     mCursor += blocSize;
     if (aOutPtr) {
-        *aOutPtr = GetStorage(offset);
+      *aOutPtr = GetStorage(offset);
     }
     return offset;
   }
@@ -127,10 +126,7 @@ public:
   }
 
   /// Clears the storage without running any destructor and without deallocating it.
-  void Clear()
-  {
-    mCursor = 0;
-  }
+  void Clear() { mCursor = 0; }
 
   /// Iterate over the elements allocated in this pool.
   ///
@@ -145,11 +141,10 @@ public:
   }
 
   /// A simple iterator over an arena.
-  class Iterator {
-  public:
-    Iterator()
-    : mCursor(0)
-    {}
+  class Iterator
+  {
+   public:
+    Iterator() : mCursor(0) {}
 
     void* Next(IterableArena* aArena)
     {
@@ -163,15 +158,12 @@ public:
       return result;
     }
 
-  private:
+   private:
     ptrdiff_t mCursor;
   };
 
-protected:
-  Header* GetHeader(ptrdiff_t offset)
-  {
-    return (Header*) (mStorage + offset);
-  }
+ protected:
+  Header* GetHeader(ptrdiff_t offset) { return (Header*)(mStorage + offset); }
 
   size_t AlignedSize(size_t aSize) const
   {
@@ -187,7 +179,7 @@ protected:
   friend class Iterator;
 };
 
-} // namespace
-} // namespace
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif

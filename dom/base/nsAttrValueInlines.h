@@ -25,7 +25,8 @@ struct MiscContainer final
   // mStringBits.
   uintptr_t mStringBits;
   union {
-    struct {
+    struct
+    {
       union {
         int32_t mInteger;
         nscolor mColor;
@@ -55,9 +56,7 @@ struct MiscContainer final
     double mDoubleValue;
   };
 
-  MiscContainer()
-    : mType(nsAttrValue::eColor),
-      mStringBits(0)
+  MiscContainer() : mType(nsAttrValue::eColor), mStringBits(0)
   {
     MOZ_COUNT_CTOR(MiscContainer);
     mValue.mColor = 0;
@@ -65,7 +64,7 @@ struct MiscContainer final
     mValue.mCached = 0;
   }
 
-protected:
+ protected:
   // Only nsAttrValue should be able to delete us.
   friend class nsAttrValue;
 
@@ -78,7 +77,7 @@ protected:
     MOZ_COUNT_DTOR(MiscContainer);
   }
 
-public:
+ public:
   bool GetString(nsAString& aString) const;
 
   inline bool IsRefCounted() const
@@ -89,12 +88,14 @@ public:
     return mType == nsAttrValue::eCSSDeclaration;
   }
 
-  inline int32_t AddRef() {
+  inline int32_t AddRef()
+  {
     MOZ_ASSERT(IsRefCounted());
     return ++mValue.mRefCount;
   }
 
-  inline int32_t Release() {
+  inline int32_t Release()
+  {
     MOZ_ASSERT(IsRefCounted());
     return --mValue.mRefCount;
   }
@@ -111,9 +112,8 @@ inline int32_t
 nsAttrValue::GetIntegerValue() const
 {
   NS_PRECONDITION(Type() == eInteger, "wrong type");
-  return (BaseType() == eIntegerBase)
-         ? GetIntInternal()
-         : GetMiscContainer()->mValue.mInteger;
+  return (BaseType() == eIntegerBase) ? GetIntInternal()
+                                      : GetMiscContainer()->mValue.mInteger;
 }
 
 inline int16_t
@@ -122,21 +122,19 @@ nsAttrValue::GetEnumValue() const
   NS_PRECONDITION(Type() == eEnum, "wrong type");
   // We don't need to worry about sign extension here since we're
   // returning an int16_t which will cut away the top bits.
-  return static_cast<int16_t>((
-    (BaseType() == eIntegerBase)
-    ? static_cast<uint32_t>(GetIntInternal())
-    : GetMiscContainer()->mValue.mEnumValue)
-      >> NS_ATTRVALUE_ENUMTABLEINDEX_BITS);
+  return static_cast<int16_t>(((BaseType() == eIntegerBase)
+                                   ? static_cast<uint32_t>(GetIntInternal())
+                                   : GetMiscContainer()->mValue.mEnumValue) >>
+                              NS_ATTRVALUE_ENUMTABLEINDEX_BITS);
 }
 
 inline float
 nsAttrValue::GetPercentValue() const
 {
   NS_PRECONDITION(Type() == ePercent, "wrong type");
-  return ((BaseType() == eIntegerBase)
-          ? GetIntInternal()
-          : GetMiscContainer()->mValue.mPercent)
-            / 100.0f;
+  return ((BaseType() == eIntegerBase) ? GetIntInternal()
+                                       : GetMiscContainer()->mValue.mPercent) /
+         100.0f;
 }
 
 inline mozilla::AtomArray*
@@ -179,8 +177,7 @@ nsAttrValue::GetIntMarginValue(nsIntMargin& aMargin) const
 {
   NS_PRECONDITION(Type() == eIntMarginValue, "wrong type");
   nsIntMargin* m = GetMiscContainer()->mValue.mIntMargin;
-  if (!m)
-    return false;
+  if (!m) return false;
   aMargin = *m;
   return true;
 }
@@ -227,8 +224,7 @@ nsAttrValue::GetMiscContainer() const
 inline int32_t
 nsAttrValue::GetIntInternal() const
 {
-  NS_ASSERTION(BaseType() == eIntegerBase,
-               "getting integer from non-integer");
+  NS_ASSERTION(BaseType() == eIntegerBase, "getting integer from non-integer");
   // Make sure we get a signed value.
   // Lets hope the optimizer optimizes this into a shift. Unfortunatly signed
   // bitshift right is implementaion dependant.

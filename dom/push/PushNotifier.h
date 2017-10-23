@@ -25,7 +25,7 @@ class ContentParent;
  */
 class MOZ_STACK_CLASS PushDispatcher
 {
-public:
+ public:
   // Fires an XPCOM observer notification. This method may be called from both
   // processes.
   virtual nsresult NotifyObservers() = 0;
@@ -51,18 +51,16 @@ public:
   // are no active content processes. The default behavior is a no-op.
   virtual nsresult HandleNoChildProcesses();
 
-  nsIPrincipal* GetPrincipal() {
-    return mPrincipal;
-  }
+  nsIPrincipal* GetPrincipal() { return mPrincipal; }
 
-protected:
-  PushDispatcher(const nsACString& aScope,
-                 nsIPrincipal* aPrincipal);
+ protected:
+  PushDispatcher(const nsACString& aScope, nsIPrincipal* aPrincipal);
 
   virtual ~PushDispatcher();
 
   bool ShouldNotifyWorkers();
-  nsresult DoNotifyObservers(nsISupports *aSubject, const char *aTopic,
+  nsresult DoNotifyObservers(nsISupports* aSubject,
+                             const char* aTopic,
                              const nsACString& aScope);
 
   const nsCString mScope;
@@ -79,14 +77,14 @@ protected:
  */
 class PushNotifier final : public nsIPushNotifier
 {
-public:
+ public:
   PushNotifier();
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(PushNotifier, nsIPushNotifier)
   NS_DECL_NSIPUSHNOTIFIER
 
-private:
+ private:
   ~PushNotifier();
 
   nsresult Dispatch(PushDispatcher& aDispatcher);
@@ -98,14 +96,14 @@ private:
  */
 class PushData final : public nsIPushData
 {
-public:
+ public:
   explicit PushData(const nsTArray<uint8_t>& aData);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(PushData, nsIPushData)
   NS_DECL_NSIPUSHDATA
 
-private:
+ private:
   ~PushData();
 
   nsresult EnsureDecodedText();
@@ -121,14 +119,14 @@ private:
  */
 class PushMessage final : public nsIPushMessage
 {
-public:
+ public:
   PushMessage(nsIPrincipal* aPrincipal, nsIPushData* aData);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(PushMessage, nsIPushMessage)
   NS_DECL_NSIPUSHMESSAGE
 
-private:
+ private:
   ~PushMessage();
 
   nsCOMPtr<nsIPrincipal> mPrincipal;
@@ -137,11 +135,11 @@ private:
 
 class PushMessageDispatcher final : public PushDispatcher
 {
-public:
+ public:
   PushMessageDispatcher(const nsACString& aScope,
-               nsIPrincipal* aPrincipal,
-               const nsAString& aMessageId,
-               const Maybe<nsTArray<uint8_t>>& aData);
+                        nsIPrincipal* aPrincipal,
+                        const nsAString& aMessageId,
+                        const Maybe<nsTArray<uint8_t>>& aData);
   ~PushMessageDispatcher();
 
   nsresult NotifyObservers() override;
@@ -149,16 +147,16 @@ public:
   bool SendToParent(ContentChild* aParentActor) override;
   bool SendToChild(ContentParent* aContentActor) override;
 
-private:
+ private:
   const nsString mMessageId;
   const Maybe<nsTArray<uint8_t>> mData;
 };
 
 class PushSubscriptionChangeDispatcher final : public PushDispatcher
 {
-public:
+ public:
   PushSubscriptionChangeDispatcher(const nsACString& aScope,
-                                 nsIPrincipal* aPrincipal);
+                                   nsIPrincipal* aPrincipal);
   ~PushSubscriptionChangeDispatcher();
 
   nsresult NotifyObservers() override;
@@ -169,7 +167,7 @@ public:
 
 class PushSubscriptionModifiedDispatcher : public PushDispatcher
 {
-public:
+ public:
   PushSubscriptionModifiedDispatcher(const nsACString& aScope,
                                      nsIPrincipal* aPrincipal);
   ~PushSubscriptionModifiedDispatcher();
@@ -182,7 +180,7 @@ public:
 
 class PushErrorDispatcher final : public PushDispatcher
 {
-public:
+ public:
   PushErrorDispatcher(const nsACString& aScope,
                       nsIPrincipal* aPrincipal,
                       const nsAString& aMessage,
@@ -194,14 +192,14 @@ public:
   bool SendToParent(ContentChild* aParentActor) override;
   bool SendToChild(ContentParent* aContentActor) override;
 
-private:
+ private:
   nsresult HandleNoChildProcesses() override;
 
   const nsString mMessage;
   uint32_t mFlags;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PushNotifier_h
+#endif  // mozilla_dom_PushNotifier_h

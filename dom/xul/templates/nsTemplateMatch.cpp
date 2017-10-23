@@ -10,10 +10,9 @@
 void
 nsTemplateMatch::Destroy(nsTemplateMatch*& aMatch, bool aRemoveResult)
 {
-    if (aRemoveResult && aMatch->mResult)
-        aMatch->mResult->HasBeenRemoved();
-    ::delete aMatch;
-    aMatch = nullptr;
+  if (aRemoveResult && aMatch->mResult) aMatch->mResult->HasBeenRemoved();
+  ::delete aMatch;
+  aMatch = nullptr;
 }
 
 nsresult
@@ -22,14 +21,14 @@ nsTemplateMatch::RuleMatched(nsTemplateQuerySet* aQuerySet,
                              int16_t aRuleIndex,
                              nsIXULTemplateResult* aResult)
 {
-    // assign the rule index, used to indicate that a match is active, and
-    // so the tree builder can get the right action body to generate
-    mRuleIndex = aRuleIndex;
+  // assign the rule index, used to indicate that a match is active, and
+  // so the tree builder can get the right action body to generate
+  mRuleIndex = aRuleIndex;
 
-    nsCOMPtr<nsIDOMNode> rulenode;
-    aRule->GetRuleNode(getter_AddRefs(rulenode));
-    if (rulenode)
-        return aResult->RuleMatched(aQuerySet->mCompiledQuery, rulenode);
+  nsCOMPtr<nsIDOMNode> rulenode;
+  aRule->GetRuleNode(getter_AddRefs(rulenode));
+  if (rulenode)
+    return aResult->RuleMatched(aQuerySet->mCompiledQuery, rulenode);
 
-    return NS_OK;
+  return NS_OK;
 }

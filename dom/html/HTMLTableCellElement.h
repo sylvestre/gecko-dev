@@ -16,9 +16,10 @@ class HTMLTableElement;
 
 class HTMLTableCellElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLTableCellElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLTableCellElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
     SetHasWeirdParserInsertionMode();
   }
@@ -26,18 +27,12 @@ public:
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
 
-  uint32_t ColSpan() const
-  {
-    return GetIntAttr(nsGkAtoms::colspan, 1);
-  }
+  uint32_t ColSpan() const { return GetIntAttr(nsGkAtoms::colspan, 1); }
   void SetColSpan(uint32_t aColSpan, ErrorResult& aError)
   {
     SetUnsignedIntAttr(nsGkAtoms::colspan, aColSpan, 1, aError);
   }
-  uint32_t RowSpan() const
-  {
-    return GetIntAttr(nsGkAtoms::rowspan, 1);
-  }
+  uint32_t RowSpan() const { return GetIntAttr(nsGkAtoms::rowspan, 1); }
   void SetRowSpan(uint32_t aRowSpan, ErrorResult& aError)
   {
     SetUnsignedIntAttr(nsGkAtoms::rowspan, aRowSpan, 1, aError);
@@ -53,10 +48,7 @@ public:
   }
   int32_t CellIndex() const;
 
-  void GetAbbr(DOMString& aAbbr)
-  {
-    GetHTMLAttr(nsGkAtoms::abbr, aAbbr);
-  }
+  void GetAbbr(DOMString& aAbbr) { GetHTMLAttr(nsGkAtoms::abbr, aAbbr); }
   void SetAbbr(const nsAString& aAbbr, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::abbr, aAbbr, aError);
@@ -71,10 +63,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::align, aAlign, aError);
   }
-  void GetAxis(DOMString& aAxis)
-  {
-    GetHTMLAttr(nsGkAtoms::axis, aAxis);
-  }
+  void GetAxis(DOMString& aAxis) { GetHTMLAttr(nsGkAtoms::axis, aAxis); }
   void SetAxis(const nsAString& aAxis, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::axis, aAxis, aError);
@@ -87,34 +76,22 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::height, aHeight, aError);
   }
-  void GetWidth(DOMString& aWidth)
-  {
-    GetHTMLAttr(nsGkAtoms::width, aWidth);
-  }
+  void GetWidth(DOMString& aWidth) { GetHTMLAttr(nsGkAtoms::width, aWidth); }
   void SetWidth(const nsAString& aWidth, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::width, aWidth, aError);
   }
-  void GetCh(DOMString& aCh)
-  {
-    GetHTMLAttr(nsGkAtoms::_char, aCh);
-  }
+  void GetCh(DOMString& aCh) { GetHTMLAttr(nsGkAtoms::_char, aCh); }
   void SetCh(const nsAString& aCh, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::_char, aCh, aError);
   }
-  void GetChOff(DOMString& aChOff)
-  {
-    GetHTMLAttr(nsGkAtoms::charoff, aChOff);
-  }
+  void GetChOff(DOMString& aChOff) { GetHTMLAttr(nsGkAtoms::charoff, aChOff); }
   void SetChOff(const nsAString& aChOff, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::charoff, aChOff, aError);
   }
-  bool NoWrap()
-  {
-    return GetBoolAttr(nsGkAtoms::nowrap);
-  }
+  bool NoWrap() { return GetBoolAttr(nsGkAtoms::nowrap); }
   void SetNoWrap(bool aNoWrap, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::nowrap, aNoWrap, aError);
@@ -140,30 +117,33 @@ public:
                               nsAtom* aAttribute,
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
   NS_IMETHOD WalkContentStyleRules(nsRuleWalker* aRuleWalker) override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
   // Get mapped attributes of ancestor table, if any
   nsMappedAttributes* GetMappedAttributesInheritedFromTable() const;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-protected:
+ protected:
   virtual ~HTMLTableCellElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   HTMLTableElement* GetTable() const;
 
   HTMLTableRowElement* GetRow() const;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLTableCellElement_h */

@@ -14,34 +14,35 @@
 NS_IMPL_CLASSINFO(nsPermission, nullptr, 0, {0})
 NS_IMPL_ISUPPORTS_CI(nsPermission, nsIPermission)
 
-nsPermission::nsPermission(nsIPrincipal*    aPrincipal,
-                           const nsACString &aType,
-                           uint32_t         aCapability,
-                           uint32_t         aExpireType,
-                           int64_t          aExpireTime)
- : mPrincipal(aPrincipal)
- , mType(aType)
- , mCapability(aCapability)
- , mExpireType(aExpireType)
- , mExpireTime(aExpireTime)
+nsPermission::nsPermission(nsIPrincipal* aPrincipal,
+                           const nsACString& aType,
+                           uint32_t aCapability,
+                           uint32_t aExpireType,
+                           int64_t aExpireTime)
+    : mPrincipal(aPrincipal),
+      mType(aType),
+      mCapability(aCapability),
+      mExpireType(aExpireType),
+      mExpireTime(aExpireTime)
 {
 }
 
 already_AddRefed<nsPermission>
 nsPermission::Create(nsIPrincipal* aPrincipal,
-                     const nsACString &aType,
+                     const nsACString& aType,
                      uint32_t aCapability,
                      uint32_t aExpireType,
                      int64_t aExpireTime)
 {
   NS_ENSURE_TRUE(aPrincipal, nullptr);
   nsCOMPtr<nsIPrincipal> principal =
-    mozilla::BasePrincipal::Cast(aPrincipal)->CloneStrippingUserContextIdAndFirstPartyDomain();
+      mozilla::BasePrincipal::Cast(aPrincipal)
+          ->CloneStrippingUserContextIdAndFirstPartyDomain();
 
   NS_ENSURE_TRUE(principal, nullptr);
 
   RefPtr<nsPermission> permission =
-    new nsPermission(principal, aType, aCapability, aExpireType, aExpireTime);
+      new nsPermission(principal, aType, aCapability, aExpireType, aExpireTime);
   return permission.forget();
 }
 
@@ -54,28 +55,28 @@ nsPermission::GetPrincipal(nsIPrincipal** aPrincipal)
 }
 
 NS_IMETHODIMP
-nsPermission::GetType(nsACString &aType)
+nsPermission::GetType(nsACString& aType)
 {
   aType = mType;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsPermission::GetCapability(uint32_t *aCapability)
+nsPermission::GetCapability(uint32_t* aCapability)
 {
   *aCapability = mCapability;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsPermission::GetExpireType(uint32_t *aExpireType)
+nsPermission::GetExpireType(uint32_t* aExpireType)
 {
   *aExpireType = mExpireType;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsPermission::GetExpireTime(int64_t *aExpireTime)
+nsPermission::GetExpireTime(int64_t* aExpireTime)
 {
   *aExpireTime = mExpireTime;
   return NS_OK;
@@ -90,7 +91,8 @@ nsPermission::Matches(nsIPrincipal* aPrincipal, bool aExactHost, bool* aMatches)
   *aMatches = false;
 
   nsCOMPtr<nsIPrincipal> principal =
-    mozilla::BasePrincipal::Cast(aPrincipal)->CloneStrippingUserContextIdAndFirstPartyDomain();
+      mozilla::BasePrincipal::Cast(aPrincipal)
+          ->CloneStrippingUserContextIdAndFirstPartyDomain();
 
   if (!principal) {
     *aMatches = false;
@@ -106,15 +108,16 @@ nsPermission::Matches(nsIPrincipal* aPrincipal, bool aExactHost, bool* aMatches)
   // If we are matching with an exact host, we're done now - the permissions don't match
   // otherwise, we need to start comparing subdomains!
   if (aExactHost) {
-      return NS_OK;
+    return NS_OK;
   }
 
   // Compare their OriginAttributes
-  const mozilla::OriginAttributes& theirAttrs = principal->OriginAttributesRef();
+  const mozilla::OriginAttributes& theirAttrs =
+      principal->OriginAttributesRef();
   const mozilla::OriginAttributes& ourAttrs = mPrincipal->OriginAttributesRef();
 
   if (theirAttrs != ourAttrs) {
-      return NS_OK;
+    return NS_OK;
   }
 
   nsCOMPtr<nsIURI> theirURI;
@@ -165,7 +168,7 @@ nsPermission::Matches(nsIPrincipal* aPrincipal, bool aExactHost, bool* aMatches)
   }
 
   nsCOMPtr<nsIEffectiveTLDService> tldService =
-    do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
+      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
   if (!tldService) {
     NS_ERROR("Should have a tld service!");
     return NS_ERROR_FAILURE;
@@ -194,7 +197,8 @@ nsPermission::MatchesURI(nsIURI* aURI, bool aExactHost, bool* aMatches)
   NS_ENSURE_ARG_POINTER(aURI);
 
   mozilla::OriginAttributes attrs;
-  nsCOMPtr<nsIPrincipal> principal = mozilla::BasePrincipal::CreateCodebasePrincipal(aURI, attrs);
+  nsCOMPtr<nsIPrincipal> principal =
+      mozilla::BasePrincipal::CreateCodebasePrincipal(aURI, attrs);
   NS_ENSURE_TRUE(principal, NS_ERROR_FAILURE);
 
   return Matches(principal, aExactHost, aMatches);

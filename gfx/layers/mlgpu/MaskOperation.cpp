@@ -15,18 +15,14 @@ namespace layers {
 
 using namespace gfx;
 
-MaskOperation::MaskOperation(FrameBuilder* aBuilder)
-{
-}
+MaskOperation::MaskOperation(FrameBuilder* aBuilder) {}
 
 MaskOperation::MaskOperation(FrameBuilder* aBuilder, MLGTexture* aSource)
- : mTexture(aSource)
+    : mTexture(aSource)
 {
 }
 
-MaskOperation::~MaskOperation()
-{
-}
+MaskOperation::~MaskOperation() {}
 
 static gfx::Rect
 ComputeQuadForMaskLayer(Layer* aLayer, const IntSize& aSize)
@@ -41,18 +37,18 @@ ComputeQuadForMaskLayer(Layer* aLayer, const IntSize& aSize)
 Rect
 MaskOperation::ComputeMaskRect(Layer* aLayer) const
 {
-  Layer* maskLayer = aLayer->GetMaskLayer()
-                     ? aLayer->GetMaskLayer()
-                     : aLayer->GetAncestorMaskLayerAt(0);
-  MOZ_ASSERT((aLayer->GetAncestorMaskLayerCount() == 0 && aLayer->GetMaskLayer()) ||
-             (aLayer->GetAncestorMaskLayerCount() == 1 && !aLayer->GetMaskLayer()));
+  Layer* maskLayer = aLayer->GetMaskLayer() ? aLayer->GetMaskLayer()
+                                            : aLayer->GetAncestorMaskLayerAt(0);
+  MOZ_ASSERT(
+      (aLayer->GetAncestorMaskLayerCount() == 0 && aLayer->GetMaskLayer()) ||
+      (aLayer->GetAncestorMaskLayerCount() == 1 && !aLayer->GetMaskLayer()));
 
   return ComputeQuadForMaskLayer(maskLayer, mTexture->GetSize());
 }
 
 // This is only needed for std::map.
 bool
-MaskTexture::operator <(const MaskTexture& aOther) const
+MaskTexture::operator<(const MaskTexture& aOther) const
 {
   if (mRect.x != aOther.mRect.x) {
     return mRect.x < aOther.mRect.x;
@@ -88,14 +84,11 @@ GetMaskLayerTexture(Layer* aLayer)
 }
 
 MaskCombineOperation::MaskCombineOperation(FrameBuilder* aBuilder)
- : MaskOperation(aBuilder),
-   mBuilder(aBuilder)
+    : MaskOperation(aBuilder), mBuilder(aBuilder)
 {
 }
 
-MaskCombineOperation::~MaskCombineOperation()
-{
-}
+MaskCombineOperation::~MaskCombineOperation() {}
 
 void
 MaskCombineOperation::Init(const MaskTextureList& aTextures)
@@ -195,5 +188,5 @@ AppendToMaskTextureList(MaskTextureList& aList, Layer* aLayer)
   aList.push_back(MaskTexture(rect, source));
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

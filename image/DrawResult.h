@@ -6,7 +6,7 @@
 #ifndef mozilla_image_DrawResult_h
 #define mozilla_image_DrawResult_h
 
-#include <cstdint> // for uint8_t
+#include <cstdint>  // for uint8_t
 #include "mozilla/Attributes.h"
 #include "mozilla/Likely.h"
 
@@ -65,8 +65,7 @@ enum class MOZ_MUST_USE_TYPE DrawResult : uint8_t
  * any other kind of failure over DrawResult::BAD_IMAGE, since other failures
  * are recoverable and we want to know if any recoverable failures occurred.
  */
-inline DrawResult
-operator&(const DrawResult aLeft, const DrawResult aRight)
+inline DrawResult operator&(const DrawResult aLeft, const DrawResult aRight)
 {
   if (MOZ_LIKELY(aLeft == DrawResult::SUCCESS)) {
     return aRight;
@@ -90,17 +89,19 @@ operator&=(DrawResult& aLeft, const DrawResult aRight)
  * information about the result of any imagelib draw calls that may have
  * occurred.
  */
-struct imgDrawingParams {
+struct imgDrawingParams
+{
   explicit imgDrawingParams(uint32_t aImageFlags = 0)
-    : imageFlags(aImageFlags), result(DrawResult::SUCCESS)
-  {}
+      : imageFlags(aImageFlags), result(DrawResult::SUCCESS)
+  {
+  }
 
-  const uint32_t imageFlags; // imgIContainer::FLAG_* image flags to pass to
-                             // image lib draw calls.
-  DrawResult result;         // To return results from image lib painting.
+  const uint32_t imageFlags;  // imgIContainer::FLAG_* image flags to pass to
+                              // image lib draw calls.
+  DrawResult result;          // To return results from image lib painting.
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_DrawResult_h
+#endif  // mozilla_image_DrawResult_h

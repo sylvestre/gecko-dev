@@ -16,15 +16,16 @@ typedef uint32_t AndroidSurfaceTextureHandle;
 namespace mozilla {
 namespace gl {
 
-class AndroidSurfaceTexture {
-public:
-  static void GetTransformMatrix(java::sdk::SurfaceTexture::LocalRef aSurfaceTexture,
-                                 mozilla::gfx::Matrix4x4& aMatrix);
-
+class AndroidSurfaceTexture
+{
+ public:
+  static void GetTransformMatrix(
+      java::sdk::SurfaceTexture::LocalRef aSurfaceTexture,
+      mozilla::gfx::Matrix4x4& aMatrix);
 };
 
-} // gl
-} // mozilla
+}  // namespace gl
+}  // namespace mozilla
 
-#endif // MOZ_WIDGET_ANDROID
-#endif // AndroidSurfaceTexture_h__
+#endif  // MOZ_WIDGET_ANDROID
+#endif  // AndroidSurfaceTexture_h__

@@ -16,42 +16,31 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEMorphologyElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEMorphologyElement::WrapNode(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEMorphologyElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberPairInfo SVGFEMorphologyElement::sNumberPairInfo[1] =
-{
-  { &nsGkAtoms::radius, 0, 0 }
-};
+nsSVGElement::NumberPairInfo SVGFEMorphologyElement::sNumberPairInfo[1] = {
+    {&nsGkAtoms::radius, 0, 0}};
 
 nsSVGEnumMapping SVGFEMorphologyElement::sOperatorMap[] = {
-  {&nsGkAtoms::erode, SVG_OPERATOR_ERODE},
-  {&nsGkAtoms::dilate, SVG_OPERATOR_DILATE},
-  {nullptr, 0}
-};
+    {&nsGkAtoms::erode, SVG_OPERATOR_ERODE},
+    {&nsGkAtoms::dilate, SVG_OPERATOR_DILATE},
+    {nullptr, 0}};
 
-nsSVGElement::EnumInfo SVGFEMorphologyElement::sEnumInfo[1] =
-{
-  { &nsGkAtoms::_operator,
-    sOperatorMap,
-    SVG_OPERATOR_ERODE
-  }
-};
+nsSVGElement::EnumInfo SVGFEMorphologyElement::sEnumInfo[1] = {
+    {&nsGkAtoms::_operator, sOperatorMap, SVG_OPERATOR_ERODE}};
 
-nsSVGElement::StringInfo SVGFEMorphologyElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEMorphologyElement::sStringInfo[2] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEMorphologyElement)
-
 
 //----------------------------------------------------------------------
 // SVGFEMorphologyElement methods
@@ -71,13 +60,15 @@ SVGFEMorphologyElement::Operator()
 already_AddRefed<SVGAnimatedNumber>
 SVGFEMorphologyElement::RadiusX()
 {
-  return mNumberPairAttributes[RADIUS].ToDOMAnimatedNumber(nsSVGNumberPair::eFirst, this);
+  return mNumberPairAttributes[RADIUS].ToDOMAnimatedNumber(
+      nsSVGNumberPair::eFirst, this);
 }
 
 already_AddRefed<SVGAnimatedNumber>
 SVGFEMorphologyElement::RadiusY()
 {
-  return mNumberPairAttributes[RADIUS].ToDOMAnimatedNumber(nsSVGNumberPair::eSecond, this);
+  return mNumberPairAttributes[RADIUS].ToDOMAnimatedNumber(
+      nsSVGNumberPair::eSecond, this);
 }
 
 void
@@ -95,28 +86,32 @@ SVGFEMorphologyElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 #define MORPHOLOGY_EPSILON 0.0001
 
 void
-SVGFEMorphologyElement::GetRXY(int32_t *aRX, int32_t *aRY,
+SVGFEMorphologyElement::GetRXY(int32_t* aRX,
+                               int32_t* aRY,
                                const nsSVGFilterInstance& aInstance)
 {
   // Subtract an epsilon here because we don't want a value that's just
   // slightly larger than an integer to round up to the next integer; it's
   // probably meant to be the integer it's close to, modulo machine precision
   // issues.
-  *aRX = NSToIntCeil(aInstance.GetPrimitiveNumber(SVGContentUtils::X,
-                                                  &mNumberPairAttributes[RADIUS],
-                                                  nsSVGNumberPair::eFirst) -
-                     MORPHOLOGY_EPSILON);
-  *aRY = NSToIntCeil(aInstance.GetPrimitiveNumber(SVGContentUtils::Y,
-                                                  &mNumberPairAttributes[RADIUS],
-                                                  nsSVGNumberPair::eSecond) -
-                     MORPHOLOGY_EPSILON);
+  *aRX =
+      NSToIntCeil(aInstance.GetPrimitiveNumber(SVGContentUtils::X,
+                                               &mNumberPairAttributes[RADIUS],
+                                               nsSVGNumberPair::eFirst) -
+                  MORPHOLOGY_EPSILON);
+  *aRY =
+      NSToIntCeil(aInstance.GetPrimitiveNumber(SVGContentUtils::Y,
+                                               &mNumberPairAttributes[RADIUS],
+                                               nsSVGNumberPair::eSecond) -
+                  MORPHOLOGY_EPSILON);
 }
 
 FilterPrimitiveDescription
-SVGFEMorphologyElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                                const IntRect& aFilterSubregion,
-                                                const nsTArray<bool>& aInputsAreTainted,
-                                                nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFEMorphologyElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   int32_t rx, ry;
   GetRXY(&rx, &ry, *aInstance);
@@ -131,10 +126,10 @@ bool
 SVGFEMorphologyElement::AttributeAffectsRendering(int32_t aNameSpaceID,
                                                   nsAtom* aAttribute) const
 {
-  return SVGFEMorphologyElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
+  return SVGFEMorphologyElementBase::AttributeAffectsRendering(aNameSpaceID,
+                                                               aAttribute) ||
          (aNameSpaceID == kNameSpaceID_None &&
-          (aAttribute == nsGkAtoms::in ||
-           aAttribute == nsGkAtoms::radius ||
+          (aAttribute == nsGkAtoms::in || aAttribute == nsGkAtoms::radius ||
            aAttribute == nsGkAtoms::_operator));
 }
 
@@ -144,23 +139,22 @@ SVGFEMorphologyElement::AttributeAffectsRendering(int32_t aNameSpaceID,
 nsSVGElement::NumberPairAttributesInfo
 SVGFEMorphologyElement::GetNumberPairInfo()
 {
-  return NumberPairAttributesInfo(mNumberPairAttributes, sNumberPairInfo,
-                                  ArrayLength(sNumberPairInfo));
+  return NumberPairAttributesInfo(
+      mNumberPairAttributes, sNumberPairInfo, ArrayLength(sNumberPairInfo));
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGFEMorphologyElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGFEMorphologyElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

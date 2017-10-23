@@ -15,13 +15,12 @@
 #include "mozilla/MemoryReporting.h"
 #include <stdint.h>
 
-
 /*
  * The XPT library is statically linked: no functions are exported from
  * shared libraries.
  */
-#define XPT_PUBLIC_API(t)    t
-#define XPT_PUBLIC_DATA(t)   t
+#define XPT_PUBLIC_API(t) t
+#define XPT_PUBLIC_DATA(t) t
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,32 +32,34 @@ extern "C" {
 
 typedef struct XPTArena XPTArena;
 
-XPT_PUBLIC_API(XPTArena *)
+XPT_PUBLIC_API(XPTArena*)
 XPT_NewArena(size_t block_size8, size_t block_size1);
 
 XPT_PUBLIC_API(void)
-XPT_DestroyArena(XPTArena *arena);
+XPT_DestroyArena(XPTArena* arena);
 
-XPT_PUBLIC_API(void *)
-XPT_ArenaCalloc(XPTArena *arena, size_t size, size_t alignment);
+XPT_PUBLIC_API(void*)
+XPT_ArenaCalloc(XPTArena* arena, size_t size, size_t alignment);
 
 XPT_PUBLIC_API(size_t)
-XPT_SizeOfArenaIncludingThis(XPTArena *arena, MozMallocSizeOf mallocSizeOf);
+XPT_SizeOfArenaIncludingThis(XPTArena* arena, MozMallocSizeOf mallocSizeOf);
 
 /* --------------------------------------------------------- */
 
 #define XPT_CALLOC8(_arena, _bytes) XPT_ArenaCalloc((_arena), (_bytes), 8)
 #define XPT_CALLOC1(_arena, _bytes) XPT_ArenaCalloc((_arena), (_bytes), 1)
-#define XPT_NEWZAP(_arena, _struct) ((_struct *) XPT_CALLOC8((_arena), sizeof(_struct)))
+#define XPT_NEWZAP(_arena, _struct) \
+  ((_struct*)XPT_CALLOC8((_arena), sizeof(_struct)))
 
 /* --------------------------------------------------------- */
 
 #ifdef DEBUG
 XPT_PUBLIC_API(void)
-XPT_AssertFailed(const char *s, const char *file, uint32_t lineno)
-  MOZ_PRETEND_NORETURN_FOR_STATIC_ANALYSIS;
+XPT_AssertFailed(const char* s,
+                 const char* file,
+                 uint32_t lineno) MOZ_PRETEND_NORETURN_FOR_STATIC_ANALYSIS;
 #define XPT_ASSERT(_expr) \
-    ((_expr)?((void)0):XPT_AssertFailed(# _expr, __FILE__, __LINE__))
+  ((_expr) ? ((void)0) : XPT_AssertFailed(#_expr, __FILE__, __LINE__))
 #else
 #define XPT_ASSERT(_expr) ((void)0)
 #endif

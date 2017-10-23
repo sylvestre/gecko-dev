@@ -25,26 +25,26 @@ class CompositionTransaction;
  * transactions it has absorbed.
  */
 
-class PlaceholderTransaction final
- : public EditAggregateTransaction
- , public nsIAbsorbingTransaction
+class PlaceholderTransaction final : public EditAggregateTransaction,
+                                     public nsIAbsorbingTransaction
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-  PlaceholderTransaction(EditorBase& aEditorBase, nsAtom* aName,
+  PlaceholderTransaction(EditorBase& aEditorBase,
+                         nsAtom* aName,
                          Maybe<SelectionState>&& aSelState);
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(PlaceholderTransaction,
                                            EditAggregateTransaction)
-// ------------ EditAggregateTransaction -----------------------
+  // ------------ EditAggregateTransaction -----------------------
 
   NS_DECL_EDITTRANSACTIONBASE
 
   NS_IMETHOD RedoTransaction() override;
   NS_IMETHOD Merge(nsITransaction* aTransaction, bool* aDidMerge) override;
 
-// ------------ nsIAbsorbingTransaction -----------------------
+  // ------------ nsIAbsorbingTransaction -----------------------
 
   NS_IMETHOD GetTxnName(nsAtom** aName) override;
 
@@ -54,7 +54,7 @@ public:
   NS_IMETHOD EndPlaceHolderBatch() override;
 
   NS_IMETHOD ForwardEndBatchTo(
-               nsIAbsorbingTransaction* aForwardingAddress) override;
+      nsIAbsorbingTransaction* aForwardingAddress) override;
 
   NS_IMETHOD Commit() override;
 
@@ -65,7 +65,7 @@ public:
 
   nsresult RememberEndingSelection();
 
-protected:
+ protected:
   virtual ~PlaceholderTransaction();
 
   // Do we auto absorb any and all transaction?
@@ -88,6 +88,6 @@ protected:
   RefPtr<EditorBase> mEditorBase;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef PlaceholderTransaction_h
+#endif  // #ifndef PlaceholderTransaction_h

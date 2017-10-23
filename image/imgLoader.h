@@ -35,13 +35,14 @@ class imgMemoryReporter;
 namespace mozilla {
 namespace image {
 class ImageURL;
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
 class imgCacheEntry
 {
-public:
-  imgCacheEntry(imgLoader* loader, imgRequest* request,
+ public:
+  imgCacheEntry(imgLoader* loader,
+                imgRequest* request,
                 bool aForcePrincipalCheck);
   ~imgCacheEntry();
 
@@ -68,10 +69,7 @@ public:
     return mRefCnt;
   }
 
-  uint32_t GetDataSize() const
-  {
-    return mDataSize;
-  }
+  uint32_t GetDataSize() const { return mDataSize; }
   void SetDataSize(uint32_t aDataSize)
   {
     int32_t oldsize = mDataSize;
@@ -79,37 +77,25 @@ public:
     UpdateCache(mDataSize - oldsize);
   }
 
-  int32_t GetTouchedTime() const
-  {
-    return mTouchedTime;
-  }
+  int32_t GetTouchedTime() const { return mTouchedTime; }
   void SetTouchedTime(int32_t time)
   {
     mTouchedTime = time;
     Touch(/* updateTime = */ false);
   }
 
-  uint32_t GetLoadTime() const
-  {
-    return mLoadTime;
-  }
+  uint32_t GetLoadTime() const { return mLoadTime; }
 
   void UpdateLoadTime();
 
-  int32_t GetExpiryTime() const
-  {
-    return mExpiryTime;
-  }
+  int32_t GetExpiryTime() const { return mExpiryTime; }
   void SetExpiryTime(int32_t aExpiryTime)
   {
     mExpiryTime = aExpiryTime;
     Touch();
   }
 
-  bool GetMustValidate() const
-  {
-    return mMustValidate;
-  }
+  bool GetMustValidate() const { return mMustValidate; }
   void SetMustValidate(bool aValidate)
   {
     mMustValidate = aValidate;
@@ -122,46 +108,28 @@ public:
     return req.forget();
   }
 
-  bool Evicted() const
-  {
-    return mEvicted;
-  }
+  bool Evicted() const { return mEvicted; }
 
-  nsExpirationState* GetExpirationState()
-  {
-    return &mExpirationState;
-  }
+  nsExpirationState* GetExpirationState() { return &mExpirationState; }
 
-  bool HasNoProxies() const
-  {
-    return mHasNoProxies;
-  }
+  bool HasNoProxies() const { return mHasNoProxies; }
 
-  bool ForcePrincipalCheck() const
-  {
-    return mForcePrincipalCheck;
-  }
+  bool ForcePrincipalCheck() const { return mForcePrincipalCheck; }
 
-  imgLoader* Loader() const
-  {
-    return mLoader;
-  }
+  imgLoader* Loader() const { return mLoader; }
 
-private: // methods
+ private:  // methods
   friend class imgLoader;
   friend class imgCacheQueue;
   void Touch(bool updateTime = true);
   void UpdateCache(int32_t diff = 0);
-  void SetEvicted(bool evict)
-  {
-    mEvicted = evict;
-  }
+  void SetEvicted(bool evict) { mEvicted = evict; }
   void SetHasNoProxies(bool hasNoProxies);
 
   // Private, unimplemented copy constructor.
   imgCacheEntry(const imgCacheEntry&);
 
-private: // data
+ private:  // data
   nsAutoRefCnt mRefCnt;
   NS_DECL_OWNINGTHREAD
 
@@ -180,17 +148,17 @@ private: // data
 
 #include <vector>
 
-#define NS_IMGLOADER_CID \
-{ /* c1354898-e3fe-4602-88a7-c4520c21cb4e */         \
-     0xc1354898,                                     \
-     0xe3fe,                                         \
-     0x4602,                                         \
-    {0x88, 0xa7, 0xc4, 0x52, 0x0c, 0x21, 0xcb, 0x4e} \
-}
+#define NS_IMGLOADER_CID                             \
+  { /* c1354898-e3fe-4602-88a7-c4520c21cb4e */       \
+    0xc1354898, 0xe3fe, 0x4602,                      \
+    {                                                \
+      0x88, 0xa7, 0xc4, 0x52, 0x0c, 0x21, 0xcb, 0x4e \
+    }                                                \
+  }
 
 class imgCacheQueue
 {
-public:
+ public:
   imgCacheQueue();
   void Remove(imgCacheEntry*);
   void Push(imgCacheEntry*);
@@ -202,7 +170,7 @@ public:
   void UpdateSize(int32_t diff);
   uint32_t GetNumElements() const;
   bool Contains(imgCacheEntry* aEntry) const;
-  typedef nsTArray<RefPtr<imgCacheEntry> > queueContainer;
+  typedef nsTArray<RefPtr<imgCacheEntry>> queueContainer;
   typedef queueContainer::iterator iterator;
   typedef queueContainer::const_iterator const_iterator;
 
@@ -211,13 +179,14 @@ public:
   iterator end();
   const_iterator end() const;
 
-private:
+ private:
   queueContainer mQueue;
   bool mDirty;
   uint32_t mSize;
 };
 
-enum class AcceptedMimeTypes : uint8_t {
+enum class AcceptedMimeTypes : uint8_t
+{
   IMAGES,
   IMAGES_AND_DOCUMENTS,
 };
@@ -230,11 +199,11 @@ class imgLoader final : public imgILoader,
 {
   virtual ~imgLoader();
 
-public:
+ public:
   typedef mozilla::image::ImageCacheKey ImageCacheKey;
   typedef mozilla::image::ImageURL ImageURL;
-  typedef nsRefPtrHashtable<nsGenericHashKey<ImageCacheKey>,
-                            imgCacheEntry> imgCacheTable;
+  typedef nsRefPtrHashtable<nsGenericHashKey<ImageCacheKey>, imgCacheEntry>
+      imgCacheTable;
   typedef nsTHashtable<nsPtrHashKey<imgRequest>> imgSet;
   typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
   typedef mozilla::Mutex Mutex;
@@ -326,13 +295,12 @@ public:
    * @param aMimeType The MIME type to evaluate.
    * @param aAcceptedMimeTypes Which kinds of MIME types to treat as images.
    */
-  static bool
-  SupportImageWithMimeType(const char* aMimeType,
-                           AcceptedMimeTypes aAccept =
-                             AcceptedMimeTypes::IMAGES);
+  static bool SupportImageWithMimeType(
+      const char* aMimeType,
+      AcceptedMimeTypes aAccept = AcceptedMimeTypes::IMAGES);
 
-  static void GlobalInit(); // for use by the factory
-  static void Shutdown(); // for use by the factory
+  static void GlobalInit();  // for use by the factory
+  static void Shutdown();    // for use by the factory
   static void ShutdownMemoryReporter();
 
   nsresult ClearChromeImageCache();
@@ -345,7 +313,8 @@ public:
 
   // Enumeration describing if a given entry is in the cache queue or not.
   // There are some cases we know the entry is definitely not in the queue.
-  enum class QueueState {
+  enum class QueueState
+  {
     MaybeExists,
     AlreadyRemoved
   };
@@ -400,15 +369,17 @@ public:
   bool SetHasNoProxies(imgRequest* aRequest, imgCacheEntry* aEntry);
   bool SetHasProxies(imgRequest* aRequest);
 
-private: // methods
-
+ private:  // methods
   static already_AddRefed<imgLoader> CreateImageLoader();
 
-  bool ValidateEntry(imgCacheEntry* aEntry, nsIURI* aKey,
-                     nsIURI* aInitialDocumentURI, nsIURI* aReferrerURI,
+  bool ValidateEntry(imgCacheEntry* aEntry,
+                     nsIURI* aKey,
+                     nsIURI* aInitialDocumentURI,
+                     nsIURI* aReferrerURI,
                      ReferrerPolicy aReferrerPolicy,
                      nsILoadGroup* aLoadGroup,
-                     imgINotificationObserver* aObserver, nsISupports* aCX,
+                     imgINotificationObserver* aObserver,
+                     nsISupports* aCX,
                      nsIDocument* aLoadingDocument,
                      nsLoadFlags aLoadFlags,
                      nsContentPolicyType aContentPolicyType,
@@ -417,7 +388,8 @@ private: // methods
                      nsIPrincipal* aLoadingPrincipal,
                      int32_t aCORSMode);
 
-  bool ValidateRequestWithNewChannel(imgRequest* request, nsIURI* aURI,
+  bool ValidateRequestWithNewChannel(imgRequest* request,
+                                     nsIURI* aURI,
                                      nsIURI* aInitialDocumentURI,
                                      nsIURI* aReferrerURI,
                                      ReferrerPolicy aReferrerPolicy,
@@ -450,7 +422,7 @@ private: // methods
   void CacheEntriesChanged(bool aForChrome, int32_t aSizeDiff = 0);
   void CheckCacheLimits(imgCacheTable& cache, imgCacheQueue& queue);
 
-private: // data
+ private:  // data
   friend class imgCacheEntry;
   friend class imgMemoryReporter;
 
@@ -480,8 +452,6 @@ private: // data
   bool mRespectPrivacy;
 };
 
-
-
 /**
  * proxy stream listener class used to handle multipart/x-mixed-replace
  */
@@ -490,10 +460,10 @@ private: // data
 #include "nsIStreamListener.h"
 #include "nsIThreadRetargetableStreamListener.h"
 
-class ProxyListener : public nsIStreamListener
-                    , public nsIThreadRetargetableStreamListener
+class ProxyListener : public nsIStreamListener,
+                      public nsIThreadRetargetableStreamListener
 {
-public:
+ public:
   explicit ProxyListener(nsIStreamListener* dest);
 
   /* additional members */
@@ -502,7 +472,7 @@ public:
   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
   NS_DECL_NSIREQUESTOBSERVER
 
-private:
+ private:
   virtual ~ProxyListener();
 
   nsCOMPtr<nsIStreamListener> mDestListener;
@@ -514,27 +484,26 @@ private:
  * nsIInterfaceRequestor and gives out itself for nsIProgressEventSink calls,
  * and forwards everything else to the channel's notification callbacks.
  */
-class nsProgressNotificationProxy final
-  : public nsIProgressEventSink
-  , public nsIChannelEventSink
-  , public nsIInterfaceRequestor
+class nsProgressNotificationProxy final : public nsIProgressEventSink,
+                                          public nsIChannelEventSink,
+                                          public nsIInterfaceRequestor
 {
-  public:
-    nsProgressNotificationProxy(nsIChannel* channel,
-                                imgIRequest* proxy)
-        : mImageRequest(proxy) {
-      channel->GetNotificationCallbacks(getter_AddRefs(mOriginalCallbacks));
-    }
+ public:
+  nsProgressNotificationProxy(nsIChannel* channel, imgIRequest* proxy)
+      : mImageRequest(proxy)
+  {
+    channel->GetNotificationCallbacks(getter_AddRefs(mOriginalCallbacks));
+  }
 
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIPROGRESSEVENTSINK
-    NS_DECL_NSICHANNELEVENTSINK
-    NS_DECL_NSIINTERFACEREQUESTOR
-  private:
-    ~nsProgressNotificationProxy() { }
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIPROGRESSEVENTSINK
+  NS_DECL_NSICHANNELEVENTSINK
+  NS_DECL_NSIINTERFACEREQUESTOR
+ private:
+  ~nsProgressNotificationProxy() {}
 
-    nsCOMPtr<nsIInterfaceRequestor> mOriginalCallbacks;
-    nsCOMPtr<nsIRequest> mImageRequest;
+  nsCOMPtr<nsIInterfaceRequestor> mOriginalCallbacks;
+  nsCOMPtr<nsIRequest> mImageRequest;
 };
 
 /**
@@ -549,9 +518,11 @@ class imgCacheValidator : public nsIStreamListener,
                           public nsIInterfaceRequestor,
                           public nsIAsyncVerifyRedirectCallback
 {
-public:
-  imgCacheValidator(nsProgressNotificationProxy* progress, imgLoader* loader,
-                    imgRequest* aRequest, nsISupports* aContext,
+ public:
+  imgCacheValidator(nsProgressNotificationProxy* progress,
+                    imgLoader* loader,
+                    imgRequest* aRequest,
+                    nsISupports* aContext,
                     bool forcePrincipalCheckForCacheEntry);
 
   void AddProxy(imgRequestProxy* aProxy);
@@ -564,7 +535,7 @@ public:
   NS_DECL_NSIINTERFACEREQUESTOR
   NS_DECL_NSIASYNCVERIFYREDIRECTCALLBACK
 
-private:
+ private:
   virtual ~imgCacheValidator();
 
   nsCOMPtr<nsIStreamListener> mDestListener;
@@ -585,4 +556,4 @@ private:
   bool mHadInsecureRedirect;
 };
 
-#endif // mozilla_image_imgLoader_h
+#endif  // mozilla_image_imgLoader_h

@@ -14,7 +14,7 @@ class nsIFrame;
 
 class nsFontFaceUtils
 {
-public:
+ public:
   // mark dirty frames affected by a downloadable font
   static void MarkDirtyForFontChange(nsIFrame* aSubtreeRoot,
                                      const gfxUserFontEntry* aFont);

@@ -13,8 +13,7 @@
 #endif
 #define CRLF "\r\n"
 
-namespace mozilla
-{
+namespace mozilla {
 
 static unsigned char
 PeekChar(std::istream& is, std::string* error)
@@ -28,9 +27,8 @@ PeekChar(std::istream& is, std::string* error)
   return next;
 }
 
-static std::string ParseToken(std::istream& is,
-                              const std::string& delims,
-                              std::string* error)
+static std::string
+ParseToken(std::istream& is, const std::string& delims, std::string* error)
 {
   std::string token;
   while (is) {
@@ -56,7 +54,6 @@ SkipChar(std::istream& is, unsigned char c, std::string* error)
   is.get();
   return true;
 }
-
 
 void
 SdpConnectionAttribute::Serialize(std::ostream& os) const
@@ -148,7 +145,7 @@ FromUppercaseHex(char ch)
   if ((ch >= 'A') && (ch <= 'F')) {
     return ch - 'A' + 10;
   }
-  return 16; // invalid
+  return 16;  // invalid
 }
 
 // Parse the fingerprint from RFC 4572 Section 5 attribute format
@@ -169,7 +166,7 @@ SdpFingerprintAttributeList::ParseFingerprint(const std::string& str)
     uint8_t low = FromUppercaseHex(str[i + 1]);
     if (high > 0xf || low > 0xf ||
         (i + 2 < str.length() && str[i + 2] != ':')) {
-      fp.clear(); // error
+      fp.clear();  // error
       return fp;
     }
     fp[fpIndex++] = high << 4 | low;
@@ -216,27 +213,28 @@ void SdpIdentityAttribute::Serialize(std::ostream& os) const
 // Class to help with omitting a leading delimiter for the first item in a list
 class SkipFirstDelimiter
 {
-  public:
-    explicit SkipFirstDelimiter(const std::string& delim) :
-      mDelim(delim),
-      mFirst(true)
-    {}
+ public:
+  explicit SkipFirstDelimiter(const std::string& delim)
+      : mDelim(delim), mFirst(true)
+  {
+  }
 
-    std::ostream& print(std::ostream& os)
-    {
-      if (!mFirst) {
-        os << mDelim;
-      }
-      mFirst = false;
-      return os;
+  std::ostream& print(std::ostream& os)
+  {
+    if (!mFirst) {
+      os << mDelim;
     }
+    mFirst = false;
+    return os;
+  }
 
-  private:
-    std::string mDelim;
-    bool mFirst;
+ private:
+  std::string mDelim;
+  bool mFirst;
 };
 
-static std::ostream& operator<<(std::ostream& os, SkipFirstDelimiter& delim)
+static std::ostream&
+operator<<(std::ostream& os, SkipFirstDelimiter& delim)
 {
   return delim.print(os);
 }
@@ -397,7 +395,7 @@ GetQValue(std::istream& is, float* value, std::string* error)
 
 bool
 SdpImageattrAttributeList::SRange::ParseDiscreteValues(std::istream& is,
-                                                        std::string* error)
+                                                       std::string* error)
 {
   do {
     float value;
@@ -412,7 +410,7 @@ SdpImageattrAttributeList::SRange::ParseDiscreteValues(std::istream& is,
 
 bool
 SdpImageattrAttributeList::SRange::ParseAfterMin(std::istream& is,
-                                                  std::string* error)
+                                                 std::string* error)
 {
   if (!GetSPValue(is, &max, error)) {
     return false;
@@ -521,7 +519,8 @@ SdpImageattrAttributeList::PRange::Serialize(std::ostream& os) const
   os << "[" << min << "-" << max << "]";
 }
 
-static std::string ParseKey(std::istream& is, std::string* error)
+static std::string
+ParseKey(std::istream& is, std::string* error)
 {
   std::string token = ParseToken(is, "=", error);
   if (!SkipChar(is, '=', error)) {
@@ -530,7 +529,8 @@ static std::string ParseKey(std::istream& is, std::string* error)
   return token;
 }
 
-static bool SkipBraces(std::istream& is, std::string* error)
+static bool
+SkipBraces(std::istream& is, std::string* error)
 {
   if (PeekChar(is, error) != '[') {
     *error = "Expected \'[\'";
@@ -563,7 +563,8 @@ static bool SkipBraces(std::istream& is, std::string* error)
 // Assumptions:
 // 1. If the value contains '[' or ']', they are balanced.
 // 2. The value contains no ',' outside of brackets.
-static bool SkipValue(std::istream& is, std::string* error)
+static bool
+SkipValue(std::istream& is, std::string* error)
 {
   while (is) {
     switch (PeekChar(is, error)) {
@@ -613,7 +614,7 @@ SdpImageattrAttributeList::Set::Parse(std::istream& is, std::string* error)
     return false;
   }
 
-  qValue = 0.5f; // default
+  qValue = 0.5f;  // default
 
   bool gotSar = false;
   bool gotPar = false;
@@ -873,7 +874,7 @@ SdpRidAttributeList::Rid::ParseParameters(std::istream& is, std::string* error)
     is >> std::ws;
     std::string key = ParseKey(is, error);
     if (key.empty()) {
-      return false; // Illegal trailing cruft
+      return false;  // Illegal trailing cruft
     }
 
     // This allows pt= to appear anywhere, instead of only at the beginning, but
@@ -884,32 +885,32 @@ SdpRidAttributeList::Rid::ParseParameters(std::istream& is, std::string* error)
       }
     } else if (key == "max-width") {
       if (!GetUnsigned<uint32_t>(
-            is, 0, UINT32_MAX, &constraints.maxWidth, error)) {
+              is, 0, UINT32_MAX, &constraints.maxWidth, error)) {
         return false;
       }
     } else if (key == "max-height") {
       if (!GetUnsigned<uint32_t>(
-            is, 0, UINT32_MAX, &constraints.maxHeight, error)) {
+              is, 0, UINT32_MAX, &constraints.maxHeight, error)) {
         return false;
       }
     } else if (key == "max-fps") {
       if (!GetUnsigned<uint32_t>(
-            is, 0, UINT32_MAX, &constraints.maxFps, error)) {
+              is, 0, UINT32_MAX, &constraints.maxFps, error)) {
         return false;
       }
     } else if (key == "max-fs") {
       if (!GetUnsigned<uint32_t>(
-            is, 0, UINT32_MAX, &constraints.maxFs, error)) {
+              is, 0, UINT32_MAX, &constraints.maxFs, error)) {
         return false;
       }
     } else if (key == "max-br") {
       if (!GetUnsigned<uint32_t>(
-            is, 0, UINT32_MAX, &constraints.maxBr, error)) {
+              is, 0, UINT32_MAX, &constraints.maxBr, error)) {
         return false;
       }
     } else if (key == "max-pps") {
       if (!GetUnsigned<uint32_t>(
-            is, 0, UINT32_MAX, &constraints.maxPps, error)) {
+              is, 0, UINT32_MAX, &constraints.maxPps, error)) {
         return false;
       }
     } else if (key == "depend") {
@@ -917,16 +918,14 @@ SdpRidAttributeList::Rid::ParseParameters(std::istream& is, std::string* error)
         return false;
       }
     } else {
-      (void) ParseToken(is, ";", error);
+      (void)ParseToken(is, ";", error);
     }
   } while (SkipChar(is, ';', error));
   return true;
 }
 
 bool
-SdpRidAttributeList::Rid::ParseDepend(
-    std::istream& is,
-    std::string* error)
+SdpRidAttributeList::Rid::ParseDepend(std::istream& is, std::string* error)
 {
   do {
     std::string id = ParseToken(is, ",;", error);
@@ -934,15 +933,13 @@ SdpRidAttributeList::Rid::ParseDepend(
       return false;
     }
     dependIds.push_back(id);
-  } while(SkipChar(is, ',', error));
+  } while (SkipChar(is, ',', error));
 
   return true;
 }
 
 bool
-SdpRidAttributeList::Rid::ParseFormats(
-    std::istream& is,
-    std::string* error)
+SdpRidAttributeList::Rid::ParseFormats(std::istream& is, std::string* error)
 {
   do {
     uint16_t fmt;
@@ -1049,7 +1046,7 @@ SdpRidAttributeList::Rid::HasFormat(const std::string& format) const
   }
 
   return (std::find(formats.begin(), formats.end(), formatAsInt) !=
-         formats.end());
+          formats.end());
 }
 
 void
@@ -1156,7 +1153,7 @@ SdpSctpmapAttributeList::Serialize(std::ostream& os) const
 {
   for (auto i = mSctpmaps.begin(); i != mSctpmaps.end(); ++i) {
     os << "a=" << mType << ":" << i->pt << " " << i->name << " " << i->streams
-      << CRLF;
+       << CRLF;
   }
 }
 
@@ -1259,7 +1256,7 @@ SdpSimulcastAttribute::Versions::Parse(std::istream& is, std::string* error)
     }
 
     push_back(version);
-  } while(SkipChar(is, ';', error));
+  } while (SkipChar(is, ';', error));
 
   return true;
 }
@@ -1659,4 +1656,4 @@ SdpAttribute::GetAttributeTypeString(AttributeType type)
   MOZ_CRASH("Unknown attribute type");
 }
 
-} // namespace mozilla
+}  // namespace mozilla

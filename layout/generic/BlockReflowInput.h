@@ -21,25 +21,28 @@ namespace mozilla {
 // BlockReflowInput contains additional reflow input information that the
 // block frame uses along with ReflowInput. Like ReflowInput, this
 // is read-only data that is passed down from a parent frame to its children.
-class BlockReflowInput {
+class BlockReflowInput
+{
   using BandInfoType = nsFloatManager::BandInfoType;
   using ShapeType = nsFloatManager::ShapeType;
 
   // Block reflow input flags.
-  struct Flags {
+  struct Flags
+  {
     Flags()
-      : mHasUnconstrainedBSize(false)
-      , mIsBStartMarginRoot(false)
-      , mIsBEndMarginRoot(false)
-      , mShouldApplyBStartMargin(false)
-      , mIsFirstInflow(false)
-      , mHasLineAdjacentToTop(false)
-      , mBlockNeedsFloatManager(false)
-      , mIsLineLayoutEmpty(false)
-      , mIsOverflowContainer(false)
-      , mIsFloatListInBlockPropertyTable(false)
-      , mFloatFragmentsInsideColumnEnabled(false)
-    {}
+        : mHasUnconstrainedBSize(false),
+          mIsBStartMarginRoot(false),
+          mIsBEndMarginRoot(false),
+          mShouldApplyBStartMargin(false),
+          mIsFirstInflow(false),
+          mHasLineAdjacentToTop(false),
+          mBlockNeedsFloatManager(false),
+          mIsLineLayoutEmpty(false),
+          mIsOverflowContainer(false),
+          mIsFloatListInBlockPropertyTable(false),
+          mFloatFragmentsInsideColumnEnabled(false)
+    {
+    }
 
     // Set in the BlockReflowInput constructor when the frame being reflowed has
     // been given NS_UNCONSTRAINEDSIZE as its available BSize in the
@@ -107,13 +110,14 @@ class BlockReflowInput {
     bool mCanHaveTextOverflow : 1;
   };
 
-public:
+ public:
   BlockReflowInput(const ReflowInput& aReflowInput,
-                     nsPresContext* aPresContext,
-                     nsBlockFrame* aFrame,
-                     bool aBStartMarginRoot, bool aBEndMarginRoot,
-                     bool aBlockNeedsFloatManager,
-                     nscoord aConsumedBSize = NS_INTRINSICSIZE);
+                   nsPresContext* aPresContext,
+                   nsBlockFrame* aFrame,
+                   bool aBStartMarginRoot,
+                   bool aBEndMarginRoot,
+                   bool aBlockNeedsFloatManager,
+                   nscoord aConsumedBSize = NS_INTRINSICSIZE);
 
   /**
    * Get the available reflow space (the area not occupied by floats)
@@ -125,19 +129,26 @@ public:
    * coordinate and within the inline size of the content rect.
    */
   nsFlowAreaRect GetFloatAvailableSpace() const
-    { return GetFloatAvailableSpace(mBCoord); }
+  {
+    return GetFloatAvailableSpace(mBCoord);
+  }
   nsFlowAreaRect GetFloatAvailableSpaceForPlacingFloat(nscoord aBCoord) const
-    { return GetFloatAvailableSpaceWithState(
-        aBCoord, ShapeType::Margin, nullptr); }
+  {
+    return GetFloatAvailableSpaceWithState(aBCoord, ShapeType::Margin, nullptr);
+  }
   nsFlowAreaRect GetFloatAvailableSpace(nscoord aBCoord) const
-    { return GetFloatAvailableSpaceWithState(
-        aBCoord, ShapeType::ShapeOutside, nullptr); }
-  nsFlowAreaRect
-    GetFloatAvailableSpaceWithState(nscoord aBCoord, ShapeType aShapeType,
-                                    nsFloatManager::SavedState *aState) const;
-  nsFlowAreaRect
-    GetFloatAvailableSpaceForBSize(nscoord aBCoord, nscoord aBSize,
-                                   nsFloatManager::SavedState *aState) const;
+  {
+    return GetFloatAvailableSpaceWithState(
+        aBCoord, ShapeType::ShapeOutside, nullptr);
+  }
+  nsFlowAreaRect GetFloatAvailableSpaceWithState(
+      nscoord aBCoord,
+      ShapeType aShapeType,
+      nsFloatManager::SavedState* aState) const;
+  nsFlowAreaRect GetFloatAvailableSpaceForBSize(
+      nscoord aBCoord,
+      nscoord aBSize,
+      nsFloatManager::SavedState* aState) const;
 
   /*
    * The following functions all return true if they were able to
@@ -146,9 +157,9 @@ public:
    * aLineLayout is null when we are reflowing pushed floats (because
    * they are not associated with a line box).
    */
-  bool AddFloat(nsLineLayout*       aLineLayout,
-                nsIFrame*           aFloat,
-                nscoord             aAvailableISize);
+  bool AddFloat(nsLineLayout* aLineLayout,
+                nsIFrame* aFloat,
+                nscoord aAvailableISize);
 
   bool FlowAndPlaceFloat(nsIFrame* aFloat);
 
@@ -158,11 +169,13 @@ public:
   // Returns the first coordinate >= aBCoord that clears the
   // floats indicated by aBreakType and has enough inline size between floats
   // (or no floats remaining) to accomodate aReplacedBlock.
-  nscoord ClearFloats(nscoord aBCoord, mozilla::StyleClear aBreakType,
-                      nsIFrame *aReplacedBlock = nullptr,
+  nscoord ClearFloats(nscoord aBCoord,
+                      mozilla::StyleClear aBreakType,
+                      nsIFrame* aReplacedBlock = nullptr,
                       uint32_t aFlags = 0);
 
-  nsFloatManager* FloatManager() const {
+  nsFloatManager* FloatManager() const
+  {
     MOZ_ASSERT(mReflowInput.mFloatManager,
                "Float manager should be valid during the lifetime of "
                "BlockReflowInput!");
@@ -175,7 +188,8 @@ public:
   // constrained heights (and means that we should get pushed to the
   // next column/page).
   bool AdvanceToNextBand(const mozilla::LogicalRect& aFloatAvailableSpace,
-                         nscoord *aBCoord) const {
+                         nscoord* aBCoord) const
+  {
     mozilla::WritingMode wm = mReflowInput.GetWritingMode();
     if (aFloatAvailableSpace.BSize(wm) > 0) {
       // See if there's room in the next band.
@@ -192,19 +206,19 @@ public:
     return true;
   }
 
-  bool ReplacedBlockFitsInAvailSpace(nsIFrame* aReplacedBlock,
-                            const nsFlowAreaRect& aFloatAvailableSpace) const;
+  bool ReplacedBlockFitsInAvailSpace(
+      nsIFrame* aReplacedBlock,
+      const nsFlowAreaRect& aFloatAvailableSpace) const;
 
-  bool IsAdjacentWithTop() const {
+  bool IsAdjacentWithTop() const
+  {
     return mBCoord == mBorderPadding.BStart(mReflowInput.GetWritingMode());
   }
 
   /**
    * Return mBlock's computed physical border+padding with GetSkipSides applied.
    */
-  const mozilla::LogicalMargin& BorderPadding() const {
-    return mBorderPadding;
-  }
+  const mozilla::LogicalMargin& BorderPadding() const { return mBorderPadding; }
 
   /**
    * Retrieve the block-axis content size "consumed" by any prev-in-flows.
@@ -217,10 +231,11 @@ public:
 
   // Caller must have called GetAvailableSpace for the correct position
   // (which need not be the current mBCoord).
-  void ComputeReplacedBlockOffsetsForFloats(nsIFrame* aFrame,
-                          const mozilla::LogicalRect& aFloatAvailableSpace,
-                                            nscoord&  aIStartResult,
-                                            nscoord&  aIEndResult) const;
+  void ComputeReplacedBlockOffsetsForFloats(
+      nsIFrame* aFrame,
+      const mozilla::LogicalRect& aFloatAvailableSpace,
+      nscoord& aIStartResult,
+      nscoord& aIEndResult) const;
 
   // Caller must have called GetAvailableSpace for the current mBCoord
   void ComputeBlockAvailSpace(nsIFrame* aFrame,
@@ -230,7 +245,8 @@ public:
 
   void RecoverStateFrom(nsLineList::iterator aLine, nscoord aDeltaBCoord);
 
-  void AdvanceToNextLine() {
+  void AdvanceToNextLine()
+  {
     if (mFlags.mIsLineLayoutEmpty) {
       mFlags.mIsLineLayoutEmpty = false;
     } else {
@@ -278,25 +294,32 @@ public:
   // mContentArea.BSize is not NS_UNCONSTRAINEDSIZE; otherwise
   // coordinate overflow may occur.
   mozilla::LogicalRect mContentArea;
-  nscoord ContentIStart() const {
+  nscoord ContentIStart() const
+  {
     return mContentArea.IStart(mReflowInput.GetWritingMode());
   }
-  nscoord ContentISize() const {
+  nscoord ContentISize() const
+  {
     return mContentArea.ISize(mReflowInput.GetWritingMode());
   }
-  nscoord ContentIEnd() const {
+  nscoord ContentIEnd() const
+  {
     return mContentArea.IEnd(mReflowInput.GetWritingMode());
   }
-  nscoord ContentBStart() const {
+  nscoord ContentBStart() const
+  {
     return mContentArea.BStart(mReflowInput.GetWritingMode());
   }
-  nscoord ContentBSize() const {
+  nscoord ContentBSize() const
+  {
     return mContentArea.BSize(mReflowInput.GetWritingMode());
   }
-  nscoord ContentBEnd() const {
+  nscoord ContentBEnd() const
+  {
     return mContentArea.BEnd(mReflowInput.GetWritingMode());
   }
-  mozilla::LogicalSize ContentSize(mozilla::WritingMode aWM) const {
+  mozilla::LogicalSize ContentSize(mozilla::WritingMode aWM) const
+  {
     mozilla::WritingMode wm = mReflowInput.GetWritingMode();
     return mContentArea.Size(wm).ConvertTo(aWM, wm);
   }
@@ -308,7 +331,7 @@ public:
   // Continuation out-of-flow float frames that need to move to our
   // next in flow are placed here during reflow.  It's a pointer to
   // a frame list stored in the block's property table.
-  nsFrameList *mPushedFloats;
+  nsFrameList* mPushedFloats;
   // This method makes sure pushed floats are accessible to
   // StealFrame. Call it before adding any frames to mPushedFloats.
   void SetupPushedFloatList();
@@ -397,7 +420,7 @@ public:
   // nsBlockFrame::PlaceLine().
   mozilla::Maybe<nscoord> mLineBSize;
 
-private:
+ private:
   bool CanPlaceFloat(nscoord aFloatISize,
                      const nsFlowAreaRect& aFloatAvailableSpace);
 
@@ -406,6 +429,6 @@ private:
   void RecoverFloats(nsLineList::iterator aLine, nscoord aDeltaBCoord);
 };
 
-}; // namespace mozilla
+};  // namespace mozilla
 
-#endif // BlockReflowInput_h
+#endif  // BlockReflowInput_h

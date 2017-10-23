@@ -21,34 +21,35 @@ NS_IMPL_ISUPPORTS(LoadContextInfo, nsILoadContextInfo)
 
 LoadContextInfo::LoadContextInfo(bool aIsAnonymous,
                                  OriginAttributes aOriginAttributes)
-  : mIsAnonymous(aIsAnonymous)
-  , mOriginAttributes(aOriginAttributes)
+    : mIsAnonymous(aIsAnonymous), mOriginAttributes(aOriginAttributes)
 {
 }
 
-LoadContextInfo::~LoadContextInfo()
-{
-}
+LoadContextInfo::~LoadContextInfo() {}
 
-NS_IMETHODIMP LoadContextInfo::GetIsPrivate(bool *aIsPrivate)
+NS_IMETHODIMP
+LoadContextInfo::GetIsPrivate(bool* aIsPrivate)
 {
   *aIsPrivate = mOriginAttributes.mPrivateBrowsingId > 0;
   return NS_OK;
 }
 
-NS_IMETHODIMP LoadContextInfo::GetIsAnonymous(bool *aIsAnonymous)
+NS_IMETHODIMP
+LoadContextInfo::GetIsAnonymous(bool* aIsAnonymous)
 {
   *aIsAnonymous = mIsAnonymous;
   return NS_OK;
 }
 
-OriginAttributes const* LoadContextInfo::OriginAttributesPtr()
+OriginAttributes const*
+LoadContextInfo::OriginAttributesPtr()
 {
   return &mOriginAttributes;
 }
 
-NS_IMETHODIMP LoadContextInfo::GetOriginAttributes(JSContext *aCx,
-                                                   JS::MutableHandle<JS::Value> aVal)
+NS_IMETHODIMP
+LoadContextInfo::GetOriginAttributes(JSContext* aCx,
+                                     JS::MutableHandle<JS::Value> aVal)
 {
   if (NS_WARN_IF(!ToJSValue(aCx, mOriginAttributes, aVal))) {
     return NS_ERROR_FAILURE;
@@ -60,15 +61,17 @@ NS_IMETHODIMP LoadContextInfo::GetOriginAttributes(JSContext *aCx,
 
 NS_IMPL_ISUPPORTS(LoadContextInfoFactory, nsILoadContextInfoFactory)
 
-NS_IMETHODIMP LoadContextInfoFactory::GetDefault(nsILoadContextInfo * *aDefault)
+NS_IMETHODIMP
+LoadContextInfoFactory::GetDefault(nsILoadContextInfo** aDefault)
 {
   nsCOMPtr<nsILoadContextInfo> info =
-    GetLoadContextInfo(false, OriginAttributes());
+      GetLoadContextInfo(false, OriginAttributes());
   info.forget(aDefault);
   return NS_OK;
 }
 
-NS_IMETHODIMP LoadContextInfoFactory::GetPrivate(nsILoadContextInfo * *aPrivate)
+NS_IMETHODIMP
+LoadContextInfoFactory::GetPrivate(nsILoadContextInfo** aPrivate)
 {
   OriginAttributes attrs;
   attrs.SyncAttributesWithPrivateBrowsing(true);
@@ -77,17 +80,20 @@ NS_IMETHODIMP LoadContextInfoFactory::GetPrivate(nsILoadContextInfo * *aPrivate)
   return NS_OK;
 }
 
-NS_IMETHODIMP LoadContextInfoFactory::GetAnonymous(nsILoadContextInfo * *aAnonymous)
+NS_IMETHODIMP
+LoadContextInfoFactory::GetAnonymous(nsILoadContextInfo** aAnonymous)
 {
   nsCOMPtr<nsILoadContextInfo> info =
-    GetLoadContextInfo(true, OriginAttributes());
+      GetLoadContextInfo(true, OriginAttributes());
   info.forget(aAnonymous);
   return NS_OK;
 }
 
-NS_IMETHODIMP LoadContextInfoFactory::Custom(bool aAnonymous,
-                                             JS::HandleValue aOriginAttributes, JSContext *cx,
-                                             nsILoadContextInfo * *_retval)
+NS_IMETHODIMP
+LoadContextInfoFactory::Custom(bool aAnonymous,
+                               JS::HandleValue aOriginAttributes,
+                               JSContext* cx,
+                               nsILoadContextInfo** _retval)
 {
   OriginAttributes attrs;
   bool status = attrs.Init(cx, aOriginAttributes);
@@ -98,16 +104,21 @@ NS_IMETHODIMP LoadContextInfoFactory::Custom(bool aAnonymous,
   return NS_OK;
 }
 
-NS_IMETHODIMP LoadContextInfoFactory::FromLoadContext(nsILoadContext *aLoadContext, bool aAnonymous,
-                                                      nsILoadContextInfo * *_retval)
+NS_IMETHODIMP
+LoadContextInfoFactory::FromLoadContext(nsILoadContext* aLoadContext,
+                                        bool aAnonymous,
+                                        nsILoadContextInfo** _retval)
 {
-  nsCOMPtr<nsILoadContextInfo> info = GetLoadContextInfo(aLoadContext, aAnonymous);
+  nsCOMPtr<nsILoadContextInfo> info =
+      GetLoadContextInfo(aLoadContext, aAnonymous);
   info.forget(_retval);
   return NS_OK;
 }
 
-NS_IMETHODIMP LoadContextInfoFactory::FromWindow(nsIDOMWindow *aWindow, bool aAnonymous,
-                                                 nsILoadContextInfo * *_retval)
+NS_IMETHODIMP
+LoadContextInfoFactory::FromWindow(nsIDOMWindow* aWindow,
+                                   bool aAnonymous,
+                                   nsILoadContextInfo** _retval)
 {
   nsCOMPtr<nsILoadContextInfo> info = GetLoadContextInfo(aWindow, aAnonymous);
   info.forget(_retval);
@@ -116,8 +127,8 @@ NS_IMETHODIMP LoadContextInfoFactory::FromWindow(nsIDOMWindow *aWindow, bool aAn
 
 // Helper functions
 
-LoadContextInfo *
-GetLoadContextInfo(nsIChannel * aChannel)
+LoadContextInfo*
+GetLoadContextInfo(nsIChannel* aChannel)
 {
   nsresult rv;
 
@@ -137,8 +148,8 @@ GetLoadContextInfo(nsIChannel * aChannel)
   return new LoadContextInfo(anon, oa);
 }
 
-LoadContextInfo *
-GetLoadContextInfo(nsILoadContext *aLoadContext, bool aIsAnonymous)
+LoadContextInfo*
+GetLoadContextInfo(nsILoadContext* aLoadContext, bool aIsAnonymous)
 {
   if (!aLoadContext) {
     return new LoadContextInfo(aIsAnonymous, OriginAttributes());
@@ -150,7 +161,8 @@ GetLoadContextInfo(nsILoadContext *aLoadContext, bool aIsAnonymous)
 #ifdef DEBUG
   nsCOMPtr<nsIDocShellTreeItem> docShell = do_QueryInterface(aLoadContext);
   if (!docShell || docShell->ItemType() != nsIDocShellTreeItem::typeChrome) {
-    MOZ_ASSERT(aLoadContext->UsePrivateBrowsing() == (oa.mPrivateBrowsingId > 0));
+    MOZ_ASSERT(aLoadContext->UsePrivateBrowsing() ==
+               (oa.mPrivateBrowsingId > 0));
   }
 #endif
 
@@ -158,8 +170,7 @@ GetLoadContextInfo(nsILoadContext *aLoadContext, bool aIsAnonymous)
 }
 
 LoadContextInfo*
-GetLoadContextInfo(nsIDOMWindow *aWindow,
-                   bool aIsAnonymous)
+GetLoadContextInfo(nsIDOMWindow* aWindow, bool aIsAnonymous)
 {
   nsCOMPtr<nsIWebNavigation> webNav = do_GetInterface(aWindow);
   nsCOMPtr<nsILoadContext> loadContext = do_QueryInterface(webNav);
@@ -167,19 +178,19 @@ GetLoadContextInfo(nsIDOMWindow *aWindow,
   return GetLoadContextInfo(loadContext, aIsAnonymous);
 }
 
-LoadContextInfo *
-GetLoadContextInfo(nsILoadContextInfo *aInfo)
+LoadContextInfo*
+GetLoadContextInfo(nsILoadContextInfo* aInfo)
 {
   return new LoadContextInfo(aInfo->IsAnonymous(),
                              *aInfo->OriginAttributesPtr());
 }
 
-LoadContextInfo *
+LoadContextInfo*
 GetLoadContextInfo(bool const aIsAnonymous,
-                   OriginAttributes const &aOriginAttributes)
+                   OriginAttributes const& aOriginAttributes)
 {
   return new LoadContextInfo(aIsAnonymous, aOriginAttributes);
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

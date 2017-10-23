@@ -32,9 +32,9 @@ OggCodecState::Create(ogg_page* aPage)
 {
   NS_ASSERTION(ogg_page_bos(aPage), "Only call on BOS page!");
   nsAutoPtr<OggCodecState> codecState;
-  if (aPage->body_len > 6 && memcmp(aPage->body+1, "theora", 6) == 0) {
+  if (aPage->body_len > 6 && memcmp(aPage->body + 1, "theora", 6) == 0) {
     codecState = new TheoraState(aPage);
-  } else if (aPage->body_len > 6 && memcmp(aPage->body+1, "vorbis", 6) == 0) {
+  } else if (aPage->body_len > 6 && memcmp(aPage->body + 1, "vorbis", 6) == 0) {
     codecState = new VorbisState(aPage);
   } else if (aPage->body_len > 8 && memcmp(aPage->body, "OpusHead", 8) == 0) {
     codecState = new OpusState(aPage);
@@ -45,14 +45,15 @@ OggCodecState::Create(ogg_page* aPage)
   } else {
     codecState = new OggCodecState(aPage, false);
   }
-  return codecState->OggCodecState::InternalInit() ? codecState.forget() : nullptr;
+  return codecState->OggCodecState::InternalInit() ? codecState.forget()
+                                                   : nullptr;
 }
 
 OggCodecState::OggCodecState(ogg_page* aBosPage, bool aActive)
-  : mPacketCount(0)
-  , mSerial(ogg_page_serialno(aBosPage))
-  , mActive(aActive)
-  , mDoneReadingHeaders(!aActive)
+    : mPacketCount(0),
+      mSerial(ogg_page_serialno(aBosPage)),
+      mActive(aActive),
+      mDoneReadingHeaders(!aActive)
 {
   MOZ_COUNT_CTOR(OggCodecState);
   memset(&mState, 0, sizeof(ogg_stream_state));
@@ -65,7 +66,7 @@ OggCodecState::~OggCodecState()
 #ifdef DEBUG
   int ret =
 #endif
-  ogg_stream_clear(&mState);
+      ogg_stream_clear(&mState);
   NS_ASSERTION(ret == 0, "ogg_stream_clear failed");
 }
 
@@ -118,12 +119,12 @@ OggCodecState::AddVorbisComment(MetadataTags* aTags,
     LOG(LogLevel::Debug, ("Skipping comment: no separator"));
     return false;
   }
-  nsCString key = nsCString(aComment, div-aComment);
+  nsCString key = nsCString(aComment, div - aComment);
   if (!IsValidVorbisTagName(key)) {
     LOG(LogLevel::Debug, ("Skipping comment: invalid tag name"));
     return false;
   }
-  uint32_t valueLength = aLength - (div-aComment);
+  uint32_t valueLength = aLength - (div - aComment);
   nsCString value = nsCString(div + 1, valueLength);
   if (!IsUTF8(value)) {
     LOG(LogLevel::Debug, ("Skipping comment: invalid UTF-8 in value"));
@@ -164,7 +165,7 @@ VorbisState::ValidateVorbisPacketSamples(ogg_packet* aPacket, long aSamples)
 {
 #ifdef VALIDATE_VORBIS_SAMPLE_CALCULATION
   NS_ASSERTION(mVorbisPacketSamples[aPacket] == aSamples,
-    "Decoded samples for Vorbis packet don't match expected!");
+               "Decoded samples for Vorbis packet don't match expected!");
   mVorbisPacketSamples.erase(aPacket);
 #endif
 }
@@ -174,7 +175,7 @@ VorbisState::AssertHasRecordedPacketSamples(ogg_packet* aPacket)
 {
 #ifdef VALIDATE_VORBIS_SAMPLE_CALCULATION
   NS_ASSERTION(mVorbisPacketSamples.count(aPacket) == 1,
-    "Must have recorded packet samples");
+               "Must have recorded packet samples");
 #endif
 }
 
@@ -235,8 +236,8 @@ OggCodecState::PacketOutAsMediaRawData()
   }
 
   NS_ASSERTION(
-    !IsHeader(packet.get()),
-    "PacketOutAsMediaRawData can only be called on non-header packets");
+      !IsHeader(packet.get()),
+      "PacketOutAsMediaRawData can only be called on non-header packets");
   RefPtr<MediaRawData> sample = new MediaRawData(packet->packet, packet->bytes);
   if (packet->bytes && !sample->Data()) {
     // OOM.
@@ -316,9 +317,7 @@ OggCodecState::PacketOutUntilGranulepos(bool& aFoundGranulepos)
 }
 
 TheoraState::TheoraState(ogg_page* aBosPage)
-  : OggCodecState(aBosPage, true)
-  , mSetup(0)
-  , mCtx(0)
+    : OggCodecState(aBosPage, true), mSetup(0), mCtx(0)
 {
   MOZ_COUNT_CTOR(TheoraState);
   th_info_init(&mTheoraInfo);
@@ -346,7 +345,7 @@ TheoraState::Init()
   int64_t d = mTheoraInfo.aspect_denominator;
 
   float aspectRatio =
-    (n == 0 || d == 0) ? 1.0f : static_cast<float>(n) / static_cast<float>(d);
+      (n == 0 || d == 0) ? 1.0f : static_cast<float>(n) / static_cast<float>(d);
 
   // Ensure the frame and picture regions aren't larger than our prescribed
   // maximum, or zero sized.
@@ -385,13 +384,10 @@ TheoraState::Reset()
 bool
 TheoraState::DecodeHeader(OggPacketPtr aPacket)
 {
-  ogg_packet* packet = aPacket.get(); // Will be owned by mHeaders.
+  ogg_packet* packet = aPacket.get();  // Will be owned by mHeaders.
   mHeaders.Append(Move(aPacket));
   mPacketCount++;
-  int ret = th_decode_headerin(&mTheoraInfo,
-                               &mComment,
-                               &mSetup,
-                               packet);
+  int ret = th_decode_headerin(&mTheoraInfo, &mComment, &mSetup, packet);
 
   // We must determine when we've read the last header packet.
   // th_decode_headerin() does not tell us when it's read the last header, so
@@ -435,9 +431,9 @@ TheoraState::IsHeader(ogg_packet* aPacket)
   return th_packet_isheader(aPacket);
 }
 
-#define TH_VERSION_CHECK(_info, _maj, _min, _sub)                              \
-  (((_info)->version_major > (_maj) || (_info)->version_major == (_maj)) &&    \
-   (((_info)->version_minor > (_min) || (_info)->version_minor == (_min)) &&   \
+#define TH_VERSION_CHECK(_info, _maj, _min, _sub)                            \
+  (((_info)->version_major > (_maj) || (_info)->version_major == (_maj)) &&  \
+   (((_info)->version_minor > (_min) || (_info)->version_minor == (_min)) && \
     (_info)->version_subminor >= (_sub)))
 
 int64_t
@@ -453,7 +449,7 @@ TheoraState::Time(th_info* aInfo, int64_t aGranulepos)
   ogg_int64_t pframe = aGranulepos - (iframe << shift);
   int64_t frameno = iframe + pframe - TH_VERSION_CHECK(aInfo, 3, 2, 1);
   CheckedInt64 t =
-    ((CheckedInt64(frameno) + 1) * USECS_PER_S) * aInfo->fps_denominator;
+      ((CheckedInt64(frameno) + 1) * USECS_PER_S) * aInfo->fps_denominator;
   if (!t.isValid()) {
     return -1;
   }
@@ -461,14 +457,15 @@ TheoraState::Time(th_info* aInfo, int64_t aGranulepos)
   return t.isValid() ? t.value() : -1;
 }
 
-int64_t TheoraState::StartTime(int64_t granulepos)
+int64_t
+TheoraState::StartTime(int64_t granulepos)
 {
   if (granulepos < 0 || !mActive || mTheoraInfo.fps_numerator == 0) {
     return -1;
   }
   CheckedInt64 t =
-    (CheckedInt64(th_granule_frame(mCtx, granulepos)) * USECS_PER_S)
-    * mTheoraInfo.fps_denominator;
+      (CheckedInt64(th_granule_frame(mCtx, granulepos)) * USECS_PER_S) *
+      mTheoraInfo.fps_denominator;
   if (!t.isValid()) {
     return -1;
   }
@@ -481,8 +478,8 @@ TheoraState::PacketDuration(ogg_packet* aPacket)
   if (!mActive || mTheoraInfo.fps_numerator == 0) {
     return -1;
   }
-  CheckedInt64 t = SaferMultDiv(mTheoraInfo.fps_denominator, USECS_PER_S,
-                                mTheoraInfo.fps_numerator);
+  CheckedInt64 t = SaferMultDiv(
+      mTheoraInfo.fps_denominator, USECS_PER_S, mTheoraInfo.fps_numerator);
   return t.isValid() ? t.value() : -1;
 }
 
@@ -501,7 +498,7 @@ TheoraState::MaxKeyframeOffset()
 
   // Length of frame in usecs.
   frameDuration =
-    (mTheoraInfo.fps_denominator * USECS_PER_S) / mTheoraInfo.fps_numerator;
+      (mTheoraInfo.fps_denominator * USECS_PER_S) / mTheoraInfo.fps_numerator;
 
   // Total time in usecs keyframe can be offset from any given frame.
   return frameDuration * keyframeDiff;
@@ -518,16 +515,13 @@ TheoraState::IsKeyframe(ogg_packet* pkt)
 nsresult
 TheoraState::PageIn(ogg_page* aPage)
 {
-  if (!mActive)
-    return NS_OK;
+  if (!mActive) return NS_OK;
   NS_ASSERTION(static_cast<uint32_t>(ogg_page_serialno(aPage)) == mSerial,
                "Page must be for this stream!");
-  if (ogg_stream_pagein(&mState, aPage) == -1)
-    return NS_ERROR_FAILURE;
+  if (ogg_stream_pagein(&mState, aPage) == -1) return NS_ERROR_FAILURE;
   bool foundGp;
   nsresult res = PacketOutUntilGranulepos(foundGp);
-  if (NS_FAILED(res))
-    return res;
+  if (NS_FAILED(res)) return res;
   if (foundGp && mDoneReadingHeaders) {
     // We've found a packet with a granulepos, and we've loaded our metadata
     // and initialized our decoder. Determine granulepos of buffered packets.
@@ -535,7 +529,8 @@ TheoraState::PageIn(ogg_page* aPage)
     for (uint32_t i = 0; i < mUnstamped.Length(); ++i) {
       OggPacketPtr packet = Move(mUnstamped[i]);
 #ifdef DEBUG
-      NS_ASSERTION(!IsHeader(packet.get()), "Don't try to recover header packet gp");
+      NS_ASSERTION(!IsHeader(packet.get()),
+                   "Don't try to recover header packet gp");
       NS_ASSERTION(packet->granulepos != -1, "Packet must have gp by now");
 #endif
       mPackets.Append(Move(packet));
@@ -554,9 +549,8 @@ TheoraVersion(th_info* info,
               unsigned char sub)
 {
   ogg_uint32_t ver = (maj << 16) + (min << 8) + sub;
-  ogg_uint32_t th_ver = (info->version_major << 16)
-                        + (info->version_minor << 8)
-                        + info->version_subminor;
+  ogg_uint32_t th_ver = (info->version_major << 16) +
+                        (info->version_minor << 8) + info->version_subminor;
   return (th_ver >= ver) ? 1 : 0;
 }
 
@@ -574,9 +568,9 @@ TheoraState::ReconstructTheoraGranulepos()
   // know the granulepos of the last frame in the list, so we can infer
   // the granulepos of the intermediate frames using their frame numbers.
   ogg_int64_t shift = mTheoraInfo.keyframe_granule_shift;
-  ogg_int64_t version_3_2_1 = TheoraVersion(&mTheoraInfo,3,2,1);
+  ogg_int64_t version_3_2_1 = TheoraVersion(&mTheoraInfo, 3, 2, 1);
   ogg_int64_t lastFrame =
-    th_granule_frame(mCtx, lastGranulepos) + version_3_2_1;
+      th_granule_frame(mCtx, lastGranulepos) + version_3_2_1;
   ogg_int64_t firstFrame = lastFrame - mUnstamped.Length() + 1;
 
   // Until we encounter a keyframe, we'll assume that the "keyframe"
@@ -611,7 +605,7 @@ TheoraState::ReconstructTheoraGranulepos()
       // granulepos, so we take "keyframe" to be the max possible offset
       // frame instead.
       ogg_int64_t k =
-        std::max(frame - (((ogg_int64_t)1 << shift) - 1), version_3_2_1);
+          std::max(frame - (((ogg_int64_t)1 << shift) - 1), version_3_2_1);
       granulepos = (k << shift) + (frame - k);
     }
     // Theora 3.2.1+ granulepos store frame number [1..N], so granulepos
@@ -619,14 +613,14 @@ TheoraState::ReconstructTheoraGranulepos()
     // Theora 3.2.0 granulepos store the frame index [0..(N-1)], so
     // granulepos should be >= 0.
     NS_ASSERTION(granulepos >= version_3_2_1,
-                  "Invalid granulepos for Theora version");
+                 "Invalid granulepos for Theora version");
 
     // Check that the frame's granule number is one more than the
     // previous frame's.
-    NS_ASSERTION(i == 0 ||
-                 th_granule_frame(mCtx, granulepos) ==
-                 th_granule_frame(mCtx, mUnstamped[i - 1]->granulepos) + 1,
-                 "Granulepos calculation is incorrect!");
+    NS_ASSERTION(
+        i == 0 || th_granule_frame(mCtx, granulepos) ==
+                      th_granule_frame(mCtx, mUnstamped[i - 1]->granulepos) + 1,
+        "Granulepos calculation is incorrect!");
 
     packet->granulepos = granulepos;
   }
@@ -634,11 +628,11 @@ TheoraState::ReconstructTheoraGranulepos()
   // Check that the second to last frame's granule number is one less than
   // the last frame's (the known granule number). If not our granulepos
   // recovery missed a beat.
-  NS_ASSERTION(
-    mUnstamped.Length() < 2 ||
-    (th_granule_frame(mCtx, mUnstamped[mUnstamped.Length() - 2]->granulepos)
-     + 1) == th_granule_frame(mCtx, lastGranulepos),
-    "Granulepos recovery should catch up with packet->granulepos!");
+  NS_ASSERTION(mUnstamped.Length() < 2 ||
+                   (th_granule_frame(
+                        mCtx, mUnstamped[mUnstamped.Length() - 2]->granulepos) +
+                    1) == th_granule_frame(mCtx, lastGranulepos),
+               "Granulepos recovery should catch up with packet->granulepos!");
 }
 
 nsresult
@@ -660,9 +654,7 @@ VorbisState::Reset()
 }
 
 VorbisState::VorbisState(ogg_page* aBosPage)
-  : OggCodecState(aBosPage, true)
-  , mPrevVorbisBlockSize(0)
-  , mGranulepos(0)
+    : OggCodecState(aBosPage, true), mPrevVorbisBlockSize(0), mGranulepos(0)
 {
   MOZ_COUNT_CTOR(VorbisState);
   vorbis_info_init(&mVorbisInfo);
@@ -684,12 +676,10 @@ VorbisState::~VorbisState()
 bool
 VorbisState::DecodeHeader(OggPacketPtr aPacket)
 {
-  ogg_packet* packet = aPacket.get(); // Will be owned by mHeaders.
+  ogg_packet* packet = aPacket.get();  // Will be owned by mHeaders.
   mHeaders.Append(Move(aPacket));
   mPacketCount++;
-  int ret = vorbis_synthesis_headerin(&mVorbisInfo,
-                                      &mComment,
-                                      packet);
+  int ret = vorbis_synthesis_headerin(&mVorbisInfo, &mComment, packet);
   // We must determine when we've read the last header packet.
   // vorbis_synthesis_headerin() does not tell us when it's read the last
   // header, so we must keep track of the headers externally.
@@ -750,8 +740,8 @@ VorbisState::Init()
     headerLens.AppendElement(mHeaders[i]->bytes);
   }
   // Save header packets for the decoder
-  if (!XiphHeadersToExtradata(mInfo.mCodecSpecificConfig,
-                              headers, headerLens)) {
+  if (!XiphHeadersToExtradata(
+          mInfo.mCodecSpecificConfig, headers, headerLens)) {
     return mActive = false;
   }
   mHeaders.Erase();
@@ -821,8 +811,8 @@ VorbisState::GetTags()
   NS_ASSERTION(mComment.comment_lengths, "no vorbis comment lengths!");
   tags = new MetadataTags;
   for (int i = 0; i < mComment.comments; i++) {
-    AddVorbisComment(tags, mComment.user_comments[i],
-                     mComment.comment_lengths[i]);
+    AddVorbisComment(
+        tags, mComment.user_comments[i], mComment.comment_lengths[i]);
   }
   return tags;
 }
@@ -835,8 +825,7 @@ VorbisState::PageIn(ogg_page* aPage)
   }
   NS_ASSERTION(static_cast<uint32_t>(ogg_page_serialno(aPage)) == mSerial,
                "Page must be for this stream!");
-  if (ogg_stream_pagein(&mState, aPage) == -1)
-    return NS_ERROR_FAILURE;
+  if (ogg_stream_pagein(&mState, aPage) == -1) return NS_ERROR_FAILURE;
   bool foundGp;
   nsresult res = PacketOutUntilGranulepos(foundGp);
   if (NS_FAILED(res)) {
@@ -849,7 +838,8 @@ VorbisState::PageIn(ogg_page* aPage)
     for (uint32_t i = 0; i < mUnstamped.Length(); ++i) {
       OggPacketPtr packet = Move(mUnstamped[i]);
       AssertHasRecordedPacketSamples(packet.get());
-      NS_ASSERTION(!IsHeader(packet.get()), "Don't try to recover header packet gp");
+      NS_ASSERTION(!IsHeader(packet.get()),
+                   "Don't try to recover header packet gp");
       NS_ASSERTION(packet->granulepos != -1, "Packet must have gp by now");
       mPackets.Append(Move(packet));
     }
@@ -878,7 +868,7 @@ VorbisState::ReconstructVorbisGranulepos()
   NS_ASSERTION(mUnstamped.Length() > 0, "Length must be > 0");
   auto& last = mUnstamped.LastElement();
   NS_ASSERTION(last->e_o_s || last->granulepos >= 0,
-    "Must know last granulepos!");
+               "Must know last granulepos!");
   if (mUnstamped.Length() == 1) {
     auto& packet = mUnstamped[0];
     long blockSize = vorbis_packet_blocksize(&mVorbisInfo, packet.get());
@@ -897,7 +887,7 @@ VorbisState::ReconstructVorbisGranulepos()
 
     // Account for a partial last frame
     if (packet->e_o_s && packet->granulepos >= mGranulepos) {
-       samples = packet->granulepos - mGranulepos;
+      samples = packet->granulepos - mGranulepos;
     }
 
     mGranulepos = packet->granulepos;
@@ -909,7 +899,7 @@ VorbisState::ReconstructVorbisGranulepos()
   int totalSamples = 0;
   for (int32_t i = mUnstamped.Length() - 1; i > 0; i--) {
     auto& packet = mUnstamped[i];
-    auto& prev = mUnstamped[i-1];
+    auto& prev = mUnstamped[i - 1];
     ogg_int64_t granulepos = packet->granulepos;
     NS_ASSERTION(granulepos != -1, "Must know granulepos!");
     long prevBlockSize = vorbis_packet_blocksize(&mVorbisInfo, prev.get());
@@ -943,8 +933,8 @@ VorbisState::ReconstructVorbisGranulepos()
   }
 
   long samples = (mPrevVorbisBlockSize == 0)
-                 ? 0
-                 : mPrevVorbisBlockSize / 4 + blockSize / 4;
+                     ? 0
+                     : mPrevVorbisBlockSize / 4 + blockSize / 4;
   int64_t start = first->granulepos - samples;
   RecordVorbisPacketSamples(first.get(), samples);
 
@@ -971,11 +961,11 @@ VorbisState::ReconstructVorbisGranulepos()
 }
 
 OpusState::OpusState(ogg_page* aBosPage)
-  : OggCodecState(aBosPage, true)
-  , mParser(nullptr)
-  , mDecoder(nullptr)
-  , mPrevPacketGranulepos(0)
-  , mPrevPageGranulepos(0)
+    : OggCodecState(aBosPage, true),
+      mParser(nullptr),
+      mDecoder(nullptr),
+      mPrevPacketGranulepos(0),
+      mPrevPageGranulepos(0)
 {
   MOZ_COUNT_CTOR(OpusState);
 }
@@ -1060,7 +1050,7 @@ OpusState::Init(void)
 bool
 OpusState::DecodeHeader(OggPacketPtr aPacket)
 {
-  switch(mPacketCount++) {
+  switch (mPacketCount++) {
     // Parse the id header.
     case 0:
       mParser = new OpusParser;
@@ -1096,8 +1086,8 @@ OpusState::GetTags()
 
   tags = new MetadataTags;
   for (uint32_t i = 0; i < mParser->mTags.Length(); i++) {
-    AddVorbisComment(tags, mParser->mTags[i].Data(),
-                     mParser->mTags[i].Length());
+    AddVorbisComment(
+        tags, mParser->mTags[i].Data(), mParser->mTags[i].Length());
   }
 
   return tags;
@@ -1141,8 +1131,7 @@ OpusState::PageIn(ogg_page* aPage)
   }
   NS_ASSERTION(static_cast<uint32_t>(ogg_page_serialno(aPage)) == mSerial,
                "Page must be for this stream!");
-  if (ogg_stream_pagein(&mState, aPage) == -1)
-    return NS_ERROR_FAILURE;
+  if (ogg_stream_pagein(&mState, aPage) == -1) return NS_ERROR_FAILURE;
 
   bool haveGranulepos;
   nsresult rv = PacketOutUntilGranulepos(haveGranulepos);
@@ -1173,7 +1162,7 @@ GetOpusDeltaGP(ogg_packet* packet)
   int nframes;
   nframes = opus_packet_get_nb_frames(packet->packet, packet->bytes);
   if (nframes > 0) {
-    return nframes*opus_packet_get_samples_per_frame(packet->packet, 48000);
+    return nframes * opus_packet_get_samples_per_frame(packet->packet, 48000);
   }
   NS_WARNING("Invalid Opus packet.");
   return nframes;
@@ -1191,7 +1180,7 @@ OpusState::ReconstructOpusGranulepos(void)
 {
   NS_ASSERTION(mUnstamped.Length() > 0, "Must have unstamped packets");
   NS_ASSERTION(mUnstamped.LastElement()->e_o_s ||
-               mUnstamped.LastElement()->granulepos > 0,
+                   mUnstamped.LastElement()->granulepos > 0,
                "Must know last granulepos!");
   int64_t gp;
   // If this is the last page, and we've seen at least one previous page (or
@@ -1220,7 +1209,7 @@ OpusState::ReconstructOpusGranulepos(void)
             // Encoders SHOULD NOT produce streams like this, but we'll handle
             // it for them anyway.
             gp = last_gp;
-            mUnstamped.RemoveElementsAt(i+1, mUnstamped.Length() - (i+1));
+            mUnstamped.RemoveElementsAt(i + 1, mUnstamped.Length() - (i + 1));
             packet->e_o_s = 1;
           }
         }
@@ -1251,8 +1240,7 @@ OpusState::ReconstructOpusGranulepos(void)
         // If the granule position of the first data page is smaller than the
         // number of decodable audio samples on that page, then we MUST reject
         // the stream.
-        if (!mDoneReadingHeaders)
-          return false;
+        if (!mDoneReadingHeaders) return false;
         // It's too late to reject the stream.
         // If we get here, this almost certainly means the file has screwed-up
         // timestamps somewhere after the first page.
@@ -1298,7 +1286,7 @@ OpusState::PacketOutAsMediaRawData()
     // If this is the last packet, perform end trimming.
     int64_t startFrame = mPrevPacketGranulepos;
     frames -= std::max<int64_t>(
-      0, std::min(endFrame - startFrame, static_cast<int64_t>(frames)));
+        0, std::min(endFrame - startFrame, static_cast<int64_t>(frames)));
     data->mDiscardPadding = frames;
   }
 
@@ -1309,10 +1297,7 @@ OpusState::PacketOutAsMediaRawData()
   return data.forget();
 }
 
-FlacState::FlacState(ogg_page* aBosPage)
-  : OggCodecState(aBosPage, true)
-{
-}
+FlacState::FlacState(ogg_page* aBosPage) : OggCodecState(aBosPage, true) {}
 
 bool
 FlacState::DecodeHeader(OggPacketPtr aPacket)
@@ -1332,8 +1317,7 @@ FlacState::Time(int64_t granulepos)
   if (!mParser.mInfo.IsValid()) {
     return -1;
   }
-  CheckedInt64 t =
-      SaferMultDiv(granulepos, USECS_PER_S, mParser.mInfo.mRate);
+  CheckedInt64 t = SaferMultDiv(granulepos, USECS_PER_S, mParser.mInfo.mRate);
   if (!t.isValid()) {
     return -1;
   }
@@ -1360,8 +1344,7 @@ FlacState::PageIn(ogg_page* aPage)
   }
   NS_ASSERTION(static_cast<uint32_t>(ogg_page_serialno(aPage)) == mSerial,
                "Page must be for this stream!");
-  if (ogg_stream_pagein(&mState, aPage) == -1)
-    return NS_ERROR_FAILURE;
+  if (ogg_stream_pagein(&mState, aPage) == -1) return NS_ERROR_FAILURE;
   bool foundGp;
   nsresult res = PacketOutUntilGranulepos(foundGp);
   if (NS_FAILED(res)) {
@@ -1373,7 +1356,8 @@ FlacState::PageIn(ogg_page* aPage)
     ReconstructFlacGranulepos();
     for (uint32_t i = 0; i < mUnstamped.Length(); ++i) {
       OggPacketPtr packet = Move(mUnstamped[i]);
-      NS_ASSERTION(!IsHeader(packet.get()), "Don't try to recover header packet gp");
+      NS_ASSERTION(!IsHeader(packet.get()),
+                   "Don't try to recover header packet gp");
       NS_ASSERTION(packet->granulepos != -1, "Packet must have gp by now");
       mPackets.Append(Move(packet));
     }
@@ -1401,7 +1385,7 @@ FlacState::ReconstructFlacGranulepos(void)
   NS_ASSERTION(mUnstamped.Length() > 0, "Must have unstamped packets");
   auto& last = mUnstamped.LastElement();
   NS_ASSERTION(last->e_o_s || last->granulepos > 0,
-      "Must know last granulepos!");
+               "Must know last granulepos!");
   int64_t gp;
 
   gp = last->granulepos;
@@ -1410,7 +1394,7 @@ FlacState::ReconstructFlacGranulepos(void)
   // for the current packet.
   for (uint32_t i = mUnstamped.Length() - 1; i > 0; i--) {
     int offset =
-      mParser.BlockDuration(mUnstamped[i]->packet, mUnstamped[i]->bytes);
+        mParser.BlockDuration(mUnstamped[i]->packet, mUnstamped[i]->bytes);
     // Check for error (negative offset) and overflow.
     if (offset >= 0) {
       if (offset <= gp) {
@@ -1436,18 +1420,15 @@ FlacState::ReconstructFlacGranulepos(void)
 }
 
 SkeletonState::SkeletonState(ogg_page* aBosPage)
-  : OggCodecState(aBosPage, true)
-  , mVersion(0)
-  , mPresentationTime(0)
-  , mLength(0)
+    : OggCodecState(aBosPage, true),
+      mVersion(0),
+      mPresentationTime(0),
+      mLength(0)
 {
   MOZ_COUNT_CTOR(SkeletonState);
 }
 
-SkeletonState::~SkeletonState()
-{
-  MOZ_COUNT_DTOR(SkeletonState);
-}
+SkeletonState::~SkeletonState() { MOZ_COUNT_DTOR(SkeletonState); }
 
 // Support for Ogg Skeleton 4.0, as per specification at:
 // http://wiki.xiph.org/Ogg_Skeleton_4
@@ -1545,18 +1526,20 @@ SkeletonState::DecodeIndex(ogg_packet* aPacket)
   }
 
   uint32_t serialno =
-    LittleEndian::readUint32(aPacket->packet + INDEX_SERIALNO_OFFSET);
+      LittleEndian::readUint32(aPacket->packet + INDEX_SERIALNO_OFFSET);
   int64_t numKeyPoints =
-    LittleEndian::readInt64(aPacket->packet + INDEX_NUM_KEYPOINTS_OFFSET);
+      LittleEndian::readInt64(aPacket->packet + INDEX_NUM_KEYPOINTS_OFFSET);
 
   int64_t endTime = 0, startTime = 0;
   const unsigned char* p = aPacket->packet;
 
   int64_t timeDenom =
-    LittleEndian::readInt64(aPacket->packet + INDEX_TIME_DENOM_OFFSET);
+      LittleEndian::readInt64(aPacket->packet + INDEX_TIME_DENOM_OFFSET);
   if (timeDenom == 0) {
-    LOG(LogLevel::Debug, ("Ogg Skeleton Index packet for stream %u has 0 "
-                       "timestamp denominator.", serialno));
+    LOG(LogLevel::Debug,
+        ("Ogg Skeleton Index packet for stream %u has 0 "
+         "timestamp denominator.",
+         serialno));
     return (mActive = false);
   }
 
@@ -1581,27 +1564,26 @@ SkeletonState::DecodeIndex(ogg_packet* aPacket)
   // Check the numKeyPoints value read, ensure we're not going to run out of
   // memory while trying to decode the index packet.
   CheckedInt64 minPacketSize =
-    (CheckedInt64(numKeyPoints) * MIN_KEY_POINT_SIZE) + INDEX_KEYPOINT_OFFSET;
-  if (!minPacketSize.isValid())
-  {
+      (CheckedInt64(numKeyPoints) * MIN_KEY_POINT_SIZE) + INDEX_KEYPOINT_OFFSET;
+  if (!minPacketSize.isValid()) {
     return (mActive = false);
   }
 
   int64_t sizeofIndex = aPacket->bytes - INDEX_KEYPOINT_OFFSET;
   int64_t maxNumKeyPoints = sizeofIndex / MIN_KEY_POINT_SIZE;
   if (aPacket->bytes < minPacketSize.value() ||
-      numKeyPoints > maxNumKeyPoints ||
-      numKeyPoints < 0) {
+      numKeyPoints > maxNumKeyPoints || numKeyPoints < 0) {
     // Packet size is less than the theoretical minimum size, or the packet is
     // claiming to store more keypoints than it's capable of storing. This means
     // that the numKeyPoints field is too large or small for the packet to
     // possibly contain as many packets as it claims to, so the numKeyPoints
     // field is possibly malicious. Don't try decoding this index, we may run
     // out of memory.
-    LOG(LogLevel::Debug, ("Possibly malicious number of key points reported "
-                       "(%" PRId64 ") in index packet for stream %u.",
-                       numKeyPoints,
-                       serialno));
+    LOG(LogLevel::Debug,
+        ("Possibly malicious number of key points reported "
+         "(%" PRId64 ") in index packet for stream %u.",
+         numKeyPoints,
+         serialno));
     return (mActive = false);
   }
 
@@ -1616,17 +1598,13 @@ SkeletonState::DecodeIndex(ogg_packet* aPacket)
     int64_t delta = 0;
     p = ReadVariableLengthInt(p, limit, delta);
     offset += delta;
-    if (p == limit ||
-        !offset.isValid() ||
-        offset.value() > mLength ||
+    if (p == limit || !offset.isValid() || offset.value() > mLength ||
         offset.value() < 0) {
       return (mActive = false);
     }
     p = ReadVariableLengthInt(p, limit, delta);
     time += delta;
-    if (!time.isValid() ||
-        time.value() > endTime ||
-        time.value() < startTime) {
+    if (!time.isValid() || time.value() > endTime || time.value() < startTime) {
       return (mActive = false);
     }
     CheckedInt64 timeUsecs = SaferMultDiv(time.value(), USECS_PER_S, timeDenom);
@@ -1642,8 +1620,10 @@ SkeletonState::DecodeIndex(ogg_packet* aPacket)
     mIndex.Put(serialno, keyPoints.forget());
   }
 
-  LOG(LogLevel::Debug, ("Loaded %d keypoints for Skeleton on stream %u",
-                     keyPointsRead, serialno));
+  LOG(LogLevel::Debug,
+      ("Loaded %d keypoints for Skeleton on stream %u",
+       keyPointsRead,
+       serialno));
   return true;
 }
 
@@ -1655,9 +1635,7 @@ SkeletonState::IndexedSeekTargetForTrack(uint32_t aSerialno,
   nsKeyFrameIndex* index = nullptr;
   mIndex.Get(aSerialno, &index);
 
-  if (!index ||
-      index->Length() == 0 ||
-      aTarget < index->mStartTime ||
+  if (!index || index->Length() == 0 || aTarget < index->mStartTime ||
       aTarget > index->mEndTime) {
     return NS_ERROR_FAILURE;
   }
@@ -1668,8 +1646,8 @@ SkeletonState::IndexedSeekTargetForTrack(uint32_t aSerialno,
   while (end > start) {
     int mid = start + ((end - start + 1) >> 1);
     if (index->Get(mid).mTime == aTarget) {
-       start = mid;
-       break;
+      start = mid;
+      break;
     } else if (index->Get(mid).mTime < aTarget) {
       start = mid;
     } else {
@@ -1687,7 +1665,7 @@ SkeletonState::IndexedSeekTarget(int64_t aTarget,
                                  nsTArray<uint32_t>& aTracks,
                                  nsSeekTarget& aResult)
 {
-  if (!mActive || mVersion < SKELETON_VERSION(4,0)) {
+  if (!mActive || mVersion < SKELETON_VERSION(4, 0)) {
     return NS_ERROR_FAILURE;
   }
   // Loop over all requested tracks' indexes, and get the keypoint for that
@@ -1695,7 +1673,7 @@ SkeletonState::IndexedSeekTarget(int64_t aTarget,
   // our seek result. User must seek to the one with lowest offset to ensure we
   // pass "keyframes" on all tracks when we decode forwards to the seek target.
   nsSeekTarget r;
-  for (uint32_t i=0; i<aTracks.Length(); i++) {
+  for (uint32_t i = 0; i < aTracks.Length(); i++) {
     nsKeyPoint k;
     if (NS_SUCCEEDED(IndexedSeekTargetForTrack(aTracks[i], aTarget, k)) &&
         k.mOffset < r.mKeyPoint.mOffset) {
@@ -1706,8 +1684,10 @@ SkeletonState::IndexedSeekTarget(int64_t aTarget,
   if (r.IsNull()) {
     return NS_ERROR_FAILURE;
   }
-  LOG(LogLevel::Debug, ("Indexed seek target for time %" PRId64 " is offset %" PRId64,
-                     aTarget, r.mKeyPoint.mOffset));
+  LOG(LogLevel::Debug,
+      ("Indexed seek target for time %" PRId64 " is offset %" PRId64,
+       aTarget,
+       r.mKeyPoint.mOffset));
   aResult = r;
   return NS_OK;
 }
@@ -1716,15 +1696,13 @@ nsresult
 SkeletonState::GetDuration(const nsTArray<uint32_t>& aTracks,
                            int64_t& aDuration)
 {
-  if (!mActive ||
-      mVersion < SKELETON_VERSION(4,0) ||
-      !HasIndex() ||
+  if (!mActive || mVersion < SKELETON_VERSION(4, 0) || !HasIndex() ||
       aTracks.Length() == 0) {
     return NS_ERROR_FAILURE;
   }
   int64_t endTime = INT64_MIN;
   int64_t startTime = INT64_MAX;
-  for (uint32_t i=0; i<aTracks.Length(); i++) {
+  for (uint32_t i = 0; i < aTracks.Length(); i++) {
     nsKeyFrameIndex* index = nullptr;
     mIndex.Get(aTracks[i], &index);
     if (!index) {
@@ -1751,16 +1729,16 @@ SkeletonState::DecodeFisbone(ogg_packet* aPacket)
     return false;
   }
   uint32_t offsetMsgField =
-    LittleEndian::readUint32(aPacket->packet + FISBONE_MSG_FIELDS_OFFSET);
+      LittleEndian::readUint32(aPacket->packet + FISBONE_MSG_FIELDS_OFFSET);
 
   if (aPacket->bytes < static_cast<long>(FISBONE_SERIALNO_OFFSET + 4)) {
-      return false;
+    return false;
   }
   uint32_t serialno =
-    LittleEndian::readUint32(aPacket->packet + FISBONE_SERIALNO_OFFSET);
+      LittleEndian::readUint32(aPacket->packet + FISBONE_SERIALNO_OFFSET);
 
   CheckedUint32 checked_fields_pos =
-    CheckedUint32(FISBONE_MSG_FIELDS_OFFSET) + offsetMsgField;
+      CheckedUint32(FISBONE_MSG_FIELDS_OFFSET) + offsetMsgField;
   if (!checked_fields_pos.isValid() ||
       aPacket->bytes < static_cast<int64_t>(checked_fields_pos.value())) {
     return false;
@@ -1779,13 +1757,12 @@ SkeletonState::DecodeFisbone(ogg_packet* aPacket)
       {"Display-hint:", eDisplayHint},
       {"Altitude:", eAltitude},
       {"TrackOrder:", eTrackOrder},
-      {"Track dependencies:", eTrackDependencies}
-  };
+      {"Track dependencies:", eTrackDependencies}};
 
   bool isContentTypeParsed = false;
   while (msgLength > 1) {
-    if (*msgProbe == '\r' && *(msgProbe+1) == '\n') {
-      nsAutoCString strMsg(msgHead, msgProbe-msgHead);
+    if (*msgProbe == '\r' && *(msgProbe + 1) == '\n') {
+      nsAutoCString strMsg(msgHead, msgProbe - msgHead);
       for (size_t i = 0; i < ArrayLength(kFieldTypeMaps); i++) {
         if (strMsg.Find(kFieldTypeMaps[i].mPatternToRecognize) != -1) {
           // The content of message header fields follows [RFC2822], and the
@@ -1799,11 +1776,13 @@ SkeletonState::DecodeFisbone(ogg_packet* aPacket)
 
           if ((i == 0 && IsASCII(strMsg)) || (i != 0 && IsUTF8(strMsg))) {
             EMsgHeaderType eHeaderType = kFieldTypeMaps[i].mMsgHeaderType;
-            field->mValuesStore.LookupForAdd(eHeaderType).OrInsert(
-              [i, msgHead, msgProbe] () {
-                uint32_t nameLen = strlen(kFieldTypeMaps[i].mPatternToRecognize);
-                return new nsCString(msgHead + nameLen, msgProbe - msgHead - nameLen);
-              });
+            field->mValuesStore.LookupForAdd(eHeaderType)
+                .OrInsert([i, msgHead, msgProbe]() {
+                  uint32_t nameLen =
+                      strlen(kFieldTypeMaps[i].mPatternToRecognize);
+                  return new nsCString(msgHead + nameLen,
+                                       msgProbe - msgHead - nameLen);
+                });
             isContentTypeParsed = i == 0 ? true : isContentTypeParsed;
           }
           break;
@@ -1831,38 +1810,39 @@ bool
 SkeletonState::DecodeHeader(OggPacketPtr aPacket)
 {
   if (IsSkeletonBOS(aPacket.get())) {
-    uint16_t verMajor =
-      LittleEndian::readUint16(aPacket->packet + SKELETON_VERSION_MAJOR_OFFSET);
-    uint16_t verMinor =
-      LittleEndian::readUint16(aPacket->packet + SKELETON_VERSION_MINOR_OFFSET);
+    uint16_t verMajor = LittleEndian::readUint16(aPacket->packet +
+                                                 SKELETON_VERSION_MAJOR_OFFSET);
+    uint16_t verMinor = LittleEndian::readUint16(aPacket->packet +
+                                                 SKELETON_VERSION_MINOR_OFFSET);
 
     // Read the presentation time. We read this before the version check as the
     // presentation time exists in all versions.
     int64_t n = LittleEndian::readInt64(
-      aPacket->packet + SKELETON_PRESENTATION_TIME_NUMERATOR_OFFSET);
+        aPacket->packet + SKELETON_PRESENTATION_TIME_NUMERATOR_OFFSET);
     int64_t d = LittleEndian::readInt64(
-      aPacket->packet + SKELETON_PRESENTATION_TIME_DENOMINATOR_OFFSET);
+        aPacket->packet + SKELETON_PRESENTATION_TIME_DENOMINATOR_OFFSET);
     mPresentationTime =
-      d == 0 ? 0
-             : (static_cast<float>(n) / static_cast<float>(d)) * USECS_PER_S;
+        d == 0 ? 0
+               : (static_cast<float>(n) / static_cast<float>(d)) * USECS_PER_S;
 
     mVersion = SKELETON_VERSION(verMajor, verMinor);
     // We can only care to parse Skeleton version 4.0+.
-    if (mVersion < SKELETON_VERSION(4,0) ||
-        mVersion >= SKELETON_VERSION(5,0) ||
+    if (mVersion < SKELETON_VERSION(4, 0) ||
+        mVersion >= SKELETON_VERSION(5, 0) ||
         aPacket->bytes < SKELETON_4_0_MIN_HEADER_LEN) {
       return false;
     }
 
     // Extract the segment length.
     mLength =
-      LittleEndian::readInt64(aPacket->packet + SKELETON_FILE_LENGTH_OFFSET);
+        LittleEndian::readInt64(aPacket->packet + SKELETON_FILE_LENGTH_OFFSET);
 
     LOG(LogLevel::Debug, ("Skeleton segment length: %" PRId64, mLength));
 
     // Initialize the serialno-to-index map.
     return true;
-  } else if (IsSkeletonIndex(aPacket.get()) && mVersion >= SKELETON_VERSION(4,0)) {
+  } else if (IsSkeletonIndex(aPacket.get()) &&
+             mVersion >= SKELETON_VERSION(4, 0)) {
     return DecodeIndex(aPacket.get());
   } else if (IsSkeletonFisbone(aPacket.get())) {
     return DecodeFisbone(aPacket.get());
@@ -1873,5 +1853,4 @@ SkeletonState::DecodeHeader(OggPacketPtr aPacket)
   return true;
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

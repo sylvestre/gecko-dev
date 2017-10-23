@@ -16,8 +16,9 @@
 #include "nsSVGString.h"
 #include "SVGAnimatedNumberList.h"
 
-nsresult NS_NewSVGFEConvolveMatrixElement(nsIContent **aResult,
-                                          already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGFEConvolveMatrixElement(
+    nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 class DOMSVGAnimatedNumberList;
@@ -29,27 +30,36 @@ typedef nsSVGFE SVGFEConvolveMatrixElementBase;
 
 class SVGFEConvolveMatrixElement : public SVGFEConvolveMatrixElementBase
 {
-  friend nsresult (::NS_NewSVGFEConvolveMatrixElement(nsIContent **aResult,
-                                                      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
-protected:
-  explicit SVGFEConvolveMatrixElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGFEConvolveMatrixElementBase(aNodeInfo)
+  friend nsresult(::NS_NewSVGFEConvolveMatrixElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+
+ protected:
+  explicit SVGFEConvolveMatrixElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGFEConvolveMatrixElementBase(aNodeInfo)
   {
   }
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
-  virtual FilterPrimitiveDescription
-    GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                            const IntRect& aFilterSubregion,
-                            const nsTArray<bool>& aInputsAreTainted,
-                            nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override { return mStringAttributes[RESULT]; }
-  virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources) override;
+ public:
+  virtual FilterPrimitiveDescription GetPrimitiveDescription(
+      nsSVGFilterInstance* aInstance,
+      const IntRect& aFilterSubregion,
+      const nsTArray<bool>& aInputsAreTainted,
+      nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const override;
+  virtual nsSVGString& GetResultImageName() override
+  {
+    return mStringAttributes[RESULT];
+  }
+  virtual void GetSourceImageNames(
+      nsTArray<nsSVGStringInfo>& aSources) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL
@@ -66,7 +76,7 @@ public:
   already_AddRefed<SVGAnimatedNumber> KernelUnitLengthX();
   already_AddRefed<SVGAnimatedNumber> KernelUnitLengthY();
 
-protected:
+ protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
   virtual NumberPairAttributesInfo GetNumberPairInfo() override;
   virtual IntegerAttributesInfo GetIntegerInfo() override;
@@ -76,41 +86,68 @@ protected:
   virtual StringAttributesInfo GetStringInfo() override;
   virtual NumberListAttributesInfo GetNumberListInfo() override;
 
-  enum { DIVISOR, BIAS };
+  enum
+  {
+    DIVISOR,
+    BIAS
+  };
   nsSVGNumber2 mNumberAttributes[2];
   static NumberInfo sNumberInfo[2];
 
-  enum { KERNEL_UNIT_LENGTH };
+  enum
+  {
+    KERNEL_UNIT_LENGTH
+  };
   nsSVGNumberPair mNumberPairAttributes[1];
   static NumberPairInfo sNumberPairInfo[1];
 
-  enum { TARGET_X, TARGET_Y };
+  enum
+  {
+    TARGET_X,
+    TARGET_Y
+  };
   nsSVGInteger mIntegerAttributes[2];
   static IntegerInfo sIntegerInfo[2];
 
-  enum { ORDER };
+  enum
+  {
+    ORDER
+  };
   nsSVGIntegerPair mIntegerPairAttributes[1];
   static IntegerPairInfo sIntegerPairInfo[1];
 
-  enum { PRESERVEALPHA };
+  enum
+  {
+    PRESERVEALPHA
+  };
   nsSVGBoolean mBooleanAttributes[1];
   static BooleanInfo sBooleanInfo[1];
 
-  enum { EDGEMODE };
+  enum
+  {
+    EDGEMODE
+  };
   nsSVGEnum mEnumAttributes[1];
   static nsSVGEnumMapping sEdgeModeMap[];
   static EnumInfo sEnumInfo[1];
 
-  enum { RESULT, IN1 };
+  enum
+  {
+    RESULT,
+    IN1
+  };
   nsSVGString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
-  enum { KERNELMATRIX };
+  enum
+  {
+    KERNELMATRIX
+  };
   SVGAnimatedNumberList mNumberListAttributes[1];
   static NumberListInfo sNumberListInfo[1];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGFEConvolveMatrixElement_h
+#endif  // mozilla_dom_SVGFEConvolveMatrixElement_h

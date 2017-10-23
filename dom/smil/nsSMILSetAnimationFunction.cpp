@@ -16,13 +16,10 @@ nsSMILSetAnimationFunction::IsDisallowedAttribute(
   //                         by) -- BUT has 'to'
   //   AnimationAddition.attrib(additive, accumulate)
   //
-  if (aAttribute == nsGkAtoms::calcMode ||
-      aAttribute == nsGkAtoms::values ||
+  if (aAttribute == nsGkAtoms::calcMode || aAttribute == nsGkAtoms::values ||
       aAttribute == nsGkAtoms::keyTimes ||
-      aAttribute == nsGkAtoms::keySplines ||
-      aAttribute == nsGkAtoms::from ||
-      aAttribute == nsGkAtoms::by ||
-      aAttribute == nsGkAtoms::additive ||
+      aAttribute == nsGkAtoms::keySplines || aAttribute == nsGkAtoms::from ||
+      aAttribute == nsGkAtoms::by || aAttribute == nsGkAtoms::additive ||
       aAttribute == nsGkAtoms::accumulate) {
     return true;
   }
@@ -52,8 +49,8 @@ nsSMILSetAnimationFunction::SetAttr(nsAtom* aAttribute,
     return true;
   }
 
-  return nsSMILAnimationFunction::SetAttr(aAttribute, aValue,
-                                          aResult, aParseResult);
+  return nsSMILAnimationFunction::SetAttr(
+      aAttribute, aValue, aResult, aParseResult);
 }
 
 bool
@@ -69,8 +66,7 @@ nsSMILSetAnimationFunction::UnsetAttr(nsAtom* aAttribute)
 bool
 nsSMILSetAnimationFunction::HasAttr(nsAtom* aAttName) const
 {
-  if (IsDisallowedAttribute(aAttName))
-    return false;
+  if (IsDisallowedAttribute(aAttName)) return false;
 
   return nsSMILAnimationFunction::HasAttr(aAttName);
 }
@@ -78,18 +74,15 @@ nsSMILSetAnimationFunction::HasAttr(nsAtom* aAttName) const
 const nsAttrValue*
 nsSMILSetAnimationFunction::GetAttr(nsAtom* aAttName) const
 {
-  if (IsDisallowedAttribute(aAttName))
-    return nullptr;
+  if (IsDisallowedAttribute(aAttName)) return nullptr;
 
   return nsSMILAnimationFunction::GetAttr(aAttName);
 }
 
 bool
-nsSMILSetAnimationFunction::GetAttr(nsAtom* aAttName,
-                                    nsAString& aResult) const
+nsSMILSetAnimationFunction::GetAttr(nsAtom* aAttName, nsAString& aResult) const
 {
-  if (IsDisallowedAttribute(aAttName))
-    return false;
+  if (IsDisallowedAttribute(aAttName)) return false;
 
   return nsSMILAnimationFunction::GetAttr(aAttName, aResult);
 }

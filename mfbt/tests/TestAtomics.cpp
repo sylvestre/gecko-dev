@@ -15,9 +15,9 @@ using mozilla::Relaxed;
 using mozilla::ReleaseAcquire;
 using mozilla::SequentiallyConsistent;
 
-#define A(a,b)  MOZ_RELEASE_ASSERT(a,b)
+#define A(a, b) MOZ_RELEASE_ASSERT(a, b)
 
-template <typename T, MemoryOrdering Order>
+template<typename T, MemoryOrdering Order>
 static void
 TestTypeWithOrdering()
 {
@@ -197,7 +197,8 @@ TestEnumClassWithOrdering()
 
   // Test CAS.
   atomic = EnumClass::Value1;
-  bool boolResult = atomic.compareExchange(EnumClass::Value0, EnumClass::Value2);
+  bool boolResult =
+      atomic.compareExchange(EnumClass::Value0, EnumClass::Value2);
   A(!boolResult, "CAS should have returned false.");
   A(atomic == EnumClass::Value1, "CAS shouldn't have done anything.");
 
@@ -206,7 +207,7 @@ TestEnumClassWithOrdering()
   A(atomic == EnumClass::Value3, "CAS should have changed atomic's value.");
 }
 
-template <MemoryOrdering Order>
+template<MemoryOrdering Order>
 static void
 TestBoolWithOrdering()
 {
@@ -236,7 +237,7 @@ TestBoolWithOrdering()
   A(atomic == true, "CAS should have changed atomic's value.");
 }
 
-template <typename T>
+template<typename T>
 static void
 TestType()
 {

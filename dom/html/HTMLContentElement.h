@@ -20,8 +20,9 @@ class DistributedContentList;
 
 class HTMLContentElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLContentElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLContentElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -33,12 +34,14 @@ public:
 
   virtual bool IsHTMLContentElement() const override { return true; }
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   virtual nsIDOMNode* AsDOMNode() override { return this; }
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
 
@@ -68,10 +71,11 @@ public:
     Element::SetAttr(kNameSpaceID_None, nsGkAtoms::select, aSelect, true);
   }
 
-protected:
+ protected:
   virtual ~HTMLContentElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   /**
    * Updates the destination insertion points of the fallback
@@ -82,7 +86,8 @@ protected:
    */
   void UpdateFallbackDistribution();
 
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -101,7 +106,7 @@ protected:
 
 class DistributedContentList : public nsINodeList
 {
-public:
+ public:
   explicit DistributedContentList(HTMLContentElement* aHostElement);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -114,15 +119,16 @@ public:
   virtual nsIContent* Item(uint32_t aIndex) override;
   virtual int32_t IndexOf(nsIContent* aContent) override;
   virtual nsINode* GetParentObject() override { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-protected:
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+ protected:
   virtual ~DistributedContentList();
   RefPtr<HTMLContentElement> mParent;
   nsCOMArray<nsIContent> mDistributedNodes;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLContentElement_h__
-
+#endif  // mozilla_dom_HTMLContentElement_h__

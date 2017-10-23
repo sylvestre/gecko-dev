@@ -19,7 +19,8 @@ OutputStreamData::~OutputStreamData()
 }
 
 void
-OutputStreamData::Init(OutputStreamManager* aOwner, ProcessedMediaStream* aStream)
+OutputStreamData::Init(OutputStreamManager* aOwner,
+                       ProcessedMediaStream* aStream)
 {
   mOwner = aOwner;
   mStream = aStream;
@@ -131,4 +132,4 @@ OutputStreamManager::Disconnect()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -9,9 +9,7 @@
 namespace mozilla {
 namespace dom {
 
-SessionStorageCache::SessionStorageCache()
-  : mSessionDataSetActive(false)
-{}
+SessionStorageCache::SessionStorageCache() : mSessionDataSetActive(false) {}
 
 SessionStorageCache::DataSet*
 SessionStorageCache::Set(DataSetType aDataSetType)
@@ -48,7 +46,8 @@ SessionStorageCache::Length(DataSetType aDataSetType)
 }
 
 void
-SessionStorageCache::Key(DataSetType aDataSetType, uint32_t aIndex,
+SessionStorageCache::Key(DataSetType aDataSetType,
+                         uint32_t aIndex,
                          nsAString& aResult)
 {
   aResult.SetIsVoid(true);
@@ -62,7 +61,8 @@ SessionStorageCache::Key(DataSetType aDataSetType, uint32_t aIndex,
 }
 
 void
-SessionStorageCache::GetItem(DataSetType aDataSetType, const nsAString& aKey,
+SessionStorageCache::GetItem(DataSetType aDataSetType,
+                             const nsAString& aKey,
                              nsAString& aResult)
 {
   // not using AutoString since we don't want to copy buffer to result
@@ -74,7 +74,8 @@ SessionStorageCache::GetItem(DataSetType aDataSetType, const nsAString& aKey,
 }
 
 void
-SessionStorageCache::GetKeys(DataSetType aDataSetType, nsTArray<nsString>& aKeys)
+SessionStorageCache::GetKeys(DataSetType aDataSetType,
+                             nsTArray<nsString>& aKeys)
 {
   for (auto iter = Set(aDataSetType)->mKeys.Iter(); !iter.Done(); iter.Next()) {
     aKeys.AppendElement(iter.Key());
@@ -82,8 +83,10 @@ SessionStorageCache::GetKeys(DataSetType aDataSetType, nsTArray<nsString>& aKeys
 }
 
 nsresult
-SessionStorageCache::SetItem(DataSetType aDataSetType, const nsAString& aKey,
-                             const nsAString& aValue, nsString& aOldValue)
+SessionStorageCache::SetItem(DataSetType aDataSetType,
+                             const nsAString& aKey,
+                             const nsAString& aValue,
+                             nsString& aOldValue)
 {
   int64_t delta = 0;
   DataSet* dataSet = Set(aDataSetType);
@@ -112,7 +115,8 @@ SessionStorageCache::SetItem(DataSetType aDataSetType, const nsAString& aKey,
 }
 
 nsresult
-SessionStorageCache::RemoveItem(DataSetType aDataSetType, const nsAString& aKey,
+SessionStorageCache::RemoveItem(DataSetType aDataSetType,
+                                const nsAString& aKey,
                                 nsString& aOldValue)
 {
   DataSet* dataSet = Set(aDataSetType);
@@ -175,5 +179,5 @@ SessionStorageCache::DataSet::ProcessUsageDelta(int64_t aDelta)
   return true;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

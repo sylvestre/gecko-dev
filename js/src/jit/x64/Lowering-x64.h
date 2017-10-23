@@ -12,14 +12,12 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorX64 : public LIRGeneratorX86Shared
-{
-  public:
+class LIRGeneratorX64 : public LIRGeneratorX86Shared {
+   public:
     LIRGeneratorX64(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorX86Shared(gen, graph, lirGraph)
-    { }
+        : LIRGeneratorX86Shared(gen, graph, lirGraph) {}
 
-  protected:
+   protected:
     void lowerUntypedPhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block, size_t lirIndex);
     void defineUntypedPhi(MPhi* phi, size_t lirIndex);
     void lowerInt64PhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block, size_t lirIndex);
@@ -48,7 +46,7 @@ class LIRGeneratorX64 : public LIRGeneratorX86Shared
     void lowerUDivI64(MDiv* div);
     void lowerUModI64(MMod* mod);
 
-  public:
+   public:
     void visitBox(MBox* box);
     void visitUnbox(MUnbox* unbox);
     void visitReturn(MReturn* ret);
@@ -75,7 +73,7 @@ class LIRGeneratorX64 : public LIRGeneratorX86Shared
 
 typedef LIRGeneratorX64 LIRGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x64_Lowering_x64_h */

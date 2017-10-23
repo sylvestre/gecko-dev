@@ -16,24 +16,24 @@
 namespace mozilla {
 
 class WebBrowserPersistSerializeChild final
-    : public PWebBrowserPersistSerializeChild
-    , public nsIWebBrowserPersistWriteCompletion
-    , public nsIWebBrowserPersistURIMap
-    , public nsIOutputStream
+    : public PWebBrowserPersistSerializeChild,
+      public nsIWebBrowserPersistWriteCompletion,
+      public nsIWebBrowserPersistURIMap,
+      public nsIOutputStream
 {
-public:
-    explicit WebBrowserPersistSerializeChild(const WebBrowserPersistURIMap& aMap);
+ public:
+  explicit WebBrowserPersistSerializeChild(const WebBrowserPersistURIMap& aMap);
 
-    NS_DECL_NSIWEBBROWSERPERSISTWRITECOMPLETION
-    NS_DECL_NSIWEBBROWSERPERSISTURIMAP
-    NS_DECL_NSIOUTPUTSTREAM
-    NS_DECL_ISUPPORTS
-private:
-    WebBrowserPersistURIMap mMap;
+  NS_DECL_NSIWEBBROWSERPERSISTWRITECOMPLETION
+  NS_DECL_NSIWEBBROWSERPERSISTURIMAP
+  NS_DECL_NSIOUTPUTSTREAM
+  NS_DECL_ISUPPORTS
+ private:
+  WebBrowserPersistURIMap mMap;
 
-    virtual ~WebBrowserPersistSerializeChild();
+  virtual ~WebBrowserPersistSerializeChild();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // WebBrowserPersistSerializeChild_h__
+#endif  // WebBrowserPersistSerializeChild_h__

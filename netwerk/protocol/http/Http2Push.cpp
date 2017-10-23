@@ -23,16 +23,17 @@
 namespace mozilla {
 namespace net {
 
-class CallChannelOnPush final : public Runnable {
-  public:
-    CallChannelOnPush(nsIHttpChannelInternal* associatedChannel,
-                      const nsACString& pushedURI,
-                      Http2PushedStream* pushStream)
-      : Runnable("net::CallChannelOnPush")
-      , mAssociatedChannel(associatedChannel)
-      , mPushedURI(pushedURI)
-      , mPushedStream(pushStream)
-    {
+class CallChannelOnPush final : public Runnable
+{
+ public:
+  CallChannelOnPush(nsIHttpChannelInternal* associatedChannel,
+                    const nsACString& pushedURI,
+                    Http2PushedStream* pushStream)
+      : Runnable("net::CallChannelOnPush"),
+        mAssociatedChannel(associatedChannel),
+        mPushedURI(pushedURI),
+        mPushedStream(pushStream)
+  {
   }
 
   NS_IMETHOD Run() override
@@ -50,34 +51,36 @@ class CallChannelOnPush final : public Runnable {
     return NS_OK;
   }
 
-private:
+ private:
   nsCOMPtr<nsIHttpChannelInternal> mAssociatedChannel;
   const nsCString mPushedURI;
-  Http2PushedStream *mPushedStream;
+  Http2PushedStream* mPushedStream;
 };
 
 //////////////////////////////////////////
 // Http2PushedStream
 //////////////////////////////////////////
 
-Http2PushedStream::Http2PushedStream(Http2PushTransactionBuffer *aTransaction,
-                                     Http2Session *aSession,
-                                     Http2Stream *aAssociatedStream,
-                                     uint32_t aID,
-                                     uint64_t aCurrentForegroundTabOuterContentWindowId)
-  :Http2Stream(aTransaction, aSession, 0, aCurrentForegroundTabOuterContentWindowId)
-  , mConsumerStream(nullptr)
-  , mAssociatedTransaction(aAssociatedStream->Transaction())
-  , mBufferedPush(aTransaction)
-  , mStatus(NS_OK)
-  , mPushCompleted(false)
-  , mDeferCleanupOnSuccess(true)
-  , mDeferCleanupOnPush(false)
-  , mOnPushFailed(false)
+Http2PushedStream::Http2PushedStream(
+    Http2PushTransactionBuffer* aTransaction,
+    Http2Session* aSession,
+    Http2Stream* aAssociatedStream,
+    uint32_t aID,
+    uint64_t aCurrentForegroundTabOuterContentWindowId)
+    : Http2Stream(
+          aTransaction, aSession, 0, aCurrentForegroundTabOuterContentWindowId),
+      mConsumerStream(nullptr),
+      mAssociatedTransaction(aAssociatedStream->Transaction()),
+      mBufferedPush(aTransaction),
+      mStatus(NS_OK),
+      mPushCompleted(false),
+      mDeferCleanupOnSuccess(true),
+      mDeferCleanupOnPush(false),
+      mOnPushFailed(false)
 {
   LOG3(("Http2PushedStream ctor this=%p 0x%X\n", this, aID));
   mStreamID = aID;
-  MOZ_ASSERT(!(aID & 1)); // must be even to be a pushed stream
+  MOZ_ASSERT(!(aID & 1));  // must be even to be a pushed stream
   mBufferedPush->SetPushStream(this);
   mRequestContext = aAssociatedStream->RequestContext();
   mLastRead = TimeStamp::Now();
@@ -91,8 +94,9 @@ Http2PushedStream::GetPushComplete()
 }
 
 nsresult
-Http2PushedStream::WriteSegments(nsAHttpSegmentWriter *writer,
-                                 uint32_t count, uint32_t *countWritten)
+Http2PushedStream::WriteSegments(nsAHttpSegmentWriter* writer,
+                                 uint32_t count,
+                                 uint32_t* countWritten)
 {
   nsresult rv = Http2Stream::WriteSegments(writer, count, countWritten);
   if (NS_SUCCEEDED(rv) && *countWritten) {
@@ -101,35 +105,40 @@ Http2PushedStream::WriteSegments(nsAHttpSegmentWriter *writer,
 
   if (rv == NS_BASE_STREAM_CLOSED) {
     mPushCompleted = true;
-    rv = NS_OK; // this is what a normal HTTP transaction would do
+    rv = NS_OK;  // this is what a normal HTTP transaction would do
   }
-  if (rv != NS_BASE_STREAM_WOULD_BLOCK && NS_FAILED(rv))
-    mStatus = rv;
+  if (rv != NS_BASE_STREAM_WOULD_BLOCK && NS_FAILED(rv)) mStatus = rv;
   return rv;
 }
 
 bool
 Http2PushedStream::DeferCleanup(nsresult status)
 {
-  LOG3(("Http2PushedStream::DeferCleanup Query %p %" PRIx32 "\n", this,
+  LOG3(("Http2PushedStream::DeferCleanup Query %p %" PRIx32 "\n",
+        this,
         static_cast<uint32_t>(status)));
 
   if (NS_SUCCEEDED(status) && mDeferCleanupOnSuccess) {
-    LOG3(("Http2PushedStream::DeferCleanup %p %" PRIx32 " defer on success\n", this,
+    LOG3(("Http2PushedStream::DeferCleanup %p %" PRIx32 " defer on success\n",
+          this,
           static_cast<uint32_t>(status)));
     return true;
   }
   if (mDeferCleanupOnPush) {
-    LOG3(("Http2PushedStream::DeferCleanup %p %" PRIx32 " defer onPush ref\n", this,
+    LOG3(("Http2PushedStream::DeferCleanup %p %" PRIx32 " defer onPush ref\n",
+          this,
           static_cast<uint32_t>(status)));
     return true;
   }
   if (mConsumerStream) {
-    LOG3(("Http2PushedStream::DeferCleanup %p %" PRIx32 " defer active consumer\n", this,
+    LOG3(("Http2PushedStream::DeferCleanup %p %" PRIx32
+          " defer active consumer\n",
+          this,
           static_cast<uint32_t>(status)));
     return true;
   }
-  LOG3(("Http2PushedStream::DeferCleanup Query %p %" PRIx32 " not deferred\n", this,
+  LOG3(("Http2PushedStream::DeferCleanup Query %p %" PRIx32 " not deferred\n",
+        this,
         static_cast<uint32_t>(status)));
   return false;
 }
@@ -138,12 +147,13 @@ Http2PushedStream::DeferCleanup(nsresult status)
 bool
 Http2PushedStream::TryOnPush()
 {
-  nsHttpTransaction *trans = mAssociatedTransaction->QueryHttpTransaction();
+  nsHttpTransaction* trans = mAssociatedTransaction->QueryHttpTransaction();
   if (!trans) {
     return false;
   }
 
-  nsCOMPtr<nsIHttpChannelInternal> associatedChannel = do_QueryInterface(trans->HttpChannel());
+  nsCOMPtr<nsIHttpChannelInternal> associatedChannel =
+      do_QueryInterface(trans->HttpChannel());
   if (!associatedChannel) {
     return false;
   }
@@ -160,20 +170,21 @@ Http2PushedStream::TryOnPush()
 
 // side effect free static method to determine if Http2Stream implements nsIHttpPushListener
 bool
-Http2PushedStream::TestOnPush(Http2Stream *stream)
+Http2PushedStream::TestOnPush(Http2Stream* stream)
 {
   if (!stream) {
     return false;
   }
-  nsAHttpTransaction *abstractTransaction = stream->Transaction();
+  nsAHttpTransaction* abstractTransaction = stream->Transaction();
   if (!abstractTransaction) {
     return false;
   }
-  nsHttpTransaction *trans = abstractTransaction->QueryHttpTransaction();
+  nsHttpTransaction* trans = abstractTransaction->QueryHttpTransaction();
   if (!trans) {
     return false;
   }
-  nsCOMPtr<nsIHttpChannelInternal> associatedChannel = do_QueryInterface(trans->HttpChannel());
+  nsCOMPtr<nsIHttpChannelInternal> associatedChannel =
+      do_QueryInterface(trans->HttpChannel());
   if (!associatedChannel) {
     return false;
   }
@@ -181,46 +192,51 @@ Http2PushedStream::TestOnPush(Http2Stream *stream)
 }
 
 nsresult
-Http2PushedStream::ReadSegments(nsAHttpSegmentReader *reader,
-                                uint32_t, uint32_t *count)
+Http2PushedStream::ReadSegments(nsAHttpSegmentReader* reader,
+                                uint32_t,
+                                uint32_t* count)
 {
   nsresult rv = NS_OK;
   *count = 0;
 
   mozilla::OriginAttributes originAttributes;
   switch (mUpstreamState) {
-  case GENERATING_HEADERS:
-    // The request headers for this has been processed, so we need to verify
-    // that :authority, :scheme, and :path MUST be present. :method MUST NOT be
-    // present
-    mSocketTransport->GetOriginAttributes(&originAttributes);
-    CreatePushHashKey(mHeaderScheme, mHeaderHost, originAttributes,
-                      mSession->Serial(), mHeaderPath,
-                      mOrigin, mHashKey);
+    case GENERATING_HEADERS:
+      // The request headers for this has been processed, so we need to verify
+      // that :authority, :scheme, and :path MUST be present. :method MUST NOT be
+      // present
+      mSocketTransport->GetOriginAttributes(&originAttributes);
+      CreatePushHashKey(mHeaderScheme,
+                        mHeaderHost,
+                        originAttributes,
+                        mSession->Serial(),
+                        mHeaderPath,
+                        mOrigin,
+                        mHashKey);
 
-    LOG3(("Http2PushStream 0x%X hash key %s\n", mStreamID, mHashKey.get()));
+      LOG3(("Http2PushStream 0x%X hash key %s\n", mStreamID, mHashKey.get()));
 
-    // the write side of a pushed transaction just involves manipulating a little state
-    SetSentFin(true);
-    Http2Stream::mRequestHeadersDone = 1;
-    Http2Stream::mOpenGenerated = 1;
-    Http2Stream::ChangeState(UPSTREAM_COMPLETE);
-    break;
+      // the write side of a pushed transaction just involves manipulating a little state
+      SetSentFin(true);
+      Http2Stream::mRequestHeadersDone = 1;
+      Http2Stream::mOpenGenerated = 1;
+      Http2Stream::ChangeState(UPSTREAM_COMPLETE);
+      break;
 
-  case UPSTREAM_COMPLETE:
-    // Let's just clear the stream's transmit buffer by pushing it into
-    // the session. This is probably a window adjustment.
-    LOG3(("Http2Push::ReadSegments 0x%X \n", mStreamID));
-    mSegmentReader = reader;
-    rv = TransmitFrame(nullptr, nullptr, true);
-    mSegmentReader = nullptr;
-    break;
+    case UPSTREAM_COMPLETE:
+      // Let's just clear the stream's transmit buffer by pushing it into
+      // the session. This is probably a window adjustment.
+      LOG3(("Http2Push::ReadSegments 0x%X \n", mStreamID));
+      mSegmentReader = reader;
+      rv = TransmitFrame(nullptr, nullptr, true);
+      mSegmentReader = nullptr;
+      break;
 
-  case GENERATING_BODY:
-  case SENDING_BODY:
-  case SENDING_FIN_STREAM:
-  default:
-    break;
+    case GENERATING_BODY:
+    case SENDING_BODY:
+    case SENDING_FIN_STREAM:
+    default:
+      break;
   }
 
   return rv;
@@ -231,9 +247,13 @@ Http2PushedStream::AdjustInitialWindow()
 {
   LOG3(("Http2PushStream %p 0x%X AdjustInitialWindow", this, mStreamID));
   if (mConsumerStream) {
-    LOG3(("Http2PushStream::AdjustInitialWindow %p 0x%X "
-          "calling super consumer %p 0x%X\n", this,
-          mStreamID, mConsumerStream, mConsumerStream->StreamID()));
+    LOG3(
+        ("Http2PushStream::AdjustInitialWindow %p 0x%X "
+         "calling super consumer %p 0x%X\n",
+         this,
+         mStreamID,
+         mConsumerStream,
+         mConsumerStream->StreamID()));
     Http2Stream::AdjustInitialWindow();
     // Http2PushedStream::ReadSegments is needed to call TransmitFrame()
     // and actually get this information into the session bytestream
@@ -244,24 +264,23 @@ Http2PushedStream::AdjustInitialWindow()
 }
 
 void
-Http2PushedStream::SetConsumerStream(Http2Stream *consumer)
+Http2PushedStream::SetConsumerStream(Http2Stream* consumer)
 {
   mConsumerStream = consumer;
   mDeferCleanupOnPush = false;
 }
 
 bool
-Http2PushedStream::GetHashKey(nsCString &key)
+Http2PushedStream::GetHashKey(nsCString& key)
 {
-  if (mHashKey.IsEmpty())
-    return false;
+  if (mHashKey.IsEmpty()) return false;
 
   key = mHashKey;
   return true;
 }
 
 void
-Http2PushedStream::ConnectPushedStream(Http2Stream *stream)
+Http2PushedStream::ConnectPushedStream(Http2Stream* stream)
 {
   mSession->ConnectPushedStream(stream);
 }
@@ -285,21 +304,21 @@ Http2PushedStream::IsOrphaned(TimeStamp now)
   bool rv = ((now - mLastRead).ToSeconds() > 30.0);
   if (rv) {
     LOG3(("Http2PushedStream:IsOrphaned 0x%X IsOrphaned %3.2f\n",
-          mStreamID, (now - mLastRead).ToSeconds()));
+          mStreamID,
+          (now - mLastRead).ToSeconds()));
   }
   return rv;
 }
 
 nsresult
-Http2PushedStream::GetBufferedData(char *buf,
-                                   uint32_t count, uint32_t *countWritten)
+Http2PushedStream::GetBufferedData(char* buf,
+                                   uint32_t count,
+                                   uint32_t* countWritten)
 {
-  if (NS_FAILED(mStatus))
-    return mStatus;
+  if (NS_FAILED(mStatus)) return mStatus;
 
   nsresult rv = mBufferedPush->GetBufferedData(buf, count, countWritten);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   if (!*countWritten)
     rv = GetPushComplete() ? NS_BASE_STREAM_CLOSED : NS_BASE_STREAM_WOULD_BLOCK;
@@ -316,13 +335,13 @@ Http2PushedStream::GetBufferedData(char *buf,
 NS_IMPL_ISUPPORTS0(Http2PushTransactionBuffer)
 
 Http2PushTransactionBuffer::Http2PushTransactionBuffer()
-  : mStatus(NS_OK)
-  , mRequestHead(nullptr)
-  , mPushStream(nullptr)
-  , mIsDone(false)
-  , mBufferedHTTP1Size(kDefaultBufferSize)
-  , mBufferedHTTP1Used(0)
-  , mBufferedHTTP1Consumed(0)
+    : mStatus(NS_OK),
+      mRequestHead(nullptr),
+      mPushStream(nullptr),
+      mIsDone(false),
+      mBufferedHTTP1Size(kDefaultBufferSize),
+      mBufferedHTTP1Used(0),
+      mBufferedHTTP1Consumed(0)
 {
   mBufferedHTTP1 = MakeUnique<char[]>(mBufferedHTTP1Size);
 }
@@ -333,29 +352,30 @@ Http2PushTransactionBuffer::~Http2PushTransactionBuffer()
 }
 
 void
-Http2PushTransactionBuffer::SetConnection(nsAHttpConnection *conn)
+Http2PushTransactionBuffer::SetConnection(nsAHttpConnection* conn)
 {
 }
 
-nsAHttpConnection *
+nsAHttpConnection*
 Http2PushTransactionBuffer::Connection()
 {
   return nullptr;
 }
 
 void
-Http2PushTransactionBuffer::GetSecurityCallbacks(nsIInterfaceRequestor **outCB)
+Http2PushTransactionBuffer::GetSecurityCallbacks(nsIInterfaceRequestor** outCB)
 {
   *outCB = nullptr;
 }
 
 void
 Http2PushTransactionBuffer::OnTransportStatus(nsITransport* transport,
-                                              nsresult status, int64_t progress)
+                                              nsresult status,
+                                              int64_t progress)
 {
 }
 
-nsHttpConnectionInfo *
+nsHttpConnectionInfo*
 Http2PushTransactionBuffer::ConnectionInfo()
 {
   if (!mPushStream) {
@@ -398,39 +418,45 @@ Http2PushTransactionBuffer::Available()
 }
 
 nsresult
-Http2PushTransactionBuffer::ReadSegments(nsAHttpSegmentReader *reader,
-                                         uint32_t count, uint32_t *countRead)
+Http2PushTransactionBuffer::ReadSegments(nsAHttpSegmentReader* reader,
+                                         uint32_t count,
+                                         uint32_t* countRead)
 {
   *countRead = 0;
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 nsresult
-Http2PushTransactionBuffer::WriteSegments(nsAHttpSegmentWriter *writer,
-                                          uint32_t count, uint32_t *countWritten)
+Http2PushTransactionBuffer::WriteSegments(nsAHttpSegmentWriter* writer,
+                                          uint32_t count,
+                                          uint32_t* countWritten)
 {
   if ((mBufferedHTTP1Size - mBufferedHTTP1Used) < 20480) {
-    EnsureBuffer(mBufferedHTTP1,mBufferedHTTP1Size + kDefaultBufferSize,
-                 mBufferedHTTP1Used, mBufferedHTTP1Size);
+    EnsureBuffer(mBufferedHTTP1,
+                 mBufferedHTTP1Size + kDefaultBufferSize,
+                 mBufferedHTTP1Used,
+                 mBufferedHTTP1Size);
   }
 
   count = std::min(count, mBufferedHTTP1Size - mBufferedHTTP1Used);
-  nsresult rv = writer->OnWriteSegment(&mBufferedHTTP1[mBufferedHTTP1Used],
-                                       count, countWritten);
+  nsresult rv = writer->OnWriteSegment(
+      &mBufferedHTTP1[mBufferedHTTP1Used], count, countWritten);
   if (NS_SUCCEEDED(rv)) {
     mBufferedHTTP1Used += *countWritten;
-  }
-  else if (rv == NS_BASE_STREAM_CLOSED) {
+  } else if (rv == NS_BASE_STREAM_CLOSED) {
     mIsDone = true;
   }
 
   if (Available() || mIsDone) {
-    Http2Stream *consumer = mPushStream->GetConsumerStream();
+    Http2Stream* consumer = mPushStream->GetConsumerStream();
 
     if (consumer) {
-      LOG3(("Http2PushTransactionBuffer::WriteSegments notifying connection "
-            "consumer data available 0x%X [%" PRIu64 "] done=%d\n",
-            mPushStream->StreamID(), Available(), mIsDone));
+      LOG3(
+          ("Http2PushTransactionBuffer::WriteSegments notifying connection "
+           "consumer data available 0x%X [%" PRIu64 "] done=%d\n",
+           mPushStream->StreamID(),
+           Available(),
+           mIsDone));
       mPushStream->ConnectPushedStream(consumer);
     }
   }
@@ -444,17 +470,16 @@ Http2PushTransactionBuffer::Http1xTransactionCount()
   return 0;
 }
 
-nsHttpRequestHead *
+nsHttpRequestHead*
 Http2PushTransactionBuffer::RequestHead()
 {
-  if (!mRequestHead)
-    mRequestHead = new nsHttpRequestHead();
+  if (!mRequestHead) mRequestHead = new nsHttpRequestHead();
   return mRequestHead;
 }
 
 nsresult
 Http2PushTransactionBuffer::TakeSubTransactions(
-  nsTArray<RefPtr<nsAHttpTransaction> > &outTransactions)
+    nsTArray<RefPtr<nsAHttpTransaction> >& outTransactions)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -472,9 +497,9 @@ Http2PushTransactionBuffer::Close(nsresult reason)
 }
 
 nsresult
-Http2PushTransactionBuffer::GetBufferedData(char *buf,
+Http2PushTransactionBuffer::GetBufferedData(char* buf,
                                             uint32_t count,
-                                            uint32_t *countWritten)
+                                            uint32_t* countWritten)
 {
   *countWritten = std::min(count, static_cast<uint32_t>(Available()));
   if (*countWritten) {
@@ -491,5 +516,5 @@ Http2PushTransactionBuffer::GetBufferedData(char *buf,
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

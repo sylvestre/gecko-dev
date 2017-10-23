@@ -18,4 +18,4 @@ MediaStreamVideoSink::NotifyRealtimeTrackData(MediaStreamGraph* aGraph,
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -44,8 +44,9 @@
  */
 
 // Forward decl because of nsHTMLDocument.h's complex dependency on /layout/style
-class nsHTMLDocument {
-public:
+class nsHTMLDocument
+{
+ public:
   bool IsRegistrableDomainSuffixOfOrEqualTo(const nsAString& aHostSuffixString,
                                             const nsACString& aOrigHost);
 };
@@ -63,16 +64,17 @@ class WebAuthnTransactionChild;
 
 class WebAuthnTransaction
 {
-public:
+ public:
   WebAuthnTransaction(nsPIDOMWindowInner* aParent,
                       const RefPtr<Promise>& aPromise,
                       const WebAuthnTransactionInfo&& aInfo,
                       const nsAutoCString&& aClientData)
-    : mParent(aParent)
-    , mPromise(aPromise)
-    , mInfo(aInfo)
-    , mClientData(aClientData)
-  { }
+      : mParent(aParent),
+        mPromise(aPromise),
+        mInfo(aInfo),
+        mClientData(aClientData)
+  {
+  }
 
   // Parent of the context we're running the transaction in.
   nsCOMPtr<nsPIDOMWindowInner> mParent;
@@ -91,7 +93,7 @@ public:
 class WebAuthnManager final : public nsIIPCBackgroundChildCreateCallback,
                               public nsIDOMEventListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK
@@ -99,30 +101,27 @@ public:
   static WebAuthnManager* GetOrCreate();
   static WebAuthnManager* Get();
 
-  already_AddRefed<Promise>
-  MakeCredential(nsPIDOMWindowInner* aParent,
-                 const MakePublicKeyCredentialOptions& aOptions);
+  already_AddRefed<Promise> MakeCredential(
+      nsPIDOMWindowInner* aParent,
+      const MakePublicKeyCredentialOptions& aOptions);
 
-  already_AddRefed<Promise>
-  GetAssertion(nsPIDOMWindowInner* aParent,
-               const PublicKeyCredentialRequestOptions& aOptions);
+  already_AddRefed<Promise> GetAssertion(
+      nsPIDOMWindowInner* aParent,
+      const PublicKeyCredentialRequestOptions& aOptions);
 
-  already_AddRefed<Promise>
-  Store(nsPIDOMWindowInner* aParent, const Credential& aCredential);
+  already_AddRefed<Promise> Store(nsPIDOMWindowInner* aParent,
+                                  const Credential& aCredential);
 
-  void
-  FinishMakeCredential(nsTArray<uint8_t>& aRegBuffer);
+  void FinishMakeCredential(nsTArray<uint8_t>& aRegBuffer);
 
-  void
-  FinishGetAssertion(nsTArray<uint8_t>& aCredentialId,
-                     nsTArray<uint8_t>& aSigBuffer);
+  void FinishGetAssertion(nsTArray<uint8_t>& aCredentialId,
+                          nsTArray<uint8_t>& aSigBuffer);
 
-  void
-  RequestAborted(const nsresult& aError);
+  void RequestAborted(const nsresult& aError);
 
   void ActorDestroyed();
 
-private:
+ private:
   WebAuthnManager();
   virtual ~WebAuthnManager();
 
@@ -148,7 +147,7 @@ private:
   MozPromiseHolder<BackgroundActorPromise> mPBackgroundCreationPromise;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WebAuthnManager_h
+#endif  // mozilla_dom_WebAuthnManager_h

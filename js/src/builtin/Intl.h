@@ -34,8 +34,7 @@ class FreeOp;
  * Initializes the Intl Object and its standard built-in properties.
  * Spec: ECMAScript Internationalization API Specification, 8.0, 8.1
  */
-extern JSObject*
-InitIntlClass(JSContext* cx, HandleObject obj);
+extern JSObject* InitIntlClass(JSContext* cx, HandleObject obj);
 
 /**
  * Stores Intl data which can be shared across compartments (but not contexts).
@@ -43,10 +42,8 @@ InitIntlClass(JSContext* cx, HandleObject obj);
  * Used for data which is expensive when computed repeatedly or is not
  * available through ICU.
  */
-class SharedIntlData
-{
-    struct LinearStringLookup
-    {
+class SharedIntlData {
+    struct LinearStringLookup {
         union {
             const JS::Latin1Char* latin1Chars;
             const char16_t* twoByteChars;
@@ -57,8 +54,7 @@ class SharedIntlData
         HashNumber hash = 0;
 
         explicit LinearStringLookup(JSLinearString* string)
-          : isLatin1(string->hasLatin1Chars()), length(string->length())
-        {
+            : isLatin1(string->hasLatin1Chars()), length(string->length()) {
             if (isLatin1)
                 latin1Chars = string->latin1Chars(nogc);
             else
@@ -66,7 +62,7 @@ class SharedIntlData
         }
     };
 
-  private:
+   private:
     /**
      * Information tracking the set of the supported time zone names, derived
      * from the IANA time zone database <https://www.iana.org/time-zones>.
@@ -94,10 +90,8 @@ class SharedIntlData
 
     using TimeZoneName = JSAtom*;
 
-    struct TimeZoneHasher
-    {
-        struct Lookup : LinearStringLookup
-        {
+    struct TimeZoneHasher {
+        struct Lookup : LinearStringLookup {
             explicit Lookup(JSLinearString* timeZone);
         };
 
@@ -105,14 +99,10 @@ class SharedIntlData
         static bool match(TimeZoneName key, const Lookup& lookup);
     };
 
-    using TimeZoneSet = js::GCHashSet<TimeZoneName,
-                                      TimeZoneHasher,
-                                      js::SystemAllocPolicy>;
+    using TimeZoneSet = js::GCHashSet<TimeZoneName, TimeZoneHasher, js::SystemAllocPolicy>;
 
-    using TimeZoneMap = js::GCHashMap<TimeZoneName,
-                                      TimeZoneName,
-                                      TimeZoneHasher,
-                                      js::SystemAllocPolicy>;
+    using TimeZoneMap =
+        js::GCHashMap<TimeZoneName, TimeZoneName, TimeZoneHasher, js::SystemAllocPolicy>;
 
     /**
      * As a threshold matter, available time zones are those time zones ICU
@@ -159,13 +149,12 @@ class SharedIntlData
      */
     bool ensureTimeZones(JSContext* cx);
 
-  public:
+   public:
     /**
      * Returns the validated time zone name in |result|. If the input time zone
      * isn't a valid IANA time zone name, |result| remains unchanged.
      */
-    bool validateTimeZoneName(JSContext* cx, JS::HandleString timeZone,
-                              MutableHandleAtom result);
+    bool validateTimeZoneName(JSContext* cx, JS::HandleString timeZone, MutableHandleAtom result);
 
     /**
      * Returns the canonical time zone name in |result|. If no canonical name
@@ -177,7 +166,7 @@ class SharedIntlData
     bool tryCanonicalizeTimeZoneConsistentWithIANA(JSContext* cx, JS::HandleString timeZone,
                                                    MutableHandleAtom result);
 
-  private:
+   private:
     /**
      * The case first parameter (BCP47 key "kf") allows to switch the order of
      * upper- and lower-case characters. ICU doesn't directly provide an API
@@ -196,10 +185,8 @@ class SharedIntlData
 
     using Locale = JSAtom*;
 
-    struct LocaleHasher
-    {
-        struct Lookup : LinearStringLookup
-        {
+    struct LocaleHasher {
+        struct Lookup : LinearStringLookup {
             explicit Lookup(JSLinearString* locale);
         };
 
@@ -207,9 +194,7 @@ class SharedIntlData
         static bool match(Locale key, const Lookup& lookup);
     };
 
-    using LocaleSet = js::GCHashSet<Locale,
-                                    LocaleHasher,
-                                    js::SystemAllocPolicy>;
+    using LocaleSet = js::GCHashSet<Locale, LocaleHasher, js::SystemAllocPolicy>;
 
     LocaleSet upperCaseFirstLocales;
 
@@ -220,14 +205,14 @@ class SharedIntlData
      */
     bool ensureUpperCaseFirstLocales(JSContext* cx);
 
-  public:
+   public:
     /**
      * Sets |isUpperFirst| to true if |locale| sorts upper-case characters
      * before lower-case characters.
      */
     bool isUpperCaseFirst(JSContext* cx, JS::HandleString locale, bool* isUpperFirst);
 
-  public:
+   public:
     void destroyInstance();
 
     void trace(JSTracer* trc);
@@ -239,12 +224,10 @@ class SharedIntlData
  * The following functions are for use by self-hosted code.
  */
 
-
 /******************** Collator ********************/
 
-class CollatorObject : public NativeObject
-{
-  public:
+class CollatorObject : public NativeObject {
+   public:
     static const Class class_;
 
     static constexpr uint32_t INTERNALS_SLOT = 0;
@@ -254,7 +237,7 @@ class CollatorObject : public NativeObject
     static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
                   "INTERNALS_SLOT must match self-hosting define for internals object slot");
 
-  private:
+   private:
     static const ClassOps classOps_;
 
     static void finalize(FreeOp* fop, JSObject* obj);
@@ -267,8 +250,7 @@ class CollatorObject : public NativeObject
  *
  * Usage: collator = intl_Collator(locales, options)
  */
-extern MOZ_MUST_USE bool
-intl_Collator(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_Collator(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns an object indicating the supported locales for collation
@@ -278,8 +260,7 @@ intl_Collator(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: availableLocales = intl_Collator_availableLocales()
  */
-extern MOZ_MUST_USE bool
-intl_Collator_availableLocales(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_Collator_availableLocales(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns an array with the collation type identifiers per Unicode
@@ -289,8 +270,7 @@ intl_Collator_availableLocales(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: collations = intl_availableCollations(locale)
  */
-extern MOZ_MUST_USE bool
-intl_availableCollations(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_availableCollations(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Compares x and y (which must be String values), and returns a number less
@@ -302,8 +282,7 @@ intl_availableCollations(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: result = intl_CompareStrings(collator, x, y)
  */
-extern MOZ_MUST_USE bool
-intl_CompareStrings(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_CompareStrings(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns true if the given locale sorts upper-case before lower-case
@@ -311,15 +290,12 @@ intl_CompareStrings(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: result = intl_isUpperCaseFirst(locale)
  */
-extern MOZ_MUST_USE bool
-intl_isUpperCaseFirst(JSContext* cx, unsigned argc, Value* vp);
-
+extern MOZ_MUST_USE bool intl_isUpperCaseFirst(JSContext* cx, unsigned argc, Value* vp);
 
 /******************** NumberFormat ********************/
 
-class NumberFormatObject : public NativeObject
-{
-  public:
+class NumberFormatObject : public NativeObject {
+   public:
     static const Class class_;
 
     static constexpr uint32_t INTERNALS_SLOT = 0;
@@ -329,7 +305,7 @@ class NumberFormatObject : public NativeObject
     static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
                   "INTERNALS_SLOT must match self-hosting define for internals object slot");
 
-  private:
+   private:
     static const ClassOps classOps_;
 
     static void finalize(FreeOp* fop, JSObject* obj);
@@ -342,8 +318,7 @@ class NumberFormatObject : public NativeObject
  *
  * Usage: numberFormat = intl_NumberFormat(locales, options)
  */
-extern MOZ_MUST_USE bool
-intl_NumberFormat(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_NumberFormat(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns an object indicating the supported locales for number formatting
@@ -353,8 +328,8 @@ intl_NumberFormat(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: availableLocales = intl_NumberFormat_availableLocales()
  */
-extern MOZ_MUST_USE bool
-intl_NumberFormat_availableLocales(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_NumberFormat_availableLocales(JSContext* cx, unsigned argc,
+                                                            Value* vp);
 
 /**
  * Returns the numbering system type identifier per Unicode
@@ -363,8 +338,7 @@ intl_NumberFormat_availableLocales(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: defaultNumberingSystem = intl_numberingSystem(locale)
  */
-extern MOZ_MUST_USE bool
-intl_numberingSystem(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_numberingSystem(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns a string representing the number x according to the effective
@@ -374,15 +348,12 @@ intl_numberingSystem(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: formatted = intl_FormatNumber(numberFormat, x, formatToParts)
  */
-extern MOZ_MUST_USE bool
-intl_FormatNumber(JSContext* cx, unsigned argc, Value* vp);
-
+extern MOZ_MUST_USE bool intl_FormatNumber(JSContext* cx, unsigned argc, Value* vp);
 
 /******************** DateTimeFormat ********************/
 
-class DateTimeFormatObject : public NativeObject
-{
-  public:
+class DateTimeFormatObject : public NativeObject {
+   public:
     static const Class class_;
 
     static constexpr uint32_t INTERNALS_SLOT = 0;
@@ -392,7 +363,7 @@ class DateTimeFormatObject : public NativeObject
     static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
                   "INTERNALS_SLOT must match self-hosting define for internals object slot");
 
-  private:
+   private:
     static const ClassOps classOps_;
 
     static void finalize(FreeOp* fop, JSObject* obj);
@@ -405,8 +376,7 @@ class DateTimeFormatObject : public NativeObject
  *
  * Usage: dateTimeFormat = intl_DateTimeFormat(locales, options)
  */
-extern MOZ_MUST_USE bool
-intl_DateTimeFormat(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_DateTimeFormat(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns an object indicating the supported locales for date and time
@@ -416,8 +386,8 @@ intl_DateTimeFormat(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: availableLocales = intl_DateTimeFormat_availableLocales()
  */
-extern MOZ_MUST_USE bool
-intl_DateTimeFormat_availableLocales(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_DateTimeFormat_availableLocales(JSContext* cx, unsigned argc,
+                                                              Value* vp);
 
 /**
  * Returns an array with the calendar type identifiers per Unicode
@@ -427,8 +397,7 @@ intl_DateTimeFormat_availableLocales(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: calendars = intl_availableCalendars(locale)
  */
-extern MOZ_MUST_USE bool
-intl_availableCalendars(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_availableCalendars(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns the calendar type identifier per Unicode Technical Standard 35,
@@ -437,8 +406,7 @@ intl_availableCalendars(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: calendar = intl_defaultCalendar(locale)
  */
-extern MOZ_MUST_USE bool
-intl_defaultCalendar(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_defaultCalendar(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * 6.4.1 IsValidTimeZoneName ( timeZone )
@@ -450,8 +418,7 @@ intl_defaultCalendar(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: ianaTimeZone = intl_IsValidTimeZoneName(timeZone)
  */
-extern MOZ_MUST_USE bool
-intl_IsValidTimeZoneName(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_IsValidTimeZoneName(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Return the canonicalized time zone name. Canonicalization resolves link
@@ -459,24 +426,21 @@ intl_IsValidTimeZoneName(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: ianaTimeZone = intl_canonicalizeTimeZone(timeZone)
  */
-extern MOZ_MUST_USE bool
-intl_canonicalizeTimeZone(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_canonicalizeTimeZone(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Return the default time zone name. The time zone name is not canonicalized.
  *
  * Usage: icuDefaultTimeZone = intl_defaultTimeZone()
  */
-extern MOZ_MUST_USE bool
-intl_defaultTimeZone(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_defaultTimeZone(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Return the raw offset from GMT in milliseconds for the default time zone.
  *
  * Usage: defaultTimeZoneOffset = intl_defaultTimeZoneOffset()
  */
-extern MOZ_MUST_USE bool
-intl_defaultTimeZoneOffset(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_defaultTimeZoneOffset(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Return a pattern in the date-time format pattern language of Unicode
@@ -486,8 +450,7 @@ intl_defaultTimeZoneOffset(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: pattern = intl_patternForSkeleton(locale, skeleton)
  */
-extern MOZ_MUST_USE bool
-intl_patternForSkeleton(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_patternForSkeleton(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Return a pattern in the date-time format pattern language of Unicode
@@ -515,8 +478,7 @@ intl_patternForSkeleton(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: pattern = intl_patternForStyle(locale, dateStyle, timeStyle, timeZone)
  */
-extern MOZ_MUST_USE bool
-intl_patternForStyle(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_patternForStyle(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns a String value representing x (which must be a Number value)
@@ -527,15 +489,12 @@ intl_patternForStyle(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: formatted = intl_FormatDateTime(dateTimeFormat, x, formatToParts)
  */
-extern MOZ_MUST_USE bool
-intl_FormatDateTime(JSContext* cx, unsigned argc, Value* vp);
-
+extern MOZ_MUST_USE bool intl_FormatDateTime(JSContext* cx, unsigned argc, Value* vp);
 
 /******************** PluralRules ********************/
 
-class PluralRulesObject : public NativeObject
-{
-  public:
+class PluralRulesObject : public NativeObject {
+   public:
     static const Class class_;
 
     static constexpr uint32_t INTERNALS_SLOT = 0;
@@ -545,7 +504,7 @@ class PluralRulesObject : public NativeObject
     static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
                   "INTERNALS_SLOT must match self-hosting define for internals object slot");
 
-  private:
+   private:
     static const ClassOps classOps_;
 
     static void finalize(FreeOp* fop, JSObject* obj);
@@ -559,8 +518,8 @@ class PluralRulesObject : public NativeObject
  *
  * Usage: availableLocales = intl_PluralRules_availableLocales()
  */
-extern MOZ_MUST_USE bool
-intl_PluralRules_availableLocales(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_PluralRules_availableLocales(JSContext* cx, unsigned argc,
+                                                           Value* vp);
 
 /**
  * Returns a plural rule for the number x according to the effective
@@ -571,8 +530,7 @@ intl_PluralRules_availableLocales(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: rule = intl_SelectPluralRule(pluralRules, x)
  */
-extern MOZ_MUST_USE bool
-intl_SelectPluralRule(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_SelectPluralRule(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns an array of plural rules categories for a given
@@ -584,14 +542,12 @@ intl_SelectPluralRule(JSContext* cx, unsigned argc, Value* vp);
  *
  * intl_getPluralCategories('pl', 'cardinal'); // ['one', 'few', 'many', 'other']
  */
-extern MOZ_MUST_USE bool
-intl_GetPluralCategories(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_GetPluralCategories(JSContext* cx, unsigned argc, Value* vp);
 
 /******************** RelativeTimeFormat ********************/
 
-class RelativeTimeFormatObject : public NativeObject
-{
-  public:
+class RelativeTimeFormatObject : public NativeObject {
+   public:
     static const Class class_;
 
     static constexpr uint32_t INTERNALS_SLOT = 0;
@@ -601,7 +557,7 @@ class RelativeTimeFormatObject : public NativeObject
     static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
                   "INTERNALS_SLOT must match self-hosting define for internals object slot");
 
-  private:
+   private:
     static const ClassOps classOps_;
 
     static void finalize(FreeOp* fop, JSObject* obj);
@@ -615,8 +571,8 @@ class RelativeTimeFormatObject : public NativeObject
  *
  * Usage: availableLocales = intl_RelativeTimeFormat_availableLocales()
  */
-extern MOZ_MUST_USE bool
-intl_RelativeTimeFormat_availableLocales(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_RelativeTimeFormat_availableLocales(JSContext* cx, unsigned argc,
+                                                                  Value* vp);
 
 /**
  * Returns a relative time as a string formatted according to the effective
@@ -627,8 +583,7 @@ intl_RelativeTimeFormat_availableLocales(JSContext* cx, unsigned argc, Value* vp
  *
  * Usage: formatted = intl_FormatRelativeTime(relativeTimeFormat, t, unit)
  */
-extern MOZ_MUST_USE bool
-intl_FormatRelativeTime(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_FormatRelativeTime(JSContext* cx, unsigned argc, Value* vp);
 
 /******************** Intl ********************/
 
@@ -655,8 +610,7 @@ intl_FormatRelativeTime(JSContext* cx, unsigned argc, Value* vp);
  *
  * NOTE: "calendar" and "locale" properties are *not* added to the object.
  */
-extern MOZ_MUST_USE bool
-intl_GetCalendarInfo(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_GetCalendarInfo(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns a plain object with locale information for a single valid locale
@@ -669,8 +623,7 @@ intl_GetCalendarInfo(JSContext* cx, unsigned argc, Value* vp);
  *   locale
  *     a BCP47 compilant locale string for the resolved locale.
  */
-extern MOZ_MUST_USE bool
-intl_GetLocaleInfo(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_GetLocaleInfo(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns an Array with CLDR-based fields display names.
@@ -711,9 +664,7 @@ intl_GetLocaleInfo(JSContext* cx, unsigned argc, Value* vp);
  *   'AM'
  * ]
  */
-extern MOZ_MUST_USE bool
-intl_ComputeDisplayNames(JSContext* cx, unsigned argc, Value* vp);
-
+extern MOZ_MUST_USE bool intl_ComputeDisplayNames(JSContext* cx, unsigned argc, Value* vp);
 
 /******************** String ********************/
 
@@ -723,8 +674,7 @@ intl_ComputeDisplayNames(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: lowerCase = intl_toLocaleLowerCase(string, locale)
  */
-extern MOZ_MUST_USE bool
-intl_toLocaleLowerCase(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_toLocaleLowerCase(JSContext* cx, unsigned argc, Value* vp);
 
 /**
  * Returns the input string converted to upper case based on the language
@@ -732,10 +682,8 @@ intl_toLocaleLowerCase(JSContext* cx, unsigned argc, Value* vp);
  *
  * Usage: upperCase = intl_toLocaleUpperCase(string, locale)
  */
-extern MOZ_MUST_USE bool
-intl_toLocaleUpperCase(JSContext* cx, unsigned argc, Value* vp);
+extern MOZ_MUST_USE bool intl_toLocaleUpperCase(JSContext* cx, unsigned argc, Value* vp);
 
-
-} // namespace js
+}  // namespace js
 
 #endif /* builtin_Intl_h */

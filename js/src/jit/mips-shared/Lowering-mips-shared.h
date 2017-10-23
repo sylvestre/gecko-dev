@@ -12,14 +12,12 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorMIPSShared : public LIRGeneratorShared
-{
-  protected:
+class LIRGeneratorMIPSShared : public LIRGeneratorShared {
+   protected:
     LIRGeneratorMIPSShared(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorShared(gen, graph, lirGraph)
-    { }
+        : LIRGeneratorShared(gen, graph, lirGraph) {}
 
-  protected:
+   protected:
     // x86 has constraints on what registers can be formatted for 1-byte
     // stores and loads; on MIPS all registers are okay.
     LAllocation useByteOpRegister(MDefinition* mir);
@@ -33,37 +31,33 @@ class LIRGeneratorMIPSShared : public LIRGeneratorShared
                        MDefinition* rhs);
     void lowerUrshD(MUrsh* mir);
 
-    void lowerForALU(LInstructionHelper<1, 1, 0>* ins, MDefinition* mir,
-                     MDefinition* input);
-    void lowerForALU(LInstructionHelper<1, 2, 0>* ins, MDefinition* mir,
-                     MDefinition* lhs, MDefinition* rhs);
+    void lowerForALU(LInstructionHelper<1, 1, 0>* ins, MDefinition* mir, MDefinition* input);
+    void lowerForALU(LInstructionHelper<1, 2, 0>* ins, MDefinition* mir, MDefinition* lhs,
+                     MDefinition* rhs);
 
     void lowerForALUInt64(LInstructionHelper<INT64_PIECES, 2 * INT64_PIECES, 0>* ins,
                           MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
     void lowerForMulInt64(LMulI64* ins, MMul* mir, MDefinition* lhs, MDefinition* rhs);
-    template<size_t Temps>
+    template <size_t Temps>
     void lowerForShiftInt64(LInstructionHelper<INT64_PIECES, INT64_PIECES + 1, Temps>* ins,
                             MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
 
-    void lowerForFPU(LInstructionHelper<1, 1, 0>* ins, MDefinition* mir,
-                     MDefinition* src);
-    template<size_t Temps>
-    void lowerForFPU(LInstructionHelper<1, 2, Temps>* ins, MDefinition* mir,
-                     MDefinition* lhs, MDefinition* rhs);
+    void lowerForFPU(LInstructionHelper<1, 1, 0>* ins, MDefinition* mir, MDefinition* src);
+    template <size_t Temps>
+    void lowerForFPU(LInstructionHelper<1, 2, Temps>* ins, MDefinition* mir, MDefinition* lhs,
+                     MDefinition* rhs);
 
-    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs)
-    {
+    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs) {
         return lowerForFPU(ins, mir, lhs, rhs);
     }
-    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs)
-    {
+    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs) {
         return lowerForFPU(ins, mir, lhs, rhs);
     }
 
-    void lowerForBitAndAndBranch(LBitAndAndBranch* baab, MInstruction* mir,
-                                 MDefinition* lhs, MDefinition* rhs);
+    void lowerForBitAndAndBranch(LBitAndAndBranch* baab, MInstruction* mir, MDefinition* lhs,
+                                 MDefinition* rhs);
     void lowerDivI(MDiv* div);
     void lowerModI(MMod* mod);
     void lowerMulI(MMul* mul, MDefinition* lhs, MDefinition* rhs);
@@ -79,7 +73,7 @@ class LIRGeneratorMIPSShared : public LIRGeneratorShared
                                   MTableSwitch* ins);
     LTableSwitchV* newLTableSwitchV(MTableSwitch* ins);
 
-  public:
+   public:
     void lowerPhi(MPhi* phi);
     void visitGuardShape(MGuardShape* ins);
     void visitGuardObjectGroup(MGuardObjectGroup* ins);
@@ -98,10 +92,9 @@ class LIRGeneratorMIPSShared : public LIRGeneratorShared
     void visitCopySign(MCopySign* ins);
     void visitExtendInt32ToInt64(MExtendInt32ToInt64* ins);
     void visitSignExtendInt64(MSignExtendInt64* ins);
-
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips_shared_Lowering_mips_shared_h */

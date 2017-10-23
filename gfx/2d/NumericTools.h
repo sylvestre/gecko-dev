@@ -38,6 +38,6 @@ RoundUpToMultiple(int32_t x, int32_t aMultiplier)
   return x - mod;
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_NUMERICTOOLS_H_ */

@@ -14,7 +14,7 @@ namespace gfx {
 
 class ScaledFontWin : public ScaledFontBase
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(ScaledFontWin, override)
   ScaledFontWin(const LOGFONT* aFont,
                 const RefPtr<UnscaledFont>& aUnscaledFont,
@@ -30,19 +30,19 @@ public:
   SkTypeface* GetSkTypeface() override;
 #endif
 
-protected:
+ protected:
 #ifdef USE_CAIRO_SCALED_FONT
   cairo_font_face_t* GetCairoFontFace() override;
 #endif
 
-private:
+ private:
 #ifdef USE_SKIA
   friend class DrawTargetSkia;
 #endif
   LOGFONT mLogFont;
 };
 
-}
-}
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SCALEDFONTWIN_H_ */

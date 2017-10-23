@@ -13,19 +13,20 @@ namespace mozilla {
 
 DummyDataCreator::~DummyDataCreator() {}
 
-DummyMediaDataDecoder::DummyMediaDataDecoder(UniquePtr<DummyDataCreator>&& aCreator,
-                                             const nsACString& aDescription,
-                                             const CreateDecoderParams& aParams)
-  : mCreator(Move(aCreator))
-  , mIsH264(MP4Decoder::IsH264(aParams.mConfig.mMimeType))
-  , mMaxRefFrames(
-      mIsH264
-      ? mp4_demuxer::H264::HasSPS(aParams.VideoConfig().mExtraData)
-        ? mp4_demuxer::H264::ComputeMaxRefFrames(aParams.VideoConfig().mExtraData)
-        : 16
-      : 0)
-  , mType(aParams.mConfig.GetType())
-  , mDescription(aDescription)
+DummyMediaDataDecoder::DummyMediaDataDecoder(
+    UniquePtr<DummyDataCreator>&& aCreator,
+    const nsACString& aDescription,
+    const CreateDecoderParams& aParams)
+    : mCreator(Move(aCreator)),
+      mIsH264(MP4Decoder::IsH264(aParams.mConfig.mMimeType)),
+      mMaxRefFrames(
+          mIsH264 ? mp4_demuxer::H264::HasSPS(aParams.VideoConfig().mExtraData)
+                        ? mp4_demuxer::H264::ComputeMaxRefFrames(
+                              aParams.VideoConfig().mExtraData)
+                        : 16
+                  : 0),
+      mType(aParams.mConfig.GetType()),
+      mDescription(aDescription)
 {
 }
 
@@ -55,7 +56,7 @@ DummyMediaDataDecoder::Decode(MediaRawData* aSample)
 
   if (mReorderQueue.Length() > mMaxRefFrames) {
     return DecodePromise::CreateAndResolve(
-      DecodedData{ mReorderQueue.Pop().get() }, __func__);
+        DecodedData{mReorderQueue.Pop().get()}, __func__);
   }
   return DecodePromise::CreateAndResolve(DecodedData(), __func__);
 }
@@ -86,9 +87,8 @@ DummyMediaDataDecoder::GetDescriptionName() const
 MediaDataDecoder::ConversionRequired
 DummyMediaDataDecoder::NeedsConversion() const
 {
-  return mIsH264
-         ? ConversionRequired::kNeedAVCC
-         : ConversionRequired::kNeedNone;
+  return mIsH264 ? ConversionRequired::kNeedAVCC
+                 : ConversionRequired::kNeedNone;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

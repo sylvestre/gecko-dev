@@ -13,14 +13,11 @@ namespace quota {
 UsageResult::UsageResult(const nsACString& aOrigin,
                          bool aPersisted,
                          uint64_t aUsage)
-  : mOrigin(aOrigin)
-  , mUsage(aUsage)
-  , mPersisted(aPersisted)
+    : mOrigin(aOrigin), mUsage(aUsage), mPersisted(aPersisted)
 {
 }
 
-NS_IMPL_ISUPPORTS(UsageResult,
-                  nsIQuotaUsageResult)
+NS_IMPL_ISUPPORTS(UsageResult, nsIQuotaUsageResult)
 
 NS_IMETHODIMP
 UsageResult::GetOrigin(nsACString& aOrigin)
@@ -50,14 +47,11 @@ UsageResult::GetUsage(uint64_t* aUsage)
 OriginUsageResult::OriginUsageResult(uint64_t aUsage,
                                      uint64_t aFileUsage,
                                      uint64_t aLimit)
-  : mUsage(aUsage)
-  , mFileUsage(aFileUsage)
-  , mLimit(aLimit)
+    : mUsage(aUsage), mFileUsage(aFileUsage), mLimit(aLimit)
 {
 }
 
-NS_IMPL_ISUPPORTS(OriginUsageResult,
-                  nsIQuotaOriginUsageResult)
+NS_IMPL_ISUPPORTS(OriginUsageResult, nsIQuotaOriginUsageResult)
 
 NS_IMETHODIMP
 OriginUsageResult::GetUsage(uint64_t* aUsage)
@@ -86,6 +80,6 @@ OriginUsageResult::GetLimit(uint64_t* aLimit)
   return NS_OK;
 }
 
-} // namespace quota
-} // namespace dom
-} // namespace mozilla
+}  // namespace quota
+}  // namespace dom
+}  // namespace mozilla

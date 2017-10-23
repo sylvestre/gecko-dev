@@ -23,7 +23,7 @@ LinuxUtils::GetThreadName(pid_t aTid, nsACString& aName)
     return;
   }
 
-  const size_t kBuffSize = 16; // 15 chars max + '\n'
+  const size_t kBuffSize = 16;  // 15 chars max + '\n'
   char buf[kBuffSize];
   nsPrintfCString path("/proc/%d/comm", aTid);
   FILE* fp = fopen(path.get(), "r");
@@ -36,15 +36,14 @@ LinuxUtils::GetThreadName(pid_t aTid, nsACString& aName)
   fclose(fp);
 
   // No need to strip the '\n', since isspace() includes it.
-  while (len > 0 &&
-         (isspace(buf[len - 1]) || isdigit(buf[len - 1]) ||
-          buf[len - 1] == '#' || buf[len - 1] == '_')) {
+  while (len > 0 && (isspace(buf[len - 1]) || isdigit(buf[len - 1]) ||
+                     buf[len - 1] == '#' || buf[len - 1] == '_')) {
     --len;
   }
 
   aName.Assign(buf, len);
 }
 
-}
+}  // namespace mozilla
 
-#endif // XP_LINUX
+#endif  // XP_LINUX

@@ -27,22 +27,16 @@
 using namespace js;
 using namespace wasm;
 
-Compartment::Compartment(Zone* zone)
-{}
+Compartment::Compartment(Zone* zone) {}
 
-Compartment::~Compartment()
-{
-    MOZ_ASSERT(instances_.empty());
-}
+Compartment::~Compartment() { MOZ_ASSERT(instances_.empty()); }
 
-struct InstanceComparator
-{
+struct InstanceComparator {
     const Instance& target;
     explicit InstanceComparator(const Instance& target) : target(target) {}
 
     int operator()(const Instance* instance) const {
-        if (instance == &target)
-            return 0;
+        if (instance == &target) return 0;
 
         // Instances can share code, so the segments can be equal (though they
         // can't partially overlap).  If the codeBases are equal, we sort by
@@ -60,9 +54,7 @@ struct InstanceComparator
     }
 };
 
-bool
-Compartment::registerInstance(JSContext* cx, HandleWasmInstanceObject instanceObj)
-{
+bool Compartment::registerInstance(JSContext* cx, HandleWasmInstanceObject instanceObj) {
     Instance& instance = instanceObj->instance();
     MOZ_ASSERT(this == &instance.compartment()->wasm);
 
@@ -84,24 +76,17 @@ Compartment::registerInstance(JSContext* cx, HandleWasmInstanceObject instanceOb
     return true;
 }
 
-void
-Compartment::unregisterInstance(Instance& instance)
-{
+void Compartment::unregisterInstance(Instance& instance) {
     size_t index;
     if (!BinarySearchIf(instances_, 0, instances_.length(), InstanceComparator(instance), &index))
         return;
     instances_.erase(instances_.begin() + index);
 }
 
-void
-Compartment::ensureProfilingLabels(bool profilingEnabled)
-{
-    for (Instance* instance : instances_)
-        instance->ensureProfilingLabels(profilingEnabled);
+void Compartment::ensureProfilingLabels(bool profilingEnabled) {
+    for (Instance* instance : instances_) instance->ensureProfilingLabels(profilingEnabled);
 }
 
-void
-Compartment::addSizeOfExcludingThis(MallocSizeOf mallocSizeOf, size_t* compartmentTables)
-{
+void Compartment::addSizeOfExcludingThis(MallocSizeOf mallocSizeOf, size_t* compartmentTables) {
     *compartmentTables += instances_.sizeOfExcludingThis(mallocSizeOf);
 }

@@ -24,7 +24,7 @@ struct ClearRegionHelper
   ConstantBufferSection mVSBuffer;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_ClearRegionHelper_h
+#endif  // mozilla_gfx_layers_mlgpu_ClearRegionHelper_h

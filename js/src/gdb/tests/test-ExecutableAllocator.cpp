@@ -11,7 +11,7 @@ FRAGMENT(ExecutableAllocator, empty) {
 
     breakpoint();
 
-    (void) execAlloc;
+    (void)execAlloc;
 }
 
 FRAGMENT(ExecutableAllocator, onepool) {
@@ -22,8 +22,8 @@ FRAGMENT(ExecutableAllocator, onepool) {
 
     breakpoint();
 
-    (void) pool;
-    (void) execAlloc;
+    (void)pool;
+    (void)execAlloc;
 }
 
 FRAGMENT(ExecutableAllocator, twopools) {
@@ -34,11 +34,11 @@ FRAGMENT(ExecutableAllocator, twopools) {
 
     execAlloc.alloc(cx, 16 * 1024, &init, BASELINE_CODE);
 
-    do { // Keep allocating until we get a second pool.
+    do {  // Keep allocating until we get a second pool.
         execAlloc.alloc(cx, 32 * 1024, &pool, ION_CODE);
     } while (pool == init);
 
     breakpoint();
 
-    (void) execAlloc;
+    (void)execAlloc;
 }

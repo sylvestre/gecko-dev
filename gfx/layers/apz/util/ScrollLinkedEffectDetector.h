@@ -23,21 +23,21 @@ namespace layers {
 // measures.
 class MOZ_STACK_CLASS ScrollLinkedEffectDetector
 {
-private:
+ private:
   static uint32_t sDepth;
   static bool sFoundScrollLinkedEffect;
 
-public:
+ public:
   static void PositioningPropertyMutated();
 
   explicit ScrollLinkedEffectDetector(nsIDocument* aDoc);
   ~ScrollLinkedEffectDetector();
 
-private:
+ private:
   RefPtr<nsIDocument> mDocument;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* mozilla_layers_ScrollLinkedEffectDetector_h */

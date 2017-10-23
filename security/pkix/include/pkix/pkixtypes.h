@@ -29,7 +29,8 @@
 #include "pkix/Time.h"
 #include "stdint.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 enum class DigestAlgorithm
 {
@@ -60,16 +61,20 @@ struct SignedDigest final
   void operator=(const SignedDigest&) = delete;
 };
 
-enum class EndEntityOrCA { MustBeEndEntity = 0, MustBeCA = 1 };
+enum class EndEntityOrCA
+{
+  MustBeEndEntity = 0,
+  MustBeCA = 1
+};
 
 enum class KeyUsage : uint8_t
 {
   digitalSignature = 0,
-  nonRepudiation   = 1,
-  keyEncipherment  = 2,
+  nonRepudiation = 1,
+  keyEncipherment = 2,
   dataEncipherment = 3,
-  keyAgreement     = 4,
-  keyCertSign      = 5,
+  keyAgreement = 4,
+  keyCertSign = 5,
   // cRLSign       = 6,
   // encipherOnly  = 7,
   // decipherOnly  = 8,
@@ -79,11 +84,11 @@ enum class KeyUsage : uint8_t
 enum class KeyPurposeId
 {
   anyExtendedKeyUsage = 0,
-  id_kp_serverAuth = 1,           // id-kp-serverAuth
-  id_kp_clientAuth = 2,           // id-kp-clientAuth
-  id_kp_codeSigning = 3,          // id-kp-codeSigning
-  id_kp_emailProtection = 4,      // id-kp-emailProtection
-  id_kp_OCSPSigning = 9,          // id-kp-OCSPSigning
+  id_kp_serverAuth = 1,       // id-kp-serverAuth
+  id_kp_clientAuth = 2,       // id-kp-clientAuth
+  id_kp_codeSigning = 3,      // id-kp-codeSigning
+  id_kp_emailProtection = 4,  // id-kp-emailProtection
+  id_kp_OCSPSigning = 9,      // id-kp-OCSPSigning
 };
 
 struct CertPolicyId final
@@ -100,10 +105,10 @@ struct CertPolicyId final
 
 enum class TrustLevel
 {
-  TrustAnchor = 1,        // certificate is a trusted root CA certificate or
-                          // equivalent *for the given policy*.
-  ActivelyDistrusted = 2, // certificate is known to be bad
-  InheritsTrust = 3       // certificate must chain to a trust anchor
+  TrustAnchor = 1,         // certificate is a trusted root CA certificate or
+                           // equivalent *for the given policy*.
+  ActivelyDistrusted = 2,  // certificate is known to be bad
+  InheritsTrust = 3        // certificate must chain to a trust anchor
 };
 
 // Extensions extracted during the verification flow.
@@ -134,11 +139,11 @@ enum class AuxiliaryExtension
 // checking the revocation status).
 struct CertID final
 {
-public:
+ public:
   CertID(Input issuer, Input issuerSubjectPublicKeyInfo, Input serialNumber)
-    : issuer(issuer)
-    , issuerSubjectPublicKeyInfo(issuerSubjectPublicKeyInfo)
-    , serialNumber(serialNumber)
+      : issuer(issuer),
+        issuerSubjectPublicKeyInfo(issuerSubjectPublicKeyInfo),
+        serialNumber(serialNumber)
   {
   }
   const Input issuer;
@@ -150,7 +155,7 @@ public:
 
 class DERArray
 {
-public:
+ public:
   // Returns the number of DER-encoded items in the array.
   virtual size_t GetLength() const = 0;
 
@@ -158,9 +163,10 @@ public:
   // (0-indexed). The result is guaranteed to be non-null if i < GetLength(),
   // and the result is guaranteed to be nullptr if i >= GetLength().
   virtual const Input* GetDER(size_t i) const = 0;
-protected:
-  DERArray() { }
-  virtual ~DERArray() { }
+
+ protected:
+  DERArray() {}
+  virtual ~DERArray() {}
 };
 
 // Applications control the behavior of path building and verification by
@@ -169,8 +175,8 @@ protected:
 // distrusted.
 class TrustDomain
 {
-public:
-  virtual ~TrustDomain() { }
+ public:
+  virtual ~TrustDomain() {}
 
   // Determine the level of trust in the given certificate for the given role.
   // This will be called for every certificate encountered during path
@@ -191,7 +197,7 @@ public:
 
   class IssuerChecker
   {
-  public:
+   public:
     // potentialIssuerDER is the complete DER encoding of the certificate to
     // be checked as a potential issuer.
     //
@@ -200,9 +206,10 @@ public:
     // constraints will be checked in addition to any any name constraints
     // contained in potentialIssuerDER.
     virtual Result Check(Input potentialIssuerDER,
-            /*optional*/ const Input* additionalNameConstraints,
-                 /*out*/ bool& keepGoing) = 0;
-  protected:
+                         /*optional*/ const Input* additionalNameConstraints,
+                         /*out*/ bool& keepGoing) = 0;
+
+   protected:
     IssuerChecker();
     virtual ~IssuerChecker();
 
@@ -257,7 +264,8 @@ public:
   // and/or validity period itself, then it is probably better for performance
   // for it to do so.
   virtual Result FindIssuer(Input encodedIssuerName,
-                            IssuerChecker& checker, Time time) = 0;
+                            IssuerChecker& checker,
+                            Time time) = 0;
 
   // Called as soon as we think we have a valid chain but before revocation
   // checks are done. This function can be used to compute additional checks,
@@ -280,14 +288,16 @@ public:
   // wrong to assume that the certificate chain is valid.
   //
   // certChain.GetDER(0) is the trust anchor.
-  virtual Result IsChainValid(const DERArray& certChain, Time time,
+  virtual Result IsChainValid(const DERArray& certChain,
+                              Time time,
                               const CertPolicyId& requiredPolicy) = 0;
 
   virtual Result CheckRevocation(EndEntityOrCA endEntityOrCA,
-                                 const CertID& certID, Time time,
+                                 const CertID& certID,
+                                 Time time,
                                  Duration validityDuration,
-                    /*optional*/ const Input* stapledOCSPresponse,
-                    /*optional*/ const Input* aiaExtension) = 0;
+                                 /*optional*/ const Input* stapledOCSPresponse,
+                                 /*optional*/ const Input* aiaExtension) = 0;
 
   // Check that the given digest algorithm is acceptable for use in signatures.
   //
@@ -304,8 +314,7 @@ public:
   // Result::ERROR_INADEQUATE_KEY_SIZE if the key size is not acceptable,
   // or another error code if another error occurred.
   virtual Result CheckRSAPublicKeyModulusSizeInBits(
-                   EndEntityOrCA endEntityOrCA,
-                   unsigned int modulusSizeInBits) = 0;
+      EndEntityOrCA endEntityOrCA, unsigned int modulusSizeInBits) = 0;
 
   // Verify the given RSA PKCS#1.5 signature on the given digest using the
   // given RSA public key.
@@ -314,9 +323,8 @@ public:
   // function, so it is not necessary to repeat those checks here. However,
   // VerifyRSAPKCS1SignedDigest *is* responsible for doing the mathematical
   // verification of the public key validity as specified in NIST SP 800-56A.
-  virtual Result VerifyRSAPKCS1SignedDigest(
-                   const SignedDigest& signedDigest,
-                   Input subjectPublicKeyInfo) = 0;
+  virtual Result VerifyRSAPKCS1SignedDigest(const SignedDigest& signedDigest,
+                                            Input subjectPublicKeyInfo) = 0;
 
   // Check that the given named ECC curve is acceptable for ECDSA signatures.
   //
@@ -341,7 +349,8 @@ public:
   // Return Success if the validity duration is acceptable,
   // Result::ERROR_VALIDITY_TOO_LONG if the validity duration is not acceptable,
   // or another error code if another error occurred.
-  virtual Result CheckValidityIsAcceptable(Time notBefore, Time notAfter,
+  virtual Result CheckValidityIsAcceptable(Time notBefore,
+                                           Time notAfter,
                                            EndEntityOrCA endEntityOrCA,
                                            KeyPurposeId keyPurpose) = 0;
 
@@ -375,37 +384,43 @@ public:
                            DigestAlgorithm digestAlg,
                            /*out*/ uint8_t* digestBuf,
                            size_t digestBufLen) = 0;
-protected:
-  TrustDomain() { }
+
+ protected:
+  TrustDomain() {}
 
   TrustDomain(const TrustDomain&) = delete;
   void operator=(const TrustDomain&) = delete;
 };
 
-enum class FallBackToSearchWithinSubject { No = 0, Yes = 1 };
+enum class FallBackToSearchWithinSubject
+{
+  No = 0,
+  Yes = 1
+};
 
 // Applications control the behavior of matching presented name information from
 // a certificate against a reference hostname by implementing the
 // NameMatchingPolicy interface. Used in concert with CheckCertHostname.
 class NameMatchingPolicy
 {
-public:
-  virtual ~NameMatchingPolicy() { }
+ public:
+  virtual ~NameMatchingPolicy() {}
 
   // Given that the certificate in question has a notBefore field with the given
   // value, should name matching fall back to searching within the subject
   // common name field?
   virtual Result FallBackToCommonName(
-    Time notBefore,
-    /*out*/ FallBackToSearchWithinSubject& fallBackToCommonName) = 0;
+      Time notBefore,
+      /*out*/ FallBackToSearchWithinSubject& fallBackToCommonName) = 0;
 
-protected:
-  NameMatchingPolicy() { }
+ protected:
+  NameMatchingPolicy() {}
 
   NameMatchingPolicy(const NameMatchingPolicy&) = delete;
   void operator=(const NameMatchingPolicy&) = delete;
 };
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_pkixtypes_h
+#endif  // mozilla_pkix_pkixtypes_h

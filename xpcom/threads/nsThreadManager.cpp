@@ -88,16 +88,11 @@ ReleaseObject(void* aData)
 
 // statically allocated instance
 NS_IMETHODIMP_(MozExternalRefCountType)
-nsThreadManager::AddRef()
-{
-  return 2;
-}
+nsThreadManager::AddRef() { return 2; }
 NS_IMETHODIMP_(MozExternalRefCountType)
-nsThreadManager::Release()
-{
-  return 1;
-}
-NS_IMPL_CLASSINFO(nsThreadManager, nullptr,
+nsThreadManager::Release() { return 1; }
+NS_IMPL_CLASSINFO(nsThreadManager,
+                  nullptr,
                   nsIClassInfo::THREADSAFE | nsIClassInfo::SINGLETON,
                   NS_THREADMANAGER_CID)
 NS_IMPL_QUERY_INTERFACE_CI(nsThreadManager, nsIThreadManager)
@@ -132,15 +127,14 @@ nsThreadManager::Init()
     return NS_ERROR_FAILURE;
   }
 
-
 #ifdef MOZ_CANARY
   const int flags = O_WRONLY | O_APPEND | O_CREAT | O_NONBLOCK;
   const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   char* env_var_flag = getenv("MOZ_KILL_CANARIES");
   sCanaryOutputFD =
-    env_var_flag ? (env_var_flag[0] ? open(env_var_flag, flags, mode) :
-                                      STDERR_FILENO) :
-                   0;
+      env_var_flag
+          ? (env_var_flag[0] ? open(env_var_flag, flags, mode) : STDERR_FILENO)
+          : 0;
 #endif
 
   nsCOMPtr<nsIIdlePeriod> idlePeriod = new MainThreadIdlePeriod();
@@ -151,9 +145,13 @@ nsThreadManager::Init()
     startScheduler = true;
   } else {
     if (XRE_IsContentProcess() && Scheduler::UseMultipleQueues()) {
-      mMainThread = CreateMainThread<ThreadEventQueue<PrioritizedEventQueue<LabeledEventQueue>>, LabeledEventQueue>(idlePeriod);
+      mMainThread = CreateMainThread<
+          ThreadEventQueue<PrioritizedEventQueue<LabeledEventQueue>>,
+          LabeledEventQueue>(idlePeriod);
     } else {
-      mMainThread = CreateMainThread<ThreadEventQueue<PrioritizedEventQueue<EventQueue>>, EventQueue>(idlePeriod);
+      mMainThread =
+          CreateMainThread<ThreadEventQueue<PrioritizedEventQueue<EventQueue>>,
+                           EventQueue>(idlePeriod);
     }
   }
 
@@ -322,8 +320,9 @@ nsThreadManager::GetCurrentThread()
 
   // OK, that's fine.  We'll dynamically create one :-)
   RefPtr<ThreadEventQueue<EventQueue>> queue =
-    new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
-  RefPtr<nsThread> thread = new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, 0);
+      new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
+  RefPtr<nsThread> thread =
+      new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, 0);
   if (!thread || NS_FAILED(thread->InitCurrentThread())) {
     return nullptr;
   }
@@ -352,9 +351,11 @@ nsThreadManager::NewNamedThread(const nsACString& aName,
   }
 
   RefPtr<ThreadEventQueue<EventQueue>> queue =
-    new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
-  RefPtr<nsThread> thr = new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, aStackSize);
-  nsresult rv = thr->Init(aName);  // Note: blocks until the new thread has been set up
+      new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
+  RefPtr<nsThread> thr =
+      new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, aStackSize);
+  nsresult rv =
+      thr->Init(aName);  // Note: blocks until the new thread has been set up
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -366,7 +367,7 @@ nsThreadManager::NewNamedThread(const nsACString& aName,
 
   if (NS_WARN_IF(!mInitialized)) {
     if (thr->ShutdownRequired()) {
-      thr->Shutdown(); // ok if it happens multiple times
+      thr->Shutdown();  // ok if it happens multiple times
     }
     return NS_ERROR_NOT_INITIALIZED;
   }
@@ -463,7 +464,8 @@ nsThreadManager::SpinEventLoopUntilEmpty()
 NS_IMETHODIMP
 nsThreadManager::GetSystemGroupEventTarget(nsIEventTarget** aTarget)
 {
-  nsCOMPtr<nsIEventTarget> target = SystemGroup::EventTargetFor(TaskCategory::Other);
+  nsCOMPtr<nsIEventTarget> target =
+      SystemGroup::EventTargetFor(TaskCategory::Other);
   target.forget(aTarget);
   return NS_OK;
 }
@@ -476,7 +478,7 @@ nsThreadManager::GetHighestNumberOfThreads()
 }
 
 NS_IMETHODIMP
-nsThreadManager::DispatchToMainThread(nsIRunnable *aEvent, uint32_t aPriority)
+nsThreadManager::DispatchToMainThread(nsIRunnable* aEvent, uint32_t aPriority)
 {
   // Note: C++ callers should instead use NS_DispatchToMainThread.
   MOZ_ASSERT(NS_IsMainThread());
@@ -488,7 +490,7 @@ nsThreadManager::DispatchToMainThread(nsIRunnable *aEvent, uint32_t aPriority)
   if (aPriority != nsIRunnablePriority::PRIORITY_NORMAL) {
     nsCOMPtr<nsIRunnable> event(aEvent);
     return mMainThread->DispatchFromScript(
-             new PrioritizableRunnable(event.forget(), aPriority), 0);
+        new PrioritizableRunnable(event.forget(), aPriority), 0);
   }
   return mMainThread->DispatchFromScript(aEvent, 0);
 }
@@ -523,7 +525,8 @@ nsThreadManager::ResumeInputEventPrioritization()
 }
 
 NS_IMETHODIMP
-nsThreadManager::IdleDispatchToMainThread(nsIRunnable *aEvent, uint32_t aTimeout)
+nsThreadManager::IdleDispatchToMainThread(nsIRunnable* aEvent,
+                                          uint32_t aTimeout)
 {
   // Note: C++ callers should instead use NS_IdleDispatchToThread or
   // NS_IdleDispatchToCurrentThread.
@@ -558,4 +561,4 @@ GetCurrentPhysicalThread()
   return PR_GetCurrentThread();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

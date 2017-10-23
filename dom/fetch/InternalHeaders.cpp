@@ -20,16 +20,13 @@ namespace dom {
 
 InternalHeaders::InternalHeaders(const nsTArray<Entry>&& aHeaders,
                                  HeadersGuardEnum aGuard)
-  : mGuard(aGuard)
-  , mList(aHeaders)
-  , mListDirty(true)
+    : mGuard(aGuard), mList(aHeaders), mListDirty(true)
 {
 }
 
-InternalHeaders::InternalHeaders(const nsTArray<HeadersEntry>& aHeadersEntryList,
-                                 HeadersGuardEnum aGuard)
-  : mGuard(aGuard)
-  , mListDirty(true)
+InternalHeaders::InternalHeaders(
+    const nsTArray<HeadersEntry>& aHeadersEntryList, HeadersGuardEnum aGuard)
+    : mGuard(aGuard), mListDirty(true)
 {
   for (const HeadersEntry& headersEntry : aHeadersEntryList) {
     mList.AppendElement(Entry(headersEntry.name(), headersEntry.value()));
@@ -49,7 +46,8 @@ InternalHeaders::ToIPC(nsTArray<HeadersEntry>& aIPCHeaders,
 }
 
 void
-InternalHeaders::Append(const nsACString& aName, const nsACString& aValue,
+InternalHeaders::Append(const nsACString& aName,
+                        const nsACString& aValue,
                         ErrorResult& aRv)
 {
   nsAutoCString lowerName;
@@ -87,7 +85,9 @@ InternalHeaders::Delete(const nsACString& aName, ErrorResult& aRv)
 }
 
 void
-InternalHeaders::Get(const nsACString& aName, nsACString& aValue, ErrorResult& aRv) const
+InternalHeaders::Get(const nsACString& aName,
+                     nsACString& aValue,
+                     ErrorResult& aRv) const
 {
   nsAutoCString lowerName;
   ToLowerCase(aName, lowerName);
@@ -116,7 +116,9 @@ InternalHeaders::Get(const nsACString& aName, nsACString& aValue, ErrorResult& a
 }
 
 void
-InternalHeaders::GetFirst(const nsACString& aName, nsACString& aValue, ErrorResult& aRv) const
+InternalHeaders::GetFirst(const nsACString& aName,
+                          nsACString& aValue,
+                          ErrorResult& aRv) const
 {
   nsAutoCString lowerName;
   ToLowerCase(aName, lowerName);
@@ -155,7 +157,9 @@ InternalHeaders::Has(const nsACString& aName, ErrorResult& aRv) const
 }
 
 void
-InternalHeaders::Set(const nsACString& aName, const nsACString& aValue, ErrorResult& aRv)
+InternalHeaders::Set(const nsACString& aName,
+                     const nsACString& aValue,
+                     ErrorResult& aRv)
 {
   nsAutoCString lowerName;
   ToLowerCase(aName, lowerName);
@@ -202,13 +206,12 @@ InternalHeaders::SetGuard(HeadersGuardEnum aGuard, ErrorResult& aRv)
   mGuard = aGuard;
 }
 
-InternalHeaders::~InternalHeaders()
-{
-}
+InternalHeaders::~InternalHeaders() {}
 
 // static
 bool
-InternalHeaders::IsSimpleHeader(const nsACString& aName, const nsACString& aValue)
+InternalHeaders::IsSimpleHeader(const nsACString& aName,
+                                const nsACString& aValue)
 {
   // Note, we must allow a null content-type value here to support
   // get("content-type"), but the IsInvalidValue() check will prevent null
@@ -227,8 +230,7 @@ InternalHeaders::IsRevalidationHeader(const nsACString& aName)
   return aName.EqualsLiteral("if-modified-since") ||
          aName.EqualsLiteral("if-none-match") ||
          aName.EqualsLiteral("if-unmodified-since") ||
-         aName.EqualsLiteral("if-match") ||
-         aName.EqualsLiteral("if-range");
+         aName.EqualsLiteral("if-match") || aName.EqualsLiteral("if-range");
 }
 
 //static
@@ -306,7 +308,8 @@ InternalHeaders::Fill(const InternalHeaders& aInit, ErrorResult& aRv)
 }
 
 void
-InternalHeaders::Fill(const Sequence<Sequence<nsCString>>& aInit, ErrorResult& aRv)
+InternalHeaders::Fill(const Sequence<Sequence<nsCString>>& aInit,
+                      ErrorResult& aRv)
 {
   for (uint32_t i = 0; i < aInit.Length() && !aRv.Failed(); ++i) {
     const Sequence<nsCString>& tuple = aInit[i];
@@ -319,7 +322,8 @@ InternalHeaders::Fill(const Sequence<Sequence<nsCString>>& aInit, ErrorResult& a
 }
 
 void
-InternalHeaders::Fill(const Record<nsCString, nsCString>& aInit, ErrorResult& aRv)
+InternalHeaders::Fill(const Record<nsCString, nsCString>& aInit,
+                      ErrorResult& aRv)
 {
   for (auto& entry : aInit.Entries()) {
     Append(entry.mKey, entry.mValue, aRv);
@@ -337,11 +341,11 @@ class FillHeaders final : public nsIHttpHeaderVisitor
 
   ~FillHeaders() = default;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit FillHeaders(InternalHeaders* aInternalHeaders)
-    : mInternalHeaders(aInternalHeaders)
+      : mInternalHeaders(aInternalHeaders)
   {
     MOZ_DIAGNOSTIC_ASSERT(mInternalHeaders);
   }
@@ -357,7 +361,7 @@ public:
 
 NS_IMPL_ISUPPORTS(FillHeaders, nsIHttpHeaderVisitor)
 
-} // namespace
+}  // namespace
 
 void
 InternalHeaders::FillResponseHeaders(nsIRequest* aRequest)
@@ -421,7 +425,9 @@ InternalHeaders::CORSHeaders(InternalHeaders* aHeaders)
   ErrorResult result;
 
   nsAutoCString acExposedNames;
-  aHeaders->GetFirst(NS_LITERAL_CSTRING("Access-Control-Expose-Headers"), acExposedNames, result);
+  aHeaders->GetFirst(NS_LITERAL_CSTRING("Access-Control-Expose-Headers"),
+                     acExposedNames,
+                     result);
   MOZ_ASSERT(!result.Failed());
 
   AutoTArray<nsCString, 5> exposeNamesArray;
@@ -433,7 +439,9 @@ InternalHeaders::CORSHeaders(InternalHeaders* aHeaders)
     }
 
     if (!NS_IsValidHTTPToken(token)) {
-      NS_WARNING("Got invalid HTTP token in Access-Control-Expose-Headers. Header value is:");
+      NS_WARNING(
+          "Got invalid HTTP token in Access-Control-Expose-Headers. Header "
+          "value is:");
       NS_WARNING(acExposedNames.get());
       exposeNamesArray.Clear();
       break;
@@ -482,11 +490,12 @@ InternalHeaders::GetUnsafeHeaders(nsTArray<nsCString>& aNames) const
 void
 InternalHeaders::MaybeSortList()
 {
-  class Comparator {
-  public:
+  class Comparator
+  {
+   public:
     bool Equals(const Entry& aA, const Entry& aB) const
     {
-       return aA.mName == aB.mName;
+      return aA.mName == aB.mName;
     }
 
     bool LessThan(const Entry& aA, const Entry& aB) const
@@ -528,5 +537,5 @@ InternalHeaders::SetListDirty()
   mListDirty = true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -38,21 +38,20 @@ using namespace mozilla::services;
  * Define a global variable and a getter for every service in ServiceList.
  * eg. gIOService and GetIOService()
  */
-#define MOZ_SERVICE(NAME, TYPE, CONTRACT_ID)                            \
-  static TYPE* g##NAME = nullptr;                                       \
-                                                                        \
-  already_AddRefed<TYPE>                                                \
-  mozilla::services::Get##NAME()                                        \
-  {                                                                     \
-    if (MOZ_UNLIKELY(gXPCOMShuttingDown)) {                             \
-      return nullptr;                                                   \
-    }                                                                   \
-    if (!g##NAME) {                                                     \
-      nsCOMPtr<TYPE> os = do_GetService(CONTRACT_ID);                   \
-      os.swap(g##NAME);                                                 \
-    }                                                                   \
-    nsCOMPtr<TYPE> ret = g##NAME;                                       \
-    return ret.forget();                                                \
+#define MOZ_SERVICE(NAME, TYPE, CONTRACT_ID)            \
+  static TYPE* g##NAME = nullptr;                       \
+                                                        \
+  already_AddRefed<TYPE> mozilla::services::Get##NAME() \
+  {                                                     \
+    if (MOZ_UNLIKELY(gXPCOMShuttingDown)) {             \
+      return nullptr;                                   \
+    }                                                   \
+    if (!g##NAME) {                                     \
+      nsCOMPtr<TYPE> os = do_GetService(CONTRACT_ID);   \
+      os.swap(g##NAME);                                 \
+    }                                                   \
+    nsCOMPtr<TYPE> ret = g##NAME;                       \
+    return ret.forget();                                \
   }
 
 #include "ServiceList.h"

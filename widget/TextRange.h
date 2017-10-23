@@ -26,29 +26,26 @@ struct TextRangeStyle
 {
   enum
   {
-    LINESTYLE_NONE   = NS_STYLE_TEXT_DECORATION_STYLE_NONE,
-    LINESTYLE_SOLID  = NS_STYLE_TEXT_DECORATION_STYLE_SOLID,
+    LINESTYLE_NONE = NS_STYLE_TEXT_DECORATION_STYLE_NONE,
+    LINESTYLE_SOLID = NS_STYLE_TEXT_DECORATION_STYLE_SOLID,
     LINESTYLE_DOTTED = NS_STYLE_TEXT_DECORATION_STYLE_DOTTED,
     LINESTYLE_DASHED = NS_STYLE_TEXT_DECORATION_STYLE_DASHED,
     LINESTYLE_DOUBLE = NS_STYLE_TEXT_DECORATION_STYLE_DOUBLE,
-    LINESTYLE_WAVY   = NS_STYLE_TEXT_DECORATION_STYLE_WAVY
+    LINESTYLE_WAVY = NS_STYLE_TEXT_DECORATION_STYLE_WAVY
   };
 
   enum
   {
-    DEFINED_NONE             = 0x00,
-    DEFINED_LINESTYLE        = 0x01,
+    DEFINED_NONE = 0x00,
+    DEFINED_LINESTYLE = 0x01,
     DEFINED_FOREGROUND_COLOR = 0x02,
     DEFINED_BACKGROUND_COLOR = 0x04,
-    DEFINED_UNDERLINE_COLOR  = 0x08
+    DEFINED_UNDERLINE_COLOR = 0x08
   };
 
   // Initialize all members, because TextRange instances may be compared by
   // memcomp.
-  TextRangeStyle()
-  {
-    Clear();
-  }
+  TextRangeStyle() { Clear(); }
 
   void Clear()
   {
@@ -88,8 +85,7 @@ struct TextRangeStyle
 
   bool Equals(const TextRangeStyle& aOther) const
   {
-    if (mDefinedStyles != aOther.mDefinedStyles)
-      return false;
+    if (mDefinedStyles != aOther.mDefinedStyles) return false;
     if (IsLineStyleDefined() && (mLineStyle != aOther.mLineStyle ||
                                  !mIsBoldLine != !aOther.mIsBoldLine))
       return false;
@@ -105,18 +101,15 @@ struct TextRangeStyle
     return true;
   }
 
-  bool operator !=(const TextRangeStyle &aOther) const
+  bool operator!=(const TextRangeStyle& aOther) const
   {
     return !Equals(aOther);
   }
 
-  bool operator ==(const TextRangeStyle &aOther) const
-  {
-    return Equals(aOther);
-  }
+  bool operator==(const TextRangeStyle& aOther) const { return Equals(aOther); }
 
   uint8_t mDefinedStyles;
-  uint8_t mLineStyle;        // DEFINED_LINESTYLE
+  uint8_t mLineStyle;  // DEFINED_LINESTYLE
 
   bool mIsBoldLine;  // DEFINED_LINESTYLE
 
@@ -131,26 +124,31 @@ struct TextRangeStyle
 
 enum class TextRangeType : RawTextRangeType
 {
-  eUninitialized     = 0x00,
-  eCaret             = 0x01,
-  eRawClause         = nsITextInputProcessor::ATTR_RAW_CLAUSE,
+  eUninitialized = 0x00,
+  eCaret = 0x01,
+  eRawClause = nsITextInputProcessor::ATTR_RAW_CLAUSE,
   eSelectedRawClause = nsITextInputProcessor::ATTR_SELECTED_RAW_CLAUSE,
-  eConvertedClause   = nsITextInputProcessor::ATTR_CONVERTED_CLAUSE,
-  eSelectedClause    = nsITextInputProcessor::ATTR_SELECTED_CLAUSE
+  eConvertedClause = nsITextInputProcessor::ATTR_CONVERTED_CLAUSE,
+  eSelectedClause = nsITextInputProcessor::ATTR_SELECTED_CLAUSE
 };
 
-bool IsValidRawTextRangeValue(RawTextRangeType aRawTextRangeValue);
-RawTextRangeType ToRawTextRangeType(TextRangeType aTextRangeType);
-TextRangeType ToTextRangeType(RawTextRangeType aRawTextRangeType);
-const char* ToChar(TextRangeType aTextRangeType);
-SelectionType ToSelectionType(TextRangeType aTextRangeType);
+bool
+IsValidRawTextRangeValue(RawTextRangeType aRawTextRangeValue);
+RawTextRangeType
+ToRawTextRangeType(TextRangeType aTextRangeType);
+TextRangeType
+ToTextRangeType(RawTextRangeType aRawTextRangeType);
+const char*
+ToChar(TextRangeType aTextRangeType);
+SelectionType
+ToSelectionType(TextRangeType aTextRangeType);
 
 struct TextRange
 {
   TextRange()
-    : mStartOffset(0)
-    , mEndOffset(0)
-    , mRangeType(TextRangeType::eUninitialized)
+      : mStartOffset(0),
+        mEndOffset(0),
+        mRangeType(TextRangeType::eUninitialized)
   {
   }
 
@@ -165,16 +163,12 @@ struct TextRange
 
   uint32_t Length() const { return mEndOffset - mStartOffset; }
 
-  bool IsClause() const
-  {
-    return mRangeType != TextRangeType::eCaret;
-  }
+  bool IsClause() const { return mRangeType != TextRangeType::eCaret; }
 
   bool Equals(const TextRange& aOther) const
   {
     return mStartOffset == aOther.mStartOffset &&
-           mEndOffset == aOther.mEndOffset &&
-           mRangeType == aOther.mRangeType &&
+           mEndOffset == aOther.mEndOffset && mRangeType == aOther.mRangeType &&
            mRangeStyle == aOther.mRangeStyle;
   }
 
@@ -228,7 +222,7 @@ class TextRangeArray final : public AutoTArray<TextRange, 10>
     return range ? range->Length() : UINT32_MAX;
   }
 
-public:
+ public:
   bool IsComposing() const
   {
     for (uint32_t i = 0; i < Length(); ++i) {
@@ -304,6 +298,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_TextRage_h_
+#endif  // mozilla_TextRage_h_

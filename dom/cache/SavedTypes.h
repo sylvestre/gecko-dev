@@ -38,8 +38,8 @@ struct SavedResponse
   CacheId mCacheId;
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_SavedTypes_h
+#endif  // mozilla_dom_cache_SavedTypes_h

@@ -24,44 +24,40 @@ class WorkletGlobalScope;
 class WorkletFetchHandler;
 enum class CallerType : uint32_t;
 
-class Worklet final : public nsISupports
-                    , public nsWrapperCache
+class Worklet final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Worklet)
 
-  enum WorkletType {
+  enum WorkletType
+  {
     eAudioWorklet,
     ePaintWorklet,
   };
 
-  Worklet(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal,
+  Worklet(nsPIDOMWindowInner* aWindow,
+          nsIPrincipal* aPrincipal,
           WorkletType aWorkletType);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  already_AddRefed<Promise>
-  Import(const nsAString& aModuleURL, CallerType aCallerType,
-         ErrorResult& aRv);
+  already_AddRefed<Promise> Import(const nsAString& aModuleURL,
+                                   CallerType aCallerType,
+                                   ErrorResult& aRv);
 
-  WorkletGlobalScope*
-  GetOrCreateGlobalScope(JSContext* aCx);
+  WorkletGlobalScope* GetOrCreateGlobalScope(JSContext* aCx);
 
-private:
+ private:
   ~Worklet();
 
-  WorkletFetchHandler*
-  GetImportFetchHandler(const nsACString& aURI);
+  WorkletFetchHandler* GetImportFetchHandler(const nsACString& aURI);
 
-  void
-  AddImportFetchHandler(const nsACString& aURI, WorkletFetchHandler* aHandler);
+  void AddImportFetchHandler(const nsACString& aURI,
+                             WorkletFetchHandler* aHandler);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsCOMPtr<nsIPrincipal> mPrincipal;
@@ -74,7 +70,7 @@ private:
   friend class WorkletFetchHandler;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Worklet_h
+#endif  // mozilla_dom_Worklet_h

@@ -47,21 +47,20 @@ SMILStringType::IsEqual(const nsSMILValue& aLeft,
   NS_PRECONDITION(aLeft.mType == aRight.mType, "Incompatible SMIL types");
   NS_PRECONDITION(aLeft.mType == this, "Unexpected type for SMIL value");
 
-  const nsAString* leftString =
-    static_cast<const nsAString*>(aLeft.mU.mPtr);
-  const nsAString* rightString =
-    static_cast<nsAString*>(aRight.mU.mPtr);
+  const nsAString* leftString = static_cast<const nsAString*>(aLeft.mU.mPtr);
+  const nsAString* rightString = static_cast<nsAString*>(aRight.mU.mPtr);
   return *leftString == *rightString;
 }
 
 nsresult
-SMILStringType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+SMILStringType::Add(nsSMILValue& aDest,
+                    const nsSMILValue& aValueToAdd,
                     uint32_t aCount) const
 {
   NS_PRECONDITION(aValueToAdd.mType == aDest.mType,
                   "Trying to add invalid types");
   NS_PRECONDITION(aValueToAdd.mType == this, "Unexpected source type");
-  return NS_ERROR_FAILURE; // string values can't be added to each other
+  return NS_ERROR_FAILURE;  // string values can't be added to each other
 }
 
 nsresult
@@ -69,9 +68,10 @@ SMILStringType::ComputeDistance(const nsSMILValue& aFrom,
                                 const nsSMILValue& aTo,
                                 double& aDistance) const
 {
-  NS_PRECONDITION(aFrom.mType == aTo.mType,"Trying to compare different types");
+  NS_PRECONDITION(aFrom.mType == aTo.mType,
+                  "Trying to compare different types");
   NS_PRECONDITION(aFrom.mType == this, "Unexpected source type");
-  return NS_ERROR_FAILURE; // there is no concept of distance between string values
+  return NS_ERROR_FAILURE;  // there is no concept of distance between string values
 }
 
 nsresult
@@ -81,11 +81,11 @@ SMILStringType::Interpolate(const nsSMILValue& aStartVal,
                             nsSMILValue& aResult) const
 {
   NS_PRECONDITION(aStartVal.mType == aEndVal.mType,
-      "Trying to interpolate different types");
+                  "Trying to interpolate different types");
   NS_PRECONDITION(aStartVal.mType == this,
-      "Unexpected types for interpolation");
-  NS_PRECONDITION(aResult.mType   == this, "Unexpected result type");
-  return NS_ERROR_FAILURE; // string values do not interpolate
+                  "Unexpected types for interpolation");
+  NS_PRECONDITION(aResult.mType == this, "Unexpected result type");
+  return NS_ERROR_FAILURE;  // string values do not interpolate
 }
 
-} // namespace mozilla
+}  // namespace mozilla

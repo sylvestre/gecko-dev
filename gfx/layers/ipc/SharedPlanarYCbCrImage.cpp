@@ -4,22 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SharedPlanarYCbCrImage.h"
-#include <stddef.h>                     // for size_t
-#include <stdio.h>                      // for printf
-#include "gfx2DGlue.h"                  // for Moz2D transition helpers
-#include "ISurfaceAllocator.h"          // for ISurfaceAllocator, etc
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/gfx/Types.h"          // for SurfaceFormat::SurfaceFormat::YUV
-#include "mozilla/ipc/SharedMemory.h"   // for SharedMemory, etc
-#include "mozilla/layers/ImageClient.h"  // for ImageClient
+#include <stddef.h>                    // for size_t
+#include <stdio.h>                     // for printf
+#include "gfx2DGlue.h"                 // for Moz2D transition helpers
+#include "ISurfaceAllocator.h"         // for ISurfaceAllocator, etc
+#include "mozilla/Assertions.h"        // for MOZ_ASSERT, etc
+#include "mozilla/gfx/Types.h"         // for SurfaceFormat::SurfaceFormat::YUV
+#include "mozilla/ipc/SharedMemory.h"  // for SharedMemory, etc
+#include "mozilla/layers/ImageClient.h"     // for ImageClient
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor, etc
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
 #include "mozilla/layers/BufferTexture.h"
 #include "mozilla/layers/ImageDataSerializer.h"
 #include "mozilla/layers/ImageBridgeChild.h"  // for ImageBridgeChild
-#include "mozilla/mozalloc.h"           // for operator delete
-#include "nsISupportsImpl.h"            // for Image::AddRef
+#include "mozilla/mozalloc.h"                 // for operator delete
+#include "nsISupportsImpl.h"                  // for Image::AddRef
 #include "mozilla/ipc/Shmem.h"
 
 namespace mozilla {
@@ -28,12 +28,13 @@ namespace layers {
 using namespace mozilla::ipc;
 
 SharedPlanarYCbCrImage::SharedPlanarYCbCrImage(ImageClient* aCompositable)
-: mCompositable(aCompositable)
+    : mCompositable(aCompositable)
 {
   MOZ_COUNT_CTOR(SharedPlanarYCbCrImage);
 }
 
-SharedPlanarYCbCrImage::~SharedPlanarYCbCrImage() {
+SharedPlanarYCbCrImage::~SharedPlanarYCbCrImage()
+{
   MOZ_COUNT_DTOR(SharedPlanarYCbCrImage);
 }
 
@@ -107,51 +108,54 @@ SharedPlanarYCbCrImage::AdoptData(const Data& aData)
   mSize = aData.mPicSize;
   mOrigin = gfx::IntPoint(aData.mPicX, aData.mPicY);
 
-  uint8_t *base = GetBuffer();
+  uint8_t* base = GetBuffer();
   uint32_t yOffset = aData.mYChannel - base;
   uint32_t cbOffset = aData.mCbChannel - base;
   uint32_t crOffset = aData.mCrChannel - base;
 
   auto fwd = mCompositable->GetForwarder();
   bool hasIntermediateBuffer = ComputeHasIntermediateBuffer(
-    gfx::SurfaceFormat::YUV, fwd->GetCompositorBackendType());
+      gfx::SurfaceFormat::YUV, fwd->GetCompositorBackendType());
 
   static_cast<BufferTextureData*>(mTextureClient->GetInternalData())
-    ->SetDesciptor(YCbCrDescriptor(aData.mYSize,
-                                   aData.mYStride,
-                                   aData.mCbCrSize,
-                                   aData.mCbCrStride,
-                                   yOffset,
-                                   cbOffset,
-                                   crOffset,
-                                   aData.mStereoMode,
-                                   aData.mYUVColorSpace,
-                                   aData.mBitDepth,
-                                   hasIntermediateBuffer));
+      ->SetDesciptor(YCbCrDescriptor(aData.mYSize,
+                                     aData.mYStride,
+                                     aData.mCbCrSize,
+                                     aData.mCbCrStride,
+                                     yOffset,
+                                     cbOffset,
+                                     crOffset,
+                                     aData.mStereoMode,
+                                     aData.mYUVColorSpace,
+                                     aData.mBitDepth,
+                                     hasIntermediateBuffer));
 
   return true;
 }
 
 bool
-SharedPlanarYCbCrImage::IsValid() {
+SharedPlanarYCbCrImage::IsValid()
+{
   return mTextureClient && mTextureClient->IsValid();
 }
 
 bool
 SharedPlanarYCbCrImage::Allocate(PlanarYCbCrData& aData)
 {
-  MOZ_ASSERT(!mTextureClient,
-             "This image already has allocated data");
+  MOZ_ASSERT(!mTextureClient, "This image already has allocated data");
   static const uint32_t MAX_POOLED_VIDEO_COUNT = 5;
 
   if (!mCompositable->HasTextureClientRecycler()) {
     // Initialize TextureClientRecycler
-    mCompositable->GetTextureClientRecycler()->SetMaxPoolSize(MAX_POOLED_VIDEO_COUNT);
+    mCompositable->GetTextureClientRecycler()->SetMaxPoolSize(
+        MAX_POOLED_VIDEO_COUNT);
   }
 
   {
-    YCbCrTextureClientAllocationHelper helper(aData, mCompositable->GetTextureFlags());
-    mTextureClient = mCompositable->GetTextureClientRecycler()->CreateOrRecycle(helper);
+    YCbCrTextureClientAllocationHelper helper(aData,
+                                              mCompositable->GetTextureFlags());
+    mTextureClient =
+        mCompositable->GetTextureClientRecycler()->CreateOrRecycle(helper);
   }
 
   if (!mTextureClient) {
@@ -164,7 +168,8 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrData& aData)
   // pointers out of the TextureClient and keeps them around, which works only
   // because the underlyin BufferTextureData is always mapped in memory even outside
   // of the lock/unlock interval. That's sad and new code should follow this example.
-  if (!mTextureClient->Lock(OpenMode::OPEN_READ) || !mTextureClient->BorrowMappedYCbCrData(mapped)) {
+  if (!mTextureClient->Lock(OpenMode::OPEN_READ) ||
+      !mTextureClient->BorrowMappedYCbCrData(mapped)) {
     MOZ_CRASH("GFX: Cannot lock or borrow mapped YCbCr");
   }
 
@@ -196,7 +201,7 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrData& aData)
   // will try to manage this memory without knowing it belongs to a
   // shmem.
   mBufferSize = ImageDataSerializer::ComputeYCbCrBufferSize(
-    mData.mYSize, mData.mYStride, mData.mCbCrSize, mData.mCbCrStride);
+      mData.mYSize, mData.mYStride, mData.mCbCrSize, mData.mCbCrStride);
   mSize = mData.mPicSize;
   mOrigin = gfx::IntPoint(aData.mPicX, aData.mPicY);
 
@@ -205,5 +210,5 @@ SharedPlanarYCbCrImage::Allocate(PlanarYCbCrData& aData)
   return mBufferSize > 0;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

@@ -36,167 +36,166 @@
  * the remaining elements of that array. (http://www.w3.org/TR/CSP/#parsing)
  */
 
-typedef nsTArray< nsTArray<nsString> > cspTokens;
+typedef nsTArray<nsTArray<nsString> > cspTokens;
 
-class nsCSPTokenizer {
+class nsCSPTokenizer
+{
+ public:
+  static void tokenizeCSPPolicy(const nsAString& aPolicyString,
+                                cspTokens& outTokens);
 
-  public:
-    static void tokenizeCSPPolicy(const nsAString &aPolicyString, cspTokens& outTokens);
+ private:
+  nsCSPTokenizer(const char16_t* aStart, const char16_t* aEnd);
+  ~nsCSPTokenizer();
 
-  private:
-    nsCSPTokenizer(const char16_t* aStart, const char16_t* aEnd);
-    ~nsCSPTokenizer();
+  inline bool atEnd() { return mCurChar >= mEndChar; }
 
-    inline bool atEnd()
-    {
-      return mCurChar >= mEndChar;
+  inline void skipWhiteSpace()
+  {
+    while (mCurChar < mEndChar && nsContentUtils::IsHTMLWhitespace(*mCurChar)) {
+      mCurToken.Append(*mCurChar++);
     }
+    mCurToken.Truncate();
+  }
 
-    inline void skipWhiteSpace()
-    {
-      while (mCurChar < mEndChar &&
-             nsContentUtils::IsHTMLWhitespace(*mCurChar)) {
-        mCurToken.Append(*mCurChar++);
-      }
-      mCurToken.Truncate();
+  inline void skipWhiteSpaceAndSemicolon()
+  {
+    while (mCurChar < mEndChar &&
+           (*mCurChar == ';' || nsContentUtils::IsHTMLWhitespace(*mCurChar))) {
+      mCurToken.Append(*mCurChar++);
     }
+    mCurToken.Truncate();
+  }
 
-    inline void skipWhiteSpaceAndSemicolon()
-    {
-      while (mCurChar < mEndChar && (*mCurChar == ';' ||
-             nsContentUtils::IsHTMLWhitespace(*mCurChar))){
-        mCurToken.Append(*mCurChar++);
-      }
-      mCurToken.Truncate();
+  inline bool accept(char16_t aChar)
+  {
+    NS_ASSERTION(mCurChar < mEndChar, "Trying to dereference mEndChar");
+    if (*mCurChar == aChar) {
+      mCurToken.Append(*mCurChar++);
+      return true;
     }
+    return false;
+  }
 
-    inline bool accept(char16_t aChar)
-    {
-      NS_ASSERTION(mCurChar < mEndChar, "Trying to dereference mEndChar");
-      if (*mCurChar == aChar) {
-        mCurToken.Append(*mCurChar++);
-        return true;
-      }
-      return false;
-    }
+  void generateNextToken();
+  void generateTokens(cspTokens& outTokens);
 
-    void generateNextToken();
-    void generateTokens(cspTokens& outTokens);
-
-    const char16_t* mCurChar;
-    const char16_t* mEndChar;
-    nsString        mCurToken;
+  const char16_t* mCurChar;
+  const char16_t* mEndChar;
+  nsString mCurToken;
 };
 
-
-class nsCSPParser {
-
-  public:
-    /**
+class nsCSPParser
+{
+ public:
+  /**
      * The CSP parser only has one publicly accessible function, which is parseContentSecurityPolicy.
      * Internally the input string is separated into string tokens and policy() is called, which starts
      * parsing the policy. The parser calls one function after the other according the the source-list
      * from http://www.w3.org/TR/CSP11/#source-list. E.g., the parser can only call port() after the parser
      * has already processed any possible host in host(), similar to a finite state machine.
      */
-    static nsCSPPolicy* parseContentSecurityPolicy(const nsAString &aPolicyString,
-                                                   nsIURI *aSelfURI,
-                                                   bool aReportOnly,
-                                                   nsCSPContext* aCSPContext,
-                                                   bool aDeliveredViaMetaTag);
+  static nsCSPPolicy* parseContentSecurityPolicy(const nsAString& aPolicyString,
+                                                 nsIURI* aSelfURI,
+                                                 bool aReportOnly,
+                                                 nsCSPContext* aCSPContext,
+                                                 bool aDeliveredViaMetaTag);
 
-  private:
-    nsCSPParser(cspTokens& aTokens,
-                nsIURI* aSelfURI,
-                nsCSPContext* aCSPContext,
-                bool aDeliveredViaMetaTag);
+ private:
+  nsCSPParser(cspTokens& aTokens,
+              nsIURI* aSelfURI,
+              nsCSPContext* aCSPContext,
+              bool aDeliveredViaMetaTag);
 
-    static bool sCSPExperimentalEnabled;
-    static bool sStrictDynamicEnabled;
+  static bool sCSPExperimentalEnabled;
+  static bool sStrictDynamicEnabled;
 
-    ~nsCSPParser();
+  ~nsCSPParser();
 
+  // Parsing the CSP using the source-list from http://www.w3.org/TR/CSP11/#source-list
+  nsCSPPolicy* policy();
+  void directive();
+  nsCSPDirective* directiveName();
+  void directiveValue(nsTArray<nsCSPBaseSrc*>& outSrcs);
+  void requireSRIForDirectiveValue(nsRequireSRIForDirective* aDir);
+  void referrerDirectiveValue(nsCSPDirective* aDir);
+  void reportURIList(nsCSPDirective* aDir);
+  void sandboxFlagList(nsCSPDirective* aDir);
+  void sourceList(nsTArray<nsCSPBaseSrc*>& outSrcs);
+  nsCSPBaseSrc* sourceExpression();
+  nsCSPSchemeSrc* schemeSource();
+  nsCSPHostSrc* hostSource();
+  nsCSPBaseSrc* keywordSource();
+  nsCSPNonceSrc* nonceSource();
+  nsCSPHashSrc* hashSource();
+  nsCSPHostSrc* host();
+  bool hostChar();
+  bool schemeChar();
+  bool port();
+  bool path(nsCSPHostSrc* aCspHost);
 
-    // Parsing the CSP using the source-list from http://www.w3.org/TR/CSP11/#source-list
-    nsCSPPolicy*        policy();
-    void                directive();
-    nsCSPDirective*     directiveName();
-    void                directiveValue(nsTArray<nsCSPBaseSrc*>& outSrcs);
-    void                requireSRIForDirectiveValue(nsRequireSRIForDirective* aDir);
-    void                referrerDirectiveValue(nsCSPDirective* aDir);
-    void                reportURIList(nsCSPDirective* aDir);
-    void                sandboxFlagList(nsCSPDirective* aDir);
-    void                sourceList(nsTArray<nsCSPBaseSrc*>& outSrcs);
-    nsCSPBaseSrc*       sourceExpression();
-    nsCSPSchemeSrc*     schemeSource();
-    nsCSPHostSrc*       hostSource();
-    nsCSPBaseSrc*       keywordSource();
-    nsCSPNonceSrc*      nonceSource();
-    nsCSPHashSrc*       hashSource();
-    nsCSPHostSrc*       host();
-    bool                hostChar();
-    bool                schemeChar();
-    bool                port();
-    bool                path(nsCSPHostSrc* aCspHost);
+  bool subHost();                        // helper function to parse subDomains
+  bool atValidUnreservedChar();          // helper function to parse unreserved
+  bool atValidSubDelimChar();            // helper function to parse sub-delims
+  bool atValidPctEncodedChar();          // helper function to parse pct-encoded
+  bool subPath(nsCSPHostSrc* aCspHost);  // helper function to parse paths
 
-    bool subHost();                                         // helper function to parse subDomains
-    bool atValidUnreservedChar();                           // helper function to parse unreserved
-    bool atValidSubDelimChar();                             // helper function to parse sub-delims
-    bool atValidPctEncodedChar();                           // helper function to parse pct-encoded
-    bool subPath(nsCSPHostSrc* aCspHost);                   // helper function to parse paths
+  inline bool atEnd() { return mCurChar >= mEndChar; }
 
-    inline bool atEnd()
-    {
-      return mCurChar >= mEndChar;
+  inline bool accept(char16_t aSymbol)
+  {
+    if (atEnd()) {
+      return false;
     }
+    return (*mCurChar == aSymbol) && advance();
+  }
 
-    inline bool accept(char16_t aSymbol)
-    {
-      if (atEnd()) { return false; }
-      return (*mCurChar == aSymbol) && advance();
+  inline bool accept(bool (*aClassifier)(char16_t))
+  {
+    if (atEnd()) {
+      return false;
     }
+    return (aClassifier(*mCurChar)) && advance();
+  }
 
-    inline bool accept(bool (*aClassifier) (char16_t))
-    {
-      if (atEnd()) { return false; }
-      return (aClassifier(*mCurChar)) && advance();
+  inline bool peek(char16_t aSymbol)
+  {
+    if (atEnd()) {
+      return false;
     }
+    return *mCurChar == aSymbol;
+  }
 
-    inline bool peek(char16_t aSymbol)
-    {
-      if (atEnd()) { return false; }
-      return *mCurChar == aSymbol;
+  inline bool peek(bool (*aClassifier)(char16_t))
+  {
+    if (atEnd()) {
+      return false;
     }
+    return aClassifier(*mCurChar);
+  }
 
-    inline bool peek(bool (*aClassifier) (char16_t))
-    {
-      if (atEnd()) { return false; }
-      return aClassifier(*mCurChar);
+  inline bool advance()
+  {
+    if (atEnd()) {
+      return false;
     }
+    mCurValue.Append(*mCurChar++);
+    return true;
+  }
 
-    inline bool advance()
-    {
-      if (atEnd()) { return false; }
-      mCurValue.Append(*mCurChar++);
-      return true;
-    }
+  inline void resetCurValue() { mCurValue.Truncate(); }
 
-    inline void resetCurValue()
-    {
-      mCurValue.Truncate();
-    }
+  bool atEndOfPath();
+  bool atValidPathChar();
 
-    bool atEndOfPath();
-    bool atValidPathChar();
+  void resetCurChar(const nsAString& aToken);
 
-    void resetCurChar(const nsAString& aToken);
+  void logWarningErrorToConsole(uint32_t aSeverityFlag,
+                                const char* aProperty,
+                                const char16_t* aParams[],
+                                uint32_t aParamsLength);
 
-    void logWarningErrorToConsole(uint32_t aSeverityFlag,
-                                  const char* aProperty,
-                                  const char16_t* aParams[],
-                                  uint32_t aParamsLength);
-
-/**
+  /**
  * When parsing the policy, the parser internally uses the following helper
  * variables/members which are used/reset during parsing. The following
  * example explains how they are used.
@@ -230,36 +229,36 @@ class nsCSPParser {
  * mCurDir to hold the next array of strings and start the process all over.
  */
 
-    const char16_t*    mCurChar;
-    const char16_t*    mEndChar;
-    nsString           mCurValue;
-    nsString           mCurToken;
-    nsTArray<nsString> mCurDir;
+  const char16_t* mCurChar;
+  const char16_t* mEndChar;
+  nsString mCurValue;
+  nsString mCurToken;
+  nsTArray<nsString> mCurDir;
 
-    // helpers to allow invalidation of srcs within script-src and style-src
-    // if either 'strict-dynamic' or at least a hash or nonce is present.
-    bool               mHasHashOrNonce; // false, if no hash or nonce is defined
-    bool               mStrictDynamic;  // false, if 'strict-dynamic' is not defined
-    nsCSPKeywordSrc*   mUnsafeInlineKeywordSrc; // null, otherwise invlidate()
+  // helpers to allow invalidation of srcs within script-src and style-src
+  // if either 'strict-dynamic' or at least a hash or nonce is present.
+  bool mHasHashOrNonce;  // false, if no hash or nonce is defined
+  bool mStrictDynamic;   // false, if 'strict-dynamic' is not defined
+  nsCSPKeywordSrc* mUnsafeInlineKeywordSrc;  // null, otherwise invlidate()
 
-    // cache variables for child-src and frame-src directive handling.
-    // frame-src is deprecated in favor of child-src, however if we
-    // see a frame-src directive, it takes precedence for frames and iframes.
-    // At the end of parsing, if we have a child-src directive, we need to
-    // decide whether it will handle frames, or if there is a frame-src we
-    // should honor instead.
-    nsCSPChildSrcDirective* mChildSrc;
-    nsCSPDirective*         mFrameSrc;
+  // cache variables for child-src and frame-src directive handling.
+  // frame-src is deprecated in favor of child-src, however if we
+  // see a frame-src directive, it takes precedence for frames and iframes.
+  // At the end of parsing, if we have a child-src directive, we need to
+  // decide whether it will handle frames, or if there is a frame-src we
+  // should honor instead.
+  nsCSPChildSrcDirective* mChildSrc;
+  nsCSPDirective* mFrameSrc;
 
-    // cache variable to let nsCSPHostSrc know that it's within
-    // the frame-ancestors directive.
-    bool                    mParsingFrameAncestorsDir;
+  // cache variable to let nsCSPHostSrc know that it's within
+  // the frame-ancestors directive.
+  bool mParsingFrameAncestorsDir;
 
-    cspTokens          mTokens;
-    nsIURI*            mSelfURI;
-    nsCSPPolicy*       mPolicy;
-    nsCSPContext*      mCSPContext; // used for console logging
-    bool               mDeliveredViaMetaTag;
+  cspTokens mTokens;
+  nsIURI* mSelfURI;
+  nsCSPPolicy* mPolicy;
+  nsCSPContext* mCSPContext;  // used for console logging
+  bool mDeliveredViaMetaTag;
 };
 
 #endif /* nsCSPParser_h___ */

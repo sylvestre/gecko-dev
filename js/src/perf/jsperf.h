@@ -27,33 +27,32 @@ namespace JS {
  * requested are available as data values after calling Stop().  The
  * object may be reused for many measurements.
  */
-class JS_FRIEND_API(PerfMeasurement)
-{
-  protected:
+class JS_FRIEND_API(PerfMeasurement) {
+   protected:
     // Implementation-specific data, if any.
     void* impl;
 
-  public:
+   public:
     /*
      * Events that may be measured.  Taken directly from the list of
      * "generalized hardware performance event types" in the Linux
      * perf_event API, plus some of the "software events".
      */
     enum EventMask {
-        CPU_CYCLES          = 0x00000001,
-        INSTRUCTIONS        = 0x00000002,
-        CACHE_REFERENCES    = 0x00000004,
-        CACHE_MISSES        = 0x00000008,
+        CPU_CYCLES = 0x00000001,
+        INSTRUCTIONS = 0x00000002,
+        CACHE_REFERENCES = 0x00000004,
+        CACHE_MISSES = 0x00000008,
         BRANCH_INSTRUCTIONS = 0x00000010,
-        BRANCH_MISSES       = 0x00000020,
-        BUS_CYCLES          = 0x00000040,
-        PAGE_FAULTS         = 0x00000080,
-        MAJOR_PAGE_FAULTS   = 0x00000100,
-        CONTEXT_SWITCHES    = 0x00000200,
-        CPU_MIGRATIONS      = 0x00000400,
+        BRANCH_MISSES = 0x00000020,
+        BUS_CYCLES = 0x00000040,
+        PAGE_FAULTS = 0x00000080,
+        MAJOR_PAGE_FAULTS = 0x00000100,
+        CONTEXT_SWITCHES = 0x00000200,
+        CPU_MIGRATIONS = 0x00000400,
 
-        ALL                 = 0x000007ff,
-        NUM_MEASURABLE_EVENTS  = 11
+        ALL = 0x000007ff,
+        NUM_MEASURABLE_EVENTS = 11
     };
 
     /*
@@ -117,17 +116,15 @@ class JS_FRIEND_API(PerfMeasurement)
  * Javascript object passed as an argument (this will normally be a
  * global object).  The JS-visible API is identical to the C++ API.
  */
-extern JS_FRIEND_API(JSObject*)
-    RegisterPerfMeasurement(JSContext* cx, JS::HandleObject global);
+extern JS_FRIEND_API(JSObject*) RegisterPerfMeasurement(JSContext* cx, JS::HandleObject global);
 
 /*
  * Given a Value which contains an instance of the aforementioned
  * wrapper class, extract the C++ object.  Returns nullptr if the
  * Value is not an instance of the wrapper.
  */
-extern JS_FRIEND_API(PerfMeasurement*)
-    ExtractPerfMeasurement(const Value& wrapper);
+extern JS_FRIEND_API(PerfMeasurement*) ExtractPerfMeasurement(const Value& wrapper);
 
-} // namespace JS
+}  // namespace JS
 
 #endif /* perf_jsperf_h */

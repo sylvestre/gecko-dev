@@ -14,10 +14,7 @@ FileLocation::FileLocation() = default;
 
 FileLocation::~FileLocation() = default;
 
-FileLocation::FileLocation(nsIFile* aFile)
-{
-  Init(aFile);
-}
+FileLocation::FileLocation(nsIFile* aFile) { Init(aFile); }
 
 FileLocation::FileLocation(nsIFile* aFile, const char* aPath)
 {
@@ -30,16 +27,16 @@ FileLocation::FileLocation(nsZipArchive* aZip, const char* aPath)
 }
 
 FileLocation::FileLocation(const FileLocation& aOther)
-  : mBaseFile(aOther.mBaseFile)
-  , mBaseZip(aOther.mBaseZip)
-  , mPath(aOther.mPath)
+    : mBaseFile(aOther.mBaseFile),
+      mBaseZip(aOther.mBaseZip),
+      mPath(aOther.mPath)
 {
 }
 
 FileLocation::FileLocation(FileLocation&& aOther)
-  : mBaseFile(Move(aOther.mBaseFile))
-  , mBaseZip(Move(aOther.mBaseZip))
-  , mPath(Move(aOther.mPath))
+    : mBaseFile(Move(aOther.mBaseFile)),
+      mBaseZip(Move(aOther.mBaseZip)),
+      mPath(Move(aOther.mPath))
 {
   aOther.mPath.Truncate();
 }
@@ -49,8 +46,7 @@ FileLocation::FileLocation(const FileLocation& aFile, const char* aPath)
   if (aFile.IsZip()) {
     if (aFile.mBaseFile) {
       Init(aFile.mBaseFile, aFile.mPath.get());
-    }
-    else {
+    } else {
       Init(aFile.mBaseZip, aFile.mPath.get());
     }
     if (aPath) {
@@ -214,7 +210,8 @@ FileLocation::Data::Copy(char* aBuf, uint32_t aLen)
 {
   if (mFd) {
     for (uint32_t totalRead = 0; totalRead < aLen;) {
-      int32_t read = PR_Read(mFd, aBuf + totalRead,
+      int32_t read = PR_Read(mFd,
+                             aBuf + totalRead,
                              XPCOM_MIN(aLen - totalRead, uint32_t(INT32_MAX)));
       if (read < 0) {
         return NS_ErrorAccordingToNSPR();
@@ -224,12 +221,13 @@ FileLocation::Data::Copy(char* aBuf, uint32_t aLen)
     return NS_OK;
   }
   if (mItem) {
-    nsZipCursor cursor(mItem, mZip, reinterpret_cast<uint8_t*>(aBuf),
-                       aLen, true);
+    nsZipCursor cursor(
+        mItem, mZip, reinterpret_cast<uint8_t*>(aBuf), aLen, true);
     uint32_t readLen;
     cursor.Copy(&readLen);
     if (readLen != aLen) {
-      nsZipArchive::sFileCorruptedReason = "FileLocation::Data: insufficient data";
+      nsZipArchive::sFileCorruptedReason =
+          "FileLocation::Data: insufficient data";
       return NS_ERROR_FILE_CORRUPTED;
     }
     return NS_OK;

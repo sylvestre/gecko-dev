@@ -26,4 +26,4 @@ midl_user_free(void* aBuffer)
   _aligned_free(aBuffer);
 }
 
-} // extern "C"
+}  // extern "C"

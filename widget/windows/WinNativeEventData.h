@@ -22,25 +22,25 @@ namespace widget {
 
 class WinNativeKeyEventData final
 {
-public:
+ public:
   UINT mMessage;
   WPARAM mWParam;
   LPARAM mLParam;
   Modifiers mModifiers;
 
-private:
+ private:
   uintptr_t mKeyboardLayout;
 
-public:
+ public:
   WinNativeKeyEventData(UINT aMessage,
                         WPARAM aWParam,
                         LPARAM aLParam,
                         const ModifierKeyState& aModifierKeyState)
-    : mMessage(aMessage)
-    , mWParam(aWParam)
-    , mLParam(aLParam)
-    , mModifiers(aModifierKeyState.GetModifiers())
-    , mKeyboardLayout(reinterpret_cast<uintptr_t>(::GetKeyboardLayout(0)))
+      : mMessage(aMessage),
+        mWParam(aWParam),
+        mLParam(aLParam),
+        mModifiers(aModifierKeyState.GetModifiers()),
+        mKeyboardLayout(reinterpret_cast<uintptr_t>(::GetKeyboardLayout(0)))
   {
   }
 
@@ -50,7 +50,7 @@ public:
   }
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // #ifndef mozilla_widget_WinNativeEventData_h_
+#endif  // #ifndef mozilla_widget_WinNativeEventData_h_

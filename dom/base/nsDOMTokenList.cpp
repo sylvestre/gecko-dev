@@ -22,17 +22,19 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-nsDOMTokenList::nsDOMTokenList(Element* aElement, nsAtom* aAttrAtom,
-                               const DOMTokenListSupportedTokenArray aSupportedTokens)
-  : mElement(aElement),
-    mAttrAtom(aAttrAtom),
-    mSupportedTokens(aSupportedTokens)
+nsDOMTokenList::nsDOMTokenList(
+    Element* aElement,
+    nsAtom* aAttrAtom,
+    const DOMTokenListSupportedTokenArray aSupportedTokens)
+    : mElement(aElement),
+      mAttrAtom(aAttrAtom),
+      mSupportedTokens(aSupportedTokens)
 {
   // We don't add a reference to our element. If it goes away,
   // we'll be told to drop our reference
 }
 
-nsDOMTokenList::~nsDOMTokenList() { }
+nsDOMTokenList::~nsDOMTokenList() {}
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsDOMTokenList, mElement)
 
@@ -199,8 +201,7 @@ nsDOMTokenList::AddInternal(const nsAttrValue* aAttr,
   for (uint32_t i = 0, l = aTokens.Length(); i < l; ++i) {
     const nsString& aToken = aTokens[i];
 
-    if ((aAttr && aAttr->Contains(aToken)) ||
-        addedClasses.Contains(aToken)) {
+    if ((aAttr && aAttr->Contains(aToken)) || addedClasses.Contains(aToken)) {
       continue;
     }
 
@@ -380,13 +381,11 @@ nsDOMTokenList::ReplaceInternal(const nsAttrValue* aAttr,
 }
 
 bool
-nsDOMTokenList::Supports(const nsAString& aToken,
-                         ErrorResult& aError)
+nsDOMTokenList::Supports(const nsAString& aToken, ErrorResult& aError)
 {
   if (!mSupportedTokens) {
     aError.ThrowTypeError<MSG_TOKENLIST_NO_SUPPORTED_TOKENS>(
-      mElement->LocalName(),
-      nsDependentAtomString(mAttrAtom));
+        mElement->LocalName(), nsDependentAtomString(mAttrAtom));
     return false;
   }
 
@@ -413,8 +412,7 @@ nsDOMTokenList::Stringify(nsAString& aResult)
 }
 
 JSObject*
-nsDOMTokenList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+nsDOMTokenList::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return DOMTokenListBinding::Wrap(cx, this, aGivenProto);
 }
-

@@ -18,7 +18,7 @@ namespace a11y {
  */
 class XULSliderAccessible : public AccessibleWrap
 {
-public:
+ public:
   XULSliderAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -39,37 +39,35 @@ public:
   virtual void ActionNameAt(uint8_t aIndex, nsAString& aName) override;
   virtual bool DoAction(uint8_t aIndex) override;
 
-protected:
+ protected:
   /**
    * Return anonymous slider element.
    */
   nsIContent* GetSliderElement() const;
 
-  nsresult GetSliderAttr(nsAtom *aName, nsAString& aValue) const;
-  nsresult SetSliderAttr(nsAtom *aName, const nsAString& aValue);
+  nsresult GetSliderAttr(nsAtom* aName, nsAString& aValue) const;
+  nsresult SetSliderAttr(nsAtom* aName, const nsAString& aValue);
 
-  double GetSliderAttr(nsAtom *aName) const;
-  bool SetSliderAttr(nsAtom *aName, double aValue);
+  double GetSliderAttr(nsAtom* aName) const;
+  bool SetSliderAttr(nsAtom* aName, double aValue);
 
-private:
+ private:
   mutable nsCOMPtr<nsIContent> mSliderNode;
 };
-
 
 /**
  * Used for slider's thumb element.
  */
 class XULThumbAccessible : public AccessibleWrap
 {
-public:
+ public:
   XULThumbAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual a11y::role NativeRole() override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

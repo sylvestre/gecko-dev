@@ -41,7 +41,8 @@ NS_IMPL_ISUPPORTS(DecodePool, nsIObserver)
 
 struct Work
 {
-  enum class Type {
+  enum class Type
+  {
     TASK,
     SHUTDOWN
   } mType;
@@ -51,22 +52,19 @@ struct Work
 
 class DecodePoolImpl
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(DecodePoolImpl)
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DecodePoolImpl)
 
-  DecodePoolImpl()
-    : mMonitor("DecodePoolImpl")
-    , mShuttingDown(false)
-  { }
+  DecodePoolImpl() : mMonitor("DecodePoolImpl"), mShuttingDown(false) {}
 
   /// Shut down the provided decode pool thread.
   static void ShutdownThread(nsIThread* aThisThread)
   {
     // Threads have to be shut down from another thread, so we'll ask the
     // main thread to do it for us.
-    NS_DispatchToMainThread(NewRunnableMethod("DecodePoolImpl::ShutdownThread",
-                                              aThisThread, &nsIThread::Shutdown));
+    NS_DispatchToMainThread(NewRunnableMethod(
+        "DecodePoolImpl::ShutdownThread", aThisThread, &nsIThread::Shutdown));
   }
 
   /**
@@ -130,12 +128,12 @@ public:
 
   nsresult CreateThread(nsIThread** aThread, nsIRunnable* aInitialEvent)
   {
-    return NS_NewNamedThread(mThreadNaming.GetNextThreadName("ImgDecoder"),
-                             aThread, aInitialEvent);
+    return NS_NewNamedThread(
+        mThreadNaming.GetNextThreadName("ImgDecoder"), aThread, aInitialEvent);
   }
 
-private:
-  ~DecodePoolImpl() { }
+ private:
+  ~DecodePoolImpl() {}
 
   Work PopWorkFromQueue(nsTArray<RefPtr<IDecodingTask>>& aQueue)
   {
@@ -158,11 +156,11 @@ private:
 
 class DecodePoolWorker : public Runnable
 {
-public:
+ public:
   explicit DecodePoolWorker(DecodePoolImpl* aImpl)
-    : Runnable("image::DecodePoolWorker")
-    , mImpl(aImpl)
-  { }
+      : Runnable("image::DecodePoolWorker"), mImpl(aImpl)
+  {
+  }
 
   NS_IMETHOD Run() override
   {
@@ -192,7 +190,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<DecodePoolImpl> mImpl;
 };
 
@@ -223,8 +221,7 @@ DecodePool::NumberOfCores()
 }
 
 DecodePool::DecodePool()
-  : mImpl(new DecodePoolImpl)
-  , mMutex("image::DecodePool")
+    : mImpl(new DecodePoolImpl), mMutex("image::DecodePool")
 {
   // Determine the number of threads we want.
   int32_t prefLimit = gfxPrefs::ImageMTDecodingLimit();
@@ -254,7 +251,7 @@ DecodePool::DecodePool()
   }
 
   // Initialize the thread pool.
-  for (uint32_t i = 0 ; i < limit ; ++i) {
+  for (uint32_t i = 0; i < limit; ++i) {
     nsCOMPtr<nsIRunnable> worker = new DecodePoolWorker(mImpl);
     nsCOMPtr<nsIThread> thread;
     nsresult rv = mImpl->CreateThread(getter_AddRefs(thread), worker);
@@ -295,7 +292,7 @@ DecodePool::Observe(nsISupports*, const char* aTopic, const char16_t*)
 
   mImpl->RequestShutdown();
 
-  for (uint32_t i = 0 ; i < threads.Length() ; ++i) {
+  for (uint32_t i = 0; i < threads.Length(); ++i) {
     threads[i]->Shutdown();
   }
 
@@ -319,8 +316,8 @@ DecodePool::SyncRunIfPreferred(IDecodingTask* aTask, const nsCString& aURI)
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aTask);
 
-  AUTO_PROFILER_LABEL_DYNAMIC("DecodePool::SyncRunIfPreferred", GRAPHICS,
-                              aURI.get());
+  AUTO_PROFILER_LABEL_DYNAMIC(
+      "DecodePool::SyncRunIfPreferred", GRAPHICS, aURI.get());
 
   if (aTask->ShouldPreferSyncRun()) {
     aTask->Run();
@@ -337,8 +334,8 @@ DecodePool::SyncRunIfPossible(IDecodingTask* aTask, const nsCString& aURI)
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aTask);
 
-  AUTO_PROFILER_LABEL_DYNAMIC("DecodePool::SyncRunIfPossible", GRAPHICS,
-                              aURI.get());
+  AUTO_PROFILER_LABEL_DYNAMIC(
+      "DecodePool::SyncRunIfPossible", GRAPHICS, aURI.get());
 
   aTask->Run();
 }
@@ -351,5 +348,5 @@ DecodePool::GetIOEventTarget()
   return target.forget();
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

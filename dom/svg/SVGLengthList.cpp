@@ -45,8 +45,8 @@ SVGLengthList::SetValueFromString(const nsAString& aValue)
 {
   SVGLengthList temp;
 
-  nsCharSeparatedTokenizerTemplate<IsSVGWhitespace>
-    tokenizer(aValue, ',', nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
+  nsCharSeparatedTokenizerTemplate<IsSVGWhitespace> tokenizer(
+      aValue, ',', nsCharSeparatedTokenizer::SEPARATOR_OPTIONAL);
 
   while (tokenizer.hasMoreTokens()) {
     SVGLength length;
@@ -58,7 +58,7 @@ SVGLengthList::SetValueFromString(const nsAString& aValue)
     }
   }
   if (tokenizer.separatorAfterCurrentToken()) {
-    return NS_ERROR_DOM_SYNTAX_ERR; // trailing comma
+    return NS_ERROR_DOM_SYNTAX_ERR;  // trailing comma
   }
   return CopyFrom(temp);
 }
@@ -77,4 +77,4 @@ SVGLengthList::operator==(const SVGLengthList& rhs) const
   return true;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

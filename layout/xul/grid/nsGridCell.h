@@ -29,25 +29,24 @@ class nsIFrame;
 
 class nsGridCell final
 {
-public:
-    nsGridCell();
-    ~nsGridCell();
+ public:
+  nsGridCell();
+  ~nsGridCell();
 
-    nsSize      GetXULPrefSize(nsBoxLayoutState& aBoxLayoutState);
-    nsSize      GetXULMinSize(nsBoxLayoutState& aBoxLayoutState);
-    nsSize      GetXULMaxSize(nsBoxLayoutState& aBoxLayoutState);
-    bool        IsXULCollapsed();
+  nsSize GetXULPrefSize(nsBoxLayoutState& aBoxLayoutState);
+  nsSize GetXULMinSize(nsBoxLayoutState& aBoxLayoutState);
+  nsSize GetXULMaxSize(nsBoxLayoutState& aBoxLayoutState);
+  bool IsXULCollapsed();
 
-// accessors
-    nsIFrame*   GetBoxInColumn()               { return mBoxInColumn; }
-    nsIFrame*   GetBoxInRow()                  { return mBoxInRow; }
-    void        SetBoxInRow(nsIFrame* aBox)    { mBoxInRow = aBox; }
-    void        SetBoxInColumn(nsIFrame* aBox) { mBoxInColumn = aBox; }
+  // accessors
+  nsIFrame* GetBoxInColumn() { return mBoxInColumn; }
+  nsIFrame* GetBoxInRow() { return mBoxInRow; }
+  void SetBoxInRow(nsIFrame* aBox) { mBoxInRow = aBox; }
+  void SetBoxInColumn(nsIFrame* aBox) { mBoxInColumn = aBox; }
 
-private:
-    nsIFrame* mBoxInColumn;
-    nsIFrame* mBoxInRow;
+ private:
+  nsIFrame* mBoxInColumn;
+  nsIFrame* mBoxInRow;
 };
 
 #endif
-

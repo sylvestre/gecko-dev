@@ -12,22 +12,17 @@ using namespace mozilla::embedding;
  *  See documentation in nsPrintOptionsWin.h
  *	@update 6/21/00 dwc
  */
-nsPrintOptionsGTK::nsPrintOptionsGTK()
-{
-
-}
+nsPrintOptionsGTK::nsPrintOptionsGTK() {}
 
 /** ---------------------------------------------------
  *  See documentation in nsPrintOptionsImpl.h
  *	@update 6/21/00 dwc
  */
-nsPrintOptionsGTK::~nsPrintOptionsGTK()
-{
-}
+nsPrintOptionsGTK::~nsPrintOptionsGTK() {}
 
 static void
-serialize_gtk_printsettings_to_printdata(const gchar *key,
-                                         const gchar *value,
+serialize_gtk_printsettings_to_printdata(const gchar* key,
+                                         const gchar* value,
                                          gpointer aData)
 {
   PrintData* data = (PrintData*)aData;
@@ -52,9 +47,7 @@ nsPrintOptionsGTK::SerializeToPrintData(nsIPrintSettings* aSettings,
   NS_ENSURE_STATE(gtkPrintSettings);
 
   gtk_print_settings_foreach(
-    gtkPrintSettings,
-    serialize_gtk_printsettings_to_printdata,
-    data);
+      gtkPrintSettings, serialize_gtk_printsettings_to_printdata, data);
 
   return NS_OK;
 }
@@ -76,9 +69,8 @@ nsPrintOptionsGTK::DeserializeToPrintSettings(const PrintData& data,
 
   for (uint32_t i = 0; i < data.GTKPrintSettings().Length(); ++i) {
     CStringKeyValue pair = data.GTKPrintSettings()[i];
-    gtk_print_settings_set(newGtkPrintSettings,
-                           pair.key().get(),
-                           pair.value().get());
+    gtk_print_settings_set(
+        newGtkPrintSettings, pair.key().get(), pair.value().get());
   }
 
   settingsGTK->SetGtkPrintSettings(newGtkPrintSettings);
@@ -89,14 +81,15 @@ nsPrintOptionsGTK::DeserializeToPrintSettings(const PrintData& data,
   return NS_OK;
 }
 
-nsresult nsPrintOptionsGTK::_CreatePrintSettings(nsIPrintSettings **_retval)
+nsresult
+nsPrintOptionsGTK::_CreatePrintSettings(nsIPrintSettings** _retval)
 {
   *_retval = nullptr;
-  nsPrintSettingsGTK* printSettings = new nsPrintSettingsGTK(); // does not initially ref count
+  nsPrintSettingsGTK* printSettings =
+      new nsPrintSettingsGTK();  // does not initially ref count
   NS_ENSURE_TRUE(printSettings, NS_ERROR_OUT_OF_MEMORY);
 
-  NS_ADDREF(*_retval = printSettings); // ref count
+  NS_ADDREF(*_retval = printSettings);  // ref count
 
   return NS_OK;
 }
-

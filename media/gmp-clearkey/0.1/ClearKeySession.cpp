@@ -30,8 +30,7 @@ using namespace std;
 
 ClearKeySession::ClearKeySession(const std::string& aSessionId,
                                  SessionType aSessionType)
-  : mSessionId(aSessionId)
-  , mSessionType(aSessionType)
+    : mSessionId(aSessionId), mSessionType(aSessionType)
 {
   CK_LOGD("ClearKeySession ctor %p", this);
 }
@@ -56,7 +55,7 @@ ClearKeySession::Init(InitDataType aInitDataType,
              aInitDataSize <= kMaxWebmInitDataSize) {
     // "webm" initData format is simply the raw bytes of the keyId.
     vector<uint8_t> keyId;
-    keyId.assign(aInitData, aInitData+aInitDataSize);
+    keyId.assign(aInitData, aInitData + aInitDataSize);
     mKeyIds.push_back(keyId);
   }
 

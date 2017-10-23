@@ -10,8 +10,8 @@ namespace mozilla {
 
 class NullVideoDataCreator : public DummyDataCreator
 {
-public:
-  NullVideoDataCreator() { }
+ public:
+  NullVideoDataCreator() {}
 
   already_AddRefed<MediaData> Create(MediaRawData* aSample) override
   {
@@ -30,21 +30,20 @@ public:
 
 class NullDecoderModule : public PlatformDecoderModule
 {
-public:
-
+ public:
   // Decode thread.
   already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
-    const CreateDecoderParams& aParams) override
+      const CreateDecoderParams& aParams) override
   {
     UniquePtr<DummyDataCreator> creator = MakeUnique<NullVideoDataCreator>();
     RefPtr<MediaDataDecoder> decoder = new DummyMediaDataDecoder(
-      Move(creator), NS_LITERAL_CSTRING("null media data decoder"), aParams);
+        Move(creator), NS_LITERAL_CSTRING("null media data decoder"), aParams);
     return decoder.forget();
   }
 
   // Decode thread.
   already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
-    const CreateDecoderParams& aParams) override
+      const CreateDecoderParams& aParams) override
   {
     MOZ_ASSERT(false, "Audio decoders are unsupported.");
     return nullptr;
@@ -64,4 +63,4 @@ CreateNullDecoderModule()
   return pdm.forget();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

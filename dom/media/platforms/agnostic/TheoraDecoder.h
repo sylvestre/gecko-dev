@@ -15,7 +15,7 @@ namespace mozilla {
 
 class TheoraDecoder : public MediaDataDecoder
 {
-public:
+ public:
   explicit TheoraDecoder(const CreateDecoderParams& aParams);
 
   RefPtr<InitPromise> Init() override;
@@ -32,7 +32,7 @@ public:
     return NS_LITERAL_CSTRING("theora video decoder");
   }
 
-private:
+ private:
   ~TheoraDecoder();
   nsresult DoDecodeHeader(const unsigned char* aData, size_t aLength);
 
@@ -45,13 +45,13 @@ private:
   // Theora header & decoder state
   th_info mTheoraInfo;
   th_comment mTheoraComment;
-  th_setup_info *mTheoraSetupInfo;
-  th_dec_ctx *mTheoraDecoderContext;
+  th_setup_info* mTheoraSetupInfo;
+  th_dec_ctx* mTheoraDecoderContext;
   int mPacketCount;
 
   const VideoInfo& mInfo;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

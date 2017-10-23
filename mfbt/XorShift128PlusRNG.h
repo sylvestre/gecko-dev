@@ -41,7 +41,8 @@ namespace non_crypto {
  * This generator is not suitable as a cryptographically secure random number
  * generator.
  */
-class XorShift128PlusRNG {
+class XorShift128PlusRNG
+{
   uint64_t mState[2];
 
  public:
@@ -54,14 +55,16 @@ class XorShift128PlusRNG {
    * generator <http://xorshift.di.unimi.it/splitmix64.c> and use its first two
    * outputs to seed xorshift128+.
    */
-  XorShift128PlusRNG(uint64_t aInitial0, uint64_t aInitial1) {
+  XorShift128PlusRNG(uint64_t aInitial0, uint64_t aInitial1)
+  {
     setState(aInitial0, aInitial1);
   }
 
   /**
    * Return a pseudo-random 64-bit number.
    */
-  uint64_t next() {
+  uint64_t next()
+  {
     /*
      * The offsetOfState*() methods below are provided so that exceedingly-rare
      * callers that want to observe or poke at RNG state in C++ type-system-
@@ -82,7 +85,8 @@ class XorShift128PlusRNG {
    * 2**53. Given the 2**128 - 1 period noted above, the produced doubles are
    * all but uniformly distributed in this range.
    */
-  double nextDouble() {
+  double nextDouble()
+  {
     /*
      * Because the IEEE 64-bit floating point format stores the leading '1' bit
      * of the mantissa implicitly, it effectively represents a mantissa in the
@@ -91,7 +95,7 @@ class XorShift128PlusRNG {
      * to get the mantissa's range.
      */
     static constexpr int kMantissaBits =
-      mozilla::FloatingPoint<double>::kExponentShift + 1;
+        mozilla::FloatingPoint<double>::kExponentShift + 1;
     uint64_t mantissa = next() & ((UINT64_C(1) << kMantissaBits) - 1);
     return double(mantissa) / (UINT64_C(1) << kMantissaBits);
   }
@@ -101,21 +105,24 @@ class XorShift128PlusRNG {
    * both be zero; ideally, they should have an almost even mix of zero and one
    * bits.
    */
-  void setState(uint64_t aState0, uint64_t aState1) {
+  void setState(uint64_t aState0, uint64_t aState1)
+  {
     MOZ_ASSERT(aState0 || aState1);
     mState[0] = aState0;
     mState[1] = aState1;
   }
 
-  static size_t offsetOfState0() {
+  static size_t offsetOfState0()
+  {
     return offsetof(XorShift128PlusRNG, mState[0]);
   }
-  static size_t offsetOfState1() {
+  static size_t offsetOfState1()
+  {
     return offsetof(XorShift128PlusRNG, mState[1]);
   }
 };
 
-} // namespace non_crypto
-} // namespace mozilla
+}  // namespace non_crypto
+}  // namespace mozilla
 
-#endif // mozilla_XorShift128Plus_h
+#endif  // mozilla_XorShift128Plus_h

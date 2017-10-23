@@ -21,7 +21,7 @@ class nsMemoryInfoDumper : public nsIMemoryInfoDumper
 {
   virtual ~nsMemoryInfoDumper();
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMEMORYINFODUMPER
 
@@ -32,15 +32,20 @@ public:
 #ifdef MOZ_DMD
   // Open an appropriately named file for a DMD report.  If DMD is
   // disabled, return a null FILE* instead.
-  static nsresult OpenDMDFile(const nsAString& aIdentifier, int aPid,
+  static nsresult OpenDMDFile(const nsAString& aIdentifier,
+                              int aPid,
                               FILE** aOutFile);
   // Write a DMD report to the given file and close it.
   static nsresult DumpDMDToFile(FILE* aFile);
 #endif
 };
 
-#define NS_MEMORY_INFO_DUMPER_CID \
-{ 0x00bd71fb, 0x7f09, 0x4ec3, \
-{ 0x96, 0xaf, 0xa0, 0xb5, 0x22, 0xb7, 0x79, 0x69 } }
+#define NS_MEMORY_INFO_DUMPER_CID                    \
+  {                                                  \
+    0x00bd71fb, 0x7f09, 0x4ec3,                      \
+    {                                                \
+      0x96, 0xaf, 0xa0, 0xb5, 0x22, 0xb7, 0x79, 0x69 \
+    }                                                \
+  }
 
 #endif

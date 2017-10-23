@@ -16,11 +16,10 @@ namespace net {
 
 NS_IMPL_ISUPPORTS(nsHttpAuthManager, nsIHttpAuthManager)
 
-nsHttpAuthManager::nsHttpAuthManager()
-{
-}
+nsHttpAuthManager::nsHttpAuthManager() {}
 
-nsresult nsHttpAuthManager::Init()
+nsresult
+nsHttpAuthManager::Init()
 {
   // get reference to the auth cache.  we assume that we will live
   // as long as gHttpHandler.  instantiate it if necessary.
@@ -28,13 +27,11 @@ nsresult nsHttpAuthManager::Init()
   if (!gHttpHandler) {
     nsresult rv;
     nsCOMPtr<nsIIOService> ios = do_GetIOService(&rv);
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
 
     nsCOMPtr<nsIProtocolHandler> handler;
     rv = ios->GetProtocolHandler("http", getter_AddRefs(handler));
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
 
     // maybe someone is overriding our HTTP handler implementation?
     NS_ENSURE_TRUE(gHttpHandler, NS_ERROR_UNEXPECTED);
@@ -47,25 +44,23 @@ nsresult nsHttpAuthManager::Init()
   return NS_OK;
 }
 
-nsHttpAuthManager::~nsHttpAuthManager()
-{
-}
+nsHttpAuthManager::~nsHttpAuthManager() {}
 
 NS_IMETHODIMP
-nsHttpAuthManager::GetAuthIdentity(const nsACString & aScheme,
-                                   const nsACString & aHost,
+nsHttpAuthManager::GetAuthIdentity(const nsACString& aScheme,
+                                   const nsACString& aHost,
                                    int32_t aPort,
-                                   const nsACString & aAuthType,
-                                   const nsACString & aRealm,
-                                   const nsACString & aPath,
-                                   nsAString & aUserDomain,
-                                   nsAString & aUserName,
-                                   nsAString & aUserPassword,
+                                   const nsACString& aAuthType,
+                                   const nsACString& aRealm,
+                                   const nsACString& aPath,
+                                   nsAString& aUserDomain,
+                                   nsAString& aUserName,
+                                   nsAString& aUserPassword,
                                    bool aIsPrivate,
                                    nsIPrincipal* aPrincipal)
 {
   nsHttpAuthCache* auth_cache = aIsPrivate ? mPrivateAuthCache : mAuthCache;
-  nsHttpAuthEntry * entry = nullptr;
+  nsHttpAuthEntry* entry = nullptr;
   nsresult rv;
 
   nsAutoCString originSuffix;
@@ -88,10 +83,8 @@ nsHttpAuthManager::GetAuthIdentity(const nsACString & aScheme,
                                            originSuffix,
                                            &entry);
 
-  if (NS_FAILED(rv))
-    return rv;
-  if (!entry)
-    return NS_ERROR_UNEXPECTED;
+  if (NS_FAILED(rv)) return rv;
+  if (!entry) return NS_ERROR_UNEXPECTED;
 
   aUserDomain.Assign(entry->Domain());
   aUserName.Assign(entry->User());
@@ -100,15 +93,15 @@ nsHttpAuthManager::GetAuthIdentity(const nsACString & aScheme,
 }
 
 NS_IMETHODIMP
-nsHttpAuthManager::SetAuthIdentity(const nsACString & aScheme,
-                                   const nsACString & aHost,
+nsHttpAuthManager::SetAuthIdentity(const nsACString& aScheme,
+                                   const nsACString& aHost,
                                    int32_t aPort,
-                                   const nsACString & aAuthType,
-                                   const nsACString & aRealm,
-                                   const nsACString & aPath,
-                                   const nsAString & aUserDomain,
-                                   const nsAString & aUserName,
-                                   const nsAString & aUserPassword,
+                                   const nsACString& aAuthType,
+                                   const nsACString& aRealm,
+                                   const nsACString& aPath,
+                                   const nsAString& aUserDomain,
+                                   const nsAString& aUserName,
+                                   const nsAString& aUserPassword,
                                    bool aIsPrivate,
                                    nsIPrincipal* aPrincipal)
 {
@@ -131,7 +124,7 @@ nsHttpAuthManager::SetAuthIdentity(const nsACString & aScheme,
                                   nullptr,  // challenge
                                   originSuffix,
                                   &ident,
-                                  nullptr); // metadata
+                                  nullptr);  // metadata
 }
 
 NS_IMETHODIMP
@@ -139,12 +132,10 @@ nsHttpAuthManager::ClearAll()
 {
   nsresult rv = mAuthCache->ClearAll();
   nsresult rv2 = mPrivateAuthCache->ClearAll();
-  if (NS_FAILED(rv))
-    return rv;
-  if (NS_FAILED(rv2))
-    return rv2;
+  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv2)) return rv2;
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

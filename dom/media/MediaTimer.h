@@ -20,10 +20,14 @@ namespace mozilla {
 
 extern LazyLogModule gMediaTimerLog;
 
-#define TIMER_LOG(x, ...) \
-  MOZ_ASSERT(gMediaTimerLog); \
-  MOZ_LOG(gMediaTimerLog, LogLevel::Debug, ("[MediaTimer=%p relative_t=%" PRId64 "]" x, this, \
-                                        RelativeMicroseconds(TimeStamp::Now()), ##__VA_ARGS__))
+#define TIMER_LOG(x, ...)                              \
+  MOZ_ASSERT(gMediaTimerLog);                          \
+  MOZ_LOG(gMediaTimerLog,                              \
+          LogLevel::Debug,                             \
+          ("[MediaTimer=%p relative_t=%" PRId64 "]" x, \
+           this,                                       \
+           RelativeMicroseconds(TimeStamp::Now()),     \
+           ##__VA_ARGS__))
 
 // This promise type is only exclusive because so far there isn't a reason for
 // it not to be. Feel free to change that.
@@ -35,20 +39,21 @@ typedef MozPromise<bool, bool, /* IsExclusive = */ true> MediaTimerPromise;
 // interface.
 class MediaTimer
 {
-public:
+ public:
   MediaTimer();
 
   // We use a release with a custom Destroy().
   NS_IMETHOD_(MozExternalRefCountType) AddRef(void);
   NS_IMETHOD_(MozExternalRefCountType) Release(void);
 
-  RefPtr<MediaTimerPromise> WaitUntil(const TimeStamp& aTimeStamp, const char* aCallSite);
+  RefPtr<MediaTimerPromise> WaitUntil(const TimeStamp& aTimeStamp,
+                                      const char* aCallSite);
 
-private:
+ private:
   virtual ~MediaTimer() { MOZ_ASSERT(OnMediaTimerThread()); }
 
-  void DispatchDestroy(); // Invoked by Release on an arbitrary thread.
-  void Destroy(); // Runs on the timer thread.
+  void DispatchDestroy();  // Invoked by Release on an arbitrary thread.
+  void Destroy();          // Runs on the timer thread.
 
   bool OnMediaTimerThread();
   void ScheduleUpdate();
@@ -59,10 +64,7 @@ private:
   void TimerFired();
   void ArmTimer(const TimeStamp& aTarget, const TimeStamp& aNow);
 
-  bool TimerIsArmed()
-  {
-    return !mCurrentTimerTarget.IsNull();
-  }
+  bool TimerIsArmed() { return !mCurrentTimerTarget.IsNull(); }
 
   void CancelTimerIfArmed()
   {
@@ -74,16 +76,16 @@ private:
     }
   }
 
-
   struct Entry
   {
     TimeStamp mTimeStamp;
     RefPtr<MediaTimerPromise::Private> mPromise;
 
     explicit Entry(const TimeStamp& aTimeStamp, const char* aCallSite)
-      : mTimeStamp(aTimeStamp)
-      , mPromise(new MediaTimerPromise::Private(aCallSite))
-    {}
+        : mTimeStamp(aTimeStamp),
+          mPromise(new MediaTimerPromise::Private(aCallSite))
+    {
+    }
 
     // Define a < overload that reverses ordering because std::priority_queue
     // provides access to the largest element, and we want the smallest
@@ -107,17 +109,18 @@ private:
   TimeStamp mCreationTimeStamp;
   int64_t RelativeMicroseconds(const TimeStamp& aTimeStamp)
   {
-    return (int64_t) (aTimeStamp - mCreationTimeStamp).ToMicroseconds();
+    return (int64_t)(aTimeStamp - mCreationTimeStamp).ToMicroseconds();
   }
 
   bool mUpdateScheduled;
 };
 
 // Class for managing delayed dispatches on target thread.
-class DelayedScheduler {
-public:
+class DelayedScheduler
+{
+ public:
   explicit DelayedScheduler(AbstractThread* aTargetThread)
-    : mTargetThread(aTargetThread), mMediaTimer(new MediaTimer())
+      : mTargetThread(aTargetThread), mMediaTimer(new MediaTimer())
   {
     MOZ_ASSERT(mTargetThread);
   }
@@ -127,14 +130,14 @@ public:
   void Reset()
   {
     MOZ_ASSERT(mTargetThread->IsCurrentThreadIn(),
-      "Must be on target thread to disconnect");
+               "Must be on target thread to disconnect");
     if (IsScheduled()) {
       mRequest.Disconnect();
       mTarget = TimeStamp();
     }
   }
 
-  template <typename ResolveFunc, typename RejectFunc>
+  template<typename ResolveFunc, typename RejectFunc>
   void Ensure(mozilla::TimeStamp& aTarget,
               ResolveFunc&& aResolver,
               RejectFunc&& aRejector)
@@ -145,11 +148,12 @@ public:
     }
     Reset();
     mTarget = aTarget;
-    mMediaTimer->WaitUntil(mTarget, __func__)->Then(
-      mTargetThread, __func__,
-      Forward<ResolveFunc>(aResolver),
-      Forward<RejectFunc>(aRejector))
-    ->Track(mRequest);
+    mMediaTimer->WaitUntil(mTarget, __func__)
+        ->Then(mTargetThread,
+               __func__,
+               Forward<ResolveFunc>(aResolver),
+               Forward<RejectFunc>(aRejector))
+        ->Track(mRequest);
   }
 
   void CompleteRequest()
@@ -159,13 +163,13 @@ public:
     mTarget = TimeStamp();
   }
 
-private:
+ private:
   RefPtr<AbstractThread> mTargetThread;
   RefPtr<MediaTimer> mMediaTimer;
   MozPromiseRequestHolder<mozilla::MediaTimerPromise> mRequest;
   TimeStamp mTarget;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

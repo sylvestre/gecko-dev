@@ -13,7 +13,7 @@
 //*****************************************************************************
 class nsPrintOptionsAndroid : public nsPrintOptions
 {
-public:
+ public:
   nsPrintOptionsAndroid();
   virtual ~nsPrintOptionsAndroid();
 

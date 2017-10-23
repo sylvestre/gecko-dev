@@ -21,12 +21,14 @@
  */
 class nsAppShell : public nsBaseAppShell
 {
-public:
-  nsAppShell() :
-    mEventWnd(nullptr),
-    mNativeCallbackPending(false),
-    mLastNativeEventScheduledMutex("nsAppShell::mLastNativeEventScheduledMutex")
-  {}
+ public:
+  nsAppShell()
+      : mEventWnd(nullptr),
+        mNativeCallbackPending(false),
+        mLastNativeEventScheduledMutex(
+            "nsAppShell::mLastNativeEventScheduledMutex")
+  {
+  }
   typedef mozilla::TimeStamp TimeStamp;
   typedef mozilla::Mutex Mutex;
 
@@ -38,7 +40,7 @@ public:
   NS_IMETHOD AfterProcessNextEvent(nsIThreadInternal* thread,
                                    bool eventWasProcessed) final;
 
-protected:
+ protected:
   NS_IMETHOD Run();
   NS_IMETHOD Exit();
   virtual void ScheduleNativeEventCallback();
@@ -47,7 +49,7 @@ protected:
 
   static LRESULT CALLBACK EventWindowProc(HWND, UINT, WPARAM, LPARAM);
 
-protected:
+ protected:
   HWND mEventWnd;
   bool mNativeCallbackPending;
 
@@ -56,4 +58,4 @@ protected:
   std::vector<MSG> mMsgsToRepost;
 };
 
-#endif // nsAppShell_h__
+#endif  // nsAppShell_h__

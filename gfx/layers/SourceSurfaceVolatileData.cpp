@@ -7,13 +7,13 @@
 
 #include "gfxAlphaRecovery.h"
 #include "mozilla/Likely.h"
-#include "mozilla/Types.h" // for decltype
+#include "mozilla/Types.h"  // for decltype
 
 namespace mozilla {
 namespace gfx {
 
 bool
-SourceSurfaceVolatileData::Init(const IntSize &aSize,
+SourceSurfaceVolatileData::Init(const IntSize& aSize,
                                 int32_t aStride,
                                 SurfaceFormat aFormat)
 {
@@ -48,5 +48,5 @@ SourceSurfaceVolatileData::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

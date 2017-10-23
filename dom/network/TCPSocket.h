@@ -38,48 +38,50 @@ class TCPSocketParent;
 // This interface is only used for legacy navigator.mozTCPSocket API compatibility.
 class LegacyMozTCPSocket : public nsISupports
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(LegacyMozTCPSocket)
 
   explicit LegacyMozTCPSocket(nsPIDOMWindowInner* aWindow);
 
-  already_AddRefed<TCPServerSocket>
-  Listen(uint16_t aPort,
-         const ServerSocketOptions& aOptions,
-         uint16_t aBacklog,
-         ErrorResult& aRv);
+  already_AddRefed<TCPServerSocket> Listen(uint16_t aPort,
+                                           const ServerSocketOptions& aOptions,
+                                           uint16_t aBacklog,
+                                           ErrorResult& aRv);
 
-  already_AddRefed<TCPSocket>
-  Open(const nsAString& aHost,
-       uint16_t aPort,
-       const SocketOptions& aOptions,
-       ErrorResult& aRv);
+  already_AddRefed<TCPSocket> Open(const nsAString& aHost,
+                                   uint16_t aPort,
+                                   const SocketOptions& aOptions,
+                                   ErrorResult& aRv);
 
   bool WrapObject(JSContext* aCx,
                   JS::Handle<JSObject*> aGivenProto,
                   JS::MutableHandle<JSObject*> aReflector);
 
-private:
+ private:
   virtual ~LegacyMozTCPSocket();
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
 };
 
-class TCPSocket final : public DOMEventTargetHelper
-                      , public nsIStreamListener
-                      , public nsITransportEventSink
-                      , public nsIInputStreamCallback
-                      , public nsIObserver
-                      , public nsSupportsWeakReference
-                      , public nsITCPSocketCallback
+class TCPSocket final : public DOMEventTargetHelper,
+                        public nsIStreamListener,
+                        public nsITransportEventSink,
+                        public nsIInputStreamCallback,
+                        public nsIObserver,
+                        public nsSupportsWeakReference,
+                        public nsITCPSocketCallback
 {
-public:
-  TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost, uint16_t aPort,
-            bool aSsl, bool aUseArrayBuffers);
+ public:
+  TCPSocket(nsIGlobalObject* aGlobal,
+            const nsAString& aHost,
+            uint16_t aPort,
+            bool aSsl,
+            bool aUseArrayBuffers);
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(TCPSocket, DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(TCPSocket,
+                                                         DOMEventTargetHelper)
   NS_DECL_NSIREQUESTOBSERVER
   NS_DECL_NSISTREAMLISTENER
   NS_DECL_NSITRANSPORTEVENTSINK
@@ -87,7 +89,8 @@ public:
   NS_DECL_NSIOBSERVER
   NS_DECL_NSITCPSOCKETCALLBACK
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   static bool ShouldTCPSocketExist(JSContext* aCx, JSObject* aGlobal);
 
@@ -109,12 +112,11 @@ public:
   TCPSocketBinaryType BinaryType();
   void UpgradeToSecure(ErrorResult& aRv);
 
-  static already_AddRefed<TCPSocket>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aHost,
-              uint16_t aPort,
-              const SocketOptions& aOptions,
-              ErrorResult& aRv);
+  static already_AddRefed<TCPSocket> Constructor(const GlobalObject& aGlobal,
+                                                 const nsAString& aHost,
+                                                 uint16_t aPort,
+                                                 const SocketOptions& aOptions,
+                                                 ErrorResult& aRv);
 
   // Perform a send operation that's asssociated with a sequence number. Used in
   // IPC scenarios to track the number of bytes buffered at any given time.
@@ -129,12 +131,16 @@ public:
                               ErrorResult& aRv);
   // Create a TCPSocket object from an existing low-level socket connection.
   // Used by the TCPServerSocket implementation when a new connection is accepted.
-  static already_AddRefed<TCPSocket>
-  CreateAcceptedSocket(nsIGlobalObject* aGlobal, nsISocketTransport* aTransport, bool aUseArrayBuffers);
+  static already_AddRefed<TCPSocket> CreateAcceptedSocket(
+      nsIGlobalObject* aGlobal,
+      nsISocketTransport* aTransport,
+      bool aUseArrayBuffers);
   // Create a TCPSocket object from an existing child-side IPC actor.
   // Used by the TCPServerSocketChild implementation when a new connection is accepted.
-  static already_AddRefed<TCPSocket>
-  CreateAcceptedSocket(nsIGlobalObject* aGlobal, TCPSocketChild* aSocketBridge, bool aUseArrayBuffers);
+  static already_AddRefed<TCPSocket> CreateAcceptedSocket(
+      nsIGlobalObject* aGlobal,
+      TCPSocketChild* aSocketBridge,
+      bool aUseArrayBuffers);
 
   // Initialize this socket's associated IPC actor in the parent process.
   void SetSocketBridgeParent(TCPSocketParent* aBridgeParent);
@@ -156,7 +162,7 @@ public:
   // (called from RecvOpenBind() in TCPSocketParent).
   nsresult InitWithUnconnectedTransport(nsISocketTransport* aTransport);
 
-private:
+ private:
   ~TCPSocket();
 
   // Initialize this socket with an existing IPC actor.
@@ -178,7 +184,8 @@ private:
   nsresult MaybeReportErrorAndCloseIfOpen(nsresult status);
 
   // Helper for FireDataStringEvent/FireDataArrayEvent.
-  nsresult FireDataEvent(JSContext* aCx, const nsAString& aType,
+  nsresult FireDataEvent(JSContext* aCx,
+                         const nsAString& aType,
                          JS::Handle<JS::Value> aData);
   // Helper for Close/CloseImmediately
   void CloseHelper(bool waitForUnsentData);
@@ -241,7 +248,7 @@ private:
   bool mObserversActive;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TCPSocket_h
+#endif  // mozilla_dom_TCPSocket_h

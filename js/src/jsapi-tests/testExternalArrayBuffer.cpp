@@ -8,15 +8,13 @@
 
 char test_data[] = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-static void GC(JSContext* cx)
-{
+static void GC(JSContext* cx) {
     JS_GC(cx);
     // Trigger another to wait for background finalization to end.
     JS_GC(cx);
 }
 
-BEGIN_TEST(testExternalArrayBuffer)
-{
+BEGIN_TEST(testExternalArrayBuffer) {
     size_t length = sizeof(test_data);
     JS::RootedObject obj(cx, JS_NewArrayBufferWithExternalContents(cx, length, test_data));
     GC(cx);
@@ -29,8 +27,7 @@ BEGIN_TEST(testExternalArrayBuffer)
     return true;
 }
 
-bool VerifyObject(JS::HandleObject obj, uint32_t length)
-{
+bool VerifyObject(JS::HandleObject obj, uint32_t length) {
     JS::AutoCheckCannotGC nogc;
 
     CHECK(obj);

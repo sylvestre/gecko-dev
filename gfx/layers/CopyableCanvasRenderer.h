@@ -6,24 +6,24 @@
 #ifndef GFX_COPYABLECANVASRENDERER_H
 #define GFX_COPYABLECANVASRENDERER_H
 
-#include <stdint.h>                     // for uint32_t
+#include <stdint.h>  // for uint32_t
 #include "CanvasRenderer.h"
-#include "GLContextTypes.h"             // for GLContext
-#include "gfxContext.h"                 // for gfxContext, etc
+#include "GLContextTypes.h"  // for GLContext
+#include "gfxContext.h"      // for gfxContext, etc
 #include "gfxTypes.h"
-#include "gfxPlatform.h"                // for gfxImageFormat
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/Preferences.h"        // for Preferences
-#include "mozilla/RefPtr.h"             // for RefPtr
-#include "mozilla/gfx/2D.h"             // for DrawTarget
-#include "mozilla/mozalloc.h"           // for operator delete, etc
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
+#include "gfxPlatform.h"          // for gfxImageFormat
+#include "mozilla/Assertions.h"   // for MOZ_ASSERT, etc
+#include "mozilla/Preferences.h"  // for Preferences
+#include "mozilla/RefPtr.h"       // for RefPtr
+#include "mozilla/gfx/2D.h"       // for DrawTarget
+#include "mozilla/mozalloc.h"     // for operator delete, etc
+#include "nsISupportsImpl.h"      // for MOZ_COUNT_CTOR, etc
 
 namespace mozilla {
 
 namespace gl {
 class SharedSurface;
-} // namespace gl
+}  // namespace gl
 
 namespace layers {
 
@@ -33,11 +33,11 @@ namespace layers {
  */
 class CopyableCanvasRenderer : public CanvasRenderer
 {
-public:
+ public:
   CopyableCanvasRenderer();
   virtual ~CopyableCanvasRenderer();
 
-public:
+ public:
   void Initialize(const CanvasInitializeData& aData) override;
   bool IsDataValid(const CanvasInitializeData& aData) override;
 
@@ -54,7 +54,7 @@ public:
 
   already_AddRefed<gfx::SourceSurface> ReadbackSurface();
 
-protected:
+ protected:
   RefPtr<gl::GLContext> mGLContext;
   RefPtr<PersistentBufferProvider> mBufferProvider;
   UniquePtr<gl::SharedSurface> mGLFrontbuffer;
@@ -71,7 +71,7 @@ protected:
                                          const gfx::SurfaceFormat aFormat);
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

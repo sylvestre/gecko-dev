@@ -10,10 +10,10 @@
 
 class nsClipboard final : public nsIClipboard
 {
-private:
+ private:
   ~nsClipboard() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICLIPBOARD
 

@@ -25,18 +25,19 @@ namespace layers {
  */
 class MOZ_RAII StackingContextHelper
 {
-public:
-  StackingContextHelper(const StackingContextHelper& aParentSC,
-                        wr::DisplayListBuilder& aBuilder,
-                        const nsTArray<wr::WrFilterOp>& aFilters = nsTArray<wr::WrFilterOp>(),
-                        const gfx::Matrix4x4* aBoundTransform = nullptr,
-                        uint64_t aAnimationsId = 0,
-                        float* aOpacityPtr = nullptr,
-                        gfx::Matrix4x4* aTransformPtr = nullptr,
-                        gfx::Matrix4x4* aPerspectivePtr = nullptr,
-                        const gfx::CompositionOp& aMixBlendMode = gfx::CompositionOp::OP_OVER,
-                        bool aBackfaceVisible = true,
-                        bool aIsPreserve3D = false);
+ public:
+  StackingContextHelper(
+      const StackingContextHelper& aParentSC,
+      wr::DisplayListBuilder& aBuilder,
+      const nsTArray<wr::WrFilterOp>& aFilters = nsTArray<wr::WrFilterOp>(),
+      const gfx::Matrix4x4* aBoundTransform = nullptr,
+      uint64_t aAnimationsId = 0,
+      float* aOpacityPtr = nullptr,
+      gfx::Matrix4x4* aTransformPtr = nullptr,
+      gfx::Matrix4x4* aPerspectivePtr = nullptr,
+      const gfx::CompositionOp& aMixBlendMode = gfx::CompositionOp::OP_OVER,
+      bool aBackfaceVisible = true,
+      bool aIsPreserve3D = false);
   // This version of the constructor should only be used at the root level
   // of the tree, so that we have a StackingContextHelper to pass down into
   // the RenderLayer traversal, but don't actually want it to push a stacking
@@ -65,20 +66,19 @@ public:
     return wr::ToLayoutPoint(aPoint - mOrigin);
   }
 
-
   // Export the inherited scale
   gfx::Size GetInheritedScale() const { return mScale; }
 
   bool IsBackfaceVisible() const { return mTransform.IsBackfaceVisible(); }
 
-private:
+ private:
   wr::DisplayListBuilder* mBuilder;
   LayoutDevicePoint mOrigin;
   gfx::Matrix4x4 mTransform;
   gfx::Size mScale;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_STACKINGCONTEXTHELPER_H */

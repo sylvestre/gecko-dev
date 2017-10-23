@@ -16,7 +16,7 @@ namespace embedding {
 class PrintProgressDialogParent final : public PPrintProgressDialogParent,
                                         public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -26,31 +26,26 @@ public:
 
   void SetPrintProgressParams(nsIPrintProgressParams* aParams);
 
-  virtual mozilla::ipc::IPCResult
-  RecvStateChange(
-          const long& stateFlags,
-          const nsresult& status) override;
+  virtual mozilla::ipc::IPCResult RecvStateChange(
+      const long& stateFlags, const nsresult& status) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvProgressChange(
-          const long& curSelfProgress,
-          const long& maxSelfProgress,
-          const long& curTotalProgress,
-          const long& maxTotalProgress) override;
+  virtual mozilla::ipc::IPCResult RecvProgressChange(
+      const long& curSelfProgress,
+      const long& maxSelfProgress,
+      const long& curTotalProgress,
+      const long& maxTotalProgress) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvDocTitleChange(const nsString& newTitle) override;
+  virtual mozilla::ipc::IPCResult RecvDocTitleChange(
+      const nsString& newTitle) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvDocURLChange(const nsString& newURL) override;
+  virtual mozilla::ipc::IPCResult RecvDocURLChange(
+      const nsString& newURL) override;
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult
-  Recv__delete__() override;
+  virtual mozilla::ipc::IPCResult Recv__delete__() override;
 
-private:
+ private:
   virtual ~PrintProgressDialogParent();
 
   nsCOMPtr<nsIWebProgressListener> mWebProgressListener;
@@ -58,7 +53,7 @@ private:
   bool mActive;
 };
 
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla
 
 #endif

@@ -22,18 +22,15 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGAElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGAElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGAElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGAElement::sStringInfo[3] =
-{
-  { &nsGkAtoms::href, kNameSpaceID_None, true },
-  { &nsGkAtoms::href, kNameSpaceID_XLink, true },
-  { &nsGkAtoms::target, kNameSpaceID_None, true }
-};
-
+nsSVGElement::StringInfo SVGAElement::sStringInfo[3] = {
+    {&nsGkAtoms::href, kNameSpaceID_None, true},
+    {&nsGkAtoms::href, kNameSpaceID_XLink, true},
+    {&nsGkAtoms::target, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsISupports methods
@@ -52,21 +49,18 @@ NS_IMPL_RELEASE_INHERITED(SVGAElement, SVGAElementBase)
 // Implementation
 
 SVGAElement::SVGAElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGAElementBase(aNodeInfo)
-  , Link(this)
+    : SVGAElementBase(aNodeInfo), Link(this)
 {
 }
 
-SVGAElement::~SVGAElement()
-{
-}
+SVGAElement::~SVGAElement() {}
 
 already_AddRefed<SVGAnimatedString>
 SVGAElement::Href()
 {
   return mStringAttributes[HREF].IsExplicitlySet()
-         ? mStringAttributes[HREF].ToDOMAnimatedString(this)
-         : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
+             ? mStringAttributes[HREF].ToDOMAnimatedString(this)
+             : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
 }
 
 //----------------------------------------------------------------------
@@ -99,7 +93,6 @@ SVGAElement::PostHandleEvent(EventChainPostVisitor& aVisitor)
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGAElement)
 
-
 //----------------------------------------------------------------------
 
 already_AddRefed<SVGAnimatedString>
@@ -109,13 +102,13 @@ SVGAElement::Target()
 }
 
 void
-SVGAElement::GetDownload(nsAString & aDownload)
+SVGAElement::GetDownload(nsAString& aDownload)
 {
   GetAttr(kNameSpaceID_None, nsGkAtoms::download, aDownload);
 }
 
 void
-SVGAElement::SetDownload(const nsAString & aDownload, ErrorResult& rv)
+SVGAElement::SetDownload(const nsAString& aDownload, ErrorResult& rv)
 {
   rv = SetAttr(kNameSpaceID_None, nsGkAtoms::download, aDownload, true);
 }
@@ -124,15 +117,15 @@ SVGAElement::SetDownload(const nsAString & aDownload, ErrorResult& rv)
 // nsIContent methods
 
 nsresult
-SVGAElement::BindToTree(nsIDocument *aDocument, nsIContent *aParent,
-                        nsIContent *aBindingParent,
+SVGAElement::BindToTree(nsIDocument* aDocument,
+                        nsIContent* aParent,
+                        nsIContent* aBindingParent,
                         bool aCompileEventHandlers)
 {
   Link::ResetLinkState(false, Link::ElementHasHref());
 
-  nsresult rv = SVGAElementBase::BindToTree(aDocument, aParent,
-                                            aBindingParent,
-                                            aCompileEventHandlers);
+  nsresult rv = SVGAElementBase::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsIDocument* doc = GetComposedDoc();
@@ -160,23 +153,20 @@ SVGAElement::GetHrefURI() const
   return IsLink(getter_AddRefs(hrefURI)) ? hrefURI.forget() : nullptr;
 }
 
-
 NS_IMETHODIMP_(bool)
 SVGAElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sFEFloodMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sLightingEffectsMap,
-    sMarkersMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sFEFloodMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sLightingEffectsMap,
+                                                    sMarkersMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGAElementBase::IsAttributeMapped(name);
+         SVGAElementBase::IsAttributeMapped(name);
 }
 
 int32_t
@@ -266,28 +256,28 @@ SVGAElement::IsLink(nsIURI** aURI) const
   // For any other values, we're either not a *clickable* XLink, or the end
   // result is poorly specified. Either way, we return false.
 
-  static nsIContent::AttrValuesArray sTypeVals[] =
-    { &nsGkAtoms::_empty, &nsGkAtoms::simple, nullptr };
+  static nsIContent::AttrValuesArray sTypeVals[] = {
+      &nsGkAtoms::_empty, &nsGkAtoms::simple, nullptr};
 
-  static nsIContent::AttrValuesArray sShowVals[] =
-    { &nsGkAtoms::_empty, &nsGkAtoms::_new, &nsGkAtoms::replace, nullptr };
+  static nsIContent::AttrValuesArray sShowVals[] = {
+      &nsGkAtoms::_empty, &nsGkAtoms::_new, &nsGkAtoms::replace, nullptr};
 
-  static nsIContent::AttrValuesArray sActuateVals[] =
-    { &nsGkAtoms::_empty, &nsGkAtoms::onRequest, nullptr };
+  static nsIContent::AttrValuesArray sActuateVals[] = {
+      &nsGkAtoms::_empty, &nsGkAtoms::onRequest, nullptr};
 
   // Optimization: check for href first for early return
   bool useBareHref = mStringAttributes[HREF].IsExplicitlySet();
 
   if ((useBareHref || mStringAttributes[XLINK_HREF].IsExplicitlySet()) &&
-      FindAttrValueIn(kNameSpaceID_XLink, nsGkAtoms::type,
-                      sTypeVals, eCaseMatters) !=
-                      nsIContent::ATTR_VALUE_NO_MATCH &&
-      FindAttrValueIn(kNameSpaceID_XLink, nsGkAtoms::show,
-                      sShowVals, eCaseMatters) !=
-                      nsIContent::ATTR_VALUE_NO_MATCH &&
-      FindAttrValueIn(kNameSpaceID_XLink, nsGkAtoms::actuate,
-                      sActuateVals, eCaseMatters) !=
-                      nsIContent::ATTR_VALUE_NO_MATCH) {
+      FindAttrValueIn(
+          kNameSpaceID_XLink, nsGkAtoms::type, sTypeVals, eCaseMatters) !=
+          nsIContent::ATTR_VALUE_NO_MATCH &&
+      FindAttrValueIn(
+          kNameSpaceID_XLink, nsGkAtoms::show, sShowVals, eCaseMatters) !=
+          nsIContent::ATTR_VALUE_NO_MATCH &&
+      FindAttrValueIn(
+          kNameSpaceID_XLink, nsGkAtoms::actuate, sActuateVals, eCaseMatters) !=
+          nsIContent::ATTR_VALUE_NO_MATCH) {
     nsCOMPtr<nsIURI> baseURI = GetBaseURI();
     // Get absolute URI
     nsAutoString str;
@@ -307,17 +297,16 @@ SVGAElement::GetLinkTarget(nsAString& aTarget)
 {
   mStringAttributes[TARGET].GetAnimValue(aTarget, this);
   if (aTarget.IsEmpty()) {
+    static nsIContent::AttrValuesArray sShowVals[] = {
+        &nsGkAtoms::_new, &nsGkAtoms::replace, nullptr};
 
-    static nsIContent::AttrValuesArray sShowVals[] =
-      { &nsGkAtoms::_new, &nsGkAtoms::replace, nullptr };
-
-    switch (FindAttrValueIn(kNameSpaceID_XLink, nsGkAtoms::show,
-                            sShowVals, eCaseMatters)) {
-    case 0:
-      aTarget.AssignLiteral("_blank");
-      return;
-    case 1:
-      return;
+    switch (FindAttrValueIn(
+        kNameSpaceID_XLink, nsGkAtoms::show, sShowVals, eCaseMatters)) {
+      case 0:
+        aTarget.AssignLiteral("_blank");
+        return;
+      case 1:
+        return;
     }
     nsIDocument* ownerDoc = OwnerDoc();
     if (ownerDoc) {
@@ -333,22 +322,23 @@ SVGAElement::IntrinsicState() const
 }
 
 nsresult
-SVGAElement::SetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                     nsAtom* aPrefix, const nsAString& aValue,
+SVGAElement::SetAttr(int32_t aNameSpaceID,
+                     nsAtom* aName,
+                     nsAtom* aPrefix,
+                     const nsAString& aValue,
                      nsIPrincipal* aSubjectPrincipal,
                      bool aNotify)
 {
-  nsresult rv = SVGAElementBase::SetAttr(aNameSpaceID, aName, aPrefix,
-                                         aValue, aSubjectPrincipal, aNotify);
+  nsresult rv = SVGAElementBase::SetAttr(
+      aNameSpaceID, aName, aPrefix, aValue, aSubjectPrincipal, aNotify);
 
   // The ordering of the parent class's SetAttr call and Link::ResetLinkState
   // is important here!  The attribute is not set until SetAttr returns, and
   // we will need the updated attribute value because notifying the document
   // that content states have changed will call IntrinsicState, which will try
   // to get updated information about the visitedness from Link.
-  if (aName == nsGkAtoms::href &&
-      (aNameSpaceID == kNameSpaceID_XLink ||
-       aNameSpaceID == kNameSpaceID_None)) {
+  if (aName == nsGkAtoms::href && (aNameSpaceID == kNameSpaceID_XLink ||
+                                   aNameSpaceID == kNameSpaceID_None)) {
     Link::ResetLinkState(!!aNotify, true);
   }
 
@@ -356,8 +346,7 @@ SVGAElement::SetAttr(int32_t aNameSpaceID, nsAtom* aName,
 }
 
 nsresult
-SVGAElement::UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttr,
-                       bool aNotify)
+SVGAElement::UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttr, bool aNotify)
 {
   nsresult rv = nsSVGElement::UnsetAttr(aNameSpaceID, aAttr, aNotify);
 
@@ -366,9 +355,8 @@ SVGAElement::UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttr,
   // we will need the updated attribute value because notifying the document
   // that content states have changed will call IntrinsicState, which will try
   // to get updated information about the visitedness from Link.
-  if (aAttr == nsGkAtoms::href &&
-      (aNameSpaceID == kNameSpaceID_XLink ||
-       aNameSpaceID == kNameSpaceID_None)) {
+  if (aAttr == nsGkAtoms::href && (aNameSpaceID == kNameSpaceID_XLink ||
+                                   aNameSpaceID == kNameSpaceID_None)) {
     Link::ResetLinkState(!!aNotify, Link::ElementHasHref());
   }
 
@@ -381,9 +369,9 @@ SVGAElement::UnsetAttr(int32_t aNameSpaceID, nsAtom* aAttr,
 nsSVGElement::StringAttributesInfo
 SVGAElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

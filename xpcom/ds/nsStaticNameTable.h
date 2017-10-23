@@ -30,20 +30,23 @@
 
 class nsStaticCaseInsensitiveNameTable
 {
-public:
-  enum { NOT_FOUND = -1 };
+ public:
+  enum
+  {
+    NOT_FOUND = -1
+  };
 
-  int32_t          Lookup(const nsACString& aName);
-  int32_t          Lookup(const nsAString& aName);
+  int32_t Lookup(const nsACString& aName);
+  int32_t Lookup(const nsAString& aName);
   const nsCString& GetStringValue(int32_t aIndex);
 
   nsStaticCaseInsensitiveNameTable(const char* const aNames[], int32_t aLength);
   ~nsStaticCaseInsensitiveNameTable();
 
-private:
-  nsDependentCString*   mNameArray;
-  PLDHashTable          mNameTable;
-  nsDependentCString    mNullStr;
+ private:
+  nsDependentCString* mNameArray;
+  PLDHashTable mNameTable;
+  nsDependentCString mNullStr;
 };
 
 #endif /* nsStaticNameTable_h___ */

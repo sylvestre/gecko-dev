@@ -53,14 +53,16 @@ CacheStreamControlParent::SerializeControl(CacheReadStream* aReadStreamOut)
 }
 
 void
-CacheStreamControlParent::SerializeStream(CacheReadStream* aReadStreamOut,
-                                          nsIInputStream* aStream,
-                                          nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList)
+CacheStreamControlParent::SerializeStream(
+    CacheReadStream* aReadStreamOut,
+    nsIInputStream* aStream,
+    nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList)
 {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlParent);
   MOZ_DIAGNOSTIC_ASSERT(aReadStreamOut);
 
-  UniquePtr<AutoIPCStream> autoStream(new AutoIPCStream(aReadStreamOut->stream()));
+  UniquePtr<AutoIPCStream> autoStream(
+      new AutoIPCStream(aReadStreamOut->stream()));
   DebugOnly<bool> ok = autoStream->Serialize(aStream, Manager());
   MOZ_ASSERT(ok);
 
@@ -134,10 +136,10 @@ CacheStreamControlParent::RecvOpenStream(const nsID& aStreamId,
   CacheStreamControlParent* self = this;
 
   OpenStream(aStreamId, [self, aResolver](nsCOMPtr<nsIInputStream>&& aStream) {
-      AutoIPCStream stream;
-      Unused << stream.Serialize(aStream, self->Manager());
-      aResolver(stream.TakeOptionalValue());
-    });
+    AutoIPCStream stream;
+    Unused << stream.Serialize(aStream, self->Manager());
+    aResolver(stream.TakeOptionalValue());
+  });
 
   return IPC_OK();
 }
@@ -200,6 +202,6 @@ CacheStreamControlParent::NotifyCloseAll()
   CloseAllReadStreams();
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

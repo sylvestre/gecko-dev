@@ -17,17 +17,11 @@ using namespace mozilla::jsipc;
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_ISUPPORTS(ContentBridgeParent,
-                  nsIContentParent,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(ContentBridgeParent, nsIContentParent, nsIObserver)
 
-ContentBridgeParent::ContentBridgeParent()
-  : mIsForJSPlugin(false)
-{}
+ContentBridgeParent::ContentBridgeParent() : mIsForJSPlugin(false) {}
 
-ContentBridgeParent::~ContentBridgeParent()
-{
-}
+ContentBridgeParent::~ContentBridgeParent() {}
 
 void
 ContentBridgeParent::ActorDestroy(ActorDestroyReason aWhy)
@@ -37,9 +31,9 @@ ContentBridgeParent::ActorDestroy(ActorDestroyReason aWhy)
     os->RemoveObserver(this, "content-child-shutdown");
   }
   MessageLoop::current()->PostTask(
-    NewRunnableMethod("dom::ContentBridgeParent::DeferredDestroy",
-                      this,
-                      &ContentBridgeParent::DeferredDestroy));
+      NewRunnableMethod("dom::ContentBridgeParent::DeferredDestroy",
+                        this,
+                        &ContentBridgeParent::DeferredDestroy));
 }
 
 /*static*/ ContentBridgeParent*
@@ -71,24 +65,26 @@ ContentBridgeParent::DeferredDestroy()
 }
 
 mozilla::ipc::IPCResult
-ContentBridgeParent::RecvSyncMessage(const nsString& aMsg,
-                                     const ClonedMessageData& aData,
-                                     InfallibleTArray<jsipc::CpowEntry>&& aCpows,
-                                     const IPC::Principal& aPrincipal,
-                                     nsTArray<StructuredCloneData>* aRetvals)
+ContentBridgeParent::RecvSyncMessage(
+    const nsString& aMsg,
+    const ClonedMessageData& aData,
+    InfallibleTArray<jsipc::CpowEntry>&& aCpows,
+    const IPC::Principal& aPrincipal,
+    nsTArray<StructuredCloneData>* aRetvals)
 {
-  return nsIContentParent::RecvSyncMessage(aMsg, aData, Move(aCpows),
-                                           aPrincipal, aRetvals);
+  return nsIContentParent::RecvSyncMessage(
+      aMsg, aData, Move(aCpows), aPrincipal, aRetvals);
 }
 
 mozilla::ipc::IPCResult
-ContentBridgeParent::RecvAsyncMessage(const nsString& aMsg,
-                                      InfallibleTArray<jsipc::CpowEntry>&& aCpows,
-                                      const IPC::Principal& aPrincipal,
-                                      const ClonedMessageData& aData)
+ContentBridgeParent::RecvAsyncMessage(
+    const nsString& aMsg,
+    InfallibleTArray<jsipc::CpowEntry>&& aCpows,
+    const IPC::Principal& aPrincipal,
+    const ClonedMessageData& aData)
 {
-  return nsIContentParent::RecvAsyncMessage(aMsg, Move(aCpows),
-                                            aPrincipal, aData);
+  return nsIContentParent::RecvAsyncMessage(
+      aMsg, Move(aCpows), aPrincipal, aData);
 }
 
 PBrowserParent*
@@ -110,18 +106,18 @@ ContentBridgeParent::SendPBrowserConstructor(PBrowserParent* aActor,
 }
 
 PParentToChildStreamParent*
-ContentBridgeParent::SendPParentToChildStreamConstructor(PParentToChildStreamParent* aActor)
+ContentBridgeParent::SendPParentToChildStreamConstructor(
+    PParentToChildStreamParent* aActor)
 {
   return PContentBridgeParent::SendPParentToChildStreamConstructor(aActor);
 }
 
 PIPCBlobInputStreamParent*
-ContentBridgeParent::SendPIPCBlobInputStreamConstructor(PIPCBlobInputStreamParent* aActor,
-                                                        const nsID& aID,
-                                                        const uint64_t& aSize)
+ContentBridgeParent::SendPIPCBlobInputStreamConstructor(
+    PIPCBlobInputStreamParent* aActor, const nsID& aID, const uint64_t& aSize)
 {
-  return
-    PContentBridgeParent::SendPIPCBlobInputStreamConstructor(aActor, aID, aSize);
+  return PContentBridgeParent::SendPIPCBlobInputStreamConstructor(
+      aActor, aID, aSize);
 }
 
 PIPCBlobInputStreamParent*
@@ -132,19 +128,20 @@ ContentBridgeParent::AllocPIPCBlobInputStreamParent(const nsID& aID,
 }
 
 bool
-ContentBridgeParent::DeallocPIPCBlobInputStreamParent(PIPCBlobInputStreamParent* aActor)
+ContentBridgeParent::DeallocPIPCBlobInputStreamParent(
+    PIPCBlobInputStreamParent* aActor)
 {
   return nsIContentParent::DeallocPIPCBlobInputStreamParent(aActor);
 }
 
-mozilla::jsipc::PJavaScriptParent *
+mozilla::jsipc::PJavaScriptParent*
 ContentBridgeParent::AllocPJavaScriptParent()
 {
   return nsIContentParent::AllocPJavaScriptParent();
 }
 
 bool
-ContentBridgeParent::DeallocPJavaScriptParent(PJavaScriptParent *parent)
+ContentBridgeParent::DeallocPJavaScriptParent(PJavaScriptParent* parent)
 {
   return nsIContentParent::DeallocPJavaScriptParent(parent);
 }
@@ -152,17 +149,13 @@ ContentBridgeParent::DeallocPJavaScriptParent(PJavaScriptParent *parent)
 PBrowserParent*
 ContentBridgeParent::AllocPBrowserParent(const TabId& aTabId,
                                          const TabId& aSameTabGroupAs,
-                                         const IPCTabContext &aContext,
+                                         const IPCTabContext& aContext,
                                          const uint32_t& aChromeFlags,
                                          const ContentParentId& aCpID,
                                          const bool& aIsForBrowser)
 {
-  return nsIContentParent::AllocPBrowserParent(aTabId,
-                                               aSameTabGroupAs,
-                                               aContext,
-                                               aChromeFlags,
-                                               aCpID,
-                                               aIsForBrowser);
+  return nsIContentParent::AllocPBrowserParent(
+      aTabId, aSameTabGroupAs, aContext, aChromeFlags, aCpID, aIsForBrowser);
 }
 
 bool
@@ -180,13 +173,8 @@ ContentBridgeParent::RecvPBrowserConstructor(PBrowserParent* actor,
                                              const ContentParentId& cpId,
                                              const bool& isForBrowser)
 {
-  return nsIContentParent::RecvPBrowserConstructor(actor,
-                                                   tabId,
-                                                   sameTabGroupAs,
-                                                   context,
-                                                   chromeFlags,
-                                                   cpId,
-                                                   isForBrowser);
+  return nsIContentParent::RecvPBrowserConstructor(
+      actor, tabId, sameTabGroupAs, context, chromeFlags, cpId, isForBrowser);
 }
 
 void
@@ -195,7 +183,7 @@ ContentBridgeParent::NotifyTabDestroyed()
   int32_t numLiveTabs = ManagedPBrowserParent().Count();
   if (numLiveTabs == 1) {
     MessageLoop::current()->PostTask(NewRunnableMethod(
-      "dom::ContentBridgeParent::Close", this, &ContentBridgeParent::Close));
+        "dom::ContentBridgeParent::Close", this, &ContentBridgeParent::Close));
   }
 }
 
@@ -205,7 +193,8 @@ ContentBridgeParent::NotifyTabDestroyed()
 jsipc::CPOWManager*
 ContentBridgeParent::GetCPOWManager()
 {
-  if (PJavaScriptParent* p = LoneManagedOrNullAsserts(ManagedPJavaScriptParent())) {
+  if (PJavaScriptParent* p =
+          LoneManagedOrNullAsserts(ManagedPJavaScriptParent())) {
     return CPOWManagerFor(p);
   }
   return nullptr;
@@ -223,7 +212,8 @@ ContentBridgeParent::Observe(nsISupports* aSubject,
 }
 
 PFileDescriptorSetParent*
-ContentBridgeParent::SendPFileDescriptorSetConstructor(const FileDescriptor& aFD)
+ContentBridgeParent::SendPFileDescriptorSetConstructor(
+    const FileDescriptor& aFD)
 {
   return PContentBridgeParent::SendPFileDescriptorSetConstructor(aFD);
 }
@@ -235,7 +225,8 @@ ContentBridgeParent::AllocPFileDescriptorSetParent(const FileDescriptor& aFD)
 }
 
 bool
-ContentBridgeParent::DeallocPFileDescriptorSetParent(PFileDescriptorSetParent* aActor)
+ContentBridgeParent::DeallocPFileDescriptorSetParent(
+    PFileDescriptorSetParent* aActor)
 {
   return nsIContentParent::DeallocPFileDescriptorSetParent(aActor);
 }
@@ -247,7 +238,8 @@ ContentBridgeParent::AllocPChildToParentStreamParent()
 }
 
 bool
-ContentBridgeParent::DeallocPChildToParentStreamParent(PChildToParentStreamParent* aActor)
+ContentBridgeParent::DeallocPChildToParentStreamParent(
+    PChildToParentStreamParent* aActor)
 {
   return nsIContentParent::DeallocPChildToParentStreamParent(aActor);
 }
@@ -259,10 +251,11 @@ ContentBridgeParent::AllocPParentToChildStreamParent()
 }
 
 bool
-ContentBridgeParent::DeallocPParentToChildStreamParent(PParentToChildStreamParent* aActor)
+ContentBridgeParent::DeallocPParentToChildStreamParent(
+    PParentToChildStreamParent* aActor)
 {
   return nsIContentParent::DeallocPParentToChildStreamParent(aActor);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -18,7 +18,7 @@ namespace storage {
 //// Row
 
 nsresult
-Row::initialize(sqlite3_stmt *aStatement)
+Row::initialize(sqlite3_stmt* aStatement)
 {
   // Get the number of results
   mNumCols = ::sqlite3_column_count(aStatement);
@@ -26,7 +26,7 @@ Row::initialize(sqlite3_stmt *aStatement)
   // Start copying over values
   for (uint32_t i = 0; i < mNumCols; i++) {
     // Store the value
-    nsIVariant *variant = nullptr;
+    nsIVariant* variant = nullptr;
     int type = ::sqlite3_column_type(aStatement, i);
     switch (type) {
       case SQLITE_INTEGER:
@@ -35,22 +35,19 @@ Row::initialize(sqlite3_stmt *aStatement)
       case SQLITE_FLOAT:
         variant = new FloatVariant(::sqlite3_column_double(aStatement, i));
         break;
-      case SQLITE_TEXT:
-      {
-        nsDependentString str(
-          static_cast<const char16_t *>(::sqlite3_column_text16(aStatement, i))
-        );
+      case SQLITE_TEXT: {
+        nsDependentString str(static_cast<const char16_t*>(
+            ::sqlite3_column_text16(aStatement, i)));
         variant = new TextVariant(str);
         break;
       }
       case SQLITE_NULL:
         variant = new NullVariant();
         break;
-      case SQLITE_BLOB:
-      {
+      case SQLITE_BLOB: {
         int size = ::sqlite3_column_bytes(aStatement, i);
-        const void *data = ::sqlite3_column_blob(aStatement, i);
-        variant = new BlobVariant(std::pair<const void *, int>(data, size));
+        const void* data = ::sqlite3_column_blob(aStatement, i);
+        variant = new BlobVariant(std::pair<const void*, int>(data, size));
         break;
       }
       default:
@@ -62,7 +59,7 @@ Row::initialize(sqlite3_stmt *aStatement)
     NS_ENSURE_TRUE(mData.InsertObjectAt(variant, i), NS_ERROR_OUT_OF_MEMORY);
 
     // Associate the name (if any) with the index
-    const char *name = ::sqlite3_column_name(aStatement, i);
+    const char* name = ::sqlite3_column_name(aStatement, i);
     if (!name) break;
     nsAutoCString colName(name);
     mNameHashtable.Put(colName, i);
@@ -75,18 +72,13 @@ Row::initialize(sqlite3_stmt *aStatement)
  * Note:  This object is only ever accessed on one thread at a time.  It it not
  *        threadsafe, but it does need threadsafe AddRef and Release.
  */
-NS_IMPL_ISUPPORTS(
-  Row,
-  mozIStorageRow,
-  mozIStorageValueArray
-)
+NS_IMPL_ISUPPORTS(Row, mozIStorageRow, mozIStorageValueArray)
 
 ////////////////////////////////////////////////////////////////////////////////
 //// mozIStorageRow
 
 NS_IMETHODIMP
-Row::GetResultByIndex(uint32_t aIndex,
-                      nsIVariant **_result)
+Row::GetResultByIndex(uint32_t aIndex, nsIVariant** _result)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   NS_ADDREF(*_result = mData.ObjectAt(aIndex));
@@ -94,8 +86,7 @@ Row::GetResultByIndex(uint32_t aIndex,
 }
 
 NS_IMETHODIMP
-Row::GetResultByName(const nsACString &aName,
-                     nsIVariant **_result)
+Row::GetResultByName(const nsACString& aName, nsIVariant** _result)
 {
   uint32_t index;
   NS_ENSURE_TRUE(mNameHashtable.Get(aName, &index), NS_ERROR_NOT_AVAILABLE);
@@ -106,15 +97,14 @@ Row::GetResultByName(const nsACString &aName,
 //// mozIStorageValueArray
 
 NS_IMETHODIMP
-Row::GetNumEntries(uint32_t *_entries)
+Row::GetNumEntries(uint32_t* _entries)
 {
   *_entries = mNumCols;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-Row::GetTypeOfIndex(uint32_t aIndex,
-                    int32_t *_type)
+Row::GetTypeOfIndex(uint32_t aIndex, int32_t* _type)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
 
@@ -142,56 +132,49 @@ Row::GetTypeOfIndex(uint32_t aIndex,
 }
 
 NS_IMETHODIMP
-Row::GetInt32(uint32_t aIndex,
-              int32_t *_value)
+Row::GetInt32(uint32_t aIndex, int32_t* _value)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   return mData.ObjectAt(aIndex)->GetAsInt32(_value);
 }
 
 NS_IMETHODIMP
-Row::GetInt64(uint32_t aIndex,
-              int64_t *_value)
+Row::GetInt64(uint32_t aIndex, int64_t* _value)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   return mData.ObjectAt(aIndex)->GetAsInt64(_value);
 }
 
 NS_IMETHODIMP
-Row::GetDouble(uint32_t aIndex,
-               double *_value)
+Row::GetDouble(uint32_t aIndex, double* _value)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   return mData.ObjectAt(aIndex)->GetAsDouble(_value);
 }
 
 NS_IMETHODIMP
-Row::GetUTF8String(uint32_t aIndex,
-                   nsACString &_value)
+Row::GetUTF8String(uint32_t aIndex, nsACString& _value)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   return mData.ObjectAt(aIndex)->GetAsAUTF8String(_value);
 }
 
 NS_IMETHODIMP
-Row::GetString(uint32_t aIndex,
-               nsAString &_value)
+Row::GetString(uint32_t aIndex, nsAString& _value)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   return mData.ObjectAt(aIndex)->GetAsAString(_value);
 }
 
 NS_IMETHODIMP
-Row::GetBlob(uint32_t aIndex,
-             uint32_t *_size,
-             uint8_t **_blob)
+Row::GetBlob(uint32_t aIndex, uint32_t* _size, uint8_t** _blob)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
 
   uint16_t type;
   nsIID interfaceIID;
-  return mData.ObjectAt(aIndex)->GetAsArray(&type, &interfaceIID, _size,
-                                            reinterpret_cast<void **>(_blob));
+  return mData.ObjectAt(aIndex)->GetAsArray(
+      &type, &interfaceIID, _size, reinterpret_cast<void**>(_blob));
 }
 
 NS_IMETHODIMP
@@ -207,8 +190,7 @@ Row::GetBlobAsUTF8String(uint32_t aIndex, nsACString& aValue)
 }
 
 NS_IMETHODIMP
-Row::GetIsNull(uint32_t aIndex,
-               bool *_isNull)
+Row::GetIsNull(uint32_t aIndex, bool* _isNull)
 {
   ENSURE_INDEX_VALUE(aIndex, mNumCols);
   NS_ENSURE_ARG_POINTER(_isNull);
@@ -220,28 +202,22 @@ Row::GetIsNull(uint32_t aIndex,
 }
 
 NS_IMETHODIMP
-Row::GetSharedUTF8String(uint32_t,
-                         uint32_t *,
-                         char const **)
+Row::GetSharedUTF8String(uint32_t, uint32_t*, char const**)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-Row::GetSharedString(uint32_t,
-                     uint32_t *,
-                     const char16_t **)
+Row::GetSharedString(uint32_t, uint32_t*, const char16_t**)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-Row::GetSharedBlob(uint32_t,
-                   uint32_t *,
-                   const uint8_t **)
+Row::GetSharedBlob(uint32_t, uint32_t*, const uint8_t**)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla

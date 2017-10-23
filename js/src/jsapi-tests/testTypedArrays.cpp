@@ -12,20 +12,18 @@
 
 using namespace js;
 
-BEGIN_TEST(testTypedArrays)
-{
+BEGIN_TEST(testTypedArrays) {
     bool ok = true;
 
-    ok = ok &&
-        TestPlainTypedArray<JS_NewInt8Array, int8_t, JS_GetInt8ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewUint8Array, uint8_t, JS_GetUint8ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewUint8ClampedArray, uint8_t, JS_GetUint8ClampedArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewInt16Array, int16_t, JS_GetInt16ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewUint16Array, uint16_t, JS_GetUint16ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewInt32Array, int32_t, JS_GetInt32ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewUint32Array, uint32_t, JS_GetUint32ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewFloat32Array, float, JS_GetFloat32ArrayData>(cx) &&
-        TestPlainTypedArray<JS_NewFloat64Array, double, JS_GetFloat64ArrayData>(cx);
+    ok = ok && TestPlainTypedArray<JS_NewInt8Array, int8_t, JS_GetInt8ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewUint8Array, uint8_t, JS_GetUint8ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewUint8ClampedArray, uint8_t, JS_GetUint8ClampedArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewInt16Array, int16_t, JS_GetInt16ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewUint16Array, uint16_t, JS_GetUint16ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewInt32Array, int32_t, JS_GetInt32ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewUint32Array, uint32_t, JS_GetUint32ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewFloat32Array, float, JS_GetFloat32ArrayData>(cx) &&
+         TestPlainTypedArray<JS_NewFloat64Array, double, JS_GetFloat64ArrayData>(cx);
 
     size_t nbytes = sizeof(double) * 8;
     RootedObject buffer(cx, JS_NewArrayBuffer(cx, nbytes));
@@ -44,26 +42,44 @@ BEGIN_TEST(testTypedArrays)
     }
 
     ok = ok &&
-        TestArrayFromBuffer<JS_NewInt8ArrayWithBuffer, JS_NewInt8ArrayFromArray, int8_t, false, JS_GetInt8ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint8ArrayWithBuffer, JS_NewUint8ArrayFromArray, uint8_t, false, JS_GetUint8ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint8ClampedArrayWithBuffer, JS_NewUint8ClampedArrayFromArray, uint8_t, false, JS_GetUint8ClampedArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewInt16ArrayWithBuffer, JS_NewInt16ArrayFromArray, int16_t, false, JS_GetInt16ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint16ArrayWithBuffer, JS_NewUint16ArrayFromArray, uint16_t, false, JS_GetUint16ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewInt32ArrayWithBuffer, JS_NewInt32ArrayFromArray, int32_t, false, JS_GetInt32ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint32ArrayWithBuffer, JS_NewUint32ArrayFromArray, uint32_t, false, JS_GetUint32ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewFloat32ArrayWithBuffer, JS_NewFloat32ArrayFromArray, float, false, JS_GetFloat32ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewFloat64ArrayWithBuffer, JS_NewFloat64ArrayFromArray, double, false, JS_GetFloat64ArrayData>(cx);
+         TestArrayFromBuffer<JS_NewInt8ArrayWithBuffer, JS_NewInt8ArrayFromArray, int8_t, false,
+                             JS_GetInt8ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint8ArrayWithBuffer, JS_NewUint8ArrayFromArray, uint8_t, false,
+                             JS_GetUint8ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint8ClampedArrayWithBuffer, JS_NewUint8ClampedArrayFromArray,
+                             uint8_t, false, JS_GetUint8ClampedArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewInt16ArrayWithBuffer, JS_NewInt16ArrayFromArray, int16_t, false,
+                             JS_GetInt16ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint16ArrayWithBuffer, JS_NewUint16ArrayFromArray, uint16_t,
+                             false, JS_GetUint16ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewInt32ArrayWithBuffer, JS_NewInt32ArrayFromArray, int32_t, false,
+                             JS_GetInt32ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint32ArrayWithBuffer, JS_NewUint32ArrayFromArray, uint32_t,
+                             false, JS_GetUint32ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewFloat32ArrayWithBuffer, JS_NewFloat32ArrayFromArray, float,
+                             false, JS_GetFloat32ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewFloat64ArrayWithBuffer, JS_NewFloat64ArrayFromArray, double,
+                             false, JS_GetFloat64ArrayData>(cx);
 
     ok = ok &&
-        TestArrayFromBuffer<JS_NewInt8ArrayWithBuffer, JS_NewInt8ArrayFromArray, int8_t, true, JS_GetInt8ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint8ArrayWithBuffer, JS_NewUint8ArrayFromArray, uint8_t, true, JS_GetUint8ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint8ClampedArrayWithBuffer, JS_NewUint8ClampedArrayFromArray, uint8_t, true, JS_GetUint8ClampedArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewInt16ArrayWithBuffer, JS_NewInt16ArrayFromArray, int16_t, true, JS_GetInt16ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint16ArrayWithBuffer, JS_NewUint16ArrayFromArray, uint16_t, true, JS_GetUint16ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewInt32ArrayWithBuffer, JS_NewInt32ArrayFromArray, int32_t, true, JS_GetInt32ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewUint32ArrayWithBuffer, JS_NewUint32ArrayFromArray, uint32_t, true, JS_GetUint32ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewFloat32ArrayWithBuffer, JS_NewFloat32ArrayFromArray, float, true, JS_GetFloat32ArrayData>(cx) &&
-        TestArrayFromBuffer<JS_NewFloat64ArrayWithBuffer, JS_NewFloat64ArrayFromArray, double, true, JS_GetFloat64ArrayData>(cx);
+         TestArrayFromBuffer<JS_NewInt8ArrayWithBuffer, JS_NewInt8ArrayFromArray, int8_t, true,
+                             JS_GetInt8ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint8ArrayWithBuffer, JS_NewUint8ArrayFromArray, uint8_t, true,
+                             JS_GetUint8ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint8ClampedArrayWithBuffer, JS_NewUint8ClampedArrayFromArray,
+                             uint8_t, true, JS_GetUint8ClampedArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewInt16ArrayWithBuffer, JS_NewInt16ArrayFromArray, int16_t, true,
+                             JS_GetInt16ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint16ArrayWithBuffer, JS_NewUint16ArrayFromArray, uint16_t,
+                             true, JS_GetUint16ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewInt32ArrayWithBuffer, JS_NewInt32ArrayFromArray, int32_t, true,
+                             JS_GetInt32ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewUint32ArrayWithBuffer, JS_NewUint32ArrayFromArray, uint32_t,
+                             true, JS_GetUint32ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewFloat32ArrayWithBuffer, JS_NewFloat32ArrayFromArray, float,
+                             true, JS_GetFloat32ArrayData>(cx) &&
+         TestArrayFromBuffer<JS_NewFloat64ArrayWithBuffer, JS_NewFloat64ArrayFromArray, double,
+                             true, JS_GetFloat64ArrayData>(cx);
 
     return ok;
 }
@@ -71,12 +87,9 @@ BEGIN_TEST(testTypedArrays)
 // Shared memory can only be mapped by a TypedArray by creating the
 // TypedArray with a SharedArrayBuffer explicitly, so no tests here.
 
-template<JSObject* Create(JSContext*, uint32_t),
-         typename Element,
-         Element* GetData(JSObject*, bool* isShared, const JS::AutoRequireNoGC&)>
-bool
-TestPlainTypedArray(JSContext* cx)
-{
+template <JSObject* Create(JSContext*, uint32_t), typename Element,
+          Element* GetData(JSObject*, bool* isShared, const JS::AutoRequireNoGC&)>
+bool TestPlainTypedArray(JSContext* cx) {
     {
         RootedObject notArray(cx, Create(cx, UINT32_MAX));
         CHECK(!notArray);
@@ -107,21 +120,17 @@ TestPlainTypedArray(JSContext* cx)
     return true;
 }
 
-template<JSObject* CreateWithBuffer(JSContext*, JS::HandleObject, uint32_t, int32_t),
-         JSObject* CreateFromArray(JSContext*, JS::HandleObject),
-         typename Element,
-         bool Shared,
-         Element* GetData(JSObject*, bool*, const JS::AutoRequireNoGC&)>
-bool
-TestArrayFromBuffer(JSContext* cx)
-{
+template <JSObject* CreateWithBuffer(JSContext*, JS::HandleObject, uint32_t, int32_t),
+          JSObject* CreateFromArray(JSContext*, JS::HandleObject), typename Element, bool Shared,
+          Element* GetData(JSObject*, bool*, const JS::AutoRequireNoGC&)>
+bool TestArrayFromBuffer(JSContext* cx) {
     if (Shared && !cx->compartment()->creationOptions().getSharedMemoryAndAtomicsEnabled())
         return true;
 
     size_t elts = 8;
     size_t nbytes = elts * sizeof(Element);
-    RootedObject buffer(cx, Shared ? JS_NewSharedArrayBuffer(cx, nbytes)
-                                   : JS_NewArrayBuffer(cx, nbytes));
+    RootedObject buffer(
+        cx, Shared ? JS_NewSharedArrayBuffer(cx, nbytes) : JS_NewArrayBuffer(cx, nbytes));
     {
         JS::AutoCheckCannotGC nogc;
         bool isShared;
@@ -142,7 +151,7 @@ TestArrayFromBuffer(JSContext* cx)
     CHECK_EQUAL(JS_GetTypedArrayByteLength(array), nbytes);
     {
         bool isShared;
-        CHECK_EQUAL(JS_GetArrayBufferViewBuffer(cx, array, &isShared), (JSObject*) buffer);
+        CHECK_EQUAL(JS_GetArrayBufferViewBuffer(cx, array, &isShared), (JSObject*)buffer);
         CHECK_EQUAL(Shared, isShared);
     }
 
@@ -154,9 +163,9 @@ TestArrayFromBuffer(JSContext* cx)
         CHECK(data = GetData(array, &isShared, nogc));
         CHECK_EQUAL(Shared, isShared);
 
-        CHECK_EQUAL((void*) data,
-                    Shared ? (void*) JS_GetSharedArrayBufferData(buffer, &isShared, nogc)
-                    : (void*) JS_GetArrayBufferData(buffer, &isShared, nogc));
+        CHECK_EQUAL((void*)data, Shared
+                                     ? (void*)JS_GetSharedArrayBufferData(buffer, &isShared, nogc)
+                                     : (void*)JS_GetArrayBufferData(buffer, &isShared, nogc));
         CHECK_EQUAL(Shared, isShared);
 
         CHECK_EQUAL(*reinterpret_cast<uint8_t*>(data), 1u);

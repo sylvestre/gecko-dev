@@ -38,36 +38,37 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(ScriptLoadRequest)
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mScript)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-ScriptLoadRequest::ScriptLoadRequest(ScriptKind aKind,
-                                     nsIScriptElement* aElement,
-                                     uint32_t aVersion,
-                                     mozilla::CORSMode aCORSMode,
-                                     const mozilla::dom::SRIMetadata& aIntegrity)
-  : mKind(aKind)
-  , mElement(aElement)
-  , mScriptFromHead(false)
-  , mProgress(Progress::Loading)
-  , mDataType(DataType::Unknown)
-  , mIsInline(true)
-  , mHasSourceMapURL(false)
-  , mIsDefer(false)
-  , mIsAsync(false)
-  , mPreloadAsAsync(false)
-  , mPreloadAsDefer(false)
-  , mIsNonAsyncScriptInserted(false)
-  , mIsXSLT(false)
-  , mIsCanceled(false)
-  , mWasCompiledOMT(false)
-  , mIsTracking(false)
-  , mOffThreadToken(nullptr)
-  , mScriptText()
-  , mScriptBytecode()
-  , mBytecodeOffset(0)
-  , mJSVersion(aVersion)
-  , mLineNo(1)
-  , mCORSMode(aCORSMode)
-  , mIntegrity(aIntegrity)
-  , mReferrerPolicy(mozilla::net::RP_Unset)
+ScriptLoadRequest::ScriptLoadRequest(
+    ScriptKind aKind,
+    nsIScriptElement* aElement,
+    uint32_t aVersion,
+    mozilla::CORSMode aCORSMode,
+    const mozilla::dom::SRIMetadata& aIntegrity)
+    : mKind(aKind),
+      mElement(aElement),
+      mScriptFromHead(false),
+      mProgress(Progress::Loading),
+      mDataType(DataType::Unknown),
+      mIsInline(true),
+      mHasSourceMapURL(false),
+      mIsDefer(false),
+      mIsAsync(false),
+      mPreloadAsAsync(false),
+      mPreloadAsDefer(false),
+      mIsNonAsyncScriptInserted(false),
+      mIsXSLT(false),
+      mIsCanceled(false),
+      mWasCompiledOMT(false),
+      mIsTracking(false),
+      mOffThreadToken(nullptr),
+      mScriptText(),
+      mScriptBytecode(),
+      mBytecodeOffset(0),
+      mJSVersion(aVersion),
+      mLineNo(1),
+      mCORSMode(aCORSMode),
+      mIntegrity(aIntegrity),
+      mReferrerPolicy(mozilla::net::RP_Unset)
 {
 }
 
@@ -140,10 +141,7 @@ ScriptLoadRequest::AsModuleRequest()
 // ScriptLoadRequestList
 //////////////////////////////////////////////////////////////
 
-ScriptLoadRequestList::~ScriptLoadRequestList()
-{
-  Clear();
-}
+ScriptLoadRequestList::~ScriptLoadRequestList() { Clear(); }
 
 void
 ScriptLoadRequestList::Clear()
@@ -159,8 +157,7 @@ ScriptLoadRequestList::Clear()
 bool
 ScriptLoadRequestList::Contains(ScriptLoadRequest* aElem) const
 {
-  for (const ScriptLoadRequest* req = getFirst();
-       req; req = req->getNext()) {
+  for (const ScriptLoadRequest* req = getFirst(); req; req = req->getNext()) {
     if (req == aElem) {
       return true;
     }
@@ -168,7 +165,7 @@ ScriptLoadRequestList::Contains(ScriptLoadRequest* aElem) const
 
   return false;
 }
-#endif // DEBUG
+#endif  // DEBUG
 
 inline void
 ImplCycleCollectionUnlink(ScriptLoadRequestList& aField)
@@ -184,12 +181,11 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
                             const char* aName,
                             uint32_t aFlags)
 {
-  for (ScriptLoadRequest* request = aField.getFirst();
-       request; request = request->getNext())
-  {
+  for (ScriptLoadRequest* request = aField.getFirst(); request;
+       request = request->getNext()) {
     CycleCollectionNoteChild(aCallback, request, aName, aFlags);
   }
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

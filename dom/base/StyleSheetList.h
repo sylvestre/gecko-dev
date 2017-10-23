@@ -17,15 +17,15 @@ class StyleSheet;
 
 namespace dom {
 
-class StyleSheetList : public nsIDOMStyleSheetList
-                     , public nsWrapperCache
+class StyleSheetList : public nsIDOMStyleSheetList, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(StyleSheetList)
   NS_DECL_NSIDOMSTYLESHEETLIST
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
 
   virtual nsINode* GetParentObject() const = 0;
 
@@ -37,11 +37,11 @@ public:
     return IndexedGetter(aIndex, dummy);
   }
 
-protected:
+ protected:
   virtual ~StyleSheetList() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_StyleSheetList_h
+#endif  // mozilla_dom_StyleSheetList_h

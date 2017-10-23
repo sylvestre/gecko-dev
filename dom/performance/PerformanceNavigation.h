@@ -18,7 +18,7 @@ namespace dom {
 // Script "performance.navigation" object
 class PerformanceNavigation final : public nsWrapperCache
 {
-public:
+ public:
   explicit PerformanceNavigation(Performance* aPerformance);
 
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(PerformanceNavigation)
@@ -34,28 +34,22 @@ public:
     return mPerformance->Timing();
   }
 
-  Performance* GetParentObject() const
-  {
-    return mPerformance;
-  }
+  Performance* GetParentObject() const { return mPerformance; }
 
-  virtual JSObject* WrapObject(JSContext *cx,
+  virtual JSObject* WrapObject(JSContext* cx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   // PerformanceNavigation WebIDL methods
-  uint16_t Type() const
-  {
-    return GetDOMTiming()->GetType();
-  }
+  uint16_t Type() const { return GetDOMTiming()->GetType(); }
 
   uint16_t RedirectCount() const;
 
-private:
+ private:
   ~PerformanceNavigation();
   RefPtr<Performance> mPerformance;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PerformanceNavigation_h
+#endif  // mozilla_dom_PerformanceNavigation_h

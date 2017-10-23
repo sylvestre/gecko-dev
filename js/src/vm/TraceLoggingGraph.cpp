@@ -25,11 +25,11 @@
 #include "vm/TraceLogging.h"
 
 #ifndef DEFAULT_TRACE_LOG_DIR
-# if defined(_WIN32)
-#  define DEFAULT_TRACE_LOG_DIR "."
-# else
-#  define DEFAULT_TRACE_LOG_DIR "/tmp/"
-# endif
+#if defined(_WIN32)
+#define DEFAULT_TRACE_LOG_DIR "."
+#else
+#define DEFAULT_TRACE_LOG_DIR "/tmp/"
+#endif
 #endif
 
 using mozilla::MakeScopeExit;
@@ -39,10 +39,10 @@ TraceLoggerGraphState* traceLoggerGraphState = nullptr;
 
 // gcc and clang have these in symcat.h, but MSVC does not.
 #ifndef STRINGX
-# define STRINGX(x) #x
+#define STRINGX(x) #x
 #endif
 #ifndef XSTRING
-# define XSTRING(macro) STRINGX(macro)
+#define XSTRING(macro) STRINGX(macro)
 #endif
 
 #define MAX_LOGGERS 999
@@ -50,15 +50,13 @@ TraceLoggerGraphState* traceLoggerGraphState = nullptr;
 // Return a filename relative to the output directory. %u and %d substitutions
 // are allowed, with %u standing for a full 32-bit number and %d standing for
 // an up to 3-digit number.
-static js::UniqueChars
-MOZ_FORMAT_PRINTF(1, 2)
-AllocTraceLogFilename(const char* pattern, ...) {
+static js::UniqueChars MOZ_FORMAT_PRINTF(1, 2) AllocTraceLogFilename(const char* pattern, ...) {
     js::UniqueChars filename;
 
     va_list ap;
 
     static const char* outdir = getenv("TLDIR") ? getenv("TLDIR") : DEFAULT_TRACE_LOG_DIR;
-    size_t len = strlen(outdir) + 1; // "+ 1" is for the '/'
+    size_t len = strlen(outdir) + 1;  // "+ 1" is for the '/'
 
     for (const char* p = pattern; *p; p++) {
         if (*p == '%') {
@@ -74,18 +72,16 @@ AllocTraceLogFilename(const char* pattern, ...) {
         }
     }
 
-    len++; // For the terminating NUL.
+    len++;  // For the terminating NUL.
 
-    filename.reset((char*) js_malloc(len));
-    if (!filename)
-        return nullptr;
+    filename.reset((char*)js_malloc(len));
+    if (!filename) return nullptr;
     char* rest = filename.get() + sprintf(filename.get(), "%s/", outdir);
 
     va_start(ap, pattern);
     int ret = vsnprintf(rest, len, pattern, ap);
     va_end(ap);
-    if (ret < 0)
-        return nullptr;
+    if (ret < 0) return nullptr;
 
     MOZ_ASSERT(size_t(ret) <= len - (strlen(outdir) + 1),
                "overran TL filename buffer; %d given too large a value?");
@@ -93,10 +89,8 @@ AllocTraceLogFilename(const char* pattern, ...) {
     return filename;
 }
 
-bool
-TraceLoggerGraphState::init()
-{
-    pid_ = (uint32_t) getpid();
+bool TraceLoggerGraphState::init() {
+    pid_ = (uint32_t)getpid();
 
     js::UniqueChars filename = AllocTraceLogFilename("tl-data.%u.json", pid_);
     out = fopen(filename.get(), "w");
@@ -111,7 +105,7 @@ TraceLoggerGraphState::init()
     // In most cases that is the wanted file.
     js::UniqueChars masterFilename = AllocTraceLogFilename("tl-data.json");
     if (FILE* last = fopen(masterFilename.get(), "w")) {
-        char *basename = strrchr(filename.get(), '/');
+        char* basename = strrchr(filename.get(), '/');
         basename = basename ? basename + 1 : filename.get();
         fprintf(last, "\"%s\"", basename);
         fclose(last);
@@ -123,8 +117,7 @@ TraceLoggerGraphState::init()
     return true;
 }
 
-TraceLoggerGraphState::~TraceLoggerGraphState()
-{
+TraceLoggerGraphState::~TraceLoggerGraphState() {
     if (out) {
         fprintf(out, "]");
         fclose(out);
@@ -136,9 +129,7 @@ TraceLoggerGraphState::~TraceLoggerGraphState()
 #endif
 }
 
-uint32_t
-TraceLoggerGraphState::nextLoggerId()
-{
+uint32_t TraceLoggerGraphState::nextLoggerId() {
     js::LockGuard<js::Mutex> guard(lock);
 
     MOZ_ASSERT(initialized);
@@ -157,19 +148,18 @@ TraceLoggerGraphState::nextLoggerId()
         }
     }
 
-    int written = fprintf(out, "{\"tree\":\"tl-tree.%u.%d.tl\", \"events\":\"tl-event.%u.%d.tl\", "
-                               "\"dict\":\"tl-dict.%u.%d.json\", \"treeFormat\":\"64,64,31,1,32\"",
+    int written = fprintf(out,
+                          "{\"tree\":\"tl-tree.%u.%d.tl\", \"events\":\"tl-event.%u.%d.tl\", "
+                          "\"dict\":\"tl-dict.%u.%d.json\", \"treeFormat\":\"64,64,31,1,32\"",
                           pid_, numLoggers, pid_, numLoggers, pid_, numLoggers);
 
     if (written > 0) {
         char threadName[16];
         js::ThisThread::GetName(threadName, sizeof(threadName));
-        if (threadName[0])
-            written = fprintf(out, ", \"threadName\":\"%s\"", threadName);
+        if (threadName[0]) written = fprintf(out, ", \"threadName\":\"%s\"", threadName);
     }
 
-    if (written > 0)
-        written = fprintf(out, "}");
+    if (written > 0) written = fprintf(out, "}");
 
     if (written < 0) {
         fprintf(stderr, "TraceLogging: Error while writing.\n");
@@ -179,21 +169,15 @@ TraceLoggerGraphState::nextLoggerId()
     return numLoggers++;
 }
 
-size_t
-TraceLoggerGraphState::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const
-{
+size_t TraceLoggerGraphState::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     return 0;
 }
 
-static bool
-EnsureTraceLoggerGraphState()
-{
-    if (MOZ_LIKELY(traceLoggerGraphState))
-        return true;
+static bool EnsureTraceLoggerGraphState() {
+    if (MOZ_LIKELY(traceLoggerGraphState)) return true;
 
     traceLoggerGraphState = js_new<TraceLoggerGraphState>();
-    if (!traceLoggerGraphState)
-        return false;
+    if (!traceLoggerGraphState) return false;
 
     if (!traceLoggerGraphState->init()) {
         js::DestroyTraceLoggerGraphState();
@@ -203,57 +187,53 @@ EnsureTraceLoggerGraphState()
     return true;
 }
 
-size_t
-js::SizeOfTraceLogGraphState(mozilla::MallocSizeOf mallocSizeOf)
-{
+size_t js::SizeOfTraceLogGraphState(mozilla::MallocSizeOf mallocSizeOf) {
     return traceLoggerGraphState ? traceLoggerGraphState->sizeOfIncludingThis(mallocSizeOf) : 0;
 }
 
-void
-js::DestroyTraceLoggerGraphState()
-{
+void js::DestroyTraceLoggerGraphState() {
     if (traceLoggerGraphState) {
         js_delete(traceLoggerGraphState);
         traceLoggerGraphState = nullptr;
     }
 }
 
-bool
-TraceLoggerGraph::init(uint64_t startTimestamp)
-{
+bool TraceLoggerGraph::init(uint64_t startTimestamp) {
     auto fail = MakeScopeExit([&] { failed = true; });
 
-    if (!tree.init())
-        return false;
-    if (!stack.init())
-        return false;
+    if (!tree.init()) return false;
+    if (!stack.init()) return false;
 
-    if (!EnsureTraceLoggerGraphState())
-        return false;
+    if (!EnsureTraceLoggerGraphState()) return false;
 
     uint32_t loggerId = traceLoggerGraphState->nextLoggerId();
-    if (loggerId == uint32_t(-1))
-        return false;
+    if (loggerId == uint32_t(-1)) return false;
 
     uint32_t pid = traceLoggerGraphState->pid();
 
     js::UniqueChars dictFilename = AllocTraceLogFilename("tl-dict.%u.%d.json", pid, loggerId);
     dictFile = fopen(dictFilename.get(), "w");
-    if (!dictFile)
-        return false;
-    auto cleanupDict = MakeScopeExit([&] { fclose(dictFile); dictFile = nullptr; });
+    if (!dictFile) return false;
+    auto cleanupDict = MakeScopeExit([&] {
+        fclose(dictFile);
+        dictFile = nullptr;
+    });
 
     js::UniqueChars treeFilename = AllocTraceLogFilename("tl-tree.%u.%d.tl", pid, loggerId);
     treeFile = fopen(treeFilename.get(), "w+b");
-    if (!treeFile)
-        return false;
-    auto cleanupTree = MakeScopeExit([&] { fclose(treeFile); treeFile = nullptr; });
+    if (!treeFile) return false;
+    auto cleanupTree = MakeScopeExit([&] {
+        fclose(treeFile);
+        treeFile = nullptr;
+    });
 
     js::UniqueChars eventFilename = AllocTraceLogFilename("tl-event.%u.%d.tl", pid, loggerId);
     eventFile = fopen(eventFilename.get(), "wb");
-    if (!eventFile)
-        return false;
-    auto cleanupEvent = MakeScopeExit([&] { fclose(eventFile); eventFile = nullptr; });
+    if (!eventFile) return false;
+    auto cleanupEvent = MakeScopeExit([&] {
+        fclose(eventFile);
+        eventFile = nullptr;
+    });
 
     // Create the top tree node and corresponding first stack item.
     TreeEntry& treeEntry = tree.pushUninitialized();
@@ -281,13 +261,11 @@ TraceLoggerGraph::init(uint64_t startTimestamp)
     return true;
 }
 
-TraceLoggerGraph::~TraceLoggerGraph()
-{
+TraceLoggerGraph::~TraceLoggerGraph() {
     // Write dictionary to disk
     if (dictFile) {
         int written = fprintf(dictFile, "]");
-        if (written < 0)
-            fprintf(stderr, "TraceLogging: Error while writing.\n");
+        if (written < 0) fprintf(stderr, "TraceLogging: Error while writing.\n");
         fclose(dictFile);
 
         dictFile = nullptr;
@@ -298,8 +276,7 @@ TraceLoggerGraph::~TraceLoggerGraph()
         // We temporarily enable logging for this. Stop doesn't need any extra data,
         // so is safe to do even when we have encountered OOM.
         enabled = true;
-        while (stack.size() > 1)
-            stopEvent(0);
+        while (stack.size() > 1) stopEvent(0);
         enabled = false;
     }
 
@@ -320,23 +297,18 @@ TraceLoggerGraph::~TraceLoggerGraph()
     }
 }
 
-bool
-TraceLoggerGraph::flush()
-{
+bool TraceLoggerGraph::flush() {
     MOZ_ASSERT(!failed);
 
     if (treeFile) {
         // Format data in big endian.
-        for (size_t i = 0; i < tree.size(); i++)
-            entryToBigEndian(&tree[i]);
+        for (size_t i = 0; i < tree.size(); i++) entryToBigEndian(&tree[i]);
 
         int success = fseek(treeFile, 0, SEEK_END);
-        if (success != 0)
-            return false;
+        if (success != 0) return false;
 
         size_t bytesWritten = fwrite(tree.data(), sizeof(TreeEntry), tree.size(), treeFile);
-        if (bytesWritten < tree.size())
-            return false;
+        if (bytesWritten < tree.size()) return false;
 
         treeOffset += tree.size();
         tree.clear();
@@ -345,9 +317,7 @@ TraceLoggerGraph::flush()
     return true;
 }
 
-void
-TraceLoggerGraph::entryToBigEndian(TreeEntry* entry)
-{
+void TraceLoggerGraph::entryToBigEndian(TreeEntry* entry) {
     entry->start_ = NativeEndian::swapToBigEndian(entry->start_);
     entry->stop_ = NativeEndian::swapToBigEndian(entry->stop_);
     uint32_t data = (entry->u.s.textId_ << 1) + entry->u.s.hasChildren_;
@@ -355,9 +325,7 @@ TraceLoggerGraph::entryToBigEndian(TreeEntry* entry)
     entry->nextId_ = NativeEndian::swapToBigEndian(entry->nextId_);
 }
 
-void
-TraceLoggerGraph::entryToSystemEndian(TreeEntry* entry)
-{
+void TraceLoggerGraph::entryToSystemEndian(TreeEntry* entry) {
     entry->start_ = NativeEndian::swapFromBigEndian(entry->start_);
     entry->stop_ = NativeEndian::swapFromBigEndian(entry->stop_);
 
@@ -368,11 +336,8 @@ TraceLoggerGraph::entryToSystemEndian(TreeEntry* entry)
     entry->nextId_ = NativeEndian::swapFromBigEndian(entry->nextId_);
 }
 
-void
-TraceLoggerGraph::startEvent(uint32_t id, uint64_t timestamp)
-{
-    if (failed || enabled == 0)
-        return;
+void TraceLoggerGraph::startEvent(uint32_t id, uint64_t timestamp) {
+    if (failed || enabled == 0) return;
 
     if (!tree.hasSpaceForAdd()) {
         if (tree.size() >= treeSizeFlushLimit() || !tree.ensureSpaceBeforeAdd()) {
@@ -393,20 +358,14 @@ TraceLoggerGraph::startEvent(uint32_t id, uint64_t timestamp)
     }
 }
 
-TraceLoggerGraph::StackEntry&
-TraceLoggerGraph::getActiveAncestor()
-{
+TraceLoggerGraph::StackEntry& TraceLoggerGraph::getActiveAncestor() {
     uint32_t parentId = stack.lastEntryId();
-    while (!stack[parentId].active())
-        parentId--;
+    while (!stack[parentId].active()) parentId--;
     return stack[parentId];
 }
 
-bool
-TraceLoggerGraph::startEventInternal(uint32_t id, uint64_t timestamp)
-{
-    if (!stack.ensureSpaceBeforeAdd())
-        return false;
+bool TraceLoggerGraph::startEventInternal(uint32_t id, uint64_t timestamp) {
+    if (!stack.ensureSpaceBeforeAdd()) return false;
 
     // Patch up the tree to be correct. There are two scenarios:
     // 1) Parent has no children yet. So update parent to include children.
@@ -415,21 +374,18 @@ TraceLoggerGraph::startEventInternal(uint32_t id, uint64_t timestamp)
     StackEntry& parent = getActiveAncestor();
 #ifdef DEBUG
     TreeEntry entry;
-    if (!getTreeEntry(parent.treeId(), &entry))
-        return false;
+    if (!getTreeEntry(parent.treeId(), &entry)) return false;
 #endif
 
     if (parent.lastChildId() == 0) {
         MOZ_ASSERT(!entry.hasChildren());
         MOZ_ASSERT(parent.treeId() == treeOffset + tree.size() - 1);
 
-        if (!updateHasChildren(parent.treeId()))
-            return false;
+        if (!updateHasChildren(parent.treeId())) return false;
     } else {
         MOZ_ASSERT(entry.hasChildren());
 
-        if (!updateNextId(parent.lastChildId(), tree.size() + treeOffset))
-            return false;
+        if (!updateNextId(parent.lastChildId(), tree.size() + treeOffset)) return false;
     }
 
     // Add a new tree entry.
@@ -452,15 +408,10 @@ TraceLoggerGraph::startEventInternal(uint32_t id, uint64_t timestamp)
     return true;
 }
 
-void
-TraceLoggerGraph::stopEvent(uint32_t id, uint64_t timestamp)
-{
+void TraceLoggerGraph::stopEvent(uint32_t id, uint64_t timestamp) {
 #ifdef DEBUG
-    if (id != TraceLogger_Scripts &&
-        id != TraceLogger_Engine &&
-        stack.size() > 1 &&
-        stack.lastEntry().active())
-    {
+    if (id != TraceLogger_Scripts && id != TraceLogger_Engine && stack.size() > 1 &&
+        stack.lastEntry().active()) {
         TreeEntry entry;
         MOZ_ASSERT(getTreeEntry(stack.lastEntry().treeId(), &entry));
         MOZ_ASSERT(entry.textId() == id);
@@ -470,9 +421,7 @@ TraceLoggerGraph::stopEvent(uint32_t id, uint64_t timestamp)
     stopEvent(timestamp);
 }
 
-void
-TraceLoggerGraph::stopEvent(uint64_t timestamp)
-{
+void TraceLoggerGraph::stopEvent(uint64_t timestamp) {
     if (enabled && stack.lastEntry().active()) {
         if (!updateStop(stack.lastEntry().treeId(), timestamp)) {
             fprintf(stderr, "TraceLogging: Failed to stop an event.\n");
@@ -482,8 +431,7 @@ TraceLoggerGraph::stopEvent(uint64_t timestamp)
         }
     }
     if (stack.size() == 1) {
-        if (!enabled)
-            return;
+        if (!enabled) return;
 
         // Forcefully disable logging. We have no stack information anymore.
         logTimestamp(TraceLogger_Disable, timestamp);
@@ -492,20 +440,14 @@ TraceLoggerGraph::stopEvent(uint64_t timestamp)
     stack.pop();
 }
 
-void
-TraceLoggerGraph::logTimestamp(uint32_t id, uint64_t timestamp)
-{
-    if (failed)
-        return;
+void TraceLoggerGraph::logTimestamp(uint32_t id, uint64_t timestamp) {
+    if (failed) return;
 
-    if (id == TraceLogger_Enable)
-        enabled = true;
+    if (id == TraceLogger_Enable) enabled = true;
 
-    if (!enabled)
-        return;
+    if (!enabled) return;
 
-    if (id == TraceLogger_Disable)
-        disable(timestamp);
+    if (id == TraceLogger_Disable) disable(timestamp);
 
     MOZ_ASSERT(eventFile);
 
@@ -524,9 +466,7 @@ TraceLoggerGraph::logTimestamp(uint32_t id, uint64_t timestamp)
     }
 }
 
-bool
-TraceLoggerGraph::getTreeEntry(uint32_t treeId, TreeEntry* entry)
-{
+bool TraceLoggerGraph::getTreeEntry(uint32_t treeId, TreeEntry* entry) {
     // Entry is still in memory
     if (treeId >= treeOffset) {
         *entry = tree[treeId - treeOffset];
@@ -534,43 +474,33 @@ TraceLoggerGraph::getTreeEntry(uint32_t treeId, TreeEntry* entry)
     }
 
     int success = fseek(treeFile, treeId * sizeof(TreeEntry), SEEK_SET);
-    if (success != 0)
-        return false;
+    if (success != 0) return false;
 
     size_t itemsRead = fread((void*)entry, sizeof(TreeEntry), 1, treeFile);
-    if (itemsRead < 1)
-        return false;
+    if (itemsRead < 1) return false;
 
     entryToSystemEndian(entry);
     return true;
 }
 
-bool
-TraceLoggerGraph::saveTreeEntry(uint32_t treeId, TreeEntry* entry)
-{
+bool TraceLoggerGraph::saveTreeEntry(uint32_t treeId, TreeEntry* entry) {
     int success = fseek(treeFile, treeId * sizeof(TreeEntry), SEEK_SET);
-    if (success != 0)
-        return false;
+    if (success != 0) return false;
 
     entryToBigEndian(entry);
 
     size_t itemsWritten = fwrite(entry, sizeof(TreeEntry), 1, treeFile);
-    if (itemsWritten < 1)
-        return false;
+    if (itemsWritten < 1) return false;
 
     return true;
 }
 
-bool
-TraceLoggerGraph::updateHasChildren(uint32_t treeId, bool hasChildren)
-{
+bool TraceLoggerGraph::updateHasChildren(uint32_t treeId, bool hasChildren) {
     if (treeId < treeOffset) {
         TreeEntry entry;
-        if (!getTreeEntry(treeId, &entry))
-            return false;
+        if (!getTreeEntry(treeId, &entry)) return false;
         entry.setHasChildren(hasChildren);
-        if (!saveTreeEntry(treeId, &entry))
-            return false;
+        if (!saveTreeEntry(treeId, &entry)) return false;
         return true;
     }
 
@@ -578,16 +508,12 @@ TraceLoggerGraph::updateHasChildren(uint32_t treeId, bool hasChildren)
     return true;
 }
 
-bool
-TraceLoggerGraph::updateNextId(uint32_t treeId, uint32_t nextId)
-{
+bool TraceLoggerGraph::updateNextId(uint32_t treeId, uint32_t nextId) {
     if (treeId < treeOffset) {
         TreeEntry entry;
-        if (!getTreeEntry(treeId, &entry))
-            return false;
+        if (!getTreeEntry(treeId, &entry)) return false;
         entry.setNextId(nextId);
-        if (!saveTreeEntry(treeId, &entry))
-            return false;
+        if (!saveTreeEntry(treeId, &entry)) return false;
         return true;
     }
 
@@ -595,16 +521,12 @@ TraceLoggerGraph::updateNextId(uint32_t treeId, uint32_t nextId)
     return true;
 }
 
-bool
-TraceLoggerGraph::updateStop(uint32_t treeId, uint64_t timestamp)
-{
+bool TraceLoggerGraph::updateStop(uint32_t treeId, uint64_t timestamp) {
     if (treeId < treeOffset) {
         TreeEntry entry;
-        if (!getTreeEntry(treeId, &entry))
-            return false;
+        if (!getTreeEntry(treeId, &entry)) return false;
         entry.setStop(timestamp);
-        if (!saveTreeEntry(treeId, &entry))
-            return false;
+        if (!saveTreeEntry(treeId, &entry)) return false;
         return true;
     }
 
@@ -612,19 +534,14 @@ TraceLoggerGraph::updateStop(uint32_t treeId, uint64_t timestamp)
     return true;
 }
 
-void
-TraceLoggerGraph::disable(uint64_t timestamp)
-{
+void TraceLoggerGraph::disable(uint64_t timestamp) {
     MOZ_ASSERT(enabled);
-    while (stack.size() > 1)
-        stopEvent(timestamp);
+    while (stack.size() > 1) stopEvent(timestamp);
 
     enabled = false;
 }
 
-void
-TraceLoggerGraph::log(ContinuousSpace<EventEntry>& events)
-{
+void TraceLoggerGraph::log(ContinuousSpace<EventEntry>& events) {
     for (uint32_t i = 0; i < events.size(); i++) {
         if (events[i].textId == TraceLogger_Stop)
             stopEvent(events[i].time);
@@ -635,11 +552,8 @@ TraceLoggerGraph::log(ContinuousSpace<EventEntry>& events)
     }
 }
 
-void
-TraceLoggerGraph::addTextId(uint32_t id, const char* text)
-{
-    if (failed)
-        return;
+void TraceLoggerGraph::addTextId(uint32_t id, const char* text) {
+    if (failed) return;
 
     // Assume ids are given in order. Which is currently true.
     MOZ_ASSERT(id == nextTextId_);
@@ -653,20 +567,17 @@ TraceLoggerGraph::addTextId(uint32_t id, const char* text)
         }
     }
 
-    if (!js::FileEscapedString(dictFile, text, strlen(text), '"'))
-        failed = true;
+    if (!js::FileEscapedString(dictFile, text, strlen(text), '"')) failed = true;
 }
 
-size_t
-TraceLoggerGraph::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+size_t TraceLoggerGraph::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     size_t size = 0;
     size += tree.sizeOfExcludingThis(mallocSizeOf);
     size += stack.sizeOfExcludingThis(mallocSizeOf);
     return size;
 }
 
-size_t
-TraceLoggerGraph::sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+size_t TraceLoggerGraph::sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     return mallocSizeOf(this) + sizeOfExcludingThis(mallocSizeOf);
 }
 

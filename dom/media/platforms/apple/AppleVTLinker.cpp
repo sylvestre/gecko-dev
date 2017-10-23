@@ -9,14 +9,13 @@
 #include "AppleVTLinker.h"
 #include "mozilla/ArrayUtils.h"
 #include "nsDebug.h"
-#include "PlatformDecoderModule.h" // for sPDMLog
+#include "PlatformDecoderModule.h"  // for sPDMLog
 
 #define LOG(...) MOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 
-AppleVTLinker::LinkStatus
-AppleVTLinker::sLinkStatus = LinkStatus_INIT;
+AppleVTLinker::LinkStatus AppleVTLinker::sLinkStatus = LinkStatus_INIT;
 
 void* AppleVTLinker::sLink = nullptr;
 CFStringRef AppleVTLinker::skPropEnableHWAccel = nullptr;
@@ -33,9 +32,9 @@ AppleVTLinker::Link()
     return sLinkStatus == LinkStatus_SUCCEEDED;
   }
 
-  const char* dlnames[] =
-    { "/System/Library/Frameworks/VideoToolbox.framework/VideoToolbox",
-      "/System/Library/PrivateFrameworks/VideoToolbox.framework/VideoToolbox" };
+  const char* dlnames[] = {
+      "/System/Library/Frameworks/VideoToolbox.framework/VideoToolbox",
+      "/System/Library/PrivateFrameworks/VideoToolbox.framework/VideoToolbox"};
   bool dlfound = false;
   for (size_t i = 0; i < ArrayLength(dlnames); i++) {
     if ((sLink = dlopen(dlnames[i], RTLD_NOW | RTLD_LOCAL))) {
@@ -48,20 +47,20 @@ AppleVTLinker::Link()
     goto fail;
   }
 
-#define LINK_FUNC(func)                                        \
-  func = (typeof(func))dlsym(sLink, #func);                    \
-  if (!func) {                                                 \
-    NS_WARNING("Couldn't load VideoToolbox function " #func ); \
-    goto fail;                                                 \
+#define LINK_FUNC(func)                                       \
+  func = (typeof(func))dlsym(sLink, #func);                   \
+  if (!func) {                                                \
+    NS_WARNING("Couldn't load VideoToolbox function " #func); \
+    goto fail;                                                \
   }
 #include "AppleVTFunctions.h"
 #undef LINK_FUNC
 
   // Will only resolve in 10.9 and later.
-  skPropEnableHWAccel =
-    GetIOConst("kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder");
-  skPropUsingHWAccel =
-    GetIOConst("kVTDecompressionPropertyKey_UsingHardwareAcceleratedVideoDecoder");
+  skPropEnableHWAccel = GetIOConst(
+      "kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder");
+  skPropUsingHWAccel = GetIOConst(
+      "kVTDecompressionPropertyKey_UsingHardwareAcceleratedVideoDecoder");
 
   LOG("Loaded VideoToolbox framework.");
   sLinkStatus = LinkStatus_SUCCEEDED;
@@ -79,8 +78,7 @@ AppleVTLinker::Unlink()
 {
   if (sLink) {
     LOG("Unlinking VideoToolbox framework.");
-#define LINK_FUNC(func)                                                   \
-    func = nullptr;
+#define LINK_FUNC(func) func = nullptr;
 #include "AppleVTFunctions.h"
 #undef LINK_FUNC
     dlclose(sLink);
@@ -102,4 +100,4 @@ AppleVTLinker::GetIOConst(const char* symbol)
   return *address;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

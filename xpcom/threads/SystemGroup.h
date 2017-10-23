@@ -38,7 +38,6 @@ class SystemGroup
   static bool Initialized();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SystemGroup_h
-
+#endif  // mozilla_SystemGroup_h

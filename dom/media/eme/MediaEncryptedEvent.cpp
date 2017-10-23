@@ -35,7 +35,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaEncryptedEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 MediaEncryptedEvent::MediaEncryptedEvent(EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
+    : Event(aOwner, nullptr, nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
@@ -47,7 +47,8 @@ MediaEncryptedEvent::~MediaEncryptedEvent()
 }
 
 JSObject*
-MediaEncryptedEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+MediaEncryptedEvent::WrapObjectInternal(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto)
 {
   return MediaEncryptedEventBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -88,9 +89,7 @@ MediaEncryptedEvent::Constructor(const GlobalObject& aGlobal,
   if (!aEventInitDict.mInitData.IsNull()) {
     const auto& a = aEventInitDict.mInitData.Value();
     a.ComputeLengthAndData();
-    e->mInitData = ArrayBuffer::Create(aGlobal.Context(),
-                                       a.Length(),
-                                       a.Data());
+    e->mInitData = ArrayBuffer::Create(aGlobal.Context(), a.Length(), a.Data());
     if (!e->mInitData) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
       return nullptr;
@@ -112,10 +111,8 @@ MediaEncryptedEvent::GetInitData(JSContext* cx,
                                  ErrorResult& aRv)
 {
   if (mRawInitData.Length()) {
-    mInitData = ArrayBuffer::Create(cx,
-                                    this,
-                                    mRawInitData.Length(),
-                                    mRawInitData.Elements());
+    mInitData = ArrayBuffer::Create(
+        cx, this, mRawInitData.Length(), mRawInitData.Elements());
     if (!mInitData) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
       return;
@@ -125,5 +122,5 @@ MediaEncryptedEvent::GetInitData(JSContext* cx,
   aData.set(mInitData);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

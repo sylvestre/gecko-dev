@@ -18,7 +18,7 @@ namespace dom {
 
 class ScrollAreaEvent : public UIEvent
 {
-public:
+ public:
   ScrollAreaEvent(EventTarget* aOwner,
                   nsPresContext* aPresContext,
                   InternalScrollAreaEvent* aEvent);
@@ -32,54 +32,47 @@ public:
   {
     return Event::DuplicatePrivateData();
   }
-  NS_IMETHOD_(void) Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType) override;
-  NS_IMETHOD_(bool) Deserialize(const IPC::Message* aMsg, PickleIterator* aIter) override;
+  NS_IMETHOD_(void)
+  Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType) override;
+  NS_IMETHOD_(bool)
+  Deserialize(const IPC::Message* aMsg, PickleIterator* aIter) override;
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return ScrollAreaEventBinding::Wrap(aCx, this, aGivenProto);
   }
 
-  float X() const
-  {
-    return mClientArea->Left();
-  }
+  float X() const { return mClientArea->Left(); }
 
-  float Y() const
-  {
-    return mClientArea->Top();
-  }
+  float Y() const { return mClientArea->Top(); }
 
-  float Width() const
-  {
-    return mClientArea->Width();
-  }
+  float Width() const { return mClientArea->Width(); }
 
-  float Height() const
-  {
-    return mClientArea->Height();
-  }
+  float Height() const { return mClientArea->Height(); }
 
   void InitScrollAreaEvent(const nsAString& aType,
                            bool aCanBubble,
                            bool aCancelable,
                            nsGlobalWindow* aView,
                            int32_t aDetail,
-                           float aX, float aY,
-                           float aWidth, float aHeight);
+                           float aX,
+                           float aY,
+                           float aWidth,
+                           float aHeight);
 
-protected:
+ protected:
   ~ScrollAreaEvent() {}
 
   RefPtr<DOMRect> mClientArea;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::ScrollAreaEvent>
 NS_NewDOMScrollAreaEvent(mozilla::dom::EventTarget* aOwner,
                          nsPresContext* aPresContext,
                          mozilla::InternalScrollAreaEvent* aEvent);
 
-#endif // mozilla_dom_ScrollAreaEvent_h_
+#endif  // mozilla_dom_ScrollAreaEvent_h_

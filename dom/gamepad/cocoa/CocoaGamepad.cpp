@@ -24,22 +24,26 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using std::vector;
 
-struct Button {
+struct Button
+{
   int id;
   bool analog;
   IOHIDElementRef element;
   CFIndex min;
   CFIndex max;
 
-  Button(int aId, IOHIDElementRef aElement, CFIndex aMin, CFIndex aMax) :
-    id(aId),
-    analog((aMax - aMin) > 1),
-    element(aElement),
-    min(aMin),
-    max(aMax) {}
+  Button(int aId, IOHIDElementRef aElement, CFIndex aMin, CFIndex aMax)
+      : id(aId),
+        analog((aMax - aMin) > 1),
+        element(aElement),
+        min(aMin),
+        max(aMax)
+  {
+  }
 };
 
-struct Axis {
+struct Axis
+{
   int id;
   IOHIDElementRef element;
   uint32_t usagePage;
@@ -66,8 +70,8 @@ const unsigned kConsumerPage = 0x0C;
 const unsigned kHomeUsage = 0x223;
 const unsigned kBackUsage = 0x224;
 
-
-class Gamepad {
+class Gamepad
+{
  private:
   IOHIDDeviceRef mDevice;
   nsTArray<Button> buttons;
@@ -94,15 +98,9 @@ class Gamepad {
   // Index given by our superclass.
   uint32_t mSuperIndex;
 
-  bool isDpad(IOHIDElementRef element) const
-  {
-    return element == mDpad;
-  }
+  bool isDpad(IOHIDElementRef element) const { return element == mDpad; }
 
-  const dpad_buttons& getDpadState() const
-  {
-    return mDpadState;
-  }
+  const dpad_buttons& getDpadState() const { return mDpadState; }
 
   void setDpadState(const dpad_buttons& dpadState)
   {
@@ -114,8 +112,7 @@ class Gamepad {
   const Button* lookupButton(IOHIDElementRef element) const
   {
     for (unsigned i = 0; i < buttons.Length(); i++) {
-      if (buttons[i].element == element)
-        return &buttons[i];
+      if (buttons[i].element == element) return &buttons[i];
     }
     return nullptr;
   }
@@ -123,15 +120,15 @@ class Gamepad {
   const Axis* lookupAxis(IOHIDElementRef element) const
   {
     for (unsigned i = 0; i < axes.Length(); i++) {
-      if (axes[i].element == element)
-        return &axes[i];
+      if (axes[i].element == element) return &axes[i];
     }
     return nullptr;
   }
 };
 
-class AxisComparator {
-public:
+class AxisComparator
+{
+ public:
   bool Equals(const Axis& a1, const Axis& a2) const
   {
     return a1.usagePage == a2.usagePage && a1.usage == a2.usage;
@@ -145,44 +142,45 @@ public:
   }
 };
 
-void Gamepad::init(IOHIDDeviceRef device)
+void
+Gamepad::init(IOHIDDeviceRef device)
 {
   clear();
   mDevice = device;
 
-  CFArrayRef elements = IOHIDDeviceCopyMatchingElements(device,
-                                                        nullptr,
-                                                        kIOHIDOptionsTypeNone);
+  CFArrayRef elements =
+      IOHIDDeviceCopyMatchingElements(device, nullptr, kIOHIDOptionsTypeNone);
   CFIndex n = CFArrayGetCount(elements);
   for (CFIndex i = 0; i < n; i++) {
-    IOHIDElementRef element = (IOHIDElementRef)CFArrayGetValueAtIndex(elements,
-                                                                      i);
+    IOHIDElementRef element =
+        (IOHIDElementRef)CFArrayGetValueAtIndex(elements, i);
     uint32_t usagePage = IOHIDElementGetUsagePage(element);
     uint32_t usage = IOHIDElementGetUsage(element);
 
-    if (usagePage == kDesktopUsagePage &&
-        usage >= kAxisUsageMin &&
-        usage <= kAxisUsageMax)
-    {
-      Axis axis = { int(axes.Length()),
-                    element,
-                    usagePage,
-                    usage,
-                    IOHIDElementGetLogicalMin(element),
-                    IOHIDElementGetLogicalMax(element) };
+    if (usagePage == kDesktopUsagePage && usage >= kAxisUsageMin &&
+        usage <= kAxisUsageMax) {
+      Axis axis = {int(axes.Length()),
+                   element,
+                   usagePage,
+                   usage,
+                   IOHIDElementGetLogicalMin(element),
+                   IOHIDElementGetLogicalMax(element)};
       axes.AppendElement(axis);
     } else if (usagePage == kDesktopUsagePage && usage == kDpadUsage &&
                // Don't know how to handle d-pads that return weird values.
-               IOHIDElementGetLogicalMax(element) - IOHIDElementGetLogicalMin(element) == 7) {
+               IOHIDElementGetLogicalMax(element) -
+                       IOHIDElementGetLogicalMin(element) ==
+                   7) {
       mDpad = element;
     } else if ((usagePage == kSimUsagePage &&
-                 (usage == kAcceleratorUsage ||
-                  usage == kBrakeUsage)) ||
+                (usage == kAcceleratorUsage || usage == kBrakeUsage)) ||
                (usagePage == kButtonUsagePage) ||
                (usagePage == kConsumerPage &&
-                 (usage == kHomeUsage ||
-                  usage == kBackUsage))) {
-      Button button(int(buttons.Length()), element, IOHIDElementGetLogicalMin(element), IOHIDElementGetLogicalMax(element));
+                (usage == kHomeUsage || usage == kBackUsage))) {
+      Button button(int(buttons.Length()),
+                    element,
+                    IOHIDElementGetLogicalMin(element),
+                    IOHIDElementGetLogicalMax(element));
       buttons.AppendElement(button);
     } else {
       //TODO: handle other usage pages
@@ -196,7 +194,8 @@ void Gamepad::init(IOHIDDeviceRef device)
   }
 }
 
-class DarwinGamepadService {
+class DarwinGamepadService
+{
  private:
   IOHIDManagerRef mManager;
   vector<Gamepad> mGamepads;
@@ -205,12 +204,18 @@ class DarwinGamepadService {
   CFRunLoopRef mMonitorRunLoop;
   nsCOMPtr<nsIThread> mMonitorThread;
 
-  static void DeviceAddedCallback(void* data, IOReturn result,
-                                  void* sender, IOHIDDeviceRef device);
-  static void DeviceRemovedCallback(void* data, IOReturn result,
-                                    void* sender, IOHIDDeviceRef device);
-  static void InputValueChangedCallback(void* data, IOReturn result,
-                                        void* sender, IOHIDValueRef newValue);
+  static void DeviceAddedCallback(void* data,
+                                  IOReturn result,
+                                  void* sender,
+                                  IOHIDDeviceRef device);
+  static void DeviceRemovedCallback(void* data,
+                                    IOReturn result,
+                                    void* sender,
+                                    IOHIDDeviceRef device);
+  static void InputValueChangedCallback(void* data,
+                                        IOReturn result,
+                                        void* sender,
+                                        IOHIDValueRef newValue);
 
   void DeviceAdded(IOHIDDeviceRef device);
   void DeviceRemoved(IOHIDDeviceRef device);
@@ -232,10 +237,13 @@ class DarwinGamepadServiceStartupRunnable final : public Runnable
   // This Runnable schedules startup of DarwinGamepadService
   // in a new thread, pointer to DarwinGamepadService is only
   // used by this Runnable within its thread.
-  DarwinGamepadService MOZ_NON_OWNING_REF *mService;
+  DarwinGamepadService MOZ_NON_OWNING_REF* mService;
+
  public:
-  explicit DarwinGamepadServiceStartupRunnable(DarwinGamepadService *service)
-    : Runnable("DarwinGamepadServiceStartupRunnable"), mService(service) {}
+  explicit DarwinGamepadServiceStartupRunnable(DarwinGamepadService* service)
+      : Runnable("DarwinGamepadServiceStartupRunnable"), mService(service)
+  {
+  }
   NS_IMETHOD Run() override
   {
     MOZ_ASSERT(mService);
@@ -248,17 +256,15 @@ void
 DarwinGamepadService::DeviceAdded(IOHIDDeviceRef device)
 {
   RefPtr<GamepadPlatformService> service =
-    GamepadPlatformService::GetParentService();
+      GamepadPlatformService::GetParentService();
   if (!service) {
     return;
   }
 
   size_t slot = size_t(-1);
   for (size_t i = 0; i < mGamepads.size(); i++) {
-    if (mGamepads[i] == device)
-      return;
-    if (slot == size_t(-1) && mGamepads[i].empty())
-      slot = i;
+    if (mGamepads[i] == device) return;
+    if (slot == size_t(-1) && mGamepads[i].empty()) slot = i;
   }
 
   if (slot == size_t(-1)) {
@@ -269,25 +275,26 @@ DarwinGamepadService::DeviceAdded(IOHIDDeviceRef device)
 
   // Gather some identifying information
   CFNumberRef vendorIdRef =
-    (CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDVendorIDKey));
+      (CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDVendorIDKey));
   CFNumberRef productIdRef =
-    (CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductIDKey));
+      (CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductIDKey));
   CFStringRef productRef =
-    (CFStringRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey));
+      (CFStringRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey));
   int vendorId, productId;
   CFNumberGetValue(vendorIdRef, kCFNumberIntType, &vendorId);
   CFNumberGetValue(productIdRef, kCFNumberIntType, &productId);
   char product_name[128];
-  CFStringGetCString(productRef, product_name,
-                     sizeof(product_name), kCFStringEncodingASCII);
+  CFStringGetCString(
+      productRef, product_name, sizeof(product_name), kCFStringEncodingASCII);
   char buffer[256];
   sprintf(buffer, "%x-%x-%s", vendorId, productId, product_name);
-  uint32_t index = service->AddGamepad(buffer,
-                                       mozilla::dom::GamepadMappingType::_empty,
-                                       mozilla::dom::GamepadHand::_empty,
-                                       (int)mGamepads[slot].numButtons(),
-                                       (int)mGamepads[slot].numAxes(),
-                                       0); // TODO: Bug 680289, implement gamepad haptics for cocoa
+  uint32_t index = service->AddGamepad(
+      buffer,
+      mozilla::dom::GamepadMappingType::_empty,
+      mozilla::dom::GamepadHand::_empty,
+      (int)mGamepads[slot].numButtons(),
+      (int)mGamepads[slot].numAxes(),
+      0);  // TODO: Bug 680289, implement gamepad haptics for cocoa
   mGamepads[slot].mSuperIndex = index;
 }
 
@@ -295,7 +302,7 @@ void
 DarwinGamepadService::DeviceRemoved(IOHIDDeviceRef device)
 {
   RefPtr<GamepadPlatformService> service =
-    GamepadPlatformService::GetParentService();
+      GamepadPlatformService::GetParentService();
   if (!service) {
     return;
   }
@@ -351,7 +358,7 @@ void
 DarwinGamepadService::InputValueChanged(IOHIDValueRef value)
 {
   RefPtr<GamepadPlatformService> service =
-    GamepadPlatformService::GetParentService();
+      GamepadPlatformService::GetParentService();
   if (!service) {
     return;
   }
@@ -366,11 +373,11 @@ DarwinGamepadService::InputValueChanged(IOHIDValueRef value)
   IOHIDDeviceRef device = IOHIDElementGetDevice(element);
 
   for (unsigned i = 0; i < mGamepads.size(); i++) {
-    Gamepad &gamepad = mGamepads[i];
+    Gamepad& gamepad = mGamepads[i];
     if (gamepad == device) {
       if (gamepad.isDpad(element)) {
         const dpad_buttons& oldState = gamepad.getDpadState();
-        dpad_buttons newState = { false, false, false, false };
+        dpad_buttons newState = {false, false, false, false};
         UnpackDpad(IOHIDValueGetIntegerValue(value),
                    IOHIDElementGetLogicalMin(element),
                    IOHIDElementGetLogicalMax(element),
@@ -378,16 +385,15 @@ DarwinGamepadService::InputValueChanged(IOHIDValueRef value)
         const int numButtons = gamepad.numButtons();
         for (unsigned b = 0; b < ArrayLength(newState); b++) {
           if (newState[b] != oldState[b]) {
-            service->NewButtonEvent(gamepad.mSuperIndex,
-                                    numButtons - 4 + b,
-                                    newState[b]);
+            service->NewButtonEvent(
+                gamepad.mSuperIndex, numButtons - 4 + b, newState[b]);
           }
         }
         gamepad.setDpadState(newState);
       } else if (const Axis* axis = gamepad.lookupAxis(element)) {
         double d = IOHIDValueGetIntegerValue(value);
-        double v = 2.0f * (d - axis->min) /
-          (double)(axis->max - axis->min) - 1.0f;
+        double v =
+            2.0f * (d - axis->min) / (double)(axis->max - axis->min) - 1.0f;
         service->NewAxisMoveEvent(gamepad.mSuperIndex, axis->id, v);
       } else if (const Button* button = gamepad.lookupButton(element)) {
         int iv = IOHIDValueGetIntegerValue(value);
@@ -407,16 +413,20 @@ DarwinGamepadService::InputValueChanged(IOHIDValueRef value)
 }
 
 void
-DarwinGamepadService::DeviceAddedCallback(void* data, IOReturn result,
-                                         void* sender, IOHIDDeviceRef device)
+DarwinGamepadService::DeviceAddedCallback(void* data,
+                                          IOReturn result,
+                                          void* sender,
+                                          IOHIDDeviceRef device)
 {
   DarwinGamepadService* service = (DarwinGamepadService*)data;
   service->DeviceAdded(device);
 }
 
 void
-DarwinGamepadService::DeviceRemovedCallback(void* data, IOReturn result,
-                                           void* sender, IOHIDDeviceRef device)
+DarwinGamepadService::DeviceRemovedCallback(void* data,
+                                            IOReturn result,
+                                            void* sender,
+                                            IOHIDDeviceRef device)
 {
   DarwinGamepadService* service = (DarwinGamepadService*)data;
   service->DeviceRemoved(device);
@@ -424,9 +434,9 @@ DarwinGamepadService::DeviceRemovedCallback(void* data, IOReturn result,
 
 void
 DarwinGamepadService::InputValueChangedCallback(void* data,
-                                               IOReturn result,
-                                               void* sender,
-                                               IOHIDValueRef newValue)
+                                                IOReturn result,
+                                                void* sender,
+                                                IOHIDValueRef newValue)
 {
   DarwinGamepadService* service = (DarwinGamepadService*)data;
   service->InputValueChanged(newValue);
@@ -436,15 +446,13 @@ static CFMutableDictionaryRef
 MatchingDictionary(UInt32 inUsagePage, UInt32 inUsage)
 {
   CFMutableDictionaryRef dict =
-    CFDictionaryCreateMutable(kCFAllocatorDefault,
-                              0,
-                              &kCFTypeDictionaryKeyCallBacks,
-                              &kCFTypeDictionaryValueCallBacks);
-  if (!dict)
-    return nullptr;
-  CFNumberRef number = CFNumberCreate(kCFAllocatorDefault,
-                                      kCFNumberIntType,
-                                      &inUsagePage);
+      CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                0,
+                                &kCFTypeDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks);
+  if (!dict) return nullptr;
+  CFNumberRef number =
+      CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &inUsagePage);
   if (!number) {
     CFRelease(dict);
     return nullptr;
@@ -467,37 +475,33 @@ DarwinGamepadService::DarwinGamepadService() : mManager(nullptr) {}
 
 DarwinGamepadService::~DarwinGamepadService()
 {
-  if (mManager != nullptr)
-    CFRelease(mManager);
+  if (mManager != nullptr) CFRelease(mManager);
 }
 
 void
 DarwinGamepadService::StartupInternal()
 {
-  if (mManager != nullptr)
-    return;
+  if (mManager != nullptr) return;
 
-  IOHIDManagerRef manager = IOHIDManagerCreate(kCFAllocatorDefault,
-                                               kIOHIDOptionsTypeNone);
+  IOHIDManagerRef manager =
+      IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
 
   CFMutableDictionaryRef criteria_arr[2];
-  criteria_arr[0] = MatchingDictionary(kDesktopUsagePage,
-                                       kJoystickUsage);
+  criteria_arr[0] = MatchingDictionary(kDesktopUsagePage, kJoystickUsage);
   if (!criteria_arr[0]) {
     CFRelease(manager);
     return;
   }
 
-  criteria_arr[1] = MatchingDictionary(kDesktopUsagePage,
-                                       kGamepadUsage);
+  criteria_arr[1] = MatchingDictionary(kDesktopUsagePage, kGamepadUsage);
   if (!criteria_arr[1]) {
     CFRelease(criteria_arr[0]);
     CFRelease(manager);
     return;
   }
 
-  CFArrayRef criteria =
-    CFArrayCreate(kCFAllocatorDefault, (const void**)criteria_arr, 2, nullptr);
+  CFArrayRef criteria = CFArrayCreate(
+      kCFAllocatorDefault, (const void**)criteria_arr, 2, nullptr);
   if (!criteria) {
     CFRelease(criteria_arr[1]);
     CFRelease(criteria_arr[0]);
@@ -510,18 +514,14 @@ DarwinGamepadService::StartupInternal()
   CFRelease(criteria_arr[1]);
   CFRelease(criteria_arr[0]);
 
-  IOHIDManagerRegisterDeviceMatchingCallback(manager,
-                                             DeviceAddedCallback,
-                                             this);
-  IOHIDManagerRegisterDeviceRemovalCallback(manager,
-                                            DeviceRemovedCallback,
-                                            this);
-  IOHIDManagerRegisterInputValueCallback(manager,
-                                         InputValueChangedCallback,
-                                         this);
-  IOHIDManagerScheduleWithRunLoop(manager,
-                                  CFRunLoopGetCurrent(),
-                                  kCFRunLoopDefaultMode);
+  IOHIDManagerRegisterDeviceMatchingCallback(
+      manager, DeviceAddedCallback, this);
+  IOHIDManagerRegisterDeviceRemovalCallback(
+      manager, DeviceRemovedCallback, this);
+  IOHIDManagerRegisterInputValueCallback(
+      manager, InputValueChangedCallback, this);
+  IOHIDManagerScheduleWithRunLoop(
+      manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
   IOReturn rv = IOHIDManagerOpen(manager, kIOHIDOptionsTypeNone);
   if (rv != kIOReturnSuccess) {
     CFRelease(manager);
@@ -541,14 +541,16 @@ DarwinGamepadService::StartupInternal()
   CFRunLoopRun();
 }
 
-void DarwinGamepadService::Startup()
+void
+DarwinGamepadService::Startup()
 {
   Unused << NS_NewNamedThread("Gamepad",
                               getter_AddRefs(mMonitorThread),
                               new DarwinGamepadServiceStartupRunnable(this));
 }
 
-void DarwinGamepadService::Shutdown()
+void
+DarwinGamepadService::Shutdown()
 {
   IOHIDManagerRef manager = (IOHIDManagerRef)mManager;
   CFRunLoopStop(mMonitorRunLoop);
@@ -560,14 +562,15 @@ void DarwinGamepadService::Shutdown()
   mMonitorThread->Shutdown();
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace dom {
 
 DarwinGamepadService* gService = nullptr;
 
-void StartGamepadMonitoring()
+void
+StartGamepadMonitoring()
 {
   if (gService) {
     return;
@@ -577,7 +580,8 @@ void StartGamepadMonitoring()
   gService->Startup();
 }
 
-void StopGamepadMonitoring()
+void
+StopGamepadMonitoring()
 {
   if (!gService) {
     return;
@@ -588,5 +592,5 @@ void StopGamepadMonitoring()
   gService = nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

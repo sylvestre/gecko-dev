@@ -12,21 +12,15 @@
 using namespace js;
 using namespace js::jit;
 
-EdgeCaseAnalysis::EdgeCaseAnalysis(MIRGenerator* mir, MIRGraph& graph)
-  : mir(mir), graph(graph)
-{
-}
+EdgeCaseAnalysis::EdgeCaseAnalysis(MIRGenerator* mir, MIRGraph& graph) : mir(mir), graph(graph) {}
 
-bool
-EdgeCaseAnalysis::analyzeLate()
-{
+bool EdgeCaseAnalysis::analyzeLate() {
     // Renumber definitions for NeedNegativeZeroCheck under analyzeEdgeCasesBackward.
     uint32_t nextId = 0;
 
     for (ReversePostorderIterator block(graph.rpoBegin()); block != graph.rpoEnd(); block++) {
         for (MDefinitionIterator iter(*block); iter; iter++) {
-            if (mir->shouldCancel("Analyze Late (first loop)"))
-                return false;
+            if (mir->shouldCancel("Analyze Late (first loop)")) return false;
 
             iter->setId(nextId++);
             iter->analyzeEdgeCasesForward();
@@ -36,8 +30,7 @@ EdgeCaseAnalysis::analyzeLate()
 
     for (PostorderIterator block(graph.poBegin()); block != graph.poEnd(); block++) {
         for (MInstructionReverseIterator riter(block->rbegin()); riter != block->rend(); riter++) {
-            if (mir->shouldCancel("Analyze Late (second loop)"))
-                return false;
+            if (mir->shouldCancel("Analyze Late (second loop)")) return false;
 
             riter->analyzeEdgeCasesBackward();
         }

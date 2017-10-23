@@ -5,127 +5,65 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-MARKUPMAP(a,
-          New_HTMLLink,
-          roles::LINK)
+MARKUPMAP(a, New_HTMLLink, roles::LINK)
 
-MARKUPMAP(abbr,
-          New_HyperText,
-          0)
+MARKUPMAP(abbr, New_HyperText, 0)
 
-MARKUPMAP(acronym,
-          New_HyperText,
-          0)
+MARKUPMAP(acronym, New_HyperText, 0)
 
-MARKUPMAP(article,
-          New_HyperText,
-          roles::ARTICLE,
-          Attr(xmlroles, article))
+MARKUPMAP(article, New_HyperText, roles::ARTICLE, Attr(xmlroles, article))
 
-MARKUPMAP(aside,
-          New_HyperText,
-          roles::NOTE)
+MARKUPMAP(aside, New_HyperText, roles::NOTE)
 
-MARKUPMAP(blockquote,
-          New_HyperText,
-          roles::SECTION)
+MARKUPMAP(blockquote, New_HyperText, roles::SECTION)
 
-MARKUPMAP(dd,
-          New_HTMLDefinition,
-          roles::DEFINITION)
+MARKUPMAP(dd, New_HTMLDefinition, roles::DEFINITION)
 
-MARKUPMAP(details,
-          New_HyperText,
-          roles::DETAILS)
+MARKUPMAP(details, New_HyperText, roles::DETAILS)
 
-MARKUPMAP(div,
-          nullptr,
-          roles::SECTION)
+MARKUPMAP(div, nullptr, roles::SECTION)
 
-MARKUPMAP(dl,
-          New_HTMLList,
-          roles::DEFINITION_LIST)
+MARKUPMAP(dl, New_HTMLList, roles::DEFINITION_LIST)
 
-MARKUPMAP(dt,
-          New_HTMLListitem,
-          roles::TERM)
+MARKUPMAP(dt, New_HTMLListitem, roles::TERM)
 
-MARKUPMAP(figcaption,
-          New_HTMLFigcaption,
-          roles::CAPTION)
+MARKUPMAP(figcaption, New_HTMLFigcaption, roles::CAPTION)
 
-MARKUPMAP(figure,
-          New_HTMLFigure,
-          roles::FIGURE,
-          Attr(xmlroles, figure))
+MARKUPMAP(figure, New_HTMLFigure, roles::FIGURE, Attr(xmlroles, figure))
 
-MARKUPMAP(form,
-          New_HyperText,
-          roles::FORM)
+MARKUPMAP(form, New_HyperText, roles::FORM)
 
-MARKUPMAP(footer,
-          New_HTMLHeaderOrFooter,
-          0)
+MARKUPMAP(footer, New_HTMLHeaderOrFooter, 0)
 
-MARKUPMAP(header,
-          New_HTMLHeaderOrFooter,
-          0)
+MARKUPMAP(header, New_HTMLHeaderOrFooter, 0)
 
-MARKUPMAP(h1,
-          New_HyperText,
-          roles::HEADING)
+MARKUPMAP(h1, New_HyperText, roles::HEADING)
 
-MARKUPMAP(h2,
-          New_HyperText,
-          roles::HEADING)
+MARKUPMAP(h2, New_HyperText, roles::HEADING)
 
-MARKUPMAP(h3,
-          New_HyperText,
-          roles::HEADING)
+MARKUPMAP(h3, New_HyperText, roles::HEADING)
 
-MARKUPMAP(h4,
-          New_HyperText,
-          roles::HEADING)
+MARKUPMAP(h4, New_HyperText, roles::HEADING)
 
-MARKUPMAP(h5,
-          New_HyperText,
-          roles::HEADING)
+MARKUPMAP(h5, New_HyperText, roles::HEADING)
 
-MARKUPMAP(h6,
-          New_HyperText,
-          roles::HEADING)
+MARKUPMAP(h6, New_HyperText, roles::HEADING)
 
-MARKUPMAP(input,
-          New_HTMLInput,
-          0)
+MARKUPMAP(input, New_HTMLInput, 0)
 
-MARKUPMAP(label,
-          New_HTMLLabel,
-          roles::LABEL)
+MARKUPMAP(label, New_HTMLLabel, roles::LABEL)
 
-MARKUPMAP(legend,
-          New_HTMLLegend,
-          roles::LABEL)
+MARKUPMAP(legend, New_HTMLLegend, roles::LABEL)
 
-MARKUPMAP(li,
-          New_HTMLListitem,
-          0)
+MARKUPMAP(li, New_HTMLListitem, 0)
 
-MARKUPMAP(map,
-          nullptr,
-          roles::TEXT_CONTAINER)
+MARKUPMAP(map, nullptr, roles::TEXT_CONTAINER)
 
-MARKUPMAP(math,
-          New_HyperText,
-          roles::MATHML_MATH)
+MARKUPMAP(math, New_HyperText, roles::MATHML_MATH)
 
-MARKUPMAP(mi_,
-          New_HyperText,
-          roles::MATHML_IDENTIFIER)
+MARKUPMAP(mi_, New_HyperText, roles::MATHML_IDENTIFIER)
 
-MARKUPMAP(mn_,
-          New_HyperText,
-          roles::MATHML_NUMBER)
+MARKUPMAP(mn_, New_HyperText, roles::MATHML_NUMBER)
 
 MARKUPMAP(mo_,
           New_HyperText,
@@ -135,21 +73,13 @@ MARKUPMAP(mo_,
           AttrFromDOM(separator_, separator_),
           AttrFromDOM(largeop_, largeop_))
 
-MARKUPMAP(mtext_,
-          New_HyperText,
-          roles::MATHML_TEXT)
+MARKUPMAP(mtext_, New_HyperText, roles::MATHML_TEXT)
 
-MARKUPMAP(ms_,
-          New_HyperText,
-          roles::MATHML_STRING_LITERAL)
+MARKUPMAP(ms_, New_HyperText, roles::MATHML_STRING_LITERAL)
 
-MARKUPMAP(mglyph_,
-          New_HyperText,
-          roles::MATHML_GLYPH)
+MARKUPMAP(mglyph_, New_HyperText, roles::MATHML_GLYPH)
 
-MARKUPMAP(mrow_,
-          New_HyperText,
-          roles::MATHML_ROW)
+MARKUPMAP(mrow_, New_HyperText, roles::MATHML_ROW)
 
 MARKUPMAP(mfrac_,
           New_HyperText,
@@ -157,13 +87,9 @@ MARKUPMAP(mfrac_,
           AttrFromDOM(bevelled_, bevelled_),
           AttrFromDOM(linethickness_, linethickness_))
 
-MARKUPMAP(msqrt_,
-          New_HyperText,
-          roles::MATHML_SQUARE_ROOT)
+MARKUPMAP(msqrt_, New_HyperText, roles::MATHML_SQUARE_ROOT)
 
-MARKUPMAP(mroot_,
-          New_HyperText,
-          roles::MATHML_ROOT)
+MARKUPMAP(mroot_, New_HyperText, roles::MATHML_ROOT)
 
 MARKUPMAP(mfenced_,
           New_HyperText,
@@ -177,21 +103,13 @@ MARKUPMAP(menclose_,
           roles::MATHML_ENCLOSED,
           AttrFromDOM(notation_, notation_))
 
-MARKUPMAP(mstyle_,
-          New_HyperText,
-          roles::MATHML_STYLE)
+MARKUPMAP(mstyle_, New_HyperText, roles::MATHML_STYLE)
 
-MARKUPMAP(msub_,
-          New_HyperText,
-          roles::MATHML_SUB)
+MARKUPMAP(msub_, New_HyperText, roles::MATHML_SUB)
 
-MARKUPMAP(msup_,
-          New_HyperText,
-          roles::MATHML_SUP)
+MARKUPMAP(msup_, New_HyperText, roles::MATHML_SUP)
 
-MARKUPMAP(msubsup_,
-          New_HyperText,
-          roles::MATHML_SUB_SUP)
+MARKUPMAP(msubsup_, New_HyperText, roles::MATHML_SUB_SUP)
 
 MARKUPMAP(munder_,
           New_HyperText,
@@ -212,9 +130,7 @@ MARKUPMAP(munderover_,
           AttrFromDOM(accentunder_, accentunder_),
           AttrFromDOM(align, align))
 
-MARKUPMAP(mmultiscripts_,
-          New_HyperText,
-          roles::MATHML_MULTISCRIPTS)
+MARKUPMAP(mmultiscripts_, New_HyperText, roles::MATHML_MULTISCRIPTS)
 
 MARKUPMAP(mtable_,
           New_HTMLTableAccessible,
@@ -223,17 +139,11 @@ MARKUPMAP(mtable_,
           AttrFromDOM(columnlines_, columnlines_),
           AttrFromDOM(rowlines_, rowlines_))
 
-MARKUPMAP(mlabeledtr_,
-          New_HTMLTableRowAccessible,
-          roles::MATHML_LABELED_ROW)
+MARKUPMAP(mlabeledtr_, New_HTMLTableRowAccessible, roles::MATHML_LABELED_ROW)
 
-MARKUPMAP(mtr_,
-          New_HTMLTableRowAccessible,
-          roles::MATHML_TABLE_ROW)
+MARKUPMAP(mtr_, New_HTMLTableRowAccessible, roles::MATHML_TABLE_ROW)
 
-MARKUPMAP(mtd_,
-          New_HTMLTableCellAccessible,
-          roles::MATHML_CELL)
+MARKUPMAP(mtd_, New_HTMLTableCellAccessible, roles::MATHML_CELL)
 
 MARKUPMAP(maction_,
           New_HyperText,
@@ -241,9 +151,7 @@ MARKUPMAP(maction_,
           AttrFromDOM(actiontype_, actiontype_),
           AttrFromDOM(selection_, selection_))
 
-MARKUPMAP(merror_,
-          New_HyperText,
-          roles::MATHML_ERROR)
+MARKUPMAP(merror_, New_HyperText, roles::MATHML_ERROR)
 
 MARKUPMAP(mstack_,
           New_HyperText,
@@ -283,46 +191,25 @@ MARKUPMAP(msline_,
           roles::MATHML_STACK_LINE,
           AttrFromDOM(position, position))
 
-MARKUPMAP(nav,
-          New_HyperText,
-          roles::SECTION)
+MARKUPMAP(nav, New_HyperText, roles::SECTION)
 
-MARKUPMAP(ol,
-          New_HTMLList,
-          roles::LIST)
+MARKUPMAP(ol, New_HTMLList, roles::LIST)
 
-MARKUPMAP(option,
-          New_HTMLOption,
-          0)
+MARKUPMAP(option, New_HTMLOption, 0)
 
-MARKUPMAP(optgroup,
-          New_HTMLOptgroup,
-          0)
+MARKUPMAP(optgroup, New_HTMLOptgroup, 0)
 
-MARKUPMAP(output,
-          New_HTMLOutput,
-          roles::SECTION,
-          Attr(live, polite))
+MARKUPMAP(output, New_HTMLOutput, roles::SECTION, Attr(live, polite))
 
-MARKUPMAP(p,
-          nullptr,
-          roles::PARAGRAPH)
+MARKUPMAP(p, nullptr, roles::PARAGRAPH)
 
-MARKUPMAP(progress,
-          New_HTMLProgress,
-          0)
+MARKUPMAP(progress, New_HTMLProgress, 0)
 
-MARKUPMAP(q,
-          New_HyperText,
-          0)
+MARKUPMAP(q, New_HyperText, 0)
 
-MARKUPMAP(section,
-          New_HyperText,
-          roles::SECTION)
+MARKUPMAP(section, New_HyperText, roles::SECTION)
 
-MARKUPMAP(summary,
-          New_HTMLSummary,
-          roles::SUMMARY)
+MARKUPMAP(summary, New_HTMLSummary, roles::SUMMARY)
 
 MARKUPMAP(time,
           New_HyperText,
@@ -330,14 +217,8 @@ MARKUPMAP(time,
           Attr(xmlroles, time),
           AttrFromDOM(datetime, datetime))
 
-MARKUPMAP(td,
-          New_HTMLTableHeaderCellIfScope,
-          0)
+MARKUPMAP(td, New_HTMLTableHeaderCellIfScope, 0)
 
-MARKUPMAP(th,
-          New_HTMLTableHeaderCell,
-          0)
+MARKUPMAP(th, New_HTMLTableHeaderCell, 0)
 
-MARKUPMAP(ul,
-          New_HTMLList,
-          roles::LIST)
+MARKUPMAP(ul, New_HTMLList, roles::LIST)

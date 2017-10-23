@@ -17,27 +17,26 @@ namespace mozilla {
 namespace layers {
 
 WebRenderLayerScrollData::WebRenderLayerScrollData()
-  : mDescendantCount(-1)
-  , mTransformIsPerspective(false)
-  , mEventRegionsOverride(EventRegionsOverride::NoOverride)
-  , mScrollbarAnimationId(0)
-  , mScrollbarTargetContainerId(FrameMetrics::NULL_SCROLL_ID)
-  , mIsScrollbarContainer(false)
-  , mFixedPosScrollContainerId(FrameMetrics::NULL_SCROLL_ID)
+    : mDescendantCount(-1),
+      mTransformIsPerspective(false),
+      mEventRegionsOverride(EventRegionsOverride::NoOverride),
+      mScrollbarAnimationId(0),
+      mScrollbarTargetContainerId(FrameMetrics::NULL_SCROLL_ID),
+      mIsScrollbarContainer(false),
+      mFixedPosScrollContainerId(FrameMetrics::NULL_SCROLL_ID)
 {
 }
 
-WebRenderLayerScrollData::~WebRenderLayerScrollData()
-{
-}
+WebRenderLayerScrollData::~WebRenderLayerScrollData() {}
 
 void
 WebRenderLayerScrollData::Initialize(WebRenderScrollData& aOwner,
                                      Layer* aLayer,
                                      int32_t aDescendantCount)
 {
-  MOZ_ASSERT(aDescendantCount >= 0); // Ensure value is valid
-  MOZ_ASSERT(mDescendantCount == -1); // Don't allow re-setting an already set value
+  MOZ_ASSERT(aDescendantCount >= 0);  // Ensure value is valid
+  MOZ_ASSERT(mDescendantCount ==
+             -1);  // Don't allow re-setting an already set value
   mDescendantCount = aDescendantCount;
 
   MOZ_ASSERT(aLayer);
@@ -50,11 +49,12 @@ WebRenderLayerScrollData::Initialize(WebRenderScrollData& aOwner,
   mEventRegions = aLayer->GetEventRegions();
   mVisibleRegion = aLayer->GetVisibleRegion();
   mReferentId = aLayer->AsRefLayer()
-      ? Some(aLayer->AsRefLayer()->GetReferentId())
-      : Nothing();
-  mEventRegionsOverride = aLayer->AsContainerLayer()
-      ? aLayer->AsContainerLayer()->GetEventRegionsOverride()
-      : EventRegionsOverride::NoOverride;
+                    ? Some(aLayer->AsRefLayer()->GetReferentId())
+                    : Nothing();
+  mEventRegionsOverride =
+      aLayer->AsContainerLayer()
+          ? aLayer->AsContainerLayer()->GetEventRegionsOverride()
+          : EventRegionsOverride::NoOverride;
   mScrollThumbData = aLayer->GetScrollThumbData();
   mScrollbarAnimationId = aLayer->GetCompositorAnimationsId();
   mScrollbarTargetContainerId = aLayer->GetScrollbarTargetContainerId();
@@ -74,8 +74,9 @@ WebRenderLayerScrollData::Initialize(WebRenderScrollData& aOwner,
                                      int32_t aDescendantCount,
                                      const ActiveScrolledRoot* aStopAtAsr)
 {
-  MOZ_ASSERT(aDescendantCount >= 0); // Ensure value is valid
-  MOZ_ASSERT(mDescendantCount == -1); // Don't allow re-setting an already set value
+  MOZ_ASSERT(aDescendantCount >= 0);  // Ensure value is valid
+  MOZ_ASSERT(mDescendantCount ==
+             -1);  // Don't allow re-setting an already set value
   mDescendantCount = aDescendantCount;
 
   MOZ_ASSERT(aItem);
@@ -83,8 +84,11 @@ WebRenderLayerScrollData::Initialize(WebRenderScrollData& aOwner,
   for (const ActiveScrolledRoot* asr = aItem->GetActiveScrolledRoot();
        asr && asr != aStopAtAsr;
        asr = asr->mParent) {
-    Maybe<ScrollMetadata> metadata = asr->mScrollableFrame->ComputeScrollMetadata(
-        nullptr, aItem->ReferenceFrame(), ContainerLayerParameters(), nullptr);
+    Maybe<ScrollMetadata> metadata =
+        asr->mScrollableFrame->ComputeScrollMetadata(nullptr,
+                                                     aItem->ReferenceFrame(),
+                                                     ContainerLayerParameters(),
+                                                     nullptr);
     MOZ_ASSERT(metadata);
     mScrollIds.AppendElement(aOwner.AddMetadata(metadata.ref()));
   }
@@ -93,7 +97,7 @@ WebRenderLayerScrollData::Initialize(WebRenderScrollData& aOwner,
 int32_t
 WebRenderLayerScrollData::GetDescendantCount() const
 {
-  MOZ_ASSERT(mDescendantCount >= 0); // check that it was set
+  MOZ_ASSERT(mDescendantCount >= 0);  // check that it was set
   return mDescendantCount;
 }
 
@@ -129,31 +133,32 @@ WebRenderLayerScrollData::Dump(const WebRenderScrollData& aOwner) const
 {
   printf_stderr("LayerScrollData(%p) descendants %d\n", this, mDescendantCount);
   for (size_t i : mScrollIds) {
-    printf_stderr("  metadata: %s\n", Stringify(aOwner.GetScrollMetadata(i)).c_str());
+    printf_stderr("  metadata: %s\n",
+                  Stringify(aOwner.GetScrollMetadata(i)).c_str());
   }
   printf_stderr("  transform: %s perspective: %d visible: %s\n",
-    Stringify(mTransform).c_str(), mTransformIsPerspective,
-    Stringify(mVisibleRegion).c_str());
+                Stringify(mTransform).c_str(),
+                mTransformIsPerspective,
+                Stringify(mVisibleRegion).c_str());
   printf_stderr("  event regions: %s override: 0x%x\n",
-    Stringify(mEventRegions).c_str(), mEventRegionsOverride);
+                Stringify(mEventRegions).c_str(),
+                mEventRegionsOverride);
   printf_stderr("  ref layers id: %" PRIu64 "\n", mReferentId.valueOr(0));
   //printf_stderr("  scroll thumb: %s animation: %" PRIu64 "\n",
   //  Stringify(mScrollThumbData).c_str(), mScrollbarAnimationId);
   printf_stderr("  scroll container: %d target: %" PRIu64 "\n",
-    mIsScrollbarContainer, mScrollbarTargetContainerId);
+                mIsScrollbarContainer,
+                mScrollbarTargetContainerId);
   printf_stderr("  fixed pos container: %" PRIu64 "\n",
-    mFixedPosScrollContainerId);
+                mFixedPosScrollContainerId);
 }
 
 WebRenderScrollData::WebRenderScrollData()
-  : mIsFirstPaint(false)
-  , mPaintSequenceNumber(0)
+    : mIsFirstPaint(false), mPaintSequenceNumber(0)
 {
 }
 
-WebRenderScrollData::~WebRenderScrollData()
-{
-}
+WebRenderScrollData::~WebRenderScrollData() {}
 
 size_t
 WebRenderScrollData::AddMetadata(const ScrollMetadata& aMetadata)
@@ -164,7 +169,7 @@ WebRenderScrollData::AddMetadata(const ScrollMetadata& aMetadata)
     // Insertion took place, therefore it's a scrollId we hadn't seen before
     insertResult.first->second = mScrollMetadatas.Length();
     mScrollMetadatas.AppendElement(aMetadata);
-  } // else we didn't insert, because it already existed
+  }  // else we didn't insert, because it already existed
   return insertResult.first->second;
 }
 
@@ -254,11 +259,12 @@ void
 WebRenderScrollData::Dump() const
 {
   printf_stderr("WebRenderScrollData with %zu layers firstpaint: %d\n",
-      mLayerScrollData.Length(), mIsFirstPaint);
+                mLayerScrollData.Length(),
+                mIsFirstPaint);
   for (size_t i = 0; i < mLayerScrollData.Length(); i++) {
     mLayerScrollData.ElementAt(i).Dump(*this);
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

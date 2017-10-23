@@ -14,9 +14,10 @@ struct sqlite3;
 namespace mozilla {
 namespace storage {
 
-int RegisterFileSystemModule(sqlite3* aDB, const char* aName);
+int
+RegisterFileSystemModule(sqlite3* aDB, const char* aName);
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozilla_storage_FileSystemModule_h
+#endif  // mozilla_storage_FileSystemModule_h

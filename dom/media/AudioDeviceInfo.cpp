@@ -20,38 +20,37 @@ AudioDeviceInfo::AudioDeviceInfo(const nsAString& aName,
                                  uint32_t aMaxRate,
                                  uint32_t aMinRate,
                                  uint32_t aMaxLatency,
-				 uint32_t aMinLatency)
-  : mName(aName)
-  , mGroupId(aGroupId)
-  , mVendor(aVendor)
-  , mType(aType)
-  , mState(aState)
-  , mPreferred(aPreferred)
-  , mSupportedFormat(aSupportedFormat)
-  , mDefaultFormat(aDefaultFormat)
-  , mMaxChannels(aMaxChannels)
-  , mDefaultRate(aDefaultRate)
-  , mMaxRate(aMaxRate)
-  , mMinRate(aMinRate)
-  , mMaxLatency(aMaxLatency)
-  , mMinLatency(aMinLatency)
+                                 uint32_t aMinLatency)
+    : mName(aName),
+      mGroupId(aGroupId),
+      mVendor(aVendor),
+      mType(aType),
+      mState(aState),
+      mPreferred(aPreferred),
+      mSupportedFormat(aSupportedFormat),
+      mDefaultFormat(aDefaultFormat),
+      mMaxChannels(aMaxChannels),
+      mDefaultRate(aDefaultRate),
+      mMaxRate(aMaxRate),
+      mMinRate(aMinRate),
+      mMaxLatency(aMaxLatency),
+      mMinLatency(aMinLatency)
 {
-  MOZ_ASSERT(mType == TYPE_UNKNOWN ||
-             mType == TYPE_INPUT ||
-             mType == TYPE_OUTPUT, "Wrong type");
-  MOZ_ASSERT(mState == STATE_DISABLED ||
-             mState == STATE_UNPLUGGED ||
-             mState == STATE_ENABLED, "Wrong state");
-  MOZ_ASSERT(mPreferred == PREF_NONE ||
-             mPreferred == PREF_ALL ||
-             mPreferred & (PREF_MULTIMEDIA | PREF_VOICE | PREF_NOTIFICATION),
-             "Wrong preferred value");
+  MOZ_ASSERT(
+      mType == TYPE_UNKNOWN || mType == TYPE_INPUT || mType == TYPE_OUTPUT,
+      "Wrong type");
+  MOZ_ASSERT(mState == STATE_DISABLED || mState == STATE_UNPLUGGED ||
+                 mState == STATE_ENABLED,
+             "Wrong state");
+  MOZ_ASSERT(
+      mPreferred == PREF_NONE || mPreferred == PREF_ALL ||
+          mPreferred & (PREF_MULTIMEDIA | PREF_VOICE | PREF_NOTIFICATION),
+      "Wrong preferred value");
   MOZ_ASSERT(mSupportedFormat & (FMT_S16LE | FMT_S16BE | FMT_F32LE | FMT_F32BE),
              "Wrong supported format");
-  MOZ_ASSERT(mDefaultFormat == FMT_S16LE ||
-             mDefaultFormat == FMT_S16BE ||
-             mDefaultFormat == FMT_F32LE ||
-             mDefaultFormat == FMT_F32BE, "Wrong default format");
+  MOZ_ASSERT(mDefaultFormat == FMT_S16LE || mDefaultFormat == FMT_S16BE ||
+                 mDefaultFormat == FMT_F32LE || mDefaultFormat == FMT_F32BE,
+             "Wrong default format");
 }
 
 /* readonly attribute DOMString name; */

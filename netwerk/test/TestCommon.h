@@ -13,7 +13,7 @@
 
 class WaitForCondition : public nsIRunnable
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   void Wait(int pending)
@@ -26,14 +26,13 @@ public:
     NS_ProcessPendingEvents(nullptr);
   }
 
-  void Notify() {
-    NS_DispatchToMainThread(this);
-  }
+  void Notify() { NS_DispatchToMainThread(this); }
 
-private:
-  virtual ~WaitForCondition() { }
+ private:
+  virtual ~WaitForCondition() {}
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(mPending);
 

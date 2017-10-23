@@ -25,72 +25,51 @@ using namespace js;
 
 using mozilla::DebugOnly;
 
-GeckoProfilerThread::GeckoProfilerThread()
-  : pseudoStack_(nullptr)
-{
-}
+GeckoProfilerThread::GeckoProfilerThread() : pseudoStack_(nullptr) {}
 
 GeckoProfilerRuntime::GeckoProfilerRuntime(JSRuntime* rt)
-  : rt(rt),
-    strings(mutexid::GeckoProfilerStrings),
-    slowAssertions(false),
-    enabled_(false),
-    eventMarker_(nullptr)
-{
+    : rt(rt),
+      strings(mutexid::GeckoProfilerStrings),
+      slowAssertions(false),
+      enabled_(false),
+      eventMarker_(nullptr) {
     MOZ_ASSERT(rt != nullptr);
 }
 
-bool
-GeckoProfilerRuntime::init()
-{
+bool GeckoProfilerRuntime::init() {
     auto locked = strings.lock();
-    if (!locked->init())
-        return false;
+    if (!locked->init()) return false;
 
     return true;
 }
 
-void
-GeckoProfilerThread::setProfilingStack(PseudoStack* pseudoStack)
-{
+void GeckoProfilerThread::setProfilingStack(PseudoStack* pseudoStack) {
     pseudoStack_ = pseudoStack;
 }
 
-void
-GeckoProfilerRuntime::setEventMarker(void (*fn)(const char*))
-{
-    eventMarker_ = fn;
-}
+void GeckoProfilerRuntime::setEventMarker(void (*fn)(const char*)) { eventMarker_ = fn; }
 
 // Get a pointer to the top-most profiling frame, given the exit frame pointer.
-static void*
-GetTopProfilingJitFrame(Activation* act)
-{
-    if (!act || !act->isJit())
-        return nullptr;
+static void* GetTopProfilingJitFrame(Activation* act) {
+    if (!act || !act->isJit()) return nullptr;
 
     jit::JitActivation* jitActivation = act->asJit();
 
     // If there is no exit frame set, just return.
-    if (!jitActivation->hasExitFP())
-        return nullptr;
+    if (!jitActivation->hasExitFP()) return nullptr;
 
     // Skip wasm frames that might be in the way.
     JitFrameIter iter(jitActivation);
-    while (!iter.done() && iter.isWasm())
-        ++iter;
+    while (!iter.done() && iter.isWasm()) ++iter;
 
-    if (!iter.isJSJit())
-        return nullptr;
+    if (!iter.isJSJit()) return nullptr;
 
     jit::JSJitProfilingFrameIterator jitIter(iter.asJSJit().fp());
     MOZ_ASSERT(!jitIter.done());
     return jitIter.fp();
 }
 
-void
-GeckoProfilerRuntime::enable(bool enabled)
-{
+void GeckoProfilerRuntime::enable(bool enabled) {
 #ifdef DEBUG
     // All cooperating contexts must have profile stacks installed before the
     // profiler can be enabled. Cooperating threads created while the profiler
@@ -99,8 +78,7 @@ GeckoProfilerRuntime::enable(bool enabled)
         MOZ_ASSERT(target.context()->geckoProfiler().installed());
 #endif
 
-    if (enabled_ == enabled)
-        return;
+    if (enabled_ == enabled) return;
 
     /*
      * Ensure all future generated code will be instrumented, or that all
@@ -171,9 +149,7 @@ GeckoProfilerRuntime::enable(bool enabled)
 }
 
 /* Lookup the string for the function/script, creating one if necessary */
-const char*
-GeckoProfilerRuntime::profileString(JSScript* script, JSFunction* maybeFun)
-{
+const char* GeckoProfilerRuntime::profileString(JSScript* script, JSFunction* maybeFun) {
     auto locked = strings.lock();
     MOZ_ASSERT(locked->initialized());
 
@@ -181,16 +157,13 @@ GeckoProfilerRuntime::profileString(JSScript* script, JSFunction* maybeFun)
 
     if (!s) {
         auto str = allocProfileString(script, maybeFun);
-        if (!str || !locked->add(s, script, mozilla::Move(str)))
-            return nullptr;
+        if (!str || !locked->add(s, script, mozilla::Move(str))) return nullptr;
     }
 
     return s->value().get();
 }
 
-void
-GeckoProfilerRuntime::onScriptFinalized(JSScript* script)
-{
+void GeckoProfilerRuntime::onScriptFinalized(JSScript* script) {
     /*
      * This function is called whenever a script is destroyed, regardless of
      * whether profiling has been turned on, so don't invoke a function on an
@@ -199,15 +172,11 @@ GeckoProfilerRuntime::onScriptFinalized(JSScript* script)
      * done.
      */
     auto locked = strings.lock();
-    if (!locked->initialized())
-        return;
-    if (ProfileStringMap::Ptr entry = locked->lookup(script))
-        locked->remove(entry);
+    if (!locked->initialized()) return;
+    if (ProfileStringMap::Ptr entry = locked->lookup(script)) locked->remove(entry);
 }
 
-void
-GeckoProfilerRuntime::markEvent(const char* event)
-{
+void GeckoProfilerRuntime::markEvent(const char* event) {
     MOZ_ASSERT(enabled());
     if (eventMarker_) {
         JS::AutoSuppressGCAnalysis nogc;
@@ -215,9 +184,7 @@ GeckoProfilerRuntime::markEvent(const char* event)
     }
 }
 
-bool
-GeckoProfilerThread::enter(JSContext* cx, JSScript* script, JSFunction* maybeFun)
-{
+bool GeckoProfilerThread::enter(JSContext* cx, JSScript* script, JSFunction* maybeFun) {
     const char* dynamicString = cx->runtime()->geckoProfiler().profileString(script, maybeFun);
     if (dynamicString == nullptr) {
         ReportOutOfMemory(cx);
@@ -240,9 +207,7 @@ GeckoProfilerThread::enter(JSContext* cx, JSScript* script, JSFunction* maybeFun
     return true;
 }
 
-void
-GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun)
-{
+void GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun) {
     pseudoStack_->pop();
 
 #ifdef DEBUG
@@ -257,23 +222,22 @@ GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun)
         // Bug 822041
         if (!pseudoStack_->entries[sp].isJs()) {
             fprintf(stderr, "--- ABOUT TO FAIL ASSERTION ---\n");
-            fprintf(stderr, " entries=%p size=%u/%u\n",
-                            (void*) pseudoStack_->entries,
-                            uint32_t(pseudoStack_->stackPointer),
-                            PseudoStack::MaxEntries);
+            fprintf(stderr, " entries=%p size=%u/%u\n", (void*)pseudoStack_->entries,
+                    uint32_t(pseudoStack_->stackPointer), PseudoStack::MaxEntries);
             for (int32_t i = sp; i >= 0; i--) {
                 ProfileEntry& entry = pseudoStack_->entries[i];
                 if (entry.isJs())
                     fprintf(stderr, "  [%d] JS %s\n", i, entry.dynamicString());
                 else
-                    fprintf(stderr, "  [%d] C line %d %s\n", i, entry.line(), entry.dynamicString());
+                    fprintf(stderr, "  [%d] C line %d %s\n", i, entry.line(),
+                            entry.dynamicString());
             }
         }
 
         ProfileEntry& entry = pseudoStack_->entries[sp];
         MOZ_ASSERT(entry.isJs());
         MOZ_ASSERT(entry.script() == script);
-        MOZ_ASSERT(strcmp((const char*) entry.dynamicString(), dynamicString) == 0);
+        MOZ_ASSERT(strcmp((const char*)entry.dynamicString(), dynamicString) == 0);
     }
 #endif
 }
@@ -284,9 +248,7 @@ GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun)
  * some scripts, resize the hash table of profile strings, and invalidate the
  * AddPtr held while invoking allocProfileString.
  */
-UniqueChars
-GeckoProfilerRuntime::allocProfileString(JSScript* script, JSFunction* maybeFun)
-{
+UniqueChars GeckoProfilerRuntime::allocProfileString(JSScript* script, JSFunction* maybeFun) {
     // Note: this profiler string is regexp-matched by
     // devtools/client/profiler/cleopatra/js/parserWorker.js.
 
@@ -295,34 +257,33 @@ GeckoProfilerRuntime::allocProfileString(JSScript* script, JSFunction* maybeFun)
 
     // Get the script filename, if any, and its length.
     const char* filename = script->filename();
-    if (filename == nullptr)
-        filename = "<unknown>";
+    if (filename == nullptr) filename = "<unknown>";
     size_t lenFilename = strlen(filename);
 
     // Get the line number and its length as a string.
     uint64_t lineno = script->lineno();
     size_t lenLineno = 1;
-    for (uint64_t i = lineno; i /= 10; lenLineno++);
+    for (uint64_t i = lineno; i /= 10; lenLineno++)
+        ;
 
     // Determine the required buffer size.
-    size_t len = lenFilename + lenLineno + 1; // +1 for the ":" separating them.
+    size_t len = lenFilename + lenLineno + 1;  // +1 for the ":" separating them.
     if (atom) {
-        len += JS::GetDeflatedUTF8StringLength(atom) + 3; // +3 for the " (" and ")" it adds.
+        len += JS::GetDeflatedUTF8StringLength(atom) + 3;  // +3 for the " (" and ")" it adds.
     }
 
     // Allocate the buffer.
     UniqueChars cstr(js_pod_malloc<char>(len + 1));
-    if (!cstr)
-        return nullptr;
+    if (!cstr) return nullptr;
 
     // Construct the descriptive string.
     DebugOnly<size_t> ret;
     if (atom) {
         UniqueChars atomStr = StringToNewUTF8CharsZ(nullptr, *atom);
-        if (!atomStr)
-            return nullptr;
+        if (!atomStr) return nullptr;
 
-        ret = snprintf(cstr.get(), len + 1, "%s (%s:%" PRIu64 ")", atomStr.get(), filename, lineno);
+        ret =
+            snprintf(cstr.get(), len + 1, "%s (%s:%" PRIu64 ")", atomStr.get(), filename, lineno);
     } else {
         ret = snprintf(cstr.get(), len + 1, "%s:%" PRIu64, filename, lineno);
     }
@@ -332,22 +293,16 @@ GeckoProfilerRuntime::allocProfileString(JSScript* script, JSFunction* maybeFun)
     return cstr;
 }
 
-void
-GeckoProfilerThread::trace(JSTracer* trc)
-{
+void GeckoProfilerThread::trace(JSTracer* trc) {
     if (pseudoStack_) {
         size_t size = pseudoStack_->stackSize();
-        for (size_t i = 0; i < size; i++)
-            pseudoStack_->entries[i].trace(trc);
+        for (size_t i = 0; i < size; i++) pseudoStack_->entries[i].trace(trc);
     }
 }
 
-void
-GeckoProfilerRuntime::fixupStringsMapAfterMovingGC()
-{
+void GeckoProfilerRuntime::fixupStringsMapAfterMovingGC() {
     auto locked = strings.lock();
-    if (!locked->initialized())
-        return;
+    if (!locked->initialized()) return;
 
     for (ProfileStringMap::Enum e(locked.get()); !e.empty(); e.popFront()) {
         JSScript* script = e.front().key();
@@ -359,12 +314,9 @@ GeckoProfilerRuntime::fixupStringsMapAfterMovingGC()
 }
 
 #ifdef JSGC_HASH_TABLE_CHECKS
-void
-GeckoProfilerRuntime::checkStringsMapAfterMovingGC()
-{
+void GeckoProfilerRuntime::checkStringsMapAfterMovingGC() {
     auto locked = strings.lock();
-    if (!locked->initialized())
-        return;
+    if (!locked->initialized()) return;
 
     for (auto r = locked->all(); !r.empty(); r.popFront()) {
         JSScript* script = r.front().key();
@@ -375,9 +327,7 @@ GeckoProfilerRuntime::checkStringsMapAfterMovingGC()
 }
 #endif
 
-void
-ProfileEntry::trace(JSTracer* trc)
-{
+void ProfileEntry::trace(JSTracer* trc) {
     if (isJs()) {
         JSScript* s = rawScript();
         TraceNullableRoot(trc, &s, "ProfileEntry script");
@@ -385,10 +335,9 @@ ProfileEntry::trace(JSTracer* trc)
     }
 }
 
-GeckoProfilerBaselineOSRMarker::GeckoProfilerBaselineOSRMarker(JSContext* cx, bool hasProfilerFrame
-                                                               MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-    : profiler(&cx->geckoProfiler())
-{
+GeckoProfilerBaselineOSRMarker::GeckoProfilerBaselineOSRMarker(
+    JSContext* cx, bool hasProfilerFrame MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    : profiler(&cx->geckoProfiler()) {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     if (!hasProfilerFrame || !cx->runtime()->geckoProfiler().enabled()) {
         profiler = nullptr;
@@ -402,23 +351,19 @@ GeckoProfilerBaselineOSRMarker::GeckoProfilerBaselineOSRMarker(JSContext* cx, bo
     }
 
     spBefore_ = sp;
-    if (sp == 0)
-        return;
+    if (sp == 0) return;
 
     ProfileEntry& entry = profiler->pseudoStack_->entries[sp - 1];
     MOZ_ASSERT(entry.kind() == ProfileEntry::Kind::JS_NORMAL);
     entry.setKind(ProfileEntry::Kind::JS_OSR);
 }
 
-GeckoProfilerBaselineOSRMarker::~GeckoProfilerBaselineOSRMarker()
-{
-    if (profiler == nullptr)
-        return;
+GeckoProfilerBaselineOSRMarker::~GeckoProfilerBaselineOSRMarker() {
+    if (profiler == nullptr) return;
 
     uint32_t sp = profiler->stackPointer();
     MOZ_ASSERT(spBefore_ == sp);
-    if (sp == 0)
-        return;
+    if (sp == 0) return;
 
     ProfileEntry& entry = profiler->stack()[sp - 1];
     MOZ_ASSERT(entry.kind() == ProfileEntry::Kind::JS_OSR);
@@ -426,12 +371,10 @@ GeckoProfilerBaselineOSRMarker::~GeckoProfilerBaselineOSRMarker()
 }
 
 JS_PUBLIC_API(JSScript*)
-ProfileEntry::script() const
-{
+ProfileEntry::script() const {
     MOZ_ASSERT(isJs());
     auto script = reinterpret_cast<JSScript*>(spOrScript);
-    if (!script)
-        return nullptr;
+    if (!script) return nullptr;
 
     // If profiling is supressed then we can't trust the script pointers to be
     // valid as they could be in the process of being moved by a compacting GC
@@ -441,70 +384,57 @@ ProfileEntry::script() const
     // AutoSuppressProfilerSampling prohibits the runtime's active context from
     // being changed while it exists.
     JSContext* cx = script->runtimeFromAnyThread()->activeContext();
-    if (!cx->isProfilerSamplingEnabled())
-        return nullptr;
+    if (!cx->isProfilerSamplingEnabled()) return nullptr;
 
     MOZ_ASSERT(!IsForwarded(script));
     return script;
 }
 
 JS_FRIEND_API(jsbytecode*)
-ProfileEntry::pc() const
-{
+ProfileEntry::pc() const {
     MOZ_ASSERT(isJs());
-    if (lineOrPcOffset == NullPCOffset)
-        return nullptr;
+    if (lineOrPcOffset == NullPCOffset) return nullptr;
 
     JSScript* script = this->script();
     return script ? script->offsetToPC(lineOrPcOffset) : nullptr;
 }
 
-/* static */ int32_t
-ProfileEntry::pcToOffset(JSScript* aScript, jsbytecode* aPc) {
+/* static */ int32_t ProfileEntry::pcToOffset(JSScript* aScript, jsbytecode* aPc) {
     return aPc ? aScript->pcToOffset(aPc) : NullPCOffset;
 }
 
-void
-ProfileEntry::setPC(jsbytecode* pc)
-{
+void ProfileEntry::setPC(jsbytecode* pc) {
     MOZ_ASSERT(isJs());
     JSScript* script = this->script();
-    MOZ_ASSERT(script); // This should not be called while profiling is suppressed.
+    MOZ_ASSERT(script);  // This should not be called while profiling is suppressed.
     lineOrPcOffset = pcToOffset(script, pc);
 }
 
 JS_FRIEND_API(void)
-js::SetContextProfilingStack(JSContext* cx, PseudoStack* pseudoStack)
-{
+js::SetContextProfilingStack(JSContext* cx, PseudoStack* pseudoStack) {
     cx->geckoProfiler().setProfilingStack(pseudoStack);
 }
 
 JS_FRIEND_API(void)
-js::EnableContextProfilingStack(JSContext* cx, bool enabled)
-{
+js::EnableContextProfilingStack(JSContext* cx, bool enabled) {
     cx->runtime()->geckoProfiler().enable(enabled);
 }
 
 JS_FRIEND_API(void)
-js::RegisterContextProfilingEventMarker(JSContext* cx, void (*fn)(const char*))
-{
+js::RegisterContextProfilingEventMarker(JSContext* cx, void (*fn)(const char*)) {
     MOZ_ASSERT(cx->runtime()->geckoProfiler().enabled());
     cx->runtime()->geckoProfiler().setEventMarker(fn);
 }
 
-AutoSuppressProfilerSampling::AutoSuppressProfilerSampling(JSContext* cx
-                                                           MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-  : cx_(cx),
-    previouslyEnabled_(cx->isProfilerSamplingEnabled()),
-    prohibitContextChange_(cx->runtime())
-{
+AutoSuppressProfilerSampling::AutoSuppressProfilerSampling(
+    JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    : cx_(cx),
+      previouslyEnabled_(cx->isProfilerSamplingEnabled()),
+      prohibitContextChange_(cx->runtime()) {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-    if (previouslyEnabled_)
-        cx_->disableProfilerSampling();
+    if (previouslyEnabled_) cx_->disableProfilerSampling();
 }
 
-AutoSuppressProfilerSampling::~AutoSuppressProfilerSampling()
-{
-    if (previouslyEnabled_)
-        cx_->enableProfilerSampling();
+AutoSuppressProfilerSampling::~AutoSuppressProfilerSampling() {
+    if (previouslyEnabled_) cx_->enableProfilerSampling();
 }

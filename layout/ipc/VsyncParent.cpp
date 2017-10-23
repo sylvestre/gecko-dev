@@ -23,16 +23,17 @@ namespace layout {
 VsyncParent::Create()
 {
   AssertIsOnBackgroundThread();
-  RefPtr<gfx::VsyncSource> vsyncSource = gfxPlatform::GetPlatform()->GetHardwareVsync();
+  RefPtr<gfx::VsyncSource> vsyncSource =
+      gfxPlatform::GetPlatform()->GetHardwareVsync();
   RefPtr<VsyncParent> vsyncParent = new VsyncParent();
   vsyncParent->mVsyncDispatcher = vsyncSource->GetRefreshTimerVsyncDispatcher();
   return vsyncParent.forget();
 }
 
 VsyncParent::VsyncParent()
-  : mObservingVsync(false)
-  , mDestroyed(false)
-  , mBackgroundThread(NS_GetCurrentThread())
+    : mObservingVsync(false),
+      mDestroyed(false),
+      mBackgroundThread(NS_GetCurrentThread())
 {
   MOZ_ASSERT(mBackgroundThread);
   AssertIsOnBackgroundThread();
@@ -50,11 +51,12 @@ VsyncParent::NotifyVsync(TimeStamp aTimeStamp)
   // Called on hardware vsync thread. We should post to current ipc thread.
   MOZ_ASSERT(!IsOnBackgroundThread());
   nsCOMPtr<nsIRunnable> vsyncEvent =
-    NewRunnableMethod<TimeStamp>("layout::VsyncParent::DispatchVsyncEvent",
-                                 this,
-                                 &VsyncParent::DispatchVsyncEvent,
-                                 aTimeStamp);
-  MOZ_ALWAYS_SUCCEEDS(mBackgroundThread->Dispatch(vsyncEvent, NS_DISPATCH_NORMAL));
+      NewRunnableMethod<TimeStamp>("layout::VsyncParent::DispatchVsyncEvent",
+                                   this,
+                                   &VsyncParent::DispatchVsyncEvent,
+                                   aTimeStamp);
+  MOZ_ALWAYS_SUCCEEDS(
+      mBackgroundThread->Dispatch(vsyncEvent, NS_DISPATCH_NORMAL));
   return true;
 }
 
@@ -77,7 +79,10 @@ mozilla::ipc::IPCResult
 VsyncParent::RecvRequestVsyncRate()
 {
   AssertIsOnBackgroundThread();
-  TimeDuration vsyncRate = gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay().GetVsyncRate();
+  TimeDuration vsyncRate = gfxPlatform::GetPlatform()
+                               ->GetHardwareVsync()
+                               ->GetGlobalDisplay()
+                               .GetVsyncRate();
   Unused << SendVsyncRate(vsyncRate.ToMilliseconds());
   return IPC_OK();
 }
@@ -118,5 +123,5 @@ VsyncParent::ActorDestroy(ActorDestroyReason aReason)
   mDestroyed = true;
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla

@@ -19,35 +19,36 @@ struct IIRFilterOptions;
 
 class IIRFilterNode final : public AudioNode
 {
-public:
-  static already_AddRefed<IIRFilterNode>
-  Create(AudioContext& aAudioContext, const IIRFilterOptions& aOptions,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<IIRFilterNode> Create(
+      AudioContext& aAudioContext,
+      const IIRFilterOptions& aOptions,
+      ErrorResult& aRv);
 
   NS_DECL_ISUPPORTS_INHERITED
 
-  static already_AddRefed<IIRFilterNode>
-  Constructor(const GlobalObject& aGlobal, AudioContext& aAudioContext,
-              const IIRFilterOptions& aOptions, ErrorResult& aRv)
+  static already_AddRefed<IIRFilterNode> Constructor(
+      const GlobalObject& aGlobal,
+      AudioContext& aAudioContext,
+      const IIRFilterOptions& aOptions,
+      ErrorResult& aRv)
   {
     return Create(aAudioContext, aOptions, aRv);
   }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   void GetFrequencyResponse(const Float32Array& aFrequencyHz,
                             const Float32Array& aMagResponse,
                             const Float32Array& aPhaseResponse);
 
-  const char* NodeType() const override
-  {
-    return "IIRFilterNode";
-  }
+  const char* NodeType() const override { return "IIRFilterNode"; }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   IIRFilterNode(AudioContext* aContext,
                 const Sequence<double>& aFeedforward,
                 const Sequence<double>& aFeedback);
@@ -57,7 +58,7 @@ private:
   nsTArray<double> mFeedforward;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

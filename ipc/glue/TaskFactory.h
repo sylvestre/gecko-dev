@@ -24,67 +24,71 @@ namespace ipc {
 template<class T>
 class TaskFactory : public RevocableStore
 {
-private:
+ private:
   template<class TaskType>
   class TaskWrapper : public TaskType
   {
-  public:
+   public:
     template<typename... Args>
     explicit TaskWrapper(RevocableStore* store, Args&&... args)
-      : TaskType(mozilla::Forward<Args>(args)...)
-      , revocable_(store)
+        : TaskType(mozilla::Forward<Args>(args)...), revocable_(store)
     {
     }
 
-    NS_IMETHOD Run() override {
-      if (!revocable_.revoked())
-        TaskType::Run();
+    NS_IMETHOD Run() override
+    {
+      if (!revocable_.revoked()) TaskType::Run();
       return NS_OK;
     }
 
-  private:
+   private:
     Revocable revocable_;
   };
 
-public:
-  explicit TaskFactory(T* object) : object_(object) { }
+ public:
+  explicit TaskFactory(T* object) : object_(object) {}
 
-  template <typename TaskParamType, typename... Args>
+  template<typename TaskParamType, typename... Args>
   inline already_AddRefed<TaskParamType> NewTask(Args&&... args)
   {
     typedef TaskWrapper<TaskParamType> TaskWrapper;
     RefPtr<TaskWrapper> task =
-      new TaskWrapper(this, mozilla::Forward<Args>(args)...);
+        new TaskWrapper(this, mozilla::Forward<Args>(args)...);
     return task.forget();
   }
 
-  template <class Method, typename... Args>
-  inline already_AddRefed<Runnable>
-  NewRunnableMethod(Method method, Args&&... args) {
+  template<class Method, typename... Args>
+  inline already_AddRefed<Runnable> NewRunnableMethod(Method method,
+                                                      Args&&... args)
+  {
     typedef decltype(base::MakeTuple(mozilla::Forward<Args>(args)...)) ArgTuple;
     typedef RunnableMethod<Method, ArgTuple> RunnableMethod;
     typedef TaskWrapper<RunnableMethod> TaskWrapper;
 
     RefPtr<TaskWrapper> task =
-      new TaskWrapper(this, object_, method,
-                      base::MakeTuple(mozilla::Forward<Args>(args)...));
+        new TaskWrapper(this,
+                        object_,
+                        method,
+                        base::MakeTuple(mozilla::Forward<Args>(args)...));
 
     return task.forget();
   }
 
-protected:
-  template <class Method, class Params>
-  class RunnableMethod : public Runnable {
+ protected:
+  template<class Method, class Params>
+  class RunnableMethod : public Runnable
+  {
    public:
-     RunnableMethod(T* obj, Method meth, const Params& params)
-       : Runnable("ipc::TaskFactory::RunnableMethod")
-       , obj_(obj)
-       , meth_(meth)
-       , params_(params)
-     {
+    RunnableMethod(T* obj, Method meth, const Params& params)
+        : Runnable("ipc::TaskFactory::RunnableMethod"),
+          obj_(obj),
+          meth_(meth),
+          params_(params)
+    {
     }
 
-    NS_IMETHOD Run() override {
+    NS_IMETHOD Run() override
+    {
       DispatchToMethod(obj_, meth_, params_);
       return NS_OK;
     }
@@ -95,11 +99,11 @@ protected:
     Params params_;
   };
 
-private:
+ private:
   T* object_;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_plugins_TaskFactory_h
+#endif  // mozilla_plugins_TaskFactory_h

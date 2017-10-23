@@ -21,10 +21,12 @@ namespace AvailableMemoryTracker {
 // The hooks don't do anything until Activate() is called.  It's an error to
 // call Activate() without first calling Init().
 
-void Init();
-void Activate();
+void
+Init();
+void
+Activate();
 
-} // namespace AvailableMemoryTracker
-} // namespace mozilla
+}  // namespace AvailableMemoryTracker
+}  // namespace mozilla
 
-#endif // ifndef mozilla_AvailableMemoryTracker_h
+#endif  // ifndef mozilla_AvailableMemoryTracker_h

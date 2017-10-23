@@ -17,11 +17,13 @@ class ServoKeyframeDeclaration;
 
 class ServoKeyframeRule final : public dom::CSSKeyframeRule
 {
-public:
+ public:
   ServoKeyframeRule(already_AddRefed<RawServoKeyframe> aRaw,
-                    uint32_t aLine, uint32_t aColumn)
-    : CSSKeyframeRule(aLine, aColumn)
-    , mRaw(aRaw) {}
+                    uint32_t aLine,
+                    uint32_t aColumn)
+      : CSSKeyframeRule(aLine, aColumn), mRaw(aRaw)
+  {
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ServoKeyframeRule,
@@ -45,7 +47,7 @@ public:
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const final;
 
-private:
+ private:
   virtual ~ServoKeyframeRule();
 
   friend class ServoKeyframeDeclaration;
@@ -58,6 +60,6 @@ private:
   RefPtr<ServoKeyframeDeclaration> mDeclaration;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoKeyframeRule_h
+#endif  // mozilla_ServoKeyframeRule_h

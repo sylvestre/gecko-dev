@@ -10,7 +10,6 @@
 
 #include "nsTStringComparator.cpp"
 
-
 int
 nsCaseInsensitiveCStringComparator::operator()(const char_type* aLhs,
                                                const char_type* aRhs,

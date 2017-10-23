@@ -40,7 +40,8 @@ namespace storage {
  *        The SQLite return code to convert.
  * @returns the corresponding nsresult code for aSQLiteResultCode.
  */
-nsresult convertResultCode(int aSQLiteResultCode);
+nsresult
+convertResultCode(int aSQLiteResultCode);
 
 /**
  * Checks the performance of a SQLite statement and logs a warning with
@@ -51,7 +52,8 @@ nsresult convertResultCode(int aSQLiteResultCode);
  * @param aStatement
  *        The sqlite3_stmt object to check.
  */
-void checkAndLogStatementPerformance(sqlite3_stmt *aStatement);
+void
+checkAndLogStatementPerformance(sqlite3_stmt* aStatement);
 
 /**
  * Convert the provided JS::Value into a variant representation if possible.
@@ -65,7 +67,8 @@ void checkAndLogStatementPerformance(sqlite3_stmt *aStatement);
  * @return the variant if conversion was successful, nullptr if conversion
  *         failed.  The caller is responsible for addref'ing if non-null.
  */
-nsIVariant *convertJSValToVariant(JSContext *aCtx, const JS::Value& aValue);
+nsIVariant*
+convertJSValToVariant(JSContext* aCtx, const JS::Value& aValue);
 
 /**
  * Convert a provided nsIVariant implementation to our own thread-safe
@@ -75,7 +78,8 @@ nsIVariant *convertJSValToVariant(JSContext *aCtx, const JS::Value& aValue);
  *        The original nsIVariant to be converted.
  * @return a thread-safe refcounting nsIVariant implementation.
  */
-Variant_base *convertVariantToStorageVariant(nsIVariant *aVariant);
+Variant_base*
+convertVariantToStorageVariant(nsIVariant* aVariant);
 
 /**
  * Obtains an event that will notify a completion callback about completion.
@@ -84,9 +88,8 @@ Variant_base *convertVariantToStorageVariant(nsIVariant *aVariant);
  *        The callback to be notified.
  * @return an nsIRunnable that can be dispatched to the calling thread.
  */
-already_AddRefed<nsIRunnable> newCompletionEvent(
-  mozIStorageCompletionCallback *aCallback
-);
+already_AddRefed<nsIRunnable>
+newCompletionEvent(mozIStorageCompletionCallback* aCallback);
 
 /**
  * Utility method to get a Blob as a string value.  The string expects
@@ -101,7 +104,7 @@ DoGetBlobAsString(T* aThis, uint32_t aIndex, V& aValue)
   uint32_t size;
   char_type* blob;
   nsresult rv =
-    aThis->GetBlob(aIndex, &size, reinterpret_cast<uint8_t**>(&blob));
+      aThis->GetBlob(aIndex, &size, reinterpret_cast<uint8_t**>(&blob));
   NS_ENSURE_SUCCESS(rv, rv);
 
   aValue.Assign(blob, size / sizeof(char_type));
@@ -118,9 +121,10 @@ nsresult
 DoBindStringAsBlobByName(T* aThis, const nsACString& aName, const V& aValue)
 {
   typedef typename V::char_type char_type;
-  return aThis->BindBlobByName(aName,
-                        reinterpret_cast<const uint8_t*>(aValue.BeginReading()),
-                        aValue.Length() * sizeof(char_type));
+  return aThis->BindBlobByName(
+      aName,
+      reinterpret_cast<const uint8_t*>(aValue.BeginReading()),
+      aValue.Length() * sizeof(char_type));
 }
 
 /**
@@ -132,12 +136,13 @@ nsresult
 DoBindStringAsBlobByIndex(T* aThis, uint32_t aIndex, const V& aValue)
 {
   typedef typename V::char_type char_type;
-  return aThis->BindBlobByIndex(aIndex,
-                        reinterpret_cast<const uint8_t*>(aValue.BeginReading()),
-                        aValue.Length() * sizeof(char_type));
+  return aThis->BindBlobByIndex(
+      aIndex,
+      reinterpret_cast<const uint8_t*>(aValue.BeginReading()),
+      aValue.Length() * sizeof(char_type));
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozStoragePrivateHelpers_h
+#endif  // mozStoragePrivateHelpers_h

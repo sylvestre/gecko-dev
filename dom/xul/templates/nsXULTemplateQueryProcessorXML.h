@@ -26,145 +26,143 @@
 
 class nsXULTemplateQueryProcessorXML;
 
-#define NS_IXMLQUERY_IID \
-  {0x0358d692, 0xccce, 0x4a97, \
-    { 0xb2, 0x51, 0xba, 0x8f, 0x17, 0x0f, 0x3b, 0x6f }}
+#define NS_IXMLQUERY_IID                             \
+  {                                                  \
+    0x0358d692, 0xccce, 0x4a97,                      \
+    {                                                \
+      0xb2, 0x51, 0xba, 0x8f, 0x17, 0x0f, 0x3b, 0x6f \
+    }                                                \
+  }
 
 class nsXMLQuery final : public nsISupports
 {
-  public:
-    NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXMLQUERY_IID)
+ public:
+  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXMLQUERY_IID)
 
-    NS_DECL_ISUPPORTS
+  NS_DECL_ISUPPORTS
 
-    // return a weak reference to the processor the query was created from
-    nsXULTemplateQueryProcessorXML* Processor() { return mProcessor; }
+  // return a weak reference to the processor the query was created from
+  nsXULTemplateQueryProcessorXML* Processor() { return mProcessor; }
 
-    // return a weak reference t the member variable for the query
-    nsAtom* GetMemberVariable() { return mMemberVariable; }
+  // return a weak reference t the member variable for the query
+  nsAtom* GetMemberVariable() { return mMemberVariable; }
 
-    // return a weak reference to the expression used to generate results
-    mozilla::dom::XPathExpression* GetResultsExpression()
-      { return mResultsExpr; }
+  // return a weak reference to the expression used to generate results
+  mozilla::dom::XPathExpression* GetResultsExpression() { return mResultsExpr; }
 
-    // return a weak reference to the additional required bindings
-    nsXMLBindingSet* GetBindingSet() { return mRequiredBindings; }
+  // return a weak reference to the additional required bindings
+  nsXMLBindingSet* GetBindingSet() { return mRequiredBindings; }
 
-    // add a required binding for the query
-    void
-    AddBinding(nsAtom* aVar, nsAutoPtr<mozilla::dom::XPathExpression>&& aExpr)
-    {
-        if (!mRequiredBindings) {
-            mRequiredBindings = new nsXMLBindingSet();
-        }
-
-        mRequiredBindings->AddBinding(aVar, mozilla::Move(aExpr));
+  // add a required binding for the query
+  void AddBinding(nsAtom* aVar,
+                  nsAutoPtr<mozilla::dom::XPathExpression>&& aExpr)
+  {
+    if (!mRequiredBindings) {
+      mRequiredBindings = new nsXMLBindingSet();
     }
 
-    nsXMLQuery(nsXULTemplateQueryProcessorXML* aProcessor,
-               nsAtom* aMemberVariable,
-               nsAutoPtr<mozilla::dom::XPathExpression>&& aResultsExpr)
-        : mProcessor(aProcessor),
-          mMemberVariable(aMemberVariable),
-          mResultsExpr(aResultsExpr)
-    { }
+    mRequiredBindings->AddBinding(aVar, mozilla::Move(aExpr));
+  }
 
-  protected:
-    ~nsXMLQuery() {}
+  nsXMLQuery(nsXULTemplateQueryProcessorXML* aProcessor,
+             nsAtom* aMemberVariable,
+             nsAutoPtr<mozilla::dom::XPathExpression>&& aResultsExpr)
+      : mProcessor(aProcessor),
+        mMemberVariable(aMemberVariable),
+        mResultsExpr(aResultsExpr)
+  {
+  }
 
-    nsXULTemplateQueryProcessorXML* mProcessor;
+ protected:
+  ~nsXMLQuery() {}
 
-    RefPtr<nsAtom> mMemberVariable;
+  nsXULTemplateQueryProcessorXML* mProcessor;
 
-    nsAutoPtr<mozilla::dom::XPathExpression> mResultsExpr;
+  RefPtr<nsAtom> mMemberVariable;
 
-    RefPtr<nsXMLBindingSet> mRequiredBindings;
+  nsAutoPtr<mozilla::dom::XPathExpression> mResultsExpr;
+
+  RefPtr<nsXMLBindingSet> mRequiredBindings;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsXMLQuery, NS_IXMLQUERY_IID)
 
 class nsXULTemplateResultSetXML final : public nsISimpleEnumerator
 {
-private:
+ private:
+  // reference back to the query
+  nsCOMPtr<nsXMLQuery> mQuery;
 
-    // reference back to the query
-    nsCOMPtr<nsXMLQuery> mQuery;
+  // the binding set created from <assign> nodes
+  RefPtr<nsXMLBindingSet> mBindingSet;
 
-    // the binding set created from <assign> nodes
-    RefPtr<nsXMLBindingSet> mBindingSet;
+  // set of results contained in this enumerator
+  RefPtr<mozilla::dom::XPathResult> mResults;
 
-    // set of results contained in this enumerator
-    RefPtr<mozilla::dom::XPathResult> mResults;
+  // current position within the list of results
+  uint32_t mPosition;
 
-    // current position within the list of results
-    uint32_t mPosition;
+  ~nsXULTemplateResultSetXML() {}
 
-    ~nsXULTemplateResultSetXML() {}
+ public:
+  // nsISupports interface
+  NS_DECL_ISUPPORTS
 
-public:
+  // nsISimpleEnumerator interface
+  NS_DECL_NSISIMPLEENUMERATOR
 
-    // nsISupports interface
-    NS_DECL_ISUPPORTS
-
-    // nsISimpleEnumerator interface
-    NS_DECL_NSISIMPLEENUMERATOR
-
-    nsXULTemplateResultSetXML(nsXMLQuery* aQuery,
-                              already_AddRefed<mozilla::dom::XPathResult> aResults,
-                              nsXMLBindingSet* aBindingSet)
-        : mQuery(aQuery),
-          mBindingSet(aBindingSet),
-          mResults(aResults),
-          mPosition(0)
-    {}
+  nsXULTemplateResultSetXML(
+      nsXMLQuery* aQuery,
+      already_AddRefed<mozilla::dom::XPathResult> aResults,
+      nsXMLBindingSet* aBindingSet)
+      : mQuery(aQuery),
+        mBindingSet(aBindingSet),
+        mResults(aResults),
+        mPosition(0)
+  {
+  }
 };
 
-class nsXULTemplateQueryProcessorXML final : public nsIXULTemplateQueryProcessor,
-                                             public nsIDOMEventListener
+class nsXULTemplateQueryProcessorXML final
+    : public nsIXULTemplateQueryProcessor,
+      public nsIDOMEventListener
 {
-public:
+ public:
+  nsXULTemplateQueryProcessorXML() : mGenerationStarted(false) {}
 
-    nsXULTemplateQueryProcessorXML()
-        : mGenerationStarted(false)
-    {}
+  // nsISupports interface
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsXULTemplateQueryProcessorXML,
+                                           nsIXULTemplateQueryProcessor)
 
-    // nsISupports interface
-    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-    NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsXULTemplateQueryProcessorXML,
-                                             nsIXULTemplateQueryProcessor)
+  // nsIXULTemplateQueryProcessor interface
+  NS_DECL_NSIXULTEMPLATEQUERYPROCESSOR
 
-    // nsIXULTemplateQueryProcessor interface
-    NS_DECL_NSIXULTEMPLATEQUERYPROCESSOR
+  // nsIDOMEventListener interface
+  NS_DECL_NSIDOMEVENTLISTENER
 
-    // nsIDOMEventListener interface
-    NS_DECL_NSIDOMEVENTLISTENER
+  nsXMLBindingSet* GetOptionalBindingsForRule(nsIDOMNode* aRuleNode);
 
-    nsXMLBindingSet*
-    GetOptionalBindingsForRule(nsIDOMNode* aRuleNode);
+  // create an XPath expression from aExpr, using aNode for
+  // resolving namespaces
+  mozilla::dom::XPathExpression* CreateExpression(const nsAString& aExpr,
+                                                  nsINode* aNode,
+                                                  mozilla::ErrorResult& aRv);
 
-    // create an XPath expression from aExpr, using aNode for
-    // resolving namespaces
-    mozilla::dom::XPathExpression*
-    CreateExpression(const nsAString& aExpr,
-                     nsINode* aNode,
-                     mozilla::ErrorResult& aRv);
+ private:
+  ~nsXULTemplateQueryProcessorXML() {}
 
-private:
+  bool mGenerationStarted;
 
-    ~nsXULTemplateQueryProcessorXML() {}
+  nsRefPtrHashtable<nsISupportsHashKey, nsXMLBindingSet> mRuleToBindingsMap;
 
-    bool mGenerationStarted;
+  nsCOMPtr<mozilla::dom::Element> mRoot;
 
-    nsRefPtrHashtable<nsISupportsHashKey, nsXMLBindingSet> mRuleToBindingsMap;
+  RefPtr<mozilla::dom::XPathEvaluator> mEvaluator;
 
-    nsCOMPtr<mozilla::dom::Element> mRoot;
+  nsCOMPtr<nsIXULTemplateBuilder> mTemplateBuilder;
 
-    RefPtr<mozilla::dom::XPathEvaluator> mEvaluator;
-
-    nsCOMPtr<nsIXULTemplateBuilder> mTemplateBuilder;
-
-    nsCOMPtr<nsIXMLHttpRequest> mRequest;
+  nsCOMPtr<nsIXMLHttpRequest> mRequest;
 };
 
-
-#endif // nsXULTemplateQueryProcessorXML_h__
+#endif  // nsXULTemplateQueryProcessorXML_h__

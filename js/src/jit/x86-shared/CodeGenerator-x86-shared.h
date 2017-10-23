@@ -20,28 +20,24 @@ class ModOverflowCheck;
 class ReturnZero;
 class OutOfLineTableSwitch;
 
-class CodeGeneratorX86Shared : public CodeGeneratorShared
-{
+class CodeGeneratorX86Shared : public CodeGeneratorShared {
     friend class MoveResolverX86;
 
-    CodeGeneratorX86Shared* thisFromCtor() {
-        return this;
-    }
+    CodeGeneratorX86Shared* thisFromCtor() { return this; }
 
     template <typename T>
     void bailout(const T& t, LSnapshot* snapshot);
 
-  protected:
+   protected:
     // Load a NaN or zero into a register for an out of bounds AsmJS or static
     // typed array load.
-    class OutOfLineLoadTypedArrayOutOfBounds : public OutOfLineCodeBase<CodeGeneratorX86Shared>
-    {
+    class OutOfLineLoadTypedArrayOutOfBounds : public OutOfLineCodeBase<CodeGeneratorX86Shared> {
         AnyRegister dest_;
         Scalar::Type viewType_;
-      public:
+
+       public:
         OutOfLineLoadTypedArrayOutOfBounds(AnyRegister dest, Scalar::Type viewType)
-          : dest_(dest), viewType_(viewType)
-        {}
+            : dest_(dest), viewType_(viewType) {}
 
         AnyRegister dest() const { return dest_; }
         Scalar::Type viewType() const { return viewType_; }
@@ -52,18 +48,16 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
 
     // Additional bounds check for vector Float to Int conversion, when the
     // undefined pattern is seen. Might imply a bailout.
-    class OutOfLineSimdFloatToIntCheck : public OutOfLineCodeBase<CodeGeneratorX86Shared>
-    {
+    class OutOfLineSimdFloatToIntCheck : public OutOfLineCodeBase<CodeGeneratorX86Shared> {
         Register temp_;
         FloatRegister input_;
         LInstruction* ins_;
         wasm::BytecodeOffset bytecodeOffset_;
 
-      public:
-        OutOfLineSimdFloatToIntCheck(Register temp, FloatRegister input, LInstruction *ins,
+       public:
+        OutOfLineSimdFloatToIntCheck(Register temp, FloatRegister input, LInstruction* ins,
                                      wasm::BytecodeOffset bytecodeOffset)
-          : temp_(temp), input_(input), ins_(ins), bytecodeOffset_(bytecodeOffset)
-        {}
+            : temp_(temp), input_(input), ins_(ins), bytecodeOffset_(bytecodeOffset) {}
 
         Register temp() const { return temp_; }
         FloatRegister input() const { return input_; }
@@ -75,7 +69,7 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
         }
     };
 
-  public:
+   public:
     NonAssertingLabel deoptLabel_;
 
     Operand ToOperand(const LAllocation& a);
@@ -134,10 +128,11 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
         bailoutIf(Assembler::Overflow, snapshot);
     }
 
-  protected:
+   protected:
     bool generateOutOfLineCode();
 
-    void emitCompare(MCompare::CompareType type, const LAllocation* left, const LAllocation* right);
+    void emitCompare(MCompare::CompareType type, const LAllocation* left,
+                     const LAllocation* right);
 
     // Emits a branch that directs control flow to the true block if |cond| is
     // true, and the false block if |cond| is false.
@@ -146,27 +141,23 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
     void emitBranch(Assembler::DoubleCondition cond, MBasicBlock* ifTrue, MBasicBlock* ifFalse);
 
     void testNullEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                            MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testNull(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
     void testUndefinedEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testUndefined(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
     void testObjectEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                              MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testObject(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
 
-    void testZeroEmitBranch(Assembler::Condition cond, Register reg,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+    void testZeroEmitBranch(Assembler::Condition cond, Register reg, MBasicBlock* ifTrue,
+                            MBasicBlock* ifFalse) {
         MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
         masm.cmpPtr(reg, ImmWord(0));
         emitBranch(cond, ifTrue, ifFalse);
@@ -180,10 +171,10 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
                                  SimdSign signedness);
     void emitSimdExtractLane32x4(FloatRegister input, Register output, unsigned lane);
 
-  public:
+   public:
     CodeGeneratorX86Shared(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
-  public:
+   public:
     // Instruction visitors.
     virtual void visitDouble(LDouble* ins);
     virtual void visitFloat32(LFloat32* ins);
@@ -243,7 +234,7 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
     virtual void visitGuardClass(LGuardClass* guard);
     virtual void visitEffectiveAddress(LEffectiveAddress* ins);
     virtual void visitUDivOrMod(LUDivOrMod* ins);
-    virtual void visitUDivOrModConstant(LUDivOrModConstant *ins);
+    virtual void visitUDivOrModConstant(LUDivOrModConstant* ins);
     virtual void visitWasmStackArg(LWasmStackArg* ins);
     virtual void visitWasmStackArgI64(LWasmStackArgI64* ins);
     virtual void visitWasmSelect(LWasmSelect* ins);
@@ -252,7 +243,8 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
     virtual void visitWasmAddOffset(LWasmAddOffset* lir);
     virtual void visitWasmTruncateToInt32(LWasmTruncateToInt32* lir);
     virtual void visitAtomicTypedArrayElementBinop(LAtomicTypedArrayElementBinop* lir);
-    virtual void visitAtomicTypedArrayElementBinopForEffect(LAtomicTypedArrayElementBinopForEffect* lir);
+    virtual void visitAtomicTypedArrayElementBinopForEffect(
+        LAtomicTypedArrayElementBinopForEffect* lir);
     virtual void visitCompareExchangeTypedArrayElement(LCompareExchangeTypedArrayElement* lir);
     virtual void visitAtomicExchangeTypedArrayElement(LAtomicExchangeTypedArrayElement* lir);
     virtual void visitCopySignD(LCopySignD* lir);
@@ -308,7 +300,8 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
     void visitSimdAllTrue(LSimdAllTrue* ins);
     void visitSimdAnyTrue(LSimdAnyTrue* ins);
 
-    template <class T, class Reg> void visitSimdGeneralShuffle(LSimdGeneralShuffleBase* lir, Reg temp);
+    template <class T, class Reg>
+    void visitSimdGeneralShuffle(LSimdGeneralShuffleBase* lir, Reg temp);
     void visitSimdGeneralShuffleI(LSimdGeneralShuffleI* lir);
     void visitSimdGeneralShuffleF(LSimdGeneralShuffleF* lir);
 
@@ -323,13 +316,15 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
     void generateInvalidateEpilogue();
 
     // Generating a result.
-    template<typename S, typename T>
+    template <typename S, typename T>
     void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value,
-                                    const T& mem, Register temp1, Register temp2, AnyRegister output);
+                                    const T& mem, Register temp1, Register temp2,
+                                    AnyRegister output);
 
     // Generating no result.
-    template<typename S, typename T>
-    void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value, const T& mem);
+    template <typename S, typename T>
+    void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value,
+                                    const T& mem);
 
     void setReturnDoubleRegs(LiveRegisterSet* regs);
 
@@ -337,23 +332,18 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
 };
 
 // An out-of-line bailout thunk.
-class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorX86Shared>
-{
+class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorX86Shared> {
     LSnapshot* snapshot_;
 
-  public:
-    explicit OutOfLineBailout(LSnapshot* snapshot)
-      : snapshot_(snapshot)
-    { }
+   public:
+    explicit OutOfLineBailout(LSnapshot* snapshot) : snapshot_(snapshot) {}
 
     void accept(CodeGeneratorX86Shared* codegen);
 
-    LSnapshot* snapshot() const {
-        return snapshot_;
-    }
+    LSnapshot* snapshot() const { return snapshot_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x86_shared_CodeGenerator_x86_shared_h */

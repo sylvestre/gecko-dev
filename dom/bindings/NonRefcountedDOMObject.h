@@ -20,18 +20,12 @@ namespace dom {
 // the leak log too.
 class NonRefcountedDOMObject
 {
-protected:
-  NonRefcountedDOMObject()
-  {
-    MOZ_COUNT_CTOR(NonRefcountedDOMObject);
-  }
-  ~NonRefcountedDOMObject()
-  {
-    MOZ_COUNT_DTOR(NonRefcountedDOMObject);
-  }
+ protected:
+  NonRefcountedDOMObject() { MOZ_COUNT_CTOR(NonRefcountedDOMObject); }
+  ~NonRefcountedDOMObject() { MOZ_COUNT_DTOR(NonRefcountedDOMObject); }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_NonRefcountedDOMObject_h__ */

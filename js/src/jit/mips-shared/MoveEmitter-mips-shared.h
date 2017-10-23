@@ -13,9 +13,8 @@
 namespace js {
 namespace jit {
 
-class MoveEmitterMIPSShared
-{
-  protected:
+class MoveEmitterMIPSShared {
+   protected:
     uint32_t inCycle_;
     MacroAssembler& masm;
 
@@ -45,32 +44,29 @@ class MoveEmitterMIPSShared
     void emitInt32Move(const MoveOperand& from, const MoveOperand& to);
     void emitFloat32Move(const MoveOperand& from, const MoveOperand& to);
     virtual void emitDoubleMove(const MoveOperand& from, const MoveOperand& to) = 0;
-    virtual void breakCycle(const MoveOperand& from, const MoveOperand& to,
-                    MoveOp::Type type, uint32_t slot) = 0;
-    virtual void completeCycle(const MoveOperand& from, const MoveOperand& to,
-                       MoveOp::Type type, uint32_t slot) = 0;
+    virtual void breakCycle(const MoveOperand& from, const MoveOperand& to, MoveOp::Type type,
+                            uint32_t slot) = 0;
+    virtual void completeCycle(const MoveOperand& from, const MoveOperand& to, MoveOp::Type type,
+                               uint32_t slot) = 0;
     void emit(const MoveOp& move);
 
-  public:
+   public:
     MoveEmitterMIPSShared(MacroAssembler& masm)
-      : inCycle_(0),
-        masm(masm),
-        pushedAtStart_(masm.framePushed()),
-        pushedAtCycle_(-1),
-        pushedAtSpill_(-1),
-        spilledReg_(InvalidReg),
-        spilledFloatReg_(InvalidFloatReg)
-    { }
-    ~MoveEmitterMIPSShared() {
-        assertDone();
-    }
+        : inCycle_(0),
+          masm(masm),
+          pushedAtStart_(masm.framePushed()),
+          pushedAtCycle_(-1),
+          pushedAtSpill_(-1),
+          spilledReg_(InvalidReg),
+          spilledFloatReg_(InvalidFloatReg) {}
+    ~MoveEmitterMIPSShared() { assertDone(); }
     void emit(const MoveResolver& moves);
     void finish();
 
     void setScratchRegister(Register reg) {}
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips_shared_MoveEmitter_mips_shared_h */

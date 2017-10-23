@@ -32,7 +32,7 @@ TEST(MultiplexInputStream, Seek_SET)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   nsCOMPtr<nsIMultiplexInputStream> multiplexStream =
-    do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
+      do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1");
   ASSERT_TRUE(multiplexStream);
   nsCOMPtr<nsIInputStream> stream(do_QueryInterface(multiplexStream));
   ASSERT_TRUE(stream);

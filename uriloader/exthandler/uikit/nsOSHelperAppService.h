@@ -18,7 +18,7 @@
 
 class nsOSHelperAppService final : public nsExternalHelperAppService
 {
-public:
+ public:
   nsOSHelperAppService();
   ~nsOSHelperAppService();
 
@@ -49,4 +49,4 @@ public:
   nsresult OSProtocolHandlerExists(const char* aScheme, bool* aHandlerExists);
 };
 
-#endif // nsOSHelperAppService_h__
+#endif  // nsOSHelperAppService_h__

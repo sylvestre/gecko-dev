@@ -20,9 +20,9 @@
 #include "nsString.h"
 #include "nsNativeCharsetUtils.h"
 
-class SharedLibrary {
-public:
-
+class SharedLibrary
+{
+ public:
   SharedLibrary(uintptr_t aStart,
                 uintptr_t aEnd,
                 uintptr_t aOffset,
@@ -33,30 +33,32 @@ public:
                 const nsString& aDebugPath,
                 const std::string& aVersion,
                 const char* aArch)
-    : mStart(aStart)
-    , mEnd(aEnd)
-    , mOffset(aOffset)
-    , mBreakpadId(aBreakpadId)
-    , mModuleName(aModuleName)
-    , mModulePath(aModulePath)
-    , mDebugName(aDebugName)
-    , mDebugPath(aDebugPath)
-    , mVersion(aVersion)
-    , mArch(aArch)
-  {}
+      : mStart(aStart),
+        mEnd(aEnd),
+        mOffset(aOffset),
+        mBreakpadId(aBreakpadId),
+        mModuleName(aModuleName),
+        mModulePath(aModulePath),
+        mDebugName(aDebugName),
+        mDebugPath(aDebugPath),
+        mVersion(aVersion),
+        mArch(aArch)
+  {
+  }
 
   SharedLibrary(const SharedLibrary& aEntry)
-    : mStart(aEntry.mStart)
-    , mEnd(aEntry.mEnd)
-    , mOffset(aEntry.mOffset)
-    , mBreakpadId(aEntry.mBreakpadId)
-    , mModuleName(aEntry.mModuleName)
-    , mModulePath(aEntry.mModulePath)
-    , mDebugName(aEntry.mDebugName)
-    , mDebugPath(aEntry.mDebugPath)
-    , mVersion(aEntry.mVersion)
-    , mArch(aEntry.mArch)
-  {}
+      : mStart(aEntry.mStart),
+        mEnd(aEntry.mEnd),
+        mOffset(aEntry.mOffset),
+        mBreakpadId(aEntry.mBreakpadId),
+        mModuleName(aEntry.mModuleName),
+        mModulePath(aEntry.mModulePath),
+        mDebugName(aEntry.mDebugName),
+        mDebugPath(aEntry.mDebugPath),
+        mVersion(aEntry.mVersion),
+        mArch(aEntry.mArch)
+  {
+  }
 
   SharedLibrary& operator=(const SharedLibrary& aEntry)
   {
@@ -78,37 +80,35 @@ public:
 
   bool operator==(const SharedLibrary& other) const
   {
-    return (mStart == other.mStart) &&
-           (mEnd == other.mEnd) &&
-           (mOffset == other.mOffset) &&
-           (mModuleName == other.mModuleName) &&
+    return (mStart == other.mStart) && (mEnd == other.mEnd) &&
+           (mOffset == other.mOffset) && (mModuleName == other.mModuleName) &&
            (mModulePath == other.mModulePath) &&
            (mDebugName == other.mDebugName) &&
            (mDebugPath == other.mDebugPath) &&
-           (mBreakpadId == other.mBreakpadId) &&
-           (mVersion == other.mVersion) &&
+           (mBreakpadId == other.mBreakpadId) && (mVersion == other.mVersion) &&
            (mArch == other.mArch);
   }
 
   uintptr_t GetStart() const { return mStart; }
   uintptr_t GetEnd() const { return mEnd; }
   uintptr_t GetOffset() const { return mOffset; }
-  const std::string &GetBreakpadId() const { return mBreakpadId; }
-  const nsString &GetModuleName() const { return mModuleName; }
-  const nsString &GetModulePath() const { return mModulePath; }
-  const std::string GetNativeDebugPath() const {
+  const std::string& GetBreakpadId() const { return mBreakpadId; }
+  const nsString& GetModuleName() const { return mModuleName; }
+  const nsString& GetModulePath() const { return mModulePath; }
+  const std::string GetNativeDebugPath() const
+  {
     nsAutoCString debugPathStr;
 
     NS_CopyUnicodeToNative(mDebugPath, debugPathStr);
 
     return debugPathStr.get();
   }
-  const nsString &GetDebugName() const { return mDebugName; }
-  const nsString &GetDebugPath() const { return mDebugPath; }
-  const std::string &GetVersion() const { return mVersion; }
-  const std::string &GetArch() const { return mArch; }
+  const nsString& GetDebugName() const { return mDebugName; }
+  const nsString& GetDebugPath() const { return mDebugPath; }
+  const std::string& GetVersion() const { return mVersion; }
+  const std::string& GetArch() const { return mArch; }
 
-private:
+ private:
   SharedLibrary() {}
 
   uintptr_t mStart;
@@ -129,27 +129,19 @@ CompareAddresses(const SharedLibrary& first, const SharedLibrary& second)
   return first.GetStart() < second.GetStart();
 }
 
-class SharedLibraryInfo {
-public:
+class SharedLibraryInfo
+{
+ public:
   static SharedLibraryInfo GetInfoForSelf();
   static void Initialize();
 
   SharedLibraryInfo() {}
 
-  void AddSharedLibrary(SharedLibrary entry)
-  {
-    mEntries.push_back(entry);
-  }
+  void AddSharedLibrary(SharedLibrary entry) { mEntries.push_back(entry); }
 
-  const SharedLibrary& GetEntry(size_t i) const
-  {
-    return mEntries[i];
-  }
+  const SharedLibrary& GetEntry(size_t i) const { return mEntries[i]; }
 
-  SharedLibrary& GetMutableEntry(size_t i)
-  {
-    return mEntries[i];
-  }
+  SharedLibrary& GetMutableEntry(size_t i) { return mEntries[i]; }
 
   // Removes items in the range [first, last)
   // i.e. element at the "last" index is not removed
@@ -161,25 +153,19 @@ public:
   bool Contains(const SharedLibrary& searchItem) const
   {
     return (mEntries.end() !=
-              std::find(mEntries.begin(), mEntries.end(), searchItem));
+            std::find(mEntries.begin(), mEntries.end(), searchItem));
   }
 
-  size_t GetSize() const
-  {
-    return mEntries.size();
-  }
+  size_t GetSize() const { return mEntries.size(); }
 
   void SortByAddress()
   {
     std::sort(mEntries.begin(), mEntries.end(), CompareAddresses);
   }
 
-  void Clear()
-  {
-    mEntries.clear();
-  }
+  void Clear() { mEntries.clear(); }
 
-private:
+ private:
   std::vector<SharedLibrary> mEntries;
 };
 

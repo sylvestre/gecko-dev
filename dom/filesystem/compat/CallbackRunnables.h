@@ -20,21 +20,21 @@ class FileSystemEntriesCallback;
 
 class EntryCallbackRunnable final : public Runnable
 {
-public:
+ public:
   EntryCallbackRunnable(FileSystemEntryCallback* aCallback,
                         FileSystemEntry* aEntry);
 
   NS_IMETHOD
   Run() override;
 
-private:
+ private:
   RefPtr<FileSystemEntryCallback> mCallback;
   RefPtr<FileSystemEntry> mEntry;
 };
 
 class ErrorCallbackRunnable final : public Runnable
 {
-public:
+ public:
   ErrorCallbackRunnable(nsIGlobalObject* aGlobalObject,
                         ErrorCallback* aCallback,
                         nsresult aError);
@@ -42,7 +42,7 @@ public:
   NS_IMETHOD
   Run() override;
 
-private:
+ private:
   nsCOMPtr<nsIGlobalObject> mGlobal;
   RefPtr<ErrorCallback> mCallback;
   nsresult mError;
@@ -50,19 +50,19 @@ private:
 
 class EmptyEntriesCallbackRunnable final : public Runnable
 {
-public:
+ public:
   explicit EmptyEntriesCallbackRunnable(FileSystemEntriesCallback* aCallback);
 
   NS_IMETHOD
   Run() override;
 
-private:
+ private:
   RefPtr<FileSystemEntriesCallback> mCallback;
 };
 
 class GetEntryHelper final : public PromiseNativeHandler
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   GetEntryHelper(FileSystemDirectoryEntry* aParentEntry,
@@ -73,26 +73,22 @@ public:
                  ErrorCallback* aErrorCallback,
                  FileSystemDirectoryEntry::GetInternalType aType);
 
-  void
-  Run();
+  void Run();
 
-  virtual void
-  ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override;
+  virtual void ResolvedCallback(JSContext* aCx,
+                                JS::Handle<JS::Value> aValue) override;
 
-  virtual void
-  RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override;
+  virtual void RejectedCallback(JSContext* aCx,
+                                JS::Handle<JS::Value> aValue) override;
 
-private:
+ private:
   ~GetEntryHelper();
 
-  void
-  Error(nsresult aError);
+  void Error(nsresult aError);
 
-  void
-  ContinueRunning(JSObject* aObj);
+  void ContinueRunning(JSObject* aObj);
 
-  void
-  CompleteOperation(JSObject* aObj);
+  void CompleteOperation(JSObject* aObj);
 
   RefPtr<FileSystemDirectoryEntry> mParentEntry;
   RefPtr<Directory> mDirectory;
@@ -107,23 +103,22 @@ private:
 
 class FileSystemEntryCallbackHelper
 {
-public:
-  static void
-  Call(nsIGlobalObject* aGlobalObject,
-       const Optional<OwningNonNull<FileSystemEntryCallback>>& aEntryCallback,
-       FileSystemEntry* aEntry);
+ public:
+  static void Call(
+      nsIGlobalObject* aGlobalObject,
+      const Optional<OwningNonNull<FileSystemEntryCallback>>& aEntryCallback,
+      FileSystemEntry* aEntry);
 };
 
 class ErrorCallbackHelper
 {
-public:
-  static void
-  Call(nsIGlobalObject* aGlobal,
-       const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
-       nsresult aError);
+ public:
+  static void Call(nsIGlobalObject* aGlobal,
+                   const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
+                   nsresult aError);
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CallbackRunnables_h
+#endif  // mozilla_dom_CallbackRunnables_h

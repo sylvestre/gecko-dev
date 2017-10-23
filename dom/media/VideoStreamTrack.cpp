@@ -31,5 +31,5 @@ VideoStreamTrack::RemoveVideoOutput(MediaStreamVideoSink* aSink)
   GetOwnedStream()->RemoveVideoOutput(aSink, mTrackID);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

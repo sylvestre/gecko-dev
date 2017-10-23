@@ -15,20 +15,22 @@ namespace mozilla {
 
 namespace dom {
 class ContentParent;
-} // namespace dom
+}  // namespace dom
 
 namespace ipc {
 template<class PFooSide>
 class Endpoint;
-} // namespace ipc
+}  // namespace ipc
 
 namespace plugins {
 
 class PPluginModuleParent;
 
 bool
-SetupBridge(uint32_t aPluginId, dom::ContentParent* aContentParent,
-            nsresult* aResult, uint32_t* aRunID,
+SetupBridge(uint32_t aPluginId,
+            dom::ContentParent* aContentParent,
+            nsresult* aResult,
+            uint32_t* aRunID,
             ipc::Endpoint<PPluginModuleParent>* aEndpoint);
 
 nsresult
@@ -50,7 +52,7 @@ TerminatePlugin(uint32_t aPluginId,
                 const nsCString& aMonitorDescription,
                 const nsAString& aDumpId,
                 std::function<void(bool)>&& aCallback);
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
-#endif // mozilla_plugins_PluginBridge_h
+#endif  // mozilla_plugins_PluginBridge_h

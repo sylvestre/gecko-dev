@@ -21,17 +21,16 @@ class LSafepoint;
 
 static const uint32_t INVALID_SAFEPOINT_OFFSET = uint32_t(-1);
 
-class SafepointWriter
-{
+class SafepointWriter {
     CompactBufferWriter stream_;
     BitSet frameSlots_;
     BitSet argumentSlots_;
 
-  public:
+   public:
     explicit SafepointWriter(uint32_t slotCount, uint32_t argumentCount);
     MOZ_MUST_USE bool init(TempAllocator& alloc);
 
-  private:
+   private:
     // A safepoint entry is written in the order these functions appear.
     uint32_t startEntry();
 
@@ -48,22 +47,15 @@ class SafepointWriter
 
     void endEntry();
 
-  public:
+   public:
     void encode(LSafepoint* safepoint);
 
-    size_t size() const {
-        return stream_.length();
-    }
-    const uint8_t* buffer() const {
-        return stream_.buffer();
-    }
-    bool oom() const {
-        return stream_.oom();
-    }
+    size_t size() const { return stream_.length(); }
+    const uint8_t* buffer() const { return stream_.buffer(); }
+    bool oom() const { return stream_.oom(); }
 };
 
-class SafepointReader
-{
+class SafepointReader {
     CompactBufferReader stream_;
     uint32_t frameSlots_;
     uint32_t argumentSlots_;
@@ -79,36 +71,26 @@ class SafepointReader
     uint32_t nunboxSlotsRemaining_;
     uint32_t slotsOrElementsSlotsRemaining_;
 
-  private:
+   private:
     void advanceFromGcRegs();
     void advanceFromGcSlots();
     void advanceFromValueSlots();
     void advanceFromNunboxSlots();
     MOZ_MUST_USE bool getSlotFromBitmap(SafepointSlotEntry* entry);
 
-  public:
+   public:
     SafepointReader(IonScript* script, const SafepointIndex* si);
 
     static CodeLocationLabel InvalidationPatchPoint(IonScript* script, const SafepointIndex* si);
 
-    uint32_t osiCallPointOffset() const {
-        return osiCallPointOffset_;
-    }
-    LiveGeneralRegisterSet gcSpills() const {
-        return LiveGeneralRegisterSet(gcSpills_);
-    }
+    uint32_t osiCallPointOffset() const { return osiCallPointOffset_; }
+    LiveGeneralRegisterSet gcSpills() const { return LiveGeneralRegisterSet(gcSpills_); }
     LiveGeneralRegisterSet slotsOrElementsSpills() const {
         return LiveGeneralRegisterSet(slotsOrElementsSpills_);
     }
-    LiveGeneralRegisterSet valueSpills() const {
-        return LiveGeneralRegisterSet(valueSpills_);
-    }
-    LiveGeneralRegisterSet allGprSpills() const {
-        return LiveGeneralRegisterSet(allGprSpills_);
-    }
-    LiveFloatRegisterSet allFloatSpills() const {
-        return LiveFloatRegisterSet(allFloatSpills_);
-    }
+    LiveGeneralRegisterSet valueSpills() const { return LiveGeneralRegisterSet(valueSpills_); }
+    LiveGeneralRegisterSet allGprSpills() const { return LiveGeneralRegisterSet(allGprSpills_); }
+    LiveFloatRegisterSet allFloatSpills() const { return LiveFloatRegisterSet(allFloatSpills_); }
     uint32_t osiReturnPointOffset() const;
 
     // Returns true if a slot was read, false if there are no more slots.
@@ -125,7 +107,7 @@ class SafepointReader
     MOZ_MUST_USE bool getSlotsOrElementsSlot(SafepointSlotEntry* entry);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_Safepoints_h */

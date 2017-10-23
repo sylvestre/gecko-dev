@@ -23,9 +23,12 @@ namespace mozilla {
 namespace dom {
 
 static nsresult
-GetBufferDataAsStream(const uint8_t* aData, uint32_t aDataLength,
-                      nsIInputStream** aResult, uint64_t* aContentLength,
-                      nsACString& aContentType, nsACString& aCharset)
+GetBufferDataAsStream(const uint8_t* aData,
+                      uint32_t aDataLength,
+                      nsIInputStream** aResult,
+                      uint64_t* aContentLength,
+                      nsACString& aContentType,
+                      nsACString& aCharset)
 {
   aContentType.SetIsVoid(true);
   aCharset.Truncate();
@@ -34,8 +37,8 @@ GetBufferDataAsStream(const uint8_t* aData, uint32_t aDataLength,
   const char* data = reinterpret_cast<const char*>(aData);
 
   nsCOMPtr<nsIInputStream> stream;
-  nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream), data, aDataLength,
-                                      NS_ASSIGNMENT_COPY);
+  nsresult rv = NS_NewByteInputStream(
+      getter_AddRefs(stream), data, aDataLength, NS_ASSIGNMENT_COPY);
   NS_ENSURE_SUCCESS(rv, rv);
 
   stream.forget(aResult);
@@ -43,31 +46,42 @@ GetBufferDataAsStream(const uint8_t* aData, uint32_t aDataLength,
   return NS_OK;
 }
 
-template<> nsresult
-BodyExtractor<const ArrayBuffer>::GetAsStream(nsIInputStream** aResult,
-                                              uint64_t* aContentLength,
-                                              nsACString& aContentTypeWithCharset,
-                                              nsACString& aCharset) const
+template<>
+nsresult
+BodyExtractor<const ArrayBuffer>::GetAsStream(
+    nsIInputStream** aResult,
+    uint64_t* aContentLength,
+    nsACString& aContentTypeWithCharset,
+    nsACString& aCharset) const
 {
   mBody->ComputeLengthAndData();
-  return GetBufferDataAsStream(mBody->Data(), mBody->Length(),
-                               aResult, aContentLength, aContentTypeWithCharset,
+  return GetBufferDataAsStream(mBody->Data(),
+                               mBody->Length(),
+                               aResult,
+                               aContentLength,
+                               aContentTypeWithCharset,
                                aCharset);
 }
 
-template<> nsresult
-BodyExtractor<const ArrayBufferView>::GetAsStream(nsIInputStream** aResult,
-                                                  uint64_t* aContentLength,
-                                                  nsACString& aContentTypeWithCharset,
-                                                  nsACString& aCharset) const
+template<>
+nsresult
+BodyExtractor<const ArrayBufferView>::GetAsStream(
+    nsIInputStream** aResult,
+    uint64_t* aContentLength,
+    nsACString& aContentTypeWithCharset,
+    nsACString& aCharset) const
 {
   mBody->ComputeLengthAndData();
-  return GetBufferDataAsStream(mBody->Data(), mBody->Length(),
-                               aResult, aContentLength, aContentTypeWithCharset,
+  return GetBufferDataAsStream(mBody->Data(),
+                               mBody->Length(),
+                               aResult,
+                               aContentLength,
+                               aContentTypeWithCharset,
                                aCharset);
 }
 
-template<> nsresult
+template<>
+nsresult
 BodyExtractor<nsIDocument>::GetAsStream(nsIInputStream** aResult,
                                         uint64_t* aContentLength,
                                         nsACString& aContentTypeWithCharset,
@@ -108,7 +122,7 @@ BodyExtractor<nsIDocument>::GetAsStream(nsIInputStream** aResult,
     aContentTypeWithCharset.AssignLiteral("application/xml;charset=UTF-8");
 
     nsCOMPtr<nsIDOMSerializer> serializer =
-      do_CreateInstance(NS_XMLSERIALIZER_CONTRACTID, &rv);
+        do_CreateInstance(NS_XMLSERIALIZER_CONTRACTID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
 
     // Make sure to use the encoding we'll send
@@ -128,7 +142,8 @@ BodyExtractor<nsIDocument>::GetAsStream(nsIInputStream** aResult,
   return NS_OK;
 }
 
-template<> nsresult
+template<>
+nsresult
 BodyExtractor<const nsAString>::GetAsStream(nsIInputStream** aResult,
                                             uint64_t* aContentLength,
                                             nsACString& aContentTypeWithCharset,
@@ -150,7 +165,8 @@ BodyExtractor<const nsAString>::GetAsStream(nsIInputStream** aResult,
   return NS_OK;
 }
 
-template<> nsresult
+template<>
+nsresult
 BodyExtractor<nsIInputStream>::GetAsStream(nsIInputStream** aResult,
                                            uint64_t* aContentLength,
                                            nsACString& aContentTypeWithCharset,
@@ -167,15 +183,16 @@ BodyExtractor<nsIInputStream>::GetAsStream(nsIInputStream** aResult,
   return NS_OK;
 }
 
-template<> nsresult
+template<>
+nsresult
 BodyExtractor<nsIXHRSendable>::GetAsStream(nsIInputStream** aResult,
                                            uint64_t* aContentLength,
                                            nsACString& aContentTypeWithCharset,
                                            nsACString& aCharset) const
 {
-  return mBody->GetSendInfo(aResult, aContentLength, aContentTypeWithCharset,
-                            aCharset);
+  return mBody->GetSendInfo(
+      aResult, aContentLength, aContentTypeWithCharset, aCharset);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

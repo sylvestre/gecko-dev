@@ -9,7 +9,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #include "nsString.h"
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #include <guiddef.h>
 
@@ -19,10 +19,14 @@ struct IUnknown;
 namespace mozilla {
 namespace mscom {
 
-bool IsCurrentThreadMTA();
-bool IsProxy(IUnknown* aUnknown);
-bool IsValidGUID(REFGUID aCheckGuid);
-uintptr_t GetContainingModuleHandle();
+bool
+IsCurrentThreadMTA();
+bool
+IsProxy(IUnknown* aUnknown);
+bool
+IsValidGUID(REFGUID aCheckGuid);
+uintptr_t
+GetContainingModuleHandle();
 
 /**
  * Given a buffer, create a new IStream object.
@@ -34,8 +38,8 @@ uintptr_t GetContainingModuleHandle();
  * @param aOutStream Outparam to receive the newly created stream.
  * @return HRESULT error code.
  */
-uint32_t CreateStream(const uint8_t* aBuf, const uint32_t aBufLen,
-                      IStream** aOutStream);
+uint32_t
+CreateStream(const uint8_t* aBuf, const uint32_t aBufLen, IStream** aOutStream);
 
 /**
  * Creates a deep copy of a proxy contained in a stream.
@@ -44,27 +48,31 @@ uint32_t CreateStream(const uint8_t* aBuf, const uint32_t aBufLen,
  * @param aOutStream Outparam to receive the newly created stream.
  * @return HRESULT error code.
  */
-uint32_t CopySerializedProxy(IStream* aInStream, IStream** aOutStream);
+uint32_t
+CopySerializedProxy(IStream* aInStream, IStream** aOutStream);
 
 #if defined(MOZILLA_INTERNAL_API)
-void GUIDToString(REFGUID aGuid, nsAString& aOutString);
-#endif // defined(MOZILLA_INTERNAL_API)
+void
+GUIDToString(REFGUID aGuid, nsAString& aOutString);
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #if defined(ACCESSIBILITY)
-bool IsVtableIndexFromParentInterface(REFIID aInterface,
-                                      unsigned long aVtableIndex);
+bool
+IsVtableIndexFromParentInterface(REFIID aInterface, unsigned long aVtableIndex);
 
 #if defined(MOZILLA_INTERNAL_API)
-bool IsCallerExternalProcess();
+bool
+IsCallerExternalProcess();
 
-bool IsInterfaceEqualToOrInheritedFrom(REFIID aInterface, REFIID aFrom,
-                                       unsigned long aVtableIndexHint);
-#endif // defined(MOZILLA_INTERNAL_API)
+bool
+IsInterfaceEqualToOrInheritedFrom(REFIID aInterface,
+                                  REFIID aFrom,
+                                  unsigned long aVtableIndexHint);
+#endif  // defined(MOZILLA_INTERNAL_API)
 
-#endif // defined(ACCESSIBILITY)
+#endif  // defined(ACCESSIBILITY)
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_Utils_h
-
+#endif  // mozilla_mscom_Utils_h

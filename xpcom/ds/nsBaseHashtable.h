@@ -13,7 +13,7 @@
 #include "nsDebug.h"
 
 template<class KeyClass, class DataType, class UserDataType>
-class nsBaseHashtable; // forward declaration
+class nsBaseHashtable;  // forward declaration
 
 /**
  * the private nsTHashtable::EntryType class used by nsBaseHashtable
@@ -23,11 +23,11 @@ class nsBaseHashtable; // forward declaration
 template<class KeyClass, class DataType>
 class nsBaseHashtableET : public KeyClass
 {
-public:
+ public:
   DataType mData;
   friend class nsTHashtable<nsBaseHashtableET<KeyClass, DataType>>;
 
-private:
+ private:
   typedef typename KeyClass::KeyType KeyType;
   typedef typename KeyClass::KeyTypePointer KeyTypePointer;
 
@@ -50,11 +50,11 @@ private:
  */
 template<class KeyClass, class DataType, class UserDataType>
 class nsBaseHashtable
-  : protected nsTHashtable<nsBaseHashtableET<KeyClass, DataType>>
+    : protected nsTHashtable<nsBaseHashtableET<KeyClass, DataType>>
 {
   typedef mozilla::fallible_t fallible_t;
 
-public:
+ public:
   typedef typename KeyClass::KeyType KeyType;
   typedef nsBaseHashtableET<KeyClass, DataType> EntryType;
 
@@ -63,7 +63,7 @@ public:
 
   nsBaseHashtable() {}
   explicit nsBaseHashtable(uint32_t aInitLength)
-    : nsTHashtable<EntryType>(aInitLength)
+      : nsTHashtable<EntryType>(aInitLength)
   {
   }
 
@@ -139,7 +139,8 @@ public:
     }
   }
 
-  MOZ_MUST_USE bool Put(KeyType aKey, const UserDataType& aData,
+  MOZ_MUST_USE bool Put(KeyType aKey,
+                        const UserDataType& aData,
                         const fallible_t&)
   {
     EntryType* ent = this->PutEntry(aKey, mozilla::fallible);
@@ -200,22 +201,25 @@ public:
     return false;
   }
 
-  struct LookupResult {
-  private:
+  struct LookupResult
+  {
+   private:
     EntryType* mEntry;
     nsBaseHashtable& mTable;
 #ifdef DEBUG
     uint32_t mTableGeneration;
 #endif
 
-  public:
+   public:
     LookupResult(EntryType* aEntry, nsBaseHashtable& aTable)
-      : mEntry(aEntry)
-      , mTable(aTable)
+        : mEntry(aEntry),
+          mTable(aTable)
 #ifdef DEBUG
-      , mTableGeneration(aTable.GetGeneration())
+          ,
+          mTableGeneration(aTable.GetGeneration())
 #endif
-    {}
+    {
+    }
 
     // Is there something stored in the table?
     explicit operator bool() const
@@ -263,8 +267,9 @@ public:
     return LookupResult(this->GetEntry(aKey), *this);
   }
 
-  struct EntryPtr {
-  private:
+  struct EntryPtr
+  {
+   private:
     EntryType& mEntry;
     bool mExistingEntry;
     // For debugging purposes
@@ -274,16 +279,18 @@ public:
     bool mDidInitNewEntry;
 #endif
 
-  public:
+   public:
     EntryPtr(nsBaseHashtable& aTable, EntryType* aEntry, bool aExistingEntry)
-      : mEntry(*aEntry)
-      , mExistingEntry(aExistingEntry)
+        : mEntry(*aEntry),
+          mExistingEntry(aExistingEntry)
 #ifdef DEBUG
-      , mTable(aTable)
-      , mTableGeneration(aTable.GetGeneration())
-      , mDidInitNewEntry(false)
+          ,
+          mTable(aTable),
+          mTableGeneration(aTable.GetGeneration()),
+          mDidInitNewEntry(false)
 #endif
-    {}
+    {
+    }
     ~EntryPtr()
     {
       MOZ_ASSERT(mExistingEntry || mDidInitNewEntry,
@@ -297,7 +304,7 @@ public:
       return mExistingEntry;
     }
 
-    template <class F>
+    template<class F>
     UserDataType OrInsert(F func)
     {
       MOZ_ASSERT(mTableGeneration == mTable.GetGeneration());
@@ -362,7 +369,7 @@ public:
   //
   class Iterator : public PLDHashTable::Iterator
   {
-  public:
+   public:
     typedef PLDHashTable::Iterator Base;
 
     explicit Iterator(nsBaseHashtable* aTable) : Base(&aTable->mTable) {}
@@ -376,7 +383,7 @@ public:
     }
     DataType& Data() const { return static_cast<EntryType*>(Get())->mData; }
 
-  private:
+   private:
     Iterator() = delete;
     Iterator(const Iterator&) = delete;
     Iterator& operator=(const Iterator&) = delete;
@@ -423,7 +430,6 @@ public:
     nsTHashtable<EntryType>::SwapElements(aOther);
   }
 
-
 #ifdef DEBUG
   using nsTHashtable<EntryType>::MarkImmutable;
 #endif
@@ -435,16 +441,14 @@ public:
 
 template<class KeyClass, class DataType>
 nsBaseHashtableET<KeyClass, DataType>::nsBaseHashtableET(KeyTypePointer aKey)
-  : KeyClass(aKey)
-  , mData()
+    : KeyClass(aKey), mData()
 {
 }
 
 template<class KeyClass, class DataType>
 nsBaseHashtableET<KeyClass, DataType>::nsBaseHashtableET(
-      nsBaseHashtableET<KeyClass, DataType>&& aToMove)
-  : KeyClass(mozilla::Move(aToMove))
-  , mData(mozilla::Move(aToMove.mData))
+    nsBaseHashtableET<KeyClass, DataType>&& aToMove)
+    : KeyClass(mozilla::Move(aToMove)), mData(mozilla::Move(aToMove.mData))
 {
 }
 
@@ -453,4 +457,4 @@ nsBaseHashtableET<KeyClass, DataType>::~nsBaseHashtableET()
 {
 }
 
-#endif // nsBaseHashtable_h__
+#endif  // nsBaseHashtable_h__

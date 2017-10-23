@@ -21,9 +21,10 @@ NS_IMPL_ADDREF_INHERITED(PaymentRequestUpdateEvent, Event)
 NS_IMPL_RELEASE_INHERITED(PaymentRequestUpdateEvent, Event)
 
 already_AddRefed<PaymentRequestUpdateEvent>
-PaymentRequestUpdateEvent::Constructor(mozilla::dom::EventTarget* aOwner,
-                                       const nsAString& aType,
-                                       const PaymentRequestUpdateEventInit& aEventInitDict)
+PaymentRequestUpdateEvent::Constructor(
+    mozilla::dom::EventTarget* aOwner,
+    const nsAString& aType,
+    const PaymentRequestUpdateEventInit& aEventInitDict)
 {
   RefPtr<PaymentRequestUpdateEvent> e = new PaymentRequestUpdateEvent(aOwner);
   bool trusted = e->Init(aOwner);
@@ -34,25 +35,26 @@ PaymentRequestUpdateEvent::Constructor(mozilla::dom::EventTarget* aOwner,
 }
 
 already_AddRefed<PaymentRequestUpdateEvent>
-PaymentRequestUpdateEvent::Constructor(const GlobalObject& aGlobal,
-                                       const nsAString& aType,
-                                       const PaymentRequestUpdateEventInit& aEventInitDict,
-                                       ErrorResult& aRv)
+PaymentRequestUpdateEvent::Constructor(
+    const GlobalObject& aGlobal,
+    const nsAString& aType,
+    const PaymentRequestUpdateEventInit& aEventInitDict,
+    ErrorResult& aRv)
 {
-  nsCOMPtr<mozilla::dom::EventTarget> owner = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<mozilla::dom::EventTarget> owner =
+      do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(owner, aType, aEventInitDict);
 }
 
 PaymentRequestUpdateEvent::PaymentRequestUpdateEvent(EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
-  , mWaitForUpdate(false)
-  , mRequest(nullptr)
+    : Event(aOwner, nullptr, nullptr), mWaitForUpdate(false), mRequest(nullptr)
 {
   MOZ_ASSERT(aOwner);
 }
 
 void
-PaymentRequestUpdateEvent::ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue)
+PaymentRequestUpdateEvent::ResolvedCallback(JSContext* aCx,
+                                            JS::Handle<JS::Value> aValue)
 {
   MOZ_ASSERT(aCx);
   MOZ_ASSERT(mRequest);
@@ -72,7 +74,8 @@ PaymentRequestUpdateEvent::ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value
   // dispatched when shippingAddress/shippingOption is changed, and it also means
   // Options.RequestShipping must be true while creating the corresponding
   // PaymentRequest.
-  nsresult rv = mRequest->IsValidDetailsUpdate(details, true/*aRequestShipping*/);
+  nsresult rv =
+      mRequest->IsValidDetailsUpdate(details, true /*aRequestShipping*/);
   if (NS_FAILED(rv)) {
     mRequest->AbortUpdate(rv);
     return;
@@ -88,7 +91,8 @@ PaymentRequestUpdateEvent::ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value
 }
 
 void
-PaymentRequestUpdateEvent::RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue)
+PaymentRequestUpdateEvent::RejectedCallback(JSContext* aCx,
+                                            JS::Handle<JS::Value> aValue)
 {
   MOZ_ASSERT(mRequest);
 
@@ -130,9 +134,7 @@ PaymentRequestUpdateEvent::SetRequest(PaymentRequest* aRequest)
   mRequest = aRequest;
 }
 
-PaymentRequestUpdateEvent::~PaymentRequestUpdateEvent()
-{
-}
+PaymentRequestUpdateEvent::~PaymentRequestUpdateEvent() {}
 
 JSObject*
 PaymentRequestUpdateEvent::WrapObjectInternal(JSContext* aCx,
@@ -141,6 +143,5 @@ PaymentRequestUpdateEvent::WrapObjectInternal(JSContext* aCx,
   return PaymentRequestUpdateEventBinding::Wrap(aCx, this, aGivenProto);
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

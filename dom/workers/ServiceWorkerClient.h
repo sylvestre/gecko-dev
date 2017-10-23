@@ -30,18 +30,15 @@ class ServiceWorkerClientInfo final
   friend class ServiceWorkerClient;
   friend class ServiceWorkerWindowClient;
 
-public:
+ public:
   explicit ServiceWorkerClientInfo(nsIDocument* aDoc, uint32_t aOrdinal = 0);
 
-  const nsString& ClientId() const
-  {
-    return mClientId;
-  }
+  const nsString& ClientId() const { return mClientId; }
 
   bool operator<(const ServiceWorkerClientInfo& aRight) const;
   bool operator==(const ServiceWorkerClientInfo& aRight) const;
 
-private:
+ private:
   const mozilla::dom::ClientType mType;
   const uint32_t mOrdinal;
   nsString mClientId;
@@ -55,74 +52,58 @@ private:
   bool mFocused;
 };
 
-class ServiceWorkerClient : public nsISupports,
-                            public nsWrapperCache
+class ServiceWorkerClient : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ServiceWorkerClient)
 
   ServiceWorkerClient(nsISupports* aOwner,
                       const ServiceWorkerClientInfo& aClientInfo)
-    : mOwner(aOwner)
-    , mType(aClientInfo.mType)
-    , mId(aClientInfo.mClientId)
-    , mUrl(aClientInfo.mUrl)
-    , mWindowId(aClientInfo.mWindowId)
-    , mFrameType(aClientInfo.mFrameType)
+      : mOwner(aOwner),
+        mType(aClientInfo.mType),
+        mId(aClientInfo.mClientId),
+        mUrl(aClientInfo.mUrl),
+        mWindowId(aClientInfo.mWindowId),
+        mFrameType(aClientInfo.mFrameType)
   {
     MOZ_ASSERT(aOwner);
   }
 
-  nsISupports*
-  GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsISupports* GetParentObject() const { return mOwner; }
 
-  void GetId(nsString& aRetval) const
-  {
-    aRetval = mId;
-  }
+  void GetId(nsString& aRetval) const { aRetval = mId; }
 
-  void
-  GetUrl(nsAString& aUrl) const
-  {
-    aUrl.Assign(mUrl);
-  }
+  void GetUrl(nsAString& aUrl) const { aUrl.Assign(mUrl); }
 
-  mozilla::dom::FrameType
-  FrameType() const
-  {
-    return mFrameType;
-  }
+  mozilla::dom::FrameType FrameType() const { return mFrameType; }
 
-  mozilla::dom::ClientType
-  Type() const;
+  mozilla::dom::ClientType Type() const;
 
-  void
-  PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
-              const Sequence<JSObject*>& aTransferable, ErrorResult& aRv);
+  void PostMessage(JSContext* aCx,
+                   JS::Handle<JS::Value> aMessage,
+                   const Sequence<JSObject*>& aTransferable,
+                   ErrorResult& aRv);
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
-  virtual ~ServiceWorkerClient()
-  { }
+ protected:
+  virtual ~ServiceWorkerClient() {}
 
-private:
+ private:
   nsCOMPtr<nsISupports> mOwner;
   const ClientType mType;
   nsString mId;
   nsString mUrl;
 
-protected:
+ protected:
   uint64_t mWindowId;
   mozilla::dom::FrameType mFrameType;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerclient_h
+#endif  // mozilla_dom_workers_serviceworkerclient_h

@@ -21,7 +21,8 @@
 
 struct nsGlobalNameStruct
 {
-  enum nametype {
+  enum nametype
+  {
     eTypeNotInitialized,
     eTypeProperty,
     eTypeExternalConstructor,
@@ -33,20 +34,21 @@ struct nsGlobalNameStruct
   bool mAllowXBL : 1;
 
   union {
-    int32_t mDOMClassInfoID; // eTypeClassConstructor
-    nsIID mIID; // eTypeClassProto
-    nsCID mCID; // All other types
+    int32_t mDOMClassInfoID;  // eTypeClassConstructor
+    nsIID mIID;               // eTypeClassProto
+    nsCID mCID;               // All other types
   };
 };
 
 class GlobalNameMapEntry : public PLDHashEntryHdr
 {
-public:
+ public:
   // Our hash table ops don't care about the order of these members.
   nsString mKey;
   nsGlobalNameStruct mGlobalName;
 
-  size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
+  size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+  {
     // Measurement of the following members may be added later if DMD finds it
     // is worthwhile:
     // - mGlobalName
@@ -60,7 +62,7 @@ class nsScriptNameSpaceManager : public nsIObserver,
                                  public nsSupportsWeakReference,
                                  public nsIMemoryReporter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIMEMORYREPORTER
@@ -75,21 +77,21 @@ public:
   // It also returns a pointer to the string buffer of the classname
   // in the nsGlobalNameStruct.
   const nsGlobalNameStruct* LookupName(const nsAString& aName,
-                                       const char16_t **aClassName = nullptr);
+                                       const char16_t** aClassName = nullptr);
 
-  nsresult RegisterClassName(const char *aClassName,
+  nsresult RegisterClassName(const char* aClassName,
                              int32_t aDOMClassInfoID,
                              bool aPrivileged,
                              bool aXBLAllowed,
-                             const char16_t **aResult);
+                             const char16_t** aResult);
 
-  nsresult RegisterClassProto(const char *aClassName,
-                              const nsIID *aConstructorProtoIID,
-                              bool *aFoundOld);
+  nsresult RegisterClassProto(const char* aClassName,
+                              const nsIID* aConstructorProtoIID,
+                              bool* aFoundOld);
 
   class NameIterator : public PLDHashTable::Iterator
   {
-  public:
+   public:
     typedef PLDHashTable::Iterator Base;
     explicit NameIterator(PLDHashTable* aTable) : Base(aTable) {}
     NameIterator(NameIterator&& aOther) : Base(mozilla::Move(aOther.mTable)) {}
@@ -99,32 +101,32 @@ public:
       return static_cast<const GlobalNameMapEntry*>(Base::Get());
     }
 
-  private:
+   private:
     NameIterator() = delete;
     NameIterator(const NameIterator&) = delete;
     NameIterator& operator=(const NameIterator&) = delete;
     NameIterator& operator=(const NameIterator&&) = delete;
   };
 
-  NameIterator GlobalNameIter()    { return NameIterator(&mGlobalNames); }
+  NameIterator GlobalNameIter() { return NameIterator(&mGlobalNames); }
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   virtual ~nsScriptNameSpaceManager();
 
   // Adds a new entry to the hash and returns the nsGlobalNameStruct
   // that aKey will be mapped to. If mType in the returned
   // nsGlobalNameStruct is != eTypeNotInitialized, an entry for aKey
   // already existed.
-  nsGlobalNameStruct *AddToHash(const char *aKey,
-                                const char16_t **aClassName = nullptr);
+  nsGlobalNameStruct* AddToHash(const char* aKey,
+                                const char16_t** aClassName = nullptr);
 
   // Removes an existing entry from the hash.
-  void RemoveFromHash(const nsAString *aKey);
+  void RemoveFromHash(const nsAString* aKey);
 
-  nsresult FillHash(nsICategoryManager *aCategoryManager,
-                    const char *aCategory);
+  nsresult FillHash(nsICategoryManager* aCategoryManager,
+                    const char* aCategory);
 
   /**
    * Add a new category entry into the hash table.

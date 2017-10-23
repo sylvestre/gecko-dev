@@ -52,15 +52,10 @@ ActorChild::WorkerHolderNotified() const
   return mWorkerHolder && mWorkerHolder->Notified();
 }
 
-ActorChild::ActorChild()
-{
-}
+ActorChild::ActorChild() {}
 
-ActorChild::~ActorChild()
-{
-  MOZ_DIAGNOSTIC_ASSERT(!mWorkerHolder);
-}
+ActorChild::~ActorChild() { MOZ_DIAGNOSTIC_ASSERT(!mWorkerHolder); }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

@@ -34,12 +34,11 @@ namespace detail {
  * type T. If you need other bounds, implement a clamped-type class and
  * specialize the type traits accordingly.
  */
-template <typename T>
+template<typename T>
 class SaturateOp
 {
-public:
-  explicit SaturateOp(T& aValue)
-    : mValue(aValue)
+ public:
+  explicit SaturateOp(T& aValue) : mValue(aValue)
   {
     // We should actually check for |std::is_scalar<T>::value| to be
     // true, but this type trait is not available everywhere. Relax
@@ -50,15 +49,9 @@ public:
 
   // Add and subtract operators
 
-  T operator+(const T& aRhs) const
-  {
-    return T(mValue) += aRhs;
-  }
+  T operator+(const T& aRhs) const { return T(mValue) += aRhs; }
 
-  T operator-(const T& aRhs) const
-  {
-    return T(mValue) -= aRhs;
-  }
+  T operator-(const T& aRhs) const { return T(mValue) -= aRhs; }
 
   // Compound operators
 
@@ -90,31 +83,31 @@ public:
 
   // Increment and decrement operators
 
-  const T& operator++() const // prefix
+  const T& operator++() const  // prefix
   {
     return operator+=(static_cast<T>(1));
   }
 
-  T operator++(int) const // postfix
+  T operator++(int)const  // postfix
   {
     const T value(mValue);
     operator++();
     return value;
   }
 
-  const T& operator--() const // prefix
+  const T& operator--() const  // prefix
   {
     return operator-=(static_cast<T>(1));
   }
 
-  T operator--(int) const // postfix
+  T operator--(int)const  // postfix
   {
     const T value(mValue);
     operator--();
     return value;
   }
 
-private:
+ private:
   SaturateOp(const SaturateOp<T>&) = delete;
   SaturateOp(SaturateOp<T>&&) = delete;
   SaturateOp& operator=(const SaturateOp<T>&) = delete;
@@ -127,26 +120,18 @@ private:
  * |Saturate<T>| is a value type for saturation arithmetics. It's
  * build on top of |SaturateOp<T>|.
  */
-template <typename T>
+template<typename T>
 class Saturate
 {
-public:
+ public:
   Saturate() = default;
   MOZ_IMPLICIT Saturate(const Saturate<T>&) = default;
 
-  MOZ_IMPLICIT Saturate(Saturate<T>&& aValue)
-  {
-    mValue = Move(aValue.mValue);
-  }
+  MOZ_IMPLICIT Saturate(Saturate<T>&& aValue) { mValue = Move(aValue.mValue); }
 
-  explicit Saturate(const T& aValue)
-    : mValue(aValue)
-  { }
+  explicit Saturate(const T& aValue) : mValue(aValue) {}
 
-  const T& value() const
-  {
-    return mValue;
-  }
+  const T& value() const { return mValue; }
 
   // Compare operators
 
@@ -155,20 +140,11 @@ public:
     return mValue == aRhs.mValue;
   }
 
-  bool operator!=(const Saturate<T>& aRhs) const
-  {
-    return !operator==(aRhs);
-  }
+  bool operator!=(const Saturate<T>& aRhs) const { return !operator==(aRhs); }
 
-  bool operator==(const T& aRhs) const
-  {
-    return mValue == aRhs;
-  }
+  bool operator==(const T& aRhs) const { return mValue == aRhs; }
 
-  bool operator!=(const T& aRhs) const
-  {
-    return !operator==(aRhs);
-  }
+  bool operator!=(const T& aRhs) const { return !operator==(aRhs); }
 
   // Assignment operators
 
@@ -234,33 +210,33 @@ public:
 
   // Increment and decrement operators
 
-  Saturate<T>& operator++() // prefix
+  Saturate<T>& operator++()  // prefix
   {
     ++SaturateOp<T>(mValue);
     return *this;
   }
 
-  Saturate<T> operator++(int) // postfix
+  Saturate<T> operator++(int)  // postfix
   {
     return Saturate<T>(SaturateOp<T>(mValue)++);
   }
 
-  Saturate<T>& operator--() // prefix
+  Saturate<T>& operator--()  // prefix
   {
     --SaturateOp<T>(mValue);
     return *this;
   }
 
-  Saturate<T> operator--(int) // postfix
+  Saturate<T> operator--(int)  // postfix
   {
     return Saturate<T>(SaturateOp<T>(mValue)--);
   }
 
-private:
+ private:
   T mValue;
 };
 
-} // namespace detail
+}  // namespace detail
 
 typedef detail::Saturate<int8_t> SaturateInt8;
 typedef detail::Saturate<int16_t> SaturateInt16;
@@ -269,7 +245,7 @@ typedef detail::Saturate<uint8_t> SaturateUint8;
 typedef detail::Saturate<uint16_t> SaturateUint16;
 typedef detail::Saturate<uint32_t> SaturateUint32;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 template<typename LhsT, typename RhsT>
 bool
@@ -285,4 +261,4 @@ operator!=(LhsT aLhs, const mozilla::detail::Saturate<RhsT>& aRhs)
   return !(aLhs == aRhs);
 }
 
-#endif // mozilla_Saturate_h
+#endif  // mozilla_Saturate_h

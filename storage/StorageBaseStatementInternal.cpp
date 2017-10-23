@@ -23,7 +23,7 @@ namespace storage {
  */
 class AsyncStatementFinalizer : public Runnable
 {
-public:
+ public:
   /**
    * Constructor for the event.
    *
@@ -37,9 +37,9 @@ public:
    */
   AsyncStatementFinalizer(StorageBaseStatementInternal* aStatement,
                           Connection* aConnection)
-    : Runnable("storage::AsyncStatementFinalizer")
-    , mStatement(aStatement)
-    , mConnection(aConnection)
+      : Runnable("storage::AsyncStatementFinalizer"),
+        mStatement(aStatement),
+        mConnection(aConnection)
   {
   }
 
@@ -51,11 +51,13 @@ public:
     }
 
     nsCOMPtr<nsIThread> targetThread(mConnection->threadOpenedOn);
-    NS_ProxyRelease(
-      "AsyncStatementFinalizer::mStatement", targetThread, mStatement.forget());
+    NS_ProxyRelease("AsyncStatementFinalizer::mStatement",
+                    targetThread,
+                    mStatement.forget());
     return NS_OK;
   }
-private:
+
+ private:
   RefPtr<StorageBaseStatementInternal> mStatement;
   RefPtr<Connection> mConnection;
 };
@@ -66,7 +68,7 @@ private:
  */
 class LastDitchSqliteStatementFinalizer : public Runnable
 {
-public:
+ public:
   /**
    * Event constructor.
    *
@@ -84,9 +86,9 @@ public:
    */
   LastDitchSqliteStatementFinalizer(RefPtr<Connection>& aConnection,
                                     sqlite3_stmt* aStatement)
-    : Runnable("storage::LastDitchSqliteStatementFinalizer")
-    , mConnection(aConnection)
-    , mAsyncStatement(aStatement)
+      : Runnable("storage::LastDitchSqliteStatementFinalizer"),
+        mConnection(aConnection),
+        mAsyncStatement(aStatement)
   {
     NS_PRECONDITION(aConnection, "You must provide a Connection");
   }
@@ -97,32 +99,33 @@ public:
     mAsyncStatement = nullptr;
 
     nsCOMPtr<nsIThread> target(mConnection->threadOpenedOn);
-    (void)::NS_ProxyRelease(
-      "LastDitchSqliteStatementFinalizer::mConnection",
-      target, mConnection.forget());
+    (void)::NS_ProxyRelease("LastDitchSqliteStatementFinalizer::mConnection",
+                            target,
+                            mConnection.forget());
     return NS_OK;
   }
-private:
+
+ private:
   RefPtr<Connection> mConnection;
-  sqlite3_stmt *mAsyncStatement;
+  sqlite3_stmt* mAsyncStatement;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 //// StorageBaseStatementInternal
 
 StorageBaseStatementInternal::StorageBaseStatementInternal()
-: mAsyncStatement(nullptr)
+    : mAsyncStatement(nullptr)
 {
 }
 
 void
 StorageBaseStatementInternal::asyncFinalize()
 {
-  nsIEventTarget *target = mDBConnection->getAsyncExecutionTarget();
+  nsIEventTarget* target = mDBConnection->getAsyncExecutionTarget();
   if (target) {
     // Attempt to finalize asynchronously
     nsCOMPtr<nsIRunnable> event =
-      new AsyncStatementFinalizer(this, mDBConnection);
+        new AsyncStatementFinalizer(this, mDBConnection);
 
     // Dispatch. Note that dispatching can fail, typically if
     // we have a race condition with asyncClose(). It's ok,
@@ -138,8 +141,7 @@ StorageBaseStatementInternal::asyncFinalize()
 void
 StorageBaseStatementInternal::destructorAsyncFinalize()
 {
-  if (!mAsyncStatement)
-    return;
+  if (!mAsyncStatement) return;
 
   bool isOwningThread = false;
   (void)mDBConnection->threadOpenedOn->IsOnCurrentThread(&isOwningThread);
@@ -147,20 +149,19 @@ StorageBaseStatementInternal::destructorAsyncFinalize()
     // If we are the owning thread (currently that means we're also the
     // main thread), then we can get the async target and just dispatch
     // to it.
-    nsIEventTarget *target = mDBConnection->getAsyncExecutionTarget();
+    nsIEventTarget* target = mDBConnection->getAsyncExecutionTarget();
     if (target) {
       nsCOMPtr<nsIRunnable> event =
-        new LastDitchSqliteStatementFinalizer(mDBConnection, mAsyncStatement);
+          new LastDitchSqliteStatementFinalizer(mDBConnection, mAsyncStatement);
       (void)target->Dispatch(event, NS_DISPATCH_NORMAL);
     }
   } else {
     // If we're not the owning thread, assume we're the async thread, and
     // just run the statement.
     nsCOMPtr<nsIRunnable> event =
-      new LastDitchSqliteStatementFinalizer(mDBConnection, mAsyncStatement);
+        new LastDitchSqliteStatementFinalizer(mDBConnection, mAsyncStatement);
     (void)event->Run();
   }
-
 
   // We might not be able to dispatch to the background thread,
   // presumably because it is being shutdown. Since said shutdown will
@@ -170,8 +171,7 @@ StorageBaseStatementInternal::destructorAsyncFinalize()
 
 NS_IMETHODIMP
 StorageBaseStatementInternal::NewBindingParamsArray(
-  mozIStorageBindingParamsArray **_array
-)
+    mozIStorageBindingParamsArray** _array)
 {
   nsCOMPtr<mozIStorageBindingParamsArray> array = new BindingParamsArray(this);
   NS_ENSURE_TRUE(array, NS_ERROR_OUT_OF_MEMORY);
@@ -182,9 +182,8 @@ StorageBaseStatementInternal::NewBindingParamsArray(
 
 NS_IMETHODIMP
 StorageBaseStatementInternal::ExecuteAsync(
-  mozIStorageStatementCallback *aCallback,
-  mozIStoragePendingStatement **_stmt
-)
+    mozIStorageStatementCallback* aCallback,
+    mozIStoragePendingStatement** _stmt)
 {
   // We used to call Connection::ExecuteAsync but it takes a
   // mozIStorageBaseStatement signature because it is also a public API.  Since
@@ -198,16 +197,14 @@ StorageBaseStatementInternal::ExecuteAsync(
   NS_ENSURE_TRUE(stmts.AppendElement(data), NS_ERROR_OUT_OF_MEMORY);
 
   // Dispatch to the background
-  return AsyncExecuteStatements::execute(stmts, mDBConnection,
-                                         mNativeConnection, aCallback, _stmt);
+  return AsyncExecuteStatements::execute(
+      stmts, mDBConnection, mNativeConnection, aCallback, _stmt);
 }
 
 NS_IMETHODIMP
-StorageBaseStatementInternal::EscapeStringForLIKE(
-  const nsAString &aValue,
-  const char16_t aEscapeChar,
-  nsAString &_escapedString
-)
+StorageBaseStatementInternal::EscapeStringForLIKE(const nsAString& aValue,
+                                                  const char16_t aEscapeChar,
+                                                  nsAString& _escapedString)
 {
   const char16_t MATCH_ALL('%');
   const char16_t MATCH_ONE('_');
@@ -224,5 +221,5 @@ StorageBaseStatementInternal::EscapeStringForLIKE(
   return NS_OK;
 }
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla

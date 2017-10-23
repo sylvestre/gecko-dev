@@ -5,7 +5,6 @@
 
 #include "PDFiumEngineShim.h"
 
-
 namespace mozilla {
 namespace widget {
 
@@ -40,15 +39,15 @@ PDFiumEngineShim::GetInstanceOrNull(const nsCString& aLibrary)
 }
 
 PDFiumEngineShim::PDFiumEngineShim()
-  : mInitialized(false)
-  , mFPDF_InitLibrary(nullptr)
-  , mFPDF_DestroyLibrary(nullptr)
-  , mFPDF_CloseDocument(nullptr)
-  , mFPDF_GetPageCount(nullptr)
-  , mFPDF_LoadPage(nullptr)
-  , mFPDF_ClosePage(nullptr)
-  , mFPDF_RenderPage(nullptr)
-  , mPRLibrary(nullptr)
+    : mInitialized(false),
+      mFPDF_InitLibrary(nullptr),
+      mFPDF_DestroyLibrary(nullptr),
+      mFPDF_CloseDocument(nullptr),
+      mFPDF_GetPageCount(nullptr),
+      mFPDF_LoadPage(nullptr),
+      mFPDF_ClosePage(nullptr),
+      mFPDF_RenderPage(nullptr),
+      mPRLibrary(nullptr)
 {
 }
 
@@ -76,35 +75,35 @@ PDFiumEngineShim::Init(const nsCString& aLibrary)
   NS_ENSURE_TRUE(mPRLibrary, false);
 
   mFPDF_InitLibrary = (FPDF_InitLibrary_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_InitLibrary");
+      mPRLibrary, "FPDF_InitLibrary");
   NS_ENSURE_TRUE(mFPDF_InitLibrary, false);
 
   mFPDF_DestroyLibrary = (FPDF_DestroyLibrary_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_DestroyLibrary");
+      mPRLibrary, "FPDF_DestroyLibrary");
   NS_ENSURE_TRUE(mFPDF_DestroyLibrary, false);
 
   mFPDF_LoadDocument = (FPDF_LoadDocument_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_LoadDocument");
+      mPRLibrary, "FPDF_LoadDocument");
   NS_ENSURE_TRUE(mFPDF_LoadDocument, false);
 
   mFPDF_CloseDocument = (FPDF_CloseDocument_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_CloseDocument");
+      mPRLibrary, "FPDF_CloseDocument");
   NS_ENSURE_TRUE(mFPDF_CloseDocument, false);
 
   mFPDF_GetPageCount = (FPDF_GetPageCount_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_GetPageCount");
+      mPRLibrary, "FPDF_GetPageCount");
   NS_ENSURE_TRUE(mFPDF_GetPageCount, false);
 
-  mFPDF_LoadPage = (FPDF_LoadPage_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_LoadPage");
+  mFPDF_LoadPage =
+      (FPDF_LoadPage_Pfn)PR_FindFunctionSymbol(mPRLibrary, "FPDF_LoadPage");
   NS_ENSURE_TRUE(mFPDF_LoadPage, false);
 
-  mFPDF_ClosePage = (FPDF_ClosePage_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_ClosePage");
+  mFPDF_ClosePage =
+      (FPDF_ClosePage_Pfn)PR_FindFunctionSymbol(mPRLibrary, "FPDF_ClosePage");
   NS_ENSURE_TRUE(mFPDF_ClosePage, false);
 
-  mFPDF_RenderPage = (FPDF_RenderPage_Pfn)PR_FindFunctionSymbol(
-    mPRLibrary, "FPDF_RenderPage");
+  mFPDF_RenderPage =
+      (FPDF_RenderPage_Pfn)PR_FindFunctionSymbol(mPRLibrary, "FPDF_RenderPage");
   NS_ENSURE_TRUE(mFPDF_RenderPage, false);
 
   mFPDF_InitLibrary();
@@ -113,8 +112,7 @@ PDFiumEngineShim::Init(const nsCString& aLibrary)
 }
 
 FPDF_DOCUMENT
-PDFiumEngineShim::LoadDocument(FPDF_STRING file_path,
-                               FPDF_BYTESTRING aPassword)
+PDFiumEngineShim::LoadDocument(FPDF_STRING file_path, FPDF_BYTESTRING aPassword)
 {
   MOZ_ASSERT(mInitialized);
   return mFPDF_LoadDocument(file_path, aPassword);
@@ -149,15 +147,19 @@ PDFiumEngineShim::ClosePage(FPDF_PAGE aPage)
 }
 
 void
-PDFiumEngineShim::RenderPage(HDC aDC, FPDF_PAGE aPage,
-                             int aStartX, int aStartY,
-                             int aSizeX, int aSizeY,
-                             int aRotate, int aFlags)
+PDFiumEngineShim::RenderPage(HDC aDC,
+                             FPDF_PAGE aPage,
+                             int aStartX,
+                             int aStartY,
+                             int aSizeX,
+                             int aSizeY,
+                             int aRotate,
+                             int aFlags)
 {
   MOZ_ASSERT(mInitialized);
-  mFPDF_RenderPage(aDC, aPage, aStartX, aStartY,
-                   aSizeX, aSizeY, aRotate, aFlags);
+  mFPDF_RenderPage(
+      aDC, aPage, aStartX, aStartY, aSizeX, aSizeY, aRotate, aFlags);
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

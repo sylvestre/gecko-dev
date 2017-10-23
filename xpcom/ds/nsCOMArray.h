@@ -23,17 +23,15 @@
 class nsCOMArray_base
 {
   friend class nsArrayBase;
-protected:
+
+ protected:
   nsCOMArray_base() {}
   explicit nsCOMArray_base(int32_t aCount) : mArray(aCount) {}
   nsCOMArray_base(const nsCOMArray_base& aOther);
   ~nsCOMArray_base();
 
   int32_t IndexOf(nsISupports* aObject, uint32_t aStartIndex = 0) const;
-  bool Contains(nsISupports* aObject) const
-  {
-    return IndexOf(aObject) != -1;
-  }
+  bool Contains(nsISupports* aObject) const { return IndexOf(aObject) != -1; }
 
   int32_t IndexOfObject(nsISupports* aObject) const;
   bool ContainsObject(nsISupports* aObject) const
@@ -58,7 +56,8 @@ protected:
     void* mData;
   };
 
-  static int nsCOMArrayComparator(const void* aElement1, const void* aElement2,
+  static int nsCOMArrayComparator(const void* aElement1,
+                                  const void* aElement2,
                                   void* aData);
   void Sort(nsBaseArrayComparatorFunc aFunc, void* aData);
 
@@ -67,7 +66,8 @@ protected:
   void InsertElementAt(uint32_t aIndex, already_AddRefed<nsISupports> aElement);
   bool InsertObjectsAt(const nsCOMArray_base& aObjects, int32_t aIndex);
   void InsertElementsAt(uint32_t aIndex, const nsCOMArray_base& aElements);
-  void InsertElementsAt(uint32_t aIndex, nsISupports* const* aElements,
+  void InsertElementsAt(uint32_t aIndex,
+                        nsISupports* const* aElements,
                         uint32_t aCount);
   void ReplaceObjectAt(nsISupports* aObject, int32_t aIndex);
   void ReplaceElementAt(uint32_t aIndex, nsISupports* aElement)
@@ -110,7 +110,8 @@ protected:
 
   void Adopt(nsISupports** aElements, uint32_t aCount);
   uint32_t Forget(nsISupports*** aElements);
-public:
+
+ public:
   // elements in the array (including null elements!)
   int32_t Count() const { return mArray.Length(); }
   // nsTArray-compatible version
@@ -183,8 +184,7 @@ public:
     return mArray.ShallowSizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
-
+ private:
   // the actual storage
   nsTArray<nsISupports*> mArray;
 
@@ -211,7 +211,6 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
   }
 }
 
-
 // a non-XPCOM, refcounting array of XPCOM objects
 // used as a member variable or stack variable - this object is NOT
 // refcounted, but the objects that it holds are
@@ -232,12 +231,12 @@ ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
 template<class T>
 class nsCOMArray : public nsCOMArray_base
 {
-public:
-  typedef int32_t                                       index_type;
-  typedef mozilla::ArrayIterator<T*, nsCOMArray>        iterator;
-  typedef mozilla::ArrayIterator<const T*, nsCOMArray>  const_iterator;
-  typedef mozilla::ReverseIterator<iterator>            reverse_iterator;
-  typedef mozilla::ReverseIterator<const_iterator>      const_reverse_iterator;
+ public:
+  typedef int32_t index_type;
+  typedef mozilla::ArrayIterator<T*, nsCOMArray> iterator;
+  typedef mozilla::ArrayIterator<const T*, nsCOMArray> const_iterator;
+  typedef mozilla::ReverseIterator<iterator> reverse_iterator;
+  typedef mozilla::ReverseIterator<const_iterator> const_reverse_iterator;
 
   nsCOMArray() {}
   explicit nsCOMArray(int32_t aCount) : nsCOMArray_base(aCount) {}
@@ -246,7 +245,7 @@ public:
   ~nsCOMArray() {}
 
   // We have a move assignment operator, but no copy assignment operator.
-  nsCOMArray<T>& operator=(nsCOMArray<T> && aOther)
+  nsCOMArray<T>& operator=(nsCOMArray<T>&& aOther)
   {
     SwapElements(aOther);
     return *this;
@@ -284,10 +283,7 @@ public:
   {
     return nsCOMArray_base::IndexOf(aObject, aStartIndex);
   }
-  bool Contains(T* aObject) const
-  {
-    return nsCOMArray_base::Contains(aObject);
-  }
+  bool Contains(T* aObject) const { return nsCOMArray_base::Contains(aObject); }
 
   // index of the element in question.. be careful!
   // this is much slower than IndexOf() because it uses
@@ -329,7 +325,7 @@ public:
   void InsertElementsAt(uint32_t aIndex, T* const* aElements, uint32_t aCount)
   {
     nsCOMArray_base::InsertElementsAt(
-      aIndex, reinterpret_cast<nsISupports* const*>(aElements), aCount);
+        aIndex, reinterpret_cast<nsISupports* const*>(aElements), aCount);
   }
 
   // replaces an existing element. Warning: if the array grows,
@@ -344,7 +340,8 @@ public:
     nsCOMArray_base::ReplaceElementAt(aIndex, aElement);
   }
 
-  typedef int (*nsCOMArrayComparatorFunc)(T* aElement1, T* aElement2,
+  typedef int (*nsCOMArrayComparatorFunc)(T* aElement1,
+                                          T* aElement2,
                                           void* aData);
 
   void Sort(nsCOMArrayComparatorFunc aFunc, void* aData)
@@ -358,10 +355,7 @@ public:
     return nsCOMArray_base::AppendObject(aObject);
   }
   // nsTArray-compatible version
-  void AppendElement(T* aElement)
-  {
-    nsCOMArray_base::AppendElement(aElement);
-  }
+  void AppendElement(T* aElement) { nsCOMArray_base::AppendElement(aElement); }
   void AppendElement(already_AddRefed<T> aElement)
   {
     nsCOMArray_base::AppendElement(mozilla::Move(aElement));
@@ -395,10 +389,7 @@ public:
     return nsCOMArray_base::RemoveObject(aElement);
   }
 
-  T** Elements()
-  {
-    return reinterpret_cast<T**>(nsCOMArray_base::Elements());
-  }
+  T** Elements() { return reinterpret_cast<T**>(nsCOMArray_base::Elements()); }
   void SwapElements(nsCOMArray<T>& aOther)
   {
     nsCOMArray_base::SwapElements(aOther);
@@ -443,14 +434,19 @@ public:
 
   // Methods for reverse iterating.
   reverse_iterator rbegin() { return reverse_iterator(end()); }
-  const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+  const_reverse_iterator rbegin() const
+  {
+    return const_reverse_iterator(end());
+  }
   const_reverse_iterator crbegin() const { return rbegin(); }
   reverse_iterator rend() { return reverse_iterator(begin()); }
-  const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+  const_reverse_iterator rend() const
+  {
+    return const_reverse_iterator(begin());
+  }
   const_reverse_iterator crend() const { return rend(); }
 
-private:
-
+ private:
   // don't implement these!
   nsCOMArray<T>& operator=(const nsCOMArray<T>& aOther) = delete;
 };

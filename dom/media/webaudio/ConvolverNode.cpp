@@ -27,40 +27,42 @@ NS_IMPL_RELEASE_INHERITED(ConvolverNode, AudioNode)
 class ConvolverNodeEngine final : public AudioNodeEngine
 {
   typedef PlayingRefChangeHandler PlayingRefChanged;
-public:
+
+ public:
   ConvolverNodeEngine(AudioNode* aNode, bool aNormalize)
-    : AudioNodeEngine(aNode)
-    , mLeftOverData(INT32_MIN)
-    , mSampleRate(0.0f)
-    , mUseBackgroundThreads(!aNode->Context()->IsOffline())
-    , mNormalize(aNormalize)
+      : AudioNodeEngine(aNode),
+        mLeftOverData(INT32_MIN),
+        mSampleRate(0.0f),
+        mUseBackgroundThreads(!aNode->Context()->IsOffline()),
+        mNormalize(aNormalize)
   {
   }
 
-  enum Parameters {
+  enum Parameters
+  {
     SAMPLE_RATE,
     NORMALIZE
   };
   void SetInt32Parameter(uint32_t aIndex, int32_t aParam) override
   {
     switch (aIndex) {
-    case NORMALIZE:
-      mNormalize = !!aParam;
-      break;
-    default:
-      NS_ERROR("Bad ConvolverNodeEngine Int32Parameter");
+      case NORMALIZE:
+        mNormalize = !!aParam;
+        break;
+      default:
+        NS_ERROR("Bad ConvolverNodeEngine Int32Parameter");
     }
   }
   void SetDoubleParameter(uint32_t aIndex, double aParam) override
   {
     switch (aIndex) {
-    case SAMPLE_RATE:
-      mSampleRate = aParam;
-      // The buffer is passed after the sample rate.
-      // mReverb will be set using this sample rate when the buffer is received.
-      break;
-    default:
-      NS_ERROR("Bad ConvolverNodeEngine DoubleParameter");
+      case SAMPLE_RATE:
+        mSampleRate = aParam;
+        // The buffer is passed after the sample rate.
+        // mReverb will be set using this sample rate when the buffer is received.
+        break;
+      default:
+        NS_ERROR("Bad ConvolverNodeEngine DoubleParameter");
     }
   }
   void SetBuffer(AudioChunk&& aBuffer) override
@@ -73,15 +75,15 @@ public:
     // Very large FFTs will have worse phase errors. Given these constraints 32768 is a good compromise.
     const size_t MaxFFTSize = 32768;
 
-    mLeftOverData = INT32_MIN; // reset
+    mLeftOverData = INT32_MIN;  // reset
 
     if (aBuffer.IsNull() || !mSampleRate) {
       mReverb = nullptr;
       return;
     }
 
-    mReverb = new WebCore::Reverb(aBuffer, MaxFFTSize, mUseBackgroundThreads,
-                                  mNormalize, mSampleRate);
+    mReverb = new WebCore::Reverb(
+        aBuffer, MaxFFTSize, mUseBackgroundThreads, mNormalize, mSampleRate);
   }
 
   void ProcessBlock(AudioNodeStream* aStream,
@@ -106,9 +108,9 @@ public:
           mLeftOverData = INT32_MIN;
           aStream->ScheduleCheckForInactive();
           RefPtr<PlayingRefChanged> refchanged =
-            new PlayingRefChanged(aStream, PlayingRefChanged::RELEASE);
+              new PlayingRefChanged(aStream, PlayingRefChanged::RELEASE);
           aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-            refchanged.forget());
+              refchanged.forget());
         }
         aOutput->SetNull(WEBAUDIO_BLOCK_SIZE);
         return;
@@ -127,9 +129,9 @@ public:
 
       if (mLeftOverData <= 0) {
         RefPtr<PlayingRefChanged> refchanged =
-          new PlayingRefChanged(aStream, PlayingRefChanged::ADDREF);
+            new PlayingRefChanged(aStream, PlayingRefChanged::ADDREF);
         aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-          refchanged.forget());
+            refchanged.forget());
       }
       mLeftOverData = mReverb->impulseResponseLength();
       MOZ_ASSERT(mLeftOverData > 0);
@@ -139,10 +141,7 @@ public:
     mReverb->process(&input, aOutput);
   }
 
-  bool IsActive() const override
-  {
-    return mLeftOverData != INT32_MIN;
-  }
+  bool IsActive() const override { return mLeftOverData != INT32_MIN; }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override
   {
@@ -160,7 +159,7 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   nsAutoPtr<WebCore::Reverb> mReverb;
   int32_t mLeftOverData;
   float mSampleRate;
@@ -169,20 +168,20 @@ private:
 };
 
 ConvolverNode::ConvolverNode(AudioContext* aContext)
-  : AudioNode(aContext,
-              2,
-              ChannelCountMode::Clamped_max,
-              ChannelInterpretation::Speakers)
-  , mNormalize(true)
+    : AudioNode(aContext,
+                2,
+                ChannelCountMode::Clamped_max,
+                ChannelInterpretation::Speakers),
+      mNormalize(true)
 {
   ConvolverNodeEngine* engine = new ConvolverNodeEngine(this, mNormalize);
-  mStream = AudioNodeStream::Create(aContext, engine,
-                                    AudioNodeStream::NO_STREAM_FLAGS,
-                                    aContext->Graph());
+  mStream = AudioNodeStream::Create(
+      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
 }
 
 /* static */ already_AddRefed<ConvolverNode>
-ConvolverNode::Create(JSContext* aCx, AudioContext& aAudioContext,
+ConvolverNode::Create(JSContext* aCx,
+                      AudioContext& aAudioContext,
                       const ConvolverOptions& aOptions,
                       ErrorResult& aRv)
 {
@@ -240,14 +239,14 @@ ConvolverNode::SetBuffer(JSContext* aCx, AudioBuffer* aBuffer, ErrorResult& aRv)
 {
   if (aBuffer) {
     switch (aBuffer->NumberOfChannels()) {
-    case 1:
-    case 2:
-    case 4:
-      // Supported number of channels
-      break;
-    default:
-      aRv.Throw(NS_ERROR_DOM_SYNTAX_ERR);
-      return;
+      case 1:
+      case 2:
+      case 4:
+        // Supported number of channels
+        break;
+      default:
+        aRv.Throw(NS_ERROR_DOM_SYNTAX_ERR);
+        return;
     }
   }
 
@@ -265,17 +264,16 @@ ConvolverNode::SetBuffer(JSContext* aCx, AudioBuffer* aBuffer, ErrorResult& aRv)
       // There is currently no value in providing 16/32-byte aligned data
       // because PadAndMakeScaledDFT() will copy the data (without SIMD
       // instructions) to aligned arrays for the FFT.
-      RefPtr<SharedBuffer> floatBuffer =
-        SharedBuffer::Create(sizeof(float) *
-                             data.mDuration * data.ChannelCount());
+      RefPtr<SharedBuffer> floatBuffer = SharedBuffer::Create(
+          sizeof(float) * data.mDuration * data.ChannelCount());
       if (!floatBuffer) {
         aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
         return;
       }
       auto floatData = static_cast<float*>(floatBuffer->Data());
       for (size_t i = 0; i < data.ChannelCount(); ++i) {
-        ConvertAudioSamples(data.ChannelData<int16_t>()[i],
-                            floatData, data.mDuration);
+        ConvertAudioSamples(
+            data.ChannelData<int16_t>()[i], floatData, data.mDuration);
         data.mChannelData[i] = floatData;
         floatData += data.mDuration;
       }
@@ -299,5 +297,5 @@ ConvolverNode::SetNormalize(bool aNormalize)
   SendInt32ParameterToStream(ConvolverNodeEngine::NORMALIZE, aNormalize);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

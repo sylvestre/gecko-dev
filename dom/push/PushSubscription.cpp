@@ -27,11 +27,10 @@ namespace {
 
 class UnsubscribeResultCallback final : public nsIUnsubscribeResultCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
-  explicit UnsubscribeResultCallback(Promise* aPromise)
-    : mPromise(aPromise)
+  explicit UnsubscribeResultCallback(Promise* aPromise) : mPromise(aPromise)
   {
     AssertIsOnMainThread();
   }
@@ -48,9 +47,8 @@ public:
     return NS_OK;
   }
 
-private:
-  ~UnsubscribeResultCallback()
-  {}
+ private:
+  ~UnsubscribeResultCallback() {}
 
   RefPtr<Promise> mPromise;
 };
@@ -59,21 +57,20 @@ NS_IMPL_ISUPPORTS(UnsubscribeResultCallback, nsIUnsubscribeResultCallback)
 
 class UnsubscribeResultRunnable final : public WorkerRunnable
 {
-public:
+ public:
   UnsubscribeResultRunnable(WorkerPrivate* aWorkerPrivate,
                             already_AddRefed<PromiseWorkerProxy>&& aProxy,
                             nsresult aStatus,
                             bool aSuccess)
-    : WorkerRunnable(aWorkerPrivate)
-    , mProxy(Move(aProxy))
-    , mStatus(aStatus)
-    , mSuccess(aSuccess)
+      : WorkerRunnable(aWorkerPrivate),
+        mProxy(Move(aProxy)),
+        mStatus(aStatus),
+        mSuccess(aSuccess)
   {
     AssertIsOnMainThread();
   }
 
-  bool
-  WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
+  bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
   {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -89,22 +86,23 @@ public:
 
     return true;
   }
-private:
-  ~UnsubscribeResultRunnable()
-  {}
+
+ private:
+  ~UnsubscribeResultRunnable() {}
 
   RefPtr<PromiseWorkerProxy> mProxy;
   nsresult mStatus;
   bool mSuccess;
 };
 
-class WorkerUnsubscribeResultCallback final : public nsIUnsubscribeResultCallback
+class WorkerUnsubscribeResultCallback final
+    : public nsIUnsubscribeResultCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   explicit WorkerUnsubscribeResultCallback(PromiseWorkerProxy* aProxy)
-    : mProxy(aProxy)
+      : mProxy(aProxy)
   {
     AssertIsOnMainThread();
   }
@@ -121,17 +119,15 @@ public:
     }
 
     WorkerPrivate* worker = mProxy->GetWorkerPrivate();
-    RefPtr<UnsubscribeResultRunnable> r =
-      new UnsubscribeResultRunnable(worker, mProxy.forget(), aStatus, aSuccess);
+    RefPtr<UnsubscribeResultRunnable> r = new UnsubscribeResultRunnable(
+        worker, mProxy.forget(), aStatus, aSuccess);
     MOZ_ALWAYS_TRUE(r->Dispatch());
 
     return NS_OK;
   }
 
-private:
-  ~WorkerUnsubscribeResultCallback()
-  {
-  }
+ private:
+  ~WorkerUnsubscribeResultCallback() {}
 
   RefPtr<PromiseWorkerProxy> mProxy;
 };
@@ -140,11 +136,9 @@ NS_IMPL_ISUPPORTS(WorkerUnsubscribeResultCallback, nsIUnsubscribeResultCallback)
 
 class UnsubscribeRunnable final : public Runnable
 {
-public:
+ public:
   UnsubscribeRunnable(PromiseWorkerProxy* aProxy, const nsAString& aScope)
-    : Runnable("dom::UnsubscribeRunnable")
-    , mProxy(aProxy)
-    , mScope(aScope)
+      : Runnable("dom::UnsubscribeRunnable"), mProxy(aProxy), mScope(aScope)
   {
     MOZ_ASSERT(aProxy);
     MOZ_ASSERT(!aScope.IsEmpty());
@@ -168,16 +162,17 @@ public:
     MOZ_ASSERT(principal);
 
     RefPtr<WorkerUnsubscribeResultCallback> callback =
-      new WorkerUnsubscribeResultCallback(mProxy);
+        new WorkerUnsubscribeResultCallback(mProxy);
 
     nsCOMPtr<nsIPushService> service =
-      do_GetService("@mozilla.org/push/Service;1");
+        do_GetService("@mozilla.org/push/Service;1");
     if (NS_WARN_IF(!service)) {
       callback->OnUnsubscribe(NS_ERROR_FAILURE, false);
       return NS_OK;
     }
 
-    if (NS_WARN_IF(NS_FAILED(service->Unsubscribe(mScope, principal, callback)))) {
+    if (NS_WARN_IF(
+            NS_FAILED(service->Unsubscribe(mScope, principal, callback)))) {
       callback->OnUnsubscribe(NS_ERROR_FAILURE, false);
       return NS_OK;
     }
@@ -185,15 +180,14 @@ public:
     return NS_OK;
   }
 
-private:
-  ~UnsubscribeRunnable()
-  {}
+ private:
+  ~UnsubscribeRunnable() {}
 
   RefPtr<PromiseWorkerProxy> mProxy;
   nsString mScope;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 PushSubscription::PushSubscription(nsIGlobalObject* aGlobal,
                                    const nsAString& aEndpoint,
@@ -201,10 +195,10 @@ PushSubscription::PushSubscription(nsIGlobalObject* aGlobal,
                                    nsTArray<uint8_t>&& aRawP256dhKey,
                                    nsTArray<uint8_t>&& aAuthSecret,
                                    nsTArray<uint8_t>&& aAppServerKey)
-  : mEndpoint(aEndpoint)
-  , mScope(aScope)
-  , mRawP256dhKey(Move(aRawP256dhKey))
-  , mAuthSecret(Move(aAuthSecret))
+    : mEndpoint(aEndpoint),
+      mScope(aScope),
+      mRawP256dhKey(Move(aRawP256dhKey)),
+      mAuthSecret(Move(aAuthSecret))
 {
   if (NS_IsMainThread()) {
     mGlobal = aGlobal;
@@ -220,8 +214,7 @@ PushSubscription::PushSubscription(nsIGlobalObject* aGlobal,
   mOptions = new PushSubscriptionOptions(mGlobal, Move(aAppServerKey));
 }
 
-PushSubscription::~PushSubscription()
-{}
+PushSubscription::~PushSubscription() {}
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PushSubscription, mGlobal, mOptions)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(PushSubscription)
@@ -267,7 +260,7 @@ PushSubscription::Constructor(GlobalObject& aGlobal,
   if (aInitDict.mAppServerKey.WasPassed() &&
       !aInitDict.mAppServerKey.Value().IsNull()) {
     const OwningArrayBufferViewOrArrayBuffer& bufferSource =
-      aInitDict.mAppServerKey.Value().Value();
+        aInitDict.mAppServerKey.Value().Value();
     if (!PushUtil::CopyBufferSourceToArray(bufferSource, appServerKey)) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
       return nullptr;
@@ -295,7 +288,7 @@ PushSubscription::Unsubscribe(ErrorResult& aRv)
   MOZ_ASSERT(mGlobal);
 
   nsCOMPtr<nsIPushService> service =
-    do_GetService("@mozilla.org/push/Service;1");
+      do_GetService("@mozilla.org/push/Service;1");
   if (NS_WARN_IF(!service)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -312,10 +305,9 @@ PushSubscription::Unsubscribe(ErrorResult& aRv)
     return nullptr;
   }
 
-  RefPtr<UnsubscribeResultCallback> callback =
-    new UnsubscribeResultCallback(p);
-  Unused << NS_WARN_IF(NS_FAILED(
-    service->Unsubscribe(mScope, sop->GetPrincipal(), callback)));
+  RefPtr<UnsubscribeResultCallback> callback = new UnsubscribeResultCallback(p);
+  Unused << NS_WARN_IF(
+      NS_FAILED(service->Unsubscribe(mScope, sop->GetPrincipal(), callback)));
 
   return p.forget();
 }
@@ -352,7 +344,8 @@ PushSubscription::ToJSON(PushSubscriptionJSON& aJSON, ErrorResult& aRv)
   }
 
   aJSON.mKeys.mAuth.Construct();
-  rv = Base64URLEncode(mAuthSecret.Length(), mAuthSecret.Elements(),
+  rv = Base64URLEncode(mAuthSecret.Length(),
+                       mAuthSecret.Elements(),
                        Base64URLEncodePaddingPolicy::Omit,
                        aJSON.mKeys.mAuth.Value());
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -387,12 +380,11 @@ PushSubscription::UnsubscribeFromWorker(ErrorResult& aRv)
     return p.forget();
   }
 
-  RefPtr<UnsubscribeRunnable> r =
-    new UnsubscribeRunnable(proxy, mScope);
+  RefPtr<UnsubscribeRunnable> r = new UnsubscribeRunnable(proxy, mScope);
   MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(r));
 
   return p.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

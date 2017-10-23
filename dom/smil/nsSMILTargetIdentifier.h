@@ -25,19 +25,22 @@
 struct nsSMILTargetIdentifier
 {
   nsSMILTargetIdentifier()
-    : mElement(nullptr), mAttributeName(nullptr),
-      mAttributeNamespaceID(kNameSpaceID_Unknown) {}
+      : mElement(nullptr),
+        mAttributeName(nullptr),
+        mAttributeNamespaceID(kNameSpaceID_Unknown)
+  {
+  }
 
   inline bool Equals(const nsSMILTargetIdentifier& aOther) const
   {
-    return (aOther.mElement              == mElement &&
-            aOther.mAttributeName        == mAttributeName &&
+    return (aOther.mElement == mElement &&
+            aOther.mAttributeName == mAttributeName &&
             aOther.mAttributeNamespaceID == mAttributeNamespaceID);
   }
 
   RefPtr<mozilla::dom::Element> mElement;
-  RefPtr<nsAtom>               mAttributeName;
-  int32_t                       mAttributeNamespaceID;
+  RefPtr<nsAtom> mAttributeName;
+  int32_t mAttributeNamespaceID;
 };
 
 /**
@@ -52,14 +55,12 @@ struct nsSMILTargetIdentifier
  */
 class nsSMILWeakTargetIdentifier
 {
-public:
+ public:
   // Trivial constructor
-  nsSMILWeakTargetIdentifier()
-    : mElement(nullptr), mAttributeName(nullptr) {}
+  nsSMILWeakTargetIdentifier() : mElement(nullptr), mAttributeName(nullptr) {}
 
   // Allow us to update a weak identifier to match a given non-weak identifier
-  nsSMILWeakTargetIdentifier&
-    operator=(const nsSMILTargetIdentifier& aOther)
+  nsSMILWeakTargetIdentifier& operator=(const nsSMILTargetIdentifier& aOther)
   {
     mElement = aOther.mElement;
     mAttributeName = aOther.mAttributeName;
@@ -69,13 +70,13 @@ public:
   // Allow for comparison vs. non-weak identifier
   inline bool Equals(const nsSMILTargetIdentifier& aOther) const
   {
-    return (aOther.mElement       == mElement &&
+    return (aOther.mElement == mElement &&
             aOther.mAttributeName == mAttributeName);
   }
 
-private:
+ private:
   const nsIContent* mElement;
-  const nsAtom*    mAttributeName;
+  const nsAtom* mAttributeName;
 };
 
-#endif // NS_SMILTARGETIDENTIFIER_H_
+#endif  // NS_SMILTARGETIDENTIFIER_H_

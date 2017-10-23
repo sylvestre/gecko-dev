@@ -82,8 +82,7 @@ typedef ConflictingType jsuword;
 typedef ConflictingType JSWord;
 typedef ConflictingType JSUword;
 
-BEGIN_TEST(testIntTypesABI)
-{
+BEGIN_TEST(testIntTypesABI) {
     /* This passes if the typedefs didn't conflict at compile time. */
     return true;
 }

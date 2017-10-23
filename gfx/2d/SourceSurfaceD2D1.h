@@ -19,11 +19,13 @@ class DrawTargetD2D1;
 
 class SourceSurfaceD2D1 : public SourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SourceSurfaceD2D1)
-  SourceSurfaceD2D1(ID2D1Image* aImage, ID2D1DeviceContext *aDC,
-                    SurfaceFormat aFormat, const IntSize &aSize,
-                    DrawTargetD2D1 *aDT = nullptr);
+  SourceSurfaceD2D1(ID2D1Image* aImage,
+                    ID2D1DeviceContext* aDC,
+                    SurfaceFormat aFormat,
+                    const IntSize& aSize,
+                    DrawTargetD2D1* aDT = nullptr);
   ~SourceSurfaceD2D1();
 
   virtual SurfaceType GetType() const { return SurfaceType::D2D1_1_IMAGE; }
@@ -32,11 +34,15 @@ public:
   virtual bool IsValid() const;
   virtual already_AddRefed<DataSourceSurface> GetDataSurface();
 
-  ID2D1Image *GetImage() { return mImage; }
+  ID2D1Image* GetImage() { return mImage; }
 
-  void EnsureIndependent() { if (!mDrawTarget) return; DrawTargetWillChange(); }
+  void EnsureIndependent()
+  {
+    if (!mDrawTarget) return;
+    DrawTargetWillChange();
+  }
 
-private:
+ private:
   friend class DrawTargetD2D1;
 
   bool EnsureRealizedBitmap();
@@ -65,21 +71,21 @@ private:
 
 class DataSourceSurfaceD2D1 : public DataSourceSurface
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceD2D1)
-  DataSourceSurfaceD2D1(ID2D1Bitmap1 *aMappableBitmap, SurfaceFormat aFormat);
+  DataSourceSurfaceD2D1(ID2D1Bitmap1* aMappableBitmap, SurfaceFormat aFormat);
   ~DataSourceSurfaceD2D1();
 
   virtual SurfaceType GetType() const { return SurfaceType::DATA; }
   virtual IntSize GetSize() const;
   virtual SurfaceFormat GetFormat() const { return mFormat; }
   virtual bool IsValid() const { return !!mBitmap; }
-  virtual uint8_t *GetData();
+  virtual uint8_t* GetData();
   virtual int32_t Stride();
-  virtual bool Map(MapType, MappedSurface *aMappedSurface);
+  virtual bool Map(MapType, MappedSurface* aMappedSurface);
   virtual void Unmap();
 
-private:
+ private:
   friend class SourceSurfaceD2DTarget;
   void EnsureMapped();
 
@@ -89,7 +95,7 @@ private:
   bool mMapped;
 };
 
-}
-}
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_SOURCESURFACED2D2TARGET_H_ */

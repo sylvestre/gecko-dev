@@ -32,21 +32,16 @@ namespace js {
  * not be fully protected unless it is aligned on a page boundary. Altogether,
  * up to two pages of memory may not be protected.
  */
-template<typename T,
-         size_t MinInlineCapacity = 0,
-         class AllocPolicy = mozilla::MallocAllocPolicy,
-         bool ProtectUsed = true,
-         bool ProtectUnused = true,
-         size_t InitialLowerBound = 0,
-         bool PoisonUnused = true,
-         uint8_t PoisonPattern = 0xe3>
-class PageProtectingVector final
-{
+template <typename T, size_t MinInlineCapacity = 0, class AllocPolicy = mozilla::MallocAllocPolicy,
+          bool ProtectUsed = true, bool ProtectUnused = true, size_t InitialLowerBound = 0,
+          bool PoisonUnused = true, uint8_t PoisonPattern = 0xe3>
+class PageProtectingVector final {
     mozilla::Vector<T, MinInlineCapacity, AllocPolicy> vector;
 
     static constexpr size_t toShift(size_t v) { return v <= 1 ? 0 : 1 + toShift(v >> 1); }
 
-    static_assert((sizeof(T) & (sizeof(T) - 1)) == 0, "For performance reasons, "
+    static_assert((sizeof(T) & (sizeof(T) - 1)) == 0,
+                  "For performance reasons, "
                   "PageProtectingVector only works with power-of-2 sized elements!");
 
     static const size_t elemShift = toShift(sizeof(T));
@@ -129,8 +124,7 @@ class PageProtectingVector final
     }
 
     MOZ_ALWAYS_INLINE void poisonNewBuffer() {
-        if (!PoisonUnused)
-            return;
+        if (!PoisonUnused) return;
         T* addr = begin() + length();
         size_t toPoison = (capacity() - length()) * sizeof(T);
         memset(addr, PoisonPattern, toPoison);
@@ -147,40 +141,32 @@ class PageProtectingVector final
     }
 
     MOZ_ALWAYS_INLINE void protectUsed() {
-        if (MOZ_LIKELY(!protectUsedEnabled))
-            return;
-        if (MOZ_UNLIKELY(currPage <= initPage))
-            return;
+        if (MOZ_LIKELY(!protectUsedEnabled)) return;
+        if (MOZ_UNLIKELY(currPage <= initPage)) return;
         T* addr = reinterpret_cast<T*>(initPage << pageShift);
         size_t size = (currPage - initPage) << pageShift;
         gc::MakePagesReadOnly(addr, size);
     }
 
     MOZ_ALWAYS_INLINE void unprotectUsed() {
-        if (MOZ_LIKELY(!protectUsedEnabled))
-            return;
-        if (MOZ_UNLIKELY(currPage <= initPage))
-            return;
+        if (MOZ_LIKELY(!protectUsedEnabled)) return;
+        if (MOZ_UNLIKELY(currPage <= initPage)) return;
         T* addr = reinterpret_cast<T*>(initPage << pageShift);
         size_t size = (currPage - initPage) << pageShift;
         gc::UnprotectPages(addr, size);
     }
 
     MOZ_ALWAYS_INLINE void protectUnused() {
-        if (MOZ_LIKELY(!protectUnusedEnabled))
-            return;
-        if (MOZ_UNLIKELY(currPage >= lastPage))
-            return;
+        if (MOZ_LIKELY(!protectUnusedEnabled)) return;
+        if (MOZ_UNLIKELY(currPage >= lastPage)) return;
         T* addr = reinterpret_cast<T*>((currPage + 1) << pageShift);
         size_t size = (lastPage - currPage) << pageShift;
         gc::ProtectPages(addr, size);
     }
 
     MOZ_ALWAYS_INLINE void unprotectUnused() {
-        if (MOZ_LIKELY(!protectUnusedEnabled))
-            return;
-        if (MOZ_UNLIKELY(currPage >= lastPage))
-            return;
+        if (MOZ_LIKELY(!protectUnusedEnabled)) return;
+        if (MOZ_UNLIKELY(currPage >= lastPage)) return;
         T* addr = reinterpret_cast<T*>((currPage + 1) << pageShift);
         size_t size = (lastPage - currPage) << pageShift;
         gc::UnprotectPages(addr, size);
@@ -202,36 +188,27 @@ class PageProtectingVector final
     }
 
     MOZ_ALWAYS_INLINE void protectUnusedPartial(size_t curr, size_t next) {
-        if (MOZ_LIKELY(!protectUnusedEnabled))
-            return;
-        if (MOZ_UNLIKELY(next > lastPage))
-            --next;
-        if (MOZ_UNLIKELY(next == curr))
-            return;
+        if (MOZ_LIKELY(!protectUnusedEnabled)) return;
+        if (MOZ_UNLIKELY(next > lastPage)) --next;
+        if (MOZ_UNLIKELY(next == curr)) return;
         void* addr = reinterpret_cast<T*>((curr + 1) << pageShift);
         size_t size = (next - curr) << pageShift;
         gc::ProtectPages(addr, size);
     }
 
     MOZ_ALWAYS_INLINE void unprotectUnusedPartial(size_t curr, size_t next) {
-        if (MOZ_LIKELY(!protectUnusedEnabled))
-            return;
-        if (MOZ_UNLIKELY(next > lastPage))
-            --next;
-        if (MOZ_UNLIKELY(next == curr))
-            return;
+        if (MOZ_LIKELY(!protectUnusedEnabled)) return;
+        if (MOZ_UNLIKELY(next > lastPage)) --next;
+        if (MOZ_UNLIKELY(next == curr)) return;
         void* addr = reinterpret_cast<T*>((curr + 1) << pageShift);
         size_t size = (next - curr) << pageShift;
         gc::UnprotectPages(addr, size);
     }
 
     MOZ_ALWAYS_INLINE void protectUsedPartial(size_t curr, size_t next) {
-        if (MOZ_LIKELY(!protectUsedEnabled))
-            return;
-        if (MOZ_UNLIKELY(curr < initPage))
-            ++curr;
-        if (MOZ_UNLIKELY(next == curr))
-            return;
+        if (MOZ_LIKELY(!protectUsedEnabled)) return;
+        if (MOZ_UNLIKELY(curr < initPage)) ++curr;
+        if (MOZ_UNLIKELY(next == curr)) return;
         void* addr = reinterpret_cast<T*>(curr << pageShift);
         size_t size = (next - curr) << pageShift;
         gc::MakePagesReadOnly(addr, size);
@@ -244,7 +221,7 @@ class PageProtectingVector final
         return ret;
     }
 
-    template<typename U>
+    template <typename U>
     MOZ_ALWAYS_INLINE void infallibleAppendNewPage(const U* values, size_t size) {
         size_t nextPage = uintptr_t(begin() + length() + size) >> pageShift;
         MOZ_ASSERT(currPage < nextPage);
@@ -255,7 +232,7 @@ class PageProtectingVector final
         resetTest();
     }
 
-    template<typename U>
+    template <typename U>
     MOZ_ALWAYS_INLINE MOZ_MUST_USE bool appendNewPage(const U* values, size_t size) {
         size_t nextPage = uintptr_t(begin() + length() + size) >> pageShift;
         MOZ_ASSERT(currPage < nextPage);
@@ -271,7 +248,7 @@ class PageProtectingVector final
         return ret;
     }
 
-    template<typename U>
+    template <typename U>
     MOZ_ALWAYS_INLINE MOZ_MUST_USE bool appendNewBuffer(const U* values, size_t size) {
         unprotectOldBuffer();
         bool ret = vector.append(values, size);
@@ -284,30 +261,28 @@ class PageProtectingVector final
 
     MOZ_NEVER_INLINE MOZ_MUST_USE bool reserveSlow(size_t size);
 
-    template<typename U>
+    template <typename U>
     MOZ_NEVER_INLINE void infallibleAppendSlow(const U* values, size_t size);
 
-    template<typename U>
+    template <typename U>
     MOZ_NEVER_INLINE MOZ_MUST_USE bool appendSlow(const U* values, size_t size);
 
-  public:
+   public:
     explicit PageProtectingVector(AllocPolicy policy = AllocPolicy())
-      : vector(policy),
-        elemsUntilTest(0),
-        currPage(0),
-        initPage(0),
-        lastPage(0),
-        lowerBound(InitialLowerBound),
+        : vector(policy),
+          elemsUntilTest(0),
+          currPage(0),
+          initPage(0),
+          lastPage(0),
+          lowerBound(InitialLowerBound),
 #ifdef DEBUG
-        regionUnprotected(false),
+          regionUnprotected(false),
 #endif
-        usable(true),
-        enabled(true),
-        protectUsedEnabled(false),
-        protectUnusedEnabled(false)
-    {
-        if (gc::SystemPageSize() != pageSize)
-            usable = false;
+          usable(true),
+          enabled(true),
+          protectUsedEnabled(false),
+          protectUnusedEnabled(false) {
+        if (gc::SystemPageSize() != pageSize) usable = false;
         protectNewBuffer();
     }
 
@@ -346,8 +321,7 @@ class PageProtectingVector final
         if (MOZ_UNLIKELY(protectUsedEnabled)) {
             uintptr_t l = uintptr_t(first) >> pageShift;
             uintptr_t r = uintptr_t(first + size - 1) >> pageShift;
-            if (r >= initPage && l < currPage)
-                unprotectRegionSlow(l, r);
+            if (r >= initPage && l < currPage) unprotectRegionSlow(l, r);
         }
     }
 
@@ -359,8 +333,7 @@ class PageProtectingVector final
         if (MOZ_UNLIKELY(protectUsedEnabled)) {
             uintptr_t l = uintptr_t(first) >> pageShift;
             uintptr_t r = uintptr_t(first + size - 1) >> pageShift;
-            if (r >= initPage && l < currPage)
-                reprotectRegionSlow(l, r);
+            if (r >= initPage && l < currPage) reprotectRegionSlow(l, r);
         }
     }
 
@@ -377,66 +350,55 @@ class PageProtectingVector final
     }
 
     MOZ_ALWAYS_INLINE MOZ_MUST_USE bool reserve(size_t size) {
-        if (MOZ_LIKELY(size <= capacity()))
-            return vector.reserve(size);
+        if (MOZ_LIKELY(size <= capacity())) return vector.reserve(size);
         return reserveSlow(size);
     }
 
-    template<typename U>
+    template <typename U>
     MOZ_ALWAYS_INLINE void infallibleAppend(const U* values, size_t size) {
         elemsUntilTest -= size;
-        if (MOZ_LIKELY(elemsUntilTest >= 0))
-            return vector.infallibleAppend(values, size);
+        if (MOZ_LIKELY(elemsUntilTest >= 0)) return vector.infallibleAppend(values, size);
         infallibleAppendSlow(values, size);
     }
 
-    template<typename U>
+    template <typename U>
     MOZ_ALWAYS_INLINE MOZ_MUST_USE bool append(const U* values, size_t size) {
         elemsUntilTest -= size;
-        if (MOZ_LIKELY(elemsUntilTest >= 0))
-            return vector.append(values, size);
+        if (MOZ_LIKELY(elemsUntilTest >= 0)) return vector.append(values, size);
         return appendSlow(values, size);
     }
 };
 
-template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
-MOZ_NEVER_INLINE void
-PageProtectingVector<T, A, B, C, D, E, F, G>::unprotectRegionSlow(uintptr_t l, uintptr_t r)
-{
-    if (l < initPage)
-        l = initPage;
-    if (r >= currPage)
-        r = currPage - 1;
+template <typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
+MOZ_NEVER_INLINE void PageProtectingVector<T, A, B, C, D, E, F, G>::unprotectRegionSlow(
+    uintptr_t l, uintptr_t r) {
+    if (l < initPage) l = initPage;
+    if (r >= currPage) r = currPage - 1;
     T* addr = reinterpret_cast<T*>(l << pageShift);
     size_t size = (r - l + 1) << pageShift;
     gc::UnprotectPages(addr, size);
 }
 
-template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
-MOZ_NEVER_INLINE void
-PageProtectingVector<T, A, B, C, D, E, F, G>::reprotectRegionSlow(uintptr_t l, uintptr_t r)
-{
-    if (l < initPage)
-        l = initPage;
-    if (r >= currPage)
-        r = currPage - 1;
+template <typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
+MOZ_NEVER_INLINE void PageProtectingVector<T, A, B, C, D, E, F, G>::reprotectRegionSlow(
+    uintptr_t l, uintptr_t r) {
+    if (l < initPage) l = initPage;
+    if (r >= currPage) r = currPage - 1;
     T* addr = reinterpret_cast<T*>(l << pageShift);
     size_t size = (r - l + 1) << pageShift;
     gc::MakePagesReadOnly(addr, size);
 }
 
-template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
-MOZ_NEVER_INLINE MOZ_MUST_USE bool
-PageProtectingVector<T, A, B, C, D, E, F, G>::reserveSlow(size_t size)
-{
+template <typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
+MOZ_NEVER_INLINE MOZ_MUST_USE bool PageProtectingVector<T, A, B, C, D, E, F, G>::reserveSlow(
+    size_t size) {
     return reserveNewBuffer(size);
 }
 
-template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
-template<typename U>
-MOZ_NEVER_INLINE void
-PageProtectingVector<T, A, B, C, D, E, F, G>::infallibleAppendSlow(const U* values, size_t size)
-{
+template <typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
+template <typename U>
+MOZ_NEVER_INLINE void PageProtectingVector<T, A, B, C, D, E, F, G>::infallibleAppendSlow(
+    const U* values, size_t size) {
     // Ensure that we're here because we reached a page
     // boundary and not because of a buffer overflow.
     MOZ_RELEASE_ASSERT(MOZ_LIKELY(length() + size <= capacity()),
@@ -444,13 +406,11 @@ PageProtectingVector<T, A, B, C, D, E, F, G>::infallibleAppendSlow(const U* valu
     infallibleAppendNewPage(values, size);
 }
 
-template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
-template<typename U>
-MOZ_NEVER_INLINE MOZ_MUST_USE bool
-PageProtectingVector<T, A, B, C, D, E, F, G>::appendSlow(const U* values, size_t size)
-{
-    if (MOZ_LIKELY(length() + size <= capacity()))
-        return appendNewPage(values, size);
+template <typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
+template <typename U>
+MOZ_NEVER_INLINE MOZ_MUST_USE bool PageProtectingVector<T, A, B, C, D, E, F, G>::appendSlow(
+    const U* values, size_t size) {
+    if (MOZ_LIKELY(length() + size <= capacity())) return appendNewPage(values, size);
     return appendNewBuffer(values, size);
 }
 

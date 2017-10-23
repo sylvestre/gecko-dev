@@ -10,13 +10,13 @@
 #include "mozilla/dom/TabChild.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
 
-#include "InputData.h" // for InputData
+#include "InputData.h"  // for InputData
 
 namespace mozilla {
 namespace layers {
 
 APZChild::APZChild(RefPtr<GeckoContentController> aController)
-  : mController(aController)
+    : mController(aController)
 {
   MOZ_ASSERT(mController);
 }
@@ -39,14 +39,18 @@ APZChild::RecvRequestContentRepaint(const FrameMetrics& aFrameMetrics)
 }
 
 mozilla::ipc::IPCResult
-APZChild::RecvUpdateOverscrollVelocity(const float& aX, const float& aY, const bool& aIsRootContent)
+APZChild::RecvUpdateOverscrollVelocity(const float& aX,
+                                       const float& aY,
+                                       const bool& aIsRootContent)
 {
   mController->UpdateOverscrollVelocity(aX, aY, aIsRootContent);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-APZChild::RecvUpdateOverscrollOffset(const float& aX, const float& aY, const bool& aIsRootContent)
+APZChild::RecvUpdateOverscrollOffset(const float& aX,
+                                     const float& aY,
+                                     const bool& aIsRootContent)
 {
   mController->UpdateOverscrollOffset(aX, aY, aIsRootContent);
   return IPC_OK();
@@ -100,6 +104,5 @@ APZChild::RecvDestroy()
   return IPC_OK();
 }
 
-
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

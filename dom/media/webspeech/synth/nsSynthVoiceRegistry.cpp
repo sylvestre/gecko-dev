@@ -28,13 +28,15 @@
 using mozilla::intl::LocaleService;
 
 #undef LOG
-extern mozilla::LogModule* GetSpeechSynthLog();
+extern mozilla::LogModule*
+GetSpeechSynthLog();
 #define LOG(type, msg) MOZ_LOG(GetSpeechSynthLog(), type, msg)
 
 namespace {
 
 void
-GetAllSpeechSynthActors(InfallibleTArray<mozilla::dom::SpeechSynthesisParent*>& aActors)
+GetAllSpeechSynthActors(
+    InfallibleTArray<mozilla::dom::SpeechSynthesisParent*>& aActors)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aActors.IsEmpty());
@@ -42,13 +44,13 @@ GetAllSpeechSynthActors(InfallibleTArray<mozilla::dom::SpeechSynthesisParent*>& 
   AutoTArray<mozilla::dom::ContentParent*, 20> contentActors;
   mozilla::dom::ContentParent::GetAll(contentActors);
 
-  for (uint32_t contentIndex = 0;
-       contentIndex < contentActors.Length();
+  for (uint32_t contentIndex = 0; contentIndex < contentActors.Length();
        ++contentIndex) {
     MOZ_ASSERT(contentActors[contentIndex]);
 
     AutoTArray<mozilla::dom::PSpeechSynthesisParent*, 5> speechsynthActors;
-    contentActors[contentIndex]->ManagedPSpeechSynthesisParent(speechsynthActors);
+    contentActors[contentIndex]->ManagedPSpeechSynthesisParent(
+        speechsynthActors);
 
     for (uint32_t speechsynthIndex = 0;
          speechsynthIndex < speechsynthActors.Length();
@@ -56,13 +58,14 @@ GetAllSpeechSynthActors(InfallibleTArray<mozilla::dom::SpeechSynthesisParent*>& 
       MOZ_ASSERT(speechsynthActors[speechsynthIndex]);
 
       mozilla::dom::SpeechSynthesisParent* actor =
-        static_cast<mozilla::dom::SpeechSynthesisParent*>(speechsynthActors[speechsynthIndex]);
+          static_cast<mozilla::dom::SpeechSynthesisParent*>(
+              speechsynthActors[speechsynthIndex]);
       aActors.AppendElement(actor);
     }
   }
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 namespace dom {
@@ -71,20 +74,25 @@ namespace dom {
 
 class VoiceData final
 {
-private:
+ private:
   // Private destructor, to discourage deletion outside of Release():
   ~VoiceData() {}
 
-public:
-  VoiceData(nsISpeechService* aService, const nsAString& aUri,
-            const nsAString& aName, const nsAString& aLang,
-            bool aIsLocal, bool aQueuesUtterances)
-    : mService(aService)
-    , mUri(aUri)
-    , mName(aName)
-    , mLang(aLang)
-    , mIsLocal(aIsLocal)
-    , mIsQueued(aQueuesUtterances) {}
+ public:
+  VoiceData(nsISpeechService* aService,
+            const nsAString& aUri,
+            const nsAString& aName,
+            const nsAString& aLang,
+            bool aIsLocal,
+            bool aQueuesUtterances)
+      : mService(aService),
+        mUri(aUri),
+        mName(aName),
+        mLang(aLang),
+        mIsLocal(aIsLocal),
+        mIsQueued(aQueuesUtterances)
+  {
+  }
 
   NS_INLINE_DECL_REFCOUNTING(VoiceData)
 
@@ -105,19 +113,25 @@ public:
 
 class GlobalQueueItem final
 {
-private:
+ private:
   // Private destructor, to discourage deletion outside of Release():
   ~GlobalQueueItem() {}
 
-public:
-  GlobalQueueItem(VoiceData* aVoice, nsSpeechTask* aTask, const nsAString& aText,
-                  const float& aVolume, const float& aRate, const float& aPitch)
-    : mVoice(aVoice)
-    , mTask(aTask)
-    , mText(aText)
-    , mVolume(aVolume)
-    , mRate(aRate)
-    , mPitch(aPitch) {}
+ public:
+  GlobalQueueItem(VoiceData* aVoice,
+                  nsSpeechTask* aTask,
+                  const nsAString& aText,
+                  const float& aVolume,
+                  const float& aRate,
+                  const float& aPitch)
+      : mVoice(aVoice),
+        mTask(aTask),
+        mText(aText),
+        mVolume(aVolume),
+        mRate(aRate),
+        mPitch(aPitch)
+  {
+  }
 
   NS_INLINE_DECL_REFCOUNTING(GlobalQueueItem)
 
@@ -143,14 +157,12 @@ static StaticRefPtr<nsSynthVoiceRegistry> gSynthVoiceRegistry;
 NS_IMPL_ISUPPORTS(nsSynthVoiceRegistry, nsISynthVoiceRegistry)
 
 nsSynthVoiceRegistry::nsSynthVoiceRegistry()
-  : mSpeechSynthChild(nullptr)
-  , mUseGlobalQueue(false)
-  , mIsSpeaking(false)
+    : mSpeechSynthChild(nullptr), mUseGlobalQueue(false), mIsSpeaking(false)
 {
   if (XRE_IsContentProcess()) {
-
     mSpeechSynthChild = new SpeechSynthesisChild();
-    ContentChild::GetSingleton()->SendPSpeechSynthesisConstructor(mSpeechSynthChild);
+    ContentChild::GetSingleton()->SendPSpeechSynthesisConstructor(
+        mSpeechSynthChild);
   }
 }
 
@@ -173,8 +185,8 @@ nsSynthVoiceRegistry::GetInstance()
     gSynthVoiceRegistry = new nsSynthVoiceRegistry();
     if (XRE_IsParentProcess()) {
       // Start up all speech synth services.
-      NS_CreateServicesFromCategory(NS_SPEECH_SYNTH_STARTED, nullptr,
-        NS_SPEECH_SYNTH_STARTED);
+      NS_CreateServicesFromCategory(
+          NS_SPEECH_SYNTH_STARTED, nullptr, NS_SPEECH_SYNTH_STARTED);
     }
   }
 
@@ -192,8 +204,9 @@ nsSynthVoiceRegistry::GetInstanceForService()
 void
 nsSynthVoiceRegistry::Shutdown()
 {
-  LOG(LogLevel::Debug, ("[%s] nsSynthVoiceRegistry::Shutdown()",
-                        (XRE_IsContentProcess()) ? "Content" : "Default"));
+  LOG(LogLevel::Debug,
+      ("[%s] nsSynthVoiceRegistry::Shutdown()",
+       (XRE_IsContentProcess()) ? "Content" : "Default"));
   gSynthVoiceRegistry = nullptr;
 }
 
@@ -205,14 +218,17 @@ nsSynthVoiceRegistry::SendInitialVoicesAndState(SpeechSynthesisParent* aParent)
   InfallibleTArray<RemoteVoice> voices;
   InfallibleTArray<nsString> defaults;
 
-  for (uint32_t i=0; i < mVoices.Length(); ++i) {
+  for (uint32_t i = 0; i < mVoices.Length(); ++i) {
     RefPtr<VoiceData> voice = mVoices[i];
 
-    voices.AppendElement(RemoteVoice(voice->mUri, voice->mName, voice->mLang,
-                                     voice->mIsLocal, voice->mIsQueued));
+    voices.AppendElement(RemoteVoice(voice->mUri,
+                                     voice->mName,
+                                     voice->mLang,
+                                     voice->mIsLocal,
+                                     voice->mIsQueued));
   }
 
-  for (uint32_t i=0; i < mDefaultVoices.Length(); ++i) {
+  for (uint32_t i = 0; i < mDefaultVoices.Length(); ++i) {
     defaults.AppendElement(mDefaultVoices[i]->mUri);
   }
 
@@ -220,9 +236,10 @@ nsSynthVoiceRegistry::SendInitialVoicesAndState(SpeechSynthesisParent* aParent)
 }
 
 void
-nsSynthVoiceRegistry::RecvInitialVoicesAndState(const nsTArray<RemoteVoice>& aVoices,
-                                                const nsTArray<nsString>& aDefaults,
-                                                const bool& aIsSpeaking)
+nsSynthVoiceRegistry::RecvInitialVoicesAndState(
+    const nsTArray<RemoteVoice>& aVoices,
+    const nsTArray<nsString>& aDefaults,
+    const bool& aIsSpeaking)
 {
   // We really should have a local instance since this is a directed response to
   // an Init() call.
@@ -230,9 +247,12 @@ nsSynthVoiceRegistry::RecvInitialVoicesAndState(const nsTArray<RemoteVoice>& aVo
 
   for (uint32_t i = 0; i < aVoices.Length(); ++i) {
     RemoteVoice voice = aVoices[i];
-    gSynthVoiceRegistry->AddVoiceImpl(nullptr, voice.voiceURI(),
-                                      voice.name(), voice.lang(),
-                                      voice.localService(), voice.queued());
+    gSynthVoiceRegistry->AddVoiceImpl(nullptr,
+                                      voice.voiceURI(),
+                                      voice.name(),
+                                      voice.lang(),
+                                      voice.localService(),
+                                      voice.queued());
   }
 
   for (uint32_t i = 0; i < aDefaults.Length(); ++i) {
@@ -251,7 +271,7 @@ nsSynthVoiceRegistry::RecvRemoveVoice(const nsAString& aUri)
 {
   // If we dont have a local instance of the registry yet, we will recieve current
   // voices at contruction time.
-  if(!gSynthVoiceRegistry) {
+  if (!gSynthVoiceRegistry) {
     return;
   }
 
@@ -263,21 +283,25 @@ nsSynthVoiceRegistry::RecvAddVoice(const RemoteVoice& aVoice)
 {
   // If we dont have a local instance of the registry yet, we will recieve current
   // voices at contruction time.
-  if(!gSynthVoiceRegistry) {
+  if (!gSynthVoiceRegistry) {
     return;
   }
 
-  gSynthVoiceRegistry->AddVoiceImpl(nullptr, aVoice.voiceURI(),
-                                    aVoice.name(), aVoice.lang(),
-                                    aVoice.localService(), aVoice.queued());
+  gSynthVoiceRegistry->AddVoiceImpl(nullptr,
+                                    aVoice.voiceURI(),
+                                    aVoice.name(),
+                                    aVoice.lang(),
+                                    aVoice.localService(),
+                                    aVoice.queued());
 }
 
 void
-nsSynthVoiceRegistry::RecvSetDefaultVoice(const nsAString& aUri, bool aIsDefault)
+nsSynthVoiceRegistry::RecvSetDefaultVoice(const nsAString& aUri,
+                                          bool aIsDefault)
 {
   // If we dont have a local instance of the registry yet, we will recieve current
   // voices at contruction time.
-  if(!gSynthVoiceRegistry) {
+  if (!gSynthVoiceRegistry) {
     return;
   }
 
@@ -289,7 +313,7 @@ nsSynthVoiceRegistry::RecvIsSpeakingChanged(bool aIsSpeaking)
 {
   // If we dont have a local instance of the registry yet, we will get the
   // speaking state on construction.
-  if(!gSynthVoiceRegistry) {
+  if (!gSynthVoiceRegistry) {
     return;
   }
 
@@ -300,7 +324,7 @@ void
 nsSynthVoiceRegistry::RecvNotifyVoicesChanged()
 {
   // If we dont have a local instance of the registry yet, we don't care.
-  if(!gSynthVoiceRegistry) {
+  if (!gSynthVoiceRegistry) {
     return;
   }
 
@@ -316,17 +340,20 @@ nsSynthVoiceRegistry::AddVoice(nsISpeechService* aService,
                                bool aQueuesUtterances)
 {
   LOG(LogLevel::Debug,
-      ("nsSynthVoiceRegistry::AddVoice uri='%s' name='%s' lang='%s' local=%s queued=%s",
-       NS_ConvertUTF16toUTF8(aUri).get(), NS_ConvertUTF16toUTF8(aName).get(),
+      ("nsSynthVoiceRegistry::AddVoice uri='%s' name='%s' lang='%s' local=%s "
+       "queued=%s",
+       NS_ConvertUTF16toUTF8(aUri).get(),
+       NS_ConvertUTF16toUTF8(aName).get(),
        NS_ConvertUTF16toUTF8(aLang).get(),
        aLocalService ? "true" : "false",
        aQueuesUtterances ? "true" : "false"));
 
-  if(NS_WARN_IF(XRE_IsContentProcess())) {
+  if (NS_WARN_IF(XRE_IsContentProcess())) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  return AddVoiceImpl(aService, aUri, aName, aLang, aLocalService, aQueuesUtterances);
+  return AddVoiceImpl(
+      aService, aUri, aName, aLang, aLocalService, aQueuesUtterances);
 }
 
 NS_IMETHODIMP
@@ -341,10 +368,10 @@ nsSynthVoiceRegistry::RemoveVoice(nsISpeechService* aService,
   bool found = false;
   VoiceData* retval = mUriVoiceMap.GetWeak(aUri, &found);
 
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  if(NS_WARN_IF(!(aService == retval->mService))) {
+  if (NS_WARN_IF(!(aService == retval->mService))) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -389,7 +416,7 @@ nsSynthVoiceRegistry::NotifyVoicesChanged()
   }
 
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
-  if(NS_WARN_IF(!(obs))) {
+  if (NS_WARN_IF(!(obs))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -399,20 +426,20 @@ nsSynthVoiceRegistry::NotifyVoicesChanged()
 }
 
 NS_IMETHODIMP
-nsSynthVoiceRegistry::SetDefaultVoice(const nsAString& aUri,
-                                      bool aIsDefault)
+nsSynthVoiceRegistry::SetDefaultVoice(const nsAString& aUri, bool aIsDefault)
 {
   bool found = false;
   VoiceData* retval = mUriVoiceMap.GetWeak(aUri, &found);
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   mDefaultVoices.RemoveElement(retval);
 
-  LOG(LogLevel::Debug, ("nsSynthVoiceRegistry::SetDefaultVoice %s %s",
-                     NS_ConvertUTF16toUTF8(aUri).get(),
-                     aIsDefault ? "true" : "false"));
+  LOG(LogLevel::Debug,
+      ("nsSynthVoiceRegistry::SetDefaultVoice %s %s",
+       NS_ConvertUTF16toUTF8(aUri).get(),
+       aIsDefault ? "true" : "false"));
 
   if (aIsDefault) {
     mDefaultVoices.AppendElement(retval);
@@ -441,7 +468,7 @@ nsSynthVoiceRegistry::GetVoiceCount(uint32_t* aRetval)
 NS_IMETHODIMP
 nsSynthVoiceRegistry::GetVoice(uint32_t aIndex, nsAString& aRetval)
 {
-  if(NS_WARN_IF(!(aIndex < mVoices.Length()))) {
+  if (NS_WARN_IF(!(aIndex < mVoices.Length()))) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -455,11 +482,11 @@ nsSynthVoiceRegistry::IsDefaultVoice(const nsAString& aUri, bool* aRetval)
 {
   bool found;
   VoiceData* voice = mUriVoiceMap.GetWeak(aUri, &found);
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  for (int32_t i = mDefaultVoices.Length(); i > 0; ) {
+  for (int32_t i = mDefaultVoices.Length(); i > 0;) {
     VoiceData* defaultVoice = mDefaultVoices[--i];
 
     if (voice->mLang.Equals(defaultVoice->mLang)) {
@@ -477,7 +504,7 @@ nsSynthVoiceRegistry::IsLocalVoice(const nsAString& aUri, bool* aRetval)
 {
   bool found;
   VoiceData* voice = mUriVoiceMap.GetWeak(aUri, &found);
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -490,7 +517,7 @@ nsSynthVoiceRegistry::GetVoiceLang(const nsAString& aUri, nsAString& aRetval)
 {
   bool found;
   VoiceData* voice = mUriVoiceMap.GetWeak(aUri, &found);
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -503,7 +530,7 @@ nsSynthVoiceRegistry::GetVoiceName(const nsAString& aUri, nsAString& aRetval)
 {
   bool found;
   VoiceData* voice = mUriVoiceMap.GetWeak(aUri, &found);
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -521,12 +548,12 @@ nsSynthVoiceRegistry::AddVoiceImpl(nsISpeechService* aService,
 {
   bool found = false;
   mUriVoiceMap.GetWeak(aUri, &found);
-  if(NS_WARN_IF(found)) {
+  if (NS_WARN_IF(found)) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  RefPtr<VoiceData> voice = new VoiceData(aService, aUri, aName, aLang,
-                                            aLocalService, aQueuesUtterances);
+  RefPtr<VoiceData> voice = new VoiceData(
+      aService, aUri, aName, aLang, aLocalService, aQueuesUtterances);
 
   mVoices.AppendElement(voice);
   mUriVoiceMap.Put(aUri, voice);
@@ -561,7 +588,7 @@ nsSynthVoiceRegistry::FindVoiceByLang(const nsAString& aLang,
   while (true) {
     nsAutoString langPrefix(Substring(start, end));
 
-    for (int32_t i = mDefaultVoices.Length(); i > 0; ) {
+    for (int32_t i = mDefaultVoices.Length(); i > 0;) {
       VoiceData* voice = mDefaultVoices[--i];
 
       if (StringBeginsWith(voice->mLang, langPrefix)) {
@@ -570,7 +597,7 @@ nsSynthVoiceRegistry::FindVoiceByLang(const nsAString& aLang,
       }
     }
 
-    for (int32_t i = mVoices.Length(); i > 0; ) {
+    for (int32_t i = mVoices.Length(); i > 0;) {
       VoiceData* voice = mVoices[--i];
 
       if (StringBeginsWith(voice->mLang, langPrefix)) {
@@ -634,7 +661,8 @@ nsSynthVoiceRegistry::FindBestMatch(const nsAString& aUri,
   // Try en-US, the language of locale "C"
   if (FindVoiceByLang(NS_LITERAL_STRING("en-US"), &retval)) {
     LOG(LogLevel::Debug,
-        ("nsSynthVoiceRegistry::FindBestMatch - Matched C locale language (en-US ~= %s)",
+        ("nsSynthVoiceRegistry::FindBestMatch - Matched C locale language "
+         "(en-US ~= %s)",
          NS_ConvertUTF16toUTF8(retval->mLang).get()));
 
     return retval;
@@ -652,7 +680,8 @@ already_AddRefed<nsSpeechTask>
 nsSynthVoiceRegistry::SpeakUtterance(SpeechSynthesisUtterance& aUtterance,
                                      const nsAString& aDocLang)
 {
-  nsString lang = nsString(aUtterance.mLang.IsEmpty() ? aDocLang : aUtterance.mLang);
+  nsString lang =
+      nsString(aUtterance.mLang.IsEmpty() ? aDocLang : aUtterance.mLang);
   nsAutoString uri;
 
   if (aUtterance.mVoice) {
@@ -665,7 +694,8 @@ nsSynthVoiceRegistry::SpeakUtterance(SpeechSynthesisUtterance& aUtterance,
   if (service) {
     if (nsCOMPtr<nsPIDOMWindowInner> topWindow = aUtterance.GetOwner()) {
       // TODO : use audio channel agent, open new bug to fix it.
-      AudioPlaybackConfig config = service->GetMediaConfig(topWindow->GetOuterWindow());
+      AudioPlaybackConfig config =
+          service->GetMediaConfig(topWindow->GetOuterWindow());
       volume = config.mMuted ? 0.0f : config.mVolume * volume;
     }
   }
@@ -678,20 +708,26 @@ nsSynthVoiceRegistry::SpeakUtterance(SpeechSynthesisUtterance& aUtterance,
   RefPtr<nsSpeechTask> task;
   if (XRE_IsContentProcess()) {
     task = new SpeechTaskChild(&aUtterance, isChrome);
-    SpeechSynthesisRequestChild* actor =
-      new SpeechSynthesisRequestChild(static_cast<SpeechTaskChild*>(task.get()));
-    mSpeechSynthChild->SendPSpeechSynthesisRequestConstructor(actor,
-                                                              aUtterance.mText,
-                                                              lang,
-                                                              uri,
-                                                              volume,
-                                                              aUtterance.Rate(),
-                                                              aUtterance.Pitch(),
-                                                              isChrome);
+    SpeechSynthesisRequestChild* actor = new SpeechSynthesisRequestChild(
+        static_cast<SpeechTaskChild*>(task.get()));
+    mSpeechSynthChild->SendPSpeechSynthesisRequestConstructor(
+        actor,
+        aUtterance.mText,
+        lang,
+        uri,
+        volume,
+        aUtterance.Rate(),
+        aUtterance.Pitch(),
+        isChrome);
   } else {
     task = new nsSpeechTask(&aUtterance, isChrome);
-    Speak(aUtterance.mText, lang, uri,
-          volume, aUtterance.Rate(), aUtterance.Pitch(), task);
+    Speak(aUtterance.mText,
+          lang,
+          uri,
+          volume,
+          aUtterance.Rate(),
+          aUtterance.Pitch(),
+          task);
   }
 
   return task.forget();
@@ -725,15 +761,23 @@ nsSynthVoiceRegistry::Speak(const nsAString& aText,
 
   if (mUseGlobalQueue || MediaPrefs::WebSpeechForceGlobal()) {
     LOG(LogLevel::Debug,
-        ("nsSynthVoiceRegistry::Speak queueing text='%s' lang='%s' uri='%s' rate=%f pitch=%f",
-         NS_ConvertUTF16toUTF8(aText).get(), NS_ConvertUTF16toUTF8(aLang).get(),
-         NS_ConvertUTF16toUTF8(aUri).get(), aRate, aPitch));
-    RefPtr<GlobalQueueItem> item = new GlobalQueueItem(voice, aTask, aText,
-                                                         aVolume, aRate, aPitch);
+        ("nsSynthVoiceRegistry::Speak queueing text='%s' lang='%s' uri='%s' "
+         "rate=%f pitch=%f",
+         NS_ConvertUTF16toUTF8(aText).get(),
+         NS_ConvertUTF16toUTF8(aLang).get(),
+         NS_ConvertUTF16toUTF8(aUri).get(),
+         aRate,
+         aPitch));
+    RefPtr<GlobalQueueItem> item =
+        new GlobalQueueItem(voice, aTask, aText, aVolume, aRate, aPitch);
     mGlobalQueue.AppendElement(item);
 
     if (mGlobalQueue.Length() == 1) {
-      SpeakImpl(item->mVoice, item->mTask, item->mText, item->mVolume, item->mRate,
+      SpeakImpl(item->mVoice,
+                item->mTask,
+                item->mText,
+                item->mVolume,
+                item->mRate,
                 item->mPitch);
     }
   } else {
@@ -764,8 +808,12 @@ nsSynthVoiceRegistry::SpeakNext()
       continue;
     }
     if (!item->mTask->IsPrePaused()) {
-      SpeakImpl(item->mVoice, item->mTask, item->mText, item->mVolume,
-                item->mRate, item->mPitch);
+      SpeakImpl(item->mVoice,
+                item->mTask,
+                item->mText,
+                item->mVolume,
+                item->mRate,
+                item->mPitch);
     }
     break;
   }
@@ -784,8 +832,12 @@ nsSynthVoiceRegistry::ResumeQueue()
 
   RefPtr<GlobalQueueItem> item = mGlobalQueue.ElementAt(0);
   if (!item->mTask->IsPrePaused()) {
-    SpeakImpl(item->mVoice, item->mTask, item->mText, item->mVolume,
-              item->mRate, item->mPitch);
+    SpeakImpl(item->mVoice,
+              item->mTask,
+              item->mText,
+              item->mVolume,
+              item->mRate,
+              item->mPitch);
   }
 }
 
@@ -802,7 +854,7 @@ nsSynthVoiceRegistry::SetIsSpeaking(bool aIsSpeaking)
 
   // Only set to 'true' if global queue is enabled.
   mIsSpeaking =
-    aIsSpeaking && (mUseGlobalQueue || MediaPrefs::WebSpeechForceGlobal());
+      aIsSpeaking && (mUseGlobalQueue || MediaPrefs::WebSpeechForceGlobal());
 
   nsTArray<SpeechSynthesisParent*> ssplist;
   GetAllSpeechSynthActors(ssplist);
@@ -820,9 +872,12 @@ nsSynthVoiceRegistry::SpeakImpl(VoiceData* aVoice,
                                 const float& aPitch)
 {
   LOG(LogLevel::Debug,
-      ("nsSynthVoiceRegistry::SpeakImpl queueing text='%s' uri='%s' rate=%f pitch=%f",
-       NS_ConvertUTF16toUTF8(aText).get(), NS_ConvertUTF16toUTF8(aVoice->mUri).get(),
-       aRate, aPitch));
+      ("nsSynthVoiceRegistry::SpeakImpl queueing text='%s' uri='%s' rate=%f "
+       "pitch=%f",
+       NS_ConvertUTF16toUTF8(aText).get(),
+       NS_ConvertUTF16toUTF8(aVoice->mUri).get(),
+       aRate,
+       aPitch));
 
   SpeechServiceType serviceType;
 
@@ -835,8 +890,8 @@ nsSynthVoiceRegistry::SpeakImpl(VoiceData* aVoice,
     aTask->InitDirectAudio();
   }
 
-  if (NS_FAILED(aVoice->mService->Speak(aText, aVoice->mUri, aVolume, aRate,
-                                        aPitch, aTask))) {
+  if (NS_FAILED(aVoice->mService->Speak(
+          aText, aVoice->mUri, aVolume, aRate, aPitch, aTask))) {
     if (serviceType == nsISpeechService::SERVICETYPE_INDIRECT_AUDIO) {
       aTask->DispatchError(0, 0);
     }
@@ -844,5 +899,5 @@ nsSynthVoiceRegistry::SpeakImpl(VoiceData* aVoice,
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

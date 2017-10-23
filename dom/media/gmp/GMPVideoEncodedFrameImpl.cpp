@@ -12,32 +12,32 @@ namespace mozilla {
 namespace gmp {
 
 GMPVideoEncodedFrameImpl::GMPVideoEncodedFrameImpl(GMPVideoHostImpl* aHost)
-: mEncodedWidth(0),
-  mEncodedHeight(0),
-  mTimeStamp(0ll),
-  mDuration(0ll),
-  mFrameType(kGMPDeltaFrame),
-  mSize(0),
-  mCompleteFrame(false),
-  mHost(aHost),
-  mBufferType(GMP_BufferSingle)
+    : mEncodedWidth(0),
+      mEncodedHeight(0),
+      mTimeStamp(0ll),
+      mDuration(0ll),
+      mFrameType(kGMPDeltaFrame),
+      mSize(0),
+      mCompleteFrame(false),
+      mHost(aHost),
+      mBufferType(GMP_BufferSingle)
 {
   MOZ_ASSERT(aHost);
   aHost->EncodedFrameCreated(this);
 }
 
-GMPVideoEncodedFrameImpl::GMPVideoEncodedFrameImpl(const GMPVideoEncodedFrameData& aFrameData,
-                                                   GMPVideoHostImpl* aHost)
-: mEncodedWidth(aFrameData.mEncodedWidth()),
-  mEncodedHeight(aFrameData.mEncodedHeight()),
-  mTimeStamp(aFrameData.mTimestamp()),
-  mDuration(aFrameData.mDuration()),
-  mFrameType(static_cast<GMPVideoFrameType>(aFrameData.mFrameType())),
-  mSize(aFrameData.mSize()),
-  mCompleteFrame(aFrameData.mCompleteFrame()),
-  mHost(aHost),
-  mBuffer(aFrameData.mBuffer()),
-  mBufferType(aFrameData.mBufferType())
+GMPVideoEncodedFrameImpl::GMPVideoEncodedFrameImpl(
+    const GMPVideoEncodedFrameData& aFrameData, GMPVideoHostImpl* aHost)
+    : mEncodedWidth(aFrameData.mEncodedWidth()),
+      mEncodedHeight(aFrameData.mEncodedHeight()),
+      mTimeStamp(aFrameData.mTimestamp()),
+      mDuration(aFrameData.mDuration()),
+      mFrameType(static_cast<GMPVideoFrameType>(aFrameData.mFrameType())),
+      mSize(aFrameData.mSize()),
+      mCompleteFrame(aFrameData.mCompleteFrame()),
+      mHost(aHost),
+      mBuffer(aFrameData.mBuffer()),
+      mBufferType(aFrameData.mBufferType())
 {
   MOZ_ASSERT(aHost);
   aHost->EncodedFrameCreated(this);
@@ -78,7 +78,8 @@ GMPVideoEncodedFrameImpl::ActorDestroyed()
 }
 
 bool
-GMPVideoEncodedFrameImpl::RelinquishFrameData(GMPVideoEncodedFrameData& aFrameData)
+GMPVideoEncodedFrameImpl::RelinquishFrameData(
+    GMPVideoEncodedFrameData& aFrameData)
 {
   aFrameData.mEncodedWidth() = mEncodedWidth;
   aFrameData.mEncodedHeight() = mEncodedHeight;
@@ -102,7 +103,8 @@ void
 GMPVideoEncodedFrameImpl::DestroyBuffer()
 {
   if (mHost && mBuffer.IsWritable()) {
-    mHost->SharedMemMgr()->MgrDeallocShmem(GMPSharedMem::kGMPEncodedData, mBuffer);
+    mHost->SharedMemMgr()->MgrDeallocShmem(GMPSharedMem::kGMPEncodedData,
+                                           mBuffer);
   }
   mBuffer = ipc::Shmem();
 }
@@ -114,8 +116,10 @@ GMPVideoEncodedFrameImpl::CreateEmptyFrame(uint32_t aSize)
     DestroyBuffer();
   } else if (aSize > AllocatedSize()) {
     DestroyBuffer();
-    if (!mHost->SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPEncodedData, aSize,
-                                              ipc::SharedMemory::TYPE_BASIC, &mBuffer) ||
+    if (!mHost->SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPEncodedData,
+                                              aSize,
+                                              ipc::SharedMemory::TYPE_BASIC,
+                                              &mBuffer) ||
         !Buffer()) {
       return GMPAllocErr;
     }
@@ -142,7 +146,7 @@ GMPVideoEncodedFrameImpl::CopyFrame(const GMPVideoEncodedFrame& aFrame)
   mTimeStamp = f.mTimeStamp;
   mDuration = f.mDuration;
   mFrameType = f.mFrameType;
-  mSize = f.mSize; // already set...
+  mSize = f.mSize;  // already set...
   mCompleteFrame = f.mCompleteFrame;
   mBufferType = f.mBufferType;
   // Don't copy host, that should have been set properly on object creation via host.
@@ -222,8 +226,10 @@ GMPVideoEncodedFrameImpl::SetAllocatedSize(uint32_t aNewSize)
   }
 
   ipc::Shmem new_mem;
-  if (!mHost->SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPEncodedData, aNewSize,
-                                            ipc::SharedMemory::TYPE_BASIC, &new_mem) ||
+  if (!mHost->SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPEncodedData,
+                                            aNewSize,
+                                            ipc::SharedMemory::TYPE_BASIC,
+                                            &new_mem) ||
       !new_mem.get<uint8_t>()) {
     return;
   }
@@ -300,5 +306,5 @@ GMPVideoEncodedFrameImpl::SetBufferType(GMPBufferType aBufferType)
   mBufferType = aBufferType;
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

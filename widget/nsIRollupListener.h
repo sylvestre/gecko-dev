@@ -13,9 +13,9 @@
 class nsIContent;
 class nsIWidget;
 
-class nsIRollupListener {
- public: 
-
+class nsIRollupListener
+{
+ public:
   /**
    * Notifies the object to rollup, optionally returning the node that
    * was just rolled up.
@@ -32,8 +32,10 @@ class nsIRollupListener {
    *
    * Returns true if the event that the caller is processing should be consumed.
    */
-  virtual bool Rollup(uint32_t aCount, bool aFlush,
-                      const nsIntPoint* aPoint, nsIContent** aLastRolledUp) = 0;
+  virtual bool Rollup(uint32_t aCount,
+                      bool aFlush,
+                      const nsIntPoint* aPoint,
+                      nsIContent** aLastRolledUp) = 0;
 
   /**
    * Asks the RollupListener if it should rollup on mouse wheel events
@@ -58,7 +60,8 @@ class nsIRollupListener {
    * those menus in different situations. The returned value should be exactly
    * the same number of widgets added to aWidgetChain.
    */
-  virtual uint32_t GetSubmenuWidgetChain(nsTArray<nsIWidget*> *aWidgetChain) = 0;
+  virtual uint32_t GetSubmenuWidgetChain(
+      nsTArray<nsIWidget*>* aWidgetChain) = 0;
 
   /**
    * Notify the RollupListener that the widget did a Move or Resize.

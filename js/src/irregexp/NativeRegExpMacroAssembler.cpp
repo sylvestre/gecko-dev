@@ -33,7 +33,7 @@
 #include "irregexp/RegExpStack.h"
 #include "jit/Linker.h"
 #ifdef JS_ION_PERF
-# include "jit/PerfSpewer.h"
+#include "jit/PerfSpewer.h"
 #endif
 #include "vm/MatchPairs.h"
 #include "vtune/VTuneWrapper.h"
@@ -65,12 +65,10 @@ using namespace js::jit;
  * The tempN registers are free to use for computations.
  */
 
-NativeRegExpMacroAssembler::NativeRegExpMacroAssembler(JSContext* cx, LifoAlloc* alloc,
-                                                       Mode mode, int registers_to_save,
+NativeRegExpMacroAssembler::NativeRegExpMacroAssembler(JSContext* cx, LifoAlloc* alloc, Mode mode,
+                                                       int registers_to_save,
                                                        RegExpShared::JitCodeTables& tables)
-  : RegExpMacroAssembler(cx, *alloc, registers_to_save),
-    tables(tables), cx(cx), mode_(mode)
-{
+    : RegExpMacroAssembler(cx, *alloc, registers_to_save), tables(tables), cx(cx), mode_(mode) {
     // Find physical registers for each compiler register.
     AllocatableGeneralRegisterSet regs(GeneralRegisterSet::All());
 
@@ -85,13 +83,8 @@ NativeRegExpMacroAssembler::NativeRegExpMacroAssembler(JSContext* cx, LifoAlloc*
     JitSpew(JitSpew_Codegen,
             "Starting RegExp (input_end_pointer %s) (current_character %s)"
             " (current_position %s) (backtrack_stack_pointer %s) (temp0 %s) temp1 (%s) temp2 (%s)",
-            input_end_pointer.name(),
-            current_character.name(),
-            current_position.name(),
-            backtrack_stack_pointer.name(),
-            temp0.name(),
-            temp1.name(),
-            temp2.name());
+            input_end_pointer.name(), current_character.name(), current_position.name(),
+            backtrack_stack_pointer.name(), temp0.name(), temp1.name(), temp2.name());
 
     savedNonVolatileRegisters = SavedNonVolatileRegisters(regs);
 
@@ -104,17 +97,13 @@ NativeRegExpMacroAssembler::NativeRegExpMacroAssembler(JSContext* cx, LifoAlloc*
 // The signature of the code which this generates is:
 //
 // void execute(InputOutputData*);
-RegExpCode
-NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
-{
-    if (!cx->compartment()->ensureJitCompartmentExists(cx))
-        return RegExpCode();
+RegExpCode NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only) {
+    if (!cx->compartment()->ensureJitCompartmentExists(cx)) return RegExpCode();
 
     JitSpew(SPEW_PREFIX "GenerateCode");
 
     // We need an even number of registers, for stack alignment.
-    if (num_registers_ % 2 == 1)
-        num_registers_++;
+    if (num_registers_ % 2 == 1) num_registers_++;
 
     Label return_temp0;
 
@@ -177,7 +166,7 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
     const int kPageSize = 4096;
     for (int i = frameSize - sizeof(void*); i >= 0; i -= kPageSize)
         masm.storePtr(temp0, Address(masm.getStackPointer(), i));
-#endif // XP_WIN
+#endif  // XP_WIN
 
 #ifndef JS_CODEGEN_X86
     // The InputOutputData* is stored on the stack immediately above the frame.
@@ -195,23 +184,26 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
         Register matchPairsRegister = input_end_pointer;
         masm.loadPtr(Address(temp0, offsetof(InputOutputData, matches)), matchPairsRegister);
         masm.loadPtr(Address(matchPairsRegister, MatchPairs::offsetOfPairs()), temp1);
-        masm.storePtr(temp1, Address(masm.getStackPointer(), offsetof(FrameData, outputRegisters)));
+        masm.storePtr(temp1,
+                      Address(masm.getStackPointer(), offsetof(FrameData, outputRegisters)));
         masm.load32(Address(matchPairsRegister, MatchPairs::offsetOfPairCount()), temp1);
         masm.lshiftPtr(Imm32(1), temp1);
-        masm.store32(temp1, Address(masm.getStackPointer(), offsetof(FrameData, numOutputRegisters)));
+        masm.store32(temp1,
+                     Address(masm.getStackPointer(), offsetof(FrameData, numOutputRegisters)));
 
 #ifdef DEBUG
         // Bounds check numOutputRegisters.
         Label enoughRegisters;
-        masm.branchPtr(Assembler::GreaterThanOrEqual,
-                       temp1, ImmWord(num_saved_registers_), &enoughRegisters);
+        masm.branchPtr(Assembler::GreaterThanOrEqual, temp1, ImmWord(num_saved_registers_),
+                       &enoughRegisters);
         masm.assumeUnreachable("Not enough output registers for RegExp");
         masm.bind(&enoughRegisters);
 #endif
     } else {
         Register endIndexRegister = input_end_pointer;
         masm.loadPtr(Address(temp0, offsetof(InputOutputData, endIndex)), endIndexRegister);
-        masm.storePtr(endIndexRegister, Address(masm.getStackPointer(), offsetof(FrameData, endIndex)));
+        masm.storePtr(endIndexRegister,
+                      Address(masm.getStackPointer(), offsetof(FrameData, endIndex)));
     }
 
     // Load string end pointer.
@@ -219,7 +211,8 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
 
     // Load input start pointer, and copy to FrameData.
     masm.loadPtr(Address(temp0, offsetof(InputOutputData, inputStart)), current_position);
-    masm.storePtr(current_position, Address(masm.getStackPointer(), offsetof(FrameData, inputStart)));
+    masm.storePtr(current_position,
+                  Address(masm.getStackPointer(), offsetof(FrameData, inputStart)));
 
     // Load start index, and copy to FrameData.
     masm.loadPtr(Address(temp0, offsetof(InputOutputData, startIndex)), temp1);
@@ -242,7 +235,7 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
     Label load_char_start_regexp, start_regexp;
 
     // Load newline if index is at start, previous character otherwise.
-    masm.branchPtr(Assembler::NotEqual, 
+    masm.branchPtr(Assembler::NotEqual,
                    Address(masm.getStackPointer(), offsetof(FrameData, startIndex)), ImmWord(0),
                    &load_char_start_regexp);
     masm.movePtr(ImmWord('\n'), current_character);
@@ -267,12 +260,11 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
         masm.bind(&init_loop);
         masm.storePtr(temp0, BaseIndex(masm.getStackPointer(), temp1, TimesOne));
         masm.addPtr(ImmWord(sizeof(void*)), temp1);
-        masm.branchPtr(Assembler::LessThan, temp1,
-                       ImmWord(register_offset(num_saved_registers_)), &init_loop);
+        masm.branchPtr(Assembler::LessThan, temp1, ImmWord(register_offset(num_saved_registers_)),
+                       &init_loop);
     } else {
         // Unroll the loop.
-        for (int i = 0; i < num_saved_registers_; i++)
-            masm.storePtr(temp0, register_location(i));
+        for (int i = 0; i < num_saved_registers_; i++) masm.storePtr(temp0, register_location(i));
     }
 
     // Initialize backtrack stack pointer.
@@ -288,7 +280,8 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
     if (success_label_.used()) {
         MOZ_ASSERT(num_saved_registers_ > 0);
 
-        Address outputRegistersAddress(masm.getStackPointer(), offsetof(FrameData, outputRegisters));
+        Address outputRegistersAddress(masm.getStackPointer(),
+                                       offsetof(FrameData, outputRegisters));
 
         // Save captures when successful.
         masm.bind(&success_label_);
@@ -316,8 +309,7 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
                 masm.addPtr(inputByteLength, temp0);
 
                 // Convert byte index to character index.
-                if (mode_ == CHAR16)
-                    masm.rshiftPtrArithmetic(Imm32(1), temp0);
+                if (mode_ == CHAR16) masm.rshiftPtrArithmetic(Imm32(1), temp0);
 
                 masm.store32(temp0, Address(outputRegisters, i * sizeof(int32_t)));
             }
@@ -326,9 +318,11 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
         // Restart matching if the regular expression is flagged as global.
         if (global()) {
             // Increment success counter.
-            masm.add32(Imm32(1), Address(masm.getStackPointer(), offsetof(FrameData, successfulCaptures)));
+            masm.add32(Imm32(1),
+                       Address(masm.getStackPointer(), offsetof(FrameData, successfulCaptures)));
 
-            Address numOutputRegistersAddress(masm.getStackPointer(), offsetof(FrameData, numOutputRegisters));
+            Address numOutputRegistersAddress(masm.getStackPointer(),
+                                              offsetof(FrameData, numOutputRegisters));
 
             // Capture results have been stored, so the number of remaining global
             // output registers is reduced by the number of stored captures.
@@ -345,7 +339,8 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
             masm.add32(Imm32(num_saved_registers_ * sizeof(void*)), outputRegistersAddress);
 
             // Prepare temp0 to initialize registers with its value in the next run.
-            masm.loadPtr(Address(masm.getStackPointer(), offsetof(FrameData, inputStartMinusOne)), temp0);
+            masm.loadPtr(Address(masm.getStackPointer(), offsetof(FrameData, inputStartMinusOne)),
+                         temp0);
 
             if (global_with_zero_length_check()) {
                 // Special case for zero-length matches.
@@ -370,11 +365,13 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
                 Register endIndexRegister = temp1;
                 Register inputByteLength = backtrack_stack_pointer;
 
-                masm.loadPtr(Address(masm.getStackPointer(), offsetof(FrameData, endIndex)), endIndexRegister);
+                masm.loadPtr(Address(masm.getStackPointer(), offsetof(FrameData, endIndex)),
+                             endIndexRegister);
 
                 masm.loadPtr(inputOutputAddress, temp0);
                 masm.loadPtr(Address(temp0, offsetof(InputOutputData, inputEnd)), inputByteLength);
-                masm.subPtr(Address(temp0, offsetof(InputOutputData, inputStart)), inputByteLength);
+                masm.subPtr(Address(temp0, offsetof(InputOutputData, inputStart)),
+                            inputByteLength);
 
                 masm.loadPtr(register_location(1), temp0);
 
@@ -382,8 +379,7 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
                 masm.addPtr(inputByteLength, temp0);
 
                 // Convert byte index to character index.
-                if (mode_ == CHAR16)
-                    masm.rshiftPtrArithmetic(Imm32(1), temp0);
+                if (mode_ == CHAR16) masm.rshiftPtrArithmetic(Imm32(1), temp0);
 
                 masm.store32(temp0, Address(endIndexRegister, 0));
             }
@@ -396,7 +392,8 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
 
     if (global()) {
         // Return the number of successful captures.
-        masm.load32(Address(masm.getStackPointer(), offsetof(FrameData, successfulCaptures)), temp0);
+        masm.load32(Address(masm.getStackPointer(), offsetof(FrameData, successfulCaptures)),
+                    temp0);
     }
 
     masm.bind(&return_temp0);
@@ -509,57 +506,42 @@ NativeRegExpMacroAssembler::GenerateCode(JSContext* cx, bool match_only)
         LabelPatch& v = labelPatches[i];
         MOZ_ASSERT(!v.label);
         Assembler::PatchDataWithValueCheck(CodeLocationLabel(code, v.patchOffset),
-                                           ImmPtr(code->raw() + v.labelOffset),
-                                           ImmPtr(0));
+                                           ImmPtr(code->raw() + v.labelOffset), ImmPtr(0));
     }
 
-    JitSpew(JitSpew_Codegen, "Created RegExp (raw %p length %d)",
-            (void*) code->raw(), (int) masm.bytesNeeded());
+    JitSpew(JitSpew_Codegen, "Created RegExp (raw %p length %d)", (void*)code->raw(),
+            (int)masm.bytesNeeded());
 
     RegExpCode res;
     res.jitCode = code;
     return res;
 }
 
-int
-NativeRegExpMacroAssembler::stack_limit_slack()
-{
-    return RegExpStack::kStackLimitSlack;
-}
+int NativeRegExpMacroAssembler::stack_limit_slack() { return RegExpStack::kStackLimitSlack; }
 
-void
-NativeRegExpMacroAssembler::AdvanceCurrentPosition(int by)
-{
+void NativeRegExpMacroAssembler::AdvanceCurrentPosition(int by) {
     JitSpew(SPEW_PREFIX "AdvanceCurrentPosition(%d)", by);
 
-    if (by != 0)
-        masm.addPtr(Imm32(by * char_size()), current_position);
+    if (by != 0) masm.addPtr(Imm32(by * char_size()), current_position);
 }
 
-void
-NativeRegExpMacroAssembler::AdvanceRegister(int reg, int by)
-{
+void NativeRegExpMacroAssembler::AdvanceRegister(int reg, int by) {
     JitSpew(SPEW_PREFIX "AdvanceRegister(%d, %d)", reg, by);
 
     MOZ_ASSERT(reg >= 0);
     MOZ_ASSERT(reg < num_registers_);
-    if (by != 0)
-        masm.addPtr(Imm32(by), register_location(reg));
+    if (by != 0) masm.addPtr(Imm32(by), register_location(reg));
 }
 
-void
-NativeRegExpMacroAssembler::Backtrack()
-{
+void NativeRegExpMacroAssembler::Backtrack() {
     JitSpew(SPEW_PREFIX "Backtrack");
 
     // Check for an interrupt.
     Label noInterrupt;
     void* contextAddr = cx->zone()->group()->addressOfOwnerContext();
     masm.loadPtr(AbsoluteAddress(contextAddr), temp0);
-    masm.branch32(Assembler::Equal,
-                  Address(temp0, offsetof(JSContext, interruptRegExpJit_)),
-                  Imm32(0),
-                  &noInterrupt);
+    masm.branch32(Assembler::Equal, Address(temp0, offsetof(JSContext, interruptRegExpJit_)),
+                  Imm32(0), &noInterrupt);
     masm.movePtr(ImmWord(RegExpRunStatus_Error), temp0);
     masm.jump(&exit_label_);
     masm.bind(&noInterrupt);
@@ -569,17 +551,13 @@ NativeRegExpMacroAssembler::Backtrack()
     masm.jump(temp0);
 }
 
-void
-NativeRegExpMacroAssembler::Bind(Label* label)
-{
+void NativeRegExpMacroAssembler::Bind(Label* label) {
     JitSpew(SPEW_PREFIX "Bind");
 
     masm.bind(label);
 }
 
-void
-NativeRegExpMacroAssembler::CheckAtStart(Label* on_at_start)
-{
+void NativeRegExpMacroAssembler::CheckAtStart(Label* on_at_start) {
     JitSpew(SPEW_PREFIX "CheckAtStart");
 
     Label not_at_start;
@@ -597,14 +575,13 @@ NativeRegExpMacroAssembler::CheckAtStart(Label* on_at_start)
     masm.bind(&not_at_start);
 }
 
-void
-NativeRegExpMacroAssembler::CheckNotAtStart(Label* on_not_at_start)
-{
+void NativeRegExpMacroAssembler::CheckNotAtStart(Label* on_not_at_start) {
     JitSpew(SPEW_PREFIX "CheckNotAtStart");
 
     // Did we start the match at the start of the string at all?
     Address startIndex(masm.getStackPointer(), offsetof(FrameData, startIndex));
-    masm.branchPtr(Assembler::NotEqual, startIndex, ImmWord(0), BranchOrBacktrack(on_not_at_start));
+    masm.branchPtr(Assembler::NotEqual, startIndex, ImmWord(0),
+                   BranchOrBacktrack(on_not_at_start));
 
     // If we did, are we still at the start of the input?
     masm.computeEffectiveAddress(BaseIndex(input_end_pointer, current_position, TimesOne), temp0);
@@ -613,25 +590,20 @@ NativeRegExpMacroAssembler::CheckNotAtStart(Label* on_not_at_start)
     masm.branchPtr(Assembler::NotEqual, inputStart, temp0, BranchOrBacktrack(on_not_at_start));
 }
 
-void
-NativeRegExpMacroAssembler::CheckCharacter(unsigned c, Label* on_equal)
-{
-    JitSpew(SPEW_PREFIX "CheckCharacter(%d)", (int) c);
+void NativeRegExpMacroAssembler::CheckCharacter(unsigned c, Label* on_equal) {
+    JitSpew(SPEW_PREFIX "CheckCharacter(%d)", (int)c);
     masm.branch32(Assembler::Equal, current_character, Imm32(c), BranchOrBacktrack(on_equal));
 }
 
-void
-NativeRegExpMacroAssembler::CheckNotCharacter(unsigned c, Label* on_not_equal)
-{
-    JitSpew(SPEW_PREFIX "CheckNotCharacter(%d)", (int) c);
-    masm.branch32(Assembler::NotEqual, current_character, Imm32(c), BranchOrBacktrack(on_not_equal));
+void NativeRegExpMacroAssembler::CheckNotCharacter(unsigned c, Label* on_not_equal) {
+    JitSpew(SPEW_PREFIX "CheckNotCharacter(%d)", (int)c);
+    masm.branch32(Assembler::NotEqual, current_character, Imm32(c),
+                  BranchOrBacktrack(on_not_equal));
 }
 
-void
-NativeRegExpMacroAssembler::CheckCharacterAfterAnd(unsigned c, unsigned and_with,
-                                                   Label* on_equal)
-{
-    JitSpew(SPEW_PREFIX "CheckCharacterAfterAnd(%d, %d)", (int) c, (int) and_with);
+void NativeRegExpMacroAssembler::CheckCharacterAfterAnd(unsigned c, unsigned and_with,
+                                                        Label* on_equal) {
+    JitSpew(SPEW_PREFIX "CheckCharacterAfterAnd(%d, %d)", (int)c, (int)and_with);
 
     if (c == 0) {
         masm.branchTest32(Assembler::Zero, current_character, Imm32(and_with),
@@ -643,11 +615,9 @@ NativeRegExpMacroAssembler::CheckCharacterAfterAnd(unsigned c, unsigned and_with
     }
 }
 
-void
-NativeRegExpMacroAssembler::CheckNotCharacterAfterAnd(unsigned c, unsigned and_with,
-                                                      Label* on_not_equal)
-{
-    JitSpew(SPEW_PREFIX "CheckNotCharacterAfterAnd(%d, %d)", (int) c, (int) and_with);
+void NativeRegExpMacroAssembler::CheckNotCharacterAfterAnd(unsigned c, unsigned and_with,
+                                                           Label* on_not_equal) {
+    JitSpew(SPEW_PREFIX "CheckNotCharacterAfterAnd(%d, %d)", (int)c, (int)and_with);
 
     if (c == 0) {
         masm.branchTest32(Assembler::NonZero, current_character, Imm32(and_with),
@@ -659,38 +629,29 @@ NativeRegExpMacroAssembler::CheckNotCharacterAfterAnd(unsigned c, unsigned and_w
     }
 }
 
-void
-NativeRegExpMacroAssembler::CheckCharacterGT(char16_t c, Label* on_greater)
-{
-    JitSpew(SPEW_PREFIX "CheckCharacterGT(%d)", (int) c);
+void NativeRegExpMacroAssembler::CheckCharacterGT(char16_t c, Label* on_greater) {
+    JitSpew(SPEW_PREFIX "CheckCharacterGT(%d)", (int)c);
     masm.branch32(Assembler::GreaterThan, current_character, Imm32(c),
                   BranchOrBacktrack(on_greater));
 }
 
-void
-NativeRegExpMacroAssembler::CheckCharacterLT(char16_t c, Label* on_less)
-{
-    JitSpew(SPEW_PREFIX "CheckCharacterLT(%d)", (int) c);
+void NativeRegExpMacroAssembler::CheckCharacterLT(char16_t c, Label* on_less) {
+    JitSpew(SPEW_PREFIX "CheckCharacterLT(%d)", (int)c);
     masm.branch32(Assembler::LessThan, current_character, Imm32(c), BranchOrBacktrack(on_less));
 }
 
-void
-NativeRegExpMacroAssembler::CheckGreedyLoop(Label* on_tos_equals_current_position)
-{
+void NativeRegExpMacroAssembler::CheckGreedyLoop(Label* on_tos_equals_current_position) {
     JitSpew(SPEW_PREFIX "CheckGreedyLoop");
 
     Label fallthrough;
-    masm.branchPtr(Assembler::NotEqual,
-                   Address(backtrack_stack_pointer, -int(sizeof(void*))), current_position,
-                   &fallthrough);
+    masm.branchPtr(Assembler::NotEqual, Address(backtrack_stack_pointer, -int(sizeof(void*))),
+                   current_position, &fallthrough);
     masm.subPtr(Imm32(sizeof(void*)), backtrack_stack_pointer);  // Pop.
     JumpOrBacktrack(on_tos_equals_current_position);
     masm.bind(&fallthrough);
 }
 
-void
-NativeRegExpMacroAssembler::CheckNotBackReference(int start_reg, Label* on_no_match)
-{
+void NativeRegExpMacroAssembler::CheckNotBackReference(int start_reg, Label* on_no_match) {
     JitSpew(SPEW_PREFIX "CheckNotBackReference(%d)", start_reg);
 
     Label fallthrough;
@@ -717,9 +678,11 @@ NativeRegExpMacroAssembler::CheckNotBackReference(int start_reg, Label* on_no_ma
     masm.push(backtrack_stack_pointer);
 
     // Compute pointers to match string and capture string
-    masm.computeEffectiveAddress(BaseIndex(input_end_pointer, current_position, TimesOne), temp1); // Start of match.
-    masm.addPtr(input_end_pointer, current_character); // Start of capture.
-    masm.computeEffectiveAddress(BaseIndex(temp0, temp1, TimesOne), backtrack_stack_pointer); // End of match.
+    masm.computeEffectiveAddress(BaseIndex(input_end_pointer, current_position, TimesOne),
+                                 temp1);                // Start of match.
+    masm.addPtr(input_end_pointer, current_character);  // Start of capture.
+    masm.computeEffectiveAddress(BaseIndex(temp0, temp1, TimesOne),
+                                 backtrack_stack_pointer);  // End of match.
 
     Label loop;
     masm.bind(&loop);
@@ -759,17 +722,15 @@ NativeRegExpMacroAssembler::CheckNotBackReference(int start_reg, Label* on_no_ma
     masm.bind(&fallthrough);
 }
 
-void
-NativeRegExpMacroAssembler::CheckNotBackReferenceIgnoreCase(int start_reg, Label* on_no_match,
-                                                            bool unicode)
-{
+void NativeRegExpMacroAssembler::CheckNotBackReferenceIgnoreCase(int start_reg, Label* on_no_match,
+                                                                 bool unicode) {
     JitSpew(SPEW_PREFIX "CheckNotBackReferenceIgnoreCase(%d, %d)", start_reg, unicode);
 
     Label fallthrough;
 
     masm.loadPtr(register_location(start_reg), current_character);  // Index of start of capture
-    masm.loadPtr(register_location(start_reg + 1), temp1);  // Index of end of capture
-    masm.subPtr(current_character, temp1);  // Length of capture.
+    masm.loadPtr(register_location(start_reg + 1), temp1);          // Index of end of capture
+    masm.subPtr(current_character, temp1);                          // Length of capture.
 
     // The length of a capture should not be negative. This can only happen
     // if the end of the capture is unrecorded, or at a point earlier than
@@ -792,9 +753,10 @@ NativeRegExpMacroAssembler::CheckNotBackReferenceIgnoreCase(int start_reg, Label
         // this, the temp0, temp2, and current_position registers are available.
         masm.push(current_position);
 
-        masm.addPtr(input_end_pointer, current_character); // Start of capture.
-        masm.addPtr(input_end_pointer, current_position); // Start of text to match against capture.
-        masm.addPtr(current_position, temp1); // End of text to match against capture.
+        masm.addPtr(input_end_pointer, current_character);  // Start of capture.
+        masm.addPtr(input_end_pointer,
+                    current_position);         // Start of text to match against capture.
+        masm.addPtr(current_position, temp1);  // End of text to match against capture.
 
         Label loop, loop_increment;
         masm.bind(&loop);
@@ -803,7 +765,7 @@ NativeRegExpMacroAssembler::CheckNotBackReferenceIgnoreCase(int start_reg, Label
         masm.branch32(Assembler::Equal, temp0, temp2, &loop_increment);
 
         // Mismatch, try case-insensitive match (converting letters to lower-case).
-        masm.or32(Imm32(0x20), temp0); // Convert match character to lower-case.
+        masm.or32(Imm32(0x20), temp0);  // Convert match character to lower-case.
 
         // Is temp0 a lowercase letter?
         Label convert_capture;
@@ -896,12 +858,11 @@ NativeRegExpMacroAssembler::CheckNotBackReferenceIgnoreCase(int start_reg, Label
     masm.bind(&fallthrough);
 }
 
-void
-NativeRegExpMacroAssembler::CheckNotCharacterAfterMinusAnd(char16_t c, char16_t minus, char16_t and_with,
-                                                           Label* on_not_equal)
-{
-    JitSpew(SPEW_PREFIX "CheckNotCharacterAfterMinusAnd(%d, %d, %d)", (int) c,
-            (int) minus, (int) and_with);
+void NativeRegExpMacroAssembler::CheckNotCharacterAfterMinusAnd(char16_t c, char16_t minus,
+                                                                char16_t and_with,
+                                                                Label* on_not_equal) {
+    JitSpew(SPEW_PREFIX "CheckNotCharacterAfterMinusAnd(%d, %d, %d)", (int)c, (int)minus,
+            (int)and_with);
 
     masm.computeEffectiveAddress(Address(current_character, -minus), temp0);
     if (c == 0) {
@@ -913,29 +874,25 @@ NativeRegExpMacroAssembler::CheckNotCharacterAfterMinusAnd(char16_t c, char16_t 
     }
 }
 
-void
-NativeRegExpMacroAssembler::CheckCharacterInRange(char16_t from, char16_t to,
-                                                  Label* on_in_range)
-{
-    JitSpew(SPEW_PREFIX "CheckCharacterInRange(%d, %d)", (int) from, (int) to);
+void NativeRegExpMacroAssembler::CheckCharacterInRange(char16_t from, char16_t to,
+                                                       Label* on_in_range) {
+    JitSpew(SPEW_PREFIX "CheckCharacterInRange(%d, %d)", (int)from, (int)to);
 
     masm.computeEffectiveAddress(Address(current_character, -from), temp0);
-    masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(to - from), BranchOrBacktrack(on_in_range));
+    masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(to - from),
+                  BranchOrBacktrack(on_in_range));
 }
 
-void
-NativeRegExpMacroAssembler::CheckCharacterNotInRange(char16_t from, char16_t to,
-                                                     Label* on_not_in_range)
-{
-    JitSpew(SPEW_PREFIX "CheckCharacterNotInRange(%d, %d)", (int) from, (int) to);
+void NativeRegExpMacroAssembler::CheckCharacterNotInRange(char16_t from, char16_t to,
+                                                          Label* on_not_in_range) {
+    JitSpew(SPEW_PREFIX "CheckCharacterNotInRange(%d, %d)", (int)from, (int)to);
 
     masm.computeEffectiveAddress(Address(current_character, -from), temp0);
     masm.branch32(Assembler::Above, temp0, Imm32(to - from), BranchOrBacktrack(on_not_in_range));
 }
 
-void
-NativeRegExpMacroAssembler::CheckBitInTable(RegExpShared::JitCodeTable table, Label* on_bit_set)
-{
+void NativeRegExpMacroAssembler::CheckBitInTable(RegExpShared::JitCodeTable table,
+                                                 Label* on_bit_set) {
     JitSpew(SPEW_PREFIX "CheckBitInTable");
 
     masm.movePtr(ImmPtr(table.get()), temp0);
@@ -953,61 +910,46 @@ NativeRegExpMacroAssembler::CheckBitInTable(RegExpShared::JitCodeTable table, La
     // Transfer ownership of |table| to the |tables| Vector.
     {
         AutoEnterOOMUnsafeRegion oomUnsafe;
-        if (!tables.append(Move(table)))
-            oomUnsafe.crash("RegExp table append");
+        if (!tables.append(Move(table))) oomUnsafe.crash("RegExp table append");
     }
 }
 
-void
-NativeRegExpMacroAssembler::Fail()
-{
+void NativeRegExpMacroAssembler::Fail() {
     JitSpew(SPEW_PREFIX "Fail");
 
-    if (!global())
-        masm.movePtr(ImmWord(RegExpRunStatus_Success_NotFound), temp0);
+    if (!global()) masm.movePtr(ImmWord(RegExpRunStatus_Success_NotFound), temp0);
     masm.jump(&exit_label_);
 }
 
-void
-NativeRegExpMacroAssembler::IfRegisterGE(int reg, int comparand, Label* if_ge)
-{
+void NativeRegExpMacroAssembler::IfRegisterGE(int reg, int comparand, Label* if_ge) {
     JitSpew(SPEW_PREFIX "IfRegisterGE(%d, %d)", reg, comparand);
     masm.branchPtr(Assembler::GreaterThanOrEqual, register_location(reg), ImmWord(comparand),
                    BranchOrBacktrack(if_ge));
 }
 
-void
-NativeRegExpMacroAssembler::IfRegisterLT(int reg, int comparand, Label* if_lt)
-{
+void NativeRegExpMacroAssembler::IfRegisterLT(int reg, int comparand, Label* if_lt) {
     JitSpew(SPEW_PREFIX "IfRegisterLT(%d, %d)", reg, comparand);
     masm.branchPtr(Assembler::LessThan, register_location(reg), ImmWord(comparand),
                    BranchOrBacktrack(if_lt));
 }
 
-void
-NativeRegExpMacroAssembler::IfRegisterEqPos(int reg, Label* if_eq)
-{
+void NativeRegExpMacroAssembler::IfRegisterEqPos(int reg, Label* if_eq) {
     JitSpew(SPEW_PREFIX "IfRegisterEqPos(%d)", reg);
     masm.branchPtr(Assembler::Equal, register_location(reg), current_position,
                    BranchOrBacktrack(if_eq));
 }
 
-void
-NativeRegExpMacroAssembler::LoadCurrentCharacter(int cp_offset, Label* on_end_of_input,
-                                                 bool check_bounds, int characters)
-{
+void NativeRegExpMacroAssembler::LoadCurrentCharacter(int cp_offset, Label* on_end_of_input,
+                                                      bool check_bounds, int characters) {
     JitSpew(SPEW_PREFIX "LoadCurrentCharacter(%d, %d)", cp_offset, characters);
 
-    MOZ_ASSERT(cp_offset >= -1);      // ^ and \b can look behind one character.
-    MOZ_ASSERT(cp_offset < (1<<30));  // Be sane! (And ensure negation works)
-    if (check_bounds)
-        CheckPosition(cp_offset + characters - 1, on_end_of_input);
+    MOZ_ASSERT(cp_offset >= -1);        // ^ and \b can look behind one character.
+    MOZ_ASSERT(cp_offset < (1 << 30));  // Be sane! (And ensure negation works)
+    if (check_bounds) CheckPosition(cp_offset + characters - 1, on_end_of_input);
     LoadCurrentCharacterUnchecked(cp_offset, characters);
 }
 
-void
-NativeRegExpMacroAssembler::LoadCurrentCharacterUnchecked(int cp_offset, int characters)
-{
+void NativeRegExpMacroAssembler::LoadCurrentCharacterUnchecked(int cp_offset, int characters) {
     JitSpew(SPEW_PREFIX "LoadCurrentCharacterUnchecked(%d, %d)", cp_offset, characters);
 
     if (mode_ == LATIN1) {
@@ -1023,7 +965,8 @@ NativeRegExpMacroAssembler::LoadCurrentCharacterUnchecked(int cp_offset, int cha
     } else {
         MOZ_ASSERT(mode_ == CHAR16);
         MOZ_ASSERT(characters <= 2);
-        BaseIndex address(input_end_pointer, current_position, TimesOne, cp_offset * sizeof(char16_t));
+        BaseIndex address(input_end_pointer, current_position, TimesOne,
+                          cp_offset * sizeof(char16_t));
         if (characters == 2)
             masm.load32(address, current_character);
         else
@@ -1031,26 +974,20 @@ NativeRegExpMacroAssembler::LoadCurrentCharacterUnchecked(int cp_offset, int cha
     }
 }
 
-void
-NativeRegExpMacroAssembler::PopCurrentPosition()
-{
+void NativeRegExpMacroAssembler::PopCurrentPosition() {
     JitSpew(SPEW_PREFIX "PopCurrentPosition");
 
     PopBacktrack(current_position);
 }
 
-void
-NativeRegExpMacroAssembler::PopRegister(int register_index)
-{
+void NativeRegExpMacroAssembler::PopRegister(int register_index) {
     JitSpew(SPEW_PREFIX "PopRegister(%d)", register_index);
 
     PopBacktrack(temp0);
     masm.storePtr(temp0, register_location(register_index));
 }
 
-void
-NativeRegExpMacroAssembler::PushBacktrack(Label* label)
-{
+void NativeRegExpMacroAssembler::PushBacktrack(Label* label) {
     JitSpew(SPEW_PREFIX "PushBacktrack");
 
     CodeOffset patchOffset = masm.movWithPatch(ImmPtr(nullptr), temp0);
@@ -1067,9 +1004,7 @@ NativeRegExpMacroAssembler::PushBacktrack(Label* label)
     CheckBacktrackStackLimit();
 }
 
-void
-NativeRegExpMacroAssembler::BindBacktrack(Label* label)
-{
+void NativeRegExpMacroAssembler::BindBacktrack(Label* label) {
     JitSpew(SPEW_PREFIX "BindBacktrack");
 
     Bind(label);
@@ -1084,9 +1019,7 @@ NativeRegExpMacroAssembler::BindBacktrack(Label* label)
     }
 }
 
-void
-NativeRegExpMacroAssembler::PushBacktrack(Register source)
-{
+void NativeRegExpMacroAssembler::PushBacktrack(Register source) {
     JitSpew(SPEW_PREFIX "PushBacktrack");
 
     MOZ_ASSERT(source != backtrack_stack_pointer);
@@ -1096,19 +1029,15 @@ NativeRegExpMacroAssembler::PushBacktrack(Register source)
     masm.addPtr(Imm32(sizeof(void*)), backtrack_stack_pointer);
 }
 
-void
-NativeRegExpMacroAssembler::PushBacktrack(int32_t value)
-{
-    JitSpew(SPEW_PREFIX "PushBacktrack(%d)", (int) value);
+void NativeRegExpMacroAssembler::PushBacktrack(int32_t value) {
+    JitSpew(SPEW_PREFIX "PushBacktrack(%d)", (int)value);
 
     // Notice: This updates flags, unlike normal Push.
     masm.storePtr(ImmWord(value), Address(backtrack_stack_pointer, 0));
     masm.addPtr(Imm32(sizeof(void*)), backtrack_stack_pointer);
 }
 
-void
-NativeRegExpMacroAssembler::PopBacktrack(Register target)
-{
+void NativeRegExpMacroAssembler::PopBacktrack(Register target) {
     JitSpew(SPEW_PREFIX "PopBacktrack");
 
     MOZ_ASSERT(target != backtrack_stack_pointer);
@@ -1118,17 +1047,15 @@ NativeRegExpMacroAssembler::PopBacktrack(Register target)
     masm.loadPtr(Address(backtrack_stack_pointer, 0), target);
 }
 
-void
-NativeRegExpMacroAssembler::CheckBacktrackStackLimit()
-{
+void NativeRegExpMacroAssembler::CheckBacktrackStackLimit() {
     JitSpew(SPEW_PREFIX "CheckBacktrackStackLimit");
 
     Label no_stack_overflow;
     void* context_addr = cx->zone()->group()->addressOfOwnerContext();
     size_t limitOffset = offsetof(JSContext, regexpStack) + RegExpStack::offsetOfLimit();
     masm.loadPtr(AbsoluteAddress(context_addr), temp1);
-    masm.branchPtr(Assembler::AboveOrEqual, Address(temp1, limitOffset),
-                   backtrack_stack_pointer, &no_stack_overflow);
+    masm.branchPtr(Assembler::AboveOrEqual, Address(temp1, limitOffset), backtrack_stack_pointer,
+                   &no_stack_overflow);
 
     // Copy the stack pointer before the call() instruction modifies it.
     masm.moveStackPtrTo(temp2);
@@ -1140,36 +1067,28 @@ NativeRegExpMacroAssembler::CheckBacktrackStackLimit()
     masm.branchTest32(Assembler::Zero, temp0, temp0, &exit_with_exception_label_);
 }
 
-void
-NativeRegExpMacroAssembler::PushCurrentPosition()
-{
+void NativeRegExpMacroAssembler::PushCurrentPosition() {
     JitSpew(SPEW_PREFIX "PushCurrentPosition");
 
     PushBacktrack(current_position);
 }
 
-void
-NativeRegExpMacroAssembler::PushRegister(int register_index, StackCheckFlag check_stack_limit)
-{
+void NativeRegExpMacroAssembler::PushRegister(int register_index,
+                                              StackCheckFlag check_stack_limit) {
     JitSpew(SPEW_PREFIX "PushRegister(%d)", register_index);
 
     masm.loadPtr(register_location(register_index), temp0);
     PushBacktrack(temp0);
-    if (check_stack_limit)
-        CheckBacktrackStackLimit();
+    if (check_stack_limit) CheckBacktrackStackLimit();
 }
 
-void
-NativeRegExpMacroAssembler::ReadCurrentPositionFromRegister(int reg)
-{
+void NativeRegExpMacroAssembler::ReadCurrentPositionFromRegister(int reg) {
     JitSpew(SPEW_PREFIX "ReadCurrentPositionFromRegister(%d)", reg);
 
     masm.loadPtr(register_location(reg), current_position);
 }
 
-void
-NativeRegExpMacroAssembler::WriteCurrentPositionToRegister(int reg, int cp_offset)
-{
+void NativeRegExpMacroAssembler::WriteCurrentPositionToRegister(int reg, int cp_offset) {
     JitSpew(SPEW_PREFIX "WriteCurrentPositionToRegister(%d, %d)", reg, cp_offset);
 
     if (cp_offset == 0) {
@@ -1180,35 +1099,28 @@ NativeRegExpMacroAssembler::WriteCurrentPositionToRegister(int reg, int cp_offse
     }
 }
 
-void
-NativeRegExpMacroAssembler::ReadBacktrackStackPointerFromRegister(int reg)
-{
+void NativeRegExpMacroAssembler::ReadBacktrackStackPointerFromRegister(int reg) {
     JitSpew(SPEW_PREFIX "ReadBacktrackStackPointerFromRegister(%d)", reg);
 
     masm.loadPtr(register_location(reg), backtrack_stack_pointer);
-    masm.addPtr(Address(masm.getStackPointer(),
-                offsetof(FrameData, backtrackStackBase)), backtrack_stack_pointer);
+    masm.addPtr(Address(masm.getStackPointer(), offsetof(FrameData, backtrackStackBase)),
+                backtrack_stack_pointer);
 }
 
-void
-NativeRegExpMacroAssembler::WriteBacktrackStackPointerToRegister(int reg)
-{
+void NativeRegExpMacroAssembler::WriteBacktrackStackPointerToRegister(int reg) {
     JitSpew(SPEW_PREFIX "WriteBacktrackStackPointerToRegister(%d)", reg);
 
     masm.movePtr(backtrack_stack_pointer, temp0);
-    masm.subPtr(Address(masm.getStackPointer(),
-                offsetof(FrameData, backtrackStackBase)), temp0);
+    masm.subPtr(Address(masm.getStackPointer(), offsetof(FrameData, backtrackStackBase)), temp0);
     masm.storePtr(temp0, register_location(reg));
 }
 
-void
-NativeRegExpMacroAssembler::SetCurrentPositionFromEnd(int by)
-{
+void NativeRegExpMacroAssembler::SetCurrentPositionFromEnd(int by) {
     JitSpew(SPEW_PREFIX "SetCurrentPositionFromEnd(%d)", by);
 
     Label after_position;
-    masm.branchPtr(Assembler::GreaterThanOrEqual, current_position,
-                   ImmWord(-by * char_size()), &after_position);
+    masm.branchPtr(Assembler::GreaterThanOrEqual, current_position, ImmWord(-by * char_size()),
+                   &after_position);
     masm.movePtr(ImmWord(-by * char_size()), current_position);
 
     // On RegExp code entry (where this operation is used), the character before
@@ -1218,54 +1130,40 @@ NativeRegExpMacroAssembler::SetCurrentPositionFromEnd(int by)
     masm.bind(&after_position);
 }
 
-void
-NativeRegExpMacroAssembler::SetRegister(int register_index, int to)
-{
+void NativeRegExpMacroAssembler::SetRegister(int register_index, int to) {
     JitSpew(SPEW_PREFIX "SetRegister(%d, %d)", register_index, to);
 
     MOZ_ASSERT(register_index >= num_saved_registers_);  // Reserved for positions!
     masm.storePtr(ImmWord(to), register_location(register_index));
 }
 
-bool
-NativeRegExpMacroAssembler::Succeed()
-{
+bool NativeRegExpMacroAssembler::Succeed() {
     JitSpew(SPEW_PREFIX "Succeed");
 
     masm.jump(&success_label_);
     return global();
 }
 
-void
-NativeRegExpMacroAssembler::ClearRegisters(int reg_from, int reg_to)
-{
+void NativeRegExpMacroAssembler::ClearRegisters(int reg_from, int reg_to) {
     JitSpew(SPEW_PREFIX "ClearRegisters(%d, %d)", reg_from, reg_to);
 
     MOZ_ASSERT(reg_from <= reg_to);
     masm.loadPtr(Address(masm.getStackPointer(), offsetof(FrameData, inputStartMinusOne)), temp0);
-    for (int reg = reg_from; reg <= reg_to; reg++)
-        masm.storePtr(temp0, register_location(reg));
+    for (int reg = reg_from; reg <= reg_to; reg++) masm.storePtr(temp0, register_location(reg));
 }
 
-void
-NativeRegExpMacroAssembler::CheckPosition(int cp_offset, Label* on_outside_input)
-{
+void NativeRegExpMacroAssembler::CheckPosition(int cp_offset, Label* on_outside_input) {
     JitSpew(SPEW_PREFIX "CheckPosition(%d)", cp_offset);
     masm.branchPtr(Assembler::GreaterThanOrEqual, current_position,
                    ImmWord(-cp_offset * char_size()), BranchOrBacktrack(on_outside_input));
 }
 
-Label*
-NativeRegExpMacroAssembler::BranchOrBacktrack(Label* branch)
-{
-    if (branch)
-        return branch;
+Label* NativeRegExpMacroAssembler::BranchOrBacktrack(Label* branch) {
+    if (branch) return branch;
     return &backtrack_label_;
 }
 
-void
-NativeRegExpMacroAssembler::JumpOrBacktrack(Label* to)
-{
+void NativeRegExpMacroAssembler::JumpOrBacktrack(Label* to) {
     JitSpew(SPEW_PREFIX "JumpOrBacktrack");
 
     if (to)
@@ -1274,128 +1172,123 @@ NativeRegExpMacroAssembler::JumpOrBacktrack(Label* to)
         Backtrack();
 }
 
-bool
-NativeRegExpMacroAssembler::CheckSpecialCharacterClass(char16_t type, Label* on_no_match)
-{
-    JitSpew(SPEW_PREFIX "CheckSpecialCharacterClass(%d)", (int) type);
+bool NativeRegExpMacroAssembler::CheckSpecialCharacterClass(char16_t type, Label* on_no_match) {
+    JitSpew(SPEW_PREFIX "CheckSpecialCharacterClass(%d)", (int)type);
 
     Label* branch = BranchOrBacktrack(on_no_match);
 
     // Range checks (c in min..max) are generally implemented by an unsigned
     // (c - min) <= (max - min) check
     switch (type) {
-      case 's':
-        // Match space-characters.
-        if (mode_ == LATIN1) {
-            // One byte space characters are '\t'..'\r', ' ' and \u00a0.
-            Label success;
-            masm.branch32(Assembler::Equal, current_character, Imm32(' '), &success);
+        case 's':
+            // Match space-characters.
+            if (mode_ == LATIN1) {
+                // One byte space characters are '\t'..'\r', ' ' and \u00a0.
+                Label success;
+                masm.branch32(Assembler::Equal, current_character, Imm32(' '), &success);
 
-            // Check range 0x09..0x0d.
-            masm.computeEffectiveAddress(Address(current_character, -'\t'), temp0);
-            masm.branch32(Assembler::BelowOrEqual, temp0, Imm32('\r' - '\t'), &success);
+                // Check range 0x09..0x0d.
+                masm.computeEffectiveAddress(Address(current_character, -'\t'), temp0);
+                masm.branch32(Assembler::BelowOrEqual, temp0, Imm32('\r' - '\t'), &success);
 
-            // \u00a0 (NBSP).
-            masm.branch32(Assembler::NotEqual, temp0, Imm32(0x00a0 - '\t'), branch);
+                // \u00a0 (NBSP).
+                masm.branch32(Assembler::NotEqual, temp0, Imm32(0x00a0 - '\t'), branch);
 
-            masm.bind(&success);
+                masm.bind(&success);
+                return true;
+            }
+            return false;
+        case 'S':
+            // The emitted code for generic character classes is good enough.
+            return false;
+        case 'd':
+            // Match LATIN1 digits ('0'..'9')
+            masm.computeEffectiveAddress(Address(current_character, -'0'), temp0);
+            masm.branch32(Assembler::Above, temp0, Imm32('9' - '0'), branch);
+            return true;
+        case 'D':
+            // Match non LATIN1-digits
+            masm.computeEffectiveAddress(Address(current_character, -'0'), temp0);
+            masm.branch32(Assembler::BelowOrEqual, temp0, Imm32('9' - '0'), branch);
+            return true;
+        case '.': {
+            // Match non-newlines (not 0x0a('\n'), 0x0d('\r'), 0x2028 and 0x2029)
+            masm.move32(current_character, temp0);
+            masm.xor32(Imm32(0x01), temp0);
+
+            // See if current character is '\n'^1 or '\r'^1, i.e., 0x0b or 0x0c
+            masm.sub32(Imm32(0x0b), temp0);
+            masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(0x0c - 0x0b), branch);
+            if (mode_ == CHAR16) {
+                // Compare original value to 0x2028 and 0x2029, using the already
+                // computed (current_char ^ 0x01 - 0x0b). I.e., check for
+                // 0x201d (0x2028 - 0x0b) or 0x201e.
+                masm.sub32(Imm32(0x2028 - 0x0b), temp0);
+                masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(0x2029 - 0x2028), branch);
+            }
             return true;
         }
-        return false;
-      case 'S':
-        // The emitted code for generic character classes is good enough.
-        return false;
-      case 'd':
-        // Match LATIN1 digits ('0'..'9')
-        masm.computeEffectiveAddress(Address(current_character, -'0'), temp0);
-        masm.branch32(Assembler::Above, temp0, Imm32('9' - '0'), branch);
-        return true;
-      case 'D':
-        // Match non LATIN1-digits
-        masm.computeEffectiveAddress(Address(current_character, -'0'), temp0);
-        masm.branch32(Assembler::BelowOrEqual, temp0, Imm32('9' - '0'), branch);
-        return true;
-      case '.': {
-        // Match non-newlines (not 0x0a('\n'), 0x0d('\r'), 0x2028 and 0x2029)
-        masm.move32(current_character, temp0);
-        masm.xor32(Imm32(0x01), temp0);
-
-        // See if current character is '\n'^1 or '\r'^1, i.e., 0x0b or 0x0c
-        masm.sub32(Imm32(0x0b), temp0);
-        masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(0x0c - 0x0b), branch);
-        if (mode_ == CHAR16) {
-            // Compare original value to 0x2028 and 0x2029, using the already
-            // computed (current_char ^ 0x01 - 0x0b). I.e., check for
-            // 0x201d (0x2028 - 0x0b) or 0x201e.
-            masm.sub32(Imm32(0x2028 - 0x0b), temp0);
-            masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(0x2029 - 0x2028), branch);
+        case 'w': {
+            if (mode_ != LATIN1) {
+                // Table is 256 entries, so all LATIN1 characters can be tested.
+                masm.branch32(Assembler::Above, current_character, Imm32('z'), branch);
+            }
+            MOZ_ASSERT(0 == word_character_map[0]);  // Character '\0' is not a word char.
+            masm.movePtr(ImmPtr(word_character_map), temp0);
+            masm.load8ZeroExtend(BaseIndex(temp0, current_character, TimesOne), temp0);
+            masm.branchTest32(Assembler::Zero, temp0, temp0, branch);
+            return true;
         }
-        return true;
-      }
-      case 'w': {
-        if (mode_ != LATIN1) {
-            // Table is 256 entries, so all LATIN1 characters can be tested.
-            masm.branch32(Assembler::Above, current_character, Imm32('z'), branch);
-        }
-        MOZ_ASSERT(0 == word_character_map[0]);  // Character '\0' is not a word char.
-        masm.movePtr(ImmPtr(word_character_map), temp0);
-        masm.load8ZeroExtend(BaseIndex(temp0, current_character, TimesOne), temp0);
-        masm.branchTest32(Assembler::Zero, temp0, temp0, branch);
-        return true;
-      }
-      case 'W': {
-        Label done;
-        if (mode_ != LATIN1) {
-            // Table is 256 entries, so all LATIN1 characters can be tested.
-            masm.branch32(Assembler::Above, current_character, Imm32('z'), &done);
-        }
-        MOZ_ASSERT(0 == word_character_map[0]);  // Character '\0' is not a word char.
-        masm.movePtr(ImmPtr(word_character_map), temp0);
-        masm.load8ZeroExtend(BaseIndex(temp0, current_character, TimesOne), temp0);
-        masm.branchTest32(Assembler::NonZero, temp0, temp0, branch);
-        if (mode_ != LATIN1)
-            masm.bind(&done);
-        return true;
-      }
-        // Non-standard classes (with no syntactic shorthand) used internally.
-      case '*':
-        // Match any character.
-        return true;
-      case 'n': {
-        // Match newlines (0x0a('\n'), 0x0d('\r'), 0x2028 or 0x2029).
-        // The opposite of '.'.
-        masm.move32(current_character, temp0);
-        masm.xor32(Imm32(0x01), temp0);
-
-        // See if current character is '\n'^1 or '\r'^1, i.e., 0x0b or 0x0c
-        masm.sub32(Imm32(0x0b), temp0);
-
-        if (mode_ == LATIN1) {
-            masm.branch32(Assembler::Above, temp0, Imm32(0x0c - 0x0b), branch);
-        } else {
+        case 'W': {
             Label done;
-            masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(0x0c - 0x0b), &done);
-            MOZ_ASSERT(CHAR16 == mode_);
-
-            // Compare original value to 0x2028 and 0x2029, using the already
-            // computed (current_char ^ 0x01 - 0x0b). I.e., check for
-            // 0x201d (0x2028 - 0x0b) or 0x201e.
-            masm.sub32(Imm32(0x2028 - 0x0b), temp0);
-            masm.branch32(Assembler::Above, temp0, Imm32(1), branch);
-
-            masm.bind(&done);
+            if (mode_ != LATIN1) {
+                // Table is 256 entries, so all LATIN1 characters can be tested.
+                masm.branch32(Assembler::Above, current_character, Imm32('z'), &done);
+            }
+            MOZ_ASSERT(0 == word_character_map[0]);  // Character '\0' is not a word char.
+            masm.movePtr(ImmPtr(word_character_map), temp0);
+            masm.load8ZeroExtend(BaseIndex(temp0, current_character, TimesOne), temp0);
+            masm.branchTest32(Assembler::NonZero, temp0, temp0, branch);
+            if (mode_ != LATIN1) masm.bind(&done);
+            return true;
         }
-        return true;
-      }
-        // No custom implementation (yet):
-      default:
-        return false;
+            // Non-standard classes (with no syntactic shorthand) used internally.
+        case '*':
+            // Match any character.
+            return true;
+        case 'n': {
+            // Match newlines (0x0a('\n'), 0x0d('\r'), 0x2028 or 0x2029).
+            // The opposite of '.'.
+            masm.move32(current_character, temp0);
+            masm.xor32(Imm32(0x01), temp0);
+
+            // See if current character is '\n'^1 or '\r'^1, i.e., 0x0b or 0x0c
+            masm.sub32(Imm32(0x0b), temp0);
+
+            if (mode_ == LATIN1) {
+                masm.branch32(Assembler::Above, temp0, Imm32(0x0c - 0x0b), branch);
+            } else {
+                Label done;
+                masm.branch32(Assembler::BelowOrEqual, temp0, Imm32(0x0c - 0x0b), &done);
+                MOZ_ASSERT(CHAR16 == mode_);
+
+                // Compare original value to 0x2028 and 0x2029, using the already
+                // computed (current_char ^ 0x01 - 0x0b). I.e., check for
+                // 0x201d (0x2028 - 0x0b) or 0x201e.
+                masm.sub32(Imm32(0x2028 - 0x0b), temp0);
+                masm.branch32(Assembler::Above, temp0, Imm32(1), branch);
+
+                masm.bind(&done);
+            }
+            return true;
+        }
+            // No custom implementation (yet):
+        default:
+            return false;
     }
 }
 
-bool
-NativeRegExpMacroAssembler::CanReadUnaligned()
-{
+bool NativeRegExpMacroAssembler::CanReadUnaligned() {
 #if defined(JS_CODEGEN_ARM)
     return !jit::HasAlignmentFault();
 #elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
@@ -1405,47 +1298,269 @@ NativeRegExpMacroAssembler::CanReadUnaligned()
 #endif
 }
 
-const uint8_t
-NativeRegExpMacroAssembler::word_character_map[] =
-{
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+const uint8_t NativeRegExpMacroAssembler::word_character_map[] = {
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
 
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // '0' - '7'
-    0xffu, 0xffu, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,  // '8' - '9'
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // '0' - '7'
+    0xffu,
+    0xffu,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,  // '8' - '9'
 
-    0x00u, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // 'A' - 'G'
-    0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // 'H' - 'O'
-    0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // 'P' - 'W'
-    0xffu, 0xffu, 0xffu, 0x00u, 0x00u, 0x00u, 0x00u, 0xffu,  // 'X' - 'Z', '_'
+    0x00u,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // 'A' - 'G'
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // 'H' - 'O'
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // 'P' - 'W'
+    0xffu,
+    0xffu,
+    0xffu,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0xffu,  // 'X' - 'Z', '_'
 
-    0x00u, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // 'a' - 'g'
-    0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // 'h' - 'o'
-    0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu, 0xffu,  // 'p' - 'w'
-    0xffu, 0xffu, 0xffu, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,  // 'x' - 'z'
+    0x00u,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // 'a' - 'g'
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // 'h' - 'o'
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,
+    0xffu,  // 'p' - 'w'
+    0xffu,
+    0xffu,
+    0xffu,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,  // 'x' - 'z'
 
     // Latin-1 range
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
 
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
 
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
 
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-    0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
+    0x00u,
 };

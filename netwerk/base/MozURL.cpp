@@ -81,14 +81,14 @@ MozURL::GetRef(nsACString& aRef)
 
 // This macro ensures that the mutator is still valid, meaning it hasn't been
 // finalized, and none of the setters have returned an error code.
-#define ENSURE_VALID()                          \
-  PR_BEGIN_MACRO                                \
-    if (mFinalized) {                           \
-      mStatus = NS_ERROR_NOT_AVAILABLE;         \
-    }                                           \
-    if (NS_FAILED(mStatus)) {                   \
-      return *this;                             \
-    }                                           \
+#define ENSURE_VALID()                \
+  PR_BEGIN_MACRO                      \
+  if (mFinalized) {                   \
+    mStatus = NS_ERROR_NOT_AVAILABLE; \
+  }                                   \
+  if (NS_FAILED(mStatus)) {           \
+    return *this;                     \
+  }                                   \
   PR_END_MACRO
 
 nsresult
@@ -170,5 +170,5 @@ MozURL::Mutator::SetPort(int32_t aPort)
   return *this;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

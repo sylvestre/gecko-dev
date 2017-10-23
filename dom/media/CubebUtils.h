@@ -18,42 +18,62 @@ typedef cubeb_devid AudioDeviceID;
 
 // Initialize Audio Library. Some Audio backends require initializing the
 // library before using it.
-void InitLibrary();
+void
+InitLibrary();
 
 // Shutdown Audio Library. Some Audio backends require shutting down the
 // library after using it.
-void ShutdownLibrary();
+void
+ShutdownLibrary();
 
 // Returns the maximum number of channels supported by the audio hardware.
-uint32_t MaxNumberOfChannels();
+uint32_t
+MaxNumberOfChannels();
 
 // Get the sample rate the hardware/mixer runs at. Thread safe.
-uint32_t PreferredSampleRate();
+uint32_t
+PreferredSampleRate();
 
 // Get the bit mask of the connected audio device's preferred layout.
-uint32_t PreferredChannelMap(uint32_t aChannels);
+uint32_t
+PreferredChannelMap(uint32_t aChannels);
 
-enum Side {
+enum Side
+{
   Input,
   Output
 };
 
-void PrefChanged(const char* aPref, void* aClosure);
-double GetVolumeScale();
-bool GetFirstStream();
-cubeb* GetCubebContext();
-cubeb* GetCubebContextUnlocked();
-void ReportCubebStreamInitFailure(bool aIsFirstStream);
-void ReportCubebBackendUsed();
-uint32_t GetCubebPlaybackLatencyInMilliseconds();
-Maybe<uint32_t> GetCubebMSGLatencyInFrames();
-bool CubebLatencyPrefSet();
-cubeb_channel_layout ConvertChannelMapToCubebLayout(uint32_t aChannelMap);
-void GetCurrentBackend(nsAString& aBackend);
-void GetPreferredChannelLayout(nsAString& aLayout);
-void GetDeviceCollection(nsTArray<RefPtr<AudioDeviceInfo>>& aDeviceInfos,
-                         Side aSide);
-} // namespace CubebUtils
-} // namespace mozilla
+void
+PrefChanged(const char* aPref, void* aClosure);
+double
+GetVolumeScale();
+bool
+GetFirstStream();
+cubeb*
+GetCubebContext();
+cubeb*
+GetCubebContextUnlocked();
+void
+ReportCubebStreamInitFailure(bool aIsFirstStream);
+void
+ReportCubebBackendUsed();
+uint32_t
+GetCubebPlaybackLatencyInMilliseconds();
+Maybe<uint32_t>
+GetCubebMSGLatencyInFrames();
+bool
+CubebLatencyPrefSet();
+cubeb_channel_layout
+ConvertChannelMapToCubebLayout(uint32_t aChannelMap);
+void
+GetCurrentBackend(nsAString& aBackend);
+void
+GetPreferredChannelLayout(nsAString& aLayout);
+void
+GetDeviceCollection(nsTArray<RefPtr<AudioDeviceInfo>>& aDeviceInfos,
+                    Side aSide);
+}  // namespace CubebUtils
+}  // namespace mozilla
 
-#endif // CubebUtils_h_
+#endif  // CubebUtils_h_

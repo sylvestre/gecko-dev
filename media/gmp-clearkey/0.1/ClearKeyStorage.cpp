@@ -32,7 +32,7 @@ using namespace std;
 
 class WriteRecordClient : public FileIOClient
 {
-public:
+ public:
   /*
    * This function will take the memory ownership of the parameters and
    * delete them when done.
@@ -42,10 +42,9 @@ public:
                     const vector<uint8_t>& aData,
                     function<void()>&& aOnSuccess,
                     function<void()>&& aOnFailure)
-{
-    WriteRecordClient* client = new WriteRecordClient(aData,
-                                                      move(aOnSuccess),
-                                                      move(aOnFailure));
+  {
+    WriteRecordClient* client =
+        new WriteRecordClient(aData, move(aOnSuccess), move(aOnFailure));
     client->Do(aRecordName, aHost);
   }
 
@@ -54,7 +53,7 @@ public:
     // If we hit an error, fail.
     if (aStatus != Status::kSuccess) {
       Done(aStatus);
-    } else if (mFileIO) { // Otherwise, write our data to the file.
+    } else if (mFileIO) {  // Otherwise, write our data to the file.
       mFileIO->Write(&mData[0], mData.size());
     }
   }
@@ -68,19 +67,18 @@ public:
     assert(false);
   }
 
-  void OnWriteComplete(Status aStatus) override
-  {
-    Done(aStatus);
-  }
+  void OnWriteComplete(Status aStatus) override { Done(aStatus); }
 
-private:
+ private:
   explicit WriteRecordClient(const vector<uint8_t>& aData,
                              function<void()>&& aOnSuccess,
                              function<void()>&& aOnFailure)
-    : mFileIO(nullptr)
-    , mOnSuccess(move(aOnSuccess))
-    , mOnFailure(move(aOnFailure))
-    , mData(aData) {}
+      : mFileIO(nullptr),
+        mOnSuccess(move(aOnSuccess)),
+        mOnFailure(move(aOnFailure)),
+        mData(aData)
+  {
+  }
 
   void Do(const string& aName, Host_8* aHost)
   {
@@ -124,16 +122,13 @@ WriteData(Host_8* aHost,
           function<void()>&& aOnSuccess,
           function<void()>&& aOnFailure)
 {
-  WriteRecordClient::Write(aHost,
-                           aRecordName,
-                           aData,
-                           move(aOnSuccess),
-                           move(aOnFailure));
+  WriteRecordClient::Write(
+      aHost, aRecordName, aData, move(aOnSuccess), move(aOnFailure));
 }
 
 class ReadRecordClient : public FileIOClient
 {
-public:
+ public:
   /*
    * This function will take the memory ownership of the parameters and
    * delete them when done.
@@ -143,9 +138,8 @@ public:
                    function<void(const uint8_t*, uint32_t)>&& aOnSuccess,
                    function<void()>&& aOnFailure)
   {
-
-    (new ReadRecordClient(move(aOnSuccess), move(aOnFailure)))->
-      Do(aRecordName, aHost);
+    (new ReadRecordClient(move(aOnSuccess), move(aOnFailure)))
+        ->Do(aRecordName, aHost);
   }
 
   void OnOpenComplete(Status aStatus) override
@@ -171,13 +165,15 @@ public:
     assert(false);
   }
 
-private:
-  explicit ReadRecordClient(function<void(const uint8_t*, uint32_t)>&& aOnSuccess,
-                            function<void()>&& aOnFailure)
-    : mFileIO(nullptr)
-    , mOnSuccess(move(aOnSuccess))
-    , mOnFailure(move(aOnFailure))
-  {}
+ private:
+  explicit ReadRecordClient(
+      function<void(const uint8_t*, uint32_t)>&& aOnSuccess,
+      function<void()>&& aOnFailure)
+      : mFileIO(nullptr),
+        mOnSuccess(move(aOnSuccess)),
+        mOnFailure(move(aOnFailure))
+  {
+  }
 
   void Do(const string& aName, Host_8* aHost)
   {
@@ -219,8 +215,6 @@ ReadData(Host_8* mHost,
          function<void(const uint8_t*, uint32_t)>&& aOnSuccess,
          function<void()>&& aOnFailure)
 {
-  ReadRecordClient::Read(mHost,
-                         aRecordName,
-                         move(aOnSuccess),
-                         move(aOnFailure));
+  ReadRecordClient::Read(
+      mHost, aRecordName, move(aOnSuccess), move(aOnFailure));
 }

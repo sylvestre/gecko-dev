@@ -26,31 +26,34 @@ static const int64_t RELIABLE_DATA_THRESHOLD = 57 * 1460;
  * All methods take "now" as a parameter so the user of this class can
  * control the timeline used.
  */
-class MediaChannelStatistics {
-public:
+class MediaChannelStatistics
+{
+ public:
   MediaChannelStatistics() = default;
 
   MediaChannelStatistics(const MediaChannelStatistics&) = default;
 
-  void Reset() {
+  void Reset()
+  {
     mLastStartTime = TimeStamp();
     mAccumulatedTime = TimeDuration(0);
     mAccumulatedBytes = 0;
     mIsStarted = false;
   }
-  void Start() {
-    if (mIsStarted)
-      return;
+  void Start()
+  {
+    if (mIsStarted) return;
     mLastStartTime = TimeStamp::Now();
     mIsStarted = true;
   }
-  void Stop() {
-    if (!mIsStarted)
-      return;
+  void Stop()
+  {
+    if (!mIsStarted) return;
     mAccumulatedTime += TimeStamp::Now() - mLastStartTime;
     mIsStarted = false;
   }
-  void AddBytes(int64_t aBytes) {
+  void AddBytes(int64_t aBytes)
+  {
     if (!mIsStarted) {
       // ignore this data, it may be related to seeking or some other
       // operation we don't care about
@@ -58,33 +61,34 @@ public:
     }
     mAccumulatedBytes += aBytes;
   }
-  double GetRateAtLastStop(bool* aReliable) {
+  double GetRateAtLastStop(bool* aReliable)
+  {
     double seconds = mAccumulatedTime.ToSeconds();
-    *aReliable = (seconds >= 1.0) ||
-                 (mAccumulatedBytes >= RELIABLE_DATA_THRESHOLD);
-    if (seconds <= 0.0)
-      return 0.0;
-    return static_cast<double>(mAccumulatedBytes)/seconds;
+    *aReliable =
+        (seconds >= 1.0) || (mAccumulatedBytes >= RELIABLE_DATA_THRESHOLD);
+    if (seconds <= 0.0) return 0.0;
+    return static_cast<double>(mAccumulatedBytes) / seconds;
   }
-  double GetRate(bool* aReliable) {
+  double GetRate(bool* aReliable)
+  {
     TimeDuration time = mAccumulatedTime;
     if (mIsStarted) {
       time += TimeStamp::Now() - mLastStartTime;
     }
     double seconds = time.ToSeconds();
-    *aReliable = (seconds >= 3.0) ||
-                 (mAccumulatedBytes >= RELIABLE_DATA_THRESHOLD);
-    if (seconds <= 0.0)
-      return 0.0;
-    return static_cast<double>(mAccumulatedBytes)/seconds;
+    *aReliable =
+        (seconds >= 3.0) || (mAccumulatedBytes >= RELIABLE_DATA_THRESHOLD);
+    if (seconds <= 0.0) return 0.0;
+    return static_cast<double>(mAccumulatedBytes) / seconds;
   }
-private:
+
+ private:
   int64_t mAccumulatedBytes = 0;
   TimeDuration mAccumulatedTime;
   TimeStamp mLastStartTime;
   bool mIsStarted = false;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MediaChannelStatistics_h_
+#endif  // MediaChannelStatistics_h_

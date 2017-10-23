@@ -21,13 +21,13 @@ namespace dom {
 struct MOZ_STACK_CLASS WebIDLNameTableKey
 {
   explicit WebIDLNameTableKey(JSFlatString* aJSString)
-    : mLength(js::GetFlatStringLength(aJSString))
+      : mLength(js::GetFlatStringLength(aJSString))
   {
     mNogc.emplace();
     JSLinearString* jsString = js::FlatStringToLinearString(aJSString);
     if (js::LinearStringHasLatin1Chars(jsString)) {
       mLatin1String = reinterpret_cast<const char*>(
-        js::GetLatin1LinearStringChars(*mNogc, jsString));
+          js::GetLatin1LinearStringChars(*mNogc, jsString));
       mTwoBytesString = nullptr;
       mHash = mLatin1String ? HashString(mLatin1String, mLength) : 0;
     } else {
@@ -37,10 +37,10 @@ struct MOZ_STACK_CLASS WebIDLNameTableKey
     }
   }
   explicit WebIDLNameTableKey(const char* aString, size_t aLength)
-    : mLatin1String(aString),
-      mTwoBytesString(nullptr),
-      mLength(aLength),
-      mHash(HashString(aString, aLength))
+      : mLatin1String(aString),
+        mTwoBytesString(nullptr),
+        mLength(aLength),
+        mHash(HashString(aString, aLength))
   {
     MOZ_ASSERT(aString[aLength] == '\0');
   }
@@ -58,21 +58,22 @@ struct WebIDLNameTableEntry : public PLDHashEntryHdr
   typedef const WebIDLNameTableKey* KeyTypePointer;
 
   explicit WebIDLNameTableEntry(KeyTypePointer aKey)
-    : mNameOffset(0),
-      mNameLength(0),
-      mConstructorId(constructors::id::_ID_Count),
-      mDefine(nullptr),
-      mEnabled(nullptr)
-  {}
+      : mNameOffset(0),
+        mNameLength(0),
+        mConstructorId(constructors::id::_ID_Count),
+        mDefine(nullptr),
+        mEnabled(nullptr)
+  {
+  }
   WebIDLNameTableEntry(WebIDLNameTableEntry&& aEntry)
-    : mNameOffset(aEntry.mNameOffset),
-      mNameLength(aEntry.mNameLength),
-      mConstructorId(aEntry.mConstructorId),
-      mDefine(aEntry.mDefine),
-      mEnabled(aEntry.mEnabled)
-  {}
-  ~WebIDLNameTableEntry()
-  {}
+      : mNameOffset(aEntry.mNameOffset),
+        mNameLength(aEntry.mNameLength),
+        mConstructorId(aEntry.mConstructorId),
+        mDefine(aEntry.mDefine),
+        mEnabled(aEntry.mEnabled)
+  {
+  }
+  ~WebIDLNameTableEntry() {}
 
   bool KeyEquals(KeyTypePointer aKey) const
   {
@@ -86,21 +87,18 @@ struct WebIDLNameTableEntry : public PLDHashEntryHdr
       return PodEqual(aKey->mLatin1String, name, aKey->mLength);
     }
 
-    return nsCharTraits<char16_t>::compareASCII(aKey->mTwoBytesString, name,
-                                                aKey->mLength) == 0;
+    return nsCharTraits<char16_t>::compareASCII(
+               aKey->mTwoBytesString, name, aKey->mLength) == 0;
   }
 
-  static KeyTypePointer KeyToPointer(KeyType aKey)
+  static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
+
+  static PLDHashNumber HashKey(KeyTypePointer aKey) { return aKey->mHash; }
+
+  enum
   {
-    return &aKey;
-  }
-
-  static PLDHashNumber HashKey(KeyTypePointer aKey)
-  {
-    return aKey->mHash;
-  }
-
-  enum { ALLOW_MEMMOVE = true };
+    ALLOW_MEMMOVE = true
+  };
 
   uint16_t mNameOffset;
   uint16_t mNameLength;
@@ -118,19 +116,24 @@ class WebIDLGlobalNamesHashReporter final : public nsIMemoryReporter
 
   ~WebIDLGlobalNamesHashReporter() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   NS_IMETHOD CollectReports(nsIHandleReportCallback* aHandleReport,
-                            nsISupports* aData, bool aAnonymize) override
+                            nsISupports* aData,
+                            bool aAnonymize) override
   {
     int64_t amount =
-      sWebIDLGlobalNames ?
-      sWebIDLGlobalNames->ShallowSizeOfIncludingThis(MallocSizeOf) : 0;
+        sWebIDLGlobalNames
+            ? sWebIDLGlobalNames->ShallowSizeOfIncludingThis(MallocSizeOf)
+            : 0;
 
     MOZ_COLLECT_REPORT(
-      "explicit/dom/webidl-globalnames", KIND_HEAP, UNITS_BYTES, amount,
-      "Memory used by the hash table for WebIDL's global names.");
+        "explicit/dom/webidl-globalnames",
+        KIND_HEAP,
+        UNITS_BYTES,
+        amount,
+        "Memory used by the hash table for WebIDL's global names.");
 
     return NS_OK;
   }
@@ -157,7 +160,8 @@ WebIDLGlobalNameHash::Shutdown()
 
 /* static */
 void
-WebIDLGlobalNameHash::Register(uint16_t aNameOffset, uint16_t aNameLength,
+WebIDLGlobalNameHash::Register(uint16_t aNameOffset,
+                               uint16_t aNameLength,
                                DefineGlobalName aDefine,
                                ConstructorEnabled* aEnabled,
                                constructors::id::ID aConstructorId)
@@ -182,11 +186,12 @@ WebIDLGlobalNameHash::Remove(const char* aName, uint32_t aLength)
 
 /* static */
 bool
-WebIDLGlobalNameHash::DefineIfEnabled(JSContext* aCx,
-                                      JS::Handle<JSObject*> aObj,
-                                      JS::Handle<jsid> aId,
-                                      JS::MutableHandle<JS::PropertyDescriptor> aDesc,
-                                      bool* aFound)
+WebIDLGlobalNameHash::DefineIfEnabled(
+    JSContext* aCx,
+    JS::Handle<JSObject*> aObj,
+    JS::Handle<jsid> aId,
+    JS::MutableHandle<JS::PropertyDescriptor> aDesc,
+    bool* aFound)
 {
   MOZ_ASSERT(JSID_IS_STRING(aId), "Check for string id before calling this!");
 
@@ -212,16 +217,16 @@ WebIDLGlobalNameHash::DefineIfEnabled(JSContext* aCx,
   // actual object we pass in the underlying object in the Xray case.  That
   // way the callee can decide whether to allow access based on the caller
   // or the window being touched.
-  JS::Rooted<JSObject*> global(aCx,
-    js::CheckedUnwrap(aObj, /* stopAtWindowProxy = */ false));
+  JS::Rooted<JSObject*> global(
+      aCx, js::CheckedUnwrap(aObj, /* stopAtWindowProxy = */ false));
   if (!global) {
     return Throw(aCx, NS_ERROR_DOM_SECURITY_ERR);
   }
 
   {
-    // It's safe to pass "&global" here, because we've already unwrapped it, but
-    // for general sanity better to not have debug code even having the
-    // appearance of mutating things that opt code uses.
+  // It's safe to pass "&global" here, because we've already unwrapped it, but
+  // for general sanity better to not have debug code even having the
+  // appearance of mutating things that opt code uses.
 #ifdef DEBUG
     JS::Rooted<JSObject*> temp(aCx, global);
     DebugOnly<nsGlobalWindow*> win;
@@ -314,8 +319,10 @@ WebIDLGlobalNameHash::MayResolve(jsid aId)
 
 /* static */
 bool
-WebIDLGlobalNameHash::GetNames(JSContext* aCx, JS::Handle<JSObject*> aObj,
-                               NameType aNameType, JS::AutoIdVector& aNames)
+WebIDLGlobalNameHash::GetNames(JSContext* aCx,
+                               JS::Handle<JSObject*> aObj,
+                               NameType aNameType,
+                               JS::AutoIdVector& aNames)
 {
   // aObj is always a Window here, so GetProtoAndIfaceCache on it is safe.
   ProtoAndIfaceCache* cache = GetProtoAndIfaceCache(aObj);
@@ -326,8 +333,8 @@ WebIDLGlobalNameHash::GetNames(JSContext* aCx, JS::Handle<JSObject*> aObj,
     if ((aNameType == AllNames ||
          !cache->HasEntryInSlot(entry->mConstructorId)) &&
         (!entry->mEnabled || entry->mEnabled(aCx, aObj))) {
-      JSString* str = JS_AtomizeStringN(aCx, sNames + entry->mNameOffset,
-                                        entry->mNameLength);
+      JSString* str = JS_AtomizeStringN(
+          aCx, sNames + entry->mNameOffset, entry->mNameLength);
       if (!str || !aNames.append(NON_INTEGER_ATOM_TO_JSID(str))) {
         return false;
       }
@@ -337,5 +344,5 @@ WebIDLGlobalNameHash::GetNames(JSContext* aCx, JS::Handle<JSObject*> aObj,
   return true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -63,7 +63,8 @@ struct AudioChunk;
 // The timeout length is speech_input_complete_silence_length until
 // long_speech_length, when it changes to
 // long_speech_input_complete_silence_length.
-class Endpointer {
+class Endpointer
+{
  public:
   explicit Endpointer(int sample_rate);
 
@@ -86,44 +87,43 @@ class Endpointer {
   EpStatus ProcessAudio(const AudioChunk& raw_audio, float* rms_out);
 
   // Get the status of the endpointer.
-  EpStatus Status(int64_t *time_us);
+  EpStatus Status(int64_t* time_us);
 
   // Get the expected frame size for audio chunks. Audio chunks are expected
   // to contain a number of samples that is a multiple of this number, and extra
   // samples will be dropped.
-  int32_t FrameSize() const {
-    return frame_size_;
-  }
+  int32_t FrameSize() const { return frame_size_; }
 
   // Returns true if the endpointer detected reasonable audio levels above
   // background noise which could be user speech, false if not.
-  bool DidStartReceivingSpeech() const {
-    return speech_previously_detected_;
-  }
+  bool DidStartReceivingSpeech() const { return speech_previously_detected_; }
 
-  bool IsEstimatingEnvironment() const {
+  bool IsEstimatingEnvironment() const
+  {
     return energy_endpointer_.estimating_environment();
   }
 
-  void set_speech_input_complete_silence_length(int64_t time_us) {
+  void set_speech_input_complete_silence_length(int64_t time_us)
+  {
     speech_input_complete_silence_length_us_ = time_us;
   }
 
-  void set_long_speech_input_complete_silence_length(int64_t time_us) {
+  void set_long_speech_input_complete_silence_length(int64_t time_us)
+  {
     long_speech_input_complete_silence_length_us_ = time_us;
   }
 
-  void set_speech_input_possibly_complete_silence_length(int64_t time_us) {
+  void set_speech_input_possibly_complete_silence_length(int64_t time_us)
+  {
     speech_input_possibly_complete_silence_length_us_ = time_us;
   }
 
-  void set_long_speech_length(int64_t time_us) {
+  void set_long_speech_length(int64_t time_us)
+  {
     long_speech_length_us_ = time_us;
   }
 
-  bool speech_input_complete() const {
-    return speech_input_complete_;
-  }
+  bool speech_input_complete() const { return speech_input_complete_; }
 
   // RMS background noise level in dB.
   float NoiseLevelDb() const { return energy_endpointer_.GetNoiseLevelDb(); }

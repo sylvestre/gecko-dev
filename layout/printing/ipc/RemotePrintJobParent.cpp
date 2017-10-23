@@ -26,7 +26,7 @@ namespace mozilla {
 namespace layout {
 
 RemotePrintJobParent::RemotePrintJobParent(nsIPrintSettings* aPrintSettings)
-  : mPrintSettings(aPrintSettings)
+    : mPrintSettings(aPrintSettings)
 {
   MOZ_COUNT_CTOR(RemotePrintJobParent);
 }
@@ -37,8 +37,8 @@ RemotePrintJobParent::RecvInitializePrint(const nsString& aDocumentTitle,
                                           const int32_t& aStartPage,
                                           const int32_t& aEndPage)
 {
-  nsresult rv = InitializePrintDevice(aDocumentTitle, aPrintToFile, aStartPage,
-                                      aEndPage);
+  nsresult rv =
+      InitializePrintDevice(aDocumentTitle, aPrintToFile, aStartPage, aEndPage);
   if (NS_FAILED(rv)) {
     Unused << SendPrintInitializationResult(rv, FileDescriptor());
     Unused << Send__delete__(this);
@@ -66,7 +66,7 @@ RemotePrintJobParent::InitializePrintDevice(const nsString& aDocumentTitle,
 {
   nsresult rv;
   nsCOMPtr<nsIDeviceContextSpec> deviceContextSpec =
-  do_CreateInstance("@mozilla.org/gfx/devicecontextspec;1", &rv);
+      do_CreateInstance("@mozilla.org/gfx/devicecontextspec;1", &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -82,8 +82,8 @@ RemotePrintJobParent::InitializePrintDevice(const nsString& aDocumentTitle,
     return rv;
   }
 
-  rv = mPrintDeviceContext->BeginDocument(aDocumentTitle, aPrintToFile,
-                                          aStartPage, aEndPage);
+  rv = mPrintDeviceContext->BeginDocument(
+      aDocumentTitle, aPrintToFile, aStartPage, aEndPage);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -91,14 +91,16 @@ RemotePrintJobParent::InitializePrintDevice(const nsString& aDocumentTitle,
   return NS_OK;
 }
 
-nsresult RemotePrintJobParent::PrepareNextPageFD(FileDescriptor* aFd) {
-  PRFileDesc *prFd = nullptr;
+nsresult
+RemotePrintJobParent::PrepareNextPageFD(FileDescriptor* aFd)
+{
+  PRFileDesc* prFd = nullptr;
   nsresult rv = NS_OpenAnonymousTemporaryFile(&prFd);
   if (NS_FAILED(rv)) {
     return rv;
   }
   *aFd = FileDescriptor(
-    FileDescriptor::PlatformHandleType(PR_FileDesc2NativeHandle(prFd)));
+      FileDescriptor::PlatformHandleType(PR_FileDesc2NativeHandle(prFd)));
   mCurrentPageStream.OpenFD(prFd);
   return NS_OK;
 }
@@ -163,7 +165,6 @@ RemotePrintJobParent::RecvFinalizePrint()
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "EndDocument failed");
   }
 
-
   Unused << Send__delete__(this);
   return IPC_OK();
 }
@@ -201,9 +202,12 @@ RemotePrintJobParent::RecvProgressChange(const long& aCurSelfProgress,
   uint32_t numberOfListeners = mPrintProgressListeners.Length();
   for (uint32_t i = 0; i < numberOfListeners; ++i) {
     nsIWebProgressListener* listener = mPrintProgressListeners.SafeElementAt(i);
-    listener->OnProgressChange(nullptr, nullptr,
-                               aCurSelfProgress, aMaxSelfProgress,
-                               aCurTotalProgress, aMaxTotalProgress);
+    listener->OnProgressChange(nullptr,
+                               nullptr,
+                               aCurSelfProgress,
+                               aMaxSelfProgress,
+                               aCurTotalProgress,
+                               aMaxTotalProgress);
   }
 
   return IPC_OK();
@@ -246,5 +250,5 @@ RemotePrintJobParent::ActorDestroy(ActorDestroyReason aWhy)
 {
 }
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla

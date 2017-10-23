@@ -79,7 +79,10 @@ TestIsInRangeVoid()
   MOZ_RELEASE_ASSERT(!IsInRange(voidEnd2, uintBegin, uintEnd2));
 }
 
-struct Base { int mX; };
+struct Base
+{
+  int mX;
+};
 
 static void
 TestIsInRangeClass()
@@ -114,7 +117,9 @@ TestIsInRangeClass()
   MOZ_RELEASE_ASSERT(!IsInRange(baseEnd2, ubaseBegin, ubaseEnd2));
 }
 
-struct EmptyBase {};
+struct EmptyBase
+{
+};
 
 static void
 TestIsInRangeEmptyClass()
@@ -149,7 +154,9 @@ TestIsInRangeEmptyClass()
   MOZ_RELEASE_ASSERT(!IsInRange(baseEnd2, ubaseBegin, ubaseEnd2));
 }
 
-struct Derived : Base {};
+struct Derived : Base
+{
+};
 
 static void
 TestIsInRangeClassDerived()
@@ -185,7 +192,9 @@ TestIsInRangeClassDerived()
   MOZ_RELEASE_ASSERT(!IsInRange(derivedEnd2, uderivedBegin, uderivedEnd2));
 }
 
-struct DerivedEmpty : EmptyBase {};
+struct DerivedEmpty : EmptyBase
+{
+};
 
 static void
 TestIsInRangeClassDerivedEmpty()
@@ -213,20 +222,23 @@ TestIsInRangeClassDerivedEmpty()
   uintptr_t uderivedEmptyEnd = uintptr_t(derivedEmptyEnd);
   uintptr_t uderivedEmptyEnd2 = uintptr_t(derivedEmptyEnd2);
 
-  MOZ_RELEASE_ASSERT(IsInRange(derivedEmptyBegin, uderivedEmptyBegin,
-                               uderivedEmptyEnd));
-  MOZ_RELEASE_ASSERT(!IsInRange(derivedEmptyEnd, uderivedEmptyBegin,
-                                uderivedEmptyEnd));
+  MOZ_RELEASE_ASSERT(
+      IsInRange(derivedEmptyBegin, uderivedEmptyBegin, uderivedEmptyEnd));
+  MOZ_RELEASE_ASSERT(
+      !IsInRange(derivedEmptyEnd, uderivedEmptyBegin, uderivedEmptyEnd));
 
-  MOZ_RELEASE_ASSERT(IsInRange(derivedEmptyBegin, uderivedEmptyBegin,
-                               uderivedEmptyEnd2));
-  MOZ_RELEASE_ASSERT(IsInRange(derivedEmptyEnd, uderivedEmptyBegin,
-                               uderivedEmptyEnd2));
-  MOZ_RELEASE_ASSERT(!IsInRange(derivedEmptyEnd2, uderivedEmptyBegin,
-                                uderivedEmptyEnd2));
+  MOZ_RELEASE_ASSERT(
+      IsInRange(derivedEmptyBegin, uderivedEmptyBegin, uderivedEmptyEnd2));
+  MOZ_RELEASE_ASSERT(
+      IsInRange(derivedEmptyEnd, uderivedEmptyBegin, uderivedEmptyEnd2));
+  MOZ_RELEASE_ASSERT(
+      !IsInRange(derivedEmptyEnd2, uderivedEmptyBegin, uderivedEmptyEnd2));
 }
 
-struct ExtraDerived : Base { int y; };
+struct ExtraDerived : Base
+{
+  int y;
+};
 
 static void
 TestIsInRangeClassExtraDerived()
@@ -262,7 +274,10 @@ TestIsInRangeClassExtraDerived()
   MOZ_RELEASE_ASSERT(!IsInRange(derivedEnd2, uderivedBegin, uderivedEnd2));
 }
 
-struct ExtraDerivedEmpty : EmptyBase { int y; };
+struct ExtraDerivedEmpty : EmptyBase
+{
+  int y;
+};
 
 static void
 TestIsInRangeClassExtraDerivedEmpty()

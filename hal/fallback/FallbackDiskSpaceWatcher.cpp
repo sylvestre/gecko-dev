@@ -15,5 +15,5 @@ StopDiskSpaceWatcher()
 {
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

@@ -12,12 +12,9 @@
 namespace js {
 
 /* Derived class for all scripted proxy handlers. */
-class ScriptedProxyHandler : public BaseProxyHandler
-{
-  public:
-    constexpr ScriptedProxyHandler()
-      : BaseProxyHandler(&family)
-    { }
+class ScriptedProxyHandler : public BaseProxyHandler {
+   public:
+    constexpr ScriptedProxyHandler() : BaseProxyHandler(&family) {}
 
     /* Standard internal methods. */
     virtual bool getOwnPropertyDescriptor(JSContext* cx, HandleObject proxy, HandleId id,
@@ -36,7 +33,7 @@ class ScriptedProxyHandler : public BaseProxyHandler
                               ObjectOpResult& result) const override;
     /* Non-standard, but needed to correctly implement OrdinaryGetPrototypeOf. */
     virtual bool getPrototypeIfOrdinary(JSContext* cx, HandleObject proxy, bool* isOrdinary,
-                                       MutableHandleObject protop) const override;
+                                        MutableHandleObject protop) const override;
     /* Non-standard, but needed to handle revoked proxies. */
     virtual bool setImmutablePrototype(JSContext* cx, HandleObject proxy,
                                        bool* succeeded) const override;
@@ -86,7 +83,7 @@ class ScriptedProxyHandler : public BaseProxyHandler
     static const int HANDLER_EXTRA = 0;
     static const int IS_CALLCONSTRUCT_EXTRA = 1;
     // Bitmasks for the "call/construct" slot
-    static const int IS_CALLABLE    = 1 << 0;
+    static const int IS_CALLABLE = 1 << 0;
     static const int IS_CONSTRUCTOR = 1 << 1;
     // The "function extended" slot index in which the revocation object is stored. Per spec, this
     // is to be cleared during the first revocation.
@@ -95,11 +92,9 @@ class ScriptedProxyHandler : public BaseProxyHandler
     static JSObject* handlerObject(const JSObject* proxy);
 };
 
-bool
-proxy(JSContext* cx, unsigned argc, Value* vp);
+bool proxy(JSContext* cx, unsigned argc, Value* vp);
 
-bool
-proxy_revocable(JSContext* cx, unsigned argc, Value* vp);
+bool proxy_revocable(JSContext* cx, unsigned argc, Value* vp);
 
 } /* namespace js */
 

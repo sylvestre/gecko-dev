@@ -36,14 +36,14 @@ nsLegendFrame::DestroyFrom(nsIFrame* aDestructRoot)
 }
 
 NS_QUERYFRAME_HEAD(nsLegendFrame)
-  NS_QUERYFRAME_ENTRY(nsLegendFrame)
+NS_QUERYFRAME_ENTRY(nsLegendFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsBlockFrame)
 
 void
-nsLegendFrame::Reflow(nsPresContext*          aPresContext,
-                     ReflowOutput&     aDesiredSize,
-                     const ReflowInput& aReflowInput,
-                     nsReflowStatus&          aStatus)
+nsLegendFrame::Reflow(nsPresContext* aPresContext,
+                      ReflowOutput& aDesiredSize,
+                      const ReflowInput& aReflowInput,
+                      nsReflowStatus& aStatus)
 {
   DO_GLOBAL_REFLOW_COUNT("nsLegendFrame");
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
@@ -51,7 +51,8 @@ nsLegendFrame::Reflow(nsPresContext*          aPresContext,
   if (mState & NS_FRAME_FIRST_REFLOW) {
     nsCheckboxRadioFrame::RegUnRegAccessKey(static_cast<nsIFrame*>(this), true);
   }
-  return nsBlockFrame::Reflow(aPresContext, aDesiredSize, aReflowInput, aStatus);
+  return nsBlockFrame::Reflow(
+      aPresContext, aDesiredSize, aReflowInput, aStatus);
 }
 
 int32_t

@@ -6,9 +6,9 @@
 #ifndef MOZILLA_GFX_IMAGECOMPOSITE_H
 #define MOZILLA_GFX_IMAGECOMPOSITE_H
 
-#include "CompositableHost.h"           // for CompositableTextureHostRef
+#include "CompositableHost.h"  // for CompositableTextureHostRef
 #include "mozilla/gfx/2D.h"
-#include "mozilla/TimeStamp.h"          // for TimeStamp
+#include "mozilla/TimeStamp.h"  // for TimeStamp
 #include "nsTArray.h"
 
 namespace mozilla {
@@ -19,7 +19,7 @@ namespace layers {
  */
 class ImageComposite
 {
-public:
+ public:
   static const float BIAS_TIME_MS;
 
   explicit ImageComposite();
@@ -40,7 +40,8 @@ public:
   int32_t GetLastFrameID() const { return mLastFrameID; }
   int32_t GetLastProducerID() const { return mLastProducerID; }
 
-  enum Bias {
+  enum Bias
+  {
     // Don't apply bias to frame times
     BIAS_NONE,
     // Apply a negative bias to frame times to keep them before the vsync time
@@ -49,17 +50,19 @@ public:
     BIAS_POSITIVE,
   };
 
-  static TimeStamp GetBiasedTime(const TimeStamp& aInput, ImageComposite::Bias aBias);
+  static TimeStamp GetBiasedTime(const TimeStamp& aInput,
+                                 ImageComposite::Bias aBias);
 
-protected:
+ protected:
   static Bias UpdateBias(const TimeStamp& aCompositionTime,
                          const TimeStamp& aCompositedImageTime,
-                         const TimeStamp& aNextImageTime, // may be null
+                         const TimeStamp& aNextImageTime,  // may be null
                          ImageComposite::Bias aBias);
 
   virtual TimeStamp GetCompositionTime() const = 0;
 
-  struct TimedImage {
+  struct TimedImage
+  {
     CompositableTextureHostRef mTextureHost;
     TimeStamp mTimeStamp;
     gfx::IntRect mPictureRect;
@@ -86,7 +89,7 @@ protected:
   Bias mBias;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_IMAGECOMPOSITE_H
+#endif  // MOZILLA_GFX_IMAGECOMPOSITE_H

@@ -22,16 +22,21 @@ namespace mozilla {
 namespace dom {
 
 #define MOZILLA_DOM_MEDIASTREAMERROR_IMPLEMENTATION_IID \
-{ 0x95fa29aa, 0x0cc2, 0x4698, \
- { 0x9d, 0xa9, 0xf2, 0xeb, 0x03, 0x91, 0x0b, 0xd1 } }
+  {                                                     \
+    0x95fa29aa, 0x0cc2, 0x4698,                         \
+    {                                                   \
+      0x9d, 0xa9, 0xf2, 0xeb, 0x03, 0x91, 0x0b, 0xd1    \
+    }                                                   \
+  }
 
 class MediaStreamError;
-} // namespace dom
+}  // namespace dom
 
 class BaseMediaMgrError
 {
   friend class dom::MediaStreamError;
-protected:
+
+ protected:
   BaseMediaMgrError(const nsAString& aName,
                     const nsAString& aMessage,
                     const nsAString& aConstraint);
@@ -40,18 +45,19 @@ protected:
   const nsString mConstraint;
 };
 
-class MediaMgrError final : public nsISupports,
-                            public BaseMediaMgrError
+class MediaMgrError final : public nsISupports, public BaseMediaMgrError
 {
-public:
+ public:
   explicit MediaMgrError(const nsAString& aName,
-                         const nsAString& aMessage =  EmptyString(),
-                         const nsAString& aConstraint =  EmptyString())
-  : BaseMediaMgrError(aName, aMessage, aConstraint) {}
+                         const nsAString& aMessage = EmptyString(),
+                         const nsAString& aConstraint = EmptyString())
+      : BaseMediaMgrError(aName, aMessage, aConstraint)
+  {
+  }
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
-private:
+ private:
   ~MediaMgrError() {}
 };
 
@@ -60,32 +66,32 @@ class MediaStreamError final : public nsISupports,
                                public BaseMediaMgrError,
                                public nsWrapperCache
 {
-public:
+ public:
   MediaStreamError(nsPIDOMWindowInner* aParent,
                    const nsAString& aName,
                    const nsAString& aMessage = EmptyString(),
-                   const nsAString& aConstraint =  EmptyString());
+                   const nsAString& aConstraint = EmptyString());
 
-  MediaStreamError(nsPIDOMWindowInner* aParent,
-                   const BaseMediaMgrError& aOther)
-  : BaseMediaMgrError(aOther.mName, aOther.mMessage, aOther.mConstraint)
-  , mParent(aParent) {}
+  MediaStreamError(nsPIDOMWindowInner* aParent, const BaseMediaMgrError& aOther)
+      : BaseMediaMgrError(aOther.mName, aOther.mMessage, aOther.mConstraint),
+        mParent(aParent)
+  {
+  }
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaStreamError)
-  NS_DECLARE_STATIC_IID_ACCESSOR(MOZILLA_DOM_MEDIASTREAMERROR_IMPLEMENTATION_IID)
+  NS_DECLARE_STATIC_IID_ACCESSOR(
+      MOZILLA_DOM_MEDIASTREAMERROR_IMPLEMENTATION_IID)
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mParent;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mParent; }
   void GetName(nsAString& aName) const;
   void GetMessage(nsAString& aMessage) const;
   void GetConstraint(nsAString& aConstraint) const;
 
-private:
+ private:
   virtual ~MediaStreamError() {}
 
   RefPtr<nsPIDOMWindowInner> mParent;
@@ -93,7 +99,7 @@ private:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(MediaStreamError,
                               MOZILLA_DOM_MEDIASTREAMERROR_IMPLEMENTATION_IID)
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

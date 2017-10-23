@@ -15,17 +15,14 @@
 
 using namespace js;
 
-bool
-JS::detail::CallMethodIfWrapped(JSContext* cx, IsAcceptableThis test, NativeImpl impl,
-                                const CallArgs& args)
-{
+bool JS::detail::CallMethodIfWrapped(JSContext* cx, IsAcceptableThis test, NativeImpl impl,
+                                     const CallArgs& args) {
     HandleValue thisv = args.thisv();
     MOZ_ASSERT(!test(thisv));
 
     if (thisv.isObject()) {
         JSObject& thisObj = args.thisv().toObject();
-        if (thisObj.is<ProxyObject>())
-            return Proxy::nativeCall(cx, test, impl, args);
+        if (thisObj.is<ProxyObject>()) return Proxy::nativeCall(cx, test, impl, args);
     }
 
     if (IsCallSelfHostedNonGenericMethod(impl))
@@ -34,4 +31,3 @@ JS::detail::CallMethodIfWrapped(JSContext* cx, IsAcceptableThis test, NativeImpl
     ReportIncompatible(cx, args);
     return false;
 }
-

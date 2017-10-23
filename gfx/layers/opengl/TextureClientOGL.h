@@ -6,14 +6,14 @@
 #ifndef MOZILLA_GFX_TEXTURECLIENTOGL_H
 #define MOZILLA_GFX_TEXTURECLIENTOGL_H
 
-#include "GLContextTypes.h"             // for SharedTextureHandle, etc
+#include "GLContextTypes.h"  // for SharedTextureHandle, etc
 #include "GLImages.h"
 #include "gfxTypes.h"
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/gfx/Point.h"          // for IntSize
+#include "mozilla/Attributes.h"  // for override
+#include "mozilla/gfx/Point.h"   // for IntSize
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor
-#include "mozilla/layers/TextureClient.h"  // for TextureClient, etc
+#include "mozilla/layers/TextureClient.h"   // for TextureClient, etc
 #include "AndroidSurfaceTexture.h"
 
 namespace mozilla {
@@ -24,14 +24,14 @@ namespace layers {
 
 class AndroidSurfaceTextureData : public TextureData
 {
-public:
-  static already_AddRefed<TextureClient>
-  CreateTextureClient(AndroidSurfaceTextureHandle aHandle,
-                      gfx::IntSize aSize,
-                      bool aContinuous,
-                      gl::OriginPos aOriginPos,
-                      LayersIPCChannel* aAllocator,
-                      TextureFlags aFlags);
+ public:
+  static already_AddRefed<TextureClient> CreateTextureClient(
+      AndroidSurfaceTextureHandle aHandle,
+      gfx::IntSize aSize,
+      bool aContinuous,
+      gl::OriginPos aOriginPos,
+      LayersIPCChannel* aAllocator,
+      TextureFlags aFlags);
 
   ~AndroidSurfaceTextureData();
 
@@ -47,17 +47,19 @@ public:
   // Our data is always owned externally.
   virtual void Deallocate(LayersIPCChannel*) override {}
 
-protected:
-  AndroidSurfaceTextureData(AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aContinuous);
+ protected:
+  AndroidSurfaceTextureData(AndroidSurfaceTextureHandle aHandle,
+                            gfx::IntSize aSize,
+                            bool aContinuous);
 
   const AndroidSurfaceTextureHandle mHandle;
   const gfx::IntSize mSize;
   const bool mContinuous;
 };
 
-#endif // MOZ_WIDGET_ANDROID
+#endif  // MOZ_WIDGET_ANDROID
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

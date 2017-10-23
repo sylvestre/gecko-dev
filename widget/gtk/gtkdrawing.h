@@ -25,7 +25,8 @@ extern "C" {
 #endif
 
 /*** type definitions ***/
-typedef struct {
+typedef struct
+{
   guint8 active;
   guint8 focused;
   guint8 inHover;
@@ -42,7 +43,8 @@ typedef struct {
 /**
  * A size in the same GTK pixel units as GtkBorder and GdkRectangle.
  */
-struct MozGtkSize {
+struct MozGtkSize
+{
   gint width;
   gint height;
 
@@ -70,43 +72,45 @@ struct MozGtkSize {
   }
 };
 
-typedef struct {
+typedef struct
+{
   bool initialized;
-  struct {
+  struct
+  {
     MozGtkSize scrollbar;
     MozGtkSize thumb;
     MozGtkSize button;
   } size;
-  struct {
+  struct
+  {
     GtkBorder scrollbar;
     GtkBorder track;
   } border;
 } ScrollbarGTKMetrics;
 
-typedef struct {
+typedef struct
+{
   bool initialized;
   MozGtkSize minSizeWithBorder;
   GtkBorder borderAndPadding;
 } ToggleGTKMetrics;
 
 typedef enum {
-  MOZ_GTK_STEPPER_DOWN        = 1 << 0,
-  MOZ_GTK_STEPPER_BOTTOM      = 1 << 1,
-  MOZ_GTK_STEPPER_VERTICAL    = 1 << 2
+  MOZ_GTK_STEPPER_DOWN = 1 << 0,
+  MOZ_GTK_STEPPER_BOTTOM = 1 << 1,
+  MOZ_GTK_STEPPER_VERTICAL = 1 << 2
 } GtkScrollbarButtonFlags;
 
-typedef enum {
-  MOZ_GTK_TRACK_OPAQUE        = 1 << 0
-} GtkScrollbarTrackFlags;
+typedef enum { MOZ_GTK_TRACK_OPAQUE = 1 << 0 } GtkScrollbarTrackFlags;
 
 /** flags for tab state **/
 typedef enum {
   /* first eight bits are used to pass a margin */
-  MOZ_GTK_TAB_MARGIN_MASK     = 0xFF,
+  MOZ_GTK_TAB_MARGIN_MASK = 0xFF,
   /* the first tab in the group */
-  MOZ_GTK_TAB_FIRST           = 1 << 9,
+  MOZ_GTK_TAB_FIRST = 1 << 9,
   /* the selected tab */
-  MOZ_GTK_TAB_SELECTED        = 1 << 10
+  MOZ_GTK_TAB_SELECTED = 1 << 10
 } GtkTabFlags;
 
 /*** result/error codes ***/
@@ -318,12 +322,14 @@ typedef enum {
  *          MOZ_GTK_UNSAFE_THEME if the current theme engine is known
  *                               to crash with gtkdrawing.
  */
-gint moz_gtk_init();
+gint
+moz_gtk_init();
 
 /**
  * Updates the drawing library when the theme changes.
  */
-void moz_gtk_refresh();
+void
+moz_gtk_refresh();
 
 /**
  * Perform cleanup of the drawing library. You should call this function
@@ -331,13 +337,15 @@ void moz_gtk_refresh();
  *
  * returns: MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_shutdown();
+gint
+moz_gtk_shutdown();
 
 #if (MOZ_WIDGET_GTK == 2)
 /**
  * Retrieves the colormap to use for drawables passed to moz_gtk_widget_paint.
  */
-GdkColormap* moz_gtk_widget_get_colormap();
+GdkColormap*
+moz_gtk_widget_get_colormap();
 #endif
 
 /*** Widget drawing ***/
@@ -354,18 +362,22 @@ GdkColormap* moz_gtk_widget_get_colormap();
  * direction: the text direction, to draw the widget correctly LTR and RTL.
  */
 gint
-moz_gtk_widget_paint(WidgetNodeType widget, GdkDrawable* drawable,
-                     GdkRectangle* rect, GdkRectangle* cliprect,
-                     GtkWidgetState* state, gint flags,
+moz_gtk_widget_paint(WidgetNodeType widget,
+                     GdkDrawable* drawable,
+                     GdkRectangle* rect,
+                     GdkRectangle* cliprect,
+                     GtkWidgetState* state,
+                     gint flags,
                      GtkTextDirection direction);
 #else
 gint
-moz_gtk_widget_paint(WidgetNodeType widget, cairo_t *cr,
+moz_gtk_widget_paint(WidgetNodeType widget,
+                     cairo_t* cr,
                      GdkRectangle* rect,
-                     GtkWidgetState* state, gint flags,
+                     GtkWidgetState* state,
+                     gint flags,
                      GtkTextDirection direction);
 #endif
-
 
 /*** Widget metrics ***/
 /**
@@ -378,8 +390,13 @@ moz_gtk_widget_paint(WidgetNodeType widget, cairo_t *cr,
  *
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_widget_border(WidgetNodeType widget, gint* left, gint* top,
-                               gint* right, gint* bottom, GtkTextDirection direction);
+gint
+moz_gtk_get_widget_border(WidgetNodeType widget,
+                          gint* left,
+                          gint* top,
+                          gint* right,
+                          gint* bottom,
+                          GtkTextDirection direction);
 
 /**
  * Get the border size of a notebook tab
@@ -392,8 +409,12 @@ gint moz_gtk_get_widget_border(WidgetNodeType widget, gint* left, gint* top,
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
 gint
-moz_gtk_get_tab_border(gint* left, gint* top, gint* right, gint* bottom, 
-                       GtkTextDirection direction, GtkTabFlags flags,
+moz_gtk_get_tab_border(gint* left,
+                       gint* top,
+                       gint* right,
+                       gint* bottom,
+                       GtkTextDirection direction,
+                       GtkTabFlags flags,
                        WidgetNodeType widget);
 
 /**
@@ -459,8 +480,10 @@ moz_gtk_checkmenuitem_get_horizontal_padding(gint* horizontal_padding);
  * returns:   MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
 gint
-moz_gtk_button_get_default_overflow(gint* border_top, gint* border_left,
-                                    gint* border_bottom, gint* border_right);
+moz_gtk_button_get_default_overflow(gint* border_top,
+                                    gint* border_left,
+                                    gint* border_bottom,
+                                    gint* border_right);
 
 /**
  * Gets the minimum size of a GtkScale.
@@ -469,7 +492,8 @@ moz_gtk_button_get_default_overflow(gint* border_top, gint* border_left,
  * scale_height:     [OUT] the height of the scale
  */
 void
-moz_gtk_get_scale_metrics(GtkOrientation orient, gint* scale_width,
+moz_gtk_get_scale_metrics(GtkOrientation orient,
+                          gint* scale_width,
                           gint* scale_height);
 
 /**
@@ -481,7 +505,9 @@ moz_gtk_get_scale_metrics(GtkOrientation orient, gint* scale_width,
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
 gint
-moz_gtk_get_scalethumb_metrics(GtkOrientation orient, gint* thumb_length, gint* thumb_height);
+moz_gtk_get_scalethumb_metrics(GtkOrientation orient,
+                               gint* thumb_length,
+                               gint* thumb_height);
 
 /**
  * Get the metrics in GTK pixels for a scrollbar.
@@ -496,7 +522,8 @@ GetScrollbarMetrics(GtkOrientation aOrientation);
  *
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_combo_box_entry_button_size(gint* width, gint* height);
+gint
+moz_gtk_get_combo_box_entry_button_size(gint* width, gint* height);
 
 /**
  * Get the desired size of a scroll arrow widget
@@ -505,7 +532,8 @@ gint moz_gtk_get_combo_box_entry_button_size(gint* width, gint* height);
  *
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_tab_scroll_arrow_size(gint* width, gint* height);
+gint
+moz_gtk_get_tab_scroll_arrow_size(gint* width, gint* height);
 
 /**
  * Get the desired size of an arrow in a button
@@ -515,15 +543,15 @@ gint moz_gtk_get_tab_scroll_arrow_size(gint* width, gint* height);
  * height:     [OUT] the desired height
  */
 void
-moz_gtk_get_arrow_size(WidgetNodeType widgetType,
-                       gint* width, gint* height);
+moz_gtk_get_arrow_size(WidgetNodeType widgetType, gint* width, gint* height);
 
 /**
  * Get the minimum height of a entry widget
  * size:    [OUT] the minimum height
  *
  */
-void moz_gtk_get_entry_min_height(gint* height);
+void
+moz_gtk_get_entry_min_height(gint* height);
 
 /**
  * Get the desired size of a toolbar separator
@@ -531,7 +559,8 @@ void moz_gtk_get_entry_min_height(gint* height);
  *
  * returns: MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_toolbar_separator_width(gint* size);
+gint
+moz_gtk_get_toolbar_separator_width(gint* size);
 
 /**
  * Get the size of a regular GTK expander that shows/hides content
@@ -539,7 +568,8 @@ gint moz_gtk_get_toolbar_separator_width(gint* size);
  *
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_expander_size(gint* size);
+gint
+moz_gtk_get_expander_size(gint* size);
 
 /**
  * Get the size of a treeview's expander (we call them twisties)
@@ -547,7 +577,8 @@ gint moz_gtk_get_expander_size(gint* size);
  *
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_treeview_expander_size(gint* size);
+gint
+moz_gtk_get_treeview_expander_size(gint* size);
 
 /**
  * Get the desired height of a menu separator
@@ -555,7 +586,8 @@ gint moz_gtk_get_treeview_expander_size(gint* size);
  *
  * returns: MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_get_menu_separator_height(gint* size);
+gint
+moz_gtk_get_menu_separator_height(gint* size);
 
 /**
  * Get the desired size of a splitter
@@ -564,7 +596,8 @@ gint moz_gtk_get_menu_separator_height(gint* size);
  *
  * returns:    MOZ_GTK_SUCCESS if there was no error, an error code otherwise
  */
-gint moz_gtk_splitter_get_metrics(gint orientation, gint* size);
+gint
+moz_gtk_splitter_get_metrics(gint orientation, gint* size);
 
 /**
  * Get the YTHICKNESS of a tab (notebook extension).

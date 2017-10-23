@@ -27,39 +27,48 @@ namespace mscom {
  */
 class FastMarshaler final : public IMarshal
 {
-public:
-  static HRESULT Create(IUnknown* aOuter,
-                        IUnknown** aOutMarshalerUnk);
+ public:
+  static HRESULT Create(IUnknown* aOuter, IUnknown** aOutMarshalerUnk);
 
   // IMarshal
-  STDMETHODIMP GetUnmarshalClass(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+  STDMETHODIMP GetUnmarshalClass(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  CLSID* pCid) override;
-  STDMETHODIMP GetMarshalSizeMax(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+  STDMETHODIMP GetMarshalSizeMax(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  DWORD* pSize) override;
-  STDMETHODIMP MarshalInterface(IStream* pStm, REFIID riid, void* pv,
-                                DWORD dwDestContext, void* pvDestContext,
+  STDMETHODIMP MarshalInterface(IStream* pStm,
+                                REFIID riid,
+                                void* pv,
+                                DWORD dwDestContext,
+                                void* pvDestContext,
                                 DWORD mshlflags) override;
-  STDMETHODIMP UnmarshalInterface(IStream* pStm, REFIID riid,
+  STDMETHODIMP UnmarshalInterface(IStream* pStm,
+                                  REFIID riid,
                                   void** ppv) override;
   STDMETHODIMP ReleaseMarshalData(IStream* pStm) override;
   STDMETHODIMP DisconnectObject(DWORD dwReserved) override;
 
-private:
+ private:
   FastMarshaler(IUnknown* aOuter, HRESULT* aResult);
   ~FastMarshaler() = default;
 
   static DWORD GetMarshalFlags(DWORD aDestContext, DWORD aMshlFlags);
 
-  Atomic<ULONG>     mRefCnt;
-  IUnknown*         mOuter;
-  RefPtr<IUnknown>  mStdMarshalUnk;
-  IMarshal*         mStdMarshalWeak;
+  Atomic<ULONG> mRefCnt;
+  IUnknown* mOuter;
+  RefPtr<IUnknown> mStdMarshalUnk;
+  IMarshal* mStdMarshalWeak;
   DECLARE_AGGREGATABLE(FastMarshaler);
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_FastMarshaler_h
+#endif  // mozilla_mscom_FastMarshaler_h

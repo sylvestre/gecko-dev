@@ -19,9 +19,7 @@
 NS_IMPL_ISUPPORTS(nsGZFileWriter, nsIGZFileWriter)
 
 nsGZFileWriter::nsGZFileWriter(Operation aMode)
-  : mMode(aMode)
-  , mInitialized(false)
-  , mFinished(false)
+    : mMode(aMode), mInitialized(false), mFinished(false)
 {
 }
 
@@ -35,8 +33,7 @@ nsGZFileWriter::~nsGZFileWriter()
 NS_IMETHODIMP
 nsGZFileWriter::Init(nsIFile* aFile)
 {
-  if (NS_WARN_IF(mInitialized) ||
-      NS_WARN_IF(mFinished)) {
+  if (NS_WARN_IF(mInitialized) || NS_WARN_IF(mFinished)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -70,8 +67,7 @@ nsGZFileWriter::InitANSIFileDesc(FILE* aFile)
 NS_IMETHODIMP
 nsGZFileWriter::Write(const nsACString& aStr)
 {
-  if (NS_WARN_IF(!mInitialized) ||
-      NS_WARN_IF(mFinished)) {
+  if (NS_WARN_IF(!mInitialized) || NS_WARN_IF(mFinished)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -97,8 +93,7 @@ nsGZFileWriter::Write(const nsACString& aStr)
 NS_IMETHODIMP
 nsGZFileWriter::Finish()
 {
-  if (NS_WARN_IF(!mInitialized) ||
-      NS_WARN_IF(mFinished)) {
+  if (NS_WARN_IF(!mInitialized) || NS_WARN_IF(mFinished)) {
     return NS_ERROR_FAILURE;
   }
 

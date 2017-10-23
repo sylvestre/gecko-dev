@@ -22,7 +22,7 @@ NotifyPaintEvent::NotifyPaintEvent(EventTarget* aOwner,
                                    nsTArray<nsRect>* aInvalidateRequests,
                                    uint64_t aTransactionId,
                                    DOMHighResTimeStamp aTimeStamp)
-  : Event(aOwner, aPresContext, aEvent)
+    : Event(aOwner, aPresContext, aEvent)
 {
   if (mEvent) {
     mEvent->mMessage = aEventMessage;
@@ -42,8 +42,7 @@ NS_INTERFACE_MAP_END_INHERITING(Event)
 NS_IMPL_ADDREF_INHERITED(NotifyPaintEvent, Event)
 NS_IMPL_RELEASE_INHERITED(NotifyPaintEvent, Event)
 
-nsRegion
-NotifyPaintEvent::GetRegion(SystemCallerGuarantee)
+nsRegion NotifyPaintEvent::GetRegion(SystemCallerGuarantee)
 {
   nsRegion r;
   for (uint32_t i = 0; i < mInvalidateRequests.Length(); ++i) {
@@ -81,8 +80,8 @@ NotifyPaintEvent::ClientRects(SystemCallerGuarantee aGuarantee)
   return rectList.forget();
 }
 
-already_AddRefed<PaintRequestList>
-NotifyPaintEvent::PaintRequests(SystemCallerGuarantee)
+already_AddRefed<PaintRequestList> NotifyPaintEvent::PaintRequests(
+    SystemCallerGuarantee)
 {
   Event* parent = this;
   RefPtr<PaintRequestList> requests = new PaintRequestList(parent);
@@ -97,8 +96,7 @@ NotifyPaintEvent::PaintRequests(SystemCallerGuarantee)
 }
 
 NS_IMETHODIMP_(void)
-NotifyPaintEvent::Serialize(IPC::Message* aMsg,
-                            bool aSerializeInterfaceType)
+NotifyPaintEvent::Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType)
 {
   if (aSerializeInterfaceType) {
     IPC::WriteParam(aMsg, NS_LITERAL_STRING("notifypaintevent"));
@@ -130,20 +128,18 @@ NotifyPaintEvent::Deserialize(const IPC::Message* aMsg, PickleIterator* aIter)
   return true;
 }
 
-uint64_t
-NotifyPaintEvent::TransactionId(SystemCallerGuarantee)
+uint64_t NotifyPaintEvent::TransactionId(SystemCallerGuarantee)
 {
   return mTransactionId;
 }
 
-DOMHighResTimeStamp
-NotifyPaintEvent::PaintTimeStamp(SystemCallerGuarantee)
+DOMHighResTimeStamp NotifyPaintEvent::PaintTimeStamp(SystemCallerGuarantee)
 {
   return mTimeStamp;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -157,8 +153,12 @@ NS_NewDOMNotifyPaintEvent(EventTarget* aOwner,
                           uint64_t aTransactionId,
                           DOMHighResTimeStamp aTimeStamp)
 {
-  RefPtr<NotifyPaintEvent> it =
-    new NotifyPaintEvent(aOwner, aPresContext, aEvent, aEventMessage,
-                         aInvalidateRequests, aTransactionId, aTimeStamp);
+  RefPtr<NotifyPaintEvent> it = new NotifyPaintEvent(aOwner,
+                                                     aPresContext,
+                                                     aEvent,
+                                                     aEventMessage,
+                                                     aInvalidateRequests,
+                                                     aTransactionId,
+                                                     aTimeStamp);
   return it.forget();
 }

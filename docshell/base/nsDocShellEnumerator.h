@@ -31,7 +31,7 @@ class nsIDocShellTreeItem;
 
 class nsDocShellEnumerator : public nsISimpleEnumerator
 {
-protected:
+ protected:
   enum
   {
     enumerateForwards,
@@ -40,7 +40,7 @@ protected:
 
   virtual ~nsDocShellEnumerator();
 
-public:
+ public:
   explicit nsDocShellEnumerator(int32_t aEnumerationDirection);
 
   // nsISupports
@@ -49,7 +49,7 @@ public:
   // nsISimpleEnumerator
   NS_DECL_NSISIMPLEENUMERATOR
 
-public:
+ public:
   nsresult GetEnumerationRootItem(nsIDocShellTreeItem** aEnumerationRootItem);
   nsresult SetEnumerationRootItem(nsIDocShellTreeItem* aEnumerationRootItem);
 
@@ -58,7 +58,7 @@ public:
 
   nsresult First();
 
-protected:
+ protected:
   nsresult EnsureDocShellArray();
   nsresult ClearState();
 
@@ -66,42 +66,36 @@ protected:
   virtual nsresult BuildArrayRecursive(nsIDocShellTreeItem* aItem,
                                        nsTArray<nsWeakPtr>& aItemArray) = 0;
 
-protected:
+ protected:
   nsWeakPtr mRootItem;  // weak ref!
 
   nsTArray<nsWeakPtr> mItemArray;  // flattened list of items with matching type
   uint32_t mCurIndex;
 
   int32_t mDocShellType;  // only want shells of this type
-  bool mArrayValid;  // is mItemArray up to date?
+  bool mArrayValid;       // is mItemArray up to date?
 
   const int8_t mEnumerationDirection;
 };
 
 class nsDocShellForwardsEnumerator : public nsDocShellEnumerator
 {
-public:
-  nsDocShellForwardsEnumerator()
-    : nsDocShellEnumerator(enumerateForwards)
-  {
-  }
+ public:
+  nsDocShellForwardsEnumerator() : nsDocShellEnumerator(enumerateForwards) {}
 
-protected:
+ protected:
   virtual nsresult BuildArrayRecursive(nsIDocShellTreeItem* aItem,
                                        nsTArray<nsWeakPtr>& aItemArray);
 };
 
 class nsDocShellBackwardsEnumerator : public nsDocShellEnumerator
 {
-public:
-  nsDocShellBackwardsEnumerator()
-    : nsDocShellEnumerator(enumerateBackwards)
-  {
-  }
+ public:
+  nsDocShellBackwardsEnumerator() : nsDocShellEnumerator(enumerateBackwards) {}
 
-protected:
+ protected:
   virtual nsresult BuildArrayRecursive(nsIDocShellTreeItem* aItem,
                                        nsTArray<nsWeakPtr>& aItemArray);
 };
 
-#endif // nsDocShellEnumerator_h___
+#endif  // nsDocShellEnumerator_h___

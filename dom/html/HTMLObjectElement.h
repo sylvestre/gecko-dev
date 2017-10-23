@@ -17,13 +17,14 @@ namespace dom {
 
 class HTMLFormSubmission;
 
-class HTMLObjectElement final : public nsGenericHTMLFormElement
-                              , public nsObjectLoadingContent
-                              , public nsIConstraintValidation
+class HTMLObjectElement final : public nsGenericHTMLFormElement,
+                                public nsObjectLoadingContent,
+                                public nsIConstraintValidation
 {
-public:
-  explicit HTMLObjectElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                             FromParser aFromParser = NOT_FROM_PARSER);
+ public:
+  explicit HTMLObjectElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
+      FromParser aFromParser = NOT_FROM_PARSER);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -49,18 +50,21 @@ public:
   // EventTarget
   virtual void AsyncEventRunning(AsyncEventDispatcher* aEvent) override;
 
-  virtual nsresult BindToTree(nsIDocument *aDocument, nsIContent *aParent,
-                              nsIContent *aBindingParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
+                              nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
 
-  virtual bool IsHTMLFocusable(bool aWithMouse, bool *aIsFocusable, int32_t *aTabIndex) override;
+  virtual bool IsHTMLFocusable(bool aWithMouse,
+                               bool* aIsFocusable,
+                               int32_t* aTabIndex) override;
   virtual IMEState GetDesiredIMEState() override;
 
   // Overriden nsIFormControl methods
   NS_IMETHOD Reset() override;
-  NS_IMETHOD SubmitNamesValues(HTMLFormSubmission *aFormSubmission) override;
+  NS_IMETHOD SubmitNamesValues(HTMLFormSubmission* aFormSubmission) override;
 
   virtual bool IsDisabled() const override { return false; }
 
@@ -68,18 +72,20 @@ public:
   virtual bool IsDoneAddingChildren() override;
 
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom *aAttribute,
-                                const nsAString &aValue,
-                                nsAttrValue &aResult) override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
-  NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom *aAttribute) const override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
+  NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
   virtual EventStates IntrinsicState() const override;
   virtual void DestroyContent() override;
 
   // nsObjectLoadingContent
   virtual uint32_t GetCapabilities() const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   nsresult CopyInnerTo(Element* aDest, bool aPreallocateChildren);
@@ -98,66 +104,44 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::data, aValue, aRv);
   }
-  void GetType(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aValue);
-  }
+  void GetType(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::type, aValue); }
   void SetType(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::type, aValue, aRv);
   }
-  bool TypeMustMatch()
-  {
-    return GetBoolAttr(nsGkAtoms::typemustmatch);
-  }
+  bool TypeMustMatch() { return GetBoolAttr(nsGkAtoms::typemustmatch); }
   void SetTypeMustMatch(bool aValue, ErrorResult& aRv)
   {
     SetHTMLBoolAttr(nsGkAtoms::typemustmatch, aValue, aRv);
   }
-  void GetName(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::name, aValue);
-  }
+  void GetName(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::name, aValue); }
   void SetName(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::name, aValue, aRv);
   }
-  void GetUseMap(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::usemap, aValue);
-  }
+  void GetUseMap(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::usemap, aValue); }
   void SetUseMap(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::usemap, aValue, aRv);
   }
   using nsGenericHTMLFormElement::GetForm;
-  void GetWidth(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::width, aValue);
-  }
+  void GetWidth(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::width, aValue); }
   void SetWidth(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::width, aValue, aRv);
   }
-  void GetHeight(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::height, aValue);
-  }
+  void GetHeight(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::height, aValue); }
   void SetHeight(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::height, aValue, aRv);
   }
   using nsObjectLoadingContent::GetContentDocument;
 
-  nsPIDOMWindowOuter*
-  GetContentWindow(nsIPrincipal& aSubjectPrincipal);
+  nsPIDOMWindowOuter* GetContentWindow(nsIPrincipal& aSubjectPrincipal);
 
   using nsIConstraintValidation::GetValidationMessage;
   using nsIConstraintValidation::SetCustomValidity;
-  void GetAlign(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::align, aValue);
-  }
+  void GetAlign(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::align, aValue); }
   void SetAlign(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::align, aValue, aRv);
@@ -170,26 +154,17 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::archive, aValue, aRv);
   }
-  void GetCode(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::code, aValue);
-  }
+  void GetCode(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::code, aValue); }
   void SetCode(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::code, aValue, aRv);
   }
-  bool Declare()
-  {
-    return GetBoolAttr(nsGkAtoms::declare);
-  }
+  bool Declare() { return GetBoolAttr(nsGkAtoms::declare); }
   void SetDeclare(bool aValue, ErrorResult& aRv)
   {
     SetHTMLBoolAttr(nsGkAtoms::declare, aValue, aRv);
   }
-  uint32_t Hspace()
-  {
-    return GetUnsignedIntAttr(nsGkAtoms::hspace, 0);
-  }
+  uint32_t Hspace() { return GetUnsignedIntAttr(nsGkAtoms::hspace, 0); }
   void SetHspace(uint32_t aValue, ErrorResult& aRv)
   {
     SetUnsignedIntAttr(nsGkAtoms::hspace, aValue, 0, aRv);
@@ -202,10 +177,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::standby, aValue, aRv);
   }
-  uint32_t Vspace()
-  {
-    return GetUnsignedIntAttr(nsGkAtoms::vspace, 0);
-  }
+  uint32_t Vspace() { return GetUnsignedIntAttr(nsGkAtoms::vspace, 0); }
   void SetVspace(uint32_t aValue, ErrorResult& aRv)
   {
     SetUnsignedIntAttr(nsGkAtoms::vspace, aValue, 0, aRv);
@@ -226,17 +198,13 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::codetype, aValue, aRv);
   }
-  void GetBorder(DOMString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::border, aValue);
-  }
+  void GetBorder(DOMString& aValue) { GetHTMLAttr(nsGkAtoms::border, aValue); }
   void SetBorder(const nsAString& aValue, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::border, aValue, aRv);
   }
 
-  nsIDocument*
-  GetSVGDocument(nsIPrincipal& aSubjectPrincipal)
+  nsIDocument* GetSVGDocument(nsIPrincipal& aSubjectPrincipal)
   {
     return GetContentDocument(aSubjectPrincipal);
   }
@@ -246,20 +214,22 @@ public:
    */
   void StartObjectLoad(bool aNotify, bool aForceLoad);
 
-protected:
+ protected:
   // Override for nsImageLoadingContent.
   nsIContent* AsContent() override { return this; }
 
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
-  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID,
+                                          nsAtom* aName,
                                           const nsAttrValueOrString& aValue,
                                           bool aNotify) override;
 
-private:
+ private:
   /**
    * Returns if the element is currently focusable regardless of it's tabindex
    * value. This is used to know the default tabindex value.
@@ -273,7 +243,8 @@ private:
 
   virtual ~HTMLObjectElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
@@ -287,13 +258,14 @@ private:
    * @param aName the localname of the attribute being set
    * @param aNotify Whether we plan to notify document observers.
    */
-  nsresult AfterMaybeChangeAttr(int32_t aNamespaceID, nsAtom* aName,
+  nsresult AfterMaybeChangeAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 bool aNotify);
 
   bool mIsDoneAddingChildren;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLObjectElement_h
+#endif  // mozilla_dom_HTMLObjectElement_h

@@ -22,7 +22,7 @@ struct PeriodicWaveOptions;
 
 class PeriodicWave final : public nsWrapperCache
 {
-public:
+ public:
   PeriodicWave(AudioContext* aContext,
                const float* aRealData,
                const float* aImagData,
@@ -33,36 +33,27 @@ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(PeriodicWave)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(PeriodicWave)
 
-  static already_AddRefed<PeriodicWave>
-  Constructor(const GlobalObject& aGlobal, AudioContext& aAudioContext,
-              const PeriodicWaveOptions& aOptions, ErrorResult& aRv);
+  static already_AddRefed<PeriodicWave> Constructor(
+      const GlobalObject& aGlobal,
+      AudioContext& aAudioContext,
+      const PeriodicWaveOptions& aOptions,
+      ErrorResult& aRv);
 
-  AudioContext* GetParentObject() const
-  {
-    return mContext;
-  }
+  AudioContext* GetParentObject() const { return mContext; }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
-  uint32_t DataLength() const
-  {
-    return mCoefficients.mDuration;
-  }
+  uint32_t DataLength() const { return mCoefficients.mDuration; }
 
-  bool DisableNormalization() const
-  {
-    return mDisableNormalization;
-  }
+  bool DisableNormalization() const { return mDisableNormalization; }
 
-  const AudioChunk& GetThreadSharedBuffer() const
-  {
-    return mCoefficients;
-  }
+  const AudioChunk& GetThreadSharedBuffer() const { return mCoefficients; }
 
   size_t SizeOfExcludingThisIfNotShared(MallocSizeOf aMallocSizeOf) const;
   size_t SizeOfIncludingThisIfNotShared(MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   ~PeriodicWave() = default;
 
   AudioChunk mCoefficients;
@@ -70,7 +61,7 @@ private:
   bool mDisableNormalization;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

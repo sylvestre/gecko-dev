@@ -25,10 +25,11 @@
 #if defined(MOZILLA_INTERNAL_API)
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/mscom/EnsureMTA.h"
-HRESULT RegisterPassthruProxy();
+HRESULT
+RegisterPassthruProxy();
 #else
 #include <stdlib.h>
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #include <oaidl.h>
 #include <objidl.h>
@@ -44,8 +45,8 @@ extern "C" {
 
 // This function is defined in generated code for proxy DLLs but is not declared
 // in rpcproxy.h, so we need this declaration.
-void RPC_ENTRY GetProxyDllInfo(const ProxyFileInfo*** aInfo, const CLSID** aId);
-
+void RPC_ENTRY
+GetProxyDllInfo(const ProxyFileInfo*** aInfo, const CLSID** aId);
 }
 
 namespace mozilla {
@@ -61,7 +62,7 @@ GetContainingLibPath(wchar_t* aBuffer, size_t aBufferLen)
 
   DWORD fileNameResult = GetModuleFileName(thisModule, aBuffer, aBufferLen);
   if (!fileNameResult || (fileNameResult == aBufferLen &&
-        ::GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
+                          ::GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
     return false;
   }
 
@@ -69,7 +70,9 @@ GetContainingLibPath(wchar_t* aBuffer, size_t aBufferLen)
 }
 
 static bool
-BuildLibPath(RegistrationFlags aFlags, wchar_t* aBuffer, size_t aBufferLen,
+BuildLibPath(RegistrationFlags aFlags,
+             wchar_t* aBuffer,
+             size_t aBufferLen,
              const wchar_t* aLeafName)
 {
   if (aFlags == RegistrationFlags::eUseBinDirectory) {
@@ -124,14 +127,18 @@ RegisterProxy()
   }
 
   IUnknown* classObject = nullptr;
-  HRESULT hr = DllGetClassObject(*proxyClsid, IID_IUnknown, (void**)&classObject);
+  HRESULT hr =
+      DllGetClassObject(*proxyClsid, IID_IUnknown, (void**)&classObject);
   if (FAILED(hr)) {
     return nullptr;
   }
 
   DWORD regCookie;
-  hr = CoRegisterClassObject(*proxyClsid, classObject, CLSCTX_INPROC_SERVER,
-                             REGCLS_MULTIPLEUSE, &regCookie);
+  hr = CoRegisterClassObject(*proxyClsid,
+                             classObject,
+                             CLSCTX_INPROC_SERVER,
+                             REGCLS_MULTIPLEUSE,
+                             &regCookie);
   if (FAILED(hr)) {
     classObject->lpVtbl->Release(classObject);
     return nullptr;
@@ -161,7 +168,7 @@ RegisterProxy()
     classObject->lpVtbl->Release(classObject);
     return nullptr;
   }
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
   // RegisteredProxy takes ownership of classObject and typeLib references
   auto result(MakeUnique<RegisteredProxy>(classObject, regCookie, typeLib));
@@ -177,8 +184,8 @@ UniquePtr<RegisteredProxy>
 RegisterProxy(const wchar_t* aLeafName, RegistrationFlags aFlags)
 {
   wchar_t modulePathBuf[MAX_PATH + 1] = {0};
-  if (!BuildLibPath(aFlags, modulePathBuf, ArrayLength(modulePathBuf),
-                    aLeafName)) {
+  if (!BuildLibPath(
+          aFlags, modulePathBuf, ArrayLength(modulePathBuf), aLeafName)) {
     return nullptr;
   }
 
@@ -207,15 +214,21 @@ RegisterProxy(const wchar_t* aLeafName, RegistrationFlags aFlags)
   // We call CoGetClassObject instead of DllGetClassObject because it forces
   // the COM runtime to manage the lifetime of the DLL.
   IUnknown* classObject = nullptr;
-  HRESULT hr = CoGetClassObject(*proxyClsid, CLSCTX_INPROC_SERVER, nullptr,
-                                IID_IUnknown, (void**) &classObject);
+  HRESULT hr = CoGetClassObject(*proxyClsid,
+                                CLSCTX_INPROC_SERVER,
+                                nullptr,
+                                IID_IUnknown,
+                                (void**)&classObject);
   if (FAILED(hr)) {
     return nullptr;
   }
 
   DWORD regCookie;
-  hr = CoRegisterClassObject(*proxyClsid, classObject, CLSCTX_INPROC_SERVER,
-                             REGCLS_MULTIPLEUSE, &regCookie);
+  hr = CoRegisterClassObject(*proxyClsid,
+                             classObject,
+                             CLSCTX_INPROC_SERVER,
+                             REGCLS_MULTIPLEUSE,
+                             &regCookie);
   if (FAILED(hr)) {
     classObject->lpVtbl->Release(classObject);
     return nullptr;
@@ -232,8 +245,11 @@ RegisterProxy(const wchar_t* aLeafName, RegistrationFlags aFlags)
 
   // RegisteredProxy takes ownership of proxyDll, classObject, and typeLib
   // references
-  auto result(MakeUnique<RegisteredProxy>(reinterpret_cast<uintptr_t>(proxyDll.disown()),
-                                          classObject, regCookie, typeLib));
+  auto result(MakeUnique<RegisteredProxy>(
+      reinterpret_cast<uintptr_t>(proxyDll.disown()),
+      classObject,
+      regCookie,
+      typeLib));
 
   if (!RegisterPSClsids(proxyInfo, proxyClsid)) {
     return nullptr;
@@ -246,8 +262,8 @@ UniquePtr<RegisteredProxy>
 RegisterTypelib(const wchar_t* aLeafName, RegistrationFlags aFlags)
 {
   wchar_t modulePathBuf[MAX_PATH + 1] = {0};
-  if (!BuildLibPath(aFlags, modulePathBuf, ArrayLength(modulePathBuf),
-                    aLeafName)) {
+  if (!BuildLibPath(
+          aFlags, modulePathBuf, ArrayLength(modulePathBuf), aLeafName)) {
     return nullptr;
   }
 
@@ -262,30 +278,35 @@ RegisterTypelib(const wchar_t* aLeafName, RegistrationFlags aFlags)
   return result;
 }
 
-RegisteredProxy::RegisteredProxy(uintptr_t aModule, IUnknown* aClassObject,
-                                 uint32_t aRegCookie, ITypeLib* aTypeLib)
-  : mModule(aModule)
-  , mClassObject(aClassObject)
-  , mRegCookie(aRegCookie)
-  , mTypeLib(aTypeLib)
+RegisteredProxy::RegisteredProxy(uintptr_t aModule,
+                                 IUnknown* aClassObject,
+                                 uint32_t aRegCookie,
+                                 ITypeLib* aTypeLib)
+    : mModule(aModule),
+      mClassObject(aClassObject),
+      mRegCookie(aRegCookie),
+      mTypeLib(aTypeLib)
 #if defined(MOZILLA_INTERNAL_API)
-  , mIsRegisteredInMTA(IsCurrentThreadMTA())
-#endif // defined(MOZILLA_INTERNAL_API)
+      ,
+      mIsRegisteredInMTA(IsCurrentThreadMTA())
+#endif  // defined(MOZILLA_INTERNAL_API)
 {
   MOZ_ASSERT(aClassObject);
   MOZ_ASSERT(aTypeLib);
   AddToRegistry(this);
 }
 
-RegisteredProxy::RegisteredProxy(IUnknown* aClassObject, uint32_t aRegCookie,
+RegisteredProxy::RegisteredProxy(IUnknown* aClassObject,
+                                 uint32_t aRegCookie,
                                  ITypeLib* aTypeLib)
-  : mModule(0)
-  , mClassObject(aClassObject)
-  , mRegCookie(aRegCookie)
-  , mTypeLib(aTypeLib)
+    : mModule(0),
+      mClassObject(aClassObject),
+      mRegCookie(aRegCookie),
+      mTypeLib(aTypeLib)
 #if defined(MOZILLA_INTERNAL_API)
-  , mIsRegisteredInMTA(IsCurrentThreadMTA())
-#endif // defined(MOZILLA_INTERNAL_API)
+      ,
+      mIsRegisteredInMTA(IsCurrentThreadMTA())
+#endif  // defined(MOZILLA_INTERNAL_API)
 {
   MOZ_ASSERT(aClassObject);
   MOZ_ASSERT(aTypeLib);
@@ -295,13 +316,14 @@ RegisteredProxy::RegisteredProxy(IUnknown* aClassObject, uint32_t aRegCookie,
 // If we're initializing from a typelib, it doesn't matter which apartment we
 // run in, so mIsRegisteredInMTA may always be set to false in this case.
 RegisteredProxy::RegisteredProxy(ITypeLib* aTypeLib)
-  : mModule(0)
-  , mClassObject(nullptr)
-  , mRegCookie(0)
-  , mTypeLib(aTypeLib)
+    : mModule(0),
+      mClassObject(nullptr),
+      mRegCookie(0),
+      mTypeLib(aTypeLib)
 #if defined(MOZILLA_INTERNAL_API)
-  , mIsRegisteredInMTA(false)
-#endif // defined(MOZILLA_INTERNAL_API)
+      ,
+      mIsRegisteredInMTA(false)
+#endif  // defined(MOZILLA_INTERNAL_API)
 {
   MOZ_ASSERT(aTypeLib);
   AddToRegistry(this);
@@ -329,7 +351,7 @@ RegisteredProxy::~RegisteredProxy()
     }
 #else
     cleanupFn();
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
   }
   if (mModule) {
     ::FreeLibrary(reinterpret_cast<HMODULE>(mModule));
@@ -375,7 +397,7 @@ namespace UseGetMutexForAccess {
 // This must not be accessed directly; use GetMutex() instead
 static CRITICAL_SECTION sMutex;
 
-} // UseGetMutexForAccess
+}  // namespace UseGetMutexForAccess
 
 static CRITICAL_SECTION*
 GetMutex()
@@ -486,8 +508,8 @@ FindArrayData(REFIID aIid, ULONG aMethodIndex)
          ++innerIdx) {
       const ArrayData* array = data.first();
       if (aMethodIndex == array[innerIdx].mMethodIndex &&
-          IsInterfaceEqualToOrInheritedFrom(aIid, array[innerIdx].mIid,
-                                            aMethodIndex)) {
+          IsInterfaceEqualToOrInheritedFrom(
+              aIid, array[innerIdx].mIid, aMethodIndex)) {
         return &array[innerIdx];
       }
     }
@@ -496,7 +518,7 @@ FindArrayData(REFIID aIid, ULONG aMethodIndex)
   return nullptr;
 }
 
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

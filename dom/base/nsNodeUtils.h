@@ -8,25 +8,26 @@
 #define nsNodeUtils_h___
 
 #include "mozilla/Maybe.h"
-#include "nsIContent.h"          // for use in inline function (ParentChainChanged)
-#include "nsIMutationObserver.h" // for use in inline function (ParentChainChanged)
+#include "nsIContent.h"  // for use in inline function (ParentChainChanged)
+#include "nsIMutationObserver.h"  // for use in inline function (ParentChainChanged)
 #include "js/TypeDecls.h"
 #include "nsCOMArray.h"
 
 struct CharacterDataChangeInfo;
-template<class E> class nsCOMArray;
+template<class E>
+class nsCOMArray;
 class nsCycleCollectionTraversalCallback;
 namespace mozilla {
 struct NonOwningAnimationTarget;
 class ErrorResult;
 namespace dom {
 class Animation;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsNodeUtils
 {
-public:
+ public:
   /**
    * Send CharacterDataWillChange notifications to nsIMutationObservers.
    * @param aContent  Node whose data changed
@@ -112,8 +113,7 @@ public:
    * @param aChild            Newly inserted child
    * @see nsIMutationObserver::ContentInserted
    */
-  static void ContentInserted(nsINode* aContainer,
-                              nsIContent* aChild);
+  static void ContentInserted(nsINode* aContainer, nsIContent* aChild);
   /**
    * Send ContentRemoved notifications to nsIMutationObservers
    * @param aContainer        Node from which child was removed
@@ -129,12 +129,13 @@ public:
    * @param aContent  The piece of content that had its parent changed.
    * @see nsIMutationObserver::ParentChainChanged
    */
-  static inline void ParentChainChanged(nsIContent *aContent)
+  static inline void ParentChainChanged(nsIContent* aContent)
   {
     nsINode::nsSlots* slots = aContent->GetExistingSlots();
     if (slots && !slots->mMutationObservers.IsEmpty()) {
       NS_OBSERVER_AUTO_ARRAY_NOTIFY_OBSERVERS(slots->mMutationObservers,
-                                              nsIMutationObserver, 1,
+                                              nsIMutationObserver,
+                                              1,
                                               ParentChainChanged,
                                               (aContent));
     }
@@ -146,7 +147,7 @@ public:
    * @param aAnimation The animation whose target is what we want.
    */
   static mozilla::Maybe<mozilla::NonOwningAnimationTarget>
-    GetTargetForAnimation(const mozilla::dom::Animation* aAnimation);
+  GetTargetForAnimation(const mozilla::dom::Animation* aAnimation);
 
   /**
    * Notify that an animation is added/changed/removed.
@@ -183,13 +184,21 @@ public:
    *
    * @return The newly created node.  Null in error conditions.
    */
-  static already_AddRefed<nsINode> Clone(nsINode *aNode, bool aDeep,
-                                         nsNodeInfoManager *aNewNodeInfoManager,
-                                         nsCOMArray<nsINode> *aNodesWithProperties,
-                                         mozilla::ErrorResult& aError)
+  static already_AddRefed<nsINode> Clone(
+      nsINode* aNode,
+      bool aDeep,
+      nsNodeInfoManager* aNewNodeInfoManager,
+      nsCOMArray<nsINode>* aNodesWithProperties,
+      mozilla::ErrorResult& aError)
   {
-    return CloneAndAdopt(aNode, true, aDeep, aNewNodeInfoManager,
-                         nullptr, aNodesWithProperties, nullptr, aError);
+    return CloneAndAdopt(aNode,
+                         true,
+                         aDeep,
+                         aNewNodeInfoManager,
+                         nullptr,
+                         aNodesWithProperties,
+                         nullptr,
+                         aError);
   }
 
   /**
@@ -210,16 +219,22 @@ public:
    *                             descendants) with properties.
    * @param aError The error, if any.
    */
-  static void Adopt(nsINode *aNode, nsNodeInfoManager *aNewNodeInfoManager,
+  static void Adopt(nsINode* aNode,
+                    nsNodeInfoManager* aNewNodeInfoManager,
                     JS::Handle<JSObject*> aReparentScope,
                     nsCOMArray<nsINode>& aNodesWithProperties,
                     mozilla::ErrorResult& aError)
   {
     // Just need to store the return value of CloneAndAdopt in a
     // temporary nsCOMPtr to make sure we release it.
-    nsCOMPtr<nsINode> node = CloneAndAdopt(aNode, false, true, aNewNodeInfoManager,
-                                           aReparentScope, &aNodesWithProperties,
-                                           nullptr, aError);
+    nsCOMPtr<nsINode> node = CloneAndAdopt(aNode,
+                                           false,
+                                           true,
+                                           aNewNodeInfoManager,
+                                           aReparentScope,
+                                           &aNodesWithProperties,
+                                           nullptr,
+                                           aError);
 
     nsMutationGuard::DidMutate();
   }
@@ -231,7 +246,7 @@ public:
    * @param aCb the cycle collection callback
    */
   static void TraverseUserData(nsINode* aNode,
-                               nsCycleCollectionTraversalCallback &aCb);
+                               nsCycleCollectionTraversalCallback& aCb);
 
   /**
    * A basic implementation of the DOM cloneNode method. Calls nsINode::Clone to
@@ -243,7 +258,8 @@ public:
    *
    * @return the clone, or null if an error occurs.
    */
-  static already_AddRefed<nsINode> CloneNodeImpl(nsINode *aNode, bool aDeep,
+  static already_AddRefed<nsINode> CloneNodeImpl(nsINode* aNode,
+                                                 bool aDeep,
                                                  mozilla::ErrorResult& aError);
 
   /**
@@ -251,14 +267,14 @@ public:
    *
    * @param aNode the node to release the UserData for
    */
-  static void UnlinkUserData(nsINode *aNode);
+  static void UnlinkUserData(nsINode* aNode);
 
   /**
    * Returns a true if the node is a HTMLTemplate element.
    *
    * @param aNode a node to test for HTMLTemplate elementness.
    */
-  static bool IsTemplateElement(const nsINode *aNode);
+  static bool IsTemplateElement(const nsINode* aNode);
 
   /**
    * Returns the first child of a node or the first child of
@@ -269,7 +285,7 @@ public:
    */
   static nsIContent* GetFirstChildOfTemplateOrNode(nsINode* aNode);
 
-private:
+ private:
   /**
    * Walks aNode, its attributes and, if aDeep is true, its descendant nodes.
    * If aClone is true the nodes will be cloned. If aNewNodeInfoManager is
@@ -303,12 +319,15 @@ private:
    *          unless an error occurred.  In error conditions, null
    *          will be returned.
    */
-  static already_AddRefed<nsINode>
-    CloneAndAdopt(nsINode *aNode, bool aClone, bool aDeep,
-                  nsNodeInfoManager* aNewNodeInfoManager,
-                  JS::Handle<JSObject*> aReparentScope,
-                  nsCOMArray<nsINode>* aNodesWithProperties,
-                  nsINode *aParent, mozilla::ErrorResult& aError);
+  static already_AddRefed<nsINode> CloneAndAdopt(
+      nsINode* aNode,
+      bool aClone,
+      bool aDeep,
+      nsNodeInfoManager* aNewNodeInfoManager,
+      JS::Handle<JSObject*> aReparentScope,
+      nsCOMArray<nsINode>* aNodesWithProperties,
+      nsINode* aParent,
+      mozilla::ErrorResult& aError);
 
   enum class AnimationMutationType
   {
@@ -324,7 +343,6 @@ private:
    */
   static void AnimationMutated(mozilla::dom::Animation* aAnimation,
                                AnimationMutationType aMutatedType);
-
 };
 
-#endif // nsNodeUtils_h___
+#endif  // nsNodeUtils_h___

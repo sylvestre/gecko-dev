@@ -9,10 +9,9 @@
 void
 nsContentSupportMap::Remove(nsIContent* aElement)
 {
-    nsIContent* child = aElement;
-    do {
-        mMap.Remove(child);
-        child = child->GetNextNode(aElement);
-    } while(child);
+  nsIContent* child = aElement;
+  do {
+    mMap.Remove(child);
+    child = child->GetNextNode(aElement);
+  } while (child);
 }
-

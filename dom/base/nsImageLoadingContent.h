@@ -34,7 +34,7 @@ class imgRequestProxy;
 
 namespace mozilla {
 class AsyncEventDispatcher;
-} // namespace mozilla
+}  // namespace mozilla
 
 #ifdef LoadImage
 // Undefine LoadImage to prevent naming conflict with Windows.
@@ -44,13 +44,14 @@ class AsyncEventDispatcher;
 class nsImageLoadingContent : public nsIImageLoadingContent,
                               public imgIOnloadBlocker
 {
-  template <typename T> using Maybe = mozilla::Maybe<T>;
+  template<typename T>
+  using Maybe = mozilla::Maybe<T>;
   using Nothing = mozilla::Nothing;
   using OnNonvisible = mozilla::OnNonvisible;
   using Visibility = mozilla::Visibility;
 
   /* METHODS */
-public:
+ public:
   nsImageLoadingContent();
   virtual ~nsImageLoadingContent();
 
@@ -64,25 +65,20 @@ public:
   // since none of them throw when called via the Web IDL bindings.
 
   bool LoadingEnabled() const { return mLoadingEnabled; }
-  int16_t ImageBlockingStatus() const
-  {
-    return mImageBlockingStatus;
-  }
-  already_AddRefed<imgIRequest>
-    GetRequest(int32_t aRequestType, mozilla::ErrorResult& aError);
-  int32_t
-    GetRequestType(imgIRequest* aRequest, mozilla::ErrorResult& aError);
+  int16_t ImageBlockingStatus() const { return mImageBlockingStatus; }
+  already_AddRefed<imgIRequest> GetRequest(int32_t aRequestType,
+                                           mozilla::ErrorResult& aError);
+  int32_t GetRequestType(imgIRequest* aRequest, mozilla::ErrorResult& aError);
   already_AddRefed<nsIURI> GetCurrentURI(mozilla::ErrorResult& aError);
   void ForceReload(const mozilla::dom::Optional<bool>& aNotify,
                    mozilla::ErrorResult& aError);
 
   // XPCOM [optional] syntax helper
-  nsresult ForceReload(bool aNotify = true) {
-    return ForceReload(aNotify, 1);
-  }
+  nsresult ForceReload(bool aNotify = true) { return ForceReload(aNotify, 1); }
 
-protected:
-  enum ImageLoadType {
+ protected:
+  enum ImageLoadType
+  {
     // Most normal image loads
     eImageLoadType_Normal,
     // From a <img srcset> or <picture> context. Affects type given to content
@@ -106,8 +102,10 @@ protected:
    * @param aTriggeringPrincipal Optional parameter specifying the triggering
    *        principal to use for the image load
    */
-  nsresult LoadImage(const nsAString& aNewURI, bool aForce,
-                     bool aNotify, ImageLoadType aImageLoadType,
+  nsresult LoadImage(const nsAString& aNewURI,
+                     bool aForce,
+                     bool aNotify,
+                     ImageLoadType aImageLoadType,
                      nsIPrincipal* aTriggeringPrincipal = nullptr);
 
   /**
@@ -141,18 +139,28 @@ protected:
    * @param aTriggeringPrincipal Optional parameter specifying the triggering
    *        principal to use for the image load
    */
-  nsresult LoadImage(nsIURI* aNewURI, bool aForce, bool aNotify,
-                     ImageLoadType aImageLoadType, bool aLoadStart = true,
+  nsresult LoadImage(nsIURI* aNewURI,
+                     bool aForce,
+                     bool aNotify,
+                     ImageLoadType aImageLoadType,
+                     bool aLoadStart = true,
                      nsIDocument* aDocument = nullptr,
                      nsLoadFlags aLoadFlags = nsIRequest::LOAD_NORMAL,
                      nsIPrincipal* aTriggeringPrincipal = nullptr);
 
-  nsresult LoadImage(nsIURI* aNewURI, bool aForce, bool aNotify,
+  nsresult LoadImage(nsIURI* aNewURI,
+                     bool aForce,
+                     bool aNotify,
                      ImageLoadType aImageLoadType,
                      nsIPrincipal* aTriggeringPrincipal)
   {
-    return LoadImage(aNewURI, aForce, aNotify, aImageLoadType,
-                     true, nullptr, nsIRequest::LOAD_NORMAL,
+    return LoadImage(aNewURI,
+                     aForce,
+                     aNotify,
+                     aImageLoadType,
+                     true,
+                     nullptr,
+                     nsIRequest::LOAD_NORMAL,
                      aTriggeringPrincipal);
   }
 
@@ -197,7 +205,8 @@ protected:
    * effectively be called instead of LoadImage or LoadImageWithChannel.
    * If aNotify is true, this method will notify on state changes.
    */
-  nsresult UseAsPrimaryRequest(imgRequestProxy* aRequest, bool aNotify,
+  nsresult UseAsPrimaryRequest(imgRequestProxy* aRequest,
+                               bool aNotify,
                                ImageLoadType aImageLoadType);
 
   /**
@@ -221,13 +230,15 @@ protected:
   virtual mozilla::net::ReferrerPolicy GetImageReferrerPolicy();
 
   // Subclasses are *required* to call BindToTree/UnbindFromTree.
-  void BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                  nsIContent* aBindingParent, bool aCompileEventHandlers);
+  void BindToTree(nsIDocument* aDocument,
+                  nsIContent* aParent,
+                  nsIContent* aBindingParent,
+                  bool aCompileEventHandlers);
   void UnbindFromTree(bool aDeep, bool aNullParent);
 
   nsresult OnLoadComplete(imgIRequest* aRequest, nsresult aStatus);
   void OnUnlockedDraw();
-  nsresult OnImageIsAnimated(imgIRequest *aRequest);
+  nsresult OnImageIsAnimated(imgIRequest* aRequest);
 
   // The nsContentPolicyType we would use for this ImageLoadType
   static nsContentPolicyType PolicyTypeForLoad(ImageLoadType aImageLoadType);
@@ -238,11 +249,12 @@ protected:
   // want a non-const nsIContent.
   virtual nsIContent* AsContent() = 0;
 
-private:
+ private:
   /**
    * Struct used to manage the native image observers.
    */
-  struct ImageObserver {
+  struct ImageObserver
+  {
     explicit ImageObserver(imgINotificationObserver* aObserver);
     ~ImageObserver();
 
@@ -253,8 +265,9 @@ private:
   /**
    * Struct used to manage the scripted/XPCOM image observers.
    */
-  class ScriptedImageObserver final {
-  public:
+  class ScriptedImageObserver final
+  {
+   public:
     NS_INLINE_DECL_REFCOUNTING(ScriptedImageObserver)
 
     ScriptedImageObserver(imgINotificationObserver* aObserver,
@@ -266,18 +279,17 @@ private:
     RefPtr<imgRequestProxy> mCurrentRequest;
     RefPtr<imgRequestProxy> mPendingRequest;
 
-  private:
+   private:
     ~ScriptedImageObserver();
   };
 
   /**
    * Struct to report state changes
    */
-  struct AutoStateChanger {
-    AutoStateChanger(nsImageLoadingContent* aImageContent,
-                     bool aNotify) :
-      mImageContent(aImageContent),
-      mNotify(aNotify)
+  struct AutoStateChanger
+  {
+    AutoStateChanger(nsImageLoadingContent* aImageContent, bool aNotify)
+        : mImageContent(aImageContent), mNotify(aNotify)
     {
       mImageContent->mStateChangerDepth++;
     }
@@ -316,7 +328,7 @@ private:
 
   RefPtr<mozilla::AsyncEventDispatcher> mPendingEvent;
 
-protected:
+ protected:
   /**
    * Method to create an nsIURI object from the given string (will
    * handle getting the right charset, base, etc).  You MUST pass in a
@@ -326,7 +338,8 @@ protected:
    * @param aDocument the document we belong to
    * @return the URI we want to be loading
    */
-  nsresult StringToURI(const nsAString& aSpec, nsIDocument* aDocument,
+  nsresult StringToURI(const nsAString& aSpec,
+                       nsIDocument* aDocument,
                        nsIURI** aURI);
 
   void CreateStaticImageClone(nsImageLoadingContent* aDest) const;
@@ -339,7 +352,7 @@ protected:
    *
    * @param aImageLoadType The ImageLoadType for this request
    */
-   RefPtr<imgRequestProxy>& PrepareNextRequest(ImageLoadType aImageLoadType);
+  RefPtr<imgRequestProxy>& PrepareNextRequest(ImageLoadType aImageLoadType);
 
   /**
    * Returns a COMPtr reference to the current/pending image requests, cleaning
@@ -364,10 +377,12 @@ protected:
    * @param aNonvisibleAction An action to take if the image is no longer
    *                          visible as a result; see |UntrackImage|.
    */
-  void ClearCurrentRequest(nsresult aReason,
-                           const Maybe<OnNonvisible>& aNonvisibleAction = Nothing());
-  void ClearPendingRequest(nsresult aReason,
-                           const Maybe<OnNonvisible>& aNonvisibleAction = Nothing());
+  void ClearCurrentRequest(
+      nsresult aReason,
+      const Maybe<OnNonvisible>& aNonvisibleAction = Nothing());
+  void ClearPendingRequest(
+      nsresult aReason,
+      const Maybe<OnNonvisible>& aNonvisibleAction = Nothing());
 
   /**
    * Retrieve a pointer to the 'registered with the refresh driver' flag for
@@ -389,7 +404,7 @@ protected:
    * Static helper method to tell us if we have the size of a request. The
    * image may be null.
    */
-  static bool HaveSize(imgIRequest *aImage);
+  static bool HaveSize(imgIRequest* aImage);
 
   /**
    * Adds/Removes a given imgIRequest from our document's tracker.
@@ -418,7 +433,8 @@ protected:
   uint32_t mCurrentRequestFlags;
   uint32_t mPendingRequestFlags;
 
-  enum {
+  enum
+  {
     // Set if the request needs ResetAnimation called on it.
     REQUEST_NEEDS_ANIMATION_RESET = 0x00000001U,
     // Set if the request is blocking onload.
@@ -434,9 +450,9 @@ protected:
   // still keep track of what the URI was despite not having an imgIRequest.
   // We only maintain this in those situations (in the common case, this is
   // always null).
-  nsCOMPtr<nsIURI>      mCurrentURI;
+  nsCOMPtr<nsIURI> mCurrentURI;
 
-private:
+ private:
   /**
    * Clones the given "current" or "pending" request for each scripted observer.
    */
@@ -497,7 +513,7 @@ private:
   bool mUserDisabled : 1;
   bool mSuppressed : 1;
 
-protected:
+ protected:
   /**
    * A hack to get animations to reset, see bug 594771. On requests
    * that originate from setting .src, we mark them for needing their animation
@@ -515,7 +531,8 @@ protected:
    * get the response ASAP for better user responsiveness.
    */
   bool mUseUrgentStartForChannel;
-private:
+
+ private:
   /* The number of nested AutoStateChangers currently tracking our state. */
   uint8_t mStateChangerDepth;
 
@@ -536,4 +553,4 @@ private:
   bool mIsStartingImageLoad;
 };
 
-#endif // nsImageLoadingContent_h__
+#endif  // nsImageLoadingContent_h__

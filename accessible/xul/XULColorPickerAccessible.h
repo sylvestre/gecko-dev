@@ -16,9 +16,8 @@ namespace a11y {
  */
 class XULColorPickerTileAccessible : public AccessibleWrap
 {
-public:
-  XULColorPickerTileAccessible(nsIContent* aContent,
-                               DocAccessible* aDoc);
+ public:
+  XULColorPickerTileAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual void Value(nsString& aValue) override;
@@ -30,13 +29,12 @@ public:
   virtual Accessible* ContainerWidget() const override;
 };
 
-
 /**
  * Used for colorpicker button (xul:colorpicker@type="button").
  */
 class XULColorPickerAccessible : public XULColorPickerTileAccessible
 {
-public:
+ public:
   XULColorPickerAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -51,7 +49,7 @@ public:
   virtual bool IsAcceptableChild(nsIContent* aEl) const override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

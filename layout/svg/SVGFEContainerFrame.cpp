@@ -17,22 +17,23 @@
  */
 class SVGFEContainerFrame : public nsContainerFrame
 {
-  friend nsIFrame*
-  NS_NewSVGFEContainerFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
-protected:
+  friend nsIFrame* NS_NewSVGFEContainerFrame(nsIPresShell* aPresShell,
+                                             nsStyleContext* aContext);
+
+ protected:
   explicit SVGFEContainerFrame(nsStyleContext* aContext)
-    : nsContainerFrame(aContext, kClassID)
+      : nsContainerFrame(aContext, kClassID)
   {
     AddStateBits(NS_FRAME_SVG_LAYOUT | NS_FRAME_IS_NONDISPLAY);
   }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(SVGFEContainerFrame)
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
     return nsContainerFrame::IsFrameOfType(
-            aFlags & ~(nsIFrame::eSVG | nsIFrame::eSVGContainer));
+        aFlags & ~(nsIFrame::eSVG | nsIFrame::eSVGContainer));
   }
 
 #ifdef DEBUG_FRAME_DUMP
@@ -43,16 +44,17 @@ public:
 #endif
 
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
-  virtual nsresult AttributeChanged(int32_t  aNameSpaceID,
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
-                                    int32_t  aModType) override;
+                                    int32_t aModType) override;
 
-  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override {
+  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override
+  {
     // We don't maintain a visual overflow rect
     return false;
   }
@@ -68,9 +70,9 @@ NS_IMPL_FRAMEARENA_HELPERS(SVGFEContainerFrame)
 
 #ifdef DEBUG
 void
-SVGFEContainerFrame::Init(nsIContent*       aContent,
+SVGFEContainerFrame::Init(nsIContent* aContent,
                           nsContainerFrame* aParent,
-                          nsIFrame*         aPrevInFlow)
+                          nsIFrame* aPrevInFlow)
 {
   NS_ASSERTION(aContent->IsNodeOfType(nsINode::eFILTER),
                "Trying to construct an SVGFEContainerFrame for a "
@@ -81,14 +83,15 @@ SVGFEContainerFrame::Init(nsIContent*       aContent,
 #endif /* DEBUG */
 
 nsresult
-SVGFEContainerFrame::AttributeChanged(int32_t  aNameSpaceID,
+SVGFEContainerFrame::AttributeChanged(int32_t aNameSpaceID,
                                       nsAtom* aAttribute,
-                                      int32_t  aModType)
+                                      int32_t aModType)
 {
-  nsSVGFE *element = static_cast<nsSVGFE*>(GetContent());
+  nsSVGFE* element = static_cast<nsSVGFE*>(GetContent());
   if (element->AttributeAffectsRendering(aNameSpaceID, aAttribute)) {
-    MOZ_ASSERT(GetParent()->IsSVGFilterFrame(),
-               "Observers observe the filter, so that's what we must invalidate");
+    MOZ_ASSERT(
+        GetParent()->IsSVGFilterFrame(),
+        "Observers observe the filter, so that's what we must invalidate");
     SVGObserverUtils::InvalidateDirectRenderingObservers(GetParent());
   }
 

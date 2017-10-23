@@ -16,17 +16,16 @@ class nsIDocument;
 
 class nsHtml5StringParser : public nsParserBase
 {
-  public:
+ public:
+  NS_DECL_ISUPPORTS
 
-    NS_DECL_ISUPPORTS
-
-    /**
+  /**
      * Constructor for use ONLY by nsContentUtils. Others, please call the
      * nsContentUtils statics that wrap this.
      */
-    nsHtml5StringParser();
+  nsHtml5StringParser();
 
-    /**
+  /**
      * Invoke the fragment parsing algorithm (innerHTML).
      * DO NOT CALL from outside nsContentUtils.cpp.
      *
@@ -39,50 +38,48 @@ class nsHtml5StringParser : public nsParserBase
      * don't set to false when parsing into a target node that has been bound
      * to tree.
      */
-    nsresult ParseFragment(const nsAString& aSourceBuffer,
-                           nsIContent* aTargetNode,
-                           nsAtom* aContextLocalName,
-                           int32_t aContextNamespace,
-                           bool aQuirks,
-                           bool aPreventScriptExecution);
+  nsresult ParseFragment(const nsAString& aSourceBuffer,
+                         nsIContent* aTargetNode,
+                         nsAtom* aContextLocalName,
+                         int32_t aContextNamespace,
+                         bool aQuirks,
+                         bool aPreventScriptExecution);
 
-    /**
+  /**
      * Parse an entire HTML document from a source string.
      * DO NOT CALL from outside nsContentUtils.cpp.
      *
      */
-    nsresult ParseDocument(const nsAString& aSourceBuffer,
-                           nsIDocument* aTargetDoc,
-                           bool aScriptingEnabledForNoscriptParsing);
+  nsresult ParseDocument(const nsAString& aSourceBuffer,
+                         nsIDocument* aTargetDoc,
+                         bool aScriptingEnabledForNoscriptParsing);
 
-  private:
+ private:
+  virtual ~nsHtml5StringParser();
 
-    virtual ~nsHtml5StringParser();
+  nsresult Tokenize(const nsAString& aSourceBuffer,
+                    nsIDocument* aDocument,
+                    bool aScriptingEnabledForNoscriptParsing);
 
-    nsresult Tokenize(const nsAString& aSourceBuffer,
-                      nsIDocument* aDocument,
-                      bool aScriptingEnabledForNoscriptParsing);
-
-    /**
+  /**
      * The tree operation executor
      */
-    RefPtr<nsHtml5OplessBuilder>      mBuilder;
+  RefPtr<nsHtml5OplessBuilder> mBuilder;
 
-    /**
+  /**
      * The HTML5 tree builder
      */
-    const nsAutoPtr<nsHtml5TreeBuilder> mTreeBuilder;
+  const nsAutoPtr<nsHtml5TreeBuilder> mTreeBuilder;
 
-    /**
+  /**
      * The HTML5 tokenizer
      */
-    const nsAutoPtr<nsHtml5Tokenizer>   mTokenizer;
+  const nsAutoPtr<nsHtml5Tokenizer> mTokenizer;
 
-    /**
+  /**
      * The scoped atom table
      */
-    nsHtml5AtomTable                    mAtomTable;
-
+  nsHtml5AtomTable mAtomTable;
 };
 
-#endif // nsHtml5StringParser_h
+#endif  // nsHtml5StringParser_h

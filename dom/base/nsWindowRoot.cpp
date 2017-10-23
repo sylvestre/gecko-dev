@@ -74,7 +74,9 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(nsWindowRoot)
 NS_IMPL_DOMTARGET_DEFAULTS(nsWindowRoot)
 
 NS_IMETHODIMP
-nsWindowRoot::RemoveEventListener(const nsAString& aType, nsIDOMEventListener* aListener, bool aUseCapture)
+nsWindowRoot::RemoveEventListener(const nsAString& aType,
+                                  nsIDOMEventListener* aListener,
+                                  bool aUseCapture)
 {
   if (RefPtr<EventListenerManager> elm = GetExistingListenerManager()) {
     elm->RemoveEventListener(aType, aListener, aUseCapture);
@@ -85,19 +87,20 @@ nsWindowRoot::RemoveEventListener(const nsAString& aType, nsIDOMEventListener* a
 NS_IMPL_REMOVE_SYSTEM_EVENT_LISTENER(nsWindowRoot)
 
 NS_IMETHODIMP
-nsWindowRoot::DispatchEvent(nsIDOMEvent* aEvt, bool *aRetVal)
+nsWindowRoot::DispatchEvent(nsIDOMEvent* aEvt, bool* aRetVal)
 {
   nsEventStatus status = nsEventStatus_eIgnore;
-  nsresult rv =  EventDispatcher::DispatchDOMEvent(
-    static_cast<EventTarget*>(this), nullptr, aEvt, nullptr, &status);
+  nsresult rv = EventDispatcher::DispatchDOMEvent(
+      static_cast<EventTarget*>(this), nullptr, aEvt, nullptr, &status);
   *aRetVal = (status != nsEventStatus_eConsumeNoDefault);
   return rv;
 }
 
 NS_IMETHODIMP
 nsWindowRoot::AddEventListener(const nsAString& aType,
-                               nsIDOMEventListener *aListener,
-                               bool aUseCapture, bool aWantsUntrusted,
+                               nsIDOMEventListener* aListener,
+                               bool aUseCapture,
+                               bool aWantsUntrusted,
                                uint8_t aOptionalArgc)
 {
   NS_ASSERTION(!aWantsUntrusted || aOptionalArgc > 1,
@@ -113,10 +116,10 @@ nsWindowRoot::AddEventListener(const nsAString& aType,
 
 void
 nsWindowRoot::AddEventListener(const nsAString& aType,
-                                EventListener* aListener,
-                                const AddEventListenerOptionsOrBoolean& aOptions,
-                                const Nullable<bool>& aWantsUntrusted,
-                                ErrorResult& aRv)
+                               EventListener* aListener,
+                               const AddEventListenerOptionsOrBoolean& aOptions,
+                               const Nullable<bool>& aWantsUntrusted,
+                               ErrorResult& aRv)
 {
   bool wantsUntrusted = !aWantsUntrusted.IsNull() && aWantsUntrusted.Value();
   EventListenerManager* elm = GetOrCreateListenerManager();
@@ -127,10 +130,9 @@ nsWindowRoot::AddEventListener(const nsAString& aType,
   elm->AddEventListener(aType, aListener, aOptions, wantsUntrusted);
 }
 
-
 NS_IMETHODIMP
 nsWindowRoot::AddSystemEventListener(const nsAString& aType,
-                                     nsIDOMEventListener *aListener,
+                                     nsIDOMEventListener* aListener,
                                      bool aUseCapture,
                                      bool aWantsUntrusted,
                                      uint8_t aOptionalArgc)
@@ -140,8 +142,8 @@ nsWindowRoot::AddSystemEventListener(const nsAString& aType,
                "aWantsUntrusted to false or make the aWantsUntrusted "
                "explicit by making optional_argc non-zero.");
 
-  return NS_AddSystemEventListener(this, aType, aListener, aUseCapture,
-                                   aWantsUntrusted);
+  return NS_AddSystemEventListener(
+      this, aType, aListener, aUseCapture, aWantsUntrusted);
 }
 
 EventListenerManager*
@@ -149,7 +151,7 @@ nsWindowRoot::GetOrCreateListenerManager()
 {
   if (!mListenerManager) {
     mListenerManager =
-      new EventListenerManager(static_cast<EventTarget*>(this));
+        new EventListenerManager(static_cast<EventTarget*>(this));
   }
 
   return mListenerManager;
@@ -172,9 +174,9 @@ nsresult
 nsWindowRoot::GetEventTargetParent(EventChainPreVisitor& aVisitor)
 {
   aVisitor.mCanHandle = true;
-  aVisitor.mForceContentDispatch = true; //FIXME! Bug 329119
+  aVisitor.mForceContentDispatch = true;  //FIXME! Bug 329119
   // To keep mWindow alive
-  aVisitor.mItemData = static_cast<nsISupports *>(mWindow);
+  aVisitor.mItemData = static_cast<nsISupports*>(mWindow);
   aVisitor.mParentTarget = mParent;
   return NS_OK;
 }
@@ -195,7 +197,7 @@ nsIGlobalObject*
 nsWindowRoot::GetOwnerGlobal() const
 {
   nsCOMPtr<nsIGlobalObject> global =
-    do_QueryInterface(mWindow->GetCurrentInnerWindow());
+      do_QueryInterface(mWindow->GetCurrentInnerWindow());
   // We're still holding a ref to it, so returning the raw pointer is ok...
   return global;
 }
@@ -207,8 +209,7 @@ nsWindowRoot::GetWindow()
 }
 
 nsresult
-nsWindowRoot::GetControllers(bool aForVisibleWindow,
-                             nsIControllers** aResult)
+nsWindowRoot::GetControllers(bool aForVisibleWindow, nsIControllers** aResult)
 {
   *aResult = nullptr;
 
@@ -217,12 +218,11 @@ nsWindowRoot::GetControllers(bool aForVisibleWindow,
   // knowledge of what object might have controllers.
 
   nsFocusManager::SearchRange searchRange =
-    aForVisibleWindow ? nsFocusManager::eIncludeVisibleDescendants :
-                        nsFocusManager::eIncludeAllDescendants;
+      aForVisibleWindow ? nsFocusManager::eIncludeVisibleDescendants
+                        : nsFocusManager::eIncludeAllDescendants;
   nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
-  nsIContent* focusedContent =
-    nsFocusManager::GetFocusedDescendant(mWindow, searchRange,
-                                         getter_AddRefs(focusedWindow));
+  nsIContent* focusedContent = nsFocusManager::GetFocusedDescendant(
+      mWindow, searchRange, getter_AddRefs(focusedWindow));
   if (focusedContent) {
 #ifdef MOZ_XUL
     RefPtr<nsXULElement> xulElement = nsXULElement::FromContent(focusedContent);
@@ -235,19 +235,16 @@ nsWindowRoot::GetControllers(bool aForVisibleWindow,
 #endif
 
     nsCOMPtr<nsIDOMHTMLTextAreaElement> htmlTextArea =
-      do_QueryInterface(focusedContent);
-    if (htmlTextArea)
-      return htmlTextArea->GetControllers(aResult);
+        do_QueryInterface(focusedContent);
+    if (htmlTextArea) return htmlTextArea->GetControllers(aResult);
 
     nsCOMPtr<nsIDOMHTMLInputElement> htmlInputElement =
-      do_QueryInterface(focusedContent);
-    if (htmlInputElement)
-      return htmlInputElement->GetControllers(aResult);
+        do_QueryInterface(focusedContent);
+    if (htmlInputElement) return htmlInputElement->GetControllers(aResult);
 
     if (focusedContent->IsEditable() && focusedWindow)
       return focusedWindow->GetControllers(aResult);
-  }
-  else {
+  } else {
     return focusedWindow->GetControllers(aResult);
   }
 
@@ -267,7 +264,8 @@ nsWindowRoot::GetControllerForCommand(const char* aCommand,
     GetControllers(aForVisibleWindow, getter_AddRefs(controllers));
     if (controllers) {
       nsCOMPtr<nsIController> controller;
-      controllers->GetControllerForCommand(aCommand, getter_AddRefs(controller));
+      controllers->GetControllerForCommand(aCommand,
+                                           getter_AddRefs(controller));
       if (controller) {
         controller.forget(_retval);
         return NS_OK;
@@ -276,11 +274,11 @@ nsWindowRoot::GetControllerForCommand(const char* aCommand,
   }
 
   nsFocusManager::SearchRange searchRange =
-    aForVisibleWindow ? nsFocusManager::eIncludeVisibleDescendants :
-                        nsFocusManager::eIncludeAllDescendants;
+      aForVisibleWindow ? nsFocusManager::eIncludeVisibleDescendants
+                        : nsFocusManager::eIncludeAllDescendants;
   nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
-  nsFocusManager::GetFocusedDescendant(mWindow, searchRange,
-                                       getter_AddRefs(focusedWindow));
+  nsFocusManager::GetFocusedDescendant(
+      mWindow, searchRange, getter_AddRefs(focusedWindow));
   while (focusedWindow) {
     nsCOMPtr<nsIControllers> controllers;
     focusedWindow->GetControllers(getter_AddRefs(controllers));
@@ -295,7 +293,7 @@ nsWindowRoot::GetControllerForCommand(const char* aCommand,
     }
 
     // XXXndeakin P3 is this casting safe?
-    nsGlobalWindow *win = nsGlobalWindow::Cast(focusedWindow);
+    nsGlobalWindow* win = nsGlobalWindow::Cast(focusedWindow);
     focusedWindow = win->GetPrivateParent();
   }
 
@@ -303,10 +301,11 @@ nsWindowRoot::GetControllerForCommand(const char* aCommand,
 }
 
 void
-nsWindowRoot::GetEnabledDisabledCommandsForControllers(nsIControllers* aControllers,
-                                                       nsTHashtable<nsCharPtrHashKey>& aCommandsHandled,
-                                                       nsTArray<nsCString>& aEnabledCommands,
-                                                       nsTArray<nsCString>& aDisabledCommands)
+nsWindowRoot::GetEnabledDisabledCommandsForControllers(
+    nsIControllers* aControllers,
+    nsTHashtable<nsCharPtrHashKey>& aCommandsHandled,
+    nsTArray<nsCString>& aEnabledCommands,
+    nsTArray<nsCString>& aDisabledCommands)
 {
   uint32_t controllerCount;
   aControllers->GetControllerCount(&controllerCount);
@@ -314,11 +313,13 @@ nsWindowRoot::GetEnabledDisabledCommandsForControllers(nsIControllers* aControll
     nsCOMPtr<nsIController> controller;
     aControllers->GetControllerAt(c, getter_AddRefs(controller));
 
-    nsCOMPtr<nsICommandController> commandController(do_QueryInterface(controller));
+    nsCOMPtr<nsICommandController> commandController(
+        do_QueryInterface(controller));
     if (commandController) {
       uint32_t commandsCount;
       char** commands;
-      if (NS_SUCCEEDED(commandController->GetSupportedCommands(&commandsCount, &commands))) {
+      if (NS_SUCCEEDED(commandController->GetSupportedCommands(&commandsCount,
+                                                               &commands))) {
         for (uint32_t e = 0; e < commandsCount; e++) {
           // Use a hash to determine which commands have already been handled by
           // earlier controllers, as the earlier controller's result should get
@@ -328,7 +329,8 @@ nsWindowRoot::GetEnabledDisabledCommandsForControllers(nsIControllers* aControll
             bool enabled = false;
             controller->IsCommandEnabled(commands[e], &enabled);
 
-            const nsDependentCSubstring commandStr(commands[e], strlen(commands[e]));
+            const nsDependentCSubstring commandStr(commands[e],
+                                                   strlen(commands[e]));
             if (enabled) {
               aEnabledCommands.AppendElement(commandStr);
             } else {
@@ -352,8 +354,8 @@ nsWindowRoot::GetEnabledDisabledCommands(nsTArray<nsCString>& aEnabledCommands,
   nsCOMPtr<nsIControllers> controllers;
   GetControllers(false, getter_AddRefs(controllers));
   if (controllers) {
-    GetEnabledDisabledCommandsForControllers(controllers, commandsHandled,
-                                             aEnabledCommands, aDisabledCommands);
+    GetEnabledDisabledCommandsForControllers(
+        controllers, commandsHandled, aEnabledCommands, aDisabledCommands);
   }
 
   nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
@@ -363,8 +365,8 @@ nsWindowRoot::GetEnabledDisabledCommands(nsTArray<nsCString>& aEnabledCommands,
   while (focusedWindow) {
     focusedWindow->GetControllers(getter_AddRefs(controllers));
     if (controllers) {
-      GetEnabledDisabledCommandsForControllers(controllers, commandsHandled,
-                                               aEnabledCommands, aDisabledCommands);
+      GetEnabledDisabledCommandsForControllers(
+          controllers, commandsHandled, aEnabledCommands, aDisabledCommands);
     }
 
     nsGlobalWindow* win = nsGlobalWindow::Cast(focusedWindow);
@@ -400,14 +402,16 @@ nsWindowRoot::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 void
 nsWindowRoot::AddBrowser(mozilla::dom::TabParent* aBrowser)
 {
-  nsWeakPtr weakBrowser = do_GetWeakReference(static_cast<nsITabParent*>(aBrowser));
+  nsWeakPtr weakBrowser =
+      do_GetWeakReference(static_cast<nsITabParent*>(aBrowser));
   mWeakBrowsers.PutEntry(weakBrowser);
 }
 
 void
 nsWindowRoot::RemoveBrowser(mozilla::dom::TabParent* aBrowser)
 {
-  nsWeakPtr weakBrowser = do_GetWeakReference(static_cast<nsITabParent*>(aBrowser));
+  nsWeakPtr weakBrowser =
+      do_GetWeakReference(static_cast<nsITabParent*>(aBrowser));
   mWeakBrowsers.RemoveEntry(weakBrowser);
 }
 

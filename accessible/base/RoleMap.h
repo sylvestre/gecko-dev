@@ -15,29 +15,32 @@ ROLE(NOTHING,
      IA2_ROLE_UNKNOWN,
      eNameFromSubtreeIfReqRule)
 
-ROLE(TITLEBAR,
-     "titlebar",
-     ATK_ROLE_UNKNOWN,
-     NSAccessibilityUnknownRole,  //Irrelevant on OS X; windows are always native.
-     ROLE_SYSTEM_TITLEBAR,
-     ROLE_SYSTEM_TITLEBAR,
-     eNoNameRule)
+ROLE(
+    TITLEBAR,
+    "titlebar",
+    ATK_ROLE_UNKNOWN,
+    NSAccessibilityUnknownRole,  //Irrelevant on OS X; windows are always native.
+    ROLE_SYSTEM_TITLEBAR,
+    ROLE_SYSTEM_TITLEBAR,
+    eNoNameRule)
 
-ROLE(MENUBAR,
-     "menubar",
-     ATK_ROLE_MENU_BAR,
-     NSAccessibilityMenuBarRole,  //Irrelevant on OS X; the menubar will always be native and on the top of the screen.
-     ROLE_SYSTEM_MENUBAR,
-     ROLE_SYSTEM_MENUBAR,
-     eNoNameRule)
+ROLE(
+    MENUBAR,
+    "menubar",
+    ATK_ROLE_MENU_BAR,
+    NSAccessibilityMenuBarRole,  //Irrelevant on OS X; the menubar will always be native and on the top of the screen.
+    ROLE_SYSTEM_MENUBAR,
+    ROLE_SYSTEM_MENUBAR,
+    eNoNameRule)
 
-ROLE(SCROLLBAR,
-     "scrollbar",
-     ATK_ROLE_SCROLL_BAR,
-     NSAccessibilityScrollBarRole,  //We might need to make this its own mozAccessible, to support the children objects (valueindicator, down/up buttons).
-     ROLE_SYSTEM_SCROLLBAR,
-     ROLE_SYSTEM_SCROLLBAR,
-     eNameFromValueRule)
+ROLE(
+    SCROLLBAR,
+    "scrollbar",
+    ATK_ROLE_SCROLL_BAR,
+    NSAccessibilityScrollBarRole,  //We might need to make this its own mozAccessible, to support the children objects (valueindicator, down/up buttons).
+    ROLE_SYSTEM_SCROLLBAR,
+    ROLE_SYSTEM_SCROLLBAR,
+    eNameFromValueRule)
 
 ROLE(GRIP,
      "grip",
@@ -79,13 +82,14 @@ ROLE(ALERT,
      ROLE_SYSTEM_ALERT,
      eNoNameRule)
 
-ROLE(WINDOW,
-     "window",
-     ATK_ROLE_WINDOW,
-     NSAccessibilityWindowRole,  //Irrelevant on OS X; all window a11y is handled by the system.
-     ROLE_SYSTEM_WINDOW,
-     ROLE_SYSTEM_WINDOW,
-     eNoNameRule)
+ROLE(
+    WINDOW,
+    "window",
+    ATK_ROLE_WINDOW,
+    NSAccessibilityWindowRole,  //Irrelevant on OS X; all window a11y is handled by the system.
+    ROLE_SYSTEM_WINDOW,
+    ROLE_SYSTEM_WINDOW,
+    eNoNameRule)
 
 ROLE(INTERNAL_FRAME,
      "internal frame",
@@ -119,13 +123,14 @@ ROLE(TOOLTIP,
      ROLE_SYSTEM_TOOLTIP,
      eNameFromSubtreeRule)
 
-ROLE(APPLICATION,
-     "application",
-     ATK_ROLE_EMBEDDED,
-     NSAccessibilityGroupRole,  //Unused on OS X. the system will take care of this.
-     ROLE_SYSTEM_APPLICATION,
-     ROLE_SYSTEM_APPLICATION,
-     eNoNameRule)
+ROLE(
+    APPLICATION,
+    "application",
+    ATK_ROLE_EMBEDDED,
+    NSAccessibilityGroupRole,  //Unused on OS X. the system will take care of this.
+    ROLE_SYSTEM_APPLICATION,
+    ROLE_SYSTEM_APPLICATION,
+    eNoNameRule)
 
 ROLE(DOCUMENT,
      "document",
@@ -200,13 +205,14 @@ ROLE(TOOLBAR,
      ROLE_SYSTEM_TOOLBAR,
      eNoNameRule)
 
-ROLE(STATUSBAR,
-     "statusbar",
-     ATK_ROLE_STATUSBAR,
-     NSAccessibilityUnknownRole,  //Doesn't exist on OS X (a status bar is its parts; a progressbar, a label, etc.)
-     ROLE_SYSTEM_STATUSBAR,
-     ROLE_SYSTEM_STATUSBAR,
-     eNoNameRule)
+ROLE(
+    STATUSBAR,
+    "statusbar",
+    ATK_ROLE_STATUSBAR,
+    NSAccessibilityUnknownRole,  //Doesn't exist on OS X (a status bar is its parts; a progressbar, a label, etc.)
+    ROLE_SYSTEM_STATUSBAR,
+    ROLE_SYSTEM_STATUSBAR,
+    eNoNameRule)
 
 ROLE(TABLE,
      "table",
@@ -256,13 +262,14 @@ ROLE(CELL,
      ROLE_SYSTEM_CELL,
      eNameFromSubtreeIfReqRule)
 
-ROLE(LINK,
-     "link",
-     ATK_ROLE_LINK,
-     @"AXLink",  //10.4+ the attr first define in SDK 10.4, so we define it here too. ROLE_LINK
-     ROLE_SYSTEM_LINK,
-     ROLE_SYSTEM_LINK,
-     eNameFromSubtreeRule)
+ROLE(
+    LINK,
+    "link",
+    ATK_ROLE_LINK,
+    @"AXLink",  //10.4+ the attr first define in SDK 10.4, so we define it here too. ROLE_LINK
+    ROLE_SYSTEM_LINK,
+    ROLE_SYSTEM_LINK,
+    eNameFromSubtreeRule)
 
 ROLE(HELPBALLOON,
      "helpballoon",

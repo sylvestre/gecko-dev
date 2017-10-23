@@ -66,7 +66,7 @@
 #include "nsIScriptContext.h"
 #include "nsStyleLinkElement.h"
 
-#include "nsWeakReference.h" // nsHTMLElementFactory supports weak references
+#include "nsWeakReference.h"  // nsHTMLElementFactory supports weak references
 #include "nsIPrompt.h"
 #include "nsLayoutCID.h"
 #include "nsIDocShellTreeItem.h"
@@ -90,15 +90,15 @@ NS_NewHTMLNOTUSEDElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
   return nullptr;
 }
 
-#define HTML_TAG(_tag, _classname, _interfacename) NS_NewHTML##_classname##Element,
+#define HTML_TAG(_tag, _classname, _interfacename) \
+  NS_NewHTML##_classname##Element,
 #define HTML_OTHER(_tag) NS_NewHTMLNOTUSEDElement,
 static const HTMLContentCreatorFunction sHTMLContentCreatorFunctions[] = {
-  NS_NewHTMLUnknownElement,
+    NS_NewHTMLUnknownElement,
 #include "nsHTMLTagList.h"
 #undef HTML_TAG
 #undef HTML_OTHER
-  NS_NewHTMLUnknownElement
-};
+    NS_NewHTMLUnknownElement};
 
 class SinkContext;
 class HTMLContentSink;
@@ -107,15 +107,16 @@ class HTMLContentSink;
  * This class is near-OBSOLETE. It is used for about:blank only.
  * Don't bother adding new stuff in this file.
  */
-class HTMLContentSink : public nsContentSink,
-                        public nsIHTMLContentSink
+class HTMLContentSink : public nsContentSink, public nsIHTMLContentSink
 {
-public:
+ public:
   friend class SinkContext;
 
   HTMLContentSink();
 
-  nsresult Init(nsIDocument* aDoc, nsIURI* aURI, nsISupports* aContainer,
+  nsresult Init(nsIDocument* aDoc,
+                nsIURI* aURI,
+                nsISupports* aContainer,
                 nsIChannel* aChannel);
 
   // nsISupports
@@ -131,14 +132,14 @@ public:
   NS_IMETHOD SetParser(nsParserBase* aParser) override;
   virtual void FlushPendingNotifications(FlushType aType) override;
   virtual void SetDocumentCharset(NotNull<const Encoding*> aEncoding) override;
-  virtual nsISupports *GetTarget() override;
+  virtual nsISupports* GetTarget() override;
   virtual bool IsScriptExecuting() override;
 
   // nsIHTMLContentSink
   NS_IMETHOD OpenContainer(ElementType aNodeType) override;
   NS_IMETHOD CloseContainer(ElementType aTag) override;
 
-protected:
+ protected:
   virtual ~HTMLContentSink();
 
   nsCOMPtr<nsIHTMLDocument> mHTMLDocument;
@@ -182,12 +183,14 @@ protected:
 
 class SinkContext
 {
-public:
+ public:
   explicit SinkContext(HTMLContentSink* aSink);
   ~SinkContext();
 
-  nsresult Begin(nsHTMLTag aNodeType, nsGenericHTMLElement* aRoot,
-                 uint32_t aNumFlushed, int32_t aInsertionPoint);
+  nsresult Begin(nsHTMLTag aNodeType,
+                 nsGenericHTMLElement* aRoot,
+                 uint32_t aNumFlushed,
+                 int32_t aInsertionPoint);
   nsresult OpenBody();
   nsresult CloseBody();
   nsresult End();
@@ -195,28 +198,29 @@ public:
   nsresult GrowStack();
   nsresult FlushTags();
 
-  bool     IsCurrentContainer(nsHTMLTag mType);
+  bool IsCurrentContainer(nsHTMLTag mType);
 
   void DidAddContent(nsIContent* aContent);
   void UpdateChildCounts();
 
-private:
+ private:
   // Function to check whether we've notified for the current content.
   // What this actually does is check whether we've notified for all
   // of the parent's kids.
   bool HaveNotifiedForCurrentContent() const;
 
-public:
+ public:
   HTMLContentSink* mSink;
   int32_t mNotifyLevel;
 
-  struct Node {
+  struct Node
+  {
     nsHTMLTag mType;
     nsGenericHTMLElement* mContent;
     uint32_t mNumFlushed;
     int32_t mInsertionPoint;
 
-    nsIContent *Add(nsIContent *child);
+    nsIContent* Add(nsIContent* child);
   };
 
   Node* mStack;
@@ -225,17 +229,21 @@ public:
 };
 
 static void
-DoCustomElementCreate(Element** aElement, nsIDocument* aDoc, nsAtom* aLocalName,
-                      CustomElementConstructor* aConstructor, ErrorResult& aRv)
+DoCustomElementCreate(Element** aElement,
+                      nsIDocument* aDoc,
+                      nsAtom* aLocalName,
+                      CustomElementConstructor* aConstructor,
+                      ErrorResult& aRv)
 {
   RefPtr<Element> element =
-    aConstructor->Construct("Custom Element Create", aRv);
+      aConstructor->Construct("Custom Element Create", aRv);
   if (aRv.Failed()) {
     return;
   }
 
   if (!element || !element->IsHTMLElement()) {
-    aRv.ThrowTypeError<MSG_THIS_DOES_NOT_IMPLEMENT_INTERFACE>(NS_LITERAL_STRING("HTMLElement"));
+    aRv.ThrowTypeError<MSG_THIS_DOES_NOT_IMPLEMENT_INTERFACE>(
+        NS_LITERAL_STRING("HTMLElement"));
     return;
   }
 
@@ -250,14 +258,16 @@ DoCustomElementCreate(Element** aElement, nsIDocument* aDoc, nsAtom* aLocalName,
 }
 
 nsresult
-NS_NewHTMLElement(Element** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
-                  FromParser aFromParser, const nsAString* aIs)
+NS_NewHTMLElement(Element** aResult,
+                  already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
+                  FromParser aFromParser,
+                  const nsAString* aIs)
 {
   *aResult = nullptr;
 
   RefPtr<mozilla::dom::NodeInfo> nodeInfo = aNodeInfo;
 
-  nsAtom *name = nodeInfo->NameAtom();
+  nsAtom* name = nodeInfo->NameAtom();
 
   NS_ASSERTION(nodeInfo->NamespaceEquals(kNameSpaceID_XHTML),
                "Trying to HTML elements that don't have the XHTML namespace");
@@ -271,10 +281,10 @@ NS_NewHTMLElement(Element** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& 
   CustomElementDefinition* definition = nullptr;
   if (CustomElementRegistry::IsCustomElementEnabled()) {
     definition =
-      nsContentUtils::LookupCustomElementDefinition(nodeInfo->GetDocument(),
-                                                    nodeInfo->LocalName(),
-                                                    nodeInfo->NamespaceID(),
-                                                    aIs);
+        nsContentUtils::LookupCustomElementDefinition(nodeInfo->GetDocument(),
+                                                      nodeInfo->LocalName(),
+                                                      nodeInfo->NamespaceID(),
+                                                      aIs);
   }
 
   // It might be a problem that parser synchronously calls constructor, so filed
@@ -325,11 +335,14 @@ NS_NewHTMLElement(Element** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& 
 
     // Step 6.1.
     if (synchronousCustomElements) {
-      DoCustomElementCreate(aResult, nodeInfo->GetDocument(),
+      DoCustomElementCreate(aResult,
+                            nodeInfo->GetDocument(),
                             nodeInfo->NameAtom(),
-                            definition->mConstructor, rv);
+                            definition->mConstructor,
+                            rv);
       if (rv.MaybeSetPendingException(cx)) {
-        NS_IF_ADDREF(*aResult = NS_NewHTMLUnknownElement(nodeInfo.forget(), aFromParser));
+        NS_IF_ADDREF(*aResult = NS_NewHTMLUnknownElement(nodeInfo.forget(),
+                                                         aFromParser));
       }
       return NS_OK;
     }
@@ -367,9 +380,9 @@ CreateHTMLElement(uint32_t aNodeType,
                   already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
                   FromParser aFromParser)
 {
-  NS_ASSERTION(aNodeType <= NS_HTML_TAG_MAX ||
-               aNodeType == eHTMLTag_userdefined,
-               "aNodeType is out of bounds");
+  NS_ASSERTION(
+      aNodeType <= NS_HTML_TAG_MAX || aNodeType == eHTMLTag_userdefined,
+      "aNodeType is out of bounds");
 
   HTMLContentCreatorFunction cb = sHTMLContentCreatorFunctions[aNodeType];
 
@@ -384,11 +397,11 @@ CreateHTMLElement(uint32_t aNodeType,
 //----------------------------------------------------------------------
 
 SinkContext::SinkContext(HTMLContentSink* aSink)
-  : mSink(aSink),
-    mNotifyLevel(0),
-    mStack(nullptr),
-    mStackSize(0),
-    mStackPos(0)
+    : mSink(aSink),
+      mNotifyLevel(0),
+      mStack(nullptr),
+      mStackSize(0),
+      mStackPos(0)
 {
   MOZ_COUNT_CTOR(SinkContext);
 }
@@ -401,7 +414,7 @@ SinkContext::~SinkContext()
     for (int32_t i = 0; i < mStackPos; i++) {
       NS_RELEASE(mStack[i].mContent);
     }
-    delete [] mStack;
+    delete[] mStack;
   }
 }
 
@@ -449,10 +462,9 @@ SinkContext::DidAddContent(nsIContent* aContent)
   // If we just added content to a node for which
   // an insertion happen, we need to do an immediate
   // notification for that insertion.
-  if (0 < mStackPos &&
-      mStack[mStackPos - 1].mInsertionPoint != -1 &&
+  if (0 < mStackPos && mStack[mStackPos - 1].mInsertionPoint != -1 &&
       mStack[mStackPos - 1].mNumFlushed <
-      mStack[mStackPos - 1].mContent->GetChildCount()) {
+          mStack[mStackPos - 1].mContent->GetChildCount()) {
     nsIContent* parent = mStack[mStackPos - 1].mContent;
     int32_t childIndex = mStack[mStackPos - 1].mInsertionPoint - 1;
     NS_ASSERTION(parent->GetChildAt(childIndex) == aContent,
@@ -481,15 +493,16 @@ SinkContext::OpenBody()
     }
   }
 
-    RefPtr<mozilla::dom::NodeInfo> nodeInfo =
-      mSink->mNodeInfoManager->GetNodeInfo(nsGkAtoms::body, nullptr,
+  RefPtr<mozilla::dom::NodeInfo> nodeInfo =
+      mSink->mNodeInfoManager->GetNodeInfo(nsGkAtoms::body,
+                                           nullptr,
                                            kNameSpaceID_XHTML,
                                            nsIDOMNode::ELEMENT_NODE);
   NS_ENSURE_TRUE(nodeInfo, NS_ERROR_UNEXPECTED);
 
   // Make the content object
   RefPtr<nsGenericHTMLElement> body =
-    NS_NewHTMLBodyElement(nodeInfo.forget(), FROM_PARSER_NETWORK);
+      NS_NewHTMLBodyElement(nodeInfo.forget(), FROM_PARSER_NETWORK);
   if (!body) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -509,14 +522,14 @@ SinkContext::HaveNotifiedForCurrentContent() const
 {
   if (0 < mStackPos) {
     nsIContent* parent = mStack[mStackPos - 1].mContent;
-    return mStack[mStackPos-1].mNumFlushed == parent->GetChildCount();
+    return mStack[mStackPos - 1].mNumFlushed == parent->GetChildCount();
   }
 
   return true;
 }
 
-nsIContent *
-SinkContext::Node::Add(nsIContent *child)
+nsIContent*
+SinkContext::Node::Add(nsIContent* child)
 {
   NS_ASSERTION(mContent, "No parent to insert/append into!");
   if (mInsertionPoint != -1) {
@@ -532,11 +545,10 @@ SinkContext::Node::Add(nsIContent *child)
 nsresult
 SinkContext::CloseBody()
 {
-  NS_ASSERTION(mStackPos > 0,
-               "stack out of bounds. wrong context probably!");
+  NS_ASSERTION(mStackPos > 0, "stack out of bounds. wrong context probably!");
 
   if (mStackPos <= 0) {
-    return NS_OK; // Fix crash - Ref. bug 45975 or 45007
+    return NS_OK;  // Fix crash - Ref. bug 45975 or 45007
   }
 
   --mStackPos;
@@ -593,7 +605,7 @@ SinkContext::GrowStack()
 
   if (mStackPos != 0) {
     memcpy(stack, mStack, sizeof(Node) * mStackPos);
-    delete [] mStack;
+    delete[] mStack;
   }
 
   mStack = stack;
@@ -622,8 +634,7 @@ SinkContext::FlushTags()
   mSink->mUpdatesInNotification = 0;
   {
     // Scope so we call EndUpdate before we decrease mInNotification
-    mozAutoDocUpdate updateBatch(mSink->mDocument, UPDATE_CONTENT_MODEL,
-                                 true);
+    mozAutoDocUpdate updateBatch(mSink->mDocument, UPDATE_CONTENT_MODEL, true);
     mSink->mBeganUpdate = true;
 
     // Start from the base of the stack (growing downward) and do
@@ -652,7 +663,7 @@ SinkContext::FlushTags()
           nsIContent* child = content->GetChildAt(childIndex);
           // Child not on stack anymore; can't assert it's correct
           NS_ASSERTION(!(mStackPos > (stackPos + 1)) ||
-                       (child == mStack[stackPos + 1].mContent),
+                           (child == mStack[stackPos + 1].mContent),
                        "Flushing the wrong child.");
           mSink->NotifyInsert(content, child, childIndex);
         } else {
@@ -692,7 +703,7 @@ SinkContext::UpdateChildCounts()
   // to properly notify on kids of <html>.
   int32_t stackPos = mStackPos - 1;
   while (stackPos >= 0) {
-    Node & node = mStack[stackPos];
+    Node& node = mStack[stackPos];
     node.mNumFlushed = node.mContent->GetChildCount();
 
     stackPos--;
@@ -723,11 +734,11 @@ NS_NewHTMLContentSink(nsIHTMLContentSink** aResult,
 }
 
 HTMLContentSink::HTMLContentSink()
-  : mMaxTextRun(0)
-  , mCurrentContext(nullptr)
-  , mHeadContext(nullptr)
-  , mHaveSeenHead(false)
-  , mNotifiedRootInsertion(false)
+    : mMaxTextRun(0),
+      mCurrentContext(nullptr),
+      mHeadContext(nullptr),
+      mHaveSeenHead(false),
+      mNotifiedRootInsertion(false)
 {
 }
 
@@ -766,11 +777,8 @@ HTMLContentSink::~HTMLContentSink()
   delete mHeadContext;
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLContentSink, nsContentSink,
-                                   mHTMLDocument,
-                                   mRoot,
-                                   mBody,
-                                   mHead)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(
+    HTMLContentSink, nsContentSink, mHTMLDocument, mRoot, mBody, mHead)
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLContentSink,
                                              nsContentSink,
@@ -801,9 +809,8 @@ HTMLContentSink::Init(nsIDocument* aDoc,
   mMaxTextRun = Preferences::GetInt("content.maxtextrun", 8191);
 
   RefPtr<mozilla::dom::NodeInfo> nodeInfo;
-  nodeInfo = mNodeInfoManager->GetNodeInfo(nsGkAtoms::html, nullptr,
-                                           kNameSpaceID_XHTML,
-                                           nsIDOMNode::ELEMENT_NODE);
+  nodeInfo = mNodeInfoManager->GetNodeInfo(
+      nsGkAtoms::html, nullptr, kNameSpaceID_XHTML, nsIDOMNode::ELEMENT_NODE);
 
   // Make root part
   mRoot = NS_NewHTMLHtmlElement(nodeInfo.forget());
@@ -817,9 +824,8 @@ HTMLContentSink::Init(nsIDocument* aDoc,
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Make head part
-  nodeInfo = mNodeInfoManager->GetNodeInfo(nsGkAtoms::head,
-                                           nullptr, kNameSpaceID_XHTML,
-                                           nsIDOMNode::ELEMENT_NODE);
+  nodeInfo = mNodeInfoManager->GetNodeInfo(
+      nsGkAtoms::head, nullptr, kNameSpaceID_XHTML, nsIDOMNode::ELEMENT_NODE);
 
   mHead = NS_NewHTMLHeadElement(nodeInfo.forget());
   if (NS_FAILED(rv)) {
@@ -836,10 +842,7 @@ HTMLContentSink::Init(nsIDocument* aDoc,
 }
 
 NS_IMETHODIMP
-HTMLContentSink::WillParse(void)
-{
-  return WillParseImpl();
-}
+HTMLContentSink::WillParse(void) { return WillParseImpl(); }
 
 NS_IMETHODIMP
 HTMLContentSink::WillBuildModel(nsDTDMode aDTDMode)
@@ -958,14 +961,15 @@ HTMLContentSink::OpenBody()
   mBody = mCurrentContext->mStack[mCurrentContext->mStackPos - 1].mContent;
 
   if (mCurrentContext->mStackPos > 1) {
-    int32_t parentIndex    = mCurrentContext->mStackPos - 2;
-    nsGenericHTMLElement *parent = mCurrentContext->mStack[parentIndex].mContent;
-    int32_t numFlushed     = mCurrentContext->mStack[parentIndex].mNumFlushed;
+    int32_t parentIndex = mCurrentContext->mStackPos - 2;
+    nsGenericHTMLElement* parent =
+        mCurrentContext->mStack[parentIndex].mContent;
+    int32_t numFlushed = mCurrentContext->mStack[parentIndex].mNumFlushed;
     int32_t childCount = parent->GetChildCount();
     NS_ASSERTION(numFlushed < childCount, "Already notified on the body?");
 
     int32_t insertionPoint =
-      mCurrentContext->mStack[parentIndex].mInsertionPoint;
+        mCurrentContext->mStack[parentIndex].mInsertionPoint;
 
     // XXX: I have yet to see a case where numFlushed is non-zero and
     // insertionPoint is not -1, but this code will try to handle
@@ -1041,29 +1045,21 @@ HTMLContentSink::CloseContainer(const ElementType aTag)
 }
 
 NS_IMETHODIMP
-HTMLContentSink::WillInterrupt()
-{
-  return WillInterruptImpl();
-}
+HTMLContentSink::WillInterrupt() { return WillInterruptImpl(); }
 
 NS_IMETHODIMP
-HTMLContentSink::WillResume()
-{
-  return WillResumeImpl();
-}
+HTMLContentSink::WillResume() { return WillResumeImpl(); }
 
 void
 HTMLContentSink::CloseHeadContext()
 {
   if (mCurrentContext) {
-    if (!mCurrentContext->IsCurrentContainer(eHTMLTag_head))
-      return;
+    if (!mCurrentContext->IsCurrentContainer(eHTMLTag_head)) return;
 
     mCurrentContext->FlushTags();
   }
 
-  if (!mContextStack.IsEmpty())
-  {
+  if (!mContextStack.IsEmpty()) {
     uint32_t n = mContextStack.Length() - 1;
     mCurrentContext = mContextStack.ElementAt(n);
     mContextStack.RemoveElementAt(n);
@@ -1086,8 +1082,7 @@ HTMLContentSink::NotifyInsert(nsIContent* aContent,
   {
     // Scope so we call EndUpdate before we decrease mInNotification
     MOZ_AUTO_DOC_UPDATE(mDocument, UPDATE_CONTENT_MODEL, !mBeganUpdate);
-    nsNodeUtils::ContentInserted(NODE_FROM(aContent, mDocument),
-                                 aChildContent);
+    nsNodeUtils::ContentInserted(NODE_FROM(aContent, mDocument), aChildContent);
     mLastNotificationTime = PR_Now();
   }
 
@@ -1169,7 +1164,7 @@ HTMLContentSink::SetDocumentCharset(NotNull<const Encoding*> aEncoding)
   MOZ_ASSERT_UNREACHABLE("<meta charset> case doesn't occur with about:blank");
 }
 
-nsISupports *
+nsISupports*
 HTMLContentSink::GetTarget()
 {
   return mDocument;

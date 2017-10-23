@@ -5,11 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "D3DMessageUtils.h"
 #if defined(XP_WIN)
-# include "gfxWindowsPlatform.h"
+#include "gfxWindowsPlatform.h"
 #endif
 
 bool
-DxgiAdapterDesc::operator ==(const DxgiAdapterDesc& aOther) const
+DxgiAdapterDesc::operator==(const DxgiAdapterDesc& aOther) const
 {
   return memcmp(&aOther, this, sizeof(*this)) == 0;
 }
@@ -51,10 +51,13 @@ ParamTraits<DxgiAdapterDesc>::Write(Message* aMsg, const paramType& aParam)
 }
 
 bool
-ParamTraits<DxgiAdapterDesc>::Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+ParamTraits<DxgiAdapterDesc>::Read(const Message* aMsg,
+                                   PickleIterator* aIter,
+                                   paramType* aResult)
 {
 #if defined(XP_WIN)
-  if (!aMsg->ReadBytesInto(aIter, aResult->Description, sizeof(aResult->Description))) {
+  if (!aMsg->ReadBytesInto(
+          aIter, aResult->Description, sizeof(aResult->Description))) {
     return false;
   }
 
@@ -66,8 +69,7 @@ ParamTraits<DxgiAdapterDesc>::Read(const Message* aMsg, PickleIterator* aIter, p
       ReadParam(aMsg, aIter, &aResult->DedicatedSystemMemory) &&
       ReadParam(aMsg, aIter, &aResult->SharedSystemMemory) &&
       ReadParam(aMsg, aIter, &aResult->AdapterLuid.LowPart) &&
-      ReadParam(aMsg, aIter, &aResult->AdapterLuid.HighPart))
-  {
+      ReadParam(aMsg, aIter, &aResult->AdapterLuid.HighPart)) {
     return true;
   }
   return false;
@@ -76,4 +78,4 @@ ParamTraits<DxgiAdapterDesc>::Read(const Message* aMsg, PickleIterator* aIter, p
 #endif
 }
 
-} // namespace IPC
+}  // namespace IPC

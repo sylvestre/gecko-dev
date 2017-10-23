@@ -50,8 +50,7 @@ enum Stat {
     STAT_LIMIT
 };
 
-struct ZoneGCStats
-{
+struct ZoneGCStats {
     /* Number of zones collected in this GC. */
     int collectedZoneCount;
 
@@ -73,27 +72,23 @@ struct ZoneGCStats
     /* Total number of compartments swept by this GC. */
     int sweptCompartmentCount;
 
-    bool isFullCollection() const {
-        return collectedZoneCount == collectableZoneCount;
-    }
+    bool isFullCollection() const { return collectedZoneCount == collectableZoneCount; }
 
-    ZoneGCStats() {
-        mozilla::PodZero(this);
-    }
+    ZoneGCStats() { mozilla::PodZero(this); }
 };
 
-#define FOR_EACH_GC_PROFILE_TIME(_)                                           \
-    _(BeginCallback, "bgnCB",  PhaseKind::GC_BEGIN)                           \
-    _(MinorForMajor, "evct4m", PhaseKind::EVICT_NURSERY_FOR_MAJOR_GC)         \
-    _(WaitBgThread,  "waitBG", PhaseKind::WAIT_BACKGROUND_THREAD)             \
-    _(Prepare,       "prep",   PhaseKind::PREPARE)                            \
-    _(Mark,          "mark",   PhaseKind::MARK)                               \
-    _(Sweep,         "sweep",  PhaseKind::SWEEP)                              \
-    _(Compact,       "cmpct",  PhaseKind::COMPACT)                            \
-    _(EndCallback,   "endCB",  PhaseKind::GC_END)                             \
-    _(MinorGC,       "minor",  PhaseKind::MINOR_GC)                           \
-    _(EvictNursery,  "evict",  PhaseKind::EVICT_NURSERY)                      \
-    _(Barriers,      "brrier", PhaseKind::BARRIER)
+#define FOR_EACH_GC_PROFILE_TIME(_)                                   \
+    _(BeginCallback, "bgnCB", PhaseKind::GC_BEGIN)                    \
+    _(MinorForMajor, "evct4m", PhaseKind::EVICT_NURSERY_FOR_MAJOR_GC) \
+    _(WaitBgThread, "waitBG", PhaseKind::WAIT_BACKGROUND_THREAD)      \
+    _(Prepare, "prep", PhaseKind::PREPARE)                            \
+    _(Mark, "mark", PhaseKind::MARK)                                  \
+    _(Sweep, "sweep", PhaseKind::SWEEP)                               \
+    _(Compact, "cmpct", PhaseKind::COMPACT)                           \
+    _(EndCallback, "endCB", PhaseKind::GC_END)                        \
+    _(MinorGC, "minor", PhaseKind::MINOR_GC)                          \
+    _(EvictNursery, "evict", PhaseKind::EVICT_NURSERY)                \
+    _(Barriers, "brrier", PhaseKind::BARRIER)
 
 const char* ExplainAbortReason(gc::AbortReason reason);
 const char* ExplainInvocationKind(JSGCInvocationKind gckind);
@@ -111,8 +106,7 @@ const char* ExplainInvocationKind(JSGCInvocationKind gckind);
  * Incremental GC is represented by recording separate timing results for each
  * slice within the overall GC.
  */
-struct Statistics
-{
+struct Statistics {
     template <typename T, size_t Length>
     using Array = mozilla::Array<T, Length>;
 
@@ -152,8 +146,8 @@ struct Statistics
     // Resume a suspended stack of phases.
     void resumePhases();
 
-    void beginSlice(const ZoneGCStats& zoneStats, JSGCInvocationKind gckind,
-                    SliceBudget budget, JS::gcreason::Reason reason);
+    void beginSlice(const ZoneGCStats& zoneStats, JSGCInvocationKind gckind, SliceBudget budget,
+                    JS::gcreason::Reason reason);
     void endSlice();
 
     MOZ_MUST_USE bool startTimingMutator();
@@ -165,8 +159,7 @@ struct Statistics
 
     void reset(gc::AbortReason reason) {
         MOZ_ASSERT(reason != gc::AbortReason::None);
-        if (!aborted)
-            slices_.back().resetReason = reason;
+        if (!aborted) slices_.back().resetReason = reason;
     }
 
     void nonincremental(gc::AbortReason reason) {
@@ -174,21 +167,13 @@ struct Statistics
         nonincrementalReason_ = reason;
     }
 
-    bool nonincremental() const {
-        return nonincrementalReason_ != gc::AbortReason::None;
-    }
+    bool nonincremental() const { return nonincrementalReason_ != gc::AbortReason::None; }
 
-    const char* nonincrementalReason() const {
-        return ExplainAbortReason(nonincrementalReason_);
-    }
+    const char* nonincrementalReason() const { return ExplainAbortReason(nonincrementalReason_); }
 
-    void count(Stat s) {
-        counts[s]++;
-    }
+    void count(Stat s) { counts[s]++; }
 
-    uint32_t getCount(Stat s) const {
-        return uint32_t(counts[s]);
-    }
+    uint32_t getCount(Stat s) const { return uint32_t(counts[s]); }
 
     void recordTrigger(double amount, double threshold) {
         triggerAmount = amount;
@@ -218,15 +203,15 @@ struct Statistics
     static const size_t MAX_SUSPENDED_PHASES = MAX_PHASE_NESTING * 3;
 
     struct SliceData {
-        SliceData(SliceBudget budget, JS::gcreason::Reason reason,
-                  TimeStamp start, size_t startFaults, gc::State initialState)
-          : budget(budget), reason(reason),
-            initialState(initialState),
-            finalState(gc::State::NotActive),
-            resetReason(gc::AbortReason::None),
-            start(start),
-            startFaults(startFaults)
-        {}
+        SliceData(SliceBudget budget, JS::gcreason::Reason reason, TimeStamp start,
+                  size_t startFaults, gc::State initialState)
+            : budget(budget),
+              reason(reason),
+              initialState(initialState),
+              finalState(gc::State::NotActive),
+              resetReason(gc::AbortReason::None),
+              start(start),
+              startFaults(startFaults) {}
 
         SliceBudget budget;
         JS::gcreason::Reason reason;
@@ -245,13 +230,9 @@ struct Statistics
 
     const SliceDataVector& slices() const { return slices_; }
 
-    TimeStamp start() const {
-        return slices_[0].start;
-    }
+    TimeStamp start() const { return slices_[0].start; }
 
-    TimeStamp end() const {
-        return slices_.back().end;
-    }
+    TimeStamp end() const { return slices_.back().end; }
 
     // Occasionally print header lines for profiling information.
     void maybePrintProfileHeaders();
@@ -272,7 +253,7 @@ struct Statistics
     // Return JSON for the previous nursery collection.
     UniqueChars renderNurseryJson(JSRuntime* rt) const;
 
-  private:
+   private:
     JSRuntime* runtime;
 
     /* File pointer used for MOZ_GCTIMER output. */
@@ -298,9 +279,7 @@ struct Statistics
     PhaseTimeTable parallelTimes;
 
     /* Number of events of this type for this GC. */
-    EnumeratedArray<Stat,
-                    STAT_LIMIT,
-                    mozilla::Atomic<uint32_t, mozilla::ReleaseAcquire>> counts;
+    EnumeratedArray<Stat, STAT_LIMIT, mozilla::Atomic<uint32_t, mozilla::ReleaseAcquire>> counts;
 
     /* Allocated space before the GC started. */
     size_t preBytes;
@@ -344,14 +323,12 @@ struct Statistics
 
     /* Profiling data. */
 
-    enum class ProfileKey
-    {
+    enum class ProfileKey {
         Total,
-#define DEFINE_TIME_KEY(name, text, phase)                                    \
-        name,
-FOR_EACH_GC_PROFILE_TIME(DEFINE_TIME_KEY)
+#define DEFINE_TIME_KEY(name, text, phase) name,
+        FOR_EACH_GC_PROFILE_TIME(DEFINE_TIME_KEY)
 #undef DEFINE_TIME_KEY
-        KeyCount
+            KeyCount
     };
 
     using ProfileDurations = EnumeratedArray<ProfileKey, ProfileKey::KeyCount, TimeDuration>;
@@ -394,12 +371,10 @@ FOR_EACH_GC_PROFILE_TIME(DEFINE_TIME_KEY)
     static void printProfileTimes(const ProfileDurations& times);
 };
 
-struct MOZ_RAII AutoGCSlice
-{
+struct MOZ_RAII AutoGCSlice {
     AutoGCSlice(Statistics& stats, const ZoneGCStats& zoneStats, JSGCInvocationKind gckind,
                 SliceBudget budget, JS::gcreason::Reason reason)
-      : stats(stats)
-    {
+        : stats(stats) {
         stats.beginSlice(zoneStats, gckind, budget, reason);
     }
     ~AutoGCSlice() { stats.endSlice(); }
@@ -407,24 +382,19 @@ struct MOZ_RAII AutoGCSlice
     Statistics& stats;
 };
 
-struct MOZ_RAII AutoPhase
-{
+struct MOZ_RAII AutoPhase {
     AutoPhase(Statistics& stats, PhaseKind phaseKind)
-      : stats(stats), phaseKind(phaseKind), enabled(true)
-    {
+        : stats(stats), phaseKind(phaseKind), enabled(true) {
         stats.beginPhase(phaseKind);
     }
 
     AutoPhase(Statistics& stats, bool condition, PhaseKind phaseKind)
-      : stats(stats), phaseKind(phaseKind), enabled(condition)
-    {
-        if (enabled)
-            stats.beginPhase(phaseKind);
+        : stats(stats), phaseKind(phaseKind), enabled(condition) {
+        if (enabled) stats.beginPhase(phaseKind);
     }
 
     ~AutoPhase() {
-        if (enabled)
-            stats.endPhase(phaseKind);
+        if (enabled) stats.endPhase(phaseKind);
     }
 
     Statistics& stats;
@@ -432,16 +402,9 @@ struct MOZ_RAII AutoPhase
     bool enabled;
 };
 
-struct MOZ_RAII AutoSCC
-{
-    AutoSCC(Statistics& stats, unsigned scc)
-      : stats(stats), scc(scc)
-    {
-        start = stats.beginSCC();
-    }
-    ~AutoSCC() {
-        stats.endSCC(scc, start);
-    }
+struct MOZ_RAII AutoSCC {
+    AutoSCC(Statistics& stats, unsigned scc) : stats(stats), scc(scc) { start = stats.beginSCC(); }
+    ~AutoSCC() { stats.endSCC(scc, start); }
 
     Statistics& stats;
     unsigned scc;

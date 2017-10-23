@@ -64,7 +64,7 @@ class StreamList;
 // Cache DOM objects during shutdown, then all operations will begin rejecting.
 class Manager final
 {
-public:
+ public:
   // Callback interface implemented by clients of Manager, such as CacheParent
   // and CacheStorageParent.  In general, if you call a Manager method you
   // should expect to receive exactly one On*() callback.  For example, if
@@ -86,40 +86,41 @@ public:
   // the Manager.
   class Listener
   {
-  public:
+   public:
     // convenience routines
-    void
-    OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult);
+    void OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult);
 
-    void
-    OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
-                 CacheId aOpenedCacheId);
+    void OnOpComplete(ErrorResult&& aRv,
+                      const CacheOpResult& aResult,
+                      CacheId aOpenedCacheId);
 
-    void
-    OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
-                 const SavedResponse& aSavedResponse,
-                 StreamList* aStreamList);
+    void OnOpComplete(ErrorResult&& aRv,
+                      const CacheOpResult& aResult,
+                      const SavedResponse& aSavedResponse,
+                      StreamList* aStreamList);
 
-    void
-    OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
-                 const nsTArray<SavedResponse>& aSavedResponseList,
-                 StreamList* aStreamList);
+    void OnOpComplete(ErrorResult&& aRv,
+                      const CacheOpResult& aResult,
+                      const nsTArray<SavedResponse>& aSavedResponseList,
+                      StreamList* aStreamList);
 
-    void
-    OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
-                 const nsTArray<SavedRequest>& aSavedRequestList,
-                 StreamList* aStreamList);
+    void OnOpComplete(ErrorResult&& aRv,
+                      const CacheOpResult& aResult,
+                      const nsTArray<SavedRequest>& aSavedRequestList,
+                      StreamList* aStreamList);
 
     // interface to be implemented
-    virtual void
-    OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
-                 CacheId aOpenedCacheId,
-                 const nsTArray<SavedResponse>& aSavedResponseList,
-                 const nsTArray<SavedRequest>& aSavedRequestList,
-                 StreamList* aStreamList) { }
+    virtual void OnOpComplete(ErrorResult&& aRv,
+                              const CacheOpResult& aResult,
+                              CacheId aOpenedCacheId,
+                              const nsTArray<SavedResponse>& aSavedResponseList,
+                              const nsTArray<SavedRequest>& aSavedRequestList,
+                              StreamList* aStreamList)
+    {
+    }
 
-  protected:
-    ~Listener() { }
+   protected:
+    ~Listener() {}
   };
 
   enum State
@@ -167,24 +168,29 @@ public:
   void AddStreamList(StreamList* aStreamList);
   void RemoveStreamList(StreamList* aStreamList);
 
-  void ExecuteCacheOp(Listener* aListener, CacheId aCacheId,
+  void ExecuteCacheOp(Listener* aListener,
+                      CacheId aCacheId,
                       const CacheOpArgs& aOpArgs);
-  void ExecutePutAll(Listener* aListener, CacheId aCacheId,
-                     const nsTArray<CacheRequestResponse>& aPutList,
-                     const nsTArray<nsCOMPtr<nsIInputStream>>& aRequestStreamList,
-                     const nsTArray<nsCOMPtr<nsIInputStream>>& aResponseStreamList);
+  void ExecutePutAll(
+      Listener* aListener,
+      CacheId aCacheId,
+      const nsTArray<CacheRequestResponse>& aPutList,
+      const nsTArray<nsCOMPtr<nsIInputStream>>& aRequestStreamList,
+      const nsTArray<nsCOMPtr<nsIInputStream>>& aResponseStreamList);
 
-  void ExecuteStorageOp(Listener* aListener, Namespace aNamespace,
+  void ExecuteStorageOp(Listener* aListener,
+                        Namespace aNamespace,
                         const CacheOpArgs& aOpArgs);
 
-  void ExecuteOpenStream(Listener* aListener, InputStreamResolver&& aResolver,
+  void ExecuteOpenStream(Listener* aListener,
+                         InputStreamResolver&& aResolver,
                          const nsID& aBodyId);
 
-  void
-  NoteStreamOpenComplete(const nsID& aBodyId, ErrorResult&& aRv,
-                         nsCOMPtr<nsIInputStream>&& aBodyStream);
+  void NoteStreamOpenComplete(const nsID& aBodyId,
+                              ErrorResult&& aRv,
+                              nsCOMPtr<nsIInputStream>&& aBodyStream);
 
-private:
+ private:
   class Factory;
   class BaseAction;
   class DeleteOrphanedCacheAction;
@@ -230,15 +236,10 @@ private:
   // Weak references cleared by RemoveListener() in Listener destructors.
   struct ListenerEntry
   {
-    ListenerEntry()
-      : mId(UINT64_MAX)
-      , mListener(nullptr)
-    {
-    }
+    ListenerEntry() : mId(UINT64_MAX), mListener(nullptr) {}
 
     ListenerEntry(ListenerId aId, Listener* aListener)
-      : mId(aId)
-      , mListener(aListener)
+        : mId(aId), mListener(aListener)
     {
     }
 
@@ -248,7 +249,7 @@ private:
 
   class ListenerEntryIdComparator
   {
-  public:
+   public:
     bool Equals(const ListenerEntry& aA, const ListenerId& aB) const
     {
       return aA.mId == aB;
@@ -257,7 +258,7 @@ private:
 
   class ListenerEntryListenerComparator
   {
-  public:
+   public:
     bool Equals(const ListenerEntry& aA, const Listener* aB) const
     {
       return aA.mListener == aB;
@@ -290,12 +291,12 @@ private:
   };
   nsTArray<BodyIdRefCounter> mBodyIdRefs;
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(cache::Manager)
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_Manager_h
+#endif  // mozilla_dom_cache_Manager_h

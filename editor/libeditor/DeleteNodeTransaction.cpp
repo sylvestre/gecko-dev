@@ -5,7 +5,7 @@
 
 #include "DeleteNodeTransaction.h"
 #include "mozilla/EditorBase.h"
-#include "mozilla/SelectionState.h" // RangeUpdater
+#include "mozilla/SelectionState.h"  // RangeUpdater
 #include "nsDebug.h"
 #include "nsError.h"
 #include "nsAString.h"
@@ -15,10 +15,10 @@ namespace mozilla {
 DeleteNodeTransaction::DeleteNodeTransaction(EditorBase& aEditorBase,
                                              nsINode& aNodeToDelete,
                                              RangeUpdater* aRangeUpdater)
-  : mEditorBase(&aEditorBase)
-  , mNodeToDelete(&aNodeToDelete)
-  , mParentNode(aNodeToDelete.GetParentNode())
-  , mRangeUpdater(aRangeUpdater)
+    : mEditorBase(&aEditorBase),
+      mNodeToDelete(&aNodeToDelete),
+      mParentNode(aNodeToDelete.GetParentNode()),
+      mRangeUpdater(aRangeUpdater)
 {
   // XXX We're not sure if this is really necessary.
   if (!CanDoIt()) {
@@ -26,11 +26,10 @@ DeleteNodeTransaction::DeleteNodeTransaction(EditorBase& aEditorBase,
   }
 }
 
-DeleteNodeTransaction::~DeleteNodeTransaction()
-{
-}
+DeleteNodeTransaction::~DeleteNodeTransaction() {}
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(DeleteNodeTransaction, EditTransactionBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(DeleteNodeTransaction,
+                                   EditTransactionBase,
                                    mEditorBase,
                                    mNodeToDelete,
                                    mParentNode,
@@ -44,8 +43,8 @@ NS_INTERFACE_MAP_END_INHERITING(EditTransactionBase)
 bool
 DeleteNodeTransaction::CanDoIt() const
 {
-  if (NS_WARN_IF(!mNodeToDelete) || NS_WARN_IF(!mEditorBase) ||
-      !mParentNode || !mEditorBase->IsModifiableNode(mParentNode)) {
+  if (NS_WARN_IF(!mNodeToDelete) || NS_WARN_IF(!mEditorBase) || !mParentNode ||
+      !mEditorBase->IsModifiableNode(mParentNode)) {
     return false;
   }
   return true;
@@ -111,4 +110,4 @@ DeleteNodeTransaction::GetTxnDescription(nsAString& aString)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

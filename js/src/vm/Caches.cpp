@@ -12,9 +12,7 @@ using namespace js;
 
 using mozilla::PodZero;
 
-MathCache*
-RuntimeCaches::createMathCache(JSContext* cx)
-{
+MathCache* RuntimeCaches::createMathCache(JSContext* cx) {
     MOZ_ASSERT(!mathCache_);
 
     UniquePtr<MathCache> newMathCache(js_new<MathCache>());
@@ -27,25 +25,18 @@ RuntimeCaches::createMathCache(JSContext* cx)
     return mathCache_.get();
 }
 
-bool
-RuntimeCaches::init()
-{
-    if (!evalCache.init())
-        return false;
+bool RuntimeCaches::init() {
+    if (!evalCache.init()) return false;
 
     return true;
 }
 
-void
-NewObjectCache::clearNurseryObjects(JSRuntime* rt)
-{
+void NewObjectCache::clearNurseryObjects(JSRuntime* rt) {
     for (unsigned i = 0; i < mozilla::ArrayLength(entries); ++i) {
         Entry& e = entries[i];
         NativeObject* obj = reinterpret_cast<NativeObject*>(&e.templateObject);
-        if (IsInsideNursery(e.key) ||
-            rt->gc.nursery().isInside(obj->slots_) ||
-            rt->gc.nursery().isInside(obj->elements_))
-        {
+        if (IsInsideNursery(e.key) || rt->gc.nursery().isInside(obj->slots_) ||
+            rt->gc.nursery().isInside(obj->elements_)) {
             PodZero(&e);
         }
     }

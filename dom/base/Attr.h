@@ -29,12 +29,11 @@ namespace dom {
 
 // Attribute helper class used to wrap up an attribute with a dom
 // object that implements nsIDOMAttr and nsIDOMNode
-class Attr final : public nsIAttribute,
-                   public nsIDOMAttr
+class Attr final : public nsIAttribute, public nsIDOMAttr
 {
   virtual ~Attr() {}
 
-public:
+ public:
   Attr(nsDOMAttributeMap* aAttrMap,
        already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
        const nsAString& aValue);
@@ -54,24 +53,28 @@ public:
   // nsIDOMAttr interface
   NS_DECL_NSIDOMATTR
 
-  virtual nsresult GetEventTargetParent(EventChainPreVisitor& aVisitor) override;
+  virtual nsresult GetEventTargetParent(
+      EventChainPreVisitor& aVisitor) override;
 
   // nsIAttribute interface
-  void SetMap(nsDOMAttributeMap *aMap) override;
+  void SetMap(nsDOMAttributeMap* aMap) override;
   Element* GetElement() const;
   nsresult SetOwnerDocument(nsIDocument* aDocument) override;
 
   // nsINode interface
   virtual bool IsNodeOfType(uint32_t aFlags) const override;
   virtual uint32_t GetChildCount() const override;
-  virtual nsIContent *GetChildAt(uint32_t aIndex) const override;
+  virtual nsIContent* GetChildAt(uint32_t aIndex) const override;
   virtual int32_t IndexOf(const nsINode* aPossibleChild) const override;
-  virtual nsresult InsertChildAt(nsIContent* aKid, uint32_t aIndex,
+  virtual nsresult InsertChildAt(nsIContent* aKid,
+                                 uint32_t aIndex,
                                  bool aNotify) override;
   virtual void RemoveChildAt(uint32_t aIndex, bool aNotify) override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
-  virtual already_AddRefed<nsIURI> GetBaseURI(bool aTryUseXHRDocBaseURI = false) const override;
+  virtual already_AddRefed<nsIURI> GetBaseURI(
+      bool aTryUseXHRDocBaseURI = false) const override;
 
   static void Initialize();
   static void Shutdown();
@@ -82,16 +85,16 @@ public:
   virtual nsIDOMNode* AsDOMNode() override { return this; }
 
   // WebIDL
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   // XPCOM GetName() is OK
 
-  void GetValue(nsString& val, nsIPrincipal&)
-  {
-    GetValue(val);
-  }
+  void GetValue(nsString& val, nsIPrincipal&) { GetValue(val); }
 
-  void SetValue(const nsAString& aValue, nsIPrincipal* aTriggeringPrincipal, ErrorResult& aRv);
+  void SetValue(const nsAString& aValue,
+                nsIPrincipal* aTriggeringPrincipal,
+                ErrorResult& aRv);
 
   bool Specified() const;
 
@@ -101,19 +104,16 @@ public:
 
   Element* GetOwnerElement(ErrorResult& aRv);
 
-protected:
-  virtual Element* GetNameSpaceElement() override
-  {
-    return GetElement();
-  }
+ protected:
+  virtual Element* GetNameSpaceElement() override { return GetElement(); }
 
   static bool sInitialized;
 
-private:
+ private:
   nsString mValue;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_Attr_h */

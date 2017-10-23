@@ -13,9 +13,12 @@
 
 extern mozilla::LazyLogModule gMediaDemuxerLog;
 #define ADTSLOG(msg, ...) \
-  MOZ_LOG(gMediaDemuxerLog, LogLevel::Debug, ("ADTSDemuxer " msg, ##__VA_ARGS__))
-#define ADTSLOGV(msg, ...) \
-  MOZ_LOG(gMediaDemuxerLog, LogLevel::Verbose, ("ADTSDemuxer " msg, ##__VA_ARGS__))
+  MOZ_LOG(                \
+      gMediaDemuxerLog, LogLevel::Debug, ("ADTSDemuxer " msg, ##__VA_ARGS__))
+#define ADTSLOGV(msg, ...)   \
+  MOZ_LOG(gMediaDemuxerLog,  \
+          LogLevel::Verbose, \
+          ("ADTSDemuxer " msg, ##__VA_ARGS__))
 
 namespace mozilla {
 namespace adts {
@@ -48,16 +51,16 @@ namespace adts {
 // Q        16            CRC if protection absent is 0
 class FrameHeader
 {
-public:
+ public:
   uint32_t mFrameLength;
   uint32_t mSampleRate;
   uint32_t mSamples;
   uint32_t mChannels;
-  uint8_t  mObjectType;
-  uint8_t  mSamplingIndex;
-  uint8_t  mChannelConfig;
-  uint8_t  mNumAACFrames;
-  bool     mHaveCrc;
+  uint8_t mObjectType;
+  uint8_t mSamplingIndex;
+  uint8_t mChannelConfig;
+  uint8_t mNumAACFrames;
+  bool mHaveCrc;
 
   // Returns whether aPtr matches a valid ADTS header sync marker
   static bool MatchesSync(const uint8_t* aPtr)
@@ -92,15 +95,22 @@ public:
     mSamplingIndex = (p[2] & 0x3C) >> 2;
     mChannelConfig = (p[2] & 0x01) << 2 | (p[3] & 0xC0) >> 6;
     mFrameLength =
-      (p[3] & 0x03) << 11 | (p[4] & 0xFF) << 3 | (p[5] & 0xE0) >> 5;
+        (p[3] & 0x03) << 11 | (p[4] & 0xFF) << 3 | (p[5] & 0xE0) >> 5;
     mNumAACFrames = (p[6] & 0x03) + 1;
 
-    static const int32_t SAMPLE_RATES[16] = {
-      96000, 88200, 64000, 48000,
-      44100, 32000, 24000, 22050,
-      16000, 12000, 11025,  8000,
-      7350
-    };
+    static const int32_t SAMPLE_RATES[16] = {96000,
+                                             88200,
+                                             64000,
+                                             48000,
+                                             44100,
+                                             32000,
+                                             24000,
+                                             22050,
+                                             16000,
+                                             12000,
+                                             11025,
+                                             8000,
+                                             7350};
     mSampleRate = SAMPLE_RATES[mSamplingIndex];
 
     MOZ_ASSERT(mChannelConfig < 8);
@@ -110,13 +120,12 @@ public:
   }
 };
 
-
 // adts::Frame - Frame meta container used to parse and hold a frame
 // header and side info.
 class Frame
 {
-public:
-  Frame() : mOffset(0), mHeader() { }
+ public:
+  Frame() : mOffset(0), mHeader() {}
 
   int64_t Offset() const { return mOffset; }
   size_t Length() const
@@ -176,7 +185,7 @@ public:
     return found;
   }
 
-private:
+ private:
   // The offset to the start of the header.
   int64_t mOffset;
 
@@ -184,14 +193,11 @@ private:
   FrameHeader mHeader;
 };
 
-
 class FrameParser
 {
-public:
-
+ public:
   // Returns the currently parsed frame. Reset via Reset or EndFrameSession.
   const Frame& CurrentFrame() const { return mFrame; }
-
 
   // Returns the first parsed frame. Reset via Reset.
   const Frame& FirstFrame() const { return mFirstFrame; }
@@ -207,10 +213,7 @@ public:
   // - sets PrevFrame to CurrentFrame
   // - resets the CurrentFrame
   // - resets ID3Header if no valid header was parsed yet
-  void EndFrameSession()
-  {
-    mFrame.Reset();
-  }
+  void EndFrameSession() { mFrame.Reset(); }
 
   // Parses contents of given ByteReader for a valid frame header and returns
   // true if one was found. After returning, the variable passed to
@@ -227,13 +230,12 @@ public:
     return found;
   }
 
-private:
+ private:
   // We keep the first parsed frame around for static info access, the
   // previously parsed frame for debugging and the currently parsed frame.
   Frame mFirstFrame;
   Frame mFrame;
 };
-
 
 // Return the AAC Profile Level Indication based upon sample rate and channels
 // Information based upon table 1.10 from ISO/IEC 14496-3:2005(E)
@@ -254,18 +256,15 @@ ProfileLevelIndication(const Frame& frame)
     if (sampleRate <= 24000) {
       // AAC Profile  L1
       return 0x28;
-    }
-    else if (sampleRate <= 48000) {
+    } else if (sampleRate <= 48000) {
       // AAC Profile  L2
       return 0x29;
     }
-  }
-  else if (channels <= 5) {
+  } else if (channels <= 5) {
     if (sampleRate <= 48000) {
       // AAC Profile  L4
       return 0x2A;
-    }
-    else if (sampleRate <= 96000) {
+    } else if (sampleRate <= 96000) {
       // AAC Profile  L5
       return 0x2B;
     }
@@ -275,12 +274,10 @@ ProfileLevelIndication(const Frame& frame)
   return 0;
 }
 
-
 // Initialize the AAC AudioSpecificConfig.
 // Only handles two-byte version for AAC-LC.
 static void
-InitAudioSpecificConfig(const Frame& frame,
-                        MediaByteBuffer* aBuffer)
+InitAudioSpecificConfig(const Frame& frame, MediaByteBuffer* aBuffer)
 {
   const FrameHeader& header = frame.Header();
   MOZ_ASSERT(header.IsValid());
@@ -296,16 +293,13 @@ InitAudioSpecificConfig(const Frame& frame,
   aBuffer->AppendElements(asc, 2);
 }
 
-} // namespace adts
+}  // namespace adts
 
 using media::TimeUnit;
 
 // ADTSDemuxer
 
-ADTSDemuxer::ADTSDemuxer(MediaResource* aSource)
-  : mSource(aSource)
-{
-}
+ADTSDemuxer::ADTSDemuxer(MediaResource* aSource) : mSource(aSource) {}
 
 bool
 ADTSDemuxer::InitInternal()
@@ -322,8 +316,8 @@ ADTSDemuxer::Init()
   if (!InitInternal()) {
     ADTSLOG("Init() failure: waiting for data");
 
-    return InitPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_METADATA_ERR, __func__);
+    return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_METADATA_ERR,
+                                        __func__);
   }
 
   ADTSLOG("Init() successful");
@@ -350,31 +344,26 @@ bool
 ADTSDemuxer::IsSeekable() const
 {
   int64_t length = mSource->GetLength();
-  if (length > -1)
-    return true;
+  if (length > -1) return true;
   return false;
 }
 
-
 // ADTSTrackDemuxer
 ADTSTrackDemuxer::ADTSTrackDemuxer(MediaResource* aSource)
-  : mSource(aSource)
-  , mParser(new adts::FrameParser())
-  , mOffset(0)
-  , mNumParsedFrames(0)
-  , mFrameIndex(0)
-  , mTotalFrameLen(0)
-  , mSamplesPerFrame(0)
-  , mSamplesPerSecond(0)
-  , mChannels(0)
+    : mSource(aSource),
+      mParser(new adts::FrameParser()),
+      mOffset(0),
+      mNumParsedFrames(0),
+      mFrameIndex(0),
+      mTotalFrameLen(0),
+      mSamplesPerFrame(0),
+      mSamplesPerSecond(0),
+      mChannels(0)
 {
   Reset();
 }
 
-ADTSTrackDemuxer::~ADTSTrackDemuxer()
-{
-  delete mParser;
-}
+ADTSTrackDemuxer::~ADTSTrackDemuxer() { delete mParser; }
 
 bool
 ADTSTrackDemuxer::Init()
@@ -384,7 +373,8 @@ ADTSTrackDemuxer::Init()
   RefPtr<MediaRawData> frame(GetNextFrame(FindNextFrame(true)));
 
   ADTSLOG("Init StreamLength()=%" PRId64 " first-frame-found=%d",
-          StreamLength(), !!frame);
+          StreamLength(),
+          !!frame);
 
   if (!frame) {
     return false;
@@ -419,7 +409,9 @@ ADTSTrackDemuxer::Init()
 
   ADTSLOG("Init mInfo={mRate=%u mChannels=%u mBitDepth=%u mDuration=%" PRId64
           "}",
-          mInfo->mRate, mInfo->mChannels, mInfo->mBitDepth,
+          mInfo->mRate,
+          mInfo->mChannels,
+          mInfo->mBitDepth,
           mInfo->mDuration.ToMicroseconds());
 
   return mSamplesPerSecond && mChannels;
@@ -446,17 +438,20 @@ TimeUnit
 ADTSTrackDemuxer::FastSeek(const TimeUnit& aTime)
 {
   ADTSLOG("FastSeek(%" PRId64 ") avgFrameLen=%f mNumParsedFrames=%" PRIu64
-         " mFrameIndex=%" PRId64 " mOffset=%" PRIu64,
-         aTime.ToMicroseconds(), AverageFrameLength(), mNumParsedFrames,
-         mFrameIndex, mOffset);
+          " mFrameIndex=%" PRId64 " mOffset=%" PRIu64,
+          aTime.ToMicroseconds(),
+          AverageFrameLength(),
+          mNumParsedFrames,
+          mFrameIndex,
+          mOffset);
 
   const int64_t firstFrameOffset = mParser->FirstFrame().Offset();
   if (!aTime.ToMicroseconds()) {
     // Quick seek to the beginning of the stream.
     mOffset = firstFrameOffset;
   } else if (AverageFrameLength() > 0) {
-    mOffset = firstFrameOffset + FrameIndexFromTime(aTime) *
-      AverageFrameLength();
+    mOffset =
+        firstFrameOffset + FrameIndexFromTime(aTime) * AverageFrameLength();
   }
 
   if (mOffset > firstFrameOffset && StreamLength() > 0) {
@@ -467,10 +462,14 @@ ADTSTrackDemuxer::FastSeek(const TimeUnit& aTime)
   mParser->EndFrameSession();
 
   ADTSLOG("FastSeek End avgFrameLen=%f mNumParsedFrames=%" PRIu64
-          " mFrameIndex=%" PRId64 " mFirstFrameOffset=%" PRIu64 " mOffset=%" PRIu64
-          " SL=%" PRIu64 "",
-          AverageFrameLength(), mNumParsedFrames, mFrameIndex,
-          firstFrameOffset, mOffset, StreamLength());
+          " mFrameIndex=%" PRId64 " mFirstFrameOffset=%" PRIu64
+          " mOffset=%" PRIu64 " SL=%" PRIu64 "",
+          AverageFrameLength(),
+          mNumParsedFrames,
+          mFrameIndex,
+          firstFrameOffset,
+          mOffset,
+          StreamLength());
 
   return Duration(mFrameIndex);
 }
@@ -480,8 +479,11 @@ ADTSTrackDemuxer::ScanUntil(const TimeUnit& aTime)
 {
   ADTSLOG("ScanUntil(%" PRId64 ") avgFrameLen=%f mNumParsedFrames=%" PRIu64
           " mFrameIndex=%" PRId64 " mOffset=%" PRIu64,
-          aTime.ToMicroseconds(), AverageFrameLength(), mNumParsedFrames,
-          mFrameIndex, mOffset);
+          aTime.ToMicroseconds(),
+          AverageFrameLength(),
+          mNumParsedFrames,
+          mFrameIndex,
+          mOffset);
 
   if (!aTime.ToMicroseconds()) {
     return FastSeek(aTime);
@@ -494,13 +496,19 @@ ADTSTrackDemuxer::ScanUntil(const TimeUnit& aTime)
   while (SkipNextFrame(FindNextFrame()) && Duration(mFrameIndex + 1) < aTime) {
     ADTSLOGV("ScanUntil* avgFrameLen=%f mNumParsedFrames=%" PRIu64
              " mFrameIndex=%" PRId64 " mOffset=%" PRIu64 " Duration=%" PRId64,
-             AverageFrameLength(), mNumParsedFrames, mFrameIndex,
-             mOffset, Duration(mFrameIndex + 1).ToMicroseconds());
+             AverageFrameLength(),
+             mNumParsedFrames,
+             mFrameIndex,
+             mOffset,
+             Duration(mFrameIndex + 1).ToMicroseconds());
   }
 
   ADTSLOG("ScanUntil End avgFrameLen=%f mNumParsedFrames=%" PRIu64
           " mFrameIndex=%" PRId64 " mOffset=%" PRIu64,
-          AverageFrameLength(), mNumParsedFrames, mFrameIndex, mOffset);
+          AverageFrameLength(),
+          mNumParsedFrames,
+          mFrameIndex,
+          mOffset);
 
   return Duration(mFrameIndex);
 }
@@ -512,8 +520,14 @@ ADTSTrackDemuxer::GetSamples(int32_t aNumSamples)
            " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
            " mSamplesPerFrame=%d "
            "mSamplesPerSecond=%d mChannels=%d",
-           aNumSamples, mOffset, mNumParsedFrames, mFrameIndex, mTotalFrameLen,
-           mSamplesPerFrame, mSamplesPerSecond, mChannels);
+           aNumSamples,
+           mOffset,
+           mNumParsedFrames,
+           mFrameIndex,
+           mTotalFrameLen,
+           mSamplesPerFrame,
+           mSamplesPerSecond,
+           mChannels);
 
   MOZ_ASSERT(aNumSamples);
 
@@ -521,24 +535,30 @@ ADTSTrackDemuxer::GetSamples(int32_t aNumSamples)
 
   while (aNumSamples--) {
     RefPtr<MediaRawData> frame(GetNextFrame(FindNextFrame()));
-    if (!frame)
-      break;
+    if (!frame) break;
 
     frames->mSamples.AppendElement(frame);
   }
 
-  ADTSLOGV("GetSamples() End mSamples.Size()=%zu aNumSamples=%d mOffset=%" PRIu64
-           " mNumParsedFrames=%" PRIu64 " mFrameIndex=%" PRId64
-           " mTotalFrameLen=%" PRIu64
-           " mSamplesPerFrame=%d mSamplesPerSecond=%d "
-           "mChannels=%d",
-           frames->mSamples.Length(), aNumSamples, mOffset, mNumParsedFrames,
-           mFrameIndex, mTotalFrameLen, mSamplesPerFrame, mSamplesPerSecond,
-           mChannels);
+  ADTSLOGV(
+      "GetSamples() End mSamples.Size()=%zu aNumSamples=%d mOffset=%" PRIu64
+      " mNumParsedFrames=%" PRIu64 " mFrameIndex=%" PRId64
+      " mTotalFrameLen=%" PRIu64
+      " mSamplesPerFrame=%d mSamplesPerSecond=%d "
+      "mChannels=%d",
+      frames->mSamples.Length(),
+      aNumSamples,
+      mOffset,
+      mNumParsedFrames,
+      mFrameIndex,
+      mTotalFrameLen,
+      mSamplesPerFrame,
+      mSamplesPerSecond,
+      mChannels);
 
   if (frames->mSamples.IsEmpty()) {
-    return SamplesPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_END_OF_STREAM, __func__);
+    return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_END_OF_STREAM,
+                                           __func__);
   }
 
   return SamplesPromise::CreateAndResolve(frames, __func__);
@@ -560,7 +580,7 @@ ADTSTrackDemuxer::SkipToNextRandomAccessPoint(const TimeUnit& aTimeThreshold)
 {
   // Will not be called for audio-only resources.
   return SkipAccessPointPromise::CreateAndReject(
-    SkipFailureHolder(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, 0), __func__);
+      SkipFailureHolder(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, 0), __func__);
 }
 
 int64_t
@@ -622,10 +642,15 @@ ADTSTrackDemuxer::FindNextFrame(bool findFirstFrame /*= false*/)
   static const int MAX_SKIPPED_BYTES = 10 * BUFFER_SIZE;
 
   ADTSLOGV("FindNext() Begin mOffset=%" PRIu64 " mNumParsedFrames=%" PRIu64
-          " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
-          " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d",
-          mOffset, mNumParsedFrames, mFrameIndex, mTotalFrameLen,
-          mSamplesPerFrame, mSamplesPerSecond, mChannels);
+           " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
+           " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d",
+           mOffset,
+           mNumParsedFrames,
+           mFrameIndex,
+           mTotalFrameLen,
+           mSamplesPerFrame,
+           mSamplesPerSecond,
+           mChannels);
 
   uint8_t buffer[BUFFER_SIZE];
   int32_t read = 0;
@@ -656,7 +681,7 @@ ADTSTrackDemuxer::FindNextFrame(bool findFirstFrame /*= false*/)
       // exists after the current frame then we've found a frame
       // header.
       int64_t nextFrameHeaderOffset =
-        currentFrame.Offset() + currentFrame.Length();
+          currentFrame.Offset() + currentFrame.Length();
       int32_t read = Read(buffer, nextFrameHeaderOffset, 2);
       if (read != 2 || !adts::FrameHeader::MatchesSync(buffer)) {
         frameHeaderOffset = currentFrame.Offset() + 1;
@@ -682,18 +707,27 @@ ADTSTrackDemuxer::FindNextFrame(bool findFirstFrame /*= false*/)
   }
 
   if (!foundFrame || !mParser->CurrentFrame().Length()) {
-    ADTSLOG("FindNext() Exit foundFrame=%d mParser->CurrentFrame().Length()=%zu ",
-           foundFrame, mParser->CurrentFrame().Length());
+    ADTSLOG(
+        "FindNext() Exit foundFrame=%d mParser->CurrentFrame().Length()=%zu ",
+        foundFrame,
+        mParser->CurrentFrame().Length());
     mParser->Reset();
     return mParser->CurrentFrame();
   }
 
   ADTSLOGV("FindNext() End mOffset=%" PRIu64 " mNumParsedFrames=%" PRIu64
-          " mFrameIndex=%" PRId64 " frameHeaderOffset=%" PRId64
-          " mTotalFrameLen=%" PRIu64 " mSamplesPerFrame=%d mSamplesPerSecond=%d"
-          " mChannels=%d",
-          mOffset, mNumParsedFrames, mFrameIndex, frameHeaderOffset,
-          mTotalFrameLen, mSamplesPerFrame, mSamplesPerSecond, mChannels);
+           " mFrameIndex=%" PRId64 " frameHeaderOffset=%" PRId64
+           " mTotalFrameLen=%" PRIu64
+           " mSamplesPerFrame=%d mSamplesPerSecond=%d"
+           " mChannels=%d",
+           mOffset,
+           mNumParsedFrames,
+           mFrameIndex,
+           frameHeaderOffset,
+           mTotalFrameLen,
+           mSamplesPerFrame,
+           mSamplesPerSecond,
+           mChannels);
 
   return mParser->CurrentFrame();
 }
@@ -709,10 +743,15 @@ ADTSTrackDemuxer::SkipNextFrame(const adts::Frame& aFrame)
   UpdateState(aFrame);
 
   ADTSLOGV("SkipNext() End mOffset=%" PRIu64 " mNumParsedFrames=%" PRIu64
-          " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
-          " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d",
-          mOffset, mNumParsedFrames, mFrameIndex, mTotalFrameLen,
-          mSamplesPerFrame, mSamplesPerSecond, mChannels);
+           " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
+           " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d",
+           mOffset,
+           mNumParsedFrames,
+           mFrameIndex,
+           mTotalFrameLen,
+           mSamplesPerFrame,
+           mSamplesPerSecond,
+           mChannels);
 
   return true;
 }
@@ -720,11 +759,13 @@ ADTSTrackDemuxer::SkipNextFrame(const adts::Frame& aFrame)
 already_AddRefed<MediaRawData>
 ADTSTrackDemuxer::GetNextFrame(const adts::Frame& aFrame)
 {
-  ADTSLOG("GetNext() Begin({mOffset=%" PRId64 " HeaderSize()=%zu"
+  ADTSLOG("GetNext() Begin({mOffset=%" PRId64
+          " HeaderSize()=%zu"
           " Length()=%zu})",
-         aFrame.Offset(), aFrame.Header().HeaderSize(), aFrame.PayloadLength());
-  if (!aFrame.IsValid())
-    return nullptr;
+          aFrame.Offset(),
+          aFrame.Header().HeaderSize(),
+          aFrame.PayloadLength());
+  if (!aFrame.IsValid()) return nullptr;
 
   const int64_t offset = aFrame.PayloadOffset();
   const uint32_t length = aFrame.PayloadLength();
@@ -757,8 +798,13 @@ ADTSTrackDemuxer::GetNextFrame(const adts::Frame& aFrame)
   ADTSLOGV("GetNext() End mOffset=%" PRIu64 " mNumParsedFrames=%" PRIu64
            " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
            " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d",
-           mOffset, mNumParsedFrames, mFrameIndex, mTotalFrameLen,
-           mSamplesPerFrame, mSamplesPerSecond, mChannels);
+           mOffset,
+           mNumParsedFrames,
+           mFrameIndex,
+           mTotalFrameLen,
+           mSamplesPerFrame,
+           mSamplesPerSecond,
+           mChannels);
 
   return frame.forget();
 }
@@ -770,10 +816,11 @@ ADTSTrackDemuxer::FrameIndexFromOffset(int64_t aOffset) const
 
   if (AverageFrameLength() > 0) {
     frameIndex =
-      (aOffset - mParser->FirstFrame().Offset()) / AverageFrameLength();
+        (aOffset - mParser->FirstFrame().Offset()) / AverageFrameLength();
   }
 
-  ADTSLOGV("FrameIndexFromOffset(%" PRId64 ") -> %" PRId64, aOffset, frameIndex);
+  ADTSLOGV(
+      "FrameIndexFromOffset(%" PRId64 ") -> %" PRId64, aOffset, frameIndex);
   return std::max<int64_t>(0, frameIndex);
 }
 
@@ -785,8 +832,8 @@ ADTSTrackDemuxer::FrameIndexFromTime(const TimeUnit& aTime) const
     frameIndex = aTime.ToSeconds() * mSamplesPerSecond / mSamplesPerFrame - 1;
   }
 
-  ADTSLOGV("FrameIndexFromOffset(%fs) -> %" PRId64,
-           aTime.ToSeconds(), frameIndex);
+  ADTSLOGV(
+      "FrameIndexFromOffset(%fs) -> %" PRId64, aTime.ToSeconds(), frameIndex);
   return std::max<int64_t>(0, frameIndex);
 }
 
@@ -821,8 +868,8 @@ ADTSTrackDemuxer::UpdateState(const adts::Frame& aFrame)
 int32_t
 ADTSTrackDemuxer::Read(uint8_t* aBuffer, int64_t aOffset, int32_t aSize)
 {
-  ADTSLOGV("ADTSTrackDemuxer::Read(%p %" PRId64 " %d)",
-           aBuffer, aOffset, aSize);
+  ADTSLOGV(
+      "ADTSTrackDemuxer::Read(%p %" PRId64 " %d)", aBuffer, aOffset, aSize);
 
   const int64_t streamLen = StreamLength();
   if (mInfo && streamLen > 0) {
@@ -832,8 +879,10 @@ ADTSTrackDemuxer::Read(uint8_t* aBuffer, int64_t aOffset, int32_t aSize)
 
   uint32_t read = 0;
   ADTSLOGV("ADTSTrackDemuxer::Read        -> ReadAt(%d)", aSize);
-  const nsresult rv = mSource.ReadAt(aOffset, reinterpret_cast<char*>(aBuffer),
-                                     static_cast<uint32_t>(aSize), &read);
+  const nsresult rv = mSource.ReadAt(aOffset,
+                                     reinterpret_cast<char*>(aBuffer),
+                                     static_cast<uint32_t>(aSize),
+                                     &read);
   NS_ENSURE_SUCCESS(rv, 0);
   return static_cast<int32_t>(read);
 }
@@ -873,4 +922,4 @@ ADTSDemuxer::ADTSSniffer(const uint8_t* aData, const uint32_t aLength)
          adts::FrameHeader::MatchesSync(aData + nextFrameHeaderOffset);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

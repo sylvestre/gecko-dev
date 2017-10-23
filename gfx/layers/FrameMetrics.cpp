@@ -12,12 +12,13 @@ namespace layers {
 const FrameMetrics::ViewID FrameMetrics::NULL_SCROLL_ID = 0;
 
 void
-ScrollMetadata::SetUsesContainerScrolling(bool aValue) {
+ScrollMetadata::SetUsesContainerScrolling(bool aValue)
+{
   MOZ_ASSERT_IF(aValue, gfxPrefs::LayoutUseContainersForRootFrames());
   mUsesContainerScrolling = aValue;
 }
 
 StaticAutoPtr<const ScrollMetadata> ScrollMetadata::sNullMetadata;
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla

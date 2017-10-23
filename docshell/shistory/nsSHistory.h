@@ -33,29 +33,29 @@ class nsSHistory final : public mozilla::LinkedListElement<nsSHistory>,
                          public nsIWebNavigation,
                          public nsSupportsWeakReference
 {
-public:
-
+ public:
   // The timer based history tracker is used to evict bfcache on expiration.
   class HistoryTracker final : public nsExpirationTracker<nsSHEntryShared, 3>
   {
-  public:
+   public:
     explicit HistoryTracker(nsSHistory* aSHistory,
                             uint32_t aTimeout,
                             nsIEventTarget* aEventTarget)
-      : nsExpirationTracker(1000 * aTimeout / 2, "HistoryTracker", aEventTarget)
+        : nsExpirationTracker(
+              1000 * aTimeout / 2, "HistoryTracker", aEventTarget)
     {
       MOZ_ASSERT(aSHistory);
       mSHistory = aSHistory;
     }
 
-  protected:
+   protected:
     virtual void NotifyExpired(nsSHEntryShared* aObj)
     {
       RemoveObject(aObj);
       mSHistory->EvictExpiredContentViewerForEntry(aObj);
     }
 
-  private:
+   private:
     // HistoryTracker is owned by nsSHistory; it always outlives HistoryTracker
     // so it's safe to use raw pointer here.
     nsSHistory* mSHistory;
@@ -78,16 +78,19 @@ public:
   // Otherwise, it comes straight from the pref.
   static uint32_t GetMaxTotalViewers() { return sHistoryMaxTotalViewers; }
 
-private:
+ private:
   virtual ~nsSHistory();
   friend class nsSHEnumerator;
   friend class nsSHistoryObserver;
 
   nsresult GetTransactionAtIndex(int32_t aIndex, nsISHTransaction** aResult);
-  nsresult LoadDifferingEntries(nsISHEntry* aPrevEntry, nsISHEntry* aNextEntry,
-                                nsIDocShell* aRootDocShell, long aLoadType,
+  nsresult LoadDifferingEntries(nsISHEntry* aPrevEntry,
+                                nsISHEntry* aNextEntry,
+                                nsIDocShell* aRootDocShell,
+                                long aLoadType,
                                 bool& aDifferenceFound);
-  nsresult InitiateLoad(nsISHEntry* aFrameEntry, nsIDocShell* aFrameDS,
+  nsresult InitiateLoad(nsISHEntry* aFrameEntry,
+                        nsIDocShell* aFrameDS,
                         long aLoadType);
 
   nsresult LoadEntry(int32_t aIndex, long aLoadType, uint32_t aHistCmd);
@@ -113,7 +116,8 @@ private:
   // content viewers to cache, based on amount of total memory
   static uint32_t CalcMaxTotalViewers();
 
-  nsresult LoadNextPossibleEntry(int32_t aNewIndex, long aLoadType,
+  nsresult LoadNextPossibleEntry(int32_t aNewIndex,
+                                 long aLoadType,
                                  uint32_t aHistCmd);
 
   // aIndex is the index of the transaction which may be removed.
@@ -153,17 +157,17 @@ private:
 
 class nsSHEnumerator : public nsISimpleEnumerator
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISIMPLEENUMERATOR
 
   explicit nsSHEnumerator(nsSHistory* aHistory);
 
-protected:
+ protected:
   friend class nsSHistory;
   virtual ~nsSHEnumerator();
 
-private:
+ private:
   int32_t mIndex;
   nsSHistory* mSHistory;
 };

@@ -40,8 +40,7 @@ FrozenImage::GetAnimated(bool* aAnimated)
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
-FrozenImage::GetFrame(uint32_t aWhichFrame,
-                      uint32_t aFlags)
+FrozenImage::GetFrame(uint32_t aWhichFrame, uint32_t aFlags)
 {
   return InnerImage()->GetFrame(FRAME_FIRST, aFlags);
 }
@@ -81,8 +80,14 @@ FrozenImage::Draw(gfxContext* aContext,
                   uint32_t aFlags,
                   float aOpacity)
 {
-  return InnerImage()->Draw(aContext, aSize, aRegion, FRAME_FIRST,
-                            aSamplingFilter, aSVGContext, aFlags, aOpacity);
+  return InnerImage()->Draw(aContext,
+                            aSize,
+                            aRegion,
+                            FRAME_FIRST,
+                            aSamplingFilter,
+                            aSVGContext,
+                            aFlags,
+                            aOpacity);
 }
 
 NS_IMETHODIMP_(void)
@@ -119,5 +124,5 @@ FrozenImage::GetFrameIndex(uint32_t aWhichFrame)
   return 0;
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

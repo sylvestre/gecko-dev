@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 /*
 
   A package of routines shared by the XUL content code.
@@ -44,7 +43,7 @@ using namespace mozilla;
 //------------------------------------------------------------------------
 
 nsIRDFService* nsXULContentUtils::gRDF;
-nsICollation *nsXULContentUtils::gCollation;
+nsICollation* nsXULContentUtils::gCollation;
 
 extern LazyLogModule gXULTemplateLog;
 
@@ -61,36 +60,35 @@ extern LazyLogModule gXULTemplateLog;
 nsresult
 nsXULContentUtils::Init()
 {
-    static NS_DEFINE_CID(kRDFServiceCID, NS_RDFSERVICE_CID);
-    nsresult rv = CallGetService(kRDFServiceCID, &gRDF);
-    if (NS_FAILED(rv)) {
-        return rv;
-    }
+  static NS_DEFINE_CID(kRDFServiceCID, NS_RDFSERVICE_CID);
+  nsresult rv = CallGetService(kRDFServiceCID, &gRDF);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
-#define XUL_RESOURCE(ident, uri)                              \
-  PR_BEGIN_MACRO                                              \
-   rv = gRDF->GetResource(NS_LITERAL_CSTRING(uri), &(ident)); \
-   if (NS_FAILED(rv)) return rv;                              \
+#define XUL_RESOURCE(ident, uri)                             \
+  PR_BEGIN_MACRO                                             \
+  rv = gRDF->GetResource(NS_LITERAL_CSTRING(uri), &(ident)); \
+  if (NS_FAILED(rv)) return rv;                              \
   PR_END_MACRO
 
-#define XUL_LITERAL(ident, val)                                   \
-  PR_BEGIN_MACRO                                                  \
-   rv = gRDF->GetLiteral(val, &(ident));                          \
-   if (NS_FAILED(rv)) return rv;                                  \
+#define XUL_LITERAL(ident, val)         \
+  PR_BEGIN_MACRO                        \
+  rv = gRDF->GetLiteral(val, &(ident)); \
+  if (NS_FAILED(rv)) return rv;         \
   PR_END_MACRO
 
 #include "nsXULResourceList.h"
 #undef XUL_RESOURCE
 #undef XUL_LITERAL
 
-    return NS_OK;
+  return NS_OK;
 }
-
 
 nsresult
 nsXULContentUtils::Finish()
 {
-    NS_IF_RELEASE(gRDF);
+  NS_IF_RELEASE(gRDF);
 
 #define XUL_RESOURCE(ident, uri) NS_IF_RELEASE(ident)
 #define XUL_LITERAL(ident, val) NS_IF_RELEASE(ident)
@@ -98,26 +96,25 @@ nsXULContentUtils::Finish()
 #undef XUL_RESOURCE
 #undef XUL_LITERAL
 
-    NS_IF_RELEASE(gCollation);
+  NS_IF_RELEASE(gCollation);
 
-    return NS_OK;
+  return NS_OK;
 }
 
 nsICollation*
 nsXULContentUtils::GetCollation()
 {
-    if (!gCollation) {
-        nsCOMPtr<nsICollationFactory> colFactory =
-            do_CreateInstance(NS_COLLATIONFACTORY_CONTRACTID);
-        if (colFactory) {
-            DebugOnly<nsresult> rv = colFactory->CreateCollation(&gCollation);
-            NS_ASSERTION(NS_SUCCEEDED(rv),
-                         "couldn't create collation instance");
-        } else
-            NS_ERROR("couldn't create instance of collation factory");
-    }
+  if (!gCollation) {
+    nsCOMPtr<nsICollationFactory> colFactory =
+        do_CreateInstance(NS_COLLATIONFACTORY_CONTRACTID);
+    if (colFactory) {
+      DebugOnly<nsresult> rv = colFactory->CreateCollation(&gCollation);
+      NS_ASSERTION(NS_SUCCEEDED(rv), "couldn't create collation instance");
+    } else
+      NS_ERROR("couldn't create instance of collation factory");
+  }
 
-    return gCollation;
+  return gCollation;
 }
 
 //------------------------------------------------------------------------
@@ -128,21 +125,18 @@ nsXULContentUtils::FindChildByTag(nsIContent* aElement,
                                   nsAtom* aTag,
                                   nsIContent** aResult)
 {
-    for (nsIContent* child = aElement->GetFirstChild();
-         child;
-         child = child->GetNextSibling()) {
+  for (nsIContent* child = aElement->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    if (child->NodeInfo()->Equals(aTag, aNameSpaceID)) {
+      NS_ADDREF(*aResult = child);
 
-        if (child->NodeInfo()->Equals(aTag, aNameSpaceID)) {
-            NS_ADDREF(*aResult = child);
-
-            return NS_OK;
-        }
+      return NS_OK;
     }
+  }
 
-    *aResult = nullptr;
-    return NS_RDF_NO_VALUE; // not found
+  *aResult = nullptr;
+  return NS_RDF_NO_VALUE;  // not found
 }
-
 
 /*
 	Note: this routine is similar, yet distinctly different from, nsBookmarksService::GetTextForNode
@@ -151,165 +145,158 @@ nsXULContentUtils::FindChildByTag(nsIContent* aElement,
 nsresult
 nsXULContentUtils::GetTextForNode(nsIRDFNode* aNode, nsAString& aResult)
 {
-    if (! aNode) {
-        aResult.Truncate();
-        return NS_OK;
-    }
+  if (!aNode) {
+    aResult.Truncate();
+    return NS_OK;
+  }
 
-    nsresult rv;
+  nsresult rv;
 
-    // Literals are the most common, so try these first.
-    nsCOMPtr<nsIRDFLiteral> literal = do_QueryInterface(aNode);
-    if (literal) {
-        const char16_t* p;
-        rv = literal->GetValueConst(&p);
-        if (NS_FAILED(rv)) return rv;
+  // Literals are the most common, so try these first.
+  nsCOMPtr<nsIRDFLiteral> literal = do_QueryInterface(aNode);
+  if (literal) {
+    const char16_t* p;
+    rv = literal->GetValueConst(&p);
+    if (NS_FAILED(rv)) return rv;
 
-        aResult = p;
-        return NS_OK;
-    }
+    aResult = p;
+    return NS_OK;
+  }
 
-    nsCOMPtr<nsIRDFDate> dateLiteral = do_QueryInterface(aNode);
-    if (dateLiteral) {
-        PRTime value;
-        rv = dateLiteral->GetValue(&value);
-        if (NS_FAILED(rv)) return rv;
+  nsCOMPtr<nsIRDFDate> dateLiteral = do_QueryInterface(aNode);
+  if (dateLiteral) {
+    PRTime value;
+    rv = dateLiteral->GetValue(&value);
+    if (NS_FAILED(rv)) return rv;
 
-        nsAutoString str;
-        rv = DateTimeFormat::FormatPRTime(kDateFormatShort,
-                                          kTimeFormatSeconds,
-                                          value,
-                                          str);
+    nsAutoString str;
+    rv = DateTimeFormat::FormatPRTime(
+        kDateFormatShort, kTimeFormatSeconds, value, str);
 
-        aResult.Assign(str);
+    aResult.Assign(str);
 
-        if (NS_FAILED(rv)) return rv;
-
-        return NS_OK;
-    }
-
-    nsCOMPtr<nsIRDFInt> intLiteral = do_QueryInterface(aNode);
-    if (intLiteral) {
-        int32_t	value;
-        rv = intLiteral->GetValue(&value);
-        if (NS_FAILED(rv)) return rv;
-
-        aResult.Truncate();
-        nsAutoString intStr;
-        intStr.AppendInt(value, 10);
-        aResult.Append(intStr);
-        return NS_OK;
-    }
-
-
-    nsCOMPtr<nsIRDFResource> resource = do_QueryInterface(aNode);
-    if (resource) {
-        const char* p;
-        rv = resource->GetValueConst(&p);
-        if (NS_FAILED(rv)) return rv;
-        CopyUTF8toUTF16(p, aResult);
-        return NS_OK;
-    }
-
-    NS_ERROR("not a resource or a literal");
-    return NS_ERROR_UNEXPECTED;
-}
-
-nsresult
-nsXULContentUtils::GetResource(int32_t aNameSpaceID, nsAtom* aAttribute, nsIRDFResource** aResult)
-{
-    // construct a fully-qualified URI from the namespace/tag pair.
-    NS_PRECONDITION(aAttribute != nullptr, "null ptr");
-    if (! aAttribute)
-        return NS_ERROR_NULL_POINTER;
-
-    return GetResource(aNameSpaceID, nsDependentAtomString(aAttribute),
-                       aResult);
-}
-
-
-nsresult
-nsXULContentUtils::GetResource(int32_t aNameSpaceID, const nsAString& aAttribute, nsIRDFResource** aResult)
-{
-    // construct a fully-qualified URI from the namespace/tag pair.
-
-    // XXX should we allow nodes with no namespace???
-    //NS_PRECONDITION(aNameSpaceID != kNameSpaceID_Unknown, "no namespace");
-    //if (aNameSpaceID == kNameSpaceID_Unknown)
-    //    return NS_ERROR_UNEXPECTED;
-
-    nsresult rv;
-
-    nsAutoStringN<256> uri;
-    if (aNameSpaceID != kNameSpaceID_Unknown && aNameSpaceID != kNameSpaceID_None) {
-        rv = nsContentUtils::NameSpaceManager()->GetNameSpaceURI(aNameSpaceID, uri);
-        // XXX ignore failure; treat as "no namespace"
-    }
-
-    // XXX check to see if we need to insert a '/' or a '#'. Oy.
-    if (!uri.IsEmpty()  && uri.Last() != '#' && uri.Last() != '/' && aAttribute.First() != '#')
-        uri.Append(char16_t('#'));
-
-    uri.Append(aAttribute);
-
-    rv = gRDF->GetUnicodeResource(uri, aResult);
-    NS_ASSERTION(NS_SUCCEEDED(rv), "unable to get resource");
     if (NS_FAILED(rv)) return rv;
 
     return NS_OK;
+  }
+
+  nsCOMPtr<nsIRDFInt> intLiteral = do_QueryInterface(aNode);
+  if (intLiteral) {
+    int32_t value;
+    rv = intLiteral->GetValue(&value);
+    if (NS_FAILED(rv)) return rv;
+
+    aResult.Truncate();
+    nsAutoString intStr;
+    intStr.AppendInt(value, 10);
+    aResult.Append(intStr);
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsIRDFResource> resource = do_QueryInterface(aNode);
+  if (resource) {
+    const char* p;
+    rv = resource->GetValueConst(&p);
+    if (NS_FAILED(rv)) return rv;
+    CopyUTF8toUTF16(p, aResult);
+    return NS_OK;
+  }
+
+  NS_ERROR("not a resource or a literal");
+  return NS_ERROR_UNEXPECTED;
 }
 
+nsresult
+nsXULContentUtils::GetResource(int32_t aNameSpaceID,
+                               nsAtom* aAttribute,
+                               nsIRDFResource** aResult)
+{
+  // construct a fully-qualified URI from the namespace/tag pair.
+  NS_PRECONDITION(aAttribute != nullptr, "null ptr");
+  if (!aAttribute) return NS_ERROR_NULL_POINTER;
+
+  return GetResource(aNameSpaceID, nsDependentAtomString(aAttribute), aResult);
+}
 
 nsresult
-nsXULContentUtils::SetCommandUpdater(nsIDocument* aDocument, nsIContent* aElement)
+nsXULContentUtils::GetResource(int32_t aNameSpaceID,
+                               const nsAString& aAttribute,
+                               nsIRDFResource** aResult)
 {
-    // Deal with setting up a 'commandupdater'. Pulls the 'events' and
-    // 'targets' attributes off of aElement, and adds it to the
-    // document's command dispatcher.
-    NS_PRECONDITION(aDocument != nullptr, "null ptr");
-    if (! aDocument)
-        return NS_ERROR_NULL_POINTER;
+  // construct a fully-qualified URI from the namespace/tag pair.
 
-    NS_PRECONDITION(aElement != nullptr, "null ptr");
-    if (! aElement)
-        return NS_ERROR_NULL_POINTER;
+  // XXX should we allow nodes with no namespace???
+  //NS_PRECONDITION(aNameSpaceID != kNameSpaceID_Unknown, "no namespace");
+  //if (aNameSpaceID == kNameSpaceID_Unknown)
+  //    return NS_ERROR_UNEXPECTED;
 
-    nsresult rv;
+  nsresult rv;
 
-    nsCOMPtr<nsIDOMXULDocument> xuldoc = do_QueryInterface(aDocument);
-    NS_ASSERTION(xuldoc != nullptr, "not a xul document");
-    if (! xuldoc)
-        return NS_ERROR_UNEXPECTED;
+  nsAutoStringN<256> uri;
+  if (aNameSpaceID != kNameSpaceID_Unknown &&
+      aNameSpaceID != kNameSpaceID_None) {
+    rv = nsContentUtils::NameSpaceManager()->GetNameSpaceURI(aNameSpaceID, uri);
+    // XXX ignore failure; treat as "no namespace"
+  }
 
-    nsCOMPtr<nsIDOMXULCommandDispatcher> dispatcher;
-    rv = xuldoc->GetCommandDispatcher(getter_AddRefs(dispatcher));
-    NS_ASSERTION(NS_SUCCEEDED(rv), "unable to get dispatcher");
-    if (NS_FAILED(rv)) return rv;
+  // XXX check to see if we need to insert a '/' or a '#'. Oy.
+  if (!uri.IsEmpty() && uri.Last() != '#' && uri.Last() != '/' &&
+      aAttribute.First() != '#')
+    uri.Append(char16_t('#'));
 
-    NS_ASSERTION(dispatcher != nullptr, "no dispatcher");
-    if (! dispatcher)
-        return NS_ERROR_UNEXPECTED;
+  uri.Append(aAttribute);
 
-    nsAutoString events;
-    aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::events, events);
-    if (events.IsEmpty())
-        events.Assign('*');
+  rv = gRDF->GetUnicodeResource(uri, aResult);
+  NS_ASSERTION(NS_SUCCEEDED(rv), "unable to get resource");
+  if (NS_FAILED(rv)) return rv;
 
-    nsAutoString targets;
-    aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::targets, targets);
+  return NS_OK;
+}
 
-    if (targets.IsEmpty())
-        targets.Assign('*');
+nsresult
+nsXULContentUtils::SetCommandUpdater(nsIDocument* aDocument,
+                                     nsIContent* aElement)
+{
+  // Deal with setting up a 'commandupdater'. Pulls the 'events' and
+  // 'targets' attributes off of aElement, and adds it to the
+  // document's command dispatcher.
+  NS_PRECONDITION(aDocument != nullptr, "null ptr");
+  if (!aDocument) return NS_ERROR_NULL_POINTER;
 
-    nsCOMPtr<nsIDOMElement> domelement = do_QueryInterface(aElement);
-    NS_ASSERTION(domelement != nullptr, "not a DOM element");
-    if (! domelement)
-        return NS_ERROR_UNEXPECTED;
+  NS_PRECONDITION(aElement != nullptr, "null ptr");
+  if (!aElement) return NS_ERROR_NULL_POINTER;
 
-    rv = dispatcher->AddCommandUpdater(domelement, events, targets);
-    if (NS_FAILED(rv)) return rv;
+  nsresult rv;
 
-    return NS_OK;
+  nsCOMPtr<nsIDOMXULDocument> xuldoc = do_QueryInterface(aDocument);
+  NS_ASSERTION(xuldoc != nullptr, "not a xul document");
+  if (!xuldoc) return NS_ERROR_UNEXPECTED;
+
+  nsCOMPtr<nsIDOMXULCommandDispatcher> dispatcher;
+  rv = xuldoc->GetCommandDispatcher(getter_AddRefs(dispatcher));
+  NS_ASSERTION(NS_SUCCEEDED(rv), "unable to get dispatcher");
+  if (NS_FAILED(rv)) return rv;
+
+  NS_ASSERTION(dispatcher != nullptr, "no dispatcher");
+  if (!dispatcher) return NS_ERROR_UNEXPECTED;
+
+  nsAutoString events;
+  aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::events, events);
+  if (events.IsEmpty()) events.Assign('*');
+
+  nsAutoString targets;
+  aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::targets, targets);
+
+  if (targets.IsEmpty()) targets.Assign('*');
+
+  nsCOMPtr<nsIDOMElement> domelement = do_QueryInterface(aElement);
+  NS_ASSERTION(domelement != nullptr, "not a DOM element");
+  if (!domelement) return NS_ERROR_UNEXPECTED;
+
+  rv = dispatcher->AddCommandUpdater(domelement, events, targets);
+  if (NS_FAILED(rv)) return rv;
+
+  return NS_OK;
 }
 
 void
@@ -322,6 +309,7 @@ nsXULContentUtils::LogTemplateError(const char* aStr)
   nsCOMPtr<nsIConsoleService> cs = do_GetService(NS_CONSOLESERVICE_CONTRACTID);
   if (cs) {
     cs->LogStringMessage(message.get());
-    MOZ_LOG(gXULTemplateLog, LogLevel::Info, ("Error parsing template: %s", aStr));
+    MOZ_LOG(
+        gXULTemplateLog, LogLevel::Info, ("Error parsing template: %s", aStr));
   }
 }

@@ -22,17 +22,17 @@ static PLHashTable* sTagAtomTable = nullptr;
 // PL_HashTableLookupConst indicates that the value is not found
 #define TABLE_VALUE_OFFSET 1
 
-#define SVG_TAG(_tag, _classname)                                              \
-  nsresult NS_NewSVG##_classname##Element(                                     \
-    nsIContent** aResult,                                                      \
-    already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);                     \
-                                                                               \
-  nsresult NS_NewSVG##_classname##Element(                                     \
-    nsIContent** aResult,                                                      \
-    already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,                      \
-    FromParser aFromParser)                                                    \
-  {                                                                            \
-    return NS_NewSVG##_classname##Element(aResult, mozilla::Move(aNodeInfo));  \
+#define SVG_TAG(_tag, _classname)                                             \
+  nsresult NS_NewSVG##_classname##Element(                                    \
+      nsIContent** aResult,                                                   \
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);                  \
+                                                                              \
+  nsresult NS_NewSVG##_classname##Element(                                    \
+      nsIContent** aResult,                                                   \
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,                   \
+      FromParser aFromParser)                                                 \
+  {                                                                           \
+    return NS_NewSVG##_classname##Element(aResult, mozilla::Move(aNodeInfo)); \
   }
 
 #define SVG_FROM_PARSER_TAG(_tag, _classname)
@@ -47,13 +47,14 @@ NS_NewSVGElement(Element** aResult,
 
 static const SVGContentCreatorFunction sSVGContentCreatorFunctions[] = {
 #define SVG_TAG(_tag, _classname) NS_NewSVG##_classname##Element,
-#define SVG_FROM_PARSER_TAG(_tag, _classname)  NS_NewSVG##_classname##Element,
+#define SVG_FROM_PARSER_TAG(_tag, _classname) NS_NewSVG##_classname##Element,
 #include "SVGTagList.h"
 #undef SVG_TAG
 #undef SVG_FROM_PARSER_TAG
 };
 
-enum SVGTag {
+enum SVGTag
+{
 #define SVG_TAG(_tag, _classname) eSVGTag_##_tag,
 #define SVG_FROM_PARSER_TAG(_tag, _classname) eSVGTag_##_tag,
 #include "SVGTagList.h"
@@ -72,15 +73,20 @@ SVGTagsHashCodeAtom(const void* key)
 void
 SVGElementFactory::Init()
 {
-  sTagAtomTable = PL_NewHashTable(64, SVGTagsHashCodeAtom,
-                                  PL_CompareValues, PL_CompareValues,
-                                  nullptr, nullptr);
+  sTagAtomTable = PL_NewHashTable(64,
+                                  SVGTagsHashCodeAtom,
+                                  PL_CompareValues,
+                                  PL_CompareValues,
+                                  nullptr,
+                                  nullptr);
 
-#define SVG_TAG(_tag, _classname) \
-  PL_HashTableAdd(sTagAtomTable, nsGkAtoms::_tag,\
+#define SVG_TAG(_tag, _classname)  \
+  PL_HashTableAdd(sTagAtomTable,   \
+                  nsGkAtoms::_tag, \
                   NS_INT32_TO_PTR(eSVGTag_##_tag + TABLE_VALUE_OFFSET));
 #define SVG_FROM_PARSER_TAG(_tag, _classname) \
-  PL_HashTableAdd(sTagAtomTable, nsGkAtoms::_tag,\
+  PL_HashTableAdd(sTagAtomTable,              \
+                  nsGkAtoms::_tag,            \
                   NS_INT32_TO_PTR(eSVGTag_##_tag + TABLE_VALUE_OFFSET));
 #include "SVGTagList.h"
 #undef SVG_TAG
@@ -97,7 +103,8 @@ SVGElementFactory::Shutdown()
 }
 
 nsresult
-NS_NewSVGElement(Element** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
+NS_NewSVGElement(Element** aResult,
+                 already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
                  FromParser aFromParser)
 {
   NS_ASSERTION(sTagAtomTable, "no lookup table, needs SVGElementFactory::Init");
@@ -105,8 +112,9 @@ NS_NewSVGElement(Element** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& a
   RefPtr<mozilla::dom::NodeInfo> ni = aNodeInfo;
   nsAtom* name = ni->NameAtom();
 
-  NS_ASSERTION(ni->NamespaceEquals(kNameSpaceID_SVG),
-               "Trying to create SVG elements that aren't in the SVG namespace");
+  NS_ASSERTION(
+      ni->NamespaceEquals(kNameSpaceID_SVG),
+      "Trying to create SVG elements that aren't in the SVG namespace");
 
   void* tag = PL_HashTableLookupConst(sTagAtomTable, name);
   if (tag) {

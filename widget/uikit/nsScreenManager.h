@@ -15,46 +15,59 @@
 
 class UIKitScreen : public nsBaseScreen
 {
-public:
-    explicit UIKitScreen (UIScreen* screen);
-    ~UIKitScreen () {}
+ public:
+  explicit UIKitScreen(UIScreen* screen);
+  ~UIKitScreen() {}
 
-    NS_IMETHOD GetId(uint32_t* outId) {
-        *outId = 0;
-        return NS_OK;
-    }
+  NS_IMETHOD GetId(uint32_t* outId)
+  {
+    *outId = 0;
+    return NS_OK;
+  }
 
-    NS_IMETHOD GetRect(int32_t* aLeft, int32_t* aTop, int32_t* aWidth, int32_t* aHeight);
-    NS_IMETHOD GetAvailRect(int32_t* aLeft, int32_t* aTop, int32_t* aWidth, int32_t* aHeight);
-    NS_IMETHOD GetRectDisplayPix(int32_t* aLeft, int32_t* aTop, int32_t* aWidth, int32_t* aHeight);
-    NS_IMETHOD GetAvailRectDisplayPix(int32_t* aLeft, int32_t* aTop, int32_t* aWidth, int32_t* aHeight);
-    NS_IMETHOD GetPixelDepth(int32_t* aPixelDepth);
-    NS_IMETHOD GetColorDepth(int32_t* aColorDepth);
-    NS_IMETHOD GetContentsScaleFactor(double* aContentsScaleFactor);
-    NS_IMETHOD GetDefaultCSSScaleFactor(double* aScaleFactor)
-    {
-      return GetContentsScaleFactor(aScaleFactor);
-    }
+  NS_IMETHOD GetRect(int32_t* aLeft,
+                     int32_t* aTop,
+                     int32_t* aWidth,
+                     int32_t* aHeight);
+  NS_IMETHOD GetAvailRect(int32_t* aLeft,
+                          int32_t* aTop,
+                          int32_t* aWidth,
+                          int32_t* aHeight);
+  NS_IMETHOD GetRectDisplayPix(int32_t* aLeft,
+                               int32_t* aTop,
+                               int32_t* aWidth,
+                               int32_t* aHeight);
+  NS_IMETHOD GetAvailRectDisplayPix(int32_t* aLeft,
+                                    int32_t* aTop,
+                                    int32_t* aWidth,
+                                    int32_t* aHeight);
+  NS_IMETHOD GetPixelDepth(int32_t* aPixelDepth);
+  NS_IMETHOD GetColorDepth(int32_t* aColorDepth);
+  NS_IMETHOD GetContentsScaleFactor(double* aContentsScaleFactor);
+  NS_IMETHOD GetDefaultCSSScaleFactor(double* aScaleFactor)
+  {
+    return GetContentsScaleFactor(aScaleFactor);
+  }
 
-private:
-    UIScreen* mScreen;
+ private:
+  UIScreen* mScreen;
 };
 
 class UIKitScreenManager : public nsIScreenManager
 {
-public:
-    UIKitScreenManager ();
+ public:
+  UIKitScreenManager();
 
-    NS_DECL_ISUPPORTS
+  NS_DECL_ISUPPORTS
 
-    NS_DECL_NSISCREENMANAGER
+  NS_DECL_NSISCREENMANAGER
 
-    static LayoutDeviceIntRect GetBounds();
+  static LayoutDeviceIntRect GetBounds();
 
-private:
-    virtual ~UIKitScreenManager () {}
-    //TODO: support >1 screen, iPad supports external displays
-    nsCOMPtr<nsIScreen> mScreen;
+ private:
+  virtual ~UIKitScreenManager() {}
+  //TODO: support >1 screen, iPad supports external displays
+  nsCOMPtr<nsIScreen> mScreen;
 };
 
-#endif // nsScreenManager_h_
+#endif  // nsScreenManager_h_

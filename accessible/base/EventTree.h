@@ -23,7 +23,7 @@ namespace a11y {
  */
 class TreeMutation final
 {
-public:
+ public:
   static const bool kNoEvents = true;
   static const bool kNoShutdown = true;
 
@@ -34,9 +34,11 @@ public:
   void BeforeRemoval(Accessible* aChild, bool aNoShutdown = false);
   void Done();
 
-private:
+ private:
   NotificationController* Controller() const
-    { return mParent->Document()->Controller(); }
+  {
+    return mParent->Document()->Controller();
+  }
 
   static EventTree* const kNoEventTree;
 
@@ -58,17 +60,26 @@ private:
 #endif
 };
 
-
 /**
  * A mutation events coalescence structure.
  */
-class EventTree final {
-public:
-  EventTree() :
-    mFirst(nullptr), mNext(nullptr), mContainer(nullptr), mFireReorder(false) { }
-  explicit EventTree(Accessible* aContainer, bool aFireReorder) :
-    mFirst(nullptr), mNext(nullptr), mContainer(aContainer),
-    mFireReorder(aFireReorder) { }
+class EventTree final
+{
+ public:
+  EventTree()
+      : mFirst(nullptr),
+        mNext(nullptr),
+        mContainer(nullptr),
+        mFireReorder(false)
+  {
+  }
+  explicit EventTree(Accessible* aContainer, bool aFireReorder)
+      : mFirst(nullptr),
+        mNext(nullptr),
+        mContainer(aContainer),
+        mFireReorder(aFireReorder)
+  {
+  }
   ~EventTree() { Clear(); }
 
   void Shown(Accessible* aTarget);
@@ -88,7 +99,7 @@ public:
   void Log(uint32_t aLevel = UINT32_MAX) const;
 #endif
 
-private:
+ private:
   /**
    * Processes the event queue and fires events.
    */
@@ -109,13 +120,14 @@ private:
   bool mFireReorder;
 
   static NotificationController* Controller(Accessible* aAcc)
-    { return aAcc->Document()->Controller(); }
+  {
+    return aAcc->Document()->Controller();
+  }
 
   friend class NotificationController;
 };
 
+}  // namespace a11y
+}  // namespace mozilla
 
-} // namespace a11y
-} // namespace mozilla
-
-#endif // mozilla_a11y_EventQueue_h_
+#endif  // mozilla_a11y_EventQueue_h_

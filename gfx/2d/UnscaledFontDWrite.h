@@ -15,39 +15,39 @@ namespace gfx {
 
 class UnscaledFontDWrite final : public UnscaledFont
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(UnscaledFontDWrite, override)
-  explicit UnscaledFontDWrite(const RefPtr<IDWriteFontFace>& aFontFace,
-                              DWRITE_FONT_SIMULATIONS aSimulations =
-                                DWRITE_FONT_SIMULATIONS_NONE,
-                              bool aNeedsCairo = false)
-    : mFontFace(aFontFace)
-    , mSimulations(aSimulations)
-    , mNeedsCairo(aNeedsCairo)
-  {}
+  explicit UnscaledFontDWrite(
+      const RefPtr<IDWriteFontFace>& aFontFace,
+      DWRITE_FONT_SIMULATIONS aSimulations = DWRITE_FONT_SIMULATIONS_NONE,
+      bool aNeedsCairo = false)
+      : mFontFace(aFontFace),
+        mSimulations(aSimulations),
+        mNeedsCairo(aNeedsCairo)
+  {
+  }
 
   FontType GetType() const override { return FontType::DWRITE; }
 
   const RefPtr<IDWriteFontFace> GetFontFace() const { return mFontFace; }
   DWRITE_FONT_SIMULATIONS GetSimulations() const { return mSimulations; }
 
-  bool GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton) override;
+  bool GetFontFileData(FontFileDataOutput aDataCallback, void* aBaton) override;
 
-  already_AddRefed<ScaledFont>
-    CreateScaledFont(Float aGlyphSize,
-                     const uint8_t* aInstanceData,
-                     uint32_t aInstanceDataLength,
-                     const FontVariation* aVariations,
-                     uint32_t aNumVariations) override;
+  already_AddRefed<ScaledFont> CreateScaledFont(
+      Float aGlyphSize,
+      const uint8_t* aInstanceData,
+      uint32_t aInstanceDataLength,
+      const FontVariation* aVariations,
+      uint32_t aNumVariations) override;
 
-private:
+ private:
   RefPtr<IDWriteFontFace> mFontFace;
   DWRITE_FONT_SIMULATIONS mSimulations;
   bool mNeedsCairo;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_UNSCALEDFONTDWRITE_H_ */
-

@@ -46,6 +46,6 @@ TimeManager::Set(double aTime)
   }
 }
 
-} // namespace time
-} // namespace dom
-} // namespace mozilla
+}  // namespace time
+}  // namespace dom
+}  // namespace mozilla

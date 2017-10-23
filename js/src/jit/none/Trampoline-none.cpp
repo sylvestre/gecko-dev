@@ -31,13 +31,12 @@ FrameSizeClass FrameSizeClass::FromDepth(uint32_t) { MOZ_CRASH(); }
 FrameSizeClass FrameSizeClass::ClassLimit() { MOZ_CRASH(); }
 uint32_t FrameSizeClass::frameSize() const { MOZ_CRASH(); }
 
-BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& iter, BailoutStack* bailout)
-{
+BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& iter, BailoutStack* bailout) {
     MOZ_CRASH();
 }
 
-BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& iter, InvalidationBailoutStack* bailout)
-{
+BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& iter,
+                                   InvalidationBailoutStack* bailout) {
     MOZ_CRASH();
 }
 

@@ -14,18 +14,18 @@ namespace mozilla {
 class MediaStream
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaStream)
-private:
-  ~MediaStream() {
-  };
+ private:
+  ~MediaStream(){};
 };
-}
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
 using std::numeric_limits;
 
 // Some simple testing primitives
-void ok(bool val, const char* msg)
+void
+ok(bool val, const char* msg)
 {
   if (!val) {
     fprintf(stderr, "failure: %s", msg);
@@ -35,7 +35,7 @@ void ok(bool val, const char* msg)
 
 namespace std {
 
-template <class T>
+template<class T>
 basic_ostream<T, char_traits<T> >&
 operator<<(basic_ostream<T, char_traits<T> >& os, nsresult rv)
 {
@@ -43,18 +43,20 @@ operator<<(basic_ostream<T, char_traits<T> >& os, nsresult rv)
   return os;
 }
 
-} // namespace std
+}  // namespace std
 
-template <class T, class U>
-void is(const T& a, const U& b, const char* msg)
+template<class T, class U>
+void
+is(const T& a, const U& b, const char* msg)
 {
   std::stringstream ss;
   ss << msg << ", Got: " << a << ", expected: " << b << std::endl;
   ok(a == b, ss.str().c_str());
 }
 
-template <>
-void is(const float& a, const float& b, const char* msg)
+template<>
+void
+is(const float& a, const float& b, const char* msg)
 {
   // stupidly high, since we mostly care about the correctness of the algorithm
   const float kEpsilon = 0.00001f;
@@ -66,20 +68,11 @@ void is(const float& a, const float& b, const char* msg)
 
 class ErrorResultMock
 {
-public:
-  ErrorResultMock()
-    : mRv(NS_OK)
-  {
-  }
-  void Throw(nsresult aRv)
-  {
-    mRv = aRv;
-  }
+ public:
+  ErrorResultMock() : mRv(NS_OK) {}
+  void Throw(nsresult aRv) { mRv = aRv; }
 
-  operator nsresult() const
-  {
-    return mRv;
-  }
+  operator nsresult() const { return mRv; }
 
   ErrorResultMock& operator=(nsresult aRv)
   {
@@ -87,7 +80,7 @@ public:
     return *this;
   }
 
-private:
+ private:
   nsresult mRv;
 };
 
@@ -108,14 +101,8 @@ TEST(AudioEventTimeline, SpecExample)
   }
 
   // This test is copied from the example in the Web Audio spec
-  const double t0 = 0.0,
-               t1 = 0.1,
-               t2 = 0.2,
-               t3 = 0.3,
-               t4 = 0.4,
-               t5 = 0.6,
-               t6 = 0.7,
-               t7 = 1.0;
+  const double t0 = 0.0, t1 = 0.1, t2 = 0.2, t3 = 0.3, t4 = 0.4, t5 = 0.6,
+               t6 = 0.7, t7 = 1.0;
   timeline.SetValueAtTime(0.2f, t0, rv);
   is(rv, NS_OK, "SetValueAtTime succeeded");
   timeline.SetValueAtTime(0.3f, t1, rv);
@@ -142,11 +129,19 @@ TEST(AudioEventTimeline, SpecExample)
   is(timeline.GetValueAtTime(0.3), 1.0f, "Correct value");
   is(timeline.GetValueAtTime(0.35), (1.0f + 0.15f) / 2, "Correct value");
   is(timeline.GetValueAtTime(0.4), 0.15f, "Correct value");
-  is(timeline.GetValueAtTime(0.45), (0.15f * powf(0.75f / 0.15f, 0.05f / 0.2f)), "Correct value");
-  is(timeline.GetValueAtTime(0.5), (0.15f * powf(0.75f / 0.15f, 0.5f)), "Correct value");
-  is(timeline.GetValueAtTime(0.55), (0.15f * powf(0.75f / 0.15f, 0.15f / 0.2f)), "Correct value");
+  is(timeline.GetValueAtTime(0.45),
+     (0.15f * powf(0.75f / 0.15f, 0.05f / 0.2f)),
+     "Correct value");
+  is(timeline.GetValueAtTime(0.5),
+     (0.15f * powf(0.75f / 0.15f, 0.5f)),
+     "Correct value");
+  is(timeline.GetValueAtTime(0.55),
+     (0.15f * powf(0.75f / 0.15f, 0.15f / 0.2f)),
+     "Correct value");
   is(timeline.GetValueAtTime(0.6), 0.75f, "Correct value");
-  is(timeline.GetValueAtTime(0.65), (0.75f * powf(0.05f / 0.75f, 0.5f)), "Correct value");
+  is(timeline.GetValueAtTime(0.65),
+     (0.75f * powf(0.05f / 0.75f, 0.5f)),
+     "Correct value");
   is(timeline.GetValueAtTime(0.7), 0.0f, "Correct value");
   is(timeline.GetValueAtTime(0.85), 1.0f, "Correct value");
   is(timeline.GetValueAtTime(1.0), curve[curveLength - 1], "Correct value");
@@ -156,15 +151,16 @@ TEST(AudioEventTimeline, SpecExample)
 
 TEST(AudioEventTimeline, InvalidEvents)
 {
-  static_assert(numeric_limits<float>::has_quiet_NaN, "Platform must have a quiet NaN");
+  static_assert(numeric_limits<float>::has_quiet_NaN,
+                "Platform must have a quiet NaN");
   const float NaN = numeric_limits<float>::quiet_NaN();
   const float Infinity = numeric_limits<float>::infinity();
   Timeline timeline(10.0f);
 
-  float curve[] = { -1.0f, 0.0f, 1.0f };
-  float badCurve1[] = { -1.0f, NaN, 1.0f };
-  float badCurve2[] = { -1.0f, Infinity, 1.0f };
-  float badCurve3[] = { -1.0f, -Infinity, 1.0f };
+  float curve[] = {-1.0f, 0.0f, 1.0f};
+  float badCurve1[] = {-1.0f, NaN, 1.0f};
+  float badCurve2[] = {-1.0f, Infinity, 1.0f};
+  float badCurve3[] = {-1.0f, -Infinity, 1.0f};
 
   ErrorResultMock rv;
 
@@ -234,11 +230,15 @@ TEST(AudioEventTimeline, EventReplacement)
   timeline.SetValueAtTime(20.0f, 0.1, rv);
   is(rv, NS_OK, "Event scheduling should be successful");
   is(timeline.GetEventCount(), 1u, "Event should be replaced");
-  is(timeline.GetValueAtTime(0.1), 20.0f, "The first event should be overwritten");
+  is(timeline.GetValueAtTime(0.1),
+     20.0f,
+     "The first event should be overwritten");
   timeline.LinearRampToValueAtTime(30.0f, 0.1, rv);
   is(rv, NS_OK, "Event scheduling should be successful");
   is(timeline.GetEventCount(), 2u, "Different event type should be appended");
-  is(timeline.GetValueAtTime(0.1), 30.0f, "The first event should be overwritten");
+  is(timeline.GetValueAtTime(0.1),
+     30.0f,
+     "The first event should be overwritten");
 }
 
 TEST(AudioEventTimeline, EventRemoval)
@@ -253,7 +253,9 @@ TEST(AudioEventTimeline, EventRemoval)
   timeline.LinearRampToValueAtTime(30.0f, 0.3, rv);
   is(timeline.GetEventCount(), 4u, "Should have three events initially");
   timeline.CancelScheduledValues(0.4);
-  is(timeline.GetEventCount(), 4u, "Trying to delete past the end of the array should have no effect");
+  is(timeline.GetEventCount(),
+     4u,
+     "Trying to delete past the end of the array should have no effect");
   timeline.CancelScheduledValues(0.3);
   is(timeline.GetEventCount(), 3u, "Should successfully delete one event");
   timeline.CancelScheduledValues(0.12);
@@ -269,7 +271,9 @@ TEST(AudioEventTimeline, BeforeFirstEventSetValue)
   ErrorResultMock rv;
 
   timeline.SetValueAtTime(20.0f, 1.0, rv);
-  is(timeline.GetValueAtTime(0.5), 10.0f, "Retrun the default value before the first event");
+  is(timeline.GetValueAtTime(0.5),
+     10.0f,
+     "Retrun the default value before the first event");
 }
 
 TEST(AudioEventTimeline, BeforeFirstEventSetTarget)
@@ -279,7 +283,9 @@ TEST(AudioEventTimeline, BeforeFirstEventSetTarget)
   ErrorResultMock rv;
 
   timeline.SetTargetAtTime(20.0f, 1.0, 5.0, rv);
-  is(timeline.GetValueAtTime(0.5), 10.0f, "Retrun the default value before the first event");
+  is(timeline.GetValueAtTime(0.5),
+     10.0f,
+     "Retrun the default value before the first event");
 }
 
 TEST(AudioEventTimeline, BeforeFirstEventLinearRamp)
@@ -289,7 +295,9 @@ TEST(AudioEventTimeline, BeforeFirstEventLinearRamp)
   ErrorResultMock rv;
 
   timeline.LinearRampToValueAtTime(20.0f, 1.0, rv);
-  is(timeline.GetValueAtTime(0.5), 10.0f, "Retrun the default value before the first event");
+  is(timeline.GetValueAtTime(0.5),
+     10.0f,
+     "Retrun the default value before the first event");
 }
 
 TEST(AudioEventTimeline, BeforeFirstEventExponentialRamp)
@@ -299,7 +307,9 @@ TEST(AudioEventTimeline, BeforeFirstEventExponentialRamp)
   ErrorResultMock rv;
 
   timeline.ExponentialRampToValueAtTime(20.0f, 1.0, rv);
-  is(timeline.GetValueAtTime(0.5), 10.0f, "Retrun the default value before the first event");
+  is(timeline.GetValueAtTime(0.5),
+     10.0f,
+     "Retrun the default value before the first event");
 }
 
 TEST(AudioEventTimeline, AfterLastValueEvent)
@@ -309,7 +319,9 @@ TEST(AudioEventTimeline, AfterLastValueEvent)
   ErrorResultMock rv;
 
   timeline.SetValueAtTime(20.0f, 1.0, rv);
-  is(timeline.GetValueAtTime(1.5), 20.0f, "Return the last value after the last SetValue event");
+  is(timeline.GetValueAtTime(1.5),
+     20.0f,
+     "Return the last value after the last SetValue event");
 }
 
 TEST(AudioEventTimeline, AfterLastTargetValueEvent)
@@ -319,7 +331,9 @@ TEST(AudioEventTimeline, AfterLastTargetValueEvent)
   ErrorResultMock rv;
 
   timeline.SetTargetAtTime(20.0f, 1.0, 5.0, rv);
-  is(timeline.GetValueAtTime(10.), (20.f + (10.f - 20.f) * expf(-9.0f / 5.0f)), "Return the value after the last SetTarget event based on the curve");
+  is(timeline.GetValueAtTime(10.),
+     (20.f + (10.f - 20.f) * expf(-9.0f / 5.0f)),
+     "Return the value after the last SetTarget event based on the curve");
 }
 
 TEST(AudioEventTimeline, AfterLastTargetValueEventWithValueSet)
@@ -335,11 +349,14 @@ TEST(AudioEventTimeline, AfterLastTargetValueEventWithValueSet)
   // time t may depend on the time t-1, so we can't just query the value at a
   // time and get the right value. We have to call GetValueAtTime for the
   // previous times.
-  for (double i = 0.0; i < 9.99; i+=0.01) {
+  for (double i = 0.0; i < 9.99; i += 0.01) {
     timeline.GetValueAtTime(i);
   }
 
-  is(timeline.GetValueAtTime(10.), (20.f + (50.f - 20.f) * expf(-9.0f / 5.0f)), "Return the value after SetValue and the last SetTarget event based on the curve");
+  is(timeline.GetValueAtTime(10.),
+     (20.f + (50.f - 20.f) * expf(-9.0f / 5.0f)),
+     "Return the value after SetValue and the last SetTarget event based on "
+     "the curve");
 }
 
 TEST(AudioEventTimeline, Value)
@@ -365,7 +382,9 @@ TEST(AudioEventTimeline, LinearRampAtZero)
   ErrorResultMock rv;
 
   timeline.LinearRampToValueAtTime(20.0f, 0.0, rv);
-  is(timeline.GetValueAtTime(0.0), 20.0f, "Should get the correct value when t0 == t1 == 0");
+  is(timeline.GetValueAtTime(0.0),
+     20.0f,
+     "Should get the correct value when t0 == t1 == 0");
 }
 
 TEST(AudioEventTimeline, ExponentialRampAtZero)
@@ -375,7 +394,9 @@ TEST(AudioEventTimeline, ExponentialRampAtZero)
   ErrorResultMock rv;
 
   timeline.ExponentialRampToValueAtTime(20.0f, 0.0, rv);
-  is(timeline.GetValueAtTime(0.0), 20.0f, "Should get the correct value when t0 == t1 == 0");
+  is(timeline.GetValueAtTime(0.0),
+     20.0f,
+     "Should get the correct value when t0 == t1 == 0");
 }
 
 TEST(AudioEventTimeline, LinearRampAtSameTime)
@@ -386,7 +407,9 @@ TEST(AudioEventTimeline, LinearRampAtSameTime)
 
   timeline.SetValueAtTime(5.0f, 1.0, rv);
   timeline.LinearRampToValueAtTime(20.0f, 1.0, rv);
-  is(timeline.GetValueAtTime(1.0), 20.0f, "Should get the correct value when t0 == t1");
+  is(timeline.GetValueAtTime(1.0),
+     20.0f,
+     "Should get the correct value when t0 == t1");
 }
 
 TEST(AudioEventTimeline, ExponentialRampAtSameTime)
@@ -397,7 +420,9 @@ TEST(AudioEventTimeline, ExponentialRampAtSameTime)
 
   timeline.SetValueAtTime(5.0f, 1.0, rv);
   timeline.ExponentialRampToValueAtTime(20.0f, 1.0, rv);
-  is(timeline.GetValueAtTime(1.0), 20.0f, "Should get the correct value when t0 == t1");
+  is(timeline.GetValueAtTime(1.0),
+     20.0f,
+     "Should get the correct value when t0 == t1");
 }
 
 TEST(AudioEventTimeline, SetTargetZeroTimeConstant)
@@ -407,7 +432,9 @@ TEST(AudioEventTimeline, SetTargetZeroTimeConstant)
   ErrorResultMock rv;
 
   timeline.SetTargetAtTime(20.0f, 1.0, 0.0, rv);
-  is(timeline.GetValueAtTime(1.0), 20.0f, "Should get the correct value when t0 == t1");
+  is(timeline.GetValueAtTime(1.0),
+     20.0f,
+     "Should get the correct value when t0 == t1");
 }
 
 TEST(AudioEventTimeline, ExponentialInvalidPreviousZeroValue)
@@ -439,7 +466,7 @@ TEST(AudioEventTimeline, ExponentialInvalidPreviousZeroValue)
 TEST(AudioEventTimeline, SettingValueCurveTwice)
 {
   Timeline timeline(0.f);
-  float curve[] = { -1.0f, 0.0f, 1.0f };
+  float curve[] = {-1.0f, 0.0f, 1.0f};
 
   ErrorResultMock rv;
 
@@ -447,4 +474,3 @@ TEST(AudioEventTimeline, SettingValueCurveTwice)
   timeline.SetValueCurveAtTime(curve, ArrayLength(curve), 0.0f, 0.3f, rv);
   is(rv, NS_OK, "SetValueCurveAtTime succeeded");
 }
-

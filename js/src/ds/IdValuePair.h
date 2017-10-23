@@ -16,20 +16,13 @@
 
 namespace js {
 
-struct IdValuePair
-{
+struct IdValuePair {
     Value value;
     jsid id;
 
-    IdValuePair()
-      : value(UndefinedValue()), id(JSID_EMPTY)
-    {}
-    explicit IdValuePair(jsid idArg)
-      : value(UndefinedValue()), id(idArg)
-    {}
-    IdValuePair(jsid idArg, const Value& valueArg)
-      : value(valueArg), id(idArg)
-    {}
+    IdValuePair() : value(UndefinedValue()), id(JSID_EMPTY) {}
+    explicit IdValuePair(jsid idArg) : value(UndefinedValue()), id(idArg) {}
+    IdValuePair(jsid idArg, const Value& valueArg) : value(valueArg), id(idArg) {}
 
     void trace(JSTracer* trc) {
         TraceRoot(trc, &value, "IdValuePair::value");

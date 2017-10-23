@@ -21,24 +21,28 @@ using namespace mozilla;
 
 class Task final : public nsIRunnable
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   explicit Task(int i) : mIndex(i) {}
 
   NS_IMETHOD Run() override
   {
-    printf("###(%d) running from thread: %p\n", mIndex, (void *) PR_GetCurrentThread());
-    int r = (int) ((float) rand() * 200 / RAND_MAX);
+    printf("###(%d) running from thread: %p\n",
+           mIndex,
+           (void*)PR_GetCurrentThread());
+    int r = (int)((float)rand() * 200 / RAND_MAX);
     PR_Sleep(PR_MillisecondsToInterval(r));
-    printf("###(%d) exiting from thread: %p\n", mIndex, (void *) PR_GetCurrentThread());
+    printf("###(%d) exiting from thread: %p\n",
+           mIndex,
+           (void*)PR_GetCurrentThread());
     ++sCount;
     return NS_OK;
   }
 
   static mozilla::Atomic<int> sCount;
 
-private:
+ private:
   ~Task() {}
 
   int mIndex;
@@ -73,16 +77,16 @@ TEST(ThreadPool, Parallelism)
   pool->Dispatch(r0, NS_DISPATCH_SYNC);
   PR_Sleep(PR_SecondsToInterval(2));
 
-  class Runnable1 : public Runnable {
-  public:
+  class Runnable1 : public Runnable
+  {
+   public:
     Runnable1(Monitor& aMonitor, bool& aDone)
-      : mozilla::Runnable("Runnable1")
-      , mMonitor(aMonitor)
-      , mDone(aDone)
+        : mozilla::Runnable("Runnable1"), mMonitor(aMonitor), mDone(aDone)
     {
     }
 
-    NS_IMETHOD Run() override {
+    NS_IMETHOD Run() override
+    {
       MonitorAutoLock mon(mMonitor);
       if (!mDone) {
         // Wait for a reasonable timeout since we don't want to block gtests
@@ -92,27 +96,29 @@ TEST(ThreadPool, Parallelism)
       EXPECT_TRUE(mDone);
       return NS_OK;
     }
-  private:
+
+   private:
     Monitor& mMonitor;
     bool& mDone;
   };
 
-  class Runnable2 : public Runnable {
-  public:
+  class Runnable2 : public Runnable
+  {
+   public:
     Runnable2(Monitor& aMonitor, bool& aDone)
-      : mozilla::Runnable("Runnable2")
-      , mMonitor(aMonitor)
-      , mDone(aDone)
+        : mozilla::Runnable("Runnable2"), mMonitor(aMonitor), mDone(aDone)
     {
     }
 
-    NS_IMETHOD Run() override {
+    NS_IMETHOD Run() override
+    {
       MonitorAutoLock mon(mMonitor);
       mDone = true;
       mon.NotifyAll();
       return NS_OK;
     }
-  private:
+
+   private:
     Monitor& mMonitor;
     bool& mDone;
   };

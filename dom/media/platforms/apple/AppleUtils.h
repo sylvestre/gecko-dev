@@ -13,14 +13,11 @@ namespace mozilla {
 
 // Wrapper class to call CFRelease on reference types
 // when they go out of scope.
-template <class T>
+template<class T>
 class AutoCFRelease
 {
-public:
-  MOZ_IMPLICIT AutoCFRelease(T aRef)
-    : mRef(aRef)
-  {
-  }
+ public:
+  MOZ_IMPLICIT AutoCFRelease(T aRef) : mRef(aRef) {}
   ~AutoCFRelease()
   {
     if (mRef) {
@@ -28,37 +25,29 @@ public:
     }
   }
   // Return the wrapped ref so it can be used as an in parameter.
-  operator T()
-  {
-    return mRef;
-  }
+  operator T() { return mRef; }
   // Return a pointer to the wrapped ref for use as an out parameter.
-  T* receive()
-  {
-    return &mRef;
-  }
+  T* receive() { return &mRef; }
 
-private:
+ private:
   // Copy operator isn't supported and is not implemented.
   AutoCFRelease<T>& operator=(const AutoCFRelease<T>&);
   T mRef;
 };
 
 // CFRefPtr: A CoreFoundation smart pointer.
-template <class T>
+template<class T>
 class CFRefPtr
 {
-public:
-  explicit CFRefPtr(T aRef)
-    : mRef(aRef)
+ public:
+  explicit CFRefPtr(T aRef) : mRef(aRef)
   {
     if (mRef) {
       CFRetain(mRef);
     }
   }
   // Copy constructor.
-  CFRefPtr(const CFRefPtr<T>& aCFRefPtr)
-    : mRef(aCFRefPtr.mRef)
+  CFRefPtr(const CFRefPtr<T>& aCFRefPtr) : mRef(aCFRefPtr.mRef)
   {
     if (mRef) {
       CFRetain(mRef);
@@ -86,15 +75,12 @@ public:
     }
   }
   // Return the wrapped ref so it can be used as an in parameter.
-  operator T()
-  {
-    return mRef;
-  }
+  operator T() { return mRef; }
 
-private:
+ private:
   T mRef;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AppleUtils_h
+#endif  // mozilla_AppleUtils_h

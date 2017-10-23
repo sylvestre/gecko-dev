@@ -18,13 +18,14 @@
 
 class ServiceInitializer : public mozilla::Runnable
 {
-public:
+ public:
   ServiceInitializer() : mozilla::Runnable("ServiceInitializer") {}
   NS_IMETHOD Run() override
   {
     // Use an explicit do_GetService instead of getService so that the check in
     // getService doesn't blow up.
-    nsCOMPtr<mozIStorageService> service = do_GetService("@mozilla.org/storage/service;1");
+    nsCOMPtr<mozIStorageService> service =
+        do_GetService("@mozilla.org/storage/service;1");
     do_check_false(service);
     return NS_OK;
   }

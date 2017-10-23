@@ -41,15 +41,15 @@ using namespace workers;
 namespace {
 
 class PrefEnabledRunnable final
-  : public WorkerCheckAPIExposureOnMainThreadRunnable
+    : public WorkerCheckAPIExposureOnMainThreadRunnable
 {
-public:
-  PrefEnabledRunnable(WorkerPrivate* aWorkerPrivate,
-                      const nsCString& aPrefName)
-    : WorkerCheckAPIExposureOnMainThreadRunnable(aWorkerPrivate)
-    , mEnabled(false)
-    , mPrefName(aPrefName)
-  { }
+ public:
+  PrefEnabledRunnable(WorkerPrivate* aWorkerPrivate, const nsCString& aPrefName)
+      : WorkerCheckAPIExposureOnMainThreadRunnable(aWorkerPrivate),
+        mEnabled(false),
+        mPrefName(aPrefName)
+  {
+  }
 
   bool MainThreadRun() override
   {
@@ -58,17 +58,14 @@ public:
     return true;
   }
 
-  bool IsEnabled() const
-  {
-    return mEnabled;
-  }
+  bool IsEnabled() const { return mEnabled; }
 
-private:
+ private:
   bool mEnabled;
   nsCString mPrefName;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Performance)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
@@ -89,7 +86,7 @@ Performance::CreateForMainThread(nsPIDOMWindowInner* aWindow,
   MOZ_ASSERT(NS_IsMainThread());
 
   RefPtr<Performance> performance =
-    new PerformanceMainThread(aWindow, aDOMTiming, aChannel);
+      new PerformanceMainThread(aWindow, aDOMTiming, aChannel);
   return performance.forget();
 }
 
@@ -104,22 +101,21 @@ Performance::CreateForWorker(workers::WorkerPrivate* aWorkerPrivate)
 }
 
 Performance::Performance()
-  : mResourceTimingBufferSize(kDefaultResourceTimingBufferSize)
-  , mPendingNotificationObserversTask(false)
+    : mResourceTimingBufferSize(kDefaultResourceTimingBufferSize),
+      mPendingNotificationObserversTask(false)
 {
   MOZ_ASSERT(!NS_IsMainThread());
 }
 
 Performance::Performance(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mResourceTimingBufferSize(kDefaultResourceTimingBufferSize)
-  , mPendingNotificationObserversTask(false)
+    : DOMEventTargetHelper(aWindow),
+      mResourceTimingBufferSize(kDefaultResourceTimingBufferSize),
+      mPendingNotificationObserversTask(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-Performance::~Performance()
-{}
+Performance::~Performance() {}
 
 DOMHighResTimeStamp
 Performance::Now() const
@@ -176,8 +172,7 @@ Performance::GetEntriesByType(const nsAString& aEntryType,
 
   aRetval.Clear();
 
-  if (aEntryType.EqualsLiteral("mark") ||
-      aEntryType.EqualsLiteral("measure")) {
+  if (aEntryType.EqualsLiteral("mark") || aEntryType.EqualsLiteral("measure")) {
     for (PerformanceEntry* entry : mUserEntries) {
       if (entry->GetEntryType().Equals(aEntryType)) {
         aRetval.AppendElement(entry);
@@ -248,9 +243,8 @@ Performance::RoundTime(double aTime) const
   // Performance implementation.
   const double maxResolutionMs = 0.005;
   return nsRFPService::ReduceTimePrecisionAsMSecs(
-    floor(aTime / maxResolutionMs) * maxResolutionMs);
+      floor(aTime / maxResolutionMs) * maxResolutionMs);
 }
-
 
 void
 Performance::Mark(const nsAString& aName, ErrorResult& aRv)
@@ -266,14 +260,14 @@ Performance::Mark(const nsAString& aName, ErrorResult& aRv)
   }
 
   RefPtr<PerformanceMark> performanceMark =
-    new PerformanceMark(GetParentObject(), aName, Now());
+      new PerformanceMark(GetParentObject(), aName, Now());
   InsertUserEntry(performanceMark);
 
 #ifdef MOZ_GECKO_PROFILER
   if (profiler_is_active()) {
     profiler_add_marker(
-      "UserTiming",
-      MakeUnique<UserTimingMarkerPayload>(aName, TimeStamp::Now()));
+        "UserTiming",
+        MakeUnique<UserTimingMarkerPayload>(aName, TimeStamp::Now()));
   }
 #endif
 }
@@ -285,8 +279,7 @@ Performance::ClearMarks(const Optional<nsAString>& aName)
 }
 
 DOMHighResTimeStamp
-Performance::ResolveTimestampFromName(const nsAString& aName,
-                                      ErrorResult& aRv)
+Performance::ResolveTimestampFromName(const nsAString& aName, ErrorResult& aRv)
 {
   AutoTArray<RefPtr<PerformanceEntry>, 1> arr;
   DOMHighResTimeStamp ts;
@@ -354,18 +347,18 @@ Performance::Measure(const nsAString& aName,
   }
 
   RefPtr<PerformanceMeasure> performanceMeasure =
-    new PerformanceMeasure(GetParentObject(), aName, startTime, endTime);
+      new PerformanceMeasure(GetParentObject(), aName, startTime, endTime);
   InsertUserEntry(performanceMeasure);
 
 #ifdef MOZ_GECKO_PROFILER
   if (profiler_is_active()) {
-    TimeStamp startTimeStamp = CreationTimeStamp() +
-                               TimeDuration::FromMilliseconds(startTime);
-    TimeStamp endTimeStamp = CreationTimeStamp() +
-                             TimeDuration::FromMilliseconds(endTime);
-    profiler_add_marker(
-      "UserTiming",
-      MakeUnique<UserTimingMarkerPayload>(aName, startTimeStamp, endTimeStamp));
+    TimeStamp startTimeStamp =
+        CreationTimeStamp() + TimeDuration::FromMilliseconds(startTime);
+    TimeStamp endTimeStamp =
+        CreationTimeStamp() + TimeDuration::FromMilliseconds(endTime);
+    profiler_add_marker("UserTiming",
+                        MakeUnique<UserTimingMarkerPayload>(
+                            aName, startTimeStamp, endTimeStamp));
   }
 #endif
 }
@@ -390,7 +383,8 @@ Performance::LogEntry(PerformanceEntry* aEntry, const nsACString& aOwner) const
 
 void
 Performance::TimingNotification(PerformanceEntry* aEntry,
-                                const nsACString& aOwner, uint64_t aEpoch)
+                                const nsACString& aOwner,
+                                uint64_t aEpoch)
 {
   PerformanceEntryEventInit init;
   init.mBubbles = false;
@@ -403,7 +397,8 @@ Performance::TimingNotification(PerformanceEntry* aEntry,
   init.mOrigin = NS_ConvertUTF8toUTF16(aOwner.BeginReading());
 
   RefPtr<PerformanceEntryEvent> perfEntryEvent =
-    PerformanceEntryEvent::Constructor(this, NS_LITERAL_STRING("performanceentry"), init);
+      PerformanceEntryEvent::Constructor(
+          this, NS_LITERAL_STRING("performanceentry"), init);
 
   nsCOMPtr<EventTarget> et = do_QueryInterface(GetOwner());
   if (et) {
@@ -415,8 +410,7 @@ Performance::TimingNotification(PerformanceEntry* aEntry,
 void
 Performance::InsertUserEntry(PerformanceEntry* aEntry)
 {
-  mUserEntries.InsertElementSorted(aEntry,
-                                   PerformanceEntryComparator());
+  mUserEntries.InsertElementSorted(aEntry, PerformanceEntryComparator());
 
   QueueEntry(aEntry);
 }
@@ -442,8 +436,7 @@ Performance::InsertResourceEntry(PerformanceEntry* aEntry)
     return;
   }
 
-  mResourceEntries.InsertElementSorted(aEntry,
-                                       PerformanceEntryComparator());
+  mResourceEntries.InsertElementSorted(aEntry, PerformanceEntryComparator());
   if (mResourceEntries.Length() == mResourceTimingBufferSize) {
     // call onresourcetimingbufferfull
     DispatchBufferFullEvent();
@@ -467,9 +460,8 @@ void
 Performance::NotifyObservers()
 {
   mPendingNotificationObserversTask = false;
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers,
-                                           PerformanceObserver,
-                                           Notify, ());
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(
+      mObservers, PerformanceObserver, Notify, ());
 }
 
 void
@@ -480,10 +472,10 @@ Performance::CancelNotificationObservers()
 
 class NotifyObserversTask final : public CancelableRunnable
 {
-public:
+ public:
   explicit NotifyObserversTask(Performance* aPerformance)
-    : CancelableRunnable("dom::NotifyObserversTask")
-    , mPerformance(aPerformance)
+      : CancelableRunnable("dom::NotifyObserversTask"),
+        mPerformance(aPerformance)
   {
     MOZ_ASSERT(mPerformance);
   }
@@ -502,10 +494,8 @@ public:
     return NS_OK;
   }
 
-private:
-  ~NotifyObserversTask()
-  {
-  }
+ private:
+  ~NotifyObserversTask() {}
 
   RefPtr<Performance> mPerformance;
 };
@@ -527,9 +517,8 @@ Performance::QueueEntry(PerformanceEntry* aEntry)
   if (mObservers.IsEmpty()) {
     return;
   }
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers,
-                                           PerformanceObserver,
-                                           QueueEntry, (aEntry));
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(
+      mObservers, PerformanceObserver, QueueEntry, (aEntry));
 
   if (!mPendingNotificationObserversTask) {
     RunNotificationObserversTask();
@@ -547,9 +536,8 @@ Performance::IsObserverEnabled(JSContext* aCx, JSObject* aGlobal)
   MOZ_ASSERT(workerPrivate);
   workerPrivate->AssertIsOnWorkerThread();
 
-  RefPtr<PrefEnabledRunnable> runnable =
-    new PrefEnabledRunnable(workerPrivate,
-                            NS_LITERAL_CSTRING("dom.enable_performance_observer"));
+  RefPtr<PrefEnabledRunnable> runnable = new PrefEnabledRunnable(
+      workerPrivate, NS_LITERAL_CSTRING("dom.enable_performance_observer"));
 
   return runnable->Dispatch() && runnable->IsEnabled();
 }
@@ -580,5 +568,5 @@ Performance::SizeOfResourceEntries(mozilla::MallocSizeOf aMallocSizeOf) const
   return resourceEntries;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

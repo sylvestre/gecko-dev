@@ -12,9 +12,7 @@ using namespace mozilla::dom;
 
 SameProcessMessageQueue* SameProcessMessageQueue::sSingleton;
 
-SameProcessMessageQueue::SameProcessMessageQueue()
-{
-}
+SameProcessMessageQueue::SameProcessMessageQueue() {}
 
 SameProcessMessageQueue::~SameProcessMessageQueue()
 {
@@ -52,10 +50,7 @@ SameProcessMessageQueue::Get()
   return sSingleton;
 }
 
-SameProcessMessageQueue::Runnable::Runnable()
- : mDispatched(false)
-{
-}
+SameProcessMessageQueue::Runnable::Runnable() : mDispatched(false) {}
 
 NS_IMPL_ISUPPORTS(SameProcessMessageQueue::Runnable, nsIRunnable)
 

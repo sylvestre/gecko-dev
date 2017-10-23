@@ -54,11 +54,12 @@ struct MicrodumpExtraInfo;
 //     version (e.g., WebView:42.0.2311.136).
 //
 // Returns true iff successful.
-bool WriteMicrodump(pid_t crashing_process,
-                    const void* blob,
-                    size_t blob_size,
-                    const MappingList& mappings,
-                    const MicrodumpExtraInfo& microdump_extra_info);
+bool
+WriteMicrodump(pid_t crashing_process,
+               const void* blob,
+               size_t blob_size,
+               const MappingList& mappings,
+               const MicrodumpExtraInfo& microdump_extra_info);
 
 }  // namespace google_breakpad
 

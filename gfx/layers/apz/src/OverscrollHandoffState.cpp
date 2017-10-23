@@ -6,7 +6,7 @@
 
 #include "OverscrollHandoffState.h"
 
-#include <algorithm>              // for std::stable_sort
+#include <algorithm>  // for std::stable_sort
 #include "mozilla/Assertions.h"
 #include "AsyncPanZoomController.h"
 
@@ -102,7 +102,8 @@ OverscrollHandoffChain::ClearOverscroll() const
 }
 
 void
-OverscrollHandoffChain::SnapBackOverscrolledApzc(const AsyncPanZoomController* aStart) const
+OverscrollHandoffChain::SnapBackOverscrolledApzc(
+    const AsyncPanZoomController* aStart) const
 {
   uint32_t i = IndexOf(aStart);
   for (; i < Length(); ++i) {
@@ -131,8 +132,8 @@ OverscrollHandoffChain::CanBePanned(const AsyncPanZoomController* aApzc) const
 }
 
 bool
-OverscrollHandoffChain::CanScrollInDirection(const AsyncPanZoomController* aApzc,
-                                             ScrollDirection aDirection) const
+OverscrollHandoffChain::CanScrollInDirection(
+    const AsyncPanZoomController* aApzc, ScrollDirection aDirection) const
 {
   // Find |aApzc| in the handoff chain.
   uint32_t i = IndexOf(aApzc);
@@ -171,5 +172,5 @@ OverscrollHandoffChain::FindFirstScrollable(const InputData& aInput) const
   return nullptr;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

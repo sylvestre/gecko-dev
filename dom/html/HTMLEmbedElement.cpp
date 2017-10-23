@@ -22,15 +22,14 @@
 #endif
 #include "mozilla/dom/HTMLObjectElement.h"
 
-
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Embed)
 
 namespace mozilla {
 namespace dom {
 
-HTMLEmbedElement::HTMLEmbedElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                                   FromParser aFromParser)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLEmbedElement::HTMLEmbedElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo, FromParser aFromParser)
+    : nsGenericHTMLElement(aNodeInfo)
 {
   RegisterActivityObserver();
   SetIsNetworkCreated(aFromParser == FROM_PARSER_NETWORK);
@@ -52,7 +51,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(HTMLEmbedElement)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(HTMLEmbedElement,
                                                   nsGenericHTMLElement)
-nsObjectLoadingContent::Traverse(tmp, cb);
+  nsObjectLoadingContent::Traverse(tmp, cb);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLEmbedElement,
@@ -77,7 +76,7 @@ HTMLEmbedElement::PostHandleEvent(EventChainPostVisitor& aVisitor)
   return NS_OK;
 }
 
-#endif // #ifdef XP_MACOSX
+#endif  // #ifdef XP_MACOSX
 
 void
 HTMLEmbedElement::AsyncEventRunning(AsyncEventDispatcher* aEvent)
@@ -86,19 +85,17 @@ HTMLEmbedElement::AsyncEventRunning(AsyncEventDispatcher* aEvent)
 }
 
 nsresult
-HTMLEmbedElement::BindToTree(nsIDocument *aDocument,
-                             nsIContent *aParent,
-                             nsIContent *aBindingParent,
+HTMLEmbedElement::BindToTree(nsIDocument* aDocument,
+                             nsIContent* aParent,
+                             nsIContent* aBindingParent,
                              bool aCompileEventHandlers)
 {
-  nsresult rv = nsGenericHTMLElement::BindToTree(aDocument, aParent,
-                                                 aBindingParent,
-                                                 aCompileEventHandlers);
+  nsresult rv = nsGenericHTMLElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = nsObjectLoadingContent::BindToTree(aDocument, aParent,
-                                          aBindingParent,
-                                          aCompileEventHandlers);
+  rv = nsObjectLoadingContent::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Don't kick off load from being bound to a plugin document - the plugin
@@ -108,16 +105,15 @@ HTMLEmbedElement::BindToTree(nsIDocument *aDocument,
 
   if (!pluginDoc) {
     void (HTMLEmbedElement::*start)() = &HTMLEmbedElement::StartObjectLoad;
-    nsContentUtils::AddScriptRunner(NewRunnableMethod(
-                                      "dom::HTMLEmbedElement::BindToTree", this, start));
+    nsContentUtils::AddScriptRunner(
+        NewRunnableMethod("dom::HTMLEmbedElement::BindToTree", this, start));
   }
 
   return NS_OK;
 }
 
 void
-HTMLEmbedElement::UnbindFromTree(bool aDeep,
-                                 bool aNullParent)
+HTMLEmbedElement::UnbindFromTree(bool aDeep, bool aNullParent)
 {
 #ifdef XP_MACOSX
   // When a page is reloaded (when an nsIDocument's content is removed), the
@@ -132,7 +128,8 @@ HTMLEmbedElement::UnbindFromTree(bool aDeep,
 }
 
 nsresult
-HTMLEmbedElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLEmbedElement::AfterSetAttr(int32_t aNamespaceID,
+                               nsAtom* aName,
                                const nsAttrValue* aValue,
                                const nsAttrValue* aOldValue,
                                nsIPrincipal* aSubjectPrincipal,
@@ -143,8 +140,8 @@ HTMLEmbedElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(aNamespaceID, aName, aValue,
-                                            aOldValue, aSubjectPrincipal, aNotify);
+  return nsGenericHTMLElement::AfterSetAttr(
+      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 nsresult
@@ -156,8 +153,8 @@ HTMLEmbedElement::OnAttrSetButNotChanged(int32_t aNamespaceID,
   nsresult rv = AfterMaybeChangeAttr(aNamespaceID, aName, aNotify);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return nsGenericHTMLElement::OnAttrSetButNotChanged(aNamespaceID, aName,
-                                                      aValue, aNotify);
+  return nsGenericHTMLElement::OnAttrSetButNotChanged(
+      aNamespaceID, aName, aValue, aNotify);
 }
 
 nsresult
@@ -174,8 +171,7 @@ HTMLEmbedElement::AfterMaybeChangeAttr(int32_t aNamespaceID,
       // We also don't want to start loading the object when we're not yet in
       // a document, just in case that the caller wants to set additional
       // attributes before inserting the node into the document.
-      if (aNotify && IsInComposedDoc() &&
-          !BlockEmbedOrObjectContentLoading()) {
+      if (aNotify && IsInComposedDoc() && !BlockEmbedOrObjectContentLoading()) {
         nsresult rv = LoadObject(aNotify, true);
         NS_ENSURE_SUCCESS(rv, rv);
       }
@@ -187,8 +183,8 @@ HTMLEmbedElement::AfterMaybeChangeAttr(int32_t aNamespaceID,
 
 bool
 HTMLEmbedElement::IsHTMLFocusable(bool aWithMouse,
-                                  bool *aIsFocusable,
-                                  int32_t *aTabIndex)
+                                  bool* aIsFocusable,
+                                  int32_t* aTabIndex)
 {
   // Has plugin content: let the plugin decide what to do in terms of
   // internal focus from mouse clicks
@@ -220,9 +216,9 @@ HTMLEmbedElement::TabIndexDefault()
 
 bool
 HTMLEmbedElement::ParseAttribute(int32_t aNamespaceID,
-                                 nsAtom *aAttribute,
-                                 const nsAString &aValue,
-                                 nsAttrValue &aResult)
+                                 nsAtom* aAttribute,
+                                 const nsAString& aValue,
+                                 nsAttrValue& aResult)
 {
   if (aNamespaceID == kNameSpaceID_None) {
     if (aAttribute == nsGkAtoms::align) {
@@ -233,12 +229,12 @@ HTMLEmbedElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 static void
-MapAttributesIntoRuleBase(const nsMappedAttributes *aAttributes,
+MapAttributesIntoRuleBase(const nsMappedAttributes* aAttributes,
                           GenericSpecifiedValues* aData)
 {
   nsGenericHTMLElement::MapImageBorderAttributeInto(aAttributes, aData);
@@ -248,7 +244,7 @@ MapAttributesIntoRuleBase(const nsMappedAttributes *aAttributes,
 }
 
 static void
-MapAttributesIntoRuleExceptHidden(const nsMappedAttributes *aAttributes,
+MapAttributesIntoRuleExceptHidden(const nsMappedAttributes* aAttributes,
                                   GenericSpecifiedValues* aData)
 {
   MapAttributesIntoRuleBase(aAttributes, aData);
@@ -256,7 +252,7 @@ MapAttributesIntoRuleExceptHidden(const nsMappedAttributes *aAttributes,
 }
 
 void
-HTMLEmbedElement::MapAttributesIntoRule(const nsMappedAttributes *aAttributes,
+HTMLEmbedElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                         GenericSpecifiedValues* aData)
 {
   MapAttributesIntoRuleBase(aAttributes, aData);
@@ -264,18 +260,17 @@ HTMLEmbedElement::MapAttributesIntoRule(const nsMappedAttributes *aAttributes,
 }
 
 NS_IMETHODIMP_(bool)
-HTMLEmbedElement::IsAttributeMapped(const nsAtom *aAttribute) const
+HTMLEmbedElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   static const MappedAttributeEntry* const map[] = {
-    sCommonAttributeMap,
-    sImageMarginSizeAttributeMap,
-    sImageBorderAttributeMap,
-    sImageAlignAttributeMap,
+      sCommonAttributeMap,
+      sImageMarginSizeAttributeMap,
+      sImageBorderAttributeMap,
+      sImageAlignAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
 }
-
 
 nsMapRuleToAttributesFunc
 HTMLEmbedElement::GetAttributeMappingFunction() const
@@ -306,7 +301,8 @@ HTMLEmbedElement::IntrinsicState() const
 uint32_t
 HTMLEmbedElement::GetCapabilities() const
 {
-  return eSupportPlugins | eAllowPluginSkipChannel | eSupportImages | eSupportDocuments;
+  return eSupportPlugins | eAllowPluginSkipChannel | eSupportImages |
+         eSupportDocuments;
 }
 
 void
@@ -349,5 +345,5 @@ HTMLEmbedElement::GetContentPolicyType() const
   return nsIContentPolicy::TYPE_INTERNAL_EMBED;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

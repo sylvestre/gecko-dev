@@ -14,8 +14,8 @@
 #include "mozilla/Telemetry.h"
 #include "nsThreadUtils.h"
 
-using std::vector;
 using std::string;
+using std::vector;
 
 using mozilla::ipc::BrowserProcessSubThread;
 using mozilla::ipc::GeckoChildProcessHost;
@@ -26,13 +26,14 @@ using mozilla::plugins::PluginProcessParent;
 PluginProcessParent::PidSet* PluginProcessParent::sPidSet = nullptr;
 #endif
 
-PluginProcessParent::PluginProcessParent(const std::string& aPluginFilePath) :
-      GeckoChildProcessHost(GeckoProcessType_Plugin)
-    , mPluginFilePath(aPluginFilePath)
-    , mTaskFactory(this)
-    , mMainMsgLoop(MessageLoop::current())
+PluginProcessParent::PluginProcessParent(const std::string& aPluginFilePath)
+    : GeckoChildProcessHost(GeckoProcessType_Plugin),
+      mPluginFilePath(aPluginFilePath),
+      mTaskFactory(this),
+      mMainMsgLoop(MessageLoop::current())
 #ifdef XP_WIN
-    , mChildPid(0)
+      ,
+      mChildPid(0)
 #endif
 {
 }
@@ -40,39 +41,40 @@ PluginProcessParent::PluginProcessParent(const std::string& aPluginFilePath) :
 PluginProcessParent::~PluginProcessParent()
 {
 #ifdef XP_WIN
-    if (sPidSet && mChildPid) {
-        sPidSet->RemoveEntry(mChildPid);
-        if (sPidSet->IsEmpty()) {
-            delete sPidSet;
-            sPidSet = nullptr;
-        }
+  if (sPidSet && mChildPid) {
+    sPidSet->RemoveEntry(mChildPid);
+    if (sPidSet->IsEmpty()) {
+      delete sPidSet;
+      sPidSet = nullptr;
     }
+  }
 #endif
 }
 
 bool
-PluginProcessParent::Launch(mozilla::UniquePtr<LaunchCompleteTask> aLaunchCompleteTask,
-                            int32_t aSandboxLevel)
+PluginProcessParent::Launch(
+    mozilla::UniquePtr<LaunchCompleteTask> aLaunchCompleteTask,
+    int32_t aSandboxLevel)
 {
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-    mSandboxLevel = aSandboxLevel;
+  mSandboxLevel = aSandboxLevel;
 #else
-    if (aSandboxLevel != 0) {
-        MOZ_ASSERT(false,
-                   "Can't enable an NPAPI process sandbox for platform/build.");
-    }
+  if (aSandboxLevel != 0) {
+    MOZ_ASSERT(false,
+               "Can't enable an NPAPI process sandbox for platform/build.");
+  }
 #endif
 
-    mLaunchCompleteTask = mozilla::Move(aLaunchCompleteTask);
+  mLaunchCompleteTask = mozilla::Move(aLaunchCompleteTask);
 
-    vector<string> args;
-    args.push_back(MungePluginDsoPath(mPluginFilePath));
+  vector<string> args;
+  args.push_back(MungePluginDsoPath(mPluginFilePath));
 
-    bool result = AsyncLaunch(args);
-    if (!result) {
-        mLaunchCompleteTask = nullptr;
-    }
-    return result;
+  bool result = AsyncLaunch(args);
+  if (!result) {
+    mLaunchCompleteTask = nullptr;
+  }
+  return result;
 }
 
 void
@@ -82,14 +84,14 @@ PluginProcessParent::Delete()
   MessageLoop* ioLoop = XRE_GetIOMessageLoop();
 
   if (currentLoop == ioLoop) {
-      delete this;
-      return;
+    delete this;
+    return;
   }
 
   ioLoop->PostTask(
-    NewNonOwningRunnableMethod("plugins::PluginProcessParent::Delete",
-                               this,
-                               &PluginProcessParent::Delete));
+      NewNonOwningRunnableMethod("plugins::PluginProcessParent::Delete",
+                                 this,
+                                 &PluginProcessParent::Delete));
 }
 
 /**
@@ -102,59 +104,60 @@ PluginProcessParent::Delete()
 void
 PluginProcessParent::RunLaunchCompleteTask()
 {
-    if (mLaunchCompleteTask) {
-        mLaunchCompleteTask->Run();
-        mLaunchCompleteTask = nullptr;
-    }
+  if (mLaunchCompleteTask) {
+    mLaunchCompleteTask->Run();
+    mLaunchCompleteTask = nullptr;
+  }
 }
 
 bool
 PluginProcessParent::WaitUntilConnected(int32_t aTimeoutMs)
 {
-    bool result = GeckoChildProcessHost::WaitUntilConnected(aTimeoutMs);
-    if (mLaunchCompleteTask) {
-        if (result) {
-            mLaunchCompleteTask->SetLaunchSucceeded();
-        }
-        RunLaunchCompleteTask();
+  bool result = GeckoChildProcessHost::WaitUntilConnected(aTimeoutMs);
+  if (mLaunchCompleteTask) {
+    if (result) {
+      mLaunchCompleteTask->SetLaunchSucceeded();
     }
-    return result;
+    RunLaunchCompleteTask();
+  }
+  return result;
 }
 
 void
 PluginProcessParent::OnChannelConnected(int32_t peer_pid)
 {
 #ifdef XP_WIN
-    mChildPid = static_cast<uint32_t>(peer_pid);
-    if (!sPidSet) {
-        sPidSet = new PluginProcessParent::PidSet();
-    }
-    sPidSet->PutEntry(mChildPid);
+  mChildPid = static_cast<uint32_t>(peer_pid);
+  if (!sPidSet) {
+    sPidSet = new PluginProcessParent::PidSet();
+  }
+  sPidSet->PutEntry(mChildPid);
 #endif
 
-    GeckoChildProcessHost::OnChannelConnected(peer_pid);
+  GeckoChildProcessHost::OnChannelConnected(peer_pid);
 }
 
 void
 PluginProcessParent::OnChannelError()
 {
-    GeckoChildProcessHost::OnChannelError();
+  GeckoChildProcessHost::OnChannelError();
 }
 
 bool
 PluginProcessParent::IsConnected()
 {
-    mozilla::MonitorAutoLock lock(mMonitor);
-    return mProcessState == PROCESS_CONNECTED;
+  mozilla::MonitorAutoLock lock(mMonitor);
+  return mProcessState == PROCESS_CONNECTED;
 }
 
 bool
-PluginProcessParent::IsPluginProcessId(base::ProcessId procId) {
+PluginProcessParent::IsPluginProcessId(base::ProcessId procId)
+{
 #ifdef XP_WIN
-    MOZ_ASSERT(XRE_IsParentProcess());
-    return sPidSet && sPidSet->Contains(static_cast<uint32_t>(procId));
+  MOZ_ASSERT(XRE_IsParentProcess());
+  return sPidSet && sPidSet->Contains(static_cast<uint32_t>(procId));
 #else
-    NS_ERROR("IsPluginProcessId not available on this platform.");
-    return false;
+  NS_ERROR("IsPluginProcessId not available on this platform.");
+  return false;
 #endif
 }

@@ -9,32 +9,24 @@
 
 using namespace JS;
 
-static void
-ScriptCallback(JSRuntime* rt, void* data, JSScript* script)
-{
+static void ScriptCallback(JSRuntime* rt, void* data, JSScript* script) {
     unsigned& count = *static_cast<unsigned*>(data);
-    if (script->hasIonScript())
-        ++count;
+    if (script->hasIonScript()) ++count;
 }
 
-BEGIN_TEST(test_PreserveJitCode)
-{
+BEGIN_TEST(test_PreserveJitCode) {
     CHECK(testPreserveJitCode(false, 0));
     CHECK(testPreserveJitCode(true, 1));
     return true;
 }
 
-unsigned
-countIonScripts(JSObject* global)
-{
+unsigned countIonScripts(JSObject* global) {
     unsigned count = 0;
     js::IterateScripts(cx, global->compartment(), &count, ScriptCallback);
     return count;
 }
 
-bool
-testPreserveJitCode(bool preserveJitCode, unsigned remainingIonScripts)
-{
+bool testPreserveJitCode(bool preserveJitCode, unsigned remainingIonScripts) {
     cx->options().setBaseline(true);
     cx->options().setIon(true);
     cx->runtime()->setOffthreadIonCompilationEnabled(false);
@@ -48,8 +40,7 @@ testPreserveJitCode(bool preserveJitCode, unsigned remainingIonScripts)
     // countIonScripts(global) == 0. Once Ion is enabled for ARM64, this test
     // should be passing again, and this code can be deleted.
     // Bug 1208526 - ARM64: Reenable jsapi-tests/testPreserveJitCode once Ion is enabled
-    if (!js::jit::IsIonEnabled(cx))
-        knownFail = true;
+    if (!js::jit::IsIonEnabled(cx)) knownFail = true;
 #endif
 
     CHECK_EQUAL(countIonScripts(global), 0u);
@@ -68,8 +59,8 @@ testPreserveJitCode(bool preserveJitCode, unsigned remainingIonScripts)
     JS::CompileOptions options(cx);
     options.setFileAndLine(__FILE__, 1);
     JS::AutoObjectVector emptyScopeChain(cx);
-    CHECK(JS::CompileFunction(cx, emptyScopeChain, options, "f", 0, nullptr,
-			      source, length, &fun));
+    CHECK(
+        JS::CompileFunction(cx, emptyScopeChain, options, "f", 0, nullptr, source, length, &fun));
 
     RootedValue value(cx);
     for (unsigned i = 0; i < 1500; ++i)
@@ -86,9 +77,7 @@ testPreserveJitCode(bool preserveJitCode, unsigned remainingIonScripts)
     return true;
 }
 
-JSObject*
-createTestGlobal(bool preserveJitCode)
-{
+JSObject* createTestGlobal(bool preserveJitCode) {
     JS::CompartmentOptions options;
     options.creationOptions().setPreserveJitCode(preserveJitCode);
     options.behaviors().setVersion(JSVERSION_DEFAULT);

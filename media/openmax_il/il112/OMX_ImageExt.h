@@ -42,10 +42,9 @@ extern "C" {
 
 /** Enum for standard image codingtype extensions */
 typedef enum OMX_IMAGE_CODINGEXTTYPE {
-    OMX_IMAGE_CodingExtUnused = OMX_IMAGE_CodingKhronosExtensions,
-    OMX_IMAGE_CodingWEBP,         /**< WebP image format */
+  OMX_IMAGE_CodingExtUnused = OMX_IMAGE_CodingKhronosExtensions,
+  OMX_IMAGE_CodingWEBP, /**< WebP image format */
 } OMX_IMAGE_CODINGEXTTYPE;
-
 
 #ifdef __cplusplus
 }

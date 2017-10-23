@@ -18,31 +18,37 @@
 
 class nsOSHelperAppService : public nsExternalHelperAppService
 {
-public:
+ public:
   nsOSHelperAppService();
   virtual ~nsOSHelperAppService();
 
   // override nsIExternalProtocolService methods
-  NS_IMETHOD GetApplicationDescription(const nsACString& aScheme, nsAString& _retval);
-  
-  // method overrides --> used to hook the mime service into internet config....
-  NS_IMETHOD GetFromTypeAndExtension(const nsACString& aType, const nsACString& aFileExt, nsIMIMEInfo ** aMIMEInfo);
-  already_AddRefed<nsIMIMEInfo> GetMIMEInfoFromOS(const nsACString& aMIMEType, const nsACString& aFileExt, bool * aFound);
-  NS_IMETHOD GetProtocolHandlerInfoFromOS(const nsACString &aScheme,
-                                          bool *found,
-                                          nsIHandlerInfo **_retval);
+  NS_IMETHOD GetApplicationDescription(const nsACString& aScheme,
+                                       nsAString& _retval);
 
-  // GetFileTokenForPath must be implemented by each platform. 
-  // platformAppPath --> a platform specific path to an application that we got out of the 
+  // method overrides --> used to hook the mime service into internet config....
+  NS_IMETHOD GetFromTypeAndExtension(const nsACString& aType,
+                                     const nsACString& aFileExt,
+                                     nsIMIMEInfo** aMIMEInfo);
+  already_AddRefed<nsIMIMEInfo> GetMIMEInfoFromOS(const nsACString& aMIMEType,
+                                                  const nsACString& aFileExt,
+                                                  bool* aFound);
+  NS_IMETHOD GetProtocolHandlerInfoFromOS(const nsACString& aScheme,
+                                          bool* found,
+                                          nsIHandlerInfo** _retval);
+
+  // GetFileTokenForPath must be implemented by each platform.
+  // platformAppPath --> a platform specific path to an application that we got out of the
   //                     rdf data source. This can be a mac file spec, a unix path or a windows path depending on the platform
   // aFile --> an nsIFile representation of that platform application path.
-  virtual MOZ_MUST_USE nsresult GetFileTokenForPath(const char16_t * platformAppPath, nsIFile ** aFile);
+  virtual MOZ_MUST_USE nsresult
+  GetFileTokenForPath(const char16_t* platformAppPath, nsIFile** aFile);
 
-  MOZ_MUST_USE nsresult OSProtocolHandlerExists(const char * aScheme,
-                                                bool * aHandlerExists);
+  MOZ_MUST_USE nsresult OSProtocolHandlerExists(const char* aScheme,
+                                                bool* aHandlerExists);
 
-private:
+ private:
   uint32_t mPermissions;
 };
 
-#endif // nsOSHelperAppService_h__
+#endif  // nsOSHelperAppService_h__

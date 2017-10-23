@@ -34,9 +34,7 @@ nsIWidgetListener::GetPresShell()
 }
 
 bool
-nsIWidgetListener::WindowMoved(nsIWidget* aWidget,
-                               int32_t aX,
-                               int32_t aY)
+nsIWidgetListener::WindowMoved(nsIWidget* aWidget, int32_t aX, int32_t aY)
 {
   return false;
 }
@@ -134,8 +132,7 @@ nsIWidgetListener::RequestRepaint()
 }
 
 nsEventStatus
-nsIWidgetListener::HandleEvent(WidgetGUIEvent* aEvent,
-                               bool aUseAttachedEvents)
+nsIWidgetListener::HandleEvent(WidgetGUIEvent* aEvent, bool aUseAttachedEvents)
 {
   return nsEventStatus_eIgnore;
 }

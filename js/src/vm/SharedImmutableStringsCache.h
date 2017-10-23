@@ -11,7 +11,7 @@
 #include "mozilla/UniquePtr.h"
 
 #include <cstring>
-#include <new> // for placement new
+#include <new>  // for placement new
 
 #include "jsstr.h"
 
@@ -37,13 +37,12 @@ class SharedImmutableTwoByteString;
  * reference counts. It is only safe to perform any mutation on the cache or any
  * data stored within the cache when this lock is acquired.
  */
-class SharedImmutableStringsCache
-{
+class SharedImmutableStringsCache {
     friend class SharedImmutableString;
     friend class SharedImmutableTwoByteString;
     struct Hasher;
 
-  public:
+   public:
     using OwnedChars = mozilla::UniquePtr<char[], JS::FreePolicy>;
     using OwnedTwoByteChars = mozilla::UniquePtr<char16_t[], JS::FreePolicy>;
 
@@ -66,8 +65,9 @@ class SharedImmutableStringsCache
      * returned.
      */
     template <typename IntoOwnedChars>
-    MOZ_MUST_USE mozilla::Maybe<SharedImmutableString>
-    getOrCreate(const char* chars, size_t length, IntoOwnedChars intoOwnedChars);
+    MOZ_MUST_USE mozilla::Maybe<SharedImmutableString> getOrCreate(const char* chars,
+                                                                   size_t length,
+                                                                   IntoOwnedChars intoOwnedChars);
 
     /**
      * Take ownership of the given `chars` and return the canonical, shared and
@@ -76,8 +76,8 @@ class SharedImmutableStringsCache
      * On success, `Some` is returned. In the case of OOM failure, `Nothing` is
      * returned.
      */
-    MOZ_MUST_USE mozilla::Maybe<SharedImmutableString>
-    getOrCreate(OwnedChars&& chars, size_t length);
+    MOZ_MUST_USE mozilla::Maybe<SharedImmutableString> getOrCreate(OwnedChars&& chars,
+                                                                   size_t length);
 
     /**
      * Do not take ownership of the given `chars`. Return the canonical, shared
@@ -87,8 +87,8 @@ class SharedImmutableStringsCache
      * On success, `Some` is returned. In the case of OOM failure, `Nothing` is
      * returned.
      */
-    MOZ_MUST_USE mozilla::Maybe<SharedImmutableString>
-    getOrCreate(const char* chars, size_t length);
+    MOZ_MUST_USE mozilla::Maybe<SharedImmutableString> getOrCreate(const char* chars,
+                                                                   size_t length);
 
     /**
      * Get the canonical, shared, and de-duplicated version of the given `const
@@ -109,8 +109,8 @@ class SharedImmutableStringsCache
      * returned.
      */
     template <typename IntoOwnedTwoByteChars>
-    MOZ_MUST_USE mozilla::Maybe<SharedImmutableTwoByteString>
-    getOrCreate(const char16_t* chars, size_t length, IntoOwnedTwoByteChars intoOwnedTwoByteChars);
+    MOZ_MUST_USE mozilla::Maybe<SharedImmutableTwoByteString> getOrCreate(
+        const char16_t* chars, size_t length, IntoOwnedTwoByteChars intoOwnedTwoByteChars);
 
     /**
      * Take ownership of the given `chars` and return the canonical, shared and
@@ -119,8 +119,8 @@ class SharedImmutableStringsCache
      * On success, `Some` is returned. In the case of OOM failure, `Nothing` is
      * returned.
      */
-    MOZ_MUST_USE mozilla::Maybe<SharedImmutableTwoByteString>
-    getOrCreate(OwnedTwoByteChars&& chars, size_t length);
+    MOZ_MUST_USE mozilla::Maybe<SharedImmutableTwoByteString> getOrCreate(
+        OwnedTwoByteChars&& chars, size_t length);
 
     /**
      * Do not take ownership of the given `chars`. Return the canonical, shared
@@ -130,16 +130,15 @@ class SharedImmutableStringsCache
      * On success, `Some` is returned. In the case of OOM failure, `Nothing` is
      * returned.
      */
-    MOZ_MUST_USE mozilla::Maybe<SharedImmutableTwoByteString>
-    getOrCreate(const char16_t* chars, size_t length);
+    MOZ_MUST_USE mozilla::Maybe<SharedImmutableTwoByteString> getOrCreate(const char16_t* chars,
+                                                                          size_t length);
 
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
         MOZ_ASSERT(inner_);
         size_t n = mallocSizeOf(inner_);
 
         auto locked = inner_->lock();
-        if (!locked->set.initialized())
-            return n;
+        if (!locked->set.initialized()) return n;
 
         // Size of the table.
         n += locked->set.sizeOfExcludingThis(mallocSizeOf);
@@ -147,8 +146,7 @@ class SharedImmutableStringsCache
         // Sizes of the strings and their boxes.
         for (auto r = locked->set.all(); !r.empty(); r.popFront()) {
             n += mallocSizeOf(r.front().get());
-            if (const char* chars = r.front()->chars())
-                n += mallocSizeOf(chars);
+            if (const char* chars = r.front()->chars()) n += mallocSizeOf(chars);
         }
 
         return n;
@@ -160,16 +158,13 @@ class SharedImmutableStringsCache
      */
     static mozilla::Maybe<SharedImmutableStringsCache> Create() {
         auto inner = js_new<ExclusiveData<Inner>>(mutexid::SharedImmutableStringsCache);
-        if (!inner)
-            return mozilla::Nothing();
+        if (!inner) return mozilla::Nothing();
 
         auto locked = inner->lock();
         return mozilla::Some(SharedImmutableStringsCache(locked));
     }
 
-    SharedImmutableStringsCache(SharedImmutableStringsCache&& rhs)
-      : inner_(rhs.inner_)
-    {
+    SharedImmutableStringsCache(SharedImmutableStringsCache&& rhs) : inner_(rhs.inner_) {
         MOZ_ASSERT(inner_);
         rhs.inner_ = nullptr;
     }
@@ -189,8 +184,7 @@ class SharedImmutableStringsCache
     }
 
     ~SharedImmutableStringsCache() {
-        if (!inner_)
-            return;
+        if (!inner_) return;
 
         bool shouldDestroy = false;
         {
@@ -199,11 +193,9 @@ class SharedImmutableStringsCache
             auto locked = inner_->lock();
             MOZ_ASSERT(locked->refcount > 0);
             locked->refcount--;
-            if (locked->refcount == 0)
-                shouldDestroy = true;
+            if (locked->refcount == 0) shouldDestroy = true;
         }
-        if (shouldDestroy)
-            js_delete(inner_);
+        if (shouldDestroy) js_delete(inner_);
     }
 
     /**
@@ -213,8 +205,7 @@ class SharedImmutableStringsCache
         auto locked = inner_->lock();
         MOZ_ASSERT(locked->refcount > 0);
 
-        if (!locked->set.initialized())
-            return;
+        if (!locked->set.initialized()) return;
 
         for (Inner::Set::Enum e(locked->set); !e.empty(); e.popFront()) {
             if (e.front()->refcount == 0) {
@@ -228,24 +219,20 @@ class SharedImmutableStringsCache
         }
     }
 
-  private:
-    class StringBox
-    {
+   private:
+    class StringBox {
         friend class SharedImmutableString;
 
         OwnedChars chars_;
         size_t length_;
 
-      public:
+       public:
         mutable size_t refcount;
 
         using Ptr = mozilla::UniquePtr<StringBox, JS::DeletePolicy<StringBox>>;
 
         StringBox(OwnedChars&& chars, size_t length)
-          : chars_(mozilla::Move(chars))
-          , length_(length)
-          , refcount(0)
-        {
+            : chars_(mozilla::Move(chars)), length_(length), refcount(0) {
             MOZ_ASSERT(chars_);
         }
 
@@ -267,32 +254,26 @@ class SharedImmutableStringsCache
         size_t length() const { return length_; }
     };
 
-    struct Hasher
-    {
+    struct Hasher {
         /**
          * A structure used when querying for a `const char*` string in the cache.
          */
-        class Lookup
-        {
+        class Lookup {
             friend struct Hasher;
 
             HashNumber hash_;
             const char* chars_;
             size_t length_;
 
-          public:
+           public:
             Lookup(HashNumber hash, const char* chars, size_t length)
-              : hash_(hash)
-              , chars_(chars)
-              , length_(length)
-            {
+                : hash_(hash), chars_(chars), length_(length) {
                 MOZ_ASSERT(chars_);
                 MOZ_ASSERT(hash == Hasher::hashLongString(chars, length));
             }
 
             Lookup(HashNumber hash, const char16_t* chars, size_t length)
-              : Lookup(hash, reinterpret_cast<const char*>(chars), length * sizeof(char16_t))
-            { }
+                : Lookup(hash, reinterpret_cast<const char*>(chars), length * sizeof(char16_t)) {}
         };
 
         static const size_t SHORT_STRING_MAX_LENGTH = 8192;
@@ -306,24 +287,20 @@ class SharedImmutableStringsCache
         static HashNumber hashLongString(const char* chars, size_t length) {
             MOZ_ASSERT(chars);
             return length <= SHORT_STRING_MAX_LENGTH
-                ? mozilla::HashString(chars, length)
-                : mozilla::AddToHash(mozilla::HashString(chars, HASH_CHUNK_LENGTH),
-                                     mozilla::HashString(chars + length - HASH_CHUNK_LENGTH,
-                                                         HASH_CHUNK_LENGTH));
+                       ? mozilla::HashString(chars, length)
+                       : mozilla::AddToHash(mozilla::HashString(chars, HASH_CHUNK_LENGTH),
+                                            mozilla::HashString(chars + length - HASH_CHUNK_LENGTH,
+                                                                HASH_CHUNK_LENGTH));
         }
 
-        static HashNumber hash(const Lookup& lookup) {
-            return lookup.hash_;
-        }
+        static HashNumber hash(const Lookup& lookup) { return lookup.hash_; }
 
         static bool match(const StringBox::Ptr& key, const Lookup& lookup) {
             MOZ_ASSERT(lookup.chars_);
 
-            if (!key->chars() || key->length() != lookup.length_)
-                return false;
+            if (!key->chars() || key->length() != lookup.length_) return false;
 
-            if (key->chars() == lookup.chars_)
-                return true;
+            if (key->chars() == lookup.chars_) return true;
 
             return memcmp(key->chars(), lookup.chars_, key->length()) == 0;
         }
@@ -332,32 +309,24 @@ class SharedImmutableStringsCache
     // The `Inner` struct contains the actual cached contents, and is reference
     // counted and shared between all `SharedImmutableStringsCache` and
     // `SharedImmutable[TwoByte]String` holders.
-    struct Inner
-    {
+    struct Inner {
         using Set = HashSet<StringBox::Ptr, Hasher, SystemAllocPolicy>;
 
         size_t refcount;
         Set set;
 
-        Inner()
-          : refcount(0)
-          , set()
-        { }
+        Inner() : refcount(0), set() {}
 
         Inner(const Inner&) = delete;
         Inner& operator=(const Inner&) = delete;
 
-        ~Inner()
-        {
-            MOZ_ASSERT(refcount == 0);
-        }
+        ~Inner() { MOZ_ASSERT(refcount == 0); }
     };
 
     const ExclusiveData<Inner>* inner_;
 
     explicit SharedImmutableStringsCache(ExclusiveData<Inner>::Guard& locked)
-      : inner_(locked.parent())
-    {
+        : inner_(locked.parent()) {
         locked->refcount++;
     }
 };
@@ -367,8 +336,7 @@ class SharedImmutableStringsCache
  * from the `SharedImmutableStringsCache` and releases the reference upon
  * destruction.
  */
-class SharedImmutableString
-{
+class SharedImmutableString {
     friend class SharedImmutableStringsCache;
     friend class SharedImmutableTwoByteString;
 
@@ -378,7 +346,7 @@ class SharedImmutableString
     SharedImmutableString(ExclusiveData<SharedImmutableStringsCache::Inner>::Guard& locked,
                           SharedImmutableStringsCache::StringBox* box);
 
-  public:
+   public:
     /**
      * `SharedImmutableString`s are move-able. It is an error to use a
      * `SharedImmutableString` after it has been moved.
@@ -423,8 +391,7 @@ class SharedImmutableString
  * char16_t*` string from the `SharedImmutableStringsCache` and releases the
  * reference upon destruction.
  */
-class SharedImmutableTwoByteString
-{
+class SharedImmutableTwoByteString {
     friend class SharedImmutableStringsCache;
 
     // If a `char*` string and `char16_t*` string happen to have the same bytes,
@@ -435,7 +402,7 @@ class SharedImmutableTwoByteString
     SharedImmutableTwoByteString(ExclusiveData<SharedImmutableStringsCache::Inner>::Guard& locked,
                                  SharedImmutableStringsCache::StringBox* box);
 
-  public:
+   public:
     /**
      * `SharedImmutableTwoByteString`s are move-able. It is an error to use a
      * `SharedImmutableTwoByteString` after it has been moved.
@@ -463,6 +430,6 @@ class SharedImmutableTwoByteString
     size_t length() const { return string_.length() / sizeof(char16_t); }
 };
 
-} // namespace js
+}  // namespace js
 
-#endif // vm_SharedImmutableStringsCache_h
+#endif  // vm_SharedImmutableStringsCache_h

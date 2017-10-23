@@ -18,26 +18,26 @@
 
 class nsPrintProgress : public nsIPrintProgress, public nsIPrintStatusFeedback
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIPRINTPROGRESS
   NS_DECL_NSIWEBPROGRESSLISTENER
   NS_DECL_NSIPRINTSTATUSFEEDBACK
 
-	nsPrintProgress();
-	virtual ~nsPrintProgress();
+  nsPrintProgress();
+  virtual ~nsPrintProgress();
 
-private:
+ private:
   nsresult ReleaseListeners();
 
-  bool                              m_closeProgress;
-  bool                              m_processCanceled;
-  nsString                          m_pendingStatus;
-  int32_t                           m_pendingStateFlags;
-  nsresult                          m_pendingStateValue;
-  nsCOMPtr<nsIDOMWindow>            m_dialog;
-  nsCOMArray<nsIWebProgressListener>        m_listenerList;
-  nsCOMPtr<nsIObserver>             m_observer;
+  bool m_closeProgress;
+  bool m_processCanceled;
+  nsString m_pendingStatus;
+  int32_t m_pendingStateFlags;
+  nsresult m_pendingStateValue;
+  nsCOMPtr<nsIDOMWindow> m_dialog;
+  nsCOMArray<nsIWebProgressListener> m_listenerList;
+  nsCOMPtr<nsIObserver> m_observer;
 };
 
 #endif

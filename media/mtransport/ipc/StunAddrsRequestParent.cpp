@@ -8,7 +8,7 @@
 #include "nsNetUtil.h"
 
 #include "mtransport/nricectx.h"
-#include "mtransport/nricemediastream.h" // needed only for including nricectx.h
+#include "mtransport/nricemediastream.h"  // needed only for including nricectx.h
 #include "mtransport/nricestunaddr.h"
 
 using namespace mozilla::ipc;
@@ -16,8 +16,7 @@ using namespace mozilla::ipc;
 namespace mozilla {
 namespace net {
 
-StunAddrsRequestParent::StunAddrsRequestParent()
-  : mIPCClosed(false)
+StunAddrsRequestParent::StunAddrsRequestParent() : mIPCClosed(false)
 {
   NS_GetMainThread(getter_AddRefs(mMainThread));
 
@@ -99,5 +98,5 @@ StunAddrsRequestParent::SendStunAddrs_m(const NrIceStunAddrArray& addrs)
 NS_IMPL_ADDREF(StunAddrsRequestParent)
 NS_IMPL_RELEASE(StunAddrsRequestParent)
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

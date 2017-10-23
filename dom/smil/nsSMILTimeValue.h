@@ -51,18 +51,17 @@
 
 class nsSMILTimeValue
 {
-public:
+ public:
   // Creates an unresolved time value
-  nsSMILTimeValue()
-  : mMilliseconds(kUnresolvedMillis),
-    mState(STATE_UNRESOLVED)
-  { }
+  nsSMILTimeValue() : mMilliseconds(kUnresolvedMillis), mState(STATE_UNRESOLVED)
+  {
+  }
 
   // Creates a resolved time value
   explicit nsSMILTimeValue(nsSMILTime aMillis)
-  : mMilliseconds(aMillis),
-    mState(STATE_DEFINITE)
-  { }
+      : mMilliseconds(aMillis), mState(STATE_DEFINITE)
+  {
+  }
 
   // Named constructor to create an indefinite time value
   static nsSMILTimeValue Indefinite()
@@ -104,32 +103,45 @@ public:
   int8_t CompareTo(const nsSMILTimeValue& aOther) const;
 
   bool operator==(const nsSMILTimeValue& aOther) const
-  { return CompareTo(aOther) == 0; }
+  {
+    return CompareTo(aOther) == 0;
+  }
 
   bool operator!=(const nsSMILTimeValue& aOther) const
-  { return CompareTo(aOther) != 0; }
+  {
+    return CompareTo(aOther) != 0;
+  }
 
   bool operator<(const nsSMILTimeValue& aOther) const
-  { return CompareTo(aOther) < 0; }
+  {
+    return CompareTo(aOther) < 0;
+  }
 
   bool operator>(const nsSMILTimeValue& aOther) const
-  { return CompareTo(aOther) > 0; }
+  {
+    return CompareTo(aOther) > 0;
+  }
 
   bool operator<=(const nsSMILTimeValue& aOther) const
-  { return CompareTo(aOther) <= 0; }
+  {
+    return CompareTo(aOther) <= 0;
+  }
 
   bool operator>=(const nsSMILTimeValue& aOther) const
-  { return CompareTo(aOther) >= 0; }
+  {
+    return CompareTo(aOther) >= 0;
+  }
 
-private:
+ private:
   static const nsSMILTime kUnresolvedMillis;
 
   nsSMILTime mMilliseconds;
-  enum {
+  enum
+  {
     STATE_DEFINITE,
     STATE_INDEFINITE,
     STATE_UNRESOLVED
   } mState;
 };
 
-#endif // NS_SMILTIMEVALUE_H_
+#endif  // NS_SMILTIMEVALUE_H_

@@ -15,10 +15,9 @@ namespace dom {
 namespace presentation {
 
 static const char* const kFxTVPresentationAppUrls[] = {
-  "app://fling-player.gaiamobile.org/index.html",
-  "app://notification-receiver.gaiamobile.org/index.html",
-  nullptr
-};
+    "app://fling-player.gaiamobile.org/index.html",
+    "app://notification-receiver.gaiamobile.org/index.html",
+    nullptr};
 
 /* static */ bool
 DeviceProviderHelpers::IsCommonlySupportedScheme(const nsAString& aUrl)
@@ -52,6 +51,6 @@ DeviceProviderHelpers::IsFxTVSupportedAppUrl(const nsAString& aUrl)
   return false;
 }
 
-} // namespace presentation
-} // namespace dom
-} // namespace mozilla
+}  // namespace presentation
+}  // namespace dom
+}  // namespace mozilla

@@ -11,7 +11,7 @@
 
 #include "jsprototypes.h"
 
-#define FOR_EACH_COMMON_PROPERTYNAME(macro) \
+#define FOR_EACH_COMMON_PROPERTYNAME(macro)                                                                             \
     macro(add, add, "add") \
     macro(allowContentIter, allowContentIter, "allowContentIter") \
     macro(anonymous, anonymous, "anonymous") \
@@ -460,6 +460,6 @@
     macro(boolean, boolean, "boolean") \
     macro(null, null, "null") \
     macro(symbol, symbol, "symbol") \
-    macro(defineDataPropertyIntrinsic, defineDataPropertyIntrinsic, "_DefineDataProperty") \
+    macro(defineDataPropertyIntrinsic, defineDataPropertyIntrinsic, "_DefineDataProperty")
 
 #endif /* vm_CommonPropertyNames_h */

@@ -31,11 +31,11 @@ namespace mozilla {
 namespace a11y {
 
 HandlerProvider::HandlerProvider(REFIID aIid,
-                               mscom::InterceptorTargetPtr<IUnknown> aTarget)
-  : mRefCnt(0)
-  , mMutex("mozilla::a11y::HandlerProvider::mMutex")
-  , mTargetUnkIid(aIid)
-  , mTargetUnk(Move(aTarget))
+                                 mscom::InterceptorTargetPtr<IUnknown> aTarget)
+    : mRefCnt(0),
+      mMutex("mozilla::a11y::HandlerProvider::mMutex"),
+      mTargetUnkIid(aIid),
+      mTargetUnk(Move(aTarget))
 {
 }
 
@@ -54,8 +54,9 @@ HandlerProvider::QueryInterface(REFIID riid, void** ppv)
 
   if (riid == IID_IMarshal) {
     if (!mFastMarshalUnk) {
-      HRESULT hr = mscom::FastMarshaler::Create(
-        static_cast<IGeckoBackChannel*>(this), getter_AddRefs(mFastMarshalUnk));
+      HRESULT hr =
+          mscom::FastMarshaler::Create(static_cast<IGeckoBackChannel*>(this),
+                                       getter_AddRefs(mFastMarshalUnk));
       if (FAILED(hr)) {
         return hr;
       }
@@ -68,10 +69,7 @@ HandlerProvider::QueryInterface(REFIID riid, void** ppv)
 }
 
 ULONG
-HandlerProvider::AddRef()
-{
-  return ++mRefCnt;
-}
+HandlerProvider::AddRef() { return ++mRefCnt; }
 
 ULONG
 HandlerProvider::Release()
@@ -106,7 +104,8 @@ HandlerProvider::GetAndSerializePayload(const MutexAutoLock&)
   IA2Payload payload{};
 
   if (!mscom::InvokeOnMainThread("HandlerProvider::BuildIA2Data",
-                                 this, &HandlerProvider::BuildIA2Data,
+                                 this,
+                                 &HandlerProvider::BuildIA2Data,
                                  &payload.mData) ||
       !payload.mData.mUniqueId) {
     return;
@@ -159,8 +158,8 @@ HandlerProvider::BuildIA2Data(IA2Data* aOutIA2Data)
   MOZ_ASSERT(mTargetUnk);
   MOZ_ASSERT(IsTargetInterfaceCacheable());
 
-  RefPtr<NEWEST_IA2_INTERFACE>
-    target(static_cast<NEWEST_IA2_INTERFACE*>(mTargetUnk.get()));
+  RefPtr<NEWEST_IA2_INTERFACE> target(
+      static_cast<NEWEST_IA2_INTERFACE*>(mTargetUnk.get()));
 
   // NB: get_uniqueID should be the final property retrieved in this method,
   // as its presence is used to determine whether the rest of this data
@@ -217,8 +216,7 @@ HandlerProvider::MarshalAs(REFIID aIid)
 }
 
 REFIID
-HandlerProvider::GetEffectiveOutParamIid(REFIID aCallIid,
-                                         ULONG aCallMethod)
+HandlerProvider::GetEffectiveOutParamIid(REFIID aCallIid, ULONG aCallMethod)
 {
   if (aCallIid == IID_IAccessibleTable || aCallIid == IID_IAccessibleTable2) {
     return IID_IAccessible2_3;
@@ -239,8 +237,8 @@ HandlerProvider::NewInstance(REFIID aIid,
 }
 
 void
-HandlerProvider::SetHandlerControlOnMainThread(DWORD aPid,
-                                              mscom::ProxyUniquePtr<IHandlerControl> aCtrl)
+HandlerProvider::SetHandlerControlOnMainThread(
+    DWORD aPid, mscom::ProxyUniquePtr<IHandlerControl> aCtrl)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -262,10 +260,12 @@ HandlerProvider::put_HandlerControl(long aPid, IHandlerControl* aCtrl)
 
   auto ptrProxy = mscom::ToProxyUniquePtr(aCtrl);
 
-  if (!mscom::InvokeOnMainThread("HandlerProvider::SetHandlerControlOnMainThread",
-                                 this,
-                                 &HandlerProvider::SetHandlerControlOnMainThread,
-                                 static_cast<DWORD>(aPid), Move(ptrProxy))) {
+  if (!mscom::InvokeOnMainThread(
+          "HandlerProvider::SetHandlerControlOnMainThread",
+          this,
+          &HandlerProvider::SetHandlerControlOnMainThread,
+          static_cast<DWORD>(aPid),
+          Move(ptrProxy))) {
     return E_FAIL;
   }
 
@@ -278,7 +278,8 @@ HandlerProvider::Refresh(IA2Data* aOutData)
   MOZ_ASSERT(mscom::IsCurrentThreadMTA());
 
   if (!mscom::InvokeOnMainThread("HandlerProvider::BuildIA2Data",
-                                 this, &HandlerProvider::BuildIA2Data,
+                                 this,
+                                 &HandlerProvider::BuildIA2Data,
                                  aOutData)) {
     return E_FAIL;
   }
@@ -286,6 +287,5 @@ HandlerProvider::Refresh(IA2Data* aOutData)
   return S_OK;
 }
 
-} // namespace a11y
-} // namespace mozilla
-
+}  // namespace a11y
+}  // namespace mozilla

@@ -29,8 +29,7 @@ SVGTransformableElement::Transform()
   // We're creating a DOM wrapper, so we must tell GetAnimatedTransformList
   // to allocate the SVGAnimatedTransformList if it hasn't already done so:
   return SVGAnimatedTransformList::GetDOMWrapper(
-           GetAnimatedTransformList(DO_ALLOCATE), this);
-
+      GetAnimatedTransformList(DO_ALLOCATE), this);
 }
 
 //----------------------------------------------------------------------
@@ -40,13 +39,10 @@ NS_IMETHODIMP_(bool)
 SVGTransformableElement::IsAttributeMapped(const nsAtom* name) const
 {
   static const MappedAttributeEntry* const map[] = {
-    sColorMap,
-    sFillStrokeMap,
-    sGraphicsMap
-  };
+      sColorMap, sFillStrokeMap, sGraphicsMap};
 
   return FindAttributeDependence(name, map) ||
-    nsSVGElement::IsAttributeMapped(name);
+         nsSVGElement::IsAttributeMapped(name);
 }
 
 nsChangeHint
@@ -54,11 +50,11 @@ SVGTransformableElement::GetAttributeChangeHint(const nsAtom* aAttribute,
                                                 int32_t aModType) const
 {
   nsChangeHint retval =
-    nsSVGElement::GetAttributeChangeHint(aAttribute, aModType);
+      nsSVGElement::GetAttributeChangeHint(aAttribute, aModType);
   if (aAttribute == nsGkAtoms::transform ||
       aAttribute == nsGkAtoms::mozAnimateMotionDummyAttr) {
     nsIFrame* frame =
-      const_cast<SVGTransformableElement*>(this)->GetPrimaryFrame();
+        const_cast<SVGTransformableElement*>(this)->GetPrimaryFrame();
     retval |= nsChangeHint_InvalidateRenderingObservers;
     if (!frame || (frame->GetStateBits() & NS_FRAME_IS_NONDISPLAY)) {
       return retval;
@@ -71,8 +67,7 @@ SVGTransformableElement::GetAttributeChangeHint(const nsAtom* aAttribute,
     } else {
       MOZ_ASSERT(aModType == nsIDOMMutationEvent::MODIFICATION,
                  "Unknown modification type.");
-      if (!mTransforms ||
-          !mTransforms->HasTransform() ||
+      if (!mTransforms || !mTransforms->HasTransform() ||
           !mTransforms->HadTransformBeforeLastBaseValChange()) {
         // New or old value is empty; this is effectively addition or removal.
         isAdditionOrRemoval = true;
@@ -101,15 +96,16 @@ SVGTransformableElement::IsEventAttributeNameInternal(nsAtom* aName)
 // nsSVGElement overrides
 
 gfxMatrix
-SVGTransformableElement::PrependLocalTransformsTo(const gfxMatrix& aMatrix,
-                                                  SVGTransformTypes aWhich) const
+SVGTransformableElement::PrependLocalTransformsTo(
+    const gfxMatrix& aMatrix, SVGTransformTypes aWhich) const
 {
   if (aWhich == eChildToUserSpace) {
     // We don't have any eUserSpaceToParent transforms. (Sub-classes that do
     // must override this function and handle that themselves.)
     return aMatrix;
   }
-  return GetUserToParentTransform(mAnimateMotionTransform, mTransforms) * aMatrix;
+  return GetUserToParentTransform(mAnimateMotionTransform, mTransforms) *
+         aMatrix;
 }
 
 const gfx::Matrix*
@@ -122,7 +118,8 @@ void
 SVGTransformableElement::SetAnimateMotionTransform(const gfx::Matrix* aMatrix)
 {
   if ((!aMatrix && !mAnimateMotionTransform) ||
-      (aMatrix && mAnimateMotionTransform && *aMatrix == *mAnimateMotionTransform)) {
+      (aMatrix && mAnimateMotionTransform &&
+       *aMatrix == *mAnimateMotionTransform)) {
     return;
   }
   bool transformSet = mTransforms && mTransforms->IsExplicitlySet();
@@ -132,7 +129,7 @@ SVGTransformableElement::SetAnimateMotionTransform(const gfx::Matrix* aMatrix)
   int32_t modType;
   if (prevSet && !nowSet) {
     modType = nsIDOMMutationEvent::REMOVAL;
-  } else if(!prevSet && nowSet) {
+  } else if (!prevSet && nowSet) {
     modType = nsIDOMMutationEvent::ADDITION;
   } else {
     modType = nsIDOMMutationEvent::MODIFICATION;
@@ -183,14 +180,16 @@ SVGTransformableElement::GetBBox(const SVGBoundingBoxOptions& aOptions,
   }
   nsSVGDisplayableFrame* svgframe = do_QueryFrame(frame);
   if (!svgframe) {
-    rv.Throw(NS_ERROR_NOT_IMPLEMENTED); // XXX: outer svg
+    rv.Throw(NS_ERROR_NOT_IMPLEMENTED);  // XXX: outer svg
     return nullptr;
   }
 
   if (!NS_SVGNewGetBBoxEnabled()) {
-    return NS_NewSVGRect(this, ToRect(nsSVGUtils::GetBBox(frame,
-                                      nsSVGUtils::eBBoxIncludeFillGeometry |
-                                      nsSVGUtils::eUseUserSpaceOfUseElement)));
+    return NS_NewSVGRect(
+        this,
+        ToRect(nsSVGUtils::GetBBox(frame,
+                                   nsSVGUtils::eBBoxIncludeFillGeometry |
+                                       nsSVGUtils::eUseUserSpaceOfUseElement)));
   } else {
     uint32_t flags = 0;
     if (aOptions.mFill) {
@@ -206,7 +205,7 @@ SVGTransformableElement::GetBBox(const SVGBoundingBoxOptions& aOptions,
       flags |= nsSVGUtils::eBBoxIncludeClipped;
     }
     if (flags == 0) {
-      return NS_NewSVGRect(this,0,0,0,0);
+      return NS_NewSVGRect(this, 0, 0, 0, 0);
     }
     if (flags == nsSVGUtils::eBBoxIncludeMarkers ||
         flags == nsSVGUtils::eBBoxIncludeClipped) {
@@ -226,7 +225,8 @@ SVGTransformableElement::GetCTM()
     currentDoc->FlushPendingNotifications(FlushType::Layout);
   }
   gfx::Matrix m = SVGContentUtils::GetCTM(this, false);
-  RefPtr<SVGMatrix> mat = m.IsSingular() ? nullptr : new SVGMatrix(ThebesMatrix(m));
+  RefPtr<SVGMatrix> mat =
+      m.IsSingular() ? nullptr : new SVGMatrix(ThebesMatrix(m));
   return mat.forget();
 }
 
@@ -239,7 +239,8 @@ SVGTransformableElement::GetScreenCTM()
     currentDoc->FlushPendingNotifications(FlushType::Layout);
   }
   gfx::Matrix m = SVGContentUtils::GetCTM(this, true);
-  RefPtr<SVGMatrix> mat = m.IsSingular() ? nullptr : new SVGMatrix(ThebesMatrix(m));
+  RefPtr<SVGMatrix> mat =
+      m.IsSingular() ? nullptr : new SVGMatrix(ThebesMatrix(m));
   return mat.forget();
 }
 
@@ -263,8 +264,8 @@ SVGTransformableElement::GetTransformToElement(SVGGraphicsElement& aElement,
 
 /* static */ gfxMatrix
 SVGTransformableElement::GetUserToParentTransform(
-                           const gfx::Matrix* aAnimateMotionTransform,
-                           const nsSVGAnimatedTransformList* aTransforms)
+    const gfx::Matrix* aAnimateMotionTransform,
+    const nsSVGAnimatedTransformList* aTransforms)
 {
   gfxMatrix result;
 
@@ -279,6 +280,5 @@ SVGTransformableElement::GetUserToParentTransform(
   return result;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

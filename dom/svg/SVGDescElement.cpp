@@ -21,8 +21,9 @@ SVGDescElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGDescElement::SVGDescElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGDescElementBase(aNodeInfo)
+SVGDescElement::SVGDescElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGDescElementBase(aNodeInfo)
 {
 }
 
@@ -31,6 +32,5 @@ SVGDescElement::SVGDescElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeIn
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGDescElement)
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

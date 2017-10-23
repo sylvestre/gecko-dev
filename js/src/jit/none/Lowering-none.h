@@ -12,16 +12,16 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorNone : public LIRGeneratorShared
-{
-  public:
+class LIRGeneratorNone : public LIRGeneratorShared {
+   public:
     LIRGeneratorNone(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorShared(gen, graph, lirGraph)
-    {
+        : LIRGeneratorShared(gen, graph, lirGraph) {
         MOZ_CRASH();
     }
 
-    LBoxAllocation useBoxFixed(MDefinition*, Register, Register, bool useAtStart = false) { MOZ_CRASH(); }
+    LBoxAllocation useBoxFixed(MDefinition*, Register, Register, bool useAtStart = false) {
+        MOZ_CRASH();
+    }
 
     LAllocation useByteOpRegister(MDefinition*) { MOZ_CRASH(); }
     LAllocation useByteOpRegisterAtStart(MDefinition*) { MOZ_CRASH(); }
@@ -38,24 +38,31 @@ class LIRGeneratorNone : public LIRGeneratorShared
     }
     void lowerUrshD(MUrsh*) { MOZ_CRASH(); }
     template <typename T>
-    void lowerForALU(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) { MOZ_CRASH(); }
+    void lowerForALU(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) {
+        MOZ_CRASH();
+    }
     template <typename T>
-    void lowerForFPU(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) { MOZ_CRASH(); }
+    void lowerForFPU(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) {
+        MOZ_CRASH();
+    }
     template <typename T>
-    void lowerForALUInt64(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) { MOZ_CRASH(); }
+    void lowerForALUInt64(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) {
+        MOZ_CRASH();
+    }
     void lowerForMulInt64(LMulI64*, MMul*, MDefinition*, MDefinition* v = nullptr) { MOZ_CRASH(); }
     template <typename T>
-    void lowerForShiftInt64(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) { MOZ_CRASH(); }
-    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs) {
+    void lowerForShiftInt64(T, MDefinition*, MDefinition*, MDefinition* v = nullptr) {
         MOZ_CRASH();
     }
-    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs) {
+    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs) {
         MOZ_CRASH();
     }
-    void lowerForBitAndAndBranch(LBitAndAndBranch*, MInstruction*,
-                                 MDefinition*, MDefinition*) {
+    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs) {
+        MOZ_CRASH();
+    }
+    void lowerForBitAndAndBranch(LBitAndAndBranch*, MInstruction*, MDefinition*, MDefinition*) {
         MOZ_CRASH();
     }
 
@@ -83,8 +90,12 @@ class LIRGeneratorNone : public LIRGeneratorShared
     void visitAsmJSStoreHeap(MAsmJSStoreHeap* ins) { MOZ_CRASH(); }
     void visitStoreTypedArrayElementStatic(MStoreTypedArrayElementStatic* ins) { MOZ_CRASH(); }
     void visitAtomicTypedArrayElementBinop(MAtomicTypedArrayElementBinop* ins) { MOZ_CRASH(); }
-    void visitCompareExchangeTypedArrayElement(MCompareExchangeTypedArrayElement* ins) { MOZ_CRASH(); }
-    void visitAtomicExchangeTypedArrayElement(MAtomicExchangeTypedArrayElement* ins) { MOZ_CRASH(); }
+    void visitCompareExchangeTypedArrayElement(MCompareExchangeTypedArrayElement* ins) {
+        MOZ_CRASH();
+    }
+    void visitAtomicExchangeTypedArrayElement(MAtomicExchangeTypedArrayElement* ins) {
+        MOZ_CRASH();
+    }
     void visitAsmJSCompareExchangeHeap(MAsmJSCompareExchangeHeap* ins) { MOZ_CRASH(); }
     void visitAsmJSAtomicExchangeHeap(MAsmJSAtomicExchangeHeap* ins) { MOZ_CRASH(); }
     void visitAsmJSAtomicBinopHeap(MAsmJSAtomicBinopHeap* ins) { MOZ_CRASH(); }
@@ -113,7 +124,7 @@ class LIRGeneratorNone : public LIRGeneratorShared
 
 typedef LIRGeneratorNone LIRGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_none_Lowering_none_h */

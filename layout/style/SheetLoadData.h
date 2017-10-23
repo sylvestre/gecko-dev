@@ -19,19 +19,18 @@ namespace css {
  *********************************************/
 
 static_assert(eAuthorSheetFeatures == 0 && eUserSheetFeatures == 1 &&
-                eAgentSheetFeatures == 2,
+                  eAgentSheetFeatures == 2,
               "sheet parsing mode constants won't fit "
               "in SheetLoadData::mParsingMode");
 
-class SheetLoadData final
-  : public nsIRunnable
-  , public nsIUnicharStreamLoaderObserver
-  , public nsIThreadObserver
+class SheetLoadData final : public nsIRunnable,
+                            public nsIUnicharStreamLoaderObserver,
+                            public nsIThreadObserver
 {
-protected:
+ protected:
   virtual ~SheetLoadData(void);
 
-public:
+ public:
   // Data for loading a sheet linked from a document
   SheetLoadData(Loader* aLoader,
                 const nsAString& aTitle,
@@ -100,7 +99,7 @@ public:
   RefPtr<StyleSheet> mSheet;
 
   // Linked list of datas for the same URI as us
-  SheetLoadData* mNext; // strong ref
+  SheetLoadData* mNext;  // strong ref
 
   // Load data for the sheet that @import-ed us if we were @import-ed
   // during the parse
@@ -173,11 +172,11 @@ public:
   // been called.
   MOZ_INIT_OUTSIDE_CTOR nsresult mStatus;
 
-private:
+ private:
   void FireLoadEvent(nsIThreadInternal* aThread);
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
-#endif // mozilla_css_SheetLoadData_h
+#endif  // mozilla_css_SheetLoadData_h

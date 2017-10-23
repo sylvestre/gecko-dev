@@ -19,7 +19,8 @@ struct MOZ_STACK_CLASS findIndexOfClosure
   uint32_t resultIndex;
 };
 
-static bool FindElementCallback(void* aElement, void* aClosure);
+static bool
+FindElementCallback(void* aElement, void* aClosure);
 
 NS_INTERFACE_MAP_BEGIN(nsArray)
   NS_INTERFACE_MAP_ENTRY(nsIArray)
@@ -35,11 +36,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsArrayCC)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIMutableArray)
 NS_INTERFACE_MAP_END
 
-nsArrayBase::~nsArrayBase()
-{
-  Clear();
-}
-
+nsArrayBase::~nsArrayBase() { Clear(); }
 
 NS_IMPL_ADDREF(nsArray)
 NS_IMPL_RELEASE(nsArray)
@@ -64,9 +61,7 @@ nsArrayBase::GetLength(uint32_t* aLength)
 }
 
 NS_IMETHODIMP
-nsArrayBase::QueryElementAt(uint32_t aIndex,
-                            const nsIID& aIID,
-                            void** aResult)
+nsArrayBase::QueryElementAt(uint32_t aIndex, const nsIID& aIID, void** aResult)
 {
   nsISupports* obj = mArray.SafeObjectAt(aIndex);
   if (!obj) {
@@ -79,7 +74,8 @@ nsArrayBase::QueryElementAt(uint32_t aIndex,
 }
 
 NS_IMETHODIMP
-nsArrayBase::IndexOf(uint32_t aStartIndex, nsISupports* aElement,
+nsArrayBase::IndexOf(uint32_t aStartIndex,
+                     nsISupports* aElement,
                      uint32_t* aResult)
 {
   // optimize for the common case by forwarding to mArray
@@ -93,7 +89,7 @@ nsArrayBase::IndexOf(uint32_t aStartIndex, nsISupports* aElement,
     return NS_OK;
   }
 
-  findIndexOfClosure closure = { aElement, aStartIndex, 0 };
+  findIndexOfClosure closure = {aElement, aStartIndex, 0};
   bool notFound = mArray.EnumerateForwards(FindElementCallback, &closure);
   if (notFound) {
     return NS_ERROR_FAILURE;
@@ -118,7 +114,8 @@ nsArrayBase::AppendElement(nsISupports* aElement, bool aWeak)
   if (aWeak) {
     nsCOMPtr<nsIWeakReference> elementRef = do_GetWeakReference(aElement);
     NS_ASSERTION(elementRef,
-                 "AppendElement: Trying to use weak references on an object that doesn't support it");
+                 "AppendElement: Trying to use weak references on an object "
+                 "that doesn't support it");
     if (!elementRef) {
       return NS_ERROR_FAILURE;
     }
@@ -146,7 +143,8 @@ nsArrayBase::InsertElementAt(nsISupports* aElement, uint32_t aIndex, bool aWeak)
   if (aWeak) {
     elementRef = do_GetWeakReference(aElement);
     NS_ASSERTION(elementRef,
-                 "InsertElementAt: Trying to use weak references on an object that doesn't support it");
+                 "InsertElementAt: Trying to use weak references on an object "
+                 "that doesn't support it");
     if (!elementRef) {
       return NS_ERROR_FAILURE;
     }
@@ -158,13 +156,16 @@ nsArrayBase::InsertElementAt(nsISupports* aElement, uint32_t aIndex, bool aWeak)
 }
 
 NS_IMETHODIMP
-nsArrayBase::ReplaceElementAt(nsISupports* aElement, uint32_t aIndex, bool aWeak)
+nsArrayBase::ReplaceElementAt(nsISupports* aElement,
+                              uint32_t aIndex,
+                              bool aWeak)
 {
   nsCOMPtr<nsISupports> elementRef;
   if (aWeak) {
     elementRef = do_GetWeakReference(aElement);
     NS_ASSERTION(elementRef,
-                 "ReplaceElementAt: Trying to use weak references on an object that doesn't support it");
+                 "ReplaceElementAt: Trying to use weak references on an object "
+                 "that doesn't support it");
     if (!elementRef) {
       return NS_ERROR_FAILURE;
     }
@@ -185,10 +186,7 @@ nsArrayBase::Clear()
 // nsIArrayExtensions implementation.
 
 NS_IMETHODIMP
-nsArrayBase::Count(uint32_t* aResult)
-{
-  return GetLength(aResult);
-}
+nsArrayBase::Count(uint32_t* aResult) { return GetLength(aResult); }
 
 NS_IMETHODIMP
 nsArrayBase::GetElementAt(uint32_t aIndex, nsISupports** aResult)
@@ -210,7 +208,7 @@ FindElementCallback(void* aElement, void* aClosure)
   // don't start searching until we're past the startIndex
   if (closure->resultIndex >= closure->startIndex &&
       element == closure->targetElement) {
-    return false;    // stop! We found it
+    return false;  // stop! We found it
   }
   closure->resultIndex++;
 
@@ -218,7 +216,8 @@ FindElementCallback(void* aElement, void* aClosure)
 }
 
 nsresult
-nsArrayBase::XPCOMConstructor(nsISupports* aOuter, const nsIID& aIID,
+nsArrayBase::XPCOMConstructor(nsISupports* aOuter,
+                              const nsIID& aIID,
                               void** aResult)
 {
   if (aOuter) {

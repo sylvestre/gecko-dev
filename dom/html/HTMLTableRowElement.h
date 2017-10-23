@@ -18,9 +18,10 @@ class HTMLTableSectionElement;
 
 class HTMLTableRowElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLTableRowElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLTableRowElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
     SetHasWeirdParserInsertionMode();
   }
@@ -33,30 +34,21 @@ public:
   int32_t RowIndex() const;
   int32_t SectionRowIndex() const;
   nsIHTMLCollection* Cells();
-  already_AddRefed<nsGenericHTMLElement>
-    InsertCell(int32_t aIndex, ErrorResult& aError);
+  already_AddRefed<nsGenericHTMLElement> InsertCell(int32_t aIndex,
+                                                    ErrorResult& aError);
   void DeleteCell(int32_t aValue, ErrorResult& aError);
 
-  void GetAlign(DOMString& aAlign)
-  {
-    GetHTMLAttr(nsGkAtoms::align, aAlign);
-  }
+  void GetAlign(DOMString& aAlign) { GetHTMLAttr(nsGkAtoms::align, aAlign); }
   void SetAlign(const nsAString& aAlign, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::align, aAlign, aError);
   }
-  void GetCh(DOMString& aCh)
-  {
-    GetHTMLAttr(nsGkAtoms::_char, aCh);
-  }
+  void GetCh(DOMString& aCh) { GetHTMLAttr(nsGkAtoms::_char, aCh); }
   void SetCh(const nsAString& aCh, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::_char, aCh, aError);
   }
-  void GetChOff(DOMString& aChOff)
-  {
-    GetHTMLAttr(nsGkAtoms::charoff, aChOff);
-  }
+  void GetChOff(DOMString& aChOff) { GetHTMLAttr(nsGkAtoms::charoff, aChOff); }
   void SetChOff(const nsAString& aChOff, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::charoff, aChOff, aError);
@@ -79,33 +71,36 @@ public:
   }
 
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED_NO_UNLINK(HTMLTableRowElement,
                                                      nsGenericHTMLElement)
 
-protected:
+ protected:
   virtual ~HTMLTableRowElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   HTMLTableSectionElement* GetSection() const;
   HTMLTableElement* GetTable() const;
   RefPtr<nsContentList> mCells;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_HTMLTableRowElement_h */

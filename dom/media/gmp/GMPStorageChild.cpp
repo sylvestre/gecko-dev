@@ -10,16 +10,16 @@
 
 #define ON_GMP_THREAD() (mPlugin->GMPMessageLoop() == MessageLoop::current())
 
-#define CALL_ON_GMP_THREAD(_func, ...) \
-  do { \
-    if (ON_GMP_THREAD()) { \
-      _func(__VA_ARGS__); \
-    } else { \
-      mPlugin->GMPMessageLoop()->PostTask( \
-        dont_add_new_uses_of_this::NewRunnableMethod(this, &GMPStorageChild::_func, ##__VA_ARGS__) \
-      ); \
-    } \
-  } while(false)
+#define CALL_ON_GMP_THREAD(_func, ...)                        \
+  do {                                                        \
+    if (ON_GMP_THREAD()) {                                    \
+      _func(__VA_ARGS__);                                     \
+    } else {                                                  \
+      mPlugin->GMPMessageLoop()->PostTask(                    \
+          dont_add_new_uses_of_this::NewRunnableMethod(       \
+              this, &GMPStorageChild::_func, ##__VA_ARGS__)); \
+    }                                                         \
+  } while (false)
 
 static nsTArray<uint8_t>
 ToArray(const uint8_t* aData, uint32_t aDataSize)
@@ -35,9 +35,7 @@ namespace gmp {
 GMPRecordImpl::GMPRecordImpl(GMPStorageChild* aOwner,
                              const nsCString& aName,
                              GMPRecordClient* aClient)
-  : mName(aName)
-  , mClient(aClient)
-  , mOwner(aOwner)
+    : mName(aName), mClient(aClient), mOwner(aOwner)
 {
 }
 
@@ -90,9 +88,7 @@ GMPRecordImpl::Close()
 }
 
 GMPStorageChild::GMPStorageChild(GMPChild* aPlugin)
-  : mMonitor("GMPStorageChild")
-  , mPlugin(aPlugin)
-  , mShutdown(false)
+    : mMonitor("GMPStorageChild"), mPlugin(aPlugin), mShutdown(false)
 {
   MOZ_ASSERT(ON_GMP_THREAD());
 }
@@ -116,7 +112,7 @@ GMPStorageChild::CreateRecord(const nsCString& aRecordName,
   }
 
   RefPtr<GMPRecordImpl> record(new GMPRecordImpl(this, aRecordName, aClient));
-  mRecords.Put(aRecordName, record); // Addrefs
+  mRecords.Put(aRecordName, record);  // Addrefs
 
   // The GMPRecord holds a self reference until the GMP calls Close() on
   // it. This means the object is always valid (even if neutered) while
@@ -289,8 +285,8 @@ GMPStorageChild::RecvShutdown()
   return IPC_OK();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
 // avoid redefined macro in unified build
 #undef ON_GMP_THREAD

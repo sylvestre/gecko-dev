@@ -23,7 +23,7 @@ class ServoCSSRuleList;
 namespace css {
 class Loader;
 class LoaderReusableStyleSheets;
-}
+}  // namespace css
 
 // -------------------------------
 // Servo Style Sheet Inner Data Container
@@ -54,21 +54,23 @@ struct ServoStyleSheetInner final : public StyleSheetInfo
   RefPtr<URLExtraData> mURLData;
 };
 
-
 /**
  * CSS style sheet object that is a wrapper for a Servo Stylesheet.
  */
 
 // CID for the ServoStyleSheet class
 // a6f31472-ab69-4beb-860f-c221431ead77
-#define NS_SERVO_STYLE_SHEET_IMPL_CID     \
-{ 0xa6f31472, 0xab69, 0x4beb, \
-  { 0x86, 0x0f, 0xc2, 0x21, 0x43, 0x1e, 0xad, 0x77 } }
-
+#define NS_SERVO_STYLE_SHEET_IMPL_CID                \
+  {                                                  \
+    0xa6f31472, 0xab69, 0x4beb,                      \
+    {                                                \
+      0x86, 0x0f, 0xc2, 0x21, 0x43, 0x1e, 0xad, 0x77 \
+    }                                                \
+  }
 
 class ServoStyleSheet : public StyleSheet
 {
-public:
+ public:
   ServoStyleSheet(css::SheetParsingMode aParsingMode,
                   CORSMode aCORSMode,
                   net::ReferrerPolicy aReferrerPolicy,
@@ -96,11 +98,13 @@ public:
 
   nsresult ReparseSheet(const nsAString& aInput);
 
-  const RawServoStyleSheetContents* RawContents() const {
+  const RawServoStyleSheetContents* RawContents() const
+  {
     return Inner()->mContents;
   }
 
-  void SetContentsForImport(const RawServoStyleSheetContents* aContents) {
+  void SetContentsForImport(const RawServoStyleSheetContents* aContents)
+  {
     MOZ_ASSERT(!Inner()->mContents);
     Inner()->mContents = aContents;
   }
@@ -110,12 +114,13 @@ public:
   void DidDirty() override {}
 
   already_AddRefed<StyleSheet> Clone(StyleSheet* aCloneParent,
-    dom::CSSImportRule* aCloneOwnerRule,
-    nsIDocument* aCloneDocument,
-    nsINode* aCloneOwningNode) const final;
+                                     dom::CSSImportRule* aCloneOwnerRule,
+                                     nsIDocument* aCloneDocument,
+                                     nsINode* aCloneOwningNode) const final;
 
   // nsICSSLoaderObserver interface
-  NS_IMETHOD StyleSheetLoaded(StyleSheet* aSheet, bool aWasAlternate,
+  NS_IMETHOD StyleSheetLoaded(StyleSheet* aSheet,
+                              bool aWasAlternate,
                               nsresult aStatus) final;
 
   // Internal GetCssRules method which do not have security check and
@@ -125,7 +130,7 @@ public:
   // Returns the stylesheet's Servo origin as an OriginFlags value.
   OriginFlags GetOrigin();
 
-protected:
+ protected:
   virtual ~ServoStyleSheet();
 
   void LastRelease();
@@ -137,7 +142,8 @@ protected:
 
   // Internal methods which do not have security check and completeness check.
   uint32_t InsertRuleInternal(const nsAString& aRule,
-                              uint32_t aIndex, ErrorResult& aRv);
+                              uint32_t aIndex,
+                              ErrorResult& aRv);
   void DeleteRuleInternal(uint32_t aIndex, ErrorResult& aRv);
   nsresult InsertRuleIntoGroupInternal(const nsAString& aRule,
                                        css::GroupRule* aGroup,
@@ -147,7 +153,7 @@ protected:
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   ServoStyleSheet(const ServoStyleSheet& aCopy,
                   ServoStyleSheet* aParentToUse,
                   dom::CSSImportRule* aOwnerRuleToUse,
@@ -167,6 +173,6 @@ private:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(ServoStyleSheet, NS_SERVO_STYLE_SHEET_IMPL_CID)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ServoStyleSheet_h
+#endif  // mozilla_ServoStyleSheet_h

@@ -12,12 +12,10 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorX86Shared : public LIRGeneratorShared
-{
-  protected:
+class LIRGeneratorX86Shared : public LIRGeneratorShared {
+   protected:
     LIRGeneratorX86Shared(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorShared(gen, graph, lirGraph)
-    {}
+        : LIRGeneratorShared(gen, graph, lirGraph) {}
 
     LTableSwitch* newLTableSwitch(const LAllocation& in, const LDefinition& inputCopy,
                                   MTableSwitch* ins);
@@ -32,19 +30,19 @@ class LIRGeneratorX86Shared : public LIRGeneratorShared
     void lowerForALU(LInstructionHelper<1, 2, 0>* ins, MDefinition* mir, MDefinition* lhs,
                      MDefinition* rhs);
 
-    template<size_t Temps>
+    template <size_t Temps>
     void lowerForShiftInt64(LInstructionHelper<INT64_PIECES, INT64_PIECES + 1, Temps>* ins,
                             MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
 
-    template<size_t Temps>
+    template <size_t Temps>
     void lowerForFPU(LInstructionHelper<1, 2, Temps>* ins, MDefinition* mir, MDefinition* lhs,
                      MDefinition* rhs);
-    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs);
-    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir,
-                         MDefinition* lhs, MDefinition* rhs);
-    void lowerForBitAndAndBranch(LBitAndAndBranch* baab, MInstruction* mir,
-                                 MDefinition* lhs, MDefinition* rhs);
+    void lowerForCompIx4(LSimdBinaryCompIx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs);
+    void lowerForCompFx4(LSimdBinaryCompFx4* ins, MSimdBinaryComp* mir, MDefinition* lhs,
+                         MDefinition* rhs);
+    void lowerForBitAndAndBranch(LBitAndAndBranch* baab, MInstruction* mir, MDefinition* lhs,
+                                 MDefinition* rhs);
     void visitWasmNeg(MWasmNeg* ins);
     void visitWasmSelect(MWasmSelect* ins);
     void lowerMulI(MMul* mul, MDefinition* lhs, MDefinition* rhs);
@@ -74,7 +72,7 @@ class LIRGeneratorX86Shared : public LIRGeneratorShared
     void visitCopySign(MCopySign* ins);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_x86_shared_Lowering_x86_shared_h */

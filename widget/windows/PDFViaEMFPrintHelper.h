@@ -27,12 +27,12 @@ namespace widget {
  */
 class PDFViaEMFPrintHelper
 {
-public:
+ public:
   PDFViaEMFPrintHelper();
   virtual ~PDFViaEMFPrintHelper();
 
   /** Loads the specified PDF file. */
-  NS_IMETHOD OpenDocument(nsIFile *aFile);
+  NS_IMETHOD OpenDocument(nsIFile* aFile);
   NS_IMETHOD OpenDocument(const char* aFileName);
 
   /** Releases document buffer. */
@@ -41,23 +41,29 @@ public:
   int GetPageCount() const { return mPDFiumEngine->GetPageCount(mPDFDoc); }
 
   /** Convert specified PDF page to EMF and draw the EMF onto the given DC. */
-  bool DrawPage(HDC aPrinterDC, unsigned int aPageIndex,
-                int aPageWidth, int aPageHeight);
+  bool DrawPage(HDC aPrinterDC,
+                unsigned int aPageIndex,
+                int aPageWidth,
+                int aPageHeight);
 
   /** Convert specified PDF page to EMF and save it to file. */
-  bool DrawPageToFile(const wchar_t* aFilePath, unsigned int aPageIndex,
-                      int aPageWidth, int aPageHeight);
+  bool DrawPageToFile(const wchar_t* aFilePath,
+                      unsigned int aPageIndex,
+                      int aPageWidth,
+                      int aPageHeight);
 
-protected:
+ protected:
   virtual bool CreatePDFiumEngineIfNeed();
-  bool RenderPageToDC(HDC aDC, unsigned int aPageIndex,
-                      int aPageWidth, int aPageHeight);
+  bool RenderPageToDC(HDC aDC,
+                      unsigned int aPageIndex,
+                      int aPageWidth,
+                      int aPageHeight);
 
-  RefPtr<PDFiumEngineShim>    mPDFiumEngine;
-  FPDF_DOCUMENT               mPDFDoc;
+  RefPtr<PDFiumEngineShim> mPDFiumEngine;
+  FPDF_DOCUMENT mPDFDoc;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif /* PDFVIAEMFPRINTHELPER_H_ */

@@ -17,7 +17,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGPolylineElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGPolylineElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGPolylineElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -25,8 +25,9 @@ SVGPolylineElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGPolylineElement::SVGPolylineElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGPolylineElementBase(aNodeInfo)
+SVGPolylineElement::SVGPolylineElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGPolylineElementBase(aNodeInfo)
 {
 }
 
@@ -41,7 +42,7 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGPolylineElement)
 already_AddRefed<Path>
 SVGPolylineElement::BuildPath(PathBuilder* aBuilder)
 {
-  const SVGPointList &points = mPoints.GetAnimValue();
+  const SVGPointList& points = mPoints.GetAnimValue();
 
   if (points.IsEmpty()) {
     return nullptr;
@@ -55,5 +56,5 @@ SVGPolylineElement::BuildPath(PathBuilder* aBuilder)
   return aBuilder->Finish();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

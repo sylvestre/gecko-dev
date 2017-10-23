@@ -22,17 +22,16 @@ class SpliceableChunkedJSONWriter;
 // concatenated together after writing is finished.
 class ChunkedJSONWriteFunc : public mozilla::JSONWriteFunc
 {
-public:
+ public:
   friend class SpliceableJSONWriter;
 
-  ChunkedJSONWriteFunc() {
-    AllocChunk(kChunkSize);
-  }
+  ChunkedJSONWriteFunc() { AllocChunk(kChunkSize); }
 
-  bool IsEmpty() const {
-    MOZ_ASSERT_IF(!mChunkPtr, !mChunkEnd &&
-                              mChunkList.length() == 0 &&
-                              mChunkLengths.length() == 0);
+  bool IsEmpty() const
+  {
+    MOZ_ASSERT_IF(
+        !mChunkPtr,
+        !mChunkEnd && mChunkList.length() == 0 && mChunkLengths.length() == 0);
     return !mChunkPtr;
   }
 
@@ -40,7 +39,7 @@ public:
   mozilla::UniquePtr<char[]> CopyData() const;
   void Take(ChunkedJSONWriteFunc&& aOther);
 
-private:
+ private:
   void AllocChunk(size_t aChunkSize);
 
   static const size_t kChunkSize = 4096 * 512;
@@ -67,33 +66,31 @@ private:
 
 struct OStreamJSONWriteFunc : public mozilla::JSONWriteFunc
 {
-  explicit OStreamJSONWriteFunc(std::ostream& aStream)
-    : mStream(aStream)
-  { }
+  explicit OStreamJSONWriteFunc(std::ostream& aStream) : mStream(aStream) {}
 
-  void Write(const char* aStr) override {
-    mStream << aStr;
-  }
+  void Write(const char* aStr) override { mStream << aStr; }
 
   std::ostream& mStream;
 };
 
 class SpliceableJSONWriter : public mozilla::JSONWriter
 {
-public:
-  explicit SpliceableJSONWriter(mozilla::UniquePtr<mozilla::JSONWriteFunc> aWriter)
-    : JSONWriter(mozilla::Move(aWriter))
-  { }
+ public:
+  explicit SpliceableJSONWriter(
+      mozilla::UniquePtr<mozilla::JSONWriteFunc> aWriter)
+      : JSONWriter(mozilla::Move(aWriter))
+  {
+  }
 
-  void StartBareList(CollectionStyle aStyle = MultiLineStyle) {
+  void StartBareList(CollectionStyle aStyle = MultiLineStyle)
+  {
     StartCollection(nullptr, "", aStyle);
   }
 
-  void EndBareList() {
-    EndCollection("");
-  }
+  void EndBareList() { EndCollection(""); }
 
-  void NullElements(uint32_t aCount) {
+  void NullElements(uint32_t aCount)
+  {
     for (uint32_t i = 0; i < aCount; i++) {
       NullElement();
     }
@@ -117,12 +114,14 @@ public:
 
 class SpliceableChunkedJSONWriter : public SpliceableJSONWriter
 {
-public:
+ public:
   explicit SpliceableChunkedJSONWriter()
-    : SpliceableJSONWriter(mozilla::MakeUnique<ChunkedJSONWriteFunc>())
-  { }
+      : SpliceableJSONWriter(mozilla::MakeUnique<ChunkedJSONWriteFunc>())
+  {
+  }
 
-  ChunkedJSONWriteFunc* WriteFunc() const {
+  ChunkedJSONWriteFunc* WriteFunc() const
+  {
     return static_cast<ChunkedJSONWriteFunc*>(JSONWriter::WriteFunc());
   }
 
@@ -130,4 +129,4 @@ public:
   virtual void TakeAndSplice(ChunkedJSONWriteFunc* aFunc) override;
 };
 
-#endif // PROFILEJSONWRITER_H
+#endif  // PROFILEJSONWRITER_H

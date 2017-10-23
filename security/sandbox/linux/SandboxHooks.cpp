@@ -20,9 +20,12 @@ extern int gSeccompTsyncBroadcastSignum;
 // sandbox. To avoid this, we intercept the call and remove SIGSYS.
 //
 // ENOSYS indicates an error within the hook function itself.
-static int HandleSigset(int (*aRealFunc)(int, const sigset_t*, sigset_t*),
-                        int aHow, const sigset_t* aSet,
-                        sigset_t* aOldSet, bool aUseErrno)
+static int
+HandleSigset(int (*aRealFunc)(int, const sigset_t*, sigset_t*),
+             int aHow,
+             const sigset_t* aSet,
+             sigset_t* aOldSet,
+             bool aUseErrno)
 {
   if (!aRealFunc) {
     if (aUseErrno) {
@@ -40,8 +43,8 @@ static int HandleSigset(int (*aRealFunc)(int, const sigset_t*, sigset_t*),
 
   sigset_t newSet = *aSet;
   if (sigdelset(&newSet, SIGSYS) != 0 ||
-     (gSeccompTsyncBroadcastSignum &&
-      sigdelset(&newSet, gSeccompTsyncBroadcastSignum) != 0)) {
+      (gSeccompTsyncBroadcastSignum &&
+       sigdelset(&newSet, gSeccompTsyncBroadcastSignum) != 0)) {
     if (aUseErrno) {
       errno = ENOSYS;
       return -1;
@@ -56,8 +59,8 @@ static int HandleSigset(int (*aRealFunc)(int, const sigset_t*, sigset_t*),
 extern "C" MOZ_EXPORT int
 sigprocmask(int how, const sigset_t* set, sigset_t* oldset)
 {
-  static auto sRealFunc = (int (*)(int, const sigset_t*, sigset_t*))
-    dlsym(RTLD_NEXT, "sigprocmask");
+  static auto sRealFunc =
+      (int (*)(int, const sigset_t*, sigset_t*))dlsym(RTLD_NEXT, "sigprocmask");
 
   return HandleSigset(sRealFunc, how, set, oldset, true);
 }
@@ -65,8 +68,8 @@ sigprocmask(int how, const sigset_t* set, sigset_t* oldset)
 extern "C" MOZ_EXPORT int
 pthread_sigmask(int how, const sigset_t* set, sigset_t* oldset)
 {
-  static auto sRealFunc = (int (*)(int, const sigset_t*, sigset_t*))
-    dlsym(RTLD_NEXT, "pthread_sigmask");
+  static auto sRealFunc = (int (*)(int, const sigset_t*, sigset_t*))dlsym(
+      RTLD_NEXT, "pthread_sigmask");
 
   return HandleSigset(sRealFunc, how, set, oldset, false);
 }

@@ -20,20 +20,21 @@ namespace dom {
 
 class U2FTransactionParent final : public PWebAuthnTransactionParent
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(U2FTransactionParent);
   U2FTransactionParent() = default;
-  virtual mozilla::ipc::IPCResult
-  RecvRequestRegister(const WebAuthnTransactionInfo& aTransactionInfo) override;
-  virtual mozilla::ipc::IPCResult
-  RecvRequestSign(const WebAuthnTransactionInfo& aTransactionInfo) override;
+  virtual mozilla::ipc::IPCResult RecvRequestRegister(
+      const WebAuthnTransactionInfo& aTransactionInfo) override;
+  virtual mozilla::ipc::IPCResult RecvRequestSign(
+      const WebAuthnTransactionInfo& aTransactionInfo) override;
   virtual mozilla::ipc::IPCResult RecvRequestCancel() override;
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
-private:
+
+ private:
   ~U2FTransactionParent() = default;
 };
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_U2FTransactionParent_h
+#endif  //mozilla_dom_U2FTransactionParent_h

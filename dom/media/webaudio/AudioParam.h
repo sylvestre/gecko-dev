@@ -19,12 +19,11 @@ namespace mozilla {
 
 namespace dom {
 
-class AudioParam final : public nsWrapperCache,
-                         public AudioParamTimeline
+class AudioParam final : public nsWrapperCache, public AudioParamTimeline
 {
   virtual ~AudioParam();
 
-public:
+ public:
   AudioParam(AudioNode* aNode,
              uint32_t aIndex,
              const char* aName,
@@ -36,12 +35,10 @@ public:
   NS_IMETHOD_(MozExternalRefCountType) Release(void);
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(AudioParam)
 
-  AudioContext* GetParentObject() const
-  {
-    return mNode->Context();
-  }
+  AudioContext* GetParentObject() const { return mNode->Context(); }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   // We override SetValueCurveAtTime to convert the Float32Array to the wrapper
   // object.
@@ -57,8 +54,13 @@ public:
     aValues.ComputeLengthAndData();
 
     aStartTime = std::max(aStartTime, GetParentObject()->CurrentTime());
-    EventInsertionHelper(aRv, AudioTimelineEvent::SetValueCurve,
-                         aStartTime, 0.0f, 0.0f, aDuration, aValues.Data(),
+    EventInsertionHelper(aRv,
+                         AudioTimelineEvent::SetValueCurve,
+                         aStartTime,
+                         0.0f,
+                         0.0f,
+                         aDuration,
+                         aValues.Data(),
                          aValues.Length());
     return this;
   }
@@ -69,8 +71,9 @@ public:
 
     ErrorResult rv;
     if (!ValidateEvent(event, rv)) {
-      MOZ_ASSERT(false, "This should not happen, "
-                        "setting the value should always work");
+      MOZ_ASSERT(false,
+                 "This should not happen, "
+                 "setting the value should always work");
       return;
     }
 
@@ -86,13 +89,14 @@ public:
       return this;
     }
     aStartTime = std::max(aStartTime, GetParentObject()->CurrentTime());
-    EventInsertionHelper(aRv, AudioTimelineEvent::SetValueAtTime,
-                         aStartTime, aValue);
+    EventInsertionHelper(
+        aRv, AudioTimelineEvent::SetValueAtTime, aStartTime, aValue);
 
     return this;
   }
 
-  AudioParam* LinearRampToValueAtTime(float aValue, double aEndTime,
+  AudioParam* LinearRampToValueAtTime(float aValue,
+                                      double aEndTime,
                                       ErrorResult& aRv)
   {
     if (!WebAudioUtils::IsTimeValid(aEndTime)) {
@@ -104,7 +108,8 @@ public:
     return this;
   }
 
-  AudioParam* ExponentialRampToValueAtTime(float aValue, double aEndTime,
+  AudioParam* ExponentialRampToValueAtTime(float aValue,
+                                           double aEndTime,
                                            ErrorResult& aRv)
   {
     if (!WebAudioUtils::IsTimeValid(aEndTime)) {
@@ -112,13 +117,15 @@ public:
       return this;
     }
     aEndTime = std::max(aEndTime, GetParentObject()->CurrentTime());
-    EventInsertionHelper(aRv, AudioTimelineEvent::ExponentialRamp,
-                         aEndTime, aValue);
+    EventInsertionHelper(
+        aRv, AudioTimelineEvent::ExponentialRamp, aEndTime, aValue);
     return this;
   }
 
-  AudioParam* SetTargetAtTime(float aTarget, double aStartTime,
-                              double aTimeConstant, ErrorResult& aRv)
+  AudioParam* SetTargetAtTime(float aTarget,
+                              double aStartTime,
+                              double aTimeConstant,
+                              ErrorResult& aRv)
   {
     if (!WebAudioUtils::IsTimeValid(aStartTime) ||
         !WebAudioUtils::IsTimeValid(aTimeConstant)) {
@@ -126,9 +133,8 @@ public:
       return this;
     }
     aStartTime = std::max(aStartTime, GetParentObject()->CurrentTime());
-    EventInsertionHelper(aRv, AudioTimelineEvent::SetTarget,
-                         aStartTime, aTarget,
-                         aTimeConstant);
+    EventInsertionHelper(
+        aRv, AudioTimelineEvent::SetTarget, aStartTime, aTarget, aTimeConstant);
 
     return this;
   }
@@ -152,40 +158,22 @@ public:
     return this;
   }
 
-  uint32_t ParentNodeId()
-  {
-    return mNode->Id();
-  }
+  uint32_t ParentNodeId() { return mNode->Id(); }
 
-  void GetName(nsAString& aName)
-  {
-    aName.AssignASCII(mName);
-  }
+  void GetName(nsAString& aName) { aName.AssignASCII(mName); }
 
-  float DefaultValue() const
-  {
-    return mDefaultValue;
-  }
+  float DefaultValue() const { return mDefaultValue; }
 
-  float MinValue() const
-  {
-    return mMinValue;
-  }
+  float MinValue() const { return mMinValue; }
 
-  float MaxValue() const
-  {
-    return mMaxValue;
-  }
+  float MaxValue() const { return mMaxValue; }
 
   const nsTArray<AudioNode::InputNode>& InputNodes() const
   {
     return mInputNodes;
   }
 
-  void RemoveInputNode(uint32_t aIndex)
-  {
-    mInputNodes.RemoveElementAt(aIndex);
-  }
+  void RemoveInputNode(uint32_t aIndex) { mInputNodes.RemoveElementAt(aIndex); }
 
   AudioNode::InputNode* AppendInputNode()
   {
@@ -216,17 +204,18 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   void EventInsertionHelper(ErrorResult& aRv,
                             AudioTimelineEvent::Type aType,
-                            double aTime, float aValue,
+                            double aTime,
+                            float aValue,
                             double aTimeConstant = 0.0,
                             float aDuration = 0.0,
                             const float* aCurve = nullptr,
                             uint32_t aCurveLength = 0)
   {
-    AudioTimelineEvent event(aType, aTime, aValue,
-                             aTimeConstant, aDuration, aCurve, aCurveLength);
+    AudioTimelineEvent event(
+        aType, aTime, aValue, aTimeConstant, aDuration, aCurve, aCurveLength);
 
     if (!ValidateEvent(event, aRv)) {
       return;
@@ -260,8 +249,7 @@ private:
   const float mMaxValue;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-

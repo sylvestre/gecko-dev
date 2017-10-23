@@ -45,9 +45,8 @@ class RegExpStack;
 // Since there is only one stack area, the Irregexp implementation is not
 // re-entrant. I.e., no regular expressions may be executed in the same thread
 // during a preempted Irregexp execution.
-class RegExpStackScope
-{
-  public:
+class RegExpStackScope {
+   public:
     // Create and delete an instance to control the life-time of a growing stack.
 
     // Initializes the stack memory area if necessary.
@@ -56,13 +55,12 @@ class RegExpStackScope
     // Releases the stack if it has grown.
     ~RegExpStackScope();
 
-  private:
+   private:
     RegExpStack* regexp_stack;
 };
 
-class RegExpStack
-{
-  public:
+class RegExpStack {
+   public:
     // Number of allocated locations on the stack above the limit.
     // No sequence of pushes must be longer that this without doing a stack-limit
     // check.
@@ -85,7 +83,7 @@ class RegExpStack
     void* base() { return base_; }
     void* limit() { return limit_; }
 
-  private:
+   private:
     // Artificial limit used when no memory has been allocated.
     static const uintptr_t kMemoryTop = static_cast<uintptr_t>(-1);
 
@@ -114,9 +112,9 @@ class RegExpStack
     }
 };
 
-int
-GrowBacktrackStack(JSRuntime* rt);
+int GrowBacktrackStack(JSRuntime* rt);
 
-}}  // namespace js::irregexp
+}  // namespace irregexp
+}  // namespace js
 
 #endif  // V8_REGEXP_STACK_H_

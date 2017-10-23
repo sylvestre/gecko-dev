@@ -22,7 +22,7 @@ class GMPStorageChild;
 
 class GMPRecordImpl : public GMPRecord
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPRecordImpl)
 
   GMPRecordImpl(GMPStorageChild* aOwner,
@@ -32,8 +32,7 @@ public:
   // GMPRecord.
   GMPErr Open() override;
   GMPErr Read() override;
-  GMPErr Write(const uint8_t* aData,
-               uint32_t aDataSize) override;
+  GMPErr Write(const uint8_t* aData, uint32_t aDataSize) override;
   GMPErr Close() override;
 
   const nsCString& Name() const { return mName; }
@@ -42,7 +41,7 @@ public:
   void ReadComplete(GMPErr aStatus, const uint8_t* aBytes, uint32_t aLength);
   void WriteComplete(GMPErr aStatus);
 
-private:
+ private:
   ~GMPRecordImpl() {}
   const nsCString mName;
   GMPRecordClient* const mClient;
@@ -51,7 +50,7 @@ private:
 
 class GMPStorageChild : public PGMPStorageChild
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPStorageChild)
 
   explicit GMPStorageChild(GMPChild* aPlugin);
@@ -70,31 +69,32 @@ public:
 
   GMPErr Close(const nsCString& aRecordName);
 
-private:
+ private:
   bool HasRecord(const nsCString& aRecordName);
   already_AddRefed<GMPRecordImpl> GetRecord(const nsCString& aRecordName);
 
-protected:
+ protected:
   ~GMPStorageChild() {}
 
   // PGMPStorageChild
   mozilla::ipc::IPCResult RecvOpenComplete(const nsCString& aRecordName,
                                            const GMPErr& aStatus) override;
-  mozilla::ipc::IPCResult RecvReadComplete(const nsCString& aRecordName,
-                                           const GMPErr& aStatus,
-                                           InfallibleTArray<uint8_t>&& aBytes) override;
+  mozilla::ipc::IPCResult RecvReadComplete(
+      const nsCString& aRecordName,
+      const GMPErr& aStatus,
+      InfallibleTArray<uint8_t>&& aBytes) override;
   mozilla::ipc::IPCResult RecvWriteComplete(const nsCString& aRecordName,
                                             const GMPErr& aStatus) override;
   mozilla::ipc::IPCResult RecvShutdown() override;
 
-private:
+ private:
   Monitor mMonitor;
   nsRefPtrHashtable<nsCStringHashKey, GMPRecordImpl> mRecords;
   GMPChild* mPlugin;
   bool mShutdown;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPStorageChild_h_
+#endif  // GMPStorageChild_h_

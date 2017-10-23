@@ -9,7 +9,8 @@
 #include "rulebrk.h"
 
 void
-NS_GetComplexLineBreaks(const char16_t* aText, uint32_t aLength,
+NS_GetComplexLineBreaks(const char16_t* aText,
+                        uint32_t aLength,
                         uint8_t* aBreakBefore)
 {
   NS_ASSERTION(aText, "aText shouldn't be null");
@@ -17,4 +18,3 @@ NS_GetComplexLineBreaks(const char16_t* aText, uint32_t aLength,
   for (uint32_t i = 0; i < aLength; i++)
     aBreakBefore[i] = (0 == TrbWordBreakPos(aText, i, aText + i, aLength - i));
 }
-

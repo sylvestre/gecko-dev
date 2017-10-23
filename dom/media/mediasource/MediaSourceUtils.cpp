@@ -21,9 +21,8 @@ DumpTimeRanges(const media::TimeIntervals& aRanges)
     if (i > 0) {
       dump += ", ";
     }
-    dump += nsPrintfCString("(%f, %f)",
-                            aRanges.Start(i).ToSeconds(),
-                            aRanges.End(i).ToSeconds());
+    dump += nsPrintfCString(
+        "(%f, %f)", aRanges.Start(i).ToSeconds(), aRanges.End(i).ToSeconds());
   }
 
   dump += "]";
@@ -31,4 +30,4 @@ DumpTimeRanges(const media::TimeIntervals& aRanges)
   return dump;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

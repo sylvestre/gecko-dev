@@ -38,21 +38,16 @@
 namespace js {
 namespace irregexp {
 
-class MOZ_STACK_CLASS RegExpMacroAssembler
-{
-  public:
+class MOZ_STACK_CLASS RegExpMacroAssembler {
+   public:
     RegExpMacroAssembler(JSContext* cx, LifoAlloc& alloc, size_t numSavedRegisters)
-      : slow_safe_compiler_(false),
-        global_mode_(NOT_GLOBAL),
-        alloc_(alloc),
-        num_registers_(numSavedRegisters),
-        num_saved_registers_(numSavedRegisters)
-    {}
+        : slow_safe_compiler_(false),
+          global_mode_(NOT_GLOBAL),
+          alloc_(alloc),
+          num_registers_(numSavedRegisters),
+          num_saved_registers_(numSavedRegisters) {}
 
-    enum StackCheckFlag {
-        kNoStackLimitCheck = false,
-        kCheckStackLimit = true
-    };
+    enum StackCheckFlag { kNoStackLimitCheck = false, kCheckStackLimit = true };
 
     // The implementation must be able to handle at least:
     static const int kMaxRegister = (1 << 16) - 1;
@@ -73,9 +68,7 @@ class MOZ_STACK_CLASS RegExpMacroAssembler
     // a failure in a global regexp may still mean success overall.
     inline void set_global_mode(GlobalMode mode) { global_mode_ = mode; }
     inline bool global() { return global_mode_ != NOT_GLOBAL; }
-    inline bool global_with_zero_length_check() {
-        return global_mode_ == GLOBAL;
-    }
+    inline bool global_with_zero_length_check() { return global_mode_ == GLOBAL; }
 
     LifoAlloc& alloc() { return alloc_; }
 
@@ -88,7 +81,7 @@ class MOZ_STACK_CLASS RegExpMacroAssembler
 
     virtual bool CanReadUnaligned() { return false; }
 
-    virtual void AdvanceCurrentPosition(int by) = 0;  // Signed cp change.
+    virtual void AdvanceCurrentPosition(int by) = 0;    // Signed cp change.
     virtual void AdvanceRegister(int reg, int by) = 0;  // r[reg] += by.
 
     // Continues execution from the position pushed on the top of the backtrack
@@ -119,20 +112,19 @@ class MOZ_STACK_CLASS RegExpMacroAssembler
     // matches.  If the label is nullptr then we should pop a backtrack address off
     // the stack and go to that.
     virtual void CheckNotCharacter(unsigned c, jit::Label* on_not_equal) = 0;
-    virtual void CheckNotCharacterAfterAnd(unsigned c, unsigned and_with, jit::Label* on_not_equal) = 0;
+    virtual void CheckNotCharacterAfterAnd(unsigned c, unsigned and_with,
+                                           jit::Label* on_not_equal) = 0;
 
     // Subtract a constant from the current character, then and with the given
     // constant and then check for a match with c.
-    virtual void CheckNotCharacterAfterMinusAnd(char16_t c,
-                                        char16_t minus,
-                                        char16_t and_with,
-                                        jit::Label* on_not_equal) = 0;
+    virtual void CheckNotCharacterAfterMinusAnd(char16_t c, char16_t minus, char16_t and_with,
+                                                jit::Label* on_not_equal) = 0;
 
     virtual void CheckCharacterInRange(char16_t from, char16_t to,  // Both inclusive.
-                               jit::Label* on_in_range) = 0;
+                                       jit::Label* on_in_range) = 0;
 
     virtual void CheckCharacterNotInRange(char16_t from, char16_t to,  // Both inclusive.
-                                  jit::Label* on_not_in_range) = 0;
+                                          jit::Label* on_not_in_range) = 0;
 
     // The current character (modulus the kTableSize) is looked up in the byte
     // array, and if the found byte is non-zero, we jump to the on_bit_set label.
@@ -169,10 +161,8 @@ class MOZ_STACK_CLASS RegExpMacroAssembler
     // label if it is.
     virtual void IfRegisterEqPos(int reg, jit::Label* if_eq) = 0;
 
-    virtual void LoadCurrentCharacter(int cp_offset,
-                                      jit::Label* on_end_of_input,
-                                      bool check_bounds = true,
-                                      int characters = 1) = 0;
+    virtual void LoadCurrentCharacter(int cp_offset, jit::Label* on_end_of_input,
+                                      bool check_bounds = true, int characters = 1) = 0;
     virtual void PopCurrentPosition() = 0;
     virtual void PopRegister(int register_index) = 0;
 
@@ -197,35 +187,32 @@ class MOZ_STACK_CLASS RegExpMacroAssembler
     // Bind a label that was previously used by PushBacktrack.
     virtual void BindBacktrack(jit::Label* label) = 0;
 
-  private:
+   private:
     bool slow_safe_compiler_;
     GlobalMode global_mode_;
     LifoAlloc& alloc_;
 
-  protected:
+   protected:
     int num_registers_;
     int num_saved_registers_;
 
     void checkRegister(int reg) {
         MOZ_ASSERT(reg >= 0);
         MOZ_ASSERT(reg <= kMaxRegister);
-        if (num_registers_ <= reg)
-            num_registers_ = reg + 1;
+        if (num_registers_ <= reg) num_registers_ = reg + 1;
     }
 };
 
 template <typename CharT>
-int
-CaseInsensitiveCompareStrings(const CharT* substring1, const CharT* substring2, size_t byteLength);
+int CaseInsensitiveCompareStrings(const CharT* substring1, const CharT* substring2,
+                                  size_t byteLength);
 
 template <typename CharT>
-int
-CaseInsensitiveCompareUCStrings(const CharT* substring1, const CharT* substring2,
-                                size_t byteLength);
+int CaseInsensitiveCompareUCStrings(const CharT* substring1, const CharT* substring2,
+                                    size_t byteLength);
 
-class MOZ_STACK_CLASS InterpretedRegExpMacroAssembler final : public RegExpMacroAssembler
-{
-  public:
+class MOZ_STACK_CLASS InterpretedRegExpMacroAssembler final : public RegExpMacroAssembler {
+   public:
     InterpretedRegExpMacroAssembler(JSContext* cx, LifoAlloc* alloc, size_t numSavedRegisters);
     ~InterpretedRegExpMacroAssembler();
 
@@ -248,18 +235,16 @@ class MOZ_STACK_CLASS InterpretedRegExpMacroAssembler final : public RegExpMacro
     void CheckNotCharacterAfterAnd(unsigned c, unsigned and_with, jit::Label* on_not_equal);
     void CheckNotCharacterAfterMinusAnd(char16_t c, char16_t minus, char16_t and_with,
                                         jit::Label* on_not_equal);
-    void CheckCharacterInRange(char16_t from, char16_t to,
-                               jit::Label* on_in_range);
-    void CheckCharacterNotInRange(char16_t from, char16_t to,
-                                  jit::Label* on_not_in_range);
+    void CheckCharacterInRange(char16_t from, char16_t to, jit::Label* on_in_range);
+    void CheckCharacterNotInRange(char16_t from, char16_t to, jit::Label* on_not_in_range);
     void CheckBitInTable(RegExpShared::JitCodeTable table, jit::Label* on_bit_set);
     void JumpOrBacktrack(jit::Label* to);
     void Fail();
     void IfRegisterGE(int reg, int comparand, jit::Label* if_ge);
     void IfRegisterLT(int reg, int comparand, jit::Label* if_lt);
     void IfRegisterEqPos(int reg, jit::Label* if_eq);
-    void LoadCurrentCharacter(int cp_offset, jit::Label* on_end_of_input,
-                              bool check_bounds = true, int characters = 1);
+    void LoadCurrentCharacter(int cp_offset, jit::Label* on_end_of_input, bool check_bounds = true,
+                              int characters = 1);
     void PopCurrentPosition();
     void PopRegister(int register_index);
     void PushCurrentPosition();
@@ -278,7 +263,7 @@ class MOZ_STACK_CLASS InterpretedRegExpMacroAssembler final : public RegExpMacro
     // The byte-code interpreter checks on each push anyway.
     int stack_limit_slack() { return 1; }
 
-  private:
+   private:
     void Expand();
 
     // Code and bitmap emission.
@@ -303,6 +288,7 @@ class MOZ_STACK_CLASS InterpretedRegExpMacroAssembler final : public RegExpMacro
     int length_;
 };
 
-} }  // namespace js::irregexp
+}  // namespace irregexp
+}  // namespace js
 
 #endif  // V8_REGEXP_MACRO_ASSEMBLER_H_

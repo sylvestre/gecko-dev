@@ -21,17 +21,16 @@ namespace plugins {
 
 struct WinInfo
 {
-  WinInfo(HWND aHwnd, POINT& aPos, SIZE& aSize)
-    :hwnd(aHwnd)
+  WinInfo(HWND aHwnd, POINT& aPos, SIZE& aSize) : hwnd(aHwnd)
   {
     pos.x = aPos.x;
     pos.y = aPos.y;
     size.cx = aSize.cx;
     size.cy = aSize.cy;
   }
-  HWND  hwnd;
+  HWND hwnd;
   POINT pos;
-  SIZE  size;
+  SIZE size;
 };
 typedef std::vector<WinInfo> WinInfoVec;
 
@@ -39,13 +38,13 @@ PluginHangUIChild* PluginHangUIChild::sSelf = nullptr;
 const int PluginHangUIChild::kExpectedMinimumArgc = 10;
 
 PluginHangUIChild::PluginHangUIChild()
-  : mResponseBits(0),
-    mParentWindow(nullptr),
-    mDlgHandle(nullptr),
-    mMainThread(nullptr),
-    mParentProcess(nullptr),
-    mRegWaitProcess(nullptr),
-    mIPCTimeoutMs(0)
+    : mResponseBits(0),
+      mParentWindow(nullptr),
+      mDlgHandle(nullptr),
+      mMainThread(nullptr),
+      mParentProcess(nullptr),
+      mRegWaitProcess(nullptr),
+      mIPCTimeoutMs(0)
 {
 }
 
@@ -89,8 +88,8 @@ PluginHangUIChild::Init(int aArgc, wchar_t* aArgv[])
   if (wcscmp(aArgv[++i], L"-")) {
     HMODULE shell32 = LoadLibrary(L"shell32.dll");
     if (shell32) {
-      SETAPPUSERMODELID fSetAppUserModelID = (SETAPPUSERMODELID)
-        GetProcAddress(shell32, "SetCurrentProcessExplicitAppUserModelID");
+      SETAPPUSERMODELID fSetAppUserModelID = (SETAPPUSERMODELID)GetProcAddress(
+          shell32, "SetCurrentProcessExplicitAppUserModelID");
       if (fSetAppUserModelID) {
         fSetAppUserModelID(aArgv[i]);
       }
@@ -136,10 +135,12 @@ PluginHangUIChild::OnMiniShmEvent(MiniShmBase* aMiniShmObj)
 
 // static
 INT_PTR CALLBACK
-PluginHangUIChild::SHangUIDlgProc(HWND aDlgHandle, UINT aMsgCode,
-                                  WPARAM aWParam, LPARAM aLParam)
+PluginHangUIChild::SHangUIDlgProc(HWND aDlgHandle,
+                                  UINT aMsgCode,
+                                  WPARAM aWParam,
+                                  LPARAM aLParam)
 {
-  PluginHangUIChild *self = PluginHangUIChild::sSelf;
+  PluginHangUIChild* self = PluginHangUIChild::sSelf;
   if (self) {
     return self->HangUIDlgProc(aDlgHandle, aMsgCode, aWParam, aLParam);
   }
@@ -150,8 +151,8 @@ void
 PluginHangUIChild::ResizeButtons()
 {
   // Control IDs are specified right-to-left as they appear in the dialog
-  UINT ids[] = { IDC_STOP, IDC_CONTINUE };
-  UINT numIds = sizeof(ids)/sizeof(ids[0]);
+  UINT ids[] = {IDC_STOP, IDC_CONTINUE};
+  UINT numIds = sizeof(ids) / sizeof(ids[0]);
 
   // Pass 1: Compute the ideal size
   bool needResizing = false;
@@ -216,18 +217,22 @@ PluginHangUIChild::ResizeButtons()
 
   // Pass 2: Resize the windows
   int deltaX = 0;
-  HDWP hwp = BeginDeferWindowPos((int) winInfo.size());
+  HDWP hwp = BeginDeferWindowPos((int)winInfo.size());
   if (!hwp) {
     return;
   }
-  for (WinInfoVec::const_iterator itr = winInfo.begin();
-       itr != winInfo.end(); ++itr) {
+  for (WinInfoVec::const_iterator itr = winInfo.begin(); itr != winInfo.end();
+       ++itr) {
     // deltaX accumulates the size changes so that each button's x coordinate
     // can compensate for the width increases
     deltaX += idealSize.cx - itr->size.cx;
-    hwp = DeferWindowPos(hwp, itr->hwnd, nullptr,
-                         itr->pos.x - deltaX, itr->pos.y,
-                         idealSize.cx, itr->size.cy,
+    hwp = DeferWindowPos(hwp,
+                         itr->hwnd,
+                         nullptr,
+                         itr->pos.x - deltaX,
+                         itr->pos.y,
+                         idealSize.cx,
+                         itr->size.cy,
                          SWP_NOZORDER | SWP_NOACTIVATE);
     if (!hwp) {
       return;
@@ -237,7 +242,9 @@ PluginHangUIChild::ResizeButtons()
 }
 
 INT_PTR
-PluginHangUIChild::HangUIDlgProc(HWND aDlgHandle, UINT aMsgCode, WPARAM aWParam,
+PluginHangUIChild::HangUIDlgProc(HWND aDlgHandle,
+                                 UINT aMsgCode,
+                                 WPARAM aWParam,
                                  LPARAM aLParam)
 {
   mDlgHandle = aDlgHandle;
@@ -257,10 +264,11 @@ PluginHangUIChild::HangUIDlgProc(HWND aDlgHandle, UINT aMsgCode, WPARAM aWParam,
       SetDlgItemText(aDlgHandle, IDC_CONTINUE, mWaitBtnText);
       SetDlgItemText(aDlgHandle, IDC_STOP, mKillBtnText);
       ResizeButtons();
-      HANDLE icon = LoadImage(nullptr, IDI_QUESTION, IMAGE_ICON, 0, 0,
-                              LR_DEFAULTSIZE | LR_SHARED);
+      HANDLE icon = LoadImage(
+          nullptr, IDI_QUESTION, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
       if (icon) {
-        SendDlgItemMessage(aDlgHandle, IDC_DLGICON, STM_SETICON, (WPARAM)icon, 0);
+        SendDlgItemMessage(
+            aDlgHandle, IDC_DLGICON, STM_SETICON, (WPARAM)icon, 0);
       }
       EnableWindow(mParentWindow, FALSE);
       return TRUE;
@@ -291,12 +299,12 @@ PluginHangUIChild::HangUIDlgProc(HWND aDlgHandle, UINT aMsgCode, WPARAM aWParam,
           break;
         case IDC_NOFUTURE:
           if (HIWORD(aWParam) == BN_CLICKED) {
-            if (Button_GetCheck(GetDlgItem(aDlgHandle,
-                                           IDC_NOFUTURE)) == BST_CHECKED) {
+            if (Button_GetCheck(GetDlgItem(aDlgHandle, IDC_NOFUTURE)) ==
+                BST_CHECKED) {
               mResponseBits |= HANGUI_USER_RESPONSE_DONT_SHOW_AGAIN;
             } else {
               mResponseBits &=
-                ~static_cast<DWORD>(HANGUI_USER_RESPONSE_DONT_SHOW_AGAIN);
+                  ~static_cast<DWORD>(HANGUI_USER_RESPONSE_DONT_SHOW_AGAIN);
             }
             SetWindowLongPtr(aDlgHandle, DWLP_MSGRESULT, 0);
             return TRUE;
@@ -330,9 +338,8 @@ PluginHangUIChild::SOnParentProcessExit(PVOID aObject, BOOLEAN aIsTimer)
 bool
 PluginHangUIChild::RecvShow()
 {
-  return (QueueUserAPC(&ShowAPC,
-                       mMainThread,
-                       reinterpret_cast<ULONG_PTR>(this)));
+  return (
+      QueueUserAPC(&ShowAPC, mMainThread, reinterpret_cast<ULONG_PTR>(this)));
 }
 
 bool
@@ -379,11 +386,8 @@ PluginHangUIChild::WaitForDismissal()
   if (!SetMainThread()) {
     return false;
   }
-  DWORD waitResult = WaitForSingleObjectEx(mParentProcess,
-                                           mIPCTimeoutMs,
-                                           TRUE);
-  return waitResult == WAIT_OBJECT_0 ||
-         waitResult == WAIT_IO_COMPLETION;
+  DWORD waitResult = WaitForSingleObjectEx(mParentProcess, mIPCTimeoutMs, TRUE);
+  return waitResult == WAIT_OBJECT_0 || waitResult == WAIT_IO_COMPLETION;
 }
 
 bool
@@ -393,23 +397,21 @@ PluginHangUIChild::SetMainThread()
     CloseHandle(mMainThread);
     mMainThread = nullptr;
   }
-  mMainThread = OpenThread(THREAD_SET_CONTEXT,
-                           FALSE,
-                           GetCurrentThreadId());
+  mMainThread = OpenThread(THREAD_SET_CONTEXT, FALSE, GetCurrentThreadId());
   return !(!mMainThread);
 }
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
 #ifdef __MINGW32__
 extern "C"
 #endif
-int
-wmain(int argc, wchar_t *argv[])
+    int
+    wmain(int argc, wchar_t* argv[])
 {
-  INITCOMMONCONTROLSEX icc = { sizeof(INITCOMMONCONTROLSEX),
-                               ICC_STANDARD_CLASSES };
+  INITCOMMONCONTROLSEX icc = {sizeof(INITCOMMONCONTROLSEX),
+                              ICC_STANDARD_CLASSES};
   if (!InitCommonControlsEx(&icc)) {
     return 1;
   }
@@ -422,4 +424,3 @@ wmain(int argc, wchar_t *argv[])
   }
   return 0;
 }
-

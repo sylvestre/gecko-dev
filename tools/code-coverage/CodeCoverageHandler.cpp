@@ -20,29 +20,40 @@ using namespace mozilla;
 // So we are using a CrossProcessMutex to protect them.
 
 #if defined(__GNUC__) && !defined(__clang__)
-extern "C" void __gcov_dump();
-extern "C" void __gcov_reset();
+extern "C" void
+__gcov_dump();
+extern "C" void
+__gcov_reset();
 
-void counters_dump() {
+void
+counters_dump()
+{
   __gcov_dump();
 }
 
-void counters_reset() {
+void
+counters_reset()
+{
   __gcov_reset();
 }
 #else
-void counters_dump() {
+void
+counters_dump()
+{
   /* Do nothing */
 }
 
-void counters_reset() {
+void
+counters_reset()
+{
   /* Do nothing */
 }
 #endif
 
 StaticAutoPtr<CodeCoverageHandler> CodeCoverageHandler::instance;
 
-void CodeCoverageHandler::DumpCounters(int)
+void
+CodeCoverageHandler::DumpCounters(int)
 {
   CrossProcessMutexAutoLock lock(*CodeCoverageHandler::Get()->GetMutex());
 
@@ -51,7 +62,8 @@ void CodeCoverageHandler::DumpCounters(int)
   printf_stderr("[CodeCoverage] Dump completed.\n");
 }
 
-void CodeCoverageHandler::ResetCounters(int)
+void
+CodeCoverageHandler::ResetCounters(int)
 {
   CrossProcessMutexAutoLock lock(*CodeCoverageHandler::Get()->GetMutex());
 
@@ -60,7 +72,8 @@ void CodeCoverageHandler::ResetCounters(int)
   printf_stderr("[CodeCoverage] Reset completed.\n");
 }
 
-void CodeCoverageHandler::SetSignalHandlers()
+void
+CodeCoverageHandler::SetSignalHandlers()
 {
   printf_stderr("[CodeCoverage] Setting handlers for process %d.\n", getpid());
 
@@ -79,19 +92,19 @@ void CodeCoverageHandler::SetSignalHandlers()
   MOZ_ASSERT(r2 == 0, "Failed to install GCOV SIGUSR2 handler");
 }
 
-CodeCoverageHandler::CodeCoverageHandler()
-  : mGcovLock("GcovLock")
+CodeCoverageHandler::CodeCoverageHandler() : mGcovLock("GcovLock")
 {
   SetSignalHandlers();
 }
 
 CodeCoverageHandler::CodeCoverageHandler(const CrossProcessMutexHandle& aHandle)
-  : mGcovLock(aHandle)
+    : mGcovLock(aHandle)
 {
   SetSignalHandlers();
 }
 
-void CodeCoverageHandler::Init()
+void
+CodeCoverageHandler::Init()
 {
   MOZ_ASSERT(!instance);
   MOZ_ASSERT(XRE_IsParentProcess());
@@ -99,7 +112,8 @@ void CodeCoverageHandler::Init()
   ClearOnShutdown(&instance);
 }
 
-void CodeCoverageHandler::Init(const CrossProcessMutexHandle& aHandle)
+void
+CodeCoverageHandler::Init(const CrossProcessMutexHandle& aHandle)
 {
   MOZ_ASSERT(!instance);
   MOZ_ASSERT(!XRE_IsParentProcess());
@@ -107,18 +121,21 @@ void CodeCoverageHandler::Init(const CrossProcessMutexHandle& aHandle)
   ClearOnShutdown(&instance);
 }
 
-CodeCoverageHandler* CodeCoverageHandler::Get()
+CodeCoverageHandler*
+CodeCoverageHandler::Get()
 {
   MOZ_ASSERT(instance);
   return instance;
 }
 
-CrossProcessMutex* CodeCoverageHandler::GetMutex()
+CrossProcessMutex*
+CodeCoverageHandler::GetMutex()
 {
   return &mGcovLock;
 }
 
-CrossProcessMutexHandle CodeCoverageHandler::GetMutexHandle(int aProcId)
+CrossProcessMutexHandle
+CodeCoverageHandler::GetMutexHandle(int aProcId)
 {
   return mGcovLock.ShareToProcess(aProcId);
 }

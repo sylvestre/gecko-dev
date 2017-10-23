@@ -13,8 +13,9 @@
 
 class nsSVGMaskFrame;
 
-nsresult NS_NewSVGMaskElement(nsIContent **aResult,
-                              already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGMaskElement(nsIContent** aResult,
+                     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 namespace dom {
@@ -27,15 +28,18 @@ class SVGMaskElement final : public SVGMaskElementBase
 {
   friend class ::nsSVGMaskFrame;
 
-protected:
-  friend nsresult (::NS_NewSVGMaskElement(nsIContent **aResult,
-                                          already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+ protected:
+  friend nsresult(::NS_NewSVGMaskElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
   explicit SVGMaskElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
-  virtual JSObject* WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* cx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
+ public:
   // nsIContent interface
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
@@ -50,21 +54,30 @@ public:
   already_AddRefed<SVGAnimatedLength> Width();
   already_AddRefed<SVGAnimatedLength> Height();
 
-protected:
-
+ protected:
   virtual LengthAttributesInfo GetLengthInfo() override;
   virtual EnumAttributesInfo GetEnumInfo() override;
 
-  enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
+  enum
+  {
+    ATTR_X,
+    ATTR_Y,
+    ATTR_WIDTH,
+    ATTR_HEIGHT
+  };
   nsSVGLength2 mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
 
-  enum { MASKUNITS, MASKCONTENTUNITS };
+  enum
+  {
+    MASKUNITS,
+    MASKCONTENTUNITS
+  };
   nsSVGEnum mEnumAttributes[2];
   static EnumInfo sEnumInfo[2];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGMaskElement_h
+#endif  // mozilla_dom_SVGMaskElement_h

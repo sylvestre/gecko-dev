@@ -86,8 +86,10 @@ namespace mozilla {
 
 // Timestamps set whenever a packet is dropped due to global rate limiting
 // (see nr_socket_prsock.cpp)
-TimeStamp nr_socket_short_term_violation_time();
-TimeStamp nr_socket_long_term_violation_time();
+TimeStamp
+nr_socket_short_term_violation_time();
+TimeStamp
+nr_socket_long_term_violation_time();
 
 class NrIceMediaStream;
 
@@ -95,20 +97,24 @@ extern const char kNrIceTransportUdp[];
 extern const char kNrIceTransportTcp[];
 extern const char kNrIceTransportTls[];
 
-class NrIceStunServer {
+class NrIceStunServer
+{
  public:
-  explicit NrIceStunServer(const PRNetAddr& addr) : has_addr_(true) {
+  explicit NrIceStunServer(const PRNetAddr& addr) : has_addr_(true)
+  {
     memcpy(&addr_, &addr, sizeof(addr));
   }
 
-   // The main function to use. Will take either an address or a hostname.
-  static UniquePtr<NrIceStunServer> Create(const std::string& addr, uint16_t port,
-      const char *transport = kNrIceTransportUdp) {
+  // The main function to use. Will take either an address or a hostname.
+  static UniquePtr<NrIceStunServer> Create(
+      const std::string& addr,
+      uint16_t port,
+      const char* transport = kNrIceTransportUdp)
+  {
     UniquePtr<NrIceStunServer> server(new NrIceStunServer(transport));
 
     nsresult rv = server->Init(addr, port);
-    if (NS_FAILED(rv))
-      return nullptr;
+    if (NS_FAILED(rv)) return nullptr;
 
     return server;
   }
@@ -116,10 +122,13 @@ class NrIceStunServer {
   nsresult ToNicerStunStruct(nr_ice_stun_server* server) const;
 
  protected:
-  explicit NrIceStunServer(const char *transport) :
-      addr_(), transport_(transport) {}
+  explicit NrIceStunServer(const char* transport)
+      : addr_(), transport_(transport)
+  {
+  }
 
-  nsresult Init(const std::string& addr, uint16_t port) {
+  nsresult Init(const std::string& addr, uint16_t port)
+  {
     PRStatus status = PR_StringToNetAddr(addr.c_str(), &addr_);
     if (status == PR_SUCCESS) {
       // Parseable as an address
@@ -127,8 +136,7 @@ class NrIceStunServer {
       port_ = port;
       has_addr_ = true;
       return NS_OK;
-    }
-    else if (addr.size() < 256) {
+    } else if (addr.size() < 256) {
       // Apparently this is a hostname.
       host_ = addr;
       port_ = port;
@@ -146,38 +154,47 @@ class NrIceStunServer {
   std::string transport_;
 };
 
-class NrIceTurnServer : public NrIceStunServer {
+class NrIceTurnServer : public NrIceStunServer
+{
  public:
-  static UniquePtr<NrIceTurnServer> Create(const std::string& addr, uint16_t port,
-                                           const std::string& username,
-                                           const std::vector<unsigned char>& password,
-                                           const char *transport = kNrIceTransportUdp) {
-    UniquePtr<NrIceTurnServer> server(new NrIceTurnServer(username, password, transport));
+  static UniquePtr<NrIceTurnServer> Create(
+      const std::string& addr,
+      uint16_t port,
+      const std::string& username,
+      const std::vector<unsigned char>& password,
+      const char* transport = kNrIceTransportUdp)
+  {
+    UniquePtr<NrIceTurnServer> server(
+        new NrIceTurnServer(username, password, transport));
 
     nsresult rv = server->Init(addr, port);
-    if (NS_FAILED(rv))
-      return nullptr;
+    if (NS_FAILED(rv)) return nullptr;
 
     return server;
   }
 
-  nsresult ToNicerTurnStruct(nr_ice_turn_server *server) const;
+  nsresult ToNicerTurnStruct(nr_ice_turn_server* server) const;
 
  private:
   NrIceTurnServer(const std::string& username,
                   const std::vector<unsigned char>& password,
-                  const char *transport) :
-      NrIceStunServer(transport), username_(username), password_(password) {}
+                  const char* transport)
+      : NrIceStunServer(transport), username_(username), password_(password)
+  {
+  }
 
   std::string username_;
   std::vector<unsigned char> password_;
 };
 
-class NrIceProxyServer {
+class NrIceProxyServer
+{
  public:
-  NrIceProxyServer(const std::string& host, uint16_t port,
-                   const std::string& alpn) :
-    host_(host), port_(port), alpn_(alpn) {
+  NrIceProxyServer(const std::string& host,
+                   uint16_t port,
+                   const std::string& alpn)
+      : host_(host), port_(port), alpn_(alpn)
+  {
   }
 
   NrIceProxyServer() : NrIceProxyServer("", 0, "") {}
@@ -194,7 +211,8 @@ class NrIceProxyServer {
 
 class TestNat;
 
-class NrIceStats {
+class NrIceStats
+{
  public:
   uint16_t stun_retransmits = 0;
   uint16_t turn_401s = 0;
@@ -202,30 +220,40 @@ class NrIceStats {
   uint16_t turn_438s = 0;
 };
 
-class NrIceCtx {
- friend class NrIceCtxHandler;
+class NrIceCtx
+{
+  friend class NrIceCtxHandler;
+
  public:
-  enum ConnectionState { ICE_CTX_INIT,
-                         ICE_CTX_CHECKING,
-                         ICE_CTX_CONNECTED,
-                         ICE_CTX_COMPLETED,
-                         ICE_CTX_FAILED,
-                         ICE_CTX_DISCONNECTED,
-                         ICE_CTX_CLOSED
+  enum ConnectionState
+  {
+    ICE_CTX_INIT,
+    ICE_CTX_CHECKING,
+    ICE_CTX_CONNECTED,
+    ICE_CTX_COMPLETED,
+    ICE_CTX_FAILED,
+    ICE_CTX_DISCONNECTED,
+    ICE_CTX_CLOSED
   };
 
-  enum GatheringState { ICE_CTX_GATHER_INIT,
-                        ICE_CTX_GATHER_STARTED,
-                        ICE_CTX_GATHER_COMPLETE
+  enum GatheringState
+  {
+    ICE_CTX_GATHER_INIT,
+    ICE_CTX_GATHER_STARTED,
+    ICE_CTX_GATHER_COMPLETE
   };
 
-  enum Controlling { ICE_CONTROLLING,
-                     ICE_CONTROLLED
+  enum Controlling
+  {
+    ICE_CONTROLLING,
+    ICE_CONTROLLED
   };
 
-  enum Policy { ICE_POLICY_RELAY,
-                ICE_POLICY_NO_HOST,
-                ICE_POLICY_ALL
+  enum Policy
+  {
+    ICE_POLICY_RELAY,
+    ICE_POLICY_NO_HOST,
+    ICE_POLICY_ALL
   };
 
   // initialize ICE globals, crypto, and logging
@@ -251,15 +279,16 @@ class NrIceCtx {
   // Divide some timers to faster testing. Used only for testing.
   void internal_SetTimerAccelarator(int divider);
 
-  nr_ice_ctx *ctx() { return ctx_; }
-  nr_ice_peer_ctx *peer() { return peer_; }
+  nr_ice_ctx* ctx() { return ctx_; }
+  nr_ice_peer_ctx* peer() { return peer_; }
 
   // Testing only.
   void destroy_peer_ctx();
 
   void SetStream(size_t index, NrIceMediaStream* stream);
 
-  RefPtr<NrIceMediaStream> GetStream(size_t index) {
+  RefPtr<NrIceMediaStream> GetStream(size_t index)
+  {
     if (index < streams_.size()) {
       return streams_[index];
     }
@@ -267,10 +296,7 @@ class NrIceCtx {
   }
 
   // Some might be null
-  size_t GetStreamCount() const
-  {
-    return streams_.size();
-  }
+  size_t GetStreamCount() const { return streams_.size(); }
 
   // The name of the ctx
   const std::string& name() const { return name_; }
@@ -280,14 +306,10 @@ class NrIceCtx {
   std::string pwd() const;
 
   // Current state
-  ConnectionState connection_state() const {
-    return connection_state_;
-  }
+  ConnectionState connection_state() const { return connection_state_; }
 
   // Current state
-  GatheringState gathering_state() const {
-    return gathering_state_;
-  }
+  GatheringState gathering_state() const { return gathering_state_; }
 
   // Get the global attributes
   std::vector<std::string> GetGlobalAttributes();
@@ -304,9 +326,7 @@ class NrIceCtx {
   // TODO(jib@mozilla.com): Work out what change means mid-connection (1181768)
   nsresult SetPolicy(Policy policy);
 
-  Policy policy() const {
-    return policy_;
-  }
+  Policy policy() const { return policy_; }
 
   // Set the STUN servers. Must be called before StartGathering
   // (if at all).
@@ -318,7 +338,7 @@ class NrIceCtx {
 
   // Provide the resolution provider. Must be called before
   // StartGathering.
-  nsresult SetResolver(nr_resolver *resolver);
+  nsresult SetResolver(nr_resolver* resolver);
 
   // Provide the proxy address. Must be called before
   // StartGathering.
@@ -348,16 +368,16 @@ class NrIceCtx {
   // Signals to indicate events. API users can (and should)
   // register for these.
   sigslot::signal2<NrIceCtx*, NrIceCtx::GatheringState>
-    SignalGatheringStateChange;
+      SignalGatheringStateChange;
   sigslot::signal2<NrIceCtx*, NrIceCtx::ConnectionState>
-    SignalConnectionStateChange;
+      SignalConnectionStateChange;
 
   // The thread to direct method calls to
   nsCOMPtr<nsIEventTarget> thread() { return sts_target_; }
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(NrIceCtx)
 
-private:
+ private:
   NrIceCtx(const std::string& name, Policy policy);
 
   virtual ~NrIceCtx();
@@ -365,25 +385,33 @@ private:
   DISALLOW_COPY_ASSIGN(NrIceCtx);
 
   // Callbacks for nICEr
-  static void gather_cb(NR_SOCKET s, int h, void *arg);  // ICE gather complete
+  static void gather_cb(NR_SOCKET s, int h, void* arg);  // ICE gather complete
 
   // Handler implementation
-  static int select_pair(void *obj,nr_ice_media_stream *stream,
-                         int component_id, nr_ice_cand_pair **potentials,
+  static int select_pair(void* obj,
+                         nr_ice_media_stream* stream,
+                         int component_id,
+                         nr_ice_cand_pair** potentials,
                          int potential_ct);
-  static int stream_ready(void *obj, nr_ice_media_stream *stream);
-  static int stream_failed(void *obj, nr_ice_media_stream *stream);
-  static int ice_checking(void *obj, nr_ice_peer_ctx *pctx);
-  static int ice_connected(void *obj, nr_ice_peer_ctx *pctx);
-  static int ice_disconnected(void *obj, nr_ice_peer_ctx *pctx);
-  static int msg_recvd(void *obj, nr_ice_peer_ctx *pctx,
-                       nr_ice_media_stream *stream, int component_id,
-                       unsigned char *msg, int len);
-  static void trickle_cb(void *arg, nr_ice_ctx *ctx, nr_ice_media_stream *stream,
-                         int component_id, nr_ice_candidate *candidate);
+  static int stream_ready(void* obj, nr_ice_media_stream* stream);
+  static int stream_failed(void* obj, nr_ice_media_stream* stream);
+  static int ice_checking(void* obj, nr_ice_peer_ctx* pctx);
+  static int ice_connected(void* obj, nr_ice_peer_ctx* pctx);
+  static int ice_disconnected(void* obj, nr_ice_peer_ctx* pctx);
+  static int msg_recvd(void* obj,
+                       nr_ice_peer_ctx* pctx,
+                       nr_ice_media_stream* stream,
+                       int component_id,
+                       unsigned char* msg,
+                       int len);
+  static void trickle_cb(void* arg,
+                         nr_ice_ctx* ctx,
+                         nr_ice_media_stream* stream,
+                         int component_id,
+                         nr_ice_candidate* candidate);
 
   // Find a media stream by stream ptr. Gross
-  RefPtr<NrIceMediaStream> FindStream(nr_ice_media_stream *stream);
+  RefPtr<NrIceMediaStream> FindStream(nr_ice_media_stream* stream);
 
   // Set the state
   void SetConnectionState(ConnectionState state);
@@ -398,16 +426,15 @@ private:
   TimeStamp ice_start_time_;
   bool ice_controlling_set_;
   std::vector<RefPtr<NrIceMediaStream> > streams_;
-  nr_ice_ctx *ctx_;
-  nr_ice_peer_ctx *peer_;
+  nr_ice_ctx* ctx_;
+  nr_ice_peer_ctx* peer_;
   nr_ice_handler_vtbl* ice_handler_vtbl_;  // Must be pointer
-  nr_ice_handler* ice_handler_;  // Must be pointer
+  nr_ice_handler* ice_handler_;            // Must be pointer
   bool trickle_;
-  nsCOMPtr<nsIEventTarget> sts_target_; // The thread to run on
+  nsCOMPtr<nsIEventTarget> sts_target_;  // The thread to run on
   Policy policy_;
   RefPtr<TestNat> nat_;
 };
 
-
-}  // close namespace
+}  // namespace mozilla
 #endif

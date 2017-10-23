@@ -8,7 +8,7 @@
 NS_DEF_PTR(nsPIDOMWindow);
 NS_DEF_PTR(nsIBaseWindow);
 
-  /*
+/*
     Windows:
       nsCOMPtr_optimized           176
       nsCOMPtr_as_found            181
@@ -32,34 +32,34 @@ NS_DEF_PTR(nsIBaseWindow);
 
   */
 
-
-void // nsresult
+void  // nsresult
 Test06_raw(nsIDOMWindow* aDOMWindow, nsIBaseWindow** aBaseWindow)
-    // m388, w214
+// m388, w214
 {
-//  if (!aDOMWindow)
-//    return NS_ERROR_NULL_POINTER;
+  //  if (!aDOMWindow)
+  //    return NS_ERROR_NULL_POINTER;
   nsPIDOMWindow* window = 0;
-  nsresult status = aDOMWindow->QueryInterface(NS_GET_IID(nsPIDOMWindow), (void**)&window);
+  nsresult status =
+      aDOMWindow->QueryInterface(NS_GET_IID(nsPIDOMWindow), (void**)&window);
   nsIDocShell* docShell = 0;
-  if (window)
-    window->GetDocShell(&docShell);
+  if (window) window->GetDocShell(&docShell);
   nsIWebShell* rootWebShell = 0;
   NS_IF_RELEASE(rootWebShell);
   NS_IF_RELEASE(docShell);
   NS_IF_RELEASE(window);
-//    return status;
+  //    return status;
 }
 
-void // nsresult
+void  // nsresult
 Test06_raw_optimized(nsIDOMWindow* aDOMWindow, nsIBaseWindow** aBaseWindow)
-    // m332, w191
+// m332, w191
 {
-//  if (!aDOMWindow)
-//    return NS_ERROR_NULL_POINTER;
+  //  if (!aDOMWindow)
+  //    return NS_ERROR_NULL_POINTER;
   (*aBaseWindow) = 0;
   nsPIDOMWindow* window;
-  nsresult status = aDOMWindow->QueryInterface(NS_GET_IID(nsPIDOMWindow), (void**)&window);
+  nsresult status =
+      aDOMWindow->QueryInterface(NS_GET_IID(nsPIDOMWindow), (void**)&window);
   if (NS_SUCCEEDED(status)) {
     nsIDocShell* docShell = 0;
     window->GetDocShell(&docShell);
@@ -68,58 +68,57 @@ Test06_raw_optimized(nsIDOMWindow* aDOMWindow, nsIBaseWindow** aBaseWindow)
     }
     NS_RELEASE(window);
   }
-//  return status;
+  //  return status;
 }
 
 void
-Test06_nsCOMPtr_as_found(nsIDOMWindow* aDOMWindow, nsCOMPtr<nsIBaseWindow>* aBaseWindow)
-    // m344, w181/201
+Test06_nsCOMPtr_as_found(nsIDOMWindow* aDOMWindow,
+                         nsCOMPtr<nsIBaseWindow>* aBaseWindow)
+// m344, w181/201
 {
-//  if (!aDOMWindow)
-//    return;
+  //  if (!aDOMWindow)
+  //    return;
   nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aDOMWindow);
   nsCOMPtr<nsIDocShell> docShell;
-  if (window)
-    window->GetDocShell(getter_AddRefs(docShell));
+  if (window) window->GetDocShell(getter_AddRefs(docShell));
 }
 
-void // nsresult
+void  // nsresult
 Test06_nsCOMPtr00(nsIDOMWindow* aDOMWindow, nsIBaseWindow** aBaseWindow)
-    // m328, w191/199
+// m328, w191/199
 {
-//  if (!aDOMWindow)
-//    return NS_ERROR_NULL_POINTER;
+  //  if (!aDOMWindow)
+  //    return NS_ERROR_NULL_POINTER;
   nsresult status;
   nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aDOMWindow, &status);
   nsIDocShell* temp0 = 0;
-  if (window)
-    window->GetDocShell(&temp0);
+  if (window) window->GetDocShell(&temp0);
   nsCOMPtr<nsIDocShell> docShell = dont_AddRef(temp0);
   (*aBaseWindow) = 0;
-//    return status;
+  //    return status;
 }
 
-void // nsresult
-Test06_nsCOMPtr_optimized(nsIDOMWindow* aDOMWindow, nsCOMPtr<nsIBaseWindow>* aBaseWindow)
-    // m300, w176/182
+void  // nsresult
+Test06_nsCOMPtr_optimized(nsIDOMWindow* aDOMWindow,
+                          nsCOMPtr<nsIBaseWindow>* aBaseWindow)
+// m300, w176/182
 {
-//    if (!aDOMWindow)
-//      return NS_ERROR_NULL_POINTER;
+  //    if (!aDOMWindow)
+  //      return NS_ERROR_NULL_POINTER;
   nsresult status;
   nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aDOMWindow, &status);
   nsIDocShell* temp0 = 0;
-  if (window)
-    window->GetDocShell(&temp0);
+  if (window) window->GetDocShell(&temp0);
   (*aBaseWindow) = do_QueryInterface(nullptr, &status);
-//    return status;
+  //    return status;
 }
 
-void // nsresult
+void  // nsresult
 Test06_nsCOMPtr02(nsIDOMWindow* aDOMWindow, nsIBaseWindow** aBaseWindow)
-    // m320, w187/184
+// m320, w187/184
 {
-//    if (!aDOMWindow)
-//      return NS_ERROR_NULL_POINTER;
+  //    if (!aDOMWindow)
+  //      return NS_ERROR_NULL_POINTER;
   (*aBaseWindow) = 0;
   nsresult status;
   nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aDOMWindow, &status);
@@ -127,15 +126,16 @@ Test06_nsCOMPtr02(nsIDOMWindow* aDOMWindow, nsIBaseWindow** aBaseWindow)
     nsIDocShell* temp0;
     window->GetDocShell(&temp0);
   }
-//    return status;
+  //    return status;
 }
 
-void // nsresult
-Test06_nsCOMPtr03(nsIDOMWindow* aDOMWindow, nsCOMPtr<nsIBaseWindow>* aBaseWindow)
-    // m332, w189/188
+void  // nsresult
+Test06_nsCOMPtr03(nsIDOMWindow* aDOMWindow,
+                  nsCOMPtr<nsIBaseWindow>* aBaseWindow)
+// m332, w189/188
 {
-//    if (!aDOMWindow)
-//      return NS_ERROR_NULL_POINTER;
+  //    if (!aDOMWindow)
+  //      return NS_ERROR_NULL_POINTER;
   (*aBaseWindow) = 0;
   nsresult status;
   nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aDOMWindow, &status);
@@ -146,5 +146,5 @@ Test06_nsCOMPtr03(nsIDOMWindow* aDOMWindow, nsCOMPtr<nsIBaseWindow>* aBaseWindow
     if (docShell) {
     }
   }
-//    return status;
+  //    return status;
 }

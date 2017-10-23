@@ -28,8 +28,8 @@ class nsSVGFilterPaintCallback;
 namespace mozilla {
 namespace dom {
 class UserSpaceMetrics;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * This class performs all filter processing.
@@ -56,7 +56,8 @@ class nsFilterInstance
   typedef mozilla::gfx::FilterDescription FilterDescription;
   typedef mozilla::dom::UserSpaceMetrics UserSpaceMetrics;
   typedef mozilla::image::imgDrawingParams imgDrawingParams;
-public:
+
+ public:
   /**
    * Create a FilterDescription for the supplied filter. All coordinates in
    * the description are in filter space.
@@ -70,12 +71,13 @@ public:
    *   render the filter (from feImage primitives).
    * @return A FilterDescription describing the filter.
    */
-  static FilterDescription GetFilterDescription(nsIContent* aFilteredElement,
-                                                const nsTArray<nsStyleFilter>& aFilterChain,
-                                                bool aFilterInputIsTainted,
-                                                const UserSpaceMetrics& aMetrics,
-                                                const gfxRect& aBBox,
-                                                nsTArray<RefPtr<SourceSurface>>& aOutAdditionalImages);
+  static FilterDescription GetFilterDescription(
+      nsIContent* aFilteredElement,
+      const nsTArray<nsStyleFilter>& aFilterChain,
+      bool aFilterInputIsTainted,
+      const UserSpaceMetrics& aMetrics,
+      const gfxRect& aBBox,
+      nsTArray<RefPtr<SourceSurface>>& aOutAdditionalImages);
 
   /**
    * Paint the given filtered frame.
@@ -83,9 +85,9 @@ public:
    *   frame space (i.e. relative to its origin, the top-left corner of its
    *   border box).
    */
-  static void PaintFilteredFrame(nsIFrame *aFilteredFrame,
+  static void PaintFilteredFrame(nsIFrame* aFilteredFrame,
                                  gfxContext* aCtx,
-                                 nsSVGFilterPaintCallback *aPaintCallback,
+                                 nsSVGFilterPaintCallback* aPaintCallback,
                                  const nsRegion* aDirtyArea,
                                  imgDrawingParams& aImgParams);
 
@@ -95,7 +97,7 @@ public:
    * @param aPreFilterDirtyRegion The pre-filter area of aFilteredFrame that has
    *   changed, relative to aFilteredFrame, in app units.
    */
-  static nsRegion GetPostFilterDirtyArea(nsIFrame *aFilteredFrame,
+  static nsRegion GetPostFilterDirtyArea(nsIFrame* aFilteredFrame,
                                          const nsRegion& aPreFilterDirtyRegion);
 
   /**
@@ -104,8 +106,8 @@ public:
    * @param aPostFilterDirtyRegion The post-filter area that is dirty, relative
    *   to aFilteredFrame, in app units.
    */
-  static nsRegion GetPreFilterNeededArea(nsIFrame *aFilteredFrame,
-                                         const nsRegion& aPostFilterDirtyRegion);
+  static nsRegion GetPreFilterNeededArea(
+      nsIFrame* aFilteredFrame, const nsRegion& aPostFilterDirtyRegion);
 
   /**
    * Returns the post-filter visual overflow rect (paint bounds) of
@@ -115,11 +117,11 @@ public:
    * @param aPreFilterBounds The pre-filter visual overflow rect of
    *   aFilteredFrame, if non-null.
    */
-  static nsRect GetPostFilterBounds(nsIFrame *aFilteredFrame,
-                                    const gfxRect *aOverrideBBox = nullptr,
-                                    const nsRect *aPreFilterBounds = nullptr);
+  static nsRect GetPostFilterBounds(nsIFrame* aFilteredFrame,
+                                    const gfxRect* aOverrideBBox = nullptr,
+                                    const nsRect* aPreFilterBounds = nullptr);
 
-private:
+ private:
   /**
    * @param aTargetFrame The frame of the filtered element under consideration,
    *   may be null.
@@ -144,17 +146,17 @@ private:
    * @param aOverrideBBox [optional] Use a different SVG bbox for the target
    *   element. Must be non-null if aTargetFrame is null.
    */
-  nsFilterInstance(nsIFrame *aTargetFrame,
+  nsFilterInstance(nsIFrame* aTargetFrame,
                    nsIContent* aTargetContent,
                    const UserSpaceMetrics& aMetrics,
                    const nsTArray<nsStyleFilter>& aFilterChain,
                    bool aFilterInputIsTainted,
-                   nsSVGFilterPaintCallback *aPaintCallback,
+                   nsSVGFilterPaintCallback* aPaintCallback,
                    const gfxMatrix& aPaintTransform,
-                   const nsRegion *aPostFilterDirtyRegion = nullptr,
-                   const nsRegion *aPreFilterDirtyRegion = nullptr,
-                   const nsRect *aOverridePreFilterVisualOverflowRect = nullptr,
-                   const gfxRect *aOverrideBBox = nullptr);
+                   const nsRegion* aPostFilterDirtyRegion = nullptr,
+                   const nsRegion* aPreFilterDirtyRegion = nullptr,
+                   const nsRect* aOverridePreFilterVisualOverflowRect = nullptr,
+                   const gfxRect* aOverrideBBox = nullptr);
 
   /**
    * Returns true if the filter instance was created successfully.
@@ -169,7 +171,8 @@ private:
    */
   void Render(gfxContext* aCtx, imgDrawingParams& aImgParams);
 
-  const FilterDescription& ExtractDescriptionAndAdditionalImages(nsTArray<RefPtr<SourceSurface>>& aOutAdditionalImages)
+  const FilterDescription& ExtractDescriptionAndAdditionalImages(
+      nsTArray<RefPtr<SourceSurface>>& aOutAdditionalImages)
   {
     mInputImages.SwapElements(aOutAdditionalImages);
     return mFilterDescription;
@@ -202,7 +205,8 @@ private:
    */
   nsRect ComputeSourceNeededRect();
 
-  struct SourceInfo {
+  struct SourceInfo
+  {
     // Specifies which parts of the source need to be rendered.
     // Set by ComputeNeededBoxes().
     nsIntRect mNeededBounds;
@@ -220,7 +224,7 @@ private:
    * Creates a SourceSurface for either the FillPaint or StrokePaint graph
    * nodes
    */
-  void BuildSourcePaint(SourceInfo *aPrimitive, imgDrawingParams& aImgParams);
+  void BuildSourcePaint(SourceInfo* aPrimitive, imgDrawingParams& aImgParams);
 
   /**
    * Creates a SourceSurface for either the FillPaint and StrokePaint graph
@@ -233,7 +237,7 @@ private:
    * Creates the SourceSurface for the SourceGraphic graph node, paints its
    * contents, and assigns it to mSourceGraphic.mSourceSurface.
    */
-  void BuildSourceImage(DrawTarget *aDest, imgDrawingParams& aImgParams);
+  void BuildSourceImage(DrawTarget* aDest, imgDrawingParams& aImgParams);
 
   /**
    * Build the list of FilterPrimitiveDescriptions that describes the filter's
@@ -367,7 +371,7 @@ private:
   /**
    * The transform to the SVG user space of mTargetFrame.
    */
-  gfxMatrix               mPaintTransform;
+  gfxMatrix mPaintTransform;
 
   nsTArray<RefPtr<SourceSurface>> mInputImages;
   nsTArray<FilterPrimitiveDescription> mPrimitiveDescriptions;

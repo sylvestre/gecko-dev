@@ -27,40 +27,45 @@
 #include "pkixcheck.h"
 #include "pkixutil.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
-static Result BuildForward(TrustDomain& trustDomain,
-                           const BackCert& subject,
-                           Time time,
-                           KeyUsage requiredKeyUsageIfPresent,
-                           KeyPurposeId requiredEKUIfPresent,
-                           const CertPolicyId& requiredPolicy,
-                           /*optional*/ const Input* stapledOCSPResponse,
-                           unsigned int subCACount);
+static Result
+BuildForward(TrustDomain& trustDomain,
+             const BackCert& subject,
+             Time time,
+             KeyUsage requiredKeyUsageIfPresent,
+             KeyPurposeId requiredEKUIfPresent,
+             const CertPolicyId& requiredPolicy,
+             /*optional*/ const Input* stapledOCSPResponse,
+             unsigned int subCACount);
 
-TrustDomain::IssuerChecker::IssuerChecker() { }
-TrustDomain::IssuerChecker::~IssuerChecker() { }
+TrustDomain::IssuerChecker::IssuerChecker() {}
+TrustDomain::IssuerChecker::~IssuerChecker() {}
 
 // The implementation of TrustDomain::IssuerTracker is in a subclass only to
 // hide the implementation from external users.
 class PathBuildingStep final : public TrustDomain::IssuerChecker
 {
-public:
-  PathBuildingStep(TrustDomain& trustDomain, const BackCert& subject,
-                   Time time, KeyPurposeId requiredEKUIfPresent,
+ public:
+  PathBuildingStep(TrustDomain& trustDomain,
+                   const BackCert& subject,
+                   Time time,
+                   KeyPurposeId requiredEKUIfPresent,
                    const CertPolicyId& requiredPolicy,
                    /*optional*/ const Input* stapledOCSPResponse,
-                   unsigned int subCACount, Result deferredSubjectError)
-    : trustDomain(trustDomain)
-    , subject(subject)
-    , time(time)
-    , requiredEKUIfPresent(requiredEKUIfPresent)
-    , requiredPolicy(requiredPolicy)
-    , stapledOCSPResponse(stapledOCSPResponse)
-    , subCACount(subCACount)
-    , deferredSubjectError(deferredSubjectError)
-    , result(Result::FATAL_ERROR_LIBRARY_FAILURE)
-    , resultWasSet(false)
+                   unsigned int subCACount,
+                   Result deferredSubjectError)
+      : trustDomain(trustDomain),
+        subject(subject),
+        time(time),
+        requiredEKUIfPresent(requiredEKUIfPresent),
+        requiredPolicy(requiredPolicy),
+        stapledOCSPResponse(stapledOCSPResponse),
+        subCACount(subCACount),
+        deferredSubjectError(deferredSubjectError),
+        result(Result::FATAL_ERROR_LIBRARY_FAILURE),
+        resultWasSet(false)
   {
   }
 
@@ -70,7 +75,7 @@ public:
 
   Result CheckResult() const;
 
-private:
+ private:
   TrustDomain& trustDomain;
   const BackCert& subject;
   const Time time;
@@ -136,11 +141,11 @@ PathBuildingStep::CheckResult() const
 // The code that executes in the inner loop of BuildForward
 Result
 PathBuildingStep::Check(Input potentialIssuerDER,
-           /*optional*/ const Input* additionalNameConstraints,
-                /*out*/ bool& keepGoing)
+                        /*optional*/ const Input* additionalNameConstraints,
+                        /*out*/ bool& keepGoing)
 {
-  BackCert potentialIssuer(potentialIssuerDER, EndEntityOrCA::MustBeCA,
-                           &subject);
+  BackCert potentialIssuer(
+      potentialIssuerDER, EndEntityOrCA::MustBeCA, &subject);
   Result rv = potentialIssuer.Init();
   if (rv != Success) {
     return RecordResult(rv, keepGoing);
@@ -172,18 +177,18 @@ PathBuildingStep::Check(Input potentialIssuerDER,
   }
 
   if (potentialIssuer.GetNameConstraints()) {
-    rv = CheckNameConstraints(*potentialIssuer.GetNameConstraints(),
-                              subject, requiredEKUIfPresent);
+    rv = CheckNameConstraints(
+        *potentialIssuer.GetNameConstraints(), subject, requiredEKUIfPresent);
     if (rv != Success) {
-       return RecordResult(rv, keepGoing);
+      return RecordResult(rv, keepGoing);
     }
   }
 
   if (additionalNameConstraints) {
-    rv = CheckNameConstraints(*additionalNameConstraints, subject,
-                              requiredEKUIfPresent);
+    rv = CheckNameConstraints(
+        *additionalNameConstraints, subject, requiredEKUIfPresent);
     if (rv != Success) {
-       return RecordResult(rv, keepGoing);
+      return RecordResult(rv, keepGoing);
     }
   }
 
@@ -195,8 +200,14 @@ PathBuildingStep::Check(Input potentialIssuerDER,
   // RFC 5280, Section 4.2.1.3: "If the keyUsage extension is present, then the
   // subject public key MUST NOT be used to verify signatures on certificates
   // or CRLs unless the corresponding keyCertSign or cRLSign bit is set."
-  rv = BuildForward(trustDomain, potentialIssuer, time, KeyUsage::keyCertSign,
-                    requiredEKUIfPresent, requiredPolicy, nullptr, subCACount);
+  rv = BuildForward(trustDomain,
+                    potentialIssuer,
+                    time,
+                    KeyUsage::keyCertSign,
+                    requiredEKUIfPresent,
+                    requiredPolicy,
+                    nullptr,
+                    subCACount);
   if (rv != Success) {
     return RecordResult(rv, keepGoing);
   }
@@ -206,15 +217,18 @@ PathBuildingStep::Check(Input potentialIssuerDER,
   // getting to this point. We cache the result to avoid recalculating it if we
   // backtrack after getting to this point.
   if (subjectSignature.digest.GetLength() == 0) {
-    rv = DigestSignedData(trustDomain, subject.GetSignedData(),
+    rv = DigestSignedData(trustDomain,
+                          subject.GetSignedData(),
                           subjectSignatureDigestBuf,
-                          subjectSignaturePublicKeyAlg, subjectSignature);
+                          subjectSignaturePublicKeyAlg,
+                          subjectSignature);
     if (rv != Success) {
       return rv;
     }
   }
 
-  rv = VerifySignedDigest(trustDomain, subjectSignaturePublicKeyAlg,
+  rv = VerifySignedDigest(trustDomain,
+                          subjectSignaturePublicKeyAlg,
                           subjectSignature,
                           potentialIssuer.GetSubjectPublicKeyInfo());
   if (rv != Success) {
@@ -226,7 +240,8 @@ PathBuildingStep::Check(Input potentialIssuerDER,
   // responders return an error when asked for the status of an expired
   // certificate.
   if (deferredSubjectError != Result::ERROR_EXPIRED_CERTIFICATE) {
-    CertID certID(subject.GetIssuer(), potentialIssuer.GetSubjectPublicKeyInfo(),
+    CertID certID(subject.GetIssuer(),
+                  potentialIssuer.GetSubjectPublicKeyInfo(),
                   subject.GetSerialNumber());
     Time notBefore(Time::uninitialized);
     Time notAfter(Time::uninitialized);
@@ -237,8 +252,11 @@ PathBuildingStep::Check(Input potentialIssuerDER,
       return rv;
     }
     Duration validityDuration(notAfter, notBefore);
-    rv = trustDomain.CheckRevocation(subject.endEntityOrCA, certID, time,
-                                     validityDuration, stapledOCSPResponse,
+    rv = trustDomain.CheckRevocation(subject.endEntityOrCA,
+                                     certID,
+                                     time,
+                                     validityDuration,
+                                     stapledOCSPResponse,
                                      subject.GetAuthorityInfoAccess());
     if (rv != Success) {
       return RecordResult(rv, keepGoing);
@@ -284,10 +302,14 @@ BuildForward(TrustDomain& trustDomain,
   // If this is an end-entity and not a trust anchor, we defer reporting
   // any error found here until after attempting to find a valid chain.
   // See the explanation of error prioritization in pkix.h.
-  rv = CheckIssuerIndependentProperties(trustDomain, subject, time,
+  rv = CheckIssuerIndependentProperties(trustDomain,
+                                        subject,
+                                        time,
                                         requiredKeyUsageIfPresent,
-                                        requiredEKUIfPresent, requiredPolicy,
-                                        subCACount, trustLevel);
+                                        requiredEKUIfPresent,
+                                        requiredPolicy,
+                                        subCACount,
+                                        trustLevel);
   Result deferredEndEntityError = Success;
   if (rv != Success) {
     if (subject.endEntityOrCA == EndEntityOrCA::MustBeEndEntity &&
@@ -318,9 +340,10 @@ BuildForward(TrustDomain& trustDomain,
     // Avoid stack overflows and poor performance by limiting cert chain
     // length.
     static const unsigned int MAX_SUBCA_COUNT = 6;
-    static_assert(1/*end-entity*/ + MAX_SUBCA_COUNT + 1/*root*/ ==
-                  NonOwningDERArray::MAX_LENGTH,
-                  "MAX_SUBCA_COUNT and NonOwningDERArray::MAX_LENGTH mismatch.");
+    static_assert(
+        1 /*end-entity*/ + MAX_SUBCA_COUNT + 1 /*root*/ ==
+            NonOwningDERArray::MAX_LENGTH,
+        "MAX_SUBCA_COUNT and NonOwningDERArray::MAX_LENGTH mismatch.");
     if (subCACount >= MAX_SUBCA_COUNT) {
       return Result::ERROR_UNKNOWN_ISSUER;
     }
@@ -331,9 +354,13 @@ BuildForward(TrustDomain& trustDomain,
 
   // Find a trusted issuer.
 
-  PathBuildingStep pathBuilder(trustDomain, subject, time,
-                               requiredEKUIfPresent, requiredPolicy,
-                               stapledOCSPResponse, subCACount,
+  PathBuildingStep pathBuilder(trustDomain,
+                               subject,
+                               time,
+                               requiredEKUIfPresent,
+                               requiredPolicy,
+                               stapledOCSPResponse,
+                               subCACount,
                                deferredEndEntityError);
 
   // TODO(bug 965136): Add SKI/AKI matching optimizations
@@ -358,8 +385,10 @@ BuildForward(TrustDomain& trustDomain,
 }
 
 Result
-BuildCertChain(TrustDomain& trustDomain, Input certDER,
-               Time time, EndEntityOrCA endEntityOrCA,
+BuildCertChain(TrustDomain& trustDomain,
+               Input certDER,
+               Time time,
+               EndEntityOrCA endEntityOrCA,
                KeyUsage requiredKeyUsageIfPresent,
                KeyPurposeId requiredEKUIfPresent,
                const CertPolicyId& requiredPolicy,
@@ -373,9 +402,15 @@ BuildCertChain(TrustDomain& trustDomain, Input certDER,
     return rv;
   }
 
-  return BuildForward(trustDomain, cert, time, requiredKeyUsageIfPresent,
-                      requiredEKUIfPresent, requiredPolicy, stapledOCSPResponse,
-                      0/*subCACount*/);
+  return BuildForward(trustDomain,
+                      cert,
+                      time,
+                      requiredKeyUsageIfPresent,
+                      requiredEKUIfPresent,
+                      requiredPolicy,
+                      stapledOCSPResponse,
+                      0 /*subCACount*/);
 }
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla

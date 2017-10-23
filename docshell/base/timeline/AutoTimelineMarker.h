@@ -37,7 +37,7 @@ class MOZ_RAII AutoTimelineMarker
   // The docshell that is associated with this marker.
   RefPtr<nsIDocShell> mDocShell;
 
-public:
+ public:
   AutoTimelineMarker(nsIDocShell* aDocShell,
                      const char* aName MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
   ~AutoTimelineMarker();
@@ -46,6 +46,6 @@ public:
   void operator=(const AutoTimelineMarker& aOther) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_AutoTimelineMarker_h_ */

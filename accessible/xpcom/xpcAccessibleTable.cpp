@@ -32,8 +32,7 @@ xpcAccessibleTable::GetCaption(nsIAccessible** aCaption)
 {
   NS_ENSURE_ARG_POINTER(aCaption);
   *aCaption = nullptr;
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   NS_IF_ADDREF(*aCaption = ToXPC(Intl()->Caption()));
   return NS_OK;
@@ -45,8 +44,7 @@ xpcAccessibleTable::GetColumnCount(int32_t* aColumnCount)
   NS_ENSURE_ARG_POINTER(aColumnCount);
   *aColumnCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aColumnCount = Intl()->ColCount();
   return NS_OK;
@@ -58,22 +56,21 @@ xpcAccessibleTable::GetRowCount(int32_t* aRowCount)
   NS_ENSURE_ARG_POINTER(aRowCount);
   *aRowCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aRowCount = Intl()->RowCount();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-xpcAccessibleTable::GetCellAt(int32_t aRowIdx, int32_t aColIdx,
+xpcAccessibleTable::GetCellAt(int32_t aRowIdx,
+                              int32_t aColIdx,
                               nsIAccessible** aCell)
 {
   NS_ENSURE_ARG_POINTER(aCell);
   *aCell = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount() ||
       aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
@@ -84,14 +81,14 @@ xpcAccessibleTable::GetCellAt(int32_t aRowIdx, int32_t aColIdx,
 }
 
 NS_IMETHODIMP
-xpcAccessibleTable::GetCellIndexAt(int32_t aRowIdx, int32_t aColIdx,
+xpcAccessibleTable::GetCellIndexAt(int32_t aRowIdx,
+                                   int32_t aColIdx,
                                    int32_t* aCellIdx)
 {
   NS_ENSURE_ARG_POINTER(aCellIdx);
   *aCellIdx = -1;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount() ||
       aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
@@ -102,14 +99,14 @@ xpcAccessibleTable::GetCellIndexAt(int32_t aRowIdx, int32_t aColIdx,
 }
 
 NS_IMETHODIMP
-xpcAccessibleTable::GetColumnExtentAt(int32_t aRowIdx, int32_t aColIdx,
+xpcAccessibleTable::GetColumnExtentAt(int32_t aRowIdx,
+                                      int32_t aColIdx,
                                       int32_t* aColumnExtent)
 {
   NS_ENSURE_ARG_POINTER(aColumnExtent);
   *aColumnExtent = -1;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount() ||
       aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
@@ -120,14 +117,14 @@ xpcAccessibleTable::GetColumnExtentAt(int32_t aRowIdx, int32_t aColIdx,
 }
 
 NS_IMETHODIMP
-xpcAccessibleTable::GetRowExtentAt(int32_t aRowIdx, int32_t aColIdx,
+xpcAccessibleTable::GetRowExtentAt(int32_t aRowIdx,
+                                   int32_t aColIdx,
                                    int32_t* aRowExtent)
 {
   NS_ENSURE_ARG_POINTER(aRowExtent);
   *aRowExtent = -1;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount() ||
       aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
@@ -141,8 +138,7 @@ NS_IMETHODIMP
 xpcAccessibleTable::GetColumnDescription(int32_t aColIdx,
                                          nsAString& aDescription)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
@@ -157,8 +153,7 @@ xpcAccessibleTable::GetColumnDescription(int32_t aColIdx,
 NS_IMETHODIMP
 xpcAccessibleTable::GetRowDescription(int32_t aRowIdx, nsAString& aDescription)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
@@ -176,8 +171,7 @@ xpcAccessibleTable::IsColumnSelected(int32_t aColIdx, bool* aIsSelected)
   NS_ENSURE_ARG_POINTER(aIsSelected);
   *aIsSelected = false;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
@@ -192,8 +186,7 @@ xpcAccessibleTable::IsRowSelected(int32_t aRowIdx, bool* aIsSelected)
   NS_ENSURE_ARG_POINTER(aIsSelected);
   *aIsSelected = false;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount())
     return NS_ERROR_INVALID_ARG;
@@ -203,14 +196,14 @@ xpcAccessibleTable::IsRowSelected(int32_t aRowIdx, bool* aIsSelected)
 }
 
 NS_IMETHODIMP
-xpcAccessibleTable::IsCellSelected(int32_t aRowIdx, int32_t aColIdx,
+xpcAccessibleTable::IsCellSelected(int32_t aRowIdx,
+                                   int32_t aColIdx,
                                    bool* aIsSelected)
 {
   NS_ENSURE_ARG_POINTER(aIsSelected);
   *aIsSelected = false;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount() ||
       aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
@@ -226,8 +219,7 @@ xpcAccessibleTable::GetSelectedCellCount(uint32_t* aSelectedCellCount)
   NS_ENSURE_ARG_POINTER(aSelectedCellCount);
   *aSelectedCellCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aSelectedCellCount = Intl()->SelectedCellCount();
   return NS_OK;
@@ -239,8 +231,7 @@ xpcAccessibleTable::GetSelectedColumnCount(uint32_t* aSelectedColumnCount)
   NS_ENSURE_ARG_POINTER(aSelectedColumnCount);
   *aSelectedColumnCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aSelectedColumnCount = Intl()->SelectedColCount();
   return NS_OK;
@@ -252,8 +243,7 @@ xpcAccessibleTable::GetSelectedRowCount(uint32_t* aSelectedRowCount)
   NS_ENSURE_ARG_POINTER(aSelectedRowCount);
   *aSelectedRowCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aSelectedRowCount = Intl()->SelectedRowCount();
   return NS_OK;
@@ -265,12 +255,11 @@ xpcAccessibleTable::GetSelectedCells(nsIArray** aSelectedCells)
   NS_ENSURE_ARG_POINTER(aSelectedCells);
   *aSelectedCells = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMutableArray> selCells =
-    do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
+      do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   AutoTArray<Accessible*, XPC_TABLE_DEFAULT_SIZE> cellsArray;
@@ -296,17 +285,16 @@ xpcAccessibleTable::GetSelectedCellIndices(uint32_t* aCellsArraySize,
   NS_ENSURE_ARG_POINTER(aCellsArray);
   *aCellsArray = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   AutoTArray<uint32_t, XPC_TABLE_DEFAULT_SIZE> cellsArray;
   Intl()->SelectedCellIndices(&cellsArray);
 
   *aCellsArraySize = cellsArray.Length();
-  *aCellsArray = static_cast<int32_t*>
-    (moz_xmalloc(*aCellsArraySize * sizeof(int32_t)));
-  memcpy(*aCellsArray, cellsArray.Elements(),
-    *aCellsArraySize * sizeof(int32_t));
+  *aCellsArray =
+      static_cast<int32_t*>(moz_xmalloc(*aCellsArraySize * sizeof(int32_t)));
+  memcpy(
+      *aCellsArray, cellsArray.Elements(), *aCellsArraySize * sizeof(int32_t));
 
   return NS_OK;
 }
@@ -321,17 +309,15 @@ xpcAccessibleTable::GetSelectedColumnIndices(uint32_t* aColsArraySize,
   NS_ENSURE_ARG_POINTER(aColsArray);
   *aColsArray = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   AutoTArray<uint32_t, XPC_TABLE_DEFAULT_SIZE> colsArray;
   Intl()->SelectedColIndices(&colsArray);
 
   *aColsArraySize = colsArray.Length();
-  *aColsArray = static_cast<int32_t*>
-    (moz_xmalloc(*aColsArraySize * sizeof(int32_t)));
-  memcpy(*aColsArray, colsArray.Elements(),
-    *aColsArraySize * sizeof(int32_t));
+  *aColsArray =
+      static_cast<int32_t*>(moz_xmalloc(*aColsArraySize * sizeof(int32_t)));
+  memcpy(*aColsArray, colsArray.Elements(), *aColsArraySize * sizeof(int32_t));
 
   return NS_OK;
 }
@@ -346,17 +332,15 @@ xpcAccessibleTable::GetSelectedRowIndices(uint32_t* aRowsArraySize,
   NS_ENSURE_ARG_POINTER(aRowsArray);
   *aRowsArray = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   AutoTArray<uint32_t, XPC_TABLE_DEFAULT_SIZE> rowsArray;
   Intl()->SelectedRowIndices(&rowsArray);
 
   *aRowsArraySize = rowsArray.Length();
-  *aRowsArray = static_cast<int32_t*>
-    (moz_xmalloc(*aRowsArraySize * sizeof(int32_t)));
-  memcpy(*aRowsArray, rowsArray.Elements(),
-    *aRowsArraySize * sizeof(int32_t));
+  *aRowsArray =
+      static_cast<int32_t*>(moz_xmalloc(*aRowsArraySize * sizeof(int32_t)));
+  memcpy(*aRowsArray, rowsArray.Elements(), *aRowsArraySize * sizeof(int32_t));
 
   return NS_OK;
 }
@@ -367,11 +351,10 @@ xpcAccessibleTable::GetColumnIndexAt(int32_t aCellIdx, int32_t* aColIdx)
   NS_ENSURE_ARG_POINTER(aColIdx);
   *aColIdx = -1;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
-  if (aCellIdx < 0 ||
-      static_cast<uint32_t>(aCellIdx) >= Intl()->RowCount() * Intl()->ColCount())
+  if (aCellIdx < 0 || static_cast<uint32_t>(aCellIdx) >=
+                          Intl()->RowCount() * Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
 
   *aColIdx = Intl()->ColIndexAt(aCellIdx);
@@ -384,11 +367,10 @@ xpcAccessibleTable::GetRowIndexAt(int32_t aCellIdx, int32_t* aRowIdx)
   NS_ENSURE_ARG_POINTER(aRowIdx);
   *aRowIdx = -1;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
-  if (aCellIdx < 0 ||
-      static_cast<uint32_t>(aCellIdx) >= Intl()->RowCount() * Intl()->ColCount())
+  if (aCellIdx < 0 || static_cast<uint32_t>(aCellIdx) >=
+                          Intl()->RowCount() * Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
 
   *aRowIdx = Intl()->RowIndexAt(aCellIdx);
@@ -396,7 +378,8 @@ xpcAccessibleTable::GetRowIndexAt(int32_t aCellIdx, int32_t* aRowIdx)
 }
 
 NS_IMETHODIMP
-xpcAccessibleTable::GetRowAndColumnIndicesAt(int32_t aCellIdx, int32_t* aRowIdx,
+xpcAccessibleTable::GetRowAndColumnIndicesAt(int32_t aCellIdx,
+                                             int32_t* aRowIdx,
                                              int32_t* aColIdx)
 {
   NS_ENSURE_ARG_POINTER(aRowIdx);
@@ -404,11 +387,10 @@ xpcAccessibleTable::GetRowAndColumnIndicesAt(int32_t aCellIdx, int32_t* aRowIdx,
   NS_ENSURE_ARG_POINTER(aColIdx);
   *aColIdx = -1;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
-  if (aCellIdx < 0 ||
-      static_cast<uint32_t>(aCellIdx) >= Intl()->RowCount() * Intl()->ColCount())
+  if (aCellIdx < 0 || static_cast<uint32_t>(aCellIdx) >=
+                          Intl()->RowCount() * Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
 
   Intl()->RowAndColIndicesAt(aCellIdx, aRowIdx, aColIdx);
@@ -418,8 +400,7 @@ xpcAccessibleTable::GetRowAndColumnIndicesAt(int32_t aCellIdx, int32_t* aRowIdx,
 NS_IMETHODIMP
 xpcAccessibleTable::GetSummary(nsAString& aSummary)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   nsAutoString summary;
   Intl()->Summary(summary);
@@ -433,8 +414,7 @@ xpcAccessibleTable::IsProbablyForLayout(bool* aResult)
 {
   NS_ENSURE_ARG_POINTER(aResult);
   *aResult = false;
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aResult = Intl()->IsProbablyLayoutTable();
   return NS_OK;
@@ -443,8 +423,7 @@ xpcAccessibleTable::IsProbablyForLayout(bool* aResult)
 NS_IMETHODIMP
 xpcAccessibleTable::SelectColumn(int32_t aColIdx)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
@@ -456,8 +435,7 @@ xpcAccessibleTable::SelectColumn(int32_t aColIdx)
 NS_IMETHODIMP
 xpcAccessibleTable::SelectRow(int32_t aRowIdx)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount())
     return NS_ERROR_INVALID_ARG;
@@ -469,8 +447,7 @@ xpcAccessibleTable::SelectRow(int32_t aRowIdx)
 NS_IMETHODIMP
 xpcAccessibleTable::UnselectColumn(int32_t aColIdx)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= Intl()->ColCount())
     return NS_ERROR_INVALID_ARG;
@@ -482,8 +459,7 @@ xpcAccessibleTable::UnselectColumn(int32_t aColIdx)
 NS_IMETHODIMP
 xpcAccessibleTable::UnselectRow(int32_t aRowIdx)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= Intl()->RowCount())
     return NS_ERROR_INVALID_ARG;

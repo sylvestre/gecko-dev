@@ -13,15 +13,13 @@ NS_IMPL_ADDREF(nsSystemAlertsService)
 NS_IMPL_RELEASE(nsSystemAlertsService)
 
 NS_INTERFACE_MAP_BEGIN(nsSystemAlertsService)
-   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIAlertsService)
-   NS_INTERFACE_MAP_ENTRY(nsIAlertsService)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIAlertsService)
+  NS_INTERFACE_MAP_ENTRY(nsIAlertsService)
 NS_INTERFACE_MAP_END_THREADSAFE
 
-nsSystemAlertsService::nsSystemAlertsService()
-= default;
+nsSystemAlertsService::nsSystemAlertsService() = default;
 
-nsSystemAlertsService::~nsSystemAlertsService()
-= default;
+nsSystemAlertsService::~nsSystemAlertsService() = default;
 
 nsresult
 nsSystemAlertsService::Init()
@@ -29,39 +27,52 @@ nsSystemAlertsService::Init()
   return NS_OK;
 }
 
-NS_IMETHODIMP nsSystemAlertsService::ShowAlertNotification(const nsAString & aImageUrl, const nsAString & aAlertTitle,
-                                                           const nsAString & aAlertText, bool aAlertTextClickable,
-                                                           const nsAString & aAlertCookie,
-                                                           nsIObserver * aAlertListener,
-                                                           const nsAString & aAlertName,
-                                                           const nsAString & aBidi,
-                                                           const nsAString & aLang,
-                                                           const nsAString & aData,
-                                                           nsIPrincipal * aPrincipal,
-                                                           bool aInPrivateBrowsing,
-                                                           bool aRequireInteraction)
+NS_IMETHODIMP
+nsSystemAlertsService::ShowAlertNotification(const nsAString& aImageUrl,
+                                             const nsAString& aAlertTitle,
+                                             const nsAString& aAlertText,
+                                             bool aAlertTextClickable,
+                                             const nsAString& aAlertCookie,
+                                             nsIObserver* aAlertListener,
+                                             const nsAString& aAlertName,
+                                             const nsAString& aBidi,
+                                             const nsAString& aLang,
+                                             const nsAString& aData,
+                                             nsIPrincipal* aPrincipal,
+                                             bool aInPrivateBrowsing,
+                                             bool aRequireInteraction)
 {
   nsCOMPtr<nsIAlertNotification> alert =
-    do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
+      do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
   NS_ENSURE_TRUE(alert, NS_ERROR_FAILURE);
-  nsresult rv = alert->Init(aAlertName, aImageUrl, aAlertTitle,
-                            aAlertText, aAlertTextClickable,
-                            aAlertCookie, aBidi, aLang, aData,
-                            aPrincipal, aInPrivateBrowsing,
+  nsresult rv = alert->Init(aAlertName,
+                            aImageUrl,
+                            aAlertTitle,
+                            aAlertText,
+                            aAlertTextClickable,
+                            aAlertCookie,
+                            aBidi,
+                            aLang,
+                            aData,
+                            aPrincipal,
+                            aInPrivateBrowsing,
                             aRequireInteraction);
   NS_ENSURE_SUCCESS(rv, rv);
   return ShowAlert(alert, aAlertListener);
 }
 
-NS_IMETHODIMP nsSystemAlertsService::ShowPersistentNotification(const nsAString& aPersistentData,
-                                                                nsIAlertNotification* aAlert,
-                                                                nsIObserver* aAlertListener)
+NS_IMETHODIMP
+nsSystemAlertsService::ShowPersistentNotification(
+    const nsAString& aPersistentData,
+    nsIAlertNotification* aAlert,
+    nsIObserver* aAlertListener)
 {
   return ShowAlert(aAlert, aAlertListener);
 }
 
-NS_IMETHODIMP nsSystemAlertsService::ShowAlert(nsIAlertNotification* aAlert,
-                                               nsIObserver* aAlertListener)
+NS_IMETHODIMP
+nsSystemAlertsService::ShowAlert(nsIAlertNotification* aAlert,
+                                 nsIObserver* aAlertListener)
 {
   NS_ENSURE_ARG(aAlert);
 
@@ -70,16 +81,16 @@ NS_IMETHODIMP nsSystemAlertsService::ShowAlert(nsIAlertNotification* aAlert,
   NS_ENSURE_SUCCESS(rv, rv);
 
   RefPtr<nsAlertsIconListener> alertListener =
-    new nsAlertsIconListener(this, alertName);
-  if (!alertListener)
-    return NS_ERROR_OUT_OF_MEMORY;
+      new nsAlertsIconListener(this, alertName);
+  if (!alertListener) return NS_ERROR_OUT_OF_MEMORY;
 
   AddListener(alertName, alertListener);
   return alertListener->InitAlertAsync(aAlert, aAlertListener);
 }
 
-NS_IMETHODIMP nsSystemAlertsService::CloseAlert(const nsAString& aAlertName,
-                                                nsIPrincipal* aPrincipal)
+NS_IMETHODIMP
+nsSystemAlertsService::CloseAlert(const nsAString& aAlertName,
+                                  nsIPrincipal* aPrincipal)
 {
   RefPtr<nsAlertsIconListener> listener = mActiveListeners.Get(aAlertName);
   if (!listener) {
@@ -89,14 +100,16 @@ NS_IMETHODIMP nsSystemAlertsService::CloseAlert(const nsAString& aAlertName,
   return listener->Close();
 }
 
-bool nsSystemAlertsService::IsActiveListener(const nsAString& aAlertName,
-                                             nsAlertsIconListener* aListener)
+bool
+nsSystemAlertsService::IsActiveListener(const nsAString& aAlertName,
+                                        nsAlertsIconListener* aListener)
 {
   return mActiveListeners.Get(aAlertName) == aListener;
 }
 
-void nsSystemAlertsService::AddListener(const nsAString& aAlertName,
-                                        nsAlertsIconListener* aListener)
+void
+nsSystemAlertsService::AddListener(const nsAString& aAlertName,
+                                   nsAlertsIconListener* aListener)
 {
   RefPtr<nsAlertsIconListener> oldListener = mActiveListeners.Get(aAlertName);
   mActiveListeners.Put(aAlertName, aListener);
@@ -106,8 +119,9 @@ void nsSystemAlertsService::AddListener(const nsAString& aAlertName,
   }
 }
 
-void nsSystemAlertsService::RemoveListener(const nsAString& aAlertName,
-                                           nsAlertsIconListener* aListener)
+void
+nsSystemAlertsService::RemoveListener(const nsAString& aAlertName,
+                                      nsAlertsIconListener* aListener)
 {
   if (IsActiveListener(aAlertName, aListener)) {
     // The alert may have been replaced; only remove it from the active

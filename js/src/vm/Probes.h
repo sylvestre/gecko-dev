@@ -91,26 +91,20 @@ bool FinalizeObject(JSObject* obj);
 void DTraceEnterJSFun(JSContext* cx, JSFunction* fun, JSScript* script);
 void DTraceExitJSFun(JSContext* cx, JSFunction* fun, JSScript* script);
 
-} // namespace probes
-
+}  // namespace probes
 
 #ifdef INCLUDE_MOZILLA_DTRACE
 static const char* ObjectClassname(JSObject* obj) {
-    if (!obj)
-        return "(null object)";
+    if (!obj) return "(null object)";
     const Class* clasp = obj->getClass();
-    if (!clasp)
-        return "(null)";
+    if (!clasp) return "(null)";
     const char* class_name = clasp->name;
-    if (!class_name)
-        return "(null class name)";
+    if (!class_name) return "(null class name)";
     return class_name;
 }
 #endif
 
-inline bool
-probes::CreateObject(JSContext* cx, JSObject* obj)
-{
+inline bool probes::CreateObject(JSContext* cx, JSObject* obj) {
     bool ok = true;
 
 #ifdef INCLUDE_MOZILLA_DTRACE
@@ -121,9 +115,7 @@ probes::CreateObject(JSContext* cx, JSObject* obj)
     return ok;
 }
 
-inline bool
-probes::FinalizeObject(JSObject* obj)
-{
+inline bool probes::FinalizeObject(JSObject* obj) {
     bool ok = true;
 
 #ifdef INCLUDE_MOZILLA_DTRACE

@@ -8,13 +8,17 @@
 
 #include "nsISupports.h"
 
-#define NS_IDOCUMENTACTIVITY_IID \
-{ 0x9b9f584e, 0xefa8, 0x11e3, \
-  { 0xbb, 0x74, 0x5e, 0xdd, 0x1d, 0x5d, 0x46, 0xb0 } }
+#define NS_IDOCUMENTACTIVITY_IID                     \
+  {                                                  \
+    0x9b9f584e, 0xefa8, 0x11e3,                      \
+    {                                                \
+      0xbb, 0x74, 0x5e, 0xdd, 0x1d, 0x5d, 0x46, 0xb0 \
+    }                                                \
+  }
 
 class nsIDocumentActivity : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IDOCUMENTACTIVITY_IID)
 
   virtual void NotifyOwnerDocumentActivityChanged() = 0;

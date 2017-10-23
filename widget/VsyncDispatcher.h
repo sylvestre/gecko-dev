@@ -18,7 +18,7 @@ class VsyncObserver
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VsyncObserver)
 
-public:
+ public:
   // The method called when a vsync occurs. Return true if some work was done.
   // In general, this vsync notification will occur on the hardware vsync
   // thread from VsyncSource. But it might also be called on PVsync ipc thread
@@ -26,10 +26,10 @@ public:
   // thread model before handling the real task.
   virtual bool NotifyVsync(TimeStamp aVsyncTimestamp) = 0;
 
-protected:
+ protected:
   VsyncObserver() {}
   virtual ~VsyncObserver() {}
-}; // VsyncObserver
+};  // VsyncObserver
 
 // Used to dispatch vsync events in the parent process to compositors.
 //
@@ -47,7 +47,7 @@ class CompositorVsyncDispatcher final
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorVsyncDispatcher)
 
-public:
+ public:
   CompositorVsyncDispatcher();
 
   // Called on the vsync thread when a hardware vsync occurs
@@ -57,7 +57,7 @@ public:
   void SetCompositorVsyncObserver(VsyncObserver* aVsyncObserver);
   void Shutdown();
 
-private:
+ private:
   virtual ~CompositorVsyncDispatcher();
   void ObserveVsync(bool aEnable);
 
@@ -71,7 +71,7 @@ class RefreshTimerVsyncDispatcher final
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(RefreshTimerVsyncDispatcher)
 
-public:
+ public:
   RefreshTimerVsyncDispatcher();
 
   // Please check CompositorVsyncDispatcher::NotifyVsync().
@@ -88,7 +88,7 @@ public:
   void AddChildRefreshTimer(VsyncObserver* aVsyncObserver);
   void RemoveChildRefreshTimer(VsyncObserver* aVsyncObserver);
 
-private:
+ private:
   virtual ~RefreshTimerVsyncDispatcher();
   void UpdateVsyncStatus();
   bool NeedsVsync();
@@ -98,6 +98,6 @@ private:
   nsTArray<RefPtr<VsyncObserver>> mChildRefreshTimers;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_widget_VsyncDispatcher_h
+#endif  // mozilla_widget_VsyncDispatcher_h

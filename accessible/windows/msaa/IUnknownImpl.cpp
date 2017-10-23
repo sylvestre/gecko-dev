@@ -33,5 +33,5 @@ GetHRESULT(nsresult aResult)
   }
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

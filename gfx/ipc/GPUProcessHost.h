@@ -31,23 +31,21 @@ class GPUProcessHost final : public mozilla::ipc::GeckoChildProcessHost
 {
   friend class GPUChild;
 
-public:
-  class Listener {
-  public:
-    virtual void OnProcessLaunchComplete(GPUProcessHost* aHost)
-    {}
+ public:
+  class Listener
+  {
+   public:
+    virtual void OnProcessLaunchComplete(GPUProcessHost* aHost) {}
 
     // The GPUProcessHost has unexpectedly shutdown or had its connection
     // severed. This is not called if an error occurs after calling
     // Shutdown().
-    virtual void OnProcessUnexpectedShutdown(GPUProcessHost* aHost)
-    {}
+    virtual void OnProcessUnexpectedShutdown(GPUProcessHost* aHost) {}
 
-    virtual void OnRemoteProcessDeviceReset(GPUProcessHost* aHost)
-    {}
+    virtual void OnRemoteProcessDeviceReset(GPUProcessHost* aHost) {}
   };
 
-public:
+ public:
   explicit GPUProcessHost(Listener* listener);
   ~GPUProcessHost();
 
@@ -72,25 +70,19 @@ public:
 
   // Return the actor for the top-level actor of the process. If the process
   // has not connected yet, this returns null.
-  GPUChild* GetActor() const {
-    return mGPUChild.get();
-  }
+  GPUChild* GetActor() const { return mGPUChild.get(); }
 
   // Return a unique id for this process, guaranteed not to be shared with any
   // past or future instance of GPUProcessHost.
   uint64_t GetProcessToken() const;
 
-  bool IsConnected() const {
-    return !!mGPUChild;
-  }
+  bool IsConnected() const { return !!mGPUChild; }
 
   // Return the time stamp for when we tried to launch the GPU process. This is
   // currently used for Telemetry so that we can determine how long GPU processes
   // take to spin up. Note this doesn't denote a successful launch, just when we
   // attempted launch.
-  TimeStamp GetLaunchTime() const {
-    return mLaunchTime;
-  }
+  TimeStamp GetLaunchTime() const { return mLaunchTime; }
 
   // Called on the IO thread.
   void OnChannelConnected(int32_t peer_pid) override;
@@ -101,7 +93,7 @@ public:
   // Used for tests and diagnostics
   void KillProcess();
 
-private:
+ private:
   // Called on the main thread.
   void OnChannelConnectedTask();
   void OnChannelErrorTask();
@@ -117,13 +109,14 @@ private:
 
   void DestroyProcess();
 
-private:
+ private:
   DISALLOW_COPY_AND_ASSIGN(GPUProcessHost);
 
   Listener* mListener;
   mozilla::ipc::TaskFactory<GPUProcessHost> mTaskFactory;
 
-  enum class LaunchPhase {
+  enum class LaunchPhase
+  {
     Unlaunched,
     Waiting,
     Complete
@@ -139,7 +132,7 @@ private:
   TimeStamp mLaunchTime;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // _include_mozilla_gfx_ipc_GPUProcessHost_h_
+#endif  // _include_mozilla_gfx_ipc_GPUProcessHost_h_

@@ -17,27 +17,24 @@ namespace mozilla {
 // that offset.
 struct WebMTimeDataOffset
 {
-  WebMTimeDataOffset(int64_t aEndOffset, uint64_t aTimecode,
-                     int64_t aInitOffset, int64_t aSyncOffset,
+  WebMTimeDataOffset(int64_t aEndOffset,
+                     uint64_t aTimecode,
+                     int64_t aInitOffset,
+                     int64_t aSyncOffset,
                      int64_t aClusterEndOffset)
-    : mEndOffset(aEndOffset)
-    , mInitOffset(aInitOffset)
-    , mSyncOffset(aSyncOffset)
-    , mClusterEndOffset(aClusterEndOffset)
-    , mTimecode(aTimecode)
-  {}
-
-  bool operator==(int64_t aEndOffset) const {
-    return mEndOffset == aEndOffset;
+      : mEndOffset(aEndOffset),
+        mInitOffset(aInitOffset),
+        mSyncOffset(aSyncOffset),
+        mClusterEndOffset(aClusterEndOffset),
+        mTimecode(aTimecode)
+  {
   }
 
-  bool operator!=(int64_t aEndOffset) const {
-    return mEndOffset != aEndOffset;
-  }
+  bool operator==(int64_t aEndOffset) const { return mEndOffset == aEndOffset; }
 
-  bool operator<(int64_t aEndOffset) const {
-    return mEndOffset < aEndOffset;
-  }
+  bool operator!=(int64_t aEndOffset) const { return mEndOffset != aEndOffset; }
+
+  bool operator<(int64_t aEndOffset) const { return mEndOffset < aEndOffset; }
 
   int64_t mEndOffset;
   int64_t mInitOffset;
@@ -55,40 +52,42 @@ struct WebMTimeDataOffset
 struct WebMBufferedParser
 {
   explicit WebMBufferedParser(int64_t aOffset)
-    : mStartOffset(aOffset)
-    , mCurrentOffset(aOffset)
-    , mInitEndOffset(-1)
-    , mBlockEndOffset(-1)
-    , mState(READ_ELEMENT_ID)
-    , mNextState(READ_ELEMENT_ID)
-    , mVIntRaw(false)
-    , mLastInitStartOffset(-1)
-    , mClusterSyncPos(0)
-    , mVIntLeft(0)
-    , mBlockSize(0)
-    , mClusterTimecode(0)
-    , mClusterOffset(0)
-    , mClusterEndOffset(-1)
-    , mBlockOffset(0)
-    , mBlockTimecode(0)
-    , mBlockTimecodeLength(0)
-    , mSkipBytes(0)
-    , mTimecodeScale(1000000)
-    , mGotTimecodeScale(false)
+      : mStartOffset(aOffset),
+        mCurrentOffset(aOffset),
+        mInitEndOffset(-1),
+        mBlockEndOffset(-1),
+        mState(READ_ELEMENT_ID),
+        mNextState(READ_ELEMENT_ID),
+        mVIntRaw(false),
+        mLastInitStartOffset(-1),
+        mClusterSyncPos(0),
+        mVIntLeft(0),
+        mBlockSize(0),
+        mClusterTimecode(0),
+        mClusterOffset(0),
+        mClusterEndOffset(-1),
+        mBlockOffset(0),
+        mBlockTimecode(0),
+        mBlockTimecodeLength(0),
+        mSkipBytes(0),
+        mTimecodeScale(1000000),
+        mGotTimecodeScale(false)
   {
     if (mStartOffset != 0) {
       mState = FIND_CLUSTER_SYNC;
     }
   }
 
-  uint32_t GetTimecodeScale() {
+  uint32_t GetTimecodeScale()
+  {
     MOZ_ASSERT(mGotTimecodeScale);
     return mTimecodeScale;
   }
 
   // If this parser is not expected to parse a segment info, it must be told
   // the appropriate timecode scale to use from elsewhere.
-  void SetTimecodeScale(uint32_t aTimecodeScale) {
+  void SetTimecodeScale(uint32_t aTimecodeScale)
+  {
     mTimecodeScale = aTimecodeScale;
     mGotTimecodeScale = true;
   }
@@ -97,17 +96,14 @@ struct WebMBufferedParser
   // aLength bytes.  Updates mCurrentOffset before returning.  Acquires
   // aReentrantMonitor before using aMapping.
   // Returns false if an error was encountered.
-  bool Append(const unsigned char* aBuffer, uint32_t aLength,
+  bool Append(const unsigned char* aBuffer,
+              uint32_t aLength,
               nsTArray<WebMTimeDataOffset>& aMapping,
               ReentrantMonitor& aReentrantMonitor);
 
-  bool operator==(int64_t aOffset) const {
-    return mCurrentOffset == aOffset;
-  }
+  bool operator==(int64_t aOffset) const { return mCurrentOffset == aOffset; }
 
-  bool operator<(int64_t aOffset) const {
-    return mCurrentOffset < aOffset;
-  }
+  bool operator<(int64_t aOffset) const { return mCurrentOffset < aOffset; }
 
   // Returns the start offset of the init (EBML) or media segment (Cluster)
   // following the aOffset position. If none were found, returns mBlockEndOffset.
@@ -131,8 +127,9 @@ struct WebMBufferedParser
   // Will only be set if a complete block has been parsed.
   int64_t mBlockEndOffset;
 
-private:
-  enum State {
+ private:
+  enum State
+  {
     // Parser start state.  Expects to begin at a valid EBML element.  Move
     // to READ_VINT with mVIntRaw true, then return to READ_ELEMENT_SIZE.
     READ_ELEMENT_ID,
@@ -192,13 +189,15 @@ private:
   // mNextState when the current action completes.
   State mNextState;
 
-  struct VInt {
+  struct VInt
+  {
     VInt() : mValue(0), mLength(0) {}
     uint64_t mValue;
     uint64_t mLength;
   };
 
-  struct EBMLElement {
+  struct EBMLElement
+  {
     uint64_t Length() { return mID.mLength + mSize.mLength; }
     VInt mID;
     VInt mSize;
@@ -266,19 +265,22 @@ class WebMBufferedState final
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebMBufferedState)
 
-public:
+ public:
   WebMBufferedState()
-    : mReentrantMonitor("WebMBufferedState")
-    , mLastBlockOffset(-1)
+      : mReentrantMonitor("WebMBufferedState"), mLastBlockOffset(-1)
   {
     MOZ_COUNT_CTOR(WebMBufferedState);
   }
 
-  void NotifyDataArrived(const unsigned char* aBuffer, uint32_t aLength, int64_t aOffset);
+  void NotifyDataArrived(const unsigned char* aBuffer,
+                         uint32_t aLength,
+                         int64_t aOffset);
   void Reset();
   void UpdateIndex(const MediaByteRangeSet& aRanges, MediaResource* aResource);
-  bool CalculateBufferedForRange(int64_t aStartOffset, int64_t aEndOffset,
-                                 uint64_t* aStartTime, uint64_t* aEndTime);
+  bool CalculateBufferedForRange(int64_t aStartOffset,
+                                 int64_t aEndOffset,
+                                 uint64_t* aStartTime,
+                                 uint64_t* aEndTime);
 
   // Returns true if mTimeMapping is not empty and sets aOffset to
   // the latest offset for which decoding can resume without data
@@ -293,16 +295,14 @@ public:
   int64_t GetLastBlockOffset();
 
   // Returns start time
-  bool GetStartTime(uint64_t *aTime);
+  bool GetStartTime(uint64_t* aTime);
 
   // Returns keyframe for time
   bool GetNextKeyframeTime(uint64_t aTime, uint64_t* aKeyframeTime);
 
-private:
+ private:
   // Private destructor, to discourage deletion outside of Release():
-  ~WebMBufferedState() {
-    MOZ_COUNT_DTOR(WebMBufferedState);
-  }
+  ~WebMBufferedState() { MOZ_COUNT_DTOR(WebMBufferedState); }
 
   // Synchronizes access to the mTimeMapping array and mLastBlockOffset.
   ReentrantMonitor mReentrantMonitor;
@@ -317,6 +317,6 @@ private:
   nsTArray<WebMBufferedParser> mRangeParsers;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

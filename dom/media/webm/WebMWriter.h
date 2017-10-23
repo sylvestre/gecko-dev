@@ -16,7 +16,7 @@ class EbmlComposer;
 // Vorbis meta data structure
 class VorbisMetadata : public TrackMetadataBase
 {
-public:
+ public:
   nsTArray<uint8_t> mData;
   int32_t mChannels;
   float mSamplingFrequency;
@@ -26,7 +26,7 @@ public:
 // VP8 meta data structure
 class VP8Metadata : public TrackMetadataBase
 {
-public:
+ public:
   int32_t mWidth;
   int32_t mHeight;
   int32_t mDisplayWidth;
@@ -42,14 +42,14 @@ public:
  */
 class WebMWriter : public ContainerWriter
 {
-public:
+ public:
   // aTrackTypes indicate this muxer should multiplex into Video only or A/V foramt.
   // Run in MediaRecorder thread
   explicit WebMWriter(uint32_t aTrackTypes);
   virtual ~WebMWriter();
 
   // WriteEncodedTrack inserts raw packets into WebM stream.
-  nsresult WriteEncodedTrack(const EncodedFrameContainer &aData,
+  nsresult WriteEncodedTrack(const EncodedFrameContainer& aData,
                              uint32_t aFlags = 0) override;
 
   // GetContainerData outputs multiplexing data.
@@ -61,7 +61,7 @@ public:
   // Assign metadata into muxer
   nsresult SetMetadata(TrackMetadataBase* aMetadata) override;
 
-private:
+ private:
   nsAutoPtr<EbmlComposer> mEbmlComposer;
 
   // Indicate what kind of meta data needed in the writer.
@@ -69,6 +69,6 @@ private:
   uint8_t mMetadataRequiredFlag;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

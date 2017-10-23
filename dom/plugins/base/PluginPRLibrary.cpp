@@ -17,7 +17,8 @@
 // gNotOptimized exists so that the compiler will not optimize the alloca
 // below.
 static int gNotOptimized;
-#define CALLING_CONVENTION_HACK void* foo MOZ_UNUSED_ATTRIBUTE = _alloca(gNotOptimized);
+#define CALLING_CONVENTION_HACK \
+  void* foo MOZ_UNUSED_ATTRIBUTE = _alloca(gNotOptimized);
 #else
 #define CALLING_CONVENTION_HACK
 #endif
@@ -28,18 +29,17 @@ namespace mozilla {
 #if defined(XP_UNIX) && !defined(XP_MACOSX)
 nsresult
 PluginPRLibrary::NP_Initialize(NPNetscapeFuncs* bFuncs,
-                               NPPluginFuncs* pFuncs, NPError* error)
+                               NPPluginFuncs* pFuncs,
+                               NPError* error)
 {
   if (mNP_Initialize) {
     *error = mNP_Initialize(bFuncs, pFuncs);
   } else {
-    NP_InitializeFunc pfNP_Initialize = (NP_InitializeFunc)
-      PR_FindFunctionSymbol(mLibrary, "NP_Initialize");
-    if (!pfNP_Initialize)
-      return NS_ERROR_FAILURE;
+    NP_InitializeFunc pfNP_Initialize =
+        (NP_InitializeFunc)PR_FindFunctionSymbol(mLibrary, "NP_Initialize");
+    if (!pfNP_Initialize) return NS_ERROR_FAILURE;
     *error = pfNP_Initialize(bFuncs, pFuncs);
   }
-
 
   // Save pointers to functions that get called through PluginLibrary itself.
   mNPP_New = pFuncs->newp;
@@ -56,10 +56,9 @@ PluginPRLibrary::NP_Initialize(NPNetscapeFuncs* bFuncs, NPError* error)
   if (mNP_Initialize) {
     *error = mNP_Initialize(bFuncs);
   } else {
-    NP_InitializeFunc pfNP_Initialize = (NP_InitializeFunc)
-      PR_FindFunctionSymbol(mLibrary, "NP_Initialize");
-    if (!pfNP_Initialize)
-      return NS_ERROR_FAILURE;
+    NP_InitializeFunc pfNP_Initialize =
+        (NP_InitializeFunc)PR_FindFunctionSymbol(mLibrary, "NP_Initialize");
+    if (!pfNP_Initialize) return NS_ERROR_FAILURE;
     *error = pfNP_Initialize(bFuncs);
   }
 
@@ -75,10 +74,9 @@ PluginPRLibrary::NP_Shutdown(NPError* error)
   if (mNP_Shutdown) {
     *error = mNP_Shutdown();
   } else {
-    NP_ShutdownFunc pfNP_Shutdown = (NP_ShutdownFunc)
-      PR_FindFunctionSymbol(mLibrary, "NP_Shutdown");
-    if (!pfNP_Shutdown)
-      return NS_ERROR_FAILURE;
+    NP_ShutdownFunc pfNP_Shutdown =
+        (NP_ShutdownFunc)PR_FindFunctionSymbol(mLibrary, "NP_Shutdown");
+    if (!pfNP_Shutdown) return NS_ERROR_FAILURE;
     *error = pfNP_Shutdown();
   }
 
@@ -92,11 +90,10 @@ PluginPRLibrary::NP_GetMIMEDescription(const char** mimeDesc)
 
   if (mNP_GetMIMEDescription) {
     *mimeDesc = mNP_GetMIMEDescription();
-  }
-  else {
+  } else {
     NP_GetMIMEDescriptionFunc pfNP_GetMIMEDescription =
-      (NP_GetMIMEDescriptionFunc)
-      PR_FindFunctionSymbol(mLibrary, "NP_GetMIMEDescription");
+        (NP_GetMIMEDescriptionFunc)PR_FindFunctionSymbol(
+            mLibrary, "NP_GetMIMEDescription");
     if (!pfNP_GetMIMEDescription) {
       *mimeDesc = "";
       return NS_ERROR_FAILURE;
@@ -108,16 +105,18 @@ PluginPRLibrary::NP_GetMIMEDescription(const char** mimeDesc)
 }
 
 nsresult
-PluginPRLibrary::NP_GetValue(void *future, NPPVariable aVariable,
-			     void *aValue, NPError* error)
+PluginPRLibrary::NP_GetValue(void* future,
+                             NPPVariable aVariable,
+                             void* aValue,
+                             NPError* error)
 {
 #if defined(XP_UNIX) && !defined(XP_MACOSX)
   if (mNP_GetValue) {
     *error = mNP_GetValue(future, aVariable, aValue);
   } else {
-    NP_GetValueFunc pfNP_GetValue = (NP_GetValueFunc)PR_FindFunctionSymbol(mLibrary, "NP_GetValue");
-    if (!pfNP_GetValue)
-      return NS_ERROR_FAILURE;
+    NP_GetValueFunc pfNP_GetValue =
+        (NP_GetValueFunc)PR_FindFunctionSymbol(mLibrary, "NP_GetValue");
+    if (!pfNP_GetValue) return NS_ERROR_FAILURE;
     *error = pfNP_GetValue(future, aVariable, aValue);
   }
   return NS_OK;
@@ -135,10 +134,10 @@ PluginPRLibrary::NP_GetEntryPoints(NPPluginFuncs* pFuncs, NPError* error)
   if (mNP_GetEntryPoints) {
     *error = mNP_GetEntryPoints(pFuncs);
   } else {
-    NP_GetEntryPointsFunc pfNP_GetEntryPoints = (NP_GetEntryPointsFunc)
-      PR_FindFunctionSymbol(mLibrary, "NP_GetEntryPoints");
-    if (!pfNP_GetEntryPoints)
-      return NS_ERROR_FAILURE;
+    NP_GetEntryPointsFunc pfNP_GetEntryPoints =
+        (NP_GetEntryPointsFunc)PR_FindFunctionSymbol(mLibrary,
+                                                     "NP_GetEntryPoints");
+    if (!pfNP_GetEntryPoints) return NS_ERROR_FAILURE;
     *error = pfNP_GetEntryPoints(pFuncs);
   }
 
@@ -151,21 +150,25 @@ PluginPRLibrary::NP_GetEntryPoints(NPPluginFuncs* pFuncs, NPError* error)
 #endif
 
 nsresult
-PluginPRLibrary::NPP_New(NPMIMEType pluginType, NPP instance,
-			 int16_t argc, char* argn[],
-			 char* argv[], NPSavedData* saved,
-			 NPError* error)
+PluginPRLibrary::NPP_New(NPMIMEType pluginType,
+                         NPP instance,
+                         int16_t argc,
+                         char* argn[],
+                         char* argv[],
+                         NPSavedData* saved,
+                         NPError* error)
 {
-  if (!mNPP_New)
-    return NS_ERROR_FAILURE;
+  if (!mNPP_New) return NS_ERROR_FAILURE;
 
   *error = mNPP_New(pluginType, instance, NP_EMBED, argc, argn, argv, saved);
   return NS_OK;
 }
 
 nsresult
-PluginPRLibrary::NPP_ClearSiteData(const char* site, uint64_t flags,
-                                   uint64_t maxAge, nsCOMPtr<nsIClearSiteDataCallback> callback)
+PluginPRLibrary::NPP_ClearSiteData(const char* site,
+                                   uint64_t flags,
+                                   uint64_t maxAge,
+                                   nsCOMPtr<nsIClearSiteDataCallback> callback)
 {
   if (!mNPP_ClearSiteData) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -175,24 +178,25 @@ PluginPRLibrary::NPP_ClearSiteData(const char* site, uint64_t flags,
 
   nsresult rv;
   switch (result) {
-  case NPERR_NO_ERROR:
-    rv = NS_OK;
-    break;
-  case NPERR_TIME_RANGE_NOT_SUPPORTED:
-    rv = NS_ERROR_PLUGIN_TIME_RANGE_NOT_SUPPORTED;
-    break;
-  case NPERR_MALFORMED_SITE:
-    rv = NS_ERROR_INVALID_ARG;
-    break;
-  default:
-    rv = NS_ERROR_FAILURE;
+    case NPERR_NO_ERROR:
+      rv = NS_OK;
+      break;
+    case NPERR_TIME_RANGE_NOT_SUPPORTED:
+      rv = NS_ERROR_PLUGIN_TIME_RANGE_NOT_SUPPORTED;
+      break;
+    case NPERR_MALFORMED_SITE:
+      rv = NS_ERROR_INVALID_ARG;
+      break;
+    default:
+      rv = NS_ERROR_FAILURE;
   }
   callback->Callback(rv);
   return NS_OK;
 }
 
 nsresult
-PluginPRLibrary::NPP_GetSitesWithData(nsCOMPtr<nsIGetSitesWithDataCallback> callback)
+PluginPRLibrary::NPP_GetSitesWithData(
+    nsCOMPtr<nsIGetSitesWithDataCallback> callback)
 {
   if (!mNPP_GetSitesWithData) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -231,7 +235,7 @@ PluginPRLibrary::GetImageContainer(NPP instance, ImageContainer** aContainer)
 
 #if defined(XP_MACOSX)
 nsresult
-PluginPRLibrary::IsRemoteDrawingCoreAnimation(NPP instance, bool *aDrawing)
+PluginPRLibrary::IsRemoteDrawingCoreAnimation(NPP instance, bool* aDrawing)
 {
   nsNPAPIPluginInstance* inst = (nsNPAPIPluginInstance*)instance->ndata;
   NS_ENSURE_TRUE(inst, NS_ERROR_NULL_POINTER);
@@ -241,7 +245,8 @@ PluginPRLibrary::IsRemoteDrawingCoreAnimation(NPP instance, bool *aDrawing)
 #endif
 #if defined(XP_MACOSX) || defined(XP_WIN)
 nsresult
-PluginPRLibrary::ContentsScaleFactorChanged(NPP instance, double aContentsScaleFactor)
+PluginPRLibrary::ContentsScaleFactorChanged(NPP instance,
+                                            double aContentsScaleFactor)
 {
   nsNPAPIPluginInstance* inst = (nsNPAPIPluginInstance*)instance->ndata;
   NS_ENSURE_TRUE(inst, NS_ERROR_NULL_POINTER);
@@ -265,7 +270,8 @@ PluginPRLibrary::SetBackgroundUnknown(NPP instance)
 }
 
 nsresult
-PluginPRLibrary::BeginUpdateBackground(NPP instance, const nsIntRect&,
+PluginPRLibrary::BeginUpdateBackground(NPP instance,
+                                       const nsIntRect&,
                                        DrawTarget** aDrawTarget)
 {
   nsNPAPIPluginInstance* inst = (nsNPAPIPluginInstance*)instance->ndata;
@@ -284,7 +290,8 @@ PluginPRLibrary::EndUpdateBackground(NPP instance, const nsIntRect&)
 
 #if defined(XP_WIN)
 nsresult
-PluginPRLibrary::GetScrollCaptureContainer(NPP aInstance, ImageContainer** aContainer)
+PluginPRLibrary::GetScrollCaptureContainer(NPP aInstance,
+                                           ImageContainer** aContainer)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -292,9 +299,7 @@ PluginPRLibrary::GetScrollCaptureContainer(NPP aInstance, ImageContainer** aCont
 
 nsresult
 PluginPRLibrary::HandledWindowedPluginKeyEvent(
-                   NPP aInstance,
-                   const NativeEventData& aNativeKeyData,
-                   bool aIsConsumed)
+    NPP aInstance, const NativeEventData& aNativeKeyData, bool aIsConsumed)
 {
   nsNPAPIPluginInstance* instance = (nsNPAPIPluginInstance*)aInstance->ndata;
   if (NS_WARN_IF(!instance)) {
@@ -303,4 +308,4 @@ PluginPRLibrary::HandledWindowedPluginKeyEvent(
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -20,21 +20,18 @@ class FileSystemGetFilesParams;
 
 class GetFilesTaskChild final : public FileSystemTaskChildBase
 {
-public:
-  static already_AddRefed<GetFilesTaskChild>
-  Create(FileSystemBase* aFileSystem,
-         Directory* aDirectory,
-         nsIFile* aTargetPath,
-         bool aRecursiveFlag,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<GetFilesTaskChild> Create(FileSystemBase* aFileSystem,
+                                                    Directory* aDirectory,
+                                                    nsIFile* aTargetPath,
+                                                    bool aRecursiveFlag,
+                                                    ErrorResult& aRv);
 
-  virtual
-  ~GetFilesTaskChild();
+  virtual ~GetFilesTaskChild();
 
-  already_AddRefed<Promise>
-  GetPromise();
+  already_AddRefed<Promise> GetPromise();
 
-private:
+ private:
   // If aDirectoryOnly is set, we should ensure that the target is a directory.
   GetFilesTaskChild(nsIGlobalObject* aGlobalObject,
                     FileSystemBase* aFileSystem,
@@ -42,16 +39,13 @@ private:
                     nsIFile* aTargetPath,
                     bool aRecursiveFlag);
 
-  virtual FileSystemParams
-  GetRequestParams(const nsString& aSerializedDOMPath,
-                   ErrorResult& aRv) const override;
+  virtual FileSystemParams GetRequestParams(const nsString& aSerializedDOMPath,
+                                            ErrorResult& aRv) const override;
 
-  virtual void
-  SetSuccessRequestResult(const FileSystemResponseValue& aValue,
-                          ErrorResult& aRv) override;
+  virtual void SetSuccessRequestResult(const FileSystemResponseValue& aValue,
+                                       ErrorResult& aRv) override;
 
-  virtual void
-  HandlerCallback() override;
+  virtual void HandlerCallback() override;
 
   RefPtr<Promise> mPromise;
   RefPtr<Directory> mDirectory;
@@ -62,35 +56,33 @@ private:
   FallibleTArray<RefPtr<File>> mTargetData;
 };
 
-class GetFilesTaskParent final : public FileSystemTaskParentBase
-                               , public GetFilesHelperBase
+class GetFilesTaskParent final : public FileSystemTaskParentBase,
+                                 public GetFilesHelperBase
 {
-public:
-  static already_AddRefed<GetFilesTaskParent>
-  Create(FileSystemBase* aFileSystem,
-         const FileSystemGetFilesParams& aParam,
-         FileSystemRequestParent* aParent,
-         ErrorResult& aRv);
+ public:
+  static already_AddRefed<GetFilesTaskParent> Create(
+      FileSystemBase* aFileSystem,
+      const FileSystemGetFilesParams& aParam,
+      FileSystemRequestParent* aParent,
+      ErrorResult& aRv);
 
-  nsresult
-  GetTargetPath(nsAString& aPath) const override;
+  nsresult GetTargetPath(nsAString& aPath) const override;
 
-private:
+ private:
   GetFilesTaskParent(FileSystemBase* aFileSystem,
                      const FileSystemGetFilesParams& aParam,
                      FileSystemRequestParent* aParent);
 
-  virtual FileSystemResponseValue
-  GetSuccessRequestResult(ErrorResult& aRv) const override;
+  virtual FileSystemResponseValue GetSuccessRequestResult(
+      ErrorResult& aRv) const override;
 
-  virtual nsresult
-  IOWork() override;
+  virtual nsresult IOWork() override;
 
   nsString mDirectoryDOMPath;
   nsCOMPtr<nsIFile> mTargetPath;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_GetFilesTask_h
+#endif  // mozilla_dom_GetFilesTask_h

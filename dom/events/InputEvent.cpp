@@ -14,12 +14,12 @@ namespace dom {
 InputEvent::InputEvent(EventTarget* aOwner,
                        nsPresContext* aPresContext,
                        InternalEditorInputEvent* aEvent)
-  : UIEvent(aOwner, aPresContext,
-            aEvent ? aEvent :
-                     new InternalEditorInputEvent(false, eVoidEvent, nullptr))
+    : UIEvent(aOwner,
+              aPresContext,
+              aEvent ? aEvent
+                     : new InternalEditorInputEvent(false, eVoidEvent, nullptr))
 {
-  NS_ASSERTION(mEvent->mClass == eEditorInputEventClass,
-               "event type mismatch");
+  NS_ASSERTION(mEvent->mClass == eEditorInputEventClass, "event type mismatch");
 
   if (aEvent) {
     mEventIsInternal = false;
@@ -51,8 +51,8 @@ InputEvent::Constructor(const GlobalObject& aGlobal,
   RefPtr<InputEvent> e = new InputEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
   auto* view = aParam.mView ? aParam.mView->AsInner() : nullptr;
-  e->InitUIEvent(aType, aParam.mBubbles, aParam.mCancelable, view,
-                 aParam.mDetail);
+  e->InitUIEvent(
+      aType, aParam.mBubbles, aParam.mCancelable, view, aParam.mDetail);
   InternalEditorInputEvent* internalEvent = e->mEvent->AsEditorInputEvent();
   internalEvent->mIsComposing = aParam.mIsComposing;
   e->SetTrusted(trusted);
@@ -60,8 +60,8 @@ InputEvent::Constructor(const GlobalObject& aGlobal,
   return e.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

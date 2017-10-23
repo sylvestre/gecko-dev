@@ -17,10 +17,11 @@ namespace dom {
 
 class ScrollBoxObject final : public BoxObject
 {
-public:
+ public:
   ScrollBoxObject();
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   virtual nsIScrollableFrame* GetScrollFrame();
 
@@ -50,15 +51,15 @@ public:
                        JS::Handle<JSObject*> height,
                        ErrorResult& aRv);
 
-protected:
+ protected:
   void GetScrolledSize(nsRect& aRect, ErrorResult& aRv);
   void GetPosition(CSSIntPoint& aPos, ErrorResult& aRv);
 
-private:
+ private:
   ~ScrollBoxObject();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ScrollBoxObject_h
+#endif  // mozilla_dom_ScrollBoxObject_h

@@ -28,7 +28,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(StreamFilterDataEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
-
 /* static */ already_AddRefed<StreamFilterDataEvent>
 StreamFilterDataEvent::Constructor(EventTarget* aEventTarget,
                                    const nsAString& aType,
@@ -47,10 +46,11 @@ StreamFilterDataEvent::Constructor(EventTarget* aEventTarget,
 }
 
 JSObject*
-StreamFilterDataEvent::WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+StreamFilterDataEvent::WrapObjectInternal(JSContext* aCx,
+                                          JS::Handle<JSObject*> aGivenProto)
 {
   return StreamFilterDataEventBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla

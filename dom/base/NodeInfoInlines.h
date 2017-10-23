@@ -16,17 +16,17 @@ namespace mozilla {
 namespace dom {
 
 inline bool
-NodeInfo::Equals(NodeInfo *aNodeInfo) const
+NodeInfo::Equals(NodeInfo* aNodeInfo) const
 {
-  return aNodeInfo == this || aNodeInfo->Equals(mInner.mName, mInner.mPrefix,
-                                                mInner.mNamespaceID);
+  return aNodeInfo == this ||
+         aNodeInfo->Equals(mInner.mName, mInner.mPrefix, mInner.mNamespaceID);
 }
 
 inline bool
-NodeInfo::NameAndNamespaceEquals(NodeInfo *aNodeInfo) const
+NodeInfo::NameAndNamespaceEquals(NodeInfo* aNodeInfo) const
 {
-  return aNodeInfo == this || aNodeInfo->Equals(mInner.mName,
-                                                mInner.mNamespaceID);
+  return aNodeInfo == this ||
+         aNodeInfo->Equals(mInner.mName, mInner.mNamespaceID);
 }
 
 inline bool
@@ -39,22 +39,22 @@ inline bool
 NodeInfo::Equals(const nsAString& aName, const nsAString& aPrefix) const
 {
   return mInner.mName->Equals(aName) &&
-    (mInner.mPrefix ? mInner.mPrefix->Equals(aPrefix) : aPrefix.IsEmpty());
+         (mInner.mPrefix ? mInner.mPrefix->Equals(aPrefix) : aPrefix.IsEmpty());
 }
 
 inline bool
 NodeInfo::Equals(const nsAString& aName, int32_t aNamespaceID) const
 {
-  return mInner.mNamespaceID == aNamespaceID &&
-    mInner.mName->Equals(aName);
+  return mInner.mNamespaceID == aNamespaceID && mInner.mName->Equals(aName);
 }
 
 inline bool
-NodeInfo::Equals(const nsAString& aName, const nsAString& aPrefix,
+NodeInfo::Equals(const nsAString& aName,
+                 const nsAString& aPrefix,
                  int32_t aNamespaceID) const
 {
   return mInner.mName->Equals(aName) && mInner.mNamespaceID == aNamespaceID &&
-    (mInner.mPrefix ? mInner.mPrefix->Equals(aPrefix) : aPrefix.IsEmpty());
+         (mInner.mPrefix ? mInner.mPrefix->Equals(aPrefix) : aPrefix.IsEmpty());
 }
 
 inline bool
@@ -68,48 +68,48 @@ NodeInfo::QualifiedNameEquals(nsAtom* aNameAtom) const
   return aNameAtom->Equals(mQualifiedName);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 inline void
-CheckValidNodeInfo(uint16_t aNodeType, nsAtom *aName, int32_t aNamespaceID,
+CheckValidNodeInfo(uint16_t aNodeType,
+                   nsAtom* aName,
+                   int32_t aNamespaceID,
                    nsAtom* aExtraName)
 {
   MOZ_ASSERT(aNodeType == nsIDOMNode::ELEMENT_NODE ||
-             aNodeType == nsIDOMNode::ATTRIBUTE_NODE ||
-             aNodeType == nsIDOMNode::TEXT_NODE ||
-             aNodeType == nsIDOMNode::CDATA_SECTION_NODE ||
-             aNodeType == nsIDOMNode::PROCESSING_INSTRUCTION_NODE ||
-             aNodeType == nsIDOMNode::COMMENT_NODE ||
-             aNodeType == nsIDOMNode::DOCUMENT_NODE ||
-             aNodeType == nsIDOMNode::DOCUMENT_TYPE_NODE ||
-             aNodeType == nsIDOMNode::DOCUMENT_FRAGMENT_NODE ||
-             aNodeType == UINT16_MAX,
+                 aNodeType == nsIDOMNode::ATTRIBUTE_NODE ||
+                 aNodeType == nsIDOMNode::TEXT_NODE ||
+                 aNodeType == nsIDOMNode::CDATA_SECTION_NODE ||
+                 aNodeType == nsIDOMNode::PROCESSING_INSTRUCTION_NODE ||
+                 aNodeType == nsIDOMNode::COMMENT_NODE ||
+                 aNodeType == nsIDOMNode::DOCUMENT_NODE ||
+                 aNodeType == nsIDOMNode::DOCUMENT_TYPE_NODE ||
+                 aNodeType == nsIDOMNode::DOCUMENT_FRAGMENT_NODE ||
+                 aNodeType == UINT16_MAX,
              "Invalid nodeType");
   MOZ_ASSERT((aNodeType == nsIDOMNode::PROCESSING_INSTRUCTION_NODE ||
-              aNodeType == nsIDOMNode::DOCUMENT_TYPE_NODE) ==
-             !!aExtraName,
+              aNodeType == nsIDOMNode::DOCUMENT_TYPE_NODE) == !!aExtraName,
              "Supply aExtraName for and only for PIs and doctypes");
   MOZ_ASSERT(aNodeType == nsIDOMNode::ELEMENT_NODE ||
-             aNodeType == nsIDOMNode::ATTRIBUTE_NODE ||
-             aNodeType == UINT16_MAX ||
-             aNamespaceID == kNameSpaceID_None,
+                 aNodeType == nsIDOMNode::ATTRIBUTE_NODE ||
+                 aNodeType == UINT16_MAX || aNamespaceID == kNameSpaceID_None,
              "Only attributes and elements can be in a namespace");
   MOZ_ASSERT(aName && aName != nsGkAtoms::_empty, "Invalid localName");
   MOZ_ASSERT(((aNodeType == nsIDOMNode::TEXT_NODE) ==
               (aName == nsGkAtoms::textTagName)) &&
-             ((aNodeType == nsIDOMNode::CDATA_SECTION_NODE) ==
-              (aName == nsGkAtoms::cdataTagName)) &&
-             ((aNodeType == nsIDOMNode::COMMENT_NODE) ==
-              (aName == nsGkAtoms::commentTagName)) &&
-             ((aNodeType == nsIDOMNode::DOCUMENT_NODE) ==
-              (aName == nsGkAtoms::documentNodeName)) &&
-             ((aNodeType == nsIDOMNode::DOCUMENT_FRAGMENT_NODE) ==
-              (aName == nsGkAtoms::documentFragmentNodeName)) &&
-             ((aNodeType == nsIDOMNode::DOCUMENT_TYPE_NODE) ==
-              (aName == nsGkAtoms::documentTypeNodeName)) &&
-             ((aNodeType == nsIDOMNode::PROCESSING_INSTRUCTION_NODE) ==
-              (aName == nsGkAtoms::processingInstructionTagName)),
+                 ((aNodeType == nsIDOMNode::CDATA_SECTION_NODE) ==
+                  (aName == nsGkAtoms::cdataTagName)) &&
+                 ((aNodeType == nsIDOMNode::COMMENT_NODE) ==
+                  (aName == nsGkAtoms::commentTagName)) &&
+                 ((aNodeType == nsIDOMNode::DOCUMENT_NODE) ==
+                  (aName == nsGkAtoms::documentNodeName)) &&
+                 ((aNodeType == nsIDOMNode::DOCUMENT_FRAGMENT_NODE) ==
+                  (aName == nsGkAtoms::documentFragmentNodeName)) &&
+                 ((aNodeType == nsIDOMNode::DOCUMENT_TYPE_NODE) ==
+                  (aName == nsGkAtoms::documentTypeNodeName)) &&
+                 ((aNodeType == nsIDOMNode::PROCESSING_INSTRUCTION_NODE) ==
+                  (aName == nsGkAtoms::processingInstructionTagName)),
              "Wrong localName for nodeType");
 }
 

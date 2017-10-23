@@ -17,8 +17,8 @@
 
 class nsHtml5NamedCharactersAccel
 {
-  public:
-    static const int32_t* const HILO_ACCEL[];
+ public:
+  static const int32_t* const HILO_ACCEL[];
 };
 
-#endif // nsHtml5NamedCharactersAccel_h
+#endif  // nsHtml5NamedCharactersAccel_h

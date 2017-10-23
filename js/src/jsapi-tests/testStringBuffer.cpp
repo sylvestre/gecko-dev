@@ -10,8 +10,7 @@
 #include "jsapi-tests/tests.h"
 #include "vm/StringBuffer.h"
 
-BEGIN_TEST(testStringBuffer_finishString)
-{
+BEGIN_TEST(testStringBuffer_finishString) {
     JSString* str = JS_NewStringCopyZ(cx, "foopy");
     CHECK(str);
 

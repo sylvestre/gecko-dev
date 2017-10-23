@@ -13,16 +13,18 @@ namespace mozilla {
 /* This converts a list of headers to the canonical form of extradata for Xiph
    codecs in non-Ogg containers. We use it to pass those headers from demuxer
    to decoder even when demuxing from an Ogg cotainer. */
-bool XiphHeadersToExtradata(MediaByteBuffer* aCodecSpecificConfig,
-                            const nsTArray<const unsigned char*>& aHeaders,
-                            const nsTArray<size_t>& aHeaderLens);
+bool
+XiphHeadersToExtradata(MediaByteBuffer* aCodecSpecificConfig,
+                       const nsTArray<const unsigned char*>& aHeaders,
+                       const nsTArray<size_t>& aHeaderLens);
 
 /* This converts a set of extradata back into a list of headers. */
-bool XiphExtradataToHeaders(nsTArray<unsigned char*>& aHeaders,
-                            nsTArray<size_t>& aHeaderLens,
-                            unsigned char* aData,
-                            size_t aAvailable);
+bool
+XiphExtradataToHeaders(nsTArray<unsigned char*>& aHeaders,
+                       nsTArray<size_t>& aHeaderLens,
+                       unsigned char* aData,
+                       size_t aAvailable);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // XiphExtradata_h
+#endif  // XiphExtradata_h

@@ -43,96 +43,90 @@ static bool sIOPoisoned = false;
  * Function pointer declaration for internal NT routine to create/open files.
  * For documentation on the NtCreateFile routine, see MSDN.
  */
-typedef NTSTATUS (NTAPI* NtCreateFileFn)(
-  PHANDLE aFileHandle,
-  ACCESS_MASK aDesiredAccess,
-  POBJECT_ATTRIBUTES aObjectAttributes,
-  PIO_STATUS_BLOCK aIoStatusBlock,
-  PLARGE_INTEGER aAllocationSize,
-  ULONG aFileAttributes,
-  ULONG aShareAccess,
-  ULONG aCreateDisposition,
-  ULONG aCreateOptions,
-  PVOID aEaBuffer,
-  ULONG aEaLength);
+typedef NTSTATUS(NTAPI* NtCreateFileFn)(PHANDLE aFileHandle,
+                                        ACCESS_MASK aDesiredAccess,
+                                        POBJECT_ATTRIBUTES aObjectAttributes,
+                                        PIO_STATUS_BLOCK aIoStatusBlock,
+                                        PLARGE_INTEGER aAllocationSize,
+                                        ULONG aFileAttributes,
+                                        ULONG aShareAccess,
+                                        ULONG aCreateDisposition,
+                                        ULONG aCreateOptions,
+                                        PVOID aEaBuffer,
+                                        ULONG aEaLength);
 
 /**
  * Function pointer declaration for internal NT routine to read data from file.
  * For documentation on the NtReadFile routine, see ZwReadFile on MSDN.
  */
-typedef NTSTATUS (NTAPI* NtReadFileFn)(
-  HANDLE aFileHandle,
-  HANDLE aEvent,
-  PIO_APC_ROUTINE aApc,
-  PVOID aApcCtx,
-  PIO_STATUS_BLOCK aIoStatus,
-  PVOID aBuffer,
-  ULONG aLength,
-  PLARGE_INTEGER aOffset,
-  PULONG aKey);
+typedef NTSTATUS(NTAPI* NtReadFileFn)(HANDLE aFileHandle,
+                                      HANDLE aEvent,
+                                      PIO_APC_ROUTINE aApc,
+                                      PVOID aApcCtx,
+                                      PIO_STATUS_BLOCK aIoStatus,
+                                      PVOID aBuffer,
+                                      ULONG aLength,
+                                      PLARGE_INTEGER aOffset,
+                                      PULONG aKey);
 
 /**
  * Function pointer declaration for internal NT routine to read data from file.
  * No documentation exists, see wine sources for details.
  */
-typedef NTSTATUS (NTAPI* NtReadFileScatterFn)(
-  HANDLE aFileHandle,
-  HANDLE aEvent,
-  PIO_APC_ROUTINE aApc,
-  PVOID aApcCtx,
-  PIO_STATUS_BLOCK aIoStatus,
-  FILE_SEGMENT_ELEMENT* aSegments,
-  ULONG aLength,
-  PLARGE_INTEGER aOffset,
-  PULONG aKey);
+typedef NTSTATUS(NTAPI* NtReadFileScatterFn)(HANDLE aFileHandle,
+                                             HANDLE aEvent,
+                                             PIO_APC_ROUTINE aApc,
+                                             PVOID aApcCtx,
+                                             PIO_STATUS_BLOCK aIoStatus,
+                                             FILE_SEGMENT_ELEMENT* aSegments,
+                                             ULONG aLength,
+                                             PLARGE_INTEGER aOffset,
+                                             PULONG aKey);
 
 /**
  * Function pointer declaration for internal NT routine to write data to file.
  * For documentation on the NtWriteFile routine, see ZwWriteFile on MSDN.
  */
-typedef NTSTATUS (NTAPI* NtWriteFileFn)(
-  HANDLE aFileHandle,
-  HANDLE aEvent,
-  PIO_APC_ROUTINE aApc,
-  PVOID aApcCtx,
-  PIO_STATUS_BLOCK aIoStatus,
-  PVOID aBuffer,
-  ULONG aLength,
-  PLARGE_INTEGER aOffset,
-  PULONG aKey);
+typedef NTSTATUS(NTAPI* NtWriteFileFn)(HANDLE aFileHandle,
+                                       HANDLE aEvent,
+                                       PIO_APC_ROUTINE aApc,
+                                       PVOID aApcCtx,
+                                       PIO_STATUS_BLOCK aIoStatus,
+                                       PVOID aBuffer,
+                                       ULONG aLength,
+                                       PLARGE_INTEGER aOffset,
+                                       PULONG aKey);
 
 /**
  * Function pointer declaration for internal NT routine to write data to file.
  * No documentation exists, see wine sources for details.
  */
-typedef NTSTATUS (NTAPI* NtWriteFileGatherFn)(
-  HANDLE aFileHandle,
-  HANDLE aEvent,
-  PIO_APC_ROUTINE aApc,
-  PVOID aApcCtx,
-  PIO_STATUS_BLOCK aIoStatus,
-  FILE_SEGMENT_ELEMENT* aSegments,
-  ULONG aLength,
-  PLARGE_INTEGER aOffset,
-  PULONG aKey);
+typedef NTSTATUS(NTAPI* NtWriteFileGatherFn)(HANDLE aFileHandle,
+                                             HANDLE aEvent,
+                                             PIO_APC_ROUTINE aApc,
+                                             PVOID aApcCtx,
+                                             PIO_STATUS_BLOCK aIoStatus,
+                                             FILE_SEGMENT_ELEMENT* aSegments,
+                                             ULONG aLength,
+                                             PLARGE_INTEGER aOffset,
+                                             PULONG aKey);
 
 /**
  * Function pointer declaration for internal NT routine to flush to disk.
  * For documentation on the NtFlushBuffersFile routine, see ZwFlushBuffersFile
  * on MSDN.
  */
-typedef NTSTATUS (NTAPI* NtFlushBuffersFileFn)(
-  HANDLE aFileHandle,
-  PIO_STATUS_BLOCK aIoStatusBlock);
+typedef NTSTATUS(NTAPI* NtFlushBuffersFileFn)(HANDLE aFileHandle,
+                                              PIO_STATUS_BLOCK aIoStatusBlock);
 
 typedef struct _FILE_NETWORK_OPEN_INFORMATION* PFILE_NETWORK_OPEN_INFORMATION;
 /**
  * Function pointer delaration for internal NT routine to query file attributes.
  * (equivalent to stat)
  */
-typedef NTSTATUS (NTAPI* NtQueryFullAttributesFileFn)(
-  POBJECT_ATTRIBUTES aObjectAttributes,
-  PFILE_NETWORK_OPEN_INFORMATION aFileInformation);
+typedef NTSTATUS(NTAPI* NtQueryFullAttributesFileFn)(
+    POBJECT_ATTRIBUTES aObjectAttributes,
+    PFILE_NETWORK_OPEN_INFORMATION aFileInformation);
 
 /*************************** Auxiliary Declarations ***************************/
 
@@ -142,13 +136,16 @@ typedef NTSTATUS (NTAPI* NtQueryFullAttributesFileFn)(
  */
 class WinIOAutoObservation : public IOInterposeObserver::Observation
 {
-public:
+ public:
   WinIOAutoObservation(IOInterposeObserver::Operation aOp,
-                       HANDLE aFileHandle, const LARGE_INTEGER* aOffset)
-    : IOInterposeObserver::Observation(
-        aOp, sReference, !IsDebugFile(reinterpret_cast<intptr_t>(aFileHandle)))
-    , mFileHandle(aFileHandle)
-    , mHasQueriedFilename(false)
+                       HANDLE aFileHandle,
+                       const LARGE_INTEGER* aOffset)
+      : IOInterposeObserver::Observation(
+            aOp,
+            sReference,
+            !IsDebugFile(reinterpret_cast<intptr_t>(aFileHandle))),
+        mFileHandle(aFileHandle),
+        mHasQueriedFilename(false)
   {
     if (mShouldReport) {
       mOffset.QuadPart = aOffset ? aOffset->QuadPart : 0;
@@ -156,9 +153,9 @@ public:
   }
 
   WinIOAutoObservation(IOInterposeObserver::Operation aOp, nsAString& aFilename)
-    : IOInterposeObserver::Observation(aOp, sReference)
-    , mFileHandle(nullptr)
-    , mHasQueriedFilename(false)
+      : IOInterposeObserver::Observation(aOp, sReference),
+        mFileHandle(nullptr),
+        mHasQueriedFilename(false)
   {
     if (mShouldReport) {
       nsAutoString dosPath;
@@ -173,17 +170,14 @@ public:
   // Custom implementation of IOInterposeObserver::Observation::Filename
   void Filename(nsAString& aFilename) override;
 
-  ~WinIOAutoObservation()
-  {
-    Report();
-  }
+  ~WinIOAutoObservation() { Report(); }
 
-private:
-  HANDLE              mFileHandle;
-  LARGE_INTEGER       mOffset;
-  bool                mHasQueriedFilename;
-  nsString            mFilename;
-  static const char*  sReference;
+ private:
+  HANDLE mFileHandle;
+  LARGE_INTEGER mOffset;
+  bool mHasQueriedFilename;
+  nsString mFilename;
+  static const char* sReference;
 };
 
 const char* WinIOAutoObservation::sReference = "PoisonIOInterposer";
@@ -209,12 +203,12 @@ WinIOAutoObservation::Filename(nsAString& aFilename)
 /*************************** IO Interposing Methods ***************************/
 
 // Function pointers to original functions
-static NtCreateFileFn         gOriginalNtCreateFile;
-static NtReadFileFn           gOriginalNtReadFile;
-static NtReadFileScatterFn    gOriginalNtReadFileScatter;
-static NtWriteFileFn          gOriginalNtWriteFile;
-static NtWriteFileGatherFn    gOriginalNtWriteFileGather;
-static NtFlushBuffersFileFn   gOriginalNtFlushBuffersFile;
+static NtCreateFileFn gOriginalNtCreateFile;
+static NtReadFileFn gOriginalNtReadFile;
+static NtReadFileScatterFn gOriginalNtReadFileScatter;
+static NtWriteFileFn gOriginalNtWriteFile;
+static NtWriteFileGatherFn gOriginalNtWriteFileGather;
+static NtFlushBuffersFileFn gOriginalNtFlushBuffersFile;
 static NtQueryFullAttributesFileFn gOriginalNtQueryFullAttributesFile;
 
 static NTSTATUS NTAPI
@@ -232,10 +226,10 @@ InterposedNtCreateFile(PHANDLE aFileHandle,
 {
   // Report IO
   const wchar_t* buf =
-    aObjectAttributes ? aObjectAttributes->ObjectName->Buffer : L"";
-  uint32_t len =
-    aObjectAttributes ? aObjectAttributes->ObjectName->Length / sizeof(WCHAR) :
-                        0;
+      aObjectAttributes ? aObjectAttributes->ObjectName->Buffer : L"";
+  uint32_t len = aObjectAttributes
+                     ? aObjectAttributes->ObjectName->Length / sizeof(WCHAR)
+                     : 0;
   nsDependentSubstring filename(buf, len);
   WinIOAutoObservation timer(IOInterposeObserver::OpCreateOrOpen, filename);
 
@@ -327,8 +321,8 @@ InterposedNtWriteFile(HANDLE aFileHandle,
                       PULONG aKey)
 {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpWrite, aFileHandle,
-                             aOffset);
+  WinIOAutoObservation timer(
+      IOInterposeObserver::OpWrite, aFileHandle, aOffset);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtWriteFile);
@@ -358,8 +352,8 @@ InterposedNtWriteFileGather(HANDLE aFileHandle,
                             PULONG aKey)
 {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpWrite, aFileHandle,
-                             aOffset);
+  WinIOAutoObservation timer(
+      IOInterposeObserver::OpWrite, aFileHandle, aOffset);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtWriteFileGather);
@@ -381,15 +375,14 @@ InterposedNtFlushBuffersFile(HANDLE aFileHandle,
                              PIO_STATUS_BLOCK aIoStatusBlock)
 {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpFSync, aFileHandle,
-                             nullptr);
+  WinIOAutoObservation timer(
+      IOInterposeObserver::OpFSync, aFileHandle, nullptr);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtFlushBuffersFile);
 
   // Execute original function
-  return gOriginalNtFlushBuffersFile(aFileHandle,
-                                     aIoStatusBlock);
+  return gOriginalNtFlushBuffersFile(aFileHandle, aIoStatusBlock);
 }
 
 static NTSTATUS NTAPI
@@ -399,10 +392,10 @@ InterposedNtQueryFullAttributesFile(
 {
   // Report IO
   const wchar_t* buf =
-    aObjectAttributes ? aObjectAttributes->ObjectName->Buffer : L"";
-  uint32_t len =
-    aObjectAttributes ? aObjectAttributes->ObjectName->Length / sizeof(WCHAR) :
-                        0;
+      aObjectAttributes ? aObjectAttributes->ObjectName->Buffer : L"";
+  uint32_t len = aObjectAttributes
+                     ? aObjectAttributes->ObjectName->Length / sizeof(WCHAR)
+                     : 0;
   nsDependentSubstring filename(buf, len);
   WinIOAutoObservation timer(IOInterposeObserver::OpStat, filename);
 
@@ -414,7 +407,7 @@ InterposedNtQueryFullAttributesFile(
                                             aFileInformation);
 }
 
-} // namespace
+}  // namespace
 
 /******************************** IO Poisoning ********************************/
 
@@ -448,34 +441,31 @@ InitPoisonIOInterposer()
 
   // Initialize dll interceptor and add hooks
   sNtDllInterceptor.Init("ntdll.dll");
+  sNtDllInterceptor.AddHook("NtCreateFile",
+                            reinterpret_cast<intptr_t>(InterposedNtCreateFile),
+                            reinterpret_cast<void**>(&gOriginalNtCreateFile));
+  sNtDllInterceptor.AddHook("NtReadFile",
+                            reinterpret_cast<intptr_t>(InterposedNtReadFile),
+                            reinterpret_cast<void**>(&gOriginalNtReadFile));
   sNtDllInterceptor.AddHook(
-    "NtCreateFile",
-    reinterpret_cast<intptr_t>(InterposedNtCreateFile),
-    reinterpret_cast<void**>(&gOriginalNtCreateFile));
+      "NtReadFileScatter",
+      reinterpret_cast<intptr_t>(InterposedNtReadFileScatter),
+      reinterpret_cast<void**>(&gOriginalNtReadFileScatter));
+  sNtDllInterceptor.AddHook("NtWriteFile",
+                            reinterpret_cast<intptr_t>(InterposedNtWriteFile),
+                            reinterpret_cast<void**>(&gOriginalNtWriteFile));
   sNtDllInterceptor.AddHook(
-    "NtReadFile",
-    reinterpret_cast<intptr_t>(InterposedNtReadFile),
-    reinterpret_cast<void**>(&gOriginalNtReadFile));
+      "NtWriteFileGather",
+      reinterpret_cast<intptr_t>(InterposedNtWriteFileGather),
+      reinterpret_cast<void**>(&gOriginalNtWriteFileGather));
   sNtDllInterceptor.AddHook(
-    "NtReadFileScatter",
-    reinterpret_cast<intptr_t>(InterposedNtReadFileScatter),
-    reinterpret_cast<void**>(&gOriginalNtReadFileScatter));
+      "NtFlushBuffersFile",
+      reinterpret_cast<intptr_t>(InterposedNtFlushBuffersFile),
+      reinterpret_cast<void**>(&gOriginalNtFlushBuffersFile));
   sNtDllInterceptor.AddHook(
-    "NtWriteFile",
-    reinterpret_cast<intptr_t>(InterposedNtWriteFile),
-    reinterpret_cast<void**>(&gOriginalNtWriteFile));
-  sNtDllInterceptor.AddHook(
-    "NtWriteFileGather",
-    reinterpret_cast<intptr_t>(InterposedNtWriteFileGather),
-    reinterpret_cast<void**>(&gOriginalNtWriteFileGather));
-  sNtDllInterceptor.AddHook(
-    "NtFlushBuffersFile",
-    reinterpret_cast<intptr_t>(InterposedNtFlushBuffersFile),
-    reinterpret_cast<void**>(&gOriginalNtFlushBuffersFile));
-  sNtDllInterceptor.AddHook(
-    "NtQueryFullAttributesFile",
-    reinterpret_cast<intptr_t>(InterposedNtQueryFullAttributesFile),
-    reinterpret_cast<void**>(&gOriginalNtQueryFullAttributesFile));
+      "NtQueryFullAttributesFile",
+      reinterpret_cast<intptr_t>(InterposedNtQueryFullAttributesFile),
+      reinterpret_cast<void**>(&gOriginalNtQueryFullAttributesFile));
 }
 
 void
@@ -489,4 +479,4 @@ ClearPoisonIOInterposer()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

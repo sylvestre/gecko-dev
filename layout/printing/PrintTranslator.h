@@ -19,20 +19,20 @@ class nsDeviceContext;
 namespace mozilla {
 namespace layout {
 
-using gfx::Translator;
-using gfx::ReferencePtr;
 using gfx::DrawTarget;
-using gfx::Path;
-using gfx::SourceSurface;
 using gfx::FilterNode;
 using gfx::GradientStops;
-using gfx::ScaledFont;
-using gfx::UnscaledFont;
 using gfx::NativeFontResource;
+using gfx::Path;
+using gfx::ReferencePtr;
+using gfx::ScaledFont;
+using gfx::SourceSurface;
+using gfx::Translator;
+using gfx::UnscaledFont;
 
 class PrintTranslator final : public Translator
 {
-public:
+ public:
   explicit PrintTranslator(nsDeviceContext* aDeviceContext);
 
   bool TranslateRecording(PRFileDescStream& aRecording);
@@ -67,7 +67,7 @@ public:
 
   GradientStops* LookupGradientStops(ReferencePtr aRefPtr) final
   {
-    GradientStops* result =  mGradientStops.GetWeak(aRefPtr);
+    GradientStops* result = mGradientStops.GetWeak(aRefPtr);
     MOZ_ASSERT(result);
     return result;
   }
@@ -93,32 +93,32 @@ public:
     return result;
   }
 
-  void AddDrawTarget(ReferencePtr aRefPtr, DrawTarget *aDT) final
+  void AddDrawTarget(ReferencePtr aRefPtr, DrawTarget* aDT) final
   {
     mDrawTargets.Put(aRefPtr, aDT);
   }
 
-  void AddPath(ReferencePtr aRefPtr, Path *aPath) final
+  void AddPath(ReferencePtr aRefPtr, Path* aPath) final
   {
     mPaths.Put(aRefPtr, aPath);
   }
 
-  void AddSourceSurface(ReferencePtr aRefPtr, SourceSurface *aSurface) final
+  void AddSourceSurface(ReferencePtr aRefPtr, SourceSurface* aSurface) final
   {
     mSourceSurfaces.Put(aRefPtr, aSurface);
   }
 
-  void AddFilterNode(ReferencePtr aRefPtr, FilterNode *aFilter) final
+  void AddFilterNode(ReferencePtr aRefPtr, FilterNode* aFilter) final
   {
     mFilterNodes.Put(aRefPtr, aFilter);
   }
 
-  void AddGradientStops(ReferencePtr aRefPtr, GradientStops *aStops) final
+  void AddGradientStops(ReferencePtr aRefPtr, GradientStops* aStops) final
   {
     mGradientStops.Put(aRefPtr, aStops);
   }
 
-  void AddScaledFont(ReferencePtr aRefPtr, ScaledFont *aScaledFont) final
+  void AddScaledFont(ReferencePtr aRefPtr, ScaledFont* aScaledFont) final
   {
     mScaledFonts.Put(aRefPtr, aScaledFont);
   }
@@ -129,7 +129,7 @@ public:
   }
 
   void AddNativeFontResource(uint64_t aKey,
-                             NativeFontResource *aScaledFontResouce) final
+                             NativeFontResource* aScaledFontResouce) final
   {
     mNativeFontResources.Put(aKey, aScaledFontResouce);
   }
@@ -139,10 +139,7 @@ public:
     mDrawTargets.Remove(aRefPtr);
   }
 
-  void RemovePath(ReferencePtr aRefPtr) final
-  {
-    mPaths.Remove(aRefPtr);
-  }
+  void RemovePath(ReferencePtr aRefPtr) final { mPaths.Remove(aRefPtr); }
 
   void RemoveSourceSurface(ReferencePtr aRefPtr) final
   {
@@ -169,13 +166,14 @@ public:
     mUnscaledFonts.Remove(aRefPtr);
   }
 
-  already_AddRefed<DrawTarget> CreateDrawTarget(ReferencePtr aRefPtr,
-                                                const gfx::IntSize &aSize,
-                                                gfx::SurfaceFormat aFormat) final;
+  already_AddRefed<DrawTarget> CreateDrawTarget(
+      ReferencePtr aRefPtr,
+      const gfx::IntSize& aSize,
+      gfx::SurfaceFormat aFormat) final;
 
   mozilla::gfx::DrawTarget* GetReferenceDrawTarget() final { return mBaseDT; }
 
-private:
+ private:
   RefPtr<nsDeviceContext> mDeviceContext;
   RefPtr<DrawTarget> mBaseDT;
 
@@ -189,7 +187,7 @@ private:
   nsRefPtrHashtable<nsUint64HashKey, NativeFontResource> mNativeFontResources;
 };
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
-#endif // mozilla_layout_PrintTranslator_h
+#endif  // mozilla_layout_PrintTranslator_h

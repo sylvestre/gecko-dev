@@ -12,7 +12,7 @@ namespace mozilla {
 namespace gfx {
 
 static cairo_status_t
-write_func(void *closure, const unsigned char *data, unsigned int length)
+write_func(void* closure, const unsigned char* data, unsigned int length)
 {
   nsCOMPtr<nsIOutputStream> out = reinterpret_cast<nsIOutputStream*>(closure);
   do {
@@ -20,7 +20,8 @@ write_func(void *closure, const unsigned char *data, unsigned int length)
     if (NS_FAILED(out->Write((const char*)data, length, &wrote))) {
       break;
     }
-    data += wrote; length -= wrote;
+    data += wrote;
+    length -= wrote;
   } while (length > 0);
   NS_ASSERTION(length == 0, "not everything was written to the file");
   return CAIRO_STATUS_SUCCESS;
@@ -28,11 +29,11 @@ write_func(void *closure, const unsigned char *data, unsigned int length)
 
 PrintTargetPS::PrintTargetPS(cairo_surface_t* aCairoSurface,
                              const IntSize& aSize,
-                             nsIOutputStream *aStream,
+                             nsIOutputStream* aStream,
                              PageOrientation aOrientation)
-  : PrintTarget(aCairoSurface, aSize)
-  , mStream(aStream)
-  , mOrientation(aOrientation)
+    : PrintTarget(aCairoSurface, aSize),
+      mStream(aStream),
+      mOrientation(aOrientation)
 {
 }
 
@@ -49,7 +50,7 @@ PrintTargetPS::~PrintTargetPS()
 }
 
 /* static */ already_AddRefed<PrintTargetPS>
-PrintTargetPS::CreateOrNull(nsIOutputStream *aStream,
+PrintTargetPS::CreateOrNull(nsIOutputStream* aStream,
                             IntSize aSizeInPoints,
                             PageOrientation aOrientation)
 {
@@ -62,18 +63,16 @@ PrintTargetPS::CreateOrNull(nsIOutputStream *aStream,
     Swap(aSizeInPoints.width, aSizeInPoints.height);
   }
 
-  cairo_surface_t* surface =
-    cairo_ps_surface_create_for_stream(write_func, (void*)aStream,
-                                       aSizeInPoints.width,
-                                       aSizeInPoints.height);
+  cairo_surface_t* surface = cairo_ps_surface_create_for_stream(
+      write_func, (void*)aStream, aSizeInPoints.width, aSizeInPoints.height);
   if (cairo_surface_status(surface)) {
     return nullptr;
   }
   cairo_ps_surface_restrict_to_level(surface, CAIRO_PS_LEVEL_2);
 
   // The new object takes ownership of our surface reference.
-  RefPtr<PrintTargetPS> target = new PrintTargetPS(surface, aSizeInPoints,
-                                                   aStream, aOrientation);
+  RefPtr<PrintTargetPS> target =
+      new PrintTargetPS(surface, aSizeInPoints, aStream, aOrientation);
   return target.forget();
 }
 
@@ -102,11 +101,11 @@ void
 PrintTargetPS::Finish()
 {
   if (mIsFinished) {
-    return; // We don't want to call Close() on mStream more than once
+    return;  // We don't want to call Close() on mStream more than once
   }
   PrintTarget::Finish();
   mStream->Close();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

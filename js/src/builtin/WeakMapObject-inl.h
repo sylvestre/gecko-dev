@@ -13,14 +13,10 @@
 
 namespace js {
 
-static bool
-TryPreserveReflector(JSContext* cx, HandleObject obj)
-{
-    if (obj->getClass()->isWrappedNative() ||
-        obj->getClass()->isDOMClass() ||
+static bool TryPreserveReflector(JSContext* cx, HandleObject obj) {
+    if (obj->getClass()->isWrappedNative() || obj->getClass()->isDOMClass() ||
         (obj->is<ProxyObject>() &&
-         obj->as<ProxyObject>().handler()->family() == GetDOMProxyHandlerFamily()))
-    {
+         obj->as<ProxyObject>().handler()->family() == GetDOMProxyHandlerFamily())) {
         MOZ_ASSERT(cx->runtime()->preserveWrapperCallback);
         if (!cx->runtime()->preserveWrapperCallback(cx, obj)) {
             JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_BAD_WEAKMAP_KEY);
@@ -30,15 +26,13 @@ TryPreserveReflector(JSContext* cx, HandleObject obj)
     return true;
 }
 
-static MOZ_ALWAYS_INLINE bool
-WeakCollectionPutEntryInternal(JSContext* cx, Handle<WeakCollectionObject*> obj,
-                               HandleObject key, HandleValue value)
-{
+static MOZ_ALWAYS_INLINE bool WeakCollectionPutEntryInternal(JSContext* cx,
+                                                             Handle<WeakCollectionObject*> obj,
+                                                             HandleObject key, HandleValue value) {
     ObjectValueMap* map = obj->getMap();
     if (!map) {
         auto newMap = cx->make_unique<ObjectValueMap>(cx, obj.get());
-        if (!newMap)
-            return false;
+        if (!newMap) return false;
         if (!newMap->init()) {
             JS_ReportOutOfMemory(cx);
             return false;
@@ -48,13 +42,11 @@ WeakCollectionPutEntryInternal(JSContext* cx, Handle<WeakCollectionObject*> obj,
     }
 
     // Preserve wrapped native keys to prevent wrapper optimization.
-    if (!TryPreserveReflector(cx, key))
-        return false;
+    if (!TryPreserveReflector(cx, key)) return false;
 
     if (JSWeakmapKeyDelegateOp op = key->getClass()->extWeakmapKeyDelegateOp()) {
         RootedObject delegate(cx, op(key));
-        if (delegate && !TryPreserveReflector(cx, delegate))
-            return false;
+        if (delegate && !TryPreserveReflector(cx, delegate)) return false;
     }
 
     MOZ_ASSERT(key->compartment() == obj->compartment());
@@ -66,6 +58,6 @@ WeakCollectionPutEntryInternal(JSContext* cx, Handle<WeakCollectionObject*> obj,
     return true;
 }
 
-} // namespace js
+}  // namespace js
 
 #endif /* builtin_WeakMapObject_inl_h */

@@ -71,10 +71,11 @@ enum Status
 
 class WorkerHolder
 {
-public:
+ public:
   NS_DECL_OWNINGTHREAD
 
-  enum Behavior {
+  enum Behavior
+  {
     AllowIdleShutdownStart,
     PreventIdleShutdownStart,
   };
@@ -89,12 +90,12 @@ public:
 
   Behavior GetBehavior() const;
 
-protected:
+ protected:
   void ReleaseWorkerInternal();
 
   WorkerPrivate* MOZ_NON_OWNING_REF mWorkerPrivate;
 
-private:
+ private:
   void AssertIsOwningThread() const;
 
   const Behavior mBehavior;

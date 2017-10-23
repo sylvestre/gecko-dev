@@ -13,12 +13,11 @@ namespace mozilla {
 
 class DeviceChangeCallback
 {
-public:
+ public:
   virtual void OnDeviceChange()
   {
     MutexAutoLock lock(mCallbackMutex);
-    for (DeviceChangeCallback* observer : mDeviceChangeCallbackList)
-    {
+    for (DeviceChangeCallback* observer : mDeviceChangeCallbackList) {
       observer->OnDeviceChange();
     }
   }
@@ -26,7 +25,8 @@ public:
   virtual int AddDeviceChangeCallback(DeviceChangeCallback* aCallback)
   {
     MutexAutoLock lock(mCallbackMutex);
-    if (mDeviceChangeCallbackList.IndexOf(aCallback) == mDeviceChangeCallbackList.NoIndex)
+    if (mDeviceChangeCallbackList.IndexOf(aCallback) ==
+        mDeviceChangeCallbackList.NoIndex)
       mDeviceChangeCallbackList.AppendElement(aCallback);
     return 0;
   }
@@ -40,24 +40,24 @@ public:
   virtual int RemoveDeviceChangeCallbackLocked(DeviceChangeCallback* aCallback)
   {
     mCallbackMutex.AssertCurrentThreadOwns();
-    if (mDeviceChangeCallbackList.IndexOf(aCallback) != mDeviceChangeCallbackList.NoIndex)
+    if (mDeviceChangeCallbackList.IndexOf(aCallback) !=
+        mDeviceChangeCallbackList.NoIndex)
       mDeviceChangeCallbackList.RemoveElement(aCallback);
     return 0;
   }
 
-  DeviceChangeCallback() : mCallbackMutex("mozilla::media::DeviceChangeCallback::mCallbackMutex")
+  DeviceChangeCallback()
+      : mCallbackMutex("mozilla::media::DeviceChangeCallback::mCallbackMutex")
   {
   }
 
-  virtual ~DeviceChangeCallback()
-  {
-  }
+  virtual ~DeviceChangeCallback() {}
 
-protected:
+ protected:
   nsTArray<DeviceChangeCallback*> mDeviceChangeCallbackList;
   Mutex mCallbackMutex;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_DeviceChangeCallback_h
+#endif  // mozilla_DeviceChangeCallback_h

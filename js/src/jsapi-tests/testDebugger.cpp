@@ -11,13 +11,12 @@
 
 using namespace js;
 
-BEGIN_TEST(testDebugger_newScriptHook)
-{
+BEGIN_TEST(testDebugger_newScriptHook) {
     // Test that top-level indirect eval fires the newScript hook.
     CHECK(JS_DefineDebuggerObject(cx, global));
     JS::CompartmentOptions options;
-    JS::RootedObject g(cx, JS_NewGlobalObject(cx, getGlobalClass(), nullptr,
-                                              JS::FireOnNewGlobalHook, options));
+    JS::RootedObject g(
+        cx, JS_NewGlobalObject(cx, getGlobalClass(), nullptr, JS::FireOnNewGlobalHook, options));
     CHECK(g);
     {
         JSAutoCompartment ae(cx, g);
@@ -29,11 +28,12 @@ BEGIN_TEST(testDebugger_newScriptHook)
     JS::RootedValue v(cx, JS::ObjectValue(*gWrapper));
     CHECK(JS_SetProperty(cx, global, "g", v));
 
-    EXEC("var dbg = Debugger(g);\n"
-         "var hits = 0;\n"
-         "dbg.onNewScript = function (s) {\n"
-         "    hits += Number(s instanceof Debugger.Script);\n"
-         "};\n");
+    EXEC(
+        "var dbg = Debugger(g);\n"
+        "var hits = 0;\n"
+        "dbg.onNewScript = function (s) {\n"
+        "    hits += Number(s instanceof Debugger.Script);\n"
+        "};\n");
 
     // Since g is a debuggee, g.eval should trigger newScript, regardless of
     // what scope object we use to enter the compartment.
@@ -44,8 +44,7 @@ BEGIN_TEST(testDebugger_newScriptHook)
     return testIndirectEval(g, "Math.abs(0)");
 }
 
-bool testIndirectEval(JS::HandleObject scope, const char* code)
-{
+bool testIndirectEval(JS::HandleObject scope, const char* code) {
     EXEC("hits = 0;");
 
     {

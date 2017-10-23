@@ -14,19 +14,17 @@
 namespace mozilla {
 
 SamplesWaitingForKey::SamplesWaitingForKey(
-  CDMProxy* aProxy, TrackInfo::TrackType aType,
-  MediaEventProducer<TrackInfo::TrackType>* aOnWaitingForKey)
-  : mMutex("SamplesWaitingForKey")
-  , mProxy(aProxy)
-  , mType(aType)
-  , mOnWaitingForKeyEvent(aOnWaitingForKey)
+    CDMProxy* aProxy,
+    TrackInfo::TrackType aType,
+    MediaEventProducer<TrackInfo::TrackType>* aOnWaitingForKey)
+    : mMutex("SamplesWaitingForKey"),
+      mProxy(aProxy),
+      mType(aType),
+      mOnWaitingForKeyEvent(aOnWaitingForKey)
 {
 }
 
-SamplesWaitingForKey::~SamplesWaitingForKey()
-{
-  Flush();
-}
+SamplesWaitingForKey::~SamplesWaitingForKey() { Flush(); }
 
 RefPtr<SamplesWaitingForKey::WaitForKeyPromise>
 SamplesWaitingForKey::WaitIfKeyNotUsable(MediaRawData* aSample)
@@ -79,4 +77,4 @@ SamplesWaitingForKey::Flush()
   mSamples.Clear();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

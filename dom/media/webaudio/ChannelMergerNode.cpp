@@ -16,9 +16,9 @@ NS_IMPL_ISUPPORTS_INHERITED0(ChannelMergerNode, AudioNode)
 
 class ChannelMergerNodeEngine final : public AudioNodeEngine
 {
-public:
+ public:
   explicit ChannelMergerNodeEngine(ChannelMergerNode* aNode)
-    : AudioNodeEngine(aNode)
+      : AudioNodeEngine(aNode)
   {
     MOZ_ASSERT(NS_IsMainThread());
   }
@@ -49,8 +49,9 @@ public:
         PodZero(output, WEBAUDIO_BLOCK_SIZE);
       } else {
         AudioBlockCopyChannelWithScale(
-          static_cast<const float*>(aInput[i].mChannelData[0]),
-          aInput[i].mVolume, output);
+            static_cast<const float*>(aInput[i].mChannelData[0]),
+            aInput[i].mVolume,
+            output);
       }
     }
   }
@@ -63,11 +64,11 @@ public:
 
 ChannelMergerNode::ChannelMergerNode(AudioContext* aContext,
                                      uint16_t aInputCount)
-  : AudioNode(aContext,
-              1,
-              ChannelCountMode::Explicit,
-              ChannelInterpretation::Speakers)
-  , mInputCount(aInputCount)
+    : AudioNode(aContext,
+                1,
+                ChannelCountMode::Explicit,
+                ChannelInterpretation::Speakers),
+      mInputCount(aInputCount)
 {
   mStream = AudioNodeStream::Create(aContext,
                                     new ChannelMergerNodeEngine(this),
@@ -91,7 +92,7 @@ ChannelMergerNode::Create(AudioContext& aAudioContext,
   }
 
   RefPtr<ChannelMergerNode> audioNode =
-    new ChannelMergerNode(&aAudioContext, aOptions.mNumberOfInputs);
+      new ChannelMergerNode(&aAudioContext, aOptions.mNumberOfInputs);
 
   audioNode->Initialize(aOptions, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
@@ -107,5 +108,5 @@ ChannelMergerNode::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return ChannelMergerNodeBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

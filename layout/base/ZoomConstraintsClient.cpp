@@ -28,23 +28,24 @@
 NS_IMPL_ISUPPORTS(ZoomConstraintsClient, nsIDOMEventListener, nsIObserver)
 
 static const nsLiteralString DOM_META_ADDED = NS_LITERAL_STRING("DOMMetaAdded");
-static const nsLiteralString DOM_META_CHANGED = NS_LITERAL_STRING("DOMMetaChanged");
-static const nsLiteralString FULLSCREEN_CHANGED = NS_LITERAL_STRING("fullscreenchange");
-static const nsLiteralCString BEFORE_FIRST_PAINT = NS_LITERAL_CSTRING("before-first-paint");
-static const nsLiteralCString NS_PREF_CHANGED = NS_LITERAL_CSTRING("nsPref:changed");
+static const nsLiteralString DOM_META_CHANGED =
+    NS_LITERAL_STRING("DOMMetaChanged");
+static const nsLiteralString FULLSCREEN_CHANGED =
+    NS_LITERAL_STRING("fullscreenchange");
+static const nsLiteralCString BEFORE_FIRST_PAINT =
+    NS_LITERAL_CSTRING("before-first-paint");
+static const nsLiteralCString NS_PREF_CHANGED =
+    NS_LITERAL_CSTRING("nsPref:changed");
 
 using namespace mozilla;
 using namespace mozilla::layers;
 
-ZoomConstraintsClient::ZoomConstraintsClient() :
-  mDocument(nullptr),
-  mPresShell(nullptr)
+ZoomConstraintsClient::ZoomConstraintsClient()
+    : mDocument(nullptr), mPresShell(nullptr)
 {
 }
 
-ZoomConstraintsClient::~ZoomConstraintsClient()
-{
-}
+ZoomConstraintsClient::~ZoomConstraintsClient() {}
 
 static nsIWidget*
 GetWidget(nsIPresShell* aShell)
@@ -80,7 +81,8 @@ ZoomConstraintsClient::Destroy()
     mEventTarget = nullptr;
   }
 
-  nsCOMPtr<nsIObserverService> observerService = mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
   if (observerService) {
     observerService->RemoveObserver(this, BEFORE_FIRST_PAINT.Data());
   }
@@ -90,8 +92,11 @@ ZoomConstraintsClient::Destroy()
   if (mGuid) {
     if (nsIWidget* widget = GetWidget(mPresShell)) {
       ZCC_LOG("Sending null constraints in %p for { %u, %" PRIu64 " }\n",
-        this, mGuid->mPresShellId, mGuid->mScrollId);
-      widget->UpdateZoomConstraints(mGuid->mPresShellId, mGuid->mScrollId, Nothing());
+              this,
+              mGuid->mPresShellId,
+              mGuid->mScrollId);
+      widget->UpdateZoomConstraints(
+          mGuid->mPresShellId, mGuid->mScrollId, Nothing());
       mGuid = Nothing();
     }
   }
@@ -119,7 +124,8 @@ ZoomConstraintsClient::Init(nsIPresShell* aPresShell, nsIDocument* aDocument)
     mEventTarget->AddSystemEventListener(FULLSCREEN_CHANGED, this, false);
   }
 
-  nsCOMPtr<nsIObserverService> observerService = mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
   if (observerService) {
     observerService->AddObserver(this, BEFORE_FIRST_PAINT.Data(), false);
   }
@@ -148,9 +154,12 @@ ZoomConstraintsClient::HandleEvent(nsIDOMEvent* event)
 }
 
 NS_IMETHODIMP
-ZoomConstraintsClient::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
+ZoomConstraintsClient::Observe(nsISupports* aSubject,
+                               const char* aTopic,
+                               const char16_t* aData)
 {
-  if (SameCOMIdentity(aSubject, mDocument) && BEFORE_FIRST_PAINT.EqualsASCII(aTopic)) {
+  if (SameCOMIdentity(aSubject, mDocument) &&
+      BEFORE_FIRST_PAINT.EqualsASCII(aTopic)) {
     ZCC_LOG("Got a before-first-paint event in %p\n", this);
     RefreshZoomConstraints();
   } else if (NS_PREF_CHANGED.EqualsASCII(aTopic)) {
@@ -160,9 +169,9 @@ ZoomConstraintsClient::Observe(nsISupports* aSubject, const char* aTopic, const 
     // returns the updated value.
 
     RefPtr<nsRunnableMethod<ZoomConstraintsClient>> event =
-      NewRunnableMethod("ZoomConstraintsClient::RefreshZoomConstraints",
-                        this,
-                        &ZoomConstraintsClient::RefreshZoomConstraints);
+        NewRunnableMethod("ZoomConstraintsClient::RefreshZoomConstraints",
+                          this,
+                          &ZoomConstraintsClient::RefreshZoomConstraints);
     mDocument->Dispatch(TaskCategory::Other, event.forget());
   }
   return NS_OK;
@@ -179,7 +188,8 @@ mozilla::layers::ZoomConstraints
 ComputeZoomConstraintsFromViewportInfo(const nsViewportInfo& aViewportInfo)
 {
   mozilla::layers::ZoomConstraints constraints;
-  constraints.mAllowZoom = aViewportInfo.IsZoomAllowed() && gfxPrefs::APZAllowZooming();
+  constraints.mAllowZoom =
+      aViewportInfo.IsZoomAllowed() && gfxPrefs::APZAllowZooming();
   constraints.mAllowDoubleTapZoom = constraints.mAllowZoom;
   if (constraints.mAllowZoom) {
     constraints.mMinZoom.scale = aViewportInfo.GetMinZoom().scale;
@@ -201,23 +211,24 @@ ZoomConstraintsClient::RefreshZoomConstraints()
 
   uint32_t presShellId = 0;
   FrameMetrics::ViewID viewId = FrameMetrics::NULL_SCROLL_ID;
-  bool scrollIdentifiersValid = APZCCallbackHelper::GetOrCreateScrollIdentifiers(
-        mDocument->GetDocumentElement(),
-        &presShellId, &viewId);
+  bool scrollIdentifiersValid =
+      APZCCallbackHelper::GetOrCreateScrollIdentifiers(
+          mDocument->GetDocumentElement(), &presShellId, &viewId);
   if (!scrollIdentifiersValid) {
     return;
   }
 
   LayoutDeviceIntSize screenSize;
-  if (!nsLayoutUtils::GetContentViewerSize(mPresShell->GetPresContext(), screenSize)) {
+  if (!nsLayoutUtils::GetContentViewerSize(mPresShell->GetPresContext(),
+                                           screenSize)) {
     return;
   }
 
-  nsViewportInfo viewportInfo = mDocument->GetViewportInfo(
-    ViewAs<ScreenPixel>(screenSize, PixelCastJustification::LayoutDeviceIsScreenForBounds));
+  nsViewportInfo viewportInfo = mDocument->GetViewportInfo(ViewAs<ScreenPixel>(
+      screenSize, PixelCastJustification::LayoutDeviceIsScreenForBounds));
 
   mozilla::layers::ZoomConstraints zoomConstraints =
-    ComputeZoomConstraintsFromViewportInfo(viewportInfo);
+      ComputeZoomConstraintsFromViewportInfo(viewportInfo);
 
   if (mDocument->Fullscreen()) {
     ZCC_LOG("%p is in fullscreen, disallowing zooming\n", this);
@@ -238,20 +249,28 @@ ZoomConstraintsClient::RefreshZoomConstraints()
   // We only ever create a ZoomConstraintsClient for an RCD, so the RSF of
   // the presShell must be the RCD-RSF (if it exists).
   MOZ_ASSERT(mPresShell->GetPresContext()->IsRootContentDocument());
-  if (nsIScrollableFrame* rcdrsf = mPresShell->GetRootScrollFrameAsScrollable()) {
-    ZCC_LOG("Notifying RCD-RSF that it is zoomable: %d\n", zoomConstraints.mAllowZoom);
+  if (nsIScrollableFrame* rcdrsf =
+          mPresShell->GetRootScrollFrameAsScrollable()) {
+    ZCC_LOG("Notifying RCD-RSF that it is zoomable: %d\n",
+            zoomConstraints.mAllowZoom);
     rcdrsf->SetZoomableByAPZ(zoomConstraints.mAllowZoom);
   }
 
   ScrollableLayerGuid newGuid(0, presShellId, viewId);
   if (mGuid && mGuid.value() != newGuid) {
     ZCC_LOG("Clearing old constraints in %p for { %u, %" PRIu64 " }\n",
-      this, mGuid->mPresShellId, mGuid->mScrollId);
+            this,
+            mGuid->mPresShellId,
+            mGuid->mScrollId);
     // If the guid changes, send a message to clear the old one
-    widget->UpdateZoomConstraints(mGuid->mPresShellId, mGuid->mScrollId, Nothing());
+    widget->UpdateZoomConstraints(
+        mGuid->mPresShellId, mGuid->mScrollId, Nothing());
   }
   mGuid = Some(newGuid);
   ZCC_LOG("Sending constraints %s in %p for { %u, %" PRIu64 " }\n",
-    Stringify(zoomConstraints).c_str(), this, presShellId, viewId);
+          Stringify(zoomConstraints).c_str(),
+          this,
+          presShellId,
+          viewId);
   widget->UpdateZoomConstraints(presShellId, viewId, Some(zoomConstraints));
 }

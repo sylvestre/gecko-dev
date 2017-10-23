@@ -25,16 +25,16 @@ namespace mozilla {
 // DidChangePointList.
 class MOZ_RAII AutoChangePointNotifier
 {
-public:
-  explicit AutoChangePointNotifier(DOMSVGPoint* aPoint MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mPoint(aPoint)
+ public:
+  explicit AutoChangePointNotifier(
+      DOMSVGPoint* aPoint MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mPoint(aPoint)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mPoint, "Expecting non-null point");
     MOZ_ASSERT(mPoint->HasOwner(),
                "Expecting list to have an owner for notification");
-    mEmptyOrOldValue =
-      mPoint->Element()->WillChangePointList();
+    mEmptyOrOldValue = mPoint->Element()->WillChangePointList();
   }
 
   ~AutoChangePointNotifier()
@@ -45,19 +45,19 @@ public:
     }
   }
 
-private:
+ private:
   DOMSVGPoint* const mPoint;
-  nsAttrValue  mEmptyOrOldValue;
+  nsAttrValue mEmptyOrOldValue;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 float
 DOMSVGPoint::X()
 {
   if (mIsAnimValItem && HasOwner()) {
-    Element()->FlushAnimations(); // May make HasOwner() == false
+    Element()->FlushAnimations();  // May make HasOwner() == false
   }
   return HasOwner() ? InternalItem().mX : mPt.mX;
 }
@@ -85,7 +85,7 @@ float
 DOMSVGPoint::Y()
 {
   if (mIsAnimValItem && HasOwner()) {
-    Element()->FlushAnimations(); // May make HasOwner() == false
+    Element()->FlushAnimations();  // May make HasOwner() == false
   }
   return HasOwner() ? InternalItem().mY : mPt.mY;
 }

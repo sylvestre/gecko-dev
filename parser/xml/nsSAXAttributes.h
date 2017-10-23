@@ -24,14 +24,14 @@ struct SAXAttr
 
 class nsSAXAttributes final : public nsISAXMutableAttributes
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISAXATTRIBUTES
   NS_DECL_NSISAXMUTABLEATTRIBUTES
 
-private:
+ private:
   ~nsSAXAttributes() {}
   nsTArray<SAXAttr> mAttrs;
 };
 
-#endif // nsSAXAttributes_h__
+#endif  // nsSAXAttributes_h__

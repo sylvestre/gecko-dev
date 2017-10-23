@@ -12,8 +12,7 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-nsXMLBindingSet::~nsXMLBindingSet()
-{}
+nsXMLBindingSet::~nsXMLBindingSet() {}
 
 void
 nsXMLBindingSet::AddBinding(nsAtom* aVar, nsAutoPtr<XPathExpression>&& aExpr)
@@ -26,8 +25,7 @@ nsXMLBindingSet::AddBinding(nsAtom* aVar, nsAutoPtr<XPathExpression>&& aExpr)
     while (binding) {
       // if the target variable is already used in a binding, ignore it
       // since it won't be useful for anything
-      if (binding->mVar == aVar)
-        return;
+      if (binding->mVar == aVar) return;
 
       // add the binding at the end of the list
       if (!binding->mNext) {
@@ -37,8 +35,7 @@ nsXMLBindingSet::AddBinding(nsAtom* aVar, nsAutoPtr<XPathExpression>&& aExpr)
 
       binding = binding->mNext;
     }
-  }
-  else {
+  } else {
     mFirst = newbinding;
   }
 }
@@ -82,8 +79,8 @@ nsXMLBindingValues::GetAssignmentFor(nsXULTemplateResultXML* aResult,
   mValues.EnsureLengthAtLeast(aIndex + 1);
 
   ErrorResult ignored;
-  mValues[aIndex] = aBinding->mExpr->Evaluate(*contextNode, aType, nullptr,
-                                              ignored);
+  mValues[aIndex] =
+      aBinding->mExpr->Evaluate(*contextNode, aType, nullptr, ignored);
 
   return mValues[aIndex];
 }
@@ -93,8 +90,8 @@ nsXMLBindingValues::GetNodeAssignmentFor(nsXULTemplateResultXML* aResult,
                                          nsXMLBinding* aBinding,
                                          int32_t aIndex)
 {
-  XPathResult* result = GetAssignmentFor(aResult, aBinding, aIndex,
-                                         XPathResult::FIRST_ORDERED_NODE_TYPE);
+  XPathResult* result = GetAssignmentFor(
+      aResult, aBinding, aIndex, XPathResult::FIRST_ORDERED_NODE_TYPE);
 
   ErrorResult rv;
   return result ? result->GetSingleNodeValue(rv) : nullptr;
@@ -106,8 +103,8 @@ nsXMLBindingValues::GetStringAssignmentFor(nsXULTemplateResultXML* aResult,
                                            int32_t aIndex,
                                            nsAString& aValue)
 {
-  XPathResult* result = GetAssignmentFor(aResult, aBinding, aIndex,
-                                         XPathResult::STRING_TYPE);
+  XPathResult* result =
+      GetAssignmentFor(aResult, aBinding, aIndex, XPathResult::STRING_TYPE);
 
   if (result) {
     ErrorResult rv;

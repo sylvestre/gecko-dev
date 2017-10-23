@@ -11,42 +11,43 @@ using namespace std;
 namespace mozilla {
 namespace gfx {
 
-void* ThreadCallback(void* threadData);
+void*
+ThreadCallback(void* threadData);
 
-class WorkerThreadPosix : public WorkerThread {
-public:
+class WorkerThreadPosix : public WorkerThread
+{
+ public:
   explicit WorkerThreadPosix(MultiThreadedJobQueue* aJobQueue)
-  : WorkerThread(aJobQueue)
+      : WorkerThread(aJobQueue)
   {
-    pthread_create(&mThread, nullptr, ThreadCallback, static_cast<WorkerThread*>(this));
+    pthread_create(
+        &mThread, nullptr, ThreadCallback, static_cast<WorkerThread*>(this));
   }
 
-  ~WorkerThreadPosix() override
-  {
-    pthread_join(mThread, nullptr);
-  }
+  ~WorkerThreadPosix() override { pthread_join(mThread, nullptr); }
 
   void SetName(const char*) override
   {
-// XXX - temporarily disabled, see bug 1209039
-//
-//    // Call this from the thread itself because of Mac.
-//#ifdef XP_MACOSX
-//    pthread_setname_np(aName);
-//#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-//    pthread_set_name_np(mThread, aName);
-//#elif defined(__NetBSD__)
-//    pthread_setname_np(mThread, "%s", (void*)aName);
-//#else
-//    pthread_setname_np(mThread, aName);
-//#endif
+    // XXX - temporarily disabled, see bug 1209039
+    //
+    //    // Call this from the thread itself because of Mac.
+    //#ifdef XP_MACOSX
+    //    pthread_setname_np(aName);
+    //#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+    //    pthread_set_name_np(mThread, aName);
+    //#elif defined(__NetBSD__)
+    //    pthread_setname_np(mThread, "%s", (void*)aName);
+    //#else
+    //    pthread_setname_np(mThread, aName);
+    //#endif
   }
 
-protected:
+ protected:
   pthread_t mThread;
 };
 
-void* ThreadCallback(void* threadData)
+void*
+ThreadCallback(void* threadData)
 {
   WorkerThread* thread = static_cast<WorkerThread*>(threadData);
   thread->Run();
@@ -60,14 +61,11 @@ WorkerThread::Create(MultiThreadedJobQueue* aJobQueue)
 }
 
 MultiThreadedJobQueue::MultiThreadedJobQueue()
-: mThreadsCount(0)
-, mShuttingDown(false)
-{}
-
-MultiThreadedJobQueue::~MultiThreadedJobQueue()
+    : mThreadsCount(0), mShuttingDown(false)
 {
-  MOZ_ASSERT(mJobs.empty());
 }
+
+MultiThreadedJobQueue::~MultiThreadedJobQueue() { MOZ_ASSERT(mJobs.empty()); }
 
 bool
 MultiThreadedJobQueue::WaitForJob(Job*& aOutJob)
@@ -156,9 +154,7 @@ MultiThreadedJobQueue::UnregisterThread()
   }
 }
 
-EventObject::EventObject()
-: mIsSet(false)
-{}
+EventObject::EventObject() : mIsSet(false) {}
 
 EventObject::~EventObject() = default;
 
@@ -189,5 +185,5 @@ EventObject::Wait()
   mCond.Wait(&mMutex);
 }
 
-} // namespce
-} // namespce
+}  // namespace gfx
+}  // namespace mozilla

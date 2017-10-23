@@ -21,11 +21,12 @@ namespace mozilla {
 
 class ErrorResult;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 BEGIN_WORKERS_NAMESPACE
 
-enum WorkerScriptType {
+enum WorkerScriptType
+{
   WorkerScript,
   DebuggerScript
 };
@@ -48,20 +49,24 @@ ChannelFromScriptURLWorkerThread(JSContext* aCx,
                                  const nsAString& aScriptURL,
                                  WorkerLoadInfo& aLoadInfo);
 
-void ReportLoadError(ErrorResult& aRv, nsresult aLoadResult,
-                     const nsAString& aScriptURL);
+void
+ReportLoadError(ErrorResult& aRv,
+                nsresult aLoadResult,
+                const nsAString& aScriptURL);
 
-void LoadMainScript(WorkerPrivate* aWorkerPrivate,
-                    const nsAString& aScriptURL,
-                    WorkerScriptType aWorkerScriptType,
-                    ErrorResult& aRv);
+void
+LoadMainScript(WorkerPrivate* aWorkerPrivate,
+               const nsAString& aScriptURL,
+               WorkerScriptType aWorkerScriptType,
+               ErrorResult& aRv);
 
-void Load(WorkerPrivate* aWorkerPrivate,
-          const nsTArray<nsString>& aScriptURLs,
-          WorkerScriptType aWorkerScriptType,
-          mozilla::ErrorResult& aRv);
+void
+Load(WorkerPrivate* aWorkerPrivate,
+     const nsTArray<nsString>& aScriptURLs,
+     WorkerScriptType aWorkerScriptType,
+     mozilla::ErrorResult& aRv);
 
-} // namespace scriptloader
+}  // namespace scriptloader
 
 END_WORKERS_NAMESPACE
 

@@ -14,8 +14,7 @@ namespace jit {
 
 class MIRGraph;
 
-class EffectiveAddressAnalysis
-{
+class EffectiveAddressAnalysis {
     MIRGenerator* mir_;
     MIRGraph& graph_;
 
@@ -25,10 +24,8 @@ class EffectiveAddressAnalysis
     template <typename AsmJSMemoryAccess>
     void analyzeAsmJSHeapAccess(AsmJSMemoryAccess* ins);
 
-  public:
-    EffectiveAddressAnalysis(MIRGenerator* mir, MIRGraph& graph)
-      : mir_(mir), graph_(graph)
-    {}
+   public:
+    EffectiveAddressAnalysis(MIRGenerator* mir, MIRGraph& graph) : mir_(mir), graph_(graph) {}
 
     MOZ_MUST_USE bool analyze();
 };

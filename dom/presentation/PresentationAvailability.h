@@ -16,21 +16,22 @@ namespace dom {
 
 class Promise;
 
-class PresentationAvailability final : public DOMEventTargetHelper
-                                     , public nsIPresentationAvailabilityListener
-                                     , public SupportsWeakPtr<PresentationAvailability>
+class PresentationAvailability final
+    : public DOMEventTargetHelper,
+      public nsIPresentationAvailabilityListener,
+      public SupportsWeakPtr<PresentationAvailability>
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(PresentationAvailability,
                                            DOMEventTargetHelper)
   NS_DECL_NSIPRESENTATIONAVAILABILITYLISTENER
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(PresentationAvailability)
 
-  static already_AddRefed<PresentationAvailability>
-  Create(nsPIDOMWindowInner* aWindow,
-         const nsTArray<nsString>& aUrls,
-         RefPtr<Promise>& aPromise);
+  static already_AddRefed<PresentationAvailability> Create(
+      nsPIDOMWindowInner* aWindow,
+      const nsTArray<nsString>& aUrls,
+      RefPtr<Promise>& aPromise);
 
   virtual void DisconnectFromOwner() override;
 
@@ -48,7 +49,7 @@ public:
 
   IMPL_EVENT_HANDLER(change);
 
-private:
+ private:
   explicit PresentationAvailability(nsPIDOMWindowInner* aWindow,
                                     const nsTArray<nsString>& aUrls);
 
@@ -68,7 +69,7 @@ private:
   nsTArray<bool> mAvailabilityOfUrl;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationAvailability_h
+#endif  // mozilla_dom_PresentationAvailability_h

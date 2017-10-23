@@ -16,13 +16,13 @@ namespace dom {
 
 class SameProcessMessageQueue
 {
-public:
+ public:
   SameProcessMessageQueue();
   virtual ~SameProcessMessageQueue();
 
   class Runnable : public nsIRunnable
   {
-  public:
+   public:
     explicit Runnable();
 
     NS_DECL_ISUPPORTS
@@ -30,10 +30,10 @@ public:
 
     virtual nsresult HandleMessage() = 0;
 
-  protected:
+   protected:
     virtual ~Runnable() {}
 
-  private:
+   private:
     bool mDispatched;
   };
 
@@ -42,12 +42,12 @@ public:
 
   static SameProcessMessageQueue* Get();
 
-private:
+ private:
   nsTArray<RefPtr<Runnable>> mQueue;
   static SameProcessMessageQueue* sSingleton;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SameProcessMessageQueue_h
+#endif  // mozilla_dom_SameProcessMessageQueue_h

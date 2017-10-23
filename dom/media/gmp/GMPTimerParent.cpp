@@ -14,7 +14,8 @@ namespace mozilla {
 #undef LOG
 #endif
 
-extern LogModule* GetGMPLog();
+extern LogModule*
+GetGMPLog();
 
 #define LOGD(msg) MOZ_LOG(GetGMPLog(), mozilla::LogLevel::Debug, msg)
 #define LOG(level, msg) MOZ_LOG(GetGMPLog(), (level), msg)
@@ -27,8 +28,7 @@ extern LogModule* GetGMPLog();
 namespace gmp {
 
 GMPTimerParent::GMPTimerParent(nsISerialEventTarget* aGMPEventTarget)
-  : mGMPEventTarget(aGMPEventTarget)
-  , mIsOpen(true)
+    : mGMPEventTarget(aGMPEventTarget), mIsOpen(true)
 {
 }
 
@@ -91,7 +91,7 @@ GMPTimerParent::ActorDestroy(ActorDestroyReason aWhy)
 
 /* static */
 void
-GMPTimerParent::GMPTimerExpired(nsITimer *aTimer, void *aClosure)
+GMPTimerParent::GMPTimerExpired(nsITimer* aTimer, void* aClosure)
 {
   MOZ_ASSERT(aClosure);
   nsAutoPtr<Context> ctx(static_cast<Context*>(aClosure));
@@ -118,5 +118,5 @@ GMPTimerParent::TimerExpired(Context* aContext)
   }
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

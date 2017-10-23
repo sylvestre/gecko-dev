@@ -48,5 +48,5 @@ CSSKeyframesRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return CSSKeyframesRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

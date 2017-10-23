@@ -16,9 +16,13 @@
 
 class nsIScriptGlobalObject;
 
-#define NS_ISCRIPTCONTEXT_IID \
-{ 0x54cbe9cf, 0x7282, 0x421a, \
- { 0x91, 0x6f, 0xd0, 0x70, 0x73, 0xde, 0xb8, 0xc0 } }
+#define NS_ISCRIPTCONTEXT_IID                        \
+  {                                                  \
+    0x54cbe9cf, 0x7282, 0x421a,                      \
+    {                                                \
+      0x91, 0x6f, 0xd0, 0x70, 0x73, 0xde, 0xb8, 0xc0 \
+    }                                                \
+  }
 
 class nsIOffThreadScriptReceiver;
 
@@ -28,14 +32,14 @@ class nsIOffThreadScriptReceiver;
  */
 class nsIScriptContext : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ISCRIPTCONTEXT_IID)
 
   /**
    * Return the global object.
    *
    **/
-  virtual nsIScriptGlobalObject *GetGlobalObject() = 0;
+  virtual nsIScriptGlobalObject* GetGlobalObject() = 0;
 
   /**
    * Initialize the context generally. Does not create a global object.
@@ -54,7 +58,8 @@ public:
   // SetProperty is suspect and jst believes should not be needed.  Currenly
   // used only for "arguments".
   virtual nsresult SetProperty(JS::Handle<JSObject*> aTarget,
-                               const char* aPropName, nsISupports* aVal) = 0;
+                               const char* aPropName,
+                               nsISupports* aVal) = 0;
   /**
    * Called to set/get information if the script context is
    * currently processing a script tag
@@ -89,13 +94,17 @@ public:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIScriptContext, NS_ISCRIPTCONTEXT_IID)
 
-#define NS_IOFFTHREADSCRIPTRECEIVER_IID \
-{0x3a980010, 0x878d, 0x46a9,            \
-  {0x93, 0xad, 0xbc, 0xfd, 0xd3, 0x8e, 0xa0, 0xc2}}
+#define NS_IOFFTHREADSCRIPTRECEIVER_IID              \
+  {                                                  \
+    0x3a980010, 0x878d, 0x46a9,                      \
+    {                                                \
+      0x93, 0xad, 0xbc, 0xfd, 0xd3, 0x8e, 0xa0, 0xc2 \
+    }                                                \
+  }
 
 class nsIOffThreadScriptReceiver : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IOFFTHREADSCRIPTRECEIVER_IID)
 
   /**
@@ -106,6 +115,7 @@ public:
   NS_IMETHOD OnScriptCompileComplete(JSScript* aScript, nsresult aStatus) = 0;
 };
 
-NS_DEFINE_STATIC_IID_ACCESSOR(nsIOffThreadScriptReceiver, NS_IOFFTHREADSCRIPTRECEIVER_IID)
+NS_DEFINE_STATIC_IID_ACCESSOR(nsIOffThreadScriptReceiver,
+                              NS_IOFFTHREADSCRIPTRECEIVER_IID)
 
-#endif // nsIScriptContext_h__
+#endif  // nsIScriptContext_h__

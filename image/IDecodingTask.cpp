@@ -81,19 +81,21 @@ IDecodingTask::NotifyProgress(NotNull<RasterImage*> aImage,
 
   // Synchronously notify if we can.
   if (IsOnEventTarget() && !(decoderFlags & DecoderFlags::ASYNC_NOTIFY)) {
-    aImage->NotifyProgress(progress, invalidRect, frameCount,
-                           decoderFlags, surfaceFlags);
+    aImage->NotifyProgress(
+        progress, invalidRect, frameCount, decoderFlags, surfaceFlags);
     return;
   }
 
   // We're forced to notify asynchronously.
   NotNull<RefPtr<RasterImage>> image = aImage;
-  mEventTarget->Dispatch(NS_NewRunnableFunction(
-                           "IDecodingTask::NotifyProgress",
-                           [=]() -> void {
-    image->NotifyProgress(progress, invalidRect, frameCount,
-                          decoderFlags, surfaceFlags);
-  }), NS_DISPATCH_NORMAL);
+  mEventTarget->Dispatch(
+      NS_NewRunnableFunction(
+          "IDecodingTask::NotifyProgress",
+          [=]() -> void {
+            image->NotifyProgress(
+                progress, invalidRect, frameCount, decoderFlags, surfaceFlags);
+          }),
+      NS_DISPATCH_NORMAL);
 }
 
 void
@@ -116,23 +118,33 @@ IDecodingTask::NotifyDecodeComplete(NotNull<RasterImage*> aImage,
 
   // Synchronously notify if we can.
   if (IsOnEventTarget() && !(decoderFlags & DecoderFlags::ASYNC_NOTIFY)) {
-    aImage->NotifyDecodeComplete(finalStatus, metadata, telemetry, progress,
-                                 invalidRect, frameCount, decoderFlags,
+    aImage->NotifyDecodeComplete(finalStatus,
+                                 metadata,
+                                 telemetry,
+                                 progress,
+                                 invalidRect,
+                                 frameCount,
+                                 decoderFlags,
                                  surfaceFlags);
     return;
   }
 
   // We're forced to notify asynchronously.
   NotNull<RefPtr<RasterImage>> image = aImage;
-  mEventTarget->Dispatch(NS_NewRunnableFunction(
-                           "IDecodingTask::NotifyDecodeComplete",
-                           [=]() -> void {
-    image->NotifyDecodeComplete(finalStatus, metadata, telemetry, progress,
-                                invalidRect, frameCount, decoderFlags,
-                                surfaceFlags);
-  }), NS_DISPATCH_NORMAL);
+  mEventTarget->Dispatch(
+      NS_NewRunnableFunction("IDecodingTask::NotifyDecodeComplete",
+                             [=]() -> void {
+                               image->NotifyDecodeComplete(finalStatus,
+                                                           metadata,
+                                                           telemetry,
+                                                           progress,
+                                                           invalidRect,
+                                                           frameCount,
+                                                           decoderFlags,
+                                                           surfaceFlags);
+                             }),
+      NS_DISPATCH_NORMAL);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // IDecodingTask implementation.
@@ -144,14 +156,12 @@ IDecodingTask::Resume()
   DecodePool::Singleton()->AsyncRun(this);
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // MetadataDecodingTask implementation.
 ///////////////////////////////////////////////////////////////////////////////
 
 MetadataDecodingTask::MetadataDecodingTask(NotNull<Decoder*> aDecoder)
-  : mMutex("mozilla::image::MetadataDecodingTask")
-  , mDecoder(aDecoder)
+    : mMutex("mozilla::image::MetadataDecodingTask"), mDecoder(aDecoder)
 {
   MOZ_ASSERT(mDecoder->IsMetadataDecode(),
              "Use DecodingTask for non-metadata decodes");
@@ -180,14 +190,14 @@ MetadataDecodingTask::Run()
   MOZ_ASSERT_UNREACHABLE("Metadata decode yielded for an unexpected reason");
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // AnonymousDecodingTask implementation.
 ///////////////////////////////////////////////////////////////////////////////
 
 AnonymousDecodingTask::AnonymousDecodingTask(NotNull<Decoder*> aDecoder)
-  : mDecoder(aDecoder)
-{ }
+    : mDecoder(aDecoder)
+{
+}
 
 void
 AnonymousDecodingTask::Run()
@@ -211,5 +221,5 @@ AnonymousDecodingTask::Run()
   }
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

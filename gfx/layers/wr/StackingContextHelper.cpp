@@ -12,25 +12,24 @@ namespace mozilla {
 namespace layers {
 
 StackingContextHelper::StackingContextHelper()
-  : mBuilder(nullptr)
-  , mScale(1.0f, 1.0f)
+    : mBuilder(nullptr), mScale(1.0f, 1.0f)
 {
   // mOrigin remains at 0,0
 }
 
-StackingContextHelper::StackingContextHelper(const StackingContextHelper& aParentSC,
-                                             wr::DisplayListBuilder& aBuilder,
-                                             const nsTArray<wr::WrFilterOp>& aFilters,
-                                             const gfx::Matrix4x4* aBoundTransform,
-                                             uint64_t aAnimationsId,
-                                             float* aOpacityPtr,
-                                             gfx::Matrix4x4* aTransformPtr,
-                                             gfx::Matrix4x4* aPerspectivePtr,
-                                             const gfx::CompositionOp& aMixBlendMode,
-                                             bool aBackfaceVisible,
-                                             bool aIsPreserve3D)
-  : mBuilder(&aBuilder)
-  , mScale(1.0f, 1.0f)
+StackingContextHelper::StackingContextHelper(
+    const StackingContextHelper& aParentSC,
+    wr::DisplayListBuilder& aBuilder,
+    const nsTArray<wr::WrFilterOp>& aFilters,
+    const gfx::Matrix4x4* aBoundTransform,
+    uint64_t aAnimationsId,
+    float* aOpacityPtr,
+    gfx::Matrix4x4* aTransformPtr,
+    gfx::Matrix4x4* aPerspectivePtr,
+    const gfx::CompositionOp& aMixBlendMode,
+    bool aBackfaceVisible,
+    bool aIsPreserve3D)
+    : mBuilder(&aBuilder), mScale(1.0f, 1.0f)
 {
   if (aTransformPtr) {
     mTransform = *aTransformPtr;
@@ -42,15 +41,16 @@ StackingContextHelper::StackingContextHelper(const StackingContextHelper& aParen
     mScale = transform2d.ScaleFactors(true) * aParentSC.mScale;
   }
 
-  mBuilder->PushStackingContext(wr::LayoutRect(),
-                                aAnimationsId,
-                                aOpacityPtr,
-                                aTransformPtr,
-                                aIsPreserve3D ? wr::TransformStyle::Preserve3D : wr::TransformStyle::Flat,
-                                aPerspectivePtr,
-                                wr::ToMixBlendMode(aMixBlendMode),
-                                aFilters,
-                                aBackfaceVisible);
+  mBuilder->PushStackingContext(
+      wr::LayoutRect(),
+      aAnimationsId,
+      aOpacityPtr,
+      aTransformPtr,
+      aIsPreserve3D ? wr::TransformStyle::Preserve3D : wr::TransformStyle::Flat,
+      aPerspectivePtr,
+      wr::ToMixBlendMode(aMixBlendMode),
+      aFilters,
+      aBackfaceVisible);
 }
 
 StackingContextHelper::~StackingContextHelper()
@@ -72,5 +72,5 @@ StackingContextHelper::ToRelativeLayoutRect(const LayoutDeviceRect& aRect) const
   return wr::ToLayoutRect(RoundedToInt(aRect - mOrigin));
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

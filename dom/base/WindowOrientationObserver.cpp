@@ -18,8 +18,8 @@ using namespace mozilla::dom;
  * nsGlobalWindow.cpp
  */
 WindowOrientationObserver::WindowOrientationObserver(
-  nsGlobalWindow* aGlobalWindow)
-  : mWindow(aGlobalWindow)
+    nsGlobalWindow* aGlobalWindow)
+    : mWindow(aGlobalWindow)
 {
   MOZ_ASSERT(aGlobalWindow && aGlobalWindow->IsInnerWindow());
   hal::RegisterScreenConfigurationObserver(this);
@@ -36,12 +36,13 @@ WindowOrientationObserver::~WindowOrientationObserver()
 
 void
 WindowOrientationObserver::Notify(
-  const mozilla::hal::ScreenConfiguration& aConfiguration)
+    const mozilla::hal::ScreenConfiguration& aConfiguration)
 {
   uint16_t currentAngle = aConfiguration.angle();
   if (mAngle != currentAngle && mWindow->AsInner()->IsCurrentInnerWindow()) {
     mAngle = currentAngle;
-    mWindow->GetOuterWindow()->DispatchCustomEvent(NS_LITERAL_STRING("orientationchange"));
+    mWindow->GetOuterWindow()->DispatchCustomEvent(
+        NS_LITERAL_STRING("orientationchange"));
   }
 }
 

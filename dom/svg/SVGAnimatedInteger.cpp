@@ -11,8 +11,7 @@
 namespace mozilla {
 namespace dom {
 
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(SVGAnimatedInteger,
-                                               mSVGElement)
+NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(SVGAnimatedInteger, mSVGElement)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SVGAnimatedInteger)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(SVGAnimatedInteger)
@@ -23,10 +22,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SVGAnimatedInteger)
 NS_INTERFACE_MAP_END
 
 JSObject*
-SVGAnimatedInteger::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGAnimatedInteger::WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto)
 {
   return SVGAnimatedIntegerBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

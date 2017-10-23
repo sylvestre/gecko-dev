@@ -27,7 +27,8 @@ namespace mozilla {
 
 // This class represents a file that's been pre-opened for a media
 // plugin.  It can be move-constructed but not copied.
-class SandboxOpenedFile final {
+class SandboxOpenedFile final
+{
  public:
   // This constructor opens the named file and saves the descriptor.
   // If the open fails, IsOpen() will return false and GetDesc() will
@@ -63,18 +64,20 @@ class SandboxOpenedFile final {
 // open() calls from the media plugin (and the dynamic loader).
 // Because the seccomp-bpf policy exists until the process exits, this
 // object must not be destroyed after the syscall filter is installed.
-class SandboxOpenedFiles {
-public:
+class SandboxOpenedFiles
+{
+ public:
   SandboxOpenedFiles() = default;
 
   template<typename... Args>
-  void Add(Args&&... aArgs) {
+  void Add(Args&&... aArgs)
+  {
     mFiles.emplace_back(Forward<Args>(aArgs)...);
   }
 
   int GetDesc(const char* aPath) const;
 
-private:
+ private:
   std::vector<SandboxOpenedFile> mFiles;
 
   // We could allow destroying instances of this class that aren't
@@ -84,6 +87,6 @@ private:
   ~SandboxOpenedFiles() = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxOpenedFiles_h
+#endif  // mozilla_SandboxOpenedFiles_h

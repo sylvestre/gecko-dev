@@ -12,23 +12,24 @@
 #include "nsIScriptSecurityManager.h"
 #include "nsIXMLHttpRequest.h"
 
-#define TEST_URL_PREFIX  "data:text/xml,"
+#define TEST_URL_PREFIX "data:text/xml,"
 #define TEST_URL_CONTENT "<foo><bar></bar></foo>"
-#define TEST_URL         TEST_URL_PREFIX TEST_URL_CONTENT
+#define TEST_URL TEST_URL_PREFIX TEST_URL_CONTENT
 
 TEST(NativeXMLHttpRequest, Test)
 {
   nsresult rv;
 
   nsCOMPtr<nsIXMLHttpRequest> xhr =
-    do_CreateInstance(NS_XMLHTTPREQUEST_CONTRACTID, &rv);
+      do_CreateInstance(NS_XMLHTTPREQUEST_CONTRACTID, &rv);
   ASSERT_TRUE(NS_SUCCEEDED(rv)) << "Couldn't create nsIXMLHttpRequest instance";
 
   NS_NAMED_LITERAL_CSTRING(getString, "GET");
   NS_NAMED_LITERAL_CSTRING(testURL, TEST_URL);
   const nsAString& empty = EmptyString();
 
-  rv = xhr->Init(nsContentUtils::GetSystemPrincipal(), nullptr, nullptr, nullptr);
+  rv = xhr->Init(
+      nsContentUtils::GetSystemPrincipal(), nullptr, nullptr, nullptr);
   ASSERT_TRUE(NS_SUCCEEDED(rv)) << "Couldn't initialize the XHR";
 
   rv = xhr->Open(getString, testURL, false, empty, empty);
@@ -40,8 +41,8 @@ TEST(NativeXMLHttpRequest, Test)
   nsAutoString response;
   rv = xhr->GetResponseText(response);
   ASSERT_TRUE(NS_SUCCEEDED(rv)) << "GetResponse failed";
-  ASSERT_TRUE(response.EqualsLiteral(TEST_URL_CONTENT)) <<
-    "Response text does not match";
+  ASSERT_TRUE(response.EqualsLiteral(TEST_URL_CONTENT))
+      << "Response text does not match";
 
   nsCOMPtr<nsIDOMDocument> dom;
   rv = xhr->GetResponseXML(getter_AddRefs(dom));

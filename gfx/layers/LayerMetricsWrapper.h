@@ -119,22 +119,19 @@ namespace layers {
  * alternative of making mIndex a int32_t that can store -1, but then having
  * to cast to uint32_t all over the place.
  */
-class MOZ_STACK_CLASS LayerMetricsWrapper {
-public:
-  enum StartAt {
+class MOZ_STACK_CLASS LayerMetricsWrapper
+{
+ public:
+  enum StartAt
+  {
     TOP,
     BOTTOM,
   };
 
-  LayerMetricsWrapper()
-    : mLayer(nullptr)
-    , mIndex(0)
-  {
-  }
+  LayerMetricsWrapper() : mLayer(nullptr), mIndex(0) {}
 
   explicit LayerMetricsWrapper(Layer* aRoot, StartAt aStart = StartAt::TOP)
-    : mLayer(aRoot)
-    , mIndex(0)
+      : mLayer(aRoot), mIndex(0)
   {
     if (!mLayer) {
       return;
@@ -157,22 +154,15 @@ public:
   }
 
   explicit LayerMetricsWrapper(Layer* aLayer, uint32_t aMetricsIndex)
-    : mLayer(aLayer)
-    , mIndex(aMetricsIndex)
+      : mLayer(aLayer), mIndex(aMetricsIndex)
   {
     MOZ_ASSERT(mLayer);
     MOZ_ASSERT(mIndex == 0 || mIndex < mLayer->GetScrollMetadataCount());
   }
 
-  bool IsValid() const
-  {
-    return mLayer != nullptr;
-  }
+  bool IsValid() const { return mLayer != nullptr; }
 
-  explicit operator bool() const
-  {
-    return IsValid();
-  }
+  explicit operator bool() const { return IsValid(); }
 
   LayerMetricsWrapper GetParent() const
   {
@@ -237,10 +227,7 @@ public:
     return mLayer->GetScrollMetadata(mIndex);
   }
 
-  const FrameMetrics& Metrics() const
-  {
-    return Metadata().GetMetrics();
-  }
+  const FrameMetrics& Metrics() const { return Metadata().GetMetrics(); }
 
   AsyncPanZoomController* GetApzc() const
   {
@@ -359,9 +346,8 @@ public:
     MOZ_ASSERT(IsValid());
 
     if (AtBottomLayer()) {
-      return mLayer->AsRefLayer()
-           ? Some(mLayer->AsRefLayer()->GetReferentId())
-           : Nothing();
+      return mLayer->AsRefLayer() ? Some(mLayer->AsRefLayer()->GetReferentId())
+                                  : Nothing();
     }
     return Nothing();
   }
@@ -457,8 +443,7 @@ public:
 
   bool operator==(const LayerMetricsWrapper& aOther) const
   {
-    return mLayer == aOther.mLayer
-        && mIndex == aOther.mIndex;
+    return mLayer == aOther.mLayer && mIndex == aOther.mIndex;
   }
 
   bool operator!=(const LayerMetricsWrapper& aOther) const
@@ -466,23 +451,21 @@ public:
     return !(*this == aOther);
   }
 
-private:
-  bool AtBottomLayer() const
-  {
-    return mIndex == 0;
-  }
+ private:
+  bool AtBottomLayer() const { return mIndex == 0; }
 
   bool AtTopLayer() const
   {
-    return mLayer->GetScrollMetadataCount() == 0 || mIndex == mLayer->GetScrollMetadataCount() - 1;
+    return mLayer->GetScrollMetadataCount() == 0 ||
+           mIndex == mLayer->GetScrollMetadataCount() - 1;
   }
 
-private:
+ private:
   Layer* mLayer;
   uint32_t mIndex;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif /* GFX_LAYERMETRICSWRAPPER_H */

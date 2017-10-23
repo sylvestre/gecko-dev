@@ -19,11 +19,12 @@ namespace dom {
 
 class GlobalObject;
 
-class CSS {
-private:
+class CSS
+{
+ private:
   CSS() = delete;
 
-public:
+ public:
   static bool Supports(const GlobalObject& aGlobal,
                        const nsAString& aProperty,
                        const nsAString& aValue,
@@ -38,7 +39,7 @@ public:
                      nsAString& aReturn);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSS_h_
+#endif  // mozilla_dom_CSS_h_

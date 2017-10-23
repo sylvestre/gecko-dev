@@ -11,31 +11,28 @@
 /**
  * A simple interface for observing errors
 **/
-class ErrorObserver {
-
-public:
-
-    /**
+class ErrorObserver
+{
+ public:
+  /**
      * Default Destructor for ErrorObserver
     **/
-    virtual ~ErrorObserver() {};
+  virtual ~ErrorObserver(){};
 
-    /**
+  /**
      *  Notifies this Error observer of a new error aRes
     **/
-    virtual void receiveError(const nsAString& errorMessage, nsresult aRes) = 0;
+  virtual void receiveError(const nsAString& errorMessage, nsresult aRes) = 0;
 
-    /**
+  /**
      *  Notifies this Error observer of a new error, with default
      *  error code NS_ERROR_FAILURE
     **/
-    void receiveError(const nsAString& errorMessage)
-    {
-        receiveError(errorMessage, NS_ERROR_FAILURE);
-    }
+  void receiveError(const nsAString& errorMessage)
+  {
+    receiveError(errorMessage, NS_ERROR_FAILURE);
+  }
 
-
-
-}; //-- ErrorObserver
+};  //-- ErrorObserver
 
 #endif

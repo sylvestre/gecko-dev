@@ -7,7 +7,8 @@ FRAGMENT(asmjs, segfault) {
     using namespace JS;
 
     int line0 = __LINE__;
-    const char* bytes = "\n"
+    const char* bytes =
+        "\n"
         "function f(glob, ffi, heap) {\n"
         "    \"use asm\";\n"
         "    var f32 = new glob.Float32Array(heap);\n"
@@ -33,6 +34,6 @@ FRAGMENT(asmjs, segfault) {
 
     breakpoint();
 
-    (void) ok;
-    (void) rval;
+    (void)ok;
+    (void)rval;
 }

@@ -14,10 +14,11 @@
 // Credit goes to WebKit for this implementation, cf.
 // https://bugs.webkit.org/show_bug.cgi?id=74676
 namespace mozilla {
-enum NotNullTag {
+enum NotNullTag
+{
   KnownNotNull,
 };
-} // namespace mozilla
+}  // namespace mozilla
 
 /*
  * The logic here is a little subtle.  [expr.new] states that if the allocation
@@ -49,4 +50,4 @@ operator new(size_t, mozilla::NotNullTag, void* p)
   return p;
 }
 
-#endif // mozilla_OperatorNewExtensions_h
+#endif  // mozilla_OperatorNewExtensions_h

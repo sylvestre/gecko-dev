@@ -27,19 +27,21 @@ using dom::WebExtensionLocalizeCallback;
 
 class WebExtensionContentScript;
 
-class WebExtensionPolicy final : public nsISupports
-                               , public nsWrapperCache
-                               , public SupportsWeakPtr<WebExtensionPolicy>
+class WebExtensionPolicy final : public nsISupports,
+                                 public nsWrapperCache,
+                                 public SupportsWeakPtr<WebExtensionPolicy>
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(WebExtensionPolicy)
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(WebExtensionPolicy)
 
   using ScriptArray = nsTArray<RefPtr<WebExtensionContentScript>>;
 
-  static already_AddRefed<WebExtensionPolicy>
-  Constructor(dom::GlobalObject& aGlobal, const WebExtensionInit& aInit, ErrorResult& aRv);
+  static already_AddRefed<WebExtensionPolicy> Constructor(
+      dom::GlobalObject& aGlobal,
+      const WebExtensionInit& aInit,
+      ErrorResult& aRv);
 
   nsAtom* Id() const { return mId; }
   void GetId(nsAString& aId) const { aId = nsDependentAtomString(mId); };
@@ -82,14 +84,8 @@ public:
 
   void Localize(const nsAString& aInput, nsString& aResult) const;
 
-  const nsString& Name() const
-  {
-    return mName;
-  }
-  void GetName(nsAString& aName) const
-  {
-    aName = mName;
-  }
+  const nsString& Name() const { return mName; }
+  void GetName(nsAString& aName) const { aName = mName; }
 
   const nsString& ContentSecurityPolicy() const
   {
@@ -99,7 +95,6 @@ public:
   {
     aCSP = mContentSecurityPolicy;
   }
-
 
   already_AddRefed<MatchPatternSet> AllowedOrigins()
   {
@@ -122,37 +117,37 @@ public:
   void GetContentScripts(ScriptArray& aScripts) const;
   const ScriptArray& ContentScripts() const { return mContentScripts; }
 
-
   bool Active() const { return mActive; }
   void SetActive(bool aActive, ErrorResult& aRv);
 
+  static void GetActiveExtensions(
+      dom::GlobalObject& aGlobal,
+      nsTArray<RefPtr<WebExtensionPolicy>>& aResults);
 
-  static void
-  GetActiveExtensions(dom::GlobalObject& aGlobal, nsTArray<RefPtr<WebExtensionPolicy>>& aResults);
+  static already_AddRefed<WebExtensionPolicy> GetByID(
+      dom::GlobalObject& aGlobal, const nsAString& aID);
 
-  static already_AddRefed<WebExtensionPolicy>
-  GetByID(dom::GlobalObject& aGlobal, const nsAString& aID);
+  static already_AddRefed<WebExtensionPolicy> GetByHostname(
+      dom::GlobalObject& aGlobal, const nsACString& aHostname);
 
-  static already_AddRefed<WebExtensionPolicy>
-  GetByHostname(dom::GlobalObject& aGlobal, const nsACString& aHostname);
-
-  static already_AddRefed<WebExtensionPolicy>
-  GetByURI(dom::GlobalObject& aGlobal, nsIURI* aURI);
-
+  static already_AddRefed<WebExtensionPolicy> GetByURI(
+      dom::GlobalObject& aGlobal, nsIURI* aURI);
 
   static bool UseRemoteWebExtensions(dom::GlobalObject& aGlobal);
   static bool IsExtensionProcess(dom::GlobalObject& aGlobal);
 
-
   nsISupports* GetParentObject() const { return mParent; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::HandleObject aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::HandleObject aGivenProto) override;
 
-protected:
+ protected:
   virtual ~WebExtensionPolicy() = default;
 
-private:
-  WebExtensionPolicy(dom::GlobalObject& aGlobal, const WebExtensionInit& aInit, ErrorResult& aRv);
+ private:
+  WebExtensionPolicy(dom::GlobalObject& aGlobal,
+                     const WebExtensionInit& aInit,
+                     ErrorResult& aRv);
 
   bool Enable();
   bool Disable();
@@ -179,7 +174,7 @@ private:
   nsTArray<RefPtr<WebExtensionContentScript>> mContentScripts;
 };
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla
 
-#endif // mozilla_extensions_WebExtensionPolicy_h
+#endif  // mozilla_extensions_WebExtensionPolicy_h

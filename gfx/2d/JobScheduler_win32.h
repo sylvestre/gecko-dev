@@ -22,16 +22,16 @@ class Job;
 
 // The public interface of this class must remain identical to its equivalent
 // in JobScheduler_posix.h
-class MultiThreadedJobQueue {
-public:
-  enum AccessType {
+class MultiThreadedJobQueue
+{
+ public:
+  enum AccessType
+  {
     BLOCKING,
     NON_BLOCKING
   };
 
-  MultiThreadedJobQueue()
-  : mThreadsCount(0)
-  , mShuttingDown(false)
+  MultiThreadedJobQueue() : mThreadsCount(0), mShuttingDown(false)
   {
     mAvailableEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
     mShutdownEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
@@ -59,7 +59,7 @@ public:
 
   void UnregisterThread();
 
-protected:
+ protected:
   std::list<Job*> mJobs;
   CriticalSection mSection;
   HANDLE mAvailableEvent;
@@ -70,12 +70,11 @@ protected:
   friend class WorkerThread;
 };
 
-
 // The public interface of this class must remain identical to its equivalent
 // in JobScheduler_posix.h
 class EventObject : public external::AtomicRefCounted<EventObject>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(EventObject)
 
   EventObject() { mEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr); }
@@ -87,13 +86,14 @@ public:
   bool Peak() { return ::WaitForSingleObject(mEvent, 0) == WAIT_OBJECT_0; }
 
   void Set() { ::SetEvent(mEvent); }
-protected:
+
+ protected:
   // TODO: it's expensive to create events so we should try to reuse them
   HANDLE mEvent;
 };
 
-} // namespace
-} // namespace
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif
 #endif

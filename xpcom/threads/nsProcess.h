@@ -28,35 +28,43 @@
 #include <shellapi.h>
 #endif
 
-#define NS_PROCESS_CID \
-{0x7b4eeb20, 0xd781, 0x11d4, \
-   {0x8A, 0x83, 0x00, 0x10, 0xa4, 0xe0, 0xc9, 0xca}}
+#define NS_PROCESS_CID                               \
+  {                                                  \
+    0x7b4eeb20, 0xd781, 0x11d4,                      \
+    {                                                \
+      0x8A, 0x83, 0x00, 0x10, 0xa4, 0xe0, 0xc9, 0xca \
+    }                                                \
+  }
 
-class nsProcess final
-  : public nsIProcess
-  , public nsIObserver
+class nsProcess final : public nsIProcess, public nsIObserver
 {
-public:
-
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIPROCESS
   NS_DECL_NSIOBSERVER
 
   nsProcess();
 
-private:
+ private:
   ~nsProcess();
   static void Monitor(void* aArg);
   void ProcessComplete();
-  nsresult CopyArgsAndRunProcess(bool aBlocking, const char** aArgs,
-                                 uint32_t aCount, nsIObserver* aObserver,
+  nsresult CopyArgsAndRunProcess(bool aBlocking,
+                                 const char** aArgs,
+                                 uint32_t aCount,
+                                 nsIObserver* aObserver,
                                  bool aHoldWeak);
-  nsresult CopyArgsAndRunProcessw(bool aBlocking, const char16_t** aArgs,
-                                  uint32_t aCount, nsIObserver* aObserver,
+  nsresult CopyArgsAndRunProcessw(bool aBlocking,
+                                  const char16_t** aArgs,
+                                  uint32_t aCount,
+                                  nsIObserver* aObserver,
                                   bool aHoldWeak);
   // The 'args' array is null-terminated.
-  nsresult RunProcess(bool aBlocking, char** aArgs, nsIObserver* aObserver,
-                      bool aHoldWeak, bool aArgsUTF8);
+  nsresult RunProcess(bool aBlocking,
+                      char** aArgs,
+                      nsIObserver* aObserver,
+                      bool aHoldWeak,
+                      bool aArgsUTF8);
 
   PRThread* mThread;
   mozilla::Mutex mLock;

@@ -24,13 +24,14 @@
 
 class nsSandboxViolationSink
 {
-public:
+ public:
   static void Start();
   static void Stop();
-private:
+
+ private:
   static void ViolationHandler();
   static int mNotifyToken;
   static uint64_t mLastMsgReceived;
 };
 
-#endif // nsSandboxViolationSink_h_
+#endif  // nsSandboxViolationSink_h_

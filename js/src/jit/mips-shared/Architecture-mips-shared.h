@@ -36,9 +36,8 @@ namespace jit {
 // How far forward/back can a jump go? Provide a generous buffer for thunks.
 static const uint32_t JumpImmediateRange = UINT32_MAX;
 
-class Registers
-{
-  public:
+class Registers {
+   public:
     enum RegisterID {
         r0 = 0,
         r1,
@@ -133,14 +132,12 @@ class Registers
         uintptr_t r;
     };
 
-    static const char * const RegNames[];
+    static const char* const RegNames[];
     static const char* GetName(Code code) {
         MOZ_ASSERT(code < Total);
         return RegNames[code];
     }
-    static const char* GetName(Encoding i) {
-        return GetName(Code(i));
-    }
+    static const char* GetName(Encoding i) { return GetName(Code(i)); }
 
     static Code FromName(const char* name);
 
@@ -156,49 +153,27 @@ class Registers
     static const SetType ArgRegMask;
 
     static const SetType VolatileMask =
-        (1 << Registers::v0) |
-        (1 << Registers::v1) |
-        (1 << Registers::a0) |
-        (1 << Registers::a1) |
-        (1 << Registers::a2) |
-        (1 << Registers::a3) |
-        (1 << Registers::t0) |
-        (1 << Registers::t1) |
-        (1 << Registers::t2) |
-        (1 << Registers::t3) |
-        (1 << Registers::ta0) |
-        (1 << Registers::ta1) |
-        (1 << Registers::ta2) |
-        (1 << Registers::ta3);
+        (1 << Registers::v0) | (1 << Registers::v1) | (1 << Registers::a0) | (1 << Registers::a1) |
+        (1 << Registers::a2) | (1 << Registers::a3) | (1 << Registers::t0) | (1 << Registers::t1) |
+        (1 << Registers::t2) | (1 << Registers::t3) | (1 << Registers::ta0) |
+        (1 << Registers::ta1) | (1 << Registers::ta2) | (1 << Registers::ta3);
 
     // We use this constant to save registers when entering functions. This
     // is why $ra is added here even though it is not "Non Volatile".
     static const SetType NonVolatileMask =
-        (1 << Registers::s0) |
-        (1 << Registers::s1) |
-        (1 << Registers::s2) |
-        (1 << Registers::s3) |
-        (1 << Registers::s4) |
-        (1 << Registers::s5) |
-        (1 << Registers::s6) |
-        (1 << Registers::s7) |
-        (1 << Registers::fp) |
-        (1 << Registers::ra);
+        (1 << Registers::s0) | (1 << Registers::s1) | (1 << Registers::s2) | (1 << Registers::s3) |
+        (1 << Registers::s4) | (1 << Registers::s5) | (1 << Registers::s6) | (1 << Registers::s7) |
+        (1 << Registers::fp) | (1 << Registers::ra);
 
-    static const SetType WrapperMask =
-        VolatileMask |         // = arguments
-        (1 << Registers::t0) | // = outReg
-        (1 << Registers::t1);  // = argBase
+    static const SetType WrapperMask = VolatileMask |          // = arguments
+                                       (1 << Registers::t0) |  // = outReg
+                                       (1 << Registers::t1);   // = argBase
 
     static const SetType NonAllocatableMask =
-        (1 << Registers::zero) |
-        (1 << Registers::at) | // at = scratch
-        (1 << Registers::t8) | // t8 = scratch
-        (1 << Registers::t9) | // t9 = scratch
-        (1 << Registers::k0) |
-        (1 << Registers::k1) |
-        (1 << Registers::gp) |
-        (1 << Registers::sp) |
+        (1 << Registers::zero) | (1 << Registers::at) |  // at = scratch
+        (1 << Registers::t8) |                           // t8 = scratch
+        (1 << Registers::t9) |                           // t9 = scratch
+        (1 << Registers::k0) | (1 << Registers::k1) | (1 << Registers::gp) | (1 << Registers::sp) |
         (1 << Registers::ra);
 
     // Registers that can be allocated without being saved, generally.
@@ -217,20 +192,15 @@ class Registers
         static_assert(sizeof(SetType) == 4, "SetType must be 32 bits");
         return mozilla::CountPopulation32(x);
     }
-    static uint32_t FirstBit(SetType x) {
-        return mozilla::CountTrailingZeroes32(x);
-    }
-    static uint32_t LastBit(SetType x) {
-        return 31 - mozilla::CountLeadingZeroes32(x);
-    }
+    static uint32_t FirstBit(SetType x) { return mozilla::CountTrailingZeroes32(x); }
+    static uint32_t LastBit(SetType x) { return 31 - mozilla::CountLeadingZeroes32(x); }
 };
 
 // Smallest integer type that can hold a register bitmask.
 typedef uint32_t PackedRegisterMask;
 
-class FloatRegistersMIPSShared
-{
-  public:
+class FloatRegistersMIPSShared {
+   public:
     enum FPRegisterID {
         f0 = 0,
         f1,
@@ -275,11 +245,10 @@ class FloatRegistersMIPSShared
     };
 
     static const char* GetName(Code code) {
-        static const char * const Names[] = { "f0", "f1", "f2", "f3",  "f4", "f5",  "f6", "f7",
-                                              "f8", "f9",  "f10", "f11", "f12", "f13",
-                                              "f14", "f15", "f16", "f17", "f18", "f19",
-                                              "f20", "f21", "f22", "f23", "f24", "f25",
-                                              "f26", "f27", "f28", "f29", "f30", "f31"};
+        static const char* const Names[] = {
+            "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",  "f8",  "f9",  "f10",
+            "f11", "f12", "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21",
+            "f22", "f23", "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31"};
         return Names[code];
     }
 
@@ -291,9 +260,8 @@ class FloatRegistersMIPSShared
 template <typename T>
 class TypedRegisterSet;
 
-class FloatRegisterMIPSShared
-{
-  public:
+class FloatRegisterMIPSShared {
+   public:
     bool isSimd128() const { return false; }
 
     typedef FloatRegistersMIPSShared::SetType SetType;
@@ -302,20 +270,16 @@ class FloatRegisterMIPSShared
         static_assert(sizeof(SetType) == 8, "SetType must be 64 bits");
         return mozilla::CountPopulation32(x);
     }
-    static uint32_t FirstBit(SetType x) {
-        return mozilla::CountTrailingZeroes64(x);
-    }
-    static uint32_t LastBit(SetType x) {
-        return 63 - mozilla::CountLeadingZeroes64(x);
-    }
+    static uint32_t FirstBit(SetType x) { return mozilla::CountTrailingZeroes64(x); }
+    static uint32_t LastBit(SetType x) { return 63 - mozilla::CountLeadingZeroes64(x); }
 };
 
 namespace mips_private {
-    extern uint32_t Flags;
-    extern bool hasFPU;
-    extern bool isLoongson;
-    extern bool hasR2;
-}
+extern uint32_t Flags;
+extern bool hasFPU;
+extern bool isLoongson;
+extern bool hasR2;
+}  // namespace mips_private
 
 inline uint32_t GetMIPSFlags() { return mips_private::Flags; }
 inline bool hasFPU() { return mips_private::hasFPU; }
@@ -323,20 +287,14 @@ inline bool isLoongson() { return mips_private::isLoongson; }
 inline bool hasR2() { return mips_private::hasR2; }
 
 // MIPS doesn't have double registers that can NOT be treated as float32.
-inline bool
-hasUnaliasedDouble() {
-    return false;
-}
+inline bool hasUnaliasedDouble() { return false; }
 
 // On MIPS, fn-double aliases both fn-float32 and fn+1-float32, so if you need
 // to convert a float32 to a double as a temporary, you need a temporary
 // double register.
-inline bool
-hasMultiAlias() {
-    return true;
-}
+inline bool hasMultiAlias() { return true; }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips_shared_Architecture_mips_shared_h */

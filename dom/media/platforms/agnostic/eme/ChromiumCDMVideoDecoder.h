@@ -17,7 +17,7 @@ struct GMPVideoDecoderParams;
 
 class ChromiumCDMVideoDecoder : public MediaDataDecoder
 {
-public:
+ public:
   ChromiumCDMVideoDecoder(const GMPVideoDecoderParams& aParams,
                           CDMProxy* aCDMProxy);
 
@@ -29,7 +29,7 @@ public:
   nsCString GetDescriptionName() const override;
   ConversionRequired NeedsConversion() const override;
 
-private:
+ private:
   ~ChromiumCDMVideoDecoder();
 
   RefPtr<gmp::ChromiumCDMParent> mCDMParent;
@@ -41,6 +41,6 @@ private:
   bool mConvertToAnnexB = false;
 };
 
-} // mozilla
+}  // namespace mozilla
 
-#endif // ChromiumCDMVideoDecoder_h_
+#endif  // ChromiumCDMVideoDecoder_h_

@@ -18,42 +18,42 @@ struct CacheIndexRecord;
 
 class CacheIndexIterator
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CacheIndexIterator)
 
-  CacheIndexIterator(CacheIndex *aIndex, bool aAddNew);
+  CacheIndexIterator(CacheIndex* aIndex, bool aAddNew);
 
-protected:
+ protected:
   virtual ~CacheIndexIterator();
 
-public:
+ public:
   // Returns a hash of a next entry. If there is no entry NS_ERROR_NOT_AVAILABLE
   // is returned and the iterator is closed. Other error is returned when the
   // iterator is closed for other reason, e.g. shutdown.
-  nsresult GetNextHash(SHA1Sum::Hash *aHash);
+  nsresult GetNextHash(SHA1Sum::Hash* aHash);
 
   // Closes the iterator. This means the iterator is removed from the list of
   // iterators in CacheIndex.
   nsresult Close();
 
-protected:
+ protected:
   friend class CacheIndex;
 
   nsresult CloseInternal(nsresult aStatus);
 
   bool ShouldBeNewAdded() { return mAddNew; }
-  virtual void AddRecord(CacheIndexRecord *aRecord);
-  bool RemoveRecord(CacheIndexRecord *aRecord);
-  bool ReplaceRecord(CacheIndexRecord *aOldRecord,
-                     CacheIndexRecord *aNewRecord);
+  virtual void AddRecord(CacheIndexRecord* aRecord);
+  bool RemoveRecord(CacheIndexRecord* aRecord);
+  bool ReplaceRecord(CacheIndexRecord* aOldRecord,
+                     CacheIndexRecord* aNewRecord);
 
-  nsresult                     mStatus;
-  RefPtr<CacheIndex>           mIndex;
-  nsTArray<CacheIndexRecord *> mRecords;
-  bool                         mAddNew;
+  nsresult mStatus;
+  RefPtr<CacheIndex> mIndex;
+  nsTArray<CacheIndexRecord*> mRecords;
+  bool mAddNew;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

@@ -14,7 +14,7 @@ class nsIFrame;
 
 class nsIScrollbarMediator : public nsQueryFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIScrollbarMediator)
 
   /**
@@ -29,18 +29,25 @@ public:
    * The additional scrolling may include asynchronous smooth scrolls that
    * continue to animate after the initial scroll position has been set.
    */
-  enum ScrollSnapMode { DISABLE_SNAP, ENABLE_SNAP };
+  enum ScrollSnapMode
+  {
+    DISABLE_SNAP,
+    ENABLE_SNAP
+  };
 
   /**
    * One of the following three methods is called when the scrollbar's button is
    * clicked.
    * @note These methods might destroy the frame, pres shell, and other objects.
    */
-  virtual void ScrollByPage(nsScrollbarFrame* aScrollbar, int32_t aDirection,
+  virtual void ScrollByPage(nsScrollbarFrame* aScrollbar,
+                            int32_t aDirection,
                             ScrollSnapMode aSnap = DISABLE_SNAP) = 0;
-  virtual void ScrollByWhole(nsScrollbarFrame* aScrollbar, int32_t aDirection,
-                            ScrollSnapMode aSnap = DISABLE_SNAP) = 0;
-  virtual void ScrollByLine(nsScrollbarFrame* aScrollbar, int32_t aDirection,
+  virtual void ScrollByWhole(nsScrollbarFrame* aScrollbar,
+                             int32_t aDirection,
+                             ScrollSnapMode aSnap = DISABLE_SNAP) = 0;
+  virtual void ScrollByLine(nsScrollbarFrame* aScrollbar,
+                            int32_t aDirection,
                             ScrollSnapMode aSnap = DISABLE_SNAP) = 0;
   /**
    * RepeatButtonScroll is called when the scrollbar's button is held down. When the
@@ -88,4 +95,3 @@ public:
 };
 
 #endif
-

@@ -15,7 +15,8 @@ namespace mscom {
 
 /* static */ HRESULT
 DispatchForwarder::Create(IInterceptor* aInterceptor,
-                          STAUniquePtr<IDispatch>& aTarget, IUnknown** aOutput)
+                          STAUniquePtr<IDispatch>& aTarget,
+                          IUnknown** aOutput)
 {
   MOZ_ASSERT(aInterceptor && aOutput);
   if (!aOutput) {
@@ -26,22 +27,18 @@ DispatchForwarder::Create(IInterceptor* aInterceptor,
     return E_INVALIDARG;
   }
   DispatchForwarder* forwarder = new DispatchForwarder(aInterceptor, aTarget);
-  HRESULT hr = forwarder->QueryInterface(IID_IDispatch, (void**) aOutput);
+  HRESULT hr = forwarder->QueryInterface(IID_IDispatch, (void**)aOutput);
   forwarder->Release();
   return hr;
 }
 
 DispatchForwarder::DispatchForwarder(IInterceptor* aInterceptor,
                                      STAUniquePtr<IDispatch>& aTarget)
-  : mRefCnt(1)
-  , mInterceptor(aInterceptor)
-  , mTarget(Move(aTarget))
+    : mRefCnt(1), mInterceptor(aInterceptor), mTarget(Move(aTarget))
 {
 }
 
-DispatchForwarder::~DispatchForwarder()
-{
-}
+DispatchForwarder::~DispatchForwarder() {}
 
 HRESULT
 DispatchForwarder::QueryInterface(REFIID riid, void** ppv)
@@ -71,13 +68,13 @@ DispatchForwarder::QueryInterface(REFIID riid, void** ppv)
 ULONG
 DispatchForwarder::AddRef()
 {
-  return (ULONG) InterlockedIncrement((LONG*)&mRefCnt);
+  return (ULONG)InterlockedIncrement((LONG*)&mRefCnt);
 }
 
 ULONG
 DispatchForwarder::Release()
 {
-  ULONG newRefCnt = (ULONG) InterlockedDecrement((LONG*)&mRefCnt);
+  ULONG newRefCnt = (ULONG)InterlockedDecrement((LONG*)&mRefCnt);
   if (newRefCnt == 0) {
     delete this;
   }
@@ -85,7 +82,7 @@ DispatchForwarder::Release()
 }
 
 HRESULT
-DispatchForwarder::GetTypeInfoCount(UINT *pctinfo)
+DispatchForwarder::GetTypeInfoCount(UINT* pctinfo)
 {
   if (!pctinfo) {
     return E_INVALIDARG;
@@ -95,7 +92,7 @@ DispatchForwarder::GetTypeInfoCount(UINT *pctinfo)
 }
 
 HRESULT
-DispatchForwarder::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
+DispatchForwarder::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo** ppTInfo)
 {
   // ITypeInfo as implemented by COM is apartment-neutral, so we don't need
   // to wrap it (yay!)
@@ -105,11 +102,10 @@ DispatchForwarder::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
     return S_OK;
   }
   HRESULT hr = E_UNEXPECTED;
-  auto fn = [&]() -> void {
-    hr = mTarget->GetTypeInfo(iTInfo, lcid, ppTInfo);
-  };
+  auto fn = [&]() -> void { hr = mTarget->GetTypeInfo(iTInfo, lcid, ppTInfo); };
   MainThreadInvoker invoker;
-  if (!invoker.Invoke(NS_NewRunnableFunction("DispatchForwarder::GetTypeInfo", fn))) {
+  if (!invoker.Invoke(
+          NS_NewRunnableFunction("DispatchForwarder::GetTypeInfo", fn))) {
     return E_UNEXPECTED;
   }
   if (FAILED(hr)) {
@@ -120,25 +116,30 @@ DispatchForwarder::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
 }
 
 HRESULT
-DispatchForwarder::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames,
-                                 LCID lcid, DISPID *rgDispId)
+DispatchForwarder::GetIDsOfNames(
+    REFIID riid, LPOLESTR* rgszNames, UINT cNames, LCID lcid, DISPID* rgDispId)
 {
   HRESULT hr = E_UNEXPECTED;
   auto fn = [&]() -> void {
     hr = mTarget->GetIDsOfNames(riid, rgszNames, cNames, lcid, rgDispId);
   };
   MainThreadInvoker invoker;
-  if (!invoker.Invoke(NS_NewRunnableFunction("DispatchForwarder::GetIDsOfNames", fn))) {
+  if (!invoker.Invoke(
+          NS_NewRunnableFunction("DispatchForwarder::GetIDsOfNames", fn))) {
     return E_UNEXPECTED;
   }
   return hr;
 }
 
 HRESULT
-DispatchForwarder::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid,
-                          WORD wFlags, DISPPARAMS *pDispParams,
-                          VARIANT *pVarResult, EXCEPINFO *pExcepInfo,
-                          UINT *puArgErr)
+DispatchForwarder::Invoke(DISPID dispIdMember,
+                          REFIID riid,
+                          LCID lcid,
+                          WORD wFlags,
+                          DISPPARAMS* pDispParams,
+                          VARIANT* pVarResult,
+                          EXCEPINFO* pExcepInfo,
+                          UINT* puArgErr)
 {
   HRESULT hr;
   if (!mInterface) {
@@ -158,10 +159,16 @@ DispatchForwarder::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid,
     }
   }
   // We don't invoke IDispatch on the target, but rather on the interceptor!
-  hr = ::DispInvoke(mInterface.get(), mTypeInfo, dispIdMember, wFlags,
-                    pDispParams, pVarResult, pExcepInfo, puArgErr);
+  hr = ::DispInvoke(mInterface.get(),
+                    mTypeInfo,
+                    dispIdMember,
+                    wFlags,
+                    pDispParams,
+                    pVarResult,
+                    pExcepInfo,
+                    puArgErr);
   return hr;
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

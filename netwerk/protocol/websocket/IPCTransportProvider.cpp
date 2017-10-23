@@ -17,13 +17,9 @@ NS_IMPL_ISUPPORTS(TransportProviderParent,
                   nsITransportProvider,
                   nsIHttpUpgradeListener)
 
-TransportProviderParent::TransportProviderParent()
-{
-}
+TransportProviderParent::TransportProviderParent() {}
 
-TransportProviderParent::~TransportProviderParent()
-{
-}
+TransportProviderParent::~TransportProviderParent() {}
 
 NS_IMETHODIMP
 TransportProviderParent::SetListener(nsIHttpUpgradeListener* aListener)
@@ -37,7 +33,8 @@ TransportProviderParent::SetListener(nsIHttpUpgradeListener* aListener)
 }
 
 NS_IMETHODIMP
-TransportProviderParent::GetIPCChild(mozilla::net::PTransportProviderChild** aChild)
+TransportProviderParent::GetIPCChild(
+    mozilla::net::PTransportProviderChild** aChild)
 {
   MOZ_CRASH("Don't call this in parent process");
   *aChild = nullptr;
@@ -66,24 +63,16 @@ TransportProviderParent::MaybeNotify()
     return;
   }
 
-  DebugOnly<nsresult> rv = mListener->OnTransportAvailable(mTransport,
-                                                           mSocketIn,
-                                                           mSocketOut);
+  DebugOnly<nsresult> rv =
+      mListener->OnTransportAvailable(mTransport, mSocketIn, mSocketOut);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 }
 
+NS_IMPL_ISUPPORTS(TransportProviderChild, nsITransportProvider)
 
-NS_IMPL_ISUPPORTS(TransportProviderChild,
-                  nsITransportProvider)
+TransportProviderChild::TransportProviderChild() {}
 
-TransportProviderChild::TransportProviderChild()
-{
-}
-
-TransportProviderChild::~TransportProviderChild()
-{
-  Send__delete__(this);
-}
+TransportProviderChild::~TransportProviderChild() { Send__delete__(this); }
 
 NS_IMETHODIMP
 TransportProviderChild::SetListener(nsIHttpUpgradeListener* aListener)
@@ -93,11 +82,12 @@ TransportProviderChild::SetListener(nsIHttpUpgradeListener* aListener)
 }
 
 NS_IMETHODIMP
-TransportProviderChild::GetIPCChild(mozilla::net::PTransportProviderChild** aChild)
+TransportProviderChild::GetIPCChild(
+    mozilla::net::PTransportProviderChild** aChild)
 {
   *aChild = this;
   return NS_OK;
 }
 
-} // net
-} // mozilla
+}  // namespace net
+}  // namespace mozilla

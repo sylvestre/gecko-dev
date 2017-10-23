@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef nsIRootBox_h___
 #define nsIRootBox_h___
 
@@ -14,7 +13,7 @@ class nsIPresShell;
 
 class nsIRootBox
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIRootBox)
 
   virtual nsPopupSetFrame* GetPopupSetFrame() = 0;
@@ -30,4 +29,3 @@ public:
 };
 
 #endif
-

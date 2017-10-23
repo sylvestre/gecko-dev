@@ -1,1 +1,2 @@
-void ThrowException();
+void
+ThrowException();

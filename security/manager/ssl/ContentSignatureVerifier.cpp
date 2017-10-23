@@ -53,9 +53,11 @@ ContentSignatureVerifier::~ContentSignatureVerifier()
 }
 
 NS_IMETHODIMP
-ContentSignatureVerifier::VerifyContentSignature(
-  const nsACString& aData, const nsACString& aCSHeader,
-  const nsACString& aCertChain, const nsACString& aName, bool* _retval)
+ContentSignatureVerifier::VerifyContentSignature(const nsACString& aData,
+                                                 const nsACString& aCSHeader,
+                                                 const nsACString& aCertChain,
+                                                 const nsACString& aName,
+                                                 bool* _retval)
 {
   NS_ENSURE_ARG(_retval);
   nsresult rv = CreateContext(aData, aCSHeader, aCertChain, aName);
@@ -78,7 +80,8 @@ IsNewLine(char16_t c)
 }
 
 nsresult
-ReadChainIntoCertList(const nsACString& aCertChain, CERTCertList* aCertList,
+ReadChainIntoCertList(const nsACString& aCertChain,
+                      CERTCertList* aCertList,
                       const nsNSSShutDownPreventionLock& /*proofOfLock*/)
 {
   bool inBlock = false;
@@ -107,13 +110,12 @@ ReadChainIntoCertList(const nsACString& aCertChain, CERTCertList* aCertList,
           return rv;
         }
         SECItem der = {
-          siBuffer,
-          BitwiseCast<unsigned char*, const char*>(derString.get()),
-          derString.Length(),
+            siBuffer,
+            BitwiseCast<unsigned char*, const char*>(derString.get()),
+            derString.Length(),
         };
-        UniqueCERTCertificate tmpCert(
-          CERT_NewTempCertificate(CERT_GetDefaultCertDB(), &der, nullptr, false,
-                                  true));
+        UniqueCERTCertificate tmpCert(CERT_NewTempCertificate(
+            CERT_GetDefaultCertDB(), &der, nullptr, false, true));
         if (!tmpCert) {
           return NS_ERROR_FAILURE;
         }
@@ -170,21 +172,22 @@ ContentSignatureVerifier::CreateContextInternal(const nsACString& aData,
 
   Input certDER;
   mozilla::pkix::Result result =
-    certDER.Init(BitwiseCast<uint8_t*, unsigned char*>(certSecItem->data),
-                 certSecItem->len);
+      certDER.Init(BitwiseCast<uint8_t*, unsigned char*>(certSecItem->data),
+                   certSecItem->len);
   if (result != Success) {
     return NS_ERROR_FAILURE;
   }
 
-
   // Check the signerCert chain is good
   CSTrustDomain trustDomain(certCertList);
-  result = BuildCertChain(trustDomain, certDER, Now(),
+  result = BuildCertChain(trustDomain,
+                          certDER,
+                          Now(),
                           EndEntityOrCA::MustBeEndEntity,
                           KeyUsage::noParticularKeyUsageRequired,
                           KeyPurposeId::id_kp_codeSigning,
                           CertPolicyId::anyPolicy,
-                          nullptr/*stapledOCSPResponse*/);
+                          nullptr /*stapledOCSPResponse*/);
   if (result != Success) {
     // if there was a library error, return an appropriate error
     if (IsFatalError(result)) {
@@ -199,8 +202,8 @@ ContentSignatureVerifier::CreateContextInternal(const nsACString& aData,
   Input hostnameInput;
 
   result = hostnameInput.Init(
-    BitwiseCast<const uint8_t*, const char*>(aName.BeginReading()),
-    aName.Length());
+      BitwiseCast<const uint8_t*, const char*>(aName.BeginReading()),
+      aName.Length());
   if (result != Success) {
     return NS_ERROR_FAILURE;
   }
@@ -230,9 +233,9 @@ ContentSignatureVerifier::CreateContextInternal(const nsACString& aData,
   // get signature object
   ScopedAutoSECItem signatureItem;
   SECItem rawSignatureItem = {
-    siBuffer,
-    BitwiseCast<unsigned char*, const char*>(rawSignature.get()),
-    rawSignature.Length(),
+      siBuffer,
+      BitwiseCast<unsigned char*, const char*>(rawSignature.get()),
+      rawSignature.Length(),
   };
   // We have a raw ecdsa signature r||s so we have to DER-encode it first
   // Note that we have to check rawSignatureItem->len % 2 here as
@@ -241,7 +244,8 @@ ContentSignatureVerifier::CreateContextInternal(const nsACString& aData,
     CSVerifier_LOG(("CSVerifier: signature length is bad\n"));
     return NS_ERROR_FAILURE;
   }
-  if (DSAU_EncodeDerSigWithLen(&signatureItem, &rawSignatureItem,
+  if (DSAU_EncodeDerSigWithLen(&signatureItem,
+                               &rawSignatureItem,
                                rawSignatureItem.len) != SECSuccess) {
     CSVerifier_LOG(("CSVerifier: encoding the signature failed\n"));
     return NS_ERROR_FAILURE;
@@ -251,7 +255,7 @@ ContentSignatureVerifier::CreateContextInternal(const nsACString& aData,
   SECOidTag oid = SEC_OID_ANSIX962_ECDSA_SHA384_SIGNATURE;
 
   mCx = UniqueVFYContext(
-    VFY_CreateContext(mKey.get(), &signatureItem, oid, nullptr));
+      VFY_CreateContext(mKey.get(), &signatureItem, oid, nullptr));
   if (!mCx) {
     return NS_ERROR_INVALID_SIGNATURE;
   }
@@ -293,7 +297,8 @@ ContentSignatureVerifier::DownloadCertChain()
     return NS_ERROR_INVALID_SIGNATURE;
   }
 
-  rv = NS_NewChannel(getter_AddRefs(mChannel), certChainURI,
+  rv = NS_NewChannel(getter_AddRefs(mChannel),
+                     certChainURI,
                      nsContentUtils::GetSystemPrincipal(),
                      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
                      nsIContentPolicy::TYPE_OTHER);
@@ -320,8 +325,9 @@ ContentSignatureVerifier::DownloadCertChain()
 // must contain an x5u value that is then used to download the cert chain.
 NS_IMETHODIMP
 ContentSignatureVerifier::CreateContextWithoutCertChain(
-  nsIContentSignatureReceiverCallback *aCallback, const nsACString& aCSHeader,
-  const nsACString& aName)
+    nsIContentSignatureReceiverCallback* aCallback,
+    const nsACString& aCSHeader,
+    const nsACString& aName)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aCallback);
@@ -372,11 +378,12 @@ ContentSignatureVerifier::CreateContext(const nsACString& aData,
 
 nsresult
 ContentSignatureVerifier::UpdateInternal(
-  const nsACString& aData, const nsNSSShutDownPreventionLock& /*proofOfLock*/)
+    const nsACString& aData, const nsNSSShutDownPreventionLock& /*proofOfLock*/)
 {
   if (!aData.IsEmpty()) {
-    if (VFY_Update(mCx.get(), (const unsigned char*)nsPromiseFlatCString(aData).get(),
-                   aData.Length()) != SECSuccess){
+    if (VFY_Update(mCx.get(),
+                   (const unsigned char*)nsPromiseFlatCString(aData).get(),
+                   aData.Length()) != SECSuccess) {
       return NS_ERROR_INVALID_SIGNATURE;
     }
   }
@@ -399,8 +406,8 @@ ContentSignatureVerifier::Update(const nsACString& aData)
   // If we didn't create the context yet, bail!
   if (!mHasCertChain) {
     MOZ_ASSERT_UNREACHABLE(
-      "Someone called ContentSignatureVerifier::Update before "
-      "downloading the cert chain.");
+        "Someone called ContentSignatureVerifier::Update before "
+        "downloading the cert chain.");
     return NS_ERROR_FAILURE;
   }
 
@@ -424,8 +431,8 @@ ContentSignatureVerifier::End(bool* _retval)
   // If we didn't create the context yet, bail!
   if (!mHasCertChain) {
     MOZ_ASSERT_UNREACHABLE(
-      "Someone called ContentSignatureVerifier::End before "
-      "downloading the cert chain.");
+        "Someone called ContentSignatureVerifier::End before "
+        "downloading the cert chain.");
     return NS_ERROR_FAILURE;
   }
 
@@ -436,7 +443,7 @@ ContentSignatureVerifier::End(bool* _retval)
 
 nsresult
 ContentSignatureVerifier::ParseContentSignatureHeader(
-  const nsACString& aContentSignatureHeader)
+    const nsACString& aContentSignatureHeader)
 {
   MOZ_ASSERT(NS_IsMainThread());
   // We only support p384 ecdsa according to spec
@@ -453,8 +460,10 @@ ContentSignatureVerifier::ParseContentSignatureHeader(
   LinkedList<nsSecurityHeaderDirective>* directives = parser.GetDirectives();
 
   for (nsSecurityHeaderDirective* directive = directives->getFirst();
-       directive != nullptr; directive = directive->getNext()) {
-    CSVerifier_LOG(("CSVerifier: found directive %s\n", directive->mName.get()));
+       directive != nullptr;
+       directive = directive->getNext()) {
+    CSVerifier_LOG(
+        ("CSVerifier: found directive %s\n", directive->mName.get()));
     if (directive->mName.Length() == signature_var.Length() &&
         directive->mName.EqualsIgnoreCase(signature_var.get(),
                                           signature_var.Length())) {
@@ -481,7 +490,9 @@ ContentSignatureVerifier::ParseContentSignatureHeader(
 
   // we have to ensure that we found a signature at this point
   if (mSignature.IsEmpty()) {
-    CSVerifier_LOG(("CSVerifier: got a Content-Signature header but didn't find a signature.\n"));
+    CSVerifier_LOG(
+        ("CSVerifier: got a Content-Signature header but didn't find a "
+         "signature.\n"));
     return NS_ERROR_FAILURE;
   }
 
@@ -506,7 +517,8 @@ ContentSignatureVerifier::OnStartRequest(nsIRequest* aRequest,
 
 NS_IMETHODIMP
 ContentSignatureVerifier::OnStopRequest(nsIRequest* aRequest,
-                                        nsISupports* aContext, nsresult aStatus)
+                                        nsISupports* aContext,
+                                        nsresult aStatus)
 {
   MOZ_ASSERT(NS_IsMainThread());
   nsCOMPtr<nsIContentSignatureReceiverCallback> callback;
@@ -548,7 +560,8 @@ NS_IMETHODIMP
 ContentSignatureVerifier::OnDataAvailable(nsIRequest* aRequest,
                                           nsISupports* aContext,
                                           nsIInputStream* aInputStream,
-                                          uint64_t aOffset, uint32_t aCount)
+                                          uint64_t aOffset,
+                                          uint32_t aCount)
 {
   MOZ_ASSERT(NS_IsMainThread());
   nsAutoCString buffer;

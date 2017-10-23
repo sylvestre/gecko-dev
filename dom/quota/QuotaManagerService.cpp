@@ -50,8 +50,7 @@ mozilla::Atomic<bool> gClosed(false);
 mozilla::Atomic<bool> gTestingMode(false);
 
 void
-TestingPrefChangedCallback(const char* aPrefName,
-                           void* aClosure)
+TestingPrefChangedCallback(const char* aPrefName, void* aClosure)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!strcmp(aPrefName, kTestingPref));
@@ -79,125 +78,105 @@ CheckedPrincipalToPrincipalInfo(nsIPrincipal* aPrincipal,
   return NS_OK;
 }
 
-class AbortOperationsRunnable final
-  : public Runnable
+class AbortOperationsRunnable final : public Runnable
 {
   ContentParentId mContentParentId;
 
-public:
+ public:
   explicit AbortOperationsRunnable(ContentParentId aContentParentId)
-    : Runnable("dom::quota::AbortOperationsRunnable")
-    , mContentParentId(aContentParentId)
-  { }
+      : Runnable("dom::quota::AbortOperationsRunnable"),
+        mContentParentId(aContentParentId)
+  {
+  }
 
-private:
+ private:
   NS_DECL_NSIRUNNABLE
 };
 
-} // namespace
+}  // namespace
 
 class QuotaManagerService::BackgroundCreateCallback final
-  : public nsIIPCBackgroundChildCreateCallback
+    : public nsIIPCBackgroundChildCreateCallback
 {
   RefPtr<QuotaManagerService> mService;
 
-public:
-  explicit
-  BackgroundCreateCallback(QuotaManagerService* aService)
-    : mService(aService)
+ public:
+  explicit BackgroundCreateCallback(QuotaManagerService* aService)
+      : mService(aService)
   {
     MOZ_ASSERT(aService);
   }
 
   NS_DECL_ISUPPORTS
 
-private:
-  ~BackgroundCreateCallback()
-  { }
+ private:
+  ~BackgroundCreateCallback() {}
 
   NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK
 };
 
 class QuotaManagerService::PendingRequestInfo
 {
-protected:
+ protected:
   RefPtr<RequestBase> mRequest;
 
-public:
-  explicit PendingRequestInfo(RequestBase* aRequest)
-    : mRequest(aRequest)
-  { }
+ public:
+  explicit PendingRequestInfo(RequestBase* aRequest) : mRequest(aRequest) {}
 
-  virtual ~PendingRequestInfo()
-  { }
+  virtual ~PendingRequestInfo() {}
 
-  RequestBase*
-  GetRequest() const
-  {
-    return mRequest;
-  }
+  RequestBase* GetRequest() const { return mRequest; }
 
-  virtual nsresult
-  InitiateRequest(QuotaChild* aActor) = 0;
+  virtual nsresult InitiateRequest(QuotaChild* aActor) = 0;
 };
 
-class QuotaManagerService::UsageRequestInfo
-  : public PendingRequestInfo
+class QuotaManagerService::UsageRequestInfo : public PendingRequestInfo
 {
   UsageRequestParams mParams;
 
-public:
-  UsageRequestInfo(UsageRequest* aRequest,
-                   const UsageRequestParams& aParams)
-    : PendingRequestInfo(aRequest)
-    , mParams(aParams)
+ public:
+  UsageRequestInfo(UsageRequest* aRequest, const UsageRequestParams& aParams)
+      : PendingRequestInfo(aRequest), mParams(aParams)
   {
     MOZ_ASSERT(aRequest);
     MOZ_ASSERT(aParams.type() != UsageRequestParams::T__None);
   }
 
-  virtual nsresult
-  InitiateRequest(QuotaChild* aActor) override;
+  virtual nsresult InitiateRequest(QuotaChild* aActor) override;
 };
 
-class QuotaManagerService::RequestInfo
-  : public PendingRequestInfo
+class QuotaManagerService::RequestInfo : public PendingRequestInfo
 {
   RequestParams mParams;
 
-public:
-  RequestInfo(Request* aRequest,
-              const RequestParams& aParams)
-    : PendingRequestInfo(aRequest)
-    , mParams(aParams)
+ public:
+  RequestInfo(Request* aRequest, const RequestParams& aParams)
+      : PendingRequestInfo(aRequest), mParams(aParams)
   {
     MOZ_ASSERT(aRequest);
     MOZ_ASSERT(aParams.type() != RequestParams::T__None);
   }
 
-  virtual nsresult
-  InitiateRequest(QuotaChild* aActor) override;
+  virtual nsresult InitiateRequest(QuotaChild* aActor) override;
 };
 
-class QuotaManagerService::IdleMaintenanceInfo
-  : public PendingRequestInfo
+class QuotaManagerService::IdleMaintenanceInfo : public PendingRequestInfo
 {
   const bool mStart;
 
-public:
+ public:
   explicit IdleMaintenanceInfo(bool aStart)
-    : PendingRequestInfo(nullptr)
-    , mStart(aStart)
-  { }
+      : PendingRequestInfo(nullptr), mStart(aStart)
+  {
+  }
 
-  virtual nsresult
-  InitiateRequest(QuotaChild* aActor) override;
+  virtual nsresult InitiateRequest(QuotaChild* aActor) override;
 };
 
 QuotaManagerService::QuotaManagerService()
-  : mBackgroundActor(nullptr)
-  , mBackgroundActorFailed(false)
-  , mIdleObserverRegistered(false)
+    : mBackgroundActor(nullptr),
+      mBackgroundActorFailed(false),
+      mIdleObserverRegistered(false)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
@@ -296,10 +275,10 @@ QuotaManagerService::AbortOperationsForProcess(ContentParentId aContentParentId)
   }
 
   RefPtr<AbortOperationsRunnable> runnable =
-    new AbortOperationsRunnable(aContentParentId);
+      new AbortOperationsRunnable(aContentParentId);
 
   MOZ_ALWAYS_SUCCEEDS(
-    mBackgroundThread->Dispatch(runnable, NS_DISPATCH_NORMAL));
+      mBackgroundThread->Dispatch(runnable, NS_DISPATCH_NORMAL));
 }
 
 nsresult
@@ -309,15 +288,13 @@ QuotaManagerService::Init()
 
   if (XRE_IsParentProcess()) {
     nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
+        mozilla::services::GetObserverService();
     if (NS_WARN_IF(!observerService)) {
       return NS_ERROR_FAILURE;
     }
 
-    nsresult rv =
-      observerService->AddObserver(this,
-                                   PROFILE_BEFORE_CHANGE_QM_OBSERVER_ID,
-                                   false);
+    nsresult rv = observerService->AddObserver(
+        this, PROFILE_BEFORE_CHANGE_QM_OBSERVER_ID, false);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -389,8 +366,8 @@ QuotaManagerService::BackgroundActorCreated(PBackgroundChild* aBackgroundActor)
   {
     QuotaChild* actor = new QuotaChild(this);
 
-    mBackgroundActor =
-      static_cast<QuotaChild*>(aBackgroundActor->SendPQuotaConstructor(actor));
+    mBackgroundActor = static_cast<QuotaChild*>(
+        aBackgroundActor->SendPQuotaConstructor(actor));
   }
 
   if (NS_WARN_IF(!mBackgroundActor)) {
@@ -400,8 +377,7 @@ QuotaManagerService::BackgroundActorCreated(PBackgroundChild* aBackgroundActor)
 
   nsresult rv = NS_OK;
 
-  for (uint32_t index = 0, count = mPendingRequests.Length();
-       index < count;
+  for (uint32_t index = 0, count = mPendingRequests.Length(); index < count;
        index++) {
     nsAutoPtr<PendingRequestInfo> info(mPendingRequests[index].forget());
 
@@ -429,8 +405,7 @@ QuotaManagerService::BackgroundActorFailed()
 
   mBackgroundActorFailed = true;
 
-  for (uint32_t index = 0, count = mPendingRequests.Length();
-       index < count;
+  for (uint32_t index = 0, count = mPendingRequests.Length(); index < count;
        index++) {
     nsAutoPtr<PendingRequestInfo> info(mPendingRequests[index].forget());
 
@@ -484,11 +459,11 @@ QuotaManagerService::PerformIdleMaintenance()
     Unused << Observe(nullptr, OBSERVER_TOPIC_IDLE, nullptr);
   } else if (!mIdleObserverRegistered) {
     nsCOMPtr<nsIIdleService> idleService =
-      do_GetService(kIdleServiceContractId);
+        do_GetService(kIdleServiceContractId);
     MOZ_ASSERT(idleService);
 
     MOZ_ALWAYS_SUCCEEDS(
-      idleService->AddIdleObserver(this, kIdleObserverTimeSec));
+        idleService->AddIdleObserver(this, kIdleObserverTimeSec));
 
     mIdleObserverRegistered = true;
   }
@@ -502,13 +477,12 @@ QuotaManagerService::RemoveIdleObserver()
 
   if (mIdleObserverRegistered) {
     nsCOMPtr<nsIIdleService> idleService =
-      do_GetService(kIdleServiceContractId);
+        do_GetService(kIdleServiceContractId);
     MOZ_ASSERT(idleService);
 
     // Ignore the return value of RemoveIdleObserver, it may fail if the
     // observer has already been unregistered during shutdown.
-    Unused <<
-      idleService->RemoveIdleObserver(this, kIdleObserverTimeSec);
+    Unused << idleService->RemoveIdleObserver(this, kIdleObserverTimeSec);
 
     mIdleObserverRegistered = false;
   }
@@ -547,9 +521,9 @@ QuotaManagerService::Init(nsIQuotaRequest** _retval)
 
 NS_IMETHODIMP
 QuotaManagerService::InitStoragesForPrincipal(
-                                             nsIPrincipal* aPrincipal,
-                                             const nsACString& aPersistenceType,
-                                             nsIQuotaRequest** _retval)
+    nsIPrincipal* aPrincipal,
+    const nsACString& aPersistenceType,
+    nsIQuotaRequest** _retval)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(nsContentUtils::IsCallerChrome());
@@ -562,8 +536,8 @@ QuotaManagerService::InitStoragesForPrincipal(
 
   InitOriginParams params;
 
-  nsresult rv = CheckedPrincipalToPrincipalInfo(aPrincipal,
-                                                params.principalInfo());
+  nsresult rv =
+      CheckedPrincipalToPrincipalInfo(aPrincipal, params.principalInfo());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -626,8 +600,8 @@ QuotaManagerService::GetUsageForPrincipal(nsIPrincipal* aPrincipal,
 
   OriginUsageParams params;
 
-  nsresult rv = CheckedPrincipalToPrincipalInfo(aPrincipal,
-                                                params.principalInfo());
+  nsresult rv =
+      CheckedPrincipalToPrincipalInfo(aPrincipal, params.principalInfo());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -670,10 +644,11 @@ QuotaManagerService::Clear(nsIQuotaRequest** _retval)
 }
 
 NS_IMETHODIMP
-QuotaManagerService::ClearStoragesForPrincipal(nsIPrincipal* aPrincipal,
-                                               const nsACString& aPersistenceType,
-                                               bool aClearAll,
-                                               nsIQuotaRequest** _retval)
+QuotaManagerService::ClearStoragesForPrincipal(
+    nsIPrincipal* aPrincipal,
+    const nsACString& aPersistenceType,
+    bool aClearAll,
+    nsIQuotaRequest** _retval)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPrincipal);
@@ -691,8 +666,8 @@ QuotaManagerService::ClearStoragesForPrincipal(nsIPrincipal* aPrincipal,
 
   ClearOriginParams params;
 
-  nsresult rv = CheckedPrincipalToPrincipalInfo(aPrincipal,
-                                                params.principalInfo());
+  nsresult rv =
+      CheckedPrincipalToPrincipalInfo(aPrincipal, params.principalInfo());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -759,8 +734,8 @@ QuotaManagerService::Persisted(nsIPrincipal* aPrincipal,
 
   PersistedParams params;
 
-  nsresult rv = CheckedPrincipalToPrincipalInfo(aPrincipal,
-                                                params.principalInfo());
+  nsresult rv =
+      CheckedPrincipalToPrincipalInfo(aPrincipal, params.principalInfo());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -788,8 +763,8 @@ QuotaManagerService::Persist(nsIPrincipal* aPrincipal,
 
   PersistParams params;
 
-  nsresult rv = CheckedPrincipalToPrincipalInfo(aPrincipal,
-                                                params.principalInfo());
+  nsresult rv =
+      CheckedPrincipalToPrincipalInfo(aPrincipal, params.principalInfo());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -841,7 +816,7 @@ QuotaManagerService::Observe(nsISupports* aSubject,
 
   if (!strcmp(aTopic, OBSERVER_TOPIC_IDLE)) {
     nsAutoPtr<PendingRequestInfo> info(
-      new IdleMaintenanceInfo(/* aStart */ true));
+        new IdleMaintenanceInfo(/* aStart */ true));
 
     nsresult rv = InitiateRequest(info);
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -855,7 +830,7 @@ QuotaManagerService::Observe(nsISupports* aSubject,
     RemoveIdleObserver();
 
     nsAutoPtr<PendingRequestInfo> info(
-      new IdleMaintenanceInfo(/* aStart */ false));
+        new IdleMaintenanceInfo(/* aStart */ false));
 
     nsresult rv = InitiateRequest(info);
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -899,8 +874,8 @@ NS_IMPL_ISUPPORTS(QuotaManagerService::BackgroundCreateCallback,
                   nsIIPCBackgroundChildCreateCallback)
 
 void
-QuotaManagerService::
-BackgroundCreateCallback::ActorCreated(PBackgroundChild* aActor)
+QuotaManagerService::BackgroundCreateCallback::ActorCreated(
+    PBackgroundChild* aActor)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aActor);
@@ -913,8 +888,7 @@ BackgroundCreateCallback::ActorCreated(PBackgroundChild* aActor)
 }
 
 void
-QuotaManagerService::
-BackgroundCreateCallback::ActorFailed()
+QuotaManagerService::BackgroundCreateCallback::ActorFailed()
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mService);
@@ -926,8 +900,7 @@ BackgroundCreateCallback::ActorFailed()
 }
 
 nsresult
-QuotaManagerService::
-UsageRequestInfo::InitiateRequest(QuotaChild* aActor)
+QuotaManagerService::UsageRequestInfo::InitiateRequest(QuotaChild* aActor)
 {
   MOZ_ASSERT(aActor);
 
@@ -946,8 +919,7 @@ UsageRequestInfo::InitiateRequest(QuotaChild* aActor)
 }
 
 nsresult
-QuotaManagerService::
-RequestInfo::InitiateRequest(QuotaChild* aActor)
+QuotaManagerService::RequestInfo::InitiateRequest(QuotaChild* aActor)
 {
   MOZ_ASSERT(aActor);
 
@@ -964,8 +936,7 @@ RequestInfo::InitiateRequest(QuotaChild* aActor)
 }
 
 nsresult
-QuotaManagerService::
-IdleMaintenanceInfo::InitiateRequest(QuotaChild* aActor)
+QuotaManagerService::IdleMaintenanceInfo::InitiateRequest(QuotaChild* aActor)
 {
   MOZ_ASSERT(aActor);
 
@@ -984,6 +955,6 @@ IdleMaintenanceInfo::InitiateRequest(QuotaChild* aActor)
   return NS_OK;
 }
 
-} // namespace quota
-} // namespace dom
-} // namespace mozilla
+}  // namespace quota
+}  // namespace dom
+}  // namespace mozilla

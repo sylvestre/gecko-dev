@@ -30,8 +30,8 @@ BeforeUnloadEvent::GetReturnValue(nsAString& aReturnValue)
   return NS_OK;  // Don't throw an exception
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -42,6 +42,6 @@ NS_NewDOMBeforeUnloadEvent(EventTarget* aOwner,
                            WidgetEvent* aEvent)
 {
   RefPtr<BeforeUnloadEvent> it =
-    new BeforeUnloadEvent(aOwner, aPresContext, aEvent);
+      new BeforeUnloadEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

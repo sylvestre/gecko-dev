@@ -24,12 +24,12 @@ namespace net {
 class WebSocketFrame;
 class WebSocketEventListenerChild;
 
-class WebSocketEventService final : public nsIWebSocketEventService
-                                  , public nsIObserver
+class WebSocketEventService final : public nsIWebSocketEventService,
+                                    public nsIObserver
 {
   friend class WebSocketBaseRunnable;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIWEBSOCKETEVENTSERVICE
@@ -68,28 +68,45 @@ public:
                      already_AddRefed<WebSocketFrame> aFrame,
                      nsIEventTarget* aTarget = nullptr);
 
-  void  FrameSent(uint32_t aWebSocketSerialID,
-                  uint64_t aInnerWindowID,
-                  already_AddRefed<WebSocketFrame> aFrame,
-                  nsIEventTarget* aTarget = nullptr);
+  void FrameSent(uint32_t aWebSocketSerialID,
+                 uint64_t aInnerWindowID,
+                 already_AddRefed<WebSocketFrame> aFrame,
+                 nsIEventTarget* aTarget = nullptr);
 
-  already_AddRefed<WebSocketFrame>
-  CreateFrameIfNeeded(bool aFinBit, bool aRsvBit1, bool aRsvBit2, bool aRsvBit3,
-                      uint8_t aOpCode, bool aMaskBit, uint32_t aMask,
-                      const nsCString& aPayload);
+  already_AddRefed<WebSocketFrame> CreateFrameIfNeeded(
+      bool aFinBit,
+      bool aRsvBit1,
+      bool aRsvBit2,
+      bool aRsvBit3,
+      uint8_t aOpCode,
+      bool aMaskBit,
+      uint32_t aMask,
+      const nsCString& aPayload);
 
-  already_AddRefed<WebSocketFrame>
-  CreateFrameIfNeeded(bool aFinBit, bool aRsvBit1, bool aRsvBit2, bool aRsvBit3,
-                      uint8_t aOpCode, bool aMaskBit, uint32_t aMask,
-                      uint8_t* aPayload, uint32_t aPayloadLength);
+  already_AddRefed<WebSocketFrame> CreateFrameIfNeeded(bool aFinBit,
+                                                       bool aRsvBit1,
+                                                       bool aRsvBit2,
+                                                       bool aRsvBit3,
+                                                       uint8_t aOpCode,
+                                                       bool aMaskBit,
+                                                       uint32_t aMask,
+                                                       uint8_t* aPayload,
+                                                       uint32_t aPayloadLength);
 
-  already_AddRefed<WebSocketFrame>
-  CreateFrameIfNeeded(bool aFinBit, bool aRsvBit1, bool aRsvBit2, bool aRsvBit3,
-                      uint8_t aOpCode, bool aMaskBit, uint32_t aMask,
-                      uint8_t* aPayloadInHdr, uint32_t aPayloadInHdrLength,
-                      uint8_t* aPayload, uint32_t aPayloadLength);
+  already_AddRefed<WebSocketFrame> CreateFrameIfNeeded(
+      bool aFinBit,
+      bool aRsvBit1,
+      bool aRsvBit2,
+      bool aRsvBit3,
+      uint8_t aOpCode,
+      bool aMaskBit,
+      uint32_t aMask,
+      uint8_t* aPayloadInHdr,
+      uint32_t aPayloadInHdrLength,
+      uint8_t* aPayload,
+      uint32_t aPayloadLength);
 
-private:
+ private:
   WebSocketEventService();
   ~WebSocketEventService();
 
@@ -104,8 +121,7 @@ private:
     RefPtr<WebSocketEventListenerChild> mActor;
   };
 
-  void GetListeners(uint64_t aInnerWindowID,
-                    WindowListeners& aListeners) const;
+  void GetListeners(uint64_t aInnerWindowID, WindowListeners& aListeners) const;
 
   void ShutdownActorListener(WindowListener* aListener);
 
@@ -115,8 +131,8 @@ private:
   Atomic<uint64_t> mCountListeners;
 };
 
-} // net namespace
-} // mozilla namespace
+}  // namespace net
+}  // namespace mozilla
 
 /**
  * Casting WebSocketEventService to nsISupports is ambiguous.
@@ -128,4 +144,4 @@ ToSupports(mozilla::net::WebSocketEventService* p)
   return NS_ISUPPORTS_CAST(nsIWebSocketEventService*, p);
 }
 
-#endif // mozilla_net_WebSocketEventService_h
+#endif  // mozilla_net_WebSocketEventService_h

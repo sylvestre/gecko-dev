@@ -2,10 +2,11 @@
 #ifndef mozilla_dom_gamepad_GamepadPoseState_h_
 #define mozilla_dom_gamepad_GamepadPoseState_h_
 
-namespace mozilla{
-namespace dom{
+namespace mozilla {
+namespace dom {
 
-enum class GamepadCapabilityFlags : uint16_t {
+enum class GamepadCapabilityFlags : uint16_t
+{
   Cap_None = 0,
   /**
    * Cap_Position is set if the Gamepad is capable of tracking its position.
@@ -45,35 +46,31 @@ struct GamepadPoseState
   bool isPositionValid;
   bool isOrientationValid;
 
-  GamepadPoseState()
-  {
-    Clear();
-  }
+  GamepadPoseState() { Clear(); }
 
   bool operator==(const GamepadPoseState& aPose) const
   {
-    return flags == aPose.flags
-           && orientation[0] == aPose.orientation[0]
-           && orientation[1] == aPose.orientation[1]
-           && orientation[2] == aPose.orientation[2]
-           && orientation[3] == aPose.orientation[3]
-           && position[0] == aPose.position[0]
-           && position[1] == aPose.position[1]
-           && position[2] == aPose.position[2]
-           && angularVelocity[0] == aPose.angularVelocity[0]
-           && angularVelocity[1] == aPose.angularVelocity[1]
-           && angularVelocity[2] == aPose.angularVelocity[2]
-           && angularAcceleration[0] == aPose.angularAcceleration[0]
-           && angularAcceleration[1] == aPose.angularAcceleration[1]
-           && angularAcceleration[2] == aPose.angularAcceleration[2]
-           && linearVelocity[0] == aPose.linearVelocity[0]
-           && linearVelocity[1] == aPose.linearVelocity[1]
-           && linearVelocity[2] == aPose.linearVelocity[2]
-           && linearAcceleration[0] == aPose.linearAcceleration[0]
-           && linearAcceleration[1] == aPose.linearAcceleration[1]
-           && linearAcceleration[2] == aPose.linearAcceleration[2]
-           && isPositionValid == aPose.isPositionValid
-           && isOrientationValid == aPose.isOrientationValid;
+    return flags == aPose.flags && orientation[0] == aPose.orientation[0] &&
+           orientation[1] == aPose.orientation[1] &&
+           orientation[2] == aPose.orientation[2] &&
+           orientation[3] == aPose.orientation[3] &&
+           position[0] == aPose.position[0] &&
+           position[1] == aPose.position[1] &&
+           position[2] == aPose.position[2] &&
+           angularVelocity[0] == aPose.angularVelocity[0] &&
+           angularVelocity[1] == aPose.angularVelocity[1] &&
+           angularVelocity[2] == aPose.angularVelocity[2] &&
+           angularAcceleration[0] == aPose.angularAcceleration[0] &&
+           angularAcceleration[1] == aPose.angularAcceleration[1] &&
+           angularAcceleration[2] == aPose.angularAcceleration[2] &&
+           linearVelocity[0] == aPose.linearVelocity[0] &&
+           linearVelocity[1] == aPose.linearVelocity[1] &&
+           linearVelocity[2] == aPose.linearVelocity[2] &&
+           linearAcceleration[0] == aPose.linearAcceleration[0] &&
+           linearAcceleration[1] == aPose.linearAcceleration[1] &&
+           linearAcceleration[2] == aPose.linearAcceleration[2] &&
+           isPositionValid == aPose.isPositionValid &&
+           isOrientationValid == aPose.isOrientationValid;
   }
 
   bool operator!=(const GamepadPoseState& aPose) const
@@ -81,12 +78,10 @@ struct GamepadPoseState
     return !(*this == aPose);
   }
 
-  void Clear() {
-    memset(this, 0, sizeof(GamepadPoseState));
-  }
+  void Clear() { memset(this, 0, sizeof(GamepadPoseState)); }
 };
 
-}// namespace dom
-}// namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_gamepad_GamepadPoseState_h_
+#endif  // mozilla_dom_gamepad_GamepadPoseState_h_

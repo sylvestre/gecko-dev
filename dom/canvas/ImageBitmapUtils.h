@@ -15,12 +15,13 @@ namespace mozilla {
 namespace layers {
 class Image;
 struct PlanarYCbCrData;
-}
+}  // namespace layers
 
 namespace dom {
 
 struct ChannelPixelLayout;
-template<typename> class Sequence;
+template<typename>
+class Sequence;
 
 typedef nsTArray<ChannelPixelLayout> ImagePixelLayout;
 
@@ -31,7 +32,9 @@ typedef nsTArray<ChannelPixelLayout> ImagePixelLayout;
  */
 UniquePtr<ImagePixelLayout>
 CreateDefaultPixelLayout(ImageBitmapFormat aFormat,
-                         uint32_t aWidth, uint32_t aHeight, uint32_t aStride);
+                         uint32_t aWidth,
+                         uint32_t aHeight,
+                         uint32_t aStride);
 
 /*
  * This function extracts information from the aImage parameter to customize
@@ -54,7 +57,8 @@ GetChannelCountOfImageFormat(ImageBitmapFormat aFormat);
  */
 uint32_t
 CalculateImageBufferSize(ImageBitmapFormat aFormat,
-                         uint32_t aWidth, uint32_t aHeight);
+                         uint32_t aWidth,
+                         uint32_t aHeight);
 
 /*
  * This function always copies the image data in _aSrcBuffer_ into _aDstBuffer_
@@ -92,8 +96,7 @@ ImageBitmapFormat
 FindBestMatchingFromat(ImageBitmapFormat aSrcFormat,
                        const Sequence<ImageBitmapFormat>& aCandidates);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-
-#endif // mozilla_dom_ImageBitmapUtils_h
+#endif  // mozilla_dom_ImageBitmapUtils_h

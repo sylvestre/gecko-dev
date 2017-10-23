@@ -19,7 +19,7 @@ namespace net {
 
 class BrowseReplyRunnable final : public Runnable
 {
-public:
+ public:
   BrowseReplyRunnable(DNSServiceRef aSdRef,
                       DNSServiceFlags aFlags,
                       uint32_t aInterfaceIndex,
@@ -40,7 +40,7 @@ public:
                     const char* aReplyDomain,
                     void* aContext);
 
-private:
+ private:
   DNSServiceRef mSdRef;
   DNSServiceFlags mFlags;
   uint32_t mInterfaceIndex;
@@ -53,7 +53,7 @@ private:
 
 class RegisterReplyRunnable final : public Runnable
 {
-public:
+ public:
   RegisterReplyRunnable(DNSServiceRef aSdRef,
                         DNSServiceFlags aFlags,
                         DNSServiceErrorType aErrorCode,
@@ -72,7 +72,7 @@ public:
                     const char* aDomain,
                     void* aContext);
 
-private:
+ private:
   DNSServiceRef mSdRef;
   DNSServiceFlags mFlags;
   DNSServiceErrorType mErrorCode;
@@ -84,7 +84,7 @@ private:
 
 class ResolveReplyRunnable final : public Runnable
 {
-public:
+ public:
   ResolveReplyRunnable(DNSServiceRef aSdRef,
                        DNSServiceFlags aFlags,
                        uint32_t aInterfaceIndex,
@@ -110,7 +110,7 @@ public:
                     const unsigned char* aTxtRecord,
                     void* aContext);
 
-private:
+ private:
   DNSServiceRef mSdRef;
   DNSServiceFlags mFlags;
   uint32_t mInterfaceIndex;
@@ -125,7 +125,7 @@ private:
 
 class GetAddrInfoReplyRunnable final : public Runnable
 {
-public:
+ public:
   GetAddrInfoReplyRunnable(DNSServiceRef aSdRef,
                            DNSServiceFlags aFlags,
                            uint32_t aInterfaceIndex,
@@ -147,7 +147,7 @@ public:
                     uint32_t aTTL,
                     void* aContext);
 
-private:
+ private:
   DNSServiceRef mSdRef;
   DNSServiceFlags mFlags;
   uint32_t mInterfaceIndex;
@@ -158,7 +158,7 @@ private:
   RefPtr<GetAddrInfoOperator> mContext;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
- #endif // mozilla_netwerk_dns_mdns_libmdns_MDNSResponderReply_h
+#endif  // mozilla_netwerk_dns_mdns_libmdns_MDNSResponderReply_h

@@ -17,13 +17,12 @@ class nsGZFileWriter final : public nsIGZFileWriter
 {
   virtual ~nsGZFileWriter();
 
-public:
-
-  enum Operation {
+ public:
+  enum Operation
+  {
     Append,
     Create
   };
-
 
   explicit nsGZFileWriter(Operation aMode = Create);
 
@@ -45,7 +44,7 @@ public:
     return nsIGZFileWriter::Write(aStr, aLen);
   }
 
-private:
+ private:
   Operation mMode;
   bool mInitialized;
   bool mFinished;

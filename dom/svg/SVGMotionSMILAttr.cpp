@@ -22,8 +22,9 @@ SVGMotionSMILAttr::ValueFromString(const nsAString& aStr,
                                    nsSMILValue& aValue,
                                    bool& aPreventCachingOfSandwich) const
 {
-  NS_NOTREACHED("Shouldn't using nsISMILAttr::ValueFromString for parsing "
-                "animateMotion's SMIL values.");
+  NS_NOTREACHED(
+      "Shouldn't using nsISMILAttr::ValueFromString for parsing "
+      "animateMotion's SMIL values.");
   return NS_ERROR_FAILURE;
 }
 
@@ -53,4 +54,4 @@ SVGMotionSMILAttr::GetTargetNode() const
   return mSVGElement;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

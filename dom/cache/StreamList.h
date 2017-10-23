@@ -23,7 +23,7 @@ class Manager;
 
 class StreamList final : public Context::Activity
 {
-public:
+ public:
   StreamList(Manager* aManager, Context* aContext);
 
   Manager* GetManager() const;
@@ -46,14 +46,14 @@ public:
   virtual void Cancel() override;
   virtual bool MatchesCacheId(CacheId aCacheId) const override;
 
-private:
+ private:
   ~StreamList();
   struct Entry
   {
     explicit Entry(const nsID& aId, nsCOMPtr<nsIInputStream>&& aStream)
-      : mId(aId)
-      , mStream(Move(aStream))
-    {}
+        : mId(aId), mStream(Move(aStream))
+    {
+    }
 
     nsID mId;
     nsCOMPtr<nsIInputStream> mStream;
@@ -65,12 +65,12 @@ private:
   nsTArray<Entry> mList;
   bool mActivated;
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(cache::StreamList)
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_StreamList_h
+#endif  // mozilla_dom_cache_StreamList_h

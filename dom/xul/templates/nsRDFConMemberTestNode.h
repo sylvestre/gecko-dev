@@ -19,59 +19,64 @@
  */
 class nsRDFConMemberTestNode : public nsRDFTestNode
 {
-public:
-    nsRDFConMemberTestNode(TestNode* aParent,
-                           nsXULTemplateQueryProcessorRDF* aProcessor,
-                           nsAtom* aContainerVariable,
-                           nsAtom* aMemberVariable);
+ public:
+  nsRDFConMemberTestNode(TestNode* aParent,
+                         nsXULTemplateQueryProcessorRDF* aProcessor,
+                         nsAtom* aContainerVariable,
+                         nsAtom* aMemberVariable);
 
-    virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
-                                          bool* aCantHandleYet) const override;
+  virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
+                                        bool* aCantHandleYet) const override;
 
-    virtual bool
-    CanPropagate(nsIRDFResource* aSource,
-                 nsIRDFResource* aProperty,
-                 nsIRDFNode* aTarget,
-                 Instantiation& aInitialBindings) const override;
+  virtual bool CanPropagate(nsIRDFResource* aSource,
+                            nsIRDFResource* aProperty,
+                            nsIRDFNode* aTarget,
+                            Instantiation& aInitialBindings) const override;
 
-    virtual void
-    Retract(nsIRDFResource* aSource,
-            nsIRDFResource* aProperty,
-            nsIRDFNode* aTarget) const override;
+  virtual void Retract(nsIRDFResource* aSource,
+                       nsIRDFResource* aProperty,
+                       nsIRDFNode* aTarget) const override;
 
-    class Element : public MemoryElement {
-    public:
-        Element(nsIRDFResource* aContainer,
-                nsIRDFNode* aMember)
-            : mContainer(aContainer),
-              mMember(aMember) {
-            MOZ_COUNT_CTOR(nsRDFConMemberTestNode::Element); }
+  class Element : public MemoryElement
+  {
+   public:
+    Element(nsIRDFResource* aContainer, nsIRDFNode* aMember)
+        : mContainer(aContainer), mMember(aMember)
+    {
+      MOZ_COUNT_CTOR(nsRDFConMemberTestNode::Element);
+    }
 
-        virtual ~Element() { MOZ_COUNT_DTOR(nsRDFConMemberTestNode::Element); }
+    virtual ~Element() { MOZ_COUNT_DTOR(nsRDFConMemberTestNode::Element); }
 
-        virtual const char* Type() const override {
-            return "nsRDFConMemberTestNode::Element"; }
+    virtual const char* Type() const override
+    {
+      return "nsRDFConMemberTestNode::Element";
+    }
 
-        virtual PLHashNumber Hash() const override {
-            return PLHashNumber(NS_PTR_TO_INT32(mContainer.get())) ^
-                (PLHashNumber(NS_PTR_TO_INT32(mMember.get())) >> 12); }
+    virtual PLHashNumber Hash() const override
+    {
+      return PLHashNumber(NS_PTR_TO_INT32(mContainer.get())) ^
+             (PLHashNumber(NS_PTR_TO_INT32(mMember.get())) >> 12);
+    }
 
-        virtual bool Equals(const MemoryElement& aElement) const override {
-            if (aElement.Type() == Type()) {
-                const Element& element = static_cast<const Element&>(aElement);
-                return mContainer == element.mContainer && mMember == element.mMember;
-            }
-            return false; }
+    virtual bool Equals(const MemoryElement& aElement) const override
+    {
+      if (aElement.Type() == Type()) {
+        const Element& element = static_cast<const Element&>(aElement);
+        return mContainer == element.mContainer && mMember == element.mMember;
+      }
+      return false;
+    }
 
-    protected:
-        nsCOMPtr<nsIRDFResource> mContainer;
-        nsCOMPtr<nsIRDFNode> mMember;
-    };
+   protected:
+    nsCOMPtr<nsIRDFResource> mContainer;
+    nsCOMPtr<nsIRDFNode> mMember;
+  };
 
-protected:
-    nsXULTemplateQueryProcessorRDF* mProcessor;
-    RefPtr<nsAtom> mContainerVariable;
-    RefPtr<nsAtom> mMemberVariable;
+ protected:
+  nsXULTemplateQueryProcessorRDF* mProcessor;
+  RefPtr<nsAtom> mContainerVariable;
+  RefPtr<nsAtom> mMemberVariable;
 };
 
-#endif // nsRDFConMemberTestNode_h__
+#endif  // nsRDFConMemberTestNode_h__

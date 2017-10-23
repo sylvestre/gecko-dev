@@ -29,12 +29,12 @@ namespace mozilla {
 class CSSStyleSheet;
 namespace dom {
 class ShadowRoot;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsStyleLinkElement : public nsIStyleSheetLinkingElement
 {
-public:
+ public:
   nsStyleLinkElement();
   virtual ~nsStyleLinkElement();
 
@@ -57,28 +57,32 @@ public:
   virtual void SetLineNumber(uint32_t aLineNumber) override;
   virtual uint32_t GetLineNumber() override;
 
-  enum RelValue {
-    ePREFETCH =     0x00000001,
+  enum RelValue
+  {
+    ePREFETCH = 0x00000001,
     eDNS_PREFETCH = 0x00000002,
-    eSTYLESHEET =   0x00000004,
-    eNEXT =         0x00000008,
-    eALTERNATE =    0x00000010,
-    ePRECONNECT =   0x00000020,
-    ePRERENDER =    0x00000040,
-    ePRELOAD =      0x00000080
+    eSTYLESHEET = 0x00000004,
+    eNEXT = 0x00000008,
+    eALTERNATE = 0x00000010,
+    ePRECONNECT = 0x00000020,
+    ePRERENDER = 0x00000040,
+    ePRELOAD = 0x00000080
   };
 
   // The return value is a bitwise or of 0 or more RelValues.
   static uint32_t ParseLinkTypes(const nsAString& aTypes);
 
-  static bool CheckPreloadAttrs(const nsAttrValue& aAs, const nsAString& aType,
-                                const nsAString& aMedia, nsIDocument* aDocument);
+  static bool CheckPreloadAttrs(const nsAttrValue& aAs,
+                                const nsAString& aType,
+                                const nsAString& aMedia,
+                                nsIDocument* aDocument);
 
   void UpdateStyleSheetInternal()
   {
     UpdateStyleSheetInternal(nullptr, nullptr);
   }
-protected:
+
+ protected:
   /**
    * @param aOldDocument should be non-null only if we're updating because we
    *                     removed the node from the document.
@@ -87,13 +91,14 @@ protected:
    *                     about the content that affects the resulting sheet
    *                     changed but the URI may not have changed.
    */
-  nsresult UpdateStyleSheetInternal(nsIDocument *aOldDocument,
-                                    mozilla::dom::ShadowRoot *aOldShadowRoot,
+  nsresult UpdateStyleSheetInternal(nsIDocument* aOldDocument,
+                                    mozilla::dom::ShadowRoot* aOldShadowRoot,
                                     bool aForceUpdate = false);
 
   void UpdateStyleSheetScopedness(bool aIsNowScoped);
 
-  virtual already_AddRefed<nsIURI> GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) = 0;
+  virtual already_AddRefed<nsIURI> GetStyleSheetURL(
+      bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) = 0;
   virtual void GetStyleSheetInfo(nsAString& aTitle,
                                  nsAString& aType,
                                  nsAString& aMedia,
@@ -113,9 +118,9 @@ protected:
 
   // CC methods
   void Unlink();
-  void Traverse(nsCycleCollectionTraversalCallback &cb);
+  void Traverse(nsCycleCollectionTraversalCallback& cb);
 
-private:
+ private:
   /**
    * @param aOldDocument should be non-null only if we're updating because we
    *                     removed the node from the document.
@@ -136,7 +141,8 @@ private:
                               bool aForceUpdate);
 
   RefPtr<mozilla::StyleSheet> mStyleSheet;
-protected:
+
+ protected:
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   bool mDontLoadStyle;
   bool mUpdatesEnabled;
@@ -144,4 +150,3 @@ protected:
 };
 
 #endif /* nsStyleLinkElement_h___ */
-

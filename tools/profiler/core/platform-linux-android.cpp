@@ -53,9 +53,9 @@
 #include <unistd.h>     // sysconf
 #include <semaphore.h>
 #ifdef __GLIBC__
-#include <execinfo.h>   // backtrace, backtrace_symbols
-#endif  // def __GLIBC__
-#include <strings.h>    // index
+#include <execinfo.h>  // backtrace, backtrace_symbols
+#endif                 // def __GLIBC__
+#include <strings.h>   // index
 #include <errno.h>
 #include <stdarg.h>
 
@@ -109,12 +109,12 @@ PopulateRegsFromContext(Registers& aRegs, ucontext_t* aContext)
   aRegs.mFP = reinterpret_cast<Address>(mcontext.regs[29]);
   aRegs.mLR = reinterpret_cast<Address>(mcontext.regs[30]);
 #else
-# error "bad platform"
+#error "bad platform"
 #endif
 }
 
 #if defined(GP_OS_android)
-# define SYS_tgkill __NR_tgkill
+#define SYS_tgkill __NR_tgkill
 #endif
 
 int
@@ -125,16 +125,10 @@ tgkill(pid_t tgid, pid_t tid, int signalno)
 
 class PlatformData
 {
-public:
-  explicit PlatformData(int aThreadId)
-  {
-    MOZ_COUNT_CTOR(PlatformData);
-  }
+ public:
+  explicit PlatformData(int aThreadId) { MOZ_COUNT_CTOR(PlatformData); }
 
-  ~PlatformData()
-  {
-    MOZ_COUNT_DTOR(PlatformData);
-  }
+  ~PlatformData() { MOZ_COUNT_DTOR(PlatformData); }
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -188,23 +182,23 @@ struct SigHandlerCoordinator
   {
     PodZero(&mUContext);
     int r = sem_init(&mMessage2, /* pshared */ 0, 0);
-    r    |= sem_init(&mMessage3, /* pshared */ 0, 0);
-    r    |= sem_init(&mMessage4, /* pshared */ 0, 0);
+    r |= sem_init(&mMessage3, /* pshared */ 0, 0);
+    r |= sem_init(&mMessage4, /* pshared */ 0, 0);
     MOZ_ASSERT(r == 0);
   }
 
   ~SigHandlerCoordinator()
   {
     int r = sem_destroy(&mMessage2);
-    r    |= sem_destroy(&mMessage3);
-    r    |= sem_destroy(&mMessage4);
+    r |= sem_destroy(&mMessage3);
+    r |= sem_destroy(&mMessage4);
     MOZ_ASSERT(r == 0);
   }
 
-  sem_t mMessage2; // To sampler: "context is in sSigHandlerCoordinator"
-  sem_t mMessage3; // To samplee: "resume"
-  sem_t mMessage4; // To sampler: "finished with sSigHandlerCoordinator"
-  ucontext_t mUContext; // Context at signal
+  sem_t mMessage2;       // To sampler: "context is in sSigHandlerCoordinator"
+  sem_t mMessage3;       // To samplee: "resume"
+  sem_t mMessage4;       // To sampler: "finished with sSigHandlerCoordinator"
+  ucontext_t mUContext;  // Context at signal
 };
 
 struct SigHandlerCoordinator* Sampler::sSigHandlerCoordinator = nullptr;
@@ -222,7 +216,7 @@ SigprofHandler(int aSignal, siginfo_t* aInfo, void* aContext)
   // the comment above, with the meaning "|sSigHandlerCoordinator| is ready
   // for use, please copy your register context into it."
   Sampler::sSigHandlerCoordinator->mUContext =
-    *static_cast<ucontext_t*>(aContext);
+      *static_cast<ucontext_t*>(aContext);
 
   // Send message 2: tell the sampler thread that the context has been copied
   // into |sSigHandlerCoordinator->mUContext|.  sem_post can never fail by
@@ -255,11 +249,12 @@ SigprofHandler(int aSignal, siginfo_t* aInfo, void* aContext)
 }
 
 Sampler::Sampler(PSLockRef aLock)
-  : mMyPid(getpid())
-  // We don't know what the sampler thread's ID will be until it runs, so set
-  // mSamplerTid to a dummy value and fill it in for real in
-  // SuspendAndSampleAndResumeThread().
-  , mSamplerTid(-1)
+    : mMyPid(getpid())
+      // We don't know what the sampler thread's ID will be until it runs, so set
+      // mSamplerTid to a dummy value and fill it in for real in
+      // SuspendAndSampleAndResumeThread().
+      ,
+      mSamplerTid(-1)
 {
 #if defined(USE_EHABI_STACKWALK)
   mozilla::EHABIStackWalkInit();
@@ -307,7 +302,7 @@ Sampler::SuspendAndSampleAndResumeThread(PSLockRef aLock,
   //----------------------------------------------------------------//
   // Suspend the samplee thread and get its context.
 
-  SigHandlerCoordinator coord;   // on sampler thread's stack
+  SigHandlerCoordinator coord;  // on sampler thread's stack
   sSigHandlerCoordinator = &coord;
 
   // Send message 1 to the samplee (the thread to be sampled), by
@@ -366,7 +361,7 @@ Sampler::SuspendAndSampleAndResumeThread(PSLockRef aLock,
     }
     MOZ_ASSERT(r == 0);
     break;
-   }
+  }
 
   // The profiler's critical section ends here.  After this point, none of the
   // critical section limitations documented above apply.
@@ -392,12 +387,13 @@ ThreadEntry(void* aArg)
   return nullptr;
 }
 
-SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
+SamplerThread::SamplerThread(PSLockRef aLock,
+                             uint32_t aActivityGeneration,
                              double aIntervalMilliseconds)
-  : Sampler(aLock)
-  , mActivityGeneration(aActivityGeneration)
-  , mIntervalMicroseconds(
-      std::max(1, int(floor(aIntervalMilliseconds * 1000 + 0.5))))
+    : Sampler(aLock),
+      mActivityGeneration(aActivityGeneration),
+      mIntervalMicroseconds(
+          std::max(1, int(floor(aIntervalMilliseconds * 1000 + 0.5))))
 {
 #if defined(USE_LUL_STACKWALK)
   lul::LUL* lul = CorePS::Lul(aLock);
@@ -428,10 +424,7 @@ SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
   }
 }
 
-SamplerThread::~SamplerThread()
-{
-  pthread_join(mThread, nullptr);
-}
+SamplerThread::~SamplerThread() { pthread_join(mThread, nullptr); }
 
 void
 SamplerThread::SleepMicro(uint32_t aMicroseconds)
@@ -444,7 +437,7 @@ SamplerThread::SleepMicro(uint32_t aMicroseconds)
   }
 
   struct timespec ts;
-  ts.tv_sec  = 0;
+  ts.tv_sec = 0;
   ts.tv_nsec = aMicroseconds * 1000UL;
 
   int rv = ::nanosleep(&ts, &ts);
@@ -469,8 +462,8 @@ SamplerThread::Stop(PSLockRef aLock)
   Sampler::Disable(aLock);
 }
 
-// END SamplerThread target specifics
-////////////////////////////////////////////////////////////////////////
+  // END SamplerThread target specifics
+  ////////////////////////////////////////////////////////////////////////
 
 #if defined(GP_OS_linux)
 
@@ -546,4 +539,3 @@ Registers::SyncPopulate()
   }
 }
 #endif
-

@@ -62,71 +62,152 @@ struct ManifestDirective
   // Function to handle this directive. This isn't a union because C++ still
   // hasn't learned how to initialize unions in a sane way.
   void (nsComponentManagerImpl::*mgrfunc)(
-    nsComponentManagerImpl::ManifestProcessingContext& aCx,
-    int aLineNo, char* const* aArgv);
+      nsComponentManagerImpl::ManifestProcessingContext& aCx,
+      int aLineNo,
+      char* const* aArgv);
   void (nsChromeRegistry::*regfunc)(
-    nsChromeRegistry::ManifestProcessingContext& aCx,
-    int aLineNo, char* const* aArgv, int aFlags);
+      nsChromeRegistry::ManifestProcessingContext& aCx,
+      int aLineNo,
+      char* const* aArgv,
+      int aFlags);
   void* xptonlyfunc;
 
   bool isContract;
 };
 static const ManifestDirective kParsingTable[] = {
-  {
-    "manifest",         1, false, false, true, true, false,
-    &nsComponentManagerImpl::ManifestManifest, nullptr, nullptr
-  },
-  {
-    "binary-component", 1, true, true, false, false, false,
-    &nsComponentManagerImpl::ManifestBinaryComponent, nullptr, nullptr
-  },
-  {
-    "interfaces",       1, false, true, false, false, false,
-    &nsComponentManagerImpl::ManifestXPT, nullptr, nullptr
-  },
-  {
-    "component",        2, false, true, false, false, false,
-    &nsComponentManagerImpl::ManifestComponent, nullptr, nullptr
-  },
-  {
-    "contract",         2, false, true, false, false, false,
-    &nsComponentManagerImpl::ManifestContract, nullptr, nullptr, true
-  },
-  {
-    "category",         3, false, true, false, false, false,
-    &nsComponentManagerImpl::ManifestCategory, nullptr, nullptr
-  },
-  {
-    "content",          2, false, true, true, true,  true,
-    nullptr, &nsChromeRegistry::ManifestContent, nullptr
-  },
-  {
-    "locale",           3, false, true, true, true, false,
-    nullptr, &nsChromeRegistry::ManifestLocale, nullptr
-  },
-  {
-    "skin",             3, false, false, true, true, false,
-    nullptr, &nsChromeRegistry::ManifestSkin, nullptr
-  },
-  {
-    "overlay",          2, false, true, true, false, false,
-    nullptr, &nsChromeRegistry::ManifestOverlay, nullptr
-  },
-  {
-    "style",            2, false, false, true, false, false,
-    nullptr, &nsChromeRegistry::ManifestStyle, nullptr
-  },
-  {
-    // NB: note that while skin manifests can use this, they are only allowed
-    // to use it for chrome://../skin/ URLs
-    "override",         2, false, false, true, true, false,
-    nullptr, &nsChromeRegistry::ManifestOverride, nullptr
-  },
-  {
-    "resource",         2, false, true, true, true, true,
-    nullptr, &nsChromeRegistry::ManifestResource, nullptr
-  }
-};
+    {"manifest",
+     1,
+     false,
+     false,
+     true,
+     true,
+     false,
+     &nsComponentManagerImpl::ManifestManifest,
+     nullptr,
+     nullptr},
+    {"binary-component",
+     1,
+     true,
+     true,
+     false,
+     false,
+     false,
+     &nsComponentManagerImpl::ManifestBinaryComponent,
+     nullptr,
+     nullptr},
+    {"interfaces",
+     1,
+     false,
+     true,
+     false,
+     false,
+     false,
+     &nsComponentManagerImpl::ManifestXPT,
+     nullptr,
+     nullptr},
+    {"component",
+     2,
+     false,
+     true,
+     false,
+     false,
+     false,
+     &nsComponentManagerImpl::ManifestComponent,
+     nullptr,
+     nullptr},
+    {"contract",
+     2,
+     false,
+     true,
+     false,
+     false,
+     false,
+     &nsComponentManagerImpl::ManifestContract,
+     nullptr,
+     nullptr,
+     true},
+    {"category",
+     3,
+     false,
+     true,
+     false,
+     false,
+     false,
+     &nsComponentManagerImpl::ManifestCategory,
+     nullptr,
+     nullptr},
+    {"content",
+     2,
+     false,
+     true,
+     true,
+     true,
+     true,
+     nullptr,
+     &nsChromeRegistry::ManifestContent,
+     nullptr},
+    {"locale",
+     3,
+     false,
+     true,
+     true,
+     true,
+     false,
+     nullptr,
+     &nsChromeRegistry::ManifestLocale,
+     nullptr},
+    {"skin",
+     3,
+     false,
+     false,
+     true,
+     true,
+     false,
+     nullptr,
+     &nsChromeRegistry::ManifestSkin,
+     nullptr},
+    {"overlay",
+     2,
+     false,
+     true,
+     true,
+     false,
+     false,
+     nullptr,
+     &nsChromeRegistry::ManifestOverlay,
+     nullptr},
+    {"style",
+     2,
+     false,
+     false,
+     true,
+     false,
+     false,
+     nullptr,
+     &nsChromeRegistry::ManifestStyle,
+     nullptr},
+    {// NB: note that while skin manifests can use this, they are only allowed
+     // to use it for chrome://../skin/ URLs
+     "override",
+     2,
+     false,
+     false,
+     true,
+     true,
+     false,
+     nullptr,
+     &nsChromeRegistry::ManifestOverride,
+     nullptr},
+    {"resource",
+     2,
+     false,
+     true,
+     true,
+     true,
+     true,
+     nullptr,
+     &nsChromeRegistry::ManifestResource,
+     nullptr}};
 
 static const char kWhitespace[] = "\t ";
 
@@ -148,7 +229,7 @@ LogMessage(const char* aMsg, ...)
   }
 
   nsCOMPtr<nsIConsoleService> console =
-    do_GetService(NS_CONSOLESERVICE_CONTRACTID);
+      do_GetService(NS_CONSOLESERVICE_CONTRACTID);
   if (!console) {
     return;
   }
@@ -159,7 +240,7 @@ LogMessage(const char* aMsg, ...)
   va_end(args);
 
   nsCOMPtr<nsIConsoleMessage> error =
-    new nsConsoleMessage(NS_ConvertUTF8toUTF16(formatted.get()).get());
+      new nsConsoleMessage(NS_ConvertUTF8toUTF16(formatted.get()).get());
   console->LogMessage(error);
 }
 
@@ -169,7 +250,9 @@ LogMessage(const char* aMsg, ...)
  */
 void
 LogMessageWithContext(FileLocation& aFile,
-                      uint32_t aLineNumber, const char* aMsg, ...)
+                      uint32_t aLineNumber,
+                      const char* aMsg,
+                      ...)
 {
   va_list args;
   va_start(args, aMsg);
@@ -186,25 +269,29 @@ LogMessageWithContext(FileLocation& aFile,
   nsCString file;
   aFile.GetURIString(file);
 
-  nsCOMPtr<nsIScriptError> error =
-    do_CreateInstance(NS_SCRIPTERROR_CONTRACTID);
+  nsCOMPtr<nsIScriptError> error = do_CreateInstance(NS_SCRIPTERROR_CONTRACTID);
   if (!error) {
     // This can happen early in component registration. Fall back to a
     // generic console message.
-    LogMessage("Warning: in '%s', line %i: %s", file.get(),
-               aLineNumber, formatted.get());
+    LogMessage("Warning: in '%s', line %i: %s",
+               file.get(),
+               aLineNumber,
+               formatted.get());
     return;
   }
 
   nsCOMPtr<nsIConsoleService> console =
-    do_GetService(NS_CONSOLESERVICE_CONTRACTID);
+      do_GetService(NS_CONSOLESERVICE_CONTRACTID);
   if (!console) {
     return;
   }
 
   nsresult rv = error->Init(NS_ConvertUTF8toUTF16(formatted.get()),
-                            NS_ConvertUTF8toUTF16(file), EmptyString(),
-                            aLineNumber, 0, nsIScriptError::warningFlag,
+                            NS_ConvertUTF8toUTF16(file),
+                            EmptyString(),
+                            aLineNumber,
+                            0,
+                            nsIScriptError::warningFlag,
                             "chrome registration");
   if (NS_FAILED(rv)) {
     return;
@@ -249,14 +336,14 @@ CheckFlag(const nsAString& aFlag, const nsAString& aData, bool& aResult)
 
   switch (aData.CharAt(aFlag.Length() + 1)) {
     case '1':
-    case 't': //true
-    case 'y': //yes
+    case 't':  //true
+    case 'y':  //yes
       aResult = true;
       return true;
 
     case '0':
-    case 'f': //false
-    case 'n': //no
+    case 'f':  //false
+    case 'n':  //no
       aResult = false;
       return true;
   }
@@ -284,8 +371,10 @@ enum TriState
  * @return Whether the flag was handled.
  */
 static bool
-CheckStringFlag(const nsAString& aFlag, const nsAString& aData,
-                const nsAString& aValue, TriState& aResult)
+CheckStringFlag(const nsAString& aFlag,
+                const nsAString& aData,
+                const nsAString& aValue,
+                TriState& aResult)
 {
   if (aData.Length() < aFlag.Length() + 1) {
     return false;
@@ -297,8 +386,7 @@ CheckStringFlag(const nsAString& aFlag, const nsAString& aData,
 
   bool comparison = true;
   if (aData[aFlag.Length()] != '=') {
-    if (aData[aFlag.Length()] == '!' &&
-        aData.Length() >= aFlag.Length() + 2 &&
+    if (aData[aFlag.Length()] == '!' && aData.Length() >= aFlag.Length() + 2 &&
         aData[aFlag.Length() + 1] == '=') {
       comparison = false;
     } else {
@@ -308,7 +396,7 @@ CheckStringFlag(const nsAString& aFlag, const nsAString& aData,
 
   if (aResult != eOK) {
     nsDependentSubstring testdata =
-      Substring(aData, aFlag.Length() + (comparison ? 1 : 2));
+        Substring(aData, aFlag.Length() + (comparison ? 1 : 2));
     if (testdata.Equals(aValue)) {
       aResult = comparison ? eOK : eBad;
     } else {
@@ -320,19 +408,22 @@ CheckStringFlag(const nsAString& aFlag, const nsAString& aData,
 }
 
 static bool
-CheckOsFlag(const nsAString& aFlag, const nsAString& aData,
-            const nsAString& aValue, TriState& aResult)
+CheckOsFlag(const nsAString& aFlag,
+            const nsAString& aData,
+            const nsAString& aValue,
+            TriState& aResult)
 {
   bool result = CheckStringFlag(aFlag, aData, aValue, aResult);
 #if defined(XP_UNIX) && !defined(XP_DARWIN) && !defined(ANDROID)
   if (result && aResult == eBad) {
-    result = CheckStringFlag(aFlag, aData, NS_LITERAL_STRING("likeunix"), aResult);
+    result =
+        CheckStringFlag(aFlag, aData, NS_LITERAL_STRING("likeunix"), aResult);
   }
 #endif
   return result;
 }
 
-/**
+  /**
  * Check for a modifier flag of the following form:
  *   "flag=version"
  *   "flag<=version"
@@ -349,13 +440,15 @@ CheckOsFlag(const nsAString& aFlag, const nsAString& aData,
  * @return Whether the flag was handled.
  */
 
-#define COMPARE_EQ    1 << 0
-#define COMPARE_LT    1 << 1
-#define COMPARE_GT    1 << 2
+#define COMPARE_EQ 1 << 0
+#define COMPARE_LT 1 << 1
+#define COMPARE_GT 1 << 2
 
 static bool
-CheckVersionFlag(const nsString& aFlag, const nsString& aData,
-                 const nsString& aValue, TriState& aResult)
+CheckVersionFlag(const nsString& aFlag,
+                 const nsString& aData,
+                 const nsString& aValue,
+                 TriState& aResult)
 {
   if (aData.Length() < aFlag.Length() + 2) {
     return false;
@@ -441,8 +534,7 @@ struct CachedDirective
   char* argv[4];
 };
 
-} // namespace
-
+}  // namespace
 
 /**
  * For XPT-Only mode, the parser handles only directives of "manifest"
@@ -454,11 +546,14 @@ struct CachedDirective
  * parsing.
  */
 void
-ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
-              bool aChromeOnly, bool aXPTOnly)
+ParseManifest(NSLocationType aType,
+              FileLocation& aFile,
+              char* aBuf,
+              bool aChromeOnly,
+              bool aXPTOnly)
 {
-  nsComponentManagerImpl::ManifestProcessingContext mgrcx(aType, aFile,
-                                                          aChromeOnly);
+  nsComponentManagerImpl::ManifestProcessingContext mgrcx(
+      aType, aFile, aChromeOnly);
   nsChromeRegistry::ManifestProcessingContext chromecx(aType, aFile);
   nsresult rv;
 
@@ -533,30 +628,25 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
   nsAutoString osVersion;
 #if defined(XP_WIN)
 #pragma warning(push)
-#pragma warning(disable:4996) // VC12+ deprecates GetVersionEx
-  OSVERSIONINFO info = { sizeof(OSVERSIONINFO) };
+#pragma warning(disable : 4996)  // VC12+ deprecates GetVersionEx
+  OSVERSIONINFO info = {sizeof(OSVERSIONINFO)};
   if (GetVersionEx(&info)) {
-    nsTextFormatter::ssprintf(osVersion, u"%ld.%ld",
-                              info.dwMajorVersion,
-                              info.dwMinorVersion);
+    nsTextFormatter::ssprintf(
+        osVersion, u"%ld.%ld", info.dwMajorVersion, info.dwMinorVersion);
   }
 #pragma warning(pop)
 #elif defined(MOZ_WIDGET_COCOA)
   SInt32 majorVersion = nsCocoaFeatures::OSXVersionMajor();
   SInt32 minorVersion = nsCocoaFeatures::OSXVersionMinor();
-  nsTextFormatter::ssprintf(osVersion, u"%ld.%ld",
-                            majorVersion,
-                            minorVersion);
+  nsTextFormatter::ssprintf(osVersion, u"%ld.%ld", majorVersion, minorVersion);
 #elif defined(MOZ_WIDGET_GTK)
-  nsTextFormatter::ssprintf(osVersion, u"%ld.%ld",
-                            gtk_major_version,
-                            gtk_minor_version);
+  nsTextFormatter::ssprintf(
+      osVersion, u"%ld.%ld", gtk_major_version, gtk_minor_version);
 #elif defined(MOZ_WIDGET_ANDROID)
   bool isTablet = false;
   if (mozilla::AndroidBridge::Bridge()) {
-    mozilla::AndroidBridge::Bridge()->GetStaticStringField("android/os/Build$VERSION",
-                                                           "RELEASE",
-                                                           osVersion);
+    mozilla::AndroidBridge::Bridge()->GetStaticStringField(
+        "android/os/Build$VERSION", "RELEASE", osVersion);
     isTablet = java::GeckoAppShell::IsTablet();
   }
 #endif
@@ -596,7 +686,7 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
     }
     ++line;
 
-    if (*token == '#') { // ignore lines that begin with # as comments
+    if (*token == '#') {  // ignore lines that begin with # as comments
       continue;
     }
 
@@ -610,37 +700,44 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
     for (const ManifestDirective* d = kParsingTable;
          d < ArrayEnd(kParsingTable);
          ++d) {
-      if (!strcmp(d->directive, token) &&
-          (!aXPTOnly || d->xptonlyfunc)) {
+      if (!strcmp(d->directive, token) && (!aXPTOnly || d->xptonlyfunc)) {
         directive = d;
         break;
       }
     }
 
     if (!directive) {
-      LogMessageWithContext(aFile, line,
-                            "Ignoring unrecognized chrome manifest directive '%s'.",
-                            token);
+      LogMessageWithContext(
+          aFile,
+          line,
+          "Ignoring unrecognized chrome manifest directive '%s'.",
+          token);
       continue;
     }
 
     if (!directive->allowbootstrap && NS_BOOTSTRAPPED_LOCATION == aType) {
-      LogMessageWithContext(aFile, line,
-                            "Bootstrapped manifest not allowed to use '%s' directive.",
-                            token);
+      LogMessageWithContext(
+          aFile,
+          line,
+          "Bootstrapped manifest not allowed to use '%s' directive.",
+          token);
       continue;
     }
 
 #ifndef MOZ_BINARY_EXTENSIONS
     if (directive->apponly && NS_APP_LOCATION != aType) {
-      LogMessageWithContext(aFile, line,
-                            "Only application manifests may use the '%s' directive.", token);
+      LogMessageWithContext(
+          aFile,
+          line,
+          "Only application manifests may use the '%s' directive.",
+          token);
       continue;
     }
 #endif
 
     if (directive->componentonly && NS_SKIN_LOCATION == aType) {
-      LogMessageWithContext(aFile, line,
+      LogMessageWithContext(aFile,
+                            line,
                             "Skin manifest not allowed to use '%s' directive.",
                             token);
       continue;
@@ -653,9 +750,12 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
     }
 
     if (!argv[directive->argc - 1]) {
-      LogMessageWithContext(aFile, line,
-                            "Not enough arguments for chrome manifest directive '%s', expected %i.",
-                            token, directive->argc);
+      LogMessageWithContext(aFile,
+                            line,
+                            "Not enough arguments for chrome manifest "
+                            "directive '%s', expected %i.",
+                            token,
+                            directive->argc);
       continue;
     }
 
@@ -683,7 +783,8 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
           CheckStringFlag(kProcess, wtoken, process, stProcess) ||
           CheckVersionFlag(kOsVersion, wtoken, osVersion, stOsVersion) ||
           CheckVersionFlag(kAppVersion, wtoken, appVersion, stAppVersion) ||
-          CheckVersionFlag(kGeckoVersion, wtoken, geckoVersion, stGeckoVersion)) {
+          CheckVersionFlag(
+              kGeckoVersion, wtoken, geckoVersion, stGeckoVersion)) {
         continue;
       }
 
@@ -698,47 +799,40 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
       if (directive->contentflags) {
         bool flag;
         if (CheckFlag(kContentAccessible, wtoken, flag)) {
-          if (flag)
-            flags |= nsChromeRegistry::CONTENT_ACCESSIBLE;
+          if (flag) flags |= nsChromeRegistry::CONTENT_ACCESSIBLE;
           continue;
         }
         if (CheckFlag(kRemoteEnabled, wtoken, flag)) {
-          if (flag)
-            flags |= nsChromeRegistry::REMOTE_ALLOWED;
+          if (flag) flags |= nsChromeRegistry::REMOTE_ALLOWED;
           continue;
         }
         if (CheckFlag(kRemoteRequired, wtoken, flag)) {
-          if (flag)
-            flags |= nsChromeRegistry::REMOTE_REQUIRED;
+          if (flag) flags |= nsChromeRegistry::REMOTE_REQUIRED;
           continue;
         }
       }
 
-      bool xpcNativeWrappers = true; // Dummy for CheckFlag.
+      bool xpcNativeWrappers = true;  // Dummy for CheckFlag.
       if (CheckFlag(kXPCNativeWrappers, wtoken, xpcNativeWrappers)) {
-        LogMessageWithContext(aFile, line,
-                              "Ignoring obsolete chrome registration modifier '%s'.",
-                              token);
+        LogMessageWithContext(
+            aFile,
+            line,
+            "Ignoring obsolete chrome registration modifier '%s'.",
+            token);
         continue;
       }
 
-      LogMessageWithContext(aFile, line,
-                            "Unrecognized chrome manifest modifier '%s'.",
-                            token);
+      LogMessageWithContext(
+          aFile, line, "Unrecognized chrome manifest modifier '%s'.", token);
       ok = false;
     }
 
-    if (!ok ||
-        stApp == eBad ||
-        stAppVersion == eBad ||
-        stGeckoVersion == eBad ||
-        stOs == eBad ||
-        stOsVersion == eBad ||
+    if (!ok || stApp == eBad || stAppVersion == eBad ||
+        stGeckoVersion == eBad || stOs == eBad || stOsVersion == eBad ||
 #ifdef MOZ_WIDGET_ANDROID
         stTablet == eBad ||
 #endif
-        stABI == eBad ||
-        stProcess == eBad) {
+        stABI == eBad || stProcess == eBad) {
       continue;
     }
 
@@ -749,16 +843,16 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
 
       if (!nsChromeRegistry::gChromeRegistry) {
         nsCOMPtr<nsIChromeRegistry> cr =
-          mozilla::services::GetChromeRegistryService();
+            mozilla::services::GetChromeRegistryService();
         if (!nsChromeRegistry::gChromeRegistry) {
-          LogMessageWithContext(aFile, line,
-                                "Chrome registry isn't available yet.");
+          LogMessageWithContext(
+              aFile, line, "Chrome registry isn't available yet.");
           continue;
         }
       }
 
       (nsChromeRegistry::gChromeRegistry->*(directive->regfunc))(
-        chromecx, line, argv, flags);
+          chromecx, line, argv, flags);
     } else if (directive->ischrome || !aChromeOnly) {
       if (directive->isContract) {
         CachedDirective* cd = contracts.AppendElement();
@@ -767,15 +861,14 @@ ParseManifest(NSLocationType aType, FileLocation& aFile, char* aBuf,
         cd->argv[1] = argv[1];
       } else {
         (nsComponentManagerImpl::gComponentManager->*(directive->mgrfunc))(
-          mgrcx, line, argv);
+            mgrcx, line, argv);
       }
     }
   }
 
   for (uint32_t i = 0; i < contracts.Length(); ++i) {
     CachedDirective& d = contracts[i];
-    nsComponentManagerImpl::gComponentManager->ManifestContract(mgrcx,
-                                                                d.lineno,
-                                                                d.argv);
+    nsComponentManagerImpl::gComponentManager->ManifestContract(
+        mgrcx, d.lineno, d.argv);
   }
 }

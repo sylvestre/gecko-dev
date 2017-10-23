@@ -21,16 +21,16 @@ class nsIDocShell;
 
 class nsDocShellLoadInfo : public nsIDocShellLoadInfo
 {
-public:
+ public:
   nsDocShellLoadInfo();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOCSHELLLOADINFO
 
-protected:
+ protected:
   virtual ~nsDocShellLoadInfo();
 
-protected:
+ protected:
   nsCOMPtr<nsIURI> mReferrer;
   nsCOMPtr<nsIURI> mOriginalURI;
   nsCOMPtr<nsIURI> mResultPrincipalURI;

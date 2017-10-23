@@ -51,7 +51,7 @@ namespace dom {
  */
 class SVGMatrix final : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(SVGMatrix)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(SVGMatrix)
 
@@ -66,15 +66,17 @@ public:
   // Default ctor for gfxMatrix will produce identity mx
   SVGMatrix() {}
 
-  explicit SVGMatrix(const gfxMatrix &aMatrix) : mMatrix(aMatrix) {}
+  explicit SVGMatrix(const gfxMatrix& aMatrix) : mMatrix(aMatrix) {}
 
-  const gfxMatrix& GetMatrix() const {
+  const gfxMatrix& GetMatrix() const
+  {
     return mTransform ? mTransform->Matrixgfx() : mMatrix;
   }
 
   // WebIDL
   SVGTransform* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   float A() const { return static_cast<float>(GetMatrix()._11); }
   void SetA(float aA, ErrorResult& rv);
@@ -103,10 +105,11 @@ public:
   already_AddRefed<SVGMatrix> SkewX(float angle, ErrorResult& rv);
   already_AddRefed<SVGMatrix> SkewY(float angle, ErrorResult& rv);
 
-private:
+ private:
   ~SVGMatrix() {}
 
-  void SetMatrix(const gfxMatrix& aMatrix) {
+  void SetMatrix(const gfxMatrix& aMatrix)
+  {
     if (mTransform) {
       mTransform->SetMatrix(aMatrix);
     } else {
@@ -114,7 +117,8 @@ private:
     }
   }
 
-  bool IsAnimVal() const {
+  bool IsAnimVal() const
+  {
     return mTransform ? mTransform->IsAnimVal() : false;
   }
 
@@ -125,7 +129,7 @@ private:
   gfxMatrix mMatrix;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGMatrix_h
+#endif  // mozilla_dom_SVGMatrix_h

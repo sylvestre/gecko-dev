@@ -16,16 +16,24 @@ extern "C" {
 // Functions invoked from Rust code
 // ----
 
-bool is_in_compositor_thread();
-bool is_in_main_thread();
-bool is_in_render_thread();
-bool is_glcontext_egl(void* glcontext_ptr);
-bool gfx_use_wrench();
-const char* gfx_wr_resource_path_override();
-void gfx_critical_note(const char* msg);
-void* get_proc_address_from_glcontext(void* glcontext_ptr, const char* procname);
+bool
+is_in_compositor_thread();
+bool
+is_in_main_thread();
+bool
+is_in_render_thread();
+bool
+is_glcontext_egl(void* glcontext_ptr);
+bool
+gfx_use_wrench();
+const char*
+gfx_wr_resource_path_override();
+void
+gfx_critical_note(const char* msg);
+void*
+get_proc_address_from_glcontext(void* glcontext_ptr, const char* procname);
 
-} // extern "C"
+}  // extern "C"
 
 // Some useful defines to stub out webrender binding functions for when we
 // build gecko without webrender. We try to tell the compiler these functions
@@ -35,13 +43,18 @@ void* get_proc_address_from_glcontext(void* glcontext_ptr, const char* procname)
 // destructors in C++ classes, use WR_DESTRUCTOR_SAFE_FUNC instead, which omits
 // the unreachable annotation.
 #ifdef MOZ_BUILD_WEBRENDER
-#  define WR_INLINE
-#  define WR_FUNC
-#  define WR_DESTRUCTOR_SAFE_FUNC
+#define WR_INLINE
+#define WR_FUNC
+#define WR_DESTRUCTOR_SAFE_FUNC
 #else
-#  define WR_INLINE inline
-#  define WR_FUNC { MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("WebRender disabled"); }
-#  define WR_DESTRUCTOR_SAFE_FUNC {}
+#define WR_INLINE inline
+#define WR_FUNC                                                    \
+  {                                                                \
+    MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("WebRender disabled"); \
+  }
+#define WR_DESTRUCTOR_SAFE_FUNC \
+  {                             \
+  }
 #endif
 
 #include "webrender_ffi_generated.h"
@@ -49,4 +62,4 @@ void* get_proc_address_from_glcontext(void* glcontext_ptr, const char* procname)
 #undef WR_FUNC
 #undef WR_DESTRUCTOR_SAFE_FUNC
 
-#endif // WR_h
+#endif  // WR_h

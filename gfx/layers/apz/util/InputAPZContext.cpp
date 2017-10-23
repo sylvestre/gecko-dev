@@ -47,11 +47,11 @@ InputAPZContext::SetPendingLayerization()
 InputAPZContext::InputAPZContext(const ScrollableLayerGuid& aGuid,
                                  const uint64_t& aBlockId,
                                  const nsEventStatus& aApzResponse)
-  : mOldGuid(sGuid)
-  , mOldBlockId(sBlockId)
-  , mOldApzResponse(sApzResponse)
-  , mOldRoutedToChildProcess(sRoutedToChildProcess)
-  , mOldPendingLayerization(sPendingLayerization)
+    : mOldGuid(sGuid),
+      mOldBlockId(sBlockId),
+      mOldApzResponse(sApzResponse),
+      mOldRoutedToChildProcess(sRoutedToChildProcess),
+      mOldPendingLayerization(sPendingLayerization)
 {
   sGuid = aGuid;
   sBlockId = aBlockId;
@@ -81,5 +81,5 @@ InputAPZContext::HavePendingLayerization()
   return sPendingLayerization;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

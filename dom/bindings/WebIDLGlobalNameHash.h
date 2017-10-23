@@ -18,18 +18,19 @@ struct WebIDLNameTableEntry;
 namespace constructors {
 namespace id {
 enum ID : uint16_t;
-} // namespace id
-} // namespace constructors
+}  // namespace id
+}  // namespace constructors
 
 class WebIDLGlobalNameHash
 {
-public:
+ public:
   static void Init();
   static void Shutdown();
 
-  typedef JSObject*
-  (*DefineGlobalName)(JSContext* cx, JS::Handle<JSObject*> global,
-                      JS::Handle<jsid> id, bool defineOnGlobal);
+  typedef JSObject* (*DefineGlobalName)(JSContext* cx,
+                                        JS::Handle<JSObject*> global,
+                                        JS::Handle<jsid> id,
+                                        bool defineOnGlobal);
 
   // Check whether a constructor should be enabled for the given object.
   // Note that the object should NOT be an Xray, since Xrays will end up
@@ -37,18 +38,20 @@ public:
   // This is a typedef for the function type itself, not the function
   // pointer, so it's more obvious that pointers to a ConstructorEnabled
   // can be null.
-  typedef bool
-  (ConstructorEnabled)(JSContext* cx, JS::Handle<JSObject*> obj);
+  typedef bool(ConstructorEnabled)(JSContext* cx, JS::Handle<JSObject*> obj);
 
-  static void Register(uint16_t aNameOffset, uint16_t aNameLength,
-                       DefineGlobalName aDefine, ConstructorEnabled* aEnabled,
+  static void Register(uint16_t aNameOffset,
+                       uint16_t aNameLength,
+                       DefineGlobalName aDefine,
+                       ConstructorEnabled* aEnabled,
                        constructors::id::ID aConstructorId);
 
   static void Remove(const char* aName, uint32_t aLength);
 
   // Returns false if something failed. aFound is set to true if the name is in
   // the hash, whether it's enabled or not.
-  static bool DefineIfEnabled(JSContext* aCx, JS::Handle<JSObject*> aObj,
+  static bool DefineIfEnabled(JSContext* aCx,
+                              JS::Handle<JSObject*> aObj,
                               JS::Handle<jsid> aId,
                               JS::MutableHandle<JS::PropertyDescriptor> aDesc,
                               bool* aFound);
@@ -56,7 +59,8 @@ public:
   static bool MayResolve(jsid aId);
 
   // The type of names we're asking for.
-  enum NameType {
+  enum NameType
+  {
     // All WebIDL names enabled for aObj.
     AllNames,
     // Only the names that are enabled for aObj and have not been resolved for
@@ -64,11 +68,12 @@ public:
     UnresolvedNamesOnly
   };
   // Returns false if an exception has been thrown on aCx.
-  static bool GetNames(JSContext* aCx, JS::Handle<JSObject*> aObj,
+  static bool GetNames(JSContext* aCx,
+                       JS::Handle<JSObject*> aObj,
                        NameType aNameType,
                        JS::AutoIdVector& aNames);
 
-private:
+ private:
   friend struct WebIDLNameTableEntry;
 
   // The total number of names that we will add to the hash.
@@ -81,7 +86,7 @@ private:
   static const char sNames[];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WebIDLGlobalNameHash_h__
+#endif  // mozilla_dom_WebIDLGlobalNameHash_h__

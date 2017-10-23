@@ -28,6 +28,5 @@ EventRegions::EventRegions(const nsIntRegion& aHitRegion,
   mHitRegion.OrWith(aMaybeHitRegion);
 }
 
-} // namespace layers
-} // namespace mozilla
-
+}  // namespace layers
+}  // namespace mozilla

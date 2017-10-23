@@ -6,13 +6,13 @@
 #include "SourceSurfaceSharedData.h"
 
 #include "mozilla/Likely.h"
-#include "mozilla/Types.h" // for decltype
+#include "mozilla/Types.h"  // for decltype
 
 namespace mozilla {
 namespace gfx {
 
 bool
-SourceSurfaceSharedData::Init(const IntSize &aSize,
+SourceSurfaceSharedData::Init(const IntSize& aSize,
                               int32_t aStride,
                               SurfaceFormat aFormat)
 {
@@ -22,8 +22,7 @@ SourceSurfaceSharedData::Init(const IntSize &aSize,
 
   size_t len = GetAlignedDataLength();
   mBuf = new SharedMemoryBasic();
-  if (NS_WARN_IF(!mBuf->Create(len)) ||
-      NS_WARN_IF(!mBuf->Map(len))) {
+  if (NS_WARN_IF(!mBuf->Create(len)) || NS_WARN_IF(!mBuf->Map(len))) {
     mBuf = nullptr;
     return false;
   }
@@ -104,8 +103,7 @@ SourceSurfaceSharedData::ReallocHandle()
 
   size_t len = GetAlignedDataLength();
   RefPtr<SharedMemoryBasic> buf = new SharedMemoryBasic();
-  if (NS_WARN_IF(!buf->Create(len)) ||
-      NS_WARN_IF(!buf->Map(len))) {
+  if (NS_WARN_IF(!buf->Create(len)) || NS_WARN_IF(!buf->Map(len))) {
     return false;
   }
 
@@ -136,5 +134,5 @@ SourceSurfaceSharedData::Finalize()
   CloseHandleInternal();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

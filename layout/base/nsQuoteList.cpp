@@ -11,7 +11,8 @@
 #include "nsIContent.h"
 
 bool
-nsQuoteNode::InitTextFrame(nsGenConList* aList, nsIFrame* aPseudoFrame,
+nsQuoteNode::InitTextFrame(nsGenConList* aList,
+                           nsIFrame* aPseudoFrame,
                            nsIFrame* aTextFrame)
 {
   nsGenConNode::InitTextFrame(aList, aPseudoFrame, aTextFrame);
@@ -35,18 +36,17 @@ const nsString*
 nsQuoteNode::Text()
 {
   NS_ASSERTION(mType == eStyleContentType_OpenQuote ||
-               mType == eStyleContentType_CloseQuote,
+                   mType == eStyleContentType_CloseQuote,
                "should only be called when mText should be non-null");
   const nsStyleQuoteValues::QuotePairArray& quotePairs =
-    mPseudoFrame->StyleList()->GetQuotePairs();
-  int32_t quotesCount = quotePairs.Length(); // 0 if 'quotes:none'
+      mPseudoFrame->StyleList()->GetQuotePairs();
+  int32_t quotesCount = quotePairs.Length();  // 0 if 'quotes:none'
   int32_t quoteDepth = Depth();
 
   // Reuse the last pair when the depth is greater than the number of
   // pairs of quotes.  (Also make 'quotes: none' and close-quote from
   // a depth of 0 equivalent for the next test.)
-  if (quoteDepth >= quotesCount)
-    quoteDepth = quotesCount - 1;
+  if (quoteDepth >= quotesCount) quoteDepth = quotesCount - 1;
 
   const nsString* result;
   if (quoteDepth == -1) {
@@ -55,8 +55,8 @@ nsQuoteNode::Text()
     result = &EmptyString();
   } else {
     result = eStyleContentType_OpenQuote == mType
-               ? &quotePairs[quoteDepth].first
-               : &quotePairs[quoteDepth].second;
+                 ? &quotePairs[quoteDepth].first
+                 : &quotePairs[quoteDepth].second;
   }
   return result;
 }
@@ -90,21 +90,21 @@ nsQuoteList::PrintChain()
   printf("Chain: \n");
   for (nsQuoteNode* node = FirstNode(); node; node = Next(node)) {
     printf("  %p %d - ", static_cast<void*>(node), node->mDepthBefore);
-    switch(node->mType) {
-        case (eStyleContentType_OpenQuote):
-          printf("open");
-          break;
-        case (eStyleContentType_NoOpenQuote):
-          printf("noOpen");
-          break;
-        case (eStyleContentType_CloseQuote):
-          printf("close");
-          break;
-        case (eStyleContentType_NoCloseQuote):
-          printf("noClose");
-          break;
-        default:
-          printf("unknown!!!");
+    switch (node->mType) {
+      case (eStyleContentType_OpenQuote):
+        printf("open");
+        break;
+      case (eStyleContentType_NoOpenQuote):
+        printf("noOpen");
+        break;
+      case (eStyleContentType_CloseQuote):
+        printf("close");
+        break;
+      case (eStyleContentType_NoCloseQuote):
+        printf("noClose");
+        break;
+      default:
+        printf("unknown!!!");
     }
     printf(" %d - %d,", node->Depth(), node->DepthAfter());
     if (node->mText) {

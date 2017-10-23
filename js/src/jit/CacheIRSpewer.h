@@ -20,15 +20,13 @@
 namespace js {
 namespace jit {
 
-class CacheIRSpewer
-{
+class CacheIRSpewer {
     Mutex outputLock;
     Fprinter output;
     mozilla::Maybe<JSONPrinter> json;
     static CacheIRSpewer cacheIRspewer;
 
-  public:
-
+   public:
     CacheIRSpewer();
     ~CacheIRSpewer();
 
@@ -38,7 +36,10 @@ class CacheIRSpewer
     bool enabled() { return json.isSome(); }
 
     // These methods can only be called when enabled() is true.
-    Mutex& lock() { MOZ_ASSERT(enabled()); return outputLock; }
+    Mutex& lock() {
+        MOZ_ASSERT(enabled());
+        return outputLock;
+    }
 
     void beginCache(LockGuard<Mutex>&, const IRGenerator& generator);
     void valueProperty(LockGuard<Mutex>&, const char* name, const Value& v);
@@ -46,8 +47,8 @@ class CacheIRSpewer
     void endCache(LockGuard<Mutex>&);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* JS_CACHEIR_SPEW */
 

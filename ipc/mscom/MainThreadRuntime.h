@@ -10,7 +10,7 @@
 #include "mozilla/Attributes.h"
 #if defined(ACCESSIBILITY)
 #include "mozilla/mscom/ActivationContext.h"
-#endif // defined(ACCESSIBILITY)
+#endif  // defined(ACCESSIBILITY)
 #include "mozilla/mscom/COMApartmentRegion.h"
 #include "mozilla/mscom/MainThreadClientInfo.h"
 #include "mozilla/RefPtr.h"
@@ -20,7 +20,7 @@ namespace mscom {
 
 class MOZ_NON_TEMPORARY_CLASS MainThreadRuntime
 {
-public:
+ public:
   MainThreadRuntime();
   ~MainThreadRuntime();
 
@@ -40,22 +40,21 @@ public:
    */
   static DWORD GetClientThreadId();
 
-private:
+ private:
   HRESULT InitializeSecurity();
 
   HRESULT mInitResult;
 #if defined(ACCESSIBILITY)
   ActivationContextRegion mActCtxRgn;
-#endif // defined(ACCESSIBILITY)
+#endif  // defined(ACCESSIBILITY)
   STARegion mStaRegion;
 
-  RefPtr<MainThreadClientInfo>  mClientInfo;
+  RefPtr<MainThreadClientInfo> mClientInfo;
 
   static MainThreadRuntime* sInstance;
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_MainThreadRuntime_h
-
+#endif  // mozilla_mscom_MainThreadRuntime_h

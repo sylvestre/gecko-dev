@@ -18,15 +18,14 @@ namespace js {
 /* static */ mozilla::Atomic<size_t> AutoNoteSingleThreadedRegion::count(0);
 
 template <AllowedHelperThread Helper>
-static inline bool
-OnHelperThread()
-{
-    if (Helper == AllowedHelperThread::IonCompile || Helper == AllowedHelperThread::GCTaskOrIonCompile) {
-        if (CurrentThreadIsIonCompiling())
-            return true;
+static inline bool OnHelperThread() {
+    if (Helper == AllowedHelperThread::IonCompile ||
+        Helper == AllowedHelperThread::GCTaskOrIonCompile) {
+        if (CurrentThreadIsIonCompiling()) return true;
     }
 
-    if (Helper == AllowedHelperThread::GCTask || Helper == AllowedHelperThread::GCTaskOrIonCompile) {
+    if (Helper == AllowedHelperThread::GCTask ||
+        Helper == AllowedHelperThread::GCTaskOrIonCompile) {
         if (TlsContext.get()->performingGC || TlsContext.get()->runtime()->gc.onBackgroundThread())
             return true;
     }
@@ -34,9 +33,7 @@ OnHelperThread()
     return false;
 }
 
-void
-CheckThreadLocal::check() const
-{
+void CheckThreadLocal::check() const {
     JSContext* cx = TlsContext.get();
     MOZ_ASSERT(cx);
 
@@ -50,20 +47,17 @@ CheckThreadLocal::check() const
 }
 
 template <AllowedHelperThread Helper>
-void
-CheckActiveThread<Helper>::check() const
-{
-    // When interrupting a thread on Windows, changes are made to the runtime
-    // and active thread's state from another thread while the active thread is
-    // suspended. We need a way to mark these accesses as being tantamount to
-    // accesses by the active thread. See bug 1323066.
+void CheckActiveThread<Helper>::check() const {
+// When interrupting a thread on Windows, changes are made to the runtime
+// and active thread's state from another thread while the active thread is
+// suspended. We need a way to mark these accesses as being tantamount to
+// accesses by the active thread. See bug 1323066.
 #ifndef XP_WIN
-    if (OnHelperThread<Helper>())
-        return;
+    if (OnHelperThread<Helper>()) return;
 
     JSContext* cx = TlsContext.get();
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
-#endif // XP_WIN
+#endif  // XP_WIN
 }
 
 template class CheckActiveThread<AllowedHelperThread::None>;
@@ -71,19 +65,16 @@ template class CheckActiveThread<AllowedHelperThread::GCTask>;
 template class CheckActiveThread<AllowedHelperThread::IonCompile>;
 
 template <AllowedHelperThread Helper>
-void
-CheckZoneGroup<Helper>::check() const
-{
-    if (OnHelperThread<Helper>())
-        return;
+void CheckZoneGroup<Helper>::check() const {
+    if (OnHelperThread<Helper>()) return;
 
     JSContext* cx = TlsContext.get();
     if (group) {
         if (group->usedByHelperThread()) {
             MOZ_ASSERT(group->ownedByCurrentThread());
         } else {
-            // This check is disabled on windows for the same reason as in
-            // CheckActiveThread.
+        // This check is disabled on windows for the same reason as in
+        // CheckActiveThread.
 #ifndef XP_WIN
             // In a cooperatively scheduled runtime the active thread is
             // permitted access to all zone groups --- even those it has not
@@ -110,22 +101,19 @@ template class CheckZoneGroup<AllowedHelperThread::IonCompile>;
 template class CheckZoneGroup<AllowedHelperThread::GCTaskOrIonCompile>;
 
 template <GlobalLock Lock, AllowedHelperThread Helper>
-void
-CheckGlobalLock<Lock, Helper>::check() const
-{
-    if (OnHelperThread<Helper>())
-        return;
+void CheckGlobalLock<Lock, Helper>::check() const {
+    if (OnHelperThread<Helper>()) return;
 
     switch (Lock) {
-      case GlobalLock::GCLock:
-        MOZ_ASSERT(TlsContext.get()->runtime()->gc.currentThreadHasLockedGC());
-        break;
-      case GlobalLock::ExclusiveAccessLock:
-        MOZ_ASSERT(TlsContext.get()->runtime()->currentThreadHasExclusiveAccess());
-        break;
-      case GlobalLock::HelperThreadLock:
-        MOZ_ASSERT(HelperThreadState().isLockedByCurrentThread());
-        break;
+        case GlobalLock::GCLock:
+            MOZ_ASSERT(TlsContext.get()->runtime()->gc.currentThreadHasLockedGC());
+            break;
+        case GlobalLock::ExclusiveAccessLock:
+            MOZ_ASSERT(TlsContext.get()->runtime()->currentThreadHasExclusiveAccess());
+            break;
+        case GlobalLock::HelperThreadLock:
+            MOZ_ASSERT(HelperThreadState().isLockedByCurrentThread());
+            break;
     }
 }
 
@@ -134,6 +122,6 @@ template class CheckGlobalLock<GlobalLock::ExclusiveAccessLock, AllowedHelperThr
 template class CheckGlobalLock<GlobalLock::ExclusiveAccessLock, AllowedHelperThread::GCTask>;
 template class CheckGlobalLock<GlobalLock::HelperThreadLock, AllowedHelperThread::None>;
 
-#endif // JS_HAS_PROTECTED_DATA_CHECKS
+#endif  // JS_HAS_PROTECTED_DATA_CHECKS
 
-} // namespace js
+}  // namespace js

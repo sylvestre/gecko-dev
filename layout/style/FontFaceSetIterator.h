@@ -15,7 +15,7 @@ namespace dom {
 
 class FontFaceSetIterator final
 {
-public:
+ public:
   FontFaceSetIterator(mozilla::dom::FontFaceSet* aFontFaceSet,
                       bool aIsKeyAndValue);
 
@@ -27,10 +27,11 @@ public:
                   JS::MutableHandle<JSObject*> aReflector);
 
   // WebIDL
-  void Next(JSContext* aCx, FontFaceSetIteratorResult& aResult,
+  void Next(JSContext* aCx,
+            FontFaceSetIteratorResult& aResult,
             mozilla::ErrorResult& aRv);
 
-private:
+ private:
   ~FontFaceSetIterator();
 
   RefPtr<FontFaceSet> mFontFaceSet;
@@ -38,7 +39,7 @@ private:
   bool mIsKeyAndValue;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // !defined(mozilla_dom_FontFaceSetIterator_h)
+#endif  // !defined(mozilla_dom_FontFaceSetIterator_h)

@@ -15,38 +15,43 @@
 class nsAtom;
 class nsIContent;
 
-nsresult NS_NewSVGTextPathElement(nsIContent **aResult,
-                                  already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGTextPathElement(nsIContent** aResult,
+                         already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 namespace dom {
 
 // textPath Method Types
-static const unsigned short TEXTPATH_METHODTYPE_UNKNOWN  = 0;
-static const unsigned short TEXTPATH_METHODTYPE_ALIGN    = 1;
-static const unsigned short TEXTPATH_METHODTYPE_STRETCH  = 2;
+static const unsigned short TEXTPATH_METHODTYPE_UNKNOWN = 0;
+static const unsigned short TEXTPATH_METHODTYPE_ALIGN = 1;
+static const unsigned short TEXTPATH_METHODTYPE_STRETCH = 2;
 // textPath Spacing Types
 static const unsigned short TEXTPATH_SPACINGTYPE_UNKNOWN = 0;
-static const unsigned short TEXTPATH_SPACINGTYPE_AUTO    = 1;
-static const unsigned short TEXTPATH_SPACINGTYPE_EXACT   = 2;
+static const unsigned short TEXTPATH_SPACINGTYPE_AUTO = 1;
+static const unsigned short TEXTPATH_SPACINGTYPE_EXACT = 2;
 
 typedef SVGTextContentElement SVGTextPathElementBase;
 
 class SVGTextPathElement final : public SVGTextPathElementBase
 {
-friend class ::SVGTextFrame;
+  friend class ::SVGTextFrame;
 
-protected:
-  friend nsresult (::NS_NewSVGTextPathElement(nsIContent **aResult,
-                                              already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
-  explicit SVGTextPathElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
-  virtual JSObject* WrapNode(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+ protected:
+  friend nsresult(::NS_NewSVGTextPathElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+  explicit SVGTextPathElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+  virtual JSObject* WrapNode(JSContext* cx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
+ public:
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL
@@ -56,31 +61,38 @@ public:
   already_AddRefed<SVGAnimatedString> Href();
 
  protected:
-
   virtual LengthAttributesInfo GetLengthInfo() override;
   virtual EnumAttributesInfo GetEnumInfo() override;
   virtual StringAttributesInfo GetStringInfo() override;
 
-  enum { /* TEXTLENGTH, */ STARTOFFSET = 1 };
+  enum
+  { /* TEXTLENGTH, */ STARTOFFSET = 1 };
   nsSVGLength2 mLengthAttributes[2];
   virtual nsSVGLength2* LengthAttributes() override
-    { return mLengthAttributes; }
+  {
+    return mLengthAttributes;
+  }
   static LengthInfo sLengthInfo[2];
 
-  enum { /* LENGTHADJUST, */ METHOD = 1, SPACING };
+  enum
+  { /* LENGTHADJUST, */ METHOD = 1,
+    SPACING };
   nsSVGEnum mEnumAttributes[3];
-  virtual nsSVGEnum* EnumAttributes() override
-    { return mEnumAttributes; }
+  virtual nsSVGEnum* EnumAttributes() override { return mEnumAttributes; }
   static nsSVGEnumMapping sMethodMap[];
   static nsSVGEnumMapping sSpacingMap[];
   static EnumInfo sEnumInfo[3];
 
-  enum { HREF, XLINK_HREF };
+  enum
+  {
+    HREF,
+    XLINK_HREF
+  };
   nsSVGString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGTextPathElement_h
+#endif  // mozilla_dom_SVGTextPathElement_h

@@ -25,17 +25,13 @@ struct DDRange
 {
   const int64_t mOffset;
   const int64_t mBytes;
-  DDRange(int64_t aOffset, int64_t aBytes)
-    : mOffset(aOffset)
-    , mBytes(aBytes)
-  {
-  }
+  DDRange(int64_t aOffset, int64_t aBytes) : mOffset(aOffset), mBytes(aBytes) {}
 };
 
 // Value associated with a log message.
 using DDLogValue = Variant<DDNoValue,
                            DDLogObject,
-                           const char*, // Assumed to be a literal string.
+                           const char*,  // Assumed to be a literal string.
                            const nsCString,
                            bool,
                            int8_t,
@@ -60,6 +56,6 @@ ToJSON(const DDLogValue& aValue,
        JSONWriter& aJSONWriter,
        const char* aPropertyName);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDLogValue_h_
+#endif  // DDLogValue_h_

@@ -12,18 +12,19 @@
 
 class nsAutoCopyListener final : public nsISelectionListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISELECTIONLISTENER
 
   explicit nsAutoCopyListener(int16_t aClipboardID)
-    : mCachedClipboard(aClipboardID)
-  {}
-
-  void Listen(nsISelectionPrivate *aSelection)
+      : mCachedClipboard(aClipboardID)
   {
-      NS_ASSERTION(aSelection, "Null selection passed to Listen()");
-      aSelection->AddSelectionListener(this);
+  }
+
+  void Listen(nsISelectionPrivate* aSelection)
+  {
+    NS_ASSERTION(aSelection, "Null selection passed to Listen()");
+    aSelection->AddSelectionListener(this);
   }
 
   static nsAutoCopyListener* GetInstance(int16_t aClipboardID)
@@ -37,12 +38,9 @@ public:
     return sInstance;
   }
 
-  static void Shutdown()
-  {
-    NS_IF_RELEASE(sInstance);
-  }
+  static void Shutdown() { NS_IF_RELEASE(sInstance); }
 
-private:
+ private:
   ~nsAutoCopyListener() {}
 
   static nsAutoCopyListener* sInstance;

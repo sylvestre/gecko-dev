@@ -13,10 +13,9 @@
 namespace mozilla {
 namespace layers {
 
-class VideoBridgeChild final : public PVideoBridgeChild
-                             , public TextureForwarder
+class VideoBridgeChild final : public PVideoBridgeChild, public TextureForwarder
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VideoBridgeChild, override);
 
   static void Startup();
@@ -33,7 +32,6 @@ public:
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
   void DeallocPVideoBridgeChild() override;
-
 
   // ISurfaceAllocator
   bool AllocUnsafeShmem(size_t aSize,
@@ -54,15 +52,18 @@ public:
 
   // ClientIPCAllocator
   base::ProcessId GetParentPid() const override { return OtherPid(); }
-  MessageLoop * GetMessageLoop() const override { return mMessageLoop; }
-  void CancelWaitForRecycle(uint64_t aTextureId) override { MOZ_ASSERT(false, "NO RECYCLING HERE"); }
+  MessageLoop* GetMessageLoop() const override { return mMessageLoop; }
+  void CancelWaitForRecycle(uint64_t aTextureId) override
+  {
+    MOZ_ASSERT(false, "NO RECYCLING HERE");
+  }
 
   // ISurfaceAllocator
   bool IsSameProcess() const override;
 
   bool CanSend() { return mCanSend; }
 
-private:
+ private:
   VideoBridgeChild();
   ~VideoBridgeChild();
 
@@ -71,7 +72,7 @@ private:
   bool mCanSend;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

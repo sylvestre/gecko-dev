@@ -11,7 +11,7 @@
 
 #include "nsString.h"
 #include "nsCOMArray.h"
-#include "mozilla/ArrayUtils.h" // ArrayLength
+#include "mozilla/ArrayUtils.h"  // ArrayLength
 #include "mozilla/Attributes.h"
 #include "mozilla/Sprintf.h"
 
@@ -19,21 +19,18 @@ class nsWifiAccessPoint final : public nsIWifiAccessPoint
 {
   ~nsWifiAccessPoint();
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFIACCESSPOINT
 
   nsWifiAccessPoint();
 
   char mMac[18];
-  int  mSignal;
+  int mSignal;
   char mSsid[33];
-  int  mSsidLen;
+  int mSsidLen;
 
-  void setSignal(int signal)
-  {
-    mSignal = signal;
-  }
+  void setSignal(int signal) { mSignal = signal; }
 
   void setMacRaw(const char* aString)
   {
@@ -50,28 +47,33 @@ public:
       mac_as_int = holder;
     }
 
-    static const char *kMacFormatString = ("%02x-%02x-%02x-%02x-%02x-%02x");
+    static const char* kMacFormatString = ("%02x-%02x-%02x-%02x-%02x-%02x");
 
-    SprintfLiteral(mMac, kMacFormatString,
-                   mac_as_int[0], mac_as_int[1], mac_as_int[2],
-                   mac_as_int[3], mac_as_int[4], mac_as_int[5]);
+    SprintfLiteral(mMac,
+                   kMacFormatString,
+                   mac_as_int[0],
+                   mac_as_int[1],
+                   mac_as_int[2],
+                   mac_as_int[3],
+                   mac_as_int[4],
+                   mac_as_int[5]);
 
     mMac[17] = 0;
   }
 
-  void setSSIDRaw(const char* aSSID, size_t len) {
+  void setSSIDRaw(const char* aSSID, size_t len)
+  {
     mSsidLen = std::min(len, mozilla::ArrayLength(mSsid));
     memcpy(mSsid, aSSID, mSsidLen);
   }
 
-  void setSSID(const char* aSSID, unsigned long len) {
+  void setSSID(const char* aSSID, unsigned long len)
+  {
     if (aSSID && (len < sizeof(mSsid))) {
-        strncpy(mSsid, aSSID, len);
-        mSsid[len] = 0;
-        mSsidLen = len;
-    }
-    else
-    {
+      strncpy(mSsid, aSSID, len);
+      mSsid[len] = 0;
+      mSsidLen = len;
+    } else {
       mSsid[0] = 0;
       mSsidLen = 0;
     }
@@ -80,7 +82,11 @@ public:
 
 // Helper functions
 
-bool AccessPointsEqual(nsCOMArray<nsWifiAccessPoint>& a, nsCOMArray<nsWifiAccessPoint>& b);
-void ReplaceArray(nsCOMArray<nsWifiAccessPoint>& a, nsCOMArray<nsWifiAccessPoint>& b);
+bool
+AccessPointsEqual(nsCOMArray<nsWifiAccessPoint>& a,
+                  nsCOMArray<nsWifiAccessPoint>& b);
+void
+ReplaceArray(nsCOMArray<nsWifiAccessPoint>& a,
+             nsCOMArray<nsWifiAccessPoint>& b);
 
 #endif

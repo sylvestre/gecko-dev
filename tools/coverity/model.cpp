@@ -55,11 +55,11 @@ MOZ_ReportCrash(const char* aStr, const char* aFilename, int aLine)
 #define NS_RUNTIMEABORT(msg) __coverity_panic__()
 
 // Kills Structurally dead code (UNREACHABLE)
-#define NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_BEGIN(_class)                   \
-  NS_IMETHODIMP_(bool)                                                         \
-  NS_CYCLE_COLLECTION_CLASSNAME(_class)::CanSkipThisReal(void* p)              \
-  {                                                                            \
-    __coverity_panic__();                                                      \
+#define NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_BEGIN(_class)      \
+  NS_IMETHODIMP_(bool)                                            \
+  NS_CYCLE_COLLECTION_CLASSNAME(_class)::CanSkipThisReal(void* p) \
+  {                                                               \
+    __coverity_panic__();                                         \
     _class* tmp = DowncastCCParticipant<_class>(p);
 
 int
@@ -83,11 +83,9 @@ GET_UINT24(const jsbytecode* pc)
 
 class HeaderParser
 {
-
-private:
+ private:
   class ChunkHeader
   {
-
     uint8_t mRaw[CHUNK_HEAD_SIZE];
 
     HeaderParser::ChunkHeader::ChunkSize() const
@@ -126,7 +124,7 @@ xtolong(const uint8_t* ll)
 
 class ByteReader
 {
-public:
+ public:
   const uint8_t* Read(size_t aCount);
   uint32_t ReadU24()
   {

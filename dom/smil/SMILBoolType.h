@@ -14,7 +14,7 @@ namespace mozilla {
 
 class SMILBoolType : public nsISMILType
 {
-public:
+ public:
   // Singleton for nsSMILValue objects to hold onto.
   static SMILBoolType* Singleton()
   {
@@ -22,13 +22,15 @@ public:
     return &sSingleton;
   }
 
-protected:
+ protected:
   // nsISMILType Methods
   // -------------------
   virtual void Init(nsSMILValue& aValue) const override;
   virtual void Destroy(nsSMILValue& aValue) const override;
-  virtual nsresult Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const override;
-  virtual nsresult Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+  virtual nsresult Assign(nsSMILValue& aDest,
+                          const nsSMILValue& aSrc) const override;
+  virtual nsresult Add(nsSMILValue& aDest,
+                       const nsSMILValue& aValueToAdd,
                        uint32_t aCount) const override;
   virtual bool IsEqual(const nsSMILValue& aLeft,
                        const nsSMILValue& aRight) const override;
@@ -40,11 +42,11 @@ protected:
                                double aUnitDistance,
                                nsSMILValue& aResult) const override;
 
-private:
+ private:
   // Private constructor: prevent instances beyond my singleton.
   constexpr SMILBoolType() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SMILBOOLTYPE_H_
+#endif  // MOZILLA_SMILBOOLTYPE_H_

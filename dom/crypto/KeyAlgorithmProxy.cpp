@@ -53,7 +53,7 @@ KeyAlgorithmProxy::ReadStructuredClone(JSStructuredCloneReader* aReader)
     return false;
   }
 
-  mType = (KeyAlgorithmType) type;
+  mType = (KeyAlgorithmType)type;
   switch (mType) {
     case AES: {
       uint32_t length;
@@ -124,33 +124,45 @@ KeyAlgorithmProxy::JwkAlg() const
 {
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_CBC)) {
     switch (mAes.mLength) {
-      case 128: return NS_LITERAL_STRING(JWK_ALG_A128CBC);
-      case 192: return NS_LITERAL_STRING(JWK_ALG_A192CBC);
-      case 256: return NS_LITERAL_STRING(JWK_ALG_A256CBC);
+      case 128:
+        return NS_LITERAL_STRING(JWK_ALG_A128CBC);
+      case 192:
+        return NS_LITERAL_STRING(JWK_ALG_A192CBC);
+      case 256:
+        return NS_LITERAL_STRING(JWK_ALG_A256CBC);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_CTR)) {
     switch (mAes.mLength) {
-      case 128: return NS_LITERAL_STRING(JWK_ALG_A128CTR);
-      case 192: return NS_LITERAL_STRING(JWK_ALG_A192CTR);
-      case 256: return NS_LITERAL_STRING(JWK_ALG_A256CTR);
+      case 128:
+        return NS_LITERAL_STRING(JWK_ALG_A128CTR);
+      case 192:
+        return NS_LITERAL_STRING(JWK_ALG_A192CTR);
+      case 256:
+        return NS_LITERAL_STRING(JWK_ALG_A256CTR);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_GCM)) {
     switch (mAes.mLength) {
-      case 128: return NS_LITERAL_STRING(JWK_ALG_A128GCM);
-      case 192: return NS_LITERAL_STRING(JWK_ALG_A192GCM);
-      case 256: return NS_LITERAL_STRING(JWK_ALG_A256GCM);
+      case 128:
+        return NS_LITERAL_STRING(JWK_ALG_A128GCM);
+      case 192:
+        return NS_LITERAL_STRING(JWK_ALG_A192GCM);
+      case 256:
+        return NS_LITERAL_STRING(JWK_ALG_A256GCM);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_KW)) {
     switch (mAes.mLength) {
-      case 128: return NS_LITERAL_STRING(JWK_ALG_A128KW);
-      case 192: return NS_LITERAL_STRING(JWK_ALG_A192KW);
-      case 256: return NS_LITERAL_STRING(JWK_ALG_A256KW);
+      case 128:
+        return NS_LITERAL_STRING(JWK_ALG_A128KW);
+      case 192:
+        return NS_LITERAL_STRING(JWK_ALG_A192KW);
+      case 256:
+        return NS_LITERAL_STRING(JWK_ALG_A256KW);
     }
   }
 
@@ -229,13 +241,17 @@ KeyAlgorithmProxy::GetMechanism(const HmacKeyAlgorithm& aAlgorithm)
   hashMech = MapAlgorithmNameToMechanism(aAlgorithm.mHash.mName);
 
   switch (hashMech) {
-    case CKM_SHA_1: return CKM_SHA_1_HMAC;
-    case CKM_SHA256: return CKM_SHA256_HMAC;
-    case CKM_SHA384: return CKM_SHA384_HMAC;
-    case CKM_SHA512: return CKM_SHA512_HMAC;
+    case CKM_SHA_1:
+      return CKM_SHA_1_HMAC;
+    case CKM_SHA256:
+      return CKM_SHA256_HMAC;
+    case CKM_SHA384:
+      return CKM_SHA384_HMAC;
+    case CKM_SHA512:
+      return CKM_SHA512_HMAC;
   }
   return UNKNOWN_CK_MECHANISM;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

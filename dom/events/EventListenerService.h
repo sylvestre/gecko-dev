@@ -23,14 +23,14 @@ class nsIMutableArray;
 namespace mozilla {
 namespace dom {
 class EventTarget;
-} // namespace dom
+}  // namespace dom
 
 template<typename T>
 class Maybe;
 
 class EventListenerChange final : public nsIEventListenerChange
 {
-public:
+ public:
   explicit EventListenerChange(dom::EventTarget* aTarget);
 
   void AddChangedListenerName(nsAtom* aEventName);
@@ -38,7 +38,7 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEVENTLISTENERCHANGE
 
-protected:
+ protected:
   virtual ~EventListenerChange();
   nsCOMPtr<dom::EventTarget> mTarget;
   nsTArray<RefPtr<nsAtom>> mChangedListenerNames;
@@ -46,17 +46,17 @@ protected:
 
 class EventListenerInfo final : public nsIEventListenerInfo
 {
-public:
+ public:
   EventListenerInfo(const nsAString& aType,
                     already_AddRefed<nsIDOMEventListener> aListener,
                     bool aCapturing,
                     bool aAllowsUntrusted,
                     bool aInSystemEventGroup)
-    : mType(aType)
-    , mListener(aListener)
-    , mCapturing(aCapturing)
-    , mAllowsUntrusted(aAllowsUntrusted)
-    , mInSystemEventGroup(aInSystemEventGroup)
+      : mType(aType),
+        mListener(aListener),
+        mCapturing(aCapturing),
+        mAllowsUntrusted(aAllowsUntrusted),
+        mInSystemEventGroup(aInSystemEventGroup)
   {
   }
 
@@ -64,7 +64,7 @@ public:
   NS_DECL_CYCLE_COLLECTION_CLASS(EventListenerInfo)
   NS_DECL_NSIEVENTLISTENERINFO
 
-protected:
+ protected:
   virtual ~EventListenerInfo() {}
 
   bool GetJSVal(JSContext* aCx,
@@ -82,7 +82,8 @@ protected:
 class EventListenerService final : public nsIEventListenerService
 {
   ~EventListenerService();
-public:
+
+ public:
   EventListenerService();
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEVENTLISTENERSERVICE
@@ -96,16 +97,18 @@ public:
   }
 
   void NotifyPendingChanges();
-private:
+
+ private:
   void NotifyAboutMainThreadListenerChangeInternal(dom::EventTarget* aTarget,
                                                    nsAtom* aName);
   nsTObserverArray<nsCOMPtr<nsIListenerChangeListener>> mChangeListeners;
   nsCOMPtr<nsIMutableArray> mPendingListenerChanges;
-  nsDataHashtable<nsISupportsHashKey, RefPtr<EventListenerChange>> mPendingListenerChangesSet;
+  nsDataHashtable<nsISupportsHashKey, RefPtr<EventListenerChange>>
+      mPendingListenerChangesSet;
 
   static EventListenerService* sInstance;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_EventListenerService_h_
+#endif  // mozilla_EventListenerService_h_

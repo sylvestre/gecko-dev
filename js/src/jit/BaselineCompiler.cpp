@@ -18,7 +18,7 @@
 #include "jit/JitSpewer.h"
 #include "jit/Linker.h"
 #ifdef JS_ION_PERF
-# include "jit/PerfSpewer.h"
+#include "jit/PerfSpewer.h"
 #endif
 #include "jit/SharedICHelpers.h"
 #include "jit/VMFunctions.h"
@@ -43,33 +43,23 @@ using namespace js::jit;
 using mozilla::AssertedCast;
 
 BaselineCompiler::BaselineCompiler(JSContext* cx, TempAllocator& alloc, JSScript* script)
-  : BaselineCompilerSpecific(cx, alloc, script),
-    yieldAndAwaitOffsets_(cx),
-    modifiesArguments_(false)
-{
-}
+    : BaselineCompilerSpecific(cx, alloc, script),
+      yieldAndAwaitOffsets_(cx),
+      modifiesArguments_(false) {}
 
-bool
-BaselineCompiler::init()
-{
-    if (!analysis_.init(alloc_, cx->caches().gsnCache))
-        return false;
+bool BaselineCompiler::init() {
+    if (!analysis_.init(alloc_, cx->caches().gsnCache)) return false;
 
-    if (!labels_.init(alloc_, script->length()))
-        return false;
+    if (!labels_.init(alloc_, script->length())) return false;
 
-    for (size_t i = 0; i < script->length(); i++)
-        new (&labels_[i]) Label();
+    for (size_t i = 0; i < script->length(); i++) new (&labels_[i]) Label();
 
-    if (!frame.init(alloc_))
-        return false;
+    if (!frame.init(alloc_)) return false;
 
     return true;
 }
 
-bool
-BaselineCompiler::addPCMappingEntry(bool addIndexEntry)
-{
+bool BaselineCompiler::addPCMappingEntry(bool addIndexEntry) {
     // Don't add multiple entries for a single pc.
     size_t nentries = pcMappingEntries_.length();
     if (nentries > 0 && pcMappingEntries_[nentries - 1].pcOffset == script->pcToOffset(pc))
@@ -84,14 +74,12 @@ BaselineCompiler::addPCMappingEntry(bool addIndexEntry)
     return pcMappingEntries_.append(entry);
 }
 
-MethodStatus
-BaselineCompiler::compile()
-{
-    JitSpew(JitSpew_BaselineScripts, "Baseline compiling script %s:%zu (%p)",
-            script->filename(), script->lineno(), script);
+MethodStatus BaselineCompiler::compile() {
+    JitSpew(JitSpew_BaselineScripts, "Baseline compiling script %s:%zu (%p)", script->filename(),
+            script->lineno(), script);
 
-    JitSpew(JitSpew_Codegen, "# Emitting baseline code for script %s:%zu",
-            script->filename(), script->lineno());
+    JitSpew(JitSpew_Codegen, "# Emitting baseline code for script %s:%zu", script->filename(),
+            script->lineno());
 
     TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
     TraceLoggerEvent scriptEvent(TraceLogger_AnnotateScripts, script);
@@ -105,8 +93,7 @@ BaselineCompiler::compile()
     // set the collectCoverageInfo flag, we have to create the ScriptCounts if
     // they do not exist.
     if (!script->hasScriptCounts() && cx->compartment()->collectCoverage()) {
-        if (!script->initScriptCounts(cx))
-            return Method_Error;
+        if (!script->initScriptCounts(cx)) return Method_Error;
     }
 
     // Pin analysis info during compilation.
@@ -114,18 +101,14 @@ BaselineCompiler::compile()
 
     MOZ_ASSERT(!script->hasBaselineScript());
 
-    if (!emitPrologue())
-        return Method_Error;
+    if (!emitPrologue()) return Method_Error;
 
     MethodStatus status = emitBody();
-    if (status != Method_Compiled)
-        return status;
+    if (status != Method_Compiled) return status;
 
-    if (!emitEpilogue())
-        return Method_Error;
+    if (!emitEpilogue()) return Method_Error;
 
-    if (!emitOutOfLinePostBarrierSlot())
-        return Method_Error;
+    if (!emitOutOfLinePostBarrierSlot()) return Method_Error;
 
     Linker linker(masm);
     if (masm.oom()) {
@@ -135,8 +118,7 @@ BaselineCompiler::compile()
 
     AutoFlushICache afc("Baseline");
     JitCode* code = linker.newCode<CanGC>(cx, BASELINE_CODE);
-    if (!code)
-        return Method_Error;
+    if (!code) return Method_Error;
 
     Rooted<EnvironmentObject*> templateEnv(cx);
     if (script->functionNonDelazifying()) {
@@ -144,16 +126,14 @@ BaselineCompiler::compile()
 
         if (fun->needsNamedLambdaEnvironment()) {
             templateEnv = NamedLambdaObject::createTemplateObject(cx, fun, gc::TenuredHeap);
-            if (!templateEnv)
-                return Method_Error;
+            if (!templateEnv) return Method_Error;
         }
 
         if (fun->needsCallObject()) {
             RootedScript scriptRoot(cx, script);
-            templateEnv = CallObject::createTemplateObject(cx, scriptRoot, templateEnv,
-                                                           gc::TenuredHeap);
-            if (!templateEnv)
-                return Method_Error;
+            templateEnv =
+                CallObject::createTemplateObject(cx, scriptRoot, templateEnv, gc::TenuredHeap);
+            if (!templateEnv) return Method_Error;
         }
     }
 
@@ -202,17 +182,12 @@ BaselineCompiler::compile()
     // Note: There is an extra entry in the bytecode type map for the search hint, see below.
     size_t bytecodeTypeMapEntries = script->nTypeSets() + 1;
     UniquePtr<BaselineScript> baselineScript(
-        BaselineScript::New(script, prologueOffset_.offset(),
-                            epilogueOffset_.offset(),
-                            profilerEnterFrameToggleOffset_.offset(),
-                            profilerExitFrameToggleOffset_.offset(),
-                            postDebugPrologueOffset_.offset(),
-                            icEntries_.length(),
-                            pcMappingIndexEntries.length(),
-                            pcEntries.length(),
-                            bytecodeTypeMapEntries,
-                            yieldAndAwaitOffsets_.length(),
-                            traceLoggerToggleOffsets_.length()),
+        BaselineScript::New(
+            script, prologueOffset_.offset(), epilogueOffset_.offset(),
+            profilerEnterFrameToggleOffset_.offset(), profilerExitFrameToggleOffset_.offset(),
+            postDebugPrologueOffset_.offset(), icEntries_.length(), pcMappingIndexEntries.length(),
+            pcEntries.length(), bytecodeTypeMapEntries, yieldAndAwaitOffsets_.length(),
+            traceLoggerToggleOffsets_.length()),
         JS::DeletePolicy<BaselineScript>(cx->runtime()));
     if (!baselineScript) {
         ReportOutOfMemory(cx);
@@ -223,8 +198,7 @@ BaselineCompiler::compile()
     baselineScript->setTemplateEnvironment(templateEnv);
 
     JitSpew(JitSpew_BaselineScripts, "Created BaselineScript %p (raw %p) for %s:%zu",
-            (void*) baselineScript.get(), (void*) code->raw(),
-            script->filename(), script->lineno());
+            (void*)baselineScript.get(), (void*)code->raw(), script->filename(), script->lineno());
 
     MOZ_ASSERT(pcMappingIndexEntries.length() > 0);
     baselineScript->copyPCMappingIndexEntries(&pcMappingIndexEntries[0]);
@@ -233,8 +207,7 @@ BaselineCompiler::compile()
     baselineScript->copyPCMappingEntries(pcEntries);
 
     // Copy IC entries
-    if (icEntries_.length())
-        baselineScript->copyICEntries(script, &icEntries_[0], masm);
+    if (icEntries_.length()) baselineScript->copyICEntries(script, &icEntries_[0], masm);
 
     // Adopt fallback stubs from the compiler into the baseline script.
     baselineScript->adoptFallbackStubs(&stubSpace_);
@@ -248,15 +221,12 @@ BaselineCompiler::compile()
         CodeOffset label = icLoadLabels_[i].label;
         size_t icEntry = icLoadLabels_[i].icEntry;
         BaselineICEntry* entryAddr = &(baselineScript->icEntry(icEntry));
-        Assembler::PatchDataWithValueCheck(CodeLocationLabel(code, label),
-                                           ImmPtr(entryAddr),
+        Assembler::PatchDataWithValueCheck(CodeLocationLabel(code, label), ImmPtr(entryAddr),
                                            ImmPtr((void*)-1));
     }
 
-    if (modifiesArguments_)
-        baselineScript->setModifiesArguments();
-    if (analysis_.usesEnvironmentChain())
-        baselineScript->setUsesEnvironmentChain();
+    if (modifiesArguments_) baselineScript->setModifiesArguments();
+    if (analysis_.usesEnvironmentChain()) baselineScript->setUsesEnvironmentChain();
 
 #ifdef JS_TRACE_LOGGING
     // Initialize the tracelogger instrumentation.
@@ -272,19 +242,17 @@ BaselineCompiler::compile()
 
     baselineScript->copyYieldAndAwaitEntries(script, yieldAndAwaitOffsets_);
 
-    if (compileDebugInstrumentation_)
-        baselineScript->setHasDebugInstrumentation();
+    if (compileDebugInstrumentation_) baselineScript->setHasDebugInstrumentation();
 
     // Always register a native => bytecode mapping entry, since profiler can be
     // turned on with baseline jitcode on stack, and baseline jitcode cannot be invalidated.
     {
         JitSpew(JitSpew_Profiling, "Added JitcodeGlobalEntry for baseline script %s:%zu (%p)",
-                    script->filename(), script->lineno(), baselineScript.get());
+                script->filename(), script->lineno(), baselineScript.get());
 
         // Generate profiling string.
         char* str = JitcodeGlobalEntry::createScriptString(cx, script);
-        if (!str)
-            return Method_Error;
+        if (!str) return Method_Error;
 
         JitcodeGlobalEntry::BaselineEntry entry;
         entry.init(code, code->raw(), code->rawEnd(), script, str);
@@ -313,15 +281,12 @@ BaselineCompiler::compile()
     return Method_Compiled;
 }
 
-void
-BaselineCompiler::emitInitializeLocals()
-{
+void BaselineCompiler::emitInitializeLocals() {
     // Initialize all locals to |undefined|. Lexical bindings are temporal
     // dead zoned in bytecode.
 
     size_t n = frame.nlocals();
-    if (n == 0)
-        return;
+    if (n == 0) return;
 
     // Use R0 to minimize code size. If the number of locals to push is <
     // LOOP_UNROLL_FACTOR, then the initialization pushes are emitted directly
@@ -332,8 +297,7 @@ BaselineCompiler::emitInitializeLocals()
     masm.moveValue(UndefinedValue(), R0);
 
     // Handle any extra pushes left over by the optional unrolled loop below.
-    for (size_t i = 0; i < toPushExtra; i++)
-        masm.pushValue(R0);
+    for (size_t i = 0; i < toPushExtra; i++) masm.pushValue(R0);
 
     // Partially unrolled loop of pushes.
     if (n >= LOOP_UNROLL_FACTOR) {
@@ -344,16 +308,13 @@ BaselineCompiler::emitInitializeLocals()
         // Emit unrolled loop with 4 pushes per iteration.
         Label pushLoop;
         masm.bind(&pushLoop);
-        for (size_t i = 0; i < LOOP_UNROLL_FACTOR; i++)
-            masm.pushValue(R0);
-        masm.branchSub32(Assembler::NonZero,
-                         Imm32(LOOP_UNROLL_FACTOR), R1.scratchReg(), &pushLoop);
+        for (size_t i = 0; i < LOOP_UNROLL_FACTOR; i++) masm.pushValue(R0);
+        masm.branchSub32(Assembler::NonZero, Imm32(LOOP_UNROLL_FACTOR), R1.scratchReg(),
+                         &pushLoop);
     }
 }
 
-bool
-BaselineCompiler::emitPrologue()
-{
+bool BaselineCompiler::emitPrologue() {
 #ifdef JS_USE_LINK_REGISTER
     // Push link register from generateEnterJIT()'s BLR.
     masm.pushReturnAddress();
@@ -397,22 +358,17 @@ BaselineCompiler::emitPrologue()
     // exception.
     Label earlyStackCheckFailed;
     if (needsEarlyStackCheck()) {
-        if (!emitStackCheck(/* earlyCheck = */ true))
-            return false;
-        masm.branchTest32(Assembler::NonZero,
-                          frame.addressOfFlags(),
-                          Imm32(BaselineFrame::OVER_RECURSED),
-                          &earlyStackCheckFailed);
+        if (!emitStackCheck(/* earlyCheck = */ true)) return false;
+        masm.branchTest32(Assembler::NonZero, frame.addressOfFlags(),
+                          Imm32(BaselineFrame::OVER_RECURSED), &earlyStackCheckFailed);
     }
 
     emitInitializeLocals();
 
-    if (needsEarlyStackCheck())
-        masm.bind(&earlyStackCheckFailed);
+    if (needsEarlyStackCheck()) masm.bind(&earlyStackCheckFailed);
 
 #ifdef JS_TRACE_LOGGING
-    if (!emitTraceLoggerEnter())
-        return false;
+    if (!emitTraceLoggerEnter()) return false;
 #endif
 
     // Record the offset of the prologue, because Ion can bailout before
@@ -425,27 +381,20 @@ BaselineCompiler::emitPrologue()
 
     // Initialize the env chain before any operation that may
     // call into the VM and trigger a GC.
-    if (!initEnvironmentChain())
-        return false;
+    if (!initEnvironmentChain()) return false;
 
-    if (!emitStackCheck())
-        return false;
+    if (!emitStackCheck()) return false;
 
-    if (!emitDebugPrologue())
-        return false;
+    if (!emitDebugPrologue()) return false;
 
-    if (!emitWarmUpCounterIncrement())
-        return false;
+    if (!emitWarmUpCounterIncrement()) return false;
 
-    if (!emitArgumentTypeChecks())
-        return false;
+    if (!emitArgumentTypeChecks()) return false;
 
     return true;
 }
 
-bool
-BaselineCompiler::emitEpilogue()
-{
+bool BaselineCompiler::emitEpilogue() {
     // Record the offset of the epilogue, so we can do early return from
     // Debugger handlers during on-stack recompile.
     epilogueOffset_ = CodeOffset(masm.currentOffset());
@@ -453,8 +402,7 @@ BaselineCompiler::emitEpilogue()
     masm.bind(&return_);
 
 #ifdef JS_TRACE_LOGGING
-    if (!emitTraceLoggerExit())
-        return false;
+    if (!emitTraceLoggerExit()) return false;
 #endif
 
     masm.moveToStackPtr(BaselineFrameReg);
@@ -472,9 +420,7 @@ BaselineCompiler::emitEpilogue()
 //  All other registers are usable as scratch.
 // This calls:
 //    void PostWriteBarrier(JSRuntime* rt, JSObject* obj);
-bool
-BaselineCompiler::emitOutOfLinePostBarrierSlot()
-{
+bool BaselineCompiler::emitOutOfLinePostBarrierSlot() {
     masm.bind(&postBarrierSlot_);
 
     Register objReg = R2.scratchReg();
@@ -503,18 +449,14 @@ BaselineCompiler::emitOutOfLinePostBarrierSlot()
     return true;
 }
 
-bool
-BaselineCompiler::emitIC(ICStub* stub, ICEntry::Kind kind)
-{
+bool BaselineCompiler::emitIC(ICStub* stub, ICEntry::Kind kind) {
     BaselineICEntry* entry = allocateICEntry(stub, kind);
-    if (!entry)
-        return false;
+    if (!entry) return false;
 
     CodeOffset patchOffset;
     EmitCallIC(&patchOffset, masm);
     entry->setReturnOffset(CodeOffset(masm.currentOffset()));
-    if (!addICLoadLabel(patchOffset))
-        return false;
+    if (!addICLoadLabel(patchOffset)) return false;
 
     return true;
 }
@@ -524,9 +466,7 @@ static const VMFunction CheckOverRecursedWithExtraInfo =
     FunctionInfo<CheckOverRecursedWithExtraFn>(CheckOverRecursedWithExtra,
                                                "CheckOverRecursedWithExtra");
 
-bool
-BaselineCompiler::emitStackCheck(bool earlyCheck)
-{
+bool BaselineCompiler::emitStackCheck(bool earlyCheck) {
     Label skipCall;
     uint32_t slotsSize = script->nslots() * sizeof(Value);
     uint32_t tolerance = earlyCheck ? slotsSize : 0;
@@ -536,8 +476,7 @@ BaselineCompiler::emitStackCheck(bool earlyCheck)
     // If this is the early stack check, locals haven't been pushed yet.  Adjust the
     // stack pointer to account for the locals that would be pushed before performing
     // the guard around the vmcall to the stack check.
-    if (earlyCheck)
-        masm.subPtr(Imm32(tolerance), R1.scratchReg());
+    if (earlyCheck) masm.subPtr(Imm32(tolerance), R1.scratchReg());
 
     // If this is the late stack check for a frame which contains an early stack check,
     // then the early stack check might have failed and skipped past the pushing of locals
@@ -547,10 +486,8 @@ BaselineCompiler::emitStackCheck(bool earlyCheck)
     // VMCall to CheckOverRecursed done unconditionally if it's set.
     Label forceCall;
     if (!earlyCheck && needsEarlyStackCheck()) {
-        masm.branchTest32(Assembler::NonZero,
-                          frame.addressOfFlags(),
-                          Imm32(BaselineFrame::OVER_RECURSED),
-                          &forceCall);
+        masm.branchTest32(Assembler::NonZero, frame.addressOfFlags(),
+                          Imm32(BaselineFrame::OVER_RECURSED), &forceCall);
     }
 
     void* contextAddr = cx->zone()->group()->addressOfOwnerContext();
@@ -559,8 +496,7 @@ BaselineCompiler::emitStackCheck(bool earlyCheck)
                    Address(R0.scratchReg(), offsetof(JSContext, jitStackLimit)), R1.scratchReg(),
                    &skipCall);
 
-    if (!earlyCheck && needsEarlyStackCheck())
-        masm.bind(&forceCall);
+    if (!earlyCheck && needsEarlyStackCheck()) masm.bind(&forceCall);
 
     prepareVMCall();
     pushArg(Imm32(earlyCheck));
@@ -574,20 +510,16 @@ BaselineCompiler::emitStackCheck(bool earlyCheck)
     else if (needsEarlyStackCheck())
         phase = CHECK_OVER_RECURSED;
 
-    if (!callVMNonOp(CheckOverRecursedWithExtraInfo, phase))
-        return false;
+    if (!callVMNonOp(CheckOverRecursedWithExtraInfo, phase)) return false;
 
-    icEntries_.back().setFakeKind(earlyCheck
-                                  ? ICEntry::Kind_EarlyStackCheck
-                                  : ICEntry::Kind_StackCheck);
+    icEntries_.back().setFakeKind(earlyCheck ? ICEntry::Kind_EarlyStackCheck
+                                             : ICEntry::Kind_StackCheck);
 
     masm.bind(&skipCall);
     return true;
 }
 
-void
-BaselineCompiler::emitIsDebuggeeCheck()
-{
+void BaselineCompiler::emitIsDebuggeeCheck() {
     if (compileDebugInstrumentation_) {
         masm.Push(BaselineFrameReg);
         masm.setupUnalignedABICall(R0.scratchReg());
@@ -602,9 +534,7 @@ typedef bool (*DebugPrologueFn)(JSContext*, BaselineFrame*, jsbytecode*, bool*);
 static const VMFunction DebugPrologueInfo =
     FunctionInfo<DebugPrologueFn>(jit::DebugPrologue, "DebugPrologue");
 
-bool
-BaselineCompiler::emitDebugPrologue()
-{
+bool BaselineCompiler::emitDebugPrologue() {
     if (compileDebugInstrumentation_) {
         // Load pointer to BaselineFrame in R0.
         masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
@@ -612,8 +542,7 @@ BaselineCompiler::emitDebugPrologue()
         prepareVMCall();
         pushArg(ImmPtr(pc));
         pushArg(R0.scratchReg());
-        if (!callVM(DebugPrologueInfo))
-            return false;
+        if (!callVM(DebugPrologueInfo)) return false;
 
         // Fix up the fake ICEntry appended by callVM for on-stack recompilation.
         icEntries_.back().setFakeKind(ICEntry::Kind_DebugPrologue);
@@ -636,20 +565,17 @@ BaselineCompiler::emitDebugPrologue()
 
 typedef bool (*CheckGlobalOrEvalDeclarationConflictsFn)(JSContext*, BaselineFrame*);
 static const VMFunction CheckGlobalOrEvalDeclarationConflictsInfo =
-    FunctionInfo<CheckGlobalOrEvalDeclarationConflictsFn>(jit::CheckGlobalOrEvalDeclarationConflicts,
-                                                          "CheckGlobalOrEvalDeclarationConflicts");
+    FunctionInfo<CheckGlobalOrEvalDeclarationConflictsFn>(
+        jit::CheckGlobalOrEvalDeclarationConflicts, "CheckGlobalOrEvalDeclarationConflicts");
 
 typedef bool (*InitFunctionEnvironmentObjectsFn)(JSContext*, BaselineFrame*);
 static const VMFunction InitFunctionEnvironmentObjectsInfo =
     FunctionInfo<InitFunctionEnvironmentObjectsFn>(jit::InitFunctionEnvironmentObjects,
                                                    "InitFunctionEnvironmentObjects");
 
-bool
-BaselineCompiler::initEnvironmentChain()
-{
+bool BaselineCompiler::initEnvironmentChain() {
     CallVMPhase phase = POST_INITIALIZE;
-    if (needsEarlyStackCheck())
-        phase = CHECK_OVER_RECURSED;
+    if (needsEarlyStackCheck()) phase = CHECK_OVER_RECURSED;
 
     RootedFunction fun(cx, function());
     if (fun) {
@@ -669,8 +595,7 @@ BaselineCompiler::initEnvironmentChain()
             masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
             pushArg(R0.scratchReg());
 
-            if (!callVMNonOp(InitFunctionEnvironmentObjectsInfo, phase))
-                return false;
+            if (!callVMNonOp(InitFunctionEnvironmentObjectsInfo, phase)) return false;
         }
     } else if (module()) {
         // Modules use a pre-created scope object.
@@ -685,8 +610,7 @@ BaselineCompiler::initEnvironmentChain()
         masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
         pushArg(R0.scratchReg());
 
-        if (!callVMNonOp(CheckGlobalOrEvalDeclarationConflictsInfo, phase))
-            return false;
+        if (!callVMNonOp(CheckGlobalOrEvalDeclarationConflictsInfo, phase)) return false;
     }
 
     return true;
@@ -696,21 +620,17 @@ typedef bool (*InterruptCheckFn)(JSContext*);
 static const VMFunction InterruptCheckInfo =
     FunctionInfo<InterruptCheckFn>(InterruptCheck, "InterruptCheck");
 
-bool
-BaselineCompiler::emitInterruptCheck()
-{
+bool BaselineCompiler::emitInterruptCheck() {
     frame.syncStack(0);
 
     Label done;
     void* context = cx->zone()->group()->addressOfOwnerContext();
     masm.loadPtr(AbsoluteAddress(context), R0.scratchReg());
-    masm.branch32(Assembler::Equal,
-                  Address(R0.scratchReg(), offsetof(JSContext, interrupt_)), Imm32(0),
-                  &done);
+    masm.branch32(Assembler::Equal, Address(R0.scratchReg(), offsetof(JSContext, interrupt_)),
+                  Imm32(0), &done);
 
     prepareVMCall();
-    if (!callVM(InterruptCheckInfo))
-        return false;
+    if (!callVM(InterruptCheckInfo)) return false;
 
     masm.bind(&done);
     return true;
@@ -721,14 +641,11 @@ static const VMFunction IonCompileScriptForBaselineInfo =
     FunctionInfo<IonCompileScriptForBaselineFn>(IonCompileScriptForBaseline,
                                                 "IonCompileScriptForBaseline");
 
-bool
-BaselineCompiler::emitWarmUpCounterIncrement(bool allowOsr)
-{
+bool BaselineCompiler::emitWarmUpCounterIncrement(bool allowOsr) {
     // Emit no warm-up counter increments or bailouts if Ion is not
     // enabled, or if the script will never be Ion-compileable
 
-    if (!ionCompileable_ && !ionOSRCompileable_)
-        return true;
+    if (!ionCompileable_ && !ionOSRCompileable_) return true;
 
     frame.assertSyncedStack();
 
@@ -760,8 +677,7 @@ BaselineCompiler::emitWarmUpCounterIncrement(bool allowOsr)
     uint32_t warmUpThreshold = info->compilerWarmUpThreshold(script, pc);
     masm.branch32(Assembler::LessThan, countReg, Imm32(warmUpThreshold), &skipCall);
 
-    masm.branchPtr(Assembler::Equal,
-                   Address(scriptReg, JSScript::offsetOfIonScript()),
+    masm.branchPtr(Assembler::Equal, Address(scriptReg, JSScript::offsetOfIonScript()),
                    ImmPtr(ION_COMPILING_SCRIPT), &skipCall);
 
     // Try to compile and/or finish a compilation.
@@ -769,8 +685,7 @@ BaselineCompiler::emitWarmUpCounterIncrement(bool allowOsr)
         // During the loop entry we can try to OSR into ion.
         // The ic has logic for this.
         ICWarmUpCounter_Fallback::Compiler stubCompiler(cx);
-        if (!emitNonOpIC(stubCompiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitNonOpIC(stubCompiler.getStub(&stubSpace_))) return false;
     } else {
         // To call stubs we need to have an opcode. This code handles the
         // prologue and there is no dedicatd opcode present. Therefore use an
@@ -780,8 +695,7 @@ BaselineCompiler::emitWarmUpCounterIncrement(bool allowOsr)
         masm.Push(ImmPtr(pc));
         masm.PushBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
 
-        if (!callVM(IonCompileScriptForBaselineInfo))
-            return false;
+        if (!callVM(IonCompileScriptForBaselineInfo)) return false;
 
         // Annotate the ICEntry as warmup counter.
         icEntries_.back().setFakeKind(ICEntry::Kind_WarmupCounter);
@@ -791,34 +705,27 @@ BaselineCompiler::emitWarmUpCounterIncrement(bool allowOsr)
     return true;
 }
 
-bool
-BaselineCompiler::emitArgumentTypeChecks()
-{
-    if (!function())
-        return true;
+bool BaselineCompiler::emitArgumentTypeChecks() {
+    if (!function()) return true;
 
     frame.pushThis();
     frame.popRegsAndSync(1);
 
     ICTypeMonitor_Fallback::Compiler compiler(cx, uint32_t(0));
-    if (!emitNonOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitNonOpIC(compiler.getStub(&stubSpace_))) return false;
 
     for (size_t i = 0; i < function()->nargs(); i++) {
         frame.pushArg(i);
         frame.popRegsAndSync(1);
 
         ICTypeMonitor_Fallback::Compiler compiler(cx, i + 1);
-        if (!emitNonOpIC(compiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitNonOpIC(compiler.getStub(&stubSpace_))) return false;
     }
 
     return true;
 }
 
-bool
-BaselineCompiler::emitDebugTrap()
-{
+bool BaselineCompiler::emitDebugTrap() {
     MOZ_ASSERT(compileDebugInstrumentation_);
     MOZ_ASSERT(frame.numUnsyncedSlots() == 0);
 
@@ -826,8 +733,7 @@ BaselineCompiler::emitDebugTrap()
 
     // Emit patchable call to debug trap handler.
     JitCode* handler = cx->runtime()->jitRuntime()->debugTrapHandler(cx);
-    if (!handler)
-        return false;
+    if (!handler) return false;
     mozilla::DebugOnly<CodeOffset> offset = masm.toggledCall(handler, enabled);
 
 #ifdef DEBUG
@@ -841,16 +747,13 @@ BaselineCompiler::emitDebugTrap()
 }
 
 #ifdef JS_TRACE_LOGGING
-bool
-BaselineCompiler::emitTraceLoggerEnter()
-{
+bool BaselineCompiler::emitTraceLoggerEnter() {
     AllocatableRegisterSet regs(RegisterSet::Volatile());
     Register loggerReg = regs.takeAnyGeneral();
     Register scriptReg = regs.takeAnyGeneral();
 
     Label noTraceLogger;
-    if (!traceLoggerToggleOffsets_.append(masm.toggledJump(&noTraceLogger)))
-        return false;
+    if (!traceLoggerToggleOffsets_.append(masm.toggledJump(&noTraceLogger))) return false;
 
     masm.Push(loggerReg);
     masm.Push(scriptReg);
@@ -875,15 +778,12 @@ BaselineCompiler::emitTraceLoggerEnter()
     return true;
 }
 
-bool
-BaselineCompiler::emitTraceLoggerExit()
-{
+bool BaselineCompiler::emitTraceLoggerExit() {
     AllocatableRegisterSet regs(RegisterSet::Volatile());
     Register loggerReg = regs.takeAnyGeneral();
 
     Label noTraceLogger;
-    if (!traceLoggerToggleOffsets_.append(masm.toggledJump(&noTraceLogger)))
-        return false;
+    if (!traceLoggerToggleOffsets_.append(masm.toggledJump(&noTraceLogger))) return false;
 
     masm.Push(loggerReg);
     masm.loadTraceLogger(loggerReg);
@@ -898,15 +798,13 @@ BaselineCompiler::emitTraceLoggerExit()
     return true;
 }
 
-bool
-BaselineCompiler::emitTraceLoggerResume(Register baselineScript, AllocatableGeneralRegisterSet& regs)
-{
+bool BaselineCompiler::emitTraceLoggerResume(Register baselineScript,
+                                             AllocatableGeneralRegisterSet& regs) {
     Register scriptId = regs.takeAny();
     Register loggerReg = regs.takeAny();
 
     Label noTraceLogger;
-    if (!traceLoggerToggleOffsets_.append(masm.toggledJump(&noTraceLogger)))
-        return false;
+    if (!traceLoggerToggleOffsets_.append(masm.toggledJump(&noTraceLogger))) return false;
 
     masm.loadTraceLogger(loggerReg);
 
@@ -924,9 +822,7 @@ BaselineCompiler::emitTraceLoggerResume(Register baselineScript, AllocatableGene
 }
 #endif
 
-void
-BaselineCompiler::emitProfilerEnterFrame()
-{
+void BaselineCompiler::emitProfilerEnterFrame() {
     // Store stack position to lastProfilingFrame variable, guarded by a toggled jump.
     // Starts off initially disabled.
     Label noInstrument;
@@ -939,9 +835,7 @@ BaselineCompiler::emitProfilerEnterFrame()
     profilerEnterFrameToggleOffset_ = toggleOffset;
 }
 
-void
-BaselineCompiler::emitProfilerExitFrame()
-{
+void BaselineCompiler::emitProfilerExitFrame() {
     // Store previous frame to lastProfilingFrame variable, guarded by a toggled jump.
     // Starts off initially disabled.
     Label noInstrument;
@@ -954,9 +848,7 @@ BaselineCompiler::emitProfilerExitFrame()
     profilerExitFrameToggleOffset_ = toggleOffset;
 }
 
-MethodStatus
-BaselineCompiler::emitBody()
-{
+MethodStatus BaselineCompiler::emitBody() {
     MOZ_ASSERT(pc == script->code());
 
     bool lastOpUnreachable = false;
@@ -965,8 +857,8 @@ BaselineCompiler::emitBody()
 
     while (true) {
         JSOp op = JSOp(*pc);
-        JitSpew(JitSpew_BaselineOp, "Compiling op @ %d: %s",
-                int(script->pcToOffset(pc)), CodeName[op]);
+        JitSpew(JitSpew_BaselineOp, "Compiling op @ %d: %s", int(script->pcToOffset(pc)),
+                CodeName[op]);
 
         BytecodeInfo* info = analysis_.maybeInfo(pc);
 
@@ -974,8 +866,7 @@ BaselineCompiler::emitBody()
         if (!info) {
             // Test if last instructions and stop emitting in that case.
             pc += GetBytecodeLength(pc);
-            if (pc >= script->codeEnd())
-                break;
+            if (pc >= script->codeEnd()) break;
 
             lastOpUnreachable = true;
             prevpc = pc;
@@ -989,12 +880,10 @@ BaselineCompiler::emitBody()
         }
 
         // Always sync in debug mode.
-        if (compileDebugInstrumentation_)
-            frame.syncStack(0);
+        if (compileDebugInstrumentation_) frame.syncStack(0);
 
         // At the beginning of any op, at most the top 2 stack-values are unsynced.
-        if (frame.stackDepth() > 2)
-            frame.syncStack(2);
+        if (frame.stackDepth() > 2) frame.syncStack(2);
 
         frame.assertValidState(*info);
 
@@ -1005,52 +894,47 @@ BaselineCompiler::emitBody()
         // for bailouts from Ion, the debugger and exception handling. See
         // PCMappingIndexEntry for more information.
         bool addIndexEntry = (pc == script->code() || lastOpUnreachable || emittedOps > 100);
-        if (addIndexEntry)
-            emittedOps = 0;
+        if (addIndexEntry) emittedOps = 0;
         if (!addPCMappingEntry(addIndexEntry)) {
             ReportOutOfMemory(cx);
             return Method_Error;
         }
 
         // Emit traps for breakpoints and step mode.
-        if (compileDebugInstrumentation_ && !emitDebugTrap())
-            return Method_Error;
+        if (compileDebugInstrumentation_ && !emitDebugTrap()) return Method_Error;
 
         switch (op) {
-          // ===== NOT Yet Implemented =====
-          case JSOP_FORCEINTERPRETER:
-            // Intentionally not implemented.
-          case JSOP_SETINTRINSIC:
-            // Run-once opcode during self-hosting initialization.
-          case JSOP_UNUSED126:
-          case JSOP_UNUSED223:
-          case JSOP_LIMIT:
-            // === !! WARNING WARNING WARNING !! ===
-            // Do you really want to sacrifice performance by not implementing
-            // this operation in the BaselineCompiler?
-            JitSpew(JitSpew_BaselineAbort, "Unhandled op: %s", CodeName[op]);
-            return Method_CantCompile;
+            // ===== NOT Yet Implemented =====
+            case JSOP_FORCEINTERPRETER:
+                // Intentionally not implemented.
+            case JSOP_SETINTRINSIC:
+                // Run-once opcode during self-hosting initialization.
+            case JSOP_UNUSED126:
+            case JSOP_UNUSED223:
+            case JSOP_LIMIT:
+                // === !! WARNING WARNING WARNING !! ===
+                // Do you really want to sacrifice performance by not implementing
+                // this operation in the BaselineCompiler?
+                JitSpew(JitSpew_BaselineAbort, "Unhandled op: %s", CodeName[op]);
+                return Method_CantCompile;
 
-#define EMIT_OP(OP)                            \
-          case OP:                             \
-            if (!this->emit_##OP())            \
-                return Method_Error;           \
-            break;
-OPCODE_LIST(EMIT_OP)
+#define EMIT_OP(OP)                                  \
+    case OP:                                         \
+        if (!this->emit_##OP()) return Method_Error; \
+        break;
+                OPCODE_LIST(EMIT_OP)
 #undef EMIT_OP
         }
 
         // If the main instruction is not a jump target, then we emit the
         //  corresponding code coverage counter.
         if (pc == script->main() && !BytecodeIsJumpTarget(op)) {
-            if (!emit_JSOP_JUMPTARGET())
-                return Method_Error;
+            if (!emit_JSOP_JUMPTARGET()) return Method_Error;
         }
 
         // Test if last instructions and stop emitting in that case.
         pc += GetBytecodeLength(pc);
-        if (pc >= script->codeEnd())
-            break;
+        if (pc >= script->codeEnd()) break;
 
         emittedOps++;
         lastOpUnreachable = false;
@@ -1063,53 +947,27 @@ OPCODE_LIST(EMIT_OP)
     return Method_Compiled;
 }
 
-bool
-BaselineCompiler::emit_JSOP_NOP()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_NOP() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_ITERNEXT()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_ITERNEXT() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_NOP_DESTRUCTURING()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_NOP_DESTRUCTURING() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_TRY_DESTRUCTURING_ITERCLOSE()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_TRY_DESTRUCTURING_ITERCLOSE() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_LABEL()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_LABEL() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_POP()
-{
+bool BaselineCompiler::emit_JSOP_POP() {
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_POPN()
-{
+bool BaselineCompiler::emit_JSOP_POPN() {
     frame.popn(GET_UINT16(pc));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_DUPAT()
-{
+bool BaselineCompiler::emit_JSOP_DUPAT() {
     frame.syncStack(0);
 
     // DUPAT takes a value on the stack and re-pushes it on top.  It's like
@@ -1122,9 +980,7 @@ BaselineCompiler::emit_JSOP_DUPAT()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_DUP()
-{
+bool BaselineCompiler::emit_JSOP_DUP() {
     // Keep top stack value in R0, sync the rest so that we can use R1. We use
     // separate registers because every register can be used by at most one
     // StackValue.
@@ -1137,9 +993,7 @@ BaselineCompiler::emit_JSOP_DUP()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_DUP2()
-{
+bool BaselineCompiler::emit_JSOP_DUP2() {
     frame.syncStack(0);
 
     masm.loadValue(frame.addressOfStackValue(frame.peek(-2)), R0);
@@ -1150,9 +1004,7 @@ BaselineCompiler::emit_JSOP_DUP2()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_SWAP()
-{
+bool BaselineCompiler::emit_JSOP_SWAP() {
     // Keep top stack values in R0 and R1.
     frame.popRegsAndSync(2);
 
@@ -1161,9 +1013,7 @@ BaselineCompiler::emit_JSOP_SWAP()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_PICK()
-{
+bool BaselineCompiler::emit_JSOP_PICK() {
     frame.syncStack(0);
 
     // Pick takes a value on the stack and moves it to the top.
@@ -1190,9 +1040,7 @@ BaselineCompiler::emit_JSOP_PICK()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_UNPICK()
-{
+bool BaselineCompiler::emit_JSOP_UNPICK() {
     frame.syncStack(0);
 
     // Pick takes the top of the stack value and moves it under the nth value.
@@ -1218,9 +1066,7 @@ BaselineCompiler::emit_JSOP_UNPICK()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GOTO()
-{
+bool BaselineCompiler::emit_JSOP_GOTO() {
     frame.syncStack(0);
 
     jsbytecode* target = pc + GET_JUMP_OFFSET(pc);
@@ -1228,87 +1074,59 @@ BaselineCompiler::emit_JSOP_GOTO()
     return true;
 }
 
-bool
-BaselineCompiler::emitToBoolean()
-{
+bool BaselineCompiler::emitToBoolean() {
     Label skipIC;
     masm.branchTestBoolean(Assembler::Equal, R0, &skipIC);
 
     // Call IC
     ICToBool_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     masm.bind(&skipIC);
     return true;
 }
 
-bool
-BaselineCompiler::emitTest(bool branchIfTrue)
-{
+bool BaselineCompiler::emitTest(bool branchIfTrue) {
     bool knownBoolean = frame.peek(-1)->isKnownBoolean();
 
     // Keep top stack value in R0.
     frame.popRegsAndSync(1);
 
-    if (!knownBoolean && !emitToBoolean())
-        return false;
+    if (!knownBoolean && !emitToBoolean()) return false;
 
     // IC will leave a BooleanValue in R0, just need to branch on it.
     masm.branchTestBooleanTruthy(branchIfTrue, R0, labelOf(pc + GET_JUMP_OFFSET(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_IFEQ()
-{
-    return emitTest(false);
-}
+bool BaselineCompiler::emit_JSOP_IFEQ() { return emitTest(false); }
 
-bool
-BaselineCompiler::emit_JSOP_IFNE()
-{
-    return emitTest(true);
-}
+bool BaselineCompiler::emit_JSOP_IFNE() { return emitTest(true); }
 
-bool
-BaselineCompiler::emitAndOr(bool branchIfTrue)
-{
+bool BaselineCompiler::emitAndOr(bool branchIfTrue) {
     bool knownBoolean = frame.peek(-1)->isKnownBoolean();
 
     // AND and OR leave the original value on the stack.
     frame.syncStack(0);
 
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
-    if (!knownBoolean && !emitToBoolean())
-        return false;
+    if (!knownBoolean && !emitToBoolean()) return false;
 
     masm.branchTestBooleanTruthy(branchIfTrue, R0, labelOf(pc + GET_JUMP_OFFSET(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_AND()
-{
-    return emitAndOr(false);
-}
+bool BaselineCompiler::emit_JSOP_AND() { return emitAndOr(false); }
 
-bool
-BaselineCompiler::emit_JSOP_OR()
-{
-    return emitAndOr(true);
-}
+bool BaselineCompiler::emit_JSOP_OR() { return emitAndOr(true); }
 
-bool
-BaselineCompiler::emit_JSOP_NOT()
-{
+bool BaselineCompiler::emit_JSOP_NOT() {
     bool knownBoolean = frame.peek(-1)->isKnownBoolean();
 
     // Keep top stack value in R0.
     frame.popRegsAndSync(1);
 
-    if (!knownBoolean && !emitToBoolean())
-        return false;
+    if (!knownBoolean && !emitToBoolean()) return false;
 
     masm.notBoolean(R0);
 
@@ -1316,9 +1134,7 @@ BaselineCompiler::emit_JSOP_NOT()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_POS()
-{
+bool BaselineCompiler::emit_JSOP_POS() {
     // Keep top stack value in R0.
     frame.popRegsAndSync(1);
 
@@ -1328,57 +1144,42 @@ BaselineCompiler::emit_JSOP_POS()
 
     // Call IC.
     ICToNumber_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     masm.bind(&done);
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_LOOPHEAD()
-{
-    if (!emit_JSOP_JUMPTARGET())
-        return false;
+bool BaselineCompiler::emit_JSOP_LOOPHEAD() {
+    if (!emit_JSOP_JUMPTARGET()) return false;
     return emitInterruptCheck();
 }
 
-bool
-BaselineCompiler::emit_JSOP_LOOPENTRY()
-{
-    if (!emit_JSOP_JUMPTARGET())
-        return false;
+bool BaselineCompiler::emit_JSOP_LOOPENTRY() {
+    if (!emit_JSOP_JUMPTARGET()) return false;
     frame.syncStack(0);
     return emitWarmUpCounterIncrement(LoopEntryCanIonOsr(pc));
 }
 
-bool
-BaselineCompiler::emit_JSOP_VOID()
-{
+bool BaselineCompiler::emit_JSOP_VOID() {
     frame.pop();
     frame.push(UndefinedValue());
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_UNDEFINED()
-{
+bool BaselineCompiler::emit_JSOP_UNDEFINED() {
     // If this ever changes, change what JSOP_GIMPLICITTHIS does too.
     frame.push(UndefinedValue());
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_HOLE()
-{
+bool BaselineCompiler::emit_JSOP_HOLE() {
     frame.push(MagicValue(JS_ELEMENTS_HOLE));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_NULL()
-{
+bool BaselineCompiler::emit_JSOP_NULL() {
     frame.push(NullValue());
     return true;
 }
@@ -1387,9 +1188,7 @@ typedef bool (*ThrowCheckIsObjectFn)(JSContext*, CheckIsObjectKind);
 static const VMFunction ThrowCheckIsObjectInfo =
     FunctionInfo<ThrowCheckIsObjectFn>(ThrowCheckIsObject, "ThrowCheckIsObject");
 
-bool
-BaselineCompiler::emit_JSOP_CHECKISOBJ()
-{
+bool BaselineCompiler::emit_JSOP_CHECKISOBJ() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
@@ -1399,8 +1198,7 @@ BaselineCompiler::emit_JSOP_CHECKISOBJ()
     prepareVMCall();
 
     pushArg(Imm32(GET_UINT8(pc)));
-    if (!callVM(ThrowCheckIsObjectInfo))
-        return false;
+    if (!callVM(ThrowCheckIsObjectInfo)) return false;
 
     masm.bind(&ok);
     return true;
@@ -1410,9 +1208,7 @@ typedef bool (*CheckIsCallableFn)(JSContext*, HandleValue, CheckIsCallableKind);
 static const VMFunction CheckIsCallableInfo =
     FunctionInfo<CheckIsCallableFn>(CheckIsCallable, "CheckIsCallable");
 
-bool
-BaselineCompiler::emit_JSOP_CHECKISCALLABLE()
-{
+bool BaselineCompiler::emit_JSOP_CHECKISCALLABLE() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
@@ -1420,43 +1216,34 @@ BaselineCompiler::emit_JSOP_CHECKISCALLABLE()
 
     pushArg(Imm32(GET_UINT8(pc)));
     pushArg(R0);
-    if (!callVM(CheckIsCallableInfo))
-        return false;
+    if (!callVM(CheckIsCallableInfo)) return false;
 
     return true;
 }
 
 typedef bool (*ThrowUninitializedThisFn)(JSContext*, BaselineFrame* frame);
-static const VMFunction ThrowUninitializedThisInfo =
-    FunctionInfo<ThrowUninitializedThisFn>(BaselineThrowUninitializedThis,
-                                           "BaselineThrowUninitializedThis");
+static const VMFunction ThrowUninitializedThisInfo = FunctionInfo<ThrowUninitializedThisFn>(
+    BaselineThrowUninitializedThis, "BaselineThrowUninitializedThis");
 
 typedef bool (*ThrowInitializedThisFn)(JSContext*, BaselineFrame* frame);
-static const VMFunction ThrowInitializedThisInfo =
-    FunctionInfo<ThrowInitializedThisFn>(BaselineThrowInitializedThis,
-                                         "BaselineThrowInitializedThis");
+static const VMFunction ThrowInitializedThisInfo = FunctionInfo<ThrowInitializedThisFn>(
+    BaselineThrowInitializedThis, "BaselineThrowInitializedThis");
 
-bool
-BaselineCompiler::emit_JSOP_CHECKTHIS()
-{
+bool BaselineCompiler::emit_JSOP_CHECKTHIS() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
     return emitCheckThis(R0);
 }
 
-bool
-BaselineCompiler::emit_JSOP_CHECKTHISREINIT()
-{
+bool BaselineCompiler::emit_JSOP_CHECKTHISREINIT() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
-    return emitCheckThis(R0, /* reinit = */true);
+    return emitCheckThis(R0, /* reinit = */ true);
 }
 
-bool
-BaselineCompiler::emitCheckThis(ValueOperand val, bool reinit)
-{
+bool BaselineCompiler::emitCheckThis(ValueOperand val, bool reinit) {
     Label thisOK;
     if (reinit)
         masm.branchTestMagic(Assembler::Equal, val, &thisOK);
@@ -1469,11 +1256,9 @@ BaselineCompiler::emitCheckThis(ValueOperand val, bool reinit)
     pushArg(val.scratchReg());
 
     if (reinit) {
-        if (!callVM(ThrowInitializedThisInfo))
-            return false;
+        if (!callVM(ThrowInitializedThisInfo)) return false;
     } else {
-        if (!callVM(ThrowUninitializedThisInfo))
-            return false;
+        if (!callVM(ThrowUninitializedThisInfo)) return false;
     }
 
     masm.bind(&thisOK);
@@ -1484,9 +1269,7 @@ typedef bool (*ThrowBadDerivedReturnFn)(JSContext*, HandleValue);
 static const VMFunction ThrowBadDerivedReturnInfo =
     FunctionInfo<ThrowBadDerivedReturnFn>(jit::ThrowBadDerivedReturn, "ThrowBadDerivedReturn");
 
-bool
-BaselineCompiler::emit_JSOP_CHECKRETURN()
-{
+bool BaselineCompiler::emit_JSOP_CHECKRETURN() {
     MOZ_ASSERT(script->isDerivedClassConstructor());
 
     // Load |this| in R0, return value in R1.
@@ -1499,14 +1282,12 @@ BaselineCompiler::emit_JSOP_CHECKRETURN()
 
     prepareVMCall();
     pushArg(R1);
-    if (!callVM(ThrowBadDerivedReturnInfo))
-        return false;
+    if (!callVM(ThrowBadDerivedReturnInfo)) return false;
     masm.assumeUnreachable("Should throw on bad derived constructor return");
 
     masm.bind(&returnOK);
 
-    if (!emitCheckThis(R0))
-        return false;
+    if (!emitCheckThis(R0)) return false;
 
     // Store |this| in the return value slot.
     masm.storeValue(R0, frame.addressOfReturnValue());
@@ -1520,17 +1301,14 @@ typedef bool (*GetFunctionThisFn)(JSContext*, BaselineFrame*, MutableHandleValue
 static const VMFunction GetFunctionThisInfo =
     FunctionInfo<GetFunctionThisFn>(jit::BaselineGetFunctionThis, "BaselineGetFunctionThis");
 
-bool
-BaselineCompiler::emit_JSOP_FUNCTIONTHIS()
-{
+bool BaselineCompiler::emit_JSOP_FUNCTIONTHIS() {
     MOZ_ASSERT(function());
     MOZ_ASSERT(!function()->isArrow());
 
     frame.pushThis();
 
     // In strict mode code or self-hosted functions, |this| is left alone.
-    if (script->strict() || (function() && function()->isSelfHostedBuiltin()))
-        return true;
+    if (script->strict() || (function() && function()->isSelfHostedBuiltin())) return true;
 
     // Load |thisv| in R0. Skip the call if it's already an object.
     Label skipCall;
@@ -1542,8 +1320,7 @@ BaselineCompiler::emit_JSOP_FUNCTIONTHIS()
 
     pushArg(R1.scratchReg());
 
-    if (!callVM(GetFunctionThisInfo))
-        return false;
+    if (!callVM(GetFunctionThisInfo)) return false;
 
     masm.bind(&skipCall);
     frame.push(R0);
@@ -1551,13 +1328,10 @@ BaselineCompiler::emit_JSOP_FUNCTIONTHIS()
 }
 
 typedef void (*GetNonSyntacticGlobalThisFn)(JSContext*, HandleObject, MutableHandleValue);
-static const VMFunction GetNonSyntacticGlobalThisInfo =
-    FunctionInfo<GetNonSyntacticGlobalThisFn>(js::GetNonSyntacticGlobalThis,
-                                              "GetNonSyntacticGlobalThis");
+static const VMFunction GetNonSyntacticGlobalThisInfo = FunctionInfo<GetNonSyntacticGlobalThisFn>(
+    js::GetNonSyntacticGlobalThis, "GetNonSyntacticGlobalThis");
 
-bool
-BaselineCompiler::emit_JSOP_GLOBALTHIS()
-{
+bool BaselineCompiler::emit_JSOP_GLOBALTHIS() {
     frame.syncStack(0);
 
     if (!script->hasNonSyntacticScope()) {
@@ -1572,86 +1346,63 @@ BaselineCompiler::emit_JSOP_GLOBALTHIS()
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
     pushArg(R0.scratchReg());
 
-    if (!callVM(GetNonSyntacticGlobalThisInfo))
-        return false;
+    if (!callVM(GetNonSyntacticGlobalThisInfo)) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_TRUE()
-{
+bool BaselineCompiler::emit_JSOP_TRUE() {
     frame.push(BooleanValue(true));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_FALSE()
-{
+bool BaselineCompiler::emit_JSOP_FALSE() {
     frame.push(BooleanValue(false));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_ZERO()
-{
+bool BaselineCompiler::emit_JSOP_ZERO() {
     frame.push(Int32Value(0));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_ONE()
-{
+bool BaselineCompiler::emit_JSOP_ONE() {
     frame.push(Int32Value(1));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INT8()
-{
+bool BaselineCompiler::emit_JSOP_INT8() {
     frame.push(Int32Value(GET_INT8(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INT32()
-{
+bool BaselineCompiler::emit_JSOP_INT32() {
     frame.push(Int32Value(GET_INT32(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_UINT16()
-{
+bool BaselineCompiler::emit_JSOP_UINT16() {
     frame.push(Int32Value(GET_UINT16(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_UINT24()
-{
+bool BaselineCompiler::emit_JSOP_UINT24() {
     frame.push(Int32Value(GET_UINT24(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_DOUBLE()
-{
+bool BaselineCompiler::emit_JSOP_DOUBLE() {
     frame.push(script->getConst(GET_UINT32_INDEX(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRING()
-{
+bool BaselineCompiler::emit_JSOP_STRING() {
     frame.push(StringValue(script->getAtom(pc)));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_SYMBOL()
-{
+bool BaselineCompiler::emit_JSOP_SYMBOL() {
     unsigned which = GET_UINT8(pc);
     JS::Symbol* sym = cx->runtime()->wellKnownSymbols->get(which);
     frame.push(SymbolValue(sym));
@@ -1662,22 +1413,18 @@ typedef JSObject* (*DeepCloneObjectLiteralFn)(JSContext*, HandleObject, NewObjec
 static const VMFunction DeepCloneObjectLiteralInfo =
     FunctionInfo<DeepCloneObjectLiteralFn>(DeepCloneObjectLiteral, "DeepCloneObjectLiteral");
 
-bool
-BaselineCompiler::emit_JSOP_OBJECT()
-{
+bool BaselineCompiler::emit_JSOP_OBJECT() {
     JSCompartment* comp = cx->compartment();
     if (comp->creationOptions().cloneSingletons()) {
         RootedObject obj(cx, script->getObject(GET_UINT32_INDEX(pc)));
-        if (!obj)
-            return false;
+        if (!obj) return false;
 
         prepareVMCall();
 
         pushArg(ImmWord(TenuredObject));
         pushArg(ImmGCPtr(obj));
 
-        if (!callVM(DeepCloneObjectLiteralInfo))
-            return false;
+        if (!callVM(DeepCloneObjectLiteralInfo)) return false;
 
         // Box and push return value.
         masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
@@ -1690,16 +1437,12 @@ BaselineCompiler::emit_JSOP_OBJECT()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_CALLSITEOBJ()
-{
+bool BaselineCompiler::emit_JSOP_CALLSITEOBJ() {
     RootedObject cso(cx, script->getObject(pc));
     RootedArrayObject raw(cx, &script->getObject(GET_UINT32_INDEX(pc) + 1)->as<ArrayObject>());
-    if (!cso || !raw)
-        return false;
+    if (!cso || !raw) return false;
 
-    if (!cx->compartment()->getTemplateLiteralObject(cx, raw, &cso))
-        return false;
+    if (!cx->compartment()->getTemplateLiteralObject(cx, raw, &cso)) return false;
 
     frame.push(ObjectValue(*cso));
     return true;
@@ -1709,15 +1452,12 @@ typedef JSObject* (*CloneRegExpObjectFn)(JSContext*, Handle<RegExpObject*>);
 static const VMFunction CloneRegExpObjectInfo =
     FunctionInfo<CloneRegExpObjectFn>(CloneRegExpObject, "CloneRegExpObject");
 
-bool
-BaselineCompiler::emit_JSOP_REGEXP()
-{
+bool BaselineCompiler::emit_JSOP_REGEXP() {
     RootedObject reObj(cx, script->getRegExp(pc));
 
     prepareVMCall();
     pushArg(ImmGCPtr(reObj));
-    if (!callVM(CloneRegExpObjectInfo))
-        return false;
+    if (!callVM(CloneRegExpObjectInfo)) return false;
 
     // Box and push return value.
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
@@ -1728,9 +1468,7 @@ BaselineCompiler::emit_JSOP_REGEXP()
 typedef JSObject* (*LambdaFn)(JSContext*, HandleFunction, HandleObject);
 static const VMFunction LambdaInfo = FunctionInfo<LambdaFn>(js::Lambda, "Lambda");
 
-bool
-BaselineCompiler::emit_JSOP_LAMBDA()
-{
+bool BaselineCompiler::emit_JSOP_LAMBDA() {
     RootedFunction fun(cx, script->getFunction(GET_UINT32_INDEX(pc)));
 
     prepareVMCall();
@@ -1739,8 +1477,7 @@ BaselineCompiler::emit_JSOP_LAMBDA()
     pushArg(R0.scratchReg());
     pushArg(ImmGCPtr(fun));
 
-    if (!callVM(LambdaInfo))
-        return false;
+    if (!callVM(LambdaInfo)) return false;
 
     // Box and push return value.
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
@@ -1752,9 +1489,7 @@ typedef JSObject* (*LambdaArrowFn)(JSContext*, HandleFunction, HandleObject, Han
 static const VMFunction LambdaArrowInfo =
     FunctionInfo<LambdaArrowFn>(js::LambdaArrow, "LambdaArrow");
 
-bool
-BaselineCompiler::emit_JSOP_LAMBDA_ARROW()
-{
+bool BaselineCompiler::emit_JSOP_LAMBDA_ARROW() {
     // Keep pushed newTarget in R0.
     frame.popRegsAndSync(1);
 
@@ -1767,8 +1502,7 @@ BaselineCompiler::emit_JSOP_LAMBDA_ARROW()
     pushArg(R2.scratchReg());
     pushArg(ImmGCPtr(fun));
 
-    if (!callVM(LambdaArrowInfo))
-        return false;
+    if (!callVM(LambdaArrowInfo)) return false;
 
     // Box and push return value.
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
@@ -1780,9 +1514,7 @@ typedef bool (*SetFunNameFn)(JSContext*, HandleFunction, HandleValue, FunctionPr
 static const VMFunction SetFunNameInfo =
     FunctionInfo<SetFunNameFn>(js::SetFunctionNameIfNoOwnName, "SetFunName");
 
-bool
-BaselineCompiler::emit_JSOP_SETFUNNAME()
-{
+bool BaselineCompiler::emit_JSOP_SETFUNNAME() {
     frame.popRegsAndSync(2);
 
     frame.push(R0);
@@ -1799,198 +1531,108 @@ BaselineCompiler::emit_JSOP_SETFUNNAME()
     return callVM(SetFunNameInfo);
 }
 
-void
-BaselineCompiler::storeValue(const StackValue* source, const Address& dest,
-                             const ValueOperand& scratch)
-{
+void BaselineCompiler::storeValue(const StackValue* source, const Address& dest,
+                                  const ValueOperand& scratch) {
     switch (source->kind()) {
-      case StackValue::Constant:
-        masm.storeValue(source->constant(), dest);
-        break;
-      case StackValue::Register:
-        masm.storeValue(source->reg(), dest);
-        break;
-      case StackValue::LocalSlot:
-        masm.loadValue(frame.addressOfLocal(source->localSlot()), scratch);
-        masm.storeValue(scratch, dest);
-        break;
-      case StackValue::ArgSlot:
-        masm.loadValue(frame.addressOfArg(source->argSlot()), scratch);
-        masm.storeValue(scratch, dest);
-        break;
-      case StackValue::ThisSlot:
-        masm.loadValue(frame.addressOfThis(), scratch);
-        masm.storeValue(scratch, dest);
-        break;
-      case StackValue::EvalNewTargetSlot:
-        MOZ_ASSERT(script->isForEval());
-        masm.loadValue(frame.addressOfEvalNewTarget(), scratch);
-        masm.storeValue(scratch, dest);
-        break;
-      case StackValue::Stack:
-        masm.loadValue(frame.addressOfStackValue(source), scratch);
-        masm.storeValue(scratch, dest);
-        break;
-      default:
-        MOZ_CRASH("Invalid kind");
+        case StackValue::Constant:
+            masm.storeValue(source->constant(), dest);
+            break;
+        case StackValue::Register:
+            masm.storeValue(source->reg(), dest);
+            break;
+        case StackValue::LocalSlot:
+            masm.loadValue(frame.addressOfLocal(source->localSlot()), scratch);
+            masm.storeValue(scratch, dest);
+            break;
+        case StackValue::ArgSlot:
+            masm.loadValue(frame.addressOfArg(source->argSlot()), scratch);
+            masm.storeValue(scratch, dest);
+            break;
+        case StackValue::ThisSlot:
+            masm.loadValue(frame.addressOfThis(), scratch);
+            masm.storeValue(scratch, dest);
+            break;
+        case StackValue::EvalNewTargetSlot:
+            MOZ_ASSERT(script->isForEval());
+            masm.loadValue(frame.addressOfEvalNewTarget(), scratch);
+            masm.storeValue(scratch, dest);
+            break;
+        case StackValue::Stack:
+            masm.loadValue(frame.addressOfStackValue(source), scratch);
+            masm.storeValue(scratch, dest);
+            break;
+        default:
+            MOZ_CRASH("Invalid kind");
     }
 }
 
-bool
-BaselineCompiler::emit_JSOP_BITOR()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_BITOR() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_BITXOR()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_BITXOR() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_BITAND()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_BITAND() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_LSH()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_LSH() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_RSH()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_RSH() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_URSH()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_URSH() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_ADD()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_ADD() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_SUB()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_SUB() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_MUL()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_MUL() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_DIV()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_DIV() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_MOD()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_MOD() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_POW()
-{
-    return emitBinaryArith();
-}
+bool BaselineCompiler::emit_JSOP_POW() { return emitBinaryArith(); }
 
-bool
-BaselineCompiler::emitBinaryArith()
-{
+bool BaselineCompiler::emitBinaryArith() {
     // Keep top JSStack value in R0 and R2
     frame.popRegsAndSync(2);
 
     // Call IC
     ICBinaryArith_Fallback::Compiler stubCompiler(cx, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emitUnaryArith()
-{
+bool BaselineCompiler::emitUnaryArith() {
     // Keep top stack value in R0.
     frame.popRegsAndSync(1);
 
     // Call IC
     ICUnaryArith_Fallback::Compiler stubCompiler(cx, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_BITNOT()
-{
-    return emitUnaryArith();
-}
+bool BaselineCompiler::emit_JSOP_BITNOT() { return emitUnaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_NEG()
-{
-    return emitUnaryArith();
-}
+bool BaselineCompiler::emit_JSOP_NEG() { return emitUnaryArith(); }
 
-bool
-BaselineCompiler::emit_JSOP_LT()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_LT() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_LE()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_LE() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_GT()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_GT() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_GE()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_GE() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_EQ()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_EQ() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_NE()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_NE() { return emitCompare(); }
 
-bool
-BaselineCompiler::emitCompare()
-{
+bool BaselineCompiler::emitCompare() {
     // CODEGEN
 
     // Keep top JSStack value in R0 and R1.
@@ -1998,43 +1640,27 @@ BaselineCompiler::emitCompare()
 
     // Call IC.
     ICCompare_Fallback::Compiler stubCompiler(cx, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0, JSVAL_TYPE_BOOLEAN);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTEQ()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_STRICTEQ() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTNE()
-{
-    return emitCompare();
-}
+bool BaselineCompiler::emit_JSOP_STRICTNE() { return emitCompare(); }
 
-bool
-BaselineCompiler::emit_JSOP_CONDSWITCH()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_CONDSWITCH() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_CASE()
-{
+bool BaselineCompiler::emit_JSOP_CASE() {
     frame.popRegsAndSync(2);
     frame.push(R0);
     frame.syncStack(0);
 
     // Call IC.
     ICCompare_Fallback::Compiler stubCompiler(cx, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     Register payload = masm.extractInt32(R0, R0.scratchReg());
     jsbytecode* target = pc + GET_JUMP_OFFSET(pc);
@@ -2050,22 +1676,14 @@ BaselineCompiler::emit_JSOP_CASE()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_DEFAULT()
-{
+bool BaselineCompiler::emit_JSOP_DEFAULT() {
     frame.pop();
     return emit_JSOP_GOTO();
 }
 
-bool
-BaselineCompiler::emit_JSOP_LINENO()
-{
-    return true;
-}
+bool BaselineCompiler::emit_JSOP_LINENO() { return true; }
 
-bool
-BaselineCompiler::emit_JSOP_NEWARRAY()
-{
+bool BaselineCompiler::emit_JSOP_NEWARRAY() {
     frame.syncStack(0);
 
     uint32_t length = GET_UINT32(pc);
@@ -2077,12 +1695,10 @@ BaselineCompiler::emit_JSOP_NEWARRAY()
     masm.move32(Imm32(AssertedCast<int32_t>(length)), R0.scratchReg());
 
     ObjectGroup* group = ObjectGroup::allocationSiteGroup(cx, script, pc, JSProto_Array);
-    if (!group)
-        return false;
+    if (!group) return false;
 
     ICNewArray_Fallback::Compiler stubCompiler(cx, group, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
@@ -2092,21 +1708,17 @@ typedef ArrayObject* (*NewArrayCopyOnWriteFn)(JSContext*, HandleArrayObject, gc:
 const VMFunction jit::NewArrayCopyOnWriteInfo =
     FunctionInfo<NewArrayCopyOnWriteFn>(js::NewDenseCopyOnWriteArray, "NewDenseCopyOnWriteArray");
 
-bool
-BaselineCompiler::emit_JSOP_NEWARRAY_COPYONWRITE()
-{
+bool BaselineCompiler::emit_JSOP_NEWARRAY_COPYONWRITE() {
     RootedScript scriptRoot(cx, script);
     JSObject* obj = ObjectGroup::getOrFixupCopyOnWriteObject(cx, scriptRoot, pc);
-    if (!obj)
-        return false;
+    if (!obj) return false;
 
     prepareVMCall();
 
     pushArg(Imm32(gc::DefaultHeap));
     pushArg(ImmGCPtr(obj));
 
-    if (!callVM(NewArrayCopyOnWriteInfo))
-        return false;
+    if (!callVM(NewArrayCopyOnWriteInfo)) return false;
 
     // Box and push return value.
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
@@ -2114,9 +1726,7 @@ BaselineCompiler::emit_JSOP_NEWARRAY_COPYONWRITE()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITELEM_ARRAY()
-{
+bool BaselineCompiler::emit_JSOP_INITELEM_ARRAY() {
     // Keep the object and rhs on the stack.
     frame.syncStack(0);
 
@@ -2131,30 +1741,24 @@ BaselineCompiler::emit_JSOP_INITELEM_ARRAY()
 
     // Call IC.
     ICSetElem_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Pop the rhs, so that the object is on the top of the stack.
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_NEWOBJECT()
-{
+bool BaselineCompiler::emit_JSOP_NEWOBJECT() {
     frame.syncStack(0);
 
     ICNewObject_Fallback::Compiler stubCompiler(cx, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_NEWINIT()
-{
+bool BaselineCompiler::emit_JSOP_NEWINIT() {
     frame.syncStack(0);
     JSProtoKey key = JSProtoKey(GET_UINT8(pc));
 
@@ -2163,27 +1767,22 @@ BaselineCompiler::emit_JSOP_NEWINIT()
         masm.move32(Imm32(0), R0.scratchReg());
 
         ObjectGroup* group = ObjectGroup::allocationSiteGroup(cx, script, pc, JSProto_Array);
-        if (!group)
-            return false;
+        if (!group) return false;
 
         ICNewArray_Fallback::Compiler stubCompiler(cx, group, ICStubCompiler::Engine::Baseline);
-        if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
     } else {
         MOZ_ASSERT(key == JSProto_Object);
 
         ICNewObject_Fallback::Compiler stubCompiler(cx, ICStubCompiler::Engine::Baseline);
-        if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
     }
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITELEM()
-{
+bool BaselineCompiler::emit_JSOP_INITELEM() {
     // Store RHS in the scratch slot.
     storeValue(frame.peek(-1), frame.addressOfScratchValue(), R2);
     frame.pop();
@@ -2200,27 +1799,20 @@ BaselineCompiler::emit_JSOP_INITELEM()
 
     // Call IC.
     ICSetElem_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Pop the rhs, so that the object is on the top of the stack.
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITHIDDENELEM()
-{
-    return emit_JSOP_INITELEM();
-}
+bool BaselineCompiler::emit_JSOP_INITHIDDENELEM() { return emit_JSOP_INITELEM(); }
 
 typedef bool (*MutateProtoFn)(JSContext* cx, HandlePlainObject obj, HandleValue newProto);
 static const VMFunction MutateProtoInfo =
     FunctionInfo<MutateProtoFn>(MutatePrototype, "MutatePrototype");
 
-bool
-BaselineCompiler::emit_JSOP_MUTATEPROTO()
-{
+bool BaselineCompiler::emit_JSOP_MUTATEPROTO() {
     // Keep values on the stack for the decompiler.
     frame.syncStack(0);
 
@@ -2232,16 +1824,13 @@ BaselineCompiler::emit_JSOP_MUTATEPROTO()
     pushArg(R1);
     pushArg(R0.scratchReg());
 
-    if (!callVM(MutateProtoInfo))
-        return false;
+    if (!callVM(MutateProtoInfo)) return false;
 
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITPROP()
-{
+bool BaselineCompiler::emit_JSOP_INITPROP() {
     // Load lhs in R0, rhs in R1.
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-2)), R0);
@@ -2249,33 +1838,22 @@ BaselineCompiler::emit_JSOP_INITPROP()
 
     // Call IC.
     ICSetProp_Fallback::Compiler compiler(cx);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     // Leave the object on the stack.
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITLOCKEDPROP()
-{
-    return emit_JSOP_INITPROP();
-}
+bool BaselineCompiler::emit_JSOP_INITLOCKEDPROP() { return emit_JSOP_INITPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITHIDDENPROP()
-{
-    return emit_JSOP_INITPROP();
-}
+bool BaselineCompiler::emit_JSOP_INITHIDDENPROP() { return emit_JSOP_INITPROP(); }
 
 typedef bool (*NewbornArrayPushFn)(JSContext*, HandleObject, const Value&);
 static const VMFunction NewbornArrayPushInfo =
     FunctionInfo<NewbornArrayPushFn>(NewbornArrayPush, "NewbornArrayPush");
 
-bool
-BaselineCompiler::emit_JSOP_ARRAYPUSH()
-{
+bool BaselineCompiler::emit_JSOP_ARRAYPUSH() {
     // Keep value in R0, object in R1.
     frame.popRegsAndSync(2);
     masm.unboxObject(R1, R1.scratchReg());
@@ -2288,25 +1866,20 @@ BaselineCompiler::emit_JSOP_ARRAYPUSH()
     return callVM(NewbornArrayPushInfo);
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETELEM()
-{
+bool BaselineCompiler::emit_JSOP_GETELEM() {
     // Keep top two stack values in R0 and R1.
     frame.popRegsAndSync(2);
 
     // Call IC.
     ICGetElem_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETELEM_SUPER()
-{
+bool BaselineCompiler::emit_JSOP_GETELEM_SUPER() {
     // Store obj in the scratch slot.
     storeValue(frame.peek(-1), frame.addressOfScratchValue(), R2);
     frame.pop();
@@ -2318,23 +1891,16 @@ BaselineCompiler::emit_JSOP_GETELEM_SUPER()
     frame.pushScratchValue();
 
     ICGetElem_Fallback::Compiler stubCompiler(cx, /* hasReceiver = */ true);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
-    frame.pop(); // This value is also popped in InitFromBailout.
+    frame.pop();  // This value is also popped in InitFromBailout.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_CALLELEM()
-{
-    return emit_JSOP_GETELEM();
-}
+bool BaselineCompiler::emit_JSOP_CALLELEM() { return emit_JSOP_GETELEM(); }
 
-bool
-BaselineCompiler::emit_JSOP_SETELEM()
-{
+bool BaselineCompiler::emit_JSOP_SETELEM() {
     // Store RHS in the scratch slot.
     storeValue(frame.peek(-1), frame.addressOfScratchValue(), R2);
     frame.pop();
@@ -2347,21 +1913,14 @@ BaselineCompiler::emit_JSOP_SETELEM()
 
     // Call IC.
     ICSetElem_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSETELEM()
-{
-    return emit_JSOP_SETELEM();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSETELEM() { return emit_JSOP_SETELEM(); }
 
-bool
-BaselineCompiler::emit_JSOP_SETELEM_SUPER()
-{
+bool BaselineCompiler::emit_JSOP_SETELEM_SUPER() {
     bool strict = IsCheckStrictOp(JSOp(*pc));
 
     // Incoming stack is |propval, receiver, obj, rval|. We need to shuffle
@@ -2376,34 +1935,27 @@ BaselineCompiler::emit_JSOP_SETELEM_SUPER()
 
     pushArg(Imm32(strict));
     masm.loadValue(frame.addressOfStackValue(frame.peek(-2)), R2);
-    pushArg(R2); // receiver
-    pushArg(R0); // rval
-    pushArg(R1); // propval
+    pushArg(R2);  // receiver
+    pushArg(R0);  // rval
+    pushArg(R1);  // propval
     masm.unboxObject(frame.addressOfStackValue(frame.peek(-1)), R0.scratchReg());
-    pushArg(R0.scratchReg()); // obj
+    pushArg(R0.scratchReg());  // obj
 
-    if (!callVM(SetObjectElementInfo))
-        return false;
+    if (!callVM(SetObjectElementInfo)) return false;
 
     frame.popn(2);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSETELEM_SUPER()
-{
-    return emit_JSOP_SETELEM_SUPER();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSETELEM_SUPER() { return emit_JSOP_SETELEM_SUPER(); }
 
 typedef bool (*DeleteElementFn)(JSContext*, HandleValue, HandleValue, bool*);
-static const VMFunction DeleteElementStrictInfo
-    = FunctionInfo<DeleteElementFn>(DeleteElementJit<true>, "DeleteElementStrict");
-static const VMFunction DeleteElementNonStrictInfo
-    = FunctionInfo<DeleteElementFn>(DeleteElementJit<false>, "DeleteElementNonStrict");
+static const VMFunction DeleteElementStrictInfo =
+    FunctionInfo<DeleteElementFn>(DeleteElementJit<true>, "DeleteElementStrict");
+static const VMFunction DeleteElementNonStrictInfo =
+    FunctionInfo<DeleteElementFn>(DeleteElementJit<false>, "DeleteElementNonStrict");
 
-bool
-BaselineCompiler::emit_JSOP_DELELEM()
-{
+bool BaselineCompiler::emit_JSOP_DELELEM() {
     // Keep values on the stack for the decompiler.
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-2)), R0);
@@ -2415,8 +1967,7 @@ BaselineCompiler::emit_JSOP_DELELEM()
     pushArg(R0);
 
     bool strict = JSOp(*pc) == JSOP_STRICTDELELEM;
-    if (!callVM(strict ? DeleteElementStrictInfo : DeleteElementNonStrictInfo))
-        return false;
+    if (!callVM(strict ? DeleteElementStrictInfo : DeleteElementNonStrictInfo)) return false;
 
     masm.boxNonDouble(JSVAL_TYPE_BOOLEAN, ReturnReg, R1);
     frame.popn(2);
@@ -2424,43 +1975,30 @@ BaselineCompiler::emit_JSOP_DELELEM()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTDELELEM()
-{
-    return emit_JSOP_DELELEM();
-}
+bool BaselineCompiler::emit_JSOP_STRICTDELELEM() { return emit_JSOP_DELELEM(); }
 
-bool
-BaselineCompiler::emit_JSOP_IN()
-{
+bool BaselineCompiler::emit_JSOP_IN() {
     frame.popRegsAndSync(2);
 
     ICIn_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_HASOWN()
-{
+bool BaselineCompiler::emit_JSOP_HASOWN() {
     frame.popRegsAndSync(2);
 
     ICHasOwn_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETGNAME()
-{
-    if (script->hasNonSyntacticScope())
-        return emit_JSOP_GETNAME();
+bool BaselineCompiler::emit_JSOP_GETGNAME() {
+    if (script->hasNonSyntacticScope()) return emit_JSOP_GETNAME();
 
     RootedPropertyName name(cx, script->getName(pc));
 
@@ -2484,17 +2022,14 @@ BaselineCompiler::emit_JSOP_GETGNAME()
 
     // Call IC.
     ICGetName_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_BINDGNAME()
-{
+bool BaselineCompiler::emit_JSOP_BINDGNAME() {
     if (!script->hasNonSyntacticScope()) {
         // We can bind name to the global lexical scope if the binding already
         // exists, is initialized, and is writable (i.e., an initialized
@@ -2503,8 +2038,7 @@ BaselineCompiler::emit_JSOP_BINDGNAME()
         Rooted<LexicalEnvironmentObject*> env(cx, &script->global().lexicalEnvironment());
         if (Shape* shape = env->lookup(cx, name)) {
             if (shape->writable() &&
-                !env->getSlot(shape->slot()).isMagic(JS_UNINITIALIZED_LEXICAL))
-            {
+                !env->getSlot(shape->slot()).isMagic(JS_UNINITIALIZED_LEXICAL)) {
                 frame.push(ObjectValue(*env));
                 return true;
             }
@@ -2528,26 +2062,21 @@ BaselineCompiler::emit_JSOP_BINDGNAME()
 typedef JSObject* (*BindVarFn)(JSContext*, HandleObject);
 static const VMFunction BindVarInfo = FunctionInfo<BindVarFn>(jit::BindVar, "BindVar");
 
-bool
-BaselineCompiler::emit_JSOP_BINDVAR()
-{
+bool BaselineCompiler::emit_JSOP_BINDVAR() {
     frame.syncStack(0);
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
 
     prepareVMCall();
     pushArg(R0.scratchReg());
 
-    if (!callVM(BindVarInfo))
-        return false;
+    if (!callVM(BindVarInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_SETPROP()
-{
+bool BaselineCompiler::emit_JSOP_SETPROP() {
     // Keep lhs in R0, rhs in R1.
     frame.popRegsAndSync(2);
 
@@ -2557,50 +2086,27 @@ BaselineCompiler::emit_JSOP_SETPROP()
 
     // Call IC.
     ICSetProp_Fallback::Compiler compiler(cx);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSETPROP()
-{
-    return emit_JSOP_SETPROP();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSETPROP() { return emit_JSOP_SETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_SETNAME()
-{
-    return emit_JSOP_SETPROP();
-}
+bool BaselineCompiler::emit_JSOP_SETNAME() { return emit_JSOP_SETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSETNAME()
-{
-    return emit_JSOP_SETPROP();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSETNAME() { return emit_JSOP_SETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_SETGNAME()
-{
-    return emit_JSOP_SETPROP();
-}
+bool BaselineCompiler::emit_JSOP_SETGNAME() { return emit_JSOP_SETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSETGNAME()
-{
-    return emit_JSOP_SETPROP();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSETGNAME() { return emit_JSOP_SETPROP(); }
 
-typedef bool (*SetPropertySuperFn)(JSContext*, HandleObject, HandleValue,
-                                   HandlePropertyName, HandleValue, bool);
+typedef bool (*SetPropertySuperFn)(JSContext*, HandleObject, HandleValue, HandlePropertyName,
+                                   HandleValue, bool);
 static const VMFunction SetPropertySuperInfo =
     FunctionInfo<SetPropertySuperFn>(js::SetPropertySuper, "SetPropertySuper");
 
-bool
-BaselineCompiler::emit_JSOP_SETPROP_SUPER()
-{
+bool BaselineCompiler::emit_JSOP_SETPROP_SUPER() {
     bool strict = IsCheckStrictOp(JSOp(*pc));
 
     // Incoming stack is |receiver, obj, rval|. We need to shuffle stack to
@@ -2614,62 +2120,40 @@ BaselineCompiler::emit_JSOP_SETPROP_SUPER()
     prepareVMCall();
 
     pushArg(Imm32(strict));
-    pushArg(R0); // rval
+    pushArg(R0);  // rval
     pushArg(ImmGCPtr(script->getName(pc)));
-    pushArg(R1); // receiver
+    pushArg(R1);  // receiver
     masm.unboxObject(frame.addressOfStackValue(frame.peek(-1)), R0.scratchReg());
-    pushArg(R0.scratchReg()); // obj
+    pushArg(R0.scratchReg());  // obj
 
-    if (!callVM(SetPropertySuperInfo))
-        return false;
+    if (!callVM(SetPropertySuperInfo)) return false;
 
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSETPROP_SUPER()
-{
-    return emit_JSOP_SETPROP_SUPER();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSETPROP_SUPER() { return emit_JSOP_SETPROP_SUPER(); }
 
-bool
-BaselineCompiler::emit_JSOP_GETPROP()
-{
+bool BaselineCompiler::emit_JSOP_GETPROP() {
     // Keep object in R0.
     frame.popRegsAndSync(1);
 
     // Call IC.
     ICGetProp_Fallback::Compiler compiler(cx, ICStubCompiler::Engine::Baseline);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_CALLPROP()
-{
-    return emit_JSOP_GETPROP();
-}
+bool BaselineCompiler::emit_JSOP_CALLPROP() { return emit_JSOP_GETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_LENGTH()
-{
-    return emit_JSOP_GETPROP();
-}
+bool BaselineCompiler::emit_JSOP_LENGTH() { return emit_JSOP_GETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_GETBOUNDNAME()
-{
-    return emit_JSOP_GETPROP();
-}
+bool BaselineCompiler::emit_JSOP_GETBOUNDNAME() { return emit_JSOP_GETPROP(); }
 
-bool
-BaselineCompiler::emit_JSOP_GETPROP_SUPER()
-{
+bool BaselineCompiler::emit_JSOP_GETPROP_SUPER() {
     // Receiver -> R1, Object -> R0
     frame.popRegsAndSync(1);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R1);
@@ -2677,13 +2161,11 @@ BaselineCompiler::emit_JSOP_GETPROP_SUPER()
 
     ICGetProp_Fallback::Compiler compiler(cx, ICStubCompiler::Engine::Baseline,
                                           /* hasReceiver = */ true);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
-
 
 typedef bool (*DeletePropertyFn)(JSContext*, HandleValue, HandlePropertyName, bool*);
 static const VMFunction DeletePropertyStrictInfo =
@@ -2691,9 +2173,7 @@ static const VMFunction DeletePropertyStrictInfo =
 static const VMFunction DeletePropertyNonStrictInfo =
     FunctionInfo<DeletePropertyFn>(DeletePropertyJit<false>, "DeletePropertyNonStrict");
 
-bool
-BaselineCompiler::emit_JSOP_DELPROP()
-{
+bool BaselineCompiler::emit_JSOP_DELPROP() {
     // Keep value on the stack for the decompiler.
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
@@ -2704,8 +2184,7 @@ BaselineCompiler::emit_JSOP_DELPROP()
     pushArg(R0);
 
     bool strict = JSOp(*pc) == JSOP_STRICTDELPROP;
-    if (!callVM(strict ? DeletePropertyStrictInfo : DeletePropertyNonStrictInfo))
-        return false;
+    if (!callVM(strict ? DeletePropertyStrictInfo : DeletePropertyNonStrictInfo)) return false;
 
     masm.boxNonDouble(JSVAL_TYPE_BOOLEAN, ReturnReg, R1);
     frame.pop();
@@ -2713,15 +2192,9 @@ BaselineCompiler::emit_JSOP_DELPROP()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTDELPROP()
-{
-    return emit_JSOP_DELPROP();
-}
+bool BaselineCompiler::emit_JSOP_STRICTDELPROP() { return emit_JSOP_DELPROP(); }
 
-void
-BaselineCompiler::getEnvironmentCoordinateObject(Register reg)
-{
+void BaselineCompiler::getEnvironmentCoordinateObject(Register reg) {
     EnvironmentCoordinate ec(pc);
 
     masm.loadPtr(frame.addressOfEnvironmentChain(), reg);
@@ -2729,9 +2202,8 @@ BaselineCompiler::getEnvironmentCoordinateObject(Register reg)
         masm.extractObject(Address(reg, EnvironmentObject::offsetOfEnclosingEnvironment()), reg);
 }
 
-Address
-BaselineCompiler::getEnvironmentCoordinateAddressFromObject(Register objReg, Register reg)
-{
+Address BaselineCompiler::getEnvironmentCoordinateAddressFromObject(Register objReg,
+                                                                    Register reg) {
     EnvironmentCoordinate ec(pc);
     Shape* shape = EnvironmentCoordinateToEnvironmentShape(script, pc);
 
@@ -2744,16 +2216,12 @@ BaselineCompiler::getEnvironmentCoordinateAddressFromObject(Register objReg, Reg
     return Address(objReg, NativeObject::getFixedSlotOffset(ec.slot()));
 }
 
-Address
-BaselineCompiler::getEnvironmentCoordinateAddress(Register reg)
-{
+Address BaselineCompiler::getEnvironmentCoordinateAddress(Register reg) {
     getEnvironmentCoordinateObject(reg);
     return getEnvironmentCoordinateAddressFromObject(reg, reg);
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETALIASEDVAR()
-{
+bool BaselineCompiler::emit_JSOP_GETALIASEDVAR() {
     frame.syncStack(0);
 
     Address address = getEnvironmentCoordinateAddress(R0.scratchReg());
@@ -2762,17 +2230,14 @@ BaselineCompiler::emit_JSOP_GETALIASEDVAR()
     if (ionCompileable_) {
         // No need to monitor types if we know Ion can't compile this script.
         ICTypeMonitor_Fallback::Compiler compiler(cx, nullptr);
-        if (!emitOpIC(compiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
     }
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_SETALIASEDVAR()
-{
+bool BaselineCompiler::emit_JSOP_SETALIASEDVAR() {
     JSScript* outerScript = EnvironmentCoordinateFunctionScript(script, pc);
     if (outerScript && outerScript->treatAsRunOnce()) {
         // Type updates for this operation might need to be tracked, so treat
@@ -2788,8 +2253,7 @@ BaselineCompiler::emit_JSOP_SETALIASEDVAR()
 
         // Call SETPROP IC.
         ICSetProp_Fallback::Compiler compiler(cx);
-        if (!emitOpIC(compiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
         return true;
     }
@@ -2812,32 +2276,27 @@ BaselineCompiler::emit_JSOP_SETALIASEDVAR()
     masm.branchPtrInNurseryChunk(Assembler::Equal, objReg, temp, &skipBarrier);
     masm.branchValueIsNurseryObject(Assembler::NotEqual, R0, temp, &skipBarrier);
 
-    masm.call(&postBarrierSlot_); // Won't clobber R0
+    masm.call(&postBarrierSlot_);  // Won't clobber R0
 
     masm.bind(&skipBarrier);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETNAME()
-{
+bool BaselineCompiler::emit_JSOP_GETNAME() {
     frame.syncStack(0);
 
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
 
     // Call IC.
     ICGetName_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_BINDNAME()
-{
+bool BaselineCompiler::emit_JSOP_BINDNAME() {
     frame.syncStack(0);
 
     if (*pc == JSOP_BINDGNAME && !script->hasNonSyntacticScope())
@@ -2847,22 +2306,18 @@ BaselineCompiler::emit_JSOP_BINDNAME()
 
     // Call IC.
     ICBindName_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
     return true;
 }
 
-typedef bool (*DeleteNameFn)(JSContext*, HandlePropertyName, HandleObject,
-                             MutableHandleValue);
+typedef bool (*DeleteNameFn)(JSContext*, HandlePropertyName, HandleObject, MutableHandleValue);
 static const VMFunction DeleteNameInfo =
     FunctionInfo<DeleteNameFn>(DeleteNameOperation, "DeleteNameOperation");
 
-bool
-BaselineCompiler::emit_JSOP_DELNAME()
-{
+bool BaselineCompiler::emit_JSOP_DELNAME() {
     frame.syncStack(0);
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
 
@@ -2871,16 +2326,13 @@ BaselineCompiler::emit_JSOP_DELNAME()
     pushArg(R0.scratchReg());
     pushArg(ImmGCPtr(script->getName(pc)));
 
-    if (!callVM(DeleteNameInfo))
-        return false;
+    if (!callVM(DeleteNameInfo)) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETIMPORT()
-{
+bool BaselineCompiler::emit_JSOP_GETIMPORT() {
     ModuleEnvironmentObject* env = GetModuleEnvironmentForScript(script);
     MOZ_ASSERT(env);
 
@@ -2905,28 +2357,23 @@ BaselineCompiler::emit_JSOP_GETIMPORT()
     // Imports are initialized by this point except in rare circumstances, so
     // don't emit a check unless we have to.
     if (targetEnv->getSlot(shape->slot()).isMagic(JS_UNINITIALIZED_LEXICAL))
-        if (!emitUninitializedLexicalCheck(R0))
-            return false;
+        if (!emitUninitializedLexicalCheck(R0)) return false;
 
     if (ionCompileable_) {
         // No need to monitor types if we know Ion can't compile this script.
         ICTypeMonitor_Fallback::Compiler compiler(cx, nullptr);
-        if (!emitOpIC(compiler.getStub(&stubSpace_)))
-            return false;
+        if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
     }
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETINTRINSIC()
-{
+bool BaselineCompiler::emit_JSOP_GETINTRINSIC() {
     frame.syncStack(0);
 
     ICGetIntrinsic_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
@@ -2935,14 +2382,11 @@ BaselineCompiler::emit_JSOP_GETINTRINSIC()
 typedef bool (*DefVarFn)(JSContext*, HandlePropertyName, unsigned, HandleObject);
 static const VMFunction DefVarInfo = FunctionInfo<DefVarFn>(DefVar, "DefVar");
 
-bool
-BaselineCompiler::emit_JSOP_DEFVAR()
-{
+bool BaselineCompiler::emit_JSOP_DEFVAR() {
     frame.syncStack(0);
 
     unsigned attrs = JSPROP_ENUMERATE;
-    if (!script->isForEval())
-        attrs |= JSPROP_PERMANENT;
+    if (!script->isForEval()) attrs |= JSPROP_PERMANENT;
     MOZ_ASSERT(attrs <= UINT32_MAX);
 
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
@@ -2959,20 +2403,13 @@ BaselineCompiler::emit_JSOP_DEFVAR()
 typedef bool (*DefLexicalFn)(JSContext*, HandlePropertyName, unsigned, HandleObject);
 static const VMFunction DefLexicalInfo = FunctionInfo<DefLexicalFn>(DefLexical, "DefLexical");
 
-bool
-BaselineCompiler::emit_JSOP_DEFCONST()
-{
-    return emit_JSOP_DEFLET();
-}
+bool BaselineCompiler::emit_JSOP_DEFCONST() { return emit_JSOP_DEFLET(); }
 
-bool
-BaselineCompiler::emit_JSOP_DEFLET()
-{
+bool BaselineCompiler::emit_JSOP_DEFLET() {
     frame.syncStack(0);
 
     unsigned attrs = JSPROP_ENUMERATE | JSPROP_PERMANENT;
-    if (*pc == JSOP_DEFCONST)
-        attrs |= JSPROP_READONLY;
+    if (*pc == JSOP_DEFCONST) attrs |= JSPROP_READONLY;
     MOZ_ASSERT(attrs <= UINT32_MAX);
 
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
@@ -2990,9 +2427,7 @@ typedef bool (*DefFunOperationFn)(JSContext*, HandleScript, HandleObject, Handle
 static const VMFunction DefFunOperationInfo =
     FunctionInfo<DefFunOperationFn>(DefFunOperation, "DefFunOperation");
 
-bool
-BaselineCompiler::emit_JSOP_DEFFUN()
-{
+bool BaselineCompiler::emit_JSOP_DEFFUN() {
     frame.popRegsAndSync(1);
     masm.unboxObject(R0, R0.scratchReg());
     masm.loadPtr(frame.addressOfEnvironmentChain(), R1.scratchReg());
@@ -3008,17 +2443,12 @@ BaselineCompiler::emit_JSOP_DEFFUN()
 
 typedef bool (*InitPropGetterSetterFn)(JSContext*, jsbytecode*, HandleObject, HandlePropertyName,
                                        HandleObject);
-static const VMFunction InitPropGetterSetterInfo =
-    FunctionInfo<InitPropGetterSetterFn>(InitGetterSetterOperation,
-                                         "InitPropGetterSetterOperation");
+static const VMFunction InitPropGetterSetterInfo = FunctionInfo<InitPropGetterSetterFn>(
+    InitGetterSetterOperation, "InitPropGetterSetterOperation");
 
-bool
-BaselineCompiler::emitInitPropGetterSetter()
-{
-    MOZ_ASSERT(JSOp(*pc) == JSOP_INITPROP_GETTER ||
-               JSOp(*pc) == JSOP_INITHIDDENPROP_GETTER ||
-               JSOp(*pc) == JSOP_INITPROP_SETTER ||
-               JSOp(*pc) == JSOP_INITHIDDENPROP_SETTER);
+bool BaselineCompiler::emitInitPropGetterSetter() {
+    MOZ_ASSERT(JSOp(*pc) == JSOP_INITPROP_GETTER || JSOp(*pc) == JSOP_INITHIDDENPROP_GETTER ||
+               JSOp(*pc) == JSOP_INITPROP_SETTER || JSOp(*pc) == JSOP_INITHIDDENPROP_SETTER);
 
     // Keep values on the stack for the decompiler.
     frame.syncStack(0);
@@ -3033,50 +2463,28 @@ BaselineCompiler::emitInitPropGetterSetter()
     pushArg(R1.scratchReg());
     pushArg(ImmPtr(pc));
 
-    if (!callVM(InitPropGetterSetterInfo))
-        return false;
+    if (!callVM(InitPropGetterSetterInfo)) return false;
 
     frame.pop();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITPROP_GETTER()
-{
-    return emitInitPropGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITPROP_GETTER() { return emitInitPropGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITHIDDENPROP_GETTER()
-{
-    return emitInitPropGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITHIDDENPROP_GETTER() { return emitInitPropGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITPROP_SETTER()
-{
-    return emitInitPropGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITPROP_SETTER() { return emitInitPropGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITHIDDENPROP_SETTER()
-{
-    return emitInitPropGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITHIDDENPROP_SETTER() { return emitInitPropGetterSetter(); }
 
 typedef bool (*InitElemGetterSetterFn)(JSContext*, jsbytecode*, HandleObject, HandleValue,
                                        HandleObject);
-static const VMFunction InitElemGetterSetterInfo =
-    FunctionInfo<InitElemGetterSetterFn>(InitGetterSetterOperation,
-                                         "InitElemGetterSetterOperation");
+static const VMFunction InitElemGetterSetterInfo = FunctionInfo<InitElemGetterSetterFn>(
+    InitGetterSetterOperation, "InitElemGetterSetterOperation");
 
-bool
-BaselineCompiler::emitInitElemGetterSetter()
-{
-    MOZ_ASSERT(JSOp(*pc) == JSOP_INITELEM_GETTER ||
-               JSOp(*pc) == JSOP_INITHIDDENELEM_GETTER ||
-               JSOp(*pc) == JSOP_INITELEM_SETTER ||
-               JSOp(*pc) == JSOP_INITHIDDENELEM_SETTER);
+bool BaselineCompiler::emitInitElemGetterSetter() {
+    MOZ_ASSERT(JSOp(*pc) == JSOP_INITELEM_GETTER || JSOp(*pc) == JSOP_INITHIDDENELEM_GETTER ||
+               JSOp(*pc) == JSOP_INITELEM_SETTER || JSOp(*pc) == JSOP_INITHIDDENELEM_SETTER);
 
     // Load index and value in R0 and R1, but keep values on the stack for the
     // decompiler.
@@ -3092,40 +2500,21 @@ BaselineCompiler::emitInitElemGetterSetter()
     pushArg(R0.scratchReg());
     pushArg(ImmPtr(pc));
 
-    if (!callVM(InitElemGetterSetterInfo))
-        return false;
+    if (!callVM(InitElemGetterSetterInfo)) return false;
 
     frame.popn(2);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITELEM_GETTER()
-{
-    return emitInitElemGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITELEM_GETTER() { return emitInitElemGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITHIDDENELEM_GETTER()
-{
-    return emitInitElemGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITHIDDENELEM_GETTER() { return emitInitElemGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITELEM_SETTER()
-{
-    return emitInitElemGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITELEM_SETTER() { return emitInitElemGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITHIDDENELEM_SETTER()
-{
-    return emitInitElemGetterSetter();
-}
+bool BaselineCompiler::emit_JSOP_INITHIDDENELEM_SETTER() { return emitInitElemGetterSetter(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITELEM_INC()
-{
+bool BaselineCompiler::emit_JSOP_INITELEM_INC() {
     // Keep the object and rhs on the stack.
     frame.syncStack(0);
 
@@ -3135,8 +2524,7 @@ BaselineCompiler::emit_JSOP_INITELEM_INC()
 
     // Call IC.
     ICSetElem_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Pop the rhs
     frame.pop();
@@ -3153,16 +2541,12 @@ BaselineCompiler::emit_JSOP_INITELEM_INC()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETLOCAL()
-{
+bool BaselineCompiler::emit_JSOP_GETLOCAL() {
     frame.pushLocal(GET_LOCALNO(pc));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_SETLOCAL()
-{
+bool BaselineCompiler::emit_JSOP_SETLOCAL() {
     // Ensure no other StackValue refers to the old value, for instance i + (i = 3).
     // This also allows us to use R0 as scratch below.
     frame.syncStack(1);
@@ -3172,9 +2556,7 @@ BaselineCompiler::emit_JSOP_SETLOCAL()
     return true;
 }
 
-bool
-BaselineCompiler::emitFormalArgAccess(uint32_t arg, bool get)
-{
+bool BaselineCompiler::emitFormalArgAccess(uint32_t arg, bool get) {
     // Fast path: the script does not use |arguments| or formals don't
     // alias the arguments object.
     if (!script->argumentsAliasesFormals()) {
@@ -3245,16 +2627,12 @@ BaselineCompiler::emitFormalArgAccess(uint32_t arg, bool get)
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GETARG()
-{
+bool BaselineCompiler::emit_JSOP_GETARG() {
     uint32_t arg = GET_ARGNO(pc);
     return emitFormalArgAccess(arg, /* get = */ true);
 }
 
-bool
-BaselineCompiler::emit_JSOP_SETARG()
-{
+bool BaselineCompiler::emit_JSOP_SETARG() {
     // Ionmonkey can't inline functions with SETARG with magic arguments.
     if (!script->argsObjAliasesFormals() && script->argumentsAliasesFormals())
         script->setUninlineable();
@@ -3265,9 +2643,7 @@ BaselineCompiler::emit_JSOP_SETARG()
     return emitFormalArgAccess(arg, /* get = */ false);
 }
 
-bool
-BaselineCompiler::emit_JSOP_NEWTARGET()
-{
+bool BaselineCompiler::emit_JSOP_NEWTARGET() {
     if (script->isForEval()) {
         frame.pushEvalNewTarget();
         return true;
@@ -3298,8 +2674,7 @@ BaselineCompiler::emit_JSOP_NEWTARGET()
 
     Label useNFormals;
 
-    masm.branchPtr(Assembler::Below, argvLen, Imm32(function()->nargs()),
-                   &useNFormals);
+    masm.branchPtr(Assembler::Below, argvLen, Imm32(function()->nargs()), &useNFormals);
 
     {
         BaseValueIndex newTarget(BaselineFrameReg, argvLen, BaselineFrame::offsetOfArg(0));
@@ -3327,98 +2702,62 @@ BaselineCompiler::emit_JSOP_NEWTARGET()
 }
 
 typedef bool (*ThrowRuntimeLexicalErrorFn)(JSContext* cx, unsigned);
-static const VMFunction ThrowRuntimeLexicalErrorInfo =
-    FunctionInfo<ThrowRuntimeLexicalErrorFn>(jit::ThrowRuntimeLexicalError,
-                                             "ThrowRuntimeLexicalError");
+static const VMFunction ThrowRuntimeLexicalErrorInfo = FunctionInfo<ThrowRuntimeLexicalErrorFn>(
+    jit::ThrowRuntimeLexicalError, "ThrowRuntimeLexicalError");
 
-bool
-BaselineCompiler::emitThrowConstAssignment()
-{
+bool BaselineCompiler::emitThrowConstAssignment() {
     prepareVMCall();
     pushArg(Imm32(JSMSG_BAD_CONST_ASSIGN));
     return callVM(ThrowRuntimeLexicalErrorInfo);
 }
 
-bool
-BaselineCompiler::emit_JSOP_THROWSETCONST()
-{
-    return emitThrowConstAssignment();
-}
+bool BaselineCompiler::emit_JSOP_THROWSETCONST() { return emitThrowConstAssignment(); }
 
-bool
-BaselineCompiler::emit_JSOP_THROWSETALIASEDCONST()
-{
-    return emitThrowConstAssignment();
-}
+bool BaselineCompiler::emit_JSOP_THROWSETALIASEDCONST() { return emitThrowConstAssignment(); }
 
-bool
-BaselineCompiler::emit_JSOP_THROWSETCALLEE()
-{
-    return emitThrowConstAssignment();
-}
+bool BaselineCompiler::emit_JSOP_THROWSETCALLEE() { return emitThrowConstAssignment(); }
 
-bool
-BaselineCompiler::emitUninitializedLexicalCheck(const ValueOperand& val)
-{
+bool BaselineCompiler::emitUninitializedLexicalCheck(const ValueOperand& val) {
     Label done;
     masm.branchTestMagicValue(Assembler::NotEqual, val, JS_UNINITIALIZED_LEXICAL, &done);
 
     prepareVMCall();
     pushArg(Imm32(JSMSG_UNINITIALIZED_LEXICAL));
-    if (!callVM(ThrowRuntimeLexicalErrorInfo))
-        return false;
+    if (!callVM(ThrowRuntimeLexicalErrorInfo)) return false;
 
     masm.bind(&done);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_CHECKLEXICAL()
-{
+bool BaselineCompiler::emit_JSOP_CHECKLEXICAL() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfLocal(GET_LOCALNO(pc)), R0);
     return emitUninitializedLexicalCheck(R0);
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITLEXICAL()
-{
-    return emit_JSOP_SETLOCAL();
-}
+bool BaselineCompiler::emit_JSOP_INITLEXICAL() { return emit_JSOP_SETLOCAL(); }
 
-bool
-BaselineCompiler::emit_JSOP_INITGLEXICAL()
-{
+bool BaselineCompiler::emit_JSOP_INITGLEXICAL() {
     frame.popRegsAndSync(1);
     frame.push(ObjectValue(script->global().lexicalEnvironment()));
     frame.push(R0);
     return emit_JSOP_SETPROP();
 }
 
-bool
-BaselineCompiler::emit_JSOP_CHECKALIASEDLEXICAL()
-{
+bool BaselineCompiler::emit_JSOP_CHECKALIASEDLEXICAL() {
     frame.syncStack(0);
     masm.loadValue(getEnvironmentCoordinateAddress(R0.scratchReg()), R0);
     return emitUninitializedLexicalCheck(R0);
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITALIASEDLEXICAL()
-{
-    return emit_JSOP_SETALIASEDVAR();
-}
+bool BaselineCompiler::emit_JSOP_INITALIASEDLEXICAL() { return emit_JSOP_SETALIASEDVAR(); }
 
-bool
-BaselineCompiler::emit_JSOP_UNINITIALIZED()
-{
+bool BaselineCompiler::emit_JSOP_UNINITIALIZED() {
     frame.push(MagicValue(JS_UNINITIALIZED_LEXICAL));
     return true;
 }
 
-bool
-BaselineCompiler::emitCall()
-{
+bool BaselineCompiler::emitCall() {
     MOZ_ASSERT(IsCallPC(pc));
 
     bool construct = JSOp(*pc) == JSOP_NEW || JSOp(*pc) == JSOP_SUPERCALL;
@@ -3430,8 +2769,7 @@ BaselineCompiler::emitCall()
     // Call IC
     ICCall_Fallback::Compiler stubCompiler(cx, /* isConstructing = */ construct,
                                            /* isSpread = */ false);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Update FrameInfo.
     frame.popn(2 + argc + construct);
@@ -3439,9 +2777,7 @@ BaselineCompiler::emitCall()
     return true;
 }
 
-bool
-BaselineCompiler::emitSpreadCall()
-{
+bool BaselineCompiler::emitSpreadCall() {
     MOZ_ASSERT(IsCallPC(pc));
 
     frame.syncStack(0);
@@ -3451,8 +2787,7 @@ BaselineCompiler::emitSpreadCall()
     bool construct = JSOp(*pc) == JSOP_SPREADNEW || JSOp(*pc) == JSOP_SPREADSUPERCALL;
     ICCall_Fallback::Compiler stubCompiler(cx, /* isConstructing = */ construct,
                                            /* isSpread = */ true);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     // Update FrameInfo.
     frame.popn(3 + construct);
@@ -3460,119 +2795,57 @@ BaselineCompiler::emitSpreadCall()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_CALL()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_CALL() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_CALL_IGNORES_RV()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_CALL_IGNORES_RV() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_CALLITER()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_CALLITER() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_NEW()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_NEW() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_SUPERCALL()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_SUPERCALL() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_FUNCALL()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_FUNCALL() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_FUNAPPLY()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_FUNAPPLY() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_EVAL()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_EVAL() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTEVAL()
-{
-    return emitCall();
-}
+bool BaselineCompiler::emit_JSOP_STRICTEVAL() { return emitCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_SPREADCALL()
-{
-    return emitSpreadCall();
-}
+bool BaselineCompiler::emit_JSOP_SPREADCALL() { return emitSpreadCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_SPREADNEW()
-{
-    return emitSpreadCall();
-}
+bool BaselineCompiler::emit_JSOP_SPREADNEW() { return emitSpreadCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_SPREADSUPERCALL()
-{
-    return emitSpreadCall();
-}
+bool BaselineCompiler::emit_JSOP_SPREADSUPERCALL() { return emitSpreadCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_SPREADEVAL()
-{
-    return emitSpreadCall();
-}
+bool BaselineCompiler::emit_JSOP_SPREADEVAL() { return emitSpreadCall(); }
 
-bool
-BaselineCompiler::emit_JSOP_STRICTSPREADEVAL()
-{
-    return emitSpreadCall();
-}
+bool BaselineCompiler::emit_JSOP_STRICTSPREADEVAL() { return emitSpreadCall(); }
 
 typedef bool (*OptimizeSpreadCallFn)(JSContext*, HandleValue, bool*);
 static const VMFunction OptimizeSpreadCallInfo =
     FunctionInfo<OptimizeSpreadCallFn>(OptimizeSpreadCall, "OptimizeSpreadCall");
 
-bool
-BaselineCompiler::emit_JSOP_OPTIMIZE_SPREADCALL()
-{
+bool BaselineCompiler::emit_JSOP_OPTIMIZE_SPREADCALL() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
     prepareVMCall();
     pushArg(R0);
 
-    if (!callVM(OptimizeSpreadCallInfo))
-        return false;
+    if (!callVM(OptimizeSpreadCallInfo)) return false;
 
     masm.boxNonDouble(JSVAL_TYPE_BOOLEAN, ReturnReg, R0);
     frame.push(R0);
     return true;
 }
 
-typedef bool (*ImplicitThisFn)(JSContext*, HandleObject, HandlePropertyName,
-                               MutableHandleValue);
+typedef bool (*ImplicitThisFn)(JSContext*, HandleObject, HandlePropertyName, MutableHandleValue);
 static const VMFunction ImplicitThisInfo =
     FunctionInfo<ImplicitThisFn>(ImplicitThisOperation, "ImplicitThisOperation");
 
-bool
-BaselineCompiler::emit_JSOP_IMPLICITTHIS()
-{
+bool BaselineCompiler::emit_JSOP_IMPLICITTHIS() {
     frame.syncStack(0);
     masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
 
@@ -3581,16 +2854,13 @@ BaselineCompiler::emit_JSOP_IMPLICITTHIS()
     pushArg(ImmGCPtr(script->getName(pc)));
     pushArg(R0.scratchReg());
 
-    if (!callVM(ImplicitThisInfo))
-        return false;
+    if (!callVM(ImplicitThisInfo)) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_GIMPLICITTHIS()
-{
+bool BaselineCompiler::emit_JSOP_GIMPLICITTHIS() {
     if (!script->hasNonSyntacticScope()) {
         frame.push(UndefinedValue());
         return true;
@@ -3599,45 +2869,33 @@ BaselineCompiler::emit_JSOP_GIMPLICITTHIS()
     return emit_JSOP_IMPLICITTHIS();
 }
 
-bool
-BaselineCompiler::emit_JSOP_INSTANCEOF()
-{
+bool BaselineCompiler::emit_JSOP_INSTANCEOF() {
     frame.popRegsAndSync(2);
 
     ICInstanceOf_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_TYPEOF()
-{
+bool BaselineCompiler::emit_JSOP_TYPEOF() {
     frame.popRegsAndSync(1);
 
     ICTypeOf_Fallback::Compiler stubCompiler(cx);
-    if (!emitOpIC(stubCompiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(stubCompiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_TYPEOFEXPR()
-{
-    return emit_JSOP_TYPEOF();
-}
+bool BaselineCompiler::emit_JSOP_TYPEOFEXPR() { return emit_JSOP_TYPEOF(); }
 
 typedef bool (*ThrowMsgFn)(JSContext*, const unsigned);
 static const VMFunction ThrowMsgInfo =
     FunctionInfo<ThrowMsgFn>(js::ThrowMsgOperation, "ThrowMsgOperation");
 
-bool
-BaselineCompiler::emit_JSOP_THROWMSG()
-{
+bool BaselineCompiler::emit_JSOP_THROWMSG() {
     prepareVMCall();
     pushArg(Imm32(GET_UINT16(pc)));
     return callVM(ThrowMsgInfo);
@@ -3646,9 +2904,7 @@ BaselineCompiler::emit_JSOP_THROWMSG()
 typedef bool (*ThrowFn)(JSContext*, HandleValue);
 static const VMFunction ThrowInfo = FunctionInfo<ThrowFn>(js::Throw, "Throw");
 
-bool
-BaselineCompiler::emit_JSOP_THROW()
-{
+bool BaselineCompiler::emit_JSOP_THROW() {
     // Keep value to throw in R0.
     frame.popRegsAndSync(1);
 
@@ -3662,9 +2918,7 @@ typedef bool (*ThrowingFn)(JSContext*, HandleValue);
 static const VMFunction ThrowingInfo =
     FunctionInfo<ThrowingFn>(js::ThrowingOperation, "ThrowingOperation");
 
-bool
-BaselineCompiler::emit_JSOP_THROWING()
-{
+bool BaselineCompiler::emit_JSOP_THROWING() {
     // Keep value to throw in R0.
     frame.popRegsAndSync(1);
 
@@ -3674,20 +2928,15 @@ BaselineCompiler::emit_JSOP_THROWING()
     return callVM(ThrowingInfo);
 }
 
-bool
-BaselineCompiler::emit_JSOP_TRY()
-{
-    if (!emit_JSOP_JUMPTARGET())
-        return false;
+bool BaselineCompiler::emit_JSOP_TRY() {
+    if (!emit_JSOP_JUMPTARGET()) return false;
 
     // Ionmonkey can't inline function with JSOP_TRY.
     script->setUninlineable();
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_FINALLY()
-{
+bool BaselineCompiler::emit_JSOP_FINALLY() {
     // JSOP_FINALLY has a def count of 2, but these values are already on the
     // stack (they're pushed by JSOP_GOSUB). Update the compiler's stack state.
     frame.setStackDepth(frame.stackDepth() + 2);
@@ -3697,9 +2946,7 @@ BaselineCompiler::emit_JSOP_FINALLY()
     return emitInterruptCheck();
 }
 
-bool
-BaselineCompiler::emit_JSOP_GOSUB()
-{
+bool BaselineCompiler::emit_JSOP_GOSUB() {
     // Push |false| so that RETSUB knows the value on top of the
     // stack is not an exception but the offset to the op following
     // this GOSUB.
@@ -3715,9 +2962,7 @@ BaselineCompiler::emit_JSOP_GOSUB()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_RETSUB()
-{
+bool BaselineCompiler::emit_JSOP_RETSUB() {
     frame.popRegsAndSync(2);
 
     ICRetSub_Fallback::Compiler stubCompiler(cx);
@@ -3728,9 +2973,7 @@ typedef bool (*PushLexicalEnvFn)(JSContext*, BaselineFrame*, Handle<LexicalScope
 static const VMFunction PushLexicalEnvInfo =
     FunctionInfo<PushLexicalEnvFn>(jit::PushLexicalEnv, "PushLexicalEnv");
 
-bool
-BaselineCompiler::emit_JSOP_PUSHLEXICALENV()
-{
+bool BaselineCompiler::emit_JSOP_PUSHLEXICALENV() {
     LexicalScope& scope = script->getScope(pc)->as<LexicalScope>();
 
     // Call a stub to push the block on the block chain.
@@ -3752,9 +2995,7 @@ static const VMFunction DebugLeaveThenPopLexicalEnvInfo =
     FunctionInfo<DebugLeaveThenPopLexicalEnvFn>(jit::DebugLeaveThenPopLexicalEnv,
                                                 "DebugLeaveThenPopLexicalEnv");
 
-bool
-BaselineCompiler::emit_JSOP_POPLEXICALENV()
-{
+bool BaselineCompiler::emit_JSOP_POPLEXICALENV() {
     prepareVMCall();
 
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
@@ -3778,9 +3019,7 @@ static const VMFunction DebugLeaveThenFreshenLexicalEnvInfo =
     FunctionInfo<DebugLeaveThenFreshenLexicalEnvFn>(jit::DebugLeaveThenFreshenLexicalEnv,
                                                     "DebugLeaveThenFreshenLexicalEnv");
 
-bool
-BaselineCompiler::emit_JSOP_FRESHENLEXICALENV()
-{
+bool BaselineCompiler::emit_JSOP_FRESHENLEXICALENV() {
     prepareVMCall();
 
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
@@ -3795,7 +3034,6 @@ BaselineCompiler::emit_JSOP_FRESHENLEXICALENV()
     return callVM(FreshenLexicalEnvInfo);
 }
 
-
 typedef bool (*RecreateLexicalEnvFn)(JSContext*, BaselineFrame*);
 static const VMFunction RecreateLexicalEnvInfo =
     FunctionInfo<RecreateLexicalEnvFn>(jit::RecreateLexicalEnv, "RecreateLexicalEnv");
@@ -3805,9 +3043,7 @@ static const VMFunction DebugLeaveThenRecreateLexicalEnvInfo =
     FunctionInfo<DebugLeaveThenRecreateLexicalEnvFn>(jit::DebugLeaveThenRecreateLexicalEnv,
                                                      "DebugLeaveThenRecreateLexicalEnv");
 
-bool
-BaselineCompiler::emit_JSOP_RECREATELEXICALENV()
-{
+bool BaselineCompiler::emit_JSOP_RECREATELEXICALENV() {
     prepareVMCall();
 
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
@@ -3826,11 +3062,8 @@ typedef bool (*DebugLeaveLexicalEnvFn)(JSContext*, BaselineFrame*, jsbytecode*);
 static const VMFunction DebugLeaveLexicalEnvInfo =
     FunctionInfo<DebugLeaveLexicalEnvFn>(jit::DebugLeaveLexicalEnv, "DebugLeaveLexicalEnv");
 
-bool
-BaselineCompiler::emit_JSOP_DEBUGLEAVELEXICALENV()
-{
-    if (!compileDebugInstrumentation_)
-        return true;
+bool BaselineCompiler::emit_JSOP_DEBUGLEAVELEXICALENV() {
+    if (!compileDebugInstrumentation_) return true;
 
     prepareVMCall();
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
@@ -3841,12 +3074,9 @@ BaselineCompiler::emit_JSOP_DEBUGLEAVELEXICALENV()
 }
 
 typedef bool (*PushVarEnvFn)(JSContext*, BaselineFrame*, HandleScope);
-static const VMFunction PushVarEnvInfo =
-    FunctionInfo<PushVarEnvFn>(jit::PushVarEnv, "PushVarEnv");
+static const VMFunction PushVarEnvInfo = FunctionInfo<PushVarEnvFn>(jit::PushVarEnv, "PushVarEnv");
 
-bool
-BaselineCompiler::emit_JSOP_PUSHVARENV()
-{
+bool BaselineCompiler::emit_JSOP_PUSHVARENV() {
     prepareVMCall();
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
     pushArg(ImmGCPtr(script->getScope(pc)));
@@ -3856,12 +3086,9 @@ BaselineCompiler::emit_JSOP_PUSHVARENV()
 }
 
 typedef bool (*PopVarEnvFn)(JSContext*, BaselineFrame*);
-static const VMFunction PopVarEnvInfo =
-    FunctionInfo<PopVarEnvFn>(jit::PopVarEnv, "PopVarEnv");
+static const VMFunction PopVarEnvInfo = FunctionInfo<PopVarEnvFn>(jit::PopVarEnv, "PopVarEnv");
 
-bool
-BaselineCompiler::emit_JSOP_POPVARENV()
-{
+bool BaselineCompiler::emit_JSOP_POPVARENV() {
     prepareVMCall();
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
     pushArg(R0.scratchReg());
@@ -3870,12 +3097,9 @@ BaselineCompiler::emit_JSOP_POPVARENV()
 }
 
 typedef bool (*EnterWithFn)(JSContext*, BaselineFrame*, HandleValue, Handle<WithScope*>);
-static const VMFunction EnterWithInfo =
-    FunctionInfo<EnterWithFn>(jit::EnterWith, "EnterWith");
+static const VMFunction EnterWithInfo = FunctionInfo<EnterWithFn>(jit::EnterWith, "EnterWith");
 
-bool
-BaselineCompiler::emit_JSOP_ENTERWITH()
-{
+bool BaselineCompiler::emit_JSOP_ENTERWITH() {
     WithScope& withScope = script->getScope(pc)->as<WithScope>();
 
     // Pop "with" object to R0.
@@ -3893,12 +3117,9 @@ BaselineCompiler::emit_JSOP_ENTERWITH()
 }
 
 typedef bool (*LeaveWithFn)(JSContext*, BaselineFrame*);
-static const VMFunction LeaveWithInfo =
-    FunctionInfo<LeaveWithFn>(jit::LeaveWith, "LeaveWith");
+static const VMFunction LeaveWithInfo = FunctionInfo<LeaveWithFn>(jit::LeaveWith, "LeaveWith");
 
-bool
-BaselineCompiler::emit_JSOP_LEAVEWITH()
-{
+bool BaselineCompiler::emit_JSOP_LEAVEWITH() {
     // Call a stub to pop the with object from the scope chain.
     prepareVMCall();
 
@@ -3912,13 +3133,10 @@ typedef bool (*GetAndClearExceptionFn)(JSContext*, MutableHandleValue);
 static const VMFunction GetAndClearExceptionInfo =
     FunctionInfo<GetAndClearExceptionFn>(GetAndClearException, "GetAndClearException");
 
-bool
-BaselineCompiler::emit_JSOP_EXCEPTION()
-{
+bool BaselineCompiler::emit_JSOP_EXCEPTION() {
     prepareVMCall();
 
-    if (!callVM(GetAndClearExceptionInfo))
-        return false;
+    if (!callVM(GetAndClearExceptionInfo)) return false;
 
     frame.push(R0);
     return true;
@@ -3928,9 +3146,7 @@ typedef bool (*OnDebuggerStatementFn)(JSContext*, BaselineFrame*, jsbytecode* pc
 static const VMFunction OnDebuggerStatementInfo =
     FunctionInfo<OnDebuggerStatementFn>(jit::OnDebuggerStatement, "OnDebuggerStatement");
 
-bool
-BaselineCompiler::emit_JSOP_DEBUGGER()
-{
+bool BaselineCompiler::emit_JSOP_DEBUGGER() {
     prepareVMCall();
     pushArg(ImmPtr(pc));
 
@@ -3938,8 +3154,7 @@ BaselineCompiler::emit_JSOP_DEBUGGER()
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
     pushArg(R0.scratchReg());
 
-    if (!callVM(OnDebuggerStatementInfo))
-        return false;
+    if (!callVM(OnDebuggerStatementInfo)) return false;
 
     // If the stub returns |true|, return the frame's return value.
     Label done;
@@ -3953,13 +3168,10 @@ BaselineCompiler::emit_JSOP_DEBUGGER()
 }
 
 typedef bool (*DebugEpilogueFn)(JSContext*, BaselineFrame*, jsbytecode*);
-static const VMFunction DebugEpilogueInfo =
-    FunctionInfo<DebugEpilogueFn>(jit::DebugEpilogueOnBaselineReturn,
-                                  "DebugEpilogueOnBaselineReturn");
+static const VMFunction DebugEpilogueInfo = FunctionInfo<DebugEpilogueFn>(
+    jit::DebugEpilogueOnBaselineReturn, "DebugEpilogueOnBaselineReturn");
 
-bool
-BaselineCompiler::emitReturn()
-{
+bool BaselineCompiler::emitReturn() {
     if (compileDebugInstrumentation_) {
         // Move return value into the frame's rval slot.
         masm.storeValue(JSReturnOperand, frame.addressOfReturnValue());
@@ -3972,8 +3184,7 @@ BaselineCompiler::emitReturn()
         prepareVMCall();
         pushArg(ImmPtr(pc));
         pushArg(R0.scratchReg());
-        if (!callVM(DebugEpilogueInfo))
-            return false;
+        if (!callVM(DebugEpilogueInfo)) return false;
 
         // Fix up the fake ICEntry appended by callVM for on-stack recompilation.
         icEntries_.back().setFakeKind(ICEntry::Kind_DebugEpilogue);
@@ -3984,27 +3195,22 @@ BaselineCompiler::emitReturn()
     // Only emit the jump if this JSOP_RETRVAL is not the last instruction.
     // Not needed for last instruction, because last instruction flows
     // into return label.
-    if (pc + GetBytecodeLength(pc) < script->codeEnd())
-        masm.jump(&return_);
+    if (pc + GetBytecodeLength(pc) < script->codeEnd()) masm.jump(&return_);
 
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_RETURN()
-{
+bool BaselineCompiler::emit_JSOP_RETURN() {
     MOZ_ASSERT(frame.stackDepth() == 1);
 
     frame.popValue(JSReturnOperand);
     return emitReturn();
 }
 
-void
-BaselineCompiler::emitLoadReturnValue(ValueOperand val)
-{
+void BaselineCompiler::emitLoadReturnValue(ValueOperand val) {
     Label done, noRval;
-    masm.branchTest32(Assembler::Zero, frame.addressOfFlags(),
-                      Imm32(BaselineFrame::HAS_RVAL), &noRval);
+    masm.branchTest32(Assembler::Zero, frame.addressOfFlags(), Imm32(BaselineFrame::HAS_RVAL),
+                      &noRval);
     masm.loadValue(frame.addressOfReturnValue(), val);
     masm.jump(&done);
 
@@ -4014,9 +3220,7 @@ BaselineCompiler::emitLoadReturnValue(ValueOperand val)
     masm.bind(&done);
 }
 
-bool
-BaselineCompiler::emit_JSOP_RETRVAL()
-{
+bool BaselineCompiler::emit_JSOP_RETRVAL() {
     MOZ_ASSERT(frame.stackDepth() == 0);
 
     masm.moveValue(UndefinedValue(), JSReturnOperand);
@@ -4036,9 +3240,7 @@ BaselineCompiler::emit_JSOP_RETRVAL()
 typedef bool (*ToIdFn)(JSContext*, HandleScript, jsbytecode*, HandleValue, MutableHandleValue);
 static const VMFunction ToIdInfo = FunctionInfo<ToIdFn>(js::ToIdOperation, "ToIdOperation");
 
-bool
-BaselineCompiler::emit_JSOP_TOID()
-{
+bool BaselineCompiler::emit_JSOP_TOID() {
     // Load index in R0, but keep values on the stack for the decompiler.
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
@@ -4055,11 +3257,10 @@ BaselineCompiler::emit_JSOP_TOID()
     pushArg(ImmPtr(pc));
     pushArg(ImmGCPtr(script));
 
-    if (!callVM(ToIdInfo))
-        return false;
+    if (!callVM(ToIdInfo)) return false;
 
     masm.bind(&done);
-    frame.pop(); // Pop index.
+    frame.pop();  // Pop index.
     frame.push(R0);
     return true;
 }
@@ -4067,17 +3268,14 @@ BaselineCompiler::emit_JSOP_TOID()
 typedef JSObject* (*ToAsyncFn)(JSContext*, HandleFunction);
 static const VMFunction ToAsyncInfo = FunctionInfo<ToAsyncFn>(js::WrapAsyncFunction, "ToAsync");
 
-bool
-BaselineCompiler::emit_JSOP_TOASYNC()
-{
+bool BaselineCompiler::emit_JSOP_TOASYNC() {
     frame.syncStack(0);
     masm.unboxObject(frame.addressOfStackValue(frame.peek(-1)), R0.scratchReg());
 
     prepareVMCall();
     pushArg(R0.scratchReg());
 
-    if (!callVM(ToAsyncInfo))
-        return false;
+    if (!callVM(ToAsyncInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.pop();
@@ -4089,17 +3287,14 @@ typedef JSObject* (*ToAsyncGenFn)(JSContext*, HandleFunction);
 static const VMFunction ToAsyncGenInfo =
     FunctionInfo<ToAsyncGenFn>(js::WrapAsyncGenerator, "ToAsyncGen");
 
-bool
-BaselineCompiler::emit_JSOP_TOASYNCGEN()
-{
+bool BaselineCompiler::emit_JSOP_TOASYNCGEN() {
     frame.syncStack(0);
     masm.unboxObject(frame.addressOfStackValue(frame.peek(-1)), R0.scratchReg());
 
     prepareVMCall();
     pushArg(R0.scratchReg());
 
-    if (!callVM(ToAsyncGenInfo))
-        return false;
+    if (!callVM(ToAsyncGenInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.pop();
@@ -4111,17 +3306,14 @@ typedef JSObject* (*ToAsyncIterFn)(JSContext*, HandleObject);
 static const VMFunction ToAsyncIterInfo =
     FunctionInfo<ToAsyncIterFn>(js::CreateAsyncFromSyncIterator, "ToAsyncIter");
 
-bool
-BaselineCompiler::emit_JSOP_TOASYNCITER()
-{
+bool BaselineCompiler::emit_JSOP_TOASYNCITER() {
     frame.syncStack(0);
     masm.unboxObject(frame.addressOfStackValue(frame.peek(-1)), R0.scratchReg());
 
     prepareVMCall();
     pushArg(R0.scratchReg());
 
-    if (!callVM(ToAsyncIterInfo))
-        return false;
+    if (!callVM(ToAsyncIterInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.pop();
@@ -4133,9 +3325,7 @@ typedef bool (*ThrowObjectCoercibleFn)(JSContext*, HandleValue);
 static const VMFunction ThrowObjectCoercibleInfo =
     FunctionInfo<ThrowObjectCoercibleFn>(ThrowObjectCoercible, "ThrowObjectCoercible");
 
-bool
-BaselineCompiler::emit_JSOP_CHECKOBJCOERCIBLE()
-{
+bool BaselineCompiler::emit_JSOP_CHECKOBJCOERCIBLE() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
@@ -4149,8 +3339,7 @@ BaselineCompiler::emit_JSOP_CHECKOBJCOERCIBLE()
 
     pushArg(R0);
 
-    if (!callVM(ThrowObjectCoercibleInfo))
-        return false;
+    if (!callVM(ThrowObjectCoercibleInfo)) return false;
 
     masm.bind(&done);
     return true;
@@ -4159,9 +3348,7 @@ BaselineCompiler::emit_JSOP_CHECKOBJCOERCIBLE()
 typedef JSString* (*ToStringFn)(JSContext*, HandleValue);
 static const VMFunction ToStringInfo = FunctionInfo<ToStringFn>(ToStringSlow, "ToStringSlow");
 
-bool
-BaselineCompiler::emit_JSOP_TOSTRING()
-{
+bool BaselineCompiler::emit_JSOP_TOSTRING() {
     // Keep top stack value in R0.
     frame.popRegsAndSync(1);
 
@@ -4174,8 +3361,7 @@ BaselineCompiler::emit_JSOP_TOSTRING()
     pushArg(R0);
 
     // Call ToStringSlow which doesn't handle string inputs.
-    if (!callVM(ToStringInfo))
-        return false;
+    if (!callVM(ToStringInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_STRING, ReturnReg, R0);
 
@@ -4184,9 +3370,7 @@ BaselineCompiler::emit_JSOP_TOSTRING()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_TABLESWITCH()
-{
+bool BaselineCompiler::emit_JSOP_TABLESWITCH() {
     frame.popRegsAndSync(1);
 
     // Call IC.
@@ -4194,41 +3378,32 @@ BaselineCompiler::emit_JSOP_TABLESWITCH()
     return emitOpIC(compiler.getStub(&stubSpace_));
 }
 
-bool
-BaselineCompiler::emit_JSOP_ITER()
-{
+bool BaselineCompiler::emit_JSOP_ITER() {
     frame.popRegsAndSync(1);
 
     ICGetIterator_Fallback::Compiler compiler(cx);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_MOREITER()
-{
+bool BaselineCompiler::emit_JSOP_MOREITER() {
     frame.syncStack(0);
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), R0);
 
     ICIteratorMore_Fallback::Compiler compiler(cx);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emitIsMagicValue()
-{
+bool BaselineCompiler::emitIsMagicValue() {
     frame.syncStack(0);
 
     Label isMagic, done;
-    masm.branchTestMagic(Assembler::Equal, frame.addressOfStackValue(frame.peek(-1)),
-                         &isMagic);
+    masm.branchTestMagic(Assembler::Equal, frame.addressOfStackValue(frame.peek(-1)), &isMagic);
     masm.moveValue(BooleanValue(false), R0);
     masm.jump(&done);
 
@@ -4240,32 +3415,19 @@ BaselineCompiler::emitIsMagicValue()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_ISNOITER()
-{
-    return emitIsMagicValue();
-}
+bool BaselineCompiler::emit_JSOP_ISNOITER() { return emitIsMagicValue(); }
 
-bool
-BaselineCompiler::emit_JSOP_ENDITER()
-{
-    if (!emit_JSOP_JUMPTARGET())
-        return false;
+bool BaselineCompiler::emit_JSOP_ENDITER() {
+    if (!emit_JSOP_JUMPTARGET()) return false;
     frame.popRegsAndSync(1);
 
     ICIteratorClose_Fallback::Compiler compiler(cx);
     return emitOpIC(compiler.getStub(&stubSpace_));
 }
 
-bool
-BaselineCompiler::emit_JSOP_ISGENCLOSING()
-{
-    return emitIsMagicValue();
-}
+bool BaselineCompiler::emit_JSOP_ISGENCLOSING() { return emitIsMagicValue(); }
 
-bool
-BaselineCompiler::emit_JSOP_GETRVAL()
-{
+bool BaselineCompiler::emit_JSOP_GETRVAL() {
     frame.syncStack(0);
 
     emitLoadReturnValue(R0);
@@ -4274,9 +3436,7 @@ BaselineCompiler::emit_JSOP_GETRVAL()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_SETRVAL()
-{
+bool BaselineCompiler::emit_JSOP_SETRVAL() {
     // Store to the frame's return value slot.
     storeValue(frame.peek(-1), frame.addressOfReturnValue(), R2);
     masm.or32(Imm32(BaselineFrame::HAS_RVAL), frame.addressOfFlags());
@@ -4284,9 +3444,7 @@ BaselineCompiler::emit_JSOP_SETRVAL()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_CALLEE()
-{
+bool BaselineCompiler::emit_JSOP_CALLEE() {
     MOZ_ASSERT(function());
     frame.syncStack(0);
     masm.loadFunctionFromCalleeToken(frame.addressOfCalleeToken(), R0.scratchReg());
@@ -4295,9 +3453,7 @@ BaselineCompiler::emit_JSOP_CALLEE()
     return true;
 }
 
-void
-BaselineCompiler::getThisEnvironmentCallee(Register reg)
-{
+void BaselineCompiler::getThisEnvironmentCallee(Register reg) {
     // Directly load callee from frame if we have a HomeObject
     if (function() && function()->allowSuperProperty()) {
         masm.loadFunctionFromCalleeToken(frame.addressOfCalleeToken(), reg);
@@ -4309,13 +3465,11 @@ BaselineCompiler::getThisEnvironmentCallee(Register reg)
 
     // Walk environment chain until first non-arrow CallObject
     for (ScopeIter si(script->innermostScope(pc)); si; si++) {
-
         // Find first non-arrow FunctionScope
         if (si.hasSyntacticEnvironment() && si.scope()->is<FunctionScope>()) {
             JSFunction* fn = si.scope()->as<FunctionScope>().canonicalFunction();
 
-            if (!fn->isArrow())
-                break;
+            if (!fn->isArrow()) break;
         }
 
         // Traverse environment chain
@@ -4333,9 +3487,7 @@ typedef JSObject* (*HomeObjectSuperBaseFn)(JSContext*, HandleObject);
 static const VMFunction HomeObjectSuperBaseInfo =
     FunctionInfo<HomeObjectSuperBaseFn>(HomeObjectSuperBase, "HomeObjectSuperBase");
 
-bool
-BaselineCompiler::emit_JSOP_SUPERBASE()
-{
+bool BaselineCompiler::emit_JSOP_SUPERBASE() {
     frame.syncStack(0);
 
     Register scratch = R0.scratchReg();
@@ -4364,8 +3516,7 @@ BaselineCompiler::emit_JSOP_SUPERBASE()
     // Use VMCall for missing or lazy proto
     prepareVMCall();
     pushArg(scratch);  // [[HomeObject]]
-    if (!callVM(HomeObjectSuperBaseInfo))
-        return false;
+    if (!callVM(HomeObjectSuperBaseInfo)) return false;
     masm.movePtr(ReturnReg, proto);
 
     // Box prototype and return
@@ -4379,9 +3530,7 @@ typedef JSObject* (*SuperFunOperationFn)(JSContext*, HandleObject);
 static const VMFunction SuperFunOperationInfo =
     FunctionInfo<SuperFunOperationFn>(SuperFunOperation, "SuperFunOperation");
 
-bool
-BaselineCompiler::emit_JSOP_SUPERFUN()
-{
+bool BaselineCompiler::emit_JSOP_SUPERFUN() {
     frame.syncStack(0);
 
     Register callee = R0.scratchReg();
@@ -4414,8 +3563,7 @@ BaselineCompiler::emit_JSOP_SUPERFUN()
     masm.bind(&needVMCall);
     prepareVMCall();
     pushArg(callee);
-    if (!callVM(SuperFunOperationInfo))
-        return false;
+    if (!callVM(SuperFunOperationInfo)) return false;
     masm.movePtr(ReturnReg, proto);
 
     // Box prototype and return
@@ -4429,9 +3577,7 @@ typedef bool (*NewArgumentsObjectFn)(JSContext*, BaselineFrame*, MutableHandleVa
 static const VMFunction NewArgumentsObjectInfo =
     FunctionInfo<NewArgumentsObjectFn>(jit::NewArgumentsObject, "NewArgumentsObject");
 
-bool
-BaselineCompiler::emit_JSOP_ARGUMENTS()
-{
+bool BaselineCompiler::emit_JSOP_ARGUMENTS() {
     frame.syncStack(0);
 
     Label done;
@@ -4457,8 +3603,7 @@ BaselineCompiler::emit_JSOP_ARGUMENTS()
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
     pushArg(R0.scratchReg());
 
-    if (!callVM(NewArgumentsObjectInfo))
-        return false;
+    if (!callVM(NewArgumentsObjectInfo)) return false;
 
     masm.bind(&done);
     frame.push(R0);
@@ -4469,9 +3614,7 @@ typedef bool (*RunOnceScriptPrologueFn)(JSContext*, HandleScript);
 static const VMFunction RunOnceScriptPrologueInfo =
     FunctionInfo<RunOnceScriptPrologueFn>(js::RunOnceScriptPrologue, "RunOnceScriptPrologue");
 
-bool
-BaselineCompiler::emit_JSOP_RUNONCE()
-{
+bool BaselineCompiler::emit_JSOP_RUNONCE() {
     frame.syncStack(0);
 
     prepareVMCall();
@@ -4482,21 +3625,16 @@ BaselineCompiler::emit_JSOP_RUNONCE()
     return callVM(RunOnceScriptPrologueInfo);
 }
 
-bool
-BaselineCompiler::emit_JSOP_REST()
-{
+bool BaselineCompiler::emit_JSOP_REST() {
     frame.syncStack(0);
 
-    ArrayObject* templateObject =
-        ObjectGroup::newArrayObject(cx, nullptr, 0, TenuredObject,
-                                    ObjectGroup::NewArrayKind::UnknownIndex);
-    if (!templateObject)
-        return false;
+    ArrayObject* templateObject = ObjectGroup::newArrayObject(
+        cx, nullptr, 0, TenuredObject, ObjectGroup::NewArrayKind::UnknownIndex);
+    if (!templateObject) return false;
 
     // Call IC.
     ICRest_Fallback::Compiler compiler(cx, templateObject);
-    if (!emitOpIC(compiler.getStub(&stubSpace_)))
-        return false;
+    if (!emitOpIC(compiler.getStub(&stubSpace_))) return false;
 
     // Mark R0 as pushed stack value.
     frame.push(R0);
@@ -4507,47 +3645,38 @@ typedef JSObject* (*CreateGeneratorFn)(JSContext*, BaselineFrame*);
 static const VMFunction CreateGeneratorInfo =
     FunctionInfo<CreateGeneratorFn>(jit::CreateGenerator, "CreateGenerator");
 
-bool
-BaselineCompiler::emit_JSOP_GENERATOR()
-{
+bool BaselineCompiler::emit_JSOP_GENERATOR() {
     MOZ_ASSERT(frame.stackDepth() == 0);
 
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
 
     prepareVMCall();
     pushArg(R0.scratchReg());
-    if (!callVM(CreateGeneratorInfo))
-        return false;
+    if (!callVM(CreateGeneratorInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::addYieldAndAwaitOffset()
-{
+bool BaselineCompiler::addYieldAndAwaitOffset() {
     MOZ_ASSERT(*pc == JSOP_INITIALYIELD || *pc == JSOP_YIELD || *pc == JSOP_AWAIT);
 
     uint32_t yieldAndAwaitIndex = GET_UINT24(pc);
 
     while (yieldAndAwaitIndex >= yieldAndAwaitOffsets_.length()) {
-        if (!yieldAndAwaitOffsets_.append(0))
-            return false;
+        if (!yieldAndAwaitOffsets_.append(0)) return false;
     }
 
     static_assert(JSOP_INITIALYIELD_LENGTH == JSOP_YIELD_LENGTH &&
-                  JSOP_INITIALYIELD_LENGTH == JSOP_AWAIT_LENGTH,
+                      JSOP_INITIALYIELD_LENGTH == JSOP_AWAIT_LENGTH,
                   "code below assumes INITIALYIELD and YIELD and AWAIT have same length");
     yieldAndAwaitOffsets_[yieldAndAwaitIndex] = script->pcToOffset(pc + JSOP_YIELD_LENGTH);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITIALYIELD()
-{
-    if (!addYieldAndAwaitOffset())
-        return false;
+bool BaselineCompiler::emit_JSOP_INITIALYIELD() {
+    if (!addYieldAndAwaitOffset()) return false;
 
     frame.syncStack(0);
     MOZ_ASSERT(frame.stackDepth() == 1);
@@ -4583,11 +3712,8 @@ typedef bool (*NormalSuspendFn)(JSContext*, HandleObject, BaselineFrame*, jsbyte
 static const VMFunction NormalSuspendInfo =
     FunctionInfo<NormalSuspendFn>(jit::NormalSuspend, "NormalSuspend");
 
-bool
-BaselineCompiler::emit_JSOP_YIELD()
-{
-    if (!addYieldAndAwaitOffset())
-        return false;
+bool BaselineCompiler::emit_JSOP_YIELD() {
+    if (!addYieldAndAwaitOffset()) return false;
 
     // Store generator in R0.
     frame.popRegsAndSync(1);
@@ -4627,29 +3753,21 @@ BaselineCompiler::emit_JSOP_YIELD()
         pushArg(R1.scratchReg());
         pushArg(genObj);
 
-        if (!callVM(NormalSuspendInfo))
-            return false;
+        if (!callVM(NormalSuspendInfo)) return false;
     }
 
     masm.loadValue(frame.addressOfStackValue(frame.peek(-1)), JSReturnOperand);
     return emitReturn();
 }
 
-bool
-BaselineCompiler::emit_JSOP_AWAIT()
-{
-    return emit_JSOP_YIELD();
-}
+bool BaselineCompiler::emit_JSOP_AWAIT() { return emit_JSOP_YIELD(); }
 
 typedef bool (*DebugAfterYieldFn)(JSContext*, BaselineFrame*);
 static const VMFunction DebugAfterYieldInfo =
     FunctionInfo<DebugAfterYieldFn>(jit::DebugAfterYield, "DebugAfterYield");
 
-bool
-BaselineCompiler::emit_JSOP_DEBUGAFTERYIELD()
-{
-    if (!compileDebugInstrumentation_)
-        return true;
+bool BaselineCompiler::emit_JSOP_DEBUGAFTERYIELD() {
+    if (!compileDebugInstrumentation_) return true;
 
     frame.assertSyncedStack();
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
@@ -4662,9 +3780,7 @@ typedef bool (*FinalSuspendFn)(JSContext*, HandleObject, BaselineFrame*, jsbytec
 static const VMFunction FinalSuspendInfo =
     FunctionInfo<FinalSuspendFn>(jit::FinalSuspend, "FinalSuspend");
 
-bool
-BaselineCompiler::emit_JSOP_FINALYIELDRVAL()
-{
+bool BaselineCompiler::emit_JSOP_FINALYIELDRVAL() {
     // Store generator in R0, BaselineFrame pointer in R1.
     frame.popRegsAndSync(1);
     masm.unboxObject(R0, R0.scratchReg());
@@ -4675,8 +3791,7 @@ BaselineCompiler::emit_JSOP_FINALYIELDRVAL()
     pushArg(R1.scratchReg());
     pushArg(R0.scratchReg());
 
-    if (!callVM(FinalSuspendInfo))
-        return false;
+    if (!callVM(FinalSuspendInfo)) return false;
 
     masm.loadValue(frame.addressOfReturnValue(), JSReturnOperand);
     return emitReturn();
@@ -4687,14 +3802,12 @@ typedef bool (*InterpretResumeFn)(JSContext*, HandleObject, HandleValue, HandleP
 static const VMFunction InterpretResumeInfo =
     FunctionInfo<InterpretResumeFn>(jit::InterpretResume, "InterpretResume");
 
-typedef bool (*GeneratorThrowFn)(JSContext*, BaselineFrame*, Handle<GeneratorObject*>,
-                                 HandleValue, uint32_t);
+typedef bool (*GeneratorThrowFn)(JSContext*, BaselineFrame*, Handle<GeneratorObject*>, HandleValue,
+                                 uint32_t);
 static const VMFunction GeneratorThrowInfo =
     FunctionInfo<GeneratorThrowFn>(jit::GeneratorThrowOrClose, "GeneratorThrowOrClose", TailCall);
 
-bool
-BaselineCompiler::emit_JSOP_RESUME()
-{
+bool BaselineCompiler::emit_JSOP_RESUME() {
     GeneratorObject::ResumeKind resumeKind = GeneratorObject::getResumeKind(pc);
 
     frame.syncStack(0);
@@ -4719,11 +3832,11 @@ BaselineCompiler::emit_JSOP_RESUME()
     // Load the BaselineScript or call a stub if we don't have one.
     Label interpret;
     masm.loadPtr(Address(scratch1, JSScript::offsetOfBaselineScript()), scratch1);
-    masm.branchPtr(Assembler::BelowOrEqual, scratch1, ImmPtr(BASELINE_DISABLED_SCRIPT), &interpret);
+    masm.branchPtr(Assembler::BelowOrEqual, scratch1, ImmPtr(BASELINE_DISABLED_SCRIPT),
+                   &interpret);
 
 #ifdef JS_TRACE_LOGGING
-    if (!emitTraceLoggerResume(scratch1, regs))
-        return false;
+    if (!emitTraceLoggerResume(scratch1, regs)) return false;
 #endif
 
     Register constructing = regs.takeAny();
@@ -4762,12 +3875,12 @@ BaselineCompiler::emit_JSOP_RESUME()
     masm.store32(scratch2, Address(BaselineFrameReg, BaselineFrame::reverseOffsetOfFrameSize()));
     masm.makeFrameDescriptor(scratch2, JitFrame_BaselineJS, JitFrameLayout::Size());
 
-    masm.Push(Imm32(0)); // actual argc
+    masm.Push(Imm32(0));  // actual argc
 
     // Duplicate PushCalleeToken with a variable instead.
     masm.orPtr(constructing, callee);
     masm.Push(callee);
-    masm.Push(scratch2); // frame descriptor
+    masm.Push(scratch2);  // frame descriptor
 
     regs.add(callee);
     regs.add(constructing);
@@ -4786,8 +3899,7 @@ BaselineCompiler::emit_JSOP_RESUME()
 #endif
 
     // Add an IC entry so the return offset -> pc mapping works.
-    if (!appendICEntry(ICEntry::Kind_Op, masm.currentOffset()))
-        return false;
+    if (!appendICEntry(ICEntry::Kind_Op, masm.currentOffset())) return false;
 
     masm.jump(&returnTarget);
     masm.bind(&genStart);
@@ -4867,7 +3979,8 @@ BaselineCompiler::emit_JSOP_RESUME()
         masm.addPtr(scratch2, scratch1);
         masm.unboxInt32(Address(genObj, GeneratorObject::offsetOfYieldAndAwaitIndexSlot()),
                         scratch2);
-        masm.loadPtr(BaseIndex(scratch1, scratch2, ScaleFromElemWidth(sizeof(uintptr_t))), scratch1);
+        masm.loadPtr(BaseIndex(scratch1, scratch2, ScaleFromElemWidth(sizeof(uintptr_t))),
+                     scratch1);
 
         // Mark as running and jump to the generator's JIT code.
         masm.storeValue(Int32Value(GeneratorObject::YIELD_AND_AWAIT_INDEX_RUNNING),
@@ -4881,7 +3994,8 @@ BaselineCompiler::emit_JSOP_RESUME()
                                      scratch2);
         masm.movePtr(scratch2, scratch1);
         masm.subStackPtrFrom(scratch2);
-        masm.store32(scratch2, Address(BaselineFrameReg, BaselineFrame::reverseOffsetOfFrameSize()));
+        masm.store32(scratch2,
+                     Address(BaselineFrameReg, BaselineFrame::reverseOffsetOfFrameSize()));
         masm.loadBaselineFramePtr(BaselineFrameReg, scratch2);
 
         prepareVMCall();
@@ -4891,8 +4005,7 @@ BaselineCompiler::emit_JSOP_RESUME()
         pushArg(scratch2);
 
         JitCode* code = cx->runtime()->jitRuntime()->getVMWrapper(GeneratorThrowInfo);
-        if (!code)
-            return false;
+        if (!code) return false;
 
         // Create the frame descriptor.
         masm.subStackPtrFrom(scratch1);
@@ -4927,13 +4040,13 @@ BaselineCompiler::emit_JSOP_RESUME()
     pushArg(retVal);
     pushArg(genObj);
 
-    if (!callVM(InterpretResumeInfo))
-        return false;
+    if (!callVM(InterpretResumeInfo)) return false;
 
     // After the generator returns, we restore the stack pointer, push the
     // return value and we're done.
     masm.bind(&returnTarget);
-    masm.computeEffectiveAddress(frame.addressOfStackValue(frame.peek(-1)), masm.getStackPointer());
+    masm.computeEffectiveAddress(frame.addressOfStackValue(frame.peek(-1)),
+                                 masm.getStackPointer());
     frame.popn(2);
     frame.push(R0);
     return true;
@@ -4943,9 +4056,7 @@ typedef bool (*CheckSelfHostedFn)(JSContext*, HandleValue);
 static const VMFunction CheckSelfHostedInfo =
     FunctionInfo<CheckSelfHostedFn>(js::Debug_CheckSelfHosted, "Debug_CheckSelfHosted");
 
-bool
-BaselineCompiler::emit_JSOP_DEBUGCHECKSELFHOSTED()
-{
+bool BaselineCompiler::emit_JSOP_DEBUGCHECKSELFHOSTED() {
 #ifdef DEBUG
     frame.syncStack(0);
 
@@ -4953,25 +4064,18 @@ BaselineCompiler::emit_JSOP_DEBUGCHECKSELFHOSTED()
 
     prepareVMCall();
     pushArg(R0);
-    if (!callVM(CheckSelfHostedInfo))
-        return false;
+    if (!callVM(CheckSelfHostedInfo)) return false;
 #endif
     return true;
-
 }
 
-bool
-BaselineCompiler::emit_JSOP_IS_CONSTRUCTING()
-{
+bool BaselineCompiler::emit_JSOP_IS_CONSTRUCTING() {
     frame.push(MagicValue(JS_IS_CONSTRUCTING));
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_JUMPTARGET()
-{
-    if (!script->hasScriptCounts())
-        return true;
+bool BaselineCompiler::emit_JSOP_JUMPTARGET() {
+    if (!script->hasScriptCounts()) return true;
     PCCounts* counts = script->maybeGetPCCounts(pc);
     uint64_t* counterAddr = &counts->numExec();
     masm.inc64(AbsoluteAddress(counterAddr));
@@ -4983,9 +4087,7 @@ static const VMFunction CheckClassHeritageOperationInfo =
     FunctionInfo<CheckClassHeritageOperationFn>(js::CheckClassHeritageOperation,
                                                 "CheckClassHeritageOperation");
 
-bool
-BaselineCompiler::emit_JSOP_CHECKCLASSHERITAGE()
-{
+bool BaselineCompiler::emit_JSOP_CHECKCLASSHERITAGE() {
     frame.syncStack(0);
 
     // Leave the heritage value on the stack.
@@ -4996,9 +4098,7 @@ BaselineCompiler::emit_JSOP_CHECKCLASSHERITAGE()
     return callVM(CheckClassHeritageOperationInfo);
 }
 
-bool
-BaselineCompiler::emit_JSOP_INITHOMEOBJECT()
-{
+bool BaselineCompiler::emit_JSOP_INITHOMEOBJECT() {
     frame.syncStack(0);
 
     // Load HomeObject off stack
@@ -5030,27 +4130,21 @@ BaselineCompiler::emit_JSOP_INITHOMEOBJECT()
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_BUILTINPROTO()
-{
+bool BaselineCompiler::emit_JSOP_BUILTINPROTO() {
     // The builtin prototype is a constant for a given global.
     RootedObject builtin(cx);
     JSProtoKey key = static_cast<JSProtoKey>(GET_UINT8(pc));
     MOZ_ASSERT(key < JSProto_LIMIT);
-    if (!GetBuiltinPrototype(cx, key, &builtin))
-        return false;
+    if (!GetBuiltinPrototype(cx, key, &builtin)) return false;
     frame.push(ObjectValue(*builtin));
     return true;
 }
 
 typedef JSObject* (*ObjectWithProtoOperationFn)(JSContext*, HandleValue);
-static const VMFunction ObjectWithProtoOperationInfo =
-    FunctionInfo<ObjectWithProtoOperationFn>(js::ObjectWithProtoOperation,
-                                             "ObjectWithProtoOperationInfo");
+static const VMFunction ObjectWithProtoOperationInfo = FunctionInfo<ObjectWithProtoOperationFn>(
+    js::ObjectWithProtoOperation, "ObjectWithProtoOperationInfo");
 
-bool
-BaselineCompiler::emit_JSOP_OBJWITHPROTO()
-{
+bool BaselineCompiler::emit_JSOP_OBJWITHPROTO() {
     frame.syncStack(0);
 
     // Leave the proto value on the stack for the decompiler
@@ -5058,8 +4152,7 @@ BaselineCompiler::emit_JSOP_OBJWITHPROTO()
 
     prepareVMCall();
     pushArg(R0);
-    if (!callVM(ObjectWithProtoOperationInfo))
-        return false;
+    if (!callVM(ObjectWithProtoOperationInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.pop();
@@ -5071,9 +4164,7 @@ typedef JSObject* (*FunWithProtoFn)(JSContext*, HandleFunction, HandleObject, Ha
 static const VMFunction FunWithProtoInfo =
     FunctionInfo<FunWithProtoFn>(js::FunWithProtoOperation, "FunWithProtoOperation");
 
-bool
-BaselineCompiler::emit_JSOP_FUNWITHPROTO()
-{
+bool BaselineCompiler::emit_JSOP_FUNWITHPROTO() {
     frame.popRegsAndSync(1);
 
     masm.unboxObject(R0, R0.scratchReg());
@@ -5083,23 +4174,19 @@ BaselineCompiler::emit_JSOP_FUNWITHPROTO()
     pushArg(R0.scratchReg());
     pushArg(R1.scratchReg());
     pushArg(ImmGCPtr(script->getFunction(GET_UINT32_INDEX(pc))));
-    if (!callVM(FunWithProtoInfo))
-        return false;
+    if (!callVM(FunWithProtoInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.push(R0);
     return true;
 }
 
-typedef JSFunction* (*MakeDefaultConstructorFn)(JSContext*, HandleScript,
-                                                jsbytecode*, HandleObject);
+typedef JSFunction* (*MakeDefaultConstructorFn)(JSContext*, HandleScript, jsbytecode*,
+                                                HandleObject);
 static const VMFunction MakeDefaultConstructorInfo =
-    FunctionInfo<MakeDefaultConstructorFn>(js::MakeDefaultConstructor,
-                                           "MakeDefaultConstructor");
+    FunctionInfo<MakeDefaultConstructorFn>(js::MakeDefaultConstructor, "MakeDefaultConstructor");
 
-bool
-BaselineCompiler::emit_JSOP_CLASSCONSTRUCTOR()
-{
+bool BaselineCompiler::emit_JSOP_CLASSCONSTRUCTOR() {
     frame.syncStack(0);
 
     // Pass nullptr as prototype to MakeDefaultConstructor
@@ -5107,17 +4194,14 @@ BaselineCompiler::emit_JSOP_CLASSCONSTRUCTOR()
     pushArg(ImmPtr(nullptr));
     pushArg(ImmPtr(pc));
     pushArg(ImmGCPtr(script));
-    if (!callVM(MakeDefaultConstructorInfo))
-        return false;
+    if (!callVM(MakeDefaultConstructorInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.push(R0);
     return true;
 }
 
-bool
-BaselineCompiler::emit_JSOP_DERIVEDCONSTRUCTOR()
-{
+bool BaselineCompiler::emit_JSOP_DERIVEDCONSTRUCTOR() {
     frame.popRegsAndSync(1);
 
     masm.unboxObject(R0, R0.scratchReg());
@@ -5126,8 +4210,7 @@ BaselineCompiler::emit_JSOP_DERIVEDCONSTRUCTOR()
     pushArg(R0.scratchReg());
     pushArg(ImmPtr(pc));
     pushArg(ImmGCPtr(script));
-    if (!callVM(MakeDefaultConstructorInfo))
-        return false;
+    if (!callVM(MakeDefaultConstructorInfo)) return false;
 
     masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
     frame.push(R0);

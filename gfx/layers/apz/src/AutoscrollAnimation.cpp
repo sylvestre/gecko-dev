@@ -33,13 +33,13 @@ Accelerate(ScreenCoord curr, ScreenCoord start)
 
 AutoscrollAnimation::AutoscrollAnimation(AsyncPanZoomController& aApzc,
                                          const ScreenPoint& aAnchorLocation)
-  : mApzc(aApzc)
-  , mAnchorLocation(aAnchorLocation)
+    : mApzc(aApzc), mAnchorLocation(aAnchorLocation)
 {
 }
 
 bool
-AutoscrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration& aDelta)
+AutoscrollAnimation::DoSample(FrameMetrics& aFrameMetrics,
+                              const TimeDuration& aDelta)
 {
   APZCTreeManager* treeManager = mApzc.GetApzcTreeManager();
   if (!treeManager) {
@@ -47,7 +47,7 @@ AutoscrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration& a
   }
 
   Telemetry::Accumulate(Telemetry::SCROLL_INPUT_METHODS,
-      (uint32_t) ScrollInputMethod::ApzAutoscrolling);
+                        (uint32_t)ScrollInputMethod::ApzAutoscrolling);
 
   ScreenPoint mouseLocation = treeManager->GetCurrentMousePosition();
 
@@ -72,9 +72,8 @@ AutoscrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration& a
   //     its output is interpreted as CSS coordinates. This is intentional,
   //     insofar as autoscrollLoop() does the same thing.
   CSSPoint scrollDelta{
-    Accelerate(mouseLocation.x, mAnchorLocation.x) * timeCompensation,
-    Accelerate(mouseLocation.y, mAnchorLocation.y) * timeCompensation
-  };
+      Accelerate(mouseLocation.x, mAnchorLocation.x) * timeCompensation,
+      Accelerate(mouseLocation.y, mAnchorLocation.y) * timeCompensation};
 
   mApzc.ScrollByAndClamp(scrollDelta);
 
@@ -94,10 +93,11 @@ AutoscrollAnimation::Cancel(CancelAnimationFlags aFlags)
     return;
   }
 
-  if (RefPtr<GeckoContentController> controller = mApzc.GetGeckoContentController()) {
+  if (RefPtr<GeckoContentController> controller =
+          mApzc.GetGeckoContentController()) {
     controller->CancelAutoscroll(mApzc.GetGuid());
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

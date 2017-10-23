@@ -33,7 +33,7 @@
 
 #ifdef XP_UNIX
 
-#ifdef _SVID_GETTOD   /* Defined only on Solaris, see Solaris <sys/types.h> */
+#ifdef _SVID_GETTOD /* Defined only on Solaris, see Solaris <sys/types.h> */
 extern int gettimeofday(struct timeval* tv);
 #endif
 
@@ -44,12 +44,10 @@ extern int gettimeofday(struct timeval* tv);
 using mozilla::DebugOnly;
 
 #if defined(XP_UNIX)
-int64_t
-PRMJ_Now()
-{
+int64_t PRMJ_Now() {
     struct timeval tv;
 
-#ifdef _SVID_GETTOD   /* Defined only on Solaris, see Solaris <sys/types.h> */
+#ifdef _SVID_GETTOD /* Defined only on Solaris, see Solaris <sys/types.h> */
     gettimeofday(&tv);
 #else
     gettimeofday(&tv, 0);
@@ -61,9 +59,7 @@ PRMJ_Now()
 #else
 
 // Returns the number of microseconds since the Unix epoch.
-static double
-FileTimeToUnixMicroseconds(const FILETIME& ft)
-{
+static double FileTimeToUnixMicroseconds(const FILETIME& ft) {
     // Get the time in 100ns intervals.
     int64_t t = (int64_t(ft.dwHighDateTime) << 32) | int64_t(ft.dwLowDateTime);
 
@@ -86,11 +82,9 @@ struct CalibrationData {
     CRITICAL_SECTION data_lock;
 };
 
-static CalibrationData calibration = { 0 };
+static CalibrationData calibration = {0};
 
-static void
-NowCalibrate()
-{
+static void NowCalibrate() {
     MOZ_ASSERT(calibration.freq > 0);
 
     // By wrapping a timeBegin/EndPeriod pair of calls around this loop,
@@ -113,11 +107,9 @@ NowCalibrate()
 
 static const unsigned DataLockSpinCount = 4096;
 
-static void (WINAPI* pGetSystemTimePreciseAsFileTime)(LPFILETIME) = nullptr;
+static void(WINAPI* pGetSystemTimePreciseAsFileTime)(LPFILETIME) = nullptr;
 
-void
-PRMJ_NowInit()
-{
+void PRMJ_NowInit() {
     memset(&calibration, 0, sizeof(calibration));
 
     // According to the documentation, QueryPerformanceFrequency will never
@@ -135,24 +127,18 @@ PRMJ_NowInit()
     // Windows 8 has a new API function we can use.
     if (HMODULE h = GetModuleHandle("kernel32.dll")) {
         pGetSystemTimePreciseAsFileTime =
-            (void (WINAPI*)(LPFILETIME))GetProcAddress(h, "GetSystemTimePreciseAsFileTime");
+            (void(WINAPI*)(LPFILETIME))GetProcAddress(h, "GetSystemTimePreciseAsFileTime");
     }
 }
 
-void
-PRMJ_NowShutdown()
-{
-    DeleteCriticalSection(&calibration.data_lock);
-}
+void PRMJ_NowShutdown() { DeleteCriticalSection(&calibration.data_lock); }
 
 #define MUTEX_LOCK(m) EnterCriticalSection(m)
 #define MUTEX_UNLOCK(m) LeaveCriticalSection(m)
-#define MUTEX_SETSPINCOUNT(m, c) SetCriticalSectionSpinCount((m),(c))
+#define MUTEX_SETSPINCOUNT(m, c) SetCriticalSectionSpinCount((m), (c))
 
 // Please see bug 363258 for why the win32 timing code is so complex.
-int64_t
-PRMJ_Now()
-{
+int64_t PRMJ_Now() {
     if (pGetSystemTimePreciseAsFileTime) {
         // Windows 8 has a new API function that does all the work.
         FILETIME ft;
@@ -195,7 +181,8 @@ PRMJ_Now()
         double highresTimerValue = double(now.QuadPart);
 
         MUTEX_LOCK(&calibration.data_lock);
-        double highresTime = calibration.offset +
+        double highresTime =
+            calibration.offset +
             PRMJ_USEC_PER_SEC * (highresTimerValue - calibration.timer_offset) / calibration.freq;
         cachedOffset = calibration.offset;
         MUTEX_UNLOCK(&calibration.data_lock);
@@ -248,21 +235,15 @@ PRMJ_Now()
 #endif
 
 #ifdef XP_WIN
-static void
-PRMJ_InvalidParameterHandler(const wchar_t* expression,
-                             const wchar_t* function,
-                             const wchar_t* file,
-                             unsigned int   line,
-                             uintptr_t      pReserved)
-{
+static void PRMJ_InvalidParameterHandler(const wchar_t* expression, const wchar_t* function,
+                                         const wchar_t* file, unsigned int line,
+                                         uintptr_t pReserved) {
     /* empty */
 }
 #endif
 
 /* Format a time value into a buffer. Same semantics as strftime() */
-size_t
-PRMJ_FormatTime(char* buf, int buflen, const char* fmt, PRMJTime* prtm)
-{
+size_t PRMJ_FormatTime(char* buf, int buflen, const char* fmt, PRMJTime* prtm) {
     size_t result = 0;
 #if defined(XP_UNIX) || defined(XP_WIN)
     struct tm a;
@@ -271,8 +252,8 @@ PRMJ_FormatTime(char* buf, int buflen, const char* fmt, PRMJTime* prtm)
     _invalid_parameter_handler oldHandler;
 #ifndef __MINGW32__
     int oldReportMode;
-#endif // __MINGW32__
-#endif //XP_WIN
+#endif  // __MINGW32__
+#endif  //XP_WIN
 
     memset(&a, 0, sizeof(struct tm));
 
@@ -315,22 +296,21 @@ PRMJ_FormatTime(char* buf, int buflen, const char* fmt, PRMJTime* prtm)
     }
 #endif
 
-    /*
-     * Years before 1900 and after 9999 cause strftime() to abort on Windows.
-     * To avoid that we replace it with FAKE_YEAR_BASE + year % 100 and then
-     * replace matching substrings in the strftime() result with the real year.
-     * Note that FAKE_YEAR_BASE should be a multiple of 100 to make 2-digit
-     * year formats (%y) work correctly (since we won't find the fake year
-     * in that case).
-     * e.g. new Date(1873, 0).toLocaleFormat('%Y %y') => "1873 73"
-     * See bug 327869.
-     */
+        /*
+         * Years before 1900 and after 9999 cause strftime() to abort on Windows.
+         * To avoid that we replace it with FAKE_YEAR_BASE + year % 100 and then
+         * replace matching substrings in the strftime() result with the real year.
+         * Note that FAKE_YEAR_BASE should be a multiple of 100 to make 2-digit
+         * year formats (%y) work correctly (since we won't find the fake year
+         * in that case).
+         * e.g. new Date(1873, 0).toLocaleFormat('%Y %y') => "1873 73"
+         * See bug 327869.
+         */
 #define FAKE_YEAR_BASE 9900
     if (prtm->tm_year < 1900 || prtm->tm_year > 9999) {
         fake_tm_year = FAKE_YEAR_BASE + prtm->tm_year % 100;
         a.tm_year = fake_tm_year - 1900;
-    }
-    else {
+    } else {
         a.tm_year = prtm->tm_year - 1900;
     }
     a.tm_yday = prtm->tm_yday;
@@ -351,8 +331,8 @@ PRMJ_FormatTime(char* buf, int buflen, const char* fmt, PRMJTime* prtm)
      * We ifdef it off to avoid warnings about unused variables
      */
     oldReportMode = _CrtSetReportMode(_CRT_ASSERT, 0);
-#endif // __MINGW32__
-#endif // XP_WIN
+#endif  // __MINGW32__
+#endif  // XP_WIN
 
     result = strftime(buf, buflen, fmt, &a);
 
@@ -360,8 +340,8 @@ PRMJ_FormatTime(char* buf, int buflen, const char* fmt, PRMJTime* prtm)
     _set_invalid_parameter_handler(oldHandler);
 #ifndef __MINGW32__
     _CrtSetReportMode(_CRT_ASSERT, oldReportMode);
-#endif // __MINGW32__
-#endif // XP_WIN
+#endif  // __MINGW32__
+#endif  // XP_WIN
 
     if (fake_tm_year && result) {
         char real_year[16];

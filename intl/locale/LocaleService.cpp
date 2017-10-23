@@ -28,17 +28,17 @@
 //     retrieving OS locale until we get proper hook into JNI in bug 1337078.
 #define ANDROID_OS_LOCALE_PREF "intl.locale.os"
 
-static const char* kObservedPrefs[] = {
-  MATCH_OS_LOCALE_PREF,
-  SELECTED_LOCALE_PREF,
-  ANDROID_OS_LOCALE_PREF,
-  nullptr
-};
+static const char* kObservedPrefs[] = {MATCH_OS_LOCALE_PREF,
+                                       SELECTED_LOCALE_PREF,
+                                       ANDROID_OS_LOCALE_PREF,
+                                       nullptr};
 
 using namespace mozilla::intl;
 using namespace mozilla;
 
-NS_IMPL_ISUPPORTS(LocaleService, mozILocaleService, nsIObserver,
+NS_IMPL_ISUPPORTS(LocaleService,
+                  mozILocaleService,
+                  nsIObserver,
                   nsISupportsWeakReference)
 
 mozilla::StaticRefPtr<LocaleService> LocaleService::sInstance;
@@ -64,8 +64,8 @@ SanitizeForBCP47(nsACString& aLocale)
   UErrorCode err = U_ZERO_ERROR;
   // This is a fail-safe method that will set langTag to "und" if it cannot
   // match any part of the input locale code.
-  int32_t len = uloc_toLanguageTag(locale.get(), langTag, LANG_TAG_CAPACITY,
-                                   false, &err);
+  int32_t len =
+      uloc_toLanguageTag(locale.get(), langTag, LANG_TAG_CAPACITY, false, &err);
   if (U_SUCCESS(err) && len > 0) {
     aLocale.Assign(langTag, len);
   }
@@ -102,15 +102,15 @@ static bool
 ReadAvailableLocales(nsTArray<nsCString>& aRetVal)
 {
   nsCOMPtr<nsIToolkitChromeRegistry> cr =
-    mozilla::services::GetToolkitChromeRegistryService();
+      mozilla::services::GetToolkitChromeRegistryService();
   if (!cr) {
     return false;
   }
 
   nsCOMPtr<nsIUTF8StringEnumerator> localesEnum;
 
-  nsresult rv =
-    cr->GetLocalesForPackage(NS_LITERAL_CSTRING("global"), getter_AddRefs(localesEnum));
+  nsresult rv = cr->GetLocalesForPackage(NS_LITERAL_CSTRING("global"),
+                                         getter_AddRefs(localesEnum));
   if (!NS_SUCCEEDED(rv)) {
     return false;
   }
@@ -128,10 +128,7 @@ ReadAvailableLocales(nsTArray<nsCString>& aRetVal)
   return !aRetVal.IsEmpty();
 }
 
-LocaleService::LocaleService(bool aIsServer)
-  :mIsServer(aIsServer)
-{
-}
+LocaleService::LocaleService(bool aIsServer) : mIsServer(aIsServer) {}
 
 /**
  * This function performs the actual language negotiation for the API.
@@ -151,8 +148,11 @@ LocaleService::NegotiateAppLocales(nsTArray<nsCString>& aRetVal)
     GetAvailableLocales(availableLocales);
     GetRequestedLocales(requestedLocales);
 
-    NegotiateLanguages(requestedLocales, availableLocales, defaultLocale,
-                       LangNegStrategy::Filtering, aRetVal);
+    NegotiateLanguages(requestedLocales,
+                       availableLocales,
+                       defaultLocale,
+                       LangNegStrategy::Filtering,
+                       aRetVal);
   } else {
     // In content process, we will not do any language negotiation.
     // Instead, the language is set manually by SetAppLocales.
@@ -175,10 +175,12 @@ LocaleService::GetInstance()
     if (sInstance->IsServer()) {
       // We're going to observe for requested languages changes which come
       // from prefs.
-      DebugOnly<nsresult> rv = Preferences::AddWeakObservers(sInstance, kObservedPrefs);
+      DebugOnly<nsresult> rv =
+          Preferences::AddWeakObservers(sInstance, kObservedPrefs);
       MOZ_ASSERT(NS_SUCCEEDED(rv), "Adding observers failed.");
 
-      nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+      nsCOMPtr<nsIObserverService> obs =
+          mozilla::services::GetObserverService();
       if (obs) {
         obs->AddObserver(sInstance, INTL_SYSTEM_LOCALES_CHANGED, true);
       }
@@ -225,9 +227,11 @@ LocaleService::GetAppLocalesAsBCP47(nsTArray<nsCString>& aRetVal)
 void
 LocaleService::GetRegionalPrefsLocales(nsTArray<nsCString>& aRetVal)
 {
-  bool useOSLocales = Preferences::GetBool("intl.regional_prefs.use_os_locales", false);
+  bool useOSLocales =
+      Preferences::GetBool("intl.regional_prefs.use_os_locales", false);
 
-  if (useOSLocales && OSPreferences::GetInstance()->GetRegionalPrefsLocales(aRetVal)) {
+  if (useOSLocales &&
+      OSPreferences::GetInstance()->GetRegionalPrefsLocales(aRetVal)) {
     return;
   }
 
@@ -237,7 +241,8 @@ LocaleService::GetRegionalPrefsLocales(nsTArray<nsCString>& aRetVal)
 void
 LocaleService::AssignAppLocales(const nsTArray<nsCString>& aAppLocales)
 {
-  MOZ_ASSERT(!mIsServer, "This should only be called for LocaleService in client mode.");
+  MOZ_ASSERT(!mIsServer,
+             "This should only be called for LocaleService in client mode.");
 
   mAppLocales = aAppLocales;
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -247,9 +252,11 @@ LocaleService::AssignAppLocales(const nsTArray<nsCString>& aAppLocales)
 }
 
 void
-LocaleService::AssignRequestedLocales(const nsTArray<nsCString>& aRequestedLocales)
+LocaleService::AssignRequestedLocales(
+    const nsTArray<nsCString>& aRequestedLocales)
 {
-  MOZ_ASSERT(!mIsServer, "This should only be called for LocaleService in client mode.");
+  MOZ_ASSERT(!mIsServer,
+             "This should only be called for LocaleService in client mode.");
 
   mRequestedLocales = aRequestedLocales;
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -279,7 +286,6 @@ LocaleService::GetAvailableLocales(nsTArray<nsCString>& aRetVal)
   aRetVal = mAvailableLocales;
   return true;
 }
-
 
 void
 LocaleService::AvailableLocalesChanged()
@@ -338,15 +344,15 @@ LocaleService::LocalesChanged()
 // if a match was found we use this macro to decide whether to return immediately,
 // skip to the next requested locale, or continue searching for additional matches,
 // according to the desired negotiation strategy.
-#define HANDLE_STRATEGY \
-          switch (aStrategy) { \
-            case LangNegStrategy::Lookup: \
-              return; \
-            case LangNegStrategy::Matching: \
-              continue; \
-            case LangNegStrategy::Filtering: \
-              break; \
-          }
+#define HANDLE_STRATEGY              \
+  switch (aStrategy) {               \
+    case LangNegStrategy::Lookup:    \
+      return;                        \
+    case LangNegStrategy::Matching:  \
+      continue;                      \
+    case LangNegStrategy::Filtering: \
+      break;                         \
+  }
 
 /**
  * This is the raw algorithm for language negotiation based roughly
@@ -414,14 +420,13 @@ LocaleService::FilterMatches(const nsTArray<nsCString>& aRequested,
   };
 
   for (auto& requested : aRequested) {
-
     // 1) Try to find a simple (case-insensitive) string match for the request.
     auto matchesExactly = [&](const Locale& aLoc) {
       return requested.Equals(aLoc.AsString(),
                               nsCaseInsensitiveCStringComparator());
     };
-    auto match = std::find_if(availLocales.begin(), availLocales.end(),
-                              matchesExactly);
+    auto match =
+        std::find_if(availLocales.begin(), availLocales.end(), matchesExactly);
     if (match != availLocales.end()) {
       aRetVal.AppendElement(match->AsString());
       eraseFromAvail(match);
@@ -438,13 +443,13 @@ LocaleService::FilterMatches(const nsTArray<nsCString>& aRequested,
       };
       bool foundMatch = false;
       auto match = availLocales.begin();
-      while ((match = std::find_if(match, availLocales.end(),
-                                   matchesRange)) != availLocales.end()) {
+      while ((match = std::find_if(match, availLocales.end(), matchesRange)) !=
+             availLocales.end()) {
         aRetVal.AppendElement(match->AsString());
         match = eraseFromAvail(match);
         foundMatch = true;
         if (aStrategy != LangNegStrategy::Filtering) {
-          return true; // we only want the first match
+          return true;  // we only want the first match
         }
       }
       return foundMatch;
@@ -474,7 +479,6 @@ LocaleService::FilterMatches(const nsTArray<nsCString>& aRequested,
         HANDLE_STRATEGY;
       }
     }
-
 
     // 6) Try to match against a region as a range
     requestedLocale.SetRegionRange();
@@ -526,8 +530,9 @@ LocaleService::IsAppLocaleRTL()
 }
 
 NS_IMETHODIMP
-LocaleService::Observe(nsISupports *aSubject, const char *aTopic,
-                      const char16_t *aData)
+LocaleService::Observe(nsISupports* aSubject,
+                       const char* aTopic,
+                       const char16_t* aData)
 {
   MOZ_ASSERT(mIsServer, "This should only be called in the server mode.");
 
@@ -558,7 +563,6 @@ LocaleService::LanguagesMatch(const nsCString& aRequested,
 {
   return Locale(aRequested, true).LanguageMatches(Locale(aAvailable, true));
 }
-
 
 bool
 LocaleService::IsServer()
@@ -665,7 +669,7 @@ LocaleService::GetAppLocaleAsBCP47(nsACString& aRetVal)
 NS_IMETHODIMP
 LocaleService::GetRegionalPrefsLocales(uint32_t* aCount, char*** aOutArray)
 {
-  AutoTArray<nsCString,10> rgLocales;
+  AutoTArray<nsCString, 10> rgLocales;
 
   GetRegionalPrefsLocales(rgLocales);
 
@@ -695,11 +699,12 @@ ToLangNegStrategy(int32_t aStrategy)
 NS_IMETHODIMP
 LocaleService::NegotiateLanguages(const char** aRequested,
                                   const char** aAvailable,
-                                  const char*  aDefaultLocale,
+                                  const char* aDefaultLocale,
                                   int32_t aStrategy,
                                   uint32_t aRequestedCount,
                                   uint32_t aAvailableCount,
-                                  uint32_t* aCount, char*** aRetVal)
+                                  uint32_t* aCount,
+                                  char*** aRetVal)
 {
   if (aStrategy < 0 || aStrategy > 2) {
     return NS_ERROR_INVALID_ARG;
@@ -742,15 +747,18 @@ LocaleService::NegotiateLanguages(const char** aRequested,
   LangNegStrategy strategy = ToLangNegStrategy(aStrategy);
 
   AutoTArray<nsCString, 100> supportedLocales;
-  bool result = NegotiateLanguages(requestedLocales, availableLocales,
-                                   defaultLocale, strategy, supportedLocales);
+  bool result = NegotiateLanguages(requestedLocales,
+                                   availableLocales,
+                                   defaultLocale,
+                                   strategy,
+                                   supportedLocales);
 
   if (!result) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  *aRetVal =
-    static_cast<char**>(moz_xmalloc(sizeof(char*) * supportedLocales.Length()));
+  *aRetVal = static_cast<char**>(
+      moz_xmalloc(sizeof(char*) * supportedLocales.Length()));
 
   *aCount = 0;
   for (const auto& supported : supportedLocales) {
@@ -761,7 +769,7 @@ LocaleService::NegotiateLanguages(const char** aRequested,
 }
 
 LocaleService::Locale::Locale(const nsCString& aLocale, bool aRange)
-  : mLocaleStr(aLocale)
+    : mLocaleStr(aLocale)
 {
   int32_t partNum = 0;
 
@@ -771,8 +779,8 @@ LocaleService::Locale::Locale(const nsCString& aLocale, bool aRange)
   for (const nsACString& part : normLocale.Split('-')) {
     switch (partNum) {
       case 0:
-        if (part.EqualsLiteral("*") ||
-            part.Length() == 2 || part.Length() == 3) {
+        if (part.EqualsLiteral("*") || part.Length() == 2 ||
+            part.Length() == 3) {
           mLanguage.Assign(part);
         }
         break;
@@ -818,8 +826,7 @@ LocaleService::Locale::Locale(const nsCString& aLocale, bool aRange)
 static bool
 SubtagMatches(const nsCString& aSubtag1, const nsCString& aSubtag2)
 {
-  return aSubtag1.EqualsLiteral("*") ||
-         aSubtag2.EqualsLiteral("*") ||
+  return aSubtag1.EqualsLiteral("*") || aSubtag2.EqualsLiteral("*") ||
          aSubtag1.Equals(aSubtag2, nsCaseInsensitiveCStringComparator());
 }
 
@@ -833,7 +840,8 @@ LocaleService::Locale::Matches(const LocaleService::Locale& aLocale) const
 }
 
 bool
-LocaleService::Locale::LanguageMatches(const LocaleService::Locale& aLocale) const
+LocaleService::Locale::LanguageMatches(
+    const LocaleService::Locale& aLocale) const
 {
   return SubtagMatches(mLanguage, aLocale.mLanguage) &&
          SubtagMatches(mScript, aLocale.mScript);

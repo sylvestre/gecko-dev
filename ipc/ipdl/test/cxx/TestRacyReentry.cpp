@@ -1,6 +1,6 @@
 #include "TestRacyReentry.h"
 
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 
 namespace mozilla {
 namespace _ipdltest {
@@ -10,36 +10,33 @@ namespace _ipdltest {
 
 TestRacyReentryParent::TestRacyReentryParent() : mRecvdE(false)
 {
-    MOZ_COUNT_CTOR(TestRacyReentryParent);
+  MOZ_COUNT_CTOR(TestRacyReentryParent);
 }
 
 TestRacyReentryParent::~TestRacyReentryParent()
 {
-    MOZ_COUNT_DTOR(TestRacyReentryParent);
+  MOZ_COUNT_DTOR(TestRacyReentryParent);
 }
 
 void
 TestRacyReentryParent::Main()
 {
-    if (!SendStart())
-        fail("sending Start");
+  if (!SendStart()) fail("sending Start");
 
-    if (!SendN())
-        fail("sending N");
+  if (!SendN()) fail("sending N");
 }
 
 mozilla::ipc::IPCResult
 TestRacyReentryParent::AnswerE()
 {
-    if (!mRecvdE) {
-        mRecvdE = true;
-        return IPC_OK();
-    }
-
-    if (!CallH())
-        fail("calling H");
-
+  if (!mRecvdE) {
+    mRecvdE = true;
     return IPC_OK();
+  }
+
+  if (!CallH()) fail("calling H");
+
+  return IPC_OK();
 }
 
 //-----------------------------------------------------------------------------
@@ -47,38 +44,36 @@ TestRacyReentryParent::AnswerE()
 
 TestRacyReentryChild::TestRacyReentryChild()
 {
-    MOZ_COUNT_CTOR(TestRacyReentryChild);
+  MOZ_COUNT_CTOR(TestRacyReentryChild);
 }
 
 TestRacyReentryChild::~TestRacyReentryChild()
 {
-    MOZ_COUNT_DTOR(TestRacyReentryChild);
+  MOZ_COUNT_DTOR(TestRacyReentryChild);
 }
 
 mozilla::ipc::IPCResult
 TestRacyReentryChild::RecvStart()
 {
-    if (!CallE())
-        fail("calling E");
+  if (!CallE()) fail("calling E");
 
-    Close();
+  Close();
 
-    return IPC_OK();
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestRacyReentryChild::RecvN()
 {
-    if (!CallE())
-        fail("calling E");
-    return IPC_OK();
+  if (!CallE()) fail("calling E");
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 TestRacyReentryChild::AnswerH()
 {
-    return IPC_OK();
+  return IPC_OK();
 }
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

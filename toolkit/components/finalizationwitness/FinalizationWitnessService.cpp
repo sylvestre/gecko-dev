@@ -15,7 +15,6 @@
 #include "nsIObserverService.h"
 #include "nsThreadUtils.h"
 
-
 // Implementation of nsIFinalizationWitnessService
 
 static bool gShuttingDown = false;
@@ -32,29 +31,28 @@ namespace {
  * Important note: we maintain the invariant that these private data
  * slots are already addrefed.
  */
-class FinalizationEvent final: public Runnable
+class FinalizationEvent final : public Runnable
 {
-public:
-  FinalizationEvent(const char* aTopic,
-                  const char16_t* aValue)
-    : Runnable("FinalizationEvent")
-    , mTopic(aTopic)
-    , mValue(aValue)
-  { }
+ public:
+  FinalizationEvent(const char* aTopic, const char16_t* aValue)
+      : Runnable("FinalizationEvent"), mTopic(aTopic), mValue(aValue)
+  {
+  }
 
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
+        mozilla::services::GetObserverService();
     if (!observerService) {
       // This is either too early or, more likely, too late for notifications.
       // Bail out.
       return NS_ERROR_NOT_AVAILABLE;
     }
-    (void)observerService->
-      NotifyObservers(nullptr, mTopic.get(), mValue.get());
+    (void)observerService->NotifyObservers(nullptr, mTopic.get(), mValue.get());
     return NS_OK;
   }
-private:
+
+ private:
   /**
    * The topic on which to broadcast the notification of finalization.
    *
@@ -70,7 +68,8 @@ private:
   const nsString mValue;
 };
 
-enum {
+enum
+{
   WITNESS_SLOT_EVENT,
   WITNESS_INSTANCES_SLOTS
 };
@@ -80,7 +79,7 @@ enum {
  * and clear the slot containing the FinalizationEvent.
  */
 already_AddRefed<FinalizationEvent>
-ExtractFinalizationEvent(JSObject *objSelf)
+ExtractFinalizationEvent(JSObject* objSelf)
 {
   JS::Value slotEvent = JS_GetReservedSlot(objSelf, WITNESS_SLOT_EVENT);
   if (slotEvent.isUndefined()) {
@@ -99,7 +98,8 @@ ExtractFinalizationEvent(JSObject *objSelf)
  * Unless method Forget() has been called, the finalizer displays an error
  * message.
  */
-void Finalize(JSFreeOp *fop, JSObject *objSelf)
+void
+Finalize(JSFreeOp* fop, JSObject* objSelf)
 {
   RefPtr<FinalizationEvent> event = ExtractFinalizationEvent(objSelf);
   if (event == nullptr || gShuttingDown) {
@@ -118,27 +118,26 @@ void Finalize(JSFreeOp *fop, JSObject *objSelf)
 }
 
 static const JSClassOps sWitnessClassOps = {
-  nullptr /* addProperty */,
-  nullptr /* delProperty */,
-  nullptr /* enumerate */,
-  nullptr /* newEnumerate */,
-  nullptr /* resolve */,
-  nullptr /* mayResolve */,
-  Finalize /* finalize */
+    nullptr /* addProperty */,
+    nullptr /* delProperty */,
+    nullptr /* enumerate */,
+    nullptr /* newEnumerate */,
+    nullptr /* resolve */,
+    nullptr /* mayResolve */,
+    Finalize /* finalize */
 };
 
 static const JSClass sWitnessClass = {
-  "FinalizationWitness",
-  JSCLASS_HAS_RESERVED_SLOTS(WITNESS_INSTANCES_SLOTS) |
-  JSCLASS_FOREGROUND_FINALIZE,
-  &sWitnessClassOps
-};
+    "FinalizationWitness",
+    JSCLASS_HAS_RESERVED_SLOTS(WITNESS_INSTANCES_SLOTS) |
+        JSCLASS_FOREGROUND_FINALIZE,
+    &sWitnessClassOps};
 
-bool IsWitness(JS::Handle<JS::Value> v)
+bool
+IsWitness(JS::Handle<JS::Value> v)
 {
   return v.isObject() && JS_GetClass(&v.toObject()) == &sWitnessClass;
 }
-
 
 /**
  * JS method |forget()|
@@ -148,7 +147,8 @@ bool IsWitness(JS::Handle<JS::Value> v)
  *  Neutralize the witness. Once this method is called, the witness will
  *  never report any error.
  */
-bool ForgetImpl(JSContext* cx, const JS::CallArgs& args)
+bool
+ForgetImpl(JSContext* cx, const JS::CallArgs& args)
 {
   if (args.length() != 0) {
     JS_ReportErrorASCII(cx, "forget() takes no arguments");
@@ -167,20 +167,21 @@ bool ForgetImpl(JSContext* cx, const JS::CallArgs& args)
   return true;
 }
 
-bool Forget(JSContext *cx, unsigned argc, JS::Value *vp)
+bool
+Forget(JSContext* cx, unsigned argc, JS::Value* vp)
 {
   JS::CallArgs args = CallArgsFromVp(argc, vp);
   return JS::CallNonGenericMethod<IsWitness, ForgetImpl>(cx, args);
 }
 
 static const JSFunctionSpec sWitnessClassFunctions[] = {
-  JS_FN("forget", Forget, 0, JSPROP_READONLY | JSPROP_PERMANENT),
-  JS_FS_END
-};
+    JS_FN("forget", Forget, 0, JSPROP_READONLY | JSPROP_PERMANENT), JS_FS_END};
 
-} // namespace
+}  // namespace
 
-NS_IMPL_ISUPPORTS(FinalizationWitnessService, nsIFinalizationWitnessService, nsIObserver)
+NS_IMPL_ISUPPORTS(FinalizationWitnessService,
+                  nsIFinalizationWitnessService,
+                  nsIObserver)
 
 /**
  * Create a new Finalization Witness.
@@ -211,8 +212,8 @@ FinalizationWitnessService::Make(const char* aTopic,
   RefPtr<FinalizationEvent> event = new FinalizationEvent(aTopic, aValue);
 
   // Transfer ownership of the addrefed |event| to |objResult|.
-  JS_SetReservedSlot(objResult, WITNESS_SLOT_EVENT,
-                     JS::PrivateValue(event.forget().take()));
+  JS_SetReservedSlot(
+      objResult, WITNESS_SLOT_EVENT, JS::PrivateValue(event.forget().take()));
 
   aRetval.setObject(*objResult);
   return NS_OK;
@@ -244,4 +245,4 @@ FinalizationWitnessService::Init()
   return obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

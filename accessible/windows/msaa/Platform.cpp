@@ -41,15 +41,12 @@ a11y::PlatformInit()
   ia2AccessibleText::InitTextChangeData();
 
   mscom::InterceptorLog::Init();
-  UniquePtr<RegisteredProxy> regCustomProxy(
-      mscom::RegisterProxy());
+  UniquePtr<RegisteredProxy> regCustomProxy(mscom::RegisterProxy());
   gRegCustomProxy = regCustomProxy.release();
-  UniquePtr<RegisteredProxy> regProxy(
-      mscom::RegisterProxy(L"ia2marshal.dll"));
+  UniquePtr<RegisteredProxy> regProxy(mscom::RegisterProxy(L"ia2marshal.dll"));
   gRegProxy = regProxy.release();
-  UniquePtr<RegisteredProxy> regAccTlb(
-      mscom::RegisterTypelib(L"oleacc.dll",
-                             RegistrationFlags::eUseSystemDirectory));
+  UniquePtr<RegisteredProxy> regAccTlb(mscom::RegisterTypelib(
+      L"oleacc.dll", RegistrationFlags::eUseSystemDirectory));
   gRegAccTlb = regAccTlb.release();
   UniquePtr<RegisteredProxy> regMiscTlb(
       mscom::RegisterTypelib(L"Accessible.tlb"));
@@ -94,13 +91,12 @@ void
 a11y::ProxyDestroyed(ProxyAccessible* aProxy)
 {
   AccessibleWrap* wrapper =
-    reinterpret_cast<AccessibleWrap*>(aProxy->GetWrapper());
+      reinterpret_cast<AccessibleWrap*>(aProxy->GetWrapper());
 
   // If aProxy is a document that was created, but
   // RecvPDocAccessibleConstructor failed then aProxy->GetWrapper() will be
   // null.
-  if (!wrapper)
-    return;
+  if (!wrapper) return;
 
   if (aProxy->IsDoc() && nsWinUtils::IsWindowEmulationStarted()) {
     aProxy->AsDoc()->SetEmulatedWindowHandle(nullptr);
@@ -143,8 +139,12 @@ a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget,
 }
 
 void
-a11y::ProxyTextChangeEvent(ProxyAccessible* aText, const nsString& aStr,
-                           int32_t aStart, uint32_t aLen, bool aInsert, bool)
+a11y::ProxyTextChangeEvent(ProxyAccessible* aText,
+                           const nsString& aStr,
+                           int32_t aStart,
+                           uint32_t aLen,
+                           bool aInsert,
+                           bool)
 {
   AccessibleWrap* wrapper = WrapperFor(aText);
   MOZ_ASSERT(wrapper);
@@ -153,8 +153,8 @@ a11y::ProxyTextChangeEvent(ProxyAccessible* aText, const nsString& aStr,
   }
 
   static const bool useHandler =
-    Preferences::GetBool("accessibility.handler.enabled", false) &&
-    IsHandlerRegistered();
+      Preferences::GetBool("accessibility.handler.enabled", false) &&
+      IsHandlerRegistered();
 
   if (useHandler) {
     wrapper->DispatchTextChangeToHandler(aInsert, aStr, aStart, aLen);
@@ -166,22 +166,27 @@ a11y::ProxyTextChangeEvent(ProxyAccessible* aText, const nsString& aStr,
     ia2AccessibleText::UpdateTextChangeData(text, aInsert, aStr, aStart, aLen);
   }
 
-  uint32_t eventType = aInsert ? nsIAccessibleEvent::EVENT_TEXT_INSERTED :
-    nsIAccessibleEvent::EVENT_TEXT_REMOVED;
+  uint32_t eventType = aInsert ? nsIAccessibleEvent::EVENT_TEXT_INSERTED
+                               : nsIAccessibleEvent::EVENT_TEXT_REMOVED;
   AccessibleWrap::FireWinEvent(wrapper, eventType);
 }
 
 void
-a11y::ProxyShowHideEvent(ProxyAccessible* aTarget, ProxyAccessible*, bool aInsert, bool)
+a11y::ProxyShowHideEvent(ProxyAccessible* aTarget,
+                         ProxyAccessible*,
+                         bool aInsert,
+                         bool)
 {
-  uint32_t event = aInsert ? nsIAccessibleEvent::EVENT_SHOW :
-    nsIAccessibleEvent::EVENT_HIDE;
+  uint32_t event =
+      aInsert ? nsIAccessibleEvent::EVENT_SHOW : nsIAccessibleEvent::EVENT_HIDE;
   AccessibleWrap* wrapper = WrapperFor(aTarget);
   AccessibleWrap::FireWinEvent(wrapper, event);
 }
 
 void
-a11y::ProxySelectionEvent(ProxyAccessible* aTarget, ProxyAccessible*, uint32_t aType)
+a11y::ProxySelectionEvent(ProxyAccessible* aTarget,
+                          ProxyAccessible*,
+                          uint32_t aType)
 {
   AccessibleWrap* wrapper = WrapperFor(aTarget);
   AccessibleWrap::FireWinEvent(wrapper, aType);
@@ -192,7 +197,7 @@ a11y::IsHandlerRegistered()
 {
   nsresult rv;
   nsCOMPtr<nsIWindowsRegKey> regKey =
-    do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -205,7 +210,8 @@ a11y::IsHandlerRegistered()
   subKey.Append(clsid);
   subKey.AppendLiteral(u"\\InprocHandler32");
 
-  rv = regKey->Open(nsIWindowsRegKey::ROOT_KEY_LOCAL_MACHINE, subKey,
+  rv = regKey->Open(nsIWindowsRegKey::ROOT_KEY_LOCAL_MACHINE,
+                    subKey,
                     nsIWindowsRegKey::ACCESS_READ);
   if (NS_FAILED(rv)) {
     return false;

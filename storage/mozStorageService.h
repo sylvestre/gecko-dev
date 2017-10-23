@@ -25,11 +25,11 @@ namespace mozilla {
 namespace storage {
 
 class Connection;
-class Service : public mozIStorageService
-              , public nsIObserver
-              , public nsIMemoryReporter
+class Service : public mozIStorageService,
+                public nsIObserver,
+                public nsIMemoryReporter
 {
-public:
+ public:
   /**
    * Initializes the service.  This must be called before any other function!
    */
@@ -48,11 +48,11 @@ public:
    *         number.  If aStr1 > aStr2, returns a positive number.  If
    *         aStr1 == aStr2, returns 0.
    */
-  int localeCompareStrings(const nsAString &aStr1,
-                           const nsAString &aStr2,
+  int localeCompareStrings(const nsAString& aStr1,
+                           const nsAString& aStr2,
                            int32_t aComparisonStrength);
 
-  static Service *getSingleton();
+  static Service* getSingleton();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_MOZISTORAGESERVICE
@@ -75,10 +75,7 @@ public:
    * specified in the SQLite makefile (SQLITE_DEFAULT_PAGE_SIZE) but it may be
    * overriden with the PREF_TS_PAGESIZE hidden preference.
    */
-  static int32_t getDefaultPageSize()
-  {
-    return sDefaultPageSize;
-  }
+  static int32_t getDefaultPageSize() { return sDefaultPageSize; }
 
   /**
    * Returns a boolean value indicating whether or not the given page size is
@@ -100,7 +97,7 @@ public:
    * @param  aConnection
    *         The connection to register.
    */
-  void registerConnection(Connection *aConnection);
+  void registerConnection(Connection* aConnection);
 
   /**
    * Unregisters the connection with the storage service.
@@ -110,7 +107,7 @@ public:
    * @param  aConnection
    *         The connection to unregister.
    */
-  void unregisterConnection(Connection *aConnection);
+  void unregisterConnection(Connection* aConnection);
 
   /**
    * Gets the list of open connections.  Note that you must test each
@@ -126,7 +123,7 @@ public:
    */
   void getConnections(nsTArray<RefPtr<Connection> >& aConnections);
 
-private:
+ private:
   Service();
   virtual ~Service();
 
@@ -137,7 +134,7 @@ private:
    */
   Mutex mMutex;
 
-  sqlite3_vfs *mSqliteVFS;
+  sqlite3_vfs* mSqliteVFS;
 
   /**
    * Protects mConnections.
@@ -168,7 +165,7 @@ private:
    * execute outside the lifetime of the Service, this method returns a raw
    * pointer.
    */
-  nsICollation *getLocaleCollation();
+  nsICollation* getLocaleCollation();
 
   /**
    * Lazily created collation that all statements of all Connections of this
@@ -183,15 +180,15 @@ private:
 
   nsCOMPtr<nsIMemoryReporter> mStorageSQLiteReporter;
 
-  static Service *gService;
+  static Service* gService;
 
-  static nsIXPConnect *sXPConnect;
+  static nsIXPConnect* sXPConnect;
 
   static int32_t sSynchronousPref;
   static int32_t sDefaultPageSize;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
 #endif /* MOZSTORAGESERVICE_H */

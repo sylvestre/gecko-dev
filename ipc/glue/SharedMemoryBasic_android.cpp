@@ -30,15 +30,14 @@ namespace ipc {
 static void
 LogError(const char* what)
 {
-  __android_log_print(ANDROID_LOG_ERROR, "Gecko",
-                      "%s: %s (%d)", what, strerror(errno), errno);
+  __android_log_print(
+      ANDROID_LOG_ERROR, "Gecko", "%s: %s (%d)", what, strerror(errno), errno);
 }
 
 SharedMemoryBasic::SharedMemoryBasic()
-  : mShmFd(-1)
-  , mMemory(nullptr)
-  , mOpenRights(RightsReadWrite)
-{ }
+    : mShmFd(-1), mMemory(nullptr), mOpenRights(RightsReadWrite)
+{
+}
 
 SharedMemoryBasic::~SharedMemoryBasic()
 {
@@ -88,11 +87,7 @@ SharedMemoryBasic::Map(size_t nBytes)
     prot |= PROT_WRITE;
   }
 
-  mMemory = mmap(nullptr, nBytes,
-                 prot,
-                 MAP_SHARED,
-                 mShmFd,
-                 0);
+  mMemory = mmap(nullptr, nBytes, prot, MAP_SHARED, mShmFd, 0);
   if (MAP_FAILED == mMemory) {
     LogError("ShmemAndroid::Map()");
     mMemory = nullptr;
@@ -104,7 +99,7 @@ SharedMemoryBasic::Map(size_t nBytes)
 }
 
 bool
-SharedMemoryBasic::ShareToProcess(base::ProcessId/*unused*/,
+SharedMemoryBasic::ShareToProcess(base::ProcessId /*unused*/,
                                   Handle* aNewHandle)
 {
   MOZ_ASSERT(mShmFd >= 0, "Should have been Create()d by now");
@@ -143,5 +138,5 @@ SharedMemoryBasic::CloseHandle()
   }
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

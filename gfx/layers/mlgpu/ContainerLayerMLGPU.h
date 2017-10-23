@@ -15,10 +15,9 @@ namespace layers {
 class MLGDevice;
 class RenderViewMLGPU;
 
-class ContainerLayerMLGPU final : public ContainerLayer
-                                , public LayerMLGPU
+class ContainerLayerMLGPU final : public ContainerLayer, public LayerMLGPU
 {
-public:
+ public:
   explicit ContainerLayerMLGPU(LayerManagerMLGPU* aManager);
   ~ContainerLayerMLGPU() override;
 
@@ -28,50 +27,38 @@ public:
   ContainerLayerMLGPU* AsContainerLayerMLGPU() override { return this; }
   Layer* GetLayer() override { return this; }
 
-  void ComputeEffectiveTransforms(const gfx::Matrix4x4& aTransformToSurface) override {
+  void ComputeEffectiveTransforms(
+      const gfx::Matrix4x4& aTransformToSurface) override
+  {
     DefaultComputeEffectiveTransforms(aTransformToSurface);
   }
   void SetInvalidCompositeRect(const gfx::IntRect* aRect) override;
   void ClearCachedResources() override;
 
-  RefPtr<MLGRenderTarget> UpdateRenderTarget(
-    MLGDevice* aDevice,
-    MLGRenderTargetFlags aFlags);
+  RefPtr<MLGRenderTarget> UpdateRenderTarget(MLGDevice* aDevice,
+                                             MLGRenderTargetFlags aFlags);
 
-  MLGRenderTarget* GetRenderTarget() const {
-    return mRenderTarget;
-  }
-  gfx::IntPoint GetTargetOffset() const {
-    return mTargetOffset;
-  }
-  gfx::IntSize GetTargetSize() const {
-    return mTargetSize;
-  }
-  const gfx::IntRect& GetInvalidRect() const {
-    return mInvalidRect;
-  }
-  void ClearInvalidRect() {
-    mInvalidRect.SetEmpty();
-  }
+  MLGRenderTarget* GetRenderTarget() const { return mRenderTarget; }
+  gfx::IntPoint GetTargetOffset() const { return mTargetOffset; }
+  gfx::IntSize GetTargetSize() const { return mTargetSize; }
+  const gfx::IntRect& GetInvalidRect() const { return mInvalidRect; }
+  void ClearInvalidRect() { mInvalidRect.SetEmpty(); }
   bool IsContentOpaque() override;
-  bool NeedsSurfaceCopy() const {
-    return mSurfaceCopyNeeded;
-  }
+  bool NeedsSurfaceCopy() const { return mSurfaceCopyNeeded; }
 
-  RenderViewMLGPU* GetRenderView() const {
-    return mView;
-  }
-  void SetRenderView(RenderViewMLGPU* aView) {
+  RenderViewMLGPU* GetRenderView() const { return mView; }
+  void SetRenderView(RenderViewMLGPU* aView)
+  {
     MOZ_ASSERT(!mView);
     mView = aView;
   }
 
-protected:
+ protected:
   bool OnPrepareToRender(FrameBuilder* aBuilder) override;
   void OnLayerManagerChange(LayerManagerMLGPU* aManager) override;
   Maybe<gfx::IntRect> ComputeIntermediateSurfaceBounds();
 
-private:
+ private:
   RefPtr<MLGRenderTarget> mRenderTarget;
 
   // We cache these since occlusion culling can change the visible region.
@@ -90,7 +77,7 @@ private:
   RenderViewMLGPU* mView;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_ContainerLayerMLGPU_h
+#endif  // mozilla_gfx_layers_mlgpu_ContainerLayerMLGPU_h

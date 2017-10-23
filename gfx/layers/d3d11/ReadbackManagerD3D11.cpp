@@ -22,7 +22,8 @@ namespace layers {
 // the only member accessed off the main thread here is mReadbackTexture. Since
 // mSink may be released only on the main thread this object should always be
 // destroyed on the main thread!
-struct ReadbackTask {
+struct ReadbackTask
+{
   // The texture that we copied the contents of the paintedlayer to.
   RefPtr<ID3D10Texture2D> mReadbackTexture;
   // The sink that we're trying to read back to.
@@ -35,8 +36,8 @@ class ReadbackResultWriterD3D11 final : public nsIRunnable
 {
   ~ReadbackResultWriterD3D11() {}
   NS_DECL_THREADSAFE_ISUPPORTS
-public:
-  explicit ReadbackResultWriterD3D11(ReadbackTask *aTask) : mTask(aTask) {}
+ public:
+  explicit ReadbackResultWriterD3D11(ReadbackTask* aTask) : mTask(aTask) {}
 
   NS_IMETHOD Run() override
   {
@@ -54,10 +55,11 @@ public:
     }
 
     {
-      RefPtr<DataSourceSurface> surf =
-        Factory::CreateWrappingDataSourceSurface((uint8_t*)mappedTex.pData, mappedTex.RowPitch,
-                                                 IntSize(desc.Width, desc.Height),
-                                                 SurfaceFormat::B8G8R8A8);
+      RefPtr<DataSourceSurface> surf = Factory::CreateWrappingDataSourceSurface(
+          (uint8_t*)mappedTex.pData,
+          mappedTex.RowPitch,
+          IntSize(desc.Width, desc.Height),
+          SurfaceFormat::B8G8R8A8);
 
       mTask->mSink->ProcessReadback(surf);
 
@@ -69,21 +71,21 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   nsAutoPtr<ReadbackTask> mTask;
 };
 
 NS_IMPL_ISUPPORTS(ReadbackResultWriterD3D11, nsIRunnable)
 
-DWORD WINAPI ReadbackManagerD3D11::StartTaskThread(void *aManager)
+DWORD WINAPI
+ReadbackManagerD3D11::StartTaskThread(void* aManager)
 {
   static_cast<ReadbackManagerD3D11*>(aManager)->ProcessTasks();
 
   return 0;
 }
 
-ReadbackManagerD3D11::ReadbackManagerD3D11()
-  : mRefCnt(0)
+ReadbackManagerD3D11::ReadbackManagerD3D11() : mRefCnt(0)
 {
   ::InitializeCriticalSection(&mTaskMutex);
   mShutdownEvent = ::CreateEventA(nullptr, FALSE, FALSE, nullptr);
@@ -104,14 +106,16 @@ ReadbackManagerD3D11::~ReadbackManagerD3D11()
     ::CloseHandle(mTaskSemaphore);
     ::CloseHandle(mTaskThread);
   } else {
-    NS_RUNTIMEABORT("ReadbackManager: Task thread did not shutdown in 5 seconds.");
+    NS_RUNTIMEABORT(
+        "ReadbackManager: Task thread did not shutdown in 5 seconds.");
   }
 }
 
 void
-ReadbackManagerD3D11::PostTask(ID3D10Texture2D *aTexture, TextureReadbackSink* aSink)
+ReadbackManagerD3D11::PostTask(ID3D10Texture2D* aTexture,
+                               TextureReadbackSink* aSink)
 {
-  ReadbackTask *task = new ReadbackTask;
+  ReadbackTask* task = new ReadbackTask;
   task->mReadbackTexture = aTexture;
   task->mSink = aSink;
 
@@ -125,7 +129,7 @@ ReadbackManagerD3D11::PostTask(ID3D10Texture2D *aTexture, TextureReadbackSink* a
 void
 ReadbackManagerD3D11::ProcessTasks()
 {
-  HANDLE handles[] = { mTaskSemaphore, mShutdownEvent };
+  HANDLE handles[] = {mTaskSemaphore, mShutdownEvent};
 
   while (true) {
     DWORD result = ::WaitForMultipleObjects(2, handles, FALSE, INFINITE);
@@ -137,7 +141,7 @@ ReadbackManagerD3D11::ProcessTasks()
     if (mPendingReadbackTasks.Length() == 0) {
       NS_RUNTIMEABORT("Trying to read from an empty array, bad bad bad");
     }
-    ReadbackTask *nextReadbackTask = mPendingReadbackTasks[0].forget();
+    ReadbackTask* nextReadbackTask = mPendingReadbackTasks[0].forget();
     mPendingReadbackTasks.RemoveElementAt(0);
     ::LeaveCriticalSection(&mTaskMutex);
 
@@ -156,5 +160,5 @@ ReadbackManagerD3D11::ProcessTasks()
   }
 }
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla

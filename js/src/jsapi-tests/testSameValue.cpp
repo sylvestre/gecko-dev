@@ -7,9 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testSameValue)
-{
-
+BEGIN_TEST(testSameValue) {
     /*
      * NB: passing a double that fits in an integer jsval is API misuse.  As a
      * matter of defense in depth, however, JS_SameValue should return the

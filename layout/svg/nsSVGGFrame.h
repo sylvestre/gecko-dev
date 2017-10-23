@@ -13,23 +13,26 @@
 
 class nsSVGGFrame : public nsSVGDisplayContainerFrame
 {
-  friend nsIFrame*
-  NS_NewSVGGFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewSVGGFrame(nsIPresShell* aPresShell,
+                                   nsStyleContext* aContext);
   explicit nsSVGGFrame(nsStyleContext* aContext)
-    : nsSVGGFrame(aContext, kClassID) {}
+      : nsSVGGFrame(aContext, kClassID)
+  {
+  }
 
-protected:
+ protected:
   nsSVGGFrame(nsStyleContext* aContext, nsIFrame::ClassID aID)
-    : nsSVGDisplayContainerFrame(aContext, aID)
-  {}
+      : nsSVGDisplayContainerFrame(aContext, aID)
+  {
+  }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSVGGFrame)
 
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
 #ifdef DEBUG_FRAME_DUMP
@@ -40,9 +43,9 @@ public:
 #endif
 
   // nsIFrame interface:
-  virtual nsresult AttributeChanged(int32_t         aNameSpaceID,
-                                    nsAtom*        aAttribute,
-                                    int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 };
 
 #endif

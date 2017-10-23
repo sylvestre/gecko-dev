@@ -21,4 +21,4 @@
 #include "nsString.h"
 #include "nsReadableUtils.h"
 
-#endif // nsStringGlue_h__
+#endif  // nsStringGlue_h__

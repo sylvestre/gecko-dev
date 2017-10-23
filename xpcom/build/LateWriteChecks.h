@@ -17,9 +17,9 @@ namespace mozilla {
 /** Different shutdown check modes */
 enum ShutdownChecksMode
 {
-  SCM_CRASH,      /** Crash on shutdown check failure */
-  SCM_RECORD,     /** Record shutdown check violations */
-  SCM_NOTHING     /** Don't attempt any shutdown checks */
+  SCM_CRASH,  /** Crash on shutdown check failure */
+  SCM_RECORD, /** Record shutdown check violations */
+  SCM_NOTHING /** Don't attempt any shutdown checks */
 };
 
 /**
@@ -33,7 +33,8 @@ extern ShutdownChecksMode gShutdownChecks;
  * write checks. This function must be invoked before BeginLateWriteChecks()
  * and before XPCOM has stopped working.
  */
-void InitLateWriteChecks();
+void
+InitLateWriteChecks();
 
 /**
  * Begin recording all writes as late-writes. This function should be called
@@ -46,15 +47,17 @@ void InitLateWriteChecks();
  *
  * Note: BeginLateWriteChecks() must have been invoked before this function.
  */
-void BeginLateWriteChecks();
+void
+BeginLateWriteChecks();
 
 /**
  * Stop recording all writes as late-writes, call this function when you want
  * late-write checks to stop. I.e. exception handling, or the special case on
  * Mac described in bug 826029.
  */
-void StopLateWriteChecks();
+void
+StopLateWriteChecks();
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_LateWriteChecks_h
+#endif  // mozilla_LateWriteChecks_h

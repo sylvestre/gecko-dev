@@ -12,7 +12,7 @@
 #include "nsDebug.h"
 #include "nsSVGElement.h"
 #include "nsTArray.h"
-#include "SVGPointList.h" // IWYU pragma: keep
+#include "SVGPointList.h"  // IWYU pragma: keep
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
 
@@ -47,23 +47,20 @@ class SVGAnimatedPointList;
  *
  * Our DOM items are created lazily on demand as and when script requests them.
  */
-class DOMSVGPointList final : public nsISupports,
-                              public nsWrapperCache
+class DOMSVGPointList final : public nsISupports, public nsWrapperCache
 {
   friend class AutoChangePointListNotifier;
   friend class nsISVGPoint;
   friend class mozilla::DOMSVGPoint;
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGPointList)
 
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  nsISupports* GetParentObject()
-  {
-    return static_cast<nsIContent*>(mElement);
-  }
+  nsISupports* GetParentObject() { return static_cast<nsIContent*>(mElement); }
 
   /**
    * Factory method to create and return a DOMSVGPointList wrapper
@@ -82,27 +79,26 @@ public:
    * use the addresses of these members as the key for the hash table, and
    * clearly SVGPointList* and a SVGPointList** are not the same type.
    */
-  static already_AddRefed<DOMSVGPointList>
-  GetDOMWrapper(void *aList,
-                nsSVGElement *aElement,
-                bool aIsAnimValList);
+  static already_AddRefed<DOMSVGPointList> GetDOMWrapper(void* aList,
+                                                         nsSVGElement* aElement,
+                                                         bool aIsAnimValList);
 
   /**
    * This method returns the DOMSVGPointList wrapper for an internal
    * SVGPointList object if it currently has a wrapper. If it does
    * not, then nullptr is returned.
    */
-  static DOMSVGPointList*
-  GetDOMWrapperIfExists(void *aList);
+  static DOMSVGPointList* GetDOMWrapperIfExists(void* aList);
 
   /**
    * This will normally be the same as InternalList().Length(), except if
    * we've hit OOM, in which case our length will be zero.
    */
-  uint32_t LengthNoFlush() const {
-    MOZ_ASSERT(mItems.Length() == 0 ||
-               mItems.Length() == InternalList().Length(),
-               "DOM wrapper's list length is out of sync");
+  uint32_t LengthNoFlush() const
+  {
+    MOZ_ASSERT(
+        mItems.Length() == 0 || mItems.Length() == InternalList().Length(),
+        "DOM wrapper's list length is out of sync");
     return mItems.Length();
   }
 
@@ -144,9 +140,9 @@ public:
   void Clear(ErrorResult& aError);
   already_AddRefed<nsISVGPoint> Initialize(nsISVGPoint& aNewItem,
                                            ErrorResult& aError);
-  already_AddRefed<nsISVGPoint> GetItem(uint32_t index,
-                                        ErrorResult& error);
-  already_AddRefed<nsISVGPoint> IndexedGetter(uint32_t index, bool& found,
+  already_AddRefed<nsISVGPoint> GetItem(uint32_t index, ErrorResult& error);
+  already_AddRefed<nsISVGPoint> IndexedGetter(uint32_t index,
+                                              bool& found,
                                               ErrorResult& error);
   already_AddRefed<nsISVGPoint> InsertItemBefore(nsISVGPoint& aNewItem,
                                                  uint32_t aIndex,
@@ -161,34 +157,25 @@ public:
   {
     return InsertItemBefore(aNewItem, LengthNoFlush(), aError);
   }
-  uint32_t Length() const
-  {
-    return NumberOfItems();
-  }
+  uint32_t Length() const { return NumberOfItems(); }
 
-private:
-
+ private:
   /**
    * Only our static GetDOMWrapper() factory method may create objects of our
    * type.
    */
-  DOMSVGPointList(nsSVGElement *aElement, bool aIsAnimValList)
-    : mElement(aElement)
-    , mIsAnimValList(aIsAnimValList)
+  DOMSVGPointList(nsSVGElement* aElement, bool aIsAnimValList)
+      : mElement(aElement), mIsAnimValList(aIsAnimValList)
   {
-    InternalListWillChangeTo(InternalList()); // Sync mItems
+    InternalListWillChangeTo(InternalList());  // Sync mItems
   }
 
   ~DOMSVGPointList();
 
-  nsSVGElement* Element() const {
-    return mElement.get();
-  }
+  nsSVGElement* Element() const { return mElement.get(); }
 
   /// Used to determine if this list is the baseVal or animVal list.
-  bool IsAnimValList() const {
-    return mIsAnimValList;
-  }
+  bool IsAnimValList() const { return mIsAnimValList; }
 
   /**
    * Get a reference to this object's corresponding internal SVGPointList.
@@ -219,6 +206,6 @@ private:
   bool mIsAnimValList;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_DOMSVGPOINTLIST_H__
+#endif  // MOZILLA_DOMSVGPOINTLIST_H__

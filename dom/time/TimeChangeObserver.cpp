@@ -26,7 +26,8 @@ class nsSystemTimeChangeObserver : public SystemClockChangeObserver,
                                    public SystemTimezoneChangeObserver
 {
   typedef nsTObserverArray<nsWeakPtr> ListenerArray;
-public:
+
+ public:
   static nsSystemTimeChangeObserver* GetInstance();
   virtual ~nsSystemTimeChangeObserver();
 
@@ -34,21 +35,22 @@ public:
   void Notify(const int64_t& aClockDeltaMS);
 
   // Implementing hal::SystemTimezoneChangeObserver::Notify()
-  void Notify(
-    const mozilla::hal::SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo);
+  void Notify(const mozilla::hal::SystemTimezoneChangeInformation&
+                  aSystemTimezoneChangeInfo);
 
   nsresult AddWindowListenerImpl(nsPIDOMWindowInner* aWindow);
   nsresult RemoveWindowListenerImpl(nsPIDOMWindowInner* aWindow);
 
-private:
-  nsSystemTimeChangeObserver() { };
+ private:
+  nsSystemTimeChangeObserver(){};
   ListenerArray mWindowListeners;
   void FireMozTimeChangeEvent();
 };
 
 StaticAutoPtr<nsSystemTimeChangeObserver> sObserver;
 
-nsSystemTimeChangeObserver* nsSystemTimeChangeObserver::GetInstance()
+nsSystemTimeChangeObserver*
+nsSystemTimeChangeObserver::GetInstance()
 {
   if (!sObserver) {
     sObserver = new nsSystemTimeChangeObserver();
@@ -72,16 +74,17 @@ nsSystemTimeChangeObserver::FireMozTimeChangeEvent()
     nsCOMPtr<nsPIDOMWindowInner> innerWindow = do_QueryReferent(weakWindow);
     nsCOMPtr<nsPIDOMWindowOuter> outerWindow;
     nsCOMPtr<nsIDocument> document;
-    if (!innerWindow ||
-        !(document = innerWindow->GetExtantDoc()) ||
+    if (!innerWindow || !(document = innerWindow->GetExtantDoc()) ||
         !(outerWindow = innerWindow->GetOuterWindow())) {
       mWindowListeners.RemoveElement(weakWindow);
       continue;
     }
 
-    nsContentUtils::DispatchTrustedEvent(document, outerWindow,
-      NS_LITERAL_STRING("moztimechange"), /* bubbles = */ true,
-      /* canceable = */ false);
+    nsContentUtils::DispatchTrustedEvent(document,
+                                         outerWindow,
+                                         NS_LITERAL_STRING("moztimechange"),
+                                         /* bubbles = */ true,
+                                         /* canceable = */ false);
   }
 }
 
@@ -94,7 +97,7 @@ nsSystemTimeChangeObserver::Notify(const int64_t& aClockDeltaMS)
     nsString dataStr;
     dataStr.AppendFloat(static_cast<double>(aClockDeltaMS));
     observerService->NotifyObservers(
-      nullptr, "system-clock-change", dataStr.get());
+        nullptr, "system-clock-change", dataStr.get());
   }
 
   FireMozTimeChangeEvent();
@@ -102,7 +105,7 @@ nsSystemTimeChangeObserver::Notify(const int64_t& aClockDeltaMS)
 
 void
 nsSystemTimeChangeObserver::Notify(
-  const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
+    const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
 {
   FireMozTimeChangeEvent();
 }
@@ -110,7 +113,8 @@ nsSystemTimeChangeObserver::Notify(
 nsresult
 mozilla::time::AddWindowListener(nsPIDOMWindowInner* aWindow)
 {
-  return nsSystemTimeChangeObserver::GetInstance()->AddWindowListenerImpl(aWindow);
+  return nsSystemTimeChangeObserver::GetInstance()->AddWindowListenerImpl(
+      aWindow);
 }
 
 nsresult
@@ -121,7 +125,8 @@ nsSystemTimeChangeObserver::AddWindowListenerImpl(nsPIDOMWindowInner* aWindow)
   }
 
   nsWeakPtr windowWeakRef = do_GetWeakReference(aWindow);
-  NS_ASSERTION(windowWeakRef, "nsIDOMWindow implementations shuld support weak ref");
+  NS_ASSERTION(windowWeakRef,
+               "nsIDOMWindow implementations shuld support weak ref");
 
   if (mWindowListeners.IndexOf(windowWeakRef) !=
       ListenerArray::array_type::NoIndex) {
@@ -144,11 +149,13 @@ mozilla::time::RemoveWindowListener(nsPIDOMWindowInner* aWindow)
     return NS_OK;
   }
 
-  return nsSystemTimeChangeObserver::GetInstance()->RemoveWindowListenerImpl(aWindow);
+  return nsSystemTimeChangeObserver::GetInstance()->RemoveWindowListenerImpl(
+      aWindow);
 }
 
 nsresult
-nsSystemTimeChangeObserver::RemoveWindowListenerImpl(nsPIDOMWindowInner* aWindow)
+nsSystemTimeChangeObserver::RemoveWindowListenerImpl(
+    nsPIDOMWindowInner* aWindow)
 {
   if (!aWindow) {
     return NS_OK;

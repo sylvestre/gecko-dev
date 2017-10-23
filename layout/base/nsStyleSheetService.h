@@ -23,18 +23,21 @@ class nsIMemoryReporter;
 class nsIPresShell;
 class nsISimpleEnumerator;
 
-#define NS_STYLESHEETSERVICE_CID \
-{ 0x3b55e72e, 0xab7e, 0x431b, \
-  { 0x89, 0xc0, 0x3b, 0x06, 0xa8, 0xb1, 0x40, 0x16 } }
+#define NS_STYLESHEETSERVICE_CID                     \
+  {                                                  \
+    0x3b55e72e, 0xab7e, 0x431b,                      \
+    {                                                \
+      0x89, 0xc0, 0x3b, 0x06, 0xa8, 0xb1, 0x40, 0x16 \
+    }                                                \
+  }
 
 #define NS_STYLESHEETSERVICE_CONTRACTID \
   "@mozilla.org/content/style-sheet-service;1"
 
-class nsStyleSheetService final
-  : public nsIStyleSheetService
-  , public nsIMemoryReporter
+class nsStyleSheetService final : public nsIStyleSheetService,
+                                  public nsIMemoryReporter
 {
-public:
+ public:
   typedef nsTArray<RefPtr<mozilla::StyleSheet>> SheetArray;
 
   nsStyleSheetService();
@@ -63,16 +66,16 @@ public:
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-  static nsStyleSheetService *GetInstance();
-  static nsStyleSheetService *gInstance;
+  static nsStyleSheetService* GetInstance();
+  static nsStyleSheetService* gInstance;
 
-private:
+ private:
   ~nsStyleSheetService();
 
-  void RegisterFromEnumerator(nsICategoryManager  *aManager,
-                                          const char          *aCategory,
-                                          nsISimpleEnumerator *aEnumerator,
-                                          uint32_t             aSheetType);
+  void RegisterFromEnumerator(nsICategoryManager* aManager,
+                              const char* aCategory,
+                              nsISimpleEnumerator* aEnumerator,
+                              uint32_t aSheetType);
 
   int32_t FindSheetByURI(mozilla::StyleBackendType aBackendType,
                          uint32_t aSheetType,
@@ -80,8 +83,7 @@ private:
 
   // Like LoadAndRegisterSheet, but doesn't notify.  If successful, the
   // new sheet will be the last sheet in mSheets[aSheetType].
-  nsresult LoadAndRegisterSheetInternal(nsIURI *aSheetURI,
-                                        uint32_t aSheetType);
+  nsresult LoadAndRegisterSheetInternal(nsIURI* aSheetURI, uint32_t aSheetType);
 
   mozilla::Array<SheetArray, 3>& Sheets(mozilla::StyleBackendType aType)
   {

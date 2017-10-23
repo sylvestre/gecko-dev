@@ -39,20 +39,20 @@ extern "C" {
  */
 #include <OMX_Types.h>
 
-
 /** Set/query the commit mode */
-typedef struct OMX_CONFIG_COMMITMODETYPE {
-    OMX_U32 nSize;
-    OMX_VERSIONTYPE nVersion;
-    OMX_BOOL bDeferred;
+typedef struct OMX_CONFIG_COMMITMODETYPE
+{
+  OMX_U32 nSize;
+  OMX_VERSIONTYPE nVersion;
+  OMX_BOOL bDeferred;
 } OMX_CONFIG_COMMITMODETYPE;
 
 /** Explicit commit */
-typedef struct OMX_CONFIG_COMMITTYPE {
-    OMX_U32 nSize;
-    OMX_VERSIONTYPE nVersion;
+typedef struct OMX_CONFIG_COMMITTYPE
+{
+  OMX_U32 nSize;
+  OMX_VERSIONTYPE nVersion;
 } OMX_CONFIG_COMMITTYPE;
-
 
 #ifdef __cplusplus
 }

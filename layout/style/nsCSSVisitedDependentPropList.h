@@ -22,15 +22,13 @@
 
 STYLE_STRUCT(Color, (mColor))
 STYLE_STRUCT(Background, (mBackgroundColor))
-STYLE_STRUCT(Border, (mBorderTopColor,
-                      mBorderRightColor,
-                      mBorderBottomColor,
-                      mBorderLeftColor))
+STYLE_STRUCT(
+    Border,
+    (mBorderTopColor, mBorderRightColor, mBorderBottomColor, mBorderLeftColor))
 STYLE_STRUCT(Outline, (mOutlineColor))
 STYLE_STRUCT(Column, (mColumnRuleColor))
-STYLE_STRUCT(Text, (mTextEmphasisColor,
-                    mWebkitTextFillColor,
-                    mWebkitTextStrokeColor))
+STYLE_STRUCT(Text,
+             (mTextEmphasisColor, mWebkitTextFillColor, mWebkitTextStrokeColor))
 STYLE_STRUCT(TextReset, (mTextDecorationColor))
 STYLE_STRUCT(SVG, (mFill, mStroke))
 STYLE_STRUCT(UserInterface, (mCaretColor))

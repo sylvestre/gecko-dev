@@ -22,8 +22,8 @@ namespace dom {
 // Script "performance.timing" object
 class PerformanceTiming final : public nsWrapperCache
 {
-public:
-/**
+ public:
+  /**
  * @param   aPerformance
  *          The performance object (the JS parent).
  *          This will allow access to "window.performance.timing" attribute for
@@ -54,10 +54,7 @@ public:
     return mPerformance->GetDOMTiming();
   }
 
-  Performance* GetParentObject() const
-  {
-    return mPerformance;
-  }
+  Performance* GetParentObject() const { return mPerformance; }
 
   /**
    * @param   aStamp
@@ -70,9 +67,8 @@ public:
    */
   inline DOMHighResTimeStamp TimeStampToDOMHighResOrFetchStart(TimeStamp aStamp)
   {
-    return (!aStamp.IsNull())
-        ? TimeStampToDOMHighRes(aStamp)
-        : FetchStartHighRes();
+    return (!aStamp.IsNull()) ? TimeStampToDOMHighRes(aStamp)
+                              : FetchStartHighRes();
   }
 
   /**
@@ -110,7 +106,7 @@ public:
     return duration.ToMilliseconds() + mZeroTime;
   }
 
-  virtual JSObject* WrapObject(JSContext *cx,
+  virtual JSObject* WrapObject(JSContext* cx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   // PerformanceNavigation WebIDL methods
@@ -146,7 +142,8 @@ public:
   // Checks if the resource is either same origin as the page that started
   // the load, or if the response contains the Timing-Allow-Origin header
   // with a value of * or matching the domain of the loading Principal
-  bool CheckAllowedOrigin(nsIHttpChannel* aResourceChannel, nsITimedChannel* aChannel);
+  bool CheckAllowedOrigin(nsIHttpChannel* aResourceChannel,
+                          nsITimedChannel* aChannel);
 
   // Cached result of CheckAllowedOrigin. If false, security sensitive
   // attributes of the resourceTiming object will be set to 0
@@ -260,7 +257,7 @@ public:
     return GetDOMTiming()->GetTimeToNonBlankPaint();
   }
 
-private:
+ private:
   ~PerformanceTiming();
 
   bool IsInitialized() const;
@@ -307,7 +304,7 @@ private:
   bool mReportCrossOriginRedirect;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PerformanceTiming_h
+#endif  // mozilla_dom_PerformanceTiming_h

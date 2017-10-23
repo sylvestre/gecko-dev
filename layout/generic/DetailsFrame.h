@@ -19,10 +19,10 @@ namespace mozilla {
 // nsCSSFrameConstructor::ConstructDetailsFrame for the structure of a
 // DetailsFrame.
 //
-class DetailsFrame final : public nsBlockFrame
-                         , public nsIAnonymousContentCreator
+class DetailsFrame final : public nsBlockFrame,
+                           public nsIAnonymousContentCreator
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(DetailsFrame)
   NS_DECL_QUERYFRAME
 
@@ -60,10 +60,10 @@ public:
   // removed from the details element children.
   bool HasMainSummaryFrame(nsIFrame* aSummaryFrame);
 
-private:
+ private:
   nsCOMPtr<nsIContent> mDefaultSummary;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DetailsFrame_h
+#endif  // DetailsFrame_h

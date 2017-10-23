@@ -12,9 +12,13 @@
 #include "DOMSVGPointList.h"
 
 // {d6b6c440-af8d-40ee-856b-02a317cab275}
-#define MOZILLA_NSISVGPOINT_IID \
-  { 0xd6b6c440, 0xaf8d, 0x40ee, \
-    { 0x85, 0x6b, 0x02, 0xa3, 0x17, 0xca, 0xb2, 0x75 } }
+#define MOZILLA_NSISVGPOINT_IID                      \
+  {                                                  \
+    0xd6b6c440, 0xaf8d, 0x40ee,                      \
+    {                                                \
+      0x85, 0x6b, 0x02, 0xa3, 0x17, 0xca, 0xb2, 0x75 \
+    }                                                \
+  }
 
 #define MOZ_SVG_LIST_INDEX_BIT_COUNT 29
 
@@ -22,7 +26,7 @@ namespace mozilla {
 
 namespace dom {
 class SVGMatrix;
-} // namespace dom
+}  // namespace dom
 
 /**
  * Class nsISVGPoint
@@ -30,10 +34,9 @@ class SVGMatrix;
  * This class creates the DOM objects that wrap internal SVGPoint objects.
  * An nsISVGPoint can be either a DOMSVGPoint or a DOMSVGTranslatePoint
  */
-class nsISVGPoint : public nsISupports,
-                    public nsWrapperCache
+class nsISVGPoint : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(MOZILLA_NSISVGPOINT_IID)
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsISVGPoint)
@@ -42,26 +45,26 @@ public:
    * Generic ctor for DOMSVGPoint objects that are created for an attribute.
    */
   explicit nsISVGPoint()
-    : mList(nullptr)
-    , mListIndex(0)
-    , mIsReadonly(false)
-    , mIsAnimValItem(false)
-    , mIsTranslatePoint(false)
+      : mList(nullptr),
+        mListIndex(0),
+        mIsReadonly(false),
+        mIsAnimValItem(false),
+        mIsTranslatePoint(false)
   {
   }
 
   explicit nsISVGPoint(SVGPoint* aPt, bool aIsTranslatePoint)
-    : mList(nullptr)
-    , mListIndex(0)
-    , mIsReadonly(false)
-    , mIsAnimValItem(false)
-    , mIsTranslatePoint(aIsTranslatePoint)
+      : mList(nullptr),
+        mListIndex(0),
+        mIsReadonly(false),
+        mIsAnimValItem(false),
+        mIsTranslatePoint(aIsTranslatePoint)
   {
     mPt.mX = aPt->GetX();
     mPt.mY = aPt->GetY();
   }
 
-protected:
+ protected:
   virtual ~nsISVGPoint()
   {
     // Our mList's weak ref to us must be nulled out when we die. If GC has
@@ -72,19 +75,18 @@ protected:
     }
   }
 
-public:
+ public:
   /**
    * Creates an unowned copy of this object's point as a DOMSVGPoint.
    */
   virtual DOMSVGPoint* Copy() = 0;
 
-  SVGPoint ToSVGPoint() const {
+  SVGPoint ToSVGPoint() const
+  {
     return HasOwner() ? const_cast<nsISVGPoint*>(this)->InternalItem() : mPt;
   }
 
-  bool IsInList() const {
-    return !!mList;
-  }
+  bool IsInList() const { return !!mList; }
 
   /**
    * In future, if this class is used for non-list points, this will be
@@ -92,13 +94,9 @@ public:
    * internal counterpart from which it gets its values. (A better name may
    * be HasWrappee().)
    */
-  bool HasOwner() const {
-    return !!mList;
-  }
+  bool HasOwner() const { return !!mList; }
 
-  bool IsTranslatePoint() const {
-    return mIsTranslatePoint;
-  }
+  bool IsTranslatePoint() const { return mIsTranslatePoint; }
 
   /**
    * This method is called to notify this DOM object that it is being inserted
@@ -109,18 +107,17 @@ public:
    * lists - it can - it's just that the logic to handle that (and send out
    * the necessary notifications) is located elsewhere (in DOMSVGPointList).)
    */
-  void InsertingIntoList(DOMSVGPointList *aList,
+  void InsertingIntoList(DOMSVGPointList* aList,
                          uint32_t aListIndex,
                          bool aIsAnimValItem);
 
-  static uint32_t MaxListIndex() {
+  static uint32_t MaxListIndex()
+  {
     return (1U << MOZ_SVG_LIST_INDEX_BIT_COUNT) - 1;
   }
 
   /// This method is called to notify this object that its list index changed.
-  void UpdateListIndex(uint32_t aListIndex) {
-    mListIndex = aListIndex;
-  }
+  void UpdateListIndex(uint32_t aListIndex) { mListIndex = aListIndex; }
 
   /**
    * This method is called to notify this DOM object that it is about to be
@@ -130,25 +127,25 @@ public:
    */
   void RemovingFromList();
 
-  bool IsReadonly() const {
-    return mIsReadonly;
-  }
-  void SetReadonly(bool aReadonly) {
-    mIsReadonly = aReadonly;
-  }
+  bool IsReadonly() const { return mIsReadonly; }
+  void SetReadonly(bool aReadonly) { mIsReadonly = aReadonly; }
 
   // WebIDL
   virtual float X() = 0;
   virtual void SetX(float aX, ErrorResult& rv) = 0;
   virtual float Y() = 0;
   virtual void SetY(float aY, ErrorResult& rv) = 0;
-  virtual already_AddRefed<nsISVGPoint> MatrixTransform(dom::SVGMatrix& matrix) = 0;
-  virtual JSObject* WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto) override
-    { return dom::SVGPointBinding::Wrap(cx, this, aGivenProto); }
+  virtual already_AddRefed<nsISVGPoint> MatrixTransform(
+      dom::SVGMatrix& matrix) = 0;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> aGivenProto) override
+  {
+    return dom::SVGPointBinding::Wrap(cx, this, aGivenProto);
+  }
 
   virtual nsISupports* GetParentObject() = 0;
 
-protected:
+ protected:
 #ifdef DEBUG
   bool IndexIsValid();
 #endif
@@ -158,10 +155,10 @@ protected:
   // Bounds for the following are checked in the ctor, so be sure to update
   // that if you change the capacity of any of the following.
 
-  uint32_t mListIndex:MOZ_SVG_LIST_INDEX_BIT_COUNT;
-  uint32_t mIsReadonly:1;       // These flags are uint32_t because MSVC won't
-  uint32_t mIsAnimValItem:1;    // pack otherwise.
-  uint32_t mIsTranslatePoint:1;
+  uint32_t mListIndex : MOZ_SVG_LIST_INDEX_BIT_COUNT;
+  uint32_t mIsReadonly : 1;     // These flags are uint32_t because MSVC won't
+  uint32_t mIsAnimValItem : 1;  // pack otherwise.
+  uint32_t mIsTranslatePoint : 1;
 
   /**
    * Get a reference to the internal SVGPoint list item that this DOM wrapper
@@ -180,8 +177,6 @@ protected:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsISVGPoint, MOZILLA_NSISVGPOINT_IID)
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #undef MOZ_SVG_LIST_INDEX_BIT_COUNT
-
-

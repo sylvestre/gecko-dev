@@ -14,16 +14,15 @@ using namespace mozilla::dom;
 namespace mozilla {
 
 ServoDocumentRule::ServoDocumentRule(RefPtr<RawServoDocumentRule> aRawRule,
-                                     uint32_t aLine, uint32_t aColumn)
-  : CSSMozDocumentRule(Servo_DocumentRule_GetRules(aRawRule).Consume(),
-                       aLine, aColumn)
-  , mRawRule(Move(aRawRule))
+                                     uint32_t aLine,
+                                     uint32_t aColumn)
+    : CSSMozDocumentRule(
+          Servo_DocumentRule_GetRules(aRawRule).Consume(), aLine, aColumn),
+      mRawRule(Move(aRawRule))
 {
 }
 
-ServoDocumentRule::~ServoDocumentRule()
-{
-}
+ServoDocumentRule::~ServoDocumentRule() {}
 
 NS_IMPL_ADDREF_INHERITED(ServoDocumentRule, CSSMozDocumentRule)
 NS_IMPL_RELEASE_INHERITED(ServoDocumentRule, CSSMozDocumentRule)
@@ -87,11 +86,11 @@ ServoDocumentRule::GetCssTextImpl(nsAString& aCssText) const
 }
 
 /* virtual */ size_t
-ServoDocumentRule::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
-  const
+ServoDocumentRule::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf) const
 {
   // TODO Implement this!
   return aMallocSizeOf(this);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

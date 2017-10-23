@@ -27,17 +27,20 @@ SEC_ASN1_MKSUB(SECOID_AlgorithmIDTemplate)
 
 NS_IMPL_ISUPPORTS(nsDataSignatureVerifier, nsIDataSignatureVerifier)
 
-const SEC_ASN1Template CERT_SignatureDataTemplate[] =
-{
-    { SEC_ASN1_SEQUENCE,
-        0, nullptr, sizeof(CERTSignedData) },
-    { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
-        offsetof(CERTSignedData,signatureAlgorithm),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate), },
-    { SEC_ASN1_BIT_STRING,
-        offsetof(CERTSignedData,signature), },
-    { 0, }
-};
+const SEC_ASN1Template CERT_SignatureDataTemplate[] = {
+    {SEC_ASN1_SEQUENCE, 0, nullptr, sizeof(CERTSignedData)},
+    {
+        SEC_ASN1_INLINE | SEC_ASN1_XTRN,
+        offsetof(CERTSignedData, signatureAlgorithm),
+        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate),
+    },
+    {
+        SEC_ASN1_BIT_STRING,
+        offsetof(CERTSignedData, signature),
+    },
+    {
+        0,
+    }};
 
 nsDataSignatureVerifier::~nsDataSignatureVerifier()
 {
@@ -81,12 +84,12 @@ nsDataSignatureVerifier::VerifyData(const nsACString& aData,
 
   // Extract the public key from the data
   SECItem keyItem = {
-    siBuffer,
-    BitwiseCast<unsigned char*, const char*>(key.get()),
-    key.Length(),
+      siBuffer,
+      BitwiseCast<unsigned char*, const char*>(key.get()),
+      key.Length(),
   };
   UniqueCERTSubjectPublicKeyInfo pki(
-    SECKEY_DecodeDERSubjectPublicKeyInfo(&keyItem));
+      SECKEY_DecodeDERSubjectPublicKeyInfo(&keyItem));
   if (!pki) {
     return NS_ERROR_FAILURE;
   }
@@ -111,13 +114,12 @@ nsDataSignatureVerifier::VerifyData(const nsACString& aData,
   CERTSignedData sigData;
   PORT_Memset(&sigData, 0, sizeof(CERTSignedData));
   SECItem signatureItem = {
-    siBuffer,
-    BitwiseCast<unsigned char*, const char*>(signature.get()),
-    signature.Length(),
+      siBuffer,
+      BitwiseCast<unsigned char*, const char*>(signature.get()),
+      signature.Length(),
   };
-  SECStatus srv = SEC_QuickDERDecodeItem(arena.get(), &sigData,
-                                         CERT_SignatureDataTemplate,
-                                         &signatureItem);
+  SECStatus srv = SEC_QuickDERDecodeItem(
+      arena.get(), &sigData, CERT_SignatureDataTemplate, &signatureItem);
   if (srv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
@@ -125,10 +127,14 @@ nsDataSignatureVerifier::VerifyData(const nsACString& aData,
   // Perform the final verification
   DER_ConvertBitString(&(sigData.signature));
   srv = VFY_VerifyDataWithAlgorithmID(
-    BitwiseCast<const unsigned char*, const char*>(
-      PromiseFlatCString(aData).get()),
-    aData.Length(), publicKey.get(), &(sigData.signature),
-    &(sigData.signatureAlgorithm), nullptr, nullptr);
+      BitwiseCast<const unsigned char*, const char*>(
+          PromiseFlatCString(aData).get()),
+      aData.Length(),
+      publicKey.get(),
+      &(sigData.signature),
+      &(sigData.signatureAlgorithm),
+      nullptr,
+      nullptr);
 
   *_retval = (srv == SECSuccess);
 
@@ -139,24 +145,30 @@ namespace mozilla {
 
 nsresult
 VerifyCMSDetachedSignatureIncludingCertificate(
-  const SECItem& buffer, const SECItem& detachedDigest,
-  nsresult (*verifyCertificate)(CERTCertificate* cert, void* context,
-                                void* pinArg),
-  void* verifyCertificateContext, void* pinArg,
-  const nsNSSShutDownPreventionLock& /*proofOfLock*/)
+    const SECItem& buffer,
+    const SECItem& detachedDigest,
+    nsresult (*verifyCertificate)(CERTCertificate* cert,
+                                  void* context,
+                                  void* pinArg),
+    void* verifyCertificateContext,
+    void* pinArg,
+    const nsNSSShutDownPreventionLock& /*proofOfLock*/)
 {
   // XXX: missing pinArg is tolerated.
   if (NS_WARN_IF(!buffer.data && buffer.len > 0) ||
       NS_WARN_IF(!detachedDigest.data && detachedDigest.len > 0) ||
-      (!verifyCertificate) ||
-      NS_WARN_IF(!verifyCertificateContext)) {
+      (!verifyCertificate) || NS_WARN_IF(!verifyCertificateContext)) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  UniqueNSSCMSMessage
-    cmsMsg(NSS_CMSMessage_CreateFromDER(const_cast<SECItem*>(&buffer), nullptr,
-                                        nullptr, nullptr, nullptr, nullptr,
-                                        nullptr));
+  UniqueNSSCMSMessage cmsMsg(
+      NSS_CMSMessage_CreateFromDER(const_cast<SECItem*>(&buffer),
+                                   nullptr,
+                                   nullptr,
+                                   nullptr,
+                                   nullptr,
+                                   nullptr,
+                                   nullptr));
   if (!cmsMsg) {
     return NS_ERROR_CMS_VERIFY_ERROR_PROCESSING;
   }
@@ -172,14 +184,14 @@ VerifyCMSDetachedSignatureIncludingCertificate(
 
   // signedData is non-owning
   NSSCMSSignedData* signedData =
-    static_cast<NSSCMSSignedData*>(NSS_CMSContentInfo_GetContent(cinfo));
+      static_cast<NSSCMSSignedData*>(NSS_CMSContentInfo_GetContent(cinfo));
   if (!signedData) {
     return NS_ERROR_CMS_VERIFY_NO_CONTENT_INFO;
   }
 
   // Set digest value.
-  if (NSS_CMSSignedData_SetDigestValue(signedData, SEC_OID_SHA1,
-                                       const_cast<SECItem*>(&detachedDigest))) {
+  if (NSS_CMSSignedData_SetDigestValue(
+          signedData, SEC_OID_SHA1, const_cast<SECItem*>(&detachedDigest))) {
     return NS_ERROR_CMS_VERIFY_BAD_DIGEST;
   }
 
@@ -191,10 +203,12 @@ VerifyCMSDetachedSignatureIncludingCertificate(
   }
   if (signedData->rawCerts) {
     for (size_t i = 0; signedData->rawCerts[i]; ++i) {
-      UniqueCERTCertificate
-        cert(CERT_NewTempCertificate(CERT_GetDefaultCertDB(),
-                                     signedData->rawCerts[i], nullptr, false,
-                                     true));
+      UniqueCERTCertificate cert(
+          CERT_NewTempCertificate(CERT_GetDefaultCertDB(),
+                                  signedData->rawCerts[i],
+                                  nullptr,
+                                  false,
+                                  true));
       // Skip certificates that fail to parse
       if (!cert) {
         continue;
@@ -204,7 +218,7 @@ VerifyCMSDetachedSignatureIncludingCertificate(
         return NS_ERROR_OUT_OF_MEMORY;
       }
 
-      Unused << cert.release(); // Ownership transferred to the cert list.
+      Unused << cert.release();  // Ownership transferred to the cert list.
     }
   }
 
@@ -219,7 +233,7 @@ VerifyCMSDetachedSignatureIncludingCertificate(
     return NS_ERROR_CMS_VERIFY_ERROR_PROCESSING;
   }
   CERTCertificate* signerCert =
-    NSS_CMSSignerInfo_GetSigningCertificate(signer, CERT_GetDefaultCertDB());
+      NSS_CMSSignerInfo_GetSigningCertificate(signer, CERT_GetDefaultCertDB());
   if (!signerCert) {
     return NS_ERROR_CMS_VERIFY_ERROR_PROCESSING;
   }
@@ -231,14 +245,13 @@ VerifyCMSDetachedSignatureIncludingCertificate(
 
   // See NSS_CMSContentInfo_GetContentTypeOID, which isn't exported from NSS.
   SECOidData* contentTypeOidData =
-    SECOID_FindOID(&signedData->contentInfo.contentType);
+      SECOID_FindOID(&signedData->contentInfo.contentType);
   if (!contentTypeOidData) {
     return NS_ERROR_CMS_VERIFY_ERROR_PROCESSING;
   }
 
-  return MapSECStatus(NSS_CMSSignerInfo_Verify(signer,
-                         const_cast<SECItem*>(&detachedDigest),
-                         &contentTypeOidData->oid));
+  return MapSECStatus(NSS_CMSSignerInfo_Verify(
+      signer, const_cast<SECItem*>(&detachedDigest), &contentTypeOidData->oid));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

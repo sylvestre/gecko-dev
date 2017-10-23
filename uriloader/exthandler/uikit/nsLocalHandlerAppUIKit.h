@@ -11,20 +11,19 @@
 
 class nsLocalHandlerAppUIKit final : public nsLocalHandlerApp
 {
-public:
-  nsLocalHandlerAppUIKit()
-  {}
-  ~nsLocalHandlerAppUIKit()
-  {}
+ public:
+  nsLocalHandlerAppUIKit() {}
+  ~nsLocalHandlerAppUIKit() {}
 
   nsLocalHandlerAppUIKit(const char16_t* aName, nsIFile* aExecutable)
-    : nsLocalHandlerApp(aName, aExecutable)
-  {}
+      : nsLocalHandlerApp(aName, aExecutable)
+  {
+  }
 
   nsLocalHandlerAppUIKit(const nsAString& aName, nsIFile* aExecutable)
-    : nsLocalHandlerApp(aName, aExecutable)
-  {}
-
+      : nsLocalHandlerApp(aName, aExecutable)
+  {
+  }
 
   NS_IMETHOD LaunchWithURI(nsIURI* aURI, nsIInterfaceRequestor* aWindowContext);
 };

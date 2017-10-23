@@ -23,61 +23,64 @@
 
 using namespace mozilla;
 
-enum DOM4ErrorTypeCodeMap {
+enum DOM4ErrorTypeCodeMap
+{
   /* DOM4 errors from http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#domexception */
-  IndexSizeError             = nsIDOMDOMException::INDEX_SIZE_ERR,
-  HierarchyRequestError      = nsIDOMDOMException::HIERARCHY_REQUEST_ERR,
-  WrongDocumentError         = nsIDOMDOMException::WRONG_DOCUMENT_ERR,
-  InvalidCharacterError      = nsIDOMDOMException::INVALID_CHARACTER_ERR,
+  IndexSizeError = nsIDOMDOMException::INDEX_SIZE_ERR,
+  HierarchyRequestError = nsIDOMDOMException::HIERARCHY_REQUEST_ERR,
+  WrongDocumentError = nsIDOMDOMException::WRONG_DOCUMENT_ERR,
+  InvalidCharacterError = nsIDOMDOMException::INVALID_CHARACTER_ERR,
   NoModificationAllowedError = nsIDOMDOMException::NO_MODIFICATION_ALLOWED_ERR,
-  NotFoundError              = nsIDOMDOMException::NOT_FOUND_ERR,
-  NotSupportedError          = nsIDOMDOMException::NOT_SUPPORTED_ERR,
+  NotFoundError = nsIDOMDOMException::NOT_FOUND_ERR,
+  NotSupportedError = nsIDOMDOMException::NOT_SUPPORTED_ERR,
   // Can't remove until setNamedItem is removed
-  InUseAttributeError        = nsIDOMDOMException::INUSE_ATTRIBUTE_ERR,
-  InvalidStateError          = nsIDOMDOMException::INVALID_STATE_ERR,
-  SyntaxError                = nsIDOMDOMException::SYNTAX_ERR,
-  InvalidModificationError   = nsIDOMDOMException::INVALID_MODIFICATION_ERR,
-  NamespaceError             = nsIDOMDOMException::NAMESPACE_ERR,
-  InvalidAccessError         = nsIDOMDOMException::INVALID_ACCESS_ERR,
-  TypeMismatchError          = nsIDOMDOMException::TYPE_MISMATCH_ERR,
-  SecurityError              = nsIDOMDOMException::SECURITY_ERR,
-  NetworkError               = nsIDOMDOMException::NETWORK_ERR,
-  AbortError                 = nsIDOMDOMException::ABORT_ERR,
-  URLMismatchError           = nsIDOMDOMException::URL_MISMATCH_ERR,
-  QuotaExceededError         = nsIDOMDOMException::QUOTA_EXCEEDED_ERR,
-  TimeoutError               = nsIDOMDOMException::TIMEOUT_ERR,
-  InvalidNodeTypeError       = nsIDOMDOMException::INVALID_NODE_TYPE_ERR,
-  DataCloneError             = nsIDOMDOMException::DATA_CLONE_ERR,
-  InvalidPointerId           = nsIDOMDOMException::INVALID_POINTER_ERR,
-  EncodingError              = 0,
+  InUseAttributeError = nsIDOMDOMException::INUSE_ATTRIBUTE_ERR,
+  InvalidStateError = nsIDOMDOMException::INVALID_STATE_ERR,
+  SyntaxError = nsIDOMDOMException::SYNTAX_ERR,
+  InvalidModificationError = nsIDOMDOMException::INVALID_MODIFICATION_ERR,
+  NamespaceError = nsIDOMDOMException::NAMESPACE_ERR,
+  InvalidAccessError = nsIDOMDOMException::INVALID_ACCESS_ERR,
+  TypeMismatchError = nsIDOMDOMException::TYPE_MISMATCH_ERR,
+  SecurityError = nsIDOMDOMException::SECURITY_ERR,
+  NetworkError = nsIDOMDOMException::NETWORK_ERR,
+  AbortError = nsIDOMDOMException::ABORT_ERR,
+  URLMismatchError = nsIDOMDOMException::URL_MISMATCH_ERR,
+  QuotaExceededError = nsIDOMDOMException::QUOTA_EXCEEDED_ERR,
+  TimeoutError = nsIDOMDOMException::TIMEOUT_ERR,
+  InvalidNodeTypeError = nsIDOMDOMException::INVALID_NODE_TYPE_ERR,
+  DataCloneError = nsIDOMDOMException::DATA_CLONE_ERR,
+  InvalidPointerId = nsIDOMDOMException::INVALID_POINTER_ERR,
+  EncodingError = 0,
 
   /* XXX Should be JavaScript native errors */
-  TypeError                  = 0,
-  RangeError                 = 0,
+  TypeError = 0,
+  RangeError = 0,
 
   /* IndexedDB errors http://dvcs.w3.org/hg/IndexedDB/raw-file/tip/Overview.html#exceptions */
-  UnknownError             = 0,
-  ConstraintError          = 0,
-  DataError                = 0,
+  UnknownError = 0,
+  ConstraintError = 0,
+  DataError = 0,
   TransactionInactiveError = 0,
-  ReadOnlyError            = 0,
-  VersionError             = 0,
+  ReadOnlyError = 0,
+  VersionError = 0,
 
   /* File API errors http://dev.w3.org/2006/webapi/FileAPI/#ErrorAndException */
-  NotReadableError         = 0,
+  NotReadableError = 0,
 
   /* FileHandle API errors */
   FileHandleInactiveError = 0,
 
   /* WebCrypto errors https://dvcs.w3.org/hg/webcrypto-api/raw-file/tip/spec/Overview.html#dfn-DataError */
-  OperationError           = 0,
+  OperationError = 0,
 
   /* Push API errors */
-  NotAllowedError          = 0,
+  NotAllowedError = 0,
 };
 
-#define DOM4_MSG_DEF(name, message, nsresult) {(nsresult), name, #name, message},
-#define DOM_MSG_DEF(val, message) {(val), NS_ERROR_GET_CODE(val), #val, message},
+#define DOM4_MSG_DEF(name, message, nsresult) \
+  {(nsresult), name, #name, message},
+#define DOM_MSG_DEF(val, message) \
+  {(val), NS_ERROR_GET_CODE(val), #val, message},
 
 static constexpr struct ResultStruct
 {
@@ -106,7 +109,7 @@ NSResultToNameAndMessage(nsresult aNSResult,
       aName.Rebind(sDOMErrorMsgMap[idx].mName,
                    strlen(sDOMErrorMsgMap[idx].mName));
       aMessage.Rebind(sDOMErrorMsgMap[idx].mMessage,
-                   strlen(sDOMErrorMsgMap[idx].mMessage));
+                      strlen(sDOMErrorMsgMap[idx].mMessage));
       *aCode = sDOMErrorMsgMap[idx].mCode;
       return;
     }
@@ -116,8 +119,10 @@ NSResultToNameAndMessage(nsresult aNSResult,
 }
 
 nsresult
-NS_GetNameAndMessageForDOMNSResult(nsresult aNSResult, nsACString& aName,
-                                   nsACString& aMessage, uint16_t* aCode)
+NS_GetNameAndMessageForDOMNSResult(nsresult aNSResult,
+                                   nsACString& aName,
+                                   nsACString& aMessage,
+                                   uint16_t* aCode)
 {
   nsCString name;
   nsCString message;
@@ -174,19 +179,15 @@ NS_IMPL_CI_INTERFACE_GETTER(Exception, nsIXPCException)
 Exception::Exception(const nsACString& aMessage,
                      nsresult aResult,
                      const nsACString& aName,
-                     nsIStackFrame *aLocation,
-                     nsISupports *aData)
-: mResult(NS_OK),
-  mInitialized(false),
-  mHoldingJSVal(false)
+                     nsIStackFrame* aLocation,
+                     nsISupports* aData)
+    : mResult(NS_OK), mInitialized(false), mHoldingJSVal(false)
 {
   Initialize(aMessage, aResult, aName, aLocation, aData);
 }
 
 Exception::Exception()
-  : mResult(NS_OK),
-    mInitialized(false),
-    mHoldingJSVal(false)
+    : mResult(NS_OK), mInitialized(false), mHoldingJSVal(false)
 {
 }
 
@@ -282,7 +283,7 @@ Exception::GetFilename(JSContext* aCx, nsAString& aFilename)
 }
 
 NS_IMETHODIMP
-Exception::GetLineNumber(JSContext* aCx, uint32_t *aLineNumber)
+Exception::GetLineNumber(JSContext* aCx, uint32_t* aLineNumber)
 {
   NS_ENSURE_ARG_POINTER(aLineNumber);
   NS_ENSURE_TRUE(mInitialized, NS_ERROR_NOT_INITIALIZED);
@@ -337,8 +338,8 @@ Exception::ToString(JSContext* aCx, nsACString& _retval)
 
   static const char defaultMsg[] = "<no message>";
   static const char defaultLocation[] = "<unknown>";
-  static const char format[] =
-"[Exception... \"%s\"  nsresult: \"0x%" PRIx32 " (%s)\"  location: \"%s\"  data: %s]";
+  static const char format[] = "[Exception... \"%s\"  nsresult: \"0x%" PRIx32
+                               " (%s)\"  location: \"%s\"  data: %s]";
 
   nsCString location;
 
@@ -354,10 +355,9 @@ Exception::ToString(JSContext* aCx, nsACString& _retval)
 
   const char* msg = mMessage.IsEmpty() ? nullptr : mMessage.get();
 
-  const char* resultName = mName.IsEmpty() ? nullptr: mName.get();
-  if (!resultName &&
-      !nsXPCException::NameAndFormatForNSResult(mResult, &resultName,
-                                                (!msg) ? &msg : nullptr)) {
+  const char* resultName = mName.IsEmpty() ? nullptr : mName.get();
+  if (!resultName && !nsXPCException::NameAndFormatForNSResult(
+                         mResult, &resultName, (!msg) ? &msg : nullptr)) {
     if (!msg) {
       msg = defaultMsg;
     }
@@ -366,15 +366,21 @@ Exception::ToString(JSContext* aCx, nsACString& _retval)
   const char* data = mData ? "yes" : "no";
 
   _retval.Truncate();
-  _retval.AppendPrintf(format, msg, static_cast<uint32_t>(mResult), resultName,
-                       location.get(), data);
+  _retval.AppendPrintf(format,
+                       msg,
+                       static_cast<uint32_t>(mResult),
+                       resultName,
+                       location.get(),
+                       data);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-Exception::Initialize(const nsACString& aMessage, nsresult aResult,
-                      const nsACString& aName, nsIStackFrame *aLocation,
-                      nsISupports *aData)
+Exception::Initialize(const nsACString& aMessage,
+                      nsresult aResult,
+                      const nsACString& aName,
+                      nsIStackFrame* aLocation,
+                      nsISupports* aData)
 {
   NS_ENSURE_FALSE(mInitialized, NS_ERROR_ALREADY_INITIALIZED);
 
@@ -411,7 +417,7 @@ Exception::GetMessageMoz(nsString& retval)
 #ifdef DEBUG
   DebugOnly<nsresult> rv =
 #endif
-  GetMessageMoz(str);
+      GetMessageMoz(str);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
   CopyUTF8toUTF16(str, retval);
 }
@@ -429,7 +435,7 @@ Exception::GetName(nsString& retval)
 #ifdef DEBUG
   DebugOnly<nsresult> rv =
 #endif
-  GetName(str);
+      GetName(str);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
   CopyUTF8toUTF16(str, retval);
 }
@@ -483,7 +489,7 @@ Exception::Stringify(JSContext* aCx, nsString& retval)
 #ifdef DEBUG
   DebugOnly<nsresult> rv =
 #endif
-  ToString(aCx, str);
+      ToString(aCx, str);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
   CopyUTF8toUTF16(str, retval);
 }
@@ -494,12 +500,14 @@ NS_INTERFACE_MAP_BEGIN(DOMException)
   NS_INTERFACE_MAP_ENTRY(nsIDOMDOMException)
 NS_INTERFACE_MAP_END_INHERITING(Exception)
 
-DOMException::DOMException(nsresult aRv, const nsACString& aMessage,
-                           const nsACString& aName, uint16_t aCode)
-  : Exception(EmptyCString(), aRv, EmptyCString(), nullptr, nullptr),
-    mName(aName),
-    mMessage(aMessage),
-    mCode(aCode)
+DOMException::DOMException(nsresult aRv,
+                           const nsACString& aMessage,
+                           const nsACString& aName,
+                           uint16_t aCode)
+    : Exception(EmptyCString(), aRv, EmptyCString(), nullptr, nullptr),
+      mName(aName),
+      mMessage(aMessage),
+      mCode(aCode)
 {
 }
 
@@ -530,7 +538,8 @@ DOMException::ToString(JSContext* aCx, nsACString& aReturn)
   static const char defaultLocation[] = "<unknown>";
   static const char defaultName[] = "<unknown>";
   static const char format[] =
-    "[Exception... \"%s\"  code: \"%d\" nsresult: \"0x%" PRIx32 " (%s)\"  location: \"%s\"]";
+      "[Exception... \"%s\"  code: \"%d\" nsresult: \"0x%" PRIx32
+      " (%s)\"  location: \"%s\"]";
 
   nsAutoCString location;
 
@@ -541,7 +550,11 @@ DOMException::ToString(JSContext* aCx, nsACString& aReturn)
   const char* msg = !mMessage.IsEmpty() ? mMessage.get() : defaultMsg;
   const char* resultName = !mName.IsEmpty() ? mName.get() : defaultName;
 
-  aReturn.AppendPrintf(format, msg, mCode, static_cast<uint32_t>(mResult), resultName,
+  aReturn.AppendPrintf(format,
+                       msg,
+                       mCode,
+                       static_cast<uint32_t>(mResult),
+                       resultName,
                        location.get());
 
   return NS_OK;
@@ -580,11 +593,8 @@ DOMException::Constructor(GlobalObject& /* unused */,
     }
   }
 
-  RefPtr<DOMException> retval =
-    new DOMException(exceptionResult,
-                     NS_ConvertUTF16toUTF8(aMessage),
-                     name,
-                     exceptionCode);
+  RefPtr<DOMException> retval = new DOMException(
+      exceptionResult, NS_ConvertUTF16toUTF8(aMessage), name, exceptionCode);
   return retval.forget();
 }
 
@@ -594,29 +604,27 @@ DOMException::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return DOMExceptionBinding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */already_AddRefed<DOMException>
+/* static */ already_AddRefed<DOMException>
 DOMException::Create(nsresult aRv)
 {
   nsCString name;
   nsCString message;
   uint16_t code;
   NSResultToNameAndMessage(aRv, name, message, &code);
-  RefPtr<DOMException> inst =
-    new DOMException(aRv, message, name, code);
+  RefPtr<DOMException> inst = new DOMException(aRv, message, name, code);
   return inst.forget();
 }
 
-/* static */already_AddRefed<DOMException>
+/* static */ already_AddRefed<DOMException>
 DOMException::Create(nsresult aRv, const nsACString& aMessage)
 {
   nsCString name;
   nsCString message;
   uint16_t code;
   NSResultToNameAndMessage(aRv, name, message, &code);
-  RefPtr<DOMException> inst =
-    new DOMException(aRv, aMessage, name, code);
+  RefPtr<DOMException> inst = new DOMException(aRv, aMessage, name, code);
   return inst.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

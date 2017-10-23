@@ -26,20 +26,22 @@ namespace dom {
 
 class AudioPlaybackConfig
 {
-public:
+ public:
   AudioPlaybackConfig()
-    : mVolume(1.0)
-    , mMuted(false)
-    , mSuspend(nsISuspendedTypes::NONE_SUSPENDED)
-    , mNumberOfAgents(0)
-  {}
+      : mVolume(1.0),
+        mMuted(false),
+        mSuspend(nsISuspendedTypes::NONE_SUSPENDED),
+        mNumberOfAgents(0)
+  {
+  }
 
   AudioPlaybackConfig(float aVolume, bool aMuted, uint32_t aSuspended)
-    : mVolume(aVolume)
-    , mMuted(aMuted)
-    , mSuspend(aSuspended)
-    , mNumberOfAgents(0)
-  {}
+      : mVolume(aVolume),
+        mMuted(aMuted),
+        mSuspend(aSuspended),
+        mNumberOfAgents(0)
+  {
+  }
 
   void SetConfig(float aVolume, bool aMuted, uint32_t aSuspended)
   {
@@ -56,7 +58,7 @@ public:
 
 class AudioChannelService final : public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -65,18 +67,21 @@ public:
    * eMaybeAudible : agent is not audible now, but it might be audible later
    * eAudible : agent is audible now
    */
-  enum AudibleState : uint8_t {
+  enum AudibleState : uint8_t
+  {
     eNotAudible = 0,
     eMaybeAudible = 1,
     eAudible = 2
   };
 
-  enum AudioCaptureState : bool {
+  enum AudioCaptureState : bool
+  {
     eCapturing = true,
     eNotCapturing = false
   };
 
-  enum AudibleChangedReasons : uint32_t {
+  enum AudibleChangedReasons : uint32_t
+  {
     eVolumeChanged = 0,
     eDataAudibleChanged = 1,
     ePauseStateChanged = 2
@@ -143,7 +148,7 @@ public:
 
   void NotifyMediaResumedFromBlock(nsPIDOMWindowOuter* aWindow);
 
-private:
+ private:
   AudioChannelService();
   ~AudioChannelService();
 
@@ -161,13 +166,14 @@ private:
 
   class AudioChannelWindow final
   {
-  public:
+   public:
     explicit AudioChannelWindow(uint64_t aWindowID)
-      : mWindowID(aWindowID)
-      , mIsAudioCaptured(false)
-      , mOwningAudioFocus(!AudioChannelService::IsEnableAudioCompeting())
-      , mShouldSendActiveMediaBlockStopEvent(false)
-    {}
+        : mWindowID(aWindowID),
+          mIsAudioCaptured(false),
+          mOwningAudioFocus(!AudioChannelService::IsEnableAudioCompeting()),
+          mShouldSendActiveMediaBlockStopEvent(false)
+    {
+    }
 
     void AudioFocusChanged(AudioChannelAgent* aNewPlayingAgent);
     void AudioAudibleChanged(AudioChannelAgent* aAgent,
@@ -195,7 +201,8 @@ private:
     // another event "activeMediablockStop" when the window is resumed from
     // suspend-block.
     bool mShouldSendActiveMediaBlockStopEvent;
-  private:
+
+   private:
     void AudioCapturedChanged(AudioChannelAgent* aAgent,
                               AudioCaptureState aCapture);
 
@@ -230,20 +237,22 @@ private:
     bool IsInactiveWindow() const;
   };
 
-  AudioChannelWindow*
-  GetOrCreateWindowData(nsPIDOMWindowOuter* aWindow);
+  AudioChannelWindow* GetOrCreateWindowData(nsPIDOMWindowOuter* aWindow);
 
-  AudioChannelWindow*
-  GetWindowData(uint64_t aWindowID) const;
+  AudioChannelWindow* GetWindowData(uint64_t aWindowID) const;
 
   nsTObserverArray<nsAutoPtr<AudioChannelWindow>> mWindows;
 };
 
-const char* SuspendTypeToStr(const nsSuspendedTypes& aSuspend);
-const char* AudibleStateToStr(const AudioChannelService::AudibleState& aAudible);
-const char* AudibleChangedReasonToStr(const AudioChannelService::AudibleChangedReasons& aReason);
+const char*
+SuspendTypeToStr(const nsSuspendedTypes& aSuspend);
+const char*
+AudibleStateToStr(const AudioChannelService::AudibleState& aAudible);
+const char*
+AudibleChangedReasonToStr(
+    const AudioChannelService::AudibleChangedReasons& aReason);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

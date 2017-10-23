@@ -20,7 +20,7 @@ namespace mozilla {
 
 class FileLocation
 {
-public:
+ public:
   /**
    * FileLocation is an helper to handle different kind of file locations
    * within Gecko:
@@ -108,7 +108,7 @@ public:
    */
   class Data
   {
-  public:
+   public:
     /**
      * Returns the data size
      */
@@ -118,7 +118,8 @@ public:
      * Copies the data in the given buffer
      */
     nsresult Copy(char* aBuf, uint32_t aLen);
-  protected:
+
+   protected:
     friend class FileLocation;
     nsZipItem* mItem;
     RefPtr<nsZipArchive> mZip;
@@ -130,7 +131,8 @@ public:
    * location.
    */
   nsresult GetData(Data& aData);
-private:
+
+ private:
   nsCOMPtr<nsIFile> mBaseFile;
   RefPtr<nsZipArchive> mBaseZip;
   nsCString mPath;

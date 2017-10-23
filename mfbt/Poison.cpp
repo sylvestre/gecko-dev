@@ -13,17 +13,17 @@
 
 #include "mozilla/Assertions.h"
 #ifdef _WIN32
-# include <windows.h>
+#include <windows.h>
 #elif !defined(__OS2__)
-# include <unistd.h>
-# include <sys/mman.h>
-# ifndef MAP_ANON
-#  ifdef MAP_ANONYMOUS
-#   define MAP_ANON MAP_ANONYMOUS
-#  else
-#   error "Don't know how to get anonymous memory"
-#  endif
-# endif
+#include <unistd.h>
+#include <sys/mman.h>
+#ifndef MAP_ANON
+#ifdef MAP_ANONYMOUS
+#define MAP_ANON MAP_ANONYMOUS
+#else
+#error "Don't know how to get anonymous memory"
+#endif
+#endif
 #endif
 
 extern "C" {
@@ -108,15 +108,19 @@ GetDesiredRegionSize()
 
 #define RESERVE_FAILED 0
 
-#else // Unix
+#else  // Unix
 
 #include "mozilla/TaggedAnonymousMemory.h"
 
 static void*
 ReserveRegion(uintptr_t aRegion, uintptr_t aSize)
 {
-  return MozTaggedAnonymousMmap(reinterpret_cast<void*>(aRegion), aSize,
-                                PROT_NONE, MAP_PRIVATE|MAP_ANON, -1, 0,
+  return MozTaggedAnonymousMmap(reinterpret_cast<void*>(aRegion),
+                                aSize,
+                                PROT_NONE,
+                                MAP_PRIVATE | MAP_ANON,
+                                -1,
+                                0,
                                 "poison");
 }
 
@@ -130,7 +134,8 @@ static bool
 ProbeRegion(uintptr_t aRegion, uintptr_t aSize)
 {
 #ifdef XP_SOLARIS
-  if (posix_madvise(reinterpret_cast<void*>(aRegion), aSize, POSIX_MADV_NORMAL)) {
+  if (posix_madvise(
+          reinterpret_cast<void*>(aRegion), aSize, POSIX_MADV_NORMAL)) {
 #else
   if (madvise(reinterpret_cast<void*>(aRegion), aSize, MADV_NORMAL)) {
 #endif
@@ -148,7 +153,7 @@ GetDesiredRegionSize()
 
 #define RESERVE_FAILED MAP_FAILED
 
-#endif // system dependencies
+#endif  // system dependencies
 
 static_assert(sizeof(uintptr_t) == 4 || sizeof(uintptr_t) == 8, "");
 static_assert(sizeof(uintptr_t) == sizeof(void*), "");
@@ -160,13 +165,12 @@ ReservePoisonArea(uintptr_t rgnsize)
     // Use the hardware-inaccessible region.
     // We have to avoid 64-bit constants and shifts by 32 bits, since this
     // code is compiled in 32-bit mode, although it is never executed there.
-    return
-      (((uintptr_t(0x7FFFFFFFu) << 31) << 1 | uintptr_t(0xF0DEAFFFu))
-       & ~(rgnsize-1));
+    return (((uintptr_t(0x7FFFFFFFu) << 31) << 1 | uintptr_t(0xF0DEAFFFu)) &
+            ~(rgnsize - 1));
   }
 
   // First see if we can allocate the preferred poison address from the OS.
-  uintptr_t candidate = (0xF0DEAFFF & ~(rgnsize-1));
+  uintptr_t candidate = (0xF0DEAFFF & ~(rgnsize - 1));
   void* result = ReserveRegion(candidate, rgnsize);
   if (result == (void*)candidate) {
     // success - inaccessible page allocated
@@ -205,7 +209,7 @@ mozPoisonValueInit()
   gMozillaPoisonSize = GetDesiredRegionSize();
   gMozillaPoisonBase = ReservePoisonArea(gMozillaPoisonSize);
 
-  if (gMozillaPoisonSize == 0) { // can't happen
+  if (gMozillaPoisonSize == 0) {  // can't happen
     return;
   }
   gMozillaPoisonValue = gMozillaPoisonBase + gMozillaPoisonSize / 2 - 1;

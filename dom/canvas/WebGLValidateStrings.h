@@ -36,12 +36,14 @@ class WebGLContext;
 bool
 TruncateComments(const nsAString& src, nsAString* const out);
 bool
-ValidateGLSLPreprocString(WebGLContext* webgl, const char* funcName,
+ValidateGLSLPreprocString(WebGLContext* webgl,
+                          const char* funcName,
                           const nsAString& string);
 bool
-ValidateGLSLVariableName(const nsAString& name, WebGLContext* webgl,
+ValidateGLSLVariableName(const nsAString& name,
+                         WebGLContext* webgl,
                          const char* funcName);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // WEBGL_VALIDATE_STRINGS_H_
+#endif  // WEBGL_VALIDATE_STRINGS_H_

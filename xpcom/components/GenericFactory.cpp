@@ -11,7 +11,8 @@ namespace mozilla {
 NS_IMPL_ISUPPORTS(GenericFactory, nsIFactory)
 
 NS_IMETHODIMP
-GenericFactory::CreateInstance(nsISupports* aOuter, REFNSIID aIID,
+GenericFactory::CreateInstance(nsISupports* aOuter,
+                               REFNSIID aIID,
                                void** aResult)
 {
   return mCtor(aOuter, aIID, aResult);
@@ -24,4 +25,4 @@ GenericFactory::LockFactory(bool aLock)
   return NS_ERROR_FAILURE;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

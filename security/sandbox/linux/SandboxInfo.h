@@ -14,31 +14,33 @@
 
 namespace mozilla {
 
-class SandboxInfo {
-public:
+class SandboxInfo
+{
+ public:
   // No need to prevent copying; this is essentially just a const int.
-  SandboxInfo(const SandboxInfo& aOther) : mFlags(aOther.mFlags) { }
+  SandboxInfo(const SandboxInfo& aOther) : mFlags(aOther.mFlags) {}
 
   // Flags are checked at initializer time; this returns them.
   static const SandboxInfo& Get() { return sSingleton; }
 
-  enum Flags {
+  enum Flags
+  {
     // System call filtering; kernel config option CONFIG_SECCOMP_FILTER.
-    kHasSeccompBPF     = 1 << 0,
+    kHasSeccompBPF = 1 << 0,
     // Config flag MOZ_CONTENT_SANDBOX; env var MOZ_DISABLE_CONTENT_SANDBOX.
     kEnabledForContent = 1 << 1,
     // Config flag MOZ_GMP_SANDBOX; env var MOZ_DISABLE_GMP_SANDBOX.
-    kEnabledForMedia   = 1 << 2,
+    kEnabledForMedia = 1 << 2,
     // Env var MOZ_SANDBOX_LOGGING.
-    kVerbose           = 1 << 3,
+    kVerbose = 1 << 3,
     // Kernel can atomically set system call filtering on entire thread group.
-    kHasSeccompTSync   = 1 << 4,
+    kHasSeccompTSync = 1 << 4,
     // Can this process create user namespaces? (Man page user_namespaces(7).)
     kHasUserNamespaces = 1 << 5,
     // Could a more privileged process have user namespaces, even if we can't?
     kHasPrivilegedUserNamespaces = 1 << 6,
     // Env var MOZ_PERMISSIVE_CONTENT_SANDBOX
-    kPermissive        = 1 << 7,
+    kPermissive = 1 << 7,
     // Something is creating threads when we need to still be single-threaded.
     kUnexpectedThreads = 1 << 8,
   };
@@ -58,9 +60,7 @@ public:
   }
 
   // For telemetry / crash annotation uses.
-  uint32_t AsInteger() const {
-    return mFlags;
-  }
+  uint32_t AsInteger() const { return mFlags; }
 
   // For bug 1222500 or anything else like it: On desktop, this is
   // called in the parent process at a point when it should still be
@@ -69,13 +69,14 @@ public:
   // kUnexpectedThreads is set and affected flags (user namespaces;
   // possibly others in the future) are cleared.
   static MOZ_EXPORT void ThreadingCheck();
-private:
+
+ private:
   enum Flags mFlags;
   // This should be const, but has to allow for ThreadingCheck.
   static MOZ_EXPORT SandboxInfo sSingleton;
   SandboxInfo();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxInfo_h
+#endif  // mozilla_SandboxInfo_h

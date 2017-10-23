@@ -123,7 +123,8 @@ SVGTransformListParser::ParseArguments(float* aResult,
       return false;
     }
     SkipCommaWsp();
-    if (!SVGContentUtils::ParseNumber(mIter, mEnd, aResult[(*aParsedCount)++])) {
+    if (!SVGContentUtils::ParseNumber(
+            mIter, mEnd, aResult[(*aParsedCount)++])) {
       return false;
     }
   }
@@ -144,8 +145,7 @@ SVGTransformListParser::ParseTranslate()
     case 1:
       t[1] = 0.f;
       MOZ_FALLTHROUGH;
-    case 2:
-    {
+    case 2: {
       nsSVGTransform* transform = mTransforms.AppendElement(fallible);
       if (!transform) {
         return false;
@@ -172,8 +172,7 @@ SVGTransformListParser::ParseScale()
     case 1:
       s[1] = s[0];
       MOZ_FALLTHROUGH;
-    case 2:
-    {
+    case 2: {
       nsSVGTransform* transform = mTransforms.AppendElement(fallible);
       if (!transform) {
         return false;
@@ -185,7 +184,6 @@ SVGTransformListParser::ParseScale()
 
   return false;
 }
-
 
 bool
 SVGTransformListParser::ParseRotate()
@@ -201,8 +199,7 @@ SVGTransformListParser::ParseRotate()
     case 1:
       r[1] = r[2] = 0.f;
       MOZ_FALLTHROUGH;
-    case 3:
-    {
+    case 3: {
       nsSVGTransform* transform = mTransforms.AppendElement(fallible);
       if (!transform) {
         return false;

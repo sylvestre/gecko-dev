@@ -18,13 +18,9 @@ NS_IMPL_ISUPPORTS(ScreenManager, nsIScreenManager)
 namespace mozilla {
 namespace widget {
 
-ScreenManager::ScreenManager()
-{
-}
+ScreenManager::ScreenManager() {}
 
-ScreenManager::~ScreenManager()
-{
-}
+ScreenManager::~ScreenManager() {}
 
 static StaticRefPtr<ScreenManager> sSingleton;
 
@@ -83,9 +79,11 @@ ScreenManager::CopyScreensToRemoteRange(Range aRemoteRange)
     screens.AppendElement(screen->ToScreenDetails());
   }
   for (auto cp : aRemoteRange) {
-    MOZ_LOG(sScreenLog, LogLevel::Debug, ("Send screens to [Pid %d]", cp->Pid()));
+    MOZ_LOG(
+        sScreenLog, LogLevel::Debug, ("Send screens to [Pid %d]", cp->Pid()));
     if (!cp->SendRefreshScreens(screens)) {
-      MOZ_LOG(sScreenLog, LogLevel::Error,
+      MOZ_LOG(sScreenLog,
+              LogLevel::Error,
               ("SendRefreshScreens to [Pid %d] failed", cp->Pid()));
     }
   }
@@ -97,7 +95,7 @@ ScreenManager::CopyScreensToRemote(ContentParent* aContentParent)
   MOZ_ASSERT(aContentParent);
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  auto range = { aContentParent };
+  auto range = {aContentParent};
   CopyScreensToRemoteRange(range);
 }
 
@@ -119,15 +117,20 @@ ScreenManager::CopyScreensToAllRemotesIfIsParent()
 // The coordinates are in desktop pixels.
 //
 NS_IMETHODIMP
-ScreenManager::ScreenForRect(int32_t aX, int32_t aY,
-                             int32_t aWidth, int32_t aHeight,
+ScreenManager::ScreenForRect(int32_t aX,
+                             int32_t aY,
+                             int32_t aWidth,
+                             int32_t aHeight,
                              nsIScreen** aOutScreen)
 {
   if (mScreenList.IsEmpty()) {
-    MOZ_LOG(sScreenLog, LogLevel::Warning,
+    MOZ_LOG(sScreenLog,
+            LogLevel::Warning,
             ("No screen available. This can happen in xpcshell."));
-    RefPtr<Screen> ret = new Screen(LayoutDeviceIntRect(), LayoutDeviceIntRect(),
-                                    0, 0,
+    RefPtr<Screen> ret = new Screen(LayoutDeviceIntRect(),
+                                    LayoutDeviceIntRect(),
+                                    0,
+                                    0,
                                     DesktopToLayoutDeviceScale(),
                                     CSSToLayoutDeviceScale(),
                                     96 /* dpi */);
@@ -149,7 +152,7 @@ ScreenManager::ScreenForRect(int32_t aX, int32_t aY,
   uint32_t area = 0;
   DesktopIntRect windowRect(aX, aY, aWidth, aHeight);
   for (auto& screen : mScreenList) {
-    int32_t  x, y, width, height;
+    int32_t x, y, width, height;
     x = y = width = height = 0;
     screen->GetRectDisplayPix(&x, &y, &width, &height);
     // calculate the surface area
@@ -174,7 +177,7 @@ ScreenManager::ScreenForRect(int32_t aX, int32_t aY,
   // a screen that is nearest to the rect.
   uint32_t distance = UINT32_MAX;
   for (auto& screen : mScreenList) {
-    int32_t  x, y, width, height;
+    int32_t x, y, width, height;
     x = y = width = height = 0;
     screen->GetRectDisplayPix(&x, &y, &width, &height);
 
@@ -214,10 +217,13 @@ NS_IMETHODIMP
 ScreenManager::GetPrimaryScreen(nsIScreen** aPrimaryScreen)
 {
   if (mScreenList.IsEmpty()) {
-    MOZ_LOG(sScreenLog, LogLevel::Warning,
+    MOZ_LOG(sScreenLog,
+            LogLevel::Warning,
             ("No screen available. This can happen in xpcshell."));
-    RefPtr<Screen> ret = new Screen(LayoutDeviceIntRect(), LayoutDeviceIntRect(),
-                                    0, 0,
+    RefPtr<Screen> ret = new Screen(LayoutDeviceIntRect(),
+                                    LayoutDeviceIntRect(),
+                                    0,
+                                    0,
                                     DesktopToLayoutDeviceScale(),
                                     CSSToLayoutDeviceScale(),
                                     96 /* dpi */);
@@ -230,5 +236,5 @@ ScreenManager::GetPrimaryScreen(nsIScreen** aPrimaryScreen)
   return NS_OK;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

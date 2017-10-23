@@ -25,13 +25,12 @@
 
 namespace js {
 class AutoLockForExclusiveAccess;
-} // namespace js
+}  // namespace js
 
 namespace JS {
 
-class Symbol : public js::gc::TenuredCell
-{
-  private:
+class Symbol : public js::gc::TenuredCell {
+   private:
     SymbolCode code_;
 
     // Each Symbol gets its own hash code so that we don't have to use
@@ -46,8 +45,7 @@ class Symbol : public js::gc::TenuredCell
     size_t unused_;
 
     Symbol(SymbolCode code, js::HashNumber hash, JSAtom* desc)
-        : code_(code), hash_(hash), description_(desc)
-    {
+        : code_(code), hash_(hash), description_(desc) {
         // Silence warnings about unused_ being... unused.
         (void)unused_;
     }
@@ -55,11 +53,10 @@ class Symbol : public js::gc::TenuredCell
     Symbol(const Symbol&) = delete;
     void operator=(const Symbol&) = delete;
 
-    static Symbol*
-    newInternal(JSContext* cx, SymbolCode code, js::HashNumber hash,
-                JSAtom* description, js::AutoLockForExclusiveAccess& lock);
+    static Symbol* newInternal(JSContext* cx, SymbolCode code, js::HashNumber hash,
+                               JSAtom* description, js::AutoLockForExclusiveAccess& lock);
 
-  public:
+   public:
     static Symbol* new_(JSContext* cx, SymbolCode code, JSString* description);
     static Symbol* for_(JSContext* cx, js::HandleString description);
 
@@ -80,14 +77,12 @@ class Symbol : public js::gc::TenuredCell
 
     static const JS::TraceKind TraceKind = JS::TraceKind::Symbol;
     inline void traceChildren(JSTracer* trc) {
-        if (description_)
-            js::TraceManuallyBarrieredEdge(trc, &description_, "description");
+        if (description_) js::TraceManuallyBarrieredEdge(trc, &description_, "description");
     }
     inline void finalize(js::FreeOp*) {}
 
     static MOZ_ALWAYS_INLINE void writeBarrierPre(Symbol* thing) {
-        if (thing && !thing->isWellKnownSymbol())
-            thing->asTenured().writeBarrierPre(thing);
+        if (thing && !thing->isWellKnownSymbol()) thing->asTenured().writeBarrierPre(thing);
     }
 
     size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
@@ -95,7 +90,7 @@ class Symbol : public js::gc::TenuredCell
     }
 
 #ifdef DEBUG
-    void dump(); // Debugger-friendly stderr dump.
+    void dump();  // Debugger-friendly stderr dump.
     void dump(js::GenericPrinter& out);
 #endif
 };
@@ -105,17 +100,12 @@ class Symbol : public js::gc::TenuredCell
 namespace js {
 
 /* Hash policy used by the SymbolRegistry. */
-struct HashSymbolsByDescription
-{
+struct HashSymbolsByDescription {
     typedef JS::Symbol* Key;
     typedef JSAtom* Lookup;
 
-    static HashNumber hash(Lookup l) {
-        return HashNumber(l->hash());
-    }
-    static bool match(Key sym, Lookup l) {
-        return sym->description() == l;
-    }
+    static HashNumber hash(Lookup l) { return HashNumber(l->hash()); }
+    static bool match(Key sym, Lookup l) { return sym->description() == l; }
 };
 
 /*
@@ -133,17 +123,14 @@ struct HashSymbolsByDescription
  * nondeterminism is exposed to scripts, because there is no API for
  * enumerating the symbol registry, querying its size, etc.
  */
-class SymbolRegistry : public GCHashSet<ReadBarrieredSymbol,
-                                        HashSymbolsByDescription,
-                                        SystemAllocPolicy>
-{
-  public:
+class SymbolRegistry
+    : public GCHashSet<ReadBarrieredSymbol, HashSymbolsByDescription, SystemAllocPolicy> {
+   public:
     SymbolRegistry() {}
 };
 
 // ES6 rev 27 (2014 Aug 24) 19.4.3.3
-bool
-SymbolDescriptiveString(JSContext* cx, JS::Symbol* sym, JS::MutableHandleValue result);
+bool SymbolDescriptiveString(JSContext* cx, JS::Symbol* sym, JS::MutableHandleValue result);
 
 } /* namespace js */
 

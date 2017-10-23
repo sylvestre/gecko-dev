@@ -5,15 +5,16 @@
 #ifndef nricestunaddr_h__
 #define nricestunaddr_h__
 
-#include "nsError.h" // for nsresult
+#include "nsError.h"  // for nsresult
 
 typedef struct nr_local_addr_ nr_local_addr;
 
 namespace mozilla {
 
-class NrIceStunAddr {
-public:
-  NrIceStunAddr(); // needed for IPC deserialization
+class NrIceStunAddr
+{
+ public:
+  NrIceStunAddr();  // needed for IPC deserialization
   explicit NrIceStunAddr(const nr_local_addr* addr);
   NrIceStunAddr(const NrIceStunAddr& rhs);
 
@@ -27,11 +28,10 @@ public:
   nsresult Serialize(char* buffer, size_t buffer_size) const;
   nsresult Deserialize(const char* buffer, size_t buffer_size);
 
-private:
+ private:
   nr_local_addr* localAddr_;
-
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // nricestunaddr_h__
+#endif  // nricestunaddr_h__

@@ -51,18 +51,16 @@ LocalStorage::LocalStorage(nsPIDOMWindowInner* aWindow,
                            const nsAString& aDocumentURI,
                            nsIPrincipal* aPrincipal,
                            bool aIsPrivate)
-  : Storage(aWindow, aPrincipal)
-  , mManager(aManager)
-  , mCache(aCache)
-  , mDocumentURI(aDocumentURI)
-  , mIsPrivate(aIsPrivate)
+    : Storage(aWindow, aPrincipal),
+      mManager(aManager),
+      mCache(aCache),
+      mDocumentURI(aDocumentURI),
+      mIsPrivate(aIsPrivate)
 {
   mCache->Preload();
 }
 
-LocalStorage::~LocalStorage()
-{
-}
+LocalStorage::~LocalStorage() {}
 
 int64_t
 LocalStorage::GetOriginQuotaUsage() const
@@ -71,8 +69,7 @@ LocalStorage::GetOriginQuotaUsage() const
 }
 
 uint32_t
-LocalStorage::GetLength(nsIPrincipal& aSubjectPrincipal,
-                        ErrorResult& aRv)
+LocalStorage::GetLength(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv)
 {
   if (!CanUseStorage(aSubjectPrincipal)) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
@@ -85,7 +82,8 @@ LocalStorage::GetLength(nsIPrincipal& aSubjectPrincipal,
 }
 
 void
-LocalStorage::Key(uint32_t aIndex, nsAString& aResult,
+LocalStorage::Key(uint32_t aIndex,
+                  nsAString& aResult,
                   nsIPrincipal& aSubjectPrincipal,
                   ErrorResult& aRv)
 {
@@ -98,7 +96,8 @@ LocalStorage::Key(uint32_t aIndex, nsAString& aResult,
 }
 
 void
-LocalStorage::GetItem(const nsAString& aKey, nsAString& aResult,
+LocalStorage::GetItem(const nsAString& aKey,
+                      nsAString& aResult,
                       nsIPrincipal& aSubjectPrincipal,
                       ErrorResult& aRv)
 {
@@ -111,7 +110,8 @@ LocalStorage::GetItem(const nsAString& aKey, nsAString& aResult,
 }
 
 void
-LocalStorage::SetItem(const nsAString& aKey, const nsAString& aData,
+LocalStorage::SetItem(const nsAString& aKey,
+                      const nsAString& aData,
                       nsIPrincipal& aSubjectPrincipal,
                       ErrorResult& aRv)
 {
@@ -139,7 +139,8 @@ LocalStorage::SetItem(const nsAString& aKey, const nsAString& aData,
 }
 
 void
-LocalStorage::RemoveItem(const nsAString& aKey, nsIPrincipal& aSubjectPrincipal,
+LocalStorage::RemoveItem(const nsAString& aKey,
+                         nsIPrincipal& aSubjectPrincipal,
                          ErrorResult& aRv)
 {
   if (!CanUseStorage(aSubjectPrincipal)) {
@@ -191,14 +192,24 @@ LocalStorage::BroadcastChangeNotification(const nsAString& aKey,
     PrincipalInfo principalInfo;
     nsresult rv = PrincipalToPrincipalInfo(Principal(), &principalInfo);
     if (!NS_WARN_IF(NS_FAILED(rv))) {
-      Unused << NS_WARN_IF(!actor->SendBroadcastLocalStorageChange(
-        mDocumentURI, nsString(aKey), nsString(aOldValue), nsString(aNewValue),
-        principalInfo, mIsPrivate));
+      Unused << NS_WARN_IF(
+          !actor->SendBroadcastLocalStorageChange(mDocumentURI,
+                                                  nsString(aKey),
+                                                  nsString(aOldValue),
+                                                  nsString(aNewValue),
+                                                  principalInfo,
+                                                  mIsPrivate));
     }
   }
 
-  DispatchStorageEvent(mDocumentURI, aKey, aOldValue, aNewValue,
-                       Principal(), mIsPrivate, this, false);
+  DispatchStorageEvent(mDocumentURI,
+                       aKey,
+                       aOldValue,
+                       aNewValue,
+                       Principal(),
+                       mIsPrivate,
+                       this,
+                       false);
 }
 
 /* static */ void
@@ -211,8 +222,15 @@ LocalStorage::DispatchStorageEvent(const nsAString& aDocumentURI,
                                    Storage* aStorage,
                                    bool aImmediateDispatch)
 {
-  NotifyChange(aStorage, aPrincipal, aKey, aOldValue, aNewValue,
-               u"localStorage", aDocumentURI, aIsPrivate, aImmediateDispatch);
+  NotifyChange(aStorage,
+               aPrincipal,
+               aKey,
+               aOldValue,
+               aNewValue,
+               u"localStorage",
+               aDocumentURI,
+               aIsPrivate,
+               aImmediateDispatch);
 }
 
 void
@@ -273,5 +291,5 @@ LocalStorage::IsForkOf(const Storage* aOther) const
   return mCache == static_cast<const LocalStorage*>(aOther)->mCache;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

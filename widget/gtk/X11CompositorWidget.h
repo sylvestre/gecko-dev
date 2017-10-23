@@ -15,26 +15,26 @@ class nsWindow;
 namespace mozilla {
 namespace widget {
 
-class PlatformCompositorWidgetDelegate
-  : public CompositorWidgetDelegate
+class PlatformCompositorWidgetDelegate : public CompositorWidgetDelegate
 {
-public:
-  virtual void NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize) = 0;
+ public:
+  virtual void NotifyClientSizeChanged(
+      const LayoutDeviceIntSize& aClientSize) = 0;
 
   // CompositorWidgetDelegate Overrides
 
-  PlatformCompositorWidgetDelegate* AsPlatformSpecificDelegate() override {
+  PlatformCompositorWidgetDelegate* AsPlatformSpecificDelegate() override
+  {
     return this;
   }
 };
 
 class X11CompositorWidgetInitData;
 
-class X11CompositorWidget
- : public CompositorWidget
- , public PlatformCompositorWidgetDelegate
+class X11CompositorWidget : public CompositorWidget,
+                            public PlatformCompositorWidgetDelegate
 {
-public:
+ public:
   X11CompositorWidget(const X11CompositorWidgetInitData& aInitData,
                       const layers::CompositorOptions& aOptions,
                       nsWindow* aWindow = nullptr);
@@ -45,9 +45,9 @@ public:
   already_AddRefed<gfx::DrawTarget> StartRemoteDrawing() override;
   void EndRemoteDrawing() override;
 
-  already_AddRefed<gfx::DrawTarget>
-  StartRemoteDrawingInRegion(LayoutDeviceIntRegion& aInvalidRegion,
-                             layers::BufferMode* aBufferMode) override;
+  already_AddRefed<gfx::DrawTarget> StartRemoteDrawingInRegion(
+      LayoutDeviceIntRegion& aInvalidRegion,
+      layers::BufferMode* aBufferMode) override;
   void EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
                                 LayoutDeviceIntRegion& aInvalidRegion) override;
   uintptr_t GetWidgetKey() override;
@@ -65,18 +65,18 @@ public:
 
   void NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize) override;
 
-protected:
+ protected:
   nsWindow* mWidget;
 
-private:
+ private:
   LayoutDeviceIntSize mClientSize;
 
   Display* mXDisplay;
-  Window   mXWindow;
+  Window mXWindow;
   WindowSurfaceProvider mProvider;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // widget_gtk_X11CompositorWidget_h
+#endif  // widget_gtk_X11CompositorWidget_h

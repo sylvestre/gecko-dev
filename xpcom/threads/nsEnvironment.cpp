@@ -36,9 +36,7 @@ nsEnvironment::Create(nsISupports* aOuter, REFNSIID aIID, void** aResult)
   return rv;
 }
 
-nsEnvironment::~nsEnvironment()
-{
-}
+nsEnvironment::~nsEnvironment() {}
 
 NS_IMETHODIMP
 nsEnvironment::Exists(const nsAString& aName, bool* aOutValue)
@@ -145,9 +143,8 @@ nsEnvironment::Set(const nsAString& aName, const nsAString& aValue)
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  SmprintfPointer newData = mozilla::Smprintf("%s=%s",
-                                              nativeName.get(),
-                                              nativeVal.get());
+  SmprintfPointer newData =
+      mozilla::Smprintf("%s=%s", nativeName.get(), nativeVal.get());
   if (!newData) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -159,5 +156,3 @@ nsEnvironment::Set(const nsAString& aName, const nsAString& aValue)
   entry->mData = newData.release();
   return NS_OK;
 }
-
-

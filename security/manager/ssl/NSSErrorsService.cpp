@@ -17,13 +17,13 @@ namespace mozilla {
 namespace psm {
 
 static_assert(mozilla::pkix::ERROR_BASE ==
-                nsINSSErrorsService::MOZILLA_PKIX_ERROR_BASE,
+                  nsINSSErrorsService::MOZILLA_PKIX_ERROR_BASE,
               "MOZILLA_PKIX_ERROR_BASE and "
-                "nsINSSErrorsService::MOZILLA_PKIX_ERROR_BASE do not match.");
+              "nsINSSErrorsService::MOZILLA_PKIX_ERROR_BASE do not match.");
 static_assert(mozilla::pkix::ERROR_LIMIT ==
-                nsINSSErrorsService::MOZILLA_PKIX_ERROR_LIMIT,
+                  nsINSSErrorsService::MOZILLA_PKIX_ERROR_LIMIT,
               "MOZILLA_PKIX_ERROR_LIMIT and "
-                "nsINSSErrorsService::MOZILLA_PKIX_ERROR_LIMIT do not match.");
+              "nsINSSErrorsService::MOZILLA_PKIX_ERROR_LIMIT do not match.");
 
 static bool
 IsPSMError(PRErrorCode error)
@@ -34,25 +34,23 @@ IsPSMError(PRErrorCode error)
 
 NS_IMPL_ISUPPORTS(NSSErrorsService, nsINSSErrorsService)
 
-NSSErrorsService::~NSSErrorsService() { }
+NSSErrorsService::~NSSErrorsService() {}
 
 nsresult
 NSSErrorsService::Init()
 {
   nsresult rv;
-  nsCOMPtr<nsIStringBundleService> bundleService(do_GetService(NS_STRINGBUNDLE_CONTRACTID, &rv));
-  if (NS_FAILED(rv) || !bundleService)
-    return NS_ERROR_FAILURE;
+  nsCOMPtr<nsIStringBundleService> bundleService(
+      do_GetService(NS_STRINGBUNDLE_CONTRACTID, &rv));
+  if (NS_FAILED(rv) || !bundleService) return NS_ERROR_FAILURE;
 
   bundleService->CreateBundle(PIPNSS_STRBUNDLE_URL,
                               getter_AddRefs(mPIPNSSBundle));
-  if (!mPIPNSSBundle)
-    rv = NS_ERROR_FAILURE;
+  if (!mPIPNSSBundle) rv = NS_ERROR_FAILURE;
 
   bundleService->CreateBundle(NSSERR_STRBUNDLE_URL,
                               getter_AddRefs(mNSSErrorsBundle));
-  if (!mNSSErrorsBundle)
-    rv = NS_ERROR_FAILURE;
+  if (!mNSSErrorsBundle) rv = NS_ERROR_FAILURE;
 
   return rv;
 }
@@ -60,8 +58,10 @@ NSSErrorsService::Init()
 #define EXPECTED_SEC_ERROR_BASE (-0x2000)
 #define EXPECTED_SSL_ERROR_BASE (-0x3000)
 
-#if SEC_ERROR_BASE != EXPECTED_SEC_ERROR_BASE || SSL_ERROR_BASE != EXPECTED_SSL_ERROR_BASE
-#error "Unexpected change of error code numbers in lib NSS, please adjust the mapping code"
+#if SEC_ERROR_BASE != EXPECTED_SEC_ERROR_BASE || \
+    SSL_ERROR_BASE != EXPECTED_SSL_ERROR_BASE
+#error \
+    "Unexpected change of error code numbers in lib NSS, please adjust the mapping code"
 /*
  * Please ensure the NSS error codes are mapped into the positive range 0x1000 to 0xf000
  * Search for NS_ERROR_MODULE_SECURITY to ensure there are no conflicts.
@@ -89,7 +89,7 @@ GetXPCOMFromNSSError(PRErrorCode code)
 }
 
 NS_IMETHODIMP
-NSSErrorsService::IsNSSErrorCode(int32_t aNSPRCode, bool *_retval)
+NSSErrorsService::IsNSSErrorCode(int32_t aNSPRCode, bool* _retval)
 {
   if (!_retval) {
     return NS_ERROR_INVALID_ARG;
@@ -100,7 +100,8 @@ NSSErrorsService::IsNSSErrorCode(int32_t aNSPRCode, bool *_retval)
 }
 
 NS_IMETHODIMP
-NSSErrorsService::GetXPCOMFromNSSError(int32_t aNSPRCode, nsresult *aXPCOMErrorCode)
+NSSErrorsService::GetXPCOMFromNSSError(int32_t aNSPRCode,
+                                       nsresult* aXPCOMErrorCode)
 {
   if (!aXPCOMErrorCode) {
     return NS_ERROR_INVALID_ARG;
@@ -116,7 +117,7 @@ NSSErrorsService::GetXPCOMFromNSSError(int32_t aNSPRCode, nsresult *aXPCOMErrorC
 }
 
 NS_IMETHODIMP
-NSSErrorsService::GetErrorClass(nsresult aXPCOMErrorCode, uint32_t *aErrorClass)
+NSSErrorsService::GetErrorClass(nsresult aXPCOMErrorCode, uint32_t* aErrorClass)
 {
   NS_ENSURE_ARG(aErrorClass);
 
@@ -143,8 +144,7 @@ NSSErrorsService::GetErrorClass(nsresult aXPCOMErrorCode, uint32_t *aErrorClass)
 bool
 ErrorIsOverridable(PRErrorCode code)
 {
-  switch (code)
-  {
+  switch (code) {
     // Overridable errors.
     case mozilla::pkix::MOZILLA_PKIX_ERROR_CA_CERT_USED_AS_END_ENTITY:
     case mozilla::pkix::MOZILLA_PKIX_ERROR_EMPTY_ISSUER_NAME:
@@ -167,7 +167,8 @@ ErrorIsOverridable(PRErrorCode code)
 }
 
 NS_IMETHODIMP
-NSSErrorsService::GetErrorMessage(nsresult aXPCOMErrorCode, nsAString &aErrorMessage)
+NSSErrorsService::GetErrorMessage(nsresult aXPCOMErrorCode,
+                                  nsAString& aErrorMessage)
 {
   if (NS_ERROR_GET_MODULE(aXPCOMErrorCode) != NS_ERROR_MODULE_SECURITY ||
       NS_ERROR_GET_SEVERITY(aXPCOMErrorCode) != NS_ERROR_SEVERITY_ERROR) {
@@ -181,7 +182,7 @@ NSSErrorsService::GetErrorMessage(nsresult aXPCOMErrorCode, nsAString &aErrorMes
   }
 
   nsCOMPtr<nsIStringBundle> theBundle = mPIPNSSBundle;
-  const char *id_str = nsNSSErrors::getOverrideErrorStringName(aNSPRCode);
+  const char* id_str = nsNSSErrors::getOverrideErrorStringName(aNSPRCode);
 
   if (!id_str) {
     id_str = nsNSSErrors::getDefaultErrorStringName(aNSPRCode);
@@ -200,5 +201,5 @@ NSSErrorsService::GetErrorMessage(nsresult aXPCOMErrorCode, nsAString &aErrorMes
   return rv;
 }
 
-} // namespace psm
-} // namespace mozilla
+}  // namespace psm
+}  // namespace mozilla

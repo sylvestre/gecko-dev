@@ -30,7 +30,8 @@ using namespace std;
 using namespace cdm;
 
 void
-ClearKeyPersistence::ReadAllRecordsFromIndex(function<void()>&& aOnComplete) {
+ClearKeyPersistence::ReadAllRecordsFromIndex(function<void()>&& aOnComplete)
+{
   // Clear what we think the index file contains, we're about to read it again.
   mPersistentSessionIds.clear();
 
@@ -38,27 +39,25 @@ ClearKeyPersistence::ReadAllRecordsFromIndex(function<void()>&& aOnComplete) {
   // we try and use it.
   RefPtr<ClearKeyPersistence> self(this);
   function<void(const uint8_t*, uint32_t)> onIndexSuccess =
-    [self, aOnComplete] (const uint8_t* data, uint32_t size)
-  {
-    CK_LOGD("ClearKeyPersistence: Loaded index file!");
-    const char* charData = (const char*)data;
+      [self, aOnComplete](const uint8_t* data, uint32_t size) {
+        CK_LOGD("ClearKeyPersistence: Loaded index file!");
+        const char* charData = (const char*)data;
 
-    stringstream ss(string(charData, charData + size));
-    string name;
-    while (getline(ss, name)) {
-      if (ClearKeyUtils::IsValidSessionId(name.data(), name.size())) {
-        self->mPersistentSessionIds.insert(atoi(name.c_str()));
-      }
-    }
+        stringstream ss(string(charData, charData + size));
+        string name;
+        while (getline(ss, name)) {
+          if (ClearKeyUtils::IsValidSessionId(name.data(), name.size())) {
+            self->mPersistentSessionIds.insert(atoi(name.c_str()));
+          }
+        }
 
-    self->mPersistentKeyState = PersistentKeyState::LOADED;
-    aOnComplete();
-  };
+        self->mPersistentKeyState = PersistentKeyState::LOADED;
+        aOnComplete();
+      };
 
-  function<void()> onIndexFailed =
-    [self, aOnComplete] ()
-  {
-    CK_LOGD("ClearKeyPersistence: Failed to load index file (it might not exist");
+  function<void()> onIndexFailed = [self, aOnComplete]() {
+    CK_LOGD(
+        "ClearKeyPersistence: Failed to load index file (it might not exist");
     self->mPersistentKeyState = PersistentKeyState::LOADED;
     aOnComplete();
   };
@@ -68,16 +67,13 @@ ClearKeyPersistence::ReadAllRecordsFromIndex(function<void()>&& aOnComplete) {
 }
 
 void
-ClearKeyPersistence::WriteIndex() {
-  function <void()> onIndexSuccess =
-    [] ()
-  {
+ClearKeyPersistence::WriteIndex()
+{
+  function<void()> onIndexSuccess = []() {
     CK_LOGD("ClearKeyPersistence: Wrote index file");
   };
 
-  function <void()> onIndexFail =
-    [] ()
-  {
+  function<void()> onIndexFail = []() {
     CK_LOGD("ClearKeyPersistence: Failed to write index file (this is bad)");
   };
 
@@ -93,18 +89,10 @@ ClearKeyPersistence::WriteIndex() {
   vector<uint8_t> data(dataArray, dataArray + dataString.size());
 
   string filename = "index";
-  WriteData(mHost,
-            filename,
-            data,
-            move(onIndexSuccess),
-            move(onIndexFail));
+  WriteData(mHost, filename, data, move(onIndexSuccess), move(onIndexFail));
 }
 
-
-ClearKeyPersistence::ClearKeyPersistence(Host_8* aHost)
-{
-  this->mHost = aHost;
-}
+ClearKeyPersistence::ClearKeyPersistence(Host_8* aHost) { this->mHost = aHost; }
 
 void
 ClearKeyPersistence::EnsureInitialized(bool aPersistentStateAllowed,
@@ -120,7 +108,8 @@ ClearKeyPersistence::EnsureInitialized(bool aPersistentStateAllowed,
   }
 }
 
-bool ClearKeyPersistence::IsLoaded() const
+bool
+ClearKeyPersistence::IsLoaded() const
 {
   return mPersistentKeyState == PersistentKeyState::LOADED;
 }

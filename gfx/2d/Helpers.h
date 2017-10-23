@@ -14,17 +14,14 @@ namespace gfx {
 class AutoRestoreTransform
 {
  public:
-  AutoRestoreTransform()
+  AutoRestoreTransform() {}
+
+  explicit AutoRestoreTransform(DrawTarget* aTarget)
+      : mDrawTarget(aTarget), mOldTransform(aTarget->GetTransform())
   {
   }
 
-  explicit AutoRestoreTransform(DrawTarget *aTarget)
-   : mDrawTarget(aTarget),
-     mOldTransform(aTarget->GetTransform())
-  {
-  }
-
-  void Init(DrawTarget *aTarget)
+  void Init(DrawTarget* aTarget)
   {
     MOZ_ASSERT(!mDrawTarget || aTarget == mDrawTarget);
     if (!mDrawTarget) {
@@ -47,26 +44,22 @@ class AutoRestoreTransform
 
 class AutoPopClips
 {
-public:
-  explicit AutoPopClips(DrawTarget *aTarget)
-    : mDrawTarget(aTarget)
-    , mPushCount(0)
+ public:
+  explicit AutoPopClips(DrawTarget* aTarget)
+      : mDrawTarget(aTarget), mPushCount(0)
   {
     MOZ_ASSERT(mDrawTarget);
   }
 
-  ~AutoPopClips()
-  {
-    PopAll();
-  }
+  ~AutoPopClips() { PopAll(); }
 
-  void PushClip(const Path *aPath)
+  void PushClip(const Path* aPath)
   {
     mDrawTarget->PushClip(aPath);
     ++mPushCount;
   }
 
-  void PushClipRect(const Rect &aRect)
+  void PushClipRect(const Rect& aRect)
   {
     mDrawTarget->PushClipRect(aRect);
     ++mPushCount;
@@ -86,12 +79,12 @@ public:
     }
   }
 
-private:
+ private:
   RefPtr<DrawTarget> mDrawTarget;
   int32_t mPushCount;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_2D_HELPERS_H_
+#endif  // MOZILLA_GFX_2D_HELPERS_H_

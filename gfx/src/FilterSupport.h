@@ -33,12 +33,12 @@ const unsigned short SVG_FECOLORMATRIX_TYPE_LUMINANCE_TO_ALPHA = 4;
 const unsigned short SVG_FECOLORMATRIX_TYPE_SEPIA = 5;
 
 // ComponentTransfer types
-const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN  = 0;
+const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN = 0;
 const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_IDENTITY = 1;
-const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_TABLE    = 2;
+const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_TABLE = 2;
 const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_DISCRETE = 3;
-const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_LINEAR   = 4;
-const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_GAMMA    = 5;
+const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_LINEAR = 4;
+const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_GAMMA = 5;
 
 // Blend Mode Values
 const unsigned short SVG_FEBLEND_MODE_UNKNOWN = 0;
@@ -86,7 +86,8 @@ const unsigned short SVG_FECOMPOSITE_OPERATOR_ATOP = 4;
 const unsigned short SVG_FECOMPOSITE_OPERATOR_XOR = 5;
 const unsigned short SVG_FECOMPOSITE_OPERATOR_ARITHMETIC = 6;
 
-enum AttributeName {
+enum AttributeName
+{
   eBlendBlendmode = 0,
   eMorphologyRadii,
   eMorphologyOperator,
@@ -160,7 +161,8 @@ class DrawTarget;
 class SourceSurface;
 struct FilterAttribute;
 
-enum class AttributeType {
+enum class AttributeType
+{
   eBool,
   eUint,
   eFloat,
@@ -183,8 +185,9 @@ const float kMaxStdDeviation = 500;
 // The Get*() methods assert that they're called for the same type that the
 // attribute was Set() with.
 // AttributeMaps can be nested because AttributeMap is a valid attribute type.
-class AttributeMap final {
-public:
+class AttributeMap final
+{
+ public:
   AttributeMap();
   AttributeMap(const AttributeMap& aOther);
   AttributeMap& operator=(const AttributeMap& aOther);
@@ -223,37 +226,46 @@ public:
 
   uint32_t Count() const;
 
-  nsClassHashtable<nsUint32HashKey, FilterAttribute>::Iterator ConstIter() const;
+  nsClassHashtable<nsUint32HashKey, FilterAttribute>::Iterator ConstIter()
+      const;
 
   static AttributeType GetType(FilterAttribute* aAttribute);
 
-private:
-  mutable nsClassHashtable<nsUint32HashKey, FilterAttribute>  mMap;
+ private:
+  mutable nsClassHashtable<nsUint32HashKey, FilterAttribute> mMap;
 };
 
-enum class ColorSpace {
+enum class ColorSpace
+{
   SRGB,
   LinearRGB,
   Max
 };
 
-enum class AlphaModel {
+enum class AlphaModel
+{
   Unpremultiplied,
   Premultiplied
 };
 
-class ColorModel {
-public:
+class ColorModel
+{
+ public:
   static ColorModel PremulSRGB()
   {
     return ColorModel(ColorSpace::SRGB, AlphaModel::Premultiplied);
   }
 
-  ColorModel(ColorSpace aColorSpace, AlphaModel aAlphaModel) :
-    mColorSpace(aColorSpace), mAlphaModel(aAlphaModel) {}
-  ColorModel() :
-    mColorSpace(ColorSpace::SRGB), mAlphaModel(AlphaModel::Premultiplied) {}
-  bool operator==(const ColorModel& aOther) const {
+  ColorModel(ColorSpace aColorSpace, AlphaModel aAlphaModel)
+      : mColorSpace(aColorSpace), mAlphaModel(aAlphaModel)
+  {
+  }
+  ColorModel()
+      : mColorSpace(ColorSpace::SRGB), mAlphaModel(AlphaModel::Premultiplied)
+  {
+  }
+  bool operator==(const ColorModel& aOther) const
+  {
     return mColorSpace == aOther.mColorSpace &&
            mAlphaModel == aOther.mAlphaModel;
   }
@@ -268,7 +280,8 @@ public:
   AlphaModel mAlphaModel;
 };
 
-enum class PrimitiveType {
+enum class PrimitiveType
+{
   Empty = 0,
   Blend,
   Morphology,
@@ -297,9 +310,11 @@ enum class PrimitiveType {
  * functionality.
  * Used as part of a FilterDescription.
  */
-class FilterPrimitiveDescription final {
-public:
-  enum {
+class FilterPrimitiveDescription final
+{
+ public:
+  enum
+  {
     kPrimitiveIndexSourceGraphic = -1,
     kPrimitiveIndexSourceAlpha = -2,
     kPrimitiveIndexFillPaint = -3,
@@ -309,7 +324,8 @@ public:
   FilterPrimitiveDescription();
   explicit FilterPrimitiveDescription(PrimitiveType aType);
   FilterPrimitiveDescription(const FilterPrimitiveDescription& aOther);
-  FilterPrimitiveDescription& operator=(const FilterPrimitiveDescription& aOther);
+  FilterPrimitiveDescription& operator=(
+      const FilterPrimitiveDescription& aOther);
 
   PrimitiveType Type() const { return mType; }
   void SetType(PrimitiveType aType) { mType = aType; }
@@ -323,14 +339,16 @@ public:
   size_t NumberOfInputs() const { return mInputPrimitives.Length(); }
   int32_t InputPrimitiveIndex(size_t aInputIndex) const
   {
-    return aInputIndex < mInputPrimitives.Length() ?
-      mInputPrimitives[aInputIndex] : 0;
+    return aInputIndex < mInputPrimitives.Length()
+               ? mInputPrimitives[aInputIndex]
+               : 0;
   }
 
   ColorSpace InputColorSpace(size_t aInputIndex) const
   {
-    return aInputIndex < mInputColorSpaces.Length() ?
-      mInputColorSpaces[aInputIndex] : ColorSpace();
+    return aInputIndex < mInputColorSpaces.Length()
+               ? mInputColorSpaces[aInputIndex]
+               : ColorSpace();
   }
 
   ColorSpace OutputColorSpace() const { return mOutputColorSpace; }
@@ -345,10 +363,7 @@ public:
     mFilterSpaceBounds = aRect;
   }
 
-  void SetIsTainted(bool aIsTainted)
-  {
-    mIsTainted = aIsTainted;
-  }
+  void SetIsTainted(bool aIsTainted) { mIsTainted = aIsTainted; }
 
   void SetInputPrimitive(size_t aInputIndex, int32_t aInputPrimitiveIndex)
   {
@@ -373,7 +388,7 @@ public:
     return !(*this == aOther);
   }
 
-private:
+ private:
   PrimitiveType mType;
   AttributeMap mAttributes;
   nsTArray<int32_t> mInputPrimitives;
@@ -389,11 +404,14 @@ private:
  * Designed to be serializable via IPDL, so it must not contain complex
  * functionality.
  */
-struct FilterDescription final {
+struct FilterDescription final
+{
   FilterDescription() {}
-  explicit FilterDescription(const nsTArray<FilterPrimitiveDescription>& aPrimitives)
-   : mPrimitives(aPrimitives)
-  {}
+  explicit FilterDescription(
+      const nsTArray<FilterPrimitiveDescription>& aPrimitives)
+      : mPrimitives(aPrimitives)
+  {
+  }
 
   bool operator==(const FilterDescription& aOther) const;
   bool operator!=(const FilterDescription& aOther) const
@@ -409,9 +427,9 @@ struct FilterDescription final {
  * FilterDescription is designed as a simple value holder that can be used
  * on any thread.
  */
-class FilterSupport {
-public:
-
+class FilterSupport
+{
+ public:
   /**
    * Draw the filter described by aFilter. All rect parameters are in filter
    * space coordinates. aRenderRect specifies the part of the filter output
@@ -421,59 +439,59 @@ public:
    * aAdditionalImages carries the images that are referenced by the
    * eImageInputIndex attribute on any image primitives in the filter.
    */
-  static void
-  RenderFilterDescription(DrawTarget* aDT,
-                          const FilterDescription& aFilter,
-                          const Rect& aRenderRect,
-                          SourceSurface* aSourceGraphic,
-                          const IntRect& aSourceGraphicRect,
-                          SourceSurface* aFillPaint,
-                          const IntRect& aFillPaintRect,
-                          SourceSurface* aStrokePaint,
-                          const IntRect& aStrokePaintRect,
-                          nsTArray<RefPtr<SourceSurface>>& aAdditionalImages,
-                          const Point& aDestPoint,
-                          const DrawOptions& aOptions = DrawOptions());
+  static void RenderFilterDescription(
+      DrawTarget* aDT,
+      const FilterDescription& aFilter,
+      const Rect& aRenderRect,
+      SourceSurface* aSourceGraphic,
+      const IntRect& aSourceGraphicRect,
+      SourceSurface* aFillPaint,
+      const IntRect& aFillPaintRect,
+      SourceSurface* aStrokePaint,
+      const IntRect& aStrokePaintRect,
+      nsTArray<RefPtr<SourceSurface>>& aAdditionalImages,
+      const Point& aDestPoint,
+      const DrawOptions& aOptions = DrawOptions());
 
   /**
    * Computes the region that changes in the filter output due to a change in
    * input.  This is primarily needed when an individual piece of content inside
    * a filtered container element changes.
    */
-  static nsIntRegion
-  ComputeResultChangeRegion(const FilterDescription& aFilter,
-                            const nsIntRegion& aSourceGraphicChange,
-                            const nsIntRegion& aFillPaintChange,
-                            const nsIntRegion& aStrokePaintChange);
+  static nsIntRegion ComputeResultChangeRegion(
+      const FilterDescription& aFilter,
+      const nsIntRegion& aSourceGraphicChange,
+      const nsIntRegion& aFillPaintChange,
+      const nsIntRegion& aStrokePaintChange);
 
   /**
    * Computes the regions that need to be supplied in the filter inputs when
    * painting aResultNeededRegion of the filter output.
    */
-  static void
-  ComputeSourceNeededRegions(const FilterDescription& aFilter,
-                             const nsIntRegion& aResultNeededRegion,
-                             nsIntRegion& aSourceGraphicNeededRegion,
-                             nsIntRegion& aFillPaintNeededRegion,
-                             nsIntRegion& aStrokePaintNeededRegion);
+  static void ComputeSourceNeededRegions(
+      const FilterDescription& aFilter,
+      const nsIntRegion& aResultNeededRegion,
+      nsIntRegion& aSourceGraphicNeededRegion,
+      nsIntRegion& aFillPaintNeededRegion,
+      nsIntRegion& aStrokePaintNeededRegion);
 
   /**
    * Computes the size of the filter output.
    */
-  static nsIntRegion
-  ComputePostFilterExtents(const FilterDescription& aFilter,
-                           const nsIntRegion& aSourceGraphicExtents);
+  static nsIntRegion ComputePostFilterExtents(
+      const FilterDescription& aFilter,
+      const nsIntRegion& aSourceGraphicExtents);
 
   /**
    * Computes the size of a single FilterPrimitiveDescription's output given a
    * set of input extents.
    */
-  static nsIntRegion
-  PostFilterExtentsForPrimitive(const FilterPrimitiveDescription& aDescription,
-                                const nsTArray<nsIntRegion>& aInputExtents);
+  static nsIntRegion PostFilterExtentsForPrimitive(
+      const FilterPrimitiveDescription& aDescription,
+      const nsTArray<nsIntRegion>& aInputExtents);
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // __FilterSupport_h
+#endif  // __FilterSupport_h

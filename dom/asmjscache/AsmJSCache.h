@@ -20,13 +20,13 @@ namespace ipc {
 
 class PrincipalInfo;
 
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 
 namespace quota {
 class Client;
-} // namespace quota
+}  // namespace quota
 
 namespace asmjscache {
 
@@ -56,7 +56,8 @@ struct Metadata
     uint32_t mFullHash;
     unsigned mModuleIndex;
 
-    void clear() {
+    void clear()
+    {
       mFastHash = -1;
       mNumChars = -1;
       mFullHash = -1;
@@ -74,12 +75,7 @@ struct WriteParams
   int64_t mNumChars;
   int64_t mFullHash;
 
-  WriteParams()
-  : mSize(0),
-    mFastHash(0),
-    mNumChars(0),
-    mFullHash(0)
-  { }
+  WriteParams() : mSize(0), mFastHash(0), mNumChars(0), mFullHash(0) {}
 };
 
 // Parameters specific to opening a cache entry for reading
@@ -88,10 +84,7 @@ struct ReadParams
   const char16_t* mBegin;
   const char16_t* mLimit;
 
-  ReadParams()
-  : mBegin(nullptr),
-    mLimit(nullptr)
-  { }
+  ReadParams() : mBegin(nullptr), mLimit(nullptr) {}
 };
 
 // Implementation of AsmJSCacheOps, installed for the main JSRuntime by
@@ -112,11 +105,9 @@ OpenEntryForRead(nsIPrincipal* aPrincipal,
                  const char16_t* aLimit,
                  size_t* aSize,
                  const uint8_t** aMemory,
-                 intptr_t *aHandle);
+                 intptr_t* aHandle);
 void
-CloseEntryForRead(size_t aSize,
-                  const uint8_t* aMemory,
-                  intptr_t aHandle);
+CloseEntryForRead(size_t aSize, const uint8_t* aMemory, intptr_t aHandle);
 JS::AsmJSCacheResult
 OpenEntryForWrite(nsIPrincipal* aPrincipal,
                   const char16_t* aBegin,
@@ -125,9 +116,7 @@ OpenEntryForWrite(nsIPrincipal* aPrincipal,
                   uint8_t** aMemory,
                   intptr_t* aHandle);
 void
-CloseEntryForWrite(size_t aSize,
-                   uint8_t* aMemory,
-                   intptr_t aHandle);
+CloseEntryForWrite(size_t aSize, uint8_t* aMemory, intptr_t aHandle);
 
 // Called from QuotaManager.cpp:
 
@@ -137,7 +126,8 @@ CreateClient();
 // Called from ipc/ContentParent.cpp:
 
 PAsmJSCacheEntryParent*
-AllocEntryParent(OpenMode aOpenMode, WriteParams aWriteParams,
+AllocEntryParent(OpenMode aOpenMode,
+                 WriteParams aWriteParams,
                  const mozilla::ipc::PrincipalInfo& aPrincipalInfo);
 
 void
@@ -148,44 +138,50 @@ DeallocEntryParent(PAsmJSCacheEntryParent* aActor);
 void
 DeallocEntryChild(PAsmJSCacheEntryChild* aActor);
 
-} // namespace asmjscache
-} // namespace dom
-} // namespace mozilla
+}  // namespace asmjscache
+}  // namespace dom
+}  // namespace mozilla
 
 namespace IPC {
 
-template <>
-struct ParamTraits<mozilla::dom::asmjscache::OpenMode> :
-  public ContiguousEnumSerializer<mozilla::dom::asmjscache::OpenMode,
-                                  mozilla::dom::asmjscache::eOpenForRead,
-                                  mozilla::dom::asmjscache::NUM_OPEN_MODES>
-{ };
+template<>
+struct ParamTraits<mozilla::dom::asmjscache::OpenMode>
+    : public ContiguousEnumSerializer<mozilla::dom::asmjscache::OpenMode,
+                                      mozilla::dom::asmjscache::eOpenForRead,
+                                      mozilla::dom::asmjscache::NUM_OPEN_MODES>
+{
+};
 
-template <>
+template<>
 struct ParamTraits<mozilla::dom::asmjscache::Metadata>
 {
   typedef mozilla::dom::asmjscache::Metadata paramType;
   static void Write(Message* aMsg, const paramType& aParam);
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult);
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult);
   static void Log(const paramType& aParam, std::wstring* aLog);
 };
 
-template <>
+template<>
 struct ParamTraits<mozilla::dom::asmjscache::WriteParams>
 {
   typedef mozilla::dom::asmjscache::WriteParams paramType;
   static void Write(Message* aMsg, const paramType& aParam);
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult);
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult);
   static void Log(const paramType& aParam, std::wstring* aLog);
 };
 
-template <>
-struct ParamTraits<JS::AsmJSCacheResult> :
-  public ContiguousEnumSerializer<JS::AsmJSCacheResult,
-                                  JS::AsmJSCache_MIN,
-                                  JS::AsmJSCache_LIMIT>
-{ };
+template<>
+struct ParamTraits<JS::AsmJSCacheResult>
+    : public ContiguousEnumSerializer<JS::AsmJSCacheResult,
+                                      JS::AsmJSCache_MIN,
+                                      JS::AsmJSCache_LIMIT>
+{
+};
 
-} // namespace IPC
+}  // namespace IPC
 
 #endif  // mozilla_dom_asmjscache_asmjscache_h

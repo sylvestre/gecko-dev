@@ -14,9 +14,8 @@
 
 using namespace js;
 
-static gc::AllocKind
-GetProxyGCObjectKind(const Class* clasp, const BaseProxyHandler* handler, const Value& priv)
-{
+static gc::AllocKind GetProxyGCObjectKind(const Class* clasp, const BaseProxyHandler* handler,
+                                          const Value& priv) {
     MOZ_ASSERT(clasp->isProxy());
 
     uint32_t nreserved = JSCLASS_RESERVED_SLOTS(clasp);
@@ -33,16 +32,14 @@ GetProxyGCObjectKind(const Class* clasp, const BaseProxyHandler* handler, const 
     MOZ_ASSERT(nslots <= NativeObject::MAX_FIXED_SLOTS);
 
     gc::AllocKind kind = gc::GetGCObjectKind(nslots);
-    if (handler->finalizeInBackground(priv))
-        kind = GetBackgroundAllocKind(kind);
+    if (handler->finalizeInBackground(priv)) kind = GetBackgroundAllocKind(kind);
 
     return kind;
 }
 
-/* static */ ProxyObject*
-ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler, HandleValue priv, TaggedProto proto_,
-                 const ProxyOptions& options)
-{
+/* static */ ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
+                                           HandleValue priv, TaggedProto proto_,
+                                           const ProxyOptions& options) {
     Rooted<TaggedProto> proto(cx, proto_);
 
     const Class* clasp = options.clasp();
@@ -61,8 +58,7 @@ ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler, HandleValue pri
      */
     if (proto.isObject() && !options.singleton() && !clasp->isDOMClass()) {
         RootedObject protoObj(cx, proto.toObject());
-        if (!JSObject::setNewGroupUnknown(cx, clasp, protoObj))
-            return nullptr;
+        if (!JSObject::setNewGroupUnknown(cx, clasp, protoObj)) return nullptr;
     }
 
     // Ensure that the wrapper has the same lifetime assumptions as the
@@ -72,8 +68,7 @@ ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler, HandleValue pri
         MOZ_ASSERT(priv.isNull() || (priv.isGCThing() && priv.toGCThing()->isTenured()));
         newKind = SingletonObject;
     } else if ((priv.isGCThing() && priv.toGCThing()->isTenured()) ||
-               !handler->canNurseryAllocate())
-    {
+               !handler->canNurseryAllocate()) {
         newKind = TenuredObject;
     }
 
@@ -103,38 +98,26 @@ ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler, HandleValue pri
     return proxy;
 }
 
-gc::AllocKind
-ProxyObject::allocKindForTenure() const
-{
+gc::AllocKind ProxyObject::allocKindForTenure() const {
     MOZ_ASSERT(usingInlineValueArray());
     Value priv = const_cast<ProxyObject*>(this)->private_();
     return GetProxyGCObjectKind(getClass(), data.handler, priv);
 }
 
-void
-ProxyObject::setCrossCompartmentPrivate(const Value& priv)
-{
-    setPrivate(priv);
-}
+void ProxyObject::setCrossCompartmentPrivate(const Value& priv) { setPrivate(priv); }
 
-void
-ProxyObject::setSameCompartmentPrivate(const Value& priv)
-{
+void ProxyObject::setSameCompartmentPrivate(const Value& priv) {
     MOZ_ASSERT(IsObjectValueInCompartment(priv, compartment()));
     setPrivate(priv);
 }
 
-inline void
-ProxyObject::setPrivate(const Value& priv)
-{
+inline void ProxyObject::setPrivate(const Value& priv) {
     MOZ_ASSERT_IF(IsMarkedBlack(this) && priv.isGCThing(),
                   !JS::GCThingIsMarkedGray(JS::GCCellPtr(priv)));
     *slotOfPrivate() = priv;
 }
 
-void
-ProxyObject::nuke()
-{
+void ProxyObject::nuke() {
     // Clear the target reference and replaced it with a value that encodes
     // various information about the original target.
     setSameCompartmentPrivate(DeadProxyTargetValue(this));
@@ -150,10 +133,11 @@ ProxyObject::nuke()
     // to leak.
 }
 
-/* static */ JS::Result<ProxyObject*, JS::OOM&>
-ProxyObject::create(JSContext* cx, const Class* clasp, Handle<TaggedProto> proto,
-                    gc::AllocKind allocKind, NewObjectKind newKind)
-{
+/* static */ JS::Result<ProxyObject*, JS::OOM&> ProxyObject::create(JSContext* cx,
+                                                                    const Class* clasp,
+                                                                    Handle<TaggedProto> proto,
+                                                                    gc::AllocKind allocKind,
+                                                                    NewObjectKind newKind) {
     MOZ_ASSERT(clasp->isProxy());
 
     JSCompartment* comp = cx->compartment();
@@ -163,12 +147,10 @@ ProxyObject::create(JSContext* cx, const Class* clasp, Handle<TaggedProto> proto
     // Try to look up the group and shape in the NewProxyCache.
     if (!comp->newProxyCache.lookup(clasp, proto, group.address(), shape.address())) {
         group = ObjectGroup::defaultNewGroup(cx, clasp, proto, nullptr);
-        if (!group)
-            return cx->alreadyReportedOOM();
+        if (!group) return cx->alreadyReportedOOM();
 
         shape = EmptyShape::getInitialShape(cx, clasp, proto, /* nfixed = */ 0);
-        if (!shape)
-            return cx->alreadyReportedOOM();
+        if (!shape) return cx->alreadyReportedOOM();
 
         comp->newProxyCache.add(group, shape);
     }
@@ -177,8 +159,7 @@ ProxyObject::create(JSContext* cx, const Class* clasp, Handle<TaggedProto> proto
     debugCheckNewObject(group, shape, allocKind, heap);
 
     JSObject* obj = js::Allocate<JSObject>(cx, allocKind, /* numDynamicSlots = */ 0, heap, clasp);
-    if (!obj)
-        return cx->alreadyReportedOOM();
+    if (!obj) return cx->alreadyReportedOOM();
 
     ProxyObject* pobj = static_cast<ProxyObject*>(obj);
     pobj->group_.init(group);
@@ -191,8 +172,7 @@ ProxyObject::create(JSContext* cx, const Class* clasp, Handle<TaggedProto> proto
 
     if (newKind == SingletonObject) {
         Rooted<ProxyObject*> pobjRoot(cx, pobj);
-        if (!JSObject::setSingleton(cx, pobjRoot))
-            return cx->alreadyReportedOOM();
+        if (!JSObject::setSingleton(cx, pobjRoot)) return cx->alreadyReportedOOM();
         pobj = pobjRoot;
     }
 
@@ -200,8 +180,7 @@ ProxyObject::create(JSContext* cx, const Class* clasp, Handle<TaggedProto> proto
 }
 
 JS_FRIEND_API(void)
-js::SetValueInProxy(Value* slot, const Value& value)
-{
+js::SetValueInProxy(Value* slot, const Value& value) {
     // Slots in proxies are not GCPtrValues, so do a cast whenever assigning
     // values to them which might trigger a barrier.
     *reinterpret_cast<GCPtrValue*>(slot) = value;

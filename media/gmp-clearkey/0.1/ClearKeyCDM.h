@@ -15,16 +15,16 @@
 
 class ClearKeyCDM : public cdm::ContentDecryptionModule_8
 {
-private:
+ private:
   RefPtr<ClearKeySessionManager> mSessionManager;
 #ifdef ENABLE_WMF
   RefPtr<VideoDecoder> mVideoDecoder;
 #endif
 
-protected:
+ protected:
   cdm::Host_8* mHost;
 
-public:
+ public:
   explicit ClearKeyCDM(cdm::Host_8* mHost);
 
   void Initialize(bool aAllowDistinctiveIdentifier,
@@ -32,15 +32,13 @@ public:
 
   void SetServerCertificate(uint32_t aPromiseId,
                             const uint8_t* aServerCertificateData,
-                            uint32_t aServerCertificateDataSize)
-                            override;
+                            uint32_t aServerCertificateDataSize) override;
 
   void CreateSessionAndGenerateRequest(uint32_t aPromiseId,
                                        cdm::SessionType aSessionType,
                                        cdm::InitDataType aInitDataType,
                                        const uint8_t* aInitData,
-                                       uint32_t aInitDataSize)
-                                       override;
+                                       uint32_t aInitDataSize) override;
 
   void LoadSession(uint32_t aPromiseId,
                    cdm::SessionType aSessionType,
@@ -67,30 +65,27 @@ public:
                       cdm::DecryptedBlock* aDecryptedBuffer) override;
 
   cdm::Status InitializeAudioDecoder(
-    const cdm::AudioDecoderConfig& aAudioDecoderConfig) override;
+      const cdm::AudioDecoderConfig& aAudioDecoderConfig) override;
 
   cdm::Status InitializeVideoDecoder(
-    const cdm::VideoDecoderConfig& aVideoDecoderConfig) override;
+      const cdm::VideoDecoderConfig& aVideoDecoderConfig) override;
 
   void DeinitializeDecoder(cdm::StreamType aDecoderType) override;
 
   void ResetDecoder(cdm::StreamType aDecoderType) override;
 
-  cdm::Status DecryptAndDecodeFrame(
-    const cdm::InputBuffer& aEncryptedBuffer,
-    cdm::VideoFrame* aVideoFrame) override;
+  cdm::Status DecryptAndDecodeFrame(const cdm::InputBuffer& aEncryptedBuffer,
+                                    cdm::VideoFrame* aVideoFrame) override;
 
-  cdm::Status DecryptAndDecodeSamples(
-    const cdm::InputBuffer& aEncryptedBuffer,
-    cdm::AudioFrames* aAudioFrame) override;
+  cdm::Status DecryptAndDecodeSamples(const cdm::InputBuffer& aEncryptedBuffer,
+                                      cdm::AudioFrames* aAudioFrame) override;
 
   void OnPlatformChallengeResponse(
-    const cdm::PlatformChallengeResponse& aResponse) override;
+      const cdm::PlatformChallengeResponse& aResponse) override;
 
-  void
-    OnQueryOutputProtectionStatus(cdm::QueryResult aResult,
-                                  uint32_t aLinkMask,
-                                  uint32_t aOutputProtectionMask) override;
+  void OnQueryOutputProtectionStatus(cdm::QueryResult aResult,
+                                     uint32_t aLinkMask,
+                                     uint32_t aOutputProtectionMask) override;
 
   void Destroy() override;
 };

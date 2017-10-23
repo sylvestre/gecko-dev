@@ -14,36 +14,32 @@
 namespace mozilla {
 namespace dom {
 
-class SVGAnimatedEnumeration : public nsISupports
-                             , public nsWrapperCache
+class SVGAnimatedEnumeration : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SVGAnimatedEnumeration)
 
-  nsSVGElement* GetParentObject() const
-  {
-    return mSVGElement;
-  }
+  nsSVGElement* GetParentObject() const { return mSVGElement; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-    override final;
+  virtual JSObject* WrapObject(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override final;
 
   virtual uint16_t BaseVal() = 0;
   virtual void SetBaseVal(uint16_t aBaseVal, ErrorResult& aRv) = 0;
   virtual uint16_t AnimVal() = 0;
 
-protected:
+ protected:
   explicit SVGAnimatedEnumeration(nsSVGElement* aSVGElement)
-    : mSVGElement(aSVGElement)
+      : mSVGElement(aSVGElement)
   {
   }
-  virtual ~SVGAnimatedEnumeration() {};
+  virtual ~SVGAnimatedEnumeration(){};
 
   RefPtr<nsSVGElement> mSVGElement;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGAnimatedEnumeration_h
+#endif  // mozilla_dom_SVGAnimatedEnumeration_h

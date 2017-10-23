@@ -21,7 +21,7 @@ namespace a11y {
 
 class MOZ_RAII IAccessibleEnvironment : public mscom::ProxyStream::Environment
 {
-public:
+ public:
   IAccessibleEnvironment() = default;
 
   bool Push() override
@@ -30,25 +30,22 @@ public:
     return !!mActCtxRgn;
   }
 
-  bool Pop() override
-  {
-    return mActCtxRgn.Deactivate();
-  }
+  bool Pop() override { return mActCtxRgn.Deactivate(); }
 
-private:
+ private:
   static const mscom::ActivationContext& GetActCtx()
   {
-    static const mscom::ActivationContext
-      sActCtx(Compatibility::GetActCtxResourceId());
+    static const mscom::ActivationContext sActCtx(
+        Compatibility::GetActCtxResourceId());
     MOZ_DIAGNOSTIC_ASSERT(sActCtx);
     return sActCtx;
   }
 
-private:
+ private:
   mscom::ActivationContextRegion mActCtxRgn;
 };
 
-} // namespace a11y
+}  // namespace a11y
 
 namespace mscom {
 namespace detail {
@@ -59,12 +56,13 @@ struct EnvironmentSelector<IAccessible>
   typedef a11y::IAccessibleEnvironment Type;
 };
 
-} // namespace detail
-} // namespace mscom
+}  // namespace detail
+}  // namespace mscom
 
 namespace a11y {
 
-typedef mozilla::mscom::COMPtrHolder<IAccessible, IID_IAccessible> IAccessibleHolder;
+typedef mozilla::mscom::COMPtrHolder<IAccessible, IID_IAccessible>
+    IAccessibleHolder;
 typedef mozilla::mscom::COMPtrHolder<IDispatch, IID_IDispatch> IDispatchHolder;
 
 class Accessible;
@@ -72,12 +70,14 @@ class Accessible;
 IAccessibleHolder
 CreateHolderFromAccessible(NotNull<Accessible*> aAccToWrap);
 
-typedef mozilla::mscom::COMPtrHolder<IHandlerControl, IID_IHandlerControl> IHandlerControlHolder;
+typedef mozilla::mscom::COMPtrHolder<IHandlerControl, IID_IHandlerControl>
+    IHandlerControlHolder;
 
 IHandlerControlHolder
-CreateHolderFromHandlerControl(mscom::ProxyUniquePtr<IHandlerControl> aHandlerControl);
+CreateHolderFromHandlerControl(
+    mscom::ProxyUniquePtr<IHandlerControl> aHandlerControl);
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_COMPtrTypes_h
+#endif  // mozilla_a11y_COMPtrTypes_h

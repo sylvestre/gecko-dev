@@ -25,28 +25,26 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IdleDeadline)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-IdleDeadline::IdleDeadline(nsPIDOMWindowInner* aWindow, bool aDidTimeout,
+IdleDeadline::IdleDeadline(nsPIDOMWindowInner* aWindow,
+                           bool aDidTimeout,
                            DOMHighResTimeStamp aDeadline)
-  : mWindow(aWindow)
-  , mDidTimeout(aDidTimeout)
-  , mDeadline(aDeadline)
+    : mWindow(aWindow), mDidTimeout(aDidTimeout), mDeadline(aDeadline)
 {
   bool hasHadSHO;
   mGlobal = aWindow->GetDoc()->GetScriptHandlingObject(hasHadSHO);
 }
 
-IdleDeadline::IdleDeadline(nsIGlobalObject* aGlobal, bool aDidTimeout,
+IdleDeadline::IdleDeadline(nsIGlobalObject* aGlobal,
+                           bool aDidTimeout,
                            DOMHighResTimeStamp aDeadline)
-  : mWindow(nullptr)
-  , mGlobal(aGlobal)
-  , mDidTimeout(aDidTimeout)
-  , mDeadline(aDeadline)
+    : mWindow(nullptr),
+      mGlobal(aGlobal),
+      mDidTimeout(aDidTimeout),
+      mDeadline(aDeadline)
 {
 }
 
-IdleDeadline::~IdleDeadline()
-{
-}
+IdleDeadline::~IdleDeadline() {}
 
 JSObject*
 IdleDeadline::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -84,5 +82,5 @@ IdleDeadline::DidTimeout() const
   return mDidTimeout;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

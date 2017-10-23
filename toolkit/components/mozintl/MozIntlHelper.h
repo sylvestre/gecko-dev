@@ -9,14 +9,14 @@ namespace mozilla {
 
 class MozIntlHelper final : public mozIMozIntlHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_MOZIMOZINTLHELPER
 
   MozIntlHelper();
 
-private:
+ private:
   ~MozIntlHelper();
 };
 
-} // namespace mozilla
+}  // namespace mozilla

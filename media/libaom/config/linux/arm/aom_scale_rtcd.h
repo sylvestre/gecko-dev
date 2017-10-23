@@ -13,63 +13,108 @@ struct yv12_buffer_config;
 extern "C" {
 #endif
 
-void aom_extend_frame_borders_c(struct yv12_buffer_config *ybf);
+void
+aom_extend_frame_borders_c(struct yv12_buffer_config* ybf);
 #define aom_extend_frame_borders aom_extend_frame_borders_c
 
-void aom_extend_frame_borders_y_c(struct yv12_buffer_config *ybf);
+void
+aom_extend_frame_borders_y_c(struct yv12_buffer_config* ybf);
 #define aom_extend_frame_borders_y aom_extend_frame_borders_y_c
 
-void aom_extend_frame_inner_borders_c(struct yv12_buffer_config *ybf);
+void
+aom_extend_frame_inner_borders_c(struct yv12_buffer_config* ybf);
 #define aom_extend_frame_inner_borders aom_extend_frame_inner_borders_c
 
-void aom_horizontal_line_2_1_scale_c(const unsigned char *source, unsigned int source_width, unsigned char *dest, unsigned int dest_width);
+void
+aom_horizontal_line_2_1_scale_c(const unsigned char* source,
+                                unsigned int source_width,
+                                unsigned char* dest,
+                                unsigned int dest_width);
 #define aom_horizontal_line_2_1_scale aom_horizontal_line_2_1_scale_c
 
-void aom_horizontal_line_5_3_scale_c(const unsigned char *source, unsigned int source_width, unsigned char *dest, unsigned int dest_width);
+void
+aom_horizontal_line_5_3_scale_c(const unsigned char* source,
+                                unsigned int source_width,
+                                unsigned char* dest,
+                                unsigned int dest_width);
 #define aom_horizontal_line_5_3_scale aom_horizontal_line_5_3_scale_c
 
-void aom_horizontal_line_5_4_scale_c(const unsigned char *source, unsigned int source_width, unsigned char *dest, unsigned int dest_width);
+void
+aom_horizontal_line_5_4_scale_c(const unsigned char* source,
+                                unsigned int source_width,
+                                unsigned char* dest,
+                                unsigned int dest_width);
 #define aom_horizontal_line_5_4_scale aom_horizontal_line_5_4_scale_c
 
-void aom_vertical_band_2_1_scale_c(unsigned char *source, int src_pitch, unsigned char *dest, int dest_pitch, unsigned int dest_width);
+void
+aom_vertical_band_2_1_scale_c(unsigned char* source,
+                              int src_pitch,
+                              unsigned char* dest,
+                              int dest_pitch,
+                              unsigned int dest_width);
 #define aom_vertical_band_2_1_scale aom_vertical_band_2_1_scale_c
 
-void aom_vertical_band_2_1_scale_i_c(unsigned char *source, int src_pitch, unsigned char *dest, int dest_pitch, unsigned int dest_width);
+void
+aom_vertical_band_2_1_scale_i_c(unsigned char* source,
+                                int src_pitch,
+                                unsigned char* dest,
+                                int dest_pitch,
+                                unsigned int dest_width);
 #define aom_vertical_band_2_1_scale_i aom_vertical_band_2_1_scale_i_c
 
-void aom_vertical_band_5_3_scale_c(unsigned char *source, int src_pitch, unsigned char *dest, int dest_pitch, unsigned int dest_width);
+void
+aom_vertical_band_5_3_scale_c(unsigned char* source,
+                              int src_pitch,
+                              unsigned char* dest,
+                              int dest_pitch,
+                              unsigned int dest_width);
 #define aom_vertical_band_5_3_scale aom_vertical_band_5_3_scale_c
 
-void aom_vertical_band_5_4_scale_c(unsigned char *source, int src_pitch, unsigned char *dest, int dest_pitch, unsigned int dest_width);
+void
+aom_vertical_band_5_4_scale_c(unsigned char* source,
+                              int src_pitch,
+                              unsigned char* dest,
+                              int dest_pitch,
+                              unsigned int dest_width);
 #define aom_vertical_band_5_4_scale aom_vertical_band_5_4_scale_c
 
-void aom_yv12_copy_frame_c(const struct yv12_buffer_config *src_bc, struct yv12_buffer_config *dst_bc);
+void
+aom_yv12_copy_frame_c(const struct yv12_buffer_config* src_bc,
+                      struct yv12_buffer_config* dst_bc);
 #define aom_yv12_copy_frame aom_yv12_copy_frame_c
 
-void aom_yv12_copy_u_c(const struct yv12_buffer_config *src_bc, struct yv12_buffer_config *dst_bc);
+void
+aom_yv12_copy_u_c(const struct yv12_buffer_config* src_bc,
+                  struct yv12_buffer_config* dst_bc);
 #define aom_yv12_copy_u aom_yv12_copy_u_c
 
-void aom_yv12_copy_v_c(const struct yv12_buffer_config *src_bc, struct yv12_buffer_config *dst_bc);
+void
+aom_yv12_copy_v_c(const struct yv12_buffer_config* src_bc,
+                  struct yv12_buffer_config* dst_bc);
 #define aom_yv12_copy_v aom_yv12_copy_v_c
 
-void aom_yv12_copy_y_c(const struct yv12_buffer_config *src_ybc, struct yv12_buffer_config *dst_ybc);
+void
+aom_yv12_copy_y_c(const struct yv12_buffer_config* src_ybc,
+                  struct yv12_buffer_config* dst_ybc);
 #define aom_yv12_copy_y aom_yv12_copy_y_c
 
-void aom_yv12_extend_frame_borders_c(struct yv12_buffer_config *ybf);
+void
+aom_yv12_extend_frame_borders_c(struct yv12_buffer_config* ybf);
 #define aom_yv12_extend_frame_borders aom_yv12_extend_frame_borders_c
 
-void aom_scale_rtcd(void);
+void
+aom_scale_rtcd(void);
 
 #include "aom_config.h"
 
 #ifdef RTCD_C
 #include "aom_ports/arm.h"
-static void setup_rtcd_internal(void)
+static void
+setup_rtcd_internal(void)
 {
-    int flags = arm_cpu_caps();
+  int flags = arm_cpu_caps();
 
-    (void)flags;
-
+  (void)flags;
 }
 #endif
 

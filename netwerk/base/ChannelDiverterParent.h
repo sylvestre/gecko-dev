@@ -17,10 +17,9 @@ namespace net {
 class ChannelDiverterArgs;
 class ADivertableParentChannel;
 
-class ChannelDiverterParent :
-  public PChannelDiverterParent
+class ChannelDiverterParent : public PChannelDiverterParent
 {
-public:
+ public:
   ChannelDiverterParent();
   virtual ~ChannelDiverterParent();
 
@@ -30,11 +29,11 @@ public:
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   RefPtr<ADivertableParentChannel> mDivertableChannelParent;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* _channeldiverterparent_h_ */

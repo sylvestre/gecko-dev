@@ -21,45 +21,45 @@ static ImageBitmapFormat
 GetImageBitmapFormatFromSurfaceFromat(SurfaceFormat aSurfaceFormat)
 {
   switch (aSurfaceFormat) {
-  case SurfaceFormat::B8G8R8A8:
-  case SurfaceFormat::B8G8R8X8:
-    return ImageBitmapFormat::BGRA32;
-  case SurfaceFormat::R8G8B8A8:
-  case SurfaceFormat::R8G8B8X8:
-    return ImageBitmapFormat::RGBA32;
-  case SurfaceFormat::R8G8B8:
-    return ImageBitmapFormat::RGB24;
-  case SurfaceFormat::B8G8R8:
-    return ImageBitmapFormat::BGR24;
-  case SurfaceFormat::HSV:
-    return ImageBitmapFormat::HSV;
-  case SurfaceFormat::Lab:
-    return ImageBitmapFormat::Lab;
-  case SurfaceFormat::Depth:
-    return ImageBitmapFormat::DEPTH;
-  case SurfaceFormat::A8:
-    return ImageBitmapFormat::GRAY8;
-  case SurfaceFormat::R5G6B5_UINT16:
-  case SurfaceFormat::YUV:
-  case SurfaceFormat::NV12:
-  case SurfaceFormat::UNKNOWN:
-  default:
-    return ImageBitmapFormat::EndGuard_;
+    case SurfaceFormat::B8G8R8A8:
+    case SurfaceFormat::B8G8R8X8:
+      return ImageBitmapFormat::BGRA32;
+    case SurfaceFormat::R8G8B8A8:
+    case SurfaceFormat::R8G8B8X8:
+      return ImageBitmapFormat::RGBA32;
+    case SurfaceFormat::R8G8B8:
+      return ImageBitmapFormat::RGB24;
+    case SurfaceFormat::B8G8R8:
+      return ImageBitmapFormat::BGR24;
+    case SurfaceFormat::HSV:
+      return ImageBitmapFormat::HSV;
+    case SurfaceFormat::Lab:
+      return ImageBitmapFormat::Lab;
+    case SurfaceFormat::Depth:
+      return ImageBitmapFormat::DEPTH;
+    case SurfaceFormat::A8:
+      return ImageBitmapFormat::GRAY8;
+    case SurfaceFormat::R5G6B5_UINT16:
+    case SurfaceFormat::YUV:
+    case SurfaceFormat::NV12:
+    case SurfaceFormat::UNKNOWN:
+    default:
+      return ImageBitmapFormat::EndGuard_;
   }
 }
 
 static ImageBitmapFormat
-GetImageBitmapFormatFromPlanarYCbCrData(layers::PlanarYCbCrData const *aData)
+GetImageBitmapFormatFromPlanarYCbCrData(layers::PlanarYCbCrData const* aData)
 {
   MOZ_ASSERT(aData);
 
   if (aData->mYSkip == 0 && aData->mCbSkip == 0 &&
-      aData->mCrSkip == 0) { // Possibly three planes.
+      aData->mCrSkip == 0) {  // Possibly three planes.
     if (aData->mCbChannel >=
-          aData->mYChannel + aData->mYSize.height * aData->mYStride &&
+            aData->mYChannel + aData->mYSize.height * aData->mYStride &&
         aData->mCrChannel >=
-          aData->mCbChannel +
-            aData->mCbCrSize.height * aData->mCbCrStride) { // Three planes.
+            aData->mCbChannel + aData->mCbCrSize.height *
+                                    aData->mCbCrStride) {  // Three planes.
       if (aData->mYSize.height == aData->mCbCrSize.height) {
         if (aData->mYSize.width == aData->mCbCrSize.width) {
           return ImageBitmapFormat::YUV444P;
@@ -73,15 +73,18 @@ GetImageBitmapFormatFromPlanarYCbCrData(layers::PlanarYCbCrData const *aData)
         }
       }
     }
-  } else if (aData->mYSkip == 0 && aData->mCbSkip == 1 && aData->mCrSkip == 1) { // Possibly two planes.
-    if (aData->mCbChannel >= aData->mYChannel + aData->mYSize.height * aData->mYStride &&
-        aData->mCbChannel == aData->mCrChannel - 1) { // Two planes.
+  } else if (aData->mYSkip == 0 && aData->mCbSkip == 1 &&
+             aData->mCrSkip == 1) {  // Possibly two planes.
+    if (aData->mCbChannel >=
+            aData->mYChannel + aData->mYSize.height * aData->mYStride &&
+        aData->mCbChannel == aData->mCrChannel - 1) {  // Two planes.
       if (((aData->mYSize.height + 1) / 2) == aData->mCbCrSize.height &&
           ((aData->mYSize.width + 1) / 2) == aData->mCbCrSize.width) {
         return ImageBitmapFormat::YUV420SP_NV12;  // Y-Cb-Cr
       }
-    } else if (aData->mCrChannel >= aData->mYChannel + aData->mYSize.height * aData->mYStride &&
-               aData->mCrChannel == aData->mCbChannel - 1) { // Two planes.
+    } else if (aData->mCrChannel >=
+                   aData->mYChannel + aData->mYSize.height * aData->mYStride &&
+               aData->mCrChannel == aData->mCbChannel - 1) {  // Two planes.
       if (((aData->mYSize.height + 1) / 2) == aData->mCbCrSize.height &&
           ((aData->mYSize.width + 1) / 2) == aData->mCbCrSize.width) {
         return ImageBitmapFormat::YUV420SP_NV21;  // Y-Cr-Cb
@@ -99,35 +102,28 @@ GetImageBitmapFormatFromPlanarYCbCrData(layers::PlanarYCbCrData const *aData)
 // version.
 class ImageUtils::Impl
 {
-public:
-  explicit Impl(layers::Image* aImage)
-  : mImage(aImage)
-  , mSurface(nullptr)
-  {
-  }
+ public:
+  explicit Impl(layers::Image* aImage) : mImage(aImage), mSurface(nullptr) {}
 
   virtual ~Impl() = default;
 
-  virtual ImageBitmapFormat
-  GetFormat() const
+  virtual ImageBitmapFormat GetFormat() const
   {
     return GetImageBitmapFormatFromSurfaceFromat(Surface()->GetFormat());
   }
 
-  virtual uint32_t
-  GetBufferLength() const
+  virtual uint32_t GetBufferLength() const
   {
     const uint32_t stride = Surface()->Stride();
     const IntSize size = Surface()->GetSize();
     return (uint32_t)(size.height * stride);
   }
 
-  virtual UniquePtr<ImagePixelLayout>
-  MapDataInto(uint8_t* aBuffer,
-              uint32_t aOffset,
-              uint32_t aBufferLength,
-              ImageBitmapFormat aFormat,
-              ErrorResult& aRv) const
+  virtual UniquePtr<ImagePixelLayout> MapDataInto(uint8_t* aBuffer,
+                                                  uint32_t aOffset,
+                                                  uint32_t aBufferLength,
+                                                  ImageBitmapFormat aFormat,
+                                                  ErrorResult& aRv) const
   {
     DataSourceSurface::ScopedMap map(Surface(), DataSourceSurface::READ);
     if (!map.IsMapped()) {
@@ -137,14 +133,15 @@ public:
 
     // Copy or convert data.
     UniquePtr<ImagePixelLayout> srcLayout =
-      CreateDefaultPixelLayout(GetFormat(), Surface()->GetSize().width,
-                               Surface()->GetSize().height, map.GetStride());
+        CreateDefaultPixelLayout(GetFormat(),
+                                 Surface()->GetSize().width,
+                                 Surface()->GetSize().height,
+                                 map.GetStride());
 
     // Prepare destination buffer.
     uint8_t* dstBuffer = aBuffer + aOffset;
-    UniquePtr<ImagePixelLayout> dstLayout =
-      CopyAndConvertImageData(GetFormat(), map.GetData(), srcLayout.get(),
-                              aFormat, dstBuffer);
+    UniquePtr<ImagePixelLayout> dstLayout = CopyAndConvertImageData(
+        GetFormat(), map.GetData(), srcLayout.get(), aFormat, dstBuffer);
 
     if (!dstLayout) {
       aRv.Throw(NS_ERROR_NOT_AVAILABLE);
@@ -154,7 +151,7 @@ public:
     return dstLayout;
   }
 
-protected:
+ protected:
   Impl() {}
 
   DataSourceSurface* Surface() const
@@ -179,9 +176,8 @@ protected:
 // format family.
 class YUVImpl final : public ImageUtils::Impl
 {
-public:
-  explicit YUVImpl(layers::Image* aImage)
-  : Impl(aImage)
+ public:
+  explicit YUVImpl(layers::Image* aImage) : Impl(aImage)
   {
     MOZ_ASSERT(aImage->GetFormat() == ImageFormat::PLANAR_YCBCR ||
                aImage->GetFormat() == ImageFormat::NV_IMAGE);
@@ -210,12 +206,15 @@ public:
     const PlanarYCbCrData* data = GetPlanarYCbCrData();
 
     UniquePtr<ImagePixelLayout> srcLayout =
-      CreatePixelLayoutFromPlanarYCbCrData(data);
+        CreatePixelLayoutFromPlanarYCbCrData(data);
 
     // Do conversion.
     UniquePtr<ImagePixelLayout> dstLayout =
-      CopyAndConvertImageData(GetFormat(), data->mYChannel, srcLayout.get(),
-                              aFormat, aBuffer+aOffset);
+        CopyAndConvertImageData(GetFormat(),
+                                data->mYChannel,
+                                srcLayout.get(),
+                                aFormat,
+                                aBuffer + aOffset);
 
     if (!dstLayout) {
       aRv.Throw(NS_ERROR_NOT_AVAILABLE);
@@ -225,7 +224,7 @@ public:
     return dstLayout;
   }
 
-private:
+ private:
   const PlanarYCbCrData* GetPlanarYCbCrData() const
   {
     if (mImage->GetFormat() == ImageFormat::PLANAR_YCBCR) {
@@ -240,24 +239,26 @@ private:
 // Others: SharedBGRImpl, MACIOSrufaceImpl, GLImageImpl, SurfaceTextureImpl
 //         EGLImageImpl and OverlayImegImpl.
 
-ImageUtils::ImageUtils(layers::Image* aImage)
-: mImpl(nullptr)
+ImageUtils::ImageUtils(layers::Image* aImage) : mImpl(nullptr)
 {
   MOZ_ASSERT(aImage, "Create ImageUtils with nullptr.");
-  switch(aImage->GetFormat()) {
-  case mozilla::ImageFormat::PLANAR_YCBCR:
-  case mozilla::ImageFormat::NV_IMAGE:
-    mImpl = new YUVImpl(aImage);
-    break;
-  case mozilla::ImageFormat::CAIRO_SURFACE:
-  default:
-    mImpl = new Impl(aImage);
+  switch (aImage->GetFormat()) {
+    case mozilla::ImageFormat::PLANAR_YCBCR:
+    case mozilla::ImageFormat::NV_IMAGE:
+      mImpl = new YUVImpl(aImage);
+      break;
+    case mozilla::ImageFormat::CAIRO_SURFACE:
+    default:
+      mImpl = new Impl(aImage);
   }
 }
 
 ImageUtils::~ImageUtils()
 {
-  if (mImpl) { delete mImpl; mImpl = nullptr; }
+  if (mImpl) {
+    delete mImpl;
+    mImpl = nullptr;
+  }
 }
 
 ImageBitmapFormat
@@ -286,5 +287,5 @@ ImageUtils::MapDataInto(uint8_t* aBuffer,
   return mImpl->MapDataInto(aBuffer, aOffset, aBufferLength, aFormat, aRv);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

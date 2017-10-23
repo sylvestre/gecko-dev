@@ -19,30 +19,25 @@ ParseSize(int64_t aSize, int64_t& aStart, int64_t& aEnd)
   CheckedInt64 newStartOffset = aStart;
   if (aStart < -aSize) {
     newStartOffset = 0;
-  }
-  else if (aStart < 0) {
+  } else if (aStart < 0) {
     newStartOffset += aSize;
-  }
-  else if (aStart > aSize) {
+  } else if (aStart > aSize) {
     newStartOffset = aSize;
   }
 
   CheckedInt64 newEndOffset = aEnd;
   if (aEnd < -aSize) {
     newEndOffset = 0;
-  }
-  else if (aEnd < 0) {
+  } else if (aEnd < 0) {
     newEndOffset += aSize;
-  }
-  else if (aEnd > aSize) {
+  } else if (aEnd > aSize) {
     newEndOffset = aSize;
   }
 
   if (!newStartOffset.isValid() || !newEndOffset.isValid() ||
       newStartOffset.value() >= newEndOffset.value()) {
     aStart = aEnd = 0;
-  }
-  else {
+  } else {
     aStart = newStartOffset.value();
     aEnd = newEndOffset.value();
   }
@@ -72,5 +67,5 @@ BlobImpl::Slice(const Optional<int64_t>& aStart,
 
 NS_IMPL_ISUPPORTS(BlobImpl, BlobImpl)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

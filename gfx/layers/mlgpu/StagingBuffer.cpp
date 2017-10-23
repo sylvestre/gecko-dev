@@ -11,9 +11,9 @@ namespace mozilla {
 namespace layers {
 
 ConstantStagingBuffer::ConstantStagingBuffer(MLGDevice* aDevice)
- : StagingBuffer(mlg::kMaxConstantBufferSize)
+    : StagingBuffer(mlg::kMaxConstantBufferSize)
 {
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

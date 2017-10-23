@@ -27,15 +27,17 @@ class CSSVariableResolver
   friend class CSSVariableDeclarations;
   friend class CSSVariableValues;
   friend class EnumerateVariableReferencesData;
-public:
+
+ public:
   /**
    * Creates a new CSSVariableResolver that will output a set of resolved,
    * computed variables into aOutput.
    */
   explicit CSSVariableResolver(CSSVariableValues* aOutput)
-    : mOutput(aOutput)
+      : mOutput(aOutput)
 #ifdef DEBUG
-    , mResolved(false)
+        ,
+        mResolved(false)
 #endif
   {
     MOZ_ASSERT(aOutput);
@@ -49,7 +51,7 @@ public:
   void Resolve(const CSSVariableValues* aInherited,
                const CSSVariableDeclarations* aSpecified);
 
-private:
+ private:
   struct Variable
   {
     Variable(const nsAString& aVariableName,
@@ -57,16 +59,18 @@ private:
              nsCSSTokenSerializationType aFirstToken,
              nsCSSTokenSerializationType aLastToken,
              bool aWasInherited)
-      : mVariableName(aVariableName)
-      , mValue(aValue)
-      , mFirstToken(aFirstToken)
-      , mLastToken(aLastToken)
-      , mWasInherited(aWasInherited)
-      , mResolved(false)
-      , mReferencesNonExistentVariable(false)
-      , mInStack(false)
-      , mIndex(0)
-      , mLowLink(0) { }
+        : mVariableName(aVariableName),
+          mValue(aValue),
+          mFirstToken(aFirstToken),
+          mLastToken(aLastToken),
+          mWasInherited(aWasInherited),
+          mResolved(false),
+          mReferencesNonExistentVariable(false),
+          mInStack(false),
+          mIndex(0),
+          mLowLink(0)
+    {
+    }
 
     nsString mVariableName;
     nsString mValue;
@@ -143,6 +147,6 @@ private:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

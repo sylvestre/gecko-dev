@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 #if defined(OS_POSIX)
 #include <sys/time.h>
 #include <unistd.h>
@@ -39,18 +39,12 @@ Choose(int count)
 //-----------------------------------------------------------------------------
 // parent
 
-TestDemonParent::TestDemonParent()
- : mDone(false),
-   mIncoming(),
-   mOutgoing()
+TestDemonParent::TestDemonParent() : mDone(false), mIncoming(), mOutgoing()
 {
   MOZ_COUNT_CTOR(TestDemonParent);
 }
 
-TestDemonParent::~TestDemonParent()
-{
-  MOZ_COUNT_DTOR(TestDemonParent);
-}
+TestDemonParent::~TestDemonParent() { MOZ_COUNT_DTOR(TestDemonParent); }
 
 void
 TestDemonParent::Main()
@@ -67,8 +61,7 @@ TestDemonParent::Main()
 
   DEMON_LOG("Start demon");
 
-  if (!SendStart())
-	fail("sending Start");
+  if (!SendStart()) fail("sending Start");
 
   RunUnlimitedSequence();
 }
@@ -177,9 +170,9 @@ TestDemonParent::RunUnlimitedSequence()
   DoAction();
 
   MessageLoop::current()->PostTask(NewNonOwningRunnableMethod(
-    "_ipdltest::TestDemonParent::RunUnlimitedSequence",
-    this,
-    &TestDemonParent::RunUnlimitedSequence));
+      "_ipdltest::TestDemonParent::RunUnlimitedSequence",
+      this,
+      &TestDemonParent::RunUnlimitedSequence));
 }
 
 void
@@ -192,7 +185,7 @@ TestDemonParent::RunLimitedSequence(int flags)
 
   int count = Choose(20);
   for (int i = 0; i < count; i++) {
-	if (!DoAction(flags)) {
+    if (!DoAction(flags)) {
       gFlushStack = true;
     }
     if (gFlushStack) {
@@ -221,27 +214,27 @@ TestDemonParent::DoAction(int flags)
       return true;
     }
   } else {
-	switch (Choose(3)) {
-     case 0:
-      if (AllowAsync(mOutgoing[0], mIncoming[0])) {
-        DEMON_LOG("SendAsyncMessage [%d]", mOutgoing[0]);
-        return SendAsyncMessage(mOutgoing[0]++);
-      } else {
-        return true;
+    switch (Choose(3)) {
+      case 0:
+        if (AllowAsync(mOutgoing[0], mIncoming[0])) {
+          DEMON_LOG("SendAsyncMessage [%d]", mOutgoing[0]);
+          return SendAsyncMessage(mOutgoing[0]++);
+        } else {
+          return true;
+        }
+
+      case 1: {
+        DEMON_LOG("Start SendHiPrioSyncMessage");
+        bool r = SendHiPrioSyncMessage();
+        DEMON_LOG("End SendHiPrioSyncMessage result=%d", r);
+        return r;
       }
 
-     case 1: {
-       DEMON_LOG("Start SendHiPrioSyncMessage");
-       bool r = SendHiPrioSyncMessage();
-       DEMON_LOG("End SendHiPrioSyncMessage result=%d", r);
-       return r;
-     }
-
-     case 2:
-      DEMON_LOG("Cancel");
-      GetIPCChannel()->CancelCurrentTransaction();
-      return true;
-	}
+      case 2:
+        DEMON_LOG("Cancel");
+        GetIPCChannel()->CancelCurrentTransaction();
+        return true;
+    }
   }
   MOZ_CRASH();
   return false;
@@ -250,18 +243,12 @@ TestDemonParent::DoAction(int flags)
 //-----------------------------------------------------------------------------
 // child
 
-
-TestDemonChild::TestDemonChild()
- : mIncoming(),
-   mOutgoing()
+TestDemonChild::TestDemonChild() : mIncoming(), mOutgoing()
 {
   MOZ_COUNT_CTOR(TestDemonChild);
 }
 
-TestDemonChild::~TestDemonChild()
-{
-  MOZ_COUNT_DTOR(TestDemonChild);
-}
+TestDemonChild::~TestDemonChild() { MOZ_COUNT_DTOR(TestDemonChild); }
 
 mozilla::ipc::IPCResult
 TestDemonChild::RecvStart()
@@ -324,9 +311,9 @@ TestDemonChild::RunUnlimitedSequence()
   DoAction();
 
   MessageLoop::current()->PostTask(NewNonOwningRunnableMethod(
-    "_ipdltest::TestDemonChild::RunUnlimitedSequence",
-    this,
-    &TestDemonChild::RunUnlimitedSequence));
+      "_ipdltest::TestDemonChild::RunUnlimitedSequence",
+      this,
+      &TestDemonChild::RunUnlimitedSequence));
 }
 
 void
@@ -355,69 +342,69 @@ bool
 TestDemonChild::DoAction()
 {
   switch (Choose(6)) {
-   case 0:
-    if (AllowAsync(mOutgoing[0], mIncoming[0])) {
-      DEMON_LOG("SendAsyncMessage [%d]", mOutgoing[0]);
-      return SendAsyncMessage(mOutgoing[0]++);
-    } else {
-      return true;
+    case 0:
+      if (AllowAsync(mOutgoing[0], mIncoming[0])) {
+        DEMON_LOG("SendAsyncMessage [%d]", mOutgoing[0]);
+        return SendAsyncMessage(mOutgoing[0]++);
+      } else {
+        return true;
+      }
+
+    case 1: {
+      DEMON_LOG("Start SendHiPrioSyncMessage");
+      bool r = SendHiPrioSyncMessage();
+      DEMON_LOG("End SendHiPrioSyncMessage result=%d", r);
+      return r;
     }
 
-   case 1: {
-     DEMON_LOG("Start SendHiPrioSyncMessage");
-     bool r = SendHiPrioSyncMessage();
-     DEMON_LOG("End SendHiPrioSyncMessage result=%d", r);
-     return r;
-   }
+    case 2: {
+      DEMON_LOG("Start SendSyncMessage [%d]", mOutgoing[0]);
+      bool r = SendSyncMessage(mOutgoing[0]++);
+      switch (GetIPCChannel()->LastSendError()) {
+        case SyncSendError::PreviousTimeout:
+        case SyncSendError::SendingCPOWWhileDispatchingSync:
+        case SyncSendError::SendingCPOWWhileDispatchingUrgent:
+        case SyncSendError::NotConnectedBeforeSend:
+        case SyncSendError::CancelledBeforeSend:
+          mOutgoing[0]--;
+          break;
+        default:
+          break;
+      }
+      DEMON_LOG("End SendSyncMessage result=%d", r);
+      return r;
+    }
 
-   case 2: {
-     DEMON_LOG("Start SendSyncMessage [%d]", mOutgoing[0]);
-     bool r = SendSyncMessage(mOutgoing[0]++);
-     switch (GetIPCChannel()->LastSendError()) {
-       case SyncSendError::PreviousTimeout:
-       case SyncSendError::SendingCPOWWhileDispatchingSync:
-       case SyncSendError::SendingCPOWWhileDispatchingUrgent:
-       case SyncSendError::NotConnectedBeforeSend:
-       case SyncSendError::CancelledBeforeSend:
-         mOutgoing[0]--;
-         break;
-       default:
-         break;
-     }
-     DEMON_LOG("End SendSyncMessage result=%d", r);
-     return r;
-   }
+    case 3:
+      DEMON_LOG("SendUrgentAsyncMessage [%d]", mOutgoing[2]);
+      return SendUrgentAsyncMessage(mOutgoing[2]++);
 
-   case 3:
-	DEMON_LOG("SendUrgentAsyncMessage [%d]", mOutgoing[2]);
-	return SendUrgentAsyncMessage(mOutgoing[2]++);
+    case 4: {
+      DEMON_LOG("Start SendUrgentSyncMessage [%d]", mOutgoing[2]);
+      bool r = SendUrgentSyncMessage(mOutgoing[2]++);
+      switch (GetIPCChannel()->LastSendError()) {
+        case SyncSendError::PreviousTimeout:
+        case SyncSendError::SendingCPOWWhileDispatchingSync:
+        case SyncSendError::SendingCPOWWhileDispatchingUrgent:
+        case SyncSendError::NotConnectedBeforeSend:
+        case SyncSendError::CancelledBeforeSend:
+          mOutgoing[2]--;
+          break;
+        default:
+          break;
+      }
+      DEMON_LOG("End SendUrgentSyncMessage result=%d", r);
+      return r;
+    }
 
-   case 4: {
-     DEMON_LOG("Start SendUrgentSyncMessage [%d]", mOutgoing[2]);
-     bool r = SendUrgentSyncMessage(mOutgoing[2]++);
-     switch (GetIPCChannel()->LastSendError()) {
-       case SyncSendError::PreviousTimeout:
-       case SyncSendError::SendingCPOWWhileDispatchingSync:
-       case SyncSendError::SendingCPOWWhileDispatchingUrgent:
-       case SyncSendError::NotConnectedBeforeSend:
-       case SyncSendError::CancelledBeforeSend:
-         mOutgoing[2]--;
-         break;
-       default:
-         break;
-     }
-     DEMON_LOG("End SendUrgentSyncMessage result=%d", r);
-     return r;
-   }
-
-   case 5:
-	DEMON_LOG("Cancel");
-	GetIPCChannel()->CancelCurrentTransaction();
-	return true;
+    case 5:
+      DEMON_LOG("Cancel");
+      GetIPCChannel()->CancelCurrentTransaction();
+      return true;
   }
   MOZ_CRASH();
   return false;
 }
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

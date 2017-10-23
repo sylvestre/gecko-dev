@@ -16,15 +16,16 @@
 
 namespace IPC {
 
-template <>
-struct ParamTraits<mozilla::dom::indexedDB::StructuredCloneFile::FileType> :
-  public ContiguousEnumSerializer<
-                        mozilla::dom::indexedDB::StructuredCloneFile::FileType,
-                        mozilla::dom::indexedDB::StructuredCloneFile::eBlob,
-                        mozilla::dom::indexedDB::StructuredCloneFile::eEndGuard>
-{ };
+template<>
+struct ParamTraits<mozilla::dom::indexedDB::StructuredCloneFile::FileType>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::indexedDB::StructuredCloneFile::FileType,
+          mozilla::dom::indexedDB::StructuredCloneFile::eBlob,
+          mozilla::dom::indexedDB::StructuredCloneFile::eEndGuard>
+{
+};
 
-template <>
+template<>
 struct ParamTraits<mozilla::dom::indexedDB::Key>
 {
   typedef mozilla::dom::indexedDB::Key paramType;
@@ -34,7 +35,9 @@ struct ParamTraits<mozilla::dom::indexedDB::Key>
     WriteParam(aMsg, aParam.mBuffer);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->mBuffer);
   }
@@ -45,14 +48,16 @@ struct ParamTraits<mozilla::dom::indexedDB::Key>
   }
 };
 
-template <>
-struct ParamTraits<mozilla::dom::indexedDB::KeyPath::KeyPathType> :
-  public ContiguousEnumSerializer<mozilla::dom::indexedDB::KeyPath::KeyPathType,
-                                  mozilla::dom::indexedDB::KeyPath::NONEXISTENT,
-                                  mozilla::dom::indexedDB::KeyPath::ENDGUARD>
-{ };
+template<>
+struct ParamTraits<mozilla::dom::indexedDB::KeyPath::KeyPathType>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::indexedDB::KeyPath::KeyPathType,
+          mozilla::dom::indexedDB::KeyPath::NONEXISTENT,
+          mozilla::dom::indexedDB::KeyPath::ENDGUARD>
+{
+};
 
-template <>
+template<>
 struct ParamTraits<mozilla::dom::indexedDB::KeyPath>
 {
   typedef mozilla::dom::indexedDB::KeyPath paramType;
@@ -63,7 +68,9 @@ struct ParamTraits<mozilla::dom::indexedDB::KeyPath>
     WriteParam(aMsg, aParam.mStrings);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     return ReadParam(aMsg, aIter, &aResult->mType) &&
            ReadParam(aMsg, aIter, &aResult->mStrings);
@@ -75,22 +82,24 @@ struct ParamTraits<mozilla::dom::indexedDB::KeyPath>
   }
 };
 
-template <>
-struct ParamTraits<mozilla::dom::IDBCursor::Direction> :
-  public ContiguousEnumSerializer<
-                          mozilla::dom::IDBCursor::Direction,
-                          mozilla::dom::IDBCursor::NEXT,
-                          mozilla::dom::IDBCursor::DIRECTION_INVALID>
-{ };
+template<>
+struct ParamTraits<mozilla::dom::IDBCursor::Direction>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::IDBCursor::Direction,
+          mozilla::dom::IDBCursor::NEXT,
+          mozilla::dom::IDBCursor::DIRECTION_INVALID>
+{
+};
 
-template <>
-struct ParamTraits<mozilla::dom::IDBTransaction::Mode> :
-  public ContiguousEnumSerializer<
-                          mozilla::dom::IDBTransaction::Mode,
-                          mozilla::dom::IDBTransaction::READ_ONLY,
-                          mozilla::dom::IDBTransaction::MODE_INVALID>
-{ };
+template<>
+struct ParamTraits<mozilla::dom::IDBTransaction::Mode>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::IDBTransaction::Mode,
+          mozilla::dom::IDBTransaction::READ_ONLY,
+          mozilla::dom::IDBTransaction::MODE_INVALID>
+{
+};
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_dom_indexeddb_serializationhelpers_h__
+#endif  // mozilla_dom_indexeddb_serializationhelpers_h__

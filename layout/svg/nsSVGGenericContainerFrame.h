@@ -20,21 +20,22 @@ class nsStyleContext;
 
 class nsSVGGenericContainerFrame final : public nsSVGDisplayContainerFrame
 {
-  friend nsIFrame*
-  NS_NewSVGGenericContainerFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewSVGGenericContainerFrame(nsIPresShell* aPresShell,
+                                                  nsStyleContext* aContext);
 
-protected:
+ protected:
   explicit nsSVGGenericContainerFrame(nsStyleContext* aContext)
-    : nsSVGDisplayContainerFrame(aContext, kClassID)
-  {}
+      : nsSVGDisplayContainerFrame(aContext, kClassID)
+  {
+  }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSVGGenericContainerFrame)
 
   // nsIFrame:
-  virtual nsresult  AttributeChanged(int32_t         aNameSpaceID,
-                                     nsAtom*        aAttribute,
-                                     int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override
@@ -47,4 +48,4 @@ public:
   virtual gfxMatrix GetCanvasTM() override;
 };
 
-#endif // __NS_SVGGENERICCONTAINERFRAME_H__
+#endif  // __NS_SVGGENERICCONTAINERFRAME_H__

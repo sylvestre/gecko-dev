@@ -14,10 +14,10 @@ namespace mozilla {
 
 class CompositeTimelineMarker : public TimelineMarker
 {
-public:
+ public:
   CompositeTimelineMarker(const TimeStamp& aTime,
                           MarkerTracingType aTracingType)
-    : TimelineMarker("Composite", aTime, aTracingType)
+      : TimelineMarker("Composite", aTime, aTracingType)
   {
     // Even though these markers end up being created on the main thread in the
     // content or chrome processes, they actually trace down code in the
@@ -28,6 +28,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_CompositeTimelineMarker_h_
+#endif  // mozilla_CompositeTimelineMarker_h_

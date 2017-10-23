@@ -16,19 +16,22 @@
 #include "JpCntx.h"
 #include "CharDistribution.h"
 
-class nsEUCJPProber: public nsCharSetProber {
-public:
+class nsEUCJPProber : public nsCharSetProber
+{
+ public:
   nsEUCJPProber()
-  {mCodingSM = new nsCodingStateMachine(&EUCJPSMModel);
-    Reset();}
-  virtual ~nsEUCJPProber(void){delete mCodingSM;}
+  {
+    mCodingSM = new nsCodingStateMachine(&EUCJPSMModel);
+    Reset();
+  }
+  virtual ~nsEUCJPProber(void) { delete mCodingSM; }
   nsProbingState HandleData(const char* aBuf, uint32_t aLen);
-  const char* GetCharSetName() {return "EUC-JP";}
-  nsProbingState GetState(void) {return mState;}
-  void      Reset(void);
-  float     GetConfidence(void);
+  const char* GetCharSetName() { return "EUC-JP"; }
+  nsProbingState GetState(void) { return mState; }
+  void Reset(void);
+  float GetConfidence(void);
 
-protected:
+ protected:
   nsCodingStateMachine* mCodingSM;
   nsProbingState mState;
 
@@ -38,6 +41,4 @@ protected:
   char mLastChar[2];
 };
 
-
 #endif /* nsEUCJPProber_h__ */
-

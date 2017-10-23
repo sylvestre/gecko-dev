@@ -24,26 +24,29 @@ namespace net {
 void
 nsHttpConnectionMgr::PrintDiagnostics()
 {
-  nsresult rv = PostEvent(&nsHttpConnectionMgr::OnMsgPrintDiagnostics, 0, nullptr);
+  nsresult rv =
+      PostEvent(&nsHttpConnectionMgr::OnMsgPrintDiagnostics, 0, nullptr);
   if (NS_FAILED(rv)) {
-    LOG(("nsHttpConnectionMgr::PrintDiagnostics\n"
+    LOG(
+        ("nsHttpConnectionMgr::PrintDiagnostics\n"
          "  failed to post OnMsgPrintDiagnostics event"));
   }
 }
 
 void
-nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase *)
+nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase*)
 {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
   nsCOMPtr<nsIConsoleService> consoleService =
-    do_GetService(NS_CONSOLESERVICE_CONTRACTID);
-  if (!consoleService)
-    return;
+      do_GetService(NS_CONSOLESERVICE_CONTRACTID);
+  if (!consoleService) return;
 
   mLogData.AppendPrintf("HTTP Connection Diagnostics\n---------------------\n");
-  mLogData.AppendPrintf("IsSpdyEnabled() = %d\n", gHttpHandler->IsSpdyEnabled());
-  mLogData.AppendPrintf("MaxSocketCount() = %d\n", gHttpHandler->MaxSocketCount());
+  mLogData.AppendPrintf("IsSpdyEnabled() = %d\n",
+                        gHttpHandler->IsSpdyEnabled());
+  mLogData.AppendPrintf("MaxSocketCount() = %d\n",
+                        gHttpHandler->MaxSocketCount());
   mLogData.AppendPrintf("mNumActiveConns = %d\n", mNumActiveConns);
   mLogData.AppendPrintf("mNumIdleConns = %d\n", mNumIdleConns);
 
@@ -51,13 +54,14 @@ nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase *)
     RefPtr<nsConnectionEntry> ent = iter.Data();
 
     mLogData.AppendPrintf(" ent host = %s hashkey = %s\n",
-                          ent->mConnInfo->Origin(), ent->mConnInfo->HashKey().get());
-    mLogData.AppendPrintf("   AtActiveConnectionLimit = %d\n",
-                          AtActiveConnectionLimit(ent, NS_HTTP_ALLOW_KEEPALIVE));
+                          ent->mConnInfo->Origin(),
+                          ent->mConnInfo->HashKey().get());
+    mLogData.AppendPrintf(
+        "   AtActiveConnectionLimit = %d\n",
+        AtActiveConnectionLimit(ent, NS_HTTP_ALLOW_KEEPALIVE));
     mLogData.AppendPrintf("   RestrictConnections = %d\n",
                           RestrictConnections(ent));
-    mLogData.AppendPrintf("   Pending Q Length = %zu\n",
-                          ent->PendingQLength());
+    mLogData.AppendPrintf("   Pending Q Length = %zu\n", ent->PendingQLength());
     mLogData.AppendPrintf("   Active Conns Length = %zu\n",
                           ent->mActiveConns.Length());
     mLogData.AppendPrintf("   Idle Conns Length = %zu\n",
@@ -82,11 +86,11 @@ nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase *)
       ent->mHalfOpens[i]->PrintDiagnostics(mLogData);
     }
     i = 0;
-    for (auto it = ent->mPendingTransactionTable.Iter();
-         !it.Done();
+    for (auto it = ent->mPendingTransactionTable.Iter(); !it.Done();
          it.Next()) {
-      mLogData.AppendPrintf("   :: Pending Transactions with Window ID = %"
-        PRIu64 "\n", it.Key());
+      mLogData.AppendPrintf(
+          "   :: Pending Transactions with Window ID = %" PRIu64 "\n",
+          it.Key());
       for (uint32_t j = 0; j < it.UserData()->Length(); ++j) {
         mLogData.AppendPrintf("     ::: Pending Transaction #%u\n", i);
         it.UserData()->ElementAt(j)->PrintDiagnostics(mLogData);
@@ -94,8 +98,8 @@ nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase *)
       }
     }
     for (i = 0; i < ent->mCoalescingKeys.Length(); ++i) {
-      mLogData.AppendPrintf("   :: Coalescing Key #%u %s\n",
-                            i, ent->mCoalescingKeys[i].get());
+      mLogData.AppendPrintf(
+          "   :: Coalescing Key #%u %s\n", i, ent->mCoalescingKeys[i].get());
     }
   }
 
@@ -104,10 +108,11 @@ nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase *)
 }
 
 void
-nsHttpConnectionMgr::nsHalfOpenSocket::PrintDiagnostics(nsCString &log)
+nsHttpConnectionMgr::nsHalfOpenSocket::PrintDiagnostics(nsCString& log)
 {
   log.AppendPrintf("     has connected = %d, isSpeculative = %d\n",
-                   HasConnected(), IsSpeculative());
+                   HasConnected(),
+                   IsSpeculative());
 
   TimeStamp now = TimeStamp::Now();
 
@@ -124,54 +129,69 @@ nsHttpConnectionMgr::nsHalfOpenSocket::PrintDiagnostics(nsCString &log)
                      (now - mBackupSynStarted).ToMilliseconds());
 
   log.AppendPrintf("    primary transport %d, backup transport %d\n",
-                   !!mSocketTransport.get(), !!mBackupTransport.get());
+                   !!mSocketTransport.get(),
+                   !!mBackupTransport.get());
 }
 
 void
-nsHttpConnection::PrintDiagnostics(nsCString &log)
+nsHttpConnection::PrintDiagnostics(nsCString& log)
 {
   log.AppendPrintf("    CanDirectlyActivate = %d\n", CanDirectlyActivate());
 
   log.AppendPrintf("    npncomplete = %d  setupSSLCalled = %d\n",
-                   mNPNComplete, mSetupSSLCalled);
+                   mNPNComplete,
+                   mSetupSSLCalled);
 
   log.AppendPrintf("    spdyVersion = %d  reportedSpdy = %d everspdy = %d\n",
-                   mUsingSpdyVersion, mReportedSpdy, mEverUsedSpdy);
+                   mUsingSpdyVersion,
+                   mReportedSpdy,
+                   mEverUsedSpdy);
 
   log.AppendPrintf("    iskeepalive = %d  dontReuse = %d isReused = %d\n",
-                   IsKeepAlive(), mDontReuse, mIsReused);
+                   IsKeepAlive(),
+                   mDontReuse,
+                   mIsReused);
 
   log.AppendPrintf("    mTransaction = %d mSpdySession = %d\n",
-                   !!mTransaction.get(), !!mSpdySession.get());
+                   !!mTransaction.get(),
+                   !!mSpdySession.get());
 
   PRIntervalTime now = PR_IntervalNow();
   log.AppendPrintf("    time since last read = %ums\n",
                    PR_IntervalToMilliseconds(now - mLastReadTime));
 
-  log.AppendPrintf("    max-read/read/written %" PRId64 "/%" PRId64 "/%" PRId64 "\n",
-                   mMaxBytesRead, mTotalBytesRead, mTotalBytesWritten);
+  log.AppendPrintf("    max-read/read/written %" PRId64 "/%" PRId64 "/%" PRId64
+                   "\n",
+                   mMaxBytesRead,
+                   mTotalBytesRead,
+                   mTotalBytesWritten);
 
   log.AppendPrintf("    rtt = %ums\n", PR_IntervalToMilliseconds(mRtt));
 
   log.AppendPrintf("    idlemonitoring = %d transactionCount=%d\n",
-                   mIdleMonitoring, mHttp1xTransactionCount);
+                   mIdleMonitoring,
+                   mHttp1xTransactionCount);
 
-  if (mSpdySession)
-    mSpdySession->PrintDiagnostics(log);
+  if (mSpdySession) mSpdySession->PrintDiagnostics(log);
 }
 
 void
-Http2Session::PrintDiagnostics(nsCString &log)
+Http2Session::PrintDiagnostics(nsCString& log)
 {
   log.AppendPrintf("     ::: HTTP2\n");
-  log.AppendPrintf("     shouldgoaway = %d mClosed = %d CanReuse = %d nextID=0x%X\n",
-                   mShouldGoAway, mClosed, CanReuse(), mNextStreamID);
+  log.AppendPrintf(
+      "     shouldgoaway = %d mClosed = %d CanReuse = %d nextID=0x%X\n",
+      mShouldGoAway,
+      mClosed,
+      CanReuse(),
+      mNextStreamID);
 
-  log.AppendPrintf("     concurrent = %d maxconcurrent = %d\n",
-                   mConcurrent, mMaxConcurrent);
+  log.AppendPrintf(
+      "     concurrent = %d maxconcurrent = %d\n", mConcurrent, mMaxConcurrent);
 
   log.AppendPrintf("     roomformorestreams = %d roomformoreconcurrent = %d\n",
-                   RoomForMoreStreams(), RoomForMoreConcurrent());
+                   RoomForMoreStreams(),
+                   RoomForMoreConcurrent());
 
   log.AppendPrintf("     transactionHashCount = %d streamIDHashCount = %d\n",
                    mStreamTransactionHash.Count(),
@@ -197,10 +217,9 @@ Http2Session::PrintDiagnostics(nsCString &log)
 }
 
 void
-nsHttpTransaction::PrintDiagnostics(nsCString &log)
+nsHttpTransaction::PrintDiagnostics(nsCString& log)
 {
-  if (!mRequestHead)
-    return;
+  if (!mRequestHead) return;
 
   nsAutoCString requestURI;
   mRequestHead->RequestURI(requestURI);
@@ -211,14 +230,15 @@ nsHttpTransaction::PrintDiagnostics(nsCString &log)
 }
 
 void
-nsHttpConnectionMgr::PendingTransactionInfo::PrintDiagnostics(nsCString &log)
+nsHttpConnectionMgr::PendingTransactionInfo::PrintDiagnostics(nsCString& log)
 {
   log.AppendPrintf("     ::: Pending transaction\n");
   mTransaction->PrintDiagnostics(log);
   RefPtr<nsHalfOpenSocket> halfOpen = do_QueryReferent(mHalfOpen);
   log.AppendPrintf("     Waiting for half open sock: %p or connection: %p\n",
-                   halfOpen.get(), mActiveConn.get());
+                   halfOpen.get(),
+                   mActiveConn.get());
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

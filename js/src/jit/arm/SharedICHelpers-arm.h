@@ -18,21 +18,15 @@ namespace jit {
 // Distance from sp to the top Value inside an IC stub (no return address on the stack on ARM).
 static const size_t ICStackValueOffset = 0;
 
-inline void
-EmitRestoreTailCallReg(MacroAssembler& masm)
-{
+inline void EmitRestoreTailCallReg(MacroAssembler& masm) {
     // No-op on ARM because link register is always holding the return address.
 }
 
-inline void
-EmitRepushTailCallReg(MacroAssembler& masm)
-{
+inline void EmitRepushTailCallReg(MacroAssembler& masm) {
     // No-op on ARM because link register is always holding the return address.
 }
 
-inline void
-EmitCallIC(CodeOffset* patchOffset, MacroAssembler& masm)
-{
+inline void EmitCallIC(CodeOffset* patchOffset, MacroAssembler& masm) {
     // Move ICEntry offset into ICStubReg
     CodeOffset offset = masm.movWithPatch(ImmWord(-1), ICStubReg);
     *patchOffset = offset;
@@ -49,13 +43,11 @@ EmitCallIC(CodeOffset* patchOffset, MacroAssembler& masm)
     masm.ma_blx(r0);
 }
 
-inline void
-EmitEnterTypeMonitorIC(MacroAssembler& masm,
-                       size_t monitorStubOffset = ICMonitoredStub::offsetOfFirstMonitorStub())
-{
+inline void EmitEnterTypeMonitorIC(
+    MacroAssembler& masm, size_t monitorStubOffset = ICMonitoredStub::offsetOfFirstMonitorStub()) {
     // This is expected to be called from within an IC, when ICStubReg is
     // properly initialized to point to the stub.
-    masm.loadPtr(Address(ICStubReg, (uint32_t) monitorStubOffset), ICStubReg);
+    masm.loadPtr(Address(ICStubReg, (uint32_t)monitorStubOffset), ICStubReg);
 
     // Load stubcode pointer from BaselineStubEntry.
     // R2 won't be active when we call ICs, so we can use r0.
@@ -66,21 +58,11 @@ EmitEnterTypeMonitorIC(MacroAssembler& masm,
     masm.branch(r0);
 }
 
-inline void
-EmitReturnFromIC(MacroAssembler& masm)
-{
-    masm.ma_mov(lr, pc);
-}
+inline void EmitReturnFromIC(MacroAssembler& masm) { masm.ma_mov(lr, pc); }
 
-inline void
-EmitChangeICReturnAddress(MacroAssembler& masm, Register reg)
-{
-    masm.ma_mov(reg, lr);
-}
+inline void EmitChangeICReturnAddress(MacroAssembler& masm, Register reg) { masm.ma_mov(reg, lr); }
 
-inline void
-EmitBaselineTailCallVM(JitCode* target, MacroAssembler& masm, uint32_t argSize)
-{
+inline void EmitBaselineTailCallVM(JitCode* target, MacroAssembler& masm, uint32_t argSize) {
     // We assume during this that R0 and R1 have been pushed, and that R2 is
     // unused.
     MOZ_ASSERT(R2 == ValueOperand(r1, r0));
@@ -108,9 +90,7 @@ EmitBaselineTailCallVM(JitCode* target, MacroAssembler& masm, uint32_t argSize)
     masm.branch(target);
 }
 
-inline void
-EmitIonTailCallVM(JitCode* target, MacroAssembler& masm, uint32_t stackSize)
-{
+inline void EmitIonTailCallVM(JitCode* target, MacroAssembler& masm, uint32_t stackSize) {
     // We assume during this that R0 and R1 have been pushed, and that R2 is
     // unused.
     MOZ_ASSERT(R2 == ValueOperand(r1, r0));
@@ -130,9 +110,8 @@ EmitIonTailCallVM(JitCode* target, MacroAssembler& masm, uint32_t stackSize)
     masm.branch(target);
 }
 
-inline void
-EmitBaselineCreateStubFrameDescriptor(MacroAssembler& masm, Register reg, uint32_t headerSize)
-{
+inline void EmitBaselineCreateStubFrameDescriptor(MacroAssembler& masm, Register reg,
+                                                  uint32_t headerSize) {
     // Compute stub frame size. We have to add two pointers: the stub reg and
     // previous frame pointer pushed by EmitEnterStubFrame.
     masm.mov(BaselineFrameReg, reg);
@@ -142,9 +121,7 @@ EmitBaselineCreateStubFrameDescriptor(MacroAssembler& masm, Register reg, uint32
     masm.makeFrameDescriptor(reg, JitFrame_BaselineStub, headerSize);
 }
 
-inline void
-EmitBaselineCallVM(JitCode* target, MacroAssembler& masm)
-{
+inline void EmitBaselineCallVM(JitCode* target, MacroAssembler& masm) {
     EmitBaselineCreateStubFrameDescriptor(masm, r0, ExitFrameLayout::Size());
     masm.push(r0);
     masm.call(target);
@@ -154,9 +131,7 @@ EmitBaselineCallVM(JitCode* target, MacroAssembler& masm)
 static const uint32_t STUB_FRAME_SIZE = 4 * sizeof(void*);
 static const uint32_t STUB_FRAME_SAVED_STUB_OFFSET = sizeof(void*);
 
-inline void
-EmitBaselineEnterStubFrame(MacroAssembler& masm, Register scratch)
-{
+inline void EmitBaselineEnterStubFrame(MacroAssembler& masm, Register scratch) {
     MOZ_ASSERT(scratch != ICTailCallReg);
 
     // Compute frame size.
@@ -183,9 +158,7 @@ EmitBaselineEnterStubFrame(MacroAssembler& masm, Register scratch)
     masm.checkStackAlignment();
 }
 
-inline void
-EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
-{
+inline void EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false) {
     ScratchRegisterScope scratch(masm);
 
     // Ion frames do not save and restore the frame pointer. If we called into
@@ -210,61 +183,53 @@ EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
     masm.Pop(scratch);
 }
 
-inline void
-EmitStowICValues(MacroAssembler& masm, int values)
-{
+inline void EmitStowICValues(MacroAssembler& masm, int values) {
     MOZ_ASSERT(values >= 0 && values <= 2);
-    switch(values) {
-      case 1:
-        // Stow R0.
-        masm.Push(R0);
-        break;
-      case 2:
-        // Stow R0 and R1.
-        masm.Push(R0);
-        masm.Push(R1);
-        break;
+    switch (values) {
+        case 1:
+            // Stow R0.
+            masm.Push(R0);
+            break;
+        case 2:
+            // Stow R0 and R1.
+            masm.Push(R0);
+            masm.Push(R1);
+            break;
     }
 }
 
-inline void
-EmitUnstowICValues(MacroAssembler& masm, int values, bool discard = false)
-{
+inline void EmitUnstowICValues(MacroAssembler& masm, int values, bool discard = false) {
     MOZ_ASSERT(values >= 0 && values <= 2);
-    switch(values) {
-      case 1:
-        // Unstow R0.
-        if (discard)
-            masm.addPtr(Imm32(sizeof(Value)), BaselineStackReg);
-        else
-            masm.popValue(R0);
-        break;
-      case 2:
-        // Unstow R0 and R1.
-        if (discard) {
-            masm.addPtr(Imm32(sizeof(Value) * 2), BaselineStackReg);
-        } else {
-            masm.popValue(R1);
-            masm.popValue(R0);
-        }
-        break;
+    switch (values) {
+        case 1:
+            // Unstow R0.
+            if (discard)
+                masm.addPtr(Imm32(sizeof(Value)), BaselineStackReg);
+            else
+                masm.popValue(R0);
+            break;
+        case 2:
+            // Unstow R0 and R1.
+            if (discard) {
+                masm.addPtr(Imm32(sizeof(Value) * 2), BaselineStackReg);
+            } else {
+                masm.popValue(R1);
+                masm.popValue(R0);
+            }
+            break;
     }
     masm.adjustFrame(-values * sizeof(Value));
 }
 
 template <typename AddrType>
-inline void
-EmitPreBarrier(MacroAssembler& masm, const AddrType& addr, MIRType type)
-{
+inline void EmitPreBarrier(MacroAssembler& masm, const AddrType& addr, MIRType type) {
     // On ARM, lr is clobbered by guardedCallPreBarrier. Save it first.
     masm.push(lr);
     masm.guardedCallPreBarrier(addr, type);
     masm.pop(lr);
 }
 
-inline void
-EmitStubGuardFailure(MacroAssembler& masm)
-{
+inline void EmitStubGuardFailure(MacroAssembler& masm) {
     // Load next stub into ICStubReg.
     masm.loadPtr(Address(ICStubReg, ICStub::offsetOfNext()), ICStubReg);
 
@@ -273,8 +238,7 @@ EmitStubGuardFailure(MacroAssembler& masm)
     masm.jump(Address(ICStubReg, ICStub::offsetOfStubCode()));
 }
 
-
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm_SharedICHelpers_arm_h */

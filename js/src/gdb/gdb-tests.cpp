@@ -13,42 +13,35 @@
 
 using namespace JS;
 
-static const JSClassOps global_classOps = {
-    nullptr, nullptr, nullptr, nullptr,
-    nullptr, nullptr, nullptr, nullptr,
-    nullptr, nullptr,
-    JS_GlobalObjectTraceHook
-};
+static const JSClassOps global_classOps = {nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr,
+                                           JS_GlobalObjectTraceHook};
 
 /* The class of the global object. */
-static const JSClass global_class = {
-    "global", JSCLASS_GLOBAL_FLAGS,
-    &global_classOps
-};
+static const JSClass global_class = {"global", JSCLASS_GLOBAL_FLAGS, &global_classOps};
 
-template<typename T>
-static inline T*
-checkPtr(T* ptr)
-{
-  if (! ptr)
-    abort();
-  return ptr;
+template <typename T>
+static inline T* checkPtr(T* ptr) {
+    if (!ptr) abort();
+    return ptr;
 }
 
-static void
-checkBool(bool success)
-{
-  if (! success)
-    abort();
+static void checkBool(bool success) {
+    if (!success) abort();
 }
 
 /* The warning reporter callback. */
-void reportWarning(JSContext* cx, JSErrorReport* report)
-{
-    fprintf(stderr, "%s:%u: %s\n",
-            report->filename ? report->filename : "<no filename>",
-            (unsigned int) report->lineno,
-            report->message().c_str());
+void reportWarning(JSContext* cx, JSErrorReport* report) {
+    fprintf(stderr, "%s:%u: %s\n", report->filename ? report->filename : "<no filename>",
+            (unsigned int)report->lineno, report->message().c_str());
 }
 
 // prologue.py sets a breakpoint on this function; test functions can call it
@@ -63,9 +56,7 @@ void breakpoint() {
 
 GDBFragment* GDBFragment::allFragments = nullptr;
 
-int
-main(int argc, const char** argv)
-{
+int main(int argc, const char** argv) {
     if (!JS_Init()) return 1;
     JSContext* cx = checkPtr(JS_NewContext(1024 * 1024));
 
@@ -81,8 +72,8 @@ main(int argc, const char** argv)
     JS::CompartmentOptions options;
     options.behaviors().setVersion(JSVERSION_DEFAULT);
 
-    RootedObject global(cx, checkPtr(JS_NewGlobalObject(cx, &global_class,
-                        nullptr, JS::FireOnNewGlobalHook, options)));
+    RootedObject global(cx, checkPtr(JS_NewGlobalObject(cx, &global_class, nullptr,
+                                                        JS::FireOnNewGlobalHook, options)));
     JSAutoCompartment ac(cx, global);
 
     /* Populate the global object with the standard globals,

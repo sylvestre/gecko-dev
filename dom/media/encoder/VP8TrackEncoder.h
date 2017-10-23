@@ -22,12 +22,14 @@ typedef struct vpx_image vpx_image_t;
  */
 class VP8TrackEncoder : public VideoTrackEncoder
 {
-  enum EncodeOperation {
-    ENCODE_NORMAL_FRAME, // VP8 track encoder works normally.
-    ENCODE_I_FRAME, // The next frame will be encoded as I-Frame.
-    SKIP_FRAME, // Skip the next frame.
+  enum EncodeOperation
+  {
+    ENCODE_NORMAL_FRAME,  // VP8 track encoder works normally.
+    ENCODE_I_FRAME,       // The next frame will be encoded as I-Frame.
+    SKIP_FRAME,           // Skip the next frame.
   };
-public:
+
+ public:
   explicit VP8TrackEncoder(TrackRate aTrackRate);
   virtual ~VP8TrackEncoder();
 
@@ -35,11 +37,13 @@ public:
 
   nsresult GetEncodedTrack(EncodedFrameContainer& aData) final override;
 
-protected:
-  nsresult Init(int32_t aWidth, int32_t aHeight,
-                int32_t aDisplayWidth, int32_t aDisplayHeight) final override;
+ protected:
+  nsresult Init(int32_t aWidth,
+                int32_t aHeight,
+                int32_t aDisplayWidth,
+                int32_t aDisplayHeight) final override;
 
-private:
+ private:
   // Get the EncodeOperation for next target frame.
   EncodeOperation GetNextEncodeOperation(TimeDuration aTimeElapsed,
                                          StreamTime aProcessedDuration);
@@ -50,18 +54,23 @@ private:
   nsresult GetEncodedPartitions(EncodedFrameContainer& aData);
 
   // Prepare the input data to the mVPXImageWrapper for encoding.
-  nsresult PrepareRawFrame(VideoChunk &aChunk);
+  nsresult PrepareRawFrame(VideoChunk& aChunk);
 
   // Re-configures an existing encoder with a new frame size.
-  nsresult Reconfigure(int32_t aWidth, int32_t aHeight,
-                       int32_t aDisplayWidth, int32_t aDisplayHeight);
+  nsresult Reconfigure(int32_t aWidth,
+                       int32_t aHeight,
+                       int32_t aDisplayWidth,
+                       int32_t aDisplayHeight);
 
   // Destroys the context and image wrapper. Does not de-allocate the structs.
   void Destroy();
 
   // Helper method to set the values on a VPX configuration.
-  nsresult SetConfigurationValues(int32_t aWidth, int32_t aHeight, int32_t aDisplayWidth,
-                                  int32_t aDisplayHeight, vpx_codec_enc_cfg_t& config);
+  nsresult SetConfigurationValues(int32_t aWidth,
+                                  int32_t aHeight,
+                                  int32_t aDisplayWidth,
+                                  int32_t aDisplayHeight,
+                                  vpx_codec_enc_cfg_t& config);
 
   // Encoded timestamp.
   StreamTime mEncodedTimestamp;
@@ -91,6 +100,6 @@ private:
   nsAutoPtr<vpx_image_t> mVPXImageWrapper;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

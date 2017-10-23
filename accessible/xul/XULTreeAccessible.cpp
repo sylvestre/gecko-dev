@@ -40,11 +40,10 @@ using namespace mozilla::a11y;
 // XULTreeAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTreeAccessible::
-  XULTreeAccessible(nsIContent* aContent, DocAccessible* aDoc,
-                    nsTreeBodyFrame* aTreeFrame) :
-  AccessibleWrap(aContent, aDoc),
-  mAccessibleCache(kDefaultTreeCacheLength)
+XULTreeAccessible::XULTreeAccessible(nsIContent* aContent,
+                                     DocAccessible* aDoc,
+                                     nsTreeBodyFrame* aTreeFrame)
+    : AccessibleWrap(aContent, aDoc), mAccessibleCache(kDefaultTreeCacheLength)
 {
   mType = eXULTreeType;
   mGenericTypes |= eSelect;
@@ -58,21 +57,20 @@ XULTreeAccessible::
   nsIContent* parentContent = mContent->GetParent();
   if (parentContent) {
     nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
-      do_QueryInterface(parentContent);
-    if (autoCompletePopupElm)
-      mGenericTypes |= eAutoCompletePopup;
+        do_QueryInterface(parentContent);
+    if (autoCompletePopupElm) mGenericTypes |= eAutoCompletePopup;
   }
 }
 
-XULTreeAccessible::~XULTreeAccessible()
-{
-}
+XULTreeAccessible::~XULTreeAccessible() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // XULTreeAccessible: nsISupports and cycle collection implementation
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(XULTreeAccessible, Accessible,
-                                   mTree, mAccessibleCache)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(XULTreeAccessible,
+                                   Accessible,
+                                   mTree,
+                                   mAccessibleCache)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(XULTreeAccessible)
 NS_INTERFACE_MAP_END_INHERITING(Accessible)
@@ -93,8 +91,7 @@ XULTreeAccessible::NativeState()
   state |= states::READONLY;
 
   // multiselectable state.
-  if (!mTreeView)
-    return state;
+  if (!mTreeView) return state;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
@@ -104,8 +101,7 @@ XULTreeAccessible::NativeState()
   nsresult rv = selection->GetSingle(&isSingle);
   NS_ENSURE_SUCCESS(rv, state);
 
-  if (!isSingle)
-    state |= states::MULTISELECTABLE;
+  if (!isSingle) state |= states::MULTISELECTABLE;
 
   return state;
 }
@@ -114,14 +110,12 @@ void
 XULTreeAccessible::Value(nsString& aValue)
 {
   aValue.Truncate();
-  if (!mTreeView)
-    return;
+  if (!mTreeView) return;
 
   // Return the value is the first selected child.
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
-  if (!selection)
-    return;
+  if (!selection) return;
 
   int32_t currentIndex;
   selection->GetCurrentIndex(&currentIndex);
@@ -130,12 +124,10 @@ XULTreeAccessible::Value(nsString& aValue)
 
     nsCOMPtr<nsITreeColumns> cols;
     mTree->GetColumns(getter_AddRefs(cols));
-    if (cols)
-      cols->GetKeyColumn(getter_AddRefs(keyCol));
+    if (cols) cols->GetKeyColumn(getter_AddRefs(keyCol));
 
     mTreeView->GetCellText(currentIndex, keyCol, aValue);
   }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -160,12 +152,12 @@ XULTreeAccessible::NativeRole()
   // No primary column means we're in a list. In fact, history and mail turn off
   // the primary flag when switching to a flat view.
 
-  nsIContent* child = nsTreeUtils::GetDescendantChild(mContent, nsGkAtoms::treechildren);
+  nsIContent* child =
+      nsTreeUtils::GetDescendantChild(mContent, nsGkAtoms::treechildren);
   NS_ASSERTION(child, "tree without treechildren!");
   nsTreeBodyFrame* treeFrame = do_QueryFrame(child->GetPrimaryFrame());
   NS_ASSERTION(treeFrame, "xul tree accessible for tree without a frame!");
-  if (!treeFrame)
-    return roles::LIST;
+  if (!treeFrame) return roles::LIST;
 
   RefPtr<nsTreeColumns> cols = treeFrame->Columns();
   nsCOMPtr<nsITreeColumn> primaryCol;
@@ -178,17 +170,17 @@ XULTreeAccessible::NativeRole()
 // XULTreeAccessible: Accessible implementation (DON'T put methods here)
 
 Accessible*
-XULTreeAccessible::ChildAtPoint(int32_t aX, int32_t aY,
+XULTreeAccessible::ChildAtPoint(int32_t aX,
+                                int32_t aY,
                                 EWhichChildAtPoint aWhichChild)
 {
-  nsIFrame *frame = GetFrame();
-  if (!frame)
-    return nullptr;
+  nsIFrame* frame = GetFrame();
+  if (!frame) return nullptr;
 
-  nsPresContext *presContext = frame->PresContext();
+  nsPresContext* presContext = frame->PresContext();
   nsIPresShell* presShell = presContext->PresShell();
 
-  nsIFrame *rootFrame = presShell->GetRootFrame();
+  nsIFrame* rootFrame = presShell->GetRootFrame();
   NS_ENSURE_TRUE(rootFrame, nullptr);
 
   CSSIntRect rootRect = rootFrame->GetScreenRect();
@@ -199,8 +191,8 @@ XULTreeAccessible::ChildAtPoint(int32_t aX, int32_t aY,
   int32_t row = -1;
   nsCOMPtr<nsITreeColumn> column;
   nsAutoString childEltUnused;
-  mTree->GetCellAt(clientX, clientY, &row, getter_AddRefs(column),
-                   childEltUnused);
+  mTree->GetCellAt(
+      clientX, clientY, &row, getter_AddRefs(column), childEltUnused);
 
   // If we failed to find tree cell for the given point then it might be
   // tree columns.
@@ -213,8 +205,7 @@ XULTreeAccessible::ChildAtPoint(int32_t aX, int32_t aY,
     RefPtr<XULTreeItemAccessibleBase> treeitem = do_QueryObject(child);
 
     Accessible* cell = treeitem->GetCellAccessible(column);
-    if (cell)
-      child = cell;
+    if (cell) child = cell;
   }
 
   return child;
@@ -226,16 +217,14 @@ XULTreeAccessible::ChildAtPoint(int32_t aX, int32_t aY,
 Accessible*
 XULTreeAccessible::CurrentItem()
 {
-  if (!mTreeView)
-    return nullptr;
+  if (!mTreeView) return nullptr;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
   if (selection) {
     int32_t currentIndex = -1;
     selection->GetCurrentIndex(&currentIndex);
-    if (currentIndex >= 0)
-      return GetTreeItemAccessible(currentIndex);
+    if (currentIndex >= 0) return GetTreeItemAccessible(currentIndex);
   }
 
   return nullptr;
@@ -250,13 +239,11 @@ XULTreeAccessible::SetCurrentItem(Accessible* aItem)
 void
 XULTreeAccessible::SelectedItems(nsTArray<Accessible*>* aItems)
 {
-  if (!mTreeView)
-    return;
+  if (!mTreeView) return;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
-  if (!selection)
-    return;
+  if (!selection) return;
 
   int32_t rangeCount = 0;
   selection->GetRangeCount(&rangeCount);
@@ -265,8 +252,7 @@ XULTreeAccessible::SelectedItems(nsTArray<Accessible*>* aItems)
     selection->GetRangeAt(rangeIdx, &firstIdx, &lastIdx);
     for (int32_t rowIdx = firstIdx; rowIdx <= lastIdx; rowIdx++) {
       Accessible* item = GetTreeItemAccessible(rowIdx);
-      if (item)
-        aItems->AppendElement(item);
+      if (item) aItems->AppendElement(item);
     }
   }
 }
@@ -274,8 +260,7 @@ XULTreeAccessible::SelectedItems(nsTArray<Accessible*>* aItems)
 uint32_t
 XULTreeAccessible::SelectedItemCount()
 {
-  if (!mTreeView)
-    return 0;
+  if (!mTreeView) return 0;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
@@ -291,16 +276,14 @@ XULTreeAccessible::SelectedItemCount()
 bool
 XULTreeAccessible::AddItemToSelection(uint32_t aIndex)
 {
-  if (!mTreeView)
-    return false;
+  if (!mTreeView) return false;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
   if (selection) {
     bool isSelected = false;
     selection->IsSelected(aIndex, &isSelected);
-    if (!isSelected)
-      selection->ToggleSelect(aIndex);
+    if (!isSelected) selection->ToggleSelect(aIndex);
 
     return true;
   }
@@ -310,16 +293,14 @@ XULTreeAccessible::AddItemToSelection(uint32_t aIndex)
 bool
 XULTreeAccessible::RemoveItemFromSelection(uint32_t aIndex)
 {
-  if (!mTreeView)
-    return false;
+  if (!mTreeView) return false;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
   if (selection) {
     bool isSelected = false;
     selection->IsSelected(aIndex, &isSelected);
-    if (isSelected)
-      selection->ToggleSelect(aIndex);
+    if (isSelected) selection->ToggleSelect(aIndex);
 
     return true;
   }
@@ -329,8 +310,7 @@ XULTreeAccessible::RemoveItemFromSelection(uint32_t aIndex)
 bool
 XULTreeAccessible::IsItemSelected(uint32_t aIndex)
 {
-  if (!mTreeView)
-    return false;
+  if (!mTreeView) return false;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
@@ -345,13 +325,11 @@ XULTreeAccessible::IsItemSelected(uint32_t aIndex)
 bool
 XULTreeAccessible::UnselectAll()
 {
-  if (!mTreeView)
-    return false;
+  if (!mTreeView) return false;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
-  if (!selection)
-    return false;
+  if (!selection) return false;
 
   selection->ClearSelection();
   return true;
@@ -360,13 +338,11 @@ XULTreeAccessible::UnselectAll()
 Accessible*
 XULTreeAccessible::GetSelectedItem(uint32_t aIndex)
 {
-  if (!mTreeView)
-    return nullptr;
+  if (!mTreeView) return nullptr;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
-  if (!selection)
-    return nullptr;
+  if (!selection) return nullptr;
 
   uint32_t selCount = 0;
   int32_t rangeCount = 0;
@@ -375,8 +351,7 @@ XULTreeAccessible::GetSelectedItem(uint32_t aIndex)
     int32_t firstIdx = 0, lastIdx = -1;
     selection->GetRangeAt(rangeIdx, &firstIdx, &lastIdx);
     for (int32_t rowIdx = firstIdx; rowIdx <= lastIdx; rowIdx++) {
-      if (selCount == aIndex)
-        return GetTreeItemAccessible(rowIdx);
+      if (selCount == aIndex) return GetTreeItemAccessible(rowIdx);
 
       selCount++;
     }
@@ -389,8 +364,7 @@ bool
 XULTreeAccessible::SelectAll()
 {
   // see if we are multiple select if so set ourselves as such
-  if (!mTreeView)
-    return false;
+  if (!mTreeView) return false;
 
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
@@ -413,8 +387,7 @@ Accessible*
 XULTreeAccessible::GetChildAt(uint32_t aIndex) const
 {
   uint32_t childCount = Accessible::ChildCount();
-  if (aIndex < childCount)
-    return Accessible::GetChildAt(aIndex);
+  if (aIndex < childCount) return Accessible::GetChildAt(aIndex);
 
   return GetTreeItemAccessible(aIndex - childCount);
 }
@@ -424,8 +397,7 @@ XULTreeAccessible::ChildCount() const
 {
   // Tree's children count is row count + treecols count.
   uint32_t childCount = Accessible::ChildCount();
-  if (!mTreeView)
-    return childCount;
+  if (!mTreeView) return childCount;
 
   int32_t rowCount = 0;
   mTreeView->GetRowCount(&rowCount);
@@ -461,7 +433,7 @@ XULTreeAccessible::IsActiveWidget() const
 {
   if (IsAutoCompletePopup()) {
     nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
-      do_QueryInterface(mContent->GetParent());
+        do_QueryInterface(mContent->GetParent());
 
     if (autoCompletePopupElm) {
       bool isOpen = false;
@@ -477,7 +449,7 @@ XULTreeAccessible::AreItemsOperable() const
 {
   if (IsAutoCompletePopup()) {
     nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
-      do_QueryInterface(mContent->GetParent());
+        do_QueryInterface(mContent->GetParent());
 
     if (autoCompletePopupElm) {
       bool isOpen = false;
@@ -497,15 +469,14 @@ XULTreeAccessible::ContainerWidget() const
     // lives in content process while popup lives in chrome process). If that's
     // a problem then rethink Widgets interface.
     nsCOMPtr<nsIDOMXULMenuListElement> menuListElm =
-      do_QueryInterface(mContent->GetParent());
+        do_QueryInterface(mContent->GetParent());
     if (menuListElm) {
       nsCOMPtr<nsIDOMNode> inputElm;
       menuListElm->GetInputField(getter_AddRefs(inputElm));
       if (inputElm) {
         nsCOMPtr<nsINode> inputNode = do_QueryInterface(inputElm);
         if (inputNode) {
-          Accessible* input =
-            mDoc->GetAccessible(inputNode);
+          Accessible* input = mDoc->GetAccessible(inputNode);
           return input ? input->ContainerWidget() : nullptr;
         }
       }
@@ -520,18 +491,15 @@ XULTreeAccessible::ContainerWidget() const
 Accessible*
 XULTreeAccessible::GetTreeItemAccessible(int32_t aRow) const
 {
-  if (aRow < 0 || IsDefunct() || !mTreeView)
-    return nullptr;
+  if (aRow < 0 || IsDefunct() || !mTreeView) return nullptr;
 
   int32_t rowCount = 0;
   nsresult rv = mTreeView->GetRowCount(&rowCount);
-  if (NS_FAILED(rv) || aRow >= rowCount)
-    return nullptr;
+  if (NS_FAILED(rv) || aRow >= rowCount) return nullptr;
 
-  void *key = reinterpret_cast<void*>(intptr_t(aRow));
+  void* key = reinterpret_cast<void*>(intptr_t(aRow));
   Accessible* cachedTreeItem = mAccessibleCache.GetWeak(key);
-  if (cachedTreeItem)
-    return cachedTreeItem;
+  if (cachedTreeItem) return cachedTreeItem;
 
   RefPtr<Accessible> treeItem = CreateTreeItemAccessible(aRow);
   if (treeItem) {
@@ -546,8 +514,7 @@ XULTreeAccessible::GetTreeItemAccessible(int32_t aRow) const
 void
 XULTreeAccessible::InvalidateCache(int32_t aRow, int32_t aCount)
 {
-  if (IsDefunct())
-    return;
+  if (IsDefunct()) return;
 
   if (!mTreeView) {
     UnbindCacheEntriesFromDocument(mAccessibleCache);
@@ -555,20 +522,18 @@ XULTreeAccessible::InvalidateCache(int32_t aRow, int32_t aCount)
   }
 
   // Do not invalidate the cache if rows have been inserted.
-  if (aCount > 0)
-    return;
+  if (aCount > 0) return;
 
   DocAccessible* document = Document();
 
   // Fire destroy event for removed tree items and delete them from caches.
   for (int32_t rowIdx = aRow; rowIdx < aRow - aCount; rowIdx++) {
-
     void* key = reinterpret_cast<void*>(intptr_t(rowIdx));
     Accessible* treeItem = mAccessibleCache.GetWeak(key);
 
     if (treeItem) {
       RefPtr<AccEvent> event =
-        new AccEvent(nsIAccessibleEvent::EVENT_HIDE, treeItem);
+          new AccEvent(nsIAccessibleEvent::EVENT_HIDE, treeItem);
       nsEventShell::FireEvent(event);
 
       // Unbind from document, shutdown and remove from tree cache.
@@ -582,14 +547,12 @@ XULTreeAccessible::InvalidateCache(int32_t aRow, int32_t aCount)
   // items silently from caches.
   int32_t newRowCount = 0;
   nsresult rv = mTreeView->GetRowCount(&newRowCount);
-  if (NS_FAILED(rv))
-    return;
+  if (NS_FAILED(rv)) return;
 
   int32_t oldRowCount = newRowCount - aCount;
 
   for (int32_t rowIdx = newRowCount; rowIdx < oldRowCount; ++rowIdx) {
-
-    void *key = reinterpret_cast<void*>(intptr_t(rowIdx));
+    void* key = reinterpret_cast<void*>(intptr_t(rowIdx));
     Accessible* treeItem = mAccessibleCache.GetWeak(key);
 
     if (treeItem) {
@@ -601,11 +564,12 @@ XULTreeAccessible::InvalidateCache(int32_t aRow, int32_t aCount)
 }
 
 void
-XULTreeAccessible::TreeViewInvalidated(int32_t aStartRow, int32_t aEndRow,
-                                       int32_t aStartCol, int32_t aEndCol)
+XULTreeAccessible::TreeViewInvalidated(int32_t aStartRow,
+                                       int32_t aEndRow,
+                                       int32_t aStartCol,
+                                       int32_t aEndCol)
 {
-  if (IsDefunct())
-    return;
+  if (IsDefunct()) return;
 
   if (!mTreeView) {
     UnbindCacheEntriesFromDocument(mAccessibleCache);
@@ -618,35 +582,32 @@ XULTreeAccessible::TreeViewInvalidated(int32_t aStartRow, int32_t aEndRow,
   if (endRow == -1) {
     int32_t rowCount = 0;
     rv = mTreeView->GetRowCount(&rowCount);
-    if (NS_FAILED(rv))
-      return;
+    if (NS_FAILED(rv)) return;
 
     endRow = rowCount - 1;
   }
 
   nsCOMPtr<nsITreeColumns> treeColumns;
   mTree->GetColumns(getter_AddRefs(treeColumns));
-  if (!treeColumns)
-    return;
+  if (!treeColumns) return;
 
   int32_t endCol = aEndCol;
 
   if (endCol == -1) {
     int32_t colCount = 0;
     rv = treeColumns->GetCount(&colCount);
-    if (NS_FAILED(rv))
-      return;
+    if (NS_FAILED(rv)) return;
 
     endCol = colCount - 1;
   }
 
   for (int32_t rowIdx = aStartRow; rowIdx <= endRow; ++rowIdx) {
-
-    void *key = reinterpret_cast<void*>(intptr_t(rowIdx));
+    void* key = reinterpret_cast<void*>(intptr_t(rowIdx));
     Accessible* accessible = mAccessibleCache.GetWeak(key);
 
     if (accessible) {
-      RefPtr<XULTreeItemAccessibleBase> treeitemAcc = do_QueryObject(accessible);
+      RefPtr<XULTreeItemAccessibleBase> treeitemAcc =
+          do_QueryObject(accessible);
       NS_ASSERTION(treeitemAcc, "Wrong accessible at the given key!");
 
       treeitemAcc->RowInvalidated(aStartCol, endCol);
@@ -657,8 +618,7 @@ XULTreeAccessible::TreeViewInvalidated(int32_t aStartRow, int32_t aEndRow,
 void
 XULTreeAccessible::TreeViewChanged(nsITreeView* aView)
 {
-  if (IsDefunct())
-    return;
+  if (IsDefunct()) return;
 
   // Fire reorder event on tree accessible on accessible tree (do not fire
   // show/hide events on tree items because it can be expensive to fire them for
@@ -679,8 +639,12 @@ already_AddRefed<Accessible>
 XULTreeAccessible::CreateTreeItemAccessible(int32_t aRow) const
 {
   RefPtr<Accessible> accessible =
-    new XULTreeItemAccessible(mContent, mDoc, const_cast<XULTreeAccessible*>(this),
-                              mTree, mTreeView, aRow);
+      new XULTreeItemAccessible(mContent,
+                                mDoc,
+                                const_cast<XULTreeAccessible*>(this),
+                                mTree,
+                                mTreeView,
+                                aRow);
 
   return accessible.forget();
 }
@@ -689,26 +653,27 @@ XULTreeAccessible::CreateTreeItemAccessible(int32_t aRow) const
 // XULTreeItemAccessibleBase
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTreeItemAccessibleBase::
-  XULTreeItemAccessibleBase(nsIContent* aContent, DocAccessible* aDoc,
-                            Accessible* aParent, nsITreeBoxObject* aTree,
-                            nsITreeView* aTreeView, int32_t aRow) :
-  AccessibleWrap(aContent, aDoc),
-  mTree(aTree), mTreeView(aTreeView), mRow(aRow)
+XULTreeItemAccessibleBase::XULTreeItemAccessibleBase(nsIContent* aContent,
+                                                     DocAccessible* aDoc,
+                                                     Accessible* aParent,
+                                                     nsITreeBoxObject* aTree,
+                                                     nsITreeView* aTreeView,
+                                                     int32_t aRow)
+    : AccessibleWrap(aContent, aDoc),
+      mTree(aTree),
+      mTreeView(aTreeView),
+      mRow(aRow)
 {
   mParent = aParent;
   mStateFlags |= eSharedNode;
 }
 
-XULTreeItemAccessibleBase::~XULTreeItemAccessibleBase()
-{
-}
+XULTreeItemAccessibleBase::~XULTreeItemAccessibleBase() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // XULTreeItemAccessibleBase: nsISupports implementation
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(XULTreeItemAccessibleBase, Accessible,
-                                   mTree)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(XULTreeItemAccessibleBase, Accessible, mTree)
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(XULTreeItemAccessibleBase,
                                              Accessible,
@@ -730,16 +695,14 @@ XULTreeItemAccessibleBase::Bounds() const
   // height from tree cell.
 
   nsCOMPtr<nsIBoxObject> boxObj = nsCoreUtils::GetTreeBodyBoxObject(mTree);
-  if (!boxObj)
-    return nsIntRect();
+  if (!boxObj) return nsIntRect();
 
   nsCOMPtr<nsITreeColumn> column = nsCoreUtils::GetFirstSensibleColumn(mTree);
 
   int32_t x = 0, y = 0, width = 0, height = 0;
-  nsresult rv = mTree->GetCoordsForCellItem(mRow, column, EmptyString(),
-                                            &x, &y, &width, &height);
-  if (NS_FAILED(rv))
-    return nsIntRect();
+  nsresult rv = mTree->GetCoordsForCellItem(
+      mRow, column, EmptyString(), &x, &y, &width, &height);
+  if (NS_FAILED(rv)) return nsIntRect();
 
   boxObj->GetWidth(&width);
 
@@ -765,8 +728,7 @@ XULTreeItemAccessibleBase::SetSelected(bool aSelect)
   if (selection) {
     bool isSelected = false;
     selection->IsSelected(mRow, &isSelected);
-    if (isSelected != aSelect)
-      selection->ToggleSelect(mRow);
+    if (isSelected != aSelect) selection->ToggleSelect(mRow);
   }
 }
 
@@ -775,8 +737,7 @@ XULTreeItemAccessibleBase::TakeFocus()
 {
   nsCOMPtr<nsITreeSelection> selection;
   mTreeView->GetSelection(getter_AddRefs(selection));
-  if (selection)
-    selection->SetCurrentIndex(mRow);
+  if (selection) selection->SetCurrentIndex(mRow);
 
   // focus event will be fired here
   Accessible::TakeFocus();
@@ -785,15 +746,13 @@ XULTreeItemAccessibleBase::TakeFocus()
 Relation
 XULTreeItemAccessibleBase::RelationByType(RelationType aType)
 {
-
   switch (aType) {
     case RelationType::NODE_CHILD_OF: {
       int32_t parentIndex = -1;
       if (!NS_SUCCEEDED(mTreeView->GetParentIndex(mRow, &parentIndex)))
         return Relation();
 
-      if (parentIndex == -1)
-        return Relation(mParent);
+      if (parentIndex == -1) return Relation(mParent);
 
       XULTreeAccessible* treeAcc = mParent->AsXULTree();
       return Relation(treeAcc->GetTreeItemAccessible(parentIndex));
@@ -845,8 +804,7 @@ XULTreeItemAccessibleBase::ActionNameAt(uint8_t aIndex, nsAString& aName)
 bool
 XULTreeItemAccessibleBase::DoAction(uint8_t aIndex)
 {
-  if (aIndex != eAction_Click &&
-      (aIndex != eAction_Expand || !IsExpandable()))
+  if (aIndex != eAction_Click && (aIndex != eAction_Expand || !IsExpandable()))
     return false;
 
   DoCommand(nullptr, aIndex);
@@ -862,7 +820,7 @@ XULTreeItemAccessibleBase::Shutdown()
   mTree = nullptr;
   mTreeView = nullptr;
   mRow = -1;
-  mParent = nullptr; // null-out to prevent base class's shutdown ops
+  mParent = nullptr;  // null-out to prevent base class's shutdown ops
 
   AccessibleWrap::Shutdown();
 }
@@ -880,11 +838,9 @@ XULTreeItemAccessibleBase::GroupPosition()
   for (int32_t index = mRow - 1; index >= 0; index--) {
     int32_t lvl = -1;
     if (NS_SUCCEEDED(mTreeView->GetLevel(index, &lvl))) {
-      if (lvl < level)
-        break;
+      if (lvl < level) break;
 
-      if (lvl == level)
-        topCount++;
+      if (lvl == level) topCount++;
     }
   }
 
@@ -896,11 +852,9 @@ XULTreeItemAccessibleBase::GroupPosition()
   for (int32_t index = mRow + 1; index < rowCount; index++) {
     int32_t lvl = -1;
     if (NS_SUCCEEDED(mTreeView->GetLevel(index, &lvl))) {
-      if (lvl < level)
-        break;
+      if (lvl < level) break;
 
-      if (lvl == level)
-        bottomCount++;
+      if (lvl == level) bottomCount++;
     }
   }
 
@@ -914,7 +868,6 @@ XULTreeItemAccessibleBase::GroupPosition()
 uint64_t
 XULTreeItemAccessibleBase::NativeState()
 {
-
   // focusable and selectable states
   uint64_t state = NativeInteractiveState();
 
@@ -931,13 +884,11 @@ XULTreeItemAccessibleBase::NativeState()
   if (selection) {
     bool isSelected;
     selection->IsSelected(mRow, &isSelected);
-    if (isSelected)
-      state |= states::SELECTED;
+    if (isSelected) state |= states::SELECTED;
   }
 
   // focused state
-  if (FocusMgr()->IsFocused(this))
-    state |= states::FOCUSED;
+  if (FocusMgr()->IsFocused(this)) state |= states::FOCUSED;
 
   // invisible state
   int32_t firstVisibleRow, lastVisibleRow;
@@ -977,13 +928,11 @@ void
 XULTreeItemAccessibleBase::DispatchClickEvent(nsIContent* aContent,
                                               uint32_t aActionIndex)
 {
-  if (IsDefunct())
-    return;
+  if (IsDefunct()) return;
 
   nsCOMPtr<nsITreeColumns> columns;
   mTree->GetColumns(getter_AddRefs(columns));
-  if (!columns)
-    return;
+  if (!columns) return;
 
   // Get column and pseudo element.
   nsCOMPtr<nsITreeColumn> column;
@@ -998,16 +947,14 @@ XULTreeItemAccessibleBase::DispatchClickEvent(nsIContent* aContent,
     pseudoElm = NS_LITERAL_STRING("twisty");
   }
 
-  if (column)
-    nsCoreUtils::DispatchClickEvent(mTree, mRow, column, pseudoElm);
+  if (column) nsCoreUtils::DispatchClickEvent(mTree, mRow, column, pseudoElm);
 }
 
 Accessible*
 XULTreeItemAccessibleBase::GetSiblingAtOffset(int32_t aOffset,
                                               nsresult* aError) const
 {
-  if (aError)
-    *aError = NS_OK; // fail peacefully
+  if (aError) *aError = NS_OK;  // fail peacefully
 
   return mParent->GetChildAt(IndexInParent() + aOffset);
 }
@@ -1018,7 +965,6 @@ XULTreeItemAccessibleBase::GetSiblingAtOffset(int32_t aOffset,
 bool
 XULTreeItemAccessibleBase::IsExpandable()
 {
-
   bool isContainer = false;
   mTreeView->IsContainer(mRow, &isContainer);
   if (isContainer) {
@@ -1030,8 +976,7 @@ XULTreeItemAccessibleBase::IsExpandable()
       nsCOMPtr<nsITreeColumn> primaryColumn;
       if (columns) {
         columns->GetPrimaryColumn(getter_AddRefs(primaryColumn));
-        if (primaryColumn &&
-            !nsCoreUtils::IsColumnHidden(primaryColumn))
+        if (primaryColumn && !nsCoreUtils::IsColumnHidden(primaryColumn))
           return true;
       }
     }
@@ -1043,7 +988,6 @@ XULTreeItemAccessibleBase::IsExpandable()
 void
 XULTreeItemAccessibleBase::GetCellName(nsITreeColumn* aColumn, nsAString& aName)
 {
-
   mTreeView->GetCellText(mRow, aColumn, aName);
 
   // If there is still no name try the cell value:
@@ -1052,29 +996,27 @@ XULTreeItemAccessibleBase::GetCellName(nsITreeColumn* aColumn, nsAString& aName)
   // where there is something shown in the cell (non-text) such as a star icon;
   // in which case GetCellValue for that cell would return "starred" or
   // "flagged" for example.
-  if (aName.IsEmpty())
-    mTreeView->GetCellValue(mRow, aColumn, aName);
+  if (aName.IsEmpty()) mTreeView->GetCellValue(mRow, aColumn, aName);
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // XULTreeItemAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTreeItemAccessible::
-  XULTreeItemAccessible(nsIContent* aContent, DocAccessible* aDoc,
-                        Accessible* aParent, nsITreeBoxObject* aTree,
-                        nsITreeView* aTreeView, int32_t aRow) :
-  XULTreeItemAccessibleBase(aContent, aDoc, aParent, aTree, aTreeView, aRow)
+XULTreeItemAccessible::XULTreeItemAccessible(nsIContent* aContent,
+                                             DocAccessible* aDoc,
+                                             Accessible* aParent,
+                                             nsITreeBoxObject* aTree,
+                                             nsITreeView* aTreeView,
+                                             int32_t aRow)
+    : XULTreeItemAccessibleBase(aContent, aDoc, aParent, aTree, aTreeView, aRow)
 {
   mStateFlags |= eNoKidsFromDOM;
   mColumn = nsCoreUtils::GetFirstSensibleColumn(mTree);
   GetCellName(mColumn, mCachedName);
 }
 
-XULTreeItemAccessible::~XULTreeItemAccessible()
-{
-}
+XULTreeItemAccessible::~XULTreeItemAccessible() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // XULTreeItemAccessible: nsISupports implementation
@@ -1141,14 +1083,13 @@ XULTreeItemAccessible::RowInvalidated(int32_t aStartColIdx, int32_t aEndColIdx)
   }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 //  XULTreeColumAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTreeColumAccessible::
-  XULTreeColumAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  XULColumAccessible(aContent, aDoc)
+XULTreeColumAccessible::XULTreeColumAccessible(nsIContent* aContent,
+                                               DocAccessible* aDoc)
+    : XULColumAccessible(aContent, aDoc)
 {
 }
 
@@ -1159,8 +1100,7 @@ XULTreeColumAccessible::GetSiblingAtOffset(int32_t aOffset,
   if (aOffset < 0)
     return XULColumAccessible::GetSiblingAtOffset(aOffset, aError);
 
-  if (aError)
-    *aError =  NS_OK; // fail peacefully
+  if (aError) *aError = NS_OK;  // fail peacefully
 
   nsCOMPtr<nsITreeBoxObject> tree = nsCoreUtils::GetTreeBoxObject(mContent);
   if (tree) {
@@ -1172,8 +1112,7 @@ XULTreeColumAccessible::GetSiblingAtOffset(int32_t aOffset,
       if (rowCount > 0 && aOffset <= rowCount) {
         XULTreeAccessible* treeAcc = Parent()->AsXULTree();
 
-        if (treeAcc)
-          return treeAcc->GetTreeItemAccessible(aOffset - 1);
+        if (treeAcc) return treeAcc->GetTreeItemAccessible(aOffset - 1);
       }
     }
   }

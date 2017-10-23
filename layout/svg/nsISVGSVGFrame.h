@@ -10,7 +10,7 @@
 
 class nsISVGSVGFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsISVGSVGFrame)
 
   /**
@@ -20,7 +20,7 @@ public:
    * nsSVGDisplayableFrame::COORD_CONTEXT_CHANGED and/or
    * nsSVGDisplayableFrame::TRANSFORM_CHANGED.
    */
-  virtual void NotifyViewportOrTransformChanged(uint32_t aFlags)=0;
+  virtual void NotifyViewportOrTransformChanged(uint32_t aFlags) = 0;
 };
 
-#endif // __NS_ISVGSVGFRAME_H__
+#endif  // __NS_ISVGSVGFRAME_H__

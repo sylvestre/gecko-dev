@@ -97,7 +97,9 @@ gfxConfig::InitOrUpdate(Feature aFeature,
 }
 
 /* static */ void
-gfxConfig::SetFailed(Feature aFeature, FeatureStatus aStatus, const char* aMessage,
+gfxConfig::SetFailed(Feature aFeature,
+                     FeatureStatus aStatus,
+                     const char* aMessage,
                      const nsACString& aFailureId)
 {
   FeatureState& state = sConfig->GetState(aFeature);
@@ -105,7 +107,9 @@ gfxConfig::SetFailed(Feature aFeature, FeatureStatus aStatus, const char* aMessa
 }
 
 /* static */ void
-gfxConfig::Disable(Feature aFeature, FeatureStatus aStatus, const char* aMessage,
+gfxConfig::Disable(Feature aFeature,
+                   FeatureStatus aStatus,
+                   const char* aMessage,
                    const nsACString& aFailureId)
 {
   FeatureState& state = sConfig->GetState(aFeature);
@@ -127,7 +131,9 @@ gfxConfig::UserForceEnable(Feature aFeature, const char* aMessage)
 }
 
 /* static */ void
-gfxConfig::UserDisable(Feature aFeature, const char* aMessage, const nsACString& aFailureId)
+gfxConfig::UserDisable(Feature aFeature,
+                       const char* aMessage,
+                       const nsACString& aFailureId)
 {
   FeatureState& state = sConfig->GetState(aFeature);
   state.UserDisable(aMessage, aFailureId);
@@ -159,22 +165,19 @@ gfxConfig::Inherit(Feature aFeature, FeatureStatus aStatus)
   state.Reset();
 
   switch (aStatus) {
-  case FeatureStatus::Unused:
-    break;
-  case FeatureStatus::Available:
-    gfxConfig::EnableByDefault(aFeature);
-    break;
-  case FeatureStatus::ForceEnabled:
-    gfxConfig::EnableByDefault(aFeature);
-    gfxConfig::UserForceEnable(aFeature, "Inherited from parent process");
-    break;
-  default:
-    gfxConfig::SetDefault(
-      aFeature,
-      false,
-      aStatus,
-      "Disabled in parent process");
-    break;
+    case FeatureStatus::Unused:
+      break;
+    case FeatureStatus::Available:
+      gfxConfig::EnableByDefault(aFeature);
+      break;
+    case FeatureStatus::ForceEnabled:
+      gfxConfig::EnableByDefault(aFeature);
+      gfxConfig::UserForceEnable(aFeature, "Inherited from parent process");
+      break;
+    default:
+      gfxConfig::SetDefault(
+          aFeature, false, aStatus, "Disabled in parent process");
+      break;
   }
 }
 
@@ -190,11 +193,10 @@ gfxConfig::EnableFallback(Fallback aFallback, const char* aMessage)
   if (!NS_IsMainThread()) {
     nsCString message(aMessage);
     NS_DispatchToMainThread(
-      NS_NewRunnableFunction("gfxConfig::EnableFallback",
-                             [=]() -> void {
+        NS_NewRunnableFunction("gfxConfig::EnableFallback", [=]() -> void {
 
-        gfxConfig::EnableFallback(aFallback, message.get());
-      }));
+          gfxConfig::EnableFallback(aFallback, message.get());
+        }));
     return;
   }
 
@@ -228,16 +230,16 @@ gfxConfig::EnableFallbackImpl(Fallback aFallback, const char* aMessage)
   mFallbackBits |= (uint64_t(1) << uint64_t(aFallback));
 }
 
-struct FeatureInfo {
+struct FeatureInfo
+{
   const char* name;
   const char* description;
 };
 static const FeatureInfo sFeatureInfo[] = {
 #define FOR_EACH_FEATURE(name, type, desc) {#name, desc},
-  GFX_FEATURE_MAP(FOR_EACH_FEATURE)
+    GFX_FEATURE_MAP(FOR_EACH_FEATURE)
 #undef FOR_EACH_FEATURE
-  {nullptr, nullptr}
-};
+        {nullptr, nullptr}};
 
 /* static */ void
 gfxConfig::ForEachFeature(const FeatureIterCallback& aCallback)
@@ -248,18 +250,15 @@ gfxConfig::ForEachFeature(const FeatureIterCallback& aCallback)
       continue;
     }
 
-    aCallback(sFeatureInfo[i].name,
-              sFeatureInfo[i].description,
-              state);
+    aCallback(sFeatureInfo[i].name, sFeatureInfo[i].description, state);
   }
 }
 
 static const char* sFallbackNames[] = {
 #define FOR_EACH_FALLBACK(name) #name,
-  GFX_FALLBACK_MAP(FOR_EACH_FALLBACK)
+    GFX_FALLBACK_MAP(FOR_EACH_FALLBACK)
 #undef FOR_EACH_FALLBACK
-  nullptr
-};
+        nullptr};
 
 /* static  */ void
 gfxConfig::ForEachFallback(const FallbackIterCallback& aCallback)
@@ -292,10 +291,7 @@ gfxConfig::ImportChange(Feature aFeature, const FeatureChange& aChange)
 
   const FeatureFailure& failure = aChange.get_FeatureFailure();
   gfxConfig::SetFailed(
-    aFeature,
-    failure.status(),
-    failure.message().get(),
-    failure.failureId());
+      aFeature, failure.status(), failure.message().get(), failure.failureId());
 }
 
 /* static */ void
@@ -310,5 +306,5 @@ gfxConfig::Shutdown()
   sConfig = nullptr;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

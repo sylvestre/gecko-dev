@@ -5,10 +5,10 @@
 
 #include "ChangeAttributeTransaction.h"
 
-#include "mozilla/dom/Element.h"        // for Element
+#include "mozilla/dom/Element.h"  // for Element
 
 #include "nsAString.h"
-#include "nsError.h"                    // for NS_ERROR_NOT_INITIALIZED, etc.
+#include "nsError.h"  // for NS_ERROR_NOT_INITIALIZED, etc.
 
 namespace mozilla {
 
@@ -17,19 +17,17 @@ using namespace dom;
 ChangeAttributeTransaction::ChangeAttributeTransaction(Element& aElement,
                                                        nsAtom& aAttribute,
                                                        const nsAString* aValue)
-  : EditTransactionBase()
-  , mElement(&aElement)
-  , mAttribute(&aAttribute)
-  , mValue(aValue ? *aValue : EmptyString())
-  , mRemoveAttribute(!aValue)
-  , mAttributeWasSet(false)
-  , mUndoValue()
+    : EditTransactionBase(),
+      mElement(&aElement),
+      mAttribute(&aAttribute),
+      mValue(aValue ? *aValue : EmptyString()),
+      mRemoveAttribute(!aValue),
+      mAttributeWasSet(false),
+      mUndoValue()
 {
 }
 
-ChangeAttributeTransaction::~ChangeAttributeTransaction()
-{
-}
+ChangeAttributeTransaction::~ChangeAttributeTransaction() {}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(ChangeAttributeTransaction,
                                    EditTransactionBase,
@@ -45,8 +43,8 @@ ChangeAttributeTransaction::DoTransaction()
 {
   // Need to get the current value of the attribute and save it, and set
   // mAttributeWasSet
-  mAttributeWasSet = mElement->GetAttr(kNameSpaceID_None, mAttribute,
-                                       mUndoValue);
+  mAttributeWasSet =
+      mElement->GetAttr(kNameSpaceID_None, mAttribute, mUndoValue);
 
   // XXX: hack until attribute-was-set code is implemented
   if (!mUndoValue.IsEmpty()) {
@@ -95,4 +93,4 @@ ChangeAttributeTransaction::GetTxnDescription(nsAString& aString)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

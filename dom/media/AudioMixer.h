@@ -14,7 +14,8 @@
 
 namespace mozilla {
 
-struct MixerCallbackReceiver {
+struct MixerCallbackReceiver
+{
   virtual void MixerCallback(AudioDataValue* aMixedBuffer,
                              AudioSampleFormat aFormat,
                              uint32_t aChannels,
@@ -37,12 +38,8 @@ struct MixerCallbackReceiver {
  */
 class AudioMixer
 {
-public:
-  AudioMixer()
-    : mFrames(0),
-      mChannels(0),
-      mSampleRate(0)
-  { }
+ public:
+  AudioMixer() : mFrames(0), mChannels(0), mSampleRate(0) {}
 
   ~AudioMixer()
   {
@@ -52,22 +49,22 @@ public:
     }
   }
 
-  void StartMixing()
-  {
-    mSampleRate = mChannels = mFrames = 0;
-  }
+  void StartMixing() { mSampleRate = mChannels = mFrames = 0; }
 
   /* Get the data from the mixer. This is supposed to be called when all the
    * tracks have been mixed in. The caller should not hold onto the data. */
-  void FinishMixing() {
-    MOZ_ASSERT(mChannels && mFrames && mSampleRate, "Mix not called for this cycle?");
-    for (MixerCallback* cb = mCallbacks.getFirst();
-         cb != nullptr; cb = cb->getNext()) {
-      cb->mReceiver->MixerCallback(mMixedAudio.Elements(),
-                                   AudioSampleTypeToFormat<AudioDataValue>::Format,
-                                   mChannels,
-                                   mFrames,
-                                   mSampleRate);
+  void FinishMixing()
+  {
+    MOZ_ASSERT(mChannels && mFrames && mSampleRate,
+               "Mix not called for this cycle?");
+    for (MixerCallback* cb = mCallbacks.getFirst(); cb != nullptr;
+         cb = cb->getNext()) {
+      cb->mReceiver->MixerCallback(
+          mMixedAudio.Elements(),
+          AudioSampleTypeToFormat<AudioDataValue>::Format,
+          mChannels,
+          mFrames,
+          mSampleRate);
     }
     PodZero(mMixedAudio.Elements(), mMixedAudio.Length());
     mSampleRate = mChannels = mFrames = 0;
@@ -78,7 +75,8 @@ public:
   void Mix(AudioDataValue* aSamples,
            uint32_t aChannels,
            uint32_t aFrames,
-           uint32_t aSampleRate) {
+           uint32_t aSampleRate)
+  {
     if (!mFrames && !mChannels) {
       mFrames = aFrames;
       mChannels = aChannels;
@@ -99,13 +97,15 @@ public:
     }
   }
 
-  void AddCallback(MixerCallbackReceiver* aReceiver) {
+  void AddCallback(MixerCallbackReceiver* aReceiver)
+  {
     mCallbacks.insertBack(new MixerCallback(aReceiver));
   }
 
-  bool FindCallback(MixerCallbackReceiver* aReceiver) {
-    for (MixerCallback* cb = mCallbacks.getFirst();
-         cb != nullptr; cb = cb->getNext()) {
+  bool FindCallback(MixerCallbackReceiver* aReceiver)
+  {
+    for (MixerCallback* cb = mCallbacks.getFirst(); cb != nullptr;
+         cb = cb->getNext()) {
       if (cb->mReceiver == aReceiver) {
         return true;
       }
@@ -113,9 +113,10 @@ public:
     return false;
   }
 
-  bool RemoveCallback(MixerCallbackReceiver* aReceiver) {
-    for (MixerCallback* cb = mCallbacks.getFirst();
-         cb != nullptr; cb = cb->getNext()) {
+  bool RemoveCallback(MixerCallbackReceiver* aReceiver)
+  {
+    for (MixerCallback* cb = mCallbacks.getFirst(); cb != nullptr;
+         cb = cb->getNext()) {
       if (cb->mReceiver == aReceiver) {
         cb->remove();
         delete cb;
@@ -124,20 +125,23 @@ public:
     }
     return false;
   }
-private:
-  void EnsureCapacityAndSilence() {
+
+ private:
+  void EnsureCapacityAndSilence()
+  {
     if (mFrames * mChannels > mMixedAudio.Length()) {
-      mMixedAudio.SetLength(mFrames* mChannels);
+      mMixedAudio.SetLength(mFrames * mChannels);
     }
     PodZero(mMixedAudio.Elements(), mMixedAudio.Length());
   }
 
   class MixerCallback : public LinkedListElement<MixerCallback>
   {
-  public:
+   public:
     explicit MixerCallback(MixerCallbackReceiver* aReceiver)
-      : mReceiver(aReceiver)
-    { }
+        : mReceiver(aReceiver)
+    {
+    }
     MixerCallbackReceiver* mReceiver;
   };
 
@@ -153,6 +157,6 @@ private:
   nsTArray<AudioDataValue> mMixedAudio;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_AUDIOMIXER_H_
+#endif  // MOZILLA_AUDIOMIXER_H_

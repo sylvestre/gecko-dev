@@ -11,7 +11,7 @@
 #include "nsIGIOService.h"
 
 /* static */ bool
-nsGNOMERegistry::HandlerExists(const char *aProtocolScheme)
+nsGNOMERegistry::HandlerExists(const char* aProtocolScheme)
 {
   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
   if (!giovfs) {
@@ -19,14 +19,14 @@ nsGNOMERegistry::HandlerExists(const char *aProtocolScheme)
   }
 
   nsCOMPtr<nsIGIOMimeApp> app;
-  return NS_SUCCEEDED(giovfs->GetAppForURIScheme(nsDependentCString(aProtocolScheme),
-                                                 getter_AddRefs(app)));
+  return NS_SUCCEEDED(giovfs->GetAppForURIScheme(
+      nsDependentCString(aProtocolScheme), getter_AddRefs(app)));
 }
 
 // XXX Check HandlerExists() before calling LoadURL.
 
 /* static */ nsresult
-nsGNOMERegistry::LoadURL(nsIURI *aURL)
+nsGNOMERegistry::LoadURL(nsIURI* aURL)
 {
   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
   if (!giovfs) {
@@ -41,8 +41,7 @@ nsGNOMERegistry::GetAppDescForScheme(const nsACString& aScheme,
                                      nsAString& aDesc)
 {
   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
-  if (!giovfs)
-    return;
+  if (!giovfs) return;
 
   nsAutoCString name;
   nsCOMPtr<nsIGIOMimeApp> app;
@@ -53,7 +52,6 @@ nsGNOMERegistry::GetAppDescForScheme(const nsACString& aScheme,
 
   CopyUTF8toUTF16(name, aDesc);
 }
-
 
 /* static */ already_AddRefed<nsMIMEInfoBase>
 nsGNOMERegistry::GetFromExtension(const nsACString& aFileExt)
@@ -94,7 +92,8 @@ nsGNOMERegistry::GetFromType(const nsACString& aMIMEType)
   }
 
   nsCOMPtr<nsIGIOMimeApp> gioHandlerApp;
-  if (NS_FAILED(giovfs->GetAppForMimeType(aMIMEType, getter_AddRefs(gioHandlerApp))) ||
+  if (NS_FAILED(giovfs->GetAppForMimeType(aMIMEType,
+                                          getter_AddRefs(gioHandlerApp))) ||
       !gioHandlerApp) {
     return nullptr;
   }

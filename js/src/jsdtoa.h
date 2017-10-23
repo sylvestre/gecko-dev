@@ -18,13 +18,11 @@ struct DtoaState;
 
 namespace js {
 
-extern DtoaState*
-NewDtoaState();
+extern DtoaState* NewDtoaState();
 
-extern void
-DestroyDtoaState(DtoaState* state);
+extern void DestroyDtoaState(DtoaState* state);
 
-} // namespace js
+}  // namespace js
 
 /*
  * js_strtod_harder() returns as a double-precision floating-point number the
@@ -40,8 +38,7 @@ DestroyDtoaState(DtoaState* state);
  * *err is set to zero on success; it's set to JS_DTOA_ENOMEM on memory failure.
  */
 #define JS_DTOA_ENOMEM 2
-double
-js_strtod_harder(DtoaState* state, const char* s00, char** se, int* err);
+double js_strtod_harder(DtoaState* state, const char* s00, char** se, int* err);
 
 /*
  * Modes for converting floating-point numbers to strings.
@@ -56,13 +53,12 @@ js_strtod_harder(DtoaState* state, const char* s00, char** se, int* err);
  */
 /* NB: Keep this in sync with number_constants[]. */
 typedef enum JSDToStrMode {
-    DTOSTR_STANDARD,              /* Either fixed or exponential format; round-trip */
-    DTOSTR_STANDARD_EXPONENTIAL,  /* Always exponential format; round-trip */
-    DTOSTR_FIXED,                 /* Round to <precision> digits after the decimal point; exponential if number is large */
-    DTOSTR_EXPONENTIAL,           /* Always exponential format; <precision> significant digits */
-    DTOSTR_PRECISION              /* Either fixed or exponential format; <precision> significant digits */
+    DTOSTR_STANDARD,             /* Either fixed or exponential format; round-trip */
+    DTOSTR_STANDARD_EXPONENTIAL, /* Always exponential format; round-trip */
+    DTOSTR_FIXED, /* Round to <precision> digits after the decimal point; exponential if number is large */
+    DTOSTR_EXPONENTIAL, /* Always exponential format; <precision> significant digits */
+    DTOSTR_PRECISION    /* Either fixed or exponential format; <precision> significant digits */
 } JSDToStrMode;
-
 
 /* Maximum number of characters (including trailing null) that a DTOSTR_STANDARD or DTOSTR_STANDARD_EXPONENTIAL
  * conversion can produce.  This maximum is reached for a number like -0.0000012345678901234567. */
@@ -70,7 +66,9 @@ typedef enum JSDToStrMode {
 
 /* Maximum number of characters (including trailing null) that one of the other conversions
  * can produce.  This maximum is reached for TO_FIXED, which can generate up to 21 digits before the decimal point. */
-#define DTOSTR_VARIABLE_BUFFER_SIZE(precision) ((precision)+24 > DTOSTR_STANDARD_BUFFER_SIZE ? (precision)+24 : DTOSTR_STANDARD_BUFFER_SIZE)
+#define DTOSTR_VARIABLE_BUFFER_SIZE(precision)                         \
+    ((precision) + 24 > DTOSTR_STANDARD_BUFFER_SIZE ? (precision) + 24 \
+                                                    : DTOSTR_STANDARD_BUFFER_SIZE)
 
 /*
  * DO NOT USE THIS FUNCTION IF YOU CAN AVOID IT.  js::NumberToCString() is a
@@ -88,9 +86,8 @@ typedef enum JSDToStrMode {
  *
  * Return nullptr if out of memory.
  */
-char*
-js_dtostr(DtoaState* state, char* buffer, size_t bufferSize, JSDToStrMode mode, int precision,
-          double dval);
+char* js_dtostr(DtoaState* state, char* buffer, size_t bufferSize, JSDToStrMode mode,
+                int precision, double dval);
 
 /*
  * DO NOT USE THIS FUNCTION IF YOU CAN AVOID IT.  js::NumberToCString() is a
@@ -110,7 +107,6 @@ js_dtostr(DtoaState* state, char* buffer, size_t bufferSize, JSDToStrMode mode, 
  * Return nullptr if out of memory.  If the result is not nullptr, it must be
  * released via js_free().
  */
-char*
-js_dtobasestr(DtoaState* state, int base, double d);
+char* js_dtobasestr(DtoaState* state, int base, double d);
 
 #endif /* jsdtoa_h */

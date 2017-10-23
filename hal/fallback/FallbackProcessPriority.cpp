@@ -20,8 +20,9 @@ void
 SetProcessPriority(int aPid, ProcessPriority aPriority)
 {
   HAL_LOG("FallbackProcessPriority - SetProcessPriority(%d, %s)\n",
-          aPid, ProcessPriorityToString(aPriority));
+          aPid,
+          ProcessPriorityToString(aPriority));
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

@@ -23,10 +23,9 @@ namespace mozilla {
  */
 class Monitor
 {
-public:
+ public:
   explicit Monitor(const char* aName)
-    : mMutex(aName)
-    , mCondVar(mMutex, "[Monitor.mCondVar]")
+      : mMutex(aName), mCondVar(mMutex, "[Monitor.mCondVar]")
   {
   }
 
@@ -43,17 +42,14 @@ public:
   nsresult Notify() { return mCondVar.Notify(); }
   nsresult NotifyAll() { return mCondVar.NotifyAll(); }
 
-  void AssertCurrentThreadOwns() const
-  {
-    mMutex.AssertCurrentThreadOwns();
-  }
+  void AssertCurrentThreadOwns() const { mMutex.AssertCurrentThreadOwns(); }
 
   void AssertNotCurrentThreadOwns() const
   {
     mMutex.AssertNotCurrentThreadOwns();
   }
 
-private:
+ private:
   Monitor();
   Monitor(const Monitor&);
   Monitor& operator=(const Monitor&);
@@ -71,17 +67,13 @@ private:
  */
 class MOZ_STACK_CLASS MonitorAutoLock
 {
-public:
-  explicit MonitorAutoLock(Monitor& aMonitor)
-    : mMonitor(&aMonitor)
+ public:
+  explicit MonitorAutoLock(Monitor& aMonitor) : mMonitor(&aMonitor)
   {
     mMonitor->Lock();
   }
 
-  ~MonitorAutoLock()
-  {
-    mMonitor->Unlock();
-  }
+  ~MonitorAutoLock() { mMonitor->Unlock(); }
 
   nsresult Wait(PRIntervalTime aInterval = PR_INTERVAL_NO_TIMEOUT)
   {
@@ -91,7 +83,7 @@ public:
   nsresult Notify() { return mMonitor->Notify(); }
   nsresult NotifyAll() { return mMonitor->NotifyAll(); }
 
-private:
+ private:
   MonitorAutoLock();
   MonitorAutoLock(const MonitorAutoLock&);
   MonitorAutoLock& operator=(const MonitorAutoLock&);
@@ -111,25 +103,21 @@ private:
  */
 class MOZ_STACK_CLASS MonitorAutoUnlock
 {
-public:
-  explicit MonitorAutoUnlock(Monitor& aMonitor)
-    : mMonitor(&aMonitor)
+ public:
+  explicit MonitorAutoUnlock(Monitor& aMonitor) : mMonitor(&aMonitor)
   {
     mMonitor->Unlock();
   }
 
   explicit MonitorAutoUnlock(MonitorAutoLock& aMonitorLock)
-    : mMonitor(aMonitorLock.mMonitor)
+      : mMonitor(aMonitorLock.mMonitor)
   {
     mMonitor->Unlock();
   }
 
-  ~MonitorAutoUnlock()
-  {
-    mMonitor->Lock();
-  }
+  ~MonitorAutoUnlock() { mMonitor->Lock(); }
 
-private:
+ private:
   MonitorAutoUnlock();
   MonitorAutoUnlock(const MonitorAutoUnlock&);
   MonitorAutoUnlock& operator=(const MonitorAutoUnlock&);
@@ -138,6 +126,6 @@ private:
   Monitor* mMonitor;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Monitor_h
+#endif  // mozilla_Monitor_h

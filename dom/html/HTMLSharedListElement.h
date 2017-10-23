@@ -16,9 +16,10 @@ namespace dom {
 
 class HTMLSharedListElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLSharedListElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLSharedListElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -26,58 +27,49 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-  bool Reversed() const
-  {
-    return GetBoolAttr(nsGkAtoms::reversed);
-  }
+  bool Reversed() const { return GetBoolAttr(nsGkAtoms::reversed); }
   void SetReversed(bool aReversed, mozilla::ErrorResult& rv)
   {
     SetHTMLBoolAttr(nsGkAtoms::reversed, aReversed, rv);
   }
-  int32_t Start() const
-  {
-    return GetIntAttr(nsGkAtoms::start, 1);
-  }
+  int32_t Start() const { return GetIntAttr(nsGkAtoms::start, 1); }
   void SetStart(int32_t aStart, mozilla::ErrorResult& rv)
   {
     SetHTMLIntAttr(nsGkAtoms::start, aStart, rv);
   }
-  void GetType(DOMString& aType)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aType);
-  }
+  void GetType(DOMString& aType) { GetHTMLAttr(nsGkAtoms::type, aType); }
   void SetType(const nsAString& aType, mozilla::ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::type, aType, rv);
   }
-  bool Compact() const
-  {
-    return GetBoolAttr(nsGkAtoms::compact);
-  }
+  bool Compact() const { return GetBoolAttr(nsGkAtoms::compact); }
   void SetCompact(bool aCompact, mozilla::ErrorResult& rv)
   {
     SetHTMLBoolAttr(nsGkAtoms::compact, aCompact, rv);
   }
 
-protected:
+ protected:
   virtual ~HTMLSharedListElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLSharedListElement_h
+#endif  // mozilla_dom_HTMLSharedListElement_h

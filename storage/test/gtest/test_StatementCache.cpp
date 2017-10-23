@@ -19,18 +19,18 @@ using namespace mozilla::storage;
 
 class SyncCache : public StatementCache<mozIStorageStatement>
 {
-public:
+ public:
   explicit SyncCache(nsCOMPtr<mozIStorageConnection>& aConnection)
-  : StatementCache<mozIStorageStatement>(aConnection)
+      : StatementCache<mozIStorageStatement>(aConnection)
   {
   }
 };
 
 class AsyncCache : public StatementCache<mozIStorageAsyncStatement>
 {
-public:
+ public:
   explicit AsyncCache(nsCOMPtr<mozIStorageConnection>& aConnection)
-  : StatementCache<mozIStorageAsyncStatement>(aConnection)
+      : StatementCache<mozIStorageAsyncStatement>(aConnection)
   {
   }
 };
@@ -41,11 +41,8 @@ public:
  */
 class StringWrapper : public nsCString
 {
-public:
-  MOZ_IMPLICIT StringWrapper(const char* aOther)
-  {
-    this->Assign(aOther);
-  }
+ public:
+  MOZ_IMPLICIT StringWrapper(const char* aOther) { this->Assign(aOther); }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -53,8 +50,10 @@ public:
 
 // This is some gtest magic that allows us to parameterize tests by |const
 // char[]| and |StringWrapper|.
-template <typename T>
-class storage_StatementCache : public ::testing::Test {};
+template<typename T>
+class storage_StatementCache : public ::testing::Test
+{
+};
 typedef ::testing::Types<const char[], StringWrapper> TwoStringTypes;
 
 TYPED_TEST_CASE(storage_StatementCache, TwoStringTypes);
@@ -144,4 +143,3 @@ TYPED_TEST(storage_StatementCache, FinalizeAsyncStatements)
   // Should be able to close the database now too.
   do_check_success(db->AsyncClose(nullptr));
 }
-

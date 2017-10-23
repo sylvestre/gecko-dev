@@ -5,18 +5,18 @@
 
 #include "CanvasLayerComposite.h"
 #include "composite/CompositableHost.h"  // for CompositableHost
-#include "gfx2DGlue.h"                  // for ToFilter
-#include "gfxEnv.h"                     // for gfxEnv, etc
-#include "mozilla/gfx/Matrix.h"         // for Matrix4x4
-#include "mozilla/gfx/Point.h"          // for Point
-#include "mozilla/gfx/Rect.h"           // for Rect
-#include "mozilla/layers/Compositor.h"  // for Compositor
-#include "mozilla/layers/Effects.h"     // for EffectChain
-#include "mozilla/mozalloc.h"           // for operator delete
+#include "gfx2DGlue.h"                   // for ToFilter
+#include "gfxEnv.h"                      // for gfxEnv, etc
+#include "mozilla/gfx/Matrix.h"          // for Matrix4x4
+#include "mozilla/gfx/Point.h"           // for Point
+#include "mozilla/gfx/Rect.h"            // for Rect
+#include "mozilla/layers/Compositor.h"   // for Compositor
+#include "mozilla/layers/Effects.h"      // for EffectChain
+#include "mozilla/mozalloc.h"            // for operator delete
 #include "nsAString.h"
-#include "mozilla/RefPtr.h"                   // for nsRefPtr
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsString.h"                   // for nsAutoCString
+#include "mozilla/RefPtr.h"   // for nsRefPtr
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, etc
+#include "nsString.h"         // for nsAutoCString
 
 namespace mozilla {
 namespace layers {
@@ -24,9 +24,9 @@ namespace layers {
 using namespace mozilla::gfx;
 
 CanvasLayerComposite::CanvasLayerComposite(LayerManagerComposite* aManager)
-  : CanvasLayer(aManager, nullptr)
-  , LayerComposite(aManager)
-  , mCompositableHost(nullptr)
+    : CanvasLayer(aManager, nullptr),
+      LayerComposite(aManager),
+      mCompositableHost(nullptr)
 {
   MOZ_COUNT_CTOR(CanvasLayerComposite);
   mImplData = static_cast<LayerComposite*>(this);
@@ -49,7 +49,6 @@ CanvasLayerComposite::SetCompositableHost(CompositableHost* aHost)
     default:
       return false;
   }
-
 }
 
 Layer*
@@ -87,14 +86,18 @@ CanvasLayerComposite::RenderLayer(const IntRect& aClipRect,
   }
 #endif
 
-  RenderWithAllMasks(this, mCompositor, aClipRect,
+  RenderWithAllMasks(this,
+                     mCompositor,
+                     aClipRect,
                      [&](EffectChain& effectChain, const IntRect& clipRect) {
-    mCompositableHost->Composite(mCompositor, this, effectChain,
-                          GetEffectiveOpacity(),
-                          GetEffectiveTransform(),
-                          GetSamplingFilter(),
-                          clipRect);
-  });
+                       mCompositableHost->Composite(mCompositor,
+                                                    this,
+                                                    effectChain,
+                                                    GetEffectiveOpacity(),
+                                                    GetEffectiveTransform(),
+                                                    GetSamplingFilter(),
+                                                    clipRect);
+                     });
 
   mCompositableHost->BumpFlashCounter();
 }
@@ -154,5 +157,5 @@ CanvasLayerComposite::PrintInfo(std::stringstream& aStream, const char* aPrefix)
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

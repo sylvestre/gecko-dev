@@ -26,16 +26,13 @@ StopService()
 
 class ServiceCounter
 {
-public:
-  static bool IsServiceRunning()
-  {
-    return !!sUseCount;
-  }
+ public:
+  static bool IsServiceRunning() { return !!sUseCount; }
 
-private:
+ private:
   static uint32_t sUseCount;
 
-protected:
+ protected:
   ServiceCounter()
   {
     MOZ_ASSERT(NS_IsMainThread());
@@ -55,17 +52,16 @@ protected:
 
 uint32_t ServiceCounter::sUseCount = 0;
 
-class DiscoveryRequest final : public nsICancelable
-                             , private ServiceCounter
+class DiscoveryRequest final : public nsICancelable, private ServiceCounter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICANCELABLE
 
   explicit DiscoveryRequest(nsDNSServiceDiscovery* aService,
                             nsIDNSServiceDiscoveryListener* aListener);
 
-private:
+ private:
   virtual ~DiscoveryRequest() { Cancel(NS_OK); }
 
   RefPtr<nsDNSServiceDiscovery> mService;
@@ -76,8 +72,7 @@ NS_IMPL_ISUPPORTS(DiscoveryRequest, nsICancelable)
 
 DiscoveryRequest::DiscoveryRequest(nsDNSServiceDiscovery* aService,
                                    nsIDNSServiceDiscoveryListener* aListener)
-  : mService(aService)
-  , mListener(aListener)
+    : mService(aService), mListener(aListener)
 {
 }
 
@@ -92,17 +87,16 @@ DiscoveryRequest::Cancel(nsresult aReason)
   return NS_OK;
 }
 
-class RegisterRequest final : public nsICancelable
-                            , private ServiceCounter
+class RegisterRequest final : public nsICancelable, private ServiceCounter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICANCELABLE
 
   explicit RegisterRequest(nsDNSServiceDiscovery* aService,
                            nsIDNSRegistrationListener* aListener);
 
-private:
+ private:
   virtual ~RegisterRequest() { Cancel(NS_OK); }
 
   RefPtr<nsDNSServiceDiscovery> mService;
@@ -113,8 +107,7 @@ NS_IMPL_ISUPPORTS(RegisterRequest, nsICancelable)
 
 RegisterRequest::RegisterRequest(nsDNSServiceDiscovery* aService,
                                  nsIDNSRegistrationListener* aListener)
-  : mService(aService)
-  , mListener(aListener)
+    : mService(aService), mListener(aListener)
 {
 }
 
@@ -129,19 +122,18 @@ RegisterRequest::Cancel(nsresult aReason)
   return NS_OK;
 }
 
-} // namespace anonymous
+}  // namespace
 
 NS_IMPL_ISUPPORTS(nsDNSServiceDiscovery, nsIDNSServiceDiscovery)
 
-nsDNSServiceDiscovery::~nsDNSServiceDiscovery()
-{
-}
+nsDNSServiceDiscovery::~nsDNSServiceDiscovery() {}
 
 nsresult
 nsDNSServiceDiscovery::Init()
 {
   if (!XRE_IsParentProcess()) {
-    MOZ_ASSERT(false, "nsDNSServiceDiscovery can only be used in parent process");
+    MOZ_ASSERT(false,
+               "nsDNSServiceDiscovery can only be used in parent process");
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -160,8 +152,8 @@ nsDNSServiceDiscovery::StartDiscovery(const nsACString& aServiceType,
   }
 
   nsCOMPtr<nsICancelable> req = new DiscoveryRequest(this, aListener);
-  RefPtr<BrowseOperator> browserOp = new BrowseOperator(aServiceType,
-                                                          aListener);
+  RefPtr<BrowseOperator> browserOp =
+      new BrowseOperator(aServiceType, aListener);
   if (NS_WARN_IF(NS_FAILED(rv = browserOp->Start()))) {
     return rv;
   }
@@ -183,7 +175,7 @@ nsDNSServiceDiscovery::StopDiscovery(nsIDNSServiceDiscoveryListener* aListener)
     return NS_OK;
   }
 
-  browserOp->Cancel(); // cancel non-started operation
+  browserOp->Cancel();  // cancel non-started operation
   if (NS_WARN_IF(NS_FAILED(rv = browserOp->Stop()))) {
     return rv;
   }
@@ -205,8 +197,8 @@ nsDNSServiceDiscovery::RegisterService(nsIDNSServiceInfo* aServiceInfo,
   }
 
   nsCOMPtr<nsICancelable> req = new RegisterRequest(this, aListener);
-  RefPtr<RegisterOperator> registerOp = new RegisterOperator(aServiceInfo,
-                                                               aListener);
+  RefPtr<RegisterOperator> registerOp =
+      new RegisterOperator(aServiceInfo, aListener);
   if (NS_WARN_IF(NS_FAILED(rv = registerOp->Start()))) {
     return rv;
   }
@@ -228,7 +220,7 @@ nsDNSServiceDiscovery::UnregisterService(nsIDNSRegistrationListener* aListener)
     return NS_OK;
   }
 
-  registerOp->Cancel(); // cancel non-started operation
+  registerOp->Cancel();  // cancel non-started operation
   if (NS_WARN_IF(NS_FAILED(rv = registerOp->Stop()))) {
     return rv;
   }
@@ -247,8 +239,8 @@ nsDNSServiceDiscovery::ResolveService(nsIDNSServiceInfo* aServiceInfo,
 
   nsresult rv;
 
-  RefPtr<ResolveOperator> resolveOp = new ResolveOperator(aServiceInfo,
-                                                            aListener);
+  RefPtr<ResolveOperator> resolveOp =
+      new ResolveOperator(aServiceInfo, aListener);
   if (NS_WARN_IF(NS_FAILED(rv = resolveOp->Start()))) {
     return rv;
   }
@@ -256,5 +248,5 @@ nsDNSServiceDiscovery::ResolveService(nsIDNSServiceInfo* aServiceInfo,
   return NS_OK;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -17,8 +17,8 @@ MediaDataDecoderProxy::Init()
     return mProxyDecoder->Init();
   }
   RefPtr<MediaDataDecoderProxy> self = this;
-  return InvokeAsync(mProxyThread, __func__,
-                     [self, this]() { return mProxyDecoder->Init(); });
+  return InvokeAsync(
+      mProxyThread, __func__, [self, this]() { return mProxyDecoder->Init(); });
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -45,8 +45,9 @@ MediaDataDecoderProxy::Flush()
     return mProxyDecoder->Flush();
   }
   RefPtr<MediaDataDecoderProxy> self = this;
-  return InvokeAsync(mProxyThread, __func__,
-                     [self, this]() { return mProxyDecoder->Flush(); });
+  return InvokeAsync(mProxyThread, __func__, [self, this]() {
+    return mProxyDecoder->Flush();
+  });
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -58,8 +59,9 @@ MediaDataDecoderProxy::Drain()
     return mProxyDecoder->Drain();
   }
   RefPtr<MediaDataDecoderProxy> self = this;
-  return InvokeAsync(mProxyThread, __func__,
-                     [self, this]() { return mProxyDecoder->Drain(); });
+  return InvokeAsync(mProxyThread, __func__, [self, this]() {
+    return mProxyDecoder->Drain();
+  });
 }
 
 RefPtr<ShutdownPromise>
@@ -75,8 +77,9 @@ MediaDataDecoderProxy::Shutdown()
     return mProxyDecoder->Shutdown();
   }
   RefPtr<MediaDataDecoderProxy> self = this;
-  return InvokeAsync(mProxyThread, __func__,
-                     [self, this]() { return mProxyDecoder->Shutdown(); });
+  return InvokeAsync(mProxyThread, __func__, [self, this]() {
+    return mProxyDecoder->Shutdown();
+  });
 }
 
 nsCString
@@ -107,8 +110,8 @@ MediaDataDecoderProxy::SetSeekThreshold(const media::TimeUnit& aTime)
   RefPtr<MediaDataDecoderProxy> self = this;
   media::TimeUnit time = aTime;
   mProxyThread->Dispatch(NS_NewRunnableFunction(
-    "MediaDataDecoderProxy::SetSeekThreshold",
-    [self, time] { self->mProxyDecoder->SetSeekThreshold(time); }));
+      "MediaDataDecoderProxy::SetSeekThreshold",
+      [self, time] { self->mProxyDecoder->SetSeekThreshold(time); }));
 }
 
 bool
@@ -127,4 +130,4 @@ MediaDataDecoderProxy::NeedsConversion() const
   return mProxyDecoder->NeedsConversion();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

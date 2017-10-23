@@ -4,21 +4,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-template <typename T>
+template<typename T>
 nsTDependentString<T>::nsTDependentString(const char_type* aStart,
                                           const char_type* aEnd)
-  : string_type(const_cast<char_type*>(aStart), uint32_t(aEnd - aStart),
-                DataFlags::TERMINATED, ClassFlags(0))
+    : string_type(const_cast<char_type*>(aStart),
+                  uint32_t(aEnd - aStart),
+                  DataFlags::TERMINATED,
+                  ClassFlags(0))
 {
   MOZ_RELEASE_ASSERT(aStart <= aEnd, "Overflow!");
   this->AssertValidDependentString();
 }
 
-template <typename T>
+template<typename T>
 void
 nsTDependentString<T>::Rebind(const string_type& str, uint32_t startPos)
 {
-  MOZ_ASSERT(str.GetDataFlags() & DataFlags::TERMINATED, "Unterminated flat string");
+  MOZ_ASSERT(str.GetDataFlags() & DataFlags::TERMINATED,
+             "Unterminated flat string");
 
   // If we currently own a buffer, release it.
   this->Finalize();
@@ -30,13 +33,15 @@ nsTDependentString<T>::Rebind(const string_type& str, uint32_t startPos)
   }
 
   char_type* newData =
-    const_cast<char_type*>(static_cast<const char_type*>(str.Data())) + startPos;
+      const_cast<char_type*>(static_cast<const char_type*>(str.Data())) +
+      startPos;
   size_type newLen = strLength - startPos;
-  DataFlags newDataFlags = str.GetDataFlags() & (DataFlags::TERMINATED | DataFlags::LITERAL);
+  DataFlags newDataFlags =
+      str.GetDataFlags() & (DataFlags::TERMINATED | DataFlags::LITERAL);
   this->SetData(newData, newLen, newDataFlags);
 }
 
-template <typename T>
+template<typename T>
 void
 nsTDependentString<T>::Rebind(const char_type* aStart, const char_type* aEnd)
 {

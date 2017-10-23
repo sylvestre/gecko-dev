@@ -18,16 +18,18 @@ GetSriMetadataLog()
   return gSriMetadataPRLog;
 }
 
-#define SRIMETADATALOG(args) MOZ_LOG(GetSriMetadataLog(), mozilla::LogLevel::Debug, args)
-#define SRIMETADATAERROR(args) MOZ_LOG(GetSriMetadataLog(), mozilla::LogLevel::Error, args)
+#define SRIMETADATALOG(args) \
+  MOZ_LOG(GetSriMetadataLog(), mozilla::LogLevel::Debug, args)
+#define SRIMETADATAERROR(args) \
+  MOZ_LOG(GetSriMetadataLog(), mozilla::LogLevel::Error, args)
 
 namespace mozilla {
 namespace dom {
 
 SRIMetadata::SRIMetadata(const nsACString& aToken)
-  : mAlgorithmType(SRIMetadata::UNKNOWN_ALGORITHM), mEmpty(false)
+    : mAlgorithmType(SRIMetadata::UNKNOWN_ALGORITHM), mEmpty(false)
 {
-  MOZ_ASSERT(!aToken.IsEmpty()); // callers should check this first
+  MOZ_ASSERT(!aToken.IsEmpty());  // callers should check this first
 
   SRIMETADATALOG(("SRIMetadata::SRIMetadata, aToken='%s'",
                   PromiseFlatCString(aToken).get()));
@@ -35,7 +37,7 @@ SRIMetadata::SRIMetadata(const nsACString& aToken)
   int32_t hyphen = aToken.FindChar('-');
   if (hyphen == -1) {
     SRIMETADATAERROR(("SRIMetadata::SRIMetadata, invalid (no hyphen)"));
-    return; // invalid metadata
+    return;  // invalid metadata
   }
 
   // split the token into its components
@@ -43,20 +45,20 @@ SRIMetadata::SRIMetadata(const nsACString& aToken)
   uint32_t hashStart = hyphen + 1;
   if (hashStart >= aToken.Length()) {
     SRIMETADATAERROR(("SRIMetadata::SRIMetadata, invalid (missing digest)"));
-    return; // invalid metadata
+    return;  // invalid metadata
   }
   int32_t question = aToken.FindChar('?');
   if (question == -1) {
-    mHashes.AppendElement(Substring(aToken, hashStart,
-                                    aToken.Length() - hashStart));
+    mHashes.AppendElement(
+        Substring(aToken, hashStart, aToken.Length() - hashStart));
   } else {
     MOZ_ASSERT(question > 0);
     if (static_cast<uint32_t>(question) <= hashStart) {
-      SRIMETADATAERROR(("SRIMetadata::SRIMetadata, invalid (options w/o digest)"));
-      return; // invalid metadata
+      SRIMETADATAERROR(
+          ("SRIMetadata::SRIMetadata, invalid (options w/o digest)"));
+      return;  // invalid metadata
     }
-    mHashes.AppendElement(Substring(aToken, hashStart,
-                                    question - hashStart));
+    mHashes.AppendElement(Substring(aToken, hashStart, question - hashStart));
   }
 
   if (mAlgorithm.EqualsLiteral("sha256")) {
@@ -68,7 +70,8 @@ SRIMetadata::SRIMetadata(const nsACString& aToken)
   }
 
   SRIMETADATALOG(("SRIMetadata::SRIMetadata, hash='%s'; alg='%s'",
-                  mHashes[0].get(), mAlgorithm.get()));
+                  mHashes[0].get(),
+                  mAlgorithm.get()));
 }
 
 bool
@@ -89,11 +92,12 @@ SRIMetadata::operator<(const SRIMetadata& aOther) const
 
   if (mEmpty) {
     SRIMETADATALOG(("SRIMetadata::operator<, first metadata is empty"));
-    return true; // anything beats the empty metadata (incl. invalid ones)
+    return true;  // anything beats the empty metadata (incl. invalid ones)
   }
 
   SRIMETADATALOG(("SRIMetadata::operator<, alg1='%d'; alg2='%d'",
-                  mAlgorithmType, aOther.mAlgorithmType));
+                  mAlgorithmType,
+                  aOther.mAlgorithmType));
   return (mAlgorithmType < aOther.mAlgorithmType);
 }
 
@@ -114,8 +118,10 @@ SRIMetadata::operator+=(const SRIMetadata& aOther)
   // We only pull in the first element of the other metadata
   MOZ_ASSERT(aOther.mHashes.Length() == 1);
   if (mHashes.Length() < SRIMetadata::MAX_ALTERNATE_HASHES) {
-    SRIMETADATALOG(("SRIMetadata::operator+=, appending another '%s' hash (new length=%zu)",
-                    mAlgorithm.get(), mHashes.Length()));
+    SRIMETADATALOG((
+        "SRIMetadata::operator+=, appending another '%s' hash (new length=%zu)",
+        mAlgorithm.get(),
+        mHashes.Length()));
     mHashes.AppendElement(aOther.mHashes[0]);
   }
 
@@ -165,5 +171,5 @@ SRIMetadata::GetHashType(int8_t* outType, uint32_t* outLength) const
   *outType = mAlgorithmType;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

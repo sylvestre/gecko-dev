@@ -37,16 +37,14 @@ namespace mozilla {
  *   DoSomething(a.Allocate(i));
  * }
  */
-template<size_t ArenaSize, size_t Alignment=1>
+template<size_t ArenaSize, size_t Alignment = 1>
 class ArenaAllocator
 {
-public:
-  constexpr ArenaAllocator()
-    : mHead()
-    , mCurrent(nullptr)
+ public:
+  constexpr ArenaAllocator() : mHead(), mCurrent(nullptr)
   {
-     static_assert(mozilla::tl::FloorLog2<Alignment>::value ==
-                   mozilla::tl::CeilingLog2<Alignment>::value,
+    static_assert(mozilla::tl::FloorLog2<Alignment>::value ==
+                      mozilla::tl::CeilingLog2<Alignment>::value,
                   "ArenaAllocator alignment must be a power of two");
   }
 
@@ -57,10 +55,7 @@ public:
    * Frees all internal arenas but does not call destructors for objects
    * allocated out of the arena.
    */
-  ~ArenaAllocator()
-  {
-    Clear();
-  }
+  ~ArenaAllocator() { Clear(); }
 
   /**
    * Fallibly allocates a chunk of memory with the given size from the internal
@@ -122,7 +117,6 @@ public:
     return s;
   }
 
-
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   bool DebugContains(void* aPtr)
   {
@@ -135,7 +129,7 @@ public:
   }
 #endif
 
-private:
+ private:
   struct ArenaHeader
   {
     /**
@@ -153,8 +147,8 @@ private:
     constexpr ArenaChunk() : header{0, 0}, next(nullptr) {}
 
     explicit ArenaChunk(size_t aSize)
-      : header{AlignedSize(uintptr_t(this + 1)), uintptr_t(this) + aSize}
-      , next(nullptr)
+        : header{AlignedSize(uintptr_t(this + 1)), uintptr_t(this) + aSize},
+          next(nullptr)
     {
     }
 
@@ -176,9 +170,7 @@ private:
     /**
      * Calculates the amount of space available for allocation in this chunk.
      */
-    size_t Available() const {
-      return header.tail - header.offset;
-    }
+    size_t Available() const { return header.tail - header.offset; }
 
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     bool DebugContains(void* aPtr)
@@ -242,6 +234,6 @@ private:
   ArenaChunk* mCurrent;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ArenaAllocator_h
+#endif  // mozilla_ArenaAllocator_h

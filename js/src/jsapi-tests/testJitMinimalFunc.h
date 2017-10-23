@@ -22,17 +22,12 @@ struct MinimalAlloc {
 
     // We are not testing the fallible allocator in these test cases, thus make
     // the lifo alloc chunk extremely large for our test cases.
-    MinimalAlloc()
-      : lifo(128 * 1024),
-        alloc(&lifo)
-    {
-        if (!alloc.ensureBallast())
-            MOZ_CRASH("[OOM] Not enough RAM for the test.");
+    MinimalAlloc() : lifo(128 * 1024), alloc(&lifo) {
+        if (!alloc.ensureBallast()) MOZ_CRASH("[OOM] Not enough RAM for the test.");
     }
 };
 
-struct MinimalFunc : MinimalAlloc
-{
+struct MinimalFunc : MinimalAlloc {
     JitCompileOptions options;
     CompileInfo info;
     MIRGraph graph;
@@ -40,82 +35,63 @@ struct MinimalFunc : MinimalAlloc
     uint32_t numParams;
 
     MinimalFunc()
-      : options(),
-        info(0),
-        graph(&alloc),
-        mir(static_cast<CompileCompartment*>(nullptr), options, &alloc, &graph,
-            &info, static_cast<const OptimizationInfo*>(nullptr)),
-        numParams(0)
-    { }
+        : options(),
+          info(0),
+          graph(&alloc),
+          mir(static_cast<CompileCompartment*>(nullptr), options, &alloc, &graph, &info,
+              static_cast<const OptimizationInfo*>(nullptr)),
+          numParams(0) {}
 
-    MBasicBlock* createEntryBlock()
-    {
+    MBasicBlock* createEntryBlock() {
         MBasicBlock* block = MBasicBlock::New(graph, info, nullptr, MBasicBlock::NORMAL);
         graph.addBlock(block);
         return block;
     }
 
-    MBasicBlock* createOsrEntryBlock()
-    {
+    MBasicBlock* createOsrEntryBlock() {
         MBasicBlock* block = MBasicBlock::New(graph, info, nullptr, MBasicBlock::NORMAL);
         graph.addBlock(block);
         graph.setOsrBlock(block);
         return block;
     }
 
-    MBasicBlock* createBlock(MBasicBlock* pred)
-    {
+    MBasicBlock* createBlock(MBasicBlock* pred) {
         MBasicBlock* block = MBasicBlock::New(graph, info, pred, MBasicBlock::NORMAL);
         graph.addBlock(block);
         return block;
     }
 
-    MParameter* createParameter()
-    {
+    MParameter* createParameter() {
         MParameter* p = MParameter::New(alloc, numParams++, nullptr);
         return p;
     }
 
-    bool runGVN()
-    {
-        if (!SplitCriticalEdges(graph))
-            return false;
+    bool runGVN() {
+        if (!SplitCriticalEdges(graph)) return false;
         RenumberBlocks(graph);
-        if (!BuildDominatorTree(graph))
-            return false;
-        if (!BuildPhiReverseMapping(graph))
-            return false;
+        if (!BuildDominatorTree(graph)) return false;
+        if (!BuildPhiReverseMapping(graph)) return false;
         ValueNumberer gvn(&mir, graph);
-        if (!gvn.init())
-            return false;
-        if (!gvn.run(ValueNumberer::DontUpdateAliasAnalysis))
-            return false;
+        if (!gvn.init()) return false;
+        if (!gvn.run(ValueNumberer::DontUpdateAliasAnalysis)) return false;
         return true;
     }
 
-    bool runRangeAnalysis()
-    {
-        if (!SplitCriticalEdges(graph))
-            return false;
+    bool runRangeAnalysis() {
+        if (!SplitCriticalEdges(graph)) return false;
         RenumberBlocks(graph);
-        if (!BuildDominatorTree(graph))
-            return false;
-        if (!BuildPhiReverseMapping(graph))
-            return false;
+        if (!BuildDominatorTree(graph)) return false;
+        if (!BuildPhiReverseMapping(graph)) return false;
         RangeAnalysis rangeAnalysis(&mir, graph);
-        if (!rangeAnalysis.addBetaNodes())
-            return false;
-        if (!rangeAnalysis.analyze())
-            return false;
-        if (!rangeAnalysis.addRangeAssertions())
-            return false;
-        if (!rangeAnalysis.removeBetaNodes())
-            return false;
+        if (!rangeAnalysis.addBetaNodes()) return false;
+        if (!rangeAnalysis.analyze()) return false;
+        if (!rangeAnalysis.addRangeAssertions()) return false;
+        if (!rangeAnalysis.removeBetaNodes()) return false;
         return true;
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif

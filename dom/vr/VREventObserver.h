@@ -8,7 +8,7 @@
 #define mozilla_dom_VREventObserver_h
 
 #include "mozilla/dom/VRDisplayEventBinding.h"
-#include "nsISupportsImpl.h" // for NS_INLINE_DECL_REFCOUNTING
+#include "nsISupportsImpl.h"  // for NS_INLINE_DECL_REFCOUNTING
 
 class nsGlobalWindow;
 
@@ -17,7 +17,7 @@ namespace dom {
 
 class VREventObserver final
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(VREventObserver)
   explicit VREventObserver(nsGlobalWindow* aGlobalWindow);
 
@@ -31,7 +31,7 @@ public:
 
   void DisconnectFromOwner();
 
-private:
+ private:
   ~VREventObserver();
 
   RefPtr<nsGlobalWindow> mWindow;
@@ -41,7 +41,7 @@ private:
   bool mIs2DView;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_VREventObserver_h
+#endif  // mozilla_dom_VREventObserver_h

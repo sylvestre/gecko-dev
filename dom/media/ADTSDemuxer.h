@@ -18,25 +18,25 @@ namespace mozilla {
 namespace adts {
 class Frame;
 class FrameParser;
-}
+}  // namespace adts
 
 class ADTSTrackDemuxer;
 
 class ADTSDemuxer : public MediaDataDemuxer
 {
-public:
+ public:
   // MediaDataDemuxer interface.
   explicit ADTSDemuxer(MediaResource* aSource);
   RefPtr<InitPromise> Init() override;
   uint32_t GetNumberTracks(TrackInfo::TrackType aType) const override;
-  already_AddRefed<MediaTrackDemuxer>
-  GetTrackDemuxer(TrackInfo::TrackType aType, uint32_t aTrackNumber) override;
+  already_AddRefed<MediaTrackDemuxer> GetTrackDemuxer(
+      TrackInfo::TrackType aType, uint32_t aTrackNumber) override;
   bool IsSeekable() const override;
 
   // Return true if a valid ADTS frame header could be found.
   static bool ADTSSniffer(const uint8_t* aData, const uint32_t aLength);
 
-private:
+ private:
   bool InitInternal();
 
   RefPtr<MediaResource> mSource;
@@ -45,7 +45,7 @@ private:
 
 class ADTSTrackDemuxer : public MediaTrackDemuxer
 {
-public:
+ public:
   explicit ADTSTrackDemuxer(MediaResource* aSource);
 
   // Initializes the track demuxer by reading the first frame for meta data.
@@ -68,11 +68,11 @@ public:
   RefPtr<SamplesPromise> GetSamples(int32_t aNumSamples = 1) override;
   void Reset() override;
   RefPtr<SkipAccessPointPromise> SkipToNextRandomAccessPoint(
-    const media::TimeUnit& aTimeThreshold) override;
+      const media::TimeUnit& aTimeThreshold) override;
   int64_t GetResourceOffset() const override;
   media::TimeIntervals GetBuffered() override;
 
-private:
+ private:
   // Destructor.
   ~ADTSTrackDemuxer();
 
@@ -138,6 +138,6 @@ private:
   UniquePtr<AudioInfo> mInfo;
 };
 
-} // mozilla
+}  // namespace mozilla
 
-#endif // !ADTS_DEMUXER_H_
+#endif  // !ADTS_DEMUXER_H_

@@ -27,7 +27,8 @@
 #include "pkixder.h"
 #include "pkixutil.h"
 
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 // 4.1.1.2 signatureAlgorithm
 // 4.1.2.3 signature
@@ -43,8 +44,8 @@ CheckSignatureAlgorithm(TrustDomain& trustDomain,
   der::PublicKeyAlgorithm publicKeyAlg;
   DigestAlgorithm digestAlg;
   Reader signatureAlgorithmReader(signedData.algorithm);
-  Result rv = der::SignatureAlgorithmIdentifierValue(signatureAlgorithmReader,
-                                                     publicKeyAlg, digestAlg);
+  Result rv = der::SignatureAlgorithmIdentifierValue(
+      signatureAlgorithmReader, publicKeyAlg, digestAlg);
   if (rv != Success) {
     return rv;
   }
@@ -57,9 +58,8 @@ CheckSignatureAlgorithm(TrustDomain& trustDomain,
   der::PublicKeyAlgorithm signedPublicKeyAlg;
   DigestAlgorithm signedDigestAlg;
   Reader signedSignatureAlgorithmReader(signatureValue);
-  rv = der::SignatureAlgorithmIdentifierValue(signedSignatureAlgorithmReader,
-                                              signedPublicKeyAlg,
-                                              signedDigestAlg);
+  rv = der::SignatureAlgorithmIdentifierValue(
+      signedSignatureAlgorithmReader, signedPublicKeyAlg, signedDigestAlg);
   if (rv != Success) {
     return rv;
   }
@@ -92,15 +92,14 @@ CheckSignatureAlgorithm(TrustDomain& trustDomain,
   // more generally it short-circuits any path building with them (which, of
   // course, is even slower).
 
-  rv = trustDomain.CheckSignatureDigestAlgorithm(digestAlg, endEntityOrCA,
-                                                 notBefore);
+  rv = trustDomain.CheckSignatureDigestAlgorithm(
+      digestAlg, endEntityOrCA, notBefore);
   if (rv != Success) {
     return rv;
   }
 
   switch (publicKeyAlg) {
-    case der::PublicKeyAlgorithm::RSA_PKCS1:
-    {
+    case der::PublicKeyAlgorithm::RSA_PKCS1: {
       // The RSA computation may give a result that requires fewer bytes to
       // encode than the public key (since it is modular arithmetic). However,
       // the last step of generating a PKCS#1.5 signature is the I2OSP
@@ -108,7 +107,7 @@ CheckSignatureAlgorithm(TrustDomain& trustDomain,
       // is exactly the same length as the public key.
       unsigned int signatureSizeInBits = signedData.signature.GetLength() * 8u;
       return trustDomain.CheckRSAPublicKeyModulusSizeInBits(
-               endEntityOrCA, signatureSizeInBits);
+          endEntityOrCA, signatureSizeInBits);
     }
 
     case der::PublicKeyAlgorithm::ECDSA:
@@ -118,7 +117,7 @@ CheckSignatureAlgorithm(TrustDomain& trustDomain,
       // during path building is too low to be worth bothering with.
       break;
 
-    MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
+      MOZILLA_PKIX_UNREACHABLE_DEFAULT_ENUM
   }
 
   return Success;
@@ -196,7 +195,8 @@ CheckValidity(Time time, Time notBefore, Time notAfter)
 // 4.1.2.7 Subject Public Key Info
 
 Result
-CheckSubjectPublicKeyInfoContents(Reader& input, TrustDomain& trustDomain,
+CheckSubjectPublicKeyInfoContents(Reader& input,
+                                  TrustDomain& trustDomain,
                                   EndEntityOrCA endEntityOrCA)
 {
   // Here, we validate the syntax and do very basic semantic validation of the
@@ -237,14 +237,12 @@ CheckSubjectPublicKeyInfoContents(Reader& input, TrustDomain& trustDomain,
   // RFC 3279 Section 2.3.1
   // python DottedOIDToCode.py rsaEncryption 1.2.840.113549.1.1.1
   static const uint8_t rsaEncryption[] = {
-    0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01
-  };
+      0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01};
 
   // RFC 3279 Section 2.3.5 and RFC 5480 Section 2.1.1
   // python DottedOIDToCode.py id-ecPublicKey 1.2.840.10045.2.1
   static const uint8_t id_ecPublicKey[] = {
-    0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01
-  };
+      0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01};
 
   if (algorithmOID.MatchRest(id_ecPublicKey)) {
     // An id-ecPublicKey AlgorithmIdentifier has a parameter that identifes
@@ -253,8 +251,7 @@ CheckSubjectPublicKeyInfoContents(Reader& input, TrustDomain& trustDomain,
     // OID.
 
     Reader namedCurveOIDValue;
-    rv = der::ExpectTagAndGetValue(algorithm, der::OIDTag,
-                                   namedCurveOIDValue);
+    rv = der::ExpectTagAndGetValue(algorithm, der::OIDTag, namedCurveOIDValue);
     if (rv != Success) {
       return rv;
     }
@@ -262,20 +259,15 @@ CheckSubjectPublicKeyInfoContents(Reader& input, TrustDomain& trustDomain,
     // RFC 5480
     // python DottedOIDToCode.py secp256r1 1.2.840.10045.3.1.7
     static const uint8_t secp256r1[] = {
-      0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07
-    };
+        0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07};
 
     // RFC 5480
     // python DottedOIDToCode.py secp384r1 1.3.132.0.34
-    static const uint8_t secp384r1[] = {
-      0x2b, 0x81, 0x04, 0x00, 0x22
-    };
+    static const uint8_t secp384r1[] = {0x2b, 0x81, 0x04, 0x00, 0x22};
 
     // RFC 5480
     // python DottedOIDToCode.py secp521r1 1.3.132.0.35
-    static const uint8_t secp521r1[] = {
-      0x2b, 0x81, 0x04, 0x00, 0x23
-    };
+    static const uint8_t secp521r1[] = {0x2b, 0x81, 0x04, 0x00, 0x23};
 
     // Matching is attempted based on a rough estimate of the commonality of the
     // elliptic curve, to minimize the number of MatchRest calls.
@@ -335,26 +327,28 @@ CheckSubjectPublicKeyInfoContents(Reader& input, TrustDomain& trustDomain,
     // RSAPublicKey :: = SEQUENCE{
     //    modulus            INTEGER,    --n
     //    publicExponent     INTEGER  }  --e
-    rv = der::Nested(subjectPublicKeyReader, der::SEQUENCE,
+    rv = der::Nested(subjectPublicKeyReader,
+                     der::SEQUENCE,
                      [&trustDomain, endEntityOrCA](Reader& r) {
-      Input modulus;
-      Input::size_type modulusSignificantBytes;
-      Result rv = der::PositiveInteger(r, modulus, &modulusSignificantBytes);
-      if (rv != Success) {
-        return rv;
-      }
-      // XXX: Should we do additional checks of the modulus?
-      rv = trustDomain.CheckRSAPublicKeyModulusSizeInBits(
-             endEntityOrCA, modulusSignificantBytes * 8u);
-      if (rv != Success) {
-        return rv;
-      }
+                       Input modulus;
+                       Input::size_type modulusSignificantBytes;
+                       Result rv = der::PositiveInteger(
+                           r, modulus, &modulusSignificantBytes);
+                       if (rv != Success) {
+                         return rv;
+                       }
+                       // XXX: Should we do additional checks of the modulus?
+                       rv = trustDomain.CheckRSAPublicKeyModulusSizeInBits(
+                           endEntityOrCA, modulusSignificantBytes * 8u);
+                       if (rv != Success) {
+                         return rv;
+                       }
 
-      // XXX: We don't allow the TrustDomain to validate the exponent.
-      // XXX: We don't do our own sanity checking of the exponent.
-      Input exponent;
-      return der::PositiveInteger(r, exponent);
-    });
+                       // XXX: We don't allow the TrustDomain to validate the exponent.
+                       // XXX: We don't do our own sanity checking of the exponent.
+                       Input exponent;
+                       return der::PositiveInteger(r, exponent);
+                     });
     if (rv != Success) {
       return rv;
     }
@@ -375,7 +369,8 @@ CheckSubjectPublicKeyInfoContents(Reader& input, TrustDomain& trustDomain,
 }
 
 Result
-CheckSubjectPublicKeyInfo(Input subjectPublicKeyInfo, TrustDomain& trustDomain,
+CheckSubjectPublicKeyInfo(Input subjectPublicKeyInfo,
+                          TrustDomain& trustDomain,
                           EndEntityOrCA endEntityOrCA)
 {
   Reader spkiReader(subjectPublicKeyInfo);
@@ -392,14 +387,16 @@ CheckSubjectPublicKeyInfo(Input subjectPublicKeyInfo, TrustDomain& trustDomain,
 
 // As explained in the comment in CheckKeyUsage, bit 0 is the most significant
 // bit and bit 7 is the least significant bit.
-inline uint8_t KeyUsageToBitMask(KeyUsage keyUsage)
+inline uint8_t
+KeyUsageToBitMask(KeyUsage keyUsage)
 {
   assert(keyUsage != KeyUsage::noParticularKeyUsageRequired);
   return 0x80u >> static_cast<uint8_t>(keyUsage);
 }
 
 Result
-CheckKeyUsage(EndEntityOrCA endEntityOrCA, const Input* encodedKeyUsage,
+CheckKeyUsage(EndEntityOrCA endEntityOrCA,
+              const Input* encodedKeyUsage,
               KeyUsage requiredKeyUsageIfPresent)
 {
   if (!encodedKeyUsage) {
@@ -515,16 +512,14 @@ CheckKeyUsage(EndEntityOrCA endEntityOrCA, const Input* encodedKeyUsage,
 //
 // python DottedOIDToCode.py anyPolicy 2.5.29.32.0
 
-static const uint8_t anyPolicy[] = {
-  0x55, 0x1d, 0x20, 0x00
-};
+static const uint8_t anyPolicy[] = {0x55, 0x1d, 0x20, 0x00};
 
 /*static*/ const CertPolicyId CertPolicyId::anyPolicy = {
-  4, { 0x55, 0x1d, 0x20, 0x00 }
-};
+    4, {0x55, 0x1d, 0x20, 0x00}};
 
 bool
-CertPolicyId::IsAnyPolicy() const {
+CertPolicyId::IsAnyPolicy() const
+{
   if (this == &CertPolicyId::anyPolicy) {
     return true;
   }
@@ -573,16 +568,16 @@ CheckCertificatePolicies(EndEntityOrCA endEntityOrCA,
   }
 
   Input requiredPolicyDER;
-  if (requiredPolicyDER.Init(requiredPolicy.bytes, requiredPolicy.numBytes)
-        != Success) {
+  if (requiredPolicyDER.Init(requiredPolicy.bytes, requiredPolicy.numBytes) !=
+      Success) {
     return Result::FATAL_ERROR_INVALID_ARGS;
   }
 
   if (encodedCertificatePolicies) {
     Reader extension(*encodedCertificatePolicies);
     Reader certificatePolicies;
-    Result rv = der::ExpectTagAndGetValue(extension, der::SEQUENCE,
-                                          certificatePolicies);
+    Result rv = der::ExpectTagAndGetValue(
+        extension, der::SEQUENCE, certificatePolicies);
     if (rv != Success) {
       return Result::ERROR_POLICY_VALIDATION_FAILED;
     }
@@ -596,15 +591,15 @@ CheckCertificatePolicies(EndEntityOrCA endEntityOrCA,
       //         policyQualifiers   SEQUENCE SIZE (1..MAX) OF
       //                                 PolicyQualifierInfo OPTIONAL }
       Reader policyInformation;
-      rv = der::ExpectTagAndGetValue(certificatePolicies, der::SEQUENCE,
-                                     policyInformation);
+      rv = der::ExpectTagAndGetValue(
+          certificatePolicies, der::SEQUENCE, policyInformation);
       if (rv != Success) {
         return Result::ERROR_POLICY_VALIDATION_FAILED;
       }
 
       Reader policyIdentifier;
-      rv = der::ExpectTagAndGetValue(policyInformation, der::OIDTag,
-                                     policyIdentifier);
+      rv = der::ExpectTagAndGetValue(
+          policyInformation, der::OIDTag, policyIdentifier);
       if (rv != Success) {
         return rv;
       }
@@ -632,7 +627,7 @@ CheckCertificatePolicies(EndEntityOrCA endEntityOrCA,
   return Success;
 }
 
-static const long UNLIMITED_PATH_LEN = -1; // must be less than zero
+static const long UNLIMITED_PATH_LEN = -1;  // must be less than zero
 
 //  BasicConstraints ::= SEQUENCE {
 //          cA                      BOOLEAN DEFAULT FALSE,
@@ -642,7 +637,8 @@ static const long UNLIMITED_PATH_LEN = -1; // must be less than zero
 Result
 CheckBasicConstraints(EndEntityOrCA endEntityOrCA,
                       const Input* encodedBasicConstraints,
-                      const der::Version version, TrustLevel trustLevel,
+                      const der::Version version,
+                      TrustLevel trustLevel,
                       unsigned int subCACount)
 {
   bool isCA = false;
@@ -650,18 +646,18 @@ CheckBasicConstraints(EndEntityOrCA endEntityOrCA,
 
   if (encodedBasicConstraints) {
     Reader input(*encodedBasicConstraints);
-    Result rv = der::Nested(input, der::SEQUENCE,
-                            [&isCA, &pathLenConstraint](Reader& r) {
-      Result rv = der::OptionalBoolean(r, isCA);
-      if (rv != Success) {
-        return rv;
-      }
-      // TODO(bug 985025): If isCA is false, pathLenConstraint
-      // MUST NOT be included (as per RFC 5280 section
-      // 4.2.1.9), but for compatibility reasons, we don't
-      // check this.
-      return der::OptionalInteger(r, UNLIMITED_PATH_LEN, pathLenConstraint);
-    });
+    Result rv = der::Nested(
+        input, der::SEQUENCE, [&isCA, &pathLenConstraint](Reader& r) {
+          Result rv = der::OptionalBoolean(r, isCA);
+          if (rv != Success) {
+            return rv;
+          }
+          // TODO(bug 985025): If isCA is false, pathLenConstraint
+          // MUST NOT be included (as per RFC 5280 section
+          // 4.2.1.9), but for compatibility reasons, we don't
+          // check this.
+          return der::OptionalInteger(r, UNLIMITED_PATH_LEN, pathLenConstraint);
+        });
     if (rv != Success) {
       return Result::ERROR_EXTENSION_VALUE_INVALID;
     }
@@ -683,7 +679,8 @@ CheckBasicConstraints(EndEntityOrCA endEntityOrCA,
     // overrides for only this case), we return a different error code.
     //
     // TODO: add check for self-signedness?
-    if (endEntityOrCA == EndEntityOrCA::MustBeCA && version == der::Version::v1) {
+    if (endEntityOrCA == EndEntityOrCA::MustBeCA &&
+        version == der::Version::v1) {
       if (trustLevel == TrustLevel::TrustAnchor) {
         isCA = true;
       } else {
@@ -723,9 +720,12 @@ CheckBasicConstraints(EndEntityOrCA endEntityOrCA,
 // 4.2.1.12. Extended Key Usage (id-ce-extKeyUsage)
 
 static Result
-MatchEKU(Reader& value, KeyPurposeId requiredEKU,
-         EndEntityOrCA endEntityOrCA, TrustDomain& trustDomain,
-         Time notBefore, /*in/out*/ bool& found,
+MatchEKU(Reader& value,
+         KeyPurposeId requiredEKU,
+         EndEntityOrCA endEntityOrCA,
+         TrustDomain& trustDomain,
+         Time notBefore,
+         /*in/out*/ bool& found,
          /*in/out*/ bool& foundOCSPSigning)
 {
   // See Section 5.9 of "A Layman's Guide to a Subset of ASN.1, BER, and DER"
@@ -740,17 +740,17 @@ MatchEKU(Reader& value, KeyPurposeId requiredEKU,
   // id-kp-codeSigning     OBJECT IDENTIFIER ::= { id-kp 3 }
   // id-kp-emailProtection OBJECT IDENTIFIER ::= { id-kp 4 }
   // id-kp-OCSPSigning     OBJECT IDENTIFIER ::= { id-kp 9 }
-  static const uint8_t server[] = { (40*1)+3, 6, 1, 5, 5, 7, 3, 1 };
-  static const uint8_t client[] = { (40*1)+3, 6, 1, 5, 5, 7, 3, 2 };
-  static const uint8_t code  [] = { (40*1)+3, 6, 1, 5, 5, 7, 3, 3 };
-  static const uint8_t email [] = { (40*1)+3, 6, 1, 5, 5, 7, 3, 4 };
-  static const uint8_t ocsp  [] = { (40*1)+3, 6, 1, 5, 5, 7, 3, 9 };
+  static const uint8_t server[] = {(40 * 1) + 3, 6, 1, 5, 5, 7, 3, 1};
+  static const uint8_t client[] = {(40 * 1) + 3, 6, 1, 5, 5, 7, 3, 2};
+  static const uint8_t code[] = {(40 * 1) + 3, 6, 1, 5, 5, 7, 3, 3};
+  static const uint8_t email[] = {(40 * 1) + 3, 6, 1, 5, 5, 7, 3, 4};
+  static const uint8_t ocsp[] = {(40 * 1) + 3, 6, 1, 5, 5, 7, 3, 9};
 
   // id-Netscape        OBJECT IDENTIFIER ::= { 2 16 840 1 113730 }
   // id-Netscape-policy OBJECT IDENTIFIER ::= { id-Netscape 4 }
   // id-Netscape-stepUp OBJECT IDENTIFIER ::= { id-Netscape-policy 1 }
-  static const uint8_t serverStepUp[] =
-    { (40*2)+16, 128+6,72, 1, 128+6,128+120,66, 4, 1 };
+  static const uint8_t serverStepUp[] = {
+      (40 * 2) + 16, 128 + 6, 72, 1, 128 + 6, 128 + 120, 66, 4, 1};
 
   bool match = false;
 
@@ -766,8 +766,8 @@ MatchEKU(Reader& value, KeyPurposeId requiredEKU,
         // don't expire until June 2020!
         if (endEntityOrCA == EndEntityOrCA::MustBeCA &&
             value.MatchRest(serverStepUp)) {
-          Result rv = trustDomain.NetscapeStepUpMatchesServerAuth(notBefore,
-                                                                  match);
+          Result rv =
+              trustDomain.NetscapeStepUpMatchesServerAuth(notBefore, match);
           if (rv != Success) {
             return rv;
           }
@@ -806,7 +806,7 @@ MatchEKU(Reader& value, KeyPurposeId requiredEKU,
     foundOCSPSigning = true;
   }
 
-  value.SkipToEnd(); // ignore unmatched OIDs.
+  value.SkipToEnd();  // ignore unmatched OIDs.
 
   return Success;
 }
@@ -814,7 +814,8 @@ MatchEKU(Reader& value, KeyPurposeId requiredEKU,
 Result
 CheckExtendedKeyUsage(EndEntityOrCA endEntityOrCA,
                       const Input* encodedExtendedKeyUsage,
-                      KeyPurposeId requiredEKU, TrustDomain& trustDomain,
+                      KeyPurposeId requiredEKU,
+                      TrustDomain& trustDomain,
                       Time notBefore)
 {
   // XXX: We're using Result::ERROR_INADEQUATE_CERT_TYPE here so that callers
@@ -828,11 +829,19 @@ CheckExtendedKeyUsage(EndEntityOrCA endEntityOrCA,
     bool found = requiredEKU == KeyPurposeId::anyExtendedKeyUsage;
 
     Reader input(*encodedExtendedKeyUsage);
-    Result rv = der::NestedOf(input, der::SEQUENCE, der::OIDTag,
-                              der::EmptyAllowed::No, [&](Reader& r) {
-      return MatchEKU(r, requiredEKU, endEntityOrCA, trustDomain, notBefore,
-                      found, foundOCSPSigning);
-    });
+    Result rv = der::NestedOf(input,
+                              der::SEQUENCE,
+                              der::OIDTag,
+                              der::EmptyAllowed::No,
+                              [&](Reader& r) {
+                                return MatchEKU(r,
+                                                requiredEKU,
+                                                endEntityOrCA,
+                                                trustDomain,
+                                                notBefore,
+                                                found,
+                                                foundOCSPSigning);
+                              });
     if (rv != Success) {
       return Result::ERROR_INADEQUATE_CERT_TYPE;
     }
@@ -891,8 +900,7 @@ CheckTLSFeatures(const BackCert& subject, BackCert& potentialIssuer)
   }
 
   const Input* subjectTLSFeatures = subject.GetRequiredTLSFeatures();
-  if (issuerTLSFeatures->GetLength() == 0 ||
-      !subjectTLSFeatures ||
+  if (issuerTLSFeatures->GetLength() == 0 || !subjectTLSFeatures ||
       !InputsAreEqual(*issuerTLSFeatures, *subjectTLSFeatures)) {
     return Result::ERROR_REQUIRED_TLS_FEATURE_MISSING;
   }
@@ -910,26 +918,28 @@ TLSFeaturesSatisfiedInternal(const Input* requiredTLSFeatures,
 
   // RFC 6066 10.2: ExtensionType status_request
   const static uint8_t status_request = 5;
-  const static uint8_t status_request_bytes[] = { status_request };
+  const static uint8_t status_request_bytes[] = {status_request};
 
   Reader input(*requiredTLSFeatures);
-  return der::NestedOf(input, der::SEQUENCE, der::INTEGER,
-                       der::EmptyAllowed::No, [&](Reader& r) {
-    if (!r.MatchRest(status_request_bytes)) {
-      return Result::ERROR_REQUIRED_TLS_FEATURE_MISSING;
-    }
+  return der::NestedOf(input,
+                       der::SEQUENCE,
+                       der::INTEGER,
+                       der::EmptyAllowed::No,
+                       [&](Reader& r) {
+                         if (!r.MatchRest(status_request_bytes)) {
+                           return Result::ERROR_REQUIRED_TLS_FEATURE_MISSING;
+                         }
 
-    if (!stapledOCSPResponse) {
-      return Result::ERROR_REQUIRED_TLS_FEATURE_MISSING;
-    }
+                         if (!stapledOCSPResponse) {
+                           return Result::ERROR_REQUIRED_TLS_FEATURE_MISSING;
+                         }
 
-    return Result::Success;
-  });
+                         return Result::Success;
+                       });
 }
 
 Result
-CheckTLSFeaturesAreSatisfied(Input& cert,
-                             const Input* stapledOCSPResponse)
+CheckTLSFeaturesAreSatisfied(Input& cert, const Input* stapledOCSPResponse)
 {
   BackCert backCert(cert, EndEntityOrCA::MustBeEndEntity, nullptr);
   Result rv = backCert.Init();
@@ -958,8 +968,8 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
   // Check the cert's trust first, because we want to minimize the amount of
   // processing we do on a distrusted cert, in case it is trying to exploit
   // some bug in our processing.
-  rv = trustDomain.GetCertTrust(endEntityOrCA, requiredPolicy, cert.GetDER(),
-                                trustLevel);
+  rv = trustDomain.GetCertTrust(
+      endEntityOrCA, requiredPolicy, cert.GetDER(), trustLevel);
   if (rv != Success) {
     return rv;
   }
@@ -987,8 +997,11 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
 
   switch (trustLevel) {
     case TrustLevel::InheritsTrust:
-      rv = CheckSignatureAlgorithm(trustDomain, endEntityOrCA, notBefore,
-                                   cert.GetSignedData(), cert.GetSignature());
+      rv = CheckSignatureAlgorithm(trustDomain,
+                                   endEntityOrCA,
+                                   notBefore,
+                                   cert.GetSignedData(),
+                                   cert.GetSignature());
       if (rv != Success) {
         return rv;
       }
@@ -1008,8 +1021,8 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
   // Check the SPKI early, because it is one of the most selective properties
   // of the certificate due to SHA-1 deprecation and the deprecation of
   // certificates with keys weaker than RSA 2048.
-  rv = CheckSubjectPublicKeyInfo(cert.GetSubjectPublicKeyInfo(), trustDomain,
-                                 endEntityOrCA);
+  rv = CheckSubjectPublicKeyInfo(
+      cert.GetSubjectPublicKeyInfo(), trustDomain, endEntityOrCA);
   if (rv != Success) {
     return rv;
   }
@@ -1025,15 +1038,17 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
   // 4.2.1.2. Subject Key Identifier is ignored (see bug 965136).
 
   // 4.2.1.3. Key Usage
-  rv = CheckKeyUsage(endEntityOrCA, cert.GetKeyUsage(),
-                     requiredKeyUsageIfPresent);
+  rv = CheckKeyUsage(
+      endEntityOrCA, cert.GetKeyUsage(), requiredKeyUsageIfPresent);
   if (rv != Success) {
     return rv;
   }
 
   // 4.2.1.4. Certificate Policies
-  rv = CheckCertificatePolicies(endEntityOrCA, cert.GetCertificatePolicies(),
-                                cert.GetInhibitAnyPolicy(), trustLevel,
+  rv = CheckCertificatePolicies(endEntityOrCA,
+                                cert.GetCertificatePolicies(),
+                                cert.GetInhibitAnyPolicy(),
+                                trustLevel,
                                 requiredPolicy);
   if (rv != Success) {
     return rv;
@@ -1051,8 +1066,11 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
   //          checking.
 
   // 4.2.1.9. Basic Constraints.
-  rv = CheckBasicConstraints(endEntityOrCA, cert.GetBasicConstraints(),
-                             cert.GetVersion(), trustLevel, subCACount);
+  rv = CheckBasicConstraints(endEntityOrCA,
+                             cert.GetBasicConstraints(),
+                             cert.GetVersion(),
+                             trustLevel,
+                             subCACount);
   if (rv != Success) {
     return rv;
   }
@@ -1063,8 +1081,11 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
   //           documentation about policy enforcement in pkix.h.
 
   // 4.2.1.12. Extended Key Usage
-  rv = CheckExtendedKeyUsage(endEntityOrCA, cert.GetExtKeyUsage(),
-                             requiredEKUIfPresent, trustDomain, notBefore);
+  rv = CheckExtendedKeyUsage(endEntityOrCA,
+                             cert.GetExtKeyUsage(),
+                             requiredEKUIfPresent,
+                             trustDomain,
+                             notBefore);
   if (rv != Success) {
     return rv;
   }
@@ -1083,8 +1104,8 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
     return rv;
   }
 
-  rv = trustDomain.CheckValidityIsAcceptable(notBefore, notAfter, endEntityOrCA,
-                                             requiredEKUIfPresent);
+  rv = trustDomain.CheckValidityIsAcceptable(
+      notBefore, notAfter, endEntityOrCA, requiredEKUIfPresent);
   if (rv != Success) {
     return rv;
   }
@@ -1092,4 +1113,5 @@ CheckIssuerIndependentProperties(TrustDomain& trustDomain,
   return Success;
 }
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla

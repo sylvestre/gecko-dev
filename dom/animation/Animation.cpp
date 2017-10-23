@@ -11,16 +11,16 @@
 #include "mozilla/dom/DocumentTimeline.h"
 #include "mozilla/AnimationTarget.h"
 #include "mozilla/AutoRestore.h"
-#include "mozilla/AsyncEventDispatcher.h" // For AsyncEventDispatcher
-#include "mozilla/Maybe.h" // For Maybe
-#include "mozilla/TypeTraits.h" // For Forward<>
-#include "nsAnimationManager.h" // For CSSAnimation
-#include "nsDOMMutationObserver.h" // For nsAutoAnimationMutationBatch
-#include "nsIDocument.h" // For nsIDocument
-#include "nsIPresShell.h" // For nsIPresShell
-#include "nsThreadUtils.h" // For nsRunnableMethod and nsRevocableEventPtr
-#include "nsTransitionManager.h" // For CSSTransition
-#include "PendingAnimationTracker.h" // For PendingAnimationTracker
+#include "mozilla/AsyncEventDispatcher.h"  // For AsyncEventDispatcher
+#include "mozilla/Maybe.h"                 // For Maybe
+#include "mozilla/TypeTraits.h"            // For Forward<>
+#include "nsAnimationManager.h"            // For CSSAnimation
+#include "nsDOMMutationObserver.h"         // For nsAutoAnimationMutationBatch
+#include "nsIDocument.h"                   // For nsIDocument
+#include "nsIPresShell.h"                  // For nsIPresShell
+#include "nsThreadUtils.h"  // For nsRunnableMethod and nsRevocableEventPtr
+#include "nsTransitionManager.h"      // For CSSTransition
+#include "PendingAnimationTracker.h"  // For PendingAnimationTracker
 
 namespace mozilla {
 namespace dom {
@@ -28,11 +28,8 @@ namespace dom {
 // Static members
 uint64_t Animation::sNextAnimationIndex = 0;
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(Animation, DOMEventTargetHelper,
-                                   mTimeline,
-                                   mEffect,
-                                   mReady,
-                                   mFinished)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(
+    Animation, DOMEventTargetHelper, mTimeline, mEffect, mReady, mFinished)
 
 NS_IMPL_ADDREF_INHERITED(Animation, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(Animation, DOMEventTargetHelper)
@@ -53,33 +50,35 @@ Animation::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 // ---------------------------------------------------------------------------
 
 namespace {
-  // A wrapper around nsAutoAnimationMutationBatch that looks up the
-  // appropriate document from the supplied animation.
-  class MOZ_RAII AutoMutationBatchForAnimation {
-  public:
-    explicit AutoMutationBatchForAnimation(const Animation& aAnimation
-                                           MOZ_GUARD_OBJECT_NOTIFIER_PARAM) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-      Maybe<NonOwningAnimationTarget> target =
+// A wrapper around nsAutoAnimationMutationBatch that looks up the
+// appropriate document from the supplied animation.
+class MOZ_RAII AutoMutationBatchForAnimation
+{
+ public:
+  explicit AutoMutationBatchForAnimation(
+      const Animation& aAnimation MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  {
+    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+    Maybe<NonOwningAnimationTarget> target =
         nsNodeUtils::GetTargetForAnimation(&aAnimation);
-      if (!target) {
-        return;
-      }
-
-      // For mutation observers, we use the OwnerDoc.
-      nsIDocument* doc = target->mElement->OwnerDoc();
-      if (!doc) {
-        return;
-      }
-
-      mAutoBatch.emplace(doc);
+    if (!target) {
+      return;
     }
 
-  private:
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-    Maybe<nsAutoAnimationMutationBatch> mAutoBatch;
-  };
-}
+    // For mutation observers, we use the OwnerDoc.
+    nsIDocument* doc = target->mElement->OwnerDoc();
+    if (!doc) {
+      return;
+    }
+
+    mAutoBatch.emplace(doc);
+  }
+
+ private:
+  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+  Maybe<nsAutoAnimationMutationBatch> mAutoBatch;
+};
+}  // namespace
 
 // ---------------------------------------------------------------------------
 //
@@ -100,7 +99,7 @@ Animation::Constructor(const GlobalObject& aGlobal,
     timeline = aTimeline.Value();
   } else {
     nsIDocument* document =
-      AnimationUtils::GetCurrentRealmDocument(aGlobal.Context());
+        AnimationUtils::GetCurrentRealmDocument(aGlobal.Context());
     if (!document) {
       aRv.Throw(NS_ERROR_FAILURE);
       return nullptr;
@@ -203,7 +202,7 @@ Animation::SetEffectNoUpdate(AnimationEffectReadOnly* aEffect)
       nsIDocument* doc = GetRenderedDocument();
       if (doc) {
         PendingAnimationTracker* tracker =
-          doc->GetOrCreatePendingAnimationTracker();
+            doc->GetOrCreatePendingAnimationTracker();
         if (mPendingState == PendingState::PlayPending) {
           tracker->AddPlayPending(*this);
         } else {
@@ -231,9 +230,8 @@ Animation::SetTimelineNoUpdate(AnimationTimeline* aTimeline)
     return;
   }
 
-  StickyTimeDuration activeTime = mEffect
-                                  ? mEffect->GetComputedTiming().mActiveTime
-                                  : StickyTimeDuration();
+  StickyTimeDuration activeTime =
+      mEffect ? mEffect->GetComputedTiming().mActiveTime : StickyTimeDuration();
 
   RefPtr<AnimationTimeline> oldTimeline = mTimeline;
   if (oldTimeline) {
@@ -310,7 +308,7 @@ Animation::GetCurrentTime() const
     Nullable<TimeDuration> timelineTime = mTimeline->GetCurrentTime();
     if (!timelineTime.IsNull()) {
       result.SetValue((timelineTime.Value() - mStartTime.Value())
-                        .MultDouble(mPlaybackRate));
+                          .MultDouble(mPlaybackRate));
     }
   }
   return result;
@@ -400,7 +398,7 @@ Animation::PlayState() const
   }
 
   if ((mPlaybackRate > 0.0 && currentTime.Value() >= EffectEnd()) ||
-      (mPlaybackRate < 0.0 && currentTime.Value() <= TimeDuration()))  {
+      (mPlaybackRate < 0.0 && currentTime.Value() <= TimeDuration())) {
     return AnimationPlayState::Finished;
   }
 
@@ -412,7 +410,7 @@ Animation::GetReady(ErrorResult& aRv)
 {
   nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal();
   if (!mReady && global) {
-    mReady = Promise::Create(global, aRv); // Lazily create on demand
+    mReady = Promise::Create(global, aRv);  // Lazily create on demand
   }
   if (!mReady) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -429,7 +427,7 @@ Animation::GetFinished(ErrorResult& aRv)
 {
   nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal();
   if (!mFinished && global) {
-    mFinished = Promise::Create(global, aRv); // Lazily create on demand
+    mFinished = Promise::Create(global, aRv);  // Lazily create on demand
   }
   if (!mFinished) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -462,7 +460,7 @@ Animation::Finish(ErrorResult& aRv)
 
   // Seek to the end
   TimeDuration limit =
-    mPlaybackRate > 0 ? TimeDuration(EffectEnd()) : TimeDuration(0);
+      mPlaybackRate > 0 ? TimeDuration(EffectEnd()) : TimeDuration(0);
   bool didChange = GetCurrentTime() != Nullable<TimeDuration>(limit);
   SilentlySetCurrentTime(limit);
 
@@ -473,8 +471,7 @@ Animation::Finish(ErrorResult& aRv)
   // inactive timeline we can't transition into the finished state just like
   // we can't transition to the running state (this finished state is really
   // a substate of the running state).
-  if (mStartTime.IsNull() &&
-      mTimeline &&
+  if (mStartTime.IsNull() && mTimeline &&
       !mTimeline->GetCurrentTime().IsNull()) {
     mStartTime.SetValue(mTimeline->GetCurrentTime().Value() -
                         limit.MultDouble(1.0 / mPlaybackRate));
@@ -485,9 +482,8 @@ Animation::Finish(ErrorResult& aRv)
   // animation, we need to clear the task. We don't do this as a branch of
   // the above however since we can have a play-pending animation with a
   // resolved start time if we aborted a pause operation.
-  if (!mStartTime.IsNull() &&
-      (mPendingState == PendingState::PlayPending ||
-       mPendingState == PendingState::PausePending)) {
+  if (!mStartTime.IsNull() && (mPendingState == PendingState::PlayPending ||
+                               mPendingState == PendingState::PausePending)) {
     if (mPendingState == PendingState::PausePending) {
       mHoldTime.SetNull();
     }
@@ -576,7 +572,7 @@ Animation::GetCurrentTimeAsDouble() const
 
 void
 Animation::SetCurrentTimeAsDouble(const Nullable<double>& aCurrentTime,
-                                        ErrorResult& aRv)
+                                  ErrorResult& aRv)
 {
   if (aCurrentTime.IsNull()) {
     if (!GetCurrentTime().IsNull()) {
@@ -596,8 +592,7 @@ Animation::Tick()
   // Finish pending if we have a pending ready time, but only if we also
   // have an active timeline.
   if (mPendingState != PendingState::NotPending &&
-      !mPendingReadyTime.IsNull() &&
-      mTimeline &&
+      !mPendingReadyTime.IsNull() && mTimeline &&
       !mTimeline->GetCurrentTime().IsNull()) {
     // Even though mPendingReadyTime is initialized using TimeStamp::Now()
     // during the *previous* tick of the refresh driver, it can still be
@@ -623,8 +618,7 @@ Animation::Tick()
 
   // Update layers if we are newly finished.
   KeyframeEffectReadOnly* keyframeEffect = mEffect->AsKeyframeEffect();
-  if (keyframeEffect &&
-      !keyframeEffect->Properties().IsEmpty() &&
+  if (keyframeEffect && !keyframeEffect->Properties().IsEmpty() &&
       !mFinishedAtLastComposeStyle &&
       PlayState() == AnimationPlayState::Finished) {
     PostUpdate();
@@ -693,8 +687,9 @@ Animation::GetCurrentOrPendingStartTime() const
 TimeDuration
 Animation::StartTimeFromReadyTime(const TimeDuration& aReadyTime) const
 {
-  MOZ_ASSERT(!mHoldTime.IsNull(), "Hold time should be set in order to"
-                                  " convert a ready time to a start time");
+  MOZ_ASSERT(!mHoldTime.IsNull(),
+             "Hold time should be set in order to"
+             " convert a ready time to a start time");
   if (mPlaybackRate == 0) {
     return aReadyTime;
   }
@@ -724,8 +719,7 @@ Animation::AnimationTimeToTimeStamp(const StickyTimeDuration& aTime) const
   }
 
   // Check the time is convertible to a timestamp
-  if (aTime == TimeDuration::Forever() ||
-      mPlaybackRate == 0.0 ||
+  if (aTime == TimeDuration::Forever() || mPlaybackRate == 0.0 ||
       mStartTime.IsNull()) {
     return result;
   }
@@ -733,19 +727,17 @@ Animation::AnimationTimeToTimeStamp(const StickyTimeDuration& aTime) const
   // Invert the standard relation:
   //   animation time = (timeline time - start time) * playback rate
   TimeDuration timelineTime =
-    TimeDuration(aTime).MultDouble(1.0 / mPlaybackRate) + mStartTime.Value();
+      TimeDuration(aTime).MultDouble(1.0 / mPlaybackRate) + mStartTime.Value();
 
   result = mTimeline->ToTimeStamp(timelineTime);
   return result;
 }
 
 TimeStamp
-Animation::ElapsedTimeToTimeStamp(
-  const StickyTimeDuration& aElapsedTime) const
+Animation::ElapsedTimeToTimeStamp(const StickyTimeDuration& aElapsedTime) const
 {
-  TimeDuration delay = mEffect
-                       ? mEffect->SpecifiedTiming().Delay()
-                       : TimeDuration();
+  TimeDuration delay =
+      mEffect ? mEffect->SpecifiedTiming().Delay() : TimeDuration();
   return AnimationTimeToTimeStamp(aElapsedTime + delay);
 }
 
@@ -753,18 +745,15 @@ Animation::ElapsedTimeToTimeStamp(
 void
 Animation::SilentlySetCurrentTime(const TimeDuration& aSeekTime)
 {
-  if (!mHoldTime.IsNull() ||
-      mStartTime.IsNull() ||
-      !mTimeline ||
-      mTimeline->GetCurrentTime().IsNull() ||
-      mPlaybackRate == 0.0) {
+  if (!mHoldTime.IsNull() || mStartTime.IsNull() || !mTimeline ||
+      mTimeline->GetCurrentTime().IsNull() || mPlaybackRate == 0.0) {
     mHoldTime.SetValue(aSeekTime);
     if (!mTimeline || mTimeline->GetCurrentTime().IsNull()) {
       mStartTime.SetNull();
     }
   } else {
     mStartTime.SetValue(mTimeline->GetCurrentTime().Value() -
-                          (aSeekTime.MultDouble(1 / mPlaybackRate)));
+                        (aSeekTime.MultDouble(1 / mPlaybackRate)));
   }
 
   mPreviousCurrentTime.SetNull();
@@ -793,9 +782,8 @@ Animation::CancelNoUpdate()
 
   DispatchPlaybackEvent(NS_LITERAL_STRING("cancel"));
 
-  StickyTimeDuration activeTime = mEffect
-                                  ? mEffect->GetComputedTiming().mActiveTime
-                                  : StickyTimeDuration();
+  StickyTimeDuration activeTime =
+      mEffect ? mEffect->GetComputedTiming().mActiveTime : StickyTimeDuration();
 
   mHoldTime.SetNull();
   mStartTime.SetNull();
@@ -819,9 +807,9 @@ Animation::CancelNoUpdate()
 
 bool
 Animation::ShouldBeSynchronizedWithMainThread(
-  nsCSSPropertyID aProperty,
-  const nsIFrame* aFrame,
-  AnimationPerformanceWarning::Type& aPerformanceWarning) const
+    nsCSSPropertyID aProperty,
+    const nsIFrame* aFrame,
+    AnimationPerformanceWarning::Type& aPerformanceWarning) const
 {
   // Only synchronize playing animations
   if (!IsPlaying()) {
@@ -833,9 +821,8 @@ Animation::ShouldBeSynchronizedWithMainThread(
     return false;
   }
 
-  KeyframeEffectReadOnly* keyframeEffect = mEffect
-                                           ? mEffect->AsKeyframeEffect()
-                                           : nullptr;
+  KeyframeEffectReadOnly* keyframeEffect =
+      mEffect ? mEffect->AsKeyframeEffect() : nullptr;
   if (!keyframeEffect) {
     return false;
   }
@@ -846,13 +833,13 @@ Animation::ShouldBeSynchronizedWithMainThread(
   // to know when you're debugging performance.
   if (mSyncWithGeometricAnimations &&
       keyframeEffect->HasAnimationOfProperty(eCSSProperty_transform)) {
-    aPerformanceWarning = AnimationPerformanceWarning::Type::
-                          TransformWithSyncGeometricAnimations;
+    aPerformanceWarning =
+        AnimationPerformanceWarning::Type::TransformWithSyncGeometricAnimations;
     return true;
   }
 
-  return keyframeEffect->
-           ShouldBlockAsyncTransformAnimations(aFrame, aPerformanceWarning);
+  return keyframeEffect->ShouldBlockAsyncTransformAnimations(
+      aFrame, aPerformanceWarning);
 }
 
 void
@@ -880,14 +867,11 @@ Animation::HasLowerCompositeOrderThan(const Animation& aOther) const
   // 1. CSS Transitions sort lowest
   {
     auto asCSSTransitionForSorting =
-      [] (const Animation& anim) -> const CSSTransition*
-      {
-        const CSSTransition* transition = anim.AsCSSTransition();
-        return transition && transition->IsTiedToMarkup() ?
-               transition :
-               nullptr;
-      };
-    auto thisTransition  = asCSSTransitionForSorting(*this);
+        [](const Animation& anim) -> const CSSTransition* {
+      const CSSTransition* transition = anim.AsCSSTransition();
+      return transition && transition->IsTiedToMarkup() ? transition : nullptr;
+    };
+    auto thisTransition = asCSSTransitionForSorting(*this);
     auto otherTransition = asCSSTransitionForSorting(aOther);
     if (thisTransition && otherTransition) {
       return thisTransition->HasLowerCompositeOrderThan(*otherTransition);
@@ -911,12 +895,11 @@ Animation::HasLowerCompositeOrderThan(const Animation& aOther) const
   // 2. CSS Animations sort next
   {
     auto asCSSAnimationForSorting =
-      [] (const Animation& anim) -> const CSSAnimation*
-      {
-        const CSSAnimation* animation = anim.AsCSSAnimation();
-        return animation && animation->IsTiedToMarkup() ? animation : nullptr;
-      };
-    auto thisAnimation  = asCSSAnimationForSorting(*this);
+        [](const Animation& anim) -> const CSSAnimation* {
+      const CSSAnimation* animation = anim.AsCSSAnimation();
+      return animation && animation->IsTiedToMarkup() ? animation : nullptr;
+    };
+    auto thisAnimation = asCSSAnimationForSorting(*this);
     auto otherAnimation = asCSSAnimationForSorting(aOther);
     if (thisAnimation && otherAnimation) {
       return thisAnimation->HasLowerCompositeOrderThan(*otherAnimation);
@@ -998,25 +981,22 @@ Animation::ComposeStyle(ComposeAnimationResult&& aComposeResult,
   {
     AutoRestore<Nullable<TimeDuration>> restoreHoldTime(mHoldTime);
 
-    if (playState == AnimationPlayState::Pending &&
-        mHoldTime.IsNull() &&
+    if (playState == AnimationPlayState::Pending && mHoldTime.IsNull() &&
         !mStartTime.IsNull()) {
       Nullable<TimeDuration> timeToUse = mPendingReadyTime;
-      if (timeToUse.IsNull() &&
-          mTimeline &&
-          mTimeline->TracksWallclockTime()) {
+      if (timeToUse.IsNull() && mTimeline && mTimeline->TracksWallclockTime()) {
         timeToUse = mTimeline->ToTimelineTime(TimeStamp::Now());
       }
       if (!timeToUse.IsNull()) {
-        mHoldTime.SetValue((timeToUse.Value() - mStartTime.Value())
-                            .MultDouble(mPlaybackRate));
+        mHoldTime.SetValue(
+            (timeToUse.Value() - mStartTime.Value()).MultDouble(mPlaybackRate));
       }
     }
 
     KeyframeEffectReadOnly* keyframeEffect = mEffect->AsKeyframeEffect();
     if (keyframeEffect) {
-      keyframeEffect->ComposeStyle(Forward<ComposeAnimationResult>(aComposeResult),
-                                   aPropertiesToSkip);
+      keyframeEffect->ComposeStyle(
+          Forward<ComposeAnimationResult>(aComposeResult), aPropertiesToSkip);
     }
   }
 
@@ -1030,8 +1010,7 @@ Animation::NotifyEffectTimingUpdated()
   MOZ_ASSERT(mEffect,
              "We should only update timing effect when we have a target "
              "effect");
-  UpdateTiming(Animation::SeekFlag::NoSeek,
-               Animation::SyncNotifyFlag::Async);
+  UpdateTiming(Animation::SeekFlag::NoSeek, Animation::SyncNotifyFlag::Async);
 }
 
 void
@@ -1054,10 +1033,9 @@ Animation::PlayNoUpdate(ErrorResult& aRv, LimitBehavior aLimitBehavior)
 
   Nullable<TimeDuration> currentTime = GetCurrentTime();
   if (mPlaybackRate > 0.0 &&
-      (currentTime.IsNull() ||
-       (aLimitBehavior == LimitBehavior::AutoRewind &&
-        (currentTime.Value() < TimeDuration() ||
-         currentTime.Value() >= EffectEnd())))) {
+      (currentTime.IsNull() || (aLimitBehavior == LimitBehavior::AutoRewind &&
+                                (currentTime.Value() < TimeDuration() ||
+                                 currentTime.Value() >= EffectEnd())))) {
     mHoldTime.SetValue(TimeDuration(0));
   } else if (mPlaybackRate < 0.0 &&
              (currentTime.IsNull() ||
@@ -1117,7 +1095,7 @@ Animation::PlayNoUpdate(ErrorResult& aRv, LimitBehavior aLimitBehavior)
   nsIDocument* doc = GetRenderedDocument();
   if (doc) {
     PendingAnimationTracker* tracker =
-      doc->GetOrCreatePendingAnimationTracker();
+        doc->GetOrCreatePendingAnimationTracker();
     tracker->AddPlayPending(*this);
   } else {
     TriggerOnNextTick(Nullable<TimeDuration>());
@@ -1168,7 +1146,7 @@ Animation::PauseNoUpdate(ErrorResult& aRv)
   nsIDocument* doc = GetRenderedDocument();
   if (doc) {
     PendingAnimationTracker* tracker =
-      doc->GetOrCreatePendingAnimationTracker();
+        doc->GetOrCreatePendingAnimationTracker();
     tracker->AddPausePending(*this);
   } else {
     TriggerOnNextTick(Nullable<TimeDuration>());
@@ -1216,8 +1194,8 @@ Animation::PauseAt(const TimeDuration& aReadyTime)
              "Expected to pause a pause-pending animation");
 
   if (!mStartTime.IsNull() && mHoldTime.IsNull()) {
-    mHoldTime.SetValue((aReadyTime - mStartTime.Value())
-                        .MultDouble(mPlaybackRate));
+    mHoldTime.SetValue(
+        (aReadyTime - mStartTime.Value()).MultDouble(mPlaybackRate));
   }
   mStartTime.SetNull();
   mPendingState = PendingState::NotPending;
@@ -1250,10 +1228,8 @@ Animation::UpdateFinishedState(SeekFlag aSeekFlag,
   Nullable<TimeDuration> currentTime = GetCurrentTime();
   TimeDuration effectEnd = TimeDuration(EffectEnd());
 
-  if (!mStartTime.IsNull() &&
-      mPendingState == PendingState::NotPending) {
-    if (mPlaybackRate > 0.0 &&
-        !currentTime.IsNull() &&
+  if (!mStartTime.IsNull() && mPendingState == PendingState::NotPending) {
+    if (mPlaybackRate > 0.0 && !currentTime.IsNull() &&
         currentTime.Value() >= effectEnd) {
       if (aSeekFlag == SeekFlag::DidSeek) {
         mHoldTime = currentTime;
@@ -1262,24 +1238,21 @@ Animation::UpdateFinishedState(SeekFlag aSeekFlag,
       } else {
         mHoldTime.SetValue(effectEnd);
       }
-    } else if (mPlaybackRate < 0.0 &&
-               !currentTime.IsNull() &&
+    } else if (mPlaybackRate < 0.0 && !currentTime.IsNull() &&
                currentTime.Value() <= TimeDuration()) {
       if (aSeekFlag == SeekFlag::DidSeek) {
         mHoldTime = currentTime;
       } else if (!mPreviousCurrentTime.IsNull()) {
-        mHoldTime.SetValue(std::min(mPreviousCurrentTime.Value(),
-                                    TimeDuration(0)));
+        mHoldTime.SetValue(
+            std::min(mPreviousCurrentTime.Value(), TimeDuration(0)));
       } else {
         mHoldTime.SetValue(0);
       }
-    } else if (mPlaybackRate != 0.0 &&
-               !currentTime.IsNull() &&
-               mTimeline &&
+    } else if (mPlaybackRate != 0.0 && !currentTime.IsNull() && mTimeline &&
                !mTimeline->GetCurrentTime().IsNull()) {
       if (aSeekFlag == SeekFlag::DidSeek && !mHoldTime.IsNull()) {
         mStartTime.SetValue(mTimeline->GetCurrentTime().Value() -
-                             (mHoldTime.Value().MultDouble(1 / mPlaybackRate)));
+                            (mHoldTime.Value().MultDouble(1 / mPlaybackRate)));
       }
       mHoldTime.SetNull();
     }
@@ -1419,9 +1392,8 @@ Animation::IsPossiblyOrphanedPendingAnimation() const
   }
 
   PendingAnimationTracker* tracker = doc->GetPendingAnimationTracker();
-  return !tracker ||
-         (!tracker->IsWaitingToPlay(*this) &&
-          !tracker->IsWaitingToPause(*this));
+  return !tracker || (!tracker->IsWaitingToPlay(*this) &&
+                      !tracker->IsWaitingToPause(*this));
 }
 
 StickyTimeDuration
@@ -1453,9 +1425,9 @@ Animation::DoFinishNotification(SyncNotifyFlag aSyncNotifyFlag)
     DoFinishNotificationImmediately();
   } else if (!mFinishNotificationTask.IsPending()) {
     RefPtr<nsRunnableMethod<Animation>> runnable =
-      NewRunnableMethod("dom::Animation::DoFinishNotificationImmediately",
-                        this,
-                        &Animation::DoFinishNotificationImmediately);
+        NewRunnableMethod("dom::Animation::DoFinishNotificationImmediately",
+                          this,
+                          &Animation::DoFinishNotificationImmediately);
     context->DispatchToMicroTask(do_AddRef(runnable));
     mFinishNotificationTask = runnable.forget();
   }
@@ -1504,33 +1476,30 @@ Animation::DispatchPlaybackEvent(const nsAString& aName)
   }
 
   RefPtr<AnimationPlaybackEvent> event =
-    AnimationPlaybackEvent::Constructor(this, aName, init);
+      AnimationPlaybackEvent::Constructor(this, aName, init);
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event);
   asyncDispatcher->PostDOMEvent();
 }
 
 bool
 Animation::IsRunningOnCompositor() const
 {
-  return mEffect &&
-         mEffect->AsKeyframeEffect() &&
+  return mEffect && mEffect->AsKeyframeEffect() &&
          mEffect->AsKeyframeEffect()->IsRunningOnCompositor();
 }
 
-template
-void
+template void
 Animation::ComposeStyle<RefPtr<AnimValuesStyleRule>&>(
-  RefPtr<AnimValuesStyleRule>& aAnimationRule,
-  const nsCSSPropertyIDSet& aPropertiesToSkip);
+    RefPtr<AnimValuesStyleRule>& aAnimationRule,
+    const nsCSSPropertyIDSet& aPropertiesToSkip);
 
-template
-void
+template void
 Animation::ComposeStyle<RawServoAnimationValueMap&>(
-  RawServoAnimationValueMap& aAnimationValues,
-  const nsCSSPropertyIDSet& aPropertiesToSkip);
+    RawServoAnimationValueMap& aAnimationValues,
+    const nsCSSPropertyIDSet& aPropertiesToSkip);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

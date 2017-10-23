@@ -18,7 +18,9 @@
 
 namespace mozilla {
 
-RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
+RefPtr<DtlsIdentity>
+DtlsIdentity::Generate()
+{
   UniquePK11SlotInfo slot(PK11_GetInternalSlot());
   if (!slot) {
     return nullptr;
@@ -26,10 +28,9 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
 
   uint8_t random_name[16];
 
-  SECStatus rv = PK11_GenerateRandomOnSlot(slot.get(), random_name,
-                                           sizeof(random_name));
-  if (rv != SECSuccess)
-    return nullptr;
+  SECStatus rv =
+      PK11_GenerateRandomOnSlot(slot.get(), random_name, sizeof(random_name));
+  if (rv != SECSuccess) return nullptr;
 
   std::string name;
   char chunk[3];
@@ -44,8 +45,8 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
     return nullptr;
   }
 
-  unsigned char paramBuf[12]; // OIDs are small
-  SECItem ecdsaParams = { siBuffer, paramBuf, sizeof(paramBuf) };
+  unsigned char paramBuf[12];  // OIDs are small
+  SECItem ecdsaParams = {siBuffer, paramBuf, sizeof(paramBuf)};
   SECOidData* oidData = SECOID_FindOIDByTag(SEC_OID_SECG_EC_SECP256R1);
   if (!oidData || (oidData->oid.len > (sizeof(paramBuf) - 2))) {
     return nullptr;
@@ -55,13 +56,15 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
   memcpy(ecdsaParams.data + 2, oidData->oid.data, oidData->oid.len);
   ecdsaParams.len = oidData->oid.len + 2;
 
-  SECKEYPublicKey *pubkey;
-  UniqueSECKEYPrivateKey private_key(
-      PK11_GenerateKeyPair(slot.get(),
-                           CKM_EC_KEY_PAIR_GEN, &ecdsaParams, &pubkey,
-                           PR_FALSE, PR_TRUE, nullptr));
-  if (private_key == nullptr)
-    return nullptr;
+  SECKEYPublicKey* pubkey;
+  UniqueSECKEYPrivateKey private_key(PK11_GenerateKeyPair(slot.get(),
+                                                          CKM_EC_KEY_PAIR_GEN,
+                                                          &ecdsaParams,
+                                                          &pubkey,
+                                                          PR_FALSE,
+                                                          PR_TRUE,
+                                                          nullptr));
+  if (private_key == nullptr) return nullptr;
   UniqueSECKEYPublicKey public_key(pubkey);
   pubkey = nullptr;
 
@@ -84,10 +87,9 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
   //
   // Note: explicit casts necessary to avoid
   //       warning C4307: '*' : integral constant overflow
-  static const PRTime oneDay = PRTime(PR_USEC_PER_SEC)
-                             * PRTime(60)  // sec
-                             * PRTime(60)  // min
-                             * PRTime(24); // hours
+  static const PRTime oneDay = PRTime(PR_USEC_PER_SEC) * PRTime(60)  // sec
+                               * PRTime(60)                          // min
+                               * PRTime(24);                         // hours
   PRTime now = PR_Now();
   PRTime notBefore = now - oneDay;
   PRTime notAfter = now + (PRTime(30) * oneDay);
@@ -99,26 +101,25 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
 
   unsigned long serial;
   // Note: This serial in principle could collide, but it's unlikely
-  rv = PK11_GenerateRandomOnSlot(slot.get(),
-                                 reinterpret_cast<unsigned char *>(&serial),
-                                 sizeof(serial));
+  rv = PK11_GenerateRandomOnSlot(
+      slot.get(), reinterpret_cast<unsigned char*>(&serial), sizeof(serial));
   if (rv != SECSuccess) {
     return nullptr;
   }
 
-  UniqueCERTCertificate certificate(
-      CERT_CreateCertificate(serial, subject_name.get(), validity.get(),
-                             certreq.get()));
+  UniqueCERTCertificate certificate(CERT_CreateCertificate(
+      serial, subject_name.get(), validity.get(), certreq.get()));
   if (!certificate) {
     return nullptr;
   }
 
-  PLArenaPool *arena = certificate->arena;
+  PLArenaPool* arena = certificate->arena;
 
-  rv = SECOID_SetAlgorithmID(arena, &certificate->signature,
-                             SEC_OID_ANSIX962_ECDSA_SHA256_SIGNATURE, nullptr);
-  if (rv != SECSuccess)
-    return nullptr;
+  rv = SECOID_SetAlgorithmID(arena,
+                             &certificate->signature,
+                             SEC_OID_ANSIX962_ECDSA_SHA256_SIGNATURE,
+                             nullptr);
+  if (rv != SECSuccess) return nullptr;
 
   // Set version to X509v3.
   *(certificate->version.data) = SEC_CERTIFICATE_VERSION_3;
@@ -128,17 +129,22 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
   innerDER.len = 0;
   innerDER.data = nullptr;
 
-  if (!SEC_ASN1EncodeItem(arena, &innerDER, certificate.get(),
+  if (!SEC_ASN1EncodeItem(arena,
+                          &innerDER,
+                          certificate.get(),
                           SEC_ASN1_GET(CERT_CertificateTemplate))) {
     return nullptr;
   }
 
-  SECItem *signedCert = PORT_ArenaZNew(arena, SECItem);
+  SECItem* signedCert = PORT_ArenaZNew(arena, SECItem);
   if (!signedCert) {
     return nullptr;
   }
 
-  rv = SEC_DerSignData(arena, signedCert, innerDER.data, innerDER.len,
+  rv = SEC_DerSignData(arena,
+                       signedCert,
+                       innerDER.data,
+                       innerDER.len,
                        private_key.get(),
                        SEC_OID_ANSIX962_ECDSA_SHA256_SIGNATURE);
   if (rv != SECSuccess) {
@@ -146,29 +152,32 @@ RefPtr<DtlsIdentity> DtlsIdentity::Generate() {
   }
   certificate->derCert = *signedCert;
 
-  RefPtr<DtlsIdentity> identity = new DtlsIdentity(Move(private_key),
-                                                   Move(certificate),
-                                                   ssl_kea_ecdh);
+  RefPtr<DtlsIdentity> identity =
+      new DtlsIdentity(Move(private_key), Move(certificate), ssl_kea_ecdh);
   return identity.forget();
 }
 
 const std::string DtlsIdentity::DEFAULT_HASH_ALGORITHM = "sha-256";
 
-nsresult DtlsIdentity::ComputeFingerprint(const std::string algorithm,
-                                          uint8_t *digest,
-                                          size_t size,
-                                          size_t *digest_length) const {
+nsresult
+DtlsIdentity::ComputeFingerprint(const std::string algorithm,
+                                 uint8_t* digest,
+                                 size_t size,
+                                 size_t* digest_length) const
+{
   const UniqueCERTCertificate& c = cert();
   MOZ_ASSERT(c);
 
   return ComputeFingerprint(c, algorithm, digest, size, digest_length);
 }
 
-nsresult DtlsIdentity::ComputeFingerprint(const UniqueCERTCertificate& cert,
-                                          const std::string algorithm,
-                                          uint8_t *digest,
-                                          size_t size,
-                                          size_t *digest_length) {
+nsresult
+DtlsIdentity::ComputeFingerprint(const UniqueCERTCertificate& cert,
+                                 const std::string algorithm,
+                                 uint8_t* digest,
+                                 size_t size,
+                                 size_t* digest_length)
+{
   MOZ_ASSERT(cert);
 
   HASH_HashType ht;
@@ -181,13 +190,13 @@ nsresult DtlsIdentity::ComputeFingerprint(const UniqueCERTCertificate& cert,
     ht = HASH_AlgSHA256;
   } else if (algorithm == "sha-384") {
     ht = HASH_AlgSHA384;
-  }  else if (algorithm == "sha-512") {
+  } else if (algorithm == "sha-512") {
     ht = HASH_AlgSHA512;
   } else {
     return NS_ERROR_INVALID_ARG;
   }
 
-  const SECHashObject *ho = HASH_GetHashObject(ht);
+  const SECHashObject* ho = HASH_GetHashObject(ht);
   MOZ_ASSERT(ho);
   if (!ho) {
     return NS_ERROR_INVALID_ARG;
@@ -199,9 +208,8 @@ nsresult DtlsIdentity::ComputeFingerprint(const UniqueCERTCertificate& cert,
     return NS_ERROR_INVALID_ARG;
   }
 
-  SECStatus rv = HASH_HashBuf(ho->type, digest,
-                              cert->derCert.data,
-                              cert->derCert.len);
+  SECStatus rv =
+      HASH_HashBuf(ho->type, digest, cert->derCert.data, cert->derCert.len);
   if (rv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
@@ -211,4 +219,4 @@ nsresult DtlsIdentity::ComputeFingerprint(const UniqueCERTCertificate& cert,
   return NS_OK;
 }
 
-}  // close namespace
+}  // namespace mozilla

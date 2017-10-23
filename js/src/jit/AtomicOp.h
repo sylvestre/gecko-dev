@@ -39,35 +39,30 @@ enum MemoryBarrierBits {
     MembarAllbits = 31,
 };
 
-static inline constexpr MemoryBarrierBits
-operator|(MemoryBarrierBits a, MemoryBarrierBits b)
-{
+static inline constexpr MemoryBarrierBits operator|(MemoryBarrierBits a, MemoryBarrierBits b) {
     return MemoryBarrierBits(int(a) | int(b));
 }
 
-static inline constexpr MemoryBarrierBits
-operator&(MemoryBarrierBits a, MemoryBarrierBits b)
-{
+static inline constexpr MemoryBarrierBits operator&(MemoryBarrierBits a, MemoryBarrierBits b) {
     return MemoryBarrierBits(int(a) & int(b));
 }
 
-static inline constexpr MemoryBarrierBits
-operator~(MemoryBarrierBits a)
-{
+static inline constexpr MemoryBarrierBits operator~(MemoryBarrierBits a) {
     return MemoryBarrierBits(~int(a));
 }
 
 // Standard barrier bits for a full barrier.
-static constexpr MemoryBarrierBits MembarFull = MembarLoadLoad|MembarLoadStore|MembarStoreLoad|MembarStoreStore;
+static constexpr MemoryBarrierBits MembarFull =
+    MembarLoadLoad | MembarLoadStore | MembarStoreLoad | MembarStoreStore;
 
 // Standard sets of barrier bits for atomic loads and stores.
 // See http://gee.cs.oswego.edu/dl/jmm/cookbook.html for more.
 static constexpr MemoryBarrierBits MembarBeforeLoad = MembarNobits;
-static constexpr MemoryBarrierBits MembarAfterLoad = MembarLoadLoad|MembarLoadStore;
+static constexpr MemoryBarrierBits MembarAfterLoad = MembarLoadLoad | MembarLoadStore;
 static constexpr MemoryBarrierBits MembarBeforeStore = MembarStoreStore;
 static constexpr MemoryBarrierBits MembarAfterStore = MembarStoreLoad;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_AtomicOp_h */

@@ -35,7 +35,7 @@ enum class EventPriority
 // ThreadEventQueue).
 class AbstractEventQueue
 {
-public:
+ public:
   // Add an event to the end of the queue. Implementors are free to use
   // aPriority however they wish. They may ignore it if the runnable has its own
   // intrinsic priority (via nsIRunnablePriority).
@@ -47,8 +47,8 @@ public:
   // implementation supports priorities, then this should be the same priority
   // that the event was pushed with. aPriority may be null. This should return
   // null if the queue is non-empty but the event in front is not ready to run.
-  virtual already_AddRefed<nsIRunnable> GetEvent(EventPriority* aPriority,
-                                                 const MutexAutoLock& aProofOfLock) = 0;
+  virtual already_AddRefed<nsIRunnable> GetEvent(
+      EventPriority* aPriority, const MutexAutoLock& aProofOfLock) = 0;
 
   // Returns true if the queue is empty. Implies !HasReadyEvent().
   virtual bool IsEmpty(const MutexAutoLock& aProofOfLock) = 0;
@@ -61,14 +61,18 @@ public:
   // Returns the number of events in the queue.
   virtual size_t Count(const MutexAutoLock& aProofOfLock) const = 0;
 
-  virtual void EnableInputEventPrioritization(const MutexAutoLock& aProofOfLock) = 0;
-  virtual void FlushInputEventPrioritization(const MutexAutoLock& aProofOfLock) = 0;
-  virtual void SuspendInputEventPrioritization(const MutexAutoLock& aProofOfLock) = 0;
-  virtual void ResumeInputEventPrioritization(const MutexAutoLock& aProofOfLock) = 0;
+  virtual void EnableInputEventPrioritization(
+      const MutexAutoLock& aProofOfLock) = 0;
+  virtual void FlushInputEventPrioritization(
+      const MutexAutoLock& aProofOfLock) = 0;
+  virtual void SuspendInputEventPrioritization(
+      const MutexAutoLock& aProofOfLock) = 0;
+  virtual void ResumeInputEventPrioritization(
+      const MutexAutoLock& aProofOfLock) = 0;
 
   virtual ~AbstractEventQueue() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AbstractEventQueue_h
+#endif  // mozilla_AbstractEventQueue_h

@@ -6,11 +6,11 @@
 #ifndef InsertNodeTransaction_h
 #define InsertNodeTransaction_h
 
-#include "mozilla/EditTransactionBase.h" // for EditTransactionBase, etc.
-#include "nsCOMPtr.h"                   // for nsCOMPtr
+#include "mozilla/EditTransactionBase.h"  // for EditTransactionBase, etc.
+#include "nsCOMPtr.h"                     // for nsCOMPtr
 #include "nsCycleCollectionParticipant.h"
-#include "nsIContent.h"                 // for nsIContent
-#include "nsISupportsImpl.h"            // for NS_DECL_ISUPPORTS_INHERITED
+#include "nsIContent.h"       // for nsIContent
+#include "nsISupportsImpl.h"  // for NS_DECL_ISUPPORTS_INHERITED
 
 namespace mozilla {
 
@@ -21,14 +21,16 @@ class EditorBase;
  */
 class InsertNodeTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * Initialize the transaction.
    * @param aNode       The node to insert.
    * @param aParent     The node to insert into.
    * @param aOffset     The offset in aParent to insert aNode.
    */
-  InsertNodeTransaction(nsIContent& aNode, nsINode& aParent, int32_t aOffset,
+  InsertNodeTransaction(nsIContent& aNode,
+                        nsINode& aParent,
+                        int32_t aOffset,
                         EditorBase& aEditorBase);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -37,7 +39,7 @@ public:
 
   NS_DECL_EDITTRANSACTIONBASE
 
-protected:
+ protected:
   virtual ~InsertNodeTransaction();
 
   // The element to insert.
@@ -53,6 +55,6 @@ protected:
   RefPtr<EditorBase> mEditorBase;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef InsertNodeTransaction_h
+#endif  // #ifndef InsertNodeTransaction_h

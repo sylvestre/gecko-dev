@@ -21,8 +21,7 @@ DeallocPCacheParent(PCacheParent* aActor)
 }
 
 CacheParent::CacheParent(cache::Manager* aManager, CacheId aCacheId)
-  : mManager(aManager)
-  , mCacheId(aCacheId)
+    : mManager(aManager), mCacheId(aCacheId)
 {
   MOZ_COUNT_CTOR(cache::CacheParent);
   MOZ_DIAGNOSTIC_ASSERT(mManager);
@@ -50,8 +49,7 @@ CacheParent::AllocPCacheOpParent(const CacheOpArgs& aOpArgs)
       aOpArgs.type() != CacheOpArgs::TCacheMatchAllArgs &&
       aOpArgs.type() != CacheOpArgs::TCachePutAllArgs &&
       aOpArgs.type() != CacheOpArgs::TCacheDeleteArgs &&
-      aOpArgs.type() != CacheOpArgs::TCacheKeysArgs)
-  {
+      aOpArgs.type() != CacheOpArgs::TCacheKeysArgs) {
     MOZ_CRASH("Invalid operation sent to Cache actor!");
   }
 
@@ -84,6 +82,6 @@ CacheParent::RecvTeardown()
   return IPC_OK();
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

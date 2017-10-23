@@ -10,8 +10,9 @@
 namespace mozilla {
 namespace layers {
 
-MacIOSurfaceTextureSourceBasic::MacIOSurfaceTextureSourceBasic(MacIOSurface* aSurface)
-  : mSurface(aSurface)
+MacIOSurfaceTextureSourceBasic::MacIOSurfaceTextureSourceBasic(
+    MacIOSurface* aSurface)
+    : mSurface(aSurface)
 {
   MOZ_COUNT_CTOR(MacIOSurfaceTextureSourceBasic);
 }
@@ -33,14 +34,13 @@ MacIOSurfaceTextureSourceBasic::GetFormat() const
 {
   // Set the format the same way as CreateSourceSurfaceFromMacIOSurface.
   return mSurface->GetFormat() == gfx::SurfaceFormat::NV12
-    ? gfx::SurfaceFormat::B8G8R8X8 : gfx::SurfaceFormat::B8G8R8A8;
+             ? gfx::SurfaceFormat::B8G8R8X8
+             : gfx::SurfaceFormat::B8G8R8A8;
 }
 
 MacIOSurfaceTextureHostBasic::MacIOSurfaceTextureHostBasic(
-    TextureFlags aFlags,
-    const SurfaceDescriptorMacIOSurface& aDescriptor
-)
-  : TextureHost(aFlags)
+    TextureFlags aFlags, const SurfaceDescriptorMacIOSurface& aDescriptor)
+    : TextureHost(aFlags)
 {
   mSurface = MacIOSurface::LookupSurface(aDescriptor.surfaceId(),
                                          aDescriptor.scaleFactor(),
@@ -70,9 +70,11 @@ MacIOSurfaceTextureHostBasic::Lock()
 }
 
 void
-MacIOSurfaceTextureHostBasic::SetTextureSourceProvider(TextureSourceProvider* aProvider)
+MacIOSurfaceTextureHostBasic::SetTextureSourceProvider(
+    TextureSourceProvider* aProvider)
 {
-  if (!aProvider->AsCompositor() || !aProvider->AsCompositor()->AsBasicCompositor()) {
+  if (!aProvider->AsCompositor() ||
+      !aProvider->AsCompositor()->AsBasicCompositor()) {
     mTextureSource = nullptr;
     return;
   }
@@ -85,15 +87,18 @@ MacIOSurfaceTextureHostBasic::SetTextureSourceProvider(TextureSourceProvider* aP
 }
 
 gfx::SurfaceFormat
-MacIOSurfaceTextureHostBasic::GetFormat() const {
-  return mSurface->HasAlpha() ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::B8G8R8X8;
+MacIOSurfaceTextureHostBasic::GetFormat() const
+{
+  return mSurface->HasAlpha() ? gfx::SurfaceFormat::R8G8B8A8
+                              : gfx::SurfaceFormat::B8G8R8X8;
 }
 
 gfx::IntSize
-MacIOSurfaceTextureHostBasic::GetSize() const {
+MacIOSurfaceTextureHostBasic::GetSize() const
+{
   return gfx::IntSize(mSurface->GetDevicePixelWidth(),
                       mSurface->GetDevicePixelHeight());
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

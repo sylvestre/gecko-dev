@@ -14,17 +14,17 @@ namespace ctypes {
 
 class Module final : public nsIXPCScriptable
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIXPCSCRIPTABLE
 
   Module();
 
-private:
+ private:
   ~Module();
 };
 
-} // namespace ctypes
-} // namespace mozilla
+}  // namespace ctypes
+}  // namespace mozilla
 
 #endif

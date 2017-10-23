@@ -15,14 +15,11 @@ namespace dom {
 
 MediaStreamList::MediaStreamList(PeerConnectionImpl* peerConnection,
                                  StreamType type)
-  : mPeerConnection(peerConnection),
-    mType(type)
+    : mPeerConnection(peerConnection), mType(type)
 {
 }
 
-MediaStreamList::~MediaStreamList()
-{
-}
+MediaStreamList::~MediaStreamList() {}
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(MediaStreamList)
 
@@ -61,28 +58,28 @@ GetStreamFromInfo(T* info, bool& found)
 DOMMediaStream*
 MediaStreamList::IndexedGetter(uint32_t index, bool& found)
 {
-  if (!mPeerConnection->media()) { // PeerConnection closed
+  if (!mPeerConnection->media()) {  // PeerConnection closed
     found = false;
     return nullptr;
   }
   if (mType == Local) {
-    return GetStreamFromInfo(mPeerConnection->media()->
-      GetLocalStreamByIndex(index), found);
+    return GetStreamFromInfo(
+        mPeerConnection->media()->GetLocalStreamByIndex(index), found);
   }
 
-  return GetStreamFromInfo(mPeerConnection->media()->
-    GetRemoteStreamByIndex(index), found);
+  return GetStreamFromInfo(
+      mPeerConnection->media()->GetRemoteStreamByIndex(index), found);
 }
 
 uint32_t
 MediaStreamList::Length()
 {
-  if (!mPeerConnection->media()) { // PeerConnection closed
+  if (!mPeerConnection->media()) {  // PeerConnection closed
     return 0;
   }
-  return mType == Local ? mPeerConnection->media()->LocalStreamsLength() :
-      mPeerConnection->media()->RemoteStreamsLength();
+  return mType == Local ? mPeerConnection->media()->LocalStreamsLength()
+                        : mPeerConnection->media()->RemoteStreamsLength();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

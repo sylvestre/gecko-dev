@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ClientContainerLayer.h"
-#include "ClientLayerManager.h"         // for ClientLayerManager, etc
-#include "mozilla/mozalloc.h"           // for operator new
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsISupportsImpl.h"            // for Layer::AddRef, etc
+#include "ClientLayerManager.h"  // for ClientLayerManager, etc
+#include "mozilla/mozalloc.h"    // for operator new
+#include "nsCOMPtr.h"            // for already_AddRefed
+#include "nsISupportsImpl.h"     // for Layer::AddRef, etc
 
 namespace mozilla {
 namespace layers {
@@ -16,8 +16,7 @@ already_AddRefed<ContainerLayer>
 ClientLayerManager::CreateContainerLayer()
 {
   NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-  RefPtr<ClientContainerLayer> layer =
-    new ClientContainerLayer(this);
+  RefPtr<ClientContainerLayer> layer = new ClientContainerLayer(this);
   CREATE_SHADOW(Container);
   return layer.forget();
 }
@@ -26,11 +25,10 @@ already_AddRefed<RefLayer>
 ClientLayerManager::CreateRefLayer()
 {
   NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-  RefPtr<ClientRefLayer> layer =
-    new ClientRefLayer(this);
+  RefPtr<ClientRefLayer> layer = new ClientRefLayer(this);
   CREATE_SHADOW(Ref);
   return layer.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

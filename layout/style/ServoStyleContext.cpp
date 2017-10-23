@@ -16,14 +16,13 @@
 
 namespace mozilla {
 
-ServoStyleContext::ServoStyleContext(
-    nsPresContext* aPresContext,
-    nsAtom* aPseudoTag,
-    CSSPseudoElementType aPseudoType,
-    ServoComputedDataForgotten aComputedValues)
-  : nsStyleContext(aPseudoTag, aPseudoType)
-  , mPresContext(aPresContext)
-  , mSource(aComputedValues)
+ServoStyleContext::ServoStyleContext(nsPresContext* aPresContext,
+                                     nsAtom* aPseudoTag,
+                                     CSSPseudoElementType aPseudoType,
+                                     ServoComputedDataForgotten aComputedValues)
+    : nsStyleContext(aPseudoTag, aPseudoType),
+      mPresContext(aPresContext),
+      mSource(aComputedValues)
 {
   AddStyleBit(Servo_ComputedValues_GetStyleBits(this));
   MOZ_ASSERT(ComputedData());
@@ -58,7 +57,8 @@ ServoStyleContext::GetCachedLazyPseudoStyle(CSSPseudoElementType aPseudo) const
   MOZ_ASSERT(aPseudo != CSSPseudoElementType::NotPseudo &&
              aPseudo != CSSPseudoElementType::InheritingAnonBox &&
              aPseudo != CSSPseudoElementType::NonInheritingAnonBox);
-  MOZ_ASSERT(!IsLazilyCascadedPseudoElement(), "Lazy pseudos can't inherit lazy pseudos");
+  MOZ_ASSERT(!IsLazilyCascadedPseudoElement(),
+             "Lazy pseudos can't inherit lazy pseudos");
 
   if (nsCSSPseudoElements::PseudoElementSupportsUserActionState(aPseudo)) {
     return nullptr;
@@ -73,4 +73,4 @@ ServoStyleContext::GetCachedLazyPseudoStyle(CSSPseudoElementType aPseudo) const
   return current;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

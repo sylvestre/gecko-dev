@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "HLSDecoder.h"
 #include "AndroidBridge.h"
 #include "DecoderTraits.h"
@@ -25,20 +24,23 @@ using namespace mozilla::java;
 namespace mozilla {
 
 class HLSResourceCallbacksSupport
-  : public GeckoHLSResourceWrapper::Callbacks::Natives<HLSResourceCallbacksSupport>
+    : public GeckoHLSResourceWrapper::Callbacks::Natives<
+          HLSResourceCallbacksSupport>
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(HLSResourceCallbacksSupport)
-public:
-  typedef GeckoHLSResourceWrapper::Callbacks::Natives<HLSResourceCallbacksSupport> NativeCallbacks;
-  using NativeCallbacks::DisposeNative;
+ public:
+  typedef GeckoHLSResourceWrapper::Callbacks::Natives<
+      HLSResourceCallbacksSupport>
+      NativeCallbacks;
   using NativeCallbacks::AttachNative;
+  using NativeCallbacks::DisposeNative;
 
   HLSResourceCallbacksSupport(HLSDecoder* aResource);
   void Detach();
   void OnDataArrived();
   void OnError(int aErrorCode);
 
-private:
+ private:
   ~HLSResourceCallbacksSupport() {}
   HLSDecoder* mDecoder;
 };
@@ -78,10 +80,7 @@ HLSResourceCallbacksSupport::OnError(int aErrorCode)
   }
 }
 
-HLSDecoder::HLSDecoder(MediaDecoderInit& aInit)
-  : MediaDecoder(aInit)
-{
-}
+HLSDecoder::HLSDecoder(MediaDecoderInit& aInit) : MediaDecoder(aInit) {}
 
 MediaDecoderStateMachine*
 HLSDecoder::CreateStateMachine()
@@ -94,8 +93,8 @@ HLSDecoder::CreateStateMachine()
   init.mCrashHelper = GetOwner()->CreateGMPCrashHelper();
   init.mFrameStats = mFrameStats;
   init.mMediaDecoderOwnerID = mOwner;
-  mReader =
-    new MediaFormatReader(init, new HLSDemuxer(mHLSResourceWrapper->GetPlayerId()));
+  mReader = new MediaFormatReader(
+      init, new HLSDemuxer(mHLSResourceWrapper->GetPlayerId()));
 
   return new MediaDecoderStateMachine(this, mReader);
 }
@@ -109,8 +108,7 @@ HLSDecoder::IsEnabled()
 bool
 HLSDecoder::IsSupportedType(const MediaContainerType& aContainerType)
 {
-  return IsEnabled() &&
-         DecoderTraits::IsHttpLiveStreamingType(aContainerType);
+  return IsEnabled() && DecoderTraits::IsHttpLiveStreamingType(aContainerType);
 }
 
 nsresult
@@ -125,13 +123,14 @@ HLSDecoder::Load(nsIChannel* aChannel)
 
   mChannel = aChannel;
   nsCString spec;
-  Unused << mURI->GetSpec(spec);;
+  Unused << mURI->GetSpec(spec);
+  ;
   HLSResourceCallbacksSupport::Init();
   mJavaCallbacks = GeckoHLSResourceWrapper::Callbacks::New();
   mCallbackSupport = new HLSResourceCallbacksSupport(this);
   HLSResourceCallbacksSupport::AttachNative(mJavaCallbacks, mCallbackSupport);
-  mHLSResourceWrapper = java::GeckoHLSResourceWrapper::Create(NS_ConvertUTF8toUTF16(spec),
-                                                              mJavaCallbacks);
+  mHLSResourceWrapper = java::GeckoHLSResourceWrapper::Create(
+      NS_ConvertUTF8toUTF16(spec), mJavaCallbacks);
   MOZ_ASSERT(mHLSResourceWrapper);
 
   rv = MediaShutdownManager::Instance().Register(this);
@@ -218,4 +217,4 @@ HLSDecoder::Shutdown()
   MediaDecoder::Shutdown();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

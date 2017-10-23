@@ -32,14 +32,14 @@ GetFileOrDirectoryTaskChild::Create(FileSystemBase* aFileSystem,
   MOZ_ASSERT(aFileSystem);
 
   nsCOMPtr<nsIGlobalObject> globalObject =
-    do_QueryInterface(aFileSystem->GetParentObject());
+      do_QueryInterface(aFileSystem->GetParentObject());
   if (NS_WARN_IF(!globalObject)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   RefPtr<GetFileOrDirectoryTaskChild> task =
-    new GetFileOrDirectoryTaskChild(globalObject, aFileSystem, aTargetPath);
+      new GetFileOrDirectoryTaskChild(globalObject, aFileSystem, aTargetPath);
 
   // aTargetPath can be null. In this case SetError will be called.
 
@@ -51,11 +51,12 @@ GetFileOrDirectoryTaskChild::Create(FileSystemBase* aFileSystem,
   return task.forget();
 }
 
-GetFileOrDirectoryTaskChild::GetFileOrDirectoryTaskChild(nsIGlobalObject* aGlobalObject,
-                                                         FileSystemBase* aFileSystem,
-                                                         nsIFile* aTargetPath)
-  : FileSystemTaskChildBase(aGlobalObject, aFileSystem)
-  , mTargetPath(aTargetPath)
+GetFileOrDirectoryTaskChild::GetFileOrDirectoryTaskChild(
+    nsIGlobalObject* aGlobalObject,
+    FileSystemBase* aFileSystem,
+    nsIFile* aTargetPath)
+    : FileSystemTaskChildBase(aGlobalObject, aFileSystem),
+      mTargetPath(aTargetPath)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   MOZ_ASSERT(aFileSystem);
@@ -74,8 +75,8 @@ GetFileOrDirectoryTaskChild::GetPromise()
 }
 
 FileSystemParams
-GetFileOrDirectoryTaskChild::GetRequestParams(const nsString& aSerializedDOMPath,
-                                              ErrorResult& aRv) const
+GetFileOrDirectoryTaskChild::GetRequestParams(
+    const nsString& aSerializedDOMPath, ErrorResult& aRv) const
 {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
 
@@ -89,8 +90,8 @@ GetFileOrDirectoryTaskChild::GetRequestParams(const nsString& aSerializedDOMPath
 }
 
 void
-GetFileOrDirectoryTaskChild::SetSuccessRequestResult(const FileSystemResponseValue& aValue,
-                                                     ErrorResult& aRv)
+GetFileOrDirectoryTaskChild::SetSuccessRequestResult(
+    const FileSystemResponseValue& aValue, ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   switch (aValue.type()) {
@@ -113,8 +114,8 @@ GetFileOrDirectoryTaskChild::SetSuccessRequestResult(const FileSystemResponseVal
         return;
       }
 
-      mResultDirectory = Directory::Create(mFileSystem->GetParentObject(),
-                                           file, mFileSystem);
+      mResultDirectory =
+          Directory::Create(mFileSystem->GetParentObject(), file, mFileSystem);
       MOZ_ASSERT(mResultDirectory);
       break;
     }
@@ -158,20 +159,21 @@ GetFileOrDirectoryTaskChild::HandlerCallback()
  */
 
 /* static */ already_AddRefed<GetFileOrDirectoryTaskParent>
-GetFileOrDirectoryTaskParent::Create(FileSystemBase* aFileSystem,
-                                     const FileSystemGetFileOrDirectoryParams& aParam,
-                                     FileSystemRequestParent* aParent,
-                                     ErrorResult& aRv)
+GetFileOrDirectoryTaskParent::Create(
+    FileSystemBase* aFileSystem,
+    const FileSystemGetFileOrDirectoryParams& aParam,
+    FileSystemRequestParent* aParent,
+    ErrorResult& aRv)
 {
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aFileSystem);
 
   RefPtr<GetFileOrDirectoryTaskParent> task =
-    new GetFileOrDirectoryTaskParent(aFileSystem, aParam, aParent);
+      new GetFileOrDirectoryTaskParent(aFileSystem, aParam, aParent);
 
-  aRv = NS_NewLocalFile(aParam.realPath(), true,
-                        getter_AddRefs(task->mTargetPath));
+  aRv = NS_NewLocalFile(
+      aParam.realPath(), true, getter_AddRefs(task->mTargetPath));
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -179,11 +181,12 @@ GetFileOrDirectoryTaskParent::Create(FileSystemBase* aFileSystem,
   return task.forget();
 }
 
-GetFileOrDirectoryTaskParent::GetFileOrDirectoryTaskParent(FileSystemBase* aFileSystem,
-                                                           const FileSystemGetFileOrDirectoryParams& aParam,
-                                                           FileSystemRequestParent* aParent)
-  : FileSystemTaskParentBase(aFileSystem, aParam, aParent)
-  , mIsDirectory(false)
+GetFileOrDirectoryTaskParent::GetFileOrDirectoryTaskParent(
+    FileSystemBase* aFileSystem,
+    const FileSystemGetFileOrDirectoryParams& aParam,
+    FileSystemRequestParent* aParent)
+    : FileSystemTaskParentBase(aFileSystem, aParam, aParent),
+      mIsDirectory(false)
 {
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
   AssertIsOnBackgroundThread();
@@ -219,8 +222,7 @@ GetFileOrDirectoryTaskParent::GetSuccessRequestResult(ErrorResult& aRv) const
 nsresult
 GetFileOrDirectoryTaskParent::IOWork()
 {
-  MOZ_ASSERT(XRE_IsParentProcess(),
-             "Only call from parent process!");
+  MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
   MOZ_ASSERT(!NS_IsMainThread(), "Only call on worker thread!");
 
   if (mFileSystem->IsShutdown()) {
@@ -280,5 +282,5 @@ GetFileOrDirectoryTaskParent::GetTargetPath(nsAString& aPath) const
   return mTargetPath->GetPath(aPath);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

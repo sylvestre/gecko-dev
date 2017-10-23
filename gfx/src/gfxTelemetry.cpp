@@ -57,5 +57,5 @@ IsFeatureStatusSuccess(FeatureStatus aStatus)
          aStatus == FeatureStatus::ForceEnabled;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

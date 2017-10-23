@@ -26,7 +26,7 @@ class nsPresContext;
 
 namespace mozilla {
 class EventStates;
-} // namespace mozilla
+}  // namespace mozilla
 
 class nsNativeTheme : public nsITimerCallback, public nsINamed
 {
@@ -37,13 +37,15 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
 
-  enum ScrollbarButtonType {
-    eScrollbarButton_UpTop   = 0,
-    eScrollbarButton_Down    = 1 << 0,
-    eScrollbarButton_Bottom  = 1 << 1
+  enum ScrollbarButtonType
+  {
+    eScrollbarButton_UpTop = 0,
+    eScrollbarButton_Down = 1 << 0,
+    eScrollbarButton_Bottom = 1 << 1
   };
 
-  enum TreeSortDirection {
+  enum TreeSortDirection
+  {
     eTreeSortDirection_Descending,
     eTreeSortDirection_Natural,
     eTreeSortDirection_Ascending
@@ -57,8 +59,9 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   // Returns whether the widget is already styled by content
   // Normally called from ThemeSupportsWidget to turn off native theming
   // for elements that are already styled.
-  bool IsWidgetStyled(nsPresContext* aPresContext, nsIFrame* aFrame,
-                        uint8_t aWidgetType);                                              
+  bool IsWidgetStyled(nsPresContext* aPresContext,
+                      nsIFrame* aFrame,
+                      uint8_t aWidgetType);
 
   // Accessors to widget-specific state information
 
@@ -67,26 +70,30 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   // RTL chrome direction
   static bool IsFrameRTL(nsIFrame* aFrame);
 
-  bool IsHTMLContent(nsIFrame *aFrame);
-  
+  bool IsHTMLContent(nsIFrame* aFrame);
+
   // button:
-  bool IsDefaultButton(nsIFrame* aFrame) {
+  bool IsDefaultButton(nsIFrame* aFrame)
+  {
     return CheckBooleanAttr(aFrame, nsGkAtoms::_default);
   }
 
   bool IsButtonTypeMenu(nsIFrame* aFrame);
 
   // checkbox:
-  bool IsChecked(nsIFrame* aFrame) {
+  bool IsChecked(nsIFrame* aFrame)
+  {
     return GetCheckedOrSelected(aFrame, false);
   }
 
   // radiobutton:
-  bool IsSelected(nsIFrame* aFrame) {
+  bool IsSelected(nsIFrame* aFrame)
+  {
     return GetCheckedOrSelected(aFrame, true);
   }
 
-  bool IsFocused(nsIFrame* aFrame) {
+  bool IsFocused(nsIFrame* aFrame)
+  {
     return CheckBooleanAttr(aFrame, nsGkAtoms::focused);
   }
 
@@ -94,39 +101,49 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   int32_t GetScrollbarButtonType(nsIFrame* aFrame);
 
   // tab:
-  bool IsSelectedTab(nsIFrame* aFrame) {
+  bool IsSelectedTab(nsIFrame* aFrame)
+  {
     return CheckBooleanAttr(aFrame, nsGkAtoms::visuallyselected);
   }
-  
+
   bool IsNextToSelectedTab(nsIFrame* aFrame, int32_t aOffset);
-  
-  bool IsBeforeSelectedTab(nsIFrame* aFrame) {
+
+  bool IsBeforeSelectedTab(nsIFrame* aFrame)
+  {
     return IsNextToSelectedTab(aFrame, -1);
   }
-  
-  bool IsAfterSelectedTab(nsIFrame* aFrame) {
+
+  bool IsAfterSelectedTab(nsIFrame* aFrame)
+  {
     return IsNextToSelectedTab(aFrame, 1);
   }
 
-  bool IsLeftToSelectedTab(nsIFrame* aFrame) {
-    return IsFrameRTL(aFrame) ? IsAfterSelectedTab(aFrame) : IsBeforeSelectedTab(aFrame);
+  bool IsLeftToSelectedTab(nsIFrame* aFrame)
+  {
+    return IsFrameRTL(aFrame) ? IsAfterSelectedTab(aFrame)
+                              : IsBeforeSelectedTab(aFrame);
   }
 
-  bool IsRightToSelectedTab(nsIFrame* aFrame) {
-    return IsFrameRTL(aFrame) ? IsBeforeSelectedTab(aFrame) : IsAfterSelectedTab(aFrame);
+  bool IsRightToSelectedTab(nsIFrame* aFrame)
+  {
+    return IsFrameRTL(aFrame) ? IsBeforeSelectedTab(aFrame)
+                              : IsAfterSelectedTab(aFrame);
   }
 
   // button / toolbarbutton:
-  bool IsCheckedButton(nsIFrame* aFrame) {
+  bool IsCheckedButton(nsIFrame* aFrame)
+  {
     return CheckBooleanAttr(aFrame, nsGkAtoms::checked);
   }
 
-  bool IsSelectedButton(nsIFrame* aFrame) {
+  bool IsSelectedButton(nsIFrame* aFrame)
+  {
     return CheckBooleanAttr(aFrame, nsGkAtoms::checked) ||
            CheckBooleanAttr(aFrame, nsGkAtoms::selected);
   }
 
-  bool IsOpenButton(nsIFrame* aFrame) {
+  bool IsOpenButton(nsIFrame* aFrame)
+  {
     return CheckBooleanAttr(aFrame, nsGkAtoms::open);
   }
 
@@ -139,7 +156,7 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   // tab:
   bool IsBottomTab(nsIFrame* aFrame);
   bool IsFirstTab(nsIFrame* aFrame);
-  
+
   bool IsHorizontal(nsIFrame* aFrame);
 
   // progressbar:
@@ -151,21 +168,24 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   bool IsVerticalMeter(nsIFrame* aFrame);
 
   // textfield:
-  bool IsReadOnly(nsIFrame* aFrame) {
-      return CheckBooleanAttr(aFrame, nsGkAtoms::readonly);
+  bool IsReadOnly(nsIFrame* aFrame)
+  {
+    return CheckBooleanAttr(aFrame, nsGkAtoms::readonly);
   }
 
   // menupopup:
   bool IsSubmenu(nsIFrame* aFrame, bool* aLeftOfParent);
 
   // True if it's not a menubar item or menulist item
-  bool IsRegularMenuItem(nsIFrame *aFrame);
+  bool IsRegularMenuItem(nsIFrame* aFrame);
 
-  bool IsMenuListEditable(nsIFrame *aFrame);
+  bool IsMenuListEditable(nsIFrame* aFrame);
 
-  nsIPresShell *GetPresShell(nsIFrame* aFrame);
+  nsIPresShell* GetPresShell(nsIFrame* aFrame);
   static bool CheckBooleanAttr(nsIFrame* aFrame, nsAtom* aAtom);
-  static int32_t CheckIntAttr(nsIFrame* aFrame, nsAtom* aAtom, int32_t defaultValue);
+  static int32_t CheckIntAttr(nsIFrame* aFrame,
+                              nsAtom* aAtom,
+                              int32_t defaultValue);
 
   // Helpers for progressbar.
   static double GetProgressValue(nsIFrame* aFrame);
@@ -175,7 +195,7 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   bool GetIndeterminate(nsIFrame* aFrame);
 
   bool QueueAnimatedContentForRefresh(nsIContent* aContent,
-                                        uint32_t aMinimumFrameRate);
+                                      uint32_t aMinimumFrameRate);
 
   nsIFrame* GetAdjacentSiblingFrameWithSameAppearance(nsIFrame* aFrame,
                                                       bool aNextSibling);
@@ -191,4 +211,4 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed
   AutoTArray<nsCOMPtr<nsIContent>, 20> mAnimatedContentList;
 };
 
-#endif // _NSNATIVETHEME_H_
+#endif  // _NSNATIVETHEME_H_

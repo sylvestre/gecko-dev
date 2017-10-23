@@ -24,7 +24,7 @@ class RangeUpdater;
  */
 class DeleteTextTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * Initialize the transaction.
    * @param aEditorBase         The provider of basic editing operations.
@@ -55,7 +55,7 @@ public:
 
   uint32_t GetNumCharsToDelete() { return mNumCharsToDelete; }
 
-protected:
+ protected:
   // The provider of basic editing operations.
   RefPtr<EditorBase> mEditorBase;
 
@@ -75,6 +75,6 @@ protected:
   RangeUpdater* mRangeUpdater;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef DeleteTextTransaction_h
+#endif  // #ifndef DeleteTextTransaction_h

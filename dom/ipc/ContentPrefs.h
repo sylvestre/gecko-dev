@@ -12,16 +12,17 @@
 namespace mozilla {
 namespace dom {
 
-class ContentPrefs {
-public:
+class ContentPrefs
+{
+ public:
   static const char** GetContentPrefs(size_t* aCount);
   static const char* GetContentPref(size_t aIndex);
 
-private:
+ private:
   static const char* gInitPrefs[];
 };
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

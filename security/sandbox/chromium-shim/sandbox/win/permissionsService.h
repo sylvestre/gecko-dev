@@ -20,13 +20,14 @@ namespace sandboxing {
  */
 class PermissionsService
 {
-public:
+ public:
   static PermissionsService* GetInstance();
 
   /*
    * Allow future access to aFilename by the plugin process.
    */
-  virtual void GrantFileAccess(uint32_t aProcessId, const wchar_t* aFilename,
+  virtual void GrantFileAccess(uint32_t aProcessId,
+                               const wchar_t* aFilename,
                                bool aPermitWrite);
 
   /*
@@ -48,15 +49,17 @@ public:
    * requested permission to open the file.
    * Calls aFavFunc with file info if the file access was blocked.
    */
-  virtual bool UserGrantedFileAccess(uint32_t aProcessId, const wchar_t* aFilename,
-                                     uint32_t aAccess, uint32_t aDisposition);
+  virtual bool UserGrantedFileAccess(uint32_t aProcessId,
+                                     const wchar_t* aFilename,
+                                     uint32_t aAccess,
+                                     uint32_t aDisposition);
 
   /*
    * Clears all special file access for the given plugin process.
    */
   virtual void RemovePermissionsForProcess(uint32_t aProcessId);
 
-private:
+ private:
   PermissionsService();
   void ReportBlockedFile(bool aNeedsWrite);
 
@@ -66,13 +69,14 @@ private:
 
   // Maps from process ID to map of user-granted file permissions for
   // that process.
-  typedef std::unordered_map<uint32_t, FilePermissionMap> ProcessFilePermissionMap;
+  typedef std::unordered_map<uint32_t, FilePermissionMap>
+      ProcessFilePermissionMap;
 
   ProcessFilePermissionMap mProcessFilePermissions;
   FileAccessViolationFunc mFileAccessViolationFunc;
 };
 
-} // namespace sandboxing
-} // namespace mozilla
+}  // namespace sandboxing
+}  // namespace mozilla
 
-#endif // mozilla_sandboxing_permissionsService_h
+#endif  // mozilla_sandboxing_permissionsService_h

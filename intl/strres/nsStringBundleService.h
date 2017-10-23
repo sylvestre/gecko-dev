@@ -24,7 +24,7 @@ class nsStringBundleService : public nsIStringBundleService,
                               public nsIObserver,
                               public nsSupportsWeakReference
 {
-public:
+ public:
   nsStringBundleService();
 
   nsresult Init();
@@ -33,18 +33,20 @@ public:
   NS_DECL_NSISTRINGBUNDLESERVICE
   NS_DECL_NSIOBSERVER
 
-private:
+ private:
   virtual ~nsStringBundleService();
 
-  void getStringBundle(const char *aUrl, nsIStringBundle** aResult);
-  nsresult FormatWithBundle(nsIStringBundle* bundle, nsresult aStatus,
-                            uint32_t argCount, char16_t** argArray,
+  void getStringBundle(const char* aUrl, nsIStringBundle** aResult);
+  nsresult FormatWithBundle(nsIStringBundle* bundle,
+                            nsresult aStatus,
+                            uint32_t argCount,
+                            char16_t** argArray,
                             nsAString& result);
 
   void flushBundleCache();
 
-  bundleCacheEntry_t *insertIntoCache(already_AddRefed<nsIStringBundle> aBundle,
-                                      nsCString &aHashKey);
+  bundleCacheEntry_t* insertIntoCache(already_AddRefed<nsIStringBundle> aBundle,
+                                      nsCString& aHashKey);
 
   nsDataHashtable<nsCStringHashKey, bundleCacheEntry_t*> mBundleMap;
   mozilla::LinkedList<bundleCacheEntry_t> mBundleCache;

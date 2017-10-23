@@ -24,23 +24,23 @@ class nsGlobalWindow;
 
 struct nsDOMClassInfoData;
 
-typedef nsIClassInfo* (*nsDOMClassInfoConstructorFnc)
-  (nsDOMClassInfoData* aData);
+typedef nsIClassInfo* (*nsDOMClassInfoConstructorFnc)(
+    nsDOMClassInfoData* aData);
 
 typedef nsresult (*nsDOMConstructorFunc)(nsISupports** aNewObject);
 
 struct nsDOMClassInfoData
 {
   // The ASCII name is available as mClass.name.
-  const char16_t *mNameUTF16;
+  const char16_t* mNameUTF16;
   const js::ClassOps mClassOps;
   const js::Class mClass;
   nsDOMClassInfoConstructorFnc mConstructorFptr;
 
-  nsIClassInfo *mCachedClassInfo;
-  const nsIID *mProtoChainInterface;
-  const nsIID **mInterfaces;
-  uint32_t mScriptableFlags : 31; // flags must not use more than 31 bits!
+  nsIClassInfo* mCachedClassInfo;
+  const nsIID* mProtoChainInterface;
+  const nsIID** mInterfaces;
+  uint32_t mScriptableFlags : 31;  // flags must not use more than 31 bits!
   uint32_t mHasClassInterface : 1;
   bool mChromeOnly : 1;
   bool mAllowXBL : 1;
@@ -56,10 +56,10 @@ class nsDOMClassInfo : public nsXPCClassInfo
 {
   friend class nsWindowSH;
 
-protected:
-  virtual ~nsDOMClassInfo() {};
+ protected:
+  virtual ~nsDOMClassInfo(){};
 
-public:
+ public:
   explicit nsDOMClassInfo(nsDOMClassInfoData* aData);
 
   NS_DECL_NSIXPCSCRIPTABLE
@@ -71,7 +71,7 @@ public:
   static nsresult Init();
   static void ShutDown();
 
-  static nsIClassInfo *doCreate(nsDOMClassInfoData* aData)
+  static nsIClassInfo* doCreate(nsDOMClassInfoData* aData)
   {
     return new nsDOMClassInfo(aData);
   }
@@ -92,25 +92,23 @@ public:
    */
   static bool ObjectIsNativeWrapper(JSContext* cx, JSObject* obj);
 
-protected:
+ protected:
   friend nsIClassInfo* NS_GetDOMClassInfoInstance(nsDOMClassInfoID aID);
 
   const nsDOMClassInfoData* mData;
 
-  virtual void PreserveWrapper(nsISupports *aNative) override
-  {
-  }
+  virtual void PreserveWrapper(nsISupports* aNative) override {}
 
   static nsresult RegisterClassProtos(int32_t aDOMClassInfoID);
 
-  static nsIXPConnect *sXPConnect;
+  static nsIXPConnect* sXPConnect;
 
   // nsIXPCScriptable code
   static nsresult DefineStaticJSVals();
 
   static bool sIsInitialized;
 
-public:
+ public:
   static jsid sConstructor_id;
   static jsid sWrappedJSObject_id;
 };
@@ -120,37 +118,39 @@ typedef nsDOMClassInfo nsDOMGenericSH;
 // Makes sure that the wrapper is preserved if new properties are added.
 class nsEventTargetSH : public nsDOMGenericSH
 {
-protected:
-  explicit nsEventTargetSH(nsDOMClassInfoData* aData) : nsDOMGenericSH(aData)
-  {
-  }
+ protected:
+  explicit nsEventTargetSH(nsDOMClassInfoData* aData) : nsDOMGenericSH(aData) {}
 
-  virtual ~nsEventTargetSH()
-  {
-  }
-public:
-  NS_IMETHOD PreCreate(nsISupports *nativeObj, JSContext *cx,
-                       JSObject *globalObj, JSObject **parentObj) override;
+  virtual ~nsEventTargetSH() {}
 
-  virtual void PreserveWrapper(nsISupports *aNative) override;
+ public:
+  NS_IMETHOD PreCreate(nsISupports* nativeObj,
+                       JSContext* cx,
+                       JSObject* globalObj,
+                       JSObject** parentObj) override;
+
+  virtual void PreserveWrapper(nsISupports* aNative) override;
 };
 
 // A place to hang some static methods that we should really consider
 // moving to be nsGlobalWindow member methods.  See bug 1062418.
 class nsWindowSH
 {
-protected:
-  static nsresult GlobalResolve(nsGlobalWindow *aWin, JSContext *cx,
-                                JS::Handle<JSObject*> obj, JS::Handle<jsid> id,
+ protected:
+  static nsresult GlobalResolve(nsGlobalWindow* aWin,
+                                JSContext* cx,
+                                JS::Handle<JSObject*> obj,
+                                JS::Handle<jsid> id,
                                 JS::MutableHandle<JS::PropertyDescriptor> desc);
 
   friend class nsGlobalWindow;
-public:
-  static bool NameStructEnabled(JSContext* aCx, nsGlobalWindow *aWin,
+
+ public:
+  static bool NameStructEnabled(JSContext* aCx,
+                                nsGlobalWindow* aWin,
                                 const nsAString& aName,
                                 const nsGlobalNameStruct& aNameStruct);
 };
-
 
 // Event handler 'this' translator class, this is called by XPConnect
 // when a "function interface" (nsIDOMEventListener) is called, this
@@ -161,14 +161,10 @@ public:
 
 class nsEventListenerThisTranslator : public nsIXPCFunctionThisTranslator
 {
-  virtual ~nsEventListenerThisTranslator()
-  {
-  }
+  virtual ~nsEventListenerThisTranslator() {}
 
-public:
-  nsEventListenerThisTranslator()
-  {
-  }
+ public:
+  nsEventListenerThisTranslator() {}
 
   // nsISupports
   NS_DECL_ISUPPORTS
@@ -179,32 +175,46 @@ public:
 
 class nsDOMConstructorSH : public nsDOMGenericSH
 {
-protected:
+ protected:
   explicit nsDOMConstructorSH(nsDOMClassInfoData* aData) : nsDOMGenericSH(aData)
   {
   }
 
-public:
-  NS_IMETHOD PreCreate(nsISupports *nativeObj, JSContext *cx,
-                       JSObject *globalObj, JSObject **parentObj) override;
-  NS_IMETHOD PostCreatePrototype(JSContext * cx, JSObject * proto) override
+ public:
+  NS_IMETHOD PreCreate(nsISupports* nativeObj,
+                       JSContext* cx,
+                       JSObject* globalObj,
+                       JSObject** parentObj) override;
+  NS_IMETHOD PostCreatePrototype(JSContext* cx, JSObject* proto) override
   {
     return NS_OK;
   }
-  NS_IMETHOD Resolve(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                     JSObject *obj, jsid id, bool *resolvedp,
-                     bool *_retval) override;
-  NS_IMETHOD Call(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                  JSObject *obj, const JS::CallArgs &args, bool *_retval) override;
+  NS_IMETHOD Resolve(nsIXPConnectWrappedNative* wrapper,
+                     JSContext* cx,
+                     JSObject* obj,
+                     jsid id,
+                     bool* resolvedp,
+                     bool* _retval) override;
+  NS_IMETHOD Call(nsIXPConnectWrappedNative* wrapper,
+                  JSContext* cx,
+                  JSObject* obj,
+                  const JS::CallArgs& args,
+                  bool* _retval) override;
 
-  NS_IMETHOD Construct(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                       JSObject *obj, const JS::CallArgs &args, bool *_retval) override;
+  NS_IMETHOD Construct(nsIXPConnectWrappedNative* wrapper,
+                       JSContext* cx,
+                       JSObject* obj,
+                       const JS::CallArgs& args,
+                       bool* _retval) override;
 
-  NS_IMETHOD HasInstance(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
-                         JSObject *obj, JS::Handle<JS::Value> val, bool *bp,
-                         bool *_retval) override;
+  NS_IMETHOD HasInstance(nsIXPConnectWrappedNative* wrapper,
+                         JSContext* cx,
+                         JSObject* obj,
+                         JS::Handle<JS::Value> val,
+                         bool* bp,
+                         bool* _retval) override;
 
-  static nsIClassInfo *doCreate(nsDOMClassInfoData* aData)
+  static nsIClassInfo* doCreate(nsDOMClassInfoData* aData)
   {
     return new nsDOMConstructorSH(aData);
   }
@@ -213,23 +223,24 @@ public:
 template<typename Super>
 class nsMessageManagerSH : public Super
 {
-protected:
-  explicit nsMessageManagerSH(nsDOMClassInfoData* aData)
-    : Super(aData)
-  {
-  }
+ protected:
+  explicit nsMessageManagerSH(nsDOMClassInfoData* aData) : Super(aData) {}
 
-  virtual ~nsMessageManagerSH()
-  {
-  }
-public:
-  NS_IMETHOD Resolve(nsIXPConnectWrappedNative* wrapper, JSContext* cx,
-                     JSObject* obj_, jsid id_, bool* resolvedp,
+  virtual ~nsMessageManagerSH() {}
+
+ public:
+  NS_IMETHOD Resolve(nsIXPConnectWrappedNative* wrapper,
+                     JSContext* cx,
+                     JSObject* obj_,
+                     jsid id_,
+                     bool* resolvedp,
                      bool* _retval) override;
-  NS_IMETHOD Enumerate(nsIXPConnectWrappedNative* wrapper, JSContext* cx,
-                       JSObject* obj_, bool* _retval) override;
+  NS_IMETHOD Enumerate(nsIXPConnectWrappedNative* wrapper,
+                       JSContext* cx,
+                       JSObject* obj_,
+                       bool* _retval) override;
 
-  static nsIClassInfo *doCreate(nsDOMClassInfoData* aData)
+  static nsIClassInfo* doCreate(nsDOMClassInfoData* aData)
   {
     return new nsMessageManagerSH(aData);
   }

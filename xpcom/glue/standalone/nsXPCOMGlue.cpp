@@ -40,23 +40,20 @@ static LibHandleType
 GetLibHandle(pathstr_t aDependentLib)
 {
   LibHandleType libHandle =
-    LoadLibraryExW(aDependentLib, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+      LoadLibraryExW(aDependentLib, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
 
 #ifdef DEBUG
   if (!libHandle) {
     DWORD err = GetLastError();
     LPWSTR lpMsgBuf;
-    FormatMessageW(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER |
-      FORMAT_MESSAGE_FROM_SYSTEM |
-      FORMAT_MESSAGE_IGNORE_INSERTS,
-      nullptr,
-      err,
-      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      (LPWSTR)&lpMsgBuf,
-      0,
-      nullptr
-    );
+    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                       FORMAT_MESSAGE_IGNORE_INSERTS,
+                   nullptr,
+                   err,
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   (LPWSTR)&lpMsgBuf,
+                   0,
+                   nullptr);
     wprintf(L"Error loading %ls: %s\n", aDependentLib, lpMsgBuf);
     LocalFree(lpMsgBuf);
   }
@@ -100,11 +97,13 @@ GetLibHandle(pathstr_t aDependentLib)
   LibHandleType libHandle = dlopen(aDependentLib,
                                    RTLD_GLOBAL | RTLD_LAZY
 #ifdef XP_MACOSX
-                                   | RTLD_FIRST
+                                       | RTLD_FIRST
 #endif
-                                   );
+  );
   if (!libHandle) {
-    fprintf(stderr, "XPCOMGlueLoad error for file %s:\n%s\n", aDependentLib,
+    fprintf(stderr,
+            "XPCOMGlueLoad error for file %s:\n%s\n",
+            aDependentLib,
             dlerror());
   }
   return libHandle;
@@ -167,7 +166,8 @@ static bool
 ReadDependentCB(const char* aDependentLib)
 {
   wchar_t wideDependentLib[MAX_PATH];
-  MultiByteToWideChar(CP_UTF8, 0, aDependentLib, -1, wideDependentLib, MAX_PATH);
+  MultiByteToWideChar(
+      CP_UTF8, 0, aDependentLib, -1, wideDependentLib, MAX_PATH);
   return ReadDependentCB(wideDependentLib);
 }
 
@@ -251,7 +251,7 @@ XPCOMGlueLoad(const char* aXPCOMFile)
   // However, the actual libraries listed in dependentlibs.list live under
   // Contents/MacOS. We want to read the list from Contents/Resources, then
   // load the libraries from Contents/MacOS.
-  const char *tempSlash = strrchr(aXPCOMFile, '/');
+  const char* tempSlash = strrchr(aXPCOMFile, '/');
   size_t tempLen = size_t(tempSlash - aXPCOMFile);
   if (tempLen > MAXPATHLEN) {
     return NS_ERROR_FAILURE;
@@ -259,9 +259,9 @@ XPCOMGlueLoad(const char* aXPCOMFile)
   char tempBuffer[MAXPATHLEN];
   memcpy(tempBuffer, aXPCOMFile, tempLen);
   tempBuffer[tempLen] = '\0';
-  const char *slash = strrchr(tempBuffer, '/');
+  const char* slash = strrchr(tempBuffer, '/');
   tempLen = size_t(slash - tempBuffer);
-  const char *lastSlash = aXPCOMFile + tempLen;
+  const char* lastSlash = aXPCOMFile + tempLen;
 #else
   const char* lastSlash = strrchr(aXPCOMFile, '/');
 #endif
@@ -271,19 +271,18 @@ XPCOMGlueLoad(const char* aXPCOMFile)
 
     if (len > MAXPATHLEN - sizeof(XPCOM_FILE_PATH_SEPARATOR
 #ifdef XP_MACOSX
-                                  "Resources"
-                                  XPCOM_FILE_PATH_SEPARATOR
+                                  "Resources" XPCOM_FILE_PATH_SEPARATOR
 #endif
-                                  XPCOM_DEPENDENT_LIBS_LIST)) {
+                                      XPCOM_DEPENDENT_LIBS_LIST)) {
       return NS_ERROR_FAILURE;
     }
     memcpy(xpcomDir, aXPCOMFile, len);
-    strcpy(xpcomDir + len, XPCOM_FILE_PATH_SEPARATOR
+    strcpy(xpcomDir + len,
+           XPCOM_FILE_PATH_SEPARATOR
 #ifdef XP_MACOSX
-                           "Resources"
-                           XPCOM_FILE_PATH_SEPARATOR
+           "Resources" XPCOM_FILE_PATH_SEPARATOR
 #endif
-                           XPCOM_DEPENDENT_LIBS_LIST);
+               XPCOM_DEPENDENT_LIBS_LIST);
     cursor = xpcomDir + len + 1;
   } else {
     strcpy(xpcomDir, XPCOM_DEPENDENT_LIBS_LIST);
@@ -339,16 +338,19 @@ XPCOMGlueLoad(const char* aXPCOMFile)
   return NS_OK;
 }
 
-#if defined(MOZ_WIDGET_GTK) && (defined(MOZ_MEMORY) || defined(__FreeBSD__) || defined(__NetBSD__))
+#if defined(MOZ_WIDGET_GTK) && \
+    (defined(MOZ_MEMORY) || defined(__FreeBSD__) || defined(__NetBSD__))
 #define MOZ_GSLICE_INIT
 #endif
 
 #ifdef MOZ_GSLICE_INIT
 #include <glib.h>
 
-class GSliceInit {
-public:
-  GSliceInit() {
+class GSliceInit
+{
+ public:
+  GSliceInit()
+  {
     mHadGSlice = bool(getenv("G_SLICE"));
     if (!mHadGSlice) {
       // Disable the slice allocator, since jemalloc already uses similar layout
@@ -362,11 +364,12 @@ public:
     }
   }
 
-  ~GSliceInit() {
+  ~GSliceInit()
+  {
 #if MOZ_WIDGET_GTK == 2
     if (sTop) {
-      auto XRE_GlibInit = (void (*)(void)) GetSymbol(sTop->libHandle,
-        "XRE_GlibInit");
+      auto XRE_GlibInit =
+          (void (*)(void))GetSymbol(sTop->libHandle, "XRE_GlibInit");
       // Initialize glib enough for G_SLICE to have an effect before it is unset.
       // unset.
       XRE_GlibInit();
@@ -377,7 +380,7 @@ public:
     }
   }
 
-private:
+ private:
   bool mHadGSlice;
 };
 #endif
@@ -395,13 +398,15 @@ GetBootstrap(const char* aXPCOMFile)
     return nullptr;
   }
 
-  char *lastSlash = strrchr(const_cast<char *>(aXPCOMFile), XPCOM_FILE_PATH_SEPARATOR[0]);
+  char* lastSlash =
+      strrchr(const_cast<char*>(aXPCOMFile), XPCOM_FILE_PATH_SEPARATOR[0]);
   if (!lastSlash) {
     return nullptr;
   }
   size_t base_len = size_t(lastSlash - aXPCOMFile) + 1;
 
-  UniqueFreePtr<char> file(reinterpret_cast<char*>(malloc(base_len + sizeof(XPCOM_DLL))));
+  UniqueFreePtr<char> file(
+      reinterpret_cast<char*>(malloc(base_len + sizeof(XPCOM_DLL))));
   memcpy(file.get(), aXPCOMFile, base_len);
   memcpy(file.get() + base_len, XPCOM_DLL, sizeof(XPCOM_DLL));
 
@@ -409,7 +414,8 @@ GetBootstrap(const char* aXPCOMFile)
     return nullptr;
   }
 
-  GetBootstrapType func = (GetBootstrapType)GetSymbol(sTop->libHandle, "XRE_GetBootstrap");
+  GetBootstrapType func =
+      (GetBootstrapType)GetSymbol(sTop->libHandle, "XRE_GetBootstrap");
   if (!func) {
     return nullptr;
   }
@@ -420,4 +426,4 @@ GetBootstrap(const char* aXPCOMFile)
   return b;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

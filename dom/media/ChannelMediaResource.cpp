@@ -19,8 +19,10 @@ static const uint32_t HTTP_REQUESTED_RANGE_NOT_SATISFIABLE_CODE = 416;
 
 mozilla::LazyLogModule gMediaResourceLog("MediaResource");
 // Debug logging macro with object pointer and class name.
-#define LOG(msg, ...) MOZ_LOG(gMediaResourceLog, mozilla::LogLevel::Debug, \
-  ("%p " msg, this, ##__VA_ARGS__))
+#define LOG(msg, ...)               \
+  MOZ_LOG(gMediaResourceLog,        \
+          mozilla::LogLevel::Debug, \
+          ("%p " msg, this, ##__VA_ARGS__))
 
 namespace mozilla {
 
@@ -28,23 +30,23 @@ ChannelMediaResource::ChannelMediaResource(MediaResourceCallback* aCallback,
                                            nsIChannel* aChannel,
                                            nsIURI* aURI,
                                            bool aIsPrivateBrowsing)
-  : BaseMediaResource(aCallback, aChannel, aURI)
-  , mReopenOnError(false)
-  , mCacheStream(this, aIsPrivateBrowsing)
-  , mSuspendAgent(mChannel)
+    : BaseMediaResource(aCallback, aChannel, aURI),
+      mReopenOnError(false),
+      mCacheStream(this, aIsPrivateBrowsing),
+      mSuspendAgent(mChannel)
 {
 }
 
 ChannelMediaResource::ChannelMediaResource(
-  MediaResourceCallback* aCallback,
-  nsIChannel* aChannel,
-  nsIURI* aURI,
-  const MediaChannelStatistics& aStatistics)
-  : BaseMediaResource(aCallback, aChannel, aURI)
-  , mReopenOnError(false)
-  , mCacheStream(this, /* aIsPrivateBrowsing = */ false)
-  , mChannelStatistics(aStatistics)
-  , mSuspendAgent(mChannel)
+    MediaResourceCallback* aCallback,
+    nsIChannel* aChannel,
+    nsIURI* aURI,
+    const MediaChannelStatistics& aStatistics)
+    : BaseMediaResource(aCallback, aChannel, aURI),
+      mReopenOnError(false),
+      mCacheStream(this, /* aIsPrivateBrowsing = */ false),
+      mChannelStatistics(aStatistics),
+      mSuspendAgent(mChannel)
 {
 }
 
@@ -72,8 +74,7 @@ ChannelMediaResource::Listener::OnStartRequest(nsIRequest* aRequest,
                                                nsISupports* aContext)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  if (!mResource)
-    return NS_OK;
+  if (!mResource) return NS_OK;
   return mResource->OnStartRequest(aRequest, mOffset);
 }
 
@@ -83,8 +84,7 @@ ChannelMediaResource::Listener::OnStopRequest(nsIRequest* aRequest,
                                               nsresult aStatus)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  if (!mResource)
-    return NS_OK;
+  if (!mResource) return NS_OK;
   return mResource->OnStopRequest(aRequest, aStatus);
 }
 
@@ -108,10 +108,10 @@ ChannelMediaResource::Listener::OnDataAvailable(nsIRequest* aRequest,
 
 nsresult
 ChannelMediaResource::Listener::AsyncOnChannelRedirect(
-  nsIChannel* aOld,
-  nsIChannel* aNew,
-  uint32_t aFlags,
-  nsIAsyncVerifyRedirectCallback* cb)
+    nsIChannel* aOld,
+    nsIChannel* aNew,
+    uint32_t aFlags,
+    nsIAsyncVerifyRedirectCallback* cb)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -152,7 +152,8 @@ static bool
 IsPayloadCompressed(nsIHttpChannel* aChannel)
 {
   nsAutoCString encoding;
-  Unused << aChannel->GetResponseHeader(NS_LITERAL_CSTRING("Content-Encoding"), encoding);
+  Unused << aChannel->GetResponseHeader(NS_LITERAL_CSTRING("Content-Encoding"),
+                                        encoding);
   return encoding.Length() > 0;
 }
 
@@ -320,7 +321,7 @@ ChannelMediaResource::IsTransportSeekable()
 }
 
 nsresult
-ChannelMediaResource::ParseContentRangeHeader(nsIHttpChannel * aHttpChan,
+ChannelMediaResource::ParseContentRangeHeader(nsIHttpChannel* aHttpChan,
                                               int64_t& aRangeStart,
                                               int64_t& aRangeEnd,
                                               int64_t& aRangeTotal)
@@ -328,8 +329,8 @@ ChannelMediaResource::ParseContentRangeHeader(nsIHttpChannel * aHttpChan,
   NS_ENSURE_ARG(aHttpChan);
 
   nsAutoCString rangeStr;
-  nsresult rv = aHttpChan->GetResponseHeader(NS_LITERAL_CSTRING("Content-Range"),
-                                             rangeStr);
+  nsresult rv = aHttpChan->GetResponseHeader(
+      NS_LITERAL_CSTRING("Content-Range"), rangeStr);
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_FALSE(rangeStr.IsEmpty(), NS_ERROR_ILLEGAL_VALUE);
 
@@ -339,19 +340,19 @@ ChannelMediaResource::ParseContentRangeHeader(nsIHttpChannel * aHttpChan,
   int32_t slashPos = rangeStr.Find(NS_LITERAL_CSTRING("/"), true, dashPos);
 
   nsAutoCString aRangeStartText;
-  rangeStr.Mid(aRangeStartText, spacePos+1, dashPos-(spacePos+1));
+  rangeStr.Mid(aRangeStartText, spacePos + 1, dashPos - (spacePos + 1));
   aRangeStart = aRangeStartText.ToInteger64(&rv);
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(0 <= aRangeStart, NS_ERROR_ILLEGAL_VALUE);
 
   nsAutoCString aRangeEndText;
-  rangeStr.Mid(aRangeEndText, dashPos+1, slashPos-(dashPos+1));
+  rangeStr.Mid(aRangeEndText, dashPos + 1, slashPos - (dashPos + 1));
   aRangeEnd = aRangeEndText.ToInteger64(&rv);
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(aRangeStart < aRangeEnd, NS_ERROR_ILLEGAL_VALUE);
 
   nsAutoCString aRangeTotalText;
-  rangeStr.Right(aRangeTotalText, rangeStr.Length()-(slashPos+1));
+  rangeStr.Right(aRangeTotalText, rangeStr.Length() - (slashPos + 1));
   if (aRangeTotalText[0] == '*') {
     aRangeTotal = -1;
   } else {
@@ -360,8 +361,12 @@ ChannelMediaResource::ParseContentRangeHeader(nsIHttpChannel * aHttpChan,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  LOG("Received bytes [%" PRId64 "] to [%" PRId64 "] of [%" PRId64 "] for decoder[%p]",
-      aRangeStart, aRangeEnd, aRangeTotal, mCallback.get());
+  LOG("Received bytes [%" PRId64 "] to [%" PRId64 "] of [%" PRId64
+      "] for decoder[%p]",
+      aRangeStart,
+      aRangeEnd,
+      aRangeTotal,
+      mCallback.get());
 
   return NS_OK;
 }
@@ -435,7 +440,7 @@ ChannelMediaResource::CopySegmentToCache(nsIInputStream* aInStream,
 {
   Closure* closure = static_cast<Closure*>(aClosure);
   closure->mResource->mCacheStream.NotifyDataReceived(
-    closure->mLoadID, aCount, aFromSegment);
+      closure->mLoadID, aCount, aFromSegment);
   *aWriteCount = aCount;
   return NS_OK;
 }
@@ -449,23 +454,22 @@ ChannelMediaResource::OnDataAvailable(uint32_t aLoadID,
 
   RefPtr<ChannelMediaResource> self = this;
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-    "ChannelMediaResource::OnDataAvailable", [self, aCount, aLoadID]() {
-      if (aLoadID != self->mLoadID) {
-        // Ignore data from the old channel.
-        return;
-      }
-      self->mChannelStatistics.AddBytes(aCount);
-    });
+      "ChannelMediaResource::OnDataAvailable", [self, aCount, aLoadID]() {
+        if (aLoadID != self->mLoadID) {
+          // Ignore data from the old channel.
+          return;
+        }
+        self->mChannelStatistics.AddBytes(aCount);
+      });
   mCallback->AbstractMainThread()->Dispatch(r.forget());
 
-  Closure closure{ aLoadID, this };
+  Closure closure{aLoadID, this};
   uint32_t count = aCount;
   while (count > 0) {
     uint32_t read;
     nsresult rv =
-      aStream->ReadSegments(CopySegmentToCache, &closure, count, &read);
-    if (NS_FAILED(rv))
-      return rv;
+        aStream->ReadSegments(CopySegmentToCache, &closure, count, &read);
+    if (NS_FAILED(rv)) return rv;
     NS_ASSERTION(read > 0, "Read 0 bytes while data was available?");
     count -= read;
   }
@@ -539,7 +543,8 @@ ChannelMediaResource::SetupChannelHeaders(int64_t aOffset)
     nsAutoCString rangeString("bytes=");
     rangeString.AppendInt(aOffset);
     rangeString.Append('-');
-    nsresult rv = hc->SetRequestHeader(NS_LITERAL_CSTRING("Range"), rangeString, false);
+    nsresult rv =
+        hc->SetRequestHeader(NS_LITERAL_CSTRING("Range"), rangeString, false);
     NS_ENSURE_SUCCESS(rv, rv);
 
     // Send Accept header for video and audio types only (Bug 489071)
@@ -556,7 +561,8 @@ ChannelMediaResource::SetupChannelHeaders(int64_t aOffset)
   return NS_OK;
 }
 
-nsresult ChannelMediaResource::Close()
+nsresult
+ChannelMediaResource::Close()
 {
   NS_ASSERTION(NS_IsMainThread(), "Only call on main thread");
 
@@ -574,7 +580,8 @@ ChannelMediaResource::GetCurrentPrincipal()
   return principal.forget();
 }
 
-bool ChannelMediaResource::CanClone()
+bool
+ChannelMediaResource::CanClone()
 {
   return mCacheStream.IsAvailableForSharing();
 }
@@ -586,7 +593,7 @@ ChannelMediaResource::CloneData(MediaResourceCallback* aCallback)
   NS_ASSERTION(mCacheStream.IsAvailableForSharing(), "Stream can't be cloned");
 
   RefPtr<ChannelMediaResource> resource =
-    new ChannelMediaResource(aCallback, nullptr, mURI, mChannelStatistics);
+      new ChannelMediaResource(aCallback, nullptr, mURI, mChannelStatistics);
 
   // Initially the clone is treated as suspended by the cache, because
   // we don't have a channel. If the cache needs to read data from the clone
@@ -601,7 +608,8 @@ ChannelMediaResource::CloneData(MediaResourceCallback* aCallback)
   return resource.forget();
 }
 
-void ChannelMediaResource::CloseChannel()
+void
+ChannelMediaResource::CloseChannel()
 {
   NS_ASSERTION(NS_IsMainThread(), "Only call on main thread");
 
@@ -626,17 +634,19 @@ void ChannelMediaResource::CloseChannel()
   }
 }
 
-nsresult ChannelMediaResource::ReadFromCache(char* aBuffer,
-                                             int64_t aOffset,
-                                             uint32_t aCount)
+nsresult
+ChannelMediaResource::ReadFromCache(char* aBuffer,
+                                    int64_t aOffset,
+                                    uint32_t aCount)
 {
   return mCacheStream.ReadFromCache(aBuffer, aOffset, aCount);
 }
 
-nsresult ChannelMediaResource::ReadAt(int64_t aOffset,
-                                      char* aBuffer,
-                                      uint32_t aCount,
-                                      uint32_t* aBytes)
+nsresult
+ChannelMediaResource::ReadAt(int64_t aOffset,
+                             char* aBuffer,
+                             uint32_t aCount,
+                             uint32_t* aBytes)
 {
   NS_ASSERTION(!NS_IsMainThread(), "Don't call on main thread");
 
@@ -653,17 +663,20 @@ ChannelMediaResource::ThrottleReadahead(bool bThrottle)
   mCacheStream.ThrottleReadahead(bThrottle);
 }
 
-int64_t ChannelMediaResource::Tell()
+int64_t
+ChannelMediaResource::Tell()
 {
   return mCacheStream.Tell();
 }
 
-nsresult ChannelMediaResource::GetCachedRanges(MediaByteRangeSet& aRanges)
+nsresult
+ChannelMediaResource::GetCachedRanges(MediaByteRangeSet& aRanges)
 {
   return mCacheStream.GetCachedRanges(aRanges);
 }
 
-void ChannelMediaResource::Suspend(bool aCloseImmediately)
+void
+ChannelMediaResource::Suspend(bool aCloseImmediately)
 {
   NS_ASSERTION(NS_IsMainThread(), "Don't call on non-main thread");
 
@@ -691,7 +704,8 @@ void ChannelMediaResource::Suspend(bool aCloseImmediately)
   }
 }
 
-void ChannelMediaResource::Resume()
+void
+ChannelMediaResource::Resume()
 {
   NS_ASSERTION(NS_IsMainThread(), "Don't call on non-main thread");
 
@@ -737,10 +751,9 @@ void ChannelMediaResource::Resume()
 nsresult
 ChannelMediaResource::RecreateChannel()
 {
-  nsLoadFlags loadFlags =
-    nsICachingChannel::LOAD_BYPASS_LOCAL_CACHE_IF_BUSY |
-    nsIChannel::LOAD_CLASSIFY_URI |
-    (mLoadInBackground ? nsIRequest::LOAD_BACKGROUND : 0);
+  nsLoadFlags loadFlags = nsICachingChannel::LOAD_BYPASS_LOCAL_CACHE_IF_BUSY |
+                          nsIChannel::LOAD_CLASSIFY_URI |
+                          (mLoadInBackground ? nsIRequest::LOAD_BACKGROUND : 0);
 
   MediaDecoderOwner* owner = mCallback->GetMediaOwner();
   if (!owner) {
@@ -755,13 +768,16 @@ ChannelMediaResource::RecreateChannel()
   nsCOMPtr<nsILoadGroup> loadGroup = element->GetDocumentLoadGroup();
   NS_ENSURE_TRUE(loadGroup, NS_ERROR_NULL_POINTER);
 
-  nsSecurityFlags securityFlags = element->ShouldCheckAllowOrigin()
-                                  ? nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS
-                                  : nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_INHERITS;
+  nsSecurityFlags securityFlags =
+      element->ShouldCheckAllowOrigin()
+          ? nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS
+          : nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_INHERITS;
 
   MOZ_ASSERT(element->IsAnyOfHTMLElements(nsGkAtoms::audio, nsGkAtoms::video));
-  nsContentPolicyType contentPolicyType = element->IsHTMLElement(nsGkAtoms::audio) ?
-    nsIContentPolicy::TYPE_INTERNAL_AUDIO : nsIContentPolicy::TYPE_INTERNAL_VIDEO;
+  nsContentPolicyType contentPolicyType =
+      element->IsHTMLElement(nsGkAtoms::audio)
+          ? nsIContentPolicy::TYPE_INTERNAL_AUDIO
+          : nsIContentPolicy::TYPE_INTERNAL_VIDEO;
 
   // If element has 'loadingprincipal' attribute, we will use the value as
   // loadingPrincipal for the channel, otherwise it will default to use
@@ -770,9 +786,8 @@ ChannelMediaResource::RecreateChannel()
   // setAttrs is true we will override the origin attributes on the channel
   // later.
   nsCOMPtr<nsIPrincipal> loadingPrincipal;
-  bool setAttrs =
-    nsContentUtils::GetLoadingPrincipalForXULNode(element,
-                                                  getter_AddRefs(loadingPrincipal));
+  bool setAttrs = nsContentUtils::GetLoadingPrincipalForXULNode(
+      element, getter_AddRefs(loadingPrincipal));
 
   nsresult rv = NS_NewChannelWithTriggeringPrincipal(getter_AddRefs(mChannel),
                                                      mURI,
@@ -789,8 +804,9 @@ ChannelMediaResource::RecreateChannel()
     nsCOMPtr<nsILoadInfo> loadInfo = mChannel->GetLoadInfo();
     if (loadInfo) {
       // The function simply returns NS_OK, so we ignore the return value.
-      Unused << loadInfo->SetOriginAttributes(loadingPrincipal->OriginAttributesRef());
-   }
+      Unused << loadInfo->SetOriginAttributes(
+          loadingPrincipal->OriginAttributesRef());
+    }
   }
 
   nsCOMPtr<nsIClassOfService> cos(do_QueryInterface(mChannel));
@@ -812,10 +828,10 @@ void
 ChannelMediaResource::CacheClientNotifyDataReceived()
 {
   SystemGroup::Dispatch(
-    TaskCategory::Other,
-    NewRunnableMethod("MediaResourceCallback::NotifyDataArrived",
-                      mCallback.get(),
-                      &MediaResourceCallback::NotifyDataArrived));
+      TaskCategory::Other,
+      NewRunnableMethod("MediaResourceCallback::NotifyDataArrived",
+                        mCallback.get(),
+                        &MediaResourceCallback::NotifyDataArrived));
 }
 
 void
@@ -859,7 +875,8 @@ ChannelMediaResource::CacheClientSeek(int64_t aOffset, bool aResume)
   NS_ASSERTION(NS_IsMainThread(), "Don't call on non-main thread");
 
   LOG("CacheClientSeek requested for aOffset [%" PRId64 "] for decoder [%p]",
-      aOffset, mCallback.get());
+      aOffset,
+      mCallback.get());
 
   CloseChannel();
 
@@ -1045,5 +1062,4 @@ ChannelSuspendAgent::IsSuspended()
   return (mSuspendCount > 0);
 }
 
-
-} // mozilla namespace
+}  // namespace mozilla

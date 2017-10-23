@@ -18,7 +18,7 @@ enum FileHandleStorage
   FILE_HANDLE_STORAGE_MAX
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FileHandleStorage_h
+#endif  // mozilla_dom_FileHandleStorage_h

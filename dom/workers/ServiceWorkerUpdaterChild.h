@@ -17,17 +17,15 @@ namespace workers {
 
 class ServiceWorkerUpdaterChild final : public PServiceWorkerUpdaterChild
 {
-public:
+ public:
   ServiceWorkerUpdaterChild(GenericPromise* aPromise,
                             CancelableRunnable* aSuccessRunnable,
                             CancelableRunnable* aFailureRunnable);
 
-  mozilla::ipc::IPCResult
-  RecvProceed(const bool& aAllowed) override;
+  mozilla::ipc::IPCResult RecvProceed(const bool& aAllowed) override;
 
-private:
-  void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+ private:
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
   MozPromiseRequestHolder<GenericPromise> mPromiseHolder;
 
@@ -35,8 +33,8 @@ private:
   RefPtr<CancelableRunnable> mFailureRunnable;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ServiceWorkerUpdaterChild_h
+#endif  // mozilla_dom_ServiceWorkerUpdaterChild_h

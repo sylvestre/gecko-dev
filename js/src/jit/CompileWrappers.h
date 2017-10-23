@@ -20,11 +20,10 @@ class JitRuntime;
 // to be restricted. The classes below give the compiler an interface to access
 // all necessary information in a threadsafe fashion.
 
-class CompileRuntime
-{
+class CompileRuntime {
     JSRuntime* runtime();
 
-  public:
+   public:
     static CompileRuntime* get(JSRuntime* rt);
 
 #ifdef JS_GC_ZEAL
@@ -58,11 +57,10 @@ class CompileRuntime
     bool runtimeMatches(JSRuntime* rt);
 };
 
-class CompileZone
-{
+class CompileZone {
     Zone* zone();
 
-  public:
+   public:
     static CompileZone* get(Zone* zone);
 
     CompileRuntime* runtime();
@@ -84,11 +82,10 @@ class CompileZone
 
 class JitCompartment;
 
-class CompileCompartment
-{
+class CompileCompartment {
     JSCompartment* compartment();
 
-  public:
+   public:
     static CompileCompartment* get(JSCompartment* comp);
 
     CompileZone* zone();
@@ -106,31 +103,24 @@ class CompileCompartment
     void setSingletonsAsValues();
 };
 
-class JitCompileOptions
-{
-  public:
+class JitCompileOptions {
+   public:
     JitCompileOptions();
     explicit JitCompileOptions(JSContext* cx);
 
-    bool cloneSingletons() const {
-        return cloneSingletons_;
-    }
+    bool cloneSingletons() const { return cloneSingletons_; }
 
-    bool profilerSlowAssertionsEnabled() const {
-        return profilerSlowAssertionsEnabled_;
-    }
+    bool profilerSlowAssertionsEnabled() const { return profilerSlowAssertionsEnabled_; }
 
-    bool offThreadCompilationAvailable() const {
-        return offThreadCompilationAvailable_;
-    }
+    bool offThreadCompilationAvailable() const { return offThreadCompilationAvailable_; }
 
-  private:
+   private:
     bool cloneSingletons_;
     bool profilerSlowAssertionsEnabled_;
     bool offThreadCompilationAvailable_;
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
-#endif // jit_CompileWrappers_h
+#endif  // jit_CompileWrappers_h

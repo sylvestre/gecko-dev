@@ -16,22 +16,22 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(TestInterfaceSetlike)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(TestInterfaceSetlike)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TestInterfaceSetlike)
-NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
 TestInterfaceSetlike::TestInterfaceSetlike(JSContext* aCx,
                                            nsPIDOMWindowInner* aParent)
-: mParent(aParent)
+    : mParent(aParent)
 {
 }
 
 //static
 already_AddRefed<TestInterfaceSetlike>
-TestInterfaceSetlike::Constructor(const GlobalObject& aGlobal,
-                                  ErrorResult& aRv)
+TestInterfaceSetlike::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -54,5 +54,5 @@ TestInterfaceSetlike::GetParentObject() const
   return mParent;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

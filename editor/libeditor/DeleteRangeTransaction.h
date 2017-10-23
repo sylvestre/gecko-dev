@@ -26,7 +26,7 @@ class RangeUpdater;
  */
 class DeleteRangeTransaction final : public EditAggregateTransaction
 {
-public:
+ public:
   /**
    * @param aEditorBase         The object providing basic editing operations.
    * @param aRangeToDelete      The range to delete.
@@ -49,7 +49,7 @@ public:
     EditAggregateTransaction::LastRelease();
   }
 
-protected:
+ protected:
   nsresult CreateTxnsToDeleteBetween(nsINode* aNode,
                                      int32_t aStartOffset,
                                      nsIContent* aChildAtStartOffset,
@@ -72,6 +72,6 @@ protected:
   RangeUpdater* mRangeUpdater;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef DeleteRangeTransaction_h
+#endif  // #ifndef DeleteRangeTransaction_h

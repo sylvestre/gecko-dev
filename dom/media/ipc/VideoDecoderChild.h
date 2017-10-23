@@ -19,7 +19,7 @@ class VideoDecoderManagerChild;
 
 class VideoDecoderChild final : public PVideoDecoderChild
 {
-public:
+ public:
   explicit VideoDecoderChild();
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VideoDecoderChild)
@@ -29,10 +29,11 @@ public:
   mozilla::ipc::IPCResult RecvInputExhausted() override;
   mozilla::ipc::IPCResult RecvDrainComplete() override;
   mozilla::ipc::IPCResult RecvError(const nsresult& aError) override;
-  mozilla::ipc::IPCResult RecvInitComplete(const nsCString& aDecoderDescription,
-                                           const bool& aHardware,
-                                           const nsCString& aHardwareReason,
-                                           const uint32_t& aConversion) override;
+  mozilla::ipc::IPCResult RecvInitComplete(
+      const nsCString& aDecoderDescription,
+      const bool& aHardware,
+      const nsCString& aHardwareReason,
+      const uint32_t& aConversion) override;
   mozilla::ipc::IPCResult RecvInitFailed(const nsresult& aReason) override;
   mozilla::ipc::IPCResult RecvFlushComplete() override;
 
@@ -59,7 +60,7 @@ public:
 
   VideoDecoderManagerChild* GetManager();
 
-private:
+ private:
   ~VideoDecoderChild();
 
   void AssertOnManagerThread() const;
@@ -89,7 +90,7 @@ private:
   TimeStamp mGPUCrashTime;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // include_dom_ipc_VideoDecoderChild_h
+#endif  // include_dom_ipc_VideoDecoderChild_h

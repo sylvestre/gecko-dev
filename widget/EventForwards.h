@@ -55,7 +55,8 @@ enum EventMessage : EventMessageType
   eEventMessage_MaxValue
 };
 
-const char* ToChar(EventMessage aEventMessage);
+const char*
+ToChar(EventMessage aEventMessage);
 
 /**
  * Event class IDs
@@ -65,11 +66,11 @@ typedef uint8_t EventClassIDType;
 
 enum EventClassID : EventClassIDType
 {
-  // The event class name will be:
-  //   eBasicEventClass for WidgetEvent
-  //   eFooEventClass for WidgetFooEvent or InternalFooEvent
-#define NS_ROOT_EVENT_CLASS(aPrefix, aName)   eBasic##aName##Class
-#define NS_EVENT_CLASS(aPrefix, aName)      , e##aName##Class
+// The event class name will be:
+//   eBasicEventClass for WidgetEvent
+//   eFooEventClass for WidgetFooEvent or InternalFooEvent
+#define NS_ROOT_EVENT_CLASS(aPrefix, aName) eBasic##aName##Class
+#define NS_EVENT_CLASS(aPrefix, aName) , e##aName##Class
 
 #include "mozilla/EventClassList.h"
 
@@ -77,12 +78,12 @@ enum EventClassID : EventClassIDType
 #undef NS_ROOT_EVENT_CLASS
 };
 
-const char* ToChar(EventClassID aEventClassID);
+const char*
+ToChar(EventClassID aEventClassID);
 
 typedef uint16_t Modifiers;
 
-#define NS_DEFINE_KEYNAME(aCPPName, aDOMKeyName) \
-  KEY_NAME_INDEX_##aCPPName,
+#define NS_DEFINE_KEYNAME(aCPPName, aDOMKeyName) KEY_NAME_INDEX_##aCPPName,
 
 typedef uint16_t KeyNameIndexType;
 enum KeyNameIndex : KeyNameIndexType
@@ -95,7 +96,8 @@ enum KeyNameIndex : KeyNameIndexType
 
 #undef NS_DEFINE_KEYNAME
 
-const nsCString ToString(KeyNameIndex aKeyNameIndex);
+const nsCString
+ToString(KeyNameIndex aKeyNameIndex);
 
 #define NS_DEFINE_PHYSICAL_KEY_CODE_NAME(aCPPName, aDOMCodeName) \
   CODE_NAME_INDEX_##aCPPName,
@@ -111,7 +113,8 @@ enum CodeNameIndex : CodeNameIndexType
 
 #undef NS_DEFINE_PHYSICAL_KEY_CODE_NAME
 
-const nsCString ToString(CodeNameIndex aCodeNameIndex);
+const nsCString
+ToString(CodeNameIndex aCodeNameIndex);
 
 #define NS_DEFINE_COMMAND(aName, aCommandStr) , Command##aName
 
@@ -124,7 +127,7 @@ enum Command : CommandInt
 };
 #undef NS_DEFINE_COMMAND
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * All header files should include this header instead of *Events.h.
@@ -170,6 +173,6 @@ class TextRangeArray;
 // FontRange.h
 struct FontRange;
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_EventForwards_h__
+#endif  // mozilla_EventForwards_h__

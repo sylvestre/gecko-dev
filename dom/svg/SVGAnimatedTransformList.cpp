@@ -13,17 +13,19 @@
 namespace mozilla {
 namespace dom {
 
-static
-  nsSVGAttrTearoffTable<nsSVGAnimatedTransformList, SVGAnimatedTransformList>
-  sSVGAnimatedTransformListTearoffTable;
+static nsSVGAttrTearoffTable<nsSVGAnimatedTransformList,
+                             SVGAnimatedTransformList>
+    sSVGAnimatedTransformListTearoffTable;
 
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(SVGAnimatedTransformList, mElement)
+NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(SVGAnimatedTransformList,
+                                               mElement)
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(SVGAnimatedTransformList, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(SVGAnimatedTransformList, Release)
 
 JSObject*
-SVGAnimatedTransformList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGAnimatedTransformList::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto)
 {
   return SVGAnimatedTransformListBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -50,11 +52,11 @@ SVGAnimatedTransformList::AnimVal()
 }
 
 /* static */ already_AddRefed<SVGAnimatedTransformList>
-SVGAnimatedTransformList::GetDOMWrapper(nsSVGAnimatedTransformList *aList,
-                                        nsSVGElement *aElement)
+SVGAnimatedTransformList::GetDOMWrapper(nsSVGAnimatedTransformList* aList,
+                                        nsSVGElement* aElement)
 {
   RefPtr<SVGAnimatedTransformList> wrapper =
-    sSVGAnimatedTransformListTearoffTable.GetTearoff(aList);
+      sSVGAnimatedTransformListTearoffTable.GetTearoff(aList);
   if (!wrapper) {
     wrapper = new SVGAnimatedTransformList(aElement);
     sSVGAnimatedTransformListTearoffTable.AddTearoff(aList, wrapper);
@@ -64,7 +66,7 @@ SVGAnimatedTransformList::GetDOMWrapper(nsSVGAnimatedTransformList *aList,
 
 /* static */ SVGAnimatedTransformList*
 SVGAnimatedTransformList::GetDOMWrapperIfExists(
-  nsSVGAnimatedTransformList *aList)
+    nsSVGAnimatedTransformList* aList)
 {
   return sSVGAnimatedTransformListTearoffTable.GetTearoff(aList);
 }
@@ -78,7 +80,7 @@ SVGAnimatedTransformList::~SVGAnimatedTransformList()
 
 void
 SVGAnimatedTransformList::InternalBaseValListWillChangeLengthTo(
-  uint32_t aNewLength)
+    uint32_t aNewLength)
 {
   // When the number of items in our internal counterpart's baseVal changes,
   // we MUST keep our baseVal in sync. If we don't, script will either see a
@@ -109,7 +111,7 @@ SVGAnimatedTransformList::InternalBaseValListWillChangeLengthTo(
 
 void
 SVGAnimatedTransformList::InternalAnimValListWillChangeLengthTo(
-  uint32_t aNewLength)
+    uint32_t aNewLength)
 {
   if (mAnimVal) {
     mAnimVal->InternalListLengthWillChange(aNewLength);
@@ -134,5 +136,5 @@ SVGAnimatedTransformList::InternalAList() const
   return *mElement->GetAnimatedTransformList();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

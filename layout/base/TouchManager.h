@@ -22,8 +22,9 @@ class nsIDocument;
 namespace mozilla {
 class PresShell;
 
-class TouchManager {
-public:
+class TouchManager
+{
+ public:
   // Initialize and release static variables
   static void InitializeStatics();
   static void ReleaseStatics();
@@ -42,13 +43,14 @@ public:
   static already_AddRefed<dom::Touch> GetCapturedTouch(int32_t aId);
   static bool ShouldConvertTouchToPointer(const dom::Touch* aTouch,
                                           const WidgetTouchEvent* aEvent);
-private:
+
+ private:
   void EvictTouches();
   static void EvictTouchPoint(RefPtr<dom::Touch>& aTouch,
                               nsIDocument* aLimitToDocument = nullptr);
   static void AppendToTouchList(WidgetTouchEvent::TouchArray* aTouchList);
 
-  RefPtr<PresShell>   mPresShell;
+  RefPtr<PresShell> mPresShell;
   nsCOMPtr<nsIDocument> mDocument;
 
   struct TouchInfo
@@ -60,6 +62,6 @@ private:
   static nsDataHashtable<nsUint32HashKey, TouchInfo>* sCaptureTouchList;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(TouchManager_h_) */

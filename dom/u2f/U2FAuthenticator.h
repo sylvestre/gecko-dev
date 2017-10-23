@@ -15,7 +15,8 @@ namespace dom {
 // These enumerations are defined in the FIDO U2F Javascript API under the
 // interface "ErrorCode" as constant integers, and thus in the U2F.webidl file.
 // Any changes to these must occur in both locations.
-enum class ErrorCode {
+enum class ErrorCode
+{
   OK = 0,
   OTHER_ERROR = 1,
   BAD_REQUEST = 2,
@@ -28,7 +29,7 @@ typedef MozPromise<nsString, ErrorCode, false> U2FPromise;
 
 NS_NAMED_LITERAL_STRING(kRequiredU2FVersion, "U2F_V2");
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2FAuthenticator_h
+#endif  // mozilla_dom_U2FAuthenticator_h

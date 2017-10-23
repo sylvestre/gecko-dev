@@ -12,7 +12,7 @@ namespace net {
 
 class StunAddrsRequestParent : public PStunAddrsRequestParent
 {
-public:
+ public:
   StunAddrsRequestParent();
 
   NS_IMETHOD_(MozExternalRefCountType) AddRef();
@@ -20,7 +20,7 @@ public:
 
   mozilla::ipc::IPCResult Recv__delete__() override;
 
-protected:
+ protected:
   virtual ~StunAddrsRequestParent() {}
 
   virtual mozilla::ipc::IPCResult RecvGetStunAddrs() override;
@@ -35,11 +35,11 @@ protected:
   ThreadSafeAutoRefCnt mRefCnt;
   NS_DECL_OWNINGTHREAD
 
-private:
+ private:
   bool mIPCClosed;  // true if IPDL channel has been closed (child crash)
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_StunAddrsRequestParent_h
+#endif  // mozilla_net_StunAddrsRequestParent_h

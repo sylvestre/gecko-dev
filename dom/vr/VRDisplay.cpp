@@ -32,22 +32,25 @@ namespace mozilla {
 namespace dom {
 
 VRFieldOfView::VRFieldOfView(nsISupports* aParent,
-                             double aUpDegrees, double aRightDegrees,
-                             double aDownDegrees, double aLeftDegrees)
-  : mParent(aParent)
-  , mUpDegrees(aUpDegrees)
-  , mRightDegrees(aRightDegrees)
-  , mDownDegrees(aDownDegrees)
-  , mLeftDegrees(aLeftDegrees)
+                             double aUpDegrees,
+                             double aRightDegrees,
+                             double aDownDegrees,
+                             double aLeftDegrees)
+    : mParent(aParent),
+      mUpDegrees(aUpDegrees),
+      mRightDegrees(aRightDegrees),
+      mDownDegrees(aDownDegrees),
+      mLeftDegrees(aLeftDegrees)
 {
 }
 
-VRFieldOfView::VRFieldOfView(nsISupports* aParent, const gfx::VRFieldOfView& aSrc)
-  : mParent(aParent)
-  , mUpDegrees(aSrc.upDegrees)
-  , mRightDegrees(aSrc.rightDegrees)
-  , mDownDegrees(aSrc.downDegrees)
-  , mLeftDegrees(aSrc.leftDegrees)
+VRFieldOfView::VRFieldOfView(nsISupports* aParent,
+                             const gfx::VRFieldOfView& aSrc)
+    : mParent(aParent),
+      mUpDegrees(aSrc.upDegrees),
+      mRightDegrees(aSrc.rightDegrees),
+      mDownDegrees(aSrc.downDegrees),
+      mLeftDegrees(aSrc.leftDegrees)
 {
 }
 
@@ -89,7 +92,8 @@ VRDisplay::RefreshVRDisplays(uint64_t aWindowId)
 }
 
 /*static*/ void
-VRDisplay::UpdateVRDisplays(nsTArray<RefPtr<VRDisplay>>& aDisplays, nsPIDOMWindowInner* aWindow)
+VRDisplay::UpdateVRDisplays(nsTArray<RefPtr<VRDisplay>>& aDisplays,
+                            nsPIDOMWindowInner* aWindow)
 {
   nsTArray<RefPtr<VRDisplay>> displays;
 
@@ -100,7 +104,8 @@ VRDisplay::UpdateVRDisplays(nsTArray<RefPtr<VRDisplay>>& aDisplays, nsPIDOMWindo
       RefPtr<gfx::VRDisplayClient> display = updatedDisplays[i];
       bool isNewDisplay = true;
       for (size_t j = 0; j < aDisplays.Length(); j++) {
-        if (aDisplays[j]->GetClient()->GetDisplayInfo() == display->GetDisplayInfo()) {
+        if (aDisplays[j]->GetClient()->GetDisplayInfo() ==
+            display->GetDisplayInfo()) {
           displays.AppendElement(aDisplays[j]);
           isNewDisplay = false;
         }
@@ -119,10 +124,8 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(VRFieldOfView, mParent)
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(VRFieldOfView, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VRFieldOfView, Release)
 
-
 JSObject*
-VRFieldOfView::WrapObject(JSContext* aCx,
-                          JS::Handle<JSObject*> aGivenProto)
+VRFieldOfView::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return VRFieldOfViewBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -151,18 +154,15 @@ VREyeParameters::VREyeParameters(nsISupports* aParent,
                                  const gfx::Point3D& aEyeTranslation,
                                  const gfx::VRFieldOfView& aFOV,
                                  const gfx::IntSize& aRenderSize)
-  : mParent(aParent)
-  , mEyeTranslation(aEyeTranslation)
-  , mRenderSize(aRenderSize)
+    : mParent(aParent),
+      mEyeTranslation(aEyeTranslation),
+      mRenderSize(aRenderSize)
 {
   mFOV = new VRFieldOfView(aParent, aFOV);
   mozilla::HoldJSObjects(this);
 }
 
-VREyeParameters::~VREyeParameters()
-{
-  mozilla::DropJSObjects(this);
-}
+VREyeParameters::~VREyeParameters() { mozilla::DropJSObjects(this); }
 
 VRFieldOfView*
 VREyeParameters::FieldOfView()
@@ -171,11 +171,14 @@ VREyeParameters::FieldOfView()
 }
 
 void
-VREyeParameters::GetOffset(JSContext* aCx, JS::MutableHandle<JSObject*> aRetval, ErrorResult& aRv)
+VREyeParameters::GetOffset(JSContext* aCx,
+                           JS::MutableHandle<JSObject*> aRetval,
+                           ErrorResult& aRv)
 {
   if (!mOffset) {
     // Lazily create the Float32Array
-    mOffset = dom::Float32Array::Create(aCx, this, 3, mEyeTranslation.components);
+    mOffset =
+        dom::Float32Array::Create(aCx, this, 3, mEyeTranslation.components);
     if (!mOffset) {
       aRv.NoteJSContextException(aCx);
       return;
@@ -190,21 +193,19 @@ VREyeParameters::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return VREyeParametersBinding::Wrap(aCx, this, aGivenProto);
 }
 
-VRStageParameters::VRStageParameters(nsISupports* aParent,
-                                     const gfx::Matrix4x4& aSittingToStandingTransform,
-                                     const gfx::Size& aSize)
-  : mParent(aParent)
-  , mSittingToStandingTransform(aSittingToStandingTransform)
-  , mSittingToStandingTransformArray(nullptr)
-  , mSize(aSize)
+VRStageParameters::VRStageParameters(
+    nsISupports* aParent,
+    const gfx::Matrix4x4& aSittingToStandingTransform,
+    const gfx::Size& aSize)
+    : mParent(aParent),
+      mSittingToStandingTransform(aSittingToStandingTransform),
+      mSittingToStandingTransformArray(nullptr),
+      mSize(aSize)
 {
   mozilla::HoldJSObjects(this);
 }
 
-VRStageParameters::~VRStageParameters()
-{
-  mozilla::DropJSObjects(this);
-}
+VRStageParameters::~VRStageParameters() { mozilla::DropJSObjects(this); }
 
 JSObject*
 VRStageParameters::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -226,21 +227,21 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(VRStageParameters)
   NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
-  NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mSittingToStandingTransformArray)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(
+      mSittingToStandingTransformArray)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(VRStageParameters, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VRStageParameters, Release)
 
 void
-VRStageParameters::GetSittingToStandingTransform(JSContext* aCx,
-                                                 JS::MutableHandle<JSObject*> aRetval,
-                                                 ErrorResult& aRv)
+VRStageParameters::GetSittingToStandingTransform(
+    JSContext* aCx, JS::MutableHandle<JSObject*> aRetval, ErrorResult& aRv)
 {
   if (!mSittingToStandingTransformArray) {
     // Lazily create the Float32Array
-    mSittingToStandingTransformArray = dom::Float32Array::Create(aCx, this, 16,
-      mSittingToStandingTransform.components);
+    mSittingToStandingTransformArray = dom::Float32Array::Create(
+        aCx, this, 16, mSittingToStandingTransform.components);
     if (!mSittingToStandingTransformArray) {
       aRv.NoteJSContextException(aCx);
       return;
@@ -254,39 +255,41 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(VRDisplayCapabilities, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VRDisplayCapabilities, Release)
 
 JSObject*
-VRDisplayCapabilities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+VRDisplayCapabilities::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return VRDisplayCapabilitiesBinding::Wrap(aCx, this, aGivenProto);
 }
 
 VRPose::VRPose(nsISupports* aParent, const gfx::VRHMDSensorState& aState)
-  : Pose(aParent)
-  , mVRState(aState)
+    : Pose(aParent), mVRState(aState)
 {
   mFrameId = aState.inputFrameID;
   mozilla::HoldJSObjects(this);
 }
 
-VRPose::VRPose(nsISupports* aParent)
-  : Pose(aParent)
+VRPose::VRPose(nsISupports* aParent) : Pose(aParent)
 {
   mFrameId = 0;
   mozilla::HoldJSObjects(this);
 }
 
-VRPose::~VRPose()
-{
-  mozilla::DropJSObjects(this);
-}
+VRPose::~VRPose() { mozilla::DropJSObjects(this); }
 
 void
 VRPose::GetPosition(JSContext* aCx,
                     JS::MutableHandle<JSObject*> aRetval,
                     ErrorResult& aRv)
 {
-  SetFloat32Array(aCx, aRetval, mPosition, mVRState.position, 3,
-    !mPosition && bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Position),
-    aRv);
+  SetFloat32Array(
+      aCx,
+      aRetval,
+      mPosition,
+      mVRState.position,
+      3,
+      !mPosition &&
+          bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Position),
+      aRv);
 }
 
 void
@@ -294,9 +297,15 @@ VRPose::GetLinearVelocity(JSContext* aCx,
                           JS::MutableHandle<JSObject*> aRetval,
                           ErrorResult& aRv)
 {
-  SetFloat32Array(aCx, aRetval, mLinearVelocity, mVRState.linearVelocity, 3,
-    !mLinearVelocity && bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Position),
-    aRv);
+  SetFloat32Array(
+      aCx,
+      aRetval,
+      mLinearVelocity,
+      mVRState.linearVelocity,
+      3,
+      !mLinearVelocity &&
+          bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Position),
+      aRv);
 }
 
 void
@@ -304,10 +313,16 @@ VRPose::GetLinearAcceleration(JSContext* aCx,
                               JS::MutableHandle<JSObject*> aRetval,
                               ErrorResult& aRv)
 {
-  SetFloat32Array(aCx, aRetval, mLinearAcceleration, mVRState.linearAcceleration, 3,
-    !mLinearAcceleration && bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_LinearAcceleration),
-    aRv);
-
+  SetFloat32Array(
+      aCx,
+      aRetval,
+      mLinearAcceleration,
+      mVRState.linearAcceleration,
+      3,
+      !mLinearAcceleration &&
+          bool(mVRState.flags &
+               gfx::VRDisplayCapabilityFlags::Cap_LinearAcceleration),
+      aRv);
 }
 
 void
@@ -315,9 +330,15 @@ VRPose::GetOrientation(JSContext* aCx,
                        JS::MutableHandle<JSObject*> aRetval,
                        ErrorResult& aRv)
 {
-  SetFloat32Array(aCx, aRetval, mOrientation, mVRState.orientation, 4,
-    !mOrientation && bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Orientation),
-    aRv);
+  SetFloat32Array(
+      aCx,
+      aRetval,
+      mOrientation,
+      mVRState.orientation,
+      4,
+      !mOrientation &&
+          bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Orientation),
+      aRv);
 }
 
 void
@@ -325,9 +346,15 @@ VRPose::GetAngularVelocity(JSContext* aCx,
                            JS::MutableHandle<JSObject*> aRetval,
                            ErrorResult& aRv)
 {
-  SetFloat32Array(aCx, aRetval, mAngularVelocity, mVRState.angularVelocity, 3,
-    !mAngularVelocity && bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Orientation),
-    aRv);
+  SetFloat32Array(
+      aCx,
+      aRetval,
+      mAngularVelocity,
+      mVRState.angularVelocity,
+      3,
+      !mAngularVelocity &&
+          bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Orientation),
+      aRv);
 }
 
 void
@@ -335,9 +362,16 @@ VRPose::GetAngularAcceleration(JSContext* aCx,
                                JS::MutableHandle<JSObject*> aRetval,
                                ErrorResult& aRv)
 {
-  SetFloat32Array(aCx, aRetval, mAngularAcceleration, mVRState.angularAcceleration, 3,
-    !mAngularAcceleration && bool(mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_AngularAcceleration),
-    aRv);
+  SetFloat32Array(
+      aCx,
+      aRetval,
+      mAngularAcceleration,
+      mVRState.angularAcceleration,
+      3,
+      !mAngularAcceleration &&
+          bool(mVRState.flags &
+               gfx::VRDisplayCapabilityFlags::Cap_AngularAcceleration),
+      aRv);
 }
 
 JSObject*
@@ -353,21 +387,23 @@ VRDisplay::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 VRDisplay::VRDisplay(nsPIDOMWindowInner* aWindow, gfx::VRDisplayClient* aClient)
-  : DOMEventTargetHelper(aWindow)
-  , mClient(aClient)
-  , mDepthNear(0.01f) // Default value from WebVR Spec
-  , mDepthFar(10000.0f) // Default value from WebVR Spec
-  , mVRNavigationEventDepth(0)
-  , mShutdown(false)
+    : DOMEventTargetHelper(aWindow),
+      mClient(aClient),
+      mDepthNear(0.01f)  // Default value from WebVR Spec
+      ,
+      mDepthFar(10000.0f)  // Default value from WebVR Spec
+      ,
+      mVRNavigationEventDepth(0),
+      mShutdown(false)
 {
   const gfx::VRDisplayInfo& info = aClient->GetDisplayInfo();
   mDisplayId = info.GetDisplayID();
   mDisplayName = NS_ConvertASCIItoUTF16(info.GetDisplayName());
   mCapabilities = new VRDisplayCapabilities(aWindow, info.GetCapabilities());
-  if (info.GetCapabilities() & gfx::VRDisplayCapabilityFlags::Cap_StageParameters) {
-    mStageParameters = new VRStageParameters(aWindow,
-                                             info.GetSittingToStandingTransform(),
-                                             info.GetStageSize());
+  if (info.GetCapabilities() &
+      gfx::VRDisplayCapabilityFlags::Cap_StageParameters) {
+    mStageParameters = new VRStageParameters(
+        aWindow, info.GetSittingToStandingTransform(), info.GetStageSize());
   }
   mozilla::HoldJSObjects(this);
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -393,12 +429,14 @@ VRDisplay::LastRelease()
 already_AddRefed<VREyeParameters>
 VRDisplay::GetEyeParameters(VREye aEye)
 {
-  gfx::VRDisplayInfo::Eye eye = aEye == VREye::Left ? gfx::VRDisplayInfo::Eye_Left : gfx::VRDisplayInfo::Eye_Right;
+  gfx::VRDisplayInfo::Eye eye = aEye == VREye::Left
+                                    ? gfx::VRDisplayInfo::Eye_Left
+                                    : gfx::VRDisplayInfo::Eye_Right;
   RefPtr<VREyeParameters> params =
-    new VREyeParameters(GetParentObject(),
-                        mClient->GetDisplayInfo().GetEyeTranslation(eye),
-                        mClient->GetDisplayInfo().GetEyeFOV(eye),
-                        mClient->GetDisplayInfo().SuggestedEyeResolution());
+      new VREyeParameters(GetParentObject(),
+                          mClient->GetDisplayInfo().GetEyeTranslation(eye),
+                          mClient->GetDisplayInfo().GetEyeFOV(eye),
+                          mClient->GetDisplayInfo().SuggestedEyeResolution());
   return params.forget();
 }
 
@@ -440,7 +478,8 @@ bool
 VRDisplay::GetFrameData(VRFrameData& aFrameData)
 {
   UpdateFrameInfo();
-  if (!(mFrameInfo.mVRState.flags & gfx::VRDisplayCapabilityFlags::Cap_Orientation)) {
+  if (!(mFrameInfo.mVRState.flags &
+        gfx::VRDisplayCapabilityFlags::Cap_Orientation)) {
     // We must have at minimum Cap_Orientation for a valid pose.
     return false;
   }
@@ -470,8 +509,10 @@ VRDisplay::GetSubmitFrameResult(VRSubmitFrameResult& aResult)
   const char* srcData = decodedImg.get();
   const gfx::IntSize size(resultInfo.mWidth, resultInfo.mHeight);
   RefPtr<DataSourceSurface> dataSurface = gfx::CreateDataSourceSurfaceFromData(
-                                            size, resultInfo.mFormat, (uint8_t*)srcData,
-                                            StrideForFormatAndWidth(resultInfo.mFormat, resultInfo.mWidth));
+      size,
+      resultInfo.mFormat,
+      (uint8_t*)srcData,
+      StrideForFormatAndWidth(resultInfo.mFormat, resultInfo.mWidth));
   if (!dataSurface || !dataSurface->IsValid()) {
     MOZ_ASSERT(false, "dataSurface is null.");
     return false;
@@ -520,9 +561,10 @@ VRDisplay::IsHandlingVRNavigationEvent()
   if (mHandlingVRNavigationEventStart.IsNull()) {
     return false;
   }
-  TimeDuration timeout = TimeDuration::FromMilliseconds(gfxPrefs::VRNavigationTimeout());
+  TimeDuration timeout =
+      TimeDuration::FromMilliseconds(gfxPrefs::VRNavigationTimeout());
   return timeout <= TimeDuration(0) ||
-    (TimeStamp::Now() - mHandlingVRNavigationEventStart) <= timeout;
+         (TimeStamp::Now() - mHandlingVRNavigationEventStart) <= timeout;
 }
 
 already_AddRefed<Promise>
@@ -540,12 +582,11 @@ VRDisplay::RequestPresent(const nsTArray<VRLayer>& aLayers,
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
   bool isChromePresentation = aCallerType == CallerType::System;
-  uint32_t presentationGroup = isChromePresentation ? gfx::kVRGroupChrome : gfx::kVRGroupContent;
+  uint32_t presentationGroup =
+      isChromePresentation ? gfx::kVRGroupChrome : gfx::kVRGroupContent;
 
-  if (!EventStateManager::IsHandlingUserInput() &&
-      !isChromePresentation &&
-      !IsHandlingVRNavigationEvent() &&
-      gfxPrefs::VRRequireGesture() &&
+  if (!EventStateManager::IsHandlingUserInput() && !isChromePresentation &&
+      !IsHandlingVRNavigationEvent() && gfxPrefs::VRRequireGesture() &&
       !IsPresenting()) {
     // The WebVR API states that if called outside of a user gesture, the
     // promise must be rejected.  We allow VR presentations to start within
@@ -577,8 +618,9 @@ VRDisplay::RequestPresent(const nsTArray<VRLayer>& aLayers,
 }
 
 NS_IMETHODIMP
-VRDisplay::Observe(nsISupports* aSubject, const char* aTopic,
-  const char16_t* aData)
+VRDisplay::Observe(nsISupports* aSubject,
+                   const char* aTopic,
+                   const char16_t* aData)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -609,7 +651,6 @@ VRDisplay::ExitPresent(ErrorResult& aRv)
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
-
 
   RefPtr<Promise> promise = Promise::Create(global, aRv);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
@@ -666,7 +707,7 @@ VRDisplay::SubmitFrame()
 
 int32_t
 VRDisplay::RequestAnimationFrame(FrameRequestCallback& aCallback,
-ErrorResult& aError)
+                                 ErrorResult& aError)
 {
   if (mShutdown) {
     return 0;
@@ -685,7 +726,6 @@ VRDisplay::CancelAnimationFrame(int32_t aHandle, ErrorResult& aError)
   gfx::VRManagerChild* vm = gfx::VRManagerChild::Get();
   vm->CancelFrameRequestCallback(aHandle);
 }
-
 
 bool
 VRDisplay::IsPresenting() const
@@ -734,14 +774,17 @@ VRDisplay::SetGroupMask(const uint32_t& aGroupMask)
   mClient->SetGroupMask(aGroupMask);
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(VRDisplay, DOMEventTargetHelper, mCapabilities, mStageParameters)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(VRDisplay,
+                                   DOMEventTargetHelper,
+                                   mCapabilities,
+                                   mStageParameters)
 
 NS_IMPL_ADDREF_INHERITED(VRDisplay, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(VRDisplay, DOMEventTargetHelper)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(VRDisplay)
-NS_INTERFACE_MAP_ENTRY(nsIObserver)
-NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, DOMEventTargetHelper)
+  NS_INTERFACE_MAP_ENTRY(nsIObserver)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, DOMEventTargetHelper)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(VRFrameData)
@@ -771,20 +814,17 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(VRFrameData, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VRFrameData, Release)
 
 VRFrameData::VRFrameData(nsISupports* aParent)
-  : mParent(aParent)
-  , mLeftProjectionMatrix(nullptr)
-  , mLeftViewMatrix(nullptr)
-  , mRightProjectionMatrix(nullptr)
-  , mRightViewMatrix(nullptr)
+    : mParent(aParent),
+      mLeftProjectionMatrix(nullptr),
+      mLeftViewMatrix(nullptr),
+      mRightProjectionMatrix(nullptr),
+      mRightViewMatrix(nullptr)
 {
   mozilla::HoldJSObjects(this);
   mPose = new VRPose(aParent);
 }
 
-VRFrameData::~VRFrameData()
-{
-  mozilla::DropJSObjects(this);
-}
+VRFrameData::~VRFrameData() { mozilla::DropJSObjects(this); }
 
 /* static */ already_AddRefed<VRFrameData>
 VRFrameData::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
@@ -794,8 +834,7 @@ VRFrameData::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 }
 
 JSObject*
-VRFrameData::WrapObject(JSContext* aCx,
-                        JS::Handle<JSObject*> aGivenProto)
+VRFrameData::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return VRFrameDataBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -807,8 +846,11 @@ VRFrameData::Pose()
 }
 
 void
-VRFrameData::LazyCreateMatrix(JS::Heap<JSObject*>& aArray, gfx::Matrix4x4& aMat, JSContext* aCx,
-                              JS::MutableHandle<JSObject*> aRetval, ErrorResult& aRv)
+VRFrameData::LazyCreateMatrix(JS::Heap<JSObject*>& aArray,
+                              gfx::Matrix4x4& aMat,
+                              JSContext* aCx,
+                              JS::MutableHandle<JSObject*> aRetval,
+                              ErrorResult& aRv)
 {
   if (!aArray) {
     // Lazily create the Float32Array
@@ -836,8 +878,8 @@ VRFrameData::GetLeftProjectionMatrix(JSContext* aCx,
                                      JS::MutableHandle<JSObject*> aRetval,
                                      ErrorResult& aRv)
 {
-  LazyCreateMatrix(mLeftProjectionMatrix, mFrameInfo.mLeftProjection, aCx,
-                   aRetval, aRv);
+  LazyCreateMatrix(
+      mLeftProjectionMatrix, mFrameInfo.mLeftProjection, aCx, aRetval, aRv);
 }
 
 void
@@ -853,8 +895,8 @@ VRFrameData::GetRightProjectionMatrix(JSContext* aCx,
                                       JS::MutableHandle<JSObject*> aRetval,
                                       ErrorResult& aRv)
 {
-  LazyCreateMatrix(mRightProjectionMatrix, mFrameInfo.mRightProjection, aCx,
-                   aRetval, aRv);
+  LazyCreateMatrix(
+      mRightProjectionMatrix, mFrameInfo.mRightProjection, aCx, aRetval, aRv);
 }
 
 void
@@ -899,7 +941,8 @@ VRFrameInfo::Update(const gfx::VRDisplayInfo& aInfo,
      * from making the assumption that the timestamp returned in the WebVR API
      * has a base of 0, which is not necessarily true in all UA's.
      */
-    mTimeStampOffset = float(rand()) / RAND_MAX * 10000.0f + 1000.0f - aState.timestamp;
+    mTimeStampOffset =
+        float(rand()) / RAND_MAX * 10000.0f + 1000.0f - aState.timestamp;
   }
   mVRState.timestamp = aState.timestamp + mTimeStampOffset;
 
@@ -924,7 +967,8 @@ VRFrameInfo::Update(const gfx::VRDisplayInfo& aInfo,
   mLeftView.PostTranslate(-aInfo.mEyeTranslation[gfx::VRDisplayInfo::Eye_Left]);
 
   mRightView = matHead;
-  mRightView.PostTranslate(-aInfo.mEyeTranslation[gfx::VRDisplayInfo::Eye_Right]);
+  mRightView.PostTranslate(
+      -aInfo.mEyeTranslation[gfx::VRDisplayInfo::Eye_Right]);
 
   // Avoid division by zero within ConstructProjectionMatrix
   const float kEpsilon = 0.00001f;
@@ -932,16 +976,17 @@ VRFrameInfo::Update(const gfx::VRDisplayInfo& aInfo,
     aDepthFar = aDepthNear + kEpsilon;
   }
 
-  const gfx::VRFieldOfView leftFOV = aInfo.mEyeFOV[gfx::VRDisplayInfo::Eye_Left];
-  mLeftProjection = leftFOV.ConstructProjectionMatrix(aDepthNear, aDepthFar, true);
-  const gfx::VRFieldOfView rightFOV = aInfo.mEyeFOV[gfx::VRDisplayInfo::Eye_Right];
-  mRightProjection = rightFOV.ConstructProjectionMatrix(aDepthNear, aDepthFar, true);
+  const gfx::VRFieldOfView leftFOV =
+      aInfo.mEyeFOV[gfx::VRDisplayInfo::Eye_Left];
+  mLeftProjection =
+      leftFOV.ConstructProjectionMatrix(aDepthNear, aDepthFar, true);
+  const gfx::VRFieldOfView rightFOV =
+      aInfo.mEyeFOV[gfx::VRDisplayInfo::Eye_Right];
+  mRightProjection =
+      rightFOV.ConstructProjectionMatrix(aDepthNear, aDepthFar, true);
 }
 
-VRFrameInfo::VRFrameInfo()
- : mTimeStampOffset(0.0f)
-{
-}
+VRFrameInfo::VRFrameInfo() : mTimeStampOffset(0.0f) {}
 
 bool
 VRFrameInfo::IsDirty()
@@ -960,21 +1005,18 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(VRSubmitFrameResult, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VRSubmitFrameResult, Release)
 
 VRSubmitFrameResult::VRSubmitFrameResult(nsISupports* aParent)
-  : mParent(aParent)
-  , mFrameNum(0)
+    : mParent(aParent), mFrameNum(0)
 {
   mozilla::HoldJSObjects(this);
 }
 
-VRSubmitFrameResult::~VRSubmitFrameResult()
-{
-  mozilla::DropJSObjects(this);
-}
+VRSubmitFrameResult::~VRSubmitFrameResult() { mozilla::DropJSObjects(this); }
 
 /* static */ already_AddRefed<VRSubmitFrameResult>
 VRSubmitFrameResult::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  RefPtr<VRSubmitFrameResult> obj = new VRSubmitFrameResult(aGlobal.GetAsSupports());
+  RefPtr<VRSubmitFrameResult> obj =
+      new VRSubmitFrameResult(aGlobal.GetAsSupports());
   return obj.forget();
 }
 
@@ -1004,5 +1046,5 @@ VRSubmitFrameResult::GetBase64Image(nsAString& aImage) const
   aImage = mBase64Image;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

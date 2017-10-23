@@ -39,7 +39,7 @@
 #define ALLOCATION_ASSERT(b) (void)(b)
 #endif
 
-#define ASSERT_ALLOCATION_HAPPENED(lambda)      \
+#define ASSERT_ALLOCATION_HAPPENED(lambda) \
   ALLOCATION_ASSERT(ValidateHookedAllocation(lambda, free));
 
 // We do run the risk of OOM'ing when we allocate something...all we can
@@ -63,7 +63,7 @@ ValidateHookedAllocation(void* (*aAllocator)(void),
                          void (*aFreeFunction)(void*))
 {
   nsCOMPtr<nsIMemoryReporterManager> manager =
-    do_GetService("@mozilla.org/memory-reporter-manager;1");
+      do_GetService("@mozilla.org/memory-reporter-manager;1");
 
   int64_t before = 0;
   nsresult rv = manager->GetHeapAllocated(&before);
@@ -108,23 +108,17 @@ ValidateHookedAllocation(void* (*aAllocator)(void),
 
 TEST(AllocReplacement, malloc_check)
 {
-  ASSERT_ALLOCATION_HAPPENED([] {
-    return malloc(kAllocAmount);
-  });
+  ASSERT_ALLOCATION_HAPPENED([] { return malloc(kAllocAmount); });
 }
 
 TEST(AllocReplacement, calloc_check)
 {
-  ASSERT_ALLOCATION_HAPPENED([] {
-    return calloc(1, kAllocAmount);
-  });
+  ASSERT_ALLOCATION_HAPPENED([] { return calloc(1, kAllocAmount); });
 }
 
 TEST(AllocReplacement, realloc_check)
 {
-  ASSERT_ALLOCATION_HAPPENED([] {
-    return realloc(nullptr, kAllocAmount);
-  });
+  ASSERT_ALLOCATION_HAPPENED([] { return realloc(nullptr, kAllocAmount); });
 }
 
 #if defined(HAVE_POSIX_MEMALIGN)
@@ -145,10 +139,9 @@ TEST(AllocReplacement, posix_memalign_check)
 #include <windows.h>
 
 #undef ASSERT_ALLOCATION_HAPPENED
-#define ASSERT_ALLOCATION_HAPPENED(lambda)      \
-  ALLOCATION_ASSERT(ValidateHookedAllocation(lambda, [](void* p) { \
-    HeapFree(GetProcessHeap(), 0, p); \
-  }));
+#define ASSERT_ALLOCATION_HAPPENED(lambda)    \
+  ALLOCATION_ASSERT(ValidateHookedAllocation( \
+      lambda, [](void* p) { HeapFree(GetProcessHeap(), 0, p); }));
 
 TEST(AllocReplacement, HeapAlloc_check)
 {
@@ -162,7 +155,7 @@ TEST(AllocReplacement, HeapReAlloc_check)
 {
   ASSERT_ALLOCATION_HAPPENED([] {
     HANDLE h = GetProcessHeap();
-    void *p = HeapAlloc(h, 0, kAllocAmount / 2);
+    void* p = HeapAlloc(h, 0, kAllocAmount / 2);
 
     if (!p) {
       return static_cast<void*>(nullptr);

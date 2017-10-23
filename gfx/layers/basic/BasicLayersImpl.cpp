@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BasicLayersImpl.h"
-#include <new>                          // for operator new
-#include "Layers.h"                     // for Layer, etc
-#include "basic/BasicImplData.h"        // for BasicImplData
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/DebugOnly.h"          // for DebugOnly
+#include <new>                    // for operator new
+#include "Layers.h"               // for Layer, etc
+#include "basic/BasicImplData.h"  // for BasicImplData
+#include "mozilla/Assertions.h"   // for MOZ_ASSERT, etc
+#include "mozilla/DebugOnly.h"    // for DebugOnly
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/ISurfaceAllocator.h"
 #include "AutoMaskData.h"
@@ -25,7 +25,8 @@ GetMaskData(Layer* aMaskLayer,
 {
   if (aMaskLayer) {
     RefPtr<SourceSurface> surface =
-      static_cast<BasicImplData*>(aMaskLayer->ImplData())->GetAsSourceSurface();
+        static_cast<BasicImplData*>(aMaskLayer->ImplData())
+            ->GetAsSourceSurface();
     if (surface) {
       Matrix transform;
       Matrix4x4 effectiveTransform = aMaskLayer->GetEffectiveTransform();
@@ -104,7 +105,8 @@ FillRectWithMask(DrawTarget* aDT,
   AutoMoz2DMaskData mask;
   if (GetMaskData(aMaskLayer, aDeviceOffset, &mask)) {
     const Matrix& maskTransform = mask.GetTransform();
-    FillRectWithMask(aDT, aRect, aColor, aOptions, mask.GetSurface(), &maskTransform);
+    FillRectWithMask(
+        aDT, aRect, aColor, aOptions, mask.GetSurface(), &maskTransform);
     return;
   }
 
@@ -144,10 +146,13 @@ FillRectWithMask(DrawTarget* aDT,
     return;
   }
 
-  aDT->FillRect(aRect,
-                SurfacePattern(aSurface, aExtendMode,
-                               aSurfaceTransform ? (*aSurfaceTransform) : Matrix(),
-                               aSamplingFilter), aOptions);
+  aDT->FillRect(
+      aRect,
+      SurfacePattern(aSurface,
+                     aExtendMode,
+                     aSurfaceTransform ? (*aSurfaceTransform) : Matrix(),
+                     aSamplingFilter),
+      aOptions);
 }
 
 void
@@ -162,14 +167,19 @@ FillRectWithMask(DrawTarget* aDT,
   AutoMoz2DMaskData mask;
   if (GetMaskData(aMaskLayer, aDeviceOffset, &mask)) {
     const Matrix& maskTransform = mask.GetTransform();
-    FillRectWithMask(aDT, aRect, aSurface, aSamplingFilter, aOptions,
+    FillRectWithMask(aDT,
+                     aRect,
+                     aSurface,
+                     aSamplingFilter,
+                     aOptions,
                      ExtendMode::CLAMP,
-                     mask.GetSurface(), &maskTransform);
+                     mask.GetSurface(),
+                     &maskTransform);
     return;
   }
 
-  FillRectWithMask(aDT, aRect, aSurface, aSamplingFilter, aOptions,
-                   ExtendMode::CLAMP);
+  FillRectWithMask(
+      aDT, aRect, aSurface, aSamplingFilter, aOptions, ExtendMode::CLAMP);
 }
 
 void
@@ -229,9 +239,11 @@ FillPathWithMask(DrawTarget* aDT,
   }
 
   aDT->Fill(aPath,
-            SurfacePattern(aSurface, aExtendMode,
+            SurfacePattern(aSurface,
+                           aExtendMode,
                            aSurfaceTransform ? (*aSurfaceTransform) : Matrix(),
-                           aSamplingFilter), aOptions);
+                           aSamplingFilter),
+            aOptions);
 }
 
 BasicImplData*
@@ -269,6 +281,5 @@ ShouldShadow(Layer* aLayer)
   return true;
 }
 
-
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

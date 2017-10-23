@@ -19,17 +19,17 @@ namespace mozilla {
 class VsyncObserver;
 namespace gl {
 class GLContext;
-} // namespace gl
+}  // namespace gl
 namespace layers {
 class Compositor;
 class LayerManager;
 class LayerManagerComposite;
 class Compositor;
-} // namespace layers
+}  // namespace layers
 namespace gfx {
 class DrawTarget;
 class SourceSurface;
-} // namespace gfx
+}  // namespace gfx
 namespace widget {
 
 class WinCompositorWidget;
@@ -49,12 +49,14 @@ class HeadlessCompositorWidget;
 
 class CompositorWidgetDelegate
 {
-public:
-  virtual PlatformCompositorWidgetDelegate* AsPlatformSpecificDelegate() {
+ public:
+  virtual PlatformCompositorWidgetDelegate* AsPlatformSpecificDelegate()
+  {
     return nullptr;
   }
 
-  virtual HeadlessCompositorWidget* AsHeadlessCompositorWidget() {
+  virtual HeadlessCompositorWidget* AsHeadlessCompositorWidget()
+  {
     return nullptr;
   }
 };
@@ -69,16 +71,14 @@ class CompositorWidgetParent;
 // PCompositorWidgetChild.
 class CompositorWidgetChild;
 
-# define MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING
+#define MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING
 #endif
 
 class WidgetRenderingContext
 {
-public:
+ public:
 #if defined(XP_MACOSX)
-  WidgetRenderingContext()
-    : mLayerManager(nullptr)
-    , mGL(nullptr) {}
+  WidgetRenderingContext() : mLayerManager(nullptr), mGL(nullptr) {}
   layers::LayerManagerComposite* mLayerManager;
   gl::GLContext* mGL;
 #elif defined(MOZ_WIDGET_ANDROID)
@@ -92,16 +92,17 @@ public:
  */
 class CompositorWidget
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(mozilla::widget::CompositorWidget)
 
   /**
    * Create an in-process compositor widget. aWidget may be ignored if the
    * platform does not require it.
    */
-  static RefPtr<CompositorWidget> CreateLocal(const CompositorWidgetInitData& aInitData,
-                                              const layers::CompositorOptions& aOptions,
-                                              nsIWidget* aWidget);
+  static RefPtr<CompositorWidget> CreateLocal(
+      const CompositorWidgetInitData& aInitData,
+      const layers::CompositorOptions& aOptions,
+      nsIWidget* aWidget);
 
   /**
    * Called before rendering using OMTC. Returns false when the widget is
@@ -110,9 +111,7 @@ public:
    * Always called from the compositing thread, which may be the main-thread if
    * OMTC is not enabled.
    */
-  virtual bool PreRender(WidgetRenderingContext* aContext) {
-    return true;
-  }
+  virtual bool PreRender(WidgetRenderingContext* aContext) { return true; }
 
   /**
    * Called after rendering using OMTC. Not called when rendering was
@@ -121,8 +120,7 @@ public:
    * Always called from the compositing thread, which may be the main-thread if
    * OMTC is not enabled.
    */
-  virtual void PostRender(WidgetRenderingContext* aContext)
-  {}
+  virtual void PostRender(WidgetRenderingContext* aContext) {}
 
   /**
    * Called before the LayerManager draws the layer tree.
@@ -131,7 +129,8 @@ public:
    */
   virtual void DrawWindowUnderlay(WidgetRenderingContext* aContext,
                                   LayoutDeviceIntRect aRect)
-  {}
+  {
+  }
 
   /**
    * Called after the LayerManager draws the layer tree
@@ -140,7 +139,8 @@ public:
    */
   virtual void DrawWindowOverlay(WidgetRenderingContext* aContext,
                                  LayoutDeviceIntRect aRect)
-  {}
+  {
+  }
 
   /**
    * Return a DrawTarget for the window which can be composited into.
@@ -152,9 +152,8 @@ public:
    * to require double-buffering.
    */
   virtual already_AddRefed<gfx::DrawTarget> StartRemoteDrawing();
-  virtual already_AddRefed<gfx::DrawTarget>
-  StartRemoteDrawingInRegion(LayoutDeviceIntRegion& aInvalidRegion,
-                             layers::BufferMode* aBufferMode)
+  virtual already_AddRefed<gfx::DrawTarget> StartRemoteDrawingInRegion(
+      LayoutDeviceIntRegion& aInvalidRegion, layers::BufferMode* aBufferMode)
   {
     return StartRemoteDrawing();
   }
@@ -166,8 +165,7 @@ public:
    * Called by BasicCompositor on the compositor thread for OMTC drawing
    * after each composition.
    */
-  virtual void EndRemoteDrawing()
-  {}
+  virtual void EndRemoteDrawing() {}
   virtual void EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
                                         LayoutDeviceIntRegion& aInvalidRegion)
   {
@@ -180,17 +178,14 @@ public:
    * Called by BasicCompositor on the compositor thread for OMTC drawing
    * after each composition.
    */
-  virtual bool NeedsToDeferEndRemoteDrawing() {
-    return false;
-  }
+  virtual bool NeedsToDeferEndRemoteDrawing() { return false; }
 
   /**
    * Called when shutting down the LayerManager to clean-up any cached resources.
    *
    * Always called from the compositing thread.
    */
-  virtual void CleanupWindowEffects()
-  {}
+  virtual void CleanupWindowEffects() {}
 
   /**
    * A hook for the widget to prepare a Compositor, during the latter's initialization.
@@ -201,9 +196,7 @@ public:
    * Returning false will cause the compositor's initialization to fail, and
    * a different compositor backend will be used (if any).
    */
-  virtual bool InitCompositor(layers::Compositor* aCompositor) {
-    return true;
-  }
+  virtual bool InitCompositor(layers::Compositor* aCompositor) { return true; }
 
   /**
    * Return the size of the drawable area of the widget.
@@ -239,17 +232,15 @@ public:
    * CompositorBridgeChild::RecvHideAllPlugins and
    * CompositorBridgeParent::SendHideAllPlugins.
    */
-  virtual uintptr_t GetWidgetKey() {
-    return 0;
-  }
+  virtual uintptr_t GetWidgetKey() { return 0; }
 
   /**
    * Create a backbuffer for the software compositor.
    */
-  virtual already_AddRefed<gfx::DrawTarget>
-  GetBackBufferDrawTarget(gfx::DrawTarget* aScreenTarget,
-                          const LayoutDeviceIntRect& aRect,
-                          const LayoutDeviceIntRect& aClearRect);
+  virtual already_AddRefed<gfx::DrawTarget> GetBackBufferDrawTarget(
+      gfx::DrawTarget* aScreenTarget,
+      const LayoutDeviceIntRect& aRect,
+      const LayoutDeviceIntRect& aClearRect);
 
   /**
    * Ensure end of composition to back buffer.
@@ -268,40 +259,28 @@ public:
    * Get the compositor options for the compositor associated with this
    * CompositorWidget.
    */
-  const layers::CompositorOptions& GetCompositorOptions() {
-    return mOptions;
-  }
+  const layers::CompositorOptions& GetCompositorOptions() { return mOptions; }
 
   /**
    * Return true if the window is hidden and should not be composited.
    */
-  virtual bool IsHidden() const {
-    return false;
-  }
+  virtual bool IsHidden() const { return false; }
 
   /**
    * This is only used by out-of-process compositors.
    */
   virtual RefPtr<VsyncObserver> GetVsyncObserver() const;
 
-  virtual WinCompositorWidget* AsWindows() {
-    return nullptr;
-  }
-  virtual X11CompositorWidget* AsX11() {
-    return nullptr;
-  }
-  virtual AndroidCompositorWidget* AsAndroid() {
-    return nullptr;
-  }
+  virtual WinCompositorWidget* AsWindows() { return nullptr; }
+  virtual X11CompositorWidget* AsX11() { return nullptr; }
+  virtual AndroidCompositorWidget* AsAndroid() { return nullptr; }
 
   /**
    * Return the platform-specific delegate for the widget, if any.
    */
-  virtual CompositorWidgetDelegate* AsDelegate() {
-    return nullptr;
-  }
+  virtual CompositorWidgetDelegate* AsDelegate() { return nullptr; }
 
-protected:
+ protected:
   explicit CompositorWidget(const layers::CompositorOptions& aOptions);
   virtual ~CompositorWidget();
 
@@ -311,7 +290,7 @@ protected:
   layers::CompositorOptions mOptions;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif

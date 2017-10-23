@@ -17,29 +17,28 @@
 
 NS_IMPL_ISUPPORTS(nsTransactionList, nsITransactionList)
 
-nsTransactionList::nsTransactionList(nsITransactionManager *aTxnMgr, nsTransactionStack *aTxnStack)
-  : mTxnStack(aTxnStack)
-  , mTxnItem(nullptr)
+nsTransactionList::nsTransactionList(nsITransactionManager* aTxnMgr,
+                                     nsTransactionStack* aTxnStack)
+    : mTxnStack(aTxnStack), mTxnItem(nullptr)
 {
-  if (aTxnMgr)
-    mTxnMgr = do_GetWeakReference(aTxnMgr);
+  if (aTxnMgr) mTxnMgr = do_GetWeakReference(aTxnMgr);
 }
 
-nsTransactionList::nsTransactionList(nsITransactionManager *aTxnMgr, nsTransactionItem *aTxnItem)
-  : mTxnStack(0)
-  , mTxnItem(aTxnItem)
+nsTransactionList::nsTransactionList(nsITransactionManager* aTxnMgr,
+                                     nsTransactionItem* aTxnItem)
+    : mTxnStack(0), mTxnItem(aTxnItem)
 {
-  if (aTxnMgr)
-    mTxnMgr = do_GetWeakReference(aTxnMgr);
+  if (aTxnMgr) mTxnMgr = do_GetWeakReference(aTxnMgr);
 }
 
 nsTransactionList::~nsTransactionList()
 {
   mTxnStack = 0;
-  mTxnItem  = nullptr;
+  mTxnItem = nullptr;
 }
 
-NS_IMETHODIMP nsTransactionList::GetNumItems(int32_t *aNumItems)
+NS_IMETHODIMP
+nsTransactionList::GetNumItems(int32_t* aNumItems)
 {
   NS_ENSURE_TRUE(aNumItems, NS_ERROR_NULL_POINTER);
 
@@ -57,7 +56,8 @@ NS_IMETHODIMP nsTransactionList::GetNumItems(int32_t *aNumItems)
   return NS_OK;
 }
 
-NS_IMETHODIMP nsTransactionList::ItemIsBatch(int32_t aIndex, bool *aIsBatch)
+NS_IMETHODIMP
+nsTransactionList::ItemIsBatch(int32_t aIndex, bool* aIsBatch)
 {
   NS_ENSURE_TRUE(aIsBatch, NS_ERROR_NULL_POINTER);
 
@@ -78,9 +78,10 @@ NS_IMETHODIMP nsTransactionList::ItemIsBatch(int32_t aIndex, bool *aIsBatch)
   return item->GetIsBatch(aIsBatch);
 }
 
-NS_IMETHODIMP nsTransactionList::GetData(int32_t aIndex,
-                                         uint32_t *aLength,
-                                         nsISupports ***aData)
+NS_IMETHODIMP
+nsTransactionList::GetData(int32_t aIndex,
+                           uint32_t* aLength,
+                           nsISupports*** aData)
 {
   nsCOMPtr<nsITransactionManager> txMgr = do_QueryReferent(mTxnMgr);
   NS_ENSURE_TRUE(txMgr, NS_ERROR_FAILURE);
@@ -94,8 +95,8 @@ NS_IMETHODIMP nsTransactionList::GetData(int32_t aIndex,
   }
 
   nsCOMArray<nsISupports>& data = item->GetData();
-  nsISupports** ret = static_cast<nsISupports**>(moz_xmalloc(data.Count() *
-    sizeof(nsISupports*)));
+  nsISupports** ret = static_cast<nsISupports**>(
+      moz_xmalloc(data.Count() * sizeof(nsISupports*)));
 
   for (int32_t i = 0; i < data.Count(); i++) {
     NS_ADDREF(ret[i] = data[i]);
@@ -105,7 +106,8 @@ NS_IMETHODIMP nsTransactionList::GetData(int32_t aIndex,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsTransactionList::GetItem(int32_t aIndex, nsITransaction **aItem)
+NS_IMETHODIMP
+nsTransactionList::GetItem(int32_t aIndex, nsITransaction** aItem)
 {
   NS_ENSURE_TRUE(aItem, NS_ERROR_NULL_POINTER);
 
@@ -127,7 +129,8 @@ NS_IMETHODIMP nsTransactionList::GetItem(int32_t aIndex, nsITransaction **aItem)
   return NS_OK;
 }
 
-NS_IMETHODIMP nsTransactionList::GetNumChildrenForItem(int32_t aIndex, int32_t *aNumChildren)
+NS_IMETHODIMP
+nsTransactionList::GetNumChildrenForItem(int32_t aIndex, int32_t* aNumChildren)
 {
   NS_ENSURE_TRUE(aNumChildren, NS_ERROR_NULL_POINTER);
 
@@ -148,7 +151,9 @@ NS_IMETHODIMP nsTransactionList::GetNumChildrenForItem(int32_t aIndex, int32_t *
   return item->GetNumberOfChildren(aNumChildren);
 }
 
-NS_IMETHODIMP nsTransactionList::GetChildListForItem(int32_t aIndex, nsITransactionList **aTxnList)
+NS_IMETHODIMP
+nsTransactionList::GetChildListForItem(int32_t aIndex,
+                                       nsITransactionList** aTxnList)
 {
   NS_ENSURE_TRUE(aTxnList, NS_ERROR_NULL_POINTER);
 
@@ -166,7 +171,7 @@ NS_IMETHODIMP nsTransactionList::GetChildListForItem(int32_t aIndex, nsITransact
   }
   NS_ENSURE_TRUE(item, NS_ERROR_FAILURE);
 
-  *aTxnList = (nsITransactionList *)new nsTransactionList(txMgr, item);
+  *aTxnList = (nsITransactionList*)new nsTransactionList(txMgr, item);
   NS_ENSURE_TRUE(*aTxnList, NS_ERROR_OUT_OF_MEMORY);
 
   NS_ADDREF(*aTxnList);

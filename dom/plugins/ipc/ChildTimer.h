@@ -20,7 +20,7 @@ typedef void (*TimerFunc)(NPP npp, uint32_t timerID);
 
 class ChildTimer
 {
-public:
+ public:
   /**
    * If initialization failed, ID() will return 0.
    */
@@ -28,19 +28,17 @@ public:
              uint32_t interval,
              bool repeat,
              TimerFunc func);
-  ~ChildTimer() { }
+  ~ChildTimer() {}
 
   uint32_t ID() const { return mID; }
 
   class IDComparator
   {
-  public:
-    bool Equals(ChildTimer* t, uint32_t id) const {
-      return t->ID() == id;
-    }
+   public:
+    bool Equals(ChildTimer* t, uint32_t id) const { return t->ID() == id; }
   };
 
-private:
+ private:
   PluginInstanceChild* mInstance;
   TimerFunc mFunc;
   bool mRepeating;
@@ -52,7 +50,7 @@ private:
   static uint32_t gNextTimerID;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
-#endif // mozilla_plugins_ChildTimer_h
+#endif  // mozilla_plugins_ChildTimer_h

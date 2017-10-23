@@ -7,8 +7,9 @@
 namespace mozilla {
 namespace safebrowsing {
 
-class PerProviderDirectoryTestUtils {
-public:
+class PerProviderDirectoryTestUtils
+{
+ public:
   template<typename T>
   static nsIFile* InspectStoreDirectory(const T& aT)
   {
@@ -16,17 +17,18 @@ public:
   }
 };
 
-} // end of namespace safebrowsing
-} // end of namespace mozilla
+}  // end of namespace safebrowsing
+}  // end of namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::safebrowsing;
 
 template<typename T>
-void VerifyPrivateStorePath(const char* aTableName,
-                            const char* aProvider,
-                            nsIFile* aRootDir,
-                            bool aUsePerProviderStore)
+void
+VerifyPrivateStorePath(const char* aTableName,
+                       const char* aProvider,
+                       nsIFile* aRootDir,
+                       bool aUsePerProviderStore)
 {
   nsString rootStorePath;
   nsresult rv = aRootDir->GetPath(rootStorePath);
@@ -35,7 +37,7 @@ void VerifyPrivateStorePath(const char* aTableName,
   T target(nsCString(aTableName), nsCString(aProvider), aRootDir);
 
   nsIFile* privateStoreDirectory =
-    PerProviderDirectoryTestUtils::InspectStoreDirectory(target);
+      PerProviderDirectoryTestUtils::InspectStoreDirectory(target);
 
   nsString privateStorePath;
   rv = privateStoreDirectory->GetPath(privateStorePath);
@@ -65,34 +67,40 @@ void VerifyPrivateStorePath(const char* aTableName,
 
 TEST(PerProviderDirectory, LookupCache)
 {
-  RunTestInNewThread([] () -> void {
+  RunTestInNewThread([]() -> void {
     nsCOMPtr<nsIFile> rootDir;
     NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(rootDir));
 
     // For V2 tables (NOT ending with '-proto'), root directory should be
     // used as the private store.
-    VerifyPrivateStorePath<LookupCacheV2>("goog-phish-shavar", "google", rootDir, false);
+    VerifyPrivateStorePath<LookupCacheV2>(
+        "goog-phish-shavar", "google", rootDir, false);
 
     // For V4 tables, if provider is found, use per-provider subdirectory;
     // If not found, use root directory.
-    VerifyPrivateStorePath<LookupCacheV4>("goog-noprovider-proto", "", rootDir, false);
-    VerifyPrivateStorePath<LookupCacheV4>("goog-phish-proto", "google4", rootDir, true);
+    VerifyPrivateStorePath<LookupCacheV4>(
+        "goog-noprovider-proto", "", rootDir, false);
+    VerifyPrivateStorePath<LookupCacheV4>(
+        "goog-phish-proto", "google4", rootDir, true);
   });
 }
 
 TEST(PerProviderDirectory, HashStore)
 {
-  RunTestInNewThread([] () -> void {
+  RunTestInNewThread([]() -> void {
     nsCOMPtr<nsIFile> rootDir;
     NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(rootDir));
 
     // For V2 tables (NOT ending with '-proto'), root directory should be
     // used as the private store.
-    VerifyPrivateStorePath<HashStore>("goog-phish-shavar", "google", rootDir, false);
+    VerifyPrivateStorePath<HashStore>(
+        "goog-phish-shavar", "google", rootDir, false);
 
     // For V4 tables, if provider is found, use per-provider subdirectory;
     // If not found, use root directory.
-    VerifyPrivateStorePath<HashStore>("goog-noprovider-proto", "", rootDir, false);
-    VerifyPrivateStorePath<HashStore>("goog-phish-proto", "google4", rootDir, true);
+    VerifyPrivateStorePath<HashStore>(
+        "goog-noprovider-proto", "", rootDir, false);
+    VerifyPrivateStorePath<HashStore>(
+        "goog-phish-proto", "google4", rootDir, true);
   });
 }

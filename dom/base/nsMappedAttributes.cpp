@@ -21,10 +21,9 @@
 
 using namespace mozilla;
 
-bool
-nsMappedAttributes::sShuttingDown = false;
-nsTArray<void*>*
-nsMappedAttributes::sCachedMappedAttributeAllocations = nullptr;
+bool nsMappedAttributes::sShuttingDown = false;
+nsTArray<void*>* nsMappedAttributes::sCachedMappedAttributeAllocations =
+    nullptr;
 
 void
 nsMappedAttributes::Shutdown()
@@ -43,24 +42,24 @@ nsMappedAttributes::Shutdown()
 
 nsMappedAttributes::nsMappedAttributes(nsHTMLStyleSheet* aSheet,
                                        nsMapRuleToAttributesFunc aMapRuleFunc)
-  : mAttrCount(0),
-    mSheet(aSheet),
-    mRuleMapper(aMapRuleFunc),
-    mServoStyle(nullptr)
+    : mAttrCount(0),
+      mSheet(aSheet),
+      mRuleMapper(aMapRuleFunc),
+      mServoStyle(nullptr)
 {
-  MOZ_ASSERT(mRefCnt == 0); // Ensure caching works as expected.
+  MOZ_ASSERT(mRefCnt == 0);  // Ensure caching works as expected.
 }
 
 nsMappedAttributes::nsMappedAttributes(const nsMappedAttributes& aCopy)
-  : mAttrCount(aCopy.mAttrCount),
-    mSheet(aCopy.mSheet),
-    mRuleMapper(aCopy.mRuleMapper),
-    // This is only called by ::Clone, which is used to create independent
-    // nsMappedAttributes objects which should not share a ServoDeclarationBlock
-    mServoStyle(nullptr)
+    : mAttrCount(aCopy.mAttrCount),
+      mSheet(aCopy.mSheet),
+      mRuleMapper(aCopy.mRuleMapper),
+      // This is only called by ::Clone, which is used to create independent
+      // nsMappedAttributes objects which should not share a ServoDeclarationBlock
+      mServoStyle(nullptr)
 {
   NS_ASSERTION(mBufferSize >= aCopy.mAttrCount, "can't fit attributes");
-  MOZ_ASSERT(mRefCnt == 0); // Ensure caching works as expected.
+  MOZ_ASSERT(mRefCnt == 0);  // Ensure caching works as expected.
 
   uint32_t i;
   for (i = 0; i < mAttrCount; ++i) {
@@ -80,7 +79,6 @@ nsMappedAttributes::~nsMappedAttributes()
   }
 }
 
-
 nsMappedAttributes*
 nsMappedAttributes::Clone(bool aWillAddAttr)
 {
@@ -90,9 +88,10 @@ nsMappedAttributes::Clone(bool aWillAddAttr)
   return new (mAttrCount + extra) nsMappedAttributes(*this);
 }
 
-void* nsMappedAttributes::operator new(size_t aSize, uint32_t aAttrCount) CPP_THROW_NEW
+void*
+nsMappedAttributes::operator new(size_t aSize,
+                                 uint32_t aAttrCount) CPP_THROW_NEW
 {
-
   size_t size = aSize + aAttrCount * sizeof(InternalAttr);
 
   // aSize will include the mAttrs buffer so subtract that.
@@ -100,12 +99,11 @@ void* nsMappedAttributes::operator new(size_t aSize, uint32_t aAttrCount) CPP_TH
   // if we have zero attributes. The zero attribute case only happens
   // for <body>'s mapped attributes
   if (aAttrCount != 0) {
-    size -= sizeof(void*[1]);
+    size -= sizeof(void * [1]);
   }
 
   if (sCachedMappedAttributeAllocations) {
-    void* cached =
-      sCachedMappedAttributeAllocations->SafeElementAt(aAttrCount);
+    void* cached = sCachedMappedAttributeAllocations->SafeElementAt(aAttrCount);
     if (cached) {
       (*sCachedMappedAttributeAllocations)[aAttrCount] = nullptr;
       return cached;
@@ -134,7 +132,8 @@ nsMappedAttributes::LastRelease()
     // statically in element implementations.
     sCachedMappedAttributeAllocations->SetCapacity(mAttrCount + 1);
     for (uint32_t i = sCachedMappedAttributeAllocations->Length();
-         i < (uint32_t(mAttrCount) + 1); ++i) {
+         i < (uint32_t(mAttrCount) + 1);
+         ++i) {
       sCachedMappedAttributeAllocations->AppendElement(nullptr);
     }
 
@@ -152,11 +151,11 @@ nsMappedAttributes::LastRelease()
 NS_IMPL_ADDREF(nsMappedAttributes)
 NS_IMPL_RELEASE_WITH_DESTROY(nsMappedAttributes, LastRelease())
 
-NS_IMPL_QUERY_INTERFACE(nsMappedAttributes,
-                        nsIStyleRule)
+NS_IMPL_QUERY_INTERFACE(nsMappedAttributes, nsIStyleRule)
 
 void
-nsMappedAttributes::SetAndSwapAttr(nsAtom* aAttrName, nsAttrValue& aValue,
+nsMappedAttributes::SetAndSwapAttr(nsAtom* aAttrName,
+                                   nsAttrValue& aValue,
                                    bool* aValueWasSet)
 {
   NS_PRECONDITION(aAttrName, "null name");
@@ -173,7 +172,8 @@ nsMappedAttributes::SetAndSwapAttr(nsAtom* aAttrName, nsAttrValue& aValue,
   NS_ASSERTION(mBufferSize >= mAttrCount + 1, "can't fit attributes");
 
   if (mAttrCount != i) {
-    memmove(&Attrs()[i + 1], &Attrs()[i], (mAttrCount - i) * sizeof(InternalAttr));
+    memmove(
+        &Attrs()[i + 1], &Attrs()[i], (mAttrCount - i) * sizeof(InternalAttr));
   }
 
   new (&Attrs()[i].mName) nsAttrName(aAttrName);
@@ -237,9 +237,8 @@ nsMappedAttributes::HashValue() const
 
   uint32_t i;
   for (i = 0; i < mAttrCount; ++i) {
-    hash = AddToHash(hash,
-                     Attrs()[i].mName.HashValue(),
-                     Attrs()[i].mValue.HashValue());
+    hash = AddToHash(
+        hash, Attrs()[i].mName.HashValue(), Attrs()[i].mValue.HashValue());
   }
 
   return hash;
@@ -308,7 +307,8 @@ nsMappedAttributes::RemoveAttrAt(uint32_t aPos, nsAttrValue& aValue)
 {
   Attrs()[aPos].mValue.SwapValueWith(aValue);
   Attrs()[aPos].~InternalAttr();
-  memmove(&Attrs()[aPos], &Attrs()[aPos + 1],
+  memmove(&Attrs()[aPos],
+          &Attrs()[aPos + 1],
           (mAttrCount - aPos - 1) * sizeof(InternalAttr));
   mAttrCount--;
 }
@@ -322,8 +322,7 @@ nsMappedAttributes::GetExistingAttrNameFromQName(const nsAString& aName) const
       if (Attrs()[i].mName.Atom()->Equals(aName)) {
         return &Attrs()[i].mName;
       }
-    }
-    else {
+    } else {
       if (Attrs()[i].mName.NodeInfo()->QualifiedNameEquals(aName)) {
         return &Attrs()[i].mName;
       }
@@ -362,12 +361,13 @@ nsMappedAttributes::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
 void
 nsMappedAttributes::LazilyResolveServoDeclaration(nsPresContext* aContext)
 {
-
   MOZ_ASSERT(!mServoStyle,
-             "LazilyResolveServoDeclaration should not be called if mServoStyle is already set");
+             "LazilyResolveServoDeclaration should not be called if "
+             "mServoStyle is already set");
   if (mRuleMapper) {
     mServoStyle = Servo_DeclarationBlock_CreateEmpty().Consume();
-    ServoSpecifiedValues servo = ServoSpecifiedValues(aContext, mServoStyle.get());
+    ServoSpecifiedValues servo =
+        ServoSpecifiedValues(aContext, mServoStyle.get());
     (*mRuleMapper)(this, &servo);
   }
 }

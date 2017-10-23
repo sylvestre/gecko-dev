@@ -24,8 +24,7 @@
 namespace mozilla {
 namespace mscom {
 
-SpinEvent::SpinEvent()
-  : mDone(false)
+SpinEvent::SpinEvent() : mDone(false)
 {
   static const bool sIsMulticore = []() {
     SYSTEM_INFO sysInfo;
@@ -49,8 +48,8 @@ SpinEvent::Wait(HANDLE aTargetThread)
 
   if (mDoneEvent) {
     HANDLE handles[] = {mDoneEvent, aTargetThread};
-    DWORD waitResult = ::WaitForMultipleObjects(mozilla::ArrayLength(handles),
-                                                handles, FALSE, INFINITE);
+    DWORD waitResult = ::WaitForMultipleObjects(
+        mozilla::ArrayLength(handles), handles, FALSE, INFINITE);
     return waitResult == WAIT_OBJECT_0;
   }
 
@@ -73,5 +72,5 @@ SpinEvent::Signal()
   }
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

@@ -15,7 +15,7 @@ namespace a11y {
  */
 class AccGroupInfo
 {
-public:
+ public:
   ~AccGroupInfo() { MOZ_COUNT_DTOR(AccGroupInfo); }
 
   /**
@@ -74,13 +74,13 @@ public:
    */
   static Accessible* NextItemTo(Accessible* aItem);
 
-protected:
+ protected:
   AccGroupInfo(Accessible* aItem, a11y::role aRole);
 
-private:
+ private:
   AccGroupInfo() = delete;
   AccGroupInfo(const AccGroupInfo&) = delete;
-  AccGroupInfo& operator =(const AccGroupInfo&) = delete;
+  AccGroupInfo& operator=(const AccGroupInfo&) = delete;
 
   static mozilla::a11y::role BaseRole(mozilla::a11y::role aRole)
   {
@@ -108,7 +108,7 @@ private:
   a11y::role mRole;
 };
 
-} // namespace mozilla
-} // namespace a11y
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

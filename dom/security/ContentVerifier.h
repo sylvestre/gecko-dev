@@ -20,10 +20,10 @@
  * If the verification fails or anything else goes wrong, a
  * NS_ERROR_INVALID_SIGNATURE is thrown.
  */
-class ContentVerifier : public nsIStreamListener
-                      , public nsIContentSignatureReceiverCallback
+class ContentVerifier : public nsIStreamListener,
+                        public nsIContentSignatureReceiverCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISTREAMLISTENER
   NS_DECL_NSIREQUESTOBSERVER
@@ -31,17 +31,20 @@ public:
 
   explicit ContentVerifier(nsIStreamListener* aMediatedListener,
                            nsISupports* aMediatedContext)
-    : mNextListener(aMediatedListener)
-    , mContextCreated(false)
-    , mContentRead(false) {}
+      : mNextListener(aMediatedListener),
+        mContextCreated(false),
+        mContentRead(false)
+  {
+  }
 
-  nsresult Init(const nsACString& aContentSignatureHeader, nsIRequest* aRequest,
+  nsresult Init(const nsACString& aContentSignatureHeader,
+                nsIRequest* aRequest,
                 nsISupports* aContext);
 
-protected:
+ protected:
   virtual ~ContentVerifier() {}
 
-private:
+ private:
   void FinishSignature();
 
   // buffered content to verify

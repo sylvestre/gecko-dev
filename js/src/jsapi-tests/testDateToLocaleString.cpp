@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testDateToLocaleString)
-{
+BEGIN_TEST(testDateToLocaleString) {
     JSRuntime* rt = JS_GetRuntime(cx);
 
     // This test should only attempt to run if we have Intl support: necessary
@@ -16,8 +15,7 @@ BEGIN_TEST(testDateToLocaleString)
     // affect the behavior of the locale-sensitive Date methods tested here.
     JS::Rooted<JS::Value> haveIntl(cx);
     EVAL("typeof Intl !== 'undefined'", &haveIntl);
-    if (!haveIntl.toBoolean())
-        return true;
+    if (!haveIntl.toBoolean()) return true;
 
     // Pervasive assumption: our Intl support includes "de" (German) and
     // "en" (English) and treats them differently for purposes of
@@ -33,22 +31,25 @@ BEGIN_TEST(testDateToLocaleString)
     EXEC("var deAll = d.toLocaleString();");
 
     CHECK(JS_SetDefaultLocale(rt, "en"));
-    EXEC("if (d.toLocaleString() === deAll) \n"
-         "  throw 'toLocaleString results should have changed with system locale change';");
+    EXEC(
+        "if (d.toLocaleString() === deAll) \n"
+        "  throw 'toLocaleString results should have changed with system locale change';");
 
     // Test that toLocaleDateString behavior changes with default locale changes.
     EXEC("var enDate = d.toLocaleDateString();");
 
     CHECK(JS_SetDefaultLocale(rt, "de"));
-    EXEC("if (d.toLocaleDateString() === enDate) \n"
-         "  throw 'toLocaleDateString results should have changed with system locale change';");
+    EXEC(
+        "if (d.toLocaleDateString() === enDate) \n"
+        "  throw 'toLocaleDateString results should have changed with system locale change';");
 
     // Test that toLocaleTimeString behavior changes with default locale changes.
     EXEC("var deTime = d.toLocaleTimeString();");
 
     CHECK(JS_SetDefaultLocale(rt, "en"));
-    EXEC("if (d.toLocaleTimeString() === deTime) \n"
-         "  throw 'toLocaleTimeString results should have changed with system locale change';");
+    EXEC(
+        "if (d.toLocaleTimeString() === deTime) \n"
+        "  throw 'toLocaleTimeString results should have changed with system locale change';");
 
     JS_ResetDefaultLocale(rt);
     return true;

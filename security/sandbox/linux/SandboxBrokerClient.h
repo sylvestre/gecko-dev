@@ -25,7 +25,8 @@ struct stat;
 
 namespace mozilla {
 
-class SandboxBrokerClient final : private SandboxBrokerCommon {
+class SandboxBrokerClient final : private SandboxBrokerCommon
+{
  public:
   explicit SandboxBrokerClient(int aFd);
   ~SandboxBrokerClient();
@@ -49,10 +50,10 @@ class SandboxBrokerClient final : private SandboxBrokerCommon {
   int DoCall(const Request* aReq,
              const char* aPath,
              const char* aPath2,
-             void *aReponseBuff,
+             void* aReponseBuff,
              bool expectFd);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SandboxBrokerClient_h
+#endif  // mozilla_SandboxBrokerClient_h

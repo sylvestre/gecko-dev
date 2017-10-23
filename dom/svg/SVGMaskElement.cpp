@@ -17,38 +17,44 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGMaskElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGMaskElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGMaskElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
 //--------------------- Masks ------------------------
 
-nsSVGElement::LengthInfo SVGMaskElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::x, -10, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
-  { &nsGkAtoms::y, -10, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
-  { &nsGkAtoms::width, 120, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
-  { &nsGkAtoms::height, 120, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGMaskElement::sLengthInfo[4] = {
+    {&nsGkAtoms::x,
+     -10,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y,
+     -10,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::width,
+     120,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::X},
+    {&nsGkAtoms::height,
+     120,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::Y},
 };
 
-nsSVGElement::EnumInfo SVGMaskElement::sEnumInfo[2] =
-{
-  { &nsGkAtoms::maskUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_OBJECTBOUNDINGBOX
-  },
-  { &nsGkAtoms::maskContentUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_USERSPACEONUSE
-  }
-};
+nsSVGElement::EnumInfo SVGMaskElement::sEnumInfo[2] = {
+    {&nsGkAtoms::maskUnits, sSVGUnitTypesMap, SVG_UNIT_TYPE_OBJECTBOUNDINGBOX},
+    {&nsGkAtoms::maskContentUnits,
+     sSVGUnitTypesMap,
+     SVG_UNIT_TYPE_USERSPACEONUSE}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGMaskElement::SVGMaskElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGMaskElementBase(aNodeInfo)
+SVGMaskElement::SVGMaskElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGMaskElementBase(aNodeInfo)
 {
 }
 
@@ -102,23 +108,22 @@ SVGMaskElement::Height()
 SVGMaskElement::HasValidDimensions() const
 {
   return (!mLengthAttributes[ATTR_WIDTH].IsExplicitlySet() ||
-           mLengthAttributes[ATTR_WIDTH].GetAnimValInSpecifiedUnits() > 0) &&
+          mLengthAttributes[ATTR_WIDTH].GetAnimValInSpecifiedUnits() > 0) &&
          (!mLengthAttributes[ATTR_HEIGHT].IsExplicitlySet() ||
-           mLengthAttributes[ATTR_HEIGHT].GetAnimValInSpecifiedUnits() > 0);
+          mLengthAttributes[ATTR_HEIGHT].GetAnimValInSpecifiedUnits() > 0);
 }
 
 nsSVGElement::LengthAttributesInfo
 SVGMaskElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGMaskElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
 //----------------------------------------------------------------------
@@ -127,23 +132,21 @@ SVGMaskElement::GetEnumInfo()
 NS_IMETHODIMP_(bool)
 SVGMaskElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sColorMap,
-    sFEFloodMap,
-    sFillStrokeMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sGraphicsMap,
-    sMarkersMap,
-    sMaskMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sColorMap,
+                                                    sFEFloodMap,
+                                                    sFillStrokeMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sGraphicsMap,
+                                                    sMarkersMap,
+                                                    sMaskMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGMaskElementBase::IsAttributeMapped(name);
+         SVGMaskElementBase::IsAttributeMapped(name);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

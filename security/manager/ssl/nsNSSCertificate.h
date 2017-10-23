@@ -19,7 +19,11 @@
 #include "nsNSSShutDown.h"
 #include "nsStringFwd.h"
 
-namespace mozilla { namespace pkix { class DERArray; } }
+namespace mozilla {
+namespace pkix {
+class DERArray;
+}
+}  // namespace mozilla
 
 class nsINSSComponent;
 class nsIASN1Sequence;
@@ -29,7 +33,7 @@ class nsNSSCertificate final : public nsIX509Cert,
                                public nsIClassInfo,
                                public nsNSSShutDownObject
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIX509CERT
   NS_DECL_NSISERIALIZABLE
@@ -45,12 +49,12 @@ public:
   static nsresult GetDbKey(const mozilla::UniqueCERTCertificate& cert,
                            nsACString& aDbKey);
 
-private:
+ private:
   virtual ~nsNSSCertificate();
 
   mozilla::UniqueCERTCertificate mCert;
-  bool             mPermDelete;
-  uint32_t         mCertType;
+  bool mPermDelete;
+  uint32_t mCertType;
   nsresult CreateASN1Struct(nsIASN1Object** aRetVal);
   nsresult CreateTBSCertificateASN1Struct(nsIASN1Sequence** retSequence);
   nsresult GetSortableDate(PRTime aTime, nsAString& _aSortableDate);
@@ -63,17 +67,18 @@ private:
 
 namespace mozilla {
 
-SECStatus ConstructCERTCertListFromReversedDERArray(
-            const mozilla::pkix::DERArray& certArray,
-            /*out*/ mozilla::UniqueCERTCertList& certList);
+SECStatus
+ConstructCERTCertListFromReversedDERArray(
+    const mozilla::pkix::DERArray& certArray,
+    /*out*/ mozilla::UniqueCERTCertList& certList);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-class nsNSSCertList: public nsIX509CertList,
-                     public nsISerializable,
-                     public nsNSSShutDownObject
+class nsNSSCertList : public nsIX509CertList,
+                      public nsISerializable,
+                      public nsNSSShutDownObject
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIX509CERTLIST
   NS_DECL_NSISERIALIZABLE
@@ -85,45 +90,47 @@ public:
   nsNSSCertList();
 
   static mozilla::UniqueCERTCertList DupCertList(
-    const mozilla::UniqueCERTCertList& certList,
-    const nsNSSShutDownPreventionLock& proofOfLock);
+      const mozilla::UniqueCERTCertList& certList,
+      const nsNSSShutDownPreventionLock& proofOfLock);
 
-private:
-   virtual ~nsNSSCertList();
-   virtual void virtualDestroyNSSReference() override;
-   void destructorSafeDestroyNSSReference();
+ private:
+  virtual ~nsNSSCertList();
+  virtual void virtualDestroyNSSReference() override;
+  void destructorSafeDestroyNSSReference();
 
-   mozilla::UniqueCERTCertList mCertList;
+  mozilla::UniqueCERTCertList mCertList;
 
-   nsNSSCertList(const nsNSSCertList&) = delete;
-   void operator=(const nsNSSCertList&) = delete;
+  nsNSSCertList(const nsNSSCertList&) = delete;
+  void operator=(const nsNSSCertList&) = delete;
 };
 
-class nsNSSCertListEnumerator: public nsISimpleEnumerator,
-                               public nsNSSShutDownObject
+class nsNSSCertListEnumerator : public nsISimpleEnumerator,
+                                public nsNSSShutDownObject
 {
-public:
-   NS_DECL_THREADSAFE_ISUPPORTS
-   NS_DECL_NSISIMPLEENUMERATOR
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSISIMPLEENUMERATOR
 
-   nsNSSCertListEnumerator(const mozilla::UniqueCERTCertList& certList,
-                           const nsNSSShutDownPreventionLock& proofOfLock);
-private:
-   virtual ~nsNSSCertListEnumerator();
-   virtual void virtualDestroyNSSReference() override;
-   void destructorSafeDestroyNSSReference();
+  nsNSSCertListEnumerator(const mozilla::UniqueCERTCertList& certList,
+                          const nsNSSShutDownPreventionLock& proofOfLock);
 
-   mozilla::UniqueCERTCertList mCertList;
+ private:
+  virtual ~nsNSSCertListEnumerator();
+  virtual void virtualDestroyNSSReference() override;
+  void destructorSafeDestroyNSSReference();
 
-   nsNSSCertListEnumerator(const nsNSSCertListEnumerator&) = delete;
-   void operator=(const nsNSSCertListEnumerator&) = delete;
+  mozilla::UniqueCERTCertList mCertList;
+
+  nsNSSCertListEnumerator(const nsNSSCertListEnumerator&) = delete;
+  void operator=(const nsNSSCertListEnumerator&) = delete;
 };
 
-#define NS_X509CERT_CID { /* 660a3226-915c-4ffb-bb20-8985a632df05 */   \
-    0x660a3226,                                                        \
-    0x915c,                                                            \
-    0x4ffb,                                                            \
-    { 0xbb, 0x20, 0x89, 0x85, 0xa6, 0x32, 0xdf, 0x05 }                 \
+#define NS_X509CERT_CID                              \
+  { /* 660a3226-915c-4ffb-bb20-8985a632df05 */       \
+    0x660a3226, 0x915c, 0x4ffb,                      \
+    {                                                \
+      0xbb, 0x20, 0x89, 0x85, 0xa6, 0x32, 0xdf, 0x05 \
+    }                                                \
   }
 
-#endif // nsNSSCertificate_h
+#endif  // nsNSSCertificate_h

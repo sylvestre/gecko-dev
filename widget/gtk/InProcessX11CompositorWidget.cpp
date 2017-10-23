@@ -18,29 +18,36 @@ CompositorWidget::CreateLocal(const CompositorWidgetInitData& aInitData,
                               const layers::CompositorOptions& aOptions,
                               nsIWidget* aWidget)
 {
-  if (aInitData.type() == CompositorWidgetInitData::THeadlessCompositorWidgetInitData) {
-    return new HeadlessCompositorWidget(aInitData.get_HeadlessCompositorWidgetInitData(),
-                                        aOptions, static_cast<HeadlessWidget*>(aWidget));
+  if (aInitData.type() ==
+      CompositorWidgetInitData::THeadlessCompositorWidgetInitData) {
+    return new HeadlessCompositorWidget(
+        aInitData.get_HeadlessCompositorWidgetInitData(),
+        aOptions,
+        static_cast<HeadlessWidget*>(aWidget));
   } else {
-    return new InProcessX11CompositorWidget(aInitData.get_X11CompositorWidgetInitData(),
-                                            aOptions, static_cast<nsWindow*>(aWidget));
+    return new InProcessX11CompositorWidget(
+        aInitData.get_X11CompositorWidgetInitData(),
+        aOptions,
+        static_cast<nsWindow*>(aWidget));
   }
 }
 
-InProcessX11CompositorWidget::InProcessX11CompositorWidget(const X11CompositorWidgetInitData& aInitData,
-                                                           const layers::CompositorOptions& aOptions,
-                                                           nsWindow* aWindow)
-  : X11CompositorWidget(aInitData, aOptions, aWindow)
+InProcessX11CompositorWidget::InProcessX11CompositorWidget(
+    const X11CompositorWidgetInitData& aInitData,
+    const layers::CompositorOptions& aOptions,
+    nsWindow* aWindow)
+    : X11CompositorWidget(aInitData, aOptions, aWindow)
 {
 }
 
 void
 InProcessX11CompositorWidget::ObserveVsync(VsyncObserver* aObserver)
 {
-  if (RefPtr<CompositorVsyncDispatcher> cvd = mWidget->GetCompositorVsyncDispatcher()) {
+  if (RefPtr<CompositorVsyncDispatcher> cvd =
+          mWidget->GetCompositorVsyncDispatcher()) {
     cvd->SetCompositorVsyncObserver(aObserver);
   }
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

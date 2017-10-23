@@ -16,25 +16,29 @@ namespace mozilla {
 
 namespace layers {
 class StackingContextHelper;
-} // namespace layers
+}  // namespace layers
 
 namespace wr {
 class DisplayListBuilder;
-} // namespace wr
+}  // namespace wr
 
 // A resolved color stop, with a specific position along the gradient line and
 // a color.
-struct ColorStop {
-  ColorStop(): mPosition(0), mIsMidpoint(false) {}
-  ColorStop(double aPosition, bool aIsMidPoint, const gfx::Color& aColor) :
-    mPosition(aPosition), mIsMidpoint(aIsMidPoint), mColor(aColor) {}
-  double mPosition; // along the gradient line; 0=start, 1=end
+struct ColorStop
+{
+  ColorStop() : mPosition(0), mIsMidpoint(false) {}
+  ColorStop(double aPosition, bool aIsMidPoint, const gfx::Color& aColor)
+      : mPosition(aPosition), mIsMidpoint(aIsMidPoint), mColor(aColor)
+  {
+  }
+  double mPosition;  // along the gradient line; 0=start, 1=end
   bool mIsMidpoint;
   gfx::Color mColor;
 };
 
-class nsCSSGradientRenderer final {
-public:
+class nsCSSGradientRenderer final
+{
+ public:
   /**
    * Prepare a nsCSSGradientRenderer for a gradient for an element.
    * aIntrinsicSize - the size of the source gradient.
@@ -88,7 +92,7 @@ public:
                                   bool aIsBackfaceVisible,
                                   float aOpacity = 1.0);
 
-private:
+ private:
   nsCSSGradientRenderer() {}
 
   nsPresContext* mPresContext;
@@ -98,6 +102,6 @@ private:
   double mRadiusX, mRadiusY;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* nsCSSRenderingGradients_h__ */

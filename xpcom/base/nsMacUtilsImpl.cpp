@@ -20,9 +20,7 @@ nsMacUtilsImpl::GetArchString(nsAString& aArchString)
 
   aArchString.Truncate();
 
-  bool foundPPC = false,
-       foundX86 = false,
-       foundPPC64 = false,
+  bool foundPPC = false, foundX86 = false, foundPPC64 = false,
        foundX86_64 = false;
 
   CFBundleRef mainBundle = ::CFBundleGetMainBundle();
@@ -38,7 +36,7 @@ nsMacUtilsImpl::GetArchString(nsAString& aArchString)
   CFIndex archCount = ::CFArrayGetCount(archList);
   for (CFIndex i = 0; i < archCount; i++) {
     CFNumberRef arch =
-      static_cast<CFNumberRef>(::CFArrayGetValueAtIndex(archList, i));
+        static_cast<CFNumberRef>(::CFArrayGetValueAtIndex(archList, i));
 
     int archInt = 0;
     if (!::CFNumberGetValue(arch, kCFNumberIntType, &archInt)) {
@@ -123,7 +121,7 @@ NS_IMETHODIMP
 nsMacUtilsImpl::GetIsTranslated(bool* aIsTranslated)
 {
 #ifdef __ppc__
-  static bool    sInitialized = false;
+  static bool sInitialized = false;
 
   // Initialize sIsNative to 1.  If the sysctl fails because it doesn't
   // exist, then translation is not possible, so the process must not be

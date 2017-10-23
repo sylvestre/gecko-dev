@@ -17,39 +17,41 @@
 namespace mozilla {
 namespace gl {
 
-class AndroidNativeWindow {
-public:
-  AndroidNativeWindow() : mNativeWindow(nullptr) {
+class AndroidNativeWindow
+{
+ public:
+  AndroidNativeWindow() : mNativeWindow(nullptr) {}
+
+  AndroidNativeWindow(java::sdk::Surface::Param aSurface)
+  {
+    mNativeWindow =
+        ANativeWindow_fromSurface(jni::GetEnvForThread(), aSurface.Get());
   }
 
-  AndroidNativeWindow(java::sdk::Surface::Param aSurface) {
-    mNativeWindow = ANativeWindow_fromSurface(jni::GetEnvForThread(),
-                                              aSurface.Get());
+  AndroidNativeWindow(java::GeckoSurface::Param aSurface)
+  {
+    auto surf =
+        java::sdk::Surface::LocalRef(java::sdk::Surface::Ref::From(aSurface));
+    mNativeWindow =
+        ANativeWindow_fromSurface(jni::GetEnvForThread(), surf.Get());
   }
 
-  AndroidNativeWindow(java::GeckoSurface::Param aSurface) {
-    auto surf = java::sdk::Surface::LocalRef(java::sdk::Surface::Ref::From(aSurface));
-    mNativeWindow = ANativeWindow_fromSurface(jni::GetEnvForThread(),
-                                              surf.Get());
-  }
-
-  ~AndroidNativeWindow() {
+  ~AndroidNativeWindow()
+  {
     if (mNativeWindow) {
       ANativeWindow_release(mNativeWindow);
       mNativeWindow = nullptr;
     }
   }
 
-  ANativeWindow* NativeWindow() const {
-    return mNativeWindow;
-  }
+  ANativeWindow* NativeWindow() const { return mNativeWindow; }
 
-private:
+ private:
   ANativeWindow* mNativeWindow;
 };
 
-} // gl
-} // mozilla
+}  // namespace gl
+}  // namespace mozilla
 
-#endif // MOZ_WIDGET_ANDROID
-#endif // AndroidNativeWindow_h__
+#endif  // MOZ_WIDGET_ANDROID
+#endif  // AndroidNativeWindow_h__

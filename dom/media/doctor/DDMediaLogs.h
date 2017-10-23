@@ -17,7 +17,7 @@ namespace mozilla {
 // Main object managing all processed logs, and yet-unprocessed messages.
 struct DDMediaLogs
 {
-public:
+ public:
   // Construct a DDMediaLogs object if possible.
   struct ConstructionResult
   {
@@ -41,14 +41,14 @@ public:
                   DDLogValue&& aValue)
   {
     if (mMessagesQueue.PushF(
-          [&](DDLogMessage& aMessage, MessagesQueue::Index i) {
-            aMessage.mIndex = i;
-            aMessage.mTimeStamp = DDNow();
-            aMessage.mObject.Set(aSubjectTypeName, aSubjectPointer);
-            aMessage.mCategory = aCategory;
-            aMessage.mLabel = aLabel;
-            aMessage.mValue = Move(aValue);
-          })) {
+            [&](DDLogMessage& aMessage, MessagesQueue::Index i) {
+              aMessage.mIndex = i;
+              aMessage.mTimeStamp = DDNow();
+              aMessage.mObject.Set(aSubjectTypeName, aSubjectPointer);
+              aMessage.mCategory = aCategory;
+              aMessage.mLabel = aLabel;
+              aMessage.mValue = Move(aValue);
+            })) {
       // Filled a buffer-full of messages, process it in another thread.
       DispatchProcessLog();
     }
@@ -62,18 +62,18 @@ public:
   void ProcessLog();
 
   using LogMessagesPromise =
-    MozPromise<nsCString, nsresult, /* IsExclusive = */ true>;
+      MozPromise<nsCString, nsresult, /* IsExclusive = */ true>;
 
   // Retrieve all messages associated with an HTMLMediaElement.
   // This will trigger an async processing run (to ensure most recent messages
   // get retrieved too), and the returned promise will be resolved with all
   // found log messages.
   RefPtr<LogMessagesPromise> RetrieveMessages(
-    const dom::HTMLMediaElement* aMediaElement);
+      const dom::HTMLMediaElement* aMediaElement);
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
   // Constructor, takes the given thread to use for log processing.
   explicit DDMediaLogs(nsCOMPtr<nsIThread>&& aThread);
 
@@ -176,11 +176,11 @@ private:
                  DDLogObject aChild,
                  const char* aLinkName,
                  DDMessageIndex aLinkingIndex)
-      : mParent(aParent)
-      , mChild(aChild)
-      , mLinkName(aLinkName)
-      , mLinkingIndex(aLinkingIndex)
-      , mUnlinkingIndex(Nothing{})
+        : mParent(aParent),
+          mChild(aChild),
+          mLinkName(aLinkName),
+          mLinkingIndex(aLinkingIndex),
+          mUnlinkingIndex(Nothing{})
     {
     }
   };
@@ -202,6 +202,6 @@ private:
   AutoTArray<PendingPromise, 2> mPendingPromises;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDMediaLogs_h_
+#endif  // DDMediaLogs_h_

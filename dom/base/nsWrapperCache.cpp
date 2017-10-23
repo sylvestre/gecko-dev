@@ -20,7 +20,7 @@ using namespace mozilla::dom;
 /* static */ bool
 nsWrapperCache::HasJSObjectMovedOp(JSObject* aWrapper)
 {
-    return js::HasObjectMovedOp(aWrapper);
+  return js::HasObjectMovedOp(aWrapper);
 }
 #endif
 
@@ -58,21 +58,21 @@ nsWrapperCache::ReleaseWrapper(void* aScriptObjectHolder)
 
 class DebugWrapperTraversalCallback : public nsCycleCollectionTraversalCallback
 {
-public:
+ public:
   explicit DebugWrapperTraversalCallback(JSObject* aWrapper)
-    : mFound(false)
-    , mWrapper(JS::GCCellPtr(aWrapper))
+      : mFound(false), mWrapper(JS::GCCellPtr(aWrapper))
   {
     mFlags = WANT_ALL_TRACES;
   }
 
-  NS_IMETHOD_(void) DescribeRefCountedNode(nsrefcnt aRefCount,
-                                           const char* aObjName)
+  NS_IMETHOD_(void)
+  DescribeRefCountedNode(nsrefcnt aRefCount, const char* aObjName)
   {
   }
-  NS_IMETHOD_(void) DescribeGCedNode(bool aIsMarked,
-                                     const char* aObjName,
-                                     uint64_t aCompartmentAddress)
+  NS_IMETHOD_(void)
+  DescribeGCedNode(bool aIsMarked,
+                   const char* aObjName,
+                   uint64_t aCompartmentAddress)
   {
   }
 
@@ -82,21 +82,17 @@ public:
       mFound = true;
     }
   }
-  NS_IMETHOD_(void) NoteXPCOMChild(nsISupports* aChild)
-  {
-  }
-  NS_IMETHOD_(void) NoteNativeChild(void* aChild,
-                                    nsCycleCollectionParticipant* aHelper)
+  NS_IMETHOD_(void) NoteXPCOMChild(nsISupports* aChild) {}
+  NS_IMETHOD_(void)
+  NoteNativeChild(void* aChild, nsCycleCollectionParticipant* aHelper)
   {
   }
 
-  NS_IMETHOD_(void) NoteNextEdgeName(const char* aName)
-  {
-  }
+  NS_IMETHOD_(void) NoteNextEdgeName(const char* aName) {}
 
   bool mFound;
 
-private:
+ private:
   JS::GCCellPtr mWrapper;
 };
 
@@ -104,7 +100,7 @@ static void
 DebugWrapperTraceCallback(JS::GCCellPtr aPtr, const char* aName, void* aClosure)
 {
   DebugWrapperTraversalCallback* callback =
-    static_cast<DebugWrapperTraversalCallback*>(aClosure);
+      static_cast<DebugWrapperTraversalCallback*>(aClosure);
   if (aPtr.is<JSObject>()) {
     callback->NoteJSChild(aPtr);
   }
@@ -132,10 +128,11 @@ nsWrapperCache::CheckCCWrapperTraversal(void* aScriptObjectHolder,
 
   callback.mFound = false;
   aTracer->Trace(aScriptObjectHolder,
-                 TraceCallbackFunc(DebugWrapperTraceCallback), &callback);
+                 TraceCallbackFunc(DebugWrapperTraceCallback),
+                 &callback);
   MOZ_ASSERT(callback.mFound,
              "Cycle collection participant didn't trace preserved wrapper! "
              "This will probably crash.");
 }
 
-#endif // DEBUG
+#endif  // DEBUG

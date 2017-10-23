@@ -17,17 +17,9 @@
 
 using namespace js;
 
-static void*
-zlib_alloc(void* cx, uInt items, uInt size)
-{
-    return js_calloc(items, size);
-}
+static void* zlib_alloc(void* cx, uInt items, uInt size) { return js_calloc(items, size); }
 
-static void
-zlib_free(void* cx, void* addr)
-{
-    js_free(addr);
-}
+static void zlib_free(void* cx, void* addr) { js_free(addr); }
 
 Compressor::Compressor(const unsigned char* inp, size_t inplen)
     : inp(inp),
@@ -35,8 +27,7 @@ Compressor::Compressor(const unsigned char* inp, size_t inplen)
       initialized(false),
       finished(false),
       currentChunkSize(0),
-      chunkOffsets()
-{
+      chunkOffsets() {
     MOZ_ASSERT(inplen > 0);
     zs.opaque = nullptr;
     zs.next_in = (Bytef*)inp;
@@ -50,8 +41,7 @@ Compressor::Compressor(const unsigned char* inp, size_t inplen)
     outbytes = sizeof(CompressedDataHeader);
 }
 
-Compressor::~Compressor()
-{
+Compressor::~Compressor() {
     if (initialized) {
         int ret = deflateEnd(&zs);
         if (ret != Z_OK) {
@@ -67,11 +57,8 @@ Compressor::~Compressor()
 // trailer). Raw deflate is necessary for chunked decompression.
 static const int WindowBits = -15;
 
-bool
-Compressor::init()
-{
-    if (inplen >= UINT32_MAX)
-        return false;
+bool Compressor::init() {
+    if (inplen >= UINT32_MAX) return false;
     // zlib is slow and we'd rather be done compression sooner
     // even if it means decompression is slower which penalizes
     // Function.toString()
@@ -84,17 +71,13 @@ Compressor::init()
     return true;
 }
 
-void
-Compressor::setOutput(unsigned char* out, size_t outlen)
-{
+void Compressor::setOutput(unsigned char* out, size_t outlen) {
     MOZ_ASSERT(outlen > outbytes);
     zs.next_out = out + outbytes;
     zs.avail_out = outlen - outbytes;
 }
 
-Compressor::Status
-Compressor::compressMore()
-{
+Compressor::Status Compressor::compressMore() {
     MOZ_ASSERT(zs.next_out);
     uInt left = inplen - (zs.next_in - inp);
     if (left <= MAX_INPUT_SIZE)
@@ -137,8 +120,7 @@ Compressor::compressMore()
     if (done || currentChunkSize == CHUNK_SIZE) {
         MOZ_ASSERT_IF(!done, flush);
         MOZ_ASSERT(chunkSize(inplen, chunkOffsets.length()) == currentChunkSize);
-        if (!chunkOffsets.append(outbytes))
-            return OOM;
+        if (!chunkOffsets.append(outbytes)) return OOM;
         currentChunkSize = 0;
         MOZ_ASSERT_IF(done, chunkOffsets.length() == (inplen - 1) / CHUNK_SIZE + 1);
     }
@@ -148,15 +130,11 @@ Compressor::compressMore()
     return done ? DONE : CONTINUE;
 }
 
-size_t
-Compressor::totalBytesNeeded() const
-{
+size_t Compressor::totalBytesNeeded() const {
     return AlignBytes(outbytes, sizeof(uint32_t)) + sizeOfChunkOffsets();
 }
 
-void
-Compressor::finish(char* dest, size_t destBytes)
-{
+void Compressor::finish(char* dest, size_t destBytes) {
     MOZ_ASSERT(!chunkOffsets.empty());
 
     CompressedDataHeader* compressedHeader = reinterpret_cast<CompressedDataHeader*>(dest);
@@ -175,9 +153,8 @@ Compressor::finish(char* dest, size_t destBytes)
     finished = true;
 }
 
-bool
-js::DecompressString(const unsigned char* inp, size_t inplen, unsigned char* out, size_t outlen)
-{
+bool js::DecompressString(const unsigned char* inp, size_t inplen, unsigned char* out,
+                          size_t outlen) {
     MOZ_ASSERT(inplen <= UINT32_MAX);
 
     // Mark the memory we pass to zlib as initialized for MSan.
@@ -204,10 +181,8 @@ js::DecompressString(const unsigned char* inp, size_t inplen, unsigned char* out
     return true;
 }
 
-bool
-js::DecompressStringChunk(const unsigned char* inp, size_t chunk,
-                          unsigned char* out, size_t outlen)
-{
+bool js::DecompressStringChunk(const unsigned char* inp, size_t chunk, unsigned char* out,
+                               size_t outlen) {
     MOZ_ASSERT(outlen <= Compressor::CHUNK_SIZE);
 
     const CompressedDataHeader* header = reinterpret_cast<const CompressedDataHeader*>(inp);
@@ -255,8 +230,7 @@ js::DecompressStringChunk(const unsigned char* inp, size_t chunk,
         MOZ_RELEASE_ASSERT(ret == Z_STREAM_END);
     } else {
         ret = inflate(&zs, Z_NO_FLUSH);
-        if (ret == Z_MEM_ERROR)
-            return false;
+        if (ret == Z_MEM_ERROR) return false;
         MOZ_RELEASE_ASSERT(ret == Z_OK);
     }
     MOZ_ASSERT(zs.avail_in == 0);

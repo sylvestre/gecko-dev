@@ -111,8 +111,8 @@ VsyncMarkerPayload::StreamPayload(SpliceableJSONWriter& aWriter,
                                   const TimeStamp& aProcessStartTime,
                                   UniqueStacks& aUniqueStacks)
 {
-  aWriter.DoubleProperty("vsync",
-                         (mVsyncTimestamp - aProcessStartTime).ToMilliseconds());
+  aWriter.DoubleProperty(
+      "vsync", (mVsyncTimestamp - aProcessStartTime).ToMilliseconds());
   aWriter.StringProperty("category", "VsyncTimestamp");
 }
 

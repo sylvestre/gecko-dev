@@ -25,9 +25,7 @@ static int32_t sActivationDelayMs = 100;
 static bool sActivationDelayMsSet = false;
 
 ActiveElementManager::ActiveElementManager()
-  : mCanBePan(false),
-    mCanBePanSet(false),
-    mSetActiveTask(nullptr)
+    : mCanBePan(false), mCanBePanSet(false), mSetActiveTask(nullptr)
 {
   if (!sActivationDelayMsSet) {
     Preferences::AddIntVarCache(&sActivationDelayMs,
@@ -89,16 +87,16 @@ ActiveElementManager::TriggerElementActivation()
   if (!mCanBePan) {
     SetActive(mTarget);
   } else {
-    CancelTask();   // this is only needed because of bug 1169802. Fixing that
-                    // bug properly should make this unnecessary.
+    CancelTask();  // this is only needed because of bug 1169802. Fixing that
+                   // bug properly should make this unnecessary.
     MOZ_ASSERT(mSetActiveTask == nullptr);
 
     RefPtr<CancelableRunnable> task =
-      NewCancelableRunnableMethod<nsCOMPtr<dom::Element>>(
-        "layers::ActiveElementManager::SetActiveTask",
-        this,
-        &ActiveElementManager::SetActiveTask,
-        mTarget);
+        NewCancelableRunnableMethod<nsCOMPtr<dom::Element>>(
+            "layers::ActiveElementManager::SetActiveTask",
+            this,
+            &ActiveElementManager::SetActiveTask,
+            mTarget);
     mSetActiveTask = task;
     MessageLoop::current()->PostDelayedTask(task.forget(), sActivationDelayMs);
     AEM_LOG("Scheduling mSetActiveTask %p\n", mSetActiveTask);
@@ -214,5 +212,5 @@ ActiveElementManager::CancelTask()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

@@ -11,10 +11,9 @@
 #include <math.h>
 #include <float.h>  // for FLT_EPSILON
 
-#include "mozilla/FloatingPoint.h" // for UnspecifiedNaN
+#include "mozilla/FloatingPoint.h"  // for UnspecifiedNaN
 
 using namespace std;
-
 
 namespace mozilla {
 namespace gfx {
@@ -59,7 +58,8 @@ SafeTangent(double aTheta)
   return FlushToZero(sinTheta / cosTheta);
 }
 
-template<> Matrix
+template<>
+Matrix
 Matrix::Rotation(Float aAngle)
 {
   Matrix newMatrix;
@@ -75,7 +75,8 @@ Matrix::Rotation(Float aAngle)
   return newMatrix;
 }
 
-template<> MatrixDouble
+template<>
+MatrixDouble
 MatrixDouble::Rotation(Double aAngle)
 {
   MatrixDouble newMatrix;
@@ -91,8 +92,8 @@ MatrixDouble::Rotation(Double aAngle)
   return newMatrix;
 }
 
-template<> Matrix4x4
-MatrixDouble::operator*(const Matrix4x4& aMatrix) const
+template<>
+Matrix4x4 MatrixDouble::operator*(const Matrix4x4& aMatrix) const
 {
   Matrix4x4 resultMatrix;
 
@@ -111,13 +112,17 @@ MatrixDouble::operator*(const Matrix4x4& aMatrix) const
   resultMatrix._33 = aMatrix._33;
   resultMatrix._34 = aMatrix._34;
 
-  resultMatrix._41 = this->_31 * aMatrix._11 + this->_32 * aMatrix._21 + aMatrix._41;
-  resultMatrix._42 = this->_31 * aMatrix._12 + this->_32 * aMatrix._22 + aMatrix._42;
-  resultMatrix._43 = this->_31 * aMatrix._13 + this->_32 * aMatrix._23 + aMatrix._43;
-  resultMatrix._44 = this->_31 * aMatrix._14 + this->_32 * aMatrix._24 + aMatrix._44;
+  resultMatrix._41 =
+      this->_31 * aMatrix._11 + this->_32 * aMatrix._21 + aMatrix._41;
+  resultMatrix._42 =
+      this->_31 * aMatrix._12 + this->_32 * aMatrix._22 + aMatrix._42;
+  resultMatrix._43 =
+      this->_31 * aMatrix._13 + this->_32 * aMatrix._23 + aMatrix._43;
+  resultMatrix._44 =
+      this->_31 * aMatrix._14 + this->_32 * aMatrix._24 + aMatrix._44;
 
   return resultMatrix;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

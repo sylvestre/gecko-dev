@@ -18,9 +18,7 @@ NS_NewMathMLmrowFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmrowFrame)
 
-nsMathMLmrowFrame::~nsMathMLmrowFrame()
-{
-}
+nsMathMLmrowFrame::~nsMathMLmrowFrame() {}
 
 NS_IMETHODIMP
 nsMathMLmrowFrame::InheritAutomaticData(nsIFrame* aParent)
@@ -34,16 +32,16 @@ nsMathMLmrowFrame::InheritAutomaticData(nsIFrame* aParent)
 }
 
 nsresult
-nsMathMLmrowFrame::AttributeChanged(int32_t  aNameSpaceID,
+nsMathMLmrowFrame::AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
-                                    int32_t  aModType)
+                                    int32_t aModType)
 {
   // Special for <mtable>: In the frame construction code, we also use
   // this frame class as a wrapper for mtable. Hence, we should pass the
   // notification to the real mtable
   if (mContent->IsMathMLElement(nsGkAtoms::mtable_)) {
     nsIFrame* frame = mFrames.FirstChild();
-    for ( ; frame; frame = frame->PrincipalChildList().FirstChild()) {
+    for (; frame; frame = frame->PrincipalChildList().FirstChild()) {
       // drill down to the real mtable
       if (frame->IsTableWrapperFrame())
         return frame->AttributeChanged(aNameSpaceID, aAttribute, aModType);
@@ -51,7 +49,8 @@ nsMathMLmrowFrame::AttributeChanged(int32_t  aNameSpaceID,
     NS_NOTREACHED("mtable wrapper without the real table frame");
   }
 
-  return nsMathMLContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
+  return nsMathMLContainerFrame::AttributeChanged(
+      aNameSpaceID, aAttribute, aModType);
 }
 
 /* virtual */ eMathMLFrameType

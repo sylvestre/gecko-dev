@@ -23,11 +23,13 @@ namespace mozilla {
 enum class CSSPseudoElementType : uint8_t;
 class GeckoStyleContext;
 class ServoStyleContext;
-} // namespace mozilla
+}  // namespace mozilla
 
 extern "C" {
-  void Servo_StyleContext_AddRef(const mozilla::ServoStyleContext* aContext);
-  void Servo_StyleContext_Release(const mozilla::ServoStyleContext* aContext);
+void
+Servo_StyleContext_AddRef(const mozilla::ServoStyleContext* aContext);
+void
+Servo_StyleContext_Release(const mozilla::ServoStyleContext* aContext);
 }
 
 /**
@@ -52,7 +54,7 @@ extern "C" {
 
 class nsStyleContext
 {
-public:
+ public:
 #ifdef MOZ_STYLO
   bool IsGecko() const { return !IsServo(); }
   bool IsServo() const { return (mBits & NS_STYLE_CONTEXT_IS_GECKO) == 0; }
@@ -60,7 +62,8 @@ public:
   bool IsGecko() const { return true; }
   bool IsServo() const { return false; }
 #endif
-  MOZ_DECL_STYLO_CONVERT_METHODS(mozilla::GeckoStyleContext, mozilla::ServoStyleContext);
+  MOZ_DECL_STYLO_CONVERT_METHODS(mozilla::GeckoStyleContext,
+                                 mozilla::ServoStyleContext);
 
   // These two methods are for use by ArenaRefPtr.
   static mozilla::ArenaObjectID ArenaObjectID()
@@ -80,40 +83,47 @@ public:
   inline nsPresContext* PresContext() const;
 
   nsAtom* GetPseudo() const { return mPseudoTag; }
-  mozilla::CSSPseudoElementType GetPseudoType() const {
+  mozilla::CSSPseudoElementType GetPseudoType() const
+  {
     return static_cast<mozilla::CSSPseudoElementType>(
-             mBits >> NS_STYLE_CONTEXT_TYPE_SHIFT);
+        mBits >> NS_STYLE_CONTEXT_TYPE_SHIFT);
   }
 
-  bool IsInheritingAnonBox() const {
+  bool IsInheritingAnonBox() const
+  {
     return GetPseudoType() == mozilla::CSSPseudoElementType::InheritingAnonBox;
   }
 
-  bool IsNonInheritingAnonBox() const {
-    return GetPseudoType() == mozilla::CSSPseudoElementType::NonInheritingAnonBox;
+  bool IsNonInheritingAnonBox() const
+  {
+    return GetPseudoType() ==
+           mozilla::CSSPseudoElementType::NonInheritingAnonBox;
   }
 
   // This function is rather slow; you probably don't want to use it outside
   // asserts unless you have to.  We _could_ add a new CSSPseudoElementType for
   // wrapper anon boxes, but that adds a bunch of complexity everywhere we
   // resolve anonymous box styles...
-  bool IsWrapperAnonBox() const {
+  bool IsWrapperAnonBox() const
+  {
     return nsCSSAnonBoxes::IsWrapperAnonBox(GetPseudo());
   }
 
-  bool IsAnonBox() const {
+  bool IsAnonBox() const
+  {
     return IsInheritingAnonBox() || IsNonInheritingAnonBox();
   }
 
   bool IsPseudoElement() const { return mPseudoTag && !IsAnonBox(); }
-
 
   // Does this style context or any of its ancestors have text
   // decoration lines?
   // Differs from nsStyleTextReset::HasTextDecorationLines, which tests
   // only the data for a single context.
   bool HasTextDecorationLines() const
-    { return !!(mBits & NS_STYLE_HAS_TEXT_DECORATION_LINES); }
+  {
+    return !!(mBits & NS_STYLE_HAS_TEXT_DECORATION_LINES);
+  }
 
   // Whether any line break inside should be suppressed? If this returns
   // true, the line should not be broken inside, which means inlines act
@@ -123,32 +133,41 @@ public:
   // NOTE: for nsTextFrame, use nsTextFrame::ShouldSuppressLineBreak()
   // instead of this method.
   bool ShouldSuppressLineBreak() const
-    { return !!(mBits & NS_STYLE_SUPPRESS_LINEBREAK); }
+  {
+    return !!(mBits & NS_STYLE_SUPPRESS_LINEBREAK);
+  }
 
   // Does this style context or any of its ancestors have display:none set?
   bool IsInDisplayNoneSubtree() const
-    { return !!(mBits & NS_STYLE_IN_DISPLAY_NONE_SUBTREE); }
+  {
+    return !!(mBits & NS_STYLE_IN_DISPLAY_NONE_SUBTREE);
+  }
 
   // Is this horizontal-in-vertical (tate-chu-yoko) text? This flag is
   // only set on style contexts whose pseudo is nsCSSAnonBoxes::mozText.
-  bool IsTextCombined() const
-    { return !!(mBits & NS_STYLE_IS_TEXT_COMBINED); }
+  bool IsTextCombined() const { return !!(mBits & NS_STYLE_IS_TEXT_COMBINED); }
 
   // Does this style context represent the style for a pseudo-element or
   // inherit data from such a style context?  Whether this returns true
   // is equivalent to whether it or any of its ancestors returns
   // non-null for IsPseudoElement().
   bool HasPseudoElementData() const
-    { return !!(mBits & NS_STYLE_HAS_PSEUDO_ELEMENT_DATA); }
+  {
+    return !!(mBits & NS_STYLE_HAS_PSEUDO_ELEMENT_DATA);
+  }
 
   bool HasChildThatUsesResetStyle() const
-    { return mBits & NS_STYLE_HAS_CHILD_THAT_USES_RESET_STYLE; }
+  {
+    return mBits & NS_STYLE_HAS_CHILD_THAT_USES_RESET_STYLE;
+  }
 
   // Is the only link whose visitedness is allowed to influence the
   // style of the node this style context is for (which is that element
   // or its nearest ancestor that is a link) visited?
   bool RelevantLinkVisited() const
-    { return !!(mBits & NS_STYLE_RELEVANT_LINK_VISITED); }
+  {
+    return !!(mBits & NS_STYLE_RELEVANT_LINK_VISITED);
+  }
 
   // Is this a style context for a link?
   inline bool IsLinkContext() const;
@@ -156,12 +175,13 @@ public:
   // Is this style context the GetStyleIfVisited() for some other style
   // context?
   bool IsStyleIfVisited() const
-    { return !!(mBits & NS_STYLE_IS_STYLE_IF_VISITED); }
+  {
+    return !!(mBits & NS_STYLE_IS_STYLE_IF_VISITED);
+  }
 
   // Tells this style context that it should return true from
   // IsStyleIfVisited.
-  void SetIsStyleIfVisited()
-    { mBits |= NS_STYLE_IS_STYLE_IF_VISITED; }
+  void SetIsStyleIfVisited() { mBits |= NS_STYLE_IS_STYLE_IF_VISITED; }
 
   // Return the style context whose style data should be used for the R,
   // G, and B components of color, background-color, and border-*-color
@@ -182,12 +202,13 @@ public:
   // Does any descendant of this style context have any style values
   // that were computed based on this style context's ancestors?
   bool HasChildThatUsesGrandancestorStyle() const
-    { return !!(mBits & NS_STYLE_CHILD_USES_GRANDANCESTOR_STYLE); }
+  {
+    return !!(mBits & NS_STYLE_CHILD_USES_GRANDANCESTOR_STYLE);
+  }
 
   // Is this style context shared with a sibling or cousin?
   // (See nsStyleSet::GetContext.)
-  bool IsShared() const
-    { return !!(mBits & NS_STYLE_IS_SHARED); }
+  bool IsShared() const { return !!(mBits & NS_STYLE_IS_SHARED); }
 
   /**
    * Returns whether this style context has cached style data for a
@@ -195,7 +216,8 @@ public:
    * happen because it was inherited from the parent style context, or
    * because it was stored conditionally on the rule node.
    */
-  bool HasCachedDependentStyleData(nsStyleStructID aSID) {
+  bool HasCachedDependentStyleData(nsStyleStructID aSID)
+  {
     return mBits & nsCachedStyleData::GetBitForSID(aSID);
   }
 
@@ -204,42 +226,41 @@ public:
 
   void AddStyleBit(const uint64_t& aBit) { mBits |= aBit; }
 
-  /**
+/**
    * Define typesafe getter functions for each style struct by
    * preprocessing the list of style structs.  These functions are the
    * preferred way to get style data.  The macro creates functions like:
    *   const nsStyleBorder* StyleBorder();
    *   const nsStyleColor* StyleColor();
    */
-  #define STYLE_STRUCT(name_, checkdata_cb_) \
-    inline const nsStyle##name_ * Style##name_() MOZ_NONNULL_RETURN;
-  #include "nsStyleStructList.h"
-  #undef STYLE_STRUCT
+#define STYLE_STRUCT(name_, checkdata_cb_) \
+  inline const nsStyle##name_* Style##name_() MOZ_NONNULL_RETURN;
+#include "nsStyleStructList.h"
+#undef STYLE_STRUCT
 
-  /**
+    /**
    * Equivalent to StyleFoo(), except that we skip the cache write during the
    * servo traversal. This can cause incorrect behavior if used improperly,
    * since we won't record that layout potentially depends on the values in
    * this style struct. Use with care.
    */
 
-  #define STYLE_STRUCT(name_, checkdata_cb_) \
-    inline const nsStyle##name_ * ThreadsafeStyle##name_();
-  #include "nsStyleStructList.h"
-  #undef STYLE_STRUCT
+#define STYLE_STRUCT(name_, checkdata_cb_) \
+  inline const nsStyle##name_* ThreadsafeStyle##name_();
+#include "nsStyleStructList.h"
+#undef STYLE_STRUCT
 
-
-  /**
+/**
    * PeekStyle* is like Style* but doesn't trigger style
    * computation if the data is not cached on either the style context
    * or the rule node.
    *
    * Perhaps this shouldn't be a public nsStyleContext API.
    */
-  #define STYLE_STRUCT(name_, checkdata_cb_)  \
-    inline const nsStyle##name_ * PeekStyle##name_();
-  #include "nsStyleStructList.h"
-  #undef STYLE_STRUCT
+#define STYLE_STRUCT(name_, checkdata_cb_) \
+  inline const nsStyle##name_* PeekStyle##name_();
+#include "nsStyleStructList.h"
+#undef STYLE_STRUCT
 
   /**
    * Compute the style changes needed during restyling when this style
@@ -262,9 +283,9 @@ public:
   nsChangeHint CalcStyleDifference(nsStyleContext* aNewContext,
                                    uint32_t* aEqualStructs,
                                    uint32_t* aSamePointerStructs,
-				   bool aIgnoreVariables = false);
+                                   bool aIgnoreVariables = false);
 
-public:
+ public:
   /**
    * Get a color that depends on link-visitedness using this and
    * this->GetStyleIfVisited().
@@ -274,7 +295,7 @@ public:
    *               been listed in nsCSSVisitedDependentPropList.h.
    */
   template<typename T, typename S>
-  nscolor GetVisitedDependentColor(T S::* aField);
+  nscolor GetVisitedDependentColor(T S::*aField);
 
   /**
    * aColors should be a two element array of nscolor in which the first
@@ -283,8 +304,7 @@ public:
    * Combine the R, G, and B components of whichever of aColors should
    * be used based on aLinkIsVisited with the A component of aColors[0].
    */
-  static nscolor CombineVisitedColors(nscolor *aColors,
-                                      bool aLinkIsVisited);
+  static nscolor CombineVisitedColors(nscolor* aColors, bool aLinkIsVisited);
 
   /**
    * Start the background image loads for this style context.
@@ -297,25 +317,24 @@ public:
   static bool LookupStruct(const nsACString& aName, nsStyleStructID& aResult);
 #endif
 
-protected:
+ protected:
   // protected destructor to discourage deletion outside of Release()
   ~nsStyleContext() {}
 
   // Delegated Helper constructor.
-  nsStyleContext(nsAtom* aPseudoTag,
-                 mozilla::CSSPseudoElementType aPseudoType);
+  nsStyleContext(nsAtom* aPseudoTag, mozilla::CSSPseudoElementType aPseudoType);
 
-  // Helper functions for GetStyle* and PeekStyle*
-  #define STYLE_STRUCT_INHERITED(name_, checkdata_cb_)                  \
-    template<bool aComputeData>                                         \
-    const nsStyle##name_ * DoGetStyle##name_();
-  #define STYLE_STRUCT_RESET(name_, checkdata_cb_)                      \
-    template<bool aComputeData>                                         \
-    const nsStyle##name_ * DoGetStyle##name_();
+// Helper functions for GetStyle* and PeekStyle*
+#define STYLE_STRUCT_INHERITED(name_, checkdata_cb_) \
+  template<bool aComputeData>                        \
+  const nsStyle##name_* DoGetStyle##name_();
+#define STYLE_STRUCT_RESET(name_, checkdata_cb_) \
+  template<bool aComputeData>                    \
+  const nsStyle##name_* DoGetStyle##name_();
 
-  #include "nsStyleStructList.h"
-  #undef STYLE_STRUCT_RESET
-  #undef STYLE_STRUCT_INHERITED
+#include "nsStyleStructList.h"
+#undef STYLE_STRUCT_RESET
+#undef STYLE_STRUCT_INHERITED
 
   // If this style context is for a pseudo-element or anonymous box,
   // the relevant atom.
@@ -327,7 +346,7 @@ protected:
   //    not owned by the style context).
   //  - It also stores the additional bits listed at the top of
   //    nsStyleStruct.h.
-  uint64_t                mBits;
+  uint64_t mBits;
 
 #ifdef DEBUG
   static bool DependencyAllowed(nsStyleStructID aOuterSID,

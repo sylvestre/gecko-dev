@@ -13,44 +13,45 @@
 
 class nsISupports;
 
-
 class nsPrimitiveHelpers
 {
-public:
+ public:
+  // Given some data and the flavor it corresponds to, creates the appropriate
+  // nsISupports* wrapper for passing across IDL boundaries. The length parameter
+  // should not include the null if the data is null terminated.
+  static void CreatePrimitiveForData(const nsACString& aFlavor,
+                                     const void* aDataBuff,
+                                     uint32_t aDataLen,
+                                     nsISupports** aPrimitive);
 
-    // Given some data and the flavor it corresponds to, creates the appropriate
-    // nsISupports* wrapper for passing across IDL boundaries. The length parameter
-    // should not include the null if the data is null terminated.
-  static void CreatePrimitiveForData ( const nsACString& aFlavor, const void* aDataBuff,
-                                         uint32_t aDataLen, nsISupports** aPrimitive ) ;
+  // A specific case of CreatePrimitive for windows CF_HTML handling in DataTransfer
+  static void CreatePrimitiveForCFHTML(const void* aDataBuff,
+                                       uint32_t* aDataLen,
+                                       nsISupports** aPrimitive);
 
-    // A specific case of CreatePrimitive for windows CF_HTML handling in DataTransfer
-  static void CreatePrimitiveForCFHTML ( const void* aDataBuff,
-                                         uint32_t* aDataLen, nsISupports** aPrimitive ) ;
+  // Given a nsISupports* primitive and the flavor it represents, creates a new data
+  // buffer with the data in it. This data will be null terminated, but the length
+  // parameter does not reflect that.
+  static void CreateDataFromPrimitive(const nsACString& aFlavor,
+                                      nsISupports* aPrimitive,
+                                      void** aDataBuff,
+                                      uint32_t aDataLen);
 
-    // Given a nsISupports* primitive and the flavor it represents, creates a new data
-    // buffer with the data in it. This data will be null terminated, but the length
-    // parameter does not reflect that.
-  static void CreateDataFromPrimitive ( const nsACString& aFlavor, nsISupports* aPrimitive, 
-                                         void** aDataBuff, uint32_t aDataLen ) ;
-
-}; // class nsPrimitiveHelpers
-
-
+};  // class nsPrimitiveHelpers
 
 class nsLinebreakHelpers
 {
-public:
+ public:
+  // Given some data, convert from the platform linebreaks into the LF expected by the
+  // DOM. This will attempt to convert the data in place, but the buffer may still need to
+  // be reallocated regardless (disposing the old buffer is taken care of internally, see
+  // the note below).
+  //
+  // NOTE: this assumes that it can use 'free' to dispose of the old buffer.
+  static nsresult ConvertPlatformToDOMLinebreaks(const nsACString& inFlavor,
+                                                 void** ioData,
+                                                 int32_t* ioLengthInBytes);
 
-    // Given some data, convert from the platform linebreaks into the LF expected by the
-    // DOM. This will attempt to convert the data in place, but the buffer may still need to
-    // be reallocated regardless (disposing the old buffer is taken care of internally, see
-    // the note below).
-    //
-    // NOTE: this assumes that it can use 'free' to dispose of the old buffer.
-  static nsresult ConvertPlatformToDOMLinebreaks ( const nsACString& inFlavor, void** ioData, int32_t* ioLengthInBytes ) ;
+};  // class nsLinebreakHelpers
 
-}; // class nsLinebreakHelpers
-
-
-#endif // nsPrimitiveHelpers_h___
+#endif  // nsPrimitiveHelpers_h___

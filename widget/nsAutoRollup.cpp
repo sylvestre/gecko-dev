@@ -51,5 +51,5 @@ nsAutoRollup::GetLastRollup()
   return sLastRollup.get();
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

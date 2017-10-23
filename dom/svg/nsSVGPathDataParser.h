@@ -13,7 +13,7 @@
 
 namespace mozilla {
 class SVGPathData;
-} // namespace mozilla
+}  // namespace mozilla
 
 ////////////////////////////////////////////////////////////////////////
 // nsSVGPathDataParser: a simple recursive descent parser that builds
@@ -22,19 +22,16 @@ class SVGPathData;
 
 class nsSVGPathDataParser : public nsSVGDataParser
 {
-public:
-  nsSVGPathDataParser(const nsAString& aValue,
-                      mozilla::SVGPathData* aList)
-    : nsSVGDataParser(aValue),
-      mPathSegList(aList)
+ public:
+  nsSVGPathDataParser(const nsAString& aValue, mozilla::SVGPathData* aList)
+      : nsSVGDataParser(aValue), mPathSegList(aList)
   {
     MOZ_ASSERT(aList, "null path data");
   }
 
   bool Parse();
 
-private:
-
+ private:
   bool ParseCoordPair(float& aX, float& aY);
   bool ParseFlag(bool& aFlag);
 
@@ -43,8 +40,7 @@ private:
   bool ParseSubPath();
 
   bool ParseSubPathElements();
-  bool ParseSubPathElement(char16_t aCommandType,
-                           bool aAbsCoords);
+  bool ParseSubPathElement(char16_t aCommandType, bool aAbsCoords);
 
   bool ParseMoveto();
   bool ParseClosePath();
@@ -57,14 +53,14 @@ private:
   bool ParseSmoothQuadBezierCurveto(bool aAbsCoords);
   bool ParseEllipticalArc(bool aAbsCoords);
 
-  mozilla::SVGPathData * const mPathSegList;
+  mozilla::SVGPathData* const mPathSegList;
 };
 
 class nsSVGArcConverter
 {
   typedef mozilla::gfx::Point Point;
 
-public:
+ public:
   nsSVGArcConverter(const Point& from,
                     const Point& to,
                     const Point& radii,
@@ -72,7 +68,8 @@ public:
                     bool largeArcFlag,
                     bool sweepFlag);
   bool GetNextSegment(Point* cp1, Point* cp2, Point* to);
-protected:
+
+ protected:
   int32_t mNumSegs, mSegIndex;
   double mTheta, mDelta, mT;
   double mSinPhi, mCosPhi;
@@ -80,4 +77,4 @@ protected:
   Point mFrom, mC;
 };
 
-#endif // __NS_SVGPATHDATAPARSER_H__
+#endif  // __NS_SVGPATHDATAPARSER_H__

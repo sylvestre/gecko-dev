@@ -22,8 +22,7 @@ PeriodicWave::PeriodicWave(AudioContext* aContext,
                            const uint32_t aLength,
                            const bool aDisableNormalization,
                            ErrorResult& aRv)
-  : mContext(aContext)
-  , mDisableNormalization(aDisableNormalization)
+    : mContext(aContext), mDisableNormalization(aDisableNormalization)
 {
   MOZ_ASSERT(aContext);
   MOZ_ASSERT(aRealData || aImagData);
@@ -35,7 +34,7 @@ PeriodicWave::PeriodicWave(AudioContext* aContext,
   // Copy coefficient data.
   // The SharedBuffer and two arrays share a single allocation.
   RefPtr<SharedBuffer> buffer =
-    SharedBuffer::Create(sizeof(float) * aLength * 2, fallible);
+      SharedBuffer::Create(sizeof(float) * aLength * 2, fallible);
   if (!buffer) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
@@ -80,21 +79,25 @@ PeriodicWave::Constructor(const GlobalObject& aGlobal,
     return nullptr;
   }
 
-  uint32_t length =
-    aOptions.mReal.WasPassed() ? aOptions.mReal.Value().Length() : aOptions.mImag.Value().Length();
+  uint32_t length = aOptions.mReal.WasPassed()
+                        ? aOptions.mReal.Value().Length()
+                        : aOptions.mImag.Value().Length();
   if (length == 0) {
     aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return nullptr;
   }
 
   const float* realData =
-    aOptions.mReal.WasPassed() ? aOptions.mReal.Value().Elements() : nullptr;
+      aOptions.mReal.WasPassed() ? aOptions.mReal.Value().Elements() : nullptr;
   const float* imagData =
-    aOptions.mImag.WasPassed() ? aOptions.mImag.Value().Elements() : nullptr;
+      aOptions.mImag.WasPassed() ? aOptions.mImag.Value().Elements() : nullptr;
 
-  RefPtr<PeriodicWave> wave =
-    new PeriodicWave(&aAudioContext, realData, imagData, length,
-                     aOptions.mDisableNormalization, aRv);
+  RefPtr<PeriodicWave> wave = new PeriodicWave(&aAudioContext,
+                                               realData,
+                                               imagData,
+                                               length,
+                                               aOptions.mDisableNormalization,
+                                               aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -125,5 +128,5 @@ PeriodicWave::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return PeriodicWaveBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

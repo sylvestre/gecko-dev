@@ -5,7 +5,7 @@
 
 	***************************************************************************/
 
-/***************************************************************************//**
+/***************************************************************************/ /**
 	@mainpage	mach_override
 	@author		Jonathan 'Wolf' Rentzsch: <http://rentzsch.com>
 
@@ -42,22 +42,22 @@
 
 	***************************************************************************/
 
-#ifndef		_mach_override_
-#define		_mach_override_
+#ifndef _mach_override_
+#define _mach_override_
 
 #include <sys/types.h>
 #include <mach/error.h>
 
-#ifdef	__cplusplus
-	extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /**
 	Returned if the function to be overrided begins with a 'mfctr' instruction.
 */
-#define	err_cannot_override	(err_local|1)
+#define err_cannot_override (err_local | 1)
 
-/************************************************************************************//**
+/************************************************************************************/ /**
 	Dynamically overrides the function implementation referenced by
 	originalFunctionAddress with the implentation pointed to by overrideFunctionAddress.
 	Optionally returns a pointer to a "reentry island" which, if jumped to, will resume
@@ -75,47 +75,56 @@
 
 	************************************************************************************/
 
-    mach_error_t
-mach_override_ptr(
-	void *originalFunctionAddress,
-    const void *overrideFunctionAddress,
-    void **originalFunctionReentryIsland );
+mach_error_t
+mach_override_ptr(void* originalFunctionAddress,
+                  const void* overrideFunctionAddress,
+                  void** originalFunctionReentryIsland);
 
-/************************************************************************************//**
+/************************************************************************************/ /**
 
 
 	************************************************************************************/
 
-#ifdef	__cplusplus
+#ifdef __cplusplus
 
-#define MACH_OVERRIDE( ORIGINAL_FUNCTION_RETURN_TYPE, ORIGINAL_FUNCTION_NAME, ORIGINAL_FUNCTION_ARGS, ERR )			\
-	{																												\
-		static ORIGINAL_FUNCTION_RETURN_TYPE (*ORIGINAL_FUNCTION_NAME##_reenter)ORIGINAL_FUNCTION_ARGS;				\
-		static bool ORIGINAL_FUNCTION_NAME##_overriden = false;														\
-		class mach_override_class__##ORIGINAL_FUNCTION_NAME {														\
-		public:																										\
-			static kern_return_t override(void *originalFunctionPtr) {												\
-				kern_return_t result = err_none;																	\
-				if (!ORIGINAL_FUNCTION_NAME##_overriden) {															\
-					ORIGINAL_FUNCTION_NAME##_overriden = true;														\
-					result = mach_override_ptr( (void*)originalFunctionPtr,											\
-												(void*)mach_override_class__##ORIGINAL_FUNCTION_NAME::replacement,	\
-												(void**)&ORIGINAL_FUNCTION_NAME##_reenter );						\
-				}																									\
-				return result;																						\
-			}																										\
-			static ORIGINAL_FUNCTION_RETURN_TYPE replacement ORIGINAL_FUNCTION_ARGS {
-
-#define END_MACH_OVERRIDE( ORIGINAL_FUNCTION_NAME )																	\
-			}																										\
-		};																											\
-																													\
-		err = mach_override_class__##ORIGINAL_FUNCTION_NAME::override((void*)ORIGINAL_FUNCTION_NAME);				\
-	}
+#define MACH_OVERRIDE(ORIGINAL_FUNCTION_RETURN_TYPE,                          \
+                      ORIGINAL_FUNCTION_NAME,                                 \
+                      ORIGINAL_FUNCTION_ARGS,                                 \
+                      ERR)                                                    \
+  {                                                                           \
+    static ORIGINAL_FUNCTION_RETURN_TYPE(*ORIGINAL_FUNCTION_NAME##_reenter)   \
+        ORIGINAL_FUNCTION_ARGS;                                               \
+    static bool ORIGINAL_FUNCTION_NAME##_overriden = false;                   \
+    class mach_override_class__##ORIGINAL_FUNCTION_NAME                       \
+    {                                                                         \
+     public:                                                                  \
+      static kern_return_t override(void* originalFunctionPtr)                \
+      {                                                                       \
+        kern_return_t result = err_none;                                      \
+        if (!ORIGINAL_FUNCTION_NAME##_overriden) {                            \
+          ORIGINAL_FUNCTION_NAME##_overriden = true;                          \
+          result = mach_override_ptr(                                         \
+              (void*)originalFunctionPtr,                                     \
+              (void*)                                                         \
+                  mach_override_class__##ORIGINAL_FUNCTION_NAME::replacement, \
+              (void**)&ORIGINAL_FUNCTION_NAME##_reenter);                     \
+        }                                                                     \
+        return result;                                                        \
+      }                                                                       \
+      static ORIGINAL_FUNCTION_RETURN_TYPE replacement ORIGINAL_FUNCTION_ARGS \
+      {
+#define END_MACH_OVERRIDE(ORIGINAL_FUNCTION_NAME)                \
+  }                                                              \
+  }                                                              \
+  ;                                                              \
+                                                                 \
+  err = mach_override_class__##ORIGINAL_FUNCTION_NAME::override( \
+      (void*)ORIGINAL_FUNCTION_NAME);                            \
+  }
 
 #endif
 
-#ifdef	__cplusplus
-	}
+#ifdef __cplusplus
+}
 #endif
-#endif	//	_mach_override_
+#endif  //	_mach_override_

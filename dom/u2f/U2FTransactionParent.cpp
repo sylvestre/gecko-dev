@@ -12,7 +12,8 @@ namespace mozilla {
 namespace dom {
 
 mozilla::ipc::IPCResult
-U2FTransactionParent::RecvRequestRegister(const WebAuthnTransactionInfo& aTransactionInfo)
+U2FTransactionParent::RecvRequestRegister(
+    const WebAuthnTransactionInfo& aTransactionInfo)
 {
   AssertIsOnBackgroundThread();
   U2FTokenManager* mgr = U2FTokenManager::Get();
@@ -21,7 +22,8 @@ U2FTransactionParent::RecvRequestRegister(const WebAuthnTransactionInfo& aTransa
 }
 
 mozilla::ipc::IPCResult
-U2FTransactionParent::RecvRequestSign(const WebAuthnTransactionInfo& aTransactionInfo)
+U2FTransactionParent::RecvRequestSign(
+    const WebAuthnTransactionInfo& aTransactionInfo)
 {
   AssertIsOnBackgroundThread();
   U2FTokenManager* mgr = U2FTokenManager::Get();
@@ -46,5 +48,5 @@ U2FTransactionParent::ActorDestroy(ActorDestroyReason aWhy)
   mgr->MaybeClearTransaction(this);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

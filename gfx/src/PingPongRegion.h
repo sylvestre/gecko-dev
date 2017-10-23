@@ -15,15 +15,13 @@
  * region so use it sparingly.
  */
 
-template <typename T>
+template<typename T>
 class PingPongRegion
 {
   typedef typename T::RectType RectType;
-public:
-  PingPongRegion()
-  {
-    rgn = &rgn1;
-  }
+
+ public:
+  PingPongRegion() { rgn = &rgn1; }
 
   void SubOut(const RectType& aOther)
   {
@@ -39,13 +37,9 @@ public:
     rgn = nextRgn;
   }
 
-  T& Region()
-  {
-    return *rgn;
-  }
+  T& Region() { return *rgn; }
 
-private:
-
+ private:
   T* nextRegion()
   {
     if (rgn == &rgn1) {

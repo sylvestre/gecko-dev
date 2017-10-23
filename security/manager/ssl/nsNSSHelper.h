@@ -18,13 +18,13 @@
 //
 class PipUIContext : public nsIInterfaceRequestor
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIINTERFACEREQUESTOR
 
   PipUIContext();
 
-protected:
+ protected:
   virtual ~PipUIContext();
 };
 
@@ -34,17 +34,17 @@ protected:
 //
 
 nsresult
-getNSSDialogs(void **_result, REFNSIID aIID, const char *contract);
+getNSSDialogs(void** _result, REFNSIID aIID, const char* contract);
 
 extern "C" {
 // a "fake" unicode conversion function
 PRBool
 pip_ucs2_ascii_conversion_fn(PRBool toUnicode,
-                             unsigned char *inBuf,
+                             unsigned char* inBuf,
                              unsigned int inBufLen,
-                             unsigned char *outBuf,
+                             unsigned char* outBuf,
                              unsigned int maxOutBufLen,
-                             unsigned int *outBufLen,
+                             unsigned int* outBufLen,
                              PRBool swapBytes);
 }
 
@@ -52,7 +52,8 @@ pip_ucs2_ascii_conversion_fn(PRBool toUnicode,
 // A function that sets the password on an unitialized slot.
 //
 nsresult
-setPassword(PK11SlotInfo* slot, nsIInterfaceRequestor* ctx,
+setPassword(PK11SlotInfo* slot,
+            nsIInterfaceRequestor* ctx,
             nsNSSShutDownPreventionLock& /*proofOfLock*/);
 
 #endif

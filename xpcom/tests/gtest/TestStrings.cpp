@@ -15,33 +15,46 @@
 #include "mozilla/Unused.h"
 #include "nsTArray.h"
 #include "gtest/gtest.h"
-#include "gtest/MozGTestBench.h" // For MOZ_GTEST_BENCH
+#include "gtest/MozGTestBench.h"  // For MOZ_GTEST_BENCH
 
 namespace TestStrings {
 
 using mozilla::fallible;
 
-void test_assign_helper(const nsACString& in, nsACString &_retval)
+void
+test_assign_helper(const nsACString& in, nsACString& _retval)
 {
   _retval = in;
 }
 
 // Simple helper struct to test if conditionally enabled string functions are
 // working.
-template <typename T>
+template<typename T>
 struct EnableTest
 {
-  template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
-  bool IsChar16() { return true; }
+  template<typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
+  bool IsChar16()
+  {
+    return true;
+  }
 
-  template <typename Q = T, typename EnableIfChar = mozilla::CharOnlyT<Q>>
-  bool IsChar16(int dummy = 42) { return false; }
+  template<typename Q = T, typename EnableIfChar = mozilla::CharOnlyT<Q>>
+  bool IsChar16(int dummy = 42)
+  {
+    return false;
+  }
 
-  template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
-  bool IsChar() { return false; }
+  template<typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
+  bool IsChar()
+  {
+    return false;
+  }
 
-  template <typename Q = T, typename EnableIfChar = mozilla::CharOnlyT<Q>>
-  bool IsChar(int dummy = 42) { return true; }
+  template<typename Q = T, typename EnableIfChar = mozilla::CharOnlyT<Q>>
+  bool IsChar(int dummy = 42)
+  {
+    return true;
+  }
 };
 
 TEST(Strings, IsChar)
@@ -75,7 +88,8 @@ TEST(Strings, assign)
 
 TEST(Strings, assign_c)
 {
-  nsCString c; c.Assign('c');
+  nsCString c;
+  c.Assign('c');
   EXPECT_STREQ(c.get(), "c");
 }
 
@@ -161,18 +175,19 @@ TEST(Strings, rfind_4)
 
 TEST(Strings, findinreadable)
 {
-  const char text[] = "jar:jar:file:///c:/software/mozilla/mozilla_2006_02_21.jar!/browser/chrome/classic.jar!/";
+  const char text[] =
+      "jar:jar:file:///c:/software/mozilla/mozilla_2006_02_21.jar!/browser/"
+      "chrome/classic.jar!/";
   nsAutoCString value(text);
 
   nsACString::const_iterator begin, end;
   value.BeginReading(begin);
   value.EndReading(end);
-  nsACString::const_iterator delim_begin (begin),
-                             delim_end   (end);
+  nsACString::const_iterator delim_begin(begin), delim_end(end);
 
   // Search for last !/ at the end of the string
   EXPECT_TRUE(FindInReadable(NS_LITERAL_CSTRING("!/"), delim_begin, delim_end));
-  char *r = ToNewCString(Substring(delim_begin, delim_end));
+  char* r = ToNewCString(Substring(delim_begin, delim_end));
   // Should match the first "!/" but not the last
   EXPECT_NE(delim_end, end);
   EXPECT_STREQ(r, "!/");
@@ -182,7 +197,8 @@ TEST(Strings, findinreadable)
   delim_end = end;
 
   // Search for first jar:
-  EXPECT_TRUE(FindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+  EXPECT_TRUE(
+      FindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
 
   r = ToNewCString(Substring(delim_begin, delim_end));
   // Should not match the first jar:, but the second one
@@ -191,9 +207,11 @@ TEST(Strings, findinreadable)
   free(r);
 
   // Search for jar: in a Substring
-  delim_begin = begin; delim_begin++;
+  delim_begin = begin;
+  delim_begin++;
   delim_end = end;
-  EXPECT_TRUE(FindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+  EXPECT_TRUE(
+      FindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
 
   r = ToNewCString(Substring(delim_begin, delim_end));
   // Should not match the first jar:, but the second one
@@ -202,23 +220,28 @@ TEST(Strings, findinreadable)
   free(r);
 
   // Should not find a match
-  EXPECT_FALSE(FindInReadable(NS_LITERAL_CSTRING("gecko"), delim_begin, delim_end));
-
-  // When no match is found, range should be empty
-  EXPECT_EQ(delim_begin, delim_end);
-
-  // Should not find a match (search not beyond Substring)
-  delim_begin = begin; for (int i=0;i<6;i++) delim_begin++;
-  delim_end = end;
-  EXPECT_FALSE(FindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+  EXPECT_FALSE(
+      FindInReadable(NS_LITERAL_CSTRING("gecko"), delim_begin, delim_end));
 
   // When no match is found, range should be empty
   EXPECT_EQ(delim_begin, delim_end);
 
   // Should not find a match (search not beyond Substring)
   delim_begin = begin;
-  delim_end = end; for (int i=0;i<7;i++) delim_end--;
-  EXPECT_FALSE(FindInReadable(NS_LITERAL_CSTRING("classic"), delim_begin, delim_end));
+  for (int i = 0; i < 6; i++) delim_begin++;
+  delim_end = end;
+  EXPECT_FALSE(
+      FindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+
+  // When no match is found, range should be empty
+  EXPECT_EQ(delim_begin, delim_end);
+
+  // Should not find a match (search not beyond Substring)
+  delim_begin = begin;
+  delim_end = end;
+  for (int i = 0; i < 7; i++) delim_end--;
+  EXPECT_FALSE(
+      FindInReadable(NS_LITERAL_CSTRING("classic"), delim_begin, delim_end));
 
   // When no match is found, range should be empty
   EXPECT_EQ(delim_begin, delim_end);
@@ -226,18 +249,20 @@ TEST(Strings, findinreadable)
 
 TEST(Strings, rfindinreadable)
 {
-  const char text[] = "jar:jar:file:///c:/software/mozilla/mozilla_2006_02_21.jar!/browser/chrome/classic.jar!/";
+  const char text[] =
+      "jar:jar:file:///c:/software/mozilla/mozilla_2006_02_21.jar!/browser/"
+      "chrome/classic.jar!/";
   nsAutoCString value(text);
 
   nsACString::const_iterator begin, end;
   value.BeginReading(begin);
   value.EndReading(end);
-  nsACString::const_iterator delim_begin (begin),
-                             delim_end   (end);
+  nsACString::const_iterator delim_begin(begin), delim_end(end);
 
   // Search for last !/ at the end of the string
-  EXPECT_TRUE(RFindInReadable(NS_LITERAL_CSTRING("!/"), delim_begin, delim_end));
-  char *r = ToNewCString(Substring(delim_begin, delim_end));
+  EXPECT_TRUE(
+      RFindInReadable(NS_LITERAL_CSTRING("!/"), delim_begin, delim_end));
+  char* r = ToNewCString(Substring(delim_begin, delim_end));
   // Should match the last "!/"
   EXPECT_EQ(delim_end, end);
   EXPECT_STREQ(r, "!/");
@@ -247,7 +272,8 @@ TEST(Strings, rfindinreadable)
   delim_end = end;
 
   // Search for last jar: but not the first one...
-  EXPECT_TRUE(RFindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+  EXPECT_TRUE(
+      RFindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
 
   r = ToNewCString(Substring(delim_begin, delim_end));
   // Should not match the first jar:, but the second one
@@ -257,8 +283,10 @@ TEST(Strings, rfindinreadable)
 
   // Search for jar: in a Substring
   delim_begin = begin;
-  delim_end = begin; for (int i=0;i<6;i++) delim_end++;
-  EXPECT_TRUE(RFindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+  delim_end = begin;
+  for (int i = 0; i < 6; i++) delim_end++;
+  EXPECT_TRUE(
+      RFindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
 
   r = ToNewCString(Substring(delim_begin, delim_end));
   // Should not match the first jar:, but the second one
@@ -269,23 +297,28 @@ TEST(Strings, rfindinreadable)
   // Should not find a match
   delim_begin = begin;
   delim_end = end;
-  EXPECT_FALSE(RFindInReadable(NS_LITERAL_CSTRING("gecko"), delim_begin, delim_end));
+  EXPECT_FALSE(
+      RFindInReadable(NS_LITERAL_CSTRING("gecko"), delim_begin, delim_end));
 
   // When no match is found, range should be empty
   EXPECT_EQ(delim_begin, delim_end);
 
   // Should not find a match (search not before Substring)
-  delim_begin = begin; for (int i=0;i<6;i++) delim_begin++;
+  delim_begin = begin;
+  for (int i = 0; i < 6; i++) delim_begin++;
   delim_end = end;
-  EXPECT_FALSE(RFindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
+  EXPECT_FALSE(
+      RFindInReadable(NS_LITERAL_CSTRING("jar:"), delim_begin, delim_end));
 
   // When no match is found, range should be empty
   EXPECT_EQ(delim_begin, delim_end);
 
   // Should not find a match (search not beyond Substring)
   delim_begin = begin;
-  delim_end = end; for (int i=0;i<7;i++) delim_end--;
-  EXPECT_FALSE(RFindInReadable(NS_LITERAL_CSTRING("classic"), delim_begin, delim_end));
+  delim_end = end;
+  for (int i = 0; i < 7; i++) delim_end--;
+  EXPECT_FALSE(
+      RFindInReadable(NS_LITERAL_CSTRING("classic"), delim_begin, delim_end));
 
   // When no match is found, range should be empty
   EXPECT_EQ(delim_begin, delim_end);
@@ -359,9 +392,10 @@ TEST(Strings, replace_substr)
 
 TEST(Strings, replace_substr_2)
 {
-  const char *oldName = nullptr;
-  const char *newName = "user";
-  nsString acctName; acctName.AssignLiteral("forums.foo.com");
+  const char* oldName = nullptr;
+  const char* newName = "user";
+  nsString acctName;
+  acctName.AssignLiteral("forums.foo.com");
   nsAutoString newAcctName, oldVal, newVal;
   CopyASCIItoUTF16(oldName, oldVal);
   CopyASCIItoUTF16(newName, newVal);
@@ -449,11 +483,8 @@ TEST(Strings, strip_ws)
                          " a    $   ",
                          "Some\fother\t thing\r\n",
                          "And   \f\t\r\n even\nmore\r \f"};
-  const char* results[] = {"",
-                           "a$",
-                           "Someotherthing",
-                           "Andevenmore"};
-  for (size_t i=0; i<sizeof(texts)/sizeof(texts[0]); i++) {
+  const char* results[] = {"", "a$", "Someotherthing", "Andevenmore"};
+  for (size_t i = 0; i < sizeof(texts) / sizeof(texts[0]); i++) {
     nsCString s(texts[i]);
     s.StripWhitespace();
     EXPECT_STREQ(s.get(), results[i]);
@@ -471,10 +502,8 @@ TEST(Strings, concat)
   nsCString bar("bar");
   const nsACString& barRef = bar;
 
-  const nsPromiseFlatCString& result =
-      PromiseFlatCString(NS_LITERAL_CSTRING("foo") +
-                         NS_LITERAL_CSTRING(",") +
-                         barRef);
+  const nsPromiseFlatCString& result = PromiseFlatCString(
+      NS_LITERAL_CSTRING("foo") + NS_LITERAL_CSTRING(",") + barRef);
   EXPECT_STREQ(result.get(), "foo,bar");
 }
 
@@ -484,7 +513,7 @@ TEST(Strings, concat_2)
   nsCString text("text");
   const nsACString& aText = text;
 
-  nsAutoCString result( fieldTextStr + aText );
+  nsAutoCString result(fieldTextStr + aText);
 
   EXPECT_STREQ(result.get(), "xyztext");
 }
@@ -513,9 +542,9 @@ TEST(Strings, set_length)
 {
   const char kText[] = "Default Plugin";
   nsCString buf;
-  buf.SetCapacity(sizeof(kText)-1);
+  buf.SetCapacity(sizeof(kText) - 1);
   buf.Assign(kText);
-  buf.SetLength(sizeof(kText)-1);
+  buf.SetLength(sizeof(kText) - 1);
   EXPECT_STREQ(buf.get(), kText);
 }
 
@@ -533,22 +562,22 @@ TEST(Strings, substring)
 }
 
 #define test_append_expect(str, int, suffix, expect) \
-  str.Truncate(); \
-  str.AppendInt(suffix = int); \
+  str.Truncate();                                    \
+  str.AppendInt(suffix = int);                       \
   EXPECT_TRUE(str.EqualsLiteral(expect));
 
 #define test_appends_expect(int, suffix, expect) \
-  test_append_expect(str, int, suffix, expect) \
-  test_append_expect(cstr, int, suffix, expect)
+  test_append_expect(str, int, suffix, expect)   \
+      test_append_expect(cstr, int, suffix, expect)
 
 #define test_appendbase(str, prefix, int, suffix, base) \
-  str.Truncate(); \
-  str.AppendInt(suffix = prefix ## int ## suffix, base); \
+  str.Truncate();                                       \
+  str.AppendInt(suffix = prefix##int##suffix, base);    \
   EXPECT_TRUE(str.EqualsLiteral(#int));
 
 #define test_appendbases(prefix, int, suffix, base) \
-  test_appendbase(str, prefix, int, suffix, base) \
-  test_appendbase(cstr, prefix, int, suffix, base)
+  test_appendbase(str, prefix, int, suffix, base)   \
+      test_appendbase(cstr, prefix, int, suffix, base)
 
 TEST(Strings, appendint)
 {
@@ -558,24 +587,32 @@ TEST(Strings, appendint)
   uint32_t UL;
   int64_t LL;
   uint64_t ULL;
-  test_appends_expect(INT32_MAX, L, "2147483647")
-  test_appends_expect(INT32_MIN, L, "-2147483648")
-  test_appends_expect(UINT32_MAX, UL, "4294967295")
-  test_appends_expect(INT64_MAX, LL, "9223372036854775807")
-  test_appends_expect(INT64_MIN, LL, "-9223372036854775808")
-  test_appends_expect(UINT64_MAX, ULL, "18446744073709551615")
-  test_appendbases(0, 17777777777, L, 8)
-  test_appendbases(0, 20000000000, L, 8)
-  test_appendbases(0, 37777777777, UL, 8)
-  test_appendbases(0, 777777777777777777777, LL, 8)
-  test_appendbases(0, 1000000000000000000000, LL, 8)
-  test_appendbases(0, 1777777777777777777777, ULL, 8)
-  test_appendbases(0x, 7fffffff, L, 16)
-  test_appendbases(0x, 80000000, L, 16)
-  test_appendbases(0x, ffffffff, UL, 16)
-  test_appendbases(0x, 7fffffffffffffff, LL, 16)
-  test_appendbases(0x, 8000000000000000, LL, 16)
-  test_appendbases(0x, ffffffffffffffff, ULL, 16)
+  test_appends_expect(INT32_MAX, L, "2147483647") test_appends_expect(
+      INT32_MIN, L, "-2147483648")
+      test_appends_expect(UINT32_MAX, UL, "4294967295") test_appends_expect(
+          INT64_MAX,
+          LL,
+          "9223372036854775807") test_appends_expect(INT64_MIN,
+                                                     LL,
+                                                     "-9223372036854775808")
+          test_appends_expect(UINT64_MAX, ULL, "18446744073709551615")
+              test_appendbases(0, 17777777777, L, 8) test_appendbases(
+                  0, 20000000000, L, 8) test_appendbases(0, 37777777777, UL, 8)
+                  test_appendbases(0, 777777777777777777777, LL, 8)
+                      test_appendbases(0, 1000000000000000000000, LL, 8)
+                          test_appendbases(0, 1777777777777777777777, ULL, 8)
+                              test_appendbases(0x, 7fffffff, L, 16)
+                                  test_appendbases(0x, 80000000, L, 16)
+                                      test_appendbases(0x, ffffffff, UL, 16)
+                                          test_appendbases(
+                                              0x, 7fffffffffffffff, LL, 16)
+                                              test_appendbases(
+                                                  0x, 8000000000000000, LL, 16)
+                                                  test_appendbases(
+                                                      0x,
+                                                      ffffffffffffffff,
+                                                      ULL,
+                                                      16)
 }
 
 TEST(Strings, appendint64)
@@ -602,7 +639,6 @@ TEST(Strings, appendint64)
   str.AppendInt(min, 8);
   EXPECT_TRUE(str.Equals(min_expected_oct));
 
-
   str.Truncate();
   str.AppendInt(maxint_plus1);
   EXPECT_TRUE(str.Equals(maxint_plus1_expected));
@@ -620,12 +656,12 @@ TEST(Strings, appendfloat)
 
   // AppendFloat is used to append doubles, therefore the precision must be
   // large enough (see bug 327719)
-  str.AppendFloat( bigdouble );
+  str.AppendFloat(bigdouble);
   EXPECT_TRUE(str.Equals(double_expected));
 
   str.Truncate();
   // AppendFloat is used to append floats (bug 327719 #27)
-  str.AppendFloat( 0.1f * 0.1f );
+  str.AppendFloat(0.1f * 0.1f);
   EXPECT_TRUE(str.Equals(float_expected));
 }
 
@@ -640,7 +676,7 @@ TEST(Strings, findcharinset)
   EXPECT_EQ(index, 0);
 
   index = buf.FindCharInSet("z?", 6);
-  EXPECT_EQ(index, (int32_t) buf.Length() - 1);
+  EXPECT_EQ(index, (int32_t)buf.Length() - 1);
 }
 
 TEST(Strings, rfindcharinset)
@@ -691,13 +727,13 @@ TEST(Strings, stringbuffer)
 
   buf = nsStringBuffer::Alloc(sizeof(kData));
   EXPECT_TRUE(!!buf);
-  char *data = (char *) buf->Data();
+  char* data = (char*)buf->Data();
   memcpy(data, kData, sizeof(kData));
 
   nsCString str;
-  buf->ToString(sizeof(kData)-1, str);
+  buf->ToString(sizeof(kData) - 1, str);
 
-  nsStringBuffer *buf2;
+  nsStringBuffer* buf2;
   buf2 = nsStringBuffer::FromString(str);
 
   EXPECT_EQ(buf, buf2);
@@ -782,18 +818,17 @@ TEST(Strings, empty_assignment)
 
 struct ToIntegerTest
 {
-  const char *str;
+  const char* str;
   uint32_t radix;
   int32_t result;
   nsresult rv;
 };
 
 static const ToIntegerTest kToIntegerTests[] = {
-  { "123", 10, 123, NS_OK },
-  { "7b", 16, 123, NS_OK },
-  { "90194313659", 10, 0, NS_ERROR_ILLEGAL_VALUE },
-  { nullptr, 0, 0, NS_OK }
-};
+    {"123", 10, 123, NS_OK},
+    {"7b", 16, 123, NS_OK},
+    {"90194313659", 10, 0, NS_ERROR_ILLEGAL_VALUE},
+    {nullptr, 0, 0, NS_OK}};
 
 TEST(Strings, string_tointeger)
 {
@@ -808,30 +843,37 @@ TEST(Strings, string_tointeger)
   }
 }
 
-static void test_parse_string_helper(const char* str, char separator, int len,
-                                       const char* s1, const char* s2)
+static void
+test_parse_string_helper(
+    const char* str, char separator, int len, const char* s1, const char* s2)
 {
   nsCString data(str);
   nsTArray<nsCString> results;
   EXPECT_TRUE(ParseString(data, separator, results));
   EXPECT_EQ(int(results.Length()), len);
-  const char* strings[] = { s1, s2 };
+  const char* strings[] = {s1, s2};
   for (int i = 0; i < len; ++i) {
     EXPECT_TRUE(results[i].Equals(strings[i]));
   }
 }
 
-static void test_parse_string_helper0(const char* str, char separator)
+static void
+test_parse_string_helper0(const char* str, char separator)
 {
   test_parse_string_helper(str, separator, 0, nullptr, nullptr);
 }
 
-static void test_parse_string_helper1(const char* str, char separator, const char* s1)
+static void
+test_parse_string_helper1(const char* str, char separator, const char* s1)
 {
   test_parse_string_helper(str, separator, 1, s1, nullptr);
 }
 
-static void test_parse_string_helper2(const char* str, char separator, const char* s1, const char* s2)
+static void
+test_parse_string_helper2(const char* str,
+                          char separator,
+                          const char* s1,
+                          const char* s2)
 {
   test_parse_string_helper(str, separator, 2, s1, s2);
 }
@@ -848,7 +890,10 @@ TEST(String, parse_string)
   test_parse_string_helper1("  foo", ' ', "foo");
 }
 
-static void test_strip_chars_helper(const char16_t* str, const char16_t* strip, const nsAString& result)
+static void
+test_strip_chars_helper(const char16_t* str,
+                        const char16_t* strip,
+                        const nsAString& result)
 {
   nsAutoString data(str);
   data.StripChars(strip);
@@ -857,24 +902,13 @@ static void test_strip_chars_helper(const char16_t* str, const char16_t* strip, 
 
 TEST(String, strip_chars)
 {
-  test_strip_chars_helper(u"foo \r \nbar",
-                          u" \n\r",
-                          NS_LITERAL_STRING("foobar"));
-  test_strip_chars_helper(u"\r\nfoo\r\n",
-                          u" \n\r",
-                          NS_LITERAL_STRING("foo"));
-  test_strip_chars_helper(u"foo",
-                          u" \n\r",
-                          NS_LITERAL_STRING("foo"));
-  test_strip_chars_helper(u"foo",
-                          u"fo",
-                          NS_LITERAL_STRING(""));
-  test_strip_chars_helper(u"foo",
-                          u"foo",
-                          NS_LITERAL_STRING(""));
-  test_strip_chars_helper(u" foo",
-                          u" ",
-                          NS_LITERAL_STRING("foo"));
+  test_strip_chars_helper(
+      u"foo \r \nbar", u" \n\r", NS_LITERAL_STRING("foobar"));
+  test_strip_chars_helper(u"\r\nfoo\r\n", u" \n\r", NS_LITERAL_STRING("foo"));
+  test_strip_chars_helper(u"foo", u" \n\r", NS_LITERAL_STRING("foo"));
+  test_strip_chars_helper(u"foo", u"fo", NS_LITERAL_STRING(""));
+  test_strip_chars_helper(u"foo", u"foo", NS_LITERAL_STRING(""));
+  test_strip_chars_helper(u" foo", u" ", NS_LITERAL_STRING("foo"));
 }
 
 TEST(Strings, huge_capacity)
@@ -886,78 +920,87 @@ TEST(Strings, huge_capacity)
   // some of the allocations above will exhaust the address space.
   if (sizeof(void*) >= 8) {
     EXPECT_TRUE(a.SetCapacity(1, fallible));
-    EXPECT_FALSE(a.SetCapacity(nsString::size_type(-1)/2, fallible));
+    EXPECT_FALSE(a.SetCapacity(nsString::size_type(-1) / 2, fallible));
     EXPECT_TRUE(a.SetCapacity(0, fallible));  // free the allocated memory
 
     EXPECT_TRUE(b.SetCapacity(1, fallible));
-    EXPECT_FALSE(b.SetCapacity(nsString::size_type(-1)/2 - 1, fallible));
+    EXPECT_FALSE(b.SetCapacity(nsString::size_type(-1) / 2 - 1, fallible));
     EXPECT_TRUE(b.SetCapacity(0, fallible));
 
     EXPECT_TRUE(c.SetCapacity(1, fallible));
-    EXPECT_FALSE(c.SetCapacity(nsString::size_type(-1)/2, fallible));
+    EXPECT_FALSE(c.SetCapacity(nsString::size_type(-1) / 2, fallible));
     EXPECT_TRUE(c.SetCapacity(0, fallible));
 
-    EXPECT_FALSE(d.SetCapacity(nsString::size_type(-1)/2 - 1, fallible));
-    EXPECT_FALSE(d.SetCapacity(nsString::size_type(-1)/2, fallible));
+    EXPECT_FALSE(d.SetCapacity(nsString::size_type(-1) / 2 - 1, fallible));
+    EXPECT_FALSE(d.SetCapacity(nsString::size_type(-1) / 2, fallible));
     EXPECT_TRUE(d.SetCapacity(0, fallible));
 
-    EXPECT_FALSE(e.SetCapacity(nsString::size_type(-1)/4, fallible));
-    EXPECT_FALSE(e.SetCapacity(nsString::size_type(-1)/4 + 1, fallible));
+    EXPECT_FALSE(e.SetCapacity(nsString::size_type(-1) / 4, fallible));
+    EXPECT_FALSE(e.SetCapacity(nsString::size_type(-1) / 4 + 1, fallible));
     EXPECT_TRUE(e.SetCapacity(0, fallible));
 
-    EXPECT_FALSE(f.SetCapacity(nsString::size_type(-1)/2, fallible));
+    EXPECT_FALSE(f.SetCapacity(nsString::size_type(-1) / 2, fallible));
     EXPECT_TRUE(f.SetCapacity(0, fallible));
 
-    EXPECT_FALSE(g.SetCapacity(nsString::size_type(-1)/4 + 1000, fallible));
-    EXPECT_FALSE(g.SetCapacity(nsString::size_type(-1)/4 + 1001, fallible));
+    EXPECT_FALSE(g.SetCapacity(nsString::size_type(-1) / 4 + 1000, fallible));
+    EXPECT_FALSE(g.SetCapacity(nsString::size_type(-1) / 4 + 1001, fallible));
     EXPECT_TRUE(g.SetCapacity(0, fallible));
 
-    EXPECT_FALSE(h.SetCapacity(nsString::size_type(-1)/4+1, fallible));
-    EXPECT_FALSE(h.SetCapacity(nsString::size_type(-1)/2, fallible));
+    EXPECT_FALSE(h.SetCapacity(nsString::size_type(-1) / 4 + 1, fallible));
+    EXPECT_FALSE(h.SetCapacity(nsString::size_type(-1) / 2, fallible));
     EXPECT_TRUE(h.SetCapacity(0, fallible));
 
     EXPECT_TRUE(i.SetCapacity(1, fallible));
-    EXPECT_TRUE(i.SetCapacity(nsString::size_type(-1)/4 - 1000, fallible));
-    EXPECT_FALSE(i.SetCapacity(nsString::size_type(-1)/4 + 1, fallible));
+    EXPECT_TRUE(i.SetCapacity(nsString::size_type(-1) / 4 - 1000, fallible));
+    EXPECT_FALSE(i.SetCapacity(nsString::size_type(-1) / 4 + 1, fallible));
     EXPECT_TRUE(i.SetCapacity(0, fallible));
 
-    EXPECT_TRUE(j.SetCapacity(nsString::size_type(-1)/4 - 1000, fallible));
-    EXPECT_FALSE(j.SetCapacity(nsString::size_type(-1)/4 + 1, fallible));
+    EXPECT_TRUE(j.SetCapacity(nsString::size_type(-1) / 4 - 1000, fallible));
+    EXPECT_FALSE(j.SetCapacity(nsString::size_type(-1) / 4 + 1, fallible));
     EXPECT_TRUE(j.SetCapacity(0, fallible));
 
-    EXPECT_TRUE(k.SetCapacity(nsString::size_type(-1)/8 - 1000, fallible));
-    EXPECT_TRUE(k.SetCapacity(nsString::size_type(-1)/4 - 1001, fallible));
-    EXPECT_TRUE(k.SetCapacity(nsString::size_type(-1)/4 - 998, fallible));
-    EXPECT_FALSE(k.SetCapacity(nsString::size_type(-1)/4 + 1, fallible));
+    EXPECT_TRUE(k.SetCapacity(nsString::size_type(-1) / 8 - 1000, fallible));
+    EXPECT_TRUE(k.SetCapacity(nsString::size_type(-1) / 4 - 1001, fallible));
+    EXPECT_TRUE(k.SetCapacity(nsString::size_type(-1) / 4 - 998, fallible));
+    EXPECT_FALSE(k.SetCapacity(nsString::size_type(-1) / 4 + 1, fallible));
     EXPECT_TRUE(k.SetCapacity(0, fallible));
 
-    EXPECT_TRUE(l.SetCapacity(nsString::size_type(-1)/8, fallible));
-    EXPECT_TRUE(l.SetCapacity(nsString::size_type(-1)/8 + 1, fallible));
-    EXPECT_TRUE(l.SetCapacity(nsString::size_type(-1)/8 + 2, fallible));
+    EXPECT_TRUE(l.SetCapacity(nsString::size_type(-1) / 8, fallible));
+    EXPECT_TRUE(l.SetCapacity(nsString::size_type(-1) / 8 + 1, fallible));
+    EXPECT_TRUE(l.SetCapacity(nsString::size_type(-1) / 8 + 2, fallible));
     EXPECT_TRUE(l.SetCapacity(0, fallible));
 
-    EXPECT_TRUE(m.SetCapacity(nsString::size_type(-1)/8 + 1000, fallible));
-    EXPECT_TRUE(m.SetCapacity(nsString::size_type(-1)/8 + 1001, fallible));
+    EXPECT_TRUE(m.SetCapacity(nsString::size_type(-1) / 8 + 1000, fallible));
+    EXPECT_TRUE(m.SetCapacity(nsString::size_type(-1) / 8 + 1001, fallible));
     EXPECT_TRUE(m.SetCapacity(0, fallible));
 
-    EXPECT_TRUE(n.SetCapacity(nsString::size_type(-1)/8+1, fallible));
-    EXPECT_FALSE(n.SetCapacity(nsString::size_type(-1)/4, fallible));
+    EXPECT_TRUE(n.SetCapacity(nsString::size_type(-1) / 8 + 1, fallible));
+    EXPECT_FALSE(n.SetCapacity(nsString::size_type(-1) / 4, fallible));
     EXPECT_TRUE(n.SetCapacity(0, fallible));
 
     EXPECT_TRUE(n.SetCapacity(0, fallible));
-    EXPECT_TRUE(n.SetCapacity((nsString::size_type(-1)/2 - sizeof(nsStringBuffer)) / 2 - 2, fallible));
+    EXPECT_TRUE(n.SetCapacity(
+        (nsString::size_type(-1) / 2 - sizeof(nsStringBuffer)) / 2 - 2,
+        fallible));
     EXPECT_TRUE(n.SetCapacity(0, fallible));
-    EXPECT_FALSE(n.SetCapacity((nsString::size_type(-1)/2 - sizeof(nsStringBuffer)) / 2 - 1, fallible));
+    EXPECT_FALSE(n.SetCapacity(
+        (nsString::size_type(-1) / 2 - sizeof(nsStringBuffer)) / 2 - 1,
+        fallible));
     EXPECT_TRUE(n.SetCapacity(0, fallible));
     EXPECT_TRUE(n1.SetCapacity(0, fallible));
-    EXPECT_TRUE(n1.SetCapacity((nsCString::size_type(-1)/2 - sizeof(nsStringBuffer)) / 1 - 2, fallible));
+    EXPECT_TRUE(n1.SetCapacity(
+        (nsCString::size_type(-1) / 2 - sizeof(nsStringBuffer)) / 1 - 2,
+        fallible));
     EXPECT_TRUE(n1.SetCapacity(0, fallible));
-    EXPECT_FALSE(n1.SetCapacity((nsCString::size_type(-1)/2 - sizeof(nsStringBuffer)) / 1 - 1, fallible));
+    EXPECT_FALSE(n1.SetCapacity(
+        (nsCString::size_type(-1) / 2 - sizeof(nsStringBuffer)) / 1 - 1,
+        fallible));
     EXPECT_TRUE(n1.SetCapacity(0, fallible));
   }
 }
 
-static void test_tofloat_helper(const nsString& aStr, float aExpected, bool aSuccess)
+static void
+test_tofloat_helper(const nsString& aStr, float aExpected, bool aSuccess)
 {
   nsresult result;
   EXPECT_EQ(aStr.ToFloat(&result), aExpected);
@@ -976,7 +1019,8 @@ TEST(Strings, tofloat)
   test_tofloat_helper(NS_LITERAL_STRING("+42"), 42, true);
   test_tofloat_helper(NS_LITERAL_STRING("13.37"), 13.37f, true);
   test_tofloat_helper(NS_LITERAL_STRING("1.23456789"), 1.23456789f, true);
-  test_tofloat_helper(NS_LITERAL_STRING("1.98765432123456"), 1.98765432123456f, true);
+  test_tofloat_helper(
+      NS_LITERAL_STRING("1.98765432123456"), 1.98765432123456f, true);
   test_tofloat_helper(NS_LITERAL_STRING("0"), 0.f, true);
   test_tofloat_helper(NS_LITERAL_STRING("1.e5"), 100000, true);
   test_tofloat_helper(NS_LITERAL_STRING(""), 0.f, false);
@@ -984,7 +1028,8 @@ TEST(Strings, tofloat)
   test_tofloat_helper(NS_LITERAL_STRING("foo"), 0.f, false);
 }
 
-static void test_todouble_helper(const nsString& aStr, double aExpected, bool aSuccess)
+static void
+test_todouble_helper(const nsString& aStr, double aExpected, bool aSuccess)
 {
   nsresult result;
   EXPECT_EQ(aStr.ToDouble(&result), aExpected);
@@ -1003,8 +1048,11 @@ TEST(Strings, todouble)
   test_todouble_helper(NS_LITERAL_STRING("+42"), 42, true);
   test_todouble_helper(NS_LITERAL_STRING("13.37"), 13.37, true);
   test_todouble_helper(NS_LITERAL_STRING("1.23456789"), 1.23456789, true);
-  test_todouble_helper(NS_LITERAL_STRING("1.98765432123456"), 1.98765432123456, true);
-  test_todouble_helper(NS_LITERAL_STRING("123456789.98765432123456"), 123456789.98765432123456, true);
+  test_todouble_helper(
+      NS_LITERAL_STRING("1.98765432123456"), 1.98765432123456, true);
+  test_todouble_helper(NS_LITERAL_STRING("123456789.98765432123456"),
+                       123456789.98765432123456,
+                       true);
   test_todouble_helper(NS_LITERAL_STRING("0"), 0, true);
   test_todouble_helper(NS_LITERAL_STRING("1.e5"), 100000, true);
   test_todouble_helper(NS_LITERAL_STRING(""), 0, false);
@@ -1014,12 +1062,8 @@ TEST(Strings, todouble)
 
 TEST(Strings, Split)
 {
-   nsCString one("one"),
-             two("one;two"),
-             three("one--three"),
-             empty(""),
-             delimStart("-two"),
-             delimEnd("one-");
+  nsCString one("one"), two("one;two"), three("one--three"), empty(""),
+      delimStart("-two"), delimEnd("one-");
 
   nsString wide(u"hello world");
 
@@ -1095,12 +1139,13 @@ TEST(Strings, Split)
   EXPECT_EQ(counter, (size_t)2);
 }
 
-constexpr bool TestSomeChars(char c)
+constexpr bool
+TestSomeChars(char c)
 {
-  return c == 'a' || c == 'c' || c == 'e' || c == '7' ||
-         c == 'G' || c == 'Z' || c == '\b' || c == '?';
+  return c == 'a' || c == 'c' || c == 'e' || c == '7' || c == 'G' || c == 'Z' ||
+         c == '\b' || c == '?';
 }
-TEST(Strings,ASCIIMask)
+TEST(Strings, ASCIIMask)
 {
   const ASCIIMaskArray& maskCRLF = mozilla::ASCIIMask::MaskCRLF();
   EXPECT_TRUE(maskCRLF['\n'] && mozilla::ASCIIMask::IsMasked(maskCRLF, '\n'));
@@ -1141,7 +1186,8 @@ TEST(Strings,ASCIIMask)
   EXPECT_FALSE(mozilla::ASCIIMask::IsMasked(maskCRLF, 14324));
 }
 
-template <typename T> void
+template<typename T>
+void
 CompressWhitespaceHelper()
 {
   T s;
@@ -1214,10 +1260,7 @@ CompressWhitespaceHelper()
   EXPECT_TRUE(s.EqualsLiteral(""));
 }
 
-TEST(Strings, CompressWhitespace)
-{
-  CompressWhitespaceHelper<nsCString>();
-}
+TEST(Strings, CompressWhitespace) { CompressWhitespaceHelper<nsCString>(); }
 
 TEST(Strings, CompressWhitespaceW)
 {
@@ -1230,7 +1273,8 @@ TEST(Strings, CompressWhitespaceW)
   EXPECT_TRUE(str == result);
 }
 
-template <typename T> void
+template<typename T>
+void
 StripCRLFHelper()
 {
   T s;
@@ -1275,10 +1319,7 @@ StripCRLFHelper()
   EXPECT_TRUE(s.EqualsLiteral(""));
 }
 
-TEST(Strings, StripCRLF)
-{
-  StripCRLFHelper<nsCString>();
-}
+TEST(Strings, StripCRLF) { StripCRLFHelper<nsCString>(); }
 
 TEST(Strings, StripCRLFW)
 {
@@ -1291,94 +1332,173 @@ TEST(Strings, StripCRLFW)
   EXPECT_TRUE(str == result);
 }
 
-#define TestExample1 "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium,\n totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi\r architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur\n aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui\r\n\r dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?"
+#define TestExample1                                                           \
+  "Sed ut perspiciatis unde omnis iste natus error sit voluptatem "            \
+  "accusantium doloremque laudantium,\n totam rem aperiam, eaque ipsa quae "   \
+  "ab illo inventore veritatis et quasi\r architecto beatae vitae dicta sunt " \
+  "explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur\n aut "  \
+  "odit aut fugit, sed quia consequuntur magni dolores eos qui ratione "       \
+  "voluptatem sequi nesciunt. Neque porro quisquam est, qui\r\n\r dolorem "    \
+  "ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non "      \
+  "numquam eius modi tempora incidunt ut labore et dolore magnam aliquam "     \
+  "quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem " \
+  "ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi "         \
+  "consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate "    \
+  "velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum "    \
+  "fugiat quo voluptas nulla pariatur?"
 
-#define TestExample2 "At vero eos et accusamus et iusto odio dignissimos ducimus\n\n qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt\r\r  \n mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda       est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat."
+#define TestExample2                                                           \
+  "At vero eos et accusamus et iusto odio dignissimos ducimus\n\n qui "        \
+  "blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et " \
+  "quas molestias excepturi sint occaecati cupiditate non provident, "         \
+  "similique sunt in culpa qui officia deserunt\r\r  \n mollitia animi, id "   \
+  "est laborum et dolorum fuga. Et harum quidem rerum facilis est et "         \
+  "expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi "    \
+  "optio cumque nihil impedit quo minus id quod maxime placeat facere "        \
+  "possimus, omnis voluptas assumenda       est, omnis dolor repellendus. "    \
+  "Temporibus autem quibusdam et aut officiis debitis aut rerum "              \
+  "necessitatibus saepe eveniet ut et voluptates repudiandae sint et "         \
+  "molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente "       \
+  "delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut "    \
+  "perferendis doloribus asperiores repellat."
 
-#define TestExample3 " Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ac tellus eget velit viverra viverra id sit amet neque. Sed id consectetur mi, vestibulum aliquet arcu. Curabitur sagittis accumsan convallis. Sed eu condimentum ipsum, a laoreet tortor. Orci varius natoque penatibus et magnis dis    \r\r\n\n parturient montes, nascetur ridiculus mus. Sed non tellus nec ante sodales placerat a nec risus. Cras vel bibendum sapien, nec ullamcorper felis. Pellentesque congue eget nisi sit amet vehicula. Morbi pulvinar turpis justo, in commodo dolor vulputate id. Curabitur in dui urna. Vestibulum placerat dui in sem congue, ut faucibus nibh rutrum. Duis mattis turpis facilisis ullamcorper tincidunt. Vestibulum pharetra tortor at enim sagittis, dapibus consectetur ex blandit. Curabitur ac fringilla quam. In ornare lectus ut ipsum mattis venenatis. Etiam in mollis lectus, sed luctus risus.\nCras dapibus\f\t  \n finibus justo sit amet dictum. Aliquam non elit diam. Fusce magna nulla, bibendum in massa a, commodo finibus lectus. Sed rutrum a augue id imperdiet. Aliquam sagittis sodales felis, a tristique ligula. Aliquam erat volutpat. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Duis volutpat interdum lorem et congue. Phasellus porttitor posuere justo eget euismod. Nam a condimentum turpis, sit amet gravida lacus. Vestibulum dolor diam, lobortis ac metus et, convallis dapibus tellus. Ut nec metus in velit malesuada tincidunt et eget justo. Curabitur ut libero bibendum, porttitor diam vitae, aliquet justo. "
+#define TestExample3                                                           \
+  " Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ac tellus "  \
+  "eget velit viverra viverra id sit amet neque. Sed id consectetur mi, "      \
+  "vestibulum aliquet arcu. Curabitur sagittis accumsan convallis. Sed eu "    \
+  "condimentum ipsum, a laoreet tortor. Orci varius natoque penatibus et "     \
+  "magnis dis    \r\r\n\n parturient montes, nascetur ridiculus mus. Sed non " \
+  "tellus nec ante sodales placerat a nec risus. Cras vel bibendum sapien, "   \
+  "nec ullamcorper felis. Pellentesque congue eget nisi sit amet vehicula. "   \
+  "Morbi pulvinar turpis justo, in commodo dolor vulputate id. Curabitur in "  \
+  "dui urna. Vestibulum placerat dui in sem congue, ut faucibus nibh rutrum. " \
+  "Duis mattis turpis facilisis ullamcorper tincidunt. Vestibulum pharetra "   \
+  "tortor at enim sagittis, dapibus consectetur ex blandit. Curabitur ac "     \
+  "fringilla quam. In ornare lectus ut ipsum mattis venenatis. Etiam in "      \
+  "mollis lectus, sed luctus risus.\nCras dapibus\f\t  \n finibus justo sit "  \
+  "amet dictum. Aliquam non elit diam. Fusce magna nulla, bibendum in massa "  \
+  "a, commodo finibus lectus. Sed rutrum a augue id imperdiet. Aliquam "       \
+  "sagittis sodales felis, a tristique ligula. Aliquam erat volutpat. "        \
+  "Pellentesque habitant morbi tristique senectus et netus et malesuada "      \
+  "fames ac turpis egestas. Duis volutpat interdum lorem et congue. "          \
+  "Phasellus porttitor posuere justo eget euismod. Nam a condimentum turpis, " \
+  "sit amet gravida lacus. Vestibulum dolor diam, lobortis ac metus et, "      \
+  "convallis dapibus tellus. Ut nec metus in velit malesuada tincidunt et "    \
+  "eget justo. Curabitur ut libero bibendum, porttitor diam vitae, aliquet "   \
+  "justo. "
 
-#define TestExample4 " Donec feugiat volutpat massa. Cras ornare lacinia porta. Fusce in feugiat nunc. Praesent non felis varius diam feugiat ultrices ultricies a risus. Donec maximus nisi nisl, non consectetur nulla eleifend in. Nulla in massa interdum, eleifend orci a, vestibulum est. Mauris aliquet, massa et convallis mollis, felis augue vestibulum augue, in lobortis metus eros a quam. Nam              ac diam ornare, vestibulum elit sit amet, consectetur ante. Praesent massa mauris, pulvinar sit amet sapien vel, tempus gravida neque. Praesent id quam sit amet est maximus molestie eget at turpis. Nunc sit amet orci id arcu dapibus fermentum non eu erat.\f\tSuspendisse commodo nunc sem, eu congue eros condimentum vel. Nullam sit amet posuere arcu. Nulla facilisi. Mauris dapibus iaculis massa sed gravida. Nullam vitae urna at tortor feugiat auctor ut sit amet dolor. Proin rutrum at nunc et faucibus. Quisque suscipit id nibh a aliquet. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Aliquam a dapibus erat, id imperdiet mauris. Nulla blandit libero non magna dapibus tristique. Integer hendrerit imperdiet lorem, quis facilisis lacus semper ut. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae Nullam dignissim elit in congue ultricies. Quisque erat odio, maximus mollis laoreet id, iaculis at turpis. "
+#define TestExample4                                                           \
+  " Donec feugiat volutpat massa. Cras ornare lacinia porta. Fusce in "        \
+  "feugiat nunc. Praesent non felis varius diam feugiat ultrices ultricies a " \
+  "risus. Donec maximus nisi nisl, non consectetur nulla eleifend in. Nulla "  \
+  "in massa interdum, eleifend orci a, vestibulum est. Mauris aliquet, massa " \
+  "et convallis mollis, felis augue vestibulum augue, in lobortis metus eros " \
+  "a quam. Nam              ac diam ornare, vestibulum elit sit amet, "        \
+  "consectetur ante. Praesent massa mauris, pulvinar sit amet sapien vel, "    \
+  "tempus gravida neque. Praesent id quam sit amet est maximus molestie eget " \
+  "at turpis. Nunc sit amet orci id arcu dapibus fermentum non eu "            \
+  "erat.\f\tSuspendisse commodo nunc sem, eu congue eros condimentum vel. "    \
+  "Nullam sit amet posuere arcu. Nulla facilisi. Mauris dapibus iaculis "      \
+  "massa sed gravida. Nullam vitae urna at tortor feugiat auctor ut sit amet " \
+  "dolor. Proin rutrum at nunc et faucibus. Quisque suscipit id nibh a "       \
+  "aliquet. Pellentesque habitant morbi tristique senectus et netus et "       \
+  "malesuada fames ac turpis egestas. Aliquam a dapibus erat, id imperdiet "   \
+  "mauris. Nulla blandit libero non magna dapibus tristique. Integer "         \
+  "hendrerit imperdiet lorem, quis facilisis lacus semper ut. Vestibulum "     \
+  "ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia "     \
+  "Curae Nullam dignissim elit in congue ultricies. Quisque erat odio, "       \
+  "maximus mollis laoreet id, iaculis at turpis. "
 
-#define TestExample5 "Donec id risus urna. Nunc consequat lacinia urna id bibendum. Nulla faucibus faucibus enim. Cras ex risus, ultrices id semper vitae, luctus ut nulla. Sed vehicula tellus sed purus imperdiet efficitur. Suspendisse feugiat\n\n\n     imperdiet odio, sed porta lorem feugiat nec. Curabitur laoreet massa venenatis\r\n risus ornare\r\n, vitae feugiat tortor accumsan. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas id scelerisque mauris, eget facilisis erat. Ut nec pulvinar risus, sed iaculis ante. Mauris tincidunt, risus et pretium elementum, leo nisi consectetur ligula, tincidunt suscipit erat velit eget libero. Sed ac est tempus, consequat dolor mattis, mattis mi. "
+#define TestExample5                                                          \
+  "Donec id risus urna. Nunc consequat lacinia urna id bibendum. Nulla "      \
+  "faucibus faucibus enim. Cras ex risus, ultrices id semper vitae, luctus "  \
+  "ut nulla. Sed vehicula tellus sed purus imperdiet efficitur. Suspendisse " \
+  "feugiat\n\n\n     imperdiet odio, sed porta lorem feugiat nec. Curabitur " \
+  "laoreet massa venenatis\r\n risus ornare\r\n, vitae feugiat tortor "       \
+  "accumsan. Lorem ipsum dolor sit amet, consectetur adipiscing elit. "       \
+  "Maecenas id scelerisque mauris, eget facilisis erat. Ut nec pulvinar "     \
+  "risus, sed iaculis ante. Mauris tincidunt, risus et pretium elementum, "   \
+  "leo nisi consectetur ligula, tincidunt suscipit erat velit eget libero. "  \
+  "Sed ac est tempus, consequat dolor mattis, mattis mi. "
 
 // Note the five calls in the loop, so divide by 100k
 MOZ_GTEST_BENCH(Strings, PerfStripWhitespace, [] {
-    nsCString test1(TestExample1);
-    nsCString test2(TestExample2);
-    nsCString test3(TestExample3);
-    nsCString test4(TestExample4);
-    nsCString test5(TestExample5);
-    for (int i = 0; i < 20000; i++) {
-      test1.StripWhitespace();
-      test2.StripWhitespace();
-      test3.StripWhitespace();
-      test4.StripWhitespace();
-      test5.StripWhitespace();
-    }
+  nsCString test1(TestExample1);
+  nsCString test2(TestExample2);
+  nsCString test3(TestExample3);
+  nsCString test4(TestExample4);
+  nsCString test5(TestExample5);
+  for (int i = 0; i < 20000; i++) {
+    test1.StripWhitespace();
+    test2.StripWhitespace();
+    test3.StripWhitespace();
+    test4.StripWhitespace();
+    test5.StripWhitespace();
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfStripCharsWhitespace, [] {
-    // This is the unoptimized (original) version of
-    // StripWhitespace using StripChars.
-    nsCString test1(TestExample1);
-    nsCString test2(TestExample2);
-    nsCString test3(TestExample3);
-    nsCString test4(TestExample4);
-    nsCString test5(TestExample5);
-    for (int i = 0; i < 20000; i++) {
-      test1.StripChars("\f\t\r\n ");
-      test2.StripChars("\f\t\r\n ");
-      test3.StripChars("\f\t\r\n ");
-      test4.StripChars("\f\t\r\n ");
-      test5.StripChars("\f\t\r\n ");
-    }
+  // This is the unoptimized (original) version of
+  // StripWhitespace using StripChars.
+  nsCString test1(TestExample1);
+  nsCString test2(TestExample2);
+  nsCString test3(TestExample3);
+  nsCString test4(TestExample4);
+  nsCString test5(TestExample5);
+  for (int i = 0; i < 20000; i++) {
+    test1.StripChars("\f\t\r\n ");
+    test2.StripChars("\f\t\r\n ");
+    test3.StripChars("\f\t\r\n ");
+    test4.StripChars("\f\t\r\n ");
+    test5.StripChars("\f\t\r\n ");
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfCompressWhitespace, [] {
-    nsCString test1(TestExample1);
-    nsCString test2(TestExample2);
-    nsCString test3(TestExample3);
-    nsCString test4(TestExample4);
-    nsCString test5(TestExample5);
-    for (int i = 0; i < 20000; i++) {
-      test1.CompressWhitespace();
-      test2.CompressWhitespace();
-      test3.CompressWhitespace();
-      test4.CompressWhitespace();
-      test5.CompressWhitespace();
-    }
+  nsCString test1(TestExample1);
+  nsCString test2(TestExample2);
+  nsCString test3(TestExample3);
+  nsCString test4(TestExample4);
+  nsCString test5(TestExample5);
+  for (int i = 0; i < 20000; i++) {
+    test1.CompressWhitespace();
+    test2.CompressWhitespace();
+    test3.CompressWhitespace();
+    test4.CompressWhitespace();
+    test5.CompressWhitespace();
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfStripCRLF, [] {
-    nsCString test1(TestExample1);
-    nsCString test2(TestExample2);
-    nsCString test3(TestExample3);
-    nsCString test4(TestExample4);
-    nsCString test5(TestExample5);
-    for (int i = 0; i < 20000; i++) {
-      test1.StripCRLF();
-      test2.StripCRLF();
-      test3.StripCRLF();
-      test4.StripCRLF();
-      test5.StripCRLF();
-    }
+  nsCString test1(TestExample1);
+  nsCString test2(TestExample2);
+  nsCString test3(TestExample3);
+  nsCString test4(TestExample4);
+  nsCString test5(TestExample5);
+  for (int i = 0; i < 20000; i++) {
+    test1.StripCRLF();
+    test2.StripCRLF();
+    test3.StripCRLF();
+    test4.StripCRLF();
+    test5.StripCRLF();
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfStripCharsCRLF, [] {
-    // This is the unoptimized (original) version of
-    // stripping \r\n using StripChars.
-    nsCString test1(TestExample1);
-    nsCString test2(TestExample2);
-    nsCString test3(TestExample3);
-    nsCString test4(TestExample4);
-    nsCString test5(TestExample5);
-    for (int i = 0; i < 20000; i++) {
-      test1.StripChars("\r\n");
-      test2.StripChars("\r\n");
-      test3.StripChars("\r\n");
-      test4.StripChars("\r\n");
-      test5.StripChars("\r\n");
-    }
+  // This is the unoptimized (original) version of
+  // stripping \r\n using StripChars.
+  nsCString test1(TestExample1);
+  nsCString test2(TestExample2);
+  nsCString test3(TestExample3);
+  nsCString test4(TestExample4);
+  nsCString test5(TestExample5);
+  for (int i = 0; i < 20000; i++) {
+    test1.StripChars("\r\n");
+    test2.StripChars("\r\n");
+    test3.StripChars("\r\n");
+    test4.StripChars("\r\n");
+    test5.StripChars("\r\n");
+  }
 });
 
 // Setup overhead test
@@ -1388,62 +1508,64 @@ MOZ_GTEST_BENCH(Strings, PerfStripCharsCRLF, [] {
 #define FifteenASCII "Lorem ipsum dol"
 
 // Around hundred is common length for IsUTF8 check
-#define HundredASCII "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ac tellus eget velit viverra viverra i"
+#define HundredASCII                                                         \
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ac tellus " \
+  "eget velit viverra viverra i"
 
 MOZ_GTEST_BENCH(Strings, PerfIsUTF8One, [] {
-    nsCString test(OneASCII);
-    for (int i = 0; i < 200000; i++) {
-      IsUTF8(test);
-    }
+  nsCString test(OneASCII);
+  for (int i = 0; i < 200000; i++) {
+    IsUTF8(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsUTF8Fifteen, [] {
-    nsCString test(FifteenASCII);
-    for (int i = 0; i < 200000; i++) {
-      IsUTF8(test);
-    }
+  nsCString test(FifteenASCII);
+  for (int i = 0; i < 200000; i++) {
+    IsUTF8(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsUTF8Hundred, [] {
-    nsCString test(HundredASCII);
-    for (int i = 0; i < 200000; i++) {
-      IsUTF8(test);
-    }
+  nsCString test(HundredASCII);
+  for (int i = 0; i < 200000; i++) {
+    IsUTF8(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsUTF8Example3, [] {
-    nsCString test(TestExample3);
-    for (int i = 0; i < 100000; i++) {
-      IsUTF8(test);
-    }
+  nsCString test(TestExample3);
+  for (int i = 0; i < 100000; i++) {
+    IsUTF8(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsASCII8One, [] {
-    nsCString test(OneASCII);
-    for (int i = 0; i < 200000; i++) {
-      IsASCII(test);
-    }
+  nsCString test(OneASCII);
+  for (int i = 0; i < 200000; i++) {
+    IsASCII(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsASCIIFifteen, [] {
-    nsCString test(FifteenASCII);
-    for (int i = 0; i < 200000; i++) {
-      IsASCII(test);
-    }
+  nsCString test(FifteenASCII);
+  for (int i = 0; i < 200000; i++) {
+    IsASCII(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsASCIIHundred, [] {
-    nsCString test(HundredASCII);
-    for (int i = 0; i < 200000; i++) {
-      IsASCII(test);
-    }
+  nsCString test(HundredASCII);
+  for (int i = 0; i < 200000; i++) {
+    IsASCII(test);
+  }
 });
 
 MOZ_GTEST_BENCH(Strings, PerfIsASCIIExample3, [] {
-    nsCString test(TestExample3);
-    for (int i = 0; i < 100000; i++) {
-      IsUTF8(test);
-    }
+  nsCString test(TestExample3);
+  for (int i = 0; i < 100000; i++) {
+    IsUTF8(test);
+  }
 });
 
-} // namespace TestStrings
+}  // namespace TestStrings

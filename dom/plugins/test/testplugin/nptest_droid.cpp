@@ -33,9 +33,10 @@
 #include "nptest_platform.h"
 #include "npapi.h"
 
-struct _PlatformData {
+struct _PlatformData
+{
 };
- using namespace std;
+using namespace std;
 
 bool
 pluginSupportsWindowMode()
@@ -81,25 +82,30 @@ pluginHandleEvent(InstanceData* instanceData, void* event)
   return 0;
 }
 
-int32_t pluginGetEdge(InstanceData* instanceData, RectEdge edge)
+int32_t
+pluginGetEdge(InstanceData* instanceData, RectEdge edge)
 {
   // XXX nothing here yet since we don't support windowed plugins
   return NPTEST_INT32_ERROR;
 }
 
-int32_t pluginGetClipRegionRectCount(InstanceData* instanceData)
+int32_t
+pluginGetClipRegionRectCount(InstanceData* instanceData)
 {
   // XXX nothing here yet since we don't support windowed plugins
   return NPTEST_INT32_ERROR;
 }
 
-int32_t pluginGetClipRegionRectEdge(InstanceData* instanceData,
-    int32_t rectIndex, RectEdge edge)
+int32_t
+pluginGetClipRegionRectEdge(InstanceData* instanceData,
+                            int32_t rectIndex,
+                            RectEdge edge)
 {
   // XXX nothing here yet since we don't support windowed plugins
   return NPTEST_INT32_ERROR;
 }
 
-void pluginDoInternalConsistencyCheck(InstanceData* instanceData, string& error)
+void
+pluginDoInternalConsistencyCheck(InstanceData* instanceData, string& error)
 {
 }

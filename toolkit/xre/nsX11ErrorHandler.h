@@ -11,7 +11,9 @@
  * GDK3 will replace the handler.  This is still used for the plugin process,
  * which runs with GTK2.
  **/
-void InstallX11ErrorHandler();
+void
+InstallX11ErrorHandler();
 
-extern "C" int X11Error(Display *display, XErrorEvent *event);
+extern "C" int
+X11Error(Display* display, XErrorEvent* event);
 #endif

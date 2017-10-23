@@ -16,12 +16,10 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(FrameSet)
 namespace mozilla {
 namespace dom {
 
-HTMLFrameSetElement::~HTMLFrameSetElement()
-{
-}
+HTMLFrameSetElement::~HTMLFrameSetElement() {}
 
 JSObject*
-HTMLFrameSetElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLFrameSetElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLFrameSetElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -31,7 +29,8 @@ NS_IMPL_ISUPPORTS_INHERITED0(HTMLFrameSetElement, nsGenericHTMLElement)
 NS_IMPL_ELEMENT_CLONE(HTMLFrameSetElement)
 
 nsresult
-HTMLFrameSetElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+HTMLFrameSetElement::BeforeSetAttr(int32_t aNamespaceID,
+                                   nsAtom* aName,
                                    const nsAttrValueOrString* aValue,
                                    bool aNotify)
 {
@@ -69,11 +68,12 @@ HTMLFrameSetElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::BeforeSetAttr(aNamespaceID, aName, aValue, aNotify);
+  return nsGenericHTMLElement::BeforeSetAttr(
+      aNamespaceID, aName, aValue, aNotify);
 }
 
 nsresult
-HTMLFrameSetElement::GetRowSpec(int32_t *aNumValues,
+HTMLFrameSetElement::GetRowSpec(int32_t* aNumValues,
                                 const nsFramesetSpec** aSpecs)
 {
   NS_PRECONDITION(aNumValues, "Must have a pointer to an integer here!");
@@ -84,15 +84,14 @@ HTMLFrameSetElement::GetRowSpec(int32_t *aNumValues,
   if (!mRowSpecs) {
     const nsAttrValue* value = GetParsedAttr(nsGkAtoms::rows);
     if (value && value->Type() == nsAttrValue::eString) {
-      nsresult rv = ParseRowCol(value->GetStringValue(), mNumRows,
-                                &mRowSpecs);
+      nsresult rv = ParseRowCol(value->GetStringValue(), mNumRows, &mRowSpecs);
       NS_ENSURE_SUCCESS(rv, rv);
     }
 
     if (!mRowSpecs) {  // we may not have had an attr or had an empty attr
       mRowSpecs = MakeUnique<nsFramesetSpec[]>(1);
       mNumRows = 1;
-      mRowSpecs[0].mUnit  = eFramesetUnit_Relative;
+      mRowSpecs[0].mUnit = eFramesetUnit_Relative;
       mRowSpecs[0].mValue = 1;
     }
   }
@@ -103,7 +102,7 @@ HTMLFrameSetElement::GetRowSpec(int32_t *aNumValues,
 }
 
 nsresult
-HTMLFrameSetElement::GetColSpec(int32_t *aNumValues,
+HTMLFrameSetElement::GetColSpec(int32_t* aNumValues,
                                 const nsFramesetSpec** aSpecs)
 {
   NS_PRECONDITION(aNumValues, "Must have a pointer to an integer here!");
@@ -114,15 +113,14 @@ HTMLFrameSetElement::GetColSpec(int32_t *aNumValues,
   if (!mColSpecs) {
     const nsAttrValue* value = GetParsedAttr(nsGkAtoms::cols);
     if (value && value->Type() == nsAttrValue::eString) {
-      nsresult rv = ParseRowCol(value->GetStringValue(), mNumCols,
-                                &mColSpecs);
+      nsresult rv = ParseRowCol(value->GetStringValue(), mNumCols, &mColSpecs);
       NS_ENSURE_SUCCESS(rv, rv);
     }
 
     if (!mColSpecs) {  // we may not have had an attr or had an empty attr
       mColSpecs = MakeUnique<nsFramesetSpec[]>(1);
       mNumCols = 1;
-      mColSpecs[0].mUnit  = eFramesetUnit_Relative;
+      mColSpecs[0].mUnit = eFramesetUnit_Relative;
       mColSpecs[0].mValue = 1;
     }
   }
@@ -131,7 +129,6 @@ HTMLFrameSetElement::GetColSpec(int32_t *aNumValues,
   *aNumValues = mNumCols;
   return NS_OK;
 }
-
 
 bool
 HTMLFrameSetElement::ParseAttribute(int32_t aNamespaceID,
@@ -151,8 +148,8 @@ HTMLFrameSetElement::ParseAttribute(int32_t aNamespaceID,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 nsChangeHint
@@ -160,9 +157,8 @@ HTMLFrameSetElement::GetAttributeChangeHint(const nsAtom* aAttribute,
                                             int32_t aModType) const
 {
   nsChangeHint retval =
-    nsGenericHTMLElement::GetAttributeChangeHint(aAttribute, aModType);
-  if (aAttribute == nsGkAtoms::rows ||
-      aAttribute == nsGkAtoms::cols) {
+      nsGenericHTMLElement::GetAttributeChangeHint(aAttribute, aModType);
+  if (aAttribute == nsGkAtoms::rows || aAttribute == nsGkAtoms::cols) {
     retval |= mCurrentRowColHint;
   }
   return retval;
@@ -172,7 +168,7 @@ HTMLFrameSetElement::GetAttributeChangeHint(const nsAtom* aAttribute,
  * Translate a "rows" or "cols" spec into an array of nsFramesetSpecs
  */
 nsresult
-HTMLFrameSetElement::ParseRowCol(const nsAString & aValue,
+HTMLFrameSetElement::ParseRowCol(const nsAString& aValue,
                                  int32_t& aNumSpecs,
                                  UniquePtr<nsFramesetSpec[]>* aSpecs)
 {
@@ -253,11 +249,9 @@ HTMLFrameSetElement::ParseRowCol(const nsAString & aValue,
       spec.Mid(token, start, numberEnd - start);
 
       // Treat * as 1*
-      if ((eFramesetUnit_Relative == specs[i].mUnit) &&
-        (0 == token.Length())) {
+      if ((eFramesetUnit_Relative == specs[i].mUnit) && (0 == token.Length())) {
         specs[i].mValue = 1;
-      }
-      else {
+      } else {
         // Otherwise just convert to integer.
         nsresult err;
         specs[i].mValue = token.ToInteger(&err);
@@ -269,7 +263,7 @@ HTMLFrameSetElement::ParseRowCol(const nsAString & aValue,
       // Treat 0* as 1* in quirks mode (bug 40383)
       if (isInQuirks) {
         if ((eFramesetUnit_Relative == specs[i].mUnit) &&
-          (0 == specs[i].mValue)) {
+            (0 == specs[i].mValue)) {
           specs[i].mValue = 1;
         }
       }
@@ -302,48 +296,44 @@ HTMLFrameSetElement::ParseRowCol(const nsAString & aValue,
 }
 
 bool
-HTMLFrameSetElement::IsEventAttributeNameInternal(nsAtom *aName)
+HTMLFrameSetElement::IsEventAttributeNameInternal(nsAtom* aName)
 {
-  return nsContentUtils::IsEventAttributeName(aName,
-                                              EventNameType_HTML |
-                                              EventNameType_HTMLBodyOrFramesetOnly);
+  return nsContentUtils::IsEventAttributeName(
+      aName, EventNameType_HTML | EventNameType_HTMLBodyOrFramesetOnly);
 }
-
 
 #define EVENT(name_, id_, type_, struct_) /* nothing; handled by the shim */
 // nsGenericHTMLElement::GetOnError returns
 // already_AddRefed<EventHandlerNonNull> while other getters return
 // EventHandlerNonNull*, so allow passing in the type to use here.
-#define WINDOW_EVENT_HELPER(name_, type_)                                      \
-  type_*                                                                       \
-  HTMLFrameSetElement::GetOn##name_()                                          \
-  {                                                                            \
-    if (nsPIDOMWindowInner* win = OwnerDoc()->GetInnerWindow()) {              \
-      nsGlobalWindow* globalWin = nsGlobalWindow::Cast(win);                   \
-      return globalWin->GetOn##name_();                                        \
-    }                                                                          \
-    return nullptr;                                                            \
-  }                                                                            \
-  void                                                                         \
-  HTMLFrameSetElement::SetOn##name_(type_* handler)                            \
-  {                                                                            \
-    nsPIDOMWindowInner* win = OwnerDoc()->GetInnerWindow();                    \
-    if (!win) {                                                                \
-      return;                                                                  \
-    }                                                                          \
-                                                                               \
-    nsGlobalWindow* globalWin = nsGlobalWindow::Cast(win);                     \
-    return globalWin->SetOn##name_(handler);                                   \
+#define WINDOW_EVENT_HELPER(name_, type_)                         \
+  type_* HTMLFrameSetElement::GetOn##name_()                      \
+  {                                                               \
+    if (nsPIDOMWindowInner* win = OwnerDoc()->GetInnerWindow()) { \
+      nsGlobalWindow* globalWin = nsGlobalWindow::Cast(win);      \
+      return globalWin->GetOn##name_();                           \
+    }                                                             \
+    return nullptr;                                               \
+  }                                                               \
+  void HTMLFrameSetElement::SetOn##name_(type_* handler)          \
+  {                                                               \
+    nsPIDOMWindowInner* win = OwnerDoc()->GetInnerWindow();       \
+    if (!win) {                                                   \
+      return;                                                     \
+    }                                                             \
+                                                                  \
+    nsGlobalWindow* globalWin = nsGlobalWindow::Cast(win);        \
+    return globalWin->SetOn##name_(handler);                      \
   }
-#define WINDOW_EVENT(name_, id_, type_, struct_)                               \
+#define WINDOW_EVENT(name_, id_, type_, struct_) \
   WINDOW_EVENT_HELPER(name_, EventHandlerNonNull)
-#define BEFOREUNLOAD_EVENT(name_, id_, type_, struct_)                         \
+#define BEFOREUNLOAD_EVENT(name_, id_, type_, struct_) \
   WINDOW_EVENT_HELPER(name_, OnBeforeUnloadEventHandlerNonNull)
-#include "mozilla/EventNameList.h" // IWYU pragma: keep
+#include "mozilla/EventNameList.h"  // IWYU pragma: keep
 #undef BEFOREUNLOAD_EVENT
 #undef WINDOW_EVENT
 #undef WINDOW_EVENT_HELPER
 #undef EVENT
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

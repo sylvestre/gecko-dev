@@ -17,8 +17,9 @@ class nsHyphenator;
 /**
  * A receiver of line break data.
  */
-class nsILineBreakSink {
-public:
+class nsILineBreakSink
+{
+ public:
   /**
    * Sets the break data for a substring of the associated text chunk.
    * One or more of these calls will be performed; the union of all substrings
@@ -30,13 +31,17 @@ public:
    *    FLAG_BREAK_TYPE_NORMAL   - a normal (whitespace) linebreak
    *    FLAG_BREAK_TYPE_HYPHEN   - a hyphenation point
    */
-  virtual void SetBreaks(uint32_t aStart, uint32_t aLength, uint8_t* aBreakBefore) = 0;
+  virtual void SetBreaks(uint32_t aStart,
+                         uint32_t aLength,
+                         uint8_t* aBreakBefore) = 0;
 
   /**
    * Indicates which characters should be capitalized. Only called if
    * BREAK_NEED_CAPITALIZATION was requested.
    */
-  virtual void SetCapitalization(uint32_t aStart, uint32_t aLength, bool* aCapitalize) = 0;
+  virtual void SetCapitalization(uint32_t aStart,
+                                 uint32_t aLength,
+                                 bool* aCapitalize) = 0;
 };
 
 /**
@@ -61,8 +66,9 @@ public:
  * for text-transform:capitalize. This is a good place to handle that because
  * we have all the context we need.
  */
-class nsLineBreaker {
-public:
+class nsLineBreaker
+{
+ public:
   nsLineBreaker();
   ~nsLineBreaker();
 
@@ -70,21 +76,18 @@ public:
 
   static inline bool IsComplexASCIIChar(char16_t u)
   {
-    return !((0x0030 <= u && u <= 0x0039) ||
-             (0x0041 <= u && u <= 0x005A) ||
-             (0x0061 <= u && u <= 0x007A) ||
-             (0x000a == u));
+    return !((0x0030 <= u && u <= 0x0039) || (0x0041 <= u && u <= 0x005A) ||
+             (0x0061 <= u && u <= 0x007A) || (0x000a == u));
   }
 
   static inline bool IsComplexChar(char16_t u)
   {
-    return IsComplexASCIIChar(u) ||
-           NS_NeedsPlatformNativeHandling(u) ||
-           (0x1100 <= u && u <= 0x11ff) || // Hangul Jamo
-           (0x2000 <= u && u <= 0x21ff) || // Punctuations and Symbols
-           (0x2e80 <= u && u <= 0xd7ff) || // several CJK blocks
-           (0xf900 <= u && u <= 0xfaff) || // CJK Compatibility Idographs
-           (0xff00 <= u && u <= 0xffef);   // Halfwidth and Fullwidth Forms
+    return IsComplexASCIIChar(u) || NS_NeedsPlatformNativeHandling(u) ||
+           (0x1100 <= u && u <= 0x11ff) ||  // Hangul Jamo
+           (0x2000 <= u && u <= 0x21ff) ||  // Punctuations and Symbols
+           (0x2e80 <= u && u <= 0xd7ff) ||  // several CJK blocks
+           (0xf900 <= u && u <= 0xfaff) ||  // CJK Compatibility Idographs
+           (0xff00 <= u && u <= 0xffef);    // Halfwidth and Fullwidth Forms
   }
 
   // Break opportunities exist at the end of each run of breakable whitespace
@@ -103,7 +106,8 @@ public:
   /**
    * Flags passed with each chunk of text.
    */
-  enum {
+  enum
+  {
     /*
      * Do not introduce a break opportunity at the start of this chunk of text.
      */
@@ -148,15 +152,21 @@ public:
    * @param aSink can be null if the breaks are not actually needed (we may
    * still be setting up state for later breaks)
    */
-  nsresult AppendText(nsAtom* aHyphenationLanguage, const char16_t* aText, uint32_t aLength,
-                      uint32_t aFlags, nsILineBreakSink* aSink);
+  nsresult AppendText(nsAtom* aHyphenationLanguage,
+                      const char16_t* aText,
+                      uint32_t aLength,
+                      uint32_t aFlags,
+                      nsILineBreakSink* aSink);
   /**
    * Feed 8-bit text into the linebreaker for analysis. aLength must be nonzero.
    * @param aSink can be null if the breaks are not actually needed (we may
    * still be setting up state for later breaks)
    */
-  nsresult AppendText(nsAtom* aHyphenationLanguage, const uint8_t* aText, uint32_t aLength,
-                      uint32_t aFlags, nsILineBreakSink* aSink);
+  nsresult AppendText(nsAtom* aHyphenationLanguage,
+                      const uint8_t* aText,
+                      uint32_t aLength,
+                      uint32_t aFlags,
+                      nsILineBreakSink* aSink);
   /**
    * Reset all state. This means the current run has ended; any outstanding
    * calls through nsILineBreakSink are made, and all outstanding references to
@@ -176,19 +186,27 @@ public:
    */
   void SetWordBreak(uint8_t aMode) { mWordBreak = aMode; }
 
-private:
+ private:
   // This is a list of text sources that make up the "current word" (i.e.,
   // run of text which does not contain any whitespace). All the mLengths
   // are are nonzero, these cannot overlap.
-  struct TextItem {
-    TextItem(nsILineBreakSink* aSink, uint32_t aSinkOffset, uint32_t aLength,
+  struct TextItem
+  {
+    TextItem(nsILineBreakSink* aSink,
+             uint32_t aSinkOffset,
+             uint32_t aLength,
              uint32_t aFlags)
-      : mSink(aSink), mSinkOffset(aSinkOffset), mLength(aLength), mFlags(aFlags) {}
+        : mSink(aSink),
+          mSinkOffset(aSinkOffset),
+          mLength(aLength),
+          mFlags(aFlags)
+    {
+    }
 
     nsILineBreakSink* mSink;
-    uint32_t          mSinkOffset;
-    uint32_t          mLength;
-    uint32_t          mFlags;
+    uint32_t mSinkOffset;
+    uint32_t mLength;
+    uint32_t mFlags;
   };
 
   // State for the nonwhitespace "word" that started in previous text and hasn't
@@ -199,27 +217,27 @@ private:
   // appropriate sink(s). Then we clear the current word state.
   nsresult FlushCurrentWord();
 
-  void UpdateCurrentWordLanguage(nsAtom *aHyphenationLanguage);
+  void UpdateCurrentWordLanguage(nsAtom* aHyphenationLanguage);
 
-  void FindHyphenationPoints(nsHyphenator *aHyphenator,
-                             const char16_t *aTextStart,
-                             const char16_t *aTextLimit,
-                             uint8_t *aBreakState);
+  void FindHyphenationPoints(nsHyphenator* aHyphenator,
+                             const char16_t* aTextStart,
+                             const char16_t* aTextLimit,
+                             uint8_t* aBreakState);
 
-  AutoTArray<char16_t,100> mCurrentWord;
+  AutoTArray<char16_t, 100> mCurrentWord;
   // All the items that contribute to mCurrentWord
-  AutoTArray<TextItem,2>    mTextItems;
-  nsAtom*                    mCurrentWordLanguage;
-  bool                        mCurrentWordContainsMixedLang;
-  bool                        mCurrentWordContainsComplexChar;
+  AutoTArray<TextItem, 2> mTextItems;
+  nsAtom* mCurrentWordLanguage;
+  bool mCurrentWordContainsMixedLang;
+  bool mCurrentWordContainsComplexChar;
 
   // True if the previous character was breakable whitespace
-  bool                        mAfterBreakableSpace;
+  bool mAfterBreakableSpace;
   // True if a break must be allowed at the current position because
   // a run of breakable whitespace ends here
-  bool                        mBreakHere;
+  bool mBreakHere;
   // line break mode by "word-break" style
-  uint8_t                     mWordBreak;
+  uint8_t mWordBreak;
 };
 
 #endif /*NSLINEBREAKER_H_*/

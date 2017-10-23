@@ -28,24 +28,21 @@ struct BigEndianUint16
   }
 #endif
 
-  operator uint16_t() const
-  {
-    return NativeEndian::swapFromBigEndian(value);
-  }
+  operator uint16_t() const { return NativeEndian::swapFromBigEndian(value); }
 
-  friend inline bool
-  operator==(const BigEndianUint16& lhs, const BigEndianUint16& rhs)
+  friend inline bool operator==(const BigEndianUint16& lhs,
+                                const BigEndianUint16& rhs)
   {
     return lhs.value == rhs.value;
   }
 
-  friend inline bool
-  operator!=(const BigEndianUint16& lhs, const BigEndianUint16& rhs)
+  friend inline bool operator!=(const BigEndianUint16& lhs,
+                                const BigEndianUint16& rhs)
   {
     return !(lhs == rhs);
   }
 
-private:
+ private:
   uint16_t value;
 };
 
@@ -64,17 +61,14 @@ struct BigEndianUint32
   }
 #endif
 
-  operator uint32_t() const
-  {
-    return NativeEndian::swapFromBigEndian(value);
-  }
+  operator uint32_t() const { return NativeEndian::swapFromBigEndian(value); }
 
-private:
-  uint32_t  value;
+ private:
+  uint32_t value;
 };
 
 #pragma pack(pop)
 
-} // mozilla
+}  // mozilla
 
-#endif // mozilla_BigEndianInts_h
+#endif  // mozilla_BigEndianInts_h

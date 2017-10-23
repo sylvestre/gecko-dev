@@ -24,15 +24,16 @@ namespace {
 // XXX This will be tweaked to something more meaningful in Bug 1383656.
 const uint32_t kMaxRandomNumber = 102400;
 
-} // namespace
+}  // namespace
 
-InternalResponse::InternalResponse(uint16_t aStatus, const nsACString& aStatusText)
-  : mType(ResponseType::Default)
-  , mStatus(aStatus)
-  , mStatusText(aStatusText)
-  , mHeaders(new InternalHeaders(HeadersGuardEnum::Response))
-  , mBodySize(UNKNOWN_BODY_SIZE)
-  , mPaddingSize(UNKNOWN_PADDING_SIZE)
+InternalResponse::InternalResponse(uint16_t aStatus,
+                                   const nsACString& aStatusText)
+    : mType(ResponseType::Default),
+      mStatus(aStatus),
+      mStatusText(aStatusText),
+      mHeaders(new InternalHeaders(HeadersGuardEnum::Response)),
+      mBodySize(UNKNOWN_BODY_SIZE),
+      mPaddingSize(UNKNOWN_PADDING_SIZE)
 {
 }
 
@@ -44,25 +45,25 @@ InternalResponse::FromIPC(const IPCInternalResponse& aIPCResponse)
   }
 
   RefPtr<InternalResponse> response =
-    new InternalResponse(aIPCResponse.status(),
-                         aIPCResponse.statusText());
+      new InternalResponse(aIPCResponse.status(), aIPCResponse.statusText());
 
   response->SetURLList(aIPCResponse.urlList());
 
-  response->mHeaders = new InternalHeaders(aIPCResponse.headers(),
-                                           aIPCResponse.headersGuard());
+  response->mHeaders =
+      new InternalHeaders(aIPCResponse.headers(), aIPCResponse.headersGuard());
 
   response->InitChannelInfo(aIPCResponse.channelInfo());
-  if (aIPCResponse.principalInfo().type() == mozilla::ipc::OptionalPrincipalInfo::TPrincipalInfo) {
-    UniquePtr<mozilla::ipc::PrincipalInfo> info(new mozilla::ipc::PrincipalInfo(aIPCResponse.principalInfo().get_PrincipalInfo()));
+  if (aIPCResponse.principalInfo().type() ==
+      mozilla::ipc::OptionalPrincipalInfo::TPrincipalInfo) {
+    UniquePtr<mozilla::ipc::PrincipalInfo> info(new mozilla::ipc::PrincipalInfo(
+        aIPCResponse.principalInfo().get_PrincipalInfo()));
     response->SetPrincipalInfo(Move(info));
   }
 
   nsCOMPtr<nsIInputStream> stream = DeserializeIPCStream(aIPCResponse.body());
   response->SetBody(stream, aIPCResponse.bodySize());
 
-  switch (aIPCResponse.type())
-  {
+  switch (aIPCResponse.type()) {
     case ResponseType::Basic:
       response = response->BasicResponse();
       break;
@@ -85,30 +86,28 @@ InternalResponse::FromIPC(const IPCInternalResponse& aIPCResponse)
   return response.forget();
 }
 
-InternalResponse::~InternalResponse()
-{
-}
+InternalResponse::~InternalResponse() {}
 
 template void
-InternalResponse::ToIPC<nsIContentParent>
-  (IPCInternalResponse* aIPCResponse,
-   nsIContentParent* aManager,
-   UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
+InternalResponse::ToIPC<nsIContentParent>(
+    IPCInternalResponse* aIPCResponse,
+    nsIContentParent* aManager,
+    UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
 template void
-InternalResponse::ToIPC<nsIContentChild>
-  (IPCInternalResponse* aIPCResponse,
-   nsIContentChild* aManager,
-   UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
+InternalResponse::ToIPC<nsIContentChild>(
+    IPCInternalResponse* aIPCResponse,
+    nsIContentChild* aManager,
+    UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
 template void
-InternalResponse::ToIPC<mozilla::ipc::PBackgroundParent>
-  (IPCInternalResponse* aIPCResponse,
-   mozilla::ipc::PBackgroundParent* aManager,
-   UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
+InternalResponse::ToIPC<mozilla::ipc::PBackgroundParent>(
+    IPCInternalResponse* aIPCResponse,
+    mozilla::ipc::PBackgroundParent* aManager,
+    UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
 template void
-InternalResponse::ToIPC<mozilla::ipc::PBackgroundChild>
-  (IPCInternalResponse* aIPCResponse,
-   mozilla::ipc::PBackgroundChild* aManager,
-   UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
+InternalResponse::ToIPC<mozilla::ipc::PBackgroundChild>(
+    IPCInternalResponse* aIPCResponse,
+    mozilla::ipc::PBackgroundChild* aManager,
+    UniquePtr<mozilla::ipc::AutoIPCStream>& aAutoStream);
 
 template<typename M>
 void
@@ -170,9 +169,11 @@ InternalResponse::Clone(CloneType aCloneType)
   nsCOMPtr<nsIInputStream> clonedBody;
   nsCOMPtr<nsIInputStream> replacementBody;
 
-  nsresult rv = NS_CloneInputStream(mBody, getter_AddRefs(clonedBody),
-                                    getter_AddRefs(replacementBody));
-  if (NS_WARN_IF(NS_FAILED(rv))) { return nullptr; }
+  nsresult rv = NS_CloneInputStream(
+      mBody, getter_AddRefs(clonedBody), getter_AddRefs(replacementBody));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return nullptr;
+  }
 
   clone->mBody.swap(clonedBody);
   if (replacementBody) {
@@ -185,7 +186,8 @@ InternalResponse::Clone(CloneType aCloneType)
 already_AddRefed<InternalResponse>
 InternalResponse::BasicResponse()
 {
-  MOZ_ASSERT(!mWrappedResponse, "Can't BasicResponse a already wrapped response");
+  MOZ_ASSERT(!mWrappedResponse,
+             "Can't BasicResponse a already wrapped response");
   RefPtr<InternalResponse> basic = CreateIncompleteCopy();
   basic->mType = ResponseType::Basic;
   basic->mHeaders = InternalHeaders::BasicHeaders(Headers());
@@ -196,7 +198,8 @@ InternalResponse::BasicResponse()
 already_AddRefed<InternalResponse>
 InternalResponse::CORSResponse()
 {
-  MOZ_ASSERT(!mWrappedResponse, "Can't CORSResponse a already wrapped response");
+  MOZ_ASSERT(!mWrappedResponse,
+             "Can't CORSResponse a already wrapped response");
   RefPtr<InternalResponse> cors = CreateIncompleteCopy();
   cors->mType = ResponseType::Cors;
   cors->mHeaders = InternalHeaders::CORSHeaders(Headers());
@@ -211,15 +214,13 @@ InternalResponse::GetPaddingInfo()
   // paddingSize is unknown size.
   // If it's not, the paddingInfo should be nothing and the paddingSize should
   // be unknown size.
-  MOZ_DIAGNOSTIC_ASSERT((mType == ResponseType::Opaque &&
-                         mPaddingSize == UNKNOWN_PADDING_SIZE &&
-                         mPaddingInfo.isSome()) ||
-                        (mType == ResponseType::Opaque &&
-                         mPaddingSize != UNKNOWN_PADDING_SIZE &&
-                         mPaddingInfo.isNothing()) ||
-                        (mType != ResponseType::Opaque &&
-                         mPaddingSize == UNKNOWN_PADDING_SIZE &&
-                         mPaddingInfo.isNothing()));
+  MOZ_DIAGNOSTIC_ASSERT(
+      (mType == ResponseType::Opaque && mPaddingSize == UNKNOWN_PADDING_SIZE &&
+       mPaddingInfo.isSome()) ||
+      (mType == ResponseType::Opaque && mPaddingSize != UNKNOWN_PADDING_SIZE &&
+       mPaddingInfo.isNothing()) ||
+      (mType != ResponseType::Opaque && mPaddingSize == UNKNOWN_PADDING_SIZE &&
+       mPaddingInfo.isNothing()));
   return mPaddingInfo.isSome() ? mPaddingInfo.ref() : 0;
 }
 
@@ -233,14 +234,18 @@ InternalResponse::GeneratePaddingInfo()
   nsresult rv;
   uint32_t randomNumber = 0;
   nsCOMPtr<nsIRandomGenerator> randomGenerator =
-    do_GetService("@mozilla.org/security/random-generator;1", &rv);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+      do_GetService("@mozilla.org/security/random-generator;1", &rv);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   MOZ_DIAGNOSTIC_ASSERT(randomGenerator);
 
   uint8_t* buffer;
   rv = randomGenerator->GenerateRandomBytes(sizeof(randomNumber), &buffer);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   memcpy(&randomNumber, buffer, sizeof(randomNumber));
   free(buffer);
@@ -268,9 +273,9 @@ void
 InternalResponse::SetPaddingSize(int64_t aPaddingSize)
 {
   // We should only pad the opaque response.
-  MOZ_DIAGNOSTIC_ASSERT((mType == ResponseType::Opaque) !=
-                        (aPaddingSize ==
-                         InternalResponse::UNKNOWN_PADDING_SIZE));
+  MOZ_DIAGNOSTIC_ASSERT(
+      (mType == ResponseType::Opaque) !=
+      (aPaddingSize == InternalResponse::UNKNOWN_PADDING_SIZE));
   MOZ_DIAGNOSTIC_ASSERT(aPaddingSize == UNKNOWN_PADDING_SIZE ||
                         aPaddingSize >= 0);
 
@@ -278,7 +283,8 @@ InternalResponse::SetPaddingSize(int64_t aPaddingSize)
 }
 
 void
-InternalResponse::SetPrincipalInfo(UniquePtr<mozilla::ipc::PrincipalInfo> aPrincipalInfo)
+InternalResponse::SetPrincipalInfo(
+    UniquePtr<mozilla::ipc::PrincipalInfo> aPrincipalInfo)
 {
   mPrincipalInfo = Move(aPrincipalInfo);
 }
@@ -309,13 +315,15 @@ InternalResponse::Unfiltered()
 already_AddRefed<InternalResponse>
 InternalResponse::OpaqueResponse()
 {
-  MOZ_ASSERT(!mWrappedResponse, "Can't OpaqueResponse a already wrapped response");
+  MOZ_ASSERT(!mWrappedResponse,
+             "Can't OpaqueResponse a already wrapped response");
   RefPtr<InternalResponse> response = new InternalResponse(0, EmptyCString());
   response->mType = ResponseType::Opaque;
   response->mTerminationReason = mTerminationReason;
   response->mChannelInfo = mChannelInfo;
   if (mPrincipalInfo) {
-    response->mPrincipalInfo = MakeUnique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
+    response->mPrincipalInfo =
+        MakeUnique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
   }
   response->mWrappedResponse = this;
   return response.forget();
@@ -324,8 +332,10 @@ InternalResponse::OpaqueResponse()
 already_AddRefed<InternalResponse>
 InternalResponse::OpaqueRedirectResponse()
 {
-  MOZ_ASSERT(!mWrappedResponse, "Can't OpaqueRedirectResponse a already wrapped response");
-  MOZ_ASSERT(!mURLList.IsEmpty(), "URLList should not be emtpy for internalResponse");
+  MOZ_ASSERT(!mWrappedResponse,
+             "Can't OpaqueRedirectResponse a already wrapped response");
+  MOZ_ASSERT(!mURLList.IsEmpty(),
+             "URLList should not be emtpy for internalResponse");
   RefPtr<InternalResponse> response = OpaqueResponse();
   response->mType = ResponseType::Opaqueredirect;
   response->mURLList = mURLList;
@@ -341,10 +351,11 @@ InternalResponse::CreateIncompleteCopy()
   copy->mURLList = mURLList;
   copy->mChannelInfo = mChannelInfo;
   if (mPrincipalInfo) {
-    copy->mPrincipalInfo = MakeUnique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
+    copy->mPrincipalInfo =
+        MakeUnique<mozilla::ipc::PrincipalInfo>(*mPrincipalInfo);
   }
   return copy.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

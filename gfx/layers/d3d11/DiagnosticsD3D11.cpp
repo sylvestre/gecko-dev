@@ -10,9 +10,9 @@
 namespace mozilla {
 namespace layers {
 
-DiagnosticsD3D11::DiagnosticsD3D11(ID3D11Device* aDevice, ID3D11DeviceContext* aContext)
- : mDevice(aDevice),
-   mContext(aContext)
+DiagnosticsD3D11::DiagnosticsD3D11(ID3D11Device* aDevice,
+                                   ID3D11DeviceContext* aContext)
+    : mDevice(aDevice), mContext(aContext)
 {
 }
 
@@ -83,14 +83,12 @@ DiagnosticsD3D11::Query(GPUStats* aStats)
     if (WaitForGPUQuery(mDevice, mContext, mPrevFrame.timing, &timing) &&
         !timing.Disjoint &&
         WaitForGPUQuery(mDevice, mContext, mPrevFrame.frameBegin, &begin) &&
-        WaitForGPUQuery(mDevice, mContext, mPrevFrame.frameEnd, &end))
-    {
+        WaitForGPUQuery(mDevice, mContext, mPrevFrame.frameEnd, &end)) {
       float timeMs = float(end - begin) / float(timing.Frequency) * 1000.0f;
       aStats->mDrawTime = Some(timeMs);
     }
   }
 }
 
-} // namespace layers
-} // namespace mozilla
-
+}  // namespace layers
+}  // namespace mozilla

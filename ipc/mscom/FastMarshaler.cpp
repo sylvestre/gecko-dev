@@ -14,8 +14,7 @@ namespace mozilla {
 namespace mscom {
 
 HRESULT
-FastMarshaler::Create(IUnknown* aOuter,
-                      IUnknown** aOutMarshalerUnk)
+FastMarshaler::Create(IUnknown* aOuter, IUnknown** aOutMarshalerUnk)
 {
   MOZ_ASSERT(XRE_IsContentProcess());
 
@@ -34,20 +33,17 @@ FastMarshaler::Create(IUnknown* aOuter,
   return fm->InternalQueryInterface(IID_IUnknown, (void**)aOutMarshalerUnk);
 }
 
-FastMarshaler::FastMarshaler(IUnknown* aOuter,
-                             HRESULT* aResult)
-  : mRefCnt(0)
-  , mOuter(aOuter)
-  , mStdMarshalWeak(nullptr)
+FastMarshaler::FastMarshaler(IUnknown* aOuter, HRESULT* aResult)
+    : mRefCnt(0), mOuter(aOuter), mStdMarshalWeak(nullptr)
 {
-  *aResult = ::CoGetStdMarshalEx(aOuter, SMEXF_SERVER,
-                                 getter_AddRefs(mStdMarshalUnk));
+  *aResult =
+      ::CoGetStdMarshalEx(aOuter, SMEXF_SERVER, getter_AddRefs(mStdMarshalUnk));
   if (FAILED(*aResult)) {
     return;
   }
 
-  *aResult = mStdMarshalUnk->QueryInterface(IID_IMarshal,
-                                            (void**)&mStdMarshalWeak);
+  *aResult =
+      mStdMarshalUnk->QueryInterface(IID_IMarshal, (void**)&mStdMarshalWeak);
   if (FAILED(*aResult)) {
     return;
   }
@@ -79,10 +75,7 @@ FastMarshaler::InternalQueryInterface(REFIID riid, void** ppv)
 }
 
 ULONG
-FastMarshaler::InternalAddRef()
-{
-  return ++mRefCnt;
-}
+FastMarshaler::InternalAddRef() { return ++mRefCnt; }
 
 ULONG
 FastMarshaler::InternalRelease()
@@ -112,48 +105,66 @@ FastMarshaler::GetMarshalFlags(DWORD aDestContext, DWORD aMshlFlags)
 }
 
 HRESULT
-FastMarshaler::GetUnmarshalClass(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+FastMarshaler::GetUnmarshalClass(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  CLSID* pCid)
 {
   if (!mStdMarshalWeak) {
     return E_POINTER;
   }
 
-  return mStdMarshalWeak->GetUnmarshalClass(riid, pv, dwDestContext,
-                                            pvDestContext,
-                                            GetMarshalFlags(dwDestContext,
-                                                            mshlflags), pCid);
+  return mStdMarshalWeak->GetUnmarshalClass(
+      riid,
+      pv,
+      dwDestContext,
+      pvDestContext,
+      GetMarshalFlags(dwDestContext, mshlflags),
+      pCid);
 }
 
 HRESULT
-FastMarshaler::GetMarshalSizeMax(REFIID riid, void* pv, DWORD dwDestContext,
-                                 void* pvDestContext, DWORD mshlflags,
+FastMarshaler::GetMarshalSizeMax(REFIID riid,
+                                 void* pv,
+                                 DWORD dwDestContext,
+                                 void* pvDestContext,
+                                 DWORD mshlflags,
                                  DWORD* pSize)
 {
   if (!mStdMarshalWeak) {
     return E_POINTER;
   }
 
-  return mStdMarshalWeak->GetMarshalSizeMax(riid, pv, dwDestContext,
-                                            pvDestContext,
-                                            GetMarshalFlags(dwDestContext,
-                                                            mshlflags), pSize);
+  return mStdMarshalWeak->GetMarshalSizeMax(
+      riid,
+      pv,
+      dwDestContext,
+      pvDestContext,
+      GetMarshalFlags(dwDestContext, mshlflags),
+      pSize);
 }
 
 HRESULT
-FastMarshaler::MarshalInterface(IStream* pStm, REFIID riid, void* pv,
-                                DWORD dwDestContext, void* pvDestContext,
+FastMarshaler::MarshalInterface(IStream* pStm,
+                                REFIID riid,
+                                void* pv,
+                                DWORD dwDestContext,
+                                void* pvDestContext,
                                 DWORD mshlflags)
 {
   if (!mStdMarshalWeak) {
     return E_POINTER;
   }
 
-  return mStdMarshalWeak->MarshalInterface(pStm, riid, pv, dwDestContext,
-                                           pvDestContext,
-                                           GetMarshalFlags(dwDestContext,
-                                                           mshlflags));
+  return mStdMarshalWeak->MarshalInterface(
+      pStm,
+      riid,
+      pv,
+      dwDestContext,
+      pvDestContext,
+      GetMarshalFlags(dwDestContext, mshlflags));
 }
 
 HRESULT
@@ -186,5 +197,5 @@ FastMarshaler::DisconnectObject(DWORD dwReserved)
   return mStdMarshalWeak->DisconnectObject(dwReserved);
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

@@ -12,21 +12,22 @@
 
 class txForwardContext : public txIEvalContext
 {
-public:
-    txForwardContext(txIMatchContext* aContext,
-                     const txXPathNode& aContextNode,
-                     txNodeSet* aContextNodeSet)
-        : mInner(aContext),
-          mContextNode(aContextNode),
-          mContextSet(aContextNodeSet)
-    {}
+ public:
+  txForwardContext(txIMatchContext* aContext,
+                   const txXPathNode& aContextNode,
+                   txNodeSet* aContextNodeSet)
+      : mInner(aContext),
+        mContextNode(aContextNode),
+        mContextSet(aContextNodeSet)
+  {
+  }
 
-    TX_DECL_EVAL_CONTEXT;
+  TX_DECL_EVAL_CONTEXT;
 
-private:
-    txIMatchContext* mInner;
-    const txXPathNode& mContextNode;
-    RefPtr<txNodeSet> mContextSet;
+ private:
+  txIMatchContext* mInner;
+  const txXPathNode& mContextNode;
+  RefPtr<txNodeSet> mContextSet;
 };
 
-#endif // __TX_XPATH_CONTEXT
+#endif  // __TX_XPATH_CONTEXT

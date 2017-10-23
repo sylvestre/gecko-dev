@@ -12,20 +12,16 @@
 #include "nsXPCOM.h"
 #include "nsISupportsPrimitives.h"
 
-#include "nsITransferable.h" // for mime defs, this is BAD
+#include "nsITransferable.h"  // for mime defs, this is BAD
 
 // HTML convertor stuff
 #include "nsPrimitiveHelpers.h"
 #include "nsIDocumentEncoder.h"
 #include "nsContentUtils.h"
 
-nsHTMLFormatConverter::nsHTMLFormatConverter()
-{
-}
+nsHTMLFormatConverter::nsHTMLFormatConverter() {}
 
-nsHTMLFormatConverter::~nsHTMLFormatConverter()
-{
-}
+nsHTMLFormatConverter::~nsHTMLFormatConverter() {}
 
 NS_IMPL_ISUPPORTS(nsHTMLFormatConverter, nsIFormatConverter)
 
@@ -39,19 +35,17 @@ NS_IMPL_ISUPPORTS(nsHTMLFormatConverter, nsIFormatConverter)
 // access them easily via XPConnect.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::GetInputDataFlavors(nsIArray **_retval)
+nsHTMLFormatConverter::GetInputDataFlavors(nsIArray** _retval)
 {
-  if ( !_retval )
-    return NS_ERROR_INVALID_ARG;
+  if (!_retval) return NS_ERROR_INVALID_ARG;
 
   nsCOMPtr<nsIMutableArray> array = nsArray::Create();
-  nsresult rv = AddFlavorToList ( array, kHTMLMime );
+  nsresult rv = AddFlavorToList(array, kHTMLMime);
 
   array.forget(_retval);
   return rv;
 
-} // GetInputDataFlavors
-
+}  // GetInputDataFlavors
 
 //
 // GetOutputDataFlavors
@@ -64,24 +58,20 @@ nsHTMLFormatConverter::GetInputDataFlavors(nsIArray **_retval)
 // access them easily via XPConnect.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::GetOutputDataFlavors(nsIArray **_retval)
+nsHTMLFormatConverter::GetOutputDataFlavors(nsIArray** _retval)
 {
-  if ( !_retval )
-    return NS_ERROR_INVALID_ARG;
+  if (!_retval) return NS_ERROR_INVALID_ARG;
 
   nsCOMPtr<nsIMutableArray> array = nsArray::Create();
-  nsresult rv = AddFlavorToList ( array, kHTMLMime );
-  if ( NS_FAILED(rv) )
-    return rv;
-  rv = AddFlavorToList ( array, kUnicodeMime );
-  if ( NS_FAILED(rv) )
-    return rv;
+  nsresult rv = AddFlavorToList(array, kHTMLMime);
+  if (NS_FAILED(rv)) return rv;
+  rv = AddFlavorToList(array, kUnicodeMime);
+  if (NS_FAILED(rv)) return rv;
 
   array.forget(_retval);
   return rv;
 
-} // GetOutputDataFlavors
-
+}  // GetOutputDataFlavors
 
 //
 // AddFlavorToList
@@ -90,23 +80,23 @@ nsHTMLFormatConverter::GetOutputDataFlavors(nsIArray **_retval)
 // to a list
 //
 nsresult
-nsHTMLFormatConverter :: AddFlavorToList ( nsCOMPtr<nsIMutableArray>& inList, const char* inFlavor )
+nsHTMLFormatConverter ::AddFlavorToList(nsCOMPtr<nsIMutableArray>& inList,
+                                        const char* inFlavor)
 {
   nsresult rv;
 
   nsCOMPtr<nsISupportsCString> dataFlavor =
       do_CreateInstance(NS_SUPPORTS_CSTRING_CONTRACTID, &rv);
-  if ( dataFlavor ) {
-    dataFlavor->SetData ( nsDependentCString(inFlavor) );
+  if (dataFlavor) {
+    dataFlavor->SetData(nsDependentCString(inFlavor));
     // add to list as an nsISupports so the correct interface gets the addref
     // in AppendElement()
-    nsCOMPtr<nsISupports> genericFlavor ( do_QueryInterface(dataFlavor) );
-    inList->AppendElement ( genericFlavor, /*weak =*/ false);
+    nsCOMPtr<nsISupports> genericFlavor(do_QueryInterface(dataFlavor));
+    inList->AppendElement(genericFlavor, /*weak =*/false);
   }
   return rv;
 
-} // AddFlavorToList
-
+}  // AddFlavorToList
 
 //
 // CanConvert
@@ -115,30 +105,29 @@ nsHTMLFormatConverter :: AddFlavorToList ( nsCOMPtr<nsIMutableArray>& inList, co
 // converts from HTML to others.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::CanConvert(const char *aFromDataFlavor, const char *aToDataFlavor, bool *_retval)
+nsHTMLFormatConverter::CanConvert(const char* aFromDataFlavor,
+                                  const char* aToDataFlavor,
+                                  bool* _retval)
 {
-  if ( !_retval )
-    return NS_ERROR_INVALID_ARG;
+  if (!_retval) return NS_ERROR_INVALID_ARG;
 
   *_retval = false;
-  if ( !nsCRT::strcmp(aFromDataFlavor, kHTMLMime) ) {
-    if ( !nsCRT::strcmp(aToDataFlavor, kHTMLMime) )
+  if (!nsCRT::strcmp(aFromDataFlavor, kHTMLMime)) {
+    if (!nsCRT::strcmp(aToDataFlavor, kHTMLMime))
       *_retval = true;
-    else if ( !nsCRT::strcmp(aToDataFlavor, kUnicodeMime) )
+    else if (!nsCRT::strcmp(aToDataFlavor, kUnicodeMime))
       *_retval = true;
 #if NOT_NOW
-// pinkerton
-// no one uses this flavor right now, so it's just slowing things down. If anyone cares I
-// can put it back in.
-    else if ( toFlavor.Equals(kAOLMailMime) )
+    // pinkerton
+    // no one uses this flavor right now, so it's just slowing things down. If anyone cares I
+    // can put it back in.
+    else if (toFlavor.Equals(kAOLMailMime))
       *_retval = true;
 #endif
   }
   return NS_OK;
 
-} // CanConvert
-
-
+}  // CanConvert
 
 //
 // Convert
@@ -152,69 +141,71 @@ nsHTMLFormatConverter::CanConvert(const char *aFromDataFlavor, const char *aToDa
 //XXX unicode out of the string. Lame lame lame.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::Convert(const char *aFromDataFlavor, nsISupports *aFromData, uint32_t aDataLen,
-                               const char *aToDataFlavor, nsISupports **aToData, uint32_t *aDataToLen)
+nsHTMLFormatConverter::Convert(const char* aFromDataFlavor,
+                               nsISupports* aFromData,
+                               uint32_t aDataLen,
+                               const char* aToDataFlavor,
+                               nsISupports** aToData,
+                               uint32_t* aDataToLen)
 {
-  if ( !aToData || !aDataToLen )
-    return NS_ERROR_INVALID_ARG;
+  if (!aToData || !aDataToLen) return NS_ERROR_INVALID_ARG;
 
   nsresult rv = NS_OK;
   *aToData = nullptr;
   *aDataToLen = 0;
 
-  if ( !nsCRT::strcmp(aFromDataFlavor, kHTMLMime) ) {
-    nsAutoCString toFlavor ( aToDataFlavor );
+  if (!nsCRT::strcmp(aFromDataFlavor, kHTMLMime)) {
+    nsAutoCString toFlavor(aToDataFlavor);
 
     // HTML on clipboard is going to always be double byte so it will be in a primitive
     // class of nsISupportsString. Also, since the data is in two byte chunks the
     // length represents the length in 1-byte chars, so we need to divide by two.
-    nsCOMPtr<nsISupportsString> dataWrapper0 ( do_QueryInterface(aFromData) );
+    nsCOMPtr<nsISupportsString> dataWrapper0(do_QueryInterface(aFromData));
     if (!dataWrapper0) {
       return NS_ERROR_INVALID_ARG;
     }
 
     nsAutoString dataStr;
-    dataWrapper0->GetData ( dataStr );  // COPY #1
+    dataWrapper0->GetData(dataStr);  // COPY #1
     // note: conversion to text/plain is done inside the clipboard. we do not need to worry
     // about it here.
-    if ( toFlavor.Equals(kHTMLMime) || toFlavor.Equals(kUnicodeMime) ) {
+    if (toFlavor.Equals(kHTMLMime) || toFlavor.Equals(kUnicodeMime)) {
       nsresult res;
       if (toFlavor.Equals(kHTMLMime)) {
         int32_t dataLen = dataStr.Length() * 2;
-        nsPrimitiveHelpers::CreatePrimitiveForData ( toFlavor, dataStr.get(), dataLen, aToData );
-        if ( *aToData )
-          *aDataToLen = dataLen;
+        nsPrimitiveHelpers::CreatePrimitiveForData(
+            toFlavor, dataStr.get(), dataLen, aToData);
+        if (*aToData) *aDataToLen = dataLen;
       } else {
         nsAutoString outStr;
         res = ConvertFromHTMLToUnicode(dataStr, outStr);
         if (NS_SUCCEEDED(res)) {
           int32_t dataLen = outStr.Length() * 2;
-          nsPrimitiveHelpers::CreatePrimitiveForData ( toFlavor, outStr.get(), dataLen, aToData );
-          if ( *aToData )
-            *aDataToLen = dataLen;
+          nsPrimitiveHelpers::CreatePrimitiveForData(
+              toFlavor, outStr.get(), dataLen, aToData);
+          if (*aToData) *aDataToLen = dataLen;
         }
       }
-    } // else if HTML or Unicode
-    else if ( toFlavor.Equals(kAOLMailMime) ) {
+    }  // else if HTML or Unicode
+    else if (toFlavor.Equals(kAOLMailMime)) {
       nsAutoString outStr;
-      if ( NS_SUCCEEDED(ConvertFromHTMLToAOLMail(dataStr, outStr)) ) {
+      if (NS_SUCCEEDED(ConvertFromHTMLToAOLMail(dataStr, outStr))) {
         int32_t dataLen = outStr.Length() * 2;
-        nsPrimitiveHelpers::CreatePrimitiveForData ( toFlavor, outStr.get(), dataLen, aToData );
-        if ( *aToData )
-          *aDataToLen = dataLen;
+        nsPrimitiveHelpers::CreatePrimitiveForData(
+            toFlavor, outStr.get(), dataLen, aToData);
+        if (*aToData) *aDataToLen = dataLen;
       }
-    } // else if AOL mail
+    }  // else if AOL mail
     else {
       rv = NS_ERROR_FAILURE;
     }
-  } // if we got html mime
+  }  // if we got html mime
   else
     rv = NS_ERROR_FAILURE;
 
   return rv;
 
-} // Convert
-
+}  // Convert
 
 //
 // ConvertFromHTMLToUnicode
@@ -222,21 +213,22 @@ nsHTMLFormatConverter::Convert(const char *aFromDataFlavor, nsISupports *aFromDa
 // Takes HTML and converts it to plain text but in unicode.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::ConvertFromHTMLToUnicode(const nsAutoString & aFromStr, nsAutoString & aToStr)
+nsHTMLFormatConverter::ConvertFromHTMLToUnicode(const nsAutoString& aFromStr,
+                                                nsAutoString& aToStr)
 {
-  return nsContentUtils::ConvertToPlainText(aFromStr,
-    aToStr,
-    nsIDocumentEncoder::OutputSelectionOnly |
-    nsIDocumentEncoder::OutputAbsoluteLinks |
-    nsIDocumentEncoder::OutputNoScriptContent |
-    nsIDocumentEncoder::OutputNoFramesContent,
-    0);
-} // ConvertFromHTMLToUnicode
-
+  return nsContentUtils::ConvertToPlainText(
+      aFromStr,
+      aToStr,
+      nsIDocumentEncoder::OutputSelectionOnly |
+          nsIDocumentEncoder::OutputAbsoluteLinks |
+          nsIDocumentEncoder::OutputNoScriptContent |
+          nsIDocumentEncoder::OutputNoFramesContent,
+      0);
+}  // ConvertFromHTMLToUnicode
 
 NS_IMETHODIMP
-nsHTMLFormatConverter::ConvertFromHTMLToAOLMail(const nsAutoString & aFromStr,
-                                                nsAutoString & aToStr)
+nsHTMLFormatConverter::ConvertFromHTMLToAOLMail(const nsAutoString& aFromStr,
+                                                nsAutoString& aToStr)
 {
   aToStr.AssignLiteral("<HTML>");
   aToStr.Append(aFromStr);
@@ -244,4 +236,3 @@ nsHTMLFormatConverter::ConvertFromHTMLToAOLMail(const nsAutoString & aFromStr,
 
   return NS_OK;
 }
-

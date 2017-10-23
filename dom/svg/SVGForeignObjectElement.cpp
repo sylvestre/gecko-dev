@@ -17,24 +17,37 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGForeignObjectElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGForeignObjectElement::WrapNode(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return SVGForeignObjectElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGForeignObjectElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::x, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::y, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
-  { &nsGkAtoms::width, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::X },
-  { &nsGkAtoms::height, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGForeignObjectElement::sLengthInfo[4] = {
+    {&nsGkAtoms::x,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::width,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::X},
+    {&nsGkAtoms::height,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_NUMBER,
+     SVGContentUtils::Y},
 };
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGForeignObjectElement::SVGForeignObjectElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGGraphicsElement(aNodeInfo)
+SVGForeignObjectElement::SVGForeignObjectElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGGraphicsElement(aNodeInfo)
 {
 }
 
@@ -74,18 +87,18 @@ SVGForeignObjectElement::Height()
 
 /* virtual */ gfxMatrix
 SVGForeignObjectElement::PrependLocalTransformsTo(
-  const gfxMatrix &aMatrix, SVGTransformTypes aWhich) const
+    const gfxMatrix& aMatrix, SVGTransformTypes aWhich) const
 {
   // 'transform' attribute:
   gfxMatrix fromUserSpace =
-    SVGGraphicsElement::PrependLocalTransformsTo(aMatrix, aWhich);
+      SVGGraphicsElement::PrependLocalTransformsTo(aMatrix, aWhich);
   if (aWhich == eUserSpaceToParent) {
     return fromUserSpace;
   }
   // our 'x' and 'y' attributes:
   float x, y;
-  const_cast<SVGForeignObjectElement*>(this)->
-    GetAnimatedLengthValues(&x, &y, nullptr);
+  const_cast<SVGForeignObjectElement*>(this)->GetAnimatedLengthValues(
+      &x, &y, nullptr);
   gfxMatrix toUserSpace = gfxMatrix::Translation(x, y);
   if (aWhich == eChildToUserSpace) {
     return toUserSpace * aMatrix;
@@ -112,9 +125,8 @@ SVGForeignObjectElement::BindToTree(nsIDocument* aDocument,
                                     nsIContent* aBindingParent,
                                     bool aCompileEventHandlers)
 {
-  nsresult rv = SVGGraphicsElement::BindToTree(aDocument, aParent,
-                                               aBindingParent,
-                                               aCompileEventHandlers);
+  nsresult rv = SVGGraphicsElement::BindToTree(
+      aDocument, aParent, aBindingParent, aCompileEventHandlers);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsIDocument* doc = GetComposedDoc();
@@ -135,19 +147,17 @@ SVGForeignObjectElement::BindToTree(nsIDocument* aDocument,
 NS_IMETHODIMP_(bool)
 SVGForeignObjectElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sFEFloodMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sLightingEffectsMap,
-    sMarkersMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sFEFloodMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sLightingEffectsMap,
+                                                    sMarkersMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGGraphicsElement::IsAttributeMapped(name);
+         SVGGraphicsElement::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -156,10 +166,9 @@ SVGForeignObjectElement::IsAttributeMapped(const nsAtom* name) const
 nsSVGElement::LengthAttributesInfo
 SVGForeignObjectElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

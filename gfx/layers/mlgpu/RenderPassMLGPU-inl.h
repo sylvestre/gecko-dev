@@ -10,7 +10,7 @@
 namespace mozilla {
 namespace layers {
 
-template <typename Traits>
+template<typename Traits>
 static inline bool
 AddShaderTriangles(VertexStagingBuffer* aBuffer,
                    const Traits& aTraits,
@@ -25,7 +25,8 @@ AddShaderTriangles(VertexStagingBuffer* aBuffer,
     TriangleVertices base2 = aTraits.MakeVertex(SecondTriangle());
     auto data1 = aTraits.MakeVertexData(FirstTriangle());
     auto data2 = aTraits.MakeVertexData(SecondTriangle());
-    return aBuffer->PrependItem(base1, data1) && aBuffer->PrependItem(base2, data2);
+    return aBuffer->PrependItem(base1, data1) &&
+           aBuffer->PrependItem(base2, data2);
   }
 
   auto triangles = aTraits.GenerateTriangles(*aGeometry);
@@ -39,7 +40,7 @@ AddShaderTriangles(VertexStagingBuffer* aBuffer,
   return true;
 }
 
-template <typename Traits>
+template<typename Traits>
 inline bool
 BatchRenderPass<Traits>::Txn::AddImpl(const Traits& aTraits)
 {
@@ -64,7 +65,7 @@ BatchRenderPass<Traits>::Txn::AddImpl(const Traits& aTraits)
   return instances->AddItem(base, data);
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_RenderPassMLGPU_inl_h
+#endif  // mozilla_gfx_layers_mlgpu_RenderPassMLGPU_inl_h

@@ -38,11 +38,11 @@ class CrashReporterHost
   typedef int32_t ThreadId;
 #endif
 
-public:
-
-  template <typename T>
-  class CallbackWrapper {
-  public:
+ public:
+  template<typename T>
+  class CallbackWrapper
+  {
+   public:
     void Init(std::function<void(T)>&& aCallback, bool aAsync)
     {
       mCallback = Move(aCallback);
@@ -55,25 +55,19 @@ public:
       }
     }
 
-    bool IsEmpty()
-    {
-      return !mCallback;
-    }
+    bool IsEmpty() { return !mCallback; }
 
-    bool IsAsync()
-    {
-      return mAsync;
-    }
+    bool IsAsync() { return mAsync; }
 
     void Invoke(T aResult)
     {
       if (IsAsync()) {
         decltype(mCallback) callback = Move(mCallback);
-        mTargetThread->
-          Dispatch(NS_NewRunnableFunction("ipc::CrashReporterHost::CallbackWrapper::Invoke",
-                                          [callback, aResult](){
-                     callback(aResult);
-                   }), NS_DISPATCH_NORMAL);
+        mTargetThread->Dispatch(
+            NS_NewRunnableFunction(
+                "ipc::CrashReporterHost::CallbackWrapper::Invoke",
+                [callback, aResult]() { callback(aResult); }),
+            NS_DISPATCH_NORMAL);
       } else {
         MOZ_ASSERT(!mTargetThread);
         mCallback(aResult);
@@ -82,7 +76,7 @@ public:
       Clear();
     }
 
-  private:
+   private:
     void Clear()
     {
       mCallback = nullptr;
@@ -107,7 +101,8 @@ public:
 
   // Given an existing minidump for a crashed child process, take ownership of
   // it from IPDL. After this, FinalizeCrashReport may be called.
-  RefPtr<nsIFile> TakeCrashedChildMinidump(base::ProcessId aPid, uint32_t* aOutSequence);
+  RefPtr<nsIFile> TakeCrashedChildMinidump(base::ProcessId aPid,
+                                           uint32_t* aOutSequence);
 
   // Replace the stored minidump with a new one. After this,
   // FinalizeCrashReport may be called.
@@ -123,39 +118,37 @@ public:
   // Minidump(s) can be generated synchronously or asynchronously, specified in
   // argument aAsync. When the operation completes, aCallback is invoked, where
   // the callback argument denotes whether the operation succeeded.
-  void
-  GenerateMinidumpAndPair(GeckoChildProcessHost* aChildProcess,
-                          nsIFile* aMinidumpToPair,
-                          const nsACString& aPairName,
-                          std::function<void(bool)>&& aCallback,
-                          bool aAsync);
+  void GenerateMinidumpAndPair(GeckoChildProcessHost* aChildProcess,
+                               nsIFile* aMinidumpToPair,
+                               const nsACString& aPairName,
+                               std::function<void(bool)>&& aCallback,
+                               bool aAsync);
 
   // This is a static helper function to notify the crash service that a
   // crash has occurred. When PCrashReporter is removed, we can make this
   // a member function. This can be called from any thread, and if not
   // called from the main thread, will post a synchronous message to the
   // main thread.
-  static void NotifyCrashService(
-    GeckoProcessType aProcessType,
-    const nsString& aChildDumpID,
-    const AnnotationTable* aNotes);
+  static void NotifyCrashService(GeckoProcessType aProcessType,
+                                 const nsString& aChildDumpID,
+                                 const AnnotationTable* aNotes);
 
   void AddNote(const nsCString& aKey, const nsCString& aValue);
 
-  bool HasMinidump() const {
-    return !mDumpID.IsEmpty();
-  }
-  const nsString& MinidumpID() const {
+  bool HasMinidump() const { return !mDumpID.IsEmpty(); }
+  const nsString& MinidumpID() const
+  {
     MOZ_ASSERT(HasMinidump());
     return mDumpID;
   }
 #endif
 
-private:
-  static void AsyncAddCrash(int32_t aProcessType, int32_t aCrashType,
+ private:
+  static void AsyncAddCrash(int32_t aProcessType,
+                            int32_t aCrashType,
                             const nsString& aChildDumpID);
 
-private:
+ private:
   CallbackWrapper<bool> mCreateMinidumpCallback;
   GeckoProcessType mProcessType;
   Shmem mShmem;
@@ -169,7 +162,7 @@ private:
   nsCOMPtr<nsIFile> mTargetDump;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_CrashReporterHost_h
+#endif  // mozilla_ipc_CrashReporterHost_h

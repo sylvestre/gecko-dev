@@ -15,7 +15,7 @@ namespace mozilla {
 
 namespace gfx {
 class DataSourceSurface;
-} // namespace gfx
+}  // namespace gfx
 
 namespace gl {
 
@@ -75,10 +75,12 @@ UploadSurfaceToTexture(GLContext* gl,
                        GLenum aTextureUnit = LOCAL_GL_TEXTURE0,
                        GLenum aTextureTarget = LOCAL_GL_TEXTURE_2D);
 
-bool CanUploadSubTextures(GLContext* gl);
-bool CanUploadNonPowerOfTwo(GLContext* gl);
+bool
+CanUploadSubTextures(GLContext* gl);
+bool
+CanUploadNonPowerOfTwo(GLContext* gl);
 
-} // namespace gl
-} // namespace mozilla
+}  // namespace gl
+}  // namespace mozilla
 
 #endif

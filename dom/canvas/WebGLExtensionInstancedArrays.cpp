@@ -11,15 +11,14 @@
 
 namespace mozilla {
 
-WebGLExtensionInstancedArrays::WebGLExtensionInstancedArrays(WebGLContext* webgl)
-  : WebGLExtensionBase(webgl)
+WebGLExtensionInstancedArrays::WebGLExtensionInstancedArrays(
+    WebGLContext* webgl)
+    : WebGLExtensionBase(webgl)
 {
-    MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+  MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
 }
 
-WebGLExtensionInstancedArrays::~WebGLExtensionInstancedArrays()
-{
-}
+WebGLExtensionInstancedArrays::~WebGLExtensionInstancedArrays() {}
 
 void
 WebGLExtensionInstancedArrays::DrawArraysInstancedANGLE(GLenum mode,
@@ -27,13 +26,13 @@ WebGLExtensionInstancedArrays::DrawArraysInstancedANGLE(GLenum mode,
                                                         GLsizei count,
                                                         GLsizei primcount)
 {
-    if (mIsLost) {
-        mContext->ErrorInvalidOperation("%s: Extension is lost.",
-                                        "drawArraysInstancedANGLE");
-        return;
-    }
+  if (mIsLost) {
+    mContext->ErrorInvalidOperation("%s: Extension is lost.",
+                                    "drawArraysInstancedANGLE");
+    return;
+  }
 
-    mContext->DrawArraysInstanced(mode, first, count, primcount);
+  mContext->DrawArraysInstanced(mode, first, count, primcount);
 }
 
 void
@@ -43,36 +42,36 @@ WebGLExtensionInstancedArrays::DrawElementsInstancedANGLE(GLenum mode,
                                                           WebGLintptr offset,
                                                           GLsizei primcount)
 {
-    if (mIsLost) {
-        mContext->ErrorInvalidOperation("%s: Extension is lost.",
-                                        "drawElementsInstancedANGLE");
-        return;
-    }
+  if (mIsLost) {
+    mContext->ErrorInvalidOperation("%s: Extension is lost.",
+                                    "drawElementsInstancedANGLE");
+    return;
+  }
 
-    mContext->DrawElementsInstanced(mode, count, type, offset, primcount);
+  mContext->DrawElementsInstanced(mode, count, type, offset, primcount);
 }
 
 void
 WebGLExtensionInstancedArrays::VertexAttribDivisorANGLE(GLuint index,
                                                         GLuint divisor)
 {
-    if (mIsLost) {
-        mContext->ErrorInvalidOperation("%s: Extension is lost.",
-                                        "vertexAttribDivisorANGLE");
-        return;
-    }
+  if (mIsLost) {
+    mContext->ErrorInvalidOperation("%s: Extension is lost.",
+                                    "vertexAttribDivisorANGLE");
+    return;
+  }
 
-    mContext->VertexAttribDivisor(index, divisor);
+  mContext->VertexAttribDivisor(index, divisor);
 }
 
 bool
 WebGLExtensionInstancedArrays::IsSupported(const WebGLContext* webgl)
 {
-    gl::GLContext* gl = webgl->GL();
-    return gl->IsSupported(gl::GLFeature::draw_instanced) &&
-           gl->IsSupported(gl::GLFeature::instanced_arrays);
+  gl::GLContext* gl = webgl->GL();
+  return gl->IsSupported(gl::GLFeature::draw_instanced) &&
+         gl->IsSupported(gl::GLFeature::instanced_arrays);
 }
 
 IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionInstancedArrays, ANGLE_instanced_arrays)
 
-} // namespace mozilla
+}  // namespace mozilla

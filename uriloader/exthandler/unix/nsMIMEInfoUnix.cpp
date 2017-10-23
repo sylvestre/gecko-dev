@@ -15,26 +15,26 @@
 #endif
 
 nsresult
-nsMIMEInfoUnix::LoadUriInternal(nsIURI * aURI)
+nsMIMEInfoUnix::LoadUriInternal(nsIURI* aURI)
 {
   return nsGNOMERegistry::LoadURL(aURI);
 }
 
 NS_IMETHODIMP
-nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval)
+nsMIMEInfoUnix::GetHasDefaultHandler(bool* _retval)
 {
   // if mDefaultApplication is set, it means the application has been set from
   // either /etc/mailcap or ${HOME}/.mailcap, in which case we don't want to
   // give the GNOME answer.
-  if (mDefaultApplication)
-    return nsMIMEInfoImpl::GetHasDefaultHandler(_retval);
+  if (mDefaultApplication) return nsMIMEInfoImpl::GetHasDefaultHandler(_retval);
 
   *_retval = false;
 
   if (mClass == eProtocolInfo) {
     *_retval = nsGNOMERegistry::HandlerExists(mSchemeOrType.get());
   } else {
-    RefPtr<nsMIMEInfoBase> mimeInfo = nsGNOMERegistry::GetFromType(mSchemeOrType);
+    RefPtr<nsMIMEInfoBase> mimeInfo =
+        nsGNOMERegistry::GetFromType(mSchemeOrType);
     if (!mimeInfo) {
       nsAutoCString ext;
       nsresult rv = GetPrimaryExtension(ext);
@@ -42,16 +42,14 @@ nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval)
         mimeInfo = nsGNOMERegistry::GetFromExtension(ext);
       }
     }
-    if (mimeInfo)
-      *_retval = true;
+    if (mimeInfo) *_retval = true;
   }
 
-  if (*_retval)
-    return NS_OK;
+  if (*_retval) return NS_OK;
 
 #if defined(MOZ_ENABLE_CONTENTACTION)
-  ContentAction::Action action = 
-    ContentAction::Action::defaultActionForFile(QUrl(), QString(mSchemeOrType.get()));
+  ContentAction::Action action = ContentAction::Action::defaultActionForFile(
+      QUrl(), QString(mSchemeOrType.get()));
   if (action.isValid()) {
     *_retval = true;
     return NS_OK;
@@ -62,21 +60,20 @@ nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval)
 }
 
 nsresult
-nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile *aFile)
+nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile* aFile)
 {
   // if mDefaultApplication is set, it means the application has been set from
   // either /etc/mailcap or ${HOME}/.mailcap, in which case we don't want to
   // give the GNOME answer.
-  if (mDefaultApplication)
-    return nsMIMEInfoImpl::LaunchDefaultWithFile(aFile);
+  if (mDefaultApplication) return nsMIMEInfoImpl::LaunchDefaultWithFile(aFile);
 
   nsAutoCString nativePath;
   aFile->GetNativePath(nativePath);
 
 #if defined(MOZ_ENABLE_CONTENTACTION)
   QUrl uri = QUrl::fromLocalFile(QString::fromUtf8(nativePath.get()));
-  ContentAction::Action action =
-    ContentAction::Action::defaultActionForFile(uri, QString(mSchemeOrType.get()));
+  ContentAction::Action action = ContentAction::Action::defaultActionForFile(
+      uri, QString(mSchemeOrType.get()));
   if (action.isValid()) {
     action.trigger();
     return NS_OK;
@@ -91,7 +88,8 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile *aFile)
 
   // nsGIOMimeApp->Launch wants a URI string instead of local file
   nsresult rv;
-  nsCOMPtr<nsIIOService> ioservice = do_GetService(NS_IOSERVICE_CONTRACTID, &rv);
+  nsCOMPtr<nsIIOService> ioservice =
+      do_GetService(NS_IOSERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
   nsCOMPtr<nsIURI> uri;
   rv = ioservice->NewFileURI(aFile, getter_AddRefs(uri));
@@ -100,7 +98,9 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile *aFile)
   uri->GetSpec(uriSpec);
 
   nsCOMPtr<nsIGIOMimeApp> app;
-  if (NS_FAILED(giovfs->GetAppForMimeType(mSchemeOrType, getter_AddRefs(app))) || !app) {
+  if (NS_FAILED(
+          giovfs->GetAppForMimeType(mSchemeOrType, getter_AddRefs(app))) ||
+      !app) {
     return NS_ERROR_FILE_NOT_FOUND;
   }
 
@@ -109,21 +109,23 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile *aFile)
 
 #if defined(MOZ_ENABLE_CONTENTACTION)
 NS_IMETHODIMP
-nsMIMEInfoUnix::GetPossibleApplicationHandlers(nsIMutableArray ** aPossibleAppHandlers)
+nsMIMEInfoUnix::GetPossibleApplicationHandlers(
+    nsIMutableArray** aPossibleAppHandlers)
 {
   if (!mPossibleApplications) {
     mPossibleApplications = do_CreateInstance(NS_ARRAY_CONTRACTID);
 
-    if (!mPossibleApplications)
-      return NS_ERROR_OUT_OF_MEMORY;
+    if (!mPossibleApplications) return NS_ERROR_OUT_OF_MEMORY;
 
     QList<ContentAction::Action> actions =
-      ContentAction::Action::actionsForFile(QUrl(), QString(mSchemeOrType.get()));
+        ContentAction::Action::actionsForFile(QUrl(),
+                                              QString(mSchemeOrType.get()));
 
     for (int i = 0; i < actions.size(); ++i) {
       nsContentHandlerApp* app =
-        new nsContentHandlerApp(nsString((char16_t*)actions[i].name().data()), 
-                                mSchemeOrType, actions[i]);
+          new nsContentHandlerApp(nsString((char16_t*)actions[i].name().data()),
+                                  mSchemeOrType,
+                                  actions[i]);
       mPossibleApplications->AppendElement(app, false);
     }
   }
@@ -133,4 +135,3 @@ nsMIMEInfoUnix::GetPossibleApplicationHandlers(nsIMutableArray ** aPossibleAppHa
   return NS_OK;
 }
 #endif
-

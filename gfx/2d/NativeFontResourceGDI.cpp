@@ -16,18 +16,18 @@ namespace gfx {
 
 /* static */
 already_AddRefed<NativeFontResourceGDI>
-NativeFontResourceGDI::Create(uint8_t *aFontData, uint32_t aDataLength)
+NativeFontResourceGDI::Create(uint8_t* aFontData, uint32_t aDataLength)
 {
   DWORD numberOfFontsAdded;
-  HANDLE fontResourceHandle = ::AddFontMemResourceEx(aFontData, aDataLength,
-                                                     0, &numberOfFontsAdded);
+  HANDLE fontResourceHandle =
+      ::AddFontMemResourceEx(aFontData, aDataLength, 0, &numberOfFontsAdded);
   if (!fontResourceHandle) {
     gfxWarning() << "Failed to add memory font resource.";
     return nullptr;
   }
 
   RefPtr<NativeFontResourceGDI> fontResouce =
-    new NativeFontResourceGDI(fontResourceHandle);
+      new NativeFontResourceGDI(fontResourceHandle);
 
   return fontResouce.forget();
 }
@@ -52,5 +52,5 @@ NativeFontResourceGDI::CreateUnscaledFont(uint32_t aIndex,
   return unscaledFont.forget();
 }
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla

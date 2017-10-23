@@ -25,15 +25,13 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(RTCIdentityProviderRegistrar,
 
 RTCIdentityProviderRegistrar::RTCIdentityProviderRegistrar(
     nsIGlobalObject* aGlobal)
-    : mGlobal(aGlobal)
-    , mGenerateAssertionCallback(nullptr)
-    , mValidateAssertionCallback(nullptr)
+    : mGlobal(aGlobal),
+      mGenerateAssertionCallback(nullptr),
+      mValidateAssertionCallback(nullptr)
 {
 }
 
-RTCIdentityProviderRegistrar::~RTCIdentityProviderRegistrar()
-{
-}
+RTCIdentityProviderRegistrar::~RTCIdentityProviderRegistrar() {}
 
 nsIGlobalObject*
 RTCIdentityProviderRegistrar::GetParentObject() const
@@ -42,7 +40,8 @@ RTCIdentityProviderRegistrar::GetParentObject() const
 }
 
 JSObject*
-RTCIdentityProviderRegistrar::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+RTCIdentityProviderRegistrar::WrapObject(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto)
 {
   return RTCIdentityProviderRegistrarBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -62,18 +61,22 @@ RTCIdentityProviderRegistrar::HasIdp() const
 
 already_AddRefed<Promise>
 RTCIdentityProviderRegistrar::GenerateAssertion(
-  const nsAString& aContents, const nsAString& aOrigin,
-  const Optional<nsAString>& aUsernameHint, ErrorResult& aRv)
+    const nsAString& aContents,
+    const nsAString& aOrigin,
+    const Optional<nsAString>& aUsernameHint,
+    ErrorResult& aRv)
 {
   if (!mGenerateAssertionCallback) {
     aRv.Throw(NS_ERROR_NOT_INITIALIZED);
     return nullptr;
   }
-  return mGenerateAssertionCallback->Call(aContents, aOrigin, aUsernameHint, aRv);
+  return mGenerateAssertionCallback->Call(
+      aContents, aOrigin, aUsernameHint, aRv);
 }
 already_AddRefed<Promise>
-RTCIdentityProviderRegistrar::ValidateAssertion(
-  const nsAString& aAssertion, const nsAString& aOrigin, ErrorResult& aRv)
+RTCIdentityProviderRegistrar::ValidateAssertion(const nsAString& aAssertion,
+                                                const nsAString& aOrigin,
+                                                ErrorResult& aRv)
 {
   if (!mValidateAssertionCallback) {
     aRv.Throw(NS_ERROR_NOT_INITIALIZED);
@@ -82,7 +85,5 @@ RTCIdentityProviderRegistrar::ValidateAssertion(
   return mValidateAssertionCallback->Call(aAssertion, aOrigin, aRv);
 }
 
-
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

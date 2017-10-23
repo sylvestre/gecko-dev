@@ -13,7 +13,8 @@
 // 10.6 and up.  It's used by Apple utilities like dtrace, atos, ReportCrash
 // and crashreporterd.
 
-typedef struct _CSTypeRef {
+typedef struct _CSTypeRef
+{
   unsigned long type;
   void* contents;
 } CSTypeRef;
@@ -23,7 +24,8 @@ typedef CSTypeRef CSSymbolOwnerRef;
 typedef CSTypeRef CSSymbolRef;
 typedef CSTypeRef CSSourceInfoRef;
 
-typedef struct _CSRange {
+typedef struct _CSRange
+{
   unsigned long long location;
   unsigned long long length;
 } CSRange;
@@ -76,26 +78,21 @@ CSSourceInfoGetFilename(CSSourceInfoRef info);
 uint32_t
 CSSourceInfoGetLineNumber(CSSourceInfoRef info);
 
-CSTypeRef
-CSRetain(CSTypeRef);
+CSTypeRef CSRetain(CSTypeRef);
 
-void
-CSRelease(CSTypeRef);
+void CSRelease(CSTypeRef);
 
-bool
-CSIsNull(CSTypeRef);
+bool CSIsNull(CSTypeRef);
 
-void
-CSShow(CSTypeRef);
+void CSShow(CSTypeRef);
 
-const char*
-CSArchitectureGetFamilyName(CSArchitecture);
+const char* CSArchitectureGetFamilyName(CSArchitecture);
 
-} // extern "C"
+}  // extern "C"
 
 class nsCocoaDebugUtils
 {
-public:
+ public:
   // Like NSLog() but records more information (for example the full path to
   // the executable and the "thread name").  Like NSLog(), writes to both
   // stdout and the system log.
@@ -113,7 +110,7 @@ public:
   // free()ed by the caller.
   static char* GetAddressString(void* aAddress);
 
-private:
+ private:
   static void DebugLogInt(bool aDecorate, const char* aFormat, ...);
   static void DebugLogV(bool aDecorate, CFStringRef aFormat, va_list aArgs);
 
@@ -121,8 +118,7 @@ private:
 
   // The values returned by GetOwnerNameInt() and GetAddressStringInt() must
   // be free()ed by the caller.
-  static char* GetOwnerNameInt(void* aAddress,
-                               CSTypeRef aOwner = sInitializer);
+  static char* GetOwnerNameInt(void* aAddress, CSTypeRef aOwner = sInitializer);
   static char* GetAddressStringInt(void* aAddress,
                                    CSTypeRef aOwner = sInitializer);
 
@@ -133,4 +129,4 @@ private:
   static CSSymbolicatorRef sSymbolicator;
 };
 
-#endif // nsCocoaDebugUtils_h_
+#endif  // nsCocoaDebugUtils_h_

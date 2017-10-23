@@ -13,14 +13,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IntlUtils)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-IntlUtils::IntlUtils(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
-{
-}
+IntlUtils::IntlUtils(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {}
 
-IntlUtils::~IntlUtils()
-{
-}
+IntlUtils::~IntlUtils() {}
 
 JSObject*
 IntlUtils::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -31,7 +26,8 @@ IntlUtils::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 void
 IntlUtils::GetDisplayNames(const Sequence<nsString>& aLocales,
                            const DisplayNameOptions& aOptions,
-                           DisplayNameResult& aResult, ErrorResult& aError)
+                           DisplayNameResult& aResult,
+                           ErrorResult& aError)
 {
   MOZ_ASSERT(nsContentUtils::IsCallerChrome() ||
              nsContentUtils::IsCallerContentXBL());
@@ -88,7 +84,8 @@ IntlUtils::GetDisplayNames(const Sequence<nsString>& aLocales,
 
 void
 IntlUtils::GetLocaleInfo(const Sequence<nsString>& aLocales,
-                         LocaleInfo& aResult, ErrorResult& aError)
+                         LocaleInfo& aResult,
+                         ErrorResult& aError)
 {
   MOZ_ASSERT(nsContentUtils::IsCallerChrome() ||
              nsContentUtils::IsCallerContentXBL());
@@ -133,5 +130,5 @@ IntlUtils::GetLocaleInfo(const Sequence<nsString>& aLocales,
   }
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

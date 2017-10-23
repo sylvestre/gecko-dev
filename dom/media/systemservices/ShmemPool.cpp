@@ -12,16 +12,18 @@
 namespace mozilla {
 
 ShmemPool::ShmemPool(size_t aPoolSize)
-  : mMutex("mozilla::ShmemPool"),
-    mPoolFree(aPoolSize)
+    : mMutex("mozilla::ShmemPool"),
+      mPoolFree(aPoolSize)
 #ifdef DEBUG
-    ,mMaxPoolUse(0)
+      ,
+      mMaxPoolUse(0)
 #endif
 {
   mShmemPool.SetLength(aPoolSize);
 }
 
-mozilla::ShmemBuffer ShmemPool::GetIfAvailable(size_t aSize)
+mozilla::ShmemBuffer
+ShmemPool::GetIfAvailable(size_t aSize)
 {
   MutexAutoLock lock(mMutex);
 
@@ -56,7 +58,8 @@ mozilla::ShmemBuffer ShmemPool::GetIfAvailable(size_t aSize)
   return Move(res);
 }
 
-void ShmemPool::Put(ShmemBuffer&& aShmem)
+void
+ShmemPool::Put(ShmemBuffer&& aShmem)
 {
   MutexAutoLock lock(mMutex);
   MOZ_ASSERT(mPoolFree < mShmemPool.Length());
@@ -79,4 +82,4 @@ ShmemPool::~ShmemPool()
 #endif
 }
 
-} // namespace mozilla
+}  // namespace mozilla

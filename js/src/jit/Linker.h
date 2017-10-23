@@ -19,8 +19,7 @@
 namespace js {
 namespace jit {
 
-class Linker
-{
+class Linker {
     MacroAssembler& masm;
     mozilla::Maybe<AutoWritableJitCode> awjc;
 
@@ -29,18 +28,14 @@ class Linker
         return nullptr;
     }
 
-  public:
-    explicit Linker(MacroAssembler& masm)
-      : masm(masm)
-    {
-        masm.finish();
-    }
+   public:
+    explicit Linker(MacroAssembler& masm) : masm(masm) { masm.finish(); }
 
     template <AllowGC allowGC>
     JitCode* newCode(JSContext* cx, CodeKind kind, bool hasPatchableBackedges = false);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_Linker_h */

@@ -47,13 +47,14 @@ GetStackTop(void* aGuess)
 
 class PlatformData
 {
-public:
+ public:
   explicit PlatformData(int aThreadId) : mProfiledThread(mach_thread_self())
   {
     MOZ_COUNT_CTOR(PlatformData);
   }
 
-  ~PlatformData() {
+  ~PlatformData()
+  {
     // Deallocate Mach port for thread.
     mach_port_deallocate(mach_task_self(), mProfiledThread);
 
@@ -62,7 +63,7 @@ public:
 
   thread_act_t ProfiledThread() { return mProfiledThread; }
 
-private:
+ private:
   // Note: for mProfiledThread Mach primitives are used instead of pthread's
   // because the latter doesn't provide thread manipulation primitives required.
   // For details, consult "Mac OS X Internals" book, Section 7.3.
@@ -72,9 +73,7 @@ private:
 ////////////////////////////////////////////////////////////////////////
 // BEGIN Sampler target specifics
 
-Sampler::Sampler(PSLockRef aLock)
-{
-}
+Sampler::Sampler(PSLockRef aLock) {}
 
 void
 Sampler::Disable(PSLockRef aLock)
@@ -87,8 +86,7 @@ Sampler::SuspendAndSampleAndResumeThread(PSLockRef aLock,
                                          const ThreadInfo& aThreadInfo,
                                          const Func& aProcessRegs)
 {
-  thread_act_t samplee_thread =
-    aThreadInfo.GetPlatformData()->ProfiledThread();
+  thread_act_t samplee_thread = aThreadInfo.GetPlatformData()->ProfiledThread();
 
   //----------------------------------------------------------------//
   // Suspend the samplee thread and get its context.
@@ -114,11 +112,11 @@ Sampler::SuspendAndSampleAndResumeThread(PSLockRef aLock,
   thread_state_flavor_t flavor = x86_THREAD_STATE64;
   x86_thread_state64_t state;
   mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
-# if __DARWIN_UNIX03
-#  define REGISTER_FIELD(name) __r ## name
-# else
-#  define REGISTER_FIELD(name) r ## name
-# endif  // __DARWIN_UNIX03
+#if __DARWIN_UNIX03
+#define REGISTER_FIELD(name) __r##name
+#else
+#define REGISTER_FIELD(name) r##name
+#endif  // __DARWIN_UNIX03
 
   if (thread_get_state(samplee_thread,
                        flavor,
@@ -159,12 +157,13 @@ ThreadEntry(void* aArg)
   return nullptr;
 }
 
-SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
+SamplerThread::SamplerThread(PSLockRef aLock,
+                             uint32_t aActivityGeneration,
                              double aIntervalMilliseconds)
-  : Sampler(aLock)
-  , mActivityGeneration(aActivityGeneration)
-  , mIntervalMicroseconds(
-      std::max(1, int(floor(aIntervalMilliseconds * 1000 + 0.5))))
+    : Sampler(aLock),
+      mActivityGeneration(aActivityGeneration),
+      mIntervalMicroseconds(
+          std::max(1, int(floor(aIntervalMilliseconds * 1000 + 0.5))))
 {
   pthread_attr_t* attr_ptr = nullptr;
   if (pthread_create(&mThread, attr_ptr, ThreadEntry, this) != 0) {
@@ -172,10 +171,7 @@ SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
   }
 }
 
-SamplerThread::~SamplerThread()
-{
-  pthread_join(mThread, nullptr);
-}
+SamplerThread::~SamplerThread() { pthread_join(mThread, nullptr); }
 
 void
 SamplerThread::SleepMicro(uint32_t aMicroseconds)
@@ -205,19 +201,15 @@ PlatformInit(PSLockRef aLock)
 void
 Registers::SyncPopulate()
 {
-  asm (
+  asm(
       // Compute caller's %rsp by adding to %rbp:
       // 8 bytes for previous %rbp, 8 bytes for return address
       "leaq 0x10(%%rbp), %0\n\t"
       // Dereference %rbp to get previous %rbp
       "movq (%%rbp), %1\n\t"
-      :
-      "=r"(mSP),
-      "=r"(mFP)
-  );
-  mPC = reinterpret_cast<Address>(__builtin_extract_return_addr(
-                                    __builtin_return_address(0)));
+      : "=r"(mSP), "=r"(mFP));
+  mPC = reinterpret_cast<Address>(
+      __builtin_extract_return_addr(__builtin_return_address(0)));
   mLR = 0;
 }
 #endif
-

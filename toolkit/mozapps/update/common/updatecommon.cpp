@@ -6,7 +6,6 @@
 #include <windows.h>
 #endif
 
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,25 +13,26 @@
 
 #include "updatecommon.h"
 
-UpdateLog::UpdateLog() : logFP(nullptr)
-{
-}
+UpdateLog::UpdateLog() : logFP(nullptr) {}
 
-void UpdateLog::Init(NS_tchar* sourcePath,
-                     const NS_tchar* fileName)
+void
+UpdateLog::Init(NS_tchar* sourcePath, const NS_tchar* fileName)
 {
   if (logFP) {
     return;
   }
 
-  int dstFilePathLen = NS_tsnprintf(mDstFilePath,
-    sizeof(mDstFilePath)/sizeof(mDstFilePath[0]),
-    NS_T("%s/%s"), sourcePath, fileName);
+  int dstFilePathLen =
+      NS_tsnprintf(mDstFilePath,
+                   sizeof(mDstFilePath) / sizeof(mDstFilePath[0]),
+                   NS_T("%s/%s"),
+                   sourcePath,
+                   fileName);
   // If the destination path was over the length limit,
   // disable logging by skipping opening the file and setting logFP.
   if ((dstFilePathLen > 0) &&
       (dstFilePathLen <
-         static_cast<int>(sizeof(mDstFilePath)/sizeof(mDstFilePath[0])))) {
+       static_cast<int>(sizeof(mDstFilePath) / sizeof(mDstFilePath[0])))) {
 #ifdef XP_WIN
     if (GetTempFileNameW(sourcePath, L"log", 0, mTmpFilePath) != 0) {
       logFP = NS_tfopen(mTmpFilePath, NS_T("w"));
@@ -55,7 +55,8 @@ void UpdateLog::Init(NS_tchar* sourcePath,
   }
 }
 
-void UpdateLog::Finish()
+void
+UpdateLog::Finish()
 {
   if (!logFP) {
     return;
@@ -67,7 +68,7 @@ void UpdateLog::Finish()
   fflush(logFP);
   rewind(logFP);
 
-  FILE *updateLogFP = NS_tfopen(mDstFilePath, NS_T("wb+"));
+  FILE* updateLogFP = NS_tfopen(mDstFilePath, NS_T("wb+"));
   while (!feof(logFP)) {
     size_t read = fread(buffer, 1, blockSize, logFP);
     if (ferror(logFP)) {
@@ -111,7 +112,8 @@ void UpdateLog::Finish()
 #endif
 }
 
-void UpdateLog::Flush()
+void
+UpdateLog::Flush()
 {
   if (!logFP) {
     return;
@@ -120,7 +122,8 @@ void UpdateLog::Flush()
   fflush(logFP);
 }
 
-void UpdateLog::Printf(const char *fmt, ... )
+void
+UpdateLog::Printf(const char* fmt, ...)
 {
   if (!logFP) {
     return;
@@ -133,7 +136,8 @@ void UpdateLog::Printf(const char *fmt, ... )
   va_end(ap);
 }
 
-void UpdateLog::WarnPrintf(const char *fmt, ... )
+void
+UpdateLog::WarnPrintf(const char* fmt, ...)
 {
   if (!logFP) {
     return;

@@ -9,7 +9,8 @@
 
 namespace mozilla {
 
-struct MediaStatistics {
+struct MediaStatistics
+{
   // Estimate of the current playback rate (bytes/second).
   double mPlaybackRate;
   // Estimate of the current download rate (bytes/second). This
@@ -72,11 +73,11 @@ struct MediaStatistics {
     // we don't suddenly discover that we need to buffer. This is particularly
     // required near the start of the media, when not much data is downloaded.
     int64_t readAheadMargin =
-      static_cast<int64_t>(mPlaybackRate * CAN_PLAY_THROUGH_MARGIN);
+        static_cast<int64_t>(mPlaybackRate * CAN_PLAY_THROUGH_MARGIN);
     return mDownloadPosition > mPlaybackPosition + readAheadMargin;
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MediaStatistics_h_
+#endif  // MediaStatistics_h_

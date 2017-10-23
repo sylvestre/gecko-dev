@@ -7,9 +7,9 @@
 #define nsComposerCommands_h_
 
 #include "nsIControllerCommand.h"
-#include "nsISupportsImpl.h"            // for NS_DECL_ISUPPORTS_INHERITED, etc
+#include "nsISupportsImpl.h"  // for NS_DECL_ISUPPORTS_INHERITED, etc
 #include "nsStringFwd.h"
-#include "nscore.h"                     // for nsresult, NS_IMETHOD
+#include "nscore.h"  // for nsresult, NS_IMETHOD
 
 class nsAtom;
 class nsICommandParams;
@@ -17,7 +17,7 @@ class nsISupports;
 
 namespace mozilla {
 class HTMLEditor;
-} // namespace mozilla
+}  // namespace mozilla
 
 // This is a virtual base class for commands registered with the composer controller.
 // Note that such commands are instantiated once per composer, so can store state.
@@ -30,41 +30,41 @@ class HTMLEditor;
 // instance).
 class nsBaseComposerCommand : public nsIControllerCommand
 {
-protected:
+ protected:
   virtual ~nsBaseComposerCommand() {}
 
-public:
-
+ public:
   nsBaseComposerCommand();
 
   // nsISupports
   NS_DECL_ISUPPORTS
 
   // nsIControllerCommand. Declared longhand so we can make them pure virtual
-  NS_IMETHOD IsCommandEnabled(const char * aCommandName, nsISupports *aCommandRefCon, bool *_retval) override = 0;
-  NS_IMETHOD DoCommand(const char * aCommandName, nsISupports *aCommandRefCon) override = 0;
-
+  NS_IMETHOD IsCommandEnabled(const char* aCommandName,
+                              nsISupports* aCommandRefCon,
+                              bool* _retval) override = 0;
+  NS_IMETHOD DoCommand(const char* aCommandName,
+                       nsISupports* aCommandRefCon) override = 0;
 };
 
-
-#define NS_DECL_COMPOSER_COMMAND(_cmd)                  \
-class _cmd : public nsBaseComposerCommand               \
-{                                                       \
-public:                                                 \
-  NS_DECL_NSICONTROLLERCOMMAND                          \
-};
+#define NS_DECL_COMPOSER_COMMAND(_cmd)      \
+  class _cmd : public nsBaseComposerCommand \
+  {                                         \
+   public:                                  \
+    NS_DECL_NSICONTROLLERCOMMAND            \
+  };
 
 // virtual base class for commands that need to save and update Boolean state (like styles etc)
 class nsBaseStateUpdatingCommand : public nsBaseComposerCommand
 {
-public:
+ public:
   explicit nsBaseStateUpdatingCommand(nsAtom* aTagName);
 
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_DECL_NSICONTROLLERCOMMAND
 
-protected:
+ protected:
   virtual ~nsBaseStateUpdatingCommand();
 
   // get the current state (on or off) for this style or block format
@@ -74,20 +74,18 @@ protected:
   // add/remove the style
   virtual nsresult ToggleState(mozilla::HTMLEditor* aHTMLEditor) = 0;
 
-protected:
+ protected:
   nsAtom* mTagName;
 };
-
 
 // Shared class for the various style updating commands like bold, italics etc.
 // Suitable for commands whose state is either 'on' or 'off'.
 class nsStyleUpdatingCommand final : public nsBaseStateUpdatingCommand
 {
-public:
+ public:
   explicit nsStyleUpdatingCommand(nsAtom* aTagName);
 
-protected:
-
+ protected:
   // get the current state (on or off) for this style or block format
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
@@ -96,30 +94,27 @@ protected:
   virtual nsresult ToggleState(mozilla::HTMLEditor* aHTMLEditor) override final;
 };
 
-
 class nsInsertTagCommand : public nsBaseComposerCommand
 {
-public:
+ public:
   explicit nsInsertTagCommand(nsAtom* aTagName);
 
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_DECL_NSICONTROLLERCOMMAND
 
-protected:
+ protected:
   virtual ~nsInsertTagCommand();
 
   nsAtom* mTagName;
 };
 
-
 class nsListCommand final : public nsBaseStateUpdatingCommand
 {
-public:
+ public:
   explicit nsListCommand(nsAtom* aTagName);
 
-protected:
-
+ protected:
   // get the current state (on or off) for this style or block format
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
@@ -130,11 +125,10 @@ protected:
 
 class nsListItemCommand final : public nsBaseStateUpdatingCommand
 {
-public:
+ public:
   explicit nsListItemCommand(nsAtom* aTagName);
 
-protected:
-
+ protected:
   // get the current state (on or off) for this style or block format
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
@@ -146,31 +140,27 @@ protected:
 // Base class for commands whose state consists of a string (e.g. para format)
 class nsMultiStateCommand : public nsBaseComposerCommand
 {
-public:
-
+ public:
   nsMultiStateCommand();
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICONTROLLERCOMMAND
 
-protected:
+ protected:
   virtual ~nsMultiStateCommand();
 
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) = 0;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
                             nsString& newState) = 0;
-
 };
-
 
 class nsParagraphStateCommand final : public nsMultiStateCommand
 {
-public:
-                   nsParagraphStateCommand();
+ public:
+  nsParagraphStateCommand();
 
-protected:
-
+ protected:
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
@@ -179,11 +169,10 @@ protected:
 
 class nsFontFaceStateCommand final : public nsMultiStateCommand
 {
-public:
-                   nsFontFaceStateCommand();
+ public:
+  nsFontFaceStateCommand();
 
-protected:
-
+ protected:
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
@@ -192,11 +181,10 @@ protected:
 
 class nsFontSizeStateCommand final : public nsMultiStateCommand
 {
-public:
-                   nsFontSizeStateCommand();
+ public:
+  nsFontSizeStateCommand();
 
-protected:
-
+ protected:
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
@@ -205,11 +193,10 @@ protected:
 
 class nsHighlightColorStateCommand final : public nsMultiStateCommand
 {
-public:
-                   nsHighlightColorStateCommand();
+ public:
+  nsHighlightColorStateCommand();
 
-protected:
-
+ protected:
   NS_IMETHOD IsCommandEnabled(const char* aCommandName,
                               nsISupports* aCommandRefCon,
                               bool* _retval) override final;
@@ -217,16 +204,14 @@ protected:
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
                             nsString& newState) override final;
-
 };
 
 class nsFontColorStateCommand final : public nsMultiStateCommand
 {
-public:
-                   nsFontColorStateCommand();
+ public:
+  nsFontColorStateCommand();
 
-protected:
-
+ protected:
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
@@ -235,11 +220,10 @@ protected:
 
 class nsAlignCommand final : public nsMultiStateCommand
 {
-public:
-                   nsAlignCommand();
+ public:
+  nsAlignCommand();
 
-protected:
-
+ protected:
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
@@ -248,11 +232,10 @@ protected:
 
 class nsBackgroundColorStateCommand final : public nsMultiStateCommand
 {
-public:
-                   nsBackgroundColorStateCommand();
+ public:
+  nsBackgroundColorStateCommand();
 
-protected:
-
+ protected:
   virtual nsresult GetCurrentState(mozilla::HTMLEditor* aHTMLEditor,
                                    nsICommandParams* aParams) override final;
   virtual nsresult SetState(mozilla::HTMLEditor* aHTMLEditor,
@@ -261,11 +244,10 @@ protected:
 
 class nsAbsolutePositioningCommand final : public nsBaseStateUpdatingCommand
 {
-public:
+ public:
   nsAbsolutePositioningCommand();
 
-protected:
-
+ protected:
   NS_IMETHOD IsCommandEnabled(const char* aCommandName,
                               nsISupports* aCommandRefCon,
                               bool* _retval) override final;
@@ -288,7 +270,7 @@ NS_DECL_COMPOSER_COMMAND(nsIncreaseZIndexCommand)
 // Generic commands
 
 // File menu
-NS_DECL_COMPOSER_COMMAND(nsNewCommands)   // handles 'new' anything
+NS_DECL_COMPOSER_COMMAND(nsNewCommands)  // handles 'new' anything
 
 // Edit menu
 NS_DECL_COMPOSER_COMMAND(nsPasteNoFormattingCommand)
@@ -305,4 +287,4 @@ NS_DECL_COMPOSER_COMMAND(nsDecreaseFontSizeCommand)
 // Insert content commands
 NS_DECL_COMPOSER_COMMAND(nsInsertHTMLCommand)
 
-#endif // nsComposerCommands_h_
+#endif  // nsComposerCommands_h_

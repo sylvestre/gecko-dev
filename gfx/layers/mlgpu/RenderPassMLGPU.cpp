@@ -30,24 +30,23 @@ ItemInfo::ItemInfo(FrameBuilder* aBuilder,
                    int32_t aSortOrder,
                    const IntRect& aBounds,
                    Maybe<Polygon>&& aGeometry)
- : view(aView),
-   layer(aLayer),
-   type(RenderPassType::Unknown),
-   layerIndex(kInvalidResourceIndex),
-   sortOrder(aSortOrder),
-   bounds(aBounds),
-   geometry(Move(aGeometry))
+    : view(aView),
+      layer(aLayer),
+      type(RenderPassType::Unknown),
+      layerIndex(kInvalidResourceIndex),
+      sortOrder(aSortOrder),
+      bounds(aBounds),
+      geometry(Move(aGeometry))
 {
   const Matrix4x4& transform = aLayer->GetLayer()->GetEffectiveTransform();
 
   Matrix transform2D;
-  if (!geometry &&
-      transform.Is2D(&transform2D) &&
-      transform2D.IsRectilinear())
-  {
+  if (!geometry && transform.Is2D(&transform2D) &&
+      transform2D.IsRectilinear()) {
     this->rectilinear = true;
     if (transform2D.IsIntegerTranslation()) {
-      this->translation = Some(IntPoint::Truncate(transform2D.GetTranslation()));
+      this->translation =
+          Some(IntPoint::Truncate(transform2D.GetTranslation()));
     }
   } else {
     this->rectilinear = false;
@@ -70,65 +69,57 @@ ItemInfo::ItemInfo(FrameBuilder* aBuilder,
   // such items cannot be blended. (Though we could consider adding these
   // items in two separate draw calls, one for DEAA and for not - that is
   // definitely future work.)
-  if (aLayer->GetComputedOpacity() != 1.0f ||
-      aLayer->GetMask() ||
-      !aLayer->IsContentOpaque() ||
-      !rectilinear)
-  {
+  if (aLayer->GetComputedOpacity() != 1.0f || aLayer->GetMask() ||
+      !aLayer->IsContentOpaque() || !rectilinear) {
     this->opaque = false;
     this->renderOrder = RenderOrder::BackToFront;
   } else {
     this->opaque = true;
-    this->renderOrder = aView->HasDepthBuffer()
-                        ? RenderOrder::FrontToBack
-                        : RenderOrder::BackToFront;
+    this->renderOrder = aView->HasDepthBuffer() ? RenderOrder::FrontToBack
+                                                : RenderOrder::BackToFront;
   }
 
   this->type = RenderPassMLGPU::GetPreferredPassType(aBuilder, *this);
 }
 
 RenderPassType
-RenderPassMLGPU::GetPreferredPassType(FrameBuilder* aBuilder, const ItemInfo& aItem)
+RenderPassMLGPU::GetPreferredPassType(FrameBuilder* aBuilder,
+                                      const ItemInfo& aItem)
 {
   LayerMLGPU* layer = aItem.layer;
   switch (layer->GetType()) {
-  case Layer::TYPE_COLOR:
-  {
-    if (aBuilder->GetDevice()->CanUseClearView() &&
-        aItem.HasRectTransformAndClip() &&
-        aItem.translation &&
-        aItem.opaque &&
-        !aItem.view->HasDepthBuffer())
-    {
-      // Note: we don't have ClearView set up to do depth buffer writes, so we
-      // exclude depth buffering from the test above.
-      return RenderPassType::ClearView;
+    case Layer::TYPE_COLOR: {
+      if (aBuilder->GetDevice()->CanUseClearView() &&
+          aItem.HasRectTransformAndClip() && aItem.translation &&
+          aItem.opaque && !aItem.view->HasDepthBuffer()) {
+        // Note: we don't have ClearView set up to do depth buffer writes, so we
+        // exclude depth buffering from the test above.
+        return RenderPassType::ClearView;
+      }
+      return RenderPassType::SolidColor;
     }
-    return RenderPassType::SolidColor;
-  }
-  case Layer::TYPE_PAINTED: {
-    PaintedLayerMLGPU* painted = layer->AsPaintedLayerMLGPU();
-    if (painted->HasComponentAlpha()) {
-      return RenderPassType::ComponentAlpha;
+    case Layer::TYPE_PAINTED: {
+      PaintedLayerMLGPU* painted = layer->AsPaintedLayerMLGPU();
+      if (painted->HasComponentAlpha()) {
+        return RenderPassType::ComponentAlpha;
+      }
+      return RenderPassType::SingleTexture;
     }
-    return RenderPassType::SingleTexture;
-  }
-  case Layer::TYPE_CANVAS:
-    return RenderPassType::SingleTexture;
-  case Layer::TYPE_IMAGE: {
-    ImageHost* host = layer->AsTexturedLayerMLGPU()->GetImageHost();
-    TextureHost* texture = host->CurrentTextureHost();
-    if (texture->GetReadFormat() == SurfaceFormat::YUV ||
-        texture->GetReadFormat() == SurfaceFormat::NV12)
-    {
-      return RenderPassType::Video;
+    case Layer::TYPE_CANVAS:
+      return RenderPassType::SingleTexture;
+    case Layer::TYPE_IMAGE: {
+      ImageHost* host = layer->AsTexturedLayerMLGPU()->GetImageHost();
+      TextureHost* texture = host->CurrentTextureHost();
+      if (texture->GetReadFormat() == SurfaceFormat::YUV ||
+          texture->GetReadFormat() == SurfaceFormat::NV12) {
+        return RenderPassType::Video;
+      }
+      return RenderPassType::SingleTexture;
     }
-    return RenderPassType::SingleTexture;
-  }
-  case Layer::TYPE_CONTAINER:
-    return RenderPassType::RenderView;
-  default:
-    return RenderPassType::Unknown;
+    case Layer::TYPE_CONTAINER:
+      return RenderPassType::RenderView;
+    default:
+      return RenderPassType::Unknown;
   }
 }
 
@@ -136,35 +127,33 @@ RefPtr<RenderPassMLGPU>
 RenderPassMLGPU::CreatePass(FrameBuilder* aBuilder, const ItemInfo& aItem)
 {
   switch (aItem.type) {
-  case RenderPassType::SolidColor:
-    return MakeAndAddRef<SolidColorPass>(aBuilder, aItem);
-  case RenderPassType::SingleTexture:
-    return MakeAndAddRef<SingleTexturePass>(aBuilder, aItem);
-  case RenderPassType::RenderView:
-    return MakeAndAddRef<RenderViewPass>(aBuilder, aItem);
-  case RenderPassType::Video:
-    return MakeAndAddRef<VideoRenderPass>(aBuilder, aItem);
-  case RenderPassType::ComponentAlpha:
-    return MakeAndAddRef<ComponentAlphaPass>(aBuilder, aItem);
-  case RenderPassType::ClearView:
-    return MakeAndAddRef<ClearViewPass>(aBuilder, aItem);
-  default:
-    return nullptr;
+    case RenderPassType::SolidColor:
+      return MakeAndAddRef<SolidColorPass>(aBuilder, aItem);
+    case RenderPassType::SingleTexture:
+      return MakeAndAddRef<SingleTexturePass>(aBuilder, aItem);
+    case RenderPassType::RenderView:
+      return MakeAndAddRef<RenderViewPass>(aBuilder, aItem);
+    case RenderPassType::Video:
+      return MakeAndAddRef<VideoRenderPass>(aBuilder, aItem);
+    case RenderPassType::ComponentAlpha:
+      return MakeAndAddRef<ComponentAlphaPass>(aBuilder, aItem);
+    case RenderPassType::ClearView:
+      return MakeAndAddRef<ClearViewPass>(aBuilder, aItem);
+    default:
+      return nullptr;
   }
 }
 
 RenderPassMLGPU::RenderPassMLGPU(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : mBuilder(aBuilder),
-   mDevice(aBuilder->GetDevice()),
-   mLayerBufferIndex(aBuilder->CurrentLayerBufferIndex()),
-   mMaskRectBufferIndex(kInvalidResourceIndex),
-   mPrepared(false)
+    : mBuilder(aBuilder),
+      mDevice(aBuilder->GetDevice()),
+      mLayerBufferIndex(aBuilder->CurrentLayerBufferIndex()),
+      mMaskRectBufferIndex(kInvalidResourceIndex),
+      mPrepared(false)
 {
 }
 
-RenderPassMLGPU::~RenderPassMLGPU()
-{
-}
+RenderPassMLGPU::~RenderPassMLGPU() {}
 
 bool
 RenderPassMLGPU::IsCompatible(const ItemInfo& aItem)
@@ -207,10 +196,11 @@ RenderPassMLGPU::PrepareForRendering()
   mPrepared = true;
 }
 
-ShaderRenderPass::ShaderRenderPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : RenderPassMLGPU(aBuilder, aItem),
-   mGeometry(GeometryMode::Unknown),
-   mHasRectTransformAndClip(aItem.HasRectTransformAndClip())
+ShaderRenderPass::ShaderRenderPass(FrameBuilder* aBuilder,
+                                   const ItemInfo& aItem)
+    : RenderPassMLGPU(aBuilder, aItem),
+      mGeometry(GeometryMode::Unknown),
+      mHasRectTransformAndClip(aItem.HasRectTransformAndClip())
 {
   mMask = aItem.layer->GetMask();
   if (mMask) {
@@ -256,9 +246,8 @@ ShaderRenderPass::SetGeometry(const ItemInfo& aItem, GeometryMode aMode)
   MOZ_ASSERT(mGeometry == GeometryMode::Unknown);
 
   if (aMode == GeometryMode::Unknown) {
-    mGeometry = mHasRectTransformAndClip
-                ? GeometryMode::UnitQuad
-                : GeometryMode::Polygon;
+    mGeometry = mHasRectTransformAndClip ? GeometryMode::UnitQuad
+                                         : GeometryMode::Polygon;
   } else {
     mGeometry = aMode;
   }
@@ -277,10 +266,9 @@ ShaderRenderPass::PrepareForRendering()
   if (mInstances.IsEmpty()) {
     return;
   }
-  if (!mDevice->GetSharedVertexBuffer()->Allocate(&mInstanceBuffer, mInstances) ||
-      !SetupPSBuffer0(GetOpacity()) ||
-      !OnPrepareBuffers())
-  {
+  if (!mDevice->GetSharedVertexBuffer()->Allocate(&mInstanceBuffer,
+                                                  mInstances) ||
+      !SetupPSBuffer0(GetOpacity()) || !OnPrepareBuffers()) {
     return;
   }
   return RenderPassMLGPU::PrepareForRendering();
@@ -336,16 +324,14 @@ static inline Color
 ComputeLayerColor(LayerMLGPU* aLayer, const Color& aColor)
 {
   float opacity = aLayer->GetComputedOpacity();
-  return Color(
-    aColor.r * aColor.a * opacity,
-    aColor.g * aColor.a * opacity,
-    aColor.b * aColor.a * opacity,
-    aColor.a * opacity);
+  return Color(aColor.r * aColor.a * opacity,
+               aColor.g * aColor.a * opacity,
+               aColor.b * aColor.a * opacity,
+               aColor.a * opacity);
 }
 
 ClearViewPass::ClearViewPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : RenderPassMLGPU(aBuilder, aItem),
-   mView(aItem.view)
+    : RenderPassMLGPU(aBuilder, aItem), mView(aItem.view)
 {
   // Note: we could write to the depth buffer, but since the depth buffer is
   // disabled by default, we don't bother yet.
@@ -394,11 +380,12 @@ ClearViewPass::AddToPass(LayerMLGPU* aItem, ItemInfo& aInfo)
 void
 ClearViewPass::ExecuteRendering()
 {
-  mDevice->ClearView(mDevice->GetRenderTarget(), mColor, mRects.Elements(), mRects.Length());
+  mDevice->ClearView(
+      mDevice->GetRenderTarget(), mColor, mRects.Elements(), mRects.Length());
 }
 
 SolidColorPass::SolidColorPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : BatchRenderPass(aBuilder, aItem)
+    : BatchRenderPass(aBuilder, aItem)
 {
   SetDefaultGeometry(aItem);
 }
@@ -447,40 +434,40 @@ SolidColorPass::SetupPipeline()
   }
 }
 
-TexturedRenderPass::TexturedRenderPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : BatchRenderPass(aBuilder, aItem),
-   mTextureFlags(TextureFlags::NO_FLAGS)
+TexturedRenderPass::TexturedRenderPass(FrameBuilder* aBuilder,
+                                       const ItemInfo& aItem)
+    : BatchRenderPass(aBuilder, aItem), mTextureFlags(TextureFlags::NO_FLAGS)
 {
 }
 
 TexturedRenderPass::Info::Info(const ItemInfo& aItem, PaintedLayerMLGPU* aLayer)
- : item(aItem),
-   textureSize(aLayer->GetTexture()->GetSize()),
-   destOrigin(aLayer->GetContentHost()->GetOriginOffset()),
-   decomposeIntoNoRepeatRects(aLayer->MayResample())
+    : item(aItem),
+      textureSize(aLayer->GetTexture()->GetSize()),
+      destOrigin(aLayer->GetContentHost()->GetOriginOffset()),
+      decomposeIntoNoRepeatRects(aLayer->MayResample())
 {
 }
 
-TexturedRenderPass::Info::Info(const ItemInfo& aItem, TexturedLayerMLGPU* aLayer)
- : item(aItem),
-   textureSize(aLayer->GetTexture()->GetSize()),
-   scale(aLayer->GetPictureScale()),
-   decomposeIntoNoRepeatRects(false)
+TexturedRenderPass::Info::Info(const ItemInfo& aItem,
+                               TexturedLayerMLGPU* aLayer)
+    : item(aItem),
+      textureSize(aLayer->GetTexture()->GetSize()),
+      scale(aLayer->GetPictureScale()),
+      decomposeIntoNoRepeatRects(false)
 {
 }
 
-TexturedRenderPass::Info::Info(const ItemInfo& aItem, ContainerLayerMLGPU* aLayer)
- : item(aItem),
-   textureSize(aLayer->GetTargetSize()),
-   destOrigin(aLayer->GetTargetOffset()),
-   decomposeIntoNoRepeatRects(false)
+TexturedRenderPass::Info::Info(const ItemInfo& aItem,
+                               ContainerLayerMLGPU* aLayer)
+    : item(aItem),
+      textureSize(aLayer->GetTargetSize()),
+      destOrigin(aLayer->GetTargetOffset()),
+      decomposeIntoNoRepeatRects(false)
 {
 }
 
 bool
-TexturedRenderPass::AddItem(Txn& aTxn,
-                            const Info& aInfo,
-                            const Rect& aDrawRect)
+TexturedRenderPass::AddItem(Txn& aTxn, const Info& aInfo, const Rect& aDrawRect)
 {
   if (mGeometry == GeometryMode::Polygon) {
     // This path will not clamp the draw rect to the layer clip, so we can pass
@@ -494,7 +481,8 @@ TexturedRenderPass::AddItem(Txn& aTxn,
   MOZ_ASSERT(item.HasRectTransformAndClip());
   MOZ_ASSERT(mHasRectTransformAndClip);
 
-  const Matrix4x4& fullTransform = item.layer->GetLayer()->GetEffectiveTransformForBuffer();
+  const Matrix4x4& fullTransform =
+      item.layer->GetLayer()->GetEffectiveTransformForBuffer();
   Matrix transform = fullTransform.As2D();
   Matrix inverse = transform;
   if (!inverse.Invert()) {
@@ -531,11 +519,10 @@ TexturedRenderPass::AddClippedItem(Txn& aTxn,
   }
 
   Point offset = aDrawRect.TopLeft() - aInfo.destOrigin;
-  Rect textureRect(
-    offset.x * xScale,
-    offset.y * yScale,
-    aDrawRect.Width() * xScale,
-    aDrawRect.Height() * yScale);
+  Rect textureRect(offset.x * xScale,
+                   offset.y * yScale,
+                   aDrawRect.Width() * xScale,
+                   aDrawRect.Height() * yScale);
 
   Rect textureCoords = TextureRectToCoords(textureRect, aInfo.textureSize);
   if (mTextureFlags & TextureFlags::ORIGIN_BOTTOM_LEFT) {
@@ -553,8 +540,8 @@ TexturedRenderPass::AddClippedItem(Txn& aTxn,
   } else {
     Rect layerRects[4];
     Rect textureRects[4];
-    size_t numRects =
-      DecomposeIntoNoRepeatRects(aDrawRect, textureCoords, &layerRects, &textureRects);
+    size_t numRects = DecomposeIntoNoRepeatRects(
+        aDrawRect, textureCoords, &layerRects, &textureRects);
 
     for (size_t i = 0; i < numRects; i++) {
       TexturedTraits traits(aInfo.item, layerRects[i], textureRects[i]);
@@ -566,9 +553,9 @@ TexturedRenderPass::AddClippedItem(Txn& aTxn,
   return true;
 }
 
-SingleTexturePass::SingleTexturePass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : TexturedRenderPass(aBuilder, aItem),
-   mOpacity(1.0f)
+SingleTexturePass::SingleTexturePass(FrameBuilder* aBuilder,
+                                     const ItemInfo& aItem)
+    : TexturedRenderPass(aBuilder, aItem), mOpacity(1.0f)
 {
   SetDefaultGeometry(aItem);
 }
@@ -640,8 +627,8 @@ Maybe<MLGBlendState>
 SingleTexturePass::GetBlendState() const
 {
   return (mTextureFlags & TextureFlags::NON_PREMULTIPLIED)
-         ? Some(MLGBlendState::OverAndPremultiply)
-         : Some(MLGBlendState::Over);
+             ? Some(MLGBlendState::OverAndPremultiply)
+             : Some(MLGBlendState::Over);
 }
 
 void
@@ -674,9 +661,9 @@ SingleTexturePass::SetupPipeline()
   }
 }
 
-ComponentAlphaPass::ComponentAlphaPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
-: TexturedRenderPass(aBuilder, aItem),
-  mAssignedLayer(nullptr)
+ComponentAlphaPass::ComponentAlphaPass(FrameBuilder* aBuilder,
+                                       const ItemInfo& aItem)
+    : TexturedRenderPass(aBuilder, aItem), mAssignedLayer(nullptr)
 {
   SetDefaultGeometry(aItem);
 }
@@ -694,7 +681,7 @@ ComponentAlphaPass::AddToPass(LayerMLGPU* aLayer, ItemInfo& aItem)
     mAssignedLayer = layer;
     mTextureOnBlack = layer->GetTexture();
     mTextureOnWhite = layer->GetTextureOnWhite();
-  } 
+  }
 
   Txn txn(this);
 
@@ -714,10 +701,7 @@ ComponentAlphaPass::GetOpacity() const
 void
 ComponentAlphaPass::SetupPipeline()
 {
-  TextureSource* textures[2] = {
-    mTextureOnBlack,
-    mTextureOnWhite
-  };
+  TextureSource* textures[2] = {mTextureOnBlack, mTextureOnWhite};
   MOZ_ASSERT(textures[0]);
   MOZ_ASSERT(textures[1]);
 
@@ -729,13 +713,13 @@ ComponentAlphaPass::SetupPipeline()
     mDevice->SetPixelShader(PixelShaderID::ComponentAlphaVertex);
   }
 
-  mDevice->SetSamplerMode(kDefaultSamplerSlot, mAssignedLayer->GetSamplerMode());
+  mDevice->SetSamplerMode(kDefaultSamplerSlot,
+                          mAssignedLayer->GetSamplerMode());
   mDevice->SetPSTextures(0, 2, textures);
 }
 
 VideoRenderPass::VideoRenderPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : TexturedRenderPass(aBuilder, aItem),
-   mOpacity(1.0f)
+    : TexturedRenderPass(aBuilder, aItem), mOpacity(1.0f)
 {
   SetDefaultGeometry(aItem);
 }
@@ -790,16 +774,16 @@ VideoRenderPass::SetupPipeline()
 {
   YUVColorSpace colorSpace = YUVColorSpace::UNKNOWN;
   switch (mHost->GetReadFormat()) {
-  case SurfaceFormat::YUV: {
-    colorSpace = mHost->GetYUVColorSpace();
-    break;
-  }
-  case SurfaceFormat::NV12:
-    colorSpace = YUVColorSpace::BT601;
-    break;
-  default:
-    MOZ_ASSERT_UNREACHABLE("Unexpected surface format in VideoRenderPass");
-    break;
+    case SurfaceFormat::YUV: {
+      colorSpace = mHost->GetYUVColorSpace();
+      break;
+    }
+    case SurfaceFormat::NV12:
+      colorSpace = YUVColorSpace::BT601;
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unexpected surface format in VideoRenderPass");
+      break;
   }
   MOZ_ASSERT(colorSpace != YUVColorSpace::UNKNOWN);
 
@@ -815,25 +799,24 @@ VideoRenderPass::SetupPipeline()
   }
 
   switch (mHost->GetReadFormat()) {
-  case SurfaceFormat::YUV:
-  {
-    if (mGeometry == GeometryMode::UnitQuad)
-      mDevice->SetPixelShader(PixelShaderID::TexturedQuadIMC4);
-    else
-      mDevice->SetPixelShader(PixelShaderID::TexturedVertexIMC4);
-    mDevice->SetPSTexturesYUV(0, mTexture);
-    break;
-  }
-  case SurfaceFormat::NV12:
-    if (mGeometry == GeometryMode::UnitQuad)
-      mDevice->SetPixelShader(PixelShaderID::TexturedQuadNV12);
-    else
-      mDevice->SetPixelShader(PixelShaderID::TexturedVertexNV12);
-    mDevice->SetPSTexturesNV12(0, mTexture);
-    break;
-  default:
-    MOZ_ASSERT_UNREACHABLE("Unknown video format");
-    break;
+    case SurfaceFormat::YUV: {
+      if (mGeometry == GeometryMode::UnitQuad)
+        mDevice->SetPixelShader(PixelShaderID::TexturedQuadIMC4);
+      else
+        mDevice->SetPixelShader(PixelShaderID::TexturedVertexIMC4);
+      mDevice->SetPSTexturesYUV(0, mTexture);
+      break;
+    }
+    case SurfaceFormat::NV12:
+      if (mGeometry == GeometryMode::UnitQuad)
+        mDevice->SetPixelShader(PixelShaderID::TexturedQuadNV12);
+      else
+        mDevice->SetPixelShader(PixelShaderID::TexturedVertexNV12);
+      mDevice->SetPSTexturesNV12(0, mTexture);
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown video format");
+      break;
   }
 
   mDevice->SetSamplerMode(kDefaultSamplerSlot, mSamplerMode);
@@ -841,8 +824,7 @@ VideoRenderPass::SetupPipeline()
 }
 
 RenderViewPass::RenderViewPass(FrameBuilder* aBuilder, const ItemInfo& aItem)
- : TexturedRenderPass(aBuilder, aItem),
-   mParentView(nullptr)
+    : TexturedRenderPass(aBuilder, aItem), mParentView(nullptr)
 {
   mAssignedLayer = aItem.layer->AsContainerLayerMLGPU();
 
@@ -910,33 +892,50 @@ static inline PixelShaderID
 GetShaderForBlendMode(CompositionOp aOp)
 {
   switch (aOp) {
-  case CompositionOp::OP_MULTIPLY: return PixelShaderID::BlendMultiply;
-  case CompositionOp::OP_SCREEN: return PixelShaderID::BlendScreen;
-  case CompositionOp::OP_OVERLAY: return PixelShaderID::BlendOverlay;
-  case CompositionOp::OP_DARKEN: return PixelShaderID::BlendDarken;
-  case CompositionOp::OP_LIGHTEN: return PixelShaderID::BlendLighten;
-  case CompositionOp::OP_COLOR_DODGE: return PixelShaderID::BlendColorDodge;
-  case CompositionOp::OP_COLOR_BURN: return PixelShaderID::BlendColorBurn;
-  case CompositionOp::OP_HARD_LIGHT: return PixelShaderID::BlendHardLight;
-  case CompositionOp::OP_SOFT_LIGHT: return PixelShaderID::BlendSoftLight;
-  case CompositionOp::OP_DIFFERENCE: return PixelShaderID::BlendDifference;
-  case CompositionOp::OP_EXCLUSION: return PixelShaderID::BlendExclusion;
-  case CompositionOp::OP_HUE: return PixelShaderID::BlendHue;
-  case CompositionOp::OP_SATURATION: return PixelShaderID::BlendSaturation;
-  case CompositionOp::OP_COLOR: return PixelShaderID::BlendColor;
-  case CompositionOp::OP_LUMINOSITY: return PixelShaderID::BlendLuminosity;
-  default:
-    MOZ_ASSERT_UNREACHABLE("Unexpected blend mode");
-    return PixelShaderID::TexturedVertexRGBA;
+    case CompositionOp::OP_MULTIPLY:
+      return PixelShaderID::BlendMultiply;
+    case CompositionOp::OP_SCREEN:
+      return PixelShaderID::BlendScreen;
+    case CompositionOp::OP_OVERLAY:
+      return PixelShaderID::BlendOverlay;
+    case CompositionOp::OP_DARKEN:
+      return PixelShaderID::BlendDarken;
+    case CompositionOp::OP_LIGHTEN:
+      return PixelShaderID::BlendLighten;
+    case CompositionOp::OP_COLOR_DODGE:
+      return PixelShaderID::BlendColorDodge;
+    case CompositionOp::OP_COLOR_BURN:
+      return PixelShaderID::BlendColorBurn;
+    case CompositionOp::OP_HARD_LIGHT:
+      return PixelShaderID::BlendHardLight;
+    case CompositionOp::OP_SOFT_LIGHT:
+      return PixelShaderID::BlendSoftLight;
+    case CompositionOp::OP_DIFFERENCE:
+      return PixelShaderID::BlendDifference;
+    case CompositionOp::OP_EXCLUSION:
+      return PixelShaderID::BlendExclusion;
+    case CompositionOp::OP_HUE:
+      return PixelShaderID::BlendHue;
+    case CompositionOp::OP_SATURATION:
+      return PixelShaderID::BlendSaturation;
+    case CompositionOp::OP_COLOR:
+      return PixelShaderID::BlendColor;
+    case CompositionOp::OP_LUMINOSITY:
+      return PixelShaderID::BlendLuminosity;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unexpected blend mode");
+      return PixelShaderID::TexturedVertexRGBA;
   }
 }
 
 bool
 RenderViewPass::PrepareBlendState()
 {
-  Rect visibleRect(mAssignedLayer->GetRenderRegion().GetBounds().ToUnknownRect());
+  Rect visibleRect(
+      mAssignedLayer->GetRenderRegion().GetBounds().ToUnknownRect());
   IntRect clipRect(mAssignedLayer->GetComputedClipRect().ToUnknownRect());
-  const Matrix4x4& transform = mAssignedLayer->GetLayer()->GetEffectiveTransformForBuffer();
+  const Matrix4x4& transform =
+      mAssignedLayer->GetLayer()->GetEffectiveTransformForBuffer();
 
   // Note that we must use our parent RenderView for this calculation,
   // since we're copying the backdrop, not our actual local target.
@@ -944,11 +943,7 @@ RenderViewPass::PrepareBlendState()
 
   Matrix4x4 backdropTransform;
   mBackdropCopyRect = ComputeBackdropCopyRect(
-    visibleRect,
-    clipRect,
-    transform,
-    rtRect,
-    &backdropTransform);
+      visibleRect, clipRect, transform, rtRect, &backdropTransform);
 
   AutoBufferUpload<BlendVertexShaderConstants> cb;
   if (!mDevice->GetSharedVSBuffer()->Allocate(&mBlendConstants, &cb)) {
@@ -965,20 +960,17 @@ RenderViewPass::SetupPipeline()
     RefPtr<MLGRenderTarget> backdrop = mParentView->GetRenderTarget();
     MOZ_ASSERT(mDevice->GetRenderTarget() == backdrop);
 
-    RefPtr<MLGTexture> copy = mDevice->CreateTexture(
-      mBackdropCopyRect.Size(),
-      SurfaceFormat::B8G8R8A8,
-      MLGUsage::Default,
-      MLGTextureFlags::ShaderResource);
+    RefPtr<MLGTexture> copy =
+        mDevice->CreateTexture(mBackdropCopyRect.Size(),
+                               SurfaceFormat::B8G8R8A8,
+                               MLGUsage::Default,
+                               MLGTextureFlags::ShaderResource);
     if (!copy) {
       return;
     }
 
     mDevice->CopyTexture(
-      copy,
-      IntPoint(0, 0),
-      backdrop->GetTexture(),
-      mBackdropCopyRect);
+        copy, IntPoint(0, 0), backdrop->GetTexture(), mBackdropCopyRect);
 
     MOZ_ASSERT(mGeometry == GeometryMode::Polygon);
     mDevice->SetVertexShader(VertexShaderID::BlendVertex);
@@ -1024,7 +1016,8 @@ RenderViewPass::RenderWithBackdropCopy()
 
   RenderViewMLGPU* childView = mAssignedLayer->GetRenderView();
 
-  IntRect visible = mAssignedLayer->GetRenderRegion().GetBounds().ToUnknownRect();
+  IntRect visible =
+      mAssignedLayer->GetRenderRegion().GetBounds().ToUnknownRect();
   IntRect sourceRect = visible + translation - mParentView->GetTargetOffset();
   IntPoint destPoint = visible.TopLeft() - childView->GetTargetOffset();
 
@@ -1037,7 +1030,8 @@ RenderViewPass::RenderWithBackdropCopy()
   // Clamp the source rect to the destination texture size.
   IntRect destRect(destPoint, sourceRect.Size());
   destRect = destRect.Intersect(IntRect(IntPoint(0, 0), dest->GetSize()));
-  sourceRect = sourceRect.Intersect(IntRect(sourceRect.TopLeft(), destRect.Size()));
+  sourceRect =
+      sourceRect.Intersect(IntRect(sourceRect.TopLeft(), destRect.Size()));
 
   mDevice->CopyTexture(dest, destPoint, source, sourceRect);
   childView->RenderAfterBackdropCopy();
@@ -1045,5 +1039,5 @@ RenderViewPass::RenderWithBackdropCopy()
   TexturedRenderPass::ExecuteRendering();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

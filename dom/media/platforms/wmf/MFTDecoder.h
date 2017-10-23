@@ -18,7 +18,7 @@ class MFTDecoder final
 {
   ~MFTDecoder();
 
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MFTDecoder)
 
   MFTDecoder();
@@ -91,7 +91,8 @@ public:
   HRESULT SetDecoderOutputType(bool aMatchAllAttributes,
                                ConfigureOutputCallback aCallback,
                                void* aData);
-private:
+
+ private:
   HRESULT CreateOutputSample(RefPtr<IMFSample>* aOutSample);
 
   MFT_INPUT_STREAM_INFO mInputStreamInfo;
@@ -108,6 +109,6 @@ private:
   bool mDiscontinuity = true;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

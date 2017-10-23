@@ -20,42 +20,33 @@ namespace gfx {
 
 class UnscaledFontMac final : public UnscaledFont
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(UnscaledFontMac, override)
-  explicit UnscaledFontMac(CGFontRef aFont)
-    : mFont(aFont)
-  {
-    CFRetain(mFont);
-  }
-  ~UnscaledFontMac()
-  {
-    CFRelease(mFont);
-  }
+  explicit UnscaledFontMac(CGFontRef aFont) : mFont(aFont) { CFRetain(mFont); }
+  ~UnscaledFontMac() { CFRelease(mFont); }
 
   FontType GetType() const override { return FontType::MAC; }
 
   CGFontRef GetFont() const { return mFont; }
 
-  bool GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton) override;
+  bool GetFontFileData(FontFileDataOutput aDataCallback, void* aBaton) override;
 
-  already_AddRefed<ScaledFont>
-    CreateScaledFont(Float aGlyphSize,
-                     const uint8_t* aInstanceData,
-                     uint32_t aInstanceDataLength,
-                     const FontVariation* aVariations,
-                     uint32_t aNumVariations) override;
+  already_AddRefed<ScaledFont> CreateScaledFont(
+      Float aGlyphSize,
+      const uint8_t* aInstanceData,
+      uint32_t aInstanceDataLength,
+      const FontVariation* aVariations,
+      uint32_t aNumVariations) override;
 
-  static CGFontRef
-    CreateCGFontWithVariations(CGFontRef aFont,
-                               uint32_t aVariationCount,
-                               const FontVariation* aVariations);
+  static CGFontRef CreateCGFontWithVariations(CGFontRef aFont,
+                                              uint32_t aVariationCount,
+                                              const FontVariation* aVariations);
 
-private:
+ private:
   CGFontRef mFont;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_UNSCALEDFONTMAC_H_ */
-

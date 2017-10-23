@@ -11,14 +11,9 @@
 #include "nsIDocShell.h"
 #include "nsIHTMLDocument.h"
 
-nsHtml5OplessBuilder::nsHtml5OplessBuilder()
- : nsHtml5DocumentBuilder(true)
-{
-}
+nsHtml5OplessBuilder::nsHtml5OplessBuilder() : nsHtml5DocumentBuilder(true) {}
 
-nsHtml5OplessBuilder::~nsHtml5OplessBuilder()
-{
-}
+nsHtml5OplessBuilder::~nsHtml5OplessBuilder() {}
 
 void
 nsHtml5OplessBuilder::Start()

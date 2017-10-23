@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "AxisPhysicsMSDModel.h"
-#include <math.h>                       // for sqrt and fabs
+#include <math.h>  // for sqrt and fabs
 
 namespace mozilla {
 namespace layers {
@@ -32,20 +32,18 @@ AxisPhysicsMSDModel::AxisPhysicsMSDModel(double aInitialPosition,
                                          double aInitialVelocity,
                                          double aSpringConstant,
                                          double aDampingRatio)
-  : AxisPhysicsModel(aInitialPosition, aInitialVelocity)
-  , mDestination(aInitialDestination)
-  , mSpringConstant(aSpringConstant)
-  , mSpringConstantSqrtXTwo(sqrt(mSpringConstant) * 2.0)
-  , mDampingRatio(aDampingRatio)
+    : AxisPhysicsModel(aInitialPosition, aInitialVelocity),
+      mDestination(aInitialDestination),
+      mSpringConstant(aSpringConstant),
+      mSpringConstantSqrtXTwo(sqrt(mSpringConstant) * 2.0),
+      mDampingRatio(aDampingRatio)
 {
 }
 
-AxisPhysicsMSDModel::~AxisPhysicsMSDModel()
-{
-}
+AxisPhysicsMSDModel::~AxisPhysicsMSDModel() {}
 
 double
-AxisPhysicsMSDModel::Acceleration(const State &aState)
+AxisPhysicsMSDModel::Acceleration(const State& aState)
 {
   // Simulate a Mass-Damper-Spring Model; assume a unit mass
 
@@ -55,7 +53,6 @@ AxisPhysicsMSDModel::Acceleration(const State &aState)
 
   return spring_force + damp_force;
 }
-
 
 double
 AxisPhysicsMSDModel::GetDestination() const
@@ -85,9 +82,9 @@ AxisPhysicsMSDModel::IsFinished(double aSmallestVisibleIncrement)
   // revealed that a critically damped system will terminate within 100ms.
   const double finishVelocity = aSmallestVisibleIncrement * 2;
 
-  return fabs(mDestination - GetPosition ()) < aSmallestVisibleIncrement
-    && fabs(GetVelocity()) <= finishVelocity;
+  return fabs(mDestination - GetPosition()) < aSmallestVisibleIncrement &&
+         fabs(GetVelocity()) <= finishVelocity;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

@@ -19,12 +19,17 @@
 
 #include "mozilla/Attributes.h"
 
-#define NS_NAVHISTORYQUERY_IID \
-{ 0xb10185e0, 0x86eb, 0x4612, { 0x95, 0x7c, 0x09, 0x34, 0xf2, 0xb1, 0xce, 0xd7 } }
+#define NS_NAVHISTORYQUERY_IID                       \
+  {                                                  \
+    0xb10185e0, 0x86eb, 0x4612,                      \
+    {                                                \
+      0x95, 0x7c, 0x09, 0x34, 0xf2, 0xb1, 0xce, 0xd7 \
+    }                                                \
+  }
 
 class nsNavHistoryQuery final : public nsINavHistoryQuery
 {
-public:
+ public:
   nsNavHistoryQuery();
   nsNavHistoryQuery(const nsNavHistoryQuery& aOther);
 
@@ -42,7 +47,7 @@ public:
   bool OnlyBookmarked() { return mOnlyBookmarked; }
   bool DomainIsHost() { return mDomainIsHost; }
   const nsCString& Domain() { return mDomain; }
-  nsIURI* Uri() { return mUri; } // NOT AddRef-ed!
+  nsIURI* Uri() { return mUri; }  // NOT AddRef-ed!
   bool AnnotationIsNot() { return mAnnotationIsNot; }
   const nsCString& Annotation() { return mAnnotation; }
   const nsTArray<int64_t>& Folders() const { return mFolders; }
@@ -59,18 +64,16 @@ public:
   const nsTArray<uint32_t>& Transitions() const { return mTransitions; }
   nsresult SetTransitions(const nsTArray<uint32_t>& aTransitions)
   {
-    if (!mTransitions.ReplaceElementsAt(0, mTransitions.Length(),
-                                        aTransitions))
+    if (!mTransitions.ReplaceElementsAt(0, mTransitions.Length(), aTransitions))
       return NS_ERROR_OUT_OF_MEMORY;
 
     return NS_OK;
   }
 
-private:
+ private:
   ~nsNavHistoryQuery() {}
 
-protected:
-
+ protected:
   int32_t mMinVisits;
   int32_t mMaxVisits;
   PRTime mBeginTime;
@@ -80,7 +83,7 @@ protected:
   nsString mSearchTerms;
   bool mOnlyBookmarked;
   bool mDomainIsHost;
-  nsCString mDomain; // Default is IsVoid, empty string is valid query
+  nsCString mDomain;  // Default is IsVoid, empty string is valid query
   nsCOMPtr<nsIURI> mUri;
   bool mAnnotationIsNot;
   nsCString mAnnotation;
@@ -94,24 +97,30 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsNavHistoryQuery, NS_NAVHISTORYQUERY_IID)
 
 // nsNavHistoryQueryOptions
 
-#define NS_NAVHISTORYQUERYOPTIONS_IID \
-{0x95f8ba3b, 0xd681, 0x4d89, {0xab, 0xd1, 0xfd, 0xae, 0xf2, 0xa3, 0xde, 0x18}}
+#define NS_NAVHISTORYQUERYOPTIONS_IID                \
+  {                                                  \
+    0x95f8ba3b, 0xd681, 0x4d89,                      \
+    {                                                \
+      0xab, 0xd1, 0xfd, 0xae, 0xf2, 0xa3, 0xde, 0x18 \
+    }                                                \
+  }
 
 class nsNavHistoryQueryOptions final : public nsINavHistoryQueryOptions
 {
-public:
+ public:
   nsNavHistoryQueryOptions()
-  : mSort(0)
-  , mResultType(0)
-  , mExcludeItems(false)
-  , mExcludeQueries(false)
-  , mExcludeReadOnlyFolders(false)
-  , mExpandQueries(true)
-  , mIncludeHidden(false)
-  , mMaxResults(0)
-  , mQueryType(nsINavHistoryQueryOptions::QUERY_TYPE_HISTORY)
-  , mAsyncEnabled(false)
-  { }
+      : mSort(0),
+        mResultType(0),
+        mExcludeItems(false),
+        mExcludeQueries(false),
+        mExcludeReadOnlyFolders(false),
+        mExpandQueries(true),
+        mIncludeHidden(false),
+        mMaxResults(0),
+        mQueryType(nsINavHistoryQueryOptions::QUERY_TYPE_HISTORY),
+        mAsyncEnabled(false)
+  {
+  }
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_NAVHISTORYQUERYOPTIONS_IID)
 
@@ -129,11 +138,11 @@ public:
   uint16_t QueryType() const { return mQueryType; }
   bool AsyncEnabled() const { return mAsyncEnabled; }
 
-  nsresult Clone(nsNavHistoryQueryOptions **aResult);
+  nsresult Clone(nsNavHistoryQueryOptions** aResult);
 
-private:
+ private:
   ~nsNavHistoryQueryOptions() {}
-  nsNavHistoryQueryOptions(const nsNavHistoryQueryOptions& other) {} // no copy
+  nsNavHistoryQueryOptions(const nsNavHistoryQueryOptions& other) {}  // no copy
 
   // IF YOU ADD MORE ITEMS:
   //  * Add a new getter for C++ above if it makes sense
@@ -155,6 +164,7 @@ private:
   bool mAsyncEnabled;
 };
 
-NS_DEFINE_STATIC_IID_ACCESSOR(nsNavHistoryQueryOptions, NS_NAVHISTORYQUERYOPTIONS_IID)
+NS_DEFINE_STATIC_IID_ACCESSOR(nsNavHistoryQueryOptions,
+                              NS_NAVHISTORYQUERYOPTIONS_IID)
 
-#endif // nsNavHistoryQuery_h_
+#endif  // nsNavHistoryQuery_h_

@@ -4,13 +4,14 @@
 
 #include "nsAutoCompleteSimpleResult.h"
 
-#define CHECK_MATCH_INDEX(_index, _insert)                                     \
-  if (_index < 0 ||                                                            \
-      static_cast<MatchesArray::size_type>(_index) > mMatches.Length() ||      \
-      (!_insert && static_cast<MatchesArray::size_type>(_index) == mMatches.Length())) { \
-    MOZ_ASSERT(false, "Trying to use an invalid index on mMatches");           \
-    return NS_ERROR_ILLEGAL_VALUE;                                             \
-  }                                                                            \
+#define CHECK_MATCH_INDEX(_index, _insert)                                   \
+  if (_index < 0 ||                                                          \
+      static_cast<MatchesArray::size_type>(_index) > mMatches.Length() ||    \
+      (!_insert &&                                                           \
+       static_cast<MatchesArray::size_type>(_index) == mMatches.Length())) { \
+    MOZ_ASSERT(false, "Trying to use an invalid index on mMatches");         \
+    return NS_ERROR_ILLEGAL_VALUE;                                           \
+  }
 
 NS_IMPL_ISUPPORTS(nsAutoCompleteSimpleResult,
                   nsIAutoCompleteResult,
@@ -24,12 +25,12 @@ struct AutoCompleteSimpleResultMatch
                                 const nsAString& aStyle,
                                 const nsAString& aFinalCompleteValue,
                                 const nsAString& aLabel)
-    : mValue(aValue)
-    , mComment(aComment)
-    , mImage(aImage)
-    , mStyle(aStyle)
-    , mFinalCompleteValue(aFinalCompleteValue)
-    , mLabel(aLabel)
+      : mValue(aValue),
+        mComment(aComment),
+        mImage(aImage),
+        mStyle(aStyle),
+        mFinalCompleteValue(aFinalCompleteValue),
+        mLabel(aLabel)
   {
   }
 
@@ -41,9 +42,8 @@ struct AutoCompleteSimpleResultMatch
   nsString mLabel;
 };
 
-nsAutoCompleteSimpleResult::nsAutoCompleteSimpleResult() :
-  mDefaultIndex(-1),
-  mSearchResult(RESULT_NOMATCH)
+nsAutoCompleteSimpleResult::nsAutoCompleteSimpleResult()
+    : mDefaultIndex(-1), mSearchResult(RESULT_NOMATCH)
 {
 }
 
@@ -73,7 +73,7 @@ nsAutoCompleteSimpleResult::AppendResult(nsIAutoCompleteResult* aResult)
   }
 
   nsCOMPtr<nsIAutoCompleteSimpleResult> simpleResult =
-    do_QueryInterface(aResult);
+      do_QueryInterface(aResult);
   if (simpleResult) {
     nsCOMPtr<nsIAutoCompleteSimpleResultListener> listener;
     if (NS_SUCCEEDED(simpleResult->GetListener(getter_AddRefs(listener))) &&
@@ -111,13 +111,13 @@ nsAutoCompleteSimpleResult::AppendResult(nsIAutoCompleteResult* aResult)
 
 // searchString
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::GetSearchString(nsAString &aSearchString)
+nsAutoCompleteSimpleResult::GetSearchString(nsAString& aSearchString)
 {
   aSearchString = mSearchString;
   return NS_OK;
 }
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::SetSearchString(const nsAString &aSearchString)
+nsAutoCompleteSimpleResult::SetSearchString(const nsAString& aSearchString)
 {
   mSearchString.Assign(aSearchString);
   return NS_OK;
@@ -125,7 +125,7 @@ nsAutoCompleteSimpleResult::SetSearchString(const nsAString &aSearchString)
 
 // searchResult
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::GetSearchResult(uint16_t *aSearchResult)
+nsAutoCompleteSimpleResult::GetSearchResult(uint16_t* aSearchResult)
 {
   *aSearchResult = mSearchResult;
   return NS_OK;
@@ -139,7 +139,7 @@ nsAutoCompleteSimpleResult::SetSearchResult(uint16_t aSearchResult)
 
 // defaultIndex
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::GetDefaultIndex(int32_t *aDefaultIndex)
+nsAutoCompleteSimpleResult::GetDefaultIndex(int32_t* aDefaultIndex)
 {
   *aDefaultIndex = mDefaultIndex;
   return NS_OK;
@@ -153,14 +153,14 @@ nsAutoCompleteSimpleResult::SetDefaultIndex(int32_t aDefaultIndex)
 
 // errorDescription
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::GetErrorDescription(nsAString & aErrorDescription)
+nsAutoCompleteSimpleResult::GetErrorDescription(nsAString& aErrorDescription)
 {
   aErrorDescription = mErrorDescription;
   return NS_OK;
 }
 NS_IMETHODIMP
 nsAutoCompleteSimpleResult::SetErrorDescription(
-                                             const nsAString &aErrorDescription)
+    const nsAString& aErrorDescription)
 {
   mErrorDescription.Assign(aErrorDescription);
   return NS_OK;
@@ -177,7 +177,8 @@ nsAutoCompleteSimpleResult::InsertMatchAt(int32_t aIndex,
 {
   CHECK_MATCH_INDEX(aIndex, true);
 
-  AutoCompleteSimpleResultMatch match(aValue, aComment, aImage, aStyle, aFinalCompleteValue, aLabel);
+  AutoCompleteSimpleResultMatch match(
+      aValue, aComment, aImage, aStyle, aFinalCompleteValue, aLabel);
 
   if (!mMatches.InsertElementAt(aIndex, match)) {
     return NS_ERROR_OUT_OF_MEMORY;
@@ -194,8 +195,13 @@ nsAutoCompleteSimpleResult::AppendMatch(const nsAString& aValue,
                                         const nsAString& aFinalCompleteValue,
                                         const nsAString& aLabel)
 {
-  return InsertMatchAt(mMatches.Length(), aValue, aComment, aImage, aStyle,
-                       aFinalCompleteValue, aLabel);
+  return InsertMatchAt(mMatches.Length(),
+                       aValue,
+                       aComment,
+                       aImage,
+                       aStyle,
+                       aFinalCompleteValue,
+                       aLabel);
 }
 
 NS_IMETHODIMP
@@ -208,7 +214,7 @@ nsAutoCompleteSimpleResult::RemoveMatchAt(int32_t aIndex)
 }
 
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::GetMatchCount(uint32_t *aMatchCount)
+nsAutoCompleteSimpleResult::GetMatchCount(uint32_t* aMatchCount)
 {
   *aMatchCount = mMatches.Length();
   return NS_OK;
@@ -270,14 +276,16 @@ nsAutoCompleteSimpleResult::GetFinalCompleteValueAt(int32_t aIndex,
 }
 
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::SetListener(nsIAutoCompleteSimpleResultListener* aListener)
+nsAutoCompleteSimpleResult::SetListener(
+    nsIAutoCompleteSimpleResultListener* aListener)
 {
   mListener = aListener;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::GetListener(nsIAutoCompleteSimpleResultListener** aListener)
+nsAutoCompleteSimpleResult::GetListener(
+    nsIAutoCompleteSimpleResultListener** aListener)
 {
   nsCOMPtr<nsIAutoCompleteSimpleResultListener> listener(mListener);
   listener.forget(aListener);
@@ -285,8 +293,7 @@ nsAutoCompleteSimpleResult::GetListener(nsIAutoCompleteSimpleResultListener** aL
 }
 
 NS_IMETHODIMP
-nsAutoCompleteSimpleResult::RemoveValueAt(int32_t aRowIndex,
-                                          bool aRemoveFromDb)
+nsAutoCompleteSimpleResult::RemoveValueAt(int32_t aRowIndex, bool aRemoveFromDb)
 {
   CHECK_MATCH_INDEX(aRowIndex, false);
 

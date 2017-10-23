@@ -29,13 +29,11 @@
 
 nsIAttribute::nsIAttribute(nsDOMAttributeMap* aAttrMap,
                            already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-: nsINode(aNodeInfo), mAttrMap(aAttrMap)
+    : nsINode(aNodeInfo), mAttrMap(aAttrMap)
 {
 }
 
-nsIAttribute::~nsIAttribute()
-{
-}
+nsIAttribute::~nsIAttribute() {}
 
 namespace mozilla {
 namespace dom {
@@ -43,10 +41,10 @@ namespace dom {
 //----------------------------------------------------------------------
 bool Attr::sInitialized;
 
-Attr::Attr(nsDOMAttributeMap *aAttrMap,
+Attr::Attr(nsDOMAttributeMap* aAttrMap,
            already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
-           const nsAString  &aValue)
-  : nsIAttribute(aAttrMap, aNodeInfo), mValue(aValue)
+           const nsAString& aValue)
+    : nsIAttribute(aAttrMap, aNodeInfo), mValue(aValue)
 {
   MOZ_ASSERT(mNodeInfo, "We must get a nodeinfo here!");
   MOZ_ASSERT(mNodeInfo->NodeType() == nsIDOMNode::ATTRIBUTE_NODE,
@@ -89,7 +87,8 @@ NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_BEGIN(Attr)
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_END
 
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_IN_CC_BEGIN(Attr)
-  return tmp->HasKnownLiveWrapperAndDoesNotNeedTracing(static_cast<nsIAttribute*>(tmp));
+  return tmp->HasKnownLiveWrapperAndDoesNotNeedTracing(
+      static_cast<nsIAttribute*>(tmp));
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_IN_CC_END
 
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_BEGIN(Attr)
@@ -99,19 +98,24 @@ NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_END
 // QueryInterface implementation for Attr
 NS_INTERFACE_TABLE_HEAD(Attr)
   NS_WRAPPERCACHE_INTERFACE_TABLE_ENTRY
-  NS_INTERFACE_TABLE(Attr, nsINode, nsIDOMAttr, nsIAttribute, nsIDOMNode,
-                     nsIDOMEventTarget, EventTarget)
+  NS_INTERFACE_TABLE(Attr,
+                     nsINode,
+                     nsIDOMAttr,
+                     nsIAttribute,
+                     nsIDOMNode,
+                     nsIDOMEventTarget,
+                     EventTarget)
   NS_INTERFACE_TABLE_TO_MAP_SEGUE_CYCLE_COLLECTION(Attr)
   NS_INTERFACE_MAP_ENTRY_TEAROFF(nsISupportsWeakReference,
                                  new nsNodeSupportsWeakRefTearoff(this))
 NS_INTERFACE_MAP_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(Attr)
-NS_IMPL_CYCLE_COLLECTING_RELEASE_WITH_LAST_RELEASE(Attr,
-                                                   nsNodeUtils::LastRelease(this))
+NS_IMPL_CYCLE_COLLECTING_RELEASE_WITH_LAST_RELEASE(
+    Attr, nsNodeUtils::LastRelease(this))
 
 void
-Attr::SetMap(nsDOMAttributeMap *aMap)
+Attr::SetMap(nsDOMAttributeMap* aMap)
 {
   if (mAttrMap && !aMap && sInitialized) {
     // We're breaking a relationship with content and not getting a new one,
@@ -137,15 +141,16 @@ Attr::SetOwnerDocument(nsIDocument* aDocument)
 {
   NS_ASSERTION(aDocument, "Missing document");
 
-  nsIDocument *doc = OwnerDoc();
+  nsIDocument* doc = OwnerDoc();
   NS_ASSERTION(doc != aDocument, "bad call to Attr::SetOwnerDocument");
   doc->DeleteAllPropertiesFor(this);
 
   RefPtr<mozilla::dom::NodeInfo> newNodeInfo;
-  newNodeInfo = aDocument->NodeInfoManager()->
-    GetNodeInfo(mNodeInfo->NameAtom(), mNodeInfo->GetPrefixAtom(),
-                mNodeInfo->NamespaceID(),
-                nsIDOMNode::ATTRIBUTE_NODE);
+  newNodeInfo =
+      aDocument->NodeInfoManager()->GetNodeInfo(mNodeInfo->NameAtom(),
+                                                mNodeInfo->GetPrefixAtom(),
+                                                mNodeInfo->NamespaceID(),
+                                                nsIDOMNode::ATTRIBUTE_NODE);
   NS_ASSERTION(newNodeInfo, "GetNodeInfo lies");
   mNodeInfo.swap(newNodeInfo);
 
@@ -166,8 +171,7 @@ Attr::GetValue(nsAString& aValue)
   if (element) {
     RefPtr<nsAtom> nameAtom = mNodeInfo->NameAtom();
     element->GetAttr(mNodeInfo->NamespaceID(), nameAtom, aValue);
-  }
-  else {
+  } else {
     aValue = mValue;
   }
 
@@ -175,7 +179,9 @@ Attr::GetValue(nsAString& aValue)
 }
 
 void
-Attr::SetValue(const nsAString& aValue, nsIPrincipal* aTriggeringPrincipal, ErrorResult& aRv)
+Attr::SetValue(const nsAString& aValue,
+               nsIPrincipal* aTriggeringPrincipal,
+               ErrorResult& aRv)
 {
   Element* element = GetElement();
   if (!element) {
@@ -248,7 +254,8 @@ Attr::SetNodeValueInternal(const nsAString& aNodeValue, ErrorResult& aError)
 }
 
 nsresult
-Attr::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+Attr::Clone(mozilla::dom::NodeInfo* aNodeInfo,
+            nsINode** aResult,
             bool aPreallocateChildren) const
 {
   nsAutoString value;
@@ -274,15 +281,13 @@ Attr::GetBaseURI(bool aTryUseXHRDocBaseURI) const
 }
 
 void
-Attr::GetTextContentInternal(nsAString& aTextContent,
-                             OOMReporter& aError)
+Attr::GetTextContentInternal(nsAString& aTextContent, OOMReporter& aError)
 {
   GetValue(aTextContent);
 }
 
 void
-Attr::SetTextContentInternal(const nsAString& aTextContent,
-                             ErrorResult& aError)
+Attr::SetTextContentInternal(const nsAString& aTextContent, ErrorResult& aError)
 {
   SetNodeValueInternal(aTextContent, aError);
 }
@@ -297,7 +302,7 @@ Attr::GetIsId(bool* aReturn)
 bool
 Attr::IsNodeOfType(uint32_t aFlags) const
 {
-    return !(aFlags & ~eATTRIBUTE);
+  return !(aFlags & ~eATTRIBUTE);
 }
 
 uint32_t
@@ -306,7 +311,7 @@ Attr::GetChildCount() const
   return 0;
 }
 
-nsIContent *
+nsIContent*
 Attr::GetChildAt(uint32_t aIndex) const
 {
   return nullptr;
@@ -319,8 +324,7 @@ Attr::IndexOf(const nsINode* aPossibleChild) const
 }
 
 nsresult
-Attr::InsertChildAt(nsIContent* aKid, uint32_t aIndex,
-                              bool aNotify)
+Attr::InsertChildAt(nsIContent* aKid, uint32_t aIndex, bool aNotify)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -355,5 +359,5 @@ Attr::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return AttrBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

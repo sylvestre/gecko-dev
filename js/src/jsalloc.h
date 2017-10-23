@@ -21,34 +21,41 @@ extern JS_PUBLIC_API(void) JS_ReportOutOfMemory(JSContext* cx);
 
 namespace JS {
 struct Zone;
-} // namespace JS
+}  // namespace JS
 
 namespace js {
 
-enum class AllocFunction {
-    Malloc,
-    Calloc,
-    Realloc
-};
+enum class AllocFunction { Malloc, Calloc, Realloc };
 /* Policy for using system memory functions and doing no error reporting. */
-class SystemAllocPolicy
-{
-  public:
-    template <typename T> T* maybe_pod_malloc(size_t numElems) { return js_pod_malloc<T>(numElems); }
-    template <typename T> T* maybe_pod_calloc(size_t numElems) { return js_pod_calloc<T>(numElems); }
-    template <typename T> T* maybe_pod_realloc(T* p, size_t oldSize, size_t newSize) {
+class SystemAllocPolicy {
+   public:
+    template <typename T>
+    T* maybe_pod_malloc(size_t numElems) {
+        return js_pod_malloc<T>(numElems);
+    }
+    template <typename T>
+    T* maybe_pod_calloc(size_t numElems) {
+        return js_pod_calloc<T>(numElems);
+    }
+    template <typename T>
+    T* maybe_pod_realloc(T* p, size_t oldSize, size_t newSize) {
         return js_pod_realloc<T>(p, oldSize, newSize);
     }
-    template <typename T> T* pod_malloc(size_t numElems) { return maybe_pod_malloc<T>(numElems); }
-    template <typename T> T* pod_calloc(size_t numElems) { return maybe_pod_calloc<T>(numElems); }
-    template <typename T> T* pod_realloc(T* p, size_t oldSize, size_t newSize) {
+    template <typename T>
+    T* pod_malloc(size_t numElems) {
+        return maybe_pod_malloc<T>(numElems);
+    }
+    template <typename T>
+    T* pod_calloc(size_t numElems) {
+        return maybe_pod_calloc<T>(numElems);
+    }
+    template <typename T>
+    T* pod_realloc(T* p, size_t oldSize, size_t newSize) {
         return maybe_pod_realloc<T>(p, oldSize, newSize);
     }
     void free_(void* p) { js_free(p); }
     void reportAllocOverflow() const {}
-    bool checkSimulatedOOM() const {
-        return !js::oom::ShouldFailWithOOM();
-    }
+    bool checkSimulatedOOM() const { return !js::oom::ShouldFailWithOOM(); }
 };
 
 JS_FRIEND_API(void) ReportOutOfMemory(JSContext* cx);
@@ -62,26 +69,24 @@ JS_FRIEND_API(void) ReportOutOfMemory(JSContext* cx);
  * FIXME bug 647103 - rewrite this in terms of temporary allocation functions,
  * not the system ones.
  */
-class TempAllocPolicy
-{
+class TempAllocPolicy {
     JSContext* const cx_;
 
     /*
      * Non-inline helper to call JSRuntime::onOutOfMemory with minimal
      * code bloat.
      */
-    JS_FRIEND_API(void*) onOutOfMemory(AllocFunction allocFunc, size_t nbytes,
-                                       void* reallocPtr = nullptr);
+    JS_FRIEND_API(void*)
+    onOutOfMemory(AllocFunction allocFunc, size_t nbytes, void* reallocPtr = nullptr);
 
     template <typename T>
     T* onOutOfMemoryTyped(AllocFunction allocFunc, size_t numElems, void* reallocPtr = nullptr) {
         size_t bytes;
-        if (MOZ_UNLIKELY(!CalculateAllocSize<T>(numElems, &bytes)))
-            return nullptr;
+        if (MOZ_UNLIKELY(!CalculateAllocSize<T>(numElems, &bytes))) return nullptr;
         return static_cast<T*>(onOutOfMemory(allocFunc, bytes, reallocPtr));
     }
 
-  public:
+   public:
     MOZ_IMPLICIT TempAllocPolicy(JSContext* cx) : cx_(cx) {}
 
     template <typename T>
@@ -102,30 +107,25 @@ class TempAllocPolicy
     template <typename T>
     T* pod_malloc(size_t numElems) {
         T* p = maybe_pod_malloc<T>(numElems);
-        if (MOZ_UNLIKELY(!p))
-            p = onOutOfMemoryTyped<T>(AllocFunction::Malloc, numElems);
+        if (MOZ_UNLIKELY(!p)) p = onOutOfMemoryTyped<T>(AllocFunction::Malloc, numElems);
         return p;
     }
 
     template <typename T>
     T* pod_calloc(size_t numElems) {
         T* p = maybe_pod_calloc<T>(numElems);
-        if (MOZ_UNLIKELY(!p))
-            p = onOutOfMemoryTyped<T>(AllocFunction::Calloc, numElems);
+        if (MOZ_UNLIKELY(!p)) p = onOutOfMemoryTyped<T>(AllocFunction::Calloc, numElems);
         return p;
     }
 
     template <typename T>
     T* pod_realloc(T* prior, size_t oldSize, size_t newSize) {
         T* p2 = maybe_pod_realloc<T>(prior, oldSize, newSize);
-        if (MOZ_UNLIKELY(!p2))
-            p2 = onOutOfMemoryTyped<T>(AllocFunction::Realloc, newSize, prior);
+        if (MOZ_UNLIKELY(!p2)) p2 = onOutOfMemoryTyped<T>(AllocFunction::Realloc, newSize, prior);
         return p2;
     }
 
-    void free_(void* p) {
-        js_free(p);
-    }
+    void free_(void* p) { js_free(p); }
 
     JS_FRIEND_API(void) reportAllocOverflow() const;
 
@@ -150,27 +150,30 @@ class TempAllocPolicy
  *
  * FIXME bug 647103 - replace these *AllocPolicy names.
  */
-class ZoneAllocPolicy
-{
+class ZoneAllocPolicy {
     JS::Zone* const zone;
 
-  public:
+   public:
     MOZ_IMPLICIT ZoneAllocPolicy(JS::Zone* z) : zone(z) {}
 
     // These methods are defined in gc/Zone.h.
-    template <typename T> inline T* maybe_pod_malloc(size_t numElems);
-    template <typename T> inline T* maybe_pod_calloc(size_t numElems);
-    template <typename T> inline T* maybe_pod_realloc(T* p, size_t oldSize, size_t newSize);
-    template <typename T> inline T* pod_malloc(size_t numElems);
-    template <typename T> inline T* pod_calloc(size_t numElems);
-    template <typename T> inline T* pod_realloc(T* p, size_t oldSize, size_t newSize);
+    template <typename T>
+    inline T* maybe_pod_malloc(size_t numElems);
+    template <typename T>
+    inline T* maybe_pod_calloc(size_t numElems);
+    template <typename T>
+    inline T* maybe_pod_realloc(T* p, size_t oldSize, size_t newSize);
+    template <typename T>
+    inline T* pod_malloc(size_t numElems);
+    template <typename T>
+    inline T* pod_calloc(size_t numElems);
+    template <typename T>
+    inline T* pod_realloc(T* p, size_t oldSize, size_t newSize);
 
     void free_(void* p) { js_free(p); }
     void reportAllocOverflow() const {}
 
-    MOZ_MUST_USE bool checkSimulatedOOM() const {
-        return !js::oom::ShouldFailWithOOM();
-    }
+    MOZ_MUST_USE bool checkSimulatedOOM() const { return !js::oom::ShouldFailWithOOM(); }
 };
 
 } /* namespace js */

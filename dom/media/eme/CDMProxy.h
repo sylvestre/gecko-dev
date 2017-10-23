@@ -20,7 +20,8 @@ class MediaRawData;
 class ChromiumCDMProxy;
 
 namespace eme {
-enum DecryptStatus {
+enum DecryptStatus
+{
   Ok = 0,
   GenericErr = 1,
   NoKeyErr = 2,
@@ -30,29 +31,32 @@ enum DecryptStatus {
 
 using eme::DecryptStatus;
 
-struct DecryptResult {
+struct DecryptResult
+{
   DecryptResult(DecryptStatus aStatus, MediaRawData* aSample)
-    : mStatus(aStatus)
-    , mSample(aSample)
-  {}
+      : mStatus(aStatus), mSample(aSample)
+  {
+  }
   DecryptStatus mStatus;
   RefPtr<MediaRawData> mSample;
 };
 
-typedef MozPromise<DecryptResult, DecryptResult, /* IsExclusive = */ true> DecryptPromise;
+typedef MozPromise<DecryptResult, DecryptResult, /* IsExclusive = */ true>
+    DecryptPromise;
 
-class CDMKeyInfo {
-public:
+class CDMKeyInfo
+{
+ public:
   explicit CDMKeyInfo(const nsTArray<uint8_t>& aKeyId)
-    : mKeyId(aKeyId)
-    , mStatus()
-  {}
+      : mKeyId(aKeyId), mStatus()
+  {
+  }
 
   CDMKeyInfo(const nsTArray<uint8_t>& aKeyId,
              const dom::Optional<dom::MediaKeyStatus>& aStatus)
-    : mKeyId(aKeyId)
-    , mStatus(aStatus.Value())
-  {}
+      : mKeyId(aKeyId), mStatus(aStatus.Value())
+  {
+  }
 
   // The copy-ctor and copy-assignment operator for Optional<T> are declared as
   // delete, so override CDMKeyInfo copy-ctor for nsTArray operations.
@@ -76,12 +80,13 @@ typedef int64_t UnixTime;
 // Note: Promises are passed in via a PromiseId, so that the ID can be
 // passed via IPC to the CDM, which can then signal when to reject or
 // resolve the promise using its PromiseId.
-class CDMProxy {
-protected:
+class CDMProxy
+{
+ protected:
   typedef dom::PromiseId PromiseId;
   typedef dom::MediaKeySessionType MediaKeySessionType;
-public:
 
+ public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
   // Main thread only.
@@ -90,12 +95,13 @@ public:
            bool aDistinctiveIdentifierRequired,
            bool aPersistentStateRequired,
            nsIEventTarget* aMainThread)
-    : mKeys(aKeys)
-    , mKeySystem(aKeySystem)
-    , mDistinctiveIdentifierRequired(aDistinctiveIdentifierRequired)
-    , mPersistentStateRequired(aPersistentStateRequired)
-    , mMainThread(aMainThread)
-  {}
+      : mKeys(aKeys),
+        mKeySystem(aKeySystem),
+        mDistinctiveIdentifierRequired(aDistinctiveIdentifierRequired),
+        mPersistentStateRequired(aPersistentStateRequired),
+        mMainThread(aMainThread)
+  {
+  }
 
   // Main thread only.
   // Loads the CDM corresponding to mKeySystem.
@@ -217,7 +223,7 @@ public:
   // Threadsafe.
   virtual const nsString& KeySystem() const = 0;
 
-  virtual  CDMCaps& Capabilites() = 0;
+  virtual CDMCaps& Capabilites() = 0;
 
   // Main thread only.
   virtual void OnKeyStatusesChange(const nsAString& aSessionId) = 0;
@@ -233,34 +239,38 @@ public:
 
   virtual ChromiumCDMProxy* AsChromiumCDMProxy() { return nullptr; }
 
-protected:
+ protected:
   virtual ~CDMProxy() {}
 
   // Helper to enforce that a raw pointer is only accessed on the main thread.
   template<class Type>
-  class MainThreadOnlyRawPtr {
-  public:
-    explicit MainThreadOnlyRawPtr(Type* aPtr)
-      : mPtr(aPtr)
+  class MainThreadOnlyRawPtr
+  {
+   public:
+    explicit MainThreadOnlyRawPtr(Type* aPtr) : mPtr(aPtr)
     {
       MOZ_ASSERT(NS_IsMainThread());
     }
 
-    bool IsNull() const {
+    bool IsNull() const
+    {
       MOZ_ASSERT(NS_IsMainThread());
       return !mPtr;
     }
 
-    void Clear() {
+    void Clear()
+    {
       MOZ_ASSERT(NS_IsMainThread());
       mPtr = nullptr;
     }
 
-    Type* operator->() const MOZ_NO_ADDREF_RELEASE_ON_RETURN {
+    Type* operator->() const MOZ_NO_ADDREF_RELEASE_ON_RETURN
+    {
       MOZ_ASSERT(NS_IsMainThread());
       return mPtr;
     }
-  private:
+
+   private:
     Type* mPtr;
   };
 
@@ -286,7 +296,6 @@ protected:
   const nsCOMPtr<nsIEventTarget> mMainThread;
 };
 
+}  // namespace mozilla
 
-} // namespace mozilla
-
-#endif // CDMProxy_h_
+#endif  // CDMProxy_h_

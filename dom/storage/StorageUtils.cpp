@@ -11,7 +11,8 @@ namespace dom {
 namespace StorageUtils {
 
 nsresult
-GenerateOriginKey(nsIPrincipal* aPrincipal, nsACString& aOriginAttrSuffix,
+GenerateOriginKey(nsIPrincipal* aPrincipal,
+                  nsACString& aOriginAttrSuffix,
                   nsACString& aOriginKey)
 {
   if (NS_WARN_IF(!aPrincipal)) {
@@ -69,8 +70,7 @@ GenerateOriginKey(nsIPrincipal* aPrincipal, nsACString& aOriginAttrSuffix,
 }
 
 bool
-PrincipalsEqual(nsIPrincipal* aObjectPrincipal,
-                nsIPrincipal* aSubjectPrincipal)
+PrincipalsEqual(nsIPrincipal* aObjectPrincipal, nsIPrincipal* aSubjectPrincipal)
 {
   if (!aSubjectPrincipal) {
     return true;
@@ -101,8 +101,7 @@ ReverseString(const nsACString& aSource, nsACString& aResult)
 }
 
 nsresult
-CreateReversedDomain(const nsACString& aAsciiDomain,
-                     nsACString& aKey)
+CreateReversedDomain(const nsACString& aAsciiDomain, nsACString& aKey)
 {
   if (aAsciiDomain.IsEmpty()) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -114,6 +113,6 @@ CreateReversedDomain(const nsACString& aAsciiDomain,
   return NS_OK;
 }
 
-} // StorageUtils namespace
-} // dom namespace
-} // mozilla namespace
+}  // namespace StorageUtils
+}  // namespace dom
+}  // namespace mozilla

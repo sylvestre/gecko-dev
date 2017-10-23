@@ -119,8 +119,7 @@ class InvalidationBailoutStack;
 // This structure is constructed before recovering the baseline frames for a
 // bailout. It records all information extracted from the stack, and which are
 // needed for the JSJitFrameIter.
-class BailoutFrameInfo
-{
+class BailoutFrameInfo {
     MachineState machine_;
     uint8_t* framePointer_;
     size_t topFrameSize_;
@@ -130,30 +129,18 @@ class BailoutFrameInfo
 
     void attachOnJitActivation(const JitActivationIterator& activations);
 
-  public:
+   public:
     BailoutFrameInfo(const JitActivationIterator& activations, BailoutStack* sp);
     BailoutFrameInfo(const JitActivationIterator& activations, InvalidationBailoutStack* sp);
     BailoutFrameInfo(const JitActivationIterator& activations, const JSJitFrameIter& frame);
     ~BailoutFrameInfo();
 
-    uint8_t* fp() const {
-        return framePointer_;
-    }
-    SnapshotOffset snapshotOffset() const {
-        return snapshotOffset_;
-    }
-    const MachineState* machineState() const {
-        return &machine_;
-    }
-    size_t topFrameSize() const {
-        return topFrameSize_;
-    }
-    IonScript* ionScript() const {
-        return topIonScript_;
-    }
-    JitActivation* activation() const {
-        return activation_;
-    }
+    uint8_t* fp() const { return framePointer_; }
+    SnapshotOffset snapshotOffset() const { return snapshotOffset_; }
+    const MachineState* machineState() const { return &machine_; }
+    size_t topFrameSize() const { return topFrameSize_; }
+    IonScript* ionScript() const { return topIonScript_; }
+    JitActivation* activation() const { return activation_; }
 };
 
 MOZ_MUST_USE bool EnsureHasEnvironmentObjects(JSContext* cx, AbstractFramePtr fp);
@@ -167,31 +154,19 @@ uint32_t Bailout(BailoutStack* sp, BaselineBailoutInfo** info);
 uint32_t InvalidationBailout(InvalidationBailoutStack* sp, size_t* frameSizeOut,
                              BaselineBailoutInfo** info);
 
-class ExceptionBailoutInfo
-{
+class ExceptionBailoutInfo {
     size_t frameNo_;
     jsbytecode* resumePC_;
     size_t numExprSlots_;
 
-  public:
+   public:
     ExceptionBailoutInfo(size_t frameNo, jsbytecode* resumePC, size_t numExprSlots)
-      : frameNo_(frameNo),
-        resumePC_(resumePC),
-        numExprSlots_(numExprSlots)
-    { }
+        : frameNo_(frameNo), resumePC_(resumePC), numExprSlots_(numExprSlots) {}
 
-    ExceptionBailoutInfo()
-      : frameNo_(0),
-        resumePC_(nullptr),
-        numExprSlots_(0)
-    { }
+    ExceptionBailoutInfo() : frameNo_(0), resumePC_(nullptr), numExprSlots_(0) {}
 
-    bool catchingException() const {
-        return !!resumePC_;
-    }
-    bool propagatingIonExceptionForDebugMode() const {
-        return !resumePC_;
-    }
+    bool catchingException() const { return !!resumePC_; }
+    bool propagatingIonExceptionForDebugMode() const { return !resumePC_; }
 
     size_t frameNo() const {
         MOZ_ASSERT(catchingException());
@@ -210,15 +185,14 @@ class ExceptionBailoutInfo
 // Called from the exception handler to enter a catch or finally block.
 // Returns a BAILOUT_* error code.
 uint32_t ExceptionHandlerBailout(JSContext* cx, const InlineFrameIterator& frame,
-                                 ResumeFromException* rfe,
-                                 const ExceptionBailoutInfo& excInfo,
+                                 ResumeFromException* rfe, const ExceptionBailoutInfo& excInfo,
                                  bool* overrecursed);
 
 uint32_t FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfo);
 
 void CheckFrequentBailouts(JSContext* cx, JSScript* script, BailoutKind bailoutKind);
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_Bailouts_h */

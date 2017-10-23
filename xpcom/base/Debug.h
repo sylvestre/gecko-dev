@@ -12,10 +12,11 @@ namespace mozilla {
 #ifdef XP_WIN
 
 // Print aStr to a debugger if the debugger is attached.
-void PrintToDebugger(const char* aStr);
+void
+PrintToDebugger(const char* aStr);
 
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Debug_h__
+#endif  // mozilla_Debug_h__

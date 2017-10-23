@@ -38,19 +38,21 @@ class Http2PushedStream;
 // One cache per load group
 class SpdyPushCache
 {
-public:
+ public:
   // The cache holds only weak pointers - no references
   SpdyPushCache();
   virtual ~SpdyPushCache();
-  MOZ_MUST_USE bool  RegisterPushedStreamHttp2(const nsCString& key,
-                                               Http2PushedStream *stream);
-  Http2PushedStream *RemovePushedStreamHttp2(const nsCString& key);
-  Http2PushedStream *RemovePushedStreamHttp2ByID(const nsCString& key, const uint32_t& streamID);
-private:
-  nsDataHashtable<nsCStringHashKey, Http2PushedStream *> mHashHttp2;
+  MOZ_MUST_USE bool RegisterPushedStreamHttp2(const nsCString& key,
+                                              Http2PushedStream* stream);
+  Http2PushedStream* RemovePushedStreamHttp2(const nsCString& key);
+  Http2PushedStream* RemovePushedStreamHttp2ByID(const nsCString& key,
+                                                 const uint32_t& streamID);
+
+ private:
+  nsDataHashtable<nsCStringHashKey, Http2PushedStream*> mHashHttp2;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_SpdyPush_Public_h
+#endif  // mozilla_net_SpdyPush_Public_h

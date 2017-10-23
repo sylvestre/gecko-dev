@@ -25,7 +25,7 @@ class nsIFile;
 
 class nsIconChannel final : public nsIChannel, public nsIStreamListener
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIREQUEST
   NS_DECL_NSICHANNEL
@@ -36,18 +36,18 @@ public:
 
   nsresult Init(nsIURI* uri);
 
-protected:
+ protected:
   virtual ~nsIconChannel();
 
   nsCOMPtr<nsIURI> mUrl;
   nsCOMPtr<nsIURI> mOriginalURI;
   nsCOMPtr<nsILoadGroup> mLoadGroup;
   nsCOMPtr<nsIInterfaceRequestor> mCallbacks;
-  nsCOMPtr<nsISupports>  mOwner;
-  nsCOMPtr<nsILoadInfo>  mLoadInfo;
+  nsCOMPtr<nsISupports> mOwner;
+  nsCOMPtr<nsILoadInfo> mLoadInfo;
 
   nsCOMPtr<nsIInputStreamPump> mPump;
-  nsCOMPtr<nsIStreamListener>  mListener;
+  nsCOMPtr<nsIStreamListener> mListener;
 
   nsresult MakeInputStream(nsIInputStream** _retval, bool nonBlocking);
 
@@ -57,4 +57,4 @@ protected:
                                   nsACString& aFileExtension);
 };
 
-#endif // mozilla_image_encoders_icon_mac_nsIconChannel_h
+#endif  // mozilla_image_encoders_icon_mac_nsIconChannel_h

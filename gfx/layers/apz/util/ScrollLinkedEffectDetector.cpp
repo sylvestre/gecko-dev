@@ -26,7 +26,7 @@ ScrollLinkedEffectDetector::PositioningPropertyMutated()
 }
 
 ScrollLinkedEffectDetector::ScrollLinkedEffectDetector(nsIDocument* aDoc)
-  : mDocument(aDoc)
+    : mDocument(aDoc)
 {
   MOZ_ASSERT(NS_IsMainThread());
   sDepth++;
@@ -45,5 +45,5 @@ ScrollLinkedEffectDetector::~ScrollLinkedEffectDetector()
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

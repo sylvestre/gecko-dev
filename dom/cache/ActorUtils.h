@@ -14,7 +14,7 @@ namespace mozilla {
 namespace ipc {
 class PBackgroundParent;
 class PrincipalInfo;
-} // namespace ipc
+}  // namespace ipc
 
 namespace dom {
 namespace cache {
@@ -58,8 +58,8 @@ DeallocPCacheStorageChild(PCacheStorageChild* aActor);
 void
 DeallocPCacheStorageParent(PCacheStorageParent* aActor);
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_ActorUtils_h
+#endif  // mozilla_dom_cache_ActorUtils_h

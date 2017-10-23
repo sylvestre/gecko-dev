@@ -15,7 +15,7 @@ namespace net {
 // class must be called locked
 class PollableEvent
 {
-public:
+ public:
   PollableEvent();
   ~PollableEvent();
 
@@ -24,15 +24,15 @@ public:
   bool Clear();
   bool Valid() { return mWriteFD && mReadFD; }
 
-  PRFileDesc *PollableFD() { return mReadFD; }
+  PRFileDesc* PollableFD() { return mReadFD; }
 
-private:
-  PRFileDesc *mWriteFD;
-  PRFileDesc *mReadFD;
-  bool        mSignaled;
+ private:
+  PRFileDesc* mWriteFD;
+  PRFileDesc* mReadFD;
+  bool mSignaled;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

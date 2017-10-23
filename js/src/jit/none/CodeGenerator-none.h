@@ -12,22 +12,26 @@
 namespace js {
 namespace jit {
 
-class CodeGeneratorNone : public CodeGeneratorShared
-{
-  public:
+class CodeGeneratorNone : public CodeGeneratorShared {
+   public:
     CodeGeneratorNone(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm)
-      : CodeGeneratorShared(gen, graph, masm)
-    {
+        : CodeGeneratorShared(gen, graph, masm) {
         MOZ_CRASH();
     }
 
     MoveOperand toMoveOperand(LAllocation) const { MOZ_CRASH(); }
     template <typename T1, typename T2>
-    void bailoutCmp32(Assembler::Condition, T1, T2, LSnapshot*) { MOZ_CRASH(); }
-    template<typename T>
-    void bailoutTest32(Assembler::Condition, Register, T, LSnapshot*) { MOZ_CRASH(); }
+    void bailoutCmp32(Assembler::Condition, T1, T2, LSnapshot*) {
+        MOZ_CRASH();
+    }
+    template <typename T>
+    void bailoutTest32(Assembler::Condition, Register, T, LSnapshot*) {
+        MOZ_CRASH();
+    }
     template <typename T1, typename T2>
-    void bailoutCmpPtr(Assembler::Condition, T1, T2, LSnapshot*) { MOZ_CRASH(); }
+    void bailoutCmpPtr(Assembler::Condition, T1, T2, LSnapshot*) {
+        MOZ_CRASH();
+    }
     void bailoutTestPtr(Assembler::Condition, Register, Register, LSnapshot*) { MOZ_CRASH(); }
     void bailoutIfFalseBool(Register, LSnapshot*) { MOZ_CRASH(); }
     void bailoutFrom(Label*, LSnapshot*) { MOZ_CRASH(); }
@@ -56,7 +60,7 @@ class CodeGeneratorNone : public CodeGeneratorShared
 
 typedef CodeGeneratorNone CodeGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_none_CodeGenerator_none_h */

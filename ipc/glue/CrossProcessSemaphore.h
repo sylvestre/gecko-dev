@@ -21,7 +21,7 @@
 namespace IPC {
 template<typename T>
 struct ParamTraits;
-} // namespace IPC
+}  // namespace IPC
 
 //
 // Provides:
@@ -40,12 +40,13 @@ typedef uintptr_t CrossProcessSemaphoreHandle;
 
 class CrossProcessSemaphore
 {
-public:
+ public:
   /**
    * CrossProcessSemaphore
    * @param name A name which can reference this lock (currently unused)
    **/
-  static CrossProcessSemaphore* Create(const char* aName, uint32_t aInitialValue);
+  static CrossProcessSemaphore* Create(const char* aName,
+                                       uint32_t aInitialValue);
 
   /**
    * CrossProcessSemaphore
@@ -78,12 +79,12 @@ public:
    */
   CrossProcessSemaphoreHandle ShareToProcess(base::ProcessId aTargetPid);
 
-private:
+ private:
   friend struct IPC::ParamTraits<CrossProcessSemaphore>;
 
   CrossProcessSemaphore();
   CrossProcessSemaphore(const CrossProcessSemaphore&);
-  CrossProcessSemaphore &operator=(const CrossProcessSemaphore&);
+  CrossProcessSemaphore& operator=(const CrossProcessSemaphore&);
 
 #if defined(OS_WIN)
   explicit CrossProcessSemaphore(HANDLE aSemaphore);
@@ -96,6 +97,6 @@ private:
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

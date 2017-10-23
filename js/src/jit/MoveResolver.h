@@ -19,9 +19,8 @@ class MacroAssembler;
 
 // This is similar to Operand, but carries more information. We're also not
 // guaranteed that Operand looks like this on all ISAs.
-class MoveOperand
-{
-  public:
+class MoveOperand {
+   public:
     enum Kind {
         // A register in the "integer", aka "general purpose", class.
         REG,
@@ -39,41 +38,27 @@ class MoveOperand
         EFFECTIVE_ADDRESS
     };
 
-  private:
+   private:
     Kind kind_;
     uint32_t code_;
     int32_t disp_;
 
-  public:
-    MoveOperand()
-    { }
-    explicit MoveOperand(Register reg) : kind_(REG), code_(reg.code())
-    { }
-    explicit MoveOperand(FloatRegister reg) : kind_(FLOAT_REG), code_(reg.code())
-    { }
+   public:
+    MoveOperand() {}
+    explicit MoveOperand(Register reg) : kind_(REG), code_(reg.code()) {}
+    explicit MoveOperand(FloatRegister reg) : kind_(FLOAT_REG), code_(reg.code()) {}
     MoveOperand(Register reg, int32_t disp, Kind kind = MEMORY)
-        : kind_(kind),
-        code_(reg.code()),
-        disp_(disp)
-    {
+        : kind_(kind), code_(reg.code()), disp_(disp) {
         MOZ_ASSERT(isMemoryOrEffectiveAddress());
 
         // With a zero offset, this is a plain reg-to-reg move.
-        if (disp == 0 && kind_ == EFFECTIVE_ADDRESS)
-            kind_ = REG;
+        if (disp == 0 && kind_ == EFFECTIVE_ADDRESS) kind_ = REG;
     }
     MoveOperand(MacroAssembler& masm, const ABIArg& arg);
     MoveOperand(const MoveOperand& other)
-      : kind_(other.kind_),
-        code_(other.code_),
-        disp_(other.disp_)
-    { }
-    bool isFloatReg() const {
-        return kind_ == FLOAT_REG;
-    }
-    bool isGeneralReg() const {
-        return kind_ == REG;
-    }
+        : kind_(other.kind_), code_(other.code_), disp_(other.disp_) {}
+    bool isFloatReg() const { return kind_ == FLOAT_REG; }
+    bool isGeneralReg() const { return kind_ == REG; }
     bool isGeneralRegPair() const {
 #ifdef JS_CODEGEN_REGISTER_PAIR
         return kind_ == REG_PAIR;
@@ -81,15 +66,9 @@ class MoveOperand
         return false;
 #endif
     }
-    bool isMemory() const {
-        return kind_ == MEMORY;
-    }
-    bool isEffectiveAddress() const {
-        return kind_ == EFFECTIVE_ADDRESS;
-    }
-    bool isMemoryOrEffectiveAddress() const {
-        return isMemory() || isEffectiveAddress();
-    }
+    bool isMemory() const { return kind_ == MEMORY; }
+    bool isEffectiveAddress() const { return kind_ == EFFECTIVE_ADDRESS; }
+    bool isMemoryOrEffectiveAddress() const { return isMemory() || isEffectiveAddress(); }
     Register reg() const {
         MOZ_ASSERT(isGeneralReg());
         return Register::FromCode(code_);
@@ -116,15 +95,12 @@ class MoveOperand
     }
 
     bool aliases(MoveOperand other) const {
-
         // These are not handled presently, but MEMORY and EFFECTIVE_ADDRESS
         // only appear in controlled circumstances in the trampoline code
         // which ensures these cases never come up.
 
-        MOZ_ASSERT_IF(isMemoryOrEffectiveAddress() && other.isGeneralReg(),
-                      base() != other.reg());
-        MOZ_ASSERT_IF(other.isMemoryOrEffectiveAddress() && isGeneralReg(),
-                      other.base() != reg());
+        MOZ_ASSERT_IF(isMemoryOrEffectiveAddress() && other.isGeneralReg(), base() != other.reg());
+        MOZ_ASSERT_IF(other.isMemoryOrEffectiveAddress() && isGeneralReg(), other.base() != reg());
 
         // Check if one of the operand is a registe rpair, in which case, we
         // have to check any other register, or register pair.
@@ -140,62 +116,44 @@ class MoveOperand
                 return evenReg().aliases(other.evenReg());
             } else if (other.isGeneralReg()) {
                 MOZ_ASSERT(isGeneralRegPair());
-                return evenReg().aliases(other.reg()) ||
-                       oddReg().aliases(other.reg());
+                return evenReg().aliases(other.reg()) || oddReg().aliases(other.reg());
             } else if (isGeneralReg()) {
                 MOZ_ASSERT(other.isGeneralRegPair());
-                return other.evenReg().aliases(reg()) ||
-                       other.oddReg().aliases(reg());
+                return other.evenReg().aliases(reg()) || other.oddReg().aliases(reg());
             }
             return false;
         }
 
-        if (kind_ != other.kind_)
-            return false;
-        if (kind_ == FLOAT_REG)
-            return floatReg().aliases(other.floatReg());
-        if (code_ != other.code_)
-            return false;
-        if (isMemoryOrEffectiveAddress())
-            return disp_ == other.disp_;
+        if (kind_ != other.kind_) return false;
+        if (kind_ == FLOAT_REG) return floatReg().aliases(other.floatReg());
+        if (code_ != other.code_) return false;
+        if (isMemoryOrEffectiveAddress()) return disp_ == other.disp_;
         return true;
     }
 
-    bool operator ==(const MoveOperand& other) const {
-        if (kind_ != other.kind_)
-            return false;
-        if (code_ != other.code_)
-            return false;
-        if (isMemoryOrEffectiveAddress())
-            return disp_ == other.disp_;
+    bool operator==(const MoveOperand& other) const {
+        if (kind_ != other.kind_) return false;
+        if (code_ != other.code_) return false;
+        if (isMemoryOrEffectiveAddress()) return disp_ == other.disp_;
         return true;
     }
-    bool operator !=(const MoveOperand& other) const {
-        return !operator==(other);
-    }
+    bool operator!=(const MoveOperand& other) const { return !operator==(other); }
 };
 
 // This represents a move operation.
-class MoveOp
-{
-  protected:
+class MoveOp {
+   protected:
     MoveOperand from_;
     MoveOperand to_;
     bool cycleBegin_;
     bool cycleEnd_;
     int cycleBeginSlot_;
     int cycleEndSlot_;
-  public:
-    enum Type {
-        GENERAL,
-        INT32,
-        FLOAT32,
-        DOUBLE,
-        SIMD128INT,
-        SIMD128FLOAT
-    };
 
-  protected:
+   public:
+    enum Type { GENERAL, INT32, FLOAT32, DOUBLE, SIMD128INT, SIMD128FLOAT };
+
+   protected:
     Type type_;
 
     // If cycleBegin_ is true, endCycleType_ is the type of the move at the end
@@ -206,26 +164,21 @@ class MoveOp
     // the last move can read it. This copy needs to use use type GENERAL.
     Type endCycleType_;
 
-  public:
-    MoveOp()
-    { }
+   public:
+    MoveOp() {}
     MoveOp(const MoveOperand& from, const MoveOperand& to, Type type)
-      : from_(from),
-        to_(to),
-        cycleBegin_(false),
-        cycleEnd_(false),
-        cycleBeginSlot_(-1),
-        cycleEndSlot_(-1),
-        type_(type),
-        endCycleType_(GENERAL) // initialize to silence UBSan warning
-    { }
+        : from_(from),
+          to_(to),
+          cycleBegin_(false),
+          cycleEnd_(false),
+          cycleBeginSlot_(-1),
+          cycleEndSlot_(-1),
+          type_(type),
+          endCycleType_(GENERAL)  // initialize to silence UBSan warning
+    {}
 
-    bool isCycleBegin() const {
-        return cycleBegin_;
-    }
-    bool isCycleEnd() const {
-        return cycleEnd_;
-    }
+    bool isCycleBegin() const { return cycleBegin_; }
+    bool isCycleEnd() const { return cycleEnd_; }
     uint32_t cycleBeginSlot() const {
         MOZ_ASSERT(cycleBeginSlot_ != -1);
         return cycleBeginSlot_;
@@ -234,22 +187,14 @@ class MoveOp
         MOZ_ASSERT(cycleEndSlot_ != -1);
         return cycleEndSlot_;
     }
-    const MoveOperand& from() const {
-        return from_;
-    }
-    const MoveOperand& to() const {
-        return to_;
-    }
-    Type type() const {
-        return type_;
-    }
+    const MoveOperand& from() const { return from_; }
+    const MoveOperand& to() const { return to_; }
+    Type type() const { return type_; }
     Type endCycleType() const {
         MOZ_ASSERT(isCycleBegin());
         return endCycleType_;
     }
-    bool aliases(const MoveOperand& op) const {
-        return from().aliases(op) || to().aliases(op);
-    }
+    bool aliases(const MoveOperand& op) const { return from().aliases(op) || to().aliases(op); }
     bool aliases(const MoveOp& other) const {
         return aliases(other.from()) || aliases(other.to());
     }
@@ -262,19 +207,12 @@ class MoveOp
 #endif
 };
 
-class MoveResolver
-{
-  private:
-    struct PendingMove
-      : public MoveOp,
-        public TempObject,
-        public InlineListNode<PendingMove>
-    {
-        PendingMove()
-        { }
+class MoveResolver {
+   private:
+    struct PendingMove : public MoveOp, public TempObject, public InlineListNode<PendingMove> {
+        PendingMove() {}
         PendingMove(const MoveOperand& from, const MoveOperand& to, Type type)
-          : MoveOp(from, to, type)
-        { }
+            : MoveOp(from, to, type) {}
 
         void setCycleBegin(Type endCycleType, int cycleSlot) {
             MOZ_ASSERT(!cycleBegin_);
@@ -299,7 +237,8 @@ class MoveResolver
     InlineList<PendingMove> pending_;
 
     PendingMove* findBlockingMove(const PendingMove* last);
-    PendingMove* findCycledMove(PendingMoveIterator* stack, PendingMoveIterator end, const PendingMove* first);
+    PendingMove* findCycledMove(PendingMoveIterator* stack, PendingMoveIterator end,
+                                const PendingMove* first);
     MOZ_MUST_USE bool addOrderedMove(const MoveOp& move);
     void reorderMove(size_t from, size_t to);
 
@@ -310,7 +249,7 @@ class MoveResolver
     bool isDoubleAliasedAsSingle(const MoveOperand& move);
 #endif
 
-  public:
+   public:
     MoveResolver();
 
     // Resolves a move group into two lists of ordered moves. These moves must
@@ -324,21 +263,13 @@ class MoveResolver
     MOZ_MUST_USE bool resolve();
     void sortMemoryToMemoryMoves();
 
-    size_t numMoves() const {
-        return orderedMoves_.length();
-    }
-    const MoveOp& getMove(size_t i) const {
-        return orderedMoves_[i];
-    }
-    uint32_t numCycles() const {
-        return numCycles_;
-    }
-    void setAllocator(TempAllocator& alloc) {
-        movePool_.setAllocator(alloc);
-    }
+    size_t numMoves() const { return orderedMoves_.length(); }
+    const MoveOp& getMove(size_t i) const { return orderedMoves_[i]; }
+    uint32_t numCycles() const { return numCycles_; }
+    void setAllocator(TempAllocator& alloc) { movePool_.setAllocator(alloc); }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_MoveResolver_h */

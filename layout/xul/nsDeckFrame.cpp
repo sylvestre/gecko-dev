@@ -40,12 +40,11 @@ NS_NewDeckFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsDeckFrame)
 
 NS_QUERYFRAME_HEAD(nsDeckFrame)
-  NS_QUERYFRAME_ENTRY(nsDeckFrame)
+NS_QUERYFRAME_ENTRY(nsDeckFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsBoxFrame)
 
 nsDeckFrame::nsDeckFrame(nsStyleContext* aContext)
-  : nsBoxFrame(aContext, kClassID)
-  , mIndex(0)
+    : nsBoxFrame(aContext, kClassID), mIndex(0)
 {
   nsCOMPtr<nsBoxLayout> layout;
   NS_NewStackLayout(layout);
@@ -53,15 +52,14 @@ nsDeckFrame::nsDeckFrame(nsStyleContext* aContext)
 }
 
 nsresult
-nsDeckFrame::AttributeChanged(int32_t         aNameSpaceID,
-                              nsAtom*        aAttribute,
-                              int32_t         aModType)
+nsDeckFrame::AttributeChanged(int32_t aNameSpaceID,
+                              nsAtom* aAttribute,
+                              int32_t aModType)
 {
-  nsresult rv = nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                             aModType);
+  nsresult rv =
+      nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 
-
-   // if the index changed hide the old element and make the new element visible
+  // if the index changed hide the old element and make the new element visible
   if (aAttribute == nsGkAtoms::selectedIndex) {
     IndexChanged();
   }
@@ -70,9 +68,9 @@ nsDeckFrame::AttributeChanged(int32_t         aNameSpaceID,
 }
 
 void
-nsDeckFrame::Init(nsIContent*       aContent,
+nsDeckFrame::Init(nsIContent* aContent,
                   nsContainerFrame* aParent,
-                  nsIFrame*         aPrevInFlow)
+                  nsIFrame* aPrevInFlow)
 {
   nsBoxFrame::Init(aContent, aParent, aPrevInFlow);
 
@@ -90,15 +88,14 @@ nsDeckFrame::IndexChanged()
 {
   //did the index change?
   int32_t index = GetSelectedIndex();
-  if (index == mIndex)
-    return;
+  if (index == mIndex) return;
 
   // redraw
   InvalidateFrame();
 
   // hide the currently showing box
   nsIFrame* currentBox = GetSelectedBox();
-  if (currentBox) // only hide if it exists
+  if (currentBox)  // only hide if it exists
     HideBox(currentBox);
 
   mIndex = index;
@@ -106,8 +103,8 @@ nsDeckFrame::IndexChanged()
 #ifdef ACCESSIBILITY
   nsAccessibilityService* accService = GetAccService();
   if (accService) {
-    accService->DeckPanelSwitched(PresContext()->GetPresShell(), mContent,
-                                  currentBox, GetSelectedBox());
+    accService->DeckPanelSwitched(
+        PresContext()->GetPresShell(), mContent, currentBox, GetSelectedBox());
   }
 #endif
 
@@ -127,8 +124,7 @@ nsDeckFrame::GetSelectedIndex()
 
   // get the index attribute
   nsAutoString value;
-  if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::selectedIndex, value))
-  {
+  if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::selectedIndex, value)) {
     nsresult error;
 
     // convert it to an integer
@@ -145,24 +141,20 @@ nsDeckFrame::GetSelectedBox()
 }
 
 void
-nsDeckFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsDeckFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                               const nsDisplayListSet& aLists)
 {
   // if a tab is hidden all its children are too.
-  if (!StyleVisibility()->mVisible)
-    return;
+  if (!StyleVisibility()->mVisible) return;
 
   nsBoxFrame::BuildDisplayList(aBuilder, aLists);
 }
 
 void
-nsDeckFrame::RemoveFrame(ChildListID aListID,
-                         nsIFrame* aOldFrame)
+nsDeckFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   nsIFrame* currentFrame = GetSelectedBox();
-  if (currentFrame &&
-      aOldFrame &&
-      currentFrame != aOldFrame) {
+  if (currentFrame && aOldFrame && currentFrame != aOldFrame) {
     // If the frame we're removing is at an index that's less
     // than mIndex, that means we're going to be shifting indexes
     // by 1.
@@ -176,21 +168,20 @@ nsDeckFrame::RemoveFrame(ChildListID aListID,
       mIndex--;
       // This is going to cause us to handle the index change in IndexedChanged,
       // but since the new index will match mIndex, it's essentially a noop.
-      nsContentUtils::AddScriptRunner(new nsSetAttrRunnable(
-        mContent, nsGkAtoms::selectedIndex, mIndex));
+      nsContentUtils::AddScriptRunner(
+          new nsSetAttrRunnable(mContent, nsGkAtoms::selectedIndex, mIndex));
     }
   }
   nsBoxFrame::RemoveFrame(aListID, aOldFrame);
 }
 
 void
-nsDeckFrame::BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
+nsDeckFrame::BuildDisplayListForChildren(nsDisplayListBuilder* aBuilder,
                                          const nsDisplayListSet& aLists)
 {
   // only paint the selected box
   nsIFrame* box = GetSelectedBox();
-  if (!box)
-    return;
+  if (!box) return;
 
   // Putting the child in the background list. This is a little weird but
   // it matches what we were doing before.
@@ -213,11 +204,9 @@ nsDeckFrame::DoXULLayout(nsBoxLayoutState& aState)
   nsIFrame* box = nsBox::GetChildXULBox(this);
 
   nscoord count = 0;
-  while (box)
-  {
+  while (box) {
     // make collapsed children not show up
-    if (count != mIndex)
-      HideBox(box);
+    if (count != mIndex) HideBox(box);
 
     box = GetNextXULBox(box);
     count++;
@@ -227,4 +216,3 @@ nsDeckFrame::DoXULLayout(nsBoxLayoutState& aState)
 
   return rv;
 }
-

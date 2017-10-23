@@ -37,7 +37,7 @@ class nsBindingManager final : public nsStubMutationObserver
 {
   ~nsBindingManager();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
 
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED
@@ -64,11 +64,13 @@ public:
    *        destructor.
    */
 
- enum DestructorHandling {
-   eRunDtor,
-   eDoNotRunDtor
- };
-  void RemovedFromDocument(nsIContent* aContent, nsIDocument* aOldDocument,
+  enum DestructorHandling
+  {
+    eRunDtor,
+    eDoNotRunDtor
+  };
+  void RemovedFromDocument(nsIContent* aContent,
+                           nsIDocument* aOldDocument,
                            DestructorHandling aDestructorHandling)
   {
     if (aContent->HasFlag(NODE_MAY_BE_IN_BINDING_MNGR)) {
@@ -91,7 +93,8 @@ public:
   nsINodeList* GetAnonymousNodesFor(nsIContent* aContent);
 
   nsresult ClearBinding(mozilla::dom::Element* aElement);
-  nsresult LoadBindingDocument(nsIDocument* aBoundDoc, nsIURI* aURL,
+  nsresult LoadBindingDocument(nsIDocument* aBoundDoc,
+                               nsIURI* aURL,
                                nsIPrincipal* aOriginPrincipal);
 
   nsresult AddToAttachedQueue(nsXBLBinding* aBinding);
@@ -104,11 +107,11 @@ public:
 
     ProcessAttachedQueueInternal(aSkipSize);
   }
-private:
+
+ private:
   void ProcessAttachedQueueInternal(uint32_t aSkipSize);
 
-public:
-
+ public:
   void ExecuteDetachedHandlers();
 
   nsresult PutXBLDocumentInfo(nsXBLDocumentInfo* aDocumentInfo);
@@ -121,7 +124,9 @@ public:
 
   void FlushSkinBindings();
 
-  nsresult GetBindingImplementation(nsIContent* aContent, REFNSIID aIID, void** aResult);
+  nsresult GetBindingImplementation(nsIContent* aContent,
+                                    REFNSIID aIID,
+                                    void** aResult);
 
   // Style rule methods
   nsresult WalkRules(nsIStyleRuleProcessor::EnumFunc aFunc,
@@ -143,8 +148,7 @@ public:
 
   void AppendAllSheets(nsTArray<mozilla::StyleSheet*>& aArray);
 
-  void Traverse(nsIContent *aContent,
-                            nsCycleCollectionTraversalCallback &cb);
+  void Traverse(nsIContent* aContent, nsCycleCollectionTraversalCallback& cb);
 
   NS_DECL_CYCLE_COLLECTION_CLASS(nsBindingManager)
 
@@ -173,16 +177,18 @@ public:
   nsIContent* FindNestedInsertionPoint(nsIContent* aContainer,
                                        nsIContent* aChild);
 
-  nsIContent* FindNestedSingleInsertionPoint(nsIContent* aContainer, bool* aMulti);
+  nsIContent* FindNestedSingleInsertionPoint(nsIContent* aContainer,
+                                             bool* aMulti);
 
-protected:
+ protected:
   nsIXPConnectWrappedJS* GetWrappedJS(nsIContent* aContent);
   nsresult SetWrappedJS(nsIContent* aContent, nsIXPConnectWrappedJS* aResult);
 
   // Called by ContentAppended and ContentInserted to handle a single child
   // insertion.  aChild must not be null.  aContainer may be null.
   // aAppend is true if this child is being appended, not inserted.
-  void HandleChildInsertion(nsIContent* aContainer, nsIContent* aChild,
+  void HandleChildInsertion(nsIContent* aContainer,
+                            nsIContent* aChild,
                             bool aAppend);
 
   // Same as ProcessAttachedQueue, but also nulls out
@@ -197,12 +203,12 @@ protected:
 
   // Enumerate each bound content's bindings (including its base bindings)
   // in mBoundContentSet.
-  using BoundContentBindingCallback = std::function<void (nsXBLBinding*)>;
+  using BoundContentBindingCallback = std::function<void(nsXBLBinding*)>;
   void EnumerateBoundContentBindings(
-    const BoundContentBindingCallback& aCallback) const;
+      const BoundContentBindingCallback& aCallback) const;
 
-// MEMBER VARIABLES
-protected:
+  // MEMBER VARIABLES
+ protected:
   // A set of nsIContent that currently have a binding installed.
   nsAutoPtr<nsTHashtable<nsRefPtrHashKey<nsIContent> > > mBoundContentSet;
 
@@ -213,18 +219,20 @@ protected:
   // its lifetime, and I prevent a re-wrap of the same script object
   // (in the case where multiple bindings in an XBL inheritance chain
   // both implement an XPIDL interface).
-  typedef nsInterfaceHashtable<nsISupportsHashKey, nsIXPConnectWrappedJS> WrapperHashtable;
+  typedef nsInterfaceHashtable<nsISupportsHashKey, nsIXPConnectWrappedJS>
+      WrapperHashtable;
   nsAutoPtr<WrapperHashtable> mWrapperTable;
 
   // A mapping from a URL (a string) to nsXBLDocumentInfo*.  This table
   // is the cache of all binding documents that have been loaded by a
   // given bound document.
-  nsAutoPtr<nsRefPtrHashtable<nsURIHashKey,nsXBLDocumentInfo> > mDocumentTable;
+  nsAutoPtr<nsRefPtrHashtable<nsURIHashKey, nsXBLDocumentInfo> > mDocumentTable;
 
   // A mapping from a URL (a string) to a nsIStreamListener. This
   // table is the currently loading binding docs.  If they're in this
   // table, they have not yet finished loading.
-  nsAutoPtr<nsInterfaceHashtable<nsURIHashKey,nsIStreamListener> > mLoadingDocTable;
+  nsAutoPtr<nsInterfaceHashtable<nsURIHashKey, nsIStreamListener> >
+      mLoadingDocTable;
 
   // A queue of binding attached event handlers that are awaiting execution.
   nsBindingList mAttachedStack;
@@ -234,7 +242,7 @@ protected:
 
   // Our posted event to process the attached queue, if any
   friend class nsRunnableMethod<nsBindingManager>;
-  RefPtr< nsRunnableMethod<nsBindingManager> > mProcessAttachedQueueEvent;
+  RefPtr<nsRunnableMethod<nsBindingManager> > mProcessAttachedQueueEvent;
 
   // Our document.  This is a weak ref; the document owns us
   nsIDocument* mDocument;

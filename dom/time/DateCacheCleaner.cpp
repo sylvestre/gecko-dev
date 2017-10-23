@@ -20,21 +20,14 @@ namespace time {
 
 class DateCacheCleaner : public SystemTimezoneChangeObserver
 {
-public:
-  DateCacheCleaner()
-  {
-    RegisterSystemTimezoneChangeObserver(this);
-  }
+ public:
+  DateCacheCleaner() { RegisterSystemTimezoneChangeObserver(this); }
 
-  ~DateCacheCleaner()
-  {
-    UnregisterSystemTimezoneChangeObserver(this);
-  }
+  ~DateCacheCleaner() { UnregisterSystemTimezoneChangeObserver(this); }
   void Notify(const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
   {
     JS::ResetTimeZone();
   }
-
 };
 
 StaticAutoPtr<DateCacheCleaner> sDateCacheCleaner;
@@ -48,6 +41,6 @@ InitializeDateCacheCleaner()
   }
 }
 
-} // namespace time
-} // namespace dom
-} // namespace mozilla
+}  // namespace time
+}  // namespace dom
+}  // namespace mozilla

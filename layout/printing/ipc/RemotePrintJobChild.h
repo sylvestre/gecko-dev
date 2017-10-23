@@ -18,10 +18,10 @@ class nsPrintEngine;
 namespace mozilla {
 namespace layout {
 
-class RemotePrintJobChild final : public PRemotePrintJobChild
-                                , public nsIWebProgressListener
+class RemotePrintJobChild final : public PRemotePrintJobChild,
+                                  public nsIWebProgressListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIWEBPROGRESSLISTENER
 
@@ -34,8 +34,8 @@ public:
                            const int32_t& aStartPage,
                            const int32_t& aEndPage);
 
-  mozilla::ipc::IPCResult RecvPrintInitializationResult(const nsresult& aRv,
-                                                        const FileDescriptor& aFd) final;
+  mozilla::ipc::IPCResult RecvPrintInitializationResult(
+      const nsresult& aRv, const FileDescriptor& aFd) final;
 
   void ProcessPage();
 
@@ -47,11 +47,9 @@ public:
 
   void SetPrintEngine(nsPrintEngine* aPrintEngine);
 
-  PRFileDesc *GetNextPageFD() {
-    return mNextPageFD;
-  }
+  PRFileDesc* GetNextPageFD() { return mNextPageFD; }
 
-private:
+ private:
   ~RemotePrintJobChild() final;
   void SetNextPageFD(const mozilla::ipc::FileDescriptor& aFd);
 
@@ -62,7 +60,7 @@ private:
   PRFileDesc* mNextPageFD;
 };
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
-#endif // mozilla_layout_RemotePrintJobChild_h
+#endif  // mozilla_layout_RemotePrintJobChild_h

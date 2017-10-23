@@ -64,7 +64,7 @@ struct LogValueMatcher
     nsCString name;
     GetErrorName(a, name);
     mString.AppendPrintf(
-      "nsresult(%s =0x%08" PRIx32 ")", name.get(), static_cast<uint32_t>(a));
+        "nsresult(%s =0x%08" PRIx32 ")", name.get(), static_cast<uint32_t>(a));
   }
   void match(const MediaResult& a) const
   {
@@ -80,7 +80,7 @@ struct LogValueMatcher
 void
 AppendToString(const DDLogValue& aValue, nsCString& aString)
 {
-  aValue.match(LogValueMatcher{ aString });
+  aValue.match(LogValueMatcher{aString});
 }
 
 struct LogValueMatcherJson
@@ -92,8 +92,8 @@ struct LogValueMatcherJson
   void match(const DDLogObject& a) const
   {
     mJW.StringProperty(
-      mPropertyName,
-      nsPrintfCString(R"("%s[%p]")", a.TypeName(), a.Pointer()).get());
+        mPropertyName,
+        nsPrintfCString(R"("%s[%p]")", a.TypeName(), a.Pointer()).get());
   }
   void match(const char* a) const { mJW.StringProperty(mPropertyName, a); }
   void match(const nsCString& a) const
@@ -127,11 +127,11 @@ struct LogValueMatcherJson
   {
     nsCString name;
     GetErrorName(a.Code(), name);
-    mJW.StringProperty(mPropertyName,
-                       nsPrintfCString(R"lit("MediaResult(%s, %s)")lit",
-                                       name.get(),
-                                       a.Message().get())
-                         .get());
+    mJW.StringProperty(
+        mPropertyName,
+        nsPrintfCString(
+            R"lit("MediaResult(%s, %s)")lit", name.get(), a.Message().get())
+            .get());
   }
 };
 
@@ -140,7 +140,7 @@ ToJSON(const DDLogValue& aValue,
        JSONWriter& aJSONWriter,
        const char* aPropertyName)
 {
-  aValue.match(LogValueMatcherJson{ aJSONWriter, aPropertyName });
+  aValue.match(LogValueMatcherJson{aJSONWriter, aPropertyName});
 }
 
-} // namespace mozilla
+}  // namespace mozilla

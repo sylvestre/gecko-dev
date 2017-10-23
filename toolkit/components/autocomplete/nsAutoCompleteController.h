@@ -27,7 +27,7 @@ class nsAutoCompleteController final : public nsIAutoCompleteController,
                                        public nsITreeView,
                                        public nsINamed
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsAutoCompleteController,
                                            nsIAutoCompleteController)
@@ -39,7 +39,7 @@ public:
 
   nsAutoCompleteController();
 
-protected:
+ protected:
   virtual ~nsAutoCompleteController();
 
   nsresult OpenPopup();
@@ -53,28 +53,32 @@ protected:
   nsresult ClearSearchTimer();
   void MaybeCompletePlaceholder();
 
-  void HandleSearchResult(nsIAutoCompleteSearch *aSearch,
-                          nsIAutoCompleteResult *aResult);
-  nsresult ProcessResult(int32_t aSearchIndex, nsIAutoCompleteResult *aResult);
+  void HandleSearchResult(nsIAutoCompleteSearch* aSearch,
+                          nsIAutoCompleteResult* aResult);
+  nsresult ProcessResult(int32_t aSearchIndex, nsIAutoCompleteResult* aResult);
   nsresult PostSearchCleanup();
 
-  nsresult EnterMatch(bool aIsPopupSelection,
-                      nsIDOMEvent *aEvent);
+  nsresult EnterMatch(bool aIsPopupSelection, nsIDOMEvent* aEvent);
   nsresult RevertTextValue();
 
   nsresult CompleteDefaultIndex(int32_t aResultIndex);
-  nsresult CompleteValue(nsString &aValue);
+  nsresult CompleteValue(nsString& aValue);
 
-  nsresult GetResultAt(int32_t aIndex, nsIAutoCompleteResult** aResult,
+  nsresult GetResultAt(int32_t aIndex,
+                       nsIAutoCompleteResult** aResult,
                        int32_t* aRowIndex);
-  nsresult GetResultValueAt(int32_t aIndex, bool aGetFinalValue,
-                            nsAString & _retval);
-  nsresult GetResultLabelAt(int32_t aIndex, nsAString & _retval);
-private:
-  nsresult GetResultValueLabelAt(int32_t aIndex, bool aGetFinalValue,
-                                 bool aGetValue, nsAString & _retval);
-protected:
+  nsresult GetResultValueAt(int32_t aIndex,
+                            bool aGetFinalValue,
+                            nsAString& _retval);
+  nsresult GetResultLabelAt(int32_t aIndex, nsAString& _retval);
 
+ private:
+  nsresult GetResultValueLabelAt(int32_t aIndex,
+                                 bool aGetFinalValue,
+                                 bool aGetValue,
+                                 nsAString& _retval);
+
+ protected:
   /**
    * Gets and validates the defaultComplete result and the relative
    * defaultIndex value.
@@ -101,8 +105,9 @@ protected:
    * @param _retval
    *        The value to be completed.
    */
-  nsresult GetDefaultCompleteValue(int32_t aResultIndex, bool aPreserveCasing,
-                                   nsAString &_retval);
+  nsresult GetDefaultCompleteValue(int32_t aResultIndex,
+                                   bool aPreserveCasing,
+                                   nsAString& _retval);
 
   /**
    * Gets the defaultComplete value to be used when the user confirms the
@@ -115,12 +120,13 @@ protected:
    * @param _retval
    *        The value to be completed.
    */
-  nsresult GetFinalDefaultCompleteValue(nsAString &_retval);
+  nsresult GetFinalDefaultCompleteValue(nsAString& _retval);
 
   nsresult ClearResults();
 
   nsresult RowIndexToSearch(int32_t aRowIndex,
-                            int32_t *aSearchIndex, int32_t *aItemIndex);
+                            int32_t* aSearchIndex,
+                            int32_t* aItemIndex);
 
   // members //////////////////////////////////////////
 
@@ -154,7 +160,8 @@ protected:
   // Indicates whether clearing the autofilled string should issue a new search.
   bool mClearingAutoFillSearchesAgain;
 
-  enum CompositionState {
+  enum CompositionState
+  {
     eCompositionState_None,
     eCompositionState_Composing,
     eCompositionState_Committing
@@ -173,7 +180,7 @@ protected:
   // distinction is used to prevent mouse moves from inadvertently changing
   // what happens once the user hits Enter on the keyboard.
   // See bug 1043584 for more details.
-  int32_t  mCompletedSelectionIndex;
+  int32_t mCompletedSelectionIndex;
 };
 
 #endif /* __nsAutoCompleteController__ */

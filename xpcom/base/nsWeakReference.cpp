@@ -14,7 +14,7 @@
 
 class nsWeakReference final : public nsIWeakReference
 {
-public:
+ public:
   // nsISupports...
   NS_DECL_ISUPPORTS
 
@@ -22,12 +22,12 @@ public:
   NS_DECL_NSIWEAKREFERENCE
   size_t SizeOfOnlyThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   friend class nsSupportsWeakReference;
 
   explicit nsWeakReference(nsSupportsWeakReference* aReferent)
-    : nsIWeakReference(aReferent)
-    // ...I can only be constructed by an |nsSupportsWeakReference|
+      : nsIWeakReference(aReferent)
+  // ...I can only be constructed by an |nsSupportsWeakReference|
   {
   }
 
@@ -40,8 +40,7 @@ private:
     }
   }
 
-  void
-  NoticeReferentDestruction()
+  void NoticeReferentDestruction()
   // ...called (only) by an |nsSupportsWeakReference| from _its_ dtor.
   {
     MOZ_WEAKREF_ASSERT_OWNINGTHREAD;
@@ -96,7 +95,7 @@ NS_GetWeakReference(nsISupports* aInstancePtr, nsresult* aErrorPtr)
 
   if (aInstancePtr) {
     nsCOMPtr<nsISupportsWeakReference> factoryPtr =
-      do_QueryInterface(aInstancePtr, &status);
+        do_QueryInterface(aInstancePtr, &status);
     if (factoryPtr) {
       status = factoryPtr->GetWeakReference(&result);
     }
@@ -170,4 +169,3 @@ nsSupportsWeakReference::ClearWeakReferences()
     mProxy = nullptr;
   }
 }
-

@@ -25,9 +25,7 @@ namespace mozilla {
 template<typename T>
 struct DestroyPolicy
 {
-  void operator()(T* aGMPObject) const {
-    aGMPObject->Destroy();
-  }
+  void operator()(T* aGMPObject) const { aGMPObject->Destroy(); }
 };
 
 template<typename T>
@@ -48,40 +46,40 @@ bool
 FileExists(nsIFile* aFile);
 
 // Enumerate directory entries for a specified path.
-class DirectoryEnumerator {
-public:
-
-  enum Mode {
-    DirsOnly, // Enumeration only includes directories.
-    FilesAndDirs // Enumeration includes directories and non-directory files.
+class DirectoryEnumerator
+{
+ public:
+  enum Mode
+  {
+    DirsOnly,     // Enumeration only includes directories.
+    FilesAndDirs  // Enumeration includes directories and non-directory files.
   };
 
   DirectoryEnumerator(nsIFile* aPath, Mode aMode);
 
   already_AddRefed<nsIFile> Next();
 
-private:
+ private:
   Mode mMode;
   nsCOMPtr<nsISimpleEnumerator> mIter;
 };
 
-class GMPInfoFileParser {
-public:
+class GMPInfoFileParser
+{
+ public:
   bool Init(nsIFile* aFile);
   bool Contains(const nsCString& aKey) const;
   nsCString Get(const nsCString& aKey) const;
-private:
+
+ private:
   nsClassHashtable<nsCStringHashKey, nsCString> mValues;
 };
 
 bool
-ReadIntoString(nsIFile* aFile,
-               nsCString& aOutDst,
-               size_t aMaxLength);
+ReadIntoString(nsIFile* aFile, nsCString& aOutDst, size_t aMaxLength);
 
 bool
-HaveGMPFor(const nsCString& aAPI,
-           nsTArray<nsCString>&& aTags);
+HaveGMPFor(const nsCString& aAPI, nsTArray<nsCString>&& aTags);
 
 void
 LogToConsole(const nsAString& aMsg);
@@ -94,6 +92,6 @@ GetGMPAbstractThread();
 size_t
 I420FrameBufferSizePadded(int32_t aWidth, int32_t aHeight);
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

@@ -6,18 +6,18 @@
 #ifndef StylesheetTransactions_h
 #define StylesheetTransactions_h
 
-#include "mozilla/EditorBase.h"         // mEditor
-#include "mozilla/EditTransactionBase.h" // for EditTransactionBase, etc.
-#include "mozilla/StyleSheet.h"   // for mozilla::StyleSheet
+#include "mozilla/EditorBase.h"           // mEditor
+#include "mozilla/EditTransactionBase.h"  // for EditTransactionBase, etc.
+#include "mozilla/StyleSheet.h"           // for mozilla::StyleSheet
 #include "nsCycleCollectionParticipant.h"
-#include "nsID.h"                       // for REFNSIID
-#include "nscore.h"                     // for NS_IMETHOD
+#include "nsID.h"    // for REFNSIID
+#include "nscore.h"  // for NS_IMETHOD
 
 namespace mozilla {
 
 class AddStyleSheetTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * @param aEditor     The object providing core editing operations
    * @param aSheet      The stylesheet to add
@@ -30,17 +30,16 @@ public:
 
   NS_DECL_EDITTRANSACTIONBASE
 
-protected:
+ protected:
   // The editor that created this transaction.
   RefPtr<EditorBase> mEditorBase;
   // The style sheet to add.
   RefPtr<mozilla::StyleSheet> mSheet;
 };
 
-
 class RemoveStyleSheetTransaction final : public EditTransactionBase
 {
-public:
+ public:
   /**
    * @param aEditor     The object providing core editing operations.
    * @param aSheet      The stylesheet to remove.
@@ -53,14 +52,13 @@ public:
 
   NS_DECL_EDITTRANSACTIONBASE
 
-protected:
+ protected:
   // The editor that created this transaction.
   RefPtr<EditorBase> mEditorBase;
   // The style sheet to remove.
   RefPtr<StyleSheet> mSheet;
-
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef StylesheetTransactions_h
+#endif  // #ifndef StylesheetTransactions_h

@@ -38,18 +38,17 @@ ShapeUtils::ComputeShapeRadius(const StyleShapeRadius aType,
 }
 
 nsPoint
-ShapeUtils::ComputeCircleOrEllipseCenter(const UniquePtr<StyleBasicShape>& aBasicShape,
-                                         const nsRect& aRefBox)
+ShapeUtils::ComputeCircleOrEllipseCenter(
+    const UniquePtr<StyleBasicShape>& aBasicShape, const nsRect& aRefBox)
 {
   MOZ_ASSERT(aBasicShape->GetShapeType() == StyleBasicShapeType::Circle ||
-             aBasicShape->GetShapeType() == StyleBasicShapeType::Ellipse,
+                 aBasicShape->GetShapeType() == StyleBasicShapeType::Ellipse,
              "The basic shape must be circle() or ellipse!");
 
   nsPoint topLeft, anchor;
   nsSize size(aRefBox.Size());
-  nsImageRenderer::ComputeObjectAnchorPoint(aBasicShape->GetPosition(),
-                                            size, size,
-                                            &topLeft, &anchor);
+  nsImageRenderer::ComputeObjectAnchorPoint(
+      aBasicShape->GetPosition(), size, size, &topLeft, &anchor);
   return anchor + aRefBox.TopLeft();
 }
 
@@ -66,19 +65,18 @@ ShapeUtils::ComputeCircleRadius(const UniquePtr<StyleBasicShape>& aBasicShape,
   nscoord r = 0;
   if (coords[0].GetUnit() == eStyleUnit_Enumerated) {
     const auto styleShapeRadius = coords[0].GetEnumValue<StyleShapeRadius>();
-    nscoord horizontal =
-      ComputeShapeRadius(styleShapeRadius, aCenter.x, aRefBox.x, aRefBox.XMost());
-    nscoord vertical =
-      ComputeShapeRadius(styleShapeRadius, aCenter.y, aRefBox.y, aRefBox.YMost());
+    nscoord horizontal = ComputeShapeRadius(
+        styleShapeRadius, aCenter.x, aRefBox.x, aRefBox.XMost());
+    nscoord vertical = ComputeShapeRadius(
+        styleShapeRadius, aCenter.y, aRefBox.y, aRefBox.YMost());
     r = styleShapeRadius == StyleShapeRadius::FarthestSide
-          ? std::max(horizontal, vertical)
-          : std::min(horizontal, vertical);
+            ? std::max(horizontal, vertical)
+            : std::min(horizontal, vertical);
   } else {
     // We resolve percent <shape-radius> value for circle() as defined here:
     // https://drafts.csswg.org/css-shapes/#funcdef-circle
-    double referenceLength =
-      SVGContentUtils::ComputeNormalizedHypotenuse(aRefBox.width,
-                                                   aRefBox.height);
+    double referenceLength = SVGContentUtils::ComputeNormalizedHypotenuse(
+        aRefBox.width, aRefBox.height);
     r = nsRuleNode::ComputeCoordPercentCalc(coords[0],
                                             NSToCoordRound(referenceLength));
   }
@@ -99,18 +97,19 @@ ShapeUtils::ComputeEllipseRadii(const UniquePtr<StyleBasicShape>& aBasicShape,
 
   if (coords[0].GetUnit() == eStyleUnit_Enumerated) {
     const StyleShapeRadius radiusX = coords[0].GetEnumValue<StyleShapeRadius>();
-    radii.width = ComputeShapeRadius(radiusX, aCenter.x, aRefBox.x,
-                                     aRefBox.XMost());
+    radii.width =
+        ComputeShapeRadius(radiusX, aCenter.x, aRefBox.x, aRefBox.XMost());
   } else {
     radii.width = nsRuleNode::ComputeCoordPercentCalc(coords[0], aRefBox.width);
   }
 
   if (coords[1].GetUnit() == eStyleUnit_Enumerated) {
     const StyleShapeRadius radiusY = coords[1].GetEnumValue<StyleShapeRadius>();
-    radii.height = ComputeShapeRadius(radiusY, aCenter.y, aRefBox.y,
-                                      aRefBox.YMost());
+    radii.height =
+        ComputeShapeRadius(radiusY, aCenter.y, aRefBox.y, aRefBox.YMost());
   } else {
-    radii.height = nsRuleNode::ComputeCoordPercentCalc(coords[1], aRefBox.height);
+    radii.height =
+        nsRuleNode::ComputeCoordPercentCalc(coords[1], aRefBox.height);
   }
 
   return radii;
@@ -144,30 +143,30 @@ ShapeUtils::ComputeInsetRadii(const UniquePtr<StyleBasicShape>& aBasicShape,
                               nscoord aRadii[8])
 {
   const nsStyleCorners& radius = aBasicShape->GetRadius();
-  return nsIFrame::ComputeBorderRadii(radius, aInsetRect.Size(), aRefBox.Size(),
-                                      Sides(), aRadii);
-
+  return nsIFrame::ComputeBorderRadii(
+      radius, aInsetRect.Size(), aRefBox.Size(), Sides(), aRadii);
 }
 
 /* static */ nsTArray<nsPoint>
-ShapeUtils::ComputePolygonVertices(const UniquePtr<StyleBasicShape>& aBasicShape,
-                                   const nsRect& aRefBox)
+ShapeUtils::ComputePolygonVertices(
+    const UniquePtr<StyleBasicShape>& aBasicShape, const nsRect& aRefBox)
 {
   MOZ_ASSERT(aBasicShape->GetShapeType() == StyleBasicShapeType::Polygon,
              "The basic shape must be polygon()!");
 
   const nsTArray<nsStyleCoord>& coords = aBasicShape->Coordinates();
-  MOZ_ASSERT(coords.Length() % 2 == 0 &&
-             coords.Length() >= 2, "Wrong number of arguments!");
+  MOZ_ASSERT(coords.Length() % 2 == 0 && coords.Length() >= 2,
+             "Wrong number of arguments!");
 
   nsTArray<nsPoint> vertices(coords.Length() / 2);
   for (size_t i = 0; i + 1 < coords.Length(); i += 2) {
     vertices.AppendElement(
-      nsPoint(nsRuleNode::ComputeCoordPercentCalc(coords[i], aRefBox.width),
-              nsRuleNode::ComputeCoordPercentCalc(coords[i + 1], aRefBox.height))
-      + aRefBox.TopLeft());
+        nsPoint(nsRuleNode::ComputeCoordPercentCalc(coords[i], aRefBox.width),
+                nsRuleNode::ComputeCoordPercentCalc(coords[i + 1],
+                                                    aRefBox.height)) +
+        aRefBox.TopLeft());
   }
   return vertices;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

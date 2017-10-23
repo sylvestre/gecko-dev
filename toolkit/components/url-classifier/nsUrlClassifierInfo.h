@@ -8,18 +8,19 @@
 #include "nsIUrlClassifierInfo.h"
 #include "nsString.h"
 
-class nsUrlClassifierPositiveCacheEntry final : public nsIUrlClassifierPositiveCacheEntry
+class nsUrlClassifierPositiveCacheEntry final
+    : public nsIUrlClassifierPositiveCacheEntry
 {
-public:
+ public:
   nsUrlClassifierPositiveCacheEntry();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURLCLASSIFIERPOSITIVECACHEENTRY
 
-private:
+ private:
   ~nsUrlClassifierPositiveCacheEntry() {}
 
-public:
+ public:
   nsCString fullhash;
 
   int64_t expirySec;
@@ -27,16 +28,16 @@ public:
 
 class nsUrlClassifierCacheEntry final : public nsIUrlClassifierCacheEntry
 {
-public:
+ public:
   nsUrlClassifierCacheEntry();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURLCLASSIFIERCACHEENTRY
 
-private:
+ private:
   ~nsUrlClassifierCacheEntry() {}
 
-public:
+ public:
   nsCString prefix;
 
   int64_t expirySec;
@@ -46,19 +47,19 @@ public:
 
 class nsUrlClassifierCacheInfo final : public nsIUrlClassifierCacheInfo
 {
-public:
+ public:
   nsUrlClassifierCacheInfo();
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURLCLASSIFIERCACHEINFO
 
-private:
+ private:
   ~nsUrlClassifierCacheInfo() {}
 
-public:
+ public:
   nsCString table;
 
   nsTArray<nsCOMPtr<nsIUrlClassifierCacheEntry>> entries;
 };
 
-#endif // nsUrlClassifierInfo_h_
+#endif  // nsUrlClassifierInfo_h_

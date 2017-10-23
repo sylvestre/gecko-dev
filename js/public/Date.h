@@ -52,11 +52,11 @@ namespace JS {
  * changes, or immediately before operations requiring instantaneous
  * correctness, to guarantee correct behavior.
  */
-extern JS_PUBLIC_API(void)
-ResetTimeZone();
+extern JS_PUBLIC_API(void) ResetTimeZone();
 
 class ClippedTime;
-inline ClippedTime TimeClip(double time);
+inline ClippedTime
+TimeClip(double time);
 
 /*
  * |ClippedTime| represents the limited subset of dates/times described above.
@@ -78,22 +78,22 @@ inline ClippedTime TimeClip(double time);
  */
 class ClippedTime
 {
-    double t;
+  double t;
 
-    explicit ClippedTime(double time) : t(time) {}
-    friend ClippedTime TimeClip(double time);
+  explicit ClippedTime(double time) : t(time) {}
+  friend ClippedTime TimeClip(double time);
 
-  public:
-    // Create an invalid date.
-    ClippedTime() : t(mozilla::UnspecifiedNaN<double>()) {}
+ public:
+  // Create an invalid date.
+  ClippedTime() : t(mozilla::UnspecifiedNaN<double>()) {}
 
-    // Create an invalid date/time, more explicitly; prefer this to the default
-    // constructor.
-    static ClippedTime invalid() { return ClippedTime(); }
+  // Create an invalid date/time, more explicitly; prefer this to the default
+  // constructor.
+  static ClippedTime invalid() { return ClippedTime(); }
 
-    double toDouble() const { return t; }
+  double toDouble() const { return t; }
 
-    bool isValid() const { return !mozilla::IsNaN(t); }
+  bool isValid() const { return !mozilla::IsNaN(t); }
 };
 
 // ES6 20.3.1.15.
@@ -103,13 +103,13 @@ class ClippedTime
 inline ClippedTime
 TimeClip(double time)
 {
-    // Steps 1-2.
-    const double MaxTimeMagnitude = 8.64e15;
-    if (!mozilla::IsFinite(time) || mozilla::Abs(time) > MaxTimeMagnitude)
-        return ClippedTime(mozilla::UnspecifiedNaN<double>());
+  // Steps 1-2.
+  const double MaxTimeMagnitude = 8.64e15;
+  if (!mozilla::IsFinite(time) || mozilla::Abs(time) > MaxTimeMagnitude)
+    return ClippedTime(mozilla::UnspecifiedNaN<double>());
 
-    // Step 3.
-    return ClippedTime(ToInteger(time) + (+0.0));
+  // Step 3.
+  return ClippedTime(ToInteger(time) + (+0.0));
 }
 
 // Produce a double Value from the given time.  Because times may be NaN,
@@ -117,14 +117,13 @@ TimeClip(double time)
 inline Value
 TimeValue(ClippedTime time)
 {
-    return DoubleValue(JS::CanonicalizeNaN(time.toDouble()));
+  return DoubleValue(JS::CanonicalizeNaN(time.toDouble()));
 }
 
 // Create a new Date object whose [[DateValue]] internal slot contains the
 // clipped |time|.  (Users who must represent times outside that range must use
 // another representation.)
-extern JS_PUBLIC_API(JSObject*)
-NewDateObject(JSContext* cx, ClippedTime time);
+extern JS_PUBLIC_API(JSObject*) NewDateObject(JSContext* cx, ClippedTime time);
 
 // Year is a year, month is 0-11, day is 1-based.  The return value is a number
 // of milliseconds since the epoch.
@@ -178,6 +177,6 @@ DayWithinYear(double time, double year);
 JS_PUBLIC_API(void)
 SetTimeResolutionUsec(uint32_t resolution);
 
-} // namespace JS
+}  // namespace JS
 
 #endif /* js_Date_h */

@@ -20,10 +20,9 @@ using namespace mozilla;
 template<class InnerQueueT>
 class ThreadEventQueue<InnerQueueT>::NestedSink : public ThreadTargetSink
 {
-public:
+ public:
   NestedSink(EventQueue* aQueue, ThreadEventQueue* aOwner)
-    : mQueue(aQueue)
-    , mOwner(aOwner)
+      : mQueue(aQueue), mOwner(aOwner)
   {
   }
 
@@ -33,12 +32,9 @@ public:
     return mOwner->PutEventInternal(Move(aEvent), aPriority, this);
   }
 
-  void Disconnect(const MutexAutoLock& aProofOfLock) final
-  {
-    mQueue = nullptr;
-  }
+  void Disconnect(const MutexAutoLock& aProofOfLock) final { mQueue = nullptr; }
 
-private:
+ private:
   friend class ThreadEventQueue;
 
   // This is a non-owning reference. It must live at least until Disconnect is
@@ -49,9 +45,9 @@ private:
 
 template<class InnerQueueT>
 ThreadEventQueue<InnerQueueT>::ThreadEventQueue(UniquePtr<InnerQueueT> aQueue)
-  : mBaseQueue(Move(aQueue))
-  , mLock("ThreadEventQueue")
-  , mEventsAvailable(mLock, "EventsAvail")
+    : mBaseQueue(Move(aQueue)),
+      mLock("ThreadEventQueue"),
+      mEventsAvailable(mLock, "EventsAvail")
 {
   static_assert(IsBaseOf<AbstractEventQueue, InnerQueueT>::value,
                 "InnerQueueT must be an AbstractEventQueue subclass");
@@ -73,9 +69,10 @@ ThreadEventQueue<InnerQueueT>::PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
 
 template<class InnerQueueT>
 bool
-ThreadEventQueue<InnerQueueT>::PutEventInternal(already_AddRefed<nsIRunnable>&& aEvent,
-                                                EventPriority aPriority,
-                                                NestedSink* aSink)
+ThreadEventQueue<InnerQueueT>::PutEventInternal(
+    already_AddRefed<nsIRunnable>&& aEvent,
+    EventPriority aPriority,
+    NestedSink* aSink)
 {
   // We want to leak the reference when we fail to dispatch it, so that
   // we won't release the event in a wrong thread.
@@ -117,8 +114,7 @@ ThreadEventQueue<InnerQueueT>::PutEventInternal(already_AddRefed<nsIRunnable>&& 
 
 template<class InnerQueueT>
 already_AddRefed<nsIRunnable>
-ThreadEventQueue<InnerQueueT>::GetEvent(bool aMayWait,
-                                        EventPriority* aPriority)
+ThreadEventQueue<InnerQueueT>::GetEvent(bool aMayWait, EventPriority* aPriority)
 {
   MutexAutoLock lock(mLock);
 
@@ -206,7 +202,8 @@ ThreadEventQueue<InnerQueueT>::PushEventQueue()
 {
   auto queue = MakeUnique<EventQueue>();
   RefPtr<NestedSink> sink = new NestedSink(queue.get(), this);
-  RefPtr<ThreadEventTarget> eventTarget = new ThreadEventTarget(sink, NS_IsMainThread());
+  RefPtr<ThreadEventTarget> eventTarget =
+      new ThreadEventTarget(sink, NS_IsMainThread());
 
   MutexAutoLock lock(mLock);
 
@@ -230,9 +227,10 @@ ThreadEventQueue<InnerQueueT>::PopEventQueue(nsIEventTarget* aTarget)
   item.mEventTarget->Disconnect(lock);
 
   AbstractEventQueue* prevQueue =
-    mNestedQueues.Length() == 1
-    ? static_cast<AbstractEventQueue*>(mBaseQueue.get())
-    : static_cast<AbstractEventQueue*>(mNestedQueues[mNestedQueues.Length() - 2].mQueue.get());
+      mNestedQueues.Length() == 1
+          ? static_cast<AbstractEventQueue*>(mBaseQueue.get())
+          : static_cast<AbstractEventQueue*>(
+                mNestedQueues[mNestedQueues.Length() - 2].mQueue.get());
 
   // Move events from the old queue to the new one.
   nsCOMPtr<nsIRunnable> event;
@@ -271,4 +269,4 @@ namespace mozilla {
 template class ThreadEventQueue<EventQueue>;
 template class ThreadEventQueue<PrioritizedEventQueue<EventQueue>>;
 template class ThreadEventQueue<PrioritizedEventQueue<LabeledEventQueue>>;
-}
+}  // namespace mozilla

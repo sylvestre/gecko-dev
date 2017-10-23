@@ -19,6 +19,6 @@ class gfxFcFontSet;
 class gfxFcFont;
 typedef struct _FcPattern FcPattern;
 typedef struct FT_FaceRec_* FT_Face;
-typedef struct FT_LibraryRec_  *FT_Library;
+typedef struct FT_LibraryRec_* FT_Library;
 
 #endif /* GFX_FONTCONFIG_FONTS_H */

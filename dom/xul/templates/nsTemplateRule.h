@@ -22,69 +22,68 @@ class nsTemplateQuerySet;
 
 class nsTemplateCondition
 {
-public:
-    // relations that may be used in a rule. They may be negated with the
-    // negate flag. Less and Greater are used for numeric comparisons and
-    // Before and After are used for string comparisons. For Less, Greater,
-    // Before, After, Startswith, Endswith, and Contains, the source is
-    // conceptually on the left of the relation and the target is on the
-    // right. For example, if the relation is Contains, that means Match if
-    // the source contains the target.
-    enum ConditionRelation {
-        eUnknown,
-        eEquals,
-        eLess,
-        eGreater,
-        eBefore,
-        eAfter,
-        eStartswith,
-        eEndswith,
-        eContains
-    };
+ public:
+  // relations that may be used in a rule. They may be negated with the
+  // negate flag. Less and Greater are used for numeric comparisons and
+  // Before and After are used for string comparisons. For Less, Greater,
+  // Before, After, Startswith, Endswith, and Contains, the source is
+  // conceptually on the left of the relation and the target is on the
+  // right. For example, if the relation is Contains, that means Match if
+  // the source contains the target.
+  enum ConditionRelation
+  {
+    eUnknown,
+    eEquals,
+    eLess,
+    eGreater,
+    eBefore,
+    eAfter,
+    eStartswith,
+    eEndswith,
+    eContains
+  };
 
-    nsTemplateCondition(nsAtom* aSourceVariable,
-                        const nsAString& aRelation,
-                        nsAtom* aTargetVariable,
-                        bool mIgnoreCase,
-                        bool mNegate);
+  nsTemplateCondition(nsAtom* aSourceVariable,
+                      const nsAString& aRelation,
+                      nsAtom* aTargetVariable,
+                      bool mIgnoreCase,
+                      bool mNegate);
 
-    nsTemplateCondition(nsAtom* aSourceVariable,
-                        const nsAString& aRelation,
-                        const nsAString& aTargets,
-                        bool mIgnoreCase,
-                        bool mNegate,
-                        bool aIsMultiple);
+  nsTemplateCondition(nsAtom* aSourceVariable,
+                      const nsAString& aRelation,
+                      const nsAString& aTargets,
+                      bool mIgnoreCase,
+                      bool mNegate,
+                      bool aIsMultiple);
 
-    nsTemplateCondition(const nsAString& aSource,
-                        const nsAString& aRelation,
-                        nsAtom* aTargetVariable,
-                        bool mIgnoreCase,
-                        bool mNegate);
+  nsTemplateCondition(const nsAString& aSource,
+                      const nsAString& aRelation,
+                      nsAtom* aTargetVariable,
+                      bool mIgnoreCase,
+                      bool mNegate);
 
-    ~nsTemplateCondition() { MOZ_COUNT_DTOR(nsTemplateCondition); }
+  ~nsTemplateCondition() { MOZ_COUNT_DTOR(nsTemplateCondition); }
 
-    nsTemplateCondition* GetNext() { return mNext; }
-    void SetNext(nsTemplateCondition* aNext) { mNext = aNext; }
+  nsTemplateCondition* GetNext() { return mNext; }
+  void SetNext(nsTemplateCondition* aNext) { mNext = aNext; }
 
-    void SetRelation(const nsAString& aRelation);
+  void SetRelation(const nsAString& aRelation);
 
-    bool
-    CheckMatch(nsIXULTemplateResult* aResult);
+  bool CheckMatch(nsIXULTemplateResult* aResult);
 
-    bool
-    CheckMatchStrings(const nsAString& aLeftString,
-                      const nsAString& aRightString);
-protected:
+  bool CheckMatchStrings(const nsAString& aLeftString,
+                         const nsAString& aRightString);
 
-    RefPtr<nsAtom>   mSourceVariable;
-    nsString            mSource;
-    ConditionRelation   mRelation;
-    RefPtr<nsAtom>   mTargetVariable;
-    nsTArray<nsString>  mTargetList;
-    bool                mIgnoreCase;
-    bool                mNegate;
+ protected:
+  RefPtr<nsAtom> mSourceVariable;
+  nsString mSource;
+  ConditionRelation mRelation;
+  RefPtr<nsAtom> mTargetVariable;
+  nsTArray<nsString> mTargetList;
+  bool mIgnoreCase;
+  bool mNegate;
 
-   nsTemplateCondition* mNext;
+  nsTemplateCondition* mNext;
 };
 
 /**
@@ -105,73 +104,71 @@ protected:
  */
 class nsTemplateRule
 {
-public:
-    nsTemplateRule(nsIContent* aRuleNode,
-                   nsIContent* aAction,
-                   nsTemplateQuerySet* aQuerySet);
-    /**
+ public:
+  nsTemplateRule(nsIContent* aRuleNode,
+                 nsIContent* aAction,
+                 nsTemplateQuerySet* aQuerySet);
+  /**
      * The copy-constructor should only be called from nsTArray when appending
      * a new rule, otherwise things break because the copy constructor expects
      * mBindings and mConditions to be nullptr.
      */
-    nsTemplateRule(const nsTemplateRule& aOtherRule);
+  nsTemplateRule(const nsTemplateRule& aOtherRule);
 
-    ~nsTemplateRule();
+  ~nsTemplateRule();
 
-    /**
+  /**
      * Return the <action> node that this rule was constructed from, or its
      * logical equivalent for shorthand syntaxes. That is, the parent node of
      * the content that should be generated for this rule.
      */
-    nsIContent* GetAction() const { return mAction; }
+  nsIContent* GetAction() const { return mAction; }
 
-    /**
+  /**
      * Return the <rule> content node that this rule was constructed from.
      * @param aResult an out parameter, which will contain the rule node
      * @return NS_OK if no errors occur.
      */
-    nsresult GetRuleNode(nsIDOMNode** aResult) const;
+  nsresult GetRuleNode(nsIDOMNode** aResult) const;
 
-    void SetVars(nsAtom* aRefVariable, nsAtom* aMemberVariable)
-    {
-        mRefVariable = aRefVariable;
-        mMemberVariable = aMemberVariable;
-    }
+  void SetVars(nsAtom* aRefVariable, nsAtom* aMemberVariable)
+  {
+    mRefVariable = aRefVariable;
+    mMemberVariable = aMemberVariable;
+  }
 
-    void SetRuleFilter(nsIXULTemplateRuleFilter* aRuleFilter)
-    {
-        mRuleFilter = aRuleFilter;
-    }
+  void SetRuleFilter(nsIXULTemplateRuleFilter* aRuleFilter)
+  {
+    mRuleFilter = aRuleFilter;
+  }
 
-    nsAtom* GetTag() { return mTag; }
-    void SetTag(nsAtom* aTag) { mTag = aTag; }
+  nsAtom* GetTag() { return mTag; }
+  void SetTag(nsAtom* aTag) { mTag = aTag; }
 
-    nsAtom* GetMemberVariable() { return mMemberVariable; }
+  nsAtom* GetMemberVariable() { return mMemberVariable; }
 
-    /**
+  /**
      * Set the first condition for the rule. Other conditions are linked
      * to it using the condition's SetNext method.
      */
-    void SetCondition(nsTemplateCondition* aConditions);
+  void SetCondition(nsTemplateCondition* aConditions);
 
-    /**
+  /**
      * Check if the result matches the rule by first looking at the conditions.
      * If the results is accepted by the conditions, the rule filter, if any
      * was set, is checked. If either check rejects a result, a match cannot
      * occur for this rule and result.
      */
-    bool
-    CheckMatch(nsIXULTemplateResult* aResult) const;
+  bool CheckMatch(nsIXULTemplateResult* aResult) const;
 
-    /**
+  /**
      * Determine if the rule has the specified binding
      */
-    bool
-    HasBinding(nsAtom* aSourceVariable,
-               nsAString& aExpr,
-               nsAtom* aTargetVariable) const;
+  bool HasBinding(nsAtom* aSourceVariable,
+                  nsAString& aExpr,
+                  nsAtom* aTargetVariable) const;
 
-    /**
+  /**
      * Add a binding to the rule. A binding consists of an already-bound
      * source variable, and the RDF property that should be tested to
      * generate a target value. The target value is bound to a target
@@ -184,57 +181,57 @@ public:
      *   to the RDF node that is returned when querying the binding
      * @return NS_OK if no errors occur.
      */
-    nsresult AddBinding(nsAtom* aSourceVariable,
-                        nsAString& aExpr,
-                        nsAtom* aTargetVariable);
+  nsresult AddBinding(nsAtom* aSourceVariable,
+                      nsAString& aExpr,
+                      nsAtom* aTargetVariable);
 
-    /**
+  /**
      * Inform the query processor of the bindings that are set for a rule.
      * This should be called after all the bindings for a rule are compiled.
      */
-    nsresult
-    AddBindingsToQueryProcessor(nsIXULTemplateQueryProcessor* aProcessor);
+  nsresult AddBindingsToQueryProcessor(
+      nsIXULTemplateQueryProcessor* aProcessor);
 
-    void Traverse(nsCycleCollectionTraversalCallback &cb) const
-    {
-        cb.NoteXPCOMChild(mRuleNode);
-        cb.NoteXPCOMChild(mAction);
-    }
+  void Traverse(nsCycleCollectionTraversalCallback& cb) const
+  {
+    cb.NoteXPCOMChild(mRuleNode);
+    cb.NoteXPCOMChild(mAction);
+  }
 
-protected:
+ protected:
+  struct Binding
+  {
+    RefPtr<nsAtom> mSourceVariable;
+    RefPtr<nsAtom> mTargetVariable;
+    nsString mExpr;
+    Binding* mNext;
+    Binding* mParent;
+  };
 
-    struct Binding {
-        RefPtr<nsAtom>        mSourceVariable;
-        RefPtr<nsAtom>        mTargetVariable;
-        nsString                 mExpr;
-        Binding*                 mNext;
-        Binding*                 mParent;
-    };
+  // backreference to the query set which owns this rule
+  nsTemplateQuerySet* mQuerySet;
 
-    // backreference to the query set which owns this rule
-    nsTemplateQuerySet* mQuerySet;
+  // the <rule> node, or the <template> node if there is no <rule>
+  nsCOMPtr<nsIDOMNode> mRuleNode;
 
-    // the <rule> node, or the <template> node if there is no <rule>
-    nsCOMPtr<nsIDOMNode> mRuleNode;
+  // the <action> node, or, if there is no <action>, the container node
+  // which contains the content to generate
+  nsCOMPtr<nsIContent> mAction;
 
-    // the <action> node, or, if there is no <action>, the container node
-    // which contains the content to generate
-    nsCOMPtr<nsIContent> mAction;
+  // the rule filter set by the builder's SetRuleFilter function
+  nsCOMPtr<nsIXULTemplateRuleFilter> mRuleFilter;
 
-    // the rule filter set by the builder's SetRuleFilter function
-    nsCOMPtr<nsIXULTemplateRuleFilter> mRuleFilter;
+  // indicates that the rule will only match when generating content
+  // to be inserted into a container with this tag
+  RefPtr<nsAtom> mTag;
 
-    // indicates that the rule will only match when generating content
-    // to be inserted into a container with this tag
-    RefPtr<nsAtom> mTag;
+  // linked-list of the bindings for the rule, owned by the rule.
+  Binding* mBindings;
 
-    // linked-list of the bindings for the rule, owned by the rule.
-    Binding* mBindings;
+  RefPtr<nsAtom> mRefVariable;
+  RefPtr<nsAtom> mMemberVariable;
 
-    RefPtr<nsAtom> mRefVariable;
-    RefPtr<nsAtom> mMemberVariable;
-
-    nsTemplateCondition* mConditions; // owned by nsTemplateRule
+  nsTemplateCondition* mConditions;  // owned by nsTemplateRule
 };
 
 /** nsTemplateQuerySet
@@ -248,81 +245,65 @@ protected:
  */
 class nsTemplateQuerySet
 {
-protected:
-    nsTArray<nsTemplateRule> mRules;
+ protected:
+  nsTArray<nsTemplateRule> mRules;
 
-    // a number which increments for each successive queryset. It is stored so
-    // it can be used as an optimization when updating results so that it is
-    // known where to insert them into a match.
-    int32_t mPriority;
+  // a number which increments for each successive queryset. It is stored so
+  // it can be used as an optimization when updating results so that it is
+  // known where to insert them into a match.
+  int32_t mPriority;
 
-public:
+ public:
+  // <query> node
+  nsCOMPtr<nsIContent> mQueryNode;
 
-    // <query> node
-    nsCOMPtr<nsIContent> mQueryNode;
+  // compiled opaque query object returned by the query processor's
+  // CompileQuery call
+  nsCOMPtr<nsISupports> mCompiledQuery;
 
-    // compiled opaque query object returned by the query processor's
-    // CompileQuery call
-    nsCOMPtr<nsISupports> mCompiledQuery;
+  // indicates that the query will only generate content to be inserted into
+  // a container with this tag
+  RefPtr<nsAtom> mTag;
 
-    // indicates that the query will only generate content to be inserted into
-    // a container with this tag
-    RefPtr<nsAtom> mTag;
+  explicit nsTemplateQuerySet(int32_t aPriority) : mPriority(aPriority)
+  {
+    MOZ_COUNT_CTOR(nsTemplateQuerySet);
+  }
 
-    explicit nsTemplateQuerySet(int32_t aPriority)
-        : mPriority(aPriority)
-    {
-        MOZ_COUNT_CTOR(nsTemplateQuerySet);
+  ~nsTemplateQuerySet() { MOZ_COUNT_DTOR(nsTemplateQuerySet); }
+
+  int32_t Priority() const { return mPriority; }
+
+  nsAtom* GetTag() { return mTag; }
+  void SetTag(nsAtom* aTag) { mTag = aTag; }
+
+  nsTemplateRule* NewRule(nsIContent* aRuleNode,
+                          nsIContent* aAction,
+                          nsTemplateQuerySet* aQuerySet)
+  {
+    // nsTemplateMatch stores the index as a 16-bit value,
+    // so check to make sure for overflow
+    if (mRules.Length() == INT16_MAX) return nullptr;
+
+    return mRules.AppendElement(nsTemplateRule(aRuleNode, aAction, aQuerySet));
+  }
+
+  void RemoveRule(nsTemplateRule* aRule)
+  {
+    mRules.RemoveElementAt(aRule - mRules.Elements());
+  }
+
+  int16_t RuleCount() const { return mRules.Length(); }
+
+  nsTemplateRule* GetRuleAt(int16_t aIndex)
+  {
+    if (uint32_t(aIndex) < mRules.Length()) {
+      return &mRules[aIndex];
     }
+    return nullptr;
+  }
 
-    ~nsTemplateQuerySet()
-    {
-        MOZ_COUNT_DTOR(nsTemplateQuerySet);
-    }
-
-    int32_t Priority() const
-    {
-        return mPriority;
-    }
-
-    nsAtom* GetTag() { return mTag; }
-    void SetTag(nsAtom* aTag) { mTag = aTag; }
-
-    nsTemplateRule* NewRule(nsIContent* aRuleNode,
-                            nsIContent* aAction,
-                            nsTemplateQuerySet* aQuerySet)
-    {
-        // nsTemplateMatch stores the index as a 16-bit value,
-        // so check to make sure for overflow
-        if (mRules.Length() == INT16_MAX)
-            return nullptr;
-
-        return mRules.AppendElement(nsTemplateRule(aRuleNode, aAction,
-                                    aQuerySet));
-    }
-
-    void RemoveRule(nsTemplateRule *aRule)
-    {
-        mRules.RemoveElementAt(aRule - mRules.Elements());
-    }
-
-    int16_t RuleCount() const
-    {
-        return mRules.Length();
-    }
-
-    nsTemplateRule* GetRuleAt(int16_t aIndex)
-    {
-        if (uint32_t(aIndex) < mRules.Length()) {
-            return &mRules[aIndex];
-        }
-        return nullptr;
-    }
-
-    void Clear()
-    {
-        mRules.Clear();
-    }
+  void Clear() { mRules.Clear(); }
 };
 
-#endif // nsTemplateRule_h__
+#endif  // nsTemplateRule_h__

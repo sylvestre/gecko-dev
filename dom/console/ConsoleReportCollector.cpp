@@ -15,27 +15,32 @@ namespace mozilla {
 NS_IMPL_ISUPPORTS(ConsoleReportCollector, nsIConsoleReportCollector)
 
 ConsoleReportCollector::ConsoleReportCollector()
-  : mMutex("mozilla::ConsoleReportCollector")
+    : mMutex("mozilla::ConsoleReportCollector")
 {
 }
 
 void
-ConsoleReportCollector::AddConsoleReport(uint32_t aErrorFlags,
-                                         const nsACString& aCategory,
-                                         nsContentUtils::PropertiesFile aPropertiesFile,
-                                         const nsACString& aSourceFileURI,
-                                         uint32_t aLineNumber,
-                                         uint32_t aColumnNumber,
-                                         const nsACString& aMessageName,
-                                         const nsTArray<nsString>& aStringParams)
+ConsoleReportCollector::AddConsoleReport(
+    uint32_t aErrorFlags,
+    const nsACString& aCategory,
+    nsContentUtils::PropertiesFile aPropertiesFile,
+    const nsACString& aSourceFileURI,
+    uint32_t aLineNumber,
+    uint32_t aColumnNumber,
+    const nsACString& aMessageName,
+    const nsTArray<nsString>& aStringParams)
 {
   // any thread
   MutexAutoLock lock(mMutex);
 
-  mPendingReports.AppendElement(PendingReport(aErrorFlags, aCategory,
-                                              aPropertiesFile, aSourceFileURI,
-                                              aLineNumber, aColumnNumber,
-                                              aMessageName, aStringParams));
+  mPendingReports.AppendElement(PendingReport(aErrorFlags,
+                                              aCategory,
+                                              aPropertiesFile,
+                                              aSourceFileURI,
+                                              aLineNumber,
+                                              aColumnNumber,
+                                              aMessageName,
+                                              aStringParams));
 }
 
 void
@@ -64,9 +69,8 @@ ConsoleReportCollector::FlushReportsToConsole(uint64_t aInnerWindowID,
                                                  report.mStringParams,
                                                  errorText);
     } else {
-      rv = nsContentUtils::GetLocalizedString(report.mPropertiesFile,
-                                              report.mMessageName.get(),
-                                              errorText);
+      rv = nsContentUtils::GetLocalizedString(
+          report.mPropertiesFile, report.mMessageName.get(), errorText);
     }
     if (NS_WARN_IF(NS_FAILED(rv))) {
       continue;
@@ -111,7 +115,8 @@ ConsoleReportCollector::FlushConsoleReports(nsILoadGroup* aLoadGroup,
 }
 
 void
-ConsoleReportCollector::FlushConsoleReports(nsIConsoleReportCollector* aCollector)
+ConsoleReportCollector::FlushConsoleReports(
+    nsIConsoleReportCollector* aCollector)
 {
   MOZ_ASSERT(aCollector);
 
@@ -124,10 +129,14 @@ ConsoleReportCollector::FlushConsoleReports(nsIConsoleReportCollector* aCollecto
 
   for (uint32_t i = 0; i < reports.Length(); ++i) {
     PendingReport& report = reports[i];
-    aCollector->AddConsoleReport(report.mErrorFlags, report.mCategory,
-                                 report.mPropertiesFile, report.mSourceFileURI,
-                                 report.mLineNumber, report.mColumnNumber,
-                                 report.mMessageName, report.mStringParams);
+    aCollector->AddConsoleReport(report.mErrorFlags,
+                                 report.mCategory,
+                                 report.mPropertiesFile,
+                                 report.mSourceFileURI,
+                                 report.mLineNumber,
+                                 report.mColumnNumber,
+                                 report.mMessageName,
+                                 report.mStringParams);
   }
 }
 
@@ -139,8 +148,6 @@ ConsoleReportCollector::ClearConsoleReports()
   mPendingReports.Clear();
 }
 
-ConsoleReportCollector::~ConsoleReportCollector()
-{
-}
+ConsoleReportCollector::~ConsoleReportCollector() {}
 
-} // namespace mozilla
+}  // namespace mozilla

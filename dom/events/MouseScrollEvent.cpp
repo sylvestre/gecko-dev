@@ -15,9 +15,11 @@ namespace dom {
 MouseScrollEvent::MouseScrollEvent(EventTarget* aOwner,
                                    nsPresContext* aPresContext,
                                    WidgetMouseScrollEvent* aEvent)
-  : MouseEvent(aOwner, aPresContext,
-               aEvent ? aEvent :
-                        new WidgetMouseScrollEvent(false, eVoidEvent, nullptr))
+    : MouseEvent(aOwner,
+                 aPresContext,
+                 aEvent
+                     ? aEvent
+                     : new WidgetMouseScrollEvent(false, eVoidEvent, nullptr))
 {
   if (aEvent) {
     mEventIsInternal = false;
@@ -26,7 +28,7 @@ MouseScrollEvent::MouseScrollEvent(EventTarget* aOwner,
     mEvent->mTime = PR_Now();
     mEvent->mRefPoint = LayoutDeviceIntPoint(0, 0);
     static_cast<WidgetMouseEventBase*>(mEvent)->inputSource =
-      nsIDOMMouseEvent::MOZ_SOURCE_UNKNOWN;
+        nsIDOMMouseEvent::MOZ_SOURCE_UNKNOWN;
   }
 
   mDetail = mEvent->AsMouseScrollEvent()->mDelta;
@@ -58,24 +60,35 @@ MouseScrollEvent::InitMouseScrollEvent(const nsAString& aType,
 {
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
 
-  MouseEvent::InitMouseEvent(aType, aCanBubble, aCancelable, aView, aDetail,
-                             aScreenX, aScreenY, aClientX, aClientY,
-                             aCtrlKey, aAltKey, aShiftKey, aMetaKey, aButton,
+  MouseEvent::InitMouseEvent(aType,
+                             aCanBubble,
+                             aCancelable,
+                             aView,
+                             aDetail,
+                             aScreenX,
+                             aScreenY,
+                             aClientX,
+                             aClientY,
+                             aCtrlKey,
+                             aAltKey,
+                             aShiftKey,
+                             aMetaKey,
+                             aButton,
                              aRelatedTarget);
   mEvent->AsMouseScrollEvent()->mIsHorizontal =
-    (aAxis == nsIDOMMouseScrollEvent::HORIZONTAL_AXIS);
+      (aAxis == nsIDOMMouseScrollEvent::HORIZONTAL_AXIS);
 }
 
 int32_t
 MouseScrollEvent::Axis()
 {
-  return mEvent->AsMouseScrollEvent()->mIsHorizontal ?
-          static_cast<int32_t>(nsIDOMMouseScrollEvent::HORIZONTAL_AXIS) :
-          static_cast<int32_t>(nsIDOMMouseScrollEvent::VERTICAL_AXIS);
+  return mEvent->AsMouseScrollEvent()->mIsHorizontal
+             ? static_cast<int32_t>(nsIDOMMouseScrollEvent::HORIZONTAL_AXIS)
+             : static_cast<int32_t>(nsIDOMMouseScrollEvent::VERTICAL_AXIS);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace dom;
@@ -86,6 +99,6 @@ NS_NewDOMMouseScrollEvent(EventTarget* aOwner,
                           WidgetMouseScrollEvent* aEvent)
 {
   RefPtr<MouseScrollEvent> it =
-    new MouseScrollEvent(aOwner, aPresContext, aEvent);
+      new MouseScrollEvent(aOwner, aPresContext, aEvent);
   return it.forget();
 }

@@ -27,8 +27,9 @@
  *     can reduce instruction cache misses and perhaps improve branch
  *     prediction)
  */
-class nsStubDocumentObserver : public nsIDocumentObserver {
-public:
+class nsStubDocumentObserver : public nsIDocumentObserver
+{
+ public:
   NS_DECL_NSIDOCUMENTOBSERVER
 };
 

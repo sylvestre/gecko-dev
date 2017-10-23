@@ -20,8 +20,10 @@ namespace {
 
 template<typename T>
 void
-CreateObjectURLInternal(const GlobalObject& aGlobal, T aObject,
-                        nsAString& aResult, ErrorResult& aRv)
+CreateObjectURLInternal(const GlobalObject& aGlobal,
+                        T aObject,
+                        nsAString& aResult,
+                        ErrorResult& aRv)
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   if (NS_WARN_IF(!global)) {
@@ -30,7 +32,7 @@ CreateObjectURLInternal(const GlobalObject& aGlobal, T aObject,
   }
 
   nsCOMPtr<nsIPrincipal> principal =
-    nsContentUtils::ObjectPrincipal(aGlobal.Get());
+      nsContentUtils::ObjectPrincipal(aGlobal.Get());
 
   nsAutoCString url;
   aRv = nsHostObjectProtocolHandler::AddDataEntry(aObject, principal, url);
@@ -42,11 +44,13 @@ CreateObjectURLInternal(const GlobalObject& aGlobal, T aObject,
   CopyASCIItoUTF16(url, aResult);
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 /* static */ already_AddRefed<URLMainThread>
-URLMainThread::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-                           const Optional<nsAString>& aBase, ErrorResult& aRv)
+URLMainThread::Constructor(const GlobalObject& aGlobal,
+                           const nsAString& aURL,
+                           const Optional<nsAString>& aBase,
+                           ErrorResult& aRv)
 {
   if (aBase.WasPassed()) {
     return Constructor(aGlobal.GetAsSupports(), aURL, aBase.Value(), aRv);
@@ -56,13 +60,18 @@ URLMainThread::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
 }
 
 /* static */ already_AddRefed<URLMainThread>
-URLMainThread::Constructor(nsISupports* aParent, const nsAString& aURL,
-                           const nsAString& aBase, ErrorResult& aRv)
+URLMainThread::Constructor(nsISupports* aParent,
+                           const nsAString& aURL,
+                           const nsAString& aBase,
+                           ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIURI> baseUri;
-  nsresult rv = NS_NewURI(getter_AddRefs(baseUri), aBase, nullptr, nullptr,
+  nsresult rv = NS_NewURI(getter_AddRefs(baseUri),
+                          aBase,
+                          nullptr,
+                          nullptr,
                           nsContentUtils::GetIOService());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.ThrowTypeError<MSG_INVALID_URL>(aBase);
@@ -73,13 +82,18 @@ URLMainThread::Constructor(nsISupports* aParent, const nsAString& aURL,
 }
 
 /* static */ already_AddRefed<URLMainThread>
-URLMainThread::Constructor(nsISupports* aParent, const nsAString& aURL,
-                           nsIURI* aBase, ErrorResult& aRv)
+URLMainThread::Constructor(nsISupports* aParent,
+                           const nsAString& aURL,
+                           nsIURI* aBase,
+                           ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIURI> uri;
-  nsresult rv = NS_NewURI(getter_AddRefs(uri), aURL, nullptr, aBase,
+  nsresult rv = NS_NewURI(getter_AddRefs(uri),
+                          aURL,
+                          nullptr,
+                          aBase,
                           nsContentUtils::GetIOService());
   if (NS_FAILED(rv)) {
     // No need to warn in this case. It's common to use the URL constructor
@@ -93,8 +107,10 @@ URLMainThread::Constructor(nsISupports* aParent, const nsAString& aURL,
 }
 
 /* static */ void
-URLMainThread::CreateObjectURL(const GlobalObject& aGlobal, Blob& aBlob,
-                               nsAString& aResult, ErrorResult& aRv)
+URLMainThread::CreateObjectURL(const GlobalObject& aGlobal,
+                               Blob& aBlob,
+                               nsAString& aResult,
+                               ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
   CreateObjectURLInternal(aGlobal, aBlob.Impl(), aResult, aRv);
@@ -103,7 +119,8 @@ URLMainThread::CreateObjectURL(const GlobalObject& aGlobal, Blob& aBlob,
 /* static */ void
 URLMainThread::CreateObjectURL(const GlobalObject& aGlobal,
                                DOMMediaStream& aStream,
-                               nsAString& aResult, ErrorResult& aRv)
+                               nsAString& aResult,
+                               ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
   CreateObjectURLInternal(aGlobal, &aStream, aResult, aRv);
@@ -112,12 +129,13 @@ URLMainThread::CreateObjectURL(const GlobalObject& aGlobal,
 /* static */ void
 URLMainThread::CreateObjectURL(const GlobalObject& aGlobal,
                                MediaSource& aSource,
-                               nsAString& aResult, ErrorResult& aRv)
+                               nsAString& aResult,
+                               ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIPrincipal> principal =
-    nsContentUtils::ObjectPrincipal(aGlobal.Get());
+      nsContentUtils::ObjectPrincipal(aGlobal.Get());
 
   nsAutoCString url;
   aRv = nsHostObjectProtocolHandler::AddDataEntry(&aSource, principal, url);
@@ -125,10 +143,9 @@ URLMainThread::CreateObjectURL(const GlobalObject& aGlobal,
     return;
   }
 
-  nsCOMPtr<nsIRunnable> revocation =
-    NS_NewRunnableFunction("dom::URLMainThread::CreateObjectURL", [url] {
-      nsHostObjectProtocolHandler::RemoveDataEntry(url);
-    });
+  nsCOMPtr<nsIRunnable> revocation = NS_NewRunnableFunction(
+      "dom::URLMainThread::CreateObjectURL",
+      [url] { nsHostObjectProtocolHandler::RemoveDataEntry(url); });
 
   nsContentUtils::RunInStableState(revocation.forget());
 
@@ -137,7 +154,8 @@ URLMainThread::CreateObjectURL(const GlobalObject& aGlobal,
 
 /* static */ void
 URLMainThread::RevokeObjectURL(const GlobalObject& aGlobal,
-                               const nsAString& aURL, ErrorResult& aRv)
+                               const nsAString& aURL,
+                               ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
@@ -151,7 +169,7 @@ URLMainThread::RevokeObjectURL(const GlobalObject& aGlobal,
   NS_LossyConvertUTF16toASCII asciiurl(aURL);
 
   nsIPrincipal* urlPrincipal =
-    nsHostObjectProtocolHandler::GetDataEntryPrincipal(asciiurl);
+      nsHostObjectProtocolHandler::GetDataEntryPrincipal(asciiurl);
 
   if (urlPrincipal && principal->Subsumes(urlPrincipal)) {
     global->UnregisterHostObjectURI(asciiurl);
@@ -161,19 +179,16 @@ URLMainThread::RevokeObjectURL(const GlobalObject& aGlobal,
 
 URLMainThread::URLMainThread(nsISupports* aParent,
                              already_AddRefed<nsIURI> aURI)
-  : URL(aParent)
-  , mURI(aURI)
+    : URL(aParent), mURI(aURI)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-URLMainThread::~URLMainThread()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-}
+URLMainThread::~URLMainThread() { MOZ_ASSERT(NS_IsMainThread()); }
 
 /* static */ bool
-URLMainThread::IsValidURL(const GlobalObject& aGlobal, const nsAString& aURL,
+URLMainThread::IsValidURL(const GlobalObject& aGlobal,
+                          const nsAString& aURL,
                           ErrorResult& aRv)
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -273,12 +288,12 @@ URLMainThread::SetProtocol(const nsAString& aProtocol, ErrorResult& aRv)
   mURI = uri;
 }
 
-#define URL_GETTER( value, func ) \
-  value.Truncate();               \
-  nsAutoCString tmp;              \
-  nsresult rv = mURI->func(tmp);  \
-  if (NS_SUCCEEDED(rv)) {         \
-    CopyUTF8toUTF16(tmp, value);  \
+#define URL_GETTER(value, func)  \
+  value.Truncate();              \
+  nsAutoCString tmp;             \
+  nsresult rv = mURI->func(tmp); \
+  if (NS_SUCCEEDED(rv)) {        \
+    CopyUTF8toUTF16(tmp, value); \
   }
 
 void
@@ -454,5 +469,5 @@ URLMainThread::GetURI() const
   return mURI;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

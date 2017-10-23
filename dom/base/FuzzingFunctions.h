@@ -14,15 +14,13 @@ class GlobalObject;
 
 class FuzzingFunctions final
 {
-public:
-  static void
-  GarbageCollect(const GlobalObject&);
+ public:
+  static void GarbageCollect(const GlobalObject&);
 
-  static void
-  CycleCollect(const GlobalObject&);
+  static void CycleCollect(const GlobalObject&);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FuzzingFunctions
+#endif  // mozilla_dom_FuzzingFunctions

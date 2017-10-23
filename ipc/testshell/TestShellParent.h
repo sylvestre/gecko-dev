@@ -23,23 +23,20 @@ class TestShellCommandParent;
 
 class TestShellParent : public PTestShellParent
 {
-public:
+ public:
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  PTestShellCommandParent*
-  AllocPTestShellCommandParent(const nsString& aCommand) override;
+  PTestShellCommandParent* AllocPTestShellCommandParent(
+      const nsString& aCommand) override;
 
-  bool
-  DeallocPTestShellCommandParent(PTestShellCommandParent* aActor) override;
+  bool DeallocPTestShellCommandParent(PTestShellCommandParent* aActor) override;
 
-  bool
-  CommandDone(TestShellCommandParent* aActor, const nsString& aResponse);
+  bool CommandDone(TestShellCommandParent* aActor, const nsString& aResponse);
 };
-
 
 class TestShellCommandParent : public PTestShellCommandParent
 {
-public:
+ public:
   TestShellCommandParent() {}
 
   bool SetCallback(JSContext* aCx, const JS::Value& aCallback);
@@ -48,22 +45,22 @@ public:
 
   void ReleaseCallback();
 
-protected:
+ protected:
   bool ExecuteCallback(const nsString& aResponse);
 
   void ActorDestroy(ActorDestroyReason why);
 
-  mozilla::ipc::IPCResult Recv__delete__(const nsString& aResponse) {
+  mozilla::ipc::IPCResult Recv__delete__(const nsString& aResponse)
+  {
     if (!ExecuteCallback(aResponse)) {
       return IPC_FAIL_NO_REASON(this);
     }
     return IPC_OK();
   }
 
-private:
+ private:
   JS::PersistentRooted<JS::Value> mCallback;
 };
-
 
 } /* namespace ipc */
 } /* namespace mozilla */

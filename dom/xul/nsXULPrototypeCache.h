@@ -21,7 +21,7 @@
 
 namespace mozilla {
 class StyleSheet;
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * The XUL prototype cache can be used to store and retrieve shared data for
@@ -33,123 +33,121 @@ class StyleSheet;
  */
 class nsXULPrototypeCache : public nsIObserver
 {
-public:
-    // nsISupports
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSIOBSERVER
+ public:
+  // nsISupports
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIOBSERVER
 
-    bool IsCached(nsIURI* aURI) {
-        return GetPrototype(aURI) != nullptr;
-    }
-    void AbortCaching();
+  bool IsCached(nsIURI* aURI) { return GetPrototype(aURI) != nullptr; }
+  void AbortCaching();
 
-
-    /**
+  /**
      * Whether the prototype cache is enabled.
      */
-    bool IsEnabled();
+  bool IsEnabled();
 
-    /**
+  /**
      * Flush the cache; remove all XUL prototype documents, style
      * sheets, and scripts.
      */
-    void Flush();
+  void Flush();
 
+  // The following methods are used to put and retrive various items into and
+  // from the cache.
 
-    // The following methods are used to put and retrive various items into and
-    // from the cache.
+  nsXULPrototypeDocument* GetPrototype(nsIURI* aURI);
+  nsresult PutPrototype(nsXULPrototypeDocument* aDocument);
 
-    nsXULPrototypeDocument* GetPrototype(nsIURI* aURI);
-    nsresult PutPrototype(nsXULPrototypeDocument* aDocument);
+  JSScript* GetScript(nsIURI* aURI);
+  nsresult PutScript(nsIURI* aURI, JS::Handle<JSScript*> aScriptObject);
 
-    JSScript* GetScript(nsIURI* aURI);
-    nsresult PutScript(nsIURI* aURI, JS::Handle<JSScript*> aScriptObject);
+  nsXBLDocumentInfo* GetXBLDocumentInfo(nsIURI* aURL,
+                                        mozilla::StyleBackendType aType);
 
-    nsXBLDocumentInfo* GetXBLDocumentInfo(nsIURI* aURL,
-                                          mozilla::StyleBackendType aType);
+  nsresult PutXBLDocumentInfo(nsXBLDocumentInfo* aDocumentInfo);
 
-    nsresult PutXBLDocumentInfo(nsXBLDocumentInfo* aDocumentInfo);
-
-    /**
+  /**
      * Get a style sheet by URI. If the style sheet is not in the cache,
      * returns nullptr.
      */
-    mozilla::StyleSheet* GetStyleSheet(nsIURI* aURI,
-                                       mozilla::StyleBackendType aType);
+  mozilla::StyleSheet* GetStyleSheet(nsIURI* aURI,
+                                     mozilla::StyleBackendType aType);
 
-    /**
+  /**
      * Store a style sheet in the cache. The key, style sheet's URI is obtained
      * from the style sheet itself.
      */
-    nsresult PutStyleSheet(mozilla::StyleSheet* aStyleSheet,
-                           mozilla::StyleBackendType aType);
+  nsresult PutStyleSheet(mozilla::StyleSheet* aStyleSheet,
+                         mozilla::StyleBackendType aType);
 
-    /**
+  /**
      * Write the XUL prototype document to a cache file. The proto must be
      * fully loaded.
      */
-    nsresult WritePrototype(nsXULPrototypeDocument* aPrototypeDocument);
+  nsresult WritePrototype(nsXULPrototypeDocument* aPrototypeDocument);
 
-    /**
+  /**
      * This interface allows partial reads and writes from the buffers in the
      * startupCache.
      */
-    nsresult GetInputStream(nsIURI* aURI, nsIObjectInputStream** objectInput);
-    nsresult FinishInputStream(nsIURI* aURI);
-    nsresult GetOutputStream(nsIURI* aURI, nsIObjectOutputStream** objectOutput);
-    nsresult FinishOutputStream(nsIURI* aURI);
-    nsresult HasData(nsIURI* aURI, bool* exists);
+  nsresult GetInputStream(nsIURI* aURI, nsIObjectInputStream** objectInput);
+  nsresult FinishInputStream(nsIURI* aURI);
+  nsresult GetOutputStream(nsIURI* aURI, nsIObjectOutputStream** objectOutput);
+  nsresult FinishOutputStream(nsIURI* aURI);
+  nsresult HasData(nsIURI* aURI, bool* exists);
 
-    static nsXULPrototypeCache* GetInstance();
-    static nsXULPrototypeCache* MaybeGetInstance() { return sInstance; }
+  static nsXULPrototypeCache* GetInstance();
+  static nsXULPrototypeCache* MaybeGetInstance() { return sInstance; }
 
-    static void ReleaseGlobals()
-    {
-        NS_IF_RELEASE(sInstance);
-    }
+  static void ReleaseGlobals() { NS_IF_RELEASE(sInstance); }
 
-    void MarkInCCGeneration(uint32_t aGeneration);
-    void MarkInGC(JSTracer* aTrc);
-    void FlushScripts();
-protected:
-    friend nsresult
-    NS_NewXULPrototypeCache(nsISupports* aOuter, REFNSIID aIID, void** aResult);
+  void MarkInCCGeneration(uint32_t aGeneration);
+  void MarkInGC(JSTracer* aTrc);
+  void FlushScripts();
 
-    nsXULPrototypeCache();
-    virtual ~nsXULPrototypeCache();
+ protected:
+  friend nsresult NS_NewXULPrototypeCache(nsISupports* aOuter,
+                                          REFNSIID aIID,
+                                          void** aResult);
 
-    static nsXULPrototypeCache* sInstance;
+  nsXULPrototypeCache();
+  virtual ~nsXULPrototypeCache();
 
-    void FlushSkinFiles();
+  static nsXULPrototypeCache* sInstance;
 
-    using StyleSheetTable = nsRefPtrHashtable<nsURIHashKey, mozilla::StyleSheet>;
-    using XBLDocTable = nsRefPtrHashtable<nsURIHashKey, nsXBLDocumentInfo>;
+  void FlushSkinFiles();
 
-    StyleSheetTable& StyleSheetTableFor(mozilla::StyleBackendType aType) {
-      return aType == mozilla::StyleBackendType::Gecko ? mGeckoStyleSheetTable
-                                                       : mServoStyleSheetTable;
-    }
+  using StyleSheetTable = nsRefPtrHashtable<nsURIHashKey, mozilla::StyleSheet>;
+  using XBLDocTable = nsRefPtrHashtable<nsURIHashKey, nsXBLDocumentInfo>;
 
-    XBLDocTable& XBLDocTableFor(mozilla::StyleBackendType aType) {
-      return aType == mozilla::StyleBackendType::Gecko ? mGeckoXBLDocTable
-                                                       : mServoXBLDocTable;
-    }
+  StyleSheetTable& StyleSheetTableFor(mozilla::StyleBackendType aType)
+  {
+    return aType == mozilla::StyleBackendType::Gecko ? mGeckoStyleSheetTable
+                                                     : mServoStyleSheetTable;
+  }
 
-    nsRefPtrHashtable<nsURIHashKey,nsXULPrototypeDocument>   mPrototypeTable; // owns the prototypes
-    StyleSheetTable                                          mGeckoStyleSheetTable;
-    StyleSheetTable                                          mServoStyleSheetTable;
-    nsJSThingHashtable<nsURIHashKey, JSScript*>              mScriptTable;
-    XBLDocTable                                              mGeckoXBLDocTable;
-    XBLDocTable                                              mServoXBLDocTable;
+  XBLDocTable& XBLDocTableFor(mozilla::StyleBackendType aType)
+  {
+    return aType == mozilla::StyleBackendType::Gecko ? mGeckoXBLDocTable
+                                                     : mServoXBLDocTable;
+  }
 
-    // URIs already written to the startup cache, to prevent double-caching.
-    nsTHashtable<nsURIHashKey>                               mStartupCacheURITable;
+  nsRefPtrHashtable<nsURIHashKey, nsXULPrototypeDocument>
+      mPrototypeTable;  // owns the prototypes
+  StyleSheetTable mGeckoStyleSheetTable;
+  StyleSheetTable mServoStyleSheetTable;
+  nsJSThingHashtable<nsURIHashKey, JSScript*> mScriptTable;
+  XBLDocTable mGeckoXBLDocTable;
+  XBLDocTable mServoXBLDocTable;
 
-    nsInterfaceHashtable<nsURIHashKey, nsIStorageStream>     mOutputStreamTable;
-    nsInterfaceHashtable<nsURIHashKey, nsIObjectInputStream> mInputStreamTable;
+  // URIs already written to the startup cache, to prevent double-caching.
+  nsTHashtable<nsURIHashKey> mStartupCacheURITable;
 
-    // Bootstrap caching service
-    nsresult BeginCaching(nsIURI* aDocumentURI);
+  nsInterfaceHashtable<nsURIHashKey, nsIStorageStream> mOutputStreamTable;
+  nsInterfaceHashtable<nsURIHashKey, nsIObjectInputStream> mInputStreamTable;
+
+  // Bootstrap caching service
+  nsresult BeginCaching(nsIURI* aDocumentURI);
 };
 
-#endif // nsXULPrototypeCache_h__
+#endif  // nsXULPrototypeCache_h__

@@ -14,42 +14,29 @@
 
 #include "vm/ProxyObject.h"
 
-const js::Class OuterWrapperClass = PROXY_CLASS_DEF(
-    "Proxy",
-    JSCLASS_HAS_RESERVED_SLOTS(1) /* additional class flags */);
+const js::Class OuterWrapperClass =
+    PROXY_CLASS_DEF("Proxy", JSCLASS_HAS_RESERVED_SLOTS(1) /* additional class flags */);
 
-static JSObject*
-wrap(JSContext* cx, JS::HandleObject toWrap, JS::HandleObject target)
-{
+static JSObject* wrap(JSContext* cx, JS::HandleObject toWrap, JS::HandleObject target) {
     JSAutoCompartment ac(cx, target);
     JS::RootedObject wrapper(cx, toWrap);
-    if (!JS_WrapObject(cx, &wrapper))
-        return nullptr;
+    if (!JS_WrapObject(cx, &wrapper)) return nullptr;
     return wrapper;
 }
 
-static void
-PreWrap(JSContext* cx, JS::HandleObject scope, JS::HandleObject obj,
-        JS::HandleObject objectPassedToWrap,
-        JS::MutableHandleObject retObj)
-{
+static void PreWrap(JSContext* cx, JS::HandleObject scope, JS::HandleObject obj,
+                    JS::HandleObject objectPassedToWrap, JS::MutableHandleObject retObj) {
     JS_GC(cx);
     retObj.set(obj);
 }
 
-static JSObject*
-Wrap(JSContext* cx, JS::HandleObject existing, JS::HandleObject obj)
-{
+static JSObject* Wrap(JSContext* cx, JS::HandleObject existing, JS::HandleObject obj) {
     return js::Wrapper::New(cx, obj, &js::CrossCompartmentWrapper::singleton);
 }
 
-static const JSWrapObjectCallbacks WrapObjectCallbacks = {
-    Wrap,
-    PreWrap
-};
+static const JSWrapObjectCallbacks WrapObjectCallbacks = {Wrap, PreWrap};
 
-BEGIN_TEST(testBug604087)
-{
+BEGIN_TEST(testBug604087) {
     js::SetWindowProxyClass(cx, &OuterWrapperClass);
 
     js::WrapperOptions options;

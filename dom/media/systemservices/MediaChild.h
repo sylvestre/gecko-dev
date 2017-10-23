@@ -41,26 +41,27 @@ SanitizeOriginKeys(const uint64_t& aSinceWhen, bool aOnlyPrivateBrowsing);
 
 class Child : public PMediaChild
 {
-public:
+ public:
   static Child* Get();
 
   Child();
 
-  mozilla::ipc::IPCResult
-  RecvGetPrincipalKeyResponse(const uint32_t& aRequestId,
-                              const nsCString& aKey) override;
+  mozilla::ipc::IPCResult RecvGetPrincipalKeyResponse(
+      const uint32_t& aRequestId, const nsCString& aKey) override;
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
   virtual ~Child();
-private:
 
+ private:
   bool mActorDestroyed;
 };
 
-PMediaChild* AllocPMediaChild();
-bool DeallocPMediaChild(PMediaChild *aActor);
+PMediaChild*
+AllocPMediaChild();
+bool
+DeallocPMediaChild(PMediaChild* aActor);
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
 #endif  // mozilla_MediaChild_h

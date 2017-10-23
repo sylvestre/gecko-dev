@@ -14,12 +14,10 @@ namespace net {
 
 NS_IMPL_ISUPPORTS(FileChannelParent, nsIParentChannel, nsIStreamListener)
 
-FileChannelParent::~FileChannelParent()
-{
-}
+FileChannelParent::~FileChannelParent() {}
 
 bool
-FileChannelParent::Init(const uint32_t &channelId)
+FileChannelParent::Init(const uint32_t& channelId)
 {
   nsCOMPtr<nsIChannel> channel;
   MOZ_ALWAYS_SUCCEEDS(
@@ -71,8 +69,7 @@ FileChannelParent::ActorDestroy(ActorDestroyReason why)
 }
 
 NS_IMETHODIMP
-FileChannelParent::OnStartRequest(nsIRequest *aRequest,
-                                  nsISupports *aContext)
+FileChannelParent::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 {
   // We don't have a way to prevent nsBaseChannel from calling AsyncOpen on
   // the created nsDataChannel. We don't have anywhere to send the data in the
@@ -81,8 +78,8 @@ FileChannelParent::OnStartRequest(nsIRequest *aRequest,
 }
 
 NS_IMETHODIMP
-FileChannelParent::OnStopRequest(nsIRequest *aRequest,
-                                 nsISupports *aContext,
+FileChannelParent::OnStopRequest(nsIRequest* aRequest,
+                                 nsISupports* aContext,
                                  nsresult aStatusCode)
 {
   // See above.
@@ -91,9 +88,9 @@ FileChannelParent::OnStopRequest(nsIRequest *aRequest,
 }
 
 NS_IMETHODIMP
-FileChannelParent::OnDataAvailable(nsIRequest *aRequest,
-                                   nsISupports *aContext,
-                                   nsIInputStream *aInputStream,
+FileChannelParent::OnDataAvailable(nsIRequest* aRequest,
+                                   nsISupports* aContext,
+                                   nsIInputStream* aInputStream,
                                    uint64_t aOffset,
                                    uint32_t aCount)
 {
@@ -101,5 +98,5 @@ FileChannelParent::OnDataAvailable(nsIRequest *aRequest,
   MOZ_CRASH("Should never be called");
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

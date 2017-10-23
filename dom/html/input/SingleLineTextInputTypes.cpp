@@ -30,11 +30,11 @@ SingleLineTextInputTypeBase::IsTooLong() const
 
   // Maxlength of -1 means attribute isn't set or parsing error.
   if (maxLength == -1) {
-   return false;
+    return false;
   }
 
   int32_t textLength =
-    mInputElement->InputTextLength(mozilla::dom::CallerType::System);
+      mInputElement->InputTextLength(mozilla::dom::CallerType::System);
 
   return textLength > maxLength;
 }
@@ -50,7 +50,7 @@ SingleLineTextInputTypeBase::IsTooShort() const
   }
 
   int32_t textLength =
-    mInputElement->InputTextLength(mozilla::dom::CallerType::System);
+      mInputElement->InputTextLength(mozilla::dom::CallerType::System);
 
   return textLength && textLength < minLength;
 }
@@ -119,17 +119,15 @@ URLInputType::HasTypeMismatch() const
   nsCOMPtr<nsIIOService> ioService = do_GetIOService();
   nsCOMPtr<nsIURI> uri;
 
-  return !NS_SUCCEEDED(ioService->NewURI(NS_ConvertUTF16toUTF8(value), nullptr,
-                                         nullptr, getter_AddRefs(uri)));
-
+  return !NS_SUCCEEDED(ioService->NewURI(
+      NS_ConvertUTF16toUTF8(value), nullptr, nullptr, getter_AddRefs(uri)));
 }
 
 nsresult
 URLInputType::GetTypeMismatchMessage(nsAString& aMessage)
 {
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                            "FormValidationInvalidURL",
-                                            aMessage);
+  return nsContentUtils::GetLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidURL", aMessage);
 }
 
 /* input type=email */
@@ -144,8 +142,9 @@ EmailInputType::HasTypeMismatch() const
     return false;
   }
 
-  return mInputElement->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple) ?
-    !IsValidEmailAddressList(value) : !IsValidEmailAddress(value);
+  return mInputElement->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple)
+             ? !IsValidEmailAddressList(value)
+             : !IsValidEmailAddress(value);
 }
 
 bool
@@ -171,17 +170,15 @@ EmailInputType::HasBadInput() const
 nsresult
 EmailInputType::GetTypeMismatchMessage(nsAString& aMessage)
 {
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                            "FormValidationInvalidEmail",
-                                            aMessage);
+  return nsContentUtils::GetLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidEmail", aMessage);
 }
 
 nsresult
 EmailInputType::GetBadInputMessage(nsAString& aMessage)
 {
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                            "FormValidationInvalidEmail",
-                                            aMessage);
+  return nsContentUtils::GetLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidEmail", aMessage);
 }
 
 /* static */ bool
@@ -209,7 +206,8 @@ EmailInputType::IsValidEmailAddress(const nsAString& aValue)
   uint32_t atPos;
   nsAutoCString value;
   if (!PunycodeEncodeEmailAddress(aValue, value, &atPos) ||
-      atPos == (uint32_t)kNotFound || atPos == 0 || atPos == value.Length() - 1) {
+      atPos == (uint32_t)kNotFound || atPos == 0 ||
+      atPos == value.Length() - 1) {
     // Could not encode, or "@" was not found, or it was at the start or end
     // of the input - in all cases, not a valid email address.
     return false;
@@ -223,11 +221,11 @@ EmailInputType::IsValidEmailAddress(const nsAString& aValue)
     char16_t c = value[i];
 
     // The username characters have to be in this list to be valid.
-    if (!(nsCRT::IsAsciiAlpha(c) || nsCRT::IsAsciiDigit(c) ||
-          c == '.' || c == '!' || c == '#' || c == '$' || c == '%' ||
-          c == '&' || c == '\''|| c == '*' || c == '+' || c == '-' ||
-          c == '/' || c == '=' || c == '?' || c == '^' || c == '_' ||
-          c == '`' || c == '{' || c == '|' || c == '}' || c == '~' )) {
+    if (!(nsCRT::IsAsciiAlpha(c) || nsCRT::IsAsciiDigit(c) || c == '.' ||
+          c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
+          c == '\'' || c == '*' || c == '+' || c == '-' || c == '/' ||
+          c == '=' || c == '?' || c == '^' || c == '_' || c == '`' ||
+          c == '{' || c == '|' || c == '}' || c == '~')) {
       return false;
     }
   }
@@ -246,12 +244,12 @@ EmailInputType::IsValidEmailAddress(const nsAString& aValue)
 
     if (c == '.') {
       // A dot can't follow a dot or a dash.
-      if (value[i-1] == '.' || value[i-1] == '-') {
+      if (value[i - 1] == '.' || value[i - 1] == '-') {
         return false;
       }
-    } else if (c == '-'){
+    } else if (c == '-') {
       // A dash can't follow a dot.
-      if (value[i-1] == '.') {
+      if (value[i - 1] == '.') {
         return false;
       }
     } else if (!(nsCRT::IsAsciiAlpha(c) || nsCRT::IsAsciiDigit(c) ||
@@ -272,8 +270,7 @@ EmailInputType::PunycodeEncodeEmailAddress(const nsAString& aEmail,
   nsAutoCString value = NS_ConvertUTF16toUTF8(aEmail);
   *aIndexOfAt = (uint32_t)value.FindChar('@');
 
-  if (*aIndexOfAt == (uint32_t)kNotFound ||
-      *aIndexOfAt == value.Length() - 1) {
+  if (*aIndexOfAt == (uint32_t)kNotFound || *aIndexOfAt == value.Length() - 1) {
     aEncodedEmail = value;
     return true;
   }

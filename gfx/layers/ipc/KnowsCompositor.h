@@ -21,8 +21,9 @@ class LayersIPCActor;
  * An abstract interface for classes that are tied to a specific Compositor across
  * IPDL and uses TextureFactoryIdentifier to describe this Compositor.
  */
-class KnowsCompositor {
-public:
+class KnowsCompositor
+{
+ public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
   KnowsCompositor();
@@ -72,7 +73,8 @@ public:
     return mTextureFactoryIdentifier;
   }
 
-  bool DeviceCanReset() const {
+  bool DeviceCanReset() const
+  {
     return GetCompositorBackendType() != LayersBackend::LAYERS_BASIC;
   }
 
@@ -84,7 +86,7 @@ public:
   virtual TextureForwarder* GetTextureForwarder() = 0;
   virtual LayersIPCActor* GetLayersIPCActor() = 0;
 
-protected:
+ protected:
   TextureFactoryIdentifier mTextureFactoryIdentifier;
   RefPtr<SyncObjectClient> mSyncObject;
 
@@ -92,7 +94,7 @@ protected:
   static mozilla::Atomic<int32_t> sSerialCounter;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

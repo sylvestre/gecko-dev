@@ -22,11 +22,11 @@ class PresentationContentSessionInfo;
 class PresentationResponderLoadingCallback;
 
 class PresentationIPCService final
-  : public nsIPresentationAvailabilityListener
-  , public nsIPresentationService
-  , public PresentationServiceBase<PresentationContentSessionInfo>
+    : public nsIPresentationAvailabilityListener,
+      public nsIPresentationService,
+      public PresentationServiceBase<PresentationContentSessionInfo>
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRESENTATIONAVAILABILITYLISTENER
   NS_DECL_NSIPRESENTATIONSERVICE
@@ -57,19 +57,19 @@ public:
                                         uint8_t aRole,
                                         nsresult aReason);
 
-private:
+ private:
   virtual ~PresentationIPCService();
   nsresult SendRequest(nsIPresentationServiceCallback* aCallback,
                        const PresentationIPCRequest& aRequest);
 
-  nsRefPtrHashtable<nsStringHashKey,
-                    nsIPresentationSessionListener> mSessionListeners;
-  nsRefPtrHashtable<nsUint64HashKey,
-                    nsIPresentationRespondingListener> mRespondingListeners;
+  nsRefPtrHashtable<nsStringHashKey, nsIPresentationSessionListener>
+      mSessionListeners;
+  nsRefPtrHashtable<nsUint64HashKey, nsIPresentationRespondingListener>
+      mRespondingListeners;
   RefPtr<PresentationResponderLoadingCallback> mCallback;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationIPCService_h
+#endif  // mozilla_dom_PresentationIPCService_h

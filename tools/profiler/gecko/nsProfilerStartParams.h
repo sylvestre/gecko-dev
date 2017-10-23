@@ -12,7 +12,7 @@
 
 class nsProfilerStartParams : public nsIProfilerStartParams
 {
-public:
+ public:
   // This class can be used on multiple threads. For example, it's used for the
   // observer notification from profiler_start, which can run on any thread but
   // posts the notification to the main thread.
@@ -24,7 +24,7 @@ public:
                         uint32_t aFeatures,
                         const nsTArray<nsCString>& aFilters);
 
-private:
+ private:
   virtual ~nsProfilerStartParams();
   uint32_t mEntries;
   double mInterval;

@@ -38,18 +38,22 @@ struct AudioCodecConfig
   /* Default constructor is not provided since as a consumer, we
    * can't decide the default configuration for the codec
    */
-  explicit AudioCodecConfig(int type, std::string name,
-                            int freq, int pacSize,
-                            int channels, int rate, bool FECEnabled)
-                                                   : mType(type),
-                                                     mName(name),
-                                                     mFreq(freq),
-                                                     mPacSize(pacSize),
-                                                     mChannels(channels),
-                                                     mRate(rate),
-                                                     mFECEnabled(FECEnabled),
-                                                     mDtmfEnabled(false),
-                                                     mMaxPlaybackRate(0)
+  explicit AudioCodecConfig(int type,
+                            std::string name,
+                            int freq,
+                            int pacSize,
+                            int channels,
+                            int rate,
+                            bool FECEnabled)
+      : mType(type),
+        mName(name),
+        mFreq(freq),
+        mPacSize(pacSize),
+        mChannels(channels),
+        mRate(rate),
+        mFECEnabled(FECEnabled),
+        mDtmfEnabled(false),
+        mMaxPlaybackRate(0)
   {
   }
 };
@@ -59,27 +63,26 @@ struct AudioCodecConfig
  * More to be added later depending on the use-case
  */
 
-#define    MAX_SPROP_LEN    128
+#define MAX_SPROP_LEN 128
 
 // used for holding SDP negotiation results
 struct VideoCodecConfigH264
 {
-    char       sprop_parameter_sets[MAX_SPROP_LEN];
-    int        packetization_mode;
-    int        profile_level_id;
-    int        tias_bw;
+  char sprop_parameter_sets[MAX_SPROP_LEN];
+  int packetization_mode;
+  int profile_level_id;
+  int tias_bw;
 };
-
 
 // class so the std::strings can get freed more easily/reliably
 class VideoCodecConfig
 {
-public:
+ public:
   /*
    * The data-types for these properties mimic the
    * corresponding webrtc::VideoCodec data-types.
    */
-  int mType; // payload type
+  int mType;  // payload type
   std::string mName;
 
   std::vector<std::string> mAckFbTypes;
@@ -96,12 +99,13 @@ public:
 
   uint32_t mTias;
   EncodingConstraints mEncodingConstraints;
-  struct SimulcastEncoding {
+  struct SimulcastEncoding
+  {
     std::string rid;
     EncodingConstraints constraints;
-    bool operator==(const SimulcastEncoding& aOther) const {
-      return rid == aOther.rid &&
-        constraints == aOther.constraints;
+    bool operator==(const SimulcastEncoding& aOther) const
+    {
+      return rid == aOther.rid && constraints == aOther.constraints;
     }
   };
   std::vector<SimulcastEncoding> mSimulcastEncodings;
@@ -112,23 +116,19 @@ public:
   uint8_t mPacketizationMode;
   // TODO: add external negotiated SPS/PPS
 
-  bool operator==(const VideoCodecConfig& aRhs) const {
-    if (mType != aRhs.mType ||
-        mName != aRhs.mName ||
-        mAckFbTypes != aRhs.mAckFbTypes ||
-        mNackFbTypes != aRhs.mNackFbTypes ||
-        mCcmFbTypes != aRhs.mCcmFbTypes ||
-        mRembFbSet != aRhs.mRembFbSet ||
+  bool operator==(const VideoCodecConfig& aRhs) const
+  {
+    if (mType != aRhs.mType || mName != aRhs.mName ||
+        mAckFbTypes != aRhs.mAckFbTypes || mNackFbTypes != aRhs.mNackFbTypes ||
+        mCcmFbTypes != aRhs.mCcmFbTypes || mRembFbSet != aRhs.mRembFbSet ||
         mFECFbSet != aRhs.mFECFbSet ||
         mULPFECPayloadType != aRhs.mULPFECPayloadType ||
         mREDPayloadType != aRhs.mREDPayloadType ||
-        mREDRTXPayloadType != aRhs.mREDRTXPayloadType ||
-        mTias != aRhs.mTias ||
+        mREDRTXPayloadType != aRhs.mREDRTXPayloadType || mTias != aRhs.mTias ||
         !(mEncodingConstraints == aRhs.mEncodingConstraints) ||
         !(mSimulcastEncodings == aRhs.mSimulcastEncodings) ||
         mSpropParameterSets != aRhs.mSpropParameterSets ||
-        mProfile != aRhs.mProfile ||
-        mConstraints != aRhs.mConstraints ||
+        mProfile != aRhs.mProfile || mConstraints != aRhs.mConstraints ||
         mLevel != aRhs.mLevel ||
         mPacketizationMode != aRhs.mPacketizationMode) {
       return false;
@@ -140,19 +140,19 @@ public:
   VideoCodecConfig(int type,
                    std::string name,
                    const EncodingConstraints& constraints,
-                   const struct VideoCodecConfigH264 *h264 = nullptr) :
-    mType(type),
-    mName(name),
-    mFECFbSet(false),
-    mULPFECPayloadType(123),
-    mREDPayloadType(122),
-    mREDRTXPayloadType(-1),
-    mTias(0),
-    mEncodingConstraints(constraints),
-    mProfile(0x42),
-    mConstraints(0xE0),
-    mLevel(0x0C),
-    mPacketizationMode(1)
+                   const struct VideoCodecConfigH264* h264 = nullptr)
+      : mType(type),
+        mName(name),
+        mFECFbSet(false),
+        mULPFECPayloadType(123),
+        mREDPayloadType(122),
+        mREDRTXPayloadType(-1),
+        mTias(0),
+        mEncodingConstraints(constraints),
+        mProfile(0x42),
+        mConstraints(0xE0),
+        mLevel(0x0C),
+        mPacketizationMode(1)
   {
     if (h264) {
       mProfile = (h264->profile_level_id & 0x00FF0000) >> 16;
@@ -170,7 +170,7 @@ public:
     }
     for (size_t i = 0; i < mSimulcastEncodings.size(); ++i) {
       if (!mSimulcastEncodings[i].constraints.ResolutionEquals(
-            aConfig.mSimulcastEncodings[i].constraints)) {
+              aConfig.mSimulcastEncodings[i].constraints)) {
         return false;
       }
     }
@@ -212,7 +212,6 @@ public:
   bool RtcpFbRembIsSet() const { return mRembFbSet; }
 
   bool RtcpFbFECIsSet() const { return mFECFbSet; }
-
 };
-}
+}  // namespace mozilla
 #endif

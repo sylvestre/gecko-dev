@@ -17,27 +17,27 @@ namespace mozilla {
 
 class CaptureTask::MediaStreamEventListener : public MediaStreamTrackListener
 {
-public:
+ public:
   explicit MediaStreamEventListener(CaptureTask* aCaptureTask)
-    : mCaptureTask(aCaptureTask) {};
+      : mCaptureTask(aCaptureTask){};
 
   // MediaStreamListener methods.
   void NotifyEnded() override
   {
-    if(!mCaptureTask->mImageGrabbedOrTrackEnd) {
+    if (!mCaptureTask->mImageGrabbedOrTrackEnd) {
       mCaptureTask->PostTrackEndEvent();
     }
   }
 
-private:
+ private:
   CaptureTask* mCaptureTask;
 };
 
 CaptureTask::CaptureTask(dom::ImageCapture* aImageCapture)
-  : mImageCapture(aImageCapture)
-  , mEventListener(new MediaStreamEventListener(this))
-  , mImageGrabbedOrTrackEnd(false)
-  , mPrincipalChanged(false)
+    : mImageCapture(aImageCapture),
+      mEventListener(new MediaStreamEventListener(this)),
+      mImageGrabbedOrTrackEnd(false),
+      mPrincipalChanged(false)
 {
 }
 
@@ -64,7 +64,8 @@ CaptureTask::TaskComplete(already_AddRefed<dom::Blob> aBlob, nsresult aRv)
   if (NS_SUCCEEDED(aRv)) {
     rv = mImageCapture->PostBlobEvent(blob);
   } else {
-    rv = mImageCapture->PostErrorEvent(dom::ImageCaptureError::PHOTO_ERROR, aRv);
+    rv =
+        mImageCapture->PostErrorEvent(dom::ImageCaptureError::PHOTO_ERROR, aRv);
   }
 
   // Ensure ImageCapture dereference on main thread here because the TakePhoto()
@@ -113,7 +114,7 @@ CaptureTask::SetCurrentFrames(const VideoSegment& aSegment)
   // Callback for encoding complete, it calls on main thread.
   class EncodeComplete : public dom::EncodeCompleteCallback
   {
-  public:
+   public:
     explicit EncodeComplete(CaptureTask* aTask) : mTask(aTask) {}
 
     nsresult ReceiveBlob(already_AddRefed<dom::Blob> aBlob) override
@@ -124,12 +125,12 @@ CaptureTask::SetCurrentFrames(const VideoSegment& aSegment)
       return NS_OK;
     }
 
-  protected:
+   protected:
     RefPtr<CaptureTask> mTask;
   };
 
-  for (VideoSegment::ConstChunkIterator iter(aSegment);
-       !iter.IsEnded(); iter.Next()) {
+  for (VideoSegment::ConstChunkIterator iter(aSegment); !iter.IsEnded();
+       iter.Next()) {
     VideoChunk chunk = *iter;
 
     // Extract the first valid video frame.
@@ -153,12 +154,7 @@ CaptureTask::SetCurrentFrames(const VideoSegment& aSegment)
       nsAutoString type(NS_LITERAL_STRING("image/jpeg"));
       nsAutoString options;
       rv = dom::ImageEncoder::ExtractDataFromLayersImageAsync(
-                                type,
-                                options,
-                                false,
-                                image,
-                                false,
-                                new EncodeComplete(this));
+          type, options, false, image, false, new EncodeComplete(this));
       if (NS_FAILED(rv)) {
         PostTrackEndEvent();
       }
@@ -175,10 +171,9 @@ CaptureTask::PostTrackEndEvent()
   // Got track end or finish event, stop the task.
   class TrackEndRunnable : public Runnable
   {
-  public:
+   public:
     explicit TrackEndRunnable(CaptureTask* aTask)
-      : mozilla::Runnable("TrackEndRunnable")
-      , mTask(aTask)
+        : mozilla::Runnable("TrackEndRunnable"), mTask(aTask)
     {
     }
 
@@ -189,7 +184,7 @@ CaptureTask::PostTrackEndEvent()
       return NS_OK;
     }
 
-  protected:
+   protected:
     RefPtr<CaptureTask> mTask;
   };
 
@@ -198,4 +193,4 @@ CaptureTask::PostTrackEndEvent()
   SystemGroup::Dispatch(TaskCategory::Other, event.forget());
 }
 
-} // namespace mozilla
+}  // namespace mozilla

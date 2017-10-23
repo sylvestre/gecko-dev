@@ -20,22 +20,24 @@ namespace dom {
 
 class HTMLSpanElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLSpanElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-protected:
+ protected:
   virtual ~HTMLSpanElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLSpanElement_h
+#endif  // mozilla_dom_HTMLSpanElement_h

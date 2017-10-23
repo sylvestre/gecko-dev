@@ -14,9 +14,7 @@ namespace net {
 NS_IMPL_ISUPPORTS0(AltDataOutputStreamParent)
 
 AltDataOutputStreamParent::AltDataOutputStreamParent(nsIOutputStream* aStream)
-  : mOutputStream(aStream)
-  , mStatus(NS_OK)
-  , mIPCOpen(true)
+    : mOutputStream(aStream), mStatus(NS_OK), mIPCOpen(true)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 }
@@ -81,5 +79,5 @@ AltDataOutputStreamParent::RecvDeleteSelf()
   return IPC_OK();
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

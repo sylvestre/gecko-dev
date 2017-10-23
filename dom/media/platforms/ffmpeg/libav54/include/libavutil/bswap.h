@@ -34,50 +34,53 @@
 
 #include "config.h"
 
-#if   ARCH_ARM
-#   include "arm/bswap.h"
+#if ARCH_ARM
+#include "arm/bswap.h"
 #elif ARCH_AVR32
-#   include "avr32/bswap.h"
+#include "avr32/bswap.h"
 #elif ARCH_BFIN
-#   include "bfin/bswap.h"
+#include "bfin/bswap.h"
 #elif ARCH_SH4
-#   include "sh4/bswap.h"
+#include "sh4/bswap.h"
 #elif ARCH_X86
-#   include "x86/bswap.h"
+#include "x86/bswap.h"
 #endif
 
 #endif /* HAVE_AV_CONFIG_H */
 
-#define AV_BSWAP16C(x) (((x) << 8 & 0xff00)  | ((x) >> 8 & 0x00ff))
+#define AV_BSWAP16C(x) (((x) << 8 & 0xff00) | ((x) >> 8 & 0x00ff))
 #define AV_BSWAP32C(x) (AV_BSWAP16C(x) << 16 | AV_BSWAP16C((x) >> 16))
 #define AV_BSWAP64C(x) (AV_BSWAP32C(x) << 32 | AV_BSWAP32C((x) >> 32))
 
 #define AV_BSWAPC(s, x) AV_BSWAP##s##C(x)
 
 #ifndef av_bswap16
-static av_always_inline av_const uint16_t av_bswap16(uint16_t x)
+static av_always_inline av_const uint16_t
+av_bswap16(uint16_t x)
 {
-    x= (x>>8) | (x<<8);
-    return x;
+  x = (x >> 8) | (x << 8);
+  return x;
 }
 #endif
 
 #ifndef av_bswap32
-static av_always_inline av_const uint32_t av_bswap32(uint32_t x)
+static av_always_inline av_const uint32_t
+av_bswap32(uint32_t x)
 {
-    return AV_BSWAP32C(x);
+  return AV_BSWAP32C(x);
 }
 #endif
 
 #ifndef av_bswap64
-static inline uint64_t av_const av_bswap64(uint64_t x)
+static inline uint64_t av_const
+av_bswap64(uint64_t x)
 {
-    return (uint64_t)av_bswap32(x) << 32 | av_bswap32(x >> 32);
+  return (uint64_t)av_bswap32(x) << 32 | av_bswap32(x >> 32);
 }
 #endif
 
-// be2ne ... big-endian to native-endian
-// le2ne ... little-endian to native-endian
+  // be2ne ... big-endian to native-endian
+  // le2ne ... little-endian to native-endian
 
 #if AV_HAVE_BIGENDIAN
 #define av_be2ne16(x) (x)

@@ -35,39 +35,37 @@ class nsSVGImageFrame;
 
 class nsSVGImageListener final : public imgINotificationObserver
 {
-public:
-  explicit nsSVGImageListener(nsSVGImageFrame *aFrame);
+ public:
+  explicit nsSVGImageListener(nsSVGImageFrame* aFrame);
 
   NS_DECL_ISUPPORTS
   NS_DECL_IMGINOTIFICATIONOBSERVER
 
-  void SetFrame(nsSVGImageFrame *frame) { mFrame = frame; }
+  void SetFrame(nsSVGImageFrame* frame) { mFrame = frame; }
 
-private:
+ private:
   ~nsSVGImageListener() {}
 
-  nsSVGImageFrame *mFrame;
+  nsSVGImageFrame* mFrame;
 };
 
-class nsSVGImageFrame final
-  : public SVGGeometryFrame
-  , public nsIReflowCallback
+class nsSVGImageFrame final : public SVGGeometryFrame, public nsIReflowCallback
 {
-  friend nsIFrame*
-  NS_NewSVGImageFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewSVGImageFrame(nsIPresShell* aPresShell,
+                                       nsStyleContext* aContext);
 
-protected:
+ protected:
   explicit nsSVGImageFrame(nsStyleContext* aContext)
-    : SVGGeometryFrame(aContext, kClassID)
-    , mReflowCallbackPosted(false)
-    , mForceSyncDecoding(false)
+      : SVGGeometryFrame(aContext, kClassID),
+        mReflowCallbackPosted(false),
+        mForceSyncDecoding(false)
   {
     EnableVisibilityTracking();
   }
 
   virtual ~nsSVGImageFrame();
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsSVGImageFrame)
 
@@ -83,16 +81,17 @@ public:
   virtual uint16_t GetHitTestFlags() override;
 
   // nsIFrame interface:
-  virtual nsresult  AttributeChanged(int32_t         aNameSpaceID,
-                                     nsAtom*        aAttribute,
-                                     int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
 
-  void OnVisibilityChange(Visibility aNewVisibility,
-                          const Maybe<OnNonvisible>& aNonvisibleAction = Nothing()) override;
+  void OnVisibilityChange(
+      Visibility aNewVisibility,
+      const Maybe<OnNonvisible>& aNonvisibleAction = Nothing()) override;
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
 #ifdef DEBUG_FRAME_DUMP
@@ -109,7 +108,7 @@ public:
   /// Always sync decode our image when painting if @aForce is true.
   void SetForceSyncDecoding(bool aForce) { mForceSyncDecoding = aForce; }
 
-private:
+ private:
   gfx::Matrix GetRasterImageTransform(int32_t aNativeWidth,
                                       int32_t aNativeHeight);
   gfx::Matrix GetVectorImageTransform();
@@ -126,4 +125,4 @@ private:
   friend class nsSVGImageListener;
 };
 
-#endif // __NS_SVGIMAGEFRAME_H__
+#endif  // __NS_SVGIMAGEFRAME_H__

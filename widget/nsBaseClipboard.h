@@ -19,28 +19,26 @@ class nsIWidget;
 
 class nsBaseClipboard : public nsIClipboard
 {
-
-public:
+ public:
   nsBaseClipboard();
 
   //nsISupports
   NS_DECL_ISUPPORTS
 
-  // nsIClipboard  
+  // nsIClipboard
   NS_DECL_NSICLIPBOARD
-  
-protected:
+
+ protected:
   virtual ~nsBaseClipboard();
 
-  NS_IMETHOD SetNativeClipboardData ( int32_t aWhichClipboard ) = 0;
-  NS_IMETHOD GetNativeClipboardData ( nsITransferable * aTransferable, int32_t aWhichClipboard ) = 0;
+  NS_IMETHOD SetNativeClipboardData(int32_t aWhichClipboard) = 0;
+  NS_IMETHOD GetNativeClipboardData(nsITransferable* aTransferable,
+                                    int32_t aWhichClipboard) = 0;
 
-  bool                mEmptyingForSetData;
-  bool                mIgnoreEmptyNotification;
+  bool mEmptyingForSetData;
+  bool mIgnoreEmptyNotification;
   nsCOMPtr<nsIClipboardOwner> mClipboardOwner;
-  nsCOMPtr<nsITransferable>   mTransferable;
-
+  nsCOMPtr<nsITransferable> mTransferable;
 };
 
-#endif // nsBaseClipboard_h__
-
+#endif  // nsBaseClipboard_h__

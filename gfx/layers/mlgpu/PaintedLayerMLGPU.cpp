@@ -15,8 +15,8 @@ using namespace gfx;
 namespace layers {
 
 PaintedLayerMLGPU::PaintedLayerMLGPU(LayerManagerMLGPU* aManager)
- : PaintedLayer(aManager, static_cast<HostLayer*>(this)),
-   LayerMLGPU(aManager)
+    : PaintedLayer(aManager, static_cast<HostLayer*>(this)),
+      LayerMLGPU(aManager)
 {
   MOZ_COUNT_CTOR(PaintedLayerMLGPU);
 }
@@ -129,5 +129,5 @@ PaintedLayerMLGPU::CleanupCachedResources()
   CleanupResources();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

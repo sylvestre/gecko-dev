@@ -7,58 +7,58 @@
 #include "vm/String.h"
 
 FRAGMENT(JSString, simple) {
-  JS::Rooted<JSString*> empty(cx, JS_NewStringCopyN(cx, nullptr, 0));
-  JS::Rooted<JSString*> x(cx, JS_NewStringCopyN(cx, "x", 1));
-  JS::Rooted<JSString*> z(cx, JS_NewStringCopyZ(cx, "z"));
+    JS::Rooted<JSString*> empty(cx, JS_NewStringCopyN(cx, nullptr, 0));
+    JS::Rooted<JSString*> x(cx, JS_NewStringCopyN(cx, "x", 1));
+    JS::Rooted<JSString*> z(cx, JS_NewStringCopyZ(cx, "z"));
 
-  // I expect this will be a non-inlined string.
-  JS::Rooted<JSString*> stars(cx, JS_NewStringCopyZ(cx,
-                                                     "*************************"
-                                                     "*************************"
-                                                     "*************************"
-                                                     "*************************"));
+    // I expect this will be a non-inlined string.
+    JS::Rooted<JSString*> stars(cx, JS_NewStringCopyZ(cx,
+                                                      "*************************"
+                                                      "*************************"
+                                                      "*************************"
+                                                      "*************************"));
 
-  // This may well be an inlined string.
-  JS::Rooted<JSString*> xz(cx, JS_ConcatStrings(cx, x, z));
+    // This may well be an inlined string.
+    JS::Rooted<JSString*> xz(cx, JS_ConcatStrings(cx, x, z));
 
-  // This will probably be a rope.
-  JS::Rooted<JSString*> doubleStars(cx, JS_ConcatStrings(cx, stars, stars));
+    // This will probably be a rope.
+    JS::Rooted<JSString*> doubleStars(cx, JS_ConcatStrings(cx, stars, stars));
 
-  // Ensure we're not confused by typedefs for pointer types.
-  JSString* xRaw = x;
+    // Ensure we're not confused by typedefs for pointer types.
+    JSString* xRaw = x;
 
-  breakpoint();
+    breakpoint();
 
-  (void) empty;
-  (void) x;
-  (void) z;
-  (void) stars;
-  (void) xz;
-  (void) doubleStars;
-  (void) xRaw;
+    (void)empty;
+    (void)x;
+    (void)z;
+    (void)stars;
+    (void)xz;
+    (void)doubleStars;
+    (void)xRaw;
 }
 
 FRAGMENT(JSString, null) {
-  JS::Rooted<JSString*> null(cx, nullptr);
-  JSString* nullRaw = null;
+    JS::Rooted<JSString*> null(cx, nullptr);
+    JSString* nullRaw = null;
 
-  breakpoint();
+    breakpoint();
 
-  (void) null;
-  (void) nullRaw;
+    (void)null;
+    (void)nullRaw;
 }
 
 FRAGMENT(JSString, subclasses) {
-  JS::Rooted<JSFlatString*> flat(cx, JS_FlattenString(cx, JS_NewStringCopyZ(cx, "Hi!")));
+    JS::Rooted<JSFlatString*> flat(cx, JS_FlattenString(cx, JS_NewStringCopyZ(cx, "Hi!")));
 
-  breakpoint();
+    breakpoint();
 
-  (void) flat;
+    (void)flat;
 }
 
 FRAGMENT(JSString, atom) {
-  JSAtom* molybdenum = js::Atomize(cx, "molybdenum", 10);
-  breakpoint();
+    JSAtom* molybdenum = js::Atomize(cx, "molybdenum", 10);
+    breakpoint();
 
-  (void) molybdenum;
+    (void)molybdenum;
 }

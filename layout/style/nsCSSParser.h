@@ -35,29 +35,31 @@ class Rule;
 class Declaration;
 class StyleRule;
 
-enum class SupportsParsingSettings {
+enum class SupportsParsingSettings
+{
   Normal,
   ImpliedParentheses
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 // Interface to the css parser.
 
-class MOZ_STACK_CLASS nsCSSParser {
-public:
+class MOZ_STACK_CLASS nsCSSParser
+{
+ public:
   explicit nsCSSParser(mozilla::css::Loader* aLoader = nullptr,
                        mozilla::CSSStyleSheet* aSheet = nullptr);
   ~nsCSSParser();
 
   static void Shutdown();
 
-private:
+ private:
   nsCSSParser(nsCSSParser const&) = delete;
   nsCSSParser& operator=(nsCSSParser const&) = delete;
 
-public:
+ public:
   /**
    * Parse aInput into the stylesheet that was previously passed to the
    * constructor.  Calling this method on an nsCSSParser that had nullptr
@@ -75,40 +77,40 @@ public:
    * @param aReusableSheets style sheets that can be reused by an @import.
    *                        This can be nullptr.
    */
-  nsresult ParseSheet(const nsAString& aInput,
-                      nsIURI*          aSheetURL,
-                      nsIURI*          aBaseURI,
-                      nsIPrincipal*    aSheetPrincipal,
-                      uint32_t         aLineNumber,
-                      mozilla::css::LoaderReusableStyleSheets* aReusableSheets =
-                        nullptr);
+  nsresult ParseSheet(
+      const nsAString& aInput,
+      nsIURI* aSheetURL,
+      nsIURI* aBaseURI,
+      nsIPrincipal* aSheetPrincipal,
+      uint32_t aLineNumber,
+      mozilla::css::LoaderReusableStyleSheets* aReusableSheets = nullptr);
 
   // Parse HTML style attribute or its equivalent in other markup
   // languages.  aBaseURL is the base url to use for relative links in
   // the declaration.
-  already_AddRefed<mozilla::css::Declaration>
-           ParseStyleAttribute(const nsAString&  aAttributeValue,
-                               nsIURI*           aDocURL,
-                               nsIURI*           aBaseURL,
-                               nsIPrincipal*     aNodePrincipal);
+  already_AddRefed<mozilla::css::Declaration> ParseStyleAttribute(
+      const nsAString& aAttributeValue,
+      nsIURI* aDocURL,
+      nsIURI* aBaseURL,
+      nsIPrincipal* aNodePrincipal);
 
   // Parse the body of a declaration block.  Very similar to
   // ParseStyleAttribute, but used under different circumstances.
   // The contents of aDeclaration will be erased and replaced with the
   // results of parsing; aChanged will be set true if the aDeclaration
   // argument was modified.
-  nsresult ParseDeclarations(const nsAString&  aBuffer,
-                             nsIURI*           aSheetURL,
-                             nsIURI*           aBaseURL,
-                             nsIPrincipal*     aSheetPrincipal,
+  nsresult ParseDeclarations(const nsAString& aBuffer,
+                             nsIURI* aSheetURL,
+                             nsIURI* aBaseURL,
+                             nsIPrincipal* aSheetPrincipal,
                              mozilla::css::Declaration* aDeclaration,
-                             bool*           aChanged);
+                             bool* aChanged);
 
-  nsresult ParseRule(const nsAString&        aRule,
-                     nsIURI*                 aSheetURL,
-                     nsIURI*                 aBaseURL,
-                     nsIPrincipal*           aSheetPrincipal,
-                     mozilla::css::Rule**    aResult);
+  nsresult ParseRule(const nsAString& aRule,
+                     nsIURI* aSheetURL,
+                     nsIURI* aBaseURL,
+                     nsIPrincipal* aSheetPrincipal,
+                     mozilla::css::Rule** aResult);
 
   // Parse the value of a single CSS property, and add or replace that
   // property in aDeclaration.
@@ -119,24 +121,24 @@ public:
   // argument controls this quirk.  Note that this *only* applies to
   // mapped attributes, not inline styles or full style sheets in SVG.
   void ParseProperty(const nsCSSPropertyID aPropID,
-                     const nsAString&    aPropValue,
-                     nsIURI*             aSheetURL,
-                     nsIURI*             aBaseURL,
-                     nsIPrincipal*       aSheetPrincipal,
+                     const nsAString& aPropValue,
+                     nsIURI* aSheetURL,
+                     nsIURI* aBaseURL,
+                     nsIPrincipal* aSheetPrincipal,
                      mozilla::css::Declaration* aDeclaration,
-                     bool*               aChanged,
-                     bool                aIsImportant,
-                     bool                aIsSVGMode = false);
+                     bool* aChanged,
+                     bool aIsImportant,
+                     bool aIsSVGMode = false);
 
   // Same as ParseProperty but returns an nsCSSValue in aResult
   // rather than storing the property in a Declaration.  aPropID
   // must be a longhand property.
   void ParseLonghandProperty(const nsCSSPropertyID aPropID,
-                             const nsAString&    aPropValue,
-                             nsIURI*             aSheetURL,
-                             nsIURI*             aBaseURL,
-                             nsIPrincipal*       aSheetPrincipal,
-                             nsCSSValue&         aResult);
+                             const nsAString& aPropValue,
+                             nsIURI* aSheetURL,
+                             nsIURI* aBaseURL,
+                             nsIPrincipal* aSheetPrincipal,
+                             nsCSSValue& aResult);
 
   // Parse the value of a CSS transform property. Returns
   // whether the value was successfully parsed. If
@@ -144,27 +146,27 @@ public:
   // only successfully parse if all values are numbers or
   // have non-relative dimensions.
   bool ParseTransformProperty(const nsAString& aPropValue,
-                              bool             aDisallowRelativeValues,
-                              nsCSSValue&      aResult);
+                              bool aDisallowRelativeValues,
+                              nsCSSValue& aResult);
 
   // The same as ParseProperty but for a variable.
-  void ParseVariable(const nsAString&    aVariableName,
-                     const nsAString&    aPropValue,
-                     nsIURI*             aSheetURL,
-                     nsIURI*             aBaseURL,
-                     nsIPrincipal*       aSheetPrincipal,
+  void ParseVariable(const nsAString& aVariableName,
+                     const nsAString& aPropValue,
+                     nsIURI* aSheetURL,
+                     nsIURI* aBaseURL,
+                     nsIPrincipal* aSheetPrincipal,
                      mozilla::css::Declaration* aDeclaration,
-                     bool*               aChanged,
-                     bool                aIsImportant);
+                     bool* aChanged,
+                     bool aIsImportant);
   /**
    * Parse aBuffer into a media list |aMediaList|, which must be non-null,
    * replacing its current contents. |aURL| and |aLineNumber| are used for error
    * reporting.
    */
   void ParseMediaList(const nsAString& aBuffer,
-                      nsIURI*            aURL,
-                      uint32_t           aLineNumber,
-                      nsMediaList*       aMediaList);
+                      nsIURI* aURL,
+                      uint32_t aLineNumber,
+                      nsMediaList* aMediaList);
 
   /*
    * Parse aBuffer into a list of media queries and their associated values,
@@ -179,9 +181,9 @@ public:
    * failure.
    */
   bool ParseSourceSizeList(const nsAString& aBuffer,
-                           nsIURI* aURI, // for error reporting
-                           uint32_t aLineNumber, // for error reporting
-                           InfallibleTArray< nsAutoPtr<nsMediaQuery> >& aQueries,
+                           nsIURI* aURI,          // for error reporting
+                           uint32_t aLineNumber,  // for error reporting
+                           InfallibleTArray<nsAutoPtr<nsMediaQuery> >& aQueries,
                            InfallibleTArray<nsCSSValue>& aValues);
 
   /**
@@ -189,9 +191,9 @@ public:
    * if aBuffer is not a valid font family list.
    */
   bool ParseFontFamilyListString(const nsAString& aBuffer,
-                                 nsIURI*            aURL,
-                                 uint32_t           aLineNumber,
-                                 nsCSSValue&        aValue);
+                                 nsIURI* aURL,
+                                 uint32_t aLineNumber,
+                                 nsCSSValue& aValue);
 
   /**
    * Parse aBuffer into a nsCSSValue |aValue|. Will return false
@@ -200,10 +202,10 @@ public:
    * the returned nsCSSValue.
    */
   bool ParseColorString(const nsAString& aBuffer,
-                        nsIURI*            aURL,
-                        uint32_t           aLineNumber,
-                        nsCSSValue&        aValue,
-                        bool               aSuppressErrors = false);
+                        nsIURI* aURL,
+                        uint32_t aLineNumber,
+                        nsCSSValue& aValue,
+                        bool aSuppressErrors = false);
 
   /**
    * Parse aBuffer into a nsCSSValue |aValue|. Will return false
@@ -212,36 +214,34 @@ public:
    * the returned nsCSSValue.
    */
   bool ParseMarginString(const nsAString& aBuffer,
-                         nsIURI*            aURL,
-                         uint32_t           aLineNumber,
-                         nsCSSValue&        aValue,
-                         bool               aSuppressErrors = false);
+                         nsIURI* aURL,
+                         uint32_t aLineNumber,
+                         nsCSSValue& aValue,
+                         bool aSuppressErrors = false);
 
   /**
    * Parse aBuffer into a selector list.  On success, caller must
    * delete *aSelectorList when done with it.
    */
-  nsresult ParseSelectorString(const nsAString&  aSelectorString,
-                               nsIURI*             aURL,
-                               uint32_t            aLineNumber,
+  nsresult ParseSelectorString(const nsAString& aSelectorString,
+                               nsIURI* aURL,
+                               uint32_t aLineNumber,
                                nsCSSSelectorList** aSelectorList);
 
   /*
    * Parse a keyframe rule (which goes inside an @keyframes rule).
    * Return it if the parse was successful.
    */
-  already_AddRefed<nsCSSKeyframeRule>
-  ParseKeyframeRule(const nsAString& aBuffer,
-                    nsIURI*            aURL,
-                    uint32_t           aLineNumber);
+  already_AddRefed<nsCSSKeyframeRule> ParseKeyframeRule(
+      const nsAString& aBuffer, nsIURI* aURL, uint32_t aLineNumber);
 
   /*
    * Parse a selector list for a keyframe rule.  Return whether
    * the parse succeeded.
    */
   bool ParseKeyframeSelectorString(const nsAString& aSelectorString,
-                                   nsIURI*            aURL,
-                                   uint32_t           aLineNumber,
+                                   nsIURI* aURL,
+                                   uint32_t aLineNumber,
                                    InfallibleTArray<float>& aSelectorList);
 
   /**
@@ -262,12 +262,13 @@ public:
    * @supports condition, i.e. the parentheses are "implied". In such a case,
    * aSettings can be set to ImpliedParentheses.
    */
-  bool EvaluateSupportsCondition(const nsAString& aCondition,
-                                 nsIURI* aDocURL,
-                                 nsIURI* aBaseURL,
-                                 nsIPrincipal* aDocPrincipal,
-                                 mozilla::css::SupportsParsingSettings aSettings
-                                  = mozilla::css::SupportsParsingSettings::Normal);
+  bool EvaluateSupportsCondition(
+      const nsAString& aCondition,
+      nsIURI* aDocURL,
+      nsIURI* aBaseURL,
+      nsIPrincipal* aDocPrincipal,
+      mozilla::css::SupportsParsingSettings aSettings =
+          mozilla::css::SupportsParsingSettings::Normal);
 
   typedef void (*VariableEnumFunc)(const nsAString&, void*);
 
@@ -303,23 +304,23 @@ public:
    * respectively.
    */
   void ParsePropertyWithVariableReferences(
-                                   nsCSSPropertyID aPropertyID,
-                                   nsCSSPropertyID aShorthandPropertyID,
-                                   const nsAString& aValue,
-                                   const mozilla::CSSVariableValues* aVariables,
-                                   nsRuleData* aRuleData,
-                                   nsIURI* aDocURL,
-                                   nsIURI* aBaseURL,
-                                   nsIPrincipal* aDocPrincipal,
-                                   mozilla::CSSStyleSheet* aSheet,
-                                   uint32_t aLineNumber,
-                                   uint32_t aLineOffset);
+      nsCSSPropertyID aPropertyID,
+      nsCSSPropertyID aShorthandPropertyID,
+      const nsAString& aValue,
+      const mozilla::CSSVariableValues* aVariables,
+      nsRuleData* aRuleData,
+      nsIURI* aDocURL,
+      nsIURI* aBaseURL,
+      nsIPrincipal* aDocPrincipal,
+      mozilla::CSSStyleSheet* aSheet,
+      uint32_t aLineNumber,
+      uint32_t aLineOffset);
 
   /**
    * Parses a string as a counter-style name. Returns nullptr if fails.
    */
   already_AddRefed<nsAtom> ParseCounterStyleName(const nsAString& aBuffer,
-                                                  nsIURI* aURL);
+                                                 nsIURI* aURL);
 
   bool ParseCounterDescriptor(nsCSSCounterDesc aDescID,
                               const nsAString& aBuffer,
@@ -337,14 +338,14 @@ public:
 
   // Check whether a given value can be applied to a property.
   bool IsValueValidForProperty(const nsCSSPropertyID aPropID,
-                               const nsAString&    aPropValue);
+                               const nsAString& aPropValue);
 
   // Return the default value to be used for -moz-control-character-visibility,
   // from preferences (cached by our Startup(), so that both nsStyleText and
   // nsRuleNode can have fast access to it).
   static uint8_t ControlCharVisibilityDefault();
 
-protected:
+ protected:
   // This is a CSSParserImpl*, but if we expose that type name in this
   // header, we can't put the type definition (in nsCSSParser.cpp) in
   // the anonymous namespace.

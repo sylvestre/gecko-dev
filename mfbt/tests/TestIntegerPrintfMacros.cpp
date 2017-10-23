@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/Assertions.h"
-#include "mozilla/IntegerPrintfMacros.h" // this must pick up <stdint.h>
+#include "mozilla/IntegerPrintfMacros.h"  // this must pick up <stdint.h>
 #include "mozilla/Sprintf.h"
 
 #include <stddef.h>
@@ -127,11 +127,13 @@ static void
 TestPrintSignedLeast64()
 {
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIdLEAST64, int_least64_t(-INT64_C(432157943248732)));
+  SprintfLiteral(
+      gOutput, "%" PRIdLEAST64, int_least64_t(-INT64_C(432157943248732)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "-432157943248732"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIiLEAST64, int_least64_t(INT64_C(325719232983)));
+  SprintfLiteral(
+      gOutput, "%" PRIiLEAST64, int_least64_t(INT64_C(325719232983)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "325719232983"));
 }
 
@@ -184,7 +186,8 @@ static void
 TestPrintSignedFast64()
 {
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIdFAST64, int_fast64_t(-INT64_C(432157943248732)));
+  SprintfLiteral(
+      gOutput, "%" PRIdFAST64, int_fast64_t(-INT64_C(432157943248732)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "-432157943248732"));
 
   PoisonOutput();
@@ -217,11 +220,13 @@ static void
 TestPrintSignedPtr()
 {
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIdPTR, intptr_t(reinterpret_cast<void*>(12345678)));
+  SprintfLiteral(
+      gOutput, "%" PRIdPTR, intptr_t(reinterpret_cast<void*>(12345678)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "12345678"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIiPTR, intptr_t(reinterpret_cast<void*>(87654321)));
+  SprintfLiteral(
+      gOutput, "%" PRIiPTR, intptr_t(reinterpret_cast<void*>(87654321)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "87654321"));
 }
 
@@ -399,20 +404,23 @@ static void
 TestPrintUnsignedLeast64()
 {
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIoLEAST64, uint_least64_t(UINT64_C(0424242424242)));
+  SprintfLiteral(
+      gOutput, "%" PRIoLEAST64, uint_least64_t(UINT64_C(0424242424242)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "424242424242"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIuLEAST64,
-                 uint_least64_t(UINT64_C(17171717171717171717)));
+  SprintfLiteral(
+      gOutput, "%" PRIuLEAST64, uint_least64_t(UINT64_C(17171717171717171717)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "17171717171717171717"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIxLEAST64, uint_least64_t(UINT64_C(0x2a2a2a2a2a2a2a)));
+  SprintfLiteral(
+      gOutput, "%" PRIxLEAST64, uint_least64_t(UINT64_C(0x2a2a2a2a2a2a2a)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "2a2a2a2a2a2a2a"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIXLEAST64, uint_least64_t(UINT64_C(0xCDCDCDCDCDCD)));
+  SprintfLiteral(
+      gOutput, "%" PRIXLEAST64, uint_least64_t(UINT64_C(0xCDCDCDCDCDCD)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "CDCDCDCDCDCD"));
 }
 
@@ -489,20 +497,23 @@ static void
 TestPrintUnsignedFast64()
 {
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIoFAST64, uint_fast64_t(UINT64_C(0424242424242)));
+  SprintfLiteral(
+      gOutput, "%" PRIoFAST64, uint_fast64_t(UINT64_C(0424242424242)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "424242424242"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIuFAST64,
-          uint_fast64_t(UINT64_C(17171717171717171717)));
+  SprintfLiteral(
+      gOutput, "%" PRIuFAST64, uint_fast64_t(UINT64_C(17171717171717171717)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "17171717171717171717"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIxFAST64, uint_fast64_t(UINT64_C(0x2a2a2a2a2a2a2a)));
+  SprintfLiteral(
+      gOutput, "%" PRIxFAST64, uint_fast64_t(UINT64_C(0x2a2a2a2a2a2a2a)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "2a2a2a2a2a2a2a"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIXFAST64, uint_fast64_t(UINT64_C(0xCDCDCDCDCDCD)));
+  SprintfLiteral(
+      gOutput, "%" PRIXFAST64, uint_fast64_t(UINT64_C(0xCDCDCDCDCDCD)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "CDCDCDCDCDCD"));
 }
 
@@ -539,19 +550,23 @@ static void
 TestPrintUnsignedPtr()
 {
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIoPTR, uintptr_t(reinterpret_cast<void*>(12345678)));
+  SprintfLiteral(
+      gOutput, "%" PRIoPTR, uintptr_t(reinterpret_cast<void*>(12345678)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "57060516"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIuPTR, uintptr_t(reinterpret_cast<void*>(87654321)));
+  SprintfLiteral(
+      gOutput, "%" PRIuPTR, uintptr_t(reinterpret_cast<void*>(87654321)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "87654321"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIxPTR, uintptr_t(reinterpret_cast<void*>(0x4c3a791)));
+  SprintfLiteral(
+      gOutput, "%" PRIxPTR, uintptr_t(reinterpret_cast<void*>(0x4c3a791)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "4c3a791"));
 
   PoisonOutput();
-  SprintfLiteral(gOutput, "%" PRIXPTR, uintptr_t(reinterpret_cast<void*>(0xF328DB)));
+  SprintfLiteral(
+      gOutput, "%" PRIXPTR, uintptr_t(reinterpret_cast<void*>(0xF328DB)));
   MOZ_RELEASE_ASSERT(!strcmp(gOutput, "F328DB"));
 }
 
@@ -609,8 +624,7 @@ TestPrint()
 #define SHOULD_TEST_8BIT_FORMAT_MACROS (!(MOZ_IS_GCC))
 
 template<typename T>
-union Input
-{
+union Input {
   T mI;
   unsigned char mPun[16];
 };

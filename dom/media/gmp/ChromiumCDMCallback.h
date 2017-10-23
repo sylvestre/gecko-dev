@@ -7,13 +7,13 @@
 #define ChromiumCDMCallback_h_
 
 #include "mozilla/CDMProxy.h"
-#include "mozilla/dom/MediaKeyStatusMapBinding.h" // For MediaKeyStatus
-#include "mozilla/dom/MediaKeyMessageEventBinding.h" // For MediaKeyMessageType
-#include "mozilla/gmp/GMPTypes.h" // For CDMKeyInformation
+#include "mozilla/dom/MediaKeyStatusMapBinding.h"     // For MediaKeyStatus
+#include "mozilla/dom/MediaKeyMessageEventBinding.h"  // For MediaKeyMessageType
+#include "mozilla/gmp/GMPTypes.h"                     // For CDMKeyInformation
 
-class ChromiumCDMCallback {
-public:
-
+class ChromiumCDMCallback
+{
+ public:
   virtual ~ChromiumCDMCallback() {}
 
   virtual void SetSessionId(uint32_t aPromiseId,
@@ -32,8 +32,9 @@ public:
                               uint32_t aMessageType,
                               nsTArray<uint8_t>&& aMessage) = 0;
 
-  virtual void SessionKeysChange(const nsCString& aSessionId,
-                                 nsTArray<mozilla::gmp::CDMKeyInformation>&& aKeysInfo) = 0;
+  virtual void SessionKeysChange(
+      const nsCString& aSessionId,
+      nsTArray<mozilla::gmp::CDMKeyInformation>&& aKeysInfo) = 0;
 
   virtual void ExpirationChange(const nsCString& aSessionId,
                                 double aSecondsSinceEpoch) = 0;

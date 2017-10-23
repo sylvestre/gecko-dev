@@ -15,30 +15,24 @@
 
 class DriveMapping
 {
-public:
+ public:
   explicit DriveMapping(const nsAString& aRemoteUNCPath);
   ~DriveMapping();
 
-  bool
-  Init();
-  bool
-  ChangeDriveLetter();
-  wchar_t
-  GetDriveLetter() { return mDriveLetter; }
+  bool Init();
+  bool ChangeDriveLetter();
+  wchar_t GetDriveLetter() { return mDriveLetter; }
 
-private:
-  bool
-  DoMapping();
-  void
-  Disconnect(wchar_t aDriveLetter);
+ private:
+  bool DoMapping();
+  void Disconnect(wchar_t aDriveLetter);
 
-  wchar_t   mDriveLetter;
-  nsString  mRemoteUNCPath;
+  wchar_t mDriveLetter;
+  nsString mRemoteUNCPath;
 };
 
 DriveMapping::DriveMapping(const nsAString& aRemoteUNCPath)
-  : mDriveLetter(0)
-  , mRemoteUNCPath(aRemoteUNCPath)
+    : mDriveLetter(0), mRemoteUNCPath(aRemoteUNCPath)
 {
 }
 
@@ -58,7 +52,8 @@ DriveMapping::DoMapping()
   NETRESOURCEW netRes = {0};
   netRes.dwType = RESOURCETYPE_DISK;
   netRes.lpLocalName = drvTemplate;
-  netRes.lpRemoteName = reinterpret_cast<wchar_t*>(mRemoteUNCPath.BeginWriting());
+  netRes.lpRemoteName =
+      reinterpret_cast<wchar_t*>(mRemoteUNCPath.BeginWriting());
   wchar_t driveLetter = L'D';
   DWORD result = NO_ERROR;
   do {
@@ -106,7 +101,10 @@ DriveToNtPath(const wchar_t aDriveLetter, nsAString& aNtPath)
   aNtPath.SetLength(MAX_PATH);
   DWORD pathLen;
   while (true) {
-    pathLen = QueryDosDeviceW(drvTpl, reinterpret_cast<wchar_t*>(aNtPath.BeginWriting()), aNtPath.Length());
+    pathLen =
+        QueryDosDeviceW(drvTpl,
+                        reinterpret_cast<wchar_t*>(aNtPath.BeginWriting()),
+                        aNtPath.Length());
     if (pathLen || GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
       break;
     }
@@ -122,12 +120,12 @@ DriveToNtPath(const wchar_t aDriveLetter, nsAString& aNtPath)
 }
 
 bool
-TestNtPathToDosPath(const wchar_t* aNtPath,
-                    const wchar_t* aExpectedDosPath)
+TestNtPathToDosPath(const wchar_t* aNtPath, const wchar_t* aExpectedDosPath)
 {
   nsAutoString output;
   bool result = mozilla::NtPathToDosPath(nsDependentString(aNtPath), output);
-  return result && output == reinterpret_cast<const nsAString::char_type *>(aExpectedDosPath);
+  return result && output == reinterpret_cast<const nsAString::char_type*>(
+                                 aExpectedDosPath);
 }
 
 TEST(NtPathToDosPath, Tests)
@@ -139,7 +137,8 @@ TEST(NtPathToDosPath, Tests)
   EXPECT_TRUE(TestNtPathToDosPath(L"", L""));
 
   // non-existent device, must fail
-  EXPECT_FALSE(TestNtPathToDosPath(L"\\Device\\ThisDeviceDoesNotExist\\Foo", nullptr));
+  EXPECT_FALSE(
+      TestNtPathToDosPath(L"\\Device\\ThisDeviceDoesNotExist\\Foo", nullptr));
 
   // base case
   nsAutoString testPath(cDrive);
@@ -162,11 +161,11 @@ TEST(NtPathToDosPath, Tests)
 
   // UNC path (using MUP)
   EXPECT_TRUE(TestNtPathToDosPath(L"\\Device\\Mup\\127.0.0.1\\C$",
-                           L"\\\\127.0.0.1\\C$"));
+                                  L"\\\\127.0.0.1\\C$"));
 
   // UNC path (using LanmanRedirector)
   EXPECT_TRUE(TestNtPathToDosPath(L"\\Device\\LanmanRedirector\\127.0.0.1\\C$",
-                           L"\\\\127.0.0.1\\C$"));
+                                  L"\\\\127.0.0.1\\C$"));
 
   DriveMapping drvMapping(NS_LITERAL_STRING("\\\\127.0.0.1\\C$"));
   // Only run these tests if we were able to map; some machines don't have perms

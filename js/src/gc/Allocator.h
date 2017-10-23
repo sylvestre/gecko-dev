@@ -22,14 +22,12 @@ struct Class;
 // includes slot, heap, and finalizer information in support of various
 // object-specific optimizations.
 template <typename T, AllowGC allowGC = CanGC>
-T*
-Allocate(JSContext* cx);
+T* Allocate(JSContext* cx);
 
 template <typename, AllowGC allowGC = CanGC>
-JSObject*
-Allocate(JSContext* cx, gc::AllocKind kind, size_t nDynamicSlots, gc::InitialHeap heap,
-         const Class* clasp);
+JSObject* Allocate(JSContext* cx, gc::AllocKind kind, size_t nDynamicSlots, gc::InitialHeap heap,
+                   const Class* clasp);
 
-} // namespace js
+}  // namespace js
 
-#endif // gc_Allocator_h
+#endif  // gc_Allocator_h

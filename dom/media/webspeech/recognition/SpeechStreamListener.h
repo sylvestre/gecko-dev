@@ -21,11 +21,12 @@ class SpeechRecognition;
 
 class SpeechStreamListener : public MediaStreamListener
 {
-public:
+ public:
   explicit SpeechStreamListener(SpeechRecognition* aRecognition);
   ~SpeechStreamListener();
 
-  void NotifyQueuedAudioData(MediaStreamGraph* aGraph, TrackID aID,
+  void NotifyQueuedAudioData(MediaStreamGraph* aGraph,
+                             TrackID aID,
                              StreamTime aTrackOffset,
                              const AudioSegment& aQueuedMedia,
                              MediaStream* aInputStream,
@@ -34,13 +35,16 @@ public:
   void NotifyEvent(MediaStreamGraph* aGraph,
                    MediaStreamGraphEvent event) override;
 
-private:
+ private:
   template<typename SampleFormatType>
-  void ConvertAndDispatchAudioChunk(int aDuration, float aVolume, SampleFormatType* aData, TrackRate aTrackRate);
+  void ConvertAndDispatchAudioChunk(int aDuration,
+                                    float aVolume,
+                                    SampleFormatType* aData,
+                                    TrackRate aTrackRate);
   RefPtr<SpeechRecognition> mRecognition;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

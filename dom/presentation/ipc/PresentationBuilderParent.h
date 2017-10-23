@@ -14,10 +14,11 @@
 namespace mozilla {
 namespace dom {
 
-class PresentationBuilderParent final: public PPresentationBuilderParent
-                                     , public nsIPresentationDataChannelSessionTransportBuilder
+class PresentationBuilderParent final
+    : public PPresentationBuilderParent,
+      public nsIPresentationDataChannelSessionTransportBuilder
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRESENTATIONSESSIONTRANSPORTBUILDER
   NS_DECL_NSIPRESENTATIONDATACHANNELSESSIONTRANSPORTBUILDER
@@ -28,7 +29,8 @@ public:
 
   virtual mozilla::ipc::IPCResult RecvSendAnswer(const nsString& aSDP) override;
 
-  virtual mozilla::ipc::IPCResult RecvSendIceCandidate(const nsString& aCandidate) override;
+  virtual mozilla::ipc::IPCResult RecvSendIceCandidate(
+      const nsString& aCandidate) override;
 
   virtual mozilla::ipc::IPCResult RecvClose(const nsresult& aReason) override;
 
@@ -36,9 +38,10 @@ public:
 
   virtual mozilla::ipc::IPCResult RecvOnSessionTransport() override;
 
-  virtual mozilla::ipc::IPCResult RecvOnSessionTransportError(const nsresult& aReason) override;
+  virtual mozilla::ipc::IPCResult RecvOnSessionTransportError(
+      const nsresult& aReason) override;
 
-private:
+ private:
   virtual ~PresentationBuilderParent();
   bool mNeedDestroyActor = false;
   RefPtr<PresentationParent> mParent;
@@ -46,7 +49,7 @@ private:
   nsCOMPtr<nsIPresentationSessionTransport> mIPCSessionTransport;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationBuilderParent_h__
+#endif  // mozilla_dom_PresentationBuilderParent_h__

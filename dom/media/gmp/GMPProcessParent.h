@@ -21,7 +21,7 @@ namespace gmp {
 
 class GMPProcessParent final : public mozilla::ipc::GeckoChildProcessHost
 {
-public:
+ public:
   explicit GMPProcessParent(const std::string& aGMPPath);
   ~GMPProcessParent();
 
@@ -37,7 +37,7 @@ public:
   using mozilla::ipc::GeckoChildProcessHost::GetChannel;
   using mozilla::ipc::GeckoChildProcessHost::GetChildProcessHandle;
 
-private:
+ private:
   void DoDelete();
 
   std::string mGMPPath;
@@ -46,7 +46,7 @@ private:
   DISALLOW_COPY_AND_ASSIGN(GMPProcessParent);
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // ifndef GMPProcessParent_h
+#endif  // ifndef GMPProcessParent_h

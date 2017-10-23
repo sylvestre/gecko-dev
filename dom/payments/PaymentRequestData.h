@@ -18,16 +18,15 @@ namespace payments {
 
 class PaymentMethodData final : public nsIPaymentMethodData
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTMETHODDATA
 
   static nsresult Create(const IPCPaymentMethodData& aIPCMethodData,
                          nsIPaymentMethodData** aMethodData);
 
-private:
-  PaymentMethodData(const nsAString& aSupportedMethods,
-                    const nsAString& aData);
+ private:
+  PaymentMethodData(const nsAString& aSupportedMethods, const nsAString& aData);
 
   ~PaymentMethodData() = default;
 
@@ -37,16 +36,15 @@ private:
 
 class PaymentCurrencyAmount final : public nsIPaymentCurrencyAmount
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTCURRENCYAMOUNT
 
   static nsresult Create(const IPCPaymentCurrencyAmount& aIPCAmount,
                          nsIPaymentCurrencyAmount** aAmount);
 
-private:
-  PaymentCurrencyAmount(const nsAString& aCurrency,
-                        const nsAString& aValue);
+ private:
+  PaymentCurrencyAmount(const nsAString& aCurrency, const nsAString& aValue);
 
   ~PaymentCurrencyAmount() = default;
 
@@ -56,13 +54,14 @@ private:
 
 class PaymentItem final : public nsIPaymentItem
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTITEM
 
-  static nsresult Create(const IPCPaymentItem& aIPCItem, nsIPaymentItem** aItem);
+  static nsresult Create(const IPCPaymentItem& aIPCItem,
+                         nsIPaymentItem** aItem);
 
-private:
+ private:
   PaymentItem(const nsAString& aLabel,
               nsIPaymentCurrencyAmount* aAmount,
               const bool aPending);
@@ -76,14 +75,14 @@ private:
 
 class PaymentDetailsModifier final : public nsIPaymentDetailsModifier
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTDETAILSMODIFIER
 
   static nsresult Create(const IPCPaymentDetailsModifier& aIPCModifier,
                          nsIPaymentDetailsModifier** aModifier);
 
-private:
+ private:
   PaymentDetailsModifier(const nsAString& aSupportedMethods,
                          nsIPaymentItem* aTotal,
                          nsIArray* aAdditionalDisplayItems,
@@ -99,18 +98,18 @@ private:
 
 class PaymentShippingOption final : public nsIPaymentShippingOption
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTSHIPPINGOPTION
 
   static nsresult Create(const IPCPaymentShippingOption& aIPCOption,
                          nsIPaymentShippingOption** aOption);
 
-private:
+ private:
   PaymentShippingOption(const nsAString& aId,
                         const nsAString& aLabel,
                         nsIPaymentCurrencyAmount* aAmount,
-                        const bool aSelected=false);
+                        const bool aSelected = false);
 
   ~PaymentShippingOption() = default;
 
@@ -122,14 +121,14 @@ private:
 
 class PaymentDetails final : public nsIPaymentDetails
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTDETAILS
 
-
   static nsresult Create(const IPCPaymentDetails& aIPCDetails,
                          nsIPaymentDetails** aDetails);
-private:
+
+ private:
   PaymentDetails(const nsAString& aId,
                  nsIPaymentItem* aTotalItem,
                  nsIArray* aDisplayItems,
@@ -149,14 +148,14 @@ private:
 
 class PaymentOptions final : public nsIPaymentOptions
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTOPTIONS
 
   static nsresult Create(const IPCPaymentOptions& aIPCOptions,
                          nsIPaymentOptions** aOptions);
 
-private:
+ private:
   PaymentOptions(const bool aRequestPayerName,
                  const bool aRequestPayerEmail,
                  const bool aRequestPayerPhone,
@@ -173,7 +172,7 @@ private:
 
 class PaymentRequest final : public nsIPaymentRequest
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTREQUEST
 
@@ -184,7 +183,7 @@ public:
                  nsIPaymentDetails* aPaymentDetails,
                  nsIPaymentOptions* aPaymentOptions);
 
-private:
+ private:
   ~PaymentRequest() = default;
 
   uint64_t mTabId;
@@ -197,13 +196,13 @@ private:
 
 class PaymentAddress final : public nsIPaymentAddress
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPAYMENTADDRESS
 
   PaymentAddress() = default;
 
-private:
+ private:
   ~PaymentAddress() = default;
 
   nsString mCountry;
@@ -219,8 +218,8 @@ private:
   nsString mPhone;
 };
 
-} // end of namespace payment
-} // end of namespace dom
-} // end of namespace mozilla
+}  // namespace payments
+}  // end of namespace dom
+}  // end of namespace mozilla
 
 #endif

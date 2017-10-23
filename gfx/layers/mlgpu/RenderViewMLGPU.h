@@ -21,7 +21,7 @@ class MLGRenderTarget;
 
 class RenderViewMLGPU
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(RenderViewMLGPU)
 
   // Constructor for the widget render target.
@@ -42,15 +42,9 @@ public:
                Maybe<gfx::Polygon>&& aGeometry);
   void FinishBuilding();
 
-  const gfx::IntPoint& GetTargetOffset() const {
-    return mTargetOffset;
-  }
-  RenderViewMLGPU* GetParent() const {
-    return mParent;
-  }
-  bool HasDepthBuffer() const {
-    return mUseDepthBuffer;
-  }
+  const gfx::IntPoint& GetTargetOffset() const { return mTargetOffset; }
+  RenderViewMLGPU* GetParent() const { return mParent; }
+  bool HasDepthBuffer() const { return mUseDepthBuffer; }
 
   // Render after having previously delayed rendering due to the view
   // requiring a backdrop copy.
@@ -63,11 +57,9 @@ public:
   MLGRenderTarget* GetRenderTarget() const;
   gfx::IntSize GetSize() const;
 
-  gfx::IntRect GetInvalidRect() const {
-    return mInvalidBounds;
-  }
+  gfx::IntRect GetInvalidRect() const { return mInvalidBounds; }
 
-private:
+ private:
   RenderViewMLGPU(FrameBuilder* aBuilder, RenderViewMLGPU* aParent);
   ~RenderViewMLGPU();
 
@@ -85,7 +77,7 @@ private:
   // Return the sorting index offset to use.
   int32_t PrepareDepthBuffer();
 
-private:
+ private:
   std::deque<RefPtr<RenderPassMLGPU>> mFrontToBack;
   std::deque<RefPtr<RenderPassMLGPU>> mBackToFront;
 
@@ -140,7 +132,7 @@ private:
   bool mDepthBufferNeedsClear;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_RenderViewMLGPU_h
+#endif  // mozilla_gfx_layers_mlgpu_RenderViewMLGPU_h

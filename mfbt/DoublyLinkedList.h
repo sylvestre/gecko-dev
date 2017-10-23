@@ -68,15 +68,16 @@ namespace mozilla {
  *  Deriving from this will allow T to be inserted into and removed from a
  *  DoublyLinkedList.
  */
-template <typename T>
+template<typename T>
 class DoublyLinkedListElement
 {
-  template<typename U, typename E> friend class DoublyLinkedList;
+  template<typename U, typename E>
+  friend class DoublyLinkedList;
   friend T;
   T* mNext;
   T* mPrev;
 
-public:
+ public:
   DoublyLinkedListElement() : mNext(nullptr), mPrev(nullptr) {}
 };
 
@@ -91,16 +92,13 @@ public:
  * one can define their own trait class and use that as ElementAccess for
  * DoublyLinkedList. See TestDoublyLinkedList.cpp for an example.
  */
-template <typename T>
+template<typename T>
 struct GetDoublyLinkedListElement
 {
   static_assert(mozilla::IsBaseOf<DoublyLinkedListElement<T>, T>::value,
                 "You need your own specialization of GetDoublyLinkedListElement"
                 " or use a separate Trait.");
-  static DoublyLinkedListElement<T>& Get(T* aThis)
-  {
-    return *aThis;
-  }
+  static DoublyLinkedListElement<T>& Get(T* aThis) { return *aThis; }
 };
 
 /**
@@ -109,7 +107,7 @@ struct GetDoublyLinkedListElement
  * The template argument |ElementAccess| provides code to tell this list how to
  * get a reference to a DoublyLinkedListElement that may reside anywhere.
  */
-template <typename T, typename ElementAccess = GetDoublyLinkedListElement<T>>
+template<typename T, typename ElementAccess = GetDoublyLinkedListElement<T>>
 class DoublyLinkedList final
 {
   T* mHead;
@@ -119,11 +117,10 @@ class DoublyLinkedList final
    * Checks that either the list is empty and both mHead and mTail are nullptr
    * or the list has entries and both mHead and mTail are non-null.
    */
-  bool isStateValid() const {
-    return (mHead != nullptr) == (mTail != nullptr);
-  }
+  bool isStateValid() const { return (mHead != nullptr) == (mTail != nullptr); }
 
-  bool ElementNotInList(T* aElm) {
+  bool ElementNotInList(T* aElm)
+  {
     if (!ElementAccess::Get(aElm).mNext && !ElementAccess::Get(aElm).mPrev) {
       // Both mNext and mPrev being NULL can mean two things:
       // - the element is not in the list.
@@ -134,13 +131,14 @@ class DoublyLinkedList final
     return false;
   }
 
-public:
+ public:
   DoublyLinkedList() : mHead(nullptr), mTail(nullptr) {}
 
-  class Iterator final {
+  class Iterator final
+  {
     T* mCurrent;
 
-  public:
+   public:
     using iterator_category = std::forward_iterator_tag;
     using value_type = T;
     using difference_type = std::ptrdiff_t;
@@ -150,42 +148,46 @@ public:
     Iterator() : mCurrent(nullptr) {}
     explicit Iterator(T* aCurrent) : mCurrent(aCurrent) {}
 
-    T& operator *() const { return *mCurrent; }
-    T* operator ->() const { return mCurrent; }
+    T& operator*() const { return *mCurrent; }
+    T* operator->() const { return mCurrent; }
 
-    Iterator& operator++() {
+    Iterator& operator++()
+    {
       mCurrent = ElementAccess::Get(mCurrent).mNext;
       return *this;
     }
 
-    Iterator operator++(int) {
+    Iterator operator++(int)
+    {
       Iterator result = *this;
       ++(*this);
       return result;
     }
 
-    Iterator& operator--() {
+    Iterator& operator--()
+    {
       mCurrent = ElementAccess::Get(mCurrent).mPrev;
       return *this;
     }
 
-    Iterator operator--(int) {
+    Iterator operator--(int)
+    {
       Iterator result = *this;
       --(*this);
       return result;
     }
 
-    bool operator!=(const Iterator& aOther) const {
+    bool operator!=(const Iterator& aOther) const
+    {
       return mCurrent != aOther.mCurrent;
     }
 
-    bool operator==(const Iterator& aOther) const {
+    bool operator==(const Iterator& aOther) const
+    {
       return mCurrent == aOther.mCurrent;
     }
 
-    explicit operator bool() const {
-      return mCurrent;
-    }
+    explicit operator bool() const { return mCurrent; }
   };
 
   Iterator begin() { return Iterator(mHead); }
@@ -199,7 +201,8 @@ public:
   /**
    * Returns true if the list contains no elements.
    */
-  bool isEmpty() const {
+  bool isEmpty() const
+  {
     MOZ_ASSERT(isStateValid());
     return mHead == nullptr;
   }
@@ -208,7 +211,8 @@ public:
    * Inserts aElm into the list at the head position. |aElm| must not already
    * be in a list.
    */
-  void pushFront(T* aElm) {
+  void pushFront(T* aElm)
+  {
     MOZ_ASSERT(aElm);
     MOZ_ASSERT(ElementNotInList(aElm));
     MOZ_ASSERT(isStateValid());
@@ -229,7 +233,8 @@ public:
    * Remove the head of the list and return it. Calling this on an empty list
    * will assert.
    */
-  T* popFront() {
+  T* popFront()
+  {
     MOZ_ASSERT(!isEmpty());
     MOZ_ASSERT(isStateValid());
 
@@ -255,7 +260,8 @@ public:
    * Inserts aElm into the list at the tail position. |aElm| must not already
    * be in a list.
    */
-  void pushBack(T* aElm) {
+  void pushBack(T* aElm)
+  {
     MOZ_ASSERT(aElm);
     MOZ_ASSERT(ElementNotInList(aElm));
     MOZ_ASSERT(isStateValid());
@@ -277,7 +283,8 @@ public:
    * Remove the tail of the list and return it. Calling this on an empty list
    * will assert.
    */
-  T* popBack() {
+  T* popBack()
+  {
     MOZ_ASSERT(!isEmpty());
     MOZ_ASSERT(isStateValid());
 
@@ -302,7 +309,8 @@ public:
   /**
    * Insert the given |aElm| *before* |aIter|.
    */
-  void insertBefore(const Iterator& aIter, T* aElm) {
+  void insertBefore(const Iterator& aIter, T* aElm)
+  {
     MOZ_ASSERT(aElm);
     MOZ_ASSERT(ElementNotInList(aElm));
     MOZ_ASSERT(isStateValid());
@@ -326,10 +334,12 @@ public:
   /**
    * Removes the given element from the list. The element must be in this list.
    */
-  void remove(T* aElm) {
+  void remove(T* aElm)
+  {
     MOZ_ASSERT(aElm);
-    MOZ_ASSERT(ElementAccess::Get(aElm).mNext || ElementAccess::Get(aElm).mPrev ||
-               (aElm == mHead && aElm == mTail),
+    MOZ_ASSERT(ElementAccess::Get(aElm).mNext ||
+                   ElementAccess::Get(aElm).mPrev ||
+                   (aElm == mHead && aElm == mTail),
                "Attempted to remove element not in this list");
 
     if (T* prev = ElementAccess::Get(aElm).mPrev) {
@@ -354,17 +364,13 @@ public:
    * Returns an iterator referencing the first found element whose value matches
    * the given element according to operator==.
    */
-  Iterator find(const T& aElm) {
-    return std::find(begin(), end(), aElm);
-  }
+  Iterator find(const T& aElm) { return std::find(begin(), end(), aElm); }
 
   /**
    * Returns whether the given element is in the list. Note that this uses
    * T::operator==, not pointer comparison.
    */
-  bool contains(const T& aElm) {
-    return find(aElm) != Iterator();
-  }
+  bool contains(const T& aElm) { return find(aElm) != Iterator(); }
 
   /**
    * Returns whether the given element might be in the list. Note that this
@@ -372,7 +378,8 @@ public:
    * the case where the element might be in another list in order to make the
    * check fast.
    */
-  bool ElementProbablyInList(T* aElm) {
+  bool ElementProbablyInList(T* aElm)
+  {
     if (isEmpty()) {
       return false;
     }
@@ -380,6 +387,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_DoublyLinkedList_h
+#endif  // mozilla_DoublyLinkedList_h

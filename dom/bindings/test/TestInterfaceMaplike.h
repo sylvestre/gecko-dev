@@ -22,10 +22,9 @@ class GlobalObject;
 
 // Implementation of test binding for webidl maplike interfaces, using
 // primitives for key and value types.
-class TestInterfaceMaplike final : public nsISupports,
-                                   public nsWrapperCache
+class TestInterfaceMaplike final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TestInterfaceMaplike)
 
@@ -33,20 +32,21 @@ public:
   nsPIDOMWindowInner* GetParentObject() const;
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
-  static already_AddRefed<TestInterfaceMaplike>
-    Constructor(const GlobalObject& aGlobal, ErrorResult& rv);
+  static already_AddRefed<TestInterfaceMaplike> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& rv);
 
   // External access for testing internal convenience functions.
   void SetInternal(const nsAString& aKey, int32_t aValue);
   void ClearInternal();
   bool DeleteInternal(const nsAString& aKey);
   bool HasInternal(const nsAString& aKey);
-private:
+
+ private:
   virtual ~TestInterfaceMaplike() {}
   nsCOMPtr<nsPIDOMWindowInner> mParent;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TestInterfaceMaplike_h
+#endif  // mozilla_dom_TestInterfaceMaplike_h

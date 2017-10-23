@@ -60,7 +60,8 @@ struct CustomClientInfo;
 // this class to set the unhandled exception filter with the
 // system by calling the SetUnhandledExceptionFilter function
 // and the client code should explicitly request dump generation.
-class CrashGenerationClient {
+class CrashGenerationClient
+{
  public:
   CrashGenerationClient(const wchar_t* pipe_name,
                         MINIDUMP_TYPE dump_type,

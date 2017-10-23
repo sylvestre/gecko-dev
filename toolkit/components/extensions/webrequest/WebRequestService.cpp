@@ -16,10 +16,7 @@ using namespace mozilla::extensions;
 
 static WebRequestService* sWeakWebRequestService;
 
-WebRequestService::~WebRequestService()
-{
-  sWeakWebRequestService = nullptr;
-}
+WebRequestService::~WebRequestService() { sWeakWebRequestService = nullptr; }
 
 /* static */ WebRequestService&
 WebRequestService::GetSingleton()
@@ -37,7 +34,6 @@ WebRequestService::GetSingleton()
   return *sWeakWebRequestService;
 }
 
-
 UniquePtr<WebRequestChannelEntry>
 WebRequestService::RegisterChannel(ChannelWrapper* aChannel)
 {
@@ -48,7 +44,6 @@ WebRequestService::RegisterChannel(ChannelWrapper* aChannel)
   key.OrInsert([&entry]() { return entry.get(); });
 
   return Move(entry);
-
 }
 
 already_AddRefed<nsITraceableChannel>
@@ -59,16 +54,15 @@ WebRequestService::GetTraceableChannel(uint64_t aChannelId,
   if (auto entry = mChannelEntries.Get(aChannelId)) {
     if (entry->mChannel) {
       return entry->mChannel->GetTraceableChannel(aAddonId, aContentParent);
-
     }
   }
   return nullptr;
 }
 
 WebRequestChannelEntry::WebRequestChannelEntry(ChannelWrapper* aChannel)
-  : mChannelId(aChannel->Id())
-  , mChannel(aChannel)
-{}
+    : mChannelId(aChannel->Id()), mChannel(aChannel)
+{
+}
 
 WebRequestChannelEntry::~WebRequestChannelEntry()
 {

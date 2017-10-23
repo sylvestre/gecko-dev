@@ -15,9 +15,9 @@ namespace layers {
 already_AddRefed<SyncObjectHost>
 SyncObjectHost::CreateSyncObjectHost(
 #ifdef XP_WIN
-                                     ID3D11Device* aDevice
+    ID3D11Device* aDevice
 #endif
-                                    )
+)
 {
 #ifdef XP_WIN
   return MakeAndAddRef<SyncObjectD3D11Host>(aDevice);
@@ -29,9 +29,10 @@ SyncObjectHost::CreateSyncObjectHost(
 already_AddRefed<SyncObjectClient>
 SyncObjectClient::CreateSyncObjectClient(SyncHandle aHandle
 #ifdef XP_WIN
-                                         , ID3D11Device* aDevice
+                                         ,
+                                         ID3D11Device* aDevice
 #endif
-                                        )
+)
 {
   if (!aHandle) {
     return nullptr;
@@ -45,5 +46,5 @@ SyncObjectClient::CreateSyncObjectClient(SyncHandle aHandle
 #endif
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

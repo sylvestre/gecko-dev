@@ -24,25 +24,26 @@ NS_INTERFACE_MAP_BEGIN(MemoryBlobImpl::DataOwnerAdapter)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIInputStream)
 NS_INTERFACE_MAP_END
 
-nsresult MemoryBlobImpl::DataOwnerAdapter::Create(DataOwner* aDataOwner,
-                                                  uint32_t aStart,
-                                                  uint32_t aLength,
-                                                  nsIInputStream** _retval)
+nsresult
+MemoryBlobImpl::DataOwnerAdapter::Create(DataOwner* aDataOwner,
+                                         uint32_t aStart,
+                                         uint32_t aLength,
+                                         nsIInputStream** _retval)
 {
   nsresult rv;
   MOZ_ASSERT(aDataOwner, "Uh ...");
 
   nsCOMPtr<nsIInputStream> stream;
 
-  rv = NS_NewByteInputStream(getter_AddRefs(stream),
-                             static_cast<const char*>(aDataOwner->mData) +
-                             aStart,
-                             (int32_t)aLength,
-                             NS_ASSIGNMENT_DEPEND);
+  rv = NS_NewByteInputStream(
+      getter_AddRefs(stream),
+      static_cast<const char*>(aDataOwner->mData) + aStart,
+      (int32_t)aLength,
+      NS_ASSIGNMENT_DEPEND);
   NS_ENSURE_SUCCESS(rv, rv);
 
   NS_ADDREF(*_retval =
-              new MemoryBlobImpl::DataOwnerAdapter(aDataOwner, stream));
+                new MemoryBlobImpl::DataOwnerAdapter(aDataOwner, stream));
 
   return NS_OK;
 }
@@ -50,12 +51,13 @@ nsresult MemoryBlobImpl::DataOwnerAdapter::Create(DataOwner* aDataOwner,
 NS_IMPL_ISUPPORTS_INHERITED0(MemoryBlobImpl, BlobImpl)
 
 already_AddRefed<BlobImpl>
-MemoryBlobImpl::CreateSlice(uint64_t aStart, uint64_t aLength,
+MemoryBlobImpl::CreateSlice(uint64_t aStart,
+                            uint64_t aLength,
                             const nsAString& aContentType,
                             ErrorResult& aRv)
 {
   RefPtr<BlobImpl> impl =
-    new MemoryBlobImpl(this, aStart, aLength, aContentType);
+      new MemoryBlobImpl(this, aStart, aLength, aContentType);
   return impl.forget();
 }
 
@@ -67,31 +69,29 @@ MemoryBlobImpl::CreateInputStream(nsIInputStream** aStream, ErrorResult& aRv)
     return;
   }
 
-  aRv = MemoryBlobImpl::DataOwnerAdapter::Create(mDataOwner, mStart, mLength,
-                                                 aStream);
+  aRv = MemoryBlobImpl::DataOwnerAdapter::Create(
+      mDataOwner, mStart, mLength, aStream);
 }
 
-/* static */ StaticMutex
-MemoryBlobImpl::DataOwner::sDataOwnerMutex;
+/* static */ StaticMutex MemoryBlobImpl::DataOwner::sDataOwnerMutex;
 
 /* static */ StaticAutoPtr<LinkedList<MemoryBlobImpl::DataOwner>>
-MemoryBlobImpl::DataOwner::sDataOwners;
+    MemoryBlobImpl::DataOwner::sDataOwners;
 
-/* static */ bool
-MemoryBlobImpl::DataOwner::sMemoryReporterRegistered = false;
+/* static */ bool MemoryBlobImpl::DataOwner::sMemoryReporterRegistered = false;
 
 MOZ_DEFINE_MALLOC_SIZE_OF(MemoryFileDataOwnerMallocSizeOf)
 
-class MemoryBlobImplDataOwnerMemoryReporter final
-  : public nsIMemoryReporter
+class MemoryBlobImplDataOwnerMemoryReporter final : public nsIMemoryReporter
 {
   ~MemoryBlobImplDataOwnerMemoryReporter() {}
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   NS_IMETHOD CollectReports(nsIHandleReportCallback* aHandleReport,
-                            nsISupports* aData, bool aAnonymize) override
+                            nsISupports* aData,
+                            bool aAnonymize) override
   {
     typedef MemoryBlobImpl::DataOwner DataOwner;
 
@@ -104,9 +104,8 @@ public:
     const size_t LARGE_OBJECT_MIN_SIZE = 8 * 1024;
     size_t smallObjectsTotal = 0;
 
-    for (DataOwner *owner = DataOwner::sDataOwners->getFirst();
-         owner; owner = owner->getNext()) {
-
+    for (DataOwner* owner = DataOwner::sDataOwners->getFirst(); owner;
+         owner = owner->getNext()) {
       size_t size = MemoryFileDataOwnerMallocSizeOf(owner->mData);
 
       if (size < LARGE_OBJECT_MIN_SIZE) {
@@ -114,7 +113,7 @@ public:
       } else {
         SHA1Sum sha1;
         sha1.update(owner->mData, owner->mLength);
-        uint8_t digest[SHA1Sum::kHashSize]; // SHA1 digests are 20 bytes long.
+        uint8_t digest[SHA1Sum::kHashSize];  // SHA1 digests are 20 bytes long.
         sha1.finish(digest);
 
         nsAutoCString digestString;
@@ -123,34 +122,46 @@ public:
         }
 
         aHandleReport->Callback(
-          /* process */ NS_LITERAL_CSTRING(""),
-          nsPrintfCString(
-            "explicit/dom/memory-file-data/large/file(length=%" PRIu64 ", sha1=%s)",
-            owner->mLength, aAnonymize ? "<anonymized>" : digestString.get()),
-          KIND_HEAP, UNITS_BYTES, size,
-          nsPrintfCString(
-            "Memory used to back a memory file of length %" PRIu64 " bytes.  The file "
-            "has a sha1 of %s.\n\n"
-            "Note that the allocator may round up a memory file's length -- "
-            "that is, an N-byte memory file may take up more than N bytes of "
-            "memory.",
-            owner->mLength, digestString.get()),
-          aData);
+            /* process */ NS_LITERAL_CSTRING(""),
+            nsPrintfCString(
+                "explicit/dom/memory-file-data/large/file(length=%" PRIu64
+                ", sha1=%s)",
+                owner->mLength,
+                aAnonymize ? "<anonymized>" : digestString.get()),
+            KIND_HEAP,
+            UNITS_BYTES,
+            size,
+            nsPrintfCString(
+                "Memory used to back a memory file of length %" PRIu64
+                " bytes.  The file "
+                "has a sha1 of %s.\n\n"
+                "Note that the allocator may round up a memory file's length "
+                "-- "
+                "that is, an N-byte memory file may take up more than N bytes "
+                "of "
+                "memory.",
+                owner->mLength,
+                digestString.get()),
+            aData);
       }
     }
 
     if (smallObjectsTotal > 0) {
       aHandleReport->Callback(
-        /* process */ NS_LITERAL_CSTRING(""),
-        NS_LITERAL_CSTRING("explicit/dom/memory-file-data/small"),
-        KIND_HEAP, UNITS_BYTES, smallObjectsTotal,
-        nsPrintfCString(
-          "Memory used to back small memory files (i.e. those taking up less "
-          "than %zu bytes of memory each).\n\n"
-          "Note that the allocator may round up a memory file's length -- "
-          "that is, an N-byte memory file may take up more than N bytes of "
-          "memory.", LARGE_OBJECT_MIN_SIZE),
-        aData);
+          /* process */ NS_LITERAL_CSTRING(""),
+          NS_LITERAL_CSTRING("explicit/dom/memory-file-data/small"),
+          KIND_HEAP,
+          UNITS_BYTES,
+          smallObjectsTotal,
+          nsPrintfCString(
+              "Memory used to back small memory files (i.e. those taking up "
+              "less "
+              "than %zu bytes of memory each).\n\n"
+              "Note that the allocator may round up a memory file's length -- "
+              "that is, an N-byte memory file may take up more than N bytes of "
+              "memory.",
+              LARGE_OBJECT_MIN_SIZE),
+          aData);
     }
 
     return NS_OK;
@@ -172,5 +183,5 @@ MemoryBlobImpl::DataOwner::EnsureMemoryReporterRegistered()
   sMemoryReporterRegistered = true;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

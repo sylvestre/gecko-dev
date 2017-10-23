@@ -19,7 +19,7 @@ class RegisterOperator;
 
 class nsDNSServiceDiscovery final : public nsIDNSServiceDiscovery
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIDNSSERVICEDISCOVERY
 
@@ -35,14 +35,14 @@ public:
   nsresult StopDiscovery(nsIDNSServiceDiscoveryListener* aListener);
   nsresult UnregisterService(nsIDNSRegistrationListener* aListener);
 
-private:
+ private:
   virtual ~nsDNSServiceDiscovery();
 
   nsRefPtrHashtable<nsISupportsHashKey, BrowseOperator> mDiscoveryMap;
   nsRefPtrHashtable<nsISupportsHashKey, RegisterOperator> mRegisterMap;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_netwerk_dns_mdns_libmdns_nsDNSServiceDiscovery_h
+#endif  // mozilla_netwerk_dns_mdns_libmdns_nsDNSServiceDiscovery_h

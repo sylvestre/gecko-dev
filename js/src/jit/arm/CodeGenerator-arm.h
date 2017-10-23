@@ -16,13 +16,12 @@ namespace jit {
 class OutOfLineBailout;
 class OutOfLineTableSwitch;
 
-class CodeGeneratorARM : public CodeGeneratorShared
-{
+class CodeGeneratorARM : public CodeGeneratorShared {
     friend class MoveResolverARM;
 
-    CodeGeneratorARM* thisFromCtor() {return this;}
+    CodeGeneratorARM* thisFromCtor() { return this; }
 
-  protected:
+   protected:
     NonAssertingLabel deoptLabel_;
 
     MoveOperand toMoveOperand(LAllocation a) const;
@@ -55,11 +54,11 @@ class CodeGeneratorARM : public CodeGeneratorShared
         bailoutIf(Assembler::Zero, snapshot);
     }
 
-    template<class T>
+    template <class T>
     void generateUDivModZeroCheck(Register rhs, Register output, Label* done, LSnapshot* snapshot,
                                   T* mir);
 
-  protected:
+   protected:
     bool generateOutOfLineCode();
 
     void emitRoundDouble(FloatRegister src, Register dest, Label* fail);
@@ -69,26 +68,22 @@ class CodeGeneratorARM : public CodeGeneratorShared
     void emitBranch(Assembler::Condition cond, MBasicBlock* ifTrue, MBasicBlock* ifFalse);
 
     void testNullEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                            MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testNull(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
     void testUndefinedEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                                 MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testUndefined(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
     void testObjectEmitBranch(Assembler::Condition cond, const ValueOperand& value,
-                              MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+                              MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
         cond = masm.testObject(cond, value);
         emitBranch(cond, ifTrue, ifFalse);
     }
-    void testZeroEmitBranch(Assembler::Condition cond, Register reg,
-                            MBasicBlock* ifTrue, MBasicBlock* ifFalse)
-    {
+    void testZeroEmitBranch(Assembler::Condition cond, Register reg, MBasicBlock* ifTrue,
+                            MBasicBlock* ifFalse) {
         MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
         masm.cmpPtr(reg, ImmWord(0));
         emitBranch(cond, ifTrue, ifFalse);
@@ -105,7 +100,7 @@ class CodeGeneratorARM : public CodeGeneratorShared
     template <typename T>
     void emitWasmUnalignedStore(T* ins);
 
-  public:
+   public:
     // Instruction visitors.
     virtual void visitMinMaxD(LMinMaxD* ins);
     virtual void visitMinMaxF(LMinMaxF* ins);
@@ -195,7 +190,7 @@ class CodeGeneratorARM : public CodeGeneratorShared
     void visitOutOfLineBailout(OutOfLineBailout* ool);
     void visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool);
 
-  protected:
+   protected:
     ValueOperand ToValue(LInstruction* ins, size_t pos);
     ValueOperand ToOutValue(LInstruction* ins);
     ValueOperand ToTempValue(LInstruction* ins, size_t pos);
@@ -210,10 +205,10 @@ class CodeGeneratorARM : public CodeGeneratorShared
     void modICommon(MMod* mir, Register lhs, Register rhs, Register output, LSnapshot* snapshot,
                     Label& done);
 
-  public:
+   public:
     CodeGeneratorARM(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
-  public:
+   public:
     void visitBox(LBox* box);
     void visitBoxFloatingPoint(LBoxFloatingPoint* box);
     void visitUnbox(LUnbox* unbox);
@@ -268,23 +263,23 @@ class CodeGeneratorARM : public CodeGeneratorShared
     void setReturnDoubleRegs(LiveRegisterSet* regs);
 
     // Generating a result.
-    template<typename S, typename T>
+    template <typename S, typename T>
     void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value,
                                     const T& mem, Register flagTemp, Register outTemp,
                                     AnyRegister output);
 
     // Generating no result.
-    template<typename S, typename T>
+    template <typename S, typename T>
     void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type arrayType, const S& value,
                                     const T& mem, Register flagTemp);
 
-  protected:
+   protected:
     void visitEffectiveAddress(LEffectiveAddress* ins);
     void visitUDiv(LUDiv* ins);
     void visitUMod(LUMod* ins);
     void visitSoftUDivOrMod(LSoftUDivOrMod* ins);
 
-  public:
+   public:
     // Unimplemented SIMD instructions
     void visitSimdSplatX4(LSimdSplatX4* lir) { MOZ_CRASH("NYI"); }
     void visitSimd128Int(LSimd128Int* ins) { MOZ_CRASH("NYI"); }
@@ -306,26 +301,21 @@ class CodeGeneratorARM : public CodeGeneratorShared
 typedef CodeGeneratorARM CodeGeneratorSpecific;
 
 // An out-of-line bailout thunk.
-class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorARM>
-{
-  protected: // Silence Clang warning.
+class OutOfLineBailout : public OutOfLineCodeBase<CodeGeneratorARM> {
+   protected:  // Silence Clang warning.
     LSnapshot* snapshot_;
     uint32_t frameSize_;
 
-  public:
+   public:
     OutOfLineBailout(LSnapshot* snapshot, uint32_t frameSize)
-      : snapshot_(snapshot),
-        frameSize_(frameSize)
-    { }
+        : snapshot_(snapshot), frameSize_(frameSize) {}
 
     void accept(CodeGeneratorARM* codegen);
 
-    LSnapshot* snapshot() const {
-        return snapshot_;
-    }
+    LSnapshot* snapshot() const { return snapshot_; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm_CodeGenerator_arm_h */

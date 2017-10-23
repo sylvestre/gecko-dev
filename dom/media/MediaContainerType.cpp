@@ -39,4 +39,4 @@ MakeMediaContainerType(const char* aType)
   return MakeMediaContainerType(nsDependentCString(aType));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -12,12 +12,12 @@ class MediaContainerType;
 
 class WaveDecoder
 {
-public:
+ public:
   // Returns true if the Wave backend is pref'ed on, and we're running on a
   // platform that is likely to have decoders for the format.
   static bool IsSupportedType(const MediaContainerType& aContainerType);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

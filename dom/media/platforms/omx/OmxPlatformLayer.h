@@ -28,7 +28,7 @@ class TrackInfo;
  */
 class OmxPlatformLayer
 {
-public:
+ public:
   typedef OmxPromiseLayer::BUFFERLIST BUFFERLIST;
   typedef OmxPromiseLayer::BufferData BufferData;
 
@@ -47,9 +47,11 @@ public:
   // Buffer could be platform dependent. Therefore, derived class needs to
   // implement its owned buffer allocate/release API according to its platform
   // type.
-  virtual nsresult AllocateOmxBuffer(OMX_DIRTYPE aType, BUFFERLIST* aBufferList) = 0;
+  virtual nsresult AllocateOmxBuffer(OMX_DIRTYPE aType,
+                                     BUFFERLIST* aBufferList) = 0;
 
-  virtual nsresult ReleaseOmxBuffer(OMX_DIRTYPE aType, BUFFERLIST* aBufferList) = 0;
+  virtual nsresult ReleaseOmxBuffer(OMX_DIRTYPE aType,
+                                    BUFFERLIST* aBufferList) = 0;
 
   virtual OMX_ERRORTYPE GetState(OMX_STATETYPE* aType) = 0;
 
@@ -71,7 +73,8 @@ public:
 
   OMX_U32 OutputPortIndex() { return mStartPortNumber + 1; }
 
-  void GetPortIndices(nsTArray<uint32_t>& aPortIndex) {
+  void GetPortIndices(nsTArray<uint32_t>& aPortIndex)
+  {
     aPortIndex.AppendElement(InputPortIndex());
     aPortIndex.AppendElement(OutputPortIndex());
   }
@@ -87,7 +90,7 @@ public:
                                   TaskQueue* aTaskQueue,
                                   layers::ImageContainer* aImageContainer);
 
-protected:
+ protected:
   OmxPlatformLayer() : mInfo(nullptr), mStartPortNumber(0) {}
 
   // The pointee is held by |OmxDataDecoder::mTrackInfo| and will outlive this pointer.
@@ -95,6 +98,6 @@ protected:
   OMX_U32 mStartPortNumber;
 };
 
-}
+}  // namespace mozilla
 
-#endif // OmxPlatformLayer_h_
+#endif  // OmxPlatformLayer_h_

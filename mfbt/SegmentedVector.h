@@ -55,7 +55,7 @@ class SegmentedVector : private AllocPolicy
 {
   template<size_t SegmentCapacity>
   struct SegmentImpl
-    : public mozilla::LinkedListElement<SegmentImpl<SegmentCapacity>>
+      : public mozilla::LinkedListElement<SegmentImpl<SegmentCapacity>>
   {
     SegmentImpl() : mLength(0) {}
 
@@ -102,8 +102,7 @@ class SegmentedVector : private AllocPolicy
     uint32_t mLength;
 
     // The union ensures that the elements are appropriately aligned.
-    union Storage
-    {
+    union Storage {
       char mBuf[sizeof(T) * SegmentCapacity];
       mozilla::AlignedElem<MOZ_ALIGNOF(T)> mAlign;
     } mStorage;
@@ -117,11 +116,11 @@ class SegmentedVector : private AllocPolicy
   // kSingleElementSegmentSize already accounts for one element.
   static const size_t kSingleElementSegmentSize = sizeof(SegmentImpl<1>);
   static const size_t kSegmentCapacity =
-    kSingleElementSegmentSize <= IdealSegmentSize
-    ? (IdealSegmentSize - kSingleElementSegmentSize) / sizeof(T) + 1
-    : 1;
+      kSingleElementSegmentSize <= IdealSegmentSize
+          ? (IdealSegmentSize - kSingleElementSegmentSize) / sizeof(T) + 1
+          : 1;
 
-public:
+ public:
   typedef SegmentImpl<kSegmentCapacity> Segment;
 
   // The |aIdealSegmentSize| is only for sanity checking. If it's specified, we
@@ -134,9 +133,9 @@ public:
     // size should be less than the size of a single element... unless the
     // ideal size was too small, in which case the capacity should be one.
     MOZ_ASSERT_IF(
-      aIdealSegmentSize != 0,
-      (sizeof(Segment) > aIdealSegmentSize && kSegmentCapacity == 1) ||
-      aIdealSegmentSize - sizeof(Segment) < sizeof(T));
+        aIdealSegmentSize != 0,
+        (sizeof(Segment) > aIdealSegmentSize && kSegmentCapacity == 1) ||
+            aIdealSegmentSize - sizeof(Segment) < sizeof(T));
   }
 
   ~SegmentedVector() { Clear(); }
@@ -148,8 +147,7 @@ public:
   size_t Length() const
   {
     size_t n = 0;
-    for (auto segment = mSegments.getFirst();
-         segment;
+    for (auto segment = mSegments.getFirst(); segment;
          segment = segment->getNext()) {
       n += segment->Length();
     }
@@ -286,15 +284,14 @@ public:
     size_t mIndex;
 
     explicit IterImpl(SegmentedVector* aVector, bool aFromFirst)
-      : mSegment(aFromFirst ? aVector->mSegments.getFirst() :
-                              aVector->mSegments.getLast())
-      , mIndex(aFromFirst ? 0 :
-                            (mSegment ? mSegment->Length() - 1 : 0))
+        : mSegment(aFromFirst ? aVector->mSegments.getFirst()
+                              : aVector->mSegments.getLast()),
+          mIndex(aFromFirst ? 0 : (mSegment ? mSegment->Length() - 1 : 0))
     {
       MOZ_ASSERT_IF(mSegment, mSegment->Length() > 0);
     }
 
-  public:
+   public:
     bool Done() const { return !mSegment; }
 
     T& Get()
@@ -351,10 +348,10 @@ public:
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   mozilla::LinkedList<Segment> mSegments;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_SegmentedVector_h */

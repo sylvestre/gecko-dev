@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -15,8 +15,7 @@
 
 using namespace js;
 
-BEGIN_TEST(testGCExactRooting)
-{
+BEGIN_TEST(testGCExactRooting) {
     JS::RootedObject rootCx(cx, JS_NewPlainObject(cx));
 
     JS_GC(cx);
@@ -28,8 +27,7 @@ BEGIN_TEST(testGCExactRooting)
 }
 END_TEST(testGCExactRooting)
 
-BEGIN_TEST(testGCSuppressions)
-{
+BEGIN_TEST(testGCSuppressions) {
     JS::AutoAssertNoGC nogc;
     JS::AutoCheckCannotGC checkgc;
     JS::AutoSuppressGCAnalysis noanalysis;
@@ -42,8 +40,7 @@ BEGIN_TEST(testGCSuppressions)
 }
 END_TEST(testGCSuppressions)
 
-struct MyContainer
-{
+struct MyContainer {
     HeapPtr<JSObject*> obj;
     HeapPtr<JSString*> str;
 
@@ -60,10 +57,9 @@ struct MutableWrappedPtrOperations<MyContainer, Wrapper> {
     HeapPtr<JSObject*>& obj() { return static_cast<Wrapper*>(this)->get().obj; }
     HeapPtr<JSString*>& str() { return static_cast<Wrapper*>(this)->get().str; }
 };
-} // namespace js
+}  // namespace js
 
-BEGIN_TEST(testGCRootedStaticStructInternalStackStorageAugmented)
-{
+BEGIN_TEST(testGCRootedStaticStructInternalStackStorageAugmented) {
     JS::Rooted<MyContainer> container(cx);
     container.obj() = JS_NewObject(cx, nullptr);
     container.str() = JS_NewStringCopyZ(cx, "Hello");
@@ -113,8 +109,7 @@ BEGIN_TEST(testGCRootedStaticStructInternalStackStorageAugmented)
 END_TEST(testGCRootedStaticStructInternalStackStorageAugmented)
 
 static JS::PersistentRooted<JSObject*> sLongLived;
-BEGIN_TEST(testGCPersistentRootedOutlivesRuntime)
-{
+BEGIN_TEST(testGCPersistentRootedOutlivesRuntime) {
     sLongLived.init(cx, JS_NewObject(cx, nullptr));
     CHECK(sLongLived);
     return true;
@@ -126,8 +121,7 @@ END_TEST(testGCPersistentRootedOutlivesRuntime)
 // allowed to outlive the container it belongs to. The following commented out
 // test can be used to verify that the relevant assertion fires as expected.
 static JS::PersistentRooted<MyContainer> sContainer;
-BEGIN_TEST(testGCPersistentRootedTraceableCannotOutliveRuntime)
-{
+BEGIN_TEST(testGCPersistentRootedTraceableCannotOutliveRuntime) {
     JS::Rooted<MyContainer> container(cx);
     container.obj() = JS_NewObject(cx, nullptr);
     container.str() = JS_NewStringCopyZ(cx, "Hello");
@@ -143,8 +137,7 @@ END_TEST(testGCPersistentRootedTraceableCannotOutliveRuntime)
 
 using MyHashMap = js::GCHashMap<js::Shape*, JSObject*>;
 
-BEGIN_TEST(testGCRootedHashMap)
-{
+BEGIN_TEST(testGCRootedHashMap) {
     JS::Rooted<MyHashMap> map(cx, MyHashMap(cx));
     CHECK(map.init(15));
     CHECK(map.initialized());
@@ -173,9 +166,7 @@ BEGIN_TEST(testGCRootedHashMap)
 }
 END_TEST(testGCRootedHashMap)
 
-static bool
-FillMyHashMap(JSContext* cx, MutableHandle<MyHashMap> map)
-{
+static bool FillMyHashMap(JSContext* cx, MutableHandle<MyHashMap> map) {
     for (size_t i = 0; i < 10; ++i) {
         RootedObject obj(cx, JS_NewObject(cx, nullptr));
         RootedValue val(cx, UndefinedValue());
@@ -184,27 +175,21 @@ FillMyHashMap(JSContext* cx, MutableHandle<MyHashMap> map)
         char buffer[2];
         buffer[0] = 'a' + i;
         buffer[1] = '\0';
-        if (!JS_SetProperty(cx, obj, buffer, val))
-            return false;
-        if (!map.putNew(obj->as<NativeObject>().lastProperty(), obj))
-            return false;
+        if (!JS_SetProperty(cx, obj, buffer, val)) return false;
+        if (!map.putNew(obj->as<NativeObject>().lastProperty(), obj)) return false;
     }
     return true;
 }
 
-static bool
-CheckMyHashMap(JSContext* cx, Handle<MyHashMap> map)
-{
+static bool CheckMyHashMap(JSContext* cx, Handle<MyHashMap> map) {
     for (auto r = map.all(); !r.empty(); r.popFront()) {
         RootedObject obj(cx, r.front().value());
-        if (obj->as<NativeObject>().lastProperty() != r.front().key())
-            return false;
+        if (obj->as<NativeObject>().lastProperty() != r.front().key()) return false;
     }
     return true;
 }
 
-BEGIN_TEST(testGCHandleHashMap)
-{
+BEGIN_TEST(testGCHandleHashMap) {
     JS::Rooted<MyHashMap> map(cx, MyHashMap(cx));
     CHECK(map.init(15));
     CHECK(map.initialized());
@@ -222,8 +207,7 @@ END_TEST(testGCHandleHashMap)
 
 using ShapeVec = GCVector<Shape*>;
 
-BEGIN_TEST(testGCRootedVector)
-{
+BEGIN_TEST(testGCRootedVector) {
     JS::Rooted<ShapeVec> shapes(cx, ShapeVec(cx));
 
     for (size_t i = 0; i < 10; ++i) {
@@ -252,8 +236,7 @@ BEGIN_TEST(testGCRootedVector)
     }
 
     // Ensure iterator enumeration works through the rooted.
-    for (auto shape : shapes)
-        CHECK(shape);
+    for (auto shape : shapes) CHECK(shape);
 
     CHECK(receiveConstRefToShapeVector(shapes));
 
@@ -264,36 +247,26 @@ BEGIN_TEST(testGCRootedVector)
     return true;
 }
 
-bool
-receiveConstRefToShapeVector(const JS::Rooted<GCVector<Shape*>>& rooted)
-{
+bool receiveConstRefToShapeVector(const JS::Rooted<GCVector<Shape*>>& rooted) {
     // Ensure range enumeration works through the reference.
-    for (auto shape : rooted)
-        CHECK(shape);
+    for (auto shape : rooted) CHECK(shape);
     return true;
 }
 
-bool
-receiveHandleToShapeVector(JS::Handle<GCVector<Shape*>> handle)
-{
+bool receiveHandleToShapeVector(JS::Handle<GCVector<Shape*>> handle) {
     // Ensure range enumeration works through the handle.
-    for (auto shape : handle)
-        CHECK(shape);
+    for (auto shape : handle) CHECK(shape);
     return true;
 }
 
-bool
-receiveMutableHandleToShapeVector(JS::MutableHandle<GCVector<Shape*>> handle)
-{
+bool receiveMutableHandleToShapeVector(JS::MutableHandle<GCVector<Shape*>> handle) {
     // Ensure range enumeration works through the handle.
-    for (auto shape : handle)
-        CHECK(shape);
+    for (auto shape : handle) CHECK(shape);
     return true;
 }
 END_TEST(testGCRootedVector)
 
-BEGIN_TEST(testTraceableFifo)
-{
+BEGIN_TEST(testTraceableFifo) {
     using ShapeFifo = TraceableFifo<Shape*>;
     JS::Rooted<ShapeFifo> shapes(cx, ShapeFifo(cx));
     CHECK(shapes.empty());
@@ -333,9 +306,7 @@ END_TEST(testTraceableFifo)
 
 using ShapeVec = GCVector<Shape*>;
 
-static bool
-FillVector(JSContext* cx, MutableHandle<ShapeVec> shapes)
-{
+static bool FillVector(JSContext* cx, MutableHandle<ShapeVec> shapes) {
     for (size_t i = 0; i < 10; ++i) {
         RootedObject obj(cx, JS_NewObject(cx, nullptr));
         RootedValue val(cx, UndefinedValue());
@@ -344,24 +315,19 @@ FillVector(JSContext* cx, MutableHandle<ShapeVec> shapes)
         char buffer[2];
         buffer[0] = 'a' + i;
         buffer[1] = '\0';
-        if (!JS_SetProperty(cx, obj, buffer, val))
-            return false;
-        if (!shapes.append(obj->as<NativeObject>().lastProperty()))
-            return false;
+        if (!JS_SetProperty(cx, obj, buffer, val)) return false;
+        if (!shapes.append(obj->as<NativeObject>().lastProperty())) return false;
     }
 
     // Ensure iterator enumeration works through the mutable handle.
     for (auto shape : shapes) {
-        if (!shape)
-            return false;
+        if (!shape) return false;
     }
 
     return true;
 }
 
-static bool
-CheckVector(JSContext* cx, Handle<ShapeVec> shapes)
-{
+static bool CheckVector(JSContext* cx, Handle<ShapeVec> shapes) {
     for (size_t i = 0; i < 10; ++i) {
         // Check the shape to ensure it did not get collected.
         char buffer[2];
@@ -370,21 +336,18 @@ CheckVector(JSContext* cx, Handle<ShapeVec> shapes)
         bool match;
         if (!JS_StringEqualsAscii(cx, JSID_TO_STRING(shapes[i]->propid()), buffer, &match))
             return false;
-        if (!match)
-            return false;
+        if (!match) return false;
     }
 
     // Ensure iterator enumeration works through the handle.
     for (auto shape : shapes) {
-        if (!shape)
-            return false;
+        if (!shape) return false;
     }
 
     return true;
 }
 
-BEGIN_TEST(testGCHandleVector)
-{
+BEGIN_TEST(testGCHandleVector) {
     JS::Rooted<ShapeVec> vec(cx, ShapeVec(cx));
 
     CHECK(FillVector(cx, &vec));

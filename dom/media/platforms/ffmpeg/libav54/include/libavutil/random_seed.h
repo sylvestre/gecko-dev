@@ -35,7 +35,8 @@
  * PRNG.  As it uses /dev/urandom and /dev/random, the quality of the
  * returned random data depends on the platform.
  */
-uint32_t av_get_random_seed(void);
+uint32_t
+av_get_random_seed(void);
 
 /**
  * @}

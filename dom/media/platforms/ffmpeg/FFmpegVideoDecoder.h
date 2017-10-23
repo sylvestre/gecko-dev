@@ -11,15 +11,14 @@
 #include "FFmpegDataDecoder.h"
 #include "SimpleMap.h"
 
-namespace mozilla
-{
+namespace mozilla {
 
-template <int V>
+template<int V>
 class FFmpegVideoDecoder : public FFmpegDataDecoder<V>
 {
 };
 
-template <>
+template<>
 class FFmpegVideoDecoder<LIBAV_VER> : public FFmpegDataDecoder<LIBAV_VER>
 {
   typedef mozilla::layers::Image Image;
@@ -27,8 +26,9 @@ class FFmpegVideoDecoder<LIBAV_VER> : public FFmpegDataDecoder<LIBAV_VER>
   typedef mozilla::layers::KnowsCompositor KnowsCompositor;
   typedef SimpleMap<int64_t> DurationMap;
 
-public:
-  FFmpegVideoDecoder(FFmpegLibWrapper* aLib, TaskQueue* aTaskQueue,
+ public:
+  FFmpegVideoDecoder(FFmpegLibWrapper* aLib,
+                     TaskQueue* aTaskQueue,
                      const VideoInfo& aConfig,
                      KnowsCompositor* aAllocator,
                      ImageContainer* aImageContainer,
@@ -52,14 +52,18 @@ public:
 
   static AVCodecID GetCodecId(const nsACString& aMimeType);
 
-private:
+ private:
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample) override;
   RefPtr<DecodePromise> ProcessDrain() override;
   RefPtr<FlushPromise> ProcessFlush() override;
-  MediaResult DoDecode(MediaRawData* aSample, bool* aGotFrame,
+  MediaResult DoDecode(MediaRawData* aSample,
+                       bool* aGotFrame,
                        DecodedData& aResults);
-  MediaResult DoDecode(MediaRawData* aSample, uint8_t* aData, int aSize,
-                       bool* aGotFrame, DecodedData& aResults);
+  MediaResult DoDecode(MediaRawData* aSample,
+                       uint8_t* aData,
+                       int aSize,
+                       bool* aGotFrame,
+                       DecodedData& aResults);
   void OutputDelayedFrames();
 
   /**
@@ -80,17 +84,17 @@ private:
 
   class PtsCorrectionContext
   {
-  public:
+   public:
     PtsCorrectionContext();
     int64_t GuessCorrectPts(int64_t aPts, int64_t aDts);
     void Reset();
     int64_t LastDts() const { return mLastDts; }
 
-  private:
-    int64_t mNumFaultyPts; /// Number of incorrect PTS values so far
-    int64_t mNumFaultyDts; /// Number of incorrect DTS values so far
-    int64_t mLastPts;      /// PTS of the last frame
-    int64_t mLastDts;      /// DTS of the last frame
+   private:
+    int64_t mNumFaultyPts;  /// Number of incorrect PTS values so far
+    int64_t mNumFaultyDts;  /// Number of incorrect DTS values so far
+    int64_t mLastPts;       /// PTS of the last frame
+    int64_t mLastDts;       /// DTS of the last frame
   };
 
   PtsCorrectionContext mPtsContext;
@@ -100,6 +104,6 @@ private:
   const bool mLowLatency;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // __FFmpegVideoDecoder_h__
+#endif  // __FFmpegVideoDecoder_h__

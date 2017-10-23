@@ -27,19 +27,19 @@ void
 nsSVGViewportFrame::PaintSVG(gfxContext& aContext,
                              const gfxMatrix& aTransform,
                              imgDrawingParams& aImgParams,
-                             const nsIntRect *aDirtyRect)
+                             const nsIntRect* aDirtyRect)
 {
-  NS_ASSERTION(!NS_SVGDisplayListPaintingEnabled() ||
-               (mState & NS_FRAME_IS_NONDISPLAY),
-               "If display lists are enabled, only painting of non-display "
-               "SVG should take this code path");
+  NS_ASSERTION(
+      !NS_SVGDisplayListPaintingEnabled() || (mState & NS_FRAME_IS_NONDISPLAY),
+      "If display lists are enabled, only painting of non-display "
+      "SVG should take this code path");
 
   gfxContextAutoSaveRestore autoSR;
 
   if (StyleDisplay()->IsScrollableOverflow()) {
     float x, y, width, height;
-    static_cast<SVGViewportElement*>(GetContent())->
-      GetAnimatedLengthValues(&x, &y, &width, &height, nullptr);
+    static_cast<SVGViewportElement*>(GetContent())
+        ->GetAnimatedLengthValues(&x, &y, &width, &height, nullptr);
 
     if (width <= 0 || height <= 0) {
       return;
@@ -47,12 +47,12 @@ nsSVGViewportFrame::PaintSVG(gfxContext& aContext,
 
     autoSR.SetContext(&aContext);
     gfxRect clipRect =
-      nsSVGUtils::GetClipRectForFrame(this, x, y, width, height);
+        nsSVGUtils::GetClipRectForFrame(this, x, y, width, height);
     nsSVGUtils::SetClipRect(&aContext, aTransform, clipRect);
   }
 
-  nsSVGDisplayContainerFrame::PaintSVG(aContext, aTransform, aImgParams,
-                                       aDirtyRect);
+  nsSVGDisplayContainerFrame::PaintSVG(
+      aContext, aTransform, aImgParams, aDirtyRect);
 }
 
 void
@@ -61,11 +61,10 @@ nsSVGViewportFrame::ReflowSVG()
   // mRect must be set before FinishAndStoreOverflow is called in order
   // for our overflow areas to be clipped correctly.
   float x, y, width, height;
-  static_cast<SVGViewportElement*>(GetContent())->
-    GetAnimatedLengthValues(&x, &y, &width, &height, nullptr);
+  static_cast<SVGViewportElement*>(GetContent())
+      ->GetAnimatedLengthValues(&x, &y, &width, &height, nullptr);
   mRect = nsLayoutUtils::RoundGfxRectToAppRect(
-                           gfxRect(x, y, width, height),
-                           PresContext()->AppUnitsPerCSSPixel());
+      gfxRect(x, y, width, height), PresContext()->AppUnitsPerCSSPixel());
 
   // If we have a filter, we need to invalidate ourselves because filter
   // output can change even if none of our descendants need repainting.
@@ -83,15 +82,14 @@ nsSVGViewportFrame::NotifySVGChanged(uint32_t aFlags)
              "Invalidation logic may need adjusting");
 
   if (aFlags & COORD_CONTEXT_CHANGED) {
-
-    SVGViewportElement *svg = static_cast<SVGViewportElement*>(GetContent());
+    SVGViewportElement* svg = static_cast<SVGViewportElement*>(GetContent());
 
     bool xOrYIsPercentage =
-      svg->mLengthAttributes[SVGViewportElement::ATTR_X].IsPercentage() ||
-      svg->mLengthAttributes[SVGViewportElement::ATTR_Y].IsPercentage();
+        svg->mLengthAttributes[SVGViewportElement::ATTR_X].IsPercentage() ||
+        svg->mLengthAttributes[SVGViewportElement::ATTR_Y].IsPercentage();
     bool widthOrHeightIsPercentage =
-      svg->mLengthAttributes[SVGViewportElement::ATTR_WIDTH].IsPercentage() ||
-      svg->mLengthAttributes[SVGViewportElement::ATTR_HEIGHT].IsPercentage();
+        svg->mLengthAttributes[SVGViewportElement::ATTR_WIDTH].IsPercentage() ||
+        svg->mLengthAttributes[SVGViewportElement::ATTR_HEIGHT].IsPercentage();
 
     if (xOrYIsPercentage || widthOrHeightIsPercentage) {
       // Ancestor changes can't affect how we render from the perspective of
@@ -120,7 +118,7 @@ nsSVGViewportFrame::NotifySVGChanged(uint32_t aFlags)
       aFlags &= ~COORD_CONTEXT_CHANGED;
 
       if (!aFlags) {
-        return; // No notification flags left
+        return;  // No notification flags left
       }
     }
   }
@@ -129,7 +127,7 @@ nsSVGViewportFrame::NotifySVGChanged(uint32_t aFlags)
 }
 
 SVGBBox
-nsSVGViewportFrame::GetBBoxContribution(const Matrix &aToBBoxUserspace,
+nsSVGViewportFrame::GetBBoxContribution(const Matrix& aToBBoxUserspace,
                                         uint32_t aFlags)
 {
   // XXXjwatt It seems like authors would want the result to be clipped by the
@@ -146,8 +144,8 @@ nsSVGViewportFrame::GetBBoxContribution(const Matrix &aToBBoxUserspace,
     // Ideally getClientRects/getBoundingClientRect should be consistent with
     // getBBox.
     float x, y, w, h;
-    static_cast<SVGViewportElement*>(GetContent())->
-      GetAnimatedLengthValues(&x, &y, &w, &h, nullptr);
+    static_cast<SVGViewportElement*>(GetContent())
+        ->GetAnimatedLengthValues(&x, &y, &w, &h, nullptr);
     if (w < 0.0f) w = 0.0f;
     if (h < 0.0f) h = 0.0f;
     Rect viewport(x, y, w, h);
@@ -160,7 +158,7 @@ nsSVGViewportFrame::GetBBoxContribution(const Matrix &aToBBoxUserspace,
   }
 
   SVGBBox descendantsBbox =
-    nsSVGDisplayContainerFrame::GetBBoxContribution(aToBBoxUserspace, aFlags);
+      nsSVGDisplayContainerFrame::GetBBoxContribution(aToBBoxUserspace, aFlags);
 
   bbox.UnionEdges(descendantsBbox);
 
@@ -168,20 +166,20 @@ nsSVGViewportFrame::GetBBoxContribution(const Matrix &aToBBoxUserspace,
 }
 
 nsresult
-nsSVGViewportFrame::AttributeChanged(int32_t  aNameSpaceID,
+nsSVGViewportFrame::AttributeChanged(int32_t aNameSpaceID,
                                      nsAtom* aAttribute,
-                                     int32_t  aModType)
+                                     int32_t aModType)
 {
   if (aNameSpaceID == kNameSpaceID_None &&
       !(GetStateBits() & NS_FRAME_IS_NONDISPLAY)) {
+    SVGViewportElement* content =
+        static_cast<SVGViewportElement*>(GetContent());
 
-    SVGViewportElement* content = static_cast<SVGViewportElement*>(GetContent());
-
-    if (aAttribute == nsGkAtoms::width ||
-        aAttribute == nsGkAtoms::height) {
+    if (aAttribute == nsGkAtoms::width || aAttribute == nsGkAtoms::height) {
       nsLayoutUtils::PostRestyleEvent(
-        mContent->AsElement(), nsRestyleHint(0),
-        nsChangeHint_InvalidateRenderingObservers);
+          mContent->AsElement(),
+          nsRestyleHint(0),
+          nsChangeHint_InvalidateRenderingObservers);
       nsSVGUtils::ScheduleReflowSVG(this);
 
       if (content->HasViewBoxOrSyntheticViewBox()) {
@@ -200,15 +198,16 @@ nsSVGViewportFrame::AttributeChanged(int32_t  aNameSpaceID,
 
     } else if (aAttribute == nsGkAtoms::transform ||
                aAttribute == nsGkAtoms::preserveAspectRatio ||
-               aAttribute == nsGkAtoms::viewBox ||
-               aAttribute == nsGkAtoms::x ||
+               aAttribute == nsGkAtoms::viewBox || aAttribute == nsGkAtoms::x ||
                aAttribute == nsGkAtoms::y) {
       // make sure our cached transform matrix gets (lazily) updated
       mCanvasTM = nullptr;
 
       nsSVGUtils::NotifyChildrenOfSVGChange(
-          this, aAttribute == nsGkAtoms::viewBox ?
-                  TRANSFORM_CHANGED | COORD_CONTEXT_CHANGED : TRANSFORM_CHANGED);
+          this,
+          aAttribute == nsGkAtoms::viewBox
+              ? TRANSFORM_CHANGED | COORD_CONTEXT_CHANGED
+              : TRANSFORM_CHANGED);
 
       // We don't invalidate for transform changes (the layers code does that).
       // Also note that SVGTransformableElement::GetAttributeChangeHint will
@@ -217,8 +216,9 @@ nsSVGViewportFrame::AttributeChanged(int32_t  aNameSpaceID,
 
       if (aAttribute == nsGkAtoms::x || aAttribute == nsGkAtoms::y) {
         nsLayoutUtils::PostRestyleEvent(
-          mContent->AsElement(), nsRestyleHint(0),
-          nsChangeHint_InvalidateRenderingObservers);
+            mContent->AsElement(),
+            nsRestyleHint(0),
+            nsChangeHint_InvalidateRenderingObservers);
         nsSVGUtils::ScheduleReflowSVG(this);
       } else if (aAttribute == nsGkAtoms::viewBox ||
                  (aAttribute == nsGkAtoms::preserveAspectRatio &&
@@ -238,15 +238,15 @@ nsIFrame*
 nsSVGViewportFrame::GetFrameForPoint(const gfxPoint& aPoint)
 {
   NS_ASSERTION(!NS_SVGDisplayListHitTestingEnabled() ||
-               (mState & NS_FRAME_IS_NONDISPLAY),
+                   (mState & NS_FRAME_IS_NONDISPLAY),
                "If display lists are enabled, only hit-testing of non-display "
                "SVG should take this code path");
 
   if (StyleDisplay()->IsScrollableOverflow()) {
     Rect clip;
-    static_cast<nsSVGElement*>(GetContent())->
-      GetAnimatedLengthValues(&clip.x, &clip.y,
-                              &clip.width, &clip.height, nullptr);
+    static_cast<nsSVGElement*>(GetContent())
+        ->GetAnimatedLengthValues(
+            &clip.x, &clip.y, &clip.width, &clip.height, nullptr);
     if (!clip.Contains(ToPoint(aPoint))) {
       return nullptr;
     }
@@ -273,9 +273,9 @@ nsSVGViewportFrame::NotifyViewportOrTransformChanged(uint32_t aFlags)
 // nsSVGContainerFrame methods:
 
 bool
-nsSVGViewportFrame::HasChildrenOnlyTransform(gfx::Matrix *aTransform) const
+nsSVGViewportFrame::HasChildrenOnlyTransform(gfx::Matrix* aTransform) const
 {
-  SVGViewportElement *content = static_cast<SVGViewportElement*>(GetContent());
+  SVGViewportElement* content = static_cast<SVGViewportElement*>(GetContent());
 
   if (content->HasViewBoxOrSyntheticViewBox()) {
     // XXX Maybe return false if the transform is the identity transform?

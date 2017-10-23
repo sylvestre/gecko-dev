@@ -26,23 +26,22 @@ class ErrorResult;
 namespace dom {
 class Element;
 class TreeBoxObject;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #define NS_TREECOLUMN_IMPL_CID                       \
-{ /* 02cd1963-4b5d-4a6c-9223-814d3ade93a3 */         \
-    0x02cd1963,                                      \
-    0x4b5d,                                          \
-    0x4a6c,                                          \
-    {0x92, 0x23, 0x81, 0x4d, 0x3a, 0xde, 0x93, 0xa3} \
-}
+  { /* 02cd1963-4b5d-4a6c-9223-814d3ade93a3 */       \
+    0x02cd1963, 0x4b5d, 0x4a6c,                      \
+    {                                                \
+      0x92, 0x23, 0x81, 0x4d, 0x3a, 0xde, 0x93, 0xa3 \
+    }                                                \
+  }
 
 // This class is our column info.  We use it to iterate our columns and to obtain
 // information about each column.
-class nsTreeColumn final : public nsITreeColumn
-                         , public nsWrapperCache
+class nsTreeColumn final : public nsITreeColumn, public nsWrapperCache
 {
-public:
+ public:
   nsTreeColumn(nsTreeColumns* aColumns, nsIContent* aContent);
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_TREECOLUMN_IMPL_CID)
@@ -59,7 +58,8 @@ public:
 
   // WebIDL
   nsIContent* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   mozilla::dom::Element* GetElement(mozilla::ErrorResult& aRv);
 
@@ -85,7 +85,7 @@ public:
   friend class nsTreeBodyFrame;
   friend class nsTreeColumns;
 
-protected:
+ protected:
   ~nsTreeColumn();
   nsIFrame* GetFrame();
   nsIFrame* GetFrame(nsTreeBodyFrame* aBodyFrame);
@@ -96,7 +96,9 @@ protected:
    * Returns a rect with x and width taken from the frame's rect and specified
    * y and height. May fail in case there's no frame for the column.
    */
-  nsresult GetRect(nsTreeBodyFrame* aBodyFrame, nscoord aY, nscoord aHeight,
+  nsresult GetRect(nsTreeBodyFrame* aBodyFrame,
+                   nscoord aY,
+                   nscoord aHeight,
                    nsRect* aResult);
 
   nsresult GetXInTwips(nsTreeBodyFrame* aBodyFrame, nscoord* aResult);
@@ -106,11 +108,11 @@ protected:
 
   const nsAString& GetId() { return mId; }
 
-public:
+ public:
   nsAtom* GetAtom() { return mAtom; }
   int32_t GetIndex() { return mIndex; }
 
-protected:
+ protected:
   bool IsPrimary() { return mIsPrimary; }
   bool IsCycler() { return mIsCycler; }
   bool IsEditable() { return mIsEditable; }
@@ -122,13 +124,14 @@ protected:
   int8_t GetCropStyle() { return mCropStyle; }
   int32_t GetTextAlignment() { return mTextAlignment; }
 
-  void SetNext(nsTreeColumn* aNext) {
+  void SetNext(nsTreeColumn* aNext)
+  {
     NS_ASSERTION(!mNext, "already have a next sibling");
     mNext = aNext;
   }
   void SetPrevious(nsTreeColumn* aPrevious) { mPrevious = aPrevious; }
 
-private:
+ private:
   /**
    * Non-null nsIContent for the associated <treecol> element.
    */
@@ -158,13 +161,12 @@ private:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsTreeColumn, NS_TREECOLUMN_IMPL_CID)
 
-class nsTreeColumns final : public nsITreeColumns
-                          , public nsWrapperCache
+class nsTreeColumns final : public nsITreeColumns, public nsWrapperCache
 {
-private:
+ private:
   ~nsTreeColumns();
 
-public:
+ public:
   explicit nsTreeColumns(nsTreeBodyFrame* aTree);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -172,17 +174,19 @@ public:
   NS_DECL_NSITREECOLUMNS
 
   nsIContent* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL
   mozilla::dom::TreeBoxObject* GetTree() const;
   uint32_t Count();
-  uint32_t Length()
-  {
-    return Count();
-  }
+  uint32_t Length() { return Count(); }
 
-  nsTreeColumn* GetFirstColumn() { EnsureColumns(); return mFirstColumn; }
+  nsTreeColumn* GetFirstColumn()
+  {
+    EnsureColumns();
+    return mFirstColumn;
+  }
   nsTreeColumn* GetLastColumn();
 
   nsTreeColumn* GetPrimaryColumn();
@@ -201,13 +205,14 @@ public:
   // Uses XPCOM RestoreNaturalOrder().
 
   friend class nsTreeBodyFrame;
-protected:
+
+ protected:
   void SetTree(nsTreeBodyFrame* aTree) { mTree = aTree; }
 
   // Builds our cache of column info.
   void EnsureColumns();
 
-private:
+ private:
   nsTreeBodyFrame* mTree;
 
   /**
@@ -221,4 +226,4 @@ private:
   RefPtr<nsTreeColumn> mFirstColumn;
 };
 
-#endif // nsTreeColumns_h__
+#endif  // nsTreeColumns_h__

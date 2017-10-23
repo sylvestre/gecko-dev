@@ -17,14 +17,15 @@ namespace mozilla {
 //
 // Be sure to update NS_RULE_NODE_LEVEL_MASK when changing the number
 // of sheet types; static assertions enforce this.
-enum class SheetType : uint8_t {
-  Agent, // CSS
-  User, // CSS
+enum class SheetType : uint8_t
+{
+  Agent,  // CSS
+  User,   // CSS
   PresHint,
-  Doc, // CSS
+  Doc,  // CSS
   ScopedDoc,
   StyleAttr,
-  Override, // CSS
+  Override,  // CSS
   Animation,
   Transition,
 
@@ -32,6 +33,6 @@ enum class SheetType : uint8_t {
   Unknown = 0xff
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SheetType_h
+#endif  // mozilla_SheetType_h

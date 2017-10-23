@@ -60,19 +60,20 @@ MapSECStatus(SECStatus rv)
 namespace internal {
 
 inline void
-PK11_DestroyContext_true(PK11Context * ctx) {
+PK11_DestroyContext_true(PK11Context* ctx)
+{
   PK11_DestroyContext(ctx, true);
 }
 
-} // namespace internal
+}  // namespace internal
 
 // Emulates MOZ_TYPE_SPECIFIC_SCOPED_POINTER_TEMPLATE, but for UniquePtrs.
 #define MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(name, Type, Deleter) \
-struct name##DeletePolicy \
-{ \
-  void operator()(Type* aValue) { Deleter(aValue); } \
-}; \
-typedef std::unique_ptr<Type, name##DeletePolicy> name;
+  struct name##DeletePolicy                                        \
+  {                                                                \
+    void operator()(Type* aValue) { Deleter(aValue); }             \
+  };                                                               \
+  typedef std::unique_ptr<Type, name##DeletePolicy> name;
 
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePK11Context,
                                       PK11Context,
@@ -107,7 +108,7 @@ MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePK11Context,
  */
 class Digest
 {
-public:
+ public:
   Digest()
   {
     mItem.type = siBuffer;
@@ -115,15 +116,15 @@ public:
     mItem.len = 0;
   }
 
-  nsresult DigestBuf(SECOidTag hashAlg, const uint8_t * buf, uint32_t len)
+  nsresult DigestBuf(SECOidTag hashAlg, const uint8_t* buf, uint32_t len)
   {
     if (len > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
       return NS_ERROR_INVALID_ARG;
     }
     nsresult rv = SetLength(hashAlg);
     NS_ENSURE_SUCCESS(rv, rv);
-    return MapSECStatus(PK11_HashBuf(hashAlg, mItem.data, buf,
-                                     static_cast<int32_t>(len)));
+    return MapSECStatus(
+        PK11_HashBuf(hashAlg, mItem.data, buf, static_cast<int32_t>(len)));
   }
 
   nsresult End(SECOidTag hashAlg, UniquePK11Context& context)
@@ -131,31 +132,38 @@ public:
     nsresult rv = SetLength(hashAlg);
     NS_ENSURE_SUCCESS(rv, rv);
     uint32_t len;
-    rv = MapSECStatus(PK11_DigestFinal(context.get(), mItem.data, &len,
-                                       mItem.len));
+    rv = MapSECStatus(
+        PK11_DigestFinal(context.get(), mItem.data, &len, mItem.len));
     NS_ENSURE_SUCCESS(rv, rv);
     context = nullptr;
     NS_ENSURE_TRUE(len == mItem.len, NS_ERROR_UNEXPECTED);
     return NS_OK;
   }
 
-  const SECItem & get() const { return mItem; }
+  const SECItem& get() const { return mItem; }
 
-private:
+ private:
   nsresult SetLength(SECOidTag hashType)
   {
 #ifdef _MSC_VER
 #pragma warning(push)
-    // C4061: enumerator 'symbol' in switch of enum 'symbol' is not
-    // explicitly handled.
-#pragma warning(disable:4061)
+  // C4061: enumerator 'symbol' in switch of enum 'symbol' is not
+  // explicitly handled.
+#pragma warning(disable : 4061)
 #endif
-    switch (hashType)
-    {
-      case SEC_OID_SHA1:   mItem.len = SHA1_LENGTH;   break;
-      case SEC_OID_SHA256: mItem.len = SHA256_LENGTH; break;
-      case SEC_OID_SHA384: mItem.len = SHA384_LENGTH; break;
-      case SEC_OID_SHA512: mItem.len = SHA512_LENGTH; break;
+    switch (hashType) {
+      case SEC_OID_SHA1:
+        mItem.len = SHA1_LENGTH;
+        break;
+      case SEC_OID_SHA256:
+        mItem.len = SHA256_LENGTH;
+        break;
+      case SEC_OID_SHA384:
+        mItem.len = SHA384_LENGTH;
+        break;
+      case SEC_OID_SHA512:
+        mItem.len = SHA512_LENGTH;
+        break;
       default:
         return NS_ERROR_INVALID_ARG;
     }
@@ -180,12 +188,12 @@ PORT_FreeArena_false(PLArenaPool* arena)
   return PORT_FreeArena(arena, false);
 }
 
-} // namespace internal
+}  // namespace internal
 
 // Wrapper around NSS's SECItem_AllocItem that handles OOM the same way as
 // other allocators.
 inline void
-SECITEM_AllocItem(SECItem & item, uint32_t len)
+SECITEM_AllocItem(SECItem& item, uint32_t len)
 {
   if (MOZ_UNLIKELY(!SECITEM_AllocItem(nullptr, &item, len))) {
 #ifndef MOZ_NO_MOZALLOC
@@ -200,7 +208,7 @@ SECITEM_AllocItem(SECItem & item, uint32_t len)
 
 class ScopedAutoSECItem final : public SECItem
 {
-public:
+ public:
   explicit ScopedAutoSECItem(uint32_t initialAllocatedLen = 0)
   {
     data = nullptr;
@@ -210,59 +218,53 @@ public:
     }
   }
 
-  void reset()
-  {
-    SECITEM_FreeItem(this, false);
-  }
+  void reset() { SECITEM_FreeItem(this, false); }
 
-  ~ScopedAutoSECItem()
-  {
-    reset();
-  }
+  ~ScopedAutoSECItem() { reset(); }
 };
 
 class MOZ_RAII AutoSECMODListReadLock final
 {
-public:
-  AutoSECMODListReadLock()
-    : mLock(SECMOD_GetDefaultModuleListLock())
+ public:
+  AutoSECMODListReadLock() : mLock(SECMOD_GetDefaultModuleListLock())
   {
     MOZ_ASSERT(mLock, "should have SECMOD lock (has NSS been initialized?)");
     SECMOD_GetReadLock(mLock);
   }
 
-  ~AutoSECMODListReadLock()
-  {
-    SECMOD_ReleaseReadLock(mLock);
-  }
+  ~AutoSECMODListReadLock() { SECMOD_ReleaseReadLock(mLock); }
 
-private:
+ private:
   SECMODListLock* mLock;
 };
 
 namespace internal {
 
-inline void SECITEM_FreeItem_true(SECItem * s)
+inline void
+SECITEM_FreeItem_true(SECItem* s)
 {
   return SECITEM_FreeItem(s, true);
 }
 
-inline void SECOID_DestroyAlgorithmID_true(SECAlgorithmID * a)
+inline void
+SECOID_DestroyAlgorithmID_true(SECAlgorithmID* a)
 {
   return SECOID_DestroyAlgorithmID(a, true);
 }
 
-inline void SECKEYEncryptedPrivateKeyInfo_true(SECKEYEncryptedPrivateKeyInfo * epki)
+inline void
+SECKEYEncryptedPrivateKeyInfo_true(SECKEYEncryptedPrivateKeyInfo* epki)
 {
   return SECKEY_DestroyEncryptedPrivateKeyInfo(epki, PR_TRUE);
 }
 
-inline void VFY_DestroyContext_true(VFYContext * ctx)
+inline void
+VFY_DestroyContext_true(VFYContext* ctx)
 {
   VFY_DestroyContext(ctx, true);
 }
 
-} // namespace internal
+}  // namespace internal
 
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueCERTCertificate,
                                       CERTCertificate,
@@ -322,15 +324,9 @@ MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePK11SymKey,
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePLArenaPool,
                                       PLArenaPool,
                                       internal::PORT_FreeArena_false)
-MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePORTString,
-                                      char,
-                                      PORT_Free)
-MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePRFileDesc,
-                                      PRFileDesc,
-                                      PR_Close)
-MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePRString,
-                                      char,
-                                      PR_Free)
+MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePORTString, char, PORT_Free)
+MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePRFileDesc, PRFileDesc, PR_Close)
+MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePRString, char, PR_Free)
 
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSECAlgorithmID,
                                       SECAlgorithmID,
@@ -355,6 +351,6 @@ MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSGNDigestInfo,
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueVFYContext,
                                       VFYContext,
                                       internal::VFY_DestroyContext_true)
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ScopedNSSTypes_h
+#endif  // ScopedNSSTypes_h

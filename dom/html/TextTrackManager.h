@@ -20,11 +20,13 @@ namespace dom {
 
 class HTMLMediaElement;
 
-class CompareTextTracks {
-private:
+class CompareTextTracks
+{
+ private:
   HTMLMediaElement* mMediaElement;
   int32_t TrackChildPosition(TextTrack* aTrack) const;
-public:
+
+ public:
   explicit CompareTextTracks(HTMLMediaElement* aMediaElement);
   bool Equals(TextTrack* aOne, TextTrack* aTwo) const;
   bool LessThan(TextTrack* aOne, TextTrack* aTwo) const;
@@ -37,7 +39,7 @@ class TextTrackManager final : public nsIDOMEventListener
 {
   ~TextTrackManager();
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(TextTrackManager)
 
@@ -94,18 +96,15 @@ public:
   void TimeMarchesOn();
   void DispatchUpdateCueDisplay();
 
-  void NotifyShutdown()
-  {
-    mShutdown = true;
-  }
+  void NotifyShutdown() { mShutdown = true; }
 
-  void NotifyCueUpdated(TextTrackCue *aCue);
+  void NotifyCueUpdated(TextTrackCue* aCue);
 
   void NotifyReset();
 
   bool IsLoaded();
 
-private:
+ private:
   /**
    * Converts the TextTrackCue's cuetext into a tree of DOM objects
    * and attaches it to a div on its owning TrackElement's
@@ -144,7 +143,8 @@ private:
   //Performs track selection for a set of TextTrackKinds, for example,
   // 'subtitles' and 'captions' should be selected together.
   void PerformTrackSelection(TextTrackKind aTextTrackKinds[], uint32_t size);
-  void GetTextTracksOfKinds(TextTrackKind aTextTrackKinds[], uint32_t size,
+  void GetTextTracksOfKinds(TextTrackKind aTextTrackKinds[],
+                            uint32_t size,
                             nsTArray<TextTrack*>& aTextTracks);
   void GetTextTracksOfKind(TextTrackKind aTextTrackKind,
                            nsTArray<TextTrack*>& aTextTracks);
@@ -163,14 +163,16 @@ private:
   {
     NS_DECL_ISUPPORTS
 
-  public:
+   public:
     explicit ShutdownObserverProxy(TextTrackManager* aManager)
-      : mManager(aManager)
+        : mManager(aManager)
     {
       nsContentUtils::RegisterShutdownObserver(this);
     }
 
-    NS_IMETHODIMP Observe(nsISupports *aSubject, const char *aTopic, const char16_t *aData) override
+    NS_IMETHODIMP Observe(nsISupports* aSubject,
+                          const char* aTopic,
+                          const char16_t* aData) override
     {
       MOZ_ASSERT(NS_IsMainThread());
       if (strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID) == 0) {
@@ -180,8 +182,8 @@ private:
       return NS_OK;
     }
 
-  private:
-    ~ShutdownObserverProxy() {};
+   private:
+    ~ShutdownObserverProxy(){};
     TextTrackManager* mManager;
   };
 
@@ -189,7 +191,7 @@ private:
   bool mShutdown;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TextTrackManager_h
+#endif  // mozilla_dom_TextTrackManager_h

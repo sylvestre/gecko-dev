@@ -31,45 +31,42 @@ using mozilla::UniquePtr;
 ////////////////////////////////////////////////////////////////////////
 // BEGIN ProfileBufferEntry
 
-ProfileBufferEntry::ProfileBufferEntry()
-  : mKind(Kind::INVALID)
+ProfileBufferEntry::ProfileBufferEntry() : mKind(Kind::INVALID)
 {
   u.mString = nullptr;
 }
 
 // aString must be a static string.
-ProfileBufferEntry::ProfileBufferEntry(Kind aKind, const char *aString)
-  : mKind(aKind)
+ProfileBufferEntry::ProfileBufferEntry(Kind aKind, const char* aString)
+    : mKind(aKind)
 {
   u.mString = aString;
 }
 
 ProfileBufferEntry::ProfileBufferEntry(Kind aKind, char aChars[kNumChars])
-  : mKind(aKind)
+    : mKind(aKind)
 {
   memcpy(u.mChars, aChars, kNumChars);
 }
 
-ProfileBufferEntry::ProfileBufferEntry(Kind aKind, void* aPtr)
-  : mKind(aKind)
+ProfileBufferEntry::ProfileBufferEntry(Kind aKind, void* aPtr) : mKind(aKind)
 {
   u.mPtr = aPtr;
 }
 
 ProfileBufferEntry::ProfileBufferEntry(Kind aKind, ProfilerMarker* aMarker)
-  : mKind(aKind)
+    : mKind(aKind)
 {
   u.mMarker = aMarker;
 }
 
 ProfileBufferEntry::ProfileBufferEntry(Kind aKind, double aDouble)
-  : mKind(aKind)
+    : mKind(aKind)
 {
   u.mDouble = aDouble;
 }
 
-ProfileBufferEntry::ProfileBufferEntry(Kind aKind, int aInt)
-  : mKind(aKind)
+ProfileBufferEntry::ProfileBufferEntry(Kind aKind, int aInt) : mKind(aKind)
 {
   u.mInt = aInt;
 }
@@ -82,39 +79,39 @@ class JSONSchemaWriter
   JSONWriter& mWriter;
   uint32_t mIndex;
 
-public:
-  explicit JSONSchemaWriter(JSONWriter& aWriter)
-   : mWriter(aWriter)
-   , mIndex(0)
+ public:
+  explicit JSONSchemaWriter(JSONWriter& aWriter) : mWriter(aWriter), mIndex(0)
   {
     aWriter.StartObjectProperty("schema",
                                 SpliceableJSONWriter::SingleLineStyle);
   }
 
-  void WriteField(const char* aName) {
-    mWriter.IntProperty(aName, mIndex++);
-  }
+  void WriteField(const char* aName) { mWriter.IntProperty(aName, mIndex++); }
 
-  ~JSONSchemaWriter() {
-    mWriter.EndObject();
-  }
+  ~JSONSchemaWriter() { mWriter.EndObject(); }
 };
 
-class StreamOptimizationTypeInfoOp : public JS::ForEachTrackedOptimizationTypeInfoOp
+class StreamOptimizationTypeInfoOp
+    : public JS::ForEachTrackedOptimizationTypeInfoOp
 {
   JSONWriter& mWriter;
   UniqueJSONStrings& mUniqueStrings;
   bool mStartedTypeList;
 
-public:
-  StreamOptimizationTypeInfoOp(JSONWriter& aWriter, UniqueJSONStrings& aUniqueStrings)
-    : mWriter(aWriter)
-    , mUniqueStrings(aUniqueStrings)
-    , mStartedTypeList(false)
-  { }
+ public:
+  StreamOptimizationTypeInfoOp(JSONWriter& aWriter,
+                               UniqueJSONStrings& aUniqueStrings)
+      : mWriter(aWriter),
+        mUniqueStrings(aUniqueStrings),
+        mStartedTypeList(false)
+  {
+  }
 
-  void readType(const char* keyedBy, const char* name,
-                const char* location, const Maybe<unsigned>& lineno) override {
+  void readType(const char* keyedBy,
+                const char* name,
+                const char* location,
+                const Maybe<unsigned>& lineno) override
+  {
     if (!mStartedTypeList) {
       mStartedTypeList = true;
       mWriter.StartObjectElement();
@@ -137,7 +134,8 @@ public:
     mWriter.EndObject();
   }
 
-  void operator()(JS::TrackedTypeSite site, const char* mirType) override {
+  void operator()(JS::TrackedTypeSite site, const char* mirType) override
+  {
     if (mStartedTypeList) {
       mWriter.EndArray();
       mStartedTypeList = false;
@@ -146,7 +144,8 @@ public:
     }
 
     {
-      mUniqueStrings.WriteProperty(mWriter, "site", JS::TrackedTypeSiteString(site));
+      mUniqueStrings.WriteProperty(
+          mWriter, "site", JS::TrackedTypeSiteString(site));
       mUniqueStrings.WriteProperty(mWriter, "mirType", mirType);
     }
     mWriter.EndObject();
@@ -179,14 +178,13 @@ class MOZ_RAII AutoArraySchemaWriter
   friend class AutoObjectWriter;
 
   SpliceableJSONWriter& mJSONWriter;
-  UniqueJSONStrings*    mStrings;
-  uint32_t              mNextFreeIndex;
+  UniqueJSONStrings* mStrings;
+  uint32_t mNextFreeIndex;
 
-public:
-  AutoArraySchemaWriter(SpliceableJSONWriter& aWriter, UniqueJSONStrings& aStrings)
-    : mJSONWriter(aWriter)
-    , mStrings(&aStrings)
-    , mNextFreeIndex(0)
+ public:
+  AutoArraySchemaWriter(SpliceableJSONWriter& aWriter,
+                        UniqueJSONStrings& aStrings)
+      : mJSONWriter(aWriter), mStrings(&aStrings), mNextFreeIndex(0)
   {
     mJSONWriter.StartArrayElement(SpliceableJSONWriter::SingleLineStyle);
   }
@@ -194,53 +192,58 @@ public:
   // If you don't have access to a UniqueStrings, you had better not try and
   // write a string element down the line!
   explicit AutoArraySchemaWriter(SpliceableJSONWriter& aWriter)
-    : mJSONWriter(aWriter)
-    , mStrings(nullptr)
-    , mNextFreeIndex(0)
+      : mJSONWriter(aWriter), mStrings(nullptr), mNextFreeIndex(0)
   {
     mJSONWriter.StartArrayElement(SpliceableJSONWriter::SingleLineStyle);
   }
 
-  ~AutoArraySchemaWriter() {
-    mJSONWriter.EndArray();
-  }
+  ~AutoArraySchemaWriter() { mJSONWriter.EndArray(); }
 
-  void FillUpTo(uint32_t aIndex) {
+  void FillUpTo(uint32_t aIndex)
+  {
     MOZ_ASSERT(aIndex >= mNextFreeIndex);
     mJSONWriter.NullElements(aIndex - mNextFreeIndex);
     mNextFreeIndex = aIndex + 1;
   }
 
-  void IntElement(uint32_t aIndex, uint32_t aValue) {
+  void IntElement(uint32_t aIndex, uint32_t aValue)
+  {
     FillUpTo(aIndex);
     mJSONWriter.IntElement(aValue);
   }
 
-  void DoubleElement(uint32_t aIndex, double aValue) {
+  void DoubleElement(uint32_t aIndex, double aValue)
+  {
     FillUpTo(aIndex);
     mJSONWriter.DoubleElement(aValue);
   }
 
-  void StringElement(uint32_t aIndex, const char* aValue) {
+  void StringElement(uint32_t aIndex, const char* aValue)
+  {
     MOZ_RELEASE_ASSERT(mStrings);
     FillUpTo(aIndex);
     mStrings->WriteElement(mJSONWriter, aValue);
   }
 };
 
-class StreamOptimizationAttemptsOp : public JS::ForEachTrackedOptimizationAttemptOp
+class StreamOptimizationAttemptsOp
+    : public JS::ForEachTrackedOptimizationAttemptOp
 {
   SpliceableJSONWriter& mWriter;
   UniqueJSONStrings& mUniqueStrings;
 
-public:
-  StreamOptimizationAttemptsOp(SpliceableJSONWriter& aWriter, UniqueJSONStrings& aUniqueStrings)
-    : mWriter(aWriter),
-      mUniqueStrings(aUniqueStrings)
-  { }
+ public:
+  StreamOptimizationAttemptsOp(SpliceableJSONWriter& aWriter,
+                               UniqueJSONStrings& aUniqueStrings)
+      : mWriter(aWriter), mUniqueStrings(aUniqueStrings)
+  {
+  }
 
-  void operator()(JS::TrackedStrategy strategy, JS::TrackedOutcome outcome) override {
-    enum Schema : uint32_t {
+  void operator()(JS::TrackedStrategy strategy,
+                  JS::TrackedOutcome outcome) override
+  {
+    enum Schema : uint32_t
+    {
       STRATEGY = 0,
       OUTCOME = 1
     };
@@ -257,26 +260,30 @@ class StreamJSFramesOp : public JS::ForEachProfiledFrameOp
   UniqueStacks::Stack& mStack;
   unsigned mDepth;
 
-public:
+ public:
   StreamJSFramesOp(void* aReturnAddr, UniqueStacks::Stack& aStack)
-   : mReturnAddress(aReturnAddr)
-   , mStack(aStack)
-   , mDepth(0)
-  { }
+      : mReturnAddress(aReturnAddr), mStack(aStack), mDepth(0)
+  {
+  }
 
-  unsigned depth() const {
+  unsigned depth() const
+  {
     MOZ_ASSERT(mDepth > 0);
     return mDepth;
   }
 
-  void operator()(const JS::ForEachProfiledFrameOp::FrameHandle& aFrameHandle) override {
-    UniqueStacks::OnStackFrameKey frameKey(mReturnAddress, mDepth, aFrameHandle);
+  void operator()(
+      const JS::ForEachProfiledFrameOp::FrameHandle& aFrameHandle) override
+  {
+    UniqueStacks::OnStackFrameKey frameKey(
+        mReturnAddress, mDepth, aFrameHandle);
     mStack.AppendFrame(frameKey);
     mDepth++;
   }
 };
 
-uint32_t UniqueJSONStrings::GetOrAddIndex(const char* aStr)
+uint32_t
+UniqueJSONStrings::GetOrAddIndex(const char* aStr)
 {
   uint32_t index;
   StringKey key(aStr);
@@ -292,41 +299,46 @@ uint32_t UniqueJSONStrings::GetOrAddIndex(const char* aStr)
   return index;
 }
 
-bool UniqueStacks::FrameKey::operator==(const FrameKey& aOther) const
+bool
+UniqueStacks::FrameKey::operator==(const FrameKey& aOther) const
 {
-  return mLocation == aOther.mLocation &&
-         mLine == aOther.mLine &&
-         mCategory == aOther.mCategory &&
-         mJITAddress == aOther.mJITAddress &&
+  return mLocation == aOther.mLocation && mLine == aOther.mLine &&
+         mCategory == aOther.mCategory && mJITAddress == aOther.mJITAddress &&
          mJITDepth == aOther.mJITDepth;
 }
 
-bool UniqueStacks::StackKey::operator==(const StackKey& aOther) const
+bool
+UniqueStacks::StackKey::operator==(const StackKey& aOther) const
 {
   MOZ_ASSERT_IF(mPrefix == aOther.mPrefix, mPrefixHash == aOther.mPrefixHash);
   return mPrefix == aOther.mPrefix && mFrame == aOther.mFrame;
 }
 
-UniqueStacks::Stack::Stack(UniqueStacks& aUniqueStacks, const OnStackFrameKey& aRoot)
- : mUniqueStacks(aUniqueStacks)
- , mStack(aUniqueStacks.GetOrAddFrameIndex(aRoot))
+UniqueStacks::Stack::Stack(UniqueStacks& aUniqueStacks,
+                           const OnStackFrameKey& aRoot)
+    : mUniqueStacks(aUniqueStacks),
+      mStack(aUniqueStacks.GetOrAddFrameIndex(aRoot))
 {
 }
 
-void UniqueStacks::Stack::AppendFrame(const OnStackFrameKey& aFrame)
+void
+UniqueStacks::Stack::AppendFrame(const OnStackFrameKey& aFrame)
 {
   // Compute the prefix hash and index before mutating mStack.
   uint32_t prefixHash = mStack.Hash();
   uint32_t prefix = mUniqueStacks.GetOrAddStackIndex(mStack);
-  mStack.UpdateHash(prefixHash, prefix, mUniqueStacks.GetOrAddFrameIndex(aFrame));
+  mStack.UpdateHash(
+      prefixHash, prefix, mUniqueStacks.GetOrAddFrameIndex(aFrame));
 }
 
-uint32_t UniqueStacks::Stack::GetOrAddIndex() const
+uint32_t
+UniqueStacks::Stack::GetOrAddIndex() const
 {
   return mUniqueStacks.GetOrAddStackIndex(mStack);
 }
 
-uint32_t UniqueStacks::FrameKey::Hash() const
+uint32_t
+UniqueStacks::FrameKey::Hash() const
 {
   uint32_t hash = 0;
   if (!mLocation.IsEmpty()) {
@@ -347,7 +359,8 @@ uint32_t UniqueStacks::FrameKey::Hash() const
   return hash;
 }
 
-uint32_t UniqueStacks::StackKey::Hash() const
+uint32_t
+UniqueStacks::StackKey::Hash() const
 {
   if (mPrefix.isNothing()) {
     return mozilla::HashGeneric(mFrame);
@@ -355,20 +368,21 @@ uint32_t UniqueStacks::StackKey::Hash() const
   return mozilla::AddToHash(*mPrefixHash, mFrame);
 }
 
-UniqueStacks::Stack UniqueStacks::BeginStack(const OnStackFrameKey& aRoot)
+UniqueStacks::Stack
+UniqueStacks::BeginStack(const OnStackFrameKey& aRoot)
 {
   return Stack(*this, aRoot);
 }
 
 UniqueStacks::UniqueStacks(JSContext* aContext)
- : mContext(aContext)
- , mFrameCount(0)
+    : mContext(aContext), mFrameCount(0)
 {
   mFrameTableWriter.StartBareList();
   mStackTableWriter.StartBareList();
 }
 
-uint32_t UniqueStacks::GetOrAddStackIndex(const StackKey& aStack)
+uint32_t
+UniqueStacks::GetOrAddStackIndex(const StackKey& aStack)
 {
   uint32_t index;
   if (mStackToIndexMap.Get(aStack, &index)) {
@@ -382,7 +396,8 @@ uint32_t UniqueStacks::GetOrAddStackIndex(const StackKey& aStack)
   return index;
 }
 
-uint32_t UniqueStacks::GetOrAddFrameIndex(const OnStackFrameKey& aFrame)
+uint32_t
+UniqueStacks::GetOrAddFrameIndex(const OnStackFrameKey& aFrame)
 {
   uint32_t index;
   if (mFrameToIndexMap.Get(aFrame, &index)) {
@@ -394,7 +409,8 @@ uint32_t UniqueStacks::GetOrAddFrameIndex(const OnStackFrameKey& aFrame)
   if (aFrame.mJITFrameHandle) {
     void* canonicalAddr = aFrame.mJITFrameHandle->canonicalAddress();
     if (canonicalAddr != *aFrame.mJITAddress) {
-      OnStackFrameKey canonicalKey(canonicalAddr, *aFrame.mJITDepth, *aFrame.mJITFrameHandle);
+      OnStackFrameKey canonicalKey(
+          canonicalAddr, *aFrame.mJITDepth, *aFrame.mJITFrameHandle);
       uint32_t canonicalIndex = GetOrAddFrameIndex(canonicalKey);
       mFrameToIndexMap.Put(aFrame, canonicalIndex);
       return canonicalIndex;
@@ -409,7 +425,8 @@ uint32_t UniqueStacks::GetOrAddFrameIndex(const OnStackFrameKey& aFrame)
   return index;
 }
 
-uint32_t UniqueStacks::LookupJITFrameDepth(void* aAddr)
+uint32_t
+UniqueStacks::LookupJITFrameDepth(void* aAddr)
 {
   uint32_t depth;
 
@@ -422,26 +439,31 @@ uint32_t UniqueStacks::LookupJITFrameDepth(void* aAddr)
   return 0;
 }
 
-void UniqueStacks::AddJITFrameDepth(void* aAddr, unsigned depth)
+void
+UniqueStacks::AddJITFrameDepth(void* aAddr, unsigned depth)
 {
   mJITFrameDepthMap[aAddr] = depth;
 }
 
-void UniqueStacks::SpliceFrameTableElements(SpliceableJSONWriter& aWriter)
+void
+UniqueStacks::SpliceFrameTableElements(SpliceableJSONWriter& aWriter)
 {
   mFrameTableWriter.EndBareList();
   aWriter.TakeAndSplice(mFrameTableWriter.WriteFunc());
 }
 
-void UniqueStacks::SpliceStackTableElements(SpliceableJSONWriter& aWriter)
+void
+UniqueStacks::SpliceStackTableElements(SpliceableJSONWriter& aWriter)
 {
   mStackTableWriter.EndBareList();
   aWriter.TakeAndSplice(mStackTableWriter.WriteFunc());
 }
 
-void UniqueStacks::StreamStack(const StackKey& aStack)
+void
+UniqueStacks::StreamStack(const StackKey& aStack)
 {
-  enum Schema : uint32_t {
+  enum Schema : uint32_t
+  {
     PREFIX = 0,
     FRAME = 1
   };
@@ -453,9 +475,11 @@ void UniqueStacks::StreamStack(const StackKey& aStack)
   writer.IntElement(FRAME, aStack.mFrame);
 }
 
-void UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
+void
+UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
 {
-  enum Schema : uint32_t {
+  enum Schema : uint32_t
+  {
     LOCATION = 0,
     IMPLEMENTATION = 1,
     OPTIMIZATIONS = 2,
@@ -474,7 +498,8 @@ void UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
       writer.IntElement(CATEGORY, *aFrame.mCategory);
     }
   } else {
-    const JS::ForEachProfiledFrameOp::FrameHandle& jitFrame = *aFrame.mJITFrameHandle;
+    const JS::ForEachProfiledFrameOp::FrameHandle& jitFrame =
+        *aFrame.mJITFrameHandle;
 
     writer.StringElement(LOCATION, jitFrame.label());
 
@@ -483,8 +508,8 @@ void UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
                frameKind == JS::ProfilingFrameIterator::Frame_Baseline);
     writer.StringElement(IMPLEMENTATION,
                          frameKind == JS::ProfilingFrameIterator::Frame_Ion
-                         ? "ion"
-                         : "baseline");
+                             ? "ion"
+                             : "baseline");
 
     if (jitFrame.hasTrackedOptimizations()) {
       writer.FillUpTo(OPTIMIZATIONS);
@@ -492,7 +517,8 @@ void UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
       {
         mFrameTableWriter.StartArrayProperty("types");
         {
-          StreamOptimizationTypeInfoOp typeInfoOp(mFrameTableWriter, mUniqueStrings);
+          StreamOptimizationTypeInfoOp typeInfoOp(mFrameTableWriter,
+                                                  mUniqueStrings);
           jitFrame.forEachOptimizationTypeInfo(typeInfoOp);
         }
         mFrameTableWriter.EndArray();
@@ -509,8 +535,10 @@ void UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
 
           mFrameTableWriter.StartArrayProperty("data");
           {
-            StreamOptimizationAttemptsOp attemptOp(mFrameTableWriter, mUniqueStrings);
-            jitFrame.forEachOptimizationAttempt(attemptOp, script.address(), &pc);
+            StreamOptimizationAttemptsOp attemptOp(mFrameTableWriter,
+                                                   mUniqueStrings);
+            jitFrame.forEachOptimizationAttempt(
+                attemptOp, script.address(), &pc);
           }
           mFrameTableWriter.EndArray();
         }
@@ -518,7 +546,8 @@ void UniqueStacks::StreamFrame(const OnStackFrameKey& aFrame)
 
         if (JSAtom* name = js::GetPropertyNameFromPC(script, pc)) {
           char buf[512];
-          JS_PutEscapedFlatString(buf, mozilla::ArrayLength(buf), js::AtomToFlatString(name), 0);
+          JS_PutEscapedFlatString(
+              buf, mozilla::ArrayLength(buf), js::AtomToFlatString(name), 0);
           mUniqueStrings.WriteProperty(mFrameTableWriter, "propertyName", buf);
         }
 
@@ -541,9 +570,11 @@ struct ProfileSample
   Maybe<double> mUSS;
 };
 
-static void WriteSample(SpliceableJSONWriter& aWriter, ProfileSample& aSample)
+static void
+WriteSample(SpliceableJSONWriter& aWriter, ProfileSample& aSample)
 {
-  enum Schema : uint32_t {
+  enum Schema : uint32_t
+  {
     STACK = 0,
     TIME = 1,
     RESPONSIVENESS = 2,
@@ -572,19 +603,20 @@ static void WriteSample(SpliceableJSONWriter& aWriter, ProfileSample& aSample)
 
 class EntryGetter
 {
-public:
+ public:
   explicit EntryGetter(const ProfileBuffer& aBuffer)
-    : mEntries(aBuffer.mEntries.get())
-    , mReadPos(aBuffer.mReadPos)
-    , mWritePos(aBuffer.mWritePos)
-    , mEntrySize(aBuffer.mEntrySize)
-  {}
+      : mEntries(aBuffer.mEntries.get()),
+        mReadPos(aBuffer.mReadPos),
+        mWritePos(aBuffer.mWritePos),
+        mEntrySize(aBuffer.mEntrySize)
+  {
+  }
 
   bool Has() const { return mReadPos != mWritePos; }
   const ProfileBufferEntry& Get() const { return mEntries[mReadPos]; }
   void Next() { mReadPos = (mReadPos + 1) % mEntrySize; }
 
-private:
+ private:
   const ProfileBufferEntry* const mEntries;
   int mReadPos;
   const int mWritePos;
@@ -701,7 +733,8 @@ private:
 //     DynamicStringFragment("5)")
 //
 void
-ProfileBuffer::StreamSamplesToJSON(SpliceableJSONWriter& aWriter, int aThreadId,
+ProfileBuffer::StreamSamplesToJSON(SpliceableJSONWriter& aWriter,
+                                   int aThreadId,
                                    double aSinceTime,
                                    double* aOutFirstSampleTime,
                                    JSContext* aContext,
@@ -709,15 +742,15 @@ ProfileBuffer::StreamSamplesToJSON(SpliceableJSONWriter& aWriter, int aThreadId,
 {
   UniquePtr<char[]> strbuf = MakeUnique<char[]>(kMaxFrameKeyLength);
 
-  // Because this is a format entirely internal to the Profiler, any parsing
-  // error indicates a bug in the ProfileBuffer writing or the parser itself,
-  // or possibly flaky hardware.
-  #define ERROR_AND_CONTINUE(msg) \
-    { \
-      fprintf(stderr, "ProfileBuffer parse error: %s", msg); \
-      MOZ_ASSERT(false, msg); \
-      continue; \
-    }
+// Because this is a format entirely internal to the Profiler, any parsing
+// error indicates a bug in the ProfileBuffer writing or the parser itself,
+// or possibly flaky hardware.
+#define ERROR_AND_CONTINUE(msg)                            \
+  {                                                        \
+    fprintf(stderr, "ProfileBuffer parse error: %s", msg); \
+    MOZ_ASSERT(false, msg);                                \
+    continue;                                              \
+  }
 
   EntryGetter e(*this);
   bool seenFirstSample = false;
@@ -782,7 +815,7 @@ ProfileBuffer::StreamSamplesToJSON(SpliceableJSONWriter& aWriter, int aThreadId,
     }
 
     UniqueStacks::Stack stack =
-      aUniqueStacks.BeginStack(UniqueStacks::OnStackFrameKey("(root)"));
+        aUniqueStacks.BeginStack(UniqueStacks::OnStackFrameKey("(root)"));
 
     int numFrames = 0;
     while (e.Has()) {
@@ -906,7 +939,7 @@ ProfileBuffer::StreamSamplesToJSON(SpliceableJSONWriter& aWriter, int aThreadId,
     WriteSample(aWriter, sample);
   }
 
-  #undef ERROR_AND_CONTINUE
+#undef ERROR_AND_CONTINUE
 }
 
 void
@@ -936,8 +969,10 @@ ProfileBuffer::StreamMarkersToJSON(SpliceableJSONWriter& aWriter,
 }
 
 static void
-AddPausedRange(SpliceableJSONWriter& aWriter, const char* aReason,
-               const Maybe<double>& aStartTime, const Maybe<double>& aEndTime)
+AddPausedRange(SpliceableJSONWriter& aWriter,
+               const char* aReason,
+               const Maybe<double>& aStartTime,
+               const Maybe<double>& aEndTime)
 {
   aWriter.Start();
   if (aStartTime) {
@@ -967,32 +1002,36 @@ ProfileBuffer::StreamPausedRangesToJSON(SpliceableJSONWriter& aWriter,
     if (e.Get().IsPause()) {
       currentPauseStartTime = Some(e.Get().u.mDouble);
     } else if (e.Get().IsResume()) {
-      AddPausedRange(aWriter, "profiler-paused",
-                     currentPauseStartTime, Some(e.Get().u.mDouble));
+      AddPausedRange(aWriter,
+                     "profiler-paused",
+                     currentPauseStartTime,
+                     Some(e.Get().u.mDouble));
       currentPauseStartTime = Nothing();
     } else if (e.Get().IsCollectionStart()) {
       currentCollectionStartTime = Some(e.Get().u.mDouble);
     } else if (e.Get().IsCollectionEnd()) {
-      AddPausedRange(aWriter, "collecting",
-                     currentCollectionStartTime, Some(e.Get().u.mDouble));
+      AddPausedRange(aWriter,
+                     "collecting",
+                     currentCollectionStartTime,
+                     Some(e.Get().u.mDouble));
       currentCollectionStartTime = Nothing();
     }
     e.Next();
   }
 
   if (currentPauseStartTime) {
-    AddPausedRange(aWriter, "profiler-paused",
-                   currentPauseStartTime, Nothing());
+    AddPausedRange(
+        aWriter, "profiler-paused", currentPauseStartTime, Nothing());
   }
   if (currentCollectionStartTime) {
-    AddPausedRange(aWriter, "collecting",
-                   currentCollectionStartTime, Nothing());
+    AddPausedRange(
+        aWriter, "collecting", currentCollectionStartTime, Nothing());
   }
 }
 
 int
-ProfileBuffer::FindLastSampleOfThread(int aThreadId, const LastSample& aLS)
-  const
+ProfileBuffer::FindLastSampleOfThread(int aThreadId,
+                                      const LastSample& aLS) const
 {
   // |aLS| has a valid generation number if either it matches the buffer's
   // generation, or is one behind the buffer's generation, since the buffer's
@@ -1052,7 +1091,7 @@ ProfileBuffer::DuplicateLastSample(int aThreadId,
       case ProfileBufferEntry::Kind::Time:
         // Copy with new time
         AddEntry(ProfileBufferEntry::Time(
-          (TimeStamp::Now() - aProcessStartTime).ToMilliseconds()));
+            (TimeStamp::Now() - aProcessStartTime).ToMilliseconds()));
         break;
       case ProfileBufferEntry::Kind::Marker:
         // Don't copy markers
@@ -1068,4 +1107,3 @@ ProfileBuffer::DuplicateLastSample(int aThreadId,
 
 // END ProfileBuffer
 ////////////////////////////////////////////////////////////////////////
-

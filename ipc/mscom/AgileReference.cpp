@@ -17,22 +17,23 @@
 
 enum AgileReferenceOptions
 {
-    AGILEREFERENCE_DEFAULT        = 0,
-    AGILEREFERENCE_DELAYEDMARSHAL = 1,
+  AGILEREFERENCE_DEFAULT = 0,
+  AGILEREFERENCE_DELAYEDMARSHAL = 1,
 };
 
-HRESULT WINAPI RoGetAgileReference(AgileReferenceOptions options,
-                                   REFIID riid, IUnknown* pUnk,
-                                   IAgileReference** ppAgileReference);
+HRESULT WINAPI
+RoGetAgileReference(AgileReferenceOptions options,
+                    REFIID riid,
+                    IUnknown* pUnk,
+                    IAgileReference** ppAgileReference);
 
-#endif // NTDDI_VERSION < NTDDI_WINBLUE
+#endif  // NTDDI_VERSION < NTDDI_WINBLUE
 
 namespace mozilla {
 namespace mscom {
 
 AgileReference::AgileReference(REFIID aIid, IUnknown* aObject)
-  : mIid(aIid)
-  , mGitCookie(0)
+    : mIid(aIid), mGitCookie(0)
 {
   /*
    * There are two possible techniques for creating agile references. Starting
@@ -41,13 +42,13 @@ AgileReference::AgileReference(REFIID aIid, IUnknown* aObject)
    * Table.
    */
   static const DynamicallyLinkedFunctionPtr<decltype(&::RoGetAgileReference)>
-    pRoGetAgileReference(L"ole32.dll", "RoGetAgileReference");
+      pRoGetAgileReference(L"ole32.dll", "RoGetAgileReference");
 
   MOZ_ASSERT(aObject);
 
   if (pRoGetAgileReference &&
-      SUCCEEDED(pRoGetAgileReference(AGILEREFERENCE_DEFAULT, aIid, aObject,
-                                     getter_AddRefs(mAgileRef)))) {
+      SUCCEEDED(pRoGetAgileReference(
+          AGILEREFERENCE_DEFAULT, aIid, aObject, getter_AddRefs(mAgileRef)))) {
     return;
   }
 
@@ -57,15 +58,15 @@ AgileReference::AgileReference(REFIID aIid, IUnknown* aObject)
     return;
   }
 
-  DebugOnly<HRESULT> hr = git->RegisterInterfaceInGlobal(aObject, aIid,
-                                                         &mGitCookie);
+  DebugOnly<HRESULT> hr =
+      git->RegisterInterfaceInGlobal(aObject, aIid, &mGitCookie);
   MOZ_ASSERT(SUCCEEDED(hr));
 }
 
 AgileReference::AgileReference(AgileReference&& aOther)
-  : mIid(aOther.mIid)
-  , mAgileRef(Move(aOther.mAgileRef))
-  , mGitCookie(aOther.mGitCookie)
+    : mIid(aOther.mIid),
+      mAgileRef(Move(aOther.mAgileRef)),
+      mGitCookie(aOther.mGitCookie)
 {
   aOther.mGitCookie = 0;
 }
@@ -114,8 +115,8 @@ AgileReference::Resolve(REFIID aIid, void** aOutInterface)
   }
 
   RefPtr<IUnknown> originalInterface;
-  HRESULT hr = git->GetInterfaceFromGlobal(mGitCookie, mIid,
-                                           getter_AddRefs(originalInterface));
+  HRESULT hr = git->GetInterfaceFromGlobal(
+      mGitCookie, mIid, getter_AddRefs(originalInterface));
   if (FAILED(hr)) {
     return hr;
   }
@@ -138,9 +139,11 @@ AgileReference::ObtainGit()
   static IGlobalInterfaceTable* sGit = []() -> IGlobalInterfaceTable* {
     IGlobalInterfaceTable* result = nullptr;
     DebugOnly<HRESULT> hr =
-      ::CoCreateInstance(CLSID_StdGlobalInterfaceTable, nullptr,
-                         CLSCTX_INPROC_SERVER, IID_IGlobalInterfaceTable,
-                         reinterpret_cast<void**>(&result));
+        ::CoCreateInstance(CLSID_StdGlobalInterfaceTable,
+                           nullptr,
+                           CLSCTX_INPROC_SERVER,
+                           IID_IGlobalInterfaceTable,
+                           reinterpret_cast<void**>(&result));
     MOZ_ASSERT(SUCCEEDED(hr));
     return result;
   }();
@@ -148,5 +151,5 @@ AgileReference::ObtainGit()
   return sGit;
 }
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla

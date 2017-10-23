@@ -14,14 +14,9 @@
 namespace mozilla {
 namespace net {
 
-nsStreamLoader::nsStreamLoader()
-  : mData()
-{
-}
+nsStreamLoader::nsStreamLoader() : mData() {}
 
-nsStreamLoader::~nsStreamLoader()
-{
-}
+nsStreamLoader::~nsStreamLoader() {}
 
 NS_IMETHODIMP
 nsStreamLoader::Init(nsIStreamLoaderObserver* aStreamObserver,
@@ -34,21 +29,22 @@ nsStreamLoader::Init(nsIStreamLoaderObserver* aStreamObserver,
 }
 
 nsresult
-nsStreamLoader::Create(nsISupports *aOuter, REFNSIID aIID, void **aResult)
+nsStreamLoader::Create(nsISupports* aOuter, REFNSIID aIID, void** aResult)
 {
   if (aOuter) return NS_ERROR_NO_AGGREGATION;
 
   nsStreamLoader* it = new nsStreamLoader();
-  if (it == nullptr)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (it == nullptr) return NS_ERROR_OUT_OF_MEMORY;
   NS_ADDREF(it);
   nsresult rv = it->QueryInterface(aIID, aResult);
   NS_RELEASE(it);
   return rv;
 }
 
-NS_IMPL_ISUPPORTS(nsStreamLoader, nsIStreamLoader,
-                  nsIRequestObserver, nsIStreamListener,
+NS_IMPL_ISUPPORTS(nsStreamLoader,
+                  nsIStreamLoader,
+                  nsIRequestObserver,
+                  nsIStreamListener,
                   nsIThreadRetargetableStreamListener)
 
 NS_IMETHODIMP
@@ -59,16 +55,16 @@ nsStreamLoader::GetNumBytesRead(uint32_t* aNumBytes)
 }
 
 NS_IMETHODIMP
-nsStreamLoader::GetRequest(nsIRequest **aRequest)
+nsStreamLoader::GetRequest(nsIRequest** aRequest)
 {
   NS_IF_ADDREF(*aRequest = mRequest);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsStreamLoader::OnStartRequest(nsIRequest* request, nsISupports *ctxt)
+nsStreamLoader::OnStartRequest(nsIRequest* request, nsISupports* ctxt)
 {
-  nsCOMPtr<nsIChannel> chan( do_QueryInterface(request) );
+  nsCOMPtr<nsIChannel> chan(do_QueryInterface(request));
   if (chan) {
     int64_t contentLength = -1;
     chan->GetContentLength(&contentLength);
@@ -95,7 +91,8 @@ nsStreamLoader::OnStartRequest(nsIRequest* request, nsISupports *ctxt)
 }
 
 NS_IMETHODIMP
-nsStreamLoader::OnStopRequest(nsIRequest* request, nsISupports *ctxt,
+nsStreamLoader::OnStopRequest(nsIRequest* request,
+                              nsISupports* ctxt,
                               nsresult aStatus)
 {
   AUTO_PROFILER_LABEL("nsStreamLoader::OnStopRequest", NETWORK);
@@ -105,8 +102,8 @@ nsStreamLoader::OnStopRequest(nsIRequest* request, nsISupports *ctxt,
     mRequest = request;
     size_t length = mData.length();
     uint8_t* elems = mData.extractOrCopyRawBuffer();
-    nsresult rv = mObserver->OnStreamComplete(this, mContext, aStatus,
-                                              length, elems);
+    nsresult rv =
+        mObserver->OnStreamComplete(this, mContext, aStatus, length, elems);
     if (rv != NS_SUCCESS_ADOPTED_DATA) {
       // The observer didn't take ownership of the extracted data buffer, so
       // put it back into mData.
@@ -128,14 +125,14 @@ nsStreamLoader::OnStopRequest(nsIRequest* request, nsISupports *ctxt,
 }
 
 nsresult
-nsStreamLoader::WriteSegmentFun(nsIInputStream *inStr,
-                                void *closure,
-                                const char *fromSegment,
+nsStreamLoader::WriteSegmentFun(nsIInputStream* inStr,
+                                void* closure,
+                                const char* fromSegment,
                                 uint32_t toOffset,
                                 uint32_t count,
-                                uint32_t *writeCount)
+                                uint32_t* writeCount)
 {
-  nsStreamLoader *self = (nsStreamLoader *) closure;
+  nsStreamLoader* self = (nsStreamLoader*)closure;
 
   if (!self->mData.append(fromSegment, count)) {
     self->mData.clearAndFree();
@@ -148,9 +145,11 @@ nsStreamLoader::WriteSegmentFun(nsIInputStream *inStr,
 }
 
 NS_IMETHODIMP
-nsStreamLoader::OnDataAvailable(nsIRequest* request, nsISupports *ctxt,
-                                nsIInputStream *inStr,
-                                uint64_t sourceOffset, uint32_t count)
+nsStreamLoader::OnDataAvailable(nsIRequest* request,
+                                nsISupports* ctxt,
+                                nsIInputStream* inStr,
+                                uint64_t sourceOffset,
+                                uint32_t count)
 {
   uint32_t countRead;
   return inStr->ReadSegments(WriteSegmentFun, this, count, &countRead);
@@ -163,10 +162,7 @@ nsStreamLoader::ReleaseData()
 }
 
 NS_IMETHODIMP
-nsStreamLoader::CheckListenerChain()
-{
-  return NS_OK;
-}
+nsStreamLoader::CheckListenerChain() { return NS_OK; }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

@@ -18,21 +18,21 @@ namespace mozilla {
 // streams.
 class OggCodecStore
 {
-  public:
-    OggCodecStore();
-    void Add(uint32_t serial, OggCodecState* codecState);
-    bool Contains(uint32_t serial);
-    OggCodecState* Get(uint32_t serial);
-    bool IsKnownStream(uint32_t aSerial);
+ public:
+  OggCodecStore();
+  void Add(uint32_t serial, OggCodecState* codecState);
+  bool Contains(uint32_t serial);
+  OggCodecState* Get(uint32_t serial);
+  bool IsKnownStream(uint32_t aSerial);
 
-  private:
-    // Maps Ogg serialnos to OggStreams.
-    nsClassHashtable<nsUint32HashKey, OggCodecState> mCodecStates;
+ private:
+  // Maps Ogg serialnos to OggStreams.
+  nsClassHashtable<nsUint32HashKey, OggCodecState> mCodecStates;
 
-    // Protects the |mCodecStates| and the |mKnownStreams| members.
-    Monitor mMonitor;
+  // Protects the |mCodecStates| and the |mKnownStreams| members.
+  Monitor mMonitor;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

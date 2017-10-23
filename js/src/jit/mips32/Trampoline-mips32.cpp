@@ -16,7 +16,7 @@
 #include "jit/mips-shared/SharedICHelpers-mips-shared.h"
 #include "jit/mips32/Bailouts-mips32.h"
 #ifdef JS_ION_PERF
-# include "jit/PerfSpewer.h"
+#include "jit/PerfSpewer.h"
 #endif
 #include "jit/VMFunctions.h"
 
@@ -27,8 +27,7 @@ using namespace js::jit;
 
 static_assert(sizeof(uintptr_t) == sizeof(uint32_t), "Not 64-bit clean.");
 
-struct EnterJITRegs
-{
+struct EnterJITRegs {
     double f30;
     double f28;
     double f26;
@@ -49,10 +48,9 @@ struct EnterJITRegs
     uintptr_t s0;
 };
 
-struct EnterJITArgs
-{
+struct EnterJITArgs {
     // First 4 argumet placeholders
-    void* jitcode; // <- sp points here when function is entered.
+    void* jitcode;  // <- sp points here when function is entered.
     int maxArgc;
     Value* maxArgv;
     InterpreterFrame* fp;
@@ -64,9 +62,7 @@ struct EnterJITArgs
     Value* vp;
 };
 
-static void
-GenerateReturn(MacroAssembler& masm, int returnCode)
-{
+static void GenerateReturn(MacroAssembler& masm, int returnCode) {
     MOZ_ASSERT(masm.framePushed() == sizeof(EnterJITRegs));
 
     // Restore non-volatile registers
@@ -94,9 +90,7 @@ GenerateReturn(MacroAssembler& masm, int returnCode)
     masm.branch(ra);
 }
 
-static void
-GeneratePrologue(MacroAssembler& masm)
-{
+static void GeneratePrologue(MacroAssembler& masm) {
     // Save non-volatile registers. These must be saved by the trampoline,
     // rather than the JIT'd code, because they are scanned by the conservative
     // scanner.
@@ -120,7 +114,6 @@ GeneratePrologue(MacroAssembler& masm)
     masm.as_sd(f30, StackPointer, offsetof(EnterJITRegs, f30));
 }
 
-
 /*
  * This method generates a trampoline for a c++ function with the following
  * signature:
@@ -128,9 +121,7 @@ GeneratePrologue(MacroAssembler& masm)
  *              CalleeToken calleeToken, JSObject* scopeChain, Value* vp)
  *   ...using standard EABI calling convention
  */
-JitCode*
-JitRuntime::generateEnterJIT(JSContext* cx)
-{
+JitCode* JitRuntime::generateEnterJIT(JSContext* cx) {
     const Register reg_code = a0;
     const Register reg_argc = a1;
     const Register reg_argv = a2;
@@ -172,8 +163,8 @@ JitRuntime::generateEnterJIT(JSContext* cx)
         masm.bind(&noNewTarget);
     }
 
-    masm.as_sll(s0, reg_argc, 3); // s0 = argc * 8
-    masm.addPtr(reg_argv, s0); // s0 = argv + argc * 8
+    masm.as_sll(s0, reg_argc, 3);  // s0 = argc * 8
+    masm.addPtr(reg_argv, s0);     // s0 = argv + argc * 8
 
     // Loop over arguments, copying them from an unknown buffer onto the Ion
     // stack so they can be accessed from JIT'ed code.
@@ -195,12 +186,12 @@ JitRuntime::generateEnterJIT(JSContext* cx)
     masm.bind(&footer);
 
     masm.subPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
-    masm.storePtr(s3, Address(StackPointer, sizeof(uintptr_t))); // actual arguments
-    masm.storePtr(s2, Address(StackPointer, 0)); // callee token
+    masm.storePtr(s3, Address(StackPointer, sizeof(uintptr_t)));  // actual arguments
+    masm.storePtr(s2, Address(StackPointer, 0));                  // callee token
 
     masm.subPtr(StackPointer, s4);
     masm.makeFrameDescriptor(s4, JitFrame_CppToJSJit, JitFrameLayout::Size());
-    masm.push(s4); // descriptor
+    masm.push(s4);  // descriptor
 
     CodeLabel returnLabel;
     CodeLabel oomReturnLabel;
@@ -212,10 +203,10 @@ JitRuntime::generateEnterJIT(JSContext* cx)
         regs.take(reg_code);
         regs.take(ReturnReg);
 
-        const Address slotNumStackValues(BaselineFrameReg, sizeof(EnterJITRegs) +
-                                         offsetof(EnterJITArgs, numStackValues));
-        const Address slotScopeChain(BaselineFrameReg, sizeof(EnterJITRegs) +
-                                     offsetof(EnterJITArgs, scopeChain));
+        const Address slotNumStackValues(
+            BaselineFrameReg, sizeof(EnterJITRegs) + offsetof(EnterJITArgs, numStackValues));
+        const Address slotScopeChain(BaselineFrameReg,
+                                     sizeof(EnterJITRegs) + offsetof(EnterJITArgs, scopeChain));
 
         Label notOsr;
         masm.ma_b(OsrFrameReg, OsrFrameReg, &notOsr, Assembler::Zero, ShortJump);
@@ -249,20 +240,20 @@ JitRuntime::generateEnterJIT(JSContext* cx)
 
         // Push frame descriptor and fake return address.
         masm.reserveStack(2 * sizeof(uintptr_t));
-        masm.storePtr(scratch, Address(StackPointer, sizeof(uintptr_t))); // Frame descriptor
-        masm.storePtr(zero, Address(StackPointer, 0)); // fake return address
+        masm.storePtr(scratch, Address(StackPointer, sizeof(uintptr_t)));  // Frame descriptor
+        masm.storePtr(zero, Address(StackPointer, 0));                     // fake return address
 
         // No GC things to mark, push a bare token.
         masm.loadJSContext(scratch);
         masm.enterFakeExitFrame(scratch, scratch, ExitFrameToken::Bare);
 
         masm.reserveStack(2 * sizeof(uintptr_t));
-        masm.storePtr(framePtr, Address(StackPointer, sizeof(uintptr_t))); // BaselineFrame
-        masm.storePtr(reg_code, Address(StackPointer, 0)); // jitcode
+        masm.storePtr(framePtr, Address(StackPointer, sizeof(uintptr_t)));  // BaselineFrame
+        masm.storePtr(reg_code, Address(StackPointer, 0));                  // jitcode
 
         masm.setupUnalignedABICall(scratch);
-        masm.passABIArg(BaselineFrameReg); // BaselineFrame
-        masm.passABIArg(OsrFrameReg); // InterpreterFrame
+        masm.passABIArg(BaselineFrameReg);  // BaselineFrame
+        masm.passABIArg(OsrFrameReg);       // InterpreterFrame
         masm.passABIArg(numStackValues);
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, jit::InitBaselineFrameForOsr), MoveOp::GENERAL,
                          CheckUnsafeCallWithABI::DontCheckHasExitFrame);
@@ -348,15 +339,13 @@ JitRuntime::generateEnterJIT(JSContext* cx)
     return code;
 }
 
-JitCode*
-JitRuntime::generateInvalidator(JSContext* cx)
-{
+JitCode* JitRuntime::generateInvalidator(JSContext* cx) {
     MacroAssembler masm(cx);
 
     // NOTE: Members ionScript_ and osiPointReturnAddress_ of
     // InvalidationBailoutStack are already on the stack.
-    static const uint32_t STACK_DATA_SIZE = sizeof(InvalidationBailoutStack) -
-                                            2 * sizeof(uintptr_t);
+    static const uint32_t STACK_DATA_SIZE =
+        sizeof(InvalidationBailoutStack) - 2 * sizeof(uintptr_t);
 
     // Stack has to be alligned here. If not, we will have to fix it.
     masm.checkStackAlignment();
@@ -366,14 +355,14 @@ JitRuntime::generateInvalidator(JSContext* cx)
 
     // Save general purpose registers
     for (uint32_t i = 0; i < Registers::Total; i++) {
-        Address address = Address(StackPointer, InvalidationBailoutStack::offsetOfRegs() +
-                                                i * sizeof(uintptr_t));
+        Address address = Address(
+            StackPointer, InvalidationBailoutStack::offsetOfRegs() + i * sizeof(uintptr_t));
         masm.storePtr(Register::FromCode(i), address);
     }
 
     // Save floating point registers
     // We can use as_sd because stack is alligned.
-    for (uint32_t i = 0; i < FloatRegisters::TotalDouble; i ++)
+    for (uint32_t i = 0; i < FloatRegisters::TotalDouble; i++)
         masm.as_sd(FloatRegister::FromIndex(i, FloatRegister::Double), StackPointer,
                    InvalidationBailoutStack::offsetOfFpRegs() + i * sizeof(double));
 
@@ -411,7 +400,7 @@ JitRuntime::generateInvalidator(JSContext* cx)
     Linker linker(masm);
     AutoFlushICache afc("Invalidator");
     JitCode* code = linker.newCode<NoGC>(cx, OTHER_CODE);
-    JitSpew(JitSpew_IonInvalidate, "   invalidation thunk created at %p", (void*) code->raw());
+    JitSpew(JitSpew_IonInvalidate, "   invalidation thunk created at %p", (void*)code->raw());
 
 #ifdef JS_ION_PERF
     writePerfSpewerJitCodeProfile(code, "Invalidator");
@@ -420,9 +409,7 @@ JitRuntime::generateInvalidator(JSContext* cx)
     return code;
 }
 
-JitCode*
-JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
-{
+JitCode* JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut) {
     MacroAssembler masm(cx);
     masm.pushReturnAddress();
 
@@ -448,8 +435,8 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
     masm.as_subu(t1, numArgsReg, s3);
 
     // Get the topmost argument.
-    masm.ma_sll(t0, s3, Imm32(3)); // t0 <- nargs * 8
-    masm.as_addu(t2, sp, t0); // t2 <- sp + nargs * 8
+    masm.ma_sll(t0, s3, Imm32(3));  // t0 <- nargs * 8
+    masm.as_addu(t2, sp, t0);       // t2 <- sp + nargs * 8
     masm.addPtr(Imm32(sizeof(RectifierFrameLayout)), t2);
 
     {
@@ -542,7 +529,7 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
     // Remove the rectifier frame.
     // t0 <- descriptor with FrameType.
     masm.loadPtr(Address(StackPointer, 0), t0);
-    masm.rshiftPtr(Imm32(FRAMESIZE_SHIFT), t0); // t0 <- descriptor.
+    masm.rshiftPtr(Imm32(FRAMESIZE_SHIFT), t0);  // t0 <- descriptor.
 
     // Discard descriptor, calleeToken and number of actual arguments.
     masm.addPtr(Imm32(3 * sizeof(uintptr_t)), StackPointer);
@@ -563,8 +550,7 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
     AutoFlushICache afc("ArgumentsRectifier");
     JitCode* code = linker.newCode<NoGC>(cx, OTHER_CODE);
 
-    if (returnAddrOut)
-        *returnAddrOut = (void*) (code->raw() + returnOffset);
+    if (returnAddrOut) *returnAddrOut = (void*)(code->raw() + returnOffset);
 
 #ifdef JS_ION_PERF
     writePerfSpewerJitCodeProfile(code, "ArgumentsRectifier");
@@ -595,9 +581,7 @@ static const uint32_t bailoutInfoOutParamSize = 2 * sizeof(uintptr_t);
  * frameClassId_ is forced to be NO_FRAME_SIZE_CLASS_ID
  * (See: JitRuntime::generateBailoutHandler).
  */
-static void
-PushBailoutFrame(MacroAssembler& masm, uint32_t frameClass, Register spArg)
-{
+static void PushBailoutFrame(MacroAssembler& masm, uint32_t frameClass, Register spArg) {
     // Make sure that alignment is proper.
     masm.checkStackAlignment();
 
@@ -628,9 +612,7 @@ PushBailoutFrame(MacroAssembler& masm, uint32_t frameClass, Register spArg)
     masm.movePtr(StackPointer, spArg);
 }
 
-static void
-GenerateBailoutThunk(JSContext* cx, MacroAssembler& masm, uint32_t frameClass)
-{
+static void GenerateBailoutThunk(JSContext* cx, MacroAssembler& masm, uint32_t frameClass) {
     PushBailoutFrame(masm, frameClass, a0);
 
     // Put pointer to BailoutInfo
@@ -650,8 +632,9 @@ GenerateBailoutThunk(JSContext* cx, MacroAssembler& masm, uint32_t frameClass)
     // Remove both the bailout frame and the topmost Ion frame's stack.
     if (frameClass == NO_FRAME_SIZE_CLASS_ID) {
         // Load frameSize from stack
-        masm.loadPtr(Address(StackPointer,
-                             bailoutInfoOutParamSize + BailoutStack::offsetOfFrameSize()), a1);
+        masm.loadPtr(
+            Address(StackPointer, bailoutInfoOutParamSize + BailoutStack::offsetOfFrameSize()),
+            a1);
 
         // Remove complete BailoutStack class and data after it
         masm.addPtr(Imm32(sizeof(BailoutStack) + bailoutInfoOutParamSize), StackPointer);
@@ -668,9 +651,7 @@ GenerateBailoutThunk(JSContext* cx, MacroAssembler& masm, uint32_t frameClass)
     masm.branch(bailoutTail);
 }
 
-JitCode*
-JitRuntime::generateBailoutTable(JSContext* cx, uint32_t frameClass)
-{
+JitCode* JitRuntime::generateBailoutTable(JSContext* cx, uint32_t frameClass) {
     MacroAssembler masm(cx);
 
     Label bailout;
@@ -697,9 +678,7 @@ JitRuntime::generateBailoutTable(JSContext* cx, uint32_t frameClass)
     return code;
 }
 
-JitCode*
-JitRuntime::generateBailoutHandler(JSContext* cx)
-{
+JitCode* JitRuntime::generateBailoutHandler(JSContext* cx) {
     MacroAssembler masm(cx);
     GenerateBailoutThunk(cx, masm, NO_FRAME_SIZE_CLASS_ID);
 
@@ -714,14 +693,11 @@ JitRuntime::generateBailoutHandler(JSContext* cx)
     return code;
 }
 
-JitCode*
-JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
-{
+JitCode* JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f) {
     MOZ_ASSERT(functionWrappers_);
     MOZ_ASSERT(functionWrappers_->initialized());
     VMWrapperMap::AddPtr p = functionWrappers_->lookupForAdd(&f);
-    if (p)
-        return p->value();
+    if (p) return p->value();
 
     MacroAssembler masm(cx);
 
@@ -735,8 +711,7 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     regs.take(cxreg);
 
     // If it isn't a tail call, then the return address needs to be saved
-    if (f.expectTailCall == NonTailCall)
-        masm.pushReturnAddress();
+    if (f.expectTailCall == NonTailCall) masm.pushReturnAddress();
 
     // We're aligned to an exit frame, so link it up.
     masm.loadJSContext(cxreg);
@@ -745,7 +720,7 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     // Save the base of the argument set stored on the stack.
     Register argsBase = InvalidReg;
     if (f.explicitArgs) {
-        argsBase = t1; // Use temporary register.
+        argsBase = t1;  // Use temporary register.
         regs.take(argsBase);
         masm.ma_addu(argsBase, StackPointer, Imm32(ExitFrameLayout::SizeWithFooter()));
     }
@@ -756,34 +731,32 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     // case so that stack stays aligned.
     uint32_t outParamSize = 0;
     switch (f.outParam) {
-      case Type_Value:
-        outParamSize = sizeof(Value);
-        masm.reserveStack(outParamSize);
-        break;
+        case Type_Value:
+            outParamSize = sizeof(Value);
+            masm.reserveStack(outParamSize);
+            break;
 
-      case Type_Handle:
-        {
+        case Type_Handle: {
             uint32_t pushed = masm.framePushed();
             masm.PushEmptyRooted(f.outParamRootType);
             outParamSize = masm.framePushed() - pushed;
-        }
-        break;
+        } break;
 
-      case Type_Bool:
-      case Type_Int32:
-        MOZ_ASSERT(sizeof(uintptr_t) == sizeof(uint32_t));
-      case Type_Pointer:
-        outParamSize = sizeof(uintptr_t);
-        masm.reserveStack(outParamSize);
-        break;
+        case Type_Bool:
+        case Type_Int32:
+            MOZ_ASSERT(sizeof(uintptr_t) == sizeof(uint32_t));
+        case Type_Pointer:
+            outParamSize = sizeof(uintptr_t);
+            masm.reserveStack(outParamSize);
+            break;
 
-      case Type_Double:
-        outParamSize = sizeof(double);
-        masm.reserveStack(outParamSize);
-        break;
-      default:
-        MOZ_ASSERT(f.outParam == Type_Void);
-        break;
+        case Type_Double:
+            outParamSize = sizeof(double);
+            masm.reserveStack(outParamSize);
+            break;
+        default:
+            MOZ_ASSERT(f.outParam == Type_Void);
+            break;
     }
 
     uint32_t outParamOffset = 0;
@@ -799,8 +772,7 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     masm.reserveStack(outParamOffset);
     masm.movePtr(StackPointer, doubleArgs);
 
-    if (!generateTLEnterVM(cx, masm, f))
-        return nullptr;
+    if (!generateTLEnterVM(cx, masm, f)) return nullptr;
 
     masm.setupAlignedABICall();
     masm.passABIArg(cxreg);
@@ -812,31 +784,32 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     for (uint32_t explicitArg = 0; explicitArg < f.explicitArgs; explicitArg++) {
         MoveOperand from;
         switch (f.argProperties(explicitArg)) {
-          case VMFunction::WordByValue:
-            masm.passABIArg(MoveOperand(argsBase, argDisp), MoveOp::GENERAL);
-            argDisp += sizeof(uint32_t);
-            break;
-          case VMFunction::DoubleByValue:
-            // Values should be passed by reference, not by value, so we
-            // assert that the argument is a double-precision float.
-            MOZ_ASSERT(f.argPassedInFloatReg(explicitArg));
-            masm.passABIArg(MoveOperand(argsBase, argDisp), MoveOp::DOUBLE);
-            argDisp += sizeof(double);
-            break;
-          case VMFunction::WordByRef:
-            masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE_ADDRESS),
-                            MoveOp::GENERAL);
-            argDisp += sizeof(uint32_t);
-            break;
-          case VMFunction::DoubleByRef:
-            // Copy double sized argument to aligned place.
-            masm.ma_ld(ScratchDoubleReg, Address(argsBase, argDisp));
-            masm.as_sd(ScratchDoubleReg, doubleArgs, doubleArgDisp);
-            masm.passABIArg(MoveOperand(doubleArgs, doubleArgDisp, MoveOperand::EFFECTIVE_ADDRESS),
-                            MoveOp::GENERAL);
-            doubleArgDisp += sizeof(double);
-            argDisp += sizeof(double);
-            break;
+            case VMFunction::WordByValue:
+                masm.passABIArg(MoveOperand(argsBase, argDisp), MoveOp::GENERAL);
+                argDisp += sizeof(uint32_t);
+                break;
+            case VMFunction::DoubleByValue:
+                // Values should be passed by reference, not by value, so we
+                // assert that the argument is a double-precision float.
+                MOZ_ASSERT(f.argPassedInFloatReg(explicitArg));
+                masm.passABIArg(MoveOperand(argsBase, argDisp), MoveOp::DOUBLE);
+                argDisp += sizeof(double);
+                break;
+            case VMFunction::WordByRef:
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE_ADDRESS),
+                                MoveOp::GENERAL);
+                argDisp += sizeof(uint32_t);
+                break;
+            case VMFunction::DoubleByRef:
+                // Copy double sized argument to aligned place.
+                masm.ma_ld(ScratchDoubleReg, Address(argsBase, argDisp));
+                masm.as_sd(ScratchDoubleReg, doubleArgs, doubleArgDisp);
+                masm.passABIArg(
+                    MoveOperand(doubleArgs, doubleArgDisp, MoveOperand::EFFECTIVE_ADDRESS),
+                    MoveOp::GENERAL);
+                doubleArgDisp += sizeof(double);
+                argDisp += sizeof(double);
+                break;
         }
     }
 
@@ -846,85 +819,81 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     // Copy the implicit outparam, if any.
     if (f.outParam != Type_Void) {
         masm.passABIArg(MoveOperand(doubleArgs, outParamOffset, MoveOperand::EFFECTIVE_ADDRESS),
-                            MoveOp::GENERAL);
+                        MoveOp::GENERAL);
     }
 
     masm.callWithABI(f.wrapped, MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckHasExitFrame);
 
-    if (!generateTLExitVM(cx, masm, f))
-        return nullptr;
+    if (!generateTLExitVM(cx, masm, f)) return nullptr;
 
     // Test for failure.
     switch (f.failType()) {
-      case Type_Object:
-        masm.branchTestPtr(Assembler::Zero, v0, v0, masm.failureLabel());
-        break;
-      case Type_Bool:
-        // Called functions return bools, which are 0/false and non-zero/true
-        masm.branchIfFalseBool(v0, masm.failureLabel());
-        break;
-      case Type_Void:
-        break;
-      default:
-        MOZ_CRASH("unknown failure kind");
+        case Type_Object:
+            masm.branchTestPtr(Assembler::Zero, v0, v0, masm.failureLabel());
+            break;
+        case Type_Bool:
+            // Called functions return bools, which are 0/false and non-zero/true
+            masm.branchIfFalseBool(v0, masm.failureLabel());
+            break;
+        case Type_Void:
+            break;
+        default:
+            MOZ_CRASH("unknown failure kind");
     }
 
     masm.freeStack(outParamOffset);
 
     // Load the outparam and free any allocated stack.
     switch (f.outParam) {
-      case Type_Handle:
-        masm.popRooted(f.outParamRootType, ReturnReg, JSReturnOperand);
-        break;
+        case Type_Handle:
+            masm.popRooted(f.outParamRootType, ReturnReg, JSReturnOperand);
+            break;
 
-      case Type_Value:
-        masm.loadValue(Address(StackPointer, 0), JSReturnOperand);
-        masm.freeStack(sizeof(Value));
-        break;
+        case Type_Value:
+            masm.loadValue(Address(StackPointer, 0), JSReturnOperand);
+            masm.freeStack(sizeof(Value));
+            break;
 
-      case Type_Int32:
-        MOZ_ASSERT(sizeof(uintptr_t) == sizeof(uint32_t));
-      case Type_Pointer:
-        masm.load32(Address(StackPointer, 0), ReturnReg);
-        masm.freeStack(sizeof(uintptr_t));
-        break;
+        case Type_Int32:
+            MOZ_ASSERT(sizeof(uintptr_t) == sizeof(uint32_t));
+        case Type_Pointer:
+            masm.load32(Address(StackPointer, 0), ReturnReg);
+            masm.freeStack(sizeof(uintptr_t));
+            break;
 
-      case Type_Bool:
-        masm.load8ZeroExtend(Address(StackPointer, 0), ReturnReg);
-        masm.freeStack(sizeof(uintptr_t));
-        break;
+        case Type_Bool:
+            masm.load8ZeroExtend(Address(StackPointer, 0), ReturnReg);
+            masm.freeStack(sizeof(uintptr_t));
+            break;
 
-      case Type_Double:
-        if (cx->runtime()->jitSupportsFloatingPoint) {
-            masm.as_ld(ReturnDoubleReg, StackPointer, 0);
-        } else {
-            masm.assumeUnreachable("Unable to load into float reg, with no FP support.");
-        }
-        masm.freeStack(sizeof(double));
-        break;
+        case Type_Double:
+            if (cx->runtime()->jitSupportsFloatingPoint) {
+                masm.as_ld(ReturnDoubleReg, StackPointer, 0);
+            } else {
+                masm.assumeUnreachable("Unable to load into float reg, with no FP support.");
+            }
+            masm.freeStack(sizeof(double));
+            break;
 
-      default:
-        MOZ_ASSERT(f.outParam == Type_Void);
-        break;
+        default:
+            MOZ_ASSERT(f.outParam == Type_Void);
+            break;
     }
 
     masm.restoreStackPointer();
 
     masm.leaveExitFrame();
-    masm.retn(Imm32(sizeof(ExitFrameLayout) +
-                    f.explicitStackSlots() * sizeof(uintptr_t) +
+    masm.retn(Imm32(sizeof(ExitFrameLayout) + f.explicitStackSlots() * sizeof(uintptr_t) +
                     f.extraValuesToPop * sizeof(Value)));
 
     Linker linker(masm);
     AutoFlushICache afc("VMWrapper");
     JitCode* wrapper = linker.newCode<NoGC>(cx, OTHER_CODE);
-    if (!wrapper)
-        return nullptr;
+    if (!wrapper) return nullptr;
 
     // linker.newCode may trigger a GC and sweep functionWrappers_ so we have
     // to use relookupOrAdd instead of add.
-    if (!functionWrappers_->relookupOrAdd(p, &f, wrapper))
-        return nullptr;
+    if (!functionWrappers_->relookupOrAdd(p, &f, wrapper)) return nullptr;
 
 #ifdef JS_ION_PERF
     writePerfSpewerJitCodeProfile(wrapper, "VMWrapper");
@@ -933,18 +902,15 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     return wrapper;
 }
 
-JitCode*
-JitRuntime::generatePreBarrier(JSContext* cx, MIRType type)
-{
+JitCode* JitRuntime::generatePreBarrier(JSContext* cx, MIRType type) {
     MacroAssembler masm(cx);
 
     LiveRegisterSet save;
     if (cx->runtime()->jitSupportsFloatingPoint) {
         save.set() = RegisterSet(GeneralRegisterSet(Registers::VolatileMask),
-                           FloatRegisterSet(FloatRegisters::VolatileMask));
+                                 FloatRegisterSet(FloatRegisters::VolatileMask));
     } else {
-        save.set() = RegisterSet(GeneralRegisterSet(Registers::VolatileMask),
-                           FloatRegisterSet());
+        save.set() = RegisterSet(GeneralRegisterSet(Registers::VolatileMask), FloatRegisterSet());
     }
     save.add(ra);
     masm.PushRegsInMask(save);
@@ -976,9 +942,7 @@ typedef bool (*HandleDebugTrapFn)(JSContext*, BaselineFrame*, uint8_t*, bool*);
 static const VMFunction HandleDebugTrapInfo =
     FunctionInfo<HandleDebugTrapFn>(HandleDebugTrap, "HandleDebugTrap");
 
-JitCode*
-JitRuntime::generateDebugTrapHandler(JSContext* cx)
-{
+JitCode* JitRuntime::generateDebugTrapHandler(JSContext* cx) {
     MacroAssembler masm(cx);
 
     Register scratch1 = t0;
@@ -995,8 +959,7 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     EmitBaselineEnterStubFrame(masm, scratch2);
 
     JitCode* code = cx->runtime()->jitRuntime()->getVMWrapper(HandleDebugTrapInfo);
-    if (!code)
-        return nullptr;
+    if (!code) return nullptr;
 
     masm.subPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
     masm.storePtr(ra, Address(StackPointer, sizeof(uintptr_t)));
@@ -1016,8 +979,7 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     masm.branch(ra);
 
     masm.bind(&forcedReturn);
-    masm.loadValue(Address(s5, BaselineFrame::reverseOffsetOfReturnValue()),
-                   JSReturnOperand);
+    masm.loadValue(Address(s5, BaselineFrame::reverseOffsetOfReturnValue()), JSReturnOperand);
     masm.movePtr(s5, StackPointer);
     masm.pop(s5);
 
@@ -1044,10 +1006,7 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     return codeDbg;
 }
 
-
-JitCode*
-JitRuntime::generateExceptionTailStub(JSContext* cx, void* handler)
-{
+JitCode* JitRuntime::generateExceptionTailStub(JSContext* cx, void* handler) {
     MacroAssembler masm;
 
     masm.handleFailureWithHandlerTail(handler);
@@ -1063,9 +1022,7 @@ JitRuntime::generateExceptionTailStub(JSContext* cx, void* handler)
     return code;
 }
 
-JitCode*
-JitRuntime::generateBailoutTailStub(JSContext* cx)
-{
+JitCode* JitRuntime::generateBailoutTailStub(JSContext* cx) {
     MacroAssembler masm;
 
     masm.generateBailoutTail(a1, a2);
@@ -1081,9 +1038,7 @@ JitRuntime::generateBailoutTailStub(JSContext* cx)
     return code;
 }
 
-JitCode*
-JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
-{
+JitCode* JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx) {
     MacroAssembler masm;
 
     Register scratch1 = t0;
@@ -1247,20 +1202,17 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
     masm.bind(&handle_BaselineStub);
     {
         masm.as_addu(scratch3, StackPointer, scratch1);
-        Address stubFrameReturnAddr(scratch3,
-                                    JitFrameLayout::Size() +
-                                    BaselineStubFrameLayout::offsetOfReturnAddress());
+        Address stubFrameReturnAddr(
+            scratch3, JitFrameLayout::Size() + BaselineStubFrameLayout::offsetOfReturnAddress());
         masm.loadPtr(stubFrameReturnAddr, scratch2);
         masm.storePtr(scratch2, lastProfilingCallSite);
 
-        Address stubFrameSavedFramePtr(scratch3,
-                                       JitFrameLayout::Size() - (2 * sizeof(void*)));
+        Address stubFrameSavedFramePtr(scratch3, JitFrameLayout::Size() - (2 * sizeof(void*)));
         masm.loadPtr(stubFrameSavedFramePtr, scratch2);
-        masm.addPtr(Imm32(sizeof(void*)), scratch2); // Skip past BL-PrevFramePtr
+        masm.addPtr(Imm32(sizeof(void*)), scratch2);  // Skip past BL-PrevFramePtr
         masm.storePtr(scratch2, lastProfilingFrame);
         masm.ret();
     }
-
 
     //
     // JitFrame_Rectifier
@@ -1338,8 +1290,9 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
 
         // Handle Rectifier <- BaselineStub <- BaselineJS
         masm.as_addu(scratch3, scratch2, scratch1);
-        Address stubFrameReturnAddr(scratch3, RectifierFrameLayout::Size() +
-                                              BaselineStubFrameLayout::offsetOfReturnAddress());
+        Address stubFrameReturnAddr(
+            scratch3,
+            RectifierFrameLayout::Size() + BaselineStubFrameLayout::offsetOfReturnAddress());
         masm.loadPtr(stubFrameReturnAddr, scratch2);
         masm.storePtr(scratch2, lastProfilingCallSite);
 

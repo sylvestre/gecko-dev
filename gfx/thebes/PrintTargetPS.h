@@ -16,17 +16,19 @@ namespace gfx {
 /**
  * PostScript printing target.
  */
-class PrintTargetPS final : public PrintTarget {
-public:
-  enum PageOrientation {
+class PrintTargetPS final : public PrintTarget
+{
+ public:
+  enum PageOrientation
+  {
     PORTRAIT,
     LANDSCAPE
   };
 
-  static already_AddRefed<PrintTargetPS>
-  CreateOrNull(nsIOutputStream *aStream,
-               IntSize aSizeInPoints,
-               PageOrientation aOrientation);
+  static already_AddRefed<PrintTargetPS> CreateOrNull(
+      nsIOutputStream* aStream,
+      IntSize aSizeInPoints,
+      PageOrientation aOrientation);
 
   virtual nsresult BeginPrinting(const nsAString& aTitle,
                                  const nsAString& aPrintToFileName,
@@ -35,14 +37,12 @@ public:
   virtual nsresult EndPage() override;
   virtual void Finish() override;
 
-  virtual bool GetRotateForLandscape() {
-    return (mOrientation == LANDSCAPE);
-  }
+  virtual bool GetRotateForLandscape() { return (mOrientation == LANDSCAPE); }
 
-private:
+ private:
   PrintTargetPS(cairo_surface_t* aCairoSurface,
                 const IntSize& aSize,
-                nsIOutputStream *aStream,
+                nsIOutputStream* aStream,
                 PageOrientation aOrientation);
   virtual ~PrintTargetPS();
 
@@ -50,7 +50,7 @@ private:
   PageOrientation mOrientation;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* MOZILLA_GFX_PRINTINGTARGETPS_H */

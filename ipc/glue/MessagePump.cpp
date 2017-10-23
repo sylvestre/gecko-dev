@@ -37,13 +37,11 @@ static MessagePump::Delegate* gFirstDelegate;
 namespace mozilla {
 namespace ipc {
 
-class DoWorkRunnable final : public CancelableRunnable,
-                             public nsITimerCallback
+class DoWorkRunnable final : public CancelableRunnable, public nsITimerCallback
 {
-public:
+ public:
   explicit DoWorkRunnable(MessagePump* aPump)
-    : CancelableRunnable("ipc::DoWorkRunnable")
-    , mPump(aPump)
+      : CancelableRunnable("ipc::DoWorkRunnable"), mPump(aPump)
   {
     MOZ_ASSERT(aPump);
   }
@@ -53,9 +51,8 @@ public:
   NS_DECL_NSITIMERCALLBACK
   nsresult Cancel() override;
 
-private:
-  ~DoWorkRunnable()
-  { }
+ private:
+  ~DoWorkRunnable() {}
 
   MessagePump* mPump;
   // DoWorkRunnable is designed as a stateless singleton.  Do not add stateful
@@ -66,14 +63,12 @@ private:
 } /* namespace mozilla */
 
 MessagePump::MessagePump(nsIEventTarget* aEventTarget)
-  : mEventTarget(aEventTarget)
+    : mEventTarget(aEventTarget)
 {
   mDoWorkEvent = new DoWorkRunnable(this);
 }
 
-MessagePump::~MessagePump()
-{
-}
+MessagePump::~MessagePump() {}
 
 void
 MessagePump::Run(MessagePump::Delegate* aDelegate)
@@ -95,8 +90,7 @@ MessagePump::Run(MessagePump::Delegate* aDelegate)
     autoReleasePool.Recycle();
 
     bool did_work = NS_ProcessNextEvent(thisThread, false) ? true : false;
-    if (!keep_running_)
-      break;
+    if (!keep_running_) break;
 
     // NB: it is crucial *not* to directly call |aDelegate->DoWork()|
     // here.  To ensure that MessageLoop tasks and XPCOM events have
@@ -105,27 +99,22 @@ MessagePump::Run(MessagePump::Delegate* aDelegate)
 
     did_work |= aDelegate->DoDelayedWork(&delayed_work_time_);
 
-if (did_work && delayed_work_time_.is_null())
-      mDelayedWorkTimer->Cancel();
+    if (did_work && delayed_work_time_.is_null()) mDelayedWorkTimer->Cancel();
 
-    if (!keep_running_)
-      break;
+    if (!keep_running_) break;
 
-    if (did_work)
-      continue;
+    if (did_work) continue;
 
     did_work = aDelegate->DoIdleWork();
-    if (!keep_running_)
-      break;
+    if (!keep_running_) break;
 
-    if (did_work)
-      continue;
+    if (did_work) continue;
 
     // This will either sleep or process an event.
     NS_ProcessNextEvent(thisThread, true);
   }
 
-    mDelayedWorkTimer->Cancel();
+  mDelayedWorkTimer->Cancel();
 
   keep_running_ = true;
 }
@@ -158,16 +147,16 @@ MessagePump::ScheduleDelayedWork(const base::TimeTicks& aDelayedTime)
 {
   // To avoid racing on mDelayedWorkTimer, we need to be on the same thread as
   // ::Run().
-  MOZ_RELEASE_ASSERT((!mEventTarget && NS_IsMainThread())
-                     || mEventTarget->IsOnCurrentThread());
+  MOZ_RELEASE_ASSERT((!mEventTarget && NS_IsMainThread()) ||
+                     mEventTarget->IsOnCurrentThread());
 
   if (!mDelayedWorkTimer) {
     mDelayedWorkTimer = NS_NewTimer();
     if (!mDelayedWorkTimer) {
-        // Called before XPCOM has started up? We can't do this correctly.
-        NS_WARNING("Delayed task might not run!");
-        delayed_work_time_ = aDelayedTime;
-        return;
+      // Called before XPCOM has started up? We can't do this correctly.
+      NS_WARNING("Delayed task might not run!");
+      delayed_work_time_ = aDelayedTime;
+      return;
     }
   }
 
@@ -183,8 +172,8 @@ MessagePump::ScheduleDelayedWork(const base::TimeTicks& aDelayedTime)
     delay = aDelayedTime - base::TimeTicks::Now();
 
   uint32_t delayMS = uint32_t(delay.InMilliseconds());
-  mDelayedWorkTimer->InitWithCallback(mDoWorkEvent, delayMS,
-                                      nsITimer::TYPE_ONE_SHOT);
+  mDelayedWorkTimer->InitWithCallback(
+      mDoWorkEvent, delayMS, nsITimer::TYPE_ONE_SHOT);
 }
 
 nsIEventTarget*
@@ -207,7 +196,8 @@ MessagePump::DoDelayedWork(base::MessagePump::Delegate* aDelegate)
   }
 }
 
-NS_IMPL_ISUPPORTS_INHERITED(DoWorkRunnable, CancelableRunnable,
+NS_IMPL_ISUPPORTS_INHERITED(DoWorkRunnable,
+                            CancelableRunnable,
                             nsITimerCallback)
 
 NS_IMETHODIMP
@@ -267,7 +257,7 @@ MessagePumpForChildProcess::Run(base::MessagePump::Delegate* aDelegate)
 
     mFirstRun = false;
     if (NS_FAILED(XRE_RunAppShell())) {
-        NS_WARNING("Failed to run app shell?!");
+      NS_WARNING("Failed to run app shell?!");
     }
 
     MOZ_ASSERT(aDelegate && aDelegate == gFirstDelegate);
@@ -293,7 +283,8 @@ MessagePumpForChildProcess::Run(base::MessagePump::Delegate* aDelegate)
   bool nestableTasksAllowed = loop->NestableTasksAllowed();
   loop->SetNestableTasksAllowed(true);
 
-  while (aDelegate->DoWork());
+  while (aDelegate->DoWork())
+    ;
 
   loop->SetNestableTasksAllowed(nestableTasksAllowed);
 
@@ -305,7 +296,8 @@ void
 MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate* aDelegate)
 {
   MOZ_ASSERT(keep_running_);
-  MOZ_RELEASE_ASSERT(!NS_IsMainThread(), "Use mozilla::ipc::MessagePump instead!");
+  MOZ_RELEASE_ASSERT(!NS_IsMainThread(),
+                     "Use mozilla::ipc::MessagePump instead!");
 
   nsIThread* thread = NS_GetCurrentThread();
   MOZ_RELEASE_ASSERT(mEventTarget->IsOnCurrentThread());
@@ -373,12 +365,18 @@ MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate* aDelegate)
 
 NS_IMPL_QUERY_INTERFACE(MessagePumpForNonMainUIThreads, nsIThreadObserver)
 
-#define CHECK_QUIT_STATE { if (state_->should_quit) { break; } }
+#define CHECK_QUIT_STATE       \
+  {                            \
+    if (state_->should_quit) { \
+      break;                   \
+    }                          \
+  }
 
 void
 MessagePumpForNonMainUIThreads::DoRunLoop()
 {
-  MOZ_RELEASE_ASSERT(!NS_IsMainThread(), "Use mozilla::ipc::MessagePump instead!");
+  MOZ_RELEASE_ASSERT(!NS_IsMainThread(),
+                     "Use mozilla::ipc::MessagePump instead!");
 
   // If this is a chromium thread and no nsThread is associated
   // with it, this call will create a new nsThread.
@@ -423,7 +421,7 @@ MessagePumpForNonMainUIThreads::DoRunLoop()
       ClearInWait();
       continue;
     }
-    WaitForWork(); // Calls MsgWaitForMultipleObjectsEx(QS_ALLINPUT)
+    WaitForWork();  // Calls MsgWaitForMultipleObjectsEx(QS_ALLINPUT)
     ClearInWait();
   }
 
@@ -445,20 +443,20 @@ MessagePumpForNonMainUIThreads::OnDispatchedEvent()
 }
 
 NS_IMETHODIMP
-MessagePumpForNonMainUIThreads::OnProcessNextEvent(nsIThreadInternal *thread,
+MessagePumpForNonMainUIThreads::OnProcessNextEvent(nsIThreadInternal* thread,
                                                    bool mayWait)
 {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MessagePumpForNonMainUIThreads::AfterProcessNextEvent(nsIThreadInternal *thread,
+MessagePumpForNonMainUIThreads::AfterProcessNextEvent(nsIThreadInternal* thread,
                                                       bool eventWasProcessed)
 {
   return NS_OK;
 }
 
-#endif // XP_WIN
+#endif  // XP_WIN
 
 #if defined(MOZ_WIDGET_ANDROID)
 void
@@ -484,4 +482,4 @@ MessagePumpForAndroidUI::ScheduleDelayedWork(const TimeTicks& delayed_work_time)
 {
   MOZ_CRASH("MessagePumpForAndroidUI should never ScheduleDelayedWork");
 }
-#endif // defined(MOZ_WIDGET_ANDROID)
+#endif  // defined(MOZ_WIDGET_ANDROID)

@@ -16,22 +16,22 @@
  */
 class nsXULTemplateResultStorage final : public nsIXULTemplateResult
 {
-public:
-    NS_DECL_ISUPPORTS
+ public:
+  NS_DECL_ISUPPORTS
 
-    NS_DECL_NSIXULTEMPLATERESULT
+  NS_DECL_NSIXULTEMPLATERESULT
 
-    explicit nsXULTemplateResultStorage(nsXULTemplateResultSetStorage* aResultSet);
+  explicit nsXULTemplateResultStorage(
+      nsXULTemplateResultSetStorage* aResultSet);
 
-protected:
+ protected:
+  ~nsXULTemplateResultStorage();
 
-    ~nsXULTemplateResultStorage();
+  RefPtr<nsXULTemplateResultSetStorage> mResultSet;
 
-    RefPtr<nsXULTemplateResultSetStorage> mResultSet;
+  nsCOMArray<nsIVariant> mValues;
 
-    nsCOMArray<nsIVariant> mValues;
-
-    nsCOMPtr<nsIRDFResource> mNode;
+  nsCOMPtr<nsIRDFResource> mNode;
 };
 
-#endif // nsXULTemplateResultStorage_h__
+#endif  // nsXULTemplateResultStorage_h__

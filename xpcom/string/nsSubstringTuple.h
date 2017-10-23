@@ -11,4 +11,4 @@
 
 #include "nsTSubstringTuple.h"
 
-#endif // !defined(nsSubstringTuple_h___)
+#endif  // !defined(nsSubstringTuple_h___)

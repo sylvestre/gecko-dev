@@ -11,9 +11,8 @@ using namespace js::jit;
 
 BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
                                    InvalidationBailoutStack* bailout)
-  : machine_(bailout->machine())
-{
-    framePointer_ = (uint8_t*) bailout->fp();
+    : machine_(bailout->machine()) {
+    framePointer_ = (uint8_t*)bailout->fp();
     topFrameSize_ = framePointer_ - bailout->sp();
     topIonScript_ = bailout->ionScript();
     attachOnJitActivation(activations);

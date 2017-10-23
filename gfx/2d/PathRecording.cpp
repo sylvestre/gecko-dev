@@ -13,7 +13,7 @@ namespace gfx {
 using namespace std;
 
 void
-PathBuilderRecording::MoveTo(const Point &aPoint)
+PathBuilderRecording::MoveTo(const Point& aPoint)
 {
   PathOp op;
   op.mType = PathOp::OP_MOVETO;
@@ -23,7 +23,7 @@ PathBuilderRecording::MoveTo(const Point &aPoint)
 }
 
 void
-PathBuilderRecording::LineTo(const Point &aPoint)
+PathBuilderRecording::LineTo(const Point& aPoint)
 {
   PathOp op;
   op.mType = PathOp::OP_LINETO;
@@ -33,7 +33,9 @@ PathBuilderRecording::LineTo(const Point &aPoint)
 }
 
 void
-PathBuilderRecording::BezierTo(const Point &aCP1, const Point &aCP2, const Point &aCP3)
+PathBuilderRecording::BezierTo(const Point& aCP1,
+                               const Point& aCP2,
+                               const Point& aCP3)
 {
   PathOp op;
   op.mType = PathOp::OP_BEZIERTO;
@@ -45,7 +47,7 @@ PathBuilderRecording::BezierTo(const Point &aCP1, const Point &aCP2, const Point
 }
 
 void
-PathBuilderRecording::QuadraticBezierTo(const Point &aCP1, const Point &aCP2)
+PathBuilderRecording::QuadraticBezierTo(const Point& aCP1, const Point& aCP2)
 {
   PathOp op;
   op.mType = PathOp::OP_QUADRATICBEZIERTO;
@@ -89,18 +91,24 @@ already_AddRefed<PathBuilder>
 PathRecording::CopyToBuilder(FillRule aFillRule) const
 {
   RefPtr<PathBuilder> pathBuilder = mPath->CopyToBuilder(aFillRule);
-  RefPtr<PathBuilderRecording> recording = new PathBuilderRecording(pathBuilder, aFillRule);
+  RefPtr<PathBuilderRecording> recording =
+      new PathBuilderRecording(pathBuilder, aFillRule);
   recording->mPathOps = mPathOps;
   return recording.forget();
 }
 
 already_AddRefed<PathBuilder>
-PathRecording::TransformedCopyToBuilder(const Matrix &aTransform, FillRule aFillRule) const
+PathRecording::TransformedCopyToBuilder(const Matrix& aTransform,
+                                        FillRule aFillRule) const
 {
-  RefPtr<PathBuilder> pathBuilder = mPath->TransformedCopyToBuilder(aTransform, aFillRule);
-  RefPtr<PathBuilderRecording> recording = new PathBuilderRecording(pathBuilder, aFillRule);
+  RefPtr<PathBuilder> pathBuilder =
+      mPath->TransformedCopyToBuilder(aTransform, aFillRule);
+  RefPtr<PathBuilderRecording> recording =
+      new PathBuilderRecording(pathBuilder, aFillRule);
   typedef std::vector<PathOp> pathOpVec;
-  for (pathOpVec::const_iterator iter = mPathOps.begin(); iter != mPathOps.end(); iter++) {
+  for (pathOpVec::const_iterator iter = mPathOps.begin();
+       iter != mPathOps.end();
+       iter++) {
     PathOp newPathOp;
     newPathOp.mType = iter->mType;
     if (sPointCount[newPathOp.mType] >= 1) {
@@ -117,5 +125,5 @@ PathRecording::TransformedCopyToBuilder(const Matrix &aTransform, FillRule aFill
   return recording.forget();
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

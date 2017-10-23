@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-   /* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -34,20 +34,12 @@ static_assert(kTestEnum2Count == 3, "Incorrect enumerator count");
 
 // Sanity test for MOZ_DEFINE_ENUM[_CLASS]_AT_CLASS_SCOPE.
 
-struct TestClass {
-  MOZ_DEFINE_ENUM_AT_CLASS_SCOPE(
-    TestEnum3, (
-      EnumeratorA,
-      EnumeratorB,
-      EnumeratorC
-  ));
+struct TestClass
+{
+  MOZ_DEFINE_ENUM_AT_CLASS_SCOPE(TestEnum3,
+                                 (EnumeratorA, EnumeratorB, EnumeratorC));
 
-  MOZ_DEFINE_ENUM_CLASS_AT_CLASS_SCOPE(
-    TestEnum4, (
-      A,
-      B,
-      C
-  ));
+  MOZ_DEFINE_ENUM_CLASS_AT_CLASS_SCOPE(TestEnum4, (A, B, C));
 
   static_assert(EnumeratorA == 0, "Unexpected enumerator value");
   static_assert(EnumeratorB == 1, "Unexpected enumerator value");
@@ -61,7 +53,6 @@ struct TestClass {
   static_assert(sHighestTestEnum4 == TestEnum4::C, "Incorrect highest value");
   static_assert(sTestEnum4Count == 3, "Incorrect enumerator count");
 };
-
 
 // Test that MOZ_DEFINE_ENUM doesn't allow giving enumerators initializers.
 

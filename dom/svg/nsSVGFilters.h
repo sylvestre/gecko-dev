@@ -19,10 +19,12 @@
 class nsSVGFilterInstance;
 class nsSVGNumberPair;
 
-struct nsSVGStringInfo {
-  nsSVGStringInfo(const nsSVGString* aString,
-                  nsSVGElement *aElement) :
-    mString(aString), mElement(aElement) {}
+struct nsSVGStringInfo
+{
+  nsSVGStringInfo(const nsSVGString* aString, nsSVGElement* aElement)
+      : mString(aString), mElement(aElement)
+  {
+  }
 
   const nsSVGString* mString;
   nsSVGElement* mElement;
@@ -30,9 +32,13 @@ struct nsSVGStringInfo {
 
 typedef nsSVGElement nsSVGFEBase;
 
-#define NS_SVG_FE_CID \
-{ 0x60483958, 0xd229, 0x4a77, \
-  { 0x96, 0xb2, 0x62, 0x3e, 0x69, 0x95, 0x1e, 0x0e } }
+#define NS_SVG_FE_CID                                \
+  {                                                  \
+    0x60483958, 0xd229, 0x4a77,                      \
+    {                                                \
+      0x96, 0xb2, 0x62, 0x3e, 0x69, 0x95, 0x1e, 0x0e \
+    }                                                \
+  }
 
 /**
  * Base class for filter primitive elements
@@ -43,7 +49,7 @@ class nsSVGFE : public nsSVGFEBase
 {
   friend class nsSVGFilterInstance;
 
-protected:
+ protected:
   typedef mozilla::gfx::SourceSurface SourceSurface;
   typedef mozilla::gfx::Size Size;
   typedef mozilla::gfx::IntRect IntRect;
@@ -51,22 +57,27 @@ protected:
   typedef mozilla::gfx::FilterPrimitiveDescription FilterPrimitiveDescription;
 
   explicit nsSVGFE(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsSVGFEBase(aNodeInfo) {}
+      : nsSVGFEBase(aNodeInfo)
+  {
+  }
   virtual ~nsSVGFE() {}
 
-public:
+ public:
   typedef mozilla::gfx::AttributeMap AttributeMap;
 
-  ColorSpace
-  GetInputColorSpace(int32_t aInputIndex, ColorSpace aUnchangedInputColorSpace) {
-    return OperatesOnSRGB(aInputIndex, aUnchangedInputColorSpace == ColorSpace::SRGB) ?
-             ColorSpace::SRGB : ColorSpace::LinearRGB;
+  ColorSpace GetInputColorSpace(int32_t aInputIndex,
+                                ColorSpace aUnchangedInputColorSpace)
+  {
+    return OperatesOnSRGB(aInputIndex,
+                          aUnchangedInputColorSpace == ColorSpace::SRGB)
+               ? ColorSpace::SRGB
+               : ColorSpace::LinearRGB;
   }
 
   // This is only called for filter primitives without inputs. For primitives
   // with inputs, the output color model is the same as of the first input.
-  ColorSpace
-  GetOutputColorSpace() {
+  ColorSpace GetOutputColorSpace()
+  {
     return ProducesSRGB() ? ColorSpace::SRGB : ColorSpace::LinearRGB;
   }
 
@@ -82,29 +93,32 @@ public:
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
   // nsSVGElement interface
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override = 0;
 
   virtual bool HasValidDimensions() const override;
 
   bool IsNodeOfType(uint32_t aFlags) const override
-    { return !(aFlags & ~(eCONTENT | eFILTER)); }
+  {
+    return !(aFlags & ~(eCONTENT | eFILTER));
+  }
 
   virtual nsSVGString& GetResultImageName() = 0;
   // Return a list of all image names used as sources. Default is to
   // return no sources.
   virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources);
 
-  virtual FilterPrimitiveDescription
-    GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                            const IntRect& aFilterSubregion,
-                            const nsTArray<bool>& aInputsAreTainted,
-                            nsTArray<RefPtr<SourceSurface>>& aInputImages) = 0;
+  virtual FilterPrimitiveDescription GetPrimitiveDescription(
+      nsSVGFilterInstance* aInstance,
+      const IntRect& aFilterSubregion,
+      const nsTArray<bool>& aInputsAreTainted,
+      nsTArray<RefPtr<SourceSurface>>& aInputImages) = 0;
 
   // returns true if changes to the attribute should cause us to
   // repaint the filter
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const;
 
   // Return whether this filter primitive has tainted output. A filter's
   // output is tainted if it depends on things that the web page is not
@@ -113,10 +127,11 @@ public:
   virtual bool OutputIsTainted(const nsTArray<bool>& aInputsAreTainted,
                                nsIPrincipal* aReferencePrincipal);
 
-  static nsIntRect GetMaxRect() {
+  static nsIntRect GetMaxRect()
+  {
     // Try to avoid overflow errors dealing with this rect. It will
     // be intersected with some other reasonable-sized rect eventually.
-    return nsIntRect(INT32_MIN/2, INT32_MIN/2, INT32_MAX, INT32_MAX);
+    return nsIntRect(INT32_MIN / 2, INT32_MIN / 2, INT32_MAX, INT32_MAX);
   }
 
   operator nsISupports*() { return static_cast<nsIContent*>(this); }
@@ -128,8 +143,9 @@ public:
   already_AddRefed<mozilla::dom::SVGAnimatedLength> Height();
   already_AddRefed<mozilla::dom::SVGAnimatedString> Result();
 
-protected:
-  virtual bool OperatesOnSRGB(int32_t aInputIndex, bool aInputIsAlreadySRGB) {
+ protected:
+  virtual bool OperatesOnSRGB(int32_t aInputIndex, bool aInputIsAlreadySRGB)
+  {
     return StyleIsSetToSRGB();
   }
 
@@ -142,9 +158,15 @@ protected:
   virtual LengthAttributesInfo GetLengthInfo() override;
 
   Size GetKernelUnitLength(nsSVGFilterInstance* aInstance,
-                          nsSVGNumberPair *aKernelUnitLength);
+                           nsSVGNumberPair* aKernelUnitLength);
 
-  enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
+  enum
+  {
+    ATTR_X,
+    ATTR_Y,
+    ATTR_WIDTH,
+    ATTR_HEIGHT
+  };
   nsSVGLength2 mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
 };
@@ -155,18 +177,22 @@ typedef nsSVGElement SVGFEUnstyledElementBase;
 
 class SVGFEUnstyledElement : public SVGFEUnstyledElementBase
 {
-protected:
-  explicit SVGFEUnstyledElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGFEUnstyledElementBase(aNodeInfo) {}
+ protected:
+  explicit SVGFEUnstyledElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGFEUnstyledElementBase(aNodeInfo)
+  {
+  }
 
-public:
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+ public:
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override = 0;
 
   // returns true if changes to the attribute should cause us to
   // repaint the filter
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const = 0;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const = 0;
 };
 
 //------------------------------------------------------------
@@ -175,27 +201,37 @@ typedef nsSVGFE nsSVGFELightingElementBase;
 
 class nsSVGFELightingElement : public nsSVGFELightingElementBase
 {
-protected:
-  explicit nsSVGFELightingElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsSVGFELightingElementBase(aNodeInfo) {}
+ protected:
+  explicit nsSVGFELightingElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsSVGFELightingElementBase(aNodeInfo)
+  {
+  }
 
   virtual ~nsSVGFELightingElement() {}
 
-public:
+ public:
   // interfaces:
   NS_DECL_ISUPPORTS_INHERITED
 
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override { return mStringAttributes[RESULT]; }
-  virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const override;
+  virtual nsSVGString& GetResultImageName() override
+  {
+    return mStringAttributes[RESULT];
+  }
+  virtual void GetSourceImageNames(
+      nsTArray<nsSVGStringInfo>& aSources) override;
   NS_FORWARD_NSIDOMSVGELEMENT(nsSVGFELightingElementBase::)
 
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-protected:
+ protected:
   virtual bool OperatesOnSRGB(int32_t aInputIndex,
-                              bool aInputIsAlreadySRGB) override { return true; }
+                              bool aInputIsAlreadySRGB) override
+  {
+    return true;
+  }
 
   virtual NumberAttributesInfo GetNumberInfo() override;
   virtual NumberPairAttributesInfo GetNumberPairInfo() override;
@@ -203,19 +239,32 @@ protected:
 
   AttributeMap ComputeLightAttributes(nsSVGFilterInstance* aInstance);
 
-  FilterPrimitiveDescription
-    AddLightingAttributes(const FilterPrimitiveDescription& aDescription,
-                          nsSVGFilterInstance* aInstance);
+  FilterPrimitiveDescription AddLightingAttributes(
+      const FilterPrimitiveDescription& aDescription,
+      nsSVGFilterInstance* aInstance);
 
-  enum { SURFACE_SCALE, DIFFUSE_CONSTANT, SPECULAR_CONSTANT, SPECULAR_EXPONENT };
+  enum
+  {
+    SURFACE_SCALE,
+    DIFFUSE_CONSTANT,
+    SPECULAR_CONSTANT,
+    SPECULAR_EXPONENT
+  };
   nsSVGNumber2 mNumberAttributes[4];
   static NumberInfo sNumberInfo[4];
 
-  enum { KERNEL_UNIT_LENGTH };
+  enum
+  {
+    KERNEL_UNIT_LENGTH
+  };
   nsSVGNumberPair mNumberPairAttributes[1];
   static NumberPairInfo sNumberPairInfo[1];
 
-  enum { RESULT, IN1 };
+  enum
+  {
+    RESULT,
+    IN1
+  };
   nsSVGString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
@@ -227,18 +276,21 @@ typedef SVGFEUnstyledElement SVGFELightElementBase;
 
 class SVGFELightElement : public SVGFELightElementBase
 {
-protected:
-  explicit SVGFELightElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGFELightElementBase(aNodeInfo) {}
+ protected:
+  explicit SVGFELightElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGFELightElementBase(aNodeInfo)
+  {
+  }
 
-public:
+ public:
   typedef gfx::AttributeMap AttributeMap;
 
-  virtual AttributeMap
-    ComputeLightAttributes(nsSVGFilterInstance* aInstance) = 0;
+  virtual AttributeMap ComputeLightAttributes(
+      nsSVGFilterInstance* aInstance) = 0;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

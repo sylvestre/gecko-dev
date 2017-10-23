@@ -12,17 +12,17 @@
 namespace mozilla {
 namespace css {
 class Rule;
-} // namespace css
+}  // namespace css
 
 class IncrementalClearCOMRuleArray : public nsCOMArray<css::Rule>
 {
-public:
+ public:
   IncrementalClearCOMRuleArray() {}
   ~IncrementalClearCOMRuleArray() { Clear(); }
 
   void Clear();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* !defined(mozilla_IncrementalClearCOMRuleArray_h) */

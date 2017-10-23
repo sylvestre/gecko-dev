@@ -16,7 +16,7 @@ namespace mozilla {
 
 namespace dom {
 class ContentParent;
-} // namespace dom
+}  // namespace dom
 
 namespace gfx {
 
@@ -49,7 +49,7 @@ enum class CrashGuardType : uint32_t
 };
 
 // DriverCrashGuard is used to detect crashes at graphics driver callsites.
-// 
+//
 // If the graphics environment is unrecognized or has changed since the last
 // session, the crash guard will activate and will detect any crashes within
 // the scope of the guard object.
@@ -59,7 +59,7 @@ enum class CrashGuardType : uint32_t
 // indicating that the driver should not be used.
 class DriverCrashGuard
 {
-public:
+ public:
   DriverCrashGuard(CrashGuardType aType, dom::ContentParent* aContentParent);
   virtual ~DriverCrashGuard();
 
@@ -68,14 +68,16 @@ public:
 
   // These are the values reported to Telemetry (GRAPHICS_DRIVER_STARTUP_TEST).
   // Values should not change; add new values to the end.
-  enum class TelemetryState {
+  enum class TelemetryState
+  {
     Okay = 0,
     EnvironmentChanged = 1,
     RecoveredFromCrash = 2,
     FeatureDisabled = 3
   };
 
-  enum class Mode {
+  enum class Mode
+  {
     // Normal operation.
     Normal,
 
@@ -84,22 +86,23 @@ public:
   };
 
   typedef std::function<void(const char* aName, const char* aPrefName)>
-    CrashGuardCallback;
+      CrashGuardCallback;
   static void ForEachActiveCrashGuard(const CrashGuardCallback& aCallback);
 
-protected:
+ protected:
   virtual void Initialize();
   virtual bool UpdateEnvironment() = 0;
   virtual void LogCrashRecovery() = 0;
   virtual void LogFeatureDisabled() = 0;
 
   // Helper functions.
-  bool FeatureEnabled(int aFeature, bool aDefault=true);
-  bool CheckAndUpdatePref(const char* aPrefName, const nsAString& aCurrentValue);
+  bool FeatureEnabled(int aFeature, bool aDefault = true);
+  bool CheckAndUpdatePref(const char* aPrefName,
+                          const nsAString& aCurrentValue);
   bool CheckAndUpdateBoolPref(const char* aPrefName, bool aCurrentValue);
   std::string GetFullPrefName(const char* aPref);
 
-private:
+ private:
   // Either process.
   void InitializeIfNeeded();
   bool CheckOrRefreshEnvironment();
@@ -113,7 +116,7 @@ private:
   void FlushPreferences();
   void SetStatus(DriverInitStatus aStatus);
 
-private:
+ private:
   CrashGuardType mType;
   Mode mMode;
   bool mInitialized;
@@ -121,7 +124,7 @@ private:
   bool mCrashDetected;
   nsCOMPtr<nsIFile> mGuardFile;
 
-protected:
+ protected:
   nsCString mStatusPref;
   nsCOMPtr<nsIGfxInfo> mGfxInfo;
 };
@@ -175,8 +178,7 @@ class GLContextCrashGuard final : public DriverCrashGuard
   void LogFeatureDisabled() override;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // gfx_src_DriverCrashGuard_h__
-
+#endif  // gfx_src_DriverCrashGuard_h__

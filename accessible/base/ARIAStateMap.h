@@ -59,10 +59,11 @@ enum EStateRule
  * @param  aState    [in/out] accessible states
  * @return            true if state map rule ID is valid
  */
-bool MapToState(EStateRule aRule, dom::Element* aElement, uint64_t* aState);
+bool
+MapToState(EStateRule aRule, dom::Element* aElement, uint64_t* aState);
 
-} // namespace aria
-} // namespace a11y
-} // namespace mozilla
+}  // namespace aria
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

@@ -4,22 +4,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsComposeTxtSrvFilter.h"
-#include "nsError.h"                    // for NS_OK
-#include "nsIContent.h"                 // for nsIContent
-#include "nsIDOMNode.h"                 // for nsIDOMNode
-#include "nsNameSpaceManager.h"        // for kNameSpaceID_None
-#include "nsLiteralString.h"            // for NS_LITERAL_STRING
-#include "nscore.h"                     // for NS_IMETHODIMP
+#include "nsError.h"             // for NS_OK
+#include "nsIContent.h"          // for nsIContent
+#include "nsIDOMNode.h"          // for nsIDOMNode
+#include "nsNameSpaceManager.h"  // for kNameSpaceID_None
+#include "nsLiteralString.h"     // for NS_LITERAL_STRING
+#include "nscore.h"              // for NS_IMETHODIMP
 
-nsComposeTxtSrvFilter::nsComposeTxtSrvFilter() :
-  mIsForMail(false)
-{
-}
+nsComposeTxtSrvFilter::nsComposeTxtSrvFilter() : mIsForMail(false) {}
 
 NS_IMPL_ISUPPORTS(nsComposeTxtSrvFilter, nsITextServicesFilter)
 
 NS_IMETHODIMP
-nsComposeTxtSrvFilter::Skip(nsIDOMNode* aNode, bool *_retval)
+nsComposeTxtSrvFilter::Skip(nsIDOMNode* aNode, bool* _retval)
 {
   *_retval = false;
 
@@ -30,16 +27,20 @@ nsComposeTxtSrvFilter::Skip(nsIDOMNode* aNode, bool *_retval)
   if (content) {
     if (content->IsHTMLElement(nsGkAtoms::blockquote)) {
       if (mIsForMail) {
-        *_retval = content->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                                        nsGkAtoms::cite, eIgnoreCase);
+        *_retval = content->AttrValueIs(
+            kNameSpaceID_None, nsGkAtoms::type, nsGkAtoms::cite, eIgnoreCase);
       }
     } else if (content->IsHTMLElement(nsGkAtoms::span)) {
       if (mIsForMail) {
-        *_retval = content->AttrValueIs(kNameSpaceID_None, nsGkAtoms::mozquote,
-                                        nsGkAtoms::_true, eIgnoreCase);
+        *_retval = content->AttrValueIs(kNameSpaceID_None,
+                                        nsGkAtoms::mozquote,
+                                        nsGkAtoms::_true,
+                                        eIgnoreCase);
         if (!*_retval) {
-          *_retval = content->AttrValueIs(kNameSpaceID_None, nsGkAtoms::_class,
-                                          nsGkAtoms::mozsignature, eCaseMatters);
+          *_retval = content->AttrValueIs(kNameSpaceID_None,
+                                          nsGkAtoms::_class,
+                                          nsGkAtoms::mozsignature,
+                                          eCaseMatters);
         }
       }
     } else if (content->IsAnyOfHTMLElements(nsGkAtoms::script,
@@ -51,9 +52,10 @@ nsComposeTxtSrvFilter::Skip(nsIDOMNode* aNode, bool *_retval)
     } else if (content->IsHTMLElement(nsGkAtoms::table)) {
       if (mIsForMail) {
         *_retval =
-          content->AttrValueIs(kNameSpaceID_None, nsGkAtoms::_class,
-                               NS_LITERAL_STRING("moz-email-headers-table"),
-                               eCaseMatters);
+            content->AttrValueIs(kNameSpaceID_None,
+                                 nsGkAtoms::_class,
+                                 NS_LITERAL_STRING("moz-email-headers-table"),
+                                 eCaseMatters);
       }
     }
   }

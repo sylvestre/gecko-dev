@@ -25,13 +25,11 @@
 
 namespace mozilla {
 class TimeStamp;
-} // namespace mozilla
+}  // namespace mozilla
 
-class TimerThread final
-  : public nsIRunnable
-  , public nsIObserver
+class TimerThread final : public nsIRunnable, public nsIObserver
 {
-public:
+ public:
   typedef mozilla::Monitor Monitor;
   typedef mozilla::TimeStamp TimeStamp;
   typedef mozilla::TimeDuration TimeDuration;
@@ -47,7 +45,8 @@ public:
 
   nsresult AddTimer(nsTimerImpl* aTimer);
   nsresult RemoveTimer(nsTimerImpl* aTimer);
-  TimeStamp FindNextFireTimeForCurrentThread(TimeStamp aDefault, uint32_t aSearchBound);
+  TimeStamp FindNextFireTimeForCurrentThread(TimeStamp aDefault,
+                                             uint32_t aSearchBound);
 
   void DoBeforeSleep();
   void DoAfterSleep();
@@ -57,23 +56,23 @@ public:
     return mThread->SerialEventTarget()->IsOnCurrentThread();
   }
 
-  uint32_t
-  AllowedEarlyFiringMicroseconds() const;
+  uint32_t AllowedEarlyFiringMicroseconds() const;
 
-private:
+ private:
   ~TimerThread();
 
-  bool    mInitialized;
+  bool mInitialized;
 
   // These internal helper methods must be called while mMonitor is held.
   // AddTimerInternal returns false if the insertion failed.
-  bool    AddTimerInternal(nsTimerImpl* aTimer);
-  bool    RemoveTimerInternal(nsTimerImpl* aTimer);
-  void    RemoveLeadingCanceledTimersInternal();
-  void    RemoveFirstTimerInternal();
+  bool AddTimerInternal(nsTimerImpl* aTimer);
+  bool RemoveTimerInternal(nsTimerImpl* aTimer);
+  void RemoveLeadingCanceledTimersInternal();
+  void RemoveFirstTimerInternal();
   nsresult Init();
 
-  already_AddRefed<nsTimerImpl> PostTimerEvent(already_AddRefed<nsTimerImpl> aTimerRef);
+  already_AddRefed<nsTimerImpl> PostTimerEvent(
+      already_AddRefed<nsTimerImpl> aTimerRef);
 
   nsCOMPtr<nsIThread> mThread;
   Monitor mMonitor;
@@ -87,22 +86,18 @@ private:
   {
     const TimeStamp mTimeout;
 
-  public:
-    Entry(const TimeStamp& aMinTimeout, const TimeStamp& aTimeout,
+   public:
+    Entry(const TimeStamp& aMinTimeout,
+          const TimeStamp& aTimeout,
           nsTimerImpl* aTimerImpl)
-      : nsTimerImplHolder(aTimerImpl)
-      , mTimeout(std::max(aMinTimeout, aTimeout))
+        : nsTimerImplHolder(aTimerImpl),
+          mTimeout(std::max(aMinTimeout, aTimeout))
     {
     }
 
-    nsTimerImpl*
-    Value() const
-    {
-      return mTimerImpl;
-    }
+    nsTimerImpl* Value() const { return mTimerImpl; }
 
-    already_AddRefed<nsTimerImpl>
-    Take()
+    already_AddRefed<nsTimerImpl> Take()
     {
       if (mTimerImpl) {
         mTimerImpl->SetHolder(nullptr);
@@ -110,19 +105,15 @@ private:
       return mTimerImpl.forget();
     }
 
-    static bool
-    UniquePtrLessThan(mozilla::UniquePtr<Entry>& aLeft,
-                      mozilla::UniquePtr<Entry>& aRight)
+    static bool UniquePtrLessThan(mozilla::UniquePtr<Entry>& aLeft,
+                                  mozilla::UniquePtr<Entry>& aRight)
     {
       // This is reversed because std::push_heap() sorts the "largest" to
       // the front of the heap.  We want that to be the earliest timer.
       return aRight->mTimeout < aLeft->mTimeout;
     }
 
-    TimeStamp Timeout() const
-    {
-      return mTimeout;
-    }
+    TimeStamp Timeout() const { return mTimeout; }
   };
 
   nsTArray<mozilla::UniquePtr<Entry>> mTimers;

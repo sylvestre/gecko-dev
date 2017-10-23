@@ -52,8 +52,7 @@ PointerRangeSize(T* aBegin, T* aEnd)
  * Beware of the implicit trailing '\0' when using this with string constants.
  */
 template<typename T, size_t N>
-constexpr size_t
-ArrayLength(T (&aArr)[N])
+constexpr size_t ArrayLength(T (&aArr)[N])
 {
   return N;
 }
@@ -78,8 +77,7 @@ ArrayLength(const EnumeratedArray<E, N, T>& aArr)
  * Beware of the implicit trailing '\0' when using this with string constants.
  */
 template<typename T, size_t N>
-constexpr T*
-ArrayEnd(T (&aArr)[N])
+constexpr T* ArrayEnd(T (&aArr)[N])
 {
   return aArr + ArrayLength(aArr);
 }
@@ -100,12 +98,12 @@ ArrayEnd(const Array<T, N>& aArr)
 
 namespace detail {
 
-template<typename AlignType, typename Pointee,
+template<typename AlignType,
+         typename Pointee,
          typename = EnableIf<!IsVoid<AlignType>::value>>
 struct AlignedChecker
 {
-  static void
-  test(const Pointee* aPtr)
+  static void test(const Pointee* aPtr)
   {
     MOZ_ASSERT((uintptr_t(aPtr) % MOZ_ALIGNOF(AlignType)) == 0,
                "performing a range-check with a misaligned pointer");
@@ -115,13 +113,10 @@ struct AlignedChecker
 template<typename AlignType, typename Pointee>
 struct AlignedChecker<AlignType, Pointee>
 {
-  static void
-  test(const Pointee* aPtr)
-  {
-  }
+  static void test(const Pointee* aPtr) {}
 };
 
-} // namespace detail
+}  // namespace detail
 
 /**
  * Determines whether |aPtr| points at an object in the range [aBegin, aEnd).
@@ -137,9 +132,8 @@ struct AlignedChecker<AlignType, Pointee>
  * particular alignment).
  */
 template<typename T, typename U>
-inline typename EnableIf<IsSame<T, U>::value ||
-                         IsBaseOf<T, U>::value ||
-                         IsVoid<T>::value,
+inline typename EnableIf<IsSame<T, U>::value || IsBaseOf<T, U>::value ||
+                             IsVoid<T>::value,
                          bool>::Type
 IsInRange(const T* aPtr, const U* aBegin, const U* aEnd)
 {
@@ -171,7 +165,7 @@ namespace detail {
  * Helper for the MOZ_ARRAY_LENGTH() macro to make the length a typesafe
  * compile-time constant even on compilers lacking constexpr support.
  */
-template <typename T, size_t N>
+template<typename T, size_t N>
 char (&ArrayLengthHelper(T (&array)[N]))[N];
 
 } /* namespace detail */
@@ -186,9 +180,10 @@ char (&ArrayLengthHelper(T (&array)[N]))[N];
  * can't call ArrayLength() when it is not a C++11 constexpr function.
  */
 #ifdef __cplusplus
-#  define MOZ_ARRAY_LENGTH(array)   sizeof(mozilla::detail::ArrayLengthHelper(array))
+#define MOZ_ARRAY_LENGTH(array) \
+  sizeof(mozilla::detail::ArrayLengthHelper(array))
 #else
-#  define MOZ_ARRAY_LENGTH(array)   (sizeof(array)/sizeof((array)[0]))
+#define MOZ_ARRAY_LENGTH(array) (sizeof(array) / sizeof((array)[0]))
 #endif
 
 #endif /* mozilla_ArrayUtils_h */

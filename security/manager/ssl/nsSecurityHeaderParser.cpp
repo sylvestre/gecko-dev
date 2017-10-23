@@ -16,12 +16,12 @@
 // horizontal-tab (32 and 9, respectively).
 // So, this returns true if chr is any octet 33-126 except ()<>@,;:\"/[]?={}
 bool
-IsTokenSymbol(signed char chr) {
-  if (chr < 33 || chr == 127 ||
-      chr == '(' || chr == ')' || chr == '<' || chr == '>' ||
-      chr == '@' || chr == ',' || chr == ';' || chr == ':' ||
-      chr == '"' || chr == '/' || chr == '[' || chr == ']' ||
-      chr == '?' || chr == '=' || chr == '{' || chr == '}' || chr == '\\') {
+IsTokenSymbol(signed char chr)
+{
+  if (chr < 33 || chr == 127 || chr == '(' || chr == ')' || chr == '<' ||
+      chr == '>' || chr == '@' || chr == ',' || chr == ';' || chr == ':' ||
+      chr == '"' || chr == '/' || chr == '[' || chr == ']' || chr == '?' ||
+      chr == '=' || chr == '{' || chr == '}' || chr == '\\') {
     return false;
   }
   return true;
@@ -35,14 +35,16 @@ IsTokenSymbol(signed char chr) {
 // So, it turns out, \ can't really be a qdtext symbol for our purposes.
 // This returns true if chr is any octet 9,10,13,32-126 except <"> or "\"
 bool
-IsQuotedTextSymbol(signed char chr) {
+IsQuotedTextSymbol(signed char chr)
+{
   return ((chr >= 32 && chr != '"' && chr != '\\' && chr != 127) ||
           chr == 0x9 || chr == 0xa || chr == 0xd);
 }
 
 // The octet following the "\" in a quoted pair can be anything 0-127.
 bool
-IsQuotedPairSymbol(signed char chr) {
+IsQuotedPairSymbol(signed char chr)
+{
   return (chr >= 0);
 }
 
@@ -51,25 +53,27 @@ static mozilla::LazyLogModule sSHParserLog("nsSecurityHeaderParser");
 #define SHPARSERLOG(args) MOZ_LOG(sSHParserLog, mozilla::LogLevel::Debug, args)
 
 nsSecurityHeaderParser::nsSecurityHeaderParser(const nsCString& aHeader)
-  : mCursor(aHeader.get())
-  , mError(false)
+    : mCursor(aHeader.get()), mError(false)
 {
 }
 
-nsSecurityHeaderParser::~nsSecurityHeaderParser() {
-  nsSecurityHeaderDirective *directive;
+nsSecurityHeaderParser::~nsSecurityHeaderParser()
+{
+  nsSecurityHeaderDirective* directive;
   while ((directive = mDirectives.popFirst())) {
     delete directive;
   }
 }
 
-mozilla::LinkedList<nsSecurityHeaderDirective> *
-nsSecurityHeaderParser::GetDirectives() {
+mozilla::LinkedList<nsSecurityHeaderDirective>*
+nsSecurityHeaderParser::GetDirectives()
+{
   return &mDirectives;
 }
 
 nsresult
-nsSecurityHeaderParser::Parse() {
+nsSecurityHeaderParser::Parse()
+{
   MOZ_ASSERT(mDirectives.isEmpty());
   SHPARSERLOG(("trying to parse '%s'", mCursor));
 
@@ -95,7 +99,7 @@ nsSecurityHeaderParser::Accept(char aChr)
 }
 
 bool
-nsSecurityHeaderParser::Accept(bool (*aClassifier) (signed char))
+nsSecurityHeaderParser::Accept(bool (*aClassifier)(signed char))
 {
   if (aClassifier(*mCursor)) {
     Advance();
@@ -151,7 +155,8 @@ nsSecurityHeaderParser::Directive()
   }
   mDirectives.insertBack(mDirective);
   SHPARSERLOG(("read directive name '%s', value '%s'",
-               mDirective->mName.Data(), mDirective->mValue.Data()));
+               mDirective->mName.Data(),
+               mDirective->mValue.Data()));
 }
 
 void
@@ -183,7 +188,8 @@ nsSecurityHeaderParser::DirectiveValue()
 void
 nsSecurityHeaderParser::Token()
 {
-  while (Accept(IsTokenSymbol));
+  while (Accept(IsTokenSymbol))
+    ;
 }
 
 void
@@ -203,7 +209,8 @@ nsSecurityHeaderParser::QuotedString()
 void
 nsSecurityHeaderParser::QuotedText()
 {
-  while (Accept(IsQuotedTextSymbol));
+  while (Accept(IsQuotedTextSymbol))
+    ;
 }
 
 void
@@ -227,7 +234,8 @@ nsSecurityHeaderParser::LWSMultiple()
 }
 
 void
-nsSecurityHeaderParser::LWSCRLF() {
+nsSecurityHeaderParser::LWSCRLF()
+{
   Expect('\n');
   if (!(Accept(' ') || Accept('\t'))) {
     mError = true;
@@ -240,5 +248,6 @@ nsSecurityHeaderParser::LWS()
 {
   // Note that becaue of how we're called, we don't have to check for
   // the mandatory presense of at least one of SP or HT.
-  while (Accept(' ') || Accept('\t'));
+  while (Accept(' ') || Accept('\t'))
+    ;
 }

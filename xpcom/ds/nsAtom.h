@@ -16,10 +16,11 @@
 // certain atoms are passed to certain functions.
 class nsAtom
 {
-public:
+ public:
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-  enum class AtomKind : uint8_t {
+  enum class AtomKind : uint8_t
+  {
     DynamicAtom = 0,
     StaticAtom = 1,
     HTML5Atom = 2,
@@ -45,8 +46,8 @@ public:
   AtomKind Kind() const { return static_cast<AtomKind>(mKind); }
 
   bool IsDynamicAtom() const { return Kind() == AtomKind::DynamicAtom; }
-  bool IsHTML5Atom()   const { return Kind() == AtomKind::HTML5Atom; }
-  bool IsStaticAtom()  const { return Kind() == AtomKind::StaticAtom; }
+  bool IsHTML5Atom() const { return Kind() == AtomKind::HTML5Atom; }
+  bool IsStaticAtom() const { return Kind() == AtomKind::StaticAtom; }
 
   char16ptr_t GetUTF16String() const { return mString; }
 
@@ -81,20 +82,21 @@ public:
 
   typedef mozilla::TrueType HasThreadSafeRefCnt;
 
-private:
+ private:
   friend class nsAtomFriend;
   friend class nsHtml5AtomEntry;
 
   // Construction and destruction is done entirely by |friend|s.
   nsAtom(AtomKind aKind, const nsAString& aString, uint32_t aHash);
   nsAtom(const char16_t* aString, uint32_t aLength, uint32_t aHash);
-protected:
+
+ protected:
   ~nsAtom();
 
-private:
+ private:
   mozilla::ThreadSafeAutoRefCnt mRefCnt;
-  uint32_t mLength: 30;
-  uint32_t mKind: 2; // nsAtom::AtomKind
+  uint32_t mLength : 30;
+  uint32_t mKind : 2;  // nsAtom::AtomKind
   uint32_t mHash;
   // WARNING! For static atoms, this is a pointer to a static char buffer. For
   // non-static atoms it points to the chars in an nsStringBuffer. This means
@@ -111,49 +113,58 @@ private:
 
 // Find an atom that matches the given UTF-8 string. The string is assumed to
 // be zero terminated. Never returns null.
-already_AddRefed<nsAtom> NS_Atomize(const char* aUTF8String);
+already_AddRefed<nsAtom>
+NS_Atomize(const char* aUTF8String);
 
 // Find an atom that matches the given UTF-8 string. Never returns null.
-already_AddRefed<nsAtom> NS_Atomize(const nsACString& aUTF8String);
+already_AddRefed<nsAtom>
+NS_Atomize(const nsACString& aUTF8String);
 
 // Find an atom that matches the given UTF-16 string. The string is assumed to
 // be zero terminated. Never returns null.
-already_AddRefed<nsAtom> NS_Atomize(const char16_t* aUTF16String);
+already_AddRefed<nsAtom>
+NS_Atomize(const char16_t* aUTF16String);
 
 // Find an atom that matches the given UTF-16 string. Never returns null.
-already_AddRefed<nsAtom> NS_Atomize(const nsAString& aUTF16String);
+already_AddRefed<nsAtom>
+NS_Atomize(const nsAString& aUTF16String);
 
 // An optimized version of the method above for the main thread.
-already_AddRefed<nsAtom> NS_AtomizeMainThread(const nsAString& aUTF16String);
+already_AddRefed<nsAtom>
+NS_AtomizeMainThread(const nsAString& aUTF16String);
 
 // Return a count of the total number of atoms currently alive in the system.
-nsrefcnt NS_GetNumberOfAtoms();
+nsrefcnt
+NS_GetNumberOfAtoms();
 
 // Return a pointer for a static atom for the string or null if there's no
 // static atom for this string.
-nsAtom* NS_GetStaticAtom(const nsAString& aUTF16String);
+nsAtom*
+NS_GetStaticAtom(const nsAString& aUTF16String);
 
 // Seal the static atom table.
-void NS_SealStaticAtomTable();
+void
+NS_SealStaticAtomTable();
 
 class nsAtomString : public nsString
 {
-public:
+ public:
   explicit nsAtomString(const nsAtom* aAtom) { aAtom->ToString(*this); }
 };
 
 class nsAtomCString : public nsCString
 {
-public:
+ public:
   explicit nsAtomCString(nsAtom* aAtom) { aAtom->ToUTF8String(*this); }
 };
 
 class nsDependentAtomString : public nsDependentString
 {
-public:
+ public:
   explicit nsDependentAtomString(const nsAtom* aAtom)
-    : nsDependentString(aAtom->GetUTF16String(), aAtom->GetLength())
-  {}
+      : nsDependentString(aAtom->GetUTF16String(), aAtom->GetLength())
+  {
+  }
 };
 
 #endif  // nsAtom_h

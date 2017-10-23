@@ -27,7 +27,7 @@ using namespace gfx;
 
 class KnowsCompositorVideo : public layers::KnowsCompositor
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(KnowsCompositorVideo, override)
 
   layers::TextureForwarder* GetTextureForwarder() override
@@ -38,23 +38,25 @@ public:
   {
     return VideoBridgeChild::GetSingleton();
   }
-private:
+
+ private:
   virtual ~KnowsCompositorVideo() = default;
 };
 
-VideoDecoderParent::VideoDecoderParent(VideoDecoderManagerParent* aParent,
-                                       const VideoInfo& aVideoInfo,
-                                       float aFramerate,
-                                       const layers::TextureFactoryIdentifier& aIdentifier,
-                                       TaskQueue* aManagerTaskQueue,
-                                       TaskQueue* aDecodeTaskQueue,
-                                       bool* aSuccess,
-                                       nsCString* aErrorDescription)
-  : mParent(aParent)
-  , mManagerTaskQueue(aManagerTaskQueue)
-  , mDecodeTaskQueue(aDecodeTaskQueue)
-  , mKnowsCompositor(new KnowsCompositorVideo)
-  , mDestroyed(false)
+VideoDecoderParent::VideoDecoderParent(
+    VideoDecoderManagerParent* aParent,
+    const VideoInfo& aVideoInfo,
+    float aFramerate,
+    const layers::TextureFactoryIdentifier& aIdentifier,
+    TaskQueue* aManagerTaskQueue,
+    TaskQueue* aDecodeTaskQueue,
+    bool* aSuccess,
+    nsCString* aErrorDescription)
+    : mParent(aParent),
+      mManagerTaskQueue(aManagerTaskQueue),
+      mDecodeTaskQueue(aDecodeTaskQueue),
+      mKnowsCompositor(new KnowsCompositorVideo),
+      mDestroyed(false)
 {
   MOZ_COUNT_CTOR(VideoDecoderParent);
   MOZ_ASSERT(OnManagerThread());
@@ -113,25 +115,27 @@ VideoDecoderParent::RecvInit()
 {
   MOZ_ASSERT(OnManagerThread());
   RefPtr<VideoDecoderParent> self = this;
-  mDecoder->Init()->Then(mManagerTaskQueue, __func__,
-    [self] (TrackInfo::TrackType aTrack) {
-      if (self->mDecoder) {
-        nsCString hardwareReason;
-        bool hardwareAccelerated =
-          self->mDecoder->IsHardwareAccelerated(hardwareReason);
-        uint32_t conversion =
-          static_cast<uint32_t>(self->mDecoder->NeedsConversion());
-        Unused << self->SendInitComplete(self->mDecoder->GetDescriptionName(),
-                                         hardwareAccelerated,
-                                         hardwareReason,
-                                         conversion);
-      }
-    },
-    [self] (MediaResult aReason) {
-      if (!self->mDestroyed) {
-        Unused << self->SendInitFailed(aReason);
-      }
-    });
+  mDecoder->Init()->Then(
+      mManagerTaskQueue,
+      __func__,
+      [self](TrackInfo::TrackType aTrack) {
+        if (self->mDecoder) {
+          nsCString hardwareReason;
+          bool hardwareAccelerated =
+              self->mDecoder->IsHardwareAccelerated(hardwareReason);
+          uint32_t conversion =
+              static_cast<uint32_t>(self->mDecoder->NeedsConversion());
+          Unused << self->SendInitComplete(self->mDecoder->GetDescriptionName(),
+                                           hardwareAccelerated,
+                                           hardwareReason,
+                                           conversion);
+        }
+      },
+      [self](MediaResult aReason) {
+        if (!self->mDestroyed) {
+          Unused << self->SendInitFailed(aReason);
+        }
+      });
   return IPC_OK();
 }
 
@@ -158,21 +162,22 @@ VideoDecoderParent::RecvInput(const MediaRawDataIPDL& aData)
 
   RefPtr<VideoDecoderParent> self = this;
   mDecoder->Decode(data)->Then(
-    mManagerTaskQueue, __func__,
-    [self, this](const MediaDataDecoder::DecodedData& aResults) {
-      if (mDestroyed) {
-        return;
-      }
-      ProcessDecodedData(aResults);
-      Unused << SendInputExhausted();
-    },
-    [self, this](const MediaResult& aError) { Error(aError); });
+      mManagerTaskQueue,
+      __func__,
+      [self, this](const MediaDataDecoder::DecodedData& aResults) {
+        if (mDestroyed) {
+          return;
+        }
+        ProcessDecodedData(aResults);
+        Unused << SendInputExhausted();
+      },
+      [self, this](const MediaResult& aError) { Error(aError); });
   return IPC_OK();
 }
 
 void
 VideoDecoderParent::ProcessDecodedData(
-  const MediaDataDecoder::DecodedData& aData)
+    const MediaDataDecoder::DecodedData& aData)
 {
   MOZ_ASSERT(OnManagerThread());
 
@@ -183,18 +188,19 @@ VideoDecoderParent::ProcessDecodedData(
 
   for (const auto& data : aData) {
     MOZ_ASSERT(data->mType == MediaData::VIDEO_DATA,
-                "Can only decode videos using VideoDecoderParent!");
+               "Can only decode videos using VideoDecoderParent!");
     VideoData* video = static_cast<VideoData*>(data.get());
 
-    MOZ_ASSERT(video->mImage, "Decoded video must output a layer::Image to "
-                              "be used with VideoDecoderParent");
+    MOZ_ASSERT(video->mImage,
+               "Decoded video must output a layer::Image to "
+               "be used with VideoDecoderParent");
 
     RefPtr<TextureClient> texture =
-      video->mImage->GetTextureClient(mKnowsCompositor);
+        video->mImage->GetTextureClient(mKnowsCompositor);
 
     if (!texture) {
       texture = ImageClient::CreateTextureClientForImage(video->mImage,
-                                                          mKnowsCompositor);
+                                                         mKnowsCompositor);
     }
 
     if (texture && !texture->IsAddedToCompositableClient()) {
@@ -202,16 +208,17 @@ VideoDecoderParent::ProcessDecodedData(
       texture->SetAddedToCompositableClient();
     }
 
-    VideoDataIPDL output(
-      MediaDataIPDL(data->mOffset, data->mTime.ToMicroseconds(),
-                    data->mTimecode.ToMicroseconds(),
-                    data->mDuration.ToMicroseconds(),
-                    data->mFrames, data->mKeyframe),
-      video->mDisplay,
-      texture ? texture->GetSize() : IntSize(),
-      texture ? mParent->StoreImage(video->mImage, texture)
-              : SurfaceDescriptorGPUVideo(0, null_t()),
-      video->mFrameID);
+    VideoDataIPDL output(MediaDataIPDL(data->mOffset,
+                                       data->mTime.ToMicroseconds(),
+                                       data->mTimecode.ToMicroseconds(),
+                                       data->mDuration.ToMicroseconds(),
+                                       data->mFrames,
+                                       data->mKeyframe),
+                         video->mDisplay,
+                         texture ? texture->GetSize() : IntSize(),
+                         texture ? mParent->StoreImage(video->mImage, texture)
+                                 : SurfaceDescriptorGPUVideo(0, null_t()),
+                         video->mFrameID);
     Unused << SendOutput(output);
   }
 }
@@ -223,13 +230,14 @@ VideoDecoderParent::RecvFlush()
   MOZ_ASSERT(OnManagerThread());
   RefPtr<VideoDecoderParent> self = this;
   mDecoder->Flush()->Then(
-    mManagerTaskQueue, __func__,
-    [self, this]() {
-      if (!mDestroyed) {
-        Unused << SendFlushComplete();
-      }
-    },
-    [self, this](const MediaResult& aError) { Error(aError); });
+      mManagerTaskQueue,
+      __func__,
+      [self, this]() {
+        if (!mDestroyed) {
+          Unused << SendFlushComplete();
+        }
+      },
+      [self, this](const MediaResult& aError) { Error(aError); });
 
   return IPC_OK();
 }
@@ -241,14 +249,15 @@ VideoDecoderParent::RecvDrain()
   MOZ_ASSERT(OnManagerThread());
   RefPtr<VideoDecoderParent> self = this;
   mDecoder->Drain()->Then(
-    mManagerTaskQueue, __func__,
-    [self, this](const MediaDataDecoder::DecodedData& aResults) {
-      if (!mDestroyed) {
-        ProcessDecodedData(aResults);
-        Unused << SendDrainComplete();
-      }
-    },
-    [self, this](const MediaResult& aError) { Error(aError); });
+      mManagerTaskQueue,
+      __func__,
+      [self, this](const MediaDataDecoder::DecodedData& aResults) {
+        if (!mDestroyed) {
+          ProcessDecodedData(aResults);
+          Unused << SendDrainComplete();
+        }
+      },
+      [self, this](const MediaResult& aError) { Error(aError); });
   return IPC_OK();
 }
 
@@ -302,5 +311,5 @@ VideoDecoderParent::OnManagerThread()
   return mParent->OnManagerThread();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

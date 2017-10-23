@@ -17,31 +17,26 @@
 
 // According to MSDN, the following limits apply (in characters excluding room
 // for terminating null character):
-#define MAX_KEY_NAME_LEN     255
-#define MAX_VALUE_NAME_LEN   16383
+#define MAX_KEY_NAME_LEN 255
+#define MAX_VALUE_NAME_LEN 16383
 
 class nsWindowsRegKey final : public nsIWindowsRegKey
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIWINDOWSREGKEY
 
   nsWindowsRegKey()
-    : mKey(nullptr)
-    , mWatchEvent(nullptr)
-    , mWatchRecursive(FALSE)
+      : mKey(nullptr), mWatchEvent(nullptr), mWatchRecursive(FALSE)
   {
   }
 
-private:
-  ~nsWindowsRegKey()
-  {
-    Close();
-  }
+ private:
+  ~nsWindowsRegKey() { Close(); }
 
-  HKEY   mKey;
+  HKEY mKey;
   HANDLE mWatchEvent;
-  BOOL   mWatchRecursive;
+  BOOL mWatchRecursive;
 };
 
 NS_IMPL_ISUPPORTS(nsWindowsRegKey, nsIWindowsRegKey)
@@ -76,33 +71,41 @@ nsWindowsRegKey::Close()
 }
 
 NS_IMETHODIMP
-nsWindowsRegKey::Open(uint32_t aRootKey, const nsAString& aPath,
-                      uint32_t aMode)
+nsWindowsRegKey::Open(uint32_t aRootKey, const nsAString& aPath, uint32_t aMode)
 {
   Close();
 
   LONG rv = RegOpenKeyExW((HKEY)(intptr_t)aRootKey,
-                          PromiseFlatString(aPath).get(), 0, (REGSAM)aMode,
+                          PromiseFlatString(aPath).get(),
+                          0,
+                          (REGSAM)aMode,
                           &mKey);
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-nsWindowsRegKey::Create(uint32_t aRootKey, const nsAString& aPath,
+nsWindowsRegKey::Create(uint32_t aRootKey,
+                        const nsAString& aPath,
                         uint32_t aMode)
 {
   Close();
 
   DWORD disposition;
   LONG rv = RegCreateKeyExW((HKEY)(intptr_t)aRootKey,
-                            PromiseFlatString(aPath).get(), 0, nullptr,
-                            REG_OPTION_NON_VOLATILE, (REGSAM)aMode, nullptr,
-                            &mKey, &disposition);
+                            PromiseFlatString(aPath).get(),
+                            0,
+                            nullptr,
+                            REG_OPTION_NON_VOLATILE,
+                            (REGSAM)aMode,
+                            nullptr,
+                            &mKey,
+                            &disposition);
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-nsWindowsRegKey::OpenChild(const nsAString& aPath, uint32_t aMode,
+nsWindowsRegKey::OpenChild(const nsAString& aPath,
+                           uint32_t aMode,
                            nsIWindowsRegKey** aResult)
 {
   if (NS_WARN_IF(!mKey)) {
@@ -121,7 +124,8 @@ nsWindowsRegKey::OpenChild(const nsAString& aPath, uint32_t aMode,
 }
 
 NS_IMETHODIMP
-nsWindowsRegKey::CreateChild(const nsAString& aPath, uint32_t aMode,
+nsWindowsRegKey::CreateChild(const nsAString& aPath,
+                             uint32_t aMode,
                              nsIWindowsRegKey** aResult)
 {
   if (NS_WARN_IF(!mKey)) {
@@ -147,9 +151,18 @@ nsWindowsRegKey::GetChildCount(uint32_t* aResult)
   }
 
   DWORD numSubKeys;
-  LONG rv = RegQueryInfoKeyW(mKey, nullptr, nullptr, nullptr, &numSubKeys,
-                             nullptr, nullptr, nullptr, nullptr, nullptr,
-                             nullptr, nullptr);
+  LONG rv = RegQueryInfoKeyW(mKey,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             &numSubKeys,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr);
   if (rv != ERROR_SUCCESS) {
     return NS_ERROR_FAILURE;
   }
@@ -170,8 +183,8 @@ nsWindowsRegKey::GetChildName(uint32_t aIndex, nsAString& aResult)
   wchar_t nameBuf[MAX_KEY_NAME_LEN + 1];
   DWORD nameLen = sizeof(nameBuf) / sizeof(nameBuf[0]);
 
-  LONG rv = RegEnumKeyExW(mKey, aIndex, nameBuf, &nameLen, nullptr, nullptr,
-                          nullptr, &lastWritten);
+  LONG rv = RegEnumKeyExW(
+      mKey, aIndex, nameBuf, &nameLen, nullptr, nullptr, nullptr, &lastWritten);
   if (rv != ERROR_SUCCESS) {
     return NS_ERROR_NOT_AVAILABLE;  // XXX what's the best error code here?
   }
@@ -192,8 +205,8 @@ nsWindowsRegKey::HasChild(const nsAString& aName, bool* aResult)
   // rights.  Perhaps there is a more efficient way to do this?
 
   HKEY key;
-  LONG rv = RegOpenKeyExW(mKey, PromiseFlatString(aName).get(), 0,
-                          STANDARD_RIGHTS_READ, &key);
+  LONG rv = RegOpenKeyExW(
+      mKey, PromiseFlatString(aName).get(), 0, STANDARD_RIGHTS_READ, &key);
 
   if ((*aResult = (rv == ERROR_SUCCESS && key))) {
     RegCloseKey(key);
@@ -210,9 +223,18 @@ nsWindowsRegKey::GetValueCount(uint32_t* aResult)
   }
 
   DWORD numValues;
-  LONG rv = RegQueryInfoKeyW(mKey, nullptr, nullptr, nullptr, nullptr,
-                             nullptr, nullptr, &numValues, nullptr, nullptr,
-                             nullptr, nullptr);
+  LONG rv = RegQueryInfoKeyW(mKey,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             &numValues,
+                             nullptr,
+                             nullptr,
+                             nullptr,
+                             nullptr);
   if (rv != ERROR_SUCCESS) {
     return NS_ERROR_FAILURE;
   }
@@ -231,8 +253,8 @@ nsWindowsRegKey::GetValueName(uint32_t aIndex, nsAString& aResult)
   wchar_t nameBuf[MAX_VALUE_NAME_LEN];
   DWORD nameLen = sizeof(nameBuf) / sizeof(nameBuf[0]);
 
-  LONG rv = RegEnumValueW(mKey, aIndex, nameBuf, &nameLen, nullptr, nullptr,
-                          nullptr, nullptr);
+  LONG rv = RegEnumValueW(
+      mKey, aIndex, nameBuf, &nameLen, nullptr, nullptr, nullptr, nullptr);
   if (rv != ERROR_SUCCESS) {
     return NS_ERROR_NOT_AVAILABLE;  // XXX what's the best error code here?
   }
@@ -249,8 +271,8 @@ nsWindowsRegKey::HasValue(const nsAString& aName, bool* aResult)
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  LONG rv = RegQueryValueExW(mKey, PromiseFlatString(aName).get(), 0, nullptr,
-                             nullptr, nullptr);
+  LONG rv = RegQueryValueExW(
+      mKey, PromiseFlatString(aName).get(), 0, nullptr, nullptr, nullptr);
 
   *aResult = (rv == ERROR_SUCCESS);
   return NS_OK;
@@ -287,8 +309,12 @@ nsWindowsRegKey::GetValueType(const nsAString& aName, uint32_t* aResult)
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  LONG rv = RegQueryValueExW(mKey, PromiseFlatString(aName).get(), 0,
-                             (LPDWORD)aResult, nullptr, nullptr);
+  LONG rv = RegQueryValueExW(mKey,
+                             PromiseFlatString(aName).get(),
+                             0,
+                             (LPDWORD)aResult,
+                             nullptr,
+                             nullptr);
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -334,8 +360,8 @@ nsWindowsRegKey::ReadStringValue(const nsAString& aName, nsAString& aResult)
   nsAString::iterator begin;
   aResult.BeginWriting(begin);
 
-  rv = RegQueryValueExW(mKey, flatName.get(), 0, &type, (LPBYTE)begin.get(),
-                        &size);
+  rv = RegQueryValueExW(
+      mKey, flatName.get(), 0, &type, (LPBYTE)begin.get(), &size);
 
   if (!aResult.CharAt(resultLen - 1)) {
     // The string passed to us had a null terminator in the final position.
@@ -354,9 +380,8 @@ nsWindowsRegKey::ReadStringValue(const nsAString& aName, nsAString& aResult)
         return NS_ERROR_OUT_OF_MEMORY;
       }
 
-      resultLen = ExpandEnvironmentStringsW(flatSource.get(),
-                                            expandedResult.get(),
-                                            resultLen + 1);
+      resultLen = ExpandEnvironmentStringsW(
+          flatSource.get(), expandedResult.get(), resultLen + 1);
       if (resultLen <= 0) {
         rv = ERROR_UNKNOWN_FEATURE;
         aResult.Truncate();
@@ -381,8 +406,8 @@ nsWindowsRegKey::ReadIntValue(const nsAString& aName, uint32_t* aResult)
   }
 
   DWORD size = sizeof(*aResult);
-  LONG rv = RegQueryValueExW(mKey, PromiseFlatString(aName).get(), 0, nullptr,
-                             (LPBYTE)aResult, &size);
+  LONG rv = RegQueryValueExW(
+      mKey, PromiseFlatString(aName).get(), 0, nullptr, (LPBYTE)aResult, &size);
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -394,8 +419,8 @@ nsWindowsRegKey::ReadInt64Value(const nsAString& aName, uint64_t* aResult)
   }
 
   DWORD size = sizeof(*aResult);
-  LONG rv = RegQueryValueExW(mKey, PromiseFlatString(aName).get(), 0, nullptr,
-                             (LPBYTE)aResult, &size);
+  LONG rv = RegQueryValueExW(
+      mKey, PromiseFlatString(aName).get(), 0, nullptr, (LPBYTE)aResult, &size);
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -407,8 +432,8 @@ nsWindowsRegKey::ReadBinaryValue(const nsAString& aName, nsACString& aResult)
   }
 
   DWORD size;
-  LONG rv = RegQueryValueExW(mKey, PromiseFlatString(aName).get(), 0,
-                             nullptr, nullptr, &size);
+  LONG rv = RegQueryValueExW(
+      mKey, PromiseFlatString(aName).get(), 0, nullptr, nullptr, &size);
 
   if (rv != ERROR_SUCCESS) {
     return NS_ERROR_FAILURE;
@@ -426,8 +451,12 @@ nsWindowsRegKey::ReadBinaryValue(const nsAString& aName, nsACString& aResult)
   nsACString::iterator begin;
   aResult.BeginWriting(begin);
 
-  rv = RegQueryValueExW(mKey, PromiseFlatString(aName).get(), 0, nullptr,
-                        (LPBYTE)begin.get(), &size);
+  rv = RegQueryValueExW(mKey,
+                        PromiseFlatString(aName).get(),
+                        0,
+                        nullptr,
+                        (LPBYTE)begin.get(),
+                        &size);
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -442,7 +471,10 @@ nsWindowsRegKey::WriteStringValue(const nsAString& aName,
   // Need to indicate complete size of buffer including null terminator.
   const nsString& flatValue = PromiseFlatString(aValue);
 
-  LONG rv = RegSetValueExW(mKey, PromiseFlatString(aName).get(), 0, REG_SZ,
+  LONG rv = RegSetValueExW(mKey,
+                           PromiseFlatString(aName).get(),
+                           0,
+                           REG_SZ,
                            (const BYTE*)flatValue.get(),
                            (flatValue.Length() + 1) * sizeof(char16_t));
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
@@ -455,8 +487,12 @@ nsWindowsRegKey::WriteIntValue(const nsAString& aName, uint32_t aValue)
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  LONG rv = RegSetValueExW(mKey, PromiseFlatString(aName).get(), 0, REG_DWORD,
-                           (const BYTE*)&aValue, sizeof(aValue));
+  LONG rv = RegSetValueExW(mKey,
+                           PromiseFlatString(aName).get(),
+                           0,
+                           REG_DWORD,
+                           (const BYTE*)&aValue,
+                           sizeof(aValue));
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -467,8 +503,12 @@ nsWindowsRegKey::WriteInt64Value(const nsAString& aName, uint64_t aValue)
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  LONG rv = RegSetValueExW(mKey, PromiseFlatString(aName).get(), 0, REG_QWORD,
-                           (const BYTE*)&aValue, sizeof(aValue));
+  LONG rv = RegSetValueExW(mKey,
+                           PromiseFlatString(aName).get(),
+                           0,
+                           REG_QWORD,
+                           (const BYTE*)&aValue,
+                           sizeof(aValue));
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -481,8 +521,12 @@ nsWindowsRegKey::WriteBinaryValue(const nsAString& aName,
   }
 
   const nsCString& flatValue = PromiseFlatCString(aValue);
-  LONG rv = RegSetValueExW(mKey, PromiseFlatString(aName).get(), 0, REG_BINARY,
-                           (const BYTE*)flatValue.get(), flatValue.Length());
+  LONG rv = RegSetValueExW(mKey,
+                           PromiseFlatString(aName).get(),
+                           0,
+                           REG_BINARY,
+                           (const BYTE*)flatValue.get(),
+                           flatValue.Length());
   return (rv == ERROR_SUCCESS) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -502,10 +546,8 @@ nsWindowsRegKey::StartWatching(bool aRecurse)
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  DWORD filter = REG_NOTIFY_CHANGE_NAME |
-                 REG_NOTIFY_CHANGE_ATTRIBUTES |
-                 REG_NOTIFY_CHANGE_LAST_SET |
-                 REG_NOTIFY_CHANGE_SECURITY;
+  DWORD filter = REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_ATTRIBUTES |
+                 REG_NOTIFY_CHANGE_LAST_SET | REG_NOTIFY_CHANGE_SECURITY;
 
   LONG rv = RegNotifyChangeKeyValue(mKey, aRecurse, filter, mWatchEvent, TRUE);
   if (rv != ERROR_SUCCESS) {
@@ -563,7 +605,8 @@ NS_NewWindowsRegKey(nsIWindowsRegKey** aResult)
 //-----------------------------------------------------------------------------
 
 nsresult
-nsWindowsRegKeyConstructor(nsISupports* aDelegate, const nsIID& aIID,
+nsWindowsRegKeyConstructor(nsISupports* aDelegate,
+                           const nsIID& aIID,
                            void** aResult)
 {
   if (aDelegate) {

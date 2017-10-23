@@ -14,14 +14,14 @@
 inline mozilla::dom::HTMLBodyElement*
 nsIDocument::GetBodyElement()
 {
-  return static_cast<mozilla::dom::HTMLBodyElement*>(GetHtmlChildElement(nsGkAtoms::body));
+  return static_cast<mozilla::dom::HTMLBodyElement*>(
+      GetHtmlChildElement(nsGkAtoms::body));
 }
 
 template<typename T>
 size_t
-nsIDocument::FindDocStyleSheetInsertionPoint(
-    const nsTArray<T>& aDocSheets,
-    mozilla::StyleSheet* aSheet)
+nsIDocument::FindDocStyleSheetInsertionPoint(const nsTArray<T>& aDocSheets,
+                                             mozilla::StyleSheet* aSheet)
 {
   nsStyleSheetService* sheetService = nsStyleSheetService::GetInstance();
 
@@ -31,11 +31,10 @@ nsIDocument::FindDocStyleSheetInsertionPoint(
   int32_t count = aDocSheets.Length();
   int32_t index;
   for (index = 0; index < count; index++) {
-    mozilla::StyleSheet* sheet = static_cast<mozilla::StyleSheet*>(
-      aDocSheets[index]);
+    mozilla::StyleSheet* sheet =
+        static_cast<mozilla::StyleSheet*>(aDocSheets[index]);
     int32_t sheetDocIndex = GetIndexOfStyleSheet(sheet);
-    if (sheetDocIndex > newDocIndex)
-      break;
+    if (sheetDocIndex > newDocIndex) break;
 
     // If the sheet is not owned by the document it can be an author
     // sheet registered at nsStyleSheetService or an additional author
@@ -44,7 +43,7 @@ nsIDocument::FindDocStyleSheetInsertionPoint(
     if (sheetDocIndex < 0) {
       if (sheetService) {
         auto& authorSheets =
-          *sheetService->AuthorStyleSheets(GetStyleBackendType());
+            *sheetService->AuthorStyleSheets(GetStyleBackendType());
         if (authorSheets.IndexOf(sheet) != authorSheets.NoIndex) {
           break;
         }
@@ -64,7 +63,8 @@ nsIDocument::SetServoRestyleRoot(nsINode* aRoot, uint32_t aDirtyBits)
   MOZ_ASSERT(aRoot);
   MOZ_ASSERT(aDirtyBits);
   MOZ_ASSERT((aDirtyBits & ~Element::kAllServoDescendantBits) == 0);
-  MOZ_ASSERT((aDirtyBits & mServoRestyleRootDirtyBits) == mServoRestyleRootDirtyBits);
+  MOZ_ASSERT((aDirtyBits & mServoRestyleRootDirtyBits) ==
+             mServoRestyleRootDirtyBits);
 
   // NOTE(emilio): The !aRoot->IsElement() check allows us to handle cases where
   // we change the restyle root during unbinding of a subtree where the root is
@@ -84,13 +84,13 @@ nsIDocument::SetServoRestyleRoot(nsINode* aRoot, uint32_t aDirtyBits)
   // direction changes off script runners or, alternatively, nulling out the
   // document and parent node _after_ nulling out the children's, and then
   // remove that line.
-  MOZ_ASSERT(!mServoRestyleRoot ||
-             mServoRestyleRoot == aRoot ||
+  MOZ_ASSERT(!mServoRestyleRoot || mServoRestyleRoot == aRoot ||
              !aRoot->IsElement() ||
-             nsContentUtils::ContentIsFlattenedTreeDescendantOfForStyle(mServoRestyleRoot, aRoot));
+             nsContentUtils::ContentIsFlattenedTreeDescendantOfForStyle(
+                 mServoRestyleRoot, aRoot));
   MOZ_ASSERT(aRoot == aRoot->OwnerDocAsNode() || aRoot->IsElement());
   mServoRestyleRoot = aRoot;
   mServoRestyleRootDirtyBits = aDirtyBits;
 }
 
-#endif // nsIDocumentInlines_h
+#endif  // nsIDocumentInlines_h

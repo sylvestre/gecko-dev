@@ -18,20 +18,18 @@
 namespace mozilla {
 namespace dom {
 
-MenuBoxObject::MenuBoxObject()
-{
-}
+MenuBoxObject::MenuBoxObject() {}
 
-MenuBoxObject::~MenuBoxObject()
-{
-}
+MenuBoxObject::~MenuBoxObject() {}
 
-JSObject* MenuBoxObject::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+JSObject*
+MenuBoxObject::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return MenuBoxObjectBinding::Wrap(aCx, this, aGivenProto);
 }
 
-void MenuBoxObject::OpenMenu(bool aOpenFlag)
+void
+MenuBoxObject::OpenMenu(bool aOpenFlag)
 {
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
   if (pm) {
@@ -40,8 +38,7 @@ void MenuBoxObject::OpenMenu(bool aOpenFlag)
       if (aOpenFlag) {
         nsCOMPtr<nsIContent> content = mContent;
         pm->ShowMenu(content, false, false);
-      }
-      else {
+      } else {
         nsMenuFrame* menu = do_QueryFrame(frame);
         if (menu) {
           nsMenuPopupFrame* popupFrame = menu->GetPopup();
@@ -66,7 +63,8 @@ MenuBoxObject::GetActiveChild()
   return nullptr;
 }
 
-void MenuBoxObject::SetActiveChild(Element* arg)
+void
+MenuBoxObject::SetActiveChild(Element* arg)
 {
   nsMenuFrame* menu = do_QueryFrame(GetFrame(false));
   if (menu) {
@@ -75,7 +73,8 @@ void MenuBoxObject::SetActiveChild(Element* arg)
   }
 }
 
-bool MenuBoxObject::HandleKeyPress(KeyboardEvent& keyEvent)
+bool
+MenuBoxObject::HandleKeyPress(KeyboardEvent& keyEvent)
 {
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
   if (!pm) {
@@ -89,8 +88,7 @@ bool MenuBoxObject::HandleKeyPress(KeyboardEvent& keyEvent)
     return false;
   }
 
-  if (nsMenuBarListener::IsAccessKeyPressed(&keyEvent))
-    return false;
+  if (nsMenuBarListener::IsAccessKeyPressed(&keyEvent)) return false;
 
   nsMenuFrame* menu = do_QueryFrame(GetFrame(false));
   if (!menu) {
@@ -107,8 +105,7 @@ bool MenuBoxObject::HandleKeyPress(KeyboardEvent& keyEvent)
     case nsIDOMKeyEvent::DOM_VK_UP:
     case nsIDOMKeyEvent::DOM_VK_DOWN:
     case nsIDOMKeyEvent::DOM_VK_HOME:
-    case nsIDOMKeyEvent::DOM_VK_END:
-    {
+    case nsIDOMKeyEvent::DOM_VK_END: {
       nsNavigationDirection theDirection;
       theDirection = NS_DIRECTION_FROM_KEY_CODE(popupFrame, keyCode);
       return pm->HandleKeyboardNavigationInPopup(popupFrame, theDirection);
@@ -118,7 +115,8 @@ bool MenuBoxObject::HandleKeyPress(KeyboardEvent& keyEvent)
   }
 }
 
-bool MenuBoxObject::OpenedWithKey()
+bool
+MenuBoxObject::OpenedWithKey()
 {
   nsMenuFrame* menuframe = do_QueryFrame(GetFrame(false));
   if (!menuframe) {
@@ -136,8 +134,8 @@ bool MenuBoxObject::OpenedWithKey()
   return false;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 // Creation Routine ///////////////////////////////////////////////////////////////////////
 

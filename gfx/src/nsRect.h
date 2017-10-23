@@ -3,53 +3,46 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef NSRECT_H
 #define NSRECT_H
 
-#include <stdio.h>                      // for FILE
-#include <stdint.h>                     // for int32_t, int64_t
-#include <algorithm>                    // for min/max
-#include "mozilla/Likely.h"             // for MOZ_UNLIKELY
+#include <stdio.h>           // for FILE
+#include <stdint.h>          // for int32_t, int64_t
+#include <algorithm>         // for min/max
+#include "mozilla/Likely.h"  // for MOZ_UNLIKELY
 #include "mozilla/gfx/Rect.h"
-#include "nsCoord.h"                    // for nscoord, etc
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsPoint.h"                    // for nsIntPoint, nsPoint
-#include "nsMargin.h"                   // for nsIntMargin, nsMargin
-#include "nsSize.h"                     // for IntSize, nsSize
-#include "nscore.h"                     // for NS_BUILD_REFCNT_LOGGING
+#include "nsCoord.h"          // for nscoord, etc
+#include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, etc
+#include "nsPoint.h"          // for nsIntPoint, nsPoint
+#include "nsMargin.h"         // for nsIntMargin, nsMargin
+#include "nsSize.h"           // for IntSize, nsSize
+#include "nscore.h"           // for NS_BUILD_REFCNT_LOGGING
 
 typedef mozilla::gfx::IntRect nsIntRect;
 
-struct nsRect :
-  public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize, nsMargin> {
-  typedef mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize, nsMargin> Super;
+struct nsRect
+    : public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize, nsMargin>
+{
+  typedef mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize, nsMargin>
+      Super;
 
   static void VERIFY_COORD(nscoord aValue) { ::VERIFY_COORD(aValue); }
 
   // Constructors
-  nsRect() : Super()
+  nsRect() : Super() { MOZ_COUNT_CTOR(nsRect); }
+  nsRect(const nsRect& aRect) : Super(aRect) { MOZ_COUNT_CTOR(nsRect); }
+  nsRect(const nsPoint& aOrigin, const nsSize& aSize) : Super(aOrigin, aSize)
   {
     MOZ_COUNT_CTOR(nsRect);
   }
-  nsRect(const nsRect& aRect) : Super(aRect)
-  {
-    MOZ_COUNT_CTOR(nsRect);
-  }
-  nsRect(const nsPoint& aOrigin, const nsSize &aSize) : Super(aOrigin, aSize)
-  {
-    MOZ_COUNT_CTOR(nsRect);
-  }
-  nsRect(nscoord aX, nscoord aY, nscoord aWidth, nscoord aHeight) :
-      Super(aX, aY, aWidth, aHeight)
+  nsRect(nscoord aX, nscoord aY, nscoord aWidth, nscoord aHeight)
+      : Super(aX, aY, aWidth, aHeight)
   {
     MOZ_COUNT_CTOR(nsRect);
   }
 
 #ifdef NS_BUILD_REFCNT_LOGGING
-  ~nsRect() {
-    MOZ_COUNT_DTOR(nsRect);
-  }
+  ~nsRect() { MOZ_COUNT_DTOR(nsRect); }
 #endif
 
   // We have saturating versions of all the Union methods. These avoid
@@ -74,11 +67,13 @@ struct nsRect :
 #else
     nsRect result;
     result.x = std::min(aRect.x, x);
-    int64_t w = std::max(int64_t(aRect.x) + aRect.Width(), int64_t(x) + width) - result.x;
+    int64_t w = std::max(int64_t(aRect.x) + aRect.Width(), int64_t(x) + width) -
+                result.x;
     if (MOZ_UNLIKELY(w > nscoord_MAX)) {
       // Clamp huge negative x to nscoord_MIN / 2 and try again.
       result.x = std::max(result.x, nscoord_MIN / 2);
-      w = std::max(int64_t(aRect.x) + aRect.Width(), int64_t(x) + width) - result.x;
+      w = std::max(int64_t(aRect.x) + aRect.Width(), int64_t(x) + width) -
+          result.x;
       if (MOZ_UNLIKELY(w > nscoord_MAX)) {
         w = nscoord_MAX;
       }
@@ -86,11 +81,14 @@ struct nsRect :
     result.SetWidth(nscoord(w));
 
     result.y = std::min(aRect.y, y);
-    int64_t h = std::max(int64_t(aRect.y) + aRect.Height(), int64_t(y) + height) - result.y;
+    int64_t h =
+        std::max(int64_t(aRect.y) + aRect.Height(), int64_t(y) + height) -
+        result.y;
     if (MOZ_UNLIKELY(h > nscoord_MAX)) {
       // Clamp huge negative y to nscoord_MIN / 2 and try again.
       result.y = std::max(result.y, nscoord_MIN / 2);
-      h = std::max(int64_t(aRect.y) + aRect.Height(), int64_t(y) + height) - result.y;
+      h = std::max(int64_t(aRect.y) + aRect.Height(), int64_t(y) + height) -
+          result.y;
       if (MOZ_UNLIKELY(h > nscoord_MAX)) {
         h = nscoord_MAX;
       }
@@ -141,39 +139,33 @@ struct nsRect :
    * @param aToAPP the APP to scale to
    * @note this can turn an empty rectangle into a non-empty rectangle
    */
-  MOZ_MUST_USE inline nsRect
-    ScaleToOtherAppUnitsRoundOut(int32_t aFromAPP, int32_t aToAPP) const;
-  MOZ_MUST_USE inline nsRect
-    ScaleToOtherAppUnitsRoundIn(int32_t aFromAPP, int32_t aToAPP) const;
+  MOZ_MUST_USE inline nsRect ScaleToOtherAppUnitsRoundOut(int32_t aFromAPP,
+                                                          int32_t aToAPP) const;
+  MOZ_MUST_USE inline nsRect ScaleToOtherAppUnitsRoundIn(int32_t aFromAPP,
+                                                         int32_t aToAPP) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect
-  ScaleToNearestPixels(float aXScale, float aYScale,
-                       nscoord aAppUnitsPerPixel) const;
+  MOZ_MUST_USE inline mozilla::gfx::IntRect ScaleToNearestPixels(
+      float aXScale, float aYScale, nscoord aAppUnitsPerPixel) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect
-  ToNearestPixels(nscoord aAppUnitsPerPixel) const;
-
-  // Note: this can turn an empty rectangle into a non-empty rectangle
-  MOZ_MUST_USE inline mozilla::gfx::IntRect
-  ScaleToOutsidePixels(float aXScale, float aYScale,
-                       nscoord aAppUnitsPerPixel) const;
+  MOZ_MUST_USE inline mozilla::gfx::IntRect ToNearestPixels(
+      nscoord aAppUnitsPerPixel) const;
 
   // Note: this can turn an empty rectangle into a non-empty rectangle
-  MOZ_MUST_USE inline mozilla::gfx::IntRect
-  ToOutsidePixels(nscoord aAppUnitsPerPixel) const;
+  MOZ_MUST_USE inline mozilla::gfx::IntRect ScaleToOutsidePixels(
+      float aXScale, float aYScale, nscoord aAppUnitsPerPixel) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect
-  ScaleToInsidePixels(float aXScale, float aYScale,
-                      nscoord aAppUnitsPerPixel) const;
+  // Note: this can turn an empty rectangle into a non-empty rectangle
+  MOZ_MUST_USE inline mozilla::gfx::IntRect ToOutsidePixels(
+      nscoord aAppUnitsPerPixel) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect
-  ToInsidePixels(nscoord aAppUnitsPerPixel) const;
+  MOZ_MUST_USE inline mozilla::gfx::IntRect ScaleToInsidePixels(
+      float aXScale, float aYScale, nscoord aAppUnitsPerPixel) const;
+
+  MOZ_MUST_USE inline mozilla::gfx::IntRect ToInsidePixels(
+      nscoord aAppUnitsPerPixel) const;
 
   // This is here only to keep IPDL-generated code happy. DO NOT USE.
-  bool operator==(const nsRect& aRect) const
-  {
-    return IsEqualEdges(aRect);
-  }
+  bool operator==(const nsRect& aRect) const { return IsEqualEdges(aRect); }
 
   MOZ_MUST_USE inline nsRect RemoveResolution(const float aResolution) const;
 };
@@ -220,49 +212,76 @@ nsRect::ScaleToOtherAppUnitsRoundIn(int32_t aFromAPP, int32_t aToAPP) const
 
 // scale the rect but round to preserve centers
 inline mozilla::gfx::IntRect
-nsRect::ScaleToNearestPixels(float aXScale, float aYScale,
+nsRect::ScaleToNearestPixels(float aXScale,
+                             float aYScale,
                              nscoord aAppUnitsPerPixel) const
 {
   mozilla::gfx::IntRect rect;
-  rect.x = NSToIntRoundUp(NSAppUnitsToDoublePixels(x, aAppUnitsPerPixel) * aXScale);
-  rect.y = NSToIntRoundUp(NSAppUnitsToDoublePixels(y, aAppUnitsPerPixel) * aYScale);
+  rect.x =
+      NSToIntRoundUp(NSAppUnitsToDoublePixels(x, aAppUnitsPerPixel) * aXScale);
+  rect.y =
+      NSToIntRoundUp(NSAppUnitsToDoublePixels(y, aAppUnitsPerPixel) * aYScale);
   // Avoid negative widths and heights due to overflow
-  rect.SetWidth(std::max(0, NSToIntRoundUp(NSAppUnitsToDoublePixels(XMost(),
-                               aAppUnitsPerPixel) * aXScale) - rect.x));
-  rect.SetHeight(std::max(0, NSToIntRoundUp(NSAppUnitsToDoublePixels(YMost(),
-                                aAppUnitsPerPixel) * aYScale) - rect.y));
+  rect.SetWidth(std::max(
+      0,
+      NSToIntRoundUp(NSAppUnitsToDoublePixels(XMost(), aAppUnitsPerPixel) *
+                     aXScale) -
+          rect.x));
+  rect.SetHeight(std::max(
+      0,
+      NSToIntRoundUp(NSAppUnitsToDoublePixels(YMost(), aAppUnitsPerPixel) *
+                     aYScale) -
+          rect.y));
   return rect;
 }
 
 // scale the rect but round to smallest containing rect
 inline mozilla::gfx::IntRect
-nsRect::ScaleToOutsidePixels(float aXScale, float aYScale,
+nsRect::ScaleToOutsidePixels(float aXScale,
+                             float aYScale,
                              nscoord aAppUnitsPerPixel) const
 {
   mozilla::gfx::IntRect rect;
-  rect.x = NSToIntFloor(NSAppUnitsToFloatPixels(x, float(aAppUnitsPerPixel)) * aXScale);
-  rect.y = NSToIntFloor(NSAppUnitsToFloatPixels(y, float(aAppUnitsPerPixel)) * aYScale);
+  rect.x = NSToIntFloor(NSAppUnitsToFloatPixels(x, float(aAppUnitsPerPixel)) *
+                        aXScale);
+  rect.y = NSToIntFloor(NSAppUnitsToFloatPixels(y, float(aAppUnitsPerPixel)) *
+                        aYScale);
   // Avoid negative widths and heights due to overflow
-  rect.SetWidth(std::max(0, NSToIntCeil(NSAppUnitsToFloatPixels(XMost(),
-                            float(aAppUnitsPerPixel)) * aXScale) - rect.x));
-  rect.SetHeight(std::max(0, NSToIntCeil(NSAppUnitsToFloatPixels(YMost(),
-                             float(aAppUnitsPerPixel)) * aYScale) - rect.y));
+  rect.SetWidth(std::max(
+      0,
+      NSToIntCeil(NSAppUnitsToFloatPixels(XMost(), float(aAppUnitsPerPixel)) *
+                  aXScale) -
+          rect.x));
+  rect.SetHeight(std::max(
+      0,
+      NSToIntCeil(NSAppUnitsToFloatPixels(YMost(), float(aAppUnitsPerPixel)) *
+                  aYScale) -
+          rect.y));
   return rect;
 }
 
 // scale the rect but round to largest contained rect
 inline mozilla::gfx::IntRect
-nsRect::ScaleToInsidePixels(float aXScale, float aYScale,
+nsRect::ScaleToInsidePixels(float aXScale,
+                            float aYScale,
                             nscoord aAppUnitsPerPixel) const
 {
   mozilla::gfx::IntRect rect;
-  rect.x = NSToIntCeil(NSAppUnitsToFloatPixels(x, float(aAppUnitsPerPixel)) * aXScale);
-  rect.y = NSToIntCeil(NSAppUnitsToFloatPixels(y, float(aAppUnitsPerPixel)) * aYScale);
+  rect.x = NSToIntCeil(NSAppUnitsToFloatPixels(x, float(aAppUnitsPerPixel)) *
+                       aXScale);
+  rect.y = NSToIntCeil(NSAppUnitsToFloatPixels(y, float(aAppUnitsPerPixel)) *
+                       aYScale);
   // Avoid negative widths and heights due to overflow
-  rect.SetWidth(std::max(0, NSToIntFloor(NSAppUnitsToFloatPixels(XMost(),
-                            float(aAppUnitsPerPixel)) * aXScale) - rect.x));
-  rect.SetHeight(std::max(0, NSToIntFloor(NSAppUnitsToFloatPixels(YMost(),
-                             float(aAppUnitsPerPixel)) * aYScale) - rect.y));
+  rect.SetWidth(std::max(
+      0,
+      NSToIntFloor(NSAppUnitsToFloatPixels(XMost(), float(aAppUnitsPerPixel)) *
+                   aXScale) -
+          rect.x));
+  rect.SetHeight(std::max(
+      0,
+      NSToIntFloor(NSAppUnitsToFloatPixels(YMost(), float(aAppUnitsPerPixel)) *
+                   aYScale) -
+          rect.y));
   return rect;
 }
 
@@ -304,12 +323,14 @@ nsRect::RemoveResolution(const float aResolution) const
   return rect;
 }
 
-const mozilla::gfx::IntRect& GetMaxSizedIntRect();
+const mozilla::gfx::IntRect&
+GetMaxSizedIntRect();
 
 // app units are integer multiples of pixels, so no rounding needed
 template<class units>
 nsRect
-ToAppUnits(const mozilla::gfx::IntRectTyped<units>& aRect, nscoord aAppUnitsPerPixel)
+ToAppUnits(const mozilla::gfx::IntRectTyped<units>& aRect,
+           nscoord aAppUnitsPerPixel)
 {
   return nsRect(NSIntPixelsToAppUnits(aRect.x, aAppUnitsPerPixel),
                 NSIntPixelsToAppUnits(aRect.y, aAppUnitsPerPixel),
@@ -319,7 +340,8 @@ ToAppUnits(const mozilla::gfx::IntRectTyped<units>& aRect, nscoord aAppUnitsPerP
 
 #ifdef DEBUG
 // Diagnostics
-extern FILE* operator<<(FILE* out, const nsRect& rect);
-#endif // DEBUG
+extern FILE*
+operator<<(FILE* out, const nsRect& rect);
+#endif  // DEBUG
 
 #endif /* NSRECT_H */

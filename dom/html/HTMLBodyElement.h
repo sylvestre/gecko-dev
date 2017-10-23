@@ -20,12 +20,12 @@ class OnBeforeUnloadEventHandlerNonNull;
 
 class HTMLBodyElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   using Element::GetText;
   using Element::SetText;
 
   explicit HTMLBodyElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -37,47 +37,32 @@ public:
   // Event listener stuff; we need to declare only the ones we need to
   // forward to window that don't come from nsIDOMHTMLBodyElement.
 #define EVENT(name_, id_, type_, struct_) /* nothing; handled by the shim */
-#define WINDOW_EVENT_HELPER(name_, type_)                               \
-  type_* GetOn##name_();                                                \
+#define WINDOW_EVENT_HELPER(name_, type_) \
+  type_* GetOn##name_();                  \
   void SetOn##name_(type_* handler);
-#define WINDOW_EVENT(name_, id_, type_, struct_)                        \
+#define WINDOW_EVENT(name_, id_, type_, struct_) \
   WINDOW_EVENT_HELPER(name_, EventHandlerNonNull)
-#define BEFOREUNLOAD_EVENT(name_, id_, type_, struct_)                  \
+#define BEFOREUNLOAD_EVENT(name_, id_, type_, struct_) \
   WINDOW_EVENT_HELPER(name_, OnBeforeUnloadEventHandlerNonNull)
-#include "mozilla/EventNameList.h" // IWYU pragma: keep
+#include "mozilla/EventNameList.h"  // IWYU pragma: keep
 #undef BEFOREUNLOAD_EVENT
 #undef WINDOW_EVENT
 #undef WINDOW_EVENT_HELPER
 #undef EVENT
 
-  void GetText(nsAString& aText)
-  {
-    GetHTMLAttr(nsGkAtoms::text, aText);
-  }
-  void SetText(const nsAString& aText)
-  {
-    SetHTMLAttr(nsGkAtoms::text, aText);
-  }
+  void GetText(nsAString& aText) { GetHTMLAttr(nsGkAtoms::text, aText); }
+  void SetText(const nsAString& aText) { SetHTMLAttr(nsGkAtoms::text, aText); }
   void SetText(const nsAString& aText, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::text, aText, aError);
   }
-  void GetLink(nsAString& aLink)
-  {
-    GetHTMLAttr(nsGkAtoms::link, aLink);
-  }
-  void SetLink(const nsAString& aLink)
-  {
-    SetHTMLAttr(nsGkAtoms::link, aLink);
-  }
+  void GetLink(nsAString& aLink) { GetHTMLAttr(nsGkAtoms::link, aLink); }
+  void SetLink(const nsAString& aLink) { SetHTMLAttr(nsGkAtoms::link, aLink); }
   void SetLink(const nsAString& aLink, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::link, aLink, aError);
   }
-  void GetVLink(nsAString& aVLink)
-  {
-    GetHTMLAttr(nsGkAtoms::vlink, aVLink);
-  }
+  void GetVLink(nsAString& aVLink) { GetHTMLAttr(nsGkAtoms::vlink, aVLink); }
   void SetVLink(const nsAString& aVLink)
   {
     SetHTMLAttr(nsGkAtoms::vlink, aVLink);
@@ -86,10 +71,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::vlink, aVLink, aError);
   }
-  void GetALink(nsAString& aALink)
-  {
-    GetHTMLAttr(nsGkAtoms::alink, aALink);
-  }
+  void GetALink(nsAString& aALink) { GetHTMLAttr(nsGkAtoms::alink, aALink); }
   void SetALink(const nsAString& aALink)
   {
     SetHTMLAttr(nsGkAtoms::alink, aALink);
@@ -127,38 +109,42 @@ public:
                               nsAtom* aAttribute,
                               const nsAString& aValue,
                               nsAttrValue& aResult) override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
   virtual already_AddRefed<TextEditor> GetAssociatedEditor() override;
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   virtual bool IsEventAttributeNameInternal(nsAtom* aName) override;
 
-
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   /**
    * Called when an attribute has just been changed
    */
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
 
-protected:
+ protected:
   virtual ~HTMLBodyElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* HTMLBodyElement_h___ */

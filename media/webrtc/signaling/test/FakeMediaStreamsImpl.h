@@ -10,46 +10,62 @@
 #include "nspr.h"
 #include "nsError.h"
 
-void LogTime(AsyncLatencyLogger::LatencyLogIndex index, uint64_t b, int64_t c) {}
-void LogLatency(AsyncLatencyLogger::LatencyLogIndex index, uint64_t b, int64_t c) {}
+void
+LogTime(AsyncLatencyLogger::LatencyLogIndex index, uint64_t b, int64_t c)
+{
+}
+void
+LogLatency(AsyncLatencyLogger::LatencyLogIndex index, uint64_t b, int64_t c)
+{
+}
 
 static const int AUDIO_BUFFER_SIZE = 1600;
-static const int NUM_CHANNELS      = 2;
-static const int GRAPH_RATE        = 16000;
+static const int NUM_CHANNELS = 2;
+static const int GRAPH_RATE = 16000;
 
 NS_IMPL_ISUPPORTS0(Fake_DOMMediaStream)
 
 // Fake_MediaStream
-double Fake_MediaStream::StreamTimeToSeconds(mozilla::StreamTime aTime) {
-  return static_cast<double>(aTime)/GRAPH_RATE;
+double
+Fake_MediaStream::StreamTimeToSeconds(mozilla::StreamTime aTime)
+{
+  return static_cast<double>(aTime) / GRAPH_RATE;
 }
 
-mozilla::TrackTicks Fake_MediaStream::TimeToTicksRoundUp(mozilla::TrackRate aRate,
-                                                         mozilla::StreamTime aTime) {
+mozilla::TrackTicks
+Fake_MediaStream::TimeToTicksRoundUp(mozilla::TrackRate aRate,
+                                     mozilla::StreamTime aTime)
+{
   return (aTime * aRate) / GRAPH_RATE;
 }
 
 mozilla::StreamTime
 Fake_MediaStream::TicksToTimeRoundDown(mozilla::TrackRate aRate,
-                                       mozilla::TrackTicks aTicks) {
+                                       mozilla::TrackTicks aTicks)
+{
   return aTicks * GRAPH_RATE / aRate;
 }
 
 // Fake_SourceMediaStream
-nsresult Fake_SourceMediaStream::Start() {
-  return NS_NewTimerWithCallback(getter_AddRefs(mTimer),
-                                 mPeriodic, 100, nsITimer::TYPE_REPEATING_SLACK);
+nsresult
+Fake_SourceMediaStream::Start()
+{
+  return NS_NewTimerWithCallback(
+      getter_AddRefs(mTimer), mPeriodic, 100, nsITimer::TYPE_REPEATING_SLACK);
 }
 
-nsresult Fake_SourceMediaStream::Stop() {
+nsresult
+Fake_SourceMediaStream::Stop()
+{
   mozilla::MutexAutoLock lock(mMutex);
-  if (mTimer)
-    mTimer->Cancel();
+  if (mTimer) mTimer->Cancel();
   mPeriodic->Detach();
   return NS_OK;
 }
 
-void Fake_SourceMediaStream::Periodic() {
+void
+Fake_SourceMediaStream::Periodic()
+{
   mozilla::MutexAutoLock lock(mMutex);
   // Pull more audio-samples iff pulling is enabled
   // and we are not asked by the signaling agent to stop
@@ -58,30 +74,38 @@ void Fake_SourceMediaStream::Periodic() {
     // 100 ms matches timer interval and AUDIO_BUFFER_SIZE @ 16000 Hz
     mDesiredTime += 100;
     for (std::set<RefPtr<Fake_MediaStreamListener>>::iterator it =
-             mListeners.begin(); it != mListeners.end(); ++it) {
-      (*it)->NotifyPull(nullptr, TicksToTimeRoundDown(1000 /* ms per s */,
-                                                      mDesiredTime));
+             mListeners.begin();
+         it != mListeners.end();
+         ++it) {
+      (*it)->NotifyPull(
+          nullptr, TicksToTimeRoundDown(1000 /* ms per s */, mDesiredTime));
     }
   }
 }
 
 // Fake_MediaStreamTrack
-void Fake_MediaStreamTrack::AddListener(Fake_MediaStreamTrackListener *aListener)
+void
+Fake_MediaStreamTrack::AddListener(Fake_MediaStreamTrackListener* aListener)
 {
   mOwningStream->GetInputStream()->AddTrackListener(aListener, mTrackID);
 }
-void Fake_MediaStreamTrack::RemoveListener(Fake_MediaStreamTrackListener *aListener)
+void
+Fake_MediaStreamTrack::RemoveListener(Fake_MediaStreamTrackListener* aListener)
 {
   mOwningStream->GetInputStream()->RemoveTrackListener(aListener, mTrackID);
 }
 
 // Fake_MediaStreamBase
-nsresult Fake_MediaStreamBase::Start() {
-  return NS_NewTimerWithCallback(getter_AddRefs(mTimer),
-                                 mPeriodic, 100, nsITimer::TYPE_REPEATING_SLACK);
+nsresult
+Fake_MediaStreamBase::Start()
+{
+  return NS_NewTimerWithCallback(
+      getter_AddRefs(mTimer), mPeriodic, 100, nsITimer::TYPE_REPEATING_SLACK);
 }
 
-nsresult Fake_MediaStreamBase::Stop() {
+nsresult
+Fake_MediaStreamBase::Stop()
+{
   // Lock the mutex so that we know that after this
   // has returned, periodic will not be firing again
   // and so it's safe to destruct.
@@ -92,60 +116,62 @@ nsresult Fake_MediaStreamBase::Stop() {
 }
 
 // Fake_AudioStreamSource
-void Fake_AudioStreamSource::Periodic() {
+void
+Fake_AudioStreamSource::Periodic()
+{
   mozilla::MutexAutoLock lock(mMutex);
   //Are we asked to stop pumping audio samples ?
-  if(mStop) {
+  if (mStop) {
     return;
   }
   //Generate Signed 16 Bit Audio samples
-  RefPtr<mozilla::SharedBuffer> samples =
-    mozilla::SharedBuffer::Create(AUDIO_BUFFER_SIZE * NUM_CHANNELS * sizeof(int16_t));
-  int16_t* data = reinterpret_cast<int16_t *>(samples->Data());
-  for(int i=0; i<(1600*2); i++) {
+  RefPtr<mozilla::SharedBuffer> samples = mozilla::SharedBuffer::Create(
+      AUDIO_BUFFER_SIZE * NUM_CHANNELS * sizeof(int16_t));
+  int16_t* data = reinterpret_cast<int16_t*>(samples->Data());
+  for (int i = 0; i < (1600 * 2); i++) {
     //saw tooth audio sample
-    data[i] = ((mCount % 8) * 4000) - (7*4000)/2;
+    data[i] = ((mCount % 8) * 4000) - (7 * 4000) / 2;
     mCount++;
   }
 
   mozilla::AudioSegment segment;
-  AutoTArray<const int16_t *,1> channels;
+  AutoTArray<const int16_t*, 1> channels;
   channels.AppendElement(data);
-  segment.AppendFrames(samples.forget(),
-                       channels,
-                       AUDIO_BUFFER_SIZE,
-                       PRINCIPAL_HANDLE_NONE);
+  segment.AppendFrames(
+      samples.forget(), channels, AUDIO_BUFFER_SIZE, PRINCIPAL_HANDLE_NONE);
 
-  for(std::set<RefPtr<Fake_MediaStreamListener>>::iterator it = mListeners.begin();
-       it != mListeners.end(); ++it) {
-    (*it)->NotifyQueuedTrackChanges(nullptr, // Graph
-                                    0, // TrackID
-                                    0, // Offset TODO(ekr@rtfm.com) fix
-                                    static_cast<mozilla::TrackEventCommand>(0), // ???
-                                    segment,
-                                    nullptr, // Input stream
-                                    -1);     // Input track id
+  for (std::set<RefPtr<Fake_MediaStreamListener>>::iterator it =
+           mListeners.begin();
+       it != mListeners.end();
+       ++it) {
+    (*it)->NotifyQueuedTrackChanges(
+        nullptr,  // Graph
+        0,        // TrackID
+        0,        // Offset TODO(ekr@rtfm.com) fix
+        static_cast<mozilla::TrackEventCommand>(0),  // ???
+        segment,
+        nullptr,  // Input stream
+        -1);      // Input track id
   }
-  for(std::vector<BoundTrackListener>::iterator it = mTrackListeners.begin();
-       it != mTrackListeners.end(); ++it) {
-    it->mListener->NotifyQueuedChanges(nullptr, // Graph
-                                       0, // Offset TODO(ekr@rtfm.com) fix
+  for (std::vector<BoundTrackListener>::iterator it = mTrackListeners.begin();
+       it != mTrackListeners.end();
+       ++it) {
+    it->mListener->NotifyQueuedChanges(nullptr,  // Graph
+                                       0,  // Offset TODO(ekr@rtfm.com) fix
                                        segment);
   }
 }
-
 
 // Fake_MediaPeriodic
 NS_IMPL_ISUPPORTS(Fake_MediaPeriodic, nsITimerCallback)
 
 NS_IMETHODIMP
-Fake_MediaPeriodic::Notify(nsITimer *timer) {
-  if (mStream)
-    mStream->Periodic();
+Fake_MediaPeriodic::Notify(nsITimer* timer)
+{
+  if (mStream) mStream->Periodic();
   ++mCount;
   return NS_OK;
 }
-
 
 #if 0
 #define WIDTH 320
@@ -193,7 +219,6 @@ Fake_VideoStreamSource::Notify(nsITimer* aTimer)
   return NS_OK;
 }
 
-
 #if 0
 // Fake up buffer recycle bin
 mozilla::layers::BufferRecycleBin::BufferRecycleBin() :
@@ -216,9 +241,7 @@ mozilla::layers::PlanarYCbCrImage::PlanarYCbCrImage(BufferRecycleBin *aRecycleBi
 {
 }
 
-
 #endif
 #endif
-
 
 #endif

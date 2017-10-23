@@ -78,8 +78,9 @@ SetTmpEnvironmentVariable(nsIFile* aValue)
 static void
 SetUpSandboxEnvironment()
 {
-  MOZ_ASSERT(nsDirectoryService::gService,
-    "SetUpSandboxEnvironment relies on nsDirectoryService being initialized");
+  MOZ_ASSERT(
+      nsDirectoryService::gService,
+      "SetUpSandboxEnvironment relies on nsDirectoryService being initialized");
 
   if (!IsSandboxTempDirRequired()) {
     return;
@@ -87,9 +88,9 @@ SetUpSandboxEnvironment()
 
   nsCOMPtr<nsIFile> sandboxedContentTemp;
   nsresult rv =
-    nsDirectoryService::gService->Get(NS_APP_CONTENT_PROCESS_TEMP_DIR,
-                                      NS_GET_IID(nsIFile),
-                                      getter_AddRefs(sandboxedContentTemp));
+      nsDirectoryService::gService->Get(NS_APP_CONTENT_PROCESS_TEMP_DIR,
+                                        NS_GET_IID(nsIFile),
+                                        getter_AddRefs(sandboxedContentTemp));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -140,7 +141,7 @@ ContentProcess::Init(int aArgc, char* aArgv[])
         continue;
       }
       nsCString appDir;
-      appDir.Assign(nsDependentCString(aArgv[idx+1]));
+      appDir.Assign(nsDependentCString(aArgv[idx + 1]));
       mXREEmbed.SetAppDir(appDir);
       foundAppdir = true;
     } else if (!strcmp(aArgv[idx], "-childID")) {
@@ -152,7 +153,8 @@ ContentProcess::Init(int aArgc, char* aArgv[])
         childID = strtoull(aArgv[idx + 1], nullptr, 10);
         foundChildID = true;
       }
-    } else if (!strcmp(aArgv[idx], "-isForBrowser") || !strcmp(aArgv[idx], "-notForBrowser")) {
+    } else if (!strcmp(aArgv[idx], "-isForBrowser") ||
+               !strcmp(aArgv[idx], "-notForBrowser")) {
       MOZ_ASSERT(!foundIsForBrowser);
       if (foundIsForBrowser) {
         continue;
@@ -166,10 +168,13 @@ ContentProcess::Init(int aArgc, char* aArgv[])
         int32_t index = strtol(str, &str, 10);
         MOZ_ASSERT(str[0] == ':');
         str++;
-        MaybePrefValue value(PrefValue(static_cast<int32_t>(strtol(str, &str, 10))));
+        MaybePrefValue value(
+            PrefValue(static_cast<int32_t>(strtol(str, &str, 10))));
         MOZ_ASSERT(str[0] == '|');
         str++;
-        PrefSetting pref(nsCString(ContentPrefs::GetContentPref(index)), value, MaybePrefValue());
+        PrefSetting pref(nsCString(ContentPrefs::GetContentPref(index)),
+                         value,
+                         MaybePrefValue());
         prefsArray.AppendElement(pref);
       }
       SET_PREF_PHASE(END_INIT_PREFS);
@@ -184,7 +189,9 @@ ContentProcess::Init(int aArgc, char* aArgv[])
         MaybePrefValue value(PrefValue(!!strtol(str, &str, 10)));
         MOZ_ASSERT(str[0] == '|');
         str++;
-        PrefSetting pref(nsCString(ContentPrefs::GetContentPref(index)), value, MaybePrefValue());
+        PrefSetting pref(nsCString(ContentPrefs::GetContentPref(index)),
+                         value,
+                         MaybePrefValue());
         prefsArray.AppendElement(pref);
       }
       SET_PREF_PHASE(END_INIT_PREFS);
@@ -200,7 +207,9 @@ ContentProcess::Init(int aArgc, char* aArgv[])
         MOZ_ASSERT(str[0] == ';');
         str++;
         MaybePrefValue value(PrefValue(nsCString(str, length)));
-        PrefSetting pref(nsCString(ContentPrefs::GetContentPref(index)), value, MaybePrefValue());
+        PrefSetting pref(nsCString(ContentPrefs::GetContentPref(index)),
+                         value,
+                         MaybePrefValue());
         prefsArray.AppendElement(pref);
         str += length + 1;
         MOZ_ASSERT(*(str - 1) == '|');
@@ -213,7 +222,6 @@ ContentProcess::Init(int aArgc, char* aArgv[])
     } else if (!strcmp(aArgv[idx], "-safeMode")) {
       gSafeMode = true;
     }
-
 #if defined(XP_MACOSX) && defined(MOZ_CONTENT_SANDBOX)
     else if (!strcmp(aArgv[idx], "-profile")) {
       MOZ_ASSERT(!foundProfile);
@@ -221,9 +229,9 @@ ContentProcess::Init(int aArgc, char* aArgv[])
         continue;
       }
       bool flag;
-      nsresult rv = XRE_GetFileFromPath(aArgv[idx+1], getter_AddRefs(profileDir));
-      if (NS_FAILED(rv) ||
-          NS_FAILED(profileDir->Exists(&flag)) || !flag) {
+      nsresult rv =
+          XRE_GetFileFromPath(aArgv[idx + 1], getter_AddRefs(profileDir));
+      if (NS_FAILED(rv) || NS_FAILED(profileDir->Exists(&flag)) || !flag) {
         NS_WARNING("Invalid profile directory passed to content process.");
         profileDir = nullptr;
       }
@@ -231,13 +239,9 @@ ContentProcess::Init(int aArgc, char* aArgv[])
     }
 #endif /* XP_MACOSX && MOZ_CONTENT_SANDBOX */
 
-    bool allFound = foundAppdir
-                 && foundChildID
-                 && foundIsForBrowser
-                 && foundIntPrefs
-                 && foundBoolPrefs
-                 && foundStringPrefs
-                 && foundSchedulerPrefs;
+    bool allFound = foundAppdir && foundChildID && foundIsForBrowser &&
+                    foundIntPrefs && foundBoolPrefs && foundStringPrefs &&
+                    foundSchedulerPrefs;
 
 #if defined(XP_MACOSX) && defined(MOZ_CONTENT_SANDBOX)
     allFound &= foundProfile;
@@ -274,5 +278,5 @@ ContentProcess::CleanUp()
   mXREEmbed.Stop();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

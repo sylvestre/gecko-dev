@@ -6,7 +6,6 @@
 
 #include "jit/RematerializedFrame.h"
 
-
 #include "jit/JitFrames.h"
 #include "vm/ArgumentsObject.h"
 #include "vm/Debugger.h"
@@ -18,81 +17,65 @@
 using namespace js;
 using namespace jit;
 
-struct CopyValueToRematerializedFrame
-{
+struct CopyValueToRematerializedFrame {
     Value* slots;
 
-    explicit CopyValueToRematerializedFrame(Value* slots)
-      : slots(slots)
-    { }
+    explicit CopyValueToRematerializedFrame(Value* slots) : slots(slots) {}
 
-    void operator()(const Value& v) {
-        *slots++ = v;
-    }
+    void operator()(const Value& v) { *slots++ = v; }
 };
 
 RematerializedFrame::RematerializedFrame(JSContext* cx, uint8_t* top, unsigned numActualArgs,
                                          InlineFrameIterator& iter, MaybeReadFallback& fallback)
-  : prevUpToDate_(false),
-    isDebuggee_(iter.script()->isDebuggee()),
-    isConstructing_(iter.isConstructing()),
-    hasCachedSavedFrame_(false),
-    top_(top),
-    pc_(iter.pc()),
-    frameNo_(iter.frameNo()),
-    numActualArgs_(numActualArgs),
-    script_(iter.script())
-{
+    : prevUpToDate_(false),
+      isDebuggee_(iter.script()->isDebuggee()),
+      isConstructing_(iter.isConstructing()),
+      hasCachedSavedFrame_(false),
+      top_(top),
+      pc_(iter.pc()),
+      frameNo_(iter.frameNo()),
+      numActualArgs_(numActualArgs),
+      script_(iter.script()) {
     if (iter.isFunctionFrame())
         callee_ = iter.callee(fallback);
     else
         callee_ = nullptr;
 
     CopyValueToRematerializedFrame op(slots_);
-    iter.readFrameArgsAndLocals(cx, op, op, &envChain_, &hasInitialEnv_, &returnValue_,
-                                &argsObj_, &thisArgument_, &newTarget_, ReadFrame_Actuals,
-                                fallback);
+    iter.readFrameArgsAndLocals(cx, op, op, &envChain_, &hasInitialEnv_, &returnValue_, &argsObj_,
+                                &thisArgument_, &newTarget_, ReadFrame_Actuals, fallback);
 }
 
-/* static */ RematerializedFrame*
-RematerializedFrame::New(JSContext* cx, uint8_t* top, InlineFrameIterator& iter,
-                         MaybeReadFallback& fallback)
-{
+/* static */ RematerializedFrame* RematerializedFrame::New(JSContext* cx, uint8_t* top,
+                                                           InlineFrameIterator& iter,
+                                                           MaybeReadFallback& fallback) {
     unsigned numFormals = iter.isFunctionFrame() ? iter.calleeTemplate()->nargs() : 0;
     unsigned argSlots = Max(numFormals, iter.numActualArgs());
     size_t numBytes = sizeof(RematerializedFrame) +
-        (argSlots + iter.script()->nfixed()) * sizeof(Value) -
-        sizeof(Value); // 1 Value included in sizeof(RematerializedFrame)
+                      (argSlots + iter.script()->nfixed()) * sizeof(Value) -
+                      sizeof(Value);  // 1 Value included in sizeof(RematerializedFrame)
 
     void* buf = cx->pod_calloc<uint8_t>(numBytes);
-    if (!buf)
-        return nullptr;
+    if (!buf) return nullptr;
 
     return new (buf) RematerializedFrame(cx, top, iter.numActualArgs(), iter, fallback);
 }
 
-/* static */ bool
-RematerializedFrame::RematerializeInlineFrames(JSContext* cx, uint8_t* top,
-                                               InlineFrameIterator& iter,
-                                               MaybeReadFallback& fallback,
-                                               GCVector<RematerializedFrame*>& frames)
-{
+/* static */ bool RematerializedFrame::RematerializeInlineFrames(
+    JSContext* cx, uint8_t* top, InlineFrameIterator& iter, MaybeReadFallback& fallback,
+    GCVector<RematerializedFrame*>& frames) {
     Rooted<GCVector<RematerializedFrame*>> tempFrames(cx, GCVector<RematerializedFrame*>(cx));
-    if (!tempFrames.resize(iter.frameCount()))
-        return false;
+    if (!tempFrames.resize(iter.frameCount())) return false;
 
     while (true) {
         size_t frameNo = iter.frameNo();
         tempFrames[frameNo].set(RematerializedFrame::New(cx, top, iter, fallback));
-        if (!tempFrames[frameNo])
-            return false;
+        if (!tempFrames[frameNo]) return false;
         if (tempFrames[frameNo]->environmentChain()) {
-            if (!EnsureHasEnvironmentObjects(cx, tempFrames[frameNo].get()))
-                return false;
+            if (!EnsureHasEnvironmentObjects(cx, tempFrames[frameNo].get())) return false;
         }
 
-        if (!iter.more())
-            break;
+        if (!iter.more()) break;
         ++iter;
     }
 
@@ -100,9 +83,7 @@ RematerializedFrame::RematerializeInlineFrames(JSContext* cx, uint8_t* top,
     return true;
 }
 
-/* static */ void
-RematerializedFrame::FreeInVector(GCVector<RematerializedFrame*>& frames)
-{
+/* static */ void RematerializedFrame::FreeInVector(GCVector<RematerializedFrame*>& frames) {
     for (size_t i = 0; i < frames.length(); i++) {
         RematerializedFrame* f = frames[i];
         MOZ_ASSERT(!Debugger::inFrameMaps(f));
@@ -112,47 +93,34 @@ RematerializedFrame::FreeInVector(GCVector<RematerializedFrame*>& frames)
     frames.clear();
 }
 
-CallObject&
-RematerializedFrame::callObj() const
-{
+CallObject& RematerializedFrame::callObj() const {
     MOZ_ASSERT(hasInitialEnvironment());
 
     JSObject* env = environmentChain();
-    while (!env->is<CallObject>())
-        env = env->enclosingEnvironment();
+    while (!env->is<CallObject>()) env = env->enclosingEnvironment();
     return env->as<CallObject>();
 }
 
-bool
-RematerializedFrame::initFunctionEnvironmentObjects(JSContext* cx)
-{
+bool RematerializedFrame::initFunctionEnvironmentObjects(JSContext* cx) {
     return js::InitFunctionEnvironmentObjects(cx, this);
 }
 
-bool
-RematerializedFrame::pushVarEnvironment(JSContext* cx, HandleScope scope)
-{
+bool RematerializedFrame::pushVarEnvironment(JSContext* cx, HandleScope scope) {
     return js::PushVarEnvironmentObject(cx, scope, this);
 }
 
-void
-RematerializedFrame::trace(JSTracer* trc)
-{
+void RematerializedFrame::trace(JSTracer* trc) {
     TraceRoot(trc, &script_, "remat ion frame script");
     TraceRoot(trc, &envChain_, "remat ion frame env chain");
-    if (callee_)
-        TraceRoot(trc, &callee_, "remat ion frame callee");
-    if (argsObj_)
-        TraceRoot(trc, &argsObj_, "remat ion frame argsobj");
+    if (callee_) TraceRoot(trc, &callee_, "remat ion frame callee");
+    if (argsObj_) TraceRoot(trc, &argsObj_, "remat ion frame argsobj");
     TraceRoot(trc, &returnValue_, "remat ion frame return value");
     TraceRoot(trc, &thisArgument_, "remat ion frame this");
     TraceRoot(trc, &newTarget_, "remat ion frame newTarget");
     TraceRootRange(trc, numArgSlots() + script_->nfixed(), slots_, "remat ion frame stack");
 }
 
-void
-RematerializedFrame::dump()
-{
+void RematerializedFrame::dump() {
     fprintf(stderr, " Rematerialized Ion Frame%s\n", inlined() ? " (inlined)" : "");
     if (isFunctionFrame()) {
         fprintf(stderr, "  callee fun: ");
@@ -165,11 +133,10 @@ RematerializedFrame::dump()
         fprintf(stderr, "  global frame, no callee\n");
     }
 
-    fprintf(stderr, "  file %s line %zu offset %zu\n",
-            script()->filename(), script()->lineno(),
+    fprintf(stderr, "  file %s line %zu offset %zu\n", script()->filename(), script()->lineno(),
             script()->pcToOffset(pc()));
 
-    fprintf(stderr, "  script = %p\n", (void*) script());
+    fprintf(stderr, "  script = %p\n", (void*)script());
 
     if (isFunctionFrame()) {
         fprintf(stderr, "  env chain: ");

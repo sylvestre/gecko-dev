@@ -22,20 +22,20 @@ namespace dom {
 class U2FSoftTokenManager final : public U2FTokenTransport,
                                   public nsNSSShutDownObject
 {
-public:
+ public:
   explicit U2FSoftTokenManager(uint32_t aCounter);
 
-  virtual RefPtr<U2FRegisterPromise>
-  Register(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-           const nsTArray<uint8_t>& aApplication,
-           const nsTArray<uint8_t>& aChallenge,
-           uint32_t aTimeoutMS) override;
+  virtual RefPtr<U2FRegisterPromise> Register(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+      const nsTArray<uint8_t>& aApplication,
+      const nsTArray<uint8_t>& aChallenge,
+      uint32_t aTimeoutMS) override;
 
-  virtual RefPtr<U2FSignPromise>
-  Sign(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-       const nsTArray<uint8_t>& aApplication,
-       const nsTArray<uint8_t>& aChallenge,
-       uint32_t aTimeoutMS) override;
+  virtual RefPtr<U2FSignPromise> Sign(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+      const nsTArray<uint8_t>& aApplication,
+      const nsTArray<uint8_t>& aChallenge,
+      uint32_t aTimeoutMS) override;
 
   virtual void Cancel() override;
 
@@ -43,7 +43,7 @@ public:
   virtual void virtualDestroyNSSReference() override;
   void destructorSafeDestroyNSSReference();
 
-private:
+ private:
   ~U2FSoftTokenManager();
   nsresult Init();
   bool IsCompatibleVersion(const nsAString& aVersion);
@@ -63,7 +63,7 @@ private:
   uint32_t mCounter;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2FSoftTokenManager_h
+#endif  // mozilla_dom_U2FSoftTokenManager_h

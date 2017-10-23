@@ -13,15 +13,17 @@
 namespace mozilla {
 namespace widget {
 
-class GfxInfoWebGL {
-public:
-    static nsresult GetWebGLParameter(const nsAString& aParam, nsAString& aResult);
+class GfxInfoWebGL
+{
+ public:
+  static nsresult GetWebGLParameter(const nsAString& aParam,
+                                    nsAString& aResult);
 
-protected:
-    GfxInfoWebGL() { }
+ protected:
+  GfxInfoWebGL() {}
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif

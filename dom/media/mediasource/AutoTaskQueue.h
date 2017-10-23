@@ -17,28 +17,31 @@ namespace mozilla {
 // A convenience TaskQueue not requiring explicit shutdown.
 class AutoTaskQueue : public AbstractThread
 {
-public:
+ public:
   explicit AutoTaskQueue(already_AddRefed<SharedThreadPool> aPool,
                          bool aSupportsTailDispatch = false)
-  : AbstractThread(aSupportsTailDispatch)
-  , mTaskQueue(new TaskQueue(Move(aPool), aSupportsTailDispatch))
-  {}
+      : AbstractThread(aSupportsTailDispatch),
+        mTaskQueue(new TaskQueue(Move(aPool), aSupportsTailDispatch))
+  {
+  }
 
   AutoTaskQueue(already_AddRefed<SharedThreadPool> aPool,
                 const char* aName,
                 bool aSupportsTailDispatch = false)
-  : AbstractThread(aSupportsTailDispatch)
-  , mTaskQueue(new TaskQueue(Move(aPool), aName, aSupportsTailDispatch))
-  {}
+      : AbstractThread(aSupportsTailDispatch),
+        mTaskQueue(new TaskQueue(Move(aPool), aName, aSupportsTailDispatch))
+  {
+  }
 
   TaskDispatcher& TailDispatcher() override
   {
     return mTaskQueue->TailDispatcher();
   }
 
-  void Dispatch(already_AddRefed<nsIRunnable> aRunnable,
-                DispatchFailureHandling aFailureHandling = AssertDispatchSuccess,
-                DispatchReason aReason = NormalDispatch) override
+  void Dispatch(
+      already_AddRefed<nsIRunnable> aRunnable,
+      DispatchFailureHandling aFailureHandling = AssertDispatchSuccess,
+      DispatchReason aReason = NormalDispatch) override
   {
     mTaskQueue->Dispatch(Move(aRunnable), aFailureHandling, aReason);
   }
@@ -55,18 +58,18 @@ public:
   // the task queue.
   bool IsCurrentThreadIn() override { return mTaskQueue->IsCurrentThreadIn(); }
 
-private:
+ private:
   ~AutoTaskQueue()
   {
     RefPtr<TaskQueue> taskqueue = mTaskQueue;
     nsCOMPtr<nsIRunnable> task =
-      NS_NewRunnableFunction("AutoTaskQueue::~AutoTaskQueue",
-                             [taskqueue]() { taskqueue->BeginShutdown(); });
+        NS_NewRunnableFunction("AutoTaskQueue::~AutoTaskQueue",
+                               [taskqueue]() { taskqueue->BeginShutdown(); });
     SystemGroup::Dispatch(TaskCategory::Other, task.forget());
   }
   RefPtr<TaskQueue> mTaskQueue;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

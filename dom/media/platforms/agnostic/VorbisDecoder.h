@@ -20,7 +20,7 @@ namespace mozilla {
 
 class VorbisDataDecoder : public MediaDataDecoder
 {
-public:
+ public:
   explicit VorbisDataDecoder(const CreateDecoderParams& aParams);
   ~VorbisDataDecoder();
 
@@ -38,7 +38,7 @@ public:
   static bool IsVorbis(const nsACString& aMimeType);
   static const AudioConfig::Channel* VorbisLayout(uint32_t aChannels);
 
-private:
+ private:
   nsresult DecodeHeader(const unsigned char* aData, size_t aLength);
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
 
@@ -57,5 +57,5 @@ private:
   UniquePtr<AudioConverter> mAudioConverter;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 #endif

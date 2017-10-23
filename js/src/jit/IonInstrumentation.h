@@ -17,17 +17,15 @@ class MacroAssembler;
 
 typedef GeckoProfilerInstrumentation<MacroAssembler, Register> BaseInstrumentation;
 
-class IonInstrumentation : public BaseInstrumentation
-{
-  public:
+class IonInstrumentation : public BaseInstrumentation {
+   public:
     IonInstrumentation(GeckoProfilerRuntime* profiler, jsbytecode** pc)
-      : BaseInstrumentation(profiler)
-    {
+        : BaseInstrumentation(profiler) {
         MOZ_ASSERT(pc != nullptr);
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_IonInstrumentatjit_h */

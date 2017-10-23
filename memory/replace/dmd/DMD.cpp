@@ -79,9 +79,9 @@ StatusMsg(const char* aFmt, ...)
   va_end(ap);
 }
 
-//---------------------------------------------------------------------------
-// Utilities
-//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // Utilities
+  //---------------------------------------------------------------------------
 
 #ifndef DISALLOW_COPY_AND_ASSIGN
 #define DISALLOW_COPY_AND_ASSIGN(T) \
@@ -112,8 +112,8 @@ class InfallibleAllocPolicy
 {
   static void ExitOnFailure(const void* aP);
 
-public:
-  template <typename T>
+ public:
+  template<typename T>
   static T* maybe_pod_malloc(size_t aNumElems)
   {
     if (aNumElems & mozilla::tl::MulOverflowMask<sizeof(T)>::value)
@@ -121,13 +121,13 @@ public:
     return (T*)gMallocTable->malloc(aNumElems * sizeof(T));
   }
 
-  template <typename T>
+  template<typename T>
   static T* maybe_pod_calloc(size_t aNumElems)
   {
     return (T*)gMallocTable->calloc(aNumElems, sizeof(T));
   }
 
-  template <typename T>
+  template<typename T>
   static T* maybe_pod_realloc(T* aPtr, size_t aOldSize, size_t aNewSize)
   {
     if (aNewSize & mozilla::tl::MulOverflowMask<sizeof(T)>::value)
@@ -142,7 +142,7 @@ public:
     return p;
   }
 
-  template <typename T>
+  template<typename T>
   static T* pod_malloc(size_t aNumElems)
   {
     T* p = maybe_pod_malloc<T>(aNumElems);
@@ -157,7 +157,7 @@ public:
     return p;
   }
 
-  template <typename T>
+  template<typename T>
   static T* pod_calloc(size_t aNumElems)
   {
     T* p = maybe_pod_calloc<T>(aNumElems);
@@ -174,7 +174,7 @@ public:
   }
 
   // This realloc_ is required for this to be a JS container AllocPolicy.
-  template <typename T>
+  template<typename T>
   static T* pod_realloc(T* aPtr, size_t aOldSize, size_t aNewSize)
   {
     T* p = maybe_pod_realloc(aPtr, aOldSize, aNewSize);
@@ -193,26 +193,26 @@ public:
 
   static char* strdup_(const char* aStr)
   {
-    char* s = (char*) InfallibleAllocPolicy::malloc_(strlen(aStr) + 1);
+    char* s = (char*)InfallibleAllocPolicy::malloc_(strlen(aStr) + 1);
     strcpy(s, aStr);
     return s;
   }
 
-  template <class T>
+  template<class T>
   static T* new_()
   {
     void* mem = malloc_(sizeof(T));
     return new (mem) T;
   }
 
-  template <class T, typename P1>
+  template<class T, typename P1>
   static T* new_(P1 aP1)
   {
     void* mem = malloc_(sizeof(T));
     return new (mem) T(aP1);
   }
 
-  template <class T>
+  template<class T>
   static void delete_(T* aPtr)
   {
     if (aPtr) {
@@ -236,10 +236,10 @@ void
 DMDFuncs::StatusMsg(const char* aFmt, va_list aAp)
 {
 #ifdef ANDROID
-    __android_log_vprint(ANDROID_LOG_INFO, "DMD", aFmt, aAp);
+  __android_log_vprint(ANDROID_LOG_INFO, "DMD", aFmt, aAp);
 #else
   // The +64 is easily enough for the "DMD[<pid>] " prefix and the NUL.
-  char* fmt = (char*) InfallibleAllocPolicy::malloc_(strlen(aFmt) + 64);
+  char* fmt = (char*)InfallibleAllocPolicy::malloc_(strlen(aFmt) + 64);
   sprintf(fmt, "DMD[%d] %s", getpid(), aFmt);
   vfprintf(stderr, fmt, aAp);
   InfallibleAllocPolicy::free_(fmt);
@@ -293,15 +293,16 @@ Show(size_t n, char* buf, size_t buflen)
 
 class Options
 {
-  template <typename T>
+  template<typename T>
   struct NumOption
   {
     const T mDefault;
     const T mMax;
-    T       mActual;
+    T mActual;
     NumOption(T aDefault, T aMax)
-      : mDefault(aDefault), mMax(aMax), mActual(aDefault)
-    {}
+        : mDefault(aDefault), mMax(aMax), mActual(aDefault)
+    {
+    }
   };
 
   // DMD has several modes. These modes affect what data is recorded and
@@ -363,7 +364,7 @@ class Options
     Partial
   };
 
-  char* mDMDEnvVar;   // a saved copy, for later printing
+  char* mDMDEnvVar;  // a saved copy, for later printing
 
   Mode mMode;
   Stacks mStacks;
@@ -371,27 +372,30 @@ class Options
 
   void BadArg(const char* aArg);
   static const char* ValueIfMatch(const char* aArg, const char* aOptionName);
-  static bool GetLong(const char* aArg, const char* aOptionName,
-                      long aMin, long aMax, long* aValue);
+  static bool GetLong(const char* aArg,
+                      const char* aOptionName,
+                      long aMin,
+                      long aMax,
+                      long* aValue);
   static bool GetBool(const char* aArg, const char* aOptionName, bool* aValue);
 
-public:
+ public:
   explicit Options(const char* aDMDEnvVar);
 
-  bool IsLiveMode()       const { return mMode == Mode::Live; }
+  bool IsLiveMode() const { return mMode == Mode::Live; }
   bool IsDarkMatterMode() const { return mMode == Mode::DarkMatter; }
   bool IsCumulativeMode() const { return mMode == Mode::Cumulative; }
-  bool IsScanMode()       const { return mMode == Mode::Scan; }
+  bool IsScanMode() const { return mMode == Mode::Scan; }
 
   const char* ModeString() const;
 
   const char* DMDEnvVar() const { return mDMDEnvVar; }
 
-  bool DoFullStacks()      const { return mStacks == Stacks::Full; }
-  size_t ShowDumpStats()   const { return mShowDumpStats; }
+  bool DoFullStacks() const { return mStacks == Stacks::Full; }
+  size_t ShowDumpStats() const { return mShowDumpStats; }
 };
 
-static Options *gOptions;
+static Options* gOptions;
 
 //---------------------------------------------------------------------------
 // The global lock
@@ -407,11 +411,11 @@ class MutexBase
 
   DISALLOW_COPY_AND_ASSIGN(MutexBase);
 
-public:
-  MutexBase()  { InitializeCriticalSection(&mCS); }
+ public:
+  MutexBase() { InitializeCriticalSection(&mCS); }
   ~MutexBase() { DeleteCriticalSection(&mCS); }
 
-  void Lock()   { EnterCriticalSection(&mCS); }
+  void Lock() { EnterCriticalSection(&mCS); }
   void Unlock() { LeaveCriticalSection(&mCS); }
 };
 
@@ -423,10 +427,10 @@ class MutexBase
 
   DISALLOW_COPY_AND_ASSIGN(MutexBase);
 
-public:
+ public:
   MutexBase() { pthread_mutex_init(&mMutex, nullptr); }
 
-  void Lock()   { pthread_mutex_lock(&mMutex); }
+  void Lock() { pthread_mutex_lock(&mMutex); }
   void Unlock() { pthread_mutex_unlock(&mMutex); }
 };
 
@@ -438,10 +442,8 @@ class Mutex : private MutexBase
 
   DISALLOW_COPY_AND_ASSIGN(Mutex);
 
-public:
-  Mutex()
-    : mIsLocked(false)
-  {}
+ public:
+  Mutex() : mIsLocked(false) {}
 
   void Lock()
   {
@@ -471,8 +473,8 @@ class AutoLockState
 {
   DISALLOW_COPY_AND_ASSIGN(AutoLockState);
 
-public:
-  AutoLockState()  { gStateLock->Lock(); }
+ public:
+  AutoLockState() { gStateLock->Lock(); }
   ~AutoLockState() { gStateLock->Unlock(); }
 };
 
@@ -480,8 +482,8 @@ class AutoUnlockState
 {
   DISALLOW_COPY_AND_ASSIGN(AutoUnlockState);
 
-public:
-  AutoUnlockState()  { gStateLock->Unlock(); }
+ public:
+  AutoUnlockState() { gStateLock->Unlock(); }
   ~AutoUnlockState() { gStateLock->Lock(); }
 };
 
@@ -491,21 +493,22 @@ public:
 
 #ifdef XP_WIN
 
-#define DMD_TLS_INDEX_TYPE              DWORD
-#define DMD_CREATE_TLS_INDEX(i_)        do {                                  \
-                                          (i_) = TlsAlloc();                  \
-                                        } while (0)
-#define DMD_DESTROY_TLS_INDEX(i_)       TlsFree((i_))
-#define DMD_GET_TLS_DATA(i_)            TlsGetValue((i_))
-#define DMD_SET_TLS_DATA(i_, v_)        TlsSetValue((i_), (v_))
+#define DMD_TLS_INDEX_TYPE DWORD
+#define DMD_CREATE_TLS_INDEX(i_) \
+  do {                           \
+    (i_) = TlsAlloc();           \
+  } while (0)
+#define DMD_DESTROY_TLS_INDEX(i_) TlsFree((i_))
+#define DMD_GET_TLS_DATA(i_) TlsGetValue((i_))
+#define DMD_SET_TLS_DATA(i_, v_) TlsSetValue((i_), (v_))
 
 #else
 
-#define DMD_TLS_INDEX_TYPE               pthread_key_t
-#define DMD_CREATE_TLS_INDEX(i_)         pthread_key_create(&(i_), nullptr)
-#define DMD_DESTROY_TLS_INDEX(i_)        pthread_key_delete((i_))
-#define DMD_GET_TLS_DATA(i_)             pthread_getspecific((i_))
-#define DMD_SET_TLS_DATA(i_, v_)         pthread_setspecific((i_), (v_))
+#define DMD_TLS_INDEX_TYPE pthread_key_t
+#define DMD_CREATE_TLS_INDEX(i_) pthread_key_create(&(i_), nullptr)
+#define DMD_DESTROY_TLS_INDEX(i_) pthread_key_delete((i_))
+#define DMD_GET_TLS_DATA(i_) pthread_getspecific((i_))
+#define DMD_SET_TLS_DATA(i_, v_) pthread_setspecific((i_), (v_))
 
 #endif
 
@@ -522,13 +525,11 @@ class Thread
   // indirectly call vanilla malloc via functions like MozStackWalk.)
   bool mBlockIntercepts;
 
-  Thread()
-    : mBlockIntercepts(false)
-  {}
+  Thread() : mBlockIntercepts(false) {}
 
   DISALLOW_COPY_AND_ASSIGN(Thread);
 
-public:
+ public:
   static Thread* Fetch();
 
   bool BlockIntercepts()
@@ -569,12 +570,8 @@ class AutoBlockIntercepts
 
   DISALLOW_COPY_AND_ASSIGN(AutoBlockIntercepts);
 
-public:
-  explicit AutoBlockIntercepts(Thread* aT)
-    : mT(aT)
-  {
-    mT->BlockIntercepts();
-  }
+ public:
+  explicit AutoBlockIntercepts(Thread* aT) : mT(aT) { mT->BlockIntercepts(); }
   ~AutoBlockIntercepts()
   {
     MOZ_ASSERT(mT->InterceptsAreBlocked());
@@ -588,14 +585,10 @@ public:
 
 class StringTable
 {
-public:
-  StringTable()
-  {
-    MOZ_ALWAYS_TRUE(mSet.init(64));
-  }
+ public:
+  StringTable() { MOZ_ALWAYS_TRUE(mSet.init(64)); }
 
-  const char*
-  Intern(const char* aString)
+  const char* Intern(const char* aString)
   {
     StringHashSet::AddPtr p = mSet.lookupForAdd(aString);
     if (p) {
@@ -607,8 +600,7 @@ public:
     return newString;
   }
 
-  size_t
-  SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+  size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
   {
     size_t n = 0;
     n += mSet.sizeOfExcludingThis(aMallocSizeOf);
@@ -618,38 +610,33 @@ public:
     return n;
   }
 
-private:
+ private:
   struct StringHasher
   {
-      typedef const char* Lookup;
+    typedef const char* Lookup;
 
-      static uint32_t hash(const char* const& aS)
-      {
-          return HashString(aS);
-      }
+    static uint32_t hash(const char* const& aS) { return HashString(aS); }
 
-      static bool match(const char* const& aA, const char* const& aB)
-      {
-          return strcmp(aA, aB) == 0;
-      }
+    static bool match(const char* const& aA, const char* const& aB)
+    {
+      return strcmp(aA, aB) == 0;
+    }
   };
 
-  typedef js::HashSet<const char*, StringHasher, InfallibleAllocPolicy> StringHashSet;
+  typedef js::HashSet<const char*, StringHasher, InfallibleAllocPolicy>
+      StringHashSet;
 
   StringHashSet mSet;
 };
 
 class StringAlloc
 {
-public:
+ public:
   static char* copy(const char* aString)
   {
     return InfallibleAllocPolicy::strdup_(aString);
   }
-  static void free(char* aString)
-  {
-    InfallibleAllocPolicy::free_(aString);
-  }
+  static void free(char* aString) { InfallibleAllocPolicy::free_(aString); }
 };
 
 struct DescribeCodeAddressLock
@@ -660,7 +647,7 @@ struct DescribeCodeAddressLock
 };
 
 typedef CodeAddressService<StringTable, StringAlloc, DescribeCodeAddressLock>
-  CodeAddressService;
+    CodeAddressService;
 
 //---------------------------------------------------------------------------
 // Stack traces
@@ -668,14 +655,14 @@ typedef CodeAddressService<StringTable, StringAlloc, DescribeCodeAddressLock>
 
 class StackTrace
 {
-public:
+ public:
   static const uint32_t MaxFrames = 24;
 
-private:
+ private:
   uint32_t mLength;             // The number of PCs.
   const void* mPcs[MaxFrames];  // The PCs themselves.
 
-public:
+ public:
   StackTrace() : mLength(0) {}
 
   uint32_t Length() const { return mLength; }
@@ -700,18 +687,19 @@ public:
     return mozilla::HashBytes(aSt->mPcs, aSt->Size());
   }
 
-  static bool match(const StackTrace* const& aA,
-                    const StackTrace* const& aB)
+  static bool match(const StackTrace* const& aA, const StackTrace* const& aB)
   {
     return aA->mLength == aB->mLength &&
            memcmp(aA->mPcs, aB->mPcs, aA->Size()) == 0;
   }
 
-private:
-  static void StackWalkCallback(uint32_t aFrameNumber, void* aPc, void* aSp,
+ private:
+  static void StackWalkCallback(uint32_t aFrameNumber,
+                                void* aPc,
+                                void* aSp,
                                 void* aClosure)
   {
-    StackTrace* st = (StackTrace*) aClosure;
+    StackTrace* st = (StackTrace*)aClosure;
     MOZ_ASSERT(st->mLength < MaxFrames);
     st->mPcs[st->mLength] = aPc;
     st->mLength++;
@@ -720,19 +708,22 @@ private:
 };
 
 typedef js::HashSet<StackTrace*, StackTrace, InfallibleAllocPolicy>
-        StackTraceTable;
+    StackTraceTable;
 static StackTraceTable* gStackTraceTable = nullptr;
 
-typedef js::HashSet<const StackTrace*, js::DefaultHasher<const StackTrace*>,
+typedef js::HashSet<const StackTrace*,
+                    js::DefaultHasher<const StackTrace*>,
                     InfallibleAllocPolicy>
-        StackTraceSet;
+    StackTraceSet;
 
-typedef js::HashSet<const void*, js::DefaultHasher<const void*>,
-                    InfallibleAllocPolicy>
+typedef js::
+    HashSet<const void*, js::DefaultHasher<const void*>, InfallibleAllocPolicy>
         PointerSet;
-typedef js::HashMap<const void*, uint32_t, js::DefaultHasher<const void*>,
+typedef js::HashMap<const void*,
+                    uint32_t,
+                    js::DefaultHasher<const void*>,
                     InfallibleAllocPolicy>
-        PointerIdMap;
+    PointerIdMap;
 
 // We won't GC the stack trace table until it this many elements.
 static uint32_t gGCStackTraceTableWhenSizeExceeds = 4 * 1024;
@@ -777,15 +768,13 @@ StackTrace::Get(Thread* aT)
     }
 #elif defined(__GNUC__)
     NT_TIB* pTib;
-    asm ( "movl %%fs:0x18, %0\n"
-         : "=r" (pTib)
-        );
+    asm("movl %%fs:0x18, %0\n" : "=r"(pTib));
 #else
-#   error "unknown compiler"
+#error "unknown compiler"
 #endif
     void* stackEnd = static_cast<void*>(pTib->StackBase);
-    FramePointerStackWalk(StackWalkCallback, /* skipFrames = */ 0, MaxFrames,
-                          &tmp, fp, stackEnd);
+    FramePointerStackWalk(
+        StackWalkCallback, /* skipFrames = */ 0, MaxFrames, &tmp, fp, stackEnd);
 #elif defined(XP_MACOSX)
     // This avoids MozStackWalk(), which has become unusably slow on Mac due to
     // changes in libunwind.
@@ -794,15 +783,13 @@ StackTrace::Get(Thread* aT)
     // FramePointerStackWalk() on Mac: Registers::SyncPopulate() for the frame
     // pointer, and GetStackTop() for the stack end.
     void** fp;
-    asm (
+    asm(
         // Dereference %rbp to get previous %rbp
         "movq (%%rbp), %0\n\t"
-        :
-        "=r"(fp)
-    );
+        : "=r"(fp));
     void* stackEnd = pthread_get_stackaddr_np(pthread_self());
-    FramePointerStackWalk(StackWalkCallback, /* skipFrames = */ 0, MaxFrames,
-                          &tmp, fp, stackEnd);
+    FramePointerStackWalk(
+        StackWalkCallback, /* skipFrames = */ 0, MaxFrames, &tmp, fp, stackEnd);
 #else
 #if defined(XP_WIN) && defined(_M_X64)
     int skipFrames = 1;
@@ -830,12 +817,11 @@ StackTrace::Get(Thread* aT)
 //
 // |T| is the pointer type, e.g. |int*|, not the pointed-to type.  This makes
 // is easier to have const pointers, e.g. |TaggedPtr<const int*>|.
-template <typename T>
+template<typename T>
 class TaggedPtr
 {
-  union
-  {
-    T         mPtr;
+  union {
+    T mPtr;
     uintptr_t mUint;
   };
 
@@ -847,13 +833,10 @@ class TaggedPtr
     return (uintptr_t(aPtr) & kTagMask) == 0;
   }
 
-public:
-  TaggedPtr()
-    : mPtr(nullptr)
-  {}
+ public:
+  TaggedPtr() : mPtr(nullptr) {}
 
-  TaggedPtr(T aPtr, bool aBool)
-    : mPtr(aPtr)
+  TaggedPtr(T aPtr, bool aBool) : mPtr(aPtr)
   {
     MOZ_ASSERT(IsTwoByteAligned(aPtr));
     uintptr_t tag = uintptr_t(aBool);
@@ -879,8 +862,8 @@ public:
 // in DarkMatter mode.
 class LiveBlock
 {
-  const void*  mPtr;
-  const size_t mReqSize;    // size requested
+  const void* mPtr;
+  const size_t mReqSize;  // size requested
 
   // The stack trace where this block was allocated, or nullptr if we didn't
   // record one.
@@ -900,28 +883,24 @@ class LiveBlock
   // Only used in DarkMatter mode.
   mutable TaggedPtr<const StackTrace*> mReportStackTrace_mReportedOnAlloc[2];
 
-public:
-  LiveBlock(const void* aPtr, size_t aReqSize,
+ public:
+  LiveBlock(const void* aPtr,
+            size_t aReqSize,
             const StackTrace* aAllocStackTrace)
-    : mPtr(aPtr)
-    , mReqSize(aReqSize)
-    , mAllocStackTrace(aAllocStackTrace)
-    , mReportStackTrace_mReportedOnAlloc()     // all fields get zeroed
-  {}
+      : mPtr(aPtr),
+        mReqSize(aReqSize),
+        mAllocStackTrace(aAllocStackTrace),
+        mReportStackTrace_mReportedOnAlloc()  // all fields get zeroed
+  {
+  }
 
   const void* Address() const { return mPtr; }
 
   size_t ReqSize() const { return mReqSize; }
 
-  size_t SlopSize() const
-  {
-    return MallocSizeOf(mPtr) - mReqSize;
-  }
+  size_t SlopSize() const { return MallocSizeOf(mPtr) - mReqSize; }
 
-  const StackTrace* AllocStackTrace() const
-  {
-    return mAllocStackTrace;
-  }
+  const StackTrace* AllocStackTrace() const { return mAllocStackTrace; }
 
   const StackTrace* ReportStackTrace1() const
   {
@@ -997,7 +976,7 @@ public:
     } else if (!ReportedOnAlloc1() && ReportedOnAlloc2()) {
       // Shift the 2nd report down to the 1st one.
       mReportStackTrace_mReportedOnAlloc[0] =
-        mReportStackTrace_mReportedOnAlloc[1];
+          mReportStackTrace_mReportedOnAlloc[1];
       mReportStackTrace_mReportedOnAlloc[1].Set(nullptr, 0);
 
     } else if (ReportedOnAlloc1() && !ReportedOnAlloc2()) {
@@ -1026,73 +1005,68 @@ static LiveBlockTable* gLiveBlockTable = nullptr;
 
 class AggregatedLiveBlockHashPolicy
 {
-public:
+ public:
   typedef const LiveBlock* const Lookup;
 
   static uint32_t hash(const LiveBlock* const& aB)
   {
     return gOptions->IsDarkMatterMode()
-         ? mozilla::HashGeneric(aB->ReqSize(),
-                                aB->SlopSize(),
-                                aB->AllocStackTrace(),
-                                aB->ReportedOnAlloc1(),
-                                aB->ReportedOnAlloc2())
-         : mozilla::HashGeneric(aB->ReqSize(),
-                                aB->SlopSize(),
-                                aB->AllocStackTrace());
+               ? mozilla::HashGeneric(aB->ReqSize(),
+                                      aB->SlopSize(),
+                                      aB->AllocStackTrace(),
+                                      aB->ReportedOnAlloc1(),
+                                      aB->ReportedOnAlloc2())
+               : mozilla::HashGeneric(
+                     aB->ReqSize(), aB->SlopSize(), aB->AllocStackTrace());
   }
 
   static bool match(const LiveBlock* const& aA, const LiveBlock* const& aB)
   {
     return gOptions->IsDarkMatterMode()
-         ? aA->ReqSize() == aB->ReqSize() &&
-           aA->SlopSize() == aB->SlopSize() &&
-           aA->AllocStackTrace() == aB->AllocStackTrace() &&
-           aA->ReportStackTrace1() == aB->ReportStackTrace1() &&
-           aA->ReportStackTrace2() == aB->ReportStackTrace2()
-         : aA->ReqSize() == aB->ReqSize() &&
-           aA->SlopSize() == aB->SlopSize() &&
-           aA->AllocStackTrace() == aB->AllocStackTrace();
+               ? aA->ReqSize() == aB->ReqSize() &&
+                     aA->SlopSize() == aB->SlopSize() &&
+                     aA->AllocStackTrace() == aB->AllocStackTrace() &&
+                     aA->ReportStackTrace1() == aB->ReportStackTrace1() &&
+                     aA->ReportStackTrace2() == aB->ReportStackTrace2()
+               : aA->ReqSize() == aB->ReqSize() &&
+                     aA->SlopSize() == aB->SlopSize() &&
+                     aA->AllocStackTrace() == aB->AllocStackTrace();
   }
 };
 
 // A table of live blocks where the lookup key is everything but the block
 // address. For aggregating similar live blocks at output time.
-typedef js::HashMap<const LiveBlock*, size_t, AggregatedLiveBlockHashPolicy,
+typedef js::HashMap<const LiveBlock*,
+                    size_t,
+                    AggregatedLiveBlockHashPolicy,
                     InfallibleAllocPolicy>
-        AggregatedLiveBlockTable;
+    AggregatedLiveBlockTable;
 
 // A freed heap block.
 class DeadBlock
 {
-  const size_t mReqSize;    // size requested
-  const size_t mSlopSize;   // slop above size requested
+  const size_t mReqSize;   // size requested
+  const size_t mSlopSize;  // slop above size requested
 
   // The stack trace where this block was allocated.
   const StackTrace* const mAllocStackTrace;
 
-public:
-  DeadBlock()
-    : mReqSize(0)
-    , mSlopSize(0)
-    , mAllocStackTrace(nullptr)
-  {}
+ public:
+  DeadBlock() : mReqSize(0), mSlopSize(0), mAllocStackTrace(nullptr) {}
 
   explicit DeadBlock(const LiveBlock& aLb)
-    : mReqSize(aLb.ReqSize())
-    , mSlopSize(aLb.SlopSize())
-    , mAllocStackTrace(aLb.AllocStackTrace())
-  {}
+      : mReqSize(aLb.ReqSize()),
+        mSlopSize(aLb.SlopSize()),
+        mAllocStackTrace(aLb.AllocStackTrace())
+  {
+  }
 
   ~DeadBlock() {}
 
-  size_t ReqSize()    const { return mReqSize; }
-  size_t SlopSize()   const { return mSlopSize; }
+  size_t ReqSize() const { return mReqSize; }
+  size_t SlopSize() const { return mSlopSize; }
 
-  const StackTrace* AllocStackTrace() const
-  {
-    return mAllocStackTrace;
-  }
+  const StackTrace* AllocStackTrace() const { return mAllocStackTrace; }
 
   void AddStackTracesToTable(StackTraceSet& aStackTraces) const
   {
@@ -1107,15 +1081,13 @@ public:
 
   static uint32_t hash(const DeadBlock& aB)
   {
-    return mozilla::HashGeneric(aB.ReqSize(),
-                                aB.SlopSize(),
-                                aB.AllocStackTrace());
+    return mozilla::HashGeneric(
+        aB.ReqSize(), aB.SlopSize(), aB.AllocStackTrace());
   }
 
   static bool match(const DeadBlock& aA, const DeadBlock& aB)
   {
-    return aA.ReqSize() == aB.ReqSize() &&
-           aA.SlopSize() == aB.SlopSize() &&
+    return aA.ReqSize() == aB.ReqSize() && aA.SlopSize() == aB.SlopSize() &&
            aA.AllocStackTrace() == aB.AllocStackTrace();
   }
 };
@@ -1123,11 +1095,12 @@ public:
 // For each unique DeadBlock value we store a count of how many actual dead
 // blocks have that value.
 typedef js::HashMap<DeadBlock, size_t, DeadBlock, InfallibleAllocPolicy>
-        DeadBlockTable;
+    DeadBlockTable;
 static DeadBlockTable* gDeadBlockTable = nullptr;
 
 // Add the dead block to the dead block table, if that's appropriate.
-void MaybeAddToDeadBlockTable(const DeadBlock& aDb)
+void
+MaybeAddToDeadBlockTable(const DeadBlock& aDb)
 {
   if (gOptions->IsCumulativeMode() && aDb.AllocStackTrace()) {
     AutoLockState lock;
@@ -1206,8 +1179,8 @@ static FastBernoulliTrial* gBernoulli;
 static void
 ResetBernoulli()
 {
-  new (gBernoulli) FastBernoulliTrial(0.003, 0x8e26eeee166bc8ca,
-                                             0x56820f304a9c9ae0);
+  new (gBernoulli)
+      FastBernoulliTrial(0.003, 0x8e26eeee166bc8ca, 0x56820f304a9c9ae0);
 }
 
 static void
@@ -1259,10 +1232,11 @@ FreeCallback(void* aPtr, Thread* aT, DeadBlock* aDeadBlock)
 // malloc/free interception
 //---------------------------------------------------------------------------
 
-static void Init(const malloc_table_t* aMallocTable);
+static void
+Init(const malloc_table_t* aMallocTable);
 
-} // namespace dmd
-} // namespace mozilla
+}  // namespace dmd
+}  // namespace mozilla
 
 void
 replace_init(const malloc_table_t* aMallocTable)
@@ -1430,14 +1404,17 @@ Options::ValueIfMatch(const char* aArg, const char* aOptionName)
 // Extracts a |long| value for an option from an argument.  It must be within
 // the range |aMin..aMax| (inclusive).
 bool
-Options::GetLong(const char* aArg, const char* aOptionName,
-                 long aMin, long aMax, long* aValue)
+Options::GetLong(const char* aArg,
+                 const char* aOptionName,
+                 long aMin,
+                 long aMax,
+                 long* aValue)
 {
   if (const char* optionValue = ValueIfMatch(aArg, aOptionName)) {
     char* endPtr;
     *aValue = strtol(optionValue, &endPtr, /* base */ 10);
-    if (!*endPtr && aMin <= *aValue && *aValue <= aMax &&
-        *aValue != LONG_MIN && *aValue != LONG_MAX) {
+    if (!*endPtr && aMin <= *aValue && *aValue <= aMax && *aValue != LONG_MIN &&
+        *aValue != LONG_MAX) {
       return true;
     }
   }
@@ -1463,11 +1440,11 @@ Options::GetBool(const char* aArg, const char* aOptionName, bool* aValue)
 }
 
 Options::Options(const char* aDMDEnvVar)
-  : mDMDEnvVar(aDMDEnvVar ? InfallibleAllocPolicy::strdup_(aDMDEnvVar)
-                          : nullptr)
-  , mMode(Mode::DarkMatter)
-  , mStacks(Stacks::Partial)
-  , mShowDumpStats(false)
+    : mDMDEnvVar(aDMDEnvVar ? InfallibleAllocPolicy::strdup_(aDMDEnvVar)
+                            : nullptr),
+      mMode(Mode::DarkMatter),
+      mStacks(Stacks::Partial),
+      mShowDumpStats(false)
 {
   // It's no longer necessary to set the DMD env var to "1" if you want default
   // options (you can leave it undefined) but we still accept "1" for
@@ -1543,17 +1520,17 @@ const char*
 Options::ModeString() const
 {
   switch (mMode) {
-  case Mode::Live:
-    return "live";
-  case Mode::DarkMatter:
-    return "dark-matter";
-  case Mode::Cumulative:
-    return "cumulative";
-  case Mode::Scan:
-    return "scan";
-  default:
-    MOZ_ASSERT(false);
-    return "(unknown DMD mode)";
+    case Mode::Live:
+      return "live";
+    case Mode::DarkMatter:
+      return "dark-matter";
+    case Mode::Cumulative:
+      return "cumulative";
+    case Mode::Scan:
+      return "scan";
+    default:
+      MOZ_ASSERT(false);
+      return "(unknown DMD mode)";
   }
 }
 
@@ -1611,8 +1588,8 @@ Init(const malloc_table_t* aMallocTable)
 
   gStateLock = InfallibleAllocPolicy::new_<Mutex>();
 
-  gBernoulli = (FastBernoulliTrial*)
-    InfallibleAllocPolicy::malloc_(sizeof(FastBernoulliTrial));
+  gBernoulli = (FastBernoulliTrial*)InfallibleAllocPolicy::malloc_(
+      sizeof(FastBernoulliTrial));
   ResetBernoulli();
 
   DMD_CREATE_TLS_INDEX(gTlsIndex);
@@ -1716,7 +1693,7 @@ SizeOfInternal(Sizes* aSizes)
   }
 
   aSizes->mStackTraceTable =
-    gStackTraceTable->sizeOfIncludingThis(MallocSizeOf);
+      gStackTraceTable->sizeOfIncludingThis(MallocSizeOf);
 
   aSizes->mLiveBlockTable = gLiveBlockTable->sizeOfIncludingThis(MallocSizeOf);
 
@@ -1752,12 +1729,8 @@ DMDFuncs::ClearReports()
 
 class ToIdStringConverter final
 {
-public:
-  ToIdStringConverter()
-    : mNextId(0)
-  {
-    MOZ_ALWAYS_TRUE(mIdMap.init(512));
-  }
+ public:
+  ToIdStringConverter() : mNextId(0) { MOZ_ALWAYS_TRUE(mIdMap.init(512)); }
 
   // Converts a pointer to a unique ID. Reuses the existing ID for the pointer
   // if it's been seen before.
@@ -1779,7 +1752,7 @@ public:
     return mIdMap.sizeOfExcludingThis(aMallocSizeOf);
   }
 
-private:
+ private:
   // This function converts an integer to base-32. We use base-32 values for
   // indexing into the traceTable and the frameTable, for the following reasons.
   //
@@ -1823,14 +1796,14 @@ private:
 // Helper class for converting a pointer value to a string.
 class ToStringConverter
 {
-public:
+ public:
   const char* ToPtrString(const void* aPtr)
   {
     snprintf(kPtrBuf, sizeof(kPtrBuf) - 1, "%" PRIxPTR, (uintptr_t)aPtr);
     return kPtrBuf;
   }
 
-private:
+ private:
   char kPtrBuf[32];
 };
 
@@ -2065,52 +2038,56 @@ AnalyzeImpl(UniquePtr<JSONWriteFunc> aWriter)
     StatusMsg("    Data structures that persist after Dump() ends {\n");
 
     StatusMsg("      Used stack traces:    %10s bytes\n",
-      Show(sizes.mStackTracesUsed, buf1, kBufLen));
+              Show(sizes.mStackTracesUsed, buf1, kBufLen));
 
     StatusMsg("      Unused stack traces:  %10s bytes\n",
-      Show(sizes.mStackTracesUnused, buf1, kBufLen));
+              Show(sizes.mStackTracesUnused, buf1, kBufLen));
 
     StatusMsg("      Stack trace table:    %10s bytes (%s entries, %s used)\n",
-      Show(sizes.mStackTraceTable,       buf1, kBufLen),
-      Show(gStackTraceTable->capacity(), buf2, kBufLen),
-      Show(gStackTraceTable->count(),    buf3, kBufLen));
+              Show(sizes.mStackTraceTable, buf1, kBufLen),
+              Show(gStackTraceTable->capacity(), buf2, kBufLen),
+              Show(gStackTraceTable->count(), buf3, kBufLen));
 
     StatusMsg("      Live block table:     %10s bytes (%s entries, %s used)\n",
-      Show(sizes.mLiveBlockTable,       buf1, kBufLen),
-      Show(gLiveBlockTable->capacity(), buf2, kBufLen),
-      Show(gLiveBlockTable->count(),    buf3, kBufLen));
+              Show(sizes.mLiveBlockTable, buf1, kBufLen),
+              Show(gLiveBlockTable->capacity(), buf2, kBufLen),
+              Show(gLiveBlockTable->count(), buf3, kBufLen));
 
     StatusMsg("      Dead block table:     %10s bytes (%s entries, %s used)\n",
-      Show(sizes.mDeadBlockTable,       buf1, kBufLen),
-      Show(gDeadBlockTable->capacity(), buf2, kBufLen),
-      Show(gDeadBlockTable->count(),    buf3, kBufLen));
+              Show(sizes.mDeadBlockTable, buf1, kBufLen),
+              Show(gDeadBlockTable->capacity(), buf2, kBufLen),
+              Show(gDeadBlockTable->count(), buf3, kBufLen));
 
     StatusMsg("    }\n");
     StatusMsg("    Data structures that are destroyed after Dump() ends {\n");
 
-    StatusMsg("      Location service:      %10s bytes\n",
-      Show(locService->SizeOfIncludingThis(MallocSizeOf), buf1, kBufLen));
-    StatusMsg("      Used stack traces set: %10s bytes\n",
-      Show(usedStackTraces.sizeOfExcludingThis(MallocSizeOf), buf1, kBufLen));
+    StatusMsg(
+        "      Location service:      %10s bytes\n",
+        Show(locService->SizeOfIncludingThis(MallocSizeOf), buf1, kBufLen));
+    StatusMsg(
+        "      Used stack traces set: %10s bytes\n",
+        Show(usedStackTraces.sizeOfExcludingThis(MallocSizeOf), buf1, kBufLen));
     StatusMsg("      Used PCs set:          %10s bytes\n",
-      Show(usedPcs.sizeOfExcludingThis(MallocSizeOf), buf1, kBufLen));
+              Show(usedPcs.sizeOfExcludingThis(MallocSizeOf), buf1, kBufLen));
     StatusMsg("      Pointer ID map:        %10s bytes\n",
-      Show(iscSize, buf1, kBufLen));
+              Show(iscSize, buf1, kBufLen));
 
     StatusMsg("    }\n");
     StatusMsg("    Counts {\n");
 
-    size_t hits   = locService->NumCacheHits();
+    size_t hits = locService->NumCacheHits();
     size_t misses = locService->NumCacheMisses();
     size_t requests = hits + misses;
     StatusMsg("      Location service:    %10s requests\n",
-      Show(requests, buf1, kBufLen));
+              Show(requests, buf1, kBufLen));
 
-    size_t count    = locService->CacheCount();
+    size_t count = locService->CacheCount();
     size_t capacity = locService->CacheCapacity();
-    StatusMsg("      Location service cache:  "
-      "%4.1f%% hit rate, %.1f%% occupancy at end\n",
-      Percent(hits, requests), Percent(count, capacity));
+    StatusMsg(
+        "      Location service cache:  "
+        "%4.1f%% hit rate, %.1f%% occupancy at end\n",
+        Percent(hits, requests),
+        Percent(count, capacity));
 
     StatusMsg("    }\n");
     StatusMsg("  }\n");
@@ -2150,5 +2127,5 @@ DMDFuncs::ResetEverything(const char* aOptions)
   ResetBernoulli();
 }
 
-} // namespace dmd
-} // namespace mozilla
+}  // namespace dmd
+}  // namespace mozilla

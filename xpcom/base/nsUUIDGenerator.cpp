@@ -17,27 +17,23 @@
 #include "nsUUIDGenerator.h"
 
 #ifdef ANDROID
-extern "C" NS_EXPORT void arc4random_buf(void*, size_t);
+extern "C" NS_EXPORT void
+arc4random_buf(void*, size_t);
 #endif
 
 using namespace mozilla;
 
 NS_IMPL_ISUPPORTS(nsUUIDGenerator, nsIUUIDGenerator)
 
-nsUUIDGenerator::nsUUIDGenerator()
-  : mLock("nsUUIDGenerator.mLock")
-{
-}
+nsUUIDGenerator::nsUUIDGenerator() : mLock("nsUUIDGenerator.mLock") {}
 
-nsUUIDGenerator::~nsUUIDGenerator()
-{
-}
+nsUUIDGenerator::~nsUUIDGenerator() {}
 
 nsresult
 nsUUIDGenerator::Init()
 {
-  // We're a service, so we're guaranteed that Init() is not going
-  // to be reentered while we're inside Init().
+// We're a service, so we're guaranteed that Init() is not going
+// to be reentered while we're inside Init().
 
 #if !defined(XP_WIN) && !defined(XP_MACOSX) && !defined(HAVE_ARC4RANDOM)
   /* initialize random number generator using NSPR random noise */
@@ -141,7 +137,6 @@ nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
 #else
     long rval = random();
 #endif
-
 
     uint8_t* src = (uint8_t*)&rval;
     // We want to grab the mRBytes least significant bytes of rval, since

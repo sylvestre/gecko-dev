@@ -10,11 +10,11 @@
 #include "mozilla/EndianUtils.h"
 
 #ifndef JS_STACK_GROWTH_DIRECTION
-# ifdef __hppa
-#  define JS_STACK_GROWTH_DIRECTION (1)
-# else
-#  define JS_STACK_GROWTH_DIRECTION (-1)
-# endif
+#ifdef __hppa
+#define JS_STACK_GROWTH_DIRECTION (1)
+#else
+#define JS_STACK_GROWTH_DIRECTION (-1)
+#endif
 #endif
 
 #endif /* jscpucfg_h */

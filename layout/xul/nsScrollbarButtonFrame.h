@@ -20,23 +20,30 @@
 
 class nsScrollbarButtonFrame final : public nsButtonBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsScrollbarButtonFrame)
 
-  explicit nsScrollbarButtonFrame(nsStyleContext* aContext):
-    nsButtonBoxFrame(aContext, kClassID), mCursorOnThis(false) {}
+  explicit nsScrollbarButtonFrame(nsStyleContext* aContext)
+      : nsButtonBoxFrame(aContext, kClassID), mCursorOnThis(false)
+  {
+  }
 
   // Overrides
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
-  friend nsIFrame* NS_NewScrollbarButtonFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewScrollbarButtonFrame(nsIPresShell* aPresShell,
+                                              nsStyleContext* aContext);
 
   virtual nsresult HandleEvent(nsPresContext* aPresContext,
                                mozilla::WidgetGUIEvent* aEvent,
                                nsEventStatus* aEventStatus) override;
 
-  static nsresult GetChildWithTag(nsAtom* atom, nsIFrame* start, nsIFrame*& result);
-  static nsresult GetParentWithTag(nsAtom* atom, nsIFrame* start, nsIFrame*& result);
+  static nsresult GetChildWithTag(nsAtom* atom,
+                                  nsIFrame* start,
+                                  nsIFrame*& result);
+  static nsresult GetParentWithTag(nsAtom* atom,
+                                   nsIFrame* start,
+                                   nsIFrame*& result);
 
   bool HandleButtonPress(nsPresContext* aPresContext,
                          mozilla::WidgetGUIEvent* aEvent,
@@ -46,9 +53,9 @@ public:
                                  mozilla::WidgetGUIEvent* aEvent,
                                  nsEventStatus* aEventStatus,
                                  bool aControlHeld) override
- {
-   return NS_OK;
- }
+  {
+    return NS_OK;
+  }
 
   NS_IMETHOD HandleDrag(nsPresContext* aPresContext,
                         mozilla::WidgetGUIEvent* aEvent,
@@ -61,19 +68,21 @@ public:
                            mozilla::WidgetGUIEvent* aEvent,
                            nsEventStatus* aEventStatus) override;
 
-protected:
+ protected:
   virtual void MouseClicked(mozilla::WidgetGUIEvent* aEvent) override;
 
-  void StartRepeat() {
-    nsRepeatService::GetInstance()->Start(Notify, this,
-                                          mContent->OwnerDoc(),
-                                          NS_LITERAL_CSTRING("nsScrollbarButtonFrame"));
+  void StartRepeat()
+  {
+    nsRepeatService::GetInstance()->Start(
+        Notify,
+        this,
+        mContent->OwnerDoc(),
+        NS_LITERAL_CSTRING("nsScrollbarButtonFrame"));
   }
-  void StopRepeat() {
-    nsRepeatService::GetInstance()->Stop(Notify, this);
-  }
+  void StopRepeat() { nsRepeatService::GetInstance()->Stop(Notify, this); }
   void Notify();
-  static void Notify(void* aData) {
+  static void Notify(void* aData)
+  {
     static_cast<nsScrollbarButtonFrame*>(aData)->Notify();
   }
 

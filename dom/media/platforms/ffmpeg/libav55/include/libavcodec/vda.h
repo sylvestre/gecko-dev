@@ -54,86 +54,89 @@
  *
  * The application must make it available as AVCodecContext.hwaccel_context.
  */
-struct vda_context {
-    /**
+struct vda_context
+{
+  /**
      * VDA decoder object.
      *
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    VDADecoder          decoder;
+  VDADecoder decoder;
 
-    /**
+  /**
      * The Core Video pixel buffer that contains the current image data.
      *
      * encoding: unused
      * decoding: Set by libavcodec. Unset by user.
      */
-    CVPixelBufferRef    cv_buffer;
+  CVPixelBufferRef cv_buffer;
 
-    /**
+  /**
      * Use the hardware decoder in synchronous mode.
      *
      * encoding: unused
      * decoding: Set by user.
      */
-    int                 use_sync_decoding;
+  int use_sync_decoding;
 
-    /**
+  /**
      * The frame width.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    int                 width;
+  int width;
 
-    /**
+  /**
      * The frame height.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    int                 height;
+  int height;
 
-    /**
+  /**
      * The frame format.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    int                 format;
+  int format;
 
-    /**
+  /**
      * The pixel format for output image buffers.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    OSType              cv_pix_fmt_type;
+  OSType cv_pix_fmt_type;
 
-    /**
+  /**
      * The current bitstream buffer.
      */
-    uint8_t             *priv_bitstream;
+  uint8_t* priv_bitstream;
 
-    /**
+  /**
      * The current size of the bitstream.
      */
-    int                 priv_bitstream_size;
+  int priv_bitstream_size;
 
-    /**
+  /**
      * The reference size used for fast reallocation.
      */
-    int                 priv_allocated_size;
+  int priv_allocated_size;
 };
 
 /** Create the video decoder. */
-int ff_vda_create_decoder(struct vda_context *vda_ctx,
-                          uint8_t *extradata,
-                          int extradata_size);
+int
+ff_vda_create_decoder(struct vda_context* vda_ctx,
+                      uint8_t* extradata,
+                      int extradata_size);
 
 /** Destroy the video decoder. */
-int ff_vda_destroy_decoder(struct vda_context *vda_ctx);
+int
+ff_vda_destroy_decoder(struct vda_context* vda_ctx);
 
 /**
  * @}

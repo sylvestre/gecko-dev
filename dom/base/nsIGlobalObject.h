@@ -13,25 +13,26 @@
 #include "nsTArray.h"
 #include "js/TypeDecls.h"
 
-#define NS_IGLOBALOBJECT_IID \
-{ 0x11afa8be, 0xd997, 0x4e07, \
-{ 0xa6, 0xa3, 0x6f, 0x87, 0x2e, 0xc3, 0xee, 0x7f } }
+#define NS_IGLOBALOBJECT_IID                         \
+  {                                                  \
+    0x11afa8be, 0xd997, 0x4e07,                      \
+    {                                                \
+      0xa6, 0xa3, 0x6f, 0x87, 0x2e, 0xc3, 0xee, 0x7f \
+    }                                                \
+  }
 
 class nsCycleCollectionTraversalCallback;
 class nsIPrincipal;
 
-class nsIGlobalObject : public nsISupports,
-                        public mozilla::dom::DispatcherTrait
+class nsIGlobalObject : public nsISupports, public mozilla::dom::DispatcherTrait
 {
   nsTArray<nsCString> mHostObjectURIs;
   bool mIsDying;
 
-protected:
-  nsIGlobalObject()
-   : mIsDying(false)
-  {}
+ protected:
+  nsIGlobalObject() : mIsDying(false) {}
 
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IGLOBALOBJECT_IID)
 
   /**
@@ -48,11 +49,7 @@ public:
    * that pops up the slow script dialog when the Promise queue is preventing
    * a window from going away.
    */
-  bool
-  IsDying() const
-  {
-    return mIsDying;
-  }
+  bool IsDying() const { return mIsDying; }
 
   // GetGlobalJSObject may return a gray object.  If this ever changes so that
   // it stops doing that, please simplify the code in FindAssociatedGlobal in
@@ -72,21 +69,16 @@ public:
   // Any CC class inheriting nsIGlobalObject should call these 2 methods if it
   // exposes the URL API.
   void UnlinkHostObjectURIs();
-  void TraverseHostObjectURIs(nsCycleCollectionTraversalCallback &aCb);
+  void TraverseHostObjectURIs(nsCycleCollectionTraversalCallback& aCb);
 
   virtual bool IsInSyncOperation() { return false; }
 
-protected:
+ protected:
   virtual ~nsIGlobalObject();
 
-  void
-  StartDying()
-  {
-    mIsDying = true;
-  }
+  void StartDying() { mIsDying = true; }
 };
 
-NS_DEFINE_STATIC_IID_ACCESSOR(nsIGlobalObject,
-                              NS_IGLOBALOBJECT_IID)
+NS_DEFINE_STATIC_IID_ACCESSOR(nsIGlobalObject, NS_IGLOBALOBJECT_IID)
 
-#endif // nsIGlobalObject_h__
+#endif  // nsIGlobalObject_h__

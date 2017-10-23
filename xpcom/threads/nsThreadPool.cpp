@@ -36,21 +36,25 @@ static LazyLogModule sThreadPoolLog("nsThreadPool");
 
 NS_IMPL_ADDREF(nsThreadPool)
 NS_IMPL_RELEASE(nsThreadPool)
-NS_IMPL_CLASSINFO(nsThreadPool, nullptr, nsIClassInfo::THREADSAFE,
+NS_IMPL_CLASSINFO(nsThreadPool,
+                  nullptr,
+                  nsIClassInfo::THREADSAFE,
                   NS_THREADPOOL_CID)
-NS_IMPL_QUERY_INTERFACE_CI(nsThreadPool, nsIThreadPool, nsIEventTarget,
+NS_IMPL_QUERY_INTERFACE_CI(nsThreadPool,
+                           nsIThreadPool,
+                           nsIEventTarget,
                            nsIRunnable)
 NS_IMPL_CI_INTERFACE_GETTER(nsThreadPool, nsIThreadPool, nsIEventTarget)
 
 nsThreadPool::nsThreadPool()
-  : mMutex("[nsThreadPool.mMutex]")
-  , mEventsAvailable(mMutex, "[nsThreadPool.mEventsAvailable]")
-  , mThreadLimit(DEFAULT_THREAD_LIMIT)
-  , mIdleThreadLimit(DEFAULT_IDLE_THREAD_LIMIT)
-  , mIdleThreadTimeout(DEFAULT_IDLE_THREAD_TIMEOUT)
-  , mIdleCount(0)
-  , mStackSize(nsIThreadManager::DEFAULT_STACK_SIZE)
-  , mShutdown(false)
+    : mMutex("[nsThreadPool.mMutex]"),
+      mEventsAvailable(mMutex, "[nsThreadPool.mEventsAvailable]"),
+      mThreadLimit(DEFAULT_THREAD_LIMIT),
+      mIdleThreadLimit(DEFAULT_IDLE_THREAD_LIMIT),
+      mIdleThreadTimeout(DEFAULT_IDLE_THREAD_TIMEOUT),
+      mIdleCount(0),
+      mStackSize(nsIThreadManager::DEFAULT_STACK_SIZE),
+      mShutdown(false)
 {
   LOG(("THRD-P(%p) constructor!!!\n", this));
 }
@@ -82,7 +86,10 @@ nsThreadPool::PutEvent(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags)
     if (NS_WARN_IF(mShutdown)) {
       return NS_ERROR_NOT_AVAILABLE;
     }
-    LOG(("THRD-P(%p) put [%d %d %d]\n", this, mIdleCount, mThreads.Count(),
+    LOG(("THRD-P(%p) put [%d %d %d]\n",
+         this,
+         mIdleCount,
+         mThreads.Count(),
          mThreadLimit));
     MOZ_ASSERT(mIdleCount <= (uint32_t)mThreads.Count(), "oops");
 
@@ -107,7 +114,9 @@ nsThreadPool::PutEvent(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags)
 
   nsCOMPtr<nsIThread> thread;
   nsresult rv = NS_NewNamedThread(mThreadNaming.GetNextThreadName(mName),
-                                  getter_AddRefs(thread), nullptr, stackSize);
+                                  getter_AddRefs(thread),
+                                  nullptr,
+                                  stackSize);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_UNEXPECTED;
   }
@@ -148,8 +157,10 @@ nsThreadPool::ShutdownThread(nsIThread* aThread)
   // shutdown requires this thread have an event loop (and it may not, see bug
   // 10204784).  The simplest way to cover all cases is to asynchronously
   // shutdown aThread from the main thread.
-  SystemGroup::Dispatch(TaskCategory::Other, NewRunnableMethod(
-        "nsIThread::AsyncShutdown", aThread, &nsIThread::AsyncShutdown));
+  SystemGroup::Dispatch(
+      TaskCategory::Other,
+      NewRunnableMethod(
+          "nsIThread::AsyncShutdown", aThread, &nsIThread::AsyncShutdown));
 }
 
 NS_IMETHODIMP
@@ -182,7 +193,7 @@ nsThreadPool::Run()
 
       event = mEvents.GetEvent(nullptr, lock);
       if (!event) {
-        PRIntervalTime now     = PR_IntervalNow();
+        PRIntervalTime now = PR_IntervalNow();
         PRIntervalTime timeout = PR_MillisecondsToInterval(mIdleThreadTimeout);
 
         // If we are shutting down, then don't keep any idle threads
@@ -192,7 +203,8 @@ nsThreadPool::Run()
           if (wasIdle) {
             // if too many idle threads or idle for too long, then bail.
             if (mIdleCount > mIdleThreadLimit ||
-                (mIdleThreadTimeout != UINT32_MAX && (now - idleSince) >= timeout)) {
+                (mIdleThreadTimeout != UINT32_MAX &&
+                 (now - idleSince) >= timeout)) {
               exitThread = true;
             }
           } else {
@@ -214,7 +226,10 @@ nsThreadPool::Run()
           shutdownThreadOnExit = mThreads.RemoveObject(current);
         } else {
           PRIntervalTime delta = timeout - (now - idleSince);
-          LOG(("THRD-P(%p) %s waiting [%d]\n", this, mName.BeginReading(), delta));
+          LOG(("THRD-P(%p) %s waiting [%d]\n",
+               this,
+               mName.BeginReading(),
+               delta));
           mEventsAvailable.Wait(delta);
           LOG(("THRD-P(%p) done waiting\n", this));
         }
@@ -224,7 +239,10 @@ nsThreadPool::Run()
       }
     }
     if (event) {
-      LOG(("THRD-P(%p) %s running [%p]\n", this, mName.BeginReading(), event.get()));
+      LOG(("THRD-P(%p) %s running [%p]\n",
+           this,
+           mName.BeginReading(),
+           event.get()));
       event->Run();
     }
   } while (!exitThread);
@@ -265,15 +283,14 @@ nsThreadPool::Dispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags)
     }
 
     RefPtr<nsThreadSyncDispatch> wrapper =
-      new nsThreadSyncDispatch(thread.forget(), Move(aEvent));
+        new nsThreadSyncDispatch(thread.forget(), Move(aEvent));
     PutEvent(wrapper);
 
-    SpinEventLoopUntil([&, wrapper]() -> bool {
-        return !wrapper->IsPending();
-      });
+    SpinEventLoopUntil(
+        [&, wrapper]() -> bool { return !wrapper->IsPending(); });
   } else {
-    NS_ASSERTION(aFlags == NS_DISPATCH_NORMAL ||
-                 aFlags == NS_DISPATCH_AT_END, "unexpected dispatch flags");
+    NS_ASSERTION(aFlags == NS_DISPATCH_NORMAL || aFlags == NS_DISPATCH_AT_END,
+                 "unexpected dispatch flags");
     PutEvent(Move(aEvent), aFlags);
   }
   return NS_OK;
@@ -365,7 +382,8 @@ nsThreadPool::SetThreadLimit(uint32_t aValue)
   }
 
   if (static_cast<uint32_t>(mThreads.Count()) > mThreadLimit) {
-    mEventsAvailable.NotifyAll();  // wake up threads so they observe this change
+    mEventsAvailable
+        .NotifyAll();  // wake up threads so they observe this change
   }
   return NS_OK;
 }
@@ -389,7 +407,8 @@ nsThreadPool::SetIdleThreadLimit(uint32_t aValue)
 
   // Do we need to kill some idle threads?
   if (mIdleCount > mIdleThreadLimit) {
-    mEventsAvailable.NotifyAll();  // wake up threads so they observe this change
+    mEventsAvailable
+        .NotifyAll();  // wake up threads so they observe this change
   }
   return NS_OK;
 }
@@ -410,7 +429,8 @@ nsThreadPool::SetIdleThreadTimeout(uint32_t aValue)
 
   // Do we need to notify any idle threads that their sleep time has shortened?
   if (mIdleThreadTimeout < oldTimeout && mIdleCount > 0) {
-    mEventsAvailable.NotifyAll();  // wake up threads so they observe this change
+    mEventsAvailable
+        .NotifyAll();  // wake up threads so they observe this change
   }
   return NS_OK;
 }

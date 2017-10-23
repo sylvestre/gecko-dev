@@ -29,10 +29,9 @@ class AnimationEffectTimingReadOnly;
 class KeyframeEffectReadOnly;
 struct ComputedTimingProperties;
 
-class AnimationEffectReadOnly : public nsISupports,
-                                public nsWrapperCache
+class AnimationEffectReadOnly : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AnimationEffectReadOnly)
 
@@ -73,10 +72,10 @@ public:
   // This function returns a null mProgress member of the return value
   // if the animation should not be run
   // (because it is not currently active and is not filling at this time).
-  static ComputedTiming
-  GetComputedTimingAt(const Nullable<TimeDuration>& aLocalTime,
-                      const TimingParams& aTiming,
-                      double aPlaybackRate);
+  static ComputedTiming GetComputedTimingAt(
+      const Nullable<TimeDuration>& aLocalTime,
+      const TimingParams& aTiming,
+      double aPlaybackRate);
   // Shortcut that gets the computed timing using the current local time as
   // calculated from the timeline time.
   ComputedTiming GetComputedTiming(const TimingParams* aTiming = nullptr) const;
@@ -93,18 +92,18 @@ public:
    */
   virtual bool AffectsGeometry() const = 0;
 
-protected:
+ protected:
   virtual ~AnimationEffectReadOnly();
 
   Nullable<TimeDuration> GetLocalTime() const;
 
-protected:
+ protected:
   RefPtr<nsIDocument> mDocument;
   RefPtr<AnimationEffectTimingReadOnly> mTiming;
   RefPtr<Animation> mAnimation;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_AnimationEffectReadOnly_h
+#endif  // mozilla_dom_AnimationEffectReadOnly_h

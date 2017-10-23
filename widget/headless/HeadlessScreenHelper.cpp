@@ -16,7 +16,7 @@ namespace widget {
 /* static */ LayoutDeviceIntRect
 HeadlessScreenHelper::GetScreenRect()
 {
-  char *ev = PR_GetEnv("MOZ_HEADLESS_WIDTH");
+  char* ev = PR_GetEnv("MOZ_HEADLESS_WIDTH");
   int width = 1366;
   if (ev) {
     width = atoi(ev);
@@ -33,8 +33,10 @@ HeadlessScreenHelper::HeadlessScreenHelper()
 {
   AutoTArray<RefPtr<Screen>, 1> screenList;
   LayoutDeviceIntRect rect = GetScreenRect();
-  RefPtr<Screen> ret = new Screen(rect, rect,
-                                  24, 24,
+  RefPtr<Screen> ret = new Screen(rect,
+                                  rect,
+                                  24,
+                                  24,
                                   DesktopToLayoutDeviceScale(),
                                   CSSToLayoutDeviceScale(),
                                   96.0f);
@@ -43,5 +45,5 @@ HeadlessScreenHelper::HeadlessScreenHelper()
   screenManager.Refresh(Move(screenList));
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

@@ -28,17 +28,17 @@ namespace mozilla {
 namespace net {
 
 static mozilla::LazyLogModule gNamedPipeLog("NamedPipeWin");
-#define LOG_NPIO_DEBUG(...) MOZ_LOG(gNamedPipeLog, mozilla::LogLevel::Debug, \
-                                    (__VA_ARGS__))
-#define LOG_NPIO_ERROR(...) MOZ_LOG(gNamedPipeLog, mozilla::LogLevel::Error, \
-                                    (__VA_ARGS__))
+#define LOG_NPIO_DEBUG(...) \
+  MOZ_LOG(gNamedPipeLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define LOG_NPIO_ERROR(...) \
+  MOZ_LOG(gNamedPipeLog, mozilla::LogLevel::Error, (__VA_ARGS__))
 
 PRDescIdentity nsNamedPipeLayerIdentity;
 static PRIOMethods nsNamedPipeLayerMethods;
 
 class NamedPipeInfo final : public nsINamedPipeDataObserver
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSINAMEDPIPEDATAOBSERVER
 
@@ -104,7 +104,7 @@ public:
   // Initiate and check current status for read/write operations.
   int16_t GetPollFlags(int16_t aInFlags, int16_t* aOutFlags);
 
-private:
+ private:
   virtual ~NamedPipeInfo();
 
   /**
@@ -129,11 +129,11 @@ private:
 
   nsCOMPtr<nsINamedPipeService> mNamedPipeService;
 
-  HANDLE mPipe; // the handle to the named pipe.
-  OVERLAPPED mReadOverlapped; // used for asynchronous read operations.
+  HANDLE mPipe;                 // the handle to the named pipe.
+  OVERLAPPED mReadOverlapped;   // used for asynchronous read operations.
   OVERLAPPED mWriteOverlapped;  // used for asynchronous write operations.
 
-  uint8_t mReadBuffer[kBufferSize]; // octets read from pipe.
+  uint8_t mReadBuffer[kBufferSize];  // octets read from pipe.
 
   /**
    * These indicates the [begin, end) position of the data in the buffer.
@@ -141,17 +141,17 @@ private:
   DWORD mReadBegin;
   DWORD mReadEnd;
 
-  bool mHasPendingRead; // previous asynchronous read is not finished yet.
+  bool mHasPendingRead;  // previous asynchronous read is not finished yet.
 
-  uint8_t mWriteBuffer[kBufferSize]; // octets to be written to pipe.
+  uint8_t mWriteBuffer[kBufferSize];  // octets to be written to pipe.
 
   /**
    * These indicates the [begin, end) position of the data in the buffer.
    */
-  DWORD mWriteBegin; // how many bytes are already written.
-  DWORD mWriteEnd; // valid amount of data in the buffer.
+  DWORD mWriteBegin;  // how many bytes are already written.
+  DWORD mWriteEnd;    // valid amount of data in the buffer.
 
-  bool mHasPendingWrite; // previous asynchronous write is not finished yet.
+  bool mHasPendingWrite;  // previous asynchronous write is not finished yet.
 
   /**
    * current blocking mode is non-blocking or not, accessed only in socket
@@ -159,23 +159,22 @@ private:
    */
   bool mNonblocking;
 
-  Atomic<DWORD> mErrorCode; // error code from Named Pipe Service.
+  Atomic<DWORD> mErrorCode;  // error code from Named Pipe Service.
 };
 
-NS_IMPL_ISUPPORTS(NamedPipeInfo,
-                  nsINamedPipeDataObserver)
+NS_IMPL_ISUPPORTS(NamedPipeInfo, nsINamedPipeDataObserver)
 
 NamedPipeInfo::NamedPipeInfo()
-  : mNamedPipeService(do_GetService(NS_NAMEDPIPESERVICE_CONTRACTID))
-  , mPipe(INVALID_HANDLE_VALUE)
-  , mReadBegin(0)
-  , mReadEnd(0)
-  , mHasPendingRead(false)
-  , mWriteBegin(0)
-  , mWriteEnd(0)
-  , mHasPendingWrite(false)
-  , mNonblocking(true)
-  , mErrorCode(0)
+    : mNamedPipeService(do_GetService(NS_NAMEDPIPESERVICE_CONTRACTID)),
+      mPipe(INVALID_HANDLE_VALUE),
+      mReadBegin(0),
+      mReadEnd(0),
+      mHasPendingRead(false),
+      mWriteBegin(0),
+      mWriteEnd(0),
+      mHasPendingWrite(false),
+      mNonblocking(true),
+      mErrorCode(0)
 {
   MOZ_ASSERT(mNamedPipeService);
 
@@ -183,19 +182,16 @@ NamedPipeInfo::NamedPipeInfo()
   ZeroMemory(&mWriteOverlapped, sizeof(OVERLAPPED));
 }
 
-NamedPipeInfo::~NamedPipeInfo()
-{
-  MOZ_ASSERT(!mPipe);
-}
+NamedPipeInfo::~NamedPipeInfo() { MOZ_ASSERT(!mPipe); }
 
 // nsINamedPipeDataObserver
 
 NS_IMETHODIMP
-NamedPipeInfo::OnDataAvailable(uint32_t aBytesTransferred,
-                               void* aOverlapped)
+NamedPipeInfo::OnDataAvailable(uint32_t aBytesTransferred, void* aOverlapped)
 {
   DebugOnly<bool> isOnPipeServiceThread;
-  MOZ_ASSERT(NS_SUCCEEDED(mNamedPipeService->IsOnCurrentThread(&isOnPipeServiceThread)) &&
+  MOZ_ASSERT(NS_SUCCEEDED(mNamedPipeService->IsOnCurrentThread(
+                 &isOnPipeServiceThread)) &&
              isOnPipeServiceThread);
 
   if (aOverlapped == &mReadOverlapped) {
@@ -211,26 +207,28 @@ NamedPipeInfo::OnDataAvailable(uint32_t aBytesTransferred,
   mErrorCode = ERROR_SUCCESS;
 
   // dispatch an empty event to trigger STS thread
-  gSocketTransportService->Dispatch(NS_NewRunnableFunction("NamedPipeInfo::OnDataAvailable", []{}),
-                                    NS_DISPATCH_NORMAL);
+  gSocketTransportService->Dispatch(
+      NS_NewRunnableFunction("NamedPipeInfo::OnDataAvailable", [] {}),
+      NS_DISPATCH_NORMAL);
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-NamedPipeInfo::OnError(uint32_t aError,
-                       void* aOverlapped)
+NamedPipeInfo::OnError(uint32_t aError, void* aOverlapped)
 {
   DebugOnly<bool> isOnPipeServiceThread;
-  MOZ_ASSERT(NS_SUCCEEDED(mNamedPipeService->IsOnCurrentThread(&isOnPipeServiceThread)) &&
+  MOZ_ASSERT(NS_SUCCEEDED(mNamedPipeService->IsOnCurrentThread(
+                 &isOnPipeServiceThread)) &&
              isOnPipeServiceThread);
 
   LOG_NPIO_ERROR("[%s] error code=%d", __func__, aError);
   mErrorCode = aError;
 
   // dispatch an empty event to trigger STS thread
-  gSocketTransportService->Dispatch(NS_NewRunnableFunction("NamedPipeInfo::OnError", []{}),
-                                    NS_DISPATCH_NORMAL);
+  gSocketTransportService->Dispatch(
+      NS_NewRunnableFunction("NamedPipeInfo::OnError", [] {}),
+      NS_DISPATCH_NORMAL);
 
   return NS_OK;
 }
@@ -260,9 +258,8 @@ NamedPipeInfo::Connect(const nsACString& aPath)
 
   DWORD pipeMode = PIPE_READMODE_MESSAGE;
   if (!SetNamedPipeHandleState(pipe, &pipeMode, nullptr, nullptr)) {
-    LOG_NPIO_ERROR("[%p] SetNamedPipeHandleState error (%d)",
-                   this,
-                   GetLastError());
+    LOG_NPIO_ERROR(
+        "[%p] SetNamedPipeHandleState error (%d)", this, GetLastError());
     CloseHandle(pipe);
     return NS_ERROR_FAILURE;
   }
@@ -347,13 +344,12 @@ NamedPipeInfo::Write(const void* aBuffer, int32_t aSize)
     mWriteBegin = mWriteEnd = 0;
   }
 
-  int32_t bytesToWrite = std::min<int32_t>(aSize,
-                                           sizeof(mWriteBuffer) - mWriteEnd);
+  int32_t bytesToWrite =
+      std::min<int32_t>(aSize, sizeof(mWriteBuffer) - mWriteEnd);
   MOZ_ASSERT(bytesToWrite >= 0);
 
   if (bytesToWrite == 0) {
-    PR_SetError(IsNonblocking() ? PR_WOULD_BLOCK_ERROR
-                                : PR_IO_PENDING_ERROR,
+    PR_SetError(IsNonblocking() ? PR_WOULD_BLOCK_ERROR : PR_IO_PENDING_ERROR,
                 0);
     return -1;
   }
@@ -395,8 +391,7 @@ NamedPipeInfo::Peek(void* aBuffer, int32_t aSize)
     GetPollFlags(PR_POLL_READ, &outFlag);
 
     if (!(outFlag & PR_POLL_READ)) {
-      PR_SetError(IsNonblocking() ? PR_WOULD_BLOCK_ERROR
-                                  : PR_IO_PENDING_ERROR,
+      PR_SetError(IsNonblocking() ? PR_WOULD_BLOCK_ERROR : PR_IO_PENDING_ERROR,
                   0);
       return -1;
     }
@@ -415,7 +410,7 @@ NamedPipeInfo::Available() const
 {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(mReadBegin <= mReadEnd);
-  MOZ_ASSERT(mReadEnd - mReadBegin <= 0x7FFFFFFF); // no more than int32_max
+  MOZ_ASSERT(mReadEnd - mReadBegin <= 0x7FFFFFFF);  // no more than int32_max
   return mReadEnd - mReadBegin;
 }
 
@@ -426,7 +421,8 @@ NamedPipeInfo::Sync(uint32_t aTimeout)
   if (!mHasPendingWrite) {
     return true;
   }
-  return WaitForSingleObject(mWriteOverlapped.hEvent, aTimeout) == WAIT_OBJECT_0;
+  return WaitForSingleObject(mWriteOverlapped.hEvent, aTimeout) ==
+         WAIT_OBJECT_0;
 }
 
 void
@@ -457,7 +453,6 @@ NamedPipeInfo::GetHandle() const
   return mPipe;
 }
 
-
 int16_t
 NamedPipeInfo::GetPollFlags(int16_t aInFlags, int16_t* aOutFlags)
 {
@@ -467,11 +462,11 @@ NamedPipeInfo::GetPollFlags(int16_t aInFlags, int16_t* aOutFlags)
 
   if (aInFlags & PR_POLL_READ) {
     int32_t bytesToRead = 0;
-    if (mReadBegin < mReadEnd) { // data in buffer and is ready to be read
+    if (mReadBegin < mReadEnd) {  // data in buffer and is ready to be read
       bytesToRead = Available();
-    } else if (mHasPendingRead) { // nonblocking I/O and has pending task
+    } else if (mHasPendingRead) {  // nonblocking I/O and has pending task
       bytesToRead = DoReadContinue();
-    } else { // read bufer is empty.
+    } else {  // read bufer is empty.
       bytesToRead = DoRead();
     }
 
@@ -484,19 +479,17 @@ NamedPipeInfo::GetPollFlags(int16_t aInFlags, int16_t* aOutFlags)
 
   if (aInFlags & PR_POLL_WRITE) {
     int32_t bytesWritten = 0;
-    if (mHasPendingWrite) { // nonblocking I/O and has pending task.
+    if (mHasPendingWrite) {  // nonblocking I/O and has pending task.
       bytesWritten = DoWriteContinue();
-    } else if (mWriteBegin < mWriteEnd) { // data in buffer, ready to write
+    } else if (mWriteBegin < mWriteEnd) {  // data in buffer, ready to write
       bytesWritten = DoWrite();
-    } else { // write buffer is empty.
+    } else {  // write buffer is empty.
       *aOutFlags |= PR_POLL_WRITE;
     }
 
     if (bytesWritten < 0) {
       *aOutFlags |= PR_POLL_ERR;
-    } else if (bytesWritten &&
-               !mHasPendingWrite &&
-               mWriteBegin == mWriteEnd) {
+    } else if (bytesWritten && !mHasPendingWrite && mWriteBegin == mWriteEnd) {
       *aOutFlags |= PR_POLL_WRITE;
     }
   }
@@ -510,7 +503,7 @@ NamedPipeInfo::DoRead()
 {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(!mHasPendingRead);
-  MOZ_ASSERT(mReadBegin == mReadEnd); // the buffer should be empty
+  MOZ_ASSERT(mReadBegin == mReadEnd);  // the buffer should be empty
 
   mReadBegin = 0;
   mReadEnd = 0;
@@ -527,7 +520,7 @@ NamedPipeInfo::DoRead()
   }
 
   switch (GetLastError()) {
-    case ERROR_MORE_DATA:   // has more data to read
+    case ERROR_MORE_DATA:  // has more data to read
       mHasPendingRead = true;
       return DoReadContinue();
 
@@ -553,10 +546,7 @@ NamedPipeInfo::DoReadContinue()
   MOZ_ASSERT(mReadBegin == 0 && mReadEnd == 0);
 
   BOOL success;
-  success = GetOverlappedResult(mPipe,
-                                &mReadOverlapped,
-                                &mReadEnd,
-                                FALSE);
+  success = GetOverlappedResult(mPipe, &mReadOverlapped, &mReadEnd, FALSE);
   if (success) {
     mHasPendingRead = false;
     if (mReadEnd == 0) {
@@ -574,12 +564,11 @@ NamedPipeInfo::DoReadContinue()
       mHasPendingRead = false;
       LOG_NPIO_DEBUG("[%s][%p] %d bytes read", __func__, this, mReadEnd);
       return mReadEnd;
-    case ERROR_IO_INCOMPLETE: // still in progress
+    case ERROR_IO_INCOMPLETE:  // still in progress
       break;
     default:
-      LOG_NPIO_ERROR("[%s]: GetOverlappedResult failed (%d)",
-                     __func__,
-                     GetLastError());
+      LOG_NPIO_ERROR(
+          "[%s]: GetOverlappedResult failed (%d)", __func__, GetLastError());
       Disconnect();
       PR_SetError(PR_IO_ERROR, 0);
       return -1;
@@ -627,10 +616,8 @@ NamedPipeInfo::DoWriteContinue()
   MOZ_ASSERT(mHasPendingWrite);
 
   DWORD bytesWritten = 0;
-  BOOL success = GetOverlappedResult(mPipe,
-                                     &mWriteOverlapped,
-                                     &bytesWritten,
-                                     FALSE);
+  BOOL success =
+      GetOverlappedResult(mPipe, &mWriteOverlapped, &bytesWritten, FALSE);
 
   if (!success) {
     if (GetLastError() == ERROR_IO_INCOMPLETE) {
@@ -638,9 +625,8 @@ NamedPipeInfo::DoWriteContinue()
       return 0;
     }
 
-    LOG_NPIO_ERROR("[%s] GetOverlappedResult failed (%d)",
-                   __func__,
-                   GetLastError());
+    LOG_NPIO_ERROR(
+        "[%s] GetOverlappedResult failed (%d)", __func__, GetLastError());
     Disconnect();
     PR_SetError(PR_IO_ERROR, 0);
     return -1;
@@ -660,8 +646,7 @@ GetNamedPipeInfo(PRFileDesc* aFd)
   MOZ_DIAGNOSTIC_ASSERT(aFd->secret);
   MOZ_DIAGNOSTIC_ASSERT(PR_GetLayersIdentity(aFd) == nsNamedPipeLayerIdentity);
 
-  if (!aFd ||
-      !aFd->secret ||
+  if (!aFd || !aFd->secret ||
       PR_GetLayersIdentity(aFd) != nsNamedPipeLayerIdentity) {
     LOG_NPIO_ERROR("cannot get named pipe info");
     return nullptr;
@@ -683,8 +668,8 @@ nsNamedPipeConnect(PRFileDesc* aFd,
     return PR_FAILURE;
   }
 
-  if (NS_WARN_IF(NS_FAILED(info->Connect(
-      nsDependentCString(aAddr->local.path))))) {
+  if (NS_WARN_IF(
+          NS_FAILED(info->Connect(nsDependentCString(aAddr->local.path))))) {
     return PR_FAILURE;
   }
 
@@ -712,7 +697,7 @@ nsNamedPipeClose(PRFileDesc* aFd)
   }
 
   MOZ_ASSERT(!aFd->lower);
-  PR_Free(aFd); // PRFileDescs are allocated with PR_Malloc().
+  PR_Free(aFd);  // PRFileDescs are allocated with PR_Malloc().
 
   return PR_SUCCESS;
 }
@@ -854,9 +839,8 @@ nsNamedPipeGetSocketOption(PRFileDesc* aFd, PRSocketOptionData* aData)
 
   switch (aData->option) {
     case PR_SockOpt_Nonblocking:
-      aData->value.non_blocking = GetNamedPipeInfo(aFd)->IsNonblocking()
-                                  ? PR_TRUE
-                                  : PR_FALSE;
+      aData->value.non_blocking =
+          GetNamedPipeInfo(aFd)->IsNonblocking() ? PR_TRUE : PR_FALSE;
       break;
     case PR_SockOpt_Keepalive:
       aData->value.keep_alive = PR_TRUE;
@@ -936,8 +920,8 @@ CreateNamedPipeLayer()
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   Initialize();
 
-  PRFileDesc* layer = PR_CreateIOLayerStub(nsNamedPipeLayerIdentity,
-                                           &nsNamedPipeLayerMethods);
+  PRFileDesc* layer =
+      PR_CreateIOLayerStub(nsNamedPipeLayerIdentity, &nsNamedPipeLayerMethods);
   if (NS_WARN_IF(!layer)) {
     LOG_NPIO_ERROR("CreateNamedPipeLayer() failed.");
     return nullptr;
@@ -949,5 +933,5 @@ CreateNamedPipeLayer()
   return layer;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

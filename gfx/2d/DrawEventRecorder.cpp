@@ -12,12 +12,10 @@ namespace gfx {
 
 using namespace std;
 
-DrawEventRecorderPrivate::DrawEventRecorderPrivate()
-{
-}
+DrawEventRecorderPrivate::DrawEventRecorderPrivate() {}
 
 void
-DrawEventRecorderFile::RecordEvent(const RecordedEvent &aEvent)
+DrawEventRecorderFile::RecordEvent(const RecordedEvent& aEvent)
 {
   WriteElement(mOutputStream, aEvent.mType);
 
@@ -27,23 +25,20 @@ DrawEventRecorderFile::RecordEvent(const RecordedEvent &aEvent)
 }
 
 void
-DrawEventRecorderMemory::RecordEvent(const RecordedEvent &aEvent)
+DrawEventRecorderMemory::RecordEvent(const RecordedEvent& aEvent)
 {
   WriteElement(mOutputStream, aEvent.mType);
 
   aEvent.RecordToStream(mOutputStream);
 }
 
-DrawEventRecorderFile::DrawEventRecorderFile(const char *aFilename)
-  : mOutputStream(aFilename, ofstream::binary)
+DrawEventRecorderFile::DrawEventRecorderFile(const char* aFilename)
+    : mOutputStream(aFilename, ofstream::binary)
 {
   WriteHeader(mOutputStream);
 }
 
-DrawEventRecorderFile::~DrawEventRecorderFile()
-{
-  mOutputStream.close();
-}
+DrawEventRecorderFile::~DrawEventRecorderFile() { mOutputStream.close(); }
 
 void
 DrawEventRecorderFile::Flush()
@@ -58,7 +53,7 @@ DrawEventRecorderFile::IsOpen()
 }
 
 void
-DrawEventRecorderFile::OpenNew(const char *aFilename)
+DrawEventRecorderFile::OpenNew(const char* aFilename)
 {
   MOZ_ASSERT(!mOutputStream.is_open());
 
@@ -98,5 +93,5 @@ DrawEventRecorderMemory::WipeRecording()
   WriteHeader(mOutputStream);
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

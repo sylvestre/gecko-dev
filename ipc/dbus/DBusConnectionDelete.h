@@ -23,9 +23,8 @@ namespace mozilla {
  */
 class DBusConnectionDelete
 {
-public:
-  constexpr DBusConnectionDelete()
-  { }
+ public:
+  constexpr DBusConnectionDelete() {}
 
   void operator()(DBusConnection* aConnection) const
   {
@@ -37,6 +36,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_ipc_DBusConnectionDelete_h
+#endif  // mozilla_ipc_DBusConnectionDelete_h

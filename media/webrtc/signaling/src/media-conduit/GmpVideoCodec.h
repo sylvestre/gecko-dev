@@ -8,12 +8,13 @@
 #include "MediaConduitInterface.h"
 
 namespace mozilla {
-class GmpVideoCodec {
+class GmpVideoCodec
+{
  public:
   static WebrtcVideoEncoder* CreateEncoder();
   static WebrtcVideoDecoder* CreateDecoder();
 };
 
-}
+}  // namespace mozilla
 
 #endif

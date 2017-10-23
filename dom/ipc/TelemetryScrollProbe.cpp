@@ -21,7 +21,8 @@ TelemetryScrollProbe::Create(TabChildGlobal* aWebFrame)
   nsWeakPtr webNav = do_GetWeakReference(aWebFrame->mTabChild->WebNavigation());
   RefPtr<TelemetryScrollProbe> probe = new TelemetryScrollProbe(webNav);
 
-  aWebFrame->AddEventListener(NS_LITERAL_STRING("pagehide"), probe, true, false, 0);
+  aWebFrame->AddEventListener(
+      NS_LITERAL_STRING("pagehide"), probe, true, false, 0);
 }
 
 already_AddRefed<nsIWebNavigation>
@@ -61,7 +62,8 @@ TelemetryScrollProbe::ShouldIgnore(nsIDOMEvent* aEvent) const
   nsCOMPtr<nsIDocument> targetDocument = do_QueryInterface(target);
   RefPtr<nsIDocument> document = GetDocument();
 
-  return !document || targetDocument != document || nsContentUtils::IsSystemPrincipal(document->NodePrincipal());
+  return !document || targetDocument != document ||
+         nsContentUtils::IsSystemPrincipal(document->NodePrincipal());
 }
 
 NS_IMPL_ISUPPORTS(TelemetryScrollProbe, nsIDOMEventListener)
@@ -83,11 +85,13 @@ TelemetryScrollProbe::HandleEvent(nsIDOMEvent* aEvent)
   float maxCSSPixels = nsPresContext::AppUnitsToFloatCSSPixels(maxAppUnits);
   float totalCSSPixels = nsPresContext::AppUnitsToFloatCSSPixels(totalAppUnits);
 
-  mozilla::Telemetry::Accumulate(mozilla::Telemetry::TOTAL_SCROLL_Y, totalCSSPixels);
-  mozilla::Telemetry::Accumulate(mozilla::Telemetry::PAGE_MAX_SCROLL_Y, maxCSSPixels);
+  mozilla::Telemetry::Accumulate(mozilla::Telemetry::TOTAL_SCROLL_Y,
+                                 totalCSSPixels);
+  mozilla::Telemetry::Accumulate(mozilla::Telemetry::PAGE_MAX_SCROLL_Y,
+                                 maxCSSPixels);
 
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

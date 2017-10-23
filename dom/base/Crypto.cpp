@@ -30,13 +30,9 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(Crypto)
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Crypto, mParent, mSubtle)
 
-Crypto::Crypto()
-{
-}
+Crypto::Crypto() {}
 
-Crypto::~Crypto()
-{
-}
+Crypto::~Crypto() {}
 
 void
 Crypto::Init(nsIGlobalObject* aParent)
@@ -52,7 +48,8 @@ Crypto::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 void
-Crypto::GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
+Crypto::GetRandomValues(JSContext* aCx,
+                        const ArrayBufferView& aArray,
                         JS::MutableHandle<JSObject*> aRetval,
                         ErrorResult& aRv)
 {
@@ -60,7 +57,8 @@ Crypto::GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
 
   if (JS_IsTypedArrayObject(view) && JS_GetTypedArraySharedness(view)) {
     // Throw if the object is mapping shared memory (must opt in).
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(NS_LITERAL_STRING("Argument of Crypto.getRandomValues"));
+    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(
+        NS_LITERAL_STRING("Argument of Crypto.getRandomValues"));
     return;
   }
 
@@ -92,7 +90,7 @@ Crypto::GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
   }
 
   nsCOMPtr<nsIRandomGenerator> randomGenerator =
-    do_GetService("@mozilla.org/security/random-generator;1");
+      do_GetService("@mozilla.org/security/random-generator;1");
   if (!randomGenerator) {
     aRv.Throw(NS_ERROR_DOM_OPERATION_ERR);
     return;
@@ -115,11 +113,11 @@ Crypto::GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
 SubtleCrypto*
 Crypto::Subtle()
 {
-  if(!mSubtle) {
+  if (!mSubtle) {
     mSubtle = new SubtleCrypto(GetParentObject());
   }
   return mSubtle;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

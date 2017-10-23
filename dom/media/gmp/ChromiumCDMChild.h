@@ -16,11 +16,11 @@ namespace gmp {
 
 class GMPContentChild;
 
-class ChromiumCDMChild : public PChromiumCDMChild
-                       , public cdm::Host_8
-                       , public cdm::Host_9
+class ChromiumCDMChild : public PChromiumCDMChild,
+                         public cdm::Host_8,
+                         public cdm::Host_9
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ChromiumCDMChild);
 
   explicit ChromiumCDMChild(GMPContentChild* aPlugin);
@@ -65,11 +65,15 @@ public:
   void SendPlatformChallenge(const char* aServiceId,
                              uint32_t aServiceIdSize,
                              const char* aChallenge,
-                             uint32_t aChallengeSize) override {}
+                             uint32_t aChallengeSize) override
+  {
+  }
   void EnableOutputProtection(uint32_t aDesiredProtectionMask) override {}
   void QueryOutputProtectionStatus() override {}
   void OnDeferredInitializationDone(cdm::StreamType aStreamType,
-                                    cdm::Status aDecoderStatus) override {}
+                                    cdm::Status aDecoderStatus) override
+  {
+  }
   // cdm::Host_9 interface
   // TODO: sync with unpstream, the interface has changed.
   void RequestStorageId() override {}
@@ -97,7 +101,7 @@ public:
 
   void GiveBuffer(ipc::Shmem&& aBuffer);
 
-protected:
+ protected:
   ~ChromiumCDMChild();
 
   bool OnResolveNewSessionPromiseInternal(uint32_t aPromiseId,
@@ -111,13 +115,12 @@ protected:
   ipc::IPCResult RecvInit(const bool& aAllowDistinctiveIdentifier,
                           const bool& aAllowPersistentState) override;
   ipc::IPCResult RecvSetServerCertificate(
-    const uint32_t& aPromiseId,
-    nsTArray<uint8_t>&& aServerCert) override;
+      const uint32_t& aPromiseId, nsTArray<uint8_t>&& aServerCert) override;
   ipc::IPCResult RecvCreateSessionAndGenerateRequest(
-    const uint32_t& aPromiseId,
-    const uint32_t& aSessionType,
-    const uint32_t& aInitDataType,
-    nsTArray<uint8_t>&& aInitData) override;
+      const uint32_t& aPromiseId,
+      const uint32_t& aSessionType,
+      const uint32_t& aInitDataType,
+      nsTArray<uint8_t>&& aInitData) override;
   ipc::IPCResult RecvLoadSession(const uint32_t& aPromiseId,
                                  const uint32_t& aSessionType,
                                  const nsCString& aSessionId) override;
@@ -131,18 +134,18 @@ protected:
   ipc::IPCResult RecvDecrypt(const uint32_t& aId,
                              const CDMInputBuffer& aBuffer) override;
   ipc::IPCResult RecvInitializeVideoDecoder(
-    const CDMVideoDecoderConfig& aConfig) override;
+      const CDMVideoDecoderConfig& aConfig) override;
   ipc::IPCResult RecvDeinitializeVideoDecoder() override;
   ipc::IPCResult RecvResetVideoDecoder() override;
   ipc::IPCResult RecvDecryptAndDecodeFrame(
-    const CDMInputBuffer& aBuffer) override;
+      const CDMInputBuffer& aBuffer) override;
   ipc::IPCResult RecvDrain() override;
   ipc::IPCResult RecvDestroy() override;
 
   void ReturnOutput(WidevineVideoFrame& aFrame);
   bool HasShmemOfSize(size_t aSize) const;
 
-  template <typename MethodType, typename... ParamType>
+  template<typename MethodType, typename... ParamType>
   void CallMethod(MethodType, ParamType&&...);
 
   template<typename MethodType, typename... ParamType>
@@ -163,7 +166,7 @@ protected:
   bool mDestroyed = false;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // ChromiumCDMChild_h_
+#endif  // ChromiumCDMChild_h_

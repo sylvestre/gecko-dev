@@ -16,22 +16,26 @@
 namespace mozilla {
 namespace layers {
 
-GenericScrollAnimation::GenericScrollAnimation(AsyncPanZoomController& aApzc,
-                                               const nsPoint& aInitialPosition,
-                                               const ScrollAnimationBezierPhysicsSettings& aSettings)
-  : mApzc(aApzc)
-  , mFinalDestination(aInitialPosition)
-  , mForceVerticalOverscroll(false)
+GenericScrollAnimation::GenericScrollAnimation(
+    AsyncPanZoomController& aApzc,
+    const nsPoint& aInitialPosition,
+    const ScrollAnimationBezierPhysicsSettings& aSettings)
+    : mApzc(aApzc),
+      mFinalDestination(aInitialPosition),
+      mForceVerticalOverscroll(false)
 {
   if (gfxPrefs::SmoothScrollMSDPhysicsEnabled()) {
     mAnimationPhysics = MakeUnique<ScrollAnimationMSDPhysics>(aInitialPosition);
   } else {
-    mAnimationPhysics = MakeUnique<ScrollAnimationBezierPhysics>(aInitialPosition, aSettings);
+    mAnimationPhysics =
+        MakeUnique<ScrollAnimationBezierPhysics>(aInitialPosition, aSettings);
   }
 }
 
 void
-GenericScrollAnimation::UpdateDelta(TimeStamp aTime, nsPoint aDelta, const nsSize& aCurrentVelocity)
+GenericScrollAnimation::UpdateDelta(TimeStamp aTime,
+                                    nsPoint aDelta,
+                                    const nsSize& aCurrentVelocity)
 {
   mFinalDestination += aDelta;
 
@@ -39,7 +43,9 @@ GenericScrollAnimation::UpdateDelta(TimeStamp aTime, nsPoint aDelta, const nsSiz
 }
 
 void
-GenericScrollAnimation::UpdateDestination(TimeStamp aTime, nsPoint aDestination, const nsSize& aCurrentVelocity)
+GenericScrollAnimation::UpdateDestination(TimeStamp aTime,
+                                          nsPoint aDestination,
+                                          const nsSize& aCurrentVelocity)
 {
   mFinalDestination = aDestination;
 
@@ -59,7 +65,8 @@ GenericScrollAnimation::Update(TimeStamp aTime, const nsSize& aCurrentVelocity)
 }
 
 bool
-GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration& aDelta)
+GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics,
+                                 const TimeDuration& aDelta)
 {
   TimeStamp now = mApzc.GetFrameTime();
   CSSToParentLayerScale2D zoom = aFrameMetrics.GetZoom();
@@ -70,7 +77,8 @@ GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration
   bool finished = mAnimationPhysics->IsFinished(now);
   nsPoint sampledDest = mAnimationPhysics->PositionAt(now);
   ParentLayerPoint displacement =
-    (CSSPoint::FromAppUnits(sampledDest) - aFrameMetrics.GetScrollOffset()) * zoom;
+      (CSSPoint::FromAppUnits(sampledDest) - aFrameMetrics.GetScrollOffset()) *
+      zoom;
 
   if (finished) {
     mApzc.mX.SetVelocity(0);
@@ -79,7 +87,7 @@ GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration
     // Convert velocity from AppUnits/Seconds to ParentLayerCoords/Milliseconds
     nsSize velocity = mAnimationPhysics->VelocityAt(now);
     ParentLayerPoint velocityPL =
-      CSSPoint::FromAppUnits(nsPoint(velocity.width, velocity.height)) * zoom;
+        CSSPoint::FromAppUnits(nsPoint(velocity.width, velocity.height)) * zoom;
     mApzc.mX.SetVelocity(velocityPL.x / 1000.0);
     mApzc.mY.SetVelocity(velocityPL.y / 1000.0);
   }
@@ -87,8 +95,8 @@ GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration
   // Note: we ignore overscroll for generic animations.
   ParentLayerPoint adjustedOffset, overscroll;
   mApzc.mX.AdjustDisplacement(displacement.x, adjustedOffset.x, overscroll.x);
-  mApzc.mY.AdjustDisplacement(displacement.y, adjustedOffset.y, overscroll.y,
-                              mForceVerticalOverscroll);
+  mApzc.mY.AdjustDisplacement(
+      displacement.y, adjustedOffset.y, overscroll.y, mForceVerticalOverscroll);
 
   // If we expected to scroll, but there's no more scroll range on either axis,
   // then end the animation early. Note that the initial displacement could be 0
@@ -103,5 +111,5 @@ GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics, const TimeDuration
   return !finished;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

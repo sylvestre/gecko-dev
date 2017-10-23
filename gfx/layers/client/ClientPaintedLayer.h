@@ -6,44 +6,46 @@
 #ifndef GFX_CLIENTPAINTEDLAYER_H
 #define GFX_CLIENTPAINTEDLAYER_H
 
-#include "ClientLayerManager.h"         // for ClientLayerManager, etc
-#include "Layers.h"                     // for PaintedLayer, etc
-#include "RotatedBuffer.h"              // for RotatedContentBuffer, etc
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for RefPtr
-#include "mozilla/layers/ContentClient.h"  // for ContentClient
-#include "mozilla/mozalloc.h"           // for operator delete
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for MOZ_COUNT_CTOR, etc
-#include "nsRegion.h"                   // for nsIntRegion
-#include "mozilla/layers/PLayerTransaction.h" // for PaintedLayerAttributes
+#include "ClientLayerManager.h"                // for ClientLayerManager, etc
+#include "Layers.h"                            // for PaintedLayer, etc
+#include "RotatedBuffer.h"                     // for RotatedContentBuffer, etc
+#include "mozilla/Attributes.h"                // for override
+#include "mozilla/RefPtr.h"                    // for RefPtr
+#include "mozilla/layers/ContentClient.h"      // for ContentClient
+#include "mozilla/mozalloc.h"                  // for operator delete
+#include "nsDebug.h"                           // for NS_ASSERTION
+#include "nsISupportsImpl.h"                   // for MOZ_COUNT_CTOR, etc
+#include "nsRegion.h"                          // for nsIntRegion
+#include "mozilla/layers/PLayerTransaction.h"  // for PaintedLayerAttributes
 
 namespace mozilla {
 namespace gfx {
 class DrawEventRecorderMemory;
 class DrawTargetCapture;
-};
+};  // namespace gfx
 
 namespace layers {
 class CompositableClient;
 class ShadowableLayer;
 class SpecificLayerAttributes;
 
-class ClientPaintedLayer : public PaintedLayer,
-                           public ClientLayer {
-public:
+class ClientPaintedLayer : public PaintedLayer, public ClientLayer
+{
+ public:
   typedef RotatedContentBuffer::PaintState PaintState;
   typedef RotatedContentBuffer::ContentType ContentType;
 
-  explicit ClientPaintedLayer(ClientLayerManager* aLayerManager,
-                             LayerManager::PaintedLayerCreationHint aCreationHint = LayerManager::NONE) :
-    PaintedLayer(aLayerManager, static_cast<ClientLayer*>(this), aCreationHint),
-    mContentClient(nullptr)
+  explicit ClientPaintedLayer(
+      ClientLayerManager* aLayerManager,
+      LayerManager::PaintedLayerCreationHint aCreationHint = LayerManager::NONE)
+      : PaintedLayer(
+            aLayerManager, static_cast<ClientLayer*>(this), aCreationHint),
+        mContentClient(nullptr)
   {
     MOZ_COUNT_CTOR(ClientPaintedLayer);
   }
 
-protected:
+ protected:
   virtual ~ClientPaintedLayer()
   {
     if (mContentClient) {
@@ -53,7 +55,7 @@ protected:
     MOZ_COUNT_DTOR(ClientPaintedLayer);
   }
 
-public:
+ public:
   virtual void SetVisibleRegion(const LayerIntRegion& aRegion) override
   {
     NS_ASSERTION(ClientManager()->InConstruction(),
@@ -70,7 +72,7 @@ public:
 
   virtual void RenderLayer() override { RenderLayerWithReadback(nullptr); }
 
-  virtual void RenderLayerWithReadback(ReadbackProcessor *aReadback) override;
+  virtual void RenderLayerWithReadback(ReadbackProcessor* aReadback) override;
 
   virtual void ClearCachedResources() override
   {
@@ -92,12 +94,12 @@ public:
   {
     aAttrs = PaintedLayerAttributes(GetValidRegion());
   }
-  
+
   ClientLayerManager* ClientManager()
   {
     return static_cast<ClientLayerManager*>(mManager);
   }
-  
+
   virtual Layer* AsLayer() override { return this; }
   virtual ShadowableLayer* AsShadowableLayer() override { return this; }
 
@@ -106,12 +108,9 @@ public:
     return mContentClient;
   }
 
-  virtual void Disconnect() override
-  {
-    mContentClient = nullptr;
-  }
+  virtual void Disconnect() override { mContentClient = nullptr; }
 
-protected:
+ protected:
   void PaintThebes(nsTArray<ReadbackProcessor::Update>* aReadbackUpdates);
   void RecordThebes();
   bool CanRecordLayer(ReadbackProcessor* aReadback);
@@ -122,17 +121,15 @@ protected:
   bool UpdatePaintRegion(PaintState& aState);
   bool PaintOffMainThread();
 
-  virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix) override;
+  virtual void PrintInfo(std::stringstream& aStream,
+                         const char* aPrefix) override;
 
-  void DestroyBackBuffer()
-  {
-    mContentClient = nullptr;
-  }
+  void DestroyBackBuffer() { mContentClient = nullptr; }
 
   RefPtr<ContentClient> mContentClient;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

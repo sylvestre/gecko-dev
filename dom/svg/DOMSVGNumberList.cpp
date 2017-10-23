@@ -20,8 +20,9 @@ namespace {
 
 using mozilla::DOMSVGNumber;
 
-void UpdateListIndicesFromIndex(FallibleTArray<DOMSVGNumber*>& aItemsArray,
-                                uint32_t aStartingIndex)
+void
+UpdateListIndicesFromIndex(FallibleTArray<DOMSVGNumber*>& aItemsArray,
+                           uint32_t aStartingIndex)
 {
   uint32_t length = aItemsArray.Length();
 
@@ -32,7 +33,7 @@ void UpdateListIndicesFromIndex(FallibleTArray<DOMSVGNumber*>& aItemsArray,
   }
 }
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -68,9 +69,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGNumberList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-
 JSObject*
-DOMSVGNumberList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
+DOMSVGNumberList::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto)
 {
   return mozilla::dom::SVGNumberListBinding::Wrap(cx, this, aGivenProto);
 }
@@ -81,14 +81,15 @@ DOMSVGNumberList::WrapObject(JSContext *cx, JS::Handle<JSObject*> aGivenProto)
 // DidChangeNumberList.
 class MOZ_RAII AutoChangeNumberListNotifier
 {
-public:
-  explicit AutoChangeNumberListNotifier(DOMSVGNumberList* aNumberList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mNumberList(aNumberList)
+ public:
+  explicit AutoChangeNumberListNotifier(
+      DOMSVGNumberList* aNumberList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mNumberList(aNumberList)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(mNumberList, "Expecting non-null numberList");
     mEmptyOrOldValue =
-      mNumberList->Element()->WillChangeNumberList(mNumberList->AttrEnum());
+        mNumberList->Element()->WillChangeNumberList(mNumberList->AttrEnum());
   }
 
   ~AutoChangeNumberListNotifier()
@@ -100,9 +101,9 @@ public:
     }
   }
 
-private:
+ private:
   DOMSVGNumberList* const mNumberList;
-  nsAttrValue       mEmptyOrOldValue;
+  nsAttrValue mEmptyOrOldValue;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
@@ -147,8 +148,9 @@ DOMSVGNumberList::InternalListLengthWillChange(uint32_t aNewLength)
 SVGNumberList&
 DOMSVGNumberList::InternalList() const
 {
-  SVGAnimatedNumberList *alist = Element()->GetAnimatedNumberList(AttrEnum());
-  return IsAnimValList() && alist->mAnimVal ? *alist->mAnimVal : alist->mBaseVal;
+  SVGAnimatedNumberList* alist = Element()->GetAnimatedNumberList(AttrEnum());
+  return IsAnimValList() && alist->mAnimVal ? *alist->mAnimVal
+                                            : alist->mBaseVal;
 }
 
 void
@@ -172,8 +174,7 @@ DOMSVGNumberList::Clear(ErrorResult& error)
 }
 
 already_AddRefed<DOMSVGNumber>
-DOMSVGNumberList::Initialize(DOMSVGNumber& aItem,
-                             ErrorResult& error)
+DOMSVGNumberList::Initialize(DOMSVGNumber& aItem, ErrorResult& error)
 {
   if (IsAnimValList()) {
     error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -245,7 +246,7 @@ DOMSVGNumberList::InsertItemBefore(DOMSVGNumber& aItem,
   }
   if (AnimListMirrorsBaseList()) {
     if (!mAList->mAnimVal->mItems.SetCapacity(
-          mAList->mAnimVal->mItems.Length() + 1, fallible)) {
+            mAList->mAnimVal->mItems.Length() + 1, fallible)) {
       error.Throw(NS_ERROR_OUT_OF_MEMORY);
       return nullptr;
     }
@@ -304,8 +305,7 @@ DOMSVGNumberList::ReplaceItem(DOMSVGNumber& aItem,
 }
 
 already_AddRefed<DOMSVGNumber>
-DOMSVGNumberList::RemoveItem(uint32_t index,
-                             ErrorResult& error)
+DOMSVGNumberList::RemoveItem(uint32_t index, ErrorResult& error)
 {
   if (IsAnimValList()) {
     error.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
@@ -344,7 +344,8 @@ DOMSVGNumberList::GetItemAt(uint32_t aIndex)
   MOZ_ASSERT(aIndex < mItems.Length());
 
   if (!mItems[aIndex]) {
-    mItems[aIndex] = new DOMSVGNumber(this, AttrEnum(), aIndex, IsAnimValList());
+    mItems[aIndex] =
+        new DOMSVGNumber(this, AttrEnum(), aIndex, IsAnimValList());
   }
   RefPtr<DOMSVGNumber> result = mItems[aIndex];
   return result.forget();
@@ -394,4 +395,4 @@ DOMSVGNumberList::MaybeRemoveItemFromAnimValListAt(uint32_t aIndex)
   UpdateListIndicesFromIndex(animVal->mItems, aIndex);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

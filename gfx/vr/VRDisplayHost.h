@@ -28,8 +28,9 @@ namespace mozilla {
 namespace gfx {
 class VRLayerParent;
 
-class VRDisplayHost {
-public:
+class VRDisplayHost
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRDisplayHost)
 
   const VRDisplayInfo& GetDisplayInfo() const { return mDisplayInfo; }
@@ -53,12 +54,14 @@ public:
   void SetGroupMask(uint32_t aGroupMask);
   bool GetIsConnected();
 
-  class AutoRestoreRenderState {
-  public:
+  class AutoRestoreRenderState
+  {
+   public:
     explicit AutoRestoreRenderState(VRDisplayHost* aDisplay);
     ~AutoRestoreRenderState();
     bool IsSuccess();
-  private:
+
+   private:
     RefPtr<VRDisplayHost> mDisplay;
 #if defined(XP_WIN)
     RefPtr<ID3DDeviceContextState> mPrevDeviceContextState;
@@ -66,7 +69,7 @@ public:
     bool mSuccess;
   };
 
-protected:
+ protected:
   explicit VRDisplayHost(VRDeviceType aType);
   virtual ~VRDisplayHost();
 
@@ -92,16 +95,16 @@ protected:
   // Weak reference to mLayers entries are cleared in
   // VRLayerParent destructor
 
-protected:
+ protected:
   virtual VRHMDSensorState GetSensorState() = 0;
 
-private:
+ private:
   VRDisplayInfo mLastUpdateDisplayInfo;
   TimeStamp mLastFrameStart;
   bool mFrameStarted;
 
 #if defined(XP_WIN)
-protected:
+ protected:
   bool CreateD3DObjects();
   RefPtr<ID3D11Device1> mDevice;
   RefPtr<ID3D11DeviceContext1> mContext;
@@ -109,13 +112,14 @@ protected:
   ID3D11DeviceContext1* GetD3DDeviceContext();
   ID3DDeviceContextState* GetD3DDeviceContextState();
 
-private:
+ private:
   RefPtr<ID3DDeviceContextState> mDeviceContextState;
 #endif
 };
 
-class VRControllerHost {
-public:
+class VRControllerHost
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRControllerHost)
 
   const VRControllerInfo& GetControllerInfo() const;
@@ -129,8 +133,9 @@ public:
   void SetVibrateIndex(uint64_t aIndex);
   uint64_t GetVibrateIndex();
 
-protected:
-  explicit VRControllerHost(VRDeviceType aType, dom::GamepadHand aHand,
+ protected:
+  explicit VRControllerHost(VRDeviceType aType,
+                            dom::GamepadHand aHand,
                             uint32_t aDisplayID);
   virtual ~VRControllerHost();
 
@@ -143,7 +148,7 @@ protected:
   dom::GamepadPoseState mPose;
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif /* GFX_VR_DISPLAY_HOST_H */

@@ -29,32 +29,38 @@ class EventListener;
 class EventListenerOptionsOrBoolean;
 class EventHandlerNonNull;
 
-template <class T> struct Nullable;
+template<class T>
+struct Nullable;
 
 // IID for the dom::EventTarget interface
-#define NS_EVENTTARGET_IID \
-{ 0xde651c36, 0x0053, 0x4c67, \
-  { 0xb1, 0x3d, 0x67, 0xb9, 0x40, 0xfc, 0x82, 0xe4 } }
+#define NS_EVENTTARGET_IID                           \
+  {                                                  \
+    0xde651c36, 0x0053, 0x4c67,                      \
+    {                                                \
+      0xb1, 0x3d, 0x67, 0xb9, 0x40, 0xfc, 0x82, 0xe4 \
+    }                                                \
+  }
 
-class EventTarget : public nsIDOMEventTarget,
-                    public nsWrapperCache
+class EventTarget : public nsIDOMEventTarget, public nsWrapperCache
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_EVENTTARGET_IID)
 
   // WebIDL API
   using nsIDOMEventTarget::AddEventListener;
-  using nsIDOMEventTarget::RemoveEventListener;
   using nsIDOMEventTarget::DispatchEvent;
-  virtual void AddEventListener(const nsAString& aType,
-                                EventListener* aCallback,
-                                const AddEventListenerOptionsOrBoolean& aOptions,
-                                const Nullable<bool>& aWantsUntrusted,
-                                ErrorResult& aRv) = 0;
-  virtual void RemoveEventListener(const nsAString& aType,
-                                   EventListener* aCallback,
-                                   const EventListenerOptionsOrBoolean& aOptions,
-                                   ErrorResult& aRv);
+  using nsIDOMEventTarget::RemoveEventListener;
+  virtual void AddEventListener(
+      const nsAString& aType,
+      EventListener* aCallback,
+      const AddEventListenerOptionsOrBoolean& aOptions,
+      const Nullable<bool>& aWantsUntrusted,
+      ErrorResult& aRv) = 0;
+  virtual void RemoveEventListener(
+      const nsAString& aType,
+      EventListener* aCallback,
+      const EventListenerOptionsOrBoolean& aOptions,
+      ErrorResult& aRv);
   bool DispatchEvent(Event& aEvent, CallerType aCallerType, ErrorResult& aRv);
 
   // Note, this takes the type in onfoo form!
@@ -65,7 +71,8 @@ public:
   }
 
   // Note, this takes the type in onfoo form!
-  void SetEventHandler(const nsAString& aType, EventHandlerNonNull* aHandler,
+  void SetEventHandler(const nsAString& aType,
+                       EventHandlerNonNull* aHandler,
                        ErrorResult& rv);
 
   // Note, for an event 'foo' aType will be 'onfoo'.
@@ -109,16 +116,17 @@ public:
 
   virtual bool IsApzAware() const;
 
-protected:
+ protected:
   EventHandlerNonNull* GetEventHandler(nsAtom* aType,
                                        const nsAString& aTypeString);
-  void SetEventHandler(nsAtom* aType, const nsAString& aTypeString,
+  void SetEventHandler(nsAtom* aType,
+                       const nsAString& aTypeString,
                        EventHandlerNonNull* aHandler);
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(EventTarget, NS_EVENTTARGET_IID)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_EventTarget_h_
+#endif  // mozilla_dom_EventTarget_h_

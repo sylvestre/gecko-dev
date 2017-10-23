@@ -5,7 +5,8 @@
 #ifndef __strset_h_
 #define __strset_h_
 
-struct StrSet {
+struct StrSet
+{
   StrSet();
 
   void add(const char* string);

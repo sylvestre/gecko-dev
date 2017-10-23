@@ -15,16 +15,14 @@ VisitInfo::VisitInfo(int64_t aVisitId,
                      PRTime aVisitDate,
                      uint32_t aTransitionType,
                      already_AddRefed<nsIURI> aReferrer)
-: mVisitId(aVisitId)
-, mVisitDate(aVisitDate)
-, mTransitionType(aTransitionType)
-, mReferrer(aReferrer)
+    : mVisitId(aVisitId),
+      mVisitDate(aVisitDate),
+      mTransitionType(aTransitionType),
+      mReferrer(aReferrer)
 {
 }
 
-VisitInfo::~VisitInfo()
-{
-}
+VisitInfo::~VisitInfo() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 //// mozIVisitInfo
@@ -60,10 +58,7 @@ VisitInfo::GetReferrerURI(nsIURI** _referrer)
 ////////////////////////////////////////////////////////////////////////////////
 //// nsISupports
 
-NS_IMPL_ISUPPORTS(
-  VisitInfo
-, mozIVisitInfo
-)
+NS_IMPL_ISUPPORTS(VisitInfo, mozIVisitInfo)
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla

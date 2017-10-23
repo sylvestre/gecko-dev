@@ -28,12 +28,12 @@ using mozilla::ipc::CloseFileRunnable;
 #ifdef DEBUG
 
 CloseFileRunnable::CloseFileRunnable(const FileDescriptor& aFileDescriptor)
-: mFileDescriptor(aFileDescriptor)
+    : mFileDescriptor(aFileDescriptor)
 {
   MOZ_ASSERT(aFileDescriptor.IsValid());
 }
 
-#endif // DEBUG
+#endif  // DEBUG
 
 CloseFileRunnable::~CloseFileRunnable()
 {
@@ -50,7 +50,7 @@ void
 CloseFileRunnable::Dispatch()
 {
   nsCOMPtr<nsIEventTarget> eventTarget =
-    do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   NS_ENSURE_TRUE_VOID(eventTarget);
 
   nsresult rv = eventTarget->Dispatch(this, NS_DISPATCH_NORMAL);
@@ -78,8 +78,7 @@ namespace mozilla {
 namespace ipc {
 
 FILE*
-FileDescriptorToFILE(const FileDescriptor& aDesc,
-                     const char* aOpenMode)
+FileDescriptorToFILE(const FileDescriptor& aDesc, const char* aOpenMode)
 {
   if (!aDesc.IsValid()) {
     errno = EBADF;
@@ -122,5 +121,5 @@ FILEToFileDescriptor(FILE* aStream)
 #endif
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

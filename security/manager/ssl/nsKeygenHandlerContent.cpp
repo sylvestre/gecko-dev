@@ -18,18 +18,14 @@
 #include "secmodt.h"
 #include "nsKeygenHandler.h"
 
-using mozilla::dom::ContentChild;
 using mozilla::Unused;
+using mozilla::dom::ContentChild;
 
 NS_IMPL_ISUPPORTS(nsKeygenFormProcessorContent, nsIFormProcessor)
 
-nsKeygenFormProcessorContent::nsKeygenFormProcessorContent()
-{
-}
+nsKeygenFormProcessorContent::nsKeygenFormProcessorContent() {}
 
-nsKeygenFormProcessorContent::~nsKeygenFormProcessorContent()
-{
-}
+nsKeygenFormProcessorContent::~nsKeygenFormProcessorContent() {}
 
 nsresult
 nsKeygenFormProcessorContent::ProcessValue(nsIDOMHTMLElement* aElement,
@@ -39,15 +35,15 @@ nsKeygenFormProcessorContent::ProcessValue(nsIDOMHTMLElement* aElement,
   nsAutoString challengeValue;
   nsAutoString keyTypeValue;
   nsAutoString keyParamsValue;
-  nsKeygenFormProcessor::ExtractParams(aElement, challengeValue, keyTypeValue, keyParamsValue);
+  nsKeygenFormProcessor::ExtractParams(
+      aElement, challengeValue, keyTypeValue, keyParamsValue);
 
   ContentChild* child = ContentChild::GetSingleton();
 
   nsString oldValue(aValue);
   nsString newValue;
-  Unused << child->SendKeygenProcessValue(oldValue, challengeValue,
-                                          keyTypeValue, keyParamsValue,
-                                          &newValue);
+  Unused << child->SendKeygenProcessValue(
+      oldValue, challengeValue, keyTypeValue, keyParamsValue, &newValue);
 
   aValue.Assign(newValue);
   return NS_OK;
@@ -70,9 +66,8 @@ nsKeygenFormProcessorContent::ProvideContent(const nsAString& aFormType,
                                              nsAString& aAttribute)
 {
   nsString attribute;
-  Unused <<
-    ContentChild::GetSingleton()->SendKeygenProvideContent(&attribute,
-                                                           &aContent);
+  Unused << ContentChild::GetSingleton()->SendKeygenProvideContent(&attribute,
+                                                                   &aContent);
   aAttribute.Assign(attribute);
   return NS_OK;
 }

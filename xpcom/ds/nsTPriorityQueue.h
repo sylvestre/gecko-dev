@@ -18,7 +18,7 @@
 template<class T, class Compare = nsDefaultComparator<T, T>>
 class nsTPriorityQueue
 {
-public:
+ public:
   typedef typename nsTArray<T>::size_type size_type;
 
   /**
@@ -37,8 +37,7 @@ public:
    * Copy constructor
    */
   nsTPriorityQueue(const nsTPriorityQueue& aOther)
-    : mElements(aOther.mElements)
-    , mCompare(aOther.mCompare)
+      : mElements(aOther.mElements), mCompare(aOther.mCompare)
   {
   }
 
@@ -143,7 +142,7 @@ public:
    */
   const T* Elements() const { return mElements.Elements(); }
 
-protected:
+ protected:
   /**
    * Swaps the elements at the specified indices.
    */
@@ -155,7 +154,7 @@ protected:
   }
 
   nsTArray<T> mElements;
-  Compare mCompare; // Comparator object
+  Compare mCompare;  // Comparator object
 };
 
-#endif // NS_TPRIORITY_QUEUE_H_
+#endif  // NS_TPRIORITY_QUEUE_H_

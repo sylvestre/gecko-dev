@@ -23,13 +23,12 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(AnonymousContent, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(AnonymousContent, Release)
 NS_IMPL_CYCLE_COLLECTION(AnonymousContent, mContentNode)
 
-AnonymousContent::AnonymousContent(Element* aContentNode) :
-  mContentNode(aContentNode)
-{}
-
-AnonymousContent::~AnonymousContent()
+AnonymousContent::AnonymousContent(Element* aContentNode)
+    : mContentNode(aContentNode)
 {
 }
+
+AnonymousContent::~AnonymousContent() {}
 
 Element*
 AnonymousContent::GetContentNode()
@@ -141,11 +140,12 @@ AnonymousContent::GetCanvasContext(const nsAString& aElementId,
 }
 
 already_AddRefed<Animation>
-AnonymousContent::SetAnimationForElement(JSContext* aContext,
-                                         const nsAString& aElementId,
-                                         JS::Handle<JSObject*> aKeyframes,
-                                         const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
-                                         ErrorResult& aRv)
+AnonymousContent::SetAnimationForElement(
+    JSContext* aContext,
+    const nsAString& aElementId,
+    JS::Handle<JSObject*> aKeyframes,
+    const UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
+    ErrorResult& aRv)
 {
   Element* element = GetElementById(aElementId);
 
@@ -158,9 +158,10 @@ AnonymousContent::SetAnimationForElement(JSContext* aContext,
 }
 
 void
-AnonymousContent::SetCutoutRectsForElement(const nsAString& aElementId,
-                                           const Sequence<OwningNonNull<DOMRect>>& aRects,
-                                           ErrorResult& aRv)
+AnonymousContent::SetCutoutRectsForElement(
+    const nsAString& aElementId,
+    const Sequence<OwningNonNull<DOMRect>>& aRects,
+    ErrorResult& aRv)
 {
   Element* element = GetElementById(aElementId);
 
@@ -175,7 +176,8 @@ AnonymousContent::SetCutoutRectsForElement(const nsAString& aElementId,
     cutOutRegion.OrWith(CSSRect::ToAppUnits(rect));
   }
 
-  element->SetProperty(nsGkAtoms::cutoutregion, new nsRegion(cutOutRegion),
+  element->SetProperty(nsGkAtoms::cutoutregion,
+                       new nsRegion(cutOutRegion),
                        nsINode::DeleteProperty<nsRegion>);
 
   nsIFrame* frame = element->GetPrimaryFrame();
@@ -228,11 +230,10 @@ AnonymousContent::GetComputedStylePropertyValue(const nsAString& aElementId,
     return;
   }
 
-  RefPtr<nsComputedDOMStyle> cs =
-    new nsComputedDOMStyle(element, NS_LITERAL_STRING(""), shell,
-                           nsComputedDOMStyle::eAll);
+  RefPtr<nsComputedDOMStyle> cs = new nsComputedDOMStyle(
+      element, NS_LITERAL_STRING(""), shell, nsComputedDOMStyle::eAll);
   aRv = cs->GetPropertyValue(aPropertyName, aResult);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -31,7 +31,7 @@ StringEndsWith(const std::wstring& str, const std::wstring& strEnding)
 // non-null then it is filled with the name of the folder containing
 // the file (with trailing slash).
 bool
-IsFlashTempFile(std::wstring aFilename, std::wstring* aFolder=nullptr)
+IsFlashTempFile(std::wstring aFilename, std::wstring* aFolder = nullptr)
 {
   // Assume its a flash file if the base name begins with "FlashTmp",
   // ends with ".tmp" and has an int in-between them.
@@ -55,17 +55,17 @@ IsFlashTempFile(std::wstring aFilename, std::wstring* aFolder=nullptr)
     ++idx;
   }
 
-  return (len-idx == 4) && aFilename.compare(idx, 4, L".TMP") == 0;
+  return (len - idx == 4) && aFilename.compare(idx, 4, L".TMP") == 0;
 }
 
 // Converts NT device internal filenames to normal user-space by stripping
 // the prefixes and suffixes from the file name.  Returns containing
 // folder (with trailing slash) in aFolder if non-null.
 std::wstring
-GetPlainFileName(const wchar_t* aNTFileName, std::wstring* aFolder=nullptr)
+GetPlainFileName(const wchar_t* aNTFileName, std::wstring* aFolder = nullptr)
 {
   while (*aNTFileName == L'\\' || *aNTFileName == L'.' ||
-         *aNTFileName == L'?' || *aNTFileName == L':' ) {
+         *aNTFileName == L'?' || *aNTFileName == L':') {
     ++aNTFileName;
   }
   std::wstring nameCopy(aNTFileName);
@@ -90,10 +90,7 @@ PermissionsService::GetInstance()
   return &sPermissionsService;
 }
 
-PermissionsService::PermissionsService() :
-  mFileAccessViolationFunc(nullptr)
-{
-}
+PermissionsService::PermissionsService() : mFileAccessViolationFunc(nullptr) {}
 
 void
 PermissionsService::GrantFileAccess(uint32_t aProcessId,
@@ -134,13 +131,13 @@ PermissionsService::UserGrantedFileAccess(uint32_t aProcessId,
   // * Those available w/ read-only permission
   // * Those available w/ read-only AND read-write permission
   // * Those always forbidden.
-  const uint32_t FORBIDDEN_FLAGS =
-    FILE_EXECUTE | FILE_LIST_DIRECTORY | FILE_TRAVERSE | STANDARD_RIGHTS_EXECUTE;
-  const uint32_t NEEDS_WRITE_FLAGS =
-    FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_APPEND_DATA |
-    DELETE | STANDARD_RIGHTS_WRITE;
+  const uint32_t FORBIDDEN_FLAGS = FILE_EXECUTE | FILE_LIST_DIRECTORY |
+                                   FILE_TRAVERSE | STANDARD_RIGHTS_EXECUTE;
+  const uint32_t NEEDS_WRITE_FLAGS = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES |
+                                     FILE_WRITE_EA | FILE_APPEND_DATA | DELETE |
+                                     STANDARD_RIGHTS_WRITE;
   bool needsWrite =
-    (aAccess & NEEDS_WRITE_FLAGS) || (aDisposition != FILE_OPEN);
+      (aAccess & NEEDS_WRITE_FLAGS) || (aDisposition != FILE_OPEN);
 
   if (aAccess & FORBIDDEN_FLAGS) {
     ReportBlockedFile(needsWrite);
@@ -177,5 +174,5 @@ PermissionsService::RemovePermissionsForProcess(uint32_t aProcessId)
   mProcessFilePermissions.erase(aProcessId);
 }
 
-}   // namespace sandboxing
-}   // namespace mozilla
+}  // namespace sandboxing
+}  // namespace mozilla

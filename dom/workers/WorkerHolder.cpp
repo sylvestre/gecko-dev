@@ -10,8 +10,7 @@
 BEGIN_WORKERS_NAMESPACE
 
 WorkerHolder::WorkerHolder(Behavior aBehavior)
-  : mWorkerPrivate(nullptr)
-  , mBehavior(aBehavior)
+    : mWorkerPrivate(nullptr), mBehavior(aBehavior)
 {
 }
 

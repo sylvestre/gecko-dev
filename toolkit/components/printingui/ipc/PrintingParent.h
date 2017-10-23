@@ -20,55 +20,50 @@ namespace mozilla {
 namespace layout {
 class PRemotePrintJobParent;
 class RemotePrintJobParent;
-}
+}  // namespace layout
 
 namespace embedding {
 
 class PrintingParent final : public PPrintingParent
 {
-public:
-    NS_INLINE_DECL_REFCOUNTING(PrintingParent)
+ public:
+  NS_INLINE_DECL_REFCOUNTING(PrintingParent)
 
-    virtual mozilla::ipc::IPCResult
-    RecvShowProgress(PBrowserParent* parent,
-                     PPrintProgressDialogParent* printProgressDialog,
-                     PRemotePrintJobParent* remotePrintJob,
-                     const bool& isForPrinting);
-    virtual mozilla::ipc::IPCResult
-    RecvShowPrintDialog(PPrintSettingsDialogParent* aDialog,
-                        PBrowserParent* aParent,
-                        const PrintData& aData);
+  virtual mozilla::ipc::IPCResult RecvShowProgress(
+      PBrowserParent* parent,
+      PPrintProgressDialogParent* printProgressDialog,
+      PRemotePrintJobParent* remotePrintJob,
+      const bool& isForPrinting);
+  virtual mozilla::ipc::IPCResult RecvShowPrintDialog(
+      PPrintSettingsDialogParent* aDialog,
+      PBrowserParent* aParent,
+      const PrintData& aData);
 
-    virtual mozilla::ipc::IPCResult
-    RecvSavePrintSettings(const PrintData& data,
-                          const bool& usePrinterNamePrefix,
-                          const uint32_t& flags,
-                          nsresult* rv);
+  virtual mozilla::ipc::IPCResult RecvSavePrintSettings(
+      const PrintData& data,
+      const bool& usePrinterNamePrefix,
+      const uint32_t& flags,
+      nsresult* rv);
 
-    virtual PPrintProgressDialogParent*
-    AllocPPrintProgressDialogParent();
+  virtual PPrintProgressDialogParent* AllocPPrintProgressDialogParent();
 
-    virtual bool
-    DeallocPPrintProgressDialogParent(PPrintProgressDialogParent* aActor);
+  virtual bool DeallocPPrintProgressDialogParent(
+      PPrintProgressDialogParent* aActor);
 
-    virtual PPrintSettingsDialogParent*
-    AllocPPrintSettingsDialogParent();
+  virtual PPrintSettingsDialogParent* AllocPPrintSettingsDialogParent();
 
-    virtual bool
-    DeallocPPrintSettingsDialogParent(PPrintSettingsDialogParent* aActor);
+  virtual bool DeallocPPrintSettingsDialogParent(
+      PPrintSettingsDialogParent* aActor);
 
-    virtual PRemotePrintJobParent*
-    AllocPRemotePrintJobParent();
+  virtual PRemotePrintJobParent* AllocPRemotePrintJobParent();
 
-    virtual bool
-    DeallocPRemotePrintJobParent(PRemotePrintJobParent* aActor);
+  virtual bool DeallocPRemotePrintJobParent(PRemotePrintJobParent* aActor);
 
-    virtual void
-    ActorDestroy(ActorDestroyReason aWhy);
+  virtual void ActorDestroy(ActorDestroyReason aWhy);
 
-    MOZ_IMPLICIT PrintingParent();
+  MOZ_IMPLICIT PrintingParent();
 
-    /**
+  /**
      * Serialize nsIPrintSettings to PrintData ready for sending to a child
      * process. A RemotePrintJob will be created and added to the PrintData.
      * An optional progress listener can be given, which will be registered
@@ -81,27 +76,25 @@ public:
      *                        one can be used.
      * @param aPrintData PrintData to populate.
      */
-    nsresult
-    SerializeAndEnsureRemotePrintJob(nsIPrintSettings* aPrintSettings,
-                                     nsIWebProgressListener* aListener,
-                                     layout::RemotePrintJobParent* aRemotePrintJob,
-                                     PrintData* aPrintData);
+  nsresult SerializeAndEnsureRemotePrintJob(
+      nsIPrintSettings* aPrintSettings,
+      nsIWebProgressListener* aListener,
+      layout::RemotePrintJobParent* aRemotePrintJob,
+      PrintData* aPrintData);
 
-private:
-    virtual ~PrintingParent();
+ private:
+  virtual ~PrintingParent();
 
-    nsPIDOMWindowOuter*
-    DOMWindowFromBrowserParent(PBrowserParent* parent);
+  nsPIDOMWindowOuter* DOMWindowFromBrowserParent(PBrowserParent* parent);
 
-    nsresult
-    ShowPrintDialog(PBrowserParent* parent,
-                    const PrintData& data,
-                    PrintData* result);
+  nsresult ShowPrintDialog(PBrowserParent* parent,
+                           const PrintData& data,
+                           PrintData* result);
 
-    nsCOMPtr<nsIPrintSettingsService> mPrintSettingsSvc;
+  nsCOMPtr<nsIPrintSettingsService> mPrintSettingsSvc;
 };
 
-} // namespace embedding
-} // namespace mozilla
+}  // namespace embedding
+}  // namespace mozilla
 
 #endif

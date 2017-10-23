@@ -4,16 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BasicContainerLayer.h"
-#include <sys/types.h>                  // for int32_t
-#include "BasicLayersImpl.h"            // for ToData
-#include "basic/BasicImplData.h"        // for BasicImplData
-#include "basic/BasicLayers.h"          // for BasicLayerManager
-#include "mozilla/gfx/BaseRect.h"       // for BaseRect
-#include "mozilla/mozalloc.h"           // for operator new
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsISupportsImpl.h"            // for Layer::AddRef, etc
-#include "nsPoint.h"                    // for nsIntPoint
-#include "nsRegion.h"                   // for nsIntRegion
+#include <sys/types.h>             // for int32_t
+#include "BasicLayersImpl.h"       // for ToData
+#include "basic/BasicImplData.h"   // for BasicImplData
+#include "basic/BasicLayers.h"     // for BasicLayerManager
+#include "mozilla/gfx/BaseRect.h"  // for BaseRect
+#include "mozilla/mozalloc.h"      // for operator new
+#include "nsCOMPtr.h"              // for already_AddRefed
+#include "nsISupportsImpl.h"       // for Layer::AddRef, etc
+#include "nsPoint.h"               // for nsIntPoint
+#include "nsRegion.h"              // for nsIntRegion
 #include "ReadbackProcessor.h"
 
 using namespace mozilla::gfx;
@@ -28,7 +28,8 @@ BasicContainerLayer::~BasicContainerLayer()
 }
 
 void
-BasicContainerLayer::ComputeEffectiveTransforms(const Matrix4x4& aTransformToSurface)
+BasicContainerLayer::ComputeEffectiveTransforms(
+    const Matrix4x4& aTransformToSurface)
 {
   // We push groups for container layers if we need to, which always
   // are aligned in device space, so it doesn't really matter how we snap
@@ -36,14 +37,12 @@ BasicContainerLayer::ComputeEffectiveTransforms(const Matrix4x4& aTransformToSur
   Matrix residual;
   Matrix4x4 transformToSurface = aTransformToSurface;
   bool participate3DCtx = Extend3DContext() || Is3DContextLeaf();
-  if (!participate3DCtx &&
-      GetContentFlags() & CONTENT_BACKFACE_HIDDEN) {
+  if (!participate3DCtx && GetContentFlags() & CONTENT_BACKFACE_HIDDEN) {
     // For backface-hidden layers
     transformToSurface.ProjectTo2D();
   }
   Matrix4x4 idealTransform = GetLocalTransform() * transformToSurface;
-  if (!participate3DCtx &&
-      !(GetContentFlags() & CONTENT_BACKFACE_HIDDEN)) {
+  if (!participate3DCtx && !(GetContentFlags() & CONTENT_BACKFACE_HIDDEN)) {
     // For non-backface-hidden layers,
     // 3D components are required to handle CONTENT_BACKFACE_HIDDEN.
     idealTransform.ProjectTo2D();
@@ -81,21 +80,23 @@ BasicContainerLayer::ComputeEffectiveTransforms(const Matrix4x4& aTransformToSur
    * Having a blend mode also always forces our own push group
    */
   mUseIntermediateSurface =
-    GetMaskLayer() ||
-    GetForceIsolatedGroup() ||
-    (GetMixBlendMode() != CompositionOp::OP_OVER && HasMultipleChildren()) ||
-    (GetEffectiveOpacity() != 1.0 && ((HasMultipleChildren() && !Extend3DContext()) || hasSingleBlendingChild));
+      GetMaskLayer() || GetForceIsolatedGroup() ||
+      (GetMixBlendMode() != CompositionOp::OP_OVER && HasMultipleChildren()) ||
+      (GetEffectiveOpacity() != 1.0 &&
+       ((HasMultipleChildren() && !Extend3DContext()) ||
+        hasSingleBlendingChild));
 
   mEffectiveTransform =
-    !mUseIntermediateSurface ?
-    idealTransform :
-    (!(GetContentFlags() & CONTENT_BACKFACE_HIDDEN) ?
-     SnapTransformTranslation(idealTransform, &residual) :
-     SnapTransformTranslation3D(idealTransform, &residual));
+      !mUseIntermediateSurface
+          ? idealTransform
+          : (!(GetContentFlags() & CONTENT_BACKFACE_HIDDEN)
+                 ? SnapTransformTranslation(idealTransform, &residual)
+                 : SnapTransformTranslation3D(idealTransform, &residual));
   Matrix4x4 childTransformToSurface =
-    (!mUseIntermediateSurface ||
-     (mUseIntermediateSurface && !Extend3DContext() /* 2D */)) ?
-    idealTransform : Matrix4x4::From2D(residual);
+      (!mUseIntermediateSurface ||
+       (mUseIntermediateSurface && !Extend3DContext() /* 2D */))
+          ? idealTransform
+          : Matrix4x4::From2D(residual);
   ComputeEffectiveTransformsForChildren(childTransformToSurface);
 
   ComputeEffectiveTransformForMaskLayers(aTransformToSurface);
@@ -110,12 +111,12 @@ BasicContainerLayer::ChildrenPartitionVisibleRegion(const gfx::IntRect& aInRect)
     return false;
 
   nsIntPoint offset(int32_t(transform._31), int32_t(transform._32));
-  gfx::IntRect rect = aInRect.Intersect(GetLocalVisibleRegion().ToUnknownRegion().GetBounds() + offset);
+  gfx::IntRect rect = aInRect.Intersect(
+      GetLocalVisibleRegion().ToUnknownRegion().GetBounds() + offset);
   nsIntRegion covered;
 
   for (Layer* l = mFirstChild; l; l = l->GetNextSibling()) {
-    if (ToData(l)->IsHidden())
-      continue;
+    if (ToData(l)->IsHidden()) continue;
 
     Matrix childTransform;
     if (!l->GetEffectiveTransform().CanDraw2D(&childTransform) ||
@@ -123,15 +124,15 @@ BasicContainerLayer::ChildrenPartitionVisibleRegion(const gfx::IntRect& aInRect)
         l->GetEffectiveOpacity() != 1.0)
       return false;
     nsIntRegion childRegion = l->GetLocalVisibleRegion().ToUnknownRegion();
-    childRegion.MoveBy(int32_t(childTransform._31), int32_t(childTransform._32));
+    childRegion.MoveBy(int32_t(childTransform._31),
+                       int32_t(childTransform._32));
     childRegion.And(childRegion, rect);
     if (l->GetClipRect()) {
       childRegion.And(childRegion, l->GetClipRect()->ToUnknownRect() + offset);
     }
     nsIntRegion intersection;
     intersection.And(covered, childRegion);
-    if (!intersection.IsEmpty())
-      return false;
+    if (!intersection.IsEmpty()) return false;
     covered.Or(covered, childRegion);
   }
 
@@ -165,5 +166,5 @@ BasicLayerManager::CreateContainerLayer()
   return layer.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

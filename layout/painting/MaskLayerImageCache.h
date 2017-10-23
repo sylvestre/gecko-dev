@@ -16,7 +16,7 @@ namespace mozilla {
 namespace layers {
 class ImageContainer;
 class KnowsCompositor;
-} // namespace layers
+}  // namespace layers
 
 /**
  * Keeps a record of image containers for mask layers, containers are mapped
@@ -35,7 +35,8 @@ class MaskLayerImageCache
 {
   typedef mozilla::layers::ImageContainer ImageContainer;
   typedef mozilla::layers::KnowsCompositor KnowsCompositor;
-public:
+
+ public:
   MaskLayerImageCache();
   ~MaskLayerImageCache();
 
@@ -49,29 +50,25 @@ public:
   {
     PixelRoundedRect(const DisplayItemClip::RoundedRect& aRRect,
                      nsPresContext* aPresContext)
-      : mRect(aPresContext->AppUnitsToGfxUnits(aRRect.mRect.x),
-              aPresContext->AppUnitsToGfxUnits(aRRect.mRect.y),
-              aPresContext->AppUnitsToGfxUnits(aRRect.mRect.width),
-              aPresContext->AppUnitsToGfxUnits(aRRect.mRect.height))
+        : mRect(aPresContext->AppUnitsToGfxUnits(aRRect.mRect.x),
+                aPresContext->AppUnitsToGfxUnits(aRRect.mRect.y),
+                aPresContext->AppUnitsToGfxUnits(aRRect.mRect.width),
+                aPresContext->AppUnitsToGfxUnits(aRRect.mRect.height))
     {
       MOZ_COUNT_CTOR(PixelRoundedRect);
-      NS_FOR_CSS_HALF_CORNERS(corner) {
-        mRadii[corner] = aPresContext->AppUnitsToGfxUnits(aRRect.mRadii[corner]);
+      NS_FOR_CSS_HALF_CORNERS(corner)
+      {
+        mRadii[corner] =
+            aPresContext->AppUnitsToGfxUnits(aRRect.mRadii[corner]);
       }
     }
-    PixelRoundedRect(const PixelRoundedRect& aPRR)
-      : mRect(aPRR.mRect)
+    PixelRoundedRect(const PixelRoundedRect& aPRR) : mRect(aPRR.mRect)
     {
       MOZ_COUNT_CTOR(PixelRoundedRect);
-      NS_FOR_CSS_HALF_CORNERS(corner) {
-        mRadii[corner] = aPRR.mRadii[corner];
-      }
+      NS_FOR_CSS_HALF_CORNERS(corner) { mRadii[corner] = aPRR.mRadii[corner]; }
     }
 
-    ~PixelRoundedRect()
-    {
-      MOZ_COUNT_DTOR(PixelRoundedRect);
-    }
+    ~PixelRoundedRect() { MOZ_COUNT_DTOR(PixelRoundedRect); }
 
     // Applies the scale and translate components of aTransform.
     // It is an error to pass a matrix which does more than just scale
@@ -89,27 +86,30 @@ public:
       }
     }
 
-    bool operator==(const PixelRoundedRect& aOther) const {
+    bool operator==(const PixelRoundedRect& aOther) const
+    {
       if (!mRect.IsEqualInterior(aOther.mRect)) {
         return false;
       }
 
-      NS_FOR_CSS_HALF_CORNERS(corner) {
+      NS_FOR_CSS_HALF_CORNERS(corner)
+      {
         if (mRadii[corner] != aOther.mRadii[corner]) {
           return false;
         }
       }
       return true;
     }
-    bool operator!=(const PixelRoundedRect& aOther) const {
+    bool operator!=(const PixelRoundedRect& aOther) const
+    {
       return !(*this == aOther);
     }
 
     // Create a hash for this object.
     PLDHashNumber Hash() const
     {
-      PLDHashNumber hash = HashBytes(&mRect.x, 4*sizeof(gfxFloat));
-      hash = AddToHash(hash, HashBytes(mRadii, 8*sizeof(gfxFloat)));
+      PLDHashNumber hash = HashBytes(&mRect.x, 4 * sizeof(gfxFloat));
+      hash = AddToHash(hash, HashBytes(mRadii, 8 * sizeof(gfxFloat)));
 
       return hash;
     }
@@ -118,7 +118,7 @@ public:
     // Indices into mRadii are the enum HalfCorner constants in gfx/2d/Types.h
     gfxFloat mRadii[8];
 
-  private:
+   private:
     PixelRoundedRect() = delete;
   };
 
@@ -143,9 +143,7 @@ public:
 
     ~MaskLayerImageKey();
 
-    bool HasZeroLayerCount() const {
-      return mLayerCount == 0;
-    }
+    bool HasZeroLayerCount() const { return mLayerCount == 0; }
 
     PLDHashNumber Hash() const
     {
@@ -167,7 +165,8 @@ public:
 
     nsTArray<PixelRoundedRect> mRoundedClipRects;
     RefPtr<KnowsCompositor> mKnowsCompositor;
-  private:
+
+   private:
     void IncLayerCount() const { ++mLayerCount; }
     void DecLayerCount() const
     {
@@ -202,7 +201,8 @@ public:
 
     void Reset(const MaskLayerImageKey* aPtr)
     {
-      MOZ_ASSERT(aPtr, "Cannot initialize a MaskLayerImageKeyRef with a null pointer");
+      MOZ_ASSERT(
+          aPtr, "Cannot initialize a MaskLayerImageKeyRef with a null pointer");
       aPtr->IncLayerCount();
       if (mRawPtr) {
         mRawPtr->DecLayerCount();
@@ -210,7 +210,7 @@ public:
       mRawPtr = aPtr;
     }
 
-  private:
+   private:
     const MaskLayerImageKey* mRawPtr;
   };
 
@@ -222,53 +222,44 @@ public:
   // Add an image container with a key to the cache
   // The image container used will be set as the container in aKey and aKey
   // itself will be linked from this cache
-  void PutImage(const MaskLayerImageKey* aKey,
-                ImageContainer* aContainer);
+  void PutImage(const MaskLayerImageKey* aKey, ImageContainer* aContainer);
 
   // Sweep the cache for old image containers that can be deleted
   void Sweep();
 
-protected:
-
+ protected:
   class MaskLayerImageEntry : public PLDHashEntryHdr
   {
-  public:
+   public:
     typedef const MaskLayerImageKey& KeyType;
     typedef const MaskLayerImageKey* KeyTypePointer;
 
-    explicit MaskLayerImageEntry(KeyTypePointer aKey)
-      : mKey(aKey)
+    explicit MaskLayerImageEntry(KeyTypePointer aKey) : mKey(aKey)
     {
       MOZ_COUNT_CTOR(MaskLayerImageEntry);
     }
     MaskLayerImageEntry(const MaskLayerImageEntry& aOther)
-      : mKey(aOther.mKey.get())
+        : mKey(aOther.mKey.get())
     {
       NS_ERROR("ALLOW_MEMMOVE == true, should never be called");
     }
-    ~MaskLayerImageEntry()
-    {
-      MOZ_COUNT_DTOR(MaskLayerImageEntry);
-    }
+    ~MaskLayerImageEntry() { MOZ_COUNT_DTOR(MaskLayerImageEntry); }
 
     // KeyEquals(): does this entry match this key?
-    bool KeyEquals(KeyTypePointer aKey) const
-    {
-      return *mKey == *aKey;
-    }
+    bool KeyEquals(KeyTypePointer aKey) const { return *mKey == *aKey; }
 
     // KeyToPointer(): Convert KeyType to KeyTypePointer
     static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
 
     // HashKey(): calculate the hash number
-    static PLDHashNumber HashKey(KeyTypePointer aKey)
-    {
-      return aKey->Hash();
-    }
+    static PLDHashNumber HashKey(KeyTypePointer aKey) { return aKey->Hash(); }
 
     // ALLOW_MEMMOVE can we move this class with memmove(), or do we have
     // to use the copy constructor?
-    enum { ALLOW_MEMMOVE = true };
+    enum
+    {
+      ALLOW_MEMMOVE = true
+    };
 
     bool operator==(const MaskLayerImageEntry& aOther) const
     {
@@ -282,8 +273,6 @@ protected:
   nsTHashtable<MaskLayerImageEntry> mMaskImageContainers;
 };
 
-
-} // namespace mozilla
-
+}  // namespace mozilla
 
 #endif

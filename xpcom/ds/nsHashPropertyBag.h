@@ -14,11 +14,10 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsInterfaceHashtable.h"
 
-class nsHashPropertyBagBase
-  : public nsIWritablePropertyBag
-  , public nsIWritablePropertyBag2
+class nsHashPropertyBagBase : public nsIWritablePropertyBag,
+                              public nsIWritablePropertyBag2
 {
-public:
+ public:
   nsHashPropertyBagBase() {}
 
   NS_DECL_NSIPROPERTYBAG
@@ -27,30 +26,30 @@ public:
   NS_DECL_NSIWRITABLEPROPERTYBAG
   NS_DECL_NSIWRITABLEPROPERTYBAG2
 
-protected:
+ protected:
   // a hash table of string -> nsIVariant
   nsInterfaceHashtable<nsStringHashKey, nsIVariant> mPropertyHash;
 };
 
 class nsHashPropertyBag : public nsHashPropertyBagBase
 {
-public:
+ public:
   nsHashPropertyBag() {}
   NS_DECL_THREADSAFE_ISUPPORTS
 
-protected:
+ protected:
   virtual ~nsHashPropertyBag();
 };
 
 /* A cycle collected nsHashPropertyBag for main-thread-only use. */
 class nsHashPropertyBagCC final : public nsHashPropertyBagBase
 {
-public:
+ public:
   nsHashPropertyBagCC() {}
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsHashPropertyBagCC,
                                            nsIWritablePropertyBag)
-protected:
+ protected:
   virtual ~nsHashPropertyBagCC() {}
 };
 

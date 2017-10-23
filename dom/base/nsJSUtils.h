@@ -29,22 +29,24 @@ namespace mozilla {
 namespace dom {
 class AutoJSAPI;
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsJSUtils
 {
-public:
-  static bool GetCallingLocation(JSContext* aContext, nsACString& aFilename,
+ public:
+  static bool GetCallingLocation(JSContext* aContext,
+                                 nsACString& aFilename,
                                  uint32_t* aLineno = nullptr,
                                  uint32_t* aColumn = nullptr);
-  static bool GetCallingLocation(JSContext* aContext, nsAString& aFilename,
+  static bool GetCallingLocation(JSContext* aContext,
+                                 nsAString& aFilename,
                                  uint32_t* aLineno = nullptr,
                                  uint32_t* aColumn = nullptr);
 
-  static nsIScriptGlobalObject *GetStaticScriptGlobal(JSObject* aObj);
+  static nsIScriptGlobalObject* GetStaticScriptGlobal(JSObject* aObj);
 
-  static nsIScriptContext *GetStaticScriptContext(JSObject* aObj);
+  static nsIScriptContext* GetStaticScriptContext(JSObject* aObj);
 
   /**
    * Retrieve the inner window ID based on the given JSContext.
@@ -54,7 +56,7 @@ public:
    *
    * @returns uint64_t the inner window ID.
    */
-  static uint64_t GetCurrentlyRunningCodeInnerWindowID(JSContext *aContext);
+  static uint64_t GetCurrentlyRunningCodeInnerWindowID(JSContext* aContext);
 
   static nsresult CompileFunction(mozilla::dom::AutoJSAPI& jsapi,
                                   JS::AutoObjectVector& aScopeChain,
@@ -65,9 +67,9 @@ public:
                                   const nsAString& aBody,
                                   JSObject** aFunctionObject);
 
-
   // ExecutionContext is used to switch compartment.
-  class MOZ_STACK_CLASS ExecutionContext {
+  class MOZ_STACK_CLASS ExecutionContext
+  {
 #ifdef MOZ_GECKO_PROFILER
     // Register stack annotations for the Gecko profiler.
     mozilla::AutoProfilerLabel mAutoProfilerLabel;
@@ -106,7 +108,6 @@ public:
 #endif
 
    public:
-
     // Enter compartment in which the code would be executed.  The JSContext
     // must come from an AutoEntryScript that has had
     // TakeOwnershipOfErrorReporting() called on it.
@@ -115,14 +116,16 @@ public:
     ExecutionContext(const ExecutionContext&) = delete;
     ExecutionContext(ExecutionContext&&) = delete;
 
-    ~ExecutionContext() {
+    ~ExecutionContext()
+    {
       // This flag is resetted, when the returned value is extracted.
       MOZ_ASSERT(!mWantsReturnValue);
     }
 
     // The returned value would be converted to a string if the
     // |aCoerceToString| is flag set.
-    ExecutionContext& SetCoerceToString(bool aCoerceToString) {
+    ExecutionContext& SetCoerceToString(bool aCoerceToString)
+    {
       mCoerceToString = aCoerceToString;
       return *this;
     }
@@ -131,7 +134,8 @@ public:
     // being compiled, and before it is being executed. The bytecode can then be
     // requested by using |JS::FinishIncrementalEncoding| with the mutable
     // handle |aScript| argument of |CompileAndExec| or |JoinAndExec|.
-    ExecutionContext& SetEncodeBytecode(bool aEncodeBytecode) {
+    ExecutionContext& SetEncodeBytecode(bool aEncodeBytecode)
+    {
       mEncodeBytecode = aEncodeBytecode;
       return *this;
     }
@@ -156,7 +160,7 @@ public:
     // thread before starting the execution of the script.
     //
     // The compiled script would be returned in the |aScript| out-param.
-    MOZ_MUST_USE nsresult JoinAndExec(void **aOffThreadToken,
+    MOZ_MUST_USE nsresult JoinAndExec(void** aOffThreadToken,
                                       JS::MutableHandle<JSScript*> aScript);
 
     // Compile a script contained in a SourceBuffer, and execute it.
@@ -176,20 +180,19 @@ public:
     // After getting a notification that an off-thread decoding terminated, this
     // function will get the result of the decoder by moving it to the main
     // thread before starting the execution of the script.
-    MOZ_MUST_USE nsresult DecodeJoinAndExec(void **aOffThreadToken);
+    MOZ_MUST_USE nsresult DecodeJoinAndExec(void** aOffThreadToken);
   };
 
   static nsresult CompileModule(JSContext* aCx,
                                 JS::SourceBufferHolder& aSrcBuf,
                                 JS::Handle<JSObject*> aEvaluationGlobal,
-                                JS::CompileOptions &aCompileOptions,
+                                JS::CompileOptions& aCompileOptions,
                                 JS::MutableHandle<JSObject*> aModule);
 
   static nsresult ModuleInstantiate(JSContext* aCx,
                                     JS::Handle<JSObject*> aModule);
 
-  static nsresult ModuleEvaluate(JSContext* aCx,
-                                 JS::Handle<JSObject*> aModule);
+  static nsresult ModuleEvaluate(JSContext* aCx, JS::Handle<JSObject*> aModule);
 
   // Returns false if an exception got thrown on aCx.  Passing a null
   // aElement is allowed; that wil produce an empty aScopeChain.
@@ -202,7 +205,7 @@ public:
 
 template<typename T>
 inline bool
-AssignJSString(JSContext *cx, T &dest, JSString *s)
+AssignJSString(JSContext* cx, T& dest, JSString* s)
 {
   size_t len = js::GetStringLength(s);
   static_assert(js::MaxStringLength < (1 << 28),
@@ -215,7 +218,7 @@ AssignJSString(JSContext *cx, T &dest, JSString *s)
 }
 
 inline void
-AssignJSFlatString(nsAString &dest, JSFlatString *s)
+AssignJSFlatString(nsAString& dest, JSFlatString* s)
 {
   size_t len = js::GetFlatStringLength(s);
   static_assert(js::MaxStringLength < (1 << 28),
@@ -226,8 +229,7 @@ AssignJSFlatString(nsAString &dest, JSFlatString *s)
 
 class nsAutoJSString : public nsAutoString
 {
-public:
-
+ public:
   /**
    * nsAutoJSString should be default constructed, which leaves it empty
    * (this->IsEmpty()), and initialized with one of the init() methods below.
@@ -239,7 +241,7 @@ public:
     return AssignJSString(aContext, *this, str);
   }
 
-  bool init(JSContext* aContext, const JS::Value &v)
+  bool init(JSContext* aContext, const JS::Value& v)
   {
     if (v.isString()) {
       return init(aContext, v.toString());
@@ -263,7 +265,7 @@ public:
     return JS_IdToValue(aContext, id, &v) && init(aContext, v);
   }
 
-  bool init(const JS::Value &v);
+  bool init(const JS::Value& v);
 
   ~nsAutoJSString() {}
 };

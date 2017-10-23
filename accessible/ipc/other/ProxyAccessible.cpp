@@ -60,7 +60,7 @@ ProxyAccessible::Description(nsString& aDesc) const
 }
 
 void
-ProxyAccessible::Attributes(nsTArray<Attribute> *aAttrs) const
+ProxyAccessible::Attributes(nsTArray<Attribute>* aAttrs) const
 {
   Unused << mDoc->SendAttributes(mID, aAttrs);
 }
@@ -69,8 +69,8 @@ nsTArray<ProxyAccessible*>
 ProxyAccessible::RelationByType(RelationType aType) const
 {
   nsTArray<uint64_t> targetIDs;
-  Unused << mDoc->SendRelationByType(mID, static_cast<uint32_t>(aType),
-                                     &targetIDs);
+  Unused << mDoc->SendRelationByType(
+      mID, static_cast<uint32_t>(aType), &targetIDs);
 
   size_t targetCount = targetIDs.Length();
   nsTArray<ProxyAccessible*> targets(targetCount);
@@ -82,9 +82,9 @@ ProxyAccessible::RelationByType(RelationType aType) const
 }
 
 void
-ProxyAccessible::Relations(nsTArray<RelationType>* aTypes,
-                           nsTArray<nsTArray<ProxyAccessible*>>* aTargetSets)
-  const
+ProxyAccessible::Relations(
+    nsTArray<RelationType>* aTypes,
+    nsTArray<nsTArray<ProxyAccessible*>>* aTargetSets) const
 {
   nsTArray<RelationTargets> ipcRelations;
   Unused << mDoc->SendRelations(mID, &ipcRelations);
@@ -94,17 +94,16 @@ ProxyAccessible::Relations(nsTArray<RelationType>* aTypes,
   aTargetSets->SetCapacity(relationCount);
   for (size_t i = 0; i < relationCount; i++) {
     uint32_t type = ipcRelations[i].Type();
-    if (type > static_cast<uint32_t>(RelationType::LAST))
-      continue;
+    if (type > static_cast<uint32_t>(RelationType::LAST)) continue;
 
     size_t targetCount = ipcRelations[i].Targets().Length();
     nsTArray<ProxyAccessible*> targets(targetCount);
     for (size_t j = 0; j < targetCount; j++)
-      if (ProxyAccessible* proxy = mDoc->GetAccessible(ipcRelations[i].Targets()[j]))
+      if (ProxyAccessible* proxy =
+              mDoc->GetAccessible(ipcRelations[i].Targets()[j]))
         targets.AppendElement(proxy);
 
-    if (targets.IsEmpty())
-      continue;
+    if (targets.IsEmpty()) continue;
 
     aTargetSets->AppendElement(Move(targets));
     aTypes->AppendElement(static_cast<RelationType>(type));
@@ -194,42 +193,47 @@ ProxyAccessible::SelectionCount()
 }
 
 bool
-ProxyAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOfset,
+ProxyAccessible::TextSubstring(int32_t aStartOffset,
+                               int32_t aEndOfset,
                                nsString& aText) const
 {
   bool valid;
-  Unused << mDoc->SendTextSubstring(mID, aStartOffset, aEndOfset, &aText, &valid);
+  Unused << mDoc->SendTextSubstring(
+      mID, aStartOffset, aEndOfset, &aText, &valid);
   return valid;
 }
 
 void
 ProxyAccessible::GetTextAfterOffset(int32_t aOffset,
                                     AccessibleTextBoundary aBoundaryType,
-                                    nsString& aText, int32_t* aStartOffset,
+                                    nsString& aText,
+                                    int32_t* aStartOffset,
                                     int32_t* aEndOffset)
 {
-  Unused << mDoc->SendGetTextAfterOffset(mID, aOffset, aBoundaryType,
-                                         &aText, aStartOffset, aEndOffset);
+  Unused << mDoc->SendGetTextAfterOffset(
+      mID, aOffset, aBoundaryType, &aText, aStartOffset, aEndOffset);
 }
 
 void
 ProxyAccessible::GetTextAtOffset(int32_t aOffset,
                                  AccessibleTextBoundary aBoundaryType,
-                                 nsString& aText, int32_t* aStartOffset,
+                                 nsString& aText,
+                                 int32_t* aStartOffset,
                                  int32_t* aEndOffset)
 {
-  Unused << mDoc->SendGetTextAtOffset(mID, aOffset, aBoundaryType,
-                                      &aText, aStartOffset, aEndOffset);
+  Unused << mDoc->SendGetTextAtOffset(
+      mID, aOffset, aBoundaryType, &aText, aStartOffset, aEndOffset);
 }
 
 void
 ProxyAccessible::GetTextBeforeOffset(int32_t aOffset,
                                      AccessibleTextBoundary aBoundaryType,
-                                     nsString& aText, int32_t* aStartOffset,
+                                     nsString& aText,
+                                     int32_t* aStartOffset,
                                      int32_t* aEndOffset)
 {
-  Unused << mDoc->SendGetTextBeforeOffset(mID, aOffset, aBoundaryType,
-                                          &aText, aStartOffset, aEndOffset);
+  Unused << mDoc->SendGetTextBeforeOffset(
+      mID, aOffset, aBoundaryType, &aText, aStartOffset, aEndOffset);
 }
 
 char16_t
@@ -247,8 +251,8 @@ ProxyAccessible::TextAttributes(bool aIncludeDefAttrs,
                                 int32_t* aStartOffset,
                                 int32_t* aEndOffset)
 {
-  Unused << mDoc->SendTextAttributes(mID, aIncludeDefAttrs, aOffset,
-                                     aAttributes, aStartOffset, aEndOffset);
+  Unused << mDoc->SendTextAttributes(
+      mID, aIncludeDefAttrs, aOffset, aAttributes, aStartOffset, aEndOffset);
 }
 
 void
@@ -258,12 +262,13 @@ ProxyAccessible::DefaultTextAttributes(nsTArray<Attribute>* aAttrs)
 }
 
 nsIntRect
-ProxyAccessible::TextBounds(int32_t aStartOffset, int32_t aEndOffset,
+ProxyAccessible::TextBounds(int32_t aStartOffset,
+                            int32_t aEndOffset,
                             uint32_t aCoordType)
 {
   nsIntRect rect;
-  Unused <<
-    mDoc->SendTextBounds(mID, aStartOffset, aEndOffset, aCoordType, &rect);
+  Unused << mDoc->SendTextBounds(
+      mID, aStartOffset, aEndOffset, aCoordType, &rect);
   return rect;
 }
 
@@ -271,8 +276,7 @@ nsIntRect
 ProxyAccessible::CharBounds(int32_t aOffset, uint32_t aCoordType)
 {
   nsIntRect rect;
-  Unused <<
-    mDoc->SendCharBounds(mID, aOffset, aCoordType, &rect);
+  Unused << mDoc->SendCharBounds(mID, aOffset, aCoordType, &rect);
   return rect;
 }
 
@@ -291,8 +295,8 @@ ProxyAccessible::SelectionBoundsAt(int32_t aSelectionNum,
                                    int32_t* aEndOffset)
 {
   bool retVal = false;
-  Unused << mDoc->SendSelectionBoundsAt(mID, aSelectionNum, &retVal, &aData,
-                                        aStartOffset, aEndOffset);
+  Unused << mDoc->SendSelectionBoundsAt(
+      mID, aSelectionNum, &retVal, &aData, aStartOffset, aEndOffset);
   return retVal;
 }
 
@@ -302,14 +306,13 @@ ProxyAccessible::SetSelectionBoundsAt(int32_t aSelectionNum,
                                       int32_t aEndOffset)
 {
   bool retVal = false;
-  Unused << mDoc->SendSetSelectionBoundsAt(mID, aSelectionNum, aStartOffset,
-                                           aEndOffset, &retVal);
+  Unused << mDoc->SendSetSelectionBoundsAt(
+      mID, aSelectionNum, aStartOffset, aEndOffset, &retVal);
   return retVal;
 }
 
 bool
-ProxyAccessible::AddToSelection(int32_t aStartOffset,
-                                int32_t aEndOffset)
+ProxyAccessible::AddToSelection(int32_t aStartOffset, int32_t aEndOffset)
 {
   bool retVal = false;
   Unused << mDoc->SendAddToSelection(mID, aStartOffset, aEndOffset, &retVal);
@@ -325,20 +328,23 @@ ProxyAccessible::RemoveFromSelection(int32_t aSelectionNum)
 }
 
 void
-ProxyAccessible::ScrollSubstringTo(int32_t aStartOffset, int32_t aEndOffset,
+ProxyAccessible::ScrollSubstringTo(int32_t aStartOffset,
+                                   int32_t aEndOffset,
                                    uint32_t aScrollType)
 {
-  Unused << mDoc->SendScrollSubstringTo(mID, aStartOffset, aEndOffset, aScrollType);
+  Unused << mDoc->SendScrollSubstringTo(
+      mID, aStartOffset, aEndOffset, aScrollType);
 }
 
 void
 ProxyAccessible::ScrollSubstringToPoint(int32_t aStartOffset,
                                         int32_t aEndOffset,
                                         uint32_t aCoordinateType,
-                                        int32_t aX, int32_t aY)
+                                        int32_t aX,
+                                        int32_t aY)
 {
-  Unused << mDoc->SendScrollSubstringToPoint(mID, aStartOffset, aEndOffset,
-                                             aCoordinateType, aX, aY);
+  Unused << mDoc->SendScrollSubstringToPoint(
+      mID, aStartOffset, aEndOffset, aCoordinateType, aX, aY);
 }
 
 void
@@ -518,10 +524,13 @@ ProxyAccessible::RowIdx()
 }
 
 void
-ProxyAccessible::GetColRowExtents(uint32_t* aColIdx, uint32_t* aRowIdx,
-                                  uint32_t* aColExtent, uint32_t* aRowExtent)
+ProxyAccessible::GetColRowExtents(uint32_t* aColIdx,
+                                  uint32_t* aRowIdx,
+                                  uint32_t* aColExtent,
+                                  uint32_t* aRowExtent)
 {
-  Unused << mDoc->SendGetColRowExtents(mID, aColIdx, aRowIdx, aColExtent, aRowExtent);
+  Unused << mDoc->SendGetColRowExtents(
+      mID, aColIdx, aRowIdx, aColExtent, aRowExtent);
 }
 
 void
@@ -644,7 +653,8 @@ ProxyAccessible::TableRowIndexAt(uint32_t aCellIndex)
 
 void
 ProxyAccessible::TableRowAndColumnIndicesAt(uint32_t aCellIndex,
-                                            int32_t* aRow, int32_t* aCol)
+                                            int32_t* aRow,
+                                            int32_t* aCol)
 {
   Unused << mDoc->SendTableRowAndColumnIndicesAt(mID, aCellIndex, aRow, aCol);
 }
@@ -992,14 +1002,14 @@ ProxyAccessible::FocusedChild()
 }
 
 ProxyAccessible*
-ProxyAccessible::ChildAtPoint(int32_t aX, int32_t aY,
+ProxyAccessible::ChildAtPoint(int32_t aX,
+                              int32_t aY,
                               Accessible::EWhichChildAtPoint aWhichChild)
 {
   uint64_t childID = 0;
   bool ok = false;
-  Unused << mDoc->SendAccessibleAtPoint(mID, aX, aY, false,
-                                        static_cast<uint32_t>(aWhichChild),
-                                        &childID, &ok);
+  Unused << mDoc->SendAccessibleAtPoint(
+      mID, aX, aY, false, static_cast<uint32_t>(aWhichChild), &childID, &ok);
   return ok ? mDoc->GetAccessible(childID) : nullptr;
 }
 
@@ -1007,9 +1017,8 @@ nsIntRect
 ProxyAccessible::Bounds()
 {
   nsIntRect rect;
-  Unused << mDoc->SendExtents(mID, false,
-                              &(rect.x), &(rect.y),
-                              &(rect.width), &(rect.height));
+  Unused << mDoc->SendExtents(
+      mID, false, &(rect.x), &(rect.y), &(rect.width), &(rect.height));
   return rect;
 }
 
@@ -1044,28 +1053,37 @@ ProxyAccessible::MimeType(nsString aMime)
 }
 
 void
-ProxyAccessible::URLDocTypeMimeType(nsString& aURL, nsString& aDocType,
+ProxyAccessible::URLDocTypeMimeType(nsString& aURL,
+                                    nsString& aDocType,
                                     nsString& aMimeType)
 {
   Unused << mDoc->SendURLDocTypeMimeType(mID, &aURL, &aDocType, &aMimeType);
 }
 
 ProxyAccessible*
-ProxyAccessible::AccessibleAtPoint(int32_t aX, int32_t aY,
+ProxyAccessible::AccessibleAtPoint(int32_t aX,
+                                   int32_t aY,
                                    bool aNeedsScreenCoords)
 {
   uint64_t childID = 0;
   bool ok = false;
-  Unused <<
-    mDoc->SendAccessibleAtPoint(mID, aX, aY, aNeedsScreenCoords,
-                                static_cast<uint32_t>(Accessible::eDirectChild),
-                                &childID, &ok);
+  Unused << mDoc->SendAccessibleAtPoint(
+      mID,
+      aX,
+      aY,
+      aNeedsScreenCoords,
+      static_cast<uint32_t>(Accessible::eDirectChild),
+      &childID,
+      &ok);
   return ok ? mDoc->GetAccessible(childID) : nullptr;
 }
 
 void
-ProxyAccessible::Extents(bool aNeedsScreenCoords, int32_t* aX, int32_t* aY,
-                        int32_t* aWidth, int32_t* aHeight)
+ProxyAccessible::Extents(bool aNeedsScreenCoords,
+                         int32_t* aX,
+                         int32_t* aY,
+                         int32_t* aWidth,
+                         int32_t* aHeight)
 {
   Unused << mDoc->SendExtents(mID, aNeedsScreenCoords, aX, aY, aWidth, aHeight);
 }
@@ -1076,5 +1094,5 @@ ProxyAccessible::DOMNodeID(nsString& aID)
   Unused << mDoc->SendDOMNodeID(mID, &aID);
 }
 
-}
-}
+}  // namespace a11y
+}  // namespace mozilla

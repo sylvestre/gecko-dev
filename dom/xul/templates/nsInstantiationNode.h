@@ -18,20 +18,20 @@ class nsXULTemplateQueryProcessorRDF;
  */
 class nsInstantiationNode : public ReteNode
 {
-public:
-    nsInstantiationNode(nsXULTemplateQueryProcessorRDF* aProcessor,
-                        nsRDFQuery* aRule);
+ public:
+  nsInstantiationNode(nsXULTemplateQueryProcessorRDF* aProcessor,
+                      nsRDFQuery* aRule);
 
-    ~nsInstantiationNode();
+  ~nsInstantiationNode();
 
-    // "downward" propagations
-    virtual nsresult Propagate(InstantiationSet& aInstantiations,
-                               bool aIsUpdate, bool& aMatched) override;
+  // "downward" propagations
+  virtual nsresult Propagate(InstantiationSet& aInstantiations,
+                             bool aIsUpdate,
+                             bool& aMatched) override;
 
-protected:
-
-    nsXULTemplateQueryProcessorRDF* mProcessor;
-    nsRDFQuery* mQuery;
+ protected:
+  nsXULTemplateQueryProcessorRDF* mProcessor;
+  nsRDFQuery* mQuery;
 };
 
-#endif // nsInstantiationNode_h__
+#endif  // nsInstantiationNode_h__

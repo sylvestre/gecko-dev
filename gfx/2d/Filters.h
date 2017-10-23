@@ -18,7 +18,8 @@ namespace gfx {
 
 class SourceSurface;
 
-enum FilterBackend {
+enum FilterBackend
+{
   FILTER_BACKEND_SOFTWARE = 0,
   FILTER_BACKEND_DIRECT2D1_1,
   FILTER_BACKEND_RECORDING
@@ -26,8 +27,8 @@ enum FilterBackend {
 
 enum TransformFilterAtts
 {
-  ATT_TRANSFORM_MATRIX = 0,                 // Matrix
-  ATT_TRANSFORM_FILTER                      // Filter
+  ATT_TRANSFORM_MATRIX = 0,  // Matrix
+  ATT_TRANSFORM_FILTER       // Filter
 };
 
 enum TransformFilterInputs
@@ -37,7 +38,7 @@ enum TransformFilterInputs
 
 enum BlendFilterAtts
 {
-  ATT_BLEND_BLENDMODE = 0                   // uint32_t
+  ATT_BLEND_BLENDMODE = 0  // uint32_t
 };
 
 enum BlendMode
@@ -67,8 +68,8 @@ enum BlendFilterInputs
 
 enum MorphologyFilterAtts
 {
-  ATT_MORPHOLOGY_RADII = 0,                 // IntSize
-  ATT_MORPHOLOGY_OPERATOR                   // MorphologyOperator
+  ATT_MORPHOLOGY_RADII = 0,  // IntSize
+  ATT_MORPHOLOGY_OPERATOR    // MorphologyOperator
 };
 
 enum MorphologyOperator
@@ -90,8 +91,8 @@ enum AlphaMode
 
 enum ColorMatrixFilterAtts
 {
-  ATT_COLOR_MATRIX_MATRIX = 0,              // Matrix5x4
-  ATT_COLOR_MATRIX_ALPHA_MODE               // AlphaMode
+  ATT_COLOR_MATRIX_MATRIX = 0,  // Matrix5x4
+  ATT_COLOR_MATRIX_ALPHA_MODE   // AlphaMode
 };
 
 enum ColorMatrixFilterInputs
@@ -101,7 +102,7 @@ enum ColorMatrixFilterInputs
 
 enum FloodFilterAtts
 {
-  ATT_FLOOD_COLOR = 0                       // Color
+  ATT_FLOOD_COLOR = 0  // Color
 };
 
 enum FloodFilterInputs
@@ -111,7 +112,7 @@ enum FloodFilterInputs
 
 enum TileFilterAtts
 {
-  ATT_TILE_SOURCE_RECT = 0                  // IntRect
+  ATT_TILE_SOURCE_RECT = 0  // IntRect
 };
 
 enum TileFilterInputs
@@ -121,10 +122,10 @@ enum TileFilterInputs
 
 enum TransferAtts
 {
-  ATT_TRANSFER_DISABLE_R = 0,               // bool
-  ATT_TRANSFER_DISABLE_G,                   // bool
-  ATT_TRANSFER_DISABLE_B,                   // bool
-  ATT_TRANSFER_DISABLE_A                    // bool
+  ATT_TRANSFER_DISABLE_R = 0,  // bool
+  ATT_TRANSFER_DISABLE_G,      // bool
+  ATT_TRANSFER_DISABLE_B,      // bool
+  ATT_TRANSFER_DISABLE_A       // bool
 };
 
 enum TransferInputs
@@ -138,10 +139,10 @@ enum TableTransferAtts
   ATT_TABLE_TRANSFER_DISABLE_G = ATT_TRANSFER_DISABLE_G,
   ATT_TABLE_TRANSFER_DISABLE_B = ATT_TRANSFER_DISABLE_B,
   ATT_TABLE_TRANSFER_DISABLE_A = ATT_TRANSFER_DISABLE_A,
-  ATT_TABLE_TRANSFER_TABLE_R,               // Float[]
-  ATT_TABLE_TRANSFER_TABLE_G,               // Float[]
-  ATT_TABLE_TRANSFER_TABLE_B,               // Float[]
-  ATT_TABLE_TRANSFER_TABLE_A                // Float[]
+  ATT_TABLE_TRANSFER_TABLE_R,  // Float[]
+  ATT_TABLE_TRANSFER_TABLE_G,  // Float[]
+  ATT_TABLE_TRANSFER_TABLE_B,  // Float[]
+  ATT_TABLE_TRANSFER_TABLE_A   // Float[]
 };
 
 enum TableTransferInputs
@@ -155,10 +156,10 @@ enum DiscreteTransferAtts
   ATT_DISCRETE_TRANSFER_DISABLE_G = ATT_TRANSFER_DISABLE_G,
   ATT_DISCRETE_TRANSFER_DISABLE_B = ATT_TRANSFER_DISABLE_B,
   ATT_DISCRETE_TRANSFER_DISABLE_A = ATT_TRANSFER_DISABLE_A,
-  ATT_DISCRETE_TRANSFER_TABLE_R,            // Float[]
-  ATT_DISCRETE_TRANSFER_TABLE_G,            // Float[]
-  ATT_DISCRETE_TRANSFER_TABLE_B,            // Float[]
-  ATT_DISCRETE_TRANSFER_TABLE_A             // Float[]
+  ATT_DISCRETE_TRANSFER_TABLE_R,  // Float[]
+  ATT_DISCRETE_TRANSFER_TABLE_G,  // Float[]
+  ATT_DISCRETE_TRANSFER_TABLE_B,  // Float[]
+  ATT_DISCRETE_TRANSFER_TABLE_A   // Float[]
 };
 
 enum DiscreteTransferInputs
@@ -172,14 +173,14 @@ enum LinearTransferAtts
   ATT_LINEAR_TRANSFER_DISABLE_G = ATT_TRANSFER_DISABLE_G,
   ATT_LINEAR_TRANSFER_DISABLE_B = ATT_TRANSFER_DISABLE_B,
   ATT_LINEAR_TRANSFER_DISABLE_A = ATT_TRANSFER_DISABLE_A,
-  ATT_LINEAR_TRANSFER_SLOPE_R,              // Float
-  ATT_LINEAR_TRANSFER_SLOPE_G,              // Float
-  ATT_LINEAR_TRANSFER_SLOPE_B,              // Float
-  ATT_LINEAR_TRANSFER_SLOPE_A,              // Float
-  ATT_LINEAR_TRANSFER_INTERCEPT_R,          // Float
-  ATT_LINEAR_TRANSFER_INTERCEPT_G,          // Float
-  ATT_LINEAR_TRANSFER_INTERCEPT_B,          // Float
-  ATT_LINEAR_TRANSFER_INTERCEPT_A           // Float
+  ATT_LINEAR_TRANSFER_SLOPE_R,      // Float
+  ATT_LINEAR_TRANSFER_SLOPE_G,      // Float
+  ATT_LINEAR_TRANSFER_SLOPE_B,      // Float
+  ATT_LINEAR_TRANSFER_SLOPE_A,      // Float
+  ATT_LINEAR_TRANSFER_INTERCEPT_R,  // Float
+  ATT_LINEAR_TRANSFER_INTERCEPT_G,  // Float
+  ATT_LINEAR_TRANSFER_INTERCEPT_B,  // Float
+  ATT_LINEAR_TRANSFER_INTERCEPT_A   // Float
 };
 
 enum LinearTransferInputs
@@ -193,18 +194,18 @@ enum GammaTransferAtts
   ATT_GAMMA_TRANSFER_DISABLE_G = ATT_TRANSFER_DISABLE_G,
   ATT_GAMMA_TRANSFER_DISABLE_B = ATT_TRANSFER_DISABLE_B,
   ATT_GAMMA_TRANSFER_DISABLE_A = ATT_TRANSFER_DISABLE_A,
-  ATT_GAMMA_TRANSFER_AMPLITUDE_R,             // Float
-  ATT_GAMMA_TRANSFER_AMPLITUDE_G,             // Float
-  ATT_GAMMA_TRANSFER_AMPLITUDE_B,             // Float
-  ATT_GAMMA_TRANSFER_AMPLITUDE_A,             // Float
-  ATT_GAMMA_TRANSFER_EXPONENT_R,              // Float
-  ATT_GAMMA_TRANSFER_EXPONENT_G,              // Float
-  ATT_GAMMA_TRANSFER_EXPONENT_B,              // Float
-  ATT_GAMMA_TRANSFER_EXPONENT_A,              // Float
-  ATT_GAMMA_TRANSFER_OFFSET_R,                // Float
-  ATT_GAMMA_TRANSFER_OFFSET_G,                // Float
-  ATT_GAMMA_TRANSFER_OFFSET_B,                // Float
-  ATT_GAMMA_TRANSFER_OFFSET_A                 // Float
+  ATT_GAMMA_TRANSFER_AMPLITUDE_R,  // Float
+  ATT_GAMMA_TRANSFER_AMPLITUDE_G,  // Float
+  ATT_GAMMA_TRANSFER_AMPLITUDE_B,  // Float
+  ATT_GAMMA_TRANSFER_AMPLITUDE_A,  // Float
+  ATT_GAMMA_TRANSFER_EXPONENT_R,   // Float
+  ATT_GAMMA_TRANSFER_EXPONENT_G,   // Float
+  ATT_GAMMA_TRANSFER_EXPONENT_B,   // Float
+  ATT_GAMMA_TRANSFER_EXPONENT_A,   // Float
+  ATT_GAMMA_TRANSFER_OFFSET_R,     // Float
+  ATT_GAMMA_TRANSFER_OFFSET_G,     // Float
+  ATT_GAMMA_TRANSFER_OFFSET_B,     // Float
+  ATT_GAMMA_TRANSFER_OFFSET_A      // Float
 };
 
 enum GammaTransferInputs
@@ -214,15 +215,15 @@ enum GammaTransferInputs
 
 enum ConvolveMatrixAtts
 {
-  ATT_CONVOLVE_MATRIX_KERNEL_SIZE = 0,      // IntSize
-  ATT_CONVOLVE_MATRIX_KERNEL_MATRIX,        // Float[]
-  ATT_CONVOLVE_MATRIX_DIVISOR,              // Float
-  ATT_CONVOLVE_MATRIX_BIAS,                 // Float
-  ATT_CONVOLVE_MATRIX_TARGET,               // IntPoint
-  ATT_CONVOLVE_MATRIX_SOURCE_RECT,          // IntRect
-  ATT_CONVOLVE_MATRIX_EDGE_MODE,            // ConvolveMatrixEdgeMode
-  ATT_CONVOLVE_MATRIX_KERNEL_UNIT_LENGTH,   // Size
-  ATT_CONVOLVE_MATRIX_PRESERVE_ALPHA,       // bool
+  ATT_CONVOLVE_MATRIX_KERNEL_SIZE = 0,     // IntSize
+  ATT_CONVOLVE_MATRIX_KERNEL_MATRIX,       // Float[]
+  ATT_CONVOLVE_MATRIX_DIVISOR,             // Float
+  ATT_CONVOLVE_MATRIX_BIAS,                // Float
+  ATT_CONVOLVE_MATRIX_TARGET,              // IntPoint
+  ATT_CONVOLVE_MATRIX_SOURCE_RECT,         // IntRect
+  ATT_CONVOLVE_MATRIX_EDGE_MODE,           // ConvolveMatrixEdgeMode
+  ATT_CONVOLVE_MATRIX_KERNEL_UNIT_LENGTH,  // Size
+  ATT_CONVOLVE_MATRIX_PRESERVE_ALPHA,      // bool
 };
 
 enum ConvolveMatrixEdgeMode
@@ -239,9 +240,9 @@ enum ConvolveMatrixInputs
 
 enum DisplacementMapAtts
 {
-  ATT_DISPLACEMENT_MAP_SCALE = 0,           // Float
-  ATT_DISPLACEMENT_MAP_X_CHANNEL,           // ColorChannel
-  ATT_DISPLACEMENT_MAP_Y_CHANNEL            // ColorChannel
+  ATT_DISPLACEMENT_MAP_SCALE = 0,  // Float
+  ATT_DISPLACEMENT_MAP_X_CHANNEL,  // ColorChannel
+  ATT_DISPLACEMENT_MAP_Y_CHANNEL   // ColorChannel
 };
 
 enum ColorChannel
@@ -260,12 +261,12 @@ enum DisplacementMapInputs
 
 enum TurbulenceAtts
 {
-  ATT_TURBULENCE_BASE_FREQUENCY = 0,        // Size
-  ATT_TURBULENCE_NUM_OCTAVES,               // uint32_t
-  ATT_TURBULENCE_SEED,                      // uint32_t
-  ATT_TURBULENCE_STITCHABLE,                // bool
-  ATT_TURBULENCE_TYPE,                      // TurbulenceType
-  ATT_TURBULENCE_RECT                       // IntRect
+  ATT_TURBULENCE_BASE_FREQUENCY = 0,  // Size
+  ATT_TURBULENCE_NUM_OCTAVES,         // uint32_t
+  ATT_TURBULENCE_SEED,                // uint32_t
+  ATT_TURBULENCE_STITCHABLE,          // bool
+  ATT_TURBULENCE_TYPE,                // TurbulenceType
+  ATT_TURBULENCE_RECT                 // IntRect
 };
 
 enum TurbulenceType
@@ -276,7 +277,7 @@ enum TurbulenceType
 
 enum ArithmeticCombineAtts
 {
-  ATT_ARITHMETIC_COMBINE_COEFFICIENTS = 0   // Float[4]
+  ATT_ARITHMETIC_COMBINE_COEFFICIENTS = 0  // Float[4]
 };
 
 enum ArithmeticCombineInputs
@@ -287,7 +288,7 @@ enum ArithmeticCombineInputs
 
 enum CompositeAtts
 {
-  ATT_COMPOSITE_OPERATOR = 0                // CompositeOperator
+  ATT_COMPOSITE_OPERATOR = 0  // CompositeOperator
 };
 
 enum CompositeOperator
@@ -307,7 +308,7 @@ enum CompositeInputs
 
 enum GaussianBlurAtts
 {
-  ATT_GAUSSIAN_BLUR_STD_DEVIATION = 0       // Float
+  ATT_GAUSSIAN_BLUR_STD_DEVIATION = 0  // Float
 };
 
 enum GaussianBlurInputs
@@ -317,8 +318,8 @@ enum GaussianBlurInputs
 
 enum DirectionalBlurAtts
 {
-  ATT_DIRECTIONAL_BLUR_STD_DEVIATION = 0,   // Float
-  ATT_DIRECTIONAL_BLUR_DIRECTION            // BlurDirection
+  ATT_DIRECTIONAL_BLUR_STD_DEVIATION = 0,  // Float
+  ATT_DIRECTIONAL_BLUR_DIRECTION           // BlurDirection
 };
 
 enum BlurDirection
@@ -334,21 +335,21 @@ enum DirectionalBlurInputs
 
 enum LightingAtts
 {
-  ATT_POINT_LIGHT_POSITION = 0,             // Point3D
+  ATT_POINT_LIGHT_POSITION = 0,  // Point3D
 
-  ATT_SPOT_LIGHT_POSITION,                  // Point3D
-  ATT_SPOT_LIGHT_POINTS_AT,                 // Point3D
-  ATT_SPOT_LIGHT_FOCUS,                     // Float
-  ATT_SPOT_LIGHT_LIMITING_CONE_ANGLE,       // Float
+  ATT_SPOT_LIGHT_POSITION,             // Point3D
+  ATT_SPOT_LIGHT_POINTS_AT,            // Point3D
+  ATT_SPOT_LIGHT_FOCUS,                // Float
+  ATT_SPOT_LIGHT_LIMITING_CONE_ANGLE,  // Float
 
-  ATT_DISTANT_LIGHT_AZIMUTH,                // Float
-  ATT_DISTANT_LIGHT_ELEVATION,              // Float
+  ATT_DISTANT_LIGHT_AZIMUTH,    // Float
+  ATT_DISTANT_LIGHT_ELEVATION,  // Float
 
-  ATT_LIGHTING_COLOR,                       // Color
-  ATT_LIGHTING_SURFACE_SCALE,               // Float
-  ATT_LIGHTING_KERNEL_UNIT_LENGTH,          // Size
+  ATT_LIGHTING_COLOR,               // Color
+  ATT_LIGHTING_SURFACE_SCALE,       // Float
+  ATT_LIGHTING_KERNEL_UNIT_LENGTH,  // Size
 
-  ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT,    // Float
+  ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT,  // Float
 
   ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,  // Float
   ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT   // Float
@@ -361,11 +362,11 @@ enum LightingInputs
 
 enum PointDiffuseAtts
 {
-  ATT_POINT_DIFFUSE_POSITION              = ATT_POINT_LIGHT_POSITION,
-  ATT_POINT_DIFFUSE_COLOR                 = ATT_LIGHTING_COLOR,
-  ATT_POINT_DIFFUSE_SURFACE_SCALE         = ATT_LIGHTING_SURFACE_SCALE,
-  ATT_POINT_DIFFUSE_KERNEL_UNIT_LENGTH    = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
-  ATT_POINT_DIFFUSE_DIFFUSE_CONSTANT      = ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT
+  ATT_POINT_DIFFUSE_POSITION = ATT_POINT_LIGHT_POSITION,
+  ATT_POINT_DIFFUSE_COLOR = ATT_LIGHTING_COLOR,
+  ATT_POINT_DIFFUSE_SURFACE_SCALE = ATT_LIGHTING_SURFACE_SCALE,
+  ATT_POINT_DIFFUSE_KERNEL_UNIT_LENGTH = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
+  ATT_POINT_DIFFUSE_DIFFUSE_CONSTANT = ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT
 };
 
 enum PointDiffuseInputs
@@ -375,14 +376,14 @@ enum PointDiffuseInputs
 
 enum SpotDiffuseAtts
 {
-  ATT_SPOT_DIFFUSE_POSITION               = ATT_SPOT_LIGHT_POSITION,
-  ATT_SPOT_DIFFUSE_POINTS_AT              = ATT_SPOT_LIGHT_POINTS_AT,
-  ATT_SPOT_DIFFUSE_FOCUS                  = ATT_SPOT_LIGHT_FOCUS,
-  ATT_SPOT_DIFFUSE_LIMITING_CONE_ANGLE    = ATT_SPOT_LIGHT_LIMITING_CONE_ANGLE,
-  ATT_SPOT_DIFFUSE_COLOR                  = ATT_LIGHTING_COLOR,
-  ATT_SPOT_DIFFUSE_SURFACE_SCALE          = ATT_LIGHTING_SURFACE_SCALE,
-  ATT_SPOT_DIFFUSE_KERNEL_UNIT_LENGTH     = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
-  ATT_SPOT_DIFFUSE_DIFFUSE_CONSTANT       = ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT
+  ATT_SPOT_DIFFUSE_POSITION = ATT_SPOT_LIGHT_POSITION,
+  ATT_SPOT_DIFFUSE_POINTS_AT = ATT_SPOT_LIGHT_POINTS_AT,
+  ATT_SPOT_DIFFUSE_FOCUS = ATT_SPOT_LIGHT_FOCUS,
+  ATT_SPOT_DIFFUSE_LIMITING_CONE_ANGLE = ATT_SPOT_LIGHT_LIMITING_CONE_ANGLE,
+  ATT_SPOT_DIFFUSE_COLOR = ATT_LIGHTING_COLOR,
+  ATT_SPOT_DIFFUSE_SURFACE_SCALE = ATT_LIGHTING_SURFACE_SCALE,
+  ATT_SPOT_DIFFUSE_KERNEL_UNIT_LENGTH = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
+  ATT_SPOT_DIFFUSE_DIFFUSE_CONSTANT = ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT
 };
 
 enum SpotDiffuseInputs
@@ -392,12 +393,12 @@ enum SpotDiffuseInputs
 
 enum DistantDiffuseAtts
 {
-  ATT_DISTANT_DIFFUSE_AZIMUTH             = ATT_DISTANT_LIGHT_AZIMUTH,
-  ATT_DISTANT_DIFFUSE_ELEVATION           = ATT_DISTANT_LIGHT_ELEVATION,
-  ATT_DISTANT_DIFFUSE_COLOR               = ATT_LIGHTING_COLOR,
-  ATT_DISTANT_DIFFUSE_SURFACE_SCALE       = ATT_LIGHTING_SURFACE_SCALE,
-  ATT_DISTANT_DIFFUSE_KERNEL_UNIT_LENGTH  = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
-  ATT_DISTANT_DIFFUSE_DIFFUSE_CONSTANT    = ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT
+  ATT_DISTANT_DIFFUSE_AZIMUTH = ATT_DISTANT_LIGHT_AZIMUTH,
+  ATT_DISTANT_DIFFUSE_ELEVATION = ATT_DISTANT_LIGHT_ELEVATION,
+  ATT_DISTANT_DIFFUSE_COLOR = ATT_LIGHTING_COLOR,
+  ATT_DISTANT_DIFFUSE_SURFACE_SCALE = ATT_LIGHTING_SURFACE_SCALE,
+  ATT_DISTANT_DIFFUSE_KERNEL_UNIT_LENGTH = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
+  ATT_DISTANT_DIFFUSE_DIFFUSE_CONSTANT = ATT_DIFFUSE_LIGHTING_DIFFUSE_CONSTANT
 };
 
 enum DistantDiffuseInputs
@@ -407,12 +408,13 @@ enum DistantDiffuseInputs
 
 enum PointSpecularAtts
 {
-  ATT_POINT_SPECULAR_POSITION             = ATT_POINT_LIGHT_POSITION,
-  ATT_POINT_SPECULAR_COLOR                = ATT_LIGHTING_COLOR,
-  ATT_POINT_SPECULAR_SURFACE_SCALE        = ATT_LIGHTING_SURFACE_SCALE,
-  ATT_POINT_SPECULAR_KERNEL_UNIT_LENGTH   = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
-  ATT_POINT_SPECULAR_SPECULAR_CONSTANT    = ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,
-  ATT_POINT_SPECULAR_SPECULAR_EXPONENT    = ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT
+  ATT_POINT_SPECULAR_POSITION = ATT_POINT_LIGHT_POSITION,
+  ATT_POINT_SPECULAR_COLOR = ATT_LIGHTING_COLOR,
+  ATT_POINT_SPECULAR_SURFACE_SCALE = ATT_LIGHTING_SURFACE_SCALE,
+  ATT_POINT_SPECULAR_KERNEL_UNIT_LENGTH = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
+  ATT_POINT_SPECULAR_SPECULAR_CONSTANT =
+      ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,
+  ATT_POINT_SPECULAR_SPECULAR_EXPONENT = ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT
 };
 
 enum PointSpecularInputs
@@ -422,15 +424,15 @@ enum PointSpecularInputs
 
 enum SpotSpecularAtts
 {
-  ATT_SPOT_SPECULAR_POSITION              = ATT_SPOT_LIGHT_POSITION,
-  ATT_SPOT_SPECULAR_POINTS_AT             = ATT_SPOT_LIGHT_POINTS_AT,
-  ATT_SPOT_SPECULAR_FOCUS                 = ATT_SPOT_LIGHT_FOCUS,
-  ATT_SPOT_SPECULAR_LIMITING_CONE_ANGLE   = ATT_SPOT_LIGHT_LIMITING_CONE_ANGLE,
-  ATT_SPOT_SPECULAR_COLOR                 = ATT_LIGHTING_COLOR,
-  ATT_SPOT_SPECULAR_SURFACE_SCALE         = ATT_LIGHTING_SURFACE_SCALE,
-  ATT_SPOT_SPECULAR_KERNEL_UNIT_LENGTH    = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
-  ATT_SPOT_SPECULAR_SPECULAR_CONSTANT     = ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,
-  ATT_SPOT_SPECULAR_SPECULAR_EXPONENT     = ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT
+  ATT_SPOT_SPECULAR_POSITION = ATT_SPOT_LIGHT_POSITION,
+  ATT_SPOT_SPECULAR_POINTS_AT = ATT_SPOT_LIGHT_POINTS_AT,
+  ATT_SPOT_SPECULAR_FOCUS = ATT_SPOT_LIGHT_FOCUS,
+  ATT_SPOT_SPECULAR_LIMITING_CONE_ANGLE = ATT_SPOT_LIGHT_LIMITING_CONE_ANGLE,
+  ATT_SPOT_SPECULAR_COLOR = ATT_LIGHTING_COLOR,
+  ATT_SPOT_SPECULAR_SURFACE_SCALE = ATT_LIGHTING_SURFACE_SCALE,
+  ATT_SPOT_SPECULAR_KERNEL_UNIT_LENGTH = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
+  ATT_SPOT_SPECULAR_SPECULAR_CONSTANT = ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,
+  ATT_SPOT_SPECULAR_SPECULAR_EXPONENT = ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT
 };
 
 enum SpotSpecularInputs
@@ -440,13 +442,15 @@ enum SpotSpecularInputs
 
 enum DistantSpecularAtts
 {
-  ATT_DISTANT_SPECULAR_AZIMUTH            = ATT_DISTANT_LIGHT_AZIMUTH,
-  ATT_DISTANT_SPECULAR_ELEVATION          = ATT_DISTANT_LIGHT_ELEVATION,
-  ATT_DISTANT_SPECULAR_COLOR              = ATT_LIGHTING_COLOR,
-  ATT_DISTANT_SPECULAR_SURFACE_SCALE      = ATT_LIGHTING_SURFACE_SCALE,
+  ATT_DISTANT_SPECULAR_AZIMUTH = ATT_DISTANT_LIGHT_AZIMUTH,
+  ATT_DISTANT_SPECULAR_ELEVATION = ATT_DISTANT_LIGHT_ELEVATION,
+  ATT_DISTANT_SPECULAR_COLOR = ATT_LIGHTING_COLOR,
+  ATT_DISTANT_SPECULAR_SURFACE_SCALE = ATT_LIGHTING_SURFACE_SCALE,
   ATT_DISTANT_SPECULAR_KERNEL_UNIT_LENGTH = ATT_LIGHTING_KERNEL_UNIT_LENGTH,
-  ATT_DISTANT_SPECULAR_SPECULAR_CONSTANT  = ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,
-  ATT_DISTANT_SPECULAR_SPECULAR_EXPONENT  = ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT
+  ATT_DISTANT_SPECULAR_SPECULAR_CONSTANT =
+      ATT_SPECULAR_LIGHTING_SPECULAR_CONSTANT,
+  ATT_DISTANT_SPECULAR_SPECULAR_EXPONENT =
+      ATT_SPECULAR_LIGHTING_SPECULAR_EXPONENT
 };
 
 enum DistantSpecularInputs
@@ -456,7 +460,7 @@ enum DistantSpecularInputs
 
 enum CropAtts
 {
-  ATT_CROP_RECT = 0                         // Rect
+  ATT_CROP_RECT = 0  // Rect
 };
 
 enum CropInputs
@@ -476,37 +480,87 @@ enum UnpremultiplyInputs
 
 class FilterNode : public RefCounted<FilterNode>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(FilterNode)
   virtual ~FilterNode() {}
 
   virtual FilterBackend GetBackendType() = 0;
 
-  virtual void SetInput(uint32_t aIndex, SourceSurface *aSurface) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetInput(uint32_t aIndex, FilterNode *aFilter) { MOZ_CRASH("GFX: FilterNode"); }
+  virtual void SetInput(uint32_t aIndex, SourceSurface* aSurface)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetInput(uint32_t aIndex, FilterNode* aFilter)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
 
-  virtual void SetAttribute(uint32_t aIndex, bool) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, uint32_t) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, Float) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Size &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const IntSize &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const IntPoint &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Rect &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const IntRect &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Point &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Matrix &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Matrix5x4 &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Point3D &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Color &) { MOZ_CRASH("GFX: FilterNode"); }
-  virtual void SetAttribute(uint32_t aIndex, const Float* aFloat, uint32_t aSize) { MOZ_CRASH("GFX: FilterNode"); }
+  virtual void SetAttribute(uint32_t aIndex, bool)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, uint32_t)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, Float)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Size&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const IntSize&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const IntPoint&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Rect&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const IntRect&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Point&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Matrix&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Matrix5x4&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Point3D&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex, const Color&)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
+  virtual void SetAttribute(uint32_t aIndex,
+                            const Float* aFloat,
+                            uint32_t aSize)
+  {
+    MOZ_CRASH("GFX: FilterNode");
+  }
 
-protected:
+ protected:
   friend class Factory;
 
   FilterNode() {}
 };
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 #endif

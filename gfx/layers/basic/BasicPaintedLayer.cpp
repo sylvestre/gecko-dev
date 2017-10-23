@@ -4,26 +4,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BasicPaintedLayer.h"
-#include <stdint.h>                     // for uint32_t
-#include "GeckoProfiler.h"              // for AUTO_PROFILER_LABEL
-#include "ReadbackLayer.h"              // for ReadbackLayer, ReadbackSink
-#include "ReadbackProcessor.h"          // for ReadbackProcessor::Update, etc
-#include "RenderTrace.h"                // for RenderTraceInvalidateEnd, etc
-#include "BasicLayersImpl.h"            // for AutoMaskData, etc
-#include "gfxContext.h"                 // for gfxContext, etc
-#include "gfxRect.h"                    // for gfxRect
-#include "gfxUtils.h"                   // for gfxUtils
-#include "mozilla/gfx/2D.h"             // for DrawTarget
-#include "mozilla/gfx/BaseRect.h"       // for BaseRect
-#include "mozilla/gfx/Matrix.h"         // for Matrix
-#include "mozilla/gfx/Rect.h"           // for Rect, IntRect
-#include "mozilla/gfx/Types.h"          // for Float, etc
+#include <stdint.h>                // for uint32_t
+#include "GeckoProfiler.h"         // for AUTO_PROFILER_LABEL
+#include "ReadbackLayer.h"         // for ReadbackLayer, ReadbackSink
+#include "ReadbackProcessor.h"     // for ReadbackProcessor::Update, etc
+#include "RenderTrace.h"           // for RenderTraceInvalidateEnd, etc
+#include "BasicLayersImpl.h"       // for AutoMaskData, etc
+#include "gfxContext.h"            // for gfxContext, etc
+#include "gfxRect.h"               // for gfxRect
+#include "gfxUtils.h"              // for gfxUtils
+#include "mozilla/gfx/2D.h"        // for DrawTarget
+#include "mozilla/gfx/BaseRect.h"  // for BaseRect
+#include "mozilla/gfx/Matrix.h"    // for Matrix
+#include "mozilla/gfx/Rect.h"      // for Rect, IntRect
+#include "mozilla/gfx/Types.h"     // for Float, etc
 #include "mozilla/layers/LayersTypes.h"
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsISupportsImpl.h"            // for gfxContext::Release, etc
-#include "nsPoint.h"                    // for nsIntPoint
-#include "nsRect.h"                     // for mozilla::gfx::IntRect
-#include "nsTArray.h"                   // for nsTArray, nsTArray_Impl
+#include "nsCOMPtr.h"         // for already_AddRefed
+#include "nsISupportsImpl.h"  // for gfxContext::Release, etc
+#include "nsPoint.h"          // for nsIntPoint
+#include "nsRect.h"           // for mozilla::gfx::IntRect
+#include "nsTArray.h"         // for nsTArray, nsTArray_Impl
 #include "AutoMaskData.h"
 #include "gfx2DGlue.h"
 
@@ -37,21 +37,21 @@ IntersectWithClip(const nsIntRegion& aRegion, gfxContext* aContext)
 {
   gfxRect clip = aContext->GetClipExtents();
   nsIntRegion result;
-  result.And(aRegion, IntRect::RoundOut(clip.X(), clip.Y(),
-                                        clip.Width(), clip.Height()));
+  result.And(
+      aRegion,
+      IntRect::RoundOut(clip.X(), clip.Y(), clip.Width(), clip.Height()));
   return result;
 }
 
 void
 BasicPaintedLayer::PaintThebes(gfxContext* aContext,
-                              Layer* aMaskLayer,
-                              LayerManager::DrawPaintedLayerCallback aCallback,
-                              void* aCallbackData)
+                               Layer* aMaskLayer,
+                               LayerManager::DrawPaintedLayerCallback aCallback,
+                               void* aCallbackData)
 {
   AUTO_PROFILER_LABEL("BasicPaintedLayer::PaintThebes", GRAPHICS);
 
-  NS_ASSERTION(BasicManager()->InDrawing(),
-               "Can only draw in drawing phase");
+  NS_ASSERTION(BasicManager()->InDrawing(), "Can only draw in drawing phase");
 
   float opacity = GetEffectiveOpacity();
   CompositionOp effectiveOperator = GetEffectiveOperator(this);
@@ -60,7 +60,8 @@ BasicPaintedLayer::PaintThebes(gfxContext* aContext,
     ClearValidRegion();
     mContentClient->Clear();
 
-    nsIntRegion toDraw = IntersectWithClip(GetLocalVisibleRegion().ToUnknownRegion(), aContext);
+    nsIntRegion toDraw =
+        IntersectWithClip(GetLocalVisibleRegion().ToUnknownRegion(), aContext);
 
     RenderTraceInvalidateStart(this, "FFFF00", toDraw.GetBounds());
 
@@ -90,8 +91,13 @@ BasicPaintedLayer::PaintThebes(gfxContext* aContext,
       }
       if (context) {
         SetAntialiasingFlags(this, context->GetDrawTarget());
-        aCallback(this, context, toDraw, toDraw, DrawRegionClip::NONE,
-                  nsIntRegion(), aCallbackData);
+        aCallback(this,
+                  context,
+                  toDraw,
+                  toDraw,
+                  DrawRegionClip::NONE,
+                  nsIntRegion(),
+                  aCallbackData);
       }
       if (needsGroup && availableGroup) {
         BasicManager()->PopGroupForLayer(group);
@@ -104,8 +110,7 @@ BasicPaintedLayer::PaintThebes(gfxContext* aContext,
     return;
   }
 
-  if (BasicManager()->IsTransactionIncomplete())
-    return;
+  if (BasicManager()->IsTransactionIncomplete()) return;
 
   gfxRect clipExtents;
   clipExtents = aContext->GetClipExtents();
@@ -121,16 +126,19 @@ BasicPaintedLayer::PaintThebes(gfxContext* aContext,
   }
 
   if (!IsHidden() && !clipExtents.IsEmpty()) {
-    mContentClient->DrawTo(this, aContext->GetDrawTarget(), opacity,
+    mContentClient->DrawTo(this,
+                           aContext->GetDrawTarget(),
+                           opacity,
                            effectiveOperator,
-                           maskSurface, &maskTransform);
+                           maskSurface,
+                           &maskTransform);
   }
 }
 
 void
 BasicPaintedLayer::Validate(LayerManager::DrawPaintedLayerCallback aCallback,
-                           void* aCallbackData,
-                           ReadbackProcessor* aReadback)
+                            void* aCallbackData,
+                            ReadbackProcessor* aReadback)
 {
   if (!mContentClient) {
     // This client will have a null Forwarder, which means it will not have
@@ -161,8 +169,7 @@ BasicPaintedLayer::Validate(LayerManager::DrawPaintedLayerCallback aCallback,
   if (mDrawAtomically) {
     flags |= RotatedContentBuffer::PAINT_NO_ROTATION;
   }
-  PaintState state =
-    mContentClient->BeginPaintBuffer(this, flags);
+  PaintState state = mContentClient->BeginPaintBuffer(this, flags);
   SubtractFromValidRegion(state.mRegionToInvalidate);
 
   DrawTarget* target = mContentClient->BorrowDrawTargetForPainting(state);
@@ -177,15 +184,20 @@ BasicPaintedLayer::Validate(LayerManager::DrawPaintedLayerCallback aCallback,
 
     RenderTraceInvalidateStart(this, "FFFF00", state.mRegionToDraw.GetBounds());
 
-    RefPtr<gfxContext> ctx = gfxContext::CreatePreservingTransformOrNull(target);
-    MOZ_ASSERT(ctx); // already checked the target above
+    RefPtr<gfxContext> ctx =
+        gfxContext::CreatePreservingTransformOrNull(target);
+    MOZ_ASSERT(ctx);  // already checked the target above
 
     PaintBuffer(ctx,
-                state.mRegionToDraw, state.mRegionToDraw, state.mRegionToInvalidate,
+                state.mRegionToDraw,
+                state.mRegionToDraw,
+                state.mRegionToInvalidate,
                 state.mDidSelfCopy,
                 state.mClip,
-                aCallback, aCallbackData);
-    MOZ_LAYERS_LOG_IF_SHADOWABLE(this, ("Layer::Mutated(%p) PaintThebes", this));
+                aCallback,
+                aCallbackData);
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(this,
+                                 ("Layer::Mutated(%p) PaintThebes", this));
     Mutated();
     ctx = nullptr;
     mContentClient->ReturnDrawTargetToBuffer(target);
@@ -202,22 +214,23 @@ BasicPaintedLayer::Validate(LayerManager::DrawPaintedLayerCallback aCallback,
     // if we are shrinking the valid region to nothing. So use mRegionToDraw
     // instead.
     NS_WARNING_ASSERTION(
-      state.mRegionToDraw.IsEmpty(),
-      "No context when we have something to draw, resource exhaustion?");
+        state.mRegionToDraw.IsEmpty(),
+        "No context when we have something to draw, resource exhaustion?");
   }
 
   for (uint32_t i = 0; i < readbackUpdates.Length(); ++i) {
     ReadbackProcessor::Update& update = readbackUpdates[i];
     nsIntPoint offset = update.mLayer->GetBackgroundLayerOffset();
-    RefPtr<DrawTarget> dt =
-      update.mLayer->GetSink()->BeginUpdate(update.mUpdateRect + offset,
-                                            update.mSequenceCounter);
+    RefPtr<DrawTarget> dt = update.mLayer->GetSink()->BeginUpdate(
+        update.mUpdateRect + offset, update.mSequenceCounter);
     if (dt) {
-      NS_ASSERTION(GetEffectiveOpacity() == 1.0, "Should only read back opaque layers");
-      NS_ASSERTION(!GetMaskLayer(), "Should only read back layers without masks");
+      NS_ASSERTION(GetEffectiveOpacity() == 1.0,
+                   "Should only read back opaque layers");
+      NS_ASSERTION(!GetMaskLayer(),
+                   "Should only read back layers without masks");
       dt->SetTransform(dt->GetTransform().PreTranslate(offset.x, offset.y));
-      mContentClient->DrawTo(this, dt, 1.0, CompositionOp::OP_OVER,
-                             nullptr, nullptr);
+      mContentClient->DrawTo(
+          this, dt, 1.0, CompositionOp::OP_OVER, nullptr, nullptr);
       update.mLayer->GetSink()->EndUpdate(update.mUpdateRect + offset);
     }
   }
@@ -233,12 +246,13 @@ BasicLayerManager::CreatePaintedLayer()
   if (mDefaultTarget) {
     backend = mDefaultTarget->GetDrawTarget()->GetBackendType();
   } else if (mType == BLM_WIDGET) {
-    backend = gfxPlatform::GetPlatform()->GetContentBackendFor(LayersBackend::LAYERS_BASIC);
+    backend = gfxPlatform::GetPlatform()->GetContentBackendFor(
+        LayersBackend::LAYERS_BASIC);
   }
 
   RefPtr<PaintedLayer> layer = new BasicPaintedLayer(this, backend);
   return layer.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

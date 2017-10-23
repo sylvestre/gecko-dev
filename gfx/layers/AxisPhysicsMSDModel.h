@@ -16,10 +16,13 @@ namespace layers {
  * AxisPhysicsMSDModel encapsulates a 1-dimensional MSD (Mass-Spring-Damper)
  * model.  A unit mass is assumed.
  */
-class AxisPhysicsMSDModel : public AxisPhysicsModel {
-public:
-  AxisPhysicsMSDModel(double aInitialPosition, double aInitialDestination,
-                      double aInitialVelocity, double aSpringConstant,
+class AxisPhysicsMSDModel : public AxisPhysicsModel
+{
+ public:
+  AxisPhysicsMSDModel(double aInitialPosition,
+                      double aInitialDestination,
+                      double aInitialVelocity,
+                      double aSpringConstant,
                       double aDampingRatio);
 
   ~AxisPhysicsMSDModel();
@@ -40,11 +43,10 @@ public:
    */
   bool IsFinished(double aSmallestVisibleIncrement);
 
-protected:
-  virtual double Acceleration(const State &aState);
+ protected:
+  virtual double Acceleration(const State& aState);
 
-private:
-
+ private:
   /**
    * mDestination represents the target position and the resting position of
    * the simulated spring.
@@ -76,11 +78,9 @@ private:
    * - Reaches destination (exponentially decays) without oscillating.
    */
   double mDampingRatio;
-
 };
 
-
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

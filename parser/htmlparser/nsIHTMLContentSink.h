@@ -52,26 +52,34 @@
 #include "nsIContentSink.h"
 #include "nsHTMLTags.h"
 
-#define NS_IHTML_CONTENT_SINK_IID \
-  {0xefc5af86, 0x5cfd, 0x4918, {0x9d, 0xd3, 0x5f, 0x7a, 0xb2, 0x88, 0xb2, 0x68}}
+#define NS_IHTML_CONTENT_SINK_IID                    \
+  {                                                  \
+    0xefc5af86, 0x5cfd, 0x4918,                      \
+    {                                                \
+      0x9d, 0xd3, 0x5f, 0x7a, 0xb2, 0x88, 0xb2, 0x68 \
+    }                                                \
+  }
 
 /**
  * This interface is OBSOLETE and in the process of being REMOVED.
  * Do NOT implement!
  */
-class nsIHTMLContentSink : public nsIContentSink 
+class nsIHTMLContentSink : public nsIContentSink
 {
-public:
-
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IHTML_CONTENT_SINK_IID)
 
-  enum ElementType { eHTML, eBody };
+  enum ElementType
+  {
+    eHTML,
+    eBody
+  };
 
-    /**
+  /**
    * This method is used to open a generic container in the sink.
    *
    * @update 4/1/98 gess
-   */     
+   */
   NS_IMETHOD OpenContainer(ElementType aNodeType) = 0;
 
   /**
@@ -79,11 +87,10 @@ public:
    *  container tag has been consumed and needs to be closed.
    *
    * @param  aTag - The tag to be closed.
-   */     
+   */
   NS_IMETHOD CloseContainer(ElementType aTag) = 0;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIHTMLContentSink, NS_IHTML_CONTENT_SINK_IID)
 
 #endif /* nsIHTMLContentSink_h___ */
-

@@ -15,8 +15,8 @@ namespace mozilla {
 namespace dom {
 class FontFace;
 class FontFaceSet;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 class gfxUserFontEntry;
 
 namespace mozilla {
@@ -31,8 +31,9 @@ namespace mozilla {
  */
 class PostTraversalTask
 {
-public:
-  static PostTraversalTask ResolveFontFaceLoadedPromise(dom::FontFace* aFontFace)
+ public:
+  static PostTraversalTask ResolveFontFaceLoadedPromise(
+      dom::FontFace* aFontFace)
   {
     auto task = PostTraversalTask(Type::ResolveFontFaceLoadedPromise);
     task.mTarget = aFontFace;
@@ -49,19 +50,19 @@ public:
   }
 
   static PostTraversalTask DispatchLoadingEventAndReplaceReadyPromise(
-    dom::FontFaceSet* aFontFaceSet)
+      dom::FontFaceSet* aFontFaceSet)
   {
     auto task =
-      PostTraversalTask(Type::DispatchLoadingEventAndReplaceReadyPromise);
+        PostTraversalTask(Type::DispatchLoadingEventAndReplaceReadyPromise);
     task.mTarget = aFontFaceSet;
     return task;
   }
 
   static PostTraversalTask DispatchFontFaceSetCheckLoadingFinishedAfterDelay(
-    dom::FontFaceSet* aFontFaceSet)
+      dom::FontFaceSet* aFontFaceSet)
   {
-    auto task =
-      PostTraversalTask(Type::DispatchFontFaceSetCheckLoadingFinishedAfterDelay);
+    auto task = PostTraversalTask(
+        Type::DispatchFontFaceSetCheckLoadingFinishedAfterDelay);
     task.mTarget = aFontFaceSet;
     return task;
   }
@@ -75,7 +76,7 @@ public:
 
   void Run();
 
-private:
+ private:
   // For any new raw pointer type that we need to store in a PostTraversalTask,
   // please add an assertion that class' destructor that we are not in a Servo
   // traversal, to protect against the possibility of having dangling pointers.
@@ -99,9 +100,7 @@ private:
   };
 
   explicit PostTraversalTask(Type aType)
-    : mType(aType)
-    , mTarget(nullptr)
-    , mResult(NS_OK)
+      : mType(aType), mTarget(nullptr), mResult(NS_OK)
   {
   }
 
@@ -110,6 +109,6 @@ private:
   nsresult mResult;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_PostTraversalTask_h
+#endif  // mozilla_PostTraversalTask_h

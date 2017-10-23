@@ -14,15 +14,16 @@
 // This is a default implementation of the nsINativeAppSupport interface
 // declared in mozilla/xpfe/appshell/public/nsINativeAppSupport.h.
 
-class nsNativeAppSupportBase : public nsINativeAppSupport {
-public:
-    nsNativeAppSupportBase();
+class nsNativeAppSupportBase : public nsINativeAppSupport
+{
+ public:
+  nsNativeAppSupportBase();
 
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSINATIVEAPPSUPPORT
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSINATIVEAPPSUPPORT
 
-protected:
-    virtual ~nsNativeAppSupportBase();
+ protected:
+  virtual ~nsNativeAppSupportBase();
 };
 
 #endif

@@ -5,10 +5,7 @@
 
 #include "SanityChecks.h"
 
-SanityChecks::SanityChecks()
-{
-  REGISTER_TEST(SanityChecks, AlwaysPasses);
-}
+SanityChecks::SanityChecks() { REGISTER_TEST(SanityChecks, AlwaysPasses); }
 
 void
 SanityChecks::AlwaysPasses()

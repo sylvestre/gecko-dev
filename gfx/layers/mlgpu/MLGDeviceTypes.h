@@ -111,18 +111,18 @@ static inline SamplerMode
 FilterToSamplerMode(gfx::SamplingFilter aFilter)
 {
   switch (aFilter) {
-  case gfx::SamplingFilter::POINT:
-    return SamplerMode::Point;
-  case gfx::SamplingFilter::LINEAR:
-  case gfx::SamplingFilter::GOOD:
-    return SamplerMode::LinearClamp;
-  default:
-    MOZ_ASSERT_UNREACHABLE("Unknown sampler mode");
-    return SamplerMode::LinearClamp;
+    case gfx::SamplingFilter::POINT:
+      return SamplerMode::Point;
+    case gfx::SamplingFilter::LINEAR:
+    case gfx::SamplingFilter::GOOD:
+      return SamplerMode::LinearClamp;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown sampler mode");
+      return SamplerMode::LinearClamp;
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_gfx_layers_mlgpu_MLGDeviceTypes_h
+#endif  // mozilla_gfx_layers_mlgpu_MLGDeviceTypes_h

@@ -21,7 +21,7 @@ class GMPVideoEncodedFrameImpl;
 
 class GMPVideoHostImpl : public GMPVideoHost
 {
-public:
+ public:
   explicit GMPVideoHostImpl(GMPSharedMemManager* aSharedMemMgr);
   virtual ~GMPVideoHostImpl();
 
@@ -35,10 +35,11 @@ public:
   void EncodedFrameDestroyed(GMPVideoEncodedFrameImpl* aFrame);
 
   // GMPVideoHost
-  GMPErr CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFrame) override;
+  GMPErr CreateFrame(GMPVideoFrameFormat aFormat,
+                     GMPVideoFrame** aFrame) override;
   GMPErr CreatePlane(GMPPlane** aPlane) override;
 
-private:
+ private:
   // All shared memory allocations have to be made by an IPDL actor.
   // This is a reference to the owning actor. If this reference is
   // null then the actor has died and all allocations must fail.
@@ -51,7 +52,7 @@ private:
   nsTArray<GMPVideoEncodedFrameImpl*> mEncodedFrames;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPVideoHost_h_
+#endif  // GMPVideoHost_h_

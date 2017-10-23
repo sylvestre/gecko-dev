@@ -20,7 +20,7 @@ class RangeUpdater;
 namespace dom {
 class Selection;
 class Text;
-} // namespace dom
+}  // namespace dom
 
 /**
  * A helper struct for saving/setting ranges.
@@ -29,11 +29,11 @@ struct RangeItem final
 {
   RangeItem();
 
-private:
+ private:
   // Private destructor, to discourage deletion outside of Release():
   ~RangeItem();
 
-public:
+ public:
   void StoreRange(nsRange* aRange);
   already_AddRefed<nsRange> GetRange();
 
@@ -56,17 +56,18 @@ public:
 
 class SelectionState final
 {
-public:
+ public:
   SelectionState();
   ~SelectionState();
 
-  void SaveSelection(dom::Selection *aSel);
+  void SaveSelection(dom::Selection* aSel);
   nsresult RestoreSelection(dom::Selection* aSel);
   bool IsCollapsed();
-  bool IsEqual(SelectionState *aSelState);
+  bool IsEqual(SelectionState* aSelState);
   void MakeEmpty();
   bool IsEmpty();
-private:
+
+ private:
   AutoTArray<RefPtr<RangeItem>, 1> mArray;
 
   friend class RangeUpdater;
@@ -94,7 +95,7 @@ ImplCycleCollectionUnlink(SelectionState& aField)
 
 class RangeUpdater final
 {
-public:
+ public:
   RangeUpdater();
   ~RangeUpdater();
 
@@ -111,19 +112,23 @@ public:
   nsresult SelAdjCreateNode(nsINode* aParent, int32_t aPosition);
   nsresult SelAdjInsertNode(nsINode* aParent, int32_t aPosition);
   void SelAdjDeleteNode(nsINode* aNode);
-  nsresult SelAdjSplitNode(nsIContent& aOldRightNode, int32_t aOffset,
+  nsresult SelAdjSplitNode(nsIContent& aOldRightNode,
+                           int32_t aOffset,
                            nsIContent* aNewLeftNode);
   nsresult SelAdjJoinNodes(nsINode& aLeftNode,
                            nsINode& aRightNode,
                            nsINode& aParent,
                            int32_t aOffset,
                            int32_t aOldLeftNodeLength);
-  void SelAdjInsertText(dom::Text& aTextNode, int32_t aOffset,
-                        const nsAString &aString);
-  nsresult SelAdjDeleteText(nsIContent* aTextNode, int32_t aOffset,
+  void SelAdjInsertText(dom::Text& aTextNode,
+                        int32_t aOffset,
+                        const nsAString& aString);
+  nsresult SelAdjDeleteText(nsIContent* aTextNode,
+                            int32_t aOffset,
                             int32_t aLength);
   nsresult SelAdjDeleteText(nsIDOMCharacterData* aTextNode,
-                            int32_t aOffset, int32_t aLength);
+                            int32_t aOffset,
+                            int32_t aLength);
   // the following gravity routines need will/did sandwiches, because the other
   // gravity routines will be called inside of these sandwiches, but should be
   // ignored.
@@ -131,17 +136,23 @@ public:
   nsresult DidReplaceContainer(dom::Element* aOriginalNode,
                                dom::Element* aNewNode);
   nsresult WillRemoveContainer();
-  nsresult DidRemoveContainer(nsINode* aNode, nsINode* aParent,
-                              int32_t aOffset, uint32_t aNodeOrigLen);
-  nsresult DidRemoveContainer(nsIDOMNode* aNode, nsIDOMNode* aParent,
-                              int32_t aOffset, uint32_t aNodeOrigLen);
+  nsresult DidRemoveContainer(nsINode* aNode,
+                              nsINode* aParent,
+                              int32_t aOffset,
+                              uint32_t aNodeOrigLen);
+  nsresult DidRemoveContainer(nsIDOMNode* aNode,
+                              nsIDOMNode* aParent,
+                              int32_t aOffset,
+                              uint32_t aNodeOrigLen);
   nsresult WillInsertContainer();
   nsresult DidInsertContainer();
   void WillMoveNode();
-  void DidMoveNode(nsINode* aOldParent, int32_t aOldOffset,
-                   nsINode* aNewParent, int32_t aNewOffset);
+  void DidMoveNode(nsINode* aOldParent,
+                   int32_t aOldOffset,
+                   nsINode* aNewParent,
+                   int32_t aNewOffset);
 
-private:
+ private:
   friend void ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback&,
                                           RangeUpdater&,
                                           const char*,
@@ -174,7 +185,7 @@ ImplCycleCollectionUnlink(RangeUpdater& aField)
 
 class MOZ_STACK_CLASS AutoTrackDOMPoint final
 {
-private:
+ private:
   RangeUpdater& mRangeUpdater;
   // Allow tracking either nsIDOMNode or nsINode until nsIDOMNode is gone
   nsCOMPtr<nsINode>* mNode;
@@ -182,13 +193,14 @@ private:
   int32_t* mOffset;
   RefPtr<RangeItem> mRangeItem;
 
-public:
+ public:
   AutoTrackDOMPoint(RangeUpdater& aRangeUpdater,
-                    nsCOMPtr<nsINode>* aNode, int32_t* aOffset)
-    : mRangeUpdater(aRangeUpdater)
-    , mNode(aNode)
-    , mDOMNode(nullptr)
-    , mOffset(aOffset)
+                    nsCOMPtr<nsINode>* aNode,
+                    int32_t* aOffset)
+      : mRangeUpdater(aRangeUpdater),
+        mNode(aNode),
+        mDOMNode(nullptr),
+        mOffset(aOffset)
   {
     mRangeItem = new RangeItem();
     mRangeItem->mStartContainer = *mNode;
@@ -199,11 +211,12 @@ public:
   }
 
   AutoTrackDOMPoint(RangeUpdater& aRangeUpdater,
-                    nsCOMPtr<nsIDOMNode>* aNode, int32_t* aOffset)
-    : mRangeUpdater(aRangeUpdater)
-    , mNode(nullptr)
-    , mDOMNode(aNode)
-    , mOffset(aOffset)
+                    nsCOMPtr<nsIDOMNode>* aNode,
+                    int32_t* aOffset)
+      : mRangeUpdater(aRangeUpdater),
+        mNode(nullptr),
+        mDOMNode(aNode),
+        mOffset(aOffset)
   {
     mRangeItem = new RangeItem();
     mRangeItem->mStartContainer = do_QueryInterface(*mDOMNode);
@@ -232,18 +245,18 @@ public:
 
 class MOZ_STACK_CLASS AutoReplaceContainerSelNotify final
 {
-private:
+ private:
   RangeUpdater& mRangeUpdater;
   dom::Element* mOriginalElement;
   dom::Element* mNewElement;
 
-public:
+ public:
   AutoReplaceContainerSelNotify(RangeUpdater& aRangeUpdater,
                                 dom::Element* aOriginalElement,
                                 dom::Element* aNewElement)
-    : mRangeUpdater(aRangeUpdater)
-    , mOriginalElement(aOriginalElement)
-    , mNewElement(aNewElement)
+      : mRangeUpdater(aRangeUpdater),
+        mOriginalElement(aOriginalElement),
+        mNewElement(aNewElement)
   {
     mRangeUpdater.WillReplaceContainer();
   }
@@ -261,24 +274,24 @@ public:
 
 class MOZ_STACK_CLASS AutoRemoveContainerSelNotify final
 {
-private:
+ private:
   RangeUpdater& mRangeUpdater;
   nsIDOMNode* mNode;
   nsIDOMNode* mParent;
   int32_t mOffset;
   uint32_t mNodeOrigLen;
 
-public:
+ public:
   AutoRemoveContainerSelNotify(RangeUpdater& aRangeUpdater,
                                nsINode* aNode,
                                nsINode* aParent,
                                int32_t aOffset,
                                uint32_t aNodeOrigLen)
-    : mRangeUpdater(aRangeUpdater)
-    , mNode(aNode->AsDOMNode())
-    , mParent(aParent->AsDOMNode())
-    , mOffset(aOffset)
-    , mNodeOrigLen(aNodeOrigLen)
+      : mRangeUpdater(aRangeUpdater),
+        mNode(aNode->AsDOMNode()),
+        mParent(aParent->AsDOMNode()),
+        mOffset(aOffset),
+        mNodeOrigLen(aNodeOrigLen)
   {
     mRangeUpdater.WillRemoveContainer();
   }
@@ -296,20 +309,17 @@ public:
 
 class MOZ_STACK_CLASS AutoInsertContainerSelNotify final
 {
-private:
+ private:
   RangeUpdater& mRangeUpdater;
 
-public:
+ public:
   explicit AutoInsertContainerSelNotify(RangeUpdater& aRangeUpdater)
-    : mRangeUpdater(aRangeUpdater)
+      : mRangeUpdater(aRangeUpdater)
   {
     mRangeUpdater.WillInsertContainer();
   }
 
-  ~AutoInsertContainerSelNotify()
-  {
-    mRangeUpdater.DidInsertContainer();
-  }
+  ~AutoInsertContainerSelNotify() { mRangeUpdater.DidInsertContainer(); }
 };
 
 /**
@@ -319,24 +329,24 @@ public:
 
 class MOZ_STACK_CLASS AutoMoveNodeSelNotify final
 {
-private:
+ private:
   RangeUpdater& mRangeUpdater;
   nsINode* mOldParent;
   nsINode* mNewParent;
   int32_t mOldOffset;
   int32_t mNewOffset;
 
-public:
+ public:
   AutoMoveNodeSelNotify(RangeUpdater& aRangeUpdater,
                         nsINode* aOldParent,
                         int32_t aOldOffset,
                         nsINode* aNewParent,
                         int32_t aNewOffset)
-    : mRangeUpdater(aRangeUpdater)
-    , mOldParent(aOldParent)
-    , mNewParent(aNewParent)
-    , mOldOffset(aOldOffset)
-    , mNewOffset(aNewOffset)
+      : mRangeUpdater(aRangeUpdater),
+        mOldParent(aOldParent),
+        mNewParent(aNewParent),
+        mOldOffset(aOldOffset),
+        mNewOffset(aNewOffset)
   {
     MOZ_ASSERT(aOldParent);
     MOZ_ASSERT(aNewParent);
@@ -349,6 +359,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef mozilla_SelectionState_h
+#endif  // #ifndef mozilla_SelectionState_h

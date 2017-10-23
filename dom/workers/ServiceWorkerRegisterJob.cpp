@@ -18,8 +18,12 @@ ServiceWorkerRegisterJob::ServiceWorkerRegisterJob(
     const nsACString& aScriptSpec,
     nsILoadGroup* aLoadGroup,
     ServiceWorkerUpdateViaCache aUpdateViaCache)
-  : ServiceWorkerUpdateJob(Type::Register, aPrincipal, aScope, aScriptSpec,
-                           aLoadGroup, aUpdateViaCache)
+    : ServiceWorkerUpdateJob(Type::Register,
+                             aPrincipal,
+                             aScope,
+                             aScriptSpec,
+                             aLoadGroup,
+                             aUpdateViaCache)
 {
 }
 
@@ -35,7 +39,7 @@ ServiceWorkerRegisterJob::AsyncExecute()
   }
 
   RefPtr<ServiceWorkerRegistrationInfo> registration =
-    swm->GetRegistration(mPrincipal, mScope);
+      swm->GetRegistration(mPrincipal, mScope);
 
   if (registration) {
     bool sameUVC = GetUpdateViaCache() == registration->GetUpdateViaCache();
@@ -61,8 +65,8 @@ ServiceWorkerRegisterJob::AsyncExecute()
       return;
     }
   } else {
-    registration = swm->CreateNewRegistration(mScope, mPrincipal,
-                                              GetUpdateViaCache());
+    registration =
+        swm->CreateNewRegistration(mScope, mPrincipal, GetUpdateViaCache());
     if (!registration) {
       FailUpdateJob(NS_ERROR_DOM_ABORT_ERR);
       return;
@@ -73,10 +77,8 @@ ServiceWorkerRegisterJob::AsyncExecute()
   Update();
 }
 
-ServiceWorkerRegisterJob::~ServiceWorkerRegisterJob()
-{
-}
+ServiceWorkerRegisterJob::~ServiceWorkerRegisterJob() {}
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla

@@ -19,7 +19,8 @@ XBL_SerializeFunction(nsIObjectOutputStream* aStream,
 {
   AssertInCompilationScope();
   AutoJSContext cx;
-  MOZ_ASSERT(js::GetContextCompartment(cx) == js::GetObjectCompartment(aFunction));
+  MOZ_ASSERT(js::GetContextCompartment(cx) ==
+             js::GetObjectCompartment(aFunction));
   return nsContentUtils::XPConnect()->WriteFunction(aStream, cx, aFunction);
 }
 
@@ -29,6 +30,6 @@ XBL_DeserializeFunction(nsIObjectInputStream* aStream,
 {
   AssertInCompilationScope();
   AutoJSContext cx;
-  return nsContentUtils::XPConnect()->ReadFunction(aStream, cx,
-                                                   aFunctionObjectp.address());
+  return nsContentUtils::XPConnect()->ReadFunction(
+      aStream, cx, aFunctionObjectp.address());
 }

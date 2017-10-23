@@ -35,7 +35,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(DOMEventTargetHelper)
     nsXPCOMCycleCollectionParticipant* participant = nullptr;
     CallQueryInterface(tmp, &participant);
 
-    SprintfLiteral(name, "%s %s",
+    SprintfLiteral(name,
+                   "%s %s",
                    participant->ClassName(),
                    NS_ConvertUTF16toUTF8(uri).get());
     cb.DescribeRefCountedNode(tmp->mRefCnt.get(), name);
@@ -119,9 +120,11 @@ DOMEventTargetHelper::BindToOwner(nsIGlobalObject* aOwner)
   }
   if (aOwner) {
     mParentObject = do_GetWeakReference(aOwner);
-    MOZ_ASSERT(mParentObject, "All nsIGlobalObjects must support nsISupportsWeakReference");
+    MOZ_ASSERT(mParentObject,
+               "All nsIGlobalObjects must support nsISupportsWeakReference");
     // Let's cache the result of this QI for fast access and off main thread usage
-    mOwnerWindow = nsCOMPtr<nsPIDOMWindowInner>(do_QueryInterface(aOwner)).get();
+    mOwnerWindow =
+        nsCOMPtr<nsPIDOMWindowInner>(do_QueryInterface(aOwner)).get();
     if (mOwnerWindow) {
       mHasOrHasHadOwnerWindow = true;
       nsGlobalWindow::Cast(mOwnerWindow)->AddEventTargetObject(this);
@@ -142,9 +145,12 @@ DOMEventTargetHelper::BindToOwner(DOMEventTargetHelper* aOther)
     mHasOrHasHadOwnerWindow = aOther->HasOrHasHadOwner();
     if (aOther->GetParentObject()) {
       mParentObject = do_GetWeakReference(aOther->GetParentObject());
-      MOZ_ASSERT(mParentObject, "All nsIGlobalObjects must support nsISupportsWeakReference");
+      MOZ_ASSERT(mParentObject,
+                 "All nsIGlobalObjects must support nsISupportsWeakReference");
       // Let's cache the result of this QI for fast access and off main thread usage
-      mOwnerWindow = nsCOMPtr<nsPIDOMWindowInner>(do_QueryInterface(aOther->GetParentObject())).get();
+      mOwnerWindow = nsCOMPtr<nsPIDOMWindowInner>(
+                         do_QueryInterface(aOther->GetParentObject()))
+                         .get();
       if (mOwnerWindow) {
         mHasOrHasHadOwnerWindow = true;
         nsGlobalWindow::Cast(mOwnerWindow)->AddEventTargetObject(this);
@@ -227,11 +233,12 @@ DOMEventTargetHelper::AddEventListener(const nsAString& aType,
 }
 
 void
-DOMEventTargetHelper::AddEventListener(const nsAString& aType,
-                                       EventListener* aListener,
-                                       const AddEventListenerOptionsOrBoolean& aOptions,
-                                       const Nullable<bool>& aWantsUntrusted,
-                                       ErrorResult& aRv)
+DOMEventTargetHelper::AddEventListener(
+    const nsAString& aType,
+    EventListener* aListener,
+    const AddEventListenerOptionsOrBoolean& aOptions,
+    const Nullable<bool>& aWantsUntrusted,
+    ErrorResult& aRv)
 {
   bool wantsUntrusted;
   if (aWantsUntrusted.IsNull()) {
@@ -270,16 +277,16 @@ DOMEventTargetHelper::AddSystemEventListener(const nsAString& aType,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  return NS_AddSystemEventListener(this, aType, aListener, aUseCapture,
-                                   aWantsUntrusted);
+  return NS_AddSystemEventListener(
+      this, aType, aListener, aUseCapture, aWantsUntrusted);
 }
 
 NS_IMETHODIMP
 DOMEventTargetHelper::DispatchEvent(nsIDOMEvent* aEvent, bool* aRetVal)
 {
   nsEventStatus status = nsEventStatus_eIgnore;
-  nsresult rv =
-    EventDispatcher::DispatchDOMEvent(this, nullptr, aEvent, nullptr, &status);
+  nsresult rv = EventDispatcher::DispatchDOMEvent(
+      this, nullptr, aEvent, nullptr, &status);
 
   *aRetVal = (status != nsEventStatus_eConsumeNoDefault);
   return rv;
@@ -341,8 +348,7 @@ DOMEventTargetHelper::GetContextForEventHandlers(nsresult* aRv)
     return nullptr;
   }
   nsPIDOMWindowInner* owner = GetOwner();
-  return owner ? nsGlobalWindow::Cast(owner)->GetContextInternal()
-               : nullptr;
+  return owner ? nsGlobalWindow::Cast(owner)->GetContextInternal() : nullptr;
 }
 
 nsresult
@@ -461,4 +467,4 @@ DOMEventTargetHelper::MaybeDontKeepAlive()
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

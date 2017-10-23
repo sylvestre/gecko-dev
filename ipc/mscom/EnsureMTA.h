@@ -25,23 +25,23 @@ namespace mscom {
 namespace detail {
 
 // Forward declarations
-template <typename T>
+template<typename T>
 struct MTADelete;
 
-template <typename T>
+template<typename T>
 struct MTARelease;
 
-template <typename T>
+template<typename T>
 struct MTAReleaseInChildProcess;
 
 struct PreservedStreamDeleter;
 
-}
+}  // namespace detail
 
 // This class is OK to use as a temporary on the stack.
 class MOZ_STACK_CLASS EnsureMTA final
 {
-public:
+ public:
   /**
    * This constructor just ensures that the MTA thread is up and running.
    */
@@ -53,7 +53,7 @@ public:
     Unused << thread;
   }
 
-  template <typename FuncT>
+  template<typename FuncT>
   explicit EnsureMTA(const FuncT& aClosure)
   {
     if (IsCurrentThreadMTA()) {
@@ -87,8 +87,8 @@ public:
       ::SetEvent(eventHandle);
     };
 
-    nsresult rv =
-      thread->Dispatch(NS_NewRunnableFunction("EnsureMTA", eventSetter), NS_DISPATCH_NORMAL);
+    nsresult rv = thread->Dispatch(
+        NS_NewRunnableFunction("EnsureMTA", eventSetter), NS_DISPATCH_NORMAL);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
     if (NS_FAILED(rv)) {
       return;
@@ -101,14 +101,14 @@ public:
     MOZ_ASSERT(waitResult == WAIT_OBJECT_0);
   }
 
-private:
+ private:
   static nsCOMPtr<nsIThread> GetMTAThread();
 
   // The following function is private in order to force any consumers to be
   // declared as friends of EnsureMTA. The intention is to prevent
   // AsyncOperation from becoming some kind of free-for-all mechanism for
   // asynchronously executing work on a background thread.
-  template <typename FuncT>
+  template<typename FuncT>
   static void AsyncOperation(const FuncT& aClosure)
   {
     if (IsCurrentThreadMTA()) {
@@ -123,25 +123,24 @@ private:
     }
 
     DebugOnly<nsresult> rv = thread->Dispatch(
-      NS_NewRunnableFunction("mscom::EnsureMTA::AsyncOperation",
-                             aClosure), NS_DISPATCH_NORMAL);
+        NS_NewRunnableFunction("mscom::EnsureMTA::AsyncOperation", aClosure),
+        NS_DISPATCH_NORMAL);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
 
-  template <typename T>
+  template<typename T>
   friend struct mozilla::mscom::detail::MTADelete;
 
-  template <typename T>
+  template<typename T>
   friend struct mozilla::mscom::detail::MTARelease;
 
-  template <typename T>
+  template<typename T>
   friend struct mozilla::mscom::detail::MTAReleaseInChildProcess;
 
   friend struct mozilla::mscom::detail::PreservedStreamDeleter;
 };
 
-} // namespace mscom
-} // namespace mozilla
+}  // namespace mscom
+}  // namespace mozilla
 
-#endif // mozilla_mscom_EnsureMTA_h
-
+#endif  // mozilla_mscom_EnsureMTA_h

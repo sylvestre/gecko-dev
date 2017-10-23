@@ -17,17 +17,15 @@ already_AddRefed<dom::MediaList>
 ServoMediaList::Clone()
 {
   RefPtr<ServoMediaList> clone =
-    new ServoMediaList(Servo_MediaList_DeepClone(mRawList).Consume());
+      new ServoMediaList(Servo_MediaList_DeepClone(mRawList).Consume());
   return clone.forget();
 }
 
-ServoMediaList::ServoMediaList()
-  : mRawList(Servo_MediaList_Create().Consume())
+ServoMediaList::ServoMediaList() : mRawList(Servo_MediaList_Create().Consume())
 {
 }
 
-ServoMediaList::ServoMediaList(const nsAString& aMedia)
-  : ServoMediaList()
+ServoMediaList::ServoMediaList(const nsAString& aMedia) : ServoMediaList()
 {
   SetText(aMedia);
 }
@@ -52,8 +50,7 @@ ServoMediaList::Length()
 }
 
 void
-ServoMediaList::IndexedGetter(uint32_t aIndex, bool& aFound,
-                              nsAString& aReturn)
+ServoMediaList::IndexedGetter(uint32_t aIndex, bool& aFound, nsAString& aReturn)
 {
   aFound = Servo_MediaList_GetMediumAt(mRawList, aIndex, &aReturn);
   if (!aFound) {
@@ -86,9 +83,9 @@ bool
 ServoMediaList::Matches(nsPresContext* aPresContext) const
 {
   const RawServoStyleSet* rawSet =
-    aPresContext->StyleSet()->AsServo()->RawSet();
+      aPresContext->StyleSet()->AsServo()->RawSet();
   MOZ_ASSERT(rawSet, "The RawServoStyleSet should be valid!");
   return Servo_MediaList_Matches(mRawList, rawSet);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

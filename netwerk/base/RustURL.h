@@ -20,14 +20,13 @@
 namespace mozilla {
 namespace net {
 
-class RustURL final
-  : public nsIFileURL
-  , public nsIStandardURL
-  , public nsISerializable
-  , public nsIClassInfo
-  , public nsISizeOf
-  , public nsIIPCSerializableURI
-  , public nsISensitiveInfoHiddenURI
+class RustURL final : public nsIFileURL,
+                      public nsIStandardURL,
+                      public nsISerializable,
+                      public nsIClassInfo,
+                      public nsISizeOf,
+                      public nsIIPCSerializableURI,
+                      public nsISensitiveInfoHiddenURI
 {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIURI
@@ -44,16 +43,20 @@ class RustURL final
   // nsISizeOf
   virtual size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
   virtual size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
-private:
+
+ private:
   virtual ~RustURL();
 
-  struct FreeRustURL { void operator()(rusturl* aPtr) { rusturl_free(aPtr); } };
+  struct FreeRustURL
+  {
+    void operator()(rusturl* aPtr) { rusturl_free(aPtr); }
+  };
   mutable mozilla::UniquePtr<rusturl, FreeRustURL> mURL;
 
   bool mMutable;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // RustURL_h__
+#endif  // RustURL_h__

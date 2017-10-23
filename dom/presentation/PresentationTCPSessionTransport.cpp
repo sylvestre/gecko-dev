@@ -30,14 +30,15 @@ using namespace mozilla::dom;
 
 class CopierCallbacks final : public nsIRequestObserver
 {
-public:
+ public:
   explicit CopierCallbacks(PresentationTCPSessionTransport* aTransport)
-    : mOwner(aTransport)
-  {}
+      : mOwner(aTransport)
+  {
+  }
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
-private:
+ private:
   ~CopierCallbacks() {}
 
   RefPtr<PresentationTCPSessionTransport> mOwner;
@@ -52,16 +53,23 @@ CopierCallbacks::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext)
 }
 
 NS_IMETHODIMP
-CopierCallbacks::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext, nsresult aStatus)
+CopierCallbacks::OnStopRequest(nsIRequest* aRequest,
+                               nsISupports* aContext,
+                               nsresult aStatus)
 {
   mOwner->NotifyCopyComplete(aStatus);
   return NS_OK;
 }
 
-NS_IMPL_CYCLE_COLLECTION(PresentationTCPSessionTransport, mTransport,
-                         mSocketInputStream, mSocketOutputStream,
-                         mInputStreamPump, mInputStreamScriptable,
-                         mMultiplexStream, mMultiplexStreamCopier, mCallback)
+NS_IMPL_CYCLE_COLLECTION(PresentationTCPSessionTransport,
+                         mTransport,
+                         mSocketInputStream,
+                         mSocketOutputStream,
+                         mInputStreamPump,
+                         mInputStreamScriptable,
+                         mMultiplexStream,
+                         mMultiplexStreamCopier,
+                         mCallback)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(PresentationTCPSessionTransport)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(PresentationTCPSessionTransport)
@@ -78,20 +86,19 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PresentationTCPSessionTransport)
 NS_INTERFACE_MAP_END
 
 PresentationTCPSessionTransport::PresentationTCPSessionTransport()
-  : mReadyState(ReadyState::CLOSED)
-  , mAsyncCopierActive(false)
-  , mCloseStatus(NS_OK)
-  , mDataNotificationEnabled(false)
+    : mReadyState(ReadyState::CLOSED),
+      mAsyncCopierActive(false),
+      mCloseStatus(NS_OK),
+      mDataNotificationEnabled(false)
 {
 }
 
-PresentationTCPSessionTransport::~PresentationTCPSessionTransport()
-{
-}
+PresentationTCPSessionTransport::~PresentationTCPSessionTransport() {}
 
 NS_IMETHODIMP
-PresentationTCPSessionTransport::BuildTCPSenderTransport(nsISocketTransport* aTransport,
-                                                         nsIPresentationSessionTransportBuilderListener* aListener)
+PresentationTCPSessionTransport::BuildTCPSenderTransport(
+    nsISocketTransport* aTransport,
+    nsIPresentationSessionTransportBuilderListener* aListener)
 {
   if (NS_WARN_IF(!aTransport)) {
     return NS_ERROR_INVALID_ARG;
@@ -110,27 +117,29 @@ PresentationTCPSessionTransport::BuildTCPSenderTransport(nsISocketTransport* aTr
 
   mRole = nsIPresentationService::ROLE_CONTROLLER;
 
-  nsCOMPtr<nsIPresentationSessionTransport> sessionTransport = do_QueryObject(this);
+  nsCOMPtr<nsIPresentationSessionTransport> sessionTransport =
+      do_QueryObject(this);
   nsCOMPtr<nsIRunnable> onSessionTransportRunnable =
-    NewRunnableMethod<nsIPresentationSessionTransport*>(
-      "nsIPresentationSessionTransportBuilderListener::OnSessionTransport",
-      mListener,
-      &nsIPresentationSessionTransportBuilderListener::OnSessionTransport,
-      sessionTransport);
+      NewRunnableMethod<nsIPresentationSessionTransport*>(
+          "nsIPresentationSessionTransportBuilderListener::OnSessionTransport",
+          mListener,
+          &nsIPresentationSessionTransportBuilderListener::OnSessionTransport,
+          sessionTransport);
 
   NS_DispatchToCurrentThread(onSessionTransportRunnable.forget());
 
   nsCOMPtr<nsIRunnable> setReadyStateRunnable = NewRunnableMethod<ReadyState>(
-    "dom::PresentationTCPSessionTransport::SetReadyState",
-    this,
-    &PresentationTCPSessionTransport::SetReadyState,
-    ReadyState::OPEN);
+      "dom::PresentationTCPSessionTransport::SetReadyState",
+      this,
+      &PresentationTCPSessionTransport::SetReadyState,
+      ReadyState::OPEN);
   return NS_DispatchToCurrentThread(setReadyStateRunnable.forget());
 }
 
 NS_IMETHODIMP
-PresentationTCPSessionTransport::BuildTCPReceiverTransport(nsIPresentationChannelDescription* aDescription,
-                                                           nsIPresentationSessionTransportBuilderListener* aListener)
+PresentationTCPSessionTransport::BuildTCPReceiverTransport(
+    nsIPresentationChannelDescription* aDescription,
+    nsIPresentationSessionTransportBuilderListener* aListener)
 {
   if (NS_WARN_IF(!aDescription)) {
     return NS_ERROR_INVALID_ARG;
@@ -167,17 +176,20 @@ PresentationTCPSessionTransport::BuildTCPReceiverTransport(nsIPresentationChanne
     return NS_ERROR_INVALID_ARG;
   }
 
-  PRES_DEBUG("%s:ServerHost[%s],ServerPort[%d]\n", __func__, serverHost.get(), serverPort);
+  PRES_DEBUG("%s:ServerHost[%s],ServerPort[%d]\n",
+             __func__,
+             serverHost.get(),
+             serverPort);
 
   SetReadyState(ReadyState::CONNECTING);
 
   nsCOMPtr<nsISocketTransportService> sts =
-    do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID);
+      do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID);
   if (NS_WARN_IF(!sts)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  rv = sts->CreateTransport(nullptr, 0, serverHost, serverPort, nullptr,
-                            getter_AddRefs(mTransport));
+  rv = sts->CreateTransport(
+      nullptr, 0, serverHost, serverPort, nullptr, getter_AddRefs(mTransport));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -192,42 +204,48 @@ PresentationTCPSessionTransport::BuildTCPReceiverTransport(nsIPresentationChanne
 
   mRole = nsIPresentationService::ROLE_RECEIVER;
 
-  nsCOMPtr<nsIPresentationSessionTransport> sessionTransport = do_QueryObject(this);
+  nsCOMPtr<nsIPresentationSessionTransport> sessionTransport =
+      do_QueryObject(this);
   nsCOMPtr<nsIRunnable> runnable =
-    NewRunnableMethod<nsIPresentationSessionTransport*>(
-      "nsIPresentationSessionTransportBuilderListener::OnSessionTransport",
-      mListener,
-      &nsIPresentationSessionTransportBuilderListener::OnSessionTransport,
-      sessionTransport);
+      NewRunnableMethod<nsIPresentationSessionTransport*>(
+          "nsIPresentationSessionTransportBuilderListener::OnSessionTransport",
+          mListener,
+          &nsIPresentationSessionTransportBuilderListener::OnSessionTransport,
+          sessionTransport);
   return NS_DispatchToCurrentThread(runnable.forget());
 }
 
 nsresult
 PresentationTCPSessionTransport::CreateStream()
 {
-  nsresult rv = mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(mSocketInputStream));
+  nsresult rv =
+      mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(mSocketInputStream));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-  rv = mTransport->OpenOutputStream(nsITransport::OPEN_UNBUFFERED, 0, 0, getter_AddRefs(mSocketOutputStream));
+  rv = mTransport->OpenOutputStream(
+      nsITransport::OPEN_UNBUFFERED, 0, 0, getter_AddRefs(mSocketOutputStream));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   // If the other side is not listening, we will get an |onInputStreamReady|
   // callback where |available| raises to indicate the connection was refused.
-  nsCOMPtr<nsIAsyncInputStream> asyncStream = do_QueryInterface(mSocketInputStream);
+  nsCOMPtr<nsIAsyncInputStream> asyncStream =
+      do_QueryInterface(mSocketInputStream);
   if (NS_WARN_IF(!asyncStream)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   nsCOMPtr<nsIEventTarget> mainTarget = GetMainThreadEventTarget();
-  rv = asyncStream->AsyncWait(this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY, 0, mainTarget);
+  rv = asyncStream->AsyncWait(
+      this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY, 0, mainTarget);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
-  mInputStreamScriptable = do_CreateInstance("@mozilla.org/scriptableinputstream;1", &rv);
+  mInputStreamScriptable =
+      do_CreateInstance("@mozilla.org/scriptableinputstream;1", &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -236,19 +254,21 @@ PresentationTCPSessionTransport::CreateStream()
     return rv;
   }
 
-  mMultiplexStream = do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1", &rv);
+  mMultiplexStream =
+      do_CreateInstance("@mozilla.org/io/multiplex-input-stream;1", &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
   nsCOMPtr<nsIInputStream> stream = do_QueryInterface(mMultiplexStream);
 
-  mMultiplexStreamCopier = do_CreateInstance("@mozilla.org/network/async-stream-copier;1", &rv);
+  mMultiplexStreamCopier =
+      do_CreateInstance("@mozilla.org/network/async-stream-copier;1", &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   nsCOMPtr<nsISocketTransportService> sts =
-    do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID);
+      do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID);
   if (NS_WARN_IF(!sts)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -257,10 +277,10 @@ PresentationTCPSessionTransport::CreateStream()
   rv = mMultiplexStreamCopier->Init(stream,
                                     mSocketOutputStream,
                                     target,
-                                    true, /* source buffered */
+                                    true,  /* source buffered */
                                     false, /* sink buffered */
                                     BUFFER_SIZE,
-                                    false, /* close source */
+                                    false,  /* close source */
                                     false); /* close sink */
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -317,7 +337,8 @@ PresentationTCPSessionTransport::EnableDataNotification()
 
 // nsIPresentationSessionTransportBuilderListener
 NS_IMETHODIMP
-PresentationTCPSessionTransport::GetCallback(nsIPresentationSessionTransportCallback** aCallback)
+PresentationTCPSessionTransport::GetCallback(
+    nsIPresentationSessionTransportCallback** aCallback)
 {
   nsCOMPtr<nsIPresentationSessionTransportCallback> callback = mCallback;
   callback.forget(aCallback);
@@ -325,7 +346,8 @@ PresentationTCPSessionTransport::GetCallback(nsIPresentationSessionTransportCall
 }
 
 NS_IMETHODIMP
-PresentationTCPSessionTransport::SetCallback(nsIPresentationSessionTransportCallback* aCallback)
+PresentationTCPSessionTransport::SetCallback(
+    nsIPresentationSessionTransportCallback* aCallback)
 {
   mCallback = aCallback;
 
@@ -356,7 +378,8 @@ PresentationTCPSessionTransport::EnsureCopying()
 
   mAsyncCopierActive = true;
   RefPtr<CopierCallbacks> callbacks = new CopierCallbacks(this);
-  Unused << NS_WARN_IF(NS_FAILED(mMultiplexStreamCopier->AsyncCopy(callbacks, nullptr)));
+  Unused << NS_WARN_IF(
+      NS_FAILED(mMultiplexStreamCopier->AsyncCopy(callbacks, nullptr)));
 }
 
 void
@@ -399,14 +422,14 @@ PresentationTCPSessionTransport::Send(const nsAString& aData)
 
   nsresult rv;
   nsCOMPtr<nsIStringInputStream> stream =
-    do_CreateInstance(NS_STRINGINPUTSTREAM_CONTRACTID, &rv);
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+      do_CreateInstance(NS_STRINGINPUTSTREAM_CONTRACTID, &rv);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
   NS_ConvertUTF16toUTF8 msgString(aData);
   rv = stream->SetData(msgString.BeginReading(), msgString.Length());
-  if(NS_WARN_IF(NS_FAILED(rv))) {
+  if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
@@ -432,7 +455,8 @@ PresentationTCPSessionTransport::SendBlob(nsIDOMBlob* aBlob)
 NS_IMETHODIMP
 PresentationTCPSessionTransport::Close(nsresult aReason)
 {
-  PRES_DEBUG("%s:reason[%" PRIx32 "]\n", __func__, static_cast<uint32_t>(aReason));
+  PRES_DEBUG(
+      "%s:reason[%" PRIx32 "]\n", __func__, static_cast<uint32_t>(aReason));
 
   if (mReadyState == ReadyState::CLOSED || mReadyState == ReadyState::CLOSING) {
     return NS_OK;
@@ -477,8 +501,8 @@ PresentationTCPSessionTransport::SetReadyState(ReadyState aReadyState)
     }
 
     // Notify the transport channel has been shut down.
-    Unused <<
-      NS_WARN_IF(NS_FAILED(mCallback->NotifyTransportClosed(mCloseStatus)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(mCallback->NotifyTransportClosed(mCloseStatus)));
     mCallback = nullptr;
   }
 }
@@ -490,7 +514,8 @@ PresentationTCPSessionTransport::OnTransportStatus(nsITransport* aTransport,
                                                    int64_t aProgress,
                                                    int64_t aProgressMax)
 {
-  PRES_DEBUG("%s:aStatus[%" PRIx32 "]\n", __func__, static_cast<uint32_t>(aStatus));
+  PRES_DEBUG(
+      "%s:aStatus[%" PRIx32 "]\n", __func__, static_cast<uint32_t>(aStatus));
 
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -505,7 +530,8 @@ PresentationTCPSessionTransport::OnTransportStatus(nsITransport* aTransport,
 
 // nsIInputStreamCallback
 NS_IMETHODIMP
-PresentationTCPSessionTransport::OnInputStreamReady(nsIAsyncInputStream* aStream)
+PresentationTCPSessionTransport::OnInputStreamReady(
+    nsIAsyncInputStream* aStream)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -536,7 +562,9 @@ PresentationTCPSessionTransport::OnStopRequest(nsIRequest* aRequest,
                                                nsISupports* aContext,
                                                nsresult aStatusCode)
 {
-  PRES_DEBUG("%s:aStatusCode[%" PRIx32 "]\n", __func__, static_cast<uint32_t>(aStatusCode));
+  PRES_DEBUG("%s:aStatusCode[%" PRIx32 "]\n",
+             __func__,
+             static_cast<uint32_t>(aStatusCode));
 
   MOZ_ASSERT(NS_IsMainThread());
 

@@ -21,7 +21,7 @@ class GMPContentChild;
 
 class GMPChild : public PGMPChild
 {
-public:
+ public:
   GMPChild();
   virtual ~GMPChild();
 
@@ -39,7 +39,7 @@ public:
   bool SetMacSandboxInfo(MacSandboxPluginType aPluginType);
 #endif
 
-private:
+ private:
   friend class GMPContentChild;
 
   bool ResolveLinks(nsCOMPtr<nsIFile>& aPath);
@@ -60,12 +60,16 @@ private:
   mozilla::ipc::IPCResult RecvCrashPluginNow() override;
   mozilla::ipc::IPCResult RecvCloseActive() override;
 
-  mozilla::ipc::IPCResult RecvInitGMPContentChild(Endpoint<PGMPContentChild>&& aEndpoint) override;
+  mozilla::ipc::IPCResult RecvInitGMPContentChild(
+      Endpoint<PGMPContentChild>&& aEndpoint) override;
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
   void ProcessingError(Result aCode, const char* aReason) override;
 
-  GMPErr GetAPI(const char* aAPIName, void* aHostAPI, void** aPluginAPI, uint32_t aDecryptorId = 0);
+  GMPErr GetAPI(const char* aAPIName,
+                void* aHostAPI,
+                void** aPluginAPI,
+                uint32_t aDecryptorId = 0);
 
   nsTArray<Pair<nsCString, nsCString>> MakeCDMHostVerificationPaths();
 
@@ -79,7 +83,7 @@ private:
   UniquePtr<GMPLoader> mGMPLoader;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // GMPChild_h_
+#endif  // GMPChild_h_

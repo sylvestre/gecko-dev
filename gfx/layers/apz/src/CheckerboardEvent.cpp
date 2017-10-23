@@ -6,7 +6,7 @@
 
 #include "CheckerboardEvent.h"
 
-#include <algorithm> // for std::sort
+#include <algorithm>  // for std::sort
 
 namespace mozilla {
 namespace layers {
@@ -17,30 +17,30 @@ namespace layers {
 #define LOG_LENGTH_LIMIT (50 * 1024)
 
 const char* CheckerboardEvent::sDescriptions[] = {
-  "page",
-  "painted critical displayport",
-  "painted displayport",
-  "requested displayport",
-  "viewport",
+    "page",
+    "painted critical displayport",
+    "painted displayport",
+    "requested displayport",
+    "viewport",
 };
 
 const char* CheckerboardEvent::sColors[] = {
-  "brown",
-  "darkgreen",
-  "lightgreen",
-  "yellow",
-  "red",
+    "brown",
+    "darkgreen",
+    "lightgreen",
+    "yellow",
+    "red",
 };
 
 CheckerboardEvent::CheckerboardEvent(bool aRecordTrace)
-  : mRecordTrace(aRecordTrace)
-  , mOriginTime(TimeStamp::Now())
-  , mCheckerboardingActive(false)
-  , mLastSampleTime(mOriginTime)
-  , mFrameCount(0)
-  , mTotalPixelMs(0)
-  , mPeakPixels(0)
-  , mRendertraceLock("Rendertrace")
+    : mRecordTrace(aRecordTrace),
+      mOriginTime(TimeStamp::Now()),
+      mCheckerboardingActive(false),
+      mLastSampleTime(mOriginTime),
+      mFrameCount(0),
+      mTotalPixelMs(0),
+      mPeakPixels(0),
+      mRendertraceLock("Rendertrace")
 {
 }
 
@@ -110,14 +110,11 @@ CheckerboardEvent::LogInfo(RendertraceProperty aProperty,
   // formally specced, but an informal description can be found at
   // https://github.com/staktrace/rendertrace/blob/master/index.html#L30
   mRendertraceInfo << "RENDERTRACE "
-      << (aTimestamp - mOriginTime).ToMilliseconds() << " rect "
-      << sColors[aProperty] << " "
-      << aRect.x << " "
-      << aRect.y << " "
-      << aRect.Width() << " "
-      << aRect.Height() << " "
-      << "// " << sDescriptions[aProperty]
-      << aExtraInfo << std::endl;
+                   << (aTimestamp - mOriginTime).ToMilliseconds() << " rect "
+                   << sColors[aProperty] << " " << aRect.x << " " << aRect.y
+                   << " " << aRect.Width() << " " << aRect.Height() << " "
+                   << "// " << sDescriptions[aProperty] << aExtraInfo
+                   << std::endl;
 }
 
 bool
@@ -131,7 +128,9 @@ CheckerboardEvent::RecordFrameInfo(uint32_t aCssPixelsCheckerboarded)
     }
     MOZ_ASSERT(mCheckerboardingActive);
     MOZ_ASSERT(sampleTime >= mLastSampleTime);
-    mTotalPixelMs += (uint64_t)((sampleTime - mLastSampleTime).ToMilliseconds() * aCssPixelsCheckerboarded);
+    mTotalPixelMs +=
+        (uint64_t)((sampleTime - mLastSampleTime).ToMilliseconds() *
+                   aCssPixelsCheckerboarded);
     if (aCssPixelsCheckerboarded > mPeakPixels) {
       mPeakPixels = aCssPixelsCheckerboarded;
     }
@@ -183,8 +182,9 @@ CheckerboardEvent::StopEvent()
     mRendertraceInfo << "[logging aborted due to length limitations]\n";
   }
   mRendertraceInfo << "Checkerboarded for " << mFrameCount << " frames ("
-    << (mEndTime - mStartTime).ToMilliseconds() << " ms), "
-    << mPeakPixels << " peak, " << GetSeverity() << " severity." << std::endl;
+                   << (mEndTime - mStartTime).ToMilliseconds() << " ms), "
+                   << mPeakPixels << " peak, " << GetSeverity() << " severity."
+                   << std::endl;
 }
 
 bool
@@ -198,10 +198,7 @@ CheckerboardEvent::PropertyValue::operator<(const PropertyValue& aOther) const
   return mProperty < aOther.mProperty;
 }
 
-CheckerboardEvent::PropertyBuffer::PropertyBuffer()
-  : mIndex(0)
-{
-}
+CheckerboardEvent::PropertyBuffer::PropertyBuffer() : mIndex(0) {}
 
 void
 CheckerboardEvent::PropertyBuffer::Update(RendertraceProperty aProperty,
@@ -209,7 +206,7 @@ CheckerboardEvent::PropertyBuffer::Update(RendertraceProperty aProperty,
                                           const std::string& aExtraInfo,
                                           const MonitorAutoLock& aProofOfLock)
 {
-  mValues[mIndex] = { aProperty, TimeStamp::Now(), aRect, aExtraInfo };
+  mValues[mIndex] = {aProperty, TimeStamp::Now(), aRect, aExtraInfo};
   mIndex = (mIndex + 1) % BUFFER_SIZE;
 }
 
@@ -226,5 +223,5 @@ CheckerboardEvent::PropertyBuffer::Flush(std::vector<PropertyValue>& aOut,
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

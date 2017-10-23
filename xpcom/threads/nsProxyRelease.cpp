@@ -15,8 +15,8 @@ ProxyReleaseChooser<true>::ProxyReleaseISupports(const char* aName,
                                                  nsISupports* aDoomed,
                                                  bool aAlwaysProxy)
 {
-  ::detail::ProxyRelease<nsISupports>(aName, aTarget, dont_AddRef(aDoomed),
-                                      aAlwaysProxy);
+  ::detail::ProxyRelease<nsISupports>(
+      aName, aTarget, dont_AddRef(aDoomed), aAlwaysProxy);
 }
 
-} // namespace detail
+}  // namespace detail

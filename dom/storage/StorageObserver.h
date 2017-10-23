@@ -22,10 +22,10 @@ class StorageObserver;
 // child processes.
 class StorageObserverSink
 {
-public:
+ public:
   virtual ~StorageObserverSink() {}
 
-private:
+ private:
   friend class StorageObserver;
   virtual nsresult Observe(const char* aTopic,
                            const nsAString& aOriginAttributesPattern,
@@ -34,10 +34,9 @@ private:
 
 // Statically (through layout statics) initialized observer receiving and
 // processing chrome clearing notifications, such as cookie deletion etc.
-class StorageObserver : public nsIObserver
-                      , public nsSupportsWeakReference
+class StorageObserver : public nsIObserver, public nsSupportsWeakReference
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -51,15 +50,12 @@ public:
               const nsAString& aOriginAttributesPattern = EmptyString(),
               const nsACString& aOriginScope = EmptyCString());
 
-  void
-  NoteBackgroundThread(nsIEventTarget* aBackgroundThread);
+  void NoteBackgroundThread(nsIEventTarget* aBackgroundThread);
 
-private:
+ private:
   virtual ~StorageObserver() {}
 
-  nsresult
-  ClearMatchingOrigin(const char16_t* aData,
-                      nsACString& aOriginScope);
+  nsresult ClearMatchingOrigin(const char16_t* aData, nsACString& aOriginScope);
 
   static void TestingPrefChanged(const char* aPrefName, void* aClosure);
 
@@ -72,7 +68,7 @@ private:
   nsCOMPtr<nsITimer> mDBThreadStartDelayTimer;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_StorageObserver_h
+#endif  // mozilla_dom_StorageObserver_h

@@ -15,8 +15,7 @@ using namespace mozilla::a11y::filters;
 uint32_t
 filters::GetSelected(Accessible* aAccessible)
 {
-  if (aAccessible->State() & states::SELECTED)
-    return eMatch | eSkipSubtree;
+  if (aAccessible->State() & states::SELECTED) return eMatch | eSkipSubtree;
 
   return eSkip;
 }
@@ -34,12 +33,10 @@ uint32_t
 filters::GetRow(Accessible* aAccessible)
 {
   a11y::role role = aAccessible->Role();
-  if (role == roles::ROW)
-    return eMatch | eSkipSubtree;
+  if (role == roles::ROW) return eMatch | eSkipSubtree;
 
   // Look for rows inside rowgroup.
-  if (role == roles::GROUPING)
-    return eSkip;
+  if (role == roles::GROUPING) return eSkip;
 
   return eSkipSubtree;
 }

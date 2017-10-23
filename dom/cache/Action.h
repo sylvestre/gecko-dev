@@ -19,10 +19,10 @@ namespace cache {
 
 class Action
 {
-public:
+ public:
   class Resolver
   {
-  public:
+   public:
     // Note: Action must drop Resolver ref after calling Resolve()!
     // Note: Must be called on the same thread used to execute
     //       Action::RunOnTarget().
@@ -37,12 +37,10 @@ public:
   // just explicitly provide accessors for the data we need.
   class Data
   {
-  public:
-    virtual mozIStorageConnection*
-    GetConnection() const = 0;
+   public:
+    virtual mozIStorageConnection* GetConnection() const = 0;
 
-    virtual void
-    SetConnection(mozIStorageConnection* aConn) = 0;
+    virtual void SetConnection(mozIStorageConnection* aConn) = 0;
   };
 
   // Execute operations on the target thread.  Once complete call
@@ -50,7 +48,8 @@ public:
   // Note: Action should hold Resolver ref until its ready to call Resolve().
   // Note: The "target" thread is determined when the Action is scheduled on
   //       Context.  The Action should not assume any particular thread is used.
-  virtual void RunOnTarget(Resolver* aResolver, const QuotaInfo& aQuotaInfo,
+  virtual void RunOnTarget(Resolver* aResolver,
+                           const QuotaInfo& aQuotaInfo,
                            Data* aOptionalData) = 0;
 
   // Called on initiating thread when the Action is canceled.  The Action is
@@ -71,7 +70,7 @@ public:
 
   // Executed on the initiating thread and is passed the nsresult given to
   // Resolver::Resolve().
-  virtual void CompleteOnInitiatingThread(nsresult aRv) { }
+  virtual void CompleteOnInitiatingThread(nsresult aRv) {}
 
   // Executed on the initiating thread.  If this Action will operate on the
   // given cache ID then override this to return true.
@@ -79,7 +78,7 @@ public:
 
   NS_INLINE_DECL_REFCOUNTING(cache::Action)
 
-protected:
+ protected:
   Action();
 
   // virtual because deleted through base class pointer
@@ -89,13 +88,13 @@ protected:
   // but typically used from the target thread.
   bool IsCanceled() const;
 
-private:
+ private:
   // Accessible from any thread.
   Atomic<bool> mCanceled;
 };
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cache_Action_h
+#endif  // mozilla_dom_cache_Action_h

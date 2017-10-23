@@ -23,7 +23,8 @@
  */
 #define HTML_TAG(_tag, _classname, _interfacename) eHTMLTag_##_tag,
 #define HTML_OTHER(_tag) eHTMLTag_##_tag,
-enum nsHTMLTag {
+enum nsHTMLTag
+{
   /* this enum must be first and must be zero */
   eHTMLTag_unknown = 0,
 #include "nsHTMLTagList.h"
@@ -38,8 +39,9 @@ enum nsHTMLTag {
 // All tags before eHTMLTag_text are HTML tags
 #define NS_HTML_TAG_MAX int32_t(eHTMLTag_text - 1)
 
-class nsHTMLTags {
-public:
+class nsHTMLTags
+{
+ public:
   static void RegisterAtoms(void);
   static nsresult AddRefTable(void);
   static void ReleaseTable(void);
@@ -74,7 +76,7 @@ public:
   static void TestTagTable();
 #endif
 
-private:
+ private:
   // This would use NS_STATIC_ATOM_DECL if it wasn't an array.
   static nsAtom* sTagAtomTable[eHTMLTag_userdefined - 1];
   static const char16_t* const sTagUnicodeTable[];

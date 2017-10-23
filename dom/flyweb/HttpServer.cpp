@@ -25,27 +25,23 @@ namespace dom {
 
 static LazyLogModule gHttpServerLog("HttpServer");
 #undef LOG_I
-#define LOG_I(...) MOZ_LOG(gHttpServerLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define LOG_I(...) \
+  MOZ_LOG(gHttpServerLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #undef LOG_V
-#define LOG_V(...) MOZ_LOG(gHttpServerLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
+#define LOG_V(...) \
+  MOZ_LOG(gHttpServerLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
 #undef LOG_E
-#define LOG_E(...) MOZ_LOG(gHttpServerLog, mozilla::LogLevel::Error, (__VA_ARGS__))
+#define LOG_E(...) \
+  MOZ_LOG(gHttpServerLog, mozilla::LogLevel::Error, (__VA_ARGS__))
 
-
-NS_IMPL_ISUPPORTS(HttpServer,
-                  nsIServerSocketListener,
-                  nsILocalCertGetCallback)
+NS_IMPL_ISUPPORTS(HttpServer, nsIServerSocketListener, nsILocalCertGetCallback)
 
 HttpServer::HttpServer(nsISerialEventTarget* aEventTarget)
-  : mPort()
-  , mHttps()
-  , mEventTarget(aEventTarget)
+    : mPort(), mHttps(), mEventTarget(aEventTarget)
 {
 }
 
-HttpServer::~HttpServer()
-{
-}
+HttpServer::~HttpServer() {}
 
 void
 HttpServer::Init(int32_t aPort, bool aHttps, HttpServerListener* aListener)
@@ -56,7 +52,7 @@ HttpServer::Init(int32_t aPort, bool aHttps, HttpServerListener* aListener)
 
   if (mHttps) {
     nsCOMPtr<nsILocalCertService> lcs =
-      do_CreateInstance("@mozilla.org/security/local-cert-service;1");
+        do_CreateInstance("@mozilla.org/security/local-cert-service;1");
     nsresult rv = lcs->GetOrCreateCert(NS_LITERAL_CSTRING("flyweb"), this);
     if (NS_FAILED(rv)) {
       NotifyStarted(rv);
@@ -90,8 +86,8 @@ HttpServer::NotifyStarted(nsresult aStatus)
 {
   RefPtr<HttpServerListener> listener = mListener;
   nsCOMPtr<nsIRunnable> event = NS_NewRunnableFunction(
-    "dom::HttpServer::NotifyStarted",
-    [listener, aStatus]() { listener->OnServerStarted(aStatus); });
+      "dom::HttpServer::NotifyStarted",
+      [listener, aStatus]() { listener->OnServerStarted(aStatus); });
   NS_DispatchToCurrentThread(event);
 }
 
@@ -100,8 +96,9 @@ HttpServer::StartServerSocket(nsIX509Cert* aCert)
 {
   nsresult rv;
   mServerSocket =
-    do_CreateInstance(aCert ? "@mozilla.org/network/tls-server-socket;1"
-                            : "@mozilla.org/network/server-socket;1", &rv);
+      do_CreateInstance(aCert ? "@mozilla.org/network/tls-server-socket;1"
+                              : "@mozilla.org/network/server-socket;1",
+                        &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = mServerSocket->Init(mPort, false, -1);
@@ -147,13 +144,13 @@ HttpServer::OnSocketAccepted(nsIServerSocket* aServ,
 }
 
 NS_IMETHODIMP
-HttpServer::OnStopListening(nsIServerSocket* aServ,
-                            nsresult aStatus)
+HttpServer::OnStopListening(nsIServerSocket* aServ, nsresult aStatus)
 {
   MOZ_ASSERT(aServ == mServerSocket || !mServerSocket);
 
   LOG_I("HttpServer::OnStopListening(%p) - status 0x%" PRIx32,
-        this, static_cast<uint32_t>(aStatus));
+        this,
+        static_cast<uint32_t>(aStatus));
 
   Close();
 
@@ -182,7 +179,7 @@ HttpServer::AcceptWebSocket(InternalRequest* aConnectRequest,
       continue;
     }
     nsCOMPtr<nsITransportProvider> provider =
-      conn->HandleAcceptWebSocket(aProtocol, aRv);
+        conn->HandleAcceptWebSocket(aProtocol, aRv);
     if (aRv.Failed()) {
       conn->Close();
     }
@@ -239,12 +236,9 @@ HttpServer::GetCertKey(nsACString& aKey)
   LossyCopyUTF16toASCII(tmp, aKey);
 }
 
-NS_IMPL_ISUPPORTS(HttpServer::TransportProvider,
-                  nsITransportProvider)
+NS_IMPL_ISUPPORTS(HttpServer::TransportProvider, nsITransportProvider)
 
-HttpServer::TransportProvider::~TransportProvider()
-{
-}
+HttpServer::TransportProvider::~TransportProvider() {}
 
 NS_IMETHODIMP
 HttpServer::TransportProvider::SetListener(nsIHttpUpgradeListener* aListener)
@@ -288,11 +282,11 @@ HttpServer::TransportProvider::MaybeNotify()
   if (mTransport && mListener) {
     RefPtr<TransportProvider> self = this;
     nsCOMPtr<nsIRunnable> event = NS_NewRunnableFunction(
-      "dom::HttpServer::TransportProvider::MaybeNotify", [self, this]() {
-        DebugOnly<nsresult> rv =
-          mListener->OnTransportAvailable(mTransport, mInput, mOutput);
-        MOZ_ASSERT(NS_SUCCEEDED(rv));
-      });
+        "dom::HttpServer::TransportProvider::MaybeNotify", [self, this]() {
+          DebugOnly<nsresult> rv =
+              mListener->OnTransportAvailable(mTransport, mInput, mOutput);
+          MOZ_ASSERT(NS_SUCCEEDED(rv));
+        });
     NS_DispatchToCurrentThread(event);
   }
 }
@@ -304,12 +298,12 @@ NS_IMPL_ISUPPORTS(HttpServer::Connection,
 HttpServer::Connection::Connection(nsISocketTransport* aTransport,
                                    HttpServer* aServer,
                                    nsresult& rv)
-  : mServer(aServer)
-  , mTransport(aTransport)
-  , mState(eRequestLine)
-  , mPendingReqVersion()
-  , mRemainingBodySize()
-  , mCloseAfterRequest(false)
+    : mServer(aServer),
+      mTransport(aTransport),
+      mState(eRequestLine),
+      mPendingReqVersion(),
+      mRemainingBodySize(),
+      mCloseAfterRequest(false)
 {
   nsCOMPtr<nsIInputStream> input;
   rv = mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(input));
@@ -347,20 +341,18 @@ HttpServer::Connection::OnHandshakeDone(nsITLSServerSocket* aServer,
 void
 HttpServer::Connection::SetSecurityObserver(bool aListen)
 {
-  LOG_I("HttpServer::Connection::SetSecurityObserver(%p) - %s", this,
-    aListen ? "On" : "Off");
+  LOG_I("HttpServer::Connection::SetSecurityObserver(%p) - %s",
+        this,
+        aListen ? "On" : "Off");
 
   nsCOMPtr<nsISupports> secInfo;
   mTransport->GetSecurityInfo(getter_AddRefs(secInfo));
-  nsCOMPtr<nsITLSServerConnectionInfo> tlsConnInfo =
-    do_QueryInterface(secInfo);
+  nsCOMPtr<nsITLSServerConnectionInfo> tlsConnInfo = do_QueryInterface(secInfo);
   MOZ_ASSERT(tlsConnInfo);
   tlsConnInfo->SetSecurityObserver(aListen ? this : nullptr);
 }
 
-HttpServer::Connection::~Connection()
-{
-}
+HttpServer::Connection::~Connection() {}
 
 NS_IMETHODIMP
 HttpServer::Connection::OnInputStreamReady(nsIAsyncInputStream* aStream)
@@ -376,7 +368,8 @@ HttpServer::Connection::OnInputStreamReady(nsIAsyncInputStream* aStream)
   uint64_t avail;
   nsresult rv = mInput->Available(&avail);
   if (NS_FAILED(rv)) {
-    LOG_I("HttpServer::Connection::OnInputStreamReady(%p) - Connection closed", this);
+    LOG_I("HttpServer::Connection::OnInputStreamReady(%p) - Connection closed",
+          this);
 
     mServer->mConnections.RemoveElement(this);
     // Connection closed. Handle errors here.
@@ -384,10 +377,7 @@ HttpServer::Connection::OnInputStreamReady(nsIAsyncInputStream* aStream)
   }
 
   uint32_t numRead;
-  rv = mInput->ReadSegments(ReadSegmentsFunc,
-                            this,
-                            UINT32_MAX,
-                            &numRead);
+  rv = mInput->ReadSegments(ReadSegmentsFunc, this, UINT32_MAX, &numRead);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = mInput->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
@@ -405,8 +395,8 @@ HttpServer::Connection::ReadSegmentsFunc(nsIInputStream* aIn,
                                          uint32_t* aWriteCount)
 {
   const char* buffer = aBuffer;
-  nsresult rv = static_cast<HttpServer::Connection*>(aClosure)->
-    ConsumeInput(buffer, buffer + aCount);
+  nsresult rv = static_cast<HttpServer::Connection*>(aClosure)->ConsumeInput(
+      buffer, buffer + aCount);
 
   *aWriteCount = buffer - aBuffer;
   MOZ_ASSERT(*aWriteCount <= aCount);
@@ -422,9 +412,8 @@ findCRLF(const char* aBuffer, const char* aEnd)
   }
 
   const char* pos;
-  while ((pos = static_cast<const char*>(memchr(aBuffer,
-                                                '\r',
-                                                aEnd - aBuffer - 1)))) {
+  while ((pos = static_cast<const char*>(
+              memchr(aBuffer, '\r', aEnd - aBuffer - 1)))) {
     if (*(pos + 1) == '\n') {
       return pos;
     }
@@ -434,12 +423,10 @@ findCRLF(const char* aBuffer, const char* aEnd)
 }
 
 nsresult
-HttpServer::Connection::ConsumeInput(const char*& aBuffer,
-                                     const char* aEnd)
+HttpServer::Connection::ConsumeInput(const char*& aBuffer, const char* aEnd)
 {
   nsresult rv;
-  while (mState == eRequestLine ||
-         mState == eHeaders) {
+  while (mState == eRequestLine || mState == eHeaders) {
     // Consume line-by-line
 
     // Check if buffer boundry ended up right between the CR and LF
@@ -476,8 +463,8 @@ HttpServer::Connection::ConsumeInput(const char*& aBuffer,
   }
 
   if (mState == eBody) {
-    uint32_t size = std::min(mRemainingBodySize,
-                             static_cast<uint32_t>(aEnd - aBuffer));
+    uint32_t size =
+        std::min(mRemainingBodySize, static_cast<uint32_t>(aEnd - aBuffer));
     uint32_t written = size;
 
     if (mCurrentRequestBody) {
@@ -560,11 +547,9 @@ IsWebSocketRequest(InternalRequest* aRequest, uint32_t aHttpVersion)
 }
 
 nsresult
-HttpServer::Connection::ConsumeLine(const char* aBuffer,
-                                    size_t aLength)
+HttpServer::Connection::ConsumeLine(const char* aBuffer, size_t aLength)
 {
-  MOZ_ASSERT(mState == eRequestLine ||
-             mState == eHeaders);
+  MOZ_ASSERT(mState == eRequestLine || mState == eHeaders);
 
   if (MOZ_LOG_TEST(gHttpServerLog, mozilla::LogLevel::Verbose)) {
     nsCString line(aBuffer, aLength);
@@ -572,7 +557,8 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
   }
 
   if (mState == eRequestLine) {
-    LOG_V("HttpServer::Connection::ConsumeLine(%p) - Parsing request line", this);
+    LOG_V("HttpServer::Connection::ConsumeLine(%p) - Parsing request line",
+          this);
     NS_ENSURE_FALSE(mCloseAfterRequest, NS_ERROR_UNEXPECTED);
 
     if (aLength == 0) {
@@ -607,7 +593,8 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
 
     NS_ENSURE_FALSE(tokens.hasMoreTokens(), NS_ERROR_UNEXPECTED);
 
-    LOG_V("HttpServer::Connection::ConsumeLine(%p) - Parsed request line", this);
+    LOG_V("HttpServer::Connection::ConsumeLine(%p) - Parsed request line",
+          this);
 
     mState = eHeaders;
 
@@ -615,7 +602,8 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
   }
 
   if (aLength == 0) {
-    LOG_V("HttpServer::Connection::ConsumeLine(%p) - Found end of headers", this);
+    LOG_V("HttpServer::Connection::ConsumeLine(%p) - Found end of headers",
+          this);
 
     MaybeAddPendingHeader();
 
@@ -633,17 +621,16 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
       RefPtr<HttpServerListener> listener = mServer->mListener;
       RefPtr<InternalRequest> request = mPendingWebSocketRequest;
       nsCOMPtr<nsIRunnable> event = NS_NewRunnableFunction(
-        "dom::HttpServer::Connection::ConsumeLine",
-        [listener, request]() { listener->OnWebSocket(request); });
+          "dom::HttpServer::Connection::ConsumeLine",
+          [listener, request]() { listener->OnWebSocket(request); });
       NS_DispatchToCurrentThread(event);
 
       return NS_OK;
     }
 
     nsAutoCString header;
-    mPendingReq->Headers()->GetFirst(NS_LITERAL_CSTRING("connection"),
-                                     header,
-                                     res);
+    mPendingReq->Headers()->GetFirst(
+        NS_LITERAL_CSTRING("connection"), header, res);
     MOZ_ASSERT(!res.Failed());
     // 1.0 defaults to closing connections.
     // 1.1 and higher defaults to keep-alive.
@@ -653,13 +640,13 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
       mCloseAfterRequest = true;
     }
 
-    mPendingReq->Headers()->GetFirst(NS_LITERAL_CSTRING("content-length"),
-                                     header,
-                                     res);
+    mPendingReq->Headers()->GetFirst(
+        NS_LITERAL_CSTRING("content-length"), header, res);
     MOZ_ASSERT(!res.Failed());
 
     LOG_V("HttpServer::Connection::ConsumeLine(%p) - content-length is \"%s\"",
-          this, header.get());
+          this,
+          header.get());
 
     if (!header.IsEmpty()) {
       nsresult rv;
@@ -670,7 +657,8 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
     }
 
     if (mRemainingBodySize) {
-      LOG_V("HttpServer::Connection::ConsumeLine(%p) - Starting consume body", this);
+      LOG_V("HttpServer::Connection::ConsumeLine(%p) - Starting consume body",
+            this);
       mState = eBody;
 
       // We use an unlimited buffer size here to ensure
@@ -680,10 +668,10 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
       nsCOMPtr<nsIOutputStream> output;
       nsresult rv = NS_NewPipe(getter_AddRefs(input),
                                getter_AddRefs(output),
-                               0,          // Segment size
-                               UINT32_MAX, // Unlimited buffer size
-                               false,      // not nonBlockingInput
-                               true);      // nonBlockingOutput
+                               0,           // Segment size
+                               UINT32_MAX,  // Unlimited buffer size
+                               false,       // not nonBlockingInput
+                               true);       // nonBlockingOutput
       NS_ENSURE_SUCCESS(rv, rv);
 
       mCurrentRequestBody = do_QueryInterface(output);
@@ -700,8 +688,8 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
     RefPtr<HttpServerListener> listener = mServer->mListener;
     RefPtr<InternalRequest> request = mPendingReq.forget();
     nsCOMPtr<nsIRunnable> event = NS_NewRunnableFunction(
-      "dom::HttpServer::Connection::ConsumeLine",
-      [listener, request]() { listener->OnRequest(request); });
+        "dom::HttpServer::Connection::ConsumeLine",
+        [listener, request]() { listener->OnRequest(request); });
     NS_DispatchToCurrentThread(event);
 
     mPendingReqVersion = 0;
@@ -715,8 +703,7 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
           this,
           mPendingHeaderName.get());
 
-    NS_ENSURE_FALSE(mPendingHeaderName.IsEmpty(),
-                    NS_ERROR_UNEXPECTED);
+    NS_ENSURE_FALSE(mPendingHeaderName.IsEmpty(), NS_ERROR_UNEXPECTED);
 
     // We might need to do whitespace trimming/compression here.
     mPendingHeaderValue.Append(aBuffer, aLength);
@@ -731,8 +718,7 @@ HttpServer::Connection::ConsumeLine(const char* aBuffer,
   ToLowerCase(Substring(aBuffer, colon - aBuffer), mPendingHeaderName);
   mPendingHeaderValue.Assign(colon + 1, aLength - (colon - aBuffer) - 1);
 
-  NS_ENSURE_TRUE(NS_IsValidHTTPToken(mPendingHeaderName),
-                 NS_ERROR_UNEXPECTED);
+  NS_ENSURE_TRUE(NS_IsValidHTTPToken(mPendingHeaderName), NS_ERROR_UNEXPECTED);
 
   LOG_V("HttpServer::Connection::ConsumeLine(%p) - Parsed header %s",
         this,
@@ -792,39 +778,36 @@ HttpServer::Connection::TryHandleResponse(InternalRequest* aRequest,
 }
 
 already_AddRefed<nsITransportProvider>
-HttpServer::Connection::HandleAcceptWebSocket(const Optional<nsAString>& aProtocol,
-                                              ErrorResult& aRv)
+HttpServer::Connection::HandleAcceptWebSocket(
+    const Optional<nsAString>& aProtocol, ErrorResult& aRv)
 {
   MOZ_ASSERT(mPendingWebSocketRequest);
 
   RefPtr<InternalResponse> response =
-    new InternalResponse(101, NS_LITERAL_CSTRING("Switching Protocols"));
+      new InternalResponse(101, NS_LITERAL_CSTRING("Switching Protocols"));
 
   InternalHeaders* headers = response->Headers();
-  headers->Set(NS_LITERAL_CSTRING("Upgrade"),
-               NS_LITERAL_CSTRING("websocket"),
-               aRv);
-  headers->Set(NS_LITERAL_CSTRING("Connection"),
-               NS_LITERAL_CSTRING("Upgrade"),
-               aRv);
+  headers->Set(
+      NS_LITERAL_CSTRING("Upgrade"), NS_LITERAL_CSTRING("websocket"), aRv);
+  headers->Set(
+      NS_LITERAL_CSTRING("Connection"), NS_LITERAL_CSTRING("Upgrade"), aRv);
   if (aProtocol.WasPassed()) {
     NS_ConvertUTF16toUTF8 protocol(aProtocol.Value());
     nsAutoCString reqProtocols;
-    mPendingWebSocketRequest->Headers()->
-      GetFirst(NS_LITERAL_CSTRING("Sec-WebSocket-Protocol"), reqProtocols, aRv);
+    mPendingWebSocketRequest->Headers()->GetFirst(
+        NS_LITERAL_CSTRING("Sec-WebSocket-Protocol"), reqProtocols, aRv);
     if (!ContainsToken(reqProtocols, protocol)) {
       // Should throw a better error here
       aRv.Throw(NS_ERROR_FAILURE);
       return nullptr;
     }
 
-    headers->Set(NS_LITERAL_CSTRING("Sec-WebSocket-Protocol"),
-                 protocol, aRv);
+    headers->Set(NS_LITERAL_CSTRING("Sec-WebSocket-Protocol"), protocol, aRv);
   }
 
   nsAutoCString key, hash;
-  mPendingWebSocketRequest->Headers()->
-    GetFirst(NS_LITERAL_CSTRING("Sec-WebSocket-Key"), key, aRv);
+  mPendingWebSocketRequest->Headers()->GetFirst(
+      NS_LITERAL_CSTRING("Sec-WebSocket-Key"), key, aRv);
   nsresult rv = mozilla::net::CalculateWebSocketHashedSecret(key, hash);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
@@ -833,13 +816,14 @@ HttpServer::Connection::HandleAcceptWebSocket(const Optional<nsAString>& aProtoc
   headers->Set(NS_LITERAL_CSTRING("Sec-WebSocket-Accept"), hash, aRv);
 
   nsAutoCString extensions, negotiatedExtensions;
-  mPendingWebSocketRequest->Headers()->
-    GetFirst(NS_LITERAL_CSTRING("Sec-WebSocket-Extensions"), extensions, aRv);
+  mPendingWebSocketRequest->Headers()->GetFirst(
+      NS_LITERAL_CSTRING("Sec-WebSocket-Extensions"), extensions, aRv);
   mozilla::net::ProcessServerWebSocketExtensions(extensions,
                                                  negotiatedExtensions);
   if (!negotiatedExtensions.IsEmpty()) {
     headers->Set(NS_LITERAL_CSTRING("Sec-WebSocket-Extensions"),
-                 negotiatedExtensions, aRv);
+                 negotiatedExtensions,
+                 aRv);
   }
 
   RefPtr<TransportProvider> result = new TransportProvider();
@@ -880,16 +864,19 @@ HttpServer::Connection::QueueResponse(InternalResponse* aResponse)
     nsCString sizeStr;
     sizeStr.AppendInt(bodySize);
 
-    LOG_V("HttpServer::Connection::QueueResponse(%p) - "
-          "Setting content-length to %s",
-          this, sizeStr.get());
+    LOG_V(
+        "HttpServer::Connection::QueueResponse(%p) - "
+        "Setting content-length to %s",
+        this,
+        sizeStr.get());
 
     ErrorResult res;
     headers->Set(NS_LITERAL_CSTRING("content-length"), sizeStr, res);
   } else if (body) {
     // Use chunked transfer encoding
-    LOG_V("HttpServer::Connection::QueueResponse(%p) - Chunked transfer-encoding",
-          this);
+    LOG_V(
+        "HttpServer::Connection::QueueResponse(%p) - Chunked transfer-encoding",
+        this);
 
     ErrorResult res;
     headers->Set(NS_LITERAL_CSTRING("transfer-encoding"),
@@ -899,28 +886,27 @@ HttpServer::Connection::QueueResponse(InternalResponse* aResponse)
     chunked = true;
 
   } else {
-    LOG_V("HttpServer::Connection::QueueResponse(%p) - "
-          "No body - setting content-length to 0", this);
+    LOG_V(
+        "HttpServer::Connection::QueueResponse(%p) - "
+        "No body - setting content-length to 0",
+        this);
 
     ErrorResult res;
-    headers->Set(NS_LITERAL_CSTRING("content-length"),
-                 NS_LITERAL_CSTRING("0"), res);
+    headers->Set(
+        NS_LITERAL_CSTRING("content-length"), NS_LITERAL_CSTRING("0"), res);
   }
 
   nsCString head(NS_LITERAL_CSTRING("HTTP/1.1 "));
   head.AppendInt(aResponse->GetStatus());
   // XXX is the statustext security checked?
-  head.Append(NS_LITERAL_CSTRING(" ") +
-              aResponse->GetStatusText() +
+  head.Append(NS_LITERAL_CSTRING(" ") + aResponse->GetStatusText() +
               NS_LITERAL_CSTRING("\r\n"));
 
   AutoTArray<InternalHeaders::Entry, 16> entries;
   headers->GetEntries(entries);
 
   for (auto header : entries) {
-    head.Append(header.mName +
-                NS_LITERAL_CSTRING(": ") +
-                header.mValue +
+    head.Append(header.mName + NS_LITERAL_CSTRING(": ") + header.mValue +
                 NS_LITERAL_CSTRING("\r\n"));
   }
 
@@ -940,14 +926,14 @@ namespace {
 
 typedef MozPromise<nsresult, bool, false> StreamCopyPromise;
 
-class StreamCopier final : public nsIOutputStreamCallback
-                         , public nsIInputStreamCallback
-                         , public nsIRunnable
+class StreamCopier final : public nsIOutputStreamCallback,
+                           public nsIInputStreamCallback,
+                           public nsIRunnable
 {
-public:
-  static RefPtr<StreamCopyPromise>
-    Copy(nsIInputStream* aSource, nsIAsyncOutputStream* aSink,
-         bool aChunked)
+ public:
+  static RefPtr<StreamCopyPromise> Copy(nsIInputStream* aSource,
+                                        nsIAsyncOutputStream* aSink,
+                                        bool aChunked)
   {
     RefPtr<StreamCopier> copier = new StreamCopier(aSource, aSink, aChunked);
 
@@ -966,19 +952,20 @@ public:
   NS_DECL_NSIOUTPUTSTREAMCALLBACK
   NS_DECL_NSIRUNNABLE
 
-private:
-  StreamCopier(nsIInputStream* aSource, nsIAsyncOutputStream* aSink,
+ private:
+  StreamCopier(nsIInputStream* aSource,
+               nsIAsyncOutputStream* aSink,
                bool aChunked)
-    : mSource(aSource)
-    , mAsyncSource(do_QueryInterface(aSource))
-    , mSink(aSink)
-    , mTarget(do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID))
-    , mChunkRemaining(0)
-    , mChunked(aChunked)
-    , mAddedFinalSeparator(false)
-    , mFirstChunk(aChunked)
-    {
-    }
+      : mSource(aSource),
+        mAsyncSource(do_QueryInterface(aSource)),
+        mSink(aSink),
+        mTarget(do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID)),
+        mChunkRemaining(0),
+        mChunked(aChunked),
+        mAddedFinalSeparator(false),
+        mFirstChunk(aChunked)
+  {
+  }
   ~StreamCopier() {}
 
   static nsresult FillOutputBufferHelper(nsIOutputStream* aOutStr,
@@ -995,7 +982,7 @@ private:
   nsCOMPtr<nsIAsyncInputStream> mAsyncSource;
   nsCOMPtr<nsIAsyncOutputStream> mSink;
   MozPromiseHolder<StreamCopyPromise> mPromise;
-  nsCOMPtr<nsIEventTarget> mTarget; // XXX we should cache this somewhere
+  nsCOMPtr<nsIEventTarget> mTarget;  // XXX we should cache this somewhere
   uint32_t mChunkRemaining;
   nsCString mSeparator;
   bool mChunked;
@@ -1058,8 +1045,8 @@ StreamCopier::FillOutputBuffer(char* aBuffer,
     }
     NS_ENSURE_SUCCESS(rv, rv);
 
-    mChunkRemaining = avail > UINT32_MAX ? UINT32_MAX :
-                      static_cast<uint32_t>(avail);
+    mChunkRemaining =
+        avail > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(avail);
 
     if (!mChunkRemaining) {
       // Either it's an non-blocking stream without any data
@@ -1117,9 +1104,8 @@ StreamCopier::FillOutputBuffer(char* aBuffer,
   } else if (mChunked) {
     *aCountRead = 0;
     if (mChunkRemaining) {
-      rv = mSource->Read(aBuffer,
-                         std::min(aCount, mChunkRemaining),
-                         aCountRead);
+      rv =
+          mSource->Read(aBuffer, std::min(aCount, mChunkRemaining), aCountRead);
       mChunkRemaining -= *aCountRead;
     }
   } else {
@@ -1138,9 +1124,10 @@ StreamCopier::Run()
 {
   nsresult rv;
   while (1) {
-    WriteState state = { this, NS_OK };
+    WriteState state = {this, NS_OK};
     uint32_t written;
-    rv = mSink->WriteSegments(FillOutputBufferHelper, &state,
+    rv = mSink->WriteSegments(FillOutputBufferHelper,
+                              &state,
                               mozilla::net::nsIOService::gDefaultSegmentSize,
                               &written);
     MOZ_ASSERT(NS_SUCCEEDED(rv) || NS_SUCCEEDED(state.sourceRv));
@@ -1156,8 +1143,8 @@ StreamCopier::Run()
     if (state.sourceRv == NS_BASE_STREAM_WOULD_BLOCK) {
       MOZ_ASSERT(mAsyncSource);
       mAsyncSource->AsyncWait(this, 0, 0, mTarget);
-      mSink->AsyncWait(this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY,
-                       0, mTarget);
+      mSink->AsyncWait(
+          this, nsIAsyncInputStream::WAIT_CLOSURE_ONLY, 0, mTarget);
 
       return NS_OK;
     }
@@ -1191,20 +1178,18 @@ StreamCopier::Run()
 NS_IMETHODIMP
 StreamCopier::OnInputStreamReady(nsIAsyncInputStream* aStream)
 {
-  MOZ_ASSERT(aStream == mAsyncSource ||
-             (!mSource && !mAsyncSource && !mSink));
+  MOZ_ASSERT(aStream == mAsyncSource || (!mSource && !mAsyncSource && !mSink));
   return mSource ? Run() : NS_OK;
 }
 
 NS_IMETHODIMP
 StreamCopier::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
 {
-  MOZ_ASSERT(aStream == mSink ||
-             (!mSource && !mAsyncSource && !mSink));
+  MOZ_ASSERT(aStream == mSink || (!mSource && !mAsyncSource && !mSink));
   return mSource ? Run() : NS_OK;
 }
 
-} // namespace
+}  // namespace
 
 NS_IMETHODIMP
 HttpServer::Connection::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
@@ -1221,9 +1206,7 @@ HttpServer::Connection::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
       nsCString& buffer = mOutputBuffers[0].mString;
       while (!buffer.IsEmpty()) {
         uint32_t written = 0;
-        rv = mOutput->Write(buffer.BeginReading(),
-                            buffer.Length(),
-                            &written);
+        rv = mOutput->Write(buffer.BeginReading(), buffer.Length(), &written);
 
         buffer.Cut(0, written);
 
@@ -1243,27 +1226,27 @@ HttpServer::Connection::OnOutputStreamReady(nsIAsyncOutputStream* aStream)
         return NS_OK;
       }
 
-      mOutputCopy =
-        StreamCopier::Copy(mOutputBuffers[0].mStream,
-                           mOutput,
-                           mOutputBuffers[0].mChunked);
+      mOutputCopy = StreamCopier::Copy(
+          mOutputBuffers[0].mStream, mOutput, mOutputBuffers[0].mChunked);
 
       RefPtr<Connection> self = this;
 
-      mOutputCopy->
-        Then(mServer->mEventTarget,
-             __func__,
-             [self, this] (nsresult aStatus) {
-               MOZ_ASSERT(mOutputBuffers[0].mStream);
-               LOG_V("HttpServer::Connection::OnOutputStreamReady(%p) - "
-                     "Sent body. Status 0x%" PRIx32,
-                     this, static_cast<uint32_t>(aStatus));
+      mOutputCopy->Then(
+          mServer->mEventTarget,
+          __func__,
+          [self, this](nsresult aStatus) {
+            MOZ_ASSERT(mOutputBuffers[0].mStream);
+            LOG_V(
+                "HttpServer::Connection::OnOutputStreamReady(%p) - "
+                "Sent body. Status 0x%" PRIx32,
+                this,
+                static_cast<uint32_t>(aStatus));
 
-               mOutputBuffers.RemoveElementAt(0);
-               mOutputCopy = nullptr;
-               OnOutputStreamReady(mOutput);
-             },
-             [] (bool) { MOZ_ASSERT_UNREACHABLE("Reject unexpected"); });
+            mOutputBuffers.RemoveElementAt(0);
+            mOutputCopy = nullptr;
+            OnOutputStreamReady(mOutput);
+          },
+          [](bool) { MOZ_ASSERT_UNREACHABLE("Reject unexpected"); });
     }
   }
 
@@ -1312,6 +1295,5 @@ HttpServer::Connection::Close()
   mPendingRequests.Clear();
 }
 
-
-} // namespace net
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

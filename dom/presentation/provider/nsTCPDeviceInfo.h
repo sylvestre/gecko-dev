@@ -13,7 +13,7 @@ namespace presentation {
 
 class TCPDeviceInfo final : public nsITCPDeviceInfo
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITCPDEVICEINFO
 
@@ -21,14 +21,14 @@ public:
                          const nsACString& aAddress,
                          const uint16_t aPort,
                          const nsACString& aCertFingerprint)
-    : mId(aId)
-    , mAddress(aAddress)
-    , mPort(aPort)
-    , mCertFingerprint(aCertFingerprint)
+      : mId(aId),
+        mAddress(aAddress),
+        mPort(aPort),
+        mCertFingerprint(aCertFingerprint)
   {
   }
 
-private:
+ private:
   virtual ~TCPDeviceInfo() {}
 
   nsCString mId;
@@ -37,8 +37,7 @@ private:
   nsCString mCertFingerprint;
 };
 
-NS_IMPL_ISUPPORTS(TCPDeviceInfo,
-                  nsITCPDeviceInfo)
+NS_IMPL_ISUPPORTS(TCPDeviceInfo, nsITCPDeviceInfo)
 
 // nsITCPDeviceInfo
 NS_IMETHODIMP
@@ -69,9 +68,8 @@ TCPDeviceInfo::GetCertFingerprint(nsACString& aCertFingerprint)
   return NS_OK;
 }
 
-} // namespace presentation
-} // namespace dom
-} // namespace mozilla
+}  // namespace presentation
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* !__TCPDeviceInfo_h__ */
-

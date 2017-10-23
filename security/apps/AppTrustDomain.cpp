@@ -32,18 +32,17 @@ using namespace mozilla::pkix;
 
 extern mozilla::LazyLogModule gPIPNSSLog;
 
-static char kDevImportedDER[] =
-  "network.http.signed-packages.developer-root";
+static char kDevImportedDER[] = "network.http.signed-packages.developer-root";
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 StaticMutex AppTrustDomain::sMutex;
 UniquePtr<unsigned char[]> AppTrustDomain::sDevImportedDERData;
 unsigned int AppTrustDomain::sDevImportedDERLen = 0;
 
 AppTrustDomain::AppTrustDomain(UniqueCERTCertList& certChain, void* pinArg)
-  : mCertChain(certChain)
-  , mPinArg(pinArg)
+    : mCertChain(certChain), mPinArg(pinArg)
 {
 }
 
@@ -55,8 +54,7 @@ AppTrustDomain::SetTrustedRoot(AppTrustedRoot trustedRoot)
   // Load the trusted certificate into the in-memory NSS database so that
   // CERT_CreateSubjectCertList can find it.
 
-  switch (trustedRoot)
-  {
+  switch (trustedRoot) {
     case nsIX509CertDB::AppXPCShellRoot:
       trustedDER.data = const_cast<uint8_t*>(xpcshellRoot);
       trustedDER.len = mozilla::ArrayLength(xpcshellRoot);
@@ -93,8 +91,11 @@ AppTrustDomain::SetTrustedRoot(AppTrustedRoot trustedRoot)
         }
 
         nsCOMPtr<nsIInputStream> inputStream;
-        rv = NS_NewLocalFileInputStream(getter_AddRefs(inputStream), file, -1,
-                                        -1, nsIFileInputStream::CLOSE_ON_EOF);
+        rv = NS_NewLocalFileInputStream(getter_AddRefs(inputStream),
+                                        file,
+                                        -1,
+                                        -1,
+                                        nsIFileInputStream::CLOSE_ON_EOF);
         if (NS_FAILED(rv)) {
           return rv;
         }
@@ -113,7 +114,7 @@ AppTrustDomain::SetTrustedRoot(AppTrustedRoot trustedRoot)
 
         MOZ_ASSERT(length == sDevImportedDERLen);
         sDevImportedDERData.reset(
-          BitwiseCast<unsigned char*, char*>(data.release()));
+            BitwiseCast<unsigned char*, char*>(data.release()));
       }
 
       trustedDER.data = sDevImportedDERData.get();
@@ -125,8 +126,8 @@ AppTrustDomain::SetTrustedRoot(AppTrustedRoot trustedRoot)
       return NS_ERROR_INVALID_ARG;
   }
 
-  mTrustedRoot.reset(CERT_NewTempCertificate(CERT_GetDefaultCertDB(),
-                                             &trustedDER, nullptr, false, true));
+  mTrustedRoot.reset(CERT_NewTempCertificate(
+      CERT_GetDefaultCertDB(), &trustedDER, nullptr, false, true));
   if (!mTrustedRoot) {
     return mozilla::psm::GetXPCOMFromNSSError(PR_GetError());
   }
@@ -135,7 +136,8 @@ AppTrustDomain::SetTrustedRoot(AppTrustedRoot trustedRoot)
 }
 
 Result
-AppTrustDomain::FindIssuer(Input encodedIssuerName, IssuerChecker& checker,
+AppTrustDomain::FindIssuer(Input encodedIssuerName,
+                           IssuerChecker& checker,
                            Time)
 
 {
@@ -152,24 +154,22 @@ AppTrustDomain::FindIssuer(Input encodedIssuerName, IssuerChecker& checker,
   // 1. First, try the trusted trust anchor.
   // 2. Secondly, iterate through the certificates that were stored in the CMS
   //    message, passing each one to checker.Check.
-  SECItem encodedIssuerNameSECItem =
-    UnsafeMapInputToSECItem(encodedIssuerName);
-  UniqueCERTCertList
-    candidates(CERT_CreateSubjectCertList(nullptr, CERT_GetDefaultCertDB(),
-                                          &encodedIssuerNameSECItem, 0,
-                                          false));
+  SECItem encodedIssuerNameSECItem = UnsafeMapInputToSECItem(encodedIssuerName);
+  UniqueCERTCertList candidates(CERT_CreateSubjectCertList(
+      nullptr, CERT_GetDefaultCertDB(), &encodedIssuerNameSECItem, 0, false));
   if (candidates) {
     for (CERTCertListNode* n = CERT_LIST_HEAD(candidates);
-         !CERT_LIST_END(n, candidates); n = CERT_LIST_NEXT(n)) {
+         !CERT_LIST_END(n, candidates);
+         n = CERT_LIST_NEXT(n)) {
       Input certDER;
       Result rv = certDER.Init(n->cert->derCert.data, n->cert->derCert.len);
       if (rv != Success) {
-        continue; // probably too big
+        continue;  // probably too big
       }
 
       bool keepGoing;
-      rv = checker.Check(certDER, nullptr/*additionalNameConstraints*/,
-                         keepGoing);
+      rv = checker.Check(
+          certDER, nullptr /*additionalNameConstraints*/, keepGoing);
       if (rv != Success) {
         return rv;
       }
@@ -186,7 +186,7 @@ Result
 AppTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
                              const CertPolicyId& policy,
                              Input candidateCertDER,
-                     /*out*/ TrustLevel& trustLevel)
+                             /*out*/ TrustLevel& trustLevel)
 {
   MOZ_ASSERT(policy.IsAnyPolicy());
   MOZ_ASSERT(mTrustedRoot);
@@ -202,11 +202,9 @@ AppTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
   // XXX: This would be cleaner and more efficient if we could get the trust
   // information without constructing a CERTCertificate here, but NSS doesn't
   // expose it in any other easy-to-use fashion.
-  SECItem candidateCertDERSECItem =
-    UnsafeMapInputToSECItem(candidateCertDER);
-  UniqueCERTCertificate candidateCert(
-    CERT_NewTempCertificate(CERT_GetDefaultCertDB(), &candidateCertDERSECItem,
-                            nullptr, false, true));
+  SECItem candidateCertDERSECItem = UnsafeMapInputToSECItem(candidateCertDER);
+  UniqueCERTCertificate candidateCert(CERT_NewTempCertificate(
+      CERT_GetDefaultCertDB(), &candidateCertDERSECItem, nullptr, false, true));
   if (!candidateCert) {
     return MapPRErrorCodeToResult(PR_GetError());
   }
@@ -221,10 +219,10 @@ AppTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
     // relevant trust bit isn't set then that means the cert must be considered
     // distrusted.
     uint32_t relevantTrustBit = endEntityOrCA == EndEntityOrCA::MustBeCA
-                              ? CERTDB_TRUSTED_CA
-                              : CERTDB_TRUSTED;
-    if (((flags & (relevantTrustBit | CERTDB_TERMINAL_RECORD)))
-            == CERTDB_TERMINAL_RECORD) {
+                                    ? CERTDB_TRUSTED_CA
+                                    : CERTDB_TRUSTED;
+    if (((flags & (relevantTrustBit | CERTDB_TERMINAL_RECORD))) ==
+        CERTDB_TERMINAL_RECORD) {
       trustLevel = TrustLevel::ActivelyDistrusted;
       return Success;
     }
@@ -250,7 +248,10 @@ AppTrustDomain::DigestBuf(Input item,
 }
 
 Result
-AppTrustDomain::CheckRevocation(EndEntityOrCA, const CertID&, Time, Duration,
+AppTrustDomain::CheckRevocation(EndEntityOrCA,
+                                const CertID&,
+                                Time,
+                                Duration,
                                 /*optional*/ const Input*,
                                 /*optional*/ const Input*)
 {
@@ -260,22 +261,22 @@ AppTrustDomain::CheckRevocation(EndEntityOrCA, const CertID&, Time, Duration,
 }
 
 Result
-AppTrustDomain::IsChainValid(const DERArray& certChain, Time time,
+AppTrustDomain::IsChainValid(const DERArray& certChain,
+                             Time time,
                              const CertPolicyId& requiredPolicy)
 {
   MOZ_ASSERT(requiredPolicy.IsAnyPolicy());
-  SECStatus srv = ConstructCERTCertListFromReversedDERArray(certChain,
-                                                            mCertChain);
+  SECStatus srv =
+      ConstructCERTCertListFromReversedDERArray(certChain, mCertChain);
   if (srv != SECSuccess) {
     return MapPRErrorCodeToResult(PR_GetError());
   }
   return Success;
 }
 
-Result
-AppTrustDomain::CheckSignatureDigestAlgorithm(DigestAlgorithm,
-                                              EndEntityOrCA,
-                                              Time)
+Result AppTrustDomain::CheckSignatureDigestAlgorithm(DigestAlgorithm,
+                                                     EndEntityOrCA,
+                                                     Time)
 {
   // TODO: We should restrict signatures to SHA-256 or better.
   return Success;
@@ -283,7 +284,7 @@ AppTrustDomain::CheckSignatureDigestAlgorithm(DigestAlgorithm,
 
 Result
 AppTrustDomain::CheckRSAPublicKeyModulusSizeInBits(
-  EndEntityOrCA /*endEntityOrCA*/, unsigned int modulusSizeInBits)
+    EndEntityOrCA /*endEntityOrCA*/, unsigned int modulusSizeInBits)
 {
   if (modulusSizeInBits < 2048u) {
     return Result::ERROR_INADEQUATE_KEY_SIZE;
@@ -296,8 +297,8 @@ AppTrustDomain::VerifyRSAPKCS1SignedDigest(const SignedDigest& signedDigest,
                                            Input subjectPublicKeyInfo)
 {
   // TODO: We should restrict signatures to SHA-256 or better.
-  return VerifyRSAPKCS1SignedDigestNSS(signedDigest, subjectPublicKeyInfo,
-                                       mPinArg);
+  return VerifyRSAPKCS1SignedDigestNSS(
+      signedDigest, subjectPublicKeyInfo, mPinArg);
 }
 
 Result
@@ -305,8 +306,8 @@ AppTrustDomain::CheckECDSACurveIsAcceptable(EndEntityOrCA /*endEntityOrCA*/,
                                             NamedCurve curve)
 {
   switch (curve) {
-    case NamedCurve::secp256r1: // fall through
-    case NamedCurve::secp384r1: // fall through
+    case NamedCurve::secp256r1:  // fall through
+    case NamedCurve::secp384r1:  // fall through
     case NamedCurve::secp521r1:
       return Success;
   }
@@ -318,14 +319,15 @@ Result
 AppTrustDomain::VerifyECDSASignedDigest(const SignedDigest& signedDigest,
                                         Input subjectPublicKeyInfo)
 {
-  return VerifyECDSASignedDigestNSS(signedDigest, subjectPublicKeyInfo,
-                                    mPinArg);
+  return VerifyECDSASignedDigestNSS(
+      signedDigest, subjectPublicKeyInfo, mPinArg);
 }
 
-Result
-AppTrustDomain::CheckValidityIsAcceptable(Time /*notBefore*/, Time /*notAfter*/,
-                                          EndEntityOrCA /*endEntityOrCA*/,
-                                          KeyPurposeId /*keyPurpose*/)
+Result AppTrustDomain::CheckValidityIsAcceptable(
+    Time /*notBefore*/,
+    Time /*notAfter*/,
+    EndEntityOrCA /*endEntityOrCA*/,
+    KeyPurposeId /*keyPurpose*/)
 {
   return Success;
 }
@@ -338,10 +340,10 @@ AppTrustDomain::NetscapeStepUpMatchesServerAuth(Time /*notBefore*/,
   return Success;
 }
 
-void
-AppTrustDomain::NoteAuxiliaryExtension(AuxiliaryExtension /*extension*/,
-                                       Input /*extensionData*/)
+void AppTrustDomain::NoteAuxiliaryExtension(AuxiliaryExtension /*extension*/,
+                                            Input /*extensionData*/)
 {
 }
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla

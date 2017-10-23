@@ -16,55 +16,42 @@ namespace jit {
 
 class BaselineInspector;
 
-class ICInspector
-{
-  protected:
+class ICInspector {
+   protected:
     BaselineInspector* inspector_;
     jsbytecode* pc_;
     ICEntry* icEntry_;
 
     ICInspector(BaselineInspector* inspector, jsbytecode* pc, ICEntry* icEntry)
-      : inspector_(inspector), pc_(pc), icEntry_(icEntry)
-    { }
+        : inspector_(inspector), pc_(pc), icEntry_(icEntry) {}
 };
 
-class SetElemICInspector : public ICInspector
-{
-  public:
+class SetElemICInspector : public ICInspector {
+   public:
     SetElemICInspector(BaselineInspector* inspector, jsbytecode* pc, ICEntry* icEntry)
-      : ICInspector(inspector, pc, icEntry)
-    { }
+        : ICInspector(inspector, pc, icEntry) {}
 
     bool sawOOBDenseWrite() const;
     bool sawOOBTypedArrayWrite() const;
 };
 
-class BaselineInspector
-{
-  private:
+class BaselineInspector {
+   private:
     JSScript* script;
     BaselineICEntry* prevLookedUpEntry;
 
-  public:
-    explicit BaselineInspector(JSScript* script)
-      : script(script), prevLookedUpEntry(nullptr)
-    {
+   public:
+    explicit BaselineInspector(JSScript* script) : script(script), prevLookedUpEntry(nullptr) {
         MOZ_ASSERT(script);
     }
 
-    bool hasBaselineScript() const {
-        return script->hasBaselineScript();
-    }
+    bool hasBaselineScript() const { return script->hasBaselineScript(); }
 
-    BaselineScript* baselineScript() const {
-        return script->baselineScript();
-    }
+    BaselineScript* baselineScript() const { return script->baselineScript(); }
 
-  private:
+   private:
 #ifdef DEBUG
-    bool isValidPC(jsbytecode* pc) {
-        return script->containsPC(pc);
-    }
+    bool isValidPC(jsbytecode* pc) { return script->containsPC(pc); }
 #endif
 
     BaselineICEntry& icEntryFromPC(jsbytecode* pc) {
@@ -82,8 +69,7 @@ class BaselineInspector
         MOZ_ASSERT(isValidPC(pc));
         BaselineICEntry* ent =
             baselineScript()->maybeICEntryFromPCOffset(script->pcToOffset(pc), prevLookedUpEntry);
-        if (!ent)
-            return nullptr;
+        if (!ent) return nullptr;
         MOZ_ASSERT(ent->isForOp());
         prevLookedUpEntry = ent;
         return ent;
@@ -102,7 +88,7 @@ class BaselineInspector
     ICStub* monomorphicStub(jsbytecode* pc);
     MOZ_MUST_USE bool dimorphicStub(jsbytecode* pc, ICStub** pfirst, ICStub** psecond);
 
-  public:
+   public:
     typedef Vector<ReceiverGuard, 4, JitAllocPolicy> ReceiverVector;
     typedef Vector<ObjectGroup*, 4, JitAllocPolicy> ObjectGroupVector;
     MOZ_MUST_USE bool maybeInfoForPropertyOp(jsbytecode* pc, ReceiverVector& receivers,
@@ -142,10 +128,10 @@ class BaselineInspector
     // IonBuilder unwrapped/innerized it to do the lookup on the Window (the
     // global object) instead. In this case we should only look for Baseline
     // stubs that performed the same optimization.
-    MOZ_MUST_USE bool commonGetPropFunction(jsbytecode* pc, bool innerized,
-                                            JSObject** holder, Shape** holderShape,
-                                            JSFunction** commonGetter, Shape** globalShape,
-                                            bool* isOwnProperty, ReceiverVector& receivers,
+    MOZ_MUST_USE bool commonGetPropFunction(jsbytecode* pc, bool innerized, JSObject** holder,
+                                            Shape** holderShape, JSFunction** commonGetter,
+                                            Shape** globalShape, bool* isOwnProperty,
+                                            ReceiverVector& receivers,
                                             ObjectGroupVector& convertUnboxedGroups);
 
     MOZ_MUST_USE bool megamorphicGetterSetterFunction(jsbytecode* pc, bool isGetter,
@@ -160,7 +146,7 @@ class BaselineInspector
                                      JSObject** prototypeObject);
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_BaselineInspector_h */

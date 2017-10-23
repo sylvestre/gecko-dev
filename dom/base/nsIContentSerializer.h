@@ -17,16 +17,20 @@ namespace mozilla {
 class Encoding;
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#define NS_ICONTENTSERIALIZER_IID \
-{ 0xb1ee32f2, 0xb8c4, 0x49b9, \
-  { 0x93, 0xdf, 0xb6, 0xfa, 0xb5, 0xd5, 0x46, 0x88 } }
+#define NS_ICONTENTSERIALIZER_IID                    \
+  {                                                  \
+    0xb1ee32f2, 0xb8c4, 0x49b9,                      \
+    {                                                \
+      0x93, 0xdf, 0xb6, 0xfa, 0xb5, 0xd5, 0x46, 0x88 \
+    }                                                \
+  }
 
-class nsIContentSerializer : public nsISupports {
+class nsIContentSerializer : public nsISupports
+{
  public:
-
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ICONTENTSERIALIZER_IID)
 
   NS_IMETHOD Init(uint32_t flags,
@@ -36,11 +40,14 @@ class nsIContentSerializer : public nsISupports {
                   bool aIsWholeDocument,
                   bool* aNeedsPerformatScanning) = 0;
 
-  NS_IMETHOD AppendText(nsIContent* aText, int32_t aStartOffset,
-                        int32_t aEndOffset, nsAString& aStr) = 0;
+  NS_IMETHOD AppendText(nsIContent* aText,
+                        int32_t aStartOffset,
+                        int32_t aEndOffset,
+                        nsAString& aStr) = 0;
 
   NS_IMETHOD AppendCDATASection(nsIContent* aCDATASection,
-                                int32_t aStartOffset, int32_t aEndOffset,
+                                int32_t aStartOffset,
+                                int32_t aEndOffset,
                                 nsAString& aStr) = 0;
 
   NS_IMETHOD AppendProcessingInstruction(nsIContent* aPI,
@@ -48,11 +55,12 @@ class nsIContentSerializer : public nsISupports {
                                          int32_t aEndOffset,
                                          nsAString& aStr) = 0;
 
-  NS_IMETHOD AppendComment(nsIContent* aComment, int32_t aStartOffset,
-                           int32_t aEndOffset, nsAString& aStr) = 0;
-
-  NS_IMETHOD AppendDoctype(nsIContent *aDoctype,
+  NS_IMETHOD AppendComment(nsIContent* aComment,
+                           int32_t aStartOffset,
+                           int32_t aEndOffset,
                            nsAString& aStr) = 0;
+
+  NS_IMETHOD AppendDoctype(nsIContent* aDoctype, nsAString& aStr) = 0;
 
   NS_IMETHOD AppendElementStart(mozilla::dom::Element* aElement,
                                 mozilla::dom::Element* aOriginalElement,
@@ -68,8 +76,7 @@ class nsIContentSerializer : public nsISupports {
    * serialized by other methods. XML declaration is the most likely
    * thing this method can produce.
    */
-  NS_IMETHOD AppendDocumentStart(nsIDocument *aDocument,
-                                 nsAString& aStr) = 0;
+  NS_IMETHOD AppendDocumentStart(nsIDocument* aDocument, nsAString& aStr) = 0;
 
   // If Init() sets *aNeedsPerformatScanning to true, then these methods are
   // called when elements are started and ended, before AppendElementStart
@@ -83,6 +90,6 @@ class nsIContentSerializer : public nsISupports {
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIContentSerializer, NS_ICONTENTSERIALIZER_IID)
 
 #define NS_CONTENTSERIALIZER_CONTRACTID_PREFIX \
-"@mozilla.org/layout/contentserializer;1?mimetype="
+  "@mozilla.org/layout/contentserializer;1?mimetype="
 
 #endif /* nsIContentSerializer_h */

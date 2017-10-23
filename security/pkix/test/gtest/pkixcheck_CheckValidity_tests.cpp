@@ -30,52 +30,55 @@ using namespace mozilla::pkix::test;
 
 static const Time PAST_TIME(YMDHMS(1998, 12, 31, 12, 23, 56));
 
-#define OLDER_GENERALIZEDTIME \
-  0x18, 15,                               /* tag, length */ \
-  '1', '9', '9', '9', '0', '1', '0', '1', /* 1999-01-01 */ \
-  '0', '0', '0', '0', '0', '0', 'Z'       /* 00:00:00Z */
+#define OLDER_GENERALIZEDTIME                                   \
+  0x18, 15,                                   /* tag, length */ \
+      '1', '9', '9', '9', '0', '1', '0', '1', /* 1999-01-01 */  \
+      '0', '0', '0', '0', '0', '0', 'Z'       /* 00:00:00Z */
 
-#define OLDER_UTCTIME \
-  0x17, 13,                               /* tag, length */ \
-  '9', '9', '0', '1', '0', '1',           /* (19)99-01-01 */ \
-  '0', '0', '0', '0', '0', '0', 'Z'       /* 00:00:00Z */
+#define OLDER_UTCTIME                                      \
+  0x17, 13,                             /* tag, length */  \
+      '9', '9', '0', '1', '0', '1',     /* (19)99-01-01 */ \
+      '0', '0', '0', '0', '0', '0', 'Z' /* 00:00:00Z */
 
 static const Time NOW(YMDHMS(2016, 12, 31, 12, 23, 56));
 
-#define NEWER_GENERALIZEDTIME \
-  0x18, 15,                               /* tag, length */ \
-  '2', '0', '2', '1', '0', '1', '0', '1', /* 2021-01-01 */ \
-  '0', '0', '0', '0', '0', '0', 'Z'       /* 00:00:00Z */
+#define NEWER_GENERALIZEDTIME                                   \
+  0x18, 15,                                   /* tag, length */ \
+      '2', '0', '2', '1', '0', '1', '0', '1', /* 2021-01-01 */  \
+      '0', '0', '0', '0', '0', '0', 'Z'       /* 00:00:00Z */
 
-#define NEWER_UTCTIME \
-  0x17, 13,                               /* tag, length */ \
-  '2', '1', '0', '1', '0', '1',           /* 2021-01-01 */ \
-  '0', '0', '0', '0', '0', '0', 'Z'       /* 00:00:00Z */
+#define NEWER_UTCTIME                                     \
+  0x17, 13,                             /* tag, length */ \
+      '2', '1', '0', '1', '0', '1',     /* 2021-01-01 */  \
+      '0', '0', '0', '0', '0', '0', 'Z' /* 00:00:00Z */
 
 static const Time FUTURE_TIME(YMDHMS(2025, 12, 31, 12, 23, 56));
 
-class pkixcheck_CheckValidity : public ::testing::Test { };
+class pkixcheck_CheckValidity : public ::testing::Test
+{
+};
 
 static const uint8_t OLDER_UTCTIME_NEWER_UTCTIME_DATA[] = {
-  OLDER_UTCTIME,
-  NEWER_UTCTIME,
+    OLDER_UTCTIME,
+    NEWER_UTCTIME,
 };
-static const Input
-OLDER_UTCTIME_NEWER_UTCTIME(OLDER_UTCTIME_NEWER_UTCTIME_DATA);
+static const Input OLDER_UTCTIME_NEWER_UTCTIME(
+    OLDER_UTCTIME_NEWER_UTCTIME_DATA);
 
 TEST_F(pkixcheck_CheckValidity, Valid_UTCTIME_UTCTIME)
 {
   static Time notBefore(Time::uninitialized);
   static Time notAfter(Time::uninitialized);
-  ASSERT_EQ(Success, ParseValidity(OLDER_UTCTIME_NEWER_UTCTIME, &notBefore, &notAfter));
+  ASSERT_EQ(Success,
+            ParseValidity(OLDER_UTCTIME_NEWER_UTCTIME, &notBefore, &notAfter));
   ASSERT_EQ(Success, CheckValidity(NOW, notBefore, notAfter));
 }
 
 TEST_F(pkixcheck_CheckValidity, Valid_GENERALIZEDTIME_GENERALIZEDTIME)
 {
   static const uint8_t DER[] = {
-    OLDER_GENERALIZEDTIME,
-    NEWER_GENERALIZEDTIME,
+      OLDER_GENERALIZEDTIME,
+      NEWER_GENERALIZEDTIME,
   };
   static const Input validity(DER);
   static Time notBefore(Time::uninitialized);
@@ -87,8 +90,8 @@ TEST_F(pkixcheck_CheckValidity, Valid_GENERALIZEDTIME_GENERALIZEDTIME)
 TEST_F(pkixcheck_CheckValidity, Valid_GENERALIZEDTIME_UTCTIME)
 {
   static const uint8_t DER[] = {
-    OLDER_GENERALIZEDTIME,
-    NEWER_UTCTIME,
+      OLDER_GENERALIZEDTIME,
+      NEWER_UTCTIME,
   };
   static const Input validity(DER);
   static Time notBefore(Time::uninitialized);
@@ -100,8 +103,8 @@ TEST_F(pkixcheck_CheckValidity, Valid_GENERALIZEDTIME_UTCTIME)
 TEST_F(pkixcheck_CheckValidity, Valid_UTCTIME_GENERALIZEDTIME)
 {
   static const uint8_t DER[] = {
-    OLDER_UTCTIME,
-    NEWER_GENERALIZEDTIME,
+      OLDER_UTCTIME,
+      NEWER_GENERALIZEDTIME,
   };
   static const Input validity(DER);
   static Time notBefore(Time::uninitialized);
@@ -114,14 +117,18 @@ TEST_F(pkixcheck_CheckValidity, InvalidBeforeNotBefore)
 {
   static Time notBefore(Time::uninitialized);
   static Time notAfter(Time::uninitialized);
-  ASSERT_EQ(Success, ParseValidity(OLDER_UTCTIME_NEWER_UTCTIME, &notBefore, &notAfter));
-  ASSERT_EQ(Result::ERROR_NOT_YET_VALID_CERTIFICATE, CheckValidity(PAST_TIME, notBefore, notAfter));
+  ASSERT_EQ(Success,
+            ParseValidity(OLDER_UTCTIME_NEWER_UTCTIME, &notBefore, &notAfter));
+  ASSERT_EQ(Result::ERROR_NOT_YET_VALID_CERTIFICATE,
+            CheckValidity(PAST_TIME, notBefore, notAfter));
 }
 
 TEST_F(pkixcheck_CheckValidity, InvalidAfterNotAfter)
 {
   static Time notBefore(Time::uninitialized);
   static Time notAfter(Time::uninitialized);
-  ASSERT_EQ(Success, ParseValidity(OLDER_UTCTIME_NEWER_UTCTIME, &notBefore, &notAfter));
-  ASSERT_EQ(Result::ERROR_EXPIRED_CERTIFICATE, CheckValidity(FUTURE_TIME, notBefore, notAfter));
+  ASSERT_EQ(Success,
+            ParseValidity(OLDER_UTCTIME_NEWER_UTCTIME, &notBefore, &notAfter));
+  ASSERT_EQ(Result::ERROR_EXPIRED_CERTIFICATE,
+            CheckValidity(FUTURE_TIME, notBefore, notAfter));
 }

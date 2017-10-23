@@ -35,7 +35,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-typedef struct MBSPatchHeader_ {
+typedef struct MBSPatchHeader_
+{
   /* "MBDIFF10" */
   char tag[8];
 
@@ -68,7 +69,8 @@ typedef struct MBSPatchHeader_ {
  * @param fd Must have been opened for reading, and be at the beginning
  *           of the file.
  */
-int MBS_ReadHeader(FILE* file, MBSPatchHeader *header);
+int
+MBS_ReadHeader(FILE* file, MBSPatchHeader* header);
 
 /**
  * Apply a patch. This method does not validate the checksum of the original
@@ -81,13 +83,17 @@ int MBS_ReadHeader(FILE* file, MBSPatchHeader *header);
  *                to header->dlen if it is an existing file. The offset
  *                should be at the beginning of the file.
  */
-int MBS_ApplyPatch(const MBSPatchHeader *header, FILE* patchFile,
-                   unsigned char *fbuffer, FILE* file);
+int
+MBS_ApplyPatch(const MBSPatchHeader* header,
+               FILE* patchFile,
+               unsigned char* fbuffer,
+               FILE* file);
 
-typedef struct MBSPatchTriple_ {
+typedef struct MBSPatchTriple_
+{
   uint32_t x; /* add x bytes from oldfile to x bytes from the diff block */
   uint32_t y; /* copy y bytes from the extra block */
-  int32_t  z; /* seek forwards in oldfile by z bytes */
+  int32_t z;  /* seek forwards in oldfile by z bytes */
 } MBSPatchTriple;
 
 #endif  // bspatch_h__

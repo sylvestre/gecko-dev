@@ -22,30 +22,39 @@ namespace sandboxing {
 
 // This is used to pass a LogCallback to the sandboxing code, as the logging
 // requires code to which we cannot link directly.
-void ProvideLogFunction(LogFunction aLogFunction);
+void
+ProvideLogFunction(LogFunction aLogFunction);
 
 // Log a "BLOCKED" msg to the browser console and, if DEBUG build, stderr.
 // If the logging of a stack trace is enabled then the default aFramesToSkip
 // will start from our caller's caller, which should normally be the function
 // that triggered the interception.
-void LogBlocked(const char* aFunctionName, const char* aContext = nullptr,
-                uint32_t aFramesToSkip = 2);
+void
+LogBlocked(const char* aFunctionName,
+           const char* aContext = nullptr,
+           uint32_t aFramesToSkip = 2);
 
 // Convenience functions to convert to char*.
-void LogBlocked(const char* aFunctionName, const wchar_t* aContext);
-void LogBlocked(const char* aFunctionName, const wchar_t* aContext,
-                uint16_t aLengthInBytes);
+void
+LogBlocked(const char* aFunctionName, const wchar_t* aContext);
+void
+LogBlocked(const char* aFunctionName,
+           const wchar_t* aContext,
+           uint16_t aLengthInBytes);
 
 // Log a "ALLOWED" msg to the browser console and, if DEBUG build, stderr.
-void LogAllowed(const char* aFunctionName, const char* aContext = nullptr);
+void
+LogAllowed(const char* aFunctionName, const char* aContext = nullptr);
 
 // Convenience functions to convert to char*.
-void LogAllowed(const char* aFunctionName, const wchar_t* aContext);
-void LogAllowed(const char* aFunctionName, const wchar_t* aContext,
-                uint16_t aLengthInBytes);
+void
+LogAllowed(const char* aFunctionName, const wchar_t* aContext);
+void
+LogAllowed(const char* aFunctionName,
+           const wchar_t* aContext,
+           uint16_t aLengthInBytes);
 
+}  // namespace sandboxing
+}  // namespace mozilla
 
-} // sandboxing
-} // mozilla
-
-#endif // security_sandbox_sandboxLogging_h__
+#endif  // security_sandbox_sandboxLogging_h__

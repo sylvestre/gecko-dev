@@ -29,8 +29,8 @@
 
 class VideoDecoder : public RefCounted
 {
-public:
-  explicit VideoDecoder(cdm::Host_8 *aHost);
+ public:
+  explicit VideoDecoder(cdm::Host_8* aHost);
 
   cdm::Status InitDecode(const cdm::VideoDecoderConfig& aConfig);
 
@@ -43,13 +43,13 @@ public:
 
   bool HasShutdown() { return mHasShutdown; }
 
-private:
-
+ private:
   virtual ~VideoDecoder();
 
   cdm::Status Drain(cdm::VideoFrame* aVideoFrame);
 
-  struct DecodeData {
+  struct DecodeData
+  {
     std::vector<uint8_t> mBuffer;
     uint64_t mTimestamp = 0;
     CryptoMetaData mCrypto;
@@ -72,4 +72,4 @@ private:
   bool mHasShutdown;
 };
 
-#endif // __VideoDecoder_h__
+#endif  // __VideoDecoder_h__

@@ -36,11 +36,12 @@ HangReports::AddHang(const Telemetry::ProcessedStack& aStack,
                      uint32_t aDuration,
                      int32_t aSystemUptime,
                      int32_t aFirefoxUptime,
-                     HangAnnotations&& aAnnotations) {
+                     HangAnnotations&& aAnnotations)
+{
   // Append the new stack to the stack's circular queue.
   size_t hangIndex = mStacks.AddStack(aStack);
   // Append the hang info at the same index, in mHangInfo.
-  HangInfo info = { aDuration, aSystemUptime, aFirefoxUptime };
+  HangInfo info = {aDuration, aSystemUptime, aFirefoxUptime};
   if (mHangInfo.size() < kMaxHangStacksKept) {
     mHangInfo.push_back(info);
   } else {
@@ -66,7 +67,8 @@ HangReports::AddHang(const Telemetry::ProcessedStack& aStack,
   }
 
   // If the key was not found, add the annotations to the hash map.
-  mAnnotationInfo.Put(annotationsKey, new AnnotationInfo(hangIndex, Move(aAnnotations)));
+  mAnnotationInfo.Put(annotationsKey,
+                      new AnnotationInfo(hangIndex, Move(aAnnotations)));
 }
 
 /**
@@ -74,7 +76,8 @@ HangReports::AddHang(const Telemetry::ProcessedStack& aStack,
  * annotations.
  */
 void
-HangReports::PruneStackReferences(const size_t aRemovedStackIndex) {
+HangReports::PruneStackReferences(const size_t aRemovedStackIndex)
+{
   // We need to adjust the indices that link annotations to chrome hangs. Since we
   // removed a stack, we must remove all references to it and prune annotations
   // linked to no stacks.
@@ -103,7 +106,8 @@ HangReports::PruneStackReferences(const size_t aRemovedStackIndex) {
 #endif
 
 size_t
-HangReports::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
+HangReports::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
+{
   size_t n = 0;
   n += mStacks.SizeOfExcludingThis();
   // This is a crude approximation. See comment on
@@ -120,29 +124,34 @@ HangReports::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
 }
 
 const CombinedStacks&
-HangReports::GetStacks() const {
+HangReports::GetStacks() const
+{
   return mStacks;
 }
 
 uint32_t
-HangReports::GetDuration(unsigned aIndex) const {
+HangReports::GetDuration(unsigned aIndex) const
+{
   return mHangInfo[aIndex].mDuration;
 }
 
 int32_t
-HangReports::GetSystemUptime(unsigned aIndex) const {
+HangReports::GetSystemUptime(unsigned aIndex) const
+{
   return mHangInfo[aIndex].mSystemUptime;
 }
 
 int32_t
-HangReports::GetFirefoxUptime(unsigned aIndex) const {
+HangReports::GetFirefoxUptime(unsigned aIndex) const
+{
   return mHangInfo[aIndex].mFirefoxUptime;
 }
 
 const nsClassHashtable<nsStringHashKey, HangReports::AnnotationInfo>&
-HangReports::GetAnnotationInfo() const {
+HangReports::GetAnnotationInfo() const
+{
   return mAnnotationInfo;
 }
 
-} // namespace Telemetry
-} // namespace mozilla
+}  // namespace Telemetry
+}  // namespace mozilla

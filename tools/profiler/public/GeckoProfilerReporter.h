@@ -11,16 +11,17 @@
 
 class GeckoProfilerReporter final : public nsIMemoryReporter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   GeckoProfilerReporter() {}
 
   NS_IMETHOD
   CollectReports(nsIHandleReportCallback* aHandleReport,
-                 nsISupports* aData, bool aAnonymize) override;
+                 nsISupports* aData,
+                 bool aAnonymize) override;
 
-private:
+ private:
   ~GeckoProfilerReporter() {}
 };
 

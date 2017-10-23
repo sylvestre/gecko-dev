@@ -6,7 +6,7 @@
 
 #include "TestEndpointOpens.h"
 
-#include "IPDLUnitTests.h"      // fail etc.
+#include "IPDLUnitTests.h"  // fail etc.
 
 using namespace mozilla::ipc;
 
@@ -61,7 +61,7 @@ OpenParent(TestEndpointOpensOpenedParent* aParent,
 
 mozilla::ipc::IPCResult
 TestEndpointOpensParent::RecvStartSubprotocol(
-  mozilla::ipc::Endpoint<PTestEndpointOpensOpenedParent>&& endpoint)
+    mozilla::ipc::Endpoint<PTestEndpointOpensOpenedParent>&& endpoint)
 {
   gMainThread = MessageLoop::current();
 
@@ -72,7 +72,7 @@ TestEndpointOpensParent::RecvStartSubprotocol(
 
   TestEndpointOpensOpenedParent* a = new TestEndpointOpensOpenedParent();
   gParentThread->message_loop()->PostTask(
-    NewRunnableFunction(OpenParent, a, mozilla::Move(endpoint)));
+      NewRunnableFunction(OpenParent, a, mozilla::Move(endpoint)));
 
   return IPC_OK();
 }
@@ -136,9 +136,8 @@ TestEndpointOpensOpenedParent::ActorDestroy(ActorDestroyReason why)
   // ActorDestroy() is just a callback from IPDL-generated code,
   // which needs the top-level actor (this) to stay alive a little
   // longer so other things can be cleaned up.
-  gParentThread->message_loop()->PostTask(
-    NewRunnableFunction(ShutdownTestEndpointOpensOpenedParent,
-                        this, GetTransport()));
+  gParentThread->message_loop()->PostTask(NewRunnableFunction(
+      ShutdownTestEndpointOpensOpenedParent, this, GetTransport()));
 }
 
 //-----------------------------------------------------------------------------
@@ -148,10 +147,7 @@ static TestEndpointOpensChild* gOpensChild;
 // Thread on which TestEndpointOpensOpenedChild runs
 static Thread* gChildThread;
 
-TestEndpointOpensChild::TestEndpointOpensChild()
-{
-  gOpensChild = this;
-}
+TestEndpointOpensChild::TestEndpointOpensChild() { gOpensChild = this; }
 
 static void
 OpenChild(TestEndpointOpensOpenedChild* aChild,
@@ -178,8 +174,8 @@ TestEndpointOpensChild::RecvStart()
   Endpoint<PTestEndpointOpensOpenedParent> parent;
   Endpoint<PTestEndpointOpensOpenedChild> child;
   nsresult rv;
-  rv = PTestEndpointOpensOpened::CreateEndpoints(OtherPid(), base::GetCurrentProcId(),
-                                                 &parent, &child);
+  rv = PTestEndpointOpensOpened::CreateEndpoints(
+      OtherPid(), base::GetCurrentProcId(), &parent, &child);
   if (NS_FAILED(rv)) {
     fail("opening PTestEndpointOpensOpened");
   }
@@ -193,7 +189,7 @@ TestEndpointOpensChild::RecvStart()
 
   TestEndpointOpensOpenedChild* a = new TestEndpointOpensOpenedChild();
   gChildThread->message_loop()->PostTask(
-    NewRunnableFunction(OpenChild, a, mozilla::Move(child)));
+      NewRunnableFunction(OpenChild, a, mozilla::Move(child)));
 
   if (!SendStartSubprotocol(parent)) {
     fail("send StartSubprotocol");
@@ -232,9 +228,9 @@ TestEndpointOpensOpenedChild::RecvHi()
   // Need to close the channel without message-processing frames on
   // the C++ stack
   MessageLoop::current()->PostTask(
-    NewNonOwningRunnableMethod("ipc::IToplevelProtocol::Close",
-                               this,
-                               &TestEndpointOpensOpenedChild::Close));
+      NewNonOwningRunnableMethod("ipc::IToplevelProtocol::Close",
+                                 this,
+                                 &TestEndpointOpensOpenedChild::Close));
   return IPC_OK();
 }
 
@@ -243,7 +239,7 @@ TestEndpointOpensOpenedChild::AnswerHiRpc()
 {
   AssertNotMainThread();
 
-  mGotHi = true;              // d00d
+  mGotHi = true;  // d00d
   return IPC_OK();
 }
 
@@ -255,9 +251,9 @@ ShutdownTestEndpointOpensOpenedChild(TestEndpointOpensOpenedChild* child,
 
   // Kick off main-thread shutdown.
   gMainThread->PostTask(
-    NewNonOwningRunnableMethod("ipc::IToplevelProtocol::Close",
-                               gOpensChild,
-                               &TestEndpointOpensChild::Close));
+      NewNonOwningRunnableMethod("ipc::IToplevelProtocol::Close",
+                                 gOpensChild,
+                                 &TestEndpointOpensChild::Close));
 }
 
 void
@@ -273,9 +269,8 @@ TestEndpointOpensOpenedChild::ActorDestroy(ActorDestroyReason why)
   // which needs the top-level actor (this) to stay alive a little
   // longer so other things can be cleaned up.  Defer shutdown to
   // let cleanup finish.
-  gChildThread->message_loop()->PostTask(
-    NewRunnableFunction(ShutdownTestEndpointOpensOpenedChild,
-                        this, GetTransport()));
+  gChildThread->message_loop()->PostTask(NewRunnableFunction(
+      ShutdownTestEndpointOpensOpenedChild, this, GetTransport()));
 }
 
-} // namespace mozilla
+}  // namespace mozilla

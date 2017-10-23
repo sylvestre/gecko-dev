@@ -10,10 +10,7 @@
 namespace mozilla {
 namespace dom {
 
-PaymentRequestChild::PaymentRequestChild()
-  : mActorAlive(true)
-{
-}
+PaymentRequestChild::PaymentRequestChild() : mActorAlive(true) {}
 
 nsresult
 PaymentRequestChild::RequestPayment(const IPCPaymentActionRequest& aAction)
@@ -28,7 +25,8 @@ PaymentRequestChild::RequestPayment(const IPCPaymentActionRequest& aAction)
 }
 
 mozilla::ipc::IPCResult
-PaymentRequestChild::RecvRespondPayment(const IPCPaymentActionResponse& aResponse)
+PaymentRequestChild::RecvRespondPayment(
+    const IPCPaymentActionResponse& aResponse)
 {
   if (!mActorAlive) {
     return IPC_FAIL_NO_REASON(this);
@@ -44,8 +42,8 @@ PaymentRequestChild::RecvRespondPayment(const IPCPaymentActionResponse& aRespons
 }
 
 mozilla::ipc::IPCResult
-PaymentRequestChild::RecvChangeShippingAddress(const nsString& aRequestId,
-                                               const IPCPaymentAddress& aAddress)
+PaymentRequestChild::RecvChangeShippingAddress(
+    const nsString& aRequestId, const IPCPaymentAddress& aAddress)
 {
   if (!mActorAlive) {
     return IPC_FAIL_NO_REASON(this);
@@ -102,5 +100,5 @@ PaymentRequestChild::SendRequestPayment(const IPCPaymentActionRequest& aAction)
   return PPaymentRequestChild::SendRequestPayment(aAction);
 }
 
-} // end of namespace dom
-} // end of namespace mozilla
+}  // end of namespace dom
+}  // end of namespace mozilla

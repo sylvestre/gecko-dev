@@ -14,13 +14,9 @@ namespace widget {
 
 static const char16_t UNICODE_BULLET = 0x2022;
 
-HeadlessLookAndFeel::HeadlessLookAndFeel()
-{
-}
+HeadlessLookAndFeel::HeadlessLookAndFeel() {}
 
-HeadlessLookAndFeel::~HeadlessLookAndFeel()
-{
-}
+HeadlessLookAndFeel::~HeadlessLookAndFeel() {}
 
 nsresult
 HeadlessLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor)
@@ -59,23 +55,23 @@ HeadlessLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor)
       aColor = NS_SAME_AS_FOREGROUND_COLOR;
       break;
     case eColorID__moz_eventreerow:
-      aColor = NS_RGB(0xff,0xff,0xff);
+      aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
     case eColorID__moz_gtk_info_bar_text:
-      aColor = NS_RGB(0x00,0x00,0x00);
+      aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
     case eColorID__moz_mac_buttonactivetext:
     case eColorID__moz_mac_defaultbuttontext:
-      aColor = NS_RGB(0xff,0xff,0xff);
+      aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
     case eColorID_SpellCheckerUnderline:
       aColor = NS_RGB(0xff, 0x00, 0x00);
       break;
     case eColorID_TextBackground:
-      aColor = NS_RGB(0xff,0xff,0xff);
+      aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
     case eColorID_TextForeground:
-      aColor = NS_RGB(0x00,0x00,0x00);
+      aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
     case eColorID_TextHighlightBackground:
       aColor = NS_RGB(0xef, 0x0f, 0xff);
@@ -84,44 +80,44 @@ HeadlessLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor)
       aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
     case eColorID_TextSelectBackground:
-      aColor = NS_RGB(0xaa,0xaa,0xaa);
+      aColor = NS_RGB(0xaa, 0xaa, 0xaa);
       break;
     case eColorID_TextSelectBackgroundAttention:
       aColor = NS_TRANSPARENT;
       break;
     case eColorID_TextSelectBackgroundDisabled:
-      aColor = NS_RGB(0xaa,0xaa,0xaa);
+      aColor = NS_RGB(0xaa, 0xaa, 0xaa);
       break;
     case eColorID_TextSelectForeground:
       GetColor(eColorID_TextSelectBackground, aColor);
       if (aColor == 0x000000)
-        aColor = NS_RGB(0xff,0xff,0xff);
+        aColor = NS_RGB(0xff, 0xff, 0xff);
       else
         aColor = NS_DONT_CHANGE_COLOR;
       break;
     case eColorID_Widget3DHighlight:
-      aColor = NS_RGB(0xa0,0xa0,0xa0);
+      aColor = NS_RGB(0xa0, 0xa0, 0xa0);
       break;
     case eColorID_Widget3DShadow:
-      aColor = NS_RGB(0x40,0x40,0x40);
+      aColor = NS_RGB(0x40, 0x40, 0x40);
       break;
     case eColorID_WidgetBackground:
-      aColor = NS_RGB(0xdd,0xdd,0xdd);
+      aColor = NS_RGB(0xdd, 0xdd, 0xdd);
       break;
     case eColorID_WidgetForeground:
-      aColor = NS_RGB(0x00,0x00,0x00);
+      aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
     case eColorID_WidgetSelectBackground:
-      aColor = NS_RGB(0x80,0x80,0x80);
+      aColor = NS_RGB(0x80, 0x80, 0x80);
       break;
     case eColorID_WidgetSelectForeground:
-      aColor = NS_RGB(0x00,0x00,0x80);
+      aColor = NS_RGB(0x00, 0x00, 0x80);
       break;
     case eColorID_WindowBackground:
-      aColor = NS_RGB(0xff,0xff,0xff);
+      aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
     case eColorID_WindowForeground:
-      aColor = NS_RGB(0x00,0x00,0x00);
+      aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
     default:
       aColor = GetStandinForNativeColor(aID);
@@ -132,11 +128,10 @@ HeadlessLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor)
 }
 
 nsresult
-HeadlessLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
+HeadlessLookAndFeel::GetIntImpl(IntID aID, int32_t& aResult)
 {
   nsresult res = nsXPLookAndFeel::GetIntImpl(aID, aResult);
-  if (NS_SUCCEEDED(res))
-    return res;
+  if (NS_SUCCEEDED(res)) return res;
   res = NS_OK;
 
   // These values should be sane defaults for headless mode under GTK.
@@ -279,7 +274,8 @@ HeadlessLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
       aResult = 1;
       break;
     default:
-      NS_WARNING("HeadlessLookAndFeel::GetIntImpl called with an unrecognized aID");
+      NS_WARNING(
+          "HeadlessLookAndFeel::GetIntImpl called with an unrecognized aID");
       aResult = 0;
       res = NS_ERROR_FAILURE;
       break;
@@ -288,11 +284,10 @@ HeadlessLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
 }
 
 nsresult
-HeadlessLookAndFeel::GetFloatImpl(FloatID aID, float &aResult)
+HeadlessLookAndFeel::GetFloatImpl(FloatID aID, float& aResult)
 {
   nsresult res = nsXPLookAndFeel::GetFloatImpl(aID, aResult);
-  if (NS_SUCCEEDED(res))
-    return res;
+  if (NS_SUCCEEDED(res)) return res;
   res = NS_OK;
 
   // Hardcoded values for GTK.
@@ -309,7 +304,8 @@ HeadlessLookAndFeel::GetFloatImpl(FloatID aID, float &aResult)
       res = NS_ERROR_FAILURE;
       break;
     default:
-      NS_WARNING("HeadlessLookAndFeel::GetFloatImpl called with an unrecognized aID");
+      NS_WARNING(
+          "HeadlessLookAndFeel::GetFloatImpl called with an unrecognized aID");
       aResult = -1.0;
       res = NS_ERROR_FAILURE;
       break;
@@ -319,15 +315,16 @@ HeadlessLookAndFeel::GetFloatImpl(FloatID aID, float &aResult)
 }
 
 bool
-HeadlessLookAndFeel::GetFontImpl(FontID aID, nsString& aFontName,
-               gfxFontStyle& aFontStyle,
-               float aDevPixPerCSSPixel)
+HeadlessLookAndFeel::GetFontImpl(FontID aID,
+                                 nsString& aFontName,
+                                 gfxFontStyle& aFontStyle,
+                                 float aDevPixPerCSSPixel)
 {
   // Default to san-serif for everything.
-  aFontStyle.style      = NS_FONT_STYLE_NORMAL;
-  aFontStyle.weight     = NS_FONT_WEIGHT_NORMAL;
-  aFontStyle.stretch    = NS_FONT_STRETCH_NORMAL;
-  aFontStyle.size       = 14 * aDevPixPerCSSPixel;
+  aFontStyle.style = NS_FONT_STYLE_NORMAL;
+  aFontStyle.weight = NS_FONT_WEIGHT_NORMAL;
+  aFontStyle.stretch = NS_FONT_STRETCH_NORMAL;
+  aFontStyle.size = 14 * aDevPixPerCSSPixel;
   aFontStyle.systemFont = true;
 
   aFontName.AssignLiteral("sans-serif");
@@ -347,9 +344,10 @@ HeadlessLookAndFeel::RefreshImpl()
 }
 
 bool
-HeadlessLookAndFeel::GetEchoPasswordImpl() {
+HeadlessLookAndFeel::GetEchoPasswordImpl()
+{
   return false;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

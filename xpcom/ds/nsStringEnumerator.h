@@ -72,7 +72,6 @@ MOZ_MUST_USE nsresult
 NS_NewAdoptingUTF8StringEnumerator(nsIUTF8StringEnumerator** aResult,
                                    nsTArray<nsCString>* aArray);
 
-
 // these versions take a refcounted "owner" which will be addreffed
 // when the enumerator is created, and destroyed when the enumerator
 // is released. This allows providers to give non-owning pointers to

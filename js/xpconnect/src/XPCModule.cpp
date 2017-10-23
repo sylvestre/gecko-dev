@@ -10,15 +10,15 @@
 nsresult
 xpcModuleCtor()
 {
-    nsXPConnect::InitStatics();
+  nsXPConnect::InitStatics();
 
-    return NS_OK;
+  return NS_OK;
 }
 
 void
 xpcModuleDtor()
 {
-    // Release our singletons
-    nsXPConnect::ReleaseXPConnectSingleton();
-    xpc_DestroyJSxIDClassObjects();
+  // Release our singletons
+  nsXPConnect::ReleaseXPConnectSingleton();
+  xpc_DestroyJSxIDClassObjects();
 }

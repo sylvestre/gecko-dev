@@ -11,8 +11,9 @@
 class nsIFrame;
 class gfxContext;
 
-class nsSVGFilterPaintCallback {
-public:
+class nsSVGFilterPaintCallback
+{
+ public:
   typedef mozilla::image::imgDrawingParams imgDrawingParams;
 
   /**
@@ -27,9 +28,11 @@ public:
    * @param aTransformRoot the outermost frame whose transform should be taken
    *                       into account when painting an SVG glyph
    */
-  virtual void Paint(gfxContext& aContext, nsIFrame *aTarget,
-                    const gfxMatrix& aTransform, const nsIntRect *aDirtyRect,
-                    imgDrawingParams& aImgParams) = 0;
+  virtual void Paint(gfxContext& aContext,
+                     nsIFrame* aTarget,
+                     const gfxMatrix& aTransform,
+                     const nsIntRect* aDirtyRect,
+                     imgDrawingParams& aImgParams) = 0;
 };
 
 #endif

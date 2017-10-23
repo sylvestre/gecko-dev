@@ -43,5 +43,4 @@ extern "C" {
 /*
  * Incoming JNI methods
  */
-
 }

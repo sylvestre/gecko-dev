@@ -24,10 +24,9 @@ enum PersistenceType
 };
 
 static const PersistenceType kAllPersistenceTypes[] = {
-  PERSISTENCE_TYPE_PERSISTENT,
-  PERSISTENCE_TYPE_TEMPORARY,
-  PERSISTENCE_TYPE_DEFAULT
-};
+    PERSISTENCE_TYPE_PERSISTENT,
+    PERSISTENCE_TYPE_TEMPORARY,
+    PERSISTENCE_TYPE_DEFAULT};
 
 inline void
 PersistenceTypeToText(PersistenceType aPersistenceType, nsACString& aText)
@@ -125,4 +124,4 @@ ComplementaryPersistenceType(PersistenceType aPersistenceType)
 
 END_QUOTA_NAMESPACE
 
-#endif // mozilla_dom_quota_persistencetype_h__
+#endif  // mozilla_dom_quota_persistencetype_h__

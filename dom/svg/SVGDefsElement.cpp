@@ -21,17 +21,16 @@ SVGDefsElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGDefsElement::SVGDefsElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGGraphicsElement(aNodeInfo)
+SVGDefsElement::SVGDefsElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGGraphicsElement(aNodeInfo)
 {
 }
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGDefsElement)
-
 
 //----------------------------------------------------------------------
 // nsIContent methods
@@ -39,21 +38,18 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGDefsElement)
 NS_IMETHODIMP_(bool)
 SVGDefsElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sFEFloodMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sLightingEffectsMap,
-    sMarkersMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sFEFloodMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sLightingEffectsMap,
+                                                    sMarkersMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGGraphicsElement::IsAttributeMapped(name);
+         SVGGraphicsElement::IsAttributeMapped(name);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

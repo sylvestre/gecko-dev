@@ -18,25 +18,20 @@ using namespace mozilla;
 
 struct NameTableKey
 {
-  NameTableKey(const nsDependentCString aNameArray[],
-               const nsCString* aKeyStr)
-    : mNameArray(aNameArray)
-    , mIsUnichar(false)
+  NameTableKey(const nsDependentCString aNameArray[], const nsCString* aKeyStr)
+      : mNameArray(aNameArray), mIsUnichar(false)
   {
     mKeyStr.m1b = aKeyStr;
   }
 
-  NameTableKey(const nsDependentCString aNameArray[],
-               const nsString* aKeyStr)
-    : mNameArray(aNameArray)
-    , mIsUnichar(true)
+  NameTableKey(const nsDependentCString aNameArray[], const nsString* aKeyStr)
+      : mNameArray(aNameArray), mIsUnichar(true)
   {
     mKeyStr.m2b = aKeyStr;
   }
 
   const nsDependentCString* mNameArray;
-  union
-  {
+  union {
     const nsCString* m1b;
     const nsString* m2b;
   } mKeyStr;
@@ -55,9 +50,10 @@ matchNameKeysCaseInsensitive(const PLDHashEntryHdr* aHdr, const void* aVoidKey)
   auto key = static_cast<const NameTableKey*>(aVoidKey);
   const nsDependentCString* name = &key->mNameArray[entry->mIndex];
 
-  return key->mIsUnichar
-       ? key->mKeyStr.m2b->LowerCaseEqualsASCII(name->get(), name->Length())
-       : key->mKeyStr.m1b->LowerCaseEqualsASCII(name->get(), name->Length());
+  return key->mIsUnichar ? key->mKeyStr.m2b->LowerCaseEqualsASCII(
+                               name->get(), name->Length())
+                         : key->mKeyStr.m1b->LowerCaseEqualsASCII(
+                               name->get(), name->Length());
 }
 
 /*
@@ -74,14 +70,12 @@ caseInsensitiveStringHashKey(const void* aKey)
   PLDHashNumber h = 0;
   const NameTableKey* tableKey = static_cast<const NameTableKey*>(aKey);
   if (tableKey->mIsUnichar) {
-    for (const char16_t* s = tableKey->mKeyStr.m2b->get();
-         *s != '\0';
-         s++) {
+    for (const char16_t* s = tableKey->mKeyStr.m2b->get(); *s != '\0'; s++) {
       h = AddToHash(h, *s & ~0x20);
     }
   } else {
     for (const unsigned char* s = reinterpret_cast<const unsigned char*>(
-           tableKey->mKeyStr.m1b->get());
+             tableKey->mKeyStr.m1b->get());
          *s != '\0';
          s++) {
       h = AddToHash(h, *s & ~0x20);
@@ -91,27 +85,28 @@ caseInsensitiveStringHashKey(const void* aKey)
 }
 
 static const struct PLDHashTableOps nametable_CaseInsensitiveHashTableOps = {
-  caseInsensitiveStringHashKey,
-  matchNameKeysCaseInsensitive,
-  PLDHashTable::MoveEntryStub,
-  PLDHashTable::ClearEntryStub,
-  nullptr,
+    caseInsensitiveStringHashKey,
+    matchNameKeysCaseInsensitive,
+    PLDHashTable::MoveEntryStub,
+    PLDHashTable::ClearEntryStub,
+    nullptr,
 };
 
 nsStaticCaseInsensitiveNameTable::nsStaticCaseInsensitiveNameTable(
     const char* const aNames[], int32_t aLength)
-  : mNameArray(nullptr)
-  , mNameTable(&nametable_CaseInsensitiveHashTableOps,
-               sizeof(NameTableEntry), aLength)
-  , mNullStr("")
+    : mNameArray(nullptr),
+      mNameTable(&nametable_CaseInsensitiveHashTableOps,
+                 sizeof(NameTableEntry),
+                 aLength),
+      mNullStr("")
 {
   MOZ_COUNT_CTOR(nsStaticCaseInsensitiveNameTable);
 
   MOZ_ASSERT(aNames, "null name table");
   MOZ_ASSERT(aLength, "0 length");
 
-  mNameArray = (nsDependentCString*)
-    moz_xmalloc(aLength * sizeof(nsDependentCString));
+  mNameArray =
+      (nsDependentCString*)moz_xmalloc(aLength * sizeof(nsDependentCString));
 
   for (int32_t index = 0; index < aLength; ++index) {
     const char* raw = aNames[index];

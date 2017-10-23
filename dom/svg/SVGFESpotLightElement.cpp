@@ -16,22 +16,21 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFESpotLightElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFESpotLightElement::WrapNode(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFESpotLightElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFESpotLightElement::sNumberInfo[8] =
-{
-  { &nsGkAtoms::x, 0, false },
-  { &nsGkAtoms::y, 0, false },
-  { &nsGkAtoms::z, 0, false },
-  { &nsGkAtoms::pointsAtX, 0, false },
-  { &nsGkAtoms::pointsAtY, 0, false },
-  { &nsGkAtoms::pointsAtZ, 0, false },
-  { &nsGkAtoms::specularExponent, 1, false },
-  { &nsGkAtoms::limitingConeAngle, 0, false }
-};
+nsSVGElement::NumberInfo SVGFESpotLightElement::sNumberInfo[8] = {
+    {&nsGkAtoms::x, 0, false},
+    {&nsGkAtoms::y, 0, false},
+    {&nsGkAtoms::z, 0, false},
+    {&nsGkAtoms::pointsAtX, 0, false},
+    {&nsGkAtoms::pointsAtY, 0, false},
+    {&nsGkAtoms::pointsAtZ, 0, false},
+    {&nsGkAtoms::specularExponent, 1, false},
+    {&nsGkAtoms::limitingConeAngle, 0, false}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -46,10 +45,8 @@ SVGFESpotLightElement::AttributeAffectsRendering(int32_t aNameSpaceID,
                                                  nsAtom* aAttribute) const
 {
   return aNameSpaceID == kNameSpaceID_None &&
-         (aAttribute == nsGkAtoms::x ||
-          aAttribute == nsGkAtoms::y ||
-          aAttribute == nsGkAtoms::z ||
-          aAttribute == nsGkAtoms::pointsAtX ||
+         (aAttribute == nsGkAtoms::x || aAttribute == nsGkAtoms::y ||
+          aAttribute == nsGkAtoms::z || aAttribute == nsGkAtoms::pointsAtX ||
           aAttribute == nsGkAtoms::pointsAtY ||
           aAttribute == nsGkAtoms::pointsAtZ ||
           aAttribute == nsGkAtoms::specularExponent ||
@@ -63,11 +60,17 @@ SVGFESpotLightElement::ComputeLightAttributes(nsSVGFilterInstance* aInstance)
 {
   Point3D lightPos, pointsAt;
   float specularExponent, limitingConeAngle;
-  GetAnimatedNumberValues(&lightPos.x, &lightPos.y, &lightPos.z,
-                          &pointsAt.x, &pointsAt.y, &pointsAt.z,
-                          &specularExponent, &limitingConeAngle,
+  GetAnimatedNumberValues(&lightPos.x,
+                          &lightPos.y,
+                          &lightPos.z,
+                          &pointsAt.x,
+                          &pointsAt.y,
+                          &pointsAt.z,
+                          &specularExponent,
+                          &limitingConeAngle,
                           nullptr);
-  if (!mNumberAttributes[SVGFESpotLightElement::LIMITING_CONE_ANGLE].IsExplicitlySet()) {
+  if (!mNumberAttributes[SVGFESpotLightElement::LIMITING_CONE_ANGLE]
+           .IsExplicitlySet()) {
     limitingConeAngle = 90;
   }
 
@@ -134,9 +137,9 @@ SVGFESpotLightElement::LimitingConeAngle()
 nsSVGElement::NumberAttributesInfo
 SVGFESpotLightElement::GetNumberInfo()
 {
-  return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
-                              ArrayLength(sNumberInfo));
+  return NumberAttributesInfo(
+      mNumberAttributes, sNumberInfo, ArrayLength(sNumberInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

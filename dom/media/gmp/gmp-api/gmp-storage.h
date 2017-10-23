@@ -39,9 +39,9 @@
 // returns an error, the GMP is responsible for calling Close() on the
 // GMPRecord to delete the GMPRecord object's memory. If your GMP does not
 // call Close(), the GMPRecord's memory will leak.
-class GMPRecord {
-public:
-
+class GMPRecord
+{
+ public:
   // Opens the record. Calls OpenComplete() once the record is open.
   // Note: Only work when GMP is loading content from a webserver.
   // Does not work for web pages on loaded from disk.
@@ -70,9 +70,9 @@ public:
 
 // Callback object that receives the results of GMPRecord calls. Callbacks
 // run asynchronously to the GMPRecord call, on the main thread.
-class GMPRecordClient {
+class GMPRecordClient
+{
  public:
-
   // Response to a GMPRecord::Open() call with the open |status|.
   // aStatus values:
   // - GMPNoErr - Record opened successfully. Record may be empty.
@@ -110,4 +110,4 @@ class GMPRecordClient {
   virtual ~GMPRecordClient() {}
 };
 
-#endif // GMP_STORAGE_h_
+#endif  // GMP_STORAGE_h_

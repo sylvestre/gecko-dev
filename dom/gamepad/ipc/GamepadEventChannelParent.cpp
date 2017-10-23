@@ -19,32 +19,32 @@ class SendGamepadUpdateRunnable final : public Runnable
   ~SendGamepadUpdateRunnable() {}
   RefPtr<GamepadEventChannelParent> mParent;
   GamepadChangeEvent mEvent;
+
  public:
-   SendGamepadUpdateRunnable(GamepadEventChannelParent* aParent,
-                             GamepadChangeEvent aEvent)
-     : Runnable("dom::SendGamepadUpdateRunnable")
-     , mEvent(aEvent)
-   {
-     MOZ_ASSERT(aParent);
-     mParent = aParent;
+  SendGamepadUpdateRunnable(GamepadEventChannelParent* aParent,
+                            GamepadChangeEvent aEvent)
+      : Runnable("dom::SendGamepadUpdateRunnable"), mEvent(aEvent)
+  {
+    MOZ_ASSERT(aParent);
+    mParent = aParent;
   }
   NS_IMETHOD Run() override
   {
     AssertIsOnBackgroundThread();
-    if(mParent->HasGamepadListener()) {
+    if (mParent->HasGamepadListener()) {
       Unused << mParent->SendGamepadUpdate(mEvent);
     }
     return NS_OK;
   }
 };
 
-} // namespace
+}  // namespace
 
 GamepadEventChannelParent::GamepadEventChannelParent()
-  : mHasGamepadListener(false)
+    : mHasGamepadListener(false)
 {
   RefPtr<GamepadPlatformService> service =
-    GamepadPlatformService::GetParentService();
+      GamepadPlatformService::GetParentService();
   MOZ_ASSERT(service);
 
   mBackgroundEventTarget = GetCurrentThreadEventTarget();
@@ -68,7 +68,7 @@ GamepadEventChannelParent::RecvGamepadListenerRemoved()
   MOZ_ASSERT(mHasGamepadListener);
   mHasGamepadListener = false;
   RefPtr<GamepadPlatformService> service =
-    GamepadPlatformService::GetParentService();
+      GamepadPlatformService::GetParentService();
   MOZ_ASSERT(service);
   service->RemoveChannelParent(this);
   Unused << Send__delete__(this);
@@ -77,10 +77,10 @@ GamepadEventChannelParent::RecvGamepadListenerRemoved()
 
 mozilla::ipc::IPCResult
 GamepadEventChannelParent::RecvVibrateHaptic(const uint32_t& aControllerIdx,
-                                   const uint32_t& aHapticIndex,
-                                   const double& aIntensity,
-                                   const double& aDuration,
-                                   const uint32_t& aPromiseID)
+                                             const uint32_t& aHapticIndex,
+                                             const double& aIntensity,
+                                             const double& aDuration,
+                                             const uint32_t& aPromiseID)
 {
   // TODO: Bug 680289, implement for standard gamepads
 
@@ -108,7 +108,7 @@ GamepadEventChannelParent::ActorDestroy(ActorDestroyReason aWhy)
   if (mHasGamepadListener) {
     mHasGamepadListener = false;
     RefPtr<GamepadPlatformService> service =
-      GamepadPlatformService::GetParentService();
+        GamepadPlatformService::GetParentService();
     MOZ_ASSERT(service);
     service->RemoveChannelParent(this);
   }
@@ -122,5 +122,5 @@ GamepadEventChannelParent::DispatchUpdateEvent(const GamepadChangeEvent& aEvent)
                                    NS_DISPATCH_NORMAL);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

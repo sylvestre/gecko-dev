@@ -27,15 +27,9 @@ class EventStateManager;
 
 struct DeltaValues
 {
-  DeltaValues()
-    : deltaX(0.0)
-    , deltaY(0.0)
-  {
-  }
+  DeltaValues() : deltaX(0.0), deltaY(0.0) {}
 
-  DeltaValues(double aDeltaX, double aDeltaY)
-    : deltaX(aDeltaX)
-    , deltaY(aDeltaY)
+  DeltaValues(double aDeltaX, double aDeltaY) : deltaX(aDeltaX), deltaY(aDeltaY)
   {
   }
 
@@ -52,7 +46,7 @@ struct DeltaValues
 
 class WheelHandlingUtils
 {
-public:
+ public:
   /**
    * Returns true if aFrame is a scrollable frame and it can be scrolled to
    * either aDirectionX or aDirectionY along each axis.  Or if aFrame is a
@@ -60,16 +54,20 @@ public:
    * Otherwise, false.
    */
   static bool CanScrollOn(nsIFrame* aFrame,
-                          double aDirectionX, double aDirectionY);
+                          double aDirectionX,
+                          double aDirectionY);
   /**
    * Returns true if the scrollable frame can be scrolled to either aDirectionX
    * or aDirectionY along each axis.  Otherwise, false.
    */
   static bool CanScrollOn(nsIScrollableFrame* aScrollFrame,
-                          double aDirectionX, double aDirectionY);
+                          double aDirectionX,
+                          double aDirectionY);
 
-private:
-  static bool CanScrollInRange(nscoord aMin, nscoord aValue, nscoord aMax,
+ private:
+  static bool CanScrollInRange(nscoord aMin,
+                               nscoord aValue,
+                               nscoord aMax,
                                double aDirection);
 };
 
@@ -82,7 +80,7 @@ private:
 
 class ScrollbarsForWheel
 {
-public:
+ public:
   static void PrepareToScrollText(EventStateManager* aESM,
                                   nsIFrame* aTargetFrame,
                                   WidgetWheelEvent* aEvent);
@@ -93,7 +91,7 @@ public:
   static bool IsActive();
   static void OwnWheelTransaction(bool aOwn);
 
-protected:
+ protected:
   static const size_t kNumberOfTargets = 4;
   static const DeltaValues directions[kNumberOfTargets];
   static AutoWeakFrame sActiveOwner;
@@ -101,15 +99,14 @@ protected:
   static bool sHadWheelStart;
   static bool sOwnWheelTransaction;
 
-
   /**
    * These two methods are called upon eWheelOperationStart/eWheelOperationEnd
    * events to show/hide the right scrollbars.
    */
   static void TemporarilyActivateAllPossibleScrollTargets(
-                EventStateManager* aESM,
-                nsIFrame* aTargetFrame,
-                WidgetWheelEvent* aEvent);
+      EventStateManager* aESM,
+      nsIFrame* aTargetFrame,
+      WidgetWheelEvent* aEvent);
   static void DeactivateAllTemporarilyActivatedScrollTargets();
 };
 
@@ -123,7 +120,7 @@ protected:
 
 class WheelTransaction
 {
-public:
+ public:
   static nsIFrame* GetTargetFrame() { return sTargetFrame; }
   static void EndTransaction();
   /**
@@ -152,12 +149,9 @@ public:
 
   static DeltaValues AccelerateWheelDelta(WidgetWheelEvent* aEvent,
                                           bool aAllowScrollSpeedOverride);
-  static void InitializeStatics()
-  {
-    Prefs::InitializeStatics();
-  }
+  static void InitializeStatics() { Prefs::InitializeStatics(); }
 
-protected:
+ protected:
   static void BeginTransaction(nsIFrame* aTargetFrame,
                                WidgetWheelEvent* aEvent);
   // Be careful, UpdateTransaction may fire a DOM event, therefore, the target
@@ -186,15 +180,15 @@ protected:
   static bool OutOfTime(uint32_t aBaseTime, uint32_t aThreshold);
 
   static AutoWeakFrame sTargetFrame;
-  static uint32_t sTime; // in milliseconds
-  static uint32_t sMouseMoved; // in milliseconds
+  static uint32_t sTime;        // in milliseconds
+  static uint32_t sMouseMoved;  // in milliseconds
   static nsITimer* sTimer;
   static int32_t sScrollSeriesCounter;
   static bool sOwnScrollbars;
 
   class Prefs
   {
-  public:
+   public:
     static void InitializeStatics();
     static int32_t sMouseWheelAccelerationStart;
     static int32_t sMouseWheelAccelerationFactor;
@@ -212,7 +206,7 @@ protected:
  */
 class MOZ_STACK_CLASS AutoWheelDeltaAdjuster final
 {
-public:
+ public:
   /**
    * @param aWheelEvent        A wheel event.  The delta values may be
    *                           modified for default handler.
@@ -224,7 +218,7 @@ public:
   explicit AutoWheelDeltaAdjuster(WidgetWheelEvent& aWheelEvent);
   ~AutoWheelDeltaAdjuster();
 
-private:
+ private:
   WidgetWheelEvent& mWheelEvent;
   double mOldDeltaX;
   double mOldDeltaZ;
@@ -233,6 +227,6 @@ private:
   bool mTreatedVerticalWheelAsHorizontalScroll;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_WheelHandlingHelper_h_
+#endif  // mozilla_WheelHandlingHelper_h_

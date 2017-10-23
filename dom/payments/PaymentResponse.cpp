@@ -13,8 +13,10 @@
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PaymentResponse, mOwner,
-                                      mShippingAddress, mPromise)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PaymentResponse,
+                                      mOwner,
+                                      mShippingAddress,
+                                      mPromise)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(PaymentResponse)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(PaymentResponse)
@@ -34,26 +36,23 @@ PaymentResponse::PaymentResponse(nsPIDOMWindowInner* aWindow,
                                  const nsAString& aPayerName,
                                  const nsAString& aPayerEmail,
                                  const nsAString& aPayerPhone)
-  : mOwner(aWindow)
-  , mCompleteCalled(false)
-  , mInternalId(aInternalId)
-  , mRequestId(aRequestId)
-  , mMethodName(aMethodName)
-  , mDetails(aDetails)
-  , mShippingOption(aShippingOption)
-  , mPayerName(aPayerName)
-  , mPayerEmail(aPayerEmail)
-  , mPayerPhone(aPayerPhone)
-  , mShippingAddress(aShippingAddress)
+    : mOwner(aWindow),
+      mCompleteCalled(false),
+      mInternalId(aInternalId),
+      mRequestId(aRequestId),
+      mMethodName(aMethodName),
+      mDetails(aDetails),
+      mShippingOption(aShippingOption),
+      mPayerName(aPayerName),
+      mPayerEmail(aPayerEmail),
+      mPayerPhone(aPayerPhone),
+      mShippingAddress(aShippingAddress)
 {
-
   // TODO: from https://github.com/w3c/browser-payment-api/issues/480
   // Add payerGivenName + payerFamilyName to PaymentAddress
 }
 
-PaymentResponse::~PaymentResponse()
-{
-}
+PaymentResponse::~PaymentResponse() {}
 
 JSObject*
 PaymentResponse::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -74,7 +73,8 @@ PaymentResponse::GetMethodName(nsString& aRetVal) const
 }
 
 void
-PaymentResponse::GetDetails(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal) const
+PaymentResponse::GetDetails(JSContext* aCx,
+                            JS::MutableHandle<JSObject*> aRetVal) const
 {
   RefPtr<BasicCardService> service = BasicCardService::GetService();
   MOZ_ASSERT(service);
@@ -108,12 +108,14 @@ PaymentResponse::GetPayerName(nsString& aRetVal) const
   aRetVal = mPayerName;
 }
 
-void PaymentResponse::GetPayerEmail(nsString& aRetVal) const
+void
+PaymentResponse::GetPayerEmail(nsString& aRetVal) const
 {
   aRetVal = mPayerEmail;
 }
 
-void PaymentResponse::GetPayerPhone(nsString& aRetVal) const
+void
+PaymentResponse::GetPayerPhone(nsString& aRetVal) const
 {
   aRetVal = mPayerPhone;
 }
@@ -170,5 +172,5 @@ PaymentResponse::RespondComplete()
   mPromise = nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

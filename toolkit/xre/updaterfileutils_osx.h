@@ -7,7 +7,8 @@
 #define updaterfileutils_osx_h_
 
 extern "C" {
-  bool IsRecursivelyWritable(const char* aPath);
+bool
+IsRecursivelyWritable(const char* aPath);
 }
 
 #endif

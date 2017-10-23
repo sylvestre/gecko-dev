@@ -30,13 +30,16 @@ class PseudoStack;
 
 namespace mozilla {
 
-typedef PseudoStack* (*ProfilerLabelEnter)(const char*, const char*, void*,
+typedef PseudoStack* (*ProfilerLabelEnter)(const char*,
+                                           const char*,
+                                           void*,
                                            uint32_t);
 typedef void (*ProfilerLabelExit)(PseudoStack*);
 
 // Register callbacks that do the entry/exit work involving sPseudoStack.
-MFBT_API void RegisterProfilerLabelEnterExit(ProfilerLabelEnter aEnter,
-                                             ProfilerLabelExit aExit);
+MFBT_API void
+RegisterProfilerLabelEnterExit(ProfilerLabelEnter aEnter,
+                               ProfilerLabelExit aExit);
 
 // This #ifdef prevents this AutoProfilerLabel from being defined in libxul,
 // which would conflict with the one in the profiler.
@@ -44,19 +47,19 @@ MFBT_API void RegisterProfilerLabelEnterExit(ProfilerLabelEnter aEnter,
 
 class MOZ_RAII AutoProfilerLabel
 {
-public:
-  AutoProfilerLabel(const char* aLabel, const char* aDynamicString,
-                    uint32_t aLine
-                    MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+ public:
+  AutoProfilerLabel(const char* aLabel,
+                    const char* aDynamicString,
+                    uint32_t aLine MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
   ~AutoProfilerLabel();
 
-private:
+ private:
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
   PseudoStack* mPseudoStack;
 };
 
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AutoProfilerLabel_h
+#endif  // mozilla_AutoProfilerLabel_h

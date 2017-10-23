@@ -16,16 +16,14 @@ namespace dom {
 
 class HTMLModElement final : public nsGenericHTMLElement
 {
-public:
+ public:
   explicit HTMLModElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
-  void GetCite(nsString& aCite)
-  {
-    GetHTMLURIAttr(nsGkAtoms::cite, aCite);
-  }
+  void GetCite(nsString& aCite) { GetHTMLURIAttr(nsGkAtoms::cite, aCite); }
   void SetCite(const nsAString& aCite, ErrorResult& aRv)
   {
     SetHTMLAttr(nsGkAtoms::cite, aCite, aRv);
@@ -39,13 +37,14 @@ public:
     SetHTMLAttr(nsGkAtoms::datetime, aDateTime, aRv);
   }
 
-protected:
+ protected:
   virtual ~HTMLModElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLModElement_h
+#endif  // mozilla_dom_HTMLModElement_h

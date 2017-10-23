@@ -13,8 +13,8 @@ namespace mozilla {
 namespace dom {
 namespace cache {
 
-using mozilla::dom::workers::Terminating;
 using mozilla::dom::workers::Status;
+using mozilla::dom::workers::Terminating;
 using mozilla::dom::workers::WorkerPrivate;
 
 // static
@@ -116,8 +116,7 @@ CacheWorkerHolder::Notify(Status aStatus)
 }
 
 CacheWorkerHolder::CacheWorkerHolder(Behavior aBehavior)
-  : WorkerHolder(aBehavior)
-  , mNotified(false)
+    : WorkerHolder(aBehavior), mNotified(false)
 {
 }
 
@@ -127,6 +126,6 @@ CacheWorkerHolder::~CacheWorkerHolder()
   MOZ_DIAGNOSTIC_ASSERT(mActorList.IsEmpty());
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

@@ -25,8 +25,7 @@ struct ValuedOption;
 struct StringOption;
 struct IntOption;
 
-enum OptionKind
-{
+enum OptionKind {
     OptionKindBool,
     OptionKindString,
     OptionKindInt,
@@ -34,17 +33,19 @@ enum OptionKind
     OptionKindInvalid
 };
 
-struct Option
-{
+struct Option {
     const char* longflag;
     const char* help;
-    OptionKind  kind;
-    char        shortflag;
-    bool        terminatesOptions;
+    OptionKind kind;
+    char shortflag;
+    bool terminatesOptions;
 
     Option(OptionKind kind, char shortflag, const char* longflag, const char* help)
-      : longflag(longflag), help(help), kind(kind), shortflag(shortflag), terminatesOptions(false)
-    {}
+        : longflag(longflag),
+          help(help),
+          kind(kind),
+          shortflag(shortflag),
+          terminatesOptions(false) {}
 
     virtual ~Option() = 0;
 
@@ -71,8 +72,8 @@ struct Option
     ValuedOption* asValued();
     const ValuedOption* asValued() const;
 
-#define OPTION_CONVERT_DECL(__cls) \
-    bool is##__cls##Option() const; \
+#define OPTION_CONVERT_DECL(__cls)      \
+    bool is##__cls##Option() const;     \
     __cls##Option* as##__cls##Option(); \
     const __cls##Option* as##__cls##Option() const;
 
@@ -84,26 +85,22 @@ struct Option
 
 inline Option::~Option() {}
 
-struct BoolOption : public Option
-{
-    size_t  argno;
-    bool    value;
+struct BoolOption : public Option {
+    size_t argno;
+    bool value;
 
     BoolOption(char shortflag, const char* longflag, const char* help)
-      : Option(OptionKindBool, shortflag, longflag, help), value(false)
-    {}
+        : Option(OptionKindBool, shortflag, longflag, help), value(false) {}
 
     virtual ~BoolOption() {}
 };
 
-struct ValuedOption : public Option
-{
+struct ValuedOption : public Option {
     const char* metavar;
 
     ValuedOption(OptionKind kind, char shortflag, const char* longflag, const char* help,
                  const char* metavar)
-      : Option(kind, shortflag, longflag, help), metavar(metavar)
-    {}
+        : Option(kind, shortflag, longflag, help), metavar(metavar) {}
 
     virtual ~ValuedOption() = 0;
     virtual bool isValued() const { return true; }
@@ -111,44 +108,37 @@ struct ValuedOption : public Option
 
 inline ValuedOption::~ValuedOption() {}
 
-struct StringOption : public ValuedOption
-{
+struct StringOption : public ValuedOption {
     const char* value;
 
     StringOption(char shortflag, const char* longflag, const char* help, const char* metavar)
-      : ValuedOption(OptionKindString, shortflag, longflag, help, metavar), value(nullptr)
-    {}
+        : ValuedOption(OptionKindString, shortflag, longflag, help, metavar), value(nullptr) {}
 
     virtual ~StringOption() {}
 };
 
-struct IntOption : public ValuedOption
-{
+struct IntOption : public ValuedOption {
     int value;
 
     IntOption(char shortflag, const char* longflag, const char* help, const char* metavar,
               int defaultValue)
-      : ValuedOption(OptionKindInt, shortflag, longflag, help, metavar), value(defaultValue)
-    {}
+        : ValuedOption(OptionKindInt, shortflag, longflag, help, metavar), value(defaultValue) {}
 
     virtual ~IntOption() {}
 };
 
-struct StringArg
-{
-    char*   value;
-    size_t  argno;
+struct StringArg {
+    char* value;
+    size_t argno;
 
     StringArg(char* value, size_t argno) : value(value), argno(argno) {}
 };
 
-struct MultiStringOption : public ValuedOption
-{
+struct MultiStringOption : public ValuedOption {
     Vector<StringArg, 0, SystemAllocPolicy> strings;
 
     MultiStringOption(char shortflag, const char* longflag, const char* help, const char* metavar)
-      : ValuedOption(OptionKindMultiString, shortflag, longflag, help, metavar)
-    {}
+        : ValuedOption(OptionKindMultiString, shortflag, longflag, help, metavar) {}
 
     virtual ~MultiStringOption() {}
 
@@ -157,22 +147,29 @@ struct MultiStringOption : public ValuedOption
 
 } /* namespace detail */
 
-class MultiStringRange
-{
+class MultiStringRange {
     typedef detail::StringArg StringArg;
     const StringArg* cur;
     const StringArg* end;
 
-  public:
-    explicit MultiStringRange(const StringArg* cur, const StringArg* end)
-      : cur(cur), end(end) {
+   public:
+    explicit MultiStringRange(const StringArg* cur, const StringArg* end) : cur(cur), end(end) {
         MOZ_ASSERT(end - cur >= 0);
     }
 
     bool empty() const { return cur == end; }
-    void popFront() { MOZ_ASSERT(!empty()); ++cur; }
-    char* front() const { MOZ_ASSERT(!empty()); return cur->value; }
-    size_t argno() const { MOZ_ASSERT(!empty()); return cur->argno; }
+    void popFront() {
+        MOZ_ASSERT(!empty());
+        ++cur;
+    }
+    char* front() const {
+        MOZ_ASSERT(!empty());
+        return cur->value;
+    }
+    size_t argno() const {
+        MOZ_ASSERT(!empty());
+        return cur->argno;
+    }
 };
 
 /*
@@ -185,11 +182,9 @@ class MultiStringRange
  *   command line interface usage. Once one optional argument has been added,
  *   *only* optional arguments may be added.
  */
-class OptionParser
-{
-  public:
-    enum Result
-    {
+class OptionParser {
+   public:
+    enum Result {
         Okay = 0,
         Fail,       /* As in, allocation fail. */
         ParseError, /* Successfully parsed but with an error. */
@@ -197,26 +192,26 @@ class OptionParser
                      * for example with --help and --version. */
     };
 
-  private:
+   private:
     typedef Vector<detail::Option*, 0, SystemAllocPolicy> Options;
     typedef detail::Option Option;
     typedef detail::BoolOption BoolOption;
 
-    Options     options;
-    Options     arguments;
-    BoolOption  helpOption;
-    BoolOption  versionOption;
+    Options options;
+    Options arguments;
+    BoolOption helpOption;
+    BoolOption versionOption;
     const char* usage;
     const char* version;
     const char* descr;
-    size_t      descrWidth;
-    size_t      helpWidth;
-    size_t      nextArgument;
+    size_t descrWidth;
+    size_t helpWidth;
+    size_t nextArgument;
 
     // If '--' is passed, all remaining arguments should be interpreted as the
     // argument at index 'restArgument'. Defaults to the next unassigned
     // argument.
-    int         restArgument;
+    int restArgument;
 
     static const char prognameMeta[];
 
@@ -233,13 +228,17 @@ class OptionParser
     Result handleArg(size_t argc, char** argv, size_t* i, bool* optsAllowed);
     Result handleOption(Option* opt, size_t argc, char** argv, size_t* i, bool* optsAllowed);
 
-  public:
+   public:
     explicit OptionParser(const char* usage)
-      : helpOption('h', "help", "Display help information"),
-        versionOption('v', "version", "Display version information and exit"),
-        usage(usage), version(nullptr), descr(nullptr), descrWidth(80), helpWidth(80),
-        nextArgument(0), restArgument(-1)
-    {}
+        : helpOption('h', "help", "Display help information"),
+          versionOption('v', "version", "Display version information and exit"),
+          usage(usage),
+          version(nullptr),
+          descr(nullptr),
+          descrWidth(80),
+          helpWidth(80),
+          nextArgument(0),
+          restArgument(-1) {}
 
     ~OptionParser();
 
@@ -270,8 +269,8 @@ class OptionParser
     bool addBoolOption(char shortflag, const char* longflag, const char* help);
     bool addStringOption(char shortflag, const char* longflag, const char* help,
                          const char* metavar);
-    bool addIntOption(char shortflag, const char* longflag, const char* help,
-                      const char* metavar, int defaultValue);
+    bool addIntOption(char shortflag, const char* longflag, const char* help, const char* metavar,
+                      int defaultValue);
     bool addMultiStringOption(char shortflag, const char* longflag, const char* help,
                               const char* metavar);
     bool addOptionalVariadicArg(const char* name);

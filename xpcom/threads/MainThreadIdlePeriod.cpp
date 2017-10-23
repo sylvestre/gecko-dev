@@ -27,15 +27,16 @@ MainThreadIdlePeriod::GetIdlePeriodHint(TimeStamp* aIdleDeadline)
 
   TimeStamp now = TimeStamp::Now();
   TimeStamp currentGuess =
-    now + TimeDuration::FromMilliseconds(GetLongIdlePeriod());
+      now + TimeDuration::FromMilliseconds(GetLongIdlePeriod());
 
   currentGuess = nsRefreshDriver::GetIdleDeadlineHint(currentGuess);
-  currentGuess = NS_GetTimerDeadlineHintOnCurrentThread(currentGuess, GetMaxTimerThreadBound());
+  currentGuess = NS_GetTimerDeadlineHintOnCurrentThread(
+      currentGuess, GetMaxTimerThreadBound());
 
   // If the idle period is too small, then just return a null time
   // to indicate we are busy. Otherwise return the actual deadline.
   TimeDuration minIdlePeriod =
-    TimeDuration::FromMilliseconds(GetMinIdlePeriod());
+      TimeDuration::FromMilliseconds(GetMinIdlePeriod());
   bool busySoon = currentGuess.IsNull() ||
                   (now >= (currentGuess - minIdlePeriod)) ||
                   currentGuess < mLastIdleDeadline;
@@ -57,8 +58,8 @@ MainThreadIdlePeriod::GetLongIdlePeriod()
 
   if (!sInitialized && Preferences::IsServiceAvailable()) {
     sInitialized = true;
-    Preferences::AddFloatVarCache(&sLongIdlePeriod, "idle_queue.long_period",
-                                  DEFAULT_LONG_IDLE_PERIOD);
+    Preferences::AddFloatVarCache(
+        &sLongIdlePeriod, "idle_queue.long_period", DEFAULT_LONG_IDLE_PERIOD);
   }
 
   return sLongIdlePeriod;
@@ -74,8 +75,8 @@ MainThreadIdlePeriod::GetMinIdlePeriod()
 
   if (!sInitialized && Preferences::IsServiceAvailable()) {
     sInitialized = true;
-    Preferences::AddFloatVarCache(&sMinIdlePeriod, "idle_queue.min_period",
-                                  DEFAULT_MIN_IDLE_PERIOD);
+    Preferences::AddFloatVarCache(
+        &sMinIdlePeriod, "idle_queue.min_period", DEFAULT_MIN_IDLE_PERIOD);
   }
 
   return sMinIdlePeriod;
@@ -91,11 +92,12 @@ MainThreadIdlePeriod::GetMaxTimerThreadBound()
 
   if (!sInitialized && Preferences::IsServiceAvailable()) {
     sInitialized = true;
-    Preferences::AddUintVarCache(&sMaxTimerThreadBound, "idle_queue.max_timer_thread_bound",
+    Preferences::AddUintVarCache(&sMaxTimerThreadBound,
+                                 "idle_queue.max_timer_thread_bound",
                                  DEFAULT_MAX_TIMER_THREAD_BOUND);
   }
 
   return std::max(sMaxTimerThreadBound, kMaxTimerThreadBoundClamp);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -22,7 +22,7 @@
 
 class nsAppShell : public nsBaseAppShell
 {
-public:
+ public:
   NS_IMETHOD ResumeNative(void);
 
   nsAppShell();
@@ -38,7 +38,7 @@ public:
   static UIWindow* gWindow;
   static NSMutableArray* gTopLevelViews;
 
-protected:
+ protected:
   virtual ~nsAppShell();
 
   static void ProcessGeckoEvents(void* aInfo);
@@ -46,12 +46,12 @@ protected:
   virtual bool ProcessNextNativeEvent(bool aMayWait);
 
   NSAutoreleasePool* mAutoreleasePool;
-  AppShellDelegate*  mDelegate;
-  CFRunLoopRef       mCFRunLoop;
+  AppShellDelegate* mDelegate;
+  CFRunLoopRef mCFRunLoop;
   CFRunLoopSourceRef mCFRunLoopSource;
 
-  bool               mTerminated;
-  bool               mNotifiedWillTerminate;
+  bool mTerminated;
+  bool mNotifiedWillTerminate;
 };
 
-#endif // nsAppShell_h_
+#endif  // nsAppShell_h_

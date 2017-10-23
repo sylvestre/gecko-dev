@@ -9,8 +9,8 @@
 #include "ipc/VRLayerParent.h"
 #include "mozilla/gfx/PVRManagerParent.h"
 #include "mozilla/ipc/ProtocolTypes.h"
-#include "mozilla/ipc/ProtocolUtils.h"       // for IToplevelProtocol
-#include "mozilla/TimeStamp.h"               // for TimeStamp
+#include "mozilla/ipc/ProtocolUtils.h"  // for IToplevelProtocol
+#include "mozilla/TimeStamp.h"          // for TimeStamp
 #include "mozilla/Unused.h"
 #include "VRManager.h"
 #include "VRThread.h"
@@ -20,12 +20,13 @@ namespace mozilla {
 using namespace layers;
 namespace gfx {
 
-VRManagerParent::VRManagerParent(ProcessId aChildProcessId, bool aIsContentChild)
-  : mDisplayTestID(0)
-  , mControllerTestID(0)
-  , mHaveEventListener(false)
-  , mHaveControllerListener(false)
-  , mIsContentChild(aIsContentChild)
+VRManagerParent::VRManagerParent(ProcessId aChildProcessId,
+                                 bool aIsContentChild)
+    : mDisplayTestID(0),
+      mControllerTestID(0),
+      mHaveEventListener(false),
+      mHaveControllerListener(false),
+      mIsContentChild(aIsContentChild)
 {
   MOZ_COUNT_CTOR(VRManagerParent);
   MOZ_ASSERT(NS_IsMainThread());
@@ -45,8 +46,7 @@ VRManagerParent::AllocPVRLayerParent(const uint32_t& aDisplayID,
                                      const uint32_t& aGroup)
 {
   RefPtr<VRLayerParent> layer;
-  layer = new VRLayerParent(aDisplayID,
-                            aGroup);
+  layer = new VRLayerParent(aDisplayID, aGroup);
   VRManager* vm = VRManager::Get();
   RefPtr<gfx::VRDisplayHost> display = vm->GetDisplay(aDisplayID);
   if (display) {
@@ -91,10 +91,10 @@ VRManagerParent::CreateForContent(Endpoint<PVRManagerParent>&& aEndpoint)
 
   RefPtr<VRManagerParent> vmp = new VRManagerParent(aEndpoint.OtherPid(), true);
   loop->PostTask(NewRunnableMethod<Endpoint<PVRManagerParent>&&>(
-    "gfx::VRManagerParent::Bind",
-    vmp,
-    &VRManagerParent::Bind,
-    Move(aEndpoint)));
+      "gfx::VRManagerParent::Bind",
+      vmp,
+      &VRManagerParent::Bind,
+      Move(aEndpoint)));
 
   return true;
 }
@@ -111,7 +111,8 @@ VRManagerParent::Bind(Endpoint<PVRManagerParent>&& aEndpoint)
 }
 
 /*static*/ void
-VRManagerParent::RegisterVRManagerInVRListenerThread(VRManagerParent* aVRManager)
+VRManagerParent::RegisterVRManagerInVRListenerThread(
+    VRManagerParent* aVRManager)
 {
   aVRManager->RegisterWithManager();
 }
@@ -120,10 +121,12 @@ VRManagerParent::RegisterVRManagerInVRListenerThread(VRManagerParent* aVRManager
 VRManagerParent::CreateSameProcess()
 {
   MessageLoop* loop = VRListenerThreadHolder::Loop();
-  RefPtr<VRManagerParent> vmp = new VRManagerParent(base::GetCurrentProcId(), false);
+  RefPtr<VRManagerParent> vmp =
+      new VRManagerParent(base::GetCurrentProcId(), false);
   vmp->mVRListenerThreadHolder = VRListenerThreadHolder::GetSingleton();
   vmp->mSelfRef = vmp;
-  loop->PostTask(NewRunnableFunction(RegisterVRManagerInVRListenerThread, vmp.get()));
+  loop->PostTask(
+      NewRunnableFunction(RegisterVRManagerInVRListenerThread, vmp.get()));
   return vmp.get();
 }
 
@@ -132,13 +135,14 @@ VRManagerParent::CreateForGPUProcess(Endpoint<PVRManagerParent>&& aEndpoint)
 {
   MessageLoop* loop = VRListenerThreadHolder::Loop();
 
-  RefPtr<VRManagerParent> vmp = new VRManagerParent(aEndpoint.OtherPid(), false);
+  RefPtr<VRManagerParent> vmp =
+      new VRManagerParent(aEndpoint.OtherPid(), false);
   vmp->mVRListenerThreadHolder = VRListenerThreadHolder::GetSingleton();
   loop->PostTask(NewRunnableMethod<Endpoint<PVRManagerParent>&&>(
-    "gfx::VRManagerParent::Bind",
-    vmp,
-    &VRManagerParent::Bind,
-    Move(aEndpoint)));
+      "gfx::VRManagerParent::Bind",
+      vmp,
+      &VRManagerParent::Bind,
+      Move(aEndpoint)));
   return true;
 }
 
@@ -154,9 +158,9 @@ VRManagerParent::ActorDestroy(ActorDestroyReason why)
 {
   UnregisterFromManager();
   MessageLoop::current()->PostTask(
-    NewRunnableMethod("gfx::VRManagerParent::DeferredDestroy",
-                      this,
-                      &VRManagerParent::DeferredDestroy));
+      NewRunnableMethod("gfx::VRManagerParent::DeferredDestroy",
+                        this,
+                        &VRManagerParent::DeferredDestroy));
 }
 
 void
@@ -194,7 +198,8 @@ VRManagerParent::RecvResetSensor(const uint32_t& aDisplayID)
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvSetGroupMask(const uint32_t& aDisplayID, const uint32_t& aGroupMask)
+VRManagerParent::RecvSetGroupMask(const uint32_t& aDisplayID,
+                                  const uint32_t& aGroupMask)
 {
   VRManager* vm = VRManager::Get();
   RefPtr<gfx::VRDisplayHost> display = vm->GetDisplay(aDisplayID);
@@ -254,7 +259,8 @@ VRManagerParent::RecvCreateVRTestSystem()
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvCreateVRServiceTestDisplay(const nsCString& aID, const uint32_t& aPromiseID)
+VRManagerParent::RecvCreateVRServiceTestDisplay(const nsCString& aID,
+                                                const uint32_t& aPromiseID)
 {
   nsTArray<VRDisplayInfo> displayInfoArray;
   impl::VRDisplayPuppet* displayPuppet = nullptr;
@@ -265,14 +271,15 @@ VRManagerParent::RecvCreateVRServiceTestDisplay(const nsCString& aID, const uint
   vm->GetVRDisplayInfo(displayInfoArray);
   for (auto& displayInfo : displayInfoArray) {
     if (displayInfo.GetType() == VRDeviceType::Puppet) {
-        displayPuppet = static_cast<impl::VRDisplayPuppet*>(
-                        vm->GetDisplay(displayInfo.GetDisplayID()).get());
-        break;
+      displayPuppet = static_cast<impl::VRDisplayPuppet*>(
+          vm->GetDisplay(displayInfo.GetDisplayID()).get());
+      break;
     }
   }
 
   MOZ_ASSERT(displayPuppet);
-  MOZ_ASSERT(!mDisplayTestID); // We have only one display in VRSystemManagerPuppet.
+  MOZ_ASSERT(
+      !mDisplayTestID);  // We have only one display in VRSystemManagerPuppet.
 
   if (!mVRDisplayTests.Get(mDisplayTestID, nullptr)) {
     mVRDisplayTests.Put(mDisplayTestID, displayPuppet);
@@ -286,7 +293,8 @@ VRManagerParent::RecvCreateVRServiceTestDisplay(const nsCString& aID, const uint
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvCreateVRServiceTestController(const nsCString& aID, const uint32_t& aPromiseID)
+VRManagerParent::RecvCreateVRServiceTestController(const nsCString& aID,
+                                                   const uint32_t& aPromiseID)
 {
   uint32_t controllerIdx = 0;
   nsTArray<VRControllerInfo> controllerInfoArray;
@@ -303,7 +311,7 @@ VRManagerParent::RecvCreateVRServiceTestController(const nsCString& aID, const u
     if (controllerInfo.GetType() == VRDeviceType::Puppet) {
       if (controllerIdx == mControllerTestID) {
         controllerPuppet = static_cast<impl::VRControllerPuppet*>(
-                           vm->GetController(controllerInfo.GetControllerID()).get());
+            vm->GetController(controllerInfo.GetControllerID()).get());
         break;
       }
       ++controllerIdx;
@@ -311,13 +319,15 @@ VRManagerParent::RecvCreateVRServiceTestController(const nsCString& aID, const u
   }
 
   MOZ_ASSERT(controllerPuppet);
-  MOZ_ASSERT(mControllerTestID < 2); // We have only two controllers in VRSystemManagerPuppet.
+  MOZ_ASSERT(mControllerTestID <
+             2);  // We have only two controllers in VRSystemManagerPuppet.
 
   if (!mVRControllerTests.Get(mControllerTestID, nullptr)) {
     mVRControllerTests.Put(mControllerTestID, controllerPuppet);
   }
 
-  if (SendReplyCreateVRServiceTestController(aID, aPromiseID, mControllerTestID)) {
+  if (SendReplyCreateVRServiceTestController(
+          aID, aPromiseID, mControllerTestID)) {
     ++mControllerTestID;
     return IPC_OK();
   }
@@ -326,48 +336,46 @@ VRManagerParent::RecvCreateVRServiceTestController(const nsCString& aID, const u
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvSetDisplayInfoToMockDisplay(const uint32_t& aDeviceID,
-                                                 const VRDisplayInfo& aDisplayInfo)
+VRManagerParent::RecvSetDisplayInfoToMockDisplay(
+    const uint32_t& aDeviceID, const VRDisplayInfo& aDisplayInfo)
 {
   RefPtr<impl::VRDisplayPuppet> displayPuppet;
-  mVRDisplayTests.Get(aDeviceID,
-                      getter_AddRefs(displayPuppet));
+  mVRDisplayTests.Get(aDeviceID, getter_AddRefs(displayPuppet));
   MOZ_ASSERT(displayPuppet);
   displayPuppet->SetDisplayInfo(aDisplayInfo);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvSetSensorStateToMockDisplay(const uint32_t& aDeviceID,
-                                                 const VRHMDSensorState& aSensorState)
+VRManagerParent::RecvSetSensorStateToMockDisplay(
+    const uint32_t& aDeviceID, const VRHMDSensorState& aSensorState)
 {
   RefPtr<impl::VRDisplayPuppet> displayPuppet;
-  mVRDisplayTests.Get(aDeviceID,
-                      getter_AddRefs(displayPuppet));
+  mVRDisplayTests.Get(aDeviceID, getter_AddRefs(displayPuppet));
   MOZ_ASSERT(displayPuppet);
   displayPuppet->SetSensorState(aSensorState);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvNewButtonEventToMockController(const uint32_t& aDeviceID, const long& aButton,
+VRManagerParent::RecvNewButtonEventToMockController(const uint32_t& aDeviceID,
+                                                    const long& aButton,
                                                     const bool& aPressed)
 {
   RefPtr<impl::VRControllerPuppet> controllerPuppet;
-  mVRControllerTests.Get(aDeviceID,
-                         getter_AddRefs(controllerPuppet));
+  mVRControllerTests.Get(aDeviceID, getter_AddRefs(controllerPuppet));
   MOZ_ASSERT(controllerPuppet);
   controllerPuppet->SetButtonPressState(aButton, aPressed);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-VRManagerParent::RecvNewAxisMoveEventToMockController(const uint32_t& aDeviceID, const long& aAxis,
+VRManagerParent::RecvNewAxisMoveEventToMockController(const uint32_t& aDeviceID,
+                                                      const long& aAxis,
                                                       const double& aValue)
 {
   RefPtr<impl::VRControllerPuppet> controllerPuppet;
-  mVRControllerTests.Get(aDeviceID,
-                         getter_AddRefs(controllerPuppet));
+  mVRControllerTests.Get(aDeviceID, getter_AddRefs(controllerPuppet));
   MOZ_ASSERT(controllerPuppet);
   controllerPuppet->SetAxisMoveState(aAxis, aValue);
   return IPC_OK();
@@ -378,8 +386,7 @@ VRManagerParent::RecvNewPoseMoveToMockController(const uint32_t& aDeviceID,
                                                  const GamepadPoseState& pose)
 {
   RefPtr<impl::VRControllerPuppet> controllerPuppet;
-  mVRControllerTests.Get(aDeviceID,
-                         getter_AddRefs(controllerPuppet));
+  mVRControllerTests.Get(aDeviceID, getter_AddRefs(controllerPuppet));
   MOZ_ASSERT(controllerPuppet);
   controllerPuppet->SetPoseMoveState(pose);
   return IPC_OK();
@@ -393,8 +400,8 @@ VRManagerParent::RecvVibrateHaptic(const uint32_t& aControllerIdx,
                                    const uint32_t& aPromiseID)
 {
   VRManager* vm = VRManager::Get();
-  vm->VibrateHaptic(aControllerIdx, aHapticIndex, aIntensity,
-                    aDuration, aPromiseID);
+  vm->VibrateHaptic(
+      aControllerIdx, aHapticIndex, aIntensity, aDuration, aPromiseID);
   return IPC_OK();
 }
 
@@ -411,8 +418,7 @@ VRManagerParent::SendGamepadUpdate(const GamepadChangeEvent& aGamepadEvent)
 {
   // GamepadManager only exists at the content process
   // or the same process in non-e10s mode.
-  if (mHaveControllerListener &&
-      (mIsContentChild || IsSameProcess())) {
+  if (mHaveControllerListener && (mIsContentChild || IsSameProcess())) {
     return PVRManagerParent::SendGamepadUpdate(aGamepadEvent);
   } else {
     return true;
@@ -424,13 +430,12 @@ VRManagerParent::SendReplyGamepadVibrateHaptic(const uint32_t& aPromiseID)
 {
   // GamepadManager only exists at the content process
   // or the same process in non-e10s mode.
-  if (mHaveControllerListener &&
-      (mIsContentChild || IsSameProcess())) {
+  if (mHaveControllerListener && (mIsContentChild || IsSameProcess())) {
     return PVRManagerParent::SendReplyGamepadVibrateHaptic(aPromiseID);
   } else {
     return true;
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -20,8 +20,7 @@ namespace dom {
 
 class nsFakeSynthServices : public nsIObserver
 {
-
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -33,8 +32,7 @@ public:
 
   static void Shutdown();
 
-private:
-
+ private:
   virtual ~nsFakeSynthServices();
 
   void Init();
@@ -46,7 +44,7 @@ private:
   static StaticRefPtr<nsFakeSynthServices> sSingleton;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

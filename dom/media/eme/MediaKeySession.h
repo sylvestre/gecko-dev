@@ -38,11 +38,11 @@ ToString(MediaKeySessionType aType);
 
 class MediaKeySession final : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MediaKeySession,
                                            DOMEventTargetHelper)
-public:
+ public:
   MediaKeySession(JSContext* aCx,
                   nsPIDOMWindowInner* aParent,
                   MediaKeys* aKeys,
@@ -52,7 +52,8 @@ public:
 
   void SetSessionId(const nsAString& aSessionId);
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
 
   // Mark this as resultNotAddRefed to return raw pointers
   MediaKeyError* GetError() const;
@@ -70,12 +71,12 @@ public:
 
   Promise* Closed() const;
 
-  already_AddRefed<Promise> GenerateRequest(const nsAString& aInitDataType,
-                                            const ArrayBufferViewOrArrayBuffer& aInitData,
-                                            ErrorResult& aRv);
+  already_AddRefed<Promise> GenerateRequest(
+      const nsAString& aInitDataType,
+      const ArrayBufferViewOrArrayBuffer& aInitData,
+      ErrorResult& aRv);
 
-  already_AddRefed<Promise> Load(const nsAString& aSessionId,
-                                 ErrorResult& aRv);
+  already_AddRefed<Promise> Load(const nsAString& aSessionId, ErrorResult& aRv);
 
   already_AddRefed<Promise> Update(const ArrayBufferViewOrArrayBuffer& response,
                                    ErrorResult& aRv);
@@ -106,12 +107,13 @@ public:
   // Process-unique identifier.
   uint32_t Token() const;
 
-private:
+ private:
   ~MediaKeySession();
 
   void UpdateKeyStatusMap();
 
-  bool IsCallable() const {
+  bool IsCallable() const
+  {
     // The EME spec sets the "callable value" to true whenever the CDM sets
     // the sessionId. When the session is initialized, sessionId is empty and
     // callable is thus false.
@@ -135,7 +137,7 @@ private:
   double mExpiration;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

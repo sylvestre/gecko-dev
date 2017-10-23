@@ -22,7 +22,8 @@ using namespace mozilla;
 // defined in osx_corewlan.mm
 // basically replaces accesspoints in the passed reference
 // it lives in a separate file so that we can use objective c.
-extern nsresult GetAccessPointsFromWLAN(nsCOMArray<nsWifiAccessPoint> &accessPoints);
+extern nsresult
+GetAccessPointsFromWLAN(nsCOMArray<nsWifiAccessPoint>& accessPoints);
 
 nsresult
 nsWifiMonitor::DoScan()
@@ -34,10 +35,10 @@ nsWifiMonitor::DoScan()
 
   do {
     nsresult rv = GetAccessPointsFromWLAN(accessPoints);
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
 
-    bool accessPointsChanged = !AccessPointsEqual(accessPoints, lastAccessPoints);
+    bool accessPointsChanged =
+        !AccessPointsEqual(accessPoints, lastAccessPoints);
     ReplaceArray(lastAccessPoints, accessPoints);
 
     rv = CallWifiListeners(lastAccessPoints, accessPointsChanged);
@@ -48,8 +49,7 @@ nsWifiMonitor::DoScan()
 
     ReentrantMonitorAutoEnter mon(mReentrantMonitor);
     mon.Wait(PR_SecondsToInterval(kDefaultWifiScanInterval));
-  }
-  while (mKeepGoing);
+  } while (mKeepGoing);
 
   return NS_OK;
 }

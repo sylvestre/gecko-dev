@@ -12,25 +12,27 @@ namespace mozilla {
 namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(FileSystemRootDirectoryEntry,
-                                   FileSystemDirectoryEntry, mEntries)
+                                   FileSystemDirectoryEntry,
+                                   mEntries)
 
 NS_IMPL_ADDREF_INHERITED(FileSystemRootDirectoryEntry, FileSystemDirectoryEntry)
-NS_IMPL_RELEASE_INHERITED(FileSystemRootDirectoryEntry, FileSystemDirectoryEntry)
+NS_IMPL_RELEASE_INHERITED(FileSystemRootDirectoryEntry,
+                          FileSystemDirectoryEntry)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FileSystemRootDirectoryEntry)
 NS_INTERFACE_MAP_END_INHERITING(FileSystemDirectoryEntry)
 
-FileSystemRootDirectoryEntry::FileSystemRootDirectoryEntry(nsIGlobalObject* aGlobal,
-                                                           const Sequence<RefPtr<FileSystemEntry>>& aEntries,
-                                                           FileSystem* aFileSystem)
-  : FileSystemDirectoryEntry(aGlobal, nullptr, nullptr, aFileSystem)
-  , mEntries(aEntries)
+FileSystemRootDirectoryEntry::FileSystemRootDirectoryEntry(
+    nsIGlobalObject* aGlobal,
+    const Sequence<RefPtr<FileSystemEntry>>& aEntries,
+    FileSystem* aFileSystem)
+    : FileSystemDirectoryEntry(aGlobal, nullptr, nullptr, aFileSystem),
+      mEntries(aEntries)
 {
   MOZ_ASSERT(aGlobal);
 }
 
-FileSystemRootDirectoryEntry::~FileSystemRootDirectoryEntry()
-{}
+FileSystemRootDirectoryEntry::~FileSystemRootDirectoryEntry() {}
 
 void
 FileSystemRootDirectoryEntry::GetName(nsAString& aName, ErrorResult& aRv) const
@@ -39,7 +41,8 @@ FileSystemRootDirectoryEntry::GetName(nsAString& aName, ErrorResult& aRv) const
 }
 
 void
-FileSystemRootDirectoryEntry::GetFullPath(nsAString& aPath, ErrorResult& aRv) const
+FileSystemRootDirectoryEntry::GetFullPath(nsAString& aPath,
+                                          ErrorResult& aRv) const
 {
   aPath.AssignLiteral(FILESYSTEM_DOM_PATH_SEPARATOR_LITERAL);
 }
@@ -48,31 +51,32 @@ already_AddRefed<FileSystemDirectoryReader>
 FileSystemRootDirectoryEntry::CreateReader()
 {
   RefPtr<FileSystemDirectoryReader> reader =
-    new FileSystemRootDirectoryReader(this, Filesystem(), mEntries);
+      new FileSystemRootDirectoryReader(this, Filesystem(), mEntries);
   return reader.forget();
 }
 
 void
-FileSystemRootDirectoryEntry::GetInternal(const nsAString& aPath,
-                                          const FileSystemFlags& aFlag,
-                                          const Optional<OwningNonNull<FileSystemEntryCallback>>& aSuccessCallback,
-                                          const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
-                                          GetInternalType aType)
+FileSystemRootDirectoryEntry::GetInternal(
+    const nsAString& aPath,
+    const FileSystemFlags& aFlag,
+    const Optional<OwningNonNull<FileSystemEntryCallback>>& aSuccessCallback,
+    const Optional<OwningNonNull<ErrorCallback>>& aErrorCallback,
+    GetInternalType aType)
 {
   if (!aSuccessCallback.WasPassed() && !aErrorCallback.WasPassed()) {
     return;
   }
 
   if (aFlag.mCreate) {
-    ErrorCallbackHelper::Call(GetParentObject(), aErrorCallback,
-                              NS_ERROR_DOM_SECURITY_ERR);
+    ErrorCallbackHelper::Call(
+        GetParentObject(), aErrorCallback, NS_ERROR_DOM_SECURITY_ERR);
     return;
   }
 
   nsTArray<nsString> parts;
   if (!FileSystemUtils::IsValidRelativeDOMPath(aPath, parts)) {
-    ErrorCallbackHelper::Call(GetParentObject(), aErrorCallback,
-                              NS_ERROR_DOM_NOT_FOUND_ERR);
+    ErrorCallbackHelper::Call(
+        GetParentObject(), aErrorCallback, NS_ERROR_DOM_NOT_FOUND_ERR);
     return;
   }
 
@@ -85,8 +89,8 @@ FileSystemRootDirectoryEntry::GetInternal(const nsAString& aPath,
     mEntries[i]->GetName(name, rv);
 
     if (NS_WARN_IF(rv.Failed())) {
-      ErrorCallbackHelper::Call(GetParentObject(), aErrorCallback,
-                                rv.StealNSResult());
+      ErrorCallbackHelper::Call(
+          GetParentObject(), aErrorCallback, rv.StealNSResult());
       return;
     }
 
@@ -98,8 +102,8 @@ FileSystemRootDirectoryEntry::GetInternal(const nsAString& aPath,
 
   // Not found.
   if (!entry) {
-    ErrorCallbackHelper::Call(GetParentObject(), aErrorCallback,
-                              NS_ERROR_DOM_NOT_FOUND_ERR);
+    ErrorCallbackHelper::Call(
+        GetParentObject(), aErrorCallback, NS_ERROR_DOM_NOT_FOUND_ERR);
     return;
   }
 
@@ -107,25 +111,24 @@ FileSystemRootDirectoryEntry::GetInternal(const nsAString& aPath,
   if (parts.Length() == 1) {
     if ((entry->IsFile() && aType == eGetDirectory) ||
         (entry->IsDirectory() && aType == eGetFile)) {
-      ErrorCallbackHelper::Call(GetParentObject(), aErrorCallback,
-                                NS_ERROR_DOM_TYPE_MISMATCH_ERR);
+      ErrorCallbackHelper::Call(
+          GetParentObject(), aErrorCallback, NS_ERROR_DOM_TYPE_MISMATCH_ERR);
       return;
     }
 
     if (aSuccessCallback.WasPassed()) {
       RefPtr<EntryCallbackRunnable> runnable =
-        new EntryCallbackRunnable(&aSuccessCallback.Value(), entry);
+          new EntryCallbackRunnable(&aSuccessCallback.Value(), entry);
 
       FileSystemUtils::DispatchRunnable(GetParentObject(), runnable.forget());
-
     }
     return;
   }
 
   // Subdirectories, but this is a file.
   if (entry->IsFile()) {
-    ErrorCallbackHelper::Call(GetParentObject(), aErrorCallback,
-                              NS_ERROR_DOM_NOT_FOUND_ERR);
+    ErrorCallbackHelper::Call(
+        GetParentObject(), aErrorCallback, NS_ERROR_DOM_NOT_FOUND_ERR);
     return;
   }
 
@@ -139,9 +142,9 @@ FileSystemRootDirectoryEntry::GetInternal(const nsAString& aPath,
   }
 
   auto* directoryEntry = static_cast<FileSystemDirectoryEntry*>(entry.get());
-  directoryEntry->GetInternal(path, aFlag, aSuccessCallback, aErrorCallback,
-                              aType);
+  directoryEntry->GetInternal(
+      path, aFlag, aSuccessCallback, aErrorCallback, aType);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

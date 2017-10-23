@@ -21,39 +21,34 @@ namespace dom {
 
 class AuthenticatorAssertionResponse final : public AuthenticatorResponse
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(AuthenticatorAssertionResponse,
-                                                         AuthenticatorResponse)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
+      AuthenticatorAssertionResponse, AuthenticatorResponse)
 
   explicit AuthenticatorAssertionResponse(nsPIDOMWindowInner* aParent);
 
-protected:
+ protected:
   ~AuthenticatorAssertionResponse() override;
 
-public:
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+ public:
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  GetAuthenticatorData(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal);
+  void GetAuthenticatorData(JSContext* aCx,
+                            JS::MutableHandle<JSObject*> aRetVal);
 
-  nsresult
-  SetAuthenticatorData(CryptoBuffer& aBuffer);
+  nsresult SetAuthenticatorData(CryptoBuffer& aBuffer);
 
-  void
-  GetSignature(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal);
+  void GetSignature(JSContext* aCx, JS::MutableHandle<JSObject*> aRetVal);
 
-  nsresult
-  SetSignature(CryptoBuffer& aBuffer);
+  nsresult SetSignature(CryptoBuffer& aBuffer);
 
-  void
-  GetUserId(DOMString& aRetVal);
+  void GetUserId(DOMString& aRetVal);
 
-  nsresult
-  SetUserId(const nsAString& aUserId);
+  nsresult SetUserId(const nsAString& aUserId);
 
-private:
+ private:
   CryptoBuffer mAuthenticatorData;
   JS::Heap<JSObject*> mAuthenticatorDataCachedObj;
   CryptoBuffer mSignature;
@@ -61,7 +56,7 @@ private:
   nsString mUserId;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_AuthenticatorAssertionResponse_h
+#endif  // mozilla_dom_AuthenticatorAssertionResponse_h

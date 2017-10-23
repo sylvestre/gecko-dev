@@ -49,9 +49,9 @@ NS_IMPL_ISUPPORTS(SVGDocumentWrapper,
                   nsISupportsWeakReference)
 
 SVGDocumentWrapper::SVGDocumentWrapper()
-  : mIgnoreInvalidation(false),
-    mRegisteredForXPCOMShutdown(false)
-{ }
+    : mIgnoreInvalidation(false), mRegisteredForXPCOMShutdown(false)
+{
+}
 
 SVGDocumentWrapper::~SVGDocumentWrapper()
 {
@@ -193,8 +193,7 @@ float
 SVGDocumentWrapper::GetCurrentTime()
 {
   SVGSVGElement* svgElem = GetRootSVGElem();
-  return svgElem ? svgElem->GetCurrentTime()
-                 : 0.0f;
+  return svgElem ? svgElem->GetCurrentTime() : 0.0f;
 }
 
 void
@@ -222,13 +221,13 @@ SVGDocumentWrapper::TickRefreshDriver()
 /** nsIStreamListener methods **/
 
 NS_IMETHODIMP
-SVGDocumentWrapper::OnDataAvailable(nsIRequest* aRequest, nsISupports* ctxt,
+SVGDocumentWrapper::OnDataAvailable(nsIRequest* aRequest,
+                                    nsISupports* ctxt,
                                     nsIInputStream* inStr,
                                     uint64_t sourceOffset,
                                     uint32_t count)
 {
-  return mListener->OnDataAvailable(aRequest, ctxt, inStr,
-                                    sourceOffset, count);
+  return mListener->OnDataAvailable(aRequest, ctxt, inStr, sourceOffset, count);
 }
 
 /** nsIRequestObserver methods **/
@@ -236,14 +235,13 @@ SVGDocumentWrapper::OnDataAvailable(nsIRequest* aRequest, nsISupports* ctxt,
 NS_IMETHODIMP
 SVGDocumentWrapper::OnStartRequest(nsIRequest* aRequest, nsISupports* ctxt)
 {
-  nsresult rv = SetupViewer(aRequest,
-                            getter_AddRefs(mViewer),
-                            getter_AddRefs(mLoadGroup));
+  nsresult rv = SetupViewer(
+      aRequest, getter_AddRefs(mViewer), getter_AddRefs(mLoadGroup));
 
   if (NS_SUCCEEDED(rv) &&
       NS_SUCCEEDED(mListener->OnStartRequest(aRequest, nullptr))) {
     mViewer->GetDocument()->SetIsBeingUsedAsImage();
-    StopAnimation(); // otherwise animations start automatically in helper doc
+    StopAnimation();  // otherwise animations start automatically in helper doc
 
     rv = mViewer->Init(nullptr, nsIntRect(0, 0, 0, 0));
     if (NS_SUCCEEDED(rv)) {
@@ -253,9 +251,9 @@ SVGDocumentWrapper::OnStartRequest(nsIRequest* aRequest, nsISupports* ctxt)
   return rv;
 }
 
-
 NS_IMETHODIMP
-SVGDocumentWrapper::OnStopRequest(nsIRequest* aRequest, nsISupports* ctxt,
+SVGDocumentWrapper::OnStopRequest(nsIRequest* aRequest,
+                                  nsISupports* ctxt,
                                   nsresult status)
 {
   if (mListener) {
@@ -324,27 +322,29 @@ SVGDocumentWrapper::SetupViewer(nsIRequest* aRequest,
   chan->GetLoadGroup(getter_AddRefs(loadGroup));
 
   nsCOMPtr<nsILoadGroup> newLoadGroup =
-        do_CreateInstance(NS_LOADGROUP_CONTRACTID);
+      do_CreateInstance(NS_LOADGROUP_CONTRACTID);
   NS_ENSURE_TRUE(newLoadGroup, NS_ERROR_OUT_OF_MEMORY);
   newLoadGroup->SetLoadGroup(loadGroup);
 
   nsCOMPtr<nsICategoryManager> catMan =
-    do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
+      do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
   NS_ENSURE_TRUE(catMan, NS_ERROR_NOT_AVAILABLE);
   nsCString contractId;
-  nsresult rv = catMan->GetCategoryEntry("Gecko-Content-Viewers", IMAGE_SVG_XML,
-                                         getter_Copies(contractId));
+  nsresult rv = catMan->GetCategoryEntry(
+      "Gecko-Content-Viewers", IMAGE_SVG_XML, getter_Copies(contractId));
   NS_ENSURE_SUCCESS(rv, rv);
   nsCOMPtr<nsIDocumentLoaderFactory> docLoaderFactory =
-    do_GetService(contractId.get());
+      do_GetService(contractId.get());
   NS_ENSURE_TRUE(docLoaderFactory, NS_ERROR_NOT_AVAILABLE);
 
   nsCOMPtr<nsIContentViewer> viewer;
   nsCOMPtr<nsIStreamListener> listener;
-  rv = docLoaderFactory->CreateInstance("external-resource", chan,
+  rv = docLoaderFactory->CreateInstance("external-resource",
+                                        chan,
                                         newLoadGroup,
                                         NS_LITERAL_CSTRING(IMAGE_SVG_XML),
-                                        nullptr, nullptr,
+                                        nullptr,
+                                        nullptr,
                                         getter_AddRefs(listener),
                                         getter_AddRefs(viewer));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -362,7 +362,8 @@ SVGDocumentWrapper::SetupViewer(nsIRequest* aRequest,
   // automatically. Since there is no DocShell for this wrapped SVG document,
   // we must set it up manually.
   RefPtr<nsDOMNavigationTiming> timing = new nsDOMNavigationTiming(nullptr);
-  timing->NotifyNavigationStart(nsDOMNavigationTiming::DocShellState::eInactive);
+  timing->NotifyNavigationStart(
+      nsDOMNavigationTiming::DocShellState::eInactive);
   viewer->SetNavigationTiming(timing);
 
   nsCOMPtr<nsIParser> parser = do_QueryInterface(listener);
@@ -383,17 +384,15 @@ SVGDocumentWrapper::SetupViewer(nsIRequest* aRequest,
 void
 SVGDocumentWrapper::RegisterForXPCOMShutdown()
 {
-  MOZ_ASSERT(!mRegisteredForXPCOMShutdown,
-             "re-registering for XPCOM shutdown");
+  MOZ_ASSERT(!mRegisteredForXPCOMShutdown, "re-registering for XPCOM shutdown");
   // Listen for xpcom-shutdown so that we can drop references to our
   // helper-document at that point. (Otherwise, we won't get cleaned up
   // until imgLoader::Shutdown, which can happen after the JAR service
   // and RDF service have been unregistered.)
   nsresult rv;
   nsCOMPtr<nsIObserverService> obsSvc = do_GetService(OBSERVER_SVC_CID, &rv);
-  if (NS_FAILED(rv) ||
-      NS_FAILED(obsSvc->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID,
-                                    true))) {
+  if (NS_FAILED(rv) || NS_FAILED(obsSvc->AddObserver(
+                           this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, true))) {
     NS_WARNING("Failed to register as observer of XPCOM shutdown");
   } else {
     mRegisteredForXPCOMShutdown = true;
@@ -433,19 +432,19 @@ SVGDocumentWrapper::GetDocument()
     return nullptr;
   }
 
-  return mViewer->GetDocument(); // May be nullptr.
+  return mViewer->GetDocument();  // May be nullptr.
 }
 
 SVGSVGElement*
 SVGDocumentWrapper::GetRootSVGElem()
 {
   if (!mViewer) {
-    return nullptr; // Can happen during destruction
+    return nullptr;  // Can happen during destruction
   }
 
   nsIDocument* doc = mViewer->GetDocument();
   if (!doc) {
-    return nullptr; // Can happen during destruction
+    return nullptr;  // Can happen during destruction
   }
 
   Element* rootElem = mViewer->GetDocument()->GetRootElement();
@@ -456,5 +455,5 @@ SVGDocumentWrapper::GetRootSVGElem()
   return static_cast<SVGSVGElement*>(rootElem);
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

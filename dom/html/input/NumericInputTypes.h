@@ -11,7 +11,7 @@
 
 class NumericInputTypeBase : public ::InputType
 {
-public:
+ public:
   ~NumericInputTypeBase() override {}
 
   bool IsRangeOverflow() const override;
@@ -26,18 +26,19 @@ public:
   bool ConvertNumberToString(mozilla::Decimal aValue,
                              nsAString& aResultString) const override;
 
-protected:
+ protected:
   explicit NumericInputTypeBase(mozilla::dom::HTMLInputElement* aInputElement)
-    : InputType(aInputElement)
-  {}
+      : InputType(aInputElement)
+  {
+  }
 };
 
 // input type=number
 class NumberInputType : public NumericInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) NumberInputType(aInputElement);
   }
@@ -48,31 +49,33 @@ public:
   nsresult GetValueMissingMessage(nsAString& aMessage) override;
   nsresult GetBadInputMessage(nsAString& aMessage) override;
 
-protected:
+ protected:
   bool IsMutable() const override;
 
-private:
+ private:
   explicit NumberInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : NumericInputTypeBase(aInputElement)
-  {}
+      : NumericInputTypeBase(aInputElement)
+  {
+  }
 };
 
 // input type=range
 class RangeInputType : public NumericInputTypeBase
 {
-public:
-  static InputType*
-  Create(mozilla::dom::HTMLInputElement* aInputElement, void* aMemory)
+ public:
+  static InputType* Create(mozilla::dom::HTMLInputElement* aInputElement,
+                           void* aMemory)
   {
     return new (aMemory) RangeInputType(aInputElement);
   }
 
   nsresult MinMaxStepAttrChanged() override;
 
-private:
+ private:
   explicit RangeInputType(mozilla::dom::HTMLInputElement* aInputElement)
-    : NumericInputTypeBase(aInputElement)
-  {}
+      : NumericInputTypeBase(aInputElement)
+  {
+  }
 };
 
 #endif /* NumericInputTypes_h__ */

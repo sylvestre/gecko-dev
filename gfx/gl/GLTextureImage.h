@@ -19,8 +19,8 @@ namespace mozilla {
 namespace gfx {
 class DataSourceSurface;
 class DrawTarget;
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
 namespace mozilla {
 namespace gl {
@@ -33,143 +33,139 @@ class GLContext;
  */
 class TextureImage
 {
-    NS_INLINE_DECL_REFCOUNTING(TextureImage)
-public:
-    enum TextureState
-    {
-      Created, // Texture created, but has not had glTexImage called to initialize it.
-      Allocated,  // Texture memory exists, but contents are invalid.
-      Valid  // Texture fully ready to use.
-    };
+  NS_INLINE_DECL_REFCOUNTING(TextureImage)
+ public:
+  enum TextureState
+  {
+    Created,  // Texture created, but has not had glTexImage called to initialize it.
+    Allocated,  // Texture memory exists, but contents are invalid.
+    Valid       // Texture fully ready to use.
+  };
 
-    enum Flags {
-        NoFlags          = 0x0,
-        UseNearestFilter = 0x1,
-        OriginBottomLeft = 0x2,
-        DisallowBigImage = 0x4
-    };
+  enum Flags
+  {
+    NoFlags = 0x0,
+    UseNearestFilter = 0x1,
+    OriginBottomLeft = 0x2,
+    DisallowBigImage = 0x4
+  };
 
-    typedef gfxContentType ContentType;
-    typedef gfxImageFormat ImageFormat;
+  typedef gfxContentType ContentType;
+  typedef gfxImageFormat ImageFormat;
 
-    static already_AddRefed<TextureImage> Create(
-                       GLContext* gl,
-                       const gfx::IntSize& aSize,
-                       TextureImage::ContentType aContentType,
-                       GLenum aWrapMode,
-                       TextureImage::Flags aFlags = TextureImage::NoFlags);
+  static already_AddRefed<TextureImage> Create(
+      GLContext* gl,
+      const gfx::IntSize& aSize,
+      TextureImage::ContentType aContentType,
+      GLenum aWrapMode,
+      TextureImage::Flags aFlags = TextureImage::NoFlags);
 
-    /**
+  /**
      * The Image may contain several textures for different regions (tiles).
      * These functions iterate over each sub texture image tile.
      */
-    virtual void BeginBigImageIteration() {
-    }
+  virtual void BeginBigImageIteration() {}
 
-    virtual bool NextTile() {
-        return false;
-    }
+  virtual bool NextTile() { return false; }
 
-    // Function prototype for a tile iteration callback. Returning false will
-    // cause iteration to be interrupted (i.e. the corresponding NextTile call
-    // will return false).
-    typedef bool (* BigImageIterationCallback)(TextureImage* aImage,
-                                           int aTileNumber,
-                                           void* aCallbackData);
+  // Function prototype for a tile iteration callback. Returning false will
+  // cause iteration to be interrupted (i.e. the corresponding NextTile call
+  // will return false).
+  typedef bool (*BigImageIterationCallback)(TextureImage* aImage,
+                                            int aTileNumber,
+                                            void* aCallbackData);
 
-    // Sets a callback to be called every time NextTile is called.
-    virtual void SetIterationCallback(BigImageIterationCallback aCallback,
-                                      void* aCallbackData) {
-    }
+  // Sets a callback to be called every time NextTile is called.
+  virtual void SetIterationCallback(BigImageIterationCallback aCallback,
+                                    void* aCallbackData)
+  {
+  }
 
-    virtual gfx::IntRect GetTileRect();
+  virtual gfx::IntRect GetTileRect();
 
-    virtual GLuint GetTextureID() = 0;
+  virtual GLuint GetTextureID() = 0;
 
-    virtual uint32_t GetTileCount() {
-        return 1;
-    }
+  virtual uint32_t GetTileCount() { return 1; }
 
-    /**
+  /**
      * Set this TextureImage's size, and ensure a texture has been
      * allocated.
      * After a resize, the contents are undefined.
      */
-    virtual void Resize(const gfx::IntSize& aSize) = 0;
+  virtual void Resize(const gfx::IntSize& aSize) = 0;
 
-    /**
+  /**
      * Mark this texture as having valid contents. Call this after modifying
      * the texture contents externally.
      */
-    virtual void MarkValid() {}
+  virtual void MarkValid() {}
 
-    /**
+  /**
      * aSurf - the source surface to update from
      * aRegion - the region in this image to update
      * aFrom - offset in the source to update from
      */
-    virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf, const nsIntRegion& aRegion, const gfx::IntPoint& aFrom = gfx::IntPoint(0,0)) = 0;
-    bool UpdateFromDataSource(gfx::DataSourceSurface* aSurf,
-                              const nsIntRegion* aDstRegion = nullptr,
-                              const gfx::IntPoint* aSrcOffset = nullptr);
+  virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf,
+                            const nsIntRegion& aRegion,
+                            const gfx::IntPoint& aFrom = gfx::IntPoint(0,
+                                                                       0)) = 0;
+  bool UpdateFromDataSource(gfx::DataSourceSurface* aSurf,
+                            const nsIntRegion* aDstRegion = nullptr,
+                            const gfx::IntPoint* aSrcOffset = nullptr);
 
-    virtual void BindTexture(GLenum aTextureUnit) = 0;
+  virtual void BindTexture(GLenum aTextureUnit) = 0;
 
-    /**
+  /**
      * Returns the image format of the texture. Only valid after
      * DirectUpdate has been called.
      */
-    virtual gfx::SurfaceFormat GetTextureFormat() {
-        return mTextureFormat;
-    }
+  virtual gfx::SurfaceFormat GetTextureFormat() { return mTextureFormat; }
 
-    /** Can be called safely at any time. */
+  /** Can be called safely at any time. */
 
-    /**
+  /**
      * If this TextureImage has a permanent gfxASurface backing,
      * return it.  Otherwise return nullptr.
      */
-    virtual already_AddRefed<gfxASurface> GetBackingSurface()
-    { return nullptr; }
+  virtual already_AddRefed<gfxASurface> GetBackingSurface() { return nullptr; }
 
+  gfx::IntSize GetSize() const;
+  ContentType GetContentType() const { return mContentType; }
+  GLenum GetWrapMode() const { return mWrapMode; }
 
-    gfx::IntSize GetSize() const;
-    ContentType GetContentType() const { return mContentType; }
-    GLenum GetWrapMode() const { return mWrapMode; }
+  void SetSamplingFilter(gfx::SamplingFilter aSamplingFilter)
+  {
+    mSamplingFilter = aSamplingFilter;
+  }
 
-    void SetSamplingFilter(gfx::SamplingFilter aSamplingFilter) {
-      mSamplingFilter = aSamplingFilter;
-    }
+ protected:
+  friend class GLContext;
 
-protected:
-    friend class GLContext;
+  void UpdateUploadSize(size_t amount);
 
-    void UpdateUploadSize(size_t amount);
-
-    /**
+  /**
      * After the ctor, the TextureImage is invalid.  Implementations
      * must allocate resources successfully before returning the new
      * TextureImage from GLContext::CreateTextureImage().  That is,
      * clients must not be given partially-constructed TextureImages.
      */
-    TextureImage(const gfx::IntSize& aSize,
-                 GLenum aWrapMode, ContentType aContentType,
-                 Flags aFlags = NoFlags);
+  TextureImage(const gfx::IntSize& aSize,
+               GLenum aWrapMode,
+               ContentType aContentType,
+               Flags aFlags = NoFlags);
 
-    // Protected destructor, to discourage deletion outside of Release():
-    virtual ~TextureImage() {
-        UpdateUploadSize(0);
-    }
+  // Protected destructor, to discourage deletion outside of Release():
+  virtual ~TextureImage() { UpdateUploadSize(0); }
 
-    virtual gfx::IntRect GetSrcTileRect();
+  virtual gfx::IntRect GetSrcTileRect();
 
-    gfx::IntSize mSize;
-    GLenum mWrapMode;
-    ContentType mContentType;
-    gfx::SurfaceFormat mTextureFormat;
-    gfx::SamplingFilter mSamplingFilter;
-    Flags mFlags;
-    size_t mUploadSize;
+  gfx::IntSize mSize;
+  GLenum mWrapMode;
+  ContentType mContentType;
+  gfx::SurfaceFormat mTextureFormat;
+  gfx::SamplingFilter mSamplingFilter;
+  Flags mFlags;
+  size_t mUploadSize;
 };
 
 /**
@@ -181,32 +177,33 @@ protected:
  * convert the update surface's pixels into an image on which we can
  * glTexSubImage2D().
  */
-class BasicTextureImage
-    : public TextureImage
+class BasicTextureImage : public TextureImage
 {
-public:
-    virtual ~BasicTextureImage();
+ public:
+  virtual ~BasicTextureImage();
 
-    BasicTextureImage(GLuint aTexture,
-                      const gfx::IntSize& aSize,
-                      GLenum aWrapMode,
-                      ContentType aContentType,
-                      GLContext* aContext,
-                      TextureImage::Flags aFlags = TextureImage::NoFlags);
+  BasicTextureImage(GLuint aTexture,
+                    const gfx::IntSize& aSize,
+                    GLenum aWrapMode,
+                    ContentType aContentType,
+                    GLContext* aContext,
+                    TextureImage::Flags aFlags = TextureImage::NoFlags);
 
-    virtual void BindTexture(GLenum aTextureUnit);
+  virtual void BindTexture(GLenum aTextureUnit);
 
-    virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf, const nsIntRegion& aRegion, const gfx::IntPoint& aFrom = gfx::IntPoint(0,0));
-    virtual GLuint GetTextureID() { return mTexture; }
+  virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf,
+                            const nsIntRegion& aRegion,
+                            const gfx::IntPoint& aFrom = gfx::IntPoint(0, 0));
+  virtual GLuint GetTextureID() { return mTexture; }
 
-    virtual void MarkValid() { mTextureState = Valid; }
+  virtual void MarkValid() { mTextureState = Valid; }
 
-    virtual void Resize(const gfx::IntSize& aSize);
+  virtual void Resize(const gfx::IntSize& aSize);
 
-protected:
-    GLuint mTexture;
-    TextureState mTextureState;
-    RefPtr<GLContext> mGLContext;
+ protected:
+  GLuint mTexture;
+  TextureState mTextureState;
+  RefPtr<GLContext> mGLContext;
 };
 
 /**
@@ -214,42 +211,45 @@ protected:
  * Aims to behave just like the real thing.
  */
 
-class TiledTextureImage final
-    : public TextureImage
+class TiledTextureImage final : public TextureImage
 {
-public:
-    TiledTextureImage(GLContext* aGL,
-                      gfx::IntSize aSize,
-                      TextureImage::ContentType,
-                      TextureImage::Flags aFlags = TextureImage::NoFlags,
-                      TextureImage::ImageFormat aImageFormat = gfx::SurfaceFormat::UNKNOWN);
-    ~TiledTextureImage();
-    void DumpDiv();
-    virtual void Resize(const gfx::IntSize& aSize);
-    virtual uint32_t GetTileCount();
-    virtual void BeginBigImageIteration();
-    virtual bool NextTile();
-    virtual void SetIterationCallback(BigImageIterationCallback aCallback,
-                                      void* aCallbackData);
-    virtual gfx::IntRect GetTileRect();
-    virtual GLuint GetTextureID() {
-        return mImages[mCurrentImage]->GetTextureID();
-    }
-    virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf, const nsIntRegion& aRegion, const gfx::IntPoint& aFrom = gfx::IntPoint(0,0));
-    virtual void BindTexture(GLenum);
+ public:
+  TiledTextureImage(
+      GLContext* aGL,
+      gfx::IntSize aSize,
+      TextureImage::ContentType,
+      TextureImage::Flags aFlags = TextureImage::NoFlags,
+      TextureImage::ImageFormat aImageFormat = gfx::SurfaceFormat::UNKNOWN);
+  ~TiledTextureImage();
+  void DumpDiv();
+  virtual void Resize(const gfx::IntSize& aSize);
+  virtual uint32_t GetTileCount();
+  virtual void BeginBigImageIteration();
+  virtual bool NextTile();
+  virtual void SetIterationCallback(BigImageIterationCallback aCallback,
+                                    void* aCallbackData);
+  virtual gfx::IntRect GetTileRect();
+  virtual GLuint GetTextureID()
+  {
+    return mImages[mCurrentImage]->GetTextureID();
+  }
+  virtual bool DirectUpdate(gfx::DataSourceSurface* aSurf,
+                            const nsIntRegion& aRegion,
+                            const gfx::IntPoint& aFrom = gfx::IntPoint(0, 0));
+  virtual void BindTexture(GLenum);
 
-protected:
-    virtual gfx::IntRect GetSrcTileRect();
+ protected:
+  virtual gfx::IntRect GetSrcTileRect();
 
-    unsigned int mCurrentImage;
-    BigImageIterationCallback mIterationCallback;
-    void* mIterationCallbackData;
-    nsTArray< RefPtr<TextureImage> > mImages;
-    unsigned int mTileSize;
-    unsigned int mRows, mColumns;
-    GLContext* mGL;
-    TextureState mTextureState;
-    TextureImage::ImageFormat mImageFormat;
+  unsigned int mCurrentImage;
+  BigImageIterationCallback mIterationCallback;
+  void* mIterationCallbackData;
+  nsTArray<RefPtr<TextureImage> > mImages;
+  unsigned int mTileSize;
+  unsigned int mRows, mColumns;
+  GLContext* mGL;
+  TextureState mTextureState;
+  TextureImage::ImageFormat mImageFormat;
 };
 
 /**
@@ -293,14 +293,15 @@ CreateTiledTextureImage(GLContext* aGL,
   * crashy) behavior.
   */
 already_AddRefed<TextureImage>
-CreateTextureImage(GLContext* gl,
-                   const gfx::IntSize& aSize,
-                   TextureImage::ContentType aContentType,
-                   GLenum aWrapMode,
-                   TextureImage::Flags aFlags = TextureImage::NoFlags,
-                   TextureImage::ImageFormat aImageFormat = gfx::SurfaceFormat::UNKNOWN);
+CreateTextureImage(
+    GLContext* gl,
+    const gfx::IntSize& aSize,
+    TextureImage::ContentType aContentType,
+    GLenum aWrapMode,
+    TextureImage::Flags aFlags = TextureImage::NoFlags,
+    TextureImage::ImageFormat aImageFormat = gfx::SurfaceFormat::UNKNOWN);
 
-} // namespace gl
-} // namespace mozilla
+}  // namespace gl
+}  // namespace mozilla
 
 #endif /* GLTEXTUREIMAGE_H_ */

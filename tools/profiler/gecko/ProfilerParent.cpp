@@ -18,8 +18,9 @@ namespace mozilla {
 
 using namespace ipc;
 
-class ProfilerParentTracker final {
-public:
+class ProfilerParentTracker final
+{
+ public:
   static void StartTracking(ProfilerParent* aParent);
   static void StopTracking(ProfilerParent* aParent);
 
@@ -29,7 +30,7 @@ public:
   ProfilerParentTracker();
   ~ProfilerParentTracker();
 
-private:
+ private:
   nsTArray<ProfilerParent*> mProfilerParents;
   static UniquePtr<ProfilerParentTracker> sInstance;
 };
@@ -95,9 +96,8 @@ ProfilerParent::CreateForProcess(base::ProcessId aOtherPid)
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   Endpoint<PProfilerParent> parent;
   Endpoint<PProfilerChild> child;
-  nsresult rv = PProfiler::CreateEndpoints(base::GetCurrentProcId(),
-                                           aOtherPid,
-                                           &parent, &child);
+  nsresult rv = PProfiler::CreateEndpoints(
+      base::GetCurrentProcId(), aOtherPid, &parent, &child);
 
   if (NS_FAILED(rv)) {
     MOZ_CRASH("Failed to create top level actor for PProfiler!");
@@ -115,8 +115,7 @@ ProfilerParent::CreateForProcess(base::ProcessId aOtherPid)
   return child;
 }
 
-ProfilerParent::ProfilerParent()
-  : mDestroyed(false)
+ProfilerParent::ProfilerParent() : mDestroyed(false)
 {
   MOZ_COUNT_CTOR(ProfilerParent);
 
@@ -249,4 +248,4 @@ ProfilerParent::DeallocPProfilerParent()
   mSelfRef = nullptr;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

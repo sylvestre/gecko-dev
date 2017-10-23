@@ -15,29 +15,28 @@
 
 using namespace mozilla::widget;
 
-namespace
-{
+namespace {
 // Manages NS_NATIVE_TMP_WINDOW child windows. NS_NATIVE_TMP_WINDOWs are
 // temporary child windows of mParentWidget created to address RTL issues
 // in picker dialogs. We are responsible for destroying these.
 class AutoDestroyTmpWindow
 {
-public:
-  explicit AutoDestroyTmpWindow(HWND aTmpWnd) :
-    mWnd(aTmpWnd) {
-  }
+ public:
+  explicit AutoDestroyTmpWindow(HWND aTmpWnd) : mWnd(aTmpWnd) {}
 
-  ~AutoDestroyTmpWindow() {
-    if (mWnd)
-      DestroyWindow(mWnd);
+  ~AutoDestroyTmpWindow()
+  {
+    if (mWnd) DestroyWindow(mWnd);
   }
 
   inline HWND get() const { return mWnd; }
-private:
+
+ private:
   HWND mWnd;
 };
 
-static DWORD ColorStringToRGB(const nsAString& aColor)
+static DWORD
+ColorStringToRGB(const nsAString& aColor)
 {
   DWORD result = 0;
 
@@ -66,7 +65,8 @@ static DWORD ColorStringToRGB(const nsAString& aColor)
   return result;
 }
 
-static nsString ToHexString(BYTE n)
+static nsString
+ToHexString(BYTE n)
 {
   nsString result;
   if (n <= 0x0F) {
@@ -75,7 +75,6 @@ static nsString ToHexString(BYTE n)
   result.AppendInt(n, 16);
   return result;
 }
-
 
 static void
 BGRIntToRGBString(DWORD color, nsAString& aResult)
@@ -89,49 +88,51 @@ BGRIntToRGBString(DWORD color, nsAString& aResult)
   aResult.Append(ToHexString(g));
   aResult.Append(ToHexString(b));
 }
-} // namespace
+}  // namespace
 
 static AsyncColorChooser* gColorChooser;
 
 AsyncColorChooser::AsyncColorChooser(COLORREF aInitialColor,
                                      nsIWidget* aParentWidget,
                                      nsIColorPickerShownCallback* aCallback)
-  : mozilla::Runnable("AsyncColorChooser")
-  , mInitialColor(aInitialColor)
-  , mColor(aInitialColor)
-  , mParentWidget(aParentWidget)
-  , mCallback(aCallback)
+    : mozilla::Runnable("AsyncColorChooser"),
+      mInitialColor(aInitialColor),
+      mColor(aInitialColor),
+      mParentWidget(aParentWidget),
+      mCallback(aCallback)
 {
 }
 
 NS_IMETHODIMP
 AsyncColorChooser::Run()
 {
-  static COLORREF sCustomColors[16] = {0} ;
+  static COLORREF sCustomColors[16] = {0};
 
   MOZ_ASSERT(NS_IsMainThread(),
-      "Color pickers can only be opened from main thread currently");
+             "Color pickers can only be opened from main thread currently");
 
   // Allow only one color picker to be opened at a time, to workaround bug 944737
   if (!gColorChooser) {
     mozilla::AutoRestore<AsyncColorChooser*> restoreColorChooser(gColorChooser);
     gColorChooser = this;
 
-    AutoDestroyTmpWindow adtw((HWND) (mParentWidget.get() ?
-      mParentWidget->GetNativeData(NS_NATIVE_TMP_WINDOW) : nullptr));
+    AutoDestroyTmpWindow adtw((HWND)(
+        mParentWidget.get() ? mParentWidget->GetNativeData(NS_NATIVE_TMP_WINDOW)
+                            : nullptr));
 
     CHOOSECOLOR options;
-    options.lStructSize   = sizeof(options);
-    options.hwndOwner     = adtw.get();
-    options.Flags         = CC_RGBINIT | CC_FULLOPEN | CC_ENABLEHOOK;
-    options.rgbResult     = mInitialColor;
-    options.lpCustColors  = sCustomColors;
-    options.lpfnHook      = HookProc;
+    options.lStructSize = sizeof(options);
+    options.hwndOwner = adtw.get();
+    options.Flags = CC_RGBINIT | CC_FULLOPEN | CC_ENABLEHOOK;
+    options.rgbResult = mInitialColor;
+    options.lpCustColors = sCustomColors;
+    options.lpfnHook = HookProc;
 
     mColor = ChooseColor(&options) ? options.rgbResult : mInitialColor;
   } else {
-    NS_WARNING("Currently, it's not possible to open more than one color "
-               "picker at a time");
+    NS_WARNING(
+        "Currently, it's not possible to open more than one color "
+        "picker at a time");
     mColor = mInitialColor;
   }
 
@@ -157,8 +158,10 @@ AsyncColorChooser::Update(COLORREF aColor)
 }
 
 /* static */ UINT_PTR CALLBACK
-AsyncColorChooser::HookProc(HWND aDialog, UINT aMsg,
-                            WPARAM aWParam, LPARAM aLParam)
+AsyncColorChooser::HookProc(HWND aDialog,
+                            UINT aMsg,
+                            WPARAM aWParam,
+                            LPARAM aLParam)
 {
   if (!gColorChooser) {
     return 0;
@@ -180,13 +183,9 @@ AsyncColorChooser::HookProc(HWND aDialog, UINT aMsg,
 ///////////////////////////////////////////////////////////////////////////////
 // nsIColorPicker
 
-nsColorPicker::nsColorPicker()
-{
-}
+nsColorPicker::nsColorPicker() {}
 
-nsColorPicker::~nsColorPicker()
-{
-}
+nsColorPicker::~nsColorPicker() {}
 
 NS_IMPL_ISUPPORTS(nsColorPicker, nsIColorPicker)
 
@@ -195,9 +194,10 @@ nsColorPicker::Init(mozIDOMWindowProxy* parent,
                     const nsAString& title,
                     const nsAString& aInitialColor)
 {
-  NS_PRECONDITION(parent,
-      "Null parent passed to colorpicker, no color picker for you!");
-  mParentWidget =  WidgetUtils::DOMWindowToWidget(nsPIDOMWindowOuter::From(parent));
+  NS_PRECONDITION(
+      parent, "Null parent passed to colorpicker, no color picker for you!");
+  mParentWidget =
+      WidgetUtils::DOMWindowToWidget(nsPIDOMWindowOuter::From(parent));
   mInitialColor = ColorStringToRGB(aInitialColor);
   return NS_OK;
 }
@@ -206,8 +206,7 @@ NS_IMETHODIMP
 nsColorPicker::Open(nsIColorPickerShownCallback* aCallback)
 {
   NS_ENSURE_ARG(aCallback);
-  nsCOMPtr<nsIRunnable> event = new AsyncColorChooser(mInitialColor,
-                                                      mParentWidget,
-                                                      aCallback);
+  nsCOMPtr<nsIRunnable> event =
+      new AsyncColorChooser(mInitialColor, mParentWidget, aCallback);
   return NS_DispatchToMainThread(event);
 }

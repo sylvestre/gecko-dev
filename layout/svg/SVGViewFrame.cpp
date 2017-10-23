@@ -20,22 +20,22 @@ using namespace mozilla::dom;
  **/
 class SVGViewFrame : public nsFrame
 {
-  friend nsIFrame*
-  NS_NewSVGViewFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
-protected:
-  explicit SVGViewFrame(nsStyleContext* aContext)
-    : nsFrame(aContext, kClassID)
+  friend nsIFrame* NS_NewSVGViewFrame(nsIPresShell* aPresShell,
+                                      nsStyleContext* aContext);
+
+ protected:
+  explicit SVGViewFrame(nsStyleContext* aContext) : nsFrame(aContext, kClassID)
   {
     AddStateBits(NS_FRAME_IS_NONDISPLAY);
   }
 
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(SVGViewFrame)
 
 #ifdef DEBUG
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 #endif
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
@@ -50,11 +50,12 @@ public:
   }
 #endif
 
-  virtual nsresult AttributeChanged(int32_t  aNameSpaceID,
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
                                     nsAtom* aAttribute,
-                                    int32_t  aModType) override;
+                                    int32_t aModType) override;
 
-  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override {
+  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override
+  {
     // We don't maintain a visual overflow rect
     return false;
   }
@@ -70,9 +71,9 @@ NS_IMPL_FRAMEARENA_HELPERS(SVGViewFrame)
 
 #ifdef DEBUG
 void
-SVGViewFrame::Init(nsIContent*       aContent,
+SVGViewFrame::Init(nsIContent* aContent,
                    nsContainerFrame* aParent,
-                   nsIFrame*         aPrevInFlow)
+                   nsIFrame* aPrevInFlow)
 {
   NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::view),
                "Content is not an SVG view");
@@ -82,9 +83,9 @@ SVGViewFrame::Init(nsIContent*       aContent,
 #endif /* DEBUG */
 
 nsresult
-SVGViewFrame::AttributeChanged(int32_t  aNameSpaceID,
+SVGViewFrame::AttributeChanged(int32_t aNameSpaceID,
                                nsAtom* aAttribute,
-                               int32_t  aModType)
+                               int32_t aModType)
 {
   // Ignore zoomAndPan as it does not cause the <svg> element to re-render
 
@@ -92,13 +93,12 @@ SVGViewFrame::AttributeChanged(int32_t  aNameSpaceID,
       (aAttribute == nsGkAtoms::preserveAspectRatio ||
        aAttribute == nsGkAtoms::viewBox ||
        aAttribute == nsGkAtoms::viewTarget)) {
-
-    nsSVGOuterSVGFrame *outerSVGFrame = nsSVGUtils::GetOuterSVGFrame(this);
+    nsSVGOuterSVGFrame* outerSVGFrame = nsSVGUtils::GetOuterSVGFrame(this);
     NS_ASSERTION(outerSVGFrame->GetContent()->IsSVGElement(nsGkAtoms::svg),
                  "Expecting an <svg> element");
 
     SVGSVGElement* svgElement =
-      static_cast<SVGSVGElement*>(outerSVGFrame->GetContent());
+        static_cast<SVGSVGElement*>(outerSVGFrame->GetContent());
 
     nsAutoString viewID;
     mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::id, viewID);

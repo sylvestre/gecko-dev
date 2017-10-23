@@ -42,8 +42,7 @@ ScriptElement::ScriptAvailable(nsresult aResult,
 /* virtual */ nsresult
 ScriptElement::FireErrorEvent()
 {
-  nsCOMPtr<nsIContent> cont =
-    do_QueryInterface((nsIScriptElement*) this);
+  nsCOMPtr<nsIContent> cont = do_QueryInterface((nsIScriptElement*)this);
 
   return nsContentUtils::DispatchTrustedEvent(cont->OwnerDoc(),
                                               cont,
@@ -59,11 +58,10 @@ ScriptElement::ScriptEvaluated(nsresult aResult,
 {
   nsresult rv = NS_OK;
   if (!aIsInline) {
-    nsCOMPtr<nsIContent> cont =
-      do_QueryInterface((nsIScriptElement*) this);
+    nsCOMPtr<nsIContent> cont = do_QueryInterface((nsIScriptElement*)this);
 
     RefPtr<nsPresContext> presContext =
-      nsContentUtils::GetContextForContent(cont);
+        nsContentUtils::GetContextForContent(cont);
 
     nsEventStatus status = nsEventStatus_eIgnore;
     EventMessage message = NS_SUCCEEDED(aResult) ? eLoad : eLoadError;
@@ -115,14 +113,13 @@ ScriptElement::ContentInserted(nsIDocument* aDocument,
 bool
 ScriptElement::MaybeProcessScript()
 {
-  nsCOMPtr<nsIContent> cont =
-    do_QueryInterface((nsIScriptElement*) this);
+  nsCOMPtr<nsIContent> cont = do_QueryInterface((nsIScriptElement*)this);
 
   NS_ASSERTION(cont->DebugGetSlots()->mMutationObservers.Contains(this),
                "You forgot to add self as observer");
 
-  if (mAlreadyStarted || !mDoneAddingChildren ||
-      !cont->GetComposedDoc() || mMalformed || !HasScriptContent()) {
+  if (mAlreadyStarted || !mDoneAddingChildren || !cont->GetComposedDoc() ||
+      mMalformed || !HasScriptContent()) {
     return false;
   }
 
@@ -131,7 +128,7 @@ ScriptElement::MaybeProcessScript()
   mAlreadyStarted = true;
 
   nsIDocument* ownerDoc = cont->OwnerDoc();
-  nsCOMPtr<nsIParser> parser = ((nsIScriptElement*) this)->GetCreatorParser();
+  nsCOMPtr<nsIParser> parser = ((nsIScriptElement*)this)->GetCreatorParser();
   if (parser) {
     nsCOMPtr<nsIContentSink> sink = parser->GetContentSink();
     if (sink) {

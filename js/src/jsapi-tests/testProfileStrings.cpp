@@ -16,78 +16,56 @@
 static PseudoStack pseudoStack;
 static uint32_t peakStackPointer = 0;
 
-static void
-reset(JSContext* cx)
-{
+static void reset(JSContext* cx) {
     pseudoStack.stackPointer = 0;
     cx->runtime()->geckoProfiler().stringsReset();
     cx->runtime()->geckoProfiler().enableSlowAssertions(true);
     js::EnableContextProfilingStack(cx, true);
 }
 
-static const JSClass ptestClass = {
-    "Prof", 0
-};
+static const JSClass ptestClass = {"Prof", 0};
 
-static bool
-test_fn(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool test_fn(JSContext* cx, unsigned argc, JS::Value* vp) {
     peakStackPointer = pseudoStack.stackPointer;
     return true;
 }
 
-static bool
-test_fn2(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool test_fn2(JSContext* cx, unsigned argc, JS::Value* vp) {
     JS::RootedValue r(cx);
     JS::RootedObject global(cx, JS::CurrentGlobalOrNull(cx));
     return JS_CallFunctionName(cx, global, "d", JS::HandleValueArray::empty(), &r);
 }
 
-static bool
-enable(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool enable(JSContext* cx, unsigned argc, JS::Value* vp) {
     js::EnableContextProfilingStack(cx, true);
     return true;
 }
 
-static bool
-disable(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool disable(JSContext* cx, unsigned argc, JS::Value* vp) {
     js::EnableContextProfilingStack(cx, false);
     return true;
 }
 
-static bool
-Prof(JSContext* cx, unsigned argc, JS::Value* vp)
-{
+static bool Prof(JSContext* cx, unsigned argc, JS::Value* vp) {
     JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
     JSObject* obj = JS_NewObjectForConstructor(cx, &ptestClass, args);
-    if (!obj)
-        return false;
+    if (!obj) return false;
     args.rval().setObject(*obj);
     return true;
 }
 
 static const JSFunctionSpec ptestFunctions[] = {
-    JS_FN("test_fn", test_fn, 0, 0),
-    JS_FN("test_fn2", test_fn2, 0, 0),
-    JS_FN("enable", enable, 0, 0),
-    JS_FN("disable", disable, 0, 0),
-    JS_FS_END
-};
+    JS_FN("test_fn", test_fn, 0, 0), JS_FN("test_fn2", test_fn2, 0, 0),
+    JS_FN("enable", enable, 0, 0), JS_FN("disable", disable, 0, 0), JS_FS_END};
 
-static JSObject*
-initialize(JSContext* cx)
-{
+static JSObject* initialize(JSContext* cx) {
     js::SetContextProfilingStack(cx, &pseudoStack);
     JS::RootedObject global(cx, JS::CurrentGlobalOrNull(cx));
-    return JS_InitClass(cx, global, nullptr, &ptestClass, Prof, 0,
-                        nullptr, ptestFunctions, nullptr, nullptr);
+    return JS_InitClass(cx, global, nullptr, &ptestClass, Prof, 0, nullptr, ptestFunctions,
+                        nullptr, nullptr);
 }
 
-BEGIN_TEST(testProfileStrings_isCalledWithInterpreter)
-{
+BEGIN_TEST(testProfileStrings_isCalledWithInterpreter) {
     CHECK(initialize(cx));
 
     EXEC("function g() { var p = new Prof(); p.test_fn(); }");
@@ -104,15 +82,13 @@ BEGIN_TEST(testProfileStrings_isCalledWithInterpreter)
     {
         JS::RootedValue rval(cx);
         /* Make sure the stack resets and we have an entry for each stack */
-        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(),
-                                  &rval));
+        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(), &rval));
         CHECK(pseudoStack.stackPointer == 0);
         CHECK(peakStackPointer >= 8);
         CHECK(cx->runtime()->geckoProfiler().stringsCount() == 8);
         /* Make sure the stack resets and we added no new entries */
         peakStackPointer = 0;
-        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(),
-                                  &rval));
+        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(), &rval));
         CHECK(pseudoStack.stackPointer == 0);
         CHECK(peakStackPointer >= 8);
         CHECK(cx->runtime()->geckoProfiler().stringsCount() == 8);
@@ -120,8 +96,7 @@ BEGIN_TEST(testProfileStrings_isCalledWithInterpreter)
     reset(cx);
     {
         JS::RootedValue rval(cx);
-        CHECK(JS_CallFunctionName(cx, global, "check2", JS::HandleValueArray::empty(),
-                                  &rval));
+        CHECK(JS_CallFunctionName(cx, global, "check2", JS::HandleValueArray::empty(), &rval));
         CHECK(cx->runtime()->geckoProfiler().stringsCount() == 5);
         CHECK(peakStackPointer >= 6);
         CHECK(pseudoStack.stackPointer == 0);
@@ -130,11 +105,9 @@ BEGIN_TEST(testProfileStrings_isCalledWithInterpreter)
 }
 END_TEST(testProfileStrings_isCalledWithInterpreter)
 
-BEGIN_TEST(testProfileStrings_isCalledWithJIT)
-{
+BEGIN_TEST(testProfileStrings_isCalledWithJIT) {
     CHECK(initialize(cx));
-    JS::ContextOptionsRef(cx).setBaseline(true)
-                             .setIon(true);
+    JS::ContextOptionsRef(cx).setBaseline(true).setIon(true);
 
     EXEC("function g() { var p = new Prof(); p.test_fn(); }");
     EXEC("function f() { g(); }");
@@ -150,16 +123,14 @@ BEGIN_TEST(testProfileStrings_isCalledWithJIT)
     {
         JS::RootedValue rval(cx);
         /* Make sure the stack resets and we have an entry for each stack */
-        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(),
-                                  &rval));
+        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(), &rval));
         CHECK(pseudoStack.stackPointer == 0);
         CHECK(peakStackPointer >= 8);
 
         /* Make sure the stack resets and we added no new entries */
         uint32_t cnt = cx->runtime()->geckoProfiler().stringsCount();
         peakStackPointer = 0;
-        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(),
-                                  &rval));
+        CHECK(JS_CallFunctionName(cx, global, "check", JS::HandleValueArray::empty(), &rval));
         CHECK(pseudoStack.stackPointer == 0);
         CHECK(cx->runtime()->geckoProfiler().stringsCount() == cnt);
         CHECK(peakStackPointer >= 8);
@@ -169,11 +140,9 @@ BEGIN_TEST(testProfileStrings_isCalledWithJIT)
 }
 END_TEST(testProfileStrings_isCalledWithJIT)
 
-BEGIN_TEST(testProfileStrings_isCalledWhenError)
-{
+BEGIN_TEST(testProfileStrings_isCalledWhenError) {
     CHECK(initialize(cx));
-    JS::ContextOptionsRef(cx).setBaseline(true)
-                             .setIon(true);
+    JS::ContextOptionsRef(cx).setBaseline(true).setIon(true);
 
     EXEC("function check2() { throw 'a'; }");
 
@@ -181,8 +150,7 @@ BEGIN_TEST(testProfileStrings_isCalledWhenError)
     {
         JS::RootedValue rval(cx);
         /* Make sure the stack resets and we have an entry for each stack */
-        bool ok = JS_CallFunctionName(cx, global, "check2", JS::HandleValueArray::empty(),
-                                      &rval);
+        bool ok = JS_CallFunctionName(cx, global, "check2", JS::HandleValueArray::empty(), &rval);
         CHECK(!ok);
         CHECK(pseudoStack.stackPointer == 0);
         CHECK(cx->runtime()->geckoProfiler().stringsCount() == 1);
@@ -194,11 +162,9 @@ BEGIN_TEST(testProfileStrings_isCalledWhenError)
 }
 END_TEST(testProfileStrings_isCalledWhenError)
 
-BEGIN_TEST(testProfileStrings_worksWhenEnabledOnTheFly)
-{
+BEGIN_TEST(testProfileStrings_worksWhenEnabledOnTheFly) {
     CHECK(initialize(cx));
-    JS::ContextOptionsRef(cx).setBaseline(true)
-                             .setIon(true);
+    JS::ContextOptionsRef(cx).setBaseline(true).setIon(true);
 
     EXEC("function b(p) { p.test_fn(); }");
     EXEC("function a() { var p = new Prof(); p.enable(); b(p); }");

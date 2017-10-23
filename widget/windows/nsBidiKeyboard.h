@@ -13,7 +13,7 @@ class nsBidiKeyboard : public nsIBidiKeyboard
 {
   virtual ~nsBidiKeyboard();
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIBIDIKEYBOARD
 
@@ -21,17 +21,15 @@ public:
 
   static void OnLayoutChange();
 
-protected:
-
+ protected:
   nsresult SetupBidiKeyboards();
   bool IsRTLLanguage(HKL aLocale);
 
   bool mInitialized;
   bool mHaveBidiKeyboards;
-  wchar_t  mLTRKeyboard[KL_NAMELENGTH];
-  wchar_t  mRTLKeyboard[KL_NAMELENGTH];
-  wchar_t  mCurrentLocaleName[KL_NAMELENGTH];
+  wchar_t mLTRKeyboard[KL_NAMELENGTH];
+  wchar_t mRTLKeyboard[KL_NAMELENGTH];
+  wchar_t mCurrentLocaleName[KL_NAMELENGTH];
 };
 
-
-#endif // __nsBidiKeyboard
+#endif  // __nsBidiKeyboard

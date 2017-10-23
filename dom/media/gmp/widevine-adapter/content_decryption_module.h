@@ -46,9 +46,11 @@ typedef __int64 int64_t;
 #define BUILD_ENTRYPOINT_NO_EXPANSION(name, version) name##_##version
 
 extern "C" {
-CDM_API void INITIALIZE_CDM_MODULE();
+CDM_API void
+INITIALIZE_CDM_MODULE();
 
-CDM_API void DeinitializeCdmModule();
+CDM_API void
+DeinitializeCdmModule();
 
 // Returns a pointer to the requested CDM Host interface upon success.
 // Returns NULL if the requested CDM Host interface is not supported.
@@ -63,12 +65,15 @@ typedef void* (*GetCdmHostFunc)(int host_interface_version, void* user_data);
 // |cdm_interface_version|.
 // Caller retains ownership of arguments and must call Destroy() on the returned
 // object.
-CDM_API void* CreateCdmInstance(
-    int cdm_interface_version,
-    const char* key_system, uint32_t key_system_size,
-    GetCdmHostFunc get_cdm_host_func, void* user_data);
+CDM_API void*
+CreateCdmInstance(int cdm_interface_version,
+                  const char* key_system,
+                  uint32_t key_system_size,
+                  GetCdmHostFunc get_cdm_host_func,
+                  void* user_data);
 
-CDM_API const char* GetCdmVersion();
+CDM_API const char*
+GetCdmVersion();
 }
 
 namespace cdm {
@@ -80,7 +85,8 @@ class CDM_CLASS_API VideoFrame;
 class CDM_CLASS_API Host_8;
 class CDM_CLASS_API Host_9;
 
-enum Status {
+enum Status
+{
   kSuccess = 0,
   kNeedMoreData,  // Decoder needs more data to produce a decoded frame/sample.
   kNoKey,         // The required decryption key is not available.
@@ -96,7 +102,8 @@ enum Status {
 // http://www.w3.org/TR/dom/#domexception
 // Some DOM4 exceptions are not included as they are not expected to be used.
 // Should only be used on Host_8 and before.
-enum Error {
+enum Error
+{
   kNotSupportedError = 9,
   kInvalidStateError = 11,
   kInvalidAccessError = 15,
@@ -114,7 +121,8 @@ enum Error {
 
 // Exceptions used by the CDM to reject promises.
 // https://w3c.github.io/encrypted-media/#exceptions
-enum Exception {
+enum Exception
+{
   kExceptionTypeError,
   kExceptionNotSupportedError,
   kExceptionInvalidStateError,
@@ -149,9 +157,12 @@ typedef double Time;
 // |<----- subsample1 ----->|<----- subsample2 ----->|<----- subsample3 ----->|
 // |   clear1   | decrypted1|  clear2  |  decrypted2 | clear3 |   decrypted3  |
 //
-struct SubsampleEntry {
+struct SubsampleEntry
+{
   SubsampleEntry(uint32_t clear_bytes, uint32_t cipher_bytes)
-      : clear_bytes(clear_bytes), cipher_bytes(cipher_bytes) {}
+      : clear_bytes(clear_bytes), cipher_bytes(cipher_bytes)
+  {
+  }
 
   uint32_t clear_bytes;
   uint32_t cipher_bytes;
@@ -160,7 +171,8 @@ struct SubsampleEntry {
 // Represents an input buffer to be decrypted (and possibly decoded). It does
 // not own any pointers in this struct. If |iv_size| = 0, the data is
 // unencrypted.
-struct InputBuffer {
+struct InputBuffer
+{
   InputBuffer()
       : data(nullptr),
         data_size(0),
@@ -170,16 +182,18 @@ struct InputBuffer {
         iv_size(0),
         subsamples(nullptr),
         num_subsamples(0),
-        timestamp(0) {}
+        timestamp(0)
+  {
+  }
 
   const uint8_t* data;  // Pointer to the beginning of the input data.
-  uint32_t data_size;  // Size (in bytes) of |data|.
+  uint32_t data_size;   // Size (in bytes) of |data|.
 
   const uint8_t* key_id;  // Key ID to identify the decryption key.
-  uint32_t key_id_size;  // Size (in bytes) of |key_id|.
+  uint32_t key_id_size;   // Size (in bytes) of |key_id|.
 
   const uint8_t* iv;  // Initialization vector.
-  uint32_t iv_size;  // Size (in bytes) of |iv|.
+  uint32_t iv_size;   // Size (in bytes) of |iv|.
 
   const struct SubsampleEntry* subsamples;
   uint32_t num_subsamples;  // Number of subsamples in |subsamples|.
@@ -187,8 +201,10 @@ struct InputBuffer {
   int64_t timestamp;  // Presentation timestamp in microseconds.
 };
 
-struct AudioDecoderConfig {
-  enum AudioCodec {
+struct AudioDecoderConfig
+{
+  enum AudioCodec
+  {
     kUnknownAudioCodec = 0,
     kCodecVorbis,
     kCodecAac
@@ -200,7 +216,9 @@ struct AudioDecoderConfig {
         bits_per_channel(0),
         samples_per_second(0),
         extra_data(nullptr),
-        extra_data_size(0) {}
+        extra_data_size(0)
+  {
+  }
 
   AudioCodec codec;
   int32_t channel_count;
@@ -214,19 +232,21 @@ struct AudioDecoderConfig {
 };
 
 // Supported sample formats for AudioFrames.
-enum AudioFormat {
+enum AudioFormat
+{
   kUnknownAudioFormat = 0,  // Unknown format value. Used for error reporting.
-  kAudioFormatU8,  // Interleaved unsigned 8-bit w/ bias of 128.
-  kAudioFormatS16,  // Interleaved signed 16-bit.
-  kAudioFormatS32,  // Interleaved signed 32-bit.
-  kAudioFormatF32,  // Interleaved float 32-bit.
-  kAudioFormatPlanarS16,  // Signed 16-bit planar.
-  kAudioFormatPlanarF32,  // Float 32-bit planar.
+  kAudioFormatU8,           // Interleaved unsigned 8-bit w/ bias of 128.
+  kAudioFormatS16,          // Interleaved signed 16-bit.
+  kAudioFormatS32,          // Interleaved signed 32-bit.
+  kAudioFormatF32,          // Interleaved float 32-bit.
+  kAudioFormatPlanarS16,    // Signed 16-bit planar.
+  kAudioFormatPlanarF32,    // Float 32-bit planar.
 };
 
 // Surface formats based on FOURCC labels, see: http://www.fourcc.org/yuv.php
 // Values are chosen to be consistent with Chromium's VideoPixelFormat values.
-enum VideoFormat {
+enum VideoFormat
+{
   kUnknownVideoFormat = 0,  // Unknown format value. Used for error reporting.
   kYv12 = 1,                // 12bpp YVU planar 1x1 Y, 2x2 VU samples.
   kI420 = 2,                // 12bpp YUV planar 1x1 Y, 2x2 UV samples.
@@ -246,7 +266,8 @@ enum VideoFormat {
   kYUV444P12 = 24,
 };
 
-struct Size {
+struct Size
+{
   Size() : width(0), height(0) {}
   Size(int32_t width, int32_t height) : width(width), height(height) {}
 
@@ -254,15 +275,18 @@ struct Size {
   int32_t height;
 };
 
-struct VideoDecoderConfig {
-  enum VideoCodec {
+struct VideoDecoderConfig
+{
+  enum VideoCodec
+  {
     kUnknownVideoCodec = 0,
     kCodecVp8,
     kCodecH264,
     kCodecVp9
   };
 
-  enum VideoCodecProfile {
+  enum VideoCodecProfile
+  {
     kUnknownVideoCodecProfile = 0,
     kProfileNotNeeded,
     kH264ProfileBaseline,
@@ -284,7 +308,9 @@ struct VideoDecoderConfig {
         profile(kUnknownVideoCodecProfile),
         format(kUnknownVideoFormat),
         extra_data(nullptr),
-        extra_data_size(0) {}
+        extra_data_size(0)
+  {
+  }
 
   VideoCodec codec;
   VideoCodecProfile profile;
@@ -300,7 +326,8 @@ struct VideoDecoderConfig {
   uint32_t extra_data_size;
 };
 
-enum StreamType {
+enum StreamType
+{
   kStreamTypeAudio = 0,
   kStreamTypeVideo = 1
 };
@@ -308,7 +335,8 @@ enum StreamType {
 // Structure provided to ContentDecryptionModule::OnPlatformChallengeResponse()
 // after a platform challenge was initiated via Host::SendPlatformChallenge().
 // All values will be NULL / zero in the event of a challenge failure.
-struct PlatformChallengeResponse {
+struct PlatformChallengeResponse
+{
   // |challenge| provided during Host::SendPlatformChallenge() combined with
   // nonce data and signed with the platform's private key.
   const uint8_t* signed_data;
@@ -324,7 +352,8 @@ struct PlatformChallengeResponse {
 };
 
 // Used when passing arrays of binary data. Does not own the referenced data.
-struct BinaryData {
+struct BinaryData
+{
   BinaryData() : data(nullptr), length(0) {}
   const uint8_t* data;
   uint32_t length;
@@ -332,7 +361,8 @@ struct BinaryData {
 
 // The current status of the associated key. The valid types are defined in the
 // spec: https://w3c.github.io/encrypted-media/#idl-def-MediaKeyStatus
-enum KeyStatus {
+enum KeyStatus
+{
   kUsable = 0,
   kInternalError = 1,
   kExpired = 2,
@@ -345,12 +375,12 @@ enum KeyStatus {
 // Used when passing arrays of key information. Does not own the referenced
 // data. |system_code| is an additional error code for unusable keys and
 // should be 0 when |status| == kUsable.
-struct KeyInformation {
+struct KeyInformation
+{
   KeyInformation()
-      : key_id(nullptr),
-        key_id_size(0),
-        status(kInternalError),
-        system_code(0) {}
+      : key_id(nullptr), key_id_size(0), status(kInternalError), system_code(0)
+  {
+  }
   const uint8_t* key_id;
   uint32_t key_id_size;
   KeyStatus status;
@@ -359,13 +389,15 @@ struct KeyInformation {
 
 // Supported output protection methods for use with EnableOutputProtection() and
 // returned by OnQueryOutputProtectionStatus().
-enum OutputProtectionMethods {
+enum OutputProtectionMethods
+{
   kProtectionNone = 0,
   kProtectionHDCP = 1 << 0
 };
 
 // Connected output link types returned by OnQueryOutputProtectionStatus().
-enum OutputLinkTypes {
+enum OutputLinkTypes
+{
   kLinkTypeNone = 0,
   kLinkTypeUnknown = 1 << 0,
   kLinkTypeInternal = 1 << 1,
@@ -377,14 +409,16 @@ enum OutputLinkTypes {
 };
 
 // Result of the QueryOutputProtectionStatus() call.
-enum QueryResult {
+enum QueryResult
+{
   kQuerySucceeded = 0,
   kQueryFailed
 };
 
 // The Initialization Data Type. The valid types are defined in the spec:
 // http://w3c.github.io/encrypted-media/initdata-format-registry.html#registry
-enum InitDataType {
+enum InitDataType
+{
   kCenc = 0,
   kKeyIds = 1,
   kWebM = 2
@@ -392,7 +426,8 @@ enum InitDataType {
 
 // The type of session to create. The valid types are defined in the spec:
 // https://w3c.github.io/encrypted-media/#idl-def-SessionType
-enum SessionType {
+enum SessionType
+{
   kTemporary = 0,
   kPersistentLicense = 1,
   kPersistentKeyRelease = 2
@@ -400,13 +435,15 @@ enum SessionType {
 
 // The type of the message event.  The valid types are defined in the spec:
 // https://w3c.github.io/encrypted-media/#idl-def-MediaKeyMessageType
-enum MessageType {
+enum MessageType
+{
   kLicenseRequest = 0,
   kLicenseRenewal = 1,
   kLicenseRelease = 2
 };
 
-enum HdcpVersion {
+enum HdcpVersion
+{
   kHdcpVersionNone,
   kHdcpVersion1_0,
   kHdcpVersion1_1,
@@ -418,7 +455,8 @@ enum HdcpVersion {
   kHdcpVersion2_2
 };
 
-struct Policy {
+struct Policy
+{
   Policy() : min_hdcp_version(kHdcpVersionNone) {}
 
   HdcpVersion min_hdcp_version;
@@ -433,7 +471,8 @@ struct Policy {
 // Note to implementors of this interface:
 // Per-origin storage and the ability for users to clear it are important.
 // See http://www.w3.org/TR/encrypted-media/#privacy-storedinfo.
-class CDM_CLASS_API FileIO {
+class CDM_CLASS_API FileIO
+{
  public:
   // Opens the file with |file_name| for read and write.
   // FileIOClient::OnOpenComplete() will be called after the opening
@@ -473,9 +512,11 @@ class CDM_CLASS_API FileIO {
 // When kError is returned, the FileIO object could be in an error state. All
 // following calls (other than Close()) could return kError. The CDM should
 // still call Close() to destroy the FileIO object.
-class CDM_CLASS_API FileIOClient {
+class CDM_CLASS_API FileIOClient
+{
  public:
-  enum Status {
+  enum Status
+  {
     kSuccess = 0,
     kInUse,
     kError
@@ -492,7 +533,8 @@ class CDM_CLASS_API FileIOClient {
   // - kError indicates read failure, e.g. the storage is not open or cannot be
   //   fully read.
   virtual void OnReadComplete(Status status,
-                              const uint8_t* data, uint32_t data_size) = 0;
+                              const uint8_t* data,
+                              uint32_t data_size) = 0;
 
   // Response to a FileIO::Write() call.
   // - kSuccess indicates that all the data has been written into the file
@@ -514,7 +556,8 @@ class CDM_CLASS_API FileIOClient {
 // provided in CreateCdmInstance() to allocate any Buffer that needs to
 // be passed back to the caller. Implementations must call Buffer::Destroy()
 // when a Buffer is created that will never be returned to the caller.
-class CDM_CLASS_API ContentDecryptionModule_8 {
+class CDM_CLASS_API ContentDecryptionModule_8
+{
  public:
   static const int kVersion = 8;
   typedef Host_8 Host;
@@ -702,7 +745,8 @@ class CDM_CLASS_API ContentDecryptionModule_8 {
 // provided in CreateCdmInstance() to allocate any Buffer that needs to
 // be passed back to the caller. Implementations must call Buffer::Destroy()
 // when a Buffer is created that will never be returned to the caller.
-class CDM_CLASS_API ContentDecryptionModule_9 {
+class CDM_CLASS_API ContentDecryptionModule_9
+{
  public:
   static const int kVersion = 9;
   typedef Host_9 Host;
@@ -899,7 +943,8 @@ class CDM_CLASS_API ContentDecryptionModule_9 {
 typedef ContentDecryptionModule_9 ContentDecryptionModule;
 
 // Represents a buffer created by Allocator implementations.
-class CDM_CLASS_API Buffer {
+class CDM_CLASS_API Buffer
+{
  public:
   // Destroys the buffer in the same context as it was created.
   virtual void Destroy() = 0;
@@ -918,7 +963,8 @@ class CDM_CLASS_API Buffer {
   void operator=(const Buffer&);
 };
 
-class CDM_CLASS_API Host_8 {
+class CDM_CLASS_API Host_8
+{
  public:
   static const int kVersion = 8;
 
@@ -1012,11 +1058,12 @@ class CDM_CLASS_API Host_8 {
   // - This method is only for supporting prefixed EME API.
   // - This method will be ignored by unprefixed EME. All errors reported
   //   in this method should probably also be reported by one of other methods.
-  virtual void OnLegacySessionError(
-      const char* session_id, uint32_t session_id_length,
-      Error error,
-      uint32_t system_code,
-      const char* error_message, uint32_t error_message_length) = 0;
+  virtual void OnLegacySessionError(const char* session_id,
+                                    uint32_t session_id_length,
+                                    Error error,
+                                    uint32_t system_code,
+                                    const char* error_message,
+                                    uint32_t error_message_length) = 0;
 
   // The following are optional methods that may not be implemented on all
   // platforms.
@@ -1057,7 +1104,8 @@ class CDM_CLASS_API Host_8 {
   virtual ~Host_8() {}
 };
 
-class CDM_CLASS_API Host_9 {
+class CDM_CLASS_API Host_9
+{
  public:
   static const int kVersion = 9;
 
@@ -1188,7 +1236,8 @@ class CDM_CLASS_API Host_9 {
 };
 
 // Represents a decrypted block that has not been decoded.
-class CDM_CLASS_API DecryptedBlock {
+class CDM_CLASS_API DecryptedBlock
+{
  public:
   virtual void SetDecryptedBuffer(Buffer* buffer) = 0;
   virtual Buffer* DecryptedBuffer() = 0;
@@ -1203,9 +1252,11 @@ class CDM_CLASS_API DecryptedBlock {
   virtual ~DecryptedBlock() {}
 };
 
-class CDM_CLASS_API VideoFrame {
+class CDM_CLASS_API VideoFrame
+{
  public:
-  enum VideoPlane {
+  enum VideoPlane
+  {
     kYPlane = 0,
     kUPlane = 1,
     kVPlane = 2,
@@ -1246,7 +1297,8 @@ class CDM_CLASS_API VideoFrame {
 //
 // |<----------------- AudioFrames ------------------>|
 // | audio buffer 0 | audio buffer 1 | audio buffer 2 |
-class CDM_CLASS_API AudioFrames {
+class CDM_CLASS_API AudioFrames
+{
  public:
   virtual void SetFrameBuffer(Buffer* buffer) = 0;
   virtual Buffer* FrameBuffer() = 0;

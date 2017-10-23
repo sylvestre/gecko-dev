@@ -14,8 +14,9 @@
 #include "U2FManager.h"
 
 // Forward decl because of nsHTMLDocument.h's complex dependency on /layout/style
-class nsHTMLDocument {
-public:
+class nsHTMLDocument
+{
+ public:
   bool IsRegistrableDomainSuffixOfOrEqualTo(const nsAString& aHostSuffixString,
                                             const nsACString& aOrigHost);
 };
@@ -51,13 +52,14 @@ AdjustedTimeoutMillis(const Optional<Nullable<int32_t>>& opt_aSeconds)
 }
 
 static nsresult
-AssembleClientData(const nsAString& aOrigin, const nsAString& aTyp,
+AssembleClientData(const nsAString& aOrigin,
+                   const nsAString& aTyp,
                    const nsAString& aChallenge,
                    /* out */ nsString& aClientData)
 {
   MOZ_ASSERT(NS_IsMainThread());
   U2FClientData clientDataObject;
-  clientDataObject.mTyp.Construct(aTyp); // "Typ" from the U2F specification
+  clientDataObject.mTyp.Construct(aTyp);  // "Typ" from the U2F specification
   clientDataObject.mChallenge.Construct(aChallenge);
   clientDataObject.mOrigin.Construct(aOrigin);
 
@@ -69,9 +71,10 @@ AssembleClientData(const nsAString& aOrigin, const nsAString& aTyp,
 }
 
 static void
-RegisteredKeysToScopedCredentialList(const nsAString& aAppId,
-  const nsTArray<RegisteredKey>& aKeys,
-  nsTArray<WebAuthnScopedCredentialDescriptor>& aList)
+RegisteredKeysToScopedCredentialList(
+    const nsAString& aAppId,
+    const nsTArray<RegisteredKey>& aKeys,
+    nsTArray<WebAuthnScopedCredentialDescriptor>& aList)
 {
   for (const RegisteredKey& key : aKeys) {
     // Check for required attributes
@@ -98,7 +101,8 @@ RegisteredKeysToScopedCredentialList(const nsAString& aAppId,
 }
 
 static ErrorCode
-EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
+EvaluateAppID(nsPIDOMWindowInner* aParent,
+              const nsString& aOrigin,
               /* in/out */ nsString& aAppId)
 {
   // Facet is the specification's way of referring to the web origin.
@@ -148,7 +152,7 @@ EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
   // Use the base domain as the facet for evaluation. This lets this algorithm
   // relax the whole eTLD+1.
   nsCOMPtr<nsIEffectiveTLDService> tldService =
-    do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
+      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
   if (!tldService) {
     return ErrorCode::BAD_REQUEST;
   }
@@ -162,11 +166,12 @@ EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
     return ErrorCode::BAD_REQUEST;
   }
 
-  MOZ_LOG(gU2FLog, LogLevel::Debug,
+  MOZ_LOG(gU2FLog,
+          LogLevel::Debug,
           ("AppId %s Facet %s", appIdHost.get(), lowestFacetHost.get()));
 
-  if (html->IsRegistrableDomainSuffixOfOrEqualTo(NS_ConvertUTF8toUTF16(lowestFacetHost),
-                                                 appIdHost)) {
+  if (html->IsRegistrableDomainSuffixOfOrEqualTo(
+          NS_ConvertUTF8toUTF16(lowestFacetHost), appIdHost)) {
     return ErrorCode::OK;
   }
 
@@ -185,16 +190,13 @@ ExecuteCallback(T& aResp, Maybe<nsMainThreadPtrHandle<C>>& aCb)
   ErrorResult error;
   aCb.ref()->Call(aResp, error);
   NS_WARNING_ASSERTION(!error.Failed(), "dom::U2F::Promise callback failed");
-  error.SuppressException(); // Useful exceptions already emitted
+  error.SuppressException();  // Useful exceptions already emitted
 
   aCb.reset();
   MOZ_ASSERT(aCb.isNothing());
 }
 
-U2F::U2F(nsPIDOMWindowInner* aParent)
-  : mParent(aParent)
-{
-}
+U2F::U2F(nsPIDOMWindowInner* aParent) : mParent(aParent) {}
 
 U2F::~U2F()
 {
@@ -251,8 +253,8 @@ U2F::Register(const nsAString& aAppId,
 
   MOZ_ASSERT(mRegisterCallback.isNothing());
   mRegisterCallback = Some(nsMainThreadPtrHandle<U2FRegisterCallback>(
-                        new nsMainThreadPtrHolder<U2FRegisterCallback>(
-                            "U2F::Register::callback", &aCallback)));
+      new nsMainThreadPtrHolder<U2FRegisterCallback>("U2F::Register::callback",
+                                                     &aCallback)));
 
   uint32_t adjustedTimeoutMillis = AdjustedTimeoutMillis(opt_aTimeoutSeconds);
 
@@ -279,8 +281,8 @@ U2F::Register(const nsAString& aAppId,
       continue;
     }
 
-    nsresult rv = AssembleClientData(mOrigin, kFinishEnrollment,
-                                     req.mChallenge.Value(), clientDataJSON);
+    nsresult rv = AssembleClientData(
+        mOrigin, kFinishEnrollment, req.mChallenge.Value(), clientDataJSON);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       continue;
     }
@@ -289,44 +291,50 @@ U2F::Register(const nsAString& aAppId,
   // Did we not get a valid RegisterRequest? Abort.
   if (clientDataJSON.IsEmpty()) {
     RegisterResponse response;
-    response.mErrorCode.Construct(static_cast<uint32_t>(ErrorCode::BAD_REQUEST));
+    response.mErrorCode.Construct(
+        static_cast<uint32_t>(ErrorCode::BAD_REQUEST));
     ExecuteCallback(response, mRegisterCallback);
     return;
   }
 
   // Build the exclusion list, if any
   nsTArray<WebAuthnScopedCredentialDescriptor> excludeList;
-  RegisteredKeysToScopedCredentialList(adjustedAppId, aRegisteredKeys,
-                                       excludeList);
+  RegisteredKeysToScopedCredentialList(
+      adjustedAppId, aRegisteredKeys, excludeList);
 
   auto& localReqHolder = mPromiseHolder;
   auto& localCb = mRegisterCallback;
   RefPtr<U2FManager> mgr = U2FManager::GetOrCreate();
-  RefPtr<U2FPromise> p = mgr->Register(mParent, cAppId,
+  RefPtr<U2FPromise> p = mgr->Register(mParent,
+                                       cAppId,
                                        NS_ConvertUTF16toUTF8(clientDataJSON),
-                                       adjustedTimeoutMillis, excludeList);
-  p->Then(mEventTarget, "dom::U2F::Register::Promise::Resolve",
+                                       adjustedTimeoutMillis,
+                                       excludeList);
+  p->Then(mEventTarget,
+          "dom::U2F::Register::Promise::Resolve",
           [&localCb, &localReqHolder](nsString aResponse) {
-              MOZ_LOG(gU2FLog, LogLevel::Debug,
-                      ("dom::U2F::Register::Promise::Resolve, response was %s",
-                        NS_ConvertUTF16toUTF8(aResponse).get()));
-              RegisterResponse response;
-              response.Init(aResponse);
+            MOZ_LOG(gU2FLog,
+                    LogLevel::Debug,
+                    ("dom::U2F::Register::Promise::Resolve, response was %s",
+                     NS_ConvertUTF16toUTF8(aResponse).get()));
+            RegisterResponse response;
+            response.Init(aResponse);
 
-              ExecuteCallback(response, localCb);
-              localReqHolder.Complete();
+            ExecuteCallback(response, localCb);
+            localReqHolder.Complete();
           },
           [&localCb, &localReqHolder](ErrorCode aErrorCode) {
-              MOZ_LOG(gU2FLog, LogLevel::Debug,
-                      ("dom::U2F::Register::Promise::Reject, response was %d",
-                        static_cast<uint32_t>(aErrorCode)));
-              RegisterResponse response;
-              response.mErrorCode.Construct(static_cast<uint32_t>(aErrorCode));
+            MOZ_LOG(gU2FLog,
+                    LogLevel::Debug,
+                    ("dom::U2F::Register::Promise::Reject, response was %d",
+                     static_cast<uint32_t>(aErrorCode)));
+            RegisterResponse response;
+            response.mErrorCode.Construct(static_cast<uint32_t>(aErrorCode));
 
-              ExecuteCallback(response, localCb);
-              localReqHolder.Complete();
+            ExecuteCallback(response, localCb);
+            localReqHolder.Complete();
           })
-  ->Track(mPromiseHolder);
+      ->Track(mPromiseHolder);
 }
 
 void
@@ -343,8 +351,8 @@ U2F::Sign(const nsAString& aAppId,
 
   MOZ_ASSERT(mSignCallback.isNothing());
   mSignCallback = Some(nsMainThreadPtrHandle<U2FSignCallback>(
-                    new nsMainThreadPtrHolder<U2FSignCallback>(
-                        "U2F::Sign::callback", &aCallback)));
+      new nsMainThreadPtrHolder<U2FSignCallback>("U2F::Sign::callback",
+                                                 &aCallback)));
 
   uint32_t adjustedTimeoutMillis = AdjustedTimeoutMillis(opt_aTimeoutSeconds);
 
@@ -363,47 +371,53 @@ U2F::Sign(const nsAString& aAppId,
   nsCString cAppId = NS_ConvertUTF16toUTF8(adjustedAppId);
 
   nsAutoString clientDataJSON;
-  nsresult rv = AssembleClientData(mOrigin, kGetAssertion, aChallenge,
-                                   clientDataJSON);
+  nsresult rv =
+      AssembleClientData(mOrigin, kGetAssertion, aChallenge, clientDataJSON);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     SignResponse response;
-    response.mErrorCode.Construct(static_cast<uint32_t>(ErrorCode::BAD_REQUEST));
+    response.mErrorCode.Construct(
+        static_cast<uint32_t>(ErrorCode::BAD_REQUEST));
     ExecuteCallback(response, mSignCallback);
     return;
   }
 
   // Build the key list, if any
   nsTArray<WebAuthnScopedCredentialDescriptor> permittedList;
-  RegisteredKeysToScopedCredentialList(adjustedAppId, aRegisteredKeys,
-                                       permittedList);
+  RegisteredKeysToScopedCredentialList(
+      adjustedAppId, aRegisteredKeys, permittedList);
   auto& localReqHolder = mPromiseHolder;
   auto& localCb = mSignCallback;
   RefPtr<U2FManager> mgr = U2FManager::GetOrCreate();
-  RefPtr<U2FPromise> p = mgr->Sign(mParent, cAppId,
+  RefPtr<U2FPromise> p = mgr->Sign(mParent,
+                                   cAppId,
                                    NS_ConvertUTF16toUTF8(clientDataJSON),
-                                   adjustedTimeoutMillis, permittedList);
-  p->Then(mEventTarget, "dom::U2F::Sign::Promise::Resolve",
+                                   adjustedTimeoutMillis,
+                                   permittedList);
+  p->Then(mEventTarget,
+          "dom::U2F::Sign::Promise::Resolve",
           [&localCb, &localReqHolder](nsString aResponse) {
-              MOZ_LOG(gU2FLog, LogLevel::Debug,
-                      ("dom::U2F::Sign::Promise::Resolve, response was %s",
-                        NS_ConvertUTF16toUTF8(aResponse).get()));
-              SignResponse response;
-              response.Init(aResponse);
+            MOZ_LOG(gU2FLog,
+                    LogLevel::Debug,
+                    ("dom::U2F::Sign::Promise::Resolve, response was %s",
+                     NS_ConvertUTF16toUTF8(aResponse).get()));
+            SignResponse response;
+            response.Init(aResponse);
 
-              ExecuteCallback(response, localCb);
-              localReqHolder.Complete();
+            ExecuteCallback(response, localCb);
+            localReqHolder.Complete();
           },
           [&localCb, &localReqHolder](ErrorCode aErrorCode) {
-              MOZ_LOG(gU2FLog, LogLevel::Debug,
-                      ("dom::U2F::Sign::Promise::Reject, response was %d",
-                        static_cast<uint32_t>(aErrorCode)));
-              SignResponse response;
-              response.mErrorCode.Construct(static_cast<uint32_t>(aErrorCode));
+            MOZ_LOG(gU2FLog,
+                    LogLevel::Debug,
+                    ("dom::U2F::Sign::Promise::Reject, response was %d",
+                     static_cast<uint32_t>(aErrorCode)));
+            SignResponse response;
+            response.mErrorCode.Construct(static_cast<uint32_t>(aErrorCode));
 
-              ExecuteCallback(response, localCb);
-              localReqHolder.Complete();
+            ExecuteCallback(response, localCb);
+            localReqHolder.Complete();
           })
-  ->Track(mPromiseHolder);
+      ->Track(mPromiseHolder);
 }
 
 void
@@ -433,5 +447,5 @@ U2F::Cancel()
   mPromiseHolder.DisconnectIfExists();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

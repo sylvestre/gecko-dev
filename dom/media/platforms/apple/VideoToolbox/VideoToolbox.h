@@ -21,74 +21,58 @@
 
 typedef uint32_t VTDecodeFrameFlags;
 typedef uint32_t VTDecodeInfoFlags;
-enum {
+enum
+{
   kVTDecodeInfo_Asynchronous = 1UL << 0,
   kVTDecodeInfo_FrameDropped = 1UL << 1,
 };
-enum {
-  kVTDecodeFrame_EnableAsynchronousDecompression = 1<<0,
-  kVTDecodeFrame_DoNotOutputFrame = 1<<1,
-  kVTDecodeFrame_1xRealTimePlayback = 1<<2,
-  kVTDecodeFrame_EnableTemporalProcessing = 1<<3,
+enum
+{
+  kVTDecodeFrame_EnableAsynchronousDecompression = 1 << 0,
+  kVTDecodeFrame_DoNotOutputFrame = 1 << 1,
+  kVTDecodeFrame_1xRealTimePlayback = 1 << 2,
+  kVTDecodeFrame_EnableTemporalProcessing = 1 << 3,
 };
 
 typedef CFTypeRef VTSessionRef;
 typedef struct OpaqueVTDecompressionSession* VTDecompressionSessionRef;
-typedef void (*VTDecompressionOutputCallback)(
-    void*,
-    void*,
-    OSStatus,
-    VTDecodeInfoFlags,
-    CVImageBufferRef,
-    CMTime,
-    CMTime
-);
-typedef struct VTDecompressionOutputCallbackRecord {
-    VTDecompressionOutputCallback decompressionOutputCallback;
-    void*                         decompressionOutputRefCon;
+typedef void (*VTDecompressionOutputCallback)(void*,
+                                              void*,
+                                              OSStatus,
+                                              VTDecodeInfoFlags,
+                                              CVImageBufferRef,
+                                              CMTime,
+                                              CMTime);
+typedef struct VTDecompressionOutputCallbackRecord
+{
+  VTDecompressionOutputCallback decompressionOutputCallback;
+  void* decompressionOutputRefCon;
 } VTDecompressionOutputCallbackRecord;
 
 OSStatus
-VTDecompressionSessionCreate(
-    CFAllocatorRef,
-    CMVideoFormatDescriptionRef,
-    CFDictionaryRef,
-    CFDictionaryRef,
-    const VTDecompressionOutputCallbackRecord*,
-    VTDecompressionSessionRef*
-);
+VTDecompressionSessionCreate(CFAllocatorRef,
+                             CMVideoFormatDescriptionRef,
+                             CFDictionaryRef,
+                             CFDictionaryRef,
+                             const VTDecompressionOutputCallbackRecord*,
+                             VTDecompressionSessionRef*);
 
 OSStatus
-VTDecompressionSessionDecodeFrame(
-    VTDecompressionSessionRef,
-    CMSampleBufferRef,
-    VTDecodeFrameFlags,
-    void*,
-    VTDecodeInfoFlags*
-);
+VTDecompressionSessionDecodeFrame(VTDecompressionSessionRef,
+                                  CMSampleBufferRef,
+                                  VTDecodeFrameFlags,
+                                  void*,
+                                  VTDecodeInfoFlags*);
+
+OSStatus VTDecompressionSessionWaitForAsynchronousFrames(
+    VTDecompressionSessionRef);
+
+void VTDecompressionSessionInvalidate(VTDecompressionSessionRef);
 
 OSStatus
-VTDecompressionSessionWaitForAsynchronousFrames(
-    VTDecompressionSessionRef
-);
-
-void
-VTDecompressionSessionInvalidate(
-    VTDecompressionSessionRef
-);
+VTSessionCopyProperty(VTSessionRef, CFStringRef, CFAllocatorRef, void*);
 
 OSStatus
-VTSessionCopyProperty(
-    VTSessionRef,
-    CFStringRef,
-    CFAllocatorRef,
-    void*
-);
+VTSessionCopySupportedPropertyDictionary(VTSessionRef, CFDictionaryRef*);
 
-OSStatus
-VTSessionCopySupportedPropertyDictionary(
-    VTSessionRef,
-    CFDictionaryRef*
-);
-
-#endif // mozilla_VideoToolbox_VideoToolbox_h
+#endif  // mozilla_VideoToolbox_VideoToolbox_h

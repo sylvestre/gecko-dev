@@ -12,7 +12,7 @@
 // Expand NS_IMPL_NS_NEW_HTML_ELEMENT(Dialog) with pref check
 nsGenericHTMLElement*
 NS_NewHTMLDialogElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
-                         mozilla::dom::FromParser aFromParser)
+                        mozilla::dom::FromParser aFromParser)
 {
   if (!mozilla::dom::HTMLDialogElement::IsDialogEnabled()) {
     return new mozilla::dom::HTMLUnknownElement(aNodeInfo);
@@ -24,9 +24,7 @@ NS_NewHTMLDialogElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
 namespace mozilla {
 namespace dom {
 
-HTMLDialogElement::~HTMLDialogElement()
-{
-}
+HTMLDialogElement::~HTMLDialogElement() {}
 
 NS_IMPL_ELEMENT_CLONE(HTMLDialogElement)
 
@@ -58,7 +56,7 @@ HTMLDialogElement::Close(const mozilla::dom::Optional<nsAString>& aReturnValue)
   SetOpen(false, ignored);
   ignored.SuppressException();
   RefPtr<AsyncEventDispatcher> eventDispatcher =
-    new AsyncEventDispatcher(this, NS_LITERAL_STRING("close"), false);
+      new AsyncEventDispatcher(this, NS_LITERAL_STRING("close"), false);
   eventDispatcher->PostDOMEvent();
 }
 
@@ -77,8 +75,8 @@ void
 HTMLDialogElement::ShowModal(ErrorResult& aError)
 {
   if (!IsInComposedDoc() || Open()) {
-   aError.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-   return;
+    aError.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    return;
   }
 
   SetOpen(true, aError);
@@ -91,5 +89,5 @@ HTMLDialogElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLDialogElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

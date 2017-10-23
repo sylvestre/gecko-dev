@@ -16,16 +16,17 @@
 
 namespace mozilla {
 
-  static inline
-nsSVGAttrTearoffTable<SVGAnimatedNumberList, DOMSVGAnimatedNumberList>&
+static inline nsSVGAttrTearoffTable<SVGAnimatedNumberList,
+                                    DOMSVGAnimatedNumberList>&
 SVGAnimatedNumberListTearoffTable()
 {
   static nsSVGAttrTearoffTable<SVGAnimatedNumberList, DOMSVGAnimatedNumberList>
-    sSVGAnimatedNumberListTearoffTable;
+      sSVGAnimatedNumberListTearoffTable;
   return sSVGAnimatedNumberListTearoffTable;
 }
 
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGAnimatedNumberList, mElement)
+NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGAnimatedNumberList,
+                                               mElement)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMSVGAnimatedNumberList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMSVGAnimatedNumberList)
@@ -36,9 +37,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGAnimatedNumberList)
 NS_INTERFACE_MAP_END
 
 JSObject*
-DOMSVGAnimatedNumberList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DOMSVGAnimatedNumberList::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto)
 {
-  return mozilla::dom::SVGAnimatedNumberListBinding::Wrap(aCx, this, aGivenProto);
+  return mozilla::dom::SVGAnimatedNumberListBinding::Wrap(
+      aCx, this, aGivenProto);
 }
 
 already_AddRefed<DOMSVGNumberList>
@@ -62,12 +65,12 @@ DOMSVGAnimatedNumberList::AnimVal()
 }
 
 /* static */ already_AddRefed<DOMSVGAnimatedNumberList>
-DOMSVGAnimatedNumberList::GetDOMWrapper(SVGAnimatedNumberList *aList,
-                                        nsSVGElement *aElement,
+DOMSVGAnimatedNumberList::GetDOMWrapper(SVGAnimatedNumberList* aList,
+                                        nsSVGElement* aElement,
                                         uint8_t aAttrEnum)
 {
   RefPtr<DOMSVGAnimatedNumberList> wrapper =
-    SVGAnimatedNumberListTearoffTable().GetTearoff(aList);
+      SVGAnimatedNumberListTearoffTable().GetTearoff(aList);
   if (!wrapper) {
     wrapper = new DOMSVGAnimatedNumberList(aElement, aAttrEnum);
     SVGAnimatedNumberListTearoffTable().AddTearoff(aList, wrapper);
@@ -76,7 +79,7 @@ DOMSVGAnimatedNumberList::GetDOMWrapper(SVGAnimatedNumberList *aList,
 }
 
 /* static */ DOMSVGAnimatedNumberList*
-DOMSVGAnimatedNumberList::GetDOMWrapperIfExists(SVGAnimatedNumberList *aList)
+DOMSVGAnimatedNumberList::GetDOMWrapperIfExists(SVGAnimatedNumberList* aList)
 {
   return SVGAnimatedNumberListTearoffTable().GetTearoff(aList);
 }
@@ -89,7 +92,8 @@ DOMSVGAnimatedNumberList::~DOMSVGAnimatedNumberList()
 }
 
 void
-DOMSVGAnimatedNumberList::InternalBaseValListWillChangeTo(const SVGNumberList& aNewValue)
+DOMSVGAnimatedNumberList::InternalBaseValListWillChangeTo(
+    const SVGNumberList& aNewValue)
 {
   // When the number of items in our internal counterpart's baseVal changes,
   // we MUST keep our baseVal in sync. If we don't, script will either see a
@@ -119,7 +123,8 @@ DOMSVGAnimatedNumberList::InternalBaseValListWillChangeTo(const SVGNumberList& a
 }
 
 void
-DOMSVGAnimatedNumberList::InternalAnimValListWillChangeTo(const SVGNumberList& aNewValue)
+DOMSVGAnimatedNumberList::InternalAnimValListWillChangeTo(
+    const SVGNumberList& aNewValue)
 {
   if (mAnimVal) {
     mAnimVal->InternalListLengthWillChange(aNewValue.Length());
@@ -144,4 +149,4 @@ DOMSVGAnimatedNumberList::InternalAList() const
   return *mElement->GetAnimatedNumberList(mAttrEnum);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

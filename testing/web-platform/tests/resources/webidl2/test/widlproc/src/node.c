@@ -22,31 +22,31 @@
 #include "node.h"
 #include "process.h"
 
-struct node *
-newelement(const char *name)
+struct node*
+newelement(const char* name)
 {
-    struct element *element = memalloc(sizeof(struct element));
-    element->n.type = NODE_ELEMENT;
-    element->name = name;
-    return &element->n;
+  struct element* element = memalloc(sizeof(struct element));
+  element->n.type = NODE_ELEMENT;
+  element->name = name;
+  return &element->n;
 }
 
-struct node *
-newattr(const char *name, const char *val)
+struct node*
+newattr(const char* name, const char* val)
 {
-    struct attr *attr = memalloc(sizeof(struct attr));
-    attr->n.type = NODE_ATTR;
-    attr->name = name;
-    attr->value = val;
-    return &attr->n;
+  struct attr* attr = memalloc(sizeof(struct attr));
+  attr->n.type = NODE_ATTR;
+  attr->name = name;
+  attr->value = val;
+  return &attr->n;
 }
 
-struct node *
+struct node*
 newattrlist(void)
 {
-    struct attrlist *attrlist = memalloc(sizeof(struct attrlist));
-    attrlist->n.type = NODE_ATTRLIST;
-    return &attrlist->n;
+  struct attrlist* attrlist = memalloc(sizeof(struct attrlist));
+  attrlist->n.type = NODE_ATTRLIST;
+  return &attrlist->n;
 }
 
 /***********************************************************************
@@ -62,26 +62,25 @@ newattrlist(void)
  * attrlist is freed.
  */
 void
-addnode(struct node *parent, struct node *child)
+addnode(struct node* parent, struct node* child)
 {
-    if (!child)
-        return;
-    if (child->type == NODE_ATTRLIST) {
-        /* Add the attrs in the attrlist to parent. */
-        struct node *child2;
-        reversechildren(child);
-        child2 = child->children;
-        memfree(child);
-        while (child2) {
-            struct node *next = child2->next;
-            addnode(parent, child2);
-            child2 = next;
-        }
-    } else {
-        child->next = parent->children;
-        parent->children = child;
-        child->parent = parent;
+  if (!child) return;
+  if (child->type == NODE_ATTRLIST) {
+    /* Add the attrs in the attrlist to parent. */
+    struct node* child2;
+    reversechildren(child);
+    child2 = child->children;
+    memfree(child);
+    while (child2) {
+      struct node* next = child2->next;
+      addnode(parent, child2);
+      child2 = next;
     }
+  } else {
+    child->next = parent->children;
+    parent->children = child;
+    child->parent = parent;
+  }
 }
 
 /***********************************************************************
@@ -90,28 +89,28 @@ addnode(struct node *parent, struct node *child)
  * Also sets parent field on each node.
  */
 void
-reversechildren(struct node *node)
+reversechildren(struct node* node)
 {
-    struct node *newlist = 0;
-    struct node *child = node->children;
-    while (child) {
-        struct node *next = child->next;
-        child->parent = node;
-        child->next = newlist;
-        newlist = child;
-        reversechildren(child);
-        child = next;
-    }
-    node->children = newlist;
+  struct node* newlist = 0;
+  struct node* child = node->children;
+  while (child) {
+    struct node* next = child->next;
+    child->parent = node;
+    child->next = newlist;
+    newlist = child;
+    reversechildren(child);
+    child = next;
+  }
+  node->children = newlist;
 }
 
 /***********************************************************************
  * nodeisempty : test if node is empty (has no children)
  */
 int
-nodeisempty(struct node *node)
+nodeisempty(struct node* node)
 {
-    return !node->children;
+  return !node->children;
 }
 
 /***********************************************************************
@@ -119,19 +118,16 @@ nodeisempty(struct node *node)
  *
  * Return:  next node in walk, 0 if finished
  */
-struct node *
-nodewalk(struct node *node)
+struct node*
+nodewalk(struct node* node)
 {
-    if (node->children)
-        return node->children;
-    if (node->next)
-        return node->next;
-    do {
-        node = node->parent;
-        if (!node)
-            return 0;
-    } while (!node->next);
-    return node->next;
+  if (node->children) return node->children;
+  if (node->next) return node->next;
+  do {
+    node = node->parent;
+    if (!node) return 0;
+  } while (!node->next);
+  return node->next;
 }
 
 /***********************************************************************
@@ -142,19 +138,18 @@ nodewalk(struct node *node)
  *
  * Return:  0 else child element of that name
  */
-static struct node *
-findchildelement(struct node *node, const char *name)
+static struct node*
+findchildelement(struct node* node, const char* name)
 {
-    node = node->children;
-    while (node) {
-        if (node->type == NODE_ELEMENT) {
-            struct element *element = (void *)node;
-            if (!strcmp(element->name, name))
-                break;
-        }
-        node = node->next;
+  node = node->children;
+  while (node) {
+    if (node->type == NODE_ELEMENT) {
+      struct element* element = (void*)node;
+      if (!strcmp(element->name, name)) break;
     }
-    return node;
+    node = node->next;
+  }
+  return node;
 }
 
 /***********************************************************************
@@ -165,19 +160,18 @@ findchildelement(struct node *node, const char *name)
  *
  * Return:  0 if not found, else 0-terminated string value
  */
-const char *
-getattr(struct node *node, const char *name)
+const char*
+getattr(struct node* node, const char* name)
 {
-    node = node->children;
-    while (node) {
-        if (node->type == NODE_ATTR) {
-            struct attr *attr = (void *)node;
-            if (!strcmp(attr->name, name))
-                return attr->value;
-        }
-        node = node->next;
+  node = node->children;
+  while (node) {
+    if (node->type == NODE_ATTR) {
+      struct attr* attr = (void*)node;
+      if (!strcmp(attr->name, name)) return attr->value;
     }
-    return 0;
+    node = node->next;
+  }
+  return 0;
 }
 
 /***********************************************************************
@@ -189,19 +183,18 @@ getattr(struct node *node, const char *name)
  *
  * Return:  0 else child element with name attr of that value
  */
-static struct node *
-findchildelementwithnameattr(struct node *node, const char *name)
+static struct node*
+findchildelementwithnameattr(struct node* node, const char* name)
 {
-    node = node->children;
-    while (node) {
-        if (node->type == NODE_ELEMENT) {
-            const char *s = getattr(node, "name");
-            if (s && !strcmp(s, name))
-                break;
-        }
-        node = node->next;
+  node = node->children;
+  while (node) {
+    if (node->type == NODE_ELEMENT) {
+      const char* s = getattr(node, "name");
+      if (s && !strcmp(s, name)) break;
     }
-    return node;
+    node = node->next;
+  }
+  return node;
 }
 
 /***********************************************************************
@@ -211,10 +204,10 @@ findchildelementwithnameattr(struct node *node, const char *name)
  *
  * Return:  0 if not found, else Type parse node for return type
  */
-struct node *
-findreturntype(struct node *node)
+struct node*
+findreturntype(struct node* node)
 {
-    return findchildelement(node, "Type");
+  return findchildelement(node, "Type");
 }
 
 /***********************************************************************
@@ -225,13 +218,12 @@ findreturntype(struct node *node)
  *
  * Return:  0 if not found, else node struct for parameter identifier
  */
-struct node *
-findparamidentifier(struct node *node, const char *name)
+struct node*
+findparamidentifier(struct node* node, const char* name)
 {
-    node = findchildelement(node, "ArgumentList");
-    if (node)
-        node = findchildelementwithnameattr(node, name);
-    return node;
+  node = findchildelement(node, "ArgumentList");
+  if (node) node = findchildelementwithnameattr(node, name);
+  return node;
 }
 
 /***********************************************************************
@@ -243,32 +235,29 @@ findparamidentifier(struct node *node, const char *name)
  * Return:  0 if not found, else node for Name element, child of Raises
  *              or SetRaises
  */
-struct node *
-findthrowidentifier(struct node *node, const char *name)
+struct node*
+findthrowidentifier(struct node* node, const char* name)
 {
-    struct node *node2 = findchildelement(node, "Raises");
-    if (node2)
-        node2 = findchildelementwithnameattr(node2, name);
-    if (!node2) {
-        node2 = findchildelement(node, "SetRaises");
-        if (node2)
-            node2 = findchildelementwithnameattr(node2, name);
-    }
-    return node2;
+  struct node* node2 = findchildelement(node, "Raises");
+  if (node2) node2 = findchildelementwithnameattr(node2, name);
+  if (!node2) {
+    node2 = findchildelement(node, "SetRaises");
+    if (node2) node2 = findchildelementwithnameattr(node2, name);
+  }
+  return node2;
 }
 
 /***********************************************************************
  * outputid : output the id of a node
  */
 static void
-outputid(struct node *node)
+outputid(struct node* node)
 {
-    if (node->parent)
-        outputid(node->parent);
-    if (node->id) {
-        fputs("::", stdout);
-        printtext(node->id, strlen(node->id), 1);
-    }
+  if (node->parent) outputid(node->parent);
+  if (node->id) {
+    fputs("::", stdout);
+    printtext(node->id, strlen(node->id), 1);
+  }
 }
 
 /***********************************************************************
@@ -278,54 +267,50 @@ outputid(struct node *node)
  *          indent
  */
 void
-outputnode(struct node *node, unsigned int indent)
+outputnode(struct node* node, unsigned int indent)
 {
-    struct element *element = (void *)node;
-    struct node *child;
-    int empty = 1;
-    printf("%*s<%s", indent, "", element->name);
+  struct element* element = (void*)node;
+  struct node* child;
+  int empty = 1;
+  printf("%*s<%s", indent, "", element->name);
+  child = element->n.children;
+  while (child) {
+    switch (child->type) {
+      case NODE_ELEMENT:
+        empty = 0;
+        break;
+      case NODE_ATTR: {
+        struct attr* attr = (void*)child;
+        printf(" %s=\"", attr->name);
+        printtext(attr->value, strlen(attr->value), 1);
+        printf("\"");
+      } break;
+    }
+    child = child->next;
+  }
+  if (node->id) {
+    printf(" id=\"");
+    outputid(node);
+    printf("\"");
+  }
+  if (!empty || node->comments || node->wsstart) {
+    printf(">\n");
+    if (node->wsstart) {
+      printf("%*s  <webidl>", indent, "");
+      outputwidl(node);
+      printf("</webidl>\n");
+    }
+    outputdescriptive(node, indent + 2);
     child = element->n.children;
     while (child) {
-        switch(child->type) {
+      switch (child->type) {
         case NODE_ELEMENT:
-            empty = 0;
-            break;
-        case NODE_ATTR:
-            {
-                struct attr *attr = (void *)child;
-                printf(" %s=\"", attr->name);
-                printtext(attr->value, strlen(attr->value), 1);
-                printf("\"");
-            }
-            break;
-        }
-        child = child->next;
+          outputnode(child, indent + 2);
+          break;
+      }
+      child = child->next;
     }
-    if (node->id) {
-        printf(" id=\"");
-        outputid(node);
-        printf("\"");
-    }
-    if (!empty || node->comments || node->wsstart) {
-        printf(">\n");
-        if (node->wsstart) {
-            printf("%*s  <webidl>", indent, "");
-            outputwidl(node);
-            printf("</webidl>\n");
-        }
-        outputdescriptive(node, indent + 2);
-        child = element->n.children;
-        while (child) {
-            switch(child->type) {
-            case NODE_ELEMENT:
-                outputnode(child, indent + 2);
-                break;
-            }
-            child = child->next;
-        }
-        printf("%*s</%s>\n", indent, "", element->name);
-    } else
-        printf("/>\n");
+    printf("%*s</%s>\n", indent, "", element->name);
+  } else
+    printf("/>\n");
 }
-
-

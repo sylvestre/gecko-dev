@@ -27,23 +27,23 @@ class ServoDeclarationBlock;
 namespace css {
 class Declaration;
 class Rule;
-} // namespace css
+}  // namespace css
 
 class DeclarationBlock
 {
-protected:
+ protected:
   explicit DeclarationBlock(StyleBackendType aType)
-    : mImmutable(false)
-    , mType(aType)
-    , mIsDirty(false)
+      : mImmutable(false), mType(aType), mIsDirty(false)
   {
     mContainer.mRaw = 0;
   }
 
   DeclarationBlock(const DeclarationBlock& aCopy)
-    : DeclarationBlock(aCopy.mType) {}
+      : DeclarationBlock(aCopy.mType)
+  {
+  }
 
-public:
+ public:
   MOZ_DECL_STYLO_METHODS(css::Declaration, ServoDeclarationBlock)
 
   inline MozExternalRefCountType AddRef();
@@ -54,14 +54,13 @@ public:
   /**
    * Return whether |this| may be modified.
    */
-  bool IsMutable() const {
-    return !mImmutable;
-  }
+  bool IsMutable() const { return !mImmutable; }
 
   /**
    * Crash if |this| cannot be modified.
    */
-  void AssertMutable() const {
+  void AssertMutable() const
+  {
     MOZ_ASSERT(IsMutable(), "someone forgot to call EnsureMutable");
   }
 
@@ -91,20 +90,23 @@ public:
    */
   inline already_AddRefed<DeclarationBlock> EnsureMutable();
 
-  void SetOwningRule(css::Rule* aRule) {
+  void SetOwningRule(css::Rule* aRule)
+  {
     MOZ_ASSERT(!mContainer.mOwningRule || !aRule,
                "should never overwrite one rule with another");
     mContainer.mOwningRule = aRule;
   }
 
-  css::Rule* GetOwningRule() const {
+  css::Rule* GetOwningRule() const
+  {
     if (mContainer.mRaw & 0x1) {
       return nullptr;
     }
     return mContainer.mOwningRule;
   }
 
-  void SetHTMLCSSStyleSheet(nsHTMLCSSStyleSheet* aHTMLCSSStyleSheet) {
+  void SetHTMLCSSStyleSheet(nsHTMLCSSStyleSheet* aHTMLCSSStyleSheet)
+  {
     MOZ_ASSERT(!mContainer.mHTMLCSSStyleSheet || !aHTMLCSSStyleSheet,
                "should never overwrite one sheet with another");
     mContainer.mHTMLCSSStyleSheet = aHTMLCSSStyleSheet;
@@ -113,7 +115,8 @@ public:
     }
   }
 
-  nsHTMLCSSStyleSheet* GetHTMLCSSStyleSheet() const {
+  nsHTMLCSSStyleSheet* GetHTMLCSSStyleSheet() const
+  {
     if (!(mContainer.mRaw & 0x1)) {
       return nullptr;
     }
@@ -136,7 +139,7 @@ public:
   // Returns whether the property was removed.
   inline bool RemovePropertyByID(nsCSSPropertyID aProperty);
 
-private:
+ private:
   union {
     // We only ever have one of these since we have an
     // nsHTMLCSSStyleSheet only for style attributes, and style
@@ -173,6 +176,6 @@ private:
   Atomic<bool, MemoryOrdering::Relaxed> mIsDirty;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_DeclarationBlock_h
+#endif  // mozilla_DeclarationBlock_h

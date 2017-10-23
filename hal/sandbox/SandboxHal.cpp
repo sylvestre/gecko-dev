@@ -47,7 +47,7 @@ Hal()
 }
 
 void
-Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier &id)
+Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier& id)
 {
   HAL_LOG("Vibrate: Sending to parent process.");
 
@@ -59,13 +59,14 @@ Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier &id)
 }
 
 void
-CancelVibrate(const WindowIdentifier &id)
+CancelVibrate(const WindowIdentifier& id)
 {
   HAL_LOG("CancelVibrate: Sending to parent process.");
 
   WindowIdentifier newID(id);
   newID.AppendProcessID();
-  Hal()->SendCancelVibrate(newID.AsArray(), TabChild::GetFrom(newID.GetWindow()));
+  Hal()->SendCancelVibrate(newID.AsArray(),
+                           TabChild::GetFrom(newID.GetWindow()));
 }
 
 void
@@ -167,12 +168,14 @@ DisableSystemTimezoneChangeNotifications()
 }
 
 void
-EnableSensorNotifications(SensorType aSensor) {
+EnableSensorNotifications(SensorType aSensor)
+{
   Hal()->SendEnableSensorNotifications(aSensor);
 }
 
 void
-DisableSensorNotifications(SensorType aSensor) {
+DisableSensorNotifications(SensorType aSensor)
+{
   Hal()->SendDisableSensorNotifications(aSensor);
 }
 
@@ -189,17 +192,18 @@ DisableWakeLockNotifications()
 }
 
 void
-ModifyWakeLock(const nsAString &aTopic,
+ModifyWakeLock(const nsAString& aTopic,
                WakeLockControl aLockAdjust,
                WakeLockControl aHiddenAdjust,
                uint64_t aProcessID)
 {
   MOZ_ASSERT(aProcessID != CONTENT_PROCESS_ID_UNKNOWN);
-  Hal()->SendModifyWakeLock(nsString(aTopic), aLockAdjust, aHiddenAdjust, aProcessID);
+  Hal()->SendModifyWakeLock(
+      nsString(aTopic), aLockAdjust, aHiddenAdjust, aProcessID);
 }
 
 void
-GetWakeLockInfo(const nsAString &aTopic, WakeLockInformation *aWakeLockInfo)
+GetWakeLockInfo(const nsAString& aTopic, WakeLockInformation* aWakeLockInfo)
 {
   Hal()->SendGetWakeLockInfo(nsString(aTopic), aWakeLockInfo);
 }
@@ -245,21 +249,24 @@ SetProcessPriority(int aPid, ProcessPriority aPriority)
 bool
 SetProcessPrioritySupported()
 {
-  NS_RUNTIMEABORT("Only the main process may call SetProcessPrioritySupported().");
+  NS_RUNTIMEABORT(
+      "Only the main process may call SetProcessPrioritySupported().");
   return false;
 }
 
 void
 SetCurrentThreadPriority(ThreadPriority aThreadPriority)
 {
-  NS_RUNTIMEABORT("Setting current thread priority cannot be called from sandboxed contexts.");
+  NS_RUNTIMEABORT(
+      "Setting current thread priority cannot be called from sandboxed "
+      "contexts.");
 }
 
 void
-SetThreadPriority(PlatformThreadId aThreadId,
-                  ThreadPriority aThreadPriority)
+SetThreadPriority(PlatformThreadId aThreadId, ThreadPriority aThreadPriority)
 {
-  NS_RUNTIMEABORT("Setting thread priority cannot be called from sandboxed contexts.");
+  NS_RUNTIMEABORT(
+      "Setting thread priority cannot be called from sandboxed contexts.");
 }
 
 void
@@ -274,42 +281,42 @@ StopDiskSpaceWatcher()
   MOZ_CRASH("StopDiskSpaceWatcher() can't be called from sandboxed contexts.");
 }
 
-class HalParent : public PHalParent
-                , public BatteryObserver
-                , public NetworkObserver
-                , public ISensorObserver
-                , public WakeLockObserver
-                , public ScreenConfigurationObserver
-                , public SwitchObserver
-                , public SystemClockChangeObserver
-                , public SystemTimezoneChangeObserver
+class HalParent : public PHalParent,
+                  public BatteryObserver,
+                  public NetworkObserver,
+                  public ISensorObserver,
+                  public WakeLockObserver,
+                  public ScreenConfigurationObserver,
+                  public SwitchObserver,
+                  public SystemClockChangeObserver,
+                  public SystemTimezoneChangeObserver
 {
-public:
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override
+ public:
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override
   {
     // NB: you *must* unconditionally unregister your observer here,
     // if it *may* be registered below.
     hal::UnregisterBatteryObserver(this);
     hal::UnregisterNetworkObserver(this);
     hal::UnregisterScreenConfigurationObserver(this);
-    for (int32_t sensor = SENSOR_UNKNOWN + 1;
-         sensor < NUM_SENSOR_TYPE; ++sensor) {
+    for (int32_t sensor = SENSOR_UNKNOWN + 1; sensor < NUM_SENSOR_TYPE;
+         ++sensor) {
       hal::UnregisterSensorObserver(SensorType(sensor), this);
     }
     hal::UnregisterWakeLockObserver(this);
     hal::UnregisterSystemClockChangeObserver(this);
     hal::UnregisterSystemTimezoneChangeObserver(this);
     for (int32_t switchDevice = SWITCH_DEVICE_UNKNOWN + 1;
-         switchDevice < NUM_SWITCH_DEVICE; ++switchDevice) {
+         switchDevice < NUM_SWITCH_DEVICE;
+         ++switchDevice) {
       hal::UnregisterSwitchObserver(SwitchDevice(switchDevice), this);
     }
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvVibrate(InfallibleTArray<unsigned int>&& pattern,
-              InfallibleTArray<uint64_t>&& id,
-              PBrowserParent *browserParent) override
+  virtual mozilla::ipc::IPCResult RecvVibrate(
+      InfallibleTArray<unsigned int>&& pattern,
+      InfallibleTArray<uint64_t>&& id,
+      PBrowserParent* browserParent) override
   {
     // We give all content vibration permission.
     //    TabParent *tabParent = TabParent::GetFrom(browserParent);
@@ -322,9 +329,8 @@ public:
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvCancelVibrate(InfallibleTArray<uint64_t> &&id,
-                    PBrowserParent *browserParent) override
+  virtual mozilla::ipc::IPCResult RecvCancelVibrate(
+      InfallibleTArray<uint64_t>&& id, PBrowserParent* browserParent) override
   {
     //TabParent *tabParent = TabParent::GetFrom(browserParent);
     /* XXXkhuey wtf
@@ -336,69 +342,76 @@ public:
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableBatteryNotifications() override {
+  virtual mozilla::ipc::IPCResult RecvEnableBatteryNotifications() override
+  {
     // We give all content battery-status permission.
     hal::RegisterBatteryObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableBatteryNotifications() override {
+  virtual mozilla::ipc::IPCResult RecvDisableBatteryNotifications() override
+  {
     hal::UnregisterBatteryObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvGetCurrentBatteryInformation(BatteryInformation* aBatteryInfo) override {
+  virtual mozilla::ipc::IPCResult RecvGetCurrentBatteryInformation(
+      BatteryInformation* aBatteryInfo) override
+  {
     // We give all content battery-status permission.
     hal::GetCurrentBatteryInformation(aBatteryInfo);
     return IPC_OK();
   }
 
-  void Notify(const BatteryInformation& aBatteryInfo) override {
+  void Notify(const BatteryInformation& aBatteryInfo) override
+  {
     Unused << SendNotifyBatteryChange(aBatteryInfo);
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableNetworkNotifications() override {
+  virtual mozilla::ipc::IPCResult RecvEnableNetworkNotifications() override
+  {
     // We give all content access to this network-status information.
     hal::RegisterNetworkObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableNetworkNotifications() override {
+  virtual mozilla::ipc::IPCResult RecvDisableNetworkNotifications() override
+  {
     hal::UnregisterNetworkObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvGetCurrentNetworkInformation(NetworkInformation* aNetworkInfo) override {
+  virtual mozilla::ipc::IPCResult RecvGetCurrentNetworkInformation(
+      NetworkInformation* aNetworkInfo) override
+  {
     hal::GetCurrentNetworkInformation(aNetworkInfo);
     return IPC_OK();
   }
 
-  void Notify(const NetworkInformation& aNetworkInfo) override {
+  void Notify(const NetworkInformation& aNetworkInfo) override
+  {
     Unused << SendNotifyNetworkChange(aNetworkInfo);
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableScreenConfigurationNotifications() override {
+  virtual mozilla::ipc::IPCResult RecvEnableScreenConfigurationNotifications()
+      override
+  {
     // Screen configuration is used to implement CSS and DOM
     // properties, so all content already has access to this.
     hal::RegisterScreenConfigurationObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableScreenConfigurationNotifications() override {
+  virtual mozilla::ipc::IPCResult RecvDisableScreenConfigurationNotifications()
+      override
+  {
     hal::UnregisterScreenConfigurationObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvLockScreenOrientation(const dom::ScreenOrientationInternal& aOrientation, bool* aAllowed) override
+  virtual mozilla::ipc::IPCResult RecvLockScreenOrientation(
+      const dom::ScreenOrientationInternal& aOrientation,
+      bool* aAllowed) override
   {
     // FIXME/bug 777980: unprivileged content may only lock
     // orientation while fullscreen.  We should check whether the
@@ -408,75 +421,78 @@ public:
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvUnlockScreenOrientation() override
+  virtual mozilla::ipc::IPCResult RecvUnlockScreenOrientation() override
   {
     hal::UnlockScreenOrientation();
     return IPC_OK();
   }
 
-  void Notify(const ScreenConfiguration& aScreenConfiguration) override {
+  void Notify(const ScreenConfiguration& aScreenConfiguration) override
+  {
     Unused << SendNotifyScreenConfigurationChange(aScreenConfiguration);
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvAdjustSystemClock(const int64_t &aDeltaMilliseconds) override
+  virtual mozilla::ipc::IPCResult RecvAdjustSystemClock(
+      const int64_t& aDeltaMilliseconds) override
   {
     hal::AdjustSystemClock(aDeltaMilliseconds);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableSystemClockChangeNotifications() override
+  virtual mozilla::ipc::IPCResult RecvEnableSystemClockChangeNotifications()
+      override
   {
     hal::RegisterSystemClockChangeObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableSystemClockChangeNotifications() override
+  virtual mozilla::ipc::IPCResult RecvDisableSystemClockChangeNotifications()
+      override
   {
     hal::UnregisterSystemClockChangeObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableSystemTimezoneChangeNotifications() override
+  virtual mozilla::ipc::IPCResult RecvEnableSystemTimezoneChangeNotifications()
+      override
   {
     hal::RegisterSystemTimezoneChangeObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableSystemTimezoneChangeNotifications() override
+  virtual mozilla::ipc::IPCResult RecvDisableSystemTimezoneChangeNotifications()
+      override
   {
     hal::UnregisterSystemTimezoneChangeObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableSensorNotifications(const SensorType &aSensor) override {
+  virtual mozilla::ipc::IPCResult RecvEnableSensorNotifications(
+      const SensorType& aSensor) override
+  {
     // We currently allow any content to register device-sensor
     // listeners.
     hal::RegisterSensorObserver(aSensor, this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableSensorNotifications(const SensorType &aSensor) override {
+  virtual mozilla::ipc::IPCResult RecvDisableSensorNotifications(
+      const SensorType& aSensor) override
+  {
     hal::UnregisterSensorObserver(aSensor, this);
     return IPC_OK();
   }
 
-  void Notify(const SensorData& aSensorData) override {
+  void Notify(const SensorData& aSensorData) override
+  {
     Unused << SendNotifySensorChange(aSensorData);
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvModifyWakeLock(const nsString& aTopic,
-                     const WakeLockControl& aLockAdjust,
-                     const WakeLockControl& aHiddenAdjust,
-                     const uint64_t& aProcessID) override
+  virtual mozilla::ipc::IPCResult RecvModifyWakeLock(
+      const nsString& aTopic,
+      const WakeLockControl& aLockAdjust,
+      const WakeLockControl& aHiddenAdjust,
+      const uint64_t& aProcessID) override
   {
     MOZ_ASSERT(aProcessID != CONTENT_PROCESS_ID_UNKNOWN);
 
@@ -485,23 +501,21 @@ public:
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableWakeLockNotifications() override
+  virtual mozilla::ipc::IPCResult RecvEnableWakeLockNotifications() override
   {
     // We allow arbitrary content to use wake locks.
     hal::RegisterWakeLockObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableWakeLockNotifications() override
+  virtual mozilla::ipc::IPCResult RecvDisableWakeLockNotifications() override
   {
     hal::UnregisterWakeLockObserver(this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvGetWakeLockInfo(const nsString &aTopic, WakeLockInformation *aWakeLockInfo) override
+  virtual mozilla::ipc::IPCResult RecvGetWakeLockInfo(
+      const nsString& aTopic, WakeLockInformation* aWakeLockInfo) override
   {
     hal::GetWakeLockInfo(aTopic, aWakeLockInfo);
     return IPC_OK();
@@ -512,16 +526,16 @@ public:
     Unused << SendNotifyWakeLockChange(aWakeLockInfo);
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvEnableSwitchNotifications(const SwitchDevice& aDevice) override
+  virtual mozilla::ipc::IPCResult RecvEnableSwitchNotifications(
+      const SwitchDevice& aDevice) override
   {
     // Content has no reason to listen to switch events currently.
     hal::RegisterSwitchObserver(aDevice, this);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvDisableSwitchNotifications(const SwitchDevice& aDevice) override
+  virtual mozilla::ipc::IPCResult RecvDisableSwitchNotifications(
+      const SwitchDevice& aDevice) override
   {
     hal::UnregisterSwitchObserver(aDevice, this);
     return IPC_OK();
@@ -537,81 +551,93 @@ public:
     Unused << SendNotifySystemClockChange(aClockDeltaMS);
   }
 
-  void Notify(const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) override
+  void Notify(
+      const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) override
   {
     Unused << SendNotifySystemTimezoneChange(aSystemTimezoneChangeInfo);
   }
 };
 
-class HalChild : public PHalChild {
-public:
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override
+class HalChild : public PHalChild
+{
+ public:
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override
   {
     sHalChildDestroyed = true;
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifyBatteryChange(const BatteryInformation& aBatteryInfo) override {
+  virtual mozilla::ipc::IPCResult RecvNotifyBatteryChange(
+      const BatteryInformation& aBatteryInfo) override
+  {
     hal::NotifyBatteryChange(aBatteryInfo);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifySensorChange(const hal::SensorData &aSensorData) override;
+  virtual mozilla::ipc::IPCResult RecvNotifySensorChange(
+      const hal::SensorData& aSensorData) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifyNetworkChange(const NetworkInformation& aNetworkInfo) override {
+  virtual mozilla::ipc::IPCResult RecvNotifyNetworkChange(
+      const NetworkInformation& aNetworkInfo) override
+  {
     hal::NotifyNetworkChange(aNetworkInfo);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifyWakeLockChange(const WakeLockInformation& aWakeLockInfo) override {
+  virtual mozilla::ipc::IPCResult RecvNotifyWakeLockChange(
+      const WakeLockInformation& aWakeLockInfo) override
+  {
     hal::NotifyWakeLockChange(aWakeLockInfo);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifyScreenConfigurationChange(const ScreenConfiguration& aScreenConfiguration) override {
+  virtual mozilla::ipc::IPCResult RecvNotifyScreenConfigurationChange(
+      const ScreenConfiguration& aScreenConfiguration) override
+  {
     hal::NotifyScreenConfigurationChange(aScreenConfiguration);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifySwitchChange(const mozilla::hal::SwitchEvent& aEvent) override {
+  virtual mozilla::ipc::IPCResult RecvNotifySwitchChange(
+      const mozilla::hal::SwitchEvent& aEvent) override
+  {
     hal::NotifySwitchChange(aEvent);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifySystemClockChange(const int64_t& aClockDeltaMS) override {
+  virtual mozilla::ipc::IPCResult RecvNotifySystemClockChange(
+      const int64_t& aClockDeltaMS) override
+  {
     hal::NotifySystemClockChange(aClockDeltaMS);
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvNotifySystemTimezoneChange(
-    const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) override {
+  virtual mozilla::ipc::IPCResult RecvNotifySystemTimezoneChange(
+      const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) override
+  {
     hal::NotifySystemTimezoneChange(aSystemTimezoneChangeInfo);
     return IPC_OK();
   }
 };
 
 mozilla::ipc::IPCResult
-HalChild::RecvNotifySensorChange(const hal::SensorData &aSensorData) {
+HalChild::RecvNotifySensorChange(const hal::SensorData& aSensorData)
+{
   hal::NotifySensorChange(aSensorData);
 
   return IPC_OK();
 }
 
-PHalChild* CreateHalChild() {
+PHalChild*
+CreateHalChild()
+{
   return new HalChild();
 }
 
-PHalParent* CreateHalParent() {
+PHalParent*
+CreateHalParent()
+{
   return new HalParent();
 }
 
-} // namespace hal_sandbox
-} // namespace mozilla
+}  // namespace hal_sandbox
+}  // namespace mozilla

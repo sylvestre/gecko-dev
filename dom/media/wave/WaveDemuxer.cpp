@@ -16,17 +16,14 @@
 #include "VideoUtils.h"
 #include "TimeUnits.h"
 
-using mozilla::media::TimeUnit;
 using mozilla::media::TimeIntervals;
+using mozilla::media::TimeUnit;
 
 namespace mozilla {
 
 // WAVDemuxer
 
-WAVDemuxer::WAVDemuxer(MediaResource* aSource)
-  : mSource(aSource)
-{
-}
+WAVDemuxer::WAVDemuxer(MediaResource* aSource) : mSource(aSource) {}
 
 bool
 WAVDemuxer::InitInternal()
@@ -41,8 +38,8 @@ RefPtr<WAVDemuxer::InitPromise>
 WAVDemuxer::Init()
 {
   if (!InitInternal()) {
-    return InitPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_METADATA_ERR, __func__);
+    return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_METADATA_ERR,
+                                        __func__);
   }
   return InitPromise::CreateAndResolve(NS_OK, __func__);
 }
@@ -71,15 +68,15 @@ WAVDemuxer::IsSeekable() const
 // WAVTrackDemuxer
 
 WAVTrackDemuxer::WAVTrackDemuxer(MediaResource* aSource)
-  : mSource(aSource)
-  , mOffset(0)
-  , mFirstChunkOffset(0)
-  , mNumParsedChunks(0)
-  , mChunkIndex(0)
-  , mTotalChunkLen(0)
-  , mSamplesPerChunk(0)
-  , mSamplesPerSecond(0)
-  , mChannels(0)
+    : mSource(aSource),
+      mOffset(0),
+      mFirstChunkOffset(0),
+      mNumParsedChunks(0),
+      mChunkIndex(0),
+      mTotalChunkLen(0),
+      mSamplesPerChunk(0),
+      mSamplesPerSecond(0),
+      mChannels(0)
 {
   Reset();
 }
@@ -126,7 +123,7 @@ WAVTrackDemuxer::Init()
       }
       break;
     } else {
-      mOffset += aChunkSize; // Skip other irrelevant chunks.
+      mOffset += aChunkSize;  // Skip other irrelevant chunks.
     }
     if (mOffset & 1) {
       // Wave files are 2-byte aligned so we need to round up
@@ -227,7 +224,7 @@ WAVTrackDemuxer::ListChunkParserInit(uint32_t aChunkSize)
       length = aChunkSize - bytesRead;
     }
 
-    MediaByteRange mRange = { mOffset, mOffset + length };
+    MediaByteRange mRange = {mOffset, mOffset + length};
     RefPtr<MediaRawData> mChunkData = GetFileHeader(mRange);
     if (!mChunkData) {
       return false;
@@ -253,21 +250,21 @@ WAVTrackDemuxer::ListChunkParserInit(uint32_t aChunkSize)
     }
 
     switch (id) {
-      case 0x49415254:                // IART
+      case 0x49415254:  // IART
         mInfo->mTags.AppendElement(
-          MetadataTag(NS_LITERAL_CSTRING("artist"), val));
+            MetadataTag(NS_LITERAL_CSTRING("artist"), val));
         break;
-      case 0x49434d54:                // ICMT
+      case 0x49434d54:  // ICMT
         mInfo->mTags.AppendElement(
-          MetadataTag(NS_LITERAL_CSTRING("comments"), val));
+            MetadataTag(NS_LITERAL_CSTRING("comments"), val));
         break;
-      case 0x49474e52:                // IGNR
+      case 0x49474e52:  // IGNR
         mInfo->mTags.AppendElement(
-          MetadataTag(NS_LITERAL_CSTRING("genre"), val));
+            MetadataTag(NS_LITERAL_CSTRING("genre"), val));
         break;
-      case 0x494e414d:                // INAM
+      case 0x494e414d:  // INAM
         mInfo->mTags.AppendElement(
-          MetadataTag(NS_LITERAL_CSTRING("name"), val));
+            MetadataTag(NS_LITERAL_CSTRING("name"), val));
         break;
     }
 
@@ -354,8 +351,8 @@ WAVTrackDemuxer::GetSamples(int32_t aNumSamples)
   }
 
   if (datachunks->mSamples.IsEmpty()) {
-    return SamplesPromise::CreateAndReject(
-      NS_ERROR_DOM_MEDIA_END_OF_STREAM, __func__);
+    return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_END_OF_STREAM,
+                                           __func__);
   }
 
   return SamplesPromise::CreateAndResolve(datachunks, __func__);
@@ -375,7 +372,7 @@ RefPtr<WAVTrackDemuxer::SkipAccessPointPromise>
 WAVTrackDemuxer::SkipToNextRandomAccessPoint(const TimeUnit& aTimeThreshold)
 {
   return SkipAccessPointPromise::CreateAndReject(
-    SkipFailureHolder(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, 0), __func__);
+      SkipFailureHolder(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, 0), __func__);
 }
 
 int64_t
@@ -406,12 +403,12 @@ WAVTrackDemuxer::StreamLength() const
 TimeUnit
 WAVTrackDemuxer::Duration() const
 {
-  if (!mDataLength ||!mChannels || !mSampleFormat) {
+  if (!mDataLength || !mChannels || !mSampleFormat) {
     return TimeUnit();
   }
 
   int64_t numSamples =
-    static_cast<int64_t>(mDataLength) * 8 / mChannels / mSampleFormat;
+      static_cast<int64_t>(mDataLength) * 8 / mChannels / mSampleFormat;
 
   int64_t numUSeconds = USECS_PER_S * numSamples / mSamplesPerSecond;
 
@@ -429,7 +426,7 @@ WAVTrackDemuxer::Duration(int64_t aNumDataChunks) const
     return TimeUnit();
   }
   const double usPerDataChunk =
-    USECS_PER_S * static_cast<double>(mSamplesPerChunk) / mSamplesPerSecond;
+      USECS_PER_S * static_cast<double>(mSamplesPerChunk) / mSamplesPerSecond;
   return TimeUnit::FromMicroseconds(aNumDataChunks * usPerDataChunk);
 }
 
@@ -455,40 +452,40 @@ MediaByteRange
 WAVTrackDemuxer::FindNextChunk()
 {
   if (mOffset + DATA_CHUNK_SIZE < mFirstChunkOffset + mDataLength) {
-    return { mOffset, mOffset + DATA_CHUNK_SIZE };
+    return {mOffset, mOffset + DATA_CHUNK_SIZE};
   } else {
-    return { mOffset, mFirstChunkOffset + mDataLength };
+    return {mOffset, mFirstChunkOffset + mDataLength};
   }
 }
 
 MediaByteRange
 WAVTrackDemuxer::FindChunkHeader()
 {
-  return { mOffset, mOffset + CHUNK_HEAD_SIZE };
+  return {mOffset, mOffset + CHUNK_HEAD_SIZE};
 }
 
 MediaByteRange
 WAVTrackDemuxer::FindRIFFHeader()
 {
-  return { mOffset, mOffset + RIFF_CHUNK_SIZE };
+  return {mOffset, mOffset + RIFF_CHUNK_SIZE};
 }
 
 MediaByteRange
 WAVTrackDemuxer::FindFmtChunk()
 {
-  return { mOffset, mOffset + mHeaderParser.GiveHeader().ChunkSize() };
+  return {mOffset, mOffset + mHeaderParser.GiveHeader().ChunkSize()};
 }
 
 MediaByteRange
 WAVTrackDemuxer::FindListChunk()
 {
-  return { mOffset, mOffset + mHeaderParser.GiveHeader().ChunkSize() };
+  return {mOffset, mOffset + mHeaderParser.GiveHeader().ChunkSize()};
 }
 
 MediaByteRange
 WAVTrackDemuxer::FindInfoTag()
 {
-  return { mOffset, mOffset + 4 };
+  return {mOffset, mOffset + 4};
 }
 
 bool
@@ -514,7 +511,7 @@ WAVTrackDemuxer::GetNextChunk(const MediaByteRange& aRange)
   }
 
   const uint32_t read =
-    Read(chunkWriter->Data(), datachunk->mOffset, datachunk->Size());
+      Read(chunkWriter->Data(), datachunk->mOffset, datachunk->Size());
 
   if (read != aRange.Length()) {
     return nullptr;
@@ -529,8 +526,7 @@ WAVTrackDemuxer::GetNextChunk(const MediaByteRange& aRange)
   if (static_cast<uint32_t>(mChunkIndex) * DATA_CHUNK_SIZE < mDataLength) {
     datachunk->mDuration = Duration(1);
   } else {
-    uint32_t mBytesRemaining =
-      mDataLength - mChunkIndex * DATA_CHUNK_SIZE;
+    uint32_t mBytesRemaining = mDataLength - mChunkIndex * DATA_CHUNK_SIZE;
     datachunk->mDuration = DurationFromBytes(mBytesRemaining);
   }
   datachunk->mTimecode = datachunk->mTime;
@@ -558,7 +554,7 @@ WAVTrackDemuxer::GetFileHeader(const MediaByteRange& aRange)
   }
 
   const uint32_t read =
-    Read(headerWriter->Data(), fileHeader->mOffset, fileHeader->Size());
+      Read(headerWriter->Data(), fileHeader->mOffset, fileHeader->Size());
 
   if (read != aRange.Length()) {
     return nullptr;
@@ -589,7 +585,7 @@ WAVTrackDemuxer::ChunkIndexFromTime(const media::TimeUnit& aTime) const
     return 0;
   }
   int64_t chunkIndex =
-    (aTime.ToSeconds() * mSamplesPerSecond / mSamplesPerChunk) - 1;
+      (aTime.ToSeconds() * mSamplesPerSecond / mSamplesPerChunk) - 1;
   return chunkIndex;
 }
 
@@ -622,7 +618,8 @@ WAVTrackDemuxer::Read(uint8_t* aBuffer, int64_t aOffset, int32_t aSize)
 uint32_t
 RIFFParser::Parse(ByteReader& aReader)
 {
-  while (aReader.CanRead8() && !mRiffHeader.ParseNext(aReader.ReadU8())) { }
+  while (aReader.CanRead8() && !mRiffHeader.ParseNext(aReader.ReadU8())) {
+  }
 
   if (mRiffHeader.IsValid()) {
     return RIFF_CHUNK_SIZE;
@@ -645,10 +642,7 @@ RIFFParser::RiffHeader() const
 
 // RIFFParser::RIFFHeader
 
-RIFFParser::RIFFHeader::RIFFHeader()
-{
-  Reset();
-}
+RIFFParser::RIFFHeader::RIFFHeader() { Reset(); }
 
 void
 RIFFParser::RIFFHeader::Reset()
@@ -701,7 +695,8 @@ RIFFParser::RIFFHeader::Update(uint8_t c)
 uint32_t
 HeaderParser::Parse(ByteReader& aReader)
 {
-  while (aReader.CanRead8() && !mHeader.ParseNext(aReader.ReadU8())) { }
+  while (aReader.CanRead8() && !mHeader.ParseNext(aReader.ReadU8())) {
+  }
 
   if (mHeader.IsValid()) {
     return CHUNK_HEAD_SIZE;
@@ -724,10 +719,7 @@ HeaderParser::GiveHeader() const
 
 // HeaderParser::ChunkHeader
 
-HeaderParser::ChunkHeader::ChunkHeader()
-{
-  Reset();
-}
+HeaderParser::ChunkHeader::ChunkHeader() { Reset(); }
 
 void
 HeaderParser::ChunkHeader::Reset()
@@ -752,19 +744,13 @@ HeaderParser::ChunkHeader::IsValid() const
 uint32_t
 HeaderParser::ChunkHeader::ChunkName() const
 {
-  return ((mRaw[0] << 24)
-          | (mRaw[1] << 16)
-          | (mRaw[2] << 8 )
-          | (mRaw[3]));
+  return ((mRaw[0] << 24) | (mRaw[1] << 16) | (mRaw[2] << 8) | (mRaw[3]));
 }
 
 uint32_t
 HeaderParser::ChunkHeader::ChunkSize() const
 {
-  return ((mRaw[7] << 24)
-          | (mRaw[6] << 16)
-          | (mRaw[5] << 8 )
-          | (mRaw[4]));
+  return ((mRaw[7] << 24) | (mRaw[6] << 16) | (mRaw[5] << 8) | (mRaw[4]));
 }
 
 void
@@ -780,7 +766,8 @@ HeaderParser::ChunkHeader::Update(uint8_t c)
 uint32_t
 FormatParser::Parse(ByteReader& aReader)
 {
-  while (aReader.CanRead8() && !mFmtChunk.ParseNext(aReader.ReadU8())) { }
+  while (aReader.CanRead8() && !mFmtChunk.ParseNext(aReader.ReadU8())) {
+  }
 
   if (mFmtChunk.IsValid()) {
     return FMT_CHUNK_MIN_SIZE;
@@ -803,10 +790,7 @@ FormatParser::FmtChunk() const
 
 // FormatParser::FormatChunk
 
-FormatParser::FormatChunk::FormatChunk()
-{
-  Reset();
-}
+FormatParser::FormatChunk::FormatChunk() { Reset(); }
 
 void
 FormatParser::FormatChunk::Reset()
@@ -830,10 +814,7 @@ FormatParser::FormatChunk::Channels() const
 uint32_t
 FormatParser::FormatChunk::SampleRate() const
 {
-  return (mRaw[7] << 24)
-         | (mRaw[6] << 16)
-         | (mRaw[5] << 8)
-         | (mRaw[4]);
+  return (mRaw[7] << 24) | (mRaw[6] << 16) | (mRaw[5] << 8) | (mRaw[4]);
 }
 
 uint16_t
@@ -872,9 +853,7 @@ FormatParser::FormatChunk::Update(uint8_t c)
 
 // DataParser
 
-DataParser::DataParser()
-{
-}
+DataParser::DataParser() {}
 
 void
 DataParser::Reset()
@@ -896,4 +875,4 @@ DataParser::DataChunk::Reset()
   mPos = 0;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

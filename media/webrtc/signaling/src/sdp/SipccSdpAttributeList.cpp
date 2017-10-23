@@ -14,8 +14,7 @@ extern "C" {
 #include "signaling/src/sdp/sipcc/sdp_private.h"
 }
 
-namespace mozilla
-{
+namespace mozilla {
 
 /* static */ const std::string SipccSdpAttributeList::kEmptyString = "";
 
@@ -94,7 +93,8 @@ SipccSdpAttributeList::SetAttribute(SdpAttribute* attr)
 }
 
 void
-SipccSdpAttributeList::LoadSimpleString(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadSimpleString(sdp_t* sdp,
+                                        uint16_t level,
                                         sdp_attr_e attr,
                                         AttributeType targetType,
                                         SdpErrorHolder& errorHolder)
@@ -111,17 +111,19 @@ SipccSdpAttributeList::LoadSimpleString(sdp_t* sdp, uint16_t level,
 }
 
 void
-SipccSdpAttributeList::LoadSimpleStrings(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadSimpleStrings(sdp_t* sdp,
+                                         uint16_t level,
                                          SdpErrorHolder& errorHolder)
 {
-  LoadSimpleString(sdp, level, SDP_ATTR_MID, SdpAttribute::kMidAttribute,
-                   errorHolder);
-  LoadSimpleString(sdp, level, SDP_ATTR_LABEL, SdpAttribute::kLabelAttribute,
-                   errorHolder);
+  LoadSimpleString(
+      sdp, level, SDP_ATTR_MID, SdpAttribute::kMidAttribute, errorHolder);
+  LoadSimpleString(
+      sdp, level, SDP_ATTR_LABEL, SdpAttribute::kLabelAttribute, errorHolder);
 }
 
 void
-SipccSdpAttributeList::LoadSimpleNumber(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadSimpleNumber(sdp_t* sdp,
+                                        uint16_t level,
                                         sdp_attr_e attr,
                                         AttributeType targetType,
                                         SdpErrorHolder& errorHolder)
@@ -138,17 +140,27 @@ SipccSdpAttributeList::LoadSimpleNumber(sdp_t* sdp, uint16_t level,
 }
 
 void
-SipccSdpAttributeList::LoadSimpleNumbers(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadSimpleNumbers(sdp_t* sdp,
+                                         uint16_t level,
                                          SdpErrorHolder& errorHolder)
 {
-  LoadSimpleNumber(sdp, level, SDP_ATTR_PTIME, SdpAttribute::kPtimeAttribute,
+  LoadSimpleNumber(
+      sdp, level, SDP_ATTR_PTIME, SdpAttribute::kPtimeAttribute, errorHolder);
+  LoadSimpleNumber(sdp,
+                   level,
+                   SDP_ATTR_MAXPTIME,
+                   SdpAttribute::kMaxptimeAttribute,
                    errorHolder);
-  LoadSimpleNumber(sdp, level, SDP_ATTR_MAXPTIME,
-                   SdpAttribute::kMaxptimeAttribute, errorHolder);
-  LoadSimpleNumber(sdp, level, SDP_ATTR_SCTPPORT,
-                   SdpAttribute::kSctpPortAttribute, errorHolder);
-  LoadSimpleNumber(sdp, level, SDP_ATTR_MAXMESSAGESIZE,
-                   SdpAttribute::kMaxMessageSizeAttribute, errorHolder);
+  LoadSimpleNumber(sdp,
+                   level,
+                   SDP_ATTR_SCTPPORT,
+                   SdpAttribute::kSctpPortAttribute,
+                   errorHolder);
+  LoadSimpleNumber(sdp,
+                   level,
+                   SDP_ATTR_MAXMESSAGESIZE,
+                   SdpAttribute::kMaxMessageSizeAttribute,
+                   errorHolder);
 }
 
 void
@@ -158,7 +170,7 @@ SipccSdpAttributeList::LoadFlags(sdp_t* sdp, uint16_t level)
     if (sdp_attr_valid(sdp, SDP_ATTR_ICE_LITE, level, 0, 1)) {
       SetAttribute(new SdpFlagAttribute(SdpAttribute::kIceLiteAttribute));
     }
-  } else { // media-level
+  } else {  // media-level
     if (sdp_attr_valid(sdp, SDP_ATTR_RTCP_MUX, level, 0, 1)) {
       SetAttribute(new SdpFlagAttribute(SdpAttribute::kRtcpMuxAttribute));
     }
@@ -200,7 +212,8 @@ ConvertDirection(sdp_direction_e sipcc_direction,
 }
 
 void
-SipccSdpAttributeList::LoadDirection(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadDirection(sdp_t* sdp,
+                                     uint16_t level,
                                      SdpErrorHolder& errorHolder)
 {
   SdpDirectionAttribute::Direction dir;
@@ -236,7 +249,8 @@ SipccSdpAttributeList::LoadIceAttributes(sdp_t* sdp, uint16_t level)
 }
 
 bool
-SipccSdpAttributeList::LoadFingerprint(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadFingerprint(sdp_t* sdp,
+                                       uint16_t level,
                                        SdpErrorHolder& errorHolder)
 {
   char* value;
@@ -327,7 +341,8 @@ SipccSdpAttributeList::LoadCandidate(sdp_t* sdp, uint16_t level)
 }
 
 bool
-SipccSdpAttributeList::LoadSctpmap(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadSctpmap(sdp_t* sdp,
+                                   uint16_t level,
                                    SdpErrorHolder& errorHolder)
 {
   auto sctpmap = MakeUnique<SdpSctpmapAttributeList>();
@@ -405,7 +420,8 @@ SipccSdpAttributeList::GetCodecType(rtp_ptype type)
 }
 
 bool
-SipccSdpAttributeList::LoadRtpmap(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadRtpmap(sdp_t* sdp,
+                                  uint16_t level,
                                   SdpErrorHolder& errorHolder)
 {
   auto rtpmap = MakeUnique<SdpRtpmapAttributeList>();
@@ -520,11 +536,8 @@ SipccSdpAttributeList::LoadImageattr(sdp_t* sdp,
       new SdpImageattrAttributeList);
 
   for (uint16_t i = 1; i < UINT16_MAX; ++i) {
-    const char* imageattrRaw = sdp_attr_get_simple_string(sdp,
-                                                          SDP_ATTR_IMAGEATTR,
-                                                          level,
-                                                          0,
-                                                          i);
+    const char* imageattrRaw =
+        sdp_attr_get_simple_string(sdp, SDP_ATTR_IMAGEATTR, level, 0, i);
     if (!imageattrRaw) {
       break;
     }
@@ -535,8 +548,8 @@ SipccSdpAttributeList::LoadImageattr(sdp_t* sdp,
       std::ostringstream fullError;
       fullError << error << " at column " << errorPos;
       errorHolder.AddParseError(
-        sdp_attr_line_number(sdp, SDP_ATTR_IMAGEATTR, level, 0, i),
-        fullError.str());
+          sdp_attr_line_number(sdp, SDP_ATTR_IMAGEATTR, level, 0, i),
+          fullError.str());
       return false;
     }
   }
@@ -552,17 +565,13 @@ SipccSdpAttributeList::LoadSimulcast(sdp_t* sdp,
                                      uint16_t level,
                                      SdpErrorHolder& errorHolder)
 {
-  const char* simulcastRaw = sdp_attr_get_simple_string(sdp,
-                                                        SDP_ATTR_SIMULCAST,
-                                                        level,
-                                                        0,
-                                                        1);
+  const char* simulcastRaw =
+      sdp_attr_get_simple_string(sdp, SDP_ATTR_SIMULCAST, level, 0, 1);
   if (!simulcastRaw) {
     return true;
   }
 
-  UniquePtr<SdpSimulcastAttribute> simulcast(
-      new SdpSimulcastAttribute);
+  UniquePtr<SdpSimulcastAttribute> simulcast(new SdpSimulcastAttribute);
 
   std::istringstream is(simulcastRaw);
   std::string error;
@@ -570,8 +579,8 @@ SipccSdpAttributeList::LoadSimulcast(sdp_t* sdp,
     std::ostringstream fullError;
     fullError << error << " at column " << is.tellg();
     errorHolder.AddParseError(
-      sdp_attr_line_number(sdp, SDP_ATTR_SIMULCAST, level, 0, 1),
-      fullError.str());
+        sdp_attr_line_number(sdp, SDP_ATTR_SIMULCAST, level, 0, 1),
+        fullError.str());
     return false;
   }
 
@@ -580,7 +589,8 @@ SipccSdpAttributeList::LoadSimulcast(sdp_t* sdp,
 }
 
 bool
-SipccSdpAttributeList::LoadGroups(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadGroups(sdp_t* sdp,
+                                  uint16_t level,
                                   SdpErrorHolder& errorHolder)
 {
   uint16_t attrCount = 0;
@@ -635,7 +645,8 @@ SipccSdpAttributeList::LoadGroups(sdp_t* sdp, uint16_t level,
 }
 
 bool
-SipccSdpAttributeList::LoadMsidSemantics(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadMsidSemantics(sdp_t* sdp,
+                                         uint16_t level,
                                          SdpErrorHolder& errorHolder)
 {
   auto msidSemantics = MakeUnique<SdpMsidSemanticAttributeList>();
@@ -669,7 +680,8 @@ SipccSdpAttributeList::LoadMsidSemantics(sdp_t* sdp, uint16_t level,
 void
 SipccSdpAttributeList::LoadIdentity(sdp_t* sdp, uint16_t level)
 {
-  const char* val = sdp_attr_get_long_string(sdp, SDP_ATTR_IDENTITY, level, 0, 1);
+  const char* val =
+      sdp_attr_get_long_string(sdp, SDP_ATTR_IDENTITY, level, 0, 1);
   if (val) {
     SetAttribute(new SdpStringAttribute(SdpAttribute::kIdentityAttribute,
                                         std::string(val)));
@@ -679,8 +691,8 @@ SipccSdpAttributeList::LoadIdentity(sdp_t* sdp, uint16_t level)
 void
 SipccSdpAttributeList::LoadDtlsMessage(sdp_t* sdp, uint16_t level)
 {
-  const char* val = sdp_attr_get_long_string(sdp, SDP_ATTR_DTLS_MESSAGE, level,
-                                             0, 1);
+  const char* val =
+      sdp_attr_get_long_string(sdp, SDP_ATTR_DTLS_MESSAGE, level, 0, 1);
   if (val) {
     // sipcc does not expose parse code for this, so we use a SDParta-provided
     // parser
@@ -719,7 +731,8 @@ SipccSdpAttributeList::LoadFmtp(sdp_t* sdp, uint16_t level)
         SdpFmtpAttributeList::H264Parameters* h264Parameters(
             new SdpFmtpAttributeList::H264Parameters);
 
-        sstrncpy(h264Parameters->sprop_parameter_sets, fmtp->parameter_sets,
+        sstrncpy(h264Parameters->sprop_parameter_sets,
+                 fmtp->parameter_sets,
                  sizeof(h264Parameters->sprop_parameter_sets));
 
         h264Parameters->level_asymmetry_allowed =
@@ -738,7 +751,7 @@ SipccSdpAttributeList::LoadFmtp(sdp_t* sdp, uint16_t level)
       case RTP_VP9: {
         SdpFmtpAttributeList::VP8Parameters* vp9Parameters(
             new SdpFmtpAttributeList::VP8Parameters(
-              SdpRtpmapAttributeList::kVP9));
+                SdpRtpmapAttributeList::kVP9));
 
         vp9Parameters->max_fs = fmtp->max_fs;
         vp9Parameters->max_fr = fmtp->max_fr;
@@ -748,7 +761,7 @@ SipccSdpAttributeList::LoadFmtp(sdp_t* sdp, uint16_t level)
       case RTP_VP8: {
         SdpFmtpAttributeList::VP8Parameters* vp8Parameters(
             new SdpFmtpAttributeList::VP8Parameters(
-              SdpRtpmapAttributeList::kVP8));
+                SdpRtpmapAttributeList::kVP8));
 
         vp8Parameters->max_fs = fmtp->max_fs;
         vp8Parameters->max_fr = fmtp->max_fr;
@@ -758,8 +771,8 @@ SipccSdpAttributeList::LoadFmtp(sdp_t* sdp, uint16_t level)
       case RTP_RED: {
         SdpFmtpAttributeList::RedParameters* redParameters(
             new SdpFmtpAttributeList::RedParameters);
-        for (int i = 0;
-             i < SDP_FMTP_MAX_REDUNDANT_ENCODINGS && fmtp->redundant_encodings[i];
+        for (int i = 0; i < SDP_FMTP_MAX_REDUNDANT_ENCODINGS &&
+                        fmtp->redundant_encodings[i];
              ++i) {
           redParameters->encodings.push_back(fmtp->redundant_encodings[i]);
         }
@@ -776,7 +789,7 @@ SipccSdpAttributeList::LoadFmtp(sdp_t* sdp, uint16_t level)
       } break;
       case RTP_TELEPHONE_EVENT: {
         SdpFmtpAttributeList::TelephoneEventParameters* teParameters(
-          new SdpFmtpAttributeList::TelephoneEventParameters);
+            new SdpFmtpAttributeList::TelephoneEventParameters);
         if (strlen(fmtp->dtmf_tones) > 0) {
           teParameters->dtmfTones = fmtp->dtmf_tones;
         }
@@ -795,7 +808,8 @@ SipccSdpAttributeList::LoadFmtp(sdp_t* sdp, uint16_t level)
 }
 
 void
-SipccSdpAttributeList::LoadMsids(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadMsids(sdp_t* sdp,
+                                 uint16_t level,
                                  SdpErrorHolder& errorHolder)
 {
   uint16_t attrCount = 0;
@@ -831,17 +845,14 @@ SipccSdpAttributeList::LoadMsids(sdp_t* sdp, uint16_t level,
 
 bool
 SipccSdpAttributeList::LoadRid(sdp_t* sdp,
-                                     uint16_t level,
-                                     SdpErrorHolder& errorHolder)
+                               uint16_t level,
+                               SdpErrorHolder& errorHolder)
 {
   UniquePtr<SdpRidAttributeList> rids(new SdpRidAttributeList);
 
   for (uint16_t i = 1; i < UINT16_MAX; ++i) {
-    const char* ridRaw = sdp_attr_get_simple_string(sdp,
-                                                    SDP_ATTR_RID,
-                                                    level,
-                                                    0,
-                                                    i);
+    const char* ridRaw =
+        sdp_attr_get_simple_string(sdp, SDP_ATTR_RID, level, 0, i);
     if (!ridRaw) {
       break;
     }
@@ -852,8 +863,8 @@ SipccSdpAttributeList::LoadRid(sdp_t* sdp,
       std::ostringstream fullError;
       fullError << error << " at column " << errorPos;
       errorHolder.AddParseError(
-        sdp_attr_line_number(sdp, SDP_ATTR_RID, level, 0, i),
-        fullError.str());
+          sdp_attr_line_number(sdp, SDP_ATTR_RID, level, 0, i),
+          fullError.str());
       return false;
     }
   }
@@ -865,7 +876,8 @@ SipccSdpAttributeList::LoadRid(sdp_t* sdp,
 }
 
 void
-SipccSdpAttributeList::LoadExtmap(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadExtmap(sdp_t* sdp,
+                                  uint16_t level,
                                   SdpErrorHolder& errorHolder)
 {
   auto extmaps = MakeUnique<SdpExtmapAttributeList>();
@@ -885,8 +897,11 @@ SipccSdpAttributeList::LoadExtmap(sdp_t* sdp, uint16_t level,
       ConvertDirection(extmap->media_direction, &dir);
     }
 
-    extmaps->PushEntry(extmap->id, dir, extmap->media_direction_specified,
-                       extmap->uri, extmap->extension_attributes);
+    extmaps->PushEntry(extmap->id,
+                       dir,
+                       extmap->media_direction_specified,
+                       extmap->uri,
+                       extmap->extension_attributes);
   }
 
   if (!extmaps->mExtmaps.empty()) {
@@ -902,7 +917,8 @@ SipccSdpAttributeList::LoadExtmap(sdp_t* sdp, uint16_t level,
 }
 
 void
-SipccSdpAttributeList::LoadRtcpFb(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadRtcpFb(sdp_t* sdp,
+                                  uint16_t level,
                                   SdpErrorHolder& errorHolder)
 {
   auto rtcpfbs = MakeUnique<SdpRtcpFbAttributeList>();
@@ -1012,7 +1028,8 @@ SipccSdpAttributeList::LoadRtcpFb(sdp_t* sdp, uint16_t level,
 }
 
 void
-SipccSdpAttributeList::LoadRtcp(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::LoadRtcp(sdp_t* sdp,
+                                uint16_t level,
                                 SdpErrorHolder& errorHolder)
 {
   sdp_attr_t* attr = sdp_find_attr(sdp, level, 0, SDP_ATTR_RTCP, 1);
@@ -1034,20 +1051,19 @@ SipccSdpAttributeList::LoadRtcp(sdp_t* sdp, uint16_t level,
   if (!strlen(rtcp->addr)) {
     SetAttribute(new SdpRtcpAttribute(rtcp->port));
   } else {
-    SetAttribute(
-        new SdpRtcpAttribute(
-          rtcp->port,
-          sdp::kInternet,
-          rtcp->addrtype == SDP_AT_IP4 ? sdp::kIPv4 : sdp::kIPv6,
-          rtcp->addr));
+    SetAttribute(new SdpRtcpAttribute(
+        rtcp->port,
+        sdp::kInternet,
+        rtcp->addrtype == SDP_AT_IP4 ? sdp::kIPv4 : sdp::kIPv6,
+        rtcp->addr));
   }
 }
 
 bool
-SipccSdpAttributeList::Load(sdp_t* sdp, uint16_t level,
+SipccSdpAttributeList::Load(sdp_t* sdp,
+                            uint16_t level,
                             SdpErrorHolder& errorHolder)
 {
-
   LoadSimpleStrings(sdp, level, errorHolder);
   LoadSimpleNumbers(sdp, level, errorHolder);
   LoadFlags(sdp, level);
@@ -1116,7 +1132,8 @@ SipccSdpAttributeList::IsAllowedHere(SdpAttribute::AttributeType type) const
 
 void
 SipccSdpAttributeList::WarnAboutMisplacedAttribute(
-    SdpAttribute::AttributeType type, uint32_t lineNumber,
+    SdpAttribute::AttributeType type,
+    uint32_t lineNumber,
     SdpErrorHolder& errorHolder)
 {
   std::string warning = SdpAttribute::GetAttributeTypeString(type) +
@@ -1133,7 +1150,8 @@ SipccSdpAttributeList::GetCandidate() const
   }
 
   return static_cast<const SdpMultiStringAttribute*>(
-             GetAttribute(SdpAttribute::kCandidateAttribute))->mValues;
+             GetAttribute(SdpAttribute::kCandidateAttribute))
+      ->mValues;
 }
 
 const SdpConnectionAttribute&
@@ -1144,7 +1162,7 @@ SipccSdpAttributeList::GetConnection() const
   }
 
   return *static_cast<const SdpConnectionAttribute*>(
-             GetAttribute(SdpAttribute::kConnectionAttribute));
+      GetAttribute(SdpAttribute::kConnectionAttribute));
 }
 
 SdpDirectionAttribute::Direction
@@ -1176,7 +1194,7 @@ SipccSdpAttributeList::GetExtmap() const
   }
 
   return *static_cast<const SdpExtmapAttributeList*>(
-             GetAttribute(SdpAttribute::kExtmapAttribute));
+      GetAttribute(SdpAttribute::kExtmapAttribute));
 }
 
 const SdpFingerprintAttributeList&
@@ -1197,7 +1215,7 @@ SipccSdpAttributeList::GetFmtp() const
   }
 
   return *static_cast<const SdpFmtpAttributeList*>(
-             GetAttribute(SdpAttribute::kFmtpAttribute));
+      GetAttribute(SdpAttribute::kFmtpAttribute));
 }
 
 const SdpGroupAttributeList&
@@ -1208,7 +1226,7 @@ SipccSdpAttributeList::GetGroup() const
   }
 
   return *static_cast<const SdpGroupAttributeList*>(
-             GetAttribute(SdpAttribute::kGroupAttribute));
+      GetAttribute(SdpAttribute::kGroupAttribute));
 }
 
 const SdpOptionsAttribute&
@@ -1406,7 +1424,8 @@ SipccSdpAttributeList::GetMaxMessageSize() const
     MOZ_CRASH();
   }
 
-  const SdpAttribute* attr = GetAttribute(SdpAttribute::kMaxMessageSizeAttribute);
+  const SdpAttribute* attr =
+      GetAttribute(SdpAttribute::kMaxMessageSizeAttribute);
   return static_cast<const SdpNumberAttribute*>(attr)->mValue;
 }
 
@@ -1446,4 +1465,4 @@ SipccSdpAttributeList::Serialize(std::ostream& os) const
   }
 }
 
-} // namespace mozilla
+}  // namespace mozilla

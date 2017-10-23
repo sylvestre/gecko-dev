@@ -13,7 +13,7 @@
 namespace mozilla {
 namespace dom {
 class ContentParent;
-} // namespace dom
+}  // namespace dom
 
 /**
  * This class manages a ContentParent that it starts up ahead of any particular
@@ -32,8 +32,7 @@ class PreallocatedProcessManager final
 {
   typedef mozilla::dom::ContentParent ContentParent;
 
-public:
-
+ public:
   /**
    * Before first paint we don't want to allocate any processes in the background.
    * To avoid that, the PreallocatedProcessManager won't start up any processes while
@@ -57,11 +56,11 @@ public:
 
   static bool Provide(ContentParent* aParent);
 
-private:
+ private:
   PreallocatedProcessManager();
   DISALLOW_EVIL_CONSTRUCTORS(PreallocatedProcessManager);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // defined mozilla_PreallocatedProcessManager_h
+#endif  // defined mozilla_PreallocatedProcessManager_h

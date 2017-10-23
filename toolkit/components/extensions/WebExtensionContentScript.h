@@ -33,7 +33,7 @@ class WebExtensionPolicy;
 
 class MOZ_STACK_CLASS DocInfo final
 {
-public:
+ public:
   DocInfo(const URLInfo& aURL, nsILoadInfo* aLoadInfo);
 
   MOZ_IMPLICIT DocInfo(nsPIDOMWindowOuter* aWindow);
@@ -61,7 +61,7 @@ public:
     return nullptr;
   }
 
-private:
+ private:
   void SetURL(const URLInfo& aURL);
 
   const URLInfo mURL;
@@ -77,23 +77,20 @@ private:
   const Variant<LoadInfo, Window> mObj;
 };
 
-
-class WebExtensionContentScript final : public nsISupports
-                                      , public nsWrapperCache
+class WebExtensionContentScript final : public nsISupports,
+                                        public nsWrapperCache
 {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(WebExtensionContentScript)
 
-
   using MatchGlobArray = nsTArray<RefPtr<MatchGlob>>;
   using RunAtEnum = dom::ContentScriptRunAt;
 
-  static already_AddRefed<WebExtensionContentScript>
-  Constructor(dom::GlobalObject& aGlobal,
-              WebExtensionPolicy& aExtension,
-              const ContentScriptInit& aInit,
-              ErrorResult& aRv);
-
+  static already_AddRefed<WebExtensionContentScript> Constructor(
+      dom::GlobalObject& aGlobal,
+      WebExtensionPolicy& aExtension,
+      const ContentScriptInit& aInit,
+      ErrorResult& aRv);
 
   bool Matches(const DocInfo& aDoc) const;
   bool MatchesURI(const URLInfo& aURL) const;
@@ -106,7 +103,6 @@ class WebExtensionContentScript final : public nsISupports
   {
     return Matches(aWindow);
   }
-
 
   WebExtensionPolicy* Extension() { return mExtension; }
   const WebExtensionPolicy* Extension() const { return mExtension; }
@@ -141,12 +137,12 @@ class WebExtensionContentScript final : public nsISupports
     aPaths.AppendElements(mJsPaths);
   }
 
-
   WebExtensionPolicy* GetParentObject() const { return mExtension; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::HandleObject aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::HandleObject aGivenProto) override;
 
-protected:
+ protected:
   friend class WebExtensionPolicy;
 
   virtual ~WebExtensionContentScript() = default;
@@ -155,7 +151,7 @@ protected:
                             const ContentScriptInit& aInit,
                             ErrorResult& aRv);
 
-private:
+ private:
   RefPtr<WebExtensionPolicy> mExtension;
 
   RefPtr<MatchPatternSet> mMatches;
@@ -173,9 +169,8 @@ private:
   Nullable<uint64_t> mFrameID;
   bool mMatchAboutBlank;
 
-  template <typename T, typename U>
-  void
-  ToNullable(const Nullable<T>& aInput, Nullable<U>& aOutput)
+  template<typename T, typename U>
+  void ToNullable(const Nullable<T>& aInput, Nullable<U>& aOutput)
   {
     if (aInput.IsNull()) {
       aOutput.SetNull();
@@ -185,7 +180,7 @@ private:
   }
 };
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla
 
-#endif // mozilla_extensions_WebExtensionContentScript_h
+#endif  // mozilla_extensions_WebExtensionContentScript_h

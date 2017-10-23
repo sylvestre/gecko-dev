@@ -5,7 +5,8 @@
 #ifndef nsThemeConstants_h_
 #define nsThemeConstants_h_
 
-enum ThemeWidgetType : uint8_t {
+enum ThemeWidgetType : uint8_t
+{
 
   // No appearance at all.
   NS_THEME_NONE,
@@ -303,4 +304,4 @@ enum ThemeWidgetType : uint8_t {
   ThemeWidgetType_COUNT
 };
 
-#endif // nsThemeConstants_h_
+#endif  // nsThemeConstants_h_

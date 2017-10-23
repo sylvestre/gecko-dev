@@ -15,13 +15,14 @@
 #include "pkix/Time.h"
 #include "SignedCertificateTimestamp.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // A Certificate Transparency verifier that can verify Signed Certificate
 // Timestamps from multiple logs.
 class MultiLogCTVerifier
 {
-public:
+ public:
   // Adds a new log to the list of known logs to verify against.
   pkix::Result AddLog(CTLogVerifier&& log);
 
@@ -60,7 +61,7 @@ public:
                       pkix::Time time,
                       CTVerifyResult& result);
 
-private:
+ private:
   // Verifies a list of SCTs from |encodedSctList| over |expectedEntry|,
   // placing the verification results in |result|. The SCTs in the list
   // come from |origin| (as will be reflected in the origin field of each SCT).
@@ -82,6 +83,7 @@ private:
   Vector<CTLogVerifier> mLogs;
 };
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
 #endif  // MultiLogCTVerifier_h

@@ -16,11 +16,11 @@ class nsMenuFrame;
  * as this interface is directly cast to and from nsMenuBarFrame and nsMenuPopupFrame.
  */
 
-class nsMenuParent {
-
-public:
+class nsMenuParent
+{
+ public:
   // returns the menu frame of the currently active item within the menu
-  virtual nsMenuFrame *GetCurrentMenuItem() = 0;
+  virtual nsMenuFrame* GetCurrentMenuItem() = 0;
   // sets the currently active menu frame.
   NS_IMETHOD SetCurrentMenuItem(nsMenuFrame* aMenuItem) = 0;
   // indicate that the current menu frame is being destroyed, so clear the
@@ -66,4 +66,3 @@ public:
 };
 
 #endif
-

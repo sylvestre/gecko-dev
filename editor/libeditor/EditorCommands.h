@@ -24,7 +24,7 @@ namespace mozilla {
 
 class EditorCommandBase : public nsIControllerCommand
 {
-public:
+ public:
   EditorCommandBase();
 
   NS_DECL_ISUPPORTS
@@ -35,27 +35,26 @@ public:
   NS_IMETHOD DoCommand(const char* aCommandName,
                        nsISupports* aCommandRefCon) override = 0;
 
-protected:
+ protected:
   virtual ~EditorCommandBase() {}
 };
 
-
-#define NS_DECL_EDITOR_COMMAND(_cmd)                                           \
-class _cmd final : public EditorCommandBase                                    \
-{                                                                              \
-public:                                                                        \
-  NS_IMETHOD IsCommandEnabled(const char* aCommandName,                        \
-                              nsISupports* aCommandRefCon,                     \
-                              bool* aIsEnabled) override;                      \
-  NS_IMETHOD DoCommand(const char* aCommandName,                               \
-                       nsISupports* aCommandRefCon) override;                  \
-  NS_IMETHOD DoCommandParams(const char* aCommandName,                         \
-                             nsICommandParams* aParams,                        \
-                             nsISupports* aCommandRefCon) override;            \
-  NS_IMETHOD GetCommandStateParams(const char* aCommandName,                   \
-                                   nsICommandParams* aParams,                  \
-                                   nsISupports* aCommandRefCon) override;      \
-};
+#define NS_DECL_EDITOR_COMMAND(_cmd)                                        \
+  class _cmd final : public EditorCommandBase                               \
+  {                                                                         \
+   public:                                                                  \
+    NS_IMETHOD IsCommandEnabled(const char* aCommandName,                   \
+                                nsISupports* aCommandRefCon,                \
+                                bool* aIsEnabled) override;                 \
+    NS_IMETHOD DoCommand(const char* aCommandName,                          \
+                         nsISupports* aCommandRefCon) override;             \
+    NS_IMETHOD DoCommandParams(const char* aCommandName,                    \
+                               nsICommandParams* aParams,                   \
+                               nsISupports* aCommandRefCon) override;       \
+    NS_IMETHOD GetCommandStateParams(const char* aCommandName,              \
+                                     nsICommandParams* aParams,             \
+                                     nsISupports* aCommandRefCon) override; \
+  };
 
 // basic editor commands
 NS_DECL_EDITOR_COMMAND(UndoCommand)
@@ -81,7 +80,6 @@ NS_DECL_EDITOR_COMMAND(InsertParagraphCommand)
 NS_DECL_EDITOR_COMMAND(InsertLineBreakCommand)
 NS_DECL_EDITOR_COMMAND(PasteQuotationCommand)
 
-
 #if 0
 // template for new command
 NS_IMETHODIMP
@@ -101,6 +99,6 @@ FooCommand::DoCommand(const char* aCommandName,
 }
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef EditorCommands_h_
+#endif  // #ifndef EditorCommands_h_

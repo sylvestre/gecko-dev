@@ -19,31 +19,27 @@ namespace dom {
 
 class CanvasGradient : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(CanvasGradient)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(CanvasGradient)
 
-  enum class Type : uint8_t {
+  enum class Type : uint8_t
+  {
     LINEAR = 0,
     RADIAL
   };
 
-  Type GetType()
-  {
-    return mType;
-  }
+  Type GetType() { return mType; }
 
-  mozilla::gfx::GradientStops *
-  GetGradientStopsForTarget(mozilla::gfx::DrawTarget *aRT)
+  mozilla::gfx::GradientStops* GetGradientStopsForTarget(
+      mozilla::gfx::DrawTarget* aRT)
   {
     if (mStops && mStops->GetBackendType() == aRT->GetBackendType()) {
       return mStops;
     }
 
-    mStops =
-      gfx::gfxGradientCache::GetOrCreateGradientStops(aRT,
-                                                      mRawStops,
-                                                      gfx::ExtendMode::CLAMP);
+    mStops = gfx::gfxGradientCache::GetOrCreateGradientStops(
+        aRT, mRawStops, gfx::ExtendMode::CLAMP);
 
     return mStops;
   }
@@ -51,22 +47,19 @@ public:
   // WebIDL
   void AddColorStop(float offset, const nsAString& colorstr, ErrorResult& rv);
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override
   {
     return CanvasGradientBinding::Wrap(aCx, this, aGivenProto);
   }
 
-  CanvasRenderingContext2D* GetParentObject()
-  {
-    return mContext;
-  }
+  CanvasRenderingContext2D* GetParentObject() { return mContext; }
 
-protected:
+ protected:
   friend struct CanvasBidiProcessor;
 
   CanvasGradient(CanvasRenderingContext2D* aContext, Type aType)
-    : mContext(aContext)
-    , mType(aType)
+      : mContext(aContext), mType(aType)
   {
   }
 
@@ -77,7 +70,7 @@ protected:
   virtual ~CanvasGradient() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CanvasGradient_h
+#endif  // mozilla_dom_CanvasGradient_h

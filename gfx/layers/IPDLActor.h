@@ -21,7 +21,7 @@ namespace layers {
 template<typename Protocol>
 class ParentActor : public Protocol
 {
-public:
+ public:
   ParentActor() : mDestroyed(false) {}
 
   ~ParentActor() { MOZ_ASSERT(mDestroyed); }
@@ -40,23 +40,22 @@ public:
 
   typedef ipc::IProtocol::ActorDestroyReason Why;
 
-  virtual void ActorDestroy(Why) override {
-    DestroyIfNeeded();
-  }
+  virtual void ActorDestroy(Why) override { DestroyIfNeeded(); }
 
-protected:
-  void DestroyIfNeeded() {
+ protected:
+  void DestroyIfNeeded()
+  {
     if (!mDestroyed) {
       Destroy();
       mDestroyed = true;
     }
   }
 
-private:
+ private:
   bool mDestroyed;
 };
 
-} // namespace
-} // namespace
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

@@ -17,8 +17,9 @@
 #include "mozilla/Types.h"
 
 namespace IPC {
-template<typename T> struct ParamTraits;
-} // namespace IPC
+template<typename T>
+struct ParamTraits;
+}  // namespace IPC
 
 #ifdef XP_WIN
 // defines TimeStampValue as a complex value keeping both
@@ -39,7 +40,7 @@ class TimeStamp;
  */
 class BaseTimeDurationPlatformUtils
 {
-public:
+ public:
   static MFBT_API double ToSeconds(int64_t aTicks);
   static MFBT_API double ToSecondsSigDigits(int64_t aTicks);
   static MFBT_API int64_t TicksFromMilliseconds(double aMilliseconds);
@@ -59,10 +60,10 @@ public:
  * The ValueCalculator template parameter determines how arithmetic
  * operations are performed on the integer count of ticks (mValue).
  */
-template <typename ValueCalculator>
+template<typename ValueCalculator>
 class BaseTimeDuration
 {
-public:
+ public:
   // The default duration is 0.
   constexpr BaseTimeDuration() : mValue(0) {}
   // Allow construction using '0' as the initial value, for readability,
@@ -75,12 +76,13 @@ public:
   // Default copy-constructor and assignment are OK
 
   // Converting copy-constructor and assignment operator
-  template <typename E>
+  template<typename E>
   explicit BaseTimeDuration(const BaseTimeDuration<E>& aOther)
-    : mValue(aOther.mValue)
-  { }
+      : mValue(aOther.mValue)
+  {
+  }
 
-  template <typename E>
+  template<typename E>
   BaseTimeDuration& operator=(const BaseTimeDuration<E>& aOther)
   {
     mValue = aOther.mValue;
@@ -131,17 +133,14 @@ public:
       return FromTicks(INT64_MIN);
     }
     return FromTicks(
-      BaseTimeDurationPlatformUtils::TicksFromMilliseconds(aMilliseconds));
+        BaseTimeDurationPlatformUtils::TicksFromMilliseconds(aMilliseconds));
   }
   static inline BaseTimeDuration FromMicroseconds(double aMicroseconds)
   {
     return FromMilliseconds(aMicroseconds / 1000.0);
   }
 
-  static BaseTimeDuration Forever()
-  {
-    return FromTicks(INT64_MAX);
-  }
+  static BaseTimeDuration Forever() { return FromTicks(INT64_MAX); }
 
   BaseTimeDuration operator+(const BaseTimeDuration& aOther) const
   {
@@ -188,7 +187,7 @@ public:
     return FromTicks(std::min(aA.mValue, aB.mValue));
   }
 
-private:
+ private:
   // Block double multiplier (slower, imprecise if long duration) - Bug 853398.
   // If required, use MultDouble explicitly and with care.
   BaseTimeDuration operator*(const double aMultiplier) const = delete;
@@ -198,7 +197,7 @@ private:
   // the passed argument can then cause divide-by-zero) - Bug 1147491.
   BaseTimeDuration operator/(const double aDivisor) const = delete;
 
-public:
+ public:
   BaseTimeDuration MultDouble(double aMultiplier) const
   {
     return FromTicks(ValueCalculator::Multiply(mValue, aMultiplier));
@@ -268,17 +267,12 @@ public:
   {
     return mValue != aOther.mValue;
   }
-  bool IsZero() const
-  {
-    return mValue == 0;
-  }
-  explicit operator bool() const
-  {
-    return mValue != 0;
-  }
+  bool IsZero() const { return mValue == 0; }
+  explicit operator bool() const { return mValue != 0; }
 
   friend std::ostream& operator<<(std::ostream& aStream,
-                                  const BaseTimeDuration& aDuration) {
+                                  const BaseTimeDuration& aDuration)
+  {
     return aStream << aDuration.ToMilliseconds() << " ms";
   }
 
@@ -286,7 +280,8 @@ public:
   // which might be variable.  BaseTimeDurations below this order of
   // magnitude are meaningless, and those at the same order of
   // magnitude or just above are suspect.
-  static BaseTimeDuration Resolution() {
+  static BaseTimeDuration Resolution()
+  {
     return FromTicks(BaseTimeDurationPlatformUtils::ResolutionInTicks());
   }
 
@@ -297,10 +292,10 @@ public:
   // Comparing durations for equality will only lead to bugs on
   // platforms with high-resolution timers.
 
-private:
+ private:
   friend class TimeStamp;
   friend struct IPC::ParamTraits<mozilla::BaseTimeDuration<ValueCalculator>>;
-  template <typename>
+  template<typename>
   friend class BaseTimeDuration;
 
   static BaseTimeDuration FromTicks(int64_t aTicks)
@@ -336,11 +331,11 @@ private:
  */
 class TimeDurationValueCalculator
 {
-public:
+ public:
   static int64_t Add(int64_t aA, int64_t aB) { return aA + aB; }
   static int64_t Subtract(int64_t aA, int64_t aB) { return aA - aB; }
 
-  template <typename T>
+  template<typename T>
   static int64_t Multiply(int64_t aA, T aB)
   {
     static_assert(IsIntegral<T>::value,
@@ -357,7 +352,7 @@ public:
   static int64_t Modulo(int64_t aA, int64_t aB) { return aA % aB; }
 };
 
-template <>
+template<>
 inline int64_t
 TimeDurationValueCalculator::Multiply<double>(int64_t aA, double aB)
 {
@@ -406,14 +401,14 @@ typedef BaseTimeDuration<TimeDurationValueCalculator> TimeDuration;
  */
 class TimeStamp
 {
-public:
+ public:
   /**
    * Initialize to the "null" moment
    */
   constexpr TimeStamp() : mValue(0) {}
-  // Default copy-constructor and assignment are OK
+    // Default copy-constructor and assignment are OK
 
-  /**
+    /**
    * The system timestamps are the same as the TimeStamp
    * retrieved by mozilla::TimeStamp. Since we need this for
    * vsync timestamps, we enable the creation of mozilla::TimeStamps
@@ -442,10 +437,7 @@ public:
    * Return true if this is not the "null" moment, may be used in tests, e.g.:
    * |if (timestamp) { ... }|
    */
-  explicit operator bool() const
-  {
-    return mValue != 0;
-  }
+  explicit operator bool() const { return mValue != 0; }
 
   /**
    * Return a timestamp reflecting the current elapsed system time. This
@@ -571,14 +563,10 @@ public:
   }
   bool operator==(const TimeStamp& aOther) const
   {
-    return IsNull()
-           ? aOther.IsNull()
-           : !aOther.IsNull() && mValue == aOther.mValue;
+    return IsNull() ? aOther.IsNull()
+                    : !aOther.IsNull() && mValue == aOther.mValue;
   }
-  bool operator!=(const TimeStamp& aOther) const
-  {
-    return !(*this == aOther);
-  }
+  bool operator!=(const TimeStamp& aOther) const { return !(*this == aOther); }
 
   // Comparing TimeStamps for equality should be discouraged. Adding
   // two TimeStamps, or scaling TimeStamps, is nonsense and must never
@@ -587,7 +575,7 @@ public:
   static MFBT_API void Startup();
   static MFBT_API void Shutdown();
 
-private:
+ private:
   friend struct IPC::ParamTraits<mozilla::TimeStamp>;
   friend void StartupTimelineRecordExternal(int, uint64_t);
 
@@ -621,6 +609,6 @@ private:
   TimeStampValue mValue;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_TimeStamp_h */

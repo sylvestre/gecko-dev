@@ -12,31 +12,35 @@
 
 #include "mozilla/Scoped.h"
 #include "nsStringGlue.h"
-#include "unicode/unum.h" // for UNumberFormat
+#include "unicode/unum.h"  // for UNumberFormat
 
 class nsIContent;
 
-struct ScopedUNumberFormatTraits {
+struct ScopedUNumberFormatTraits
+{
   typedef UNumberFormat* type;
   static type empty() { return nullptr; }
-  static void release(type handle) { if (handle) unum_close(handle); }
+  static void release(type handle)
+  {
+    if (handle) unum_close(handle);
+  }
 };
 typedef mozilla::Scoped<ScopedUNumberFormatTraits> AutoCloseUNumberFormat;
 
 class ICUUtils
 {
-public:
-
+ public:
   /**
    * This class is used to encapsulate an nsIContent object to allow lazy
    * iteration over its primary and fallback BCP 47 language tags.
    */
-  class LanguageTagIterForContent {
-  public:
+  class LanguageTagIterForContent
+  {
+   public:
     explicit LanguageTagIterForContent(nsIContent* aContent)
-      : mContent(aContent)
-      , mCurrentFallbackIndex(-1)
-    {}
+        : mContent(aContent), mCurrentFallbackIndex(-1)
+    {
+    }
 
     /**
      * Used to iterate over the nsIContent object's primary language tag and
@@ -54,11 +58,9 @@ public:
      */
     void GetNext(nsACString& aBCP47LangTag);
 
-    bool IsAtStart() const {
-      return mCurrentFallbackIndex < 0;
-    }
+    bool IsAtStart() const { return mCurrentFallbackIndex < 0; }
 
-  private:
+   private:
     nsIContent* mContent;
     int8_t mCurrentFallbackIndex;
   };

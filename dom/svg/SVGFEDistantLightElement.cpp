@@ -16,16 +16,14 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEDistantLightElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEDistantLightElement::WrapNode(JSContext* aCx,
+                                   JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEDistantLightElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFEDistantLightElement::sNumberInfo[2] =
-{
-  { &nsGkAtoms::azimuth,   0, false },
-  { &nsGkAtoms::elevation, 0, false }
-};
+nsSVGElement::NumberInfo SVGFEDistantLightElement::sNumberInfo[2] = {
+    {&nsGkAtoms::azimuth, 0, false}, {&nsGkAtoms::elevation, 0, false}};
 
 //----------------------------------------------------------------------
 //----------------------------------------------------------------------
@@ -75,9 +73,9 @@ SVGFEDistantLightElement::Elevation()
 nsSVGElement::NumberAttributesInfo
 SVGFEDistantLightElement::GetNumberInfo()
 {
-  return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
-                              ArrayLength(sNumberInfo));
+  return NumberAttributesInfo(
+      mNumberAttributes, sNumberInfo, ArrayLength(sNumberInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

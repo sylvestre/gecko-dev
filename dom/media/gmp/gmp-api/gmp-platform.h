@@ -39,28 +39,31 @@
 
 /* Platform helper API. */
 
-class GMPTask {
-public:
-  virtual void Destroy() = 0; // Deletes object.
+class GMPTask
+{
+ public:
+  virtual void Destroy() = 0;  // Deletes object.
   virtual ~GMPTask() {}
   virtual void Run() = 0;
 };
 
-class GMPThread {
-public:
+class GMPThread
+{
+ public:
   virtual ~GMPThread() {}
   virtual void Post(GMPTask* aTask) = 0;
-  virtual void Join() = 0; // Deletes object after join completes.
+  virtual void Join() = 0;  // Deletes object after join completes.
 };
 
 // A re-entrant monitor; can be locked from the same thread multiple times.
 // Must be unlocked the same number of times it's locked.
-class GMPMutex {
-public:
+class GMPMutex
+{
+ public:
   virtual ~GMPMutex() {}
   virtual void Acquire() = 0;
   virtual void Release() = 0;
-  virtual void Destroy() = 0; // Deletes object.
+  virtual void Destroy() = 0;  // Deletes object.
 };
 
 // Time is defined as the number of milliseconds since the
@@ -79,15 +82,17 @@ typedef GMPErr (*GMPCreateRecordPtr)(const char* aRecordName,
                                      GMPRecordClient* aClient);
 
 // Call on main thread only.
-typedef GMPErr (*GMPSetTimerOnMainThreadPtr)(GMPTask* aTask, int64_t aTimeoutMS);
+typedef GMPErr (*GMPSetTimerOnMainThreadPtr)(GMPTask* aTask,
+                                             int64_t aTimeoutMS);
 typedef GMPErr (*GMPGetCurrentTimePtr)(GMPTimestamp* aOutTime);
 
-struct GMPPlatformAPI {
+struct GMPPlatformAPI
+{
   // Increment the version when things change. Can only add to the struct,
   // do not change what already exists. Pointers to functions may be NULL
   // when passed to plugins, but beware backwards compat implications of
   // doing that.
-  uint16_t version; // Currently version 0
+  uint16_t version;  // Currently version 0
 
   GMPCreateThreadPtr createthread;
   GMPRunOnMainThreadPtr runonmainthread;
@@ -98,4 +103,4 @@ struct GMPPlatformAPI {
   GMPGetCurrentTimePtr getcurrenttime;
 };
 
-#endif // GMP_PLATFORM_h_
+#endif  // GMP_PLATFORM_h_

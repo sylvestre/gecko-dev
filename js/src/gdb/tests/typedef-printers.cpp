@@ -3,9 +3,9 @@
 typedef int my_typedef;
 
 FRAGMENT(typedef_printers, one) {
-  my_typedef i = 0;
+    my_typedef i = 0;
 
-  breakpoint();
+    breakpoint();
 
-  (void) i;
+    (void)i;
 }

@@ -23,7 +23,8 @@ SpeechSynthesisChild::RecvInitialVoicesAndState(nsTArray<RemoteVoice>&& aVoices,
                                                 nsTArray<nsString>&& aDefaults,
                                                 const bool& aIsSpeaking)
 {
-  nsSynthVoiceRegistry::RecvInitialVoicesAndState(aVoices, aDefaults, aIsSpeaking);
+  nsSynthVoiceRegistry::RecvInitialVoicesAndState(
+      aVoices, aDefaults, aIsSpeaking);
   return IPC_OK();
 }
 
@@ -76,7 +77,8 @@ SpeechSynthesisChild::AllocPSpeechSynthesisRequestChild(const nsString& aText,
 }
 
 bool
-SpeechSynthesisChild::DeallocPSpeechSynthesisRequestChild(PSpeechSynthesisRequestChild* aActor)
+SpeechSynthesisChild::DeallocPSpeechSynthesisRequestChild(
+    PSpeechSynthesisRequestChild* aActor)
 {
   delete aActor;
   return true;
@@ -85,7 +87,7 @@ SpeechSynthesisChild::DeallocPSpeechSynthesisRequestChild(PSpeechSynthesisReques
 // SpeechSynthesisRequestChild
 
 SpeechSynthesisRequestChild::SpeechSynthesisRequestChild(SpeechTaskChild* aTask)
-  : mTask(aTask)
+    : mTask(aTask)
 {
   mTask->mActor = this;
   MOZ_COUNT_CTOR(SpeechSynthesisRequestChild);
@@ -145,7 +147,8 @@ SpeechSynthesisRequestChild::RecvOnBoundary(const nsString& aName,
                                             const uint32_t& aCharLength,
                                             const uint8_t& argc)
 {
-  mTask->DispatchBoundaryImpl(aName, aElapsedTime, aCharIndex, aCharLength, argc);
+  mTask->DispatchBoundaryImpl(
+      aName, aElapsedTime, aCharIndex, aCharLength, argc);
   return IPC_OK();
 }
 
@@ -160,20 +163,24 @@ SpeechSynthesisRequestChild::RecvOnMark(const nsString& aName,
 
 // SpeechTaskChild
 
-SpeechTaskChild::SpeechTaskChild(SpeechSynthesisUtterance* aUtterance, bool aIsChrome)
-  : nsSpeechTask(aUtterance, aIsChrome)
+SpeechTaskChild::SpeechTaskChild(SpeechSynthesisUtterance* aUtterance,
+                                 bool aIsChrome)
+    : nsSpeechTask(aUtterance, aIsChrome)
 {
 }
 
 NS_IMETHODIMP
 SpeechTaskChild::Setup(nsISpeechTaskCallback* aCallback,
-                       uint32_t aChannels, uint32_t aRate, uint8_t argc)
+                       uint32_t aChannels,
+                       uint32_t aRate,
+                       uint8_t argc)
 {
   MOZ_CRASH("Should never be called from child");
 }
 
 NS_IMETHODIMP
-SpeechTaskChild::SendAudio(JS::Handle<JS::Value> aData, JS::Handle<JS::Value> aLandmarks,
+SpeechTaskChild::SendAudio(JS::Handle<JS::Value> aData,
+                           JS::Handle<JS::Value> aLandmarks,
                            JSContext* aCx)
 {
   MOZ_CRASH("Should never be called from child");
@@ -221,5 +228,5 @@ SpeechTaskChild::SetAudioOutputVolume(float aVolume)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

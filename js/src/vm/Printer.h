@@ -27,25 +27,21 @@ class LifoAlloc;
 // This class is useful to make generic printers which can work either with a
 // file backend, with a buffer allocated with an JSContext or a link-list
 // of chunks allocated with a LifoAlloc.
-class GenericPrinter
-{
-  protected:
-    bool                  hadOOM_;     // whether reportOutOfMemory() has been called.
+class GenericPrinter {
+   protected:
+    bool hadOOM_;  // whether reportOutOfMemory() has been called.
 
     GenericPrinter();
 
-  public:
+   public:
     // Puts |len| characters from |s| at the current position and
     // return true on success, false on failure.
     virtual bool put(const char* s, size_t len) = 0;
-    virtual void flush() { /* Do nothing */ }
+    virtual void flush() { /* Do nothing */
+    }
 
-    inline bool put(const char* s) {
-        return put(s, strlen(s));
-    }
-    inline bool putChar(const char c) {
-        return put(&c, 1);
-    }
+    inline bool put(const char* s) { return put(s, strlen(s)); }
+    inline bool putChar(const char c) { return put(&c, 1); }
 
     // Prints a formatted string into the buffer.
     bool printf(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3);
@@ -59,37 +55,31 @@ class GenericPrinter
 };
 
 // Sprintf, but with unlimited and automatically allocated buffering.
-class Sprinter final : public GenericPrinter
-{
-  public:
-    struct InvariantChecker
-    {
+class Sprinter final : public GenericPrinter {
+   public:
+    struct InvariantChecker {
         const Sprinter* parent;
 
-        explicit InvariantChecker(const Sprinter* p) : parent(p) {
-            parent->checkInvariants();
-        }
+        explicit InvariantChecker(const Sprinter* p) : parent(p) { parent->checkInvariants(); }
 
-        ~InvariantChecker() {
-            parent->checkInvariants();
-        }
+        ~InvariantChecker() { parent->checkInvariants(); }
     };
 
-    JSContext*            context;          // context executing the decompiler
+    JSContext* context;  // context executing the decompiler
 
-  private:
-    static const size_t   DefaultSize;
+   private:
+    static const size_t DefaultSize;
 #ifdef DEBUG
-    bool                  initialized;      // true if this is initialized, use for debug builds
+    bool initialized;  // true if this is initialized, use for debug builds
 #endif
-    bool                  shouldReportOOM;  // whether to report OOM to the context
-    char*                 base;             // malloc'd buffer address
-    size_t                size;             // size of buffer allocated at base
-    ptrdiff_t             offset;           // offset of next free char in buffer
+    bool shouldReportOOM;  // whether to report OOM to the context
+    char* base;            // malloc'd buffer address
+    size_t size;           // size of buffer allocated at base
+    ptrdiff_t offset;      // offset of next free char in buffer
 
     MOZ_MUST_USE bool realloc_(size_t newSize);
 
-  public:
+   public:
     explicit Sprinter(JSContext* cx, bool shouldReportOOM = true);
     ~Sprinter();
 
@@ -115,7 +105,7 @@ class Sprinter final : public GenericPrinter
     // Puts |len| characters from |s| at the current position and
     // return true on success, false on failure.
     virtual bool put(const char* s, size_t len) override;
-    using GenericPrinter::put; // pick up |inline bool put(const char* s);|
+    using GenericPrinter::put;  // pick up |inline bool put(const char* s);|
 
     // Format the given format/arguments as if by JS_vsmprintf, then put it.
     // Return true on success, else return false and report an error (typically
@@ -133,13 +123,12 @@ class Sprinter final : public GenericPrinter
 };
 
 // Fprinter, print a string directly into a file.
-class Fprinter final : public GenericPrinter
-{
-  private:
-    FILE*                   file_;
-    bool                    init_;
+class Fprinter final : public GenericPrinter {
+   private:
+    FILE* file_;
+    bool init_;
 
-  public:
+   public:
     explicit Fprinter(FILE* fp);
     Fprinter();
     ~Fprinter();
@@ -147,44 +136,36 @@ class Fprinter final : public GenericPrinter
     // Initialize this printer, returns false on error.
     MOZ_MUST_USE bool init(const char* path);
     void init(FILE* fp);
-    bool isInitialized() const {
-        return file_ != nullptr;
-    }
+    bool isInitialized() const { return file_ != nullptr; }
     void flush() override;
     void finish();
 
     // Puts |len| characters from |s| at the current position and
     // return true on success, false on failure.
     virtual bool put(const char* s, size_t len) override;
-    using GenericPrinter::put; // pick up |inline bool put(const char* s);|
+    using GenericPrinter::put;  // pick up |inline bool put(const char* s);|
 };
 
 // LSprinter, is similar to Sprinter except that instead of using an
 // JSContext to allocate strings, it use a LifoAlloc as a backend for the
 // allocation of the chunk of the string.
-class LSprinter final : public GenericPrinter
-{
-  private:
-    struct Chunk
-    {
+class LSprinter final : public GenericPrinter {
+   private:
+    struct Chunk {
         Chunk* next;
         size_t length;
 
-        char* chars() {
-            return reinterpret_cast<char*>(this + 1);
-        }
-        char* end() {
-            return chars() + length;
-        }
+        char* chars() { return reinterpret_cast<char*>(this + 1); }
+        char* end() { return chars() + length; }
     };
 
-  private:
-    LifoAlloc*              alloc_;          // LifoAlloc used as a backend of chunk allocations.
-    Chunk*                  head_;
-    Chunk*                  tail_;
-    size_t                  unused_;
+   private:
+    LifoAlloc* alloc_;  // LifoAlloc used as a backend of chunk allocations.
+    Chunk* head_;
+    Chunk* tail_;
+    size_t unused_;
 
-  public:
+   public:
     explicit LSprinter(LifoAlloc* lifoAlloc);
     ~LSprinter();
 
@@ -198,22 +179,19 @@ class LSprinter final : public GenericPrinter
     // Puts |len| characters from |s| at the current position and
     // return true on success, false on failure.
     virtual bool put(const char* s, size_t len) override;
-    using GenericPrinter::put; // pick up |inline bool put(const char* s);|
+    using GenericPrinter::put;  // pick up |inline bool put(const char* s);|
 };
 
 // Map escaped code to the letter/symbol escaped with a backslash.
-extern const char       js_EscapeMap[];
+extern const char js_EscapeMap[];
 
 // Return a GC'ed string containing the chars in str, with any non-printing
 // chars or quotes (' or " as specified by the quote argument) escaped, and
 // with the quote character at the beginning and end of the result string.
-extern JSString*
-QuoteString(JSContext* cx, JSString* str, char16_t quote);
+extern JSString* QuoteString(JSContext* cx, JSString* str, char16_t quote);
 
-extern char*
-QuoteString(Sprinter* sp, JSString* str, char16_t quote);
+extern char* QuoteString(Sprinter* sp, JSString* str, char16_t quote);
 
+}  // namespace js
 
-} // namespace js
-
-#endif // vm_Printer_h
+#endif  // vm_Printer_h

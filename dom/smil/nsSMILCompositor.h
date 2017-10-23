@@ -25,28 +25,32 @@
 
 class nsSMILCompositor : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef nsSMILTargetIdentifier KeyType;
   typedef const KeyType& KeyTypeRef;
   typedef const KeyType* KeyTypePointer;
 
   explicit nsSMILCompositor(KeyTypePointer aKey)
-   : mKey(*aKey),
-     mForceCompositing(false)
-  { }
+      : mKey(*aKey), mForceCompositing(false)
+  {
+  }
   nsSMILCompositor(nsSMILCompositor&& toMove)
-    : mKey(mozilla::Move(toMove.mKey)),
-      mAnimationFunctions(mozilla::Move(toMove.mAnimationFunctions)),
-      mForceCompositing(false)
-  { }
-  ~nsSMILCompositor() { }
+      : mKey(mozilla::Move(toMove.mKey)),
+        mAnimationFunctions(mozilla::Move(toMove.mAnimationFunctions)),
+        mForceCompositing(false)
+  {
+  }
+  ~nsSMILCompositor() {}
 
   // PLDHashEntryHdr methods
   KeyTypeRef GetKey() const { return mKey; }
   bool KeyEquals(KeyTypePointer aKey) const;
   static KeyTypePointer KeyToPointer(KeyTypeRef aKey) { return &aKey; }
   static PLDHashNumber HashKey(KeyTypePointer aKey);
-  enum { ALLOW_MEMMOVE = false };
+  enum
+  {
+    ALLOW_MEMMOVE = false
+  };
 
   // Adds the given animation function to this Compositor's list of functions
   void AddAnimationFunction(nsSMILAnimationFunction* aFunc);
@@ -68,7 +72,8 @@ public:
   void ToggleForceCompositing() { mForceCompositing = true; }
 
   // Transfers |aOther|'s mCachedBaseValue to |this|
-  void StealCachedBaseValue(nsSMILCompositor* aOther) {
+  void StealCachedBaseValue(nsSMILCompositor* aOther)
+  {
     mCachedBaseValue = mozilla::Move(aOther->mCachedBaseValue);
   }
 
@@ -77,8 +82,8 @@ public:
   //
   // @param aBaseStyleContext  An optional style context which, if set, will be
   //                           used when fetching the base style.
-  mozilla::UniquePtr<nsISMILAttr>
-  CreateSMILAttr(nsStyleContext* aBaseStyleContext);
+  mozilla::UniquePtr<nsISMILAttr> CreateSMILAttr(
+      nsStyleContext* aBaseStyleContext);
 
   // Returns the CSS property this compositor should animate, or
   // eCSSProperty_UNKNOWN if this compositor does not animate a CSS property.
@@ -122,4 +127,4 @@ public:
   nsSMILValue mCachedBaseValue;
 };
 
-#endif // NS_SMILCOMPOSITOR_H_
+#endif  // NS_SMILCOMPOSITOR_H_

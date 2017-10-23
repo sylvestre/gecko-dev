@@ -10,9 +10,10 @@
 
 namespace mozilla {
 
-template<uint32_t N> nsresult
+template<uint32_t N>
+nsresult
 AnimationPerformanceWarning::ToLocalizedStringWithIntParams(
-  const char* aKey, nsAString& aLocalizedString) const
+    const char* aKey, nsAString& aLocalizedString) const
 {
   nsAutoString strings[N];
   const char16_t* charParams[N];
@@ -28,7 +29,7 @@ AnimationPerformanceWarning::ToLocalizedStringWithIntParams(
 
 bool
 AnimationPerformanceWarning::ToLocalizedString(
-  nsAString& aLocalizedString) const
+    nsAString& aLocalizedString) const
 {
   const char* key = nullptr;
 
@@ -37,15 +38,13 @@ AnimationPerformanceWarning::ToLocalizedString(
       MOZ_ASSERT(mParams && mParams->Length() == 6,
                  "Parameter's length should be 6 for ContentTooLarge2");
 
-      return NS_SUCCEEDED(
-        ToLocalizedStringWithIntParams<7>(
+      return NS_SUCCEEDED(ToLocalizedStringWithIntParams<7>(
           "CompositorAnimationWarningContentTooLarge2", aLocalizedString));
     case Type::ContentTooLargeArea:
       MOZ_ASSERT(mParams && mParams->Length() == 2,
                  "Parameter's length should be 2 for ContentTooLargeArea");
 
-      return NS_SUCCEEDED(
-        ToLocalizedStringWithIntParams<3>(
+      return NS_SUCCEEDED(ToLocalizedStringWithIntParams<3>(
           "CompositorAnimationWarningContentTooLargeArea", aLocalizedString));
     case Type::TransformBackfaceVisibilityHidden:
       key = "CompositorAnimationWarningTransformBackfaceVisibilityHidden";
@@ -73,10 +72,9 @@ AnimationPerformanceWarning::ToLocalizedString(
       break;
   }
 
-  nsresult rv =
-    nsContentUtils::GetLocalizedString(nsContentUtils::eLAYOUT_PROPERTIES,
-                                       key, aLocalizedString);
+  nsresult rv = nsContentUtils::GetLocalizedString(
+      nsContentUtils::eLAYOUT_PROPERTIES, key, aLocalizedString);
   return NS_SUCCEEDED(rv);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

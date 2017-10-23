@@ -22,7 +22,7 @@
  *
  */
 
-void nothing()
+void
+nothing()
 {
 }
-

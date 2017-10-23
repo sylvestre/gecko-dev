@@ -59,9 +59,8 @@ LazyLogModule::operator LogModule*()
 
 namespace detail {
 
-void log_print(const LogModule* aModule,
-               LogLevel aLevel,
-               const char* aFmt, ...)
+void
+log_print(const LogModule* aModule, LogLevel aLevel, const char* aFmt, ...)
 {
   va_list ap;
   va_start(ap, aFmt);
@@ -69,7 +68,7 @@ void log_print(const LogModule* aModule,
   va_end(ap);
 }
 
-} // detail
+}  // namespace detail
 
 LogLevel
 ToLogLevel(int32_t aLevel)
@@ -80,7 +79,8 @@ ToLogLevel(int32_t aLevel)
 }
 
 const char*
-ToLogStr(LogLevel aLevel) {
+ToLogStr(LogLevel aLevel)
+{
   switch (aLevel) {
     case LogLevel::Error:
       return "E";
@@ -113,11 +113,9 @@ class LogFile
   FILE* mFile;
   uint32_t mFileNum;
 
-public:
+ public:
   LogFile(FILE* aFile, uint32_t aFileNum)
-    : mFile(aFile)
-    , mFileNum(aFileNum)
-    , mNextToRelease(nullptr)
+      : mFile(aFile), mFileNum(aFileNum), mNextToRelease(nullptr)
   {
   }
 
@@ -140,45 +138,47 @@ ExpandPIDMarker(const char* aFilename, char (&buffer)[2048])
   static const char kPIDToken[] = "%PID";
   const char* pidTokenPtr = strstr(aFilename, kPIDToken);
   if (pidTokenPtr &&
-    SprintfLiteral(buffer, "%.*s%s%d%s",
-                   static_cast<int>(pidTokenPtr - aFilename), aFilename,
-                   XRE_IsParentProcess() ? "-main." : "-child.",
-                   base::GetCurrentProcId(),
-                   pidTokenPtr + strlen(kPIDToken)) > 0)
-  {
+      SprintfLiteral(buffer,
+                     "%.*s%s%d%s",
+                     static_cast<int>(pidTokenPtr - aFilename),
+                     aFilename,
+                     XRE_IsParentProcess() ? "-main." : "-child.",
+                     base::GetCurrentProcId(),
+                     pidTokenPtr + strlen(kPIDToken)) > 0) {
     return buffer;
   }
 
   return aFilename;
 }
 
-} // detail
+}  // namespace detail
 
 namespace {
-  // Helper method that initializes an empty va_list to be empty.
-  void empty_va(va_list *va, ...)
-  {
-    va_start(*va, va);
-    va_end(*va);
-  }
+// Helper method that initializes an empty va_list to be empty.
+void
+empty_va(va_list* va, ...)
+{
+  va_start(*va, va);
+  va_end(*va);
 }
+}  // namespace
 
 class LogModuleManager
 {
-public:
+ public:
   LogModuleManager()
-    : mModulesLock("logmodules")
-    , mModules(kInitialModuleCount)
-    , mPrintEntryCount(0)
-    , mOutFile(nullptr)
-    , mToReleaseFile(nullptr)
-    , mOutFileNum(0)
-    , mOutFilePath(strdup(""))
-    , mMainThread(PR_GetCurrentThread())
-    , mSetFromEnv(false)
-    , mAddTimestamp(false)
-    , mIsSync(false)
-    , mRotate(0)
+      : mModulesLock("logmodules"),
+        mModules(kInitialModuleCount),
+        mPrintEntryCount(0),
+        mOutFile(nullptr),
+        mToReleaseFile(nullptr),
+        mOutFileNum(0),
+        mOutFilePath(strdup("")),
+        mMainThread(PR_GetCurrentThread()),
+        mSetFromEnv(false),
+        mAddTimestamp(false),
+        mIsSync(false),
+        mRotate(0)
   {
   }
 
@@ -201,21 +201,24 @@ public:
     if (!modules || !modules[0]) {
       modules = PR_GetEnv("MOZ_LOG_MODULES");
       if (modules) {
-        NS_WARNING("MOZ_LOG_MODULES is deprecated."
+        NS_WARNING(
+            "MOZ_LOG_MODULES is deprecated."
             "\nPlease use MOZ_LOG instead.");
       }
     }
     if (!modules || !modules[0]) {
       modules = PR_GetEnv("NSPR_LOG_MODULES");
       if (modules) {
-        NS_WARNING("NSPR_LOG_MODULES is deprecated."
+        NS_WARNING(
+            "NSPR_LOG_MODULES is deprecated."
             "\nPlease use MOZ_LOG instead.");
       }
     }
 
-    NSPRLogModulesParser(modules,
-        [&shouldAppend, &addTimestamp, &isSync, &rotate]
-            (const char* aName, LogLevel aLevel, int32_t aValue) mutable {
+    NSPRLogModulesParser(
+        modules,
+        [&shouldAppend, &addTimestamp, &isSync, &rotate](
+            const char* aName, LogLevel aLevel, int32_t aValue) mutable {
           if (strcmp(aName, "append") == 0) {
             shouldAppend = true;
           } else if (strcmp(aName, "timestamp") == 0) {
@@ -227,7 +230,7 @@ public:
           } else {
             LogModule::Get(aName)->SetLevel(aLevel);
           }
-    });
+        });
 
     // Rotate implies timestamp to make the files readable
     mAddTimestamp = addTimestamp || rotate > 0;
@@ -268,17 +271,19 @@ public:
   {
     // For now we don't allow you to change the file at runtime.
     if (mSetFromEnv) {
-      NS_WARNING("LogModuleManager::SetLogFile - Log file was set from the "
-                 "MOZ_LOG_FILE environment variable.");
+      NS_WARNING(
+          "LogModuleManager::SetLogFile - Log file was set from the "
+          "MOZ_LOG_FILE environment variable.");
       return;
     }
 
-    const char * filename = aFilename ? aFilename : "";
+    const char* filename = aFilename ? aFilename : "";
     char buf[2048];
     filename = detail::ExpandPIDMarker(filename, buf);
 
     // Can't use rotate at runtime yet.
-    MOZ_ASSERT(mRotate == 0, "We don't allow rotate for runtime logfile changes");
+    MOZ_ASSERT(mRotate == 0,
+               "We don't allow rotate for runtime logfile changes");
     mOutFilePath.reset(strdup(filename));
 
     // Exchange mOutFile and set it to be released once all the writes are done.
@@ -300,7 +305,7 @@ public:
     }
   }
 
-  uint32_t GetLogFile(char *aBuffer, size_t aLength)
+  uint32_t GetLogFile(char* aBuffer, size_t aLength)
   {
     uint32_t len = strlen(mOutFilePath.get());
     if (len + 1 > aLength) {
@@ -310,15 +315,9 @@ public:
     return len;
   }
 
-  void SetIsSync(bool aIsSync)
-  {
-    mIsSync = aIsSync;
-  }
+  void SetIsSync(bool aIsSync) { mIsSync = aIsSync; }
 
-  void SetAddTimestamp(bool aAddTimestamp)
-  {
-    mAddTimestamp = aAddTimestamp;
-  }
+  void SetAddTimestamp(bool aAddTimestamp) { mAddTimestamp = aAddTimestamp; }
 
   detail::LogFile* OpenFile(bool aShouldAppend, uint32_t aFileNum)
   {
@@ -360,8 +359,10 @@ public:
     return module;
   }
 
-  void Print(const char* aName, LogLevel aLevel, const char* aFmt, va_list aArgs)
-    MOZ_FORMAT_PRINTF(4, 0)
+  void Print(const char* aName,
+             LogLevel aLevel,
+             const char* aFmt,
+             va_list aArgs) MOZ_FORMAT_PRINTF(4, 0)
   {
     const size_t kBuffSize = 1024;
     char buff[kBuffSize];
@@ -413,10 +414,10 @@ public:
     //
     // Additionally we prefix the output with the abbreviated log level
     // and the module name.
-    PRThread *currentThread = PR_GetCurrentThread();
-    const char *currentThreadName = (mMainThread == currentThread)
-      ? "Main Thread"
-      : PR_GetThreadName(currentThread);
+    PRThread* currentThread = PR_GetCurrentThread();
+    const char* currentThreadName = (mMainThread == currentThread)
+                                        ? "Main Thread"
+                                        : PR_GetThreadName(currentThread);
 
     char noNameThread[40];
     if (!currentThreadName) {
@@ -427,18 +428,29 @@ public:
     if (!mAddTimestamp) {
       fprintf_stderr(out,
                      "[%s]: %s/%s %s%s",
-                     currentThreadName, ToLogStr(aLevel),
-                     aName, buffToWrite, newline);
+                     currentThreadName,
+                     ToLogStr(aLevel),
+                     aName,
+                     buffToWrite,
+                     newline);
     } else {
       PRExplodedTime now;
       PR_ExplodeTime(PR_Now(), PR_GMTParameters, &now);
       fprintf_stderr(
           out,
           "%04d-%02d-%02d %02d:%02d:%02d.%06d UTC - [%s]: %s/%s %s%s",
-          now.tm_year, now.tm_month + 1, now.tm_mday,
-          now.tm_hour, now.tm_min, now.tm_sec, now.tm_usec,
-          currentThreadName, ToLogStr(aLevel),
-          aName, buffToWrite, newline);
+          now.tm_year,
+          now.tm_month + 1,
+          now.tm_mday,
+          now.tm_hour,
+          now.tm_min,
+          now.tm_sec,
+          now.tm_usec,
+          currentThreadName,
+          ToLogStr(aLevel),
+          aName,
+          buffToWrite,
+          newline);
     }
 
     if (mIsSync) {
@@ -483,7 +495,7 @@ public:
     }
   }
 
-private:
+ private:
   OffTheBooksMutex mModulesLock;
   nsClassHashtable<nsCharPtrHashKey, LogModule> mModules;
 
@@ -506,7 +518,7 @@ private:
   // Just keeps the actual file path for further use.
   UniqueFreePtr<char[]> mOutFilePath;
 
-  PRThread *mMainThread;
+  PRThread* mMainThread;
   bool mSetFromEnv;
   Atomic<bool, Relaxed> mAddTimestamp;
   Atomic<bool, Relaxed> mIsSync;
@@ -532,7 +544,7 @@ LogModule::SetLogFile(const char* aFilename)
 }
 
 uint32_t
-LogModule::GetLogFile(char *aBuffer, size_t aLength)
+LogModule::GetLogFile(char* aBuffer, size_t aLength)
 {
   MOZ_ASSERT(sLogModuleManager);
   return sLogModuleManager->GetLogFile(aBuffer, aLength);
@@ -576,4 +588,4 @@ LogModule::Printv(LogLevel aLevel, const char* aFmt, va_list aArgs) const
   sLogModuleManager->Print(Name(), aLevel, aFmt, aArgs);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

@@ -17,14 +17,14 @@ namespace mozilla {
 class ArrayIterElem;
 class PropertyIterElem;
 
-
 /*****************************************************************************
  * Object iterator base classes
  *****************************************************************************/
 
 template<class T, class PropertyType>
-class MOZ_STACK_CLASS BaseIter {
-public:
+class MOZ_STACK_CLASS BaseIter
+{
+ public:
   typedef T SelfType;
 
   PropertyType begin() const
@@ -41,21 +41,14 @@ public:
 
   void* Context() const { return mContext; }
 
-protected:
+ protected:
   BaseIter(JSContext* cx, JS::HandleObject object, void* context = nullptr)
-    : mCx(cx)
-    , mObject(object)
-    , mContext(context)
-  {}
+      : mCx(cx), mObject(object), mContext(context)
+  {
+  }
 
-  const SelfType& Self() const
-  {
-    return *static_cast<const SelfType*>(this);
-  }
-  SelfType& Self()
-  {
-    return *static_cast<SelfType*>(this);
-  }
+  const SelfType& Self() const { return *static_cast<const SelfType*>(this); }
+  SelfType& Self() { return *static_cast<SelfType*>(this); }
 
   JSContext* mCx;
 
@@ -65,19 +58,17 @@ protected:
 };
 
 template<class T, class IterType>
-class MOZ_STACK_CLASS BaseIterElem {
-public:
+class MOZ_STACK_CLASS BaseIterElem
+{
+ public:
   typedef T SelfType;
 
   explicit BaseIterElem(const IterType& iter, uint32_t index = 0)
-    : mIter(iter)
-    , mIndex(index)
-  {}
-
-  uint32_t Length() const
+      : mIter(iter), mIndex(index)
   {
-    return mIter.Length();
   }
+
+  uint32_t Length() const { return mIter.Length(); }
 
   JS::Value Value()
   {
@@ -105,7 +96,6 @@ public:
     return &mIter != &other.mIter || mIndex != other.mIndex;
   }
 
-
   SelfType End() const
   {
     SelfType end(mIter);
@@ -115,35 +105,28 @@ public:
 
   void* Context() const { return mIter.Context(); }
 
-protected:
-  const SelfType& Self() const
-  {
-    return *static_cast<const SelfType*>(this);
-  }
-  SelfType& Self() {
-    return *static_cast<SelfType*>(this);
-  }
+ protected:
+  const SelfType& Self() const { return *static_cast<const SelfType*>(this); }
+  SelfType& Self() { return *static_cast<SelfType*>(this); }
 
   const IterType& mIter;
 
   uint32_t mIndex;
 };
 
-
 /*****************************************************************************
  * Property iteration
  *****************************************************************************/
 
 class MOZ_STACK_CLASS PropertyIter
-  : public BaseIter<PropertyIter, PropertyIterElem>
+    : public BaseIter<PropertyIter, PropertyIterElem>
 {
   friend class PropertyIterElem;
   friend class BaseIterElem<PropertyIterElem, PropertyIter>;
 
-public:
+ public:
   PropertyIter(JSContext* cx, JS::HandleObject object, void* context = nullptr)
-    : BaseIter(cx, object, context)
-    , mIds(cx, JS::IdVector(cx))
+      : BaseIter(cx, object, context), mIds(cx, JS::IdVector(cx))
   {
     if (!JS_Enumerate(cx, object, &mIds)) {
       JS_ClearPendingException(cx);
@@ -151,8 +134,9 @@ public:
   }
 
   PropertyIter(const PropertyIter& other)
-    : PropertyIter(other.mCx, other.mObject, other.mContext)
-  {}
+      : PropertyIter(other.mCx, other.mObject, other.mContext)
+  {
+  }
 
   PropertyIter& operator=(const PropertyIter& other)
   {
@@ -167,26 +151,24 @@ public:
     return *this;
   }
 
-  int32_t Length() const
-  {
-    return mIds.length();
-  }
+  int32_t Length() const { return mIds.length(); }
 
-protected:
+ protected:
   JS::Rooted<JS::IdVector> mIds;
 };
 
 class MOZ_STACK_CLASS PropertyIterElem
-  : public BaseIterElem<PropertyIterElem, PropertyIter>
+    : public BaseIterElem<PropertyIterElem, PropertyIter>
 {
   friend class BaseIterElem<PropertyIterElem, PropertyIter>;
 
-public:
+ public:
   using BaseIterElem::BaseIterElem;
 
   PropertyIterElem(const PropertyIterElem& other)
-    : BaseIterElem(other.mIter, other.mIndex)
-  {}
+      : BaseIterElem(other.mIter, other.mIndex)
+  {
+  }
 
   jsid Id()
   {
@@ -197,7 +179,7 @@ public:
 
   const nsAString& Name()
   {
-    if(mName.isNothing()) {
+    if (mName.isNothing()) {
       mName.emplace();
       mName.ref().init(mIter.mCx, Id());
     }
@@ -206,7 +188,7 @@ public:
 
   JSContext* Cx() { return mIter.mCx; }
 
-protected:
+ protected:
   bool GetValue(JS::MutableHandleValue value)
   {
     MOZ_ASSERT(mIndex < Length());
@@ -215,25 +197,22 @@ protected:
     return JS_GetPropertyById(mIter.mCx, mIter.mObject, id, value);
   }
 
-private:
+ private:
   Maybe<nsAutoJSString> mName;
 };
-
 
 /*****************************************************************************
  * Array iteration
  *****************************************************************************/
 
-class MOZ_STACK_CLASS ArrayIter
-  : public BaseIter<ArrayIter, ArrayIterElem>
+class MOZ_STACK_CLASS ArrayIter : public BaseIter<ArrayIter, ArrayIterElem>
 {
   friend class ArrayIterElem;
   friend class BaseIterElem<ArrayIterElem, ArrayIter>;
 
-public:
+ public:
   ArrayIter(JSContext* cx, JS::HandleObject object)
-    : BaseIter(cx, object)
-    , mLength(0)
+      : BaseIter(cx, object), mLength(0)
   {
     bool isArray;
     if (!JS_IsArrayObject(cx, object, &isArray) || !isArray) {
@@ -246,36 +225,33 @@ public:
     }
   }
 
-  uint32_t Length() const
-  {
-    return mLength;
-  }
+  uint32_t Length() const { return mLength; }
 
-private:
+ private:
   uint32_t mLength;
 };
 
 class MOZ_STACK_CLASS ArrayIterElem
-  : public BaseIterElem<ArrayIterElem, ArrayIter>
+    : public BaseIterElem<ArrayIterElem, ArrayIter>
 {
   friend class BaseIterElem<ArrayIterElem, ArrayIter>;
 
-public:
+ public:
   using BaseIterElem::BaseIterElem;
 
   ArrayIterElem(const ArrayIterElem& other)
-    : BaseIterElem(other.mIter, other.mIndex)
-  {}
+      : BaseIterElem(other.mIter, other.mIndex)
+  {
+  }
 
-protected:
-  bool
-  GetValue(JS::MutableHandleValue value)
+ protected:
+  bool GetValue(JS::MutableHandleValue value)
   {
     MOZ_ASSERT(mIndex < Length());
     return JS_GetElement(mIter.mCx, mIter.mObject, mIndex, value);
   }
 };
 
-}
+}  // namespace mozilla
 
-#endif // AddonManagerStartup_inlines_h
+#endif  // AddonManagerStartup_inlines_h

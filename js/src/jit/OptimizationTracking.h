@@ -22,16 +22,13 @@ namespace jit {
 
 struct NativeToTrackedOptimizations;
 
-class OptimizationAttempt
-{
+class OptimizationAttempt {
     JS::TrackedStrategy strategy_;
     JS::TrackedOutcome outcome_;
 
-  public:
+   public:
     OptimizationAttempt(JS::TrackedStrategy strategy, JS::TrackedOutcome outcome)
-      : strategy_(strategy),
-        outcome_(outcome)
-    { }
+        : strategy_(strategy), outcome_(outcome) {}
 
     void setOutcome(JS::TrackedOutcome outcome) { outcome_ = outcome; }
     bool succeeded() const { return outcome_ >= JS::TrackedOutcome::GenericSuccess; }
@@ -39,15 +36,13 @@ class OptimizationAttempt
     JS::TrackedStrategy strategy() const { return strategy_; }
     JS::TrackedOutcome outcome() const { return outcome_; }
 
-    bool operator ==(const OptimizationAttempt& other) const {
+    bool operator==(const OptimizationAttempt& other) const {
         return strategy_ == other.strategy_ && outcome_ == other.outcome_;
     }
-    bool operator !=(const OptimizationAttempt& other) const {
+    bool operator!=(const OptimizationAttempt& other) const {
         return strategy_ != other.strategy_ || outcome_ != other.outcome_;
     }
-    HashNumber hash() const {
-        return (HashNumber(strategy_) << 8) + HashNumber(outcome_);
-    }
+    HashNumber hash() const { return (HashNumber(strategy_) << 8) + HashNumber(outcome_); }
 
     void writeCompact(CompactBufferWriter& writer) const;
 };
@@ -57,24 +52,17 @@ typedef Vector<TypeSet::Type, 1, JitAllocPolicy> TempTypeList;
 
 class UniqueTrackedTypes;
 
-class OptimizationTypeInfo
-{
+class OptimizationTypeInfo {
     JS::TrackedTypeSite site_;
     MIRType mirType_;
     TempTypeList types_;
 
-  public:
+   public:
     OptimizationTypeInfo(OptimizationTypeInfo&& other)
-      : site_(other.site_),
-        mirType_(other.mirType_),
-        types_(mozilla::Move(other.types_))
-    { }
+        : site_(other.site_), mirType_(other.mirType_), types_(mozilla::Move(other.types_)) {}
 
     OptimizationTypeInfo(TempAllocator& alloc, JS::TrackedTypeSite site, MIRType mirType)
-      : site_(site),
-        mirType_(mirType),
-        types_(alloc)
-    { }
+        : site_(site), mirType_(mirType), types_(alloc) {}
 
     MOZ_MUST_USE bool trackTypeSet(TemporaryTypeSet* typeSet);
     MOZ_MUST_USE bool trackType(TypeSet::Type type);
@@ -83,8 +71,8 @@ class OptimizationTypeInfo
     MIRType mirType() const { return mirType_; }
     const TempTypeList& types() const { return types_; }
 
-    bool operator ==(const OptimizationTypeInfo& other) const;
-    bool operator !=(const OptimizationTypeInfo& other) const;
+    bool operator==(const OptimizationTypeInfo& other) const;
+    bool operator!=(const OptimizationTypeInfo& other) const;
 
     HashNumber hash() const;
 
@@ -95,19 +83,15 @@ class OptimizationTypeInfo
 typedef Vector<OptimizationTypeInfo, 1, JitAllocPolicy> TempOptimizationTypeInfoVector;
 
 // Tracks the optimization attempts made at a bytecode location.
-class TrackedOptimizations : public TempObject
-{
+class TrackedOptimizations : public TempObject {
     friend class UniqueTrackedOptimizations;
     TempOptimizationTypeInfoVector types_;
     TempOptimizationAttemptsVector attempts_;
     uint32_t currentAttempt_;
 
-  public:
+   public:
     explicit TrackedOptimizations(TempAllocator& alloc)
-      : types_(alloc),
-        attempts_(alloc),
-        currentAttempt_(UINT32_MAX)
-    { }
+        : types_(alloc), attempts_(alloc), currentAttempt_(UINT32_MAX) {}
 
     void clear() {
         types_.clear();
@@ -130,33 +114,27 @@ class TrackedOptimizations : public TempObject
 
 // Assigns each unique sequence of optimization attempts an index; outputs a
 // compact table.
-class UniqueTrackedOptimizations
-{
-  public:
-    struct SortEntry
-    {
+class UniqueTrackedOptimizations {
+   public:
+    struct SortEntry {
         const TempOptimizationTypeInfoVector* types;
         const TempOptimizationAttemptsVector* attempts;
         uint32_t frequency;
     };
     typedef Vector<SortEntry, 4> SortedVector;
 
-  private:
-    struct Key
-    {
+   private:
+    struct Key {
         const TempOptimizationTypeInfoVector* types;
         const TempOptimizationAttemptsVector* attempts;
 
         typedef Key Lookup;
         static HashNumber hash(const Lookup& lookup);
         static bool match(const Key& key, const Lookup& lookup);
-        static void rekey(Key& key, const Key& newKey) {
-            key = newKey;
-        }
+        static void rekey(Key& key, const Key& newKey) { key = newKey; }
     };
 
-    struct Entry
-    {
+    struct Entry {
         uint8_t index;
         uint32_t frequency;
     };
@@ -169,19 +147,22 @@ class UniqueTrackedOptimizations
     // TempOptimizationAttemptsVectors sorted by frequency.
     SortedVector sorted_;
 
-  public:
-    explicit UniqueTrackedOptimizations(JSContext* cx)
-      : map_(cx),
-        sorted_(cx)
-    { }
+   public:
+    explicit UniqueTrackedOptimizations(JSContext* cx) : map_(cx), sorted_(cx) {}
 
     MOZ_MUST_USE bool init() { return map_.init(); }
     MOZ_MUST_USE bool add(const TrackedOptimizations* optimizations);
 
     MOZ_MUST_USE bool sortByFrequency(JSContext* cx);
     bool sorted() const { return !sorted_.empty(); }
-    uint32_t count() const { MOZ_ASSERT(sorted()); return sorted_.length(); }
-    const SortedVector& sortedVector() const { MOZ_ASSERT(sorted()); return sorted_; }
+    uint32_t count() const {
+        MOZ_ASSERT(sorted());
+        return sorted_.length();
+    }
+    const SortedVector& sortedVector() const {
+        MOZ_ASSERT(sorted());
+        return sorted_;
+    }
     uint8_t indexOf(const TrackedOptimizations* optimizations) const;
 };
 
@@ -273,8 +254,7 @@ class UniqueTrackedOptimizations
 // Both tail tables for PayloadR and PayloadA use reverse offsets from the
 // table pointers.
 
-class IonTrackedOptimizationsRegion
-{
+class IonTrackedOptimizationsRegion {
     const uint8_t* start_;
     const uint8_t* end_;
 
@@ -285,11 +265,9 @@ class IonTrackedOptimizationsRegion
 
     void unpackHeader();
 
-  public:
+   public:
     IonTrackedOptimizationsRegion(const uint8_t* start, const uint8_t* end)
-      : start_(start), end_(end),
-        startOffset_(0), endOffset_(0), rangesStart_(nullptr)
-    {
+        : start_(start), end_(end), startOffset_(0), endOffset_(0), rangesStart_(nullptr) {
         MOZ_ASSERT(start < end);
         unpackHeader();
     }
@@ -301,8 +279,7 @@ class IonTrackedOptimizationsRegion
     uint32_t startOffset() const { return startOffset_; }
     uint32_t endOffset() const { return endOffset_; }
 
-    class RangeIterator
-    {
+    class RangeIterator {
         const uint8_t* cur_;
         const uint8_t* start_;
         const uint8_t* end_;
@@ -310,11 +287,13 @@ class IonTrackedOptimizationsRegion
         uint32_t firstStartOffset_;
         uint32_t prevEndOffset_;
 
-      public:
+       public:
         RangeIterator(const uint8_t* start, const uint8_t* end, uint32_t startOffset)
-          : cur_(start), start_(start), end_(end),
-            firstStartOffset_(startOffset), prevEndOffset_(0)
-        { }
+            : cur_(start),
+              start_(start),
+              end_(end),
+              firstStartOffset_(startOffset),
+              prevEndOffset_(0) {}
 
         bool more() const { return cur_ < end_; }
         void readNext(uint32_t* startOffset, uint32_t* endOffset, uint8_t* index);
@@ -414,15 +393,13 @@ class IonTrackedOptimizationsRegion
                                       const UniqueTrackedOptimizations& unique);
 };
 
-class IonTrackedOptimizationsAttempts
-{
+class IonTrackedOptimizationsAttempts {
     const uint8_t* start_;
     const uint8_t* end_;
 
-  public:
+   public:
     IonTrackedOptimizationsAttempts(const uint8_t* start, const uint8_t* end)
-      : start_(start), end_(end)
-    {
+        : start_(start), end_(end) {
         // Cannot be empty.
         MOZ_ASSERT(start < end);
     }
@@ -430,15 +407,10 @@ class IonTrackedOptimizationsAttempts
     void forEach(JS::ForEachTrackedOptimizationAttemptOp& op);
 };
 
-struct IonTrackedTypeWithAddendum
-{
+struct IonTrackedTypeWithAddendum {
     TypeSet::Type type;
 
-    enum HasAddendum {
-        HasNothing,
-        HasAllocationSite,
-        HasConstructor
-    };
+    enum HasAddendum { HasNothing, HasAllocationSite, HasConstructor };
     HasAddendum hasAddendum;
 
     // If type is a type object and is tied to a site, the script and pc are
@@ -453,22 +425,13 @@ struct IonTrackedTypeWithAddendum
     };
 
     explicit IonTrackedTypeWithAddendum(TypeSet::Type type)
-      : type(type),
-        hasAddendum(HasNothing)
-    { }
+        : type(type), hasAddendum(HasNothing) {}
 
     IonTrackedTypeWithAddendum(TypeSet::Type type, JSScript* script, uint32_t offset)
-      : type(type),
-        hasAddendum(HasAllocationSite),
-        script(script),
-        offset(offset)
-    { }
+        : type(type), hasAddendum(HasAllocationSite), script(script), offset(offset) {}
 
     IonTrackedTypeWithAddendum(TypeSet::Type type, JSFunction* constructor)
-      : type(type),
-        hasAddendum(HasConstructor),
-        constructor(constructor)
-    { }
+        : type(type), hasAddendum(HasConstructor), constructor(constructor) {}
 
     bool hasAllocationSite() const { return hasAddendum == HasAllocationSite; }
     bool hasConstructor() const { return hasAddendum == HasConstructor; }
@@ -476,15 +439,13 @@ struct IonTrackedTypeWithAddendum
 
 typedef Vector<IonTrackedTypeWithAddendum, 1, SystemAllocPolicy> IonTrackedTypeVector;
 
-class IonTrackedOptimizationsTypeInfo
-{
+class IonTrackedOptimizationsTypeInfo {
     const uint8_t* start_;
     const uint8_t* end_;
 
-  public:
+   public:
     IonTrackedOptimizationsTypeInfo(const uint8_t* start, const uint8_t* end)
-      : start_(start), end_(end)
-    {
+        : start_(start), end_(end) {
         // Can be empty; i.e., no type info was tracked.
     }
 
@@ -496,20 +457,16 @@ class IonTrackedOptimizationsTypeInfo
     // TypeSet::Type) directly.
     //
     // An adapter is provided below.
-    struct ForEachOp
-    {
+    struct ForEachOp {
         virtual void readType(const IonTrackedTypeWithAddendum& tracked) = 0;
         virtual void operator()(JS::TrackedTypeSite site, MIRType mirType) = 0;
     };
 
-    class ForEachOpAdapter : public ForEachOp
-    {
+    class ForEachOpAdapter : public ForEachOp {
         JS::ForEachTrackedOptimizationTypeInfoOp& op_;
 
-      public:
-        explicit ForEachOpAdapter(JS::ForEachTrackedOptimizationTypeInfoOp& op)
-          : op_(op)
-        { }
+       public:
+        explicit ForEachOpAdapter(JS::ForEachTrackedOptimizationTypeInfoOp& op) : op_(op) {}
 
         void readType(const IonTrackedTypeWithAddendum& tracked) override;
         void operator()(JS::TrackedTypeSite site, MIRType mirType) override;
@@ -519,18 +476,15 @@ class IonTrackedOptimizationsTypeInfo
 };
 
 template <class Entry>
-class IonTrackedOptimizationsOffsetsTable
-{
+class IonTrackedOptimizationsOffsetsTable {
     uint32_t padding_;
     uint32_t numEntries_;
     uint32_t entryOffsets_[1];
 
-  protected:
-    const uint8_t* payloadEnd() const {
-        return (uint8_t*)(this) - padding_;
-    }
+   protected:
+    const uint8_t* payloadEnd() const { return (uint8_t*)(this) - padding_; }
 
-  public:
+   public:
     uint32_t numEntries() const { return numEntries_; }
     uint32_t entryOffset(uint32_t index) const {
         MOZ_ASSERT(index < numEntries());
@@ -540,16 +494,14 @@ class IonTrackedOptimizationsOffsetsTable
     Entry entry(uint32_t index) const {
         const uint8_t* start = payloadEnd() - entryOffset(index);
         const uint8_t* end = payloadEnd();
-        if (index < numEntries() - 1)
-            end -= entryOffset(index + 1);
+        if (index < numEntries() - 1) end -= entryOffset(index + 1);
         return Entry(start, end);
     }
 };
 
 class IonTrackedOptimizationsRegionTable
-  : public IonTrackedOptimizationsOffsetsTable<IonTrackedOptimizationsRegion>
-{
-  public:
+    : public IonTrackedOptimizationsOffsetsTable<IonTrackedOptimizationsRegion> {
+   public:
     mozilla::Maybe<IonTrackedOptimizationsRegion> findRegion(uint32_t offset) const;
 
     const uint8_t* payloadStart() const { return payloadEnd() - entryOffset(0); }
@@ -561,16 +513,13 @@ typedef IonTrackedOptimizationsOffsetsTable<IonTrackedOptimizationsAttempts>
 typedef IonTrackedOptimizationsOffsetsTable<IonTrackedOptimizationsTypeInfo>
     IonTrackedOptimizationsTypesTable;
 
-MOZ_MUST_USE bool
-WriteIonTrackedOptimizationsTable(JSContext* cx, CompactBufferWriter& writer,
-                                  const NativeToTrackedOptimizations* start,
-                                  const NativeToTrackedOptimizations* end,
-                                  const UniqueTrackedOptimizations& unique,
-                                  uint32_t* numRegions, uint32_t* regionTableOffsetp,
-                                  uint32_t* typesTableOffsetp, uint32_t* attemptsTableOffsetp,
-                                  IonTrackedTypeVector* allTypes);
+MOZ_MUST_USE bool WriteIonTrackedOptimizationsTable(
+    JSContext* cx, CompactBufferWriter& writer, const NativeToTrackedOptimizations* start,
+    const NativeToTrackedOptimizations* end, const UniqueTrackedOptimizations& unique,
+    uint32_t* numRegions, uint32_t* regionTableOffsetp, uint32_t* typesTableOffsetp,
+    uint32_t* attemptsTableOffsetp, IonTrackedTypeVector* allTypes);
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
-#endif // jit_OptimizationTracking_h
+#endif  // jit_OptimizationTracking_h

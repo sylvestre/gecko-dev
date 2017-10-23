@@ -4,8 +4,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testSymbol_New)
-{
+BEGIN_TEST(testSymbol_New) {
     using namespace JS;
 
     RootedString desc(cx, nullptr);
@@ -27,8 +26,7 @@ BEGIN_TEST(testSymbol_New)
 }
 END_TEST(testSymbol_New)
 
-BEGIN_TEST(testSymbol_GetSymbolFor)
-{
+BEGIN_TEST(testSymbol_GetSymbolFor) {
     using namespace JS;
 
     RootedString desc(cx, JS_NewStringCopyZ(cx, "ponies"));
@@ -56,8 +54,7 @@ BEGIN_TEST(testSymbol_GetSymbolFor)
 }
 END_TEST(testSymbol_GetSymbolFor)
 
-BEGIN_TEST(testSymbol_GetWellKnownSymbol)
-{
+BEGIN_TEST(testSymbol_GetWellKnownSymbol) {
     using namespace JS;
 
     Rooted<Symbol*> sym1(cx);

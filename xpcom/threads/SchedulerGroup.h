@@ -27,9 +27,13 @@ namespace dom {
 class TabGroup;
 }
 
-#define NS_SCHEDULERGROUPRUNNABLE_IID \
-{ 0xd31b7420, 0x872b, 0x4cfb, \
-  { 0xa9, 0xc6, 0xae, 0x4c, 0x0f, 0x06, 0x36, 0x74 } }
+#define NS_SCHEDULERGROUPRUNNABLE_IID                \
+  {                                                  \
+    0xd31b7420, 0x872b, 0x4cfb,                      \
+    {                                                \
+      0xa9, 0xc6, 0xae, 0x4c, 0x0f, 0x06, 0x36, 0x74 \
+    }                                                \
+  }
 
 // The "main thread" in Gecko will soon be a set of cooperatively scheduled
 // "fibers". Global state in Gecko will be partitioned into a series of "groups"
@@ -43,7 +47,7 @@ class TabGroup;
 // implementations of SchedulerGroup.
 class SchedulerGroup : public LinkedListElement<SchedulerGroup>
 {
-public:
+ public:
   SchedulerGroup();
 
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
@@ -56,24 +60,15 @@ public:
   // with this SchedulerGroup. It will return true either if we're inside an
   // unlabeled runnable or if we're inside a runnable labeled with this
   // SchedulerGroup.
-  bool IsSafeToRun() const
-  {
-    return !sTlsValidatingAccess.get() || mIsRunning;
-  }
+  bool IsSafeToRun() const { return !sTlsValidatingAccess.get() || mIsRunning; }
 
   // This function returns true if it's currently safe to run unlabeled code
   // with no known SchedulerGroup. It will only return true if we're inside an
   // unlabeled runnable.
-  static bool IsSafeToRunUnlabeled()
-  {
-    return !sTlsValidatingAccess.get();
-  }
+  static bool IsSafeToRunUnlabeled() { return !sTlsValidatingAccess.get(); }
 
   // Ensure that it's valid to access the TabGroup at this time.
-  void ValidateAccess() const
-  {
-    MOZ_ASSERT(IsSafeToRun());
-  }
+  void ValidateAccess() const { MOZ_ASSERT(IsSafeToRun()); }
 
   enum EnqueueStatus
   {
@@ -105,13 +100,12 @@ public:
     return mEventCount == 0 ? NoLongerQueued : StillQueued;
   }
 
-  class Runnable final : public mozilla::Runnable
-                       , public nsIRunnablePriority
-                       , public nsILabelableRunnable
+  class Runnable final : public mozilla::Runnable,
+                         public nsIRunnablePriority,
+                         public nsILabelableRunnable
   {
-  public:
-    Runnable(already_AddRefed<nsIRunnable>&& aRunnable,
-             SchedulerGroup* aGroup);
+   public:
+    Runnable(already_AddRefed<nsIRunnable>&& aRunnable, SchedulerGroup* aGroup);
 
     bool GetAffectedSchedulerGroups(SchedulerGroupSet& aGroups) override;
 
@@ -127,7 +121,7 @@ public:
 
     NS_DECLARE_STATIC_IID_ACCESSOR(NS_SCHEDULERGROUPRUNNABLE_IID);
 
- private:
+   private:
     friend class SchedulerGroup;
 
     ~Runnable() = default;
@@ -162,23 +156,24 @@ public:
   void SetIsRunning(bool aIsRunning) { mIsRunning = aIsRunning; }
   bool IsRunning() const { return mIsRunning; }
 
-  enum ValidationType {
+  enum ValidationType
+  {
     StartValidation,
     EndValidation,
   };
   static void SetValidatingAccess(ValidationType aType);
 
-protected:
-  static nsresult InternalUnlabeledDispatch(TaskCategory aCategory,
-                                            already_AddRefed<Runnable>&& aRunnable);
+ protected:
+  static nsresult InternalUnlabeledDispatch(
+      TaskCategory aCategory, already_AddRefed<Runnable>&& aRunnable);
 
   // Implementations are guaranteed that this method is called on the main
   // thread.
   virtual AbstractThread* AbstractMainThreadForImpl(TaskCategory aCategory);
 
   // Helper method to create an event target specific to a particular TaskCategory.
-  virtual already_AddRefed<nsISerialEventTarget>
-  CreateEventTargetFor(TaskCategory aCategory);
+  virtual already_AddRefed<nsISerialEventTarget> CreateEventTargetFor(
+      TaskCategory aCategory);
 
   // Given an event target returned by |dispatcher->CreateEventTargetFor|, this
   // function returns |dispatcher|.
@@ -205,8 +200,9 @@ protected:
   RefPtr<AbstractThread> mAbstractThreads[size_t(TaskCategory::Count)];
 };
 
-NS_DEFINE_STATIC_IID_ACCESSOR(SchedulerGroup::Runnable, NS_SCHEDULERGROUPRUNNABLE_IID);
+NS_DEFINE_STATIC_IID_ACCESSOR(SchedulerGroup::Runnable,
+                              NS_SCHEDULERGROUPRUNNABLE_IID);
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SchedulerGroup_h
+#endif  // mozilla_SchedulerGroup_h

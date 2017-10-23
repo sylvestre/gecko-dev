@@ -18,7 +18,7 @@ class nsGlobalWindow;
 namespace mozilla {
 namespace gfx {
 class VRManagerChild;
-} // namespace gfx
+}  // namespace gfx
 namespace dom {
 
 class EventTarget;
@@ -50,9 +50,15 @@ class GamepadManager final : public nsIObserver,
   void RemoveListener(nsGlobalWindow* aWindow);
 
   // Add a gamepad to the list of known gamepads.
-  void AddGamepad(uint32_t aIndex, const nsAString& aID, GamepadMappingType aMapping,
-                  GamepadHand aHand, GamepadServiceType aServiceType, uint32_t aDisplayID,
-                  uint32_t aNumButtons, uint32_t aNumAxes, uint32_t aNumHaptics);
+  void AddGamepad(uint32_t aIndex,
+                  const nsAString& aID,
+                  GamepadMappingType aMapping,
+                  GamepadHand aHand,
+                  GamepadServiceType aServiceType,
+                  uint32_t aDisplayID,
+                  uint32_t aNumButtons,
+                  uint32_t aNumAxes,
+                  uint32_t aNumHaptics);
 
   // Remove the gamepad at |aIndex| from the list of known gamepads.
   void RemoveGamepad(uint32_t aIndex, GamepadServiceType aServiceType);
@@ -67,15 +73,18 @@ class GamepadManager final : public nsIObserver,
   void Update(const GamepadChangeEvent& aGamepadEvent);
 
   // Trigger vibrate haptic event to gamepad channels.
-  already_AddRefed<Promise> VibrateHaptic(uint32_t aControllerIdx, uint32_t aHapticIndex,
-                                          double aIntensity, double aDuration,
-                                          nsIGlobalObject* aGlobal, ErrorResult& aRv);
+  already_AddRefed<Promise> VibrateHaptic(uint32_t aControllerIdx,
+                                          uint32_t aHapticIndex,
+                                          double aIntensity,
+                                          double aDuration,
+                                          nsIGlobalObject* aGlobal,
+                                          ErrorResult& aRv);
   // Send stop haptic events to gamepad channels.
   void StopHaptics();
 
  protected:
   GamepadManager();
-  ~GamepadManager() {};
+  ~GamepadManager(){};
 
   // Fire a gamepadconnected or gamepaddisconnected event for the gamepad
   // at |aIndex| to all windows that are listening and have received
@@ -112,16 +121,16 @@ class GamepadManager final : public nsIObserver,
   // This pointer is only used by this singleton instance and
   // will be destroyed during the IPDL shutdown chain, so we
   // don't need to refcount it here.
-  nsTArray<GamepadEventChannelChild *> mChannelChildren;
+  nsTArray<GamepadEventChannelChild*> mChannelChildren;
 
  private:
-
   nsresult Init();
 
   void MaybeConvertToNonstandardGamepadEvent(const GamepadChangeEvent& aEvent,
                                              nsGlobalWindow* aWindow);
 
-  bool SetGamepadByEvent(const GamepadChangeEvent& aEvent, nsGlobalWindow* aWindow = nullptr);
+  bool SetGamepadByEvent(const GamepadChangeEvent& aEvent,
+                         nsGlobalWindow* aWindow = nullptr);
 
   bool MaybeWindowHasSeenGamepad(nsGlobalWindow* aWindow, uint32_t aIndex);
   // Returns true if we have already sent data from this gamepad
@@ -130,11 +139,13 @@ class GamepadManager final : public nsIObserver,
   // was focused, by pressing buttons or similar actions.
   bool WindowHasSeenGamepad(nsGlobalWindow* aWindow, uint32_t aIndex) const;
   // Indicate that a window has received data from a gamepad.
-  void SetWindowHasSeenGamepad(nsGlobalWindow* aWindow, uint32_t aIndex,
+  void SetWindowHasSeenGamepad(nsGlobalWindow* aWindow,
+                               uint32_t aIndex,
                                bool aHasSeen = true);
   // Our gamepad index has VR_GAMEPAD_IDX_OFFSET while GamepadChannelType
   // is from VRManager.
-  uint32_t GetGamepadIndexWithServiceType(uint32_t aIndex, GamepadServiceType aServiceType);
+  uint32_t GetGamepadIndexWithServiceType(uint32_t aIndex,
+                                          GamepadServiceType aServiceType);
 
   // Gamepads connected to the system. Copies of these are handed out
   // to each window.
@@ -145,7 +156,7 @@ class GamepadManager final : public nsIObserver,
   uint32_t mPromiseID;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_GamepadManager_h_
+#endif  // mozilla_dom_GamepadManager_h_

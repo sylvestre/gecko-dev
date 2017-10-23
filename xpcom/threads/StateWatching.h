@@ -67,13 +67,13 @@ extern LazyLogModule gStateWatchingLog;
  */
 class AbstractWatcher
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AbstractWatcher)
   AbstractWatcher() : mDestroyed(false) {}
   bool IsDestroyed() { return mDestroyed; }
   virtual void Notify() = 0;
 
-protected:
+ protected:
   virtual ~AbstractWatcher() { MOZ_ASSERT(mDestroyed); }
   bool mDestroyed;
 };
@@ -88,7 +88,7 @@ protected:
  */
 class WatchTarget
 {
-public:
+ public:
   explicit WatchTarget(const char* aName) : mName(aName) {}
 
   void AddWatcher(AbstractWatcher* aWatcher)
@@ -103,7 +103,7 @@ public:
     mWatchers.RemoveElement(aWatcher);
   }
 
-protected:
+ protected:
   void NotifyWatchers()
   {
     WATCH_LOG("%s[%p] notifying watchers\n", mName, this);
@@ -113,7 +113,7 @@ protected:
     }
   }
 
-private:
+ private:
   // We don't have Watchers explicitly unregister themselves when they die,
   // because then they'd need back-references to all the WatchTargets they're
   // subscribed to, and WatchTargets aren't reference-counted. So instead we
@@ -129,7 +129,7 @@ private:
 
   nsTArray<RefPtr<AbstractWatcher>> mWatchers;
 
-protected:
+ protected:
   const char* mName;
 };
 
@@ -139,9 +139,11 @@ protected:
 template<typename T>
 class Watchable : public WatchTarget
 {
-public:
+ public:
   Watchable(const T& aInitialValue, const char* aName)
-    : WatchTarget(aName), mValue(aInitialValue) {}
+      : WatchTarget(aName), mValue(aInitialValue)
+  {
+  }
 
   const T& Ref() const { return mValue; }
   operator const T&() const { return Ref(); }
@@ -155,9 +157,9 @@ public:
     return *this;
   }
 
-private:
-  Watchable(const Watchable& aOther); // Not implemented
-  Watchable& operator=(const Watchable& aOther); // Not implemented
+ private:
+  Watchable(const Watchable& aOther);             // Not implemented
+  Watchable& operator=(const Watchable& aOther);  // Not implemented
 
   T mValue;
 };
@@ -179,13 +181,15 @@ private:
 // the owner, since that would keep the owner alive indefinitely. Instead, it
 // _only_ holds strong refs while waiting for Direct Tasks to fire. This ensures
 // that everything is kept alive just long enough.
-template <typename OwnerType>
+template<typename OwnerType>
 class WatchManager
 {
-public:
-  typedef void(OwnerType::*CallbackMethod)();
+ public:
+  typedef void (OwnerType::*CallbackMethod)();
   explicit WatchManager(OwnerType* aOwner, AbstractThread* aOwnerThread)
-    : mOwner(aOwner), mOwnerThread(aOwnerThread) {}
+      : mOwner(aOwner), mOwnerThread(aOwnerThread)
+  {
+  }
 
   ~WatchManager()
   {
@@ -230,12 +234,16 @@ public:
     watcher->Notify();
   }
 
-private:
+ private:
   class PerCallbackWatcher : public AbstractWatcher
   {
-  public:
-    PerCallbackWatcher(OwnerType* aOwner, AbstractThread* aOwnerThread, CallbackMethod aMethod)
-      : mOwner(aOwner), mOwnerThread(aOwnerThread), mCallbackMethod(aMethod) {}
+   public:
+    PerCallbackWatcher(OwnerType* aOwner,
+                       AbstractThread* aOwnerThread,
+                       CallbackMethod aMethod)
+        : mOwner(aOwner), mOwnerThread(aOwnerThread), mCallbackMethod(aMethod)
+    {
+    }
 
     void Destroy()
     {
@@ -247,19 +255,20 @@ private:
     void Notify() override
     {
       MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
-      MOZ_DIAGNOSTIC_ASSERT(mOwner, "mOwner is only null after destruction, "
-                                    "at which point we shouldn't be notified");
+      MOZ_DIAGNOSTIC_ASSERT(mOwner,
+                            "mOwner is only null after destruction, "
+                            "at which point we shouldn't be notified");
       if (mStrongRef) {
         // We've already got a notification job in the pipe.
         return;
       }
-      mStrongRef = mOwner; // Hold the owner alive while notifying.
+      mStrongRef = mOwner;  // Hold the owner alive while notifying.
 
       // Queue up our notification jobs to run in a stable state.
       mOwnerThread->TailDispatcher().AddDirectTask(
-        NewRunnableMethod("WatchManager::PerCallbackWatcher::DoNotify",
-                          this,
-                          &PerCallbackWatcher::DoNotify));
+          NewRunnableMethod("WatchManager::PerCallbackWatcher::DoNotify",
+                            this,
+                            &PerCallbackWatcher::DoNotify));
     }
 
     bool CallbackMethodIs(CallbackMethod aMethod) const
@@ -267,7 +276,7 @@ private:
       return mCallbackMethod == aMethod;
     }
 
-  private:
+   private:
     ~PerCallbackWatcher() {}
 
     void DoNotify()
@@ -280,8 +289,8 @@ private:
       }
     }
 
-    OwnerType* mOwner; // Never null.
-    RefPtr<OwnerType> mStrongRef; // Only non-null when notifying.
+    OwnerType* mOwner;             // Never null.
+    RefPtr<OwnerType> mStrongRef;  // Only non-null when notifying.
     RefPtr<AbstractThread> mOwnerThread;
     CallbackMethod mCallbackMethod;
   };
@@ -304,7 +313,10 @@ private:
     if (watcher) {
       return *watcher;
     }
-    watcher = mWatchers.AppendElement(new PerCallbackWatcher(mOwner, mOwnerThread, aMethod))->get();
+    watcher = mWatchers
+                  .AppendElement(
+                      new PerCallbackWatcher(mOwner, mOwnerThread, aMethod))
+                  ->get();
     return *watcher;
   }
 
@@ -315,6 +327,6 @@ private:
 
 #undef WATCH_LOG
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

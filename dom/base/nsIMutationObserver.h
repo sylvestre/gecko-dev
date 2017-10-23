@@ -18,12 +18,16 @@ class nsINode;
 namespace mozilla {
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#define NS_IMUTATION_OBSERVER_IID \
-{ 0x6d674c17, 0x0fbc, 0x4633, \
-  { 0x8f, 0x46, 0x73, 0x4e, 0x87, 0xeb, 0xf0, 0xc7 } }
+#define NS_IMUTATION_OBSERVER_IID                    \
+  {                                                  \
+    0x6d674c17, 0x0fbc, 0x4633,                      \
+    {                                                \
+      0x8f, 0x46, 0x73, 0x4e, 0x87, 0xeb, 0xf0, 0xc7 \
+    }                                                \
+  }
 
 /**
  * Information details about a characterdata change.  Basically, we
@@ -63,8 +67,10 @@ struct CharacterDataChangeInfo
    * mChangeStart + mReplaceLength.
    */
 
-  struct MOZ_STACK_CLASS Details {
-    enum {
+  struct MOZ_STACK_CLASS Details
+  {
+    enum
+    {
       eMerge,  // two text nodes are merged as a result of normalize()
       eSplit   // a text node is split as a result of splitText()
     } mType;
@@ -97,7 +103,7 @@ struct CharacterDataChangeInfo
  */
 class nsIMutationObserver : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IMUTATION_OBSERVER_IID)
 
   /**
@@ -118,7 +124,7 @@ public:
    *       assume that this call will happen when there are script blockers on
    *       the stack.
    */
-  virtual void CharacterDataWillChange(nsIDocument *aDocument,
+  virtual void CharacterDataWillChange(nsIDocument* aDocument,
                                        nsIContent* aContent,
                                        CharacterDataChangeInfo* aInfo) = 0;
 
@@ -140,7 +146,7 @@ public:
    *       assume that this call will happen when there are script blockers on
    *       the stack.
    */
-  virtual void CharacterDataChanged(nsIDocument *aDocument,
+  virtual void CharacterDataChanged(nsIDocument* aDocument,
                                     nsIContent* aContent,
                                     CharacterDataChangeInfo* aInfo) = 0;
 
@@ -169,9 +175,9 @@ public:
    */
   virtual void AttributeWillChange(nsIDocument* aDocument,
                                    mozilla::dom::Element* aElement,
-                                   int32_t      aNameSpaceID,
-                                   nsAtom*     aAttribute,
-                                   int32_t      aModType,
+                                   int32_t aNameSpaceID,
+                                   nsAtom* aAttribute,
+                                   int32_t aModType,
                                    const nsAttrValue* aNewValue) = 0;
 
   /**
@@ -195,9 +201,9 @@ public:
    */
   virtual void AttributeChanged(nsIDocument* aDocument,
                                 mozilla::dom::Element* aElement,
-                                int32_t      aNameSpaceID,
-                                nsAtom*     aAttribute,
-                                int32_t      aModType,
+                                int32_t aNameSpaceID,
+                                nsAtom* aAttribute,
+                                int32_t aModType,
                                 const nsAttrValue* aOldValue) = 0;
 
   /**
@@ -210,7 +216,9 @@ public:
    */
   virtual void NativeAnonymousChildListChange(nsIDocument* aDocument,
                                               nsIContent* aContent,
-                                              bool aIsRemove) {}
+                                              bool aIsRemove)
+  {
+  }
 
   /**
    * Notification that an attribute of an element has been
@@ -224,7 +232,9 @@ public:
   virtual void AttributeSetToCurrentValue(nsIDocument* aDocument,
                                           mozilla::dom::Element* aElement,
                                           int32_t aNameSpaceID,
-                                          nsAtom* aAttribute) {}
+                                          nsAtom* aAttribute)
+  {
+  }
 
   /**
    * Notification that one or more content nodes have been appended to the
@@ -241,7 +251,7 @@ public:
    *       assume that this call will happen when there are script blockers on
    *       the stack.
    */
-  virtual void ContentAppended(nsIDocument *aDocument,
+  virtual void ContentAppended(nsIDocument* aDocument,
                                nsIContent* aContainer,
                                nsIContent* aFirstNewContent) = 0;
 
@@ -264,7 +274,7 @@ public:
    *       assume that this call will happen when there are script blockers on
    *       the stack.
    */
-  virtual void ContentInserted(nsIDocument *aDocument,
+  virtual void ContentInserted(nsIDocument* aDocument,
                                nsIContent* aContainer,
                                nsIContent* aChild) = 0;
 
@@ -290,12 +300,12 @@ public:
    *       assume that this call will happen when there are script blockers on
    *       the stack.
    */
-  virtual void ContentRemoved(nsIDocument *aDocument,
+  virtual void ContentRemoved(nsIDocument* aDocument,
                               nsIContent* aContainer,
                               nsIContent* aChild,
                               nsIContent* aPreviousSibling) = 0;
 
- /**
+  /**
    * The node is in the process of being destroyed. Calling QI on the node is
    * not supported, however it is possible to get children and flags through
    * nsINode as well as calling IsNodeOfType(eCONTENT) and casting to
@@ -312,7 +322,7 @@ public:
    *       the observer.  The observer is responsible for making sure it
    *       stays alive for the duration of the call as needed.
    */
-  virtual void NodeWillBeDestroyed(const nsINode *aNode) = 0;
+  virtual void NodeWillBeDestroyed(const nsINode* aNode) = 0;
 
   /**
    * Notification that the node's parent chain has changed. This
@@ -330,142 +340,125 @@ public:
    *       stays alive for the duration of the call as needed.
    */
 
-  virtual void ParentChainChanged(nsIContent *aContent) = 0;
+  virtual void ParentChainChanged(nsIContent* aContent) = 0;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIMutationObserver, NS_IMUTATION_OBSERVER_IID)
 
-#define NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATAWILLCHANGE                  \
-    virtual void CharacterDataWillChange(nsIDocument* aDocument,             \
-                                         nsIContent* aContent,               \
-                                         CharacterDataChangeInfo* aInfo) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATAWILLCHANGE            \
+  virtual void CharacterDataWillChange(nsIDocument* aDocument,         \
+                                       nsIContent* aContent,           \
+                                       CharacterDataChangeInfo* aInfo) \
+      override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATACHANGED                     \
-    virtual void CharacterDataChanged(nsIDocument* aDocument,                \
-                                      nsIContent* aContent,                  \
-                                      CharacterDataChangeInfo* aInfo) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATACHANGED    \
+  virtual void CharacterDataChanged(nsIDocument* aDocument, \
+                                    nsIContent* aContent,   \
+                                    CharacterDataChangeInfo* aInfo) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTEWILLCHANGE                      \
-    virtual void AttributeWillChange(nsIDocument* aDocument,                 \
-                                     mozilla::dom::Element* aElement,        \
-                                     int32_t aNameSpaceID,                   \
-                                     nsAtom* aAttribute,                    \
-                                     int32_t aModType,                       \
-                                     const nsAttrValue* aNewValue) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTEWILLCHANGE             \
+  virtual void AttributeWillChange(nsIDocument* aDocument,          \
+                                   mozilla::dom::Element* aElement, \
+                                   int32_t aNameSpaceID,            \
+                                   nsAtom* aAttribute,              \
+                                   int32_t aModType,                \
+                                   const nsAttrValue* aNewValue) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_NATIVEANONYMOUSCHILDLISTCHANGE           \
-    virtual void NativeAnonymousChildListChange(nsIDocument* aDocument,      \
-                                                nsIContent* aContent,        \
-                                                bool aIsRemove) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_NATIVEANONYMOUSCHILDLISTCHANGE \
+  virtual void NativeAnonymousChildListChange(                     \
+      nsIDocument* aDocument, nsIContent* aContent, bool aIsRemove) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED                         \
-    virtual void AttributeChanged(nsIDocument* aDocument,                    \
-                                  mozilla::dom::Element* aElement,           \
-                                  int32_t aNameSpaceID,                      \
-                                  nsAtom* aAttribute,                       \
-                                  int32_t aModType,                          \
-                                  const nsAttrValue* aOldValue) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED             \
+  virtual void AttributeChanged(nsIDocument* aDocument,          \
+                                mozilla::dom::Element* aElement, \
+                                int32_t aNameSpaceID,            \
+                                nsAtom* aAttribute,              \
+                                int32_t aModType,                \
+                                const nsAttrValue* aOldValue) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED                          \
-    virtual void ContentAppended(nsIDocument* aDocument,                     \
-                                 nsIContent* aContainer,                     \
-                                 nsIContent* aFirstNewContent) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED    \
+  virtual void ContentAppended(nsIDocument* aDocument, \
+                               nsIContent* aContainer, \
+                               nsIContent* aFirstNewContent) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED                          \
-    virtual void ContentInserted(nsIDocument* aDocument,                     \
-                                 nsIContent* aContainer,                     \
-                                 nsIContent* aChild) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED                       \
+  virtual void ContentInserted(                                           \
+      nsIDocument* aDocument, nsIContent* aContainer, nsIContent* aChild) \
+      override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED                           \
-    virtual void ContentRemoved(nsIDocument* aDocument,                      \
-                                nsIContent* aContainer,                      \
-                                nsIContent* aChild,                          \
-                                nsIContent* aPreviousSibling) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED    \
+  virtual void ContentRemoved(nsIDocument* aDocument, \
+                              nsIContent* aContainer, \
+                              nsIContent* aChild,     \
+                              nsIContent* aPreviousSibling) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED                      \
-    virtual void NodeWillBeDestroyed(const nsINode* aNode) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED \
+  virtual void NodeWillBeDestroyed(const nsINode* aNode) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER_PARENTCHAINCHANGED                       \
-    virtual void ParentChainChanged(nsIContent *aContent) override;
+#define NS_DECL_NSIMUTATIONOBSERVER_PARENTCHAINCHANGED \
+  virtual void ParentChainChanged(nsIContent* aContent) override;
 
-#define NS_DECL_NSIMUTATIONOBSERVER                                          \
-    NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATAWILLCHANGE                      \
-    NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATACHANGED                         \
-    NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTEWILLCHANGE                          \
-    NS_DECL_NSIMUTATIONOBSERVER_NATIVEANONYMOUSCHILDLISTCHANGE               \
-    NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED                             \
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED                              \
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED                              \
-    NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED                               \
-    NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED                          \
-    NS_DECL_NSIMUTATIONOBSERVER_PARENTCHAINCHANGED
+#define NS_DECL_NSIMUTATIONOBSERVER                          \
+  NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATAWILLCHANGE        \
+  NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATACHANGED           \
+  NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTEWILLCHANGE            \
+  NS_DECL_NSIMUTATIONOBSERVER_NATIVEANONYMOUSCHILDLISTCHANGE \
+  NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED               \
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED                \
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED                \
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED                 \
+  NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED            \
+  NS_DECL_NSIMUTATIONOBSERVER_PARENTCHAINCHANGED
 
-#define NS_IMPL_NSIMUTATIONOBSERVER_CORE_STUB(_class)                     \
-void                                                                      \
-_class::NodeWillBeDestroyed(const nsINode* aNode)                               \
-{                                                                         \
-}
+#define NS_IMPL_NSIMUTATIONOBSERVER_CORE_STUB(_class) \
+  void _class::NodeWillBeDestroyed(const nsINode* aNode) {}
 
 #define NS_IMPL_NSIMUTATIONOBSERVER_CONTENT(_class)                       \
-void                                                                      \
-_class::CharacterDataWillChange(nsIDocument* aDocument,                   \
-                                nsIContent* aContent,                     \
-                                CharacterDataChangeInfo* aInfo)           \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::CharacterDataChanged(nsIDocument* aDocument,                      \
-                             nsIContent* aContent,                        \
-                             CharacterDataChangeInfo* aInfo)              \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::AttributeWillChange(nsIDocument* aDocument,                       \
-                            mozilla::dom::Element* aElement,              \
-                            int32_t aNameSpaceID,                         \
-                            nsAtom* aAttribute,                          \
-                            int32_t aModType,                             \
-                            const nsAttrValue* aNewValue)                 \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::NativeAnonymousChildListChange(nsIDocument* aDocument,            \
+  void _class::CharacterDataWillChange(nsIDocument* aDocument,            \
                                        nsIContent* aContent,              \
-                                       bool aIsRemove)                    \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::AttributeChanged(nsIDocument* aDocument,                          \
-                         mozilla::dom::Element* aElement,                 \
-                         int32_t aNameSpaceID,                            \
-                         nsAtom* aAttribute,                             \
-                         int32_t aModType,                                \
-                         const nsAttrValue* aOldValue)                    \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::ContentAppended(nsIDocument* aDocument,                           \
-                        nsIContent* aContainer,                           \
-                        nsIContent* aFirstNewContent)                     \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::ContentInserted(nsIDocument* aDocument,                           \
-                        nsIContent* aContainer,                           \
-                        nsIContent* aChild)                               \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::ContentRemoved(nsIDocument* aDocument,                            \
-                       nsIContent* aContainer,                            \
-                       nsIContent* aChild,                                \
-                       nsIContent* aPreviousSibling)                      \
-{                                                                         \
-}                                                                         \
-void                                                                      \
-_class::ParentChainChanged(nsIContent *aContent)                          \
-{                                                                         \
-}
-
+                                       CharacterDataChangeInfo* aInfo)    \
+  {                                                                       \
+  }                                                                       \
+  void _class::CharacterDataChanged(nsIDocument* aDocument,               \
+                                    nsIContent* aContent,                 \
+                                    CharacterDataChangeInfo* aInfo)       \
+  {                                                                       \
+  }                                                                       \
+  void _class::AttributeWillChange(nsIDocument* aDocument,                \
+                                   mozilla::dom::Element* aElement,       \
+                                   int32_t aNameSpaceID,                  \
+                                   nsAtom* aAttribute,                    \
+                                   int32_t aModType,                      \
+                                   const nsAttrValue* aNewValue)          \
+  {                                                                       \
+  }                                                                       \
+  void _class::NativeAnonymousChildListChange(                            \
+      nsIDocument* aDocument, nsIContent* aContent, bool aIsRemove)       \
+  {                                                                       \
+  }                                                                       \
+  void _class::AttributeChanged(nsIDocument* aDocument,                   \
+                                mozilla::dom::Element* aElement,          \
+                                int32_t aNameSpaceID,                     \
+                                nsAtom* aAttribute,                       \
+                                int32_t aModType,                         \
+                                const nsAttrValue* aOldValue)             \
+  {                                                                       \
+  }                                                                       \
+  void _class::ContentAppended(nsIDocument* aDocument,                    \
+                               nsIContent* aContainer,                    \
+                               nsIContent* aFirstNewContent)              \
+  {                                                                       \
+  }                                                                       \
+  void _class::ContentInserted(                                           \
+      nsIDocument* aDocument, nsIContent* aContainer, nsIContent* aChild) \
+  {                                                                       \
+  }                                                                       \
+  void _class::ContentRemoved(nsIDocument* aDocument,                     \
+                              nsIContent* aContainer,                     \
+                              nsIContent* aChild,                         \
+                              nsIContent* aPreviousSibling)               \
+  {                                                                       \
+  }                                                                       \
+  void _class::ParentChainChanged(nsIContent* aContent) {}
 
 #endif /* nsIMutationObserver_h */

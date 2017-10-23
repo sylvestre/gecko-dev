@@ -23,7 +23,7 @@ class ServiceWorkerManager;
 // different starting steps.
 class ServiceWorkerUpdateJob : public ServiceWorkerJob
 {
-public:
+ public:
   // Construct an update job to be used only for updates.
   ServiceWorkerUpdateJob(nsIPrincipal* aPrincipal,
                          const nsACString& aScope,
@@ -31,10 +31,9 @@ public:
                          nsILoadGroup* aLoadGroup,
                          ServiceWorkerUpdateViaCache aUpdateViaCache);
 
-  already_AddRefed<ServiceWorkerRegistrationInfo>
-  GetRegistration() const;
+  already_AddRefed<ServiceWorkerRegistrationInfo> GetRegistration() const;
 
-protected:
+ protected:
   // Construct an update job that is overriden as another job type.
   ServiceWorkerUpdateJob(Type aType,
                          nsIPrincipal* aPrincipal,
@@ -47,58 +46,48 @@ protected:
 
   // FailUpdateJob() must be called if an update job needs Finish() with
   // an error.
-  void
-  FailUpdateJob(ErrorResult& aRv);
+  void FailUpdateJob(ErrorResult& aRv);
 
-  void
-  FailUpdateJob(nsresult aRv);
+  void FailUpdateJob(nsresult aRv);
 
   // The entry point when the update job is being used directly.  Job
   // types overriding this class should override this method to
   // customize behavior.
-  virtual void
-  AsyncExecute() override;
+  virtual void AsyncExecute() override;
 
   // Set the registration to be operated on by Update() or to be immediately
   // returned as a result of the job.  This must be called before Update().
-  void
-  SetRegistration(ServiceWorkerRegistrationInfo* aRegistration);
+  void SetRegistration(ServiceWorkerRegistrationInfo* aRegistration);
 
   // Execute the bulk of the update job logic using the registration defined
   // by a previous SetRegistration() call.  This can be called by the overriden
   // AsyncExecute() to complete the job.  The Update() method will always call
   // Finish().  This method corresponds to the spec Update algorithm.
-  void
-  Update();
+  void Update();
 
-  ServiceWorkerUpdateViaCache
-  GetUpdateViaCache() const;
+  ServiceWorkerUpdateViaCache GetUpdateViaCache() const;
 
-private:
+ private:
   class CompareCallback;
   class ContinueUpdateRunnable;
   class ContinueInstallRunnable;
 
   // Utility method called after a script is loaded and compared to
   // our current cached script.
-  void
-  ComparisonResult(nsresult aStatus,
-                   bool aInCacheAndEqual,
-                   const nsAString& aNewCacheName,
-                   const nsACString& aMaxScope,
-                   nsLoadFlags aLoadFlags);
+  void ComparisonResult(nsresult aStatus,
+                        bool aInCacheAndEqual,
+                        const nsAString& aNewCacheName,
+                        const nsACString& aMaxScope,
+                        nsLoadFlags aLoadFlags);
 
   // Utility method called after evaluating the worker script.
-  void
-  ContinueUpdateAfterScriptEval(bool aScriptEvaluationResult);
+  void ContinueUpdateAfterScriptEval(bool aScriptEvaluationResult);
 
   // Utility method corresponding to the spec Install algorithm.
-  void
-  Install(ServiceWorkerManager* aSWM);
+  void Install(ServiceWorkerManager* aSWM);
 
   // Utility method called after the install event is handled.
-  void
-  ContinueAfterInstallEvent(bool aInstallEventSuccess);
+  void ContinueAfterInstallEvent(bool aInstallEventSuccess);
 
   nsCOMPtr<nsILoadGroup> mLoadGroup;
   ServiceWorkerUpdateViaCache mUpdateViaCache;
@@ -106,8 +95,8 @@ private:
   RefPtr<ServiceWorkerRegistrationInfo> mRegistration;
 };
 
-} // namespace workers
-} // namespace dom
-} // namespace mozilla
+}  // namespace workers
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_workers_serviceworkerupdatejob_h
+#endif  // mozilla_dom_workers_serviceworkerupdatejob_h

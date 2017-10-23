@@ -29,10 +29,9 @@ namespace mozilla {
  * This singleton class implements the static methods on
  * PreallocatedProcessManager.
  */
-class PreallocatedProcessManagerImpl final
-  : public nsIObserver
+class PreallocatedProcessManagerImpl final : public nsIObserver
 {
-public:
+ public:
   static PreallocatedProcessManagerImpl* Singleton();
 
   NS_DECL_ISUPPORTS
@@ -44,7 +43,7 @@ public:
   already_AddRefed<ContentParent> Take();
   bool Provide(ContentParent* aParent);
 
-private:
+ private:
   static mozilla::StaticRefPtr<PreallocatedProcessManagerImpl> sSingleton;
 
   PreallocatedProcessManagerImpl();
@@ -72,7 +71,7 @@ private:
 };
 
 /* static */ StaticRefPtr<PreallocatedProcessManagerImpl>
-PreallocatedProcessManagerImpl::sSingleton;
+    PreallocatedProcessManagerImpl::sSingleton;
 
 /* static */ PreallocatedProcessManagerImpl*
 PreallocatedProcessManagerImpl::Singleton()
@@ -90,9 +89,9 @@ PreallocatedProcessManagerImpl::Singleton()
 NS_IMPL_ISUPPORTS(PreallocatedProcessManagerImpl, nsIObserver)
 
 PreallocatedProcessManagerImpl::PreallocatedProcessManagerImpl()
-  : mEnabled(false)
-  , mShutdown(false)
-{}
+    : mEnabled(false), mShutdown(false)
+{
+}
 
 void
 PreallocatedProcessManagerImpl::Init()
@@ -103,11 +102,14 @@ PreallocatedProcessManagerImpl::Init()
   Preferences::AddStrongObserver(this, "dom.ipc.processCount");
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
   if (os) {
-    os->AddObserver(this, "ipc:content-shutdown",
+    os->AddObserver(this,
+                    "ipc:content-shutdown",
                     /* weakRef = */ false);
-    os->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID,
+    os->AddObserver(this,
+                    NS_XPCOM_SHUTDOWN_OBSERVER_ID,
                     /* weakRef = */ false);
-    os->AddObserver(this, "profile-change-teardown",
+    os->AddObserver(this,
+                    "profile-change-teardown",
                     /* weakRef = */ false);
   }
   RereadPrefs();
@@ -154,7 +156,8 @@ PreallocatedProcessManagerImpl::RereadPrefs()
     Disable();
   }
 
-  if (ContentParent::IsMaxProcessCountReached(NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE))) {
+  if (ContentParent::IsMaxProcessCountReached(
+          NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE))) {
     CloseProcess();
   }
 }
@@ -220,11 +223,10 @@ PreallocatedProcessManagerImpl::RemoveBlocker(ContentParent* aParent)
 bool
 PreallocatedProcessManagerImpl::CanAllocate()
 {
-  return mEnabled &&
-         mBlockers.IsEmpty() &&
-         !mPreallocatedProcess &&
+  return mEnabled && mBlockers.IsEmpty() && !mPreallocatedProcess &&
          !mShutdown &&
-         !ContentParent::IsMaxProcessCountReached(NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE));
+         !ContentParent::IsMaxProcessCountReached(
+             NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE));
 }
 
 void
@@ -235,11 +237,11 @@ PreallocatedProcessManagerImpl::AllocateAfterDelay()
   }
 
   NS_DelayedDispatchToCurrentThread(
-    NewRunnableMethod("PreallocatedProcessManagerImpl::AllocateOnIdle",
-                      this,
-                      &PreallocatedProcessManagerImpl::AllocateOnIdle),
-    Preferences::GetUint("dom.ipc.processPrelaunch.delayMs",
-                         DEFAULT_ALLOCATE_DELAY));
+      NewRunnableMethod("PreallocatedProcessManagerImpl::AllocateOnIdle",
+                        this,
+                        &PreallocatedProcessManagerImpl::AllocateOnIdle),
+      Preferences::GetUint("dom.ipc.processPrelaunch.delayMs",
+                           DEFAULT_ALLOCATE_DELAY));
 }
 
 void
@@ -250,16 +252,17 @@ PreallocatedProcessManagerImpl::AllocateOnIdle()
   }
 
   NS_IdleDispatchToCurrentThread(
-    NewRunnableMethod("PreallocatedProcessManagerImpl::AllocateNow",
-                      this,
-                      &PreallocatedProcessManagerImpl::AllocateNow));
+      NewRunnableMethod("PreallocatedProcessManagerImpl::AllocateNow",
+                        this,
+                        &PreallocatedProcessManagerImpl::AllocateNow));
 }
 
 void
 PreallocatedProcessManagerImpl::AllocateNow()
 {
   if (!CanAllocate()) {
-    if (mEnabled && !mShutdown && !mPreallocatedProcess && !mBlockers.IsEmpty()) {
+    if (mEnabled && !mShutdown && !mPreallocatedProcess &&
+        !mBlockers.IsEmpty()) {
       // If it's too early to allocate a process let's retry later.
       AllocateAfterDelay();
     }
@@ -306,7 +309,8 @@ PreallocatedProcessManagerImpl::ObserveProcessShutdown(nsISupports* aSubject)
   mBlockers.RemoveEntry(childID);
 }
 
-inline PreallocatedProcessManagerImpl* GetPPMImpl()
+inline PreallocatedProcessManagerImpl*
+GetPPMImpl()
 {
   return PreallocatedProcessManagerImpl::Singleton();
 }
@@ -335,4 +339,4 @@ PreallocatedProcessManager::Provide(ContentParent* aParent)
   return GetPPMImpl()->Provide(aParent);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

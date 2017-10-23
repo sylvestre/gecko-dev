@@ -14,9 +14,7 @@
 namespace mozilla {
 namespace dom {
 
-TemporaryIPCBlobParent::TemporaryIPCBlobParent()
-  : mActive(true)
-{}
+TemporaryIPCBlobParent::TemporaryIPCBlobParent() : mActive(true) {}
 
 TemporaryIPCBlobParent::~TemporaryIPCBlobParent()
 {
@@ -43,8 +41,8 @@ TemporaryIPCBlobParent::CreateAndShareFile()
     return SendDeleteError(rv);
   }
 
-  FileDescriptor fdd =
-    FileDescriptor(FileDescriptor::PlatformHandleType(PR_FileDesc2NativeHandle(fd)));
+  FileDescriptor fdd = FileDescriptor(
+      FileDescriptor::PlatformHandleType(PR_FileDesc2NativeHandle(fd)));
 
   // The FileDescriptor object owns a duplicate of the file handle; we
   // must close the original (and clean up the NSPR descriptor).
@@ -71,7 +69,7 @@ TemporaryIPCBlobParent::RecvOperationDone(const bool& aSuccess,
   nsCOMPtr<nsIFile> file = Move(mFile);
 
   RefPtr<TemporaryFileBlobImpl> blobImpl =
-    new TemporaryFileBlobImpl(file, NS_ConvertUTF8toUTF16(aContentType));
+      new TemporaryFileBlobImpl(file, NS_ConvertUTF8toUTF16(aContentType));
 
   IPCBlob ipcBlob;
   nsresult rv = IPCBlobUtils::Serialize(blobImpl, Manager(), ipcBlob);
@@ -100,6 +98,5 @@ TemporaryIPCBlobParent::SendDeleteError(nsresult aRv)
   return IPC_OK();
 }
 
-} // dom namespace
-} // mozilla namespace
-
+}  // namespace dom
+}  // namespace mozilla

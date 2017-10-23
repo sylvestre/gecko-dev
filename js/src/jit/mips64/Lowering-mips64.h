@@ -12,14 +12,12 @@
 namespace js {
 namespace jit {
 
-class LIRGeneratorMIPS64 : public LIRGeneratorMIPSShared
-{
-  protected:
+class LIRGeneratorMIPS64 : public LIRGeneratorMIPSShared {
+   protected:
     LIRGeneratorMIPS64(MIRGenerator* gen, MIRGraph& graph, LIRGraph& lirGraph)
-      : LIRGeneratorMIPSShared(gen, graph, lirGraph)
-    { }
+        : LIRGeneratorMIPSShared(gen, graph, lirGraph) {}
 
-  protected:
+   protected:
     void lowerInt64PhiInput(MPhi*, uint32_t, LBlock*, size_t);
     void defineInt64Phi(MPhi*, size_t);
 
@@ -27,9 +25,7 @@ class LIRGeneratorMIPS64 : public LIRGeneratorMIPSShared
     LBoxAllocation useBoxFixed(MDefinition* mir, Register reg1, Register reg2,
                                bool useAtStart = false);
 
-    inline LDefinition tempToUnbox() {
-        return temp();
-    }
+    inline LDefinition tempToUnbox() { return temp(); }
 
     void lowerUntypedPhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block, size_t lirIndex);
     void defineUntypedPhi(MPhi* phi, size_t lirIndex);
@@ -42,7 +38,7 @@ class LIRGeneratorMIPS64 : public LIRGeneratorMIPSShared
     void lowerUDivI64(MDiv* div);
     void lowerUModI64(MMod* mod);
 
-  public:
+   public:
     void visitBox(MBox* box);
     void visitUnbox(MUnbox* unbox);
     void visitReturn(MReturn* ret);
@@ -53,7 +49,7 @@ class LIRGeneratorMIPS64 : public LIRGeneratorMIPSShared
 
 typedef LIRGeneratorMIPS64 LIRGeneratorSpecific;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_mips64_Lowering_mips64_h */

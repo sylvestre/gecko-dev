@@ -10,22 +10,23 @@
 #include "mozilla/TaskQueue.h"
 #include "MediaData.h"
 
-mozilla::LogModule* GetSourceBufferResourceLog()
+mozilla::LogModule*
+GetSourceBufferResourceLog()
 {
   static mozilla::LazyLogModule sLogModule("SourceBufferResource");
   return sLogModule;
 }
 
-#define SBR_DEBUG(arg, ...)                                                    \
-  MOZ_LOG(                                                                     \
-    GetSourceBufferResourceLog(),                                              \
-    mozilla::LogLevel::Debug,                                                  \
-    ("SourceBufferResource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
-#define SBR_DEBUGV(arg, ...)                                                   \
-  MOZ_LOG(                                                                     \
-    GetSourceBufferResourceLog(),                                              \
-    mozilla::LogLevel::Verbose,                                                \
-    ("SourceBufferResource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define SBR_DEBUG(arg, ...)         \
+  MOZ_LOG(                          \
+      GetSourceBufferResourceLog(), \
+      mozilla::LogLevel::Debug,     \
+      ("SourceBufferResource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
+#define SBR_DEBUGV(arg, ...)        \
+  MOZ_LOG(                          \
+      GetSourceBufferResourceLog(), \
+      mozilla::LogLevel::Verbose,   \
+      ("SourceBufferResource(%p)::%s: " arg, this, __func__, ##__VA_ARGS__))
 
 namespace mozilla {
 
@@ -45,7 +46,10 @@ SourceBufferResource::ReadAt(int64_t aOffset,
                              uint32_t* aBytes)
 {
   SBR_DEBUG("ReadAt(aOffset=%" PRId64 ", aBuffer=%p, aCount=%u, aBytes=%p)",
-            aOffset, aBytes, aCount, aBytes);
+            aOffset,
+            aBytes,
+            aCount,
+            aBytes);
   return ReadAtInternal(aOffset, aBuffer, aCount, aBytes);
 }
 
@@ -57,9 +61,7 @@ SourceBufferResource::ReadAtInternal(int64_t aOffset,
 {
   MOZ_ASSERT(OnTaskQueue());
 
-  if (mClosed ||
-      aOffset < 0 ||
-      uint64_t(aOffset) < mInputBuffer.GetOffset() ||
+  if (mClosed || aOffset < 0 || uint64_t(aOffset) < mInputBuffer.GetOffset() ||
       aOffset > GetLength()) {
     return NS_ERROR_FAILURE;
   }
@@ -96,7 +98,9 @@ SourceBufferResource::ReadFromCache(char* aBuffer,
                                     uint32_t aCount)
 {
   SBR_DEBUG("ReadFromCache(aBuffer=%p, aOffset=%" PRId64 ", aCount=%u)",
-            aBuffer, aOffset, aCount);
+            aBuffer,
+            aOffset,
+            aCount);
   uint32_t bytesRead;
   nsresult rv = ReadAtInternal(aOffset, aBuffer, aCount, &bytesRead);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -111,8 +115,11 @@ SourceBufferResource::EvictData(uint64_t aPlaybackOffset,
                                 ErrorResult& aRv)
 {
   MOZ_ASSERT(OnTaskQueue());
-  SBR_DEBUG("EvictData(aPlaybackOffset=%" PRIu64 ","
-            "aThreshold=%" PRId64 ")", aPlaybackOffset, aThreshold);
+  SBR_DEBUG("EvictData(aPlaybackOffset=%" PRIu64
+            ","
+            "aThreshold=%" PRId64 ")",
+            aPlaybackOffset,
+            aThreshold);
   uint32_t result = mInputBuffer.Evict(aPlaybackOffset, aThreshold, aRv);
   return result;
 }
@@ -138,8 +145,8 @@ void
 SourceBufferResource::AppendData(MediaByteBuffer* aData)
 {
   MOZ_ASSERT(OnTaskQueue());
-  SBR_DEBUG("AppendData(aData=%p, aLength=%zu)",
-            aData->Elements(), aData->Length());
+  SBR_DEBUG(
+      "AppendData(aData=%p, aLength=%zu)", aData->Elements(), aData->Length());
   mInputBuffer.AppendItem(aData);
   mEnded = false;
 }
@@ -152,20 +159,18 @@ SourceBufferResource::Ended()
   mEnded = true;
 }
 
-SourceBufferResource::~SourceBufferResource()
-{
-  SBR_DEBUG("");
-}
+SourceBufferResource::~SourceBufferResource() { SBR_DEBUG(""); }
 
 SourceBufferResource::SourceBufferResource()
 #if defined(DEBUG)
-  : mTaskQueue(AbstractThread::GetCurrent()->AsTaskQueue())
-  , mOffset(0)
+    : mTaskQueue(AbstractThread::GetCurrent()->AsTaskQueue()),
+      mOffset(0)
 #else
-  : mOffset(0)
+    : mOffset(0)
 #endif
-  , mClosed(false)
-  , mEnded(false)
+      ,
+      mClosed(false),
+      mEnded(false)
 {
   SBR_DEBUG("");
 }
@@ -185,4 +190,4 @@ SourceBufferResource::OnTaskQueue() const
 
 #undef SBR_DEBUG
 #undef SBR_DEBUGV
-} // namespace mozilla
+}  // namespace mozilla

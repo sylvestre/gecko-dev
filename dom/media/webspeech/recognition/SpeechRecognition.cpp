@@ -48,8 +48,10 @@ namespace dom {
 #define DEFAULT_RECOGNITION_SERVICE "pocketsphinx-en-US"
 
 #define PREFERENCE_ENDPOINTER_SILENCE_LENGTH "media.webspeech.silence_length"
-#define PREFERENCE_ENDPOINTER_LONG_SILENCE_LENGTH "media.webspeech.long_silence_length"
-#define PREFERENCE_ENDPOINTER_LONG_SPEECH_LENGTH "media.webspeech.long_speech_length"
+#define PREFERENCE_ENDPOINTER_LONG_SILENCE_LENGTH \
+  "media.webspeech.long_silence_length"
+#define PREFERENCE_ENDPOINTER_LONG_SPEECH_LENGTH \
+  "media.webspeech.long_speech_length"
 
 static const uint32_t kSAMPLE_RATE = 16000;
 static const uint32_t kSPEECH_DETECTION_TIMEOUT_MS = 10000;
@@ -65,7 +67,8 @@ GetSpeechRecognitionLog()
   static LazyLogModule sLog("SpeechRecognition");
   return sLog;
 }
-#define SR_LOG(...) MOZ_LOG(GetSpeechRecognitionLog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define SR_LOG(...) \
+  MOZ_LOG(GetSpeechRecognitionLog(), mozilla::LogLevel::Debug, (__VA_ARGS__))
 
 already_AddRefed<nsISpeechRecognitionService>
 GetSpeechRecognitionService(const nsAString& aLang)
@@ -78,8 +81,8 @@ GetSpeechRecognitionService(const nsAString& aLang)
 
   if (!aLang.IsEmpty()) {
     speechRecognitionService =
-      NS_LITERAL_CSTRING(DEFAULT_RECOGNITION_SERVICE_PREFIX) +
-      NS_ConvertUTF16toUTF8(aLang);
+        NS_LITERAL_CSTRING(DEFAULT_RECOGNITION_SERVICE_PREFIX) +
+        NS_ConvertUTF16toUTF8(aLang);
   } else if (!prefValue.IsEmpty()) {
     speechRecognitionService = prefValue;
   } else {
@@ -88,11 +91,11 @@ GetSpeechRecognitionService(const nsAString& aLang)
 
   if (MediaPrefs::WebSpeechFakeRecognitionService()) {
     speechRecognitionServiceCID =
-      NS_SPEECH_RECOGNITION_SERVICE_CONTRACTID_PREFIX "fake";
+        NS_SPEECH_RECOGNITION_SERVICE_CONTRACTID_PREFIX "fake";
   } else {
     speechRecognitionServiceCID =
-      NS_LITERAL_CSTRING(NS_SPEECH_RECOGNITION_SERVICE_CONTRACTID_PREFIX) +
-      speechRecognitionService;
+        NS_LITERAL_CSTRING(NS_SPEECH_RECOGNITION_SERVICE_CONTRACTID_PREFIX) +
+        speechRecognitionService;
   }
 
   nsresult rv;
@@ -114,13 +117,13 @@ NS_IMPL_ADDREF_INHERITED(SpeechRecognition, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(SpeechRecognition, DOMEventTargetHelper)
 
 SpeechRecognition::SpeechRecognition(nsPIDOMWindowInner* aOwnerWindow)
-  : DOMEventTargetHelper(aOwnerWindow)
-  , mEndpointer(kSAMPLE_RATE)
-  , mAudioSamplesPerChunk(mEndpointer.FrameSize())
-  , mSpeechDetectionTimer(NS_NewTimer())
-  , mSpeechGrammarList(new SpeechGrammarList(GetParentObject()))
-  , mInterimResults(false)
-  , mMaxAlternatives(1)
+    : DOMEventTargetHelper(aOwnerWindow),
+      mEndpointer(kSAMPLE_RATE),
+      mAudioSamplesPerChunk(mEndpointer.FrameSize()),
+      mSpeechDetectionTimer(NS_NewTimer()),
+      mSpeechGrammarList(new SpeechGrammarList(GetParentObject())),
+      mInterimResults(false),
+      mMaxAlternatives(1)
 {
   SR_LOG("created SpeechRecognition");
 
@@ -165,20 +168,20 @@ SpeechRecognition::IsAuthorized(JSContext* aCx, JSObject* aGlobal)
 
   nsresult rv;
   nsCOMPtr<nsIPermissionManager> mgr =
-    do_GetService(NS_PERMISSIONMANAGER_CONTRACTID, &rv);
+      do_GetService(NS_PERMISSIONMANAGER_CONTRACTID, &rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
   }
 
   uint32_t speechRecognition = nsIPermissionManager::UNKNOWN_ACTION;
   rv = mgr->TestExactPermissionFromPrincipal(
-    principal, "speech-recognition", &speechRecognition);
+      principal, "speech-recognition", &speechRecognition);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
   }
 
   bool hasPermission =
-    (speechRecognition == nsIPermissionManager::ALLOW_ACTION);
+      (speechRecognition == nsIPermissionManager::ALLOW_ACTION);
 
   return (hasPermission || MediaPrefs::WebSpeechRecognitionForceEnabled() ||
           MediaPrefs::WebSpeechTestEnabled()) &&
@@ -186,8 +189,7 @@ SpeechRecognition::IsAuthorized(JSContext* aCx, JSObject* aGlobal)
 }
 
 already_AddRefed<SpeechRecognition>
-SpeechRecognition::Constructor(const GlobalObject& aGlobal,
-                               ErrorResult& aRv)
+SpeechRecognition::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
   nsCOMPtr<nsPIDOMWindowInner> win = do_QueryInterface(aGlobal.GetAsSupports());
   if (!win) {
@@ -450,7 +452,7 @@ SpeechRecognition::StartedAudioCapture(SpeechEvent* aEvent)
 
   mEndpointer.SetEnvironmentEstimationMode();
   mEstimationSamples +=
-    ProcessAudioSegment(aEvent->mAudioSegment, aEvent->mTrackRate);
+      ProcessAudioSegment(aEvent->mAudioSegment, aEvent->mTrackRate);
 
   DispatchTrustedEvent(NS_LITERAL_STRING("audiostart"));
   if (mCurrentState == STATE_ESTIMATING) {
@@ -475,7 +477,7 @@ SpeechRecognition::WaitForEstimation(SpeechEvent* aEvent)
   SetState(STATE_ESTIMATING);
 
   mEstimationSamples +=
-    ProcessAudioSegment(aEvent->mAudioSegment, aEvent->mTrackRate);
+      ProcessAudioSegment(aEvent->mAudioSegment, aEvent->mTrackRate);
   if (mEstimationSamples > kESTIMATION_SAMPLES) {
     mEndpointer.SetUserInputMode();
     SetState(STATE_WAITING_FOR_SPEECH);
@@ -526,7 +528,7 @@ SpeechRecognition::NotifyFinalResult(SpeechEvent* aEvent)
   // init.mEmma = nullptr;
 
   RefPtr<SpeechRecognitionEvent> event = SpeechRecognitionEvent::Constructor(
-    this, NS_LITERAL_STRING("result"), init);
+      this, NS_LITERAL_STRING("result"), init);
   event->SetTrusted(true);
 
   bool defaultActionEnabled;
@@ -586,8 +588,8 @@ SpeechRecognition::StartRecording(DOMMediaStream* aDOMStream)
 
   mEndpointer.StartSession();
 
-  return mSpeechDetectionTimer->Init(this, kSPEECH_DETECTION_TIMEOUT_MS,
-                                     nsITimer::TYPE_ONE_SHOT);
+  return mSpeechDetectionTimer->Init(
+      this, kSPEECH_DETECTION_TIMEOUT_MS, nsITimer::TYPE_ONE_SHOT);
 }
 
 NS_IMETHODIMP
@@ -607,14 +609,14 @@ SpeechRecognition::StopRecording()
 }
 
 NS_IMETHODIMP
-SpeechRecognition::Observe(nsISupports* aSubject, const char* aTopic,
+SpeechRecognition::Observe(nsISupports* aSubject,
+                           const char* aTopic,
                            const char16_t* aData)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Observer invoked off the main thread");
 
   if (!strcmp(aTopic, NS_TIMER_CALLBACK_TOPIC) &&
       StateBetween(STATE_IDLE, STATE_WAITING_FOR_SPEECH)) {
-
     DispatchError(SpeechRecognition::EVENT_AUDIO_ERROR,
                   SpeechRecognitionErrorCode::No_speech,
                   NS_LITERAL_STRING("No speech detected (timeout)"));
@@ -638,13 +640,13 @@ SpeechRecognition::ProcessTestEventRequest(nsISupports* aSubject,
     Abort();
   } else if (aEventName.EqualsLiteral("EVENT_AUDIO_ERROR")) {
     DispatchError(
-      SpeechRecognition::EVENT_AUDIO_ERROR,
-      SpeechRecognitionErrorCode::Audio_capture, // TODO different codes?
-      NS_LITERAL_STRING("AUDIO_ERROR test event"));
+        SpeechRecognition::EVENT_AUDIO_ERROR,
+        SpeechRecognitionErrorCode::Audio_capture,  // TODO different codes?
+        NS_LITERAL_STRING("AUDIO_ERROR test event"));
   } else {
     NS_ASSERTION(MediaPrefs::WebSpeechFakeRecognitionService(),
-                 "Got request for fake recognition service event, but "
-                 TEST_PREFERENCE_FAKE_RECOGNITION_SERVICE " is unset");
+                 "Got request for fake recognition service event, "
+                 "but " TEST_PREFERENCE_FAKE_RECOGNITION_SERVICE " is unset");
 
     // let the fake recognition service handle the request
   }
@@ -783,17 +785,17 @@ SpeechRecognition::SetRecognitionService(ErrorResult& aRv)
   }
 
   nsCOMPtr<nsPIDOMWindowInner> window = GetOwner();
-  if(!window) {
+  if (!window) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return false;
   }
   nsCOMPtr<nsIDocument> document = window->GetExtantDoc();
-  if(!document) {
+  if (!document) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return false;
   }
   nsCOMPtr<Element> element = document->GetRootElement();
-  if(!element) {
+  if (!element) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return false;
   }
@@ -830,7 +832,7 @@ SpeechRecognition::ValidateAndSetGrammarList(ErrorResult& aRv)
       return false;
     }
     if (NS_FAILED(mRecognitionService->ValidateAndSetGrammarList(
-          speechGrammar.get(), nullptr))) {
+            speechGrammar.get(), nullptr))) {
       aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
       return false;
     }
@@ -865,13 +867,14 @@ SpeechRecognition::DispatchError(EventType aErrorType,
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aErrorType == EVENT_RECOGNITIONSERVICE_ERROR ||
-             aErrorType == EVENT_AUDIO_ERROR, "Invalid error type!");
+                 aErrorType == EVENT_AUDIO_ERROR,
+             "Invalid error type!");
 
   RefPtr<SpeechRecognitionError> srError =
-    new SpeechRecognitionError(nullptr, nullptr, nullptr);
+      new SpeechRecognitionError(nullptr, nullptr, nullptr);
 
-  srError->InitSpeechRecognitionError(NS_LITERAL_STRING("error"), true, false,
-                                      aErrorCode, aMessage);
+  srError->InitSpeechRecognitionError(
+      NS_LITERAL_STRING("error"), true, false, aErrorCode, aMessage);
 
   RefPtr<SpeechEvent> event = new SpeechEvent(this, aErrorType);
   event->mError = srError;
@@ -890,10 +893,11 @@ SpeechRecognition::FillSamplesBuffer(const int16_t* aSamples,
   MOZ_ASSERT(mAudioSamplesBuffer.get());
 
   int16_t* samplesBuffer = static_cast<int16_t*>(mAudioSamplesBuffer->Data());
-  size_t samplesToCopy = std::min(aSampleCount,
-                                  mAudioSamplesPerChunk - mBufferedSamples);
+  size_t samplesToCopy =
+      std::min(aSampleCount, mAudioSamplesPerChunk - mBufferedSamples);
 
-  memcpy(samplesBuffer + mBufferedSamples, aSamples,
+  memcpy(samplesBuffer + mBufferedSamples,
+         aSamples,
          samplesToCopy * sizeof(int16_t));
 
   mBufferedSamples += samplesToCopy;
@@ -916,9 +920,10 @@ SpeechRecognition::SplitSamplesBuffer(const int16_t* aSamplesBuffer,
 
   while (chunkStart + mAudioSamplesPerChunk <= aSampleCount) {
     RefPtr<SharedBuffer> chunk =
-      SharedBuffer::Create(mAudioSamplesPerChunk * sizeof(int16_t));
+        SharedBuffer::Create(mAudioSamplesPerChunk * sizeof(int16_t));
 
-    memcpy(chunk->Data(), aSamplesBuffer + chunkStart,
+    memcpy(chunk->Data(),
+           aSamplesBuffer + chunkStart,
            mAudioSamplesPerChunk * sizeof(int16_t));
 
     aResult.AppendElement(chunk.forget());
@@ -938,7 +943,9 @@ SpeechRecognition::CreateAudioSegment(nsTArray<RefPtr<SharedBuffer>>& aChunks)
 
     AutoTArray<const int16_t*, 1> channels;
     channels.AppendElement(chunkData);
-    segment->AppendFrames(buffer.forget(), channels, mAudioSamplesPerChunk,
+    segment->AppendFrames(buffer.forget(),
+                          channels,
+                          mAudioSamplesPerChunk,
                           PRINCIPAL_HANDLE_NONE);
   }
 
@@ -979,16 +986,15 @@ SpeechRecognition::FeedAudioData(already_AddRefed<SharedBuffer> aSamples,
 
   // create sample chunks of correct size
   if (samplesIndex < aDuration) {
-    samplesIndex += SplitSamplesBuffer(samples + samplesIndex,
-                                       aDuration - samplesIndex,
-                                       chunksToSend);
+    samplesIndex += SplitSamplesBuffer(
+        samples + samplesIndex, aDuration - samplesIndex, chunksToSend);
   }
 
   // buffer remaining samples
   if (samplesIndex < aDuration) {
     mBufferedSamples = 0;
     mAudioSamplesBuffer =
-      SharedBuffer::Create(mAudioSamplesPerChunk * sizeof(int16_t));
+        SharedBuffer::Create(mAudioSamplesPerChunk * sizeof(int16_t));
 
     FillSamplesBuffer(samples + samplesIndex, aDuration - samplesIndex);
   }
@@ -1005,12 +1011,12 @@ const char*
 SpeechRecognition::GetName(FSMState aId)
 {
   static const char* names[] = {
-    "STATE_IDLE",
-    "STATE_STARTING",
-    "STATE_ESTIMATING",
-    "STATE_WAITING_FOR_SPEECH",
-    "STATE_RECOGNIZING",
-    "STATE_WAITING_FOR_RESULT",
+      "STATE_IDLE",
+      "STATE_STARTING",
+      "STATE_ESTIMATING",
+      "STATE_WAITING_FOR_SPEECH",
+      "STATE_RECOGNIZING",
+      "STATE_WAITING_FOR_RESULT",
   };
 
   MOZ_ASSERT(aId < STATE_COUNT);
@@ -1021,26 +1027,21 @@ SpeechRecognition::GetName(FSMState aId)
 const char*
 SpeechRecognition::GetName(SpeechEvent* aEvent)
 {
-  static const char* names[] = {
-    "EVENT_START",
-    "EVENT_STOP",
-    "EVENT_ABORT",
-    "EVENT_AUDIO_DATA",
-    "EVENT_AUDIO_ERROR",
-    "EVENT_RECOGNITIONSERVICE_INTERMEDIATE_RESULT",
-    "EVENT_RECOGNITIONSERVICE_FINAL_RESULT",
-    "EVENT_RECOGNITIONSERVICE_ERROR"
-  };
+  static const char* names[] = {"EVENT_START",
+                                "EVENT_STOP",
+                                "EVENT_ABORT",
+                                "EVENT_AUDIO_DATA",
+                                "EVENT_AUDIO_ERROR",
+                                "EVENT_RECOGNITIONSERVICE_INTERMEDIATE_RESULT",
+                                "EVENT_RECOGNITIONSERVICE_FINAL_RESULT",
+                                "EVENT_RECOGNITIONSERVICE_ERROR"};
 
   MOZ_ASSERT(aEvent->mType < EVENT_COUNT);
   MOZ_ASSERT(ArrayLength(names) == EVENT_COUNT);
   return names[aEvent->mType];
 }
 
-SpeechEvent::~SpeechEvent()
-{
-  delete mAudioSegment;
-}
+SpeechEvent::~SpeechEvent() { delete mAudioSegment; }
 
 NS_IMETHODIMP
 SpeechEvent::Run()
@@ -1085,10 +1086,10 @@ SpeechRecognition::GetUserMediaErrorCallback::OnError(nsISupports* aError)
 
   nsAutoString message;
   error->GetMessage(message);
-  mRecognition->DispatchError(SpeechRecognition::EVENT_AUDIO_ERROR, errorCode,
-                              message);
+  mRecognition->DispatchError(
+      SpeechRecognition::EVENT_AUDIO_ERROR, errorCode, message);
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

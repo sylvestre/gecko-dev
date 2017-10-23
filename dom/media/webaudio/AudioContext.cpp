@@ -118,7 +118,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AudioContext)
   NS_INTERFACE_MAP_ENTRY(nsIMemoryReporter)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-static float GetSampleRateForAudioContext(bool aIsOffline, float aSampleRate)
+static float
+GetSampleRateForAudioContext(bool aIsOffline, float aSampleRate)
 {
   if (aIsOffline) {
     return aSampleRate;
@@ -132,24 +133,24 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow,
                            uint32_t aNumberOfChannels,
                            uint32_t aLength,
                            float aSampleRate)
-  : DOMEventTargetHelper(aWindow)
-  , mId(gAudioContextId++)
-  , mSampleRate(GetSampleRateForAudioContext(aIsOffline, aSampleRate))
-  , mAudioContextState(AudioContextState::Suspended)
-  , mNumberOfChannels(aNumberOfChannels)
-  , mIsOffline(aIsOffline)
-  , mIsStarted(!aIsOffline)
-  , mIsShutDown(false)
-  , mCloseCalled(false)
-  , mSuspendCalled(false)
-  , mIsDisconnecting(false)
+    : DOMEventTargetHelper(aWindow),
+      mId(gAudioContextId++),
+      mSampleRate(GetSampleRateForAudioContext(aIsOffline, aSampleRate)),
+      mAudioContextState(AudioContextState::Suspended),
+      mNumberOfChannels(aNumberOfChannels),
+      mIsOffline(aIsOffline),
+      mIsStarted(!aIsOffline),
+      mIsShutDown(false),
+      mCloseCalled(false),
+      mSuspendCalled(false),
+      mIsDisconnecting(false)
 {
   bool mute = aWindow->AddAudioContext(this);
 
   // Note: AudioDestinationNode needs an AudioContext that must already be
   // bound to the window.
-  mDestination = new AudioDestinationNode(this, aIsOffline,
-                                          aNumberOfChannels, aLength, aSampleRate);
+  mDestination = new AudioDestinationNode(
+      this, aIsOffline, aNumberOfChannels, aLength, aSampleRate);
 
   // The context can't be muted until it has a destination.
   if (mute) {
@@ -196,22 +197,22 @@ AudioContext::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 }
 
 /* static */ already_AddRefed<AudioContext>
-AudioContext::Constructor(const GlobalObject& aGlobal,
-                          ErrorResult& aRv)
+AudioContext::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  uint32_t maxChannelCount = std::min<uint32_t>(WebAudioUtils::MaxChannelCount,
-      CubebUtils::MaxNumberOfChannels());
+  uint32_t maxChannelCount = std::min<uint32_t>(
+      WebAudioUtils::MaxChannelCount, CubebUtils::MaxNumberOfChannels());
   RefPtr<AudioContext> object =
-    new AudioContext(window, false,maxChannelCount);
+      new AudioContext(window, false, maxChannelCount);
   aRv = object->Init();
   if (NS_WARN_IF(aRv.Failed())) {
-     return nullptr;
+    return nullptr;
   }
 
   RegisterWeakMemoryReporter(object);
@@ -238,15 +239,15 @@ AudioContext::Constructor(const GlobalObject& aGlobal,
                           float aSampleRate,
                           ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   if (aNumberOfChannels == 0 ||
-      aNumberOfChannels > WebAudioUtils::MaxChannelCount ||
-      aLength == 0 ||
+      aNumberOfChannels > WebAudioUtils::MaxChannelCount || aLength == 0 ||
       aSampleRate < WebAudioUtils::MinSampleRate ||
       aSampleRate > WebAudioUtils::MaxSampleRate) {
     // The DOM binding protects us against infinity and NaN
@@ -254,21 +255,18 @@ AudioContext::Constructor(const GlobalObject& aGlobal,
     return nullptr;
   }
 
-  RefPtr<AudioContext> object = new AudioContext(window,
-                                                   true,
-                                                   aNumberOfChannels,
-                                                   aLength,
-                                                   aSampleRate);
+  RefPtr<AudioContext> object =
+      new AudioContext(window, true, aNumberOfChannels, aLength, aSampleRate);
 
   RegisterWeakMemoryReporter(object);
 
   return object.forget();
 }
 
-bool AudioContext::CheckClosed(ErrorResult& aRv)
+bool
+AudioContext::CheckClosed(ErrorResult& aRv)
 {
-  if (mAudioContextState == AudioContextState::Closed ||
-      mIsShutDown ||
+  if (mAudioContextState == AudioContextState::Closed || mIsShutDown ||
       mIsDisconnecting) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return true;
@@ -279,9 +277,8 @@ bool AudioContext::CheckClosed(ErrorResult& aRv)
 already_AddRefed<AudioBufferSourceNode>
 AudioContext::CreateBufferSource(ErrorResult& aRv)
 {
-  return AudioBufferSourceNode::Create(nullptr, *this,
-                                       AudioBufferSourceOptions(),
-                                       aRv);
+  return AudioBufferSourceNode::Create(
+      nullptr, *this, AudioBufferSourceOptions(), aRv);
 }
 
 already_AddRefed<ConstantSourceNode>
@@ -291,13 +288,13 @@ AudioContext::CreateConstantSource(ErrorResult& aRv)
     return nullptr;
   }
 
-  RefPtr<ConstantSourceNode> constantSourceNode =
-    new ConstantSourceNode(this);
+  RefPtr<ConstantSourceNode> constantSourceNode = new ConstantSourceNode(this);
   return constantSourceNode.forget();
 }
 
 already_AddRefed<AudioBuffer>
-AudioContext::CreateBuffer(uint32_t aNumberOfChannels, uint32_t aLength,
+AudioContext::CreateBuffer(uint32_t aNumberOfChannels,
+                           uint32_t aLength,
                            float aSampleRate,
                            ErrorResult& aRv)
 {
@@ -306,35 +303,37 @@ AudioContext::CreateBuffer(uint32_t aNumberOfChannels, uint32_t aLength,
     return nullptr;
   }
 
-  return AudioBuffer::Create(GetOwner(), aNumberOfChannels, aLength,
-                             aSampleRate, aRv);
+  return AudioBuffer::Create(
+      GetOwner(), aNumberOfChannels, aLength, aSampleRate, aRv);
 }
 
 namespace {
 
-bool IsValidBufferSize(uint32_t aBufferSize) {
+bool
+IsValidBufferSize(uint32_t aBufferSize)
+{
   switch (aBufferSize) {
-  case 0:       // let the implementation choose the buffer size
-  case 256:
-  case 512:
-  case 1024:
-  case 2048:
-  case 4096:
-  case 8192:
-  case 16384:
-    return true;
-  default:
-    return false;
+    case 0:  // let the implementation choose the buffer size
+    case 256:
+    case 512:
+    case 1024:
+    case 2048:
+    case 4096:
+    case 8192:
+    case 16384:
+      return true;
+    default:
+      return false;
   }
 }
 
-} // namespace
+}  // namespace
 
 already_AddRefed<MediaStreamAudioDestinationNode>
 AudioContext::CreateMediaStreamDestination(ErrorResult& aRv)
 {
-  return MediaStreamAudioDestinationNode::Create(*this, AudioNodeOptions(),
-                                                 aRv);
+  return MediaStreamAudioDestinationNode::Create(
+      *this, AudioNodeOptions(), aRv);
 }
 
 already_AddRefed<ScriptProcessorNode>
@@ -355,9 +354,8 @@ AudioContext::CreateScriptProcessor(uint32_t aBufferSize,
     return nullptr;
   }
 
-  RefPtr<ScriptProcessorNode> scriptProcessor =
-    new ScriptProcessorNode(this, aBufferSize, aNumberOfInputChannels,
-                            aNumberOfOutputChannels);
+  RefPtr<ScriptProcessorNode> scriptProcessor = new ScriptProcessorNode(
+      this, aBufferSize, aNumberOfInputChannels, aNumberOfOutputChannels);
   return scriptProcessor.forget();
 }
 
@@ -444,7 +442,8 @@ AudioContext::CreateChannelMerger(uint32_t aNumberOfInputs, ErrorResult& aRv)
 already_AddRefed<DynamicsCompressorNode>
 AudioContext::CreateDynamicsCompressor(ErrorResult& aRv)
 {
-  return DynamicsCompressorNode::Create(*this, DynamicsCompressorOptions(), aRv);
+  return DynamicsCompressorNode::Create(
+      *this, DynamicsCompressorOptions(), aRv);
 }
 
 already_AddRefed<BiquadFilterNode>
@@ -479,16 +478,18 @@ AudioContext::CreatePeriodicWave(const Float32Array& aRealData,
   aRealData.ComputeLengthAndData();
   aImagData.ComputeLengthAndData();
 
-  if (aRealData.Length() != aImagData.Length() ||
-      aRealData.Length() == 0) {
+  if (aRealData.Length() != aImagData.Length() || aRealData.Length() == 0) {
     aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return nullptr;
   }
 
   RefPtr<PeriodicWave> periodicWave =
-    new PeriodicWave(this, aRealData.Data(), aImagData.Data(),
-                     aImagData.Length(), aConstraints.mDisableNormalization,
-                     aRv);
+      new PeriodicWave(this,
+                       aRealData.Data(),
+                       aImagData.Data(),
+                       aImagData.Length(),
+                       aConstraints.mDisableNormalization,
+                       aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -511,10 +512,11 @@ AudioContext::IsRunning() const
 }
 
 already_AddRefed<Promise>
-AudioContext::DecodeAudioData(const ArrayBuffer& aBuffer,
-                              const Optional<OwningNonNull<DecodeSuccessCallback> >& aSuccessCallback,
-                              const Optional<OwningNonNull<DecodeErrorCallback> >& aFailureCallback,
-                              ErrorResult& aRv)
+AudioContext::DecodeAudioData(
+    const ArrayBuffer& aBuffer,
+    const Optional<OwningNonNull<DecodeSuccessCallback> >& aSuccessCallback,
+    const Optional<OwningNonNull<DecodeErrorCallback> >& aFailureCallback,
+    ErrorResult& aRv)
 {
   nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
   RefPtr<Promise> promise;
@@ -532,13 +534,15 @@ AudioContext::DecodeAudioData(const ArrayBuffer& aBuffer,
 
   if (aBuffer.IsShared()) {
     // Throw if the object is mapping shared memory (must opt in).
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(NS_LITERAL_STRING("Argument of AudioContext.decodeAudioData"));
+    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(
+        NS_LITERAL_STRING("Argument of AudioContext.decodeAudioData"));
     return nullptr;
   }
 
   if (!aBuffer.Data()) {
     // Throw if the buffer is detached
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_DETACHED>(NS_LITERAL_STRING("Argument of AudioContext.decodeAudioData"));
+    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_DETACHED>(
+        NS_LITERAL_STRING("Argument of AudioContext.decodeAudioData"));
     return nullptr;
   }
 
@@ -562,8 +566,7 @@ AudioContext::DecodeAudioData(const ArrayBuffer& aBuffer,
     successCallback = &aSuccessCallback.Value();
   }
   UniquePtr<WebAudioDecodeJob> job(
-    new WebAudioDecodeJob(this,
-                          promise, successCallback, failureCallback));
+      new WebAudioDecodeJob(this, promise, successCallback, failureCallback));
   AsyncDecodeWebAudio(contentType.get(), data, length, *job);
   // Transfer the ownership to mDecodeJobs
   mDecodeJobs.AppendElement(Move(job));
@@ -624,7 +627,8 @@ AudioContext::UpdatePannerSource()
 uint32_t
 AudioContext::MaxChannelCount() const
 {
-  return std::min<uint32_t>(WebAudioUtils::MaxChannelCount,
+  return std::min<uint32_t>(
+      WebAudioUtils::MaxChannelCount,
       mIsOffline ? mNumberOfChannels : CubebUtils::MaxNumberOfChannels());
 }
 
@@ -654,10 +658,11 @@ AudioContext::CurrentTime() const
 {
   MediaStream* stream = Destination()->Stream();
   return nsRFPService::ReduceTimePrecisionAsSecs(
-    stream->StreamTimeToSeconds(stream->GetCurrentTime()));
+      stream->StreamTimeToSeconds(stream->GetCurrentTime()));
 }
 
-void AudioContext::DisconnectFromOwner()
+void
+AudioContext::DisconnectFromOwner()
 {
   mIsDisconnecting = true;
   Shutdown();
@@ -697,11 +702,11 @@ AudioContext::Shutdown()
 StateChangeTask::StateChangeTask(AudioContext* aAudioContext,
                                  void* aPromise,
                                  AudioContextState aNewState)
-  : Runnable("dom::StateChangeTask")
-  , mAudioContext(aAudioContext)
-  , mPromise(aPromise)
-  , mAudioNodeStream(nullptr)
-  , mNewState(aNewState)
+    : Runnable("dom::StateChangeTask"),
+      mAudioContext(aAudioContext),
+      mPromise(aPromise),
+      mAudioNodeStream(nullptr),
+      mNewState(aNewState)
 {
   MOZ_ASSERT(NS_IsMainThread(),
              "This constructor should be used from the main thread.");
@@ -710,11 +715,11 @@ StateChangeTask::StateChangeTask(AudioContext* aAudioContext,
 StateChangeTask::StateChangeTask(AudioNodeStream* aStream,
                                  void* aPromise,
                                  AudioContextState aNewState)
-  : Runnable("dom::StateChangeTask")
-  , mAudioContext(nullptr)
-  , mPromise(aPromise)
-  , mAudioNodeStream(aStream)
-  , mNewState(aNewState)
+    : Runnable("dom::StateChangeTask"),
+      mAudioContext(nullptr),
+      mPromise(aPromise),
+      mAudioNodeStream(aStream),
+      mNewState(aNewState)
 {
   MOZ_ASSERT(!NS_IsMainThread(),
              "This constructor should be used from the graph thread.");
@@ -750,11 +755,11 @@ StateChangeTask::Run()
 /* This runnable allows to fire the "statechange" event */
 class OnStateChangeTask final : public Runnable
 {
-public:
+ public:
   explicit OnStateChangeTask(AudioContext* aAudioContext)
-    : Runnable("dom::OnStateChangeTask")
-    , mAudioContext(aAudioContext)
-  {}
+      : Runnable("dom::OnStateChangeTask"), mAudioContext(aAudioContext)
+  {
+  }
 
   NS_IMETHODIMP
   Run() override
@@ -769,28 +774,28 @@ public:
       return NS_ERROR_FAILURE;
     }
 
-    return nsContentUtils::DispatchTrustedEvent(doc,
-                                static_cast<DOMEventTargetHelper*>(mAudioContext),
-                                NS_LITERAL_STRING("statechange"),
-                                false, false);
+    return nsContentUtils::DispatchTrustedEvent(
+        doc,
+        static_cast<DOMEventTargetHelper*>(mAudioContext),
+        NS_LITERAL_STRING("statechange"),
+        false,
+        false);
   }
 
-private:
+ private:
   RefPtr<AudioContext> mAudioContext;
 };
-
 
 void
 AudioContext::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable)
 {
   MOZ_ASSERT(NS_IsMainThread());
-  nsCOMPtr<nsIGlobalObject> parentObject =
-    do_QueryInterface(GetParentObject());
+  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
   // It can happen that this runnable took a long time to reach the main thread,
   // and the global is not valid anymore.
   if (parentObject) {
     parentObject->AbstractMainThreadFor(TaskCategory::Other)
-                ->Dispatch(std::move(aRunnable));
+        ->Dispatch(std::move(aRunnable));
   } else {
     RefPtr<nsIRunnable> runnable(aRunnable);
     runnable = nullptr;
@@ -805,8 +810,7 @@ AudioContext::OnStateChanged(void* aPromise, AudioContextState aNewState)
   // This can happen if close() was called right after creating the
   // AudioContext, before the context has switched to "running".
   if (mAudioContextState == AudioContextState::Closed &&
-      aNewState == AudioContextState::Running &&
-      !aPromise) {
+      aNewState == AudioContextState::Running && !aPromise) {
     return;
   }
 
@@ -819,33 +823,34 @@ AudioContext::OnStateChanged(void* aPromise, AudioContextState aNewState)
     return;
   }
 
-#ifndef WIN32 // Bug 1170547
+#ifndef WIN32  // Bug 1170547
 #ifndef XP_MACOSX
 #ifdef DEBUG
 
   if (!((mAudioContextState == AudioContextState::Suspended &&
-       aNewState == AudioContextState::Running)   ||
-      (mAudioContextState == AudioContextState::Running   &&
-       aNewState == AudioContextState::Suspended) ||
-      (mAudioContextState == AudioContextState::Running   &&
-       aNewState == AudioContextState::Closed)    ||
-      (mAudioContextState == AudioContextState::Suspended &&
-       aNewState == AudioContextState::Closed)    ||
-      (mAudioContextState == aNewState))) {
+         aNewState == AudioContextState::Running) ||
+        (mAudioContextState == AudioContextState::Running &&
+         aNewState == AudioContextState::Suspended) ||
+        (mAudioContextState == AudioContextState::Running &&
+         aNewState == AudioContextState::Closed) ||
+        (mAudioContextState == AudioContextState::Suspended &&
+         aNewState == AudioContextState::Closed) ||
+        (mAudioContextState == aNewState))) {
     fprintf(stderr,
             "Invalid transition: mAudioContextState: %d -> aNewState %d\n",
-            static_cast<int>(mAudioContextState), static_cast<int>(aNewState));
+            static_cast<int>(mAudioContextState),
+            static_cast<int>(aNewState));
     MOZ_ASSERT(false);
   }
 
-#endif // DEBUG
-#endif // XP_MACOSX
-#endif // WIN32
+#endif  // DEBUG
+#endif  // XP_MACOSX
+#endif  // WIN32
 
   MOZ_ASSERT(
-    mIsOffline || aPromise || aNewState == AudioContextState::Running,
-    "We should have a promise here if this is a real-time AudioContext."
-    "Or this is the first time we switch to \"running\".");
+      mIsOffline || aPromise || aNewState == AudioContextState::Running,
+      "We should have a promise here if this is a real-time AudioContext."
+      "Or this is the first time we switch to \"running\".");
 
   if (aPromise) {
     Promise* promise = reinterpret_cast<Promise*>(aPromise);
@@ -895,8 +900,7 @@ AudioContext::Suspend(ErrorResult& aRv)
     return promise.forget();
   }
 
-  if (mAudioContextState == AudioContextState::Closed ||
-      mCloseCalled) {
+  if (mAudioContextState == AudioContextState::Closed || mCloseCalled) {
     promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
     return promise.forget();
   }
@@ -915,7 +919,8 @@ AudioContext::Suspend(ErrorResult& aRv)
   }
   Graph()->ApplyAudioContextOperation(DestinationStream()->AsAudioNodeStream(),
                                       streams,
-                                      AudioContextOperation::Suspend, promise);
+                                      AudioContextOperation::Suspend,
+                                      promise);
 
   mSuspendCalled = true;
 
@@ -937,8 +942,7 @@ AudioContext::Resume(ErrorResult& aRv)
     return promise.forget();
   }
 
-  if (mAudioContextState == AudioContextState::Closed ||
-      mCloseCalled) {
+  if (mAudioContextState == AudioContextState::Closed || mCloseCalled) {
     promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
     return promise.forget();
   }
@@ -956,7 +960,8 @@ AudioContext::Resume(ErrorResult& aRv)
   mPromiseGripArray.AppendElement(promise);
   Graph()->ApplyAudioContextOperation(DestinationStream()->AsAudioNodeStream(),
                                       streams,
-                                      AudioContextOperation::Resume, promise);
+                                      AudioContextOperation::Resume,
+                                      promise);
 
   mSuspendCalled = false;
 
@@ -1000,8 +1005,10 @@ AudioContext::Close(ErrorResult& aRv)
     if (!mSuspendCalled && !mCloseCalled) {
       streams = GetAllStreams();
     }
-    Graph()->ApplyAudioContextOperation(ds->AsAudioNodeStream(), streams,
-                                        AudioContextOperation::Close, promise);
+    Graph()->ApplyAudioContextOperation(ds->AsAudioNodeStream(),
+                                        streams,
+                                        AudioContextOperation::Close,
+                                        promise);
   }
   mCloseCalled = true;
 
@@ -1104,23 +1111,31 @@ AudioContext::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
 
 NS_IMETHODIMP
 AudioContext::CollectReports(nsIHandleReportCallback* aHandleReport,
-                             nsISupports* aData, bool aAnonymize)
+                             nsISupports* aData,
+                             bool aAnonymize)
 {
-  const nsLiteralCString
-    nodeDescription("Memory used by AudioNode DOM objects (Web Audio).");
+  const nsLiteralCString nodeDescription(
+      "Memory used by AudioNode DOM objects (Web Audio).");
   for (auto iter = mAllNodes.ConstIter(); !iter.Done(); iter.Next()) {
     AudioNode* node = iter.Get()->GetKey();
     int64_t amount = node->SizeOfIncludingThis(MallocSizeOf);
     nsPrintfCString domNodePath("explicit/webaudio/audio-node/%s/dom-nodes",
                                 node->NodeType());
-    aHandleReport->Callback(EmptyCString(), domNodePath, KIND_HEAP, UNITS_BYTES,
-                            amount, nodeDescription, aData);
+    aHandleReport->Callback(EmptyCString(),
+                            domNodePath,
+                            KIND_HEAP,
+                            UNITS_BYTES,
+                            amount,
+                            nodeDescription,
+                            aData);
   }
 
   int64_t amount = SizeOfIncludingThis(MallocSizeOf);
-  MOZ_COLLECT_REPORT(
-    "explicit/webaudio/audiocontext", KIND_HEAP, UNITS_BYTES, amount,
-    "Memory used by AudioContext objects (Web Audio).");
+  MOZ_COLLECT_REPORT("explicit/webaudio/audiocontext",
+                     KIND_HEAP,
+                     UNITS_BYTES,
+                     amount,
+                     "Memory used by AudioContext objects (Web Audio).");
 
   return NS_OK;
 }
@@ -1136,12 +1151,11 @@ AudioContext::GetBasicWaveFormCache()
 }
 
 BasicWaveFormCache::BasicWaveFormCache(uint32_t aSampleRate)
-  : mSampleRate(aSampleRate)
+    : mSampleRate(aSampleRate)
 {
   MOZ_ASSERT(NS_IsMainThread());
 }
-BasicWaveFormCache::~BasicWaveFormCache()
-{ }
+BasicWaveFormCache::~BasicWaveFormCache() {}
 
 WebCore::PeriodicWave*
 BasicWaveFormCache::GetBasicWaveForm(OscillatorType aType)
@@ -1168,5 +1182,5 @@ BasicWaveFormCache::GetBasicWaveForm(OscillatorType aType)
   }
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

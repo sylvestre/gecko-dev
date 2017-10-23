@@ -17,12 +17,12 @@ namespace layers {
 class StackingContextHelper;
 class WebRenderParentCommand;
 class WebRenderLayerManager;
-} // namespace layers
+}  // namespace layers
 
 namespace wr {
 class DisplayListBuilder;
 class IpcResourceUpdateQueue;
-} // namespace wr
+}  // namespace wr
 
 // A CSSSizeOrRatio represents a (possibly partially specified) size for use
 // in computing image sizes. Either or both of the width and height might be
@@ -30,10 +30,7 @@ class IpcResourceUpdateQueue;
 // of these then we can compute a concrete size, that is a width and height.
 struct CSSSizeOrRatio
 {
-  CSSSizeOrRatio()
-    : mRatio(0, 0)
-    , mHasWidth(false)
-    , mHasHeight(false) {}
+  CSSSizeOrRatio() : mRatio(0, 0), mHasWidth(false), mHasHeight(false) {}
 
   bool CanComputeConcreteSize() const
   {
@@ -43,8 +40,7 @@ struct CSSSizeOrRatio
   bool HasRatio() const { return mRatio.width > 0 && mRatio.height > 0; }
   bool IsEmpty() const
   {
-    return (mHasWidth && mWidth <= 0) ||
-           (mHasHeight && mHeight <= 0) ||
+    return (mHasWidth && mWidth <= 0) || (mHasHeight && mHeight <= 0) ||
            mRatio.width <= 0 || mRatio.height <= 0;
   }
 
@@ -78,8 +74,9 @@ struct CSSSizeOrRatio
   }
   void SetRatio(const nsSize& aRatio)
   {
-    MOZ_ASSERT(!mHasWidth || !mHasHeight,
-               "Probably shouldn't be setting a ratio if we have a concrete size");
+    MOZ_ASSERT(
+        !mHasWidth || !mHasHeight,
+        "Probably shouldn't be setting a ratio if we have a concrete size");
     mRatio = aRatio;
   }
 
@@ -98,13 +95,15 @@ struct CSSSizeOrRatio
  * @note Always call the member functions in the order of PrepareImage(),
  * SetSize(), and Draw*().
  */
-class nsImageRenderer {
-public:
+class nsImageRenderer
+{
+ public:
   typedef mozilla::image::DrawResult DrawResult;
   typedef mozilla::layers::LayerManager LayerManager;
   typedef mozilla::layers::ImageContainer ImageContainer;
 
-  enum {
+  enum
+  {
     FLAG_SYNC_DECODE_IMAGES = 0x01,
     FLAG_PAINTING_TO_WINDOW = 0x02
   };
@@ -114,7 +113,9 @@ public:
     COVER
   };
 
-  nsImageRenderer(nsIFrame* aForFrame, const nsStyleImage* aImage, uint32_t aFlags);
+  nsImageRenderer(nsIFrame* aForFrame,
+                  const nsStyleImage* aImage,
+                  uint32_t aFlags);
   ~nsImageRenderer();
   /**
    * Populates member variables to get ready for rendering.
@@ -177,9 +178,10 @@ public:
    * contain constraints are given. The 'default algorithm' from the CSS Image
    * Values spec.
    */
-  static nsSize ComputeConcreteSize(const mozilla::CSSSizeOrRatio& aSpecifiedSize,
-                                    const mozilla::CSSSizeOrRatio& aIntrinsicSize,
-                                    const nsSize& aDefaultSize);
+  static nsSize ComputeConcreteSize(
+      const mozilla::CSSSizeOrRatio& aSpecifiedSize,
+      const mozilla::CSSSizeOrRatio& aIntrinsicSize,
+      const nsSize& aDefaultSize);
 
   /**
    * Set this image's preferred size. This will be its intrinsic size where
@@ -194,32 +196,33 @@ public:
    * {background|mask}-specific arguments.
    * @see nsLayoutUtils::DrawImage() for parameters.
    */
-  DrawResult DrawLayer(nsPresContext*       aPresContext,
-                       gfxContext&          aRenderingContext,
-                       const nsRect&        aDest,
-                       const nsRect&        aFill,
-                       const nsPoint&       aAnchor,
-                       const nsRect&        aDirty,
-                       const nsSize&        aRepeatSize,
-                       float                aOpacity);
+  DrawResult DrawLayer(nsPresContext* aPresContext,
+                       gfxContext& aRenderingContext,
+                       const nsRect& aDest,
+                       const nsRect& aFill,
+                       const nsPoint& aAnchor,
+                       const nsRect& aDirty,
+                       const nsSize& aRepeatSize,
+                       float aOpacity);
 
   /**
    * Builds WebRender DisplayItems for an image using
    * {background|mask}-specific arguments.
    * @see nsLayoutUtils::DrawImage() for parameters.
    */
-  DrawResult BuildWebRenderDisplayItemsForLayer(nsPresContext*       aPresContext,
-                                                mozilla::wr::DisplayListBuilder& aBuilder,
-                                                mozilla::wr::IpcResourceUpdateQueue& aResource,
-                                                const mozilla::layers::StackingContextHelper& aSc,
-                                                mozilla::layers::WebRenderLayerManager* aManager,
-                                                nsDisplayItem*       aItem,
-                                                const nsRect&        aDest,
-                                                const nsRect&        aFill,
-                                                const nsPoint&       aAnchor,
-                                                const nsRect&        aDirty,
-                                                const nsSize&        aRepeatSize,
-                                                float                aOpacity);
+  DrawResult BuildWebRenderDisplayItemsForLayer(
+      nsPresContext* aPresContext,
+      mozilla::wr::DisplayListBuilder& aBuilder,
+      mozilla::wr::IpcResourceUpdateQueue& aResource,
+      const mozilla::layers::StackingContextHelper& aSc,
+      mozilla::layers::WebRenderLayerManager* aManager,
+      nsDisplayItem* aItem,
+      const nsRect& aDest,
+      const nsRect& aFill,
+      const nsPoint& aAnchor,
+      const nsRect& aDirty,
+      const nsSize& aRepeatSize,
+      float aOpacity);
 
   /**
    * Draw the image to a single component of a border-image style rendering.
@@ -240,18 +243,18 @@ public:
    * aHasIntrinsicRatio is used to record if the source image has fixed
    * intrinsic ratio.
    */
-  DrawResult
-  DrawBorderImageComponent(nsPresContext*       aPresContext,
-                           gfxContext&          aRenderingContext,
-                           const nsRect&        aDirtyRect,
-                           const nsRect&        aFill,
-                           const mozilla::CSSIntRect& aSrc,
-                           uint8_t              aHFill,
-                           uint8_t              aVFill,
-                           const nsSize&        aUnitSize,
-                           uint8_t              aIndex,
-                           const mozilla::Maybe<nsSize>& aSVGViewportSize,
-                           const bool           aHasIntrinsicRatio);
+  DrawResult DrawBorderImageComponent(
+      nsPresContext* aPresContext,
+      gfxContext& aRenderingContext,
+      const nsRect& aDirtyRect,
+      const nsRect& aFill,
+      const mozilla::CSSIntRect& aSrc,
+      uint8_t aHFill,
+      uint8_t aVFill,
+      const nsSize& aUnitSize,
+      uint8_t aIndex,
+      const mozilla::Maybe<nsSize>& aSVGViewportSize,
+      const bool aHasIntrinsicRatio);
 
   bool IsRasterImage();
   bool IsAnimatedImage();
@@ -259,17 +262,18 @@ public:
   /// Retrieves the image associated with this nsImageRenderer, if there is one.
   already_AddRefed<imgIContainer> GetImage();
 
-  bool IsImageContainerAvailable(layers::LayerManager* aManager, uint32_t aFlags);
+  bool IsImageContainerAvailable(layers::LayerManager* aManager,
+                                 uint32_t aFlags);
   bool IsReady() const { return mPrepareResult == DrawResult::SUCCESS; }
   DrawResult PrepareResult() const { return mPrepareResult; }
   void SetExtendMode(mozilla::gfx::ExtendMode aMode) { mExtendMode = aMode; }
   void SetMaskOp(uint8_t aMaskOp) { mMaskOp = aMaskOp; }
-  void PurgeCacheForViewportChange(const mozilla::Maybe<nsSize>& aSVGViewportSize,
-                                   const bool aHasRatio);
+  void PurgeCacheForViewportChange(
+      const mozilla::Maybe<nsSize>& aSVGViewportSize, const bool aHasRatio);
   nsStyleImageType GetType() const { return mType; }
   already_AddRefed<nsStyleGradient> GetGradientData();
 
-private:
+ private:
   /**
    * Draws the image to the target rendering context.
    * aSrc is a rect on the source image which will be mapped to aDest; it's
@@ -277,15 +281,15 @@ private:
    *
    * @see nsLayoutUtils::DrawImage() for other parameters.
    */
-  DrawResult Draw(nsPresContext*       aPresContext,
-                  gfxContext&          aRenderingContext,
-                  const nsRect&        aDirtyRect,
-                  const nsRect&        aDest,
-                  const nsRect&        aFill,
-                  const nsPoint&       aAnchor,
-                  const nsSize&        aRepeatSize,
+  DrawResult Draw(nsPresContext* aPresContext,
+                  gfxContext& aRenderingContext,
+                  const nsRect& aDirtyRect,
+                  const nsRect& aDest,
+                  const nsRect& aFill,
+                  const nsPoint& aAnchor,
+                  const nsSize& aRepeatSize,
                   const mozilla::CSSIntRect& aSrc,
-                  float                aOpacity = 1.0);
+                  float aOpacity = 1.0);
 
   /**
    * Builds WebRender DisplayItems for the image.
@@ -294,19 +298,20 @@ private:
    *
    * @see nsLayoutUtils::DrawImage() for other parameters.
    */
-  DrawResult BuildWebRenderDisplayItems(nsPresContext*       aPresContext,
-                                        mozilla::wr::DisplayListBuilder& aBuilder,
-                                        mozilla::wr::IpcResourceUpdateQueue& aResources,
-                                        const mozilla::layers::StackingContextHelper& aSc,
-                                        mozilla::layers::WebRenderLayerManager* aManager,
-                                        nsDisplayItem*       aItem,
-                                        const nsRect&        aDirtyRect,
-                                        const nsRect&        aDest,
-                                        const nsRect&        aFill,
-                                        const nsPoint&       aAnchor,
-                                        const nsSize&        aRepeatSize,
-                                        const mozilla::CSSIntRect& aSrc,
-                                        float                aOpacity = 1.0);
+  DrawResult BuildWebRenderDisplayItems(
+      nsPresContext* aPresContext,
+      mozilla::wr::DisplayListBuilder& aBuilder,
+      mozilla::wr::IpcResourceUpdateQueue& aResources,
+      const mozilla::layers::StackingContextHelper& aSc,
+      mozilla::layers::WebRenderLayerManager* aManager,
+      nsDisplayItem* aItem,
+      const nsRect& aDirtyRect,
+      const nsRect& aDest,
+      const nsRect& aFill,
+      const nsPoint& aAnchor,
+      const nsSize& aRepeatSize,
+      const mozilla::CSSIntRect& aSrc,
+      float aOpacity = 1.0);
 
   /**
    * Helper method for creating a gfxDrawable from mPaintServerFrame or
@@ -315,22 +320,22 @@ private:
    * Returns null if we cannot create the drawable.
    */
   already_AddRefed<gfxDrawable> DrawableForElement(const nsRect& aImageRect,
-                                                   gfxContext&  aContext);
+                                                   gfxContext& aContext);
 
-  nsIFrame*                 mForFrame;
-  const nsStyleImage*       mImage;
-  nsStyleImageType          mType;
-  nsCOMPtr<imgIContainer>   mImageContainer;
+  nsIFrame* mForFrame;
+  const nsStyleImage* mImage;
+  nsStyleImageType mType;
+  nsCOMPtr<imgIContainer> mImageContainer;
   RefPtr<nsStyleGradient> mGradientData;
-  nsIFrame*                 mPaintServerFrame;
+  nsIFrame* mPaintServerFrame;
   nsLayoutUtils::SurfaceFromElementResult mImageElementSurface;
-  DrawResult                mPrepareResult;
-  nsSize                    mSize; // unscaled size of the image, in app units
-  uint32_t                  mFlags;
-  mozilla::gfx::ExtendMode  mExtendMode;
-  uint8_t                   mMaskOp;
+  DrawResult mPrepareResult;
+  nsSize mSize;  // unscaled size of the image, in app units
+  uint32_t mFlags;
+  mozilla::gfx::ExtendMode mExtendMode;
+  uint8_t mMaskOp;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* nsImageRenderer_h__ */

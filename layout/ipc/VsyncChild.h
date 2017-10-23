@@ -16,7 +16,7 @@ class VsyncObserver;
 
 namespace ipc {
 class BackgroundChildImpl;
-} // namespace ipc
+}  // namespace ipc
 
 namespace layout {
 
@@ -30,7 +30,7 @@ class VsyncChild final : public PVsyncChild
 
   friend class mozilla::ipc::BackgroundChildImpl;
 
-public:
+ public:
   // Hide the SendObserve/SendUnobserve in PVsyncChild. We add an flag
   // mObservingVsync to handle the race problem of unobserving vsync event.
   bool SendObserve();
@@ -48,12 +48,14 @@ public:
   // GetVsyncRate.
   TimeDuration VsyncRate();
 
-private:
+ private:
   VsyncChild();
   virtual ~VsyncChild();
 
-  virtual mozilla::ipc::IPCResult RecvNotify(const TimeStamp& aVsyncTimestamp) override;
-  virtual mozilla::ipc::IPCResult RecvVsyncRate(const float& aVsyncRate) override;
+  virtual mozilla::ipc::IPCResult RecvNotify(
+      const TimeStamp& aVsyncTimestamp) override;
+  virtual mozilla::ipc::IPCResult RecvVsyncRate(
+      const float& aVsyncRate) override;
   virtual void ActorDestroy(ActorDestroyReason aActorDestroyReason) override;
 
   bool mObservingVsync;
@@ -64,7 +66,7 @@ private:
   TimeDuration mVsyncRate;
 };
 
-} // namespace layout
-} // namespace mozilla
+}  // namespace layout
+}  // namespace mozilla
 
 #endif  // mozilla_layout_ipc_VsyncChild_h

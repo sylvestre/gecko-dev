@@ -23,8 +23,7 @@ catch (e)          \n\
 }\n\
 //@ sourceMappingURL=http://example.com/path/to/source-map.json";
 
-BEGIN_TEST(testScriptInfo)
-{
+BEGIN_TEST(testScriptInfo) {
     unsigned startLine = 1000;
 
     JS::CompileOptions options(cx);
@@ -38,12 +37,9 @@ BEGIN_TEST(testScriptInfo)
 
     return true;
 }
-static bool
-CharsMatch(const char16_t* p, const char* q)
-{
+static bool CharsMatch(const char16_t* p, const char* q) {
     while (*q) {
-        if (*p++ != *q++)
-            return false;
+        if (*p++ != *q++) return false;
     }
     return true;
 }

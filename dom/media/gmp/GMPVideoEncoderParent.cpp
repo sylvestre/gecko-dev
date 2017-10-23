@@ -25,7 +25,8 @@ namespace mozilla {
 #undef LOG
 #endif
 
-extern LogModule* GetGMPLog();
+extern LogModule*
+GetGMPLog();
 
 #define LOGD(msg) MOZ_LOG(GetGMPLog(), mozilla::LogLevel::Debug, msg)
 #define LOG(level, msg) MOZ_LOG(GetGMPLog(), (level), msg)
@@ -47,15 +48,15 @@ namespace gmp {
 //    on Shutdown -> Dead
 // Dead: mIsOpen == false
 
-GMPVideoEncoderParent::GMPVideoEncoderParent(GMPContentParent *aPlugin)
-: GMPSharedMemManager(aPlugin),
-  mIsOpen(false),
-  mShuttingDown(false),
-  mActorDestroyed(false),
-  mPlugin(aPlugin),
-  mCallback(nullptr),
-  mVideoHost(this),
-  mPluginId(aPlugin->GetPluginId())
+GMPVideoEncoderParent::GMPVideoEncoderParent(GMPContentParent* aPlugin)
+    : GMPSharedMemManager(aPlugin),
+      mIsOpen(false),
+      mShuttingDown(false),
+      mActorDestroyed(false),
+      mPlugin(aPlugin),
+      mCallback(nullptr),
+      mVideoHost(this),
+      mPluginId(aPlugin->GetPluginId())
 {
   MOZ_ASSERT(mPlugin);
 }
@@ -94,7 +95,8 @@ GMPVideoEncoderParent::InitEncode(const GMPVideoCodec& aCodecSettings,
   LOGD(("%s::%s: %p", __CLASS__, __FUNCTION__, this));
   if (mIsOpen) {
     NS_WARNING("Trying to re-init an in-use GMP video encoder!");
-    return GMPGenericErr;;
+    return GMPGenericErr;
+    ;
   }
 
   MOZ_ASSERT(mPlugin->GMPEventTarget()->IsOnCurrentThread());
@@ -105,7 +107,8 @@ GMPVideoEncoderParent::InitEncode(const GMPVideoCodec& aCodecSettings,
   }
   mCallback = aCallback;
 
-  if (!SendInitEncode(aCodecSettings, aCodecSpecific, aNumberOfCores, aMaxPayloadSize)) {
+  if (!SendInitEncode(
+          aCodecSettings, aCodecSpecific, aNumberOfCores, aMaxPayloadSize)) {
     return GMPGenericErr;
   }
   mIsOpen = true;
@@ -127,12 +130,13 @@ GMPVideoEncoderParent::Encode(GMPUniquePtr<GMPVideoi420Frame> aInputFrame,
   MOZ_ASSERT(mPlugin->GMPEventTarget()->IsOnCurrentThread());
 
   GMPUniquePtr<GMPVideoi420FrameImpl> inputFrameImpl(
-    static_cast<GMPVideoi420FrameImpl*>(aInputFrame.release()));
+      static_cast<GMPVideoi420FrameImpl*>(aInputFrame.release()));
 
   // Very rough kill-switch if the plugin stops processing.  If it's merely
   // hung and continues, we'll come back to life eventually.
   // 3* is because we're using 3 buffers per frame for i420 data for now.
-  if ((NumInUse(GMPSharedMem::kGMPFrameData) > 3*GMPSharedMem::kGMPBufLimit) ||
+  if ((NumInUse(GMPSharedMem::kGMPFrameData) >
+       3 * GMPSharedMem::kGMPBufLimit) ||
       (NumInUse(GMPSharedMem::kGMPEncodedData) > GMPSharedMem::kGMPBufLimit)) {
     return GMPGenericErr;
   }
@@ -140,9 +144,7 @@ GMPVideoEncoderParent::Encode(GMPUniquePtr<GMPVideoi420Frame> aInputFrame,
   GMPVideoi420FrameData frameData;
   inputFrameImpl->InitFrameData(frameData);
 
-  if (!SendEncode(frameData,
-                  aCodecSpecificInfo,
-                  aFrameTypes)) {
+  if (!SendEncode(frameData, aCodecSpecificInfo, aFrameTypes)) {
     return GMPGenericErr;
   }
 
@@ -232,7 +234,7 @@ GMPVideoEncoderParent::Shutdown()
 void
 GMPVideoEncoderParent::ActorDestroy(ActorDestroyReason aWhy)
 {
-  LOGD(("%s::%s: %p (%d)", __CLASS__, __FUNCTION__, this, (int) aWhy));
+  LOGD(("%s::%s: %p (%d)", __CLASS__, __FUNCTION__, this, (int)aWhy));
   mIsOpen = false;
   mActorDestroyed = true;
   if (mCallback) {
@@ -245,13 +247,14 @@ GMPVideoEncoderParent::ActorDestroy(ActorDestroyReason aWhy)
     mPlugin->VideoEncoderDestroyed(this);
     mPlugin = nullptr;
   }
-  mVideoHost.ActorDestroyed(); // same as DoneWithAPI
+  mVideoHost.ActorDestroyed();  // same as DoneWithAPI
   MaybeDisconnect(aWhy == AbnormalShutdown);
 }
 
 mozilla::ipc::IPCResult
-GMPVideoEncoderParent::RecvEncoded(const GMPVideoEncodedFrameData& aEncodedFrame,
-                                   InfallibleTArray<uint8_t>&& aCodecSpecificInfo)
+GMPVideoEncoderParent::RecvEncoded(
+    const GMPVideoEncodedFrameData& aEncodedFrame,
+    InfallibleTArray<uint8_t>&& aCodecSpecificInfo)
 {
   if (!mCallback) {
     return IPC_FAIL_NO_REASON(this);
@@ -295,7 +298,10 @@ GMPVideoEncoderParent::RecvParentShmemForPool(Shmem&& aFrameBuffer)
       mVideoHost.SharedMemMgr()->MgrDeallocShmem(GMPSharedMem::kGMPFrameData,
                                                  aFrameBuffer);
     } else {
-      LOGD(("%s::%s: %p Called in shutdown, ignoring and freeing directly", __CLASS__, __FUNCTION__, this));
+      LOGD(("%s::%s: %p Called in shutdown, ignoring and freeing directly",
+            __CLASS__,
+            __FUNCTION__,
+            this));
       DeallocShmem(aFrameBuffer);
     }
   }
@@ -313,10 +319,13 @@ GMPVideoEncoderParent::AnswerNeedShmem(const uint32_t& aEncodedBufferSize,
   if (!mVideoHost.SharedMemMgr() ||
       !mVideoHost.SharedMemMgr()->MgrAllocShmem(GMPSharedMem::kGMPEncodedData,
                                                 aEncodedBufferSize,
-                                                ipc::SharedMemory::TYPE_BASIC, &mem))
-  {
-    LOG(LogLevel::Error, ("%s::%s: Failed to get a shared mem buffer for Child! size %u",
-                       __CLASS__, __FUNCTION__, aEncodedBufferSize));
+                                                ipc::SharedMemory::TYPE_BASIC,
+                                                &mem)) {
+    LOG(LogLevel::Error,
+        ("%s::%s: Failed to get a shared mem buffer for Child! size %u",
+         __CLASS__,
+         __FUNCTION__,
+         aEncodedBufferSize));
     return IPC_FAIL_NO_REASON(this);
   }
   *aMem = mem;
@@ -336,5 +345,5 @@ GMPVideoEncoderParent::Recv__delete__()
   return IPC_OK();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

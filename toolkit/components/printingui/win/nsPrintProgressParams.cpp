@@ -6,16 +6,11 @@
 #include "nsPrintProgressParams.h"
 #include "nsReadableUtils.h"
 
-
 NS_IMPL_ISUPPORTS(nsPrintProgressParams, nsIPrintProgressParams)
 
-nsPrintProgressParams::nsPrintProgressParams()
-{
-}
+nsPrintProgressParams::nsPrintProgressParams() {}
 
-nsPrintProgressParams::~nsPrintProgressParams()
-{
-}
+nsPrintProgressParams::~nsPrintProgressParams() {}
 
 NS_IMETHODIMP
 nsPrintProgressParams::GetDocTitle(nsAString& aDocTitle)
@@ -44,4 +39,3 @@ nsPrintProgressParams::SetDocURL(const nsAString& aDocURL)
   mDocURL = aDocURL;
   return NS_OK;
 }
-

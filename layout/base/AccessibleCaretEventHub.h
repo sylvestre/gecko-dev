@@ -65,7 +65,7 @@ class AccessibleCaretEventHub : public nsIReflowObserver,
                                 public nsISelectionListener,
                                 public nsSupportsWeakReference
 {
-public:
+ public:
   explicit AccessibleCaretEventHub(nsIPresShell* aPresShell);
   void Init();
   void Terminate();
@@ -88,18 +88,18 @@ public:
   class State;
   State* GetState() const;
 
-protected:
+ protected:
   virtual ~AccessibleCaretEventHub();
 
-#define MOZ_DECL_STATE_CLASS_GETTER(aClassName)                                \
-  class aClassName;                                                            \
+#define MOZ_DECL_STATE_CLASS_GETTER(aClassName) \
+  class aClassName;                             \
   static State* aClassName();
 
-#define MOZ_IMPL_STATE_CLASS_GETTER(aClassName)                                \
-  AccessibleCaretEventHub::State* AccessibleCaretEventHub::aClassName()        \
-  {                                                                            \
-    static class aClassName singleton;                                         \
-    return &singleton;                                                         \
+#define MOZ_IMPL_STATE_CLASS_GETTER(aClassName)                         \
+  AccessibleCaretEventHub::State* AccessibleCaretEventHub::aClassName() \
+  {                                                                     \
+    static class aClassName singleton;                                  \
+    return &singleton;                                                  \
   }
 
   // Concrete state getters
@@ -149,7 +149,7 @@ protected:
   nsCOMPtr<nsITimer> mScrollEndInjectorTimer;
 
   // Last mouse button down event or touch start event point.
-  nsPoint mPressPoint{ NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE };
+  nsPoint mPressPoint{NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE};
 
   // For filter multitouch event
   int32_t mActiveTouchId = kInvalidTouchId;
@@ -166,7 +166,7 @@ protected:
   static const int32_t kScrollEndTimerDelay = 300;
   static const int32_t kMoveStartToleranceInPixel = 5;
   static const int32_t kInvalidTouchId = -1;
-  static const int32_t kDefaultTouchId = 0; // For mouse event
+  static const int32_t kDefaultTouchId = 0;  // For mouse event
 };
 
 // -----------------------------------------------------------------------------
@@ -176,11 +176,12 @@ protected:
 //
 class AccessibleCaretEventHub::State
 {
-public:
+ public:
   virtual const char* Name() const { return ""; }
 
   virtual nsEventStatus OnPress(AccessibleCaretEventHub* aContext,
-                                const nsPoint& aPoint, int32_t aTouchId,
+                                const nsPoint& aPoint,
+                                int32_t aTouchId,
                                 EventClassID aEventClass)
   {
     return nsEventStatus_eIgnore;
@@ -207,10 +208,15 @@ public:
   virtual void OnScrollEnd(AccessibleCaretEventHub* aContext) {}
   virtual void OnScrollPositionChanged(AccessibleCaretEventHub* aContext) {}
   virtual void OnBlur(AccessibleCaretEventHub* aContext,
-                      bool aIsLeavingDocument) {}
+                      bool aIsLeavingDocument)
+  {
+  }
   virtual void OnSelectionChanged(AccessibleCaretEventHub* aContext,
-                                  nsIDOMDocument* aDoc, nsISelection* aSel,
-                                  int16_t aReason) {}
+                                  nsIDOMDocument* aDoc,
+                                  nsISelection* aSel,
+                                  int16_t aReason)
+  {
+  }
   virtual void OnReflow(AccessibleCaretEventHub* aContext) {}
   virtual void Enter(AccessibleCaretEventHub* aContext) {}
   virtual void Leave(AccessibleCaretEventHub* aContext) {}
@@ -221,6 +227,6 @@ public:
   State& operator=(const State&) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // AccessibleCaretEventHub_h
+#endif  // AccessibleCaretEventHub_h

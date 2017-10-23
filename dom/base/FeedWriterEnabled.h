@@ -9,11 +9,12 @@
 
 namespace mozilla {
 
-struct FeedWriterEnabled {
+struct FeedWriterEnabled
+{
   static bool IsEnabled(JSContext* cx, JSObject* aGlobal)
   {
     return nsContentUtils::IsSpecificAboutPage(aGlobal, "about:feeds");
   }
 };
 
-}
+}  // namespace mozilla

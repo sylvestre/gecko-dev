@@ -16,7 +16,8 @@
 
 namespace mozilla {
 // Alignment Types
-enum SVGAlign : uint8_t {
+enum SVGAlign : uint8_t
+{
   SVG_PRESERVEASPECTRATIO_UNKNOWN = 0,
   SVG_PRESERVEASPECTRATIO_NONE = 1,
   SVG_PRESERVEASPECTRATIO_XMINYMIN = 2,
@@ -36,7 +37,8 @@ const uint16_t SVG_ALIGN_MIN_VALID = SVG_PRESERVEASPECTRATIO_NONE;
 const uint16_t SVG_ALIGN_MAX_VALID = SVG_PRESERVEASPECTRATIO_XMAXYMAX;
 
 // Meet-or-slice Types
-enum SVGMeetOrSlice : uint8_t {
+enum SVGMeetOrSlice : uint8_t
+{
   SVG_MEETORSLICE_UNKNOWN = 0,
   SVG_MEETORSLICE_MEET = 1,
   SVG_MEETORSLICE_SLICE = 2
@@ -52,16 +54,18 @@ class SVGAnimatedPreserveAspectRatio;
 class SVGPreserveAspectRatio final
 {
   friend class SVGAnimatedPreserveAspectRatio;
-public:
+
+ public:
   explicit SVGPreserveAspectRatio()
-    : mAlign(SVG_PRESERVEASPECTRATIO_UNKNOWN)
-    , mMeetOrSlice(SVG_MEETORSLICE_UNKNOWN)
-  {}
+      : mAlign(SVG_PRESERVEASPECTRATIO_UNKNOWN),
+        mMeetOrSlice(SVG_MEETORSLICE_UNKNOWN)
+  {
+  }
 
   SVGPreserveAspectRatio(SVGAlign aAlign, SVGMeetOrSlice aMeetOrSlice)
-    : mAlign(aAlign)
-    , mMeetOrSlice(aMeetOrSlice)
-  {}
+      : mAlign(aAlign), mMeetOrSlice(aMeetOrSlice)
+  {
+  }
 
   static nsresult FromString(const nsAString& aString,
                              SVGPreserveAspectRatio* aValue);
@@ -69,18 +73,18 @@ public:
 
   bool operator==(const SVGPreserveAspectRatio& aOther) const;
 
-  nsresult SetAlign(uint16_t aAlign) {
+  nsresult SetAlign(uint16_t aAlign)
+  {
     if (aAlign < SVG_ALIGN_MIN_VALID || aAlign > SVG_ALIGN_MAX_VALID)
       return NS_ERROR_FAILURE;
     mAlign = static_cast<uint8_t>(aAlign);
     return NS_OK;
   }
 
-  SVGAlign GetAlign() const {
-    return static_cast<SVGAlign>(mAlign);
-  }
+  SVGAlign GetAlign() const { return static_cast<SVGAlign>(mAlign); }
 
-  nsresult SetMeetOrSlice(uint16_t aMeetOrSlice) {
+  nsresult SetMeetOrSlice(uint16_t aMeetOrSlice)
+  {
     if (aMeetOrSlice < SVG_MEETORSLICE_MIN_VALID ||
         aMeetOrSlice > SVG_MEETORSLICE_MAX_VALID)
       return NS_ERROR_FAILURE;
@@ -88,15 +92,14 @@ public:
     return NS_OK;
   }
 
-  SVGMeetOrSlice GetMeetOrSlice() const {
+  SVGMeetOrSlice GetMeetOrSlice() const
+  {
     return static_cast<SVGMeetOrSlice>(mMeetOrSlice);
   }
 
-  PLDHashNumber Hash() const {
-    return HashGeneric(mAlign, mMeetOrSlice);
-  }
+  PLDHashNumber Hash() const { return HashGeneric(mAlign, mMeetOrSlice); }
 
-private:
+ private:
   // We can't use enum types here because some compilers fail to pack them.
   uint8_t mAlign;
   uint8_t mMeetOrSlice;
@@ -107,35 +110,37 @@ namespace dom {
 class DOMSVGPreserveAspectRatio final : public nsISupports,
                                         public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGPreserveAspectRatio)
 
   DOMSVGPreserveAspectRatio(SVGAnimatedPreserveAspectRatio* aVal,
-                            nsSVGElement *aSVGElement,
+                            nsSVGElement* aSVGElement,
                             bool aIsBaseValue)
-    : mVal(aVal), mSVGElement(aSVGElement), mIsBaseValue(aIsBaseValue)
+      : mVal(aVal), mSVGElement(aSVGElement), mIsBaseValue(aIsBaseValue)
   {
   }
 
   // WebIDL
   nsSVGElement* GetParentObject() const { return mSVGElement; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   uint16_t Align();
   void SetAlign(uint16_t aAlign, ErrorResult& rv);
   uint16_t MeetOrSlice();
   void SetMeetOrSlice(uint16_t aMeetOrSlice, ErrorResult& rv);
 
-protected:
+ protected:
   ~DOMSVGPreserveAspectRatio();
 
-  SVGAnimatedPreserveAspectRatio* mVal; // kept alive because it belongs to mSVGElement
+  SVGAnimatedPreserveAspectRatio*
+      mVal;  // kept alive because it belongs to mSVGElement
   RefPtr<nsSVGElement> mSVGElement;
   const bool mIsBaseValue;
 };
 
-} //namespace dom
-} //namespace mozilla
+}  //namespace dom
+}  //namespace mozilla
 
-#endif // MOZILLA_CONTENT_SVGPRESERVEASPECTRATIO_H_
+#endif  // MOZILLA_CONTENT_SVGPRESERVEASPECTRATIO_H_

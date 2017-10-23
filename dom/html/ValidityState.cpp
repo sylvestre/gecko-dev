@@ -23,7 +23,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ValidityState)
 NS_INTERFACE_MAP_END
 
 ValidityState::ValidityState(nsIConstraintValidation* aConstraintValidation)
-  : mConstraintValidation(aConstraintValidation)
+    : mConstraintValidation(aConstraintValidation)
 {
 }
 
@@ -110,6 +110,5 @@ ValidityState::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return ValidityStateBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

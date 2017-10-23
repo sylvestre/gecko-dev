@@ -16,16 +16,16 @@ namespace mozilla {
 
 class RemoteDataDecoder : public MediaDataDecoder
 {
-public:
-  static already_AddRefed<MediaDataDecoder>
-  CreateAudioDecoder(const CreateDecoderParams& aParams,
-                     const nsString& aDrmStubId,
-                     CDMProxy* aProxy);
+ public:
+  static already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
+      const CreateDecoderParams& aParams,
+      const nsString& aDrmStubId,
+      CDMProxy* aProxy);
 
-  static already_AddRefed<MediaDataDecoder>
-  CreateVideoDecoder(const CreateDecoderParams& aParams,
-                     const nsString& aDrmStubId,
-                     CDMProxy* aProxy);
+  static already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+      const CreateDecoderParams& aParams,
+      const nsString& aDrmStubId,
+      CDMProxy* aProxy);
 
   RefPtr<DecodePromise> Decode(MediaRawData* aSample) override;
   RefPtr<DecodePromise> Drain() override;
@@ -36,12 +36,13 @@ public:
     return NS_LITERAL_CSTRING("android decoder (remote)");
   }
 
-protected:
-  virtual ~RemoteDataDecoder() { }
+ protected:
+  virtual ~RemoteDataDecoder() {}
   RemoteDataDecoder(MediaData::Type aType,
                     const nsACString& aMimeType,
                     java::sdk::MediaFormat::Param aFormat,
-                    const nsString& aDrmStubId, TaskQueue* aTaskQueue);
+                    const nsString& aDrmStubId,
+                    TaskQueue* aTaskQueue);
 
   // Methods only called on mTaskQueue.
   RefPtr<ShutdownPromise> ProcessShutdown();
@@ -50,10 +51,7 @@ protected:
   void ReturnDecodedData();
   void DrainComplete();
   void Error(const MediaResult& aError);
-  void AssertOnTaskQueue()
-  {
-    MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
-  }
+  void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
 
   // Whether the sample will be used.
   virtual bool IsUsefulData(const RefPtr<MediaData>& aSample) { return true; }
@@ -83,6 +81,6 @@ protected:
   size_t mNumPendingInputs;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

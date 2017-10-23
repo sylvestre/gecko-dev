@@ -23,9 +23,10 @@ class HTMLSharedElement final : public nsGenericHTMLElement,
                                 public nsIDOMHTMLBaseElement,
                                 public nsIDOMHTMLHtmlElement
 {
-public:
-  explicit HTMLSharedElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLSharedElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
     if (mNodeInfo->Equals(nsGkAtoms::head) ||
         mNodeInfo->Equals(nsGkAtoms::html)) {
@@ -44,21 +45,24 @@ public:
 
   // nsIContent
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
 
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
 
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL API
@@ -135,10 +139,7 @@ public:
   }
 
   // HTMLQuoteElement
-  void GetCite(nsString& aCite)
-  {
-    GetHTMLURIAttr(nsGkAtoms::cite, aCite);
-  }
+  void GetCite(nsString& aCite) { GetHTMLURIAttr(nsGkAtoms::cite, aCite); }
 
   void SetCite(const nsAString& aValue, ErrorResult& aResult)
   {
@@ -159,19 +160,21 @@ public:
     SetHTMLAttr(nsGkAtoms::version, aValue, aResult);
   }
 
-protected:
+ protected:
   virtual ~HTMLSharedElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLSharedElement_h
+#endif  // mozilla_dom_HTMLSharedElement_h

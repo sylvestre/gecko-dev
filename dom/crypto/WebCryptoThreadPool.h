@@ -13,32 +13,26 @@
 namespace mozilla {
 namespace dom {
 
-class WebCryptoThreadPool final : nsIObserver {
-public:
+class WebCryptoThreadPool final : nsIObserver
+{
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-  static void
-  Initialize();
+  static void Initialize();
 
-  static nsresult
-  Dispatch(nsIRunnable* aRunnable);
+  static nsresult Dispatch(nsIRunnable* aRunnable);
 
-private:
-  WebCryptoThreadPool()
-    : mMutex("WebCryptoThreadPool::mMutex")
-    , mPool(nullptr)
-  { }
-  virtual ~WebCryptoThreadPool()
-  { }
+ private:
+  WebCryptoThreadPool() : mMutex("WebCryptoThreadPool::mMutex"), mPool(nullptr)
+  {
+  }
+  virtual ~WebCryptoThreadPool() {}
 
-  nsresult
-  Init();
+  nsresult Init();
 
-  nsresult
-  DispatchInternal(nsIRunnable* aRunnable);
+  nsresult DispatchInternal(nsIRunnable* aRunnable);
 
-  void
-  Shutdown();
+  void Shutdown();
 
   NS_IMETHOD Observe(nsISupports* aSubject,
                      const char* aTopic,
@@ -48,7 +42,7 @@ private:
   nsCOMPtr<nsIThreadPool> mPool;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WebCryptoThreadPool_h
+#endif  // mozilla_dom_WebCryptoThreadPool_h

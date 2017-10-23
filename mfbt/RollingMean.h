@@ -29,21 +29,19 @@ namespace mozilla {
 template<typename T, typename S>
 class RollingMean
 {
-private:
+ private:
   size_t mInsertIndex;
   size_t mMaxValues;
   Vector<T> mValues;
   S mTotal;
 
-public:
+ public:
   static_assert(!IsFloatingPoint<T>::value,
                 "floating-point types are unsupported due to rounding "
                 "errors");
 
   explicit RollingMean(size_t aMaxValues)
-    : mInsertIndex(0),
-      mMaxValues(aMaxValues),
-      mTotal(0)
+      : mInsertIndex(0), mMaxValues(aMaxValues), mTotal(0)
   {
     MOZ_ASSERT(aMaxValues > 0);
   }
@@ -52,7 +50,7 @@ public:
   {
     MOZ_ASSERT(this != &aOther, "self-assignment is forbidden");
     this->~RollingMean();
-    new(this) RollingMean(aOther.mMaxValues);
+    new (this) RollingMean(aOther.mMaxValues);
     mInsertIndex = aOther.mInsertIndex;
     mTotal = aOther.mTotal;
     mValues.swap(aOther.mValues);
@@ -89,10 +87,7 @@ public:
     return T(mTotal / int64_t(mValues.length()));
   }
 
-  bool empty()
-  {
-    return mValues.empty();
-  }
+  bool empty() { return mValues.empty(); }
 
   /**
    * Remove all values from the rolling mean.
@@ -104,12 +99,9 @@ public:
     mTotal = T(0);
   }
 
-  size_t maxValues()
-  {
-    return mMaxValues;
-  }
+  size_t maxValues() { return mMaxValues; }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_RollingMean_h_
+#endif  // mozilla_RollingMean_h_

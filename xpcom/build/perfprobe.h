@@ -22,7 +22,7 @@
 #include "nsTArray.h"
 #include "nsAutoPtr.h"
 #include <windows.h>
-#undef GetStartupInfo //Prevent Windows from polluting global namespace
+#undef GetStartupInfo  //Prevent Windows from polluting global namespace
 #include <wmistr.h>
 #include <evntrace.h>
 
@@ -38,7 +38,7 @@ class ProbeManager;
 
 class Probe
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(Probe)
 
   /**
@@ -48,14 +48,13 @@ public:
    */
   nsresult Trigger();
 
-protected:
-  ~Probe() {};
+ protected:
+  ~Probe(){};
 
   Probe(const nsCID& aGUID, const nsACString& aName, ProbeManager* aManager);
   friend class ProbeManager;
 
-protected:
-
+ protected:
   /**
    * The system GUID associated to this probe. See the documentation
    * of |ProbeManager::Make| for more details.
@@ -76,7 +75,6 @@ protected:
   class ProbeManager* mManager;
 };
 
-
 /**
  * A manager for a group of probes.
  *
@@ -86,7 +84,7 @@ protected:
  */
 class ProbeManager
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(ProbeManager)
 
   /**
@@ -146,14 +144,14 @@ public:
    */
   bool IsActive();
 
-protected:
+ protected:
   ~ProbeManager();
 
   nsresult StartSession(nsTArray<RefPtr<Probe>>& aProbes);
   nsresult Init(const nsCID& aApplicationUID,
                 const nsACString& aApplicationName);
 
-protected:
+ protected:
   /**
    * `true` if a session is in activity, `false` otherwise.
    */
@@ -198,7 +196,7 @@ protected:
                                       PVOID aBuffer);  // Sets |mSessionHandle|
 };
 
-} // namespace probes
-} // namespace mozilla
+}  // namespace probes
+}  // namespace mozilla
 
-#endif //mozilla_perfprobe_h
+#endif  //mozilla_perfprobe_h

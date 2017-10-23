@@ -20,60 +20,68 @@
 
 class FileSystemDataSource final : public nsIRDFDataSource
 {
-public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIRDFDATASOURCE
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIRDFDATASOURCE
 
-    static nsresult Create(nsISupports* aOuter,
-                           const nsIID& aIID, void **aResult);
+  static nsresult Create(nsISupports* aOuter,
+                         const nsIID& aIID,
+                         void** aResult);
 
-    nsresult Init();
+  nsresult Init();
 
-private:
-    FileSystemDataSource() { }
-    ~FileSystemDataSource() { }
+ private:
+  FileSystemDataSource() {}
+  ~FileSystemDataSource() {}
 
-    // helper methods
-    bool     isFileURI(nsIRDFResource* aResource);
-    bool     isDirURI(nsIRDFResource* aSource);
-    nsresult GetVolumeList(nsISimpleEnumerator **aResult);
-    nsresult GetFolderList(nsIRDFResource *source, bool allowHidden, bool onlyFirst, nsISimpleEnumerator **aResult);
-    nsresult GetName(nsIRDFResource *source, nsIRDFLiteral** aResult);
-    nsresult GetURL(nsIRDFResource *source, bool *isFavorite, nsIRDFLiteral** aResult);
-    nsresult GetFileSize(nsIRDFResource *source, nsIRDFInt** aResult);
-    nsresult GetLastMod(nsIRDFResource *source, nsIRDFDate** aResult);
+  // helper methods
+  bool isFileURI(nsIRDFResource* aResource);
+  bool isDirURI(nsIRDFResource* aSource);
+  nsresult GetVolumeList(nsISimpleEnumerator** aResult);
+  nsresult GetFolderList(nsIRDFResource* source,
+                         bool allowHidden,
+                         bool onlyFirst,
+                         nsISimpleEnumerator** aResult);
+  nsresult GetName(nsIRDFResource* source, nsIRDFLiteral** aResult);
+  nsresult GetURL(nsIRDFResource* source,
+                  bool* isFavorite,
+                  nsIRDFLiteral** aResult);
+  nsresult GetFileSize(nsIRDFResource* source, nsIRDFInt** aResult);
+  nsresult GetLastMod(nsIRDFResource* source, nsIRDFDate** aResult);
 
-    nsCOMPtr<nsIRDFService>    mRDFService;
+  nsCOMPtr<nsIRDFService> mRDFService;
 
-    // pseudo-constants
-    nsCOMPtr<nsIRDFResource>       mNC_FileSystemRoot;
-    nsCOMPtr<nsIRDFResource>       mNC_Child;
-    nsCOMPtr<nsIRDFResource>       mNC_Name;
-    nsCOMPtr<nsIRDFResource>       mNC_URL;
-    nsCOMPtr<nsIRDFResource>       mNC_Icon;
-    nsCOMPtr<nsIRDFResource>       mNC_Length;
-    nsCOMPtr<nsIRDFResource>       mNC_IsDirectory;
-    nsCOMPtr<nsIRDFResource>       mWEB_LastMod;
-    nsCOMPtr<nsIRDFResource>       mNC_FileSystemObject;
-    nsCOMPtr<nsIRDFResource>       mNC_pulse;
-    nsCOMPtr<nsIRDFResource>       mRDF_InstanceOf;
-    nsCOMPtr<nsIRDFResource>       mRDF_type;
+  // pseudo-constants
+  nsCOMPtr<nsIRDFResource> mNC_FileSystemRoot;
+  nsCOMPtr<nsIRDFResource> mNC_Child;
+  nsCOMPtr<nsIRDFResource> mNC_Name;
+  nsCOMPtr<nsIRDFResource> mNC_URL;
+  nsCOMPtr<nsIRDFResource> mNC_Icon;
+  nsCOMPtr<nsIRDFResource> mNC_Length;
+  nsCOMPtr<nsIRDFResource> mNC_IsDirectory;
+  nsCOMPtr<nsIRDFResource> mWEB_LastMod;
+  nsCOMPtr<nsIRDFResource> mNC_FileSystemObject;
+  nsCOMPtr<nsIRDFResource> mNC_pulse;
+  nsCOMPtr<nsIRDFResource> mRDF_InstanceOf;
+  nsCOMPtr<nsIRDFResource> mRDF_type;
 
-    nsCOMPtr<nsIRDFLiteral>        mLiteralTrue;
-    nsCOMPtr<nsIRDFLiteral>        mLiteralFalse;
+  nsCOMPtr<nsIRDFLiteral> mLiteralTrue;
+  nsCOMPtr<nsIRDFLiteral> mLiteralFalse;
 
 #ifdef USE_NC_EXTENSION
-    nsresult GetExtension(nsIRDFResource *source, nsIRDFLiteral** aResult);
-    nsCOMPtr<nsIRDFResource>       mNC_extension;
+  nsresult GetExtension(nsIRDFResource* source, nsIRDFLiteral** aResult);
+  nsCOMPtr<nsIRDFResource> mNC_extension;
 #endif
 
-#ifdef  XP_WIN
-    bool     isValidFolder(nsIRDFResource *source);
-    nsresult getIEFavoriteURL(nsIRDFResource *source, nsString aFileURL, nsIRDFLiteral **urlLiteral);
-    nsCOMPtr<nsIRDFResource>       mNC_IEFavoriteObject;
-    nsCOMPtr<nsIRDFResource>       mNC_IEFavoriteFolder;
-    nsCString                      ieFavoritesDir;
+#ifdef XP_WIN
+  bool isValidFolder(nsIRDFResource* source);
+  nsresult getIEFavoriteURL(nsIRDFResource* source,
+                            nsString aFileURL,
+                            nsIRDFLiteral** urlLiteral);
+  nsCOMPtr<nsIRDFResource> mNC_IEFavoriteObject;
+  nsCOMPtr<nsIRDFResource> mNC_IEFavoriteFolder;
+  nsCString ieFavoritesDir;
 #endif
 };
 
-#endif // nsFileSystemDataSource_h__
+#endif  // nsFileSystemDataSource_h__

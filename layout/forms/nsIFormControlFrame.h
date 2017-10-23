@@ -18,7 +18,7 @@ class nsAtom;
   */
 class nsIFormControlFrame : public nsQueryFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIFormControlFrame)
 
   /**
@@ -39,4 +39,3 @@ public:
 };
 
 #endif
-

@@ -20,19 +20,17 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GridLine)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-GridLine::GridLine(GridLines *aParent)
-  : mParent(aParent)
-  , mStart(0.0)
-  , mBreadth(0.0)
-  , mType(GridDeclaration::Implicit)
-  , mNumber(0)
+GridLine::GridLine(GridLines* aParent)
+    : mParent(aParent),
+      mStart(0.0),
+      mBreadth(0.0),
+      mType(GridDeclaration::Implicit),
+      mNumber(0)
 {
   MOZ_ASSERT(aParent, "Should never be instantiated with a null GridLines");
 }
 
-GridLine::~GridLine()
-{
-}
+GridLine::~GridLine() {}
 
 void
 GridLine::GetNames(nsTArray<nsString>& aNames) const
@@ -84,5 +82,5 @@ GridLine::SetLineValues(const nsTArray<nsString>& aNames,
   mType = aType;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

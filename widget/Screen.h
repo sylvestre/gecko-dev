@@ -14,20 +14,22 @@
 namespace mozilla {
 namespace dom {
 class ScreenDetails;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 namespace mozilla {
 namespace widget {
 
 class Screen final : public nsIScreen
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISCREEN
 
-  Screen(LayoutDeviceIntRect aRect, LayoutDeviceIntRect aAvailRect,
-         uint32_t aPixelDepth, uint32_t aColorDepth,
+  Screen(LayoutDeviceIntRect aRect,
+         LayoutDeviceIntRect aAvailRect,
+         uint32_t aPixelDepth,
+         uint32_t aColorDepth,
          DesktopToLayoutDeviceScale aContentsScale,
          CSSToLayoutDeviceScale aDefaultCssScale,
          float dpi);
@@ -36,7 +38,7 @@ public:
 
   mozilla::dom::ScreenDetails ToScreenDetails();
 
-private:
+ private:
   virtual ~Screen() {}
 
   LayoutDeviceIntRect mRect;
@@ -50,8 +52,7 @@ private:
   float mDPI;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif
-

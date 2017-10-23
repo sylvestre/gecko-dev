@@ -16,28 +16,27 @@
 
 struct VersionPart
 {
-  int32_t     numA;
+  int32_t numA;
 
-  const char* strB;    // NOT null-terminated, can be a null pointer
-  uint32_t    strBlen;
+  const char* strB;  // NOT null-terminated, can be a null pointer
+  uint32_t strBlen;
 
-  int32_t     numC;
+  int32_t numC;
 
-  char*       extraD;  // null-terminated
+  char* extraD;  // null-terminated
 };
 
 #ifdef XP_WIN
 struct VersionPartW
 {
-  int32_t     numA;
+  int32_t numA;
 
-  wchar_t*    strB;    // NOT null-terminated, can be a null pointer
-  uint32_t    strBlen;
+  wchar_t* strB;  // NOT null-terminated, can be a null pointer
+  uint32_t strBlen;
 
-  int32_t     numC;
+  int32_t numC;
 
-  wchar_t*    extraD;  // null-terminated
-
+  wchar_t* extraD;  // null-terminated
 };
 #endif
 
@@ -109,7 +108,6 @@ ParseVP(char* aPart, VersionPart& aResult)
   return dot;
 }
 
-
 /**
  * Parse a version part into a number and "extra text".
  *
@@ -119,7 +117,6 @@ ParseVP(char* aPart, VersionPart& aResult)
 static wchar_t*
 ParseVP(wchar_t* aPart, VersionPartW& aResult)
 {
-
   wchar_t* dot;
 
   aResult.numA = 0;
@@ -201,8 +198,10 @@ ns_strcmp(const char* aStr1, const char* aStr2)
 
 // compare two length-specified string, which may be null pointers
 static int32_t
-ns_strnncmp(const char* aStr1, uint32_t aLen1,
-            const char* aStr2, uint32_t aLen2)
+ns_strnncmp(const char* aStr1,
+            uint32_t aLen1,
+            const char* aStr2,
+            uint32_t aLen2)
 {
   // any string is *before* no string
   if (!aStr1) {
@@ -377,5 +376,4 @@ CompareVersions(const char* aStrA, const char* aStrB)
   return result;
 }
 
-} // namespace mozilla
-
+}  // namespace mozilla

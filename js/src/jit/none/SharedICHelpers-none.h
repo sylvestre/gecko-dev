@@ -22,7 +22,9 @@ inline void EmitReturnFromIC(MacroAssembler&) { MOZ_CRASH(); }
 inline void EmitChangeICReturnAddress(MacroAssembler&, Register) { MOZ_CRASH(); }
 inline void EmitBaselineTailCallVM(JitCode*, MacroAssembler&, uint32_t) { MOZ_CRASH(); }
 inline void EmitIonTailCallVM(JitCode*, MacroAssembler&, uint32_t) { MOZ_CRASH(); }
-inline void EmitBaselineCreateStubFrameDescriptor(MacroAssembler&, Register, uint32_t) { MOZ_CRASH(); }
+inline void EmitBaselineCreateStubFrameDescriptor(MacroAssembler&, Register, uint32_t) {
+    MOZ_CRASH();
+}
 inline void EmitBaselineCallVM(JitCode*, MacroAssembler&) { MOZ_CRASH(); }
 inline void EmitBaselineEnterStubFrame(MacroAssembler&, Register) { MOZ_CRASH(); }
 inline void EmitBaselineLeaveStubFrame(MacroAssembler&, bool v = false) { MOZ_CRASH(); }
@@ -30,9 +32,12 @@ inline void EmitStowICValues(MacroAssembler&, int) { MOZ_CRASH(); }
 inline void EmitUnstowICValues(MacroAssembler&, int, bool v = false) { MOZ_CRASH(); }
 inline void EmitStubGuardFailure(MacroAssembler&) { MOZ_CRASH(); }
 
-template <typename T> inline void EmitPreBarrier(MacroAssembler&, T, MIRType) { MOZ_CRASH(); }
+template <typename T>
+inline void EmitPreBarrier(MacroAssembler&, T, MIRType) {
+    MOZ_CRASH();
+}
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_none_SharedICHelpers_none_h */

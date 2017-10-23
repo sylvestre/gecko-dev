@@ -28,13 +28,11 @@ namespace dom {
 NS_IMPL_ELEMENT_CLONE(HTMLAudioElement)
 
 HTMLAudioElement::HTMLAudioElement(already_AddRefed<NodeInfo>& aNodeInfo)
-  : HTMLMediaElement(aNodeInfo)
+    : HTMLMediaElement(aNodeInfo)
 {
 }
 
-HTMLAudioElement::~HTMLAudioElement()
-{
-}
+HTMLAudioElement::~HTMLAudioElement() {}
 
 bool
 HTMLAudioElement::IsInteractiveHTMLContent(bool aIgnoreTabindex) const
@@ -56,9 +54,10 @@ HTMLAudioElement::Audio(const GlobalObject& aGlobal,
   }
 
   already_AddRefed<mozilla::dom::NodeInfo> nodeInfo =
-    doc->NodeInfoManager()->GetNodeInfo(nsGkAtoms::audio, nullptr,
-                                        kNameSpaceID_XHTML,
-                                        nsIDOMNode::ELEMENT_NODE);
+      doc->NodeInfoManager()->GetNodeInfo(nsGkAtoms::audio,
+                                          nullptr,
+                                          kNameSpaceID_XHTML,
+                                          nsIDOMNode::ELEMENT_NODE);
 
   RefPtr<HTMLAudioElement> audio = new HTMLAudioElement(nodeInfo);
   audio->SetHTMLAttr(nsGkAtoms::preload, NS_LITERAL_STRING("auto"), aRv);
@@ -73,9 +72,10 @@ HTMLAudioElement::Audio(const GlobalObject& aGlobal,
   return audio.forget();
 }
 
-nsresult HTMLAudioElement::SetAcceptHeader(nsIHttpChannel* aChannel)
+nsresult
+HTMLAudioElement::SetAcceptHeader(nsIHttpChannel* aChannel)
 {
-    nsAutoCString value(
+  nsAutoCString value(
       "audio/webm,"
       "audio/ogg,"
       "audio/wav,"
@@ -83,9 +83,7 @@ nsresult HTMLAudioElement::SetAcceptHeader(nsIHttpChannel* aChannel)
       "application/ogg;q=0.7,"
       "video/*;q=0.6,*/*;q=0.5");
 
-    return aChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"),
-                                      value,
-                                      false);
+  return aChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"), value, false);
 }
 
 JSObject*
@@ -94,5 +92,5 @@ HTMLAudioElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLAudioElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -13,8 +13,7 @@ namespace ipc {
 // RilSocketConsumer
 //
 
-RilSocketConsumer::~RilSocketConsumer()
-{ }
+RilSocketConsumer::~RilSocketConsumer() {}
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla

@@ -73,14 +73,17 @@ NumericInputTypeBase::GetRangeOverflowMessage(nsAString& aMessage)
 
   nsAutoString maxStr;
   char buf[32];
-  mozilla::DebugOnly<bool> ok = maximum.toString(buf,
-                                                 mozilla::ArrayLength(buf));
+  mozilla::DebugOnly<bool> ok =
+      maximum.toString(buf, mozilla::ArrayLength(buf));
   maxStr.AssignASCII(buf);
   MOZ_ASSERT(ok, "buf not big enough");
 
-  const char16_t* params[] = { maxStr.get() };
-  return nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationNumberRangeOverflow", params, aMessage);
+  const char16_t* params[] = {maxStr.get()};
+  return nsContentUtils::FormatLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES,
+      "FormValidationNumberRangeOverflow",
+      params,
+      aMessage);
 }
 
 nsresult
@@ -91,19 +94,22 @@ NumericInputTypeBase::GetRangeUnderflowMessage(nsAString& aMessage)
 
   nsAutoString minStr;
   char buf[32];
-  mozilla::DebugOnly<bool> ok = minimum.toString(buf,
-                                                 mozilla::ArrayLength(buf));
+  mozilla::DebugOnly<bool> ok =
+      minimum.toString(buf, mozilla::ArrayLength(buf));
   minStr.AssignASCII(buf);
   MOZ_ASSERT(ok, "buf not big enough");
 
-  const char16_t* params[] = { minStr.get() };
-  return nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationNumberRangeUnderflow", params, aMessage);
+  const char16_t* params[] = {minStr.get()};
+  return nsContentUtils::FormatLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES,
+      "FormValidationNumberRangeUnderflow",
+      params,
+      aMessage);
 }
 
 bool
-NumericInputTypeBase::ConvertStringToNumber(nsAString& aValue,
-  mozilla::Decimal& aResultValue) const
+NumericInputTypeBase::ConvertStringToNumber(
+    nsAString& aValue, mozilla::Decimal& aResultValue) const
 {
   aResultValue = mozilla::dom::HTMLInputElement::StringToDecimal(aValue);
   if (!aResultValue.isFinite()) {
@@ -156,10 +162,8 @@ NumberInputType::HasBadInput() const
                  "Should have sanitized");
     return false;
   }
-  nsNumberControlFrame* numberControlFrame =
-    do_QueryFrame(GetPrimaryFrame());
-  if (numberControlFrame &&
-      !numberControlFrame->AnonTextControlIsEmpty()) {
+  nsNumberControlFrame* numberControlFrame = do_QueryFrame(GetPrimaryFrame());
+  if (numberControlFrame && !numberControlFrame->AnonTextControlIsEmpty()) {
     // The input the user entered failed to parse as a number.
     return true;
   }
@@ -170,14 +174,16 @@ nsresult
 NumberInputType::GetValueMissingMessage(nsAString& aMessage)
 {
   return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationBadInputNumber", aMessage);
+                                            "FormValidationBadInputNumber",
+                                            aMessage);
 }
 
 nsresult
 NumberInputType::GetBadInputMessage(nsAString& aMessage)
 {
   return nsContentUtils::GetLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-    "FormValidationBadInputNumber", aMessage);
+                                            "FormValidationBadInputNumber",
+                                            aMessage);
 }
 
 bool

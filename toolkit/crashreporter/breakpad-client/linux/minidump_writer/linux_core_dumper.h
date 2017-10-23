@@ -40,7 +40,8 @@
 
 namespace google_breakpad {
 
-class LinuxCoreDumper : public LinuxDumper {
+class LinuxCoreDumper : public LinuxDumper
+{
  public:
   // Constructs a dumper for extracting information of a given process
   // with a process ID of |pid| via its core dump file at |core_path| and
@@ -48,7 +49,9 @@ class LinuxCoreDumper : public LinuxDumper {
   // /proc/<pid>, it should contain the following files:
   //     auxv, cmdline, environ, exe, maps, status
   // See LinuxDumper for the purpose of |root_prefix|.
-  LinuxCoreDumper(pid_t pid, const char* core_path, const char* procfs_path,
+  LinuxCoreDumper(pid_t pid,
+                  const char* core_path,
+                  const char* procfs_path,
                   const char* root_prefix = "");
 
   // Implements LinuxDumper::BuildProcPath().
@@ -72,7 +75,9 @@ class LinuxCoreDumper : public LinuxDumper {
   // the core dump and fills |dest| with a sequence of marker bytes
   // if the expected data is not found in the core dump. Returns true if
   // the expected data is found in the core dump.
-  virtual bool CopyFromProcess(void* dest, pid_t child, const void* src,
+  virtual bool CopyFromProcess(void* dest,
+                               pid_t child,
+                               const void* src,
                                size_t length);
 
   // Implements LinuxDumper::GetThreadInfoByIndex().

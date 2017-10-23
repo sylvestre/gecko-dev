@@ -24,11 +24,12 @@ namespace HangMonitor {
  */
 class Annotation
 {
-public:
+ public:
   Annotation() {}
   Annotation(const nsAString& aName, const nsAString& aValue)
-    : mName(aName), mValue(aValue)
-  {}
+      : mName(aName), mValue(aValue)
+  {
+  }
 
   nsString mName;
   nsString mValue;
@@ -40,7 +41,7 @@ public:
  */
 class HangAnnotations : public nsTArray<Annotation>
 {
-public:
+ public:
   void AddAnnotation(const nsAString& aName, const int32_t aData);
   void AddAnnotation(const nsAString& aName, const double aData);
   void AddAnnotation(const nsAString& aName, const nsAString& aData);
@@ -50,7 +51,7 @@ public:
 
 class Annotator
 {
-public:
+ public:
   /**
    * NB: This function is always called by the HangMonitor thread.
    *     Plan accordingly.
@@ -63,26 +64,29 @@ public:
  * @param aAnnotator Reference to an object that implements the
  * HangMonitor::Annotator interface.
  */
-void RegisterAnnotator(Annotator& aAnnotator);
+void
+RegisterAnnotator(Annotator& aAnnotator);
 
 /**
  * Registers an Annotator that was previously registered via RegisterAnnotator.
  * @param aAnnotator Reference to an object that implements the
  * HangMonitor::Annotator interface.
  */
-void UnregisterAnnotator(Annotator& aAnnotator);
+void
+UnregisterAnnotator(Annotator& aAnnotator);
 
 /**
  * Gathers annotations. This function should be called by ChromeHangs.
  * @return HangAnnotations object.
  */
-HangAnnotations ChromeHangAnnotatorCallout();
+HangAnnotations
+ChromeHangAnnotatorCallout();
 
 namespace Observer {
 
 class Annotators
 {
-public:
+ public:
   Annotators();
   ~Annotators();
 
@@ -91,30 +95,30 @@ public:
 
   HangAnnotations GatherAnnotations();
 
-private:
-  Mutex                mMutex;
+ private:
+  Mutex mMutex;
   std::set<Annotator*> mAnnotators;
 };
 
-} // namespace Observer
+}  // namespace Observer
 
-} // namespace HangMonitor
-} // namespace mozilla
+}  // namespace HangMonitor
+}  // namespace mozilla
 
 namespace IPC {
 
 template<>
 class ParamTraits<mozilla::HangMonitor::HangAnnotations>
-  : public ParamTraits<nsTArray<mozilla::HangMonitor::Annotation>>
+    : public ParamTraits<nsTArray<mozilla::HangMonitor::Annotation>>
 {
-public:
+ public:
   typedef mozilla::HangMonitor::HangAnnotations paramType;
 };
 
 template<>
 class ParamTraits<mozilla::HangMonitor::Annotation>
 {
-public:
+ public:
   typedef mozilla::HangMonitor::Annotation paramType;
   static void Write(Message* aMsg, const paramType& aParam);
   static bool Read(const Message* aMsg,
@@ -122,6 +126,6 @@ public:
                    paramType* aResult);
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_HangAnnotations_h
+#endif  // mozilla_HangAnnotations_h

@@ -63,7 +63,7 @@
 
 #pragma warning(push)
 // Disable exception handler warnings.
-#pragma warning(disable:4530)
+#pragma warning(disable : 4530)
 
 #include <list>
 #include <string>
@@ -80,7 +80,8 @@ namespace google_breakpad {
 using std::vector;
 using std::wstring;
 
-class ExceptionHandler {
+class ExceptionHandler
+{
  public:
   // A callback function to run before Breakpad performs any substantial
   // processing of an exception.  A FilterCallback is called before writing
@@ -93,7 +94,8 @@ class ExceptionHandler {
   // attempting to write a minidump.  If a FilterCallback returns false,
   // Breakpad will immediately report the exception as unhandled without
   // writing a minidump, allowing another handler the opportunity to handle it.
-  typedef bool (*FilterCallback)(void* context, EXCEPTION_POINTERS* exinfo,
+  typedef bool (*FilterCallback)(void* context,
+                                 EXCEPTION_POINTERS* exinfo,
                                  MDRawAssertionInfo* assertion);
 
   // A callback function to run after the minidump has been written.
@@ -133,14 +135,14 @@ class ExceptionHandler {
   // still be triggered by calling WriteMinidump.  Otherwise, use a
   // combination of the other HANDLER_ values, or HANDLER_ALL to install
   // all handlers.
-  enum HandlerType {
+  enum HandlerType
+  {
     HANDLER_NONE = 0,
     HANDLER_EXCEPTION = 1 << 0,          // SetUnhandledExceptionFilter
     HANDLER_INVALID_PARAMETER = 1 << 1,  // _set_invalid_parameter_handler
     HANDLER_PURECALL = 1 << 2,           // _set_purecall_handler
-    HANDLER_ALL = HANDLER_EXCEPTION |
-                  HANDLER_INVALID_PARAMETER |
-                  HANDLER_PURECALL
+    HANDLER_ALL =
+        HANDLER_EXCEPTION | HANDLER_INVALID_PARAMETER | HANDLER_PURECALL
   };
 
   // Creates a new ExceptionHandler instance to handle writing minidumps.
@@ -203,7 +205,8 @@ class ExceptionHandler {
 
   // Get and set the minidump path.
   wstring dump_path() const { return dump_path_; }
-  void set_dump_path(const wstring &dump_path) {
+  void set_dump_path(const wstring& dump_path)
+  {
     dump_path_ = dump_path;
     dump_path_c_ = dump_path_.c_str();
     UpdateNextID();  // Necessary to put dump_path_ in next_minidump_path_.
@@ -222,8 +225,9 @@ class ExceptionHandler {
 
   // Convenience form of WriteMinidump which does not require an
   // ExceptionHandler instance.
-  static bool WriteMinidump(const wstring &dump_path,
-                            MinidumpCallback callback, void* callback_context,
+  static bool WriteMinidump(const wstring& dump_path,
+                            MinidumpCallback callback,
+                            void* callback_context,
                             MINIDUMP_TYPE dump_type = MiniDumpNormal);
 
   // Write a minidump of |child| immediately.  This can be used to
@@ -246,16 +250,19 @@ class ExceptionHandler {
 
   // Controls behavior of EXCEPTION_BREAKPOINT and EXCEPTION_SINGLE_STEP.
   bool get_handle_debug_exceptions() const { return handle_debug_exceptions_; }
-  void set_handle_debug_exceptions(bool handle_debug_exceptions) {
+  void set_handle_debug_exceptions(bool handle_debug_exceptions)
+  {
     handle_debug_exceptions_ = handle_debug_exceptions;
   }
 
   // Controls behavior of EXCEPTION_INVALID_HANDLE.
-  bool get_consume_invalid_handle_exceptions() const {
+  bool get_consume_invalid_handle_exceptions() const
+  {
     return consume_invalid_handle_exceptions_;
   }
   void set_consume_invalid_handle_exceptions(
-      bool consume_invalid_handle_exceptions) {
+      bool consume_invalid_handle_exceptions)
+  {
     consume_invalid_handle_exceptions_ = consume_invalid_handle_exceptions;
   }
 
@@ -289,7 +296,7 @@ class ExceptionHandler {
 
   // Function pointer type for MiniDumpWriteDump, which is looked up
   // dynamically.
-  typedef BOOL (WINAPI *MiniDumpWriteDump_type)(
+  typedef BOOL(WINAPI* MiniDumpWriteDump_type)(
       HANDLE hProcess,
       DWORD dwPid,
       HANDLE hFile,
@@ -299,7 +306,7 @@ class ExceptionHandler {
       CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
 
   // Function pointer type for UuidCreate, which is looked up dynamically.
-  typedef RPC_STATUS (RPC_ENTRY *UuidCreate_type)(UUID* Uuid);
+  typedef RPC_STATUS(RPC_ENTRY* UuidCreate_type)(UUID* Uuid);
 
   // Runs the main loop for the exception handler thread.
   static DWORD WINAPI ExceptionHandlerThreadMain(void* lpParameter);
@@ -498,8 +505,8 @@ class ExceptionHandler {
   bool include_context_heap_;
 
   // disallow copy ctor and operator=
-  explicit ExceptionHandler(const ExceptionHandler &);
-  void operator=(const ExceptionHandler &);
+  explicit ExceptionHandler(const ExceptionHandler&);
+  void operator=(const ExceptionHandler&);
 };
 
 }  // namespace google_breakpad

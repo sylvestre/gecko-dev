@@ -20,10 +20,9 @@
 #include "nsIConsoleService.h"
 #include "nsIObserver.h"
 
-class nsConsoleService final : public nsIConsoleService,
-                               public nsIObserver
+class nsConsoleService final : public nsIConsoleService, public nsIObserver
 {
-public:
+ public:
   nsConsoleService();
   nsresult Init();
 
@@ -49,28 +48,25 @@ public:
   // if the message should be output to an OS-specific log. This is used on
   // B2G to control whether the message is logged to the android log or not.
 
-  enum OutputMode {
+  enum OutputMode
+  {
     SuppressLog,
     OutputToLog
   };
   virtual nsresult LogMessageWithMode(nsIConsoleMessage* aMessage,
                                       OutputMode aOutputMode);
 
-  typedef nsInterfaceHashtable<nsISupportsHashKey,
-                               nsIConsoleListener> ListenerHash;
+  typedef nsInterfaceHashtable<nsISupportsHashKey, nsIConsoleListener>
+      ListenerHash;
   void CollectCurrentListeners(nsCOMArray<nsIConsoleListener>& aListeners);
 
-private:
+ private:
   class MessageElement : public mozilla::LinkedListElement<MessageElement>
   {
-  public:
-    explicit MessageElement(nsIConsoleMessage* aMessage) : mMessage(aMessage)
-    {}
+   public:
+    explicit MessageElement(nsIConsoleMessage* aMessage) : mMessage(aMessage) {}
 
-    nsIConsoleMessage* Get()
-    {
-      return mMessage.get();
-    }
+    nsIConsoleMessage* Get() { return mMessage.get(); }
 
     // Swap directly into an nsCOMPtr to avoid spurious refcount
     // traffic off the main thread in debug builds from
@@ -82,7 +78,7 @@ private:
 
     ~MessageElement();
 
-  private:
+   private:
     nsCOMPtr<nsIConsoleMessage> mMessage;
 
     MessageElement(const MessageElement&) = delete;

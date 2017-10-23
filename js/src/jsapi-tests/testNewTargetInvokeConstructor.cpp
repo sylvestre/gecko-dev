@@ -6,8 +6,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testNewTargetInvokeConstructor)
-{
+BEGIN_TEST(testNewTargetInvokeConstructor) {
     JS::RootedValue func(cx);
 
     EVAL("(function(expected) { if (expected !== new.target) throw new Error('whoops'); })",

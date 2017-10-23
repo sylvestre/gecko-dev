@@ -18,25 +18,24 @@
 namespace mozilla {
 namespace dom {
 
-ScrollBoxObject::ScrollBoxObject()
-{
-}
+ScrollBoxObject::ScrollBoxObject() {}
 
-ScrollBoxObject::~ScrollBoxObject()
-{
-}
+ScrollBoxObject::~ScrollBoxObject() {}
 
-JSObject* ScrollBoxObject::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+JSObject*
+ScrollBoxObject::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return ScrollBoxObjectBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsIScrollableFrame* ScrollBoxObject::GetScrollFrame()
+nsIScrollableFrame*
+ScrollBoxObject::GetScrollFrame()
 {
   return do_QueryFrame(GetFrame(false));
 }
 
-void ScrollBoxObject::ScrollTo(int32_t x, int32_t y, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollTo(int32_t x, int32_t y, ErrorResult& aRv)
 {
   nsIScrollableFrame* sf = GetScrollFrame();
   if (!sf) {
@@ -47,7 +46,8 @@ void ScrollBoxObject::ScrollTo(int32_t x, int32_t y, ErrorResult& aRv)
   sf->ScrollToCSSPixels(CSSIntPoint(x, y));
 }
 
-void ScrollBoxObject::ScrollBy(int32_t dx, int32_t dy, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollBy(int32_t dx, int32_t dy, ErrorResult& aRv)
 {
   CSSIntPoint pt;
   GetPosition(pt, aRv);
@@ -59,7 +59,8 @@ void ScrollBoxObject::ScrollBy(int32_t dx, int32_t dy, ErrorResult& aRv)
   ScrollTo(pt.x + dx, pt.y + dy, aRv);
 }
 
-void ScrollBoxObject::ScrollByLine(int32_t dlines, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollByLine(int32_t dlines, ErrorResult& aRv)
 {
   nsIScrollableFrame* sf = GetScrollFrame();
   if (!sf) {
@@ -67,7 +68,8 @@ void ScrollBoxObject::ScrollByLine(int32_t dlines, ErrorResult& aRv)
     return;
   }
 
-  sf->ScrollBy(nsIntPoint(0, dlines), nsIScrollableFrame::LINES,
+  sf->ScrollBy(nsIntPoint(0, dlines),
+               nsIScrollableFrame::LINES,
                nsIScrollableFrame::SMOOTH);
 }
 
@@ -77,7 +79,9 @@ void ScrollBoxObject::ScrollByLine(int32_t dlines, ErrorResult& aRv)
 // with 'overflow:hidden', the boxobject's frame is an nsXULScrollFrame,
 // the <scrollbox>'s box frame is the scrollframe's "scrolled frame", and
 // the <scrollbox>'s child box is a child of that.
-static nsIFrame* GetScrolledBox(BoxObject* aScrollBox) {
+static nsIFrame*
+GetScrolledBox(BoxObject* aScrollBox)
+{
   nsIFrame* frame = aScrollBox->GetFrame(false);
   if (!frame) {
     return nullptr;
@@ -85,134 +89,134 @@ static nsIFrame* GetScrolledBox(BoxObject* aScrollBox) {
 
   nsIScrollableFrame* scrollFrame = do_QueryFrame(frame);
   if (!scrollFrame) {
-    NS_WARNING("ScrollBoxObject attached to something that's not a scroll frame!");
+    NS_WARNING(
+        "ScrollBoxObject attached to something that's not a scroll frame!");
     return nullptr;
   }
 
   nsIFrame* scrolledFrame = scrollFrame->GetScrolledFrame();
-  if (!scrolledFrame)
-    return nullptr;
+  if (!scrolledFrame) return nullptr;
   return nsBox::GetChildXULBox(scrolledFrame);
 }
 
-void ScrollBoxObject::ScrollByIndex(int32_t dindexes, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollByIndex(int32_t dindexes, ErrorResult& aRv)
 {
-    nsIScrollableFrame* sf = GetScrollFrame();
-    if (!sf) {
-      aRv.Throw(NS_ERROR_FAILURE);
+  nsIScrollableFrame* sf = GetScrollFrame();
+  if (!sf) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return;
+  }
+
+  nsIFrame* scrolledBox = GetScrolledBox(this);
+  if (!scrolledBox) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return;
+  }
+
+  nsRect rect;
+
+  // now get the scrolled boxes first child.
+  nsIFrame* child = nsBox::GetChildXULBox(scrolledBox);
+
+  bool horiz = scrolledBox->IsXULHorizontal();
+  nsPoint cp = sf->GetScrollPosition();
+  nscoord diff = 0;
+  int32_t curIndex = 0;
+  bool isLTR = scrolledBox->IsXULNormalDirection();
+
+  int32_t frameWidth = 0;
+  if (!isLTR && horiz) {
+    GetWidth(&frameWidth);
+    nsCOMPtr<nsIPresShell> shell = GetPresShell(false);
+    if (!shell) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
       return;
     }
+    frameWidth = nsPresContext::CSSPixelsToAppUnits(frameWidth);
+  }
 
-    nsIFrame* scrolledBox = GetScrolledBox(this);
-    if (!scrolledBox) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-
-    nsRect rect;
-
-    // now get the scrolled boxes first child.
-    nsIFrame* child = nsBox::GetChildXULBox(scrolledBox);
-
-    bool horiz = scrolledBox->IsXULHorizontal();
-    nsPoint cp = sf->GetScrollPosition();
-    nscoord diff = 0;
-    int32_t curIndex = 0;
-    bool isLTR = scrolledBox->IsXULNormalDirection();
-
-    int32_t frameWidth = 0;
-    if (!isLTR && horiz) {
-      GetWidth(&frameWidth);
-      nsCOMPtr<nsIPresShell> shell = GetPresShell(false);
-      if (!shell) {
-        aRv.Throw(NS_ERROR_UNEXPECTED);
-        return;
+  // first find out what index we are currently at
+  while (child) {
+    rect = child->GetRect();
+    if (horiz) {
+      // In the left-to-right case we break from the loop when the center of
+      // the current child rect is greater than the scrolled position of
+      // the left edge of the scrollbox
+      // In the right-to-left case we break when the center of the current
+      // child rect is less than the scrolled position of the right edge of
+      // the scrollbox.
+      diff =
+          rect.x + rect.width / 2;  // use the center, to avoid rounding errors
+      if ((isLTR && diff > cp.x) || (!isLTR && diff < cp.x + frameWidth)) {
+        break;
       }
-      frameWidth = nsPresContext::CSSPixelsToAppUnits(frameWidth);
-    }
-
-    // first find out what index we are currently at
-    while(child) {
-      rect = child->GetRect();
-      if (horiz) {
-        // In the left-to-right case we break from the loop when the center of
-        // the current child rect is greater than the scrolled position of
-        // the left edge of the scrollbox
-        // In the right-to-left case we break when the center of the current
-        // child rect is less than the scrolled position of the right edge of
-        // the scrollbox.
-        diff = rect.x + rect.width/2; // use the center, to avoid rounding errors
-        if ((isLTR && diff > cp.x) ||
-            (!isLTR && diff < cp.x + frameWidth)) {
-          break;
-        }
-      } else {
-        diff = rect.y + rect.height/2;// use the center, to avoid rounding errors
-        if (diff > cp.y) {
-          break;
-        }
+    } else {
+      diff =
+          rect.y + rect.height / 2;  // use the center, to avoid rounding errors
+      if (diff > cp.y) {
+        break;
       }
+    }
+    child = nsBox::GetNextXULBox(child);
+    curIndex++;
+  }
+
+  int32_t count = 0;
+
+  if (dindexes == 0) return;
+
+  if (dindexes > 0) {
+    while (child) {
       child = nsBox::GetNextXULBox(child);
-      curIndex++;
+      if (child) {
+        rect = child->GetRect();
+      }
+      count++;
+      if (count >= dindexes) {
+        break;
+      }
     }
 
-    int32_t count = 0;
-
-    if (dindexes == 0)
-      return;
-
-    if (dindexes > 0) {
-      while(child) {
-        child = nsBox::GetNextXULBox(child);
-        if (child) {
-          rect = child->GetRect();
-        }
-        count++;
-        if (count >= dindexes) {
-          break;
-        }
+  } else if (dindexes < 0) {
+    child = nsBox::GetChildXULBox(scrolledBox);
+    while (child) {
+      rect = child->GetRect();
+      if (count >= curIndex + dindexes) {
+        break;
       }
 
-   } else if (dindexes < 0) {
-      child = nsBox::GetChildXULBox(scrolledBox);
-      while(child) {
-        rect = child->GetRect();
-        if (count >= curIndex + dindexes) {
-          break;
-        }
+      count++;
+      child = nsBox::GetNextXULBox(child);
+    }
+  }
 
-        count++;
-        child = nsBox::GetNextXULBox(child);
+  nscoord csspixel = nsPresContext::CSSPixelsToAppUnits(1);
+  if (horiz) {
+    // In the left-to-right case we scroll so that the left edge of the
+    // selected child is scrolled to the left edge of the scrollbox.
+    // In the right-to-left case we scroll so that the right edge of the
+    // selected child is scrolled to the right edge of the scrollbox.
 
-      }
-   }
+    nsPoint pt(isLTR ? rect.x : rect.x + rect.width - frameWidth, cp.y);
 
-   nscoord csspixel = nsPresContext::CSSPixelsToAppUnits(1);
-   if (horiz) {
-       // In the left-to-right case we scroll so that the left edge of the
-       // selected child is scrolled to the left edge of the scrollbox.
-       // In the right-to-left case we scroll so that the right edge of the
-       // selected child is scrolled to the right edge of the scrollbox.
-
-       nsPoint pt(isLTR ? rect.x : rect.x + rect.width - frameWidth,
-                  cp.y);
-
-       // Use a destination range that ensures the left edge (or right edge,
-       // for RTL) will indeed be visible. Also ensure that the top edge
-       // is visible.
-       nsRect range(pt.x, pt.y, csspixel, 0);
-       if (isLTR) {
-         range.x -= csspixel;
-       }
-       sf->ScrollTo(pt, nsIScrollableFrame::INSTANT, &range);
-   } else {
-       // Use a destination range that ensures the top edge will be visible.
-       nsRect range(cp.x, rect.y - csspixel, 0, csspixel);
-       sf->ScrollTo(nsPoint(cp.x, rect.y), nsIScrollableFrame::INSTANT, &range);
-   }
+    // Use a destination range that ensures the left edge (or right edge,
+    // for RTL) will indeed be visible. Also ensure that the top edge
+    // is visible.
+    nsRect range(pt.x, pt.y, csspixel, 0);
+    if (isLTR) {
+      range.x -= csspixel;
+    }
+    sf->ScrollTo(pt, nsIScrollableFrame::INSTANT, &range);
+  } else {
+    // Use a destination range that ensures the top edge will be visible.
+    nsRect range(cp.x, rect.y - csspixel, 0, csspixel);
+    sf->ScrollTo(nsPoint(cp.x, rect.y), nsIScrollableFrame::INSTANT, &range);
+  }
 }
 
-void ScrollBoxObject::ScrollToLine(int32_t line, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollToLine(int32_t line, ErrorResult& aRv)
 {
   nsIScrollableFrame* sf = GetScrollFrame();
   if (!sf) {
@@ -221,12 +225,15 @@ void ScrollBoxObject::ScrollToLine(int32_t line, ErrorResult& aRv)
   }
 
   nscoord y = sf->GetLineScrollAmount().height * line;
-  nsRect range(0, y - nsPresContext::CSSPixelsToAppUnits(1),
-               0, nsPresContext::CSSPixelsToAppUnits(1));
+  nsRect range(0,
+               y - nsPresContext::CSSPixelsToAppUnits(1),
+               0,
+               nsPresContext::CSSPixelsToAppUnits(1));
   sf->ScrollTo(nsPoint(0, y), nsIScrollableFrame::INSTANT, &range);
 }
 
-void ScrollBoxObject::ScrollToElement(Element& child, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollToElement(Element& child, ErrorResult& aRv)
 {
   nsCOMPtr<nsIPresShell> shell = GetPresShell(false);
   if (!shell) {
@@ -234,44 +241,48 @@ void ScrollBoxObject::ScrollToElement(Element& child, ErrorResult& aRv)
     return;
   }
 
-  shell->ScrollContentIntoView(&child,
-                               nsIPresShell::ScrollAxis(
-                                 nsIPresShell::SCROLL_TOP,
-                                 nsIPresShell::SCROLL_ALWAYS),
-                               nsIPresShell::ScrollAxis(
-                                 nsIPresShell::SCROLL_LEFT,
-                                 nsIPresShell::SCROLL_ALWAYS),
-                               nsIPresShell::SCROLL_FIRST_ANCESTOR_ONLY |
-                               nsIPresShell::SCROLL_OVERFLOW_HIDDEN);
+  shell->ScrollContentIntoView(
+      &child,
+      nsIPresShell::ScrollAxis(nsIPresShell::SCROLL_TOP,
+                               nsIPresShell::SCROLL_ALWAYS),
+      nsIPresShell::ScrollAxis(nsIPresShell::SCROLL_LEFT,
+                               nsIPresShell::SCROLL_ALWAYS),
+      nsIPresShell::SCROLL_FIRST_ANCESTOR_ONLY |
+          nsIPresShell::SCROLL_OVERFLOW_HIDDEN);
 }
 
-void ScrollBoxObject::ScrollToIndex(int32_t index, ErrorResult& aRv)
+void
+ScrollBoxObject::ScrollToIndex(int32_t index, ErrorResult& aRv)
 {
   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
 }
 
-int32_t ScrollBoxObject::GetPositionX(ErrorResult& aRv)
+int32_t
+ScrollBoxObject::GetPositionX(ErrorResult& aRv)
 {
   CSSIntPoint pt;
   GetPosition(pt, aRv);
   return pt.x;
 }
 
-int32_t ScrollBoxObject::GetPositionY(ErrorResult& aRv)
+int32_t
+ScrollBoxObject::GetPositionY(ErrorResult& aRv)
 {
   CSSIntPoint pt;
   GetPosition(pt, aRv);
   return pt.y;
 }
 
-int32_t ScrollBoxObject::GetScrolledWidth(ErrorResult& aRv)
+int32_t
+ScrollBoxObject::GetScrolledWidth(ErrorResult& aRv)
 {
   nsRect scrollRect;
   GetScrolledSize(scrollRect, aRv);
   return scrollRect.width;
 }
 
-int32_t ScrollBoxObject::GetScrolledHeight(ErrorResult& aRv)
+int32_t
+ScrollBoxObject::GetScrolledHeight(ErrorResult& aRv)
 {
   nsRect scrollRect;
   GetScrolledSize(scrollRect, aRv);
@@ -279,7 +290,8 @@ int32_t ScrollBoxObject::GetScrolledHeight(ErrorResult& aRv)
 }
 
 /* private helper */
-void ScrollBoxObject::GetPosition(CSSIntPoint& aPos, ErrorResult& aRv)
+void
+ScrollBoxObject::GetPosition(CSSIntPoint& aPos, ErrorResult& aRv)
 {
   nsIScrollableFrame* sf = GetScrollFrame();
   if (!sf) {
@@ -291,43 +303,44 @@ void ScrollBoxObject::GetPosition(CSSIntPoint& aPos, ErrorResult& aRv)
 }
 
 /* private helper */
-void ScrollBoxObject::GetScrolledSize(nsRect& aRect, ErrorResult& aRv)
+void
+ScrollBoxObject::GetScrolledSize(nsRect& aRect, ErrorResult& aRv)
 {
-    nsIFrame* scrolledBox = GetScrolledBox(this);
-    if (!scrolledBox) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
+  nsIFrame* scrolledBox = GetScrolledBox(this);
+  if (!scrolledBox) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return;
+  }
 
-    aRect = scrolledBox->GetRect();
-    aRect.width  = nsPresContext::AppUnitsToIntCSSPixels(aRect.width);
-    aRect.height = nsPresContext::AppUnitsToIntCSSPixels(aRect.height);
+  aRect = scrolledBox->GetRect();
+  aRect.width = nsPresContext::AppUnitsToIntCSSPixels(aRect.width);
+  aRect.height = nsPresContext::AppUnitsToIntCSSPixels(aRect.height);
 }
 
-void ScrollBoxObject::GetPosition(JSContext* cx,
-                                  JS::Handle<JSObject*> x,
-                                  JS::Handle<JSObject*> y,
-                                  ErrorResult& aRv)
+void
+ScrollBoxObject::GetPosition(JSContext* cx,
+                             JS::Handle<JSObject*> x,
+                             JS::Handle<JSObject*> y,
+                             ErrorResult& aRv)
 {
   CSSIntPoint pt;
   GetPosition(pt, aRv);
   JS::Rooted<JS::Value> v(cx);
-  if (!ToJSValue(cx, pt.x, &v) ||
-      !JS_SetProperty(cx, x, "value", v)) {
+  if (!ToJSValue(cx, pt.x, &v) || !JS_SetProperty(cx, x, "value", v)) {
     aRv.Throw(NS_ERROR_XPC_CANT_SET_OUT_VAL);
     return;
   }
-  if (!ToJSValue(cx, pt.y, &v) ||
-      !JS_SetProperty(cx, y, "value", v)) {
+  if (!ToJSValue(cx, pt.y, &v) || !JS_SetProperty(cx, y, "value", v)) {
     aRv.Throw(NS_ERROR_XPC_CANT_SET_OUT_VAL);
     return;
   }
 }
 
-void ScrollBoxObject::GetScrolledSize(JSContext* cx,
-                                      JS::Handle<JSObject*> width,
-                                      JS::Handle<JSObject*> height,
-                                      ErrorResult& aRv)
+void
+ScrollBoxObject::GetScrolledSize(JSContext* cx,
+                                 JS::Handle<JSObject*> width,
+                                 JS::Handle<JSObject*> height,
+                                 ErrorResult& aRv)
 {
   nsRect rect;
   GetScrolledSize(rect, aRv);
@@ -344,33 +357,36 @@ void ScrollBoxObject::GetScrolledSize(JSContext* cx,
   }
 }
 
-void ScrollBoxObject::EnsureElementIsVisible(Element& child, ErrorResult& aRv)
+void
+ScrollBoxObject::EnsureElementIsVisible(Element& child, ErrorResult& aRv)
 {
-    nsCOMPtr<nsIPresShell> shell = GetPresShell(false);
-    if (!shell) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return;
-    }
+  nsCOMPtr<nsIPresShell> shell = GetPresShell(false);
+  if (!shell) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return;
+  }
 
-    shell->ScrollContentIntoView(&child,
-                                 nsIPresShell::ScrollAxis(),
-                                 nsIPresShell::ScrollAxis(),
-                                 nsIPresShell::SCROLL_FIRST_ANCESTOR_ONLY |
-                                 nsIPresShell::SCROLL_OVERFLOW_HIDDEN);
+  shell->ScrollContentIntoView(&child,
+                               nsIPresShell::ScrollAxis(),
+                               nsIPresShell::ScrollAxis(),
+                               nsIPresShell::SCROLL_FIRST_ANCESTOR_ONLY |
+                                   nsIPresShell::SCROLL_OVERFLOW_HIDDEN);
 }
 
-void ScrollBoxObject::EnsureIndexIsVisible(int32_t index, ErrorResult& aRv)
-{
-  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-}
-
-void ScrollBoxObject::EnsureLineIsVisible(int32_t line, ErrorResult& aRv)
+void
+ScrollBoxObject::EnsureIndexIsVisible(int32_t index, ErrorResult& aRv)
 {
   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
 }
 
-} // namespace dom
-} // namespace mozilla
+void
+ScrollBoxObject::EnsureLineIsVisible(int32_t line, ErrorResult& aRv)
+{
+  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
+}
+
+}  // namespace dom
+}  // namespace mozilla
 
 // Creation Routine ///////////////////////////////////////////////////////////////////////
 

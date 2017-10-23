@@ -25,24 +25,24 @@ struct FontFaceDescriptors;
 class FontFaceSet;
 class Promise;
 class StringOrArrayBufferOrArrayBufferView;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 namespace mozilla {
 namespace dom {
 
-class FontFace final : public nsISupports,
-                       public nsWrapperCache
+class FontFace final : public nsISupports, public nsWrapperCache
 {
   friend class mozilla::PostTraversalTask;
   friend class mozilla::dom::FontFaceBufferSource;
   friend class Entry;
 
-public:
-  class Entry final : public gfxUserFontEntry {
+ public:
+  class Entry final : public gfxUserFontEntry
+  {
     friend class FontFace;
 
-  public:
+   public:
     Entry(gfxUserFontSet* aFontSet,
           const nsTArray<gfxFontFaceSrc>& aFontFaceSrcList,
           uint32_t aWeight,
@@ -52,31 +52,40 @@ public:
           uint32_t aLanguageOverride,
           gfxCharacterMap* aUnicodeRanges,
           uint8_t aFontDisplay)
-      : gfxUserFontEntry(aFontSet, aFontFaceSrcList, aWeight, aStretch,
-                         aStyle, aFeatureSettings, aLanguageOverride,
-                         aUnicodeRanges, aFontDisplay) {}
+        : gfxUserFontEntry(aFontSet,
+                           aFontFaceSrcList,
+                           aWeight,
+                           aStretch,
+                           aStyle,
+                           aFeatureSettings,
+                           aLanguageOverride,
+                           aUnicodeRanges,
+                           aFontDisplay)
+    {
+    }
 
     virtual void SetLoadState(UserFontLoadState aLoadState) override;
     virtual void GetUserFontSets(nsTArray<gfxUserFontSet*>& aResult) override;
-    const AutoTArray<FontFace*,1>& GetFontFaces() { return mFontFaces; }
+    const AutoTArray<FontFace*, 1>& GetFontFaces() { return mFontFaces; }
 
-  protected:
+   protected:
     // The FontFace objects that use this user font entry.  We need to store
     // an array of these, not just a single pointer, since the user font
     // cache can return the same entry for different FontFaces that have
     // the same descriptor values and come from the same origin.
-    AutoTArray<FontFace*,1> mFontFaces;
+    AutoTArray<FontFace*, 1> mFontFaces;
   };
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(FontFace)
 
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<FontFace>
-  CreateForRule(nsISupports* aGlobal, FontFaceSet* aFontFaceSet,
-                nsCSSFontFaceRule* aRule);
+  static already_AddRefed<FontFace> CreateForRule(nsISupports* aGlobal,
+                                                  FontFaceSet* aFontFaceSet,
+                                                  nsCSSFontFaceRule* aRule);
 
   nsCSSFontFaceRule* GetRule() { return mRule; }
 
@@ -136,12 +145,12 @@ public:
   gfxCharacterMap* GetUnicodeRangeAsCharacterMap();
 
   // Web IDL
-  static already_AddRefed<FontFace>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aFamily,
-              const mozilla::dom::StringOrArrayBufferOrArrayBufferView& aSource,
-              const mozilla::dom::FontFaceDescriptors& aDescriptors,
-              ErrorResult& aRV);
+  static already_AddRefed<FontFace> Constructor(
+      const GlobalObject& aGlobal,
+      const nsAString& aFamily,
+      const mozilla::dom::StringOrArrayBufferOrArrayBufferView& aSource,
+      const mozilla::dom::FontFaceDescriptors& aDescriptors,
+      ErrorResult& aRV);
 
   void GetFamily(nsString& aResult);
   void SetFamily(const nsAString& aValue, mozilla::ErrorResult& aRv);
@@ -164,7 +173,7 @@ public:
   mozilla::dom::Promise* Load(mozilla::ErrorResult& aRv);
   mozilla::dom::Promise* GetLoaded(mozilla::ErrorResult& aRv);
 
-private:
+ private:
   FontFace(nsISupports* aParent, FontFaceSet* aFontFaceSet);
   ~FontFace();
 
@@ -177,7 +186,8 @@ private:
    * Parses a @font-face descriptor value, storing the result in aResult.
    * Returns whether the parsing was successful.
    */
-  bool ParseDescriptor(nsCSSFontDesc aDescID, const nsAString& aString,
+  bool ParseDescriptor(nsCSSFontDesc aDescID,
+                       const nsAString& aString,
                        nsCSSValue& aResult);
 
   // Helper function for the descriptor setter methods.
@@ -242,7 +252,8 @@ private:
   mozilla::dom::FontFaceLoadStatus mStatus;
 
   // Represents where a FontFace's data is coming from.
-  enum SourceType {
+  enum SourceType
+  {
     eSourceType_FontFaceRule = 1,
     eSourceType_URLs,
     eSourceType_Buffer
@@ -281,7 +292,7 @@ private:
   bool mInFontFaceSet;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // !defined(mozilla_dom_FontFace_h)
+#endif  // !defined(mozilla_dom_FontFace_h)

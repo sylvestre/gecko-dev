@@ -9,12 +9,13 @@
 
 class nsParserBase : public nsISupports
 {
-  public:
-    NS_IMETHOD_(bool) IsParserEnabled() { return true; }
-    NS_IMETHOD GetChannel(nsIChannel** aChannel) {
-      *aChannel = nullptr;
-      return NS_OK;
-    }
+ public:
+  NS_IMETHOD_(bool) IsParserEnabled() { return true; }
+  NS_IMETHOD GetChannel(nsIChannel** aChannel)
+  {
+    *aChannel = nullptr;
+    return NS_OK;
+  }
 };
 
-#endif // nsParserBase_h_
+#endif  // nsParserBase_h_

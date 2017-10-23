@@ -15,39 +15,39 @@
 
 class qsObjectHelper : public xpcObjectHelper
 {
-public:
-    template <class T>
-    inline
-    qsObjectHelper(T* aObject, nsWrapperCache* aCache)
-        : xpcObjectHelper(ToSupports(aObject), ToCanonicalSupports(aObject),
-                          aCache)
-    {}
+ public:
+  template<class T>
+  inline qsObjectHelper(T* aObject, nsWrapperCache* aCache)
+      : xpcObjectHelper(
+            ToSupports(aObject), ToCanonicalSupports(aObject), aCache)
+  {
+  }
 
-    template <class T>
-    inline
-    qsObjectHelper(nsCOMPtr<T>& aObject, nsWrapperCache* aCache)
-        : xpcObjectHelper(ToSupports(aObject.get()),
-                          ToCanonicalSupports(aObject.get()), aCache)
-    {
-        if (mCanonical) {
-            // Transfer the strong reference.
-            mCanonicalStrong = dont_AddRef(mCanonical);
-            aObject.forget();
-        }
+  template<class T>
+  inline qsObjectHelper(nsCOMPtr<T>& aObject, nsWrapperCache* aCache)
+      : xpcObjectHelper(ToSupports(aObject.get()),
+                        ToCanonicalSupports(aObject.get()),
+                        aCache)
+  {
+    if (mCanonical) {
+      // Transfer the strong reference.
+      mCanonicalStrong = dont_AddRef(mCanonical);
+      aObject.forget();
     }
+  }
 
-    template <class T>
-    inline
-    qsObjectHelper(RefPtr<T>& aObject, nsWrapperCache* aCache)
-        : xpcObjectHelper(ToSupports(aObject.get()),
-                          ToCanonicalSupports(aObject.get()), aCache)
-    {
-        if (mCanonical) {
-            // Transfer the strong reference.
-            mCanonicalStrong = dont_AddRef(mCanonical);
-            aObject.forget();
-        }
+  template<class T>
+  inline qsObjectHelper(RefPtr<T>& aObject, nsWrapperCache* aCache)
+      : xpcObjectHelper(ToSupports(aObject.get()),
+                        ToCanonicalSupports(aObject.get()),
+                        aCache)
+  {
+    if (mCanonical) {
+      // Transfer the strong reference.
+      mCanonicalStrong = dont_AddRef(mCanonical);
+      aObject.forget();
     }
+  }
 };
 
 #endif

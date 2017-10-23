@@ -14,13 +14,12 @@ using namespace std;
 
 class WriteRecordClient : public FileIOClient
 {
-public:
+ public:
   WriteRecordClient(function<void()>&& aOnSuccess,
                     function<void()>&& aOnFailure,
                     const uint8_t* aData,
                     uint32_t aDataSize)
-    : mOnSuccess(move(aOnSuccess))
-    , mOnFailure(move(aOnFailure))
+      : mOnSuccess(move(aOnSuccess)), mOnFailure(move(aOnFailure))
   {
     mData.insert(mData.end(), aData, aData + aDataSize);
   }
@@ -30,7 +29,7 @@ public:
     // If we hit an error, fail.
     if (aStatus != Status::kSuccess) {
       Done(aStatus);
-    } else if (mFileIO) { // Otherwise, write our data to the file.
+    } else if (mFileIO) {  // Otherwise, write our data to the file.
       mFileIO->Write(mData.empty() ? nullptr : &mData.front(), mData.size());
     }
   }
@@ -41,10 +40,7 @@ public:
   {
   }
 
-  void OnWriteComplete(Status aStatus) override
-  {
-    Done(aStatus);
-  }
+  void OnWriteComplete(Status aStatus) override { Done(aStatus); }
 
   void Do(const string& aName, Host_8* aHost)
   {
@@ -53,7 +49,7 @@ public:
     mFileIO->Open(aName.c_str(), aName.size());
   }
 
-private:
+ private:
   void Done(cdm::FileIOClient::Status aStatus)
   {
     // Note: Call Close() before running continuation, in case the
@@ -90,10 +86,8 @@ WriteRecord(Host_8* aHost,
             function<void()>&& aOnFailure)
 {
   // client will be delete in WriteRecordClient::Done
-  WriteRecordClient* client = new WriteRecordClient(move(aOnSuccess),
-                                                    move(aOnFailure),
-                                                    aData,
-                                                    aNumBytes);
+  WriteRecordClient* client = new WriteRecordClient(
+      move(aOnSuccess), move(aOnFailure), aData, aNumBytes);
   client->Do(aRecordName, aHost);
 }
 
@@ -101,7 +95,7 @@ void
 WriteRecord(Host_8* aHost,
             const std::string& aRecordName,
             const std::string& aData,
-            function<void()> &&aOnSuccess,
+            function<void()>&& aOnSuccess,
             function<void()>&& aOnFailure)
 {
   return WriteRecord(aHost,
@@ -114,9 +108,10 @@ WriteRecord(Host_8* aHost,
 
 class ReadRecordClient : public FileIOClient
 {
-public:
-  explicit ReadRecordClient(function<void(bool, const uint8_t*, uint32_t)>&& aOnReadComplete)
-    : mOnReadComplete(move(aOnReadComplete))
+ public:
+  explicit ReadRecordClient(
+      function<void(bool, const uint8_t*, uint32_t)>&& aOnReadComplete)
+      : mOnReadComplete(move(aOnReadComplete))
   {
   }
 
@@ -137,9 +132,7 @@ public:
     Done(aStatus, aData, aDataSize);
   }
 
-  void OnWriteComplete(Status aStatus) override
-  {
-  }
+  void OnWriteComplete(Status aStatus) override {}
 
   void Do(const string& aName, Host_8* aHost)
   {
@@ -147,7 +140,7 @@ public:
     mFileIO->Open(aName.c_str(), aName.size());
   }
 
-private:
+ private:
   void Done(cdm::FileIOClient::Status aStatus,
             const uint8_t* aData,
             uint32_t aDataSize)
@@ -187,16 +180,13 @@ ReadRecord(Host_8* aHost,
 
 class OpenRecordClient : public FileIOClient
 {
-public:
+ public:
   explicit OpenRecordClient(function<void(bool)>&& aOpenComplete)
-    : mOpenComplete(move(aOpenComplete))
+      : mOpenComplete(move(aOpenComplete))
   {
   }
 
-  void OnOpenComplete(Status aStatus) override
-  {
-    Done(aStatus);
-  }
+  void OnOpenComplete(Status aStatus) override { Done(aStatus); }
 
   void OnReadComplete(Status aStatus,
                       const uint8_t* aData,
@@ -204,9 +194,7 @@ public:
   {
   }
 
-  void OnWriteComplete(Status aStatus) override
-  {
-  }
+  void OnWriteComplete(Status aStatus) override {}
 
   void Do(const string& aName, Host_8* aHost)
   {
@@ -215,7 +203,7 @@ public:
     mFileIO->Open(aName.c_str(), aName.size());
   }
 
-private:
+ private:
   void Done(cdm::FileIOClient::Status aStatus)
   {
     // Note: Call Close() before running continuation, in case the
@@ -238,7 +226,8 @@ private:
   }
 
   FileIO* mFileIO = nullptr;
-  function<void(bool)> mOpenComplete;;
+  function<void(bool)> mOpenComplete;
+  ;
 };
 
 void

@@ -11,55 +11,40 @@
 using namespace js;
 using namespace js::jit;
 
-void
-MoveEmitterMIPSShared::emit(const MoveResolver& moves)
-{
+void MoveEmitterMIPSShared::emit(const MoveResolver& moves) {
     if (moves.numCycles()) {
         // Reserve stack for cycle resolution
         masm.reserveStack(moves.numCycles() * sizeof(double));
         pushedAtCycle_ = masm.framePushed();
     }
 
-    for (size_t i = 0; i < moves.numMoves(); i++)
-        emit(moves.getMove(i));
+    for (size_t i = 0; i < moves.numMoves(); i++) emit(moves.getMove(i));
 }
 
-Address
-MoveEmitterMIPSShared::cycleSlot(uint32_t slot, uint32_t subslot) const
-{
+Address MoveEmitterMIPSShared::cycleSlot(uint32_t slot, uint32_t subslot) const {
     int32_t offset = masm.framePushed() - pushedAtCycle_;
     MOZ_ASSERT(Imm16::IsInSignedRange(offset));
     return Address(StackPointer, offset + slot * sizeof(double) + subslot);
 }
 
-int32_t
-MoveEmitterMIPSShared::getAdjustedOffset(const MoveOperand& operand)
-{
+int32_t MoveEmitterMIPSShared::getAdjustedOffset(const MoveOperand& operand) {
     MOZ_ASSERT(operand.isMemoryOrEffectiveAddress());
-    if (operand.base() != StackPointer)
-        return operand.disp();
+    if (operand.base() != StackPointer) return operand.disp();
 
     // Adjust offset if stack pointer has been moved.
     return operand.disp() + masm.framePushed() - pushedAtStart_;
 }
 
-Address
-MoveEmitterMIPSShared::getAdjustedAddress(const MoveOperand& operand)
-{
+Address MoveEmitterMIPSShared::getAdjustedAddress(const MoveOperand& operand) {
     return Address(operand.base(), getAdjustedOffset(operand));
 }
 
-
-Register
-MoveEmitterMIPSShared::tempReg()
-{
+Register MoveEmitterMIPSShared::tempReg() {
     spilledReg_ = SecondScratchReg;
     return SecondScratchReg;
 }
 
-void
-MoveEmitterMIPSShared::emitMove(const MoveOperand& from, const MoveOperand& to)
-{
+void MoveEmitterMIPSShared::emitMove(const MoveOperand& from, const MoveOperand& to) {
     if (from.isGeneralReg()) {
         // Second scratch register should not be moved by MoveEmitter.
         MOZ_ASSERT(from.reg() != spilledReg_);
@@ -93,9 +78,7 @@ MoveEmitterMIPSShared::emitMove(const MoveOperand& from, const MoveOperand& to)
     }
 }
 
-void
-MoveEmitterMIPSShared::emitInt32Move(const MoveOperand &from, const MoveOperand &to)
-{
+void MoveEmitterMIPSShared::emitInt32Move(const MoveOperand& from, const MoveOperand& to) {
     if (from.isGeneralReg()) {
         // Second scratch register should not be moved by MoveEmitter.
         MOZ_ASSERT(from.reg() != spilledReg_);
@@ -129,9 +112,7 @@ MoveEmitterMIPSShared::emitInt32Move(const MoveOperand &from, const MoveOperand 
     }
 }
 
-void
-MoveEmitterMIPSShared::emitFloat32Move(const MoveOperand& from, const MoveOperand& to)
-{
+void MoveEmitterMIPSShared::emitFloat32Move(const MoveOperand& from, const MoveOperand& to) {
     // Ensure that we can use ScratchFloat32Reg in memory move.
     MOZ_ASSERT_IF(from.isFloatReg(), from.floatReg() != ScratchFloat32Reg);
     MOZ_ASSERT_IF(to.isFloatReg(), to.floatReg() != ScratchFloat32Reg);
@@ -163,9 +144,7 @@ MoveEmitterMIPSShared::emitFloat32Move(const MoveOperand& from, const MoveOperan
     }
 }
 
-void
-MoveEmitterMIPSShared::emit(const MoveOp& move)
-{
+void MoveEmitterMIPSShared::emit(const MoveOp& move) {
     const MoveOperand& from = move.from();
     const MoveOperand& to = move.to();
 
@@ -191,32 +170,26 @@ MoveEmitterMIPSShared::emit(const MoveOp& move)
     }
 
     switch (move.type()) {
-      case MoveOp::FLOAT32:
-        emitFloat32Move(from, to);
-        break;
-      case MoveOp::DOUBLE:
-        emitDoubleMove(from, to);
-        break;
-      case MoveOp::INT32:
-        emitInt32Move(from, to);
-        break;
-      case MoveOp::GENERAL:
-        emitMove(from, to);
-        break;
-      default:
-        MOZ_CRASH("Unexpected move type");
+        case MoveOp::FLOAT32:
+            emitFloat32Move(from, to);
+            break;
+        case MoveOp::DOUBLE:
+            emitDoubleMove(from, to);
+            break;
+        case MoveOp::INT32:
+            emitInt32Move(from, to);
+            break;
+        case MoveOp::GENERAL:
+            emitMove(from, to);
+            break;
+        default:
+            MOZ_CRASH("Unexpected move type");
     }
 }
 
-void
-MoveEmitterMIPSShared::assertDone()
-{
-    MOZ_ASSERT(inCycle_ == 0);
-}
+void MoveEmitterMIPSShared::assertDone() { MOZ_ASSERT(inCycle_ == 0); }
 
-void
-MoveEmitterMIPSShared::finish()
-{
+void MoveEmitterMIPSShared::finish() {
     assertDone();
 
     masm.freeStack(masm.framePushed() - pushedAtStart_);

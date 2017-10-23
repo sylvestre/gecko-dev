@@ -25,7 +25,7 @@ namespace widget {
  */
 class WindowsEMF
 {
-public:
+ public:
   WindowsEMF();
   ~WindowsEMF();
 
@@ -52,9 +52,10 @@ public:
    */
   HDC GetDC() const
   {
-    MOZ_ASSERT(mDC, "GetDC can be used only after "
-                    "InitForDrawing/ InitFromFileContents and before"
-                    "Playback/ SaveToFile");
+    MOZ_ASSERT(mDC,
+               "GetDC can be used only after "
+               "InitForDrawing/ InitFromFileContents and before"
+               "Playback/ SaveToFile");
     return mDC;
   }
 
@@ -70,8 +71,7 @@ public:
    */
   bool SaveToFile();
 
-private:
-
+ private:
   WindowsEMF(const WindowsEMF& aEMF) = delete;
   bool FinishDocument();
   void ReleaseEMFHandle();
@@ -82,7 +82,7 @@ private:
   HDC mDC;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif /* MOZILLA_WIDGET_WINDOWSEMF_H */

@@ -37,12 +37,12 @@ NS_NewDateTimeControlFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsDateTimeControlFrame)
 
 NS_QUERYFRAME_HEAD(nsDateTimeControlFrame)
-  NS_QUERYFRAME_ENTRY(nsDateTimeControlFrame)
-  NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
+NS_QUERYFRAME_ENTRY(nsDateTimeControlFrame)
+NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 nsDateTimeControlFrame::nsDateTimeControlFrame(nsStyleContext* aContext)
-  : nsContainerFrame(aContext, kClassID)
+    : nsContainerFrame(aContext, kClassID)
 {
 }
 
@@ -57,7 +57,7 @@ void
 nsDateTimeControlFrame::OnValueChanged()
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     inputAreaContent->NotifyInputElementValueChanged();
   }
@@ -67,7 +67,7 @@ void
 nsDateTimeControlFrame::OnMinMaxStepAttrChanged()
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     inputAreaContent->NotifyMinMaxStepAttrChanged();
   }
@@ -77,7 +77,7 @@ void
 nsDateTimeControlFrame::SetValueFromPicker(const DateTimeValue& aValue)
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     AutoJSAPI api;
     if (!api.Init(mContent->OwnerDoc()->GetScopeObject())) {
@@ -108,7 +108,7 @@ void
 nsDateTimeControlFrame::SetPickerState(bool aOpen)
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     inputAreaContent->SetPickerState(aOpen);
   }
@@ -118,7 +118,7 @@ void
 nsDateTimeControlFrame::HandleFocusEvent()
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     inputAreaContent->FocusInnerTextBox();
   }
@@ -128,7 +128,7 @@ void
 nsDateTimeControlFrame::HandleBlurEvent()
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     inputAreaContent->BlurInnerTextBox();
   }
@@ -138,7 +138,7 @@ bool
 nsDateTimeControlFrame::HasBadInput()
 {
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
 
   bool result = false;
   if (inputAreaContent) {
@@ -155,10 +155,9 @@ nsDateTimeControlFrame::GetMinISize(gfxContext* aRenderingContext)
   DISPLAY_MIN_WIDTH(this, result);
 
   nsIFrame* kid = mFrames.FirstChild();
-  if (kid) { // display:none?
-    result = nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
-                                                  kid,
-                                                  nsLayoutUtils::MIN_ISIZE);
+  if (kid) {  // display:none?
+    result = nsLayoutUtils::IntrinsicForContainer(
+        aRenderingContext, kid, nsLayoutUtils::MIN_ISIZE);
   } else {
     result = 0;
   }
@@ -173,10 +172,9 @@ nsDateTimeControlFrame::GetPrefISize(gfxContext* aRenderingContext)
   DISPLAY_PREF_WIDTH(this, result);
 
   nsIFrame* kid = mFrames.FirstChild();
-  if (kid) { // display:none?
-    result = nsLayoutUtils::IntrinsicForContainer(aRenderingContext,
-                                                  kid,
-                                                  nsLayoutUtils::PREF_ISIZE);
+  if (kid) {  // display:none?
+    result = nsLayoutUtils::IntrinsicForContainer(
+        aRenderingContext, kid, nsLayoutUtils::PREF_ISIZE);
   } else {
     result = 0;
   }
@@ -211,21 +209,23 @@ nsDateTimeControlFrame::Reflow(nsPresContext* aPresContext,
 
   // Figure out our border-box sizes as well (by adding borderPadding to
   // content-box sizes):
-  const nscoord borderBoxISize = contentBoxISize +
-    aReflowInput.ComputedLogicalBorderPadding().IStartEnd(myWM);
+  const nscoord borderBoxISize =
+      contentBoxISize +
+      aReflowInput.ComputedLogicalBorderPadding().IStartEnd(myWM);
 
   nscoord borderBoxBSize;
   if (contentBoxBSize != NS_INTRINSICSIZE) {
-    borderBoxBSize = contentBoxBSize +
-      aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
-  } // else, we'll figure out borderBoxBSize after we resolve contentBoxBSize.
+    borderBoxBSize =
+        contentBoxBSize +
+        aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
+  }  // else, we'll figure out borderBoxBSize after we resolve contentBoxBSize.
 
   nsIFrame* inputAreaFrame = mFrames.FirstChild();
-  if (!inputAreaFrame) { // display:none?
+  if (!inputAreaFrame) {  // display:none?
     if (contentBoxBSize == NS_INTRINSICSIZE) {
       contentBoxBSize = 0;
       borderBoxBSize =
-        aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
+          aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
     }
   } else {
     NS_ASSERTION(inputAreaFrame->GetContent() == mInputAreaContent,
@@ -237,34 +237,40 @@ nsDateTimeControlFrame::Reflow(nsPresContext* aPresContext,
     LogicalSize availSize = aReflowInput.ComputedSize(wm);
     availSize.BSize(wm) = NS_UNCONSTRAINEDSIZE;
 
-    ReflowInput childReflowOuput(aPresContext, aReflowInput,
-                                 inputAreaFrame, availSize);
+    ReflowInput childReflowOuput(
+        aPresContext, aReflowInput, inputAreaFrame, availSize);
 
     // Convert input area margin into my own writing-mode (in case it differs):
     LogicalMargin childMargin =
-      childReflowOuput.ComputedLogicalMargin().ConvertTo(myWM, wm);
+        childReflowOuput.ComputedLogicalMargin().ConvertTo(myWM, wm);
 
     // offsets of input area frame within this frame:
-    LogicalPoint
-      childOffset(myWM,
-                  aReflowInput.ComputedLogicalBorderPadding().IStart(myWM) +
-                  childMargin.IStart(myWM),
-                  aReflowInput.ComputedLogicalBorderPadding().BStart(myWM) +
-                  childMargin.BStart(myWM));
+    LogicalPoint childOffset(
+        myWM,
+        aReflowInput.ComputedLogicalBorderPadding().IStart(myWM) +
+            childMargin.IStart(myWM),
+        aReflowInput.ComputedLogicalBorderPadding().BStart(myWM) +
+            childMargin.BStart(myWM));
 
     nsReflowStatus childStatus;
     // We initially reflow the child with a dummy containerSize; positioning
     // will be fixed later.
     const nsSize dummyContainerSize;
-    ReflowChild(inputAreaFrame, aPresContext, childDesiredSize,
-                childReflowOuput, myWM, childOffset, dummyContainerSize, 0,
+    ReflowChild(inputAreaFrame,
+                aPresContext,
+                childDesiredSize,
+                childReflowOuput,
+                myWM,
+                childOffset,
+                dummyContainerSize,
+                0,
                 childStatus);
     MOZ_ASSERT(childStatus.IsFullyComplete(),
                "We gave our child unconstrained available block-size, "
                "so it should be complete");
 
     nscoord childMarginBoxBSize =
-      childDesiredSize.BSize(myWM) + childMargin.BStartEnd(myWM);
+        childDesiredSize.BSize(myWM) + childMargin.BStartEnd(myWM);
 
     if (contentBoxBSize == NS_INTRINSICSIZE) {
       // We are intrinsically sized -- we should shrinkwrap the input area's
@@ -276,13 +282,13 @@ nsDateTimeControlFrame::Reflow(nsPresContext* aPresContext,
       // aReflowInput.ComputedBSize()).  Note that we do this before
       // adjusting for borderpadding, since ComputedMaxBSize and
       // ComputedMinBSize are content heights.
-      contentBoxBSize =
-        NS_CSS_MINMAX(contentBoxBSize,
-                      aReflowInput.ComputedMinBSize(),
-                      aReflowInput.ComputedMaxBSize());
+      contentBoxBSize = NS_CSS_MINMAX(contentBoxBSize,
+                                      aReflowInput.ComputedMinBSize(),
+                                      aReflowInput.ComputedMaxBSize());
 
-      borderBoxBSize = contentBoxBSize +
-        aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
+      borderBoxBSize =
+          contentBoxBSize +
+          aReflowInput.ComputedLogicalBorderPadding().BStartEnd(myWM);
     }
 
     // Center child in block axis
@@ -290,20 +296,24 @@ nsDateTimeControlFrame::Reflow(nsPresContext* aPresContext,
     childOffset.B(myWM) += std::max(0, extraSpace / 2);
 
     // Needed in FinishReflowChild, for logical-to-physical conversion:
-    nsSize borderBoxSize = LogicalSize(myWM, borderBoxISize, borderBoxBSize).
-                           GetPhysicalSize(myWM);
+    nsSize borderBoxSize =
+        LogicalSize(myWM, borderBoxISize, borderBoxBSize).GetPhysicalSize(myWM);
 
     // Place the child
-    FinishReflowChild(inputAreaFrame, aPresContext, childDesiredSize,
-                      &childReflowOuput, myWM, childOffset, borderBoxSize, 0);
+    FinishReflowChild(inputAreaFrame,
+                      aPresContext,
+                      childDesiredSize,
+                      &childReflowOuput,
+                      myWM,
+                      childOffset,
+                      borderBoxSize,
+                      0);
 
-    nsSize contentBoxSize =
-      LogicalSize(myWM, contentBoxISize, contentBoxBSize).
-        GetPhysicalSize(myWM);
+    nsSize contentBoxSize = LogicalSize(myWM, contentBoxISize, contentBoxBSize)
+                                .GetPhysicalSize(myWM);
     aDesiredSize.SetBlockStartAscent(
-      childDesiredSize.BlockStartAscent() +
-      inputAreaFrame->BStart(aReflowInput.GetWritingMode(),
-                             contentBoxSize));
+        childDesiredSize.BlockStartAscent() +
+        inputAreaFrame->BStart(aReflowInput.GetWritingMode(), contentBoxSize));
   }
 
   LogicalSize logicalDesiredSize(myWM, borderBoxISize, borderBoxBSize);
@@ -319,7 +329,8 @@ nsDateTimeControlFrame::Reflow(nsPresContext* aPresContext,
 
   NS_FRAME_TRACE(NS_FRAME_TRACE_CALLS,
                  ("exit nsDateTimeControlFrame::Reflow: size=%d,%d",
-                  aDesiredSize.Width(), aDesiredSize.Height()));
+                  aDesiredSize.Width(),
+                  aDesiredSize.Height()));
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aDesiredSize);
 }
 
@@ -329,21 +340,24 @@ nsDateTimeControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
   // Set up "datetimebox" XUL element which will be XBL-bound to the
   // actual controls.
   nsNodeInfoManager* nodeInfoManager =
-    mContent->GetComposedDoc()->NodeInfoManager();
+      mContent->GetComposedDoc()->NodeInfoManager();
   RefPtr<NodeInfo> nodeInfo =
-    nodeInfoManager->GetNodeInfo(nsGkAtoms::datetimebox, nullptr,
-                                 kNameSpaceID_XUL, nsIDOMNode::ELEMENT_NODE);
+      nodeInfoManager->GetNodeInfo(nsGkAtoms::datetimebox,
+                                   nullptr,
+                                   kNameSpaceID_XUL,
+                                   nsIDOMNode::ELEMENT_NODE);
   NS_ENSURE_TRUE(nodeInfo, NS_ERROR_OUT_OF_MEMORY);
 
   NS_TrustedNewXULElement(getter_AddRefs(mInputAreaContent), nodeInfo.forget());
   aElements.AppendElement(mInputAreaContent);
 
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (inputAreaContent) {
     // Propogate our tabindex.
     nsAutoString tabIndexStr;
-    if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::tabindex, tabIndexStr)) {
+    if (mContent->GetAttr(
+            kNameSpaceID_None, nsGkAtoms::tabindex, tabIndexStr)) {
       inputAreaContent->SetEditAttribute(NS_LITERAL_STRING("tabindex"),
                                          tabIndexStr);
     }
@@ -362,8 +376,8 @@ nsDateTimeControlFrame::CreateAnonymousContent(nsTArray<ContentInfo>& aElements)
 }
 
 void
-nsDateTimeControlFrame::AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
-                                                 uint32_t aFilter)
+nsDateTimeControlFrame::AppendAnonymousContentTo(
+    nsTArray<nsIContent*>& aElements, uint32_t aFilter)
 {
   if (mInputAreaContent) {
     aElements.AppendElement(mInputAreaContent);
@@ -375,7 +389,7 @@ nsDateTimeControlFrame::SyncDisabledState()
 {
   NS_ASSERTION(mInputAreaContent, "The input area content must exist!");
   nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-    do_QueryInterface(mInputAreaContent);
+      do_QueryInterface(mInputAreaContent);
   if (!inputAreaContent) {
     return;
   }
@@ -398,23 +412,23 @@ nsDateTimeControlFrame::AttributeChanged(int32_t aNameSpaceID,
 
   // nsGkAtoms::disabled is handled by SyncDisabledState
   if (aNameSpaceID == kNameSpaceID_None) {
-    if (aAttribute == nsGkAtoms::value ||
-        aAttribute == nsGkAtoms::readonly ||
+    if (aAttribute == nsGkAtoms::value || aAttribute == nsGkAtoms::readonly ||
         aAttribute == nsGkAtoms::tabindex) {
       MOZ_ASSERT(mContent->IsHTMLElement(nsGkAtoms::input), "bad cast");
-      auto contentAsInputElem = static_cast<dom::HTMLInputElement*>(GetContent());
+      auto contentAsInputElem =
+          static_cast<dom::HTMLInputElement*>(GetContent());
       // If script changed the <input>'s type before setting these attributes
       // then we don't need to do anything since we are going to be reframed.
       if (contentAsInputElem->ControlType() == NS_FORM_INPUT_TIME ||
           contentAsInputElem->ControlType() == NS_FORM_INPUT_DATE) {
         nsCOMPtr<nsIDateTimeInputArea> inputAreaContent =
-          do_QueryInterface(mInputAreaContent);
+            do_QueryInterface(mInputAreaContent);
         if (aAttribute == nsGkAtoms::value) {
           if (inputAreaContent) {
             nsContentUtils::AddScriptRunner(NewRunnableMethod(
-              "nsIDateTimeInputArea::NotifyInputElementValueChanged",
-              inputAreaContent,
-              &nsIDateTimeInputArea::NotifyInputElementValueChanged));
+                "nsIDateTimeInputArea::NotifyInputElementValueChanged",
+                inputAreaContent,
+                &nsIDateTimeInputArea::NotifyInputElementValueChanged));
           }
         } else {
           if (aModType == nsIDOMMutationEvent::REMOVAL) {
@@ -437,8 +451,7 @@ nsDateTimeControlFrame::AttributeChanged(int32_t aNameSpaceID,
     }
   }
 
-  return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                            aModType);
+  return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 }
 
 void

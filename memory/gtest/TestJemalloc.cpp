@@ -21,9 +21,10 @@ TestOne(size_t size)
   char* p = (char*)malloc(req);
   size_t usable = moz_malloc_usable_size(p);
   // NB: Using EXPECT here so that we still free the memory on failure.
-  EXPECT_EQ(adv, usable) <<
-         "malloc_good_size(" << req << ") --> " << adv << "; "
-         "malloc_usable_size(" << req << ") --> " << usable;
+  EXPECT_EQ(adv, usable) << "malloc_good_size(" << req << ") --> " << adv
+                         << "; "
+                            "malloc_usable_size("
+                         << req << ") --> " << usable;
   free(p);
 }
 
@@ -35,8 +36,8 @@ TestThree(size_t size)
   ASSERT_NO_FATAL_FAILURE(TestOne(size + 1));
 }
 
-#define K   * 1024
-#define M   * 1024 * 1024
+#define K *1024
+#define M *1024 * 1024
 
 TEST(Jemalloc, UsableSizeInAdvance)
 {
@@ -45,8 +46,7 @@ TEST(Jemalloc, UsableSizeInAdvance)
    * various sizes beyond that.
    */
 
-  for (size_t n = 0; n < 16 K; n++)
-    ASSERT_NO_FATAL_FAILURE(TestOne(n));
+  for (size_t n = 0; n < 16 K; n++) ASSERT_NO_FATAL_FAILURE(TestOne(n));
 
   for (size_t n = 16 K; n < 1 M; n += 4 K)
     ASSERT_NO_FATAL_FAILURE(TestThree(n));
@@ -57,13 +57,14 @@ TEST(Jemalloc, UsableSizeInAdvance)
 
 static int gStaticVar;
 
-bool InfoEq(jemalloc_ptr_info_t& aInfo, PtrInfoTag aTag, void* aAddr,
-            size_t aSize)
+bool
+InfoEq(jemalloc_ptr_info_t& aInfo, PtrInfoTag aTag, void* aAddr, size_t aSize)
 {
   return aInfo.tag == aTag && aInfo.addr == aAddr && aInfo.size == aSize;
 }
 
-bool InfoEqFreedPage(jemalloc_ptr_info_t& aInfo, void* aAddr, size_t aPageSize)
+bool
+InfoEqFreedPage(jemalloc_ptr_info_t& aInfo, void* aAddr, size_t aPageSize)
 {
   size_t pageSizeMask = aPageSize - 1;
 

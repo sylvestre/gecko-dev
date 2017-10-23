@@ -34,7 +34,8 @@ TEST(TestEventTargetQI, ThreadPool)
 
 TEST(TestEventTargetQI, SharedThreadPool)
 {
-  nsCOMPtr<nsIThreadPool> thing = SharedThreadPool::Get(NS_LITERAL_CSTRING("TestPool"), 1);
+  nsCOMPtr<nsIThreadPool> thing =
+      SharedThreadPool::Get(NS_LITERAL_CSTRING("TestPool"), 1);
   EXPECT_TRUE(thing);
 
   nsCOMPtr<nsISerialEventTarget> serial = do_QueryInterface(thing);
@@ -71,7 +72,8 @@ TEST(TestEventTargetQI, ThrottledEventQueue)
 
 TEST(TestEventTargetQI, LazyIdleThread)
 {
-  nsCOMPtr<nsIThread> thing = new LazyIdleThread(0, NS_LITERAL_CSTRING("TestThread"));
+  nsCOMPtr<nsIThread> thing =
+      new LazyIdleThread(0, NS_LITERAL_CSTRING("TestThread"));
   EXPECT_TRUE(thing);
 
   nsCOMPtr<nsISerialEventTarget> serial = do_QueryInterface(thing);
@@ -85,7 +87,8 @@ TEST(TestEventTargetQI, LazyIdleThread)
 
 TEST(TestEventTargetQI, SchedulerGroup)
 {
-  nsCOMPtr<nsIEventTarget> thing = SystemGroup::EventTargetFor(TaskCategory::Other);
+  nsCOMPtr<nsIEventTarget> thing =
+      SystemGroup::EventTargetFor(TaskCategory::Other);
   EXPECT_TRUE(thing);
 
   nsCOMPtr<nsISerialEventTarget> serial = do_QueryInterface(thing);

@@ -17,17 +17,18 @@
    To change the list of keywords, see nsCSSKeywordList.h
 
  */
-#define CSS_KEY(_name,_id) eCSSKeyword_##_id,
-enum nsCSSKeyword : int16_t {
+#define CSS_KEY(_name, _id) eCSSKeyword_##_id,
+enum nsCSSKeyword : int16_t
+{
   eCSSKeyword_UNKNOWN = -1,
 #include "nsCSSKeywordList.h"
   eCSSKeyword_COUNT
 };
 #undef CSS_KEY
 
-
-class nsCSSKeywords {
-public:
+class nsCSSKeywords
+{
+ public:
   static void AddRefTable(void);
   static void ReleaseTable(void);
 

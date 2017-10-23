@@ -25,8 +25,9 @@ class MediaResource;
  * gtests for the readers without using a mock MediaResource when you don't
  * care about the events notified by the MediaResource.
  */
-class MediaResourceCallback {
-public:
+class MediaResourceCallback
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaResourceCallback);
 
   // Return an abstract thread on which to run main thread runnables.
@@ -55,10 +56,10 @@ public:
   // Notify the number of bytes read from the resource.
   virtual void NotifyBytesConsumed(int64_t aBytes, int64_t aOffset) {}
 
-protected:
+ protected:
   virtual ~MediaResourceCallback() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif //MediaResourceCallback_h_
+#endif  //MediaResourceCallback_h_

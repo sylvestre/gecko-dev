@@ -22,7 +22,7 @@ namespace mozilla {
 template<class T>
 class Observer
 {
-public:
+ public:
   virtual ~Observer() {}
   virtual void Notify(const T& aParam) = 0;
 };
@@ -38,7 +38,7 @@ public:
 template<class T>
 class ObserverList
 {
-public:
+ public:
   /**
    * Note: When calling AddObserver, it's up to the caller to make sure the
    * object isn't going to be release as long as RemoveObserver hasn't been
@@ -60,10 +60,7 @@ public:
     return mObservers.RemoveElement(aObserver);
   }
 
-  uint32_t Length()
-  {
-    return mObservers.Length();
-  }
+  uint32_t Length() { return mObservers.Length(); }
 
   void Broadcast(const T& aParam)
   {
@@ -74,10 +71,10 @@ public:
     }
   }
 
-protected:
+ protected:
   nsTArray<Observer<T>*> mObservers;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_Observer_h
+#endif  // mozilla_Observer_h

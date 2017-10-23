@@ -25,21 +25,21 @@ namespace places {
 
 class WeakAsyncStatementCallback : public mozIStorageStatementCallback
 {
-public:
+ public:
   NS_DECL_MOZISTORAGESTATEMENTCALLBACK
   WeakAsyncStatementCallback() {}
 
-protected:
+ protected:
   virtual ~WeakAsyncStatementCallback() {}
 };
 
 class AsyncStatementCallback : public WeakAsyncStatementCallback
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   AsyncStatementCallback() {}
 
-protected:
+ protected:
   virtual ~AsyncStatementCallback() {}
 };
 
@@ -47,8 +47,8 @@ protected:
  * Macros to use in place of NS_DECL_MOZISTORAGESTATEMENTCALLBACK to declare the
  * methods this class assumes silent or notreached.
  */
-#define NS_DECL_ASYNCSTATEMENTCALLBACK \
-  NS_IMETHOD HandleResult(mozIStorageResultSet *) override; \
+#define NS_DECL_ASYNCSTATEMENTCALLBACK                     \
+  NS_IMETHOD HandleResult(mozIStorageResultSet*) override; \
   NS_IMETHOD HandleCompletion(uint16_t) override;
 
 /**
@@ -56,9 +56,9 @@ protected:
  * the specified index or name.
  * @note URIs are always bound as UTF8.
  */
-class URIBinder // static
+class URIBinder  // static
 {
-public:
+ public:
   // Bind URI to statement by index.
   static nsresult Bind(mozIStorageStatement* statement,
                        int32_t index,
@@ -115,12 +115,14 @@ public:
  * @param aRevHost
  *        Out parameter
  */
-nsresult GetReversedHostname(nsIURI* aURI, nsString& aRevHost);
+nsresult
+GetReversedHostname(nsIURI* aURI, nsString& aRevHost);
 
 /**
  * Similar method to GetReversedHostName but for strings
  */
-void GetReversedHostname(const nsString& aForward, nsString& aRevHost);
+void
+GetReversedHostname(const nsString& aForward, nsString& aRevHost);
 
 /**
  * Reverses a string.
@@ -130,14 +132,16 @@ void GetReversedHostname(const nsString& aForward, nsString& aRevHost);
  * @param aReversed
  *        Output parameter will contain the reversed string
  */
-void ReverseString(const nsString& aInput, nsString& aReversed);
+void
+ReverseString(const nsString& aInput, nsString& aReversed);
 
 /**
  * Generates an 12 character guid to be used by bookmark and history entries.
  *
  * @note This guid uses the characters a-z, A-Z, 0-9, '-', and '_'.
  */
-nsresult GenerateGUID(nsACString& _guid);
+nsresult
+GenerateGUID(nsACString& _guid);
 
 /**
  * Determines if the string is a valid guid or not.
@@ -146,7 +150,8 @@ nsresult GenerateGUID(nsACString& _guid);
  *        The guid to test.
  * @return true if it is a valid guid, false otherwise.
  */
-bool IsValidGUID(const nsACString& aGUID);
+bool
+IsValidGUID(const nsACString& aGUID);
 
 /**
  * Truncates the title if it's longer than TITLE_LENGTH_MAX.
@@ -156,7 +161,8 @@ bool IsValidGUID(const nsACString& aGUID);
  * @param aTrimmed
  *        Output parameter to return the trimmed string
  */
-void TruncateTitle(const nsACString& aTitle, nsACString& aTrimmed);
+void
+TruncateTitle(const nsACString& aTitle, nsACString& aTrimmed);
 
 /**
  * Round down a PRTime value to milliseconds precision (...000).
@@ -165,14 +171,16 @@ void TruncateTitle(const nsACString& aTitle, nsACString& aTrimmed);
  *        a PRTime value.
  * @return aTime rounded down to milliseconds precision.
  */
-PRTime RoundToMilliseconds(PRTime aTime);
+PRTime
+RoundToMilliseconds(PRTime aTime);
 
 /**
  * Round down PR_Now() to milliseconds precision.
  *
  * @return @see PR_Now, RoundToMilliseconds.
  */
-PRTime RoundedPRNow();
+PRTime
+RoundedPRNow();
 
 /**
  * Used to finalize a statementCache on a specified thread.
@@ -180,7 +188,7 @@ PRTime RoundedPRNow();
 template<typename StatementType>
 class FinalizeStatementCacheProxy : public Runnable
 {
-public:
+ public:
   /**
    * Constructor.
    *
@@ -192,12 +200,12 @@ public:
    *        under us.
    */
   FinalizeStatementCacheProxy(
-    mozilla::storage::StatementCache<StatementType>& aStatementCache,
-    nsISupports* aOwner)
-    : Runnable("places::FinalizeStatementCacheProxy")
-    , mStatementCache(aStatementCache)
-    , mOwner(aOwner)
-    , mCallingThread(do_GetCurrentThread())
+      mozilla::storage::StatementCache<StatementType>& aStatementCache,
+      nsISupports* aOwner)
+      : Runnable("places::FinalizeStatementCacheProxy"),
+        mStatementCache(aStatementCache),
+        mOwner(aOwner),
+        mCallingThread(do_GetCurrentThread())
   {
   }
 
@@ -205,12 +213,12 @@ public:
   {
     mStatementCache.FinalizeStatements();
     // Release the owner back on the calling thread.
-    NS_ProxyRelease("FinalizeStatementCacheProxy::mOwner",
-      mCallingThread, mOwner.forget());
+    NS_ProxyRelease(
+        "FinalizeStatementCacheProxy::mOwner", mCallingThread, mOwner.forget());
     return NS_OK;
   }
 
-protected:
+ protected:
   mozilla::storage::StatementCache<StatementType>& mStatementCache;
   nsCOMPtr<nsISupports> mOwner;
   nsCOMPtr<nsIThread> mCallingThread;
@@ -226,23 +234,22 @@ protected:
  *        The transition type of the visit.
  * @return true if this visit should be hidden.
  */
-bool GetHiddenState(bool aIsRedirect,
-                    uint32_t aTransitionType);
+bool
+GetHiddenState(bool aIsRedirect, uint32_t aTransitionType);
 
 /**
  * Used to notify a topic to system observers on async execute completion.
  */
 class AsyncStatementCallbackNotifier : public AsyncStatementCallback
 {
-public:
-  explicit AsyncStatementCallbackNotifier(const char* aTopic)
-    : mTopic(aTopic)
+ public:
+  explicit AsyncStatementCallbackNotifier(const char* aTopic) : mTopic(aTopic)
   {
   }
 
   NS_IMETHOD HandleCompletion(uint16_t aReason);
 
-private:
+ private:
   const char* mTopic;
 };
 
@@ -251,22 +258,21 @@ private:
  */
 class AsyncStatementTelemetryTimer : public AsyncStatementCallback
 {
-public:
+ public:
   explicit AsyncStatementTelemetryTimer(Telemetry::HistogramID aHistogramId,
                                         TimeStamp aStart = TimeStamp::Now())
-    : mHistogramId(aHistogramId)
-    , mStart(aStart)
+      : mHistogramId(aHistogramId), mStart(aStart)
   {
   }
 
   NS_IMETHOD HandleCompletion(uint16_t aReason);
 
-private:
+ private:
   const Telemetry::HistogramID mHistogramId;
   const TimeStamp mStart;
 };
 
-} // namespace places
-} // namespace mozilla
+}  // namespace places
+}  // namespace mozilla
 
-#endif // mozilla_places_Helpers_h_
+#endif  // mozilla_places_Helpers_h_

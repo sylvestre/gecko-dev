@@ -15,9 +15,10 @@ namespace dom {
 
 class HTMLDataListElement final : public nsGenericHTMLElement
 {
-public:
-  explicit HTMLDataListElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : nsGenericHTMLElement(aNodeInfo)
+ public:
+  explicit HTMLDataListElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : nsGenericHTMLElement(aNodeInfo)
   {
   }
 
@@ -33,26 +34,29 @@ public:
     return mOptions;
   }
 
-
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // This function is used to generate the nsContentList (option elements).
-  static bool MatchOptions(Element* aElement, int32_t aNamespaceID,
-                           nsAtom* aAtom, void* aData);
+  static bool MatchOptions(Element* aElement,
+                           int32_t aNamespaceID,
+                           nsAtom* aAtom,
+                           void* aData);
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(HTMLDataListElement,
                                            nsGenericHTMLElement)
-protected:
+ protected:
   virtual ~HTMLDataListElement();
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
   // <option>'s list inside the datalist element.
   RefPtr<nsContentList> mOptions;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* HTMLDataListElement_h___ */

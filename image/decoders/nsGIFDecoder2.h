@@ -21,24 +21,24 @@ class RasterImage;
 
 class nsGIFDecoder2 : public Decoder
 {
-public:
+ public:
   ~nsGIFDecoder2();
 
-protected:
+ protected:
   LexerResult DoDecode(SourceBufferIterator& aIterator,
                        IResumable* aOnResume) override;
   nsresult FinishInternal() override;
 
   Maybe<Telemetry::HistogramID> SpeedHistogram() const override;
 
-private:
+ private:
   friend class DecoderFactory;
 
   // Decoders should only be instantiated via DecoderFactory.
   explicit nsGIFDecoder2(RasterImage* aImage);
 
   /// Called when we begin decoding the image.
-  void      BeginGIF();
+  void BeginGIF();
 
   /**
    * Called when we begin decoding a frame.
@@ -48,23 +48,25 @@ private:
    * @param aDepth The palette depth of this frame.
    * @param aIsInterlaced If true, this frame is an interlaced frame.
    */
-  nsresult  BeginImageFrame(const gfx::IntRect& aFrameRect,
-                            uint16_t aDepth,
-                            bool aIsInterlaced);
+  nsresult BeginImageFrame(const gfx::IntRect& aFrameRect,
+                           uint16_t aDepth,
+                           bool aIsInterlaced);
 
   /// Called when we finish decoding a frame.
-  void      EndImageFrame();
+  void EndImageFrame();
 
   /// Called when we finish decoding the entire image.
-  void      FlushImageData();
+  void FlushImageData();
 
   /// Transforms a palette index into a pixel.
-  template <typename PixelSize> PixelSize
-  ColormapIndexToPixel(uint8_t aIndex);
+  template<typename PixelSize>
+  PixelSize ColormapIndexToPixel(uint8_t aIndex);
 
   /// A generator function that performs LZW decompression and yields pixels.
-  template <typename PixelSize> NextPixel<PixelSize>
-  YieldPixel(const uint8_t* aData, size_t aLength, size_t* aBytesReadOut);
+  template<typename PixelSize>
+  NextPixel<PixelSize> YieldPixel(const uint8_t* aData,
+                                  size_t aLength,
+                                  size_t* aBytesReadOut);
 
   /// Checks if we have transparency, either because the header indicates that
   /// there's alpha, or because the frame rect doesn't cover the entire image.
@@ -103,7 +105,8 @@ private:
 
   LexerTransition<State> ReadGIFHeader(const char* aData);
   LexerTransition<State> ReadScreenDescriptor(const char* aData);
-  LexerTransition<State> ReadGlobalColorTable(const char* aData, size_t aLength);
+  LexerTransition<State> ReadGlobalColorTable(const char* aData,
+                                              size_t aLength);
   LexerTransition<State> FinishedGlobalColorTable();
   LexerTransition<State> ReadBlockHeader(const char* aData);
   LexerTransition<State> ReadExtensionHeader(const char* aData);
@@ -126,7 +129,7 @@ private:
   // so the buffer shouldn't have to be resized during decoding.
   StreamingLexer<State, 16> mLexer;
 
-  uint32_t mOldColor;        // The old value of the transparent pixel
+  uint32_t mOldColor;  // The old value of the transparent pixel
 
   // The frame number of the currently-decoding frame when we're in the middle
   // of decoding it, and -1 otherwise.
@@ -137,7 +140,7 @@ private:
   // written.
   size_t mColorTablePos;
 
-  uint8_t mColorMask;        // Apply this to the pixel to keep within colormap
+  uint8_t mColorMask;  // Apply this to the pixel to keep within colormap
   bool mGIFOpen;
   bool mSawTransparency;
 
@@ -146,7 +149,7 @@ private:
   SurfacePipe mPipe;  /// The SurfacePipe used to write to the output surface.
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_decoders_nsGIFDecoder2_h
+#endif  // mozilla_image_decoders_nsGIFDecoder2_h

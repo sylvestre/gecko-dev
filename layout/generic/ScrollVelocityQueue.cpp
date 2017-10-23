@@ -20,7 +20,8 @@ ScrollVelocityQueue::Sample(const nsPoint& aScrollPosition)
   int maxVelocity = gfxPrefs::ScrollSnapPredictionMaxVelocity();
   maxVelocity = nsPresContext::CSSPixelsToAppUnits(maxVelocity);
   int maxOffset = maxVelocity * flingSensitivity;
-  TimeStamp currentRefreshTime = mPresContext->RefreshDriver()->MostRecentRefresh();
+  TimeStamp currentRefreshTime =
+      mPresContext->RefreshDriver()->MostRecentRefresh();
   if (mSampleTime.IsNull()) {
     mAccumulator = nsPoint();
   } else {
@@ -51,7 +52,8 @@ ScrollVelocityQueue::TrimQueue()
     return;
   }
 
-  TimeStamp currentRefreshTime = mPresContext->RefreshDriver()->MostRecentRefresh();
+  TimeStamp currentRefreshTime =
+      mPresContext->RefreshDriver()->MostRecentRefresh();
   nsPoint velocity;
   uint32_t timeDelta = (currentRefreshTime - mSampleTime).ToMilliseconds();
   for (int i = mQueue.Length() - 1; i >= 0; i--) {
@@ -89,9 +91,9 @@ ScrollVelocityQueue::GetVelocity()
   for (int i = mQueue.Length() - 1; i >= 0; i--) {
     velocity += mQueue[i].second;
   }
-  return velocity / mQueue.Length();;
+  return velocity / mQueue.Length();
+  ;
 }
 
-} // namespace layout
-} // namespace mozilla
-
+}  // namespace layout
+}  // namespace mozilla

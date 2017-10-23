@@ -9,11 +9,11 @@ namespace mozilla {
 namespace layers {
 
 CanvasRenderer::CanvasRenderer()
-  : mPreTransCallback(nullptr)
-  , mPreTransCallbackData(nullptr)
-  , mDidTransCallback(nullptr)
-  , mDidTransCallbackData(nullptr)
-  , mDirty(false)
+    : mPreTransCallback(nullptr),
+      mPreTransCallbackData(nullptr),
+      mDidTransCallback(nullptr),
+      mDidTransCallbackData(nullptr),
+      mDirty(false)
 {
   MOZ_COUNT_CTOR(CanvasRenderer);
 }
@@ -35,5 +35,5 @@ CanvasRenderer::Initialize(const CanvasInitializeData& aData)
   mSize = aData.mSize;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

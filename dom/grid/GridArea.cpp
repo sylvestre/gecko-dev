@@ -26,19 +26,17 @@ GridArea::GridArea(Grid* aParent,
                    uint32_t aRowEnd,
                    uint32_t aColumnStart,
                    uint32_t aColumnEnd)
-  : mParent(aParent)
-  , mName(aName)
-  , mType(aType)
-  , mRowStart(aRowStart)
-  , mRowEnd(aRowEnd)
-  , mColumnStart(aColumnStart)
-  , mColumnEnd(aColumnEnd)
+    : mParent(aParent),
+      mName(aName),
+      mType(aType),
+      mRowStart(aRowStart),
+      mRowEnd(aRowEnd),
+      mColumnStart(aColumnStart),
+      mColumnEnd(aColumnEnd)
 {
 }
 
-GridArea::~GridArea()
-{
-}
+GridArea::~GridArea() {}
 
 JSObject*
 GridArea::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -82,5 +80,5 @@ GridArea::ColumnEnd() const
   return mColumnEnd;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

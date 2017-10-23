@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #include "Logging.h"
 #include "SourceSurfaceSkia.h"
 #include "HelpersSkia.h"
@@ -16,8 +15,7 @@ namespace mozilla {
 namespace gfx {
 
 SourceSurfaceSkia::SourceSurfaceSkia()
-  : mDrawTarget(nullptr)
-  , mChangeMutex("SourceSurfaceSkia::mChangeMutex")
+    : mDrawTarget(nullptr), mChangeMutex("SourceSurfaceSkia::mChangeMutex")
 {
 }
 
@@ -67,10 +65,17 @@ MakeSkData(void* aData, int32_t aHeight, size_t aStride)
 }
 
 static sk_sp<SkImage>
-ReadSkImage(const sk_sp<SkImage>& aImage, const SkImageInfo& aInfo, size_t aStride)
+ReadSkImage(const sk_sp<SkImage>& aImage,
+            const SkImageInfo& aInfo,
+            size_t aStride)
 {
   if (sk_sp<SkData> data = MakeSkData(nullptr, aInfo.height(), aStride)) {
-    if (aImage->readPixels(aInfo, data->writable_data(), aStride, 0, 0, SkImage::kDisallow_CachingHint)) {
+    if (aImage->readPixels(aInfo,
+                           data->writable_data(),
+                           aStride,
+                           0,
+                           0,
+                           SkImage::kDisallow_CachingHint)) {
       return SkImage::MakeRasterData(aInfo, data, aStride);
     }
   }
@@ -79,7 +84,7 @@ ReadSkImage(const sk_sp<SkImage>& aImage, const SkImageInfo& aInfo, size_t aStri
 
 bool
 SourceSurfaceSkia::InitFromData(unsigned char* aData,
-                                const IntSize &aSize,
+                                const IntSize& aSize,
                                 int32_t aStride,
                                 SurfaceFormat aFormat)
 {
@@ -121,9 +126,9 @@ SourceSurfaceSkia::InitFromImage(const sk_sp<SkImage>& aImage,
   SkPixmap pixmap;
   if (aImage->peekPixels(&pixmap)) {
     mFormat =
-      aFormat != SurfaceFormat::UNKNOWN ?
-        aFormat :
-        SkiaColorTypeToGfxFormat(pixmap.colorType(), pixmap.alphaType());
+        aFormat != SurfaceFormat::UNKNOWN
+            ? aFormat
+            : SkiaColorTypeToGfxFormat(pixmap.colorType(), pixmap.alphaType());
     mStride = pixmap.rowBytes();
   } else if (aFormat != SurfaceFormat::UNKNOWN) {
     mFormat = aFormat;
@@ -150,7 +155,8 @@ SourceSurfaceSkia::GetData()
   }
 #ifdef USE_SKIA_GPU
   if (mImage->isTextureBacked()) {
-    if (sk_sp<SkImage> raster = ReadSkImage(mImage, MakeSkiaImageInfo(mSize, mFormat), mStride)) {
+    if (sk_sp<SkImage> raster =
+            ReadSkImage(mImage, MakeSkiaImageInfo(mSize, mFormat), mStride)) {
       mImage = raster;
     } else {
       gfxCriticalError() << "Failed making Skia raster image for GPU surface";
@@ -165,7 +171,7 @@ SourceSurfaceSkia::GetData()
 }
 
 bool
-SourceSurfaceSkia::Map(MapType, MappedSurface *aMappedSurface)
+SourceSurfaceSkia::Map(MapType, MappedSurface* aMappedSurface)
 {
   mChangeMutex.Lock();
   aMappedSurface->mData = GetData();
@@ -203,5 +209,5 @@ SourceSurfaceSkia::DrawTargetWillChange()
   }
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -16,11 +16,13 @@ class TableUpdateV4;
 
 class LookupCacheV4 final : public LookupCache
 {
-public:
+ public:
   explicit LookupCacheV4(const nsACString& aTableName,
                          const nsACString& aProvider,
                          nsIFile* aStoreFile)
-    : LookupCache(aTableName, aProvider, aStoreFile) {}
+      : LookupCache(aTableName, aProvider, aStoreFile)
+  {
+  }
   ~LookupCacheV4() {}
 
   virtual nsresult Init() override;
@@ -48,13 +50,13 @@ public:
 
   static const int VER;
 
-protected:
+ protected:
   virtual nsresult ClearPrefixes() override;
   virtual nsresult StoreToFile(nsIFile* aFile) override;
   virtual nsresult LoadFromFile(nsIFile* aFile) override;
   virtual size_t SizeOfPrefixSet() override;
 
-private:
+ private:
   virtual int Ver() const override { return VER; }
 
   nsresult InitCrypto(nsCOMPtr<nsICryptoHash>& aCrypto);
@@ -63,7 +65,7 @@ private:
   RefPtr<VariableLengthPrefixSet> mVLPrefixSet;
 };
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla
 
 #endif

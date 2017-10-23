@@ -15,7 +15,7 @@ namespace mozilla {
 namespace dom {
 class nsIContentChild;
 class nsIContentParent;
-}
+}  // namespace dom
 
 namespace ipc {
 
@@ -128,10 +128,9 @@ class AutoIPCStream final
   bool mTaken;
   bool mDelayedStart;
 
-  bool
-  IsSet() const;
+  bool IsSet() const;
 
-public:
+ public:
   // Implicitly create an OptionalIPCStream value.  Either
   // TakeValue() or TakeOptionalValue() can be used.
   explicit AutoIPCStream(bool aDelayedStart = false);
@@ -151,43 +150,39 @@ public:
   // Serialize the input stream or create a SendStream actor using the PContent
   // manager.  If neither of these succeed, then crash.  This should only be
   // used on the main thread.
-  bool
-  Serialize(nsIInputStream* aStream, dom::nsIContentChild* aManager);
+  bool Serialize(nsIInputStream* aStream, dom::nsIContentChild* aManager);
 
   // Serialize the input stream or create a SendStream actor using the
   // PBackground manager.  If neither of these succeed, then crash.  This can
   // be called on the main thread or Worker threads.
-  bool
-  Serialize(nsIInputStream* aStream, PBackgroundChild* aManager);
+  bool Serialize(nsIInputStream* aStream, PBackgroundChild* aManager);
 
   // Serialize the input stream.
-  MOZ_MUST_USE bool
-  Serialize(nsIInputStream* aStream, dom::nsIContentParent* aManager);
+  MOZ_MUST_USE bool Serialize(nsIInputStream* aStream,
+                              dom::nsIContentParent* aManager);
 
   // Serialize the input stream.
-  MOZ_MUST_USE bool
-  Serialize(nsIInputStream* aStream, PBackgroundParent* aManager);
+  MOZ_MUST_USE bool Serialize(nsIInputStream* aStream,
+                              PBackgroundParent* aManager);
 
   // Get the IPCStream as a non-optional value.  This will
   // assert if a stream has not been serialized or if it has already been taken.
   // This should only be called if the value is being, or has already been, sent
   // to the other side.
-  IPCStream&
-  TakeValue();
+  IPCStream& TakeValue();
 
   // Get the OptionalIPCStream value.  This will assert if
   // the value has already been taken.  This should only be called if the value
   // is being, or has already been, sent to the other side.
-  OptionalIPCStream&
-  TakeOptionalValue();
+  OptionalIPCStream& TakeOptionalValue();
 
-private:
+ private:
   AutoIPCStream(const AutoIPCStream& aOther) = delete;
   AutoIPCStream& operator=(const AutoIPCStream& aOther) = delete;
   AutoIPCStream& operator=(const AutoIPCStream&& aOther) = delete;
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
-#endif // mozilla_ipc_IPCStreamUtils_h
+#endif  // mozilla_ipc_IPCStreamUtils_h

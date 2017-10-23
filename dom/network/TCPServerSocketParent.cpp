@@ -44,16 +44,14 @@ TCPServerSocketParent::TCPServerSocketParent(PNeckoParent* neckoParent,
                                              uint16_t aLocalPort,
                                              uint16_t aBacklog,
                                              bool aUseArrayBuffers)
-: mNeckoParent(neckoParent)
-, mIPCOpen(false)
+    : mNeckoParent(neckoParent), mIPCOpen(false)
 {
-  mServerSocket = new TCPServerSocket(nullptr, aLocalPort, aUseArrayBuffers, aBacklog);
+  mServerSocket =
+      new TCPServerSocket(nullptr, aLocalPort, aUseArrayBuffers, aBacklog);
   mServerSocket->SetServerBridgeParent(this);
 }
 
-TCPServerSocketParent::~TCPServerSocketParent()
-{
-}
+TCPServerSocketParent::~TCPServerSocketParent() {}
 
 void
 TCPServerSocketParent::Init()
@@ -62,7 +60,7 @@ TCPServerSocketParent::Init()
 }
 
 nsresult
-TCPServerSocketParent::SendCallbackAccept(TCPSocketParent *socket)
+TCPServerSocketParent::SendCallbackAccept(TCPSocketParent* socket)
 {
   socket->AddIPDLReference();
 
@@ -85,12 +83,10 @@ TCPServerSocketParent::SendCallbackAccept(TCPSocketParent *socket)
   if (mNeckoParent) {
     if (mNeckoParent->SendPTCPSocketConstructor(socket, host, port)) {
       mozilla::Unused << PTCPServerSocketParent::SendCallbackAccept(socket);
-    }
-    else {
+    } else {
       NS_ERROR("Sending data from PTCPSocketParent was failed.");
     }
-  }
-  else {
+  } else {
     NS_ERROR("The member value for NeckoParent is wrong.");
   }
   return NS_OK;
@@ -134,5 +130,5 @@ TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event)
   SendCallbackAccept(socketParent);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

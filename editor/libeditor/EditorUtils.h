@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef mozilla_EditorUtils_h
 #define mozilla_EditorUtils_h
 
@@ -25,7 +24,8 @@ class nsITransferable;
 class nsRange;
 
 namespace mozilla {
-template <class T> class OwningNonNull;
+template<class T>
+class OwningNonNull;
 
 /***************************************************************************
  * EditActionResult is useful to return multiple results of an editor
@@ -38,7 +38,7 @@ template <class T> class OwningNonNull;
  */
 class MOZ_STACK_CLASS EditActionResult final
 {
-public:
+ public:
   bool Succeeded() const { return NS_SUCCEEDED(mRv); }
   bool Failed() const { return NS_FAILED(mRv); }
   nsresult Rv() const { return mRv; }
@@ -62,9 +62,7 @@ public:
   }
 
   explicit EditActionResult(nsresult aRv)
-    : mRv(aRv)
-    , mCanceled(false)
-    , mHandled(false)
+      : mRv(aRv), mCanceled(false), mHandled(false)
   {
   }
 
@@ -86,22 +84,18 @@ public:
     return *this;
   }
 
-private:
+ private:
   nsresult mRv;
   bool mCanceled;
   bool mHandled;
 
   EditActionResult(nsresult aRv, bool aCanceled, bool aHandled)
-    : mRv(aRv)
-    , mCanceled(aCanceled)
-    , mHandled(aHandled)
+      : mRv(aRv), mCanceled(aCanceled), mHandled(aHandled)
   {
   }
 
   EditActionResult()
-    : mRv(NS_ERROR_NOT_INITIALIZED)
-    , mCanceled(false)
-    , mHandled(false)
+      : mRv(NS_ERROR_NOT_INITIALIZED), mCanceled(false), mHandled(false)
   {
   }
 
@@ -146,22 +140,21 @@ EditActionCanceled(nsresult aRv = NS_OK)
  */
 class MOZ_RAII AutoPlaceholderBatch final
 {
-private:
+ private:
   RefPtr<EditorBase> mEditorBase;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 
-public:
-  explicit AutoPlaceholderBatch(EditorBase* aEditorBase
-                                MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mEditorBase(aEditorBase)
+ public:
+  explicit AutoPlaceholderBatch(
+      EditorBase* aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mEditorBase(aEditorBase)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     BeginPlaceholderTransaction(nullptr);
   }
   AutoPlaceholderBatch(EditorBase* aEditorBase,
-                       nsAtom* aTransactionName
-                       MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mEditorBase(aEditorBase)
+                       nsAtom* aTransactionName MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mEditorBase(aEditorBase)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     BeginPlaceholderTransaction(aTransactionName);
@@ -173,7 +166,7 @@ public:
     }
   }
 
-private:
+ private:
   void BeginPlaceholderTransaction(nsAtom* aTransactionName)
   {
     if (mEditorBase) {
@@ -188,20 +181,20 @@ private:
  */
 class MOZ_RAII AutoSelectionRestorer final
 {
-private:
+ private:
   // Ref-counted reference to the selection that we are supposed to restore.
   RefPtr<dom::Selection> mSelection;
   EditorBase* mEditorBase;  // Non-owning ref to EditorBase.
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 
-public:
+ public:
   /**
    * Constructor responsible for remembering all state needed to restore
    * aSelection.
    */
   AutoSelectionRestorer(dom::Selection* aSelection,
                         EditorBase* aEditorBase
-                        MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+                            MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
 
   /**
    * Destructor restores mSelection to its former state
@@ -219,19 +212,18 @@ public:
  */
 class MOZ_RAII AutoRules final
 {
-public:
-  AutoRules(EditorBase* aEditorBase, EditAction aAction,
-            nsIEditor::EDirection aDirection
-            MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mEditorBase(aEditorBase)
-    , mDoNothing(false)
+ public:
+  AutoRules(EditorBase* aEditorBase,
+            EditAction aAction,
+            nsIEditor::EDirection aDirection MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mEditorBase(aEditorBase), mDoNothing(false)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     // mAction will already be set if this is nested call
     if (mEditorBase && !mEditorBase->mAction) {
       mEditorBase->StartOperation(aAction, aDirection);
     } else {
-      mDoNothing = true; // nested calls will end up here
+      mDoNothing = true;  // nested calls will end up here
     }
   }
 
@@ -242,7 +234,7 @@ public:
     }
   }
 
-protected:
+ protected:
   EditorBase* mEditorBase;
   bool mDoNothing;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
@@ -254,11 +246,10 @@ protected:
  */
 class MOZ_RAII AutoTransactionsConserveSelection final
 {
-public:
-  explicit AutoTransactionsConserveSelection(EditorBase* aEditorBase
-                                             MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mEditorBase(aEditorBase)
-    , mOldState(true)
+ public:
+  explicit AutoTransactionsConserveSelection(
+      EditorBase* aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mEditorBase(aEditorBase), mOldState(true)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     if (mEditorBase) {
@@ -274,7 +265,7 @@ public:
     }
   }
 
-protected:
+ protected:
   EditorBase* mEditorBase;
   bool mOldState;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
@@ -285,10 +276,10 @@ protected:
  */
 class MOZ_RAII AutoUpdateViewBatch final
 {
-public:
-  explicit AutoUpdateViewBatch(EditorBase* aEditorBase
-                               MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mEditorBase(aEditorBase)
+ public:
+  explicit AutoUpdateViewBatch(
+      EditorBase* aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mEditorBase(aEditorBase)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     NS_ASSERTION(mEditorBase, "null mEditorBase pointer!");
@@ -305,14 +296,14 @@ public:
     }
   }
 
-protected:
+ protected:
   EditorBase* mEditorBase;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 class MOZ_STACK_CLASS AutoRangeArray final
 {
-public:
+ public:
   explicit AutoRangeArray(dom::Selection* aSelection)
   {
     if (!aSelection) {
@@ -333,13 +324,13 @@ public:
 
 class BoolDomIterFunctor
 {
-public:
+ public:
   virtual bool operator()(nsINode* aNode) const = 0;
 };
 
 class MOZ_RAII DOMIterator
 {
-public:
+ public:
   explicit DOMIterator(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM);
 
   explicit DOMIterator(nsINode& aNode MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
@@ -348,17 +339,17 @@ public:
   nsresult Init(nsRange& aRange);
 
   void AppendList(
-         const BoolDomIterFunctor& functor,
-         nsTArray<mozilla::OwningNonNull<nsINode>>& arrayOfNodes) const;
+      const BoolDomIterFunctor& functor,
+      nsTArray<mozilla::OwningNonNull<nsINode>>& arrayOfNodes) const;
 
-protected:
+ protected:
   nsCOMPtr<nsIContentIterator> mIter;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 class MOZ_RAII DOMSubtreeIterator final : public DOMIterator
 {
-public:
+ public:
   explicit DOMSubtreeIterator(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM);
   virtual ~DOMSubtreeIterator();
 
@@ -367,12 +358,9 @@ public:
 
 class TrivialFunctor final : public BoolDomIterFunctor
 {
-public:
+ public:
   // Used to build list of all nodes iterator covers
-  virtual bool operator()(nsINode* aNode) const
-  {
-    return true;
-  }
+  virtual bool operator()(nsINode* aNode) const { return true; }
 };
 
 /******************************************************************************
@@ -383,18 +371,14 @@ struct MOZ_STACK_CLASS EditorDOMPoint final
   nsCOMPtr<nsINode> node;
   int32_t offset;
 
-  EditorDOMPoint()
-    : node(nullptr)
-    , offset(-1)
-  {}
-  EditorDOMPoint(nsINode* aNode, int32_t aOffset)
-    : node(aNode)
-    , offset(aOffset)
-  {}
+  EditorDOMPoint() : node(nullptr), offset(-1) {}
+  EditorDOMPoint(nsINode* aNode, int32_t aOffset) : node(aNode), offset(aOffset)
+  {
+  }
   EditorDOMPoint(nsIDOMNode* aNode, int32_t aOffset)
-    : node(do_QueryInterface(aNode))
-    , offset(aOffset)
-  {}
+      : node(do_QueryInterface(aNode)), offset(aOffset)
+  {
+  }
 
   void SetPoint(nsINode* aNode, int32_t aOffset)
   {
@@ -410,29 +394,32 @@ struct MOZ_STACK_CLASS EditorDOMPoint final
 
 class EditorUtils final
 {
-public:
+ public:
   // Note that aChild isn't a normal XPCOM outparam and won't get AddRef'ed.
-  static bool IsDescendantOf(nsINode* aNode, nsINode* aParent,
+  static bool IsDescendantOf(nsINode* aNode,
+                             nsINode* aParent,
                              nsIContent** aChild);
-  static bool IsDescendantOf(nsINode* aNode, nsINode* aParent,
+  static bool IsDescendantOf(nsINode* aNode,
+                             nsINode* aParent,
                              int32_t* aOffset = nullptr);
-  static bool IsDescendantOf(nsIDOMNode* aNode, nsIDOMNode* aParent,
+  static bool IsDescendantOf(nsIDOMNode* aNode,
+                             nsIDOMNode* aParent,
                              int32_t* aOffset = nullptr);
   static bool IsLeafNode(nsIDOMNode* aNode);
 };
 
 class EditorHookUtils final
 {
-public:
-  static bool DoInsertionHook(nsIDOMDocument* aDoc, nsIDOMEvent* aEvent,
+ public:
+  static bool DoInsertionHook(nsIDOMDocument* aDoc,
+                              nsIDOMEvent* aEvent,
                               nsITransferable* aTrans);
 
-private:
+ private:
   static nsresult GetHookEnumeratorFromDocument(
-                    nsIDOMDocument*aDoc,
-                    nsISimpleEnumerator** aEnumerator);
+      nsIDOMDocument* aDoc, nsISimpleEnumerator** aEnumerator);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef mozilla_EditorUtils_h
+#endif  // #ifndef mozilla_EditorUtils_h

@@ -6,56 +6,64 @@
 #include "txNodeSetContext.h"
 #include "txNodeSet.h"
 
-const txXPathNode& txNodeSetContext::getContextNode()
+const txXPathNode&
+txNodeSetContext::getContextNode()
 {
-    return mContextSet->get(mPosition - 1);
+  return mContextSet->get(mPosition - 1);
 }
 
-uint32_t txNodeSetContext::size()
+uint32_t
+txNodeSetContext::size()
 {
-    return (uint32_t)mContextSet->size();
+  return (uint32_t)mContextSet->size();
 }
 
-uint32_t txNodeSetContext::position()
+uint32_t
+txNodeSetContext::position()
 {
-    NS_ASSERTION(mPosition, "Should have called next() at least once");
-    return mPosition;
+  NS_ASSERTION(mPosition, "Should have called next() at least once");
+  return mPosition;
 }
 
-nsresult txNodeSetContext::getVariable(int32_t aNamespace, nsAtom* aLName,
-                                       txAExprResult*& aResult)
+nsresult
+txNodeSetContext::getVariable(int32_t aNamespace,
+                              nsAtom* aLName,
+                              txAExprResult*& aResult)
 {
-    NS_ASSERTION(mInner, "mInner is null!!!");
-    return mInner->getVariable(aNamespace, aLName, aResult);
+  NS_ASSERTION(mInner, "mInner is null!!!");
+  return mInner->getVariable(aNamespace, aLName, aResult);
 }
 
 nsresult
 txNodeSetContext::isStripSpaceAllowed(const txXPathNode& aNode, bool& aAllowed)
 {
-    NS_ASSERTION(mInner, "mInner is null!!!");
-    return mInner->isStripSpaceAllowed(aNode, aAllowed);
+  NS_ASSERTION(mInner, "mInner is null!!!");
+  return mInner->isStripSpaceAllowed(aNode, aAllowed);
 }
 
-void* txNodeSetContext::getPrivateContext()
+void*
+txNodeSetContext::getPrivateContext()
 {
-    NS_ASSERTION(mInner, "mInner is null!!!");
-    return mInner->getPrivateContext();
+  NS_ASSERTION(mInner, "mInner is null!!!");
+  return mInner->getPrivateContext();
 }
 
-txResultRecycler* txNodeSetContext::recycler()
+txResultRecycler*
+txNodeSetContext::recycler()
 {
-    NS_ASSERTION(mInner, "mInner is null!!!");
-    return mInner->recycler();
+  NS_ASSERTION(mInner, "mInner is null!!!");
+  return mInner->recycler();
 }
 
-void txNodeSetContext::receiveError(const nsAString& aMsg, nsresult aRes)
+void
+txNodeSetContext::receiveError(const nsAString& aMsg, nsresult aRes)
 {
-    NS_ASSERTION(mInner, "mInner is null!!!");
+  NS_ASSERTION(mInner, "mInner is null!!!");
 #ifdef DEBUG
-    nsAutoString error(NS_LITERAL_STRING("forwarded error: "));
-    error.Append(aMsg);
-    mInner->receiveError(error, aRes);
+  nsAutoString error(NS_LITERAL_STRING("forwarded error: "));
+  error.Append(aMsg);
+  mInner->receiveError(error, aRes);
 #else
-    mInner->receiveError(aMsg, aRes);
+  mInner->receiveError(aMsg, aRes);
 #endif
 }

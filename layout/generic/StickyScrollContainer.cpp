@@ -21,8 +21,7 @@ NS_DECLARE_FRAME_PROPERTY_DELETABLE(StickyScrollContainerProperty,
                                     StickyScrollContainer)
 
 StickyScrollContainer::StickyScrollContainer(nsIScrollableFrame* aScrollFrame)
-  : mScrollFrame(aScrollFrame)
-  , mScrollPosition()
+    : mScrollFrame(aScrollFrame), mScrollPosition()
 {
   mScrollFrame->AddScrollPositionListener(this);
 }
@@ -36,10 +35,10 @@ StickyScrollContainer::~StickyScrollContainer()
 StickyScrollContainer*
 StickyScrollContainer::GetStickyScrollContainerForFrame(nsIFrame* aFrame)
 {
-  nsIScrollableFrame* scrollFrame =
-    nsLayoutUtils::GetNearestScrollableFrame(aFrame->GetParent(),
+  nsIScrollableFrame* scrollFrame = nsLayoutUtils::GetNearestScrollableFrame(
+      aFrame->GetParent(),
       nsLayoutUtils::SCROLLABLE_SAME_DOC |
-      nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
+          nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
   if (!scrollFrame) {
     // We might not find any, for instance in the case of
     // <html style="position: fixed">
@@ -47,7 +46,7 @@ StickyScrollContainer::GetStickyScrollContainerForFrame(nsIFrame* aFrame)
   }
   auto frame = static_cast<nsIFrame*>(do_QueryFrame(scrollFrame));
   StickyScrollContainer* s =
-    frame->GetProperty(StickyScrollContainerProperty());
+      frame->GetProperty(StickyScrollContainerProperty());
   if (!s) {
     s = new StickyScrollContainer(scrollFrame);
     frame->SetProperty(StickyScrollContainerProperty(), s);
@@ -57,13 +56,13 @@ StickyScrollContainer::GetStickyScrollContainerForFrame(nsIFrame* aFrame)
 
 // static
 void
-StickyScrollContainer::NotifyReparentedFrameAcrossScrollFrameBoundary(nsIFrame* aFrame,
-                                                                      nsIFrame* aOldParent)
+StickyScrollContainer::NotifyReparentedFrameAcrossScrollFrameBoundary(
+    nsIFrame* aFrame, nsIFrame* aOldParent)
 {
-  nsIScrollableFrame* oldScrollFrame =
-    nsLayoutUtils::GetNearestScrollableFrame(aOldParent,
+  nsIScrollableFrame* oldScrollFrame = nsLayoutUtils::GetNearestScrollableFrame(
+      aOldParent,
       nsLayoutUtils::SCROLLABLE_SAME_DOC |
-      nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
+          nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
   if (!oldScrollFrame) {
     // XXX maybe aFrame has sticky descendants that can be sticky now, but
     // we aren't going to handle that.
@@ -71,8 +70,8 @@ StickyScrollContainer::NotifyReparentedFrameAcrossScrollFrameBoundary(nsIFrame* 
   }
 
   StickyScrollContainer* oldSSC =
-    static_cast<nsIFrame*>(do_QueryFrame(oldScrollFrame))->
-      GetProperty(StickyScrollContainerProperty());
+      static_cast<nsIFrame*>(do_QueryFrame(oldScrollFrame))
+          ->GetProperty(StickyScrollContainerProperty());
   if (!oldSSC) {
     // aOldParent had no sticky descendants, so aFrame doesn't have any sticky
     // descendants, and we're done here.
@@ -100,7 +99,8 @@ StickyScrollContainer::GetStickyScrollContainerForScrollFrame(nsIFrame* aFrame)
 }
 
 static nscoord
-ComputeStickySideOffset(Side aSide, const nsStyleSides& aOffset,
+ComputeStickySideOffset(Side aSide,
+                        const nsStyleSides& aOffset,
                         nscoord aPercentBasis)
 {
   if (eStyleUnit_Auto == aOffset.GetUnit(aSide)) {
@@ -116,29 +116,31 @@ void
 StickyScrollContainer::ComputeStickyOffsets(nsIFrame* aFrame)
 {
   nsIScrollableFrame* scrollableFrame =
-    nsLayoutUtils::GetNearestScrollableFrame(aFrame->GetParent(),
-      nsLayoutUtils::SCROLLABLE_SAME_DOC |
-      nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
+      nsLayoutUtils::GetNearestScrollableFrame(
+          aFrame->GetParent(),
+          nsLayoutUtils::SCROLLABLE_SAME_DOC |
+              nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN);
 
   if (!scrollableFrame) {
     // Bail.
     return;
   }
 
-  nsSize scrollContainerSize = scrollableFrame->GetScrolledFrame()->
-    GetContentRectRelativeToSelf().Size();
+  nsSize scrollContainerSize = scrollableFrame->GetScrolledFrame()
+                                   ->GetContentRectRelativeToSelf()
+                                   .Size();
 
   nsMargin computedOffsets;
   const nsStylePosition* position = aFrame->StylePosition();
 
-  computedOffsets.left   = ComputeStickySideOffset(eSideLeft, position->mOffset,
-                                                   scrollContainerSize.width);
-  computedOffsets.right  = ComputeStickySideOffset(eSideRight, position->mOffset,
-                                                   scrollContainerSize.width);
-  computedOffsets.top    = ComputeStickySideOffset(eSideTop, position->mOffset,
-                                                   scrollContainerSize.height);
-  computedOffsets.bottom = ComputeStickySideOffset(eSideBottom, position->mOffset,
-                                                   scrollContainerSize.height);
+  computedOffsets.left = ComputeStickySideOffset(
+      eSideLeft, position->mOffset, scrollContainerSize.width);
+  computedOffsets.right = ComputeStickySideOffset(
+      eSideRight, position->mOffset, scrollContainerSize.width);
+  computedOffsets.top = ComputeStickySideOffset(
+      eSideTop, position->mOffset, scrollContainerSize.height);
+  computedOffsets.bottom = ComputeStickySideOffset(
+      eSideBottom, position->mOffset, scrollContainerSize.height);
 
   // Store the offset
   nsMargin* offsets = aFrame->GetProperty(nsIFrame::ComputedOffsetProperty());
@@ -151,17 +153,18 @@ StickyScrollContainer::ComputeStickyOffsets(nsIFrame* aFrame)
 }
 
 void
-StickyScrollContainer::ComputeStickyLimits(nsIFrame* aFrame, nsRect* aStick,
+StickyScrollContainer::ComputeStickyLimits(nsIFrame* aFrame,
+                                           nsRect* aStick,
                                            nsRect* aContain) const
 {
   NS_ASSERTION(nsLayoutUtils::IsFirstContinuationOrIBSplitSibling(aFrame),
                "Can't sticky position individual continuations");
 
-  aStick->SetRect(nscoord_MIN/2, nscoord_MIN/2, nscoord_MAX, nscoord_MAX);
-  aContain->SetRect(nscoord_MIN/2, nscoord_MIN/2, nscoord_MAX, nscoord_MAX);
+  aStick->SetRect(nscoord_MIN / 2, nscoord_MIN / 2, nscoord_MAX, nscoord_MAX);
+  aContain->SetRect(nscoord_MIN / 2, nscoord_MIN / 2, nscoord_MAX, nscoord_MAX);
 
   const nsMargin* computedOffsets =
-    aFrame->GetProperty(nsIFrame::ComputedOffsetProperty());
+      aFrame->GetProperty(nsIFrame::ComputedOffsetProperty());
   if (!computedOffsets) {
     // We haven't reflowed the scroll frame yet, so offsets haven't been
     // computed. Bail.
@@ -171,22 +174,20 @@ StickyScrollContainer::ComputeStickyLimits(nsIFrame* aFrame, nsRect* aStick,
   nsIFrame* scrolledFrame = mScrollFrame->GetScrolledFrame();
   nsIFrame* cbFrame = aFrame->GetContainingBlock();
   NS_ASSERTION(cbFrame == scrolledFrame ||
-    nsLayoutUtils::IsProperAncestorFrame(scrolledFrame, cbFrame),
-    "Scroll frame should be an ancestor of the containing block");
+                   nsLayoutUtils::IsProperAncestorFrame(scrolledFrame, cbFrame),
+               "Scroll frame should be an ancestor of the containing block");
 
   nsRect rect =
-    nsLayoutUtils::GetAllInFlowRectsUnion(aFrame, aFrame->GetParent());
+      nsLayoutUtils::GetAllInFlowRectsUnion(aFrame, aFrame->GetParent());
 
   // Containing block limits for the position of aFrame relative to its parent.
   // The margin box of the sticky element stays within the content box of the
   // contaning-block element.
   if (cbFrame != scrolledFrame) {
-    *aContain = nsLayoutUtils::
-      GetAllInFlowRectsUnion(cbFrame, aFrame->GetParent(),
-                             nsLayoutUtils::RECTS_USE_CONTENT_BOX);
-    nsRect marginRect = nsLayoutUtils::
-      GetAllInFlowRectsUnion(aFrame, aFrame->GetParent(),
-                             nsLayoutUtils::RECTS_USE_MARGIN_BOX);
+    *aContain = nsLayoutUtils::GetAllInFlowRectsUnion(
+        cbFrame, aFrame->GetParent(), nsLayoutUtils::RECTS_USE_CONTENT_BOX);
+    nsRect marginRect = nsLayoutUtils::GetAllInFlowRectsUnion(
+        aFrame, aFrame->GetParent(), nsLayoutUtils::RECTS_USE_MARGIN_BOX);
 
     // Deflate aContain by the difference between the union of aFrame's
     // continuations' margin boxes and the union of their border boxes, so that
@@ -266,42 +267,43 @@ StickyScrollContainer::ComputePosition(nsIFrame* aFrame) const
 }
 
 void
-StickyScrollContainer::GetScrollRanges(nsIFrame* aFrame, nsRect* aOuter,
+StickyScrollContainer::GetScrollRanges(nsIFrame* aFrame,
+                                       nsRect* aOuter,
                                        nsRect* aInner) const
 {
   // We need to use the first in flow; continuation frames should not move
   // relative to each other and should get identical scroll ranges.
   // Also, ComputeStickyLimits requires this.
-  nsIFrame *firstCont =
-    nsLayoutUtils::FirstContinuationOrIBSplitSibling(aFrame);
+  nsIFrame* firstCont =
+      nsLayoutUtils::FirstContinuationOrIBSplitSibling(aFrame);
 
   nsRect stick;
   nsRect contain;
   ComputeStickyLimits(firstCont, &stick, &contain);
 
-  aOuter->SetRect(nscoord_MIN/2, nscoord_MIN/2, nscoord_MAX, nscoord_MAX);
-  aInner->SetRect(nscoord_MIN/2, nscoord_MIN/2, nscoord_MAX, nscoord_MAX);
+  aOuter->SetRect(nscoord_MIN / 2, nscoord_MIN / 2, nscoord_MAX, nscoord_MAX);
+  aInner->SetRect(nscoord_MIN / 2, nscoord_MIN / 2, nscoord_MAX, nscoord_MAX);
 
   const nsPoint normalPosition = firstCont->GetNormalPosition();
 
   // Bottom and top
-  if (stick.YMost() != nscoord_MAX/2) {
+  if (stick.YMost() != nscoord_MAX / 2) {
     aOuter->SetTopEdge(contain.y - stick.YMost());
     aInner->SetTopEdge(normalPosition.y - stick.YMost());
   }
 
-  if (stick.y != nscoord_MIN/2) {
+  if (stick.y != nscoord_MIN / 2) {
     aInner->SetBottomEdge(normalPosition.y - stick.y);
     aOuter->SetBottomEdge(contain.YMost() - stick.y);
   }
 
   // Right and left
-  if (stick.XMost() != nscoord_MAX/2) {
+  if (stick.XMost() != nscoord_MAX / 2) {
     aOuter->SetLeftEdge(contain.x - stick.XMost());
     aInner->SetLeftEdge(normalPosition.x - stick.XMost());
   }
 
-  if (stick.x != nscoord_MIN/2) {
+  if (stick.x != nscoord_MIN / 2) {
     aInner->SetRightEdge(normalPosition.x - stick.x);
     aOuter->SetRightEdge(contain.XMost() - stick.x);
   }
@@ -387,4 +389,4 @@ StickyScrollContainer::ScrollPositionDidChange(nscoord aX, nscoord aY)
   UpdatePositions(nsPoint(aX, aY), nullptr);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

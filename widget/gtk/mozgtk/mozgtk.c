@@ -1,7 +1,8 @@
 #include "mozilla/Types.h"
 #include "mozilla/Assertions.h"
 
-#define STUB(symbol) MOZ_EXPORT void symbol (void) { MOZ_CRASH(); }
+#define STUB(symbol) \
+  MOZ_EXPORT void symbol(void) { MOZ_CRASH(); }
 
 #ifdef COMMON_SYMBOLS
 STUB(gdk_atom_intern)
@@ -635,4 +636,3 @@ XShmQueryExtension(Display* aDisplay)
   return False;
 }
 #endif
-

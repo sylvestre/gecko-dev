@@ -18,7 +18,7 @@ class nsPrintDialogServiceWin : public nsIPrintDialogService
 {
   virtual ~nsPrintDialogServiceWin();
 
-public:
+ public:
   nsPrintDialogServiceWin();
 
   NS_DECL_ISUPPORTS
@@ -30,7 +30,7 @@ public:
   NS_IMETHOD ShowPageSetup(nsPIDOMWindowOuter* aParent,
                            nsIPrintSettings* aSettings) override;
 
-private:
+ private:
   nsresult DoDialog(mozIDOMWindowProxy* aParent,
                     nsIDialogParamBlock* aParamBlock,
                     nsIPrintSettings* aPS,

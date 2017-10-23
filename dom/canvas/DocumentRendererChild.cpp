@@ -31,11 +31,9 @@ using namespace mozilla;
 using namespace mozilla::gfx;
 using namespace mozilla::ipc;
 
-DocumentRendererChild::DocumentRendererChild()
-{}
+DocumentRendererChild::DocumentRendererChild() {}
 
-DocumentRendererChild::~DocumentRendererChild()
-{}
+DocumentRendererChild::~DocumentRendererChild() {}
 
 bool
 DocumentRendererChild::RenderDocument(nsPIDOMWindowOuter* window,
@@ -47,58 +45,57 @@ DocumentRendererChild::RenderDocument(nsPIDOMWindowOuter* window,
                                       const nsIntSize& renderSize,
                                       nsCString& data)
 {
-    if (flushLayout)
-        nsContentUtils::FlushLayoutForTree(window);
+  if (flushLayout) nsContentUtils::FlushLayoutForTree(window);
 
-    RefPtr<nsPresContext> presContext;
-    if (window) {
-        nsIDocShell* docshell = window->GetDocShell();
-        if (docshell) {
-            docshell->GetPresContext(getter_AddRefs(presContext));
-        }
+  RefPtr<nsPresContext> presContext;
+  if (window) {
+    nsIDocShell* docshell = window->GetDocShell();
+    if (docshell) {
+      docshell->GetPresContext(getter_AddRefs(presContext));
     }
-    if (!presContext)
-        return false;
+  }
+  if (!presContext) return false;
 
-    nscolor bgColor;
+  nscolor bgColor;
 
-    ServoStyleSet* servoStyleSet = presContext->StyleSet()
-      ? presContext->StyleSet()->GetAsServo()
-      : nullptr;
+  ServoStyleSet* servoStyleSet =
+      presContext->StyleSet() ? presContext->StyleSet()->GetAsServo() : nullptr;
 
-    if (servoStyleSet) {
-      if (!ServoCSSParser::ComputeColor(servoStyleSet, NS_RGB(0, 0, 0),
-                                        aBGColor, &bgColor)) {
-        return false;
-      }
-    } else {
-      nsCSSParser parser;
-      nsCSSValue bgColorValue;
-      if (!parser.ParseColorString(aBGColor, nullptr, 0, bgColorValue) ||
-          !nsRuleNode::ComputeColor(bgColorValue, presContext, nullptr, bgColor)) {
-        return false;
-      }
+  if (servoStyleSet) {
+    if (!ServoCSSParser::ComputeColor(
+            servoStyleSet, NS_RGB(0, 0, 0), aBGColor, &bgColor)) {
+      return false;
     }
-
-    // Draw directly into the output array.
-    data.SetLength(renderSize.width * renderSize.height * 4);
-
-    RefPtr<DrawTarget> dt =
-        Factory::CreateDrawTargetForData(gfxPlatform::GetPlatform()->GetSoftwareBackend(),
-                                         reinterpret_cast<uint8_t*>(data.BeginWriting()),
-                                         IntSize(renderSize.width, renderSize.height),
-                                         4 * renderSize.width,
-                                         SurfaceFormat::B8G8R8A8);
-    if (!dt || !dt->IsValid()) {
-        gfxWarning() << "DocumentRendererChild::RenderDocument failed to Factory::CreateDrawTargetForData";
-        return false;
+  } else {
+    nsCSSParser parser;
+    nsCSSValue bgColorValue;
+    if (!parser.ParseColorString(aBGColor, nullptr, 0, bgColorValue) ||
+        !nsRuleNode::ComputeColor(
+            bgColorValue, presContext, nullptr, bgColor)) {
+      return false;
     }
-    RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(dt);
-    MOZ_ASSERT(ctx); // already checked the draw target above
-    ctx->SetMatrix(mozilla::gfx::ThebesMatrix(transform));
+  }
 
-    nsCOMPtr<nsIPresShell> shell = presContext->PresShell();
-    shell->RenderDocument(documentRect, renderFlags, bgColor, ctx);
+  // Draw directly into the output array.
+  data.SetLength(renderSize.width * renderSize.height * 4);
 
-    return true;
+  RefPtr<DrawTarget> dt = Factory::CreateDrawTargetForData(
+      gfxPlatform::GetPlatform()->GetSoftwareBackend(),
+      reinterpret_cast<uint8_t*>(data.BeginWriting()),
+      IntSize(renderSize.width, renderSize.height),
+      4 * renderSize.width,
+      SurfaceFormat::B8G8R8A8);
+  if (!dt || !dt->IsValid()) {
+    gfxWarning() << "DocumentRendererChild::RenderDocument failed to "
+                    "Factory::CreateDrawTargetForData";
+    return false;
+  }
+  RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(dt);
+  MOZ_ASSERT(ctx);  // already checked the draw target above
+  ctx->SetMatrix(mozilla::gfx::ThebesMatrix(transform));
+
+  nsCOMPtr<nsIPresShell> shell = presContext->PresShell();
+  shell->RenderDocument(documentRect, renderFlags, bgColor, ctx);
+
+  return true;
 }

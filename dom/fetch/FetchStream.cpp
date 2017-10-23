@@ -14,8 +14,7 @@
 
 #define FETCH_STREAM_FLAG 0
 
-static NS_DEFINE_CID(kStreamTransportServiceCID,
-                     NS_STREAMTRANSPORTSERVICE_CID);
+static NS_DEFINE_CID(kStreamTransportServiceCID, NS_STREAMTRANSPORTSERVICE_CID);
 
 namespace mozilla {
 namespace dom {
@@ -26,12 +25,13 @@ namespace {
 
 class FetchStreamWorkerHolder final : public WorkerHolder
 {
-public:
+ public:
   explicit FetchStreamWorkerHolder(FetchStream* aStream)
-    : WorkerHolder(WorkerHolder::Behavior::AllowIdleShutdownStart)
-    , mStream(aStream)
-    , mWasNotified(false)
-  {}
+      : WorkerHolder(WorkerHolder::Behavior::AllowIdleShutdownStart),
+        mStream(aStream),
+        mWasNotified(false)
+  {
+  }
 
   bool Notify(Status aStatus) override
   {
@@ -43,31 +43,28 @@ public:
     return true;
   }
 
-  WorkerPrivate* GetWorkerPrivate() const
-  {
-    return mWorkerPrivate;
-  }
+  WorkerPrivate* GetWorkerPrivate() const { return mWorkerPrivate; }
 
-private:
+ private:
   RefPtr<FetchStream> mStream;
   bool mWasNotified;
 };
 
 class FetchStreamWorkerHolderShutdown final : public WorkerControlRunnable
 {
-public:
+ public:
   FetchStreamWorkerHolderShutdown(WorkerPrivate* aWorkerPrivate,
                                   UniquePtr<WorkerHolder>&& aHolder,
                                   nsCOMPtr<nsIGlobalObject>&& aGlobal,
                                   RefPtr<FetchStreamHolder>&& aStreamHolder)
-    : WorkerControlRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount)
-    , mHolder(Move(aHolder))
-    , mGlobal(Move(aGlobal))
-    , mStreamHolder(Move(aStreamHolder))
-  {}
+      : WorkerControlRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount),
+        mHolder(Move(aHolder)),
+        mGlobal(Move(aGlobal)),
+        mStreamHolder(Move(aStreamHolder))
+  {
+  }
 
-  bool
-  WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
+  bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
   {
     mHolder = nullptr;
     mGlobal = nullptr;
@@ -81,38 +78,40 @@ public:
   // This runnable starts from a JS Thread. We need to disable a couple of
   // assertions overring the following methods.
 
-  bool
-  PreDispatch(WorkerPrivate* aWorkerPrivate) override
+  bool PreDispatch(WorkerPrivate* aWorkerPrivate) override { return true; }
+
+  void PostDispatch(WorkerPrivate* aWorkerPrivate,
+                    bool aDispatchResult) override
   {
-    return true;
   }
 
-  void
-  PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) override
-  {}
-
-private:
+ private:
   UniquePtr<WorkerHolder> mHolder;
   nsCOMPtr<nsIGlobalObject> mGlobal;
   RefPtr<FetchStreamHolder> mStreamHolder;
 };
 
-} // anonymous
+}  // namespace
 
-NS_IMPL_ISUPPORTS(FetchStream, nsIInputStreamCallback, nsIObserver,
+NS_IMPL_ISUPPORTS(FetchStream,
+                  nsIInputStreamCallback,
+                  nsIObserver,
                   nsISupportsWeakReference)
 
 /* static */ void
-FetchStream::Create(JSContext* aCx, FetchStreamHolder* aStreamHolder,
-                    nsIGlobalObject* aGlobal, nsIInputStream* aInputStream,
-                    JS::MutableHandle<JSObject*> aStream, ErrorResult& aRv)
+FetchStream::Create(JSContext* aCx,
+                    FetchStreamHolder* aStreamHolder,
+                    nsIGlobalObject* aGlobal,
+                    nsIInputStream* aInputStream,
+                    JS::MutableHandle<JSObject*> aStream,
+                    ErrorResult& aRv)
 {
   MOZ_DIAGNOSTIC_ASSERT(aCx);
   MOZ_DIAGNOSTIC_ASSERT(aStreamHolder);
   MOZ_DIAGNOSTIC_ASSERT(aInputStream);
 
   RefPtr<FetchStream> stream =
-    new FetchStream(aGlobal, aStreamHolder, aInputStream);
+      new FetchStream(aGlobal, aStreamHolder, aInputStream);
 
   if (NS_IsMainThread()) {
     nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
@@ -131,7 +130,7 @@ FetchStream::Create(JSContext* aCx, FetchStreamHolder* aStreamHolder,
     MOZ_ASSERT(workerPrivate);
 
     UniquePtr<FetchStreamWorkerHolder> holder(
-      new FetchStreamWorkerHolder(stream));
+        new FetchStreamWorkerHolder(stream));
     if (NS_WARN_IF(!holder->HoldWorker(workerPrivate, Closing))) {
       aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
       return;
@@ -154,7 +153,8 @@ FetchStream::Create(JSContext* aCx, FetchStreamHolder* aStreamHolder,
   }
 
   JS::Rooted<JSObject*> body(aCx,
-    JS::NewReadableExternalSourceStreamObject(aCx, stream, FETCH_STREAM_FLAG));
+                             JS::NewReadableExternalSourceStreamObject(
+                                 aCx, stream, FETCH_STREAM_FLAG));
   if (!body) {
     aRv.StealExceptionFromJSContext(aCx);
     return;
@@ -213,10 +213,10 @@ FetchStream::RequestDataCallback(JSContext* aCx,
     }
 
     nsCOMPtr<nsIAsyncInputStream> asyncStream =
-      do_QueryInterface(stream->mOriginalInputStream);
+        do_QueryInterface(stream->mOriginalInputStream);
     if (!nonBlocking || !asyncStream) {
       nsCOMPtr<nsIStreamTransportService> sts =
-        do_GetService(kStreamTransportServiceCID, &rv);
+          do_GetService(kStreamTransportServiceCID, &rv);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         stream->ErrorPropagation(aCx, aStream, rv);
         return;
@@ -233,9 +233,9 @@ FetchStream::RequestDataCallback(JSContext* aCx,
 
       nsCOMPtr<nsIInputStream> wrapper;
       rv = transport->OpenInputStream(/* aFlags */ 0,
-                                       /* aSegmentSize */ 0,
-                                       /* aSegmentCount */ 0,
-                                       getter_AddRefs(wrapper));
+                                      /* aSegmentSize */ 0,
+                                      /* aSegmentCount */ 0,
+                                      getter_AddRefs(wrapper));
       if (NS_WARN_IF(NS_FAILED(rv))) {
         stream->ErrorPropagation(aCx, aStream, rv);
         return;
@@ -252,8 +252,7 @@ FetchStream::RequestDataCallback(JSContext* aCx,
   MOZ_DIAGNOSTIC_ASSERT(!stream->mOriginalInputStream);
 
   nsresult rv =
-    stream->mInputStream->AsyncWait(stream, 0, 0,
-                                    stream->mOwningEventTarget);
+      stream->mInputStream->AsyncWait(stream, 0, 0, stream->mOwningEventTarget);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     stream->ErrorPropagation(aCx, aStream, rv);
     return;
@@ -266,8 +265,10 @@ FetchStream::RequestDataCallback(JSContext* aCx,
 FetchStream::WriteIntoReadRequestCallback(JSContext* aCx,
                                           JS::HandleObject aStream,
                                           void* aUnderlyingSource,
-                                          uint8_t aFlags, void* aBuffer,
-                                          size_t aLength, size_t* aByteWritten)
+                                          uint8_t aFlags,
+                                          void* aBuffer,
+                                          size_t aLength,
+                                          size_t* aByteWritten)
 {
   MOZ_DIAGNOSTIC_ASSERT(aUnderlyingSource);
   MOZ_DIAGNOSTIC_ASSERT(aFlags == FETCH_STREAM_FLAG);
@@ -281,8 +282,8 @@ FetchStream::WriteIntoReadRequestCallback(JSContext* aCx,
   stream->mState = eChecking;
 
   uint32_t written;
-  nsresult rv =
-    stream->mInputStream->Read(static_cast<char*>(aBuffer), aLength, &written);
+  nsresult rv = stream->mInputStream->Read(
+      static_cast<char*>(aBuffer), aLength, &written);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     stream->ErrorPropagation(aCx, aStream, rv);
     return;
@@ -295,8 +296,8 @@ FetchStream::WriteIntoReadRequestCallback(JSContext* aCx,
     return;
   }
 
-  rv = stream->mInputStream->AsyncWait(stream, 0, 0,
-                                       stream->mOwningEventTarget);
+  rv =
+      stream->mInputStream->AsyncWait(stream, 0, 0, stream->mOwningEventTarget);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     stream->ErrorPropagation(aCx, aStream, rv);
     return;
@@ -306,8 +307,10 @@ FetchStream::WriteIntoReadRequestCallback(JSContext* aCx,
 }
 
 /* static */ JS::Value
-FetchStream::CancelCallback(JSContext* aCx, JS::HandleObject aStream,
-                            void* aUnderlyingSource, uint8_t aFlags,
+FetchStream::CancelCallback(JSContext* aCx,
+                            JS::HandleObject aStream,
+                            void* aUnderlyingSource,
+                            uint8_t aFlags,
                             JS::HandleValue aReason)
 {
   MOZ_DIAGNOSTIC_ASSERT(aUnderlyingSource);
@@ -328,16 +331,20 @@ FetchStream::CancelCallback(JSContext* aCx, JS::HandleObject aStream,
 }
 
 /* static */ void
-FetchStream::ClosedCallback(JSContext* aCx, JS::HandleObject aStream,
-                            void* aUnderlyingSource, uint8_t aFlags)
+FetchStream::ClosedCallback(JSContext* aCx,
+                            JS::HandleObject aStream,
+                            void* aUnderlyingSource,
+                            uint8_t aFlags)
 {
   MOZ_DIAGNOSTIC_ASSERT(aUnderlyingSource);
   MOZ_DIAGNOSTIC_ASSERT(aFlags == FETCH_STREAM_FLAG);
 }
 
 /* static */ void
-FetchStream::ErroredCallback(JSContext* aCx, JS::HandleObject aStream,
-                             void* aUnderlyingSource, uint8_t aFlags,
+FetchStream::ErroredCallback(JSContext* aCx,
+                             JS::HandleObject aStream,
+                             void* aUnderlyingSource,
+                             uint8_t aFlags,
                              JS::HandleValue aReason)
 {
   MOZ_DIAGNOSTIC_ASSERT(aUnderlyingSource);
@@ -366,7 +373,7 @@ FetchStream::FinalizeCallback(void* aUnderlyingSource, uint8_t aFlags)
 
   // This takes ownership of the ref created in FetchStream::Create().
   RefPtr<FetchStream> stream =
-    dont_AddRef(static_cast<FetchStream*>(aUnderlyingSource));
+      dont_AddRef(static_cast<FetchStream*>(aUnderlyingSource));
 
   stream->ReleaseObjects();
 }
@@ -374,22 +381,21 @@ FetchStream::FinalizeCallback(void* aUnderlyingSource, uint8_t aFlags)
 FetchStream::FetchStream(nsIGlobalObject* aGlobal,
                          FetchStreamHolder* aStreamHolder,
                          nsIInputStream* aInputStream)
-  : mState(eWaiting)
-  , mGlobal(aGlobal)
-  , mStreamHolder(aStreamHolder)
-  , mOwningEventTarget(aGlobal->EventTargetFor(TaskCategory::Other))
-  , mOriginalInputStream(aInputStream)
+    : mState(eWaiting),
+      mGlobal(aGlobal),
+      mStreamHolder(aStreamHolder),
+      mOwningEventTarget(aGlobal->EventTargetFor(TaskCategory::Other)),
+      mOriginalInputStream(aInputStream)
 {
   MOZ_DIAGNOSTIC_ASSERT(aInputStream);
   MOZ_DIAGNOSTIC_ASSERT(aStreamHolder);
 }
 
-FetchStream::~FetchStream()
-{
-}
+FetchStream::~FetchStream() {}
 
 void
-FetchStream::ErrorPropagation(JSContext* aCx, JS::HandleObject aStream,
+FetchStream::ErrorPropagation(JSContext* aCx,
+                              JS::HandleObject aStream,
                               nsresult aError)
 {
   // Nothing to do.
@@ -474,7 +480,7 @@ FetchStream::RetrieveInputStream(void* aUnderlyingReadableStreamSource,
   MOZ_ASSERT(aInputStream);
 
   RefPtr<FetchStream> stream =
-    static_cast<FetchStream*>(aUnderlyingReadableStreamSource);
+      static_cast<FetchStream*>(aUnderlyingReadableStreamSource);
 
   // if mOriginalInputStream is null, the reading already started. We don't want
   // to expose the internal inputStream.
@@ -528,24 +534,27 @@ FetchStream::ReleaseObjects()
 
   if (mWorkerHolder) {
     RefPtr<FetchStreamWorkerHolderShutdown> r =
-      new FetchStreamWorkerHolderShutdown(
-        static_cast<FetchStreamWorkerHolder*>(mWorkerHolder.get())->GetWorkerPrivate(),
-        Move(mWorkerHolder), Move(mGlobal), Move(mStreamHolder));
+        new FetchStreamWorkerHolderShutdown(
+            static_cast<FetchStreamWorkerHolder*>(mWorkerHolder.get())
+                ->GetWorkerPrivate(),
+            Move(mWorkerHolder),
+            Move(mGlobal),
+            Move(mStreamHolder));
     r->Dispatch();
   } else {
     RefPtr<FetchStream> self = this;
-    RefPtr<Runnable> r = NS_NewRunnableFunction(
-      "FetchStream::ReleaseObjects",
-      [self] () {
-        nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
-        if (obs) {
-          obs->RemoveObserver(self, DOM_WINDOW_DESTROYED_TOPIC);
-        }
-        self->mGlobal = nullptr;
+    RefPtr<Runnable> r =
+        NS_NewRunnableFunction("FetchStream::ReleaseObjects", [self]() {
+          nsCOMPtr<nsIObserverService> obs =
+              mozilla::services::GetObserverService();
+          if (obs) {
+            obs->RemoveObserver(self, DOM_WINDOW_DESTROYED_TOPIC);
+          }
+          self->mGlobal = nullptr;
 
-        self->mStreamHolder->NullifyStream();
-        self->mStreamHolder = nullptr;
-      });
+          self->mStreamHolder->NullifyStream();
+          self->mStreamHolder = nullptr;
+        });
 
     mOwningEventTarget->Dispatch(r.forget());
   }
@@ -555,7 +564,8 @@ FetchStream::ReleaseObjects()
 // -----------
 
 NS_IMETHODIMP
-FetchStream::Observe(nsISupports* aSubject, const char* aTopic,
+FetchStream::Observe(nsISupports* aSubject,
+                     const char* aTopic,
                      const char16_t* aData)
 {
   AssertIsOnMainThread();
@@ -570,5 +580,5 @@ FetchStream::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

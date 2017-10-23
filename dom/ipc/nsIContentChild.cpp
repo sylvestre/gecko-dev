@@ -60,13 +60,13 @@ nsIContentChild::AllocPBrowserChild(const TabId& aTabId,
   if (!tc.IsValid()) {
     NS_ERROR(nsPrintfCString("Received an invalid TabContext from "
                              "the parent process. (%s)  Crashing...",
-                             tc.GetInvalidReason()).get());
+                             tc.GetInvalidReason())
+                 .get());
     MOZ_CRASH("Invalid TabContext received from the parent process.");
   }
 
-  RefPtr<TabChild> child =
-    TabChild::Create(this, aTabId, aSameTabGroupAs,
-                     tc.GetTabContext(), aChromeFlags);
+  RefPtr<TabChild> child = TabChild::Create(
+      this, aTabId, aSameTabGroupAs, tc.GetTabContext(), aChromeFlags);
 
   // The ref here is released in DeallocPBrowserChild.
   return child.forget().take();
@@ -100,7 +100,8 @@ nsIContentChild::RecvPBrowserConstructor(PBrowserChild* aActor,
 
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
   if (os) {
-    os->NotifyObservers(static_cast<nsITabChild*>(tabChild), "tab-child-created", nullptr);
+    os->NotifyObservers(
+        static_cast<nsITabChild*>(tabChild), "tab-child-created", nullptr);
   }
   // Notify parent that we are ready to handle input events.
   tabChild->SendRemoteIsReadyToHandleInputEvents();
@@ -115,15 +116,16 @@ nsIContentChild::AllocPIPCBlobInputStreamChild(const nsID& aID,
   // DeallocPIPCBlobInputStreamChild is released.
 
   RefPtr<IPCBlobInputStreamChild> actor =
-    new IPCBlobInputStreamChild(aID, aSize);
+      new IPCBlobInputStreamChild(aID, aSize);
   return actor.forget().take();
 }
 
 bool
-nsIContentChild::DeallocPIPCBlobInputStreamChild(PIPCBlobInputStreamChild* aActor)
+nsIContentChild::DeallocPIPCBlobInputStreamChild(
+    PIPCBlobInputStreamChild* aActor)
 {
   RefPtr<IPCBlobInputStreamChild> actor =
-    dont_AddRef(static_cast<IPCBlobInputStreamChild*>(aActor));
+      dont_AddRef(static_cast<IPCBlobInputStreamChild*>(aActor));
   return true;
 }
 
@@ -134,7 +136,8 @@ nsIContentChild::AllocPChildToParentStreamChild()
 }
 
 bool
-nsIContentChild::DeallocPChildToParentStreamChild(PChildToParentStreamChild* aActor)
+nsIContentChild::DeallocPChildToParentStreamChild(
+    PChildToParentStreamChild* aActor)
 {
   delete aActor;
   return true;
@@ -147,7 +150,8 @@ nsIContentChild::AllocPParentToChildStreamChild()
 }
 
 bool
-nsIContentChild::DeallocPParentToChildStreamChild(PParentToChildStreamChild* aActor)
+nsIContentChild::DeallocPParentToChildStreamChild(
+    PParentToChildStreamChild* aActor)
 {
   delete aActor;
   return true;
@@ -173,17 +177,24 @@ nsIContentChild::RecvAsyncMessage(const nsString& aMsg,
                                   const ClonedMessageData& aData)
 {
   NS_LossyConvertUTF16toASCII messageNameCStr(aMsg);
-  AUTO_PROFILER_LABEL_DYNAMIC("nsIContentChild::RecvAsyncMessage", EVENTS,
-                              messageNameCStr.get());
+  AUTO_PROFILER_LABEL_DYNAMIC(
+      "nsIContentChild::RecvAsyncMessage", EVENTS, messageNameCStr.get());
 
   CrossProcessCpowHolder cpows(this, aCpows);
-  RefPtr<nsFrameMessageManager> cpm = nsFrameMessageManager::GetChildProcessManager();
+  RefPtr<nsFrameMessageManager> cpm =
+      nsFrameMessageManager::GetChildProcessManager();
   if (cpm) {
     ipc::StructuredCloneData data;
     ipc::UnpackClonedMessageDataForChild(aData, data);
 
-    cpm->ReceiveMessage(static_cast<nsIContentFrameMessageManager*>(cpm.get()), nullptr,
-                        aMsg, false, &data, &cpows, aPrincipal, nullptr);
+    cpm->ReceiveMessage(static_cast<nsIContentFrameMessageManager*>(cpm.get()),
+                        nullptr,
+                        aMsg,
+                        false,
+                        &data,
+                        &cpows,
+                        aPrincipal,
+                        nullptr);
   }
   return IPC_OK();
 }
@@ -221,10 +232,10 @@ nsIContentChild::GetConstructedEventTarget(const IPC::Message& aMsg)
   // If the request for a new TabChild is coming from the parent process, then
   // there is no opener. Therefore, we create a fresh TabGroup.
   RefPtr<TabGroup> tabGroup = new TabGroup();
-  nsCOMPtr<nsIEventTarget> target = tabGroup->EventTargetFor(TaskCategory::Other);
+  nsCOMPtr<nsIEventTarget> target =
+      tabGroup->EventTargetFor(TaskCategory::Other);
   return target.forget();
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

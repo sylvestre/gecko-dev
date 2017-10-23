@@ -13,7 +13,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGAnimateElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGAnimateElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGAnimateElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -21,8 +21,9 @@ SVGAnimateElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGAnimateElement::SVGAnimateElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGAnimationElement(aNodeInfo)
+SVGAnimateElement::SVGAnimateElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGAnimationElement(aNodeInfo)
 {
 }
 
@@ -39,6 +40,5 @@ SVGAnimateElement::AnimationFunction()
   return mAnimationFunction;
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

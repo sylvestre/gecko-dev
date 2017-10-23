@@ -21,14 +21,14 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Gamepad)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Gamepad, mParent, mButtons, mPose,
-                                      mHapticActuators)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(
+    Gamepad, mParent, mButtons, mPose, mHapticActuators)
 
 void
 Gamepad::UpdateTimestamp()
 {
   nsCOMPtr<nsPIDOMWindowInner> newWindow(do_QueryInterface(mParent));
-  if(newWindow) {
+  if (newWindow) {
     Performance* perf = newWindow->GetPerformance();
     if (perf) {
       mTimestamp = perf->Now();
@@ -37,23 +37,26 @@ Gamepad::UpdateTimestamp()
 }
 
 Gamepad::Gamepad(nsISupports* aParent,
-                 const nsAString& aID, uint32_t aIndex,
+                 const nsAString& aID,
+                 uint32_t aIndex,
                  uint32_t aHashKey,
                  GamepadMappingType aMapping,
                  GamepadHand aHand,
-                 uint32_t aDisplayID, uint32_t aNumButtons,
-                 uint32_t aNumAxes, uint32_t aNumHaptics)
-  : mParent(aParent),
-    mID(aID),
-    mIndex(aIndex),
-    mHashKey(aHashKey),
-    mDisplayId(aDisplayID),
-    mMapping(aMapping),
-    mHand(aHand),
-    mConnected(true),
-    mButtons(aNumButtons),
-    mAxes(aNumAxes),
-    mTimestamp(0)
+                 uint32_t aDisplayID,
+                 uint32_t aNumButtons,
+                 uint32_t aNumAxes,
+                 uint32_t aNumHaptics)
+    : mParent(aParent),
+      mID(aID),
+      mIndex(aIndex),
+      mHashKey(aHashKey),
+      mDisplayId(aDisplayID),
+      mMapping(aMapping),
+      mHand(aHand),
+      mConnected(true),
+      mButtons(aNumButtons),
+      mAxes(aNumAxes),
+      mTimestamp(0)
 {
   for (unsigned i = 0; i < aNumButtons; i++) {
     mButtons.InsertElementAt(i, new GamepadButton(mParent));
@@ -61,7 +64,8 @@ Gamepad::Gamepad(nsISupports* aParent,
   mAxes.InsertElementsAt(0, aNumAxes, 0.0f);
   mPose = new GamepadPose(aParent);
   for (uint32_t i = 0; i < aNumHaptics; ++i) {
-    mHapticActuators.AppendElement(new GamepadHapticActuator(mParent, mHashKey, i));
+    mHapticActuators.AppendElement(
+        new GamepadHapticActuator(mParent, mHashKey, i));
   }
   UpdateTimestamp();
 }
@@ -79,8 +83,10 @@ Gamepad::SetConnected(bool aConnected)
 }
 
 void
-Gamepad::SetButton(uint32_t aButton, bool aPressed,
-                   bool aTouched, double aValue)
+Gamepad::SetButton(uint32_t aButton,
+                   bool aPressed,
+                   bool aTouched,
+                   double aValue)
 {
   MOZ_ASSERT(aButton < mButtons.Length());
   mButtons[aButton]->SetPressed(aPressed);
@@ -154,10 +160,16 @@ Gamepad::SyncState(Gamepad* aOther)
 already_AddRefed<Gamepad>
 Gamepad::Clone(nsISupports* aParent)
 {
-  RefPtr<Gamepad> out =
-    new Gamepad(aParent, mID, mIndex, mHashKey, mMapping,
-                mHand, mDisplayId, mButtons.Length(), mAxes.Length(),
-                mHapticActuators.Length());
+  RefPtr<Gamepad> out = new Gamepad(aParent,
+                                    mID,
+                                    mIndex,
+                                    mHashKey,
+                                    mMapping,
+                                    mHand,
+                                    mDisplayId,
+                                    mButtons.Length(),
+                                    mAxes.Length(),
+                                    mHapticActuators.Length());
   out->SyncState(this);
   return out.forget();
 }
@@ -168,5 +180,5 @@ Gamepad::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return GamepadBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -29,8 +29,7 @@ template<class T>
 static int
 alpha(T aChar)
 {
-  return ('a' <= aChar && aChar <= 'z') ||
-         ('A' <= aChar && aChar <= 'Z');
+  return ('a' <= aChar && aChar <= 'z') || ('A' <= aChar && aChar <= 'Z');
 }
 
 template<class T>
@@ -61,23 +60,23 @@ static int
 _valid_subexp(const T* aExpr, T aStop1, T aStop2)
 {
   int x;
-  int nsc = 0;     /* Number of special characters */
-  int np;          /* Number of pipe characters in union */
-  int tld = 0;     /* Number of tilde characters */
+  int nsc = 0; /* Number of special characters */
+  int np;      /* Number of pipe characters in union */
+  int tld = 0; /* Number of tilde characters */
 
   for (x = 0; aExpr[x] && (aExpr[x] != aStop1) && (aExpr[x] != aStop2); ++x) {
     switch (aExpr[x]) {
       case '~':
-        if (tld) {              /* at most one exclusion */
+        if (tld) { /* at most one exclusion */
           return INVALID_SXP;
         }
-        if (aStop1) {           /* no exclusions within unions */
+        if (aStop1) { /* no exclusions within unions */
           return INVALID_SXP;
         }
-        if (!aExpr[x + 1]) {    /* exclusion cannot be last character */
+        if (!aExpr[x + 1]) { /* exclusion cannot be last character */
           return INVALID_SXP;
         }
-        if (!x) {               /* exclusion cannot be first character */
+        if (!x) { /* exclusion cannot be first character */
           return INVALID_SXP;
         }
         ++tld;
@@ -103,7 +102,7 @@ _valid_subexp(const T* aExpr, T aStop1, T aStop2)
         break;
       case '(':
         ++nsc;
-        if (aStop1) {           /* no nested unions */
+        if (aStop1) { /* no nested unions */
           return INVALID_SXP;
         }
         np = -1;
@@ -142,7 +141,6 @@ _valid_subexp(const T* aExpr, T aStop1, T aStop2)
   return ((aExpr[x] == aStop1 || aExpr[x] == aStop2) ? x : INVALID_SXP);
 }
 
-
 template<class T>
 int
 NS_WildCardValid_(const T* aExpr)
@@ -163,8 +161,7 @@ NS_WildCardValid(const char16_t* aExpr)
   return NS_WildCardValid_(aExpr);
 }
 
-/* ----------------------------- _shexp_match ----------------------------- */
-
+  /* ----------------------------- _shexp_match ----------------------------- */
 
 #define MATCH 0
 #define NOMATCH 1
@@ -172,7 +169,9 @@ NS_WildCardValid(const char16_t* aExpr)
 
 template<class T>
 static int
-_shexp_match(const T* aStr, const T* aExpr, bool aCaseInsensitive,
+_shexp_match(const T* aStr,
+             const T* aExpr,
+             bool aCaseInsensitive,
              unsigned int aLevel);
 
 /**
@@ -188,13 +187,13 @@ template<class T>
 static int
 _scan_and_copy(const T* aExpr, T aStop1, T aStop2, T* aDest)
 {
-  int sx;     /* source index */
+  int sx; /* source index */
   T cc;
 
   for (sx = 0; (cc = aExpr[sx]) && cc != aStop1 && cc != aStop2; ++sx) {
     if (cc == '\\') {
       if (!aExpr[++sx]) {
-        return ABORTED;  /* should be impossible */
+        return ABORTED; /* should be impossible */
       }
     } else if (cc == '[') {
       while ((cc = aExpr[++sx]) && cc != ']') {
@@ -203,7 +202,7 @@ _scan_and_copy(const T* aExpr, T aStop1, T aStop2, T* aDest)
         }
       }
       if (!cc) {
-        return ABORTED;  /* should be impossible */
+        return ABORTED; /* should be impossible */
       }
     }
   }
@@ -225,13 +224,15 @@ _scan_and_copy(const T* aExpr, T aStop1, T aStop2, T* aDest)
  */
 template<class T>
 static int
-_handle_union(const T* aStr, const T* aExpr, bool aCaseInsensitive,
+_handle_union(const T* aStr,
+              const T* aExpr,
+              bool aCaseInsensitive,
               unsigned int aLevel)
 {
-  int sx;              /* source index */
-  int cp;              /* source index of closing parenthesis */
+  int sx; /* source index */
+  int cp; /* source index of closing parenthesis */
   int count;
-  int ret   = NOMATCH;
+  int ret = NOMATCH;
   T* e2;
 
   /* Find the closing parenthesis that ends this union in the expression */
@@ -239,12 +240,12 @@ _handle_union(const T* aStr, const T* aExpr, bool aCaseInsensitive,
   if (cp == ABORTED || cp < 4) { /* must be at least "(a|b" before ')' */
     return ABORTED;
   }
-  ++cp;                /* now index of char after closing parenthesis */
+  ++cp; /* now index of char after closing parenthesis */
   e2 = (T*)moz_xmalloc((1 + nsCharTraits<T>::length(aExpr)) * sizeof(T));
   if (!e2) {
     return ABORTED;
   }
-  for (sx = 1; ; ++sx) {
+  for (sx = 1;; ++sx) {
     /* Here, aExpr[sx] is one character past the preceding '(' or '|'. */
     /* Copy everything up to the next delimiter to e2 */
     count = ::_scan_and_copy(aExpr + sx, T(')'), T('|'), e2);
@@ -254,8 +255,8 @@ _handle_union(const T* aStr, const T* aExpr, bool aCaseInsensitive,
     }
     sx += count;
     /* Append everything after closing parenthesis to e2. This is safe. */
-    nsCharTraits<T>::copy(e2 + count, aExpr + cp,
-                          nsCharTraits<T>::length(aExpr + cp) + 1);
+    nsCharTraits<T>::copy(
+        e2 + count, aExpr + cp, nsCharTraits<T>::length(aExpr + cp) + 1);
     ret = ::_shexp_match(aStr, e2, aCaseInsensitive, aLevel + 1);
     if (ret != NOMATCH || !aExpr[sx] || aExpr[sx] == ')') {
       break;
@@ -282,14 +283,16 @@ _is_char_in_range(unsigned char aStart, unsigned char aEnd, unsigned char aVal)
 
 template<class T>
 static int
-_shexp_match(const T* aStr, const T* aExpr, bool aCaseInsensitive,
+_shexp_match(const T* aStr,
+             const T* aExpr,
+             bool aCaseInsensitive,
              unsigned int aLevel)
 {
-  int x;   /* input string index */
-  int y;   /* expression index */
+  int x; /* input string index */
+  int y; /* expression index */
   int ret, neg;
 
-  if (aLevel > 20) {    /* Don't let the stack get too deep. */
+  if (aLevel > 20) { /* Don't let the stack get too deep. */
     return ABORTED;
   }
   for (x = 0, y = 0; aExpr[y]; ++y, ++x) {
@@ -301,7 +304,7 @@ _shexp_match(const T* aStr, const T* aExpr, bool aCaseInsensitive,
         if (aStr[x]) {
           return NOMATCH;
         }
-        --x;                 /* we don't want loop to increment x */
+        --x; /* we don't want loop to increment x */
         break;
       case '*':
         while (aExpr[++y] == '*') {
@@ -310,8 +313,8 @@ _shexp_match(const T* aStr, const T* aExpr, bool aCaseInsensitive,
           return MATCH;
         }
         while (aStr[x]) {
-          ret = ::_shexp_match(&aStr[x++], &aExpr[y], aCaseInsensitive,
-                               aLevel + 1);
+          ret = ::_shexp_match(
+              &aStr[x++], &aExpr[y], aCaseInsensitive, aLevel + 1);
           switch (ret) {
             case NOMATCH:
               continue;
@@ -354,9 +357,8 @@ _shexp_match(const T* aStr, const T* aExpr, bool aCaseInsensitive,
             start = tmp;
           }
           if (aCaseInsensitive && ::alpha(val)) {
-            val = ::_is_char_in_range((unsigned char)start,
-                                      (unsigned char)end,
-                                      (unsigned char)val);
+            val = ::_is_char_in_range(
+                (unsigned char)start, (unsigned char)end, (unsigned char)val);
             if (neg == val) {
               return NOMATCH;
             }
@@ -381,14 +383,13 @@ _shexp_match(const T* aStr, const T* aExpr, bool aCaseInsensitive,
             return NOMATCH;
           }
         }
-      }
-      break;
+      } break;
       case '(':
         if (!aExpr[y + 1]) {
           return ABORTED;
         }
-        return ::_handle_union(&aStr[x], &aExpr[y], aCaseInsensitive,
-                               aLevel + 1);
+        return ::_handle_union(
+            &aStr[x], &aExpr[y], aCaseInsensitive, aLevel + 1);
       case '?':
         break;
       case ')':
@@ -474,7 +475,8 @@ NS_WildCardMatch(const char* aStr, const char* aXp, bool aCaseInsensitive)
 }
 
 int
-NS_WildCardMatch(const char16_t* aStr, const char16_t* aXp,
+NS_WildCardMatch(const char16_t* aStr,
+                 const char16_t* aXp,
                  bool aCaseInsensitive)
 {
   return NS_WildCardMatch_(aStr, aXp, aCaseInsensitive);

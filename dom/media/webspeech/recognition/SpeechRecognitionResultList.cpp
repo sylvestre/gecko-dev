@@ -13,7 +13,9 @@
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SpeechRecognitionResultList, mParent, mItems)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SpeechRecognitionResultList,
+                                      mParent,
+                                      mItems)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SpeechRecognitionResultList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(SpeechRecognitionResultList)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechRecognitionResultList)
@@ -21,14 +23,13 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SpeechRecognitionResultList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-SpeechRecognitionResultList::SpeechRecognitionResultList(SpeechRecognition* aParent)
-  : mParent(aParent)
+SpeechRecognitionResultList::SpeechRecognitionResultList(
+    SpeechRecognition* aParent)
+    : mParent(aParent)
 {
 }
 
-SpeechRecognitionResultList::~SpeechRecognitionResultList()
-{
-}
+SpeechRecognitionResultList::~SpeechRecognitionResultList() {}
 
 nsISupports*
 SpeechRecognitionResultList::GetParentObject() const
@@ -37,7 +38,8 @@ SpeechRecognitionResultList::GetParentObject() const
 }
 
 JSObject*
-SpeechRecognitionResultList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SpeechRecognitionResultList::WrapObject(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto)
 {
   return SpeechRecognitionResultListBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -67,5 +69,5 @@ SpeechRecognitionResultList::Item(uint32_t aIndex)
   return result.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

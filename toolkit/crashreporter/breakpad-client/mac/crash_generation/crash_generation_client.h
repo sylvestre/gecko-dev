@@ -34,21 +34,24 @@
 
 namespace google_breakpad {
 
-class CrashGenerationClient {
+class CrashGenerationClient
+{
  public:
   explicit CrashGenerationClient(const char* mach_port_name)
-    : sender_(mach_port_name) {
+      : sender_(mach_port_name)
+  {
   }
 
   // Request the crash server to generate a dump.
   //
   // Return true if the dump was successful; false otherwise.
   bool RequestDumpForException(int exception_type,
-			       int exception_code,
-			       int exception_subcode,
-			       mach_port_t crashing_thread);
+                               int exception_code,
+                               int exception_subcode,
+                               mach_port_t crashing_thread);
 
-  bool RequestDump() {
+  bool RequestDump()
+  {
     return RequestDumpForException(0, 0, 0, MACH_PORT_NULL);
   }
 

@@ -21,7 +21,7 @@ using namespace mozilla;
 ///////////////////////////////////////////////////////////////////////////////
 
 EventStateManager*
-inLayoutUtils::GetEventStateManagerFor(nsIDOMElement *aElement)
+inLayoutUtils::GetEventStateManagerFor(nsIDOMElement* aElement)
 {
   NS_PRECONDITION(aElement, "Passing in a null element is bad");
 
@@ -34,9 +34,8 @@ inLayoutUtils::GetEventStateManagerFor(nsIDOMElement *aElement)
     return nullptr;
   }
 
-  nsIPresShell *shell = doc->GetShell();
-  if (!shell)
-    return nullptr;
+  nsIPresShell* shell = doc->GetShell();
+  if (!shell) return nullptr;
 
   return shell->GetPresContext()->EventStateManager();
 }
@@ -48,7 +47,8 @@ inLayoutUtils::GetSubDocumentFor(nsIDOMNode* aNode)
   if (content) {
     nsCOMPtr<nsIDocument> doc = content->GetComposedDoc();
     if (doc) {
-      nsCOMPtr<nsIDOMDocument> domdoc(do_QueryInterface(doc->GetSubDocumentFor(content)));
+      nsCOMPtr<nsIDOMDocument> domdoc(
+          do_QueryInterface(doc->GetSubDocumentFor(content)));
 
       return domdoc;
     }
@@ -65,7 +65,7 @@ inLayoutUtils::GetContainerFor(const nsIDocument& aDoc)
     return nullptr;
   }
 
-  nsCOMPtr<nsIDOMNode> node = do_QueryInterface(pwin->GetFrameElementInternal());
+  nsCOMPtr<nsIDOMNode> node =
+      do_QueryInterface(pwin->GetFrameElementInternal());
   return node;
 }
-

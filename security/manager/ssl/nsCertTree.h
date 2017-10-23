@@ -21,27 +21,32 @@
 
 typedef struct treeArrayElStr treeArrayEl;
 
-struct CompareCacheHashEntry {
-  enum { max_criterions = 3 };
+struct CompareCacheHashEntry
+{
+  enum
+  {
+    max_criterions = 3
+  };
   CompareCacheHashEntry();
 
-  void *key; // no ownership
+  void* key;  // no ownership
   bool mCritInit[max_criterions];
   nsString mCrit[max_criterions];
 };
 
-struct CompareCacheHashEntryPtr : PLDHashEntryHdr {
+struct CompareCacheHashEntryPtr : PLDHashEntryHdr
+{
   CompareCacheHashEntryPtr();
   ~CompareCacheHashEntryPtr();
-  CompareCacheHashEntry *entry;
+  CompareCacheHashEntry* entry;
 };
 
 class nsCertAddonInfo final : public nsISupports
 {
-private:
+ private:
   ~nsCertAddonInfo() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   nsCertAddonInfo() : mUsageCount(0) {}
@@ -54,19 +59,21 @@ public:
 
 class nsCertTreeDispInfo : public nsICertTreeItem
 {
-protected:
+ protected:
   virtual ~nsCertTreeDispInfo();
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICERTTREEITEM
 
   nsCertTreeDispInfo();
-  nsCertTreeDispInfo(nsCertTreeDispInfo &other);
+  nsCertTreeDispInfo(nsCertTreeDispInfo& other);
 
   RefPtr<nsCertAddonInfo> mAddonInfo;
-  enum {
-    direct_db, host_port_override
+  enum
+  {
+    direct_db,
+    host_port_override
   } mTypeOfEntry;
   nsCString mAsciiHost;
   int32_t mPort;
@@ -77,70 +84,91 @@ public:
 
 class nsCertTree : public nsICertTree
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICERTTREE
   NS_DECL_NSITREEVIEW
 
   nsCertTree();
 
-  enum sortCriterion { sort_IssuerOrg, sort_Org, sort_Token,
-    sort_CommonName, sort_IssuedDateDescending, sort_Email, sort_None };
+  enum sortCriterion
+  {
+    sort_IssuerOrg,
+    sort_Org,
+    sort_Token,
+    sort_CommonName,
+    sort_IssuedDateDescending,
+    sort_Email,
+    sort_None
+  };
 
-protected:
+ protected:
   virtual ~nsCertTree();
 
   void ClearCompareHash();
-  void RemoveCacheEntry(void *key);
+  void RemoveCacheEntry(void* key);
 
-  typedef int (*nsCertCompareFunc)(void *, nsIX509Cert *a, nsIX509Cert *b);
+  typedef int (*nsCertCompareFunc)(void*, nsIX509Cert* a, nsIX509Cert* b);
 
-  static CompareCacheHashEntry *getCacheEntry(void *cache, void *aCert);
-  static void CmpInitCriterion(nsIX509Cert *cert, CompareCacheHashEntry *entry,
-                               sortCriterion crit, int32_t level);
-  static int32_t CmpByCrit(nsIX509Cert *a, CompareCacheHashEntry *ace,
-                           nsIX509Cert *b, CompareCacheHashEntry *bce,
-                           sortCriterion crit, int32_t level);
-  static int32_t CmpBy(void *cache, nsIX509Cert *a, nsIX509Cert *b,
-                       sortCriterion c0, sortCriterion c1, sortCriterion c2);
-  static int32_t CmpCACert(void *cache, nsIX509Cert *a, nsIX509Cert *b);
-  static int32_t CmpWebSiteCert(void *cache, nsIX509Cert *a, nsIX509Cert *b);
-  static int32_t CmpUserCert(void *cache, nsIX509Cert *a, nsIX509Cert *b);
-  static int32_t CmpEmailCert(void *cache, nsIX509Cert *a, nsIX509Cert *b);
+  static CompareCacheHashEntry* getCacheEntry(void* cache, void* aCert);
+  static void CmpInitCriterion(nsIX509Cert* cert,
+                               CompareCacheHashEntry* entry,
+                               sortCriterion crit,
+                               int32_t level);
+  static int32_t CmpByCrit(nsIX509Cert* a,
+                           CompareCacheHashEntry* ace,
+                           nsIX509Cert* b,
+                           CompareCacheHashEntry* bce,
+                           sortCriterion crit,
+                           int32_t level);
+  static int32_t CmpBy(void* cache,
+                       nsIX509Cert* a,
+                       nsIX509Cert* b,
+                       sortCriterion c0,
+                       sortCriterion c1,
+                       sortCriterion c2);
+  static int32_t CmpCACert(void* cache, nsIX509Cert* a, nsIX509Cert* b);
+  static int32_t CmpWebSiteCert(void* cache, nsIX509Cert* a, nsIX509Cert* b);
+  static int32_t CmpUserCert(void* cache, nsIX509Cert* a, nsIX509Cert* b);
+  static int32_t CmpEmailCert(void* cache, nsIX509Cert* a, nsIX509Cert* b);
   nsCertCompareFunc GetCompareFuncFromCertType(uint32_t aType);
   int32_t CountOrganizations();
 
-  nsresult GetCertsByType(uint32_t aType, nsCertCompareFunc aCertCmpFn,
-                          void *aCertCmpFnArg);
+  nsresult GetCertsByType(uint32_t aType,
+                          nsCertCompareFunc aCertCmpFn,
+                          void* aCertCmpFnArg);
 
-  nsresult GetCertsByTypeFromCache(nsIX509CertList *aCache, uint32_t aType,
-                                   nsCertCompareFunc aCertCmpFn, void *aCertCmpFnArg);
-private:
+  nsresult GetCertsByTypeFromCache(nsIX509CertList* aCache,
+                                   uint32_t aType,
+                                   nsCertCompareFunc aCertCmpFn,
+                                   void* aCertCmpFnArg);
+
+ private:
   static const uint32_t kInitialCacheLength = 64;
 
-  nsTArray< RefPtr<nsCertTreeDispInfo> > mDispInfo;
-  nsCOMPtr<nsITreeBoxObject>  mTree;
-  nsCOMPtr<nsITreeSelection>  mSelection;
-  treeArrayEl                *mTreeArray;
-  int32_t                         mNumOrgs;
-  int32_t                         mNumRows;
+  nsTArray<RefPtr<nsCertTreeDispInfo> > mDispInfo;
+  nsCOMPtr<nsITreeBoxObject> mTree;
+  nsCOMPtr<nsITreeSelection> mSelection;
+  treeArrayEl* mTreeArray;
+  int32_t mNumOrgs;
+  int32_t mNumRows;
   PLDHashTable mCompareCache;
   nsCOMPtr<nsINSSComponent> mNSSComponent;
   nsCOMPtr<nsICertOverrideService> mOverrideService;
   RefPtr<nsCertOverrideService> mOriginalOverrideService;
 
-  treeArrayEl *GetThreadDescAtIndex(int32_t _index);
-  already_AddRefed<nsIX509Cert>
-    GetCertAtIndex(int32_t _index, int32_t *outAbsoluteCertOffset = nullptr);
-  already_AddRefed<nsCertTreeDispInfo>
-    GetDispInfoAtIndex(int32_t index, int32_t *outAbsoluteCertOffset = nullptr);
+  treeArrayEl* GetThreadDescAtIndex(int32_t _index);
+  already_AddRefed<nsIX509Cert> GetCertAtIndex(
+      int32_t _index, int32_t* outAbsoluteCertOffset = nullptr);
+  already_AddRefed<nsCertTreeDispInfo> GetDispInfoAtIndex(
+      int32_t index, int32_t* outAbsoluteCertOffset = nullptr);
   void FreeCertArray();
   nsresult UpdateUIContents();
 
-  nsresult GetCertsByTypeFromCertList(CERTCertList *aCertList,
+  nsresult GetCertsByTypeFromCertList(CERTCertList* aCertList,
                                       uint32_t aType,
-                                      nsCertCompareFunc  aCertCmpFn,
-                                      void              *aCertCmpFnArg);
+                                      nsCertCompareFunc aCertCmpFn,
+                                      void* aCertCmpFnArg);
 
   nsCOMPtr<nsIMutableArray> mCellText;
 
@@ -151,4 +179,3 @@ private:
 };
 
 #endif /* _NS_CERTTREE_H_ */
-

@@ -18,31 +18,32 @@ class nsIDOMFileList;
 namespace mozilla {
 namespace dom {
 class BlobImpl;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 class nsFileControlFrame : public nsBlockFrame,
                            public nsIFormControlFrame,
                            public nsIAnonymousContentCreator
 {
-public:
+ public:
   explicit nsFileControlFrame(nsStyleContext* aContext);
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsFileControlFrame)
 
   // nsIFormControlFrame
-  virtual nsresult SetFormProperty(nsAtom* aName, const nsAString& aValue) override;
+  virtual nsresult SetFormProperty(nsAtom* aName,
+                                   const nsAString& aValue) override;
   virtual void SetFocus(bool aOn, bool aRepaint) override;
 
-  virtual nscoord GetMinISize(gfxContext *aRenderingContext) override;
+  virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
@@ -50,13 +51,14 @@ public:
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  virtual nsresult AttributeChanged(int32_t         aNameSpaceID,
-                                    nsAtom*        aAttribute,
-                                    int32_t         aModType) override;
+  virtual nsresult AttributeChanged(int32_t aNameSpaceID,
+                                    nsAtom* aAttribute,
+                                    int32_t aModType) override;
   virtual void ContentStatesChanged(mozilla::EventStates aStates) override;
 
   // nsIAnonymousContentCreator
-  virtual nsresult CreateAnonymousContent(nsTArray<ContentInfo>& aElements) override;
+  virtual nsresult CreateAnonymousContent(
+      nsTArray<ContentInfo>& aElements) override;
   virtual void AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
                                         uint32_t aFilter) override;
 
@@ -66,23 +68,19 @@ public:
 
   typedef bool (*AcceptAttrCallback)(const nsAString&, void*);
 
-protected:
-
+ protected:
   class MouseListener;
   friend class MouseListener;
-  class MouseListener : public nsIDOMEventListener {
-  public:
+  class MouseListener : public nsIDOMEventListener
+  {
+   public:
     NS_DECL_ISUPPORTS
 
-    explicit MouseListener(nsFileControlFrame* aFrame)
-     : mFrame(aFrame)
-    {}
+    explicit MouseListener(nsFileControlFrame* aFrame) : mFrame(aFrame) {}
 
-    void ForgetFrame() {
-      mFrame = nullptr;
-    }
+    void ForgetFrame() { mFrame = nullptr; }
 
-  protected:
+   protected:
     virtual ~MouseListener() {}
 
     nsFileControlFrame* mFrame;
@@ -92,29 +90,31 @@ protected:
   friend class SyncDisabledStateEvent;
   class SyncDisabledStateEvent : public mozilla::Runnable
   {
-  public:
+   public:
     explicit SyncDisabledStateEvent(nsFileControlFrame* aFrame)
-      : mozilla::Runnable("nsFileControlFrame::SyncDisabledStateEvent")
-      , mFrame(aFrame)
-    {}
+        : mozilla::Runnable("nsFileControlFrame::SyncDisabledStateEvent"),
+          mFrame(aFrame)
+    {
+    }
 
-    NS_IMETHOD Run() override {
-      nsFileControlFrame* frame = static_cast<nsFileControlFrame*>(mFrame.GetFrame());
+    NS_IMETHOD Run() override
+    {
+      nsFileControlFrame* frame =
+          static_cast<nsFileControlFrame*>(mFrame.GetFrame());
       NS_ENSURE_STATE(frame);
 
       frame->SyncDisabledState();
       return NS_OK;
     }
 
-  private:
+   private:
     WeakFrame mFrame;
   };
 
-  class DnDListener: public MouseListener {
-  public:
-    explicit DnDListener(nsFileControlFrame* aFrame)
-      : MouseListener(aFrame)
-    {}
+  class DnDListener : public MouseListener
+  {
+   public:
+    explicit DnDListener(nsFileControlFrame* aFrame) : MouseListener(aFrame) {}
 
     NS_DECL_NSIDOMEVENTLISTENER
 
@@ -122,13 +122,14 @@ protected:
                                            mozilla::dom::BlobImpl** aBlobImpl);
 
     bool IsValidDropData(nsIDOMDataTransfer* aDOMDataTransfer);
-    bool CanDropTheseFiles(nsIDOMDataTransfer* aDOMDataTransfer, bool aSupportsMultiple);
+    bool CanDropTheseFiles(nsIDOMDataTransfer* aDOMDataTransfer,
+                           bool aSupportsMultiple);
   };
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return nsBlockFrame::IsFrameOfType(aFlags &
-      ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
+    return nsBlockFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
   }
 
   /**
@@ -148,7 +149,7 @@ protected:
    */
   RefPtr<DnDListener> mMouseListener;
 
-protected:
+ protected:
   /**
    * Sync the disabled state of the content with anonymous children.
    */
@@ -160,4 +161,4 @@ protected:
   void UpdateDisplayedValue(const nsAString& aValue, bool aNotify);
 };
 
-#endif // nsFileControlFrame_h___
+#endif  // nsFileControlFrame_h___

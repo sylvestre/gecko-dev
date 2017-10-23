@@ -17,7 +17,7 @@ namespace dom {
 template<typename BaseProtocol>
 class URLClassifierChildBase : public BaseProtocol
 {
-public:
+ public:
   URLClassifierChildBase() = default;
 
   void SetCallback(nsIURIClassifierCallback* aCallback)
@@ -30,23 +30,25 @@ public:
   {
     MOZ_ASSERT(mCallback);
     if (aInfo.type() == MaybeInfo::TClassifierInfo) {
-      mCallback->OnClassifyComplete(aResult, aInfo.get_ClassifierInfo().list(),
+      mCallback->OnClassifyComplete(aResult,
+                                    aInfo.get_ClassifierInfo().list(),
                                     aInfo.get_ClassifierInfo().provider(),
                                     aInfo.get_ClassifierInfo().fullhash());
     }
     return IPC_OK();
   }
 
-private:
+ private:
   ~URLClassifierChildBase() = default;
 
   nsCOMPtr<nsIURIClassifierCallback> mCallback;
 };
 
 using URLClassifierChild = URLClassifierChildBase<PURLClassifierChild>;
-using URLClassifierLocalChild = URLClassifierChildBase<PURLClassifierLocalChild>;
+using URLClassifierLocalChild =
+    URLClassifierChildBase<PURLClassifierLocalChild>;
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_URLClassifierChild_h
+#endif  // mozilla_dom_URLClassifierChild_h

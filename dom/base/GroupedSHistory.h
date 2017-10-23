@@ -19,7 +19,6 @@
 namespace mozilla {
 namespace dom {
 
-
 /**
  * GroupedSHistory connects session histories across multiple frameloaders.
  * Each frameloader has a PartialSHistory, and GroupedSHistory has an array
@@ -70,7 +69,7 @@ namespace dom {
  */
 class GroupedSHistory final : public nsIGroupedSHistory
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(GroupedSHistory)
   NS_DECL_NSIGROUPEDSHISTORY
@@ -82,7 +81,7 @@ public:
    */
   static bool GroupedHistoryEnabled();
 
-private:
+ private:
   ~GroupedSHistory() {}
 
   /**
@@ -116,7 +115,7 @@ private:
   nsTArray<PrerenderingHistory> mPrerenderingHistories;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* GroupedSHistory_h */

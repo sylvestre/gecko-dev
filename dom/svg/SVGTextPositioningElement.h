@@ -21,7 +21,7 @@ typedef SVGTextContentElement SVGTextPositioningElementBase;
 
 class SVGTextPositioningElement : public SVGTextPositioningElementBase
 {
-public:
+ public:
   // WebIDL
   already_AddRefed<DOMSVGAnimatedLengthList> X();
   already_AddRefed<DOMSVGAnimatedLengthList> Y();
@@ -29,25 +29,35 @@ public:
   already_AddRefed<DOMSVGAnimatedLengthList> Dy();
   already_AddRefed<DOMSVGAnimatedNumberList> Rotate();
 
-protected:
-
-  explicit SVGTextPositioningElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGTextPositioningElementBase(aNodeInfo)
-  {}
+ protected:
+  explicit SVGTextPositioningElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGTextPositioningElementBase(aNodeInfo)
+  {
+  }
 
   virtual LengthListAttributesInfo GetLengthListInfo() override;
   virtual NumberListAttributesInfo GetNumberListInfo() override;
 
-  enum { ATTR_X, ATTR_Y, ATTR_DX, ATTR_DY };
+  enum
+  {
+    ATTR_X,
+    ATTR_Y,
+    ATTR_DX,
+    ATTR_DY
+  };
   SVGAnimatedLengthList mLengthListAttributes[4];
   static LengthListInfo sLengthListInfo[4];
 
-  enum { ROTATE };
+  enum
+  {
+    ROTATE
+  };
   SVGAnimatedNumberList mNumberListAttributes[1];
   static NumberListInfo sNumberListInfo[1];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGTextPositioningElement_h
+#endif  // mozilla_dom_SVGTextPositioningElement_h

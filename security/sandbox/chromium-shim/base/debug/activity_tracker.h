@@ -49,7 +49,6 @@ class BASE_EXPORT ScopedThreadJoinActivity
   DISALLOW_COPY_AND_ASSIGN(ScopedThreadJoinActivity);
 };
 
-
 }  // namespace debug
 }  // namespace base
 

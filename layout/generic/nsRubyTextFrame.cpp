@@ -21,18 +21,16 @@ using namespace mozilla;
 // =======================
 
 NS_QUERYFRAME_HEAD(nsRubyTextFrame)
-  NS_QUERYFRAME_ENTRY(nsRubyTextFrame)
+NS_QUERYFRAME_ENTRY(nsRubyTextFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsRubyContentFrame)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsRubyTextFrame)
 
 nsContainerFrame*
-NS_NewRubyTextFrame(nsIPresShell* aPresShell,
-                    nsStyleContext* aContext)
+NS_NewRubyTextFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 {
   return new (aPresShell) nsRubyTextFrame(aContext);
 }
-
 
 //----------------------------------------------------------------------
 
@@ -53,10 +51,8 @@ nsRubyTextFrame::GetFrameName(nsAString& aResult) const
 }
 #endif
 
-
-
 /* virtual */ void
-nsRubyTextFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+nsRubyTextFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                   const nsDisplayListSet& aLists)
 {
   if (IsAutoHidden()) {

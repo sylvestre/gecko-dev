@@ -18,10 +18,10 @@ WebGLVertexArrayObject::Create(WebGLContext* webgl)
 {
   // WebGL 2: This is core in GL ES 3. If support is missing something
   // is very wrong.
-  bool vaoSupport = webgl->GL()->IsSupported(gl::GLFeature::vertex_array_object);
+  bool vaoSupport =
+      webgl->GL()->IsSupported(gl::GLFeature::vertex_array_object);
   MOZ_RELEASE_ASSERT(vaoSupport, "GFX: Vertex Array Objects aren't supported.");
-  if (vaoSupport)
-    return new WebGLVertexArrayObject(webgl);
+  if (vaoSupport) return new WebGLVertexArrayObject(webgl);
 
   return nullptr;
 }
@@ -33,5 +33,5 @@ WebGLVertexArrayObject::WrapObject(JSContext* cx,
   return dom::WebGLVertexArrayObjectBinding::Wrap(cx, this, givenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

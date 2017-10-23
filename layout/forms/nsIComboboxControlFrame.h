@@ -13,7 +13,7 @@
   */
 class nsIComboboxControlFrame : public nsQueryFrame
 {
-public:
+ public:
   NS_DECL_QUERYFRAME_TARGET(nsIComboboxControlFrame)
 
   /**
@@ -24,7 +24,10 @@ public:
   virtual bool IsOpenInParentProcess() = 0;
   virtual void SetOpenInParentProcess(bool aVal) = 0;
 
-  bool IsDroppedDownOrHasParentPopup() { return IsDroppedDown() || IsOpenInParentProcess(); }
+  bool IsDroppedDownOrHasParentPopup()
+  {
+    return IsDroppedDown() || IsOpenInParentProcess();
+  }
 
   /**
    * Shows or hides the drop down
@@ -93,4 +96,3 @@ public:
 };
 
 #endif
-

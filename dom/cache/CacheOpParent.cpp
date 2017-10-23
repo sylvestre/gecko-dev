@@ -20,30 +20,29 @@ namespace cache {
 using mozilla::ipc::FileDescriptorSetParent;
 using mozilla::ipc::PBackgroundParent;
 
-CacheOpParent::CacheOpParent(PBackgroundParent* aIpcManager, CacheId aCacheId,
+CacheOpParent::CacheOpParent(PBackgroundParent* aIpcManager,
+                             CacheId aCacheId,
                              const CacheOpArgs& aOpArgs)
-  : mIpcManager(aIpcManager)
-  , mCacheId(aCacheId)
-  , mNamespace(INVALID_NAMESPACE)
-  , mOpArgs(aOpArgs)
+    : mIpcManager(aIpcManager),
+      mCacheId(aCacheId),
+      mNamespace(INVALID_NAMESPACE),
+      mOpArgs(aOpArgs)
 {
   MOZ_DIAGNOSTIC_ASSERT(mIpcManager);
 }
 
 CacheOpParent::CacheOpParent(PBackgroundParent* aIpcManager,
-                             Namespace aNamespace, const CacheOpArgs& aOpArgs)
-  : mIpcManager(aIpcManager)
-  , mCacheId(INVALID_CACHE_ID)
-  , mNamespace(aNamespace)
-  , mOpArgs(aOpArgs)
+                             Namespace aNamespace,
+                             const CacheOpArgs& aOpArgs)
+    : mIpcManager(aIpcManager),
+      mCacheId(INVALID_CACHE_ID),
+      mNamespace(aNamespace),
+      mOpArgs(aOpArgs)
 {
   MOZ_DIAGNOSTIC_ASSERT(mIpcManager);
 }
 
-CacheOpParent::~CacheOpParent()
-{
-  NS_ASSERT_OWNINGTHREAD(CacheOpParent);
-}
+CacheOpParent::~CacheOpParent() { NS_ASSERT_OWNINGTHREAD(CacheOpParent); }
 
 void
 CacheOpParent::Execute(ManagerId* aManagerId)
@@ -53,7 +52,8 @@ CacheOpParent::Execute(ManagerId* aManagerId)
   MOZ_DIAGNOSTIC_ASSERT(!mVerifier);
 
   RefPtr<cache::Manager> manager;
-  nsresult rv = cache::Manager::GetOrCreate(aManagerId, getter_AddRefs(manager));
+  nsresult rv =
+      cache::Manager::GetOrCreate(aManagerId, getter_AddRefs(manager));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     ErrorResult result(rv);
     Unused << Send__delete__(this, result, void_t());
@@ -85,13 +85,16 @@ CacheOpParent::Execute(cache::Manager* aManager)
 
     for (uint32_t i = 0; i < list.Length(); ++i) {
       requestStreamList.AppendElement(
-        DeserializeCacheStream(list[i].request().body()));
+          DeserializeCacheStream(list[i].request().body()));
       responseStreamList.AppendElement(
-        DeserializeCacheStream(list[i].response().body()));
+          DeserializeCacheStream(list[i].response().body()));
     }
 
-    mManager->ExecutePutAll(this, mCacheId, args.requestResponseList(),
-                            requestStreamList, responseStreamList);
+    mManager->ExecutePutAll(this,
+                            mCacheId,
+                            args.requestResponseList(),
+                            requestStreamList,
+                            responseStreamList);
     return;
   }
 
@@ -155,7 +158,8 @@ CacheOpParent::OnPrincipalVerified(nsresult aRv, ManagerId* aManagerId)
 }
 
 void
-CacheOpParent::OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
+CacheOpParent::OnOpComplete(ErrorResult&& aRv,
+                            const CacheOpResult& aResult,
                             CacheId aOpenedCacheId,
                             const nsTArray<SavedResponse>& aSavedResponseList,
                             const nsTArray<SavedRequest>& aSavedRequestList,
@@ -169,13 +173,14 @@ CacheOpParent::OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
   // void_t() to ensure that we don't leak actors on the child side.
   if (NS_WARN_IF(aRv.Failed())) {
     Unused << Send__delete__(this, aRv, void_t());
-    aRv.SuppressException(); // We serialiazed it, as best we could.
+    aRv.SuppressException();  // We serialiazed it, as best we could.
     return;
   }
 
-  uint32_t entryCount = std::max(1lu, static_cast<unsigned long>(
-                                      std::max(aSavedResponseList.Length(),
-                                               aSavedRequestList.Length())));
+  uint32_t entryCount =
+      std::max(1lu,
+               static_cast<unsigned long>(std::max(
+                   aSavedResponseList.Length(), aSavedRequestList.Length())));
 
   // The result must contain the appropriate type at this point.  It may
   // or may not contain the additional result data yet.  For types that
@@ -201,7 +206,8 @@ CacheOpParent::OnOpComplete(ErrorResult&& aRv, const CacheOpResult& aResult,
 }
 
 already_AddRefed<nsIInputStream>
-CacheOpParent::DeserializeCacheStream(const CacheReadStreamOrVoid& aStreamOrVoid)
+CacheOpParent::DeserializeCacheStream(
+    const CacheReadStreamOrVoid& aStreamOrVoid)
 {
   if (aStreamOrVoid.type() == CacheReadStreamOrVoid::Tvoid_t) {
     return nullptr;
@@ -223,6 +229,6 @@ CacheOpParent::DeserializeCacheStream(const CacheReadStreamOrVoid& aStreamOrVoid
   return DeserializeIPCStream(readStream.stream());
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

@@ -22,7 +22,7 @@
 template<class T>
 class nsPtrHashKey : public PLDHashEntryHdr
 {
-public:
+ public:
   typedef T* KeyType;
   typedef const T* KeyTypePointer;
 
@@ -38,12 +38,15 @@ public:
   {
     return mozilla::HashGeneric(aKey);
   }
-  enum { ALLOW_MEMMOVE = true };
+  enum
+  {
+    ALLOW_MEMMOVE = true
+  };
 
-protected:
+ protected:
   T* MOZ_NON_OWNING_REF mKey;
 };
 
 typedef nsPtrHashKey<const void> nsVoidPtrHashKey;
 
-#endif // nsPointerHashKeys_h
+#endif  // nsPointerHashKeys_h

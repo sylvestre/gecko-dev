@@ -23,21 +23,23 @@ namespace safebrowsing {
 /**
  * Maintains the stores and LookupCaches for the url classifier.
  */
-class Classifier {
-public:
+class Classifier
+{
+ public:
   Classifier();
   ~Classifier();
 
   nsresult Open(nsIFile& aCacheDirectory);
   void Close();
-  void Reset(); // Not including any intermediary for update.
+  void Reset();  // Not including any intermediary for update.
 
   /**
    * Clear data for specific tables.
    * If ClearType is Clear_Cache, this function will only clear cache in lookup
    * cache, otherwise, it will clear data in lookup cache and data stored on disk.
    */
-  enum ClearType {
+  enum ClearType
+  {
     Clear_Cache,
     Clear_All,
   };
@@ -120,13 +122,13 @@ public:
   // update intermediaries.
   nsresult SwapInNewTablesAndCleanup();
 
-  LookupCache *GetLookupCache(const nsACString& aTable,
+  LookupCache* GetLookupCache(const nsACString& aTable,
                               bool aForUpdate = false);
 
   void GetCacheInfo(const nsACString& aTable,
                     nsIUrlClassifierCacheInfo** aCache);
 
-private:
+ private:
   void DropStores();
   void DeleteTables(nsIFile* aDirectory, const nsTArray<nsCString>& aTables);
 
@@ -137,7 +139,7 @@ private:
   nsresult CopyInUseDirForUpdate();
   nsresult RegenActiveTables();
 
-  void MergeNewLookupCaches(); // Merge mNewLookupCaches into mLookupCaches.
+  void MergeNewLookupCaches();  // Merge mNewLookupCaches into mLookupCaches.
 
   void CopyAndInvalidateFullHashCache();
 
@@ -160,14 +162,14 @@ private:
 
   nsresult UpdateCache(TableUpdate* aUpdates);
 
-  LookupCache *GetLookupCacheForUpdate(const nsACString& aTable) {
+  LookupCache* GetLookupCacheForUpdate(const nsACString& aTable)
+  {
     return GetLookupCache(aTable, true);
   }
 
-  LookupCache *GetLookupCacheFrom(const nsACString& aTable,
+  LookupCache* GetLookupCacheFrom(const nsACString& aTable,
                                   nsTArray<LookupCache*>& aLookupCaches,
                                   nsIFile* aRootStoreDirectory);
-
 
   bool CheckValidUpdate(nsTArray<TableUpdate*>* aUpdates,
                         const nsACString& aTable);
@@ -204,9 +206,9 @@ private:
   nsCOMPtr<nsIFile> mRootStoreDirectory;
   // Used for atomically updating the other dirs.
   nsCOMPtr<nsIFile> mBackupDirectory;
-  nsCOMPtr<nsIFile> mUpdatingDirectory; // For update only.
+  nsCOMPtr<nsIFile> mUpdatingDirectory;  // For update only.
   nsCOMPtr<nsIFile> mToDeleteDirectory;
-  nsTArray<LookupCache*> mLookupCaches; // For query only.
+  nsTArray<LookupCache*> mLookupCaches;  // For query only.
   nsTArray<nsCString> mActiveTablesCache;
   uint32_t mHashKey;
 
@@ -223,7 +225,7 @@ private:
 
   bool mUpdateInterrupted;
 
-  nsCOMPtr<nsIThread> mUpdateThread; // For async update.
+  nsCOMPtr<nsIThread> mUpdateThread;  // For async update.
 
   // Identical to mRootStoreDirectory but for update only because
   // nsIFile is not thread safe and mRootStoreDirectory needs to
@@ -232,7 +234,7 @@ private:
   nsCOMPtr<nsIFile> mRootStoreDirectoryForUpdate;
 };
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla
 
 #endif

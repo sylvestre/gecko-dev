@@ -20,9 +20,11 @@ namespace gmp {
 // pool there, and then return with Encoded() frames and goes into the parent
 // pool.
 bool
-GMPSharedMemManager::MgrAllocShmem(GMPSharedMem::GMPMemoryClasses aClass, size_t aSize,
-                                   ipc::Shmem::SharedMemory::SharedMemoryType aType,
-                                   ipc::Shmem* aMem)
+GMPSharedMemManager::MgrAllocShmem(
+    GMPSharedMem::GMPMemoryClasses aClass,
+    size_t aSize,
+    ipc::Shmem::SharedMemory::SharedMemoryType aType,
+    ipc::Shmem* aMem)
 {
   mData->CheckThread();
 
@@ -38,7 +40,7 @@ GMPSharedMemManager::MgrAllocShmem(GMPSharedMem::GMPMemoryClasses aClass, size_t
 
   // Didn't find a buffer free with enough space; allocate one
   size_t pagesize = ipc::SharedMemory::SystemPageSize();
-  aSize = (aSize + (pagesize-1)) & ~(pagesize-1); // round up to page size
+  aSize = (aSize + (pagesize - 1)) & ~(pagesize - 1);  // round up to page size
   bool retval = Alloc(aSize, aType, aMem);
   if (retval) {
     // The allocator (or NeedsShmem call) should never return less than we ask for...
@@ -49,7 +51,8 @@ GMPSharedMemManager::MgrAllocShmem(GMPSharedMem::GMPMemoryClasses aClass, size_t
 }
 
 bool
-GMPSharedMemManager::MgrDeallocShmem(GMPSharedMem::GMPMemoryClasses aClass, ipc::Shmem& aMem)
+GMPSharedMemManager::MgrDeallocShmem(GMPSharedMem::GMPMemoryClasses aClass,
+                                     ipc::Shmem& aMem)
 {
   mData->CheckThread();
 
@@ -94,5 +97,5 @@ GMPSharedMemManager::NumInUse(GMPSharedMem::GMPMemoryClasses aClass)
   return mData->mGmpAllocated[aClass] - GetGmpFreelist(aClass).Length();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

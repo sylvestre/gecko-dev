@@ -11,12 +11,13 @@
 
 namespace {
 
-struct MutexData {
+struct MutexData
+{
   pthread_mutex_t mMutex;
   mozilla::Atomic<int32_t> mCount;
 };
 
-} // namespace
+}  // namespace
 
 namespace mozilla {
 
@@ -39,8 +40,7 @@ InitMutex(pthread_mutex_t* mMutex)
 }
 
 CrossProcessMutex::CrossProcessMutex(const char*)
-    : mMutex(nullptr)
-    , mCount(nullptr)
+    : mMutex(nullptr), mCount(nullptr)
 {
   mSharedBuffer = new ipc::SharedMemoryBasic;
   if (!mSharedBuffer->Create(sizeof(MutexData))) {
@@ -67,8 +67,7 @@ CrossProcessMutex::CrossProcessMutex(const char*)
 }
 
 CrossProcessMutex::CrossProcessMutex(CrossProcessMutexHandle aHandle)
-    : mMutex(nullptr)
-    , mCount(nullptr)
+    : mMutex(nullptr), mCount(nullptr)
 {
   mSharedBuffer = new ipc::SharedMemoryBasic;
 
@@ -141,4 +140,4 @@ CrossProcessMutex::ShareToProcess(base::ProcessId aTargetPid)
   return result;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

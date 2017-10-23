@@ -64,8 +64,8 @@ CrossProcessMutexHandle
 CrossProcessMutex::ShareToProcess(base::ProcessId aTargetPid)
 {
   HANDLE newHandle;
-  bool succeeded = ipc::DuplicateHandle(mMutex, aTargetPid, &newHandle,
-                                        0, DUPLICATE_SAME_ACCESS);
+  bool succeeded = ipc::DuplicateHandle(
+      mMutex, aTargetPid, &newHandle, 0, DUPLICATE_SAME_ACCESS);
 
   if (!succeeded) {
     return nullptr;
@@ -74,4 +74,4 @@ CrossProcessMutex::ShareToProcess(base::ProcessId aTargetPid)
   return newHandle;
 }
 
-}
+}  // namespace mozilla

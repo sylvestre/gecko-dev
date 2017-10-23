@@ -21,7 +21,8 @@
  * password on the auth information object.
  */
 inline void
-NS_SetAuthInfo(nsIAuthInformation* aAuthInfo, const nsString& aUser,
+NS_SetAuthInfo(nsIAuthInformation* aAuthInfo,
+               const nsString& aUser,
                const nsString& aPassword)
 {
   uint32_t flags;
@@ -55,8 +56,11 @@ NS_SetAuthInfo(nsIAuthInformation* aAuthInfo, const nsString& aUser,
  *        this case)
  */
 inline void
-NS_GetAuthHostPort(nsIChannel* aChannel, nsIAuthInformation* aAuthInfo,
-                   bool aMachineProcessing, nsCString& aHost, int32_t* aPort)
+NS_GetAuthHostPort(nsIChannel* aChannel,
+                   nsIAuthInformation* aAuthInfo,
+                   bool aMachineProcessing,
+                   nsCString& aHost,
+                   int32_t* aPort)
 {
   nsCOMPtr<nsIURI> uri;
   nsresult rv = aChannel->GetURI(getter_AddRefs(uri));
@@ -81,7 +85,7 @@ NS_GetAuthHostPort(nsIChannel* aChannel, nsIAuthInformation* aAuthInfo,
 
     if (aMachineProcessing) {
       nsCOMPtr<nsIIDNService> idnService =
-        do_GetService(NS_IDNSERVICE_CONTRACTID);
+          do_GetService(NS_IDNSERVICE_CONTRACTID);
       if (idnService) {
         idnService->ConvertUTF8toACE(idnhost, aHost);
       } else {
@@ -108,7 +112,8 @@ NS_GetAuthHostPort(nsIChannel* aChannel, nsIAuthInformation* aAuthInfo,
  * ensuring backwards compatibility.
  */
 inline void
-NS_GetAuthKey(nsIChannel* aChannel, nsIAuthInformation* aAuthInfo,
+NS_GetAuthKey(nsIChannel* aChannel,
+              nsIAuthInformation* aAuthInfo,
               nsCString& aKey)
 {
   // HTTP does this differently from other protocols

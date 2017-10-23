@@ -26,10 +26,11 @@ namespace mozilla {
 
 class LookAndFeel
 {
-public:
+ public:
   // When modifying this list, also modify nsXPLookAndFeel::sColorPrefs
   // in widget/xpwidgts/nsXPLookAndFeel.cpp.
-  enum ColorID : uint8_t {
+  enum ColorID : uint8_t
+  {
 
     // WARNING : NO NEGATIVE VALUE IN THIS ENUMERATION
     // see patch in bug 57757 for more information
@@ -199,7 +200,8 @@ public:
 
   // When modifying this list, also modify nsXPLookAndFeel::sIntPrefs
   // in widget/xpwidgts/nsXPLookAndFeel.cpp.
-  enum IntID {
+  enum IntID
+  {
     // default, may be overriden by OS
     eIntID_CaretBlinkTime,
     // pixel width of caret
@@ -316,7 +318,7 @@ public:
      */
     eIntID_MacGraphiteTheme,
 
-   /*
+    /*
     * A Boolean value to determine whether the Mac OS X Yosemite-specific theming
     * should be used.
     *
@@ -324,7 +326,7 @@ public:
     * platforms should return NS_ERROR_NOT_IMPLEMENTED when queried for this
     * metric.
     */
-   eIntID_MacYosemiteTheme,
+    eIntID_MacYosemiteTheme,
 
     /*
      * eIntID_AlertNotificationOrigin indicates from which corner of the
@@ -388,31 +390,32 @@ public:
      */
     eIntID_SwipeAnimationEnabled,
 
-     /*
+    /*
       * Controls whether overlay scrollbars display when the user moves
       * the mouse in a scrollable frame.
       */
-     eIntID_ScrollbarDisplayOnMouseMove,
+    eIntID_ScrollbarDisplayOnMouseMove,
 
-     /*
+    /*
       * Overlay scrollbar animation constants.
       */
-     eIntID_ScrollbarFadeBeginDelay,
-     eIntID_ScrollbarFadeDuration,
-      
-     /**
+    eIntID_ScrollbarFadeBeginDelay,
+    eIntID_ScrollbarFadeDuration,
+
+    /**
       * Distance in pixels to offset the context menu from the cursor
       * on open.
       */
-     eIntID_ContextMenuOffsetVertical,
-     eIntID_ContextMenuOffsetHorizontal
+    eIntID_ContextMenuOffsetVertical,
+    eIntID_ContextMenuOffsetHorizontal
   };
 
   /**
    * Windows themes we currently detect.
    */
-  enum WindowsTheme {
-    eWindowsTheme_Generic = 0, // unrecognized theme
+  enum WindowsTheme
+  {
+    eWindowsTheme_Generic = 0,  // unrecognized theme
     eWindowsTheme_Classic,
     eWindowsTheme_Aero,
     eWindowsTheme_LunaBlue,
@@ -426,14 +429,16 @@ public:
   /**
    * Operating system versions.
    */
-  enum OperatingSystemVersion {
+  enum OperatingSystemVersion
+  {
     eOperatingSystemVersion_Windows7 = 2,
     eOperatingSystemVersion_Windows8,
     eOperatingSystemVersion_Windows10,
     eOperatingSystemVersion_Unknown
   };
 
-  enum {
+  enum
+  {
     eScrollArrow_None = 0,
     eScrollArrow_StartBackward = 0x1000,
     eScrollArrow_StartForward = 0x0100,
@@ -441,30 +446,33 @@ public:
     eScrollArrow_EndForward = 0x0001
   };
 
-  enum {
+  enum
+  {
     // single arrow at each end
     eScrollArrowStyle_Single =
-      eScrollArrow_StartBackward | eScrollArrow_EndForward,
+        eScrollArrow_StartBackward | eScrollArrow_EndForward,
     // both arrows at bottom/right, none at top/left
     eScrollArrowStyle_BothAtBottom =
-      eScrollArrow_EndBackward | eScrollArrow_EndForward,
+        eScrollArrow_EndBackward | eScrollArrow_EndForward,
     // both arrows at both ends
     eScrollArrowStyle_BothAtEachEnd =
-      eScrollArrow_EndBackward | eScrollArrow_EndForward |
-      eScrollArrow_StartBackward | eScrollArrow_StartForward,
+        eScrollArrow_EndBackward | eScrollArrow_EndForward |
+        eScrollArrow_StartBackward | eScrollArrow_StartForward,
     // both arrows at top/left, none at bottom/right
     eScrollArrowStyle_BothAtTop =
-      eScrollArrow_StartBackward | eScrollArrow_StartForward
+        eScrollArrow_StartBackward | eScrollArrow_StartForward
   };
 
-  enum {
+  enum
+  {
     eScrollThumbStyle_Normal,
     eScrollThumbStyle_Proportional
   };
 
   // When modifying this list, also modify nsXPLookAndFeel::sFloatPrefs
   // in widget/xpwidgts/nsXPLookAndFeel.cpp.
-  enum FloatID {
+  enum FloatID
+  {
     eFloatID_IMEUnderlineRelativeSize,
     eFloatID_SpellCheckerUnderlineRelativeSize,
 
@@ -475,8 +483,9 @@ public:
 
   // These constants must be kept in 1:1 correspondence with the
   // NS_STYLE_FONT_* system font constants.
-  enum FontID {
-    eFont_Caption = 1,     // css2
+  enum FontID
+  {
+    eFont_Caption = 1,  // css2
     FontID_MINIMUM = eFont_Caption,
     eFont_Icon,
     eFont_Menu,
@@ -484,7 +493,7 @@ public:
     eFont_SmallCaption,
     eFont_StatusBar,
 
-    eFont_Window,          // css3
+    eFont_Window,  // css3
     eFont_Document,
     eFont_Workspace,
     eFont_Desktop,
@@ -495,7 +504,7 @@ public:
     eFont_List,
     eFont_Field,
 
-    eFont_Tooltips,        // moz
+    eFont_Tooltips,  // moz
     eFont_Widget,
     FontID_MAXIMUM = eFont_Widget
   };
@@ -517,13 +526,14 @@ public:
    */
   static nsresult GetColor(ColorID aID, nscolor* aResult);
 
-   /**
+  /**
    * This variant of GetColor() takes an extra Boolean parameter that allows
    * the caller to ask that hard-coded color values be substituted for
    * native colors (used when it is desireable to hide system colors to
    * avoid system fingerprinting).
    */
-  static nsresult GetColor(ColorID aID, bool aUseStandinsForNativeColors,
+  static nsresult GetColor(ColorID aID,
+                           bool aUseStandinsForNativeColors,
                            nscolor* aResult);
 
   /**
@@ -551,7 +561,7 @@ public:
   {
     nscolor result = NS_RGB(0, 0, 0);
     if (NS_FAILED(GetColor(aID,
-                           true, // aUseStandinsForNativeColors
+                           true,  // aUseStandinsForNativeColors
                            &result))) {
       return aDefault;
     }
@@ -586,7 +596,9 @@ public:
    * @param aStyle Styling to apply to the font.
    * @param aDevPixPerCSSPixel  Ratio of device pixels to CSS pixels
    */
-  static bool GetFont(FontID aID, nsString& aName, gfxFontStyle& aStyle,
+  static bool GetFont(FontID aID,
+                      nsString& aName,
+                      gfxFontStyle& aStyle,
                       float aDevPixPerCSSPixel);
 
   /**
@@ -632,13 +644,13 @@ public:
   static void SetIntCache(const nsTArray<LookAndFeelInt>& aLookAndFeelIntCache);
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 // On the Mac, GetColor(eColorID_TextSelectForeground, color) returns this
 // constant to specify that the foreground color should not be changed
 // (ie. a colored text keeps its colors  when selected).
 // Of course if other plaforms work like the Mac, they can use it too.
-#define NS_DONT_CHANGE_COLOR 	NS_RGB(0x01, 0x01, 0x01)
+#define NS_DONT_CHANGE_COLOR NS_RGB(0x01, 0x01, 0x01)
 
 // Similar with NS_DONT_CHANGE_COLOR, except NS_DONT_CHANGE_COLOR would returns
 // complementary color if fg color is same as bg color.
@@ -651,21 +663,21 @@ public:
 // ---------------------------------------------------------------------
 
 // For background color only.
-#define NS_TRANSPARENT                NS_RGBA(0x01, 0x00, 0x00, 0x00)
+#define NS_TRANSPARENT NS_RGBA(0x01, 0x00, 0x00, 0x00)
 // For foreground color only.
-#define NS_SAME_AS_FOREGROUND_COLOR   NS_RGBA(0x02, 0x00, 0x00, 0x00)
+#define NS_SAME_AS_FOREGROUND_COLOR NS_RGBA(0x02, 0x00, 0x00, 0x00)
 #define NS_40PERCENT_FOREGROUND_COLOR NS_RGBA(0x03, 0x00, 0x00, 0x00)
 
-#define NS_IS_SELECTION_SPECIAL_COLOR(c) ((c) == NS_TRANSPARENT || \
-                                          (c) == NS_SAME_AS_FOREGROUND_COLOR || \
-                                          (c) == NS_40PERCENT_FOREGROUND_COLOR)
+#define NS_IS_SELECTION_SPECIAL_COLOR(c)                          \
+  ((c) == NS_TRANSPARENT || (c) == NS_SAME_AS_FOREGROUND_COLOR || \
+   (c) == NS_40PERCENT_FOREGROUND_COLOR)
 
 // ------------------------------------------
 //  Bits for eIntID_AlertNotificationOrigin
 // ------------------------------------------
 
 #define NS_ALERT_HORIZONTAL 1
-#define NS_ALERT_LEFT       2
-#define NS_ALERT_TOP        4
+#define NS_ALERT_LEFT 2
+#define NS_ALERT_TOP 4
 
 #endif /* __LookAndFeel */

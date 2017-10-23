@@ -79,18 +79,18 @@ GK_ATOM(all, "all")
 GK_ATOM(allowdirs, "allowdirs")
 GK_ATOM(allowevents, "allowevents")
 GK_ATOM(allownegativeassertions, "allownegativeassertions")
-GK_ATOM(allowforms,"allow-forms")
+GK_ATOM(allowforms, "allow-forms")
 GK_ATOM(allowfullscreen, "allowfullscreen")
 GK_ATOM(allowmodals, "allow-modals")
-GK_ATOM(alloworientationlock,"allow-orientation-lock")
+GK_ATOM(alloworientationlock, "allow-orientation-lock")
 GK_ATOM(allowpaymentrequest, "allowpaymentrequest")
-GK_ATOM(allowpointerlock,"allow-pointer-lock")
-GK_ATOM(allowpopupstoescapesandbox,"allow-popups-to-escape-sandbox")
-GK_ATOM(allowpopups,"allow-popups")
-GK_ATOM(allowpresentation,"allow-presentation")
-GK_ATOM(allowsameorigin,"allow-same-origin")
-GK_ATOM(allowscripts,"allow-scripts")
-GK_ATOM(allowtopnavigation,"allow-top-navigation")
+GK_ATOM(allowpointerlock, "allow-pointer-lock")
+GK_ATOM(allowpopupstoescapesandbox, "allow-popups-to-escape-sandbox")
+GK_ATOM(allowpopups, "allow-popups")
+GK_ATOM(allowpresentation, "allow-presentation")
+GK_ATOM(allowsameorigin, "allow-same-origin")
+GK_ATOM(allowscripts, "allow-scripts")
+GK_ATOM(allowtopnavigation, "allow-top-navigation")
 GK_ATOM(allowuntrusted, "allowuntrusted")
 GK_ATOM(alt, "alt")
 GK_ATOM(alternate, "alternate")
@@ -919,7 +919,7 @@ GK_ATOM(onloading, "onloading")
 GK_ATOM(onloadingdone, "onloadingdone")
 GK_ATOM(onloadingerror, "onloadingerror")
 GK_ATOM(onpopstate, "onpopstate")
-GK_ATOM(only, "only")               // this one is not an event
+GK_ATOM(only, "only")  // this one is not an event
 GK_ATOM(onmessage, "onmessage")
 GK_ATOM(onmessageerror, "onmessageerror")
 GK_ATOM(onmousedown, "onmousedown")
@@ -1098,7 +1098,7 @@ GK_ATOM(persist, "persist")
 GK_ATOM(phase, "phase")
 GK_ATOM(picture, "picture")
 GK_ATOM(ping, "ping")
-GK_ATOM(pinned,"pinned")
+GK_ATOM(pinned, "pinned")
 GK_ATOM(placeholder, "placeholder")
 GK_ATOM(plaintext, "plaintext")
 GK_ATOM(playbackrate, "playbackrate")
@@ -1440,7 +1440,7 @@ GK_ATOM(windowtype, "windowtype")
 GK_ATOM(withParam, "with-param")
 GK_ATOM(wizard, "wizard")
 GK_ATOM(wrap, "wrap")
-GK_ATOM(headerDNSPrefetchControl,"x-dns-prefetch-control")
+GK_ATOM(headerDNSPrefetchControl, "x-dns-prefetch-control")
 GK_ATOM(headerCSP, "content-security-policy")
 GK_ATOM(headerCSPReportOnly, "content-security-policy-report-only")
 GK_ATOM(headerXFO, "x-frame-options")
@@ -1453,7 +1453,6 @@ GK_ATOM(xulcontentsgenerated, "xulcontentsgenerated")
 GK_ATOM(yes, "yes")
 GK_ATOM(z_index, "z-index")
 GK_ATOM(zeroDigit, "zero-digit")
-
 
 GK_ATOM(percentage, "%")
 GK_ATOM(A, "A")
@@ -1517,7 +1516,7 @@ GK_ATOM(feComposite, "feComposite")
 GK_ATOM(feConvolveMatrix, "feConvolveMatrix")
 GK_ATOM(feDiffuseLighting, "feDiffuseLighting")
 GK_ATOM(feDisplacementMap, "feDisplacementMap")
-GK_ATOM(feDistantLight,"feDistantLight")
+GK_ATOM(feDistantLight, "feDistantLight")
 GK_ATOM(feDropShadow, "feDropShadow")
 GK_ATOM(feFlood, "feFlood")
 GK_ATOM(feFuncA, "feFuncA")
@@ -2010,7 +2009,7 @@ GK_ATOM(vectorproduct_, "vectorproduct")
 GK_ATOM(vector_, "vector")
 GK_ATOM(voffset_, "voffset")
 GK_ATOM(xref_, "xref")
-GK_ATOM(math, "math") // the only one without an underscore
+GK_ATOM(math, "math")  // the only one without an underscore
 GK_ATOM(avg, "avg")
 GK_ATOM(booleanFromString, "boolean-from-string")
 GK_ATOM(countNonEmpty, "count-non-empty")
@@ -2165,26 +2164,34 @@ GK_ATOM(ongamepaddisconnected, "ongamepaddisconnected")
 
 // Content property names
 GK_ATOM(afterPseudoProperty, "afterPseudoProperty")  // nsXMLElement*
-GK_ATOM(animationsProperty, "AnimationsProperty")        // FrameAnimations*
-GK_ATOM(animationsOfBeforeProperty, "AnimationsOfBeforeProperty") // FrameAnimations*
-GK_ATOM(animationsOfAfterProperty, "AnimationsOfAfterProperty") // FrameAnimations*
-GK_ATOM(animationEffectsProperty, "AnimationEffectsProperty") // EffectSet*
-GK_ATOM(animationEffectsForBeforeProperty, "AnimationsEffectsForBeforeProperty") // EffectSet*
-GK_ATOM(animationEffectsForAfterProperty, "AnimationsEffectsForAfterProperty") // EffectSet*
+GK_ATOM(animationsProperty, "AnimationsProperty")    // FrameAnimations*
+GK_ATOM(animationsOfBeforeProperty,
+        "AnimationsOfBeforeProperty")  // FrameAnimations*
+GK_ATOM(animationsOfAfterProperty,
+        "AnimationsOfAfterProperty")  // FrameAnimations*
+GK_ATOM(animationEffectsProperty, "AnimationEffectsProperty")  // EffectSet*
+GK_ATOM(animationEffectsForBeforeProperty,
+        "AnimationsEffectsForBeforeProperty")  // EffectSet*
+GK_ATOM(animationEffectsForAfterProperty,
+        "AnimationsEffectsForAfterProperty")           // EffectSet*
 GK_ATOM(beforePseudoProperty, "beforePseudoProperty")  // nsXMLElement*
-GK_ATOM(cssPseudoElementBeforeProperty, "CSSPseudoElementBeforeProperty") // CSSPseudoElement*
-GK_ATOM(cssPseudoElementAfterProperty, "CSSPseudoElementAfterProperty") // CSSPseudoElement*
-GK_ATOM(transitionsProperty, "TransitionsProperty")        // FrameTransitions*
-GK_ATOM(transitionsOfBeforeProperty, "TransitionsOfBeforeProperty") // FrameTransitions*
-GK_ATOM(transitionsOfAfterProperty, "TransitionsOfAfterProperty") // FrameTransitions*
+GK_ATOM(cssPseudoElementBeforeProperty,
+        "CSSPseudoElementBeforeProperty")  // CSSPseudoElement*
+GK_ATOM(cssPseudoElementAfterProperty,
+        "CSSPseudoElementAfterProperty")             // CSSPseudoElement*
+GK_ATOM(transitionsProperty, "TransitionsProperty")  // FrameTransitions*
+GK_ATOM(transitionsOfBeforeProperty,
+        "TransitionsOfBeforeProperty")  // FrameTransitions*
+GK_ATOM(transitionsOfAfterProperty,
+        "TransitionsOfAfterProperty")  // FrameTransitions*
 GK_ATOM(genConInitializerProperty, "QuoteNodeProperty")
 GK_ATOM(labelMouseDownPtProperty, "LabelMouseDownPtProperty")
 GK_ATOM(lockedStyleStates, "lockedStyleStates")
 GK_ATOM(apzCallbackTransform, "apzCallbackTransform")
 GK_ATOM(restylableAnonymousNode, "restylableAnonymousNode")
 GK_ATOM(paintRequestTime, "PaintRequestTime")
-GK_ATOM(pseudoProperty, "PseudoProperty")  // CSSPseudoElementType
-GK_ATOM(manualNACProperty, "ManualNACProperty") // ManualNAC*
+GK_ATOM(pseudoProperty, "PseudoProperty")        // CSSPseudoElementType
+GK_ATOM(manualNACProperty, "ManualNACProperty")  // ManualNAC*
 
 // Languages for lang-specific transforms
 GK_ATOM(Japanese, "ja")
@@ -2290,7 +2297,8 @@ GK_ATOM(_moz_scrollbar_end_backward, "-moz-scrollbar-end-backward")
 GK_ATOM(_moz_scrollbar_end_forward, "-moz-scrollbar-end-forward")
 GK_ATOM(_moz_scrollbar_thumb_proportional, "-moz-scrollbar-thumb-proportional")
 GK_ATOM(_moz_overlay_scrollbars, "-moz-overlay-scrollbars")
-GK_ATOM(_moz_windows_accent_color_in_titlebar, "-moz-windows-accent-color-in-titlebar")
+GK_ATOM(_moz_windows_accent_color_in_titlebar,
+        "-moz-windows-accent-color-in-titlebar")
 GK_ATOM(_moz_windows_default_theme, "-moz-windows-default-theme")
 GK_ATOM(_moz_mac_graphite_theme, "-moz-mac-graphite-theme")
 GK_ATOM(_moz_mac_yosemite_theme, "-moz-mac-yosemite-theme")
@@ -2338,15 +2346,16 @@ GK_ATOM(ReplyToMail, "ReplyToMail")
 // - origins in the first one have smooth-scrolling prefs associated with them,
 // under the "general.smoothScroll.<origin>.*" pref branch. Origins in the
 // second one do not.
-GK_ATOM(mouseWheel, "mouseWheel")  // For discrete wheel events (e.g. not OSX magic mouse)
-GK_ATOM(pixels,     "pixels")
-GK_ATOM(lines,      "lines")
-GK_ATOM(pages,      "pages")
+GK_ATOM(mouseWheel,
+        "mouseWheel")  // For discrete wheel events (e.g. not OSX magic mouse)
+GK_ATOM(pixels, "pixels")
+GK_ATOM(lines, "lines")
+GK_ATOM(pages, "pages")
 GK_ATOM(scrollbars, "scrollbars")
-GK_ATOM(other,      "other")
+GK_ATOM(other, "other")
 // Scroll origins without smooth-scrolling prefs
-GK_ATOM(apz,        "apz")
-GK_ATOM(restore,    "restore")
+GK_ATOM(apz, "apz")
+GK_ATOM(restore, "restore")
 
 #ifdef ACCESSIBILITY
 GK_ATOM(alert, "alert")
@@ -2467,7 +2476,8 @@ GK_ATOM(nsuri_xslt, "http://www.w3.org/1999/XSL/Transform")
 GK_ATOM(nsuri_xbl, "http://www.mozilla.org/xbl")
 GK_ATOM(nsuri_mathml, "http://www.w3.org/1998/Math/MathML")
 GK_ATOM(nsuri_rdf, "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-GK_ATOM(nsuri_xul, "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul")
+GK_ATOM(nsuri_xul,
+        "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul")
 GK_ATOM(nsuri_svg, "http://www.w3.org/2000/svg")
 
 // MSE

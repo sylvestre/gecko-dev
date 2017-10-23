@@ -31,12 +31,11 @@ struct ImageValue;
 class ImageLoader final : public imgINotificationObserver,
                           public imgIOnloadBlocker
 {
-public:
+ public:
   typedef mozilla::css::ImageValue Image;
 
   explicit ImageLoader(nsIDocument* aDocument)
-  : mDocument(aDocument),
-    mInClone(false)
+      : mDocument(aDocument), mInClone(false)
   {
     MOZ_ASSERT(mDocument);
   }
@@ -50,11 +49,9 @@ public:
   void MaybeRegisterCSSImage(Image* aImage);
   void DeregisterCSSImage(Image* aImage);
 
-  void AssociateRequestToFrame(imgIRequest* aRequest,
-                               nsIFrame* aFrame);
+  void AssociateRequestToFrame(imgIRequest* aRequest, nsIFrame* aFrame);
 
-  void DisassociateRequestFromFrame(imgIRequest* aRequest,
-                                    nsIFrame* aFrame);
+  void DisassociateRequestFromFrame(imgIRequest* aRequest, nsIFrame* aFrame);
 
   void DropRequestsForFrame(nsIFrame* aFrame);
 
@@ -65,14 +62,16 @@ public:
   // presshell pointer on the document has been cleared.
   void ClearFrames(nsPresContext* aPresContext);
 
-  void LoadImage(nsIURI* aURI, nsIPrincipal* aPrincipal, nsIURI* aReferrer,
+  void LoadImage(nsIURI* aURI,
+                 nsIPrincipal* aPrincipal,
+                 nsIURI* aReferrer,
                  Image* aCSSValue);
 
   void DestroyRequest(imgIRequest* aRequest);
 
   void FlushUseCounters();
 
-private:
+ private:
   ~ImageLoader() {}
 
   // We need to be able to look up the frames associated with a request (for
@@ -83,10 +82,9 @@ private:
   typedef nsTArray<nsIFrame*> FrameSet;
   typedef nsTArray<nsCOMPtr<imgIRequest> > RequestSet;
   typedef nsTHashtable<nsPtrHashKey<Image> > ImageHashSet;
-  typedef nsClassHashtable<nsISupportsHashKey,
-                           FrameSet> RequestToFrameMap;
-  typedef nsClassHashtable<nsPtrHashKey<nsIFrame>,
-                           RequestSet> FrameToRequestMap;
+  typedef nsClassHashtable<nsISupportsHashKey, FrameSet> RequestToFrameMap;
+  typedef nsClassHashtable<nsPtrHashKey<nsIFrame>, RequestSet>
+      FrameToRequestMap;
 
   void AddImage(Image* aCSSImage);
   void RemoveImage(Image* aCSSImage);
@@ -122,7 +120,7 @@ private:
   bool mInClone;
 };
 
-} // namespace css
-} // namespace mozilla
+}  // namespace css
+}  // namespace mozilla
 
 #endif /* mozilla_css_ImageLoader_h___ */

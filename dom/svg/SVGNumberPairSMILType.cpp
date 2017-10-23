@@ -55,7 +55,8 @@ SVGNumberPairSMILType::IsEqual(const nsSMILValue& aLeft,
 }
 
 nsresult
-SVGNumberPairSMILType::Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+SVGNumberPairSMILType::Add(nsSMILValue& aDest,
+                           const nsSMILValue& aValueToAdd,
                            uint32_t aCount) const
 {
   NS_PRECONDITION(aValueToAdd.mType == aDest.mType,
@@ -73,7 +74,8 @@ SVGNumberPairSMILType::ComputeDistance(const nsSMILValue& aFrom,
                                        const nsSMILValue& aTo,
                                        double& aDistance) const
 {
-  NS_PRECONDITION(aFrom.mType == aTo.mType,"Trying to compare different types");
+  NS_PRECONDITION(aFrom.mType == aTo.mType,
+                  "Trying to compare different types");
   NS_PRECONDITION(aFrom.mType == this, "Unexpected source type");
 
   double delta[2];
@@ -97,12 +99,14 @@ SVGNumberPairSMILType::Interpolate(const nsSMILValue& aStartVal,
   NS_PRECONDITION(aResult.mType == this, "Unexpected result type");
 
   aResult.mU.mNumberPair[0] =
-    float(aStartVal.mU.mNumberPair[0] +
-          (aEndVal.mU.mNumberPair[0] - aStartVal.mU.mNumberPair[0]) * aUnitDistance);
+      float(aStartVal.mU.mNumberPair[0] +
+            (aEndVal.mU.mNumberPair[0] - aStartVal.mU.mNumberPair[0]) *
+                aUnitDistance);
   aResult.mU.mNumberPair[1] =
-    float(aStartVal.mU.mNumberPair[1] +
-          (aEndVal.mU.mNumberPair[1] - aStartVal.mU.mNumberPair[1]) * aUnitDistance);
+      float(aStartVal.mU.mNumberPair[1] +
+            (aEndVal.mU.mNumberPair[1] - aStartVal.mU.mNumberPair[1]) *
+                aUnitDistance);
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

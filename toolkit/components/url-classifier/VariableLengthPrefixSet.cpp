@@ -14,9 +14,12 @@
 #include <algorithm>
 
 // MOZ_LOG=UrlClassifierPrefixSet:5
-static mozilla::LazyLogModule gUrlClassifierPrefixSetLog("UrlClassifierPrefixSet");
-#define LOG(args) MOZ_LOG(gUrlClassifierPrefixSetLog, mozilla::LogLevel::Debug, args)
-#define LOG_ENABLED() MOZ_LOG_TEST(gUrlClassifierPrefixSetLog, mozilla::LogLevel::Debug)
+static mozilla::LazyLogModule gUrlClassifierPrefixSetLog(
+    "UrlClassifierPrefixSet");
+#define LOG(args) \
+  MOZ_LOG(gUrlClassifierPrefixSetLog, mozilla::LogLevel::Debug, args)
+#define LOG_ENABLED() \
+  MOZ_LOG_TEST(gUrlClassifierPrefixSetLog, mozilla::LogLevel::Debug)
 
 namespace mozilla {
 namespace safebrowsing {
@@ -31,8 +34,7 @@ const uint32_t VariableLengthPrefixSet::MAX_BUFFER_SIZE;
 // This class will process prefix size between 4~32. But for 4 bytes prefixes,
 // they will be passed to nsUrlClassifierPrefixSet because of better optimization.
 VariableLengthPrefixSet::VariableLengthPrefixSet()
-  : mLock("VariableLengthPrefixSet.mLock")
-  , mMemoryReportPath()
+    : mLock("VariableLengthPrefixSet.mLock"), mMemoryReportPath()
 {
   mFixedPrefixSet = new nsUrlClassifierPrefixSet();
 }
@@ -40,11 +42,9 @@ VariableLengthPrefixSet::VariableLengthPrefixSet()
 nsresult
 VariableLengthPrefixSet::Init(const nsACString& aName)
 {
-  mMemoryReportPath =
-    nsPrintfCString(
+  mMemoryReportPath = nsPrintfCString(
       "explicit/storage/prefix-set/%s",
-      (!aName.IsEmpty() ? PromiseFlatCString(aName).get() : "?!")
-    );
+      (!aName.IsEmpty() ? PromiseFlatCString(aName).get() : "?!"));
 
   RegisterWeakMemoryReporter(this);
 
@@ -63,8 +63,7 @@ VariableLengthPrefixSet::SetPrefixes(const PrefixStringMap& aPrefixMap)
 
   // Prefix size should not less than 4-bytes or greater than 32-bytes
   for (auto iter = aPrefixMap.ConstIter(); !iter.Done(); iter.Next()) {
-    if (iter.Key() < PREFIX_SIZE_FIXED ||
-        iter.Key() > COMPLETE_SIZE) {
+    if (iter.Key() < PREFIX_SIZE_FIXED || iter.Key() > COMPLETE_SIZE) {
       return NS_ERROR_FAILURE;
     }
   }
@@ -76,12 +75,14 @@ VariableLengthPrefixSet::SetPrefixes(const PrefixStringMap& aPrefixMap)
   // 4-bytes prefixes are handled by nsUrlClassifierPrefixSet.
   nsCString* prefixes = aPrefixMap.Get(PREFIX_SIZE_FIXED);
   if (prefixes) {
-    NS_ENSURE_TRUE(prefixes->Length() % PREFIX_SIZE_FIXED == 0, NS_ERROR_FAILURE);
+    NS_ENSURE_TRUE(prefixes->Length() % PREFIX_SIZE_FIXED == 0,
+                   NS_ERROR_FAILURE);
 
     uint32_t numPrefixes = prefixes->Length() / PREFIX_SIZE_FIXED;
 
 #if MOZ_BIG_ENDIAN
-    const uint32_t* arrayPtr = reinterpret_cast<const uint32_t*>(prefixes->BeginReading());
+    const uint32_t* arrayPtr =
+        reinterpret_cast<const uint32_t*>(prefixes->BeginReading());
 #else
     FallibleTArray<uint32_t> array;
     // Prefixes are lexicographically-sorted, so the interger array
@@ -155,7 +156,8 @@ VariableLengthPrefixSet::GetPrefixes(PrefixStringMap& aPrefixMap)
 }
 
 nsresult
-VariableLengthPrefixSet::GetFixedLengthPrefixes(FallibleTArray<uint32_t>& aPrefixes)
+VariableLengthPrefixSet::GetFixedLengthPrefixes(
+    FallibleTArray<uint32_t>& aPrefixes)
 {
   return mFixedPrefixSet->GetPrefixesNative(aPrefixes);
 }
@@ -175,7 +177,8 @@ VariableLengthPrefixSet::Matches(const nsACString& aFullHash, uint32_t* aLength)
   *aLength = 0;
 
   // Check if it matches 4-bytes prefixSet first
-  const uint32_t* hash = reinterpret_cast<const uint32_t*>(aFullHash.BeginReading());
+  const uint32_t* hash =
+      reinterpret_cast<const uint32_t*>(aFullHash.BeginReading());
   uint32_t value = BigEndian::readUint32(hash);
 
   bool found = false;
@@ -221,8 +224,8 @@ VariableLengthPrefixSet::LoadFromFile(nsIFile* aFile)
   Telemetry::AutoTimer<Telemetry::URLCLASSIFIER_VLPS_FILELOAD_TIME> timer;
 
   nsCOMPtr<nsIInputStream> localInFile;
-  nsresult rv = NS_NewLocalFileInputStream(getter_AddRefs(localInFile), aFile,
-                                           PR_RDONLY | nsIFile::OS_READAHEAD);
+  nsresult rv = NS_NewLocalFileInputStream(
+      getter_AddRefs(localInFile), aFile, PR_RDONLY | nsIFile::OS_READAHEAD);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Calculate how big the file is, make sure our read buffer isn't bigger
@@ -235,13 +238,13 @@ VariableLengthPrefixSet::LoadFromFile(nsIFile* aFile)
     return NS_ERROR_FAILURE;
   }
 
-  uint32_t bufferSize = std::min<uint32_t>(static_cast<uint32_t>(fileSize),
-                                           MAX_BUFFER_SIZE);
+  uint32_t bufferSize =
+      std::min<uint32_t>(static_cast<uint32_t>(fileSize), MAX_BUFFER_SIZE);
 
   // Convert to buffered stream
   nsCOMPtr<nsIInputStream> in;
-  rv = NS_NewBufferedInputStream(getter_AddRefs(in), localInFile.forget(),
-                                 bufferSize);
+  rv = NS_NewBufferedInputStream(
+      getter_AddRefs(in), localInFile.forget(), bufferSize);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = mFixedPrefixSet->LoadPrefixes(in);
@@ -250,7 +253,8 @@ VariableLengthPrefixSet::LoadFromFile(nsIFile* aFile)
   rv = LoadPrefixes(in);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return NS_OK;;
+  return NS_OK;
+  ;
 }
 
 nsresult
@@ -261,8 +265,10 @@ VariableLengthPrefixSet::StoreToFile(nsIFile* aFile)
   MutexAutoLock lock(mLock);
 
   nsCOMPtr<nsIOutputStream> localOutFile;
-  nsresult rv = NS_NewLocalFileOutputStream(getter_AddRefs(localOutFile), aFile,
-                                            PR_WRONLY | PR_TRUNCATE | PR_CREATE_FILE);
+  nsresult rv =
+      NS_NewLocalFileOutputStream(getter_AddRefs(localOutFile),
+                                  aFile,
+                                  PR_WRONLY | PR_TRUNCATE | PR_CREATE_FILE);
   NS_ENSURE_SUCCESS(rv, rv);
 
   uint32_t fileSize = 0;
@@ -279,7 +285,7 @@ VariableLengthPrefixSet::StoreToFile(nsIFile* aFile)
 
   // Convert to buffered stream
   nsCOMPtr<nsIOutputStream> out =
-    NS_BufferOutputStream(localOutFile, std::min(fileSize, MAX_BUFFER_SIZE));
+      NS_BufferOutputStream(localOutFile, std::min(fileSize, MAX_BUFFER_SIZE));
 
   rv = mFixedPrefixSet->WritePrefixes(out);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -296,7 +302,8 @@ VariableLengthPrefixSet::LoadPrefixes(nsIInputStream* in)
   uint32_t magic;
   uint32_t read;
 
-  nsresult rv = in->Read(reinterpret_cast<char*>(&magic), sizeof(uint32_t), &read);
+  nsresult rv =
+      in->Read(reinterpret_cast<char*>(&magic), sizeof(uint32_t), &read);
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(read == sizeof(uint32_t), NS_ERROR_FAILURE);
 
@@ -312,7 +319,7 @@ VariableLengthPrefixSet::LoadPrefixes(nsIInputStream* in)
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(read == sizeof(uint32_t), NS_ERROR_FAILURE);
 
-  for(;count > 0; count--) {
+  for (; count > 0; count--) {
     uint8_t prefixSize;
     rv = in->Read(reinterpret_cast<char*>(&prefixSize), sizeof(uint8_t), &read);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -323,7 +330,8 @@ VariableLengthPrefixSet::LoadPrefixes(nsIInputStream* in)
     }
 
     uint32_t stringLength;
-    rv = in->Read(reinterpret_cast<char*>(&stringLength), sizeof(uint32_t), &read);
+    rv = in->Read(
+        reinterpret_cast<char*>(&stringLength), sizeof(uint32_t), &read);
     NS_ENSURE_SUCCESS(rv, rv);
     NS_ENSURE_TRUE(read == sizeof(uint32_t), NS_ERROR_FAILURE);
 
@@ -332,7 +340,9 @@ VariableLengthPrefixSet::LoadPrefixes(nsIInputStream* in)
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    rv = in->Read(reinterpret_cast<char*>(vlPrefixes->BeginWriting()), stringLength, &read);
+    rv = in->Read(reinterpret_cast<char*>(vlPrefixes->BeginWriting()),
+                  stringLength,
+                  &read);
     NS_ENSURE_SUCCESS(rv, rv);
     NS_ENSURE_TRUE(read == stringLength, NS_ERROR_FAILURE);
 
@@ -390,8 +400,8 @@ VariableLengthPrefixSet::WritePrefixes(nsIOutputStream* out)
     NS_ENSURE_SUCCESS(rv, rv);
     NS_ENSURE_TRUE(written == writelen, NS_ERROR_FAILURE);
 
-    rv = out->Write(const_cast<char*>(vlPrefixes.BeginReading()),
-                    stringLength, &written);
+    rv = out->Write(
+        const_cast<char*>(vlPrefixes.BeginReading()), stringLength, &written);
     NS_ENSURE_SUCCESS(rv, rv);
     NS_ENSURE_TRUE(stringLength == written, NS_ERROR_FAILURE);
   }
@@ -401,8 +411,8 @@ VariableLengthPrefixSet::WritePrefixes(nsIOutputStream* out)
 
 bool
 VariableLengthPrefixSet::BinarySearch(const nsACString& aFullHash,
-                                         const nsACString& aPrefixes,
-                                         uint32_t aPrefixSize)
+                                      const nsACString& aPrefixes,
+                                      uint32_t aPrefixSize)
 {
   const char* fullhash = aFullHash.BeginReading();
   const char* prefixes = aPrefixes.BeginReading();
@@ -410,7 +420,7 @@ VariableLengthPrefixSet::BinarySearch(const nsACString& aFullHash,
 
   while (end > begin) {
     int32_t mid = (begin + end) >> 1;
-    int cmp = memcmp(fullhash, prefixes + mid*aPrefixSize, aPrefixSize);
+    int cmp = memcmp(fullhash, prefixes + mid * aPrefixSize, aPrefixSize);
     if (cmp < 0) {
       end = mid;
     } else if (cmp > 0) {
@@ -426,26 +436,34 @@ MOZ_DEFINE_MALLOC_SIZE_OF(UrlClassifierMallocSizeOf)
 
 NS_IMETHODIMP
 VariableLengthPrefixSet::CollectReports(nsIHandleReportCallback* aHandleReport,
-                                           nsISupports* aData, bool aAnonymize)
+                                        nsISupports* aData,
+                                        bool aAnonymize)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
   size_t amount = SizeOfIncludingThis(UrlClassifierMallocSizeOf);
 
   return aHandleReport->Callback(
-    EmptyCString(), mMemoryReportPath, KIND_HEAP, UNITS_BYTES, amount,
-    NS_LITERAL_CSTRING("Memory used by the variable-length prefix set for a URL classifier."),
-    aData);
+      EmptyCString(),
+      mMemoryReportPath,
+      KIND_HEAP,
+      UNITS_BYTES,
+      amount,
+      NS_LITERAL_CSTRING("Memory used by the variable-length prefix set for a "
+                         "URL classifier."),
+      aData);
 }
 
 size_t
-VariableLengthPrefixSet::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf)
+VariableLengthPrefixSet::SizeOfIncludingThis(
+    mozilla::MallocSizeOf aMallocSizeOf)
 {
   MutexAutoLock lock(mLock);
 
   size_t n = 0;
   n += aMallocSizeOf(this);
-  n += mFixedPrefixSet->SizeOfIncludingThis(moz_malloc_size_of) - aMallocSizeOf(mFixedPrefixSet);
+  n += mFixedPrefixSet->SizeOfIncludingThis(moz_malloc_size_of) -
+       aMallocSizeOf(mFixedPrefixSet);
 
   n += mVLPrefixSet.ShallowSizeOfExcludingThis(aMallocSizeOf);
   for (auto iter = mVLPrefixSet.ConstIter(); !iter.Done(); iter.Next()) {
@@ -455,5 +473,5 @@ VariableLengthPrefixSet::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf
   return n;
 }
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla

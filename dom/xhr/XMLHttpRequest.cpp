@@ -17,10 +17,11 @@ XMLHttpRequest::Constructor(const GlobalObject& aGlobal,
                             ErrorResult& aRv)
 {
   if (NS_IsMainThread()) {
-    nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+    nsCOMPtr<nsIGlobalObject> global =
+        do_QueryInterface(aGlobal.GetAsSupports());
     nsCOMPtr<nsIScriptObjectPrincipal> principal =
-      do_QueryInterface(aGlobal.GetAsSupports());
-    if (!global || ! principal) {
+        do_QueryInterface(aGlobal.GetAsSupports());
+    if (!global || !principal) {
       aRv.Throw(NS_ERROR_FAILURE);
       return nullptr;
     }
@@ -34,5 +35,5 @@ XMLHttpRequest::Constructor(const GlobalObject& aGlobal,
   return XMLHttpRequestWorker::Construct(aGlobal, aParams, aRv);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

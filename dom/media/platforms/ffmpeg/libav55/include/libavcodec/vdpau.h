@@ -30,7 +30,6 @@
  * Public libavcodec VDPAU header.
  */
 
-
 /**
  * @defgroup lavc_codec_hwaccel_vdpau VDPAU Decoder and Renderer
  * @ingroup lavc_codec_hwaccel
@@ -59,10 +58,10 @@
 
 #if FF_API_BUFS_VDPAU
 union AVVDPAUPictureInfo {
-    VdpPictureInfoH264        h264;
-    VdpPictureInfoMPEG1Or2    mpeg;
-    VdpPictureInfoVC1          vc1;
-    VdpPictureInfoMPEG4Part2 mpeg4;
+  VdpPictureInfoH264 h264;
+  VdpPictureInfoMPEG1Or2 mpeg;
+  VdpPictureInfoVC1 vc1;
+  VdpPictureInfoMPEG4Part2 mpeg4;
 };
 #endif
 
@@ -79,54 +78,51 @@ union AVVDPAUPictureInfo {
  * be used outside of libavcodec. Use av_vdpau_alloc_context() to allocate an
  * AVVDPAUContext.
  */
-typedef struct AVVDPAUContext {
-    /**
+typedef struct AVVDPAUContext
+{
+  /**
      * VDPAU decoder handle
      *
      * Set by user.
      */
-    VdpDecoder decoder;
+  VdpDecoder decoder;
 
-    /**
+  /**
      * VDPAU decoder render callback
      *
      * Set by the user.
      */
-    VdpDecoderRender *render;
+  VdpDecoderRender* render;
 
 #if FF_API_BUFS_VDPAU
-    /**
+  /**
      * VDPAU picture information
      *
      * Set by libavcodec.
      */
-    attribute_deprecated
-    union AVVDPAUPictureInfo info;
+  attribute_deprecated union AVVDPAUPictureInfo info;
 
-    /**
+  /**
      * Allocated size of the bitstream_buffers table.
      *
      * Set by libavcodec.
      */
-    attribute_deprecated
-    int bitstream_buffers_allocated;
+  attribute_deprecated int bitstream_buffers_allocated;
 
-    /**
+  /**
      * Useful bitstream buffers in the bitstream buffers table.
      *
      * Set by libavcodec.
      */
-    attribute_deprecated
-    int bitstream_buffers_used;
+  attribute_deprecated int bitstream_buffers_used;
 
-   /**
+  /**
      * Table of bitstream buffers.
      * The user is responsible for freeing this buffer using av_freep().
      *
      * Set by libavcodec.
      */
-    attribute_deprecated
-    VdpBitstreamBuffer *bitstream_buffers;
+  attribute_deprecated VdpBitstreamBuffer* bitstream_buffers;
 #endif
 } AVVDPAUContext;
 
@@ -135,7 +131,8 @@ typedef struct AVVDPAUContext {
  *
  * @return Newly-allocated AVVDPAUContext or NULL on failure.
  */
-AVVDPAUContext *av_vdpau_alloc_context(void);
+AVVDPAUContext*
+av_vdpau_alloc_context(void);
 
 /**
  * Get a decoder profile that should be used for initializing a VDPAU decoder.
@@ -148,7 +145,8 @@ AVVDPAUContext *av_vdpau_alloc_context(void);
  *
  * @return 0 on success (non-negative), a negative AVERROR on failure.
  */
-int av_vdpau_get_profile(AVCodecContext *avctx, VdpDecoderProfile *profile);
+int
+av_vdpau_get_profile(AVCodecContext* avctx, VdpDecoderProfile* profile);
 
 #if FF_API_CAP_VDPAU
 /** @brief The videoSurface is used for rendering. */
@@ -167,20 +165,21 @@ int av_vdpau_get_profile(AVCodecContext *avctx, VdpDecoderProfile *profile);
  * picture parameter, bitstream information etc which are passed
  * between the Libav decoder and its clients.
  */
-struct vdpau_render_state {
-    VdpVideoSurface surface; ///< Used as rendered surface, never changed.
+struct vdpau_render_state
+{
+  VdpVideoSurface surface;  ///< Used as rendered surface, never changed.
 
-    int state; ///< Holds FF_VDPAU_STATE_* values.
+  int state;  ///< Holds FF_VDPAU_STATE_* values.
 
-    /** picture parameter information for all supported codecs */
-    union AVVDPAUPictureInfo info;
+  /** picture parameter information for all supported codecs */
+  union AVVDPAUPictureInfo info;
 
-    /** Describe size/location of the compressed video data.
+  /** Describe size/location of the compressed video data.
         Set to 0 when freeing bitstream_buffers. */
-    int bitstream_buffers_allocated;
-    int bitstream_buffers_used;
-    /** The user is responsible for freeing this buffer using av_freep(). */
-    VdpBitstreamBuffer *bitstream_buffers;
+  int bitstream_buffers_allocated;
+  int bitstream_buffers_used;
+  /** The user is responsible for freeing this buffer using av_freep(). */
+  VdpBitstreamBuffer* bitstream_buffers;
 };
 #endif
 

@@ -18,29 +18,23 @@
 
 class AutoCriticalSection
 {
-public:
-  explicit AutoCriticalSection(LPCRITICAL_SECTION aSection)
-    : mSection(aSection)
+ public:
+  explicit AutoCriticalSection(LPCRITICAL_SECTION aSection) : mSection(aSection)
   {
     ::EnterCriticalSection(mSection);
   }
-  ~AutoCriticalSection()
-  {
-    ::LeaveCriticalSection(mSection);
-  }
-private:
+  ~AutoCriticalSection() { ::LeaveCriticalSection(mSection); }
+
+ private:
   LPCRITICAL_SECTION mSection;
 };
 
 template<>
 class nsAutoRefTraits<HKEY>
 {
-public:
+ public:
   typedef HKEY RawRef;
-  static HKEY Void()
-  {
-    return nullptr;
-  }
+  static HKEY Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -53,12 +47,9 @@ public:
 template<>
 class nsAutoRefTraits<HDC>
 {
-public:
+ public:
   typedef HDC RawRef;
-  static HDC Void()
-  {
-    return nullptr;
-  }
+  static HDC Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -71,12 +62,9 @@ public:
 template<>
 class nsAutoRefTraits<HBRUSH>
 {
-public:
+ public:
   typedef HBRUSH RawRef;
-  static HBRUSH Void()
-  {
-    return nullptr;
-  }
+  static HBRUSH Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -89,12 +77,9 @@ public:
 template<>
 class nsAutoRefTraits<HRGN>
 {
-public:
+ public:
   typedef HRGN RawRef;
-  static HRGN Void()
-  {
-    return nullptr;
-  }
+  static HRGN Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -107,12 +92,9 @@ public:
 template<>
 class nsAutoRefTraits<HBITMAP>
 {
-public:
+ public:
   typedef HBITMAP RawRef;
-  static HBITMAP Void()
-  {
-    return nullptr;
-  }
+  static HBITMAP Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -125,12 +107,9 @@ public:
 template<>
 class nsAutoRefTraits<SC_HANDLE>
 {
-public:
+ public:
   typedef SC_HANDLE RawRef;
-  static SC_HANDLE Void()
-  {
-    return nullptr;
-  }
+  static SC_HANDLE Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -143,27 +122,20 @@ public:
 template<>
 class nsSimpleRef<HANDLE>
 {
-protected:
+ protected:
   typedef HANDLE RawRef;
 
-  nsSimpleRef() : mRawRef(nullptr)
-  {
-  }
+  nsSimpleRef() : mRawRef(nullptr) {}
 
-  explicit nsSimpleRef(RawRef aRawRef) : mRawRef(aRawRef)
-  {
-  }
+  explicit nsSimpleRef(RawRef aRawRef) : mRawRef(aRawRef) {}
 
   bool HaveResource() const
   {
     return mRawRef && mRawRef != INVALID_HANDLE_VALUE;
   }
 
-public:
-  RawRef get() const
-  {
-    return mRawRef;
-  }
+ public:
+  RawRef get() const { return mRawRef; }
 
   static void Release(RawRef aRawRef)
   {
@@ -174,16 +146,12 @@ public:
   RawRef mRawRef;
 };
 
-
 template<>
 class nsAutoRefTraits<HMODULE>
 {
-public:
+ public:
   typedef HMODULE RawRef;
-  static RawRef Void()
-  {
-    return nullptr;
-  }
+  static RawRef Void() { return nullptr; }
 
   static void Release(RawRef aFD)
   {
@@ -193,16 +161,12 @@ public:
   }
 };
 
-
 template<>
 class nsAutoRefTraits<DEVMODEW*>
 {
-public:
+ public:
   typedef DEVMODEW* RawRef;
-  static RawRef Void()
-  {
-    return nullptr;
-  }
+  static RawRef Void() { return nullptr; }
 
   static void Release(RawRef aDevMode)
   {
@@ -212,90 +176,62 @@ public:
   }
 };
 
-
 // HGLOBAL is just a typedef of HANDLE which nsSimpleRef has a specialization of,
 // that means having a nsAutoRefTraits specialization for HGLOBAL is useless.
 // Therefore we create a wrapper class for HGLOBAL to make nsAutoRefTraits and
 // nsAutoRef work as intention.
-class nsHGLOBAL {
-public:
-  MOZ_IMPLICIT nsHGLOBAL(HGLOBAL hGlobal) : m_hGlobal(hGlobal)
-  {
-  }
+class nsHGLOBAL
+{
+ public:
+  MOZ_IMPLICIT nsHGLOBAL(HGLOBAL hGlobal) : m_hGlobal(hGlobal) {}
 
-  operator HGLOBAL() const
-  {
-    return m_hGlobal;
-  }
+  operator HGLOBAL() const { return m_hGlobal; }
 
-private:
+ private:
   HGLOBAL m_hGlobal;
 };
-
 
 template<>
 class nsAutoRefTraits<nsHGLOBAL>
 {
-public:
+ public:
   typedef nsHGLOBAL RawRef;
-  static RawRef Void()
-  {
-    return nullptr;
-  }
+  static RawRef Void() { return nullptr; }
 
-  static void Release(RawRef hGlobal)
-  {
-    ::GlobalFree(hGlobal);
-  }
+  static void Release(RawRef hGlobal) { ::GlobalFree(hGlobal); }
 };
-
 
 // Because Printer's HANDLE uses ClosePrinter and we already have nsAutoRef<HANDLE>
 // which uses CloseHandle so we need to create a wrapper class for HANDLE to have
 // another specialization for nsAutoRefTraits.
-class nsHPRINTER {
-public:
-  MOZ_IMPLICIT nsHPRINTER(HANDLE hPrinter) : m_hPrinter(hPrinter)
-  {
-  }
+class nsHPRINTER
+{
+ public:
+  MOZ_IMPLICIT nsHPRINTER(HANDLE hPrinter) : m_hPrinter(hPrinter) {}
 
-  operator HANDLE() const
-  {
-    return m_hPrinter;
-  }
+  operator HANDLE() const { return m_hPrinter; }
 
-  HANDLE* operator&()
-  {
-    return &m_hPrinter;
-  }
+  HANDLE* operator&() { return &m_hPrinter; }
 
-private:
+ private:
   HANDLE m_hPrinter;
 };
-
 
 // winspool.h header has AddMonitor macro, it conflicts with AddMonitor member
 // function in TaskbarPreview.cpp and TaskbarTabPreview.cpp. Beside, we only
 // need ClosePrinter here for Release function, so having its prototype is enough.
-extern "C" BOOL WINAPI ClosePrinter(HANDLE hPrinter);
-
+extern "C" BOOL WINAPI
+ClosePrinter(HANDLE hPrinter);
 
 template<>
 class nsAutoRefTraits<nsHPRINTER>
 {
-public:
+ public:
   typedef nsHPRINTER RawRef;
-  static RawRef Void()
-  {
-    return nullptr;
-  }
+  static RawRef Void() { return nullptr; }
 
-  static void Release(RawRef hPrinter)
-  {
-    ::ClosePrinter(hPrinter);
-  }
+  static void Release(RawRef hPrinter) { ::ClosePrinter(hPrinter); }
 };
-
 
 typedef nsAutoRef<HKEY> nsAutoRegKey;
 typedef nsAutoRef<HDC> nsAutoHDC;
@@ -317,8 +253,9 @@ namespace {
 // with the module name, we will just ignore the system path and output the
 // module name alone;
 // this may mean using a normal search path wherever the output is used.
-bool inline
-ConstructSystem32Path(LPCWSTR aModule, WCHAR* aSystemPath, UINT aSize)
+bool inline ConstructSystem32Path(LPCWSTR aModule,
+                                  WCHAR* aSystemPath,
+                                  UINT aSize)
 {
   MOZ_ASSERT(aSystemPath);
 
@@ -335,9 +272,9 @@ ConstructSystem32Path(LPCWSTR aModule, WCHAR* aSystemPath, UINT aSize)
       // Make the system directory path terminate with a slash.
       if (aSystemPath[systemDirLen - 1] != L'\\') {
         if (systemDirLen + 1 < aSize - fileLen) {
-            aSystemPath[systemDirLen] = L'\\';
-            ++systemDirLen;
-            // No need to re-nullptr terminate.
+          aSystemPath[systemDirLen] = L'\\';
+          ++systemDirLen;
+          // No need to re-nullptr terminate.
         } else {
           // Couldn't fit the system path with added slash.
           systemDirLen = 0;
@@ -356,8 +293,7 @@ ConstructSystem32Path(LPCWSTR aModule, WCHAR* aSystemPath, UINT aSize)
   return true;
 }
 
-HMODULE inline
-LoadLibrarySystem32(LPCWSTR aModule)
+HMODULE inline LoadLibrarySystem32(LPCWSTR aModule)
 {
   WCHAR systemPath[MAX_PATH + 1];
   if (!ConstructSystem32Path(aModule, systemPath, MAX_PATH + 1)) {
@@ -366,6 +302,6 @@ LoadLibrarySystem32(LPCWSTR aModule)
   return LoadLibraryW(systemPath);
 }
 
-}
+}  // namespace
 
 #endif

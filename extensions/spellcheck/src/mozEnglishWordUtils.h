@@ -15,7 +15,7 @@
 
 class mozEnglishWordUtils : public mozISpellI18NUtil
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_MOZISPELLI18NUTIL
   NS_DECL_CYCLE_COLLECTION_CLASS(mozEnglishWordUtils)
@@ -30,15 +30,16 @@ public:
     HuhCap
   };
 
-protected:
+ protected:
   virtual ~mozEnglishWordUtils();
 
-  mozEnglishWordUtils::myspCapitalization captype(const nsString &word);
+  mozEnglishWordUtils::myspCapitalization captype(const nsString& word);
   bool ucIsAlpha(char16_t aChar);
 
   nsString mLanguage;
   nsString mCharset;
-  nsCOMPtr<mozITXTToHTMLConv> mURLDetector; // used to detect urls so the spell checker can skip them.
+  nsCOMPtr<mozITXTToHTMLConv>
+      mURLDetector;  // used to detect urls so the spell checker can skip them.
 };
 
 #endif

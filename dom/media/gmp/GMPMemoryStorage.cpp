@@ -9,8 +9,9 @@
 namespace mozilla {
 namespace gmp {
 
-class GMPMemoryStorage : public GMPStorage {
-public:
+class GMPMemoryStorage : public GMPStorage
+{
+ public:
   GMPErr Open(const nsCString& aRecordName) override
   {
     MOZ_ASSERT(!IsOpen(aRecordName));
@@ -24,7 +25,8 @@ public:
     return GMPNoErr;
   }
 
-  bool IsOpen(const nsCString& aRecordName) const override {
+  bool IsOpen(const nsCString& aRecordName) const override
+  {
     const Record* record = mRecords.Get(aRecordName);
     if (!record) {
       return false;
@@ -68,9 +70,9 @@ public:
     }
   }
 
-private:
-
-  struct Record {
+ private:
+  struct Record
+  {
     nsTArray<uint8_t> mData;
     bool mIsOpen = false;
   };
@@ -78,10 +80,11 @@ private:
   nsClassHashtable<nsCStringHashKey, Record> mRecords;
 };
 
-already_AddRefed<GMPStorage> CreateGMPMemoryStorage()
+already_AddRefed<GMPStorage>
+CreateGMPMemoryStorage()
 {
   return RefPtr<GMPStorage>(new GMPMemoryStorage()).forget();
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla

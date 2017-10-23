@@ -21,13 +21,10 @@ namespace jit {
 // CommonDominator function returns the basic block which dominate the last
 // common dominator and the definition. If no such block exists, then this
 // functions return null.
-static MBasicBlock*
-CommonDominator(MBasicBlock* commonDominator, MBasicBlock* defBlock)
-{
+static MBasicBlock* CommonDominator(MBasicBlock* commonDominator, MBasicBlock* defBlock) {
     // This is the first instruction visited, record its basic block as being
     // the only interesting one.
-    if (!commonDominator)
-        return defBlock;
+    if (!commonDominator) return defBlock;
 
     // Iterate on immediate dominators of the known common dominator to find a
     // block which dominates all previous uses as well as this instruction.
@@ -42,24 +39,20 @@ CommonDominator(MBasicBlock* commonDominator, MBasicBlock* defBlock)
     return commonDominator;
 }
 
-bool
-Sink(MIRGenerator* mir, MIRGraph& graph)
-{
+bool Sink(MIRGenerator* mir, MIRGraph& graph) {
     TempAllocator& alloc = graph.alloc();
     bool sinkEnabled = mir->optimizationInfo().sinkEnabled();
 
     for (PostorderIterator block = graph.poBegin(); block != graph.poEnd(); block++) {
-        if (mir->shouldCancel("Sink"))
-            return false;
+        if (mir->shouldCancel("Sink")) return false;
 
-        for (MInstructionReverseIterator iter = block->rbegin(); iter != block->rend(); ) {
+        for (MInstructionReverseIterator iter = block->rbegin(); iter != block->rend();) {
             MInstruction* ins = *iter++;
 
             // Only instructions which can be recovered on bailout can be moved
             // into the bailout paths.
-            if (ins->isGuard() || ins->isGuardRangeBailouts() ||
-                ins->isRecoveredOnBailout() || !ins->canRecoverOnBailout())
-            {
+            if (ins->isGuard() || ins->isGuardRangeBailouts() || ins->isRecoveredOnBailout() ||
+                !ins->canRecoverOnBailout()) {
                 continue;
             }
 
@@ -71,12 +64,10 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             for (MUseIterator i(ins->usesBegin()), e(ins->usesEnd()); i != e; i++) {
                 hasUses = true;
                 MNode* consumerNode = (*i)->consumer();
-                if (consumerNode->isResumePoint())
-                    continue;
+                if (consumerNode->isResumePoint()) continue;
 
                 MDefinition* consumer = consumerNode->toDefinition();
-                if (consumer->isRecoveredOnBailout())
-                    continue;
+                if (consumer->isRecoveredOnBailout()) continue;
 
                 hasLiveUses = true;
 
@@ -87,20 +78,19 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
                     consumerBlock = consumerBlock->getPredecessor(consumer->indexOf(*i));
 
                 usesDominator = CommonDominator(usesDominator, consumerBlock);
-                if (usesDominator == *block)
-                    break;
+                if (usesDominator == *block) break;
             }
 
             // Leave this instruction for DCE.
-            if (!hasUses)
-                continue;
+            if (!hasUses) continue;
 
             // We have no uses, so sink this instruction in all the bailout
             // paths.
             if (!hasLiveUses) {
                 MOZ_ASSERT(!usesDominator);
                 ins->setRecoveredOnBailout();
-                JitSpewDef(JitSpew_Sink, "  No live uses, recover the instruction on bailout\n", ins);
+                JitSpewDef(JitSpew_Sink, "  No live uses, recover the instruction on bailout\n",
+                           ins);
                 continue;
             }
 
@@ -108,14 +98,12 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             // Dead Code elimination, which got moved into this Sink phase, as
             // the Dead Code elimination used to move instructions with no-live
             // uses to the bailout path.
-            if (!sinkEnabled)
-                continue;
+            if (!sinkEnabled) continue;
 
             // To move an effectful instruction, we would have to verify that the
             // side-effect is not observed. In the mean time, we just inhibit
             // this optimization on effectful instructions.
-            if (ins->isEffectful())
-                continue;
+            if (ins->isEffectful()) continue;
 
             // If all the uses are under a loop, we might not want to work
             // against LICM by moving everything back into the loop, but if the
@@ -134,18 +122,15 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             while (*block != lastJoin && lastJoin->numPredecessors() == 1) {
                 MOZ_ASSERT(lastJoin != lastJoin->immediateDominator());
                 MBasicBlock* next = lastJoin->immediateDominator();
-                if (next->numSuccessors() > 1)
-                    break;
+                if (next->numSuccessors() > 1) break;
                 lastJoin = next;
             }
-            if (*block == lastJoin)
-                continue;
+            if (*block == lastJoin) continue;
 
             // Skip to the next instruction if we cannot find a common dominator
             // for all the uses of this instruction, or if the common dominator
             // correspond to the block of the current instruction.
-            if (!usesDominator || usesDominator == *block)
-                continue;
+            if (!usesDominator || usesDominator == *block) continue;
 
             // Only instruction which can be recovered on bailout and which are
             // sinkable can be moved into blocks which are below while filling
@@ -154,8 +139,7 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             // If the instruction has live uses and if it is clonable, then we
             // can clone the instruction for all non-dominated uses and move the
             // instruction into the block which is dominating all live uses.
-            if (!ins->canClone())
-                continue;
+            if (!ins->canClone()) continue;
 
             // If the block is a split-edge block, which is created for folding
             // test conditions, then the block has no resume point and has
@@ -170,8 +154,7 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             // Copy the arguments and clone the instruction.
             MDefinitionVector operands(alloc);
             for (size_t i = 0, end = ins->numOperands(); i < end; i++) {
-                if (!operands.append(ins->getOperand(i)))
-                    return false;
+                if (!operands.append(ins->getOperand(i))) return false;
             }
 
             MInstruction* clone = ins->clone(alloc, operands);
@@ -186,7 +169,7 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             // Replace the instruction by its clone in all the resume points /
             // recovered-on-bailout instructions which are not in blocks which
             // are dominated by the usesDominator block.
-            for (MUseIterator i(ins->usesBegin()), e(ins->usesEnd()); i != e; ) {
+            for (MUseIterator i(ins->usesBegin()), e(ins->usesEnd()); i != e;) {
                 MUse* use = *i++;
                 MNode* consumer = use->consumer();
 
@@ -203,8 +186,7 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
                 // for the entry resume point of the block in which the
                 // instruction would be moved into.
                 if (usesDominator->dominates(consumerBlock) &&
-                    (!consumer->isResumePoint() || consumer->toResumePoint() != entry))
-                {
+                    (!consumer->isResumePoint() || consumer->toResumePoint() != entry)) {
                     continue;
                 }
 
@@ -214,8 +196,7 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
             // As we move this instruction in a different block, we should
             // verify that we do not carry over a resume point which would refer
             // to an outdated state of the control flow.
-            if (ins->resumePoint())
-                ins->clearResumePoint();
+            if (ins->resumePoint()) ins->clearResumePoint();
 
             // Now, that all uses which are not dominated by usesDominator are
             // using the cloned instruction, we can safely move the instruction
@@ -228,5 +209,5 @@ Sink(MIRGenerator* mir, MIRGraph& graph)
     return true;
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js

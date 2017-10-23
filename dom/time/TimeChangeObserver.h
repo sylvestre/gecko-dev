@@ -14,10 +14,12 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace time {
 
-nsresult AddWindowListener(nsPIDOMWindowInner* aWindow);
-nsresult RemoveWindowListener(nsPIDOMWindowInner* aWindow);
+nsresult
+AddWindowListener(nsPIDOMWindowInner* aWindow);
+nsresult
+RemoveWindowListener(nsPIDOMWindowInner* aWindow);
 
-} // namespace time
-} // namespace mozilla
+}  // namespace time
+}  // namespace mozilla
 
-#endif //_mozilla_time_change_observer_h_
+#endif  //_mozilla_time_change_observer_h_

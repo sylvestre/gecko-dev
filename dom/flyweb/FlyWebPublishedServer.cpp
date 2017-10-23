@@ -28,20 +28,27 @@ namespace dom {
 
 static LazyLogModule gFlyWebPublishedServerLog("FlyWebPublishedServer");
 #undef LOG_I
-#define LOG_I(...) MOZ_LOG(mozilla::dom::gFlyWebPublishedServerLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define LOG_I(...)                                 \
+  MOZ_LOG(mozilla::dom::gFlyWebPublishedServerLog, \
+          mozilla::LogLevel::Debug,                \
+          (__VA_ARGS__))
 #undef LOG_E
-#define LOG_E(...) MOZ_LOG(mozilla::dom::gFlyWebPublishedServerLog, mozilla::LogLevel::Error, (__VA_ARGS__))
+#define LOG_E(...)                                 \
+  MOZ_LOG(mozilla::dom::gFlyWebPublishedServerLog, \
+          mozilla::LogLevel::Error,                \
+          (__VA_ARGS__))
 
 /******** FlyWebPublishedServer ********/
 
-FlyWebPublishedServer::FlyWebPublishedServer(nsPIDOMWindowInner* aOwner,
-                                             const nsAString& aName,
-                                             const FlyWebPublishOptions& aOptions)
-  : mozilla::DOMEventTargetHelper(aOwner)
-  , mOwnerWindowID(aOwner ? aOwner->WindowID() : 0)
-  , mName(aName)
-  , mUiUrl(aOptions.mUiUrl)
-  , mIsRegistered(true) // Registered by the FlyWebService
+FlyWebPublishedServer::FlyWebPublishedServer(
+    nsPIDOMWindowInner* aOwner,
+    const nsAString& aName,
+    const FlyWebPublishOptions& aOptions)
+    : mozilla::DOMEventTargetHelper(aOwner),
+      mOwnerWindowID(aOwner ? aOwner->WindowID() : 0),
+      mName(aName),
+      mUiUrl(aOptions.mUiUrl),
+      mIsRegistered(true)  // Registered by the FlyWebService
 {
 }
 
@@ -56,7 +63,8 @@ FlyWebPublishedServer::LastRelease()
 }
 
 JSObject*
-FlyWebPublishedServer::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+FlyWebPublishedServer::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto)
 {
   return FlyWebPublishedServerBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -80,11 +88,8 @@ void
 FlyWebPublishedServer::FireFetchEvent(InternalRequest* aRequest)
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
-  RefPtr<FlyWebFetchEvent> e = new FlyWebFetchEvent(this,
-                                                    new Request(global,
-                                                                aRequest,
-                                                                nullptr),
-                                                    aRequest);
+  RefPtr<FlyWebFetchEvent> e = new FlyWebFetchEvent(
+      this, new Request(global, aRequest, nullptr), aRequest);
   e->Init(this);
   e->InitEvent(NS_LITERAL_STRING("fetch"), false, false);
 
@@ -95,11 +100,8 @@ void
 FlyWebPublishedServer::FireWebsocketEvent(InternalRequest* aConnectRequest)
 {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
-  RefPtr<FlyWebFetchEvent> e = new FlyWebWebSocketEvent(this,
-                                                        new Request(global,
-                                                                    aConnectRequest,
-                                                                    nullptr),
-                                                        aConnectRequest);
+  RefPtr<FlyWebFetchEvent> e = new FlyWebWebSocketEvent(
+      this, new Request(global, aConnectRequest, nullptr), aConnectRequest);
   e->Init(this);
   e->InitEvent(NS_LITERAL_STRING("websocket"), false, false);
 
@@ -130,9 +132,7 @@ FlyWebPublishedServer::OnWebSocketAccept(InternalRequest* aConnectRequest,
   LOG_I("FlyWebPublishedServer::OnWebSocketAccept(%p)", this);
 
   nsCOMPtr<nsITransportProvider> provider =
-    OnWebSocketAcceptInternal(aConnectRequest,
-                              aProtocol,
-                              aRv);
+      OnWebSocketAcceptInternal(aConnectRequest, aProtocol, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -140,11 +140,12 @@ FlyWebPublishedServer::OnWebSocketAccept(InternalRequest* aConnectRequest,
 
   nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(GetOwner());
   AutoJSContext cx;
-  GlobalObject global(cx, nsGlobalWindow::Cast(window)->FastGetGlobalJSObject());
+  GlobalObject global(cx,
+                      nsGlobalWindow::Cast(window)->FastGetGlobalJSObject());
 
   nsAutoCString extensions, negotiatedExtensions;
-  aConnectRequest->Headers()->
-    GetFirst(NS_LITERAL_CSTRING("Sec-WebSocket-Extensions"), extensions, aRv);
+  aConnectRequest->Headers()->GetFirst(
+      NS_LITERAL_CSTRING("Sec-WebSocket-Extensions"), extensions, aRv);
   mozilla::net::ProcessServerWebSocketExtensions(extensions,
                                                  negotiatedExtensions);
 
@@ -167,16 +168,17 @@ FlyWebPublishedServer::OnWebSocketAccept(InternalRequest* aConnectRequest,
 
 /******** FlyWebPublishedServerImpl ********/
 
-NS_IMPL_ISUPPORTS_INHERITED0(FlyWebPublishedServerImpl, mozilla::DOMEventTargetHelper)
+NS_IMPL_ISUPPORTS_INHERITED0(FlyWebPublishedServerImpl,
+                             mozilla::DOMEventTargetHelper)
 
-FlyWebPublishedServerImpl::FlyWebPublishedServerImpl(nsPIDOMWindowInner* aOwner,
-                                                     const nsAString& aName,
-                                                     const FlyWebPublishOptions& aOptions)
-  : FlyWebPublishedServer(aOwner, aName, aOptions)
-  , mHttpServer(
-      new HttpServer(aOwner ?
-        aOwner->GetDocGroup()->EventTargetFor(TaskCategory::Other) :
-        GetMainThreadSerialEventTarget()))
+FlyWebPublishedServerImpl::FlyWebPublishedServerImpl(
+    nsPIDOMWindowInner* aOwner,
+    const nsAString& aName,
+    const FlyWebPublishOptions& aOptions)
+    : FlyWebPublishedServer(aOwner, aName, aOptions),
+      mHttpServer(new HttpServer(
+          aOwner ? aOwner->GetDocGroup()->EventTargetFor(TaskCategory::Other)
+                 : GetMainThreadSerialEventTarget()))
 {
   LOG_I("FlyWebPublishedServerImpl::FlyWebPublishedServerImpl(%p)", this);
 }
@@ -248,9 +250,10 @@ FlyWebPublishedServerImpl::OnWebSocketResponse(InternalRequest* aConnectRequest,
 }
 
 already_AddRefed<nsITransportProvider>
-FlyWebPublishedServerImpl::OnWebSocketAcceptInternal(InternalRequest* aConnectRequest,
-                                                     const Optional<nsAString>& aProtocol,
-                                                     ErrorResult& aRv)
+FlyWebPublishedServerImpl::OnWebSocketAcceptInternal(
+    InternalRequest* aConnectRequest,
+    const Optional<nsAString>& aProtocol,
+    ErrorResult& aRv)
 {
   LOG_I("FlyWebPublishedServerImpl::OnWebSocketAcceptInternal(%p)", this);
 
@@ -259,18 +262,16 @@ FlyWebPublishedServerImpl::OnWebSocketAcceptInternal(InternalRequest* aConnectRe
     return nullptr;
   }
 
-  return mHttpServer->AcceptWebSocket(aConnectRequest,
-                                      aProtocol,
-                                      aRv);
+  return mHttpServer->AcceptWebSocket(aConnectRequest, aProtocol, aRv);
 }
 
 /******** FlyWebPublishedServerChild ********/
 
-FlyWebPublishedServerChild::FlyWebPublishedServerChild(nsPIDOMWindowInner* aOwner,
-                                                       const nsAString& aName,
-                                                       const FlyWebPublishOptions& aOptions)
-  : FlyWebPublishedServer(aOwner, aName, aOptions)
-  , mActorExists(false)
+FlyWebPublishedServerChild::FlyWebPublishedServerChild(
+    nsPIDOMWindowInner* aOwner,
+    const nsAString& aName,
+    const FlyWebPublishOptions& aOptions)
+    : FlyWebPublishedServer(aOwner, aName, aOptions), mActorExists(false)
 {
   LOG_I("FlyWebPublishedServerChild::FlyWebPublishedServerChild(%p)", this);
 
@@ -292,8 +293,8 @@ FlyWebPublishedServerChild::PermissionGranted(bool aGranted)
   options.mUiUrl = mUiUrl;
 
   // Proceed with initialization.
-  ContentChild::GetSingleton()->
-    SendPFlyWebPublishedServerConstructor(this, mName, options);
+  ContentChild::GetSingleton()->SendPFlyWebPublishedServerConstructor(
+      this, mName, options);
 }
 
 mozilla::ipc::IPCResult
@@ -332,9 +333,10 @@ FlyWebPublishedServerChild::RecvFetchRequest(const IPCInternalRequest& aRequest,
 }
 
 mozilla::ipc::IPCResult
-FlyWebPublishedServerChild::RecvWebSocketRequest(const IPCInternalRequest& aRequest,
-                                                 const uint64_t& aRequestId,
-                                                 PTransportProviderChild* aProvider)
+FlyWebPublishedServerChild::RecvWebSocketRequest(
+    const IPCInternalRequest& aRequest,
+    const uint64_t& aRequestId,
+    PTransportProviderChild* aProvider)
 {
   LOG_I("FlyWebPublishedServerChild::RecvWebSocketRequest(%p)", this);
   MOZ_ASSERT(mActorExists);
@@ -344,8 +346,8 @@ FlyWebPublishedServerChild::RecvWebSocketRequest(const IPCInternalRequest& aRequ
 
   // Not addreffing here. The addref was already done when the
   // PTransportProvider child constructor original ran.
-  mPendingTransportProviders.Put(aRequestId,
-    dont_AddRef(static_cast<TransportProviderChild*>(aProvider)));
+  mPendingTransportProviders.Put(
+      aRequestId, dont_AddRef(static_cast<TransportProviderChild*>(aProvider)));
 
   FireWebsocketEvent(request);
 
@@ -386,14 +388,17 @@ FlyWebPublishedServerChild::OnFetchResponse(InternalRequest* aRequest,
 }
 
 already_AddRefed<nsITransportProvider>
-FlyWebPublishedServerChild::OnWebSocketAcceptInternal(InternalRequest* aRequest,
-                                                      const Optional<nsAString>& aProtocol,
-                                                      ErrorResult& aRv)
+FlyWebPublishedServerChild::OnWebSocketAcceptInternal(
+    InternalRequest* aRequest,
+    const Optional<nsAString>& aProtocol,
+    ErrorResult& aRv)
 {
   LOG_I("FlyWebPublishedServerChild::OnWebSocketAcceptInternal(%p)", this);
 
   if (!mActorExists) {
-    LOG_I("FlyWebPublishedServerChild::OnWebSocketAcceptInternal(%p) - No actor!", this);
+    LOG_I(
+        "FlyWebPublishedServerChild::OnWebSocketAcceptInternal(%p) - No actor!",
+        this);
     return nullptr;
   }
 
@@ -409,8 +414,8 @@ FlyWebPublishedServerChild::OnWebSocketAcceptInternal(InternalRequest* aRequest,
     protocol = aProtocol.Value();
 
     nsAutoCString reqProtocols;
-    aRequest->Headers()->
-      GetFirst(NS_LITERAL_CSTRING("Sec-WebSocket-Protocol"), reqProtocols, aRv);
+    aRequest->Headers()->GetFirst(
+        NS_LITERAL_CSTRING("Sec-WebSocket-Protocol"), reqProtocols, aRv);
     if (!ContainsToken(reqProtocols, NS_ConvertUTF16toUTF8(protocol))) {
       // Should throw a better error here
       aRv.Throw(NS_ERROR_FAILURE);
@@ -471,10 +476,9 @@ FlyWebPublishedServerChild::Close()
 
 NS_IMPL_ISUPPORTS(FlyWebPublishedServerParent, nsIDOMEventListener)
 
-FlyWebPublishedServerParent::FlyWebPublishedServerParent(const nsAString& aName,
-                                                         const FlyWebPublishOptions& aOptions)
-  : mActorDestroyed(false)
-  , mNextRequestId(1)
+FlyWebPublishedServerParent::FlyWebPublishedServerParent(
+    const nsAString& aName, const FlyWebPublishOptions& aOptions)
+    : mActorDestroyed(false), mNextRequestId(1)
 {
   LOG_I("FlyWebPublishedServerParent::FlyWebPublishedServerParent(%p)", this);
 
@@ -485,7 +489,7 @@ FlyWebPublishedServerParent::FlyWebPublishedServerParent(const nsAString& aName,
   }
 
   RefPtr<FlyWebPublishPromise> mozPromise =
-    service->PublishServer(aName, aOptions, nullptr);
+      service->PublishServer(aName, aOptions, nullptr);
   if (!mozPromise) {
     Unused << SendServerReady(NS_ERROR_FAILURE);
     return;
@@ -494,30 +498,30 @@ FlyWebPublishedServerParent::FlyWebPublishedServerParent(const nsAString& aName,
   RefPtr<FlyWebPublishedServerParent> self = this;
 
   mozPromise->Then(
-    // Non DocGroup-version for the task in parent.
-    GetMainThreadSerialEventTarget(),
-    __func__,
-    [this, self] (FlyWebPublishedServer* aServer) {
-      mPublishedServer = static_cast<FlyWebPublishedServerImpl*>(aServer);
-      if (mActorDestroyed) {
-        mPublishedServer->Close();
-        return;
-      }
+      // Non DocGroup-version for the task in parent.
+      GetMainThreadSerialEventTarget(),
+      __func__,
+      [this, self](FlyWebPublishedServer* aServer) {
+        mPublishedServer = static_cast<FlyWebPublishedServerImpl*>(aServer);
+        if (mActorDestroyed) {
+          mPublishedServer->Close();
+          return;
+        }
 
-      mPublishedServer->AddEventListener(NS_LITERAL_STRING("fetch"),
-                                         this, false, false, 2);
-      mPublishedServer->AddEventListener(NS_LITERAL_STRING("websocket"),
-                                         this, false, false, 2);
-      mPublishedServer->AddEventListener(NS_LITERAL_STRING("close"),
-                                         this, false, false, 2);
-      Unused << SendServerReady(NS_OK);
-    },
-    [this, self] (nsresult aStatus) {
-      MOZ_ASSERT(NS_FAILED(aStatus));
-      if (!mActorDestroyed) {
-        Unused << SendServerReady(aStatus);
-      }
-    });
+        mPublishedServer->AddEventListener(
+            NS_LITERAL_STRING("fetch"), this, false, false, 2);
+        mPublishedServer->AddEventListener(
+            NS_LITERAL_STRING("websocket"), this, false, false, 2);
+        mPublishedServer->AddEventListener(
+            NS_LITERAL_STRING("close"), this, false, false, 2);
+        Unused << SendServerReady(NS_OK);
+      },
+      [this, self](nsresult aStatus) {
+        MOZ_ASSERT(NS_FAILED(aStatus));
+        if (!mActorDestroyed) {
+          Unused << SendServerReady(aStatus);
+        }
+      });
 }
 
 NS_IMETHODIMP
@@ -536,7 +540,7 @@ FlyWebPublishedServerParent::HandleEvent(nsIDOMEvent* aEvent)
 
   if (type.EqualsLiteral("fetch")) {
     RefPtr<InternalRequest> request =
-      static_cast<FlyWebFetchEvent*>(aEvent)->Request()->GetInternalRequest();
+        static_cast<FlyWebFetchEvent*>(aEvent)->Request()->GetInternalRequest();
     uint64_t id = mNextRequestId++;
     mPendingRequests.Put(id, request);
 
@@ -547,8 +551,9 @@ FlyWebPublishedServerParent::HandleEvent(nsIDOMEvent* aEvent)
   }
 
   if (type.EqualsLiteral("websocket")) {
-    RefPtr<InternalRequest> request =
-      static_cast<FlyWebWebSocketEvent*>(aEvent)->Request()->GetInternalRequest();
+    RefPtr<InternalRequest> request = static_cast<FlyWebWebSocketEvent*>(aEvent)
+                                          ->Request()
+                                          ->GetInternalRequest();
     uint64_t id = mNextRequestId++;
     mPendingRequests.Put(id, request);
 
@@ -559,8 +564,8 @@ FlyWebPublishedServerParent::HandleEvent(nsIDOMEvent* aEvent)
     }
 
     RefPtr<TransportProviderParent> provider =
-      static_cast<TransportProviderParent*>(
-        neckoParents[0]->SendPTransportProviderConstructor());
+        static_cast<TransportProviderParent*>(
+            neckoParents[0]->SendPTransportProviderConstructor());
 
     IPCInternalRequest ipcReq;
     request->ToIPC(&ipcReq);
@@ -576,16 +581,16 @@ FlyWebPublishedServerParent::HandleEvent(nsIDOMEvent* aEvent)
 }
 
 mozilla::ipc::IPCResult
-FlyWebPublishedServerParent::RecvFetchResponse(const IPCInternalResponse& aResponse,
-                                               const uint64_t& aRequestId)
+FlyWebPublishedServerParent::RecvFetchResponse(
+    const IPCInternalResponse& aResponse, const uint64_t& aRequestId)
 {
   MOZ_ASSERT(!mActorDestroyed);
 
   RefPtr<InternalRequest> request;
   mPendingRequests.Remove(aRequestId, getter_AddRefs(request));
   if (!request) {
-     static_cast<ContentParent*>(Manager())->KillHard("unknown request id");
-     return IPC_FAIL_NO_REASON(this);
+    static_cast<ContentParent*>(Manager())->KillHard("unknown request id");
+    return IPC_FAIL_NO_REASON(this);
   }
 
   RefPtr<InternalResponse> response = InternalResponse::FromIPC(aResponse);
@@ -596,8 +601,8 @@ FlyWebPublishedServerParent::RecvFetchResponse(const IPCInternalResponse& aRespo
 }
 
 mozilla::ipc::IPCResult
-FlyWebPublishedServerParent::RecvWebSocketResponse(const IPCInternalResponse& aResponse,
-                                                   const uint64_t& aRequestId)
+FlyWebPublishedServerParent::RecvWebSocketResponse(
+    const IPCInternalResponse& aResponse, const uint64_t& aRequestId)
 {
   MOZ_ASSERT(!mActorDestroyed);
 
@@ -606,8 +611,9 @@ FlyWebPublishedServerParent::RecvWebSocketResponse(const IPCInternalResponse& aR
   RefPtr<InternalRequest> request;
   mPendingRequests.Remove(aRequestId, getter_AddRefs(request));
   if (!request) {
-     static_cast<ContentParent*>(Manager())->KillHard("unknown websocket request id");
-     return IPC_FAIL_NO_REASON(this);
+    static_cast<ContentParent*>(Manager())->KillHard(
+        "unknown websocket request id");
+    return IPC_FAIL_NO_REASON(this);
   }
 
   RefPtr<InternalResponse> response = InternalResponse::FromIPC(aResponse);
@@ -630,8 +636,9 @@ FlyWebPublishedServerParent::RecvWebSocketAccept(const nsString& aProtocol,
   mPendingRequests.Remove(aRequestId, getter_AddRefs(request));
 
   if (!request || !providerIPC) {
-     static_cast<ContentParent*>(Manager())->KillHard("unknown websocket request id");
-     return IPC_FAIL_NO_REASON(this);
+    static_cast<ContentParent*>(Manager())->KillHard(
+        "unknown websocket request id");
+    return IPC_FAIL_NO_REASON(this);
   }
 
   Optional<nsAString> protocol;
@@ -641,7 +648,7 @@ FlyWebPublishedServerParent::RecvWebSocketAccept(const nsString& aProtocol,
 
   ErrorResult result;
   nsCOMPtr<nsITransportProvider> providerServer =
-    mPublishedServer->OnWebSocketAcceptInternal(request, protocol, result);
+      mPublishedServer->OnWebSocketAcceptInternal(request, protocol, result);
   if (result.Failed()) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -667,19 +674,17 @@ FlyWebPublishedServerParent::Recv__delete__()
   MOZ_ASSERT(!mActorDestroyed);
 
   if (mPublishedServer) {
-    mPublishedServer->RemoveEventListener(NS_LITERAL_STRING("fetch"),
-                                          this, false);
-    mPublishedServer->RemoveEventListener(NS_LITERAL_STRING("websocket"),
-                                          this, false);
-    mPublishedServer->RemoveEventListener(NS_LITERAL_STRING("close"),
-                                          this, false);
+    mPublishedServer->RemoveEventListener(
+        NS_LITERAL_STRING("fetch"), this, false);
+    mPublishedServer->RemoveEventListener(
+        NS_LITERAL_STRING("websocket"), this, false);
+    mPublishedServer->RemoveEventListener(
+        NS_LITERAL_STRING("close"), this, false);
     mPublishedServer->Close();
     mPublishedServer = nullptr;
   }
   return IPC_OK();
 }
 
-} // namespace dom
-} // namespace mozilla
-
-
+}  // namespace dom
+}  // namespace mozilla

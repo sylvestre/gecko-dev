@@ -16,7 +16,7 @@ namespace dom {
 
 class AudioProcessingEvent final : public Event
 {
-public:
+ public:
   AudioProcessingEvent(ScriptProcessorNode* aOwner,
                        nsPresContext* aPresContext,
                        WidgetEvent* aEvent);
@@ -25,7 +25,8 @@ public:
   NS_FORWARD_TO_EVENT
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioProcessingEvent, Event)
 
-  JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObjectInternal(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   void InitEvent(AudioBuffer* aInputBuffer,
                  uint32_t aNumberOfInputChannels,
@@ -37,10 +38,7 @@ public:
     mPlaybackTime = aPlaybackTime;
   }
 
-  double PlaybackTime() const
-  {
-    return mPlaybackTime;
-  }
+  double PlaybackTime() const { return mPlaybackTime; }
 
   AudioBuffer* GetInputBuffer(ErrorResult& aRv)
   {
@@ -58,19 +56,16 @@ public:
     return mOutputBuffer;
   }
 
-  bool HasOutputBuffer() const
-  {
-    return !!mOutputBuffer;
-  }
+  bool HasOutputBuffer() const { return !!mOutputBuffer; }
 
-protected:
+ protected:
   virtual ~AudioProcessingEvent();
 
-private:
-  already_AddRefed<AudioBuffer>
-  LazilyCreateBuffer(uint32_t aNumberOfChannels, ErrorResult& rv);
+ private:
+  already_AddRefed<AudioBuffer> LazilyCreateBuffer(uint32_t aNumberOfChannels,
+                                                   ErrorResult& rv);
 
-private:
+ private:
   double mPlaybackTime;
   RefPtr<AudioBuffer> mInputBuffer;
   RefPtr<AudioBuffer> mOutputBuffer;
@@ -78,8 +73,7 @@ private:
   uint32_t mNumberOfInputChannels;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-

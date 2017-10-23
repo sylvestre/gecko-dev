@@ -9,8 +9,7 @@
 
 using namespace js;
 
-BEGIN_TEST(testStructuredClone_object)
-{
+BEGIN_TEST(testStructuredClone_object) {
     JS::RootedObject g1(cx, createGlobal());
     JS::RootedObject g2(cx, createGlobal());
     CHECK(g1);
@@ -47,8 +46,7 @@ BEGIN_TEST(testStructuredClone_object)
 }
 END_TEST(testStructuredClone_object)
 
-BEGIN_TEST(testStructuredClone_string)
-{
+BEGIN_TEST(testStructuredClone_string) {
     JS::RootedObject g1(cx, createGlobal());
     JS::RootedObject g2(cx, createGlobal());
     CHECK(g1);
@@ -73,8 +71,7 @@ BEGIN_TEST(testStructuredClone_string)
         CHECK(v2.isString());
         CHECK(v2.toString());
 
-        JS::RootedValue expected(cx, JS::StringValue(
-            JS_NewStringCopyZ(cx, "Hello World!")));
+        JS::RootedValue expected(cx, JS::StringValue(JS_NewStringCopyZ(cx, "Hello World!")));
         CHECK_SAME(v2, expected);
     }
 
@@ -93,11 +90,11 @@ struct StructuredCloneTestPrincipals final : public JSPrincipals {
         return JS_WriteUint32Pair(writer, rank, 0);
     }
 
-    static bool read(JSContext* cx, JSStructuredCloneReader *reader, JSPrincipals** outPrincipals) {
+    static bool read(JSContext* cx, JSStructuredCloneReader* reader,
+                     JSPrincipals** outPrincipals) {
         uint32_t rank;
         uint32_t unused;
-        if (!JS_ReadUint32Pair(reader, &rank, &unused))
-            return false;
+        if (!JS_ReadUint32Pair(reader, &rank, &unused)) return false;
 
         *outPrincipals = new StructuredCloneTestPrincipals(rank);
         return !!*outPrincipals;
@@ -109,14 +106,11 @@ struct StructuredCloneTestPrincipals final : public JSPrincipals {
     }
 
     static uint32_t getRank(JSPrincipals* p) {
-        if (!p)
-            return 0;
+        if (!p) return 0;
         return static_cast<StructuredCloneTestPrincipals*>(p)->rank;
     }
 
-    static bool subsumes(JSPrincipals* a, JSPrincipals* b) {
-        return getRank(a) > getRank(b);
-    }
+    static bool subsumes(JSPrincipals* a, JSPrincipals* b) { return getRank(a) > getRank(b); }
 
     static JSSecurityCallbacks securityCallbacks;
 
@@ -124,12 +118,10 @@ struct StructuredCloneTestPrincipals final : public JSPrincipals {
 };
 
 JSSecurityCallbacks StructuredCloneTestPrincipals::securityCallbacks = {
-    nullptr, // contentSecurityPolicyAllows
-    subsumes
-};
+    nullptr,  // contentSecurityPolicyAllows
+    subsumes};
 
-BEGIN_TEST(testStructuredClone_SavedFrame)
-{
+BEGIN_TEST(testStructuredClone_SavedFrame) {
     JS_SetSecurityCallbacks(cx, &StructuredCloneTestPrincipals::securityCallbacks);
     JS_InitDestroyPrincipalsCallback(cx, StructuredCloneTestPrincipals::destroy);
     JS_InitReadPrincipalsCallback(cx, StructuredCloneTestPrincipals::read);
@@ -137,25 +129,23 @@ BEGIN_TEST(testStructuredClone_SavedFrame)
     auto testPrincipals = new StructuredCloneTestPrincipals(42, 0);
     CHECK(testPrincipals);
 
-    auto DONE = (JSPrincipals*) 0xDEADBEEF;
+    auto DONE = (JSPrincipals*)0xDEADBEEF;
 
     struct {
         const char* name;
         JSPrincipals* principals;
-    } principalsToTest[] = {
-        { "IsSystem", &js::ReconstructedSavedFramePrincipals::IsSystem },
-        { "IsNotSystem", &js::ReconstructedSavedFramePrincipals::IsNotSystem },
-        { "testPrincipals", testPrincipals },
-        { "nullptr principals", nullptr },
-        { "DONE", DONE }
-    };
+    } principalsToTest[] = {{"IsSystem", &js::ReconstructedSavedFramePrincipals::IsSystem},
+                            {"IsNotSystem", &js::ReconstructedSavedFramePrincipals::IsNotSystem},
+                            {"testPrincipals", testPrincipals},
+                            {"nullptr principals", nullptr},
+                            {"DONE", DONE}};
 
     const char* FILENAME = "filename.js";
 
     for (auto* pp = principalsToTest; pp->principals != DONE; pp++) {
         fprintf(stderr, "Testing with principals '%s'\n", pp->name);
 
-	JS::CompartmentOptions options;
+        JS::CompartmentOptions options;
         JS::RootedObject g(cx, JS_NewGlobalObject(cx, getGlobalClass(), pp->principals,
                                                   JS::FireOnNewGlobalHook, options));
         CHECK(g);
@@ -164,16 +154,15 @@ BEGIN_TEST(testStructuredClone_SavedFrame)
         CHECK(js::DefineTestingFunctions(cx, g, false, false));
 
         JS::RootedValue srcVal(cx);
-        CHECK(evaluate("(function one() {                      \n"  // 1
-                       "  return (function two() {             \n"  // 2
-                       "    return (function three() {         \n"  // 3
-                       "      return saveStack();              \n"  // 4
-                       "    }());                              \n"  // 5
-                       "  }());                                \n"  // 6
-                       "}());                                  \n", // 7
-                       FILENAME,
-                       1,
-                       &srcVal));
+        CHECK(
+            evaluate("(function one() {                      \n"   // 1
+                     "  return (function two() {             \n"   // 2
+                     "    return (function three() {         \n"   // 3
+                     "      return saveStack();              \n"   // 4
+                     "    }());                              \n"   // 5
+                     "  }());                                \n"   // 6
+                     "}());                                  \n",  // 7
+                     FILENAME, 1, &srcVal));
 
         CHECK(srcVal.isObject());
         JS::RootedObject srcObj(cx, &srcVal.toObject());

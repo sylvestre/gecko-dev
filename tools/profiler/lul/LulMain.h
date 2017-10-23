@@ -50,52 +50,51 @@
 //   must perform merely in order to get the program to run.  Hence
 //   image addresses are unrelated to either SVMAs or AVMAs.
 
-
 namespace lul {
 
 // A machine word plus validity tag.
-class TaggedUWord {
-public:
+class TaggedUWord
+{
+ public:
   // RUNS IN NO-MALLOC CONTEXT
   // Construct a valid one.
-  explicit TaggedUWord(uintptr_t w)
-    : mValue(w)
-    , mValid(true)
-  {}
+  explicit TaggedUWord(uintptr_t w) : mValue(w), mValid(true) {}
 
   // RUNS IN NO-MALLOC CONTEXT
   // Construct an invalid one.
-  TaggedUWord()
-    : mValue(0)
-    , mValid(false)
-  {}
+  TaggedUWord() : mValue(0), mValid(false) {}
 
   // RUNS IN NO-MALLOC CONTEXT
-  TaggedUWord operator+(TaggedUWord rhs) const {
+  TaggedUWord operator+(TaggedUWord rhs) const
+  {
     return (Valid() && rhs.Valid()) ? TaggedUWord(Value() + rhs.Value())
                                     : TaggedUWord();
   }
 
   // RUNS IN NO-MALLOC CONTEXT
-  TaggedUWord operator-(TaggedUWord rhs) const {
+  TaggedUWord operator-(TaggedUWord rhs) const
+  {
     return (Valid() && rhs.Valid()) ? TaggedUWord(Value() - rhs.Value())
                                     : TaggedUWord();
   }
 
   // RUNS IN NO-MALLOC CONTEXT
-  TaggedUWord operator&(TaggedUWord rhs) const {
+  TaggedUWord operator&(TaggedUWord rhs) const
+  {
     return (Valid() && rhs.Valid()) ? TaggedUWord(Value() & rhs.Value())
                                     : TaggedUWord();
   }
 
   // RUNS IN NO-MALLOC CONTEXT
-  TaggedUWord operator|(TaggedUWord rhs) const {
+  TaggedUWord operator|(TaggedUWord rhs) const
+  {
     return (Valid() && rhs.Valid()) ? TaggedUWord(Value() | rhs.Value())
                                     : TaggedUWord();
   }
 
   // RUNS IN NO-MALLOC CONTEXT
-  TaggedUWord CmpGEs(TaggedUWord rhs) const {
+  TaggedUWord CmpGEs(TaggedUWord rhs) const
+  {
     if (Valid() && rhs.Valid()) {
       intptr_t s1 = (intptr_t)Value();
       intptr_t s2 = (intptr_t)rhs.Value();
@@ -105,42 +104,44 @@ public:
   }
 
   // RUNS IN NO-MALLOC CONTEXT
-  TaggedUWord operator<<(TaggedUWord rhs) const {
+  TaggedUWord operator<<(TaggedUWord rhs) const
+  {
     if (Valid() && rhs.Valid()) {
       uintptr_t shift = rhs.Value();
-      if (shift < 8 * sizeof(uintptr_t))
-        return TaggedUWord(Value() << shift);
+      if (shift < 8 * sizeof(uintptr_t)) return TaggedUWord(Value() << shift);
     }
     return TaggedUWord();
   }
 
   // RUNS IN NO-MALLOC CONTEXT
   // Is equal?  Note: non-validity on either side gives non-equality.
-  bool operator==(TaggedUWord other) const {
+  bool operator==(TaggedUWord other) const
+  {
     return (mValid && other.Valid()) ? (mValue == other.Value()) : false;
   }
 
   // RUNS IN NO-MALLOC CONTEXT
   // Is it word-aligned?
-  bool IsAligned() const {
-    return mValid && (mValue & (sizeof(uintptr_t)-1)) == 0;
+  bool IsAligned() const
+  {
+    return mValid && (mValue & (sizeof(uintptr_t) - 1)) == 0;
   }
 
   // RUNS IN NO-MALLOC CONTEXT
   uintptr_t Value() const { return mValue; }
 
   // RUNS IN NO-MALLOC CONTEXT
-  bool      Valid() const { return mValid; }
+  bool Valid() const { return mValid; }
 
-private:
+ private:
   uintptr_t mValue;
   bool mValid;
 };
 
-
 // The registers, with validity tags, that will be unwound.
 
-struct UnwindRegs {
+struct UnwindRegs
+{
 #if defined(GP_ARCH_arm)
   TaggedUWord r7;
   TaggedUWord r11;
@@ -153,10 +154,9 @@ struct UnwindRegs {
   TaggedUWord xsp;
   TaggedUWord xip;
 #else
-# error "Unknown plat"
+#error "Unknown plat"
 #endif
 };
-
 
 // The maximum number of bytes in a stack snapshot.  This value can be increased
 // if necessary, but testing showed that 160k is enough to obtain good
@@ -164,55 +164,51 @@ struct UnwindRegs {
 // stack space, but we do have some very deep stacks occasionally.  Please see
 // the comments in DoNativeBacktrace as to why it's OK to have this value be so
 // large.
-static const size_t N_STACK_BYTES = 160*1024;
+static const size_t N_STACK_BYTES = 160 * 1024;
 
 // The stack chunk image that will be unwound.
-struct StackImage {
+struct StackImage
+{
   // [start_avma, +len) specify the address range in the buffer.
   // Obviously we require 0 <= len <= N_STACK_BYTES.
   uintptr_t mStartAvma;
-  size_t    mLen;
-  uint8_t   mContents[N_STACK_BYTES];
+  size_t mLen;
+  uint8_t mContents[N_STACK_BYTES];
 };
-
 
 // Statistics collection for the unwinder.
 template<typename T>
-class LULStats {
-public:
-  LULStats()
-    : mContext(0)
-    , mCFI(0)
-    , mFP(0)
-  {}
+class LULStats
+{
+ public:
+  LULStats() : mContext(0), mCFI(0), mFP(0) {}
 
-  template <typename S>
+  template<typename S>
   explicit LULStats(const LULStats<S>& aOther)
-    : mContext(aOther.mContext)
-    , mCFI(aOther.mCFI)
-    , mFP(aOther.mFP)
-  {}
+      : mContext(aOther.mContext), mCFI(aOther.mCFI), mFP(aOther.mFP)
+  {
+  }
 
-  template <typename S>
+  template<typename S>
   LULStats<T>& operator=(const LULStats<S>& aOther)
   {
     mContext = aOther.mContext;
-    mCFI     = aOther.mCFI;
-    mFP      = aOther.mFP;
+    mCFI = aOther.mCFI;
+    mFP = aOther.mFP;
     return *this;
   }
 
-  template <typename S>
-  uint32_t operator-(const LULStats<S>& aOther) {
-    return (mContext - aOther.mContext) +
-           (mCFI - aOther.mCFI) + (mFP - aOther.mFP);
+  template<typename S>
+  uint32_t operator-(const LULStats<S>& aOther)
+  {
+    return (mContext - aOther.mContext) + (mCFI - aOther.mCFI) +
+           (mFP - aOther.mFP);
   }
 
-  T mContext; // Number of context frames
-  T mCFI;     // Number of CFI/EXIDX frames
-  T mFP;      // Number of frame-pointer recovered frames
+  T mContext;  // Number of context frames
+  T mCFI;      // Number of CFI/EXIDX frames
+  T mFP;       // Number of frame-pointer recovered frames
 };
-
 
 // The core unwinder library class.  Just one of these is needed, and
 // it can be shared by multiple unwinder threads.
@@ -244,8 +240,9 @@ class PriMap;
 class SegArray;
 class UniqueStringUniverse;
 
-class LUL {
-public:
+class LUL
+{
+ public:
   // Create; supply a logging sink.  Sets the object in Admin mode.
   explicit LUL(void (*aLog)(const char*));
 
@@ -268,8 +265,10 @@ public:
   // aMappedImage is non-NULL then it is assumed to point to a
   // called-supplied and caller-managed mapped image of the file.
   // May only be called in Admin mode.
-  void NotifyAfterMap(uintptr_t aRXavma, size_t aSize,
-                      const char* aFileName, const void* aMappedImage);
+  void NotifyAfterMap(uintptr_t aRXavma,
+                      size_t aSize,
+                      const char* aFileName,
+                      const void* aMappedImage);
 
   // In rare cases we know an executable area exists but don't know
   // what the associated file is.  This call notifies LUL of such
@@ -297,9 +296,7 @@ public:
   // LUL to discard all unwind and executable-area information for the
   // entire address space.
   // May only be called in Admin mode.
-  void NotifyBeforeUnmapAll() {
-    NotifyBeforeUnmap(0, UINTPTR_MAX);
-  }
+  void NotifyBeforeUnmapAll() { NotifyBeforeUnmap(0, UINTPTR_MAX); }
 
   // Returns the number of mappings currently registered.
   // May only be called in Admin mode.
@@ -327,12 +324,13 @@ public:
   //
   // The calling thread must previously have been registered via a call to
   // RegisterSampledThread.
-  void Unwind(/*OUT*/uintptr_t* aFramePCs,
-              /*OUT*/uintptr_t* aFrameSPs,
-              /*OUT*/size_t* aFramesUsed,
-              /*OUT*/size_t* aFramePointerFramesAcquired,
+  void Unwind(/*OUT*/ uintptr_t* aFramePCs,
+              /*OUT*/ uintptr_t* aFrameSPs,
+              /*OUT*/ size_t* aFramesUsed,
+              /*OUT*/ size_t* aFramePointerFramesAcquired,
               size_t aFramesAvail,
-              UnwindRegs* aStartRegs, StackImage* aStackImg);
+              UnwindRegs* aStartRegs,
+              StackImage* aStackImg);
 
   // The logging sink.  Call to send debug strings to the caller-
   // specified destination.  Can only be called by the Admin thread.
@@ -348,7 +346,7 @@ public:
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf) const;
 
-private:
+ private:
   // The statistics counters at the point where they were last printed.
   LULStats<uint32_t> mStatsPrevious;
 
@@ -379,14 +377,13 @@ private:
   UniqueStringUniverse* mUSU;
 };
 
-
 // Run unit tests on an initialised, loaded-up LUL instance, and print
 // summary results on |aLUL|'s logging sink.  Also return the number
 // of tests run in *aNTests and the number that passed in
 // *aNTestsPassed.
 void
-RunLulUnitTests(/*OUT*/int* aNTests, /*OUT*/int*aNTestsPassed, LUL* aLUL);
+RunLulUnitTests(/*OUT*/ int* aNTests, /*OUT*/ int* aNTestsPassed, LUL* aLUL);
 
-} // namespace lul
+}  // namespace lul
 
-#endif // LulMain_h
+#endif  // LulMain_h

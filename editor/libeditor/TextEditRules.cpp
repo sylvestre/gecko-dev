@@ -44,10 +44,9 @@ namespace mozilla {
 using namespace dom;
 
 #define CANCEL_OPERATION_IF_READONLY_OR_DISABLED \
-  if (IsReadonly() || IsDisabled()) \
-  {                     \
-    *aCancel = true; \
-    return NS_OK;       \
+  if (IsReadonly() || IsDisabled()) {            \
+    *aCancel = true;                             \
+    return NS_OK;                                \
   };
 
 /********************************************************
@@ -55,16 +54,16 @@ using namespace dom;
  ********************************************************/
 
 TextEditRules::TextEditRules()
-  : mTextEditor(nullptr)
-  , mPasswordIMEIndex(0)
-  , mCachedSelectionOffset(0)
-  , mActionNesting(0)
-  , mLockRulesSniffing(false)
-  , mDidExplicitlySetInterline(false)
-  , mDeleteBidiImmediately(false)
-  , mTheAction(EditAction::none)
-  , mLastStart(0)
-  , mLastLength(0)
+    : mTextEditor(nullptr),
+      mPasswordIMEIndex(0),
+      mCachedSelectionOffset(0),
+      mActionNesting(0),
+      mLockRulesSniffing(false),
+      mDidExplicitlySetInterline(false),
+      mDeleteBidiImmediately(false),
+      mTheAction(EditAction::none),
+      mLastStart(0),
+      mLastLength(0)
 {
   InitFields();
 }
@@ -91,8 +90,8 @@ TextEditRules::InitFields()
 
 TextEditRules::~TextEditRules()
 {
-   // do NOT delete mTextEditor here.  We do not hold a ref count to
-   // mTextEditor.  mTextEditor owns our lifespan.
+  // do NOT delete mTextEditor here.  We do not hold a ref count to
+  // mTextEditor.  mTextEditor owns our lifespan.
 
   if (mTimer) {
     mTimer->Cancel();
@@ -144,7 +143,7 @@ TextEditRules::Init(TextEditor* aTextEditor)
   }
 
   mDeleteBidiImmediately =
-    Preferences::GetBool("bidi.edit.delete_immediately", false);
+      Preferences::GetBool("bidi.edit.delete_immediately", false);
 
   return NS_OK;
 }
@@ -169,8 +168,7 @@ TextEditRules::DetachEditor()
 }
 
 NS_IMETHODIMP
-TextEditRules::BeforeEdit(EditAction action,
-                          nsIEditor::EDirection aDirection)
+TextEditRules::BeforeEdit(EditAction action, nsIEditor::EDirection aDirection)
 {
   if (mLockRulesSniffing) {
     return NS_OK;
@@ -208,8 +206,7 @@ TextEditRules::BeforeEdit(EditAction action,
 }
 
 NS_IMETHODIMP
-TextEditRules::AfterEdit(EditAction action,
-                         nsIEditor::EDirection aDirection)
+TextEditRules::AfterEdit(EditAction action, nsIEditor::EDirection aDirection)
 {
   if (mLockRulesSniffing) {
     return NS_OK;
@@ -217,7 +214,7 @@ TextEditRules::AfterEdit(EditAction action,
 
   AutoLockRulesSniffing lockIt(this);
 
-  NS_PRECONDITION(mActionNesting>0, "bad action nesting!");
+  NS_PRECONDITION(mActionNesting > 0, "bad action nesting!");
   if (!--mActionNesting) {
     NS_ENSURE_STATE(mTextEditor);
     RefPtr<Selection> selection = mTextEditor->GetSelection();
@@ -225,10 +222,14 @@ TextEditRules::AfterEdit(EditAction action,
 
     NS_ENSURE_STATE(mTextEditor);
     nsresult rv =
-      mTextEditor->HandleInlineSpellCheck(action, selection,
-                                          GetAsDOMNode(mCachedSelectionNode),
-                                          mCachedSelectionOffset,
-                                          nullptr, 0, nullptr, 0);
+        mTextEditor->HandleInlineSpellCheck(action,
+                                            selection,
+                                            GetAsDOMNode(mCachedSelectionNode),
+                                            mCachedSelectionOffset,
+                                            nullptr,
+                                            0,
+                                            nullptr,
+                                            0);
     NS_ENSURE_SUCCESS(rv, rv);
 
     // no longer uses mCachedSelectionNode, so release it.
@@ -276,15 +277,20 @@ TextEditRules::WillDoAction(Selection* aSelection,
     case EditAction::insertText:
     case EditAction::insertIMEText:
       UndefineCaretBidiLevel(aSelection);
-      return WillInsertText(info->action, aSelection, aCancel, aHandled,
-                            info->inString, info->outString, info->maxLength);
+      return WillInsertText(info->action,
+                            aSelection,
+                            aCancel,
+                            aHandled,
+                            info->inString,
+                            info->outString,
+                            info->maxLength);
     case EditAction::setText:
       UndefineCaretBidiLevel(aSelection);
-      return WillSetText(*aSelection, aCancel, aHandled, info->inString,
-                         info->maxLength);
+      return WillSetText(
+          *aSelection, aCancel, aHandled, info->inString, info->maxLength);
     case EditAction::deleteSelection:
-      return WillDeleteSelection(aSelection, info->collapsedAction,
-                                 aCancel, aHandled);
+      return WillDeleteSelection(
+          aSelection, info->collapsedAction, aCancel, aHandled);
     case EditAction::undo:
       return WillUndo(aSelection, aCancel, aHandled);
     case EditAction::redo:
@@ -294,8 +300,12 @@ TextEditRules::WillDoAction(Selection* aSelection,
     case EditAction::removeTextProperty:
       return WillRemoveTextProperty(aSelection, aCancel, aHandled);
     case EditAction::outputText:
-      return WillOutputText(aSelection, info->outputFormat, info->outString,
-                            info->flags, aCancel, aHandled);
+      return WillOutputText(aSelection,
+                            info->outputFormat,
+                            info->outString,
+                            info->flags,
+                            aCancel,
+                            aHandled);
     case EditAction::insertElement:
       // i had thought this would be html rules only.  but we put pre elements
       // into plaintext mail when doing quoting for reply!  doh!
@@ -385,8 +395,7 @@ TextEditRules::WillInsert(Selection& aSelection, bool* aCancel)
 }
 
 nsresult
-TextEditRules::DidInsert(Selection* aSelection,
-                         nsresult aResult)
+TextEditRules::DidInsert(Selection* aSelection, nsresult aResult)
 {
   return NS_OK;
 }
@@ -410,9 +419,8 @@ TextEditRules::WillInsertBreak(Selection* aSelection,
     NS_NAMED_LITERAL_STRING(inString, "\n");
     nsAutoString outString;
     bool didTruncate;
-    nsresult rv = TruncateInsertionIfNeeded(aSelection, &inString.AsString(),
-                                            &outString, aMaxLength,
-                                            &didTruncate);
+    nsresult rv = TruncateInsertionIfNeeded(
+        aSelection, &inString.AsString(), &outString, aMaxLength, &didTruncate);
     NS_ENSURE_SUCCESS(rv, rv);
     if (didTruncate) {
       *aCancel = true;
@@ -437,8 +445,7 @@ TextEditRules::WillInsertBreak(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::DidInsertBreak(Selection* aSelection,
-                              nsresult aResult)
+TextEditRules::DidInsertBreak(Selection* aSelection, nsresult aResult)
 {
   return NS_OK;
 }
@@ -466,15 +473,14 @@ TextEditRules::CollapseSelectionToTrailingBRIfNeeded(Selection* aSelection)
   // selection to stick to the mozBR at the end of the textarea.
   int32_t selOffset;
   nsCOMPtr<nsINode> selNode;
-  nsresult rv =
-    EditorBase::GetStartNodeAndOffset(aSelection,
-                                      getter_AddRefs(selNode), &selOffset);
+  nsresult rv = EditorBase::GetStartNodeAndOffset(
+      aSelection, getter_AddRefs(selNode), &selOffset);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   if (!EditorBase::IsTextNode(selNode)) {
-    return NS_OK; // Nothing to do if we're not at a text node.
+    return NS_OK;  // Nothing to do if we're not at a text node.
   }
 
   // nothing to do if we're not at the end of the text node
@@ -508,15 +514,13 @@ GetTextNode(Selection* selection)
 {
   int32_t selOffset;
   nsCOMPtr<nsINode> selNode;
-  nsresult rv =
-    EditorBase::GetStartNodeAndOffset(selection,
-                                      getter_AddRefs(selNode), &selOffset);
+  nsresult rv = EditorBase::GetStartNodeAndOffset(
+      selection, getter_AddRefs(selNode), &selOffset);
   NS_ENSURE_SUCCESS(rv, nullptr);
   if (!EditorBase::IsTextNode(selNode)) {
     // This should be the root node, walk the tree looking for text nodes
-    RefPtr<NodeIterator> iter =
-      new NodeIterator(selNode, nsIDOMNodeFilter::SHOW_TEXT,
-                       NodeFilterHolder());
+    RefPtr<NodeIterator> iter = new NodeIterator(
+        selNode, nsIDOMNodeFilter::SHOW_TEXT, NodeFilterHolder());
     while (!EditorBase::IsTextNode(selNode)) {
       IgnoredErrorResult rv;
       selNode = iter->NextNode(rv);
@@ -528,12 +532,12 @@ GetTextNode(Selection* selection)
   return selNode.forget();
 }
 #ifdef DEBUG
-#define ASSERT_PASSWORD_LENGTHS_EQUAL()                                \
-  if (IsPasswordEditor() && mTextEditor->GetRoot()) {                  \
-    int32_t txtLen;                                                    \
-    mTextEditor->GetTextLength(&txtLen);                               \
-    NS_ASSERTION(mPasswordText.Length() == uint32_t(txtLen),           \
-                 "password length not equal to number of asterisks");  \
+#define ASSERT_PASSWORD_LENGTHS_EQUAL()                               \
+  if (IsPasswordEditor() && mTextEditor->GetRoot()) {                 \
+    int32_t txtLen;                                                   \
+    mTextEditor->GetTextLength(&txtLen);                              \
+    NS_ASSERTION(mPasswordText.Length() == uint32_t(txtLen),          \
+                 "password length not equal to number of asterisks"); \
   }
 #else
 #define ASSERT_PASSWORD_LENGTHS_EQUAL()
@@ -541,15 +545,14 @@ GetTextNode(Selection* selection)
 
 // static
 void
-TextEditRules::HandleNewLines(nsString& aString,
-                              int32_t aNewlineHandling)
+TextEditRules::HandleNewLines(nsString& aString, int32_t aNewlineHandling)
 {
   if (aNewlineHandling < 0) {
     int32_t caretStyle;
     TextEditor::GetDefaultEditorPrefs(aNewlineHandling, caretStyle);
   }
 
-  switch(aNewlineHandling) {
+  switch (aNewlineHandling) {
     case nsIPlaintextEditor::eNewlinesReplaceWithSpaces:
       // Strip trailing newlines first so we don't wind up with trailing spaces
       aString.Trim(CRLF, false, true);
@@ -641,8 +644,8 @@ TextEditRules::WillInsertText(EditAction aAction,
   // handle docs with a max length
   // NOTE, this function copies inString into outString for us.
   bool truncated = false;
-  nsresult rv = TruncateInsertionIfNeeded(aSelection, inString, outString,
-                                          aMaxLength, &truncated);
+  nsresult rv = TruncateInsertionIfNeeded(
+      aSelection, inString, outString, aMaxLength, &truncated);
   NS_ENSURE_SUCCESS(rv, rv);
   // If we're exceeding the maxlength when composing IME, we need to clean up
   // the composing text, so we shouldn't return early.
@@ -658,9 +661,8 @@ TextEditRules::WillInsertText(EditAction aAction,
   // handle password field docs
   if (IsPasswordEditor()) {
     NS_ENSURE_STATE(mTextEditor);
-    nsContentUtils::GetSelectionInTextControl(aSelection,
-                                              mTextEditor->GetRoot(),
-                                              start, end);
+    nsContentUtils::GetSelectionInTextControl(
+        aSelection, mTextEditor->GetRoot(), start, end);
   }
 
   // if the selection isn't collapsed, delete it.
@@ -678,8 +680,7 @@ TextEditRules::WillInsertText(EditAction aAction,
   // handle password field data
   // this has the side effect of changing all the characters in aOutString
   // to the replacement character
-  if (IsPasswordEditor() &&
-      aAction == EditAction::insertIMEText) {
+  if (IsPasswordEditor() && aAction == EditAction::insertIMEText) {
     RemoveIMETextFromPWBuf(start, outString);
   }
 
@@ -716,8 +717,8 @@ TextEditRules::WillInsertText(EditAction aAction,
         mTimer = NS_NewTimer();
         NS_ENSURE_TRUE(mTimer, NS_ERROR_OUT_OF_MEMORY);
       }
-      mTimer->InitWithCallback(this, LookAndFeel::GetPasswordMaskDelay(),
-                               nsITimer::TYPE_ONE_SHOT);
+      mTimer->InitWithCallback(
+          this, LookAndFeel::GetPasswordMaskDelay(), nsITimer::TYPE_ONE_SHOT);
     } else {
       FillBufWithPWChars(outString, outString->Length());
     }
@@ -727,7 +728,7 @@ TextEditRules::WillInsertText(EditAction aAction,
   NS_ENSURE_STATE(aSelection->GetRangeAt(0));
   nsCOMPtr<nsINode> selNode = aSelection->GetRangeAt(0)->GetStartContainer();
   nsCOMPtr<nsIContent> selChild =
-    aSelection->GetRangeAt(0)->GetChildAtStartOffset();
+      aSelection->GetRangeAt(0)->GetChildAtStartOffset();
   int32_t selOffset = aSelection->GetRangeAt(0)->StartOffset();
   NS_ENSURE_STATE(selNode);
 
@@ -746,17 +747,17 @@ TextEditRules::WillInsertText(EditAction aAction,
   if (aAction == EditAction::insertIMEText) {
     NS_ENSURE_STATE(mTextEditor);
     // Find better insertion point to insert text.
-    mTextEditor->FindBetterInsertionPoint(selNode, selOffset,
-                                          address_of(selChild));
+    mTextEditor->FindBetterInsertionPoint(
+        selNode, selOffset, address_of(selChild));
     // If there is one or more IME selections, its minimum offset should be
     // the insertion point.
     int32_t IMESelectionOffset =
-      mTextEditor->GetIMESelectionStartOffsetIn(selNode);
+        mTextEditor->GetIMESelectionStartOffsetIn(selNode);
     if (IMESelectionOffset >= 0) {
       selOffset = IMESelectionOffset;
     }
-    rv = mTextEditor->InsertTextImpl(*outString, address_of(selNode),
-                                     address_of(selChild), &selOffset, doc);
+    rv = mTextEditor->InsertTextImpl(
+        *outString, address_of(selNode), address_of(selChild), &selOffset, doc);
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
     // aAction == EditAction::insertText; find where we are
@@ -767,15 +768,14 @@ TextEditRules::WillInsertText(EditAction aAction,
     NS_ENSURE_STATE(mTextEditor);
     AutoTransactionsConserveSelection dontChangeMySelection(mTextEditor);
 
-    rv = mTextEditor->InsertTextImpl(*outString, address_of(curNode),
-                                     address_of(selChild), &curOffset, doc);
+    rv = mTextEditor->InsertTextImpl(
+        *outString, address_of(curNode), address_of(selChild), &curOffset, doc);
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (curNode) {
       // Make the caret attach to the inserted text, unless this text ends with a LF,
       // in which case make the caret attach to the next line.
-      bool endsWithLF =
-        !outString->IsEmpty() && outString->Last() == nsCRT::LF;
+      bool endsWithLF = !outString->IsEmpty() && outString->Last() == nsCRT::LF;
       aSelection->SetInterlinePosition(endsWithLF);
 
       aSelection->Collapse(curNode, curOffset);
@@ -786,8 +786,7 @@ TextEditRules::WillInsertText(EditAction aAction,
 }
 
 nsresult
-TextEditRules::DidInsertText(Selection* aSelection,
-                             nsresult aResult)
+TextEditRules::DidInsertText(Selection* aSelection, nsresult aResult)
 {
   return DidInsert(aSelection, aResult);
 }
@@ -878,8 +877,8 @@ TextEditRules::WillSetText(Selection& aSelection,
 
   // Even if empty text, we don't remove text node and set empty text
   // for performance
-  nsresult rv = textEditor->SetTextImpl(aSelection, tString,
-                                        *curNode->GetAsText());
+  nsresult rv =
+      textEditor->SetTextImpl(aSelection, tString, *curNode->GetAsText());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -892,8 +891,7 @@ TextEditRules::WillSetText(Selection& aSelection,
 }
 
 nsresult
-TextEditRules::DidSetText(Selection& aSelection,
-                          nsresult aResult)
+TextEditRules::DidSetText(Selection& aSelection, nsresult aResult)
 {
   return NS_OK;
 }
@@ -915,8 +913,7 @@ TextEditRules::WillSetTextProperty(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::DidSetTextProperty(Selection* aSelection,
-                                  nsresult aResult)
+TextEditRules::DidSetTextProperty(Selection* aSelection, nsresult aResult)
 {
   return NS_OK;
 }
@@ -938,8 +935,7 @@ TextEditRules::WillRemoveTextProperty(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::DidRemoveTextProperty(Selection* aSelection,
-                                     nsresult aResult)
+TextEditRules::DidRemoveTextProperty(Selection* aSelection, nsresult aResult)
 {
   return NS_OK;
 }
@@ -978,14 +974,13 @@ TextEditRules::WillDeleteSelection(Selection* aSelection,
   if (IsPasswordEditor()) {
     NS_ENSURE_STATE(mTextEditor);
     nsresult rv =
-      mTextEditor->ExtendSelectionForDelete(aSelection, &aCollapsedAction);
+        mTextEditor->ExtendSelectionForDelete(aSelection, &aCollapsedAction);
     NS_ENSURE_SUCCESS(rv, rv);
 
     // manage the password buffer
     uint32_t start, end;
-    nsContentUtils::GetSelectionInTextControl(aSelection,
-                                              mTextEditor->GetRoot(),
-                                              start, end);
+    nsContentUtils::GetSelectionInTextControl(
+        aSelection, mTextEditor->GetRoot(), start, end);
 
     if (LookAndFeel::GetEchoPassword()) {
       HideLastPWInput();
@@ -1000,7 +995,7 @@ TextEditRules::WillDeleteSelection(Selection* aSelection,
     if (end == start) {
       // Deleting back.
       if (nsIEditor::ePrevious == aCollapsedAction && start > 0) {
-        mPasswordText.Cut(start-1, 1);
+        mPasswordText.Cut(start - 1, 1);
       }
       // Deleting forward.
       else if (nsIEditor::eNext == aCollapsedAction) {
@@ -1010,14 +1005,13 @@ TextEditRules::WillDeleteSelection(Selection* aSelection,
     }
     // Extended selection.
     else {
-      mPasswordText.Cut(start, end-start);
+      mPasswordText.Cut(start, end - start);
     }
   } else {
     nsCOMPtr<nsIDOMNode> startNode;
     int32_t startOffset;
-    nsresult rv =
-      EditorBase::GetStartNodeAndOffset(aSelection, getter_AddRefs(startNode),
-                                        &startOffset);
+    nsresult rv = EditorBase::GetStartNodeAndOffset(
+        aSelection, getter_AddRefs(startNode), &startOffset);
     NS_ENSURE_SUCCESS(rv, rv);
     NS_ENSURE_TRUE(startNode, NS_ERROR_FAILURE);
 
@@ -1026,8 +1020,8 @@ TextEditRules::WillDeleteSelection(Selection* aSelection,
     }
 
     // Test for distance between caret and text that will be deleted
-    rv = CheckBidiLevelForDeletion(aSelection, startNode, startOffset,
-                                   aCollapsedAction, aCancel);
+    rv = CheckBidiLevelForDeletion(
+        aSelection, startNode, startOffset, aCollapsedAction, aCancel);
     NS_ENSURE_SUCCESS(rv, rv);
     if (*aCancel) {
       return NS_OK;
@@ -1040,7 +1034,7 @@ TextEditRules::WillDeleteSelection(Selection* aSelection,
 
   NS_ENSURE_STATE(mTextEditor);
   nsresult rv =
-    mTextEditor->DeleteSelectionImpl(aCollapsedAction, nsIEditor::eStrip);
+      mTextEditor->DeleteSelectionImpl(aCollapsedAction, nsIEditor::eStrip);
   NS_ENSURE_SUCCESS(rv, rv);
 
   *aHandled = true;
@@ -1055,9 +1049,8 @@ TextEditRules::DidDeleteSelection(Selection* aSelection,
 {
   nsCOMPtr<nsINode> startNode;
   int32_t startOffset;
-  nsresult rv =
-    EditorBase::GetStartNodeAndOffset(aSelection,
-                                      getter_AddRefs(startNode), &startOffset);
+  nsresult rv = EditorBase::GetStartNodeAndOffset(
+      aSelection, getter_AddRefs(startNode), &startOffset);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -1085,9 +1078,7 @@ TextEditRules::DidDeleteSelection(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::WillUndo(Selection* aSelection,
-                        bool* aCancel,
-                        bool* aHandled)
+TextEditRules::WillUndo(Selection* aSelection, bool* aCancel, bool* aHandled)
 {
   if (!aSelection || !aCancel || !aHandled) {
     return NS_ERROR_NULL_POINTER;
@@ -1107,8 +1098,7 @@ TextEditRules::WillUndo(Selection* aSelection,
  * sense to take the (small) performance hit here.
  */
 nsresult
-TextEditRules::DidUndo(Selection* aSelection,
-                       nsresult aResult)
+TextEditRules::DidUndo(Selection* aSelection, nsresult aResult)
 {
   NS_ENSURE_TRUE(aSelection, NS_ERROR_NULL_POINTER);
   // If aResult is an error, we return it.
@@ -1127,9 +1117,7 @@ TextEditRules::DidUndo(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::WillRedo(Selection* aSelection,
-                        bool* aCancel,
-                        bool* aHandled)
+TextEditRules::WillRedo(Selection* aSelection, bool* aCancel, bool* aHandled)
 {
   if (!aSelection || !aCancel || !aHandled) {
     return NS_ERROR_NULL_POINTER;
@@ -1142,14 +1130,13 @@ TextEditRules::WillRedo(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::DidRedo(Selection* aSelection,
-                       nsresult aResult)
+TextEditRules::DidRedo(Selection* aSelection, nsresult aResult)
 {
   if (!aSelection) {
     return NS_ERROR_NULL_POINTER;
   }
   if (NS_FAILED(aResult)) {
-    return aResult; // if aResult is an error, we return it.
+    return aResult;  // if aResult is an error, we return it.
   }
 
   NS_ENSURE_STATE(mTextEditor);
@@ -1157,7 +1144,7 @@ TextEditRules::DidRedo(Selection* aSelection,
   NS_ENSURE_TRUE(theRoot, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIHTMLCollection> nodeList =
-    theRoot->GetElementsByTagName(NS_LITERAL_STRING("br"));
+      theRoot->GetElementsByTagName(NS_LITERAL_STRING("br"));
   MOZ_ASSERT(nodeList);
   uint32_t len = nodeList->Length();
 
@@ -1232,7 +1219,7 @@ TextEditRules::WillOutputText(Selection* aSelection,
   }
 
   Element* root = mTextEditor->GetRoot();
-  if (!root) { // Don't warn it, this is possible, e.g., 997805.html
+  if (!root) {  // Don't warn it, this is possible, e.g., 997805.html
     aOutString->Truncate();
     *aHandled = true;
     return NS_OK;
@@ -1260,14 +1247,13 @@ TextEditRules::WillOutputText(Selection* aSelection,
 
   Text* text = firstChild->GetAsText();
   nsIContent* firstChildExceptText =
-    text ? firstChild->GetNextSibling() : firstChild;
+      text ? firstChild->GetNextSibling() : firstChild;
   // If the DOM tree is unexpected, fall back to the expensive path.
   bool isInput = IsSingleLineEditor();
   bool isTextarea = !isInput;
   if (NS_WARN_IF(isInput && firstChildExceptText) ||
       NS_WARN_IF(isTextarea && !firstChildExceptText) ||
-      NS_WARN_IF(isTextarea &&
-                 !TextEditUtils::IsMozBR(firstChildExceptText) &&
+      NS_WARN_IF(isTextarea && !TextEditUtils::IsMozBR(firstChildExceptText) &&
                  !firstChildExceptText->IsXULElement(nsGkAtoms::scrollbar))) {
     return NS_OK;
   }
@@ -1292,8 +1278,7 @@ TextEditRules::WillOutputText(Selection* aSelection,
 }
 
 nsresult
-TextEditRules::DidOutputText(Selection* aSelection,
-                             nsresult aResult)
+TextEditRules::DidOutputText(Selection* aSelection, nsresult aResult)
 {
   return NS_OK;
 }
@@ -1341,8 +1326,10 @@ TextEditRules::RemoveRedundantTrailingBR()
   mBogusNode = elem;
 
   // give it the bogus node attribute
-  elem->SetAttr(kNameSpaceID_None, kMOZEditorBogusNodeAttrAtom,
-                kMOZEditorBogusNodeValue, false);
+  elem->SetAttr(kNameSpaceID_None,
+                kMOZEditorBogusNodeAttrAtom,
+                kMOZEditorBogusNodeValue,
+                false);
   return NS_OK;
 }
 
@@ -1376,8 +1363,8 @@ TextEditRules::CreateTrailingBRIfNeeded()
 
   // Morph it back to a mozBR
   lastChild->UnsetAttr(kNameSpaceID_None, kMOZEditorBogusNodeAttrAtom, false);
-  lastChild->SetAttr(kNameSpaceID_None, nsGkAtoms::type,
-                     NS_LITERAL_STRING("_moz"), true);
+  lastChild->SetAttr(
+      kNameSpaceID_None, nsGkAtoms::type, NS_LITERAL_STRING("_moz"), true);
   return NS_OK;
 }
 
@@ -1393,8 +1380,8 @@ TextEditRules::CreateBogusNodeIfNeeded(Selection* aSelection)
   }
 
   // tell rules system to not do any post-processing
-  AutoRules beginRulesSniffing(mTextEditor, EditAction::ignore,
-                               nsIEditor::eNone);
+  AutoRules beginRulesSniffing(
+      mTextEditor, EditAction::ignore, nsIEditor::eNone);
 
   nsCOMPtr<dom::Element> body = mTextEditor->GetRoot();
   if (!body) {
@@ -1407,11 +1394,9 @@ TextEditRules::CreateBogusNodeIfNeeded(Selection* aSelection)
   // looking for editable content. If no editable content is found, insert the
   // bogus node.
   bool bodyEditable = mTextEditor->IsEditable(body);
-  for (nsIContent* bodyChild = body->GetFirstChild();
-       bodyChild;
+  for (nsIContent* bodyChild = body->GetFirstChild(); bodyChild;
        bodyChild = bodyChild->GetNextSibling()) {
-    if (mTextEditor->IsMozEditorBogusNode(bodyChild) ||
-        !bodyEditable ||
+    if (mTextEditor->IsMozEditorBogusNode(bodyChild) || !bodyEditable ||
         mTextEditor->IsEditable(bodyChild) ||
         mTextEditor->IsBlockNode(bodyChild)) {
       return NS_OK;
@@ -1431,8 +1416,10 @@ TextEditRules::CreateBogusNodeIfNeeded(Selection* aSelection)
   mBogusNode = newContent;
 
   // Give it a special attribute.
-  newContent->SetAttr(kNameSpaceID_None, kMOZEditorBogusNodeAttrAtom,
-                      kMOZEditorBogusNodeValue, false);
+  newContent->SetAttr(kNameSpaceID_None,
+                      kMOZEditorBogusNodeAttrAtom,
+                      kMOZEditorBogusNodeValue,
+                      false);
 
   // Put the node in the document.
   nsresult rv = mTextEditor->InsertNode(*mBogusNode, *body, 0);
@@ -1442,7 +1429,6 @@ TextEditRules::CreateBogusNodeIfNeeded(Selection* aSelection)
   aSelection->Collapse(body, 0);
   return NS_OK;
 }
-
 
 nsresult
 TextEditRules::TruncateInsertionIfNeeded(Selection* aSelection,
@@ -1484,15 +1470,16 @@ TextEditRules::TruncateInsertionIfNeeded(Selection* aSelection,
     }
 
     uint32_t start, end;
-    nsContentUtils::GetSelectionInTextControl(aSelection,
-                                              mTextEditor->GetRoot(),
-                                              start, end);
+    nsContentUtils::GetSelectionInTextControl(
+        aSelection, mTextEditor->GetRoot(), start, end);
 
     TextComposition* composition = mTextEditor->GetComposition();
-    uint32_t oldCompStrLength = composition ? composition->String().Length() : 0;
+    uint32_t oldCompStrLength =
+        composition ? composition->String().Length() : 0;
 
     const uint32_t selectionLength = end - start;
-    const int32_t resultingDocLength = docLength - selectionLength - oldCompStrLength;
+    const int32_t resultingDocLength =
+        docLength - selectionLength - oldCompStrLength;
     if (resultingDocLength >= aMaxLength) {
       // This call is guaranteed to reduce the capacity of the string, so it
       // cannot cause an OOM.
@@ -1533,8 +1520,7 @@ TextEditRules::ResetIMETextPWBuf()
 }
 
 void
-TextEditRules::RemoveIMETextFromPWBuf(uint32_t& aStart,
-                                      nsAString* aIMEString)
+TextEditRules::RemoveIMETextFromPWBuf(uint32_t& aStart, nsAString* aIMEString)
 {
   MOZ_ASSERT(aIMEString);
 
@@ -1585,8 +1571,8 @@ TextEditRules::HideLastPWInput()
   RefPtr<Selection> selection = mTextEditor->GetSelection();
   NS_ENSURE_TRUE(selection, NS_ERROR_NULL_POINTER);
   uint32_t start, end;
-  nsContentUtils::GetSelectionInTextControl(selection, mTextEditor->GetRoot(),
-                                            start, end);
+  nsContentUtils::GetSelectionInTextControl(
+      selection, mTextEditor->GetRoot(), start, end);
 
   nsCOMPtr<nsINode> selNode = GetTextNode(selection);
   NS_ENSURE_TRUE(selNode, NS_OK);
@@ -1603,8 +1589,7 @@ TextEditRules::HideLastPWInput()
 
 // static
 void
-TextEditRules::FillBufWithPWChars(nsAString* aOutString,
-                                  int32_t aLength)
+TextEditRules::FillBufWithPWChars(nsAString* aOutString, int32_t aLength)
 {
   MOZ_ASSERT(aOutString);
 
@@ -1633,8 +1618,8 @@ TextEditRules::CreateBRInternal(nsIDOMNode* inParent,
   // give it special moz attr
   nsCOMPtr<Element> brElem = do_QueryInterface(brNode);
   if (aMozBR && brElem) {
-    rv = mTextEditor->SetAttribute(brElem, nsGkAtoms::type,
-                                   NS_LITERAL_STRING("_moz"));
+    rv = mTextEditor->SetAttribute(
+        brElem, nsGkAtoms::type, NS_LITERAL_STRING("_moz"));
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -1645,10 +1630,7 @@ TextEditRules::CreateBRInternal(nsIDOMNode* inParent,
 }
 
 NS_IMETHODIMP
-TextEditRules::DocumentModified()
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
+TextEditRules::DocumentModified() { return NS_ERROR_NOT_IMPLEMENTED; }
 
 bool
 TextEditRules::IsPasswordEditor() const
@@ -1691,4 +1673,4 @@ TextEditRules::DontEchoPassword() const
   return mTextEditor ? mTextEditor->DontEchoPassword() : false;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

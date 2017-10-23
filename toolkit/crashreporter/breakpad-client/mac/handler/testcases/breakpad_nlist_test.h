@@ -40,19 +40,18 @@
 
 #include <CPlusTest/CPlusTest.h>
 
-class BreakpadNlistTest : public TestCase {
+class BreakpadNlistTest : public TestCase
+{
  private:
-
   // nm dumps multiple addresses for the same symbol in
   // /usr/lib/dyld. So we track those so we don't report failures
   // in mismatches between what our nlist returns and what nm has
   // for the duplicate symbols.
-  bool IsSymbolMoreThanOnceInDyld(const char *symbolName);
+  bool IsSymbolMoreThanOnceInDyld(const char* symbolName);
 
  public:
   explicit BreakpadNlistTest(TestInvocation* invocation);
   virtual ~BreakpadNlistTest();
-
 
   /* This test case runs nm on /usr/lib/dyld and then compares the
      output of every symbol to what our nlist implementation returns */

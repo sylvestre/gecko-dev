@@ -13,14 +13,13 @@
 namespace mozilla {
 namespace dom {
 
-class CSSSupportsRule : public css::ConditionRule
-                      , public nsIDOMCSSSupportsRule
+class CSSSupportsRule : public css::ConditionRule, public nsIDOMCSSSupportsRule
 {
-protected:
+ protected:
   using ConditionRule::ConditionRule;
   virtual ~CSSSupportsRule() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   int32_t GetType() const override { return css::Rule::SUPPORTS_RULE; }
@@ -45,7 +44,7 @@ public:
                        JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSSupportsRule_h
+#endif  // mozilla_dom_CSSSupportsRule_h

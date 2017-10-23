@@ -18,15 +18,15 @@ BrowseReplyRunnable::BrowseReplyRunnable(DNSServiceRef aSdRef,
                                          const nsACString& aRegType,
                                          const nsACString& aReplyDomain,
                                          BrowseOperator* aContext)
-  : Runnable("net::BrowseReplyRunnable")
-  , mSdRef(aSdRef)
-  , mFlags(aFlags)
-  , mInterfaceIndex(aInterfaceIndex)
-  , mErrorCode(aErrorCode)
-  , mServiceName(aServiceName)
-  , mRegType(aRegType)
-  , mReplyDomain(aReplyDomain)
-  , mContext(aContext)
+    : Runnable("net::BrowseReplyRunnable"),
+      mSdRef(aSdRef),
+      mFlags(aFlags),
+      mInterfaceIndex(aInterfaceIndex),
+      mErrorCode(aErrorCode),
+      mServiceName(aServiceName),
+      mRegType(aRegType),
+      mReplyDomain(aReplyDomain),
+      mContext(aContext)
 {
 }
 
@@ -84,14 +84,14 @@ RegisterReplyRunnable::RegisterReplyRunnable(DNSServiceRef aSdRef,
                                              const nsACString& aRegType,
                                              const nsACString& domain,
                                              RegisterOperator* aContext)
-  : Runnable("net::RegisterReplyRunnable")
-  , mSdRef(aSdRef)
-  , mFlags(aFlags)
-  , mErrorCode(aErrorCode)
-  , mName(aName)
-  , mRegType(aRegType)
-  , mDomain(domain)
-  , mContext(aContext)
+    : Runnable("net::RegisterReplyRunnable"),
+      mSdRef(aSdRef),
+      mFlags(aFlags),
+      mErrorCode(aErrorCode),
+      mName(aName),
+      mRegType(aRegType),
+      mDomain(domain),
+      mContext(aContext)
 {
 }
 
@@ -100,12 +100,7 @@ RegisterReplyRunnable::Run()
 {
   MOZ_ASSERT(mContext);
 
-  mContext->Reply(mSdRef,
-                  mFlags,
-                  mErrorCode,
-                  mName,
-                  mRegType,
-                  mDomain);
+  mContext->Reply(mSdRef, mFlags, mErrorCode, mName, mRegType, mDomain);
   return NS_OK;
 }
 
@@ -150,26 +145,24 @@ ResolveReplyRunnable::ResolveReplyRunnable(DNSServiceRef aSdRef,
                                            uint16_t aTxtLen,
                                            const unsigned char* aTxtRecord,
                                            ResolveOperator* aContext)
-  : Runnable("net::ResolveReplyRunnable")
-  , mSdRef(aSdRef)
-  , mFlags(aFlags)
-  , mInterfaceIndex(aInterfaceIndex)
-  , mErrorCode(aErrorCode)
-  , mFullname(aFullName)
-  , mHosttarget(aHostTarget)
-  , mPort(aPort)
-  , mTxtLen(aTxtLen)
-  , mTxtRecord(new unsigned char[aTxtLen])
-  , mContext(aContext)
+    : Runnable("net::ResolveReplyRunnable"),
+      mSdRef(aSdRef),
+      mFlags(aFlags),
+      mInterfaceIndex(aInterfaceIndex),
+      mErrorCode(aErrorCode),
+      mFullname(aFullName),
+      mHosttarget(aHostTarget),
+      mPort(aPort),
+      mTxtLen(aTxtLen),
+      mTxtRecord(new unsigned char[aTxtLen]),
+      mContext(aContext)
 {
   if (mTxtRecord) {
     memcpy(mTxtRecord.get(), aTxtRecord, aTxtLen);
   }
 }
 
-ResolveReplyRunnable::~ResolveReplyRunnable()
-{
-}
+ResolveReplyRunnable::~ResolveReplyRunnable() {}
 
 NS_IMETHODIMP
 ResolveReplyRunnable::Run()
@@ -211,54 +204,49 @@ ResolveReplyRunnable::Reply(DNSServiceRef aSdRef,
     return;
   }
 
-  thread->Dispatch(new ResolveReplyRunnable(aSdRef,
-                                            aFlags,
-                                            aInterfaceIndex,
-                                            aErrorCode,
-                                            nsCString(aFullName),
-                                            nsCString(aHostTarget),
-                                            NativeEndian::swapFromNetworkOrder(aPort),
-                                            aTxtLen,
-                                            aTxtRecord,
-                                            obj),
-                   NS_DISPATCH_NORMAL);
+  thread->Dispatch(
+      new ResolveReplyRunnable(aSdRef,
+                               aFlags,
+                               aInterfaceIndex,
+                               aErrorCode,
+                               nsCString(aFullName),
+                               nsCString(aHostTarget),
+                               NativeEndian::swapFromNetworkOrder(aPort),
+                               aTxtLen,
+                               aTxtRecord,
+                               obj),
+      NS_DISPATCH_NORMAL);
 }
 
-GetAddrInfoReplyRunnable::GetAddrInfoReplyRunnable(DNSServiceRef aSdRef,
-                                                   DNSServiceFlags aFlags,
-                                                   uint32_t aInterfaceIndex,
-                                                   DNSServiceErrorType aErrorCode,
-                                                   const nsACString& aHostName,
-                                                   const mozilla::net::NetAddr& aAddress,
-                                                   uint32_t aTTL,
-                                                   GetAddrInfoOperator* aContext)
-  : Runnable("net::GetAddrInfoReplyRunnable")
-  , mSdRef(aSdRef)
-  , mFlags(aFlags)
-  , mInterfaceIndex(aInterfaceIndex)
-  , mErrorCode(aErrorCode)
-  , mHostName(aHostName)
-  , mAddress(aAddress)
-  , mTTL(aTTL)
-  , mContext(aContext)
+GetAddrInfoReplyRunnable::GetAddrInfoReplyRunnable(
+    DNSServiceRef aSdRef,
+    DNSServiceFlags aFlags,
+    uint32_t aInterfaceIndex,
+    DNSServiceErrorType aErrorCode,
+    const nsACString& aHostName,
+    const mozilla::net::NetAddr& aAddress,
+    uint32_t aTTL,
+    GetAddrInfoOperator* aContext)
+    : Runnable("net::GetAddrInfoReplyRunnable"),
+      mSdRef(aSdRef),
+      mFlags(aFlags),
+      mInterfaceIndex(aInterfaceIndex),
+      mErrorCode(aErrorCode),
+      mHostName(aHostName),
+      mAddress(aAddress),
+      mTTL(aTTL),
+      mContext(aContext)
 {
 }
 
-GetAddrInfoReplyRunnable::~GetAddrInfoReplyRunnable()
-{
-}
+GetAddrInfoReplyRunnable::~GetAddrInfoReplyRunnable() {}
 
 NS_IMETHODIMP
 GetAddrInfoReplyRunnable::Run()
 {
   MOZ_ASSERT(mContext);
-  mContext->Reply(mSdRef,
-                  mFlags,
-                  mInterfaceIndex,
-                  mErrorCode,
-                  mHostName,
-                  mAddress,
-                  mTTL);
+  mContext->Reply(
+      mSdRef, mFlags, mInterfaceIndex, mErrorCode, mHostName, mAddress, mTTL);
   return NS_OK;
 }
 
@@ -302,5 +290,5 @@ GetAddrInfoReplyRunnable::Reply(DNSServiceRef aSdRef,
                    NS_DISPATCH_NORMAL);
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

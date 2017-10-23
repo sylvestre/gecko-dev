@@ -13,7 +13,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGMetadataElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGMetadataElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGMetadataElementBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -21,11 +21,11 @@ SVGMetadataElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 //----------------------------------------------------------------------
 // Implementation
 
-SVGMetadataElement::SVGMetadataElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGMetadataElementBase(aNodeInfo)
+SVGMetadataElement::SVGMetadataElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGMetadataElementBase(aNodeInfo)
 {
 }
-
 
 nsresult
 SVGMetadataElement::Init()
@@ -33,12 +33,10 @@ SVGMetadataElement::Init()
   return NS_OK;
 }
 
-
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGMetadataElement)
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

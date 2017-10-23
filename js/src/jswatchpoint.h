@@ -32,20 +32,19 @@ struct WatchKey {
     }
 };
 
-typedef bool
-(* JSWatchPointHandler)(JSContext* cx, JSObject* obj, jsid id, const JS::Value& old,
-                        JS::Value* newp, void* closure);
+typedef bool (*JSWatchPointHandler)(JSContext* cx, JSObject* obj, jsid id, const JS::Value& old,
+                                    JS::Value* newp, void* closure);
 
 struct Watchpoint {
     JSWatchPointHandler handler;
-    PreBarrieredObject closure;  /* This is always marked in minor GCs and so doesn't require a postbarrier. */
-    bool held;  /* true if currently running handler */
+    PreBarrieredObject
+        closure; /* This is always marked in minor GCs and so doesn't require a postbarrier. */
+    bool held;   /* true if currently running handler */
     Watchpoint(JSWatchPointHandler handler, JSObject* closure, bool held)
-      : handler(handler), closure(closure), held(held) {}
+        : handler(handler), closure(closure), held(held) {}
 };
 
-struct WatchKeyHasher
-{
+struct WatchKeyHasher {
     typedef WatchKey Lookup;
     static inline js::HashNumber hash(const Lookup& key);
 
@@ -61,12 +60,12 @@ struct WatchKeyHasher
 };
 
 class WatchpointMap {
-  public:
+   public:
     typedef HashMap<WatchKey, Watchpoint, WatchKeyHasher, SystemAllocPolicy> Map;
 
     bool init();
-    bool watch(JSContext* cx, HandleObject obj, HandleId id,
-               JSWatchPointHandler handler, HandleObject closure);
+    bool watch(JSContext* cx, HandleObject obj, HandleId id, JSWatchPointHandler handler,
+               HandleObject closure);
     void unwatch(JSObject* obj, jsid id);
     void unwatchObject(JSObject* obj);
     void clear();
@@ -82,10 +81,10 @@ class WatchpointMap {
     static void traceAll(WeakMapTracer* trc);
     void trace(WeakMapTracer* trc);
 
-  private:
+   private:
     Map map;
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* jswatchpoint_h */

@@ -18,8 +18,7 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 FormData::FormData(nsISupports* aOwner)
-  : HTMLFormSubmission(UTF_8_ENCODING, nullptr)
-  , mOwner(aOwner)
+    : HTMLFormSubmission(UTF_8_ENCODING, nullptr), mOwner(aOwner)
 {
 }
 
@@ -44,7 +43,8 @@ GetOrCreateFileCalledBlob(Blob& aBlob, ErrorResult& aRv)
 }
 
 already_AddRefed<File>
-GetBlobForFormDataStorage(Blob& aBlob, const Optional<nsAString>& aFilename,
+GetBlobForFormDataStorage(Blob& aBlob,
+                          const Optional<nsAString>& aFilename,
                           ErrorResult& aRv)
 {
   // Forcing a filename
@@ -60,7 +60,7 @@ GetBlobForFormDataStorage(Blob& aBlob, const Optional<nsAString>& aFilename,
   return GetOrCreateFileCalledBlob(aBlob, aRv);
 }
 
-} // namespace
+}  // namespace
 
 // -------------------------------------------------------------------------
 // nsISupports
@@ -81,8 +81,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(FormData)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
 
   for (uint32_t i = 0, len = tmp->mFormData.Length(); i < len; ++i) {
-    ImplCycleCollectionTraverse(cb, tmp->mFormData[i].value,
-                                "mFormData[i].GetAsBlob()", 0);
+    ImplCycleCollectionTraverse(
+        cb, tmp->mFormData[i].value, "mFormData[i].GetAsBlob()", 0);
   }
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -111,14 +111,16 @@ FormData::GetEncodedSubmission(nsIURI* aURI,
 }
 
 void
-FormData::Append(const nsAString& aName, const nsAString& aValue,
+FormData::Append(const nsAString& aName,
+                 const nsAString& aValue,
                  ErrorResult& aRv)
 {
   AddNameValuePair(aName, aValue);
 }
 
 void
-FormData::Append(const nsAString& aName, Blob& aBlob,
+FormData::Append(const nsAString& aName,
+                 Blob& aBlob,
                  const Optional<nsAString>& aFilename,
                  ErrorResult& aRv)
 {
@@ -141,7 +143,7 @@ FormData::Delete(const nsAString& aName)
 {
   // We have to use this slightly awkward for loop since uint32_t >= 0 is an
   // error for being always true.
-  for (uint32_t i = mFormData.Length(); i-- > 0; ) {
+  for (uint32_t i = mFormData.Length(); i-- > 0;) {
     if (aName.Equals(mFormData[i].name)) {
       mFormData.RemoveElementAt(i);
     }
@@ -225,7 +227,7 @@ FormData::RemoveAllOthersAndGetFirstFormDataTuple(const nsAString& aName)
   uint32_t lastFoundIndex = mFormData.Length();
   // We have to use this slightly awkward for loop since uint32_t >= 0 is an
   // error for being always true.
-  for (uint32_t i = mFormData.Length(); i-- > 0; ) {
+  for (uint32_t i = mFormData.Length(); i-- > 0;) {
     if (aName.Equals(mFormData[i].name)) {
       if (lastFoundTuple) {
         // The one we found earlier was not the first one, we can remove it.
@@ -241,7 +243,8 @@ FormData::RemoveAllOthersAndGetFirstFormDataTuple(const nsAString& aName)
 }
 
 void
-FormData::Set(const nsAString& aName, Blob& aBlob,
+FormData::Set(const nsAString& aName,
+              Blob& aBlob,
               const Optional<nsAString>& aFilename,
               ErrorResult& aRv)
 {
@@ -259,8 +262,7 @@ FormData::Set(const nsAString& aName, Blob& aBlob,
 }
 
 void
-FormData::Set(const nsAString& aName, const nsAString& aValue,
-              ErrorResult& aRv)
+FormData::Set(const nsAString& aName, const nsAString& aValue, ErrorResult& aRv)
 {
   FormDataTuple* tuple = RemoveAllOthersAndGetFirstFormDataTuple(aName);
   if (tuple) {
@@ -341,7 +343,7 @@ FormData::Append(const nsAString& aName, nsIVariant* aValue)
   if (dataType == nsIDataType::VTYPE_INTERFACE ||
       dataType == nsIDataType::VTYPE_INTERFACE_IS) {
     nsCOMPtr<nsISupports> supports;
-    nsID *iid;
+    nsID* iid;
     rv = aValue->GetAsInterface(&iid, getter_AddRefs(supports));
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -400,8 +402,10 @@ FormData::Constructor(const GlobalObject& aGlobal,
 // nsIXHRSendable
 
 NS_IMETHODIMP
-FormData::GetSendInfo(nsIInputStream** aBody, uint64_t* aContentLength,
-                      nsACString& aContentTypeWithCharset, nsACString& aCharset)
+FormData::GetSendInfo(nsIInputStream** aBody,
+                      uint64_t* aContentLength,
+                      nsACString& aContentTypeWithCharset,
+                      nsACString& aCharset)
 {
   FSMultipartFormData fs(UTF_8_ENCODING, nullptr);
 

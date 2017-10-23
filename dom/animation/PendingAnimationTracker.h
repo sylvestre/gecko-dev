@@ -18,10 +18,11 @@ namespace mozilla {
 
 class PendingAnimationTracker final
 {
-public:
+ public:
   explicit PendingAnimationTracker(nsIDocument* aDocument)
-    : mDocument(aDocument)
-  { }
+      : mDocument(aDocument)
+  {
+  }
 
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(PendingAnimationTracker)
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(PendingAnimationTracker)
@@ -68,7 +69,8 @@ public:
 
   void TriggerPendingAnimationsOnNextTick(const TimeStamp& aReadyTime);
   void TriggerPendingAnimationsNow();
-  bool HasPendingAnimations() const {
+  bool HasPendingAnimations() const
+  {
     return mPlayPendingSet.Count() > 0 || mPausePendingSet.Count() > 0;
   }
 
@@ -79,8 +81,8 @@ public:
    */
   void MarkAnimationsThatMightNeedSynchronization();
 
-private:
-  ~PendingAnimationTracker() { }
+ private:
+  ~PendingAnimationTracker() {}
 
   bool HasPlayPendingGeometricAnimations();
   void EnsurePaintIsScheduled();
@@ -96,7 +98,8 @@ private:
   AnimationSet mPausePendingSet;
   nsCOMPtr<nsIDocument> mDocument;
 
-  enum class CheckState {
+  enum class CheckState
+  {
     Indeterminate,
     Absent,
     Present
@@ -104,6 +107,6 @@ private:
   CheckState mHasPlayPendingGeometricAnimations = CheckState::Indeterminate;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_dom_PendingAnimationTracker_h
+#endif  // mozilla_dom_PendingAnimationTracker_h

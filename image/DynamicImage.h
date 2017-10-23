@@ -20,12 +20,11 @@ namespace image {
  */
 class DynamicImage : public Image
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_IMGICONTAINER
 
-  explicit DynamicImage(gfxDrawable* aDrawable)
-    : mDrawable(aDrawable)
+  explicit DynamicImage(gfxDrawable* aDrawable) : mDrawable(aDrawable)
   {
     MOZ_ASSERT(aDrawable, "Must have a gfxDrawable to wrap");
   }
@@ -35,7 +34,7 @@ public:
   size_t GetNativeSizesLength() const override;
   virtual already_AddRefed<ProgressTracker> GetProgressTracker() override;
   virtual size_t SizeOfSourceWithComputedFallback(
-                                 SizeOfState& aState) const override;
+      SizeOfState& aState) const override;
   virtual void CollectSizeOfSurfaces(nsTArray<SurfaceMemoryCounter>& aCounters,
                                      MallocSizeOf aMallocSizeOf) const override;
 
@@ -65,13 +64,13 @@ public:
 
   virtual ImageURL* GetURI() override;
 
-private:
-  virtual ~DynamicImage() { }
+ private:
+  virtual ~DynamicImage() {}
 
   RefPtr<gfxDrawable> mDrawable;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_DynamicImage_h
+#endif  // mozilla_image_DynamicImage_h

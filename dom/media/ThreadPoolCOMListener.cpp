@@ -27,4 +27,4 @@ MSCOMInitThreadPoolListener::OnThreadShuttingDown()
   return NS_OK;
 }
 
-}
+}  // namespace mozilla

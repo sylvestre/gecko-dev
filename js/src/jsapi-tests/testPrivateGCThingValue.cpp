@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,31 +10,22 @@
 #include "js/HeapAPI.h"
 #include "jsapi-tests/tests.h"
 
-class TestTracer : public JS::CallbackTracer
-{
+class TestTracer : public JS::CallbackTracer {
     void onChild(const JS::GCCellPtr& thing) override {
-        if (thing.asCell() == expectedCell && thing.kind() == expectedKind)
-            found = true;
+        if (thing.asCell() == expectedCell && thing.kind() == expectedKind) found = true;
     }
 
-  public:
+   public:
     js::gc::Cell* expectedCell;
     JS::TraceKind expectedKind;
     bool found;
 
-    explicit TestTracer(JSContext* cx)
-      : JS::CallbackTracer(cx),
-        found(false)
-    { }
+    explicit TestTracer(JSContext* cx) : JS::CallbackTracer(cx), found(false) {}
 };
 
-static const JSClass TestClass = {
-    "TestClass",
-    JSCLASS_HAS_RESERVED_SLOTS(1)
-};
+static const JSClass TestClass = {"TestClass", JSCLASS_HAS_RESERVED_SLOTS(1)};
 
-BEGIN_TEST(testPrivateGCThingValue)
-{
+BEGIN_TEST(testPrivateGCThingValue) {
     JS::RootedObject obj(cx, JS_NewObject(cx, &TestClass));
     CHECK(obj);
 

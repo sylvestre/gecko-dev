@@ -21,9 +21,7 @@ namespace jit {
 
 class TrackedOptimizations;
 
-inline unsigned
-StartArgSlot(JSScript* script)
-{
+inline unsigned StartArgSlot(JSScript* script) {
     // Reserved slots:
     // Slot 0: Environment chain.
     // Slot 1: Return value.
@@ -35,9 +33,7 @@ StartArgSlot(JSScript* script)
     return 2 + (script->argumentsHasVarBinding() ? 1 : 0);
 }
 
-inline unsigned
-CountArgSlots(JSScript* script, JSFunction* fun)
-{
+inline unsigned CountArgSlots(JSScript* script, JSFunction* fun) {
     // Slot x + 0: This value.
     // Slot x + 1: Argument 1.
     // ...
@@ -46,7 +42,6 @@ CountArgSlots(JSScript* script, JSFunction* fun)
     // Note: when updating this, please also update the assert in SnapshotWriter::startFrame
     return StartArgSlot(script) + (fun ? fun->nargs() + 1 : 0);
 }
-
 
 // The compiler at various points needs to be able to store references to the
 // current inline path (the sequence of scripts and call-pcs that lead to the
@@ -68,11 +63,13 @@ class InlineScriptTree {
     InlineScriptTree* children_;
     InlineScriptTree* nextCallee_;
 
-  public:
+   public:
     InlineScriptTree(InlineScriptTree* caller, jsbytecode* callerPc, JSScript* script)
-      : caller_(caller), callerPc_(callerPc), script_(script),
-        children_(nullptr), nextCallee_(nullptr)
-    {}
+        : caller_(caller),
+          callerPc_(callerPc),
+          script_(script),
+          children_(nullptr),
+          nextCallee_(nullptr) {}
 
     static InlineScriptTree* New(TempAllocator* allocator, InlineScriptTree* caller,
                                  jsbytecode* callerPc, JSScript* script);
@@ -80,55 +77,38 @@ class InlineScriptTree {
     InlineScriptTree* addCallee(TempAllocator* allocator, jsbytecode* callerPc,
                                 JSScript* calleeScript);
 
-    InlineScriptTree* caller() const {
-        return caller_;
-    }
+    InlineScriptTree* caller() const { return caller_; }
 
-    bool isOutermostCaller() const {
-        return caller_ == nullptr;
-    }
-    bool hasCaller() const {
-        return caller_ != nullptr;
-    }
+    bool isOutermostCaller() const { return caller_ == nullptr; }
+    bool hasCaller() const { return caller_ != nullptr; }
     InlineScriptTree* outermostCaller() {
-        if (isOutermostCaller())
-            return this;
+        if (isOutermostCaller()) return this;
         return caller_->outermostCaller();
     }
 
-    jsbytecode* callerPc() const {
-        return callerPc_;
-    }
+    jsbytecode* callerPc() const { return callerPc_; }
 
-    JSScript* script() const {
-        return script_;
-    }
+    JSScript* script() const { return script_; }
 
-    bool hasChildren() const {
-        return children_ != nullptr;
-    }
+    bool hasChildren() const { return children_ != nullptr; }
     InlineScriptTree* firstChild() const {
         MOZ_ASSERT(hasChildren());
         return children_;
     }
 
-    bool hasNextCallee() const {
-        return nextCallee_ != nullptr;
-    }
+    bool hasNextCallee() const { return nextCallee_ != nullptr; }
     InlineScriptTree* nextCallee() const {
         MOZ_ASSERT(hasNextCallee());
         return nextCallee_;
     }
 
     unsigned depth() const {
-        if (isOutermostCaller())
-            return 1;
+        if (isOutermostCaller()) return 1;
         return 1 + caller_->depth();
     }
 };
 
-class BytecodeSite : public TempObject
-{
+class BytecodeSite : public TempObject {
     // InlineScriptTree identifying innermost active function at site.
     InlineScriptTree* tree_;
 
@@ -138,42 +118,29 @@ class BytecodeSite : public TempObject
     // Optimization information at the pc.
     TrackedOptimizations* optimizations_;
 
-  public:
-    BytecodeSite()
-      : tree_(nullptr), pc_(nullptr), optimizations_(nullptr)
-    {}
+   public:
+    BytecodeSite() : tree_(nullptr), pc_(nullptr), optimizations_(nullptr) {}
 
     BytecodeSite(InlineScriptTree* tree, jsbytecode* pc)
-      : tree_(tree), pc_(pc), optimizations_(nullptr)
-    {
+        : tree_(tree), pc_(pc), optimizations_(nullptr) {
         MOZ_ASSERT(tree_ != nullptr);
         MOZ_ASSERT(pc_ != nullptr);
     }
 
-    InlineScriptTree* tree() const {
-        return tree_;
-    }
+    InlineScriptTree* tree() const { return tree_; }
 
-    jsbytecode* pc() const {
-        return pc_;
-    }
+    jsbytecode* pc() const { return pc_; }
 
-    JSScript* script() const {
-        return tree_ ? tree_->script() : nullptr;
-    }
+    JSScript* script() const { return tree_ ? tree_->script() : nullptr; }
 
-    bool hasOptimizations() const {
-        return !!optimizations_;
-    }
+    bool hasOptimizations() const { return !!optimizations_; }
 
     TrackedOptimizations* optimizations() const {
         MOZ_ASSERT(hasOptimizations());
         return optimizations_;
     }
 
-    void setOptimizations(TrackedOptimizations* optimizations) {
-        optimizations_ = optimizations;
-    }
+    void setOptimizations(TrackedOptimizations* optimizations) { optimizations_ = optimizations; }
 };
 
 enum AnalysisMode {
@@ -194,18 +161,19 @@ enum AnalysisMode {
 };
 
 // Contains information about the compilation source for IR being generated.
-class CompileInfo
-{
-  public:
+class CompileInfo {
+   public:
     CompileInfo(CompileRuntime* runtime, JSScript* script, JSFunction* fun, jsbytecode* osrPc,
                 AnalysisMode analysisMode, bool scriptNeedsArgsObj,
                 InlineScriptTree* inlineScriptTree)
-      : script_(script), fun_(fun), osrPc_(osrPc),
-        analysisMode_(analysisMode), scriptNeedsArgsObj_(scriptNeedsArgsObj),
-        hadOverflowBailout_(script->hadOverflowBailout()),
-        mayReadFrameArgsDirectly_(script->mayReadFrameArgsDirectly()),
-        inlineScriptTree_(inlineScriptTree)
-    {
+        : script_(script),
+          fun_(fun),
+          osrPc_(osrPc),
+          analysisMode_(analysisMode),
+          scriptNeedsArgsObj_(scriptNeedsArgsObj),
+          hadOverflowBailout_(script->hadOverflowBailout()),
+          mayReadFrameArgsDirectly_(script->mayReadFrameArgsDirectly()),
+          inlineScriptTree_(inlineScriptTree) {
         MOZ_ASSERT_IF(osrPc, JSOp(*osrPc) == JSOP_LOOPENTRY);
 
         // The function here can flow in from anywhere so look up the canonical
@@ -217,8 +185,8 @@ class CompileInfo
             MOZ_ASSERT(fun_->isTenured());
         }
 
-        nimplicit_ = StartArgSlot(script)                   /* env chain and argument obj */
-                   + (fun ? 1 : 0);                         /* this */
+        nimplicit_ = StartArgSlot(script) /* env chain and argument obj */
+                     + (fun ? 1 : 0);     /* this */
         nargs_ = fun ? fun->nargs() : 0;
         nlocals_ = script->nfixed();
 
@@ -235,8 +203,7 @@ class CompileInfo
         if (script->isDerivedClassConstructor()) {
             MOZ_ASSERT(script->functionHasThisBinding());
             for (BindingIter bi(script); bi; bi++) {
-                if (bi.name() != runtime->names().dotThis)
-                    continue;
+                if (bi.name() != runtime->names().dotThis) continue;
                 BindingLocation loc = bi.location();
                 if (loc.kind() == BindingLocation::Kind::Frame) {
                     thisSlotForDerivedClassConstructor_ = mozilla::Some(localSlot(loc.slot()));
@@ -251,108 +218,71 @@ class CompileInfo
     }
 
     explicit CompileInfo(unsigned nlocals)
-      : script_(nullptr), fun_(nullptr), osrPc_(nullptr),
-        analysisMode_(Analysis_None), scriptNeedsArgsObj_(false),
-        mayReadFrameArgsDirectly_(false), inlineScriptTree_(nullptr),
-        needsBodyEnvironmentObject_(false)
-    {
+        : script_(nullptr),
+          fun_(nullptr),
+          osrPc_(nullptr),
+          analysisMode_(Analysis_None),
+          scriptNeedsArgsObj_(false),
+          mayReadFrameArgsDirectly_(false),
+          inlineScriptTree_(nullptr),
+          needsBodyEnvironmentObject_(false) {
         nimplicit_ = 0;
         nargs_ = 0;
         nlocals_ = nlocals;
-        nstack_ = 1;  /* For FunctionCompiler::pushPhiInput/popPhiOutput */
+        nstack_ = 1; /* For FunctionCompiler::pushPhiInput/popPhiOutput */
         nslots_ = nlocals_ + nstack_;
     }
 
-    JSScript* script() const {
-        return script_;
-    }
-    bool compilingWasm() const {
-        return script() == nullptr;
-    }
-    JSFunction* funMaybeLazy() const {
-        return fun_;
-    }
-    ModuleObject* module() const {
-        return script_->module();
-    }
-    jsbytecode* osrPc() const {
-        return osrPc_;
-    }
-    InlineScriptTree* inlineScriptTree() const {
-        return inlineScriptTree_;
-    }
+    JSScript* script() const { return script_; }
+    bool compilingWasm() const { return script() == nullptr; }
+    JSFunction* funMaybeLazy() const { return fun_; }
+    ModuleObject* module() const { return script_->module(); }
+    jsbytecode* osrPc() const { return osrPc_; }
+    InlineScriptTree* inlineScriptTree() const { return inlineScriptTree_; }
 
     bool hasOsrAt(jsbytecode* pc) const {
         MOZ_ASSERT(JSOp(*pc) == JSOP_LOOPENTRY);
         return pc == osrPc();
     }
 
-    jsbytecode* startPC() const {
-        return script_->code();
-    }
-    jsbytecode* limitPC() const {
-        return script_->codeEnd();
-    }
+    jsbytecode* startPC() const { return script_->code(); }
+    jsbytecode* limitPC() const { return script_->codeEnd(); }
 
-    const char* filename() const {
-        return script_->filename();
-    }
+    const char* filename() const { return script_->filename(); }
 
-    unsigned lineno() const {
-        return script_->lineno();
-    }
-    unsigned lineno(jsbytecode* pc) const {
-        return PCToLineNumber(script_, pc);
-    }
+    unsigned lineno() const { return script_->lineno(); }
+    unsigned lineno(jsbytecode* pc) const { return PCToLineNumber(script_, pc); }
 
     // Script accessors based on PC.
 
-    JSAtom* getAtom(jsbytecode* pc) const {
-        return script_->getAtom(GET_UINT32_INDEX(pc));
-    }
+    JSAtom* getAtom(jsbytecode* pc) const { return script_->getAtom(GET_UINT32_INDEX(pc)); }
 
-    PropertyName* getName(jsbytecode* pc) const {
-        return script_->getName(GET_UINT32_INDEX(pc));
-    }
+    PropertyName* getName(jsbytecode* pc) const { return script_->getName(GET_UINT32_INDEX(pc)); }
 
     inline RegExpObject* getRegExp(jsbytecode* pc) const;
 
-    JSObject* getObject(jsbytecode* pc) const {
-        return script_->getObject(GET_UINT32_INDEX(pc));
-    }
+    JSObject* getObject(jsbytecode* pc) const { return script_->getObject(GET_UINT32_INDEX(pc)); }
 
     inline JSFunction* getFunction(jsbytecode* pc) const;
 
-    const Value& getConst(jsbytecode* pc) const {
-        return script_->getConst(GET_UINT32_INDEX(pc));
-    }
+    const Value& getConst(jsbytecode* pc) const { return script_->getConst(GET_UINT32_INDEX(pc)); }
 
     jssrcnote* getNote(GSNCache& gsn, jsbytecode* pc) const {
         return GetSrcNote(gsn, script(), pc);
     }
 
     // Total number of slots: args, locals, and stack.
-    unsigned nslots() const {
-        return nslots_;
-    }
+    unsigned nslots() const { return nslots_; }
 
     // Number of slots needed for env chain, return value,
     // maybe argumentsobject and this value.
-    unsigned nimplicit() const {
-        return nimplicit_;
-    }
+    unsigned nimplicit() const { return nimplicit_; }
     // Number of arguments (without counting this value).
-    unsigned nargs() const {
-        return nargs_;
-    }
+    unsigned nargs() const { return nargs_; }
     // Number of slots needed for all local variables.  This includes "fixed
     // vars" (see above) and also block-scoped locals.
-    unsigned nlocals() const {
-        return nlocals_;
-    }
-    unsigned ninvoke() const {
-        return nslots_ - nstack_;
-    }
+    unsigned nlocals() const { return nlocals_; }
+    unsigned ninvoke() const { return nslots_ - nstack_; }
 
     uint32_t environmentChainSlot() const {
         MOZ_ASSERT(script());
@@ -371,9 +301,7 @@ class CompileInfo
         MOZ_ASSERT(nimplicit_ > 0);
         return nimplicit_ - 1;
     }
-    uint32_t firstArgSlot() const {
-        return nimplicit_;
-    }
+    uint32_t firstArgSlot() const { return nimplicit_; }
     uint32_t argSlotUnchecked(uint32_t i) const {
         // During initialization, some routines need to get at arg
         // slots regardless of how regular argument access is done.
@@ -387,18 +315,10 @@ class CompileInfo
         MOZ_ASSERT(!argsObjAliasesFormals());
         return argSlotUnchecked(i);
     }
-    uint32_t firstLocalSlot() const {
-        return nimplicit_ + nargs_;
-    }
-    uint32_t localSlot(uint32_t i) const {
-        return firstLocalSlot() + i;
-    }
-    uint32_t firstStackSlot() const {
-        return firstLocalSlot() + nlocals();
-    }
-    uint32_t stackSlot(uint32_t i) const {
-        return firstStackSlot() + i;
-    }
+    uint32_t firstLocalSlot() const { return nimplicit_ + nargs_; }
+    uint32_t localSlot(uint32_t i) const { return firstLocalSlot() + i; }
+    uint32_t firstStackSlot() const { return firstLocalSlot() + nlocals(); }
+    uint32_t stackSlot(uint32_t i) const { return firstStackSlot() + i; }
 
     uint32_t startArgSlot() const {
         MOZ_ASSERT(script());
@@ -417,35 +337,22 @@ class CompileInfo
     bool isSlotAliased(uint32_t index) const {
         MOZ_ASSERT(index >= startArgSlot());
         uint32_t arg = index - firstArgSlot();
-        if (arg < nargs())
-            return script()->formalIsAliased(arg);
+        if (arg < nargs()) return script()->formalIsAliased(arg);
         return false;
     }
 
-    bool hasArguments() const {
-        return script()->argumentsHasVarBinding();
-    }
-    bool argumentsAliasesFormals() const {
-        return script()->argumentsAliasesFormals();
-    }
-    bool needsArgsObj() const {
-        return scriptNeedsArgsObj_;
-    }
+    bool hasArguments() const { return script()->argumentsHasVarBinding(); }
+    bool argumentsAliasesFormals() const { return script()->argumentsAliasesFormals(); }
+    bool needsArgsObj() const { return scriptNeedsArgsObj_; }
     bool argsObjAliasesFormals() const {
         return scriptNeedsArgsObj_ && script()->hasMappedArgsObj();
     }
 
-    AnalysisMode analysisMode() const {
-        return analysisMode_;
-    }
+    AnalysisMode analysisMode() const { return analysisMode_; }
 
-    bool isAnalysis() const {
-        return analysisMode_ != Analysis_None;
-    }
+    bool isAnalysis() const { return analysisMode_ != Analysis_None; }
 
-    bool needsBodyEnvironmentObject() const {
-        return needsBodyEnvironmentObject_;
-    }
+    bool needsBodyEnvironmentObject() const { return needsBodyEnvironmentObject_; }
 
     // Returns true if a slot can be observed out-side the current frame while
     // the frame is active on the stack.  This implies that these definitions
@@ -459,8 +366,7 @@ class CompileInfo
             return false;
         }
 
-        if (slot < firstArgSlot())
-            return isObservableFrameSlot(slot);
+        if (slot < firstArgSlot()) return isObservableFrameSlot(slot);
 
         return isObservableArgumentSlot(slot);
     }
@@ -468,15 +374,12 @@ class CompileInfo
     bool isObservableFrameSlot(uint32_t slot) const {
         // The |envChain| value must be preserved if environments are added
         // after the prologue.
-        if (needsBodyEnvironmentObject() && slot == environmentChainSlot())
-            return true;
+        if (needsBodyEnvironmentObject() && slot == environmentChainSlot()) return true;
 
-        if (!funMaybeLazy())
-            return false;
+        if (!funMaybeLazy()) return false;
 
         // The |this| value must always be observable.
-        if (slot == thisSlot())
-            return true;
+        if (slot == thisSlot()) return true;
 
         // The |this| frame slot in derived class constructors should never be
         // optimized out, as a Debugger might need to perform TDZ checks on it
@@ -499,14 +402,12 @@ class CompileInfo
     }
 
     bool isObservableArgumentSlot(uint32_t slot) const {
-        if (!funMaybeLazy())
-            return false;
+        if (!funMaybeLazy()) return false;
 
         // Function.arguments can be used to access all arguments in non-strict
         // scripts, so we can't optimize out any arguments.
-        if ((hasArguments() || !script()->strict()) &&
-            firstArgSlot() <= slot && slot - firstArgSlot() < nargs())
-        {
+        if ((hasArguments() || !script()->strict()) && firstArgSlot() <= slot &&
+            slot - firstArgSlot() < nargs()) {
             return true;
         }
 
@@ -519,35 +420,26 @@ class CompileInfo
     bool isRecoverableOperand(uint32_t slot) const {
         // The |envChain| value cannot be recovered if environments can be
         // added in body (after the prologue).
-        if (needsBodyEnvironmentObject() && slot == environmentChainSlot())
-            return false;
+        if (needsBodyEnvironmentObject() && slot == environmentChainSlot()) return false;
 
-        if (!funMaybeLazy())
-            return true;
+        if (!funMaybeLazy()) return true;
 
         // The |this| and the |envChain| values can be recovered.
-        if (slot == thisSlot() || slot == environmentChainSlot())
-            return true;
+        if (slot == thisSlot() || slot == environmentChainSlot()) return true;
 
-        if (isObservableFrameSlot(slot))
-            return false;
+        if (isObservableFrameSlot(slot)) return false;
 
-        if (needsArgsObj() && isObservableArgumentSlot(slot))
-            return false;
+        if (needsArgsObj() && isObservableArgumentSlot(slot)) return false;
 
         return true;
     }
 
     // Check previous bailout states to prevent doing the same bailout in the
     // next compilation.
-    bool hadOverflowBailout() const {
-        return hadOverflowBailout_;
-    }
-    bool mayReadFrameArgsDirectly() const {
-        return mayReadFrameArgsDirectly_;
-    }
+    bool hadOverflowBailout() const { return hadOverflowBailout_; }
+    bool mayReadFrameArgsDirectly() const { return mayReadFrameArgsDirectly_; }
 
-  private:
+   private:
     unsigned nimplicit_;
     unsigned nargs_;
     unsigned nlocals_;
@@ -577,7 +469,7 @@ class CompileInfo
     bool needsBodyEnvironmentObject_;
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_CompileInfo_h */

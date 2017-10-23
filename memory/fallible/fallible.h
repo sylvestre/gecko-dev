@@ -50,7 +50,9 @@
  */
 namespace mozilla {
 
-struct fallible_t { };
+struct fallible_t
+{
+};
 
 /* This symbol is kept unexported, such that in corner cases where the
  * compiler can't remove its use (essentially, cross compilation-unit
@@ -61,8 +63,8 @@ struct fallible_t { };
  */
 extern const fallible_t fallible;
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif
 
-#endif // mozilla_fallible_h
+#endif  // mozilla_fallible_h

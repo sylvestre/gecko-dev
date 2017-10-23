@@ -42,12 +42,14 @@ NS_IMPL_ADDREF_INHERITED(IDBWrapperCache, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(IDBWrapperCache, DOMEventTargetHelper)
 
 IDBWrapperCache::IDBWrapperCache(DOMEventTargetHelper* aOwner)
-  : DOMEventTargetHelper(aOwner), mScriptOwner(nullptr)
-{ }
+    : DOMEventTargetHelper(aOwner), mScriptOwner(nullptr)
+{
+}
 
 IDBWrapperCache::IDBWrapperCache(nsPIDOMWindowInner* aOwner)
-  : DOMEventTargetHelper(aOwner), mScriptOwner(nullptr)
-{ }
+    : DOMEventTargetHelper(aOwner), mScriptOwner(nullptr)
+{
+}
 
 IDBWrapperCache::~IDBWrapperCache()
 {
@@ -74,5 +76,5 @@ IDBWrapperCache::AssertIsRooted() const
 }
 #endif
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -17,16 +17,17 @@
 
 namespace mozilla {
 
-template <int V> class FFmpegDecoderModule
+template<int V>
+class FFmpegDecoderModule
 {
-public:
+ public:
   static already_AddRefed<PlatformDecoderModule> Create(FFmpegLibWrapper*);
 };
 
 static FFmpegLibWrapper sFFVPXLib;
 
 FFVPXRuntimeLinker::LinkStatus FFVPXRuntimeLinker::sLinkStatus =
-  LinkStatus_INIT;
+    LinkStatus_INIT;
 
 static PRLibrary*
 MozAVLink(const char* aName)
@@ -56,9 +57,8 @@ FFVPXRuntimeLinker::Init()
   if (!lgpllibsname) {
     return false;
   }
-  char* path =
-    PR_GetLibraryFilePathname(lgpllibsname,
-                              (PRFuncPtr)&soundtouch::SoundTouch::getVersionId);
+  char* path = PR_GetLibraryFilePathname(
+      lgpllibsname, (PRFuncPtr)&soundtouch::SoundTouch::getVersionId);
   PR_FreeLibraryName(lgpllibsname);
   if (!path) {
     return false;
@@ -66,10 +66,10 @@ FFVPXRuntimeLinker::Init()
   nsCOMPtr<nsIFile> xulFile = do_CreateInstance(NS_LOCAL_FILE_CONTRACTID);
   if (!xulFile ||
       NS_FAILED(xulFile->InitWithNativePath(nsDependentCString(path)))) {
-    PR_Free(path); // PR_GetLibraryFilePathname() uses PR_Malloc().
+    PR_Free(path);  // PR_GetLibraryFilePathname() uses PR_Malloc().
     return false;
   }
-  PR_Free(path); // PR_GetLibraryFilePathname() uses PR_Malloc().
+  PR_Free(path);  // PR_GetLibraryFilePathname() uses PR_Malloc().
 
   nsCOMPtr<nsIFile> rootDir;
   if (NS_FAILED(xulFile->GetParent(getter_AddRefs(rootDir))) || !rootDir) {
@@ -109,4 +109,4 @@ FFVPXRuntimeLinker::CreateDecoderModule()
   return FFmpegDecoderModule<FFVPX_VERSION>::Create(&sFFVPXLib);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

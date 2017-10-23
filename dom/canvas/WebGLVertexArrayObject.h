@@ -18,25 +18,24 @@ namespace dom {
  * is an instance of WebGLVertexArrayObject (to match the WebGL 2
  * spec.)
  */
-class WebGLVertexArrayObject final
-  : public WebGLVertexArrayGL
+class WebGLVertexArrayObject final : public WebGLVertexArrayGL
 {
-public:
+ public:
   static WebGLVertexArray* Create(WebGLContext* webgl);
 
-  virtual JSObject* WrapObject(JSContext* cx, JS::Handle<JSObject*> givenProto) override;
+  virtual JSObject* WrapObject(JSContext* cx,
+                               JS::Handle<JSObject*> givenProto) override;
 
-private:
+ private:
   explicit WebGLVertexArrayObject(WebGLContext* webgl)
-    : WebGLVertexArrayGL(webgl)
-  { }
-
-  ~WebGLVertexArrayObject() {
-    DeleteOnce();
+      : WebGLVertexArrayGL(webgl)
+  {
   }
+
+  ~WebGLVertexArrayObject() { DeleteOnce(); }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // !mozilla_dom_WebGLVertexArrayObject_h
+#endif  // !mozilla_dom_WebGLVertexArrayObject_h

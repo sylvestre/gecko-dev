@@ -20,16 +20,16 @@ struct JSRuntime;
 class JSScript;
 
 namespace js {
-    class Activation;
-    namespace jit {
-        class JitActivation;
-        class JSJitProfilingFrameIterator;
-        class JitcodeGlobalEntry;
-    } // namespace jit
-    namespace wasm {
-        class ProfilingFrameIterator;
-    } // namespace wasm
-} // namespace js
+class Activation;
+namespace jit {
+class JitActivation;
+class JSJitProfilingFrameIterator;
+class JitcodeGlobalEntry;
+}  // namespace jit
+namespace wasm {
+class ProfilingFrameIterator;
+}  // namespace wasm
+}  // namespace js
 
 namespace JS {
 
@@ -46,107 +46,112 @@ struct ForEachTrackedOptimizationTypeInfoOp;
 // contents to become out of date.
 class MOZ_NON_PARAM JS_PUBLIC_API(ProfilingFrameIterator)
 {
-  public:
-    enum class Kind : bool {
-        JSJit,
-        Wasm
-    };
+ public:
+  enum class Kind : bool
+  {
+    JSJit,
+    Wasm
+  };
 
-  private:
-    JSContext* cx_;
-    uint32_t sampleBufferGen_;
-    js::Activation* activation_;
-    Kind kind_;
+ private:
+  JSContext* cx_;
+  uint32_t sampleBufferGen_;
+  js::Activation* activation_;
+  Kind kind_;
 
-    static const unsigned StorageSpace = 8 * sizeof(void*);
-    alignas(void*) unsigned char storage_[StorageSpace];
+  static const unsigned StorageSpace = 8 * sizeof(void*);
+  alignas(void*) unsigned char storage_[StorageSpace];
 
-    void* storage() { return storage_; }
-    const void* storage() const { return storage_; }
+  void* storage() { return storage_; }
+  const void* storage() const { return storage_; }
 
-    js::wasm::ProfilingFrameIterator& wasmIter() {
-        MOZ_ASSERT(!done());
-        MOZ_ASSERT(isWasm());
-        return *static_cast<js::wasm::ProfilingFrameIterator*>(storage());
-    }
-    const js::wasm::ProfilingFrameIterator& wasmIter() const {
-        MOZ_ASSERT(!done());
-        MOZ_ASSERT(isWasm());
-        return *static_cast<const js::wasm::ProfilingFrameIterator*>(storage());
-    }
+  js::wasm::ProfilingFrameIterator& wasmIter()
+  {
+    MOZ_ASSERT(!done());
+    MOZ_ASSERT(isWasm());
+    return *static_cast<js::wasm::ProfilingFrameIterator*>(storage());
+  }
+  const js::wasm::ProfilingFrameIterator& wasmIter() const
+  {
+    MOZ_ASSERT(!done());
+    MOZ_ASSERT(isWasm());
+    return *static_cast<const js::wasm::ProfilingFrameIterator*>(storage());
+  }
 
-    js::jit::JSJitProfilingFrameIterator& jsJitIter() {
-        MOZ_ASSERT(!done());
-        MOZ_ASSERT(isJSJit());
-        return *static_cast<js::jit::JSJitProfilingFrameIterator*>(storage());
-    }
+  js::jit::JSJitProfilingFrameIterator& jsJitIter()
+  {
+    MOZ_ASSERT(!done());
+    MOZ_ASSERT(isJSJit());
+    return *static_cast<js::jit::JSJitProfilingFrameIterator*>(storage());
+  }
 
-    const js::jit::JSJitProfilingFrameIterator& jsJitIter() const {
-        MOZ_ASSERT(!done());
-        MOZ_ASSERT(isJSJit());
-        return *static_cast<const js::jit::JSJitProfilingFrameIterator*>(storage());
-    }
+  const js::jit::JSJitProfilingFrameIterator& jsJitIter() const
+  {
+    MOZ_ASSERT(!done());
+    MOZ_ASSERT(isJSJit());
+    return *static_cast<const js::jit::JSJitProfilingFrameIterator*>(storage());
+  }
 
-    void settleFrames();
-    void settle();
+  void settleFrames();
+  void settle();
 
-    bool hasSampleBufferGen() const {
-        return sampleBufferGen_ != UINT32_MAX;
-    }
+  bool hasSampleBufferGen() const { return sampleBufferGen_ != UINT32_MAX; }
 
-  public:
-    struct RegisterState
-    {
-        RegisterState() : pc(nullptr), sp(nullptr), fp(nullptr), lr(nullptr) {}
-        void* pc;
-        void* sp;
-        void* fp;
-        void* lr;
-    };
+ public:
+  struct RegisterState
+  {
+    RegisterState() : pc(nullptr), sp(nullptr), fp(nullptr), lr(nullptr) {}
+    void* pc;
+    void* sp;
+    void* fp;
+    void* lr;
+  };
 
-    ProfilingFrameIterator(JSContext* cx, const RegisterState& state,
-                           uint32_t sampleBufferGen = UINT32_MAX);
-    ~ProfilingFrameIterator();
-    void operator++();
-    bool done() const { return !activation_; }
+  ProfilingFrameIterator(JSContext* cx,
+                         const RegisterState& state,
+                         uint32_t sampleBufferGen = UINT32_MAX);
+  ~ProfilingFrameIterator();
+  void operator++();
+  bool done() const { return !activation_; }
 
-    // Assuming the stack grows down (we do), the return value:
-    //  - always points into the stack
-    //  - is weakly monotonically increasing (may be equal for successive frames)
-    //  - will compare greater than newer native and psuedo-stack frame addresses
-    //    and less than older native and psuedo-stack frame addresses
-    void* stackAddress() const;
+  // Assuming the stack grows down (we do), the return value:
+  //  - always points into the stack
+  //  - is weakly monotonically increasing (may be equal for successive frames)
+  //  - will compare greater than newer native and psuedo-stack frame addresses
+  //    and less than older native and psuedo-stack frame addresses
+  void* stackAddress() const;
 
-    enum FrameKind
-    {
-      Frame_Baseline,
-      Frame_Ion,
-      Frame_Wasm
-    };
+  enum FrameKind
+  {
+    Frame_Baseline,
+    Frame_Ion,
+    Frame_Wasm
+  };
 
-    struct Frame
-    {
-        FrameKind kind;
-        void* stackAddress;
-        void* returnAddress;
-        void* activation;
-        const char* label;
-    } JS_HAZ_GC_INVALIDATED;
+  struct Frame
+  {
+    FrameKind kind;
+    void* stackAddress;
+    void* returnAddress;
+    void* activation;
+    const char* label;
+  } JS_HAZ_GC_INVALIDATED;
 
-    bool isWasm() const;
-    bool isJSJit() const;
+  bool isWasm() const;
+  bool isJSJit() const;
 
-    uint32_t extractStack(Frame* frames, uint32_t offset, uint32_t end) const;
+  uint32_t extractStack(Frame* frames, uint32_t offset, uint32_t end) const;
 
-    mozilla::Maybe<Frame> getPhysicalFrameWithoutLabel() const;
+  mozilla::Maybe<Frame> getPhysicalFrameWithoutLabel() const;
 
-  private:
-    mozilla::Maybe<Frame> getPhysicalFrameAndEntry(js::jit::JitcodeGlobalEntry* entry) const;
+ private:
+  mozilla::Maybe<Frame> getPhysicalFrameAndEntry(
+      js::jit::JitcodeGlobalEntry* entry) const;
 
-    void iteratorConstruct(const RegisterState& state);
-    void iteratorConstruct();
-    void iteratorDestroy();
-    bool iteratorDone();
+  void iteratorConstruct(const RegisterState& state);
+  void iteratorConstruct();
+  void iteratorDestroy();
+  bool iteratorDone();
 } JS_HAZ_GC_INVALIDATED;
 
 JS_FRIEND_API(bool)
@@ -161,53 +166,59 @@ IsProfilingEnabledForContext(JSContext* cx);
  * JSRuntime for documentation about what these values are used for.
  */
 JS_FRIEND_API(void)
-UpdateJSContextProfilerSampleBufferGen(JSContext* cx, uint32_t generation,
+UpdateJSContextProfilerSampleBufferGen(JSContext* cx,
+                                       uint32_t generation,
                                        uint32_t lapCount);
 
 struct ForEachProfiledFrameOp
 {
-    // A handle to the underlying JitcodeGlobalEntry, so as to avoid repeated
-    // lookups on JitcodeGlobalTable.
-    class MOZ_STACK_CLASS FrameHandle
-    {
-        friend JS_PUBLIC_API(void) ForEachProfiledFrame(JSContext* cx, void* addr,
-                                                        ForEachProfiledFrameOp& op);
+  // A handle to the underlying JitcodeGlobalEntry, so as to avoid repeated
+  // lookups on JitcodeGlobalTable.
+  class MOZ_STACK_CLASS FrameHandle
+  {
+    friend JS_PUBLIC_API(void) ForEachProfiledFrame(JSContext* cx,
+                                                    void* addr,
+                                                    ForEachProfiledFrameOp& op);
 
-        JSRuntime* rt_;
-        js::jit::JitcodeGlobalEntry& entry_;
-        void* addr_;
-        void* canonicalAddr_;
-        const char* label_;
-        uint32_t depth_;
-        mozilla::Maybe<uint8_t> optsIndex_;
+    JSRuntime* rt_;
+    js::jit::JitcodeGlobalEntry& entry_;
+    void* addr_;
+    void* canonicalAddr_;
+    const char* label_;
+    uint32_t depth_;
+    mozilla::Maybe<uint8_t> optsIndex_;
 
-        FrameHandle(JSRuntime* rt, js::jit::JitcodeGlobalEntry& entry, void* addr,
-                    const char* label, uint32_t depth);
+    FrameHandle(JSRuntime* rt,
+                js::jit::JitcodeGlobalEntry& entry,
+                void* addr,
+                const char* label,
+                uint32_t depth);
 
-        void updateHasTrackedOptimizations();
+    void updateHasTrackedOptimizations();
 
-      public:
-        const char* label() const { return label_; }
-        uint32_t depth() const { return depth_; }
-        bool hasTrackedOptimizations() const { return optsIndex_.isSome(); }
-        void* canonicalAddress() const { return canonicalAddr_; }
+   public:
+    const char* label() const { return label_; }
+    uint32_t depth() const { return depth_; }
+    bool hasTrackedOptimizations() const { return optsIndex_.isSome(); }
+    void* canonicalAddress() const { return canonicalAddr_; }
 
-        JS_PUBLIC_API(ProfilingFrameIterator::FrameKind) frameKind() const;
-        JS_PUBLIC_API(void) forEachOptimizationAttempt(ForEachTrackedOptimizationAttemptOp& op,
-                                                       JSScript** scriptOut,
-                                                       jsbytecode** pcOut) const;
+    JS_PUBLIC_API(ProfilingFrameIterator::FrameKind) frameKind() const;
+    JS_PUBLIC_API(void)
+    forEachOptimizationAttempt(ForEachTrackedOptimizationAttemptOp& op,
+                               JSScript** scriptOut,
+                               jsbytecode** pcOut) const;
 
-        JS_PUBLIC_API(void)
-        forEachOptimizationTypeInfo(ForEachTrackedOptimizationTypeInfoOp& op) const;
-    };
+    JS_PUBLIC_API(void)
+    forEachOptimizationTypeInfo(ForEachTrackedOptimizationTypeInfoOp& op) const;
+  };
 
-    // Called once per frame.
-    virtual void operator()(const FrameHandle& frame) = 0;
+  // Called once per frame.
+  virtual void operator()(const FrameHandle& frame) = 0;
 };
 
 JS_PUBLIC_API(void)
 ForEachProfiledFrame(JSContext* cx, void* addr, ForEachProfiledFrameOp& op);
 
-} // namespace JS
+}  // namespace JS
 
-#endif  /* js_ProfilingFrameIterator_h */
+#endif /* js_ProfilingFrameIterator_h */

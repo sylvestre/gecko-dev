@@ -45,8 +45,8 @@ hunspell_fopen_readahead(const char* filename, const char* mode)
   // filename is obtained via the nsIFile::nativePath attribute, so
   // it is using the Windows ANSI code page, NOT UTF-8!
   nsAutoString utf16Filename;
-  nsresult rv = NS_CopyNativeToUnicode(nsDependentCString(filename),
-                                       utf16Filename);
+  nsresult rv =
+      NS_CopyNativeToUnicode(nsDependentCString(filename), utf16Filename);
   if (NS_FAILED(rv)) {
     return nullptr;
   }
@@ -84,4 +84,3 @@ hunspell_fopen_readahead(const char* filename, const char* mode)
 #define fopen(filename, mode) hunspell_fopen_readahead(filename, mode)
 
 #endif /* fopen_hooks_h__ */
-

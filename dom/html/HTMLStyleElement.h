@@ -21,8 +21,9 @@ class HTMLStyleElement final : public nsGenericHTMLElement,
                                public nsStyleLinkElement,
                                public nsStubMutationObserver
 {
-public:
-  explicit HTMLStyleElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLStyleElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -36,18 +37,21 @@ public:
   virtual void SetInnerHTML(const nsAString& aInnerHTML,
                             mozilla::ErrorResult& aError) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
   virtual void UnbindFromTree(bool aDeep = true,
                               bool aNullParent = true) override;
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // nsIMutationObserver
@@ -58,37 +62,30 @@ public:
 
   bool Disabled();
   void SetDisabled(bool aDisabled);
-  void GetMedia(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::media, aValue);
-  }
+  void GetMedia(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::media, aValue); }
   void SetMedia(const nsAString& aMedia, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::media, aMedia, aError);
   }
-  void GetType(nsAString& aValue)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aValue);
-  }
+  void GetType(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::type, aValue); }
   void SetType(const nsAString& aType, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::type, aType, aError);
   }
-  bool Scoped()
-  {
-    return GetBoolAttr(nsGkAtoms::scoped);
-  }
+  bool Scoped() { return GetBoolAttr(nsGkAtoms::scoped); }
   void SetScoped(bool aScoped, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::scoped, aScoped, aError);
   }
 
-  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
+ protected:
   virtual ~HTMLStyleElement();
 
-  already_AddRefed<nsIURI> GetStyleSheetURL(bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) override;
+  already_AddRefed<nsIURI> GetStyleSheetURL(
+      bool* aIsInline, nsIPrincipal** aTriggeringPrincipal) override;
   void GetStyleSheetInfo(nsAString& aTitle,
                          nsAString& aType,
                          nsAString& aMedia,
@@ -102,8 +99,7 @@ protected:
   void ContentChanged(nsIContent* aContent);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-

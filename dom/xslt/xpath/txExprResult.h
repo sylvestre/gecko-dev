@@ -22,110 +22,104 @@
 
 class txAExprResult
 {
-public:
-    friend class txResultRecycler;
+ public:
+  friend class txResultRecycler;
 
-    // Update txLiteralExpr::getReturnType and sTypes in txEXSLTFunctions.cpp if
-    // this enum is changed.
-    enum ResultType {
-        NODESET = 0,
-        BOOLEAN,
-        NUMBER,
-        STRING,
-        RESULT_TREE_FRAGMENT
-    };
+  // Update txLiteralExpr::getReturnType and sTypes in txEXSLTFunctions.cpp if
+  // this enum is changed.
+  enum ResultType
+  {
+    NODESET = 0,
+    BOOLEAN,
+    NUMBER,
+    STRING,
+    RESULT_TREE_FRAGMENT
+  };
 
-    explicit txAExprResult(txResultRecycler* aRecycler) : mRecycler(aRecycler)
-    {
-    }
-    virtual ~txAExprResult()
-    {
-    }
+  explicit txAExprResult(txResultRecycler* aRecycler) : mRecycler(aRecycler) {}
+  virtual ~txAExprResult() {}
 
-    void AddRef()
-    {
-        ++mRefCnt;
-        NS_LOG_ADDREF(this, mRefCnt, "txAExprResult", sizeof(*this));
-    }
+  void AddRef()
+  {
+    ++mRefCnt;
+    NS_LOG_ADDREF(this, mRefCnt, "txAExprResult", sizeof(*this));
+  }
 
-    void Release(); // Implemented in txResultRecycler.cpp
+  void Release();  // Implemented in txResultRecycler.cpp
 
-    /**
+  /**
      * Returns the type of ExprResult represented
      * @return the type of ExprResult represented
     **/
-    virtual short getResultType()      = 0;
+  virtual short getResultType() = 0;
 
-    /**
+  /**
      * Creates a String representation of this ExprResult
      * @param aResult the destination string to append the String
      *                representation to.
     **/
-    virtual void stringValue(nsString& aResult) = 0;
+  virtual void stringValue(nsString& aResult) = 0;
 
-    /**
+  /**
      * Returns a pointer to the stringvalue if possible. Otherwise null is
      * returned.
      */
-    virtual const nsString* stringValuePointer() = 0;
+  virtual const nsString* stringValuePointer() = 0;
 
-    /**
+  /**
      * Converts this ExprResult to a Boolean (bool) value
      * @return the Boolean value
     **/
-    virtual bool booleanValue()          = 0;
+  virtual bool booleanValue() = 0;
 
-    /**
+  /**
      * Converts this ExprResult to a Number (double) value
      * @return the Number value
     **/
-    virtual double numberValue()          = 0;
+  virtual double numberValue() = 0;
 
-private:
-    nsAutoRefCnt mRefCnt;
-    RefPtr<txResultRecycler> mRecycler;
+ private:
+  nsAutoRefCnt mRefCnt;
+  RefPtr<txResultRecycler> mRecycler;
 };
 
-#define TX_DECL_EXPRRESULT                                        \
-    virtual short getResultType();                                \
-    virtual void stringValue(nsString& aString);                  \
-    virtual const nsString* stringValuePointer();                 \
-    virtual bool booleanValue();                                \
-    virtual double numberValue();                                 \
+#define TX_DECL_EXPRRESULT                      \
+  virtual short getResultType();                \
+  virtual void stringValue(nsString& aString);  \
+  virtual const nsString* stringValuePointer(); \
+  virtual bool booleanValue();                  \
+  virtual double numberValue();
 
+class BooleanResult : public txAExprResult
+{
+ public:
+  explicit BooleanResult(bool aValue);
 
-class BooleanResult : public txAExprResult {
+  TX_DECL_EXPRRESULT
 
-public:
-    explicit BooleanResult(bool aValue);
-
-    TX_DECL_EXPRRESULT
-
-private:
-    bool value;
+ private:
+  bool value;
 };
 
-class NumberResult : public txAExprResult {
+class NumberResult : public txAExprResult
+{
+ public:
+  NumberResult(double aValue, txResultRecycler* aRecycler);
 
-public:
-    NumberResult(double aValue, txResultRecycler* aRecycler);
+  TX_DECL_EXPRRESULT
 
-    TX_DECL_EXPRRESULT
-
-    double value;
-
+  double value;
 };
 
+class StringResult : public txAExprResult
+{
+ public:
+  explicit StringResult(txResultRecycler* aRecycler);
+  StringResult(const nsAString& aValue, txResultRecycler* aRecycler);
 
-class StringResult : public txAExprResult {
-public:
-    explicit StringResult(txResultRecycler* aRecycler);
-    StringResult(const nsAString& aValue, txResultRecycler* aRecycler);
+  TX_DECL_EXPRRESULT
 
-    TX_DECL_EXPRRESULT
-
-    nsString mValue;
+  nsString mValue;
 };
 
 #endif
-

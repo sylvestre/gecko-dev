@@ -28,12 +28,13 @@ namespace mozilla {
  */
 class HangDetails
 {
-public:
+ public:
   HangDetails()
-    : mDuration(0)
-    , mProcess(GeckoProcessType_Invalid)
-    , mRemoteType(VoidString())
-  {}
+      : mDuration(0),
+        mProcess(GeckoProcessType_Invalid),
+        mRemoteType(VoidString())
+  {
+  }
 
   HangDetails(const HangDetails& aOther) = default;
   HangDetails(HangDetails&& aOther) = default;
@@ -43,14 +44,15 @@ public:
               const nsACString& aRunnableName,
               HangStack&& aStack,
               HangMonitor::HangAnnotations&& aAnnotations)
-    : mDuration(aDuration)
-    , mProcess(aProcess)
-    , mRemoteType(VoidString())
-    , mThreadName(aThreadName)
-    , mRunnableName(aRunnableName)
-    , mStack(Move(aStack))
-    , mAnnotations(Move(aAnnotations))
-  {}
+      : mDuration(aDuration),
+        mProcess(aProcess),
+        mRemoteType(VoidString()),
+        mThreadName(aThreadName),
+        mRunnableName(aRunnableName),
+        mStack(Move(aStack)),
+        mAnnotations(Move(aAnnotations))
+  {
+  }
 
   uint32_t mDuration;
   GeckoProcessType mProcess;
@@ -70,20 +72,18 @@ public:
  */
 class nsHangDetails : public nsIHangDetails
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIHANGDETAILS
 
-  explicit nsHangDetails(HangDetails&& aDetails)
-    : mDetails(Move(aDetails))
-  {}
+  explicit nsHangDetails(HangDetails&& aDetails) : mDetails(Move(aDetails)) {}
 
   // Submit these HangDetails to the main thread. This will dispatch a runnable
   // to the main thread which will fire off the bhr-thread-hang observer
   // notification with this HangDetails as the subject.
   void Submit();
 
-private:
+ private:
   virtual ~nsHangDetails() {}
 
   HangDetails mDetails;
@@ -99,19 +99,19 @@ private:
  */
 class ProcessHangStackRunnable final : public Runnable
 {
-public:
+ public:
   explicit ProcessHangStackRunnable(HangDetails&& aHangDetails)
-    : Runnable("ProcessHangStackRunnable")
-    , mHangDetails(Move(aHangDetails))
-  {}
+      : Runnable("ProcessHangStackRunnable"), mHangDetails(Move(aHangDetails))
+  {
+  }
 
   NS_IMETHOD Run() override;
 
-private:
+ private:
   HangDetails mHangDetails;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 // We implement the ability to send the HangDetails object over IPC. We need to
 // do this rather than rely on StructuredClone of the objects created by the
@@ -122,7 +122,7 @@ namespace IPC {
 template<>
 class ParamTraits<mozilla::HangDetails>
 {
-public:
+ public:
   typedef mozilla::HangDetails paramType;
   static void Write(Message* aMsg, const paramType& aParam);
   static bool Read(const Message* aMsg,
@@ -130,6 +130,6 @@ public:
                    paramType* aResult);
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_HangDetails_h
+#endif  // mozilla_HangDetails_h

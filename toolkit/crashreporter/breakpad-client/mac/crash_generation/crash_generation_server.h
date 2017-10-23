@@ -41,32 +41,35 @@ namespace google_breakpad {
 class ClientInfo;
 
 // Messages the server can read via its mach port
-enum {
-  kDumpRequestMessage     = 1,
+enum
+{
+  kDumpRequestMessage = 1,
   kAcknowledgementMessage = 2,
-  kQuitMessage            = 3
+  kQuitMessage = 3
 };
 
 // Exception details sent by the client when requesting a dump.
-struct ExceptionInfo {
+struct ExceptionInfo
+{
   int32_t exception_type;
   int32_t exception_code;
   int32_t exception_subcode;
 };
 
-class CrashGenerationServer {
+class CrashGenerationServer
+{
  public:
   // WARNING: callbacks may be invoked on a different thread
   // than that which creates the CrashGenerationServer.  They must
   // be thread safe.
-  typedef void (*OnClientDumpRequestCallback)(void *context,
-                                              const ClientInfo &client_info,
-                                              const std::string &file_path);
+  typedef void (*OnClientDumpRequestCallback)(void* context,
+                                              const ClientInfo& client_info,
+                                              const std::string& file_path);
 
-  typedef void (*OnClientExitingCallback)(void *context,
-                                          const ClientInfo &client_info);
+  typedef void (*OnClientExitingCallback)(void* context,
+                                          const ClientInfo& client_info);
   // If a FilterCallback returns false, the dump will not be written.
-  typedef bool (*FilterCallback)(void *context);
+  typedef bool (*FilterCallback)(void* context);
 
   // Create an instance with the given parameters.
   //
@@ -83,15 +86,15 @@ class CrashGenerationServer {
   //     passed for this parameter.
   // dump_path: Path for generating dumps; required only if true is
   //     passed for generateDumps parameter; NULL can be passed otherwise.
-  CrashGenerationServer(const char *mach_port_name,
+  CrashGenerationServer(const char* mach_port_name,
                         FilterCallback filter,
-                        void *filter_context,
+                        void* filter_context,
                         OnClientDumpRequestCallback dump_callback,
-                        void *dump_context,
+                        void* dump_context,
                         OnClientExitingCallback exit_callback,
-                        void *exit_context,
+                        void* exit_context,
                         bool generate_dumps,
-                        const std::string &dump_path);
+                        const std::string& dump_path);
 
   ~CrashGenerationServer();
 
@@ -105,24 +108,24 @@ class CrashGenerationServer {
 
  private:
   // Return a unique filename at which a minidump can be written.
-  bool MakeMinidumpFilename(std::string &outFilename);
+  bool MakeMinidumpFilename(std::string& outFilename);
 
   // Loop reading client messages and responding to them until
   // a quit message is received.
-  static void *WaitForMessages(void *server);
+  static void* WaitForMessages(void* server);
 
   // Wait for a single client message and respond to it. Returns false
   // if a quit message was received or if an error occurred.
   bool WaitForOneMessage();
 
   FilterCallback filter_;
-  void *filter_context_;
+  void* filter_context_;
 
   OnClientDumpRequestCallback dump_callback_;
-  void *dump_context_;
+  void* dump_context_;
 
   OnClientExitingCallback exit_callback_;
-  void *exit_context_;
+  void* exit_context_;
 
   bool generate_dumps_;
 

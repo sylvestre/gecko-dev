@@ -13,7 +13,7 @@
 #include "gfxRect.h"
 #include "gfxTextRun.h"
 #include "nsAutoPtr.h"
-#include "nsIContent.h" // for GetContent
+#include "nsIContent.h"  // for GetContent
 #include "nsStubMutationObserver.h"
 #include "nsSVGContainerFrame.h"
 
@@ -34,7 +34,7 @@ class TextRenderedRunIterator;
 namespace dom {
 class SVGIRect;
 class SVGPathElement;
-} // namespace dom
+}  // namespace dom
 
 /**
  * Information about the positioning for a single character in an SVG <text>
@@ -46,23 +46,23 @@ class SVGPathElement;
 struct CharPosition
 {
   CharPosition()
-    : mAngle(0),
-      mHidden(false),
-      mUnaddressable(false),
-      mClusterOrLigatureGroupMiddle(false),
-      mRunBoundary(false),
-      mStartOfChunk(false)
+      : mAngle(0),
+        mHidden(false),
+        mUnaddressable(false),
+        mClusterOrLigatureGroupMiddle(false),
+        mRunBoundary(false),
+        mStartOfChunk(false)
   {
   }
 
   CharPosition(gfxPoint aPosition, double aAngle)
-    : mPosition(aPosition),
-      mAngle(aAngle),
-      mHidden(false),
-      mUnaddressable(false),
-      mClusterOrLigatureGroupMiddle(false),
-      mRunBoundary(false),
-      mStartOfChunk(false)
+      : mPosition(aPosition),
+        mAngle(aAngle),
+        mHidden(false),
+        mUnaddressable(false),
+        mClusterOrLigatureGroupMiddle(false),
+        mRunBoundary(false),
+        mStartOfChunk(false)
   {
   }
 
@@ -73,20 +73,11 @@ struct CharPosition
     return cp;
   }
 
-  bool IsAngleSpecified() const
-  {
-    return mAngle != UnspecifiedAngle();
-  }
+  bool IsAngleSpecified() const { return mAngle != UnspecifiedAngle(); }
 
-  bool IsXSpecified() const
-  {
-    return mPosition.x != UnspecifiedCoord();
-  }
+  bool IsXSpecified() const { return mPosition.x != UnspecifiedCoord(); }
 
-  bool IsYSpecified() const
-  {
-    return mPosition.y != UnspecifiedCoord();
-  }
+  bool IsYSpecified() const { return mPosition.y != UnspecifiedCoord(); }
 
   gfxPoint mPosition;
   double mAngle;
@@ -106,7 +97,7 @@ struct CharPosition
   // an anchored chunk begins here
   bool mStartOfChunk;
 
-private:
+ private:
   static gfxFloat UnspecifiedCoord()
   {
     return std::numeric_limits<gfxFloat>::infinity();
@@ -127,21 +118,22 @@ private:
  * A runnable to mark glyph positions as needing to be recomputed
  * and to invalid the bounds of the SVGTextFrame frame.
  */
-class GlyphMetricsUpdater : public Runnable {
-public:
+class GlyphMetricsUpdater : public Runnable
+{
+ public:
   NS_DECL_NSIRUNNABLE
   explicit GlyphMetricsUpdater(SVGTextFrame* aFrame)
-    : Runnable("GlyphMetricsUpdater")
-    , mFrame(aFrame)
+      : Runnable("GlyphMetricsUpdater"), mFrame(aFrame)
   {
   }
   static void Run(SVGTextFrame* aFrame);
   void Revoke() { mFrame = nullptr; }
-private:
+
+ private:
   SVGTextFrame* mFrame;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * Frame class for SVG <text> elements.
@@ -178,8 +170,8 @@ private:
  */
 class SVGTextFrame final : public nsSVGDisplayContainerFrame
 {
-  friend nsIFrame*
-  NS_NewSVGTextFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewSVGTextFrame(nsIPresShell* aPresShell,
+                                      nsStyleContext* aContext);
 
   friend class mozilla::CharIterator;
   friend class mozilla::GlyphMetricsUpdater;
@@ -195,13 +187,13 @@ class SVGTextFrame final : public nsSVGDisplayContainerFrame
   typedef mozilla::gfx::Path Path;
   typedef mozilla::gfx::Point Point;
 
-protected:
+ protected:
   explicit SVGTextFrame(nsStyleContext* aContext)
-    : nsSVGDisplayContainerFrame(aContext, kClassID)
-    , mTrailingUndisplayedCharacters(0)
-    , mFontSizeScaleFactor(1.0f)
-    , mLastContextScale(1.0f)
-    , mLengthAdjustScaleFactor(1.0f)
+      : nsSVGDisplayContainerFrame(aContext, kClassID),
+        mTrailingUndisplayedCharacters(0),
+        mFontSizeScaleFactor(1.0f),
+        mLastContextScale(1.0f),
+        mLengthAdjustScaleFactor(1.0f)
   {
     AddStateBits(NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY |
                  NS_STATE_SVG_POSITIONING_DIRTY);
@@ -209,14 +201,14 @@ protected:
 
   ~SVGTextFrame() {}
 
-public:
+ public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(SVGTextFrame)
 
   // nsIFrame:
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
   virtual nsresult AttributeChanged(int32_t aNamespaceID,
                                     nsAtom* aAttribute,
@@ -227,7 +219,7 @@ public:
     return PrincipalChildList().FirstChild()->GetContentInsertionFrame();
   }
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
 #ifdef DEBUG_FRAME_DUMP
@@ -242,10 +234,8 @@ public:
   /**
    * Finds the nsTextFrame for the closest rendered run to the specified point.
    */
-  virtual void FindCloserFrameForSelection(nsPoint aPoint,
-                                          FrameWithDistance* aCurrentBestFrame) override;
-
-
+  virtual void FindCloserFrameForSelection(
+      nsPoint aPoint, FrameWithDistance* aCurrentBestFrame) override;
 
   // nsSVGDisplayableFrame interface:
   virtual void NotifySVGChanged(uint32_t aFlags) override;
@@ -261,18 +251,27 @@ public:
   // SVG DOM text methods:
   uint32_t GetNumberOfChars(nsIContent* aContent);
   float GetComputedTextLength(nsIContent* aContent);
-  nsresult SelectSubString(nsIContent* aContent, uint32_t charnum, uint32_t nchars);
-  nsresult GetSubStringLength(nsIContent* aContent, uint32_t charnum,
-                              uint32_t nchars, float* aResult);
-  int32_t GetCharNumAtPosition(nsIContent* aContent, mozilla::nsISVGPoint* point);
+  nsresult SelectSubString(nsIContent* aContent,
+                           uint32_t charnum,
+                           uint32_t nchars);
+  nsresult GetSubStringLength(nsIContent* aContent,
+                              uint32_t charnum,
+                              uint32_t nchars,
+                              float* aResult);
+  int32_t GetCharNumAtPosition(nsIContent* aContent,
+                               mozilla::nsISVGPoint* point);
 
-  nsresult GetStartPositionOfChar(nsIContent* aContent, uint32_t aCharNum,
+  nsresult GetStartPositionOfChar(nsIContent* aContent,
+                                  uint32_t aCharNum,
                                   mozilla::nsISVGPoint** aResult);
-  nsresult GetEndPositionOfChar(nsIContent* aContent, uint32_t aCharNum,
+  nsresult GetEndPositionOfChar(nsIContent* aContent,
+                                uint32_t aCharNum,
                                 mozilla::nsISVGPoint** aResult);
-  nsresult GetExtentOfChar(nsIContent* aContent, uint32_t aCharNum,
+  nsresult GetExtentOfChar(nsIContent* aContent,
+                           uint32_t aCharNum,
                            mozilla::dom::SVGIRect** aResult);
-  nsresult GetRotationOfChar(nsIContent* aContent, uint32_t aCharNum,
+  nsresult GetRotationOfChar(nsIContent* aContent,
+                             uint32_t aCharNum,
                              float* aResult);
 
   // SVGTextFrame methods:
@@ -357,15 +356,15 @@ public:
   // Return our ::-moz-svg-text anonymous box.
   void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
 
-private:
+ private:
   /**
    * Mutation observer used to watch for text positioning attribute changes
    * on descendent text content elements (like <tspan>s).
    */
-  class MutationObserver final : public nsStubMutationObserver {
-  public:
-    explicit MutationObserver(SVGTextFrame* aFrame)
-      : mFrame(aFrame)
+  class MutationObserver final : public nsStubMutationObserver
+  {
+   public:
+    explicit MutationObserver(SVGTextFrame* aFrame) : mFrame(aFrame)
     {
       MOZ_ASSERT(mFrame, "MutationObserver needs a non-null frame");
       mFrame->GetContent()->AddMutationObserver(this);
@@ -381,11 +380,8 @@ private:
     NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATACHANGED
     NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
 
-  private:
-    ~MutationObserver()
-    {
-      mFrame->GetContent()->RemoveMutationObserver(this);
-    }
+   private:
+    ~MutationObserver() { mFrame->GetContent()->RemoveMutationObserver(this); }
 
     SVGTextFrame* const mFrame;
   };
@@ -442,9 +438,8 @@ private:
    * @return The addressable index, or -1 if the index cannot be
    *   represented as an addressable index relative to aContent.
    */
-  int32_t
-  ConvertTextElementCharIndexToAddressableIndex(int32_t aIndex,
-                                                nsIContent* aContent);
+  int32_t ConvertTextElementCharIndexToAddressableIndex(int32_t aIndex,
+                                                        nsIContent* aContent);
 
   /**
    * Recursive helper for ResolvePositions below.
@@ -459,8 +454,10 @@ private:
    * @return false if we discover that mPositions did not have enough
    *   elements; true otherwise.
    */
-  bool ResolvePositionsForNode(nsIContent* aContent, uint32_t& aIndex,
-                               bool aInTextPath, bool& aForceStartOfChunk,
+  bool ResolvePositionsForNode(nsIContent* aContent,
+                               uint32_t& aIndex,
+                               bool aInTextPath,
+                               bool& aForceStartOfChunk,
                                nsTArray<gfxPoint>& aDeltas);
 
   /**
@@ -537,8 +534,8 @@ private:
   bool ShouldRenderAsPath(nsTextFrame* aFrame, bool& aShouldPaintSVGGlyphs);
 
   // Methods to get information for a <textPath> frame.
-  mozilla::dom::SVGPathElement*
-  GetTextPathPathElement(nsIFrame* aTextPathFrame);
+  mozilla::dom::SVGPathElement* GetTextPathPathElement(
+      nsIFrame* aTextPathFrame);
   already_AddRefed<Path> GetTextPath(nsIFrame* aTextPathFrame);
   gfxFloat GetOffsetScale(nsIFrame* aTextPathFrame);
   gfxFloat GetStartOffset(nsIFrame* aTextPathFrame);

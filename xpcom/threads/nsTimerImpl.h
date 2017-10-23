@@ -23,15 +23,16 @@
 #include "TracedTaskCommon.h"
 #endif
 
-extern mozilla::LogModule* GetTimerLog();
+extern mozilla::LogModule*
+GetTimerLog();
 
-#define NS_TIMER_CID \
-{ /* 5ff24248-1dd2-11b2-8427-fbab44f29bc8 */         \
-     0x5ff24248,                                     \
-     0x1dd2,                                         \
-     0x11b2,                                         \
-    {0x84, 0x27, 0xfb, 0xab, 0x44, 0xf2, 0x9b, 0xc8} \
-}
+#define NS_TIMER_CID                                 \
+  { /* 5ff24248-1dd2-11b2-8427-fbab44f29bc8 */       \
+    0x5ff24248, 0x1dd2, 0x11b2,                      \
+    {                                                \
+      0x84, 0x27, 0xfb, 0xab, 0x44, 0xf2, 0x9b, 0xc8 \
+    }                                                \
+  }
 
 class nsTimerImplHolder;
 
@@ -40,12 +41,9 @@ class nsTimerImplHolder;
 // the nsTimer has let go of its last reference.
 class nsTimerImpl
 {
-  ~nsTimerImpl()
-  {
-    MOZ_ASSERT(!mHolder);
-  }
+  ~nsTimerImpl() { MOZ_ASSERT(!mHolder); }
 
-public:
+ public:
   typedef mozilla::TimeStamp TimeStamp;
 
   explicit nsTimerImpl(nsITimer* aTimer);
@@ -65,16 +63,11 @@ public:
   mozilla::tasktracer::TracedTaskCommon GetTracedTask();
 #endif
 
-  int32_t GetGeneration()
-  {
-    return mGeneration;
-  }
+  int32_t GetGeneration() { return mGeneration; }
 
-  struct Callback {
-    Callback() :
-      mType(Type::Unknown),
-      mName(Nothing),
-      mClosure(nullptr)
+  struct Callback
+  {
+    Callback() : mType(Type::Unknown), mName(Nothing), mClosure(nullptr)
     {
       mCallback.c = nullptr;
     }
@@ -99,7 +92,8 @@ public:
       std::swap(mClosure, other.mClosure);
     }
 
-    enum class Type : uint8_t {
+    enum class Type : uint8_t
+    {
       Unknown = 0,
       Interface = 1,
       Function = 2,
@@ -107,8 +101,7 @@ public:
     };
     Type mType;
 
-    union CallbackUnion
-    {
+    union CallbackUnion {
       nsTimerCallbackFunc c;
       // These refcounted references are managed manually, as they are in a union
       nsITimerCallback* MOZ_OWNING_REF i;
@@ -126,13 +119,15 @@ public:
     static const NameNothing Nothing;
     Name mName;
 
-    void*                 mClosure;
+    void* mClosure;
   };
 
-  nsresult InitCommon(uint32_t aDelayMS, uint32_t aType,
+  nsresult InitCommon(uint32_t aDelayMS,
+                      uint32_t aType,
                       Callback&& newCallback);
 
-  nsresult InitCommon(const mozilla::TimeDuration& aDelay, uint32_t aType,
+  nsresult InitCommon(const mozilla::TimeDuration& aDelay,
+                      uint32_t aType,
                       Callback&& newCallback);
 
   Callback& GetCallback()
@@ -152,10 +147,9 @@ public:
     static_assert(
         nsITimer::TYPE_REPEATING_SLACK < nsITimer::TYPE_REPEATING_PRECISE,
         "invalid ordering of timer types!");
-    static_assert(
-        nsITimer::TYPE_REPEATING_PRECISE <
-          nsITimer::TYPE_REPEATING_PRECISE_CAN_SKIP,
-        "invalid ordering of timer types!");
+    static_assert(nsITimer::TYPE_REPEATING_PRECISE <
+                      nsITimer::TYPE_REPEATING_PRECISE_CAN_SKIP,
+                  "invalid ordering of timer types!");
     return mType >= nsITimer::TYPE_REPEATING_SLACK &&
            mType < nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY;
   }
@@ -188,39 +182,40 @@ public:
 
   // This weak reference must be cleared by the nsTimerImplHolder by calling
   // SetHolder(nullptr) before the holder is destroyed.
-  nsTimerImplHolder*    mHolder;
+  nsTimerImplHolder* mHolder;
 
   // These members are set by the initiating thread, when the timer's type is
   // changed and during the period where it fires on that thread.
-  uint8_t               mType;
+  uint8_t mType;
 
   // The generation number of this timer, re-generated each time the timer is
   // initialized so one-shot timers can be canceled and re-initialized by the
   // arming thread without any bad race conditions.
   // Updated only after this timer has been removed from the timer thread.
-  int32_t               mGeneration;
+  int32_t mGeneration;
 
   mozilla::TimeDuration mDelay;
   // Updated only after this timer has been removed from the timer thread.
-  mozilla::TimeStamp    mTimeout;
+  mozilla::TimeStamp mTimeout;
 
 #ifdef MOZ_TASK_TRACER
   mozilla::tasktracer::TracedTaskCommon mTracedTask;
 #endif
 
-  static double         sDeltaSum;
-  static double         sDeltaSumSquared;
-  static double         sDeltaNum;
-  RefPtr<nsITimer>      mITimer;
+  static double sDeltaSum;
+  static double sDeltaSumSquared;
+  static double sDeltaNum;
+  RefPtr<nsITimer> mITimer;
   mozilla::Mutex mMutex;
-  Callback              mCallback;
-  Callback              mCallbackDuringFire;
+  Callback mCallback;
+  Callback mCallbackDuringFire;
 };
 
 class nsTimer final : public nsITimer
 {
   virtual ~nsTimer();
-public:
+
+ public:
   nsTimer() : mImpl(new nsTimerImpl(this)) {}
 
   friend class TimerThread;
@@ -229,9 +224,10 @@ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_FORWARD_SAFE_NSITIMER(mImpl);
 
-  virtual size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  virtual size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
-private:
+ private:
   // nsTimerImpl holds a strong ref to us. When our refcount goes to 1, we will
   // null this to break the cycle.
   RefPtr<nsTimerImpl> mImpl;
@@ -241,9 +237,8 @@ private:
 // directly instruct its holder to forget the timer, avoiding list lookups.
 class nsTimerImplHolder
 {
-public:
-  explicit nsTimerImplHolder(nsTimerImpl* aTimerImpl)
-    : mTimerImpl(aTimerImpl)
+ public:
+  explicit nsTimerImplHolder(nsTimerImpl* aTimerImpl) : mTimerImpl(aTimerImpl)
   {
     if (mTimerImpl) {
       mTimerImpl->SetHolder(this);
@@ -257,8 +252,7 @@ public:
     }
   }
 
-  void
-  Forget(nsTimerImpl* aTimerImpl)
+  void Forget(nsTimerImpl* aTimerImpl)
   {
     if (MOZ_UNLIKELY(!mTimerImpl)) {
       return;
@@ -268,9 +262,8 @@ public:
     mTimerImpl = nullptr;
   }
 
-protected:
+ protected:
   RefPtr<nsTimerImpl> mTimerImpl;
 };
-
 
 #endif /* nsTimerImpl_h___ */

@@ -34,69 +34,56 @@ using mozilla::IsPowerOfTwo;
 // x64 with WASM_HUGE_MEMORY.
 
 #if defined(WASM_HUGE_MEMORY) != defined(JS_CODEGEN_X64)
-#  error "Not an expected configuration"
+#error "Not an expected configuration"
 #endif
 
-void
-Val::writePayload(uint8_t* dst) const
-{
+void Val::writePayload(uint8_t* dst) const {
     switch (type_) {
-      case ValType::I32:
-      case ValType::F32:
-        memcpy(dst, &u.i32_, sizeof(u.i32_));
-        return;
-      case ValType::I64:
-      case ValType::F64:
-        memcpy(dst, &u.i64_, sizeof(u.i64_));
-        return;
-      case ValType::I8x16:
-      case ValType::I16x8:
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B8x16:
-      case ValType::B16x8:
-      case ValType::B32x4:
-        memcpy(dst, &u, jit::Simd128DataSize);
-        return;
+        case ValType::I32:
+        case ValType::F32:
+            memcpy(dst, &u.i32_, sizeof(u.i32_));
+            return;
+        case ValType::I64:
+        case ValType::F64:
+            memcpy(dst, &u.i64_, sizeof(u.i64_));
+            return;
+        case ValType::I8x16:
+        case ValType::I16x8:
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B8x16:
+        case ValType::B16x8:
+        case ValType::B32x4:
+            memcpy(dst, &u, jit::Simd128DataSize);
+            return;
     }
 }
 
-bool
-wasm::IsRoundingFunction(SymbolicAddress callee, jit::RoundingMode* mode)
-{
+bool wasm::IsRoundingFunction(SymbolicAddress callee, jit::RoundingMode* mode) {
     switch (callee) {
-      case SymbolicAddress::FloorD:
-      case SymbolicAddress::FloorF:
-        *mode = jit::RoundingMode::Down;
-        return true;
-      case SymbolicAddress::CeilD:
-      case SymbolicAddress::CeilF:
-        *mode = jit::RoundingMode::Up;
-        return true;
-      case SymbolicAddress::TruncD:
-      case SymbolicAddress::TruncF:
-        *mode = jit::RoundingMode::TowardsZero;
-        return true;
-      case SymbolicAddress::NearbyIntD:
-      case SymbolicAddress::NearbyIntF:
-        *mode = jit::RoundingMode::NearestTiesToEven;
-        return true;
-      default:
-        return false;
+        case SymbolicAddress::FloorD:
+        case SymbolicAddress::FloorF:
+            *mode = jit::RoundingMode::Down;
+            return true;
+        case SymbolicAddress::CeilD:
+        case SymbolicAddress::CeilF:
+            *mode = jit::RoundingMode::Up;
+            return true;
+        case SymbolicAddress::TruncD:
+        case SymbolicAddress::TruncF:
+            *mode = jit::RoundingMode::TowardsZero;
+            return true;
+        case SymbolicAddress::NearbyIntD:
+        case SymbolicAddress::NearbyIntF:
+            *mode = jit::RoundingMode::NearestTiesToEven;
+            return true;
+        default:
+            return false;
     }
 }
 
-static uint32_t
-GetCPUID()
-{
-    enum Arch {
-        X86 = 0x1,
-        X64 = 0x2,
-        ARM = 0x3,
-        MIPS = 0x4,
-        MIPS64 = 0x5,
-        ARCH_BITS = 3
-    };
+static uint32_t GetCPUID() {
+    enum Arch { X86 = 0x1, X64 = 0x2, ARM = 0x3, MIPS = 0x4, MIPS64 = 0x5, ARCH_BITS = 3 };
 
 #if defined(JS_CODEGEN_X86)
     MOZ_ASSERT(uint32_t(jit::CPUInfo::GetSSEVersion()) <= (UINT32_MAX >> ARCH_BITS));
@@ -118,36 +105,25 @@ GetCPUID()
 #elif defined(JS_CODEGEN_NONE)
     return 0;
 #else
-# error "unknown architecture"
+#error "unknown architecture"
 #endif
 }
 
-size_t
-Sig::serializedSize() const
-{
-    return sizeof(ret_) +
-           SerializedPodVectorSize(args_);
-}
+size_t Sig::serializedSize() const { return sizeof(ret_) + SerializedPodVectorSize(args_); }
 
-uint8_t*
-Sig::serialize(uint8_t* cursor) const
-{
+uint8_t* Sig::serialize(uint8_t* cursor) const {
     cursor = WriteScalar<ExprType>(cursor, ret_);
     cursor = SerializePodVector(cursor, args_);
     return cursor;
 }
 
-const uint8_t*
-Sig::deserialize(const uint8_t* cursor)
-{
+const uint8_t* Sig::deserialize(const uint8_t* cursor) {
     (cursor = ReadScalar<ExprType>(cursor, &ret_)) &&
-    (cursor = DeserializePodVector(cursor, &args_));
+        (cursor = DeserializePodVector(cursor, &args_));
     return cursor;
 }
 
-size_t
-Sig::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
-{
+size_t Sig::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
     return args_.sizeOfExcludingThis(mallocSizeOf);
 }
 
@@ -159,89 +135,73 @@ static const unsigned sLengthBits = 4;
 static const unsigned sTypeBits = 2;
 static const unsigned sMaxTypes = (sTotalBits - sTagBits - sReturnBit - sLengthBits) / sTypeBits;
 
-static bool
-IsImmediateType(ValType vt)
-{
+static bool IsImmediateType(ValType vt) {
     switch (vt) {
-      case ValType::I32:
-      case ValType::I64:
-      case ValType::F32:
-      case ValType::F64:
-        return true;
-      case ValType::I8x16:
-      case ValType::I16x8:
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B8x16:
-      case ValType::B16x8:
-      case ValType::B32x4:
-        return false;
+        case ValType::I32:
+        case ValType::I64:
+        case ValType::F32:
+        case ValType::F64:
+            return true;
+        case ValType::I8x16:
+        case ValType::I16x8:
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B8x16:
+        case ValType::B16x8:
+        case ValType::B32x4:
+            return false;
     }
     MOZ_CRASH("bad ValType");
 }
 
-static unsigned
-EncodeImmediateType(ValType vt)
-{
+static unsigned EncodeImmediateType(ValType vt) {
     static_assert(3 < (1 << sTypeBits), "fits");
     switch (vt) {
-      case ValType::I32:
-        return 0;
-      case ValType::I64:
-        return 1;
-      case ValType::F32:
-        return 2;
-      case ValType::F64:
-        return 3;
-      case ValType::I8x16:
-      case ValType::I16x8:
-      case ValType::I32x4:
-      case ValType::F32x4:
-      case ValType::B8x16:
-      case ValType::B16x8:
-      case ValType::B32x4:
-        break;
+        case ValType::I32:
+            return 0;
+        case ValType::I64:
+            return 1;
+        case ValType::F32:
+            return 2;
+        case ValType::F64:
+            return 3;
+        case ValType::I8x16:
+        case ValType::I16x8:
+        case ValType::I32x4:
+        case ValType::F32x4:
+        case ValType::B8x16:
+        case ValType::B16x8:
+        case ValType::B32x4:
+            break;
     }
     MOZ_CRASH("bad ValType");
 }
 
-/* static */ bool
-SigIdDesc::isGlobal(const Sig& sig)
-{
-    unsigned numTypes = (sig.ret() == ExprType::Void ? 0 : 1) +
-                        (sig.args().length());
-    if (numTypes > sMaxTypes)
-        return true;
+/* static */ bool SigIdDesc::isGlobal(const Sig& sig) {
+    unsigned numTypes = (sig.ret() == ExprType::Void ? 0 : 1) + (sig.args().length());
+    if (numTypes > sMaxTypes) return true;
 
-    if (sig.ret() != ExprType::Void && !IsImmediateType(NonVoidToValType(sig.ret())))
-        return true;
+    if (sig.ret() != ExprType::Void && !IsImmediateType(NonVoidToValType(sig.ret()))) return true;
 
     for (ValType v : sig.args()) {
-        if (!IsImmediateType(v))
-            return true;
+        if (!IsImmediateType(v)) return true;
     }
 
     return false;
 }
 
-/* static */ SigIdDesc
-SigIdDesc::global(const Sig& sig, uint32_t globalDataOffset)
-{
+/* static */ SigIdDesc SigIdDesc::global(const Sig& sig, uint32_t globalDataOffset) {
     MOZ_ASSERT(isGlobal(sig));
     return SigIdDesc(Kind::Global, globalDataOffset);
 }
 
-static ImmediateType
-LengthToBits(uint32_t length)
-{
+static ImmediateType LengthToBits(uint32_t length) {
     static_assert(sMaxTypes <= ((1 << sLengthBits) - 1), "fits");
     MOZ_ASSERT(length <= sMaxTypes);
     return length;
 }
 
-/* static */ SigIdDesc
-SigIdDesc::immediate(const Sig& sig)
-{
+/* static */ SigIdDesc SigIdDesc::immediate(const Sig& sig) {
     ImmediateType immediate = ImmediateBit;
     uint32_t shift = sTagBits;
 
@@ -267,137 +227,88 @@ SigIdDesc::immediate(const Sig& sig)
     return SigIdDesc(Kind::Immediate, immediate);
 }
 
-size_t
-SigWithId::serializedSize() const
-{
-    return Sig::serializedSize() +
-           sizeof(id);
-}
+size_t SigWithId::serializedSize() const { return Sig::serializedSize() + sizeof(id); }
 
-uint8_t*
-SigWithId::serialize(uint8_t* cursor) const
-{
+uint8_t* SigWithId::serialize(uint8_t* cursor) const {
     cursor = Sig::serialize(cursor);
     cursor = WriteBytes(cursor, &id, sizeof(id));
     return cursor;
 }
 
-const uint8_t*
-SigWithId::deserialize(const uint8_t* cursor)
-{
-    (cursor = Sig::deserialize(cursor)) &&
-    (cursor = ReadBytes(cursor, &id, sizeof(id)));
+const uint8_t* SigWithId::deserialize(const uint8_t* cursor) {
+    (cursor = Sig::deserialize(cursor)) && (cursor = ReadBytes(cursor, &id, sizeof(id)));
     return cursor;
 }
 
-size_t
-SigWithId::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
-{
+size_t SigWithId::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
     return Sig::sizeOfExcludingThis(mallocSizeOf);
 }
 
-size_t
-Import::serializedSize() const
-{
-    return module.serializedSize() +
-           field.serializedSize() +
-           sizeof(kind);
+size_t Import::serializedSize() const {
+    return module.serializedSize() + field.serializedSize() + sizeof(kind);
 }
 
-uint8_t*
-Import::serialize(uint8_t* cursor) const
-{
+uint8_t* Import::serialize(uint8_t* cursor) const {
     cursor = module.serialize(cursor);
     cursor = field.serialize(cursor);
     cursor = WriteScalar<DefinitionKind>(cursor, kind);
     return cursor;
 }
 
-const uint8_t*
-Import::deserialize(const uint8_t* cursor)
-{
-    (cursor = module.deserialize(cursor)) &&
-    (cursor = field.deserialize(cursor)) &&
-    (cursor = ReadScalar<DefinitionKind>(cursor, &kind));
+const uint8_t* Import::deserialize(const uint8_t* cursor) {
+    (cursor = module.deserialize(cursor)) && (cursor = field.deserialize(cursor)) &&
+        (cursor = ReadScalar<DefinitionKind>(cursor, &kind));
     return cursor;
 }
 
-size_t
-Import::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
-{
-    return module.sizeOfExcludingThis(mallocSizeOf) +
-           field.sizeOfExcludingThis(mallocSizeOf);
+size_t Import::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
+    return module.sizeOfExcludingThis(mallocSizeOf) + field.sizeOfExcludingThis(mallocSizeOf);
 }
 
 Export::Export(UniqueChars fieldName, uint32_t index, DefinitionKind kind)
-  : fieldName_(Move(fieldName))
-{
+    : fieldName_(Move(fieldName)) {
     pod.kind_ = kind;
     pod.index_ = index;
 }
 
-Export::Export(UniqueChars fieldName, DefinitionKind kind)
-  : fieldName_(Move(fieldName))
-{
+Export::Export(UniqueChars fieldName, DefinitionKind kind) : fieldName_(Move(fieldName)) {
     pod.kind_ = kind;
     pod.index_ = 0;
 }
 
-uint32_t
-Export::funcIndex() const
-{
+uint32_t Export::funcIndex() const {
     MOZ_ASSERT(pod.kind_ == DefinitionKind::Function);
     return pod.index_;
 }
 
-uint32_t
-Export::globalIndex() const
-{
+uint32_t Export::globalIndex() const {
     MOZ_ASSERT(pod.kind_ == DefinitionKind::Global);
     return pod.index_;
 }
 
-size_t
-Export::serializedSize() const
-{
-    return fieldName_.serializedSize() +
-           sizeof(pod);
-}
+size_t Export::serializedSize() const { return fieldName_.serializedSize() + sizeof(pod); }
 
-uint8_t*
-Export::serialize(uint8_t* cursor) const
-{
+uint8_t* Export::serialize(uint8_t* cursor) const {
     cursor = fieldName_.serialize(cursor);
     cursor = WriteBytes(cursor, &pod, sizeof(pod));
     return cursor;
 }
 
-const uint8_t*
-Export::deserialize(const uint8_t* cursor)
-{
-    (cursor = fieldName_.deserialize(cursor)) &&
-    (cursor = ReadBytes(cursor, &pod, sizeof(pod)));
+const uint8_t* Export::deserialize(const uint8_t* cursor) {
+    (cursor = fieldName_.deserialize(cursor)) && (cursor = ReadBytes(cursor, &pod, sizeof(pod)));
     return cursor;
 }
 
-size_t
-Export::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
-{
+size_t Export::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
     return fieldName_.sizeOfExcludingThis(mallocSizeOf);
 }
 
-size_t
-ElemSegment::serializedSize() const
-{
-    return sizeof(tableIndex) +
-           sizeof(offset) +
-           SerializedPodVectorSize(elemFuncIndices) +
+size_t ElemSegment::serializedSize() const {
+    return sizeof(tableIndex) + sizeof(offset) + SerializedPodVectorSize(elemFuncIndices) +
            SerializedPodVectorSize(elemCodeRangeIndices(Tier::Serialized));
 }
 
-uint8_t*
-ElemSegment::serialize(uint8_t* cursor) const
-{
+uint8_t* ElemSegment::serialize(uint8_t* cursor) const {
     cursor = WriteBytes(cursor, &tableIndex, sizeof(tableIndex));
     cursor = WriteBytes(cursor, &offset, sizeof(offset));
     cursor = SerializePodVector(cursor, elemFuncIndices);
@@ -405,36 +316,25 @@ ElemSegment::serialize(uint8_t* cursor) const
     return cursor;
 }
 
-const uint8_t*
-ElemSegment::deserialize(const uint8_t* cursor)
-{
+const uint8_t* ElemSegment::deserialize(const uint8_t* cursor) {
     (cursor = ReadBytes(cursor, &tableIndex, sizeof(tableIndex))) &&
-    (cursor = ReadBytes(cursor, &offset, sizeof(offset))) &&
-    (cursor = DeserializePodVector(cursor, &elemFuncIndices)) &&
-    (cursor = DeserializePodVector(cursor, &elemCodeRangeIndices(Tier::Serialized)));
+        (cursor = ReadBytes(cursor, &offset, sizeof(offset))) &&
+        (cursor = DeserializePodVector(cursor, &elemFuncIndices)) &&
+        (cursor = DeserializePodVector(cursor, &elemCodeRangeIndices(Tier::Serialized)));
     return cursor;
 }
 
-size_t
-ElemSegment::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
-{
+size_t ElemSegment::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
     return elemFuncIndices.sizeOfExcludingThis(mallocSizeOf) +
            elemCodeRangeIndices(Tier::Serialized).sizeOfExcludingThis(mallocSizeOf);
 }
 
 Assumptions::Assumptions(JS::BuildIdCharVector&& buildId)
-  : cpuId(GetCPUID()),
-    buildId(Move(buildId))
-{}
+    : cpuId(GetCPUID()), buildId(Move(buildId)) {}
 
-Assumptions::Assumptions()
-  : cpuId(GetCPUID()),
-    buildId()
-{}
+Assumptions::Assumptions() : cpuId(GetCPUID()), buildId() {}
 
-bool
-Assumptions::initBuildIdFromContext(JSContext* cx)
-{
+bool Assumptions::initBuildIdFromContext(JSContext* cx) {
     if (!cx->buildIdOp() || !cx->buildIdOp()(&buildId)) {
         ReportOutOfMemory(cx);
         return false;
@@ -442,31 +342,21 @@ Assumptions::initBuildIdFromContext(JSContext* cx)
     return true;
 }
 
-bool
-Assumptions::clone(const Assumptions& other)
-{
+bool Assumptions::clone(const Assumptions& other) {
     cpuId = other.cpuId;
     return buildId.appendAll(other.buildId);
 }
 
-bool
-Assumptions::operator==(const Assumptions& rhs) const
-{
-    return cpuId == rhs.cpuId &&
-           buildId.length() == rhs.buildId.length() &&
+bool Assumptions::operator==(const Assumptions& rhs) const {
+    return cpuId == rhs.cpuId && buildId.length() == rhs.buildId.length() &&
            PodEqual(buildId.begin(), rhs.buildId.begin(), buildId.length());
 }
 
-size_t
-Assumptions::serializedSize() const
-{
-    return sizeof(uint32_t) +
-           SerializedPodVectorSize(buildId);
+size_t Assumptions::serializedSize() const {
+    return sizeof(uint32_t) + SerializedPodVectorSize(buildId);
 }
 
-uint8_t*
-Assumptions::serialize(uint8_t* cursor) const
-{
+uint8_t* Assumptions::serialize(uint8_t* cursor) const {
     // The format of serialized Assumptions must never change in a way that
     // would cause old cache files written with by an old build-id to match the
     // assumptions of a different build-id.
@@ -476,17 +366,13 @@ Assumptions::serialize(uint8_t* cursor) const
     return cursor;
 }
 
-const uint8_t*
-Assumptions::deserialize(const uint8_t* cursor, size_t remain)
-{
+const uint8_t* Assumptions::deserialize(const uint8_t* cursor, size_t remain) {
     (cursor = ReadScalarChecked<uint32_t>(cursor, &remain, &cpuId)) &&
-    (cursor = DeserializePodVectorChecked(cursor, &remain, &buildId));
+        (cursor = DeserializePodVectorChecked(cursor, &remain, &buildId));
     return cursor;
 }
 
-size_t
-Assumptions::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
-{
+size_t Assumptions::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
     return buildId.sizeOfExcludingThis(mallocSizeOf);
 }
 
@@ -495,20 +381,15 @@ Assumptions::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const
 //    2^n for n in [16, 24)
 //  or
 //    2^24 * n for n >= 1.
-bool
-wasm::IsValidARMImmediate(uint32_t i)
-{
-    bool valid = (IsPowerOfTwo(i) ||
-                  (i & 0x00ffffff) == 0);
+bool wasm::IsValidARMImmediate(uint32_t i) {
+    bool valid = (IsPowerOfTwo(i) || (i & 0x00ffffff) == 0);
 
     MOZ_ASSERT_IF(valid, i % PageSize == 0);
 
     return valid;
 }
 
-uint32_t
-wasm::RoundUpToNextValidARMImmediate(uint32_t i)
-{
+uint32_t wasm::RoundUpToNextValidARMImmediate(uint32_t i) {
     MOZ_ASSERT(i <= 0xff000000);
 
     if (i <= 16 * 1024 * 1024)
@@ -523,9 +404,7 @@ wasm::RoundUpToNextValidARMImmediate(uint32_t i)
 
 #ifndef WASM_HUGE_MEMORY
 
-bool
-wasm::IsValidBoundsCheckImmediate(uint32_t i)
-{
+bool wasm::IsValidBoundsCheckImmediate(uint32_t i) {
 #ifdef JS_CODEGEN_ARM
     return IsValidARMImmediate(i);
 #else
@@ -533,20 +412,18 @@ wasm::IsValidBoundsCheckImmediate(uint32_t i)
 #endif
 }
 
-size_t
-wasm::ComputeMappedSize(uint32_t maxSize)
-{
+size_t wasm::ComputeMappedSize(uint32_t maxSize) {
     MOZ_ASSERT(maxSize % PageSize == 0);
 
     // It is the bounds-check limit, not the mapped size, that gets baked into
     // code. Thus round up the maxSize to the next valid immediate value
     // *before* adding in the guard page.
 
-# ifdef JS_CODEGEN_ARM
+#ifdef JS_CODEGEN_ARM
     uint32_t boundsCheckLimit = RoundUpToNextValidARMImmediate(maxSize);
-# else
+#else
     uint32_t boundsCheckLimit = maxSize;
-# endif
+#endif
     MOZ_ASSERT(IsValidBoundsCheckImmediate(boundsCheckLimit));
 
     MOZ_ASSERT(boundsCheckLimit % gc::SystemPageSize() == 0);
@@ -556,153 +433,120 @@ wasm::ComputeMappedSize(uint32_t maxSize)
 
 #endif  // WASM_HUGE_MEMORY
 
-void
-DebugFrame::alignmentStaticAsserts()
-{
+void DebugFrame::alignmentStaticAsserts() {
     // VS2017 doesn't consider offsetOfFrame() to be a constexpr, so we have
     // to use offsetof directly. These asserts can't be at class-level
     // because the type is incomplete.
 
-    static_assert(WasmStackAlignment >= Alignment,
-                  "Aligned by ABI before pushing DebugFrame");
+    static_assert(WasmStackAlignment >= Alignment, "Aligned by ABI before pushing DebugFrame");
     static_assert((offsetof(DebugFrame, frame_) + sizeof(Frame)) % Alignment == 0,
                   "Aligned after pushing DebugFrame");
 }
 
-GlobalObject*
-DebugFrame::global() const
-{
-    return &instance()->object()->global();
-}
+GlobalObject* DebugFrame::global() const { return &instance()->object()->global(); }
 
-JSObject*
-DebugFrame::environmentChain() const
-{
-    return &global()->lexicalEnvironment();
-}
+JSObject* DebugFrame::environmentChain() const { return &global()->lexicalEnvironment(); }
 
-bool
-DebugFrame::getLocal(uint32_t localIndex, MutableHandleValue vp)
-{
+bool DebugFrame::getLocal(uint32_t localIndex, MutableHandleValue vp) {
     ValTypeVector locals;
     size_t argsLength;
-    if (!instance()->debug().debugGetLocalTypes(funcIndex(), &locals, &argsLength))
-        return false;
+    if (!instance()->debug().debugGetLocalTypes(funcIndex(), &locals, &argsLength)) return false;
 
     BaseLocalIter iter(locals, argsLength, /* debugEnabled = */ true);
-    while (!iter.done() && iter.index() < localIndex)
-        iter++;
+    while (!iter.done() && iter.index() < localIndex) iter++;
     MOZ_ALWAYS_TRUE(!iter.done());
 
     uint8_t* frame = static_cast<uint8_t*>((void*)this) + offsetOfFrame();
     void* dataPtr = frame - iter.frameOffset();
     switch (iter.mirType()) {
-      case jit::MIRType::Int32:
-          vp.set(Int32Value(*static_cast<int32_t*>(dataPtr)));
-          break;
-      case jit::MIRType::Int64:
-          // Just display as a Number; it's ok if we lose some precision
-          vp.set(NumberValue((double)*static_cast<int64_t*>(dataPtr)));
-          break;
-      case jit::MIRType::Float32:
-          vp.set(NumberValue(JS::CanonicalizeNaN(*static_cast<float*>(dataPtr))));
-          break;
-      case jit::MIRType::Double:
-          vp.set(NumberValue(JS::CanonicalizeNaN(*static_cast<double*>(dataPtr))));
-          break;
-      default:
-          MOZ_CRASH("local type");
+        case jit::MIRType::Int32:
+            vp.set(Int32Value(*static_cast<int32_t*>(dataPtr)));
+            break;
+        case jit::MIRType::Int64:
+            // Just display as a Number; it's ok if we lose some precision
+            vp.set(NumberValue((double)*static_cast<int64_t*>(dataPtr)));
+            break;
+        case jit::MIRType::Float32:
+            vp.set(NumberValue(JS::CanonicalizeNaN(*static_cast<float*>(dataPtr))));
+            break;
+        case jit::MIRType::Double:
+            vp.set(NumberValue(JS::CanonicalizeNaN(*static_cast<double*>(dataPtr))));
+            break;
+        default:
+            MOZ_CRASH("local type");
     }
     return true;
 }
 
-void
-DebugFrame::updateReturnJSValue()
-{
+void DebugFrame::updateReturnJSValue() {
     hasCachedReturnJSValue_ = true;
     ExprType returnType = instance()->debug().debugGetResultType(funcIndex());
     switch (returnType) {
-      case ExprType::Void:
-          cachedReturnJSValue_.setUndefined();
-          break;
-      case ExprType::I32:
-          cachedReturnJSValue_.setInt32(resultI32_);
-          break;
-      case ExprType::I64:
-          // Just display as a Number; it's ok if we lose some precision
-          cachedReturnJSValue_.setDouble((double)resultI64_);
-          break;
-      case ExprType::F32:
-          cachedReturnJSValue_.setDouble(JS::CanonicalizeNaN(resultF32_));
-          break;
-      case ExprType::F64:
-          cachedReturnJSValue_.setDouble(JS::CanonicalizeNaN(resultF64_));
-          break;
-      default:
-          MOZ_CRASH("result type");
+        case ExprType::Void:
+            cachedReturnJSValue_.setUndefined();
+            break;
+        case ExprType::I32:
+            cachedReturnJSValue_.setInt32(resultI32_);
+            break;
+        case ExprType::I64:
+            // Just display as a Number; it's ok if we lose some precision
+            cachedReturnJSValue_.setDouble((double)resultI64_);
+            break;
+        case ExprType::F32:
+            cachedReturnJSValue_.setDouble(JS::CanonicalizeNaN(resultF32_));
+            break;
+        case ExprType::F64:
+            cachedReturnJSValue_.setDouble(JS::CanonicalizeNaN(resultF64_));
+            break;
+        default:
+            MOZ_CRASH("result type");
     }
 }
 
-HandleValue
-DebugFrame::returnValue() const
-{
+HandleValue DebugFrame::returnValue() const {
     MOZ_ASSERT(hasCachedReturnJSValue_);
     return HandleValue::fromMarkedLocation(&cachedReturnJSValue_);
 }
 
-void
-DebugFrame::clearReturnJSValue()
-{
+void DebugFrame::clearReturnJSValue() {
     hasCachedReturnJSValue_ = true;
     cachedReturnJSValue_.setUndefined();
 }
 
-void
-DebugFrame::observe(JSContext* cx)
-{
-   if (!observing_) {
-       instance()->debug().adjustEnterAndLeaveFrameTrapsState(cx, /* enabled = */ true);
-       observing_ = true;
-   }
+void DebugFrame::observe(JSContext* cx) {
+    if (!observing_) {
+        instance()->debug().adjustEnterAndLeaveFrameTrapsState(cx, /* enabled = */ true);
+        observing_ = true;
+    }
 }
 
-void
-DebugFrame::leave(JSContext* cx)
-{
+void DebugFrame::leave(JSContext* cx) {
     if (observing_) {
-       instance()->debug().adjustEnterAndLeaveFrameTrapsState(cx, /* enabled = */ false);
-       observing_ = false;
+        instance()->debug().adjustEnterAndLeaveFrameTrapsState(cx, /* enabled = */ false);
+        observing_ = false;
     }
 }
 
 CodeRange::CodeRange(Kind kind, Offsets offsets)
-  : begin_(offsets.begin),
-    ret_(0),
-    end_(offsets.end),
-    kind_(kind)
-{
+    : begin_(offsets.begin), ret_(0), end_(offsets.end), kind_(kind) {
     MOZ_ASSERT(begin_ <= end_);
     PodZero(&u);
 #ifdef DEBUG
     switch (kind_) {
-      case FarJumpIsland:
-      case OutOfBoundsExit:
-      case UnalignedExit:
-      case Throw:
-      case Interrupt:
-        break;
-      default:
-        MOZ_CRASH("should use more specific constructor");
+        case FarJumpIsland:
+        case OutOfBoundsExit:
+        case UnalignedExit:
+        case Throw:
+        case Interrupt:
+            break;
+        default:
+            MOZ_CRASH("should use more specific constructor");
     }
 #endif
 }
 
 CodeRange::CodeRange(Kind kind, uint32_t funcIndex, Offsets offsets)
-  : begin_(offsets.begin),
-    ret_(0),
-    end_(offsets.end),
-    kind_(kind)
-{
+    : begin_(offsets.begin), ret_(0), end_(offsets.end), kind_(kind) {
     u.funcIndex_ = funcIndex;
     u.func.lineOrBytecode_ = 0;
     u.func.beginToNormalEntry_ = 0;
@@ -712,32 +556,24 @@ CodeRange::CodeRange(Kind kind, uint32_t funcIndex, Offsets offsets)
 }
 
 CodeRange::CodeRange(Kind kind, CallableOffsets offsets)
-  : begin_(offsets.begin),
-    ret_(offsets.ret),
-    end_(offsets.end),
-    kind_(kind)
-{
+    : begin_(offsets.begin), ret_(offsets.ret), end_(offsets.end), kind_(kind) {
     MOZ_ASSERT(begin_ < ret_);
     MOZ_ASSERT(ret_ < end_);
     PodZero(&u);
 #ifdef DEBUG
     switch (kind_) {
-      case TrapExit:
-      case DebugTrap:
-      case BuiltinThunk:
-        break;
-      default:
-        MOZ_CRASH("should use more specific constructor");
+        case TrapExit:
+        case DebugTrap:
+        case BuiltinThunk:
+            break;
+        default:
+            MOZ_CRASH("should use more specific constructor");
     }
 #endif
 }
 
 CodeRange::CodeRange(Kind kind, uint32_t funcIndex, CallableOffsets offsets)
-  : begin_(offsets.begin),
-    ret_(offsets.ret),
-    end_(offsets.end),
-    kind_(kind)
-{
+    : begin_(offsets.begin), ret_(offsets.ret), end_(offsets.end), kind_(kind) {
     MOZ_ASSERT(isImportExit() && !isImportJitExit());
     MOZ_ASSERT(begin_ < ret_);
     MOZ_ASSERT(ret_ < end_);
@@ -748,11 +584,7 @@ CodeRange::CodeRange(Kind kind, uint32_t funcIndex, CallableOffsets offsets)
 }
 
 CodeRange::CodeRange(uint32_t funcIndex, JitExitOffsets offsets)
-  : begin_(offsets.begin),
-    ret_(offsets.ret),
-    end_(offsets.end),
-    kind_(ImportJitExit)
-{
+    : begin_(offsets.begin), ret_(offsets.ret), end_(offsets.end), kind_(ImportJitExit) {
     MOZ_ASSERT(isImportJitExit());
     MOZ_ASSERT(begin_ < ret_);
     MOZ_ASSERT(ret_ < end_);
@@ -762,22 +594,14 @@ CodeRange::CodeRange(uint32_t funcIndex, JitExitOffsets offsets)
 }
 
 CodeRange::CodeRange(Trap trap, CallableOffsets offsets)
-  : begin_(offsets.begin),
-    ret_(offsets.ret),
-    end_(offsets.end),
-    kind_(TrapExit)
-{
+    : begin_(offsets.begin), ret_(offsets.ret), end_(offsets.end), kind_(TrapExit) {
     MOZ_ASSERT(begin_ < ret_);
     MOZ_ASSERT(ret_ < end_);
     u.trap_ = trap;
 }
 
 CodeRange::CodeRange(uint32_t funcIndex, uint32_t funcLineOrBytecode, FuncOffsets offsets)
-  : begin_(offsets.begin),
-    ret_(offsets.ret),
-    end_(offsets.end),
-    kind_(Function)
-{
+    : begin_(offsets.begin), ret_(offsets.ret), end_(offsets.end), kind_(Function) {
     MOZ_ASSERT(begin_ < ret_);
     MOZ_ASSERT(ret_ < end_);
     MOZ_ASSERT(offsets.normalEntry - begin_ <= UINT8_MAX);
@@ -788,15 +612,13 @@ CodeRange::CodeRange(uint32_t funcIndex, uint32_t funcLineOrBytecode, FuncOffset
     u.func.beginToTierEntry_ = offsets.tierEntry - begin_;
 }
 
-const CodeRange*
-wasm::LookupInSorted(const CodeRangeVector& codeRanges, CodeRange::OffsetInCode target)
-{
+const CodeRange* wasm::LookupInSorted(const CodeRangeVector& codeRanges,
+                                      CodeRange::OffsetInCode target) {
     size_t lowerBound = 0;
     size_t upperBound = codeRanges.length();
 
     size_t match;
-    if (!BinarySearch(codeRanges, lowerBound, upperBound, target, &match))
-        return nullptr;
+    if (!BinarySearch(codeRanges, lowerBound, upperBound, target, &match)) return nullptr;
 
     return &codeRanges[match];
 }

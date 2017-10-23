@@ -19,8 +19,8 @@
  * events in the case that the target thread is overworked.
  */
 nsresult
-net_NewTransportEventSinkProxy(nsITransportEventSink **aResult,
-                               nsITransportEventSink *aSink,
-                               nsIEventTarget *aTarget);
+net_NewTransportEventSinkProxy(nsITransportEventSink** aResult,
+                               nsITransportEventSink* aSink,
+                               nsIEventTarget* aTarget);
 
-#endif // nsTransportUtils_h__
+#endif  // nsTransportUtils_h__

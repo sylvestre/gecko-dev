@@ -30,23 +30,25 @@ namespace net {
 class nsPreloadedStream final : public nsIAsyncInputStream
 {
  public:
-    NS_DECL_THREADSAFE_ISUPPORTS
-    NS_DECL_NSIINPUTSTREAM
-    NS_DECL_NSIASYNCINPUTSTREAM
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIINPUTSTREAM
+  NS_DECL_NSIASYNCINPUTSTREAM
 
-    nsPreloadedStream(nsIAsyncInputStream *aStream,
-                      const char *data, uint32_t datalen);
-private:
-    ~nsPreloadedStream();
+  nsPreloadedStream(nsIAsyncInputStream* aStream,
+                    const char* data,
+                    uint32_t datalen);
 
-    nsCOMPtr<nsIAsyncInputStream> mStream;
+ private:
+  ~nsPreloadedStream();
 
-    char *mBuf;
-    uint32_t mOffset;
-    uint32_t mLen;
+  nsCOMPtr<nsIAsyncInputStream> mStream;
+
+  char* mBuf;
+  uint32_t mOffset;
+  uint32_t mLen;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

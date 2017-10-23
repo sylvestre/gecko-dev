@@ -75,8 +75,8 @@ SVGAttrValueWrapper::ToString(const SVGPointList* aPointList,
 
 /*static*/ void
 SVGAttrValueWrapper::ToString(
-  const SVGAnimatedPreserveAspectRatio* aPreserveAspectRatio,
-  nsAString& aResult)
+    const SVGAnimatedPreserveAspectRatio* aPreserveAspectRatio,
+    nsAString& aResult)
 {
   aPreserveAspectRatio->GetBaseValueString(aResult);
 }

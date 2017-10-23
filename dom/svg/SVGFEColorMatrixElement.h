@@ -11,8 +11,9 @@
 #include "nsSVGFilters.h"
 #include "SVGAnimatedNumberList.h"
 
-nsresult NS_NewSVGFEColorMatrixElement(nsIContent **aResult,
-                                       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGFEColorMatrixElement(
+    nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 namespace dom {
@@ -21,27 +22,36 @@ typedef nsSVGFE SVGFEColorMatrixElementBase;
 
 class SVGFEColorMatrixElement : public SVGFEColorMatrixElementBase
 {
-  friend nsresult (::NS_NewSVGFEColorMatrixElement(nsIContent **aResult,
-                                                   already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
-protected:
-  explicit SVGFEColorMatrixElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGFEColorMatrixElementBase(aNodeInfo)
+  friend nsresult(::NS_NewSVGFEColorMatrixElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+
+ protected:
+  explicit SVGFEColorMatrixElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGFEColorMatrixElementBase(aNodeInfo)
   {
   }
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
-  virtual FilterPrimitiveDescription
-    GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                            const IntRect& aFilterSubregion,
-                            const nsTArray<bool>& aInputsAreTainted,
-                            nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override { return mStringAttributes[RESULT]; }
-  virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources) override;
+ public:
+  virtual FilterPrimitiveDescription GetPrimitiveDescription(
+      nsSVGFilterInstance* aInstance,
+      const IntRect& aFilterSubregion,
+      const nsTArray<bool>& aInputsAreTainted,
+      nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const override;
+  virtual nsSVGString& GetResultImageName() override
+  {
+    return mStringAttributes[RESULT];
+  }
+  virtual void GetSourceImageNames(
+      nsTArray<nsSVGStringInfo>& aSources) override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL
@@ -54,21 +64,31 @@ public:
   virtual StringAttributesInfo GetStringInfo() override;
   virtual NumberListAttributesInfo GetNumberListInfo() override;
 
-  enum { TYPE };
+  enum
+  {
+    TYPE
+  };
   nsSVGEnum mEnumAttributes[1];
   static nsSVGEnumMapping sTypeMap[];
   static EnumInfo sEnumInfo[1];
 
-  enum { RESULT, IN1 };
+  enum
+  {
+    RESULT,
+    IN1
+  };
   nsSVGString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
-  enum { VALUES };
+  enum
+  {
+    VALUES
+  };
   SVGAnimatedNumberList mNumberListAttributes[1];
   static NumberListInfo sNumberListInfo[1];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGFEColorMatrixElement_h
+#endif  // mozilla_dom_SVGFEColorMatrixElement_h

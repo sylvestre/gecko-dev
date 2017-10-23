@@ -35,7 +35,8 @@ WebKitCSSMatrix::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 
 already_AddRefed<WebKitCSSMatrix>
 WebKitCSSMatrix::Constructor(const GlobalObject& aGlobal,
-                             const nsAString& aTransformList, ErrorResult& aRv)
+                             const nsAString& aTransformList,
+                             ErrorResult& aRv)
 {
   RefPtr<WebKitCSSMatrix> obj = new WebKitCSSMatrix(aGlobal.GetAsSupports());
   obj = obj->SetMatrixValue(aTransformList, aRv);
@@ -44,10 +45,11 @@ WebKitCSSMatrix::Constructor(const GlobalObject& aGlobal,
 
 already_AddRefed<WebKitCSSMatrix>
 WebKitCSSMatrix::Constructor(const GlobalObject& aGlobal,
-                             const DOMMatrixReadOnly& aOther, ErrorResult& aRv)
+                             const DOMMatrixReadOnly& aOther,
+                             ErrorResult& aRv)
 {
-  RefPtr<WebKitCSSMatrix> obj = new WebKitCSSMatrix(aGlobal.GetAsSupports(),
-                                                    aOther);
+  RefPtr<WebKitCSSMatrix> obj =
+      new WebKitCSSMatrix(aGlobal.GetAsSupports(), aOther);
   return obj.forget();
 }
 
@@ -68,9 +70,8 @@ WebKitCSSMatrix::SetMatrixValue(const nsAString& aTransformList,
 
   nsCSSValue value;
   nsCSSParser parser;
-  bool parseSuccess = parser.ParseTransformProperty(aTransformList,
-                                                    true,
-                                                    value);
+  bool parseSuccess =
+      parser.ParseTransformProperty(aTransformList, true, value);
   if (!parseSuccess) {
     aRv.Throw(NS_ERROR_DOM_SYNTAX_ERR);
     return nullptr;
@@ -93,10 +94,13 @@ WebKitCSSMatrix::SetMatrixValue(const nsAString& aTransformList,
   nsStyleTransformMatrix::TransformReferenceBox dummyBox;
   bool contains3dTransform = false;
   gfx::Matrix4x4 transform = nsStyleTransformMatrix::ReadTransforms(
-                               value.GetSharedListValue()->mHead,
-                               nullptr, nullptr, dummy, dummyBox,
-                               nsPresContext::AppUnitsPerCSSPixel(),
-                               &contains3dTransform);
+      value.GetSharedListValue()->mHead,
+      nullptr,
+      nullptr,
+      dummy,
+      dummyBox,
+      nsPresContext::AppUnitsPerCSSPixel(),
+      &contains3dTransform);
 
   if (!contains3dTransform) {
     mMatrix3D = nullptr;
@@ -154,9 +158,7 @@ WebKitCSSMatrix::InvertSelfThrow(ErrorResult& aRv)
 }
 
 already_AddRefed<WebKitCSSMatrix>
-WebKitCSSMatrix::Translate(double aTx,
-                           double aTy,
-                           double aTz) const
+WebKitCSSMatrix::Translate(double aTx, double aTy, double aTz) const
 {
   RefPtr<WebKitCSSMatrix> retval = new WebKitCSSMatrix(mParent, *this);
   retval->TranslateSelf(aTx, aTy, aTz);
@@ -204,9 +206,7 @@ WebKitCSSMatrix::Rotate(double aRotX,
 }
 
 WebKitCSSMatrix*
-WebKitCSSMatrix::Rotate3dSelf(double aRotX,
-                              double aRotY,
-                              double aRotZ)
+WebKitCSSMatrix::Rotate3dSelf(double aRotX, double aRotY, double aRotZ)
 {
   if (aRotX != 0 || aRotY != 0) {
     Ensure3DMatrix();
@@ -259,5 +259,5 @@ WebKitCSSMatrix::SkewY(double aSy) const
   return retval.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

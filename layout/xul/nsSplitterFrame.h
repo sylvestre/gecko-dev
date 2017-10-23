@@ -10,24 +10,25 @@
 #ifndef nsSplitterFrame_h__
 #define nsSplitterFrame_h__
 
-
 #include "mozilla/Attributes.h"
 #include "nsBoxFrame.h"
 
 class nsSplitterFrameInner;
 
-nsIFrame* NS_NewSplitterFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+nsIFrame*
+NS_NewSplitterFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
 
 class nsSplitterFrame final : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsSplitterFrame)
 
   explicit nsSplitterFrame(nsStyleContext* aContext);
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
 #ifdef DEBUG_FRAME_DUMP
-  virtual nsresult GetFrameName(nsAString& aResult) const override {
+  virtual nsresult GetFrameName(nsAString& aResult) const override
+  {
     return MakeFrameName(NS_LITERAL_STRING("SplitterFrame"), aResult);
   }
 #endif
@@ -37,11 +38,11 @@ public:
                                     nsAtom* aAttribute,
                                     int32_t aModType) override;
 
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
-  virtual nsresult GetCursor(const nsPoint&    aPoint,
+  virtual nsresult GetCursor(const nsPoint& aPoint,
                              nsIFrame::Cursor& aCursor) override;
 
   NS_IMETHOD DoXULLayout(nsBoxLayoutState& aBoxLayoutState) override;
@@ -67,16 +68,15 @@ public:
                                mozilla::WidgetGUIEvent* aEvent,
                                nsEventStatus* aEventStatus) override;
 
-  virtual void BuildDisplayList(nsDisplayListBuilder*   aBuilder,
+  virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
   virtual void GetInitialOrientation(bool& aIsHorizontal) override;
 
-private:
-
+ private:
   friend class nsSplitterFrameInner;
   nsSplitterFrameInner* mInner;
 
-}; // class nsSplitterFrame
+};  // class nsSplitterFrame
 
 #endif

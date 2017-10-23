@@ -55,14 +55,13 @@ class U2FTransactionInfo;
 
 class U2FTransaction
 {
-public:
+ public:
   U2FTransaction(nsPIDOMWindowInner* aParent,
                  const WebAuthnTransactionInfo&& aInfo,
                  const nsCString& aClientData)
-    : mParent(aParent)
-    , mInfo(aInfo)
-    , mClientData(aClientData)
-  { }
+      : mParent(aParent), mInfo(aInfo), mClientData(aClientData)
+  {
+  }
 
   // Parent of the context we're running the transaction in.
   nsCOMPtr<nsPIDOMWindowInner> mParent;
@@ -78,10 +77,10 @@ public:
   nsCString mClientData;
 };
 
-class U2FManager final : public nsIIPCBackgroundChildCreateCallback
-                       , public nsIDOMEventListener
+class U2FManager final : public nsIIPCBackgroundChildCreateCallback,
+                         public nsIDOMEventListener
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK
@@ -89,16 +88,18 @@ public:
   static U2FManager* GetOrCreate();
   static U2FManager* Get();
 
-  already_AddRefed<U2FPromise> Register(nsPIDOMWindowInner* aParent,
-              const nsCString& aRpId,
-              const nsCString& aClientDataJSON,
-              const uint32_t& aTimeoutMillis,
-              const nsTArray<WebAuthnScopedCredentialDescriptor>& aExcludeList);
-  already_AddRefed<U2FPromise> Sign(nsPIDOMWindowInner* aParent,
-              const nsCString& aRpId,
-              const nsCString& aClientDataJSON,
-              const uint32_t& aTimeoutMillis,
-              const nsTArray<WebAuthnScopedCredentialDescriptor>& aKeyList);
+  already_AddRefed<U2FPromise> Register(
+      nsPIDOMWindowInner* aParent,
+      const nsCString& aRpId,
+      const nsCString& aClientDataJSON,
+      const uint32_t& aTimeoutMillis,
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aExcludeList);
+  already_AddRefed<U2FPromise> Sign(
+      nsPIDOMWindowInner* aParent,
+      const nsCString& aRpId,
+      const nsCString& aClientDataJSON,
+      const uint32_t& aTimeoutMillis,
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aKeyList);
 
   void FinishRegister(nsTArray<uint8_t>& aRegBuffer);
   void FinishSign(nsTArray<uint8_t>& aCredentialId,
@@ -106,7 +107,8 @@ public:
   void RequestAborted(const nsresult& aError);
 
   // XXX This is exposed only until we fix bug 1410346.
-  void MaybeCancelTransaction(const nsresult& aError) {
+  void MaybeCancelTransaction(const nsresult& aError)
+  {
     if (mTransaction.isSome()) {
       CancelTransaction(NS_ERROR_ABORT);
     }
@@ -114,15 +116,15 @@ public:
 
   void ActorDestroyed();
 
-private:
+ private:
   U2FManager();
   virtual ~U2FManager();
 
-  static nsresult
-  BuildTransactionHashes(const nsCString& aRpId,
-                         const nsCString& aClientDataJSON,
-                         /* out */ CryptoBuffer& aRpIdHash,
-                         /* out */ CryptoBuffer& aClientDataHash);
+  static nsresult BuildTransactionHashes(
+      const nsCString& aRpId,
+      const nsCString& aClientDataJSON,
+      /* out */ CryptoBuffer& aRpIdHash,
+      /* out */ CryptoBuffer& aClientDataHash);
 
   // Clears all information we have about the current transaction.
   void ClearTransaction();
@@ -146,7 +148,7 @@ private:
   MozPromiseHolder<BackgroundActorPromise> mPBackgroundCreationPromise;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2FManager_h
+#endif  // mozilla_dom_U2FManager_h

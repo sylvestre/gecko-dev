@@ -22,8 +22,13 @@ class mozIStoragePendingStatement;
 namespace mozilla {
 namespace storage {
 
-#define STORAGEBASESTATEMENTINTERNAL_IID \
-  {0xd18856c9, 0xbf07, 0x4ae2, {0x94, 0x5b, 0x1a, 0xdd, 0x49, 0x19, 0x55, 0x2a}}
+#define STORAGEBASESTATEMENTINTERNAL_IID             \
+  {                                                  \
+    0xd18856c9, 0xbf07, 0x4ae2,                      \
+    {                                                \
+      0x94, 0x5b, 0x1a, 0xdd, 0x49, 0x19, 0x55, 0x2a \
+    }                                                \
+  }
 
 class Connection;
 class StatementData;
@@ -42,16 +47,13 @@ class AsyncStatementFinalizer;
  */
 class StorageBaseStatementInternal : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(STORAGEBASESTATEMENTINTERNAL_IID)
 
   /**
    * @return the connection that this statement belongs to.
    */
-  Connection *getOwner()
-  {
-    return mDBConnection;
-  }
+  Connection* getOwner() { return mDBConnection; }
 
   /**
    * Return the asynchronous statement, creating it if required.
@@ -65,7 +67,7 @@ public:
    * @return The SQLite result code for creating the statement if created,
    *         SQLITE_OK if creation was not required.
    */
-  virtual int getAsyncStatement(sqlite3_stmt **_stmt) = 0;
+  virtual int getAsyncStatement(sqlite3_stmt** _stmt) = 0;
 
   /**
    * Obtains the StatementData needed for asynchronous execution.
@@ -78,7 +80,7 @@ public:
    *             upon successful execution of this method.
    * @return NS_OK if we were able to assemble the data, failure otherwise.
    */
-  virtual nsresult getAsynchronousStatementData(StatementData &_data) = 0;
+  virtual nsresult getAsynchronousStatementData(StatementData& _data) = 0;
 
   /**
    * Construct a new BindingParams to be owned by the provided binding params
@@ -91,14 +93,13 @@ public:
    *         underlying statement type.
    */
   virtual already_AddRefed<mozIStorageBindingParams> newBindingParams(
-    mozIStorageBindingParamsArray *aOwner
-  ) = 0;
+      mozIStorageBindingParamsArray* aOwner) = 0;
 
-protected: // mix-in bits are protected
+ protected:  // mix-in bits are protected
   StorageBaseStatementInternal();
 
   RefPtr<Connection> mDBConnection;
-  sqlite3 *mNativeConnection;
+  sqlite3* mNativeConnection;
 
   /**
    * Our asynchronous statement.
@@ -110,7 +111,7 @@ protected: // mix-in bits are protected
    * async thread when it calls getAsyncStatement the first time the statement
    * is executed.  (Or in the event of badly formed SQL, every time.)
    */
-  sqlite3_stmt *mAsyncStatement;
+  sqlite3_stmt* mAsyncStatement;
 
   /**
    * Initiate asynchronous finalization by dispatching an event to the
@@ -137,12 +138,12 @@ protected: // mix-in bits are protected
    */
   void destructorAsyncFinalize();
 
-  NS_IMETHOD NewBindingParamsArray(mozIStorageBindingParamsArray **_array);
-  NS_IMETHOD ExecuteAsync(mozIStorageStatementCallback *aCallback,
-                          mozIStoragePendingStatement **_stmt);
-  NS_IMETHOD EscapeStringForLIKE(const nsAString &aValue,
+  NS_IMETHOD NewBindingParamsArray(mozIStorageBindingParamsArray** _array);
+  NS_IMETHOD ExecuteAsync(mozIStorageStatementCallback* aCallback,
+                          mozIStoragePendingStatement** _stmt);
+  NS_IMETHOD EscapeStringForLIKE(const nsAString& aValue,
                                  char16_t aEscapeChar,
-                                 nsAString &_escapedString);
+                                 nsAString& _escapedString);
 
   // Needs access to internalAsyncFinalize
   friend class AsyncStatementFinalizer;
@@ -151,12 +152,13 @@ protected: // mix-in bits are protected
 NS_DEFINE_STATIC_IID_ACCESSOR(StorageBaseStatementInternal,
                               STORAGEBASESTATEMENTINTERNAL_IID)
 
-#define NS_DECL_STORAGEBASESTATEMENTINTERNAL \
-  virtual Connection *getOwner(); \
-  virtual int getAsyncStatement(sqlite3_stmt **_stmt) override; \
-  virtual nsresult getAsynchronousStatementData(StatementData &_data) override; \
+#define NS_DECL_STORAGEBASESTATEMENTINTERNAL                           \
+  virtual Connection* getOwner();                                      \
+  virtual int getAsyncStatement(sqlite3_stmt** _stmt) override;        \
+  virtual nsresult getAsynchronousStatementData(StatementData& _data)  \
+      override;                                                        \
   virtual already_AddRefed<mozIStorageBindingParams> newBindingParams( \
-    mozIStorageBindingParamsArray *aOwner) override;
+      mozIStorageBindingParamsArray* aOwner) override;
 
 /**
  * Helper macro to implement the proxying implementations.  Because we are
@@ -164,13 +166,11 @@ NS_DEFINE_STATIC_IID_ACCESSOR(StorageBaseStatementInternal,
  * implementation classes already use NS_DECL_MOZISTORAGEBASESTATEMENT we don't
  * need to provide declaration support.
  */
-#define MIX_IMPL(_class, _optionalGuard, _method, _declArgs, _invokeArgs) \
-  NS_IMETHODIMP _class::_method _declArgs                                 \
-  {                                                                       \
-    _optionalGuard                                                        \
-    return StorageBaseStatementInternal::_method _invokeArgs;             \
+#define MIX_IMPL(_class, _optionalGuard, _method, _declArgs, _invokeArgs)    \
+  NS_IMETHODIMP _class::_method _declArgs                                    \
+  {                                                                          \
+    _optionalGuard return StorageBaseStatementInternal::_method _invokeArgs; \
   }
-
 
 /**
  * Define proxying implementation for the given _class.  If a state invariant
@@ -178,26 +178,29 @@ NS_DEFINE_STATIC_IID_ACCESSOR(StorageBaseStatementInternal,
  * to use as _optionalGuard.
  */
 #define MIXIN_IMPL_STORAGEBASESTATEMENTINTERNAL(_class, _optionalGuard) \
-  MIX_IMPL(_class, _optionalGuard,                                      \
+  MIX_IMPL(_class,                                                      \
+           _optionalGuard,                                              \
            NewBindingParamsArray,                                       \
-           (mozIStorageBindingParamsArray **_array),                    \
+           (mozIStorageBindingParamsArray * *_array),                   \
            (_array))                                                    \
-  MIX_IMPL(_class, _optionalGuard,                                      \
+  MIX_IMPL(_class,                                                      \
+           _optionalGuard,                                              \
            ExecuteAsync,                                                \
-           (mozIStorageStatementCallback *aCallback,                    \
-            mozIStoragePendingStatement **_stmt),                       \
+           (mozIStorageStatementCallback * aCallback,                   \
+            mozIStoragePendingStatement * *_stmt),                      \
            (aCallback, _stmt))                                          \
-  MIX_IMPL(_class, _optionalGuard,                                      \
+  MIX_IMPL(_class,                                                      \
+           _optionalGuard,                                              \
            EscapeStringForLIKE,                                         \
-           (const nsAString &aValue, char16_t aEscapeChar,              \
-            nsAString &_escapedString),                                 \
+           (const nsAString& aValue,                                    \
+            char16_t aEscapeChar,                                       \
+            nsAString& _escapedString),                                 \
            (aValue, aEscapeChar, _escapedString))
 
 /**
  * Name-building helper for BIND_GEN_IMPL.
  */
-#define BIND_NAME_CONCAT(_nameBit, _concatBit) \
-  Bind##_nameBit##_concatBit
+#define BIND_NAME_CONCAT(_nameBit, _concatBit) Bind##_nameBit##_concatBit
 
 /**
  * We have type-specific convenience methods for C++ implementations in
@@ -223,15 +226,13 @@ NS_DEFINE_STATIC_IID_ACCESSOR(StorageBaseStatementInternal,
 #define BIND_GEN_IMPL(_class, _guard, _name, _declName, _declIndex, _invArgs) \
   NS_IMETHODIMP _class::BIND_NAME_CONCAT(_name, ByName) _declName             \
   {                                                                           \
-    _guard                                                                    \
-    mozIStorageBindingParams *params = getParams();                           \
+    _guard mozIStorageBindingParams* params = getParams();                    \
     NS_ENSURE_TRUE(params, NS_ERROR_OUT_OF_MEMORY);                           \
     return params->BIND_NAME_CONCAT(_name, ByName) _invArgs;                  \
   }                                                                           \
   NS_IMETHODIMP _class::BIND_NAME_CONCAT(_name, ByIndex) _declIndex           \
   {                                                                           \
-    _guard                                                                    \
-    mozIStorageBindingParams *params = getParams();                           \
+    _guard mozIStorageBindingParams* params = getParams();                    \
     NS_ENSURE_TRUE(params, NS_ERROR_OUT_OF_MEMORY);                           \
     return params->BIND_NAME_CONCAT(_name, ByIndex) _invArgs;                 \
   }
@@ -242,106 +243,91 @@ NS_DEFINE_STATIC_IID_ACCESSOR(StorageBaseStatementInternal,
  * @param _class The class name.
  * @param _optionalGuard The guard clause to inject.
  */
-#define BIND_BASE_IMPLS(_class, _optionalGuard)             \
-  NS_IMETHODIMP _class::BindByName(const nsACString &aName, \
-                                   nsIVariant *aValue)      \
-  {                                                         \
-    _optionalGuard                                          \
-    mozIStorageBindingParams *params = getParams();         \
-    NS_ENSURE_TRUE(params, NS_ERROR_OUT_OF_MEMORY);         \
-    return params->BindByName(aName, aValue);               \
-  }                                                         \
-  NS_IMETHODIMP _class::BindByIndex(uint32_t aIndex,        \
-                                    nsIVariant *aValue)     \
-  {                                                         \
-    _optionalGuard                                          \
-    mozIStorageBindingParams *params = getParams();         \
-    NS_ENSURE_TRUE(params, NS_ERROR_OUT_OF_MEMORY);         \
-    return params->BindByIndex(aIndex, aValue);             \
+#define BIND_BASE_IMPLS(_class, _optionalGuard)                          \
+  NS_IMETHODIMP _class::BindByName(const nsACString& aName,              \
+                                   nsIVariant* aValue)                   \
+  {                                                                      \
+    _optionalGuard mozIStorageBindingParams* params = getParams();       \
+    NS_ENSURE_TRUE(params, NS_ERROR_OUT_OF_MEMORY);                      \
+    return params->BindByName(aName, aValue);                            \
+  }                                                                      \
+  NS_IMETHODIMP _class::BindByIndex(uint32_t aIndex, nsIVariant* aValue) \
+  {                                                                      \
+    _optionalGuard mozIStorageBindingParams* params = getParams();       \
+    NS_ENSURE_TRUE(params, NS_ERROR_OUT_OF_MEMORY);                      \
+    return params->BindByIndex(aIndex, aValue);                          \
   }
 
 /**
  * Define the various Bind*ByIndex, Bind*ByName stubs that just end up proxying
  * to the params object.
  */
-#define BOILERPLATE_BIND_PROXIES(_class, _optionalGuard) \
-  BIND_BASE_IMPLS(_class, _optionalGuard)                \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                UTF8String,                              \
-                (const nsACString &aWhere,               \
-                 const nsACString &aValue),              \
-                (uint32_t aWhere,                        \
-                 const nsACString &aValue),              \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                String,                                  \
-                (const nsACString &aWhere,               \
-                 const nsAString  &aValue),              \
-                (uint32_t aWhere,                        \
-                 const nsAString  &aValue),              \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                Double,                                  \
-                (const nsACString &aWhere,               \
-                 double aValue),                         \
-                (uint32_t aWhere,                        \
-                 double aValue),                         \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                Int32,                                   \
-                (const nsACString &aWhere,               \
-                 int32_t aValue),                        \
-                (uint32_t aWhere,                        \
-                 int32_t aValue),                        \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                Int64,                                   \
-                (const nsACString &aWhere,               \
-                 int64_t aValue),                        \
-                (uint32_t aWhere,                        \
-                 int64_t aValue),                        \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                Null,                                    \
-                (const nsACString &aWhere),              \
-                (uint32_t aWhere),                       \
-                (aWhere))                                \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                Blob,                                    \
-                (const nsACString &aWhere,               \
-                 const uint8_t *aValue,                  \
-                 uint32_t aValueSize),                   \
-                (uint32_t aWhere,                        \
-                 const uint8_t *aValue,                  \
-                 uint32_t aValueSize),                   \
-                (aWhere, aValue, aValueSize))            \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                StringAsBlob,                            \
-                (const nsACString &aWhere,               \
-                 const nsAString& aValue),               \
-                (uint32_t aWhere,                        \
-                 const nsAString& aValue),               \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                UTF8StringAsBlob,                        \
-                (const nsACString &aWhere,               \
-                 const nsACString& aValue),              \
-                (uint32_t aWhere,                        \
-                 const nsACString& aValue),              \
-                (aWhere, aValue))                        \
-  BIND_GEN_IMPL(_class, _optionalGuard,                  \
-                AdoptedBlob,                             \
-                (const nsACString &aWhere,               \
-                 uint8_t *aValue,                        \
-                 uint32_t aValueSize),                   \
-                (uint32_t aWhere,                        \
-                 uint8_t *aValue,                        \
-                 uint32_t aValueSize),                   \
-                (aWhere, aValue, aValueSize))
+#define BOILERPLATE_BIND_PROXIES(_class, _optionalGuard)                      \
+  BIND_BASE_IMPLS(_class, _optionalGuard)                                     \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                UTF8String,                                                   \
+                (const nsACString& aWhere, const nsACString& aValue),         \
+                (uint32_t aWhere, const nsACString& aValue),                  \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                String,                                                       \
+                (const nsACString& aWhere, const nsAString& aValue),          \
+                (uint32_t aWhere, const nsAString& aValue),                   \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                Double,                                                       \
+                (const nsACString& aWhere, double aValue),                    \
+                (uint32_t aWhere, double aValue),                             \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                Int32,                                                        \
+                (const nsACString& aWhere, int32_t aValue),                   \
+                (uint32_t aWhere, int32_t aValue),                            \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                Int64,                                                        \
+                (const nsACString& aWhere, int64_t aValue),                   \
+                (uint32_t aWhere, int64_t aValue),                            \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                Null,                                                         \
+                (const nsACString& aWhere),                                   \
+                (uint32_t aWhere),                                            \
+                (aWhere))                                                     \
+  BIND_GEN_IMPL(                                                              \
+      _class,                                                                 \
+      _optionalGuard,                                                         \
+      Blob,                                                                   \
+      (const nsACString& aWhere, const uint8_t* aValue, uint32_t aValueSize), \
+      (uint32_t aWhere, const uint8_t* aValue, uint32_t aValueSize),          \
+      (aWhere, aValue, aValueSize))                                           \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                StringAsBlob,                                                 \
+                (const nsACString& aWhere, const nsAString& aValue),          \
+                (uint32_t aWhere, const nsAString& aValue),                   \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(_class,                                                       \
+                _optionalGuard,                                               \
+                UTF8StringAsBlob,                                             \
+                (const nsACString& aWhere, const nsACString& aValue),         \
+                (uint32_t aWhere, const nsACString& aValue),                  \
+                (aWhere, aValue))                                             \
+  BIND_GEN_IMPL(                                                              \
+      _class,                                                                 \
+      _optionalGuard,                                                         \
+      AdoptedBlob,                                                            \
+      (const nsACString& aWhere, uint8_t* aValue, uint32_t aValueSize),       \
+      (uint32_t aWhere, uint8_t * aValue, uint32_t aValueSize),               \
+      (aWhere, aValue, aValueSize))
 
+}  // namespace storage
+}  // namespace mozilla
 
-
-} // namespace storage
-} // namespace mozilla
-
-#endif // mozilla_storage_StorageBaseStatementInternal_h_
+#endif  // mozilla_storage_StorageBaseStatementInternal_h_

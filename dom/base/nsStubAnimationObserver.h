@@ -9,9 +9,10 @@
 
 #include "nsIAnimationObserver.h"
 
-class nsStubAnimationObserver : public nsIAnimationObserver {
-public:
+class nsStubAnimationObserver : public nsIAnimationObserver
+{
+ public:
   NS_DECL_NSIANIMATIONOBSERVER
 };
 
-#endif // !defined(nsStubAnimationObserver_h_)
+#endif  // !defined(nsStubAnimationObserver_h_)

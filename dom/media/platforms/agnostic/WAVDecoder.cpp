@@ -47,8 +47,7 @@ DecodeULawSample(uint8_t aValue)
 }
 
 WaveDataDecoder::WaveDataDecoder(const CreateDecoderParams& aParams)
-  : mInfo(aParams.AudioConfig())
-  , mTaskQueue(aParams.mTaskQueue)
+    : mInfo(aParams.AudioConfig()), mTaskQueue(aParams.mTaskQueue)
 {
 }
 
@@ -70,8 +69,8 @@ WaveDataDecoder::Init()
 RefPtr<MediaDataDecoder::DecodePromise>
 WaveDataDecoder::Decode(MediaRawData* aSample)
 {
-  return InvokeAsync<MediaRawData*>(mTaskQueue, this, __func__,
-                                    &WaveDataDecoder::ProcessDecode, aSample);
+  return InvokeAsync<MediaRawData*>(
+      mTaskQueue, this, __func__, &WaveDataDecoder::ProcessDecode, aSample);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -86,21 +85,21 @@ WaveDataDecoder::ProcessDecode(MediaRawData* aSample)
   AlignedAudioBuffer buffer(frames * mInfo.mChannels);
   if (!buffer) {
     return DecodePromise::CreateAndReject(
-      MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__), __func__);
+        MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__), __func__);
   }
   for (int i = 0; i < frames; ++i) {
     for (unsigned int j = 0; j < mInfo.mChannels; ++j) {
-      if (mInfo.mProfile == 6) {                              //ALAW Data
+      if (mInfo.mProfile == 6) {  //ALAW Data
         uint8_t v = aReader.ReadU8();
         int16_t decoded = DecodeALawSample(v);
         buffer[i * mInfo.mChannels + j] =
             IntegerToAudioSample<AudioDataValue>(decoded);
-      } else if (mInfo.mProfile == 7) {                       //ULAW Data
+      } else if (mInfo.mProfile == 7) {  //ULAW Data
         uint8_t v = aReader.ReadU8();
         int16_t decoded = DecodeULawSample(v);
         buffer[i * mInfo.mChannels + j] =
             IntegerToAudioSample<AudioDataValue>(decoded);
-      } else {                                                //PCM Data
+      } else {  //PCM Data
         if (mInfo.mBitDepth == 8) {
           uint8_t v = aReader.ReadU8();
           buffer[i * mInfo.mChannels + j] =
@@ -121,9 +120,14 @@ WaveDataDecoder::ProcessDecode(MediaRawData* aSample)
   auto duration = FramesToTimeUnit(frames, mInfo.mRate);
 
   return DecodePromise::CreateAndResolve(
-    DecodedData{ new AudioData(aOffset, aSample->mTime, duration, frames,
-                               Move(buffer), mInfo.mChannels, mInfo.mRate) },
-    __func__);
+      DecodedData{new AudioData(aOffset,
+                                aSample->mTime,
+                                duration,
+                                frames,
+                                Move(buffer),
+                                mInfo.mChannels,
+                                mInfo.mRate)},
+      __func__);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise>
@@ -155,5 +159,5 @@ WaveDataDecoder::IsWave(const nsACString& aMimeType)
          aMimeType.EqualsLiteral("audio/wave; codecs=65534");
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 #undef LOG

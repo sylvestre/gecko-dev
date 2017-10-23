@@ -18,30 +18,29 @@ namespace mozilla {
 struct AnimationValue;
 namespace dom {
 class Element;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /*
  * nsSMILCSSValueType: Represents a SMIL-animated CSS value.
  */
 class nsSMILCSSValueType : public nsISMILType
 {
-public:
+ public:
   typedef mozilla::dom::Element Element;
   typedef mozilla::AnimationValue AnimationValue;
 
   // Singleton for nsSMILValue objects to hold onto.
   static nsSMILCSSValueType sSingleton;
 
-protected:
+ protected:
   // nsISMILType Methods
   // -------------------
-  void     Init(nsSMILValue& aValue) const override;
-  void     Destroy(nsSMILValue&) const override;
-  nsresult Assign(nsSMILValue& aDest,
-                  const nsSMILValue& aSrc) const override;
-  bool     IsEqual(const nsSMILValue& aLeft,
-                   const nsSMILValue& aRight) const override;
+  void Init(nsSMILValue& aValue) const override;
+  void Destroy(nsSMILValue&) const override;
+  nsresult Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const override;
+  bool IsEqual(const nsSMILValue& aLeft,
+               const nsSMILValue& aRight) const override;
   nsresult Add(nsSMILValue& aDest,
                const nsSMILValue& aValueToAdd,
                uint32_t aCount) const override;
@@ -55,7 +54,7 @@ protected:
                        double aUnitDistance,
                        nsSMILValue& aResult) const override;
 
-public:
+ public:
   // Helper Methods
   // --------------
   /**
@@ -140,9 +139,9 @@ public:
   static void FinalizeValue(nsSMILValue& aValue,
                             const nsSMILValue& aValueToMatch);
 
-private:
+ private:
   // Private constructor: prevent instances beyond my singleton.
   constexpr nsSMILCSSValueType() {}
 };
 
-#endif // NS_SMILCSSVALUETYPE_H_
+#endif  // NS_SMILCSSVALUETYPE_H_

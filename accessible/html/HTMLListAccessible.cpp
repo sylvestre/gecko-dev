@@ -36,14 +36,12 @@ HTMLListAccessible::NativeState()
   return HyperTextAccessibleWrap::NativeState() | states::READONLY;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLLIAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLLIAccessible::
-  HTMLLIAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc), mBullet(nullptr)
+HTMLLIAccessible::HTMLLIAccessible(nsIContent* aContent, DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc), mBullet(nullptr)
 {
   mType = eHTMLLiType;
 
@@ -82,13 +80,14 @@ nsIntRect
 HTMLLIAccessible::Bounds() const
 {
   nsIntRect rect = AccessibleWrap::Bounds();
-  if (rect.IsEmpty() || !mBullet || mBullet->IsInside())
-    return rect;
+  if (rect.IsEmpty() || !mBullet || mBullet->IsInside()) return rect;
 
   nsIntRect bulletRect = mBullet->Bounds();
 
   rect.width += rect.x - bulletRect.x;
-  rect.x = bulletRect.x; // Move x coordinate of list item over to cover bullet as well
+  rect.x =
+      bulletRect
+          .x;  // Move x coordinate of list item over to cover bullet as well
   return rect;
 }
 
@@ -120,8 +119,7 @@ HTMLLIAccessible::UpdateBullet(bool aHasBullet)
     mDoc->BindToDocument(mBullet, nullptr);
     InsertChildAt(0, mBullet);
     mt.AfterInsertion(mBullet);
-  }
-  else {
+  } else {
     mt.BeforeRemoval(mBullet);
     RemoveChild(mBullet);
     mBullet = nullptr;
@@ -132,9 +130,9 @@ HTMLLIAccessible::UpdateBullet(bool aHasBullet)
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLListBulletAccessible
 ////////////////////////////////////////////////////////////////////////////////
-HTMLListBulletAccessible::
-  HTMLListBulletAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  LeafAccessible(aContent, aDoc)
+HTMLListBulletAccessible::HTMLListBulletAccessible(nsIContent* aContent,
+                                                   DocAccessible* aDoc)
+    : LeafAccessible(aContent, aDoc)
 {
   mGenericTypes |= eText;
   mStateFlags |= eSharedNode;
@@ -151,7 +149,7 @@ HTMLListBulletAccessible::GetFrame() const
 }
 
 ENameValueFlag
-HTMLListBulletAccessible::Name(nsString &aName)
+HTMLListBulletAccessible::Name(nsString& aName)
 {
   aName.Truncate();
 
@@ -177,13 +175,13 @@ HTMLListBulletAccessible::NativeState()
 }
 
 void
-HTMLListBulletAccessible::AppendTextTo(nsAString& aText, uint32_t aStartOffset,
+HTMLListBulletAccessible::AppendTextTo(nsAString& aText,
+                                       uint32_t aStartOffset,
                                        uint32_t aLength)
 {
   nsAutoString bulletText;
   nsBlockFrame* blockFrame = do_QueryFrame(mContent->GetPrimaryFrame());
-  if (blockFrame)
-    blockFrame->GetSpokenBulletText(bulletText);
+  if (blockFrame) blockFrame->GetSpokenBulletText(bulletText);
 
   aText.Append(Substring(bulletText, aStartOffset, aLength));
 }

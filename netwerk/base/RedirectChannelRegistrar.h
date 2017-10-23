@@ -23,14 +23,13 @@ class RedirectChannelRegistrar final : public nsIRedirectChannelRegistrar
 
   RedirectChannelRegistrar();
 
-private:
+ private:
   ~RedirectChannelRegistrar() {}
 
-protected:
-  typedef nsInterfaceHashtable<nsUint32HashKey, nsIChannel>
-          ChannelHashtable;
+ protected:
+  typedef nsInterfaceHashtable<nsUint32HashKey, nsIChannel> ChannelHashtable;
   typedef nsInterfaceHashtable<nsUint32HashKey, nsIParentChannel>
-          ParentChannelHashtable;
+      ParentChannelHashtable;
 
   ChannelHashtable mRealChannels;
   ParentChannelHashtable mParentChannels;
@@ -38,7 +37,7 @@ protected:
   Mutex mLock;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif

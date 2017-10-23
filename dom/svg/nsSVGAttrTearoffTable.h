@@ -22,7 +22,7 @@
 template<class SimpleType, class TearoffType>
 class nsSVGAttrTearoffTable
 {
-public:
+ public:
 #ifdef DEBUG
   ~nsSVGAttrTearoffTable()
   {
@@ -36,9 +36,9 @@ public:
 
   void RemoveTearoff(SimpleType* aSimple);
 
-private:
+ private:
   typedef nsPtrHashKey<SimpleType> SimpleTypePtrKey;
-  typedef nsDataHashtable<SimpleTypePtrKey, TearoffType* > TearoffTable;
+  typedef nsDataHashtable<SimpleTypePtrKey, TearoffType*> TearoffTable;
 
   TearoffTable* mTable;
 };
@@ -47,15 +47,14 @@ template<class SimpleType, class TearoffType>
 TearoffType*
 nsSVGAttrTearoffTable<SimpleType, TearoffType>::GetTearoff(SimpleType* aSimple)
 {
-  if (!mTable)
-    return nullptr;
+  if (!mTable) return nullptr;
 
-  TearoffType *tearoff = nullptr;
+  TearoffType* tearoff = nullptr;
 
 #ifdef DEBUG
   bool found =
 #endif
-    mTable->Get(aSimple, &tearoff);
+      mTable->Get(aSimple, &tearoff);
   MOZ_ASSERT(!found || tearoff,
              "null pointer stored in attribute tear-off map");
 
@@ -64,8 +63,8 @@ nsSVGAttrTearoffTable<SimpleType, TearoffType>::GetTearoff(SimpleType* aSimple)
 
 template<class SimpleType, class TearoffType>
 void
-nsSVGAttrTearoffTable<SimpleType, TearoffType>::AddTearoff(SimpleType* aSimple,
-                                                          TearoffType* aTearoff)
+nsSVGAttrTearoffTable<SimpleType, TearoffType>::AddTearoff(
+    SimpleType* aSimple, TearoffType* aTearoff)
 {
   if (!mTable) {
     mTable = new TearoffTable;
@@ -99,4 +98,4 @@ nsSVGAttrTearoffTable<SimpleType, TearoffType>::RemoveTearoff(
   }
 }
 
-#endif // NS_SVGATTRTEAROFFTABLE_H_
+#endif  // NS_SVGATTRTEAROFFTABLE_H_

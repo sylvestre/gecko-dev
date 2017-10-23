@@ -23,7 +23,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(GroupedSHistory)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPartialHistories)
   for (GroupedSHistory::PrerenderingHistory& h : tmp->mPrerenderingHistories) {
-    ImplCycleCollectionTraverse(cb, h.mPartialHistory, "mPrerenderingHistories[i]->mPartialHistory", 0);
+    ImplCycleCollectionTraverse(
+        cb, h.mPartialHistory, "mPrerenderingHistories[i]->mPartialHistory", 0);
   }
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -35,9 +36,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GroupedSHistory)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIGroupedSHistory)
 NS_INTERFACE_MAP_END
 
-GroupedSHistory::GroupedSHistory()
-  : mCount(0),
-    mIndexOfActivePartialHistory(-1)
+GroupedSHistory::GroupedSHistory() : mCount(0), mIndexOfActivePartialHistory(-1)
 {
 }
 
@@ -66,7 +65,7 @@ GroupedSHistory::AppendPartialSHistory(nsIPartialSHistory* aPartialHistory)
   if (mIndexOfActivePartialHistory >= 0) {
     PurgePartialHistories(mIndexOfActivePartialHistory);
     nsCOMPtr<nsIPartialSHistory> prevPartialHistory =
-      mPartialHistories[mIndexOfActivePartialHistory];
+        mPartialHistories[mIndexOfActivePartialHistory];
     if (NS_WARN_IF(!prevPartialHistory)) {
       // Cycle collected?
       return NS_ERROR_UNEXPECTED;
@@ -88,7 +87,8 @@ GroupedSHistory::AppendPartialSHistory(nsIPartialSHistory* aPartialHistory)
 }
 
 NS_IMETHODIMP
-GroupedSHistory::HandleSHistoryUpdate(nsIPartialSHistory* aPartial, bool aTruncate)
+GroupedSHistory::HandleSHistoryUpdate(nsIPartialSHistory* aPartial,
+                                      bool aTruncate)
 {
   if (!aPartial) {
     return NS_ERROR_INVALID_POINTER;
@@ -151,7 +151,7 @@ GroupedSHistory::GotoIndex(uint32_t aGlobalIndex,
   *aTargetLoaderToSwap = nullptr;
 
   nsCOMPtr<nsIPartialSHistory> currentPartialHistory =
-    mPartialHistories[mIndexOfActivePartialHistory];
+      mPartialHistories[mIndexOfActivePartialHistory];
   if (!currentPartialHistory) {
     // Cycle collected?
     return NS_ERROR_UNEXPECTED;
@@ -226,14 +226,14 @@ GroupedSHistory::PurgePartialHistories(uint32_t aLastPartialIndexToKeep)
 }
 
 /* static */ bool
-GroupedSHistory::GroupedHistoryEnabled() {
+GroupedSHistory::GroupedHistoryEnabled()
+{
   static bool sGroupedSHistoryEnabled = false;
   static bool sGroupedSHistoryPrefCached = false;
   if (!sGroupedSHistoryPrefCached) {
     sGroupedSHistoryPrefCached = true;
-    Preferences::AddBoolVarCache(&sGroupedSHistoryEnabled,
-                                 "browser.groupedhistory.enabled",
-                                 false);
+    Preferences::AddBoolVarCache(
+        &sGroupedSHistoryEnabled, "browser.groupedhistory.enabled", false);
   }
 
   return sGroupedSHistoryEnabled;
@@ -274,11 +274,12 @@ GroupedSHistory::CloseInactiveFrameLoaderOwners()
 }
 
 NS_IMETHODIMP
-GroupedSHistory::AddPrerenderingPartialSHistory(nsIPartialSHistory* aPrerendering, int32_t aId)
+GroupedSHistory::AddPrerenderingPartialSHistory(
+    nsIPartialSHistory* aPrerendering, int32_t aId)
 {
   NS_ENSURE_TRUE(aPrerendering && aId, NS_ERROR_UNEXPECTED);
   aPrerendering->SetActiveState(nsIPartialSHistory::STATE_PRERENDER);
-  PrerenderingHistory history = { aPrerendering, aId };
+  PrerenderingHistory history = {aPrerendering, aId};
   mPrerenderingHistories.AppendElement(history);
   return NS_OK;
 }
@@ -287,20 +288,24 @@ NS_IMETHODIMP
 GroupedSHistory::GetActiveFrameLoader(nsIFrameLoader** aFrameLoader)
 {
   if (mIndexOfActivePartialHistory >= 0) {
-    return mPartialHistories[mIndexOfActivePartialHistory]->GetOwnerFrameLoader(aFrameLoader);
+    return mPartialHistories[mIndexOfActivePartialHistory]->GetOwnerFrameLoader(
+        aFrameLoader);
   }
   return NS_ERROR_NOT_AVAILABLE;
 }
 
 NS_IMETHODIMP
-GroupedSHistory::ActivatePrerendering(int32_t aId, JSContext* aCx, nsISupports** aPromise)
+GroupedSHistory::ActivatePrerendering(int32_t aId,
+                                      JSContext* aCx,
+                                      nsISupports** aPromise)
 {
   NS_ENSURE_TRUE(aId && aCx && aPromise, NS_ERROR_UNEXPECTED);
 
   // Look for an entry with the given aId in mPrerenderingHistories.
   for (uint32_t i = 0; i < mPrerenderingHistories.Length(); ++i) {
     if (mPrerenderingHistories[i].mId == aId) {
-      nsCOMPtr<nsIPartialSHistory> partialHistory = mPrerenderingHistories[i].mPartialHistory;
+      nsCOMPtr<nsIPartialSHistory> partialHistory =
+          mPrerenderingHistories[i].mPartialHistory;
       mPrerenderingHistories.RemoveElementAt(i);
 
       nsCOMPtr<nsIFrameLoader> fl;
@@ -319,12 +324,14 @@ GroupedSHistory::ActivatePrerendering(int32_t aId, JSContext* aCx, nsISupports**
   }
 
   // Generate a rejected promise as the entry was not found.
-  nsCOMPtr<nsIGlobalObject> go = xpc::NativeGlobal(JS::CurrentGlobalOrNull(aCx));
+  nsCOMPtr<nsIGlobalObject> go =
+      xpc::NativeGlobal(JS::CurrentGlobalOrNull(aCx));
   if (NS_WARN_IF(!go)) {
     return NS_ERROR_FAILURE;
   }
   ErrorResult rv;
-  RefPtr<Promise> promise = Promise::Reject(go, aCx, JS::UndefinedHandleValue, rv);
+  RefPtr<Promise> promise =
+      Promise::Reject(go, aCx, JS::UndefinedHandleValue, rv);
   if (NS_WARN_IF(rv.Failed())) {
     return NS_ERROR_FAILURE;
   }
@@ -337,7 +344,8 @@ GroupedSHistory::CancelPrerendering(int32_t aId)
 {
   for (uint32_t i = 0; i < mPrerenderingHistories.Length(); ++i) {
     if (mPrerenderingHistories[i].mId == aId) {
-      nsCOMPtr<nsIPartialSHistory> partialHistory = mPrerenderingHistories[i].mPartialHistory;
+      nsCOMPtr<nsIPartialSHistory> partialHistory =
+          mPrerenderingHistories[i].mPartialHistory;
       nsCOMPtr<nsIFrameLoader> fl;
       partialHistory->GetOwnerFrameLoader(getter_AddRefs(fl));
       if (fl) {
@@ -350,5 +358,5 @@ GroupedSHistory::CancelPrerendering(int32_t aId)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

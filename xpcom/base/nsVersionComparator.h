@@ -43,10 +43,12 @@
 
 namespace mozilla {
 
-int32_t CompareVersions(const char* aStrA, const char* aStrB);
+int32_t
+CompareVersions(const char* aStrA, const char* aStrB);
 
 #ifdef XP_WIN
-int32_t CompareVersions(const char16_t* aStrA, const char16_t* aStrB);
+int32_t
+CompareVersions(const char16_t* aStrA, const char16_t* aStrB);
 #endif
 
 struct Version
@@ -56,15 +58,9 @@ struct Version
     versionContent = strdup(aVersionString);
   }
 
-  const char* ReadContent() const
-  {
-    return versionContent;
-  }
+  const char* ReadContent() const { return versionContent; }
 
-  ~Version()
-  {
-    free(versionContent);
-  }
+  ~Version() { free(versionContent); }
 
   bool operator<(const Version& aRhs) const
   {
@@ -115,7 +111,7 @@ struct Version
     return CompareVersions(versionContent, aRhs) != 0;
   }
 
-private:
+ private:
   char* versionContent;
 };
 
@@ -125,18 +121,12 @@ struct VersionW
   explicit VersionW(const char16_t* aVersionStringW)
   {
     versionContentW =
-      reinterpret_cast<char16_t*>(wcsdup(char16ptr_t(aVersionStringW)));
+        reinterpret_cast<char16_t*>(wcsdup(char16ptr_t(aVersionStringW)));
   }
 
-  const char16_t* ReadContentW() const
-  {
-    return versionContentW;
-  }
+  const char16_t* ReadContentW() const { return versionContentW; }
 
-  ~VersionW()
-  {
-    free(versionContentW);
-  }
+  ~VersionW() { free(versionContentW); }
 
   bool operator<(const VersionW& aRhs) const
   {
@@ -163,12 +153,11 @@ struct VersionW
     return CompareVersions(versionContentW, aRhs.ReadContentW()) != 0;
   }
 
-private:
+ private:
   char16_t* versionContentW;
 };
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // nsVersionComparator_h__
-
+#endif  // nsVersionComparator_h__

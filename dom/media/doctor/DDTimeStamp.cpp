@@ -19,4 +19,4 @@ ToSeconds(const DDTimeStamp& aTimeStamp)
   return (aTimeStamp - sInitialTimeStamp).ToSeconds();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

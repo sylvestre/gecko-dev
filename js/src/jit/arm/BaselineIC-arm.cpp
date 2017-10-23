@@ -20,16 +20,14 @@ namespace jit {
 
 // ICCompare_Int32
 
-bool
-ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
-{
+bool ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm) {
     // Guard that R0 is an integer and R1 is an integer.
     Label failure;
     masm.branchTestInt32(Assembler::NotEqual, R0, &failure);
     masm.branchTestInt32(Assembler::NotEqual, R1, &failure);
 
     // Compare payload regs of R0 and R1.
-    Assembler::Condition cond = JSOpToCondition(op, /* signed = */true);
+    Assembler::Condition cond = JSOpToCondition(op, /* signed = */ true);
     masm.cmp32(R0.payloadReg(), R1.payloadReg());
     masm.ma_mov(Imm32(1), R0.payloadReg(), cond);
     masm.ma_mov(Imm32(0), R0.payloadReg(), Assembler::InvertCondition(cond));
@@ -45,9 +43,7 @@ ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
     return true;
 }
 
-bool
-ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm)
-{
+bool ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm) {
     Label failure, isNaN;
     masm.ensureDouble(R0, FloatReg0, &failure);
     masm.ensureDouble(R1, FloatReg1, &failure);
@@ -70,5 +66,5 @@ ICCompare_Double::Compiler::generateStubCode(MacroAssembler& masm)
     return true;
 }
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js

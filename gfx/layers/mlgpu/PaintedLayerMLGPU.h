@@ -15,11 +15,9 @@
 namespace mozilla {
 namespace layers {
 
-class PaintedLayerMLGPU final
-  : public PaintedLayer,
-    public LayerMLGPU
+class PaintedLayerMLGPU final : public PaintedLayer, public LayerMLGPU
 {
-public:
+ public:
   explicit PaintedLayerMLGPU(LayerManagerMLGPU* aManager);
   ~PaintedLayerMLGPU() override;
 
@@ -33,30 +31,25 @@ public:
   bool IsContentOpaque() override;
 
   // PaintedLayer
-  void InvalidateRegion(const nsIntRegion& aRegion) override { 
+  void InvalidateRegion(const nsIntRegion& aRegion) override
+  {
     MOZ_CRASH("PaintedLayerMLGPU can't fill invalidated regions");
   }
 
-  bool HasComponentAlpha() const {
-    return !!mTextureOnWhite;
-  }
-  TextureSource* GetTexture() const {
-    return mTexture;
-  }
-  TextureSource* GetTextureOnWhite() const {
+  bool HasComponentAlpha() const { return !!mTextureOnWhite; }
+  TextureSource* GetTexture() const { return mTexture; }
+  TextureSource* GetTextureOnWhite() const
+  {
     MOZ_ASSERT(HasComponentAlpha());
     return mTextureOnWhite;
   }
-  ContentHostTexture* GetContentHost() const {
-    return mHost;
-  }
-  SamplerMode GetSamplerMode() {
+  ContentHostTexture* GetContentHost() const { return mHost; }
+  SamplerMode GetSamplerMode()
+  {
     // Note that when resamping, we must break the texture coordinates into
     // no-repeat rects. When we have simple integer translations we can
     // simply wrap around the edge of the buffer texture.
-    return MayResample()
-           ? SamplerMode::LinearClamp
-           : SamplerMode::LinearRepeat;
+    return MayResample() ? SamplerMode::LinearClamp : SamplerMode::LinearRepeat;
   }
 
   void SetRenderRegion(LayerIntRegion&& aRegion) override;
@@ -65,13 +58,13 @@ public:
 
   void CleanupCachedResources();
 
-protected:
+ protected:
   void PrintInfo(std::stringstream& aStream, const char* aPrefix) override;
   bool OnPrepareToRender(FrameBuilder* aBuilder) override;
 
   void CleanupResources();
 
-private:
+ private:
   RefPtr<ContentHostTexture> mHost;
   RefPtr<TextureSource> mTexture;
   RefPtr<TextureSource> mTextureOnWhite;
@@ -79,7 +72,7 @@ private:
   gfx::IntRegion mTextureRegion;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

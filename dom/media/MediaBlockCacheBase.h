@@ -35,19 +35,19 @@ namespace mozilla {
 // thread to prevent jank.
 class MediaBlockCacheBase
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaBlockCacheBase)
 
   static_assert(
-    MediaCacheStream::BLOCK_SIZE <
-      static_cast<decltype(MediaCacheStream::BLOCK_SIZE)>(INT32_MAX),
-    "MediaCacheStream::BLOCK_SIZE should fit in 31 bits");
+      MediaCacheStream::BLOCK_SIZE <
+          static_cast<decltype(MediaCacheStream::BLOCK_SIZE)>(INT32_MAX),
+      "MediaCacheStream::BLOCK_SIZE should fit in 31 bits");
   static const int32_t BLOCK_SIZE = MediaCacheStream::BLOCK_SIZE;
 
-protected:
+ protected:
   virtual ~MediaBlockCacheBase() {}
 
-public:
+ public:
   // Initialize this cache.
   virtual nsresult Init() = 0;
 
@@ -78,6 +78,6 @@ public:
                              int32_t aDestBlockIndex) = 0;
 };
 
-} // End namespace mozilla.
+}  // End namespace mozilla.
 
 #endif /* MEDIA_BLOCK_CACHE_BASE_H_ */

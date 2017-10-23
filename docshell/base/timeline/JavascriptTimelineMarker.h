@@ -16,7 +16,7 @@ namespace mozilla {
 
 class JavascriptTimelineMarker : public TimelineMarker
 {
-public:
+ public:
   // The caller owns |aAsyncCause| here, so we must copy it into a separate
   // string for use later on.
   JavascriptTimelineMarker(const char* aReason,
@@ -26,12 +26,13 @@ public:
                            MarkerTracingType aTracingType,
                            JS::Handle<JS::Value> aAsyncStack,
                            const char* aAsyncCause)
-    : TimelineMarker("Javascript", aTracingType, MarkerStackRequest::NO_STACK)
-    , mCause(NS_ConvertUTF8toUTF16(aReason))
-    , mFunctionName(aFunctionName)
-    , mFileName(aFileName)
-    , mLineNumber(aLineNumber)
-    , mAsyncCause(aAsyncCause)
+      : TimelineMarker(
+            "Javascript", aTracingType, MarkerStackRequest::NO_STACK),
+        mCause(NS_ConvertUTF8toUTF16(aReason)),
+        mFunctionName(aFunctionName),
+        mFileName(aFileName),
+        mLineNumber(aLineNumber),
+        mAsyncCause(aAsyncCause)
   {
     JSContext* ctx = nsContentUtils::GetCurrentJSContext();
     if (ctx) {
@@ -39,7 +40,8 @@ public:
     }
   }
 
-  virtual void AddDetails(JSContext* aCx, dom::ProfileTimelineMarker& aMarker) override
+  virtual void AddDetails(JSContext* aCx,
+                          dom::ProfileTimelineMarker& aMarker) override
   {
     TimelineMarker::AddDetails(aCx, aMarker);
 
@@ -55,8 +57,10 @@ public:
           !mAsyncCause.IsEmpty()) {
         JS::Rooted<JSObject*> asyncStack(aCx, mAsyncStack.toObjectOrNull());
         JS::Rooted<JSObject*> parentFrame(aCx);
-        JS::Rooted<JSString*> asyncCause(aCx, JS_NewUCStringCopyN(aCx, mAsyncCause.BeginReading(),
-                                                                  mAsyncCause.Length()));
+        JS::Rooted<JSString*> asyncCause(
+            aCx,
+            JS_NewUCStringCopyN(
+                aCx, mAsyncCause.BeginReading(), mAsyncCause.Length()));
         if (!asyncCause) {
           JS_ClearPendingException(aCx);
           return;
@@ -81,7 +85,7 @@ public:
     }
   }
 
-private:
+ private:
   nsString mCause;
   nsString mFunctionName;
   nsString mFileName;
@@ -90,6 +94,6 @@ private:
   NS_ConvertUTF8toUTF16 mAsyncCause;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_JavascriptTimelineMarker_h_
+#endif  // mozilla_JavascriptTimelineMarker_h_

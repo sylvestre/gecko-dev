@@ -6,22 +6,22 @@
 #ifndef GFX_BASICCANVASLAYER_H
 #define GFX_BASICCANVASLAYER_H
 
-#include "BasicImplData.h"              // for BasicImplData
-#include "BasicLayers.h"                // for BasicLayerManager
-#include "Layers.h"                     // for CanvasLayer, etc
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsRegion.h"                   // for nsIntRegion
+#include "BasicImplData.h"  // for BasicImplData
+#include "BasicLayers.h"    // for BasicLayerManager
+#include "Layers.h"         // for CanvasLayer, etc
+#include "nsDebug.h"        // for NS_ASSERTION
+#include "nsRegion.h"       // for nsIntRegion
 
 namespace mozilla {
 namespace layers {
 
-class BasicCanvasLayer : public CanvasLayer,
-                         public BasicImplData
+class BasicCanvasLayer : public CanvasLayer, public BasicImplData
 {
-public:
-  explicit BasicCanvasLayer(BasicLayerManager* aLayerManager) :
-    CanvasLayer(aLayerManager, static_cast<BasicImplData*>(this))
-  { }
+ public:
+  explicit BasicCanvasLayer(BasicLayerManager* aLayerManager)
+      : CanvasLayer(aLayerManager, static_cast<BasicImplData*>(this))
+  {
+  }
 
   virtual void SetVisibleRegion(const LayerIntRegion& aRegion) override
   {
@@ -34,7 +34,7 @@ public:
                      const gfx::Point& aDeviceOffset,
                      Layer* aMaskLayer) override;
 
-protected:
+ protected:
   BasicLayerManager* BasicManager()
   {
     return static_cast<BasicLayerManager*>(mManager);
@@ -43,7 +43,7 @@ protected:
   CanvasRenderer* CreateCanvasRendererInternal() override;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

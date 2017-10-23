@@ -48,8 +48,10 @@ static bool sIsEnabled = false;
 static bool sOnlyReportDirtyWrites = false;
 
 // Routines for write validation
-bool IsValidWrite(int aFd, const void* aWbuf, size_t aCount);
-bool IsIPCWrite(int aFd, const struct stat& aBuf);
+bool
+IsValidWrite(int aFd, const void* aWbuf, size_t aCount);
+bool
+IsIPCWrite(int aFd, const struct stat& aBuf);
 
 /******************************** IO AutoTimer ********************************/
 
@@ -59,38 +61,38 @@ bool IsIPCWrite(int aFd, const struct stat& aBuf);
  */
 class MacIOAutoObservation : public IOInterposeObserver::Observation
 {
-public:
+ public:
   MacIOAutoObservation(IOInterposeObserver::Operation aOp, int aFd)
-    : IOInterposeObserver::Observation(aOp, sReference, sIsEnabled &&
-                                       !IsDebugFile(aFd))
-    , mFd(aFd)
-    , mHasQueriedFilename(false)
+      : IOInterposeObserver::Observation(
+            aOp, sReference, sIsEnabled && !IsDebugFile(aFd)),
+        mFd(aFd),
+        mHasQueriedFilename(false)
   {
   }
 
-  MacIOAutoObservation(IOInterposeObserver::Operation aOp, int aFd,
-                       const void* aBuf, size_t aCount)
-    : IOInterposeObserver::Observation(aOp, sReference, sIsEnabled &&
-                                       !IsDebugFile(aFd) &&
-                                       IsValidWrite(aFd, aBuf, aCount))
-    , mFd(aFd)
-    , mHasQueriedFilename(false)
+  MacIOAutoObservation(IOInterposeObserver::Operation aOp,
+                       int aFd,
+                       const void* aBuf,
+                       size_t aCount)
+      : IOInterposeObserver::Observation(
+            aOp,
+            sReference,
+            sIsEnabled && !IsDebugFile(aFd) && IsValidWrite(aFd, aBuf, aCount)),
+        mFd(aFd),
+        mHasQueriedFilename(false)
   {
   }
 
   // Custom implementation of IOInterposeObserver::Observation::Filename
   void Filename(nsAString& aFilename) override;
 
-  ~MacIOAutoObservation()
-  {
-    Report();
-  }
+  ~MacIOAutoObservation() { Report(); }
 
-private:
-  int                 mFd;
-  bool                mHasQueriedFilename;
-  nsString            mFilename;
-  static const char*  sReference;
+ private:
+  int mFd;
+  bool mHasQueriedFilename;
+  nsString mFilename;
+  static const char* sReference;
 };
 
 const char* MacIOAutoObservation::sReference = "PoisonIOInterposer";
@@ -134,7 +136,7 @@ IsIPCWrite(int aFd, const struct stat& aBuf)
   sockaddr_storage address;
   socklen_t len = sizeof(address);
   if (getsockname(aFd, (sockaddr*)&address, &len) != 0) {
-    return true; // Ignore the aFd if we can't find what it is.
+    return true;  // Ignore the aFd if we can't find what it is.
   }
 
   return address.ss_family == AF_UNIX;
@@ -206,22 +208,22 @@ IsValidWrite(int aFd, const void* aWbuf, size_t aCount)
 /** Structure for declaration of function override */
 struct FuncData
 {
-  const char* Name;      // Name of the function for the ones we use dlsym
-  const void* Wrapper;   // The function that we will replace 'Function' with
-  void* Function;        // The function that will be replaced with 'Wrapper'
-  void* Buffer;          // Will point to the jump buffer that lets us call
-                         // 'Function' after it has been replaced.
+  const char* Name;     // Name of the function for the ones we use dlsym
+  const void* Wrapper;  // The function that we will replace 'Function' with
+  void* Function;       // The function that will be replaced with 'Wrapper'
+  void* Buffer;         // Will point to the jump buffer that lets us call
+                        // 'Function' after it has been replaced.
 };
 
 // Wrap aio_write. We have not seen it before, so just assert/report it.
 typedef ssize_t (*aio_write_t)(struct aiocb* aAioCbp);
-ssize_t wrap_aio_write(struct aiocb* aAioCbp);
-FuncData aio_write_data = { 0, (void*)wrap_aio_write, (void*)aio_write };
+ssize_t
+wrap_aio_write(struct aiocb* aAioCbp);
+FuncData aio_write_data = {0, (void*)wrap_aio_write, (void*)aio_write};
 ssize_t
 wrap_aio_write(struct aiocb* aAioCbp)
 {
-  MacIOAutoObservation timer(IOInterposeObserver::OpWrite,
-                             aAioCbp->aio_fildes);
+  MacIOAutoObservation timer(IOInterposeObserver::OpWrite, aAioCbp->aio_fildes);
 
   aio_write_t old_write = (aio_write_t)aio_write_data.Buffer;
   return old_write(aAioCbp);
@@ -229,7 +231,9 @@ wrap_aio_write(struct aiocb* aAioCbp)
 
 // Wrap pwrite-like functions.
 // We have not seen them before, so just assert/report it.
-typedef ssize_t (*pwrite_t)(int aFd, const void* buf, size_t aNumBytes,
+typedef ssize_t (*pwrite_t)(int aFd,
+                            const void* buf,
+                            size_t aNumBytes,
                             off_t aOffset);
 template<FuncData& foo>
 ssize_t
@@ -241,8 +245,8 @@ wrap_pwrite_temp(int aFd, const void* aBuf, size_t aNumBytes, off_t aOffset)
 }
 
 // Define a FuncData for a pwrite-like functions.
-#define DEFINE_PWRITE_DATA(X, NAME)                                        \
-FuncData X ## _data = { NAME, (void*) wrap_pwrite_temp<X ## _data> };      \
+#define DEFINE_PWRITE_DATA(X, NAME) \
+  FuncData X##_data = {NAME, (void*)wrap_pwrite_temp<X##_data>};
 
 // This exists everywhere.
 DEFINE_PWRITE_DATA(pwrite, "pwrite")
@@ -252,21 +256,20 @@ DEFINE_PWRITE_DATA(pwrite_UNIX2003, "pwrite$UNIX2003");
 // This exists on 64 bit OS X
 DEFINE_PWRITE_DATA(pwrite_NOCANCEL, "pwrite$NOCANCEL");
 
-
 typedef ssize_t (*writev_t)(int aFd, const struct iovec* aIov, int aIovCount);
 template<FuncData& foo>
 ssize_t
 wrap_writev_temp(int aFd, const struct iovec* aIov, int aIovCount)
 {
-  MacIOAutoObservation timer(IOInterposeObserver::OpWrite, aFd, nullptr,
-                             aIovCount);
+  MacIOAutoObservation timer(
+      IOInterposeObserver::OpWrite, aFd, nullptr, aIovCount);
   writev_t old_write = (writev_t)foo.Buffer;
   return old_write(aFd, aIov, aIovCount);
 }
 
 // Define a FuncData for a writev-like functions.
-#define DEFINE_WRITEV_DATA(X, NAME)                                   \
-FuncData X ## _data = { NAME, (void*) wrap_writev_temp<X ## _data> }; \
+#define DEFINE_WRITEV_DATA(X, NAME) \
+  FuncData X##_data = {NAME, (void*)wrap_writev_temp<X##_data>};
 
 // This exists everywhere.
 DEFINE_WRITEV_DATA(writev, "writev");
@@ -287,8 +290,8 @@ wrap_write_temp(int aFd, const void* aBuf, size_t aCount)
 }
 
 // Define a FuncData for a write-like functions.
-#define DEFINE_WRITE_DATA(X, NAME)                                   \
-FuncData X ## _data = { NAME, (void*) wrap_write_temp<X ## _data> }; \
+#define DEFINE_WRITE_DATA(X, NAME) \
+  FuncData X##_data = {NAME, (void*)wrap_write_temp<X##_data>};
 
 // This exists everywhere.
 DEFINE_WRITE_DATA(write, "write");
@@ -298,28 +301,26 @@ DEFINE_WRITE_DATA(write_UNIX2003, "write$UNIX2003");
 // This exists on 64 bit OS X
 DEFINE_WRITE_DATA(write_NOCANCEL, "write$NOCANCEL");
 
-FuncData* Functions[] = {
-  &aio_write_data,
+FuncData* Functions[] = {&aio_write_data,
 
-  &pwrite_data,
-  &pwrite_NOCANCEL_UNIX2003_data,
-  &pwrite_UNIX2003_data,
-  &pwrite_NOCANCEL_data,
+                         &pwrite_data,
+                         &pwrite_NOCANCEL_UNIX2003_data,
+                         &pwrite_UNIX2003_data,
+                         &pwrite_NOCANCEL_data,
 
-  &write_data,
-  &write_NOCANCEL_UNIX2003_data,
-  &write_UNIX2003_data,
-  &write_NOCANCEL_data,
+                         &write_data,
+                         &write_NOCANCEL_UNIX2003_data,
+                         &write_UNIX2003_data,
+                         &write_NOCANCEL_data,
 
-  &writev_data,
-  &writev_NOCANCEL_UNIX2003_data,
-  &writev_UNIX2003_data,
-  &writev_NOCANCEL_data
-};
+                         &writev_data,
+                         &writev_NOCANCEL_UNIX2003_data,
+                         &writev_UNIX2003_data,
+                         &writev_NOCANCEL_data};
 
 const int NumFunctions = ArrayLength(Functions);
 
-} // namespace
+}  // namespace
 
 /******************************** IO Poisoning ********************************/
 
@@ -358,8 +359,8 @@ InitPoisonIOInterposer()
     if (!d->Function) {
       continue;
     }
-    DebugOnly<mach_error_t> t = mach_override_ptr(d->Function, d->Wrapper,
-                                                  &d->Buffer);
+    DebugOnly<mach_error_t> t =
+        mach_override_ptr(d->Function, d->Wrapper, &d->Buffer);
     MOZ_ASSERT(t == err_none);
   }
 }
@@ -378,4 +379,4 @@ ClearPoisonIOInterposer()
   sIsEnabled = false;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

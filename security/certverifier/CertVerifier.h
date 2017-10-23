@@ -22,14 +22,15 @@
 #pragma warning(push)
 // Silence "RootingAPI.h(718): warning C4324: 'js::DispatchWrapper<T>':
 // structure was padded due to alignment specifier with [ T=void * ]"
-#pragma warning(disable:4324)
+#pragma warning(disable : 4324)
 #endif /* defined(_MSC_VER) */
 #include "mozilla/BasePrincipal.h"
 #if defined(_MSC_VER)
 #pragma warning(pop) /* popping the pragma in this file */
-#endif /* defined(_MSC_VER) */
+#endif               /* defined(_MSC_VER) */
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Including the headers of the classes below would bring along all of their
 // dependent headers and force us to export them in moz.build.
@@ -37,14 +38,17 @@ namespace mozilla { namespace ct {
 class MultiLogCTVerifier;
 class CTDiversityPolicy;
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
 typedef mozilla::pkix::Result Result;
 
 // These values correspond to the CERT_CHAIN_KEY_SIZE_STATUS telemetry.
-enum class KeySizeStatus {
+enum class KeySizeStatus
+{
   NeverChecked = 0,
   LargeMinimumSucceeded = 1,
   CompatibilityRisk = 2,
@@ -52,7 +56,8 @@ enum class KeySizeStatus {
 };
 
 // These values correspond to the CERT_CHAIN_SHA1_POLICY_STATUS telemetry.
-enum class SHA1ModeResult {
+enum class SHA1ModeResult
+{
   NeverChecked = 0,
   SucceededWithoutSHA1 = 1,
   SucceededWithImportedRoot = 2,
@@ -65,7 +70,7 @@ enum class NetscapeStepUpPolicy : uint32_t;
 
 class PinningTelemetryInfo
 {
-public:
+ public:
   PinningTelemetryInfo() { Reset(); }
 
   // Should we accumulate pinning telemetry for the result?
@@ -76,12 +81,16 @@ public:
   bool accumulateForRoot;
   int32_t rootBucket;
 
-  void Reset() { accumulateForRoot = false; accumulateResult = false; }
+  void Reset()
+  {
+    accumulateForRoot = false;
+    accumulateResult = false;
+  }
 };
 
 class CertificateTransparencyInfo
 {
-public:
+ public:
   CertificateTransparencyInfo() { Reset(); }
 
   // Was CT enabled?
@@ -98,7 +107,7 @@ class NSSCertDBTrustDomain;
 
 class CertVerifier
 {
-public:
+ public:
   typedef unsigned int Flags;
   // XXX: FLAG_LOCAL_ONLY is ignored in the classic verification case
   static const Flags FLAG_LOCAL_ONLY;
@@ -108,7 +117,8 @@ public:
   static const Flags FLAG_TLS_IGNORE_STATUS_REQUEST;
 
   // These values correspond to the SSL_OCSP_STAPLING telemetry.
-  enum OCSPStaplingStatus {
+  enum OCSPStaplingStatus
+  {
     OCSP_STAPLING_NEVER_CHECKED = 0,
     OCSP_STAPLING_GOOD = 1,
     OCSP_STAPLING_NONE = 2,
@@ -119,51 +129,53 @@ public:
   // *evOidPolicy == SEC_OID_UNKNOWN means the cert is NOT EV
   // Only one usage per verification is supported.
   mozilla::pkix::Result VerifyCert(
-                    CERTCertificate* cert,
-                    SECCertificateUsage usage,
-                    mozilla::pkix::Time time,
-                    void* pinArg,
-                    const char* hostname,
-            /*out*/ UniqueCERTCertList& builtChain,
-                    Flags flags = 0,
-    /*optional in*/ const SECItem* stapledOCSPResponse = nullptr,
-    /*optional in*/ const SECItem* sctsFromTLS = nullptr,
-    /*optional in*/ const OriginAttributes& originAttributes =
-                      OriginAttributes(),
-   /*optional out*/ SECOidTag* evOidPolicy = nullptr,
-   /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus = nullptr,
-   /*optional out*/ KeySizeStatus* keySizeStatus = nullptr,
-   /*optional out*/ SHA1ModeResult* sha1ModeResult = nullptr,
-   /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo = nullptr,
-   /*optional out*/ CertificateTransparencyInfo* ctInfo = nullptr);
+      CERTCertificate* cert,
+      SECCertificateUsage usage,
+      mozilla::pkix::Time time,
+      void* pinArg,
+      const char* hostname,
+      /*out*/ UniqueCERTCertList& builtChain,
+      Flags flags = 0,
+      /*optional in*/ const SECItem* stapledOCSPResponse = nullptr,
+      /*optional in*/ const SECItem* sctsFromTLS = nullptr,
+      /*optional in*/ const OriginAttributes& originAttributes =
+          OriginAttributes(),
+      /*optional out*/ SECOidTag* evOidPolicy = nullptr,
+      /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus = nullptr,
+      /*optional out*/ KeySizeStatus* keySizeStatus = nullptr,
+      /*optional out*/ SHA1ModeResult* sha1ModeResult = nullptr,
+      /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo = nullptr,
+      /*optional out*/ CertificateTransparencyInfo* ctInfo = nullptr);
 
   mozilla::pkix::Result VerifySSLServerCert(
-                    const UniqueCERTCertificate& peerCert,
-       /*optional*/ const SECItem* stapledOCSPResponse,
-       /*optional*/ const SECItem* sctsFromTLS,
-                    mozilla::pkix::Time time,
-       /*optional*/ void* pinarg,
-                    const nsACString& hostname,
-            /*out*/ UniqueCERTCertList& builtChain,
-       /*optional*/ bool saveIntermediatesInPermanentDatabase = false,
-       /*optional*/ Flags flags = 0,
-       /*optional*/ const OriginAttributes& originAttributes =
-                      OriginAttributes(),
-   /*optional out*/ SECOidTag* evOidPolicy = nullptr,
-   /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus = nullptr,
-   /*optional out*/ KeySizeStatus* keySizeStatus = nullptr,
-   /*optional out*/ SHA1ModeResult* sha1ModeResult = nullptr,
-   /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo = nullptr,
-   /*optional out*/ CertificateTransparencyInfo* ctInfo = nullptr);
+      const UniqueCERTCertificate& peerCert,
+      /*optional*/ const SECItem* stapledOCSPResponse,
+      /*optional*/ const SECItem* sctsFromTLS,
+      mozilla::pkix::Time time,
+      /*optional*/ void* pinarg,
+      const nsACString& hostname,
+      /*out*/ UniqueCERTCertList& builtChain,
+      /*optional*/ bool saveIntermediatesInPermanentDatabase = false,
+      /*optional*/ Flags flags = 0,
+      /*optional*/ const OriginAttributes& originAttributes =
+          OriginAttributes(),
+      /*optional out*/ SECOidTag* evOidPolicy = nullptr,
+      /*optional out*/ OCSPStaplingStatus* ocspStaplingStatus = nullptr,
+      /*optional out*/ KeySizeStatus* keySizeStatus = nullptr,
+      /*optional out*/ SHA1ModeResult* sha1ModeResult = nullptr,
+      /*optional out*/ PinningTelemetryInfo* pinningTelemetryInfo = nullptr,
+      /*optional out*/ CertificateTransparencyInfo* ctInfo = nullptr);
 
-  enum PinningMode {
+  enum PinningMode
+  {
     pinningDisabled = 0,
     pinningAllowUserCAMITM = 1,
     pinningStrict = 2,
     pinningEnforceTestMode = 3
   };
 
-  enum class SHA1Mode {
+  enum class SHA1Mode
+  {
     Allowed = 0,
     Forbidden = 1,
     // There used to be a policy that only allowed SHA1 for certificates issued
@@ -174,24 +186,37 @@ public:
     ImportedRootOrBefore2016 = 4,
   };
 
-  enum OcspDownloadConfig {
+  enum OcspDownloadConfig
+  {
     ocspOff = 0,
     ocspOn = 1,
     ocspEVOnly = 2
   };
-  enum OcspStrictConfig { ocspRelaxed = 0, ocspStrict };
-  enum OcspGetConfig { ocspGetDisabled = 0, ocspGetEnabled = 1 };
+  enum OcspStrictConfig
+  {
+    ocspRelaxed = 0,
+    ocspStrict
+  };
+  enum OcspGetConfig
+  {
+    ocspGetDisabled = 0,
+    ocspGetEnabled = 1
+  };
 
-  enum class CertificateTransparencyMode {
+  enum class CertificateTransparencyMode
+  {
     Disabled = 0,
     TelemetryOnly = 1,
   };
 
-  CertVerifier(OcspDownloadConfig odc, OcspStrictConfig osc, OcspGetConfig ogc,
+  CertVerifier(OcspDownloadConfig odc,
+               OcspStrictConfig osc,
+               OcspGetConfig ogc,
                mozilla::TimeDuration ocspTimeoutSoft,
                mozilla::TimeDuration ocspTimeoutHard,
                uint32_t certShortLifetimeInDays,
-               PinningMode pinningMode, SHA1Mode sha1Mode,
+               PinningMode pinningMode,
+               SHA1Mode sha1Mode,
                BRNameMatchingPolicy::Mode nameMatchingMode,
                NetscapeStepUpPolicy netscapeStepUpPolicy,
                CertificateTransparencyMode ctMode);
@@ -211,7 +236,7 @@ public:
   const NetscapeStepUpPolicy mNetscapeStepUpPolicy;
   const CertificateTransparencyMode mCTMode;
 
-private:
+ private:
   OCSPCache mOCSPCache;
 
   // We only have a forward declarations of these classes (see above)
@@ -221,11 +246,11 @@ private:
 
   void LoadKnownCTLogs();
   mozilla::pkix::Result VerifyCertificateTransparencyPolicy(
-                     NSSCertDBTrustDomain& trustDomain,
-                     const UniqueCERTCertList& builtChain,
-                     mozilla::pkix::Input sctsFromTLS,
-                     mozilla::pkix::Time time,
-    /*optional out*/ CertificateTransparencyInfo* ctInfo);
+      NSSCertDBTrustDomain& trustDomain,
+      const UniqueCERTCertList& builtChain,
+      mozilla::pkix::Input sctsFromTLS,
+      mozilla::pkix::Time time,
+      /*optional out*/ CertificateTransparencyInfo* ctInfo);
 
   // Returns true if the configured SHA1 mode is more restrictive than the given
   // mode. SHA1Mode::Forbidden is more restrictive than any other mode except
@@ -234,11 +259,15 @@ private:
   bool SHA1ModeMoreRestrictiveThanGivenMode(SHA1Mode mode);
 };
 
-mozilla::pkix::Result IsCertBuiltInRoot(CERTCertificate* cert, bool& result);
-mozilla::pkix::Result CertListContainsExpectedKeys(
-  const CERTCertList* certList, const char* hostname, mozilla::pkix::Time time,
-  CertVerifier::PinningMode pinningMode);
+mozilla::pkix::Result
+IsCertBuiltInRoot(CERTCertificate* cert, bool& result);
+mozilla::pkix::Result
+CertListContainsExpectedKeys(const CERTCertList* certList,
+                             const char* hostname,
+                             mozilla::pkix::Time time,
+                             CertVerifier::PinningMode pinningMode);
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla
 
-#endif // CertVerifier_h
+#endif  // CertVerifier_h

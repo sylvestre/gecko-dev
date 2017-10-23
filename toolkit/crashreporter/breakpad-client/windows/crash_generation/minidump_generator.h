@@ -43,7 +43,8 @@ namespace google_breakpad {
 // minidump on Windows. This abstraction is useful to hide all the gory
 // details for minidump generation and provide a clean interface to
 // the clients to generate minidumps.
-class MinidumpGenerator {
+class MinidumpGenerator
+{
  public:
   // Creates an instance with the given parameters.
   // is_client_pointers specifies whether the exception_pointers and
@@ -66,7 +67,8 @@ class MinidumpGenerator {
   ~MinidumpGenerator();
 
   void SetDumpFile(const HANDLE dump_file) { dump_file_ = dump_file; }
-  void SetFullDumpFile(const HANDLE full_dump_file) {
+  void SetFullDumpFile(const HANDLE full_dump_file)
+  {
     full_dump_file_ = full_dump_file;
   }
 
@@ -82,11 +84,13 @@ class MinidumpGenerator {
   bool GenerateFullDumpFile(std::wstring* full_dump_path);
 
   void SetAdditionalStreams(
-      MINIDUMP_USER_STREAM_INFORMATION* additional_streams) {
+      MINIDUMP_USER_STREAM_INFORMATION* additional_streams)
+  {
     additional_streams_ = additional_streams;
   }
 
-  void SetCallback(MINIDUMP_CALLBACK_INFORMATION* callback_info) {
+  void SetCallback(MINIDUMP_CALLBACK_INFORMATION* callback_info)
+  {
     callback_info_ = callback_info;
   }
 
@@ -98,7 +102,7 @@ class MinidumpGenerator {
  private:
   // Function pointer type for MiniDumpWriteDump, which is looked up
   // dynamically.
-  typedef BOOL (WINAPI* MiniDumpWriteDumpType)(
+  typedef BOOL(WINAPI* MiniDumpWriteDumpType)(
       HANDLE hProcess,
       DWORD ProcessId,
       HANDLE hFile,
@@ -108,7 +112,7 @@ class MinidumpGenerator {
       CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
 
   // Function pointer type for UuidCreate, which is looked up dynamically.
-  typedef RPC_STATUS (RPC_ENTRY* UuidCreateType)(UUID* Uuid);
+  typedef RPC_STATUS(RPC_ENTRY* UuidCreateType)(UUID* Uuid);
 
   // Loads the appropriate DLL lazily in a thread safe way.
   HMODULE GetDbghelpModule();

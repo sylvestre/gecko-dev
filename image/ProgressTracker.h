@@ -34,26 +34,26 @@ class Image;
  * See CheckProgressConsistency() for the invariants we enforce about the
  * ordering dependencies betweeen these flags.
  */
-enum {
-  FLAG_SIZE_AVAILABLE     = 1u << 0,  // STATUS_SIZE_AVAILABLE
-  FLAG_DECODE_COMPLETE    = 1u << 1,  // STATUS_DECODE_COMPLETE
-  FLAG_FRAME_COMPLETE     = 1u << 2,  // STATUS_FRAME_COMPLETE
-  FLAG_LOAD_COMPLETE      = 1u << 3,  // STATUS_LOAD_COMPLETE
-  FLAG_ONLOAD_BLOCKED     = 1u << 4,
-  FLAG_ONLOAD_UNBLOCKED   = 1u << 5,
-  FLAG_IS_ANIMATED        = 1u << 6,  // STATUS_IS_ANIMATED
-  FLAG_HAS_TRANSPARENCY   = 1u << 7,  // STATUS_HAS_TRANSPARENCY
+enum
+{
+  FLAG_SIZE_AVAILABLE = 1u << 0,   // STATUS_SIZE_AVAILABLE
+  FLAG_DECODE_COMPLETE = 1u << 1,  // STATUS_DECODE_COMPLETE
+  FLAG_FRAME_COMPLETE = 1u << 2,   // STATUS_FRAME_COMPLETE
+  FLAG_LOAD_COMPLETE = 1u << 3,    // STATUS_LOAD_COMPLETE
+  FLAG_ONLOAD_BLOCKED = 1u << 4,
+  FLAG_ONLOAD_UNBLOCKED = 1u << 5,
+  FLAG_IS_ANIMATED = 1u << 6,       // STATUS_IS_ANIMATED
+  FLAG_HAS_TRANSPARENCY = 1u << 7,  // STATUS_HAS_TRANSPARENCY
   FLAG_LAST_PART_COMPLETE = 1u << 8,
-  FLAG_HAS_ERROR          = 1u << 9   // STATUS_ERROR
+  FLAG_HAS_ERROR = 1u << 9  // STATUS_ERROR
 };
 
 typedef uint32_t Progress;
 
 const uint32_t NoProgress = 0;
 
-inline Progress LoadCompleteProgress(bool aLastPart,
-                                     bool aError,
-                                     nsresult aStatus)
+inline Progress
+LoadCompleteProgress(bool aLastPart, bool aError, nsresult aStatus)
 {
   Progress progress = FLAG_LOAD_COMPLETE;
   if (aLastPart) {
@@ -75,11 +75,10 @@ inline Progress LoadCompleteProgress(bool aLastPart,
  * ObserverTable subclasses nsDataHashtable to add reference counting support
  * and a copy constructor, both of which are needed for use with CopyOnWrite<T>.
  */
-class ObserverTable
-  : public nsDataHashtable<nsPtrHashKey<IProgressObserver>,
-                           WeakPtr<IProgressObserver>>
+class ObserverTable : public nsDataHashtable<nsPtrHashKey<IProgressObserver>,
+                                             WeakPtr<IProgressObserver>>
 {
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(ObserverTable);
 
   ObserverTable() = default;
@@ -92,8 +91,8 @@ public:
     }
   }
 
-private:
-  ~ObserverTable() { }
+ private:
+  ~ObserverTable() {}
 };
 
 /**
@@ -108,15 +107,19 @@ private:
  */
 class ProgressTracker : public mozilla::SupportsWeakPtr<ProgressTracker>
 {
-  virtual ~ProgressTracker() { }
+  virtual ~ProgressTracker() {}
 
-public:
+ public:
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(ProgressTracker)
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ProgressTracker)
 
   ProgressTracker();
 
-  bool HasImage() const { MutexAutoLock lock(mMutex); return mImage; }
+  bool HasImage() const
+  {
+    MutexAutoLock lock(mMutex);
+    return mImage;
+  }
   already_AddRefed<Image> GetImage() const
   {
     MutexAutoLock lock(mMutex);
@@ -197,7 +200,7 @@ public:
   // Tell this progress tracker that it is for a multipart image.
   void SetIsMultipart() { mIsMultipart = true; }
 
-private:
+ private:
   friend class AsyncNotifyRunnable;
   friend class AsyncNotifyCurrentStateRunnable;
   friend class ImageFactory;
@@ -251,7 +254,7 @@ private:
   bool mIsMultipart;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ProgressTracker_h
+#endif  // mozilla_image_ProgressTracker_h

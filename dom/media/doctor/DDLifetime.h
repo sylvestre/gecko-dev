@@ -15,7 +15,7 @@ namespace mozilla {
 
 namespace dom {
 class HTMLMediaElement;
-} // namespace dom
+}  // namespace dom
 
 // This struct records the lifetime of one C++ object.
 // Note that multiple objects may have the same address and type (at different
@@ -49,13 +49,13 @@ struct DDLifetime
              DDMessageIndex aConstructionIndex,
              DDTimeStamp aConstructionTimeStamp,
              int32_t aTag)
-    : mObject(aObject)
-    , mConstructionIndex(aConstructionIndex)
-    , mConstructionTimeStamp(aConstructionTimeStamp)
-    , mDestructionIndex(0)
-    , mMediaElement(nullptr)
-    , mDerivedObjectLinkingIndex(0)
-    , mTag(aTag)
+      : mObject(aObject),
+        mConstructionIndex(aConstructionIndex),
+        mConstructionTimeStamp(aConstructionTimeStamp),
+        mDestructionIndex(0),
+        mMediaElement(nullptr),
+        mDerivedObjectLinkingIndex(0),
+        mTag(aTag)
   {
   }
 
@@ -73,6 +73,6 @@ struct DDLifetime
   nsCString Printf() const;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DDLifetime_h_
+#endif  // DDLifetime_h_

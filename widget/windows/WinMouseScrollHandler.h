@@ -25,8 +25,9 @@ class ModifierKeyState;
 
 struct MSGResult;
 
-class MouseScrollHandler {
-public:
+class MouseScrollHandler
+{
+ public:
   static MouseScrollHandler* GetInstance();
 
   static void Initialize();
@@ -43,12 +44,13 @@ public:
    * See nsIWidget::SynthesizeNativeMouseScrollEvent() for the detail about
    * this method.
    */
-  static nsresult SynthesizeNativeMouseScrollEvent(nsWindowBase* aWidget,
-                                                   const LayoutDeviceIntPoint& aPoint,
-                                                   uint32_t aNativeMessage,
-                                                   int32_t aDelta,
-                                                   uint32_t aModifierFlags,
-                                                   uint32_t aAdditionalFlags);
+  static nsresult SynthesizeNativeMouseScrollEvent(
+      nsWindowBase* aWidget,
+      const LayoutDeviceIntPoint& aPoint,
+      uint32_t aNativeMessage,
+      int32_t aDelta,
+      uint32_t aModifierFlags,
+      uint32_t aAdditionalFlags);
 
   /**
    * IsWaitingInternalMessage() returns true if MouseScrollHandler posted
@@ -60,7 +62,7 @@ public:
     return sInstance && sInstance->mIsWaitingInternalMessage;
   }
 
-private:
+ private:
   MouseScrollHandler();
   ~MouseScrollHandler();
 
@@ -173,17 +175,19 @@ private:
    *                    the queue or current cursor position if the result of
    *                    ::GetMessagePos() is broken.
    */
-  POINT ComputeMessagePos(UINT aMessage,
-                          WPARAM aWParam,
-                          LPARAM aLParam);
+  POINT ComputeMessagePos(UINT aMessage, WPARAM aWParam, LPARAM aLParam);
 
-  class EventInfo {
-  public:
+  class EventInfo
+  {
+   public:
     /**
      * @param aWidget   An nsWindow which is handling the event.
      * @param aMessage  Must be WM_MOUSEWHEEL or WM_MOUSEHWHEEL.
      */
-    EventInfo(nsWindowBase* aWidget, UINT aMessage, WPARAM aWParam, LPARAM aLParam);
+    EventInfo(nsWindowBase* aWidget,
+              UINT aMessage,
+              WPARAM aWParam,
+              LPARAM aLParam);
 
     bool CanDispatchWheelEvent() const;
 
@@ -199,9 +203,8 @@ private:
      */
     int32_t GetScrollAmount() const;
 
-  protected:
-    EventInfo() :
-      mIsVertical(false), mIsPage(false), mDelta(0), mWnd(nullptr)
+   protected:
+    EventInfo() : mIsVertical(false), mIsPage(false), mDelta(0), mWnd(nullptr)
     {
     }
 
@@ -217,12 +220,10 @@ private:
     TimeStamp mTimeStamp;
   };
 
-  class LastEventInfo : public EventInfo {
-  public:
-    LastEventInfo() :
-      EventInfo(), mAccumulatedDelta(0)
-    {
-    }
+  class LastEventInfo : public EventInfo
+  {
+   public:
+    LastEventInfo() : EventInfo(), mAccumulatedDelta(0) {}
 
     /**
      * CanContinueTransaction() checks whether the new event can continue the
@@ -259,7 +260,7 @@ private:
                         WidgetWheelEvent& aWheelEvent,
                         const ModifierKeyState& aModKeyState);
 
-  private:
+   private:
     static int32_t RoundDelta(double aDelta);
 
     int32_t mAccumulatedDelta;
@@ -267,8 +268,9 @@ private:
 
   LastEventInfo mLastEventInfo;
 
-  class SystemSettings {
-  public:
+  class SystemSettings
+  {
+   public:
     SystemSettings() : mInitialized(false) {}
 
     void Init();
@@ -298,8 +300,8 @@ private:
     bool IsPageScroll(bool aForVertical) const
     {
       MOZ_ASSERT(mInitialized, "SystemSettings must be initialized");
-      return aForVertical ? (uint32_t(mScrollLines) == WHEEL_PAGESCROLL) :
-                            (uint32_t(mScrollChars) == WHEEL_PAGESCROLL);
+      return aForVertical ? (uint32_t(mScrollLines) == WHEEL_PAGESCROLL)
+                          : (uint32_t(mScrollChars) == WHEEL_PAGESCROLL);
     }
 
     // The default vertical and horizontal scrolling speed is 3, this is defined
@@ -307,7 +309,7 @@ private:
     static int32_t DefaultScrollLines() { return 3; }
     static int32_t DefaultScrollChars() { return 3; }
 
-  private:
+   private:
     bool mInitialized;
     // The result of SystemParametersInfo() may not be reliable since it may
     // be hooked.  So, if the values are initialized with prefs, we can trust
@@ -328,8 +330,9 @@ private:
 
   SystemSettings mSystemSettings;
 
-  class UserPrefs {
-  public:
+  class UserPrefs
+  {
+   public:
     UserPrefs();
     ~UserPrefs();
 
@@ -371,7 +374,7 @@ private:
       return mMouseScrollTransactionTimeout;
     }
 
-  private:
+   private:
     void Init();
 
     static void OnChange(const char* aPrefName, void* aClosure)
@@ -390,11 +393,15 @@ private:
 
   UserPrefs mUserPrefs;
 
-  class SynthesizingEvent {
-  public:
-    SynthesizingEvent() :
-      mWnd(nullptr), mMessage(0), mWParam(0), mLParam(0),
-      mStatus(NOT_SYNTHESIZING)
+  class SynthesizingEvent
+  {
+   public:
+    SynthesizingEvent()
+        : mWnd(nullptr),
+          mMessage(0),
+          mWParam(0),
+          mLParam(0),
+          mStatus(NOT_SYNTHESIZING)
     {
     }
 
@@ -402,19 +409,24 @@ private:
 
     static bool IsSynthesizing();
 
-    nsresult Synthesize(const POINTS& aCursorPoint, HWND aWnd,
-                        UINT aMessage, WPARAM aWParam, LPARAM aLParam,
+    nsresult Synthesize(const POINTS& aCursorPoint,
+                        HWND aWnd,
+                        UINT aMessage,
+                        WPARAM aWParam,
+                        LPARAM aLParam,
                         const BYTE (&aKeyStates)[256]);
 
-    void NativeMessageReceived(nsWindowBase* aWidget, UINT aMessage,
-                               WPARAM aWParam, LPARAM aLParam);
+    void NativeMessageReceived(nsWindowBase* aWidget,
+                               UINT aMessage,
+                               WPARAM aWParam,
+                               LPARAM aLParam);
 
     void NotifyNativeMessageHandlingFinished();
     void NotifyInternalMessageHandlingFinished();
 
     const POINTS& GetCursorPoint() const { return mCursorPoint; }
 
-  private:
+   private:
     POINTS mCursorPoint;
     HWND mWnd;
     UINT mMessage;
@@ -423,7 +435,8 @@ private:
     BYTE mKeyState[256];
     BYTE mOriginalKeyState[256];
 
-    enum Status {
+    enum Status
+    {
       NOT_SYNTHESIZING,
       SENDING_MESSAGE,
       NATIVE_MESSAGE_RECEIVED,
@@ -448,49 +461,41 @@ private:
     }
 
     void Finish();
-  }; // SynthesizingEvent
+  };  // SynthesizingEvent
 
   SynthesizingEvent* mSynthesizingEvent;
 
-public:
-
-  class Device {
-  public:
+ public:
+  class Device
+  {
+   public:
     // SynTP is a touchpad driver of Synaptics.
     class SynTP
     {
-    public:
-      static bool IsDriverInstalled()
-      {
-        return sMajorVersion != 0;
-      }
+     public:
+      static bool IsDriverInstalled() { return sMajorVersion != 0; }
       /**
        * GetDriverMajorVersion() returns the installed driver's major version.
        * If SynTP driver isn't installed, this returns 0.
        */
-      static int32_t GetDriverMajorVersion()
-      {
-        return sMajorVersion;
-      }
+      static int32_t GetDriverMajorVersion() { return sMajorVersion; }
       /**
        * GetDriverMinorVersion() returns the installed driver's minor version.
        * If SynTP driver isn't installed, this returns -1.
        */
-      static int32_t GetDriverMinorVersion()
-      {
-        return sMinorVersion;
-      }
+      static int32_t GetDriverMinorVersion() { return sMinorVersion; }
 
       static void Init();
 
-    private:
+     private:
       static bool sInitialized;
       static int32_t sMajorVersion;
       static int32_t sMinorVersion;
     };
 
-    class Elantech {
-    public:
+    class Elantech
+    {
+     public:
       /**
        * GetDriverMajorVersion() returns the installed driver's major version.
        * If Elantech's driver was installed, returns 0.
@@ -519,69 +524,62 @@ public:
 
       static bool IsPinchHackNeeded() { return sUsePinchHack; }
 
-
-    private:
+     private:
       // Whether to enable the Elantech swipe gesture hack.
       static bool sUseSwipeHack;
       // Whether to enable the Elantech pinch-to-zoom gesture hack.
       static bool sUsePinchHack;
       static DWORD sZoomUntil;
-    }; // class Elantech
+    };  // class Elantech
 
     // Apoint is a touchpad driver of Alps.
     class Apoint
     {
-    public:
-      static bool IsDriverInstalled()
-      {
-        return sMajorVersion != 0;
-      }
+     public:
+      static bool IsDriverInstalled() { return sMajorVersion != 0; }
       /**
        * GetDriverMajorVersion() returns the installed driver's major version.
        * If Apoint driver isn't installed, this returns 0.
        */
-      static int32_t GetDriverMajorVersion()
-      {
-        return sMajorVersion;
-      }
+      static int32_t GetDriverMajorVersion() { return sMajorVersion; }
       /**
        * GetDriverMinorVersion() returns the installed driver's minor version.
        * If Apoint driver isn't installed, this returns -1.
        */
-      static int32_t GetDriverMinorVersion()
-      {
-        return sMinorVersion;
-      }
+      static int32_t GetDriverMinorVersion() { return sMinorVersion; }
 
       static void Init();
 
-    private:
+     private:
       static bool sInitialized;
       static int32_t sMajorVersion;
       static int32_t sMinorVersion;
     };
 
-    class TrackPoint {
-    public:
+    class TrackPoint
+    {
+     public:
       /**
        * IsDriverInstalled() returns TRUE if TrackPoint's driver is installed.
        * Otherwise, returns FALSE.
        */
       static bool IsDriverInstalled();
-    }; // class TrackPoint
+    };  // class TrackPoint
 
-    class UltraNav {
-    public:
+    class UltraNav
+    {
+     public:
       /**
        * IsObsoleteDriverInstalled() checks whether obsoleted UltraNav
        * is installed on the environment.
        * Returns TRUE if it was installed.  Otherwise, FALSE.
        */
       static bool IsObsoleteDriverInstalled();
-    }; // class UltraNav
+    };  // class UltraNav
 
-    class SetPoint {
-    public:
+    class SetPoint
+    {
+     public:
       /**
        * SetPoint, Logitech's mouse driver, may report wrong cursor position
        * for WM_MOUSEHWHEEL message.  See comment in the implementation for
@@ -590,7 +588,8 @@ public:
       static bool IsGetMessagePosResponseValid(UINT aMessage,
                                                WPARAM aWParam,
                                                LPARAM aLParam);
-    private:
+
+     private:
       static bool sMightBeUsing;
     };
 
@@ -601,7 +600,7 @@ public:
       return sFakeScrollableWindowNeeded;
     }
 
-  private:
+   private:
     /**
      * Gets the bool value of aPrefName used to enable or disable an input
      * workaround (like the Trackpoint hack).  The pref can take values 0 (for
@@ -616,10 +615,10 @@ public:
                                   bool aValueIfAutomatic);
 
     static bool sFakeScrollableWindowNeeded;
-  }; // class Device
+  };  // class Device
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // mozilla_widget_WinMouseScrollHandler_h__
+#endif  // mozilla_widget_WinMouseScrollHandler_h__

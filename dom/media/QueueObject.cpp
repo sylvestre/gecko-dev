@@ -38,4 +38,4 @@ QueueObject::Thread()
 {
   return mThread;
 }
-}
+}  // namespace mozilla

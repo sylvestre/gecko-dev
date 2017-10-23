@@ -26,37 +26,40 @@ SimpleTraits::GenerateTriangles(const gfx::Polygon& aPolygon) const
 inline SimpleTraits::TriangleVertices
 SimpleTraits::MakeVertex(const FirstTriangle& aIgnore) const
 {
-  TriangleVertices v = {
-    mRect.BottomLeft(), mRect.TopLeft(), mRect.TopRight(),
-    mItem.layerIndex, mItem.sortOrder
-  };
+  TriangleVertices v = {mRect.BottomLeft(),
+                        mRect.TopLeft(),
+                        mRect.TopRight(),
+                        mItem.layerIndex,
+                        mItem.sortOrder};
   return v;
 }
 
 inline SimpleTraits::TriangleVertices
 SimpleTraits::MakeVertex(const SecondTriangle& aIgnore) const
 {
-  TriangleVertices v = {
-    mRect.TopRight(), mRect.BottomRight(), mRect.BottomLeft(),
-    mItem.layerIndex, mItem.sortOrder
-  };
+  TriangleVertices v = {mRect.TopRight(),
+                        mRect.BottomRight(),
+                        mRect.BottomLeft(),
+                        mItem.layerIndex,
+                        mItem.sortOrder};
   return v;
 }
 
 inline SimpleTraits::TriangleVertices
 SimpleTraits::MakeVertex(const gfx::Triangle& aTriangle) const
 {
-  TriangleVertices v = {
-    aTriangle.p1, aTriangle.p2, aTriangle.p3,
-    mItem.layerIndex, mItem.sortOrder
-  };
+  TriangleVertices v = {aTriangle.p1,
+                        aTriangle.p2,
+                        aTriangle.p3,
+                        mItem.layerIndex,
+                        mItem.sortOrder};
   return v;
 }
 
 inline SimpleTraits::UnitQuadVertex
 SimpleTraits::MakeUnitQuadVertex() const
 {
-  UnitQuadVertex v = { mRect, mItem.layerIndex, mItem.sortOrder };
+  UnitQuadVertex v = {mRect, mItem.layerIndex, mItem.sortOrder};
   return v;
 }
 
@@ -69,26 +72,30 @@ TexturedTraits::GenerateTriangles(const gfx::Polygon& aPolygon) const
 inline TexturedTraits::VertexData
 TexturedTraits::MakeVertexData(const FirstTriangle& aIgnore) const
 {
-  VertexData v = { mTexCoords.BottomLeft(), mTexCoords.TopLeft(), mTexCoords.TopRight() };
+  VertexData v = {
+      mTexCoords.BottomLeft(), mTexCoords.TopLeft(), mTexCoords.TopRight()};
   return v;
 }
 
 inline TexturedTraits::VertexData
 TexturedTraits::MakeVertexData(const SecondTriangle& aIgnore) const
 {
-  VertexData v = { mTexCoords.TopRight(), mTexCoords.BottomRight(), mTexCoords.BottomLeft() };
+  VertexData v = {
+      mTexCoords.TopRight(), mTexCoords.BottomRight(), mTexCoords.BottomLeft()};
   return v;
 }
 
 inline TexturedTraits::VertexData
 TexturedTraits::MakeVertexData(const gfx::TexturedTriangle& aTriangle) const
 {
-  VertexData v = { aTriangle.textureCoords.p1, aTriangle.textureCoords.p2, aTriangle.textureCoords.p3 };
+  VertexData v = {aTriangle.textureCoords.p1,
+                  aTriangle.textureCoords.p2,
+                  aTriangle.textureCoords.p3};
   return v;
 }
 
-} // namespace mlg
-} // namespace layers
-} // namespace mozilla
+}  // namespace mlg
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // _include_gfx_layers_mlgpu_ShaderDefinitions_inl_h
+#endif  // _include_gfx_layers_mlgpu_ShaderDefinitions_inl_h

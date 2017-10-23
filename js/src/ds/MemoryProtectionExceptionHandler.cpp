@@ -10,18 +10,18 @@
 #include "mozilla/Atomics.h"
 
 #if defined(XP_WIN)
-# include "jswin.h"
+#include "jswin.h"
 #elif defined(XP_UNIX) && !defined(XP_DARWIN)
-# include <signal.h>
-# include <sys/types.h>
-# include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
 #elif defined(XP_DARWIN)
-# include <mach/mach.h>
-# include <unistd.h>
+#include <mach/mach.h>
+#include <unistd.h>
 #endif
 
 #ifdef ANDROID
-# include <android/log.h>
+#include <android/log.h>
 #endif
 
 #include "ds/SplayTree.h"
@@ -36,21 +36,16 @@ namespace js {
  * A class to store the addresses of the regions recognized as protected
  * by this exception handler. We use a splay tree to store these addresses.
  */
-class ProtectedRegionTree
-{
-    struct Region
-    {
+class ProtectedRegionTree {
+    struct Region {
         uintptr_t first;
         uintptr_t last;
 
-        Region(uintptr_t addr, size_t size) : first(addr),
-                                              last(addr + (size - 1)) {}
+        Region(uintptr_t addr, size_t size) : first(addr), last(addr + (size - 1)) {}
 
         static int compare(const Region& A, const Region& B) {
-            if (A.last < B.first)
-                return -1;
-            if (A.first > B.last)
-                return 1;
+            if (A.last < B.first) return -1;
+            if (A.first > B.last) return 1;
             return 0;
         }
     };
@@ -59,10 +54,8 @@ class ProtectedRegionTree
     LifoAlloc alloc;
     SplayTree<Region, Region> tree;
 
-  public:
-    ProtectedRegionTree() : lock(mutexid::ProtectedRegionTree),
-                            alloc(4096),
-                            tree(&alloc) {}
+   public:
+    ProtectedRegionTree() : lock(mutexid::ProtectedRegionTree), alloc(4096), tree(&alloc) {}
 
     ~ProtectedRegionTree() { MOZ_ASSERT(tree.empty()); }
 
@@ -70,8 +63,7 @@ class ProtectedRegionTree
         MOZ_ASSERT(addr && size);
         LockGuard<Mutex> guard(lock);
         AutoEnterOOMUnsafeRegion oomUnsafe;
-        if (!tree.insert(Region(addr, size)))
-            oomUnsafe.crash("Failed to store allocation ID.");
+        if (!tree.insert(Region(addr, size))) oomUnsafe.crash("Failed to store allocation ID.");
     }
 
     void remove(uintptr_t addr) {
@@ -81,8 +73,7 @@ class ProtectedRegionTree
     }
 
     bool isProtected(uintptr_t addr) {
-        if (!addr)
-            return false;
+        if (!addr) return false;
         LockGuard<Mutex> guard(lock);
         return tree.maybeLookup(Region(addr, 1));
     }
@@ -92,9 +83,7 @@ static bool sExceptionHandlerInstalled = false;
 
 static ProtectedRegionTree sProtectedRegions;
 
-bool
-MemoryProtectionExceptionHandler::isDisabled()
-{
+bool MemoryProtectionExceptionHandler::isDisabled() {
 #if defined(XP_WIN) && defined(MOZ_ASAN)
     // Under Windows ASan, WasmFaultHandler registers itself at 'last' priority
     // in order to let ASan's ShadowExceptionHandler stay at 'first' priority.
@@ -111,18 +100,12 @@ MemoryProtectionExceptionHandler::isDisabled()
 #endif
 }
 
-void
-MemoryProtectionExceptionHandler::addRegion(void* addr, size_t size)
-{
-    if (sExceptionHandlerInstalled)
-        sProtectedRegions.insert(uintptr_t(addr), size);
+void MemoryProtectionExceptionHandler::addRegion(void* addr, size_t size) {
+    if (sExceptionHandlerInstalled) sProtectedRegions.insert(uintptr_t(addr), size);
 }
 
-void
-MemoryProtectionExceptionHandler::removeRegion(void* addr)
-{
-    if (sExceptionHandlerInstalled)
-        sProtectedRegions.remove(uintptr_t(addr));
+void MemoryProtectionExceptionHandler::removeRegion(void* addr) {
+    if (sExceptionHandlerInstalled) sProtectedRegions.remove(uintptr_t(addr));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -131,25 +114,23 @@ MemoryProtectionExceptionHandler::removeRegion(void* addr)
  * This helper function attempts to replicate the functionality of
  * mozilla::MOZ_ReportCrash() in an async-signal-safe way.
  */
-static MOZ_COLD MOZ_ALWAYS_INLINE void
-ReportCrashIfDebug(const char* aStr)
-    MOZ_PRETEND_NORETURN_FOR_STATIC_ANALYSIS
-{
+static MOZ_COLD MOZ_ALWAYS_INLINE void ReportCrashIfDebug(const char* aStr)
+    MOZ_PRETEND_NORETURN_FOR_STATIC_ANALYSIS {
 #ifdef DEBUG
-# if defined(XP_WIN)
+#if defined(XP_WIN)
     DWORD bytesWritten;
-    BOOL ret = WriteFile(GetStdHandle(STD_ERROR_HANDLE), aStr,
-                         strlen(aStr) + 1, &bytesWritten, nullptr);
-# elif defined(ANDROID)
+    BOOL ret =
+        WriteFile(GetStdHandle(STD_ERROR_HANDLE), aStr, strlen(aStr) + 1, &bytesWritten, nullptr);
+#elif defined(ANDROID)
     int ret = __android_log_write(ANDROID_LOG_FATAL, "MOZ_CRASH", aStr);
-# else
+#else
     ssize_t ret = write(STDERR_FILENO, aStr, strlen(aStr) + 1);
-# endif
-    (void)ret; // Ignore failures; we're already crashing anyway.
+#endif
+    (void)ret;  // Ignore failures; we're already crashing anyway.
 #endif
 }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
 #if defined(XP_WIN)
 
@@ -162,9 +143,7 @@ static void* sVectoredExceptionHandler = nullptr;
  */
 static mozilla::Atomic<bool> sHandlingException(false);
 
-static long __stdcall
-VectoredExceptionHandler(EXCEPTION_POINTERS* ExceptionInfo)
-{
+static long __stdcall VectoredExceptionHandler(EXCEPTION_POINTERS* ExceptionInfo) {
     EXCEPTION_RECORD* ExceptionRecord = ExceptionInfo->ExceptionRecord;
 
     // We only handle one kind of exception; ignore all others.
@@ -192,26 +171,21 @@ VectoredExceptionHandler(EXCEPTION_POINTERS* ExceptionInfo)
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-bool
-MemoryProtectionExceptionHandler::install()
-{
+bool MemoryProtectionExceptionHandler::install() {
     MOZ_ASSERT(!sExceptionHandlerInstalled);
 
     // If the exception handler is disabled, report success anyway.
-    if (MemoryProtectionExceptionHandler::isDisabled())
-        return true;
+    if (MemoryProtectionExceptionHandler::isDisabled()) return true;
 
     // Install our new exception handler.
-    sVectoredExceptionHandler = AddVectoredExceptionHandler(/* FirstHandler = */ true,
-                                                            VectoredExceptionHandler);
+    sVectoredExceptionHandler =
+        AddVectoredExceptionHandler(/* FirstHandler = */ true, VectoredExceptionHandler);
 
     sExceptionHandlerInstalled = sVectoredExceptionHandler != nullptr;
     return sExceptionHandlerInstalled;
 }
 
-void
-MemoryProtectionExceptionHandler::uninstall()
-{
+void MemoryProtectionExceptionHandler::uninstall() {
     if (sExceptionHandlerInstalled) {
         MOZ_ASSERT(!sHandlingException);
 
@@ -233,9 +207,7 @@ static struct sigaction sPrevSEGVHandler = {};
  */
 static mozilla::Atomic<bool> sHandlingException(false);
 
-static void
-UnixExceptionHandler(int signum, siginfo_t* info, void* context)
-{
+static void UnixExceptionHandler(int signum, siginfo_t* info, void* context) {
     // Make absolutely sure we can only get here once.
     if (sHandlingException.compareExchange(false, true)) {
         // Restore the previous handler. We're going to forward to it
@@ -271,14 +243,11 @@ UnixExceptionHandler(int signum, siginfo_t* info, void* context)
     // everything seems to do it, and it removes us from the crash stack.
 }
 
-bool
-MemoryProtectionExceptionHandler::install()
-{
+bool MemoryProtectionExceptionHandler::install() {
     MOZ_ASSERT(!sExceptionHandlerInstalled);
 
     // If the exception handler is disabled, report success anyway.
-    if (MemoryProtectionExceptionHandler::isDisabled())
-        return true;
+    if (MemoryProtectionExceptionHandler::isDisabled()) return true;
 
     // Install our new exception handler and save the previous one.
     struct sigaction faultHandler = {};
@@ -290,9 +259,7 @@ MemoryProtectionExceptionHandler::install()
     return sExceptionHandlerInstalled;
 }
 
-void
-MemoryProtectionExceptionHandler::uninstall()
-{
+void MemoryProtectionExceptionHandler::uninstall() {
     if (sExceptionHandlerInstalled) {
         MOZ_ASSERT(!sHandlingException);
 
@@ -332,60 +299,55 @@ static const mach_msg_id_t sIDRequestStateIdentity64 = 2407;
  * Each message ID has an associated Mach message structure.
  * We use the preprocessor to make defining them a little less arduous.
  */
-# define REQUEST_HEADER_FIELDS\
-    mach_msg_header_t header;
+#define REQUEST_HEADER_FIELDS mach_msg_header_t header;
 
-# define REQUEST_IDENTITY_FIELDS\
-    mach_msg_body_t msgh_body;\
-    mach_msg_port_descriptor_t thread;\
+#define REQUEST_IDENTITY_FIELDS        \
+    mach_msg_body_t msgh_body;         \
+    mach_msg_port_descriptor_t thread; \
     mach_msg_port_descriptor_t task;
 
-# define REQUEST_GENERAL_FIELDS(bits)\
-    NDR_record_t NDR;\
-    exception_type_t exception;\
-    mach_msg_type_number_t code_count;\
+#define REQUEST_GENERAL_FIELDS(bits)   \
+    NDR_record_t NDR;                  \
+    exception_type_t exception;        \
+    mach_msg_type_number_t code_count; \
     int##bits##_t code[2];
 
-# define REQUEST_STATE_FIELDS\
-    int flavor;\
-    mach_msg_type_number_t old_state_count;\
+#define REQUEST_STATE_FIELDS                \
+    int flavor;                             \
+    mach_msg_type_number_t old_state_count; \
     natural_t old_state[THREAD_STATE_MAX];
 
-# define REQUEST_TRAILER_FIELDS\
-    mach_msg_trailer_t trailer;
+#define REQUEST_TRAILER_FIELDS mach_msg_trailer_t trailer;
 
-# define EXCEPTION_REQUEST(bits)\
-    struct ExceptionRequest##bits\
-    {\
-        REQUEST_HEADER_FIELDS\
-        REQUEST_IDENTITY_FIELDS\
-        REQUEST_GENERAL_FIELDS(bits)\
-        REQUEST_TRAILER_FIELDS\
-    };\
+#define EXCEPTION_REQUEST(bits)      \
+    struct ExceptionRequest##bits {  \
+        REQUEST_HEADER_FIELDS        \
+        REQUEST_IDENTITY_FIELDS      \
+        REQUEST_GENERAL_FIELDS(bits) \
+        REQUEST_TRAILER_FIELDS       \
+    };
 
-# define EXCEPTION_REQUEST_STATE(bits)\
-    struct ExceptionRequestState##bits\
-    {\
-        REQUEST_HEADER_FIELDS\
-        REQUEST_GENERAL_FIELDS(bits)\
-        REQUEST_STATE_FIELDS\
-        REQUEST_TRAILER_FIELDS\
-    };\
+#define EXCEPTION_REQUEST_STATE(bits)    \
+    struct ExceptionRequestState##bits { \
+        REQUEST_HEADER_FIELDS            \
+        REQUEST_GENERAL_FIELDS(bits)     \
+        REQUEST_STATE_FIELDS             \
+        REQUEST_TRAILER_FIELDS           \
+    };
 
-# define EXCEPTION_REQUEST_STATE_IDENTITY(bits)\
-    struct ExceptionRequestStateIdentity##bits\
-    {\
-        REQUEST_HEADER_FIELDS\
-        REQUEST_IDENTITY_FIELDS\
-        REQUEST_GENERAL_FIELDS(bits)\
-        REQUEST_STATE_FIELDS\
-        REQUEST_TRAILER_FIELDS\
-    };\
+#define EXCEPTION_REQUEST_STATE_IDENTITY(bits)   \
+    struct ExceptionRequestStateIdentity##bits { \
+        REQUEST_HEADER_FIELDS                    \
+        REQUEST_IDENTITY_FIELDS                  \
+        REQUEST_GENERAL_FIELDS(bits)             \
+        REQUEST_STATE_FIELDS                     \
+        REQUEST_TRAILER_FIELDS                   \
+    };
 
 /* This is needed because not all fields are naturally aligned on 64-bit. */
-# ifdef  __MigPackStructs
-#  pragma pack(4)
-# endif
+#ifdef __MigPackStructs
+#pragma pack(4)
+#endif
 
 EXCEPTION_REQUEST(32)
 EXCEPTION_REQUEST(64)
@@ -406,85 +368,74 @@ union ExceptionRequestUnion {
 };
 
 /* This isn't really a full Mach message, but it's all we need to send. */
-struct ExceptionReply
-{
+struct ExceptionReply {
     mach_msg_header_t header;
     NDR_record_t NDR;
     kern_return_t RetCode;
 };
 
-# ifdef  __MigPackStructs
-#  pragma pack()
-# endif
+#ifdef __MigPackStructs
+#pragma pack()
+#endif
 
-# undef EXCEPTION_REQUEST_STATE_IDENTITY
-# undef EXCEPTION_REQUEST_STATE
-# undef EXCEPTION_REQUEST
-# undef REQUEST_STATE_FIELDS
-# undef REQUEST_GENERAL_FIELDS
-# undef REQUEST_IDENTITY_FIELDS
-# undef REQUEST_HEADER_FIELDS
+#undef EXCEPTION_REQUEST_STATE_IDENTITY
+#undef EXCEPTION_REQUEST_STATE
+#undef EXCEPTION_REQUEST
+#undef REQUEST_STATE_FIELDS
+#undef REQUEST_GENERAL_FIELDS
+#undef REQUEST_IDENTITY_FIELDS
+#undef REQUEST_HEADER_FIELDS
 
 /*
  * The exception handler we're forwarding to may not have the same behavior
  * or thread state flavor as what we're using. These macros help populate
  * the fields of the message we're about to send to the previous handler.
  */
-# define COPY_REQUEST_COMMON(bits, id)\
-    dst.header = src.header;\
-    dst.header.msgh_id = id;\
-    dst.header.msgh_size = static_cast<mach_msg_size_t>(sizeof(dst) - sizeof(dst.trailer));\
-    dst.NDR = src.NDR;\
-    dst.exception = src.exception;\
-    dst.code_count = src.code_count;\
-    dst.code[0] = int##bits##_t(src.code[0]);\
+#define COPY_REQUEST_COMMON(bits, id)                                                       \
+    dst.header = src.header;                                                                \
+    dst.header.msgh_id = id;                                                                \
+    dst.header.msgh_size = static_cast<mach_msg_size_t>(sizeof(dst) - sizeof(dst.trailer)); \
+    dst.NDR = src.NDR;                                                                      \
+    dst.exception = src.exception;                                                          \
+    dst.code_count = src.code_count;                                                        \
+    dst.code[0] = int##bits##_t(src.code[0]);                                               \
     dst.code[1] = int##bits##_t(src.code[1]);
 
-# define COPY_REQUEST_IDENTITY\
-    dst.msgh_body = src.msgh_body;\
-    dst.thread = src.thread;\
+#define COPY_REQUEST_IDENTITY      \
+    dst.msgh_body = src.msgh_body; \
+    dst.thread = src.thread;       \
     dst.task = src.task;
 
-# define COPY_REQUEST_STATE(flavor, stateCount, state)\
-    mach_msg_size_t stateSize = stateCount * sizeof(natural_t);\
-    dst.header.msgh_size = static_cast<mach_msg_size_t>(sizeof(dst) - sizeof(dst.trailer) -\
-                                                        sizeof(dst.old_state) + stateSize);\
-    dst.flavor = flavor;\
-    dst.old_state_count = stateCount;\
+#define COPY_REQUEST_STATE(flavor, stateCount, state)                                       \
+    mach_msg_size_t stateSize = stateCount * sizeof(natural_t);                             \
+    dst.header.msgh_size = static_cast<mach_msg_size_t>(sizeof(dst) - sizeof(dst.trailer) - \
+                                                        sizeof(dst.old_state) + stateSize); \
+    dst.flavor = flavor;                                                                    \
+    dst.old_state_count = stateCount;                                                       \
     memcpy(dst.old_state, state, stateSize);
 
-# define COPY_EXCEPTION_REQUEST(bits)\
-    static void\
-    CopyExceptionRequest##bits(ExceptionRequest64& src,\
-                               ExceptionRequest##bits& dst)\
-    {\
-        COPY_REQUEST_COMMON(bits, sIDRequest##bits)\
-        COPY_REQUEST_IDENTITY\
+#define COPY_EXCEPTION_REQUEST(bits)                                      \
+    static void CopyExceptionRequest##bits(ExceptionRequest64& src,       \
+                                           ExceptionRequest##bits& dst) { \
+        COPY_REQUEST_COMMON(bits, sIDRequest##bits)                       \
+        COPY_REQUEST_IDENTITY                                             \
     }
 
-# define COPY_EXCEPTION_REQUEST_STATE(bits)\
-    static void\
-    CopyExceptionRequestState##bits(ExceptionRequest64& src,\
-                                    ExceptionRequestState##bits& dst,\
-                                    thread_state_flavor_t flavor,\
-                                    mach_msg_type_number_t stateCount,\
-                                    thread_state_t state)\
-    {\
-        COPY_REQUEST_COMMON(bits, sIDRequestState##bits)\
-        COPY_REQUEST_STATE(flavor, stateCount, state)\
+#define COPY_EXCEPTION_REQUEST_STATE(bits)                                                       \
+    static void CopyExceptionRequestState##bits(                                                 \
+        ExceptionRequest64& src, ExceptionRequestState##bits& dst, thread_state_flavor_t flavor, \
+        mach_msg_type_number_t stateCount, thread_state_t state) {                               \
+        COPY_REQUEST_COMMON(bits, sIDRequestState##bits)                                         \
+        COPY_REQUEST_STATE(flavor, stateCount, state)                                            \
     }
 
-# define COPY_EXCEPTION_REQUEST_STATE_IDENTITY(bits)\
-    static void\
-    CopyExceptionRequestStateIdentity##bits(ExceptionRequest64& src,\
-                                            ExceptionRequestStateIdentity##bits& dst,\
-                                            thread_state_flavor_t flavor,\
-                                            mach_msg_type_number_t stateCount,\
-                                            thread_state_t state)\
-    {\
-        COPY_REQUEST_COMMON(bits, sIDRequestStateIdentity##bits)\
-        COPY_REQUEST_IDENTITY\
-        COPY_REQUEST_STATE(flavor, stateCount, state)\
+#define COPY_EXCEPTION_REQUEST_STATE_IDENTITY(bits)                                              \
+    static void CopyExceptionRequestStateIdentity##bits(                                         \
+        ExceptionRequest64& src, ExceptionRequestStateIdentity##bits& dst,                       \
+        thread_state_flavor_t flavor, mach_msg_type_number_t stateCount, thread_state_t state) { \
+        COPY_REQUEST_COMMON(bits, sIDRequestStateIdentity##bits)                                 \
+        COPY_REQUEST_IDENTITY                                                                    \
+        COPY_REQUEST_STATE(flavor, stateCount, state)                                            \
     }
 
 COPY_EXCEPTION_REQUEST(32)
@@ -494,28 +445,26 @@ COPY_EXCEPTION_REQUEST(64)
 COPY_EXCEPTION_REQUEST_STATE(64)
 COPY_EXCEPTION_REQUEST_STATE_IDENTITY(64)
 
-# undef COPY_EXCEPTION_REQUEST_STATE_IDENTITY
-# undef COPY_EXCEPTION_REQUEST_STATE
-# undef COPY_EXCEPTION_REQUEST
-# undef COPY_REQUEST_STATE
-# undef COPY_REQUEST_IDENTITY
-# undef COPY_REQUEST_COMMON
+#undef COPY_EXCEPTION_REQUEST_STATE_IDENTITY
+#undef COPY_EXCEPTION_REQUEST_STATE
+#undef COPY_EXCEPTION_REQUEST
+#undef COPY_REQUEST_STATE
+#undef COPY_REQUEST_IDENTITY
+#undef COPY_REQUEST_COMMON
 
 /* -------------------------------------------------------------------------- */
 /*                 End Mach definitions and helper functions                  */
 /* -------------------------------------------------------------------------- */
 
 /* Every Mach exception handler is parameterized by these four properties. */
-struct MachExceptionParameters
-{
+struct MachExceptionParameters {
     exception_mask_t mask;
     mach_port_t port;
     exception_behavior_t behavior;
     thread_state_flavor_t flavor;
 };
 
-struct ExceptionHandlerState
-{
+struct ExceptionHandlerState {
     MachExceptionParameters current;
     MachExceptionParameters previous;
 
@@ -536,9 +485,7 @@ static ExceptionHandlerState sMachExceptionState;
  * message, annotates the exception if needed, then forwards it to the
  * previously installed handler (which will likely terminate the process).
  */
-static void
-MachExceptionHandler()
-{
+static void MachExceptionHandler() {
     kern_return_t ret;
     MachExceptionParameters& current = sMachExceptionState.current;
     MachExceptionParameters& previous = sMachExceptionState.previous;
@@ -547,21 +494,20 @@ MachExceptionHandler()
     ExceptionRequest64 request = {};
     request.header.msgh_local_port = current.port;
     request.header.msgh_size = static_cast<mach_msg_size_t>(sizeof(request));
-    ret = mach_msg(&request.header, MACH_RCV_MSG, 0, request.header.msgh_size,
-                   current.port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+    ret = mach_msg(&request.header, MACH_RCV_MSG, 0, request.header.msgh_size, current.port,
+                   MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 
     // Restore the previous handler. We're going to forward to it
     // anyway, and if we crash while doing so we don't want to hang.
-    task_set_exception_ports(mach_task_self(), previous.mask, previous.port,
-                             previous.behavior, previous.flavor);
+    task_set_exception_ports(mach_task_self(), previous.mask, previous.port, previous.behavior,
+                             previous.flavor);
 
     // If we failed even receiving the message, just give up.
     if (ret != MACH_MSG_SUCCESS)
         MOZ_CRASH("MachExceptionHandler: mach_msg failed to receive a message!");
 
     // Terminate the thread if we're shutting down.
-    if (request.header.msgh_id == sIDQuit)
-        return;
+    if (request.header.msgh_id == sIDQuit) return;
 
     // The only other valid message ID is the one associated with the
     // EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES behavior we chose.
@@ -602,42 +548,42 @@ MachExceptionHandler()
         // systems. It appears that OSX simply truncates these fields.
         ExceptionRequestUnion forward;
         switch (uint32_t(previous.behavior)) {
-          case EXCEPTION_DEFAULT:
-             CopyExceptionRequest32(request, forward.r32);
-             break;
-          case EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES:
-             CopyExceptionRequest64(request, forward.r64);
-             break;
-          case EXCEPTION_STATE:
-             CopyExceptionRequestState32(request, forward.rs32,
-                                         previous.flavor, stateCount, state);
-             break;
-          case EXCEPTION_STATE | MACH_EXCEPTION_CODES:
-             CopyExceptionRequestState64(request, forward.rs64,
-                                         previous.flavor, stateCount, state);
-             break;
-          case EXCEPTION_STATE_IDENTITY:
-             CopyExceptionRequestStateIdentity32(request, forward.rsi32,
-                                                 previous.flavor, stateCount, state);
-             break;
-          case EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES:
-             CopyExceptionRequestStateIdentity64(request, forward.rsi64,
-                                                 previous.flavor, stateCount, state);
-             break;
-          default:
-             MOZ_CRASH("MachExceptionHandler: Unknown previous handler behavior!");
+            case EXCEPTION_DEFAULT:
+                CopyExceptionRequest32(request, forward.r32);
+                break;
+            case EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES:
+                CopyExceptionRequest64(request, forward.r64);
+                break;
+            case EXCEPTION_STATE:
+                CopyExceptionRequestState32(request, forward.rs32, previous.flavor, stateCount,
+                                            state);
+                break;
+            case EXCEPTION_STATE | MACH_EXCEPTION_CODES:
+                CopyExceptionRequestState64(request, forward.rs64, previous.flavor, stateCount,
+                                            state);
+                break;
+            case EXCEPTION_STATE_IDENTITY:
+                CopyExceptionRequestStateIdentity32(request, forward.rsi32, previous.flavor,
+                                                    stateCount, state);
+                break;
+            case EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES:
+                CopyExceptionRequestStateIdentity64(request, forward.rsi64, previous.flavor,
+                                                    stateCount, state);
+                break;
+            default:
+                MOZ_CRASH("MachExceptionHandler: Unknown previous handler behavior!");
         }
 
         // Forward the generated message to the old port. The local and remote
         // port fields *and their rights* are swapped on arrival, so we need to
         // swap them back first.
         forward.header.msgh_bits = (request.header.msgh_bits & ~MACH_MSGH_BITS_PORTS_MASK) |
-            MACH_MSGH_BITS(MACH_MSGH_BITS_LOCAL(request.header.msgh_bits),
-                           MACH_MSGH_BITS_REMOTE(request.header.msgh_bits));
+                                   MACH_MSGH_BITS(MACH_MSGH_BITS_LOCAL(request.header.msgh_bits),
+                                                  MACH_MSGH_BITS_REMOTE(request.header.msgh_bits));
         forward.header.msgh_local_port = forward.header.msgh_remote_port;
         forward.header.msgh_remote_port = previous.port;
-        ret = mach_msg(&forward.header, MACH_SEND_MSG, forward.header.msgh_size, 0,
-                       MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+        ret = mach_msg(&forward.header, MACH_SEND_MSG, forward.header.msgh_size, 0, MACH_PORT_NULL,
+                       MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
         if (ret != MACH_MSG_SUCCESS)
             MOZ_CRASH("MachExceptionHandler: Failed to forward to the previous handler!");
     } else {
@@ -654,16 +600,14 @@ MachExceptionHandler()
         reply.header.msgh_id = request.header.msgh_id + 100;
         reply.NDR = request.NDR;
         reply.RetCode = KERN_FAILURE;
-        ret = mach_msg(&reply.header, MACH_SEND_MSG, reply.header.msgh_size, 0,
-                       MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+        ret = mach_msg(&reply.header, MACH_SEND_MSG, reply.header.msgh_size, 0, MACH_PORT_NULL,
+                       MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
         if (ret != MACH_MSG_SUCCESS)
             MOZ_CRASH("MachExceptionHandler: Failed to forward to the host level!");
     }
 }
 
-static void
-TerminateMachExceptionHandlerThread()
-{
+static void TerminateMachExceptionHandlerThread() {
     // Send a simple quit message to the exception handler thread.
     mach_msg_header_t msg;
     msg.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
@@ -681,14 +625,11 @@ TerminateMachExceptionHandlerThread()
         MOZ_CRASH("MachExceptionHandler: Handler thread failed to terminate!");
 }
 
-bool
-MemoryProtectionExceptionHandler::install()
-{
+bool MemoryProtectionExceptionHandler::install() {
     MOZ_ASSERT(!sExceptionHandlerInstalled);
 
     // If the exception handler is disabled, report success anyway.
-    if (MemoryProtectionExceptionHandler::isDisabled())
-        return true;
+    if (MemoryProtectionExceptionHandler::isDisabled()) return true;
 
     kern_return_t ret;
     mach_port_t task = mach_task_self();
@@ -697,8 +638,7 @@ MemoryProtectionExceptionHandler::install()
     sMachExceptionState.current = {};
     MachExceptionParameters& current = sMachExceptionState.current;
     ret = mach_port_allocate(task, MACH_PORT_RIGHT_RECEIVE, &current.port);
-    if (ret != KERN_SUCCESS)
-        return false;
+    if (ret != KERN_SUCCESS) return false;
 
     // Give the new port send rights as well.
     ret = mach_port_insert_right(task, current.port, current.port, MACH_MSG_TYPE_MAKE_SEND);
@@ -725,8 +665,8 @@ MemoryProtectionExceptionHandler::install()
     MachExceptionParameters& previous = sMachExceptionState.previous;
     mach_msg_type_number_t previousCount = 1;
     ret = task_swap_exception_ports(task, current.mask, current.port, current.behavior,
-                                    current.flavor, &previous.mask, &previousCount,
-                                    &previous.port, &previous.behavior, &previous.flavor);
+                                    current.flavor, &previous.mask, &previousCount, &previous.port,
+                                    &previous.behavior, &previous.flavor);
     if (ret != KERN_SUCCESS) {
         TerminateMachExceptionHandlerThread();
         mach_port_deallocate(task, current.port);
@@ -742,16 +682,14 @@ MemoryProtectionExceptionHandler::install()
     return sExceptionHandlerInstalled;
 }
 
-void
-MemoryProtectionExceptionHandler::uninstall()
-{
+void MemoryProtectionExceptionHandler::uninstall() {
     if (sExceptionHandlerInstalled) {
         mach_port_t task = mach_task_self();
 
         // Restore the previous exception handler.
         MachExceptionParameters& previous = sMachExceptionState.previous;
-        task_set_exception_ports(task, previous.mask, previous.port,
-                                 previous.behavior, previous.flavor);
+        task_set_exception_ports(task, previous.mask, previous.port, previous.behavior,
+                                 previous.flavor);
 
         TerminateMachExceptionHandlerThread();
 

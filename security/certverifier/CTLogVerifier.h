@@ -15,7 +15,8 @@
 #include "SignedCertificateTimestamp.h"
 #include "SignedTreeHead.h"
 
-namespace mozilla { namespace ct {
+namespace mozilla {
+namespace ct {
 
 // Verifies Signed Certificate Timestamps (SCTs) provided by a specific log
 // using the public key of that log. Assumes the SCT being verified
@@ -26,7 +27,7 @@ namespace mozilla { namespace ct {
 // on error.
 class CTLogVerifier
 {
-public:
+ public:
   CTLogVerifier();
 
   // Initializes the verifier with log-specific information. Only the public
@@ -64,7 +65,7 @@ public:
   // match those of the log.
   bool SignatureParametersMatch(const DigitallySigned& signature);
 
-private:
+ private:
   // Performs the underlying verification using the log's public key. Note
   // that |signature| contains the raw signature data (i.e. without any
   // DigitallySigned struct encoding).
@@ -86,6 +87,7 @@ private:
   uint64_t mDisqualificationTime;
 };
 
-} } // namespace mozilla::ct
+}  // namespace ct
+}  // namespace mozilla
 
-#endif // CTLogVerifier_h
+#endif  // CTLogVerifier_h

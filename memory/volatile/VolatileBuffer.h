@@ -46,7 +46,8 @@ namespace mozilla {
 class VolatileBuffer
 {
   friend class VolatileBufferPtr_base;
-public:
+
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(VolatileBuffer)
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VolatileBuffer)
 
@@ -59,11 +60,11 @@ public:
   size_t NonHeapSizeOfExcludingThis() const;
   bool OnHeap() const;
 
-protected:
+ protected:
   bool Lock(void** aBuf);
   void Unlock();
 
-private:
+ private:
   ~VolatileBuffer();
 
   /**
@@ -86,38 +87,35 @@ private:
 #endif
 };
 
-class VolatileBufferPtr_base {
-public:
+class VolatileBufferPtr_base
+{
+ public:
   explicit VolatileBufferPtr_base(VolatileBuffer* vbuf)
-    : mVBuf(vbuf)
-    , mMapping(nullptr)
-    , mPurged(false)
+      : mVBuf(vbuf), mMapping(nullptr), mPurged(false)
   {
     Lock();
   }
 
-  ~VolatileBufferPtr_base() {
-    Unlock();
-  }
+  ~VolatileBufferPtr_base() { Unlock(); }
 
-  bool WasBufferPurged() const {
-    return mPurged;
-  }
+  bool WasBufferPurged() const { return mPurged; }
 
-protected:
+ protected:
   RefPtr<VolatileBuffer> mVBuf;
   void* mMapping;
 
-  void Set(VolatileBuffer* vbuf) {
+  void Set(VolatileBuffer* vbuf)
+  {
     Unlock();
     mVBuf = vbuf;
     Lock();
   }
 
-private:
+ private:
   bool mPurged;
 
-  void Lock() {
+  void Lock()
+  {
     if (mVBuf) {
       mPurged = !mVBuf->Lock(&mMapping);
     } else {
@@ -126,29 +124,31 @@ private:
     }
   }
 
-  void Unlock() {
+  void Unlock()
+  {
     if (mVBuf) {
       mVBuf->Unlock();
     }
   }
 };
 
-template <class T>
+template<class T>
 class VolatileBufferPtr : public VolatileBufferPtr_base
 {
-public:
-  explicit VolatileBufferPtr(VolatileBuffer* vbuf) : VolatileBufferPtr_base(vbuf) {}
+ public:
+  explicit VolatileBufferPtr(VolatileBuffer* vbuf)
+      : VolatileBufferPtr_base(vbuf)
+  {
+  }
   VolatileBufferPtr() : VolatileBufferPtr_base(nullptr) {}
 
   VolatileBufferPtr(VolatileBufferPtr&& aOther)
-    : VolatileBufferPtr_base(aOther.mVBuf)
+      : VolatileBufferPtr_base(aOther.mVBuf)
   {
     aOther.Set(nullptr);
   }
 
-  operator T*() const {
-    return (T*) mMapping;
-  }
+  operator T*() const { return (T*)mMapping; }
 
   VolatileBufferPtr& operator=(VolatileBuffer* aVBuf)
   {
@@ -164,10 +164,10 @@ public:
     return *this;
   }
 
-private:
+ private:
   VolatileBufferPtr(VolatileBufferPtr const& vbufptr) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozalloc_VolatileBuffer_h */

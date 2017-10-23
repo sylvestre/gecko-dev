@@ -13,14 +13,14 @@
 namespace mozilla {
 namespace dom {
 
-class CSSMozDocumentRule : public css::ConditionRule
-                         , public nsIDOMCSSMozDocumentRule
+class CSSMozDocumentRule : public css::ConditionRule,
+                           public nsIDOMCSSMozDocumentRule
 {
-protected:
+ protected:
   using ConditionRule::ConditionRule;
   virtual ~CSSMozDocumentRule() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   int32_t GetType() const final override { return css::Rule::DOCUMENT_RULE; }
@@ -36,9 +36,7 @@ public:
   NS_DECL_NSIDOMCSSMOZDOCUMENTRULE
 
   // WebIDL interface
-  uint16_t Type() const final override {
-    return nsIDOMCSSRule::DOCUMENT_RULE;
-  }
+  uint16_t Type() const final override { return nsIDOMCSSRule::DOCUMENT_RULE; }
   // Our XPCOM GetConditionText is OK
   void SetConditionText(const nsAString& aConditionText,
                         ErrorResult& aRv) final;
@@ -47,7 +45,7 @@ public:
                        JS::Handle<JSObject*> aGivenProto) override;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CSSMozDocumentRule_h
+#endif  // mozilla_dom_CSSMozDocumentRule_h

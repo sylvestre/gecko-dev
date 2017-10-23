@@ -1,6 +1,6 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-* vim: set ts=8 sts=4 et sw=4 tw=99:
-*/
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,11 +12,9 @@
 #include "js/SliceBudget.h"
 #include "jsapi-tests/tests.h"
 
-static bool
-ConstructCCW(JSContext* cx, const JSClass* globalClasp,
-             JS::HandleObject global1, JS::MutableHandleObject wrapper,
-             JS::MutableHandleObject global2, JS::MutableHandleObject wrappee)
-{
+static bool ConstructCCW(JSContext* cx, const JSClass* globalClasp, JS::HandleObject global1,
+                         JS::MutableHandleObject wrapper, JS::MutableHandleObject global2,
+                         JS::MutableHandleObject wrappee) {
     if (!global1) {
         fprintf(stderr, "null initial global");
         return false;
@@ -24,8 +22,7 @@ ConstructCCW(JSContext* cx, const JSClass* globalClasp,
 
     // Define a second global in a different zone.
     JS::CompartmentOptions options;
-    global2.set(JS_NewGlobalObject(cx, globalClasp, nullptr,
-                                   JS::FireOnNewGlobalHook, options));
+    global2.set(JS_NewGlobalObject(cx, globalClasp, nullptr, JS::FireOnNewGlobalHook, options));
     if (!global2) {
         fprintf(stderr, "failed to create second global");
         return false;
@@ -80,27 +77,24 @@ class CCWTestTracer : public JS::CallbackTracer {
         printf("kind         = %d\n", static_cast<int>(thing.kind()));
         printf("expectedKind = %d\n", static_cast<int>(expectedKind));
 
-        if (thing.asCell() != *expectedThingp || thing.kind() != expectedKind)
-            okay = false;
+        if (thing.asCell() != *expectedThingp || thing.kind() != expectedKind) okay = false;
     }
 
-  public:
-    bool          okay;
-    size_t        numberOfThingsTraced;
-    void**        expectedThingp;
+   public:
+    bool okay;
+    size_t numberOfThingsTraced;
+    void** expectedThingp;
     JS::TraceKind expectedKind;
 
     CCWTestTracer(JSContext* cx, void** expectedThingp, JS::TraceKind expectedKind)
-      : JS::CallbackTracer(cx),
-        okay(true),
-        numberOfThingsTraced(0),
-        expectedThingp(expectedThingp),
-        expectedKind(expectedKind)
-    { }
+        : JS::CallbackTracer(cx),
+          okay(true),
+          numberOfThingsTraced(0),
+          expectedThingp(expectedThingp),
+          expectedKind(expectedKind) {}
 };
 
-BEGIN_TEST(testTracingIncomingCCWs)
-{
+BEGIN_TEST(testTracingIncomingCCWs) {
 #ifdef JS_GC_ZEAL
     // Disable zeal modes because this test needs to control exactly when the GC happens.
     JS_SetGCZeal(cx, 0, 100);
@@ -135,17 +129,13 @@ BEGIN_TEST(testTracingIncomingCCWs)
 }
 END_TEST(testTracingIncomingCCWs)
 
-static size_t
-countWrappers(JSCompartment* comp)
-{
+static size_t countWrappers(JSCompartment* comp) {
     size_t count = 0;
-    for (JSCompartment::WrapperEnum e(comp); !e.empty(); e.popFront())
-        ++count;
+    for (JSCompartment::WrapperEnum e(comp); !e.empty(); e.popFront()) ++count;
     return count;
 }
 
-BEGIN_TEST(testDeadNurseryCCW)
-{
+BEGIN_TEST(testDeadNurseryCCW) {
 #ifdef JS_GC_ZEAL
     // Disable zeal modes because this test needs to control exactly when the GC happens.
     JS_SetGCZeal(cx, 0, 100);
@@ -175,8 +165,7 @@ BEGIN_TEST(testDeadNurseryCCW)
 }
 END_TEST(testDeadNurseryCCW)
 
-BEGIN_TEST(testLiveNurseryCCW)
-{
+BEGIN_TEST(testLiveNurseryCCW) {
 #ifdef JS_GC_ZEAL
     // Disable zeal modes because this test needs to control exactly when the GC happens.
     JS_SetGCZeal(cx, 0, 100);
@@ -206,8 +195,7 @@ BEGIN_TEST(testLiveNurseryCCW)
 }
 END_TEST(testLiveNurseryCCW)
 
-BEGIN_TEST(testLiveNurseryWrapperCCW)
-{
+BEGIN_TEST(testLiveNurseryWrapperCCW) {
 #ifdef JS_GC_ZEAL
     // Disable zeal modes because this test needs to control exactly when the GC happens.
     JS_SetGCZeal(cx, 0, 100);
@@ -242,8 +230,7 @@ BEGIN_TEST(testLiveNurseryWrapperCCW)
 }
 END_TEST(testLiveNurseryWrapperCCW)
 
-BEGIN_TEST(testLiveNurseryWrappeeCCW)
-{
+BEGIN_TEST(testLiveNurseryWrappeeCCW) {
 #ifdef JS_GC_ZEAL
     // Disable zeal modes because this test needs to control exactly when the GC happens.
     JS_SetGCZeal(cx, 0, 100);
@@ -276,8 +263,7 @@ BEGIN_TEST(testLiveNurseryWrappeeCCW)
 }
 END_TEST(testLiveNurseryWrappeeCCW)
 
-BEGIN_TEST(testIncrementalRoots)
-{
+BEGIN_TEST(testIncrementalRoots) {
     JSRuntime* rt = cx->runtime();
 
 #ifdef JS_GC_ZEAL
@@ -295,8 +281,7 @@ BEGIN_TEST(testIncrementalRoots)
     // with leafOwner the object that has the 'obj' and 'leaf2' properties.
 
     JS::RootedObject obj(cx, JS_NewObject(cx, nullptr));
-    if (!obj)
-        return false;
+    if (!obj) return false;
 
     JS::RootedObject root(cx, obj);
 
@@ -305,10 +290,8 @@ BEGIN_TEST(testIncrementalRoots)
 
     for (size_t i = 0; i < 3000; i++) {
         JS::RootedObject subobj(cx, JS_NewObject(cx, nullptr));
-        if (!subobj)
-            return false;
-        if (!JS_DefineProperty(cx, obj, "obj", subobj, 0))
-            return false;
+        if (!subobj) return false;
+        if (!JS_DefineProperty(cx, obj, "obj", subobj, 0)) return false;
         leafOwner = obj;
         obj = subobj;
         leaf = subobj;
@@ -317,16 +300,13 @@ BEGIN_TEST(testIncrementalRoots)
     // Give the leaf owner a second leaf.
     {
         JS::RootedObject leaf2(cx, JS_NewObject(cx, nullptr));
-        if (!leaf2)
-            return false;
-        if (!JS_DefineProperty(cx, leafOwner, "leaf2", leaf2, 0))
-            return false;
+        if (!leaf2) return false;
+        if (!JS_DefineProperty(cx, leafOwner, "leaf2", leaf2, 0)) return false;
     }
 
     // This is marked during markRuntime
     JS::AutoObjectVector vec(cx);
-    if (!vec.append(root))
-        return false;
+    if (!vec.append(root)) return false;
 
     // Tenure everything so intentionally unrooted objects don't move before we
     // can use them.
@@ -381,11 +361,9 @@ BEGIN_TEST(testIncrementalRoots)
     // 'leaf' out of the graph and stick it into an already-marked region (hang
     // it off the un-prebarriered root, in fact). The pre-barrier on the
     // overwrite of the source location should cause this object to be marked.
-    if (!JS_SetProperty(cx, leafOwnerHandle, "obj", JS::UndefinedHandleValue))
-        return false;
+    if (!JS_SetProperty(cx, leafOwnerHandle, "obj", JS::UndefinedHandleValue)) return false;
     MOZ_ASSERT(rt->gc.gcNumber() == currentGCNumber);
-    if (!JS_SetProperty(cx, vec[0], "newobj", leafValueHandle))
-        return false;
+    if (!JS_SetProperty(cx, vec[0], "newobj", leafValueHandle)) return false;
     MOZ_ASSERT(rt->gc.gcNumber() == currentGCNumber);
     MOZ_ASSERT(leafHandle->asTenured().isMarkedBlack());
 
@@ -400,12 +378,10 @@ BEGIN_TEST(testIncrementalRoots)
     // pointers.
     {
         JS::RootedValue leaf2(cx);
-        if (!JS_GetProperty(cx, leafOwnerHandle, "leaf2", &leaf2))
-            return false;
+        if (!JS_GetProperty(cx, leafOwnerHandle, "leaf2", &leaf2)) return false;
         MOZ_ASSERT(rt->gc.gcNumber() == currentGCNumber);
         MOZ_ASSERT(!leaf2.toObject().asTenured().isMarkedBlack());
-        if (!JS_SetProperty(cx, vec[0], "leafcopy", leaf2))
-            return false;
+        if (!JS_SetProperty(cx, vec[0], "leafcopy", leaf2)) return false;
         MOZ_ASSERT(rt->gc.gcNumber() == currentGCNumber);
         MOZ_ASSERT(!leaf2.toObject().asTenured().isMarkedBlack());
     }
@@ -415,8 +391,7 @@ BEGIN_TEST(testIncrementalRoots)
     rt->gc.debugGCSlice(unlimited);
 
     // Access the leaf object to try to trigger a crash if it is dead.
-    if (!JS_SetProperty(cx, leafHandle, "toes", JS::UndefinedHandleValue))
-        return false;
+    if (!JS_SetProperty(cx, leafHandle, "toes", JS::UndefinedHandleValue)) return false;
 
     return true;
 }

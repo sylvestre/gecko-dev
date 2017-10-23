@@ -7,7 +7,6 @@
 #include "nsThemeConstants.h"
 #include "nsIFrame.h"
 
-
 namespace mozilla {
 namespace widget {
 
@@ -24,8 +23,10 @@ HeadlessThemeGTK::DrawWidgetBackground(gfxContext* aContext,
 }
 
 NS_IMETHODIMP
-HeadlessThemeGTK::GetWidgetBorder(nsDeviceContext* aContext, nsIFrame* aFrame,
-                                  uint8_t aWidgetType, nsIntMargin* aResult)
+HeadlessThemeGTK::GetWidgetBorder(nsDeviceContext* aContext,
+                                  nsIFrame* aFrame,
+                                  uint8_t aWidgetType,
+                                  nsIntMargin* aResult)
 {
   aResult->top = aResult->right = aResult->bottom = aResult->left = 0;
   // The following values are generated from the Ubuntu GTK theme.
@@ -116,7 +117,8 @@ HeadlessThemeGTK::GetWidgetBorder(nsDeviceContext* aContext, nsIFrame* aFrame,
 
 bool
 HeadlessThemeGTK::GetWidgetPadding(nsDeviceContext* aContext,
-                                   nsIFrame* aFrame, uint8_t aWidgetType,
+                                   nsIFrame* aFrame,
+                                   uint8_t aWidgetType,
                                    nsIntMargin* aResult)
 {
   // The following values are generated from the Ubuntu GTK theme.
@@ -155,10 +157,10 @@ HeadlessThemeGTK::GetWidgetPadding(nsDeviceContext* aContext,
   return false;
 }
 
-
 NS_IMETHODIMP
 HeadlessThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
-                                       nsIFrame* aFrame, uint8_t aWidgetType,
+                                       nsIFrame* aFrame,
+                                       uint8_t aWidgetType,
                                        LayoutDeviceIntSize* aResult,
                                        bool* aIsOverridable)
 {
@@ -296,24 +298,23 @@ HeadlessThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
 }
 
 NS_IMETHODIMP
-HeadlessThemeGTK::WidgetStateChanged(nsIFrame* aFrame, uint8_t aWidgetType,
-                                     nsAtom* aAttribute, bool* aShouldRepaint,
+HeadlessThemeGTK::WidgetStateChanged(nsIFrame* aFrame,
+                                     uint8_t aWidgetType,
+                                     nsAtom* aAttribute,
+                                     bool* aShouldRepaint,
                                      const nsAttrValue* aOldValue)
 {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-HeadlessThemeGTK::ThemeChanged()
-{
-  return NS_OK;
-}
+HeadlessThemeGTK::ThemeChanged() { return NS_OK; }
 
-static bool IsFrameContentNodeInNamespace(nsIFrame *aFrame, uint32_t aNamespace)
+static bool
+IsFrameContentNodeInNamespace(nsIFrame* aFrame, uint32_t aNamespace)
 {
-  nsIContent *content = aFrame ? aFrame->GetContent() : nullptr;
-  if (!content)
-    return false;
+  nsIContent* content = aFrame ? aFrame->GetContent() : nullptr;
+  if (!content) return false;
   return content->IsInNamespace(aNamespace);
 }
 
@@ -401,8 +402,9 @@ HeadlessThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     case NS_THEME_GTK_INFO_BAR:
       return !IsWidgetStyled(aPresContext, aFrame, aWidgetType);
     case NS_THEME_MENULIST_BUTTON:
-      return (!aFrame || IsFrameContentNodeInNamespace(aFrame, kNameSpaceID_XUL)) &&
-              !IsWidgetStyled(aPresContext, aFrame, aWidgetType);
+      return (!aFrame ||
+              IsFrameContentNodeInNamespace(aFrame, kNameSpaceID_XUL)) &&
+             !IsWidgetStyled(aPresContext, aFrame, aWidgetType);
   }
   return false;
 }
@@ -410,17 +412,15 @@ HeadlessThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
 NS_IMETHODIMP_(bool)
 HeadlessThemeGTK::WidgetIsContainer(uint8_t aWidgetType)
 {
-    if (aWidgetType == NS_THEME_MENULIST_BUTTON ||
-        aWidgetType == NS_THEME_RADIO ||
-        aWidgetType == NS_THEME_RANGE_THUMB ||
-        aWidgetType == NS_THEME_CHECKBOX ||
-        aWidgetType == NS_THEME_TAB_SCROLL_ARROW_BACK ||
-        aWidgetType == NS_THEME_TAB_SCROLL_ARROW_FORWARD ||
-        aWidgetType == NS_THEME_BUTTON_ARROW_UP ||
-        aWidgetType == NS_THEME_BUTTON_ARROW_DOWN ||
-        aWidgetType == NS_THEME_BUTTON_ARROW_NEXT ||
-        aWidgetType == NS_THEME_BUTTON_ARROW_PREVIOUS) {
-
+  if (aWidgetType == NS_THEME_MENULIST_BUTTON ||
+      aWidgetType == NS_THEME_RADIO || aWidgetType == NS_THEME_RANGE_THUMB ||
+      aWidgetType == NS_THEME_CHECKBOX ||
+      aWidgetType == NS_THEME_TAB_SCROLL_ARROW_BACK ||
+      aWidgetType == NS_THEME_TAB_SCROLL_ARROW_FORWARD ||
+      aWidgetType == NS_THEME_BUTTON_ARROW_UP ||
+      aWidgetType == NS_THEME_BUTTON_ARROW_DOWN ||
+      aWidgetType == NS_THEME_BUTTON_ARROW_NEXT ||
+      aWidgetType == NS_THEME_BUTTON_ARROW_PREVIOUS) {
     return false;
   }
   return true;
@@ -429,9 +429,8 @@ HeadlessThemeGTK::WidgetIsContainer(uint8_t aWidgetType)
 bool
 HeadlessThemeGTK::ThemeDrawsFocusForWidget(uint8_t aWidgetType)
 {
-   if (aWidgetType == NS_THEME_MENULIST ||
-       aWidgetType == NS_THEME_BUTTON ||
-       aWidgetType == NS_THEME_TREEHEADERCELL) {
+  if (aWidgetType == NS_THEME_MENULIST || aWidgetType == NS_THEME_BUTTON ||
+      aWidgetType == NS_THEME_TREEHEADERCELL) {
     return true;
   }
   return false;
@@ -443,6 +442,5 @@ HeadlessThemeGTK::ThemeNeedsComboboxDropmarker()
   return false;
 }
 
-
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

@@ -262,7 +262,8 @@ static void
 TestDoublesPredicates()
 {
   A(IsNaN(UnspecifiedNaN<double>()));
-  A(IsNaN(SpecificNaN<double>(1, 17)));;
+  A(IsNaN(SpecificNaN<double>(1, 17)));
+  ;
   A(IsNaN(SpecificNaN<double>(0, 0xfffffffffff0fULL)));
   A(!IsNaN(0.0));
   A(!IsNaN(-0.0));
@@ -293,9 +294,11 @@ TestDoublesPredicates()
 
   A(!IsNegativeZero(PositiveInfinity<double>()));
   A(!IsNegativeZero(NegativeInfinity<double>()));
-  A(!IsNegativeZero(SpecificNaN<double>(1, 17)));;
+  A(!IsNegativeZero(SpecificNaN<double>(1, 17)));
+  ;
   A(!IsNegativeZero(SpecificNaN<double>(1, 0xfffffffffff0fULL)));
-  A(!IsNegativeZero(SpecificNaN<double>(0, 17)));;
+  A(!IsNegativeZero(SpecificNaN<double>(0, 17)));
+  ;
   A(!IsNegativeZero(SpecificNaN<double>(0, 0xfffffffffff0fULL)));
   A(!IsNegativeZero(UnspecifiedNaN<double>()));
   A(IsNegativeZero(-0.0));
@@ -337,7 +340,8 @@ static void
 TestFloatsPredicates()
 {
   A(IsNaN(UnspecifiedNaN<float>()));
-  A(IsNaN(SpecificNaN<float>(1, 17)));;
+  A(IsNaN(SpecificNaN<float>(1, 17)));
+  ;
   A(IsNaN(SpecificNaN<float>(0, 0x7fff0fUL)));
   A(!IsNaN(0.0f));
   A(!IsNaN(-0.0f));
@@ -368,9 +372,11 @@ TestFloatsPredicates()
 
   A(!IsNegativeZero(PositiveInfinity<float>()));
   A(!IsNegativeZero(NegativeInfinity<float>()));
-  A(!IsNegativeZero(SpecificNaN<float>(1, 17)));;
+  A(!IsNegativeZero(SpecificNaN<float>(1, 17)));
+  ;
   A(!IsNegativeZero(SpecificNaN<float>(1, 0x7fff0fUL)));
-  A(!IsNegativeZero(SpecificNaN<float>(0, 17)));;
+  A(!IsNegativeZero(SpecificNaN<float>(0, 17)));
+  ;
   A(!IsNegativeZero(SpecificNaN<float>(0, 0x7fff0fUL)));
   A(!IsNegativeZero(UnspecifiedNaN<float>()));
   A(IsNegativeZero(-0.0f));
@@ -380,9 +386,11 @@ TestFloatsPredicates()
 
   A(!IsPositiveZero(PositiveInfinity<float>()));
   A(!IsPositiveZero(NegativeInfinity<float>()));
-  A(!IsPositiveZero(SpecificNaN<float>(1, 17)));;
+  A(!IsPositiveZero(SpecificNaN<float>(1, 17)));
+  ;
   A(!IsPositiveZero(SpecificNaN<float>(1, 0x7fff0fUL)));
-  A(!IsPositiveZero(SpecificNaN<float>(0, 17)));;
+  A(!IsPositiveZero(SpecificNaN<float>(0, 17)));
+  ;
   A(!IsPositiveZero(SpecificNaN<float>(0, 0x7fff0fUL)));
   A(!IsPositiveZero(UnspecifiedNaN<float>()));
   A(IsPositiveZero(0.0f));
@@ -562,10 +570,8 @@ TestDoublesAreApproximatelyEqual()
   A(FuzzyEqualsAdditive(10.0, 3.0 * oneThird));
   A(FuzzyEqualsMultiplicative(10.0, 3.0 * oneThird));
   // NaN check
-  A(!FuzzyEqualsAdditive(SpecificNaN<double>(1, 1),
-                         SpecificNaN<double>(1, 1)));
-  A(!FuzzyEqualsAdditive(SpecificNaN<double>(1, 2),
-                         SpecificNaN<double>(0, 8)));
+  A(!FuzzyEqualsAdditive(SpecificNaN<double>(1, 1), SpecificNaN<double>(1, 1)));
+  A(!FuzzyEqualsAdditive(SpecificNaN<double>(1, 2), SpecificNaN<double>(0, 8)));
   A(!FuzzyEqualsMultiplicative(SpecificNaN<double>(1, 1),
                                SpecificNaN<double>(1, 1)));
   A(!FuzzyEqualsMultiplicative(SpecificNaN<double>(1, 2),

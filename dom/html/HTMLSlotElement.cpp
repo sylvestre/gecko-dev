@@ -29,14 +29,13 @@ NS_NewHTMLSlotElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
 namespace mozilla {
 namespace dom {
 
-HTMLSlotElement::HTMLSlotElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLSlotElement::HTMLSlotElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
-HTMLSlotElement::~HTMLSlotElement()
-{
-}
+HTMLSlotElement::~HTMLSlotElement() {}
 
 NS_IMPL_ADDREF_INHERITED(HTMLSlotElement, nsGenericHTMLElement)
 NS_IMPL_RELEASE_INHERITED(HTMLSlotElement, nsGenericHTMLElement)
@@ -63,5 +62,5 @@ HTMLSlotElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLSlotElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

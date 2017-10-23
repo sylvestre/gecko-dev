@@ -19,7 +19,7 @@ namespace storage {
 
 class VacuumManager final : public nsIObserver
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
@@ -28,18 +28,18 @@ public:
   /**
    * Obtains the VacuumManager object.
    */
-  static VacuumManager * getSingleton();
+  static VacuumManager* getSingleton();
 
-private:
+ private:
   ~VacuumManager();
 
-  static VacuumManager *gVacuumManager;
+  static VacuumManager* gVacuumManager;
 
   // Cache of components registered in "vacuum-participant" category.
   nsCategoryCache<mozIStorageVacuumParticipant> mParticipants;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
 #endif

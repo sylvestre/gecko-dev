@@ -11,15 +11,12 @@
 #include "nsStyleConsts.h"
 #include "nsMappedAttributes.h"
 
-
 NS_IMPL_NS_NEW_HTML_ELEMENT(Paragraph)
 
 namespace mozilla {
 namespace dom {
 
-HTMLParagraphElement::~HTMLParagraphElement()
-{
-}
+HTMLParagraphElement::~HTMLParagraphElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLParagraphElement, nsGenericHTMLElement)
 
@@ -35,13 +32,13 @@ HTMLParagraphElement::ParseAttribute(int32_t aNamespaceID,
     return ParseDivAlignValue(aValue, aResult);
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aResult);
+  return nsGenericHTMLElement::ParseAttribute(
+      aNamespaceID, aAttribute, aValue, aResult);
 }
 
 void
-HTMLParagraphElement::MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
-                                            GenericSpecifiedValues* aData)
+HTMLParagraphElement::MapAttributesIntoRule(
+    const nsMappedAttributes* aAttributes, GenericSpecifiedValues* aData)
 {
   nsGenericHTMLElement::MapDivAlignAttributeInto(aAttributes, aData);
   nsGenericHTMLElement::MapCommonAttributesInto(aAttributes, aData);
@@ -51,13 +48,12 @@ NS_IMETHODIMP_(bool)
 HTMLParagraphElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   static const MappedAttributeEntry* const map[] = {
-    sDivAlignAttributeMap,
-    sCommonAttributeMap,
+      sDivAlignAttributeMap,
+      sCommonAttributeMap,
   };
 
   return FindAttributeDependence(aAttribute, map);
 }
-
 
 nsMapRuleToAttributesFunc
 HTMLParagraphElement::GetAttributeMappingFunction() const
@@ -66,10 +62,11 @@ HTMLParagraphElement::GetAttributeMappingFunction() const
 }
 
 JSObject*
-HTMLParagraphElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLParagraphElement::WrapNode(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLParagraphElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

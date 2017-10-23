@@ -19,15 +19,18 @@
 */
 
 static const struct ResultMap
-{nsresult rv; const char* name; const char* format;} map[] = {
-#define XPC_MSG_DEF(val, format) \
-    {(val), #val, format},
+{
+  nsresult rv;
+  const char* name;
+  const char* format;
+} map[] = {
+#define XPC_MSG_DEF(val, format) {(val), #val, format},
 #include "xpc.msg"
 #undef XPC_MSG_DEF
-    {NS_OK,0,0}   // sentinel to mark end of array
+    {NS_OK, 0, 0}  // sentinel to mark end of array
 };
 
-#define RESULT_COUNT ((sizeof(map) / sizeof(map[0]))-1)
+#define RESULT_COUNT ((sizeof(map) / sizeof(map[0])) - 1)
 
 // static
 bool
@@ -35,15 +38,14 @@ nsXPCException::NameAndFormatForNSResult(nsresult rv,
                                          const char** name,
                                          const char** format)
 {
-
-    for (const ResultMap* p = map; p->name; p++) {
-        if (rv == p->rv) {
-            if (name) *name = p->name;
-            if (format) *format = p->format;
-            return true;
-        }
+  for (const ResultMap* p = map; p->name; p++) {
+    if (rv == p->rv) {
+      if (name) *name = p->name;
+      if (format) *format = p->format;
+      return true;
     }
-    return false;
+  }
+  return false;
 }
 
 // static
@@ -53,28 +55,25 @@ nsXPCException::IterateNSResults(nsresult* rv,
                                  const char** format,
                                  const void** iterp)
 {
-    const ResultMap* p = (const ResultMap*) *iterp;
-    if (!p)
-        p = map;
-    else
-        p++;
-    if (!p->name)
-        p = nullptr;
-    else {
-        if (rv)
-            *rv = p->rv;
-        if (name)
-            *name = p->name;
-        if (format)
-            *format = p->format;
-    }
-    *iterp = p;
-    return p;
+  const ResultMap* p = (const ResultMap*)*iterp;
+  if (!p)
+    p = map;
+  else
+    p++;
+  if (!p->name)
+    p = nullptr;
+  else {
+    if (rv) *rv = p->rv;
+    if (name) *name = p->name;
+    if (format) *format = p->format;
+  }
+  *iterp = p;
+  return p;
 }
 
 // static
 uint32_t
 nsXPCException::GetNSResultCount()
 {
-    return RESULT_COUNT;
+  return RESULT_COUNT;
 }

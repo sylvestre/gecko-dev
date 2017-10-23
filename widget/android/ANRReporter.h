@@ -12,15 +12,15 @@ namespace mozilla {
 
 class ANRReporter : public java::ANRReporter::Natives<ANRReporter>
 {
-private:
-    ANRReporter();
+ private:
+  ANRReporter();
 
-public:
-    static bool RequestNativeStack(bool aUnwind);
-    static jni::String::LocalRef GetNativeStack();
-    static void ReleaseNativeStack();
+ public:
+  static bool RequestNativeStack(bool aUnwind);
+  static jni::String::LocalRef GetNativeStack();
+  static void ReleaseNativeStack();
 };
 
-} // namespace
+}  // namespace mozilla
 
-#endif // ANRReporter_h__
+#endif  // ANRReporter_h__

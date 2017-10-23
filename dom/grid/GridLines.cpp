@@ -22,16 +22,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GridLines)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-GridLines::GridLines(GridDimension* aParent)
-  : mParent(aParent)
+GridLines::GridLines(GridDimension* aParent) : mParent(aParent)
 {
-  MOZ_ASSERT(aParent,
-    "Should never be instantiated with a null GridDimension");
+  MOZ_ASSERT(aParent, "Should never be instantiated with a null GridDimension");
 }
 
-GridLines::~GridLines()
-{
-}
+GridLines::~GridLines() {}
 
 JSObject*
 GridLines::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
@@ -52,8 +48,7 @@ GridLines::Item(uint32_t aIndex)
 }
 
 GridLine*
-GridLines::IndexedGetter(uint32_t aIndex,
-                         bool& aFound)
+GridLines::IndexedGetter(uint32_t aIndex, bool& aFound)
 {
   aFound = aIndex < mLines.Length();
   if (!aFound) {
@@ -75,8 +70,8 @@ GridLines::SetLineInfo(const ComputedGridTrackInfo* aTrackInfo,
     return;
   }
 
-  uint32_t trackCount = aTrackInfo->mEndFragmentTrack -
-                        aTrackInfo->mStartFragmentTrack;
+  uint32_t trackCount =
+      aTrackInfo->mEndFragmentTrack - aTrackInfo->mStartFragmentTrack;
 
   // If there is at least one track, line count is one more
   // than the number of tracks.
@@ -94,9 +89,9 @@ GridLines::SetLineInfo(const ComputedGridTrackInfo* aTrackInfo,
       // for this track to simplify some calculations.
       const uint32_t line1Index = i + 1;
 
-      startOfNextTrack = (i < aTrackInfo->mEndFragmentTrack) ?
-                         aTrackInfo->mPositions[i] :
-                         lastTrackEdge;
+      startOfNextTrack = (i < aTrackInfo->mEndFragmentTrack)
+                             ? aTrackInfo->mPositions[i]
+                             : lastTrackEdge;
 
       nsTArray<nsString> lineNames;
       lineNames = aLineInfo->mNames.SafeElementAt(i, nsTArray<nsString>());
@@ -129,8 +124,7 @@ GridLines::SetLineInfo(const ComputedGridTrackInfo* aTrackInfo,
         }
       }
 
-      if (i >= aTrackInfo->mRepeatFirstTrack &&
-          repeatIndex < numRepeatTracks) {
+      if (i >= aTrackInfo->mRepeatFirstTrack && repeatIndex < numRepeatTracks) {
         numAddedLines += AppendRemovedAutoFits(aTrackInfo,
                                                aLineInfo,
                                                lastTrackEdge,
@@ -143,29 +137,31 @@ GridLines::SetLineInfo(const ComputedGridTrackInfo* aTrackInfo,
       mLines.AppendElement(line);
       MOZ_ASSERT(line1Index > 0, "line1Index must be positive.");
       bool isBeforeFirstExplicit =
-        (line1Index <= aTrackInfo->mNumLeadingImplicitTracks);
+          (line1Index <= aTrackInfo->mNumLeadingImplicitTracks);
       // Calculate an actionable line number for this line, that could be used
       // in a css grid property to align a grid item or area at that line.
       // For implicit lines that appear before line 1, report a number of 0.
       // We can't report negative indexes, because those have a different
       // meaning in the css grid spec (negative indexes are negative-1-based
       // from the end of the grid decreasing towards the front).
-      uint32_t lineNumber = isBeforeFirstExplicit ? 0 :
-        (line1Index - aTrackInfo->mNumLeadingImplicitTracks + numAddedLines);
+      uint32_t lineNumber =
+          isBeforeFirstExplicit
+              ? 0
+              : (line1Index - aTrackInfo->mNumLeadingImplicitTracks +
+                 numAddedLines);
       GridDeclaration lineType =
-        (isBeforeFirstExplicit ||
-         line1Index > (aTrackInfo->mNumLeadingImplicitTracks +
-                       aTrackInfo->mNumExplicitTracks + 1))
-         ? GridDeclaration::Implicit
-         : GridDeclaration::Explicit;
+          (isBeforeFirstExplicit ||
+           line1Index > (aTrackInfo->mNumLeadingImplicitTracks +
+                         aTrackInfo->mNumExplicitTracks + 1))
+              ? GridDeclaration::Implicit
+              : GridDeclaration::Explicit;
       line->SetLineValues(
-        lineNames,
-        nsPresContext::AppUnitsToDoubleCSSPixels(lastTrackEdge),
-        nsPresContext::AppUnitsToDoubleCSSPixels(startOfNextTrack -
-                                                 lastTrackEdge),
-        lineNumber,
-        lineType
-      );
+          lineNames,
+          nsPresContext::AppUnitsToDoubleCSSPixels(lastTrackEdge),
+          nsPresContext::AppUnitsToDoubleCSSPixels(startOfNextTrack -
+                                                   lastTrackEdge),
+          lineNumber,
+          lineType);
 
       if (i < aTrackInfo->mEndFragmentTrack) {
         lastTrackEdge = aTrackInfo->mPositions[i] + aTrackInfo->mSizes[i];
@@ -200,8 +196,7 @@ GridLines::AppendRemovedAutoFits(const ComputedGridTrackInfo* aTrackInfo,
     // haven't already added a line this call, pull all the explicit
     // names to pass along to the next line that will be added after
     // this function completes.
-    if (aRepeatIndex > 0 &&
-        linesAdded == 0) {
+    if (aRepeatIndex > 0 && linesAdded == 0) {
       // Find the names that didn't match the before or after names,
       // and extract them.
       for (const auto& name : aLineNames) {
@@ -224,18 +219,18 @@ GridLines::AppendRemovedAutoFits(const ComputedGridTrackInfo* aTrackInfo,
 
     RefPtr<GridLine> line = new GridLine(this);
     mLines.AppendElement(line);
-    MOZ_ASSERT(aTrackInfo->mRepeatFirstTrack >=
-               aTrackInfo->mNumLeadingImplicitTracks,
-      "We shouldn't have a repeat track within the implicit tracks.");
+    MOZ_ASSERT(
+        aTrackInfo->mRepeatFirstTrack >= aTrackInfo->mNumLeadingImplicitTracks,
+        "We shouldn't have a repeat track within the implicit tracks.");
     uint32_t lineNumber = aTrackInfo->mRepeatFirstTrack -
-      aTrackInfo->mNumLeadingImplicitTracks + aRepeatIndex + 1;
+                          aTrackInfo->mNumLeadingImplicitTracks + aRepeatIndex +
+                          1;
     line->SetLineValues(
-      aLineNames,
-      nsPresContext::AppUnitsToDoubleCSSPixels(aLastTrackEdge),
-      nsPresContext::AppUnitsToDoubleCSSPixels(0),
-      lineNumber,
-      GridDeclaration::Explicit
-    );
+        aLineNames,
+        nsPresContext::AppUnitsToDoubleCSSPixels(aLastTrackEdge),
+        nsPresContext::AppUnitsToDoubleCSSPixels(0),
+        lineNumber,
+        GridDeclaration::Explicit);
 
     // No matter what, the next line should have the after names associated
     // with it. If we go through the loop again, the before names will also
@@ -260,5 +255,5 @@ GridLines::AppendRemovedAutoFits(const ComputedGridTrackInfo* aTrackInfo,
   return linesAdded;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

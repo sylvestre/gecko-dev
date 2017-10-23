@@ -25,7 +25,7 @@ class UnionMember
   // T be initialized in a way C++ knows about -- that is, by |new| or similar.
   UnionMember(const UnionMember&) = delete;
 
-public:
+ public:
   UnionMember() = default;
   ~UnionMember() = default;
 
@@ -34,7 +34,7 @@ public:
     new (mStorage.addr()) T();
     return *mStorage.addr();
   }
-  template <typename T1>
+  template<typename T1>
   T& SetValue(const T1& aValue)
   {
     new (mStorage.addr()) T(aValue);
@@ -46,21 +46,12 @@ public:
     new (mStorage.addr()) T(aValue1, aValue2);
     return *mStorage.addr();
   }
-  T& Value()
-  {
-    return *mStorage.addr();
-  }
-  const T& Value() const
-  {
-    return *mStorage.addr();
-  }
-  void Destroy()
-  {
-    mStorage.addr()->~T();
-  }
+  T& Value() { return *mStorage.addr(); }
+  const T& Value() const { return *mStorage.addr(); }
+  void Destroy() { mStorage.addr()->~T(); }
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_UnionMember_h
+#endif  // mozilla_dom_UnionMember_h

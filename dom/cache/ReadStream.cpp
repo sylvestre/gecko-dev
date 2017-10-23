@@ -32,79 +32,61 @@ using mozilla::ipc::OptionalIPCStream;
 // guaranteed by our outer ReadStream class.
 class ReadStream::Inner final : public ReadStream::Controllable
 {
-public:
-  Inner(StreamControl* aControl, const nsID& aId,
-        nsIInputStream* aStream);
+ public:
+  Inner(StreamControl* aControl, const nsID& aId, nsIInputStream* aStream);
 
-  void
-  Serialize(CacheReadStreamOrVoid* aReadStreamOut,
-            nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
-            ErrorResult& aRv);
+  void Serialize(CacheReadStreamOrVoid* aReadStreamOut,
+                 nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
+                 ErrorResult& aRv);
 
-  void
-  Serialize(CacheReadStream* aReadStreamOut,
-            nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
-            ErrorResult& aRv);
+  void Serialize(CacheReadStream* aReadStreamOut,
+                 nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
+                 ErrorResult& aRv);
 
   // ReadStream::Controllable methods
-  virtual void
-  CloseStream() override;
+  virtual void CloseStream() override;
 
-  virtual void
-  CloseStreamWithoutReporting() override;
+  virtual void CloseStreamWithoutReporting() override;
 
-  virtual bool
-  MatchId(const nsID& aId) const override;
+  virtual bool MatchId(const nsID& aId) const override;
 
-  virtual bool
-  HasEverBeenRead() const override;
+  virtual bool HasEverBeenRead() const override;
 
   // Simulate nsIInputStream methods, but we don't actually inherit from it
-  nsresult
-  Close();
+  nsresult Close();
 
-  nsresult
-  Available(uint64_t *aNumAvailableOut);
+  nsresult Available(uint64_t* aNumAvailableOut);
 
-  nsresult
-  Read(char *aBuf, uint32_t aCount, uint32_t *aNumReadOut);
+  nsresult Read(char* aBuf, uint32_t aCount, uint32_t* aNumReadOut);
 
-  nsresult
-  ReadSegments(nsWriteSegmentFun aWriter, void *aClosure, uint32_t aCount,
-               uint32_t *aNumReadOut);
+  nsresult ReadSegments(nsWriteSegmentFun aWriter,
+                        void* aClosure,
+                        uint32_t aCount,
+                        uint32_t* aNumReadOut);
 
-  nsresult
-  IsNonBlocking(bool *aNonBlockingOut);
+  nsresult IsNonBlocking(bool* aNonBlockingOut);
 
-private:
+ private:
   class NoteClosedRunnable;
   class ForgetRunnable;
 
   ~Inner();
 
-  void
-  NoteClosed();
+  void NoteClosed();
 
-  void
-  Forget();
+  void Forget();
 
-  void
-  NoteClosedOnOwningThread();
+  void NoteClosedOnOwningThread();
 
-  void
-  ForgetOnOwningThread();
+  void ForgetOnOwningThread();
 
-  nsIInputStream*
-  EnsureStream();
+  nsIInputStream* EnsureStream();
 
-  void
-  AsyncOpenStreamOnOwningThread();
+  void AsyncOpenStreamOnOwningThread();
 
-  void
-  MaybeAbortAsyncOpenStream();
+  void MaybeAbortAsyncOpenStream();
 
-  void
-  OpenStreamFailed();
+  void OpenStreamFailed();
 
   // Weak ref to the stream control actor.  The actor will always call either
   // CloseStream() or CloseStreamWithoutReporting() before it's destroyed.  The
@@ -145,11 +127,12 @@ private:
 // ReadStream is constructed on a child process Worker thread).
 class ReadStream::Inner::NoteClosedRunnable final : public CancelableRunnable
 {
-public:
+ public:
   explicit NoteClosedRunnable(ReadStream::Inner* aStream)
-    : CancelableRunnable("dom::cache::ReadStream::Inner::NoteClosedRunnable")
-    , mStream(aStream)
-  { }
+      : CancelableRunnable("dom::cache::ReadStream::Inner::NoteClosedRunnable"),
+        mStream(aStream)
+  {
+  }
 
   NS_IMETHOD Run() override
   {
@@ -166,8 +149,8 @@ public:
     return NS_OK;
   }
 
-private:
-  ~NoteClosedRunnable() { }
+ private:
+  ~NoteClosedRunnable() {}
 
   RefPtr<ReadStream::Inner> mStream;
 };
@@ -181,11 +164,12 @@ private:
 // ReadStream is constructed on a child process Worker thread).
 class ReadStream::Inner::ForgetRunnable final : public CancelableRunnable
 {
-public:
+ public:
   explicit ForgetRunnable(ReadStream::Inner* aStream)
-    : CancelableRunnable("dom::cache::ReadStream::Inner::ForgetRunnable")
-    , mStream(aStream)
-  { }
+      : CancelableRunnable("dom::cache::ReadStream::Inner::ForgetRunnable"),
+        mStream(aStream)
+  {
+  }
 
   NS_IMETHOD Run() override
   {
@@ -202,35 +186,38 @@ public:
     return NS_OK;
   }
 
-private:
-  ~ForgetRunnable() { }
+ private:
+  ~ForgetRunnable() {}
 
   RefPtr<ReadStream::Inner> mStream;
 };
 
 // ----------------------------------------------------------------------------
 
-ReadStream::Inner::Inner(StreamControl* aControl, const nsID& aId,
+ReadStream::Inner::Inner(StreamControl* aControl,
+                         const nsID& aId,
                          nsIInputStream* aStream)
-  : mControl(aControl)
-  , mId(aId)
-  , mOwningEventTarget(GetCurrentThreadSerialEventTarget())
-  , mState(Open)
-  , mHasEverBeenRead(false)
-  , mAsyncOpenStarted(false)
-  , mMutex("dom::cache::ReadStream")
-  , mCondVar(mMutex, "dom::cache::ReadStream")
-  , mStream(aStream)
-  , mSnappyStream(aStream ? new SnappyUncompressInputStream(aStream) : nullptr)
+    : mControl(aControl),
+      mId(aId),
+      mOwningEventTarget(GetCurrentThreadSerialEventTarget()),
+      mState(Open),
+      mHasEverBeenRead(false),
+      mAsyncOpenStarted(false),
+      mMutex("dom::cache::ReadStream"),
+      mCondVar(mMutex, "dom::cache::ReadStream"),
+      mStream(aStream),
+      mSnappyStream(aStream ? new SnappyUncompressInputStream(aStream)
+                            : nullptr)
 {
   MOZ_DIAGNOSTIC_ASSERT(mControl);
   mControl->AddReadStream(this);
 }
 
 void
-ReadStream::Inner::Serialize(CacheReadStreamOrVoid* aReadStreamOut,
-                             nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
-                             ErrorResult& aRv)
+ReadStream::Inner::Serialize(
+    CacheReadStreamOrVoid* aReadStreamOut,
+    nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
+    ErrorResult& aRv)
 {
   MOZ_ASSERT(mOwningEventTarget->IsOnCurrentThread());
   MOZ_DIAGNOSTIC_ASSERT(aReadStreamOut);
@@ -239,9 +226,10 @@ ReadStream::Inner::Serialize(CacheReadStreamOrVoid* aReadStreamOut,
 }
 
 void
-ReadStream::Inner::Serialize(CacheReadStream* aReadStreamOut,
-                             nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
-                             ErrorResult& aRv)
+ReadStream::Inner::Serialize(
+    CacheReadStream* aReadStreamOut,
+    nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList,
+    ErrorResult& aRv)
 {
   MOZ_ASSERT(mOwningEventTarget->IsOnCurrentThread());
   MOZ_DIAGNOSTIC_ASSERT(aReadStreamOut);
@@ -261,9 +249,10 @@ ReadStream::Inner::Serialize(CacheReadStream* aReadStreamOut,
     mControl->SerializeStream(aReadStreamOut, mStream, aStreamCleanupList);
   }
 
-  MOZ_DIAGNOSTIC_ASSERT(aReadStreamOut->stream().type() == OptionalIPCStream::Tvoid_t ||
+  MOZ_DIAGNOSTIC_ASSERT(aReadStreamOut->stream().type() ==
+                            OptionalIPCStream::Tvoid_t ||
                         aReadStreamOut->stream().get_IPCStream().type() ==
-                        IPCStream::TInputStreamParamsWithFds);
+                            IPCStream::TInputStreamParamsWithFds);
 
   // We're passing ownership across the IPC barrier with the control, so
   // do not signal that the stream is closed here.
@@ -353,8 +342,10 @@ ReadStream::Inner::Read(char* aBuf, uint32_t aCount, uint32_t* aNumReadOut)
 }
 
 nsresult
-ReadStream::Inner::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                                uint32_t aCount, uint32_t* aNumReadOut)
+ReadStream::Inner::ReadSegments(nsWriteSegmentFun aWriter,
+                                void* aClosure,
+                                uint32_t aCount,
+                                uint32_t* aNumReadOut)
 {
   // stream ops can happen on any thread
   MOZ_DIAGNOSTIC_ASSERT(aNumReadOut);
@@ -363,7 +354,6 @@ ReadStream::Inner::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
     mHasEverBeenRead = true;
   }
 
-
   nsresult rv = NS_OK;
   {
     MutexAutoLock lock(mMutex);
@@ -371,7 +361,8 @@ ReadStream::Inner::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
   }
 
   if ((NS_FAILED(rv) && rv != NS_BASE_STREAM_WOULD_BLOCK &&
-                        rv != NS_ERROR_NOT_IMPLEMENTED) || *aNumReadOut == 0) {
+       rv != NS_ERROR_NOT_IMPLEMENTED) ||
+      *aNumReadOut == 0) {
     Close();
   }
 
@@ -419,8 +410,8 @@ ReadStream::Inner::NoteClosed()
   }
 
   nsCOMPtr<nsIRunnable> runnable = new NoteClosedRunnable(this);
-  MOZ_ALWAYS_SUCCEEDS(
-    mOwningEventTarget->Dispatch(runnable.forget(), nsIThread::DISPATCH_NORMAL));
+  MOZ_ALWAYS_SUCCEEDS(mOwningEventTarget->Dispatch(runnable.forget(),
+                                                   nsIThread::DISPATCH_NORMAL));
 }
 
 void
@@ -437,8 +428,8 @@ ReadStream::Inner::Forget()
   }
 
   nsCOMPtr<nsIRunnable> runnable = new ForgetRunnable(this);
-  MOZ_ALWAYS_SUCCEEDS(
-    mOwningEventTarget->Dispatch(runnable.forget(), nsIThread::DISPATCH_NORMAL));
+  MOZ_ALWAYS_SUCCEEDS(mOwningEventTarget->Dispatch(runnable.forget(),
+                                                   nsIThread::DISPATCH_NORMAL));
 }
 
 void
@@ -492,12 +483,12 @@ ReadStream::Inner::EnsureStream()
     return mSnappyStream;
   }
 
-  nsCOMPtr<nsIRunnable> r =
-    NewCancelableRunnableMethod("ReadStream::Inner::AsyncOpenStreamOnOwningThread",
-                                this,
-                                &ReadStream::Inner::AsyncOpenStreamOnOwningThread);
-  nsresult rv = mOwningEventTarget->Dispatch(r.forget(),
-                                             nsIThread::DISPATCH_NORMAL);
+  nsCOMPtr<nsIRunnable> r = NewCancelableRunnableMethod(
+      "ReadStream::Inner::AsyncOpenStreamOnOwningThread",
+      this,
+      &ReadStream::Inner::AsyncOpenStreamOnOwningThread);
+  nsresult rv =
+      mOwningEventTarget->Dispatch(r.forget(), nsIThread::DISPATCH_NORMAL);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     OpenStreamFailed();
     return mSnappyStream;
@@ -592,18 +583,21 @@ ReadStream::Create(const CacheReadStream& aReadStream)
     return nullptr;
   }
 
-  MOZ_DIAGNOSTIC_ASSERT(aReadStream.stream().type() == OptionalIPCStream::Tvoid_t ||
+  MOZ_DIAGNOSTIC_ASSERT(aReadStream.stream().type() ==
+                            OptionalIPCStream::Tvoid_t ||
                         aReadStream.stream().get_IPCStream().type() ==
-                        IPCStream::TInputStreamParamsWithFds);
+                            IPCStream::TInputStreamParamsWithFds);
 
   // Control is guaranteed to survive this method as ActorDestroy() cannot
   // run on this thread until we complete.
   StreamControl* control;
   if (aReadStream.controlChild()) {
-    auto actor = static_cast<CacheStreamControlChild*>(aReadStream.controlChild());
+    auto actor =
+        static_cast<CacheStreamControlChild*>(aReadStream.controlChild());
     control = actor;
   } else {
-    auto actor = static_cast<CacheStreamControlParent*>(aReadStream.controlParent());
+    auto actor =
+        static_cast<CacheStreamControlParent*>(aReadStream.controlParent());
     control = actor;
   }
   MOZ_DIAGNOSTIC_ASSERT(control);
@@ -625,7 +619,8 @@ ReadStream::Create(const CacheReadStream& aReadStream)
 
 // static
 already_AddRefed<ReadStream>
-ReadStream::Create(PCacheStreamControlParent* aControl, const nsID& aId,
+ReadStream::Create(PCacheStreamControlParent* aControl,
+                   const nsID& aId,
                    nsIInputStream* aStream)
 {
   MOZ_DIAGNOSTIC_ASSERT(aControl);
@@ -651,8 +646,7 @@ ReadStream::Serialize(CacheReadStream* aReadStreamOut,
   mInner->Serialize(aReadStreamOut, aStreamCleanupList, aRv);
 }
 
-ReadStream::ReadStream(ReadStream::Inner* aInner)
-  : mInner(aInner)
+ReadStream::ReadStream(ReadStream::Inner* aInner) : mInner(aInner)
 {
   MOZ_DIAGNOSTIC_ASSERT(mInner);
 }
@@ -665,10 +659,7 @@ ReadStream::~ReadStream()
 }
 
 NS_IMETHODIMP
-ReadStream::Close()
-{
-  return mInner->Close();
-}
+ReadStream::Close() { return mInner->Close(); }
 
 NS_IMETHODIMP
 ReadStream::Available(uint64_t* aNumAvailableOut)
@@ -683,8 +674,10 @@ ReadStream::Read(char* aBuf, uint32_t aCount, uint32_t* aNumReadOut)
 }
 
 NS_IMETHODIMP
-ReadStream::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
-                         uint32_t aCount, uint32_t* aNumReadOut)
+ReadStream::ReadSegments(nsWriteSegmentFun aWriter,
+                         void* aClosure,
+                         uint32_t aCount,
+                         uint32_t* aNumReadOut)
 {
   return mInner->ReadSegments(aWriter, aClosure, aCount, aNumReadOut);
 }
@@ -695,6 +688,6 @@ ReadStream::IsNonBlocking(bool* aNonBlockingOut)
   return mInner->IsNonBlocking(aNonBlockingOut);
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

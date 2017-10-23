@@ -20,21 +20,17 @@
  * @see nsInterfaceHashtable, nsClassHashtable
  */
 template<class KeyClass, class DataType>
-class nsDataHashtable
-  : public nsBaseHashtable<KeyClass, DataType, DataType>
+class nsDataHashtable : public nsBaseHashtable<KeyClass, DataType, DataType>
 {
-private:
+ private:
   typedef nsBaseHashtable<KeyClass, DataType, DataType> BaseClass;
 
-public:
-  using typename BaseClass::KeyType;
+ public:
   using typename BaseClass::EntryType;
+  using typename BaseClass::KeyType;
 
   nsDataHashtable() {}
-  explicit nsDataHashtable(uint32_t aInitLength)
-    : BaseClass(aInitLength)
-  {
-  }
+  explicit nsDataHashtable(uint32_t aInitLength) : BaseClass(aInitLength) {}
 
   /**
    * Retrieve a reference to the value for a key.
@@ -70,4 +66,4 @@ public:
   }
 };
 
-#endif // nsDataHashtable_h__
+#endif  // nsDataHashtable_h__

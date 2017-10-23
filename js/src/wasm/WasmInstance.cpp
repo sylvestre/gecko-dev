@@ -36,12 +36,11 @@ using mozilla::BitwiseCast;
 using mozilla::IsNaN;
 using mozilla::Swap;
 
-class SigIdSet
-{
+class SigIdSet {
     typedef HashMap<const Sig*, uint32_t, SigHashPolicy, SystemAllocPolicy> Map;
     Map map_;
 
-  public:
+   public:
     ~SigIdSet() {
         MOZ_ASSERT_IF(!JSRuntime::hasLiveRuntimes(), !map_.initialized() || map_.empty());
     }
@@ -89,85 +88,71 @@ class SigIdSet
 
 ExclusiveData<SigIdSet>* sigIdSet = nullptr;
 
-bool
-js::wasm::InitInstanceStaticData()
-{
+bool js::wasm::InitInstanceStaticData() {
     MOZ_ASSERT(!sigIdSet);
     sigIdSet = js_new<ExclusiveData<SigIdSet>>(mutexid::WasmSigIdSet);
     return sigIdSet != nullptr;
 }
 
-void
-js::wasm::ShutDownInstanceStaticData()
-{
+void js::wasm::ShutDownInstanceStaticData() {
     MOZ_ASSERT(sigIdSet);
     js_delete(sigIdSet);
     sigIdSet = nullptr;
 }
 
-const void**
-Instance::addressOfSigId(const SigIdDesc& sigId) const
-{
+const void** Instance::addressOfSigId(const SigIdDesc& sigId) const {
     return (const void**)(globalSegment().globalData() + sigId.globalDataOffset());
 }
 
-FuncImportTls&
-Instance::funcImportTls(const FuncImport& fi)
-{
+FuncImportTls& Instance::funcImportTls(const FuncImport& fi) {
     return *(FuncImportTls*)(globalSegment().globalData() + fi.tlsDataOffset());
 }
 
-TableTls&
-Instance::tableTls(const TableDesc& td) const
-{
+TableTls& Instance::tableTls(const TableDesc& td) const {
     return *(TableTls*)(globalSegment().globalData() + td.globalDataOffset);
 }
 
-bool
-Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, const uint64_t* argv,
-                     MutableHandleValue rval)
-{
+bool Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc,
+                          const uint64_t* argv, MutableHandleValue rval) {
     Tier tier = code().bestTier();
 
     const FuncImport& fi = metadata(tier).funcImports[funcImportIndex];
 
     InvokeArgs args(cx);
-    if (!args.init(cx, argc))
-        return false;
+    if (!args.init(cx, argc)) return false;
 
     bool hasI64Arg = false;
     MOZ_ASSERT(fi.sig().args().length() == argc);
     for (size_t i = 0; i < argc; i++) {
         switch (fi.sig().args()[i]) {
-          case ValType::I32:
-            args[i].set(Int32Value(*(int32_t*)&argv[i]));
-            break;
-          case ValType::F32:
-            args[i].set(JS::CanonicalizedDoubleValue(*(float*)&argv[i]));
-            break;
-          case ValType::F64:
-            args[i].set(JS::CanonicalizedDoubleValue(*(double*)&argv[i]));
-            break;
-          case ValType::I64: {
-            if (!JitOptions.wasmTestMode) {
-                JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_I64);
-                return false;
+            case ValType::I32:
+                args[i].set(Int32Value(*(int32_t*)&argv[i]));
+                break;
+            case ValType::F32:
+                args[i].set(JS::CanonicalizedDoubleValue(*(float*)&argv[i]));
+                break;
+            case ValType::F64:
+                args[i].set(JS::CanonicalizedDoubleValue(*(double*)&argv[i]));
+                break;
+            case ValType::I64: {
+                if (!JitOptions.wasmTestMode) {
+                    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_I64);
+                    return false;
+                }
+                RootedObject obj(cx, CreateI64Object(cx, *(int64_t*)&argv[i]));
+                if (!obj) return false;
+                args[i].set(ObjectValue(*obj));
+                hasI64Arg = true;
+                break;
             }
-            RootedObject obj(cx, CreateI64Object(cx, *(int64_t*)&argv[i]));
-            if (!obj)
-                return false;
-            args[i].set(ObjectValue(*obj));
-            hasI64Arg = true;
-            break;
-          }
-          case ValType::I8x16:
-          case ValType::I16x8:
-          case ValType::I32x4:
-          case ValType::F32x4:
-          case ValType::B8x16:
-          case ValType::B16x8:
-          case ValType::B32x4:
-            MOZ_CRASH("unhandled type in callImport");
+            case ValType::I8x16:
+            case ValType::I16x8:
+            case ValType::I32x4:
+            case ValType::F32x4:
+            case ValType::B8x16:
+            case ValType::B16x8:
+            case ValType::B32x4:
+                MOZ_CRASH("unhandled type in callImport");
         }
     }
 
@@ -175,8 +160,7 @@ Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, con
     RootedFunction importFun(cx, &import.obj->as<JSFunction>());
     RootedValue fval(cx, ObjectValue(*import.obj));
     RootedValue thisv(cx, UndefinedValue());
-    if (!Call(cx, fval, thisv, args, rval))
-        return false;
+    if (!Call(cx, fval, thisv, args, rval)) return false;
 
     // Throw an error if returning i64 and not in test mode.
     if (!JitOptions.wasmTestMode && fi.sig().ret() == ExprType::I64) {
@@ -187,21 +171,18 @@ Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, con
     // Don't try to optimize if the function has at least one i64 arg or if
     // it returns an int64. GenerateJitExit relies on this, as does the
     // type inference code below in this function.
-    if (hasI64Arg || fi.sig().ret() == ExprType::I64)
-        return true;
+    if (hasI64Arg || fi.sig().ret() == ExprType::I64) return true;
 
     // The import may already have become optimized.
     for (auto t : code().tiers()) {
         void* jitExitCode = codeBase(t) + fi.jitExitCodeOffset();
-        if (import.code == jitExitCode)
-            return true;
+        if (import.code == jitExitCode) return true;
     }
 
     void* jitExitCode = codeBase(tier) + fi.jitExitCodeOffset();
 
     // Test if the function is JIT compiled.
-    if (!importFun->hasScript())
-        return true;
+    if (!importFun->hasScript()) return true;
 
     JSScript* script = importFun->nonLazyScript();
     if (!script->hasBaselineScript()) {
@@ -212,8 +193,7 @@ Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, con
     // Don't enable jit entry when we have a pending ion builder.
     // Take the interpreter path which will link it and enable
     // the fast path on the next call.
-    if (script->baselineScript()->hasPendingIonBuilder())
-        return true;
+    if (script->baselineScript()->hasPendingIonBuilder()) return true;
 
     // Ensure the argument types are included in the argument TypeSets stored in
     // the TypeScript. This is necessary for Ion, because the import will use
@@ -223,8 +203,7 @@ Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, con
     // BaselineScript, so if those checks hold now they must hold at least until
     // the BaselineScript is discarded and when that happens the import is
     // patched back.
-    if (!TypeScript::ThisTypes(script)->hasType(TypeSet::UndefinedType()))
-        return true;
+    if (!TypeScript::ThisTypes(script)->hasType(TypeSet::UndefinedType())) return true;
 
     const ValTypeVector& importArgs = fi.sig().args();
 
@@ -232,28 +211,40 @@ Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, con
     for (uint32_t i = 0; i < numKnownArgs; i++) {
         TypeSet::Type type = TypeSet::UnknownType();
         switch (importArgs[i]) {
-          case ValType::I32:   type = TypeSet::Int32Type(); break;
-          case ValType::I64:   MOZ_CRASH("can't happen because of above guard");
-          case ValType::F32:   type = TypeSet::DoubleType(); break;
-          case ValType::F64:   type = TypeSet::DoubleType(); break;
-          case ValType::I8x16: MOZ_CRASH("NYI");
-          case ValType::I16x8: MOZ_CRASH("NYI");
-          case ValType::I32x4: MOZ_CRASH("NYI");
-          case ValType::F32x4: MOZ_CRASH("NYI");
-          case ValType::B8x16: MOZ_CRASH("NYI");
-          case ValType::B16x8: MOZ_CRASH("NYI");
-          case ValType::B32x4: MOZ_CRASH("NYI");
+            case ValType::I32:
+                type = TypeSet::Int32Type();
+                break;
+            case ValType::I64:
+                MOZ_CRASH("can't happen because of above guard");
+            case ValType::F32:
+                type = TypeSet::DoubleType();
+                break;
+            case ValType::F64:
+                type = TypeSet::DoubleType();
+                break;
+            case ValType::I8x16:
+                MOZ_CRASH("NYI");
+            case ValType::I16x8:
+                MOZ_CRASH("NYI");
+            case ValType::I32x4:
+                MOZ_CRASH("NYI");
+            case ValType::F32x4:
+                MOZ_CRASH("NYI");
+            case ValType::B8x16:
+                MOZ_CRASH("NYI");
+            case ValType::B16x8:
+                MOZ_CRASH("NYI");
+            case ValType::B32x4:
+                MOZ_CRASH("NYI");
         }
-        if (!TypeScript::ArgTypes(script, i)->hasType(type))
-            return true;
+        if (!TypeScript::ArgTypes(script, i)->hasType(type)) return true;
     }
 
     // These arguments will be filled with undefined at runtime by the
     // arguments rectifier: check that the imported function can handle
     // undefined there.
     for (uint32_t i = importArgs.length(); i < importFun->nargs(); i++) {
-        if (!TypeScript::ArgTypes(script, i)->hasType(TypeSet::UndefinedType()))
-            return true;
+        if (!TypeScript::ArgTypes(script, i)->hasType(TypeSet::UndefinedType())) return true;
     }
 
     // Let's optimize it!
@@ -265,50 +256,41 @@ Instance::callImport(JSContext* cx, uint32_t funcImportIndex, unsigned argc, con
     return true;
 }
 
-/* static */ int32_t
-Instance::callImport_void(Instance* instance, int32_t funcImportIndex, int32_t argc, uint64_t* argv)
-{
+/* static */ int32_t Instance::callImport_void(Instance* instance, int32_t funcImportIndex,
+                                               int32_t argc, uint64_t* argv) {
     JSContext* cx = TlsContext.get();
     RootedValue rval(cx);
     return instance->callImport(cx, funcImportIndex, argc, argv, &rval);
 }
 
-/* static */ int32_t
-Instance::callImport_i32(Instance* instance, int32_t funcImportIndex, int32_t argc, uint64_t* argv)
-{
+/* static */ int32_t Instance::callImport_i32(Instance* instance, int32_t funcImportIndex,
+                                              int32_t argc, uint64_t* argv) {
     JSContext* cx = TlsContext.get();
     RootedValue rval(cx);
-    if (!instance->callImport(cx, funcImportIndex, argc, argv, &rval))
-        return false;
+    if (!instance->callImport(cx, funcImportIndex, argc, argv, &rval)) return false;
 
     return ToInt32(cx, rval, (int32_t*)argv);
 }
 
-/* static */ int32_t
-Instance::callImport_i64(Instance* instance, int32_t funcImportIndex, int32_t argc, uint64_t* argv)
-{
+/* static */ int32_t Instance::callImport_i64(Instance* instance, int32_t funcImportIndex,
+                                              int32_t argc, uint64_t* argv) {
     JSContext* cx = TlsContext.get();
     RootedValue rval(cx);
-    if (!instance->callImport(cx, funcImportIndex, argc, argv, &rval))
-        return false;
+    if (!instance->callImport(cx, funcImportIndex, argc, argv, &rval)) return false;
 
     return ReadI64Object(cx, rval, (int64_t*)argv);
 }
 
-/* static */ int32_t
-Instance::callImport_f64(Instance* instance, int32_t funcImportIndex, int32_t argc, uint64_t* argv)
-{
+/* static */ int32_t Instance::callImport_f64(Instance* instance, int32_t funcImportIndex,
+                                              int32_t argc, uint64_t* argv) {
     JSContext* cx = TlsContext.get();
     RootedValue rval(cx);
-    if (!instance->callImport(cx, funcImportIndex, argc, argv, &rval))
-        return false;
+    if (!instance->callImport(cx, funcImportIndex, argc, argv, &rval)) return false;
 
     return ToNumber(cx, rval, (double*)argv);
 }
 
-/* static */ uint32_t
-Instance::growMemory_i32(Instance* instance, uint32_t delta)
-{
+/* static */ uint32_t Instance::growMemory_i32(Instance* instance, uint32_t delta) {
     MOZ_ASSERT(!instance->isAsmJS());
 
     JSContext* cx = TlsContext.get();
@@ -323,32 +305,24 @@ Instance::growMemory_i32(Instance* instance, uint32_t delta)
     return ret;
 }
 
-/* static */ uint32_t
-Instance::currentMemory_i32(Instance* instance)
-{
+/* static */ uint32_t Instance::currentMemory_i32(Instance* instance) {
     uint32_t byteLength = instance->memoryLength();
     MOZ_ASSERT(byteLength % wasm::PageSize == 0);
     return byteLength / wasm::PageSize;
 }
 
-Instance::Instance(JSContext* cx,
-                   Handle<WasmInstanceObject*> object,
-                   SharedCode code,
-                   UniqueDebugState debug,
-                   UniqueGlobalSegment globals,
-                   HandleWasmMemoryObject memory,
-                   SharedTableVector&& tables,
-                   Handle<FunctionVector> funcImports,
-                   const ValVector& globalImports)
-  : compartment_(cx->compartment()),
-    object_(object),
-    code_(code),
-    debug_(Move(debug)),
-    globals_(Move(globals)),
-    memory_(memory),
-    tables_(Move(tables)),
-    enterFrameTrapsEnabled_(false)
-{
+Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object, SharedCode code,
+                   UniqueDebugState debug, UniqueGlobalSegment globals,
+                   HandleWasmMemoryObject memory, SharedTableVector&& tables,
+                   Handle<FunctionVector> funcImports, const ValVector& globalImports)
+    : compartment_(cx->compartment()),
+      object_(object),
+      code_(code),
+      debug_(Move(debug)),
+      globals_(Move(globals)),
+      memory_(memory),
+      tables_(Move(tables)),
+      enterFrameTrapsEnabled_(false) {
 #ifdef DEBUG
     for (auto t : metadata().tiers())
         MOZ_ASSERT(funcImports.length() == metadata(t).funcImports.length());
@@ -373,7 +347,8 @@ Instance::Instance(JSContext* cx,
             WasmInstanceObject* calleeInstanceObj = ExportedFunctionToInstanceObject(f);
             Instance& calleeInstance = calleeInstanceObj->instance();
             Tier calleeTier = calleeInstance.code().bestTier();
-            const CodeRange& codeRange = calleeInstanceObj->getExportedFunctionCodeRange(f, calleeTier);
+            const CodeRange& codeRange =
+                calleeInstanceObj->getExportedFunctionCodeRange(f, calleeTier);
             import.tls = calleeInstance.tlsData();
             import.code = calleeInstance.codeBase(calleeTier) + codeRange.funcNormalEntry();
             import.baselineScript = nullptr;
@@ -402,58 +377,52 @@ Instance::Instance(JSContext* cx,
 
     for (size_t i = 0; i < metadata().globals.length(); i++) {
         const GlobalDesc& global = metadata().globals[i];
-        if (global.isConstant())
-            continue;
+        if (global.isConstant()) continue;
 
         uint8_t* globalAddr = globalData + global.offset();
         switch (global.kind()) {
-          case GlobalKind::Import: {
-            globalImports[global.importIndex()].writePayload(globalAddr);
-            break;
-          }
-          case GlobalKind::Variable: {
-            const InitExpr& init = global.initExpr();
-            switch (init.kind()) {
-              case InitExpr::Kind::Constant: {
-                init.val().writePayload(globalAddr);
+            case GlobalKind::Import: {
+                globalImports[global.importIndex()].writePayload(globalAddr);
                 break;
-              }
-              case InitExpr::Kind::GetGlobal: {
-                const GlobalDesc& imported = metadata().globals[init.globalIndex()];
-                globalImports[imported.importIndex()].writePayload(globalAddr);
-                break;
-              }
             }
-            break;
-          }
-          case GlobalKind::Constant: {
-            MOZ_CRASH("skipped at the top");
-          }
+            case GlobalKind::Variable: {
+                const InitExpr& init = global.initExpr();
+                switch (init.kind()) {
+                    case InitExpr::Kind::Constant: {
+                        init.val().writePayload(globalAddr);
+                        break;
+                    }
+                    case InitExpr::Kind::GetGlobal: {
+                        const GlobalDesc& imported = metadata().globals[init.globalIndex()];
+                        globalImports[imported.importIndex()].writePayload(globalAddr);
+                        break;
+                    }
+                }
+                break;
+            }
+            case GlobalKind::Constant: {
+                MOZ_CRASH("skipped at the top");
+            }
         }
     }
 }
 
-bool
-Instance::init(JSContext* cx)
-{
+bool Instance::init(JSContext* cx) {
     if (memory_ && memory_->movingGrowable() && !memory_->addMovingGrowObserver(cx, object_))
         return false;
 
     for (const SharedTable& table : tables_) {
-        if (table->movingGrowable() && !table->addMovingGrowObserver(cx, object_))
-            return false;
+        if (table->movingGrowable() && !table->addMovingGrowObserver(cx, object_)) return false;
     }
 
     if (!metadata().sigIds.empty()) {
         ExclusiveData<SigIdSet>::Guard lockedSigIdSet = sigIdSet->lock();
 
-        if (!lockedSigIdSet->ensureInitialized(cx))
-            return false;
+        if (!lockedSigIdSet->ensureInitialized(cx)) return false;
 
         for (const SigWithId& sig : metadata().sigIds) {
             const void* sigId;
-            if (!lockedSigIdSet->allocateSigId(cx, sig, &sigId))
-                return false;
+            if (!lockedSigIdSet->allocateSigId(cx, sig, &sigId)) return false;
 
             *addressOfSigId(sig.id) = sigId;
         }
@@ -461,24 +430,21 @@ Instance::init(JSContext* cx)
 
     if (!metadata(code_->bestTier()).funcImports.empty()) {
         JitRuntime* jitRuntime = cx->runtime()->getJitRuntime(cx);
-        if (!jitRuntime)
-            return false;
+        if (!jitRuntime) return false;
         jsJitArgsRectifier_ = jitRuntime->getArgumentsRectifier();
     }
 
     return true;
 }
 
-Instance::~Instance()
-{
+Instance::~Instance() {
     compartment_->wasm.unregisterInstance(*this);
 
     const FuncImportVector& funcImports = metadata(code().stableTier()).funcImports;
 
     for (unsigned i = 0; i < funcImports.length(); i++) {
         FuncImportTls& import = funcImportTls(funcImports[i]);
-        if (import.baselineScript)
-            import.baselineScript->removeDependentWasmImport(*this, i);
+        if (import.baselineScript) import.baselineScript->removeDependentWasmImport(*this, i);
     }
 
     if (!metadata().sigIds.empty()) {
@@ -491,31 +457,21 @@ Instance::~Instance()
     }
 }
 
-size_t
-Instance::memoryMappedSize() const
-{
-    return memory_->buffer().wasmMappedSize();
-}
+size_t Instance::memoryMappedSize() const { return memory_->buffer().wasmMappedSize(); }
 
-bool
-Instance::memoryAccessInGuardRegion(uint8_t* addr, unsigned numBytes) const
-{
+bool Instance::memoryAccessInGuardRegion(uint8_t* addr, unsigned numBytes) const {
     MOZ_ASSERT(numBytes > 0);
 
-    if (!metadata().usesMemory())
-        return false;
+    if (!metadata().usesMemory()) return false;
 
     uint8_t* base = memoryBase().unwrap(/* comparison */);
-    if (addr < base)
-        return false;
+    if (addr < base) return false;
 
     size_t lastByteOffset = addr - base + (numBytes - 1);
     return lastByteOffset >= memoryLength() && lastByteOffset < memoryMappedSize();
 }
 
-void
-Instance::tracePrivate(JSTracer* trc)
-{
+void Instance::tracePrivate(JSTracer* trc) {
     // This method is only called from WasmInstanceObject so the only reason why
     // TraceEdge is called is so that the pointer can be updated during a moving
     // GC. TraceWeakEdge may sound better, but it is less efficient given that
@@ -530,15 +486,12 @@ Instance::tracePrivate(JSTracer* trc)
     for (const FuncImport& fi : metadata(code().stableTier()).funcImports)
         TraceNullableEdge(trc, &funcImportTls(fi).obj, "wasm import");
 
-    for (const SharedTable& table : tables_)
-        table->trace(trc);
+    for (const SharedTable& table : tables_) table->trace(trc);
 
     TraceNullableEdge(trc, &memory_, "wasm buffer");
 }
 
-void
-Instance::trace(JSTracer* trc)
-{
+void Instance::trace(JSTracer* trc) {
     // Technically, instead of having this method, the caller could use
     // Instance::object() to get the owning WasmInstanceObject to mark,
     // but this method is simpler and more efficient. The trace hook of
@@ -547,41 +500,21 @@ Instance::trace(JSTracer* trc)
     TraceEdge(trc, &object_, "wasm instance object");
 }
 
-WasmMemoryObject*
-Instance::memory() const
-{
-    return memory_;
-}
+WasmMemoryObject* Instance::memory() const { return memory_; }
 
-SharedMem<uint8_t*>
-Instance::memoryBase() const
-{
+SharedMem<uint8_t*> Instance::memoryBase() const {
     MOZ_ASSERT(metadata().usesMemory());
     MOZ_ASSERT(tlsData()->memoryBase == memory_->buffer().dataPointerEither());
     return memory_->buffer().dataPointerEither();
 }
 
-size_t
-Instance::memoryLength() const
-{
-    return memory_->buffer().byteLength();
-}
+size_t Instance::memoryLength() const { return memory_->buffer().byteLength(); }
 
-WasmInstanceObject*
-Instance::objectUnbarriered() const
-{
-    return object_.unbarrieredGet();
-}
+WasmInstanceObject* Instance::objectUnbarriered() const { return object_.unbarrieredGet(); }
 
-WasmInstanceObject*
-Instance::object() const
-{
-    return object_;
-}
+WasmInstanceObject* Instance::object() const { return object_; }
 
-bool
-Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args)
-{
+bool Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args) {
     // If there has been a moving grow, this Instance should have been notified.
     MOZ_RELEASE_ASSERT(!memory_ || tlsData()->memoryBase == memory_->buffer().dataPointerEither());
 
@@ -598,95 +531,82 @@ Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args)
     // value is stored in the first element of the array (which, therefore, must
     // have length >= 1).
     Vector<ExportArg, 8> exportArgs(cx);
-    if (!exportArgs.resize(Max<size_t>(1, func.sig().args().length())))
-        return false;
+    if (!exportArgs.resize(Max<size_t>(1, func.sig().args().length()))) return false;
 
     RootedValue v(cx);
     for (unsigned i = 0; i < func.sig().args().length(); ++i) {
         v = i < args.length() ? args[i] : UndefinedValue();
         switch (func.sig().arg(i)) {
-          case ValType::I32:
-            if (!ToInt32(cx, v, (int32_t*)&exportArgs[i]))
-                return false;
-            break;
-          case ValType::I64:
-            if (!JitOptions.wasmTestMode) {
-                JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_I64);
-                return false;
-            }
-            if (!ReadI64Object(cx, v, (int64_t*)&exportArgs[i]))
-                return false;
-            break;
-          case ValType::F32:
-            if (JitOptions.wasmTestMode && v.isObject()) {
-                if (!ReadCustomFloat32NaNObject(cx, v, (uint32_t*)&exportArgs[i]))
+            case ValType::I32:
+                if (!ToInt32(cx, v, (int32_t*)&exportArgs[i])) return false;
+                break;
+            case ValType::I64:
+                if (!JitOptions.wasmTestMode) {
+                    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_I64);
                     return false;
+                }
+                if (!ReadI64Object(cx, v, (int64_t*)&exportArgs[i])) return false;
+                break;
+            case ValType::F32:
+                if (JitOptions.wasmTestMode && v.isObject()) {
+                    if (!ReadCustomFloat32NaNObject(cx, v, (uint32_t*)&exportArgs[i]))
+                        return false;
+                    break;
+                }
+                if (!RoundFloat32(cx, v, (float*)&exportArgs[i])) return false;
+                break;
+            case ValType::F64:
+                if (JitOptions.wasmTestMode && v.isObject()) {
+                    if (!ReadCustomDoubleNaNObject(cx, v, (uint64_t*)&exportArgs[i])) return false;
+                    break;
+                }
+                if (!ToNumber(cx, v, (double*)&exportArgs[i])) return false;
+                break;
+            case ValType::I8x16: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Int8x16>(cx, v, &simd)) return false;
+                memcpy(&exportArgs[i], simd.asInt8x16(), Simd128DataSize);
                 break;
             }
-            if (!RoundFloat32(cx, v, (float*)&exportArgs[i]))
-                return false;
-            break;
-          case ValType::F64:
-            if (JitOptions.wasmTestMode && v.isObject()) {
-                if (!ReadCustomDoubleNaNObject(cx, v, (uint64_t*)&exportArgs[i]))
-                    return false;
+            case ValType::I16x8: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Int16x8>(cx, v, &simd)) return false;
+                memcpy(&exportArgs[i], simd.asInt16x8(), Simd128DataSize);
                 break;
             }
-            if (!ToNumber(cx, v, (double*)&exportArgs[i]))
-                return false;
-            break;
-          case ValType::I8x16: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Int8x16>(cx, v, &simd))
-                return false;
-            memcpy(&exportArgs[i], simd.asInt8x16(), Simd128DataSize);
-            break;
-          }
-          case ValType::I16x8: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Int16x8>(cx, v, &simd))
-                return false;
-            memcpy(&exportArgs[i], simd.asInt16x8(), Simd128DataSize);
-            break;
-          }
-          case ValType::I32x4: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Int32x4>(cx, v, &simd))
-                return false;
-            memcpy(&exportArgs[i], simd.asInt32x4(), Simd128DataSize);
-            break;
-          }
-          case ValType::F32x4: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Float32x4>(cx, v, &simd))
-                return false;
-            memcpy(&exportArgs[i], simd.asFloat32x4(), Simd128DataSize);
-            break;
-          }
-          case ValType::B8x16: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Bool8x16>(cx, v, &simd))
-                return false;
-            // Bool8x16 uses the same representation as Int8x16.
-            memcpy(&exportArgs[i], simd.asInt8x16(), Simd128DataSize);
-            break;
-          }
-          case ValType::B16x8: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Bool16x8>(cx, v, &simd))
-                return false;
-            // Bool16x8 uses the same representation as Int16x8.
-            memcpy(&exportArgs[i], simd.asInt16x8(), Simd128DataSize);
-            break;
-          }
-          case ValType::B32x4: {
-            SimdConstant simd;
-            if (!ToSimdConstant<Bool32x4>(cx, v, &simd))
-                return false;
-            // Bool32x4 uses the same representation as Int32x4.
-            memcpy(&exportArgs[i], simd.asInt32x4(), Simd128DataSize);
-            break;
-          }
+            case ValType::I32x4: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Int32x4>(cx, v, &simd)) return false;
+                memcpy(&exportArgs[i], simd.asInt32x4(), Simd128DataSize);
+                break;
+            }
+            case ValType::F32x4: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Float32x4>(cx, v, &simd)) return false;
+                memcpy(&exportArgs[i], simd.asFloat32x4(), Simd128DataSize);
+                break;
+            }
+            case ValType::B8x16: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Bool8x16>(cx, v, &simd)) return false;
+                // Bool8x16 uses the same representation as Int8x16.
+                memcpy(&exportArgs[i], simd.asInt8x16(), Simd128DataSize);
+                break;
+            }
+            case ValType::B16x8: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Bool16x8>(cx, v, &simd)) return false;
+                // Bool16x8 uses the same representation as Int16x8.
+                memcpy(&exportArgs[i], simd.asInt16x8(), Simd128DataSize);
+                break;
+            }
+            case ValType::B32x4: {
+                SimdConstant simd;
+                if (!ToSimdConstant<Bool32x4>(cx, v, &simd)) return false;
+                // Bool32x4 uses the same representation as Int32x4.
+                memcpy(&exportArgs[i], simd.asInt32x4(), Simd128DataSize);
+                break;
+            }
         }
     }
 
@@ -695,8 +615,7 @@ Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args)
 
         // Call the per-exported-function trampoline created by GenerateEntry.
         auto funcPtr = JS_DATA_TO_FUNC_PTR(ExportFuncPtr, codeBase(tier) + func.entryOffset());
-        if (!CALL_GENERATED_2(funcPtr, exportArgs.begin(), tlsData()))
-            return false;
+        if (!CALL_GENERATED_2(funcPtr, exportArgs.begin(), tlsData())) return false;
     }
 
     if (isAsmJS() && args.isConstructing()) {
@@ -705,8 +624,7 @@ Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args)
         // exported functions, the returned value is discarded and an empty
         // object is returned instead.
         PlainObject* obj = NewBuiltinClassInstance<PlainObject>(cx);
-        if (!obj)
-            return false;
+        if (!obj) return false;
         args.rval().set(ObjectValue(*obj));
         return true;
     }
@@ -714,109 +632,89 @@ Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args)
     void* retAddr = &exportArgs[0];
     JSObject* retObj = nullptr;
     switch (func.sig().ret()) {
-      case ExprType::Void:
-        args.rval().set(UndefinedValue());
-        break;
-      case ExprType::I32:
-        args.rval().set(Int32Value(*(int32_t*)retAddr));
-        break;
-      case ExprType::I64:
-        if (!JitOptions.wasmTestMode) {
-            JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_I64);
-            return false;
-        }
-        retObj = CreateI64Object(cx, *(int64_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::F32:
-        if (JitOptions.wasmTestMode && IsNaN(*(float*)retAddr)) {
-            retObj = CreateCustomNaNObject(cx, (float*)retAddr);
-            if (!retObj)
-                return false;
+        case ExprType::Void:
+            args.rval().set(UndefinedValue());
             break;
-        }
-        args.rval().set(NumberValue(*(float*)retAddr));
-        break;
-      case ExprType::F64:
-        if (JitOptions.wasmTestMode && IsNaN(*(double*)retAddr)) {
-            retObj = CreateCustomNaNObject(cx, (double*)retAddr);
-            if (!retObj)
-                return false;
+        case ExprType::I32:
+            args.rval().set(Int32Value(*(int32_t*)retAddr));
             break;
-        }
-        args.rval().set(NumberValue(*(double*)retAddr));
-        break;
-      case ExprType::I8x16:
-        retObj = CreateSimd<Int8x16>(cx, (int8_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::I16x8:
-        retObj = CreateSimd<Int16x8>(cx, (int16_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::I32x4:
-        retObj = CreateSimd<Int32x4>(cx, (int32_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::F32x4:
-        retObj = CreateSimd<Float32x4>(cx, (float*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::B8x16:
-        retObj = CreateSimd<Bool8x16>(cx, (int8_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::B16x8:
-        retObj = CreateSimd<Bool16x8>(cx, (int16_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::B32x4:
-        retObj = CreateSimd<Bool32x4>(cx, (int32_t*)retAddr);
-        if (!retObj)
-            return false;
-        break;
-      case ExprType::Limit:
-        MOZ_CRASH("Limit");
+        case ExprType::I64:
+            if (!JitOptions.wasmTestMode) {
+                JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_I64);
+                return false;
+            }
+            retObj = CreateI64Object(cx, *(int64_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::F32:
+            if (JitOptions.wasmTestMode && IsNaN(*(float*)retAddr)) {
+                retObj = CreateCustomNaNObject(cx, (float*)retAddr);
+                if (!retObj) return false;
+                break;
+            }
+            args.rval().set(NumberValue(*(float*)retAddr));
+            break;
+        case ExprType::F64:
+            if (JitOptions.wasmTestMode && IsNaN(*(double*)retAddr)) {
+                retObj = CreateCustomNaNObject(cx, (double*)retAddr);
+                if (!retObj) return false;
+                break;
+            }
+            args.rval().set(NumberValue(*(double*)retAddr));
+            break;
+        case ExprType::I8x16:
+            retObj = CreateSimd<Int8x16>(cx, (int8_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::I16x8:
+            retObj = CreateSimd<Int16x8>(cx, (int16_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::I32x4:
+            retObj = CreateSimd<Int32x4>(cx, (int32_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::F32x4:
+            retObj = CreateSimd<Float32x4>(cx, (float*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::B8x16:
+            retObj = CreateSimd<Bool8x16>(cx, (int8_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::B16x8:
+            retObj = CreateSimd<Bool16x8>(cx, (int16_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::B32x4:
+            retObj = CreateSimd<Bool32x4>(cx, (int32_t*)retAddr);
+            if (!retObj) return false;
+            break;
+        case ExprType::Limit:
+            MOZ_CRASH("Limit");
     }
 
-    if (retObj)
-        args.rval().set(ObjectValue(*retObj));
+    if (retObj) args.rval().set(ObjectValue(*retObj));
 
     return true;
 }
 
-bool
-Instance::getFuncName(uint32_t funcIndex, UTF8Bytes* name) const
-{
+bool Instance::getFuncName(uint32_t funcIndex, UTF8Bytes* name) const {
     return metadata().getFuncName(debug_->maybeBytecode(), funcIndex, name);
 }
 
-JSAtom*
-Instance::getFuncAtom(JSContext* cx, uint32_t funcIndex) const
-{
+JSAtom* Instance::getFuncAtom(JSContext* cx, uint32_t funcIndex) const {
     UTF8Bytes name;
-    if (!getFuncName(funcIndex, &name))
-        return nullptr;
+    if (!getFuncName(funcIndex, &name)) return nullptr;
 
     return AtomizeUTF8Chars(cx, name.begin(), name.length());
 }
 
-void
-Instance::ensureProfilingLabels(bool profilingEnabled) const
-{
+void Instance::ensureProfilingLabels(bool profilingEnabled) const {
     return code_->ensureProfilingLabels(debug_->maybeBytecode(), profilingEnabled);
 }
 
-void
-Instance::onMovingGrowMemory(uint8_t* prevMemoryBase)
-{
+void Instance::onMovingGrowMemory(uint8_t* prevMemoryBase) {
     MOZ_ASSERT(!isAsmJS());
     ArrayBufferObject& buffer = memory_->buffer().as<ArrayBufferObject>();
     tlsData()->memoryBase = buffer.dataPointer();
@@ -825,9 +723,7 @@ Instance::onMovingGrowMemory(uint8_t* prevMemoryBase)
 #endif
 }
 
-void
-Instance::onMovingGrowTable()
-{
+void Instance::onMovingGrowTable() {
     MOZ_ASSERT(!isAsmJS());
     MOZ_ASSERT(tables_.length() == 1);
     TableTls& table = tableTls(metadata().tables[0]);
@@ -835,9 +731,7 @@ Instance::onMovingGrowTable()
     table.base = tables_[0]->base();
 }
 
-void
-Instance::deoptimizeImportExit(uint32_t funcImportIndex)
-{
+void Instance::deoptimizeImportExit(uint32_t funcImportIndex) {
     Tier t = code().bestTier();
     const FuncImport& fi = metadata(t).funcImports[funcImportIndex];
     FuncImportTls& import = funcImportTls(fi);
@@ -845,29 +739,20 @@ Instance::deoptimizeImportExit(uint32_t funcImportIndex)
     import.baselineScript = nullptr;
 }
 
-void
-Instance::ensureEnterFrameTrapsState(JSContext* cx, bool enabled)
-{
-    if (enterFrameTrapsEnabled_ == enabled)
-        return;
+void Instance::ensureEnterFrameTrapsState(JSContext* cx, bool enabled) {
+    if (enterFrameTrapsEnabled_ == enabled) return;
 
     debug_->adjustEnterAndLeaveFrameTrapsState(cx, enabled);
     enterFrameTrapsEnabled_ = enabled;
 }
 
-void
-Instance::addSizeOfMisc(MallocSizeOf mallocSizeOf,
-                        Metadata::SeenSet* seenMetadata,
-                        ShareableBytes::SeenSet* seenBytes,
-                        Code::SeenSet* seenCode,
-                        Table::SeenSet* seenTables,
-                        size_t* code,
-                        size_t* data) const
-{
+void Instance::addSizeOfMisc(MallocSizeOf mallocSizeOf, Metadata::SeenSet* seenMetadata,
+                             ShareableBytes::SeenSet* seenBytes, Code::SeenSet* seenCode,
+                             Table::SeenSet* seenTables, size_t* code, size_t* data) const {
     *data += mallocSizeOf(this) + globals_->sizeOfMisc(mallocSizeOf);
 
     for (const SharedTable& table : tables_)
-         *data += table->sizeOfIncludingThisIfNotSeen(mallocSizeOf, seenTables);
+        *data += table->sizeOfIncludingThisIfNotSeen(mallocSizeOf, seenTables);
 
     debug_->addSizeOfMisc(mallocSizeOf, seenMetadata, seenBytes, seenCode, code, data);
     code_->addSizeOfMiscIfNotSeen(mallocSizeOf, seenMetadata, seenCode, code, data);
@@ -876,18 +761,14 @@ Instance::addSizeOfMisc(MallocSizeOf mallocSizeOf,
 // We will emit SIMD memory accesses that require 16-byte alignment.
 static const size_t TlsAlign = Simd128DataSize;
 
-/* static */ UniqueGlobalSegment
-GlobalSegment::create(uint32_t globalDataLength)
-{
+/* static */ UniqueGlobalSegment GlobalSegment::create(uint32_t globalDataLength) {
     MOZ_ASSERT(globalDataLength % gc::SystemPageSize() == 0);
 
     auto gs = MakeUnique<GlobalSegment>();
-    if (!gs)
-        return nullptr;
+    if (!gs) return nullptr;
 
     void* allocatedBase = js_calloc(TlsAlign + offsetof(TlsData, globalArea) + globalDataLength);
-    if (!allocatedBase)
-        return nullptr;
+    if (!allocatedBase) return nullptr;
 
     TlsData* tlsData = reinterpret_cast<TlsData*>(AlignBytes(size_t(allocatedBase), TlsAlign));
     tlsData->allocatedBase = allocatedBase;
@@ -898,15 +779,11 @@ GlobalSegment::create(uint32_t globalDataLength)
     return gs;
 }
 
-GlobalSegment::~GlobalSegment()
-{
-    if (tlsData_)
-        js_free(tlsData_->allocatedBase);
+GlobalSegment::~GlobalSegment() {
+    if (tlsData_) js_free(tlsData_->allocatedBase);
 }
 
-size_t
-GlobalSegment::sizeOfMisc(MallocSizeOf mallocSizeOf) const
-{
+size_t GlobalSegment::sizeOfMisc(MallocSizeOf mallocSizeOf) const {
     // Note, once the GlobalSegment is shared among instances, we will have to
     // take that sharing into account.
     return mallocSizeOf(this) + mallocSizeOf(tlsData_);

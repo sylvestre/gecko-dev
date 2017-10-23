@@ -49,9 +49,15 @@ namespace mozilla {
 #undef LOG
 #undef LOGD
 
-extern LogModule* GetGMPLog();
+extern LogModule*
+GetGMPLog();
 #define LOG(level, x, ...) MOZ_LOG(GetGMPLog(), (level), (x, ##__VA_ARGS__))
-#define LOGD(x, ...) LOG(mozilla::LogLevel::Debug, "GMPParent[%p|childPid=%d] " x, this, mChildPid, ##__VA_ARGS__)
+#define LOGD(x, ...)                  \
+  LOG(mozilla::LogLevel::Debug,       \
+      "GMPParent[%p|childPid=%d] " x, \
+      this,                           \
+      mChildPid,                      \
+      ##__VA_ARGS__)
 
 #ifdef __CLASS__
 #undef __CLASS__
@@ -61,16 +67,16 @@ extern LogModule* GetGMPLog();
 namespace gmp {
 
 GMPParent::GMPParent(AbstractThread* aMainThread)
-  : mState(GMPStateNotLoaded)
-  , mProcess(nullptr)
-  , mDeleteProcessOnlyOnUnload(false)
-  , mAbnormalShutdownInProgress(false)
-  , mIsBlockingDeletion(false)
-  , mCanDecrypt(false)
-  , mGMPContentChildCount(0)
-  , mChildPid(0)
-  , mHoldingSelfRef(false)
-  , mMainThread(aMainThread)
+    : mState(GMPStateNotLoaded),
+      mProcess(nullptr),
+      mDeleteProcessOnlyOnUnload(false),
+      mAbnormalShutdownInProgress(false),
+      mIsBlockingDeletion(false),
+      mCanDecrypt(false),
+      mGMPContentChildCount(0),
+      mChildPid(0),
+      mHoldingSelfRef(false),
+      mMainThread(aMainThread)
 {
   mPluginId = GeckoChildProcessHost::GetUniqueID();
   LOGD("GMPParent ctor id=%u", mPluginId);
@@ -126,7 +132,9 @@ GMPParent::Init(GeckoMediaPluginServiceParent* aService, nsIFile* aPluginDir)
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return GenericPromise::CreateAndReject(rv, __func__);
   }
-  LOGD("%s: for %s", __FUNCTION__, NS_LossyConvertUTF16toASCII(parentLeafName).get());
+  LOGD("%s: for %s",
+       __FUNCTION__,
+       NS_LossyConvertUTF16toASCII(parentLeafName).get());
 
   MOZ_ASSERT(parentLeafName.Length() > 4);
   mName = Substring(parentLeafName, 4);
@@ -184,7 +192,9 @@ GMPParent::LoadProcess()
         LOGD("%s: Failed to send preload-libs to child process", __FUNCTION__);
         return NS_ERROR_FAILURE;
       }
-      LOGD("%s: Sent preload-libs ('%s') to child process", __FUNCTION__, mLibs.get());
+      LOGD("%s: Sent preload-libs ('%s') to child process",
+           __FUNCTION__,
+           mLibs.get());
     }
 #endif
 
@@ -224,8 +234,7 @@ GMPParent::CloseIfUnused()
   MOZ_ASSERT(GMPEventTarget()->IsOnCurrentThread());
   LOGD("%s", __FUNCTION__);
 
-  if ((mDeleteProcessOnlyOnUnload ||
-       mState == GMPStateLoaded ||
+  if ((mDeleteProcessOnlyOnUnload || mState == GMPStateLoaded ||
        mState == GMPStateUnloading) &&
       !IsUsed()) {
     // Ensure all timers are killed.
@@ -249,7 +258,7 @@ GMPParent::CloseActive(bool aDieWhenUnloaded)
   MOZ_ASSERT(GMPEventTarget()->IsOnCurrentThread());
 
   if (aDieWhenUnloaded) {
-    mDeleteProcessOnlyOnUnload = true; // don't allow this to go back...
+    mDeleteProcessOnlyOnUnload = true;  // don't allow this to go back...
   }
   if (mState == GMPStateLoaded) {
     mState = GMPStateUnloading;
@@ -296,20 +305,22 @@ GMPParent::Shutdown()
   if (!mDeleteProcessOnlyOnUnload) {
     // Destroy ourselves and rise from the fire to save memory
     mService->ReAddOnGMPThread(self);
-  } // else we've been asked to die and stay dead
+  }  // else we've been asked to die and stay dead
   MOZ_ASSERT(mState == GMPStateNotLoaded);
 }
 
-class NotifyGMPShutdownTask : public Runnable {
-public:
+class NotifyGMPShutdownTask : public Runnable
+{
+ public:
   explicit NotifyGMPShutdownTask(const nsAString& aNodeId)
-    : Runnable("NotifyGMPShutdownTask")
-    , mNodeId(aNodeId)
+      : Runnable("NotifyGMPShutdownTask"), mNodeId(aNodeId)
   {
   }
-  NS_IMETHOD Run() override {
+  NS_IMETHOD Run() override
+  {
     MOZ_ASSERT(NS_IsMainThread());
-    nsCOMPtr<nsIObserverService> obsService = mozilla::services::GetObserverService();
+    nsCOMPtr<nsIObserverService> obsService =
+        mozilla::services::GetObserverService();
     MOZ_ASSERT(obsService);
     if (obsService) {
       obsService->NotifyObservers(nullptr, "gmp-shutdown", mNodeId.get());
@@ -332,12 +343,13 @@ GMPParent::ChildTerminated()
     // removed so there is no harm in not trying to remove it again.
     LOGD("%s::%s: GMPEventTarget() returned nullptr.", __CLASS__, __FUNCTION__);
   } else {
-    gmpEventTarget->Dispatch(NewRunnableMethod<RefPtr<GMPParent>>(
-                               "gmp::GeckoMediaPluginServiceParent::PluginTerminated",
-                               mService,
-                               &GeckoMediaPluginServiceParent::PluginTerminated,
-                               self),
-                             NS_DISPATCH_NORMAL);
+    gmpEventTarget->Dispatch(
+        NewRunnableMethod<RefPtr<GMPParent>>(
+            "gmp::GeckoMediaPluginServiceParent::PluginTerminated",
+            mService,
+            &GeckoMediaPluginServiceParent::PluginTerminated,
+            self),
+        NS_DISPATCH_NORMAL);
   }
 }
 
@@ -353,13 +365,13 @@ GMPParent::DeleteProcess()
     Close();
   }
   mProcess->Delete(NewRunnableMethod(
-    "gmp::GMPParent::ChildTerminated", this, &GMPParent::ChildTerminated));
+      "gmp::GMPParent::ChildTerminated", this, &GMPParent::ChildTerminated));
   LOGD("%s: Shut down process", __FUNCTION__);
   mProcess = nullptr;
   mState = GMPStateNotLoaded;
 
-  nsCOMPtr<nsIRunnable> r
-    = new NotifyGMPShutdownTask(NS_ConvertUTF8toUTF16(mNodeId));
+  nsCOMPtr<nsIRunnable> r =
+      new NotifyGMPShutdownTask(NS_ConvertUTF8toUTF16(mNodeId));
   mMainThread->Dispatch(r.forget());
 
   if (mHoldingSelfRef) {
@@ -378,7 +390,7 @@ nsCOMPtr<nsISerialEventTarget>
 GMPParent::GMPEventTarget()
 {
   nsCOMPtr<mozIGeckoMediaPluginService> mps =
-    do_GetService("@mozilla.org/gecko-media-plugin-service;1");
+      do_GetService("@mozilla.org/gecko-media-plugin-service;1");
   MOZ_ASSERT(mps);
   if (!mps) {
     return nullptr;
@@ -442,8 +454,7 @@ GMPParent::EnsureProcessLoaded()
   if (mState == GMPStateLoaded) {
     return true;
   }
-  if (mState == GMPStateClosing ||
-      mState == GMPStateUnloading) {
+  if (mState == GMPStateClosing || mState == GMPStateUnloading) {
     return false;
   }
 
@@ -456,8 +467,10 @@ GMPParent::EnsureProcessLoaded()
 void
 GMPParent::WriteExtraDataForMinidump()
 {
-  mCrashReporter->AddNote(NS_LITERAL_CSTRING("GMPPlugin"), NS_LITERAL_CSTRING("1"));
-  mCrashReporter->AddNote(NS_LITERAL_CSTRING("PluginFilename"), NS_ConvertUTF16toUTF8(mName));
+  mCrashReporter->AddNote(NS_LITERAL_CSTRING("GMPPlugin"),
+                          NS_LITERAL_CSTRING("1"));
+  mCrashReporter->AddNote(NS_LITERAL_CSTRING("PluginFilename"),
+                          NS_ConvertUTF16toUTF8(mName));
   mCrashReporter->AddNote(NS_LITERAL_CSTRING("PluginName"), mDisplayName);
   mCrashReporter->AddNote(NS_LITERAL_CSTRING("PluginVersion"), mVersion);
 }
@@ -479,20 +492,24 @@ GMPParent::GetCrashID(nsString& aResult)
 }
 
 static void
-GMPNotifyObservers(const uint32_t aPluginID, const nsACString& aPluginName, const nsAString& aPluginDumpID)
+GMPNotifyObservers(const uint32_t aPluginID,
+                   const nsACString& aPluginName,
+                   const nsAString& aPluginDumpID)
 {
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   nsCOMPtr<nsIWritablePropertyBag2> propbag =
-    do_CreateInstance("@mozilla.org/hash-property-bag;1");
+      do_CreateInstance("@mozilla.org/hash-property-bag;1");
   if (obs && propbag) {
     propbag->SetPropertyAsUint32(NS_LITERAL_STRING("pluginID"), aPluginID);
-    propbag->SetPropertyAsACString(NS_LITERAL_STRING("pluginName"), aPluginName);
-    propbag->SetPropertyAsAString(NS_LITERAL_STRING("pluginDumpID"), aPluginDumpID);
+    propbag->SetPropertyAsACString(NS_LITERAL_STRING("pluginName"),
+                                   aPluginName);
+    propbag->SetPropertyAsAString(NS_LITERAL_STRING("pluginDumpID"),
+                                  aPluginDumpID);
     obs->NotifyObservers(propbag, "gmp-plugin-crash", nullptr);
   }
 
   RefPtr<gmp::GeckoMediaPluginService> service =
-    gmp::GeckoMediaPluginService::GetGeckoMediaPluginService();
+      gmp::GeckoMediaPluginService::GetGeckoMediaPluginService();
   if (service) {
     service->RunPluginCrashCallbacks(aPluginID, aPluginName);
   }
@@ -505,7 +522,8 @@ GMPParent::ActorDestroy(ActorDestroyReason aWhy)
 #ifdef MOZ_CRASHREPORTER
   if (AbnormalShutdown == aWhy) {
     Telemetry::Accumulate(Telemetry::SUBPROCESS_ABNORMAL_ABORT,
-                          NS_LITERAL_CSTRING("gmplugin"), 1);
+                          NS_LITERAL_CSTRING("gmplugin"),
+                          1);
     nsString dumpID;
     if (!GetCrashID(dumpID)) {
       NS_WARNING("GMP crash without crash report");
@@ -515,8 +533,8 @@ GMPParent::ActorDestroy(ActorDestroyReason aWhy)
     }
 
     // NotifyObservers is mainthread-only
-    nsCOMPtr<nsIRunnable> r = WrapRunnableNM(
-      &GMPNotifyObservers, mPluginId, mDisplayName, dumpID);
+    nsCOMPtr<nsIRunnable> r =
+        WrapRunnableNM(&GMPNotifyObservers, mPluginId, mDisplayName, dumpID);
     mMainThread->Dispatch(r.forget());
   }
 #endif
@@ -538,13 +556,12 @@ GMPParent::ActorDestroy(ActorDestroyReason aWhy)
 }
 
 mozilla::ipc::IPCResult
-GMPParent::RecvInitCrashReporter(Shmem&& aShmem, const NativeThreadId& aThreadId)
+GMPParent::RecvInitCrashReporter(Shmem&& aShmem,
+                                 const NativeThreadId& aThreadId)
 {
 #ifdef MOZ_CRASHREPORTER
   mCrashReporter = MakeUnique<ipc::CrashReporterHost>(
-    GeckoProcessType_GMPlugin,
-    aShmem,
-    aThreadId);
+      GeckoProcessType_GMPlugin, aShmem, aThreadId);
 #endif
   return IPC_OK();
 }
@@ -553,7 +570,7 @@ PGMPStorageParent*
 GMPParent::AllocPGMPStorageParent()
 {
   GMPStorageParent* p = new GMPStorageParent(mNodeId, this);
-  mStorage.AppendElement(p); // Addrefs, released in DeallocPGMPStorageParent.
+  mStorage.AppendElement(p);  // Addrefs, released in DeallocPGMPStorageParent.
   return p;
 }
 
@@ -569,7 +586,7 @@ GMPParent::DeallocPGMPStorageParent(PGMPStorageParent* aActor)
 mozilla::ipc::IPCResult
 GMPParent::RecvPGMPStorageConstructor(PGMPStorageParent* aActor)
 {
-  GMPStorageParent* p  = (GMPStorageParent*)aActor;
+  GMPStorageParent* p = (GMPStorageParent*)aActor;
   if (NS_WARN_IF(NS_FAILED(p->Init()))) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -587,7 +604,8 @@ GMPParent::AllocPGMPTimerParent()
 {
   nsCOMPtr<nsISerialEventTarget> target = GMPEventTarget();
   GMPTimerParent* p = new GMPTimerParent(target);
-  mTimers.AppendElement(p); // Released in DeallocPGMPTimerParent, or on shutdown.
+  mTimers.AppendElement(
+      p);  // Released in DeallocPGMPTimerParent, or on shutdown.
   return p;
 }
 
@@ -601,7 +619,9 @@ GMPParent::DeallocPGMPTimerParent(PGMPTimerParent* aActor)
 }
 
 bool
-ReadInfoField(GMPInfoFileParser& aParser, const nsCString& aKey, nsACString& aOutValue)
+ReadInfoField(GMPInfoFileParser& aParser,
+              const nsCString& aKey,
+              nsACString& aOutValue)
 {
   if (!aParser.Contains(aKey) || aParser.Get(aKey).IsEmpty()) {
     return false;
@@ -682,7 +702,8 @@ GMPParent::ReadGMPInfoFile(nsIFile* aFile)
       cap.mAPIName.Assign(Substring(api, 0, tagsStart));
 
       if ((tagsEnd - tagsStart) > 1) {
-        const nsDependentCSubstring ts(Substring(api, tagsStart + 1, tagsEnd - tagsStart - 1));
+        const nsDependentCSubstring ts(
+            Substring(api, tagsStart + 1, tagsEnd - tagsStart - 1));
         nsTArray<nsCString> tagTokens;
         SplitAt(":", ts, tagTokens);
         for (nsCString tag : tagTokens) {
@@ -710,21 +731,23 @@ GMPParent::ReadChromiumManifestFile(nsIFile* aFile)
   }
 
   // DOM JSON parsing needs to run on the main thread.
-  return InvokeAsync(
-    mMainThread, this, __func__,
-    &GMPParent::ParseChromiumManifest, NS_ConvertUTF8toUTF16(json));
+  return InvokeAsync(mMainThread,
+                     this,
+                     __func__,
+                     &GMPParent::ParseChromiumManifest,
+                     NS_ConvertUTF8toUTF16(json));
 }
 
 static bool
 IsCDMAPISupported(const mozilla::dom::WidevineCDMManifest& aManifest)
 {
-  nsresult ignored; // Note: ToInteger returns 0 on failure.
+  nsresult ignored;  // Note: ToInteger returns 0 on failure.
   int32_t moduleVersion = aManifest.mX_cdm_module_versions.ToInteger(&ignored);
   int32_t interfaceVersion =
-    aManifest.mX_cdm_interface_versions.ToInteger(&ignored);
+      aManifest.mX_cdm_interface_versions.ToInteger(&ignored);
   int32_t hostVersion = aManifest.mX_cdm_host_versions.ToInteger(&ignored);
   return ChromiumCDMAdapter::Supports(
-    moduleVersion, interfaceVersion, hostVersion);
+      moduleVersion, interfaceVersion, hostVersion);
 }
 
 RefPtr<GenericPromise>
@@ -749,9 +772,9 @@ GMPParent::ParseChromiumManifest(const nsAString& aJSON)
 #if defined(XP_LINUX) && defined(MOZ_GMP_SANDBOX)
   if (!mozilla::SandboxInfo::Get().CanSandboxMedia()) {
     nsPrintfCString msg(
-      "GMPParent::ParseChromiumManifest: Plugin \"%s\" is an EME CDM"
-      " but this system can't sandbox it; not loading.",
-      mDisplayName.get());
+        "GMPParent::ParseChromiumManifest: Plugin \"%s\" is an EME CDM"
+        " but this system can't sandbox it; not loading.",
+        mDisplayName.get());
     printf_stderr("%s\n", msg.get());
     LOGD("%s", msg.get());
     return GenericPromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
@@ -765,7 +788,8 @@ GMPParent::ParseChromiumManifest(const nsAString& aJSON)
   if (mDisplayName.EqualsASCII("clearkey")) {
     kEMEKeySystem = kEMEKeySystemClearkey;
 #if XP_WIN
-    mLibs = NS_LITERAL_CSTRING("dxva2.dll, msmpeg2vdec.dll, evr.dll, mfh264dec.dll, mfplat.dll");
+    mLibs = NS_LITERAL_CSTRING(
+        "dxva2.dll, msmpeg2vdec.dll, evr.dll, mfh264dec.dll, mfplat.dll");
 #endif
   } else if (mDisplayName.EqualsASCII("WidevineCdm")) {
     kEMEKeySystem = kEMEKeySystemWidevine;
@@ -862,7 +886,8 @@ GMPParent::ResolveGetContentParentPromises()
   nsTArray<UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>>> promises;
   promises.SwapElements(mGetContentParentPromises);
   MOZ_ASSERT(mGetContentParentPromises.IsEmpty());
-  RefPtr<GMPContentParent::CloseBlocker> blocker(new GMPContentParent::CloseBlocker(mGMPContentParent));
+  RefPtr<GMPContentParent::CloseBlocker> blocker(
+      new GMPContentParent::CloseBlocker(mGMPContentParent));
   for (auto& holder : promises) {
     holder->Resolve(blocker, __func__);
   }
@@ -877,7 +902,7 @@ GMPParent::OpenPGMPContent()
   Endpoint<PGMPContentParent> parent;
   Endpoint<PGMPContentChild> child;
   if (NS_WARN_IF(NS_FAILED(PGMPContent::CreateEndpoints(
-        base::GetCurrentProcId(), OtherPid(), &parent, &child)))) {
+          base::GetCurrentProcId(), OtherPid(), &parent, &child)))) {
     return false;
   }
 
@@ -908,13 +933,15 @@ GMPParent::RejectGetContentParentPromises()
 }
 
 void
-GMPParent::GetGMPContentParent(UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>>&& aPromiseHolder)
+GMPParent::GetGMPContentParent(
+    UniquePtr<MozPromiseHolder<GetGMPContentParentPromise>>&& aPromiseHolder)
 {
   LOGD("%s %p", __FUNCTION__, this);
   MOZ_ASSERT(GMPEventTarget()->IsOnCurrentThread());
 
   if (mGMPContentParent) {
-    RefPtr<GMPContentParent::CloseBlocker> blocker(new GMPContentParent::CloseBlocker(mGMPContentParent));
+    RefPtr<GMPContentParent::CloseBlocker> blocker(
+        new GMPContentParent::CloseBlocker(mGMPContentParent));
     aPromiseHolder->Resolve(blocker, __func__);
   } else {
     mGetContentParentPromises.AppendElement(Move(aPromiseHolder));
@@ -965,8 +992,8 @@ GMPParent::GetPluginBaseName() const
   return NS_LITERAL_STRING("gmp-") + mName;
 }
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
 #undef LOG
 #undef LOGD

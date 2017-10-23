@@ -13,8 +13,10 @@ namespace mozilla {
 
 already_AddRefed<IdleTaskRunner>
 IdleTaskRunner::Create(const CallbackType& aCallback,
-                       const char* aRunnableName, uint32_t aDelay,
-                       int64_t aBudget, bool aRepeating,
+                       const char* aRunnableName,
+                       uint32_t aDelay,
+                       int64_t aBudget,
+                       bool aRepeating,
                        const MayStopProcessingCallbackType& aMayStopProcessing,
                        TaskCategory aTaskCategory)
 {
@@ -22,26 +24,33 @@ IdleTaskRunner::Create(const CallbackType& aCallback,
     return nullptr;
   }
 
-  RefPtr<IdleTaskRunner> runner =
-    new IdleTaskRunner(aCallback, aRunnableName, aDelay,
-                       aBudget, aRepeating, aMayStopProcessing,
-                       aTaskCategory);
-  runner->Schedule(false); // Initial scheduling shouldn't use idle dispatch.
+  RefPtr<IdleTaskRunner> runner = new IdleTaskRunner(aCallback,
+                                                     aRunnableName,
+                                                     aDelay,
+                                                     aBudget,
+                                                     aRepeating,
+                                                     aMayStopProcessing,
+                                                     aTaskCategory);
+  runner->Schedule(false);  // Initial scheduling shouldn't use idle dispatch.
   return runner.forget();
 }
 
-IdleTaskRunner::IdleTaskRunner(const CallbackType& aCallback,
-                               const char* aRunnableName,
-                               uint32_t aDelay, int64_t aBudget,
-                               bool aRepeating,
-                               const MayStopProcessingCallbackType& aMayStopProcessing,
-                               TaskCategory aTaskCategory)
-  : IdleRunnable(aRunnableName)
-  , mCallback(aCallback), mDelay(aDelay)
-  , mBudget(TimeDuration::FromMilliseconds(aBudget))
-  , mRepeating(aRepeating), mTimerActive(false)
-  , mMayStopProcessing(aMayStopProcessing)
-  , mTaskCategory(aTaskCategory)
+IdleTaskRunner::IdleTaskRunner(
+    const CallbackType& aCallback,
+    const char* aRunnableName,
+    uint32_t aDelay,
+    int64_t aBudget,
+    bool aRepeating,
+    const MayStopProcessingCallbackType& aMayStopProcessing,
+    TaskCategory aTaskCategory)
+    : IdleRunnable(aRunnableName),
+      mCallback(aCallback),
+      mDelay(aDelay),
+      mBudget(TimeDuration::FromMilliseconds(aBudget)),
+      mRepeating(aRepeating),
+      mTimerActive(false),
+      mMayStopProcessing(aMayStopProcessing),
+      mTaskCategory(aTaskCategory)
 {
 }
 
@@ -90,7 +99,8 @@ IdleTaskRunner::SetDeadline(mozilla::TimeStamp aDeadline)
   mDeadline = aDeadline;
 };
 
-void IdleTaskRunner::SetTimer(uint32_t aDelay, nsIEventTarget* aTarget)
+void
+IdleTaskRunner::SetTimer(uint32_t aDelay, nsIEventTarget* aTarget)
 {
   MOZ_ASSERT(NS_IsMainThread());
   // aTarget is always the main thread event target provided from
@@ -157,17 +167,17 @@ IdleTaskRunner::Schedule(bool aAllowIdleDispatch)
       }
       // We weren't allowed to do idle dispatch immediately, do it after a
       // short timeout.
-      mScheduleTimer->InitWithNamedFuncCallback(ScheduleTimedOut, this, 16,
-                                                nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY,
-                                                "IdleTaskRunner");
+      mScheduleTimer->InitWithNamedFuncCallback(
+          ScheduleTimedOut,
+          this,
+          16,
+          nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY,
+          "IdleTaskRunner");
     }
   }
 }
 
-IdleTaskRunner::~IdleTaskRunner()
-{
-  CancelTimer();
-}
+IdleTaskRunner::~IdleTaskRunner() { CancelTimer(); }
 
 void
 IdleTaskRunner::CancelTimer()
@@ -199,11 +209,10 @@ IdleTaskRunner::SetTimerInternal(uint32_t aDelay)
     if (TaskCategory::Count != mTaskCategory) {
       mTimer->SetTarget(SystemGroup::EventTargetFor(mTaskCategory));
     }
-    mTimer->InitWithNamedFuncCallback(TimedOut, this, aDelay,
-                                      nsITimer::TYPE_ONE_SHOT,
-                                      "IdleTaskRunner");
+    mTimer->InitWithNamedFuncCallback(
+        TimedOut, this, aDelay, nsITimer::TYPE_ONE_SHOT, "IdleTaskRunner");
     mTimerActive = true;
   }
 }
 
-} // end of namespace mozilla
+}  // end of namespace mozilla

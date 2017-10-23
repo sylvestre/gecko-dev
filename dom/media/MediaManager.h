@@ -50,7 +50,7 @@ struct MediaStreamConstraints;
 struct MediaTrackConstraints;
 struct MediaTrackConstraintSet;
 enum class CallerType : uint32_t;
-} // namespace dom
+}  // namespace dom
 
 namespace ipc {
 class PrincipalInfo;
@@ -63,7 +63,7 @@ class SourceListener;
 
 class MediaDevice : public nsIMediaDevice
 {
-public:
+ public:
   typedef MediaEngineSource Source;
 
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -75,26 +75,31 @@ public:
       const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
       bool aIsChrome);
   virtual Source* GetSource() = 0;
-  nsresult Allocate(const dom::MediaTrackConstraints &aConstraints,
-                    const MediaEnginePrefs &aPrefs,
+  nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
+                    const MediaEnginePrefs& aPrefs,
                     const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
                     const char** aOutBadConstraint);
-  nsresult Restart(const dom::MediaTrackConstraints &aConstraints,
-                   const MediaEnginePrefs &aPrefs,
+  nsresult Restart(const dom::MediaTrackConstraints& aConstraints,
+                   const MediaEnginePrefs& aPrefs,
                    const char** aOutBadConstraint);
   nsresult Deallocate();
-protected:
+
+ protected:
   virtual ~MediaDevice() {}
   explicit MediaDevice(MediaEngineSource* aSource, bool aIsVideo);
 
-  static uint32_t FitnessDistance(nsString aN,
-    const dom::OwningStringOrStringSequenceOrConstrainDOMStringParameters& aConstraint);
-private:
+  static uint32_t FitnessDistance(
+      nsString aN,
+      const dom::OwningStringOrStringSequenceOrConstrainDOMStringParameters&
+          aConstraint);
+
+ private:
   static bool StringsContain(const dom::OwningStringOrStringSequence& aStrings,
                              nsString aN);
-  static uint32_t FitnessDistance(nsString aN,
-      const dom::ConstrainDOMStringParameters& aParams);
-protected:
+  static uint32_t FitnessDistance(
+      nsString aN, const dom::ConstrainDOMStringParameters& aParams);
+
+ protected:
   nsString mName;
   nsString mID;
   nsString mRawID;
@@ -102,16 +107,15 @@ protected:
   dom::MediaSourceEnum mMediaSource;
   RefPtr<MediaEngineSource> mSource;
   RefPtr<MediaEngineSource::AllocationHandle> mAllocationHandle;
-public:
-  dom::MediaSourceEnum GetMediaSource() {
-    return mMediaSource;
-  }
+
+ public:
+  dom::MediaSourceEnum GetMediaSource() { return mMediaSource; }
   bool mIsVideo;
 };
 
 class VideoDevice : public MediaDevice
 {
-public:
+ public:
   typedef MediaEngineVideoSource Source;
 
   explicit VideoDevice(Source* aSource);
@@ -121,7 +125,7 @@ public:
 
 class AudioDevice : public MediaDevice
 {
-public:
+ public:
   typedef MediaEngineAudioSource Source;
 
   explicit AudioDevice(Source* aSource);
@@ -129,32 +133,36 @@ public:
   Source* GetSource() override;
 };
 
-class GetUserMediaNotificationEvent: public Runnable
+class GetUserMediaNotificationEvent : public Runnable
 {
-  public:
-    enum GetUserMediaStatus {
-      STARTING,
-      STOPPING,
-    };
-    GetUserMediaNotificationEvent(GetUserMediaStatus aStatus,
-                                  uint64_t aWindowID);
+ public:
+  enum GetUserMediaStatus
+  {
+    STARTING,
+    STOPPING,
+  };
+  GetUserMediaNotificationEvent(GetUserMediaStatus aStatus, uint64_t aWindowID);
 
-    GetUserMediaNotificationEvent(GetUserMediaStatus aStatus,
-                                  already_AddRefed<DOMMediaStream> aStream,
-                                  already_AddRefed<media::Refcountable<UniquePtr<OnTracksAvailableCallback>>> aOnTracksAvailableCallback,
-                                  uint64_t aWindowID,
-                                  already_AddRefed<nsIDOMGetUserMediaErrorCallback> aError);
-    virtual ~GetUserMediaNotificationEvent();
+  GetUserMediaNotificationEvent(
+      GetUserMediaStatus aStatus,
+      already_AddRefed<DOMMediaStream> aStream,
+      already_AddRefed<
+          media::Refcountable<UniquePtr<OnTracksAvailableCallback>>>
+          aOnTracksAvailableCallback,
+      uint64_t aWindowID,
+      already_AddRefed<nsIDOMGetUserMediaErrorCallback> aError);
+  virtual ~GetUserMediaNotificationEvent();
 
-    NS_IMETHOD Run() override;
+  NS_IMETHOD Run() override;
 
-  protected:
-    RefPtr<GetUserMediaWindowListener> mListener; // threadsafe
-    RefPtr<DOMMediaStream> mStream;
-    RefPtr<media::Refcountable<UniquePtr<OnTracksAvailableCallback>>> mOnTracksAvailableCallback;
-    GetUserMediaStatus mStatus;
-    uint64_t mWindowID;
-    RefPtr<nsIDOMGetUserMediaErrorCallback> mOnFailure;
+ protected:
+  RefPtr<GetUserMediaWindowListener> mListener;  // threadsafe
+  RefPtr<DOMMediaStream> mStream;
+  RefPtr<media::Refcountable<UniquePtr<OnTracksAvailableCallback>>>
+      mOnTracksAvailableCallback;
+  GetUserMediaStatus mStatus;
+  uint64_t mWindowID;
+  RefPtr<nsIDOMGetUserMediaErrorCallback> mOnFailure;
 };
 
 typedef enum {
@@ -165,36 +173,41 @@ typedef enum {
 
 class ReleaseMediaOperationResource : public Runnable
 {
-public:
+ public:
   ReleaseMediaOperationResource(
-    already_AddRefed<DOMMediaStream> aStream,
-    already_AddRefed<media::Refcountable<UniquePtr<OnTracksAvailableCallback>>>
-      aOnTracksAvailableCallback)
-    : Runnable("ReleaseMediaOperationResource")
-    , mStream(aStream)
-    , mOnTracksAvailableCallback(aOnTracksAvailableCallback)
+      already_AddRefed<DOMMediaStream> aStream,
+      already_AddRefed<
+          media::Refcountable<UniquePtr<OnTracksAvailableCallback>>>
+          aOnTracksAvailableCallback)
+      : Runnable("ReleaseMediaOperationResource"),
+        mStream(aStream),
+        mOnTracksAvailableCallback(aOnTracksAvailableCallback)
   {
   }
-  NS_IMETHOD Run() override {return NS_OK;}
-private:
+  NS_IMETHOD Run() override { return NS_OK; }
+
+ private:
   RefPtr<DOMMediaStream> mStream;
-  RefPtr<media::Refcountable<UniquePtr<OnTracksAvailableCallback>>> mOnTracksAvailableCallback;
+  RefPtr<media::Refcountable<UniquePtr<OnTracksAvailableCallback>>>
+      mOnTracksAvailableCallback;
 };
 
-typedef nsRefPtrHashtable<nsUint64HashKey, GetUserMediaWindowListener> WindowTable;
+typedef nsRefPtrHashtable<nsUint64HashKey, GetUserMediaWindowListener>
+    WindowTable;
 
 // we could add MediaManager if needed
-typedef void (*WindowListenerCallback)(MediaManager *aThis,
+typedef void (*WindowListenerCallback)(MediaManager* aThis,
                                        uint64_t aWindowID,
-                                       GetUserMediaWindowListener *aListener,
-                                       void *aData);
+                                       GetUserMediaWindowListener* aListener,
+                                       void* aData);
 
 class MediaManager final : public nsIMediaManagerService,
-                           public nsIObserver
-                          ,public DeviceChangeCallback
+                           public nsIObserver,
+                           public DeviceChangeCallback
 {
   friend SourceListener;
-public:
+
+ public:
   static already_AddRefed<MediaManager> GetInstance();
 
   // NOTE: never Dispatch(....,NS_DISPATCH_SYNC) to the MediaManager
@@ -208,10 +221,7 @@ public:
   static bool IsInMediaThread();
 #endif
 
-  static bool Exists()
-  {
-    return !!sSingleton;
-  }
+  static bool Exists() { return !!sSingleton; }
 
   static nsresult NotifyRecordingStatusChange(nsPIDOMWindowInner* aWindow,
                                               const nsString& aMsg);
@@ -223,30 +233,32 @@ public:
   media::Parent<media::NonE10s>* GetNonE10sParent();
   MediaEngine* GetBackend(uint64_t aWindowId = 0);
 
-  WindowTable *GetActiveWindows() {
+  WindowTable* GetActiveWindows()
+  {
     MOZ_ASSERT(NS_IsMainThread());
     return &mActiveWindows;
   }
-  GetUserMediaWindowListener *GetWindowListener(uint64_t aWindowId) {
+  GetUserMediaWindowListener* GetWindowListener(uint64_t aWindowId)
+  {
     MOZ_ASSERT(NS_IsMainThread());
     return mActiveWindows.GetWeak(aWindowId);
   }
-  void AddWindowID(uint64_t aWindowId, GetUserMediaWindowListener *aListener);
+  void AddWindowID(uint64_t aWindowId, GetUserMediaWindowListener* aListener);
   void RemoveWindowID(uint64_t aWindowId);
   void SendPendingGUMRequest();
-  bool IsWindowStillActive(uint64_t aWindowId) {
+  bool IsWindowStillActive(uint64_t aWindowId)
+  {
     return !!GetWindowListener(aWindowId);
   }
   // Note: also calls aListener->Remove(), even if inactive
   void RemoveFromWindowList(uint64_t aWindowID,
-    GetUserMediaWindowListener *aListener);
+                            GetUserMediaWindowListener* aListener);
 
-  nsresult GetUserMedia(
-    nsPIDOMWindowInner* aWindow,
-    const dom::MediaStreamConstraints& aConstraints,
-    nsIDOMGetUserMediaSuccessCallback* onSuccess,
-    nsIDOMGetUserMediaErrorCallback* onError,
-    dom::CallerType aCallerType);
+  nsresult GetUserMedia(nsPIDOMWindowInner* aWindow,
+                        const dom::MediaStreamConstraints& aConstraints,
+                        nsIDOMGetUserMediaSuccessCallback* onSuccess,
+                        nsIDOMGetUserMediaErrorCallback* onError,
+                        dom::CallerType aCallerType);
 
   nsresult GetUserMediaDevices(nsPIDOMWindowInner* aWindow,
                                const dom::MediaStreamConstraints& aConstraints,
@@ -259,7 +271,8 @@ public:
                             nsIGetUserMediaDevicesSuccessCallback* aOnSuccess,
                             nsIDOMGetUserMediaErrorCallback* aOnFailure);
 
-  nsresult EnumerateDevices(nsPIDOMWindowInner* aWindow, dom::Promise& aPromise);
+  nsresult EnumerateDevices(nsPIDOMWindowInner* aWindow,
+                            dom::Promise& aPromise);
   void OnNavigation(uint64_t aWindowID);
   bool IsActivelyCapturingOrHasAPermission(uint64_t aWindowId);
 
@@ -269,38 +282,45 @@ public:
 
   virtual int AddDeviceChangeCallback(DeviceChangeCallback* aCallback) override;
   virtual void OnDeviceChange() override;
-private:
+
+ private:
   typedef media::Pledge<SourceSet*, dom::MediaStreamError*> PledgeSourceSet;
   typedef media::Pledge<const char*, dom::MediaStreamError*> PledgeChar;
   typedef media::Pledge<bool, dom::MediaStreamError*> PledgeVoid;
 
   static nsresult GenerateUUID(nsAString& aResult);
   static nsresult AnonymizeId(nsAString& aId, const nsACString& aOriginKey);
-public: // TODO: make private once we upgrade to GCC 4.8+ on linux.
-  static void AnonymizeDevices(SourceSet& aDevices, const nsACString& aOriginKey);
+
+ public:  // TODO: make private once we upgrade to GCC 4.8+ on linux.
+  static void AnonymizeDevices(SourceSet& aDevices,
+                               const nsACString& aOriginKey);
   static already_AddRefed<nsIWritableVariant> ToJSArray(SourceSet& aDevices);
-private:
-  already_AddRefed<PledgeSourceSet>
-  EnumerateRawDevices(uint64_t aWindowId,
-                      dom::MediaSourceEnum aVideoType,
-                      dom::MediaSourceEnum aAudioType,
-                      bool aFake);
-  already_AddRefed<PledgeSourceSet>
-  EnumerateDevicesImpl(uint64_t aWindowId,
-                       dom::MediaSourceEnum aVideoSrcType,
-                       dom::MediaSourceEnum aAudioSrcType,
-                       bool aFake = false);
-  already_AddRefed<PledgeChar>
-  SelectSettings(
+
+ private:
+  already_AddRefed<PledgeSourceSet> EnumerateRawDevices(
+      uint64_t aWindowId,
+      dom::MediaSourceEnum aVideoType,
+      dom::MediaSourceEnum aAudioType,
+      bool aFake);
+  already_AddRefed<PledgeSourceSet> EnumerateDevicesImpl(
+      uint64_t aWindowId,
+      dom::MediaSourceEnum aVideoSrcType,
+      dom::MediaSourceEnum aAudioSrcType,
+      bool aFake = false);
+  already_AddRefed<PledgeChar> SelectSettings(
       dom::MediaStreamConstraints& aConstraints,
       bool aIsChrome,
       RefPtr<media::Refcountable<UniquePtr<SourceSet>>>& aSources);
 
-  void GetPref(nsIPrefBranch *aBranch, const char *aPref,
-               const char *aData, int32_t *aVal);
-  void GetPrefBool(nsIPrefBranch *aBranch, const char *aPref,
-                   const char *aData, bool *aVal);
-  void GetPrefs(nsIPrefBranch *aBranch, const char *aData);
+  void GetPref(nsIPrefBranch* aBranch,
+               const char* aPref,
+               const char* aData,
+               int32_t* aVal);
+  void GetPrefBool(nsIPrefBranch* aBranch,
+                   const char* aPref,
+                   const char* aData,
+                   bool* aVal);
+  void GetPrefs(nsIPrefBranch* aBranch, const char* aData);
 
   // Make private because we want only one instance of this class
   MediaManager();
@@ -309,9 +329,9 @@ private:
   void Shutdown();
 
   void StopScreensharing(uint64_t aWindowID);
-  void IterateWindowListeners(nsPIDOMWindowInner *aWindow,
+  void IterateWindowListeners(nsPIDOMWindowInner* aWindow,
                               WindowListenerCallback aCallback,
-                              void *aData);
+                              void* aData);
 
   void StopMediaStreams();
   void RemoveMediaDevicesCallback(uint64_t aWindowID);
@@ -335,11 +355,12 @@ private:
   media::CoatCheck<PledgeChar> mOutstandingCharPledges;
   media::CoatCheck<PledgeVoid> mOutstandingVoidPledges;
   nsTArray<nsString> mDeviceIDs;
-public:
+
+ public:
   media::CoatCheck<media::Pledge<nsCString>> mGetPrincipalKeyPledges;
   RefPtr<media::Parent<media::NonE10s>> mNonE10sParent;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_MEDIAMANAGER_H
+#endif  // MOZILLA_MEDIAMANAGER_H

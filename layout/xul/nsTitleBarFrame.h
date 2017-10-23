@@ -11,15 +11,16 @@
 
 class nsTitleBarFrame : public nsBoxFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsTitleBarFrame)
 
-  friend nsIFrame* NS_NewTitleBarFrame(nsIPresShell* aPresShell, nsStyleContext* aContext);
+  friend nsIFrame* NS_NewTitleBarFrame(nsIPresShell* aPresShell,
+                                       nsStyleContext* aContext);
 
   explicit nsTitleBarFrame(nsStyleContext* aContext, ClassID = kClassID);
 
-  virtual void BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
-                                           const nsDisplayListSet& aLists) override;
+  virtual void BuildDisplayListForChildren(
+      nsDisplayListBuilder* aBuilder, const nsDisplayListSet& aLists) override;
 
   virtual nsresult HandleEvent(nsPresContext* aPresContext,
                                mozilla::WidgetGUIEvent* aEvent,
@@ -27,12 +28,15 @@ public:
 
   virtual void MouseClicked(mozilla::WidgetMouseEvent* aEvent);
 
-  void UpdateMouseThrough() override { AddStateBits(NS_FRAME_MOUSE_THROUGH_NEVER); }
+  void UpdateMouseThrough() override
+  {
+    AddStateBits(NS_FRAME_MOUSE_THROUGH_NEVER);
+  }
 
-protected:
+ protected:
   bool mTrackingMouseMove;
   mozilla::LayoutDeviceIntPoint mLastPoint;
 
-}; // class nsTitleBarFrame
+};  // class nsTitleBarFrame
 
 #endif /* nsTitleBarFrame_h___ */

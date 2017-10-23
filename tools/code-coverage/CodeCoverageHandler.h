@@ -11,8 +11,9 @@
 
 namespace mozilla {
 
-class CodeCoverageHandler {
-public:
+class CodeCoverageHandler
+{
+ public:
   static void Init();
   static void Init(const CrossProcessMutexHandle& aHandle);
   static CodeCoverageHandler* Get();
@@ -21,7 +22,7 @@ public:
   static void DumpCounters(int);
   static void ResetCounters(int);
 
-private:
+ private:
   CodeCoverageHandler();
   CodeCoverageHandler(const CrossProcessMutexHandle& aHandle);
 
@@ -33,6 +34,6 @@ private:
   void SetSignalHandlers();
 };
 
-}
+}  // namespace mozilla
 
-#endif // mozilla_codecoveragehandler_h
+#endif  // mozilla_codecoveragehandler_h

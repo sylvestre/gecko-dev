@@ -28,52 +28,39 @@ using mozilla::RangedPtr;
 using JS::AutoCheckCannotGC;
 
 // We should be able to assert this for *any* fp->environmentChain().
-static void
-AssertInnerizedEnvironmentChain(JSContext* cx, JSObject& env)
-{
+static void AssertInnerizedEnvironmentChain(JSContext* cx, JSObject& env) {
 #ifdef DEBUG
     RootedObject obj(cx);
-    for (obj = &env; obj; obj = obj->enclosingEnvironment())
-        MOZ_ASSERT(!IsWindowProxy(obj));
+    for (obj = &env; obj; obj = obj->enclosingEnvironment()) MOZ_ASSERT(!IsWindowProxy(obj));
 #endif
 }
 
-static bool
-IsEvalCacheCandidate(JSScript* script)
-{
+static bool IsEvalCacheCandidate(JSScript* script) {
     // Make sure there are no inner objects which might use the wrong parent
     // and/or call scope by reusing the previous eval's script.
-    return script->isDirectEvalInFunction() &&
-           !script->hasSingletons() &&
-           !script->hasObjects();
+    return script->isDirectEvalInFunction() && !script->hasSingletons() && !script->hasObjects();
 }
 
-/* static */ HashNumber
-EvalCacheHashPolicy::hash(const EvalCacheLookup& l)
-{
+/* static */ HashNumber EvalCacheHashPolicy::hash(const EvalCacheLookup& l) {
     AutoCheckCannotGC nogc;
     uint32_t hash = l.str->hasLatin1Chars()
-                    ? HashString(l.str->latin1Chars(nogc), l.str->length())
-                    : HashString(l.str->twoByteChars(nogc), l.str->length());
+                        ? HashString(l.str->latin1Chars(nogc), l.str->length())
+                        : HashString(l.str->twoByteChars(nogc), l.str->length());
     return AddToHash(hash, l.callerScript.get(), l.version, l.pc);
 }
 
-/* static */ bool
-EvalCacheHashPolicy::match(const EvalCacheEntry& cacheEntry, const EvalCacheLookup& l)
-{
+/* static */ bool EvalCacheHashPolicy::match(const EvalCacheEntry& cacheEntry,
+                                             const EvalCacheLookup& l) {
     JSScript* script = cacheEntry.script;
 
     MOZ_ASSERT(IsEvalCacheCandidate(script));
 
-    return EqualStrings(cacheEntry.str, l.str) &&
-           cacheEntry.callerScript == l.callerScript &&
-           script->getVersion() == l.version &&
-           cacheEntry.pc == l.pc;
+    return EqualStrings(cacheEntry.str, l.str) && cacheEntry.callerScript == l.callerScript &&
+           script->getVersion() == l.version && cacheEntry.pc == l.pc;
 }
 
 // Add the script to the eval cache when EvalKernel is finished
-class EvalScriptGuard
-{
+class EvalScriptGuard {
     JSContext* cx_;
     Rooted<JSScript*> script_;
 
@@ -83,9 +70,8 @@ class EvalScriptGuard
 
     RootedLinearString lookupStr_;
 
-  public:
-    explicit EvalScriptGuard(JSContext* cx)
-        : cx_(cx), script_(cx), lookup_(cx), lookupStr_(cx) {}
+   public:
+    explicit EvalScriptGuard(JSContext* cx) : cx_(cx), script_(cx), lookup_(cx), lookupStr_(cx) {}
 
     ~EvalScriptGuard() {
         if (script_ && !cx_->isExceptionPending()) {
@@ -100,8 +86,7 @@ class EvalScriptGuard
         }
     }
 
-    void lookupInEvalCache(JSLinearString* str, JSScript* callerScript, jsbytecode* pc)
-    {
+    void lookupInEvalCache(JSLinearString* str, JSScript* callerScript, jsbytecode* pc) {
         lookupStr_ = str;
         lookup_.str = str;
         lookup_.callerScript = callerScript;
@@ -122,9 +107,7 @@ class EvalScriptGuard
         script_->setActiveEval();
     }
 
-    bool foundScript() {
-        return !!script_;
-    }
+    bool foundScript() { return !!script_; }
 
     HandleScript script() {
         MOZ_ASSERT(script_);
@@ -132,25 +115,17 @@ class EvalScriptGuard
     }
 };
 
-enum EvalJSONResult {
-    EvalJSON_Failure,
-    EvalJSON_Success,
-    EvalJSON_NotJSON
-};
+enum EvalJSONResult { EvalJSON_Failure, EvalJSON_Success, EvalJSON_NotJSON };
 
 template <typename CharT>
-static bool
-EvalStringMightBeJSON(const mozilla::Range<const CharT> chars)
-{
+static bool EvalStringMightBeJSON(const mozilla::Range<const CharT> chars) {
     // If the eval string starts with '(' or '[' and ends with ')' or ']', it may be JSON.
     // Try the JSON parser first because it's much faster.  If the eval string
     // isn't JSON, JSON parsing will probably fail quickly, so little time
     // will be lost.
     size_t length = chars.length();
-    if (length > 2 &&
-        ((chars[0] == '[' && chars[length - 1] == ']') ||
-         (chars[0] == '(' && chars[length - 1] == ')')))
-    {
+    if (length > 2 && ((chars[0] == '[' && chars[length - 1] == ']') ||
+                       (chars[0] == '(' && chars[length - 1] == ')'))) {
         // Remarkably, JavaScript syntax is not a superset of JSON syntax:
         // strings in JavaScript cannot contain the Unicode line and paragraph
         // terminator characters U+2028 and U+2029, but strings in JSON can.
@@ -158,13 +133,10 @@ EvalStringMightBeJSON(const mozilla::Range<const CharT> chars)
         // eval, we simply don't use the JSON parser when either character
         // appears in the provided string.  See bug 657367.
         if (sizeof(CharT) > 1) {
-            for (RangedPtr<const CharT> cp = chars.begin() + 1, end = chars.end() - 1;
-                 cp < end;
-                 cp++)
-            {
+            for (RangedPtr<const CharT> cp = chars.begin() + 1, end = chars.end() - 1; cp < end;
+                 cp++) {
                 char16_t c = *cp;
-                if (c == 0x2028 || c == 0x2029)
-                    return false;
+                if (c == 0x2028 || c == 0x2029) return false;
             }
         }
 
@@ -174,44 +146,36 @@ EvalStringMightBeJSON(const mozilla::Range<const CharT> chars)
 }
 
 template <typename CharT>
-static EvalJSONResult
-ParseEvalStringAsJSON(JSContext* cx, const mozilla::Range<const CharT> chars, MutableHandleValue rval)
-{
+static EvalJSONResult ParseEvalStringAsJSON(JSContext* cx, const mozilla::Range<const CharT> chars,
+                                            MutableHandleValue rval) {
     size_t len = chars.length();
     MOZ_ASSERT((chars[0] == '(' && chars[len - 1] == ')') ||
                (chars[0] == '[' && chars[len - 1] == ']'));
 
-    auto jsonChars = (chars[0] == '[')
-                     ? chars
-                     : mozilla::Range<const CharT>(chars.begin().get() + 1U, len - 2);
+    auto jsonChars =
+        (chars[0] == '[') ? chars : mozilla::Range<const CharT>(chars.begin().get() + 1U, len - 2);
 
-    Rooted<JSONParser<CharT>> parser(cx, JSONParser<CharT>(cx, jsonChars, JSONParserBase::NoError));
-    if (!parser.parse(rval))
-        return EvalJSON_Failure;
+    Rooted<JSONParser<CharT>> parser(cx,
+                                     JSONParser<CharT>(cx, jsonChars, JSONParserBase::NoError));
+    if (!parser.parse(rval)) return EvalJSON_Failure;
 
     return rval.isUndefined() ? EvalJSON_NotJSON : EvalJSON_Success;
 }
 
-static EvalJSONResult
-TryEvalJSON(JSContext* cx, JSLinearString* str, MutableHandleValue rval)
-{
+static EvalJSONResult TryEvalJSON(JSContext* cx, JSLinearString* str, MutableHandleValue rval) {
     if (str->hasLatin1Chars()) {
         AutoCheckCannotGC nogc;
-        if (!EvalStringMightBeJSON(str->latin1Range(nogc)))
-            return EvalJSON_NotJSON;
+        if (!EvalStringMightBeJSON(str->latin1Range(nogc))) return EvalJSON_NotJSON;
     } else {
         AutoCheckCannotGC nogc;
-        if (!EvalStringMightBeJSON(str->twoByteRange(nogc)))
-            return EvalJSON_NotJSON;
+        if (!EvalStringMightBeJSON(str->twoByteRange(nogc))) return EvalJSON_NotJSON;
     }
 
     AutoStableStringChars linearChars(cx);
-    if (!linearChars.init(cx, str))
-        return EvalJSON_Failure;
+    if (!linearChars.init(cx, str)) return EvalJSON_Failure;
 
-    return linearChars.isLatin1()
-           ? ParseEvalStringAsJSON(cx, linearChars.latin1Range(), rval)
-           : ParseEvalStringAsJSON(cx, linearChars.twoByteRange(), rval);
+    return linearChars.isLatin1() ? ParseEvalStringAsJSON(cx, linearChars.latin1Range(), rval)
+                                  : ParseEvalStringAsJSON(cx, linearChars.twoByteRange(), rval);
 }
 
 enum EvalType { DIRECT_EVAL, INDIRECT_EVAL };
@@ -224,10 +188,8 @@ enum EvalType { DIRECT_EVAL, INDIRECT_EVAL };
 // must be a global object.
 //
 // On success, store the completion value in call.rval and return true.
-static bool
-EvalKernel(JSContext* cx, HandleValue v, EvalType evalType, AbstractFramePtr caller,
-           HandleObject env, jsbytecode* pc, MutableHandleValue vp)
-{
+static bool EvalKernel(JSContext* cx, HandleValue v, EvalType evalType, AbstractFramePtr caller,
+                       HandleObject env, jsbytecode* pc, MutableHandleValue vp) {
     MOZ_ASSERT((evalType == INDIRECT_EVAL) == !caller);
     MOZ_ASSERT((evalType == INDIRECT_EVAL) == !pc);
     MOZ_ASSERT_IF(evalType == INDIRECT_EVAL, IsGlobalLexicalEnvironment(env));
@@ -255,13 +217,11 @@ EvalKernel(JSContext* cx, HandleValue v, EvalType evalType, AbstractFramePtr cal
                   cx->global() == &env->as<LexicalEnvironmentObject>().global());
 
     RootedLinearString linearStr(cx, str->ensureLinear(cx));
-    if (!linearStr)
-        return false;
+    if (!linearStr) return false;
 
     RootedScript callerScript(cx, caller ? caller.script() : nullptr);
     EvalJSONResult ejr = TryEvalJSON(cx, linearStr, vp);
-    if (ejr != EvalJSON_NotJSON)
-        return ejr == EvalJSON_Success;
+    if (ejr != EvalJSON_NotJSON) return ejr == EvalJSON_Success;
 
     EvalScriptGuard esg(cx);
 
@@ -274,11 +234,9 @@ EvalKernel(JSContext* cx, HandleValue v, EvalType evalType, AbstractFramePtr cal
         const char* filename;
         bool mutedErrors;
         uint32_t pcOffset;
-        DescribeScriptedCallerForCompilation(cx, &maybeScript, &filename, &lineno, &pcOffset,
-                                             &mutedErrors,
-                                             evalType == DIRECT_EVAL
-                                             ? CALLED_FROM_JSOP_EVAL
-                                             : NOT_CALLED_FROM_JSOP_EVAL);
+        DescribeScriptedCallerForCompilation(
+            cx, &maybeScript, &filename, &lineno, &pcOffset, &mutedErrors,
+            evalType == DIRECT_EVAL ? CALLED_FROM_JSOP_EVAL : NOT_CALLED_FROM_JSOP_EVAL);
 
         const char* introducerFilename = filename;
         if (maybeScript && maybeScript->scriptSource()->introducerFilename())
@@ -292,9 +250,9 @@ EvalKernel(JSContext* cx, HandleValue v, EvalType evalType, AbstractFramePtr cal
 
         CompileOptions options(cx);
         options.setIsRunOnce(true)
-               .setNoScriptRval(false)
-               .setMutedErrors(mutedErrors)
-               .maybeMakeStrictMode(evalType == DIRECT_EVAL && IsStrictEvalPC(pc));
+            .setNoScriptRval(false)
+            .setMutedErrors(mutedErrors)
+            .maybeMakeStrictMode(evalType == DIRECT_EVAL && IsStrictEvalPC(pc));
 
         if (introducerFilename) {
             options.setFileAndLine(filename, 1);
@@ -305,35 +263,29 @@ EvalKernel(JSContext* cx, HandleValue v, EvalType evalType, AbstractFramePtr cal
         }
 
         AutoStableStringChars linearChars(cx);
-        if (!linearChars.initTwoByte(cx, linearStr))
-            return false;
+        if (!linearChars.initTwoByte(cx, linearStr)) return false;
 
         const char16_t* chars = linearChars.twoByteRange().begin().get();
         SourceBufferHolder::Ownership ownership = linearChars.maybeGiveOwnershipToCaller()
-                                                  ? SourceBufferHolder::GiveOwnership
-                                                  : SourceBufferHolder::NoOwnership;
+                                                      ? SourceBufferHolder::GiveOwnership
+                                                      : SourceBufferHolder::NoOwnership;
         SourceBufferHolder srcBuf(chars, linearStr->length(), ownership);
-        JSScript* compiled = frontend::CompileEvalScript(cx, cx->tempLifoAlloc(),
-                                                         env, enclosing,
-                                                         options, srcBuf);
-        if (!compiled)
-            return false;
+        JSScript* compiled =
+            frontend::CompileEvalScript(cx, cx->tempLifoAlloc(), env, enclosing, options, srcBuf);
+        if (!compiled) return false;
 
         esg.setNewScript(compiled);
     }
 
     // Look up the newTarget from the frame iterator.
     Value newTargetVal = NullValue();
-    return ExecuteKernel(cx, esg.script(), *env, newTargetVal,
-                         NullFramePtr() /* evalInFrame */, vp.address());
+    return ExecuteKernel(cx, esg.script(), *env, newTargetVal, NullFramePtr() /* evalInFrame */,
+                         vp.address());
 }
 
-bool
-js::DirectEvalStringFromIon(JSContext* cx,
-                            HandleObject env, HandleScript callerScript,
-                            HandleValue newTargetValue, HandleString str,
-                            jsbytecode* pc, MutableHandleValue vp)
-{
+bool js::DirectEvalStringFromIon(JSContext* cx, HandleObject env, HandleScript callerScript,
+                                 HandleValue newTargetValue, HandleString str, jsbytecode* pc,
+                                 MutableHandleValue vp) {
     AssertInnerizedEnvironmentChain(cx, *env);
 
     Rooted<GlobalObject*> envGlobal(cx, &env->global());
@@ -345,12 +297,10 @@ js::DirectEvalStringFromIon(JSContext* cx,
     // ES5 15.1.2.1 steps 2-8.
 
     RootedLinearString linearStr(cx, str->ensureLinear(cx));
-    if (!linearStr)
-        return false;
+    if (!linearStr) return false;
 
     EvalJSONResult ejr = TryEvalJSON(cx, linearStr, vp);
-    if (ejr != EvalJSON_NotJSON)
-        return ejr == EvalJSON_Success;
+    if (ejr != EvalJSON_NotJSON) return ejr == EvalJSON_Success;
 
     EvalScriptGuard esg(cx);
 
@@ -373,9 +323,9 @@ js::DirectEvalStringFromIon(JSContext* cx,
 
         CompileOptions options(cx);
         options.setIsRunOnce(true)
-               .setNoScriptRval(false)
-               .setMutedErrors(mutedErrors)
-               .maybeMakeStrictMode(IsStrictEvalPC(pc));
+            .setNoScriptRval(false)
+            .setMutedErrors(mutedErrors)
+            .maybeMakeStrictMode(IsStrictEvalPC(pc));
 
         if (introducerFilename) {
             options.setFileAndLine(filename, 1);
@@ -386,30 +336,25 @@ js::DirectEvalStringFromIon(JSContext* cx,
         }
 
         AutoStableStringChars linearChars(cx);
-        if (!linearChars.initTwoByte(cx, linearStr))
-            return false;
+        if (!linearChars.initTwoByte(cx, linearStr)) return false;
 
         const char16_t* chars = linearChars.twoByteRange().begin().get();
         SourceBufferHolder::Ownership ownership = linearChars.maybeGiveOwnershipToCaller()
-                                                  ? SourceBufferHolder::GiveOwnership
-                                                  : SourceBufferHolder::NoOwnership;
+                                                      ? SourceBufferHolder::GiveOwnership
+                                                      : SourceBufferHolder::NoOwnership;
         SourceBufferHolder srcBuf(chars, linearStr->length(), ownership);
-        JSScript* compiled = frontend::CompileEvalScript(cx, cx->tempLifoAlloc(),
-                                                         env, enclosing,
-                                                         options, srcBuf);
-        if (!compiled)
-            return false;
+        JSScript* compiled =
+            frontend::CompileEvalScript(cx, cx->tempLifoAlloc(), env, enclosing, options, srcBuf);
+        if (!compiled) return false;
 
         esg.setNewScript(compiled);
     }
 
-    return ExecuteKernel(cx, esg.script(), *env, newTargetValue,
-                         NullFramePtr() /* evalInFrame */, vp.address());
+    return ExecuteKernel(cx, esg.script(), *env, newTargetValue, NullFramePtr() /* evalInFrame */,
+                         vp.address());
 }
 
-bool
-js::IndirectEval(JSContext* cx, unsigned argc, Value* vp)
-{
+bool js::IndirectEval(JSContext* cx, unsigned argc, Value* vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     Rooted<GlobalObject*> global(cx, &args.callee().global());
@@ -421,32 +366,23 @@ js::IndirectEval(JSContext* cx, unsigned argc, Value* vp)
                       args.rval());
 }
 
-bool
-js::DirectEval(JSContext* cx, HandleValue v, MutableHandleValue vp)
-{
+bool js::DirectEval(JSContext* cx, HandleValue v, MutableHandleValue vp) {
     // Direct eval can assume it was called from an interpreted or baseline frame.
     ScriptFrameIter iter(cx);
     AbstractFramePtr caller = iter.abstractFramePtr();
 
-    MOZ_ASSERT(JSOp(*iter.pc()) == JSOP_EVAL ||
-               JSOp(*iter.pc()) == JSOP_STRICTEVAL ||
-               JSOp(*iter.pc()) == JSOP_SPREADEVAL ||
-               JSOp(*iter.pc()) == JSOP_STRICTSPREADEVAL);
+    MOZ_ASSERT(JSOp(*iter.pc()) == JSOP_EVAL || JSOp(*iter.pc()) == JSOP_STRICTEVAL ||
+               JSOp(*iter.pc()) == JSOP_SPREADEVAL || JSOp(*iter.pc()) == JSOP_STRICTSPREADEVAL);
     MOZ_ASSERT(caller.compartment() == caller.script()->compartment());
 
     RootedObject envChain(cx, caller.environmentChain());
     return EvalKernel(cx, v, DIRECT_EVAL, caller, envChain, iter.pc(), vp);
 }
 
-bool
-js::IsAnyBuiltinEval(JSFunction* fun)
-{
-    return fun->maybeNative() == IndirectEval;
-}
+bool js::IsAnyBuiltinEval(JSFunction* fun) { return fun->maybeNative() == IndirectEval; }
 
-static bool
-ExecuteInExtensibleLexicalEnvironment(JSContext* cx, HandleScript scriptArg, HandleObject env)
-{
+static bool ExecuteInExtensibleLexicalEnvironment(JSContext* cx, HandleScript scriptArg,
+                                                  HandleObject env) {
     CHECK_REQUEST(cx);
     assertSameCompartment(cx, env);
     MOZ_ASSERT(IsExtensibleLexicalEnvironment(env));
@@ -455,64 +391,54 @@ ExecuteInExtensibleLexicalEnvironment(JSContext* cx, HandleScript scriptArg, Han
     RootedScript script(cx, scriptArg);
     if (script->compartment() != cx->compartment()) {
         script = CloneGlobalScript(cx, ScopeKind::NonSyntactic, script);
-        if (!script)
-            return false;
+        if (!script) return false;
 
         Debugger::onNewScript(cx, script);
     }
 
     RootedValue rval(cx);
-    return ExecuteKernel(cx, script, *env, UndefinedValue(),
-                         NullFramePtr() /* evalInFrame */, rval.address());
+    return ExecuteKernel(cx, script, *env, UndefinedValue(), NullFramePtr() /* evalInFrame */,
+                         rval.address());
 }
 
 JS_FRIEND_API(bool)
 js::ExecuteInGlobalAndReturnScope(JSContext* cx, HandleObject global, HandleScript scriptArg,
-                                  MutableHandleObject envArg)
-{
+                                  MutableHandleObject envArg) {
     RootedObject varEnv(cx, NonSyntacticVariablesObject::create(cx));
-    if (!varEnv)
-        return false;
+    if (!varEnv) return false;
 
     // Create lexical environment with |this| == global.
     // NOTE: This is required behavior for Gecko FrameScriptLoader
     RootedObject lexEnv(cx, LexicalEnvironmentObject::createNonSyntactic(cx, varEnv, global));
-    if (!lexEnv)
-        return false;
+    if (!lexEnv) return false;
 
-    if (!ExecuteInExtensibleLexicalEnvironment(cx, scriptArg, lexEnv))
-        return false;
+    if (!ExecuteInExtensibleLexicalEnvironment(cx, scriptArg, lexEnv)) return false;
 
     envArg.set(lexEnv);
     return true;
 }
 
 JS_FRIEND_API(JSObject*)
-js::NewJSMEnvironment(JSContext* cx)
-{
+js::NewJSMEnvironment(JSContext* cx) {
     RootedObject varEnv(cx, NonSyntacticVariablesObject::create(cx));
-    if (!varEnv)
-        return nullptr;
+    if (!varEnv) return nullptr;
 
     // Force LexicalEnvironmentObject to be created
     MOZ_ASSERT(!cx->compartment()->getNonSyntacticLexicalEnvironment(varEnv));
-    if (!cx->compartment()->getOrCreateNonSyntacticLexicalEnvironment(cx, varEnv))
-        return nullptr;
+    if (!cx->compartment()->getOrCreateNonSyntacticLexicalEnvironment(cx, varEnv)) return nullptr;
 
     return varEnv;
 }
 
 JS_FRIEND_API(bool)
-js::ExecuteInJSMEnvironment(JSContext* cx, HandleScript scriptArg, HandleObject varEnv)
-{
+js::ExecuteInJSMEnvironment(JSContext* cx, HandleScript scriptArg, HandleObject varEnv) {
     AutoObjectVector emptyChain(cx);
     return ExecuteInJSMEnvironment(cx, scriptArg, varEnv, emptyChain);
 }
 
 JS_FRIEND_API(bool)
 js::ExecuteInJSMEnvironment(JSContext* cx, HandleScript scriptArg, HandleObject varEnv,
-                            AutoObjectVector& targetObj)
-{
+                            AutoObjectVector& targetObj) {
     assertSameCompartment(cx, varEnv);
     MOZ_ASSERT(cx->compartment()->getNonSyntacticLexicalEnvironment(varEnv));
     MOZ_DIAGNOSTIC_ASSERT(scriptArg->noScriptRval());
@@ -535,43 +461,36 @@ js::ExecuteInJSMEnvironment(JSContext* cx, HandleScript scriptArg, HandleObject 
         //  don't make the rules, I just record them.
 
         // Wrap the target objects in WithEnvironments.
-        if (!js::CreateObjectsForEnvironmentChain(cx, targetObj, env, &env))
-            return false;
+        if (!js::CreateObjectsForEnvironmentChain(cx, targetObj, env, &env)) return false;
 
         // See CreateNonSyntacticEnvironmentChain
-        if (!JSObject::setQualifiedVarObj(cx, env))
-            return false;
+        if (!JSObject::setQualifiedVarObj(cx, env)) return false;
 
         // Create an extensible LexicalEnvironmentObject for target object
         env = cx->compartment()->getOrCreateNonSyntacticLexicalEnvironment(cx, env);
-        if (!env)
-            return false;
+        if (!env) return false;
     }
 
     return ExecuteInExtensibleLexicalEnvironment(cx, scriptArg, env);
 }
 
 JS_FRIEND_API(JSObject*)
-js::GetJSMEnvironmentOfScriptedCaller(JSContext* cx)
-{
+js::GetJSMEnvironmentOfScriptedCaller(JSContext* cx) {
     FrameIter iter(cx);
-    if (iter.done())
-        return nullptr;
+    if (iter.done()) return nullptr;
 
     // WASM frames don't always provide their environment, but we also shouldn't
     // expect to see any calling into here.
     MOZ_RELEASE_ASSERT(!iter.isWasm());
 
     RootedObject env(cx, iter.environmentChain(cx));
-    while (env && !env->is<NonSyntacticVariablesObject>())
-        env = env->enclosingEnvironment();
+    while (env && !env->is<NonSyntacticVariablesObject>()) env = env->enclosingEnvironment();
 
     return env;
 }
 
 JS_FRIEND_API(bool)
-js::IsJSMEnvironment(JSObject* obj)
-{
+js::IsJSMEnvironment(JSObject* obj) {
     // NOTE: This also returns true if the NonSyntacticVariablesObject was
     // created for reasons other than the JSM loader.
     return obj->is<NonSyntacticVariablesObject>();

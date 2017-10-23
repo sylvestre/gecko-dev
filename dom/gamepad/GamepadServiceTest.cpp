@@ -31,7 +31,8 @@ namespace dom {
  * that add and remove fake gamepads, avoiding the platform-specific backends.
  */
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(GamepadServiceTest, DOMEventTargetHelper,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(GamepadServiceTest,
+                                   DOMEventTargetHelper,
                                    mWindow)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GamepadServiceTest)
@@ -61,12 +62,13 @@ GamepadServiceTest::Shutdown()
 }
 
 GamepadServiceTest::GamepadServiceTest(nsPIDOMWindowInner* aWindow)
-  : mService(GamepadManager::GetService()),
-    mWindow(aWindow),
-    mEventNumber(0),
-    mShuttingDown(false),
-    mChild(nullptr)
-{}
+    : mService(GamepadManager::GetService()),
+      mWindow(aWindow),
+      mEventNumber(0),
+      mShuttingDown(false),
+      mChild(nullptr)
+{
+}
 
 GamepadServiceTest::~GamepadServiceTest() {}
 
@@ -74,7 +76,7 @@ void
 GamepadServiceTest::InitPBackgroundActor()
 {
   MOZ_ASSERT(!mChild);
-  PBackgroundChild *actor = BackgroundChild::GetForCurrentThread();
+  PBackgroundChild* actor = BackgroundChild::GetForCurrentThread();
   //Try to get the PBackground Child actor
   if (actor) {
     ActorCreated(actor);
@@ -115,9 +117,8 @@ GamepadServiceTest::AddGamepad(const nsAString& aID,
   }
 
   // Only VR controllers has displayID, we give 0 to the general gamepads.
-  GamepadAdded a(nsString(aID),
-                 aMapping, aHand, 0,
-                 aNumButtons, aNumAxes, aNumHaptics);
+  GamepadAdded a(
+      nsString(aID), aMapping, aHand, 0, aNumButtons, aNumAxes, aNumHaptics);
   GamepadChangeEventBody body(a);
   GamepadChangeEvent e(0, GamepadServiceType::Standard, body);
   nsCOMPtr<nsIGlobalObject> go = do_QueryInterface(mWindow);
@@ -313,7 +314,7 @@ GamepadServiceTest::NewPoseMove(uint32_t aIndex,
 void
 GamepadServiceTest::FlushPendingOperations()
 {
-  for (uint32_t i=0; i < mPendingOperations.Length(); ++i) {
+  for (uint32_t i = 0; i < mPendingOperations.Length(); ++i) {
     PendingOperation op = mPendingOperations[i];
     if (op.mPromise) {
       mChild->AddPromise(op.mID, op.mPromise);
@@ -338,7 +339,7 @@ GamepadServiceTest::ActorCreated(PBackgroundChild* aActor)
 
   mChild = new GamepadTestChannelChild();
   PGamepadTestChannelChild* initedChild =
-    aActor->SendPGamepadTestChannelConstructor(mChild);
+      aActor->SendPGamepadTestChannelConstructor(mChild);
   if (NS_WARN_IF(!initedChild)) {
     ActorFailed();
     return;
@@ -358,5 +359,5 @@ GamepadServiceTest::WrapObject(JSContext* aCx, JS::HandleObject aGivenProto)
   return GamepadServiceTestBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // dom
-} // mozilla
+}  // namespace dom
+}  // namespace mozilla

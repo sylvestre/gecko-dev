@@ -7,7 +7,6 @@
 #include "nsCOMPtr.h"
 #include "nsIGeolocationProvider.h"
 
-
 /*
  * The CoreLocationObjects class contains the CoreLocation objects
  * we'll need.
@@ -25,10 +24,9 @@
 class CoreLocationObjects;
 class MLSFallback;
 
-class CoreLocationLocationProvider
-  : public nsIGeolocationProvider
+class CoreLocationLocationProvider : public nsIGeolocationProvider
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIGEOLOCATIONPROVIDER
 
@@ -38,7 +36,7 @@ public:
   void CreateMLSFallbackProvider();
   void CancelMLSFallbackProvider();
 
-private:
+ private:
   virtual ~CoreLocationLocationProvider() = default;
 
   CoreLocationObjects* mCLObjects;
@@ -47,13 +45,13 @@ private:
 
   class MLSUpdate : public nsIGeolocationUpdate
   {
-  public:
+   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSIGEOLOCATIONUPDATE
 
     explicit MLSUpdate(CoreLocationLocationProvider& parentProvider);
 
-  private:
+   private:
     CoreLocationLocationProvider& mParentLocationProvider;
     virtual ~MLSUpdate() = default;
   };

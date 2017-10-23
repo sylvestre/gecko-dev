@@ -16,22 +16,24 @@ namespace ipc {
 
 class DocumentRendererChild : public PDocumentRendererChild
 {
-public:
-    DocumentRendererChild();
-    virtual ~DocumentRendererChild();
+ public:
+  DocumentRendererChild();
+  virtual ~DocumentRendererChild();
 
-    bool RenderDocument(nsPIDOMWindowOuter* window,
-                        const nsRect& documentRect, const gfx::Matrix& transform,
-                        const nsString& bgcolor,
-                        uint32_t renderFlags, bool flushLayout,
-                        const nsIntSize& renderSize, nsCString& data);
+  bool RenderDocument(nsPIDOMWindowOuter* window,
+                      const nsRect& documentRect,
+                      const gfx::Matrix& transform,
+                      const nsString& bgcolor,
+                      uint32_t renderFlags,
+                      bool flushLayout,
+                      const nsIntSize& renderSize,
+                      nsCString& data);
 
-private:
-
-    DISALLOW_EVIL_CONSTRUCTORS(DocumentRendererChild);
+ private:
+  DISALLOW_EVIL_CONSTRUCTORS(DocumentRendererChild);
 };
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif

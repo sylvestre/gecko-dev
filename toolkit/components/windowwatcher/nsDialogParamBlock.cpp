@@ -10,19 +10,14 @@
 
 NS_IMPL_ISUPPORTS(nsDialogParamBlock, nsIDialogParamBlock)
 
-nsDialogParamBlock::nsDialogParamBlock()
-  : mNumStrings(0)
-  , mString(nullptr)
+nsDialogParamBlock::nsDialogParamBlock() : mNumStrings(0), mString(nullptr)
 {
   for (int32_t i = 0; i < kNumInts; i++) {
     mInt[i] = 0;
   }
 }
 
-nsDialogParamBlock::~nsDialogParamBlock()
-{
-  delete[] mString;
-}
+nsDialogParamBlock::~nsDialogParamBlock() { delete[] mString; }
 
 NS_IMETHODIMP
 nsDialogParamBlock::SetNumberStrings(int32_t aNumStrings)

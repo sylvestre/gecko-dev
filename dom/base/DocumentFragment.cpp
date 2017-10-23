@@ -9,13 +9,13 @@
  */
 
 #include "mozilla/dom/DocumentFragment.h"
-#include "mozilla/dom/Element.h" // for NS_IMPL_ELEMENT_CLONE
+#include "mozilla/dom/Element.h"  // for NS_IMPL_ELEMENT_CLONE
 #include "mozilla/dom/NodeInfo.h"
 #include "nsNodeInfoManager.h"
 #include "nsError.h"
 #include "nsGkAtoms.h"
 #include "nsDOMString.h"
-#include "nsContentUtils.h" // for NS_INTERFACE_MAP_ENTRY_TEAROFF
+#include "nsContentUtils.h"  // for NS_INTERFACE_MAP_ENTRY_TEAROFF
 #include "mozilla/dom/DocumentFragmentBinding.h"
 #include "nsPIDOMWindow.h"
 #include "nsIDocument.h"
@@ -25,7 +25,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-DocumentFragment::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+DocumentFragment::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return DocumentFragmentBinding::Wrap(aCx, this, aGivenProto);
 }
@@ -41,11 +41,11 @@ void
 DocumentFragment::List(FILE* out, int32_t aIndent) const
 {
   int32_t indent;
-  for (indent = aIndent; --indent >= 0; ) {
+  for (indent = aIndent; --indent >= 0;) {
     fputs("  ", out);
   }
 
-  fprintf(out, "DocumentFragment@%p", (void *)this);
+  fprintf(out, "DocumentFragment@%p", (void*)this);
 
   fprintf(out, " flags=[%08x]", static_cast<unsigned int>(GetFlags()));
   fprintf(out, " refcount=%" PRIuPTR "<", mRefCnt.get());
@@ -58,7 +58,7 @@ DocumentFragment::List(FILE* out, int32_t aIndent) const
       child->List(out, aIndent + 1);
     }
 
-    for (indent = aIndent; --indent >= 0; ) {
+    for (indent = aIndent; --indent >= 0;) {
       fputs("  ", out);
     }
   }
@@ -67,42 +67,40 @@ DocumentFragment::List(FILE* out, int32_t aIndent) const
 }
 
 void
-DocumentFragment::DumpContent(FILE* out, int32_t aIndent,
-                              bool aDumpAll) const
+DocumentFragment::DumpContent(FILE* out, int32_t aIndent, bool aDumpAll) const
 {
   int32_t indent;
-  for (indent = aIndent; --indent >= 0; ) {
+  for (indent = aIndent; --indent >= 0;) {
     fputs("  ", out);
   }
 
   fputs("<DocumentFragment>", out);
 
-  if(aIndent) {
+  if (aIndent) {
     fputs("\n", out);
   }
 
-  for (nsIContent* child = GetFirstChild();
-       child;
+  for (nsIContent* child = GetFirstChild(); child;
        child = child->GetNextSibling()) {
     int32_t indent = aIndent ? aIndent + 1 : 0;
     child->DumpContent(out, indent, aDumpAll);
   }
-  for (indent = aIndent; --indent >= 0; ) {
+  for (indent = aIndent; --indent >= 0;) {
     fputs("  ", out);
   }
   fputs("</DocumentFragment>", out);
 
-  if(aIndent) {
+  if (aIndent) {
     fputs("\n", out);
   }
 }
 #endif
 
 /* static */ already_AddRefed<DocumentFragment>
-DocumentFragment::Constructor(const GlobalObject& aGlobal,
-                              ErrorResult& aRv)
+DocumentFragment::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window || !window->GetDoc()) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -135,5 +133,5 @@ NS_IMPL_RELEASE_INHERITED(DocumentFragment, FragmentOrElement)
 
 NS_IMPL_ELEMENT_CLONE(DocumentFragment)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

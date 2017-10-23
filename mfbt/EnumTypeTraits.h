@@ -14,34 +14,41 @@ namespace mozilla {
 
 namespace detail {
 
-template<size_t EnumSize, bool EnumSigned, size_t StorageSize, bool StorageSigned>
+template<size_t EnumSize,
+         bool EnumSigned,
+         size_t StorageSize,
+         bool StorageSigned>
 struct EnumFitsWithinHelper;
 
 // Signed enum, signed storage.
 template<size_t EnumSize, size_t StorageSize>
 struct EnumFitsWithinHelper<EnumSize, true, StorageSize, true>
-  : public std::integral_constant<bool, (EnumSize <= StorageSize)>
-{};
+    : public std::integral_constant<bool, (EnumSize <= StorageSize)>
+{
+};
 
 // Signed enum, unsigned storage.
 template<size_t EnumSize, size_t StorageSize>
 struct EnumFitsWithinHelper<EnumSize, true, StorageSize, false>
-  : public std::integral_constant<bool, false>
-{};
+    : public std::integral_constant<bool, false>
+{
+};
 
 // Unsigned enum, signed storage.
 template<size_t EnumSize, size_t StorageSize>
 struct EnumFitsWithinHelper<EnumSize, false, StorageSize, true>
-  : public std::integral_constant<bool, (EnumSize * 2 <= StorageSize)>
-{};
+    : public std::integral_constant<bool, (EnumSize * 2 <= StorageSize)>
+{
+};
 
 // Unsigned enum, unsigned storage.
 template<size_t EnumSize, size_t StorageSize>
 struct EnumFitsWithinHelper<EnumSize, false, StorageSize, false>
-  : public std::integral_constant<bool, (EnumSize <= StorageSize)>
-{};
+    : public std::integral_constant<bool, (EnumSize <= StorageSize)>
+{
+};
 
-} // namespace detail
+}  // namespace detail
 
 /*
  * Type trait that determines whether the enum type T can fit within the
@@ -54,17 +61,17 @@ struct EnumFitsWithinHelper<EnumSize, false, StorageSize, false>
  */
 template<typename T, typename Storage>
 struct EnumTypeFitsWithin
-  : public detail::EnumFitsWithinHelper<
-      sizeof(T),
-      std::is_signed<typename std::underlying_type<T>::type>::value,
-      sizeof(Storage),
-      std::is_signed<Storage>::value
-    >
+    : public detail::EnumFitsWithinHelper<
+          sizeof(T),
+          std::is_signed<typename std::underlying_type<T>::type>::value,
+          sizeof(Storage),
+          std::is_signed<Storage>::value>
 {
   static_assert(std::is_enum<T>::value, "must provide an enum type");
-  static_assert(std::is_integral<Storage>::value, "must provide an integral type");
+  static_assert(std::is_integral<Storage>::value,
+                "must provide an integral type");
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_EnumTypeTraits_h */

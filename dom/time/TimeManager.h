@@ -19,10 +19,9 @@ class Date;
 
 namespace time {
 
-class TimeManager final : public nsISupports
-                        , public nsWrapperCache
+class TimeManager final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   static bool PrefEnabled(JSContext* aCx, JSObject* aGlobal)
   {
 #ifdef MOZ_TIME_MANAGER
@@ -35,28 +34,23 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TimeManager)
 
-  explicit TimeManager(nsPIDOMWindowInner* aWindow)
-    : mWindow(aWindow)
-  {
-  }
+  explicit TimeManager(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {}
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mWindow;
-  }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   void Set(Date& aDate);
   void Set(double aTime);
 
-private:
+ private:
   ~TimeManager() {}
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
 };
 
-} // namespace time
-} // namespace dom
-} // namespace mozilla
+}  // namespace time
+}  // namespace dom
+}  // namespace mozilla
 
-#endif //mozilla_dom_time_TimeManager_h
+#endif  //mozilla_dom_time_TimeManager_h

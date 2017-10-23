@@ -27,7 +27,8 @@ TextTrackRegion::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 already_AddRefed<TextTrackRegion>
 TextTrackRegion::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 {
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -38,13 +39,13 @@ TextTrackRegion::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
 }
 
 TextTrackRegion::TextTrackRegion(nsISupports* aGlobal)
-  : mParent(aGlobal)
-  , mWidth(100)
-  , mLines(3)
-  , mRegionAnchorX(0)
-  , mRegionAnchorY(100)
-  , mViewportAnchorX(0)
-  , mViewportAnchorY(100)
+    : mParent(aGlobal),
+      mWidth(100),
+      mLines(3),
+      mRegionAnchorX(0),
+      mRegionAnchorY(100),
+      mViewportAnchorX(0),
+      mViewportAnchorY(100)
 {
 }
 
@@ -60,6 +61,5 @@ TextTrackRegion::CopyValues(TextTrackRegion& aRegion)
   mScroll = aRegion.Scroll();
 }
 
-} //namespace dom
-} //namespace mozilla
-
+}  //namespace dom
+}  //namespace mozilla

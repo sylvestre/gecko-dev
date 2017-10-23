@@ -8,15 +8,9 @@
 namespace mozilla {
 namespace gfx {
 
-SharedDIB::SharedDIB() :
-  mShMem(nullptr)
-{
-}
+SharedDIB::SharedDIB() : mShMem(nullptr) {}
 
-SharedDIB::~SharedDIB()
-{
-  Close();
-}
+SharedDIB::~SharedDIB() { Close(); }
 
 nsresult
 SharedDIB::Create(uint32_t aSize)
@@ -33,8 +27,7 @@ SharedDIB::Create(uint32_t aSize)
 bool
 SharedDIB::IsValid()
 {
-  if (!mShMem)
-    return false;
+  if (!mShMem) return false;
 
   return mShMem->IsHandleValid(mShMem->handle());
 }
@@ -55,17 +48,15 @@ SharedDIB::Attach(Handle aHandle, uint32_t aSize)
   Close();
 
   mShMem = new base::SharedMemory(aHandle, false);
-  if(!mShMem)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!mShMem) return NS_ERROR_OUT_OF_MEMORY;
 
   return NS_OK;
 }
 
 nsresult
-SharedDIB::ShareToProcess(base::ProcessId aTargetPid, Handle *aNewHandle)
+SharedDIB::ShareToProcess(base::ProcessId aTargetPid, Handle* aNewHandle)
 {
-  if (!mShMem)
-    return NS_ERROR_UNEXPECTED;
+  if (!mShMem) return NS_ERROR_UNEXPECTED;
 
   if (!mShMem->ShareToProcess(aTargetPid, aNewHandle))
     return NS_ERROR_UNEXPECTED;
@@ -73,5 +64,5 @@ SharedDIB::ShareToProcess(base::ProcessId aTargetPid, Handle *aNewHandle)
   return NS_OK;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

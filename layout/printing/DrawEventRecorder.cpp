@@ -54,5 +54,5 @@ DrawEventRecorderPRFileDesc::Close()
   mOutputStream.Close();
 }
 
-}
-}
+}  // namespace layout
+}  // namespace mozilla

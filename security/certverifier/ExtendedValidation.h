@@ -10,12 +10,17 @@
 #include "certt.h"
 #include "nsNSSShutDown.h"
 
-namespace mozilla { namespace pkix { struct CertPolicyId; } }
+namespace mozilla {
+namespace pkix {
+struct CertPolicyId;
+}
+}  // namespace mozilla
 
-namespace mozilla { namespace psm {
+namespace mozilla {
+namespace psm {
 
-nsresult LoadExtendedValidationInfo(
-  const nsNSSShutDownPreventionLock& proofOfLock);
+nsresult
+LoadExtendedValidationInfo(const nsNSSShutDownPreventionLock& proofOfLock);
 
 /**
  * Finds the first policy OID in the given cert that is known to be an EV policy
@@ -29,15 +34,18 @@ nsresult LoadExtendedValidationInfo(
  *        The OID tag of the found policy.
  * @return true if a suitable policy was found, false otherwise.
  */
-bool GetFirstEVPolicy(CERTCertificate& cert,
-                      /*out*/ mozilla::pkix::CertPolicyId& policy,
-                      /*out*/ SECOidTag& policyOidTag);
+bool
+GetFirstEVPolicy(CERTCertificate& cert,
+                 /*out*/ mozilla::pkix::CertPolicyId& policy,
+                 /*out*/ SECOidTag& policyOidTag);
 
 // CertIsAuthoritativeForEVPolicy does NOT evaluate whether the cert is trusted
 // or distrusted.
-bool CertIsAuthoritativeForEVPolicy(const UniqueCERTCertificate& cert,
-                                    const mozilla::pkix::CertPolicyId& policy);
+bool
+CertIsAuthoritativeForEVPolicy(const UniqueCERTCertificate& cert,
+                               const mozilla::pkix::CertPolicyId& policy);
 
-} } // namespace mozilla::psm
+}  // namespace psm
+}  // namespace mozilla
 
-#endif // ExtendedValidation_h
+#endif  // ExtendedValidation_h

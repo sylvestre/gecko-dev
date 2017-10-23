@@ -13,16 +13,16 @@ class nsIDocShellTreeItem;
 class nsIURI;
 class nsIPrincipal;
 
-class FramingChecker {
-
-public:
+class FramingChecker
+{
+ public:
   // Determine if X-Frame-Options allows content to be framed
   // as a subdocument
   static bool CheckFrameOptions(nsIChannel* aChannel,
                                 nsIDocShell* aDocShell,
                                 nsIPrincipal* aPrincipal);
 
-protected:
+ protected:
   enum XFOHeader
   {
     eDENY,

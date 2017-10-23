@@ -5,46 +5,44 @@
 
 #include "CompositionTransaction.h"
 
-#include "mozilla/EditorBase.h"         // mEditorBase
-#include "mozilla/SelectionState.h"     // RangeUpdater
-#include "mozilla/dom/Selection.h"      // local var
-#include "mozilla/dom/Text.h"           // mTextNode
-#include "nsAString.h"                  // params
-#include "nsDebug.h"                    // for NS_ASSERTION, etc
-#include "nsError.h"                    // for NS_SUCCEEDED, NS_FAILED, etc
-#include "nsIPresShell.h"               // nsISelectionController constants
-#include "nsRange.h"                    // local var
-#include "nsQueryObject.h"              // for do_QueryObject
+#include "mozilla/EditorBase.h"      // mEditorBase
+#include "mozilla/SelectionState.h"  // RangeUpdater
+#include "mozilla/dom/Selection.h"   // local var
+#include "mozilla/dom/Text.h"        // mTextNode
+#include "nsAString.h"               // params
+#include "nsDebug.h"                 // for NS_ASSERTION, etc
+#include "nsError.h"                 // for NS_SUCCEEDED, NS_FAILED, etc
+#include "nsIPresShell.h"            // nsISelectionController constants
+#include "nsRange.h"                 // local var
+#include "nsQueryObject.h"           // for do_QueryObject
 
 namespace mozilla {
 
 using namespace dom;
 
-CompositionTransaction::CompositionTransaction(
-                          Text& aTextNode,
-                          uint32_t aOffset,
-                          uint32_t aReplaceLength,
-                          TextRangeArray* aTextRangeArray,
-                          const nsAString& aStringToInsert,
-                          EditorBase& aEditorBase,
-                          RangeUpdater* aRangeUpdater)
-  : mTextNode(&aTextNode)
-  , mOffset(aOffset)
-  , mReplaceLength(aReplaceLength)
-  , mRanges(aTextRangeArray)
-  , mStringToInsert(aStringToInsert)
-  , mEditorBase(&aEditorBase)
-  , mRangeUpdater(aRangeUpdater)
-  , mFixed(false)
+CompositionTransaction::CompositionTransaction(Text& aTextNode,
+                                               uint32_t aOffset,
+                                               uint32_t aReplaceLength,
+                                               TextRangeArray* aTextRangeArray,
+                                               const nsAString& aStringToInsert,
+                                               EditorBase& aEditorBase,
+                                               RangeUpdater* aRangeUpdater)
+    : mTextNode(&aTextNode),
+      mOffset(aOffset),
+      mReplaceLength(aReplaceLength),
+      mRanges(aTextRangeArray),
+      mStringToInsert(aStringToInsert),
+      mEditorBase(&aEditorBase),
+      mRangeUpdater(aRangeUpdater),
+      mFixed(false)
 {
   MOZ_ASSERT(mTextNode->TextLength() >= mOffset);
 }
 
-CompositionTransaction::~CompositionTransaction()
-{
-}
+CompositionTransaction::~CompositionTransaction() {}
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(CompositionTransaction, EditTransactionBase,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(CompositionTransaction,
+                                   EditTransactionBase,
                                    mEditorBase,
                                    mTextNode)
 // mRangeList can't lead to cycles
@@ -80,7 +78,7 @@ CompositionTransaction::DoTransaction()
   } else {
     uint32_t replaceableLength = mTextNode->TextLength() - mOffset;
     nsresult rv =
-      mTextNode->ReplaceData(mOffset, mReplaceLength, mStringToInsert);
+        mTextNode->ReplaceData(mOffset, mReplaceLength, mStringToInsert);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -92,8 +90,7 @@ CompositionTransaction::DoTransaction()
     if (replaceableLength < mReplaceLength) {
       int32_t remainLength = mReplaceLength - replaceableLength;
       nsCOMPtr<nsINode> node = mTextNode->GetNextSibling();
-      while (node && node->IsNodeOfType(nsINode::eTEXT) &&
-             remainLength > 0) {
+      while (node && node->IsNodeOfType(nsINode::eTEXT) && remainLength > 0) {
         Text* text = static_cast<Text*>(node.get());
         uint32_t textLength = text->TextLength();
         text->DeleteData(0, remainLength);
@@ -135,8 +132,7 @@ CompositionTransaction::UndoTransaction()
 }
 
 NS_IMETHODIMP
-CompositionTransaction::Merge(nsITransaction* aTransaction,
-                              bool* aDidMerge)
+CompositionTransaction::Merge(nsITransaction* aTransaction, bool* aDidMerge)
 {
   NS_ENSURE_ARG_POINTER(aTransaction && aDidMerge);
 
@@ -148,7 +144,7 @@ CompositionTransaction::Merge(nsITransaction* aTransaction,
 
   // If aTransaction is another CompositionTransaction then absorb it
   RefPtr<CompositionTransaction> otherTransaction =
-    do_QueryObject(aTransaction);
+      do_QueryObject(aTransaction);
   if (otherTransaction) {
     // We absorb the next IME transaction by adopting its insert string
     mStringToInsert = otherTransaction->mStringToInsert;
@@ -183,8 +179,8 @@ CompositionTransaction::SetSelectionForRanges()
   if (NS_WARN_IF(!mEditorBase)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
-  return SetIMESelection(*mEditorBase, mTextNode, mOffset,
-                         mStringToInsert.Length(), mRanges);
+  return SetIMESelection(
+      *mEditorBase, mTextNode, mOffset, mStringToInsert.Length(), mRanges);
 }
 
 // static
@@ -202,11 +198,10 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
 
   // First, remove all selections of IME composition.
   static const RawSelectionType kIMESelections[] = {
-    nsISelectionController::SELECTION_IME_RAWINPUT,
-    nsISelectionController::SELECTION_IME_SELECTEDRAWTEXT,
-    nsISelectionController::SELECTION_IME_CONVERTEDTEXT,
-    nsISelectionController::SELECTION_IME_SELECTEDCONVERTEDTEXT
-  };
+      nsISelectionController::SELECTION_IME_RAWINPUT,
+      nsISelectionController::SELECTION_IME_SELECTEDRAWTEXT,
+      nsISelectionController::SELECTION_IME_CONVERTEDTEXT,
+      nsISelectionController::SELECTION_IME_SELECTEDCONVERTEDTEXT};
 
   nsCOMPtr<nsISelectionController> selCon;
   aEditorBase.GetSelectionController(getter_AddRefs(selCon));
@@ -246,7 +241,7 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
       NS_ASSERTION(!textRange.Length(),
                    "EditorBase doesn't support wide caret");
       int32_t caretOffset = static_cast<int32_t>(
-        aOffsetInNode +
+          aOffsetInNode +
           std::min(textRange.mStartOffset, aLengthOfCompositionString));
       MOZ_ASSERT(caretOffset >= 0 &&
                  static_cast<uint32_t>(caretOffset) <= maxOffset);
@@ -269,17 +264,19 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
 
     RefPtr<nsRange> clauseRange;
     int32_t startOffset = static_cast<int32_t>(
-      aOffsetInNode +
+        aOffsetInNode +
         std::min(textRange.mStartOffset, aLengthOfCompositionString));
     MOZ_ASSERT(startOffset >= 0 &&
                static_cast<uint32_t>(startOffset) <= maxOffset);
     int32_t endOffset = static_cast<int32_t>(
-      aOffsetInNode +
+        aOffsetInNode +
         std::min(textRange.mEndOffset, aLengthOfCompositionString));
     MOZ_ASSERT(endOffset >= startOffset &&
                static_cast<uint32_t>(endOffset) <= maxOffset);
-    rv = nsRange::CreateRange(aTextNode, startOffset,
-                              aTextNode, endOffset,
+    rv = nsRange::CreateRange(aTextNode,
+                              startOffset,
+                              aTextNode,
+                              endOffset,
                               getter_AddRefs(clauseRange));
     if (NS_FAILED(rv)) {
       NS_WARNING("Failed to create a DOM range for a clause of composition");
@@ -288,7 +285,7 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
 
     // Set the range of the clause to selection.
     RefPtr<Selection> selectionOfIME =
-      selCon->GetDOMSelection(ToRawSelectionType(textRange.mRangeType));
+        selCon->GetDOMSelection(ToRawSelectionType(textRange.mRangeType));
     if (!selectionOfIME) {
       NS_WARNING("Failed to get IME selection");
       break;
@@ -301,11 +298,10 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
     }
 
     // Set the style of the clause.
-    rv = selectionOfIME->SetTextRangeStyle(clauseRange,
-                                           textRange.mRangeStyle);
+    rv = selectionOfIME->SetTextRangeStyle(clauseRange, textRange.mRangeStyle);
     if (NS_FAILED(rv)) {
       NS_WARNING("Failed to set selection style");
-      break; // but this is unexpected...
+      break;  // but this is unexpected...
     }
   }
 
@@ -313,7 +309,7 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
   // caret to the end of composition string.
   if (!setCaret) {
     int32_t caretOffset =
-      static_cast<int32_t>(aOffsetInNode + aLengthOfCompositionString);
+        static_cast<int32_t>(aOffsetInNode + aLengthOfCompositionString);
     MOZ_ASSERT(caretOffset >= 0 &&
                static_cast<uint32_t>(caretOffset) <= maxOffset);
     rv = selection->Collapse(aTextNode, caretOffset);
@@ -331,4 +327,4 @@ CompositionTransaction::SetIMESelection(EditorBase& aEditorBase,
   return rv;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

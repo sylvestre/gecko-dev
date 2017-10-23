@@ -11,9 +11,9 @@
 
 namespace mozilla {
 namespace Telemetry {
-  struct ChildEventData;
+struct ChildEventData;
 }
-}
+}  // namespace mozilla
 
 // This module is internal to Telemetry. It encapsulates Telemetry's
 // event recording and storage logic. It should only be used by
@@ -22,34 +22,52 @@ namespace Telemetry {
 
 namespace TelemetryEvent {
 
-void InitializeGlobalState(bool canRecordBase, bool canRecordExtended);
-void DeInitializeGlobalState();
+void
+InitializeGlobalState(bool canRecordBase, bool canRecordExtended);
+void
+DeInitializeGlobalState();
 
-void SetCanRecordBase(bool b);
-void SetCanRecordExtended(bool b);
+void
+SetCanRecordBase(bool b);
+void
+SetCanRecordExtended(bool b);
 
 // JS API Endpoints.
-nsresult RecordEvent(const nsACString& aCategory, const nsACString& aMethod,
-                     const nsACString& aObject, JS::HandleValue aValue,
-                     JS::HandleValue aExtra, JSContext* aCx,
-                     uint8_t optional_argc);
+nsresult
+RecordEvent(const nsACString& aCategory,
+            const nsACString& aMethod,
+            const nsACString& aObject,
+            JS::HandleValue aValue,
+            JS::HandleValue aExtra,
+            JSContext* aCx,
+            uint8_t optional_argc);
 
-void SetEventRecordingEnabled(const nsACString& aCategory, bool aEnabled);
-nsresult RegisterEvents(const nsACString& aCategory, JS::Handle<JS::Value> aEventData,
-                        JSContext* cx);
+void
+SetEventRecordingEnabled(const nsACString& aCategory, bool aEnabled);
+nsresult
+RegisterEvents(const nsACString& aCategory,
+               JS::Handle<JS::Value> aEventData,
+               JSContext* cx);
 
-nsresult CreateSnapshots(uint32_t aDataset, bool aClear, JSContext* aCx,
-                         uint8_t optional_argc, JS::MutableHandleValue aResult);
+nsresult
+CreateSnapshots(uint32_t aDataset,
+                bool aClear,
+                JSContext* aCx,
+                uint8_t optional_argc,
+                JS::MutableHandleValue aResult);
 
 // Record events from child processes.
-nsresult RecordChildEvents(mozilla::Telemetry::ProcessID aProcessType,
-                           const nsTArray<mozilla::Telemetry::ChildEventData>& aEvents);
+nsresult
+RecordChildEvents(mozilla::Telemetry::ProcessID aProcessType,
+                  const nsTArray<mozilla::Telemetry::ChildEventData>& aEvents);
 
 // Only to be used for testing.
-void ClearEvents();
+void
+ClearEvents();
 
-size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
+size_t
+SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
 
-} // namespace TelemetryEvent
+}  // namespace TelemetryEvent
 
-#endif // TelemetryEvent_h__
+#endif  // TelemetryEvent_h__

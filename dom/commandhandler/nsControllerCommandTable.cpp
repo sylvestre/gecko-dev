@@ -8,22 +8,21 @@
 #include "nsIControllerCommand.h"
 #include "nsControllerCommandTable.h"
 
-nsresult NS_NewControllerCommandTable(nsIControllerCommandTable** aResult);
+nsresult
+NS_NewControllerCommandTable(nsIControllerCommandTable** aResult);
 
 // this value is used to size the hash table. Just a sensible upper bound
 #define NUM_COMMANDS_LENGTH 32
 
 nsControllerCommandTable::nsControllerCommandTable()
-  : mCommandsTable(NUM_COMMANDS_LENGTH)
-  , mMutable(true)
+    : mCommandsTable(NUM_COMMANDS_LENGTH), mMutable(true)
 {
 }
 
-nsControllerCommandTable::~nsControllerCommandTable()
-{
-}
+nsControllerCommandTable::~nsControllerCommandTable() {}
 
-NS_IMPL_ISUPPORTS(nsControllerCommandTable, nsIControllerCommandTable,
+NS_IMPL_ISUPPORTS(nsControllerCommandTable,
+                  nsIControllerCommandTable,
                   nsISupportsWeakReference)
 
 NS_IMETHODIMP
@@ -90,13 +89,14 @@ nsControllerCommandTable::IsCommandEnabled(const char* aCommandName,
   nsCOMPtr<nsIControllerCommand> commandHandler;
   FindCommandHandler(aCommandName, getter_AddRefs(commandHandler));
   if (!commandHandler) {
-    NS_WARNING("Controller command table asked about a command that it does "
-               "not handle");
+    NS_WARNING(
+        "Controller command table asked about a command that it does "
+        "not handle");
     return NS_OK;
   }
 
-  return commandHandler->IsCommandEnabled(aCommandName, aCommandRefCon,
-                                          aResult);
+  return commandHandler->IsCommandEnabled(
+      aCommandName, aCommandRefCon, aResult);
 }
 
 NS_IMETHODIMP
@@ -106,8 +106,9 @@ nsControllerCommandTable::UpdateCommandState(const char* aCommandName,
   nsCOMPtr<nsIControllerCommand> commandHandler;
   FindCommandHandler(aCommandName, getter_AddRefs(commandHandler));
   if (!commandHandler) {
-    NS_WARNING("Controller command table asked to update the state of a "
-               "command that it does not handle");
+    NS_WARNING(
+        "Controller command table asked to update the state of a "
+        "command that it does not handle");
     return NS_OK;
   }
 
@@ -139,8 +140,9 @@ nsControllerCommandTable::DoCommand(const char* aCommandName,
   nsCOMPtr<nsIControllerCommand> commandHandler;
   FindCommandHandler(aCommandName, getter_AddRefs(commandHandler));
   if (!commandHandler) {
-    NS_WARNING("Controller command table asked to do a command that it does "
-               "not handle");
+    NS_WARNING(
+        "Controller command table asked to do a command that it does "
+        "not handle");
     return NS_OK;
   }
 
@@ -155,8 +157,9 @@ nsControllerCommandTable::DoCommandParams(const char* aCommandName,
   nsCOMPtr<nsIControllerCommand> commandHandler;
   FindCommandHandler(aCommandName, getter_AddRefs(commandHandler));
   if (!commandHandler) {
-    NS_WARNING("Controller command table asked to do a command that it does "
-               "not handle");
+    NS_WARNING(
+        "Controller command table asked to do a command that it does "
+        "not handle");
     return NS_OK;
   }
   return commandHandler->DoCommandParams(aCommandName, aParams, aCommandRefCon);
@@ -170,12 +173,13 @@ nsControllerCommandTable::GetCommandState(const char* aCommandName,
   nsCOMPtr<nsIControllerCommand> commandHandler;
   FindCommandHandler(aCommandName, getter_AddRefs(commandHandler));
   if (!commandHandler) {
-    NS_WARNING("Controller command table asked to do a command that it does "
-               "not handle");
+    NS_WARNING(
+        "Controller command table asked to do a command that it does "
+        "not handle");
     return NS_OK;
   }
-  return commandHandler->GetCommandStateParams(aCommandName, aParams,
-                                               aCommandRefCon);
+  return commandHandler->GetCommandStateParams(
+      aCommandName, aParams, aCommandRefCon);
 }
 
 NS_IMETHODIMP
@@ -183,7 +187,7 @@ nsControllerCommandTable::GetSupportedCommands(uint32_t* aCount,
                                                char*** aCommands)
 {
   char** commands =
-    static_cast<char**>(moz_xmalloc(sizeof(char*) * mCommandsTable.Count()));
+      static_cast<char**>(moz_xmalloc(sizeof(char*) * mCommandsTable.Count()));
   *aCount = mCommandsTable.Count();
   *aCommands = commands;
 

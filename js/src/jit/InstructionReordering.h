@@ -12,10 +12,9 @@
 namespace js {
 namespace jit {
 
-MOZ_MUST_USE bool
-ReorderInstructions(MIRGenerator* mir, MIRGraph& graph);
+MOZ_MUST_USE bool ReorderInstructions(MIRGenerator* mir, MIRGraph& graph);
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
-#endif // jit_InstructionReordering_h
+#endif  // jit_InstructionReordering_h

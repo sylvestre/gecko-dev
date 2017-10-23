@@ -26,22 +26,20 @@ namespace mozilla {
 namespace dom {
 class DocumentType;
 
-class DOMImplementation final : public nsIDOMDOMImplementation
-                              , public nsWrapperCache
+class DOMImplementation final : public nsIDOMDOMImplementation,
+                                public nsWrapperCache
 {
-  ~DOMImplementation()
-  {
-  }
+  ~DOMImplementation() {}
 
-public:
+ public:
   DOMImplementation(nsIDocument* aOwner,
                     nsIGlobalObject* aScriptObject,
                     nsIURI* aDocumentURI,
                     nsIURI* aBaseURI)
-    : mOwner(aOwner)
-    , mScriptObject(do_GetWeakReference(aScriptObject))
-    , mDocumentURI(aDocumentURI)
-    , mBaseURI(aBaseURI)
+      : mOwner(aOwner),
+        mScriptObject(do_GetWeakReference(aScriptObject)),
+        mDocumentURI(aDocumentURI),
+        mBaseURI(aBaseURI)
   {
     MOZ_ASSERT(aOwner);
   }
@@ -49,37 +47,31 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMImplementation)
 
-  nsIDocument* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsIDocument* GetParentObject() const { return mOwner; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // nsIDOMDOMImplementation
   NS_DECL_NSIDOMDOMIMPLEMENTATION
 
-  bool HasFeature()
-  {
-    return true;
-  }
+  bool HasFeature() { return true; }
 
-  already_AddRefed<DocumentType>
-  CreateDocumentType(const nsAString& aQualifiedName,
-                     const nsAString& aPublicId,
-                     const nsAString& aSystemId,
-                     ErrorResult& aRv);
+  already_AddRefed<DocumentType> CreateDocumentType(
+      const nsAString& aQualifiedName,
+      const nsAString& aPublicId,
+      const nsAString& aSystemId,
+      ErrorResult& aRv);
 
-  already_AddRefed<nsIDocument>
-  CreateDocument(const nsAString& aNamespaceURI,
-                 const nsAString& aQualifiedName,
-                 nsIDOMDocumentType* aDoctype,
-                 ErrorResult& aRv);
+  already_AddRefed<nsIDocument> CreateDocument(const nsAString& aNamespaceURI,
+                                               const nsAString& aQualifiedName,
+                                               nsIDOMDocumentType* aDoctype,
+                                               ErrorResult& aRv);
 
-  already_AddRefed<nsIDocument>
-  CreateHTMLDocument(const Optional<nsAString>& aTitle, ErrorResult& aRv);
+  already_AddRefed<nsIDocument> CreateHTMLDocument(
+      const Optional<nsAString>& aTitle, ErrorResult& aRv);
 
-private:
+ private:
   nsresult CreateDocument(const nsAString& aNamespaceURI,
                           const nsAString& aQualifiedName,
                           nsIDOMDocumentType* aDoctype,
@@ -95,7 +87,7 @@ private:
   nsCOMPtr<nsIURI> mBaseURI;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_DOMImplementation_h
+#endif  // mozilla_dom_DOMImplementation_h

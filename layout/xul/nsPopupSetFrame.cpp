@@ -23,23 +23,22 @@ NS_NewPopupSetFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
 NS_IMPL_FRAMEARENA_HELPERS(nsPopupSetFrame)
 
 void
-nsPopupSetFrame::Init(nsIContent*       aContent,
+nsPopupSetFrame::Init(nsIContent* aContent,
                       nsContainerFrame* aParent,
-                      nsIFrame*         aPrevInFlow)
+                      nsIFrame* aPrevInFlow)
 {
   nsBoxFrame::Init(aContent, aParent, aPrevInFlow);
 
   // Normally the root box is our grandparent, but in case of wrapping
   // it can be our great-grandparent.
-  nsIRootBox *rootBox = nsIRootBox::GetRootBox(PresContext()->GetPresShell());
+  nsIRootBox* rootBox = nsIRootBox::GetRootBox(PresContext()->GetPresShell());
   if (rootBox) {
     rootBox->SetPopupSetFrame(this);
   }
 }
 
 void
-nsPopupSetFrame::AppendFrames(ChildListID     aListID,
-                              nsFrameList&    aFrameList)
+nsPopupSetFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList)
 {
   if (aListID == kPopupList) {
     AddPopupFrameList(aFrameList);
@@ -49,8 +48,7 @@ nsPopupSetFrame::AppendFrames(ChildListID     aListID,
 }
 
 void
-nsPopupSetFrame::RemoveFrame(ChildListID     aListID,
-                             nsIFrame*       aOldFrame)
+nsPopupSetFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame)
 {
   if (aListID == kPopupList) {
     RemovePopupFrame(aOldFrame);
@@ -60,9 +58,9 @@ nsPopupSetFrame::RemoveFrame(ChildListID     aListID,
 }
 
 void
-nsPopupSetFrame::InsertFrames(ChildListID     aListID,
-                              nsIFrame*       aPrevFrame,
-                              nsFrameList&    aFrameList)
+nsPopupSetFrame::InsertFrames(ChildListID aListID,
+                              nsIFrame* aPrevFrame,
+                              nsFrameList& aFrameList)
 {
   if (aListID == kPopupList) {
     AddPopupFrameList(aFrameList);
@@ -72,8 +70,8 @@ nsPopupSetFrame::InsertFrames(ChildListID     aListID,
 }
 
 void
-nsPopupSetFrame::SetInitialChildList(ChildListID     aListID,
-                                     nsFrameList&    aChildList)
+nsPopupSetFrame::SetInitialChildList(ChildListID aListID,
+                                     nsFrameList& aChildList)
 {
   if (aListID == kPopupList) {
     NS_ASSERTION(mPopupList.IsEmpty(),
@@ -107,7 +105,7 @@ nsPopupSetFrame::DestroyFrom(nsIFrame* aDestructRoot)
 
   // Normally the root box is our grandparent, but in case of wrapping
   // it can be our great-grandparent.
-  nsIRootBox *rootBox = nsIRootBox::GetRootBox(PresContext()->GetPresShell());
+  nsIRootBox* rootBox = nsIRootBox::GetRootBox(PresContext()->GetPresShell());
   if (rootBox) {
     rootBox->SetPopupSetFrame(nullptr);
   }
@@ -134,7 +132,7 @@ void
 nsPopupSetFrame::RemovePopupFrame(nsIFrame* aPopup)
 {
   NS_PRECONDITION((aPopup->GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&
-                  aPopup->IsMenuPopupFrame(),
+                      aPopup->IsMenuPopupFrame(),
                   "removing wrong type of frame in popupset's ::popupList");
 
   mPopupList.DestroyFrame(aPopup);
@@ -146,7 +144,7 @@ nsPopupSetFrame::AddPopupFrameList(nsFrameList& aPopupFrameList)
 #ifdef DEBUG
   for (nsFrameList::Enumerator e(aPopupFrameList); !e.AtEnd(); e.Next()) {
     NS_ASSERTION((e.get()->GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&
-                 e.get()->IsMenuPopupFrame(),
+                     e.get()->IsMenuPopupFrame(),
                  "adding wrong type of frame in popupset's ::popupList");
   }
 #endif

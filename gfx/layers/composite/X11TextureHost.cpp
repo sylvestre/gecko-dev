@@ -20,7 +20,7 @@ using namespace mozilla::gfx;
 
 X11TextureHost::X11TextureHost(TextureFlags aFlags,
                                const SurfaceDescriptorX11& aDescriptor)
- : TextureHost(aFlags)
+    : TextureHost(aFlags)
 {
   RefPtr<gfxXlibSurface> surface = aDescriptor.OpenForeign();
   mSurface = surface.get();
@@ -40,13 +40,13 @@ X11TextureHost::Lock()
   if (!mTextureSource) {
     switch (mCompositor->GetBackendType()) {
       case LayersBackend::LAYERS_BASIC:
-        mTextureSource =
-          new X11TextureSourceBasic(mCompositor->AsBasicCompositor(), mSurface);
+        mTextureSource = new X11TextureSourceBasic(
+            mCompositor->AsBasicCompositor(), mSurface);
         break;
 #ifdef GL_PROVIDER_GLX
       case LayersBackend::LAYERS_OPENGL:
         mTextureSource =
-          new X11TextureSourceOGL(mCompositor->AsCompositorOGL(), mSurface);
+            new X11TextureSourceOGL(mCompositor->AsCompositorOGL(), mSurface);
         break;
 #endif
       default:
@@ -96,17 +96,18 @@ X11TextureHost::GetAsSurface()
     return nullptr;
   }
   RefPtr<DrawTarget> tempDT =
-    gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-      GetSize(), GetFormat());
+      gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(GetSize(),
+                                                                   GetFormat());
   if (!tempDT) {
     return nullptr;
   }
-  RefPtr<SourceSurface> surf = mTextureSource->AsSourceBasic()->GetSurface(tempDT);
+  RefPtr<SourceSurface> surf =
+      mTextureSource->AsSourceBasic()->GetSurface(tempDT);
   if (!surf) {
     return nullptr;
   }
   return surf->GetDataSurface();
 }
 
-}
-}
+}  // namespace layers
+}  // namespace mozilla

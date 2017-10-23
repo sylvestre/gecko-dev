@@ -13,20 +13,19 @@ namespace dom {
 
 NS_IMPL_ISUPPORTS(PresentationSessionRequest, nsIPresentationSessionRequest)
 
-PresentationSessionRequest::PresentationSessionRequest(nsIPresentationDevice* aDevice,
-                                                       const nsAString& aUrl,
-                                                       const nsAString& aPresentationId,
-                                                       nsIPresentationControlChannel* aControlChannel)
-  : mUrl(aUrl)
-  , mPresentationId(aPresentationId)
-  , mDevice(aDevice)
-  , mControlChannel(aControlChannel)
+PresentationSessionRequest::PresentationSessionRequest(
+    nsIPresentationDevice* aDevice,
+    const nsAString& aUrl,
+    const nsAString& aPresentationId,
+    nsIPresentationControlChannel* aControlChannel)
+    : mUrl(aUrl),
+      mPresentationId(aPresentationId),
+      mDevice(aDevice),
+      mControlChannel(aControlChannel)
 {
 }
 
-PresentationSessionRequest::~PresentationSessionRequest()
-{
-}
+PresentationSessionRequest::~PresentationSessionRequest() {}
 
 // nsIPresentationSessionRequest
 
@@ -58,7 +57,8 @@ PresentationSessionRequest::GetPresentationId(nsAString& aRetVal)
 }
 
 NS_IMETHODIMP
-PresentationSessionRequest::GetControlChannel(nsIPresentationControlChannel** aRetVal)
+PresentationSessionRequest::GetControlChannel(
+    nsIPresentationControlChannel** aRetVal)
 {
   NS_ENSURE_ARG_POINTER(aRetVal);
 
@@ -68,5 +68,5 @@ PresentationSessionRequest::GetControlChannel(nsIPresentationControlChannel** aR
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

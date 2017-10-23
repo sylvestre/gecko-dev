@@ -16,9 +16,9 @@ NS_IMPL_ISUPPORTS_INHERITED0(ChannelSplitterNode, AudioNode)
 
 class ChannelSplitterNodeEngine final : public AudioNodeEngine
 {
-public:
+ public:
   explicit ChannelSplitterNodeEngine(ChannelSplitterNode* aNode)
-    : AudioNodeEngine(aNode)
+      : AudioNodeEngine(aNode)
   {
     MOZ_ASSERT(NS_IsMainThread());
   }
@@ -54,11 +54,9 @@ public:
 
 ChannelSplitterNode::ChannelSplitterNode(AudioContext* aContext,
                                          uint16_t aOutputCount)
-  : AudioNode(aContext,
-              2,
-              ChannelCountMode::Max,
-              ChannelInterpretation::Speakers)
-  , mOutputCount(aOutputCount)
+    : AudioNode(
+          aContext, 2, ChannelCountMode::Max, ChannelInterpretation::Speakers),
+      mOutputCount(aOutputCount)
 {
   mStream = AudioNodeStream::Create(aContext,
                                     new ChannelSplitterNodeEngine(this),
@@ -82,7 +80,7 @@ ChannelSplitterNode::Create(AudioContext& aAudioContext,
   }
 
   RefPtr<ChannelSplitterNode> audioNode =
-    new ChannelSplitterNode(&aAudioContext, aOptions.mNumberOfOutputs);
+      new ChannelSplitterNode(&aAudioContext, aOptions.mNumberOfOutputs);
 
   audioNode->Initialize(aOptions, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
@@ -93,10 +91,11 @@ ChannelSplitterNode::Create(AudioContext& aAudioContext,
 }
 
 JSObject*
-ChannelSplitterNode::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+ChannelSplitterNode::WrapObject(JSContext* aCx,
+                                JS::Handle<JSObject*> aGivenProto)
 {
   return ChannelSplitterNodeBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

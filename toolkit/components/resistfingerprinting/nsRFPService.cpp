@@ -35,11 +35,14 @@ using namespace mozilla;
 using namespace std;
 
 #define RESIST_FINGERPRINTING_PREF "privacy.resistFingerprinting"
-#define RFP_SPOOFED_FRAMES_PER_SEC_PREF "privacy.resistFingerprinting.video_frames_per_sec"
-#define RFP_SPOOFED_DROPPED_RATIO_PREF  "privacy.resistFingerprinting.video_dropped_ratio"
-#define RFP_TARGET_VIDEO_RES_PREF "privacy.resistFingerprinting.target_video_res"
+#define RFP_SPOOFED_FRAMES_PER_SEC_PREF \
+  "privacy.resistFingerprinting.video_frames_per_sec"
+#define RFP_SPOOFED_DROPPED_RATIO_PREF \
+  "privacy.resistFingerprinting.video_dropped_ratio"
+#define RFP_TARGET_VIDEO_RES_PREF \
+  "privacy.resistFingerprinting.target_video_res"
 #define RFP_SPOOFED_FRAMES_PER_SEC_DEFAULT 30
-#define RFP_SPOOFED_DROPPED_RATIO_DEFAULT  5
+#define RFP_SPOOFED_DROPPED_RATIO_DEFAULT 5
 #define RFP_TARGET_VIDEO_RES_DEFAULT 480
 #define PROFILE_INITIALIZED_TOPIC "profile-initial-state"
 
@@ -129,7 +132,9 @@ nsRFPService::GetSpoofedTotalFrames(double aTime)
 
 /* static */
 uint32_t
-nsRFPService::GetSpoofedDroppedFrames(double aTime, uint32_t aWidth, uint32_t aHeight)
+nsRFPService::GetSpoofedDroppedFrames(double aTime,
+                                      uint32_t aWidth,
+                                      uint32_t aHeight)
 {
   uint32_t targetRes = CalculateTargetVideoResolution(sTargetVideoRes);
 
@@ -143,12 +148,15 @@ nsRFPService::GetSpoofedDroppedFrames(double aTime, uint32_t aWidth, uint32_t aH
   // Bound the dropped ratio from 0 to 100.
   uint32_t boundedDroppedRatio = min(sVideoDroppedRatio, 100u);
 
-  return NSToIntFloor(time * sVideoFramesPerSec * (boundedDroppedRatio / 100.0));
+  return NSToIntFloor(time * sVideoFramesPerSec *
+                      (boundedDroppedRatio / 100.0));
 }
 
 /* static */
 uint32_t
-nsRFPService::GetSpoofedPresentedFrames(double aTime, uint32_t aWidth, uint32_t aHeight)
+nsRFPService::GetSpoofedPresentedFrames(double aTime,
+                                        uint32_t aWidth,
+                                        uint32_t aHeight)
 {
   uint32_t targetRes = CalculateTargetVideoResolution(sTargetVideoRes);
 
@@ -162,12 +170,13 @@ nsRFPService::GetSpoofedPresentedFrames(double aTime, uint32_t aWidth, uint32_t 
   // Bound the dropped ratio from 0 to 100.
   uint32_t boundedDroppedRatio = min(sVideoDroppedRatio, 100u);
 
-  return NSToIntFloor(time * sVideoFramesPerSec * ((100 - boundedDroppedRatio) / 100.0));
+  return NSToIntFloor(time * sVideoFramesPerSec *
+                      ((100 - boundedDroppedRatio) / 100.0));
 }
 
 /* static */
 nsresult
-nsRFPService::GetSpoofedUserAgent(nsACString &userAgent)
+nsRFPService::GetSpoofedUserAgent(nsACString& userAgent)
 {
   // This function generates the spoofed value of User Agent.
   // We spoof the values of the platform and Firefox version, which could be
@@ -178,7 +187,7 @@ nsRFPService::GetSpoofedUserAgent(nsACString &userAgent)
 
   nsresult rv;
   nsCOMPtr<nsIXULAppInfo> appInfo =
-    do_GetService("@mozilla.org/xre/app-info;1", &rv);
+      do_GetService("@mozilla.org/xre/app-info;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString appVersion;
@@ -195,7 +204,7 @@ nsRFPService::GetSpoofedUserAgent(nsACString &userAgent)
   // Firefox releases, e.g. Firefox 10, 17, 24, 31, and so on.
   // We infer the last and closest ESR version based on this rule.
   nsCOMPtr<nsIXULRuntime> runtime =
-    do_GetService("@mozilla.org/xre/runtime;1", &rv);
+      do_GetService("@mozilla.org/xre/runtime;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString updateChannel;
@@ -207,13 +216,16 @@ nsRFPService::GetSpoofedUserAgent(nsACString &userAgent)
   // function.
   if (updateChannel.EqualsLiteral("esr")) {
     MOZ_ASSERT(((firefoxVersion % 7) == 3),
-      "Please udpate ESR version formula in nsRFPService.cpp");
+               "Please udpate ESR version formula in nsRFPService.cpp");
   }
 
   uint32_t spoofedVersion = firefoxVersion - ((firefoxVersion - 3) % 7);
-  userAgent.Assign(nsPrintfCString(
-    "Mozilla/5.0 (%s; rv:%d.0) Gecko/%s Firefox/%d.0",
-    SPOOFED_OSCPU, spoofedVersion, LEGACY_BUILD_ID, spoofedVersion));
+  userAgent.Assign(
+      nsPrintfCString("Mozilla/5.0 (%s; rv:%d.0) Gecko/%s Firefox/%d.0",
+                      SPOOFED_OSCPU,
+                      spoofedVersion,
+                      LEGACY_BUILD_ID,
+                      spoofedVersion));
 
   return rv;
 }
@@ -269,7 +281,8 @@ void
 nsRFPService::UpdatePref()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  sPrivacyResistFingerprinting = Preferences::GetBool(RESIST_FINGERPRINTING_PREF);
+  sPrivacyResistFingerprinting =
+      Preferences::GetBool(RESIST_FINGERPRINTING_PREF);
 
   if (sPrivacyResistFingerprinting) {
     PR_SetEnv("TZ=UTC");
@@ -328,7 +341,8 @@ nsRFPService::StartShutdown()
 }
 
 NS_IMETHODIMP
-nsRFPService::Observe(nsISupports* aObject, const char* aTopic,
+nsRFPService::Observe(nsISupports* aObject,
+                      const char* aTopic,
                       const char16_t* aMessage)
 {
   if (!strcmp(NS_PREFBRANCH_PREFCHANGE_TOPIC_ID, aTopic)) {

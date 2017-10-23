@@ -10,7 +10,8 @@
 namespace mozilla {
 namespace a11y {
 
-enum class RelationType {
+enum class RelationType
+{
 
   /**
    * This object is labelled by a target object.
@@ -127,7 +128,6 @@ enum class RelationType {
    */
   CONTAINING_APPLICATION = 0x14,
 
-
   /**
    * The target object provides the detailed, extended description for this
    * object. It provides more detailed information than would normally be
@@ -157,7 +157,7 @@ enum class RelationType {
   LAST = ERRORMSG_FOR
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

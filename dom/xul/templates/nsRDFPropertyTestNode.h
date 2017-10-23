@@ -15,90 +15,93 @@
 
 class nsRDFPropertyTestNode : public nsRDFTestNode
 {
-public:
-    /**
+ public:
+  /**
      * Both source and target unbound (?source ^property ?target)
      */
-    nsRDFPropertyTestNode(TestNode* aParent,
-                          nsXULTemplateQueryProcessorRDF* aProcessor,
-                          nsAtom* aSourceVariable,
-                          nsIRDFResource* aProperty,
-                          nsAtom* aTargetVariable);
+  nsRDFPropertyTestNode(TestNode* aParent,
+                        nsXULTemplateQueryProcessorRDF* aProcessor,
+                        nsAtom* aSourceVariable,
+                        nsIRDFResource* aProperty,
+                        nsAtom* aTargetVariable);
 
-    /**
+  /**
      * Source bound, target unbound (source ^property ?target)
      */
-    nsRDFPropertyTestNode(TestNode* aParent,
-                          nsXULTemplateQueryProcessorRDF* aProcessor,
-                          nsIRDFResource* aSource,
-                          nsIRDFResource* aProperty,
-                          nsAtom* aTargetVariable);
+  nsRDFPropertyTestNode(TestNode* aParent,
+                        nsXULTemplateQueryProcessorRDF* aProcessor,
+                        nsIRDFResource* aSource,
+                        nsIRDFResource* aProperty,
+                        nsAtom* aTargetVariable);
 
-    /**
+  /**
      * Source unbound, target bound (?source ^property target)
      */
-    nsRDFPropertyTestNode(TestNode* aParent,
-                          nsXULTemplateQueryProcessorRDF* aProcessor,
-                          nsAtom* aSourceVariable,
-                          nsIRDFResource* aProperty,
-                          nsIRDFNode* aTarget);
+  nsRDFPropertyTestNode(TestNode* aParent,
+                        nsXULTemplateQueryProcessorRDF* aProcessor,
+                        nsAtom* aSourceVariable,
+                        nsIRDFResource* aProperty,
+                        nsIRDFNode* aTarget);
 
-    virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
-                                          bool* aCantHandleYet) const override;
+  virtual nsresult FilterInstantiations(InstantiationSet& aInstantiations,
+                                        bool* aCantHandleYet) const override;
 
-    virtual bool
-    CanPropagate(nsIRDFResource* aSource,
-                 nsIRDFResource* aProperty,
-                 nsIRDFNode* aTarget,
-                 Instantiation& aInitialBindings) const override;
+  virtual bool CanPropagate(nsIRDFResource* aSource,
+                            nsIRDFResource* aProperty,
+                            nsIRDFNode* aTarget,
+                            Instantiation& aInitialBindings) const override;
 
-    virtual void
-    Retract(nsIRDFResource* aSource,
+  virtual void Retract(nsIRDFResource* aSource,
+                       nsIRDFResource* aProperty,
+                       nsIRDFNode* aTarget) const override;
+
+  class Element : public MemoryElement
+  {
+   public:
+    Element(nsIRDFResource* aSource,
             nsIRDFResource* aProperty,
-            nsIRDFNode* aTarget) const override;
+            nsIRDFNode* aTarget)
+        : mSource(aSource), mProperty(aProperty), mTarget(aTarget)
+    {
+      MOZ_COUNT_CTOR(nsRDFPropertyTestNode::Element);
+    }
 
+    virtual ~Element() { MOZ_COUNT_DTOR(nsRDFPropertyTestNode::Element); }
 
-    class Element : public MemoryElement {
-    public:
-        Element(nsIRDFResource* aSource,
-                nsIRDFResource* aProperty,
-                nsIRDFNode* aTarget)
-            : mSource(aSource),
-              mProperty(aProperty),
-              mTarget(aTarget) {
-            MOZ_COUNT_CTOR(nsRDFPropertyTestNode::Element); }
+    virtual const char* Type() const override
+    {
+      return "nsRDFPropertyTestNode::Element";
+    }
 
-        virtual ~Element() { MOZ_COUNT_DTOR(nsRDFPropertyTestNode::Element); }
+    virtual PLHashNumber Hash() const override
+    {
+      return mozilla::HashGeneric(
+          mSource.get(), mProperty.get(), mTarget.get());
+    }
 
-        virtual const char* Type() const override {
-            return "nsRDFPropertyTestNode::Element"; }
+    virtual bool Equals(const MemoryElement& aElement) const override
+    {
+      if (aElement.Type() == Type()) {
+        const Element& element = static_cast<const Element&>(aElement);
+        return mSource == element.mSource && mProperty == element.mProperty &&
+               mTarget == element.mTarget;
+      }
+      return false;
+    }
 
-        virtual PLHashNumber Hash() const override {
-            return mozilla::HashGeneric(mSource.get(), mProperty.get(), mTarget.get());
-        }
-
-        virtual bool Equals(const MemoryElement& aElement) const override {
-            if (aElement.Type() == Type()) {
-                const Element& element = static_cast<const Element&>(aElement);
-                return mSource == element.mSource
-                    && mProperty == element.mProperty
-                    && mTarget == element.mTarget;
-            }
-            return false; }
-
-    protected:
-        nsCOMPtr<nsIRDFResource> mSource;
-        nsCOMPtr<nsIRDFResource> mProperty;
-        nsCOMPtr<nsIRDFNode> mTarget;
-    };
-
-protected:
-    nsXULTemplateQueryProcessorRDF* mProcessor;
-    RefPtr<nsAtom>        mSourceVariable;
+   protected:
     nsCOMPtr<nsIRDFResource> mSource;
     nsCOMPtr<nsIRDFResource> mProperty;
-    RefPtr<nsAtom>        mTargetVariable;
-    nsCOMPtr<nsIRDFNode>     mTarget;
+    nsCOMPtr<nsIRDFNode> mTarget;
+  };
+
+ protected:
+  nsXULTemplateQueryProcessorRDF* mProcessor;
+  RefPtr<nsAtom> mSourceVariable;
+  nsCOMPtr<nsIRDFResource> mSource;
+  nsCOMPtr<nsIRDFResource> mProperty;
+  RefPtr<nsAtom> mTargetVariable;
+  nsCOMPtr<nsIRDFNode> mTarget;
 };
 
-#endif // nsRDFPropertyTestNode_h__
+#endif  // nsRDFPropertyTestNode_h__

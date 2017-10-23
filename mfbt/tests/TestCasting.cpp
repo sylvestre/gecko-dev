@@ -26,7 +26,7 @@ struct UintUlongBitwiseCast<Uint, Ulong, true>
 template<typename Uint, typename Ulong>
 struct UintUlongBitwiseCast<Uint, Ulong, false>
 {
-  static void test() { }
+  static void test() {}
 };
 
 static void

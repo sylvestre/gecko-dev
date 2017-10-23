@@ -15,21 +15,17 @@
 #include "nsBox.h"
 #include "nsGridLayout2.h"
 
-
-nsGridCell::nsGridCell():mBoxInColumn(nullptr),mBoxInRow(nullptr)
+nsGridCell::nsGridCell() : mBoxInColumn(nullptr), mBoxInRow(nullptr)
 {
-    MOZ_COUNT_CTOR(nsGridCell);
+  MOZ_COUNT_CTOR(nsGridCell);
 }
 
-nsGridCell::~nsGridCell()
-{
-    MOZ_COUNT_DTOR(nsGridCell);
-}
+nsGridCell::~nsGridCell() { MOZ_COUNT_DTOR(nsGridCell); }
 
 nsSize
 nsGridCell::GetXULPrefSize(nsBoxLayoutState& aState)
 {
-  nsSize sum(0,0);
+  nsSize sum(0, 0);
 
   // take our 2 children and add them up.
   // we are as wide as the widest child plus its left offset
@@ -116,12 +112,9 @@ nsGridCell::GetXULMaxSize(nsBoxLayoutState& aState)
   return sum;
 }
 
-
 bool
 nsGridCell::IsXULCollapsed()
 {
   return ((mBoxInColumn && mBoxInColumn->IsXULCollapsed()) ||
           (mBoxInRow && mBoxInRow->IsXULCollapsed()));
 }
-
-

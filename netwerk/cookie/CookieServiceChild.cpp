@@ -33,11 +33,12 @@ namespace net {
 // Pref string constants
 static const char kPrefCookieBehavior[] = "network.cookie.cookieBehavior";
 static const char kPrefThirdPartySession[] =
-  "network.cookie.thirdparty.sessionOnly";
+    "network.cookie.thirdparty.sessionOnly";
 static const char kPrefThirdPartyNonsecureSession[] =
-  "network.cookie.thirdparty.nonsecureSessionOnly";
+    "network.cookie.thirdparty.nonsecureSessionOnly";
 static const char kPrefCookieIPCSync[] = "network.cookie.ipc.sync";
-static const char kCookieLeaveSecurityAlone[] = "network.cookie.leave-secure-alone";
+static const char kCookieLeaveSecurityAlone[] =
+    "network.cookie.leave-secure-alone";
 
 static StaticRefPtr<CookieServiceChild> gCookieService;
 
@@ -58,17 +59,17 @@ NS_IMPL_ISUPPORTS(CookieServiceChild,
                   nsISupportsWeakReference)
 
 CookieServiceChild::CookieServiceChild()
-  : mCookieBehavior(nsICookieService::BEHAVIOR_ACCEPT)
-  , mThirdPartySession(false)
-  , mThirdPartyNonsecureSession(false)
-  , mLeaveSecureAlone(true)
-  , mIPCSync(false)
-  , mIPCOpen(false)
+    : mCookieBehavior(nsICookieService::BEHAVIOR_ACCEPT),
+      mThirdPartySession(false),
+      mThirdPartyNonsecureSession(false),
+      mLeaveSecureAlone(true),
+      mIPCSync(false),
+      mIPCOpen(false)
 {
   NS_ASSERTION(IsNeckoChild(), "not a child process");
 
   mozilla::dom::ContentChild* cc =
-    static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
+      static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
   if (cc->IsShuttingDown()) {
     return;
   }
@@ -87,8 +88,7 @@ CookieServiceChild::CookieServiceChild()
   NS_ASSERTION(mTLDService, "couldn't get TLDService");
 
   // Init our prefs and observer.
-  nsCOMPtr<nsIPrefBranch> prefBranch =
-    do_GetService(NS_PREFSERVICE_CONTRACTID);
+  nsCOMPtr<nsIPrefBranch> prefBranch = do_GetService(NS_PREFSERVICE_CONTRACTID);
   NS_WARNING_ASSERTION(prefBranch, "no prefservice");
   if (prefBranch) {
     prefBranch->AddObserver(kPrefCookieBehavior, this, true);
@@ -100,10 +100,7 @@ CookieServiceChild::CookieServiceChild()
   }
 }
 
-CookieServiceChild::~CookieServiceChild()
-{
-  gCookieService = nullptr;
-}
+CookieServiceChild::~CookieServiceChild() { gCookieService = nullptr; }
 
 void
 CookieServiceChild::ActorDestroy(ActorDestroyReason why)
@@ -112,7 +109,7 @@ CookieServiceChild::ActorDestroy(ActorDestroyReason why)
 }
 
 void
-CookieServiceChild::TrackCookieLoad(nsIChannel *aChannel)
+CookieServiceChild::TrackCookieLoad(nsIChannel* aChannel)
 {
   if (!mIPCOpen) {
     return;
@@ -135,20 +132,21 @@ CookieServiceChild::TrackCookieLoad(nsIChannel *aChannel)
 }
 
 mozilla::ipc::IPCResult
-CookieServiceChild::RecvRemoveAll(){
+CookieServiceChild::RecvRemoveAll()
+{
   mCookiesMap.Clear();
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-CookieServiceChild::RecvRemoveCookie(const CookieStruct     &aCookie,
-                                     const OriginAttributes &aAttrs)
+CookieServiceChild::RecvRemoveCookie(const CookieStruct& aCookie,
+                                     const OriginAttributes& aAttrs)
 {
   nsCString baseDomain;
-  nsCookieService::
-    GetBaseDomainFromHost(mTLDService, aCookie.host(), baseDomain);
+  nsCookieService::GetBaseDomainFromHost(
+      mTLDService, aCookie.host(), baseDomain);
   nsCookieKey key(baseDomain, aAttrs);
-  CookiesList *cookiesList = nullptr;
+  CookiesList* cookiesList = nullptr;
   mCookiesMap.Get(key, &cookiesList);
 
   if (!cookiesList) {
@@ -156,7 +154,7 @@ CookieServiceChild::RecvRemoveCookie(const CookieStruct     &aCookie,
   }
 
   for (uint32_t i = 0; i < cookiesList->Length(); i++) {
-    nsCookie *cookie = cookiesList->ElementAt(i);
+    nsCookie* cookie = cookiesList->ElementAt(i);
     if (cookie->Name().Equals(aCookie.name()) &&
         cookie->Host().Equals(aCookie.host()) &&
         cookie->Path().Equals(aCookie.path())) {
@@ -169,8 +167,8 @@ CookieServiceChild::RecvRemoveCookie(const CookieStruct     &aCookie,
 }
 
 mozilla::ipc::IPCResult
-CookieServiceChild::RecvAddCookie(const CookieStruct     &aCookie,
-                                  const OriginAttributes &aAttrs)
+CookieServiceChild::RecvAddCookie(const CookieStruct& aCookie,
+                                  const OriginAttributes& aAttrs)
 {
   RefPtr<nsCookie> cookie = nsCookie::Create(aCookie.name(),
                                              aCookie.value(),
@@ -189,8 +187,9 @@ CookieServiceChild::RecvAddCookie(const CookieStruct     &aCookie,
 }
 
 mozilla::ipc::IPCResult
-CookieServiceChild::RecvRemoveBatchDeletedCookies(nsTArray<CookieStruct>&& aCookiesList,
-                                                  nsTArray<OriginAttributes>&& aAttrsList)
+CookieServiceChild::RecvRemoveBatchDeletedCookies(
+    nsTArray<CookieStruct>&& aCookiesList,
+    nsTArray<OriginAttributes>&& aAttrsList)
 {
   MOZ_ASSERT(aCookiesList.Length() == aAttrsList.Length());
   for (uint32_t i = 0; i < aCookiesList.Length(); i++) {
@@ -202,7 +201,7 @@ CookieServiceChild::RecvRemoveBatchDeletedCookies(nsTArray<CookieStruct>&& aCook
 
 mozilla::ipc::IPCResult
 CookieServiceChild::RecvTrackCookiesLoad(nsTArray<CookieStruct>&& aCookiesList,
-                                         const OriginAttributes &aAttrs)
+                                         const OriginAttributes& aAttrs)
 {
   for (uint32_t i = 0; i < aCookiesList.Length(); i++) {
     RefPtr<nsCookie> cookie = nsCookie::Create(aCookiesList[i].name(),
@@ -224,27 +223,28 @@ CookieServiceChild::RecvTrackCookiesLoad(nsTArray<CookieStruct>&& aCookiesList,
 }
 
 void
-CookieServiceChild::PrefChanged(nsIPrefBranch *aPrefBranch)
+CookieServiceChild::PrefChanged(nsIPrefBranch* aPrefBranch)
 {
   int32_t val;
   if (NS_SUCCEEDED(aPrefBranch->GetIntPref(kPrefCookieBehavior, &val)))
-    mCookieBehavior =
-      val >= nsICookieService::BEHAVIOR_ACCEPT &&
-      val <= nsICookieService::BEHAVIOR_LIMIT_FOREIGN
-        ? val : nsICookieService::BEHAVIOR_ACCEPT;
+    mCookieBehavior = val >= nsICookieService::BEHAVIOR_ACCEPT &&
+                              val <= nsICookieService::BEHAVIOR_LIMIT_FOREIGN
+                          ? val
+                          : nsICookieService::BEHAVIOR_ACCEPT;
 
   bool boolval;
   if (NS_SUCCEEDED(aPrefBranch->GetBoolPref(kPrefThirdPartySession, &boolval)))
     mThirdPartySession = !!boolval;
 
-  if (NS_SUCCEEDED(aPrefBranch->GetBoolPref(kPrefThirdPartyNonsecureSession,
-                                            &boolval)))
+  if (NS_SUCCEEDED(
+          aPrefBranch->GetBoolPref(kPrefThirdPartyNonsecureSession, &boolval)))
     mThirdPartyNonsecureSession = boolval;
 
   if (NS_SUCCEEDED(aPrefBranch->GetBoolPref(kPrefCookieIPCSync, &boolval)))
     mIPCSync = !!boolval;
 
-  if (NS_SUCCEEDED(aPrefBranch->GetBoolPref(kCookieLeaveSecurityAlone, &boolval)))
+  if (NS_SUCCEEDED(
+          aPrefBranch->GetBoolPref(kCookieLeaveSecurityAlone, &boolval)))
     mLeaveSecureAlone = !!boolval;
 
   if (!mThirdPartyUtil && RequireThirdPartyCheck()) {
@@ -254,20 +254,21 @@ CookieServiceChild::PrefChanged(nsIPrefBranch *aPrefBranch)
 }
 
 void
-CookieServiceChild::GetCookieStringFromCookieHashTable(nsIURI                 *aHostURI,
-                                                       bool                   aIsForeign,
-                                                       const OriginAttributes &aOriginAttrs,
-                                                       nsCString              &aCookieString)
+CookieServiceChild::GetCookieStringFromCookieHashTable(
+    nsIURI* aHostURI,
+    bool aIsForeign,
+    const OriginAttributes& aOriginAttrs,
+    nsCString& aCookieString)
 {
   nsCOMPtr<nsIEffectiveTLDService> TLDService =
-    do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
+      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
   NS_ASSERTION(TLDService, "Can't get TLDService");
   bool requireHostMatch;
   nsAutoCString baseDomain;
-  nsCookieService::
-    GetBaseDomain(TLDService, aHostURI, baseDomain, requireHostMatch);
+  nsCookieService::GetBaseDomain(
+      TLDService, aHostURI, baseDomain, requireHostMatch);
   nsCookieKey key(baseDomain, aOriginAttrs);
-  CookiesList *cookiesList = nullptr;
+  CookiesList* cookiesList = nullptr;
   mCookiesMap.Get(key, &cookiesList);
 
   if (!cookiesList) {
@@ -282,33 +283,35 @@ CookieServiceChild::GetCookieStringFromCookieHashTable(nsIURI                 *a
   int64_t currentTimeInUsec = PR_Now();
   int64_t currentTime = currentTimeInUsec / PR_USEC_PER_SEC;
 
-  nsCOMPtr<nsICookiePermission> permissionService = do_GetService(NS_COOKIEPERMISSION_CONTRACTID);
-  CookieStatus cookieStatus =
-    nsCookieService::CheckPrefs(permissionService, mCookieBehavior,
-                                mThirdPartySession,
-                                mThirdPartyNonsecureSession, aHostURI,
-                                aIsForeign, nullptr,
-                                CountCookiesFromHashTable(baseDomain, aOriginAttrs),
-                                aOriginAttrs);
+  nsCOMPtr<nsICookiePermission> permissionService =
+      do_GetService(NS_COOKIEPERMISSION_CONTRACTID);
+  CookieStatus cookieStatus = nsCookieService::CheckPrefs(
+      permissionService,
+      mCookieBehavior,
+      mThirdPartySession,
+      mThirdPartyNonsecureSession,
+      aHostURI,
+      aIsForeign,
+      nullptr,
+      CountCookiesFromHashTable(baseDomain, aOriginAttrs),
+      aOriginAttrs);
 
-  if (cookieStatus != STATUS_ACCEPTED && cookieStatus != STATUS_ACCEPT_SESSION) {
+  if (cookieStatus != STATUS_ACCEPTED &&
+      cookieStatus != STATUS_ACCEPT_SESSION) {
     return;
   }
 
   cookiesList->Sort(CompareCookiesForSending());
   for (uint32_t i = 0; i < cookiesList->Length(); i++) {
-    nsCookie *cookie = cookiesList->ElementAt(i);
+    nsCookie* cookie = cookiesList->ElementAt(i);
     // check the host, since the base domain lookup is conservative.
-    if (!nsCookieService::DomainMatches(cookie, hostFromURI))
-      continue;
+    if (!nsCookieService::DomainMatches(cookie, hostFromURI)) continue;
 
     // if the cookie is secure and the host scheme isn't, we can't send it
-    if (cookie->IsSecure() && !isSecure)
-      continue;
+    if (cookie->IsSecure() && !isSecure) continue;
 
     // if the nsIURI path doesn't match the cookie path, don't send it back
-    if (!nsCookieService::PathMatches(cookie, pathFromURI))
-      continue;
+    if (!nsCookieService::PathMatches(cookie, pathFromURI)) continue;
 
     // check if the cookie has expired
     if (cookie->Expiry() <= currentTime) {
@@ -331,10 +334,10 @@ CookieServiceChild::GetCookieStringFromCookieHashTable(nsIURI                 *a
 }
 
 void
-CookieServiceChild::GetCookieStringSyncIPC(nsIURI                 *aHostURI,
-                                           bool                   aIsForeign,
-                                           const OriginAttributes &aAttrs,
-                                           nsAutoCString          &aCookieString)
+CookieServiceChild::GetCookieStringSyncIPC(nsIURI* aHostURI,
+                                           bool aIsForeign,
+                                           const OriginAttributes& aAttrs,
+                                           nsAutoCString& aCookieString)
 {
   URIParams uriParams;
   SerializeURI(aHostURI, uriParams);
@@ -343,10 +346,10 @@ CookieServiceChild::GetCookieStringSyncIPC(nsIURI                 *aHostURI,
 }
 
 uint32_t
-CookieServiceChild::CountCookiesFromHashTable(const nsCString &aBaseDomain,
-                                              const OriginAttributes &aOriginAttrs)
+CookieServiceChild::CountCookiesFromHashTable(
+    const nsCString& aBaseDomain, const OriginAttributes& aOriginAttrs)
 {
-  CookiesList *cookiesList = nullptr;
+  CookiesList* cookiesList = nullptr;
 
   nsCString baseDomain;
   nsCookieKey key(aBaseDomain, aOriginAttrs);
@@ -356,29 +359,29 @@ CookieServiceChild::CountCookiesFromHashTable(const nsCString &aBaseDomain,
 }
 
 void
-CookieServiceChild::SetCookieInternal(nsCookieAttributes              &aCookieAttributes,
-                                      const mozilla::OriginAttributes &aAttrs,
-                                      nsIChannel                      *aChannel,
-                                      bool                             aFromHttp,
-                                      nsICookiePermission             *aPermissionService)
+CookieServiceChild::SetCookieInternal(nsCookieAttributes& aCookieAttributes,
+                                      const mozilla::OriginAttributes& aAttrs,
+                                      nsIChannel* aChannel,
+                                      bool aFromHttp,
+                                      nsICookiePermission* aPermissionService)
 {
   if (aCookieAttributes.isHttpOnly) {
     return;
   }
   int64_t currentTimeInUsec = PR_Now();
   RefPtr<nsCookie> cookie =
-    nsCookie::Create(aCookieAttributes.name,
-                     aCookieAttributes.value,
-                     aCookieAttributes.host,
-                     aCookieAttributes.path,
-                     aCookieAttributes.expiryTime,
-                     currentTimeInUsec,
-                     nsCookie::GenerateUniqueCreationTime(currentTimeInUsec),
-                     aCookieAttributes.isSession,
-                     aCookieAttributes.isSecure,
-                     aCookieAttributes.isHttpOnly,
-                     aAttrs,
-                     aCookieAttributes.sameSite);
+      nsCookie::Create(aCookieAttributes.name,
+                       aCookieAttributes.value,
+                       aCookieAttributes.host,
+                       aCookieAttributes.path,
+                       aCookieAttributes.expiryTime,
+                       currentTimeInUsec,
+                       nsCookie::GenerateUniqueCreationTime(currentTimeInUsec),
+                       aCookieAttributes.isSession,
+                       aCookieAttributes.isSecure,
+                       aCookieAttributes.isHttpOnly,
+                       aAttrs,
+                       aCookieAttributes.sameSite);
 
   RecordDocumentCookie(cookie, aAttrs);
 }
@@ -387,28 +390,27 @@ bool
 CookieServiceChild::RequireThirdPartyCheck()
 {
   return mCookieBehavior == nsICookieService::BEHAVIOR_REJECT_FOREIGN ||
-    mCookieBehavior == nsICookieService::BEHAVIOR_LIMIT_FOREIGN ||
-    mThirdPartySession ||
-    mThirdPartyNonsecureSession;
+         mCookieBehavior == nsICookieService::BEHAVIOR_LIMIT_FOREIGN ||
+         mThirdPartySession || mThirdPartyNonsecureSession;
 }
 
 void
-CookieServiceChild::RecordDocumentCookie(nsCookie               *aCookie,
-                                         const OriginAttributes &aAttrs)
+CookieServiceChild::RecordDocumentCookie(nsCookie* aCookie,
+                                         const OriginAttributes& aAttrs)
 {
   nsAutoCString baseDomain;
-  nsCookieService::
-    GetBaseDomainFromHost(mTLDService, aCookie->Host(), baseDomain);
+  nsCookieService::GetBaseDomainFromHost(
+      mTLDService, aCookie->Host(), baseDomain);
 
   nsCookieKey key(baseDomain, aAttrs);
-  CookiesList *cookiesList = nullptr;
+  CookiesList* cookiesList = nullptr;
   mCookiesMap.Get(key, &cookiesList);
 
   if (!cookiesList) {
     cookiesList = mCookiesMap.LookupOrAdd(key);
   }
   for (uint32_t i = 0; i < cookiesList->Length(); i++) {
-    nsCookie *cookie = cookiesList->ElementAt(i);
+    nsCookie* cookie = cookiesList->ElementAt(i);
     if (cookie->Name().Equals(aCookie->Name()) &&
         cookie->Host().Equals(aCookie->Host()) &&
         cookie->Path().Equals(aCookie->Path())) {
@@ -434,9 +436,9 @@ CookieServiceChild::RecordDocumentCookie(nsCookie               *aCookie,
 }
 
 nsresult
-CookieServiceChild::GetCookieStringInternal(nsIURI *aHostURI,
-                                            nsIChannel *aChannel,
-                                            char **aCookieString)
+CookieServiceChild::GetCookieStringInternal(nsIURI* aHostURI,
+                                            nsIChannel* aChannel,
+                                            char** aCookieString)
 {
   NS_ENSURE_ARG(aHostURI);
   NS_ENSURE_ARG_POINTER(aCookieString);
@@ -447,8 +449,7 @@ CookieServiceChild::GetCookieStringInternal(nsIURI *aHostURI,
   // documents.
   nsAutoCString scheme;
   aHostURI->GetScheme(scheme);
-  if (scheme.EqualsLiteral("moz-nullprincipal"))
-    return NS_OK;
+  if (scheme.EqualsLiteral("moz-nullprincipal")) return NS_OK;
 
   mozilla::OriginAttributes attrs;
   if (aChannel) {
@@ -472,17 +473,16 @@ CookieServiceChild::GetCookieStringInternal(nsIURI *aHostURI,
     GetCookieStringSyncIPC(aHostURI, !!isForeign, attrs, result);
   }
 
-  if (!result.IsEmpty())
-    *aCookieString = ToNewCString(result);
+  if (!result.IsEmpty()) *aCookieString = ToNewCString(result);
 
   return NS_OK;
 }
 
 nsresult
-CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
-                                            nsIChannel *aChannel,
-                                            const char *aCookieString,
-                                            const char *aServerTime,
+CookieServiceChild::SetCookieStringInternal(nsIURI* aHostURI,
+                                            nsIChannel* aChannel,
+                                            const char* aCookieString,
+                                            const char* aServerTime,
                                             bool aFromHttp)
 {
   NS_ENSURE_ARG(aHostURI);
@@ -492,8 +492,7 @@ CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
   // documents.
   nsAutoCString scheme;
   aHostURI->GetScheme(scheme);
-  if (scheme.EqualsLiteral("moz-nullprincipal"))
-    return NS_OK;
+  if (scheme.EqualsLiteral("moz-nullprincipal")) return NS_OK;
 
   // Determine whether the request is foreign. Failure is acceptable.
   bool isForeign = true;
@@ -502,8 +501,7 @@ CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
 
   nsDependentCString cookieString(aCookieString);
   nsDependentCString stringServerTime;
-  if (aServerTime)
-    stringServerTime.Rebind(aServerTime);
+  if (aServerTime) stringServerTime.Rebind(aServerTime);
 
   URIParams uriParams;
   SerializeURI(aHostURI, uriParams);
@@ -518,8 +516,12 @@ CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
 
   // Asynchronously call the parent.
   if (mIPCOpen) {
-    SendSetCookieString(uriParams, !!isForeign, cookieString,
-                        stringServerTime, attrs, aFromHttp);
+    SendSetCookieString(uriParams,
+                        !!isForeign,
+                        cookieString,
+                        stringServerTime,
+                        attrs,
+                        aFromHttp);
   }
 
   if (mIPCSync) {
@@ -528,20 +530,25 @@ CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
 
   bool requireHostMatch;
   nsCString baseDomain;
-  nsCookieService::
-    GetBaseDomain(mTLDService, aHostURI, baseDomain, requireHostMatch);
+  nsCookieService::GetBaseDomain(
+      mTLDService, aHostURI, baseDomain, requireHostMatch);
 
-  nsCOMPtr<nsICookiePermission> permissionService = do_GetService(NS_COOKIEPERMISSION_CONTRACTID);
+  nsCOMPtr<nsICookiePermission> permissionService =
+      do_GetService(NS_COOKIEPERMISSION_CONTRACTID);
 
   CookieStatus cookieStatus =
-    nsCookieService::CheckPrefs(permissionService, mCookieBehavior,
-                                mThirdPartySession,
-                                mThirdPartyNonsecureSession, aHostURI,
-                                isForeign, aCookieString,
-                                CountCookiesFromHashTable(baseDomain, attrs),
-                                attrs);
+      nsCookieService::CheckPrefs(permissionService,
+                                  mCookieBehavior,
+                                  mThirdPartySession,
+                                  mThirdPartyNonsecureSession,
+                                  aHostURI,
+                                  isForeign,
+                                  aCookieString,
+                                  CountCookiesFromHashTable(baseDomain, attrs),
+                                  attrs);
 
-  if (cookieStatus != STATUS_ACCEPTED && cookieStatus != STATUS_ACCEPT_SESSION) {
+  if (cookieStatus != STATUS_ACCEPTED &&
+      cookieStatus != STATUS_ACCEPT_SESSION) {
     return NS_OK;
   }
 
@@ -552,15 +559,22 @@ CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
     nsCookieAttributes cookieAttributes;
     bool canSetCookie = false;
     nsCookieKey key(baseDomain, attrs);
-    moreCookies = nsCookieService::CanSetCookie(aHostURI, key, cookieAttributes,
-                                                requireHostMatch, cookieStatus,
-                                                cookieString, serverTime, aFromHttp,
-                                                aChannel, mLeaveSecureAlone,
-                                                canSetCookie, mThirdPartyUtil);
+    moreCookies = nsCookieService::CanSetCookie(aHostURI,
+                                                key,
+                                                cookieAttributes,
+                                                requireHostMatch,
+                                                cookieStatus,
+                                                cookieString,
+                                                serverTime,
+                                                aFromHttp,
+                                                aChannel,
+                                                mLeaveSecureAlone,
+                                                canSetCookie,
+                                                mThirdPartyUtil);
 
     if (canSetCookie) {
-      SetCookieInternal(cookieAttributes, attrs, aChannel,
-                        aFromHttp, permissionService);
+      SetCookieInternal(
+          cookieAttributes, attrs, aChannel, aFromHttp, permissionService);
     }
 
     // document.cookie can only set one cookie at a time.
@@ -573,56 +587,55 @@ CookieServiceChild::SetCookieStringInternal(nsIURI *aHostURI,
 }
 
 NS_IMETHODIMP
-CookieServiceChild::Observe(nsISupports     *aSubject,
-                            const char      *aTopic,
-                            const char16_t *aData)
+CookieServiceChild::Observe(nsISupports* aSubject,
+                            const char* aTopic,
+                            const char16_t* aData)
 {
   NS_ASSERTION(strcmp(aTopic, NS_PREFBRANCH_PREFCHANGE_TOPIC_ID) == 0,
                "not a pref change topic!");
 
   nsCOMPtr<nsIPrefBranch> prefBranch = do_QueryInterface(aSubject);
-  if (prefBranch)
-    PrefChanged(prefBranch);
+  if (prefBranch) PrefChanged(prefBranch);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-CookieServiceChild::GetCookieString(nsIURI *aHostURI,
-                                    nsIChannel *aChannel,
-                                    char **aCookieString)
+CookieServiceChild::GetCookieString(nsIURI* aHostURI,
+                                    nsIChannel* aChannel,
+                                    char** aCookieString)
 {
   return GetCookieStringInternal(aHostURI, aChannel, aCookieString);
 }
 
 NS_IMETHODIMP
-CookieServiceChild::GetCookieStringFromHttp(nsIURI *aHostURI,
-                                            nsIURI *aFirstURI,
-                                            nsIChannel *aChannel,
-                                            char **aCookieString)
+CookieServiceChild::GetCookieStringFromHttp(nsIURI* aHostURI,
+                                            nsIURI* aFirstURI,
+                                            nsIChannel* aChannel,
+                                            char** aCookieString)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-CookieServiceChild::SetCookieString(nsIURI *aHostURI,
-                                    nsIPrompt *aPrompt,
-                                    const char *aCookieString,
-                                    nsIChannel *aChannel)
+CookieServiceChild::SetCookieString(nsIURI* aHostURI,
+                                    nsIPrompt* aPrompt,
+                                    const char* aCookieString,
+                                    nsIChannel* aChannel)
 {
-  return SetCookieStringInternal(aHostURI, aChannel, aCookieString,
-                                 nullptr, false);
+  return SetCookieStringInternal(
+      aHostURI, aChannel, aCookieString, nullptr, false);
 }
 
 NS_IMETHODIMP
-CookieServiceChild::SetCookieStringFromHttp(nsIURI     *aHostURI,
-                                            nsIURI     *aFirstURI,
-                                            nsIPrompt  *aPrompt,
-                                            const char *aCookieString,
-                                            const char *aServerTime,
-                                            nsIChannel *aChannel)
+CookieServiceChild::SetCookieStringFromHttp(nsIURI* aHostURI,
+                                            nsIURI* aFirstURI,
+                                            nsIPrompt* aPrompt,
+                                            const char* aCookieString,
+                                            const char* aServerTime,
+                                            nsIChannel* aChannel)
 {
-  return SetCookieStringInternal(aHostURI, aChannel, aCookieString,
-                                 aServerTime, true);
+  return SetCookieStringInternal(
+      aHostURI, aChannel, aCookieString, aServerTime, true);
 }
 
 NS_IMETHODIMP
@@ -631,5 +644,5 @@ CookieServiceChild::RunInTransaction(nsICookieTransactionCallback* aCallback)
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

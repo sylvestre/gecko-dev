@@ -18,12 +18,11 @@ class nsIIOService;
 
 class mozTXTToHTMLConv : public mozITXTToHTMLConv
 {
-
   virtual ~mozTXTToHTMLConv();
 
-//////////////////////////////////////////////////////////
-public:
-//////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////
+ public:
+  //////////////////////////////////////////////////////////
 
   mozTXTToHTMLConv();
   NS_DECL_ISUPPORTS
@@ -33,27 +32,30 @@ public:
   NS_DECL_NSISTREAMLISTENER
   NS_DECL_NSISTREAMCONVERTER
 
-/**
+  /**
   see mozITXTToHTMLConv::ScanTXT
  */
-  void ScanTXT(const char16_t * aInString, int32_t aInStringLength, uint32_t whattodo, nsString& aOutString);
+  void ScanTXT(const char16_t* aInString,
+               int32_t aInStringLength,
+               uint32_t whattodo,
+               nsString& aOutString);
 
-/**
+  /**
   see mozITXTToHTMLConv::ScanHTML. We will modify aInString potentially...
  */
-  void ScanHTML(nsString& aInString, uint32_t whattodo, nsString &aOutString);
+  void ScanHTML(nsString& aInString, uint32_t whattodo, nsString& aOutString);
 
-/**
+  /**
   see mozITXTToHTMLConv::CiteLevelTXT
  */
-  int32_t CiteLevelTXT(const char16_t * line,uint32_t& logLineStart);
+  int32_t CiteLevelTXT(const char16_t* line, uint32_t& logLineStart);
 
-
-//////////////////////////////////////////////////////////
-protected:
-//////////////////////////////////////////////////////////
-  nsCOMPtr<nsIIOService> mIOService; // for performance reasons, cache the netwerk service...
-/**
+  //////////////////////////////////////////////////////////
+ protected:
+  //////////////////////////////////////////////////////////
+  nsCOMPtr<nsIIOService>
+      mIOService;  // for performance reasons, cache the netwerk service...
+                   /**
   Completes<ul>
   <li>Case 1: mailto: "mozilla@bucksch.org" -> "mailto:mozilla@bucksch.org"
   <li>Case 2: http:   "www.mozilla.org"     -> "http://www.mozilla.org"
@@ -64,13 +66,14 @@ protected:
   @param pos (in): position of "@" (case 1) or first "." (case 2 and 3)
   @return Completed URL at success and empty string at failure
  */
-  void CompleteAbbreviatedURL(const char16_t * aInString, int32_t aInLength,
-                              const uint32_t pos, nsString& aOutString);
+  void CompleteAbbreviatedURL(const char16_t* aInString,
+                              int32_t aInLength,
+                              const uint32_t pos,
+                              nsString& aOutString);
 
-
-//////////////////////////////////////////////////////////
-private:
-//////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////
+ private:
+  //////////////////////////////////////////////////////////
 
   enum LIMTYPE
   {
@@ -80,7 +83,7 @@ private:
     LT_DIGIT
   };
 
-/**
+  /**
   @param text (in): the string to search through.<p>
          If before = IGNORE,<br>
            rep is compared starting at 1. char of text (text[0]),<br>
@@ -92,17 +95,25 @@ private:
   @param after (in): limitation after rep
   @return true, if rep is found and limitation spec is met or rep is empty
 */
-  bool ItMatchesDelimited(const char16_t * aInString, int32_t aInLength,
-      const char16_t * rep, int32_t aRepLen, LIMTYPE before, LIMTYPE after);
+  bool ItMatchesDelimited(const char16_t* aInString,
+                          int32_t aInLength,
+                          const char16_t* rep,
+                          int32_t aRepLen,
+                          LIMTYPE before,
+                          LIMTYPE after);
 
-/**
+  /**
   @param see ItMatchesDelimited
   @return Number of ItMatchesDelimited in text
 */
-  uint32_t NumberOfMatches(const char16_t * aInString, int32_t aInStringLength,
-      const char16_t* rep, int32_t aRepLen, LIMTYPE before, LIMTYPE after);
+  uint32_t NumberOfMatches(const char16_t* aInString,
+                           int32_t aInStringLength,
+                           const char16_t* rep,
+                           int32_t aRepLen,
+                           LIMTYPE before,
+                           LIMTYPE after);
 
-/**
+  /**
   Currently only changes "<", ">" and "&". All others stay as they are.<p>
   "Char" in function name to avoid side effects with nsString(ch)
   constructors.
@@ -112,32 +123,35 @@ private:
   @param inAttribute (in) - will escape quotes, too (which is
                             only needed for attribute values)
 */
-  void EscapeChar(const char16_t ch, nsString& aStringToAppendto,
+  void EscapeChar(const char16_t ch,
+                  nsString& aStringToAppendto,
                   bool inAttribute);
 
-/**
+  /**
   See EscapeChar. Escapes the string in place.
 */
   void EscapeStr(nsString& aInString, bool inAttribute);
 
-/**
+  /**
   Currently only reverts "<", ">" and "&". All others stay as they are.<p>
   @param aInString (in) HTML string
   @param aStartPos (in) start index into the buffer
   @param aLength (in) length of the buffer
   @param aOutString (out) unescaped buffer
 */
-  void UnescapeStr(const char16_t * aInString, int32_t aStartPos,
-                   int32_t aLength, nsString& aOutString);
+  void UnescapeStr(const char16_t* aInString,
+                   int32_t aStartPos,
+                   int32_t aLength,
+                   nsString& aOutString);
 
-/**
+  /**
   <em>Note</em>: I use different strategies to pass context between the
   functions (full text and pos vs. cutted text and col0, glphyTextLen vs.
   replaceBefore/-After). It makes some sense, but is hard to understand
   (maintain) :-(.
 */
 
-/**
+  /**
   <p><em>Note:</em> replaceBefore + replaceAfter + 1 (for char at pos) chars
   in text should be replaced by outputHTML.</p>
   <p><em>Note:</em> This function should be able to process a URL on multiple
@@ -153,54 +167,66 @@ private:
   @param replaceAfter (out): Number of chars of URL after pos
   @return URL found
 */
-  bool FindURL(const char16_t * aInString, int32_t aInLength, const uint32_t pos,
-          const uint32_t whathasbeendone,
-          nsString& outputHTML, int32_t& replaceBefore, int32_t& replaceAfter);
+  bool FindURL(const char16_t* aInString,
+               int32_t aInLength,
+               const uint32_t pos,
+               const uint32_t whathasbeendone,
+               nsString& outputHTML,
+               int32_t& replaceBefore,
+               int32_t& replaceAfter);
 
-  enum modetype {
-         unknown,
-         RFC1738,          /* Check, if RFC1738, APPENDIX compliant,
+  enum modetype
+  {
+    unknown,
+    RFC1738,    /* Check, if RFC1738, APPENDIX compliant,
                               like "<URL:http://www.mozilla.org>". */
-         RFC2396E,         /* RFC2396, APPENDIX E allows anglebrackets (like
+    RFC2396E,   /* RFC2396, APPENDIX E allows anglebrackets (like
                               "<http://www.mozilla.org>") (without "URL:") or
                               quotation marks(like ""http://www.mozilla.org"").
                               Also allow email addresses without scheme,
                               e.g. "<mozilla@bucksch.org>" */
-         freetext,         /* assume heading scheme
+    freetext,   /* assume heading scheme
                               with "[a-zA-Z][a-zA-Z0-9+\-\.]*:" like "news:"
                               (see RFC2396, Section 3.1).
                               Certain characters (see code) or any whitespace
                               (including linebreaks) end the URL.
                               Other certain (punctation) characters (see code)
                               at the end are stripped off. */
-         abbreviated       /* Similar to freetext, but without scheme, e.g.
+    abbreviated /* Similar to freetext, but without scheme, e.g.
 	                      "www.mozilla.org", "ftp.mozilla.org" and
                               "mozilla@bucksch.org". */
-      /* RFC1738 and RFC2396E type URLs may use multiple lines,
+                /* RFC1738 and RFC2396E type URLs may use multiple lines,
          whitespace is stripped. Special characters like ")" stay intact.*/
   };
 
-/**
+  /**
  * @param text (in), pos (in): see FindURL
  * @param check (in): Start must be conform with this mode
  * @param start (out): Position in text, where URL (including brackets or
  *             similar) starts
  * @return |check|-conform start has been found
  */
-  bool FindURLStart(const char16_t * aInString, int32_t aInLength, const uint32_t pos,
-            	               const modetype check, uint32_t& start);
+  bool FindURLStart(const char16_t* aInString,
+                    int32_t aInLength,
+                    const uint32_t pos,
+                    const modetype check,
+                    uint32_t& start);
 
-/**
+  /**
  * @param text (in), pos (in): see FindURL
  * @param check (in): End must be conform with this mode
  * @param start (in): see FindURLStart
  * @param end (out): Similar to |start| param of FindURLStart
  * @return |check|-conform end has been found
  */
-  bool FindURLEnd(const char16_t * aInString, int32_t aInStringLength, const uint32_t pos,
-           const modetype check, const uint32_t start, uint32_t& end);
+  bool FindURLEnd(const char16_t* aInString,
+                  int32_t aInStringLength,
+                  const uint32_t pos,
+                  const modetype check,
+                  const uint32_t start,
+                  uint32_t& end);
 
-/**
+  /**
  * @param text (in), pos (in), whathasbeendone (in): see FindURL
  * @param check (in): Current mode
  * @param start (in), end (in): see FindURLEnd
@@ -210,22 +236,29 @@ private:
  *             Should be placed between the <a> and </a> tags.
  * @param replaceBefore(out), replaceAfter (out): see FindURL
  */
-  void CalculateURLBoundaries(const char16_t * aInString, int32_t aInStringLength,
-     const uint32_t pos, const uint32_t whathasbeendone,
-     const modetype check, const uint32_t start, const uint32_t end,
-     nsString& txtURL, nsString& desc,
-     int32_t& replaceBefore, int32_t& replaceAfter);
+  void CalculateURLBoundaries(const char16_t* aInString,
+                              int32_t aInStringLength,
+                              const uint32_t pos,
+                              const uint32_t whathasbeendone,
+                              const modetype check,
+                              const uint32_t start,
+                              const uint32_t end,
+                              nsString& txtURL,
+                              nsString& desc,
+                              int32_t& replaceBefore,
+                              int32_t& replaceAfter);
 
-/**
+  /**
  * @param txtURL (in), desc (in): see CalculateURLBoundaries
  * @param outputHTML (out): see FindURL
  * @return A valid URL could be found (and creation of HTML successful)
  */
-  bool CheckURLAndCreateHTML(
-       const nsString& txtURL, const nsString& desc, const modetype mode,
-       nsString& outputHTML);
+  bool CheckURLAndCreateHTML(const nsString& txtURL,
+                             const nsString& desc,
+                             const modetype mode,
+                             nsString& outputHTML);
 
-/**
+  /**
   @param text (in): line of text possibly with tagTXT.<p>
               if col0 is true,
                 starting with tagTXT<br>
@@ -243,25 +276,32 @@ private:
   @param open (in/out): Number of currently open tags of type tagHTML
   @return Conversion succeeded
 */
-  bool StructPhraseHit(const char16_t * aInString, int32_t aInStringLength, bool col0,
-     const char16_t* tagTXT,
-     int32_t aTagTxtLen,
-     const char* tagHTML, const char* attributeHTML,
-     nsString& aOutputString, uint32_t& openTags);
+  bool StructPhraseHit(const char16_t* aInString,
+                       int32_t aInStringLength,
+                       bool col0,
+                       const char16_t* tagTXT,
+                       int32_t aTagTxtLen,
+                       const char* tagHTML,
+                       const char* attributeHTML,
+                       nsString& aOutputString,
+                       uint32_t& openTags);
 
-/**
+  /**
   @param text (in), col0 (in): see GlyphHit
   @param tagTXT (in): Smily, see also StructPhraseHit
   @param imageName (in): the basename of the file that contains the image for this smilie
   @param outputHTML (out): new string containing the html for the smily
   @param glyphTextLen (out): see GlyphHit
 */
-  bool
-         SmilyHit(const char16_t * aInString, int32_t aLength, bool col0,
-         const char* tagTXT, const char* imageName,
-         nsString& outputHTML, int32_t& glyphTextLen);
+  bool SmilyHit(const char16_t* aInString,
+                int32_t aLength,
+                bool col0,
+                const char* tagTXT,
+                const char* imageName,
+                nsString& outputHTML,
+                int32_t& glyphTextLen);
 
-/**
+  /**
   Checks, if we can replace some chars at the start of line with prettier HTML
   code.<p>
   If success is reported, replace the first glyphTextLen chars with outputHTML
@@ -276,10 +316,13 @@ private:
   @param glyphTextLen (out): Length of original text to replace
   @return see StructPhraseHit
 */
-  bool GlyphHit(const char16_t * aInString, int32_t aInLength, bool col0,
-       nsString& aOutString, int32_t& glyphTextLen);
+  bool GlyphHit(const char16_t* aInString,
+                int32_t aInLength,
+                bool col0,
+                nsString& aOutString,
+                int32_t& glyphTextLen);
 
-/**
+  /**
   Check if a given url should be linkified.
   @param aURL (in): url to be checked on.
 */
@@ -288,7 +331,7 @@ private:
 
 // It's said, that Win32 and Mac don't like static const members
 const int32_t mozTXTToHTMLConv_lastMode = 4;
-	                        // Needed (only) by mozTXTToHTMLConv::FindURL
+// Needed (only) by mozTXTToHTMLConv::FindURL
 const int32_t mozTXTToHTMLConv_numberOfModes = 4;  // dito; unknown not counted
 
 #endif

@@ -3,36 +3,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "ClientLayerManager.h"         // for ClientLayerManager, etc
-#include "ImageContainer.h"             // for AutoLockImage, etc
-#include "ImageLayers.h"                // for ImageLayer
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for RefPtr
+#include "ClientLayerManager.h"  // for ClientLayerManager, etc
+#include "ImageContainer.h"      // for AutoLockImage, etc
+#include "ImageLayers.h"         // for ImageLayer
+#include "mozilla/Attributes.h"  // for override
+#include "mozilla/RefPtr.h"      // for RefPtr
 #include "mozilla/layers/CompositorTypes.h"
-#include "mozilla/layers/ImageClient.h"  // for ImageClient, etc
+#include "mozilla/layers/ImageClient.h"     // for ImageClient, etc
 #include "mozilla/layers/LayersMessages.h"  // for ImageLayerAttributes, etc
-#include "mozilla/mozalloc.h"           // for operator delete, etc
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsDebug.h"                    // for NS_ASSERTION
-#include "nsISupportsImpl.h"            // for Layer::AddRef, etc
-#include "nsRegion.h"                   // for nsIntRegion
+#include "mozilla/mozalloc.h"               // for operator delete, etc
+#include "nsCOMPtr.h"                       // for already_AddRefed
+#include "nsDebug.h"                        // for NS_ASSERTION
+#include "nsISupportsImpl.h"                // for Layer::AddRef, etc
+#include "nsRegion.h"                       // for nsIntRegion
 
 namespace mozilla {
 namespace layers {
 
 using namespace mozilla::gfx;
 
-class ClientImageLayer : public ImageLayer,
-                         public ClientLayer {
-public:
+class ClientImageLayer : public ImageLayer, public ClientLayer
+{
+ public:
   explicit ClientImageLayer(ClientLayerManager* aLayerManager)
-    : ImageLayer(aLayerManager, static_cast<ClientLayer*>(this))
-    , mImageClientTypeContainer(CompositableType::UNKNOWN)
+      : ImageLayer(aLayerManager, static_cast<ClientLayer*>(this)),
+        mImageClientTypeContainer(CompositableType::UNKNOWN)
   {
     MOZ_COUNT_CTOR(ClientImageLayer);
   }
 
-protected:
+ protected:
   virtual ~ClientImageLayer()
   {
     DestroyBackBuffer();
@@ -53,11 +53,8 @@ protected:
   }
 
   virtual void RenderLayer() override;
-  
-  virtual void ClearCachedResources() override
-  {
-    DestroyBackBuffer();
-  }
+
+  virtual void ClearCachedResources() override { DestroyBackBuffer(); }
 
   virtual bool SupportsAsyncUpdate() override
   {
@@ -82,10 +79,7 @@ protected:
   virtual Layer* AsLayer() override { return this; }
   virtual ShadowableLayer* AsShadowableLayer() override { return this; }
 
-  virtual void Disconnect() override
-  {
-    DestroyBackBuffer();
-  }
+  virtual void Disconnect() override { DestroyBackBuffer(); }
 
   void DestroyBackBuffer()
   {
@@ -101,7 +95,7 @@ protected:
     return mImageClient;
   }
 
-protected:
+ protected:
   ClientLayerManager* ClientManager()
   {
     return static_cast<ClientLayerManager*>(mManager);
@@ -120,8 +114,8 @@ protected:
 
     AutoLockImage autoLock(mContainer);
 
-    mImageClientTypeContainer = autoLock.HasImage()
-        ? CompositableType::IMAGE : CompositableType::UNKNOWN;
+    mImageClientTypeContainer = autoLock.HasImage() ? CompositableType::IMAGE
+                                                    : CompositableType::UNKNOWN;
     return mImageClientTypeContainer;
   }
 
@@ -135,7 +129,7 @@ ClientImageLayer::RenderLayer()
   RenderMaskLayers(this);
 
   if (!mContainer) {
-     return;
+    return;
   }
 
   if (!mImageClient ||
@@ -145,9 +139,8 @@ ClientImageLayer::RenderLayer()
       return;
     }
     TextureFlags flags = TextureFlags::DEFAULT;
-    mImageClient = ImageClient::CreateImageClient(type,
-                                                  ClientManager()->AsShadowForwarder(),
-                                                  flags);
+    mImageClient = ImageClient::CreateImageClient(
+        type, ClientManager()->AsShadowForwarder(), flags);
     if (!mImageClient) {
       return;
     }
@@ -167,11 +160,10 @@ already_AddRefed<ImageLayer>
 ClientLayerManager::CreateImageLayer()
 {
   NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-  RefPtr<ClientImageLayer> layer =
-    new ClientImageLayer(this);
+  RefPtr<ClientImageLayer> layer = new ClientImageLayer(this);
   CREATE_SHADOW(Image);
   return layer.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

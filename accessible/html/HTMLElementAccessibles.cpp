@@ -48,7 +48,7 @@ HTMLBRAccessible::NativeState()
 ENameValueFlag
 HTMLBRAccessible::NativeName(nsString& aName)
 {
-  aName = static_cast<char16_t>('\n');    // Newline char
+  aName = static_cast<char16_t>('\n');  // Newline char
   return eNameOK;
 }
 
@@ -87,21 +87,18 @@ void
 HTMLLabelAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
   if (aIndex == 0) {
-    if (nsCoreUtils::IsLabelWithControl(mContent))
-      aName.AssignLiteral("click");
+    if (nsCoreUtils::IsLabelWithControl(mContent)) aName.AssignLiteral("click");
   }
 }
 
 bool
 HTMLLabelAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != 0)
-    return false;
+  if (aIndex != 0) return false;
 
   DoCommand();
   return true;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // nsHTMLOuputAccessible
@@ -123,9 +120,9 @@ HTMLOutputAccessible::RelationByType(RelationType aType)
 // HTMLSummaryAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLSummaryAccessible::
-  HTMLSummaryAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLSummaryAccessible::HTMLSummaryAccessible(nsIContent* aContent,
+                                             DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
   mGenericTypes |= eButton;
 }
@@ -143,7 +140,8 @@ HTMLSummaryAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
     return;
   }
 
-  dom::HTMLSummaryElement* summary = dom::HTMLSummaryElement::FromContent(mContent);
+  dom::HTMLSummaryElement* summary =
+      dom::HTMLSummaryElement::FromContent(mContent);
   if (!summary) {
     return;
   }
@@ -163,8 +161,7 @@ HTMLSummaryAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 bool
 HTMLSummaryAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != eAction_Click)
-    return false;
+  if (aIndex != eAction_Click) return false;
 
   DoCommand();
   return true;
@@ -175,7 +172,8 @@ HTMLSummaryAccessible::NativeState()
 {
   uint64_t state = HyperTextAccessibleWrap::NativeState();
 
-  dom::HTMLSummaryElement* summary = dom::HTMLSummaryElement::FromContent(mContent);
+  dom::HTMLSummaryElement* summary =
+      dom::HTMLSummaryElement::FromContent(mContent);
   if (!summary) {
     return state;
   }
@@ -203,7 +201,6 @@ HTMLSummaryAccessible::IsWidget() const
   return true;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLHeaderOrFooterAccessible
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,11 +214,16 @@ HTMLHeaderOrFooterAccessible::NativeRole()
   // If other sectioning or sectioning root elements, they become sections.
   nsIContent* parent = mContent->GetParent();
   while (parent) {
-    if (parent->IsAnyOfHTMLElements(nsGkAtoms::article, nsGkAtoms::aside,
-                             nsGkAtoms::nav, nsGkAtoms::section,
-                             nsGkAtoms::blockquote, nsGkAtoms::details,
-                             nsGkAtoms::dialog, nsGkAtoms::fieldset,
-                             nsGkAtoms::figure, nsGkAtoms::td)) {
+    if (parent->IsAnyOfHTMLElements(nsGkAtoms::article,
+                                    nsGkAtoms::aside,
+                                    nsGkAtoms::nav,
+                                    nsGkAtoms::section,
+                                    nsGkAtoms::blockquote,
+                                    nsGkAtoms::details,
+                                    nsGkAtoms::dialog,
+                                    nsGkAtoms::fieldset,
+                                    nsGkAtoms::figure,
+                                    nsGkAtoms::td)) {
       break;
     }
     parent = parent->GetParent();
@@ -244,8 +246,7 @@ HTMLHeaderOrFooterAccessible::NativeRole()
 nsAtom*
 HTMLHeaderOrFooterAccessible::LandmarkRole() const
 {
-  if (!HasOwnContent())
-    return nullptr;
+  if (!HasOwnContent()) return nullptr;
 
   a11y::role r = const_cast<HTMLHeaderOrFooterAccessible*>(this)->Role();
   if (r == roles::HEADER) {

@@ -27,7 +27,7 @@ class ModuleLoadRequest final : public ScriptLoadRequest
   ModuleLoadRequest(const ModuleLoadRequest& aOther) = delete;
   ModuleLoadRequest(ModuleLoadRequest&& aOther) = delete;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ModuleLoadRequest, ScriptLoadRequest)
 
@@ -37,10 +37,7 @@ public:
                     const SRIMetadata& aIntegrity,
                     ScriptLoader* aLoader);
 
-  bool IsTopLevel() const
-  {
-    return mIsTopLevel;
-  }
+  bool IsTopLevel() const { return mIsTopLevel; }
 
   void SetReady() override;
   void Cancel() override;
@@ -82,7 +79,7 @@ public:
   nsTArray<RefPtr<ModuleLoadRequest>> mImports;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ModuleLoadRequest_h
+#endif  // mozilla_dom_ModuleLoadRequest_h

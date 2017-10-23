@@ -30,11 +30,9 @@ class Image;
 struct MemoryCounter
 {
   MemoryCounter()
-    : mSource(0)
-    , mDecodedHeap(0)
-    , mDecodedNonHeap(0)
-    , mSharedHandles(0)
-  { }
+      : mSource(0), mDecodedHeap(0), mDecodedNonHeap(0), mSharedHandles(0)
+  {
+  }
 
   void SetSource(size_t aCount) { mSource = aCount; }
   size_t Source() const { return mSource; }
@@ -54,7 +52,7 @@ struct MemoryCounter
     return *this;
   }
 
-private:
+ private:
   size_t mSource;
   size_t mDecodedHeap;
   size_t mDecodedNonHeap;
@@ -70,18 +68,19 @@ enum class SurfaceMemoryCounterType
 
 struct SurfaceMemoryCounter
 {
-  SurfaceMemoryCounter(const SurfaceKey& aKey,
-                       bool aIsLocked,
-                       bool aCannotSubstitute,
-                       bool aIsFactor2,
-                       SurfaceMemoryCounterType aType =
-                         SurfaceMemoryCounterType::NORMAL)
-    : mKey(aKey)
-    , mType(aType)
-    , mIsLocked(aIsLocked)
-    , mCannotSubstitute(aCannotSubstitute)
-    , mIsFactor2(aIsFactor2)
-  { }
+  SurfaceMemoryCounter(
+      const SurfaceKey& aKey,
+      bool aIsLocked,
+      bool aCannotSubstitute,
+      bool aIsFactor2,
+      SurfaceMemoryCounterType aType = SurfaceMemoryCounterType::NORMAL)
+      : mKey(aKey),
+        mType(aType),
+        mIsLocked(aIsLocked),
+        mCannotSubstitute(aCannotSubstitute),
+        mIsFactor2(aIsFactor2)
+  {
+  }
 
   const SurfaceKey& Key() const { return mKey; }
   MemoryCounter& Values() { return mValues; }
@@ -91,7 +90,7 @@ struct SurfaceMemoryCounter
   bool CannotSubstitute() const { return mCannotSubstitute; }
   bool IsFactor2() const { return mIsFactor2; }
 
-private:
+ private:
   const SurfaceKey mKey;
   MemoryCounter mValues;
   const SurfaceMemoryCounterType mType;
@@ -115,12 +114,12 @@ struct ImageMemoryCounter
   bool IsNotable() const
   {
     const size_t NotableThreshold = 16 * 1024;
-    size_t total = mValues.Source() + mValues.DecodedHeap()
-                                    + mValues.DecodedNonHeap();
+    size_t total =
+        mValues.Source() + mValues.DecodedHeap() + mValues.DecodedNonHeap();
     return total >= NotableThreshold;
   }
 
-private:
+ private:
   nsCString mURI;
   nsTArray<SurfaceMemoryCounter> mSurfaces;
   gfx::IntSize mIntrinsicSize;
@@ -129,14 +128,13 @@ private:
   const bool mIsUsed;
 };
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Image Base Types
 ///////////////////////////////////////////////////////////////////////////////
 
 class Image : public imgIContainer
 {
-public:
+ public:
   /**
    * Flags for Image initialization.
    *
@@ -158,11 +156,11 @@ public:
    * INIT_FLAG_SYNC_LOAD: The container is being loaded synchronously, so
    * it should avoid relying on async workers to get the container ready.
    */
-  static const uint32_t INIT_FLAG_NONE                     = 0x0;
-  static const uint32_t INIT_FLAG_DISCARDABLE              = 0x1;
-  static const uint32_t INIT_FLAG_DECODE_IMMEDIATELY       = 0x2;
-  static const uint32_t INIT_FLAG_TRANSIENT                = 0x4;
-  static const uint32_t INIT_FLAG_SYNC_LOAD                = 0x8;
+  static const uint32_t INIT_FLAG_NONE = 0x0;
+  static const uint32_t INIT_FLAG_DISCARDABLE = 0x1;
+  static const uint32_t INIT_FLAG_DECODE_IMMEDIATELY = 0x2;
+  static const uint32_t INIT_FLAG_TRANSIENT = 0x4;
+  static const uint32_t INIT_FLAG_SYNC_LOAD = 0x8;
 
   virtual already_AddRefed<ProgressTracker> GetProgressTracker() = 0;
   virtual void SetProgressTracker(ProgressTracker* aProgressTracker) {}
@@ -172,8 +170,8 @@ public:
    * If MallocSizeOf does not work on this platform, uses a fallback approach to
    * ensure that something reasonable is always returned.
    */
-  virtual size_t
-    SizeOfSourceWithComputedFallback(SizeOfState& aState) const = 0;
+  virtual size_t SizeOfSourceWithComputedFallback(
+      SizeOfState& aState) const = 0;
 
   /**
    * Collect an accounting of the memory occupied by the image's surfaces (which
@@ -232,12 +230,12 @@ public:
 
   virtual ImageURL* GetURI() = 0;
 
-  virtual void ReportUseCounters() { }
+  virtual void ReportUseCounters() {}
 };
 
 class ImageResource : public Image
 {
-public:
+ public:
   already_AddRefed<ProgressTracker> GetProgressTracker() override
   {
     RefPtr<ProgressTracker> progressTracker = mProgressTracker;
@@ -245,8 +243,7 @@ public:
     return progressTracker.forget();
   }
 
-  void SetProgressTracker(
-                       ProgressTracker* aProgressTracker) override final
+  void SetProgressTracker(ProgressTracker* aProgressTracker) override final
   {
     MOZ_ASSERT(aProgressTracker);
     MOZ_ASSERT(!mProgressTracker);
@@ -262,7 +259,7 @@ public:
   }
 #endif
 
-  virtual void OnSurfaceDiscarded(const SurfaceKey& aSurfaceKey) override { }
+  virtual void OnSurfaceDiscarded(const SurfaceKey& aSurfaceKey) override {}
 
   virtual void SetInnerWindowID(uint64_t aInnerWindowId) override
   {
@@ -270,7 +267,7 @@ public:
   }
   virtual uint64_t InnerWindowID() const override { return mInnerWindowId; }
 
-  virtual bool HasError() override    { return mError; }
+  virtual bool HasError() override { return mError; }
   virtual void SetHasError() override { mError = true; }
 
   /*
@@ -279,7 +276,7 @@ public:
    */
   virtual ImageURL* GetURI() override { return mURI.get(); }
 
-protected:
+ protected:
   explicit ImageResource(ImageURL* aURI);
   ~ImageResource();
 
@@ -309,7 +306,8 @@ protected:
    * Extended by child classes, if they have additional
    * conditions for being able to animate.
    */
-  virtual bool ShouldAnimate() {
+  virtual bool ShouldAnimate()
+  {
     return mAnimationConsumers > 0 && mAnimationMode != kDontAnimMode;
   }
 
@@ -319,18 +317,18 @@ protected:
   void SendOnUnlockedDraw(uint32_t aFlags);
 
   // Member data shared by all implementations of this abstract class
-  RefPtr<ProgressTracker>     mProgressTracker;
-  RefPtr<ImageURL>            mURI;
-  TimeStamp                     mLastRefreshTime;
-  uint64_t                      mInnerWindowId;
-  uint32_t                      mAnimationConsumers;
-  uint16_t                      mAnimationMode; // Enum values in imgIContainer
-  bool                          mInitialized:1; // Have we been initalized?
-  bool                          mAnimating:1;   // Are we currently animating?
-  bool                          mError:1;       // Error handling
+  RefPtr<ProgressTracker> mProgressTracker;
+  RefPtr<ImageURL> mURI;
+  TimeStamp mLastRefreshTime;
+  uint64_t mInnerWindowId;
+  uint32_t mAnimationConsumers;
+  uint16_t mAnimationMode;  // Enum values in imgIContainer
+  bool mInitialized : 1;    // Have we been initalized?
+  bool mAnimating : 1;      // Are we currently animating?
+  bool mError : 1;          // Error handling
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_Image_h
+#endif  // mozilla_image_Image_h

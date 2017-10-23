@@ -21,24 +21,17 @@ SVGFEOffsetElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return SVGFEOffsetElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFEOffsetElement::sNumberInfo[2] =
-{
-  { &nsGkAtoms::dx, 0, false },
-  { &nsGkAtoms::dy, 0, false }
-};
+nsSVGElement::NumberInfo SVGFEOffsetElement::sNumberInfo[2] = {
+    {&nsGkAtoms::dx, 0, false}, {&nsGkAtoms::dy, 0, false}};
 
-nsSVGElement::StringInfo SVGFEOffsetElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEOffsetElement::sStringInfo[2] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
 
-
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEOffsetElement)
-
 
 //----------------------------------------------------------------------
 
@@ -61,16 +54,17 @@ SVGFEOffsetElement::Dy()
 }
 
 FilterPrimitiveDescription
-SVGFEOffsetElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                            const IntRect& aFilterSubregion,
-                                            const nsTArray<bool>& aInputsAreTainted,
-                                            nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFEOffsetElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   FilterPrimitiveDescription descr(PrimitiveType::Offset);
   IntPoint offset(int32_t(aInstance->GetPrimitiveNumber(
-                            SVGContentUtils::X, &mNumberAttributes[DX])),
+                      SVGContentUtils::X, &mNumberAttributes[DX])),
                   int32_t(aInstance->GetPrimitiveNumber(
-                            SVGContentUtils::Y, &mNumberAttributes[DY])));
+                      SVGContentUtils::Y, &mNumberAttributes[DY])));
   descr.Attributes().Set(eOffsetOffset, offset);
   return descr;
 }
@@ -79,10 +73,10 @@ bool
 SVGFEOffsetElement::AttributeAffectsRendering(int32_t aNameSpaceID,
                                               nsAtom* aAttribute) const
 {
-  return SVGFEOffsetElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
+  return SVGFEOffsetElementBase::AttributeAffectsRendering(aNameSpaceID,
+                                                           aAttribute) ||
          (aNameSpaceID == kNameSpaceID_None &&
-          (aAttribute == nsGkAtoms::in ||
-           aAttribute == nsGkAtoms::dx ||
+          (aAttribute == nsGkAtoms::in || aAttribute == nsGkAtoms::dx ||
            aAttribute == nsGkAtoms::dy));
 }
 
@@ -98,16 +92,16 @@ SVGFEOffsetElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 nsSVGElement::NumberAttributesInfo
 SVGFEOffsetElement::GetNumberInfo()
 {
-  return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
-                              ArrayLength(sNumberInfo));
+  return NumberAttributesInfo(
+      mNumberAttributes, sNumberInfo, ArrayLength(sNumberInfo));
 }
 
 nsSVGElement::StringAttributesInfo
 SVGFEOffsetElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

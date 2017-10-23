@@ -14,7 +14,7 @@ namespace widget {
 // nsBaseWidget.
 class InProcessCompositorWidget : public CompositorWidget
 {
-public:
+ public:
   explicit InProcessCompositorWidget(const layers::CompositorOptions& aOptions,
                                      nsBaseWidget* aWidget);
 
@@ -25,12 +25,13 @@ public:
   virtual void DrawWindowOverlay(WidgetRenderingContext* aContext,
                                  LayoutDeviceIntRect aRect) override;
   virtual already_AddRefed<gfx::DrawTarget> StartRemoteDrawing() override;
-  virtual already_AddRefed<gfx::DrawTarget>
-  StartRemoteDrawingInRegion(LayoutDeviceIntRegion& aInvalidRegion,
-                             layers::BufferMode* aBufferMode) override;
+  virtual already_AddRefed<gfx::DrawTarget> StartRemoteDrawingInRegion(
+      LayoutDeviceIntRegion& aInvalidRegion,
+      layers::BufferMode* aBufferMode) override;
   virtual void EndRemoteDrawing() override;
-  virtual void EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
-                                        LayoutDeviceIntRegion& aInvalidRegion) override;
+  virtual void EndRemoteDrawingInRegion(
+      gfx::DrawTarget* aDrawTarget,
+      LayoutDeviceIntRegion& aInvalidRegion) override;
   virtual void CleanupRemoteDrawing() override;
   virtual void CleanupWindowEffects() override;
   virtual bool InitCompositor(layers::Compositor* aCompositor) override;
@@ -42,11 +43,11 @@ public:
   // If you can override this method, inherit from CompositorWidget instead.
   nsIWidget* RealWidget() override;
 
-protected:
+ protected:
   nsBaseWidget* mWidget;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif

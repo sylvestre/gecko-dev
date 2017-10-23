@@ -32,17 +32,18 @@ static uint64_t gNextWebSocketID = 0;
 // WebSocket.
 static const uint64_t kWebSocketIDTotalBits = 53;
 static const uint64_t kWebSocketIDProcessBits = 22;
-static const uint64_t kWebSocketIDWebSocketBits = kWebSocketIDTotalBits - kWebSocketIDProcessBits;
+static const uint64_t kWebSocketIDWebSocketBits =
+    kWebSocketIDTotalBits - kWebSocketIDProcessBits;
 
 BaseWebSocketChannel::BaseWebSocketChannel()
-  : mWasOpened(0)
-  , mClientSetPingInterval(0)
-  , mClientSetPingTimeout(0)
-  , mEncrypted(0)
-  , mPingForced(0)
-  , mIsServerSide(false)
-  , mPingInterval(0)
-  , mPingResponseTimeout(10000)
+    : mWasOpened(0),
+      mClientSetPingInterval(0),
+      mClientSetPingTimeout(0),
+      mEncrypted(0),
+      mPingForced(0),
+      mIsServerSide(false),
+      mPingInterval(0),
+      mPingResponseTimeout(10000)
 {
   // Generation of a unique serial ID.
   uint64_t processID = 0;
@@ -51,7 +52,8 @@ BaseWebSocketChannel::BaseWebSocketChannel()
     processID = cc->GetID();
   }
 
-  uint64_t processBits = processID & ((uint64_t(1) << kWebSocketIDProcessBits) - 1);
+  uint64_t processBits =
+      processID & ((uint64_t(1) << kWebSocketIDProcessBits) - 1);
 
   // Make sure no actual webSocket ends up with mWebSocketID == 0 but less then
   // what the kWebSocketIDProcessBits allows.
@@ -59,7 +61,8 @@ BaseWebSocketChannel::BaseWebSocketChannel()
     gNextWebSocketID = 1;
   }
 
-  uint64_t webSocketBits = gNextWebSocketID & ((uint64_t(1) << kWebSocketIDWebSocketBits) - 1);
+  uint64_t webSocketBits =
+      gNextWebSocketID & ((uint64_t(1) << kWebSocketIDWebSocketBits) - 1);
   mSerial = (processBits << kWebSocketIDWebSocketBits) | webSocketBits;
 }
 
@@ -68,23 +71,21 @@ BaseWebSocketChannel::BaseWebSocketChannel()
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetOriginalURI(nsIURI **aOriginalURI)
+BaseWebSocketChannel::GetOriginalURI(nsIURI** aOriginalURI)
 {
   LOG(("BaseWebSocketChannel::GetOriginalURI() %p\n", this));
 
-  if (!mOriginalURI)
-    return NS_ERROR_NOT_INITIALIZED;
+  if (!mOriginalURI) return NS_ERROR_NOT_INITIALIZED;
   NS_ADDREF(*aOriginalURI = mOriginalURI);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetURI(nsIURI **aURI)
+BaseWebSocketChannel::GetURI(nsIURI** aURI)
 {
   LOG(("BaseWebSocketChannel::GetURI() %p\n", this));
 
-  if (!mOriginalURI)
-    return NS_ERROR_NOT_INITIALIZED;
+  if (!mOriginalURI) return NS_ERROR_NOT_INITIALIZED;
   if (mURI)
     NS_ADDREF(*aURI = mURI);
   else
@@ -93,8 +94,8 @@ BaseWebSocketChannel::GetURI(nsIURI **aURI)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::
-GetNotificationCallbacks(nsIInterfaceRequestor **aNotificationCallbacks)
+BaseWebSocketChannel::GetNotificationCallbacks(
+    nsIInterfaceRequestor** aNotificationCallbacks)
 {
   LOG(("BaseWebSocketChannel::GetNotificationCallbacks() %p\n", this));
   NS_IF_ADDREF(*aNotificationCallbacks = mCallbacks);
@@ -102,8 +103,8 @@ GetNotificationCallbacks(nsIInterfaceRequestor **aNotificationCallbacks)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::
-SetNotificationCallbacks(nsIInterfaceRequestor *aNotificationCallbacks)
+BaseWebSocketChannel::SetNotificationCallbacks(
+    nsIInterfaceRequestor* aNotificationCallbacks)
 {
   LOG(("BaseWebSocketChannel::SetNotificationCallbacks() %p\n", this));
   mCallbacks = aNotificationCallbacks;
@@ -111,7 +112,7 @@ SetNotificationCallbacks(nsIInterfaceRequestor *aNotificationCallbacks)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetLoadGroup(nsILoadGroup **aLoadGroup)
+BaseWebSocketChannel::GetLoadGroup(nsILoadGroup** aLoadGroup)
 {
   LOG(("BaseWebSocketChannel::GetLoadGroup() %p\n", this));
   NS_IF_ADDREF(*aLoadGroup = mLoadGroup);
@@ -119,7 +120,7 @@ BaseWebSocketChannel::GetLoadGroup(nsILoadGroup **aLoadGroup)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::SetLoadGroup(nsILoadGroup *aLoadGroup)
+BaseWebSocketChannel::SetLoadGroup(nsILoadGroup* aLoadGroup)
 {
   LOG(("BaseWebSocketChannel::SetLoadGroup() %p\n", this));
   mLoadGroup = aLoadGroup;
@@ -141,7 +142,7 @@ BaseWebSocketChannel::GetLoadInfo(nsILoadInfo** aLoadInfo)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetExtensions(nsACString &aExtensions)
+BaseWebSocketChannel::GetExtensions(nsACString& aExtensions)
 {
   LOG(("BaseWebSocketChannel::GetExtensions() %p\n", this));
   aExtensions = mNegotiatedExtensions;
@@ -149,7 +150,7 @@ BaseWebSocketChannel::GetExtensions(nsACString &aExtensions)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetProtocol(nsACString &aProtocol)
+BaseWebSocketChannel::GetProtocol(nsACString& aProtocol)
 {
   LOG(("BaseWebSocketChannel::GetProtocol() %p\n", this));
   aProtocol = mProtocol;
@@ -157,15 +158,15 @@ BaseWebSocketChannel::GetProtocol(nsACString &aProtocol)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::SetProtocol(const nsACString &aProtocol)
+BaseWebSocketChannel::SetProtocol(const nsACString& aProtocol)
 {
   LOG(("BaseWebSocketChannel::SetProtocol() %p\n", this));
-  mProtocol = aProtocol;                        /* the sub protocol */
+  mProtocol = aProtocol; /* the sub protocol */
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetPingInterval(uint32_t *aSeconds)
+BaseWebSocketChannel::GetPingInterval(uint32_t* aSeconds)
 {
   // stored in ms but should only have second resolution
   MOZ_ASSERT(!(mPingInterval % 1000));
@@ -190,7 +191,7 @@ BaseWebSocketChannel::SetPingInterval(uint32_t aSeconds)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetPingTimeout(uint32_t *aSeconds)
+BaseWebSocketChannel::GetPingTimeout(uint32_t* aSeconds)
 {
   // stored in ms but should only have second resolution
   MOZ_ASSERT(!(mPingResponseTimeout % 1000));
@@ -222,8 +223,11 @@ BaseWebSocketChannel::InitLoadInfo(nsIDOMNode* aLoadingNode,
                                    uint32_t aContentPolicyType)
 {
   nsCOMPtr<nsINode> node = do_QueryInterface(aLoadingNode);
-  mLoadInfo = new LoadInfo(aLoadingPrincipal, aTriggeringPrincipal,
-                           node, aSecurityFlags, aContentPolicyType);
+  mLoadInfo = new LoadInfo(aLoadingPrincipal,
+                           aTriggeringPrincipal,
+                           node,
+                           aSecurityFlags,
+                           aContentPolicyType);
   return NS_OK;
 }
 
@@ -246,8 +250,8 @@ BaseWebSocketChannel::SetSerial(uint32_t aSerial)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::SetServerParameters(nsITransportProvider* aProvider,
-                                          const nsACString& aNegotiatedExtensions)
+BaseWebSocketChannel::SetServerParameters(
+    nsITransportProvider* aProvider, const nsACString& aNegotiatedExtensions)
 {
   MOZ_ASSERT(aProvider);
   mServerTransportProvider = aProvider;
@@ -260,9 +264,8 @@ BaseWebSocketChannel::SetServerParameters(nsITransportProvider* aProvider,
 // BaseWebSocketChannel::nsIProtocolHandler
 //-----------------------------------------------------------------------------
 
-
 NS_IMETHODIMP
-BaseWebSocketChannel::GetScheme(nsACString &aScheme)
+BaseWebSocketChannel::GetScheme(nsACString& aScheme)
 {
   LOG(("BaseWebSocketChannel::GetScheme() %p\n", this));
 
@@ -274,7 +277,7 @@ BaseWebSocketChannel::GetScheme(nsACString &aScheme)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetDefaultPort(int32_t *aDefaultPort)
+BaseWebSocketChannel::GetDefaultPort(int32_t* aDefaultPort)
 {
   LOG(("BaseWebSocketChannel::GetDefaultPort() %p\n", this));
 
@@ -286,31 +289,32 @@ BaseWebSocketChannel::GetDefaultPort(int32_t *aDefaultPort)
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::GetProtocolFlags(uint32_t *aProtocolFlags)
+BaseWebSocketChannel::GetProtocolFlags(uint32_t* aProtocolFlags)
 {
   LOG(("BaseWebSocketChannel::GetProtocolFlags() %p\n", this));
 
   *aProtocolFlags = URI_NORELATIVE | URI_NON_PERSISTABLE | ALLOWS_PROXY |
-      ALLOWS_PROXY_HTTP | URI_DOES_NOT_RETURN_DATA | URI_DANGEROUS_TO_LOAD;
+                    ALLOWS_PROXY_HTTP | URI_DOES_NOT_RETURN_DATA |
+                    URI_DANGEROUS_TO_LOAD;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::NewURI(const nsACString & aSpec, const char *aOriginCharset,
-                             nsIURI *aBaseURI, nsIURI **_retval)
+BaseWebSocketChannel::NewURI(const nsACString& aSpec,
+                             const char* aOriginCharset,
+                             nsIURI* aBaseURI,
+                             nsIURI** _retval)
 {
   LOG(("BaseWebSocketChannel::NewURI() %p\n", this));
 
   int32_t port;
   nsresult rv = GetDefaultPort(&port);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   RefPtr<nsStandardURL> url = new nsStandardURL();
-  rv = url->Init(nsIStandardURL::URLTYPE_AUTHORITY, port, aSpec,
-                aOriginCharset, aBaseURI);
-  if (NS_FAILED(rv))
-    return rv;
+  rv = url->Init(
+      nsIStandardURL::URLTYPE_AUTHORITY, port, aSpec, aOriginCharset, aBaseURI);
+  if (NS_FAILED(rv)) return rv;
   url.forget(_retval);
   return NS_OK;
 }
@@ -325,15 +329,14 @@ BaseWebSocketChannel::NewChannel2(nsIURI* aURI,
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::NewChannel(nsIURI *aURI, nsIChannel **_retval)
+BaseWebSocketChannel::NewChannel(nsIURI* aURI, nsIChannel** _retval)
 {
   LOG(("BaseWebSocketChannel::NewChannel() %p\n", this));
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-BaseWebSocketChannel::AllowPort(int32_t port, const char *scheme,
-                                bool *_retval)
+BaseWebSocketChannel::AllowPort(int32_t port, const char* scheme, bool* _retval)
 {
   LOG(("BaseWebSocketChannel::AllowPort() %p\n", this));
 
@@ -351,7 +354,8 @@ BaseWebSocketChannel::RetargetDeliveryTo(nsIEventTarget* aTargetThread)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aTargetThread);
-  MOZ_ASSERT(!mTargetThread, "Delivery target should be set once, before AsyncOpen");
+  MOZ_ASSERT(!mTargetThread,
+             "Delivery target should be set once, before AsyncOpen");
   MOZ_ASSERT(!mWasOpened, "Should not be called after AsyncOpen!");
 
   mTargetThread = do_QueryInterface(aTargetThread);
@@ -373,26 +377,25 @@ BaseWebSocketChannel::GetDeliveryTarget(nsIEventTarget** aTargetThread)
 }
 
 BaseWebSocketChannel::ListenerAndContextContainer::ListenerAndContextContainer(
-                                               nsIWebSocketListener* aListener,
-                                               nsISupports* aContext)
-  : mListener(aListener)
-  , mContext(aContext)
+    nsIWebSocketListener* aListener, nsISupports* aContext)
+    : mListener(aListener), mContext(aContext)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mListener);
 }
 
-BaseWebSocketChannel::ListenerAndContextContainer::~ListenerAndContextContainer()
+BaseWebSocketChannel::ListenerAndContextContainer::
+    ~ListenerAndContextContainer()
 {
   MOZ_ASSERT(mListener);
 
   NS_ReleaseOnMainThreadSystemGroup(
-    "BaseWebSocketChannel::ListenerAndContextContainer::mListener",
-    mListener.forget());
+      "BaseWebSocketChannel::ListenerAndContextContainer::mListener",
+      mListener.forget());
   NS_ReleaseOnMainThreadSystemGroup(
-    "BaseWebSocketChannel::ListenerAndContextContainer::mContext",
-    mContext.forget());
+      "BaseWebSocketChannel::ListenerAndContextContainer::mContext",
+      mContext.forget());
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

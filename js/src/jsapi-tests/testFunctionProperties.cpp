@@ -7,8 +7,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testFunctionProperties)
-{
+BEGIN_TEST(testFunctionProperties) {
     JS::RootedValue x(cx);
     EVAL("(function f() {})", &x);
 

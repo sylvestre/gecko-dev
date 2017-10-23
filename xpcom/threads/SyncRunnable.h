@@ -32,20 +32,20 @@ namespace mozilla {
  */
 class SyncRunnable : public Runnable
 {
-public:
+ public:
   explicit SyncRunnable(nsIRunnable* aRunnable)
-    : Runnable("SyncRunnable")
-    , mRunnable(aRunnable)
-    , mMonitor("SyncRunnable")
-    , mDone(false)
+      : Runnable("SyncRunnable"),
+        mRunnable(aRunnable),
+        mMonitor("SyncRunnable"),
+        mDone(false)
   {
   }
 
   explicit SyncRunnable(already_AddRefed<nsIRunnable> aRunnable)
-    : Runnable("SyncRunnable")
-    , mRunnable(Move(aRunnable))
-    , mMonitor("SyncRunnable")
-    , mDone(false)
+      : Runnable("SyncRunnable"),
+        mRunnable(Move(aRunnable)),
+        mMonitor("SyncRunnable"),
+        mDone(false)
   {
   }
 
@@ -106,7 +106,7 @@ public:
     s->DispatchToThread(aThread, aForceDispatch);
   }
 
-protected:
+ protected:
   NS_IMETHOD Run() override
   {
     mRunnable->Run();
@@ -120,12 +120,12 @@ protected:
     return NS_OK;
   }
 
-private:
+ private:
   nsCOMPtr<nsIRunnable> mRunnable;
   mozilla::Monitor mMonitor;
   bool mDone;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_SyncRunnable_h
+#endif  // mozilla_SyncRunnable_h

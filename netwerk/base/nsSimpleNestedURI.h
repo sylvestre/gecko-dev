@@ -25,51 +25,48 @@
 namespace mozilla {
 namespace net {
 
-class nsSimpleNestedURI : public nsSimpleURI,
-                          public nsINestedURI
+class nsSimpleNestedURI : public nsSimpleURI, public nsINestedURI
 {
-protected:
-    ~nsSimpleNestedURI() {}
+ protected:
+  ~nsSimpleNestedURI() {}
 
-public:
-    // To be used by deserialization only.  Leaves this object in an
-    // uninitialized state that will throw on most accesses.
-    nsSimpleNestedURI()
-    {
-    }
+ public:
+  // To be used by deserialization only.  Leaves this object in an
+  // uninitialized state that will throw on most accesses.
+  nsSimpleNestedURI() {}
 
-    // Constructor that should generally be used when constructing an object of
-    // this class with |operator new|.
-    explicit nsSimpleNestedURI(nsIURI* innerURI);
+  // Constructor that should generally be used when constructing an object of
+  // this class with |operator new|.
+  explicit nsSimpleNestedURI(nsIURI* innerURI);
 
-    NS_DECL_ISUPPORTS_INHERITED
-    NS_DECL_NSINESTEDURI
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_NSINESTEDURI
 
-    // Overrides for various methods nsSimpleURI implements follow.
+  // Overrides for various methods nsSimpleURI implements follow.
 
-    // nsSimpleURI overrides
-    virtual nsresult EqualsInternal(nsIURI* other,
-                                    RefHandlingEnum refHandlingMode,
-                                    bool* result) override;
-    virtual nsSimpleURI* StartClone(RefHandlingEnum refHandlingMode,
-                                    const nsACString& newRef) override;
+  // nsSimpleURI overrides
+  virtual nsresult EqualsInternal(nsIURI* other,
+                                  RefHandlingEnum refHandlingMode,
+                                  bool* result) override;
+  virtual nsSimpleURI* StartClone(RefHandlingEnum refHandlingMode,
+                                  const nsACString& newRef) override;
 
-    // nsISerializable overrides
-    NS_IMETHOD Read(nsIObjectInputStream* aStream) override;
-    NS_IMETHOD Write(nsIObjectOutputStream* aStream) override;
+  // nsISerializable overrides
+  NS_IMETHOD Read(nsIObjectInputStream* aStream) override;
+  NS_IMETHOD Write(nsIObjectOutputStream* aStream) override;
 
-    // nsIIPCSerializableURI overrides
-    NS_DECL_NSIIPCSERIALIZABLEURI
+  // nsIIPCSerializableURI overrides
+  NS_DECL_NSIIPCSERIALIZABLEURI
 
-    // Override the nsIClassInfo method GetClassIDNoAlloc to make sure our
-    // nsISerializable impl works right.
-    NS_IMETHOD GetClassIDNoAlloc(nsCID *aClassIDNoAlloc) override;
+  // Override the nsIClassInfo method GetClassIDNoAlloc to make sure our
+  // nsISerializable impl works right.
+  NS_IMETHOD GetClassIDNoAlloc(nsCID* aClassIDNoAlloc) override;
 
-protected:
-    nsCOMPtr<nsIURI> mInnerURI;
+ protected:
+  nsCOMPtr<nsIURI> mInnerURI;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* nsSimpleNestedURI_h__ */

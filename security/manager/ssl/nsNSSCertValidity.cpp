@@ -12,8 +12,9 @@
 
 NS_IMPL_ISUPPORTS(nsX509CertValidity, nsIX509CertValidity)
 
-nsX509CertValidity::nsX509CertValidity(const mozilla::UniqueCERTCertificate& cert)
-  : mTimesInitialized(false)
+nsX509CertValidity::nsX509CertValidity(
+    const mozilla::UniqueCERTCertificate& cert)
+    : mTimesInitialized(false)
 {
   MOZ_ASSERT(cert);
   if (!cert) {
@@ -59,35 +60,35 @@ nsX509CertValidity::FormatTime(const PRTime& aTimeDate,
                                const nsTimeFormatSelector aTimeFormatSelector,
                                nsAString& aFormattedTimeDate)
 {
-  if (!mTimesInitialized)
-    return NS_ERROR_FAILURE;
+  if (!mTimesInitialized) return NS_ERROR_FAILURE;
 
   PRExplodedTime explodedTime;
   PR_ExplodeTime(const_cast<PRTime&>(aTimeDate), aParamFn, &explodedTime);
-  return mozilla::DateTimeFormat::FormatPRExplodedTime(kDateFormatLong,
-                                                       aTimeFormatSelector,
-                                                       &explodedTime, aFormattedTimeDate);
+  return mozilla::DateTimeFormat::FormatPRExplodedTime(
+      kDateFormatLong, aTimeFormatSelector, &explodedTime, aFormattedTimeDate);
 }
 
 NS_IMETHODIMP
 nsX509CertValidity::GetNotBeforeLocalTime(nsAString& aNotBeforeLocalTime)
 {
-  return FormatTime(mNotBefore, PR_LocalTimeParameters,
-                    kTimeFormatSeconds, aNotBeforeLocalTime);
+  return FormatTime(mNotBefore,
+                    PR_LocalTimeParameters,
+                    kTimeFormatSeconds,
+                    aNotBeforeLocalTime);
 }
 
 NS_IMETHODIMP
 nsX509CertValidity::GetNotBeforeLocalDay(nsAString& aNotBeforeLocalDay)
 {
-  return FormatTime(mNotBefore, PR_LocalTimeParameters,
-                    kTimeFormatNone, aNotBeforeLocalDay);
+  return FormatTime(
+      mNotBefore, PR_LocalTimeParameters, kTimeFormatNone, aNotBeforeLocalDay);
 }
 
 NS_IMETHODIMP
 nsX509CertValidity::GetNotBeforeGMT(nsAString& aNotBeforeGMT)
 {
-  return FormatTime(mNotBefore, PR_GMTParameters,
-                    kTimeFormatSeconds, aNotBeforeGMT);
+  return FormatTime(
+      mNotBefore, PR_GMTParameters, kTimeFormatSeconds, aNotBeforeGMT);
 }
 
 NS_IMETHODIMP
@@ -106,20 +107,22 @@ nsX509CertValidity::GetNotAfter(PRTime* aNotAfter)
 NS_IMETHODIMP
 nsX509CertValidity::GetNotAfterLocalTime(nsAString& aNotAfterLocaltime)
 {
-  return FormatTime(mNotAfter, PR_LocalTimeParameters,
-                    kTimeFormatSeconds, aNotAfterLocaltime);
+  return FormatTime(mNotAfter,
+                    PR_LocalTimeParameters,
+                    kTimeFormatSeconds,
+                    aNotAfterLocaltime);
 }
 
 NS_IMETHODIMP
 nsX509CertValidity::GetNotAfterLocalDay(nsAString& aNotAfterLocalDay)
 {
-  return FormatTime(mNotAfter, PR_LocalTimeParameters,
-                    kTimeFormatNone, aNotAfterLocalDay);
+  return FormatTime(
+      mNotAfter, PR_LocalTimeParameters, kTimeFormatNone, aNotAfterLocalDay);
 }
 
 NS_IMETHODIMP
 nsX509CertValidity::GetNotAfterGMT(nsAString& aNotAfterGMT)
 {
-  return FormatTime(mNotAfter, PR_GMTParameters,
-                    kTimeFormatSeconds, aNotAfterGMT);
+  return FormatTime(
+      mNotAfter, PR_GMTParameters, kTimeFormatSeconds, aNotAfterGMT);
 }

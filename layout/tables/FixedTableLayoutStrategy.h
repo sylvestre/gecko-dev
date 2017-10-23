@@ -19,8 +19,8 @@ class nsTableFrame;
 
 class FixedTableLayoutStrategy : public nsITableLayoutStrategy
 {
-public:
-  explicit FixedTableLayoutStrategy(nsTableFrame *aTableFrame);
+ public:
+  explicit FixedTableLayoutStrategy(nsTableFrame* aTableFrame);
   virtual ~FixedTableLayoutStrategy();
 
   // nsITableLayoutStrategy implementation
@@ -28,11 +28,10 @@ public:
   virtual nscoord GetPrefISize(gfxContext* aRenderingContext,
                                bool aComputingSize) override;
   virtual void MarkIntrinsicISizesDirty() override;
-  virtual void ComputeColumnISizes(const ReflowInput& aReflowInput)
-               override;
+  virtual void ComputeColumnISizes(const ReflowInput& aReflowInput) override;
 
-private:
-  nsTableFrame *mTableFrame;
+ private:
+  nsTableFrame* mTableFrame;
   nscoord mMinISize;
   nscoord mLastCalcISize;
 };

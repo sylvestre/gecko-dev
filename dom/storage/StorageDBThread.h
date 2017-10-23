@@ -119,14 +119,14 @@ public:
 // LocalStorageCacheBridge interface class
 class StorageDBThread final
 {
-public:
+ public:
   class PendingOperations;
 
   // Representation of a singe database task, like adding and removing keys,
   // (pre)loading the whole origin data, cleaning.
   class DBOperation
   {
-  public:
+   public:
     typedef enum {
       // Only operation that reads data from the database
       opPreload,
@@ -159,10 +159,8 @@ public:
                          LocalStorageCacheBridge* aCache = nullptr,
                          const nsAString& aKey = EmptyString(),
                          const nsAString& aValue = EmptyString());
-    DBOperation(const OperationType aType,
-                StorageUsageBridge* aUsage);
-    DBOperation(const OperationType aType,
-                const nsACString& aOriginNoSuffix);
+    DBOperation(const OperationType aType, StorageUsageBridge* aUsage);
+    DBOperation(const OperationType aType, const nsACString& aOriginNoSuffix);
     DBOperation(const OperationType aType,
                 const OriginAttributesPattern& aOriginNoSuffix);
     ~DBOperation();
@@ -196,7 +194,7 @@ public:
       return mOriginPattern;
     }
 
-  private:
+   private:
     // The operation implementation body
     nsresult Perform(StorageDBThread* aThread);
 
@@ -212,8 +210,9 @@ public:
 
   // Encapsulation of collective and coalescing logic for all pending operations
   // except preloads that are handled separately as priority operations
-  class PendingOperations {
-  public:
+  class PendingOperations
+  {
+   public:
     PendingOperations();
 
     // Method responsible for coalescing redundant update operations with the
@@ -246,7 +245,7 @@ public:
     bool IsOriginUpdatePending(const nsACString& aOriginSuffix,
                                const nsACString& aOriginNoSuffix) const;
 
-  private:
+   private:
     // Returns true iff new operation is of type newType and there is a pending
     // operation of type pendingType for the same key (target).
     bool CheckForCoalesceOpportunity(DBOperation* aNewOp,
@@ -272,22 +271,23 @@ public:
     NS_DECL_NSITHREADOBSERVER
 
     ThreadObserver()
-      : mHasPendingEvents(false)
-      , mMonitor("StorageThreadMonitor")
+        : mHasPendingEvents(false), mMonitor("StorageThreadMonitor")
     {
     }
 
-    bool HasPendingEvents() {
+    bool HasPendingEvents()
+    {
       mMonitor.AssertCurrentThreadOwns();
       return mHasPendingEvents;
     }
-    void ClearPendingEvents() {
+    void ClearPendingEvents()
+    {
       mMonitor.AssertCurrentThreadOwns();
       mHasPendingEvents = false;
     }
     Monitor& GetMonitor() { return mMonitor; }
 
-  private:
+   private:
     virtual ~ThreadObserver() {}
     bool mHasPendingEvents;
     // The monitor we drive the thread with
@@ -303,33 +303,28 @@ public:
     // Only touched on the main thread.
     bool& mDone;
 
-  public:
+   public:
     explicit ShutdownRunnable(bool& aDone)
-      : Runnable("dom::StorageDBThread::ShutdownRunnable")
-      , mDone(aDone)
+        : Runnable("dom::StorageDBThread::ShutdownRunnable"), mDone(aDone)
     {
       MOZ_ASSERT(NS_IsMainThread());
     }
 
-  private:
-    ~ShutdownRunnable()
-    { }
+   private:
+    ~ShutdownRunnable() {}
 
     NS_DECL_NSIRUNNABLE
   };
 
-public:
+ public:
   StorageDBThread();
   virtual ~StorageDBThread() {}
 
-  static StorageDBThread*
-  Get();
+  static StorageDBThread* Get();
 
-  static StorageDBThread*
-  GetOrCreate(const nsString& aProfilePath);
+  static StorageDBThread* GetOrCreate(const nsString& aProfilePath);
 
-  static nsresult
-  GetProfilePath(nsString& aProfilePath);
+  static nsresult GetProfilePath(nsString& aProfilePath);
 
   virtual nsresult Init(const nsString& aProfilePath);
 
@@ -339,10 +334,9 @@ public:
   virtual void AsyncPreload(LocalStorageCacheBridge* aCache,
                             bool aPriority = false)
   {
-    InsertDBOp(new DBOperation(aPriority
-                                 ? DBOperation::opPreloadUrgent
-                                 : DBOperation::opPreload,
-                               aCache));
+    InsertDBOp(new DBOperation(
+        aPriority ? DBOperation::opPreloadUrgent : DBOperation::opPreload,
+        aCache));
   }
 
   virtual void SyncPreload(LocalStorageCacheBridge* aCache,
@@ -357,16 +351,16 @@ public:
                                 const nsAString& aKey,
                                 const nsAString& aValue)
   {
-    return InsertDBOp(new DBOperation(DBOperation::opAddItem, aCache, aKey,
-                                      aValue));
+    return InsertDBOp(
+        new DBOperation(DBOperation::opAddItem, aCache, aKey, aValue));
   }
 
   virtual nsresult AsyncUpdateItem(LocalStorageCacheBridge* aCache,
                                    const nsAString& aKey,
                                    const nsAString& aValue)
   {
-    return InsertDBOp(new DBOperation(DBOperation::opUpdateItem, aCache, aKey,
-                                      aValue));
+    return InsertDBOp(
+        new DBOperation(DBOperation::opUpdateItem, aCache, aKey, aValue));
   }
 
   virtual nsresult AsyncRemoveItem(LocalStorageCacheBridge* aCache,
@@ -387,11 +381,12 @@ public:
 
   virtual void AsyncClearMatchingOrigin(const nsACString& aOriginNoSuffix)
   {
-    InsertDBOp(new DBOperation(DBOperation::opClearMatchingOrigin,
-                               aOriginNoSuffix));
+    InsertDBOp(
+        new DBOperation(DBOperation::opClearMatchingOrigin, aOriginNoSuffix));
   }
 
-  virtual void AsyncClearMatchingOriginAttributes(const OriginAttributesPattern& aPattern)
+  virtual void AsyncClearMatchingOriginAttributes(
+      const OriginAttributesPattern& aPattern)
   {
     InsertDBOp(new DBOperation(DBOperation::opClearMatchingOriginAttributes,
                                aPattern));
@@ -404,7 +399,7 @@ public:
   // Get the complete list of scopes having data.
   void GetOriginsHavingData(InfallibleTArray<nsCString>* aOrigins);
 
-private:
+ private:
   nsCOMPtr<nsIFile> mDatabaseFile;
   PRThread* mThread;
 
@@ -501,7 +496,7 @@ private:
   void ThreadFunc();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_StorageDBThread_h
+#endif  // mozilla_dom_StorageDBThread_h

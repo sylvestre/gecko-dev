@@ -10,92 +10,63 @@
 namespace js {
 namespace jit {
 
-class LUnboxBase : public LInstructionHelper<1, 1, 0>
-{
-  public:
-    LUnboxBase(const LAllocation& input) {
-        setOperand(0, input);
-    }
+class LUnboxBase : public LInstructionHelper<1, 1, 0> {
+   public:
+    LUnboxBase(const LAllocation& input) { setOperand(0, input); }
 
     static const size_t Input = 0;
 
-    MUnbox* mir() const {
-        return mir_->toUnbox();
-    }
+    MUnbox* mir() const { return mir_->toUnbox(); }
 };
 
-class LUnbox : public LUnboxBase
-{
-  public:
+class LUnbox : public LUnboxBase {
+   public:
     LIR_HEADER(Unbox);
 
-    LUnbox(const LAllocation& input)
-      : LUnboxBase(input)
-    { }
+    LUnbox(const LAllocation& input) : LUnboxBase(input) {}
 
-    const char* extraName() const {
-        return StringFromMIRType(mir()->type());
-    }
+    const char* extraName() const { return StringFromMIRType(mir()->type()); }
 };
 
-class LUnboxFloatingPoint : public LUnboxBase
-{
+class LUnboxFloatingPoint : public LUnboxBase {
     MIRType type_;
 
-  public:
+   public:
     LIR_HEADER(UnboxFloatingPoint);
 
-    LUnboxFloatingPoint(const LAllocation& input, MIRType type)
-      : LUnboxBase(input),
-        type_(type)
-    { }
+    LUnboxFloatingPoint(const LAllocation& input, MIRType type) : LUnboxBase(input), type_(type) {}
 
-    MIRType type() const {
-        return type_;
-    }
-    const char* extraName() const {
-        return StringFromMIRType(type_);
-    }
+    MIRType type() const { return type_; }
+    const char* extraName() const { return StringFromMIRType(type_); }
 };
 
 // Convert a 32-bit unsigned integer to a double.
-class LWasmUint32ToDouble : public LInstructionHelper<1, 1, 0>
-{
-  public:
+class LWasmUint32ToDouble : public LInstructionHelper<1, 1, 0> {
+   public:
     LIR_HEADER(WasmUint32ToDouble)
 
-    LWasmUint32ToDouble(const LAllocation& input) {
-        setOperand(0, input);
-    }
+    LWasmUint32ToDouble(const LAllocation& input) { setOperand(0, input); }
 };
 
 // Convert a 32-bit unsigned integer to a float32.
-class LWasmUint32ToFloat32 : public LInstructionHelper<1, 1, 0>
-{
-  public:
+class LWasmUint32ToFloat32 : public LInstructionHelper<1, 1, 0> {
+   public:
     LIR_HEADER(WasmUint32ToFloat32)
 
-    LWasmUint32ToFloat32(const LAllocation& input) {
-        setOperand(0, input);
-    }
+    LWasmUint32ToFloat32(const LAllocation& input) { setOperand(0, input); }
 };
 
-class LDivI : public LBinaryMath<1>
-{
-  public:
+class LDivI : public LBinaryMath<1> {
+   public:
     LIR_HEADER(DivI);
 
-    LDivI(const LAllocation& lhs, const LAllocation& rhs,
-          const LDefinition& temp)
-    {
+    LDivI(const LAllocation& lhs, const LAllocation& rhs, const LDefinition& temp) {
         setOperand(0, lhs);
         setOperand(1, rhs);
         setTemp(0, temp);
     }
 
-    MDiv* mir() const {
-        return mir_->toDiv();
-    }
+    MDiv* mir() const { return mir_->toDiv(); }
 };
 
 // LSoftDivI is a software divide for ARM cores that don't support a hardware
@@ -110,13 +81,12 @@ class LDivI : public LBinaryMath<1>
 // that can be trashed are marked as temps.  For the time being, the link
 // register is not marked as trashed because we never allocate to the link
 // register.  The FP registers are not trashed.
-class LSoftDivI : public LBinaryMath<3>
-{
-  public:
+class LSoftDivI : public LBinaryMath<3> {
+   public:
     LIR_HEADER(SoftDivI);
 
-    LSoftDivI(const LAllocation& lhs, const LAllocation& rhs,
-              const LDefinition& temp1, const LDefinition& temp2, const LDefinition& temp3) {
+    LSoftDivI(const LAllocation& lhs, const LAllocation& rhs, const LDefinition& temp1,
+              const LDefinition& temp2, const LDefinition& temp3) {
         setOperand(0, lhs);
         setOperand(1, rhs);
         setTemp(0, temp1);
@@ -124,68 +94,45 @@ class LSoftDivI : public LBinaryMath<3>
         setTemp(2, temp3);
     }
 
-    MDiv* mir() const {
-        return mir_->toDiv();
-    }
+    MDiv* mir() const { return mir_->toDiv(); }
 };
 
-class LDivPowTwoI : public LInstructionHelper<1, 1, 0>
-{
+class LDivPowTwoI : public LInstructionHelper<1, 1, 0> {
     const int32_t shift_;
 
-  public:
+   public:
     LIR_HEADER(DivPowTwoI)
 
-    LDivPowTwoI(const LAllocation& lhs, int32_t shift)
-      : shift_(shift)
-    {
-        setOperand(0, lhs);
-    }
+    LDivPowTwoI(const LAllocation& lhs, int32_t shift) : shift_(shift) { setOperand(0, lhs); }
 
-    const LAllocation* numerator() {
-        return getOperand(0);
-    }
+    const LAllocation* numerator() { return getOperand(0); }
 
-    int32_t shift() {
-        return shift_;
-    }
+    int32_t shift() { return shift_; }
 
-    MDiv* mir() const {
-        return mir_->toDiv();
-    }
+    MDiv* mir() const { return mir_->toDiv(); }
 };
 
-class LModI : public LBinaryMath<1>
-{
-  public:
+class LModI : public LBinaryMath<1> {
+   public:
     LIR_HEADER(ModI);
 
-    LModI(const LAllocation& lhs, const LAllocation& rhs,
-          const LDefinition& callTemp)
-    {
+    LModI(const LAllocation& lhs, const LAllocation& rhs, const LDefinition& callTemp) {
         setOperand(0, lhs);
         setOperand(1, rhs);
         setTemp(0, callTemp);
     }
 
-    const LDefinition* callTemp() {
-        return getTemp(0);
-    }
+    const LDefinition* callTemp() { return getTemp(0); }
 
-    MMod* mir() const {
-        return mir_->toMod();
-    }
+    MMod* mir() const { return mir_->toMod(); }
 };
 
-class LSoftModI : public LBinaryMath<4>
-{
-  public:
+class LSoftModI : public LBinaryMath<4> {
+   public:
     LIR_HEADER(SoftModI);
 
-    LSoftModI(const LAllocation& lhs, const LAllocation& rhs,
-              const LDefinition& temp1, const LDefinition& temp2, const LDefinition& temp3,
-              const LDefinition& callTemp)
-    {
+    LSoftModI(const LAllocation& lhs, const LAllocation& rhs, const LDefinition& temp1,
+              const LDefinition& temp2, const LDefinition& temp3, const LDefinition& callTemp) {
         setOperand(0, lhs);
         setOperand(1, rhs);
         setTemp(0, temp1);
@@ -194,64 +141,42 @@ class LSoftModI : public LBinaryMath<4>
         setTemp(3, callTemp);
     }
 
-    const LDefinition* callTemp() {
-        return getTemp(3);
-    }
+    const LDefinition* callTemp() { return getTemp(3); }
 
-    MMod* mir() const {
-        return mir_->toMod();
-    }
+    MMod* mir() const { return mir_->toMod(); }
 };
 
-class LModPowTwoI : public LInstructionHelper<1, 1, 0>
-{
+class LModPowTwoI : public LInstructionHelper<1, 1, 0> {
     const int32_t shift_;
 
-  public:
+   public:
     LIR_HEADER(ModPowTwoI);
-    int32_t shift()
-    {
-        return shift_;
-    }
+    int32_t shift() { return shift_; }
 
-    LModPowTwoI(const LAllocation& lhs, int32_t shift)
-      : shift_(shift)
-    {
-        setOperand(0, lhs);
-    }
+    LModPowTwoI(const LAllocation& lhs, int32_t shift) : shift_(shift) { setOperand(0, lhs); }
 
-    MMod* mir() const {
-        return mir_->toMod();
-    }
+    MMod* mir() const { return mir_->toMod(); }
 };
 
-class LModMaskI : public LInstructionHelper<1, 1, 1>
-{
+class LModMaskI : public LInstructionHelper<1, 1, 1> {
     const int32_t shift_;
 
-  public:
+   public:
     LIR_HEADER(ModMaskI);
 
-    LModMaskI(const LAllocation& lhs, const LDefinition& temp1, int32_t shift)
-      : shift_(shift)
-    {
+    LModMaskI(const LAllocation& lhs, const LDefinition& temp1, int32_t shift) : shift_(shift) {
         setOperand(0, lhs);
         setTemp(0, temp1);
     }
 
-    int32_t shift() const {
-        return shift_;
-    }
+    int32_t shift() const { return shift_; }
 
-    MMod* mir() const {
-        return mir_->toMod();
-    }
+    MMod* mir() const { return mir_->toMod(); }
 };
 
 // Takes a tableswitch with an integer to decide
-class LTableSwitch : public LInstructionHelper<0, 1, 1>
-{
-  public:
+class LTableSwitch : public LInstructionHelper<0, 1, 1> {
+   public:
     LIR_HEADER(TableSwitch);
 
     LTableSwitch(const LAllocation& in, const LDefinition& inputCopy, MTableSwitch* ins) {
@@ -260,123 +185,85 @@ class LTableSwitch : public LInstructionHelper<0, 1, 1>
         setMir(ins);
     }
 
-    MTableSwitch* mir() const {
-        return mir_->toTableSwitch();
-    }
+    MTableSwitch* mir() const { return mir_->toTableSwitch(); }
 
-    const LAllocation* index() {
-        return getOperand(0);
-    }
-    const LDefinition* tempInt() {
-        return getTemp(0);
-    }
+    const LAllocation* index() { return getOperand(0); }
+    const LDefinition* tempInt() { return getTemp(0); }
     // This is added to share the same CodeGenerator prefixes.
-    const LDefinition* tempPointer() {
-        return nullptr;
-    }
+    const LDefinition* tempPointer() { return nullptr; }
 };
 
 // Takes a tableswitch with an integer to decide
-class LTableSwitchV : public LInstructionHelper<0, BOX_PIECES, 2>
-{
-  public:
+class LTableSwitchV : public LInstructionHelper<0, BOX_PIECES, 2> {
+   public:
     LIR_HEADER(TableSwitchV);
 
     LTableSwitchV(const LBoxAllocation& input, const LDefinition& inputCopy,
-                  const LDefinition& floatCopy, MTableSwitch* ins)
-    {
+                  const LDefinition& floatCopy, MTableSwitch* ins) {
         setBoxOperand(InputValue, input);
         setTemp(0, inputCopy);
         setTemp(1, floatCopy);
         setMir(ins);
     }
 
-    MTableSwitch* mir() const {
-        return mir_->toTableSwitch();
-    }
+    MTableSwitch* mir() const { return mir_->toTableSwitch(); }
 
     static const size_t InputValue = 0;
 
-    const LDefinition* tempInt() {
-        return getTemp(0);
-    }
-    const LDefinition* tempFloat() {
-        return getTemp(1);
-    }
-    const LDefinition* tempPointer() {
-        return nullptr;
-    }
+    const LDefinition* tempInt() { return getTemp(0); }
+    const LDefinition* tempFloat() { return getTemp(1); }
+    const LDefinition* tempPointer() { return nullptr; }
 };
 
-class LGuardShape : public LInstructionHelper<0, 1, 1>
-{
-  public:
+class LGuardShape : public LInstructionHelper<0, 1, 1> {
+   public:
     LIR_HEADER(GuardShape);
 
     LGuardShape(const LAllocation& in, const LDefinition& temp) {
         setOperand(0, in);
         setTemp(0, temp);
     }
-    const MGuardShape* mir() const {
-        return mir_->toGuardShape();
-    }
-    const LDefinition* tempInt() {
-        return getTemp(0);
-    }
+    const MGuardShape* mir() const { return mir_->toGuardShape(); }
+    const LDefinition* tempInt() { return getTemp(0); }
 };
 
-class LGuardObjectGroup : public LInstructionHelper<0, 1, 1>
-{
-  public:
+class LGuardObjectGroup : public LInstructionHelper<0, 1, 1> {
+   public:
     LIR_HEADER(GuardObjectGroup);
 
     LGuardObjectGroup(const LAllocation& in, const LDefinition& temp) {
         setOperand(0, in);
         setTemp(0, temp);
     }
-    const MGuardObjectGroup* mir() const {
-        return mir_->toGuardObjectGroup();
-    }
-    const LDefinition* tempInt() {
-        return getTemp(0);
-    }
+    const MGuardObjectGroup* mir() const { return mir_->toGuardObjectGroup(); }
+    const LDefinition* tempInt() { return getTemp(0); }
 };
 
-class LMulI : public LBinaryMath<0>
-{
-  public:
+class LMulI : public LBinaryMath<0> {
+   public:
     LIR_HEADER(MulI);
 
-    MMul* mir() {
-        return mir_->toMul();
-    }
+    MMul* mir() { return mir_->toMul(); }
 };
 
-class LUDiv : public LBinaryMath<0>
-{
-  public:
+class LUDiv : public LBinaryMath<0> {
+   public:
     LIR_HEADER(UDiv);
 
-    MDiv* mir() {
-        return mir_->toDiv();
-    }
+    MDiv* mir() { return mir_->toDiv(); }
 };
 
-class LUMod : public LBinaryMath<0>
-{
-  public:
+class LUMod : public LBinaryMath<0> {
+   public:
     LIR_HEADER(UMod);
 
-    MMod* mir() {
-        return mir_->toMod();
-    }
+    MMod* mir() { return mir_->toMod(); }
 };
 
 // This class performs a simple x86 'div', yielding either a quotient or remainder depending on
 // whether this instruction is defined to output eax (quotient) or edx (remainder).
-class LSoftUDivOrMod : public LBinaryMath<3>
-{
-  public:
+class LSoftUDivOrMod : public LBinaryMath<3> {
+   public:
     LIR_HEADER(SoftUDivOrMod);
 
     LSoftUDivOrMod(const LAllocation& lhs, const LAllocation& rhs, const LDefinition& temp1,
@@ -389,7 +276,7 @@ class LSoftUDivOrMod : public LBinaryMath<3>
     }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm64_LIR_arm64_h */

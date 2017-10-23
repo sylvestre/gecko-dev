@@ -6,29 +6,29 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ShadowLayerUtilsX11.h"
-#include <X11/X.h>                      // for Drawable, XID
-#include <X11/Xlib.h>                   // for Display, Visual, etc
-#include <X11/extensions/Xrender.h>     // for XRenderPictFormat, etc
-#include <X11/extensions/render.h>      // for PictFormat
+#include <X11/X.h>                   // for Drawable, XID
+#include <X11/Xlib.h>                // for Display, Visual, etc
+#include <X11/extensions/Xrender.h>  // for XRenderPictFormat, etc
+#include <X11/extensions/render.h>   // for PictFormat
 #include "cairo-xlib.h"
 #include "X11UndefineNone.h"
-#include <stdint.h>                     // for uint32_t
-#include "GLDefs.h"                     // for GLenum
-#include "gfxPlatform.h"                // for gfxPlatform
-#include "gfxXlibSurface.h"             // for gfxXlibSurface
-#include "gfx2DGlue.h"                  // for Moz2D transistion helpers
-#include "mozilla/X11Util.h"            // for DefaultXDisplay, FinishX, etc
-#include "mozilla/gfx/Point.h"          // for IntSize
+#include <stdint.h>             // for uint32_t
+#include "GLDefs.h"             // for GLenum
+#include "gfxPlatform.h"        // for gfxPlatform
+#include "gfxXlibSurface.h"     // for gfxXlibSurface
+#include "gfx2DGlue.h"          // for Moz2D transistion helpers
+#include "mozilla/X11Util.h"    // for DefaultXDisplay, FinishX, etc
+#include "mozilla/gfx/Point.h"  // for IntSize
 #include "mozilla/layers/CompositableForwarder.h"
-#include "mozilla/layers/CompositorTypes.h"  // for OpenMode
+#include "mozilla/layers/CompositorTypes.h"    // for OpenMode
 #include "mozilla/layers/ISurfaceAllocator.h"  // for ISurfaceAllocator, etc
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor, etc
-#include "mozilla/layers/ShadowLayers.h"  // for ShadowLayerForwarder, etc
-#include "mozilla/mozalloc.h"           // for operator new
+#include "mozilla/layers/ShadowLayers.h"    // for ShadowLayerForwarder, etc
+#include "mozilla/mozalloc.h"               // for operator new
 #include "gfxEnv.h"
-#include "nsCOMPtr.h"                   // for already_AddRefed
-#include "nsDebug.h"                    // for NS_ERROR
+#include "nsCOMPtr.h"  // for already_AddRefed
+#include "nsDebug.h"   // for NS_ERROR
 
 using namespace mozilla::gl;
 
@@ -36,7 +36,7 @@ namespace mozilla {
 namespace gl {
 class GLContext;
 class TextureImage;
-}
+}  // namespace gl
 
 namespace layers {
 
@@ -46,7 +46,7 @@ static bool
 UsingXCompositing()
 {
   if (!gfxEnv::LayersEnableXlibSurfaces()) {
-      return false;
+    return false;
   }
   return (gfxSurfaceType::Xlib ==
           gfxPlatform::GetPlatform()->ScreenReferenceSurface()->GetType());
@@ -64,11 +64,9 @@ GetXRenderPictFormatFromId(Display* aDisplay, PictFormat aFormatId)
 
 SurfaceDescriptorX11::SurfaceDescriptorX11(gfxXlibSurface* aSurf,
                                            bool aForwardGLX)
-  : mId(aSurf->XDrawable())
-  , mSize(aSurf->GetSize())
-  , mGLXPixmap(X11None)
+    : mId(aSurf->XDrawable()), mSize(aSurf->GetSize()), mGLXPixmap(X11None)
 {
-  const XRenderPictFormat *pictFormat = aSurf->XRenderFormat();
+  const XRenderPictFormat* pictFormat = aSurf->XRenderFormat();
   if (pictFormat) {
     mFormat = pictFormat->id;
   } else {
@@ -82,13 +80,12 @@ SurfaceDescriptorX11::SurfaceDescriptorX11(gfxXlibSurface* aSurf,
 #endif
 }
 
-SurfaceDescriptorX11::SurfaceDescriptorX11(Drawable aDrawable, XID aFormatID,
+SurfaceDescriptorX11::SurfaceDescriptorX11(Drawable aDrawable,
+                                           XID aFormatID,
                                            const gfx::IntSize& aSize)
-  : mId(aDrawable)
-  , mFormat(aFormatID)
-  , mSize(aSize)
-  , mGLXPixmap(X11None)
-{ }
+    : mId(aDrawable), mFormat(aFormatID), mSize(aSize), mGLXPixmap(X11None)
+{
+}
 
 already_AddRefed<gfxXlibSurface>
 SurfaceDescriptorX11::OpenForeign() const
@@ -104,15 +101,13 @@ SurfaceDescriptorX11::OpenForeign() const
     Visual* visual;
     int depth;
     FindVisualAndDepth(display, mFormat, &visual, &depth);
-    if (!visual)
-      return nullptr;
+    if (!visual) return nullptr;
 
     surf = new gfxXlibSurface(display, mId, visual, mSize);
   }
 
 #ifdef GL_PROVIDER_GLX
-  if (mGLXPixmap)
-    surf->BindGLXPixmap(mGLXPixmap);
+  if (mGLXPixmap) surf->BindGLXPixmap(mGLXPixmap);
 #endif
 
   return surf->CairoStatus() ? nullptr : surf.forget();
@@ -149,5 +144,5 @@ LayerManagerComposite::SupportsDirectTexturing()
   return false;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

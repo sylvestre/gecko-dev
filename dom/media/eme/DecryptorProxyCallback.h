@@ -6,13 +6,13 @@
 #ifndef DecryptorProxyCallback_h_
 #define DecryptorProxyCallback_h_
 
-#include "mozilla/dom/MediaKeyStatusMapBinding.h" // For MediaKeyStatus
-#include "mozilla/dom/MediaKeyMessageEventBinding.h" // For MediaKeyMessageType
+#include "mozilla/dom/MediaKeyStatusMapBinding.h"     // For MediaKeyStatus
+#include "mozilla/dom/MediaKeyMessageEventBinding.h"  // For MediaKeyMessageType
 #include "mozilla/CDMProxy.h"
 
-class DecryptorProxyCallback {
-public:
-
+class DecryptorProxyCallback
+{
+ public:
   virtual ~DecryptorProxyCallback() {}
 
   virtual void SetDecryptorId(uint32_t aId) = 0;
@@ -47,8 +47,9 @@ public:
                          mozilla::DecryptStatus aResult,
                          const nsTArray<uint8_t>& aDecryptedData) = 0;
 
-  virtual void BatchedKeyStatusChanged(const nsCString& aSessionId,
-                                       const nsTArray<mozilla::CDMKeyInfo>& aKeyInfos) = 0;
+  virtual void BatchedKeyStatusChanged(
+      const nsCString& aSessionId,
+      const nsTArray<mozilla::CDMKeyInfo>& aKeyInfos) = 0;
 };
 
 #endif

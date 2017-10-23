@@ -15,37 +15,32 @@
 namespace mozilla {
 namespace net {
 
-ChannelDiverterParent::ChannelDiverterParent()
-{
-}
+ChannelDiverterParent::ChannelDiverterParent() {}
 
-ChannelDiverterParent::~ChannelDiverterParent()
-{
-}
+ChannelDiverterParent::~ChannelDiverterParent() {}
 
 bool
 ChannelDiverterParent::Init(const ChannelDiverterArgs& aArgs)
 {
   switch (aArgs.type()) {
-  case ChannelDiverterArgs::THttpChannelDiverterArgs:
-  {
-    auto httpParent = static_cast<HttpChannelParent*>(
-      aArgs.get_HttpChannelDiverterArgs().mChannelParent());
-    httpParent->SetApplyConversion(aArgs.get_HttpChannelDiverterArgs().mApplyConversion());
+    case ChannelDiverterArgs::THttpChannelDiverterArgs: {
+      auto httpParent = static_cast<HttpChannelParent*>(
+          aArgs.get_HttpChannelDiverterArgs().mChannelParent());
+      httpParent->SetApplyConversion(
+          aArgs.get_HttpChannelDiverterArgs().mApplyConversion());
 
-    mDivertableChannelParent =
-      static_cast<ADivertableParentChannel*>(httpParent);
-    break;
-  }
-  case ChannelDiverterArgs::TPFTPChannelParent:
-  {
-    mDivertableChannelParent = static_cast<ADivertableParentChannel*>(
-      static_cast<FTPChannelParent*>(aArgs.get_PFTPChannelParent()));
-    break;
-  }
-  default:
-    NS_NOTREACHED("unknown ChannelDiverterArgs type");
-    return false;
+      mDivertableChannelParent =
+          static_cast<ADivertableParentChannel*>(httpParent);
+      break;
+    }
+    case ChannelDiverterArgs::TPFTPChannelParent: {
+      mDivertableChannelParent = static_cast<ADivertableParentChannel*>(
+          static_cast<FTPChannelParent*>(aArgs.get_PFTPChannelParent()));
+      break;
+    }
+    default:
+      NS_NOTREACHED("unknown ChannelDiverterArgs type");
+      return false;
   }
   MOZ_ASSERT(mDivertableChannelParent);
 
@@ -71,5 +66,5 @@ ChannelDiverterParent::ActorDestroy(ActorDestroyReason aWhy)
   // Implement me! Bug 1005179
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

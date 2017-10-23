@@ -25,7 +25,7 @@ class GlobalObject;
 class TestInterfaceIterableSingle final : public nsISupports,
                                           public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TestInterfaceIterableSingle)
 
@@ -33,19 +33,19 @@ public:
   nsPIDOMWindowInner* GetParentObject() const;
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
-  static already_AddRefed<TestInterfaceIterableSingle>
-    Constructor(const GlobalObject& aGlobal, ErrorResult& rv);
+  static already_AddRefed<TestInterfaceIterableSingle> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& rv);
 
   uint32_t Length() const;
   int32_t IndexedGetter(uint32_t aIndex, bool& aFound) const;
 
-private:
+ private:
   virtual ~TestInterfaceIterableSingle() {}
   nsCOMPtr<nsPIDOMWindowInner> mParent;
   nsTArray<int32_t> mValues;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TestInterfaceIterableSingle_h
+#endif  // mozilla_dom_TestInterfaceIterableSingle_h

@@ -18,37 +18,43 @@
 namespace mozilla {
 namespace dom {
 
-class U2FRegisterResult {
-public:
+class U2FRegisterResult
+{
+ public:
   explicit U2FRegisterResult(nsTArray<uint8_t>&& aRegistration)
-    : mRegistration(aRegistration)
-  { }
+      : mRegistration(aRegistration)
+  {
+  }
 
-  void ConsumeRegistration(nsTArray<uint8_t>& aBuffer) {
+  void ConsumeRegistration(nsTArray<uint8_t>& aBuffer)
+  {
     aBuffer = Move(mRegistration);
   }
 
-private:
+ private:
   nsTArray<uint8_t> mRegistration;
 };
 
-class U2FSignResult {
-public:
+class U2FSignResult
+{
+ public:
   explicit U2FSignResult(nsTArray<uint8_t>&& aKeyHandle,
                          nsTArray<uint8_t>&& aSignature)
-    : mKeyHandle(aKeyHandle)
-    , mSignature(aSignature)
-  { }
+      : mKeyHandle(aKeyHandle), mSignature(aSignature)
+  {
+  }
 
-  void ConsumeKeyHandle(nsTArray<uint8_t>& aBuffer) {
+  void ConsumeKeyHandle(nsTArray<uint8_t>& aBuffer)
+  {
     aBuffer = Move(mKeyHandle);
   }
 
-  void ConsumeSignature(nsTArray<uint8_t>& aBuffer) {
+  void ConsumeSignature(nsTArray<uint8_t>& aBuffer)
+  {
     aBuffer = Move(mSignature);
   }
 
-private:
+ private:
   nsTArray<uint8_t> mKeyHandle;
   nsTArray<uint8_t> mSignature;
 };
@@ -58,29 +64,29 @@ typedef MozPromise<U2FSignResult, nsresult, true> U2FSignPromise;
 
 class U2FTokenTransport
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(U2FTokenTransport);
   U2FTokenTransport() {}
 
-  virtual RefPtr<U2FRegisterPromise>
-  Register(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-           const nsTArray<uint8_t>& aApplication,
-           const nsTArray<uint8_t>& aChallenge,
-           uint32_t aTimeoutMS) = 0;
+  virtual RefPtr<U2FRegisterPromise> Register(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+      const nsTArray<uint8_t>& aApplication,
+      const nsTArray<uint8_t>& aChallenge,
+      uint32_t aTimeoutMS) = 0;
 
-  virtual RefPtr<U2FSignPromise>
-  Sign(const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
-       const nsTArray<uint8_t>& aApplication,
-       const nsTArray<uint8_t>& aChallenge,
-       uint32_t aTimeoutMS) = 0;
+  virtual RefPtr<U2FSignPromise> Sign(
+      const nsTArray<WebAuthnScopedCredentialDescriptor>& aDescriptors,
+      const nsTArray<uint8_t>& aApplication,
+      const nsTArray<uint8_t>& aChallenge,
+      uint32_t aTimeoutMS) = 0;
 
   virtual void Cancel() = 0;
 
-protected:
+ protected:
   virtual ~U2FTokenTransport() = default;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2FTokenTransport_h
+#endif  // mozilla_dom_U2FTokenTransport_h

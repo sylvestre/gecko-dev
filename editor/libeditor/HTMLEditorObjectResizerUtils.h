@@ -17,14 +17,14 @@ class nsIHTMLEditor;
 
 namespace mozilla {
 
-#define kTopLeft       NS_LITERAL_STRING("nw")
-#define kTop           NS_LITERAL_STRING("n")
-#define kTopRight      NS_LITERAL_STRING("ne")
-#define kLeft          NS_LITERAL_STRING("w")
-#define kRight         NS_LITERAL_STRING("e")
-#define kBottomLeft    NS_LITERAL_STRING("sw")
-#define kBottom        NS_LITERAL_STRING("s")
-#define kBottomRight   NS_LITERAL_STRING("se")
+#define kTopLeft NS_LITERAL_STRING("nw")
+#define kTop NS_LITERAL_STRING("n")
+#define kTopRight NS_LITERAL_STRING("ne")
+#define kLeft NS_LITERAL_STRING("w")
+#define kRight NS_LITERAL_STRING("e")
+#define kBottomLeft NS_LITERAL_STRING("sw")
+#define kBottom NS_LITERAL_STRING("s")
+#define kBottomRight NS_LITERAL_STRING("se")
 
 /******************************************************************************
  * mozilla::ResizerSelectionListener
@@ -32,14 +32,14 @@ namespace mozilla {
 
 class ResizerSelectionListener final : public nsISelectionListener
 {
-public:
+ public:
   explicit ResizerSelectionListener(HTMLEditor& aHTMLEditor);
   void Reset();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSISELECTIONLISTENER
 
-protected:
+ protected:
   virtual ~ResizerSelectionListener() {}
   CachedWeakPtr<HTMLEditor, nsIHTMLEditor> mHTMLEditorWeak;
 };
@@ -50,13 +50,13 @@ protected:
 
 class ResizerMouseMotionListener final : public nsIDOMEventListener
 {
-public:
+ public:
   explicit ResizerMouseMotionListener(HTMLEditor& aHTMLEditor);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
 
-protected:
+ protected:
   virtual ~ResizerMouseMotionListener() {}
   CachedWeakPtr<HTMLEditor, nsIHTMLEditor> mHTMLEditorWeak;
 };
@@ -67,17 +67,17 @@ protected:
 
 class DocumentResizeEventListener final : public nsIDOMEventListener
 {
-public:
+ public:
   explicit DocumentResizeEventListener(HTMLEditor& aHTMLEditor);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
 
-protected:
+ protected:
   virtual ~DocumentResizeEventListener() {}
   CachedWeakPtr<HTMLEditor, nsIHTMLEditor> mHTMLEditorWeak;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // #ifndef HTMLEditorObjectResizerUtils_h
+#endif  // #ifndef HTMLEditorObjectResizerUtils_h

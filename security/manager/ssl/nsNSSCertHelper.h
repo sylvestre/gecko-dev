@@ -16,11 +16,12 @@ uint32_t
 getCertType(CERTCertificate* cert);
 
 nsresult
-GetCertFingerprintByOidTag(CERTCertificate* nsscert, SECOidTag aOidTag,
+GetCertFingerprintByOidTag(CERTCertificate* nsscert,
+                           SECOidTag aOidTag,
                            nsCString& fp);
 
 // Must be used on the main thread only.
 nsresult
 GetPIPNSSBundleString(const char* stringName, nsAString& result);
 
-#endif // nsNSSCertHelper_h
+#endif  // nsNSSCertHelper_h

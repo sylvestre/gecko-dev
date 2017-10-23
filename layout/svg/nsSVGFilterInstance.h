@@ -19,8 +19,8 @@ struct nsStyleFilter;
 namespace mozilla {
 namespace dom {
 class SVGFilterElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * This class helps nsFilterInstance build its filter graph by processing a
@@ -71,7 +71,7 @@ class nsSVGFilterInstance
   typedef mozilla::gfx::FilterPrimitiveDescription FilterPrimitiveDescription;
   typedef mozilla::dom::UserSpaceMetrics UserSpaceMetrics;
 
-public:
+ public:
   /**
    * @param aFilter The SVG filter reference from the style system. This class
    *   stores aFilter by reference, so callers should avoid modifying or
@@ -105,15 +105,17 @@ public:
    * element in aPrimitiveDescrs, or the SourceGraphic input if this is the first
    * filter in the filter chain.
    */
-  nsresult BuildPrimitives(nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
-                           nsTArray<RefPtr<SourceSurface>>& aInputImages,
-                           bool aInputIsTainted);
+  nsresult BuildPrimitives(
+      nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
+      nsTArray<RefPtr<SourceSurface>>& aInputImages,
+      bool aInputIsTainted);
 
-  float GetPrimitiveNumber(uint8_t aCtxType, const nsSVGNumber2 *aNumber) const
+  float GetPrimitiveNumber(uint8_t aCtxType, const nsSVGNumber2* aNumber) const
   {
     return GetPrimitiveNumber(aCtxType, aNumber->GetAnimValue());
   }
-  float GetPrimitiveNumber(uint8_t aCtxType, const nsSVGNumberPair *aNumberPair,
+  float GetPrimitiveNumber(uint8_t aCtxType,
+                           const nsSVGNumberPair* aNumberPair,
                            nsSVGNumberPair::PairIndex aIndex) const
   {
     return GetPrimitiveNumber(aCtxType, aNumberPair->GetAnimValue(aIndex));
@@ -131,7 +133,7 @@ public:
    */
   gfxRect UserSpaceToFilterSpace(const gfxRect& aUserSpaceRect) const;
 
-private:
+ private:
   /**
    * Finds the filter frame associated with this SVG filter.
    */
@@ -140,18 +142,20 @@ private:
   /**
    * Computes the filter primitive subregion for the given primitive.
    */
-  IntRect ComputeFilterPrimitiveSubregion(nsSVGFE* aFilterElement,
-                                          const nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
-                                          const nsTArray<int32_t>& aInputIndices);
+  IntRect ComputeFilterPrimitiveSubregion(
+      nsSVGFE* aFilterElement,
+      const nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
+      const nsTArray<int32_t>& aInputIndices);
 
   /**
    * Takes the input indices of a filter primitive and returns for each input
    * whether the input's output is tainted.
    */
-  void GetInputsAreTainted(const nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
-                           const nsTArray<int32_t>& aInputIndices,
-                           bool aFilterInputIsTainted,
-                           nsTArray<bool>& aOutInputsAreTainted);
+  void GetInputsAreTainted(
+      const nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
+      const nsTArray<int32_t>& aInputIndices,
+      bool aFilterInputIsTainted,
+      nsTArray<bool>& aOutInputsAreTainted);
 
   /**
    * Scales a numeric filter primitive length in the X, Y or "XY" directions
@@ -174,7 +178,8 @@ private:
    * The new FilterPrimitiveDescription zeros out the SourceGraphic's RGB
    * channels and keeps the alpha channel intact.
    */
-  int32_t GetOrCreateSourceAlphaIndex(nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs);
+  int32_t GetOrCreateSourceAlphaIndex(
+      nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs);
 
   /**
    * Finds the index in aPrimitiveDescrs of each input to aPrimitiveElement.
@@ -183,12 +188,13 @@ private:
    * Then, the resulting aSourceIndices will contain the index of the
    * FilterPrimitiveDescription representing "another-primitive".
    */
-  nsresult GetSourceIndices(nsSVGFE* aPrimitiveElement,
-                            nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
-                            const nsDataHashtable<nsStringHashKey, int32_t>& aImageTable,
-                            nsTArray<int32_t>& aSourceIndices);
+  nsresult GetSourceIndices(
+      nsSVGFE* aPrimitiveElement,
+      nsTArray<FilterPrimitiveDescription>& aPrimitiveDescrs,
+      const nsDataHashtable<nsStringHashKey, int32_t>& aImageTable,
+      nsTArray<int32_t>& aSourceIndices);
 
-   /**
+  /**
    * Compute the filter region in user space, filter space, and filter
    * space.
    */

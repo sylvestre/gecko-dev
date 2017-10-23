@@ -20,7 +20,7 @@ namespace plugins {
 
 class PluginSurfaceParent : public PPluginSurfaceParent
 {
-public:
+ public:
   PluginSurfaceParent(const WindowsSharedMemoryHandle& handle,
                       const gfx::IntSize& size,
                       const bool transparent);
@@ -30,11 +30,11 @@ public:
 
   gfxASurface* Surface() { return mSurface; }
 
-private:
+ private:
   RefPtr<gfxASurface> mSurface;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
-#endif // dom_plugin_PluginSurfaceParent_h
+#endif  // dom_plugin_PluginSurfaceParent_h

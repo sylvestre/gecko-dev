@@ -14,29 +14,22 @@ namespace gfx {
 // Get the global device context, and auto-release it on destruction.
 class AutoDC
 {
-public:
-  AutoDC() {
-    mDC = ::GetDC(nullptr);
-  }
+ public:
+  AutoDC() { mDC = ::GetDC(nullptr); }
 
-  ~AutoDC() {
-    ::ReleaseDC(nullptr, mDC);
-  }
+  ~AutoDC() { ::ReleaseDC(nullptr, mDC); }
 
-  HDC GetDC() {
-    return mDC;
-  }
+  HDC GetDC() { return mDC; }
 
-private:
+ private:
   HDC mDC;
 };
 
 // Select a font into the given DC, and auto-restore.
 class AutoSelectFont
 {
-public:
-  AutoSelectFont(HDC aDC, LOGFONTW *aLogFont)
-    : mOwnsFont(false)
+ public:
+  AutoSelectFont(HDC aDC, LOGFONTW* aLogFont) : mOwnsFont(false)
   {
     mFont = ::CreateFontIndirectW(aLogFont);
     if (mFont) {
@@ -48,15 +41,15 @@ public:
     }
   }
 
-  AutoSelectFont(HDC aDC, HFONT aFont)
-    : mOwnsFont(false)
+  AutoSelectFont(HDC aDC, HFONT aFont) : mOwnsFont(false)
   {
     mDC = aDC;
     mFont = aFont;
     mOldFont = (HFONT)::SelectObject(aDC, aFont);
   }
 
-  ~AutoSelectFont() {
+  ~AutoSelectFont()
+  {
     if (mOldFont) {
       ::SelectObject(mDC, mOldFont);
       if (mOwnsFont) {
@@ -65,22 +58,18 @@ public:
     }
   }
 
-  bool IsValid() const {
-    return mFont != nullptr;
-  }
+  bool IsValid() const { return mFont != nullptr; }
 
-  HFONT GetFont() const {
-    return mFont;
-  }
+  HFONT GetFont() const { return mFont; }
 
-private:
+ private:
   HDC mDC;
   HFONT mFont;
   HFONT mOldFont;
   bool mOwnsFont;
 };
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_AutoHelpersWin_h
+#endif  // mozilla_gfx_AutoHelpersWin_h

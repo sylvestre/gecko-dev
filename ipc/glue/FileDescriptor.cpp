@@ -16,7 +16,7 @@
 #include "ProtocolUtils.h"
 #define INVALID_HANDLE INVALID_HANDLE_VALUE
 
-#else // XP_WIN
+#else  // XP_WIN
 
 #include <unistd.h>
 
@@ -27,35 +27,32 @@
 #include "base/eintr_wrapper.h"
 #define INVALID_HANDLE -1
 
-#endif // XP_WIN
+#endif  // XP_WIN
 
 using mozilla::ipc::FileDescriptor;
 
-FileDescriptor::FileDescriptor()
-  : mHandle(INVALID_HANDLE)
-{
-}
+FileDescriptor::FileDescriptor() : mHandle(INVALID_HANDLE) {}
 
 FileDescriptor::FileDescriptor(const FileDescriptor& aOther)
-  : mHandle(INVALID_HANDLE)
+    : mHandle(INVALID_HANDLE)
 {
   Assign(aOther);
 }
 
 FileDescriptor::FileDescriptor(FileDescriptor&& aOther)
-  : mHandle(INVALID_HANDLE)
+    : mHandle(INVALID_HANDLE)
 {
   *this = mozilla::Move(aOther);
 }
 
 FileDescriptor::FileDescriptor(PlatformHandleType aHandle)
-  : mHandle(INVALID_HANDLE)
+    : mHandle(INVALID_HANDLE)
 {
   mHandle = Clone(aHandle);
 }
 
 FileDescriptor::FileDescriptor(const IPDLPrivate&, const PickleType& aPickle)
-  : mHandle(INVALID_HANDLE)
+    : mHandle(INVALID_HANDLE)
 {
 #ifdef XP_WIN
   mHandle = aPickle;
@@ -64,10 +61,7 @@ FileDescriptor::FileDescriptor(const IPDLPrivate&, const PickleType& aPickle)
 #endif
 }
 
-FileDescriptor::~FileDescriptor()
-{
-  Close();
-}
+FileDescriptor::~FileDescriptor() { Close(); }
 
 FileDescriptor&
 FileDescriptor::operator=(const FileDescriptor& aOther)
@@ -116,14 +110,14 @@ FileDescriptor::ShareTo(const FileDescriptor::IPDLPrivate&,
   PlatformHandleType newHandle;
 #ifdef XP_WIN
   if (IsValid()) {
-    if (mozilla::ipc::DuplicateHandle(mHandle, aTargetPid, &newHandle, 0,
-                                      DUPLICATE_SAME_ACCESS)) {
+    if (mozilla::ipc::DuplicateHandle(
+            mHandle, aTargetPid, &newHandle, 0, DUPLICATE_SAME_ACCESS)) {
       return newHandle;
     }
     NS_WARNING("Failed to duplicate file handle for other process!");
   }
   return INVALID_HANDLE;
-#else // XP_WIN
+#else  // XP_WIN
   if (IsValid()) {
     newHandle = dup(mHandle);
     if (IsValid(newHandle)) {
@@ -165,12 +159,17 @@ FileDescriptor::Clone(PlatformHandleType aHandle)
   }
   FileDescriptor::PlatformHandleType newHandle;
 #ifdef XP_WIN
-  if (::DuplicateHandle(GetCurrentProcess(), aHandle, GetCurrentProcess(),
-                        &newHandle, 0, FALSE, DUPLICATE_SAME_ACCESS)) {
-#else // XP_WIN
+  if (::DuplicateHandle(GetCurrentProcess(),
+                        aHandle,
+                        GetCurrentProcess(),
+                        &newHandle,
+                        0,
+                        FALSE,
+                        DUPLICATE_SAME_ACCESS)) {
+#else  // XP_WIN
   if ((newHandle = dup(aHandle)) != INVALID_HANDLE) {
 #endif
-        return newHandle;
+    return newHandle;
   }
   NS_WARNING("Failed to duplicate file handle for current process!");
   return INVALID_HANDLE;
@@ -185,42 +184,44 @@ FileDescriptor::Close(PlatformHandleType aHandle)
     if (!CloseHandle(aHandle)) {
       NS_WARNING("Failed to close file handle for current process!");
     }
-#else // XP_WIN
+#else  // XP_WIN
     HANDLE_EINTR(close(aHandle));
 #endif
   }
 }
 
-FileDescriptor::PlatformHandleHelper::PlatformHandleHelper(FileDescriptor::PlatformHandleType aHandle)
-  :mHandle(aHandle)
+FileDescriptor::PlatformHandleHelper::PlatformHandleHelper(
+    FileDescriptor::PlatformHandleType aHandle)
+    : mHandle(aHandle)
 {
 }
 
 FileDescriptor::PlatformHandleHelper::PlatformHandleHelper(std::nullptr_t)
-  :mHandle(INVALID_HANDLE)
+    : mHandle(INVALID_HANDLE)
 {
 }
 
-bool
-FileDescriptor::PlatformHandleHelper::operator!=(std::nullptr_t) const
+bool FileDescriptor::PlatformHandleHelper::operator!=(std::nullptr_t) const
 {
   return mHandle != INVALID_HANDLE;
 }
 
-FileDescriptor::PlatformHandleHelper::operator FileDescriptor::PlatformHandleType () const
+FileDescriptor::PlatformHandleHelper::
+operator FileDescriptor::PlatformHandleType() const
 {
   return mHandle;
 }
 
 #ifdef XP_WIN
-FileDescriptor::PlatformHandleHelper::operator std::intptr_t () const
+FileDescriptor::PlatformHandleHelper::operator std::intptr_t() const
 {
   return reinterpret_cast<std::intptr_t>(mHandle);
 }
 #endif
 
 void
-FileDescriptor::PlatformHandleDeleter::operator()(FileDescriptor::PlatformHandleHelper aHelper)
+FileDescriptor::PlatformHandleDeleter::operator()(
+    FileDescriptor::PlatformHandleHelper aHelper)
 {
   FileDescriptor::Close(aHelper);
 }

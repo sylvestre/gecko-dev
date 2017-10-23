@@ -22,16 +22,15 @@ namespace storage {
  */
 class SQLiteMutex : private BlockingResourceBase
 {
-public:
+ public:
   /**
    * Constructs a wrapper for a sqlite3_mutex that has deadlock detecting.
    *
    * @param aName
    *        A name which can be used to reference this mutex.
    */
-  explicit SQLiteMutex(const char *aName)
-  : BlockingResourceBase(aName, eMutex)
-  , mMutex(nullptr)
+  explicit SQLiteMutex(const char* aName)
+      : BlockingResourceBase(aName, eMutex), mMutex(nullptr)
   {
   }
 
@@ -43,7 +42,7 @@ public:
    * @param aMutex
    *        The sqlite3_mutex that we are going to wrap.
    */
-  void initWithMutex(sqlite3_mutex *aMutex)
+  void initWithMutex(sqlite3_mutex* aMutex)
   {
     NS_ASSERTION(aMutex, "You must pass in a valid mutex!");
     NS_ASSERTION(!mMutex, "A mutex has already been set for this!");
@@ -54,40 +53,28 @@ public:
    * After a connection has been successfully closed, its mutex is a dangling
    * pointer, and as such it should be destroyed.
    */
-  void destroy() {
-    mMutex = NULL;
-  }
+  void destroy() { mMutex = NULL; }
 
 #if !defined(DEBUG) || defined(MOZ_SYSTEM_SQLITE)
   /**
    * Acquires the mutex.
    */
-  void lock()
-  {
-    ::sqlite3_mutex_enter(mMutex);
-  }
+  void lock() { ::sqlite3_mutex_enter(mMutex); }
 
   /**
    * Releases the mutex.
    */
-  void unlock()
-  {
-    ::sqlite3_mutex_leave(mMutex);
-  }
+  void unlock() { ::sqlite3_mutex_leave(mMutex); }
 
   /**
    * Asserts that the current thread owns the mutex.
    */
-  void assertCurrentThreadOwns()
-  {
-  }
+  void assertCurrentThreadOwns() {}
 
   /**
    * Asserts that the current thread does not own the mutex.
    */
-  void assertNotCurrentThreadOwns()
-  {
-  }
+  void assertNotCurrentThreadOwns() {}
 
 #else
   void lock()
@@ -99,7 +86,7 @@ public:
 
     CheckAcquire();
     ::sqlite3_mutex_enter(mMutex);
-    Acquire(); // Call is protected by us holding the mutex.
+    Acquire();  // Call is protected by us holding the mutex.
   }
 
   void unlock()
@@ -108,7 +95,7 @@ public:
 
     // While SQLite Mutexes may be recursive, in our own code we do not want to
     // treat them as such.
-    Release(); // Call is protected by us holding the mutex.
+    Release();  // Call is protected by us holding the mutex.
     ::sqlite3_mutex_leave(mMutex);
   }
 
@@ -125,10 +112,10 @@ public:
     MOZ_ASSERT(sqlite3_mutex_notheld(mMutex),
                "Mutex is held, but we expect it to not be!");
   }
-#endif // ifndef DEBUG
+#endif  // ifndef DEBUG
 
-private:
-  sqlite3_mutex *mMutex;
+ private:
+  sqlite3_mutex* mMutex;
 };
 
 /**
@@ -137,20 +124,16 @@ private:
  */
 class MOZ_STACK_CLASS SQLiteMutexAutoLock
 {
-public:
-  explicit SQLiteMutexAutoLock(SQLiteMutex &aMutex)
-  : mMutex(aMutex)
+ public:
+  explicit SQLiteMutexAutoLock(SQLiteMutex& aMutex) : mMutex(aMutex)
   {
     mMutex.lock();
   }
 
-  ~SQLiteMutexAutoLock()
-  {
-    mMutex.unlock();
-  }
+  ~SQLiteMutexAutoLock() { mMutex.unlock(); }
 
-private:
-  SQLiteMutex &mMutex;
+ private:
+  SQLiteMutex& mMutex;
 };
 
 /**
@@ -159,23 +142,19 @@ private:
  */
 class MOZ_STACK_CLASS SQLiteMutexAutoUnlock
 {
-public:
-  explicit SQLiteMutexAutoUnlock(SQLiteMutex &aMutex)
-  : mMutex(aMutex)
+ public:
+  explicit SQLiteMutexAutoUnlock(SQLiteMutex& aMutex) : mMutex(aMutex)
   {
     mMutex.unlock();
   }
 
-  ~SQLiteMutexAutoUnlock()
-  {
-    mMutex.lock();
-  }
+  ~SQLiteMutexAutoUnlock() { mMutex.lock(); }
 
-private:
-  SQLiteMutex &mMutex;
+ private:
+  SQLiteMutex& mMutex;
 };
 
-} // namespace storage
-} // namespace mozilla
+}  // namespace storage
+}  // namespace mozilla
 
-#endif // mozilla_storage_SQLiteMutex_h_
+#endif  // mozilla_storage_SQLiteMutex_h_

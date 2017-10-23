@@ -26,18 +26,20 @@ class Event;
 
 class PopupBoxObject final : public BoxObject
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   // also in PopupBoxObject.webidl
-  static const uint32_t ROLLUP_DEFAULT = 0;   /* widget/platform default */
-  static const uint32_t ROLLUP_CONSUME = 1;   /* consume the rollup event */
-  static const uint32_t ROLLUP_NO_CONSUME = 2; /* don't consume the rollup event */
+  static const uint32_t ROLLUP_DEFAULT = 0; /* widget/platform default */
+  static const uint32_t ROLLUP_CONSUME = 1; /* consume the rollup event */
+  static const uint32_t ROLLUP_NO_CONSUME =
+      2; /* don't consume the rollup event */
 
   PopupBoxObject();
 
   nsIContent* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   void ShowPopup(Element* aAnchorElement,
                  Element& aPopupElement,
@@ -67,7 +69,8 @@ public:
                  const nsAString& aPosition,
                  int32_t aXPos,
                  int32_t aYPos,
-                 bool aIsContextMenu, bool aAttributesOverride,
+                 bool aIsContextMenu,
+                 bool aAttributesOverride,
                  Event* aTriggerEvent);
 
   void OpenPopupAtScreen(int32_t aXPos,
@@ -76,8 +79,10 @@ public:
                          Event* aTriggerEvent);
 
   void OpenPopupAtScreenRect(const nsAString& aPosition,
-                             int32_t aXPos, int32_t aYPos,
-                             int32_t aWidth, int32_t aHeight,
+                             int32_t aXPos,
+                             int32_t aYPos,
+                             int32_t aWidth,
+                             int32_t aHeight,
                              bool aIsContextMenu,
                              bool aAttributesOverride,
                              Event* aTriggerEvent);
@@ -102,14 +107,14 @@ public:
 
   void SetConstraintRect(dom::DOMRectReadOnly& aRect);
 
-private:
+ private:
   ~PopupBoxObject();
 
-protected:
+ protected:
   nsPopupSetFrame* GetPopupSetFrame();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PopupBoxObject_h
+#endif  // mozilla_dom_PopupBoxObject_h

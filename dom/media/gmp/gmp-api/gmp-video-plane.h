@@ -46,8 +46,9 @@
 //
 // Methods that create or destroy shared memory must be called on the main
 // thread. They are marked below.
-class GMPPlane {
-public:
+class GMPPlane
+{
+ public:
   // MAIN THREAD ONLY
   // CreateEmptyPlane - set allocated size, actual plane size and stride:
   // If current size is smaller than current size, then a buffer of sufficient
@@ -63,7 +64,9 @@ public:
   // MAIN THREAD ONLY
   // Copy buffer: If current size is smaller
   // than current size, then a buffer of sufficient size will be allocated.
-  virtual GMPErr Copy(int32_t aSize, int32_t aStride, const uint8_t* aBuffer) = 0;
+  virtual GMPErr Copy(int32_t aSize,
+                      int32_t aStride,
+                      const uint8_t* aBuffer) = 0;
 
   // Swap plane data.
   virtual void Swap(GMPPlane& aPlane) = 0;
@@ -91,4 +94,4 @@ public:
   virtual void Destroy() = 0;
 };
 
-#endif // GMP_VIDEO_PLANE_h_
+#endif  // GMP_VIDEO_PLANE_h_

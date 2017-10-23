@@ -21,7 +21,7 @@ namespace dom {
 namespace {
 StaticMutex gMutex;
 StaticRefPtr<IPCBlobInputStreamStorage> gStorage;
-}
+}  // namespace
 
 NS_INTERFACE_MAP_BEGIN(IPCBlobInputStreamStorage)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIObserver)
@@ -31,11 +31,9 @@ NS_INTERFACE_MAP_END
 NS_IMPL_ADDREF(IPCBlobInputStreamStorage)
 NS_IMPL_RELEASE(IPCBlobInputStreamStorage)
 
-IPCBlobInputStreamStorage::IPCBlobInputStreamStorage()
-{}
+IPCBlobInputStreamStorage::IPCBlobInputStreamStorage() {}
 
-IPCBlobInputStreamStorage::~IPCBlobInputStreamStorage()
-{}
+IPCBlobInputStreamStorage::~IPCBlobInputStreamStorage() {}
 
 /* static */ IPCBlobInputStreamStorage*
 IPCBlobInputStreamStorage::Get()
@@ -58,7 +56,8 @@ IPCBlobInputStreamStorage::Initialize()
 }
 
 NS_IMETHODIMP
-IPCBlobInputStreamStorage::Observe(nsISupports* aSubject, const char* aTopic,
+IPCBlobInputStreamStorage::Observe(nsISupports* aSubject,
+                                   const char* aTopic,
                                    const char16_t* aData)
 {
   if (!strcmp(aTopic, "xpcom-shutdown")) {
@@ -122,7 +121,8 @@ IPCBlobInputStreamStorage::ForgetStream(const nsID& aID)
 
 void
 IPCBlobInputStreamStorage::GetStream(const nsID& aID,
-                                     uint64_t aStart, uint64_t aLength,
+                                     uint64_t aStart,
+                                     uint64_t aLength,
                                      nsIInputStream** aInputStream)
 {
   *aInputStream = nullptr;
@@ -152,9 +152,9 @@ IPCBlobInputStreamStorage::GetStream(const nsID& aID,
   nsCOMPtr<nsIInputStream> clonedStream;
   nsCOMPtr<nsIInputStream> replacementStream;
 
-  nsresult rv =
-    NS_CloneInputStream(inputStream, getter_AddRefs(clonedStream),
-                        getter_AddRefs(replacementStream));
+  nsresult rv = NS_CloneInputStream(inputStream,
+                                    getter_AddRefs(clonedStream),
+                                    getter_AddRefs(replacementStream));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -173,15 +173,15 @@ IPCBlobInputStreamStorage::GetStream(const nsID& aID,
   // Now it's the right time to apply a slice if needed.
   if (aStart > 0 || aLength < size) {
     clonedStream =
-      new SlicedInputStream(clonedStream.forget(), aStart, aLength);
+        new SlicedInputStream(clonedStream.forget(), aStart, aLength);
   }
 
   clonedStream.forget(aInputStream);
 }
 
 void
-IPCBlobInputStreamStorage::StoreCallback(const nsID& aID,
-                                         IPCBlobInputStreamParentCallback* aCallback)
+IPCBlobInputStreamStorage::StoreCallback(
+    const nsID& aID, IPCBlobInputStreamParentCallback* aCallback)
 {
   MOZ_ASSERT(aCallback);
 
@@ -207,5 +207,5 @@ IPCBlobInputStreamStorage::TakeCallback(const nsID& aID)
   return callback.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

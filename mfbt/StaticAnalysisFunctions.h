@@ -28,8 +28,12 @@
  * Example:
  * canRunScript(MOZ_KnownLive(rawPointer));
  */
-template <typename T>
-static MOZ_ALWAYS_INLINE T* MOZ_KnownLive(T* ptr) { return ptr; }
+template<typename T>
+static MOZ_ALWAYS_INLINE T*
+MOZ_KnownLive(T* ptr)
+{
+  return ptr;
+}
 
 extern "C" {
 #endif
@@ -41,7 +45,9 @@ extern "C" {
  * Example:
  * MOZ_ASSERT(retVal = true);
  */
-static MOZ_ALWAYS_INLINE bool MOZ_AssertAssignmentTest(bool exprResult) {
+static MOZ_ALWAYS_INLINE bool
+MOZ_AssertAssignmentTest(bool exprResult)
+{
   return exprResult;
 }
 

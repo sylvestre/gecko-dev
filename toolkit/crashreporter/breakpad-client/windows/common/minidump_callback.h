@@ -16,31 +16,31 @@ namespace google_breakpad {
 
 // These entries store a list of memory regions that the client wants included
 // in the minidump.
-struct AppMemory {
+struct AppMemory
+{
   ULONG64 ptr;
   ULONG length;
   bool preallocated;
 
-  bool operator==(const struct AppMemory& other) const {
+  bool operator==(const struct AppMemory& other) const
+  {
     return ptr == other.ptr;
   }
 
-  bool operator==(const void* other) const {
+  bool operator==(const void* other) const
+  {
     return ptr == reinterpret_cast<ULONG64>(other);
   }
 
-  AppMemory()
-    : ptr(0)
-    , length(0)
-    , preallocated(false)
-  {}
+  AppMemory() : ptr(0), length(0), preallocated(false) {}
 
   AppMemory& operator=(const AppMemory& other) = default;
 };
 typedef std::list<AppMemory> AppMemoryList;
 
 // This is passed as the context to the MinidumpWriteDump callback.
-typedef struct {
+typedef struct
+{
   AppMemoryList::const_iterator iter;
   AppMemoryList::const_iterator end;
 } MinidumpCallbackContext;
@@ -55,24 +55,25 @@ using RegisterValueType = DWORD64;
 #error Unsupported platform
 #endif
 
-void IncludeAppMemoryFromExceptionContext(HANDLE aProcess,
-                                          DWORD aThreadId,
-                                          AppMemoryList& aList,
-                                          PCONTEXT aExceptionContext,
-                                          bool aInsttructionPointerOnly);
+void
+IncludeAppMemoryFromExceptionContext(HANDLE aProcess,
+                                     DWORD aThreadId,
+                                     AppMemoryList& aList,
+                                     PCONTEXT aExceptionContext,
+                                     bool aInsttructionPointerOnly);
 
 // This function is used as a callback when calling MinidumpWriteDump,
 // in order to add additional memory regions to the dump.
-BOOL CALLBACK MinidumpWriteDumpCallback(
-    PVOID context,
-    const PMINIDUMP_CALLBACK_INPUT callback_input,
-    PMINIDUMP_CALLBACK_OUTPUT callback_output);
+BOOL CALLBACK
+MinidumpWriteDumpCallback(PVOID context,
+                          const PMINIDUMP_CALLBACK_INPUT callback_input,
+                          PMINIDUMP_CALLBACK_OUTPUT callback_output);
 
 // Called during startup to initialize system information used by
 // IncludeAppMemoryFromExceptionContext().
-void InitAppMemoryInternal();
+void
+InitAppMemoryInternal();
 
 }  // namespace google_breakpad
 
 #endif
-

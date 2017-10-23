@@ -19,14 +19,16 @@ typedef mozilla::gfx::IntPoint nsIntPoint;
 
 // nsPoint represents a point in app units.
 
-struct nsPoint : public mozilla::gfx::BasePoint<nscoord, nsPoint> {
+struct nsPoint : public mozilla::gfx::BasePoint<nscoord, nsPoint>
+{
   typedef mozilla::gfx::BasePoint<nscoord, nsPoint> Super;
 
   nsPoint() : Super() {}
   nsPoint(const nsPoint& aPoint) : Super(aPoint) {}
   nsPoint(nscoord aX, nscoord aY) : Super(aX, aY) {}
 
-  inline nsIntPoint ScaleToNearestPixels(float aXScale, float aYScale,
+  inline nsIntPoint ScaleToNearestPixels(float aXScale,
+                                         float aYScale,
                                          nscoord aAppUnitsPerPixel) const;
   inline nsIntPoint ToNearestPixels(nscoord aAppUnitsPerPixel) const;
 
@@ -35,19 +37,19 @@ struct nsPoint : public mozilla::gfx::BasePoint<nscoord, nsPoint> {
    * @param aFromAPP the APP to scale from
    * @param aToAPP the APP to scale to
    */
-  MOZ_MUST_USE inline nsPoint
-    ScaleToOtherAppUnits(int32_t aFromAPP, int32_t aToAPP) const;
+  MOZ_MUST_USE inline nsPoint ScaleToOtherAppUnits(int32_t aFromAPP,
+                                                   int32_t aToAPP) const;
 
-  MOZ_MUST_USE inline nsPoint
-    RemoveResolution(const float resolution) const;
-  MOZ_MUST_USE inline nsPoint
-    ApplyResolution(const float resolution) const;
+  MOZ_MUST_USE inline nsPoint RemoveResolution(const float resolution) const;
+  MOZ_MUST_USE inline nsPoint ApplyResolution(const float resolution) const;
 };
 
-inline nsPoint ToAppUnits(const nsIntPoint& aPoint, nscoord aAppUnitsPerPixel);
+inline nsPoint
+ToAppUnits(const nsIntPoint& aPoint, nscoord aAppUnitsPerPixel);
 
 inline nsIntPoint
-nsPoint::ScaleToNearestPixels(float aXScale, float aYScale,
+nsPoint::ScaleToNearestPixels(float aXScale,
+                              float aYScale,
                               nscoord aAppUnitsPerPixel) const
 {
   return nsIntPoint(
@@ -74,7 +76,8 @@ nsPoint::ScaleToOtherAppUnits(int32_t aFromAPP, int32_t aToAPP) const
 }
 
 inline nsPoint
-nsPoint::RemoveResolution(const float resolution) const {
+nsPoint::RemoveResolution(const float resolution) const
+{
   if (resolution != 1.0f) {
     nsPoint point;
     point.x = NSToCoordRound(NSCoordToFloat(x) / resolution);
@@ -85,7 +88,8 @@ nsPoint::RemoveResolution(const float resolution) const {
 }
 
 inline nsPoint
-nsPoint::ApplyResolution(const float resolution) const {
+nsPoint::ApplyResolution(const float resolution) const
+{
   if (resolution != 1.0f) {
     nsPoint point;
     point.x = NSToCoordRound(NSCoordToFloat(x) * resolution);

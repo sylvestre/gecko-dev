@@ -58,30 +58,31 @@
  *
  * @deprecated Use synchronous decoding mode.
  */
-typedef struct vda_frame {
-    /**
+typedef struct vda_frame
+{
+  /**
      * The PTS of the frame.
      *
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    int64_t             pts;
+  int64_t pts;
 
-    /**
+  /**
      * The CoreVideo buffer that contains the decoded data.
      *
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    CVPixelBufferRef    cv_buffer;
+  CVPixelBufferRef cv_buffer;
 
-    /**
+  /**
      * A pointer to the next frame.
      *
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    struct vda_frame    *next_frame;
+  struct vda_frame* next_frame;
 } vda_frame;
 #endif
 
@@ -91,33 +92,34 @@ typedef struct vda_frame {
  *
  * The application must make it available as AVCodecContext.hwaccel_context.
  */
-struct vda_context {
-    /**
+struct vda_context
+{
+  /**
      * VDA decoder object.
      *
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    VDADecoder          decoder;
+  VDADecoder decoder;
 
-    /**
+  /**
      * The Core Video pixel buffer that contains the current image data.
      *
      * encoding: unused
      * decoding: Set by libavcodec. Unset by user.
      */
-    CVPixelBufferRef    cv_buffer;
+  CVPixelBufferRef cv_buffer;
 
-    /**
+  /**
      * Use the hardware decoder in synchronous mode.
      *
      * encoding: unused
      * decoding: Set by user.
      */
-    int                 use_sync_decoding;
+  int use_sync_decoding;
 
 #if FF_API_VDA_ASYNC
-    /**
+  /**
      * VDA frames queue ordered by presentation timestamp.
      *
      * @deprecated Use synchronous decoding mode.
@@ -125,9 +127,9 @@ struct vda_context {
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    vda_frame           *queue;
+  vda_frame* queue;
 
-    /**
+  /**
      * Mutex for locking queue operations.
      *
      * @deprecated Use synchronous decoding mode.
@@ -135,64 +137,66 @@ struct vda_context {
      * - encoding: unused
      * - decoding: Set/Unset by libavcodec.
      */
-    pthread_mutex_t     queue_mutex;
+  pthread_mutex_t queue_mutex;
 #endif
 
-    /**
+  /**
      * The frame width.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    int                 width;
+  int width;
 
-    /**
+  /**
      * The frame height.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    int                 height;
+  int height;
 
-    /**
+  /**
      * The frame format.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    int                 format;
+  int format;
 
-    /**
+  /**
      * The pixel format for output image buffers.
      *
      * - encoding: unused
      * - decoding: Set/Unset by user.
      */
-    OSType              cv_pix_fmt_type;
+  OSType cv_pix_fmt_type;
 
-    /**
+  /**
      * The current bitstream buffer.
      */
-    uint8_t             *priv_bitstream;
+  uint8_t* priv_bitstream;
 
-    /**
+  /**
      * The current size of the bitstream.
      */
-    int                 priv_bitstream_size;
+  int priv_bitstream_size;
 
-    /**
+  /**
      * The reference size used for fast reallocation.
      */
-    int                 priv_allocated_size;
+  int priv_allocated_size;
 };
 
 /** Create the video decoder. */
-int ff_vda_create_decoder(struct vda_context *vda_ctx,
-                          uint8_t *extradata,
-                          int extradata_size);
+int
+ff_vda_create_decoder(struct vda_context* vda_ctx,
+                      uint8_t* extradata,
+                      int extradata_size);
 
 /** Destroy the video decoder. */
-int ff_vda_destroy_decoder(struct vda_context *vda_ctx);
+int
+ff_vda_destroy_decoder(struct vda_context* vda_ctx);
 
 #if FF_API_VDA_ASYNC
 /**
@@ -200,14 +204,16 @@ int ff_vda_destroy_decoder(struct vda_context *vda_ctx);
  *
  * @deprecated Use synchronous decoding mode.
  */
-vda_frame *ff_vda_queue_pop(struct vda_context *vda_ctx);
+vda_frame*
+ff_vda_queue_pop(struct vda_context* vda_ctx);
 
 /**
  * Release the given frame.
  *
  * @deprecated Use synchronous decoding mode.
  */
-void ff_vda_release_vda_frame(vda_frame *frame);
+void
+ff_vda_release_vda_frame(vda_frame* frame);
 #endif
 
 /**

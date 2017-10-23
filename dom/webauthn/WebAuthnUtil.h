@@ -43,7 +43,8 @@ U2FDecomposeRegistrationResponse(const CryptoBuffer& aResponse,
                                  /* out */ CryptoBuffer& aSignatureBuf);
 
 nsresult
-ReadToCryptoBuffer(pkix::Reader& aSrc, /* out */ CryptoBuffer& aDest,
+ReadToCryptoBuffer(pkix::Reader& aSrc,
+                   /* out */ CryptoBuffer& aDest,
                    uint32_t aLen);
 
 nsresult
@@ -51,7 +52,7 @@ U2FDecomposeECKey(const CryptoBuffer& aPubKeyBuf,
                   /* out */ CryptoBuffer& aXcoord,
                   /* out */ CryptoBuffer& aYcoord);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WebAuthnUtil_h
+#endif  // mozilla_dom_WebAuthnUtil_h

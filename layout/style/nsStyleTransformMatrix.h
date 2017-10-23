@@ -26,30 +26,31 @@ struct nsRect;
 namespace mozilla {
 class GeckoStyleContext;
 class RuleNodeCacheConditions;
-} // namespace mozilla
+}  // namespace mozilla
 
 /**
  * A helper to generate gfxMatrixes from css transform functions.
  */
 namespace nsStyleTransformMatrix {
-  // The operator passed to Servo backend.
-  enum class MatrixTransformOperator: uint8_t {
-    Interpolate,
-    Accumulate
-  };
+// The operator passed to Servo backend.
+enum class MatrixTransformOperator : uint8_t
+{
+  Interpolate,
+  Accumulate
+};
 
-  // Function for applying perspective() transform function. We treat
-  // any value smaller than epsilon as perspective(infinity), which
-  // follows CSSWG's resolution on perspective(0). See bug 1316236.
-  inline void ApplyPerspectiveToMatrix(mozilla::gfx::Matrix4x4& aMatrix,
-                                       float aDepth)
-  {
-    if (aDepth >= std::numeric_limits<float>::epsilon()) {
-      aMatrix.Perspective(aDepth);
-    }
+// Function for applying perspective() transform function. We treat
+// any value smaller than epsilon as perspective(infinity), which
+// follows CSSWG's resolution on perspective(0). See bug 1316236.
+inline void
+ApplyPerspectiveToMatrix(mozilla::gfx::Matrix4x4& aMatrix, float aDepth)
+{
+  if (aDepth >= std::numeric_limits<float>::epsilon()) {
+    aMatrix.Perspective(aDepth);
   }
+}
 
-  /**
+/**
    * This class provides on-demand access to the 'reference box' for CSS
    * transforms (needed to resolve percentage values in 'transform',
    * 'transform-origin', etc.):
@@ -72,117 +73,121 @@ namespace nsStyleTransformMatrix {
    * several lines, this function will return the rectangle containing all of
    * those continuations. (This behavior is not currently in a spec.)
    */
-  class MOZ_STACK_CLASS TransformReferenceBox final {
-  public:
-    typedef nscoord (TransformReferenceBox::*DimensionGetter)();
+class MOZ_STACK_CLASS TransformReferenceBox final
+{
+ public:
+  typedef nscoord (TransformReferenceBox::*DimensionGetter)();
 
-    explicit TransformReferenceBox()
-      : mFrame(nullptr)
-      , mIsCached(false)
-    {}
+  explicit TransformReferenceBox() : mFrame(nullptr), mIsCached(false) {}
 
-    explicit TransformReferenceBox(const nsIFrame* aFrame)
-      : mFrame(aFrame)
-      , mIsCached(false)
-    {
-      MOZ_ASSERT(mFrame);
+  explicit TransformReferenceBox(const nsIFrame* aFrame)
+      : mFrame(aFrame), mIsCached(false)
+  {
+    MOZ_ASSERT(mFrame);
+  }
+
+  explicit TransformReferenceBox(const nsIFrame* aFrame,
+                                 const nsSize& aFallbackDimensions)
+  {
+    mFrame = aFrame;
+    mIsCached = false;
+    if (!mFrame) {
+      Init(aFallbackDimensions);
     }
+  }
 
-    explicit TransformReferenceBox(const nsIFrame* aFrame,
-                                   const nsSize& aFallbackDimensions)
-    {
-      mFrame = aFrame;
-      mIsCached = false;
-      if (!mFrame) {
-        Init(aFallbackDimensions);
-      }
-    }
+  void Init(const nsIFrame* aFrame)
+  {
+    MOZ_ASSERT(!mFrame && !mIsCached);
+    mFrame = aFrame;
+  }
 
-    void Init(const nsIFrame* aFrame) {
-      MOZ_ASSERT(!mFrame && !mIsCached);
-      mFrame = aFrame;
-    }
+  void Init(const nsSize& aDimensions);
 
-    void Init(const nsSize& aDimensions);
-
-    /**
+  /**
      * The offset of the reference box from the nsIFrame's TopLeft(). This
      * is non-zero only in the case of SVG content. If we can successfully
      * implement UNIFIED_CONTINUATIONS at some point in the future then it
      * may also be non-zero for non-SVG content.
      */
-    nscoord X() {
-      EnsureDimensionsAreCached();
-      return mX;
-    }
-    nscoord Y() {
-      EnsureDimensionsAreCached();
-      return mY;
-    }
-
-    /**
-     * The size of the reference box.
-     */
-    nscoord Width() {
-      EnsureDimensionsAreCached();
-      return mWidth;
-    }
-    nscoord Height() {
-      EnsureDimensionsAreCached();
-      return mHeight;
-    }
-
-    bool IsEmpty() {
-      return !mFrame;
-    }
-
-  private:
-    // We don't really need to prevent copying, but since none of our consumers
-    // currently need to copy, preventing copying may allow us to catch some
-    // cases where we use pass-by-value instead of pass-by-reference.
-    TransformReferenceBox(const TransformReferenceBox&) = delete;
-
-    void EnsureDimensionsAreCached();
-
-    const nsIFrame* mFrame;
-    nscoord mX, mY, mWidth, mHeight;
-    bool mIsCached;
-  };
+  nscoord X()
+  {
+    EnsureDimensionsAreCached();
+    return mX;
+  }
+  nscoord Y()
+  {
+    EnsureDimensionsAreCached();
+    return mY;
+  }
 
   /**
+     * The size of the reference box.
+     */
+  nscoord Width()
+  {
+    EnsureDimensionsAreCached();
+    return mWidth;
+  }
+  nscoord Height()
+  {
+    EnsureDimensionsAreCached();
+    return mHeight;
+  }
+
+  bool IsEmpty() { return !mFrame; }
+
+ private:
+  // We don't really need to prevent copying, but since none of our consumers
+  // currently need to copy, preventing copying may allow us to catch some
+  // cases where we use pass-by-value instead of pass-by-reference.
+  TransformReferenceBox(const TransformReferenceBox&) = delete;
+
+  void EnsureDimensionsAreCached();
+
+  const nsIFrame* mFrame;
+  nscoord mX, mY, mWidth, mHeight;
+  bool mIsCached;
+};
+
+/**
    * Return the transform function, as an nsCSSKeyword, for the given
    * nsCSSValue::Array from a transform list.
    */
-  nsCSSKeyword TransformFunctionOf(const nsCSSValue::Array* aData);
+nsCSSKeyword
+TransformFunctionOf(const nsCSSValue::Array* aData);
 
-  void SetIdentityMatrix(nsCSSValue::Array* aMatrix);
+void
+SetIdentityMatrix(nsCSSValue::Array* aMatrix);
 
-  float ProcessTranslatePart(const nsCSSValue& aValue,
-                             mozilla::GeckoStyleContext* aContext,
-                             nsPresContext* aPresContext,
-                             mozilla::RuleNodeCacheConditions& aConditions,
-                             TransformReferenceBox* aRefBox,
-                             TransformReferenceBox::DimensionGetter aDimensionGetter = nullptr);
+float
+ProcessTranslatePart(
+    const nsCSSValue& aValue,
+    mozilla::GeckoStyleContext* aContext,
+    nsPresContext* aPresContext,
+    mozilla::RuleNodeCacheConditions& aConditions,
+    TransformReferenceBox* aRefBox,
+    TransformReferenceBox::DimensionGetter aDimensionGetter = nullptr);
 
-  void
-  ProcessInterpolateMatrix(mozilla::gfx::Matrix4x4& aMatrix,
-                           const nsCSSValue::Array* aData,
-                           mozilla::GeckoStyleContext* aContext,
-                           nsPresContext* aPresContext,
-                           mozilla::RuleNodeCacheConditions& aConditions,
-                           TransformReferenceBox& aBounds,
-                           bool* aContains3dTransform);
+void
+ProcessInterpolateMatrix(mozilla::gfx::Matrix4x4& aMatrix,
+                         const nsCSSValue::Array* aData,
+                         mozilla::GeckoStyleContext* aContext,
+                         nsPresContext* aPresContext,
+                         mozilla::RuleNodeCacheConditions& aConditions,
+                         TransformReferenceBox& aBounds,
+                         bool* aContains3dTransform);
 
-  void
-  ProcessAccumulateMatrix(mozilla::gfx::Matrix4x4& aMatrix,
-                          const nsCSSValue::Array* aData,
-                          mozilla::GeckoStyleContext* aContext,
-                          nsPresContext* aPresContext,
-                          mozilla::RuleNodeCacheConditions& aConditions,
-                          TransformReferenceBox& aBounds,
-                          bool* aContains3dTransform);
+void
+ProcessAccumulateMatrix(mozilla::gfx::Matrix4x4& aMatrix,
+                        const nsCSSValue::Array* aData,
+                        mozilla::GeckoStyleContext* aContext,
+                        nsPresContext* aPresContext,
+                        mozilla::RuleNodeCacheConditions& aConditions,
+                        TransformReferenceBox& aBounds,
+                        bool* aContains3dTransform);
 
-  /**
+/**
    * Given an nsCSSValueList containing -moz-transform functions,
    * returns a matrix containing the value of those functions.
    *
@@ -201,55 +206,61 @@ namespace nsStyleTransformMatrix {
    * length values in aData are already known to have been converted to
    * eCSSUnit_Pixel (as they are in an StyleAnimationValue)
    */
-  mozilla::gfx::Matrix4x4 ReadTransforms(const nsCSSValueList* aList,
-                                         nsStyleContext* aContext,
-                                         nsPresContext* aPresContext,
-                                         mozilla::RuleNodeCacheConditions& aConditions,
-                                         TransformReferenceBox& aBounds,
-                                         float aAppUnitsPerMatrixUnit,
-                                         bool* aContains3dTransform);
+mozilla::gfx::Matrix4x4
+ReadTransforms(const nsCSSValueList* aList,
+               nsStyleContext* aContext,
+               nsPresContext* aPresContext,
+               mozilla::RuleNodeCacheConditions& aConditions,
+               TransformReferenceBox& aBounds,
+               float aAppUnitsPerMatrixUnit,
+               bool* aContains3dTransform);
 
-  /**
+/**
    * Given two nsStyleCoord values, compute the 2d position with respect to the
    * given TransformReferenceBox that these values describe, in device pixels.
    */
-  mozilla::gfx::Point Convert2DPosition(nsStyleCoord const (&aValue)[2],
-                                        TransformReferenceBox& aRefBox,
-                                        int32_t aAppUnitsPerDevPixel);
+mozilla::gfx::Point
+Convert2DPosition(nsStyleCoord const (&aValue)[2],
+                  TransformReferenceBox& aRefBox,
+                  int32_t aAppUnitsPerDevPixel);
 
-  // Shear type for decomposition.
-  enum class ShearType {
-    XYSHEAR,
-    XZSHEAR,
-    YZSHEAR,
-    Count
-  };
-  using ShearArray =
-    mozilla::EnumeratedArray<ShearType, ShearType::Count, float>;
+// Shear type for decomposition.
+enum class ShearType
+{
+  XYSHEAR,
+  XZSHEAR,
+  YZSHEAR,
+  Count
+};
+using ShearArray = mozilla::EnumeratedArray<ShearType, ShearType::Count, float>;
 
-  /*
+/*
    * Implements the 2d transform matrix decomposition algorithm.
    */
-  bool Decompose2DMatrix(const mozilla::gfx::Matrix& aMatrix,
-                         mozilla::gfx::Point3D& aScale,
-                         ShearArray& aShear,
-                         gfxQuaternion& aRotate,
-                         mozilla::gfx::Point3D& aTranslate);
-  /*
+bool
+Decompose2DMatrix(const mozilla::gfx::Matrix& aMatrix,
+                  mozilla::gfx::Point3D& aScale,
+                  ShearArray& aShear,
+                  gfxQuaternion& aRotate,
+                  mozilla::gfx::Point3D& aTranslate);
+/*
    * Implements the 3d transform matrix decomposition algorithm.
    */
-  bool Decompose3DMatrix(const mozilla::gfx::Matrix4x4& aMatrix,
-                         mozilla::gfx::Point3D& aScale,
-                         ShearArray& aShear,
-                         gfxQuaternion& aRotate,
-                         mozilla::gfx::Point3D& aTranslate,
-                         mozilla::gfx::Point4D& aPerspective);
+bool
+Decompose3DMatrix(const mozilla::gfx::Matrix4x4& aMatrix,
+                  mozilla::gfx::Point3D& aScale,
+                  ShearArray& aShear,
+                  gfxQuaternion& aRotate,
+                  mozilla::gfx::Point3D& aTranslate,
+                  mozilla::gfx::Point4D& aPerspective);
 
-  mozilla::gfx::Matrix CSSValueArrayTo2DMatrix(nsCSSValue::Array* aArray);
-  mozilla::gfx::Matrix4x4 CSSValueArrayTo3DMatrix(nsCSSValue::Array* aArray);
+mozilla::gfx::Matrix
+CSSValueArrayTo2DMatrix(nsCSSValue::Array* aArray);
+mozilla::gfx::Matrix4x4
+CSSValueArrayTo3DMatrix(nsCSSValue::Array* aArray);
 
-  gfxSize GetScaleValue(const nsCSSValueSharedList* aList,
-                        const nsIFrame* aForFrame);
-} // namespace nsStyleTransformMatrix
+gfxSize
+GetScaleValue(const nsCSSValueSharedList* aList, const nsIFrame* aForFrame);
+}  // namespace nsStyleTransformMatrix
 
 #endif

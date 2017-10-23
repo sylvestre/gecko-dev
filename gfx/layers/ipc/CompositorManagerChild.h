@@ -6,11 +6,11 @@
 #ifndef MOZILLA_GFX_COMPOSITORMANAGERCHILD_H
 #define MOZILLA_GFX_COMPOSITORMANAGERCHILD_H
 
-#include <stddef.h>                     // for size_t
-#include <stdint.h>                     // for uint32_t, uint64_t
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for already_AddRefed
-#include "mozilla/StaticPtr.h"          // for StaticRefPtr
+#include <stddef.h>              // for size_t
+#include <stdint.h>              // for uint32_t, uint64_t
+#include "mozilla/Attributes.h"  // for override
+#include "mozilla/RefPtr.h"      // for already_AddRefed
+#include "mozilla/StaticPtr.h"   // for StaticRefPtr
 #include "mozilla/layers/PCompositorManagerChild.h"
 
 namespace mozilla {
@@ -23,7 +23,7 @@ class CompositorManagerChild : public PCompositorManagerChild
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorManagerChild)
 
-public:
+ public:
   static bool IsInitialized(uint64_t aProcessToken);
   static void InitSameProcess(uint32_t aNamespace, uint64_t aProcessToken);
   static bool Init(Endpoint<PCompositorManagerChild>&& aEndpoint,
@@ -32,31 +32,24 @@ public:
   static void Shutdown();
   static void OnGPUProcessLost(uint64_t aProcessToken);
 
-  static bool
-  CreateContentCompositorBridge(uint32_t aNamespace);
+  static bool CreateContentCompositorBridge(uint32_t aNamespace);
 
-  static already_AddRefed<CompositorBridgeChild>
-  CreateWidgetCompositorBridge(uint64_t aProcessToken,
-                               LayerManager* aLayerManager,
-                               uint32_t aNamespace,
-                               CSSToLayoutDeviceScale aScale,
-                               const CompositorOptions& aOptions,
-                               bool aUseExternalSurfaceSize,
-                               const gfx::IntSize& aSurfaceSize);
+  static already_AddRefed<CompositorBridgeChild> CreateWidgetCompositorBridge(
+      uint64_t aProcessToken,
+      LayerManager* aLayerManager,
+      uint32_t aNamespace,
+      CSSToLayoutDeviceScale aScale,
+      const CompositorOptions& aOptions,
+      bool aUseExternalSurfaceSize,
+      const gfx::IntSize& aSurfaceSize);
 
   static already_AddRefed<CompositorBridgeChild>
   CreateSameProcessWidgetCompositorBridge(LayerManager* aLayerManager,
                                           uint32_t aNamespace);
 
-  uint32_t GetNextResourceId()
-  {
-    return ++mResourceId;
-  }
+  uint32_t GetNextResourceId() { return ++mResourceId; }
 
-  uint32_t GetNamespace() const
-  {
-    return mNamespace;
-  }
+  uint32_t GetNamespace() const { return mNamespace; }
 
   void ActorDestroy(ActorDestroyReason aReason) override;
 
@@ -64,13 +57,14 @@ public:
 
   void ProcessingError(Result aCode, const char* aReason) override;
 
-  PCompositorBridgeChild* AllocPCompositorBridgeChild(const CompositorBridgeOptions& aOptions) override;
+  PCompositorBridgeChild* AllocPCompositorBridgeChild(
+      const CompositorBridgeOptions& aOptions) override;
 
   bool DeallocPCompositorBridgeChild(PCompositorBridgeChild* aActor) override;
 
   bool ShouldContinueFromReplyTimeout() override;
 
-private:
+ private:
   static StaticRefPtr<CompositorManagerChild> sInstance;
 
   CompositorManagerChild(CompositorManagerParent* aParent,
@@ -81,9 +75,7 @@ private:
                          uint64_t aProcessToken,
                          uint32_t aNamespace);
 
-  ~CompositorManagerChild() override
-  {
-  }
+  ~CompositorManagerChild() override {}
 
   bool CanSend() const
   {
@@ -93,8 +85,8 @@ private:
 
   void DeallocPCompositorManagerChild() override;
 
-  already_AddRefed<nsIEventTarget>
-  GetSpecificMessageEventTarget(const Message& aMsg) override;
+  already_AddRefed<nsIEventTarget> GetSpecificMessageEventTarget(
+      const Message& aMsg) override;
 
   void SetReplyTimeout();
 
@@ -104,7 +96,7 @@ private:
   bool mCanSend;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

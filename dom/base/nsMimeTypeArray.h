@@ -16,17 +16,17 @@
 class nsMimeType;
 class nsPluginElement;
 
-class nsMimeTypeArray final : public nsISupports,
-                              public nsWrapperCache
+class nsMimeTypeArray final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   explicit nsMimeTypeArray(nsPIDOMWindowInner* aWindow);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsMimeTypeArray)
 
   nsPIDOMWindowInner* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   void Refresh();
 
@@ -34,15 +34,17 @@ public:
   nsMimeType* Item(uint32_t index, mozilla::dom::CallerType aCallerType);
   nsMimeType* NamedItem(const nsAString& name,
                         mozilla::dom::CallerType aCallerType);
-  nsMimeType* IndexedGetter(uint32_t index, bool &found,
+  nsMimeType* IndexedGetter(uint32_t index,
+                            bool& found,
                             mozilla::dom::CallerType aCallerType);
-  nsMimeType* NamedGetter(const nsAString& name, bool &found,
+  nsMimeType* NamedGetter(const nsAString& name,
+                          bool& found,
                           mozilla::dom::CallerType aCallerType);
   uint32_t Length(mozilla::dom::CallerType aCallerType);
   void GetSupportedNames(nsTArray<nsString>& retval,
                          mozilla::dom::CallerType aCallerType);
 
-protected:
+ protected:
   virtual ~nsMimeTypeArray();
 
   void EnsurePluginMimeTypes();
@@ -58,7 +60,7 @@ protected:
 
 class nsMimeType final : public nsWrapperCache
 {
-public:
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(nsMimeType)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(nsMimeType)
 
@@ -68,20 +70,18 @@ public:
              const nsAString& aDescription,
              const nsAString& aExtension);
   nsPIDOMWindowInner* GetParentObject() const;
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  const nsString& Type() const
-  {
-    return mType;
-  }
+  const nsString& Type() const { return mType; }
 
   // MimeType WebIDL methods
   void GetDescription(nsString& retval) const;
-  nsPluginElement *GetEnabledPlugin() const;
+  nsPluginElement* GetEnabledPlugin() const;
   void GetSuffixes(nsString& retval) const;
   void GetType(nsString& retval) const;
 
-protected:
+ protected:
   virtual ~nsMimeType();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;

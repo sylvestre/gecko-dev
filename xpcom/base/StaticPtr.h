@@ -38,15 +38,12 @@ namespace mozilla {
 template<class T>
 class MOZ_ONLY_USED_TO_AVOID_STATIC_CONSTRUCTORS StaticAutoPtr
 {
-public:
+ public:
   // In debug builds, check that mRawPtr is initialized for us as we expect
   // by the compiler.  In non-debug builds, don't declare a constructor
   // so that the compiler can see that the constructor is trivial.
 #ifdef DEBUG
-  StaticAutoPtr()
-  {
-    MOZ_ASSERT(!mRawPtr);
-  }
+  StaticAutoPtr() { MOZ_ASSERT(!mRawPtr); }
 #endif
 
   StaticAutoPtr<T>& operator=(T* aRhs)
@@ -74,7 +71,7 @@ public:
     return temp;
   }
 
-private:
+ private:
   // Disallow copy constructor, but only in debug mode.  We only define
   // a default constructor in debug mode (see above); if we declared
   // this constructor always, the compiler wouldn't generate a trivial
@@ -97,15 +94,12 @@ private:
 template<class T>
 class MOZ_ONLY_USED_TO_AVOID_STATIC_CONSTRUCTORS StaticRefPtr
 {
-public:
+ public:
   // In debug builds, check that mRawPtr is initialized for us as we expect
   // by the compiler.  In non-debug builds, don't declare a constructor
   // so that the compiler can see that the constructor is trivial.
 #ifdef DEBUG
-  StaticRefPtr()
-  {
-    MOZ_ASSERT(!mRawPtr);
-  }
+  StaticRefPtr() { MOZ_ASSERT(!mRawPtr); }
 #endif
 
   StaticRefPtr<T>& operator=(T* aRhs)
@@ -131,8 +125,7 @@ public:
     return *this;
   }
 
-  already_AddRefed<T>
-  forget()
+  already_AddRefed<T> forget()
   {
     T* temp = mRawPtr;
     mRawPtr = nullptr;
@@ -151,7 +144,7 @@ public:
 
   T& operator*() const { return *get(); }
 
-private:
+ private:
   void AssignWithAddref(T* aNewPtr)
   {
     if (aNewPtr) {
@@ -174,33 +167,29 @@ private:
 
 namespace StaticPtr_internal {
 class Zero;
-} // namespace StaticPtr_internal
+}  // namespace StaticPtr_internal
 
 #define REFLEXIVE_EQUALITY_OPERATORS(type1, type2, eq_fn, ...) \
   template<__VA_ARGS__>                                        \
-  inline bool                                                  \
-  operator==(type1 lhs, type2 rhs)                             \
+  inline bool operator==(type1 lhs, type2 rhs)                 \
   {                                                            \
     return eq_fn;                                              \
   }                                                            \
                                                                \
   template<__VA_ARGS__>                                        \
-  inline bool                                                  \
-  operator==(type2 lhs, type1 rhs)                             \
+  inline bool operator==(type2 lhs, type1 rhs)                 \
   {                                                            \
     return rhs == lhs;                                         \
   }                                                            \
                                                                \
   template<__VA_ARGS__>                                        \
-  inline bool                                                  \
-  operator!=(type1 lhs, type2 rhs)                             \
+  inline bool operator!=(type1 lhs, type2 rhs)                 \
   {                                                            \
     return !(lhs == rhs);                                      \
   }                                                            \
                                                                \
   template<__VA_ARGS__>                                        \
-  inline bool                                                  \
-  operator!=(type2 lhs, type1 rhs)                             \
+  inline bool operator!=(type2 lhs, type1 rhs)                 \
   {                                                            \
     return !(lhs == rhs);                                      \
   }
@@ -221,15 +210,17 @@ operator!=(const StaticAutoPtr<T>& aLhs, const StaticAutoPtr<U>& aRhs)
   return !(aLhs == aRhs);
 }
 
-REFLEXIVE_EQUALITY_OPERATORS(const StaticAutoPtr<T>&, const U*,
-                             lhs.get() == rhs, class T, class U)
+REFLEXIVE_EQUALITY_OPERATORS(
+    const StaticAutoPtr<T>&, const U*, lhs.get() == rhs, class T, class U)
 
-REFLEXIVE_EQUALITY_OPERATORS(const StaticAutoPtr<T>&, U*,
-                             lhs.get() == rhs, class T, class U)
+REFLEXIVE_EQUALITY_OPERATORS(
+    const StaticAutoPtr<T>&, U*, lhs.get() == rhs, class T, class U)
 
 // Let us compare StaticAutoPtr to 0.
-REFLEXIVE_EQUALITY_OPERATORS(const StaticAutoPtr<T>&, StaticPtr_internal::Zero*,
-                             lhs.get() == nullptr, class T)
+REFLEXIVE_EQUALITY_OPERATORS(const StaticAutoPtr<T>&,
+                             StaticPtr_internal::Zero*,
+                             lhs.get() == nullptr,
+                             class T)
 
 // StaticRefPtr (in)equality operators
 
@@ -247,34 +238,38 @@ operator!=(const StaticRefPtr<T>& aLhs, const StaticRefPtr<U>& aRhs)
   return !(aLhs == aRhs);
 }
 
-REFLEXIVE_EQUALITY_OPERATORS(const StaticRefPtr<T>&, const U*,
-                             lhs.get() == rhs, class T, class U)
+REFLEXIVE_EQUALITY_OPERATORS(
+    const StaticRefPtr<T>&, const U*, lhs.get() == rhs, class T, class U)
 
-REFLEXIVE_EQUALITY_OPERATORS(const StaticRefPtr<T>&, U*,
-                             lhs.get() == rhs, class T, class U)
+REFLEXIVE_EQUALITY_OPERATORS(
+    const StaticRefPtr<T>&, U*, lhs.get() == rhs, class T, class U)
 
 // Let us compare StaticRefPtr to 0.
-REFLEXIVE_EQUALITY_OPERATORS(const StaticRefPtr<T>&, StaticPtr_internal::Zero*,
-                             lhs.get() == nullptr, class T)
+REFLEXIVE_EQUALITY_OPERATORS(const StaticRefPtr<T>&,
+                             StaticPtr_internal::Zero*,
+                             lhs.get() == nullptr,
+                             class T)
 
 #undef REFLEXIVE_EQUALITY_OPERATORS
 
-} // namespace mozilla
+}  // namespace mozilla
 
 // Declared in mozilla/RefPtr.h
-template<class T> template<class U>
-RefPtr<T>::RefPtr(const mozilla::StaticRefPtr<U>& aOther)
-  : RefPtr(aOther.get())
-{}
+template<class T>
+template<class U>
+RefPtr<T>::RefPtr(const mozilla::StaticRefPtr<U>& aOther) : RefPtr(aOther.get())
+{
+}
 
-template<class T> template<class U>
+template<class T>
+template<class U>
 RefPtr<T>&
 RefPtr<T>::operator=(const mozilla::StaticRefPtr<U>& aOther)
 {
   return operator=(aOther.get());
 }
 
-template <class T>
+template<class T>
 inline already_AddRefed<T>
 do_AddRef(const mozilla::StaticRefPtr<T>& aObj)
 {

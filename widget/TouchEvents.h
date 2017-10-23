@@ -30,17 +30,18 @@ namespace mozilla {
 
 class WidgetGestureNotifyEvent : public WidgetGUIEvent
 {
-public:
+ public:
   virtual WidgetGestureNotifyEvent* AsGestureNotifyEvent() override
   {
     return this;
   }
 
-  WidgetGestureNotifyEvent(bool aIsTrusted, EventMessage aMessage,
-                           nsIWidget *aWidget)
-    : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eGestureNotifyEventClass)
-    , mPanDirection(ePanNone)
-    , mDisplayPanFeedback(false)
+  WidgetGestureNotifyEvent(bool aIsTrusted,
+                           EventMessage aMessage,
+                           nsIWidget* aWidget)
+      : WidgetGUIEvent(aIsTrusted, aMessage, aWidget, eGestureNotifyEventClass),
+        mPanDirection(ePanNone),
+        mDisplayPanFeedback(false)
   {
   }
 
@@ -55,7 +56,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     WidgetGestureNotifyEvent* result =
-      new WidgetGestureNotifyEvent(false, mMessage, nullptr);
+        new WidgetGestureNotifyEvent(false, mMessage, nullptr);
     result->AssignGestureNotifyEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -89,30 +90,33 @@ public:
 
 class WidgetSimpleGestureEvent : public WidgetMouseEventBase
 {
-public:
+ public:
   virtual WidgetSimpleGestureEvent* AsSimpleGestureEvent() override
   {
     return this;
   }
 
-  WidgetSimpleGestureEvent(bool aIsTrusted, EventMessage aMessage,
+  WidgetSimpleGestureEvent(bool aIsTrusted,
+                           EventMessage aMessage,
                            nsIWidget* aWidget)
-    : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget,
-                           eSimpleGestureEventClass)
-    , mAllowedDirections(0)
-    , mDirection(0)
-    , mClickCount(0)
-    , mDelta(0.0)
+      : WidgetMouseEventBase(
+            aIsTrusted, aMessage, aWidget, eSimpleGestureEventClass),
+        mAllowedDirections(0),
+        mDirection(0),
+        mClickCount(0),
+        mDelta(0.0)
   {
   }
 
   WidgetSimpleGestureEvent(const WidgetSimpleGestureEvent& aOther)
-    : WidgetMouseEventBase(aOther.IsTrusted(), aOther.mMessage,
-                           aOther.mWidget, eSimpleGestureEventClass)
-    , mAllowedDirections(aOther.mAllowedDirections)
-    , mDirection(aOther.mDirection)
-    , mClickCount(0)
-    , mDelta(aOther.mDelta)
+      : WidgetMouseEventBase(aOther.IsTrusted(),
+                             aOther.mMessage,
+                             aOther.mWidget,
+                             eSimpleGestureEventClass),
+        mAllowedDirections(aOther.mAllowedDirections),
+        mDirection(aOther.mDirection),
+        mClickCount(0),
+        mDelta(aOther.mDelta)
   {
   }
 
@@ -122,7 +126,7 @@ public:
                "Duplicate() must be overridden by sub class");
     // Not copying widget, it is a weak reference.
     WidgetSimpleGestureEvent* result =
-      new WidgetSimpleGestureEvent(false, mMessage, nullptr);
+        new WidgetSimpleGestureEvent(false, mMessage, nullptr);
     result->AssignSimpleGestureEventData(*this, true);
     result->mFlags = mFlags;
     return result;
@@ -156,20 +160,19 @@ public:
 
 class WidgetTouchEvent : public WidgetInputEvent
 {
-public:
+ public:
   typedef nsTArray<RefPtr<mozilla::dom::Touch>> TouchArray;
   typedef AutoTArray<RefPtr<mozilla::dom::Touch>, 10> AutoTouchArray;
 
   virtual WidgetTouchEvent* AsTouchEvent() override { return this; }
 
-  WidgetTouchEvent()
-  {
-    MOZ_COUNT_CTOR(WidgetTouchEvent);
-  }
+  WidgetTouchEvent() { MOZ_COUNT_CTOR(WidgetTouchEvent); }
 
   WidgetTouchEvent(const WidgetTouchEvent& aOther)
-    : WidgetInputEvent(aOther.IsTrusted(), aOther.mMessage, aOther.mWidget,
-                       eTouchEventClass)
+      : WidgetInputEvent(aOther.IsTrusted(),
+                         aOther.mMessage,
+                         aOther.mWidget,
+                         eTouchEventClass)
   {
     MOZ_COUNT_CTOR(WidgetTouchEvent);
     mModifiers = aOther.mModifiers;
@@ -181,16 +184,13 @@ public:
   }
 
   WidgetTouchEvent(bool aIsTrusted, EventMessage aMessage, nsIWidget* aWidget)
-    : WidgetInputEvent(aIsTrusted, aMessage, aWidget, eTouchEventClass)
+      : WidgetInputEvent(aIsTrusted, aMessage, aWidget, eTouchEventClass)
   {
     MOZ_COUNT_CTOR(WidgetTouchEvent);
     mFlags.mCancelable = mMessage != eTouchCancel;
   }
 
-  virtual ~WidgetTouchEvent()
-  {
-    MOZ_COUNT_DTOR(WidgetTouchEvent);
-  }
+  virtual ~WidgetTouchEvent() { MOZ_COUNT_DTOR(WidgetTouchEvent); }
 
   virtual WidgetEvent* Duplicate() const override
   {
@@ -215,6 +215,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_TouchEvents_h__
+#endif  // mozilla_TouchEvents_h__

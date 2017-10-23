@@ -14,7 +14,7 @@ class nsSharedPageData;
 // Page frame class used by the simple page sequence frame
 class nsPageContentFrame final : public mozilla::ViewportFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsPageContentFrame)
 
   friend nsPageContentFrame* NS_NewPageContentFrame(nsIPresShell* aPresShell,
@@ -22,15 +22,15 @@ public:
   friend class nsPageFrame;
 
   // nsIFrame
-  virtual void Reflow(nsPresContext*      aPresContext,
+  virtual void Reflow(nsPresContext* aPresContext,
                       ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
-                      nsReflowStatus&      aStatus) override;
+                      nsReflowStatus& aStatus) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override
   {
-    return ViewportFrame::IsFrameOfType(aFlags &
-             ~(nsIFrame::eCanContainOverflowContainers));
+    return ViewportFrame::IsFrameOfType(
+        aFlags & ~(nsIFrame::eCanContainOverflowContainers));
   }
 
   virtual void SetSharedPageData(nsSharedPageData* aPD) { mPD = aPD; }
@@ -44,16 +44,16 @@ public:
 
 #ifdef DEBUG_FRAME_DUMP
   // Debugging
-  virtual nsresult  GetFrameName(nsAString& aResult) const override;
+  virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-protected:
+ protected:
   explicit nsPageContentFrame(nsStyleContext* aContext)
-    : ViewportFrame(aContext, kClassID)
-  {}
+      : ViewportFrame(aContext, kClassID)
+  {
+  }
 
-  nsSharedPageData*         mPD;
+  nsSharedPageData* mPD;
 };
 
 #endif /* nsPageContentFrame_h___ */
-

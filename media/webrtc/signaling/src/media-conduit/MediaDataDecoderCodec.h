@@ -19,16 +19,14 @@ class MediaDataDecoderCodec
    * Create encoder object for codec type |aCodecType|. Return |nullptr| when
    * failed.
    */
-  static WebrtcVideoEncoder* CreateEncoder(
-    webrtc::VideoCodecType aCodecType);
+  static WebrtcVideoEncoder* CreateEncoder(webrtc::VideoCodecType aCodecType);
 
   /**
    * Create decoder object for codec type |aCodecType|. Return |nullptr| when
    * failed.
    */
-  static WebrtcVideoDecoder* CreateDecoder(
-    webrtc::VideoCodecType aCodecType);
+  static WebrtcVideoDecoder* CreateDecoder(webrtc::VideoCodecType aCodecType);
 };
-}
+}  // namespace mozilla
 
-#endif // MEDIA_DATA_DECODER_CODEC_H_
+#endif  // MEDIA_DATA_DECODER_CODEC_H_

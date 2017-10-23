@@ -19,33 +19,27 @@
 
 using mozilla::UnspecifiedNaN;
 
-static bool
-ComputeLocalTime(time_t local, struct tm* ptm)
-{
+static bool ComputeLocalTime(time_t local, struct tm* ptm) {
 #if defined(_WIN32)
     return localtime_s(ptm, &local) == 0;
 #elif defined(HAVE_LOCALTIME_R)
     return localtime_r(&local, ptm);
 #else
     struct tm* otm = localtime(&local);
-    if (!otm)
-        return false;
+    if (!otm) return false;
     *ptm = *otm;
     return true;
 #endif
 }
 
-static bool
-ComputeUTCTime(time_t t, struct tm* ptm)
-{
+static bool ComputeUTCTime(time_t t, struct tm* ptm) {
 #if defined(_WIN32)
     return gmtime_s(ptm, &t) == 0;
 #elif defined(HAVE_GMTIME_R)
     return gmtime_r(&t, ptm);
 #else
     struct tm* otm = gmtime(&t);
-    if (!otm)
-        return false;
+    if (!otm) return false;
     *ptm = *otm;
     return true;
 #endif
@@ -65,23 +59,19 @@ ComputeUTCTime(time_t t, struct tm* ptm)
  * DST in effect), corresponding to 15:00 UTC.  This function would then return
  * +1 * SecondsPerHour, or +3600.
  */
-static int32_t
-UTCToLocalStandardOffsetSeconds()
-{
+static int32_t UTCToLocalStandardOffsetSeconds() {
     using js::SecondsPerDay;
     using js::SecondsPerHour;
     using js::SecondsPerMinute;
 
     // Get the current time.
     time_t currentMaybeWithDST = time(nullptr);
-    if (currentMaybeWithDST == time_t(-1))
-        return 0;
+    if (currentMaybeWithDST == time_t(-1)) return 0;
 
     // Break down the current time into its (locally-valued, maybe with DST)
     // components.
     struct tm local;
-    if (!ComputeLocalTime(currentMaybeWithDST, &local))
-        return 0;
+    if (!ComputeLocalTime(currentMaybeWithDST, &local)) return 0;
 
     // Compute a |time_t| corresponding to |local| interpreted without DST.
     time_t currentNoDST;
@@ -103,15 +93,13 @@ UTCToLocalStandardOffsetSeconds()
         // time zone; and 3) in the absence of an API that provides the time
         // zone offset directly, this may be the best we can do.
         currentNoDST = mktime(&localNoDST);
-        if (currentNoDST == time_t(-1))
-            return 0;
+        if (currentNoDST == time_t(-1)) return 0;
     }
 
     // Break down the time corresponding to the no-DST |local| into UTC-based
     // components.
     struct tm utc;
-    if (!ComputeUTCTime(currentNoDST, &utc))
-        return 0;
+    if (!ComputeUTCTime(currentNoDST, &utc)) return 0;
 
     // Finally, compare the seconds-based components of the local non-DST
     // representation and the UTC representation to determine the actual
@@ -120,22 +108,18 @@ UTCToLocalStandardOffsetSeconds()
     int local_secs = local.tm_hour * SecondsPerHour + local.tm_min * SecondsPerMinute;
 
     // Same-day?  Just subtract the seconds counts.
-    if (utc.tm_mday == local.tm_mday)
-        return local_secs - utc_secs;
+    if (utc.tm_mday == local.tm_mday) return local_secs - utc_secs;
 
     // If we have more UTC seconds, move local seconds into the UTC seconds'
     // frame of reference and then subtract.
-    if (utc_secs > local_secs)
-        return (SecondsPerDay + local_secs) - utc_secs;
+    if (utc_secs > local_secs) return (SecondsPerDay + local_secs) - utc_secs;
 
     // Otherwise we have more local seconds, so move the UTC seconds into the
     // local seconds' frame of reference and then subtract.
     return local_secs - (utc_secs + SecondsPerDay);
 }
 
-void
-js::DateTimeInfo::internalUpdateTimeZoneAdjustment()
-{
+void js::DateTimeInfo::internalUpdateTimeZoneAdjustment() {
     /*
      * The difference between local standard time and UTC will never change for
      * a given time zone.
@@ -143,8 +127,7 @@ js::DateTimeInfo::internalUpdateTimeZoneAdjustment()
     utcToLocalStandardOffsetSeconds = UTCToLocalStandardOffsetSeconds();
 
     double newTZA = utcToLocalStandardOffsetSeconds * msPerSecond;
-    if (newTZA == localTZA_)
-        return;
+    if (newTZA == localTZA_) return;
 
     localTZA_ = newTZA;
 
@@ -161,8 +144,7 @@ js::DateTimeInfo::internalUpdateTimeZoneAdjustment()
     sanityCheck();
 }
 
-js::DateTimeInfo::DateTimeInfo()
-{
+js::DateTimeInfo::DateTimeInfo() {
     // Set to an impossible TZA so that the comparison in
     // |internalUpdateTimeZoneAdjustment()| initially fails, causing the
     // remaining fields to be properly initialized at first adjustment.
@@ -170,15 +152,12 @@ js::DateTimeInfo::DateTimeInfo()
     internalUpdateTimeZoneAdjustment();
 }
 
-int64_t
-js::DateTimeInfo::computeDSTOffsetMilliseconds(int64_t utcSeconds)
-{
+int64_t js::DateTimeInfo::computeDSTOffsetMilliseconds(int64_t utcSeconds) {
     MOZ_ASSERT(utcSeconds >= 0);
     MOZ_ASSERT(utcSeconds <= MaxUnixTimeT);
 
     struct tm tm;
-    if (!ComputeLocalTime(static_cast<time_t>(utcSeconds), &tm))
-        return 0;
+    if (!ComputeLocalTime(static_cast<time_t>(utcSeconds), &tm)) return 0;
 
     // NB: The offset isn't computed correctly when the standard local offset
     //     at |utcSeconds| is different from |utcToLocalStandardOffsetSeconds|.
@@ -195,9 +174,7 @@ js::DateTimeInfo::computeDSTOffsetMilliseconds(int64_t utcSeconds)
     return diff * msPerSecond;
 }
 
-int64_t
-js::DateTimeInfo::internalGetDSTOffsetMilliseconds(int64_t utcMilliseconds)
-{
+int64_t js::DateTimeInfo::internalGetDSTOffsetMilliseconds(int64_t utcMilliseconds) {
     sanityCheck();
 
     int64_t utcSeconds = utcMilliseconds / msPerSecond;
@@ -272,37 +249,26 @@ js::DateTimeInfo::internalGetDSTOffsetMilliseconds(int64_t utcMilliseconds)
     return offsetMilliseconds;
 }
 
-void
-js::DateTimeInfo::sanityCheck()
-{
+void js::DateTimeInfo::sanityCheck() {
     MOZ_ASSERT(rangeStartSeconds <= rangeEndSeconds);
     MOZ_ASSERT_IF(rangeStartSeconds == INT64_MIN, rangeEndSeconds == INT64_MIN);
     MOZ_ASSERT_IF(rangeEndSeconds == INT64_MIN, rangeStartSeconds == INT64_MIN);
-    MOZ_ASSERT_IF(rangeStartSeconds != INT64_MIN,
-                  rangeStartSeconds >= 0 && rangeEndSeconds >= 0);
+    MOZ_ASSERT_IF(rangeStartSeconds != INT64_MIN, rangeStartSeconds >= 0 && rangeEndSeconds >= 0);
     MOZ_ASSERT_IF(rangeStartSeconds != INT64_MIN,
                   rangeStartSeconds <= MaxUnixTimeT && rangeEndSeconds <= MaxUnixTimeT);
 }
 
-/* static */ js::ExclusiveData<js::DateTimeInfo>*
-js::DateTimeInfo::instance;
+/* static */ js::ExclusiveData<js::DateTimeInfo>* js::DateTimeInfo::instance;
 
-/* static */ js::ExclusiveData<js::IcuTimeZoneStatus>*
-js::IcuTimeZoneState;
+/* static */ js::ExclusiveData<js::IcuTimeZoneStatus>* js::IcuTimeZoneState;
 
-bool
-js::InitDateTimeState()
-{
-
-    MOZ_ASSERT(!DateTimeInfo::instance,
-               "we should be initializing only once");
+bool js::InitDateTimeState() {
+    MOZ_ASSERT(!DateTimeInfo::instance, "we should be initializing only once");
 
     DateTimeInfo::instance = js_new<ExclusiveData<DateTimeInfo>>(mutexid::DateTimeInfoMutex);
-    if (!DateTimeInfo::instance)
-        return false;
+    if (!DateTimeInfo::instance) return false;
 
-    MOZ_ASSERT(!IcuTimeZoneState,
-               "we should be initializing only once");
+    MOZ_ASSERT(!IcuTimeZoneState, "we should be initializing only once");
 
     IcuTimeZoneState = js_new<ExclusiveData<IcuTimeZoneStatus>>(mutexid::IcuTimeZoneStateMutex);
     if (!IcuTimeZoneState) {
@@ -314,9 +280,7 @@ js::InitDateTimeState()
     return true;
 }
 
-/* static */ void
-js::FinishDateTimeState()
-{
+/* static */ void js::FinishDateTimeState() {
     js_delete(IcuTimeZoneState);
     IcuTimeZoneState = nullptr;
 
@@ -325,8 +289,7 @@ js::FinishDateTimeState()
 }
 
 JS_PUBLIC_API(void)
-JS::ResetTimeZone()
-{
+JS::ResetTimeZone() {
     js::DateTimeInfo::updateTimeZoneAdjustment();
 
 #if ENABLE_INTL_API && defined(ICU_TZ_HAS_RECREATE_DEFAULT)
@@ -334,9 +297,7 @@ JS::ResetTimeZone()
 #endif
 }
 
-void
-js::ResyncICUDefaultTimeZone()
-{
+void js::ResyncICUDefaultTimeZone() {
 #if ENABLE_INTL_API && defined(ICU_TZ_HAS_RECREATE_DEFAULT)
     auto guard = IcuTimeZoneState->lock();
     if (guard.get() == IcuTimeZoneStatus::NeedsUpdate) {

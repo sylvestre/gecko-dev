@@ -19,14 +19,14 @@ class nsXBLResourceLoader;
 namespace mozilla {
 class CSSStyleSheet;
 class ServoStyleSet;
-} // namespace mozilla
+}  // namespace mozilla
 
 // *********************************************************************/
 // The XBLPrototypeResources class
 
 class nsXBLPrototypeResources
 {
-public:
+ public:
   explicit nsXBLPrototypeResources(nsXBLPrototypeBinding* aBinding);
   ~nsXBLPrototypeResources();
 
@@ -37,7 +37,7 @@ public:
 
   nsresult Write(nsIObjectOutputStream* aStream);
 
-  void Traverse(nsCycleCollectionTraversalCallback &cb);
+  void Traverse(nsCycleCollectionTraversalCallback& cb);
   void Unlink();
 
   void ClearLoader();
@@ -64,9 +64,12 @@ public:
   // the Servo style backend.
   void ComputeServoStyleSet(nsPresContext* aPresContext);
 
-  mozilla::ServoStyleSet* GetServoStyleSet() const { return mServoStyleSet.get(); }
+  mozilla::ServoStyleSet* GetServoStyleSet() const
+  {
+    return mServoStyleSet.get();
+  }
 
-private:
+ private:
   // A loader object. Exists only long enough to load resources, and then it dies.
   RefPtr<nsXBLResourceLoader> mLoader;
 

@@ -18,15 +18,14 @@ NS_IMPL_CYCLE_COLLECTION(nsOpenURIInFrameParams, mOpenerBrowser)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsOpenURIInFrameParams)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsOpenURIInFrameParams)
 
-nsOpenURIInFrameParams::nsOpenURIInFrameParams(const mozilla::OriginAttributes& aOriginAttributes,
-                                               nsIFrameLoaderOwner* aOpener)
-  : mOpenerOriginAttributes(aOriginAttributes)
-  , mOpenerBrowser(aOpener)
+nsOpenURIInFrameParams::nsOpenURIInFrameParams(
+    const mozilla::OriginAttributes& aOriginAttributes,
+    nsIFrameLoaderOwner* aOpener)
+    : mOpenerOriginAttributes(aOriginAttributes), mOpenerBrowser(aOpener)
 {
 }
 
-nsOpenURIInFrameParams::~nsOpenURIInFrameParams() {
-}
+nsOpenURIInFrameParams::~nsOpenURIInFrameParams() {}
 
 NS_IMETHODIMP
 nsOpenURIInFrameParams::GetReferrer(nsAString& aReferrer)
@@ -51,14 +50,16 @@ nsOpenURIInFrameParams::GetIsPrivate(bool* aIsPrivate)
 }
 
 NS_IMETHODIMP
-nsOpenURIInFrameParams::GetTriggeringPrincipal(nsIPrincipal** aTriggeringPrincipal)
+nsOpenURIInFrameParams::GetTriggeringPrincipal(
+    nsIPrincipal** aTriggeringPrincipal)
 {
   NS_ADDREF(*aTriggeringPrincipal = mTriggeringPrincipal);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsOpenURIInFrameParams::SetTriggeringPrincipal(nsIPrincipal* aTriggeringPrincipal)
+nsOpenURIInFrameParams::SetTriggeringPrincipal(
+    nsIPrincipal* aTriggeringPrincipal)
 {
   NS_ENSURE_TRUE(aTriggeringPrincipal, NS_ERROR_INVALID_ARG);
   mTriggeringPrincipal = aTriggeringPrincipal;
@@ -74,8 +75,8 @@ nsOpenURIInFrameParams::GetOpenerBrowser(nsIFrameLoaderOwner** aOpenerBrowser)
 }
 
 NS_IMETHODIMP
-nsOpenURIInFrameParams::GetOpenerOriginAttributes(JSContext* aCx,
-                                                  JS::MutableHandle<JS::Value> aValue)
+nsOpenURIInFrameParams::GetOpenerOriginAttributes(
+    JSContext* aCx, JS::MutableHandle<JS::Value> aValue)
 {
   bool ok = ToJSValue(aCx, mOpenerOriginAttributes, aValue);
   NS_ENSURE_TRUE(ok, NS_ERROR_FAILURE);

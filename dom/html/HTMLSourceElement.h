@@ -22,8 +22,9 @@ class MediaList;
 class HTMLSourceElement final : public nsGenericHTMLElement,
                                 public nsIDOMHTMLSourceElement
 {
-public:
-  explicit HTMLSourceElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit HTMLSourceElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -35,12 +36,14 @@ public:
   // nsIDOMHTMLSourceElement
   NS_DECL_NSIDOMHTMLSOURCEELEMENT
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo, nsINode** aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // Override BindToTree() so that we can trigger a load when we add a
   // child source element.
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
+  virtual nsresult BindToTree(nsIDocument* aDocument,
+                              nsIContent* aParent,
                               nsIContent* aBindingParent,
                               bool aCompileEventHandlers) override;
 
@@ -52,7 +55,7 @@ public:
   // specified document. Used by the preloader to determine valid <source> tags
   // prior to DOM creation.
   static bool WouldMatchMediaForDocument(const nsAString& aMediaStr,
-                                         const nsIDocument *aDocument);
+                                         const nsIDocument* aDocument);
 
   // Return the MediaSource object if any associated with the src attribute
   // when it was set.
@@ -63,7 +66,9 @@ public:
   {
     GetURIAttr(nsGkAtoms::src, nullptr, aSrc);
   }
-  void SetSrc(const nsAString& aSrc, nsIPrincipal& aTriggeringPrincipal, mozilla::ErrorResult& rv)
+  void SetSrc(const nsAString& aSrc,
+              nsIPrincipal& aTriggeringPrincipal,
+              mozilla::ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::src, aSrc, aTriggeringPrincipal, rv);
   }
@@ -78,10 +83,7 @@ public:
     return mSrcsetTriggeringPrincipal;
   }
 
-  void GetType(DOMString& aType)
-  {
-    GetHTMLAttr(nsGkAtoms::type, aType);
-  }
+  void GetType(DOMString& aType) { GetHTMLAttr(nsGkAtoms::type, aType); }
   void SetType(const nsAString& aType, ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::type, aType, rv);
@@ -91,42 +93,40 @@ public:
   {
     GetHTMLAttr(nsGkAtoms::srcset, aSrcset);
   }
-  void SetSrcset(const nsAString& aSrcset, nsIPrincipal& aTriggeringPrincipal, mozilla::ErrorResult& rv)
+  void SetSrcset(const nsAString& aSrcset,
+                 nsIPrincipal& aTriggeringPrincipal,
+                 mozilla::ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::srcset, aSrcset, aTriggeringPrincipal, rv);
   }
 
-  void GetSizes(DOMString& aSizes)
-  {
-    GetHTMLAttr(nsGkAtoms::sizes, aSizes);
-  }
+  void GetSizes(DOMString& aSizes) { GetHTMLAttr(nsGkAtoms::sizes, aSizes); }
   void SetSizes(const nsAString& aSizes, mozilla::ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::sizes, aSizes, rv);
   }
 
-  void GetMedia(DOMString& aMedia)
-  {
-    GetHTMLAttr(nsGkAtoms::media, aMedia);
-  }
+  void GetMedia(DOMString& aMedia) { GetHTMLAttr(nsGkAtoms::media, aMedia); }
   void SetMedia(const nsAString& aMedia, mozilla::ErrorResult& rv)
   {
     SetHTMLAttr(nsGkAtoms::media, aMedia, rv);
   }
 
-protected:
+ protected:
   virtual ~HTMLSourceElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+ protected:
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
                                 bool aNotify) override;
 
-private:
+ private:
   RefPtr<MediaList> mMediaList;
   RefPtr<MediaSource> mSrcMediaSource;
 
@@ -140,7 +140,7 @@ private:
   void UpdateMediaList(const nsAttrValue* aValue);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HTMLSourceElement_h
+#endif  // mozilla_dom_HTMLSourceElement_h

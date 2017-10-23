@@ -12,7 +12,9 @@
 #include "nsIPrincipal.h"
 #include "ResourceQueue.h"
 
-#define UNIMPLEMENTED() { /* Logging this is too spammy to do by default */ }
+#define UNIMPLEMENTED()                               \
+  { /* Logging this is too spammy to do by default */ \
+  }
 
 namespace mozilla {
 
@@ -23,12 +25,12 @@ namespace dom {
 
 class SourceBuffer;
 
-} // namespace dom
+}  // namespace dom
 
 // SourceBufferResource is not thread safe.
 class SourceBufferResource final : public MediaResource
 {
-public:
+ public:
   SourceBufferResource();
   nsresult Close();
   nsresult ReadAt(int64_t aOffset,
@@ -72,8 +74,8 @@ public:
   {
     MOZ_ASSERT(OnTaskQueue());
     if (mInputBuffer.GetLength()) {
-      aRanges += MediaByteRange(mInputBuffer.GetOffset(),
-                                mInputBuffer.GetLength());
+      aRanges +=
+          MediaByteRange(mInputBuffer.GetOffset(), mInputBuffer.GetLength());
     }
     return NS_OK;
   }
@@ -99,7 +101,8 @@ public:
   }
   // Remove data from resource if it holds more than the threshold reduced by
   // the given number of bytes. Returns amount evicted.
-  uint32_t EvictData(uint64_t aPlaybackOffset, int64_t aThresholdReduct,
+  uint32_t EvictData(uint64_t aPlaybackOffset,
+                     int64_t aThresholdReduct,
                      ErrorResult& aRv);
 
   // Remove data from resource before the given offset.
@@ -116,13 +119,10 @@ public:
   }
 
 #if defined(DEBUG)
-  void Dump(const char* aPath)
-  {
-    mInputBuffer.Dump(aPath);
-  }
+  void Dump(const char* aPath) { mInputBuffer.Dump(aPath); }
 #endif
 
-private:
+ private:
   virtual ~SourceBufferResource();
   nsresult ReadAtInternal(int64_t aOffset,
                           char* aBuffer,
@@ -144,7 +144,7 @@ private:
   bool mEnded;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #undef UNIMPLEMENTED
 

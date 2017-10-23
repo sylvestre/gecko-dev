@@ -12,22 +12,24 @@
 
 class nsSMILNullType : public nsISMILType
 {
-public:
+ public:
   // Singleton for nsSMILValue objects to hold onto.
   static nsSMILNullType* Singleton();
 
-protected:
+ protected:
   // nsISMILType Methods
   // -------------------
   virtual void Init(nsSMILValue& aValue) const override {}
   virtual void Destroy(nsSMILValue& aValue) const override {}
-  virtual nsresult Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const override;
+  virtual nsresult Assign(nsSMILValue& aDest,
+                          const nsSMILValue& aSrc) const override;
 
   // The remaining methods should never be called, so although they're very
   // simple they don't need to be inline.
-  virtual bool     IsEqual(const nsSMILValue& aLeft,
-                           const nsSMILValue& aRight) const override;
-  virtual nsresult Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+  virtual bool IsEqual(const nsSMILValue& aLeft,
+                       const nsSMILValue& aRight) const override;
+  virtual nsresult Add(nsSMILValue& aDest,
+                       const nsSMILValue& aValueToAdd,
                        uint32_t aCount) const override;
   virtual nsresult ComputeDistance(const nsSMILValue& aFrom,
                                    const nsSMILValue& aTo,
@@ -37,9 +39,9 @@ protected:
                                double aUnitDistance,
                                nsSMILValue& aResult) const override;
 
-private:
+ private:
   // Private constructor: prevent instances beyond my singleton.
   constexpr nsSMILNullType() {}
 };
 
-#endif // NS_SMILNULLTYPE_H_
+#endif  // NS_SMILNULLTYPE_H_

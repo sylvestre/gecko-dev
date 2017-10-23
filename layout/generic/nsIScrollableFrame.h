@@ -19,7 +19,7 @@
 #include "Units.h"
 #include "FrameMetrics.h"
 
-#define NS_DEFAULT_VERTICAL_SCROLL_DISTANCE   3
+#define NS_DEFAULT_VERTICAL_SCROLL_DISTANCE 3
 #define NS_DEFAULT_HORIZONTAL_SCROLL_DISTANCE 5
 
 class gfxContext;
@@ -35,16 +35,17 @@ namespace mozilla {
 struct ContainerLayerParameters;
 namespace layers {
 class Layer;
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 /**
  * Interface for frames that are scrollable. This interface exposes
  * APIs for examining scroll state, observing changes to scroll state,
  * and triggering scrolling.
  */
-class nsIScrollableFrame : public nsIScrollbarMediator {
-public:
+class nsIScrollableFrame : public nsIScrollbarMediator
+{
+ public:
   typedef mozilla::CSSIntPoint CSSIntPoint;
   typedef mozilla::ContainerLayerParameters ContainerLayerParameters;
   typedef mozilla::layers::FrameMetrics FrameMetrics;
@@ -65,7 +66,11 @@ public:
    */
   virtual mozilla::ScrollbarStyles GetScrollbarStyles() const = 0;
 
-  enum { HORIZONTAL = 0x01, VERTICAL = 0x02 };
+  enum
+  {
+    HORIZONTAL = 0x01,
+    VERTICAL = 0x02
+  };
   /**
    * Return the scrollbars which are visible. It's OK to call this during reflow
    * of the scrolled contents, in which case it will reflect the current
@@ -101,10 +106,10 @@ public:
   /**
    * Return the width for non-disappearing scrollbars.
    */
-  virtual nscoord
-  GetNondisappearingScrollbarWidth(nsPresContext* aPresContext,
-                                   gfxContext* aRC,
-                                   mozilla::WritingMode aWM) = 0;
+  virtual nscoord GetNondisappearingScrollbarWidth(
+      nsPresContext* aPresContext,
+      gfxContext* aRC,
+      mozilla::WritingMode aWM) = 0;
   /**
    * GetScrolledRect is designed to encapsulate deciding which
    * directions of overflow should be reachable by scrolling and which
@@ -188,7 +193,13 @@ public:
    * is already in progress, the SMOOTH_MSD scroll is interrupted without
    * first scrolling to the destination.
    */
-  enum ScrollMode { INSTANT, SMOOTH, SMOOTH_MSD, NORMAL };
+  enum ScrollMode
+  {
+    INSTANT,
+    SMOOTH,
+    SMOOTH_MSD,
+    NORMAL
+  };
   /**
    * Some platforms (OSX) may generate additional scrolling events even
    * after the user has stopped scrolling, simulating a momentum scrolling
@@ -197,7 +208,11 @@ public:
    * by such a synthesized event and may be ignored if another scroll has
    * been started since the last actual user input.
    */
-  enum ScrollMomentum { NOT_MOMENTUM, SYNTHESIZED_MOMENTUM_EVENT };
+  enum ScrollMomentum
+  {
+    NOT_MOMENTUM,
+    SYNTHESIZED_MOMENTUM_EVENT
+  };
   /**
    * @note This method might destroy the frame, pres shell and other objects.
    * Clamps aScrollPosition to GetScrollRange and sets the scroll position
@@ -207,10 +222,11 @@ public:
    * Any point within this area can be chosen.
    * The choosen point will be as close as possible to aScrollPosition.
    */
-  virtual void ScrollTo(nsPoint aScrollPosition, ScrollMode aMode,
+  virtual void ScrollTo(nsPoint aScrollPosition,
+                        ScrollMode aMode,
                         const nsRect* aRange = nullptr,
-                        nsIScrollbarMediator::ScrollSnapMode aSnap
-                          = nsIScrollbarMediator::DISABLE_SNAP) = 0;
+                        nsIScrollbarMediator::ScrollSnapMode aSnap =
+                            nsIScrollbarMediator::DISABLE_SNAP) = 0;
   /**
    * @note This method might destroy the frame, pres shell and other objects.
    * Scrolls to a particular position in integer CSS pixels.
@@ -228,9 +244,9 @@ public:
    * exactly aScrollPosition at the end of the scroll animation unless the
    * SMOOTH_MSD animation is interrupted.
    */
-  virtual void ScrollToCSSPixels(const CSSIntPoint& aScrollPosition,
-                                 nsIScrollableFrame::ScrollMode aMode
-                                   = nsIScrollableFrame::INSTANT) = 0;
+  virtual void ScrollToCSSPixels(
+      const CSSIntPoint& aScrollPosition,
+      nsIScrollableFrame::ScrollMode aMode = nsIScrollableFrame::INSTANT) = 0;
   /**
    * @note This method might destroy the frame, pres shell and other objects.
    * Scrolls to a particular position in float CSS pixels.
@@ -239,8 +255,8 @@ public:
    * aScrollPosition as possible while scrolling by an integer
    * number of layer pixels (so the operation is fast and looks clean).
    */
-  virtual void ScrollToCSSPixelsApproximate(const mozilla::CSSPoint& aScrollPosition,
-                                            nsAtom *aOrigin = nullptr) = 0;
+  virtual void ScrollToCSSPixelsApproximate(
+      const mozilla::CSSPoint& aScrollPosition, nsAtom* aOrigin = nullptr) = 0;
 
   /**
    * Returns the scroll position in integer CSS pixels, rounded to the nearest
@@ -250,7 +266,13 @@ public:
   /**
    * When scrolling by a relative amount, we can choose various units.
    */
-  enum ScrollUnit { DEVICE_PIXELS, LINES, PAGES, WHOLE };
+  enum ScrollUnit
+  {
+    DEVICE_PIXELS,
+    LINES,
+    PAGES,
+    WHOLE
+  };
   /**
    * @note This method might destroy the frame, pres shell and other objects.
    * Modifies the current scroll position by aDelta units given by aUnit,
@@ -261,12 +283,14 @@ public:
    * to bring it back into the legal range). This is never negative. The
    * values are in device pixels.
    */
-  virtual void ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit, ScrollMode aMode,
+  virtual void ScrollBy(nsIntPoint aDelta,
+                        ScrollUnit aUnit,
+                        ScrollMode aMode,
                         nsIntPoint* aOverflow = nullptr,
                         nsAtom* aOrigin = nullptr,
                         ScrollMomentum aMomentum = NOT_MOMENTUM,
-                        nsIScrollbarMediator::ScrollSnapMode aSnap
-                          = nsIScrollbarMediator::DISABLE_SNAP) = 0;
+                        nsIScrollbarMediator::ScrollSnapMode aSnap =
+                            nsIScrollbarMediator::DISABLE_SNAP) = 0;
 
   /**
    * Perform scroll snapping, possibly resulting in a smooth scroll to
@@ -291,11 +315,13 @@ public:
    * Add a scroll position listener. This listener must be removed
    * before it is destroyed.
    */
-  virtual void AddScrollPositionListener(nsIScrollPositionListener* aListener) = 0;
+  virtual void AddScrollPositionListener(
+      nsIScrollPositionListener* aListener) = 0;
   /**
    * Remove a scroll position listener.
    */
-  virtual void RemoveScrollPositionListener(nsIScrollPositionListener* aListener) = 0;
+  virtual void RemoveScrollPositionListener(
+      nsIScrollPositionListener* aListener) = 0;
 
   /**
    * Internal method used by scrollbars to notify their scrolling
@@ -352,7 +378,7 @@ public:
    * visibility heuristics for how close it is to the visible scrollport.
    */
   virtual bool IsRectNearlyVisible(const nsRect& aRect) = 0;
- /**
+  /**
   * Expand the given rect taking into account which directions we can scroll
   * and how far we want to expand for frame visibility purposes.
   */
@@ -413,10 +439,10 @@ public:
    * ScrollMetadata contributed by this frame, append it to aOutput.
    */
   virtual mozilla::Maybe<mozilla::layers::ScrollMetadata> ComputeScrollMetadata(
-    mozilla::layers::Layer* aLayer,
-    const nsIFrame* aContainerReferenceFrame,
-    const ContainerLayerParameters& aParameters,
-    const mozilla::DisplayItemClip* aClip) const = 0;
+      mozilla::layers::Layer* aLayer,
+      const nsIFrame* aContainerReferenceFrame,
+      const ContainerLayerParameters& aParameters,
+      const mozilla::DisplayItemClip* aClip) const = 0;
 
   /**
    * If this scroll frame is ignoring viewporting clipping
@@ -470,14 +496,16 @@ public:
    * aIgnoreDisplayPort indicates that the display port was ignored (because
    * there was no suitable base rect)
    */
-  virtual void NotifyApproximateFrameVisibilityUpdate(bool aIgnoreDisplayPort) = 0;
+  virtual void NotifyApproximateFrameVisibilityUpdate(
+      bool aIgnoreDisplayPort) = 0;
 
   /**
    * Returns true if this scroll frame had a display port at the last frame
    * visibility update and fills in aDisplayPort with that displayport. Returns
    * false otherwise, and doesn't touch aDisplayPort.
    */
-  virtual bool GetDisplayPortAtLastApproximateFrameVisibilityUpdate(nsRect* aDisplayPort) = 0;
+  virtual bool GetDisplayPortAtLastApproximateFrameVisibilityUpdate(
+      nsRect* aDisplayPort) = 0;
 
   /**
    * This is called when a descendant scrollframe's has its displayport expired.

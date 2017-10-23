@@ -18,44 +18,50 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGPatternElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGPatternElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGPatternElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
 //--------------------- Patterns ------------------------
 
-nsSVGElement::LengthInfo SVGPatternElement::sLengthInfo[4] =
-{
-  { &nsGkAtoms::x, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
-  { &nsGkAtoms::y, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
-  { &nsGkAtoms::width, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::X },
-  { &nsGkAtoms::height, 0, nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE, SVGContentUtils::Y },
+nsSVGElement::LengthInfo SVGPatternElement::sLengthInfo[4] = {
+    {&nsGkAtoms::x,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::X},
+    {&nsGkAtoms::y,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::Y},
+    {&nsGkAtoms::width,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::X},
+    {&nsGkAtoms::height,
+     0,
+     nsIDOMSVGLength::SVG_LENGTHTYPE_PERCENTAGE,
+     SVGContentUtils::Y},
 };
 
-nsSVGElement::EnumInfo SVGPatternElement::sEnumInfo[2] =
-{
-  { &nsGkAtoms::patternUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_OBJECTBOUNDINGBOX
-  },
-  { &nsGkAtoms::patternContentUnits,
-    sSVGUnitTypesMap,
-    SVG_UNIT_TYPE_USERSPACEONUSE
-  }
-};
+nsSVGElement::EnumInfo SVGPatternElement::sEnumInfo[2] = {
+    {&nsGkAtoms::patternUnits,
+     sSVGUnitTypesMap,
+     SVG_UNIT_TYPE_OBJECTBOUNDINGBOX},
+    {&nsGkAtoms::patternContentUnits,
+     sSVGUnitTypesMap,
+     SVG_UNIT_TYPE_USERSPACEONUSE}};
 
-nsSVGElement::StringInfo SVGPatternElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::href, kNameSpaceID_None, true },
-  { &nsGkAtoms::href, kNameSpaceID_XLink, true }
-};
+nsSVGElement::StringInfo SVGPatternElement::sStringInfo[2] = {
+    {&nsGkAtoms::href, kNameSpaceID_None, true},
+    {&nsGkAtoms::href, kNameSpaceID_XLink, true}};
 
 //----------------------------------------------------------------------
 // Implementation
 
-SVGPatternElement::SVGPatternElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : SVGPatternElementBase(aNodeInfo)
+SVGPatternElement::SVGPatternElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : SVGPatternElementBase(aNodeInfo)
 {
 }
 
@@ -98,7 +104,7 @@ SVGPatternElement::PatternTransform()
   // We're creating a DOM wrapper, so we must tell GetAnimatedTransformList
   // to allocate the SVGAnimatedTransformList if it hasn't already done so:
   return SVGAnimatedTransformList::GetDOMWrapper(
-           GetAnimatedTransformList(DO_ALLOCATE), this);
+      GetAnimatedTransformList(DO_ALLOCATE), this);
 }
 
 already_AddRefed<SVGAnimatedLength>
@@ -129,8 +135,8 @@ already_AddRefed<SVGAnimatedString>
 SVGPatternElement::Href()
 {
   return mStringAttributes[HREF].IsExplicitlySet()
-         ? mStringAttributes[HREF].ToDOMAnimatedString(this)
-         : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
+             ? mStringAttributes[HREF].ToDOMAnimatedString(this)
+             : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
 }
 
 //----------------------------------------------------------------------
@@ -139,22 +145,20 @@ SVGPatternElement::Href()
 NS_IMETHODIMP_(bool)
 SVGPatternElement::IsAttributeMapped(const nsAtom* name) const
 {
-  static const MappedAttributeEntry* const map[] = {
-    sColorMap,
-    sFEFloodMap,
-    sFillStrokeMap,
-    sFiltersMap,
-    sFontSpecificationMap,
-    sGradientStopMap,
-    sGraphicsMap,
-    sLightingEffectsMap,
-    sMarkersMap,
-    sTextContentElementsMap,
-    sViewportsMap
-  };
+  static const MappedAttributeEntry* const map[] = {sColorMap,
+                                                    sFEFloodMap,
+                                                    sFillStrokeMap,
+                                                    sFiltersMap,
+                                                    sFontSpecificationMap,
+                                                    sGradientStopMap,
+                                                    sGraphicsMap,
+                                                    sLightingEffectsMap,
+                                                    sMarkersMap,
+                                                    sTextContentElementsMap,
+                                                    sViewportsMap};
 
   return FindAttributeDependence(name, map) ||
-    SVGPatternElementBase::IsAttributeMapped(name);
+         SVGPatternElementBase::IsAttributeMapped(name);
 }
 
 //----------------------------------------------------------------------
@@ -181,24 +185,23 @@ SVGPatternElement::HasValidDimensions() const
 nsSVGElement::LengthAttributesInfo
 SVGPatternElement::GetLengthInfo()
 {
-  return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
-                              ArrayLength(sLengthInfo));
+  return LengthAttributesInfo(
+      mLengthAttributes, sLengthInfo, ArrayLength(sLengthInfo));
 }
 
 nsSVGElement::EnumAttributesInfo
 SVGPatternElement::GetEnumInfo()
 {
-  return EnumAttributesInfo(mEnumAttributes, sEnumInfo,
-                            ArrayLength(sEnumInfo));
+  return EnumAttributesInfo(mEnumAttributes, sEnumInfo, ArrayLength(sEnumInfo));
 }
 
-nsSVGViewBox *
+nsSVGViewBox*
 SVGPatternElement::GetViewBox()
 {
   return &mViewBox;
 }
 
-SVGAnimatedPreserveAspectRatio *
+SVGAnimatedPreserveAspectRatio*
 SVGPatternElement::GetPreserveAspectRatio()
 {
   return &mPreserveAspectRatio;
@@ -207,9 +210,9 @@ SVGPatternElement::GetPreserveAspectRatio()
 nsSVGElement::StringAttributesInfo
 SVGPatternElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

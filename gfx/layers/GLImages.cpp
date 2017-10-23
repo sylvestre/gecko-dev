@@ -23,8 +23,8 @@ GLImage::GetAsSourceSurface()
 
   if (!sSnapshotContext) {
     nsCString discardFailureId;
-    sSnapshotContext = GLContextProvider::CreateHeadless(CreateContextFlags::NONE,
-                                                         &discardFailureId);
+    sSnapshotContext = GLContextProvider::CreateHeadless(
+        CreateContextFlags::NONE, &discardFailureId);
     if (!sSnapshotContext) {
       NS_WARNING("Failed to create snapshot GLContext");
       return nullptr;
@@ -36,28 +36,35 @@ GLImage::GetAsSourceSurface()
   ScopedBindTexture boundTex(sSnapshotContext, scopedTex.Texture());
 
   gfx::IntSize size = GetSize();
-  sSnapshotContext->fTexImage2D(LOCAL_GL_TEXTURE_2D, 0, LOCAL_GL_RGBA,
-                                size.width, size.height, 0,
+  sSnapshotContext->fTexImage2D(LOCAL_GL_TEXTURE_2D,
+                                0,
+                                LOCAL_GL_RGBA,
+                                size.width,
+                                size.height,
+                                0,
                                 LOCAL_GL_RGBA,
                                 LOCAL_GL_UNSIGNED_BYTE,
                                 nullptr);
 
-  ScopedFramebufferForTexture autoFBForTex(sSnapshotContext, scopedTex.Texture());
+  ScopedFramebufferForTexture autoFBForTex(sSnapshotContext,
+                                           scopedTex.Texture());
   if (!autoFBForTex.IsComplete()) {
-      gfxCriticalError() << "GetAsSourceSurface: ScopedFramebufferForTexture failed.";
-      return nullptr;
+    gfxCriticalError()
+        << "GetAsSourceSurface: ScopedFramebufferForTexture failed.";
+    return nullptr;
   }
 
   const gl::OriginPos destOrigin = gl::OriginPos::TopLeft;
   {
     const ScopedBindFramebuffer bindFB(sSnapshotContext, autoFBForTex.FB());
-    if (!sSnapshotContext->BlitHelper()->BlitImageToFramebuffer(this, size, destOrigin)) {
+    if (!sSnapshotContext->BlitHelper()->BlitImageToFramebuffer(
+            this, size, destOrigin)) {
       return nullptr;
     }
   }
 
   RefPtr<gfx::DataSourceSurface> source =
-        gfx::Factory::CreateDataSourceSurface(size, gfx::SurfaceFormat::B8G8R8A8);
+      gfx::Factory::CreateDataSourceSurface(size, gfx::SurfaceFormat::B8G8R8A8);
   if (NS_WARN_IF(!source)) {
     return nullptr;
   }
@@ -72,15 +79,15 @@ SurfaceTextureImage::SurfaceTextureImage(AndroidSurfaceTextureHandle aHandle,
                                          const gfx::IntSize& aSize,
                                          bool aContinuous,
                                          gl::OriginPos aOriginPos)
- : GLImage(ImageFormat::SURFACE_TEXTURE),
-   mHandle(aHandle),
-   mSize(aSize),
-   mContinuous(aContinuous),
-   mOriginPos(aOriginPos)
+    : GLImage(ImageFormat::SURFACE_TEXTURE),
+      mHandle(aHandle),
+      mSize(aSize),
+      mContinuous(aContinuous),
+      mOriginPos(aOriginPos)
 {
   MOZ_ASSERT(mHandle);
 }
 #endif
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

@@ -6,12 +6,12 @@
 #ifndef mozilla_layers_FocusState_h
 #define mozilla_layers_FocusState_h
 
-#include <unordered_map>    // for std::unordered_map
-#include <unordered_set>    // for std::unordered_set
+#include <unordered_map>  // for std::unordered_map
+#include <unordered_set>  // for std::unordered_set
 
-#include "FrameMetrics.h"   // for FrameMetrics::ViewID
+#include "FrameMetrics.h"  // for FrameMetrics::ViewID
 
-#include "mozilla/layers/FocusTarget.h" // for FocusTarget
+#include "mozilla/layers/FocusTarget.h"  // for FocusTarget
 
 namespace mozilla {
 namespace layers {
@@ -67,7 +67,7 @@ namespace layers {
  */
 class FocusState final
 {
-public:
+ public:
   FocusState();
 
   /**
@@ -140,7 +140,7 @@ public:
     return IsCurrent() && !mFocusHasKeyEventListeners;
   }
 
-private:
+ private:
   // The set of focus targets received indexed by their layer tree ID
   std::unordered_map<uint64_t, FocusTarget> mFocusTree;
 
@@ -167,7 +167,7 @@ private:
   FrameMetrics::ViewID mFocusVerticalTarget;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_FocusState_h
+#endif  // mozilla_layers_FocusState_h

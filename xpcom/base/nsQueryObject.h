@@ -17,11 +17,8 @@
 template<class T>
 class MOZ_STACK_CLASS nsQueryObject final : public nsCOMPtr_helper
 {
-public:
-  explicit nsQueryObject(T* aRawPtr)
-    : mRawPtr(aRawPtr)
-  {
-  }
+ public:
+  explicit nsQueryObject(T* aRawPtr) : mRawPtr(aRawPtr) {}
 
   virtual nsresult NS_FASTCALL operator()(const nsIID& aIID,
                                           void** aResult) const
@@ -30,16 +27,17 @@ public:
                               : NS_ERROR_NULL_POINTER;
     return status;
   }
-private:
+
+ private:
   T* MOZ_NON_OWNING_REF mRawPtr;
 };
 
 template<class T>
 class MOZ_STACK_CLASS nsQueryObjectWithError final : public nsCOMPtr_helper
 {
-public:
+ public:
   nsQueryObjectWithError(T* aRawPtr, nsresult* aErrorPtr)
-    : mRawPtr(aRawPtr), mErrorPtr(aErrorPtr)
+      : mRawPtr(aRawPtr), mErrorPtr(aErrorPtr)
   {
   }
 
@@ -53,7 +51,8 @@ public:
     }
     return status;
   }
-private:
+
+ private:
   T* MOZ_NON_OWNING_REF mRawPtr;
   nsresult* mErrorPtr;
 };
@@ -104,6 +103,6 @@ do_QueryObject(RefPtr<T>& aRawPtr, nsresult* aErrorPtr)
   return nsQueryObjectWithError<T>(aRawPtr, aErrorPtr);
 }
 
-/*****************************************************************************/
+  /*****************************************************************************/
 
-#endif // !defined(nsQueryObject_h)
+#endif  // !defined(nsQueryObject_h)

@@ -14,8 +14,7 @@
 
 namespace js {
 
-class DateObject : public NativeObject
-{
+class DateObject : public NativeObject {
     static const uint32_t UTC_TIME_SLOT = 0;
     static const uint32_t TZA_SLOT = 1;
 
@@ -26,11 +25,11 @@ class DateObject : public NativeObject
      */
     static const uint32_t COMPONENTS_START_SLOT = 2;
 
-    static const uint32_t LOCAL_TIME_SLOT    = COMPONENTS_START_SLOT + 0;
-    static const uint32_t LOCAL_YEAR_SLOT    = COMPONENTS_START_SLOT + 1;
-    static const uint32_t LOCAL_MONTH_SLOT   = COMPONENTS_START_SLOT + 2;
-    static const uint32_t LOCAL_DATE_SLOT    = COMPONENTS_START_SLOT + 3;
-    static const uint32_t LOCAL_DAY_SLOT     = COMPONENTS_START_SLOT + 4;
+    static const uint32_t LOCAL_TIME_SLOT = COMPONENTS_START_SLOT + 0;
+    static const uint32_t LOCAL_YEAR_SLOT = COMPONENTS_START_SLOT + 1;
+    static const uint32_t LOCAL_MONTH_SLOT = COMPONENTS_START_SLOT + 2;
+    static const uint32_t LOCAL_DATE_SLOT = COMPONENTS_START_SLOT + 3;
+    static const uint32_t LOCAL_DAY_SLOT = COMPONENTS_START_SLOT + 4;
 
     /*
      * Unlike the above slots that hold LocalTZA-adjusted component values,
@@ -45,7 +44,7 @@ class DateObject : public NativeObject
 
     static const uint32_t RESERVED_SLOTS = LOCAL_SECONDS_INTO_YEAR_SLOT + 1;
 
-  public:
+   public:
     static const Class class_;
     static const Class protoClass_;
 
@@ -56,9 +55,7 @@ class DateObject : public NativeObject
         return clipped;
     }
 
-    const js::Value& UTCTime() const {
-        return getFixedSlot(UTC_TIME_SLOT);
-    }
+    const js::Value& UTCTime() const { return getFixedSlot(UTC_TIME_SLOT); }
 
     // Set UTC time to a given time and invalidate cached local time.
     void setUTCTime(JS::ClippedTime t);
@@ -90,6 +87,6 @@ class DateObject : public NativeObject
     static MOZ_ALWAYS_INLINE bool getTimezoneOffset_impl(JSContext* cx, const CallArgs& args);
 };
 
-} // namespace js
+}  // namespace js
 
-#endif // vm_DateObject_h_
+#endif  // vm_DateObject_h_

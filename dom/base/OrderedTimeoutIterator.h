@@ -16,19 +16,19 @@ namespace dom {
 
 // This class implements and iterator which iterates the normal and tracking
 // timeouts lists simultaneously in the mWhen order.
-class MOZ_STACK_CLASS OrderedTimeoutIterator final {
-public:
+class MOZ_STACK_CLASS OrderedTimeoutIterator final
+{
+ public:
   typedef TimeoutManager::Timeouts Timeouts;
-  typedef Timeouts::TimeoutList    TimeoutList;
+  typedef Timeouts::TimeoutList TimeoutList;
 
-  OrderedTimeoutIterator(Timeouts& aNormalTimeouts,
-                         Timeouts& aTrackingTimeouts)
-    : mNormalTimeouts(aNormalTimeouts.mTimeoutList),
-      mTrackingTimeouts(aTrackingTimeouts.mTimeoutList),
-      mNormalIter(mNormalTimeouts.getFirst()),
-      mTrackingIter(mTrackingTimeouts.getFirst()),
-      mKind(Kind::None),
-      mUpdateIteratorCalled(true)
+  OrderedTimeoutIterator(Timeouts& aNormalTimeouts, Timeouts& aTrackingTimeouts)
+      : mNormalTimeouts(aNormalTimeouts.mTimeoutList),
+        mTrackingTimeouts(aTrackingTimeouts.mTimeoutList),
+        mNormalIter(mNormalTimeouts.getFirst()),
+        mTrackingIter(mTrackingTimeouts.getFirst()),
+        mKind(Kind::None),
+        mUpdateIteratorCalled(true)
   {
   }
 
@@ -156,18 +156,25 @@ public:
     return mKind == Kind::Tracking;
   }
 
-private:
-  TimeoutList& mNormalTimeouts;          // The list of normal timeouts.
-  TimeoutList& mTrackingTimeouts;        // The list of tracking timeouts.
-  RefPtr<Timeout> mNormalIter;           // The iterator over the normal timeout list.
-  RefPtr<Timeout> mTrackingIter;         // The iterator over the tracking timeout list.
-  RefPtr<Timeout> mCurrent;              // The current timeout that Next() just found.
-  enum class Kind { Normal, Tracking, None };
-  Kind mKind;                            // The kind of iterator picked the last time.
-  DebugOnly<bool> mUpdateIteratorCalled; // Whether we have called UpdateIterator() before calling Next().
+ private:
+  TimeoutList& mNormalTimeouts;    // The list of normal timeouts.
+  TimeoutList& mTrackingTimeouts;  // The list of tracking timeouts.
+  RefPtr<Timeout> mNormalIter;     // The iterator over the normal timeout list.
+  RefPtr<Timeout>
+      mTrackingIter;         // The iterator over the tracking timeout list.
+  RefPtr<Timeout> mCurrent;  // The current timeout that Next() just found.
+  enum class Kind
+  {
+    Normal,
+    Tracking,
+    None
+  };
+  Kind mKind;  // The kind of iterator picked the last time.
+  DebugOnly<bool>
+      mUpdateIteratorCalled;  // Whether we have called UpdateIterator() before calling Next().
 };
 
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

@@ -2,15 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
   * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef  MEDIA_ENGINE_WRAPPER_H_
+#ifndef MEDIA_ENGINE_WRAPPER_H_
 #define MEDIA_ENGINE_WRAPPER_H_
 
 #include <mozilla/Scoped.h>
 
-
-
-namespace mozilla
-{
+namespace mozilla {
 /**
  * A Custom scoped template to release a resoure of Type T
  * with a function of Type F
@@ -25,15 +22,13 @@ struct ScopedCustomReleaseTraits0
   static T* empty() { return nullptr; }
   static void release(T* ptr)
   {
-    if(ptr)
-    {
+    if (ptr) {
       (ptr)->Release();
     }
   }
 };
 
 SCOPED_TEMPLATE(ScopedCustomReleasePtr, ScopedCustomReleaseTraits0)
-}//namespace
-
+}  // namespace mozilla
 
 #endif

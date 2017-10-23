@@ -20,7 +20,7 @@ namespace mozilla {
  */
 class IOInterposeObserver
 {
-public:
+ public:
   enum Operation
   {
     OpNone = 0,
@@ -30,7 +30,8 @@ public:
     OpFSync = (1 << 3),
     OpStat = (1 << 4),
     OpClose = (1 << 5),
-    OpNextStage = (1 << 6), // Meta - used when leaving startup, entering shutdown
+    OpNextStage =
+        (1 << 6),  // Meta - used when leaving startup, entering shutdown
     OpWriteFSync = (OpWrite | OpFSync),
     OpAll = (OpCreateOrOpen | OpRead | OpWrite | OpFSync | OpStat | OpClose),
     OpAllWithStaging = (OpAll | OpNextStage)
@@ -39,7 +40,7 @@ public:
   /** A representation of an I/O observation  */
   class Observation
   {
-  protected:
+   protected:
     /**
      * This constructor is for use by subclasses that are intended to take
      * timing measurements via RAII. The |aShouldReport| parameter may be
@@ -49,16 +50,19 @@ public:
      * always ANDed with aShouldReport, so the subclass does not need to
      * include a call to that function explicitly.
      */
-    Observation(Operation aOperation, const char* aReference,
+    Observation(Operation aOperation,
+                const char* aReference,
                 bool aShouldReport = true);
 
-  public:
+   public:
     /**
      * Since this constructor accepts start and end times, it does *not* take
      * its own timings, nor does it report itself.
      */
-    Observation(Operation aOperation, const TimeStamp& aStart,
-                const TimeStamp& aEnd, const char* aReference);
+    Observation(Operation aOperation,
+                const TimeStamp& aStart,
+                const TimeStamp& aEnd,
+                const char* aReference);
 
     /**
      * Operation observed, this is one of the individual Operation values.
@@ -100,15 +104,14 @@ public:
 
     virtual ~Observation() {}
 
-  protected:
-    void
-    Report();
+   protected:
+    void Report();
 
-    Operation   mOperation;
-    TimeStamp   mStart;
-    TimeStamp   mEnd;
-    const char* mReference;     // Identifies the source of the Observation
-    bool        mShouldReport;  // Measure and report if true
+    Operation mOperation;
+    TimeStamp mStart;
+    TimeStamp mEnd;
+    const char* mReference;  // Identifies the source of the Observation
+    bool mShouldReport;      // Measure and report if true
   };
 
   /**
@@ -125,7 +128,7 @@ public:
 
   virtual ~IOInterposeObserver() {}
 
-protected:
+ protected:
   /**
    * We don't use NS_IsMainThread() because we need to be able to determine the
    * main thread outside of XPCOM Initialization. IOInterposer observers should
@@ -152,7 +155,8 @@ namespace IOInterposer {
  *
  * Using the IOInterposerInit class is preferred to calling this directly.
  */
-bool Init();
+bool
+Init();
 
 /**
  * This function must be called from the main thread, and furthermore
@@ -165,19 +169,22 @@ bool Init();
  * In practice, we don't use this method as the IOInterposer is used for
  * late-write checks.
  */
-void Clear();
+void
+Clear();
 
 /**
  * This function immediately disables IOInterposer functionality in a fast,
  * thread-safe manner. Primarily for use by the crash reporter.
  */
-void Disable();
+void
+Disable();
 
 /**
  * This function re-enables IOInterposer functionality in a fast, thread-safe
  * manner.  Primarily for use by the crash reporter.
  */
-void Enable();
+void
+Enable();
 
 /**
  * Report IO to registered observers.
@@ -199,14 +206,16 @@ void Enable();
  * Remark: Init() must be called before any IO is reported. But
  * IsObservedOperation() will return false until Init() is called.
  */
-void Report(IOInterposeObserver::Observation& aObservation);
+void
+Report(IOInterposeObserver::Observation& aObservation);
 
 /**
  * Return whether or not an operation is observed. Reporters should not
  * report operations that are not being observed by anybody. This mechanism
  * allows us to avoid reporting I/O when no observers are registered.
  */
-bool IsObservedOperation(IOInterposeObserver::Operation aOp);
+bool
+IsObservedOperation(IOInterposeObserver::Operation aOp);
 
 /**
  * Register IOInterposeObserver, the observer object will receive all
@@ -214,8 +223,8 @@ bool IsObservedOperation(IOInterposeObserver::Operation aOp);
  *
  * Remark: Init() must be called before observers are registered.
  */
-void Register(IOInterposeObserver::Operation aOp,
-              IOInterposeObserver* aObserver);
+void
+Register(IOInterposeObserver::Operation aOp, IOInterposeObserver* aObserver);
 
 /**
  * Unregister an IOInterposeObserver for a given operation
@@ -225,8 +234,8 @@ void Register(IOInterposeObserver::Operation aOp,
  *
  * Remark: Init() must be called before observers are unregistered.
  */
-void Unregister(IOInterposeObserver::Operation aOp,
-                IOInterposeObserver* aObserver);
+void
+Unregister(IOInterposeObserver::Operation aOp, IOInterposeObserver* aObserver);
 
 /**
  * Registers the current thread with the IOInterposer. This must be done to
@@ -239,26 +248,29 @@ void Unregister(IOInterposeObserver::Operation aOp,
  * @param aIsMainThread true if IOInterposer should treat the current thread
  *                      as the main thread.
  */
-void RegisterCurrentThread(bool aIsMainThread = false);
+void
+RegisterCurrentThread(bool aIsMainThread = false);
 
 /**
  * Unregisters the current thread with the IOInterposer. This is important
  * to call when a thread is shutting down because it cleans up data that
  * is stored in a TLS slot.
  */
-void UnregisterCurrentThread();
+void
+UnregisterCurrentThread();
 
 /**
  * Called to inform observers that the process has transitioned out of the
  * startup stage or into the shutdown stage. Main thread only.
  */
-void EnteringNextStage();
+void
+EnteringNextStage();
 
-} // namespace IOInterposer
+}  // namespace IOInterposer
 
 class IOInterposerInit
 {
-public:
+ public:
   IOInterposerInit()
   {
 #if !defined(RELEASE_OR_BETA)
@@ -276,21 +288,18 @@ public:
 
 class MOZ_RAII AutoIOInterposerDisable final
 {
-public:
+ public:
   explicit AutoIOInterposerDisable(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     IOInterposer::Disable();
   }
-  ~AutoIOInterposerDisable()
-  {
-    IOInterposer::Enable();
-  }
+  ~AutoIOInterposerDisable() { IOInterposer::Enable(); }
 
-private:
+ private:
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_IOInterposer_h
+#endif  // mozilla_IOInterposer_h

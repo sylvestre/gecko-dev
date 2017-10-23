@@ -12,7 +12,7 @@
 using namespace mozilla;
 
 int
-main(int argc, char *argv[])
+main(int argc, char* argv[])
 {
 #ifdef HAS_DLL_BLOCKLIST
   DllBlocklist_Initialize(eDllBlocklistInitFlagIsChildProcess);

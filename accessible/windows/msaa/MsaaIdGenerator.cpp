@@ -28,8 +28,9 @@
 static const uint32_t kNumContentProcessIDBits = 7UL;
 static const uint32_t kNumUniqueIDBits = (31UL - kNumContentProcessIDBits);
 
-static_assert(kNumContentProcessIDBits + kNumUniqueIDBits == 31,
-              "Allocation of Content ID bits and Unique ID bits must sum to 31");
+static_assert(
+    kNumContentProcessIDBits + kNumUniqueIDBits == 31,
+    "Allocation of Content ID bits and Unique ID bits must sum to 31");
 
 namespace mozilla {
 namespace a11y {
@@ -38,17 +39,15 @@ namespace detail {
 typedef nsDataHashtable<nsUint64HashKey, uint32_t> ContentParentIdMap;
 
 #pragma pack(push, 1)
-union MsaaID
-{
+union MsaaID {
   int32_t mInt32;
   uint32_t mUInt32;
   struct
   {
-    uint32_t mUniqueID:kNumUniqueIDBits;
-    uint32_t mContentProcessID:kNumContentProcessIDBits;
-    uint32_t mSignBit:1;
-  }
-  mCracked;
+    uint32_t mUniqueID : kNumUniqueIDBits;
+    uint32_t mContentProcessID : kNumContentProcessIDBits;
+    uint32_t mSignBit : 1;
+  } mCracked;
 };
 #pragma pack(pop)
 
@@ -64,31 +63,20 @@ BuildMsaaID(const uint32_t aID, const uint32_t aContentProcessID)
 
 class MsaaIDCracker
 {
-public:
-  explicit MsaaIDCracker(const uint32_t aMsaaID)
-  {
-    mID.mUInt32 = ~aMsaaID;
-  }
+ public:
+  explicit MsaaIDCracker(const uint32_t aMsaaID) { mID.mUInt32 = ~aMsaaID; }
 
-  uint32_t GetContentProcessId()
-  {
-    return mID.mCracked.mContentProcessID;
-  }
+  uint32_t GetContentProcessId() { return mID.mCracked.mContentProcessID; }
 
-  uint32_t GetUniqueId()
-  {
-    return mID.mCracked.mUniqueID;
-  }
+  uint32_t GetUniqueId() { return mID.mCracked.mUniqueID; }
 
-private:
-  MsaaID  mID;
+ private:
+  MsaaID mID;
 };
 
-} // namespace detail
+}  // namespace detail
 
-constexpr MsaaIdGenerator::MsaaIdGenerator()
-  : mIDSet(kNumUniqueIDBits)
-{}
+constexpr MsaaIdGenerator::MsaaIdGenerator() : mIDSet(kNumUniqueIDBits) {}
 
 uint32_t
 MsaaIdGenerator::GetID()
@@ -148,13 +136,13 @@ MsaaIdGenerator::IsIDForThisContentProcess(uint32_t aID)
 }
 
 bool
-MsaaIdGenerator::IsIDForContentProcess(uint32_t aID,
-                                       dom::ContentParentId aIPCContentProcessId)
+MsaaIdGenerator::IsIDForContentProcess(
+    uint32_t aID, dom::ContentParentId aIPCContentProcessId)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
   detail::MsaaIDCracker cracked(aID);
   return cracked.GetContentProcessId() ==
-           GetContentProcessIDFor(aIPCContentProcessId);
+         GetContentProcessIDFor(aIPCContentProcessId);
 }
 
 bool
@@ -163,7 +151,7 @@ MsaaIdGenerator::IsSameContentProcessFor(uint32_t aFirstID, uint32_t aSecondID)
   detail::MsaaIDCracker firstCracked(aFirstID);
   detail::MsaaIDCracker secondCracked(aSecondID);
   return firstCracked.GetContentProcessId() ==
-           secondCracked.GetContentProcessId();
+         secondCracked.GetContentProcessId();
 }
 
 uint32_t
@@ -194,12 +182,14 @@ static StaticAutoPtr<detail::ContentParentIdMap> sContentParentIdMap;
 static const uint32_t kBitsPerByte = 8UL;
 // Set sContentProcessIdBitmap[0] to 1 to reserve the Chrome process's id
 static uint64_t sContentProcessIdBitmap[(1UL << kNumContentProcessIDBits) /
-                                        (sizeof(uint64_t) * kBitsPerByte)] = {1ULL};
-static const uint32_t kBitsPerElement = sizeof(sContentProcessIdBitmap[0]) *
-                                        kBitsPerByte;
+                                        (sizeof(uint64_t) * kBitsPerByte)] = {
+    1ULL};
+static const uint32_t kBitsPerElement =
+    sizeof(sContentProcessIdBitmap[0]) * kBitsPerByte;
 
 uint32_t
-MsaaIdGenerator::GetContentProcessIDFor(dom::ContentParentId aIPCContentProcessID)
+MsaaIdGenerator::GetContentProcessIDFor(
+    dom::ContentParentId aIPCContentProcessID)
 {
   MOZ_ASSERT(XRE_IsParentProcess() && NS_IsMainThread());
   if (!sContentParentIdMap) {
@@ -233,7 +223,8 @@ MsaaIdGenerator::GetContentProcessIDFor(dom::ContentParentId aIPCContentProcessI
 }
 
 void
-MsaaIdGenerator::ReleaseContentProcessIDFor(dom::ContentParentId aIPCContentProcessID)
+MsaaIdGenerator::ReleaseContentProcessIDFor(
+    dom::ContentParentId aIPCContentProcessID)
 {
   MOZ_ASSERT(XRE_IsParentProcess() && NS_IsMainThread());
   if (!sContentParentIdMap) {
@@ -242,7 +233,8 @@ MsaaIdGenerator::ReleaseContentProcessIDFor(dom::ContentParentId aIPCContentProc
     return;
   }
 
-  Maybe<uint32_t> mapping = sContentParentIdMap->GetAndRemove(aIPCContentProcessID);
+  Maybe<uint32_t> mapping =
+      sContentParentIdMap->GetAndRemove(aIPCContentProcessID);
   if (!mapping) {
     // Since Content IDs are generated lazily, ContentParent might attempt
     // to release an ID that was never allocated to begin with.
@@ -258,5 +250,5 @@ MsaaIdGenerator::ReleaseContentProcessIDFor(dom::ContentParentId aIPCContentProc
   sContentProcessIdBitmap[index] &= ~mask;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

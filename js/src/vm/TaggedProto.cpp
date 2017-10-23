@@ -13,26 +13,21 @@
 
 namespace js {
 
-/* static */ void
-InternalBarrierMethods<TaggedProto>::preBarrier(TaggedProto& proto)
-{
+/* static */ void InternalBarrierMethods<TaggedProto>::preBarrier(TaggedProto& proto) {
     InternalBarrierMethods<JSObject*>::preBarrier(proto.toObjectOrNull());
 }
 
-/* static */ void
-InternalBarrierMethods<TaggedProto>::postBarrier(TaggedProto* vp, TaggedProto prev,
-                                                 TaggedProto next)
-{
+/* static */ void InternalBarrierMethods<TaggedProto>::postBarrier(TaggedProto* vp,
+                                                                   TaggedProto prev,
+                                                                   TaggedProto next) {
     JSObject* prevObj = prev.isObject() ? prev.toObject() : nullptr;
     JSObject* nextObj = next.isObject() ? next.toObject() : nullptr;
     InternalBarrierMethods<JSObject*>::postBarrier(reinterpret_cast<JSObject**>(vp), prevObj,
                                                    nextObj);
 }
 
-/* static */ void
-InternalBarrierMethods<TaggedProto>::readBarrier(const TaggedProto& proto)
-{
+/* static */ void InternalBarrierMethods<TaggedProto>::readBarrier(const TaggedProto& proto) {
     InternalBarrierMethods<JSObject*>::readBarrier(proto.toObjectOrNull());
 }
 
-} // namespace js
+}  // namespace js

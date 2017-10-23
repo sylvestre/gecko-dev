@@ -17,7 +17,7 @@ namespace gfx {
 
 class NativeFontResourceDWrite final : public NativeFontResource
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(NativeFontResourceDWrite)
   /**
    * Creates a NativeFontResourceDWrite if data is valid. Note aFontData will be
@@ -28,31 +28,37 @@ public:
    * @param aNeedsCairo whether the ScaledFont created needs a cairo scaled font
    * @return Referenced NativeFontResourceDWrite or nullptr if invalid.
    */
-  static already_AddRefed<NativeFontResourceDWrite>
-    Create(uint8_t *aFontData, uint32_t aDataLength, bool aNeedsCairo);
+  static already_AddRefed<NativeFontResourceDWrite> Create(uint8_t* aFontData,
+                                                           uint32_t aDataLength,
+                                                           bool aNeedsCairo);
 
-  already_AddRefed<UnscaledFont>
-    CreateUnscaledFont(uint32_t aIndex,
-                       const uint8_t* aInstanceData,
-                       uint32_t aInstanceDataLength) final;
+  already_AddRefed<UnscaledFont> CreateUnscaledFont(
+      uint32_t aIndex,
+      const uint8_t* aInstanceData,
+      uint32_t aInstanceDataLength) final;
 
-private:
-  NativeFontResourceDWrite(IDWriteFactory *aFactory,
+ private:
+  NativeFontResourceDWrite(IDWriteFactory* aFactory,
                            already_AddRefed<IDWriteFontFile> aFontFile,
                            DWRITE_FONT_FACE_TYPE aFaceType,
-                           uint32_t aNumberOfFaces, bool aNeedsCairo)
-    : mFactory(aFactory), mFontFile(aFontFile), mFaceType(aFaceType)
-    , mNumberOfFaces(aNumberOfFaces), mNeedsCairo(aNeedsCairo)
-  {}
+                           uint32_t aNumberOfFaces,
+                           bool aNeedsCairo)
+      : mFactory(aFactory),
+        mFontFile(aFontFile),
+        mFaceType(aFaceType),
+        mNumberOfFaces(aNumberOfFaces),
+        mNeedsCairo(aNeedsCairo)
+  {
+  }
 
-  IDWriteFactory *mFactory;
+  IDWriteFactory* mFactory;
   RefPtr<IDWriteFontFile> mFontFile;
   DWRITE_FONT_FACE_TYPE mFaceType;
   uint32_t mNumberOfFaces;
   bool mNeedsCairo;
 };
 
-} // gfx
-} // mozilla
+}  // namespace gfx
+}  // namespace mozilla
 
-#endif // mozilla_gfx_NativeFontResourceDWrite_h
+#endif  // mozilla_gfx_NativeFontResourceDWrite_h

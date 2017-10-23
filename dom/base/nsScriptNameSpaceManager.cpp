@@ -37,26 +37,25 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 static PLDHashNumber
-GlobalNameHashHashKey(const void *key)
+GlobalNameHashHashKey(const void* key)
 {
-  const nsAString *str = static_cast<const nsAString *>(key);
+  const nsAString* str = static_cast<const nsAString*>(key);
   return HashString(*str);
 }
 
 static bool
-GlobalNameHashMatchEntry(const PLDHashEntryHdr *entry, const void *key)
+GlobalNameHashMatchEntry(const PLDHashEntryHdr* entry, const void* key)
 {
-  const GlobalNameMapEntry *e =
-    static_cast<const GlobalNameMapEntry *>(entry);
-  const nsAString *str = static_cast<const nsAString *>(key);
+  const GlobalNameMapEntry* e = static_cast<const GlobalNameMapEntry*>(entry);
+  const nsAString* str = static_cast<const nsAString*>(key);
 
   return str->Equals(e->mKey);
 }
 
 static void
-GlobalNameHashClearEntry(PLDHashTable *table, PLDHashEntryHdr *entry)
+GlobalNameHashClearEntry(PLDHashTable* table, PLDHashEntryHdr* entry)
 {
-  GlobalNameMapEntry *e = static_cast<GlobalNameMapEntry *>(entry);
+  GlobalNameMapEntry* e = static_cast<GlobalNameMapEntry*>(entry);
 
   // An entry is being cleared, let the key (nsString) do its own
   // cleanup.
@@ -68,10 +67,10 @@ GlobalNameHashClearEntry(PLDHashTable *table, PLDHashEntryHdr *entry)
 }
 
 static void
-GlobalNameHashInitEntry(PLDHashEntryHdr *entry, const void *key)
+GlobalNameHashInitEntry(PLDHashEntryHdr* entry, const void* key)
 {
-  GlobalNameMapEntry *e = static_cast<GlobalNameMapEntry *>(entry);
-  const nsAString *keyStr = static_cast<const nsAString *>(key);
+  GlobalNameMapEntry* e = static_cast<GlobalNameMapEntry*>(entry);
+  const nsAString* keyStr = static_cast<const nsAString*>(key);
 
   // Initialize the key in the entry with placement new
   new (&e->mKey) nsString(*keyStr);
@@ -81,26 +80,23 @@ GlobalNameHashInitEntry(PLDHashEntryHdr *entry, const void *key)
   memset(&e->mGlobalName, 0, sizeof(nsGlobalNameStruct));
 }
 
-NS_IMPL_ISUPPORTS(
-  nsScriptNameSpaceManager,
-  nsIObserver,
-  nsISupportsWeakReference,
-  nsIMemoryReporter)
+NS_IMPL_ISUPPORTS(nsScriptNameSpaceManager,
+                  nsIObserver,
+                  nsISupportsWeakReference,
+                  nsIMemoryReporter)
 
-static const PLDHashTableOps hash_table_ops =
-{
-  GlobalNameHashHashKey,
-  GlobalNameHashMatchEntry,
-  PLDHashTable::MoveEntryStub,
-  GlobalNameHashClearEntry,
-  GlobalNameHashInitEntry
-};
+static const PLDHashTableOps hash_table_ops = {GlobalNameHashHashKey,
+                                               GlobalNameHashMatchEntry,
+                                               PLDHashTable::MoveEntryStub,
+                                               GlobalNameHashClearEntry,
+                                               GlobalNameHashInitEntry};
 
-#define GLOBALNAME_HASHTABLE_INITIAL_LENGTH          32
+#define GLOBALNAME_HASHTABLE_INITIAL_LENGTH 32
 
 nsScriptNameSpaceManager::nsScriptNameSpaceManager()
-  : mGlobalNames(&hash_table_ops, sizeof(GlobalNameMapEntry),
-                 GLOBALNAME_HASHTABLE_INITIAL_LENGTH)
+    : mGlobalNames(&hash_table_ops,
+                   sizeof(GlobalNameMapEntry),
+                   GLOBALNAME_HASHTABLE_INITIAL_LENGTH)
 {
 }
 
@@ -109,12 +105,13 @@ nsScriptNameSpaceManager::~nsScriptNameSpaceManager()
   UnregisterWeakMemoryReporter(this);
 }
 
-nsGlobalNameStruct *
-nsScriptNameSpaceManager::AddToHash(const char *aKey,
-                                    const char16_t **aClassName)
+nsGlobalNameStruct*
+nsScriptNameSpaceManager::AddToHash(const char* aKey,
+                                    const char16_t** aClassName)
 {
   NS_ConvertASCIItoUTF16 key(aKey);
-  auto entry = static_cast<GlobalNameMapEntry*>(mGlobalNames.Add(&key, fallible));
+  auto entry =
+      static_cast<GlobalNameMapEntry*>(mGlobalNames.Add(&key, fallible));
   if (!entry) {
     return nullptr;
   }
@@ -129,18 +126,18 @@ nsScriptNameSpaceManager::AddToHash(const char *aKey,
 }
 
 void
-nsScriptNameSpaceManager::RemoveFromHash(const nsAString *aKey)
+nsScriptNameSpaceManager::RemoveFromHash(const nsAString* aKey)
 {
   mGlobalNames.Remove(aKey);
 }
 
 nsresult
-nsScriptNameSpaceManager::FillHash(nsICategoryManager *aCategoryManager,
-                                   const char *aCategory)
+nsScriptNameSpaceManager::FillHash(nsICategoryManager* aCategoryManager,
+                                   const char* aCategory)
 {
   nsCOMPtr<nsISimpleEnumerator> e;
-  nsresult rv = aCategoryManager->EnumerateCategory(aCategory,
-                                                    getter_AddRefs(e));
+  nsresult rv =
+      aCategoryManager->EnumerateCategory(aCategory, getter_AddRefs(e));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsISupports> entry;
@@ -154,7 +151,6 @@ nsScriptNameSpaceManager::FillHash(nsICategoryManager *aCategoryManager,
   return NS_OK;
 }
 
-
 nsresult
 nsScriptNameSpaceManager::Init()
 {
@@ -163,7 +159,7 @@ nsScriptNameSpaceManager::Init()
   nsresult rv = NS_OK;
 
   nsCOMPtr<nsICategoryManager> cm =
-    do_GetService(NS_CATEGORYMANAGER_CONTRACTID, &rv);
+      do_GetService(NS_CATEGORYMANAGER_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = FillHash(cm, JAVASCRIPT_GLOBAL_CONSTRUCTOR_CATEGORY);
@@ -177,8 +173,7 @@ nsScriptNameSpaceManager::Init()
 
   // Initial filling of the has table has been done.
   // Now, listen for changes.
-  nsCOMPtr<nsIObserverService> serv =
-    mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> serv = mozilla::services::GetObserverService();
 
   if (serv) {
     serv->AddObserver(this, NS_XPCOM_CATEGORY_ENTRY_ADDED_OBSERVER_ID, true);
@@ -190,7 +185,7 @@ nsScriptNameSpaceManager::Init()
 
 const nsGlobalNameStruct*
 nsScriptNameSpaceManager::LookupName(const nsAString& aName,
-                                     const char16_t **aClassName)
+                                     const char16_t** aClassName)
 {
   auto entry = static_cast<GlobalNameMapEntry*>(mGlobalNames.Search(&aName));
 
@@ -208,17 +203,17 @@ nsScriptNameSpaceManager::LookupName(const nsAString& aName,
 }
 
 nsresult
-nsScriptNameSpaceManager::RegisterClassName(const char *aClassName,
+nsScriptNameSpaceManager::RegisterClassName(const char* aClassName,
                                             int32_t aDOMClassInfoID,
                                             bool aPrivileged,
                                             bool aXBLAllowed,
-                                            const char16_t **aResult)
+                                            const char16_t** aResult)
 {
   if (!nsCRT::IsAscii(aClassName)) {
     NS_ERROR("Trying to register a non-ASCII class name");
     return NS_OK;
   }
-  nsGlobalNameStruct *s = AddToHash(aClassName, aResult);
+  nsGlobalNameStruct* s = AddToHash(aClassName, aResult);
   NS_ENSURE_TRUE(s, NS_ERROR_OUT_OF_MEMORY);
 
   if (s->mType == nsGlobalNameStruct::eTypeClassConstructor) {
@@ -244,15 +239,15 @@ nsScriptNameSpaceManager::RegisterClassName(const char *aClassName,
 }
 
 nsresult
-nsScriptNameSpaceManager::RegisterClassProto(const char *aClassName,
-                                             const nsIID *aConstructorProtoIID,
-                                             bool *aFoundOld)
+nsScriptNameSpaceManager::RegisterClassProto(const char* aClassName,
+                                             const nsIID* aConstructorProtoIID,
+                                             bool* aFoundOld)
 {
   NS_ENSURE_ARG_POINTER(aConstructorProtoIID);
 
   *aFoundOld = false;
 
-  nsGlobalNameStruct *s = AddToHash(aClassName);
+  nsGlobalNameStruct* s = AddToHash(aClassName);
   NS_ENSURE_TRUE(s, NS_ERROR_OUT_OF_MEMORY);
 
   if (s->mType != nsGlobalNameStruct::eTypeNotInitialized) {
@@ -268,10 +263,11 @@ nsScriptNameSpaceManager::RegisterClassProto(const char *aClassName,
 }
 
 nsresult
-nsScriptNameSpaceManager::OperateCategoryEntryHash(nsICategoryManager* aCategoryManager,
-                                                   const char* aCategory,
-                                                   nsISupports* aEntry,
-                                                   bool aRemove)
+nsScriptNameSpaceManager::OperateCategoryEntryHash(
+    nsICategoryManager* aCategoryManager,
+    const char* aCategory,
+    nsISupports* aEntry,
+    bool aRemove)
 {
   MOZ_ASSERT(aCategoryManager);
   // Get the type from the category name.
@@ -282,7 +278,8 @@ nsScriptNameSpaceManager::OperateCategoryEntryHash(nsICategoryManager* aCategory
   if (strcmp(aCategory, JAVASCRIPT_GLOBAL_CONSTRUCTOR_CATEGORY) == 0) {
     type = nsGlobalNameStruct::eTypeExternalConstructor;
   } else if (strcmp(aCategory, JAVASCRIPT_GLOBAL_PROPERTY_CATEGORY) == 0 ||
-             strcmp(aCategory, JAVASCRIPT_GLOBAL_PRIVILEGED_PROPERTY_CATEGORY) == 0) {
+             strcmp(aCategory,
+                    JAVASCRIPT_GLOBAL_PRIVILEGED_PROPERTY_CATEGORY) == 0) {
     type = nsGlobalNameStruct::eTypeProperty;
   } else {
     return NS_OK;
@@ -304,7 +301,7 @@ nsScriptNameSpaceManager::OperateCategoryEntryHash(nsICategoryManager* aCategory
   // notified.
   if (aRemove) {
     NS_ConvertASCIItoUTF16 entry(categoryEntry);
-    const nsGlobalNameStruct *s = LookupName(entry);
+    const nsGlobalNameStruct* s = LookupName(entry);
     // Verify mType so that this API doesn't remove names
     // registered by others.
     if (!s || s->mType != type) {
@@ -316,15 +313,15 @@ nsScriptNameSpaceManager::OperateCategoryEntryHash(nsICategoryManager* aCategory
   }
 
   nsCString contractId;
-  rv = aCategoryManager->GetCategoryEntry(aCategory, categoryEntry.get(),
-                                          getter_Copies(contractId));
+  rv = aCategoryManager->GetCategoryEntry(
+      aCategory, categoryEntry.get(), getter_Copies(contractId));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIComponentRegistrar> registrar;
   rv = NS_GetComponentRegistrar(getter_AddRefs(registrar));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCID *cidPtr;
+  nsCID* cidPtr;
   rv = registrar->ContractIDToCID(contractId.get(), &cidPtr);
 
   if (NS_FAILED(rv)) {
@@ -337,14 +334,14 @@ nsScriptNameSpaceManager::OperateCategoryEntryHash(nsICategoryManager* aCategory
   nsCID cid = *cidPtr;
   free(cidPtr);
 
-  nsGlobalNameStruct *s = AddToHash(categoryEntry.get());
+  nsGlobalNameStruct* s = AddToHash(categoryEntry.get());
   NS_ENSURE_TRUE(s, NS_ERROR_OUT_OF_MEMORY);
 
   if (s->mType == nsGlobalNameStruct::eTypeNotInitialized) {
     s->mType = type;
     s->mCID = cid;
     s->mChromeOnly =
-      strcmp(aCategory, JAVASCRIPT_GLOBAL_PRIVILEGED_PROPERTY_CATEGORY) == 0;
+        strcmp(aCategory, JAVASCRIPT_GLOBAL_PRIVILEGED_PROPERTY_CATEGORY) == 0;
   } else {
     NS_WARNING("Global script name not overwritten!");
   }
@@ -353,25 +350,32 @@ nsScriptNameSpaceManager::OperateCategoryEntryHash(nsICategoryManager* aCategory
 }
 
 nsresult
-nsScriptNameSpaceManager::AddCategoryEntryToHash(nsICategoryManager* aCategoryManager,
-                                                 const char* aCategory,
-                                                 nsISupports* aEntry)
+nsScriptNameSpaceManager::AddCategoryEntryToHash(
+    nsICategoryManager* aCategoryManager,
+    const char* aCategory,
+    nsISupports* aEntry)
 {
-  return OperateCategoryEntryHash(aCategoryManager, aCategory, aEntry,
+  return OperateCategoryEntryHash(aCategoryManager,
+                                  aCategory,
+                                  aEntry,
                                   /* aRemove = */ false);
 }
 
 nsresult
-nsScriptNameSpaceManager::RemoveCategoryEntryFromHash(nsICategoryManager* aCategoryManager,
-                                                      const char* aCategory,
-                                                      nsISupports* aEntry)
+nsScriptNameSpaceManager::RemoveCategoryEntryFromHash(
+    nsICategoryManager* aCategoryManager,
+    const char* aCategory,
+    nsISupports* aEntry)
 {
-  return OperateCategoryEntryHash(aCategoryManager, aCategory, aEntry,
+  return OperateCategoryEntryHash(aCategoryManager,
+                                  aCategory,
+                                  aEntry,
                                   /* aRemove = */ true);
 }
 
 NS_IMETHODIMP
-nsScriptNameSpaceManager::Observe(nsISupports* aSubject, const char* aTopic,
+nsScriptNameSpaceManager::Observe(nsISupports* aSubject,
+                                  const char* aTopic,
                                   const char16_t* aData)
 {
   if (!aData) {
@@ -380,22 +384,22 @@ nsScriptNameSpaceManager::Observe(nsISupports* aSubject, const char* aTopic,
 
   if (!strcmp(aTopic, NS_XPCOM_CATEGORY_ENTRY_ADDED_OBSERVER_ID)) {
     nsCOMPtr<nsICategoryManager> cm =
-      do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
+        do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
     if (!cm) {
       return NS_OK;
     }
 
-    return AddCategoryEntryToHash(cm, NS_ConvertUTF16toUTF8(aData).get(),
-                                  aSubject);
+    return AddCategoryEntryToHash(
+        cm, NS_ConvertUTF16toUTF8(aData).get(), aSubject);
   } else if (!strcmp(aTopic, NS_XPCOM_CATEGORY_ENTRY_REMOVED_OBSERVER_ID)) {
     nsCOMPtr<nsICategoryManager> cm =
-      do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
+        do_GetService(NS_CATEGORYMANAGER_CONTRACTID);
     if (!cm) {
       return NS_OK;
     }
 
-    return RemoveCategoryEntryFromHash(cm, NS_ConvertUTF16toUTF8(aData).get(),
-                                       aSubject);
+    return RemoveCategoryEntryFromHash(
+        cm, NS_ConvertUTF16toUTF8(aData).get(), aSubject);
   }
 
   // TODO: we could observe NS_XPCOM_CATEGORY_CLEARED_OBSERVER_ID
@@ -407,13 +411,15 @@ nsScriptNameSpaceManager::Observe(nsISupports* aSubject, const char* aTopic,
 MOZ_DEFINE_MALLOC_SIZE_OF(ScriptNameSpaceManagerMallocSizeOf)
 
 NS_IMETHODIMP
-nsScriptNameSpaceManager::CollectReports(
-  nsIHandleReportCallback* aHandleReport, nsISupports* aData, bool aAnonymize)
+nsScriptNameSpaceManager::CollectReports(nsIHandleReportCallback* aHandleReport,
+                                         nsISupports* aData,
+                                         bool aAnonymize)
 {
-  MOZ_COLLECT_REPORT(
-    "explicit/script-namespace-manager", KIND_HEAP, UNITS_BYTES,
-    SizeOfIncludingThis(ScriptNameSpaceManagerMallocSizeOf),
-    "Memory used for the script namespace manager.");
+  MOZ_COLLECT_REPORT("explicit/script-namespace-manager",
+                     KIND_HEAP,
+                     UNITS_BYTES,
+                     SizeOfIncludingThis(ScriptNameSpaceManagerMallocSizeOf),
+                     "Memory used for the script namespace manager.");
 
   return NS_OK;
 }

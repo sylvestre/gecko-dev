@@ -17,11 +17,9 @@ namespace layers {
 class BasicCompositor;
 
 // TextureSource for Xlib-backed surfaces.
-class X11TextureSourceBasic
-  : public TextureSourceBasic
-  , public X11TextureSource
+class X11TextureSourceBasic : public TextureSourceBasic, public X11TextureSource
 {
-public:
+ public:
   X11TextureSourceBasic(BasicCompositor* aCompositor, gfxXlibSurface* aSurface);
 
   virtual const char* Name() const override { return "X11TextureSourceBasic"; }
@@ -34,18 +32,18 @@ public:
 
   virtual gfx::SourceSurface* GetSurface(gfx::DrawTarget* aTarget) override;
 
-  virtual void DeallocateDeviceData() override { }
+  virtual void DeallocateDeviceData() override {}
 
-  virtual void Updated() override { }
+  virtual void Updated() override {}
 
   static gfx::SurfaceFormat ContentTypeToSurfaceFormat(gfxContentType aType);
 
-protected:
+ protected:
   RefPtr<gfxXlibSurface> mSurface;
   RefPtr<gfx::SourceSurface> mSourceSurface;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_X11TEXTURESOURCEBASIC__H
+#endif  // MOZILLA_GFX_X11TEXTURESOURCEBASIC__H

@@ -31,16 +31,19 @@ namespace detail {
 template<typename EnumTypeT>
 class EnumeratedIterator
 {
-public:
+ public:
   typedef typename std::underlying_type<EnumTypeT>::type IntTypeT;
 
   template<typename EnumType>
-  explicit EnumeratedIterator(EnumType aCurrent)
-    : mCurrent(aCurrent) { }
+  explicit EnumeratedIterator(EnumType aCurrent) : mCurrent(aCurrent)
+  {
+  }
 
   template<typename EnumType>
   explicit EnumeratedIterator(const EnumeratedIterator<EnumType>& aOther)
-    : mCurrent(aOther.mCurrent) { }
+      : mCurrent(aOther.mCurrent)
+  {
+  }
 
   EnumTypeT operator*() const { return mCurrent; }
 
@@ -90,48 +93,54 @@ public:
   friend bool operator>=(const EnumeratedIterator<EnumType>& aIter1,
                          const EnumeratedIterator<EnumType>& aIter2);
 
-private:
+ private:
   EnumTypeT mCurrent;
 };
 
 template<typename EnumType>
-bool operator==(const EnumeratedIterator<EnumType>& aIter1,
-                const EnumeratedIterator<EnumType>& aIter2)
+bool
+operator==(const EnumeratedIterator<EnumType>& aIter1,
+           const EnumeratedIterator<EnumType>& aIter2)
 {
   return aIter1.mCurrent == aIter2.mCurrent;
 }
 
 template<typename EnumType>
-bool operator!=(const EnumeratedIterator<EnumType>& aIter1,
-                const EnumeratedIterator<EnumType>& aIter2)
+bool
+operator!=(const EnumeratedIterator<EnumType>& aIter1,
+           const EnumeratedIterator<EnumType>& aIter2)
 {
   return aIter1.mCurrent != aIter2.mCurrent;
 }
 
 template<typename EnumType>
-bool operator<(const EnumeratedIterator<EnumType>& aIter1,
-               const EnumeratedIterator<EnumType>& aIter2)
+bool
+operator<(const EnumeratedIterator<EnumType>& aIter1,
+          const EnumeratedIterator<EnumType>& aIter2)
 {
   return aIter1.mCurrent < aIter2.mCurrent;
 }
 
 template<typename EnumType>
-bool operator<=(const EnumeratedIterator<EnumType>& aIter1,
-                const EnumeratedIterator<EnumType>& aIter2)
+bool
+operator<=(const EnumeratedIterator<EnumType>& aIter1,
+           const EnumeratedIterator<EnumType>& aIter2)
 {
   return aIter1.mCurrent <= aIter2.mCurrent;
 }
 
 template<typename EnumType>
-bool operator>(const EnumeratedIterator<EnumType>& aIter1,
-               const EnumeratedIterator<EnumType>& aIter2)
+bool
+operator>(const EnumeratedIterator<EnumType>& aIter1,
+          const EnumeratedIterator<EnumType>& aIter2)
 {
   return aIter1.mCurrent > aIter2.mCurrent;
 }
 
 template<typename EnumType>
-bool operator>=(const EnumeratedIterator<EnumType>& aIter1,
-                const EnumeratedIterator<EnumType>& aIter2)
+bool
+operator>=(const EnumeratedIterator<EnumType>& aIter1,
+           const EnumeratedIterator<EnumType>& aIter2)
 {
   return aIter1.mCurrent >= aIter2.mCurrent;
 }
@@ -139,15 +148,16 @@ bool operator>=(const EnumeratedIterator<EnumType>& aIter1,
 template<typename EnumTypeT>
 class EnumeratedRange
 {
-public:
+ public:
   typedef EnumeratedIterator<EnumTypeT> iterator;
   typedef EnumeratedIterator<EnumTypeT> const_iterator;
   typedef ReverseIterator<iterator> reverse_iterator;
   typedef ReverseIterator<const_iterator> const_reverse_iterator;
 
   template<typename EnumType>
-  EnumeratedRange(EnumType aBegin, EnumType aEnd)
-    : mBegin(aBegin), mEnd(aEnd) { }
+  EnumeratedRange(EnumType aBegin, EnumType aEnd) : mBegin(aBegin), mEnd(aEnd)
+  {
+  }
 
   iterator begin() const { return iterator(mBegin); }
   const_iterator cbegin() const { return begin(); }
@@ -158,19 +168,19 @@ public:
   reverse_iterator rend() const { return reverse_iterator(mBegin); }
   const_reverse_iterator crend() const { return rend(); }
 
-private:
+ private:
   EnumTypeT mBegin;
   EnumTypeT mEnd;
 };
 
-} // namespace detail
+}  // namespace detail
 
 #ifdef __GNUC__
 // Enums can have an unsigned underlying type, which makes some of the
 // comparisons below always true or always false. Temporarily disable
 // -Wtype-limits to avoid breaking -Werror builds.
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #endif
 
 // Create a range to iterate from aBegin to aEnd, exclusive.
@@ -192,10 +202,9 @@ MakeEnumeratedRange(EnumType aEnd)
 }
 
 #ifdef __GNUC__
-#  pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_EnumeratedRange_h
-
+#endif  // mozilla_EnumeratedRange_h

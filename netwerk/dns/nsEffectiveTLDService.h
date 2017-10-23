@@ -17,11 +17,10 @@
 
 class nsIIDNService;
 
-class nsEffectiveTLDService final
-  : public nsIEffectiveTLDService
-  , public nsIMemoryReporter
+class nsEffectiveTLDService final : public nsIEffectiveTLDService,
+                                    public nsIMemoryReporter
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEFFECTIVETLDSERVICE
   NS_DECL_NSIMEMORYREPORTER
@@ -31,12 +30,14 @@ public:
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
 
-private:
-  nsresult GetBaseDomainInternal(nsCString &aHostname, int32_t aAdditionalParts, nsACString &aBaseDomain);
-  nsresult NormalizeHostname(nsCString &aHostname);
+ private:
+  nsresult GetBaseDomainInternal(nsCString& aHostname,
+                                 int32_t aAdditionalParts,
+                                 nsACString& aBaseDomain);
+  nsresult NormalizeHostname(nsCString& aHostname);
   ~nsEffectiveTLDService();
 
-  nsCOMPtr<nsIIDNService>     mIDNService;
+  nsCOMPtr<nsIIDNService> mIDNService;
 
   // The DAFSA provides a compact encoding of the rather large eTLD list.
   mozilla::Dafsa mGraph;
@@ -73,4 +74,4 @@ private:
   inline bool LookupForAdd(const nsACString& aHost, TLDCacheEntry** aEntry);
 };
 
-#endif // EffectiveTLDService_h
+#endif  // EffectiveTLDService_h

@@ -17,7 +17,7 @@ class nsIPrincipal;
 namespace mozilla {
 namespace gfx {
 class SourceSurface;
-} // namespace gfx
+}  // namespace gfx
 
 namespace dom {
 class SVGMatrix;
@@ -25,11 +25,13 @@ class SVGMatrix;
 class CanvasPattern final : public nsWrapperCache
 {
   ~CanvasPattern() {}
-public:
+
+ public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(CanvasPattern)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(CanvasPattern)
 
-  enum class RepeatMode : uint8_t {
+  enum class RepeatMode : uint8_t
+  {
     REPEAT,
     REPEATX,
     REPEATY,
@@ -42,25 +44,23 @@ public:
                 nsIPrincipal* principalForSecurityCheck,
                 bool forceWriteOnly,
                 bool CORSUsed)
-    : mContext(aContext)
-    , mSurface(aSurface)
-    , mPrincipal(principalForSecurityCheck)
-    , mTransform()
-    , mForceWriteOnly(forceWriteOnly)
-    , mCORSUsed(CORSUsed)
-    , mRepeat(aRepeat)
+      : mContext(aContext),
+        mSurface(aSurface),
+        mPrincipal(principalForSecurityCheck),
+        mTransform(),
+        mForceWriteOnly(forceWriteOnly),
+        mCORSUsed(CORSUsed),
+        mRepeat(aRepeat)
   {
   }
 
-  JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override
   {
     return CanvasPatternBinding::Wrap(aCx, this, aGivenProto);
   }
 
-  CanvasRenderingContext2D* GetParentObject()
-  {
-    return mContext;
-  }
+  CanvasRenderingContext2D* GetParentObject() { return mContext; }
 
   // WebIDL
   void SetTransform(SVGMatrix& matrix);
@@ -74,7 +74,7 @@ public:
   const RepeatMode mRepeat;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CanvasPattern_h
+#endif  // mozilla_dom_CanvasPattern_h

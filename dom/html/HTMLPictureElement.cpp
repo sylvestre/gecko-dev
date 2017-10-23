@@ -19,14 +19,13 @@ NS_NewHTMLPictureElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
 namespace mozilla {
 namespace dom {
 
-HTMLPictureElement::HTMLPictureElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLPictureElement::HTMLPictureElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
 }
 
-HTMLPictureElement::~HTMLPictureElement()
-{
-}
+HTMLPictureElement::~HTMLPictureElement() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(HTMLPictureElement, nsGenericHTMLElement)
 
@@ -51,7 +50,7 @@ HTMLPictureElement::RemoveChildAt(uint32_t aIndex, bool aNotify)
         if (img) {
           img->PictureSourceRemoved(child->AsContent());
         }
-      } while ( (nextSibling = nextSibling->GetNextSibling()) );
+      } while ((nextSibling = nextSibling->GetNextSibling()));
     }
   }
 
@@ -59,7 +58,9 @@ HTMLPictureElement::RemoveChildAt(uint32_t aIndex, bool aNotify)
 }
 
 nsresult
-HTMLPictureElement::InsertChildAt(nsIContent* aKid, uint32_t aIndex, bool aNotify)
+HTMLPictureElement::InsertChildAt(nsIContent* aKid,
+                                  uint32_t aIndex,
+                                  bool aNotify)
 {
   nsresult rv = nsGenericHTMLElement::InsertChildAt(aKid, aIndex, aNotify);
 
@@ -80,7 +81,7 @@ HTMLPictureElement::InsertChildAt(nsIContent* aKid, uint32_t aIndex, bool aNotif
         if (img) {
           img->PictureSourceAdded(aKid->AsContent());
         }
-      } while ( (nextSibling = nextSibling->GetNextSibling()) );
+      } while ((nextSibling = nextSibling->GetNextSibling()));
     }
   }
 
@@ -93,5 +94,5 @@ HTMLPictureElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return HTMLPictureElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

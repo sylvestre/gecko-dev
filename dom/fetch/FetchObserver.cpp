@@ -44,10 +44,8 @@ FetchObserver::IsEnabled(JSContext* aCx, JSObject* aGlobal)
   return workerPrivate->FetchObserverEnabled();
 }
 
-FetchObserver::FetchObserver(nsIGlobalObject* aGlobal,
-                             AbortSignal* aSignal)
-  : DOMEventTargetHelper(aGlobal)
-  , mState(FetchState::Requesting)
+FetchObserver::FetchObserver(nsIGlobalObject* aGlobal, AbortSignal* aSignal)
+    : DOMEventTargetHelper(aGlobal), mState(FetchState::Requesting)
 {
   if (aSignal) {
     Follow(aSignal);
@@ -77,23 +75,20 @@ FetchObserver::SetState(FetchState aState)
 {
   MOZ_ASSERT(mState < aState);
 
-  if (mState == FetchState::Aborted ||
-      mState == FetchState::Errored ||
+  if (mState == FetchState::Aborted || mState == FetchState::Errored ||
       mState == FetchState::Complete) {
     // We are already in a final state.
     return;
   }
 
   // We cannot pass from Requesting to Complete directly.
-  if (mState == FetchState::Requesting &&
-      aState == FetchState::Complete) {
+  if (mState == FetchState::Requesting && aState == FetchState::Complete) {
     SetState(FetchState::Responding);
   }
 
   mState = aState;
 
-  if (mState == FetchState::Aborted ||
-      mState == FetchState::Errored ||
+  if (mState == FetchState::Aborted || mState == FetchState::Errored ||
       mState == FetchState::Complete) {
     Unfollow();
   }
@@ -105,12 +100,12 @@ FetchObserver::SetState(FetchState aState)
   // TODO which kind of event should we dispatch here?
 
   RefPtr<Event> event =
-    Event::Constructor(this, NS_LITERAL_STRING("statechange"), init);
+      Event::Constructor(this, NS_LITERAL_STRING("statechange"), init);
   event->SetTrusted(true);
 
   bool dummy;
   DispatchEvent(event, &dummy);
 }
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla

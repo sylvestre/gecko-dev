@@ -20,40 +20,35 @@ class nsBindingValues;
 /*
  * a  <binding> descriptors
  */
-class RDFBinding {
+class RDFBinding
+{
+ public:
+  RefPtr<nsAtom> mSubjectVariable;
+  nsCOMPtr<nsIRDFResource> mPredicate;
+  RefPtr<nsAtom> mTargetVariable;
 
-public:
+  // indicates whether a binding is dependant on the result from a
+  // previous binding
+  bool mHasDependency;
 
-    RefPtr<nsAtom>        mSubjectVariable;
-    nsCOMPtr<nsIRDFResource> mPredicate;
-    RefPtr<nsAtom>        mTargetVariable;
+  RDFBinding* mNext;
 
-    // indicates whether a binding is dependant on the result from a
-    // previous binding
-    bool                     mHasDependency;
+ private:
+  friend class RDFBindingSet;
 
-    RDFBinding*              mNext;
-
-private:
-
-    friend class RDFBindingSet;
-
-    RDFBinding(nsAtom* aSubjectVariable,
-               nsIRDFResource* aPredicate,
-               nsAtom* aTargetVariable)
+  RDFBinding(nsAtom* aSubjectVariable,
+             nsIRDFResource* aPredicate,
+             nsAtom* aTargetVariable)
       : mSubjectVariable(aSubjectVariable),
         mPredicate(aPredicate),
         mTargetVariable(aTargetVariable),
         mHasDependency(false),
         mNext(nullptr)
-    {
-        MOZ_COUNT_CTOR(RDFBinding);
-    }
+  {
+    MOZ_COUNT_CTOR(RDFBinding);
+  }
 
-    ~RDFBinding()
-    {
-        MOZ_COUNT_DTOR(RDFBinding);
-    }
+  ~RDFBinding() { MOZ_COUNT_DTOR(RDFBinding); }
 };
 
 /*
@@ -62,36 +57,32 @@ private:
  */
 class RDFBindingSet final
 {
-private:
-    // Private destructor, to discourage deletion outside of Release():
-    ~RDFBindingSet();
+ private:
+  // Private destructor, to discourage deletion outside of Release():
+  ~RDFBindingSet();
 
-    // the number of bindings
-    int32_t mCount;
+  // the number of bindings
+  int32_t mCount;
 
-    // pointer to the first binding in a linked list
-    RDFBinding* mFirst;
+  // pointer to the first binding in a linked list
+  RDFBinding* mFirst;
 
-public:
+ public:
+  RDFBindingSet() : mCount(0), mFirst(nullptr)
+  {
+    MOZ_COUNT_CTOR(RDFBindingSet);
+  }
 
-    RDFBindingSet()
-        : mCount(0),
-          mFirst(nullptr)
-    {
-        MOZ_COUNT_CTOR(RDFBindingSet);
-    }
+  NS_INLINE_DECL_REFCOUNTING(RDFBindingSet)
 
-    NS_INLINE_DECL_REFCOUNTING(RDFBindingSet)
+  int32_t Count() const { return mCount; }
 
-    int32_t Count() const { return mCount; }
-
-    /*
+  /*
      * Add a binding (aRef -> aPredicate -> aVar) to the set
      */
-    nsresult
-    AddBinding(nsAtom* aVar, nsAtom* aRef, nsIRDFResource* aPredicate);
+  nsresult AddBinding(nsAtom* aVar, nsAtom* aRef, nsIRDFResource* aPredicate);
 
-    /*
+  /*
      * Return true if the binding set contains a binding which would cause
      * the result to need resynchronizing for an RDF triple. The member
      * variable may be supplied as an optimization since bindings most
@@ -107,40 +98,36 @@ public:
      * @param aResult result to synchronize
      * @param aBindingValues the values for the bindings for the result
      */
-    bool
-    SyncAssignments(nsIRDFResource* aSubject,
-                    nsIRDFResource* aPredicate,
-                    nsIRDFNode* aTarget,
-                    nsAtom* aMemberVariable,
-                    nsXULTemplateResultRDF* aResult,
-                    nsBindingValues& aBindingValues);
+  bool SyncAssignments(nsIRDFResource* aSubject,
+                       nsIRDFResource* aPredicate,
+                       nsIRDFNode* aTarget,
+                       nsAtom* aMemberVariable,
+                       nsXULTemplateResultRDF* aResult,
+                       nsBindingValues& aBindingValues);
 
-    /*
+  /*
      * The query processor maintains a map of subjects to an array of results.
      * This is used such that when a new assertion is added to the RDF graph,
      * the results associated with the subject of that triple may be checked
      * to see if their bindings have changed. The AddDependencies method adds
      * these subject dependencies to the map.
      */
-    void
-    AddDependencies(nsIRDFResource* aSubject,
-                    nsXULTemplateResultRDF* aResult);
-
-    /*
-     * Remove the results from the dependencies map when results are deleted.
-     */
-    void
-    RemoveDependencies(nsIRDFResource* aSubject,
+  void AddDependencies(nsIRDFResource* aSubject,
                        nsXULTemplateResultRDF* aResult);
 
-    /*
+  /*
+     * Remove the results from the dependencies map when results are deleted.
+     */
+  void RemoveDependencies(nsIRDFResource* aSubject,
+                          nsXULTemplateResultRDF* aResult);
+
+  /*
      * The nsBindingValues classes stores an array of values, one for each
      * target symbol that could be set by the bindings in the set.
      * LookupTargetIndex determines the index into the array for a given
      * target symbol.
      */
-    int32_t
-    LookupTargetIndex(nsAtom* aTargetVariable, RDFBinding** aBinding);
+  int32_t LookupTargetIndex(nsAtom* aTargetVariable, RDFBinding** aBinding);
 };
 
 /*
@@ -156,61 +143,54 @@ public:
  */
 class nsBindingValues
 {
-protected:
+ protected:
+  // the binding set
+  RefPtr<RDFBindingSet> mBindings;
 
-    // the binding set
-    RefPtr<RDFBindingSet> mBindings;
-
-    /*
+  /*
      * A set of values for variable bindings. To look up a binding value,
      * scan through the binding set in mBindings for the right target atom.
      * Its index will correspond to the index in this array. The size of this
      * array is determined by the RDFBindingSet's Count().
      */
-    nsCOMPtr<nsIRDFNode>* mValues;
+  nsCOMPtr<nsIRDFNode>* mValues;
 
-public:
+ public:
+  nsBindingValues() : mBindings(nullptr), mValues(nullptr)
+  {
+    MOZ_COUNT_CTOR(nsBindingValues);
+  }
 
-    nsBindingValues()
-      : mBindings(nullptr),
-        mValues(nullptr)
-    {
-        MOZ_COUNT_CTOR(nsBindingValues);
-    }
+  ~nsBindingValues();
 
-    ~nsBindingValues();
-
-
-    /**
+  /**
      * Clear the binding set, to be called when the nsBindingValues is deleted
      * or a new binding set is being set.
      */
-    void ClearBindingSet();
+  void ClearBindingSet();
 
-    RDFBindingSet* GetBindingSet() { return mBindings; }
+  RDFBindingSet* GetBindingSet() { return mBindings; }
 
-    /**
+  /**
      * Set the binding set to use. This needs to be called once a rule matches
      * since it is then known which bindings will apply.
      */
-    nsresult SetBindingSet(RDFBindingSet* aBindings);
+  nsresult SetBindingSet(RDFBindingSet* aBindings);
 
-    nsCOMPtr<nsIRDFNode>* ValuesArray() { return mValues; }
+  nsCOMPtr<nsIRDFNode>* ValuesArray() { return mValues; }
 
-    /*
+  /*
      * Retrieve the assignment for a particular variable
      */
-    void
-    GetAssignmentFor(nsXULTemplateResultRDF* aResult,
-                     nsAtom* aVar,
-                     nsIRDFNode** aValue);
+  void GetAssignmentFor(nsXULTemplateResultRDF* aResult,
+                        nsAtom* aVar,
+                        nsIRDFNode** aValue);
 
-    /*
+  /*
      * Remove depenedencies the bindings have on particular resources
      */
-    void
-    RemoveDependencies(nsIRDFResource* aSubject,
-                       nsXULTemplateResultRDF* aResult);
+  void RemoveDependencies(nsIRDFResource* aSubject,
+                          nsXULTemplateResultRDF* aResult);
 };
 
-#endif // nsRDFBinding_h__
+#endif  // nsRDFBinding_h__

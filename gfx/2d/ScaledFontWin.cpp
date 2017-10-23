@@ -26,19 +26,18 @@ namespace gfx {
 ScaledFontWin::ScaledFontWin(const LOGFONT* aFont,
                              const RefPtr<UnscaledFont>& aUnscaledFont,
                              Float aSize)
-  : ScaledFontBase(aUnscaledFont, aSize)
-  , mLogFont(*aFont)
+    : ScaledFontBase(aUnscaledFont, aSize), mLogFont(*aFont)
 {
 }
 
 bool
-UnscaledFontGDI::GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton)
+UnscaledFontGDI::GetFontFileData(FontFileDataOutput aDataCallback, void* aBaton)
 {
   AutoDC dc;
   AutoSelectFont font(dc.GetDC(), &mLogFont);
 
   // Check for a font collection first.
-  uint32_t table = 0x66637474; // 'ttcf'
+  uint32_t table = 0x66637474;  // 'ttcf'
   uint32_t tableSize = ::GetFontData(dc.GetDC(), table, 0, nullptr, 0);
   if (tableSize == GDI_ERROR) {
     // Try as if just a single font.
@@ -52,7 +51,7 @@ UnscaledFontGDI::GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton)
   UniquePtr<uint8_t[]> fontData(new uint8_t[tableSize]);
 
   uint32_t sizeGot =
-    ::GetFontData(dc.GetDC(), table, 0, fontData.get(), tableSize);
+      ::GetFontData(dc.GetDC(), table, 0, fontData.get(), tableSize);
   if (sizeGot != tableSize) {
     return false;
   }
@@ -64,7 +63,11 @@ UnscaledFontGDI::GetFontFileData(FontFileDataOutput aDataCallback, void *aBaton)
 bool
 ScaledFontWin::GetFontInstanceData(FontInstanceDataOutput aCb, void* aBaton)
 {
-  aCb(reinterpret_cast<uint8_t*>(&mLogFont), sizeof(mLogFont), nullptr, 0, aBaton);
+  aCb(reinterpret_cast<uint8_t*>(&mLogFont),
+      sizeof(mLogFont),
+      nullptr,
+      0,
+      aBaton);
   return true;
 }
 
@@ -83,7 +86,8 @@ UnscaledFontGDI::GetFontDescriptor(FontDescriptorOutput aCb, void* aBaton)
 }
 
 already_AddRefed<UnscaledFont>
-UnscaledFontGDI::CreateFromFontDescriptor(const uint8_t* aData, uint32_t aDataLength)
+UnscaledFontGDI::CreateFromFontDescriptor(const uint8_t* aData,
+                                          uint32_t aDataLength)
 {
   if (aDataLength < sizeof(LOGFONT)) {
     gfxWarning() << "GDI font descriptor is truncated.";
@@ -112,7 +116,7 @@ UnscaledFontGDI::CreateScaledFont(Float aGlyphSize,
   nativeFont.mFont = (void*)aInstanceData;
 
   RefPtr<ScaledFont> font =
-    Factory::CreateScaledFontForNativeFont(nativeFont, this, aGlyphSize);
+      Factory::CreateScaledFontForNativeFont(nativeFont, this, aGlyphSize);
 
 #ifdef USE_CAIRO_SCALED_FONT
   static_cast<ScaledFontBase*>(font.get())->PopulateCairoScaledFont();
@@ -128,7 +132,8 @@ ScaledFontWin::GetDefaultAAMode()
 }
 
 #ifdef USE_SKIA
-SkTypeface* ScaledFontWin::GetSkTypeface()
+SkTypeface*
+ScaledFontWin::GetSkTypeface()
 {
   if (!mTypeface) {
     mTypeface = SkCreateTypefaceFromLOGFONT(mLogFont);
@@ -148,5 +153,5 @@ ScaledFontWin::GetCairoFontFace()
 }
 #endif
 
-}
-}
+}  // namespace gfx
+}  // namespace mozilla

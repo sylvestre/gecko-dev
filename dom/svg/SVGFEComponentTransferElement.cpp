@@ -12,22 +12,22 @@
 
 NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(FEComponentTransfer)
 
-using namespace mozilla::gfx;;
+using namespace mozilla::gfx;
+;
 
 namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEComponentTransferElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEComponentTransferElement::WrapNode(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEComponentTransferElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGFEComponentTransferElement::sStringInfo[2] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true },
-  { &nsGkAtoms::in, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEComponentTransferElement::sStringInfo[2] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true},
+    {&nsGkAtoms::in, kNameSpaceID_None, true}};
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods
@@ -46,43 +46,42 @@ SVGFEComponentTransferElement::In1()
 nsSVGElement::StringAttributesInfo
 SVGFEComponentTransferElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
 //--------------------------------------------
 
 FilterPrimitiveDescription
-SVGFEComponentTransferElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                                       const IntRect& aFilterSubregion,
-                                                       const nsTArray<bool>& aInputsAreTainted,
-                                                       nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFEComponentTransferElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   RefPtr<SVGComponentTransferFunctionElement> childForChannel[4];
 
-  for (nsIContent* childContent = nsINode::GetFirstChild();
-       childContent;
+  for (nsIContent* childContent = nsINode::GetFirstChild(); childContent;
        childContent = childContent->GetNextSibling()) {
-
     RefPtr<SVGComponentTransferFunctionElement> child;
-    CallQueryInterface(childContent,
-            (SVGComponentTransferFunctionElement**)getter_AddRefs(child));
+    CallQueryInterface(
+        childContent,
+        (SVGComponentTransferFunctionElement**)getter_AddRefs(child));
     if (child) {
       childForChannel[child->GetChannel()] = child;
     }
   }
 
-  static const AttributeName attributeNames[4] = {
-    eComponentTransferFunctionR,
-    eComponentTransferFunctionG,
-    eComponentTransferFunctionB,
-    eComponentTransferFunctionA
-  };
+  static const AttributeName attributeNames[4] = {eComponentTransferFunctionR,
+                                                  eComponentTransferFunctionG,
+                                                  eComponentTransferFunctionB,
+                                                  eComponentTransferFunctionA};
 
   FilterPrimitiveDescription descr(PrimitiveType::ComponentTransfer);
   for (int32_t i = 0; i < 4; i++) {
     if (childForChannel[i]) {
-      descr.Attributes().Set(attributeNames[i], childForChannel[i]->ComputeAttributes());
+      descr.Attributes().Set(attributeNames[i],
+                             childForChannel[i]->ComputeAttributes());
     } else {
       AttributeMap functionAttributes;
       functionAttributes.Set(eComponentTransferFunctionType,
@@ -94,19 +93,20 @@ SVGFEComponentTransferElement::GetPrimitiveDescription(nsSVGFilterInstance* aIns
 }
 
 bool
-SVGFEComponentTransferElement::AttributeAffectsRendering(int32_t aNameSpaceID,
-                                                         nsAtom* aAttribute) const
+SVGFEComponentTransferElement::AttributeAffectsRendering(
+    int32_t aNameSpaceID, nsAtom* aAttribute) const
 {
-  return SVGFEComponentTransferElementBase::AttributeAffectsRendering(aNameSpaceID, aAttribute) ||
-         (aNameSpaceID == kNameSpaceID_None &&
-          aAttribute == nsGkAtoms::in);
+  return SVGFEComponentTransferElementBase::AttributeAffectsRendering(
+             aNameSpaceID, aAttribute) ||
+         (aNameSpaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::in);
 }
 
 void
-SVGFEComponentTransferElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
+SVGFEComponentTransferElement::GetSourceImageNames(
+    nsTArray<nsSVGStringInfo>& aSources)
 {
   aSources.AppendElement(nsSVGStringInfo(&mStringAttributes[IN1], this));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

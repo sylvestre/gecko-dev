@@ -7,7 +7,8 @@
 #ifndef mozilla_dom_indexeddb_actorsparent_h__
 #define mozilla_dom_indexeddb_actorsparent_h__
 
-template <class> struct already_AddRefed;
+template<class>
+struct already_AddRefed;
 class nsIPrincipal;
 
 namespace mozilla {
@@ -20,7 +21,7 @@ namespace quota {
 
 class Client;
 
-} // namespace quota
+}  // namespace quota
 
 namespace indexedDB {
 
@@ -54,11 +55,11 @@ AllocPIndexedDBPermissionRequestParent(Element* aOwnerElement,
 
 bool
 RecvPIndexedDBPermissionRequestConstructor(
-                                     PIndexedDBPermissionRequestParent* aActor);
+    PIndexedDBPermissionRequestParent* aActor);
 
 bool
 DeallocPIndexedDBPermissionRequestParent(
-                                     PIndexedDBPermissionRequestParent* aActor);
+    PIndexedDBPermissionRequestParent* aActor);
 
 already_AddRefed<mozilla::dom::quota::Client>
 CreateQuotaClient();
@@ -66,8 +67,8 @@ CreateQuotaClient();
 FileHandleThreadPool*
 GetFileHandleThreadPool();
 
-} // namespace indexedDB
-} // namespace dom
-} // namespace mozilla
+}  // namespace indexedDB
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_indexeddb_actorsparent_h__
+#endif  // mozilla_dom_indexeddb_actorsparent_h__

@@ -18,7 +18,7 @@ namespace dom {
 
 class BodyExtractorBase
 {
-public:
+ public:
   virtual nsresult GetAsStream(nsIInputStream** aResult,
                                uint64_t* aContentLength,
                                nsACString& aContentTypeWithCharset,
@@ -32,9 +32,9 @@ template<typename Type>
 class BodyExtractor final : public BodyExtractorBase
 {
   Type* mBody;
-public:
-  explicit BodyExtractor(Type* aBody) : mBody(aBody)
-  {}
+
+ public:
+  explicit BodyExtractor(Type* aBody) : mBody(aBody) {}
 
   nsresult GetAsStream(nsIInputStream** aResult,
                        uint64_t* aContentLength,
@@ -42,7 +42,7 @@ public:
                        nsACString& aCharset) const override;
 };
 
-} // dom namespace
-} // mozilla namespace
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_BodyExtractor_h
+#endif  // mozilla_dom_BodyExtractor_h

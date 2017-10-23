@@ -12,11 +12,13 @@ namespace hal_impl {
 
 void
 EnableBatteryNotifications()
-{}
+{
+}
 
 void
 DisableBatteryNotifications()
-{}
+{
+}
 
 void
 GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
@@ -26,5 +28,5 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
   aBatteryInfo->remainingTime() = dom::battery::kDefaultRemainingTime;
 }
 
-} // hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

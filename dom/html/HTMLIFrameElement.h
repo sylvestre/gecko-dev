@@ -16,9 +16,10 @@ namespace dom {
 
 class HTMLIFrameElement final : public nsGenericHTMLFrameElement
 {
-public:
-  explicit HTMLIFrameElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
-                             FromParser aFromParser = NOT_FROM_PARSER);
+ public:
+  explicit HTMLIFrameElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
+      FromParser aFromParser = NOT_FROM_PARSER);
 
   NS_IMPL_FROMCONTENT_HTML_WITH_TAG(HTMLIFrameElement, iframe)
 
@@ -33,13 +34,15 @@ public:
 
   // nsIContent
   virtual bool ParseAttribute(int32_t aNamespaceID,
-                                nsAtom* aAttribute,
-                                const nsAString& aValue,
-                                nsAttrValue& aResult) override;
+                              nsAtom* aAttribute,
+                              const nsAString& aValue,
+                              nsAttrValue& aResult) override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
-  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction() const override;
+  virtual nsMapRuleToAttributesFunc GetAttributeMappingFunction()
+      const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   uint32_t GetSandboxFlags();
@@ -49,7 +52,9 @@ public:
   {
     GetURIAttr(nsGkAtoms::src, nullptr, aSrc);
   }
-  void SetSrc(const nsAString& aSrc, nsIPrincipal& aTriggeringPrincipal, ErrorResult& aError)
+  void SetSrc(const nsAString& aSrc,
+              nsIPrincipal& aTriggeringPrincipal,
+              ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::src, aSrc, aTriggeringPrincipal, aError);
   }
@@ -61,10 +66,7 @@ public:
   {
     SetHTMLAttr(nsGkAtoms::srcdoc, aSrcdoc, aError);
   }
-  void GetName(DOMString& aName)
-  {
-    GetHTMLAttr(nsGkAtoms::name, aName);
-  }
+  void GetName(DOMString& aName) { GetHTMLAttr(nsGkAtoms::name, aName); }
   void SetName(const nsAString& aName, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::name, aName, aError);
@@ -89,10 +91,7 @@ public:
   {
     SetHTMLBoolAttr(nsGkAtoms::allowpaymentrequest, aAllow, aError);
   }
-  void GetWidth(DOMString& aWidth)
-  {
-    GetHTMLAttr(nsGkAtoms::width, aWidth);
-  }
+  void GetWidth(DOMString& aWidth) { GetHTMLAttr(nsGkAtoms::width, aWidth); }
   void SetWidth(const nsAString& aWidth, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::width, aWidth, aError);
@@ -107,10 +106,7 @@ public:
   }
   using nsGenericHTMLFrameElement::GetContentDocument;
   using nsGenericHTMLFrameElement::GetContentWindow;
-  void GetAlign(DOMString& aAlign)
-  {
-    GetHTMLAttr(nsGkAtoms::align, aAlign);
-  }
+  void GetAlign(DOMString& aAlign) { GetHTMLAttr(nsGkAtoms::align, aAlign); }
   void SetAlign(const nsAString& aAlign, ErrorResult& aError)
   {
     SetHTMLAttr(nsGkAtoms::align, aAlign, aError);
@@ -163,15 +159,11 @@ public:
   {
     GetEnumAttr(nsGkAtoms::referrerpolicy, EmptyCString().get(), aReferrer);
   }
-  nsIDocument*
-  GetSVGDocument(nsIPrincipal& aSubjectPrincipal)
+  nsIDocument* GetSVGDocument(nsIPrincipal& aSubjectPrincipal)
   {
     return GetContentDocument(aSubjectPrincipal);
   }
-  bool Mozbrowser() const
-  {
-    return GetBoolAttr(nsGkAtoms::mozbrowser);
-  }
+  bool Mozbrowser() const { return GetBoolAttr(nsGkAtoms::mozbrowser); }
   void SetMozbrowser(bool aAllow, ErrorResult& aError)
   {
     SetHTMLBoolAttr(nsGkAtoms::mozbrowser, aAllow, aError);
@@ -187,21 +179,24 @@ public:
   bool FullscreenFlag() const { return mFullscreenFlag; }
   void SetFullscreenFlag(bool aValue) { mFullscreenFlag = aValue; }
 
-protected:
+ protected:
   virtual ~HTMLIFrameElement();
 
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-  virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNameSpaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
                                 bool aNotify) override;
-  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID,
+                                          nsAtom* aName,
                                           const nsAttrValueOrString& aValue,
                                           bool aNotify) override;
 
-private:
+ private:
   static void MapAttributesIntoRule(const nsMappedAttributes* aAttributes,
                                     GenericSpecifiedValues* aGenericData);
 
@@ -219,7 +214,7 @@ private:
   void AfterMaybeChangeAttr(int32_t aNamespaceID, nsAtom* aName, bool aNotify);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

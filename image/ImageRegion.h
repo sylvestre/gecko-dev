@@ -26,7 +26,7 @@ class ImageRegion
 {
   typedef mozilla::gfx::ExtendMode ExtendMode;
 
-public:
+ public:
   static ImageRegion Empty()
   {
     return ImageRegion(gfxRect(), ExtendMode::CLAMP);
@@ -50,9 +50,10 @@ public:
     return ImageRegion(gfxRect(0, 0, aSize.width, aSize.height), aExtendMode);
   }
 
-  static ImageRegion CreateWithSamplingRestriction(const gfxRect& aRect,
-                                                   const gfxRect& aRestriction,
-                                                   ExtendMode aExtendMode = ExtendMode::CLAMP)
+  static ImageRegion CreateWithSamplingRestriction(
+      const gfxRect& aRect,
+      const gfxRect& aRestriction,
+      ExtendMode aExtendMode = ExtendMode::CLAMP)
   {
     return ImageRegion(aRect, aRestriction, aExtendMode);
   }
@@ -140,34 +141,33 @@ public:
     return Create(mRect + aPt);
   }
 
-  gfx::ExtendMode GetExtendMode() const
-  {
-    return mExtendMode;
-  }
+  gfx::ExtendMode GetExtendMode() const { return mExtendMode; }
 
   /* ImageRegion() : mIsRestricted(false) { } */
 
-private:
+ private:
   explicit ImageRegion(const gfxRect& aRect, ExtendMode aExtendMode)
-    : mRect(aRect)
-    , mExtendMode(aExtendMode)
-    , mIsRestricted(false)
-  { }
+      : mRect(aRect), mExtendMode(aExtendMode), mIsRestricted(false)
+  {
+  }
 
-  ImageRegion(const gfxRect& aRect, const gfxRect& aRestriction, ExtendMode aExtendMode)
-    : mRect(aRect)
-    , mRestriction(aRestriction)
-    , mExtendMode(aExtendMode)
-    , mIsRestricted(true)
-  { }
+  ImageRegion(const gfxRect& aRect,
+              const gfxRect& aRestriction,
+              ExtendMode aExtendMode)
+      : mRect(aRect),
+        mRestriction(aRestriction),
+        mExtendMode(aExtendMode),
+        mIsRestricted(true)
+  {
+  }
 
   gfxRect mRect;
   gfxRect mRestriction;
   ExtendMode mExtendMode;
-  bool    mIsRestricted;
+  bool mIsRestricted;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_ImageRegion_h
+#endif  // mozilla_image_ImageRegion_h

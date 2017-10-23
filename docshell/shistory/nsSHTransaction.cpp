@@ -7,15 +7,9 @@
 #include "nsSHTransaction.h"
 #include "nsISHEntry.h"
 
-nsSHTransaction::nsSHTransaction()
-  : mPrev(nullptr)
-  , mPersist(true)
-{
-}
+nsSHTransaction::nsSHTransaction() : mPrev(nullptr), mPersist(true) {}
 
-nsSHTransaction::~nsSHTransaction()
-{
-}
+nsSHTransaction::~nsSHTransaction() {}
 
 NS_IMPL_ADDREF(nsSHTransaction)
 NS_IMPL_RELEASE(nsSHTransaction)

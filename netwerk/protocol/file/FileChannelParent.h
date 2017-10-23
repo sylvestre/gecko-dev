@@ -18,10 +18,9 @@ namespace net {
 // In order to support HTTP redirects to file:, we need to implement the HTTP
 // redirection API, which requires a class that implements nsIParentChannel
 // and which calls NS_LinkRedirectChannels.
-class FileChannelParent : public nsIParentChannel
-                        , public PFileChannelParent
+class FileChannelParent : public nsIParentChannel, public PFileChannelParent
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPARENTCHANNEL
   NS_DECL_NSIREQUESTOBSERVER
@@ -29,13 +28,13 @@ public:
 
   MOZ_MUST_USE bool Init(const uint32_t& aArgs);
 
-private:
+ private:
   ~FileChannelParent();
 
   virtual void ActorDestroy(ActorDestroyReason why) override;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
 #endif /* mozilla__net__FileChannelParent_h */

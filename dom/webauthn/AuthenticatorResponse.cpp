@@ -23,7 +23,7 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(AuthenticatorResponse)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(AuthenticatorResponse)
-   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParent)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParent)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(AuthenticatorResponse)
@@ -35,8 +35,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AuthenticatorResponse)
 NS_INTERFACE_MAP_END
 
 AuthenticatorResponse::AuthenticatorResponse(nsPIDOMWindowInner* aParent)
-  : mParent(aParent)
-  , mClientDataJSONCachedObj(nullptr)
+    : mParent(aParent), mClientDataJSONCachedObj(nullptr)
 {
   mozilla::HoldJSObjects(this);
 }
@@ -72,5 +71,5 @@ AuthenticatorResponse::SetClientDataJSON(CryptoBuffer& aBuffer)
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

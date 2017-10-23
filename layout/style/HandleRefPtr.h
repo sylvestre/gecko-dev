@@ -26,23 +26,14 @@ namespace mozilla {
 template<typename T>
 class HandleRefPtr
 {
-public:
+ public:
   HandleRefPtr() {}
 
-  HandleRefPtr(HandleRefPtr<T>& aRhs)
-  {
-    assign(aRhs.mHandle);
-  }
+  HandleRefPtr(HandleRefPtr<T>& aRhs) { assign(aRhs.mHandle); }
 
-  HandleRefPtr(HandleRefPtr<T>&& aRhs)
-  {
-    std::swap(mHandle, aRhs.mHandle);
-  }
+  HandleRefPtr(HandleRefPtr<T>&& aRhs) { std::swap(mHandle, aRhs.mHandle); }
 
-  MOZ_IMPLICIT HandleRefPtr(T aRhs)
-  {
-    assign(aRhs);
-  }
+  MOZ_IMPLICIT HandleRefPtr(T aRhs) { assign(aRhs); }
 
   HandleRefPtr<T>& operator=(HandleRefPtr<T>& aRhs)
   {
@@ -64,12 +55,9 @@ public:
   operator T() const { return mHandle; }
   T operator->() const { return mHandle; }
 
-  void swap(HandleRefPtr<T>& aOther)
-  {
-    std::swap(mHandle, aOther.mHandle);
-  }
+  void swap(HandleRefPtr<T>& aOther) { std::swap(mHandle, aOther.mHandle); }
 
-private:
+ private:
   void assign(T aPtr)
   {
     // AddRef early so |aPtr| can't disappear underneath us.
@@ -93,41 +81,47 @@ private:
 };
 
 template<typename T>
-inline bool operator==(const HandleRefPtr<T>& aLHS, const HandleRefPtr<T>& aRHS)
+inline bool
+operator==(const HandleRefPtr<T>& aLHS, const HandleRefPtr<T>& aRHS)
 {
   return static_cast<T>(aLHS) == static_cast<T>(aRHS);
 }
 
 template<typename T>
-inline bool operator==(const HandleRefPtr<T>& aLHS, T aRHS)
+inline bool
+operator==(const HandleRefPtr<T>& aLHS, T aRHS)
 {
   return static_cast<T>(aLHS) == aRHS;
 }
 
 template<typename T>
-inline bool operator==(T aLHS, const HandleRefPtr<T>& aRHS)
+inline bool
+operator==(T aLHS, const HandleRefPtr<T>& aRHS)
 {
   return aLHS == static_cast<T>(aRHS);
 }
 
 template<typename T>
-inline bool operator!=(const HandleRefPtr<T>& aLHS, const HandleRefPtr<T>& aRHS)
+inline bool
+operator!=(const HandleRefPtr<T>& aLHS, const HandleRefPtr<T>& aRHS)
 {
   return !(aLHS == aRHS);
 }
 
 template<typename T>
-inline bool operator!=(const HandleRefPtr<T>& aLHS, T aRHS)
+inline bool
+operator!=(const HandleRefPtr<T>& aLHS, T aRHS)
 {
   return !(aLHS == aRHS);
 }
 
 template<typename T>
-inline bool operator!=(T aLHS, const HandleRefPtr<T>& aRHS)
+inline bool
+operator!=(T aLHS, const HandleRefPtr<T>& aRHS)
 {
   return !(aLHS == aRHS);
 }
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_HandleRefPtr_h
+#endif  // mozilla_HandleRefPtr_h

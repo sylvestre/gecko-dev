@@ -55,10 +55,9 @@ CheckMetadata(const ImageTestCase& aTestCase,
   sourceBuffer->Complete(NS_OK);
 
   // Create a metadata decoder.
-  DecoderType decoderType =
-    DecoderFactory::GetDecoderType(aTestCase.mMimeType);
+  DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
   RefPtr<Decoder> decoder =
-    DecoderFactory::CreateAnonymousMetadataDecoder(decoderType, sourceBuffer);
+      DecoderFactory::CreateAnonymousMetadataDecoder(decoderType, sourceBuffer);
   ASSERT_TRUE(decoder != nullptr);
   RefPtr<IDecodingTask> task = new AnonymousDecodingTask(WrapNotNull(decoder));
 
@@ -72,9 +71,9 @@ CheckMetadata(const ImageTestCase& aTestCase,
   // Ensure that the metadata decoder didn't make progress it shouldn't have
   // (which would indicate that it decoded past the header of the image).
   Progress metadataProgress = decoder->TakeProgress();
-  EXPECT_TRUE(0 == (metadataProgress & ~(FLAG_SIZE_AVAILABLE |
-                                         FLAG_HAS_TRANSPARENCY |
-                                         FLAG_IS_ANIMATED)));
+  EXPECT_TRUE(
+      0 == (metadataProgress &
+            ~(FLAG_SIZE_AVAILABLE | FLAG_HAS_TRANSPARENCY | FLAG_IS_ANIMATED)));
 
   // If the test case is corrupt, assert what we can and return early.
   if (aTestCase.mFlags & TEST_CASE_HAS_ERROR) {
@@ -97,18 +96,18 @@ CheckMetadata(const ImageTestCase& aTestCase,
     EXPECT_EQ(aTestCase.mSize.height, metadataSize.height);
   }
 
-  bool expectTransparency = aBMPWithinICO == BMPWithinICO::YES
-                          ? true
-                          : bool(aTestCase.mFlags & TEST_CASE_IS_TRANSPARENT);
+  bool expectTransparency =
+      aBMPWithinICO == BMPWithinICO::YES
+          ? true
+          : bool(aTestCase.mFlags & TEST_CASE_IS_TRANSPARENT);
   EXPECT_EQ(expectTransparency, bool(metadataProgress & FLAG_HAS_TRANSPARENCY));
 
   EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_IS_ANIMATED),
             bool(metadataProgress & FLAG_IS_ANIMATED));
 
   // Create a full decoder, so we can compare the result.
-  decoder =
-    DecoderFactory::CreateAnonymousDecoder(decoderType, sourceBuffer, Nothing(),
-                                           DefaultSurfaceFlags());
+  decoder = DecoderFactory::CreateAnonymousDecoder(
+      decoderType, sourceBuffer, Nothing(), DefaultSurfaceFlags());
   ASSERT_TRUE(decoder != nullptr);
   task = new AnonymousDecodingTask(WrapNotNull(decoder));
 
@@ -140,14 +139,20 @@ CheckMetadata(const ImageTestCase& aTestCase,
 
 class ImageDecoderMetadata : public ::testing::Test
 {
-protected:
+ protected:
   AutoInitializeImageLib mInit;
 };
 
 TEST_F(ImageDecoderMetadata, PNG) { CheckMetadata(GreenPNGTestCase()); }
-TEST_F(ImageDecoderMetadata, TransparentPNG) { CheckMetadata(TransparentPNGTestCase()); }
+TEST_F(ImageDecoderMetadata, TransparentPNG)
+{
+  CheckMetadata(TransparentPNGTestCase());
+}
 TEST_F(ImageDecoderMetadata, GIF) { CheckMetadata(GreenGIFTestCase()); }
-TEST_F(ImageDecoderMetadata, TransparentGIF) { CheckMetadata(TransparentGIFTestCase()); }
+TEST_F(ImageDecoderMetadata, TransparentGIF)
+{
+  CheckMetadata(TransparentGIFTestCase());
+}
 TEST_F(ImageDecoderMetadata, JPG) { CheckMetadata(GreenJPGTestCase()); }
 TEST_F(ImageDecoderMetadata, BMP) { CheckMetadata(GreenBMPTestCase()); }
 TEST_F(ImageDecoderMetadata, ICO) { CheckMetadata(GreenICOTestCase()); }
@@ -200,8 +205,8 @@ TEST_F(ImageDecoderMetadata, NoFrameDelayGIFFullDecode)
   // animation at that point and successfully decode all the frames.
 
   // Create an image.
-  RefPtr<Image> image =
-    ImageFactory::CreateAnonymousImage(nsDependentCString(testCase.mMimeType));
+  RefPtr<Image> image = ImageFactory::CreateAnonymousImage(
+      nsDependentCString(testCase.mMimeType));
   ASSERT_TRUE(!image->HasError());
 
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(testCase.mPath);
@@ -213,8 +218,8 @@ TEST_F(ImageDecoderMetadata, NoFrameDelayGIFFullDecode)
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Write the data into the image.
-  rv = image->OnImageDataAvailable(nullptr, nullptr, inputStream, 0,
-                                   static_cast<uint32_t>(length));
+  rv = image->OnImageDataAvailable(
+      nullptr, nullptr, inputStream, 0, static_cast<uint32_t>(length));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Let the image know we've sent all the data.
@@ -225,9 +230,8 @@ TEST_F(ImageDecoderMetadata, NoFrameDelayGIFFullDecode)
   tracker->SyncNotifyProgress(FLAG_LOAD_COMPLETE);
 
   // Use GetFrame() to force a sync decode of the image.
-  RefPtr<SourceSurface> surface =
-    image->GetFrame(imgIContainer::FRAME_CURRENT,
-                    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> surface = image->GetFrame(
+      imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
 
   // Ensure that the image's metadata meets our expectations.
   IntSize imageSize(0, 0);
@@ -245,11 +249,10 @@ TEST_F(ImageDecoderMetadata, NoFrameDelayGIFFullDecode)
   EXPECT_TRUE(bool(imageProgress & FLAG_IS_ANIMATED) == true);
 
   // Ensure that we decoded both frames of the image.
-  LookupResult result =
-    SurfaceCache::Lookup(ImageKey(image.get()),
-                         RasterSurfaceKey(imageSize,
-                                          DefaultSurfaceFlags(),
-                                          PlaybackType::eAnimated));
+  LookupResult result = SurfaceCache::Lookup(
+      ImageKey(image.get()),
+      RasterSurfaceKey(
+          imageSize, DefaultSurfaceFlags(), PlaybackType::eAnimated));
   ASSERT_EQ(MatchType::EXACT, result.Type());
 
   EXPECT_TRUE(NS_SUCCEEDED(result.Surface().Seek(0)));

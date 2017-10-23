@@ -20,14 +20,14 @@ class MaybeFileDesc;
 
 class MemoryReportRequestHost final
 {
-public:
+ public:
   explicit MemoryReportRequestHost(uint32_t aGeneration);
   ~MemoryReportRequestHost();
 
   void RecvReport(const MemoryReport& aReport);
   void Finish(uint32_t aGeneration);
 
-private:
+ private:
   const uint32_t mGeneration;
   // Non-null if we haven't yet called EndProcessReport() on it.
   RefPtr<nsMemoryReporterManager> mReporterManager;
@@ -36,7 +36,7 @@ private:
 
 class MemoryReportRequestClient final : public nsIRunnable
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
 
   static void Start(uint32_t aGeneration,
@@ -47,13 +47,13 @@ public:
 
   NS_IMETHOD Run() override;
 
-private:
+ private:
   MemoryReportRequestClient(uint32_t aGeneration,
                             bool aAnonymize,
                             const MaybeFileDesc& aDMDFile,
                             const nsACString& aProcessString);
 
-private:
+ private:
   ~MemoryReportRequestClient();
 
   uint32_t mGeneration;
@@ -62,7 +62,7 @@ private:
   nsCString mProcessString;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MemoryReportRequest_h_
+#endif  // mozilla_dom_MemoryReportRequest_h_

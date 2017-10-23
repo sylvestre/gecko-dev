@@ -21,69 +21,64 @@ class nsSMILValue;
 namespace mozilla {
 namespace dom {
 class SVGAnimationElement;
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 typedef uint8_t nsSVGEnumValue;
 
-struct nsSVGEnumMapping {
-  nsAtom **mKey;
+struct nsSVGEnumMapping
+{
+  nsAtom** mKey;
   nsSVGEnumValue mVal;
 };
 
 class nsSVGEnum
 {
-public:
-  void Init(uint8_t aAttrEnum, uint16_t aValue) {
+ public:
+  void Init(uint8_t aAttrEnum, uint16_t aValue)
+  {
     mAnimVal = mBaseVal = uint8_t(aValue);
     mAttrEnum = aAttrEnum;
     mIsAnimated = false;
     mIsBaseSet = false;
   }
 
-  nsresult SetBaseValueAtom(const nsAtom* aValue, nsSVGElement *aSVGElement);
-  nsAtom* GetBaseValueAtom(nsSVGElement *aSVGElement);
-  nsresult SetBaseValue(uint16_t aValue,
-                        nsSVGElement *aSVGElement);
-  uint16_t GetBaseValue() const
-    { return mBaseVal; }
+  nsresult SetBaseValueAtom(const nsAtom* aValue, nsSVGElement* aSVGElement);
+  nsAtom* GetBaseValueAtom(nsSVGElement* aSVGElement);
+  nsresult SetBaseValue(uint16_t aValue, nsSVGElement* aSVGElement);
+  uint16_t GetBaseValue() const { return mBaseVal; }
 
-  void SetAnimValue(uint16_t aValue, nsSVGElement *aSVGElement);
-  uint16_t GetAnimValue() const
-    { return mAnimVal; }
-  bool IsExplicitlySet() const
-    { return mIsAnimated || mIsBaseSet; }
+  void SetAnimValue(uint16_t aValue, nsSVGElement* aSVGElement);
+  uint16_t GetAnimValue() const { return mAnimVal; }
+  bool IsExplicitlySet() const { return mIsAnimated || mIsBaseSet; }
 
-  already_AddRefed<mozilla::dom::SVGAnimatedEnumeration>
-  ToDOMAnimatedEnum(nsSVGElement* aSVGElement);
+  already_AddRefed<mozilla::dom::SVGAnimatedEnumeration> ToDOMAnimatedEnum(
+      nsSVGElement* aSVGElement);
 
   mozilla::UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aSVGElement);
 
-private:
+ private:
   nsSVGEnumValue mAnimVal;
   nsSVGEnumValue mBaseVal;
-  uint8_t mAttrEnum; // element specified tracking for attribute
+  uint8_t mAttrEnum;  // element specified tracking for attribute
   bool mIsAnimated;
   bool mIsBaseSet;
 
-  nsSVGEnumMapping *GetMapping(nsSVGElement *aSVGElement);
+  nsSVGEnumMapping* GetMapping(nsSVGElement* aSVGElement);
 
-public:
+ public:
   struct DOMAnimatedEnum final : public mozilla::dom::SVGAnimatedEnumeration
   {
-    DOMAnimatedEnum(nsSVGEnum* aVal, nsSVGElement *aSVGElement)
-      : mozilla::dom::SVGAnimatedEnumeration(aSVGElement)
-      , mVal(aVal)
-    {}
+    DOMAnimatedEnum(nsSVGEnum* aVal, nsSVGElement* aSVGElement)
+        : mozilla::dom::SVGAnimatedEnumeration(aSVGElement), mVal(aVal)
+    {
+    }
     virtual ~DOMAnimatedEnum();
 
-    nsSVGEnum *mVal; // kept alive because it belongs to content
+    nsSVGEnum* mVal;  // kept alive because it belongs to content
 
     using mozilla::dom::SVGAnimatedEnumeration::SetBaseVal;
-    virtual uint16_t BaseVal() override
-    {
-      return mVal->GetBaseValue();
-    }
+    virtual uint16_t BaseVal() override { return mVal->GetBaseValue(); }
     virtual void SetBaseVal(uint16_t aBaseVal,
                             mozilla::ErrorResult& aRv) override
     {
@@ -101,9 +96,11 @@ public:
 
   struct SMILEnum : public nsISMILAttr
   {
-  public:
+   public:
     SMILEnum(nsSVGEnum* aVal, nsSVGElement* aSVGElement)
-      : mVal(aVal), mSVGElement(aSVGElement) {}
+        : mVal(aVal), mSVGElement(aSVGElement)
+    {
+    }
 
     // These will stay alive because a nsISMILAttr only lives as long
     // as the Compositing step, and DOM elements don't get a chance to
@@ -112,14 +109,15 @@ public:
     nsSVGElement* mSVGElement;
 
     // nsISMILAttr methods
-    virtual nsresult ValueFromString(const nsAString& aStr,
-                                     const mozilla::dom::SVGAnimationElement* aSrcElement,
-                                     nsSMILValue& aValue,
-                                     bool& aPreventCachingOfSandwich) const override;
+    virtual nsresult ValueFromString(
+        const nsAString& aStr,
+        const mozilla::dom::SVGAnimationElement* aSrcElement,
+        nsSMILValue& aValue,
+        bool& aPreventCachingOfSandwich) const override;
     virtual nsSMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
     virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
   };
 };
 
-#endif //__NS_SVGENUM_H__
+#endif  //__NS_SVGENUM_H__

@@ -7,14 +7,14 @@
 #ifndef mozilla_layers_InputBlockState_h
 #define mozilla_layers_InputBlockState_h
 
-#include "InputData.h"                      // for MultiTouchInput
-#include "mozilla/RefCounted.h"             // for RefCounted
-#include "mozilla/RefPtr.h"                 // for RefPtr
-#include "mozilla/gfx/Matrix.h"             // for Matrix4x4
-#include "mozilla/layers/APZUtils.h"        // for TouchBehaviorFlags
+#include "InputData.h"                // for MultiTouchInput
+#include "mozilla/RefCounted.h"       // for RefCounted
+#include "mozilla/RefPtr.h"           // for RefPtr
+#include "mozilla/gfx/Matrix.h"       // for Matrix4x4
+#include "mozilla/layers/APZUtils.h"  // for TouchBehaviorFlags
 #include "mozilla/layers/AsyncDragMetrics.h"
-#include "mozilla/TimeStamp.h"              // for TimeStamp
-#include "nsTArray.h"                       // for nsTArray
+#include "mozilla/TimeStamp.h"  // for TimeStamp
+#include "nsTArray.h"           // for nsTArray
 #include "TouchCounter.h"
 
 namespace mozilla {
@@ -37,12 +37,13 @@ class KeyboardBlockState;
  */
 class InputBlockState : public RefCounted<InputBlockState>
 {
-public:
+ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(InputBlockState)
 
   static const uint64_t NO_BLOCK_ID = 0;
 
-  enum class TargetConfirmationState {
+  enum class TargetConfirmationState
+  {
     eUnconfirmed,
     eTimedOut,
     eTimedOutAndMainThreadResponded,
@@ -51,31 +52,19 @@ public:
 
   explicit InputBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc,
                            bool aTargetConfirmed);
-  virtual ~InputBlockState()
-  {}
+  virtual ~InputBlockState() {}
 
-  virtual CancelableBlockState* AsCancelableBlock() {
-    return nullptr;
-  }
-  virtual TouchBlockState* AsTouchBlock() {
-    return nullptr;
-  }
-  virtual WheelBlockState* AsWheelBlock() {
-    return nullptr;
-  }
-  virtual DragBlockState* AsDragBlock() {
-    return nullptr;
-  }
-  virtual PanGestureBlockState* AsPanGestureBlock() {
-    return nullptr;
-  }
-  virtual KeyboardBlockState* AsKeyboardBlock() {
-    return nullptr;
-  }
+  virtual CancelableBlockState* AsCancelableBlock() { return nullptr; }
+  virtual TouchBlockState* AsTouchBlock() { return nullptr; }
+  virtual WheelBlockState* AsWheelBlock() { return nullptr; }
+  virtual DragBlockState* AsDragBlock() { return nullptr; }
+  virtual PanGestureBlockState* AsPanGestureBlock() { return nullptr; }
+  virtual KeyboardBlockState* AsKeyboardBlock() { return nullptr; }
 
-  virtual bool SetConfirmedTargetApzc(const RefPtr<AsyncPanZoomController>& aTargetApzc,
-                                      TargetConfirmationState aState,
-                                      InputData* aFirstInput);
+  virtual bool SetConfirmedTargetApzc(
+      const RefPtr<AsyncPanZoomController>& aTargetApzc,
+      TargetConfirmationState aState,
+      InputData* aFirstInput);
   const RefPtr<AsyncPanZoomController>& GetTargetApzc() const;
   const RefPtr<const OverscrollHandoffChain>& GetOverscrollHandoffChain() const;
   uint64_t GetBlockId() const;
@@ -99,15 +88,17 @@ public:
    */
   virtual bool MustStayActive() = 0;
 
-protected:
-  virtual void UpdateTargetApzc(const RefPtr<AsyncPanZoomController>& aTargetApzc);
+ protected:
+  virtual void UpdateTargetApzc(
+      const RefPtr<AsyncPanZoomController>& aTargetApzc);
 
-private:
+ private:
   // Checks whether |aA| is an ancestor of |aB| (or the same as |aB|) in
   // |mOverscrollHandoffChain|.
-  bool IsDownchainOf(AsyncPanZoomController* aA, AsyncPanZoomController* aB) const;
+  bool IsDownchainOf(AsyncPanZoomController* aA,
+                     AsyncPanZoomController* aB) const;
 
-private:
+ private:
   RefPtr<AsyncPanZoomController> mTargetApzc;
   TargetConfirmationState mTargetConfirmed;
   const uint64_t mBlockId;
@@ -118,7 +109,8 @@ private:
   // APZAllowImmediateHandoff() is false).
   // Set the first time an input event in this block scrolls an APZC.
   RefPtr<AsyncPanZoomController> mScrolledApzc;
-protected:
+
+ protected:
   RefPtr<const OverscrollHandoffChain> mOverscrollHandoffChain;
 
   // Used to transform events from global screen space to |mTargetApzc|'s
@@ -141,13 +133,11 @@ protected:
  */
 class CancelableBlockState : public InputBlockState
 {
-public:
+ public:
   CancelableBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc,
                        bool aTargetConfirmed);
 
-  CancelableBlockState* AsCancelableBlock() override {
-    return this;
-  }
+  CancelableBlockState* AsCancelableBlock() override { return this; }
 
   /**
    * Record whether or not content cancelled this block of events.
@@ -204,7 +194,7 @@ public:
    */
   virtual const char* Type() = 0;
 
-private:
+ private:
   TimeStamp mContentResponseTimer;
   bool mPreventDefault;
   bool mContentResponded;
@@ -216,7 +206,7 @@ private:
  */
 class WheelBlockState : public CancelableBlockState
 {
-public:
+ public:
   WheelBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc,
                   bool aTargetConfirmed,
                   const ScrollWheelInput& aEvent);
@@ -228,9 +218,7 @@ public:
                               TargetConfirmationState aState,
                               InputData* aFirstInput) override;
 
-  WheelBlockState *AsWheelBlock() override {
-    return this;
-  }
+  WheelBlockState* AsWheelBlock() override { return this; }
 
   /**
    * Determine whether this wheel block is accepting new events.
@@ -282,10 +270,11 @@ public:
    */
   void Update(ScrollWheelInput& aEvent);
 
-protected:
-  void UpdateTargetApzc(const RefPtr<AsyncPanZoomController>& aTargetApzc) override;
+ protected:
+  void UpdateTargetApzc(
+      const RefPtr<AsyncPanZoomController>& aTargetApzc) override;
 
-private:
+ private:
   TimeStamp mLastEventTime;
   TimeStamp mLastMouseMove;
   uint32_t mScrollSeriesCounter;
@@ -297,7 +286,7 @@ private:
  */
 class DragBlockState : public CancelableBlockState
 {
-public:
+ public:
   DragBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc,
                  bool aTargetConfirmed,
                  const MouseInput& aEvent);
@@ -308,15 +297,14 @@ public:
   bool HasReceivedMouseUp();
   void MarkMouseUpReceived();
 
-  DragBlockState *AsDragBlock() override {
-    return this;
-  }
+  DragBlockState* AsDragBlock() override { return this; }
 
   void SetInitialThumbPos(CSSCoord aThumbPos);
   void SetDragMetrics(const AsyncDragMetrics& aDragMetrics);
 
   void DispatchEvent(const InputData& aEvent) const override;
-private:
+
+ private:
   AsyncDragMetrics mDragMetrics;
   CSSCoord mInitialThumbPos;
   bool mReceivedMouseUp;
@@ -327,7 +315,7 @@ private:
  */
 class PanGestureBlockState : public CancelableBlockState
 {
-public:
+ public:
   PanGestureBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc,
                        bool aTargetConfirmed,
                        const PanGestureInput& aEvent);
@@ -341,9 +329,7 @@ public:
                               TargetConfirmationState aState,
                               InputData* aFirstInput) override;
 
-  PanGestureBlockState *AsPanGestureBlock() override {
-    return this;
-  }
+  PanGestureBlockState* AsPanGestureBlock() override { return this; }
 
   /**
    * @return Whether or not overscrolling is prevented for this block.
@@ -354,7 +340,7 @@ public:
 
   void SetNeedsToWaitForContentResponse(bool aWaitForContentResponse);
 
-private:
+ private:
   bool mInterrupted;
   bool mWaitingForContentResponse;
 };
@@ -384,13 +370,12 @@ private:
  */
 class TouchBlockState : public CancelableBlockState
 {
-public:
+ public:
   explicit TouchBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc,
-                           bool aTargetConfirmed, TouchCounter& aTouchCounter);
+                           bool aTargetConfirmed,
+                           TouchCounter& aTouchCounter);
 
-  TouchBlockState *AsTouchBlock() override {
-    return this;
-  }
+  TouchBlockState* AsTouchBlock() override { return this; }
 
   /**
    * Set the allowed touch behavior flags for this block.
@@ -401,7 +386,8 @@ public:
    * If the allowed touch behaviors have been set, populate them into
    * |aOutBehaviors| and return true. Else, return false.
    */
-  bool GetAllowedTouchBehaviors(nsTArray<TouchBehaviorFlags>& aOutBehaviors) const;
+  bool GetAllowedTouchBehaviors(
+      nsTArray<TouchBehaviorFlags>& aOutBehaviors) const;
 
   /**
    * Copy various properties from another block.
@@ -479,7 +465,7 @@ public:
   bool MustStayActive() override;
   const char* Type() override;
 
-private:
+ private:
   nsTArray<TouchBehaviorFlags> mAllowedTouchBehaviors;
   bool mAllowedTouchBehaviorSet;
   bool mDuringFastFling;
@@ -495,26 +481,21 @@ private:
  */
 class KeyboardBlockState : public InputBlockState
 {
-public:
-  explicit KeyboardBlockState(const RefPtr<AsyncPanZoomController>& aTargetApzc);
+ public:
+  explicit KeyboardBlockState(
+      const RefPtr<AsyncPanZoomController>& aTargetApzc);
 
-  KeyboardBlockState* AsKeyboardBlock() override {
-    return this;
-  }
+  KeyboardBlockState* AsKeyboardBlock() override { return this; }
 
-  bool MustStayActive() override {
-    return false;
-  }
+  bool MustStayActive() override { return false; }
 
   /**
    * @return Whether or not overscrolling is prevented for this keyboard block.
    */
-  bool AllowScrollHandoff() const {
-    return false;
-  }
+  bool AllowScrollHandoff() const { return false; }
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
-#endif // mozilla_layers_InputBlockState_h
+#endif  // mozilla_layers_InputBlockState_h

@@ -16,8 +16,8 @@
 namespace mozilla {
 namespace media {
 class TimeIntervals;
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 // CopyChooser specialization for nsTArray
 template<>
 struct nsTArray_CopyChooser<mozilla::media::TimeIntervals>
@@ -42,7 +42,7 @@ static const int64_t NSECS_PER_S = 1000000000;
 // INT64_MAX has the special meaning of being +oo.
 class TimeUnit final
 {
-public:
+ public:
   static TimeUnit FromSeconds(double aValue)
   {
     MOZ_ASSERT(!IsNaN(aValue));
@@ -180,18 +180,15 @@ public:
 
   bool IsValid() const { return mValue.isValid(); }
 
-  constexpr TimeUnit()
-    : mValue(CheckedInt64(0))
-  {
-  }
+  constexpr TimeUnit() : mValue(CheckedInt64(0)) {}
 
   TimeUnit(const TimeUnit&) = default;
 
   TimeUnit& operator=(const TimeUnit&) = default;
 
-private:
+ private:
   explicit constexpr TimeUnit(CheckedInt64 aMicroseconds)
-    : mValue(aMicroseconds)
+      : mValue(aMicroseconds)
   {
   }
 
@@ -205,7 +202,7 @@ typedef Interval<TimeUnit> TimeInterval;
 
 class TimeIntervals : public IntervalSet<TimeUnit>
 {
-public:
+ public:
   typedef IntervalSet<TimeUnit> BaseType;
 
   // We can't use inherited constructors yet. So we have to duplicate all the
@@ -215,20 +212,10 @@ public:
 
   // MOZ_IMPLICIT as we want to enable initialization in the form:
   // TimeIntervals i = ... like we would do with IntervalSet<T> i = ...
-  MOZ_IMPLICIT TimeIntervals(const BaseType& aOther)
-    : BaseType(aOther)
-  {
-  }
-  MOZ_IMPLICIT TimeIntervals(BaseType&& aOther)
-    : BaseType(Move(aOther))
-  {
-  }
-  explicit TimeIntervals(const BaseType::ElemType& aOther)
-    : BaseType(aOther)
-  {
-  }
-  explicit TimeIntervals(BaseType::ElemType&& aOther)
-    : BaseType(Move(aOther))
+  MOZ_IMPLICIT TimeIntervals(const BaseType& aOther) : BaseType(aOther) {}
+  MOZ_IMPLICIT TimeIntervals(BaseType&& aOther) : BaseType(Move(aOther)) {}
+  explicit TimeIntervals(const BaseType::ElemType& aOther) : BaseType(aOther) {}
+  explicit TimeIntervals(BaseType::ElemType&& aOther) : BaseType(Move(aOther))
   {
   }
 
@@ -246,7 +233,7 @@ public:
   TimeIntervals() = default;
 };
 
-} // namespace media
-} // namespace mozilla
+}  // namespace media
+}  // namespace mozilla
 
-#endif // TIME_UNITS_H
+#endif  // TIME_UNITS_H

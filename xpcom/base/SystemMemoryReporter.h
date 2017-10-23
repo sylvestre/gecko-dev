@@ -23,7 +23,7 @@ Init()
 }
 #endif
 
-} // namespace SystemMemoryReporter
-} // namespace mozilla
+}  // namespace SystemMemoryReporter
+}  // namespace mozilla
 
 #endif

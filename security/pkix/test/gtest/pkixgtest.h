@@ -40,10 +40,10 @@
 #pragma warning(push, 3)
 // C4224: Nonstandard extension used: formal parameter 'X' was previously
 //        defined as a type.
-#pragma warning(disable: 4224)
+#pragma warning(disable : 4224)
 // C4826: Conversion from 'type1 ' to 'type_2' is sign - extended. This may
 //        cause unexpected runtime behavior.
-#pragma warning(disable: 4826)
+#pragma warning(disable : 4826)
 #endif
 
 #include "gtest/gtest.h"
@@ -60,7 +60,8 @@
 #include "pkixtestutil.h"
 
 // PrintTo must be in the same namespace as the type we're overloading it for.
-namespace mozilla { namespace pkix {
+namespace mozilla {
+namespace pkix {
 
 inline void
 PrintTo(const Result& result, ::std::ostream* os)
@@ -73,9 +74,12 @@ PrintTo(const Result& result, ::std::ostream* os)
   }
 }
 
-} } // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
-namespace mozilla { namespace pkix { namespace test {
+namespace mozilla {
+namespace pkix {
+namespace test {
 
 extern const std::time_t oneDayBeforeNow;
 extern const std::time_t oneDayAfterNow;
@@ -84,12 +88,13 @@ extern const std::time_t twoDaysAfterNow;
 extern const std::time_t tenDaysBeforeNow;
 extern const std::time_t tenDaysAfterNow;
 
-
 class EverythingFailsByDefaultTrustDomain : public TrustDomain
 {
-public:
-  Result GetCertTrust(EndEntityOrCA, const CertPolicyId&,
-                      Input, /*out*/ TrustLevel&) override
+ public:
+  Result GetCertTrust(EndEntityOrCA,
+                      const CertPolicyId&,
+                      Input,
+                      /*out*/ TrustLevel&) override
   {
     ADD_FAILURE();
     return NotReached("GetCertTrust should not be called",
@@ -103,9 +108,12 @@ public:
                       Result::FATAL_ERROR_LIBRARY_FAILURE);
   }
 
-  Result CheckRevocation(EndEntityOrCA, const CertID&, Time, Duration,
-                          /*optional*/ const Input*,
-                          /*optional*/ const Input*) override
+  Result CheckRevocation(EndEntityOrCA,
+                         const CertID&,
+                         Time,
+                         Duration,
+                         /*optional*/ const Input*,
+                         /*optional*/ const Input*) override
   {
     ADD_FAILURE();
     return NotReached("CheckRevocation should not be called",
@@ -149,8 +157,8 @@ public:
                       Result::FATAL_ERROR_LIBRARY_FAILURE);
   }
 
-  Result CheckRSAPublicKeyModulusSizeInBits(EndEntityOrCA, unsigned int)
-                                            override
+  Result CheckRSAPublicKeyModulusSizeInBits(EndEntityOrCA,
+                                            unsigned int) override
   {
     ADD_FAILURE();
     return NotReached("CheckRSAPublicKeyModulusSizeInBits should not be called",
@@ -164,8 +172,10 @@ public:
                       Result::FATAL_ERROR_LIBRARY_FAILURE);
   }
 
-  Result CheckValidityIsAcceptable(Time, Time, EndEntityOrCA, KeyPurposeId)
-                                   override
+  Result CheckValidityIsAcceptable(Time,
+                                   Time,
+                                   EndEntityOrCA,
+                                   KeyPurposeId) override
   {
     ADD_FAILURE();
     return NotReached("CheckValidityIsAcceptable should not be called",
@@ -187,14 +197,17 @@ public:
 
 class DefaultCryptoTrustDomain : public EverythingFailsByDefaultTrustDomain
 {
-  Result DigestBuf(Input item, DigestAlgorithm digestAlg,
-                   /*out*/ uint8_t* digestBuf, size_t digestBufLen) override
+  Result DigestBuf(Input item,
+                   DigestAlgorithm digestAlg,
+                   /*out*/ uint8_t* digestBuf,
+                   size_t digestBufLen) override
   {
     return TestDigestBuf(item, digestAlg, digestBuf, digestBufLen);
   }
 
-  Result CheckSignatureDigestAlgorithm(DigestAlgorithm, EndEntityOrCA, Time)
-                                       override
+  Result CheckSignatureDigestAlgorithm(DigestAlgorithm,
+                                       EndEntityOrCA,
+                                       Time) override
   {
     return Success;
   }
@@ -210,8 +223,8 @@ class DefaultCryptoTrustDomain : public EverythingFailsByDefaultTrustDomain
     return TestVerifyECDSASignedDigest(signedDigest, subjectPublicKeyInfo);
   }
 
-  Result CheckRSAPublicKeyModulusSizeInBits(EndEntityOrCA, unsigned int)
-                                            override
+  Result CheckRSAPublicKeyModulusSizeInBits(EndEntityOrCA,
+                                            unsigned int) override
   {
     return Success;
   }
@@ -222,8 +235,10 @@ class DefaultCryptoTrustDomain : public EverythingFailsByDefaultTrustDomain
     return TestVerifyRSAPKCS1SignedDigest(signedDigest, subjectPublicKeyInfo);
   }
 
-  Result CheckValidityIsAcceptable(Time, Time, EndEntityOrCA, KeyPurposeId)
-                                   override
+  Result CheckValidityIsAcceptable(Time,
+                                   Time,
+                                   EndEntityOrCA,
+                                   KeyPurposeId) override
   {
     return Success;
   }
@@ -234,22 +249,23 @@ class DefaultCryptoTrustDomain : public EverythingFailsByDefaultTrustDomain
     return Success;
   }
 
-  void NoteAuxiliaryExtension(AuxiliaryExtension, Input) override
-  {
-  }
+  void NoteAuxiliaryExtension(AuxiliaryExtension, Input) override {}
 };
 
 class DefaultNameMatchingPolicy : public NameMatchingPolicy
 {
-public:
+ public:
   virtual Result FallBackToCommonName(
-    Time, /*out*/ FallBackToSearchWithinSubject& fallBackToCommonName) override
+      Time,
+      /*out*/ FallBackToSearchWithinSubject& fallBackToCommonName) override
   {
     fallBackToCommonName = FallBackToSearchWithinSubject::Yes;
     return Success;
   }
 };
 
-} } } // namespace mozilla::pkix::test
+}  // namespace test
+}  // namespace pkix
+}  // namespace mozilla
 
-#endif // mozilla_pkix_pkixgtest_h
+#endif  // mozilla_pkix_pkixgtest_h

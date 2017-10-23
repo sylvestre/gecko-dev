@@ -16,8 +16,7 @@ namespace jit {
 
 class CodeGenerator;
 
-class MoveEmitterARM64
-{
+class MoveEmitterARM64 {
     bool inCycle_;
     MacroAssembler& masm;
 
@@ -30,9 +29,7 @@ class MoveEmitterARM64
     int32_t pushedAtCycle_;
     int32_t pushedAtSpill_;
 
-    void assertDone() {
-        MOZ_ASSERT(!inCycle_);
-    }
+    void assertDone() { MOZ_ASSERT(!inCycle_); }
 
     MemOperand cycleSlot();
     MemOperand toMemOperand(const MoveOperand& operand) const;
@@ -60,18 +57,15 @@ class MoveEmitterARM64
     void breakCycle(const MoveOperand& from, const MoveOperand& to, MoveOp::Type type);
     void completeCycle(const MoveOperand& from, const MoveOperand& to, MoveOp::Type type);
 
-  public:
+   public:
     MoveEmitterARM64(MacroAssembler& masm)
-      : inCycle_(false),
-        masm(masm),
-        pushedAtStart_(masm.framePushed()),
-        pushedAtCycle_(-1),
-        pushedAtSpill_(-1)
-    { }
+        : inCycle_(false),
+          masm(masm),
+          pushedAtStart_(masm.framePushed()),
+          pushedAtCycle_(-1),
+          pushedAtSpill_(-1) {}
 
-    ~MoveEmitterARM64() {
-        assertDone();
-    }
+    ~MoveEmitterARM64() { assertDone(); }
 
     void emit(const MoveResolver& moves);
     void finish();
@@ -80,7 +74,7 @@ class MoveEmitterARM64
 
 typedef MoveEmitterARM64 MoveEmitter;
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_arm64_MoveEmitter_arm64_h */

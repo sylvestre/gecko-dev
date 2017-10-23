@@ -16,11 +16,9 @@
 namespace mozilla {
 namespace net {
 
-class DNSRequestChild final
-  : public PDNSRequestChild
-  , public nsICancelable
+class DNSRequestChild final : public PDNSRequestChild, public nsICancelable
 {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICANCELABLE
 
@@ -28,37 +26,37 @@ public:
                   const OriginAttributes& aOriginAttributes,
                   const uint32_t& aFlags,
                   const nsCString& aNetworkInterface,
-                  nsIDNSListener *aListener, nsIEventTarget *target);
+                  nsIDNSListener* aListener,
+                  nsIEventTarget* target);
 
-  void AddIPDLReference() {
-    AddRef();
-  }
+  void AddIPDLReference() { AddRef(); }
   void ReleaseIPDLReference();
 
   // Sends IPDL request to parent
   void StartRequest();
   void CallOnLookupComplete();
 
-protected:
+ protected:
   friend class CancelDNSRequestEvent;
   friend class ChildDNSService;
   virtual ~DNSRequestChild() {}
 
-  virtual mozilla::ipc::IPCResult RecvLookupCompleted(const DNSRequestResponse& reply) override;
+  virtual mozilla::ipc::IPCResult RecvLookupCompleted(
+      const DNSRequestResponse& reply) override;
   virtual void ActorDestroy(ActorDestroyReason why) override;
 
-  nsCOMPtr<nsIDNSListener>  mListener;
-  nsCOMPtr<nsIEventTarget>  mTarget;
-  nsCOMPtr<nsIDNSRecord>    mResultRecord;
-  nsresult                  mResultStatus;
-  nsCString                 mHost;
-  const OriginAttributes    mOriginAttributes;
-  uint16_t                  mFlags;
-  nsCString                 mNetworkInterface;
-  bool                      mIPCOpen;
+  nsCOMPtr<nsIDNSListener> mListener;
+  nsCOMPtr<nsIEventTarget> mTarget;
+  nsCOMPtr<nsIDNSRecord> mResultRecord;
+  nsresult mResultStatus;
+  nsCString mHost;
+  const OriginAttributes mOriginAttributes;
+  uint16_t mFlags;
+  nsCString mNetworkInterface;
+  bool mIPCOpen;
 };
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla
 
-#endif // mozilla_net_DNSRequestChild_h
+#endif  // mozilla_net_DNSRequestChild_h

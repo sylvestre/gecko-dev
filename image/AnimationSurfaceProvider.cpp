@@ -15,15 +15,17 @@ using namespace mozilla::gfx;
 namespace mozilla {
 namespace image {
 
-AnimationSurfaceProvider::AnimationSurfaceProvider(NotNull<RasterImage*> aImage,
-                                                   const SurfaceKey& aSurfaceKey,
-                                                   NotNull<Decoder*> aDecoder)
-  : ISurfaceProvider(ImageKey(aImage.get()), aSurfaceKey,
-                     AvailabilityState::StartAsPlaceholder())
-  , mImage(aImage.get())
-  , mDecodingMutex("AnimationSurfaceProvider::mDecoder")
-  , mDecoder(aDecoder.get())
-  , mFramesMutex("AnimationSurfaceProvider::mFrames")
+AnimationSurfaceProvider::AnimationSurfaceProvider(
+    NotNull<RasterImage*> aImage,
+    const SurfaceKey& aSurfaceKey,
+    NotNull<Decoder*> aDecoder)
+    : ISurfaceProvider(ImageKey(aImage.get()),
+                       aSurfaceKey,
+                       AvailabilityState::StartAsPlaceholder()),
+      mImage(aImage.get()),
+      mDecodingMutex("AnimationSurfaceProvider::mDecoder"),
+      mDecoder(aDecoder.get()),
+      mFramesMutex("AnimationSurfaceProvider::mFrames")
 {
   MOZ_ASSERT(!mDecoder->IsMetadataDecode(),
              "Use MetadataDecodingTask for metadata decodes");
@@ -31,10 +33,7 @@ AnimationSurfaceProvider::AnimationSurfaceProvider(NotNull<RasterImage*> aImage,
              "Use DecodedSurfaceProvider for single-frame image decodes");
 }
 
-AnimationSurfaceProvider::~AnimationSurfaceProvider()
-{
-  DropImageReference();
-}
+AnimationSurfaceProvider::~AnimationSurfaceProvider() { DropImageReference(); }
 
 void
 AnimationSurfaceProvider::DropImageReference()
@@ -122,8 +121,8 @@ AnimationSurfaceProvider::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
   MutexAutoLock lock(mFramesMutex);
 
   for (const RawAccessFrameRef& frame : mFrames) {
-    frame->AddSizeOfExcludingThis(aMallocSizeOf, aHeapSizeOut,
-                                  aNonHeapSizeOut, aSharedHandlesOut);
+    frame->AddSizeOfExcludingThis(
+        aMallocSizeOf, aHeapSizeOut, aNonHeapSizeOut, aSharedHandlesOut);
   }
 }
 
@@ -284,5 +283,5 @@ AnimationSurfaceProvider::ShouldPreferSyncRun() const
   return mDecoder->ShouldSyncDecode(gfxPrefs::ImageMemDecodeBytesAtATime());
 }
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla

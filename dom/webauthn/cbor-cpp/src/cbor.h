@@ -20,4 +20,4 @@
 #include "encoder.h"
 #include "output_dynamic.h"
 
-#endif //CBOR_CPP_CBOR_H
+#endif  //CBOR_CPP_CBOR_H

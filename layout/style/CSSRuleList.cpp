@@ -11,7 +11,6 @@
 namespace mozilla {
 namespace dom {
 
-
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(CSSRuleList)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CSSRuleList)
@@ -30,5 +29,5 @@ CSSRuleList::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
   return CSSRuleListBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -18,18 +18,18 @@ namespace dom {
 
 class VideoDocument final : public MediaDocument
 {
-public:
-  virtual nsresult StartDocumentLoad(const char*         aCommand,
-                                     nsIChannel*         aChannel,
-                                     nsILoadGroup*       aLoadGroup,
-                                     nsISupports*        aContainer,
+ public:
+  virtual nsresult StartDocumentLoad(const char* aCommand,
+                                     nsIChannel* aChannel,
+                                     nsILoadGroup* aLoadGroup,
+                                     nsISupports* aContainer,
                                      nsIStreamListener** aDocListener,
-                                     bool                aReset = true,
-                                     nsIContentSink*     aSink = nullptr);
-  virtual void SetScriptGlobalObject(nsIScriptGlobalObject* aScriptGlobalObject);
+                                     bool aReset = true,
+                                     nsIContentSink* aSink = nullptr);
+  virtual void SetScriptGlobalObject(
+      nsIScriptGlobalObject* aScriptGlobalObject);
 
-protected:
-
+ protected:
   // Sets document <title> to reflect the file name and description.
   void UpdateTitle(nsIChannel* aChannel);
 
@@ -40,24 +40,23 @@ protected:
 };
 
 nsresult
-VideoDocument::StartDocumentLoad(const char*         aCommand,
-                                 nsIChannel*         aChannel,
-                                 nsILoadGroup*       aLoadGroup,
-                                 nsISupports*        aContainer,
+VideoDocument::StartDocumentLoad(const char* aCommand,
+                                 nsIChannel* aChannel,
+                                 nsILoadGroup* aLoadGroup,
+                                 nsISupports* aContainer,
                                  nsIStreamListener** aDocListener,
-                                 bool                aReset,
-                                 nsIContentSink*     aSink)
+                                 bool aReset,
+                                 nsIContentSink* aSink)
 {
-  nsresult rv =
-    MediaDocument::StartDocumentLoad(aCommand, aChannel, aLoadGroup, aContainer,
-                                     aDocListener, aReset, aSink);
+  nsresult rv = MediaDocument::StartDocumentLoad(
+      aCommand, aChannel, aLoadGroup, aContainer, aDocListener, aReset, aSink);
   NS_ENSURE_SUCCESS(rv, rv);
 
   mStreamListener = new MediaDocumentStreamListener(this);
 
   // Create synthetic document
-  rv = CreateSyntheticVideoDocument(aChannel,
-      getter_AddRefs(mStreamListener->mNextStream));
+  rv = CreateSyntheticVideoDocument(
+      aChannel, getter_AddRefs(mStreamListener->mNextStream));
   NS_ENSURE_SUCCESS(rv, rv);
 
   NS_ADDREF(*aDocListener = mStreamListener);
@@ -74,9 +73,12 @@ VideoDocument::SetScriptGlobalObject(nsIScriptGlobalObject* aScriptGlobalObject)
   if (aScriptGlobalObject) {
     if (!nsContentUtils::IsChildOfSameType(this) &&
         GetReadyStateEnum() != nsIDocument::READYSTATE_COMPLETE) {
-      LinkStylesheet(NS_LITERAL_STRING("resource://content-accessible/TopLevelVideoDocument.css"));
-      LinkStylesheet(NS_LITERAL_STRING("chrome://global/skin/media/TopLevelVideoDocument.css"));
-      LinkScript(NS_LITERAL_STRING("chrome://global/content/TopLevelVideoDocument.js"));
+      LinkStylesheet(NS_LITERAL_STRING(
+          "resource://content-accessible/TopLevelVideoDocument.css"));
+      LinkStylesheet(NS_LITERAL_STRING(
+          "chrome://global/skin/media/TopLevelVideoDocument.css"));
+      LinkScript(NS_LITERAL_STRING(
+          "chrome://global/content/TopLevelVideoDocument.js"));
     }
     BecomeInteractive();
   }
@@ -98,15 +100,12 @@ VideoDocument::CreateSyntheticVideoDocument(nsIChannel* aChannel,
 
   // make content
   RefPtr<mozilla::dom::NodeInfo> nodeInfo;
-  nodeInfo = mNodeInfoManager->GetNodeInfo(nsGkAtoms::video, nullptr,
-                                           kNameSpaceID_XHTML,
-                                           nsIDOMNode::ELEMENT_NODE);
+  nodeInfo = mNodeInfoManager->GetNodeInfo(
+      nsGkAtoms::video, nullptr, kNameSpaceID_XHTML, nsIDOMNode::ELEMENT_NODE);
 
-  RefPtr<HTMLMediaElement> element =
-    static_cast<HTMLMediaElement*>(NS_NewHTMLVideoElement(nodeInfo.forget(),
-                                                          NOT_FROM_PARSER));
-  if (!element)
-    return NS_ERROR_OUT_OF_MEMORY;
+  RefPtr<HTMLMediaElement> element = static_cast<HTMLMediaElement*>(
+      NS_NewHTMLVideoElement(nodeInfo.forget(), NOT_FROM_PARSER));
+  if (!element) return NS_ERROR_OUT_OF_MEMORY;
   element->SetAutoplay(true);
   element->SetControls(true);
   element->LoadWithChannel(aChannel, aListener);
@@ -115,8 +114,11 @@ VideoDocument::CreateSyntheticVideoDocument(nsIChannel* aChannel,
   if (nsContentUtils::IsChildOfSameType(this)) {
     // Video documents that aren't toplevel should fill their frames and
     // not have margins
-    element->SetAttr(kNameSpaceID_None, nsGkAtoms::style,
-        NS_LITERAL_STRING("position:absolute; top:0; left:0; width:100%; height:100%"),
+    element->SetAttr(
+        kNameSpaceID_None,
+        nsGkAtoms::style,
+        NS_LITERAL_STRING(
+            "position:absolute; top:0; left:0; width:100%; height:100%"),
         true);
   }
 
@@ -126,16 +128,15 @@ VideoDocument::CreateSyntheticVideoDocument(nsIChannel* aChannel,
 void
 VideoDocument::UpdateTitle(nsIChannel* aChannel)
 {
-  if (!aChannel)
-    return;
+  if (!aChannel) return;
 
   nsAutoString fileName;
   GetFileName(fileName, aChannel);
   SetTitle(fileName);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 nsresult
 NS_NewVideoDocument(nsIDocument** aResult)

@@ -17,51 +17,44 @@ namespace layers {
 class TextureClientHolder
 {
   ~TextureClientHolder() {}
-public:
+
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(TextureClientHolder)
 
   explicit TextureClientHolder(TextureClient* aClient)
-    : mTextureClient(aClient)
-    , mWillRecycle(true)
-  {}
-
-  TextureClient* GetTextureClient()
+      : mTextureClient(aClient), mWillRecycle(true)
   {
-    return mTextureClient;
   }
 
-  bool WillRecycle()
-  {
-    return mWillRecycle;
-  }
+  TextureClient* GetTextureClient() { return mTextureClient; }
 
-  void ClearWillRecycle()
-  {
-    mWillRecycle = false;
-  }
+  bool WillRecycle() { return mWillRecycle; }
+
+  void ClearWillRecycle() { mWillRecycle = false; }
 
   void ClearTextureClient() { mTextureClient = nullptr; }
-protected:
+
+ protected:
   RefPtr<TextureClient> mTextureClient;
   bool mWillRecycle;
 };
 
-class DefaultTextureClientAllocationHelper : public ITextureClientAllocationHelper
+class DefaultTextureClientAllocationHelper
+    : public ITextureClientAllocationHelper
 {
-public:
-  DefaultTextureClientAllocationHelper(TextureClientRecycleAllocator* aAllocator,
-                                       gfx::SurfaceFormat aFormat,
-                                       gfx::IntSize aSize,
-                                       BackendSelector aSelector,
-                                       TextureFlags aTextureFlags,
-                                       TextureAllocationFlags aAllocationFlags)
-    : ITextureClientAllocationHelper(aFormat,
-                                     aSize,
-                                     aSelector,
-                                     aTextureFlags,
-                                     aAllocationFlags)
-    , mAllocator(aAllocator)
-  {}
+ public:
+  DefaultTextureClientAllocationHelper(
+      TextureClientRecycleAllocator* aAllocator,
+      gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize,
+      BackendSelector aSelector,
+      TextureFlags aTextureFlags,
+      TextureAllocationFlags aAllocationFlags)
+      : ITextureClientAllocationHelper(
+            aFormat, aSize, aSelector, aTextureFlags, aAllocationFlags),
+        mAllocator(aAllocator)
+  {
+  }
 
   bool IsCompatible(TextureClient* aTextureClient) override
   {
@@ -74,25 +67,22 @@ public:
 
   already_AddRefed<TextureClient> Allocate(KnowsCompositor* aAllocator) override
   {
-    return mAllocator->Allocate(mFormat,
-                                mSize,
-                                mSelector,
-                                mTextureFlags,
-                                mAllocationFlags);
+    return mAllocator->Allocate(
+        mFormat, mSize, mSelector, mTextureFlags, mAllocationFlags);
   }
 
-protected:
+ protected:
   TextureClientRecycleAllocator* mAllocator;
 };
 
-YCbCrTextureClientAllocationHelper::YCbCrTextureClientAllocationHelper(const PlanarYCbCrData& aData,
-                                                                       TextureFlags aTextureFlags)
-  : ITextureClientAllocationHelper(gfx::SurfaceFormat::YUV,
-                                   aData.mYSize,
-                                   BackendSelector::Content,
-                                   aTextureFlags,
-                                   ALLOC_DEFAULT)
-  , mData(aData)
+YCbCrTextureClientAllocationHelper::YCbCrTextureClientAllocationHelper(
+    const PlanarYCbCrData& aData, TextureFlags aTextureFlags)
+    : ITextureClientAllocationHelper(gfx::SurfaceFormat::YUV,
+                                     aData.mYSize,
+                                     BackendSelector::Content,
+                                     aTextureFlags,
+                                     ALLOC_DEFAULT),
+      mData(aData)
 {
 }
 
@@ -101,9 +91,9 @@ YCbCrTextureClientAllocationHelper::IsCompatible(TextureClient* aTextureClient)
 {
   MOZ_ASSERT(aTextureClient->GetFormat() == gfx::SurfaceFormat::YUV);
 
-  BufferTextureData* bufferData = aTextureClient->GetInternalData()->AsBufferTextureData();
-  if (!bufferData ||
-      aTextureClient->GetSize() != mData.mYSize ||
+  BufferTextureData* bufferData =
+      aTextureClient->GetInternalData()->AsBufferTextureData();
+  if (!bufferData || aTextureClient->GetSize() != mData.mYSize ||
       bufferData->GetCbCrSize().isNothing() ||
       bufferData->GetCbCrSize().ref() != mData.mCbCrSize ||
       bufferData->GetYUVColorSpace().isNothing() ||
@@ -121,19 +111,22 @@ already_AddRefed<TextureClient>
 YCbCrTextureClientAllocationHelper::Allocate(KnowsCompositor* aAllocator)
 {
   return TextureClient::CreateForYCbCr(aAllocator,
-                                       mData.mYSize, mData.mYStride,
-                                       mData.mCbCrSize, mData.mCbCrStride,
+                                       mData.mYSize,
+                                       mData.mYStride,
+                                       mData.mCbCrSize,
+                                       mData.mCbCrStride,
                                        mData.mStereoMode,
                                        mData.mYUVColorSpace,
                                        mData.mBitDepth,
                                        mTextureFlags);
 }
 
-TextureClientRecycleAllocator::TextureClientRecycleAllocator(KnowsCompositor* aAllocator)
-  : mSurfaceAllocator(aAllocator)
-  , mMaxPooledSize(kMaxPooledSized)
-  , mLock("TextureClientRecycleAllocatorImp.mLock")
-  , mIsDestroyed(false)
+TextureClientRecycleAllocator::TextureClientRecycleAllocator(
+    KnowsCompositor* aAllocator)
+    : mSurfaceAllocator(aAllocator),
+      mMaxPooledSize(kMaxPooledSized),
+      mLock("TextureClientRecycleAllocatorImp.mLock"),
+      mIsDestroyed(false)
 {
 }
 
@@ -153,24 +146,22 @@ TextureClientRecycleAllocator::SetMaxPoolSize(uint32_t aMax)
 }
 
 already_AddRefed<TextureClient>
-TextureClientRecycleAllocator::CreateOrRecycle(gfx::SurfaceFormat aFormat,
-                                               gfx::IntSize aSize,
-                                               BackendSelector aSelector,
-                                               TextureFlags aTextureFlags,
-                                               TextureAllocationFlags aAllocFlags)
+TextureClientRecycleAllocator::CreateOrRecycle(
+    gfx::SurfaceFormat aFormat,
+    gfx::IntSize aSize,
+    BackendSelector aSelector,
+    TextureFlags aTextureFlags,
+    TextureAllocationFlags aAllocFlags)
 {
   MOZ_ASSERT(!(aTextureFlags & TextureFlags::RECYCLE));
-  DefaultTextureClientAllocationHelper helper(this,
-                                              aFormat,
-                                              aSize,
-                                              aSelector,
-                                              aTextureFlags,
-                                              aAllocFlags);
+  DefaultTextureClientAllocationHelper helper(
+      this, aFormat, aSize, aSelector, aTextureFlags, aAllocFlags);
   return CreateOrRecycle(helper);
 }
 
 already_AddRefed<TextureClient>
-TextureClientRecycleAllocator::CreateOrRecycle(ITextureClientAllocationHelper& aHelper)
+TextureClientRecycleAllocator::CreateOrRecycle(
+    ITextureClientAllocationHelper& aHelper)
 {
   MOZ_ASSERT(aHelper.mTextureFlags & TextureFlags::RECYCLE);
 
@@ -189,12 +180,15 @@ TextureClientRecycleAllocator::CreateOrRecycle(ITextureClientAllocationHelper& a
       if (!textureHolder->GetTextureClient()->GetAllocator()->IPCOpen() ||
           !aHelper.IsCompatible(textureHolder->GetTextureClient())) {
         // Release TextureClient.
-        RefPtr<Runnable> task = new TextureClientReleaseTask(textureHolder->GetTextureClient());
+        RefPtr<Runnable> task =
+            new TextureClientReleaseTask(textureHolder->GetTextureClient());
         textureHolder->ClearTextureClient();
         textureHolder = nullptr;
-        mSurfaceAllocator->GetTextureForwarder()->GetMessageLoop()->PostTask(task.forget());
+        mSurfaceAllocator->GetTextureForwarder()->GetMessageLoop()->PostTask(
+            task.forget());
       } else {
-        textureHolder->GetTextureClient()->RecycleTexture(aHelper.mTextureFlags);
+        textureHolder->GetTextureClient()->RecycleTexture(
+            aHelper.mTextureFlags);
       }
     }
   }
@@ -210,7 +204,8 @@ TextureClientRecycleAllocator::CreateOrRecycle(ITextureClientAllocationHelper& a
 
   {
     MutexAutoLock lock(mLock);
-    MOZ_ASSERT(mInUseClients.find(textureHolder->GetTextureClient()) == mInUseClients.end());
+    MOZ_ASSERT(mInUseClients.find(textureHolder->GetTextureClient()) ==
+               mInUseClients.end());
     // Register TextureClient
     mInUseClients[textureHolder->GetTextureClient()] = textureHolder;
   }
@@ -229,8 +224,8 @@ TextureClientRecycleAllocator::Allocate(gfx::SurfaceFormat aFormat,
                                         TextureFlags aTextureFlags,
                                         TextureAllocationFlags aAllocFlags)
 {
-  return TextureClient::CreateForDrawing(mSurfaceAllocator, aFormat, aSize,
-                                         aSelector, aTextureFlags, aAllocFlags);
+  return TextureClient::CreateForDrawing(
+      mSurfaceAllocator, aFormat, aSize, aSelector, aTextureFlags, aAllocFlags);
 }
 
 void
@@ -271,9 +266,10 @@ TextureClientRecycleAllocator::RecycleTextureClient(TextureClient* aClient)
   {
     MutexAutoLock lock(mLock);
     if (mInUseClients.find(aClient) != mInUseClients.end()) {
-      textureHolder = mInUseClients[aClient]; // Keep reference count of TextureClientHolder within lock.
-      if (textureHolder->WillRecycle() &&
-          !mIsDestroyed && mPooledClients.size() < mMaxPooledSize) {
+      textureHolder = mInUseClients
+          [aClient];  // Keep reference count of TextureClientHolder within lock.
+      if (textureHolder->WillRecycle() && !mIsDestroyed &&
+          mPooledClients.size() < mMaxPooledSize) {
         mPooledClients.push(textureHolder);
       }
       mInUseClients.erase(aClient);
@@ -281,5 +277,5 @@ TextureClientRecycleAllocator::RecycleTextureClient(TextureClient* aClient)
   }
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

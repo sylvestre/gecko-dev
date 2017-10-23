@@ -8,40 +8,34 @@
 #include "jit/Disassembler.h"
 #include "jit/JitCompartment.h"
 #if defined(JS_CODEGEN_X86)
-# include "jit/x86/MacroAssembler-x86.h"
+#include "jit/x86/MacroAssembler-x86.h"
 #elif defined(JS_CODEGEN_X64)
-# include "jit/x64/MacroAssembler-x64.h"
+#include "jit/x64/MacroAssembler-x64.h"
 #else
-# error "Wrong architecture. Only x86 and x64 should build this file!"
+#error "Wrong architecture. Only x86 and x64 should build this file!"
 #endif
 
 #ifdef _MSC_VER
-# include <intrin.h> // for __cpuid
-# if defined(_M_X64) && (_MSC_FULL_VER >= 160040219)
-#  include <immintrin.h> // for _xgetbv
-# endif
+#include <intrin.h>  // for __cpuid
+#if defined(_M_X64) && (_MSC_FULL_VER >= 160040219)
+#include <immintrin.h>  // for _xgetbv
+#endif
 #endif
 
 using namespace js;
 using namespace js::jit;
 
-void
-AssemblerX86Shared::copyJumpRelocationTable(uint8_t* dest)
-{
+void AssemblerX86Shared::copyJumpRelocationTable(uint8_t* dest) {
     if (jumpRelocations_.length())
         memcpy(dest, jumpRelocations_.buffer(), jumpRelocations_.length());
 }
 
-void
-AssemblerX86Shared::copyDataRelocationTable(uint8_t* dest)
-{
+void AssemblerX86Shared::copyDataRelocationTable(uint8_t* dest) {
     if (dataRelocations_.length())
         memcpy(dest, dataRelocations_.buffer(), dataRelocations_.length());
 }
 
-static void
-TraceDataRelocations(JSTracer* trc, uint8_t* buffer, CompactBufferReader& reader)
-{
+static void TraceDataRelocations(JSTracer* trc, uint8_t* buffer, CompactBufferReader& reader) {
     while (reader.more()) {
         size_t offset = reader.readUnsigned();
         void* ptr = X86Encoding::GetPointer(buffer + offset);
@@ -65,21 +59,16 @@ TraceDataRelocations(JSTracer* trc, uint8_t* buffer, CompactBufferReader& reader
         // No barrier needed since these are constants.
         gc::Cell* cellPtr = reinterpret_cast<gc::Cell*>(ptr);
         TraceManuallyBarrieredGenericPointerEdge(trc, &cellPtr, "jit-masm-ptr");
-        if (cellPtr != ptr)
-            X86Encoding::SetPointer(buffer + offset, cellPtr);
+        if (cellPtr != ptr) X86Encoding::SetPointer(buffer + offset, cellPtr);
     }
 }
 
-
-void
-AssemblerX86Shared::TraceDataRelocations(JSTracer* trc, JitCode* code, CompactBufferReader& reader)
-{
+void AssemblerX86Shared::TraceDataRelocations(JSTracer* trc, JitCode* code,
+                                              CompactBufferReader& reader) {
     ::TraceDataRelocations(trc, code->raw(), reader);
 }
 
-void
-AssemblerX86Shared::trace(JSTracer* trc)
-{
+void AssemblerX86Shared::trace(JSTracer* trc) {
     for (size_t i = 0; i < jumps_.length(); i++) {
         RelativePatch& rp = jumps_[i];
         if (rp.kind == Relocation::JITCODE) {
@@ -95,9 +84,7 @@ AssemblerX86Shared::trace(JSTracer* trc)
     }
 }
 
-void
-AssemblerX86Shared::executableCopy(void* buffer)
-{
+void AssemblerX86Shared::executableCopy(void* buffer) {
     masm.executableCopy(buffer);
 
     // Crash diagnostics for bug 1124397. Check the code buffer has not been
@@ -107,19 +94,15 @@ AssemblerX86Shared::executableCopy(void* buffer)
     size_t len = size();
 
     for (size_t i = 0; i < len; i += MinPoisoned) {
-        if (bytes[i] != 0xE5)
-            continue;
+        if (bytes[i] != 0xE5) continue;
 
         size_t startOffset = i;
-        while (startOffset > 0 && bytes[startOffset - 1] == 0xE5)
-            startOffset--;
+        while (startOffset > 0 && bytes[startOffset - 1] == 0xE5) startOffset--;
 
         size_t endOffset = i;
-        while (endOffset + 1 < len && bytes[endOffset + 1] == 0xE5)
-            endOffset++;
+        while (endOffset + 1 < len && bytes[endOffset + 1] == 0xE5) endOffset++;
 
-        if (endOffset - startOffset < MinPoisoned)
-            continue;
+        if (endOffset - startOffset < MinPoisoned) continue;
 
         volatile uintptr_t dump[5];
         blackbox = dump;
@@ -132,129 +115,116 @@ AssemblerX86Shared::executableCopy(void* buffer)
     }
 }
 
-void
-AssemblerX86Shared::processCodeLabels(uint8_t* rawCode)
-{
+void AssemblerX86Shared::processCodeLabels(uint8_t* rawCode) {
     for (size_t i = 0; i < codeLabels_.length(); i++) {
         CodeLabel label = codeLabels_[i];
         Bind(rawCode, *label.patchAt(), *label.target());
     }
 }
 
-AssemblerX86Shared::Condition
-AssemblerX86Shared::InvertCondition(Condition cond)
-{
+AssemblerX86Shared::Condition AssemblerX86Shared::InvertCondition(Condition cond) {
     switch (cond) {
-      case Zero:
-        return NonZero;
-      case NonZero:
-        return Zero;
-      case LessThan:
-        return GreaterThanOrEqual;
-      case LessThanOrEqual:
-        return GreaterThan;
-      case GreaterThan:
-        return LessThanOrEqual;
-      case GreaterThanOrEqual:
-        return LessThan;
-      case Above:
-        return BelowOrEqual;
-      case AboveOrEqual:
-        return Below;
-      case Below:
-        return AboveOrEqual;
-      case BelowOrEqual:
-        return Above;
-      default:
-        MOZ_CRASH("unexpected condition");
+        case Zero:
+            return NonZero;
+        case NonZero:
+            return Zero;
+        case LessThan:
+            return GreaterThanOrEqual;
+        case LessThanOrEqual:
+            return GreaterThan;
+        case GreaterThan:
+            return LessThanOrEqual;
+        case GreaterThanOrEqual:
+            return LessThan;
+        case Above:
+            return BelowOrEqual;
+        case AboveOrEqual:
+            return Below;
+        case Below:
+            return AboveOrEqual;
+        case BelowOrEqual:
+            return Above;
+        default:
+            MOZ_CRASH("unexpected condition");
     }
 }
 
-AssemblerX86Shared::Condition
-AssemblerX86Shared::UnsignedCondition(Condition cond)
-{
+AssemblerX86Shared::Condition AssemblerX86Shared::UnsignedCondition(Condition cond) {
     switch (cond) {
-      case Zero:
-      case NonZero:
-        return cond;
-      case LessThan:
-      case Below:
-        return Below;
-      case LessThanOrEqual:
-      case BelowOrEqual:
-        return BelowOrEqual;
-      case GreaterThan:
-      case Above:
-        return Above;
-      case AboveOrEqual:
-      case GreaterThanOrEqual:
-        return AboveOrEqual;
-      default:
-        MOZ_CRASH("unexpected condition");
+        case Zero:
+        case NonZero:
+            return cond;
+        case LessThan:
+        case Below:
+            return Below;
+        case LessThanOrEqual:
+        case BelowOrEqual:
+            return BelowOrEqual;
+        case GreaterThan:
+        case Above:
+            return Above;
+        case AboveOrEqual:
+        case GreaterThanOrEqual:
+            return AboveOrEqual;
+        default:
+            MOZ_CRASH("unexpected condition");
     }
 }
 
-AssemblerX86Shared::Condition
-AssemblerX86Shared::ConditionWithoutEqual(Condition cond)
-{
+AssemblerX86Shared::Condition AssemblerX86Shared::ConditionWithoutEqual(Condition cond) {
     switch (cond) {
-      case LessThan:
-      case LessThanOrEqual:
-          return LessThan;
-      case Below:
-      case BelowOrEqual:
-        return Below;
-      case GreaterThan:
-      case GreaterThanOrEqual:
-        return GreaterThan;
-      case Above:
-      case AboveOrEqual:
-        return Above;
-      default:
-        MOZ_CRASH("unexpected condition");
+        case LessThan:
+        case LessThanOrEqual:
+            return LessThan;
+        case Below:
+        case BelowOrEqual:
+            return Below;
+        case GreaterThan:
+        case GreaterThanOrEqual:
+            return GreaterThan;
+        case Above:
+        case AboveOrEqual:
+            return Above;
+        default:
+            MOZ_CRASH("unexpected condition");
     }
 }
 
-AssemblerX86Shared::DoubleCondition
-AssemblerX86Shared::InvertCondition(DoubleCondition cond)
-{
+AssemblerX86Shared::DoubleCondition AssemblerX86Shared::InvertCondition(DoubleCondition cond) {
     switch (cond) {
-      case DoubleEqual:
-        return DoubleNotEqualOrUnordered;
-      case DoubleEqualOrUnordered:
-        return DoubleNotEqual;
-      case DoubleNotEqualOrUnordered:
-        return DoubleEqual;
-      case DoubleNotEqual:
-        return DoubleEqualOrUnordered;
-      case DoubleLessThan:
-        return DoubleGreaterThanOrEqualOrUnordered;
-      case DoubleLessThanOrUnordered:
-        return DoubleGreaterThanOrEqual;
-      case DoubleLessThanOrEqual:
-        return DoubleGreaterThanOrUnordered;
-      case DoubleLessThanOrEqualOrUnordered:
-        return DoubleGreaterThan;
-      case DoubleGreaterThan:
-        return DoubleLessThanOrEqualOrUnordered;
-      case DoubleGreaterThanOrUnordered:
-        return DoubleLessThanOrEqual;
-      case DoubleGreaterThanOrEqual:
-        return DoubleLessThanOrUnordered;
-      case DoubleGreaterThanOrEqualOrUnordered:
-        return DoubleLessThan;
-      default:
-        MOZ_CRASH("unexpected condition");
+        case DoubleEqual:
+            return DoubleNotEqualOrUnordered;
+        case DoubleEqualOrUnordered:
+            return DoubleNotEqual;
+        case DoubleNotEqualOrUnordered:
+            return DoubleEqual;
+        case DoubleNotEqual:
+            return DoubleEqualOrUnordered;
+        case DoubleLessThan:
+            return DoubleGreaterThanOrEqualOrUnordered;
+        case DoubleLessThanOrUnordered:
+            return DoubleGreaterThanOrEqual;
+        case DoubleLessThanOrEqual:
+            return DoubleGreaterThanOrUnordered;
+        case DoubleLessThanOrEqualOrUnordered:
+            return DoubleGreaterThan;
+        case DoubleGreaterThan:
+            return DoubleLessThanOrEqualOrUnordered;
+        case DoubleGreaterThanOrUnordered:
+            return DoubleLessThanOrEqual;
+        case DoubleGreaterThanOrEqual:
+            return DoubleLessThanOrUnordered;
+        case DoubleGreaterThanOrEqualOrUnordered:
+            return DoubleLessThan;
+        default:
+            MOZ_CRASH("unexpected condition");
     }
 }
 
-void
-AssemblerX86Shared::verifyHeapAccessDisassembly(uint32_t begin, uint32_t end,
-                                                const Disassembler::HeapAccess& heapAccess)
-{
+void AssemblerX86Shared::verifyHeapAccessDisassembly(uint32_t begin, uint32_t end,
+                                                     const Disassembler::HeapAccess& heapAccess) {
 #ifdef DEBUG
-    if (masm.oom())
-        return;
+    if (masm.oom()) return;
     unsigned char* code = masm.data();
     Disassembler::VerifyHeapAccess(code + begin, code + end, heapAccess);
 #endif
@@ -267,9 +237,7 @@ bool CPUInfo::avxEnabled = false;
 bool CPUInfo::popcntPresent = false;
 bool CPUInfo::needAmdBugWorkaround = false;
 
-static uintptr_t
-ReadXGETBV()
-{
+static uintptr_t ReadXGETBV() {
     // We use a variety of low-level mechanisms to get at the xgetbv
     // instruction, including spelling out the xgetbv instruction as bytes,
     // because older compilers and assemblers may not recognize the instruction
@@ -291,9 +259,7 @@ ReadXGETBV()
     return xcr0EAX;
 }
 
-void
-CPUInfo::SetSSEVersion()
-{
+void CPUInfo::SetSSEVersion() {
     int flagsEAX = 0;
     int flagsECX = 0;
     int flagsEDX = 0;
@@ -305,32 +271,28 @@ CPUInfo::SetSSEVersion()
     flagsECX = cpuinfo[2];
     flagsEDX = cpuinfo[3];
 #elif defined(__GNUC__)
-# ifdef JS_CODEGEN_X64
-    asm (
-         "movl $0x1, %%eax;"
-         "cpuid;"
-         : "=a" (flagsEAX), "=c" (flagsECX), "=d" (flagsEDX)
-         :
-         : "%ebx"
-         );
-# else
+#ifdef JS_CODEGEN_X64
+    asm("movl $0x1, %%eax;"
+        "cpuid;"
+        : "=a"(flagsEAX), "=c"(flagsECX), "=d"(flagsEDX)
+        :
+        : "%ebx");
+#else
     // On x86, preserve ebx. The compiler needs it for PIC mode.
     // Some older processors don't fill the ecx register with cpuid, so clobber
     // it before calling cpuid, so that there's no risk of picking random bits
     // indicating SSE3/SSE4 are present.
-    asm (
-         "xor %%ecx, %%ecx;"
-         "movl $0x1, %%eax;"
-         "pushl %%ebx;"
-         "cpuid;"
-         "popl %%ebx;"
-         : "=a" (flagsEAX), "=c" (flagsECX), "=d" (flagsEDX)
-         :
-         :
-         );
-# endif
+    asm("xor %%ecx, %%ecx;"
+        "movl $0x1, %%eax;"
+        "pushl %%ebx;"
+        "cpuid;"
+        "popl %%ebx;"
+        : "=a"(flagsEAX), "=c"(flagsECX), "=d"(flagsEDX)
+        :
+        :);
+#endif
 #else
-# error "Unsupported compiler"
+#error "Unsupported compiler"
 #endif
 
     static const int SSEBit = 1 << 25;
@@ -340,13 +302,20 @@ CPUInfo::SetSSEVersion()
     static const int SSE41Bit = 1 << 19;
     static const int SSE42Bit = 1 << 20;
 
-    if (flagsECX & SSE42Bit)      maxSSEVersion = SSE4_2;
-    else if (flagsECX & SSE41Bit) maxSSEVersion = SSE4_1;
-    else if (flagsECX & SSSE3Bit) maxSSEVersion = SSSE3;
-    else if (flagsECX & SSE3Bit)  maxSSEVersion = SSE3;
-    else if (flagsEDX & SSE2Bit)  maxSSEVersion = SSE2;
-    else if (flagsEDX & SSEBit)   maxSSEVersion = SSE;
-    else                          maxSSEVersion = NoSSE;
+    if (flagsECX & SSE42Bit)
+        maxSSEVersion = SSE4_2;
+    else if (flagsECX & SSE41Bit)
+        maxSSEVersion = SSE4_1;
+    else if (flagsECX & SSSE3Bit)
+        maxSSEVersion = SSSE3;
+    else if (flagsECX & SSE3Bit)
+        maxSSEVersion = SSE3;
+    else if (flagsEDX & SSE2Bit)
+        maxSSEVersion = SSE2;
+    else if (flagsEDX & SSEBit)
+        maxSSEVersion = SSE;
+    else
+        maxSSEVersion = NoSSE;
 
     if (maxEnabledSSEVersion != UnknownSSE)
         maxSSEVersion = Min(maxSSEVersion, maxEnabledSSEVersion);

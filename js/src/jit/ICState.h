@@ -13,9 +13,8 @@ namespace js {
 namespace jit {
 
 // ICState stores information about a Baseline or Ion IC.
-class ICState
-{
-  public:
+class ICState {
+   public:
     // When we attach the maximum number of stubs, we discard all stubs and
     // transition the IC to Megamorphic to attach stubs that are more generic
     // (handle more cases). If we again attach the maximum number of stubs, we
@@ -26,7 +25,7 @@ class ICState
     // to avoid wasting time trying.
     enum class Mode : uint8_t { Specialized = 0, Megamorphic, Generic };
 
-  private:
+   private:
     Mode mode_;
 
     // Number of optimized stubs currently attached to this IC.
@@ -48,19 +47,14 @@ class ICState
 
     MOZ_ALWAYS_INLINE size_t maxFailures() const {
         // Allow more failures if we attached stubs.
-        static_assert(MaxOptimizedStubs == 6,
-                      "numFailures_/maxFailures should fit in uint8_t");
+        static_assert(MaxOptimizedStubs == 6, "numFailures_/maxFailures should fit in uint8_t");
         size_t res = 5 + size_t(40) * numOptimizedStubs_;
         MOZ_ASSERT(res <= UINT8_MAX, "numFailures_ should not overflow");
         return res;
     }
 
-  public:
-    ICState()
-      : invalid_(false)
-    {
-        reset();
-    }
+   public:
+    ICState() : invalid_(false) { reset(); }
 
     Mode mode() const { return mode_; }
     size_t numOptimizedStubs() const { return numOptimizedStubs_; }
@@ -69,8 +63,7 @@ class ICState
         // Note: we cannot assert that numOptimizedStubs_ <= MaxOptimizedStubs
         // because old-style baseline ICs may attach more stubs than
         // MaxOptimizedStubs allows.
-        if (mode_ == Mode::Generic || JitOptions.disableCacheIR)
-            return false;
+        if (mode_ == Mode::Generic || JitOptions.disableCacheIR) return false;
         return true;
     }
 
@@ -83,10 +76,8 @@ class ICState
         // Note: we cannot assert that numOptimizedStubs_ <= MaxOptimizedStubs
         // because old-style baseline ICs may attach more stubs than
         // MaxOptimizedStubs allows.
-        if (mode_ == Mode::Generic)
-            return false;
-        if (numOptimizedStubs_ < MaxOptimizedStubs && numFailures_ < maxFailures())
-            return false;
+        if (mode_ == Mode::Generic) return false;
+        if (numOptimizedStubs_ < MaxOptimizedStubs && numFailures_ < maxFailures()) return false;
         if (numFailures_ == maxFailures() || mode_ == Mode::Megamorphic) {
             transition(Mode::Generic);
             return true;
@@ -120,12 +111,10 @@ class ICState
         MOZ_ASSERT(numOptimizedStubs_ > 0);
         numOptimizedStubs_--;
     }
-    void trackUnlinkedAllStubs() {
-        numOptimizedStubs_ = 0;
-    }
+    void trackUnlinkedAllStubs() { numOptimizedStubs_ = 0; }
 };
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_ICState_h */

@@ -4,15 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ColorLayerComposite.h"
-#include "mozilla/RefPtr.h"             // for RefPtr
-#include "mozilla/gfx/Matrix.h"         // for Matrix4x4
-#include "mozilla/gfx/Point.h"          // for Point
-#include "mozilla/gfx/Rect.h"           // for Rect
-#include "mozilla/gfx/Types.h"          // for Color
-#include "mozilla/layers/Compositor.h"  // for Compositor
+#include "mozilla/RefPtr.h"                  // for RefPtr
+#include "mozilla/gfx/Matrix.h"              // for Matrix4x4
+#include "mozilla/gfx/Point.h"               // for Point
+#include "mozilla/gfx/Rect.h"                // for Rect
+#include "mozilla/gfx/Types.h"               // for Color
+#include "mozilla/layers/Compositor.h"       // for Compositor
 #include "mozilla/layers/CompositorTypes.h"  // for DiagnosticFlags::COLOR
-#include "mozilla/layers/Effects.h"     // for Effect, EffectChain, etc
-#include "mozilla/mozalloc.h"           // for operator delete, etc
+#include "mozilla/layers/Effects.h"          // for Effect, EffectChain, etc
+#include "mozilla/mozalloc.h"                // for operator delete, etc
 
 namespace mozilla {
 namespace layers {
@@ -27,16 +27,22 @@ ColorLayerComposite::RenderLayer(const gfx::IntRect& aClipRect,
 
   const Matrix4x4& transform = GetEffectiveTransform();
 
-  RenderWithAllMasks(this, mCompositor, aClipRect,
+  RenderWithAllMasks(this,
+                     mCompositor,
+                     aClipRect,
                      [&](EffectChain& effectChain, const IntRect& clipRect) {
-    GenEffectChain(effectChain);
+                       GenEffectChain(effectChain);
 
-    mCompositor->DrawGeometry(rect, clipRect, effectChain,
-                              GetEffectiveOpacity(), transform, aGeometry);
-  });
+                       mCompositor->DrawGeometry(rect,
+                                                 clipRect,
+                                                 effectChain,
+                                                 GetEffectiveOpacity(),
+                                                 transform,
+                                                 aGeometry);
+                     });
 
-  mCompositor->DrawDiagnostics(DiagnosticFlags::COLOR, rect, aClipRect,
-                               transform);
+  mCompositor->DrawDiagnostics(
+      DiagnosticFlags::COLOR, rect, aClipRect, transform);
 }
 
 void
@@ -46,5 +52,5 @@ ColorLayerComposite::GenEffectChain(EffectChain& aEffect)
   aEffect.mPrimaryEffect = new EffectSolidColor(GetColor());
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

@@ -24,12 +24,10 @@ using namespace mozilla::dom;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(ShadowRoot)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ShadowRoot,
-                                                  DocumentFragment)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ShadowRoot, DocumentFragment)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStyleSheetList)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAssociatedBinding)
-  for (auto iter = tmp->mIdentifierMap.ConstIter(); !iter.Done();
-       iter.Next()) {
+  for (auto iter = tmp->mIdentifierMap.ConstIter(); !iter.Done(); iter.Next()) {
     iter.Get()->Traverse(&cb);
   }
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -54,10 +52,10 @@ NS_IMPL_RELEASE_INHERITED(ShadowRoot, DocumentFragment)
 ShadowRoot::ShadowRoot(Element* aElement,
                        already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
                        nsXBLPrototypeBinding* aProtoBinding)
-  : DocumentFragment(aNodeInfo)
-  , mProtoBinding(aProtoBinding)
-  , mInsertionPointChanged(false)
-  , mIsComposedDocParticipant(false)
+    : DocumentFragment(aNodeInfo),
+      mProtoBinding(aProtoBinding),
+      mInsertionPointChanged(false),
+      mIsComposedDocParticipant(false)
 {
   SetHost(aElement);
 
@@ -122,15 +120,16 @@ ShadowRoot::StyleSheetChanged()
 }
 
 void
-ShadowRoot::InsertSheet(StyleSheet* aSheet,
-                        nsIContent* aLinkingContent)
+ShadowRoot::InsertSheet(StyleSheet* aSheet, nsIContent* aLinkingContent)
 {
-  nsCOMPtr<nsIStyleSheetLinkingElement>
-    linkingElement = do_QueryInterface(aLinkingContent);
-  MOZ_ASSERT(linkingElement, "The only styles in a ShadowRoot should come "
-                             "from <style>.");
+  nsCOMPtr<nsIStyleSheetLinkingElement> linkingElement =
+      do_QueryInterface(aLinkingContent);
+  MOZ_ASSERT(linkingElement,
+             "The only styles in a ShadowRoot should come "
+             "from <style>.");
 
-  linkingElement->SetStyleSheet(aSheet); // This sets the ownerNode on the sheet
+  linkingElement->SetStyleSheet(
+      aSheet);  // This sets the ownerNode on the sheet
 
   // Find the correct position to insert into the style sheet list (must
   // be in tree order).
@@ -165,7 +164,7 @@ ShadowRoot::RemoveSheet(StyleSheet* aSheet)
 Element*
 ShadowRoot::GetElementById(const nsAString& aElementId)
 {
-  nsIdentifierMapEntry *entry = mIdentifierMap.GetEntry(aElementId);
+  nsIdentifierMapEntry* entry = mIdentifierMap.GetEntry(aElementId);
   return entry ? entry->GetIdElement() : nullptr;
 }
 
@@ -182,9 +181,8 @@ ShadowRoot::GetElementsByTagNameNS(const nsAString& aNamespaceURI,
   int32_t nameSpaceId = kNameSpaceID_Wildcard;
 
   if (!aNamespaceURI.EqualsLiteral("*")) {
-    nsresult rv =
-      nsContentUtils::NameSpaceManager()->RegisterNameSpace(aNamespaceURI,
-                                                            nameSpaceId);
+    nsresult rv = nsContentUtils::NameSpaceManager()->RegisterNameSpace(
+        aNamespaceURI, nameSpaceId);
     NS_ENSURE_SUCCESS(rv, nullptr);
   }
 
@@ -234,8 +232,8 @@ ShadowRoot::RemoveInsertionPoint(HTMLContentElement* aInsertionPoint)
 }
 
 void
-ShadowRoot::RemoveDestInsertionPoint(nsIContent* aInsertionPoint,
-                                     nsTArray<nsIContent*>& aDestInsertionPoints)
+ShadowRoot::RemoveDestInsertionPoint(
+    nsIContent* aInsertionPoint, nsTArray<nsIContent*>& aDestInsertionPoints)
 {
   // Remove the insertion point from the destination insertion points.
   //
@@ -382,9 +380,10 @@ ShadowRoot::DistributeAllNodes()
     // Keep track of instances where the content insertion point is distributed
     // (parent of insertion point has a ShadowRoot).
     nsIContent* insertionParent = insertionPoint->GetParent();
-    MOZ_ASSERT(insertionParent, "The only way for an insertion point to be in the"
-                                "mInsertionPoints array is to be a descendant of a"
-                                "ShadowRoot, in which case, it should have a parent");
+    MOZ_ASSERT(insertionParent,
+               "The only way for an insertion point to be in the"
+               "mInsertionPoints array is to be a descendant of a"
+               "ShadowRoot, in which case, it should have a parent");
 
     // If the parent of the insertion point has a ShadowRoot, the nodes distributed
     // to the insertion point must be reprojected to the insertion points of the
@@ -479,8 +478,7 @@ ShadowRoot::IsPooledNode(nsIContent* aContent) const
 
   if (auto* content = HTMLContentElement::FromContentOrNull(container)) {
     // Fallback content will end up in pool if its parent is a child of the host.
-    return content->IsInsertionPoint() &&
-           content->MatchedNodes().IsEmpty() &&
+    return content->IsInsertionPoint() && content->MatchedNodes().IsEmpty() &&
            container->GetParentNode() == host;
   }
 
@@ -566,8 +564,7 @@ ShadowRoot::ContentAppended(nsIDocument* aDocument,
                             nsIContent* aContainer,
                             nsIContent* aFirstNewContent)
 {
-  for (nsIContent* content = aFirstNewContent;
-       content;
+  for (nsIContent* content = aFirstNewContent; content;
        content = content->GetNextSibling()) {
     ContentInserted(aDocument, aContainer, aFirstNewContent);
   }
@@ -652,14 +649,16 @@ ShadowRoot::ContentRemoved(nsIDocument* aDocument,
 }
 
 nsresult
-ShadowRoot::Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+ShadowRoot::Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                  nsINode** aResult,
                   bool aPreallocateChildren) const
 {
   *aResult = nullptr;
   return NS_ERROR_DOM_DATA_CLONE_ERR;
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(ShadowRootStyleSheetList, StyleSheetList,
+NS_IMPL_CYCLE_COLLECTION_INHERITED(ShadowRootStyleSheetList,
+                                   StyleSheetList,
                                    mShadowRoot)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ShadowRootStyleSheetList)
@@ -669,13 +668,11 @@ NS_IMPL_ADDREF_INHERITED(ShadowRootStyleSheetList, StyleSheetList)
 NS_IMPL_RELEASE_INHERITED(ShadowRootStyleSheetList, StyleSheetList)
 
 ShadowRootStyleSheetList::ShadowRootStyleSheetList(ShadowRoot* aShadowRoot)
-  : mShadowRoot(aShadowRoot)
+    : mShadowRoot(aShadowRoot)
 {
 }
 
-ShadowRootStyleSheetList::~ShadowRootStyleSheetList()
-{
-}
+ShadowRootStyleSheetList::~ShadowRootStyleSheetList() {}
 
 StyleSheet*
 ShadowRootStyleSheetList::IndexedGetter(uint32_t aIndex, bool& aFound)
@@ -692,4 +689,3 @@ ShadowRootStyleSheetList::Length()
 {
   return mShadowRoot->mProtoBinding->SheetCount();
 }
-

@@ -29,15 +29,12 @@ namespace js {
  * by offset from the bytecode with which they were generated.
  */
 struct GSNCache {
-    typedef HashMap<jsbytecode*,
-                    jssrcnote*,
-                    PointerHasher<jsbytecode*>,
-                    SystemAllocPolicy> Map;
+    typedef HashMap<jsbytecode*, jssrcnote*, PointerHasher<jsbytecode*>, SystemAllocPolicy> Map;
 
-    jsbytecode*     code;
-    Map             map;
+    jsbytecode* code;
+    Map map;
 
-    GSNCache() : code(nullptr) { }
+    GSNCache() : code(nullptr) {}
 
     void purge();
 };
@@ -47,10 +44,7 @@ struct GSNCache {
  * associated with a given aliasedvar operation.
  */
 struct EnvironmentCoordinateNameCache {
-    typedef HashMap<uint32_t,
-                    jsid,
-                    DefaultHasher<uint32_t>,
-                    SystemAllocPolicy> Map;
+    typedef HashMap<uint32_t, jsid, DefaultHasher<uint32_t>, SystemAllocPolicy> Map;
 
     Shape* shape;
     Map map;
@@ -59,16 +53,14 @@ struct EnvironmentCoordinateNameCache {
     void purge();
 };
 
-struct EvalCacheEntry
-{
+struct EvalCacheEntry {
     JSLinearString* str;
     JSScript* script;
     JSScript* callerScript;
     jsbytecode* pc;
 };
 
-struct EvalCacheLookup
-{
+struct EvalCacheLookup {
     explicit EvalCacheLookup(JSContext* cx) : str(cx), callerScript(cx) {}
     RootedLinearString str;
     RootedScript callerScript;
@@ -76,8 +68,7 @@ struct EvalCacheLookup
     jsbytecode* pc;
 };
 
-struct EvalCacheHashPolicy
-{
+struct EvalCacheHashPolicy {
     typedef EvalCacheLookup Lookup;
 
     static HashNumber hash(const Lookup& l);
@@ -86,15 +77,12 @@ struct EvalCacheHashPolicy
 
 typedef HashSet<EvalCacheEntry, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
 
-struct LazyScriptHashPolicy
-{
+struct LazyScriptHashPolicy {
     struct Lookup {
         JSContext* cx;
         LazyScript* lazy;
 
-        Lookup(JSContext* cx, LazyScript* lazy)
-          : cx(cx), lazy(lazy)
-        {}
+        Lookup(JSContext* cx, LazyScript* lazy) : cx(cx), lazy(lazy) {}
     };
 
     static const size_t NumHashes = 3;
@@ -118,8 +106,7 @@ typedef FixedSizeHashSet<JSScript*, LazyScriptHashPolicy, 769> LazyScriptCache;
  * When an object is created which matches the criteria in the 'key' section
  * below, an entry is filled with the resulting object.
  */
-class NewObjectCache
-{
+class NewObjectCache {
     /* Statically asserted to be equal to sizeof(JSObject_Slots16) */
     static const unsigned MAX_OBJ_SIZE = 4 * sizeof(void*) + 16 * sizeof(Value);
 
@@ -128,8 +115,7 @@ class NewObjectCache
         JS_STATIC_ASSERT(gc::AllocKind::OBJECT_LAST == gc::AllocKind::OBJECT16_BACKGROUND);
     }
 
-    struct Entry
-    {
+    struct Entry {
         /* Class of the constructed object. */
         const Class* clasp;
 
@@ -163,8 +149,7 @@ class NewObjectCache
 
     Entry entries[41];  // TODO: reconsider size
 
-  public:
-
+   public:
     typedef int EntryIndex;
 
     NewObjectCache() { mozilla::PodZero(this); }
@@ -177,7 +162,8 @@ class NewObjectCache
      * Get the entry index for the given lookup, return whether there was a hit
      * on an existing entry.
      */
-    inline bool lookupProto(const Class* clasp, JSObject* proto, gc::AllocKind kind, EntryIndex* pentry);
+    inline bool lookupProto(const Class* clasp, JSObject* proto, gc::AllocKind kind,
+                            EntryIndex* pentry);
     inline bool lookupGlobal(const Class* clasp, js::GlobalObject* global, gc::AllocKind kind,
                              EntryIndex* pentry);
 
@@ -190,18 +176,18 @@ class NewObjectCache
      * nullptr if returning the object could possibly trigger GC (does not
      * indicate failure).
      */
-    inline NativeObject* newObjectFromHit(JSContext* cx, EntryIndex entry, js::gc::InitialHeap heap);
+    inline NativeObject* newObjectFromHit(JSContext* cx, EntryIndex entry,
+                                          js::gc::InitialHeap heap);
 
     /* Fill an entry after a cache miss. */
-    void fillProto(EntryIndex entry, const Class* clasp, js::TaggedProto proto,
-                   gc::AllocKind kind, NativeObject* obj);
+    void fillProto(EntryIndex entry, const Class* clasp, js::TaggedProto proto, gc::AllocKind kind,
+                   NativeObject* obj);
 
     inline void fillGlobal(EntryIndex entry, const Class* clasp, js::GlobalObject* global,
                            gc::AllocKind kind, NativeObject* obj);
 
     void fillGroup(EntryIndex entry, js::ObjectGroup* group, gc::AllocKind kind,
-                   NativeObject* obj)
-    {
+                   NativeObject* obj) {
         MOZ_ASSERT(obj->group() == group);
         return fill(entry, group->clasp(), group, kind, obj);
     }
@@ -209,7 +195,7 @@ class NewObjectCache
     /* Invalidate any entries which might produce an object with shape/proto. */
     void invalidateEntriesForShape(JSContext* cx, HandleShape shape, HandleObject proto);
 
-  private:
+   private:
     EntryIndex makeIndex(const Class* clasp, gc::Cell* key, gc::AllocKind kind) {
         uintptr_t hash = (uintptr_t(clasp) ^ uintptr_t(key)) + size_t(kind);
         return hash % mozilla::ArrayLength(entries);
@@ -244,13 +230,12 @@ class NewObjectCache
     }
 };
 
-class RuntimeCaches
-{
+class RuntimeCaches {
     UniquePtr<js::MathCache> mathCache_;
 
     js::MathCache* createMathCache(JSContext* cx);
 
-  public:
+   public:
     js::GSNCache gsnCache;
     js::EnvironmentCoordinateNameCache envCoordinateNameCache;
     js::NewObjectCache newObjectCache;
@@ -263,11 +248,9 @@ class RuntimeCaches
     js::MathCache* getMathCache(JSContext* cx) {
         return mathCache_ ? mathCache_.get() : createMathCache(cx);
     }
-    js::MathCache* maybeGetMathCache() {
-        return mathCache_.get();
-    }
+    js::MathCache* maybeGetMathCache() { return mathCache_.get(); }
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_Caches_h */

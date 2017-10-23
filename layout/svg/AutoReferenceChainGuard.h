@@ -59,9 +59,9 @@ namespace mozilla {
  */
 class MOZ_RAII AutoReferenceChainGuard
 {
-  static const int16_t sDefaultMaxChainLength = 10; // arbitrary length
+  static const int16_t sDefaultMaxChainLength = 10;  // arbitrary length
 
-public:
+ public:
   static const int16_t noChain = -2;
 
   /**
@@ -79,12 +79,12 @@ public:
                           bool* aFrameInUse,
                           int16_t* aChainCounter,
                           int16_t aMaxChainLength = sDefaultMaxChainLength
-                          MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-    : mFrame(aFrame)
-    , mFrameInUse(aFrameInUse)
-    , mChainCounter(aChainCounter)
-    , mMaxChainLength(aMaxChainLength)
-    , mBrokeReference(false)
+                              MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : mFrame(aFrame),
+        mFrameInUse(aFrameInUse),
+        mChainCounter(aChainCounter),
+        mMaxChainLength(aMaxChainLength),
+        mBrokeReference(false)
   {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     MOZ_ASSERT(aFrame && aFrameInUse && aChainCounter);
@@ -93,7 +93,8 @@ public:
                (*aChainCounter >= 0 && *aChainCounter < aMaxChainLength));
   }
 
-  ~AutoReferenceChainGuard() {
+  ~AutoReferenceChainGuard()
+  {
     if (mBrokeReference) {
       // We didn't change mFrameInUse or mChainCounter
       return;
@@ -109,7 +110,7 @@ public:
     (*mChainCounter)++;
 
     if (*mChainCounter == mMaxChainLength) {
-      *mChainCounter = noChain; // reset ready for use next time
+      *mChainCounter = noChain;  // reset ready for use next time
     }
   }
 
@@ -120,7 +121,8 @@ public:
    * If it returns false then an error message will be reported to the DevTools
    * console (only once).
    */
-  MOZ_MUST_USE bool Reference() {
+  MOZ_MUST_USE bool Reference()
+  {
     if (MOZ_UNLIKELY(*mFrameInUse)) {
       mBrokeReference = true;
       ReportErrorToConsole();
@@ -149,19 +151,19 @@ public:
     return true;
   }
 
-private:
-  void ReportErrorToConsole() {
+ private:
+  void ReportErrorToConsole()
+  {
     nsAutoString tag, id;
     dom::Element* element = mFrame->GetContent()->AsElement();
     element->GetTagName(tag);
     element->GetId(id);
-    const char16_t* params[] = { tag.get(), id.get() };
+    const char16_t* params[] = {tag.get(), id.get()};
     auto doc = mFrame->GetContent()->OwnerDoc();
-    auto warning = *mFrameInUse ?
-                     nsIDocument::eSVGRefLoop :
-                     nsIDocument::eSVGRefChainLengthExceeded;
-    doc->WarnOnceAbout(warning, /* asError */ true,
-                       params, ArrayLength(params));
+    auto warning = *mFrameInUse ? nsIDocument::eSVGRefLoop
+                                : nsIDocument::eSVGRefChainLengthExceeded;
+    doc->WarnOnceAbout(
+        warning, /* asError */ true, params, ArrayLength(params));
   }
 
   nsIFrame* mFrame;
@@ -172,6 +174,6 @@ private:
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // NS_AUTOREFERENCELIMITER_H
+#endif  // NS_AUTOREFERENCELIMITER_H

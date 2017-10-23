@@ -11,16 +11,16 @@
 #include "nsICollation.h"
 #include "nsString.h"
 
-TEST(Collation, AllocateRowSortKey) {
+TEST(Collation, AllocateRowSortKey)
+{
   nsCOMPtr<nsICollationFactory> colFactory =
-    do_CreateInstance(NS_COLLATIONFACTORY_CONTRACTID);
+      do_CreateInstance(NS_COLLATIONFACTORY_CONTRACTID);
   ASSERT_TRUE(colFactory);
 
   // Don't throw error even if locale name is invalid
   nsCOMPtr<nsICollation> collator;
-  nsresult rv =
-    colFactory->CreateCollationForLocale(NS_LITERAL_CSTRING("$languageName"),
-                                         getter_AddRefs(collator));
+  nsresult rv = colFactory->CreateCollationForLocale(
+      NS_LITERAL_CSTRING("$languageName"), getter_AddRefs(collator));
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   uint8_t* sortKey1 = nullptr;
@@ -28,7 +28,8 @@ TEST(Collation, AllocateRowSortKey) {
   // Don't throw error even if locale name is invalid
   rv = collator->AllocateRawSortKey(nsICollation::kCollationStrengthDefault,
                                     NS_LITERAL_STRING("ABC"),
-                                    &sortKey1, &sortKeyLen1);
+                                    &sortKey1,
+                                    &sortKeyLen1);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   uint8_t* sortKey2 = nullptr;
@@ -36,12 +37,13 @@ TEST(Collation, AllocateRowSortKey) {
   // Don't throw error even if locale name is invalid
   rv = collator->AllocateRawSortKey(nsICollation::kCollationStrengthDefault,
                                     NS_LITERAL_STRING("DEF"),
-                                    &sortKey2, &sortKeyLen2);
+                                    &sortKey2,
+                                    &sortKeyLen2);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   int32_t result;
-  rv = collator->CompareRawSortKey(sortKey1, sortKeyLen1,
-                                   sortKey2, sortKeyLen2, &result);
+  rv = collator->CompareRawSortKey(
+      sortKey1, sortKeyLen1, sortKey2, sortKeyLen2, &result);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   ASSERT_TRUE(result < 0);

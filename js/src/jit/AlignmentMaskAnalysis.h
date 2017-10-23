@@ -14,14 +14,11 @@ namespace jit {
 
 class MIRGraph;
 
-class AlignmentMaskAnalysis
-{
+class AlignmentMaskAnalysis {
     MIRGraph& graph_;
 
-  public:
-    explicit AlignmentMaskAnalysis(MIRGraph& graph)
-      : graph_(graph)
-    {}
+   public:
+    explicit AlignmentMaskAnalysis(MIRGraph& graph) : graph_(graph) {}
 
     MOZ_MUST_USE bool analyze();
 };

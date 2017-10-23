@@ -21,21 +21,23 @@ namespace mozilla {
 //
 class SVGNumberListSMILType : public nsISMILType
 {
-public:
+ public:
   // Singleton for nsSMILValue objects to hold onto.
   static SVGNumberListSMILType sSingleton;
 
-protected:
+ protected:
   // nsISMILType Methods
   // -------------------
 
-  virtual void     Init(nsSMILValue& aValue) const override;
+  virtual void Init(nsSMILValue& aValue) const override;
 
-  virtual void     Destroy(nsSMILValue& aValue) const override;
-  virtual nsresult Assign(nsSMILValue& aDest, const nsSMILValue& aSrc) const override;
-  virtual bool     IsEqual(const nsSMILValue& aLeft,
-                           const nsSMILValue& aRight) const override;
-  virtual nsresult Add(nsSMILValue& aDest, const nsSMILValue& aValueToAdd,
+  virtual void Destroy(nsSMILValue& aValue) const override;
+  virtual nsresult Assign(nsSMILValue& aDest,
+                          const nsSMILValue& aSrc) const override;
+  virtual bool IsEqual(const nsSMILValue& aLeft,
+                       const nsSMILValue& aRight) const override;
+  virtual nsresult Add(nsSMILValue& aDest,
+                       const nsSMILValue& aValueToAdd,
                        uint32_t aCount) const override;
   virtual nsresult ComputeDistance(const nsSMILValue& aFrom,
                                    const nsSMILValue& aTo,
@@ -45,11 +47,11 @@ protected:
                                double aUnitDistance,
                                nsSMILValue& aResult) const override;
 
-private:
+ private:
   // Private constructor: prevent instances beyond my singleton.
   constexpr SVGNumberListSMILType() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_SVGNUMBERLISTSMILTYPE_H_
+#endif  // MOZILLA_SVGNUMBERLISTSMILTYPE_H_

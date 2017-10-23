@@ -6,8 +6,7 @@
 
 #include "jsapi-tests/tests.h"
 
-BEGIN_TEST(testBug795104)
-{
+BEGIN_TEST(testBug795104) {
     JS::CompileOptions opts(cx);
     JS::CompartmentBehaviorsRef(cx->compartment()).setDiscardSource(true);
 

@@ -11,10 +11,10 @@
 
 #include <stdarg.h>
 
-#include "jsapi.h" // for JSErrorNotes, JSErrorReport
+#include "jsapi.h"  // for JSErrorNotes, JSErrorReport
 
-#include "js/UniquePtr.h" // for UniquePtr
-#include "js/Utility.h" // for UniqueTwoByteChars
+#include "js/UniquePtr.h"  // for UniquePtr
+#include "js/Utility.h"    // for UniqueTwoByteChars
 
 struct JSContext;
 
@@ -24,8 +24,7 @@ namespace js {
  * Metadata for a compilation error (or warning) at a particular offset, or at
  * no offset (i.e. with respect to a script overall).
  */
-struct ErrorMetadata
-{
+struct ErrorMetadata {
     // The file/URL where the error occurred.
     const char* filename;
 
@@ -64,23 +63,21 @@ struct ErrorMetadata
     bool isMuted;
 };
 
-class CompileError : public JSErrorReport
-{
-  public:
+class CompileError : public JSErrorReport {
+   public:
     void throwError(JSContext* cx);
 };
 
 /** Send a JSErrorReport to the warningReporter callback. */
-extern void
-CallWarningReporter(JSContext* cx, JSErrorReport* report);
+extern void CallWarningReporter(JSContext* cx, JSErrorReport* report);
 
 /**
  * Report a compile error during script processing prior to execution of the
  * script.
  */
-extern void
-ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNotes> notes,
-                   unsigned flags, unsigned errorNumber, va_list args);
+extern void ReportCompileError(JSContext* cx, ErrorMetadata&& metadata,
+                               UniquePtr<JSErrorNotes> notes, unsigned flags, unsigned errorNumber,
+                               va_list args);
 
 /**
  * Report a compile warning during script processing prior to execution of the
@@ -90,18 +87,17 @@ ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNot
  * This function DOES NOT respect an existing werror option.  If the caller
  * wishes such option to be respected, it must do so itself.
  */
-extern MOZ_MUST_USE bool
-ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNotes> notes,
-                     unsigned flags, unsigned errorNumber, va_list args);
+extern MOZ_MUST_USE bool ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata,
+                                              UniquePtr<JSErrorNotes> notes, unsigned flags,
+                                              unsigned errorNumber, va_list args);
 
 /**
  * Report the given error Value to the given global.  The JSContext is not
  * assumed to be in any particular compartment, but the global and error are
  * expected to be same-compartment.
  */
-extern void
-ReportErrorToGlobal(JSContext* cx, JS::HandleObject global, JS::HandleValue error);
+extern void ReportErrorToGlobal(JSContext* cx, JS::HandleObject global, JS::HandleValue error);
 
-} // namespace js
+}  // namespace js
 
 #endif /* vm_ErrorReporting_h */

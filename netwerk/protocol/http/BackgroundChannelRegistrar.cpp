@@ -32,8 +32,7 @@ BackgroundChannelRegistrar::~BackgroundChannelRegistrar()
 
 void
 BackgroundChannelRegistrar::NotifyChannelLinked(
-  HttpChannelParent* aChannelParent,
-  HttpBackgroundChannelParent* aBgParent)
+    HttpChannelParent* aChannelParent, HttpBackgroundChannelParent* aBgParent)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aChannelParent);
@@ -54,9 +53,8 @@ BackgroundChannelRegistrar::DeleteChannel(uint64_t aKey)
 }
 
 void
-BackgroundChannelRegistrar::LinkHttpChannel(
-  uint64_t aKey,
-  HttpChannelParent* aChannel)
+BackgroundChannelRegistrar::LinkHttpChannel(uint64_t aKey,
+                                            HttpChannelParent* aChannel)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aChannel);
@@ -75,8 +73,7 @@ BackgroundChannelRegistrar::LinkHttpChannel(
 
 void
 BackgroundChannelRegistrar::LinkBackgroundChannel(
-  uint64_t aKey,
-  HttpBackgroundChannelParent* aBgChannel)
+    uint64_t aKey, HttpBackgroundChannelParent* aBgChannel)
 {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aBgChannel);
@@ -93,5 +90,5 @@ BackgroundChannelRegistrar::LinkBackgroundChannel(
   NotifyChannelLinked(parent, aBgChannel);
 }
 
-} // namespace net
-} // namespace mozilla
+}  // namespace net
+}  // namespace mozilla

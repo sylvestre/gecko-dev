@@ -28,8 +28,9 @@ CSSMozDocumentRule::GetCssRules(nsIDOMCSSRuleList** aRuleList)
 }
 
 NS_IMETHODIMP
-CSSMozDocumentRule::InsertRule(const nsAString & aRule,
-                               uint32_t aIndex, uint32_t* _retval)
+CSSMozDocumentRule::InsertRule(const nsAString& aRule,
+                               uint32_t aIndex,
+                               uint32_t* _retval)
 {
   return GroupRule::InsertRule(aRule, aIndex, _retval);
 }
@@ -54,5 +55,5 @@ CSSMozDocumentRule::WrapObject(JSContext* aCx,
   return CSSMozDocumentRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

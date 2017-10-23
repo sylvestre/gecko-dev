@@ -16,8 +16,9 @@ NS_IMPL_ISUPPORTS_INHERITED(FocusEvent, UIEvent, nsIDOMFocusEvent)
 FocusEvent::FocusEvent(EventTarget* aOwner,
                        nsPresContext* aPresContext,
                        InternalFocusEvent* aEvent)
-  : UIEvent(aOwner, aPresContext,
-            aEvent ? aEvent : new InternalFocusEvent(false, eFocus))
+    : UIEvent(aOwner,
+              aPresContext,
+              aEvent ? aEvent : new InternalFocusEvent(false, eFocus))
 {
   if (aEvent) {
     mEventIsInternal = false;
@@ -38,8 +39,8 @@ FocusEvent::GetRelatedTarget(nsIDOMEventTarget** aRelatedTarget)
 already_AddRefed<EventTarget>
 FocusEvent::GetRelatedTarget()
 {
-  return
-    EnsureWebAccessibleRelatedTarget(mEvent->AsFocusEvent()->mRelatedTarget);
+  return EnsureWebAccessibleRelatedTarget(
+      mEvent->AsFocusEvent()->mRelatedTarget);
 }
 
 void
@@ -65,15 +66,19 @@ FocusEvent::Constructor(const GlobalObject& aGlobal,
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<FocusEvent> e = new FocusEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
-  e->InitFocusEvent(aType, aParam.mBubbles, aParam.mCancelable, aParam.mView,
-                    aParam.mDetail, aParam.mRelatedTarget);
+  e->InitFocusEvent(aType,
+                    aParam.mBubbles,
+                    aParam.mCancelable,
+                    aParam.mView,
+                    aParam.mDetail,
+                    aParam.mRelatedTarget);
   e->SetTrusted(trusted);
   e->SetComposed(aParam.mComposed);
   return e.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 using namespace mozilla;
 using namespace mozilla::dom;

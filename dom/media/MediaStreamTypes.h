@@ -7,17 +7,19 @@
 #ifndef MOZILLA_MEDIASTREAMTYPES_h_
 #define MOZILLA_MEDIASTREAMTYPES_h_
 
-#include "StreamTracks.h" // for TrackID
+#include "StreamTracks.h"  // for TrackID
 
 namespace mozilla {
 
-enum MediaStreamGraphEvent : uint32_t {
+enum MediaStreamGraphEvent : uint32_t
+{
   EVENT_FINISHED,
   EVENT_REMOVED,
 };
 
 // maskable flags, not a simple enumerated value
-enum TrackEventCommand : uint32_t {
+enum TrackEventCommand : uint32_t
+{
   TRACK_EVENT_NONE = 0x00,
   TRACK_EVENT_CREATED = 0x01,
   TRACK_EVENT_ENDED = 0x02,
@@ -33,15 +35,20 @@ enum TrackEventCommand : uint32_t {
  */
 enum class DisabledTrackMode
 {
-  ENABLED, SILENCE_BLACK, SILENCE_FREEZE
+  ENABLED,
+  SILENCE_BLACK,
+  SILENCE_FREEZE
 };
-struct DisabledTrack {
+struct DisabledTrack
+{
   DisabledTrack(TrackID aTrackID, DisabledTrackMode aMode)
-    : mTrackID(aTrackID), mMode(aMode) {}
+      : mTrackID(aTrackID), mMode(aMode)
+  {
+  }
   TrackID mTrackID;
   DisabledTrackMode mMode;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // MOZILLA_MEDIASTREAMTYPES_h_
+#endif  // MOZILLA_MEDIASTREAMTYPES_h_

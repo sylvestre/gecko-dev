@@ -13,8 +13,7 @@ TestBadActorParent::Main()
   // should die, and the parent process should not abort.
 
   PTestBadActorSubParent* child = SendPTestBadActorSubConstructor();
-  if (!child)
-    fail("Sending constructor");
+  if (!child) fail("Sending constructor");
 
   Unused << child->Call__delete__(child);
 }
@@ -23,7 +22,8 @@ TestBadActorParent::Main()
 // hard to test, so instead we use the previous behavior and kill the
 // child process.
 void
-TestBadActorParent::HandleFatalError(const char* aProtocolName, const char* aErrorMsg) const
+TestBadActorParent::HandleFatalError(const char* aProtocolName,
+                                     const char* aErrorMsg) const
 {
   if (!!strcmp(aProtocolName, "PTestBadActorSubParent")) {
     fail("wrong protocol hit a fatal error");
@@ -71,5 +71,5 @@ TestBadActorChild::RecvPTestBadActorSubConstructor(PTestBadActorSubChild* actor)
   return IPC_OK();
 }
 
-} // namespace _ipdltest
-} // namespace mozilla
+}  // namespace _ipdltest
+}  // namespace mozilla

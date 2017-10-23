@@ -17,16 +17,16 @@
 
 class nsXULLabelFrame final : public nsBlockFrame
 {
-public:
+ public:
   NS_DECL_FRAMEARENA_HELPERS(nsXULLabelFrame)
 
   friend nsIFrame* NS_NewXULLabelFrame(nsIPresShell* aPresShell,
-                                       nsStyleContext *aContext);
+                                       nsStyleContext* aContext);
 
   // nsIFrame
-  virtual void Init(nsIContent*       aContent,
+  virtual void Init(nsIContent* aContent,
                     nsContainerFrame* aParent,
-                    nsIFrame*         aPrevInFlow) override;
+                    nsIFrame* aPrevInFlow) override;
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot) override;
 
@@ -38,10 +38,11 @@ public:
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-protected:
+ protected:
   explicit nsXULLabelFrame(nsStyleContext* aContext)
-    : nsBlockFrame(aContext, kClassID)
-  {}
+      : nsBlockFrame(aContext, kClassID)
+  {
+  }
 
   nsresult RegUnregAccessKey(bool aDoReg);
 };

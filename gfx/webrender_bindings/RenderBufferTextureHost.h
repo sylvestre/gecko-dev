@@ -13,7 +13,7 @@ namespace wr {
 
 class RenderBufferTextureHost final : public RenderTextureHost
 {
-public:
+ public:
   RenderBufferTextureHost(uint8_t* aBuffer,
                           const layers::BufferDescriptor& aDescriptor);
 
@@ -27,10 +27,9 @@ public:
 
   class RenderBufferData
   {
-  public:
+   public:
     RenderBufferData(uint8_t* aData, size_t aBufferSize)
-      : mData(aData)
-      , mBufferSize(aBufferSize)
+        : mData(aData), mBufferSize(aBufferSize)
     {
     }
     const uint8_t* mData;
@@ -39,13 +38,10 @@ public:
 
   RenderBufferData GetBufferDataForRender(uint8_t aChannelIndex);
 
-private:
+ private:
   virtual ~RenderBufferTextureHost();
 
-  uint8_t* GetBuffer() const
-  {
-    return mBuffer;
-  }
+  uint8_t* GetBuffer() const { return mBuffer; }
 
   uint8_t* mBuffer;
   layers::BufferDescriptor mDescriptor;
@@ -65,7 +61,7 @@ private:
   bool mLocked;
 };
 
-} // namespace wr
-} // namespace mozilla
+}  // namespace wr
+}  // namespace mozilla
 
-#endif // MOZILLA_GFX_RENDERBUFFERTEXTUREHOST_H
+#endif  // MOZILLA_GFX_RENDERBUFFERTEXTUREHOST_H

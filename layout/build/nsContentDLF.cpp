@@ -31,7 +31,6 @@
 #include "nsMimeTypes.h"
 #include "DecoderTraits.h"
 
-
 // plugins
 #include "nsIPluginHost.h"
 #include "nsPluginHost.h"
@@ -48,35 +47,25 @@ static NS_DEFINE_IID(kVideoDocumentCID, NS_VIDEODOCUMENT_CID);
 static NS_DEFINE_IID(kImageDocumentCID, NS_IMAGEDOCUMENT_CID);
 static NS_DEFINE_IID(kXULDocumentCID, NS_XULDOCUMENT_CID);
 
-already_AddRefed<nsIContentViewer> NS_NewContentViewer();
+already_AddRefed<nsIContentViewer>
+NS_NewContentViewer();
 
-static const char* const gHTMLTypes[] = {
-  TEXT_HTML,
-  VIEWSOURCE_CONTENT_TYPE,
-  APPLICATION_XHTML_XML,
-  APPLICATION_WAPXHTML_XML,
-  0
-};
+static const char* const gHTMLTypes[] = {TEXT_HTML,
+                                         VIEWSOURCE_CONTENT_TYPE,
+                                         APPLICATION_XHTML_XML,
+                                         APPLICATION_WAPXHTML_XML,
+                                         0};
 
-static const char* const gXMLTypes[] = {
-  TEXT_XML,
-  APPLICATION_XML,
-  APPLICATION_MATHML_XML,
-  APPLICATION_RDF_XML,
-  TEXT_RDF,
-  0
-};
+static const char* const gXMLTypes[] = {TEXT_XML,
+                                        APPLICATION_XML,
+                                        APPLICATION_MATHML_XML,
+                                        APPLICATION_RDF_XML,
+                                        TEXT_RDF,
+                                        0};
 
-static const char* const gSVGTypes[] = {
-  IMAGE_SVG_XML,
-  0
-};
+static const char* const gSVGTypes[] = {IMAGE_SVG_XML, 0};
 
-static const char* const gXULTypes[] = {
-  TEXT_XUL,
-  APPLICATION_CACHED_XUL,
-  0
-};
+static const char* const gXULTypes[] = {TEXT_XUL, APPLICATION_CACHED_XUL, 0};
 
 static bool
 IsTypeInList(const nsACString& aType, const char* const aList[])
@@ -106,28 +95,24 @@ NS_NewContentDocumentLoaderFactory(nsIDocumentLoaderFactory** aResult)
   return CallQueryInterface(it, aResult);
 }
 
-nsContentDLF::nsContentDLF()
-{
-}
+nsContentDLF::nsContentDLF() {}
 
-nsContentDLF::~nsContentDLF()
-{
-}
+nsContentDLF::~nsContentDLF() {}
 
-NS_IMPL_ISUPPORTS(nsContentDLF,
-                  nsIDocumentLoaderFactory)
+NS_IMPL_ISUPPORTS(nsContentDLF, nsIDocumentLoaderFactory)
 
 bool
 MayUseXULXBL(nsIChannel* aChannel)
 {
-  nsIScriptSecurityManager *securityManager =
-    nsContentUtils::GetSecurityManager();
+  nsIScriptSecurityManager* securityManager =
+      nsContentUtils::GetSecurityManager();
   if (!securityManager) {
     return false;
   }
 
   nsCOMPtr<nsIPrincipal> principal;
-  securityManager->GetChannelResultPrincipal(aChannel, getter_AddRefs(principal));
+  securityManager->GetChannelResultPrincipal(aChannel,
+                                             getter_AddRefs(principal));
   NS_ENSURE_TRUE(principal, false);
 
   return nsContentUtils::AllowXULXBLForPrincipal(principal);
@@ -147,9 +132,9 @@ nsContentDLF::CreateInstance(const char* aCommand,
   nsAutoCString contentType(aContentType);
 
   // Are we viewing source?
-  nsCOMPtr<nsIViewSourceChannel> viewSourceChannel = do_QueryInterface(aChannel);
-  if (viewSourceChannel)
-  {
+  nsCOMPtr<nsIViewSourceChannel> viewSourceChannel =
+      do_QueryInterface(aChannel);
+  if (viewSourceChannel) {
     aCommand = "view-source";
 
     // The parser freaks out when it sees the content-type that a
@@ -158,13 +143,12 @@ nsContentDLF::CreateInstance(const char* aCommand,
     // text/plain.
     nsAutoCString type;
     mozilla::Unused << viewSourceChannel->GetOriginalContentType(type);
-    bool knownType =
-      (!type.EqualsLiteral(VIEWSOURCE_CONTENT_TYPE) &&
-        IsTypeInList(type, gHTMLTypes)) ||
-      nsContentUtils::IsPlainTextType(type) ||
-      IsTypeInList(type, gXMLTypes) ||
-      IsTypeInList(type, gSVGTypes) ||
-      IsTypeInList(type, gXMLTypes);
+    bool knownType = (!type.EqualsLiteral(VIEWSOURCE_CONTENT_TYPE) &&
+                      IsTypeInList(type, gHTMLTypes)) ||
+                     nsContentUtils::IsPlainTextType(type) ||
+                     IsTypeInList(type, gXMLTypes) ||
+                     IsTypeInList(type, gSVGTypes) ||
+                     IsTypeInList(type, gXMLTypes);
 
     if (knownType) {
       viewSourceChannel->SetContentType(type);
@@ -184,25 +168,34 @@ nsContentDLF::CreateInstance(const char* aCommand,
   if (IsTypeInList(contentType, gHTMLTypes) ||
       nsContentUtils::IsPlainTextType(contentType)) {
     return CreateDocument(aCommand,
-                          aChannel, aLoadGroup,
-                          aContainer, kHTMLDocumentCID,
-                          aDocListener, aDocViewer);
+                          aChannel,
+                          aLoadGroup,
+                          aContainer,
+                          kHTMLDocumentCID,
+                          aDocListener,
+                          aDocViewer);
   }
 
   // Try XML
   if (IsTypeInList(contentType, gXMLTypes)) {
     return CreateDocument(aCommand,
-                          aChannel, aLoadGroup,
-                          aContainer, kXMLDocumentCID,
-                          aDocListener, aDocViewer);
+                          aChannel,
+                          aLoadGroup,
+                          aContainer,
+                          kXMLDocumentCID,
+                          aDocListener,
+                          aDocViewer);
   }
 
   // Try SVG
   if (IsTypeInList(contentType, gSVGTypes)) {
     return CreateDocument(aCommand,
-                          aChannel, aLoadGroup,
-                          aContainer, kSVGDocumentCID,
-                          aDocListener, aDocViewer);
+                          aChannel,
+                          aLoadGroup,
+                          aContainer,
+                          kSVGDocumentCID,
+                          aDocListener,
+                          aDocViewer);
   }
 
   // Try XUL
@@ -211,46 +204,60 @@ nsContentDLF::CreateInstance(const char* aCommand,
       return NS_ERROR_REMOTE_XUL;
     }
 
-    return CreateXULDocument(aCommand, aChannel, aLoadGroup, aContainer,
-                             aExtraInfo, aDocListener, aDocViewer);
+    return CreateXULDocument(aCommand,
+                             aChannel,
+                             aLoadGroup,
+                             aContainer,
+                             aExtraInfo,
+                             aDocListener,
+                             aDocViewer);
   }
 
-  if (mozilla::DecoderTraits::ShouldHandleMediaType(contentType.get(),
-                    /* DecoderDoctorDiagnostics* */ nullptr)) {
+  if (mozilla::DecoderTraits::ShouldHandleMediaType(
+          contentType.get(),
+          /* DecoderDoctorDiagnostics* */ nullptr)) {
     return CreateDocument(aCommand,
-                          aChannel, aLoadGroup,
-                          aContainer, kVideoDocumentCID,
-                          aDocListener, aDocViewer);
+                          aChannel,
+                          aLoadGroup,
+                          aContainer,
+                          kVideoDocumentCID,
+                          aDocListener,
+                          aDocViewer);
   }
 
   // Try image types
   if (IsImageContentType(contentType.get())) {
     return CreateDocument(aCommand,
-                          aChannel, aLoadGroup,
-                          aContainer, kImageDocumentCID,
-                          aDocListener, aDocViewer);
+                          aChannel,
+                          aLoadGroup,
+                          aContainer,
+                          kImageDocumentCID,
+                          aDocListener,
+                          aDocViewer);
   }
 
   RefPtr<nsPluginHost> pluginHost = nsPluginHost::GetInst();
   // Don't exclude disabled plugins, which will still trigger the "this plugin
   // is disabled" placeholder.
-  if (pluginHost && pluginHost->HavePluginForType(contentType,
-                                                  nsPluginHost::eExcludeNone)) {
+  if (pluginHost &&
+      pluginHost->HavePluginForType(contentType, nsPluginHost::eExcludeNone)) {
     return CreateDocument(aCommand,
-                          aChannel, aLoadGroup,
-                          aContainer, kPluginDocumentCID,
-                          aDocListener, aDocViewer);
+                          aChannel,
+                          aLoadGroup,
+                          aContainer,
+                          kPluginDocumentCID,
+                          aDocListener,
+                          aDocViewer);
   }
 
   // If we get here, then we weren't able to create anything. Sorry!
   return NS_ERROR_FAILURE;
 }
 
-
 NS_IMETHODIMP
 nsContentDLF::CreateInstanceForDocument(nsISupports* aContainer,
                                         nsIDocument* aDocument,
-                                        const char *aCommand,
+                                        const char* aCommand,
                                         nsIContentViewer** aContentViewer)
 {
   MOZ_ASSERT(aDocument);
@@ -285,31 +292,30 @@ nsContentDLF::CreateBlankDocument(nsILoadGroup* aLoadGroup,
   blankDoc->SetContainer(aContainer);
 
   // add some simple content structure
-  nsNodeInfoManager *nim = blankDoc->NodeInfoManager();
+  nsNodeInfoManager* nim = blankDoc->NodeInfoManager();
 
   RefPtr<mozilla::dom::NodeInfo> htmlNodeInfo;
 
   // generate an html html element
-  htmlNodeInfo = nim->GetNodeInfo(nsGkAtoms::html, 0, kNameSpaceID_XHTML,
-                                  nsIDOMNode::ELEMENT_NODE);
+  htmlNodeInfo = nim->GetNodeInfo(
+      nsGkAtoms::html, 0, kNameSpaceID_XHTML, nsIDOMNode::ELEMENT_NODE);
   nsCOMPtr<nsIContent> htmlElement =
-    NS_NewHTMLHtmlElement(htmlNodeInfo.forget());
+      NS_NewHTMLHtmlElement(htmlNodeInfo.forget());
 
   // generate an html head element
-  htmlNodeInfo = nim->GetNodeInfo(nsGkAtoms::head, 0, kNameSpaceID_XHTML,
-                                  nsIDOMNode::ELEMENT_NODE);
+  htmlNodeInfo = nim->GetNodeInfo(
+      nsGkAtoms::head, 0, kNameSpaceID_XHTML, nsIDOMNode::ELEMENT_NODE);
   nsCOMPtr<nsIContent> headElement =
-    NS_NewHTMLHeadElement(htmlNodeInfo.forget());
+      NS_NewHTMLHeadElement(htmlNodeInfo.forget());
 
   // generate an html body elemment
-  htmlNodeInfo = nim->GetNodeInfo(nsGkAtoms::body, 0, kNameSpaceID_XHTML,
-                                  nsIDOMNode::ELEMENT_NODE);
+  htmlNodeInfo = nim->GetNodeInfo(
+      nsGkAtoms::body, 0, kNameSpaceID_XHTML, nsIDOMNode::ELEMENT_NODE);
   nsCOMPtr<nsIContent> bodyElement =
-    NS_NewHTMLBodyElement(htmlNodeInfo.forget());
+      NS_NewHTMLBodyElement(htmlNodeInfo.forget());
 
   // blat in the structure
-  NS_ASSERTION(blankDoc->GetChildCount() == 0,
-                "Shouldn't have children");
+  NS_ASSERTION(blankDoc->GetChildCount() == 0, "Shouldn't have children");
   if (!htmlElement || !headElement || !bodyElement ||
       NS_FAILED(blankDoc->AppendChildTo(htmlElement, false)) ||
       NS_FAILED(htmlElement->AppendChildTo(headElement, false)) ||
@@ -323,7 +329,6 @@ nsContentDLF::CreateBlankDocument(nsILoadGroup* aLoadGroup,
   blankDoc->SetDocumentCharacterSet(UTF_8_ENCODING);
   return blankDoc.forget();
 }
-
 
 nsresult
 nsContentDLF::CreateDocument(const char* aCommand,
@@ -361,7 +366,8 @@ nsContentDLF::CreateDocument(const char* aCommand,
   // Initialize the document to begin loading the data.  An
   // nsIStreamListener connected to the parser is returned in
   // aDocListener.
-  rv = doc->StartDocumentLoad(aCommand, aChannel, aLoadGroup, aContainer, aDocListener, true);
+  rv = doc->StartDocumentLoad(
+      aCommand, aChannel, aLoadGroup, aContainer, aDocListener, true);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Bind the document to the Content Viewer
@@ -398,7 +404,8 @@ nsContentDLF::CreateXULDocument(const char* aCommand,
 
   doc->SetContainer(static_cast<nsDocShell*>(aContainer));
 
-  rv = doc->StartDocumentLoad(aCommand, aChannel, aLoadGroup, aContainer, aDocListener, true);
+  rv = doc->StartDocumentLoad(
+      aCommand, aChannel, aLoadGroup, aContainer, aDocListener, true);
   if (NS_FAILED(rv)) return rv;
 
   /*
@@ -409,6 +416,8 @@ nsContentDLF::CreateXULDocument(const char* aCommand,
   return NS_OK;
 }
 
-bool nsContentDLF::IsImageContentType(const char* aContentType) {
+bool
+nsContentDLF::IsImageContentType(const char* aContentType)
+{
   return imgLoader::SupportImageWithMimeType(aContentType);
 }

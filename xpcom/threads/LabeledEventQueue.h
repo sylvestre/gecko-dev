@@ -29,27 +29,32 @@ class SchedulerGroup;
 // SchedulerGroups cannot affect each other.
 class LabeledEventQueue final : public AbstractEventQueue
 {
-public:
+ public:
   LabeledEventQueue();
   ~LabeledEventQueue();
 
   void PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
                 EventPriority aPriority,
                 const MutexAutoLock& aProofOfLock) final;
-  already_AddRefed<nsIRunnable> GetEvent(EventPriority* aPriority,
-                                         const MutexAutoLock& aProofOfLock) final;
+  already_AddRefed<nsIRunnable> GetEvent(
+      EventPriority* aPriority, const MutexAutoLock& aProofOfLock) final;
 
   bool IsEmpty(const MutexAutoLock& aProofOfLock) final;
   size_t Count(const MutexAutoLock& aProofOfLock) const final;
   bool HasReadyEvent(const MutexAutoLock& aProofOfLock) final;
 
-  void EnableInputEventPrioritization(const MutexAutoLock& aProofOfLock) final {}
+  void EnableInputEventPrioritization(const MutexAutoLock& aProofOfLock) final
+  {
+  }
   void FlushInputEventPrioritization(const MutexAutoLock& aProofOfLock) final {}
-  void SuspendInputEventPrioritization(const MutexAutoLock& aProofOfLock) final {}
-  void ResumeInputEventPrioritization(const MutexAutoLock& aProofOfLock) final {}
+  void SuspendInputEventPrioritization(const MutexAutoLock& aProofOfLock) final
+  {
+  }
+  void ResumeInputEventPrioritization(const MutexAutoLock& aProofOfLock) final
+  {
+  }
 
-private:
-
+ private:
   // The basic problem here is to keep track of the ordering relationships
   // between events. As long as there are only labeled events, there can be one
   // queue per SchedulerGroup. However, if an unlabeled event is pushed, we must
@@ -89,9 +94,9 @@ private:
     uintptr_t mEpochNumber;
 
     QueueEntry(already_AddRefed<nsIRunnable> aRunnable, uintptr_t aEpoch)
-      : mRunnable(aRunnable)
-      , mEpochNumber(aEpoch)
-    {}
+        : mRunnable(aRunnable), mEpochNumber(aEpoch)
+    {
+    }
   };
 
   struct Epoch
@@ -113,8 +118,7 @@ private:
     size_t mNumEvents;
 
     Epoch(uintptr_t aEpochNumber, bool aIsLabeled)
-      : mEpochNumber(aEpochNumber)
-      , mNumEvents(0)
+        : mEpochNumber(aEpochNumber), mNumEvents(0)
     {
       MOZ_ASSERT(aIsLabeled == EpochNumberIsLabeled(aEpochNumber));
     }
@@ -132,7 +136,8 @@ private:
   static SchedulerGroup* NextSchedulerGroup(SchedulerGroup* aGroup);
 
   using RunnableEpochQueue = Queue<QueueEntry, 32>;
-  using LabeledMap = nsClassHashtable<nsRefPtrHashKey<SchedulerGroup>, RunnableEpochQueue>;
+  using LabeledMap =
+      nsClassHashtable<nsRefPtrHashKey<SchedulerGroup>, RunnableEpochQueue>;
   using EpochQueue = Queue<Epoch, 8>;
 
   // List of SchedulerGroups that might have events. This is static, so it
@@ -156,6 +161,6 @@ private:
   int64_t mAvoidActiveTabCount = 0;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_LabeledEventQueue_h
+#endif  // mozilla_LabeledEventQueue_h

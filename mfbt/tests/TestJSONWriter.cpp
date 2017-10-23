@@ -25,7 +25,7 @@ struct StringWriteFunc : public JSONWriteFunc
 
   void Write(const char* aStr)
   {
-    char* last = mPtr + strlen(aStr);    // where the nul will be added
+    char* last = mPtr + strlen(aStr);  // where the nul will be added
 
     // If you change this test and this assertion fails, just make kLen bigger.
     MOZ_RELEASE_ASSERT(last < mBuf + kLen);
@@ -34,14 +34,16 @@ struct StringWriteFunc : public JSONWriteFunc
   }
 };
 
-void Check(JSONWriteFunc* aFunc, const char* aExpected)
+void
+Check(JSONWriteFunc* aFunc, const char* aExpected)
 {
   const char* actual = static_cast<StringWriteFunc*>(aFunc)->mBuf;
   if (strcmp(aExpected, actual) != 0) {
     fprintf(stderr,
             "---- EXPECTED ----\n<<<%s>>>\n"
             "---- ACTUAL ----\n<<<%s>>>\n",
-            aExpected, actual);
+            aExpected,
+            actual);
     MOZ_RELEASE_ASSERT(false, "expected and actual output don't match");
   }
 }
@@ -52,9 +54,11 @@ void Check(JSONWriteFunc* aFunc, const char* aExpected)
 // - s/"/\\"/g      # escapes quotes
 // - s/$/\\n\\/     # adds a newline and string continuation char to each line
 
-void TestBasicProperties()
+void
+TestBasicProperties()
 {
-  const char* expected = "\
+  const char* expected =
+      "\
 {\n\
  \"null\": null,\n\
  \"bool1\": true,\n\
@@ -209,9 +213,11 @@ void TestBasicProperties()
   Check(w.WriteFunc(), expected);
 }
 
-void TestBasicElements()
+void
+TestBasicElements()
 {
-  const char* expected = "\
+  const char* expected =
+      "\
 {\n\
  \"array\": [\n\
   null,\n\
@@ -370,9 +376,11 @@ void TestBasicElements()
   Check(w.WriteFunc(), expected);
 }
 
-void TestOneLineObject()
+void
+TestOneLineObject()
 {
-  const char* expected = "\
+  const char* expected =
+      "\
 {\"i\": 1, \"array\": [null, [{}], {\"o\": {}}, \"s\"], \"d\": 3.33}\n\
 ";
 
@@ -411,18 +419,21 @@ void TestOneLineObject()
   Check(w.WriteFunc(), expected);
 }
 
-void TestStringEscaping()
+void
+TestStringEscaping()
 {
   // This test uses hexadecimal character escapes because UTF8 literals cause
   // problems for some compilers (see bug 1069726).
-  const char* expected = "\
+  const char* expected =
+      "\
 {\n\
  \"ascii\": \"\x7F~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)('&%$#\\\"! \\u001f\\u001e\\u001d\\u001c\\u001b\\u001a\\u0019\\u0018\\u0017\\u0016\\u0015\\u0014\\u0013\\u0012\\u0011\\u0010\\u000f\\u000e\\r\\f\\u000b\\n\\t\\b\\u0007\\u0006\\u0005\\u0004\\u0003\\u0002\\u0001\",\n\
  \"\xD9\x85\xD8\xB1\xD8\xAD\xD8\xA8\xD8\xA7 \xD9\x87\xD9\x86\xD8\xA7\xD9\x83\": true,\n\
  \"\xD5\xA2\xD5\xA1\xD6\x80\xD5\xA5\xD6\x82 \xD5\xB9\xD5\xAF\xD5\xA1\": -123,\n\
  \"\xE4\xBD\xA0\xE5\xA5\xBD\": 1.234,\n\
  \"\xCE\xB3\xCE\xB5\xCE\xB9\xCE\xB1 \xCE\xB5\xCE\xBA\xCE\xB5\xCE\xAF\": \"\xD8\xB3\xD9\x84\xD8\xA7\xD9\x85\",\n\
- \"hall\xC3\xB3 \xC3\xBE" "arna\": 4660,\n\
+ \"hall\xC3\xB3 \xC3\xBE"
+      "arna\": 4660,\n\
  \"\xE3\x81\x93\xE3\x82\x93\xE3\x81\xAB\xE3\x81\xA1\xE3\x81\xAF\": {\n\
   \"\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82\": [\n\
   ]\n\
@@ -444,12 +455,23 @@ void TestStringEscaping()
     w.StringProperty("ascii", buf);
 
     // Test lots of unicode stuff. Note that this file is encoded as UTF-8.
-    w.BoolProperty("\xD9\x85\xD8\xB1\xD8\xAD\xD8\xA8\xD8\xA7 \xD9\x87\xD9\x86\xD8\xA7\xD9\x83", true);
-    w.IntProperty("\xD5\xA2\xD5\xA1\xD6\x80\xD5\xA5\xD6\x82 \xD5\xB9\xD5\xAF\xD5\xA1", -123);
+    w.BoolProperty(
+        "\xD9\x85\xD8\xB1\xD8\xAD\xD8\xA8\xD8\xA7 "
+        "\xD9\x87\xD9\x86\xD8\xA7\xD9\x83",
+        true);
+    w.IntProperty(
+        "\xD5\xA2\xD5\xA1\xD6\x80\xD5\xA5\xD6\x82 \xD5\xB9\xD5\xAF\xD5\xA1",
+        -123);
     w.DoubleProperty("\xE4\xBD\xA0\xE5\xA5\xBD", 1.234);
-    w.StringProperty("\xCE\xB3\xCE\xB5\xCE\xB9\xCE\xB1 \xCE\xB5\xCE\xBA\xCE\xB5\xCE\xAF", "\xD8\xB3\xD9\x84\xD8\xA7\xD9\x85");
-    w.IntProperty("hall\xC3\xB3 \xC3\xBE" "arna", 0x1234);
-    w.StartObjectProperty("\xE3\x81\x93\xE3\x82\x93\xE3\x81\xAB\xE3\x81\xA1\xE3\x81\xAF");
+    w.StringProperty(
+        "\xCE\xB3\xCE\xB5\xCE\xB9\xCE\xB1 \xCE\xB5\xCE\xBA\xCE\xB5\xCE\xAF",
+        "\xD8\xB3\xD9\x84\xD8\xA7\xD9\x85");
+    w.IntProperty(
+        "hall\xC3\xB3 \xC3\xBE"
+        "arna",
+        0x1234);
+    w.StartObjectProperty(
+        "\xE3\x81\x93\xE3\x82\x93\xE3\x81\xAB\xE3\x81\xA1\xE3\x81\xAF");
     {
       w.StartArrayProperty("\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82");
       w.EndArray();
@@ -461,9 +483,11 @@ void TestStringEscaping()
   Check(w.WriteFunc(), expected);
 }
 
-void TestDeepNesting()
+void
+TestDeepNesting()
 {
-  const char* expected = "\
+  const char* expected =
+      "\
 {\n\
  \"a\": [\n\
   {\n\
@@ -527,7 +551,8 @@ void TestDeepNesting()
   Check(w.WriteFunc(), expected);
 }
 
-int main(void)
+int
+main(void)
 {
   TestBasicProperties();
   TestBasicElements();

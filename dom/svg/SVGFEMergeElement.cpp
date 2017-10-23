@@ -16,23 +16,22 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEMergeElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+SVGFEMergeElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SVGFEMergeElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGFEMergeElement::sStringInfo[1] =
-{
-  { &nsGkAtoms::result, kNameSpaceID_None, true }
-};
+nsSVGElement::StringInfo SVGFEMergeElement::sStringInfo[1] = {
+    {&nsGkAtoms::result, kNameSpaceID_None, true}};
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEMergeElement)
 
 FilterPrimitiveDescription
-SVGFEMergeElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                                           const IntRect& aFilterSubregion,
-                                           const nsTArray<bool>& aInputsAreTainted,
-                                           nsTArray<RefPtr<SourceSurface>>& aInputImages)
+SVGFEMergeElement::GetPrimitiveDescription(
+    nsSVGFilterInstance* aInstance,
+    const IntRect& aFilterSubregion,
+    const nsTArray<bool>& aInputsAreTainted,
+    nsTArray<RefPtr<SourceSurface>>& aInputImages)
 {
   return FilterPrimitiveDescription(PrimitiveType::Merge);
 }
@@ -40,8 +39,7 @@ SVGFEMergeElement::GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
 void
 SVGFEMergeElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 {
-  for (nsIContent* child = nsINode::GetFirstChild();
-       child;
+  for (nsIContent* child = nsINode::GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (child->IsSVGElement(nsGkAtoms::feMergeNode)) {
       SVGFEMergeNodeElement* node = static_cast<SVGFEMergeNodeElement*>(child);
@@ -56,9 +54,9 @@ SVGFEMergeElement::GetSourceImageNames(nsTArray<nsSVGStringInfo>& aSources)
 nsSVGElement::StringAttributesInfo
 SVGFEMergeElement::GetStringInfo()
 {
-  return StringAttributesInfo(mStringAttributes, sStringInfo,
-                              ArrayLength(sStringInfo));
+  return StringAttributesInfo(
+      mStringAttributes, sStringInfo, ArrayLength(sStringInfo));
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

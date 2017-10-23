@@ -31,7 +31,9 @@ CSSSupportsRule::GetCssRules(nsIDOMCSSRuleList** aRuleList)
 }
 
 NS_IMETHODIMP
-CSSSupportsRule::InsertRule(const nsAString & aRule, uint32_t aIndex, uint32_t* _retval)
+CSSSupportsRule::InsertRule(const nsAString& aRule,
+                            uint32_t aIndex,
+                            uint32_t* _retval)
 {
   return GroupRule::InsertRule(aRule, aIndex, _retval);
 }
@@ -50,11 +52,10 @@ CSSSupportsRule::SetConditionText(const nsAString& aConditionText,
 }
 
 /* virtual */ JSObject*
-CSSSupportsRule::WrapObject(JSContext* aCx,
-                            JS::Handle<JSObject*> aGivenProto)
+CSSSupportsRule::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return CSSSupportsRuleBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

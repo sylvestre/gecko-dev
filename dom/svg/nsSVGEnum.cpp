@@ -16,10 +16,10 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 static nsSVGAttrTearoffTable<nsSVGEnum, nsSVGEnum::DOMAnimatedEnum>
-  sSVGAnimatedEnumTearoffTable;
+    sSVGAnimatedEnumTearoffTable;
 
-nsSVGEnumMapping *
-nsSVGEnum::GetMapping(nsSVGElement *aSVGElement)
+nsSVGEnumMapping*
+nsSVGEnum::GetMapping(nsSVGElement* aSVGElement)
 {
   nsSVGElement::EnumAttributesInfo info = aSVGElement->GetEnumInfo();
 
@@ -30,9 +30,9 @@ nsSVGEnum::GetMapping(nsSVGElement *aSVGElement)
 }
 
 nsresult
-nsSVGEnum::SetBaseValueAtom(const nsAtom* aValue, nsSVGElement *aSVGElement)
+nsSVGEnum::SetBaseValueAtom(const nsAtom* aValue, nsSVGElement* aSVGElement)
 {
-  nsSVGEnumMapping *mapping = GetMapping(aSVGElement);
+  nsSVGEnumMapping* mapping = GetMapping(aSVGElement);
 
   while (mapping && mapping->mKey) {
     if (aValue == *(mapping->mKey)) {
@@ -41,8 +41,7 @@ nsSVGEnum::SetBaseValueAtom(const nsAtom* aValue, nsSVGElement *aSVGElement)
         mBaseVal = mapping->mVal;
         if (!mIsAnimated) {
           mAnimVal = mBaseVal;
-        }
-        else {
+        } else {
           aSVGElement->AnimationNeedsResample();
         }
         // We don't need to call DidChange* here - we're only called by
@@ -60,9 +59,9 @@ nsSVGEnum::SetBaseValueAtom(const nsAtom* aValue, nsSVGElement *aSVGElement)
 }
 
 nsAtom*
-nsSVGEnum::GetBaseValueAtom(nsSVGElement *aSVGElement)
+nsSVGEnum::GetBaseValueAtom(nsSVGElement* aSVGElement)
 {
-  nsSVGEnumMapping *mapping = GetMapping(aSVGElement);
+  nsSVGEnumMapping* mapping = GetMapping(aSVGElement);
 
   while (mapping && mapping->mKey) {
     if (mBaseVal == mapping->mVal) {
@@ -75,10 +74,9 @@ nsSVGEnum::GetBaseValueAtom(nsSVGElement *aSVGElement)
 }
 
 nsresult
-nsSVGEnum::SetBaseValue(uint16_t aValue,
-                        nsSVGElement *aSVGElement)
+nsSVGEnum::SetBaseValue(uint16_t aValue, nsSVGElement* aSVGElement)
 {
-  nsSVGEnumMapping *mapping = GetMapping(aSVGElement);
+  nsSVGEnumMapping* mapping = GetMapping(aSVGElement);
 
   while (mapping && mapping->mKey) {
     if (mapping->mVal == aValue) {
@@ -87,8 +85,7 @@ nsSVGEnum::SetBaseValue(uint16_t aValue,
         mBaseVal = uint8_t(aValue);
         if (!mIsAnimated) {
           mAnimVal = mBaseVal;
-        }
-        else {
+        } else {
           aSVGElement->AnimationNeedsResample();
         }
         aSVGElement->DidChangeEnum(mAttrEnum);
@@ -101,7 +98,7 @@ nsSVGEnum::SetBaseValue(uint16_t aValue,
 }
 
 void
-nsSVGEnum::SetAnimValue(uint16_t aValue, nsSVGElement *aSVGElement)
+nsSVGEnum::SetAnimValue(uint16_t aValue, nsSVGElement* aSVGElement)
 {
   if (mIsAnimated && aValue == mAnimVal) {
     return;
@@ -115,7 +112,7 @@ already_AddRefed<SVGAnimatedEnumeration>
 nsSVGEnum::ToDOMAnimatedEnum(nsSVGElement* aSVGElement)
 {
   RefPtr<DOMAnimatedEnum> domAnimatedEnum =
-    sSVGAnimatedEnumTearoffTable.GetTearoff(this);
+      sSVGAnimatedEnumTearoffTable.GetTearoff(this);
   if (!domAnimatedEnum) {
     domAnimatedEnum = new DOMAnimatedEnum(this, aSVGElement);
     sSVGAnimatedEnumTearoffTable.AddTearoff(this, domAnimatedEnum);
@@ -130,20 +127,21 @@ nsSVGEnum::DOMAnimatedEnum::~DOMAnimatedEnum()
 }
 
 UniquePtr<nsISMILAttr>
-nsSVGEnum::ToSMILAttr(nsSVGElement *aSVGElement)
+nsSVGEnum::ToSMILAttr(nsSVGElement* aSVGElement)
 {
   return MakeUnique<SMILEnum>(this, aSVGElement);
 }
 
 nsresult
-nsSVGEnum::SMILEnum::ValueFromString(const nsAString& aStr,
-                                     const dom::SVGAnimationElement* /*aSrcElement*/,
-                                     nsSMILValue& aValue,
-                                     bool& aPreventCachingOfSandwich) const
+nsSVGEnum::SMILEnum::ValueFromString(
+    const nsAString& aStr,
+    const dom::SVGAnimationElement* /*aSrcElement*/,
+    nsSMILValue& aValue,
+    bool& aPreventCachingOfSandwich) const
 {
-  nsAtom *valAtom = NS_GetStaticAtom(aStr);
+  nsAtom* valAtom = NS_GetStaticAtom(aStr);
   if (valAtom) {
-    nsSVGEnumMapping *mapping = mVal->GetMapping(mSVGElement);
+    nsSVGEnumMapping* mapping = mVal->GetMapping(mSVGElement);
 
     while (mapping && mapping->mKey) {
       if (valAtom == *(mapping->mKey)) {

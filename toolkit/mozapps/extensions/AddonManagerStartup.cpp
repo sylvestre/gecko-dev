@@ -29,7 +29,7 @@
 #include "nsContentUtils.h"
 #include "nsChromeRegistry.h"
 #include "nsIAddonInterposition.h"
-#include "nsIDOMWindowUtils.h" // for nsIJSRAIIHelper
+#include "nsIDOMWindowUtils.h"  // for nsIJSRAIIHelper
 #include "nsIFileURL.h"
 #include "nsIIOService.h"
 #include "nsIJARProtocolHandler.h"
@@ -48,9 +48,9 @@ using Compression::LZ4;
 using dom::ipc::StructuredCloneData;
 
 #ifdef XP_WIN
-#  define READ_BINARYMODE "rb"
+#define READ_BINARYMODE "rb"
 #else
-#  define READ_BINARYMODE "r"
+#define READ_BINARYMODE "r"
 #endif
 
 AddonManagerStartup&
@@ -64,10 +64,7 @@ AddonManagerStartup::GetSingleton()
   return *singleton;
 }
 
-AddonManagerStartup::AddonManagerStartup()
-  : mInitialized(false)
-{}
-
+AddonManagerStartup::AddonManagerStartup() : mInitialized(false) {}
 
 nsIFile*
 AddonManagerStartup::ProfileDir()
@@ -75,7 +72,8 @@ AddonManagerStartup::ProfileDir()
   if (!mProfileDir) {
     nsresult rv;
 
-    rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(mProfileDir));
+    rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
+                                getter_AddRefs(mProfileDir));
     MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
   }
 
@@ -83,7 +81,6 @@ AddonManagerStartup::ProfileDir()
 }
 
 NS_IMPL_ISUPPORTS(AddonManagerStartup, amIAddonManagerStartup, nsIObserver)
-
 
 /*****************************************************************************
  * File utils
@@ -107,7 +104,7 @@ IsNormalFile(nsIFile* file)
 
 static const char STRUCTURED_CLONE_MAGIC[] = "mozJSSCLz40v001";
 
-template <typename T>
+template<typename T>
 static Result<nsCString, nsresult>
 DecodeLZ4(const nsACString& lz4, const T& magicNumber)
 {
@@ -136,7 +133,7 @@ DecodeLZ4(const nsACString& lz4, const T& magicNumber)
 // Our zlib headers redefine this to MOZ_Z_compress, which breaks LZ4::compress
 #undef compress
 
-template <typename T>
+template<typename T>
 static Result<nsCString, nsresult>
 EncodeLZ4(const nsACString& data, const T& magicNumber)
 {
@@ -155,8 +152,8 @@ EncodeLZ4(const nsACString& data, const T& magicNumber)
   auto size = LZ4::maxCompressedSize(data.Length());
   result.SetLength(off + size);
 
-  size = LZ4::compress(data.BeginReading(), data.Length(),
-                       result.BeginWriting() + off);
+  size = LZ4::compress(
+      data.BeginReading(), data.Length(), result.BeginWriting() + off);
 
   result.SetLength(off + size);
   return result;
@@ -242,21 +239,16 @@ GetFileLocation(nsIURI* uri)
   return Move(location);
 }
 
-
 /*****************************************************************************
  * JSON data handling
  *****************************************************************************/
 
-class MOZ_STACK_CLASS WrapperBase {
-protected:
-  WrapperBase(JSContext* cx, JSObject* object)
-    : mCx(cx)
-    , mObject(cx, object)
-  {}
+class MOZ_STACK_CLASS WrapperBase
+{
+ protected:
+  WrapperBase(JSContext* cx, JSObject* object) : mCx(cx), mObject(cx, object) {}
 
-  WrapperBase(JSContext* cx, const JS::Value& value)
-    : mCx(cx)
-    , mObject(cx)
+  WrapperBase(JSContext* cx, const JS::Value& value) : mCx(cx), mObject(cx)
   {
     if (value.isObject()) {
       mObject = &value.toObject();
@@ -265,7 +257,7 @@ protected:
     }
   }
 
-protected:
+ protected:
   JSContext* mCx;
   JS::RootedObject mObject;
 
@@ -345,18 +337,20 @@ WrapperBase::GetObject(const char* name)
   return nullptr;
 }
 
-
-class MOZ_STACK_CLASS InstallLocation : public WrapperBase {
-public:
+class MOZ_STACK_CLASS InstallLocation : public WrapperBase
+{
+ public:
   InstallLocation(JSContext* cx, const JS::Value& value);
 
   MOZ_IMPLICIT InstallLocation(PropertyIterElem& iter)
-    : InstallLocation(iter.Cx(), iter.Value())
-  {}
+      : InstallLocation(iter.Cx(), iter.Value())
+  {
+  }
 
   InstallLocation(const InstallLocation& other)
-    : InstallLocation(other.mCx, JS::ObjectValue(*other.mObject))
-  {}
+      : InstallLocation(other.mCx, JS::ObjectValue(*other.mObject))
+  {
+  }
 
   void SetChanged(bool changed)
   {
@@ -372,34 +366,40 @@ public:
 
   nsString Path() { return GetString("path"); }
 
-  bool ShouldCheckStartupModifications() { return GetBool("checkStartupModifications"); }
+  bool ShouldCheckStartupModifications()
+  {
+    return GetBool("checkStartupModifications");
+  }
 
-
-private:
+ private:
   JS::RootedObject mAddonsObj;
   Maybe<PropertyIter> mAddonsIter;
 };
 
-
-class MOZ_STACK_CLASS Addon : public WrapperBase {
-public:
-  Addon(JSContext* cx, InstallLocation& location, const nsAString& id, JSObject* object)
-    : WrapperBase(cx, object)
-    , mId(id)
-    , mLocation(location)
-  {}
+class MOZ_STACK_CLASS Addon : public WrapperBase
+{
+ public:
+  Addon(JSContext* cx,
+        InstallLocation& location,
+        const nsAString& id,
+        JSObject* object)
+      : WrapperBase(cx, object), mId(id), mLocation(location)
+  {
+  }
 
   MOZ_IMPLICIT Addon(PropertyIterElem& iter)
-    : WrapperBase(iter.Cx(), iter.Value())
-    , mId(iter.Name())
-    , mLocation(*static_cast<InstallLocation*>(iter.Context()))
-  {}
+      : WrapperBase(iter.Cx(), iter.Value()),
+        mId(iter.Name()),
+        mLocation(*static_cast<InstallLocation*>(iter.Context()))
+  {
+  }
 
   Addon(const Addon& other)
-    : WrapperBase(other.mCx, other.mObject)
-    , mId(other.mId)
-    , mLocation(other.mLocation)
-  {}
+      : WrapperBase(other.mCx, other.mObject),
+        mId(other.mId),
+        mLocation(other.mLocation)
+  {
+  }
 
   const nsString& Id() { return mId; }
 
@@ -413,15 +413,13 @@ public:
 
   double LastModifiedTime() { return GetNumber("lastModifiedTime"); }
 
-
   Result<nsCOMPtr<nsIFile>, nsresult> FullPath();
 
   NSLocationType LocationType();
 
   Result<bool, nsresult> UpdateLastModifiedTime();
 
-
-private:
+ private:
   nsString mId;
   InstallLocation& mLocation;
 };
@@ -490,14 +488,12 @@ Addon::UpdateLastModifiedTime()
     JS_ClearPendingException(mCx);
   }
 
-  return lastModified != LastModifiedTime();;
+  return lastModified != LastModifiedTime();
+  ;
 }
 
-
 InstallLocation::InstallLocation(JSContext* cx, const JS::Value& value)
-  : WrapperBase(cx, value)
-  , mAddonsObj(cx)
-  , mAddonsIter()
+    : WrapperBase(cx, value), mAddonsObj(cx), mAddonsIter()
 {
   mAddonsObj = GetObject("addons");
   if (!mAddonsObj) {
@@ -505,7 +501,6 @@ InstallLocation::InstallLocation(JSContext* cx, const JS::Value& value)
   }
   mAddonsIter.emplace(cx, mAddonsObj, this);
 }
-
 
 /*****************************************************************************
  * XPC interfacing
@@ -517,7 +512,7 @@ EnableShims(const nsAString& addonId)
   NS_ConvertUTF16toUTF8 id(addonId);
 
   nsCOMPtr<nsIAddonInterposition> interposition =
-     do_GetService("@mozilla.org/addons/multiprocess-shims;1");
+      do_GetService("@mozilla.org/addons/multiprocess-shims;1");
 
   if (!interposition || !xpc::SetAddonInterposition(id, interposition)) {
     return;
@@ -553,11 +548,13 @@ AddonManagerStartup::AddInstallLocation(Addon& addon)
 }
 
 nsresult
-AddonManagerStartup::ReadStartupData(JSContext* cx, JS::MutableHandleValue locations)
+AddonManagerStartup::ReadStartupData(JSContext* cx,
+                                     JS::MutableHandleValue locations)
 {
   locations.set(JS::UndefinedValue());
 
-  nsCOMPtr<nsIFile> file = CloneAndAppend(ProfileDir(), "addonStartup.json.lz4");
+  nsCOMPtr<nsIFile> file =
+      CloneAndAppend(ProfileDir(), "addonStartup.json.lz4");
 
   nsCString data;
   auto res = ReadFileLZ4(file);
@@ -600,7 +597,8 @@ AddonManagerStartup::ReadStartupData(JSContext* cx, JS::MutableHandleValue locat
 }
 
 nsresult
-AddonManagerStartup::InitializeExtensions(JS::HandleValue locations, JSContext* cx)
+AddonManagerStartup::InitializeExtensions(JS::HandleValue locations,
+                                          JSContext* cx)
 {
   NS_ENSURE_FALSE(mInitialized, NS_ERROR_UNEXPECTED);
   NS_ENSURE_TRUE(locations.isObject(), NS_ERROR_INVALID_ARG);
@@ -611,7 +609,8 @@ AddonManagerStartup::InitializeExtensions(JS::HandleValue locations, JSContext* 
     return NS_OK;
   }
 
-  bool enableInterpositions = Preferences::GetBool("extensions.interposition.enabled", false);
+  bool enableInterpositions =
+      Preferences::GetBool("extensions.interposition.enabled", false);
 
   JS::RootedObject locs(cx, &locations.toObject());
   for (auto e1 : PropertyIter(cx, locs)) {
@@ -634,7 +633,9 @@ AddonManagerStartup::InitializeExtensions(JS::HandleValue locations, JSContext* 
 }
 
 nsresult
-AddonManagerStartup::EncodeBlob(JS::HandleValue value, JSContext* cx, JS::MutableHandleValue result)
+AddonManagerStartup::EncodeBlob(JS::HandleValue value,
+                                JSContext* cx,
+                                JS::MutableHandleValue result)
 {
   StructuredCloneData holder;
 
@@ -649,7 +650,8 @@ AddonManagerStartup::EncodeBlob(JS::HandleValue value, JSContext* cx, JS::Mutabl
   auto& data = holder.Data();
   auto iter = data.Iter();
   while (!iter.Done()) {
-    scData.Append(nsDependentCSubstring(iter.Data(), iter.RemainingInSegment()));
+    scData.Append(
+        nsDependentCSubstring(iter.Data(), iter.RemainingInSegment()));
     iter.Advance(data, iter.RemainingInSegment());
   }
 
@@ -664,11 +666,13 @@ AddonManagerStartup::EncodeBlob(JS::HandleValue value, JSContext* cx, JS::Mutabl
 }
 
 nsresult
-AddonManagerStartup::DecodeBlob(JS::HandleValue value, JSContext* cx, JS::MutableHandleValue result)
+AddonManagerStartup::DecodeBlob(JS::HandleValue value,
+                                JSContext* cx,
+                                JS::MutableHandleValue result)
 {
   NS_ENSURE_TRUE(value.isObject() &&
-                 JS_IsArrayBufferObject(&value.toObject()) &&
-                 JS_ArrayBufferHasData(&value.toObject()),
+                     JS_IsArrayBufferObject(&value.toObject()) &&
+                     JS_ArrayBufferHasData(&value.toObject()),
                  NS_ERROR_INVALID_ARG);
 
   StructuredCloneData holder;
@@ -681,8 +685,8 @@ AddonManagerStartup::DecodeBlob(JS::HandleValue value, JSContext* cx, JS::Mutabl
     bool isShared;
 
     nsDependentCSubstring lz4(
-      reinterpret_cast<char*>(JS_GetArrayBufferData(obj, &isShared, nogc)),
-      JS_GetArrayBufferByteLength(obj));
+        reinterpret_cast<char*>(JS_GetArrayBufferData(obj, &isShared, nogc)),
+        JS_GetArrayBufferByteLength(obj));
 
     MOZ_TRY_VAR(data, DecodeLZ4(lz4, STRUCTURED_CLONE_MAGIC));
   }
@@ -692,12 +696,15 @@ AddonManagerStartup::DecodeBlob(JS::HandleValue value, JSContext* cx, JS::Mutabl
 
   ErrorResult rv;
   holder.Read(cx, result, rv);
-  return rv.StealNSResult();;
+  return rv.StealNSResult();
+  ;
 }
 
 nsresult
-AddonManagerStartup::EnumerateZipFile(nsIFile* file, const nsACString& pattern,
-                                      uint32_t* countOut, char16_t*** entriesOut)
+AddonManagerStartup::EnumerateZipFile(nsIFile* file,
+                                      const nsACString& pattern,
+                                      uint32_t* countOut,
+                                      char16_t*** entriesOut)
 {
   NS_ENSURE_ARG_POINTER(file);
   NS_ENSURE_ARG_POINTER(countOut);
@@ -721,7 +728,7 @@ AddonManagerStartup::EnumerateZipFile(nsIFile* file, const nsACString& pattern,
     results.AppendElement(NS_ConvertUTF8toUTF16(name));
   }
 
-  auto strResults = MakeUnique<char16_t*[]>(results.Length());
+  auto strResults = MakeUnique<char16_t* []>(results.Length());
   for (uint32_t i = 0; i < results.Length(); i++) {
     strResults[i] = ToNewUnicode(results[i]);
   }
@@ -762,31 +769,31 @@ AddonManagerStartup::InitializeURLPreloader()
 namespace {
 static bool sObserverRegistered;
 
-class RegistryEntries final : public nsIJSRAIIHelper
-                            , public LinkedListElement<RegistryEntries>
+class RegistryEntries final : public nsIJSRAIIHelper,
+                              public LinkedListElement<RegistryEntries>
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIJSRAIIHELPER
 
   using Override = AutoTArray<nsCString, 2>;
   using Locale = AutoTArray<nsCString, 3>;
 
-  RegistryEntries(FileLocation& location, nsTArray<Override>&& overrides, nsTArray<Locale>&& locales)
-    : mLocation(location)
-    , mOverrides(Move(overrides))
-    , mLocales(Move(locales))
-  {}
+  RegistryEntries(FileLocation& location,
+                  nsTArray<Override>&& overrides,
+                  nsTArray<Locale>&& locales)
+      : mLocation(location),
+        mOverrides(Move(overrides)),
+        mLocales(Move(locales))
+  {
+  }
 
   void Register();
 
-protected:
-  virtual ~RegistryEntries()
-  {
-    Unused << Destruct();
-  }
+ protected:
+  virtual ~RegistryEntries() { Unused << Destruct(); }
 
-private:
+ private:
   FileLocation mLocation;
   const nsTArray<Override> mOverrides;
   const nsTArray<Locale> mLocales;
@@ -799,7 +806,8 @@ RegistryEntries::Register()
 {
   RefPtr<nsChromeRegistry> cr = nsChromeRegistry::GetSingleton();
 
-  nsChromeRegistry::ManifestProcessingContext context(NS_EXTENSION_LOCATION, mLocation);
+  nsChromeRegistry::ManifestProcessingContext context(NS_EXTENSION_LOCATION,
+                                                      mLocation);
 
   for (auto& override : mOverrides) {
     const char* args[] = {override[0].get(), override[1].get()};
@@ -832,13 +840,15 @@ GetRegistryEntries()
   static LinkedList<RegistryEntries> sEntries;
   return sEntries;
 }
-}; // anonymous namespace
+};  // anonymous namespace
 
 NS_IMETHODIMP
-AddonManagerStartup::RegisterChrome(nsIURI* manifestURI, JS::HandleValue locations,
-                                    JSContext* cx, nsIJSRAIIHelper** result)
+AddonManagerStartup::RegisterChrome(nsIURI* manifestURI,
+                                    JS::HandleValue locations,
+                                    JSContext* cx,
+                                    nsIJSRAIIHelper** result)
 {
-  auto IsArray = [cx] (JS::HandleValue val) -> bool {
+  auto IsArray = [cx](JS::HandleValue val) -> bool {
     bool isArray;
     return JS_IsArrayObject(cx, val, &isArray) && isArray;
   };
@@ -848,7 +858,6 @@ AddonManagerStartup::RegisterChrome(nsIURI* manifestURI, JS::HandleValue locatio
 
   FileLocation location;
   MOZ_TRY_VAR(location, GetFileLocation(manifestURI));
-
 
   nsTArray<RegistryEntries::Locale> locales;
   nsTArray<RegistryEntries::Override> overrides;
@@ -894,9 +903,8 @@ AddonManagerStartup::RegisterChrome(nsIURI* manifestURI, JS::HandleValue locatio
     sObserverRegistered = true;
   }
 
-  auto entry = MakeRefPtr<RegistryEntries>(location,
-                                           Move(overrides),
-                                           Move(locales));
+  auto entry =
+      MakeRefPtr<RegistryEntries>(location, Move(overrides), Move(locales));
 
   entry->Register();
   GetRegistryEntries().insertBack(entry);
@@ -906,7 +914,9 @@ AddonManagerStartup::RegisterChrome(nsIURI* manifestURI, JS::HandleValue locatio
 }
 
 NS_IMETHODIMP
-AddonManagerStartup::Observe(nsISupports* subject, const char* topic, const char16_t* data)
+AddonManagerStartup::Observe(nsISupports* subject,
+                             const char* topic,
+                             const char16_t* data)
 {
   // The chrome registry is maintained as a set of global resource mappings
   // generated mainly from manifest files, on-the-fly, as they're parsed.
@@ -927,4 +937,4 @@ AddonManagerStartup::Observe(nsISupports* subject, const char* topic, const char
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

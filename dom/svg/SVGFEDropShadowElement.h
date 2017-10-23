@@ -12,8 +12,9 @@
 #include "nsSVGNumberPair.h"
 #include "nsSVGString.h"
 
-nsresult NS_NewSVGFEDropShadowElement(nsIContent **aResult,
-                                      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+nsresult
+NS_NewSVGFEDropShadowElement(
+    nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 namespace dom {
@@ -22,30 +23,39 @@ typedef nsSVGFE SVGFEDropShadowElementBase;
 
 class SVGFEDropShadowElement : public SVGFEDropShadowElementBase
 {
-  friend nsresult (::NS_NewSVGFEDropShadowElement(nsIContent **aResult,
-                                                  already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
-protected:
-  explicit SVGFEDropShadowElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-    : SVGFEDropShadowElementBase(aNodeInfo)
+  friend nsresult(::NS_NewSVGFEDropShadowElement(
+      nsIContent** aResult,
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
+
+ protected:
+  explicit SVGFEDropShadowElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+      : SVGFEDropShadowElementBase(aNodeInfo)
   {
   }
-  virtual JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) override;
 
-public:
-  virtual FilterPrimitiveDescription
-    GetPrimitiveDescription(nsSVGFilterInstance* aInstance,
-                            const IntRect& aFilterSubregion,
-                            const nsTArray<bool>& aInputsAreTainted,
-                            nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
-  virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override { return mStringAttributes[RESULT]; }
-  virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo >& aSources) override;
+ public:
+  virtual FilterPrimitiveDescription GetPrimitiveDescription(
+      nsSVGFilterInstance* aInstance,
+      const IntRect& aFilterSubregion,
+      const nsTArray<bool>& aInputsAreTainted,
+      nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
+  virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
+                                         nsAtom* aAttribute) const override;
+  virtual nsSVGString& GetResultImageName() override
+  {
+    return mStringAttributes[RESULT];
+  }
+  virtual void GetSourceImageNames(
+      nsTArray<nsSVGStringInfo>& aSources) override;
 
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-  virtual nsresult Clone(mozilla::dom::NodeInfo *aNodeInfo, nsINode **aResult,
+  virtual nsresult Clone(mozilla::dom::NodeInfo* aNodeInfo,
+                         nsINode** aResult,
                          bool aPreallocateChildren) const override;
 
   // WebIDL
@@ -56,25 +66,36 @@ public:
   already_AddRefed<SVGAnimatedNumber> StdDeviationY();
   void SetStdDeviation(float stdDeviationX, float stdDeviationY);
 
-protected:
+ protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
   virtual NumberPairAttributesInfo GetNumberPairInfo() override;
   virtual StringAttributesInfo GetStringInfo() override;
 
-  enum { DX, DY };
+  enum
+  {
+    DX,
+    DY
+  };
   nsSVGNumber2 mNumberAttributes[2];
   static NumberInfo sNumberInfo[2];
 
-  enum { STD_DEV };
+  enum
+  {
+    STD_DEV
+  };
   nsSVGNumberPair mNumberPairAttributes[1];
   static NumberPairInfo sNumberPairInfo[1];
 
-  enum { RESULT, IN1 };
+  enum
+  {
+    RESULT,
+    IN1
+  };
   nsSVGString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGFEDropShadowElement_h
+#endif  // mozilla_dom_SVGFEDropShadowElement_h

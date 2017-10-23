@@ -6,19 +6,13 @@
 
 #include "nsSMILInterval.h"
 
-nsSMILInterval::nsSMILInterval()
-:
-  mBeginFixed(false),
-  mEndFixed(false)
-{
-}
+nsSMILInterval::nsSMILInterval() : mBeginFixed(false), mEndFixed(false) {}
 
 nsSMILInterval::nsSMILInterval(const nsSMILInterval& aOther)
-:
-  mBegin(aOther.mBegin),
-  mEnd(aOther.mEnd),
-  mBeginFixed(false),
-  mEndFixed(false)
+    : mBegin(aOther.mBegin),
+      mEnd(aOther.mEnd),
+      mBeginFixed(false),
+      mEndFixed(false)
 {
   MOZ_ASSERT(aOther.mDependentTimes.IsEmpty(),
              "Attempt to copy-construct an interval with dependent times; this "
@@ -63,16 +57,14 @@ nsSMILInterval::Unlink(bool aFiltered)
 nsSMILInstanceTime*
 nsSMILInterval::Begin()
 {
-  MOZ_ASSERT(mBegin && mEnd,
-             "Requesting Begin() on un-initialized interval.");
+  MOZ_ASSERT(mBegin && mEnd, "Requesting Begin() on un-initialized interval.");
   return mBegin;
 }
 
 nsSMILInstanceTime*
 nsSMILInterval::End()
 {
-  MOZ_ASSERT(mBegin && mEnd,
-             "Requesting End() on un-initialized interval.");
+  MOZ_ASSERT(mBegin && mEnd, "Requesting End() on un-initialized interval.");
   return mEnd;
 }
 
@@ -95,8 +87,7 @@ nsSMILInterval::SetBegin(nsSMILInstanceTime& aBegin)
 void
 nsSMILInterval::SetEnd(nsSMILInstanceTime& aEnd)
 {
-  MOZ_ASSERT(!mEndFixed,
-             "Attempt to set end time but the end point is fixed");
+  MOZ_ASSERT(!mEndFixed, "Attempt to set end time but the end point is fixed");
   // As with SetBegin, check we're not making an instance time dependent on
   // itself.
   MOZ_ASSERT(!mEnd || aEnd.GetBaseTime() != mEnd,
@@ -108,8 +99,7 @@ nsSMILInterval::SetEnd(nsSMILInstanceTime& aEnd)
 void
 nsSMILInterval::FixBegin()
 {
-  MOZ_ASSERT(mBegin && mEnd,
-             "Fixing begin point on un-initialized interval");
+  MOZ_ASSERT(mBegin && mEnd, "Fixing begin point on un-initialized interval");
   MOZ_ASSERT(!mBeginFixed, "Duplicate calls to FixBegin()");
   mBeginFixed = true;
   mBegin->AddRefFixedEndpoint();
@@ -118,8 +108,7 @@ nsSMILInterval::FixBegin()
 void
 nsSMILInterval::FixEnd()
 {
-  MOZ_ASSERT(mBegin && mEnd,
-             "Fixing end point on un-initialized interval");
+  MOZ_ASSERT(mBegin && mEnd, "Fixing end point on un-initialized interval");
   MOZ_ASSERT(mBeginFixed,
              "Fixing the end of an interval without a fixed begin");
   MOZ_ASSERT(!mEndFixed, "Duplicate calls to FixEnd()");
@@ -131,7 +120,7 @@ void
 nsSMILInterval::AddDependentTime(nsSMILInstanceTime& aTime)
 {
   RefPtr<nsSMILInstanceTime>* inserted =
-    mDependentTimes.InsertElementSorted(&aTime);
+      mDependentTimes.InsertElementSorted(&aTime);
   if (!inserted) {
     NS_WARNING("Insufficient memory to insert instance time.");
   }
@@ -143,7 +132,7 @@ nsSMILInterval::RemoveDependentTime(const nsSMILInstanceTime& aTime)
 #ifdef DEBUG
   bool found =
 #endif
-    mDependentTimes.RemoveElementSorted(&aTime);
+      mDependentTimes.RemoveElementSorted(&aTime);
   MOZ_ASSERT(found, "Couldn't find instance time to delete.");
 }
 
@@ -157,10 +146,9 @@ bool
 nsSMILInterval::IsDependencyChainLink() const
 {
   if (!mBegin || !mEnd)
-    return false; // Not yet initialised so it can't be part of a chain
+    return false;  // Not yet initialised so it can't be part of a chain
 
-  if (mDependentTimes.IsEmpty())
-    return false; // No dependents, chain end
+  if (mDependentTimes.IsEmpty()) return false;  // No dependents, chain end
 
   // So we have dependents, but we're still only a link in the chain (as opposed
   // to the end of the chain) if one of our endpoints is dependent on an

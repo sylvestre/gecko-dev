@@ -8,6 +8,7 @@
 
 #include "nsString.h"
 
-bool GetUIKitDirectory(bool aLocal, nsACString& aUserDir);
+bool
+GetUIKitDirectory(bool aLocal, nsACString& aUserDir);
 
-#endif // TOOLKIT_XRE_UIKITDIRPROVIDER_H_
+#endif  // TOOLKIT_XRE_UIKITDIRPROVIDER_H_

@@ -35,12 +35,14 @@ HNsToUsecs(int64_t hNanoSecs)
   return hNanoSecs / 10;
 }
 
-HRESULT HNsToFrames(int64_t aHNs, uint32_t aRate, int64_t* aOutFrames);
+HRESULT
+HNsToFrames(int64_t aHNs, uint32_t aRate, int64_t* aOutFrames);
 
 HRESULT
 GetDefaultStride(IMFMediaType* aType, uint32_t aWidth, uint32_t* aOutStride);
 
-int32_t MFOffsetToInt32(const MFOffset& aOffset);
+int32_t
+MFOffsetToInt32(const MFOffset& aOffset);
 
 // Gets the sub-region of the video frame that should be displayed.
 // See: http://msdn.microsoft.com/en-us/library/windows/desktop/bb530115(v=vs.85).aspx
@@ -49,11 +51,13 @@ GetPictureRegion(IMFMediaType* aMediaType, gfx::IntRect& aOutPictureRegion);
 
 // Returns the duration of a IMFSample in TimeUnit.
 // Returns media::TimeUnit::Invalid() on failure.
-media::TimeUnit GetSampleDuration(IMFSample* aSample);
+media::TimeUnit
+GetSampleDuration(IMFSample* aSample);
 
 // Returns the presentation time of a IMFSample in TimeUnit.
 // Returns media::TimeUnit::Invalid() on failure.
-media::TimeUnit GetSampleTime(IMFSample* aSample);
+media::TimeUnit
+GetSampleTime(IMFSample* aSample);
 
 inline bool
 IsFlagSet(DWORD flags, DWORD pattern)
@@ -63,7 +67,8 @@ IsFlagSet(DWORD flags, DWORD pattern)
 
 // Will return %ProgramW6432% value as per:
 // https://msdn.microsoft.com/library/windows/desktop/aa384274.aspx
-nsString GetProgramW6432Path();
-} // namespace mozilla
+nsString
+GetProgramW6432Path();
+}  // namespace mozilla
 
 #endif

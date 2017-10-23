@@ -14,7 +14,7 @@
 
 class nsPluginNativeWindowImpl : public nsPluginNativeWindow
 {
-public:
+ public:
   nsPluginNativeWindowImpl();
   virtual ~nsPluginNativeWindowImpl();
 
@@ -46,18 +46,18 @@ nsPluginNativeWindowImpl::nsPluginNativeWindowImpl() : nsPluginNativeWindow()
 #endif
 }
 
-nsPluginNativeWindowImpl::~nsPluginNativeWindowImpl()
-{
-}
+nsPluginNativeWindowImpl::~nsPluginNativeWindowImpl() {}
 
-nsresult PLUG_NewPluginNativeWindow(nsPluginNativeWindow ** aPluginNativeWindow)
+nsresult
+PLUG_NewPluginNativeWindow(nsPluginNativeWindow** aPluginNativeWindow)
 {
   NS_ENSURE_ARG_POINTER(aPluginNativeWindow);
   *aPluginNativeWindow = new nsPluginNativeWindowImpl();
   return NS_OK;
 }
 
-nsresult PLUG_DeletePluginNativeWindow(nsPluginNativeWindow * aPluginNativeWindow)
+nsresult
+PLUG_DeletePluginNativeWindow(nsPluginNativeWindow* aPluginNativeWindow)
 {
   NS_ENSURE_ARG_POINTER(aPluginNativeWindow);
   delete static_cast<nsPluginNativeWindowImpl*>(aPluginNativeWindow);

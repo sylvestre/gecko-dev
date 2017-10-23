@@ -29,11 +29,10 @@ namespace gmp {
 
 class GMPContentParent;
 
-class ChromiumCDMParent final
-  : public PChromiumCDMParent
-  , public GMPCrashHelperHolder
+class ChromiumCDMParent final : public PChromiumCDMParent,
+                                public GMPCrashHelperHolder
 {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ChromiumCDMParent)
 
   ChromiumCDMParent(GMPContentParent* aContentParent, uint32_t aPluginId);
@@ -71,12 +70,12 @@ public:
   // TODO: Add functions for clients to send data to CDM, and
   // a Close() function.
   RefPtr<MediaDataDecoder::InitPromise> InitializeVideoDecoder(
-    const gmp::CDMVideoDecoderConfig& aConfig,
-    const VideoInfo& aInfo,
-    RefPtr<layers::ImageContainer> aImageContainer);
+      const gmp::CDMVideoDecoderConfig& aConfig,
+      const VideoInfo& aInfo,
+      RefPtr<layers::ImageContainer> aImageContainer);
 
   RefPtr<MediaDataDecoder::DecodePromise> DecryptAndDecodeFrame(
-    MediaRawData* aSample);
+      MediaRawData* aSample);
 
   RefPtr<MediaDataDecoder::FlushPromise> FlushVideoDecoder();
 
@@ -86,16 +85,14 @@ public:
 
   void Shutdown();
 
-protected:
+ protected:
   ~ChromiumCDMParent() {}
 
   ipc::IPCResult Recv__delete__() override;
   ipc::IPCResult RecvOnResolveNewSessionPromise(
-    const uint32_t& aPromiseId,
-    const nsCString& aSessionId) override;
+      const uint32_t& aPromiseId, const nsCString& aSessionId) override;
   ipc::IPCResult RecvResolveLoadSessionPromise(
-    const uint32_t& aPromiseId,
-    const bool& aSuccessful) override;
+      const uint32_t& aPromiseId, const bool& aSuccessful) override;
   ipc::IPCResult RecvOnResolvePromise(const uint32_t& aPromiseId) override;
   ipc::IPCResult RecvOnRejectPromise(const uint32_t& aPromiseId,
                                      const uint32_t& aError,
@@ -105,11 +102,10 @@ protected:
                                       const uint32_t& aMessageType,
                                       nsTArray<uint8_t>&& aMessage) override;
   ipc::IPCResult RecvOnSessionKeysChange(
-    const nsCString& aSessionId,
-    nsTArray<CDMKeyInformation>&& aKeysInfo) override;
+      const nsCString& aSessionId,
+      nsTArray<CDMKeyInformation>&& aKeysInfo) override;
   ipc::IPCResult RecvOnExpirationChange(
-    const nsCString& aSessionId,
-    const double& aSecondsSinceEpoch) override;
+      const nsCString& aSessionId, const double& aSecondsSinceEpoch) override;
   ipc::IPCResult RecvOnSessionClosed(const nsCString& aSessionId) override;
   ipc::IPCResult RecvOnLegacySessionError(const nsCString& aSessionId,
                                           const uint32_t& aError,
@@ -192,7 +188,7 @@ protected:
   nsCOMPtr<nsIEventTarget> mMainThread;
 };
 
-} // namespace gmp
-} // namespace mozilla
+}  // namespace gmp
+}  // namespace mozilla
 
-#endif // ChromiumCDMParent_h_
+#endif  // ChromiumCDMParent_h_

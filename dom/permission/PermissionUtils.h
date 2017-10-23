@@ -14,12 +14,15 @@
 namespace mozilla {
 namespace dom {
 
-const char* PermissionNameToType(PermissionName aName);
-Maybe<PermissionName> TypeToPermissionName(const char* aType);
+const char*
+PermissionNameToType(PermissionName aName);
+Maybe<PermissionName>
+TypeToPermissionName(const char* aType);
 
-PermissionState ActionToPermissionState(uint32_t aAction);
+PermissionState
+ActionToPermissionState(uint32_t aAction);
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

@@ -15,33 +15,29 @@ namespace dom {
 // http://www.w3.org/TR/user-timing/#performancemeasure
 class PerformanceMeasure final : public PerformanceEntry
 {
-public:
+ public:
   PerformanceMeasure(nsISupports* aParent,
                      const nsAString& aName,
                      DOMHighResTimeStamp aStartTime,
                      DOMHighResTimeStamp aEndTime);
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  virtual DOMHighResTimeStamp StartTime() const override
-  {
-    return mStartTime;
-  }
+  virtual DOMHighResTimeStamp StartTime() const override { return mStartTime; }
 
-  virtual DOMHighResTimeStamp Duration() const override
-  {
-    return mDuration;
-  }
+  virtual DOMHighResTimeStamp Duration() const override { return mDuration; }
 
-  size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const override;
+  size_t SizeOfIncludingThis(
+      mozilla::MallocSizeOf aMallocSizeOf) const override;
 
-protected:
+ protected:
   virtual ~PerformanceMeasure();
   DOMHighResTimeStamp mStartTime;
   DOMHighResTimeStamp mDuration;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_performancemeasure_h___ */

@@ -12,8 +12,10 @@
 #include "nsISVGPoint.h"
 #include "nsSVGNumber2.h"
 
-struct nsSVGMark {
-  enum Type {
+struct nsSVGMark
+{
+  enum Type
+  {
     eStart,
     eMid,
     eEnd,
@@ -23,8 +25,10 @@ struct nsSVGMark {
 
   float x, y, angle;
   Type type;
-  nsSVGMark(float aX, float aY, float aAngle, Type aType) :
-    x(aX), y(aY), angle(aAngle), type(aType) {}
+  nsSVGMark(float aX, float aY, float aAngle, Type aType)
+      : x(aX), y(aY), angle(aAngle), type(aType)
+  {
+  }
 };
 
 namespace mozilla {
@@ -36,7 +40,7 @@ typedef mozilla::dom::SVGGraphicsElement SVGGeometryElementBase;
 
 class SVGGeometryElement : public SVGGeometryElementBase
 {
-protected:
+ protected:
   typedef mozilla::gfx::CapStyle CapStyle;
   typedef mozilla::gfx::DrawTarget DrawTarget;
   typedef mozilla::gfx::FillRule FillRule;
@@ -48,10 +52,12 @@ protected:
   typedef mozilla::gfx::Rect Rect;
   typedef mozilla::gfx::StrokeOptions StrokeOptions;
 
-public:
-  explicit SVGGeometryElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+ public:
+  explicit SVGGeometryElement(
+      already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
 
-  virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
+  virtual nsresult AfterSetAttr(int32_t aNamespaceID,
+                                nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
@@ -61,11 +67,9 @@ public:
    * Causes this element to discard any Path object that GetOrBuildPath may
    * have cached.
    */
-  virtual void ClearAnyCachedPath() override final {
-    mCachedPath = nullptr;
-  }
+  virtual void ClearAnyCachedPath() override final { mCachedPath = nullptr; }
 
-  virtual bool AttributeDefinesGeometry(const nsAtom *aName);
+  virtual bool AttributeDefinesGeometry(const nsAtom* aName);
 
   /**
    * Returns true if this element's geometry depends on the width or height of its
@@ -79,7 +83,7 @@ public:
   bool GeometryDependsOnCoordCtx();
 
   virtual bool IsMarkable();
-  virtual void GetMarkPoints(nsTArray<nsSVGMark> *aMarks);
+  virtual void GetMarkPoints(nsTArray<nsSVGMark>* aMarks);
 
   /**
    * A method that can be faster than using a Moz2D Path and calling GetBounds/
@@ -98,9 +102,12 @@ public:
    * If |aToNonScalingStrokeSpace| is non-null then |*aToNonScalingStrokeSpace|
    * must be non-singular.
    */
-  virtual bool GetGeometryBounds(Rect* aBounds, const StrokeOptions& aStrokeOptions,
-                                 const Matrix& aToBoundsSpace,
-                                 const Matrix* aToNonScalingStrokeSpace = nullptr) {
+  virtual bool GetGeometryBounds(
+      Rect* aBounds,
+      const StrokeOptions& aStrokeOptions,
+      const Matrix& aToBoundsSpace,
+      const Matrix* aToNonScalingStrokeSpace = nullptr)
+  {
     return false;
   }
 
@@ -109,51 +116,50 @@ public:
    */
   class SimplePath
   {
-  public:
-    SimplePath()
-      : mType(NONE)
-    {}
-    bool IsPath() const {
-      return mType != NONE;
-    }
-    void SetRect(Float x, Float y, Float width, Float height) {
+   public:
+    SimplePath() : mType(NONE) {}
+    bool IsPath() const { return mType != NONE; }
+    void SetRect(Float x, Float y, Float width, Float height)
+    {
       mX = x;
       mY = y;
       mWidthOrX2 = width;
       mHeightOrY2 = height;
       mType = RECT;
     }
-    Rect AsRect() const {
+    Rect AsRect() const
+    {
       MOZ_ASSERT(mType == RECT);
       return Rect(mX, mY, mWidthOrX2, mHeightOrY2);
     }
-    bool IsRect() const {
-      return mType == RECT;
-    }
-    void SetLine(Float x1, Float y1, Float x2, Float y2) {
+    bool IsRect() const { return mType == RECT; }
+    void SetLine(Float x1, Float y1, Float x2, Float y2)
+    {
       mX = x1;
       mY = y1;
       mWidthOrX2 = x2;
       mHeightOrY2 = y2;
       mType = LINE;
     }
-    Point Point1() const {
+    Point Point1() const
+    {
       MOZ_ASSERT(mType == LINE);
       return Point(mX, mY);
     }
-    Point Point2() const {
+    Point Point2() const
+    {
       MOZ_ASSERT(mType == LINE);
       return Point(mWidthOrX2, mHeightOrY2);
     }
-    bool IsLine() const {
-      return mType == LINE;
-    }
-    void Reset() {
-      mType = NONE;
-    }
-  private:
-    enum Type {
-      NONE, RECT, LINE
+    bool IsLine() const { return mType == LINE; }
+    void Reset() { mType = NONE; }
+
+   private:
+    enum Type
+    {
+      NONE,
+      RECT,
+      LINE
     };
     Float mX, mY, mWidthOrX2, mHeightOrY2;
     Type mType;
@@ -165,7 +171,8 @@ public:
    * using this method and then use the optimized DrawTarget methods for
    * filling/stroking rects and lines.
    */
-  virtual void GetAsSimplePath(SimplePath* aSimplePath) {
+  virtual void GetAsSimplePath(SimplePath* aSimplePath)
+  {
     aSimplePath->Reset();
   }
 
@@ -210,10 +217,10 @@ public:
   // WebIDL
   already_AddRefed<SVGAnimatedNumber> PathLength();
   float GetTotalLength();
-  already_AddRefed<nsISVGPoint>
-    GetPointAtLength(float distance, ErrorResult& rv);
+  already_AddRefed<nsISVGPoint> GetPointAtLength(float distance,
+                                                 ErrorResult& rv);
 
-protected:
+ protected:
   // nsSVGElement method
   virtual NumberAttributesInfo GetNumberInfo() override;
 
@@ -222,7 +229,7 @@ protected:
   mutable RefPtr<Path> mCachedPath;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SVGGeometryElement_h
+#endif  // mozilla_dom_SVGGeometryElement_h

@@ -24,13 +24,13 @@
 #include <atomic>
 
 // Note: Thread safe.
-class RefCounted {
-public:
-  void AddRef() {
-    ++mRefCount;
-  }
+class RefCounted
+{
+ public:
+  void AddRef() { ++mRefCount; }
 
-  uint32_t Release() {
+  uint32_t Release()
+  {
     uint32_t newCount = --mRefCount;
     if (!newCount) {
       delete this;
@@ -38,33 +38,22 @@ public:
     return newCount;
   }
 
-protected:
-  RefCounted()
-    : mRefCount(0)
-  {
-  }
-  virtual ~RefCounted()
-  {
-    assert(!mRefCount);
-  }
+ protected:
+  RefCounted() : mRefCount(0) {}
+  virtual ~RefCounted() { assert(!mRefCount); }
   std::atomic<uint32_t> mRefCount;
 };
 
 template<class T>
-class RefPtr {
-public:
-  RefPtr(const RefPtr& src) {
-    Set(src.mPtr);
-  }
+class RefPtr
+{
+ public:
+  RefPtr(const RefPtr& src) { Set(src.mPtr); }
 
-  explicit RefPtr(T* aPtr) {
-    Set(aPtr);
-  }
+  explicit RefPtr(T* aPtr) { Set(aPtr); }
   RefPtr() { Set(nullptr); }
 
-  ~RefPtr() {
-    Set(nullptr);
-  }
+  ~RefPtr() { Set(nullptr); }
   T* operator->() const { return mPtr; }
   T** operator&() { return &mPtr; }
   T* operator->() { return mPtr; }
@@ -72,13 +61,15 @@ public:
 
   T* Get() const { return mPtr; }
 
-  RefPtr& operator=(T* aVal) {
+  RefPtr& operator=(T* aVal)
+  {
     Set(aVal);
     return *this;
   }
 
-private:
-  T* Set(T* aPtr) {
+ private:
+  T* Set(T* aPtr)
+  {
     if (mPtr == aPtr) {
       return aPtr;
     }
@@ -95,4 +86,4 @@ private:
   T* mPtr = nullptr;
 };
 
-#endif // __RefCount_h__
+#endif  // __RefCount_h__

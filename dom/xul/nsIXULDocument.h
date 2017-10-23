@@ -13,11 +13,14 @@
 class nsIXULTemplateBuilder;
 class nsIContent;
 
-
 // 81ba4be5-6cc5-478a-9b08-b3e7ed524455
-#define NS_IXULDOCUMENT_IID \
-  {0x81ba4be5, 0x6cc5, 0x478a, {0x9b, 0x08, 0xb3, 0xe7, 0xed, 0x52, 0x44, 0x55}}
-
+#define NS_IXULDOCUMENT_IID                          \
+  {                                                  \
+    0x81ba4be5, 0x6cc5, 0x478a,                      \
+    {                                                \
+      0x9b, 0x08, 0xb3, 0xe7, 0xed, 0x52, 0x44, 0x55 \
+    }                                                \
+  }
 
 /*
  * An XUL-specific extension to nsIDocument. Includes methods for
@@ -26,7 +29,7 @@ class nsIContent;
  */
 class nsIXULDocument : public nsISupports
 {
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXULDOCUMENT_IID)
 
   /**
@@ -34,7 +37,8 @@ public:
    * or 'ref' is aID. The nsCOMArray will be truncated and filled in with
    * nsIContent pointers.
    */
-  virtual void GetElementsForID(const nsAString& aID, nsCOMArray<nsIContent>& aElements) = 0;
+  virtual void GetElementsForID(const nsAString& aID,
+                                nsCOMArray<nsIContent>& aElements) = 0;
 
   /**
    * Notify the XUL document that a subtree has been added
@@ -51,13 +55,15 @@ public:
    * @param aBuilder the template builder to attach, or null if
    *   the builder is to be removed.
    */
-  NS_IMETHOD SetTemplateBuilderFor(nsIContent* aContent, nsIXULTemplateBuilder* aBuilder) = 0;
+  NS_IMETHOD SetTemplateBuilderFor(nsIContent* aContent,
+                                   nsIXULTemplateBuilder* aBuilder) = 0;
 
   /**
    * Retrieve the XUL template builder that's attached to a content
    * node.
    */
-  NS_IMETHOD GetTemplateBuilderFor(nsIContent* aContent, nsIXULTemplateBuilder** aResult) = 0;
+  NS_IMETHOD GetTemplateBuilderFor(nsIContent* aContent,
+                                   nsIXULTemplateBuilder** aResult) = 0;
 
   /**
    * This is invoked whenever the prototype for this document is loaded
@@ -87,6 +93,7 @@ public:
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIXULDocument, NS_IXULDOCUMENT_IID)
 
 // factory functions
-nsresult NS_NewXULDocument(nsIXULDocument** result);
+nsresult
+NS_NewXULDocument(nsIXULDocument** result);
 
-#endif // nsIXULDocument_h___
+#endif  // nsIXULDocument_h___

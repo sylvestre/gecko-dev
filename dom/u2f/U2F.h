@@ -31,46 +31,37 @@ struct RegisterRequest;
 struct RegisteredKey;
 
 // The U2F Class is used by the JS engine to initiate U2F operations.
-class U2F final : public nsISupports
-                , public nsWrapperCache
+class U2F final : public nsISupports, public nsWrapperCache
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(U2F)
 
   explicit U2F(nsPIDOMWindowInner* aParent);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mParent;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mParent; }
 
-  void
-  Init(ErrorResult& aRv);
+  void Init(ErrorResult& aRv);
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  Register(const nsAString& aAppId,
-           const Sequence<RegisterRequest>& aRegisterRequests,
-           const Sequence<RegisteredKey>& aRegisteredKeys,
-           U2FRegisterCallback& aCallback,
-           const Optional<Nullable<int32_t>>& opt_aTimeoutSeconds,
-           ErrorResult& aRv);
+  void Register(const nsAString& aAppId,
+                const Sequence<RegisterRequest>& aRegisterRequests,
+                const Sequence<RegisteredKey>& aRegisteredKeys,
+                U2FRegisterCallback& aCallback,
+                const Optional<Nullable<int32_t>>& opt_aTimeoutSeconds,
+                ErrorResult& aRv);
 
-  void
-  Sign(const nsAString& aAppId,
-       const nsAString& aChallenge,
-       const Sequence<RegisteredKey>& aRegisteredKeys,
-       U2FSignCallback& aCallback,
-       const Optional<Nullable<int32_t>>& opt_aTimeoutSeconds,
-       ErrorResult& aRv);
+  void Sign(const nsAString& aAppId,
+            const nsAString& aChallenge,
+            const Sequence<RegisteredKey>& aRegisteredKeys,
+            U2FSignCallback& aCallback,
+            const Optional<Nullable<int32_t>>& opt_aTimeoutSeconds,
+            ErrorResult& aRv);
 
-private:
-  void
-  Cancel();
+ private:
+  void Cancel();
 
   nsString mOrigin;
   nsCOMPtr<nsPIDOMWindowInner> mParent;
@@ -82,7 +73,7 @@ private:
   ~U2F();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_U2F_h
+#endif  // mozilla_dom_U2F_h

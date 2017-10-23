@@ -11,13 +11,13 @@
 #error GL_CONTEXT_PROVIDER_NAME not defined
 #endif
 #if defined(MOZ_WIDGET_ANDROID)
-#include "GLTypes.h" // for EGLSurface and EGLConfig
-#endif // defined(MOZ_WIDGET_ANDROID)
+#include "GLTypes.h"  // for EGLSurface and EGLConfig
+#endif                // defined(MOZ_WIDGET_ANDROID)
 
 class GL_CONTEXT_PROVIDER_NAME
 {
-public:
-    /**
+ public:
+  /**
      * Create a context that renders to the surface of the widget represented by
      * the compositor widget that is passed in. The context is always created
      * with an RGB pixel format, with no alpha, depth or stencil.
@@ -40,10 +40,11 @@ public:
      *
      * @return Context to use for the window
      */
-    static already_AddRefed<GLContext>
-    CreateForCompositorWidget(mozilla::widget::CompositorWidget* aCompositorWidget, bool aForceAccelerated);
+  static already_AddRefed<GLContext> CreateForCompositorWidget(
+      mozilla::widget::CompositorWidget* aCompositorWidget,
+      bool aForceAccelerated);
 
-    /**
+  /**
      * Create a context that renders to the surface of the widget that is
      * passed in.  The context is always created with an RGB pixel format,
      * with no alpha, depth or stencil.  If any of those features are needed,
@@ -66,10 +67,11 @@ public:
      *
      * @return Context to use for the window
      */
-    static already_AddRefed<GLContext>
-    CreateForWindow(nsIWidget* aWidget, bool aWebRender, bool aForceAccelerated);
+  static already_AddRefed<GLContext> CreateForWindow(nsIWidget* aWidget,
+                                                     bool aWebRender,
+                                                     bool aForceAccelerated);
 
-    /**
+  /**
      * Create a context for offscreen rendering.  The target of this
      * context should be treated as opaque -- it might be a FBO, or a
      * pbuffer, or some other construct.  Users of this GLContext
@@ -91,17 +93,17 @@ public:
      *
      * @return Context to use for offscreen rendering
      */
-    static already_AddRefed<GLContext>
-    CreateOffscreen(const mozilla::gfx::IntSize& size,
-                    const SurfaceCaps& minCaps,
-                    CreateContextFlags flags,
-                    nsACString* const out_failureId);
+  static already_AddRefed<GLContext> CreateOffscreen(
+      const mozilla::gfx::IntSize& size,
+      const SurfaceCaps& minCaps,
+      CreateContextFlags flags,
+      nsACString* const out_failureId);
 
-    // Just create a context. We'll add offscreen stuff ourselves.
-    static already_AddRefed<GLContext>
-    CreateHeadless(CreateContextFlags flags, nsACString* const out_failureId);
+  // Just create a context. We'll add offscreen stuff ourselves.
+  static already_AddRefed<GLContext> CreateHeadless(
+      CreateContextFlags flags, nsACString* const out_failureId);
 
-    /**
+  /**
      * Create wrapping Gecko GLContext for external gl context.
      *
      * @param aContext External context which will be wrapped by Gecko GLContext.
@@ -109,23 +111,22 @@ public:
      *
      * @return Wrapping Context to use for rendering
      */
-    static already_AddRefed<GLContext>
-    CreateWrappingExisting(void* aContext, void* aSurface);
+  static already_AddRefed<GLContext> CreateWrappingExisting(void* aContext,
+                                                            void* aSurface);
 
 #if defined(MOZ_WIDGET_ANDROID)
-    static EGLSurface CreateEGLSurface(void* aWindow, EGLConfig aConfig = nullptr);
-    static void DestroyEGLSurface(EGLSurface surface);
-#endif // defined(MOZ_WIDGET_ANDROID)
+  static EGLSurface CreateEGLSurface(void* aWindow,
+                                     EGLConfig aConfig = nullptr);
+  static void DestroyEGLSurface(EGLSurface surface);
+#endif  // defined(MOZ_WIDGET_ANDROID)
 
-    /**
+  /**
      * Get a pointer to the global context, creating it if it doesn't exist.
      */
-    static GLContext*
-    GetGlobalContext();
+  static GLContext* GetGlobalContext();
 
-    /**
+  /**
      * Free any resources held by this Context Provider.
      */
-    static void
-    Shutdown();
+  static void Shutdown();
 };

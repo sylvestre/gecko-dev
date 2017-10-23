@@ -1,6 +1,7 @@
 #include "ExceptionThrower.h"
 
-void ThrowException()
+void
+ThrowException()
 {
   throw 1;
 }

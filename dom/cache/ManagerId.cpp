@@ -28,10 +28,12 @@ ManagerId::Create(nsIPrincipal* aPrincipal, ManagerId** aManagerIdOut)
   // order to interpret calls from QM correctly.
   nsCString quotaOrigin;
   nsresult rv = QuotaManager::GetInfoFromPrincipal(aPrincipal,
-                                                   nullptr,   // suffix
-                                                   nullptr,   // group
+                                                   nullptr,  // suffix
+                                                   nullptr,  // group
                                                    &quotaOrigin);
-  if (NS_WARN_IF(NS_FAILED(rv))) { return rv; }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
 
   RefPtr<ManagerId> ref = new ManagerId(aPrincipal, quotaOrigin);
   ref.forget(aManagerIdOut);
@@ -48,8 +50,7 @@ ManagerId::Principal() const
 }
 
 ManagerId::ManagerId(nsIPrincipal* aPrincipal, const nsACString& aQuotaOrigin)
-    : mPrincipal(aPrincipal)
-    , mQuotaOrigin(aQuotaOrigin)
+    : mPrincipal(aPrincipal), mQuotaOrigin(aQuotaOrigin)
 {
   MOZ_DIAGNOSTIC_ASSERT(mPrincipal);
 }
@@ -65,10 +66,10 @@ ManagerId::~ManagerId()
 
   // The PBackground worker thread shouldn't be running after the main thread
   // is stopped.  So main thread is guaranteed to exist here.
-  NS_ReleaseOnMainThreadSystemGroup(
-    "ManagerId::mPrincipal", mPrincipal.forget());
+  NS_ReleaseOnMainThreadSystemGroup("ManagerId::mPrincipal",
+                                    mPrincipal.forget());
 }
 
-} // namespace cache
-} // namespace dom
-} // namespace mozilla
+}  // namespace cache
+}  // namespace dom
+}  // namespace mozilla

@@ -19,7 +19,8 @@ StaticRefPtr<CompositorManagerParent> CompositorManagerParent::sInstance;
 StaticMutex CompositorManagerParent::sMutex;
 
 #ifdef COMPOSITOR_MANAGER_PARENT_EXPLICIT_SHUTDOWN
-StaticAutoPtr<nsTArray<CompositorManagerParent*>> CompositorManagerParent::sActiveActors;
+StaticAutoPtr<nsTArray<CompositorManagerParent*>>
+    CompositorManagerParent::sActiveActors;
 #endif
 
 /* static */ already_AddRefed<CompositorManagerParent>
@@ -56,19 +57,21 @@ CompositorManagerParent::Create(Endpoint<PCompositorManagerParent>&& aEndpoint)
 
   RefPtr<CompositorManagerParent> bridge = new CompositorManagerParent();
 
-  RefPtr<Runnable> runnable = NewRunnableMethod<Endpoint<PCompositorManagerParent>&&>(
-    "CompositorManagerParent::Bind",
-    bridge,
-    &CompositorManagerParent::Bind,
-    Move(aEndpoint));
+  RefPtr<Runnable> runnable =
+      NewRunnableMethod<Endpoint<PCompositorManagerParent>&&>(
+          "CompositorManagerParent::Bind",
+          bridge,
+          &CompositorManagerParent::Bind,
+          Move(aEndpoint));
   CompositorThreadHolder::Loop()->PostTask(runnable.forget());
 }
 
 /* static */ already_AddRefed<CompositorBridgeParent>
-CompositorManagerParent::CreateSameProcessWidgetCompositorBridge(CSSToLayoutDeviceScale aScale,
-                                                                 const CompositorOptions& aOptions,
-                                                                 bool aUseExternalSurfaceSize,
-                                                                 const gfx::IntSize& aSurfaceSize)
+CompositorManagerParent::CreateSameProcessWidgetCompositorBridge(
+    CSSToLayoutDeviceScale aScale,
+    const CompositorOptions& aOptions,
+    bool aUseExternalSurfaceSize,
+    const gfx::IntSize& aSurfaceSize)
 {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(NS_IsMainThread());
@@ -93,25 +96,29 @@ CompositorManagerParent::CreateSameProcessWidgetCompositorBridge(CSSToLayoutDevi
     return nullptr;
   }
 
-  TimeDuration vsyncRate =
-    gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay().GetVsyncRate();
+  TimeDuration vsyncRate = gfxPlatform::GetPlatform()
+                               ->GetHardwareVsync()
+                               ->GetGlobalDisplay()
+                               .GetVsyncRate();
 
   RefPtr<CompositorBridgeParent> bridge =
-    new CompositorBridgeParent(sInstance, aScale, vsyncRate, aOptions,
-                               aUseExternalSurfaceSize, aSurfaceSize);
+      new CompositorBridgeParent(sInstance,
+                                 aScale,
+                                 vsyncRate,
+                                 aOptions,
+                                 aUseExternalSurfaceSize,
+                                 aSurfaceSize);
 
   sInstance->mPendingCompositorBridges.AppendElement(bridge);
   return bridge.forget();
 }
 
 CompositorManagerParent::CompositorManagerParent()
-  : mCompositorThreadHolder(CompositorThreadHolder::GetSingleton())
+    : mCompositorThreadHolder(CompositorThreadHolder::GetSingleton())
 {
 }
 
-CompositorManagerParent::~CompositorManagerParent()
-{
-}
+CompositorManagerParent::~CompositorManagerParent() {}
 
 void
 CompositorManagerParent::Bind(Endpoint<PCompositorManagerParent>&& aEndpoint)
@@ -157,9 +164,9 @@ void
 CompositorManagerParent::DeallocPCompositorManagerParent()
 {
   MessageLoop::current()->PostTask(
-          NewRunnableMethod("layers::CompositorManagerParent::DeferredDestroy",
-                            this,
-                            &CompositorManagerParent::DeferredDestroy));
+      NewRunnableMethod("layers::CompositorManagerParent::DeferredDestroy",
+                        this,
+                        &CompositorManagerParent::DeferredDestroy));
 
 #ifdef COMPOSITOR_MANAGER_PARENT_EXPLICIT_SHUTDOWN
   StaticMutexAutoLock lock(sMutex);
@@ -195,7 +202,7 @@ CompositorManagerParent::ShutdownInternal()
     }
   }
 }
-#endif // COMPOSITOR_MANAGER_PARENT_EXPLICIT_SHUTDOWN
+#endif  // COMPOSITOR_MANAGER_PARENT_EXPLICIT_SHUTDOWN
 
 /* static */ void
 CompositorManagerParent::Shutdown()
@@ -203,20 +210,20 @@ CompositorManagerParent::Shutdown()
   MOZ_ASSERT(NS_IsMainThread());
 
 #ifdef COMPOSITOR_MANAGER_PARENT_EXPLICIT_SHUTDOWN
-  CompositorThreadHolder::Loop()->PostTask(
-      NS_NewRunnableFunction("layers::CompositorManagerParent::Shutdown", []() -> void {
-        CompositorManagerParent::ShutdownInternal();
-      }));
+  CompositorThreadHolder::Loop()->PostTask(NS_NewRunnableFunction(
+      "layers::CompositorManagerParent::Shutdown",
+      []() -> void { CompositorManagerParent::ShutdownInternal(); }));
 #endif
 }
 
 PCompositorBridgeParent*
-CompositorManagerParent::AllocPCompositorBridgeParent(const CompositorBridgeOptions& aOpt)
+CompositorManagerParent::AllocPCompositorBridgeParent(
+    const CompositorBridgeOptions& aOpt)
 {
   switch (aOpt.type()) {
     case CompositorBridgeOptions::TContentCompositorOptions: {
       CrossProcessCompositorBridgeParent* bridge =
-        new CrossProcessCompositorBridgeParent(this);
+          new CrossProcessCompositorBridgeParent(this);
       bridge->AddRef();
       return bridge;
     }
@@ -231,9 +238,12 @@ CompositorManagerParent::AllocPCompositorBridgeParent(const CompositorBridgeOpti
 
       const WidgetCompositorOptions& opt = aOpt.get_WidgetCompositorOptions();
       CompositorBridgeParent* bridge =
-        new CompositorBridgeParent(this, opt.scale(), opt.vsyncRate(),
-                                   opt.options(), opt.useExternalSurfaceSize(),
-                                   opt.surfaceSize());
+          new CompositorBridgeParent(this,
+                                     opt.scale(),
+                                     opt.vsyncRate(),
+                                     opt.options(),
+                                     opt.useExternalSurfaceSize(),
+                                     opt.surfaceSize());
       bridge->AddRef();
       return bridge;
     }
@@ -264,11 +274,12 @@ CompositorManagerParent::AllocPCompositorBridgeParent(const CompositorBridgeOpti
 }
 
 bool
-CompositorManagerParent::DeallocPCompositorBridgeParent(PCompositorBridgeParent* aActor)
+CompositorManagerParent::DeallocPCompositorBridgeParent(
+    PCompositorBridgeParent* aActor)
 {
   static_cast<CompositorBridgeParentBase*>(aActor)->Release();
   return true;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

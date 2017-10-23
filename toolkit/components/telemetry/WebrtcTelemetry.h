@@ -11,33 +11,33 @@
 #include "nsHashKeys.h"
 #include "TelemetryCommon.h"
 
-class WebrtcTelemetry {
-public:
-  struct WebrtcIceCandidateStats {
+class WebrtcTelemetry
+{
+ public:
+  struct WebrtcIceCandidateStats
+  {
     uint32_t successCount;
     uint32_t failureCount;
-    WebrtcIceCandidateStats() :
-      successCount(0),
-      failureCount(0)
-    {
-    }
+    WebrtcIceCandidateStats() : successCount(0), failureCount(0) {}
   };
-  struct WebrtcIceStatsCategory {
+  struct WebrtcIceStatsCategory
+  {
     struct WebrtcIceCandidateStats webrtc;
   };
-  typedef nsBaseHashtableET<nsUint32HashKey, WebrtcIceStatsCategory> WebrtcIceCandidateType;
+  typedef nsBaseHashtableET<nsUint32HashKey, WebrtcIceStatsCategory>
+      WebrtcIceCandidateType;
 
   void RecordIceCandidateMask(const uint32_t iceCandidateBitmask, bool success);
 
-  bool GetWebrtcStats(JSContext *cx, JS::MutableHandle<JS::Value> ret);
+  bool GetWebrtcStats(JSContext* cx, JS::MutableHandle<JS::Value> ret);
 
   size_t SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
-private:
+ private:
+  bool AddIceInfo(JSContext* cx, JS::Handle<JSObject*> rootObj);
 
-  bool AddIceInfo(JSContext *cx, JS::Handle<JSObject*> rootObj);
-
-  mozilla::Telemetry::Common::AutoHashtable<WebrtcIceCandidateType> mWebrtcIceCandidates;
+  mozilla::Telemetry::Common::AutoHashtable<WebrtcIceCandidateType>
+      mWebrtcIceCandidates;
 };
 
-#endif // WebrtcTelemetry_h__
+#endif  // WebrtcTelemetry_h__

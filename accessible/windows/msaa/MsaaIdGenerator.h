@@ -31,7 +31,7 @@ class sdnAccessible;
  */
 class MsaaIdGenerator
 {
-public:
+ public:
   constexpr MsaaIdGenerator();
 
   uint32_t GetID();
@@ -46,15 +46,15 @@ public:
   uint32_t GetContentProcessIDFor(dom::ContentParentId aIPCContentProcessID);
   void ReleaseContentProcessIDFor(dom::ContentParentId aIPCContentProcessID);
 
-private:
+ private:
   bool ReleaseID(uint32_t aID);
   uint32_t ResolveContentProcessID();
 
-private:
-  IDSet     mIDSet;
+ private:
+  IDSet mIDSet;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_MsaaIdGenerator_h
+#endif  // mozilla_a11y_MsaaIdGenerator_h

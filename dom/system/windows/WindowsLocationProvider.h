@@ -19,7 +19,7 @@ namespace dom {
 
 class WindowsLocationProvider final : public nsIGeolocationProvider
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIGEOLOCATIONPROVIDER
 
@@ -30,23 +30,24 @@ public:
 
   class MLSUpdate : public nsIGeolocationUpdate
   {
-  public:
+   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSIGEOLOCATIONUPDATE
     explicit MLSUpdate(nsIGeolocationUpdate* aCallback);
 
-  private:
+   private:
     nsCOMPtr<nsIGeolocationUpdate> mCallback;
     virtual ~MLSUpdate() {}
   };
-private:
+
+ private:
   ~WindowsLocationProvider();
 
   RefPtr<ILocation> mLocation;
   RefPtr<MLSFallback> mMLSProvider;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_WindowsLocationProvider_h__
+#endif  // mozilla_dom_WindowsLocationProvider_h__

@@ -10,10 +10,7 @@
 namespace mozilla {
 namespace layers {
 
-TouchCounter::TouchCounter()
-  : mActiveTouchCount(0)
-{
-}
+TouchCounter::TouchCounter() : mActiveTouchCount(0) {}
 
 void
 TouchCounter::Update(const MultiTouchInput& aInput)
@@ -46,5 +43,5 @@ TouchCounter::GetActiveTouchCount() const
   return mActiveTouchCount;
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

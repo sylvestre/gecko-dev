@@ -38,13 +38,16 @@
 
 using namespace std;
 
-namespace mozilla { namespace pkix { namespace test {
+namespace mozilla {
+namespace pkix {
+namespace test {
 
 namespace {
 
 inline void
-fclose_void(FILE* file) {
-  (void) fclose(file);
+fclose_void(FILE* file)
+{
+  (void)fclose(file);
 }
 
 typedef mozilla::pkix::ScopedPtr<FILE, fclose_void> ScopedFILE;
@@ -71,7 +74,7 @@ OpenFile(const string& dir, const string& filename, const string& mode)
   return file.release();
 }
 
-} // namespace
+}  // namespace
 
 bool
 InputEqualsByteString(Input input, const ByteString& bs)
@@ -101,7 +104,8 @@ InputToByteString(Input input)
 }
 
 Result
-TamperOnce(/*in/out*/ ByteString& item, const ByteString& from,
+TamperOnce(/*in/out*/ ByteString& item,
+           const ByteString& from,
            const ByteString& to)
 {
   if (from.length() < 8) {
@@ -112,10 +116,10 @@ TamperOnce(/*in/out*/ ByteString& item, const ByteString& from,
   }
   size_t pos = item.find(from);
   if (pos == string::npos) {
-    return Result::FATAL_ERROR_INVALID_ARGS; // No matches.
+    return Result::FATAL_ERROR_INVALID_ARGS;  // No matches.
   }
   if (item.find(from, pos + from.length()) != string::npos) {
-    return Result::FATAL_ERROR_INVALID_ARGS; // More than once match.
+    return Result::FATAL_ERROR_INVALID_ARGS;  // More than once match.
   }
   item.replace(pos, from.length(), to);
   return Success;
@@ -147,41 +151,47 @@ TLV(uint8_t tag, size_t length, const ByteString& value)
 }
 
 OCSPResponseExtension::OCSPResponseExtension()
-  : id()
-  , critical(false)
-  , value()
-  , next(nullptr)
+    : id(), critical(false), value(), next(nullptr)
 {
 }
 
 OCSPResponseContext::OCSPResponseContext(const CertID& certID, time_t time)
-  : certID(certID)
-  , responseStatus(successful)
-  , skipResponseBytes(false)
-  , producedAt(time)
-  , singleExtensions(nullptr)
-  , responseExtensions(nullptr)
-  , includeEmptyExtensions(false)
-  , signatureAlgorithm(sha256WithRSAEncryption())
-  , badSignature(false)
-  , certs(nullptr)
+    : certID(certID),
+      responseStatus(successful),
+      skipResponseBytes(false),
+      producedAt(time),
+      singleExtensions(nullptr),
+      responseExtensions(nullptr),
+      includeEmptyExtensions(false),
+      signatureAlgorithm(sha256WithRSAEncryption()),
+      badSignature(false),
+      certs(nullptr)
 
-  , certStatus(good)
-  , revocationTime(0)
-  , thisUpdate(time)
-  , nextUpdate(time + static_cast<time_t>(Time::ONE_DAY_IN_SECONDS))
-  , includeNextUpdate(true)
+      ,
+      certStatus(good),
+      revocationTime(0),
+      thisUpdate(time),
+      nextUpdate(time + static_cast<time_t>(Time::ONE_DAY_IN_SECONDS)),
+      includeNextUpdate(true)
 {
 }
 
-static ByteString ResponseBytes(OCSPResponseContext& context);
-static ByteString BasicOCSPResponse(OCSPResponseContext& context);
-static ByteString ResponseData(OCSPResponseContext& context);
-static ByteString ResponderID(OCSPResponseContext& context);
-static ByteString KeyHash(const ByteString& subjectPublicKeyInfo);
-static ByteString SingleResponse(OCSPResponseContext& context);
-static ByteString CertID(OCSPResponseContext& context);
-static ByteString CertStatus(OCSPResponseContext& context);
+static ByteString
+ResponseBytes(OCSPResponseContext& context);
+static ByteString
+BasicOCSPResponse(OCSPResponseContext& context);
+static ByteString
+ResponseData(OCSPResponseContext& context);
+static ByteString
+ResponderID(OCSPResponseContext& context);
+static ByteString
+KeyHash(const ByteString& subjectPublicKeyInfo);
+static ByteString
+SingleResponse(OCSPResponseContext& context);
+static ByteString
+CertID(OCSPResponseContext& context);
+static ByteString
+CertStatus(OCSPResponseContext& context);
 
 static ByteString
 SHA1(const ByteString& toHash)
@@ -191,8 +201,8 @@ SHA1(const ByteString& toHash)
   if (input.Init(toHash.data(), toHash.length()) != Success) {
     abort();
   }
-  Result rv = TestDigestBuf(input, DigestAlgorithm::sha1, digestBuf,
-                            sizeof(digestBuf));
+  Result rv =
+      TestDigestBuf(input, DigestAlgorithm::sha1, digestBuf, sizeof(digestBuf));
   if (rv != Success) {
     abort();
   }
@@ -248,10 +258,15 @@ Integer(long value)
   return TLV(der::INTEGER, encodedValue);
 }
 
-enum TimeEncoding { UTCTime = 0, GeneralizedTime = 1 };
+enum TimeEncoding
+{
+  UTCTime = 0,
+  GeneralizedTime = 1
+};
 
 // Windows doesn't provide gmtime_r, but it provides something very similar.
-#if defined(WIN32) && (!defined(_POSIX_C_SOURCE) || !defined(_POSIX_THREAD_SAFE_FUNCTIONS))
+#if defined(WIN32) && \
+    (!defined(_POSIX_C_SOURCE) || !defined(_POSIX_THREAD_SAFE_FUNCTIONS))
 static tm*
 gmtime_r(const time_t* t, /*out*/ tm* exploded)
 {
@@ -333,17 +348,21 @@ TimeToTimeChoice(time_t time)
   if (!gmtime_r(&time, &exploded)) {
     return ByteString();
   }
-  TimeEncoding encoding = (exploded.tm_year + 1900 >= 1950 &&
-                           exploded.tm_year + 1900 < 2050)
-                        ? UTCTime
-                        : GeneralizedTime;
+  TimeEncoding encoding =
+      (exploded.tm_year + 1900 >= 1950 && exploded.tm_year + 1900 < 2050)
+          ? UTCTime
+          : GeneralizedTime;
 
   return TimeToEncodedTime(time, encoding);
 }
 
 Time
-YMDHMS(uint16_t year, uint16_t month, uint16_t day,
-       uint16_t hour, uint16_t minutes, uint16_t seconds)
+YMDHMS(uint16_t year,
+       uint16_t month,
+       uint16_t day,
+       uint16_t hour,
+       uint16_t minutes,
+       uint16_t seconds)
 {
   assert(year <= 9999);
   assert(month >= 1);
@@ -357,8 +376,7 @@ YMDHMS(uint16_t year, uint16_t month, uint16_t day,
 
   {
     static const int16_t DAYS_IN_MONTH[] = {
-      31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-    };
+        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
     int16_t i = 1;
     for (;;) {
@@ -390,7 +408,8 @@ static ByteString
 SignedData(const ByteString& tbsData,
            const TestKeyPair& keyPair,
            const TestSignatureAlgorithm& signatureAlgorithm,
-           bool corrupt, /*optional*/ const ByteString* certs)
+           bool corrupt,
+           /*optional*/ const ByteString* certs)
 {
   ByteString signature;
   if (keyPair.SignData(tbsData, signatureAlgorithm, signature) != Success) {
@@ -412,8 +431,8 @@ SignedData(const ByteString& tbsData,
       ++certs;
     }
     ByteString certsSequence(TLV(der::SEQUENCE, certsSequenceValue));
-    certsNested = TLV(der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 0,
-                      certsSequence);
+    certsNested =
+        TLV(der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 0, certsSequence);
   }
 
   ByteString value;
@@ -519,13 +538,16 @@ MaybeLogOutput(const ByteString& result, const char* suffix)
 ///////////////////////////////////////////////////////////////////////////////
 // Certificates
 
-static ByteString TBSCertificate(long version, const ByteString& serialNumber,
-                                 const ByteString& signature,
-                                 const ByteString& issuer,
-                                 time_t notBefore, time_t notAfter,
-                                 const ByteString& subject,
-                                 const ByteString& subjectPublicKeyInfo,
-                                 /*optional*/ const ByteString* extensions);
+static ByteString
+TBSCertificate(long version,
+               const ByteString& serialNumber,
+               const ByteString& signature,
+               const ByteString& issuer,
+               time_t notBefore,
+               time_t notAfter,
+               const ByteString& subject,
+               const ByteString& subjectPublicKeyInfo,
+               /*optional*/ const ByteString* extensions);
 
 // Certificate  ::=  SEQUENCE  {
 //         tbsCertificate       TBSCertificate,
@@ -536,25 +558,29 @@ CreateEncodedCertificate(long version,
                          const TestSignatureAlgorithm& signature,
                          const ByteString& serialNumber,
                          const ByteString& issuerNameDER,
-                         time_t notBefore, time_t notAfter,
+                         time_t notBefore,
+                         time_t notAfter,
                          const ByteString& subjectNameDER,
                          const TestKeyPair& subjectKeyPair,
                          /*optional*/ const ByteString* extensions,
                          const TestKeyPair& issuerKeyPair,
                          const TestSignatureAlgorithm& signatureAlgorithm)
 {
-  ByteString tbsCertificate(TBSCertificate(version, serialNumber,
+  ByteString tbsCertificate(TBSCertificate(version,
+                                           serialNumber,
                                            signature.algorithmIdentifier,
-                                           issuerNameDER, notBefore,
-                                           notAfter, subjectNameDER,
+                                           issuerNameDER,
+                                           notBefore,
+                                           notAfter,
+                                           subjectNameDER,
                                            subjectKeyPair.subjectPublicKeyInfo,
                                            extensions));
   if (ENCODING_FAILED(tbsCertificate)) {
     return ByteString();
   }
 
-  ByteString result(SignedData(tbsCertificate, issuerKeyPair,
-                               signatureAlgorithm, false, nullptr));
+  ByteString result(SignedData(
+      tbsCertificate, issuerKeyPair, signatureAlgorithm, false, nullptr));
   if (ENCODING_FAILED(result)) {
     return ByteString();
   }
@@ -580,9 +606,12 @@ CreateEncodedCertificate(long version,
 //                           -- If present, version MUST be v3 --  }
 static ByteString
 TBSCertificate(long versionValue,
-               const ByteString& serialNumber, const ByteString& signature,
-               const ByteString& issuer, time_t notBeforeTime,
-               time_t notAfterTime, const ByteString& subject,
+               const ByteString& serialNumber,
+               const ByteString& signature,
+               const ByteString& issuer,
+               time_t notBeforeTime,
+               time_t notAfterTime,
+               const ByteString& subject,
                const ByteString& subjectPublicKeyInfo,
                /*optional*/ const ByteString* extensions)
 {
@@ -590,8 +619,8 @@ TBSCertificate(long versionValue,
 
   if (versionValue != static_cast<long>(der::Version::v1)) {
     ByteString versionInteger(Integer(versionValue));
-    ByteString version(TLV(der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 0,
-                           versionInteger));
+    ByteString version(
+        TLV(der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 0, versionInteger));
     value.append(version);
   }
 
@@ -637,7 +666,7 @@ TBSCertificate(long versionValue,
       return ByteString();
     }
     ByteString extensionsWrapped(
-      TLV(der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 3, extensionsSequence));
+        TLV(der::CONTEXT_SPECIFIC | der::CONSTRUCTED | 3, extensionsSequence));
     if (ENCODING_FAILED(extensionsWrapped)) {
       return ByteString();
     }
@@ -661,9 +690,10 @@ TBSCertificate(long versionValue,
 //       universalString         UniversalString (SIZE (1..MAX)),
 //       utf8String              UTF8String (SIZE (1..MAX)),
 //       bmpString               BMPString (SIZE (1..MAX)) }
-template <size_t N>
+template<size_t N>
 static ByteString
-AVA(const uint8_t (&type)[N], uint8_t directoryStringType,
+AVA(const uint8_t (&type)[N],
+    uint8_t directoryStringType,
     const ByteString& value)
 {
   ByteString wrappedValue(TLV(directoryStringType, value));
@@ -679,9 +709,7 @@ CN(const ByteString& value, uint8_t encodingTag)
   // id-at OBJECT IDENTIFIER ::= { joint-iso-ccitt(2) ds(5) 4 }
   // id-at-commonName        AttributeType ::= { id-at 3 }
   // python DottedOIDToCode.py --tlv id-at-commonName 2.5.4.3
-  static const uint8_t tlv_id_at_commonName[] = {
-    0x06, 0x03, 0x55, 0x04, 0x03
-  };
+  static const uint8_t tlv_id_at_commonName[] = {0x06, 0x03, 0x55, 0x04, 0x03};
   return AVA(tlv_id_at_commonName, encodingTag, value);
 }
 
@@ -692,8 +720,7 @@ OU(const ByteString& value, uint8_t encodingTag)
   // id-at-organizationalUnitName AttributeType ::= { id-at 11 }
   // python DottedOIDToCode.py --tlv id-at-organizationalUnitName 2.5.4.11
   static const uint8_t tlv_id_at_organizationalUnitName[] = {
-    0x06, 0x03, 0x55, 0x04, 0x0b
-  };
+      0x06, 0x03, 0x55, 0x04, 0x0b};
 
   return AVA(tlv_id_at_organizationalUnitName, encodingTag, value);
 }
@@ -704,8 +731,7 @@ emailAddress(const ByteString& value)
   // id-emailAddress AttributeType ::= { pkcs-9 1 }
   // python DottedOIDToCode.py --tlv id-emailAddress 1.2.840.113549.1.9.1
   static const uint8_t tlv_id_emailAddress[] = {
-    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x01
-  };
+      0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x01};
 
   return AVA(tlv_id_emailAddress, der::IA5String, value);
 }
@@ -740,9 +766,10 @@ CreateEncodedSerialNumber(long serialNumberValue)
 //         cA                      BOOLEAN DEFAULT FALSE,
 //         pathLenConstraint       INTEGER (0..MAX) OPTIONAL }
 ByteString
-CreateEncodedBasicConstraints(bool isCA,
-                              /*optional in*/ const long* pathLenConstraintValue,
-                              Critical critical)
+CreateEncodedBasicConstraints(
+    bool isCA,
+    /*optional in*/ const long* pathLenConstraintValue,
+    Critical critical)
 {
   ByteString value;
 
@@ -758,8 +785,7 @@ CreateEncodedBasicConstraints(bool isCA,
 
   // python DottedOIDToCode.py --tlv id-ce-basicConstraints 2.5.29.19
   static const uint8_t tlv_id_ce_basicConstraints[] = {
-    0x06, 0x03, 0x55, 0x1d, 0x13
-  };
+      0x06, 0x03, 0x55, 0x1d, 0x13};
   return Extension(Input(tlv_id_ce_basicConstraints), critical, value);
 }
 
@@ -771,17 +797,14 @@ CreateEncodedEKUExtension(Input ekuOID, Critical critical)
   ByteString value(ekuOID.UnsafeGetData(), ekuOID.GetLength());
 
   // python DottedOIDToCode.py --tlv id-ce-extKeyUsage 2.5.29.37
-  static const uint8_t tlv_id_ce_extKeyUsage[] = {
-    0x06, 0x03, 0x55, 0x1d, 0x25
-  };
+  static const uint8_t tlv_id_ce_extKeyUsage[] = {0x06, 0x03, 0x55, 0x1d, 0x25};
 
   return Extension(Input(tlv_id_ce_extKeyUsage), critical, value);
 }
 
 // python DottedOIDToCode.py --tlv id-ce-subjectAltName 2.5.29.17
 static const uint8_t tlv_id_ce_subjectAltName[] = {
-  0x06, 0x03, 0x55, 0x1d, 0x11
-};
+    0x06, 0x03, 0x55, 0x1d, 0x11};
 
 ByteString
 CreateEncodedSubjectAltName(const ByteString& names)
@@ -831,8 +854,8 @@ CreateEncodedOCSPResponse(OCSPResponseContext& context)
       return ByteString();
     }
 
-    responseBytesNested = TLV(der::CONSTRUCTED | der::CONTEXT_SPECIFIC,
-                              responseBytes);
+    responseBytesNested =
+        TLV(der::CONSTRUCTED | der::CONTEXT_SPECIFIC, responseBytes);
   }
 
   ByteString value;
@@ -853,8 +876,7 @@ ResponseBytes(OCSPResponseContext& context)
 {
   // Includes tag and length
   static const uint8_t id_pkix_ocsp_basic_encoded[] = {
-    0x06, 0x09, 0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01
-  };
+      0x06, 0x09, 0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01};
   ByteString response(BasicOCSPResponse(context));
   if (ENCODING_FAILED(response)) {
     return ByteString();
@@ -862,8 +884,7 @@ ResponseBytes(OCSPResponseContext& context)
   ByteString responseNested = TLV(der::OCTET_STRING, response);
 
   ByteString value;
-  value.append(id_pkix_ocsp_basic_encoded,
-               sizeof(id_pkix_ocsp_basic_encoded));
+  value.append(id_pkix_ocsp_basic_encoded, sizeof(id_pkix_ocsp_basic_encoded));
   value.append(responseNested);
   return TLV(der::SEQUENCE, value);
 }
@@ -881,8 +902,10 @@ BasicOCSPResponse(OCSPResponseContext& context)
     return ByteString();
   }
 
-  return SignedData(tbsResponseData, *context.signerKeyPair,
-                    context.signatureAlgorithm, context.badSignature,
+  return SignedData(tbsResponseData,
+                    *context.signerKeyPair,
+                    context.signatureAlgorithm,
+                    context.badSignature,
                     context.certs);
 }
 
@@ -911,8 +934,8 @@ static ByteString
 OCSPExtensions(OCSPResponseExtension* extensions)
 {
   ByteString value;
-  for (OCSPResponseExtension* extension = extensions;
-       extension; extension = extension->next) {
+  for (OCSPResponseExtension* extension = extensions; extension;
+       extension = extension->next) {
     ByteString extensionEncoded(OCSPExtension(*extension));
     if (ENCODING_FAILED(extensionEncoded)) {
       return ByteString();
@@ -969,13 +992,13 @@ ResponderID(OCSPResponseContext& context)
   uint8_t responderIDType;
   if (!context.signerNameDER.empty()) {
     contents = context.signerNameDER;
-    responderIDType = 1; // byName
+    responderIDType = 1;  // byName
   } else {
     contents = KeyHash(context.signerKeyPair->subjectPublicKey);
     if (ENCODING_FAILED(contents)) {
       return ByteString();
     }
-    responderIDType = 2; // byKey
+    responderIDType = 2;  // byKey
   }
 
   // XXX: MSVC 2015 wrongly warns about signed/unsigned conversion without the
@@ -1023,8 +1046,8 @@ SingleResponse(OCSPResponseContext& context)
     if (ENCODING_FAILED(nextUpdateEncoded)) {
       return ByteString();
     }
-    nextUpdateEncodedNested = TLV(der::CONSTRUCTED | der::CONTEXT_SPECIFIC | 0,
-                                  nextUpdateEncoded);
+    nextUpdateEncodedNested =
+        TLV(der::CONSTRUCTED | der::CONTEXT_SPECIFIC | 0, nextUpdateEncoded);
   }
   ByteString singleExtensions;
   if (context.singleExtensions || context.includeEmptyExtensions) {
@@ -1070,8 +1093,7 @@ CertID(OCSPResponseContext& context)
       return ByteString();
     }
     Input subjectPublicKey;
-    if (der::BitStringWithNoUnusedBits(contents, subjectPublicKey)
-          != Success) {
+    if (der::BitStringWithNoUnusedBits(contents, subjectPublicKey) != Success) {
       return ByteString();
     }
     issuerKeyHash = KeyHash(ByteString(subjectPublicKey.UnsafeGetData(),
@@ -1087,8 +1109,7 @@ CertID(OCSPResponseContext& context)
 
   // python DottedOIDToCode.py --alg id-sha1 1.3.14.3.2.26
   static const uint8_t alg_id_sha1[] = {
-    0x30, 0x07, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a
-  };
+      0x30, 0x07, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a};
 
   ByteString value;
   value.append(alg_id_sha1, sizeof(alg_id_sha1));
@@ -1116,15 +1137,14 @@ CertStatus(OCSPResponseContext& context)
     // Both good and unknown are ultimately represented as NULL - the only
     // difference is in the tag that identifies them.
     case 0:
-    case 2:
-    {
+    case 2: {
       // XXX: MSVC 2015 wrongly warns about signed/unsigned conversion without
       // the static cast.
-      return TLV(static_cast<uint8_t>(der::CONTEXT_SPECIFIC |
-                                      context.certStatus), ByteString());
+      return TLV(
+          static_cast<uint8_t>(der::CONTEXT_SPECIFIC | context.certStatus),
+          ByteString());
     }
-    case 1:
-    {
+    case 1: {
       ByteString revocationTime(TimeToGeneralizedTime(context.revocationTime));
       if (ENCODING_FAILED(revocationTime)) {
         return ByteString();
@@ -1144,12 +1164,14 @@ static const ByteString NO_UNUSED_BITS(1, 0x00);
 // The SubjectPublicKeyInfo syntax is specified in RFC 5280 Section 4.1.
 TestKeyPair::TestKeyPair(const TestPublicKeyAlgorithm& publicKeyAlg,
                          const ByteString& spk)
-  : publicKeyAlg(publicKeyAlg)
-  , subjectPublicKeyInfo(TLV(der::SEQUENCE,
-                             publicKeyAlg.algorithmIdentifier +
-                             TLV(der::BIT_STRING, NO_UNUSED_BITS + spk)))
-  , subjectPublicKey(spk)
+    : publicKeyAlg(publicKeyAlg),
+      subjectPublicKeyInfo(TLV(der::SEQUENCE,
+                               publicKeyAlg.algorithmIdentifier +
+                                   TLV(der::BIT_STRING, NO_UNUSED_BITS + spk))),
+      subjectPublicKey(spk)
 {
 }
 
-} } } // namespace mozilla::pkix::test
+}  // namespace test
+}  // namespace pkix
+}  // namespace mozilla

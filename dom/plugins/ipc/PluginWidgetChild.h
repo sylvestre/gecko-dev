@@ -14,30 +14,30 @@
 namespace mozilla {
 namespace widget {
 class PluginWidgetProxy;
-} // namespace widget
+}  // namespace widget
 namespace plugins {
 
 class PluginWidgetChild : public PPluginWidgetChild
 {
-public:
+ public:
   PluginWidgetChild();
   virtual ~PluginWidgetChild();
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  void SetWidget(mozilla::widget::PluginWidgetProxy* aWidget) {
+  void SetWidget(mozilla::widget::PluginWidgetProxy* aWidget)
+  {
     mWidget = aWidget;
   }
   void ProxyShutdown();
 
-private:
+ private:
   void KillWidget();
 
   mozilla::widget::PluginWidgetProxy* mWidget;
 };
 
-} // namespace plugins
-} // namespace mozilla
+}  // namespace plugins
+}  // namespace mozilla
 
-#endif // mozilla_plugins_PluginWidgetChild_h
-
+#endif  // mozilla_plugins_PluginWidgetChild_h

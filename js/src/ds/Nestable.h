@@ -11,36 +11,28 @@ namespace js {
 
 // A base class for nestable structures.
 template <typename Concrete>
-class MOZ_STACK_CLASS Nestable
-{
+class MOZ_STACK_CLASS Nestable {
     Concrete** stack_;
-    Concrete*  enclosing_;
+    Concrete* enclosing_;
 
-  protected:
-    explicit Nestable(Concrete** stack)
-      : stack_(stack),
-        enclosing_(*stack)
-    {
+   protected:
+    explicit Nestable(Concrete** stack) : stack_(stack), enclosing_(*stack) {
         *stack_ = static_cast<Concrete*>(this);
     }
 
     // These method are protected. Some derived classes, such as ParseContext,
     // do not expose the ability to walk the stack.
-    Concrete* enclosing() const {
-        return enclosing_;
-    }
+    Concrete* enclosing() const { return enclosing_; }
 
     template <typename Predicate /* (Concrete*) -> bool */>
     static Concrete* findNearest(Concrete* it, Predicate predicate) {
-        while (it && !predicate(it))
-            it = it->enclosing();
+        while (it && !predicate(it)) it = it->enclosing();
         return it;
     }
 
     template <typename T>
     static T* findNearest(Concrete* it) {
-        while (it && !it->template is<T>())
-            it = it->enclosing();
+        while (it && !it->template is<T>()) it = it->enclosing();
         return it ? &it->template as<T>() : nullptr;
     }
 
@@ -51,13 +43,13 @@ class MOZ_STACK_CLASS Nestable
         return it ? &it->template as<T>() : nullptr;
     }
 
-  public:
+   public:
     ~Nestable() {
         MOZ_ASSERT(*stack_ == static_cast<Concrete*>(this));
         *stack_ = enclosing_;
     }
 };
 
-} // namespace js
+}  // namespace js
 
 #endif /* ds_Nestable_h */

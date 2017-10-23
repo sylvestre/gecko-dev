@@ -26,8 +26,7 @@ class CompactBufferWriter;
 // Fixed-width integers are also available, in case the actual value will not
 // be known until later.
 
-class CompactBufferReader
-{
+class CompactBufferReader {
     const uint8_t* buffer_;
     const uint8_t* end_;
 
@@ -40,16 +39,12 @@ class CompactBufferReader
             byte = readByte();
             val |= (uint32_t(byte) >> 1) << shift;
             shift += 7;
-            if (!(byte & 1))
-                return val;
+            if (!(byte & 1)) return val;
         }
     }
 
-  public:
-    CompactBufferReader(const uint8_t* start, const uint8_t* end)
-      : buffer_(start),
-        end_(end)
-    { }
+   public:
+    CompactBufferReader(const uint8_t* start, const uint8_t* end) : buffer_(start), end_(end) {}
     inline explicit CompactBufferReader(const CompactBufferWriter& writer);
     uint8_t readByte() {
         MOZ_ASSERT(buffer_ < end_);
@@ -72,25 +67,21 @@ class CompactBufferReader
         MOZ_ASSERT(uintptr_t(buffer_) % sizeof(uint32_t) == 0);
         return *reinterpret_cast<const uint32_t*>(buffer_);
     }
-    uint32_t readUnsigned() {
-        return readVariableLength();
-    }
+    uint32_t readUnsigned() { return readVariableLength(); }
     int32_t readSigned() {
         uint8_t b = readByte();
         bool isNegative = !!(b & (1 << 0));
         bool more = !!(b & (1 << 1));
         int32_t result = b >> 2;
-        if (more)
-            result |= readUnsigned() << 6;
-        if (isNegative)
-            return -result;
+        if (more) result |= readUnsigned() << 6;
+        if (isNegative) return -result;
         return result;
     }
 
     void* readRawPointer() {
         uintptr_t ptrWord = 0;
         for (unsigned i = 0; i < sizeof(uintptr_t); i++) {
-            ptrWord |= static_cast<uintptr_t>(readByte()) << (i*8);
+            ptrWord |= static_cast<uintptr_t>(readByte()) << (i * 8);
         }
         return reinterpret_cast<void*>(ptrWord);
     }
@@ -106,24 +97,17 @@ class CompactBufferReader
         MOZ_ASSERT(buffer_ < end_);
     }
 
-    const uint8_t* currentPosition() const {
-        return buffer_;
-    }
+    const uint8_t* currentPosition() const { return buffer_; }
 };
 
-class CompactBufferWriter
-{
+class CompactBufferWriter {
     js::Vector<uint8_t, 32, SystemAllocPolicy> buffer_;
     bool enoughMemory_;
 
-  public:
-    CompactBufferWriter()
-      : enoughMemory_(true)
-    { }
+   public:
+    CompactBufferWriter() : enoughMemory_(true) {}
 
-    void setOOM() {
-        enoughMemory_ = false;
-    }
+    void setOOM() { enoughMemory_ = false; }
 
     // Note: writeByte() takes uint32 to catch implicit casts with a runtime
     // assert.
@@ -133,8 +117,7 @@ class CompactBufferWriter
     }
     void writeByteAt(uint32_t pos, uint32_t byte) {
         MOZ_ASSERT(byte <= 0xFF);
-        if (!oom())
-            buffer_[pos] = byte;
+        if (!oom()) buffer_[pos] = byte;
     }
     void writeUnsigned(uint32_t value) {
         do {
@@ -160,8 +143,7 @@ class CompactBufferWriter
 
         // Write out the rest of the bytes, if needed.
         value >>= 6;
-        if (value == 0)
-            return;
+        if (value == 0) return;
         writeUnsigned(value);
     }
     void writeFixedUint32_t(uint32_t value) {
@@ -178,20 +160,17 @@ class CompactBufferWriter
         // Must be at 4-byte boundary
         MOZ_ASSERT_IF(!oom(), length() % sizeof(uint32_t) == 0);
         writeFixedUint32_t(0);
-        if (oom())
-            return;
+        if (oom()) return;
         uint8_t* endPtr = buffer() + length();
         reinterpret_cast<uint32_t*>(endPtr)[-1] = value;
     }
     void writeRawPointer(void* ptr) {
         uintptr_t ptrWord = reinterpret_cast<uintptr_t>(ptr);
         for (unsigned i = 0; i < sizeof(uintptr_t); i++) {
-            writeByte((ptrWord >> (i*8)) & 0xFF);
+            writeByte((ptrWord >> (i * 8)) & 0xFF);
         }
     }
-    size_t length() const {
-        return buffer_.length();
-    }
+    size_t length() const { return buffer_.length(); }
     uint8_t* buffer() {
         MOZ_ASSERT(!oom());
         return &buffer_[0];
@@ -200,21 +179,14 @@ class CompactBufferWriter
         MOZ_ASSERT(!oom());
         return &buffer_[0];
     }
-    bool oom() const {
-        return !enoughMemory_;
-    }
-    void propagateOOM(bool success) {
-        enoughMemory_ &= success;
-    }
+    bool oom() const { return !enoughMemory_; }
+    void propagateOOM(bool success) { enoughMemory_ &= success; }
 };
 
 CompactBufferReader::CompactBufferReader(const CompactBufferWriter& writer)
-  : buffer_(writer.buffer()),
-    end_(writer.buffer() + writer.length())
-{
-}
+    : buffer_(writer.buffer()), end_(writer.buffer() + writer.length()) {}
 
-} // namespace jit
-} // namespace js
+}  // namespace jit
+}  // namespace js
 
 #endif /* jit_Compactbuffer_h */

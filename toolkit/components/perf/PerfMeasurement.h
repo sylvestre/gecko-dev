@@ -14,17 +14,17 @@ namespace jsperf {
 
 class Module final : public nsIXPCScriptable
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIXPCSCRIPTABLE
 
   Module();
 
-private:
+ private:
   ~Module();
 };
 
-} // namespace jsperf
-} // namespace mozilla
+}  // namespace jsperf
+}  // namespace mozilla
 
 #endif

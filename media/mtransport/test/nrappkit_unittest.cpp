@@ -27,12 +27,14 @@ using namespace mozilla;
 
 namespace {
 
-class TimerTest : public MtransportTest {
+class TimerTest : public MtransportTest
+{
  public:
   TimerTest() : MtransportTest(), handle_(nullptr), fired_(false) {}
   virtual ~TimerTest() {}
 
-  int ArmTimer(int timeout) {
+  int ArmTimer(int timeout)
+  {
     int ret;
 
     test_utils_->sts_target()->Dispatch(
@@ -42,7 +44,8 @@ class TimerTest : public MtransportTest {
     return ret;
   }
 
-  int ArmCancelTimer(int timeout) {
+  int ArmCancelTimer(int timeout)
+  {
     int ret;
 
     test_utils_->sts_target()->Dispatch(
@@ -52,20 +55,22 @@ class TimerTest : public MtransportTest {
     return ret;
   }
 
-  int ArmTimer_w(int timeout) {
+  int ArmTimer_w(int timeout)
+  {
     return NR_ASYNC_TIMER_SET(timeout, cb, this, &handle_);
   }
 
-  int ArmCancelTimer_w(int timeout) {
+  int ArmCancelTimer_w(int timeout)
+  {
     int r;
     r = ArmTimer_w(timeout);
-    if (r)
-      return r;
+    if (r) return r;
 
     return CancelTimer_w();
   }
 
-  int CancelTimer() {
+  int CancelTimer()
+  {
     int ret;
 
     test_utils_->sts_target()->Dispatch(
@@ -75,60 +80,63 @@ class TimerTest : public MtransportTest {
     return ret;
   }
 
-  int CancelTimer_w() {
-    return NR_async_timer_cancel(handle_);
-  }
+  int CancelTimer_w() { return NR_async_timer_cancel(handle_); }
 
-  int Schedule() {
+  int Schedule()
+  {
     int ret;
 
     test_utils_->sts_target()->Dispatch(
-        WrapRunnableRet(&ret, this, &TimerTest::Schedule_w),
-        NS_DISPATCH_SYNC);
+        WrapRunnableRet(&ret, this, &TimerTest::Schedule_w), NS_DISPATCH_SYNC);
 
     return ret;
   }
 
-  int Schedule_w() {
+  int Schedule_w()
+  {
     NR_ASYNC_SCHEDULE(cb, this);
 
     return 0;
   }
 
-
-  static void cb(NR_SOCKET r, int how, void *arg) {
+  static void cb(NR_SOCKET r, int how, void* arg)
+  {
     std::cerr << "Timer fired " << std::endl;
 
-    TimerTest *t = static_cast<TimerTest *>(arg);
+    TimerTest* t = static_cast<TimerTest*>(arg);
 
     t->fired_ = true;
   }
 
  protected:
-  void *handle_;
+  void* handle_;
   bool fired_;
 };
-}
+}  // namespace
 
-TEST_F(TimerTest, SimpleTimer) {
+TEST_F(TimerTest, SimpleTimer)
+{
   ArmTimer(100);
   ASSERT_TRUE_WAIT(fired_, 1000);
 }
 
-TEST_F(TimerTest, CancelTimer) {
+TEST_F(TimerTest, CancelTimer)
+{
   ArmTimer(1000);
   CancelTimer();
   PR_Sleep(2000);
   ASSERT_FALSE(fired_);
 }
 
-TEST_F(TimerTest, CancelTimer0) {
+TEST_F(TimerTest, CancelTimer0)
+{
   ArmCancelTimer(0);
   PR_Sleep(100);
   ASSERT_FALSE(fired_);
 }
 
-TEST_F(TimerTest, ScheduleTest) {
+TEST_F(TimerTest, ScheduleTest)
+{
   Schedule();
   ASSERT_TRUE_WAIT(fired_, 1000);
 }

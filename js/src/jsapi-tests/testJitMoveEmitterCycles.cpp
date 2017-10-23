@@ -18,7 +18,7 @@
 
 #include "vm/Runtime.h"
 
-static const int LIFO_ALLOC_PRIMARY_CHUNK_SIZE = 4*1024;
+static const int LIFO_ALLOC_PRIMARY_CHUNK_SIZE = 4 * 1024;
 
 static constexpr js::jit::FloatRegister s0(0, js::jit::VFPRegister::Single);
 static constexpr js::jit::FloatRegister s1(1, js::jit::VFPRegister::Single);
@@ -53,9 +53,7 @@ static constexpr js::jit::FloatRegister s29(29, js::jit::VFPRegister::Single);
 static constexpr js::jit::FloatRegister s30(30, js::jit::VFPRegister::Single);
 static constexpr js::jit::FloatRegister s31(31, js::jit::VFPRegister::Single);
 
-static js::jit::JitCode*
-linkAndAllocate(JSContext* cx, js::jit::MacroAssembler* masm)
-{
+static js::jit::JitCode* linkAndAllocate(JSContext* cx, js::jit::MacroAssembler* masm) {
     using namespace js;
     using namespace js::jit;
     AutoFlushICache afc("test");
@@ -63,10 +61,10 @@ linkAndAllocate(JSContext* cx, js::jit::MacroAssembler* masm)
     return l.newCode<CanGC>(cx, ION_CODE);
 }
 
-#define TRY(x) if (!(x)) return false;
+#define TRY(x) \
+    if (!(x)) return false;
 
-BEGIN_TEST(testJitMoveEmitterCycles_simple)
-{
+BEGIN_TEST(testJitMoveEmitterCycles_simple) {
     using namespace js;
     using namespace js::jit;
     LifoAlloc lifo(LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
@@ -114,8 +112,7 @@ BEGIN_TEST(testJitMoveEmitterCycles_simple)
     return true;
 }
 END_TEST(testJitMoveEmitterCycles_simple)
-BEGIN_TEST(testJitMoveEmitterCycles_autogen)
-{
+BEGIN_TEST(testJitMoveEmitterCycles_autogen) {
     using namespace js;
     using namespace js::jit;
     LifoAlloc lifo(LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
@@ -241,8 +238,7 @@ BEGIN_TEST(testJitMoveEmitterCycles_autogen)
 }
 END_TEST(testJitMoveEmitterCycles_autogen)
 
-BEGIN_TEST(testJitMoveEmitterCycles_autogen2)
-{
+BEGIN_TEST(testJitMoveEmitterCycles_autogen2) {
     using namespace js;
     using namespace js::jit;
     LifoAlloc lifo(LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
@@ -385,9 +381,7 @@ BEGIN_TEST(testJitMoveEmitterCycles_autogen2)
 }
 END_TEST(testJitMoveEmitterCycles_autogen2)
 
-
-BEGIN_TEST(testJitMoveEmitterCycles_autogen3)
-{
+BEGIN_TEST(testJitMoveEmitterCycles_autogen3) {
     using namespace js;
     using namespace js::jit;
     LifoAlloc lifo(LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
@@ -529,8 +523,7 @@ BEGIN_TEST(testJitMoveEmitterCycles_autogen3)
     return true;
 }
 END_TEST(testJitMoveEmitterCycles_autogen3)
-BEGIN_TEST(testJitMoveEmitterCycles_bug1299147_1)
-{
+BEGIN_TEST(testJitMoveEmitterCycles_bug1299147_1) {
     using namespace js;
     using namespace js::jit;
     LifoAlloc lifo(LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
@@ -581,8 +574,7 @@ BEGIN_TEST(testJitMoveEmitterCycles_bug1299147_1)
     return true;
 }
 END_TEST(testJitMoveEmitterCycles_bug1299147_1)
-BEGIN_TEST(testJitMoveEmitterCycles_bug1299147)
-{
+BEGIN_TEST(testJitMoveEmitterCycles_bug1299147) {
     using namespace js;
     using namespace js::jit;
     LifoAlloc lifo(LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
@@ -621,4 +613,4 @@ BEGIN_TEST(testJitMoveEmitterCycles_bug1299147)
 }
 END_TEST(testJitMoveEmitterCycles_bug1299147)
 
-#endif // JS_SIMULATOR_ARM
+#endif  // JS_SIMULATOR_ARM

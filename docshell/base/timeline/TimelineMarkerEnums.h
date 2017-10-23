@@ -9,18 +9,20 @@
 
 namespace mozilla {
 
-enum class MarkerTracingType {
+enum class MarkerTracingType
+{
   START,
   END,
   TIMESTAMP,
   HELPER_EVENT
 };
 
-enum class MarkerStackRequest {
+enum class MarkerStackRequest
+{
   STACK,
   NO_STACK
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_TimelineMarkerEnums_h_
+#endif  // mozilla_TimelineMarkerEnums_h_

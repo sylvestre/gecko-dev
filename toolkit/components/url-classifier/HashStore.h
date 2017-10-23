@@ -23,12 +23,10 @@ namespace safebrowsing {
 // The abstract class of TableUpdateV2 and TableUpdateV4. This
 // is convenient for passing the TableUpdate* around associated
 // with v2 and v4 instance.
-class TableUpdate {
-public:
-  TableUpdate(const nsACString& aTable)
-    : mTable(aTable)
-  {
-  }
+class TableUpdate
+{
+ public:
+  TableUpdate(const nsACString& aTable) : mTable(aTable) {}
 
   virtual ~TableUpdate() {}
 
@@ -39,11 +37,12 @@ public:
   const nsCString& TableName() const { return mTable; }
 
   template<typename T>
-  static T* Cast(TableUpdate* aThat) {
+  static T* Cast(TableUpdate* aThat)
+  {
     return (T::TAG == aThat->Tag() ? reinterpret_cast<T*>(aThat) : nullptr);
   }
 
-private:
+ private:
   virtual int Tag() const = 0;
 
   nsCString mTable;
@@ -52,35 +51,36 @@ private:
 // A table update is built from a single update chunk from the server. As the
 // protocol parser processes each chunk, it constructs a table update with the
 // new hashes.
-class TableUpdateV2 : public TableUpdate {
-public:
-  explicit TableUpdateV2(const nsACString& aTable)
-    : TableUpdate(aTable) {}
+class TableUpdateV2 : public TableUpdate
+{
+ public:
+  explicit TableUpdateV2(const nsACString& aTable) : TableUpdate(aTable) {}
 
-  bool Empty() const override {
-    return mAddChunks.Length() == 0 &&
-      mSubChunks.Length() == 0 &&
-      mAddExpirations.Length() == 0 &&
-      mSubExpirations.Length() == 0 &&
-      mAddPrefixes.Length() == 0 &&
-      mSubPrefixes.Length() == 0 &&
-      mAddCompletes.Length() == 0 &&
-      mSubCompletes.Length() == 0 &&
-      mMissPrefixes.Length() == 0;
+  bool Empty() const override
+  {
+    return mAddChunks.Length() == 0 && mSubChunks.Length() == 0 &&
+           mAddExpirations.Length() == 0 && mSubExpirations.Length() == 0 &&
+           mAddPrefixes.Length() == 0 && mSubPrefixes.Length() == 0 &&
+           mAddCompletes.Length() == 0 && mSubCompletes.Length() == 0 &&
+           mMissPrefixes.Length() == 0;
   }
 
   // Throughout, uint32_t aChunk refers only to the chunk number. Chunk data is
   // stored in the Prefix structures.
-  MOZ_MUST_USE nsresult NewAddChunk(uint32_t aChunk) {
+  MOZ_MUST_USE nsresult NewAddChunk(uint32_t aChunk)
+  {
     return mAddChunks.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewSubChunk(uint32_t aChunk) {
+  MOZ_MUST_USE nsresult NewSubChunk(uint32_t aChunk)
+  {
     return mSubChunks.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewAddExpiration(uint32_t aChunk) {
+  MOZ_MUST_USE nsresult NewAddExpiration(uint32_t aChunk)
+  {
     return mAddExpirations.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewSubExpiration(uint32_t aChunk) {
+  MOZ_MUST_USE nsresult NewSubExpiration(uint32_t aChunk)
+  {
     return mSubExpirations.Set(aChunk);
   };
   MOZ_MUST_USE nsresult NewAddPrefix(uint32_t aAddChunk, const Prefix& aPrefix);
@@ -113,8 +113,7 @@ public:
   // For downcasting.
   static const int TAG = 2;
 
-private:
-
+ private:
   // The list of chunk numbers that we have for each of the type of chunks.
   ChunkSet mAddChunks;
   ChunkSet mSubChunks;
@@ -122,8 +121,8 @@ private:
   ChunkSet mSubExpirations;
 
   // 4-byte sha256 prefixes.
-  AddPrefixArray  mAddPrefixes;
-  SubPrefixArray  mSubPrefixes;
+  AddPrefixArray mAddPrefixes;
+  SubPrefixArray mSubPrefixes;
 
   // This is only used by gethash so don't add this to Header.
   MissPrefixArray mMissPrefixes;
@@ -138,14 +137,16 @@ private:
 // Structure for DBService/HashStore/Classifiers to update.
 // It would contain the prefixes (both fixed and variable length)
 // for addition and indices to removal. See Bug 1283009.
-class TableUpdateV4 : public TableUpdate {
-public:
-  struct PrefixStdString {
-  private:
+class TableUpdateV4 : public TableUpdate
+{
+ public:
+  struct PrefixStdString
+  {
+   private:
     std::string mStorage;
     nsDependentCSubstring mString;
 
-  public:
+   public:
     explicit PrefixStdString(std::string& aString)
     {
       aString.swap(mStorage);
@@ -158,17 +159,15 @@ public:
   typedef nsClassHashtable<nsUint32HashKey, PrefixStdString> PrefixStdStringMap;
   typedef nsTArray<int32_t> RemovalIndiceArray;
 
-public:
+ public:
   explicit TableUpdateV4(const nsACString& aTable)
-    : TableUpdate(aTable)
-    , mFullUpdate(false)
+      : TableUpdate(aTable), mFullUpdate(false)
   {
   }
 
   bool Empty() const override
   {
-    return mPrefixesMap.IsEmpty() &&
-           mRemovalIndiceArray.IsEmpty() &&
+    return mPrefixesMap.IsEmpty() && mRemovalIndiceArray.IsEmpty() &&
            mFullHashResponseMap.IsEmpty();
   }
 
@@ -177,7 +176,10 @@ public:
   RemovalIndiceArray& RemovalIndices() { return mRemovalIndiceArray; }
   const nsACString& ClientState() const { return mClientState; }
   const nsACString& Checksum() const { return mChecksum; }
-  const FullHashResponseMap& FullHashResponse() const { return mFullHashResponseMap; }
+  const FullHashResponseMap& FullHashResponse() const
+  {
+    return mFullHashResponseMap;
+  }
 
   // For downcasting.
   static const int TAG = 4;
@@ -191,7 +193,7 @@ public:
   nsresult NewFullHashResponse(const Prefix& aPrefix,
                                CachedFullHashResponse& aResponse);
 
-private:
+ private:
   virtual int Tag() const override { return TAG; }
 
   bool mFullUpdate;
@@ -205,8 +207,9 @@ private:
 };
 
 // There is one hash store per table.
-class HashStore {
-public:
+class HashStore
+{
+ public:
   HashStore(const nsACString& aTableName,
             const nsACString& aProvider,
             nsIFile* aRootStoreFile);
@@ -236,7 +239,7 @@ public:
   nsresult BeginUpdate();
 
   // Imports the data from a TableUpdate.
-  nsresult ApplyUpdate(TableUpdate &aUpdate);
+  nsresult ApplyUpdate(TableUpdate& aUpdate);
 
   // Process expired chunks
   nsresult Expire();
@@ -252,12 +255,13 @@ public:
   // Wipe out all Completes.
   void ClearCompletes();
 
-private:
+ private:
   nsresult Reset();
 
   nsresult ReadHeader();
   nsresult SanityCheck();
-  nsresult CalculateChecksum(nsAutoCString& aChecksum, uint32_t aFileSize,
+  nsresult CalculateChecksum(nsAutoCString& aChecksum,
+                             uint32_t aFileSize,
                              bool aChecksumPresent);
   nsresult CheckChecksum(uint32_t aFileSize);
   void UpdateHeader();
@@ -279,9 +283,10 @@ private:
   bool AlreadyReadChunkNumbers();
   bool AlreadyReadCompletions();
 
- // This is used for checking that the database is correct and for figuring out
- // the number of chunks, etc. to read from disk on restart.
-  struct Header {
+  // This is used for checking that the database is correct and for figuring out
+  // the number of chunks, etc. to read from disk on restart.
+  struct Header
+  {
     uint32_t magic;
     uint32_t version;
     uint32_t numAddChunks;
@@ -325,7 +330,7 @@ private:
   friend class PerProviderDirectoryTestUtils;
 };
 
-} // namespace safebrowsing
-} // namespace mozilla
+}  // namespace safebrowsing
+}  // namespace mozilla
 
 #endif

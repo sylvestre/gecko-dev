@@ -9,10 +9,12 @@
 using namespace mozilla;
 
 ScrollAnimationMSDPhysics::ScrollAnimationMSDPhysics(const nsPoint& aStartPos)
- : mStartPos(aStartPos)
- , mModelX(0, 0, 0, gfxPrefs::SmoothScrollMSDPhysicsRegularSpringConstant(), 1)
- , mModelY(0, 0, 0, gfxPrefs::SmoothScrollMSDPhysicsRegularSpringConstant(), 1)
- , mIsFirstIteration(true)
+    : mStartPos(aStartPos),
+      mModelX(
+          0, 0, 0, gfxPrefs::SmoothScrollMSDPhysicsRegularSpringConstant(), 1),
+      mModelY(
+          0, 0, 0, gfxPrefs::SmoothScrollMSDPhysicsRegularSpringConstant(), 1),
+      mIsFirstIteration(true)
 {
 }
 
@@ -40,10 +42,10 @@ ScrollAnimationMSDPhysics::Update(const TimeStamp& aTime,
 
   mLastSimulatedTime = mStartTime;
   mDestination = aDestination;
-  mModelX = AxisPhysicsMSDModel(mStartPos.x, aDestination.x,
-                                aCurrentVelocity.width, springConstant, 1);
-  mModelY = AxisPhysicsMSDModel(mStartPos.y, aDestination.y,
-                                aCurrentVelocity.height, springConstant, 1);
+  mModelX = AxisPhysicsMSDModel(
+      mStartPos.x, aDestination.x, aCurrentVelocity.width, springConstant, 1);
+  mModelY = AxisPhysicsMSDModel(
+      mStartPos.y, aDestination.y, aCurrentVelocity.height, springConstant, 1);
   mIsFirstIteration = false;
 }
 
@@ -69,7 +71,8 @@ ScrollAnimationMSDPhysics::ComputeSpringConstant(const TimeStamp& aTime)
 
   if (previousDelta &&
       deltaMS >= gfxPrefs::SmoothScrollMSDPhysicsSlowdownMinDeltaMS() &&
-      deltaMS >= previousDelta.ToMilliseconds() * gfxPrefs::SmoothScrollMSDPhysicsSlowdownMinDeltaRatio()) {
+      deltaMS >= previousDelta.ToMilliseconds() *
+                     gfxPrefs::SmoothScrollMSDPhysicsSlowdownMinDeltaRatio()) {
     // The rate of events has slowed (the time delta between events has
     // increased) enough that we think that the current scroll motion is coming
     // to a stop. Use a stiffer spring in order to reach the destination more

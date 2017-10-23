@@ -5,17 +5,17 @@
 
 #include "InsertNodeTransaction.h"
 
-#include "mozilla/EditorBase.h"         // for EditorBase
+#include "mozilla/EditorBase.h"  // for EditorBase
 
-#include "mozilla/dom/Selection.h"      // for Selection
+#include "mozilla/dom/Selection.h"  // for Selection
 
 #include "nsAString.h"
-#include "nsDebug.h"                    // for NS_ENSURE_TRUE, etc.
-#include "nsError.h"                    // for NS_ERROR_NULL_POINTER, etc.
-#include "nsIContent.h"                 // for nsIContent
-#include "nsMemory.h"                   // for nsMemory
-#include "nsReadableUtils.h"            // for ToNewCString
-#include "nsString.h"                   // for nsString
+#include "nsDebug.h"          // for NS_ENSURE_TRUE, etc.
+#include "nsError.h"          // for NS_ERROR_NULL_POINTER, etc.
+#include "nsIContent.h"       // for nsIContent
+#include "nsMemory.h"         // for nsMemory
+#include "nsReadableUtils.h"  // for ToNewCString
+#include "nsString.h"         // for nsString
 
 namespace mozilla {
 
@@ -25,21 +25,17 @@ InsertNodeTransaction::InsertNodeTransaction(nsIContent& aNode,
                                              nsINode& aParent,
                                              int32_t aOffset,
                                              EditorBase& aEditorBase)
-  : mNode(&aNode)
-  , mParent(&aParent)
-  , mOffset(aOffset)
-  , mEditorBase(&aEditorBase)
+    : mNode(&aNode),
+      mParent(&aParent),
+      mOffset(aOffset),
+      mEditorBase(&aEditorBase)
 {
 }
 
-InsertNodeTransaction::~InsertNodeTransaction()
-{
-}
+InsertNodeTransaction::~InsertNodeTransaction() {}
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(InsertNodeTransaction, EditTransactionBase,
-                                   mEditorBase,
-                                   mNode,
-                                   mParent)
+NS_IMPL_CYCLE_COLLECTION_INHERITED(
+    InsertNodeTransaction, EditTransactionBase, mEditorBase, mNode, mParent)
 
 NS_IMPL_ADDREF_INHERITED(InsertNodeTransaction, EditTransactionBase)
 NS_IMPL_RELEASE_INHERITED(InsertNodeTransaction, EditTransactionBase)
@@ -98,4 +94,4 @@ InsertNodeTransaction::GetTxnDescription(nsAString& aString)
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

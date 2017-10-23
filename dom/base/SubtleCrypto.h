@@ -21,24 +21,21 @@ class Promise;
 
 typedef ArrayBufferViewOrArrayBuffer CryptoOperationData;
 
-class SubtleCrypto final : public nsISupports,
-                           public nsWrapperCache
+class SubtleCrypto final : public nsISupports, public nsWrapperCache
 {
   ~SubtleCrypto() {}
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SubtleCrypto)
 
-public:
+ public:
   explicit SubtleCrypto(nsIGlobalObject* aParent);
 
-  nsIGlobalObject* GetParentObject() const
-  {
-    return mParent;
-  }
+  nsIGlobalObject* GetParentObject() const { return mParent; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   already_AddRefed<Promise> Encrypt(JSContext* cx,
                                     const ObjectOrString& algorithm,
@@ -78,7 +75,8 @@ public:
                                       const Sequence<nsString>& keyUsages,
                                       ErrorResult& aRv);
 
-  already_AddRefed<Promise> ExportKey(const nsAString& format, CryptoKey& key,
+  already_AddRefed<Promise> ExportKey(const nsAString& format,
+                                      CryptoKey& key,
                                       ErrorResult& aRv);
 
   already_AddRefed<Promise> GenerateKey(JSContext* cx,
@@ -108,24 +106,25 @@ public:
                                     const ObjectOrString& wrapAlgorithm,
                                     ErrorResult& aRv);
 
-  already_AddRefed<Promise> UnwrapKey(JSContext* cx,
-                                      const nsAString& format,
-                                      const ArrayBufferViewOrArrayBuffer& wrappedKey,
-                                      CryptoKey& unwrappingKey,
-                                      const ObjectOrString& unwrapAlgorithm,
-                                      const ObjectOrString& unwrappedKeyAlgorithm,
-                                      bool extractable,
-                                      const Sequence<nsString>& keyUsages,
-                                      ErrorResult& aRv);
+  already_AddRefed<Promise> UnwrapKey(
+      JSContext* cx,
+      const nsAString& format,
+      const ArrayBufferViewOrArrayBuffer& wrappedKey,
+      CryptoKey& unwrappingKey,
+      const ObjectOrString& unwrapAlgorithm,
+      const ObjectOrString& unwrappedKeyAlgorithm,
+      bool extractable,
+      const Sequence<nsString>& keyUsages,
+      ErrorResult& aRv);
 
-private:
+ private:
   void RecordTelemetryOnce();
 
   nsCOMPtr<nsIGlobalObject> mParent;
   bool mRecordedTelemetry;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SubtleCrypto_h
+#endif  // mozilla_dom_SubtleCrypto_h

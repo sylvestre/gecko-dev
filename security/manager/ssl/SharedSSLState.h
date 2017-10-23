@@ -16,21 +16,21 @@ class nsIObserver;
 namespace mozilla {
 namespace psm {
 
-class SharedSSLState {
-public:
+class SharedSSLState
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedSSLState)
   explicit SharedSSLState(uint32_t aTlsFlags = 0);
 
   static void GlobalInit();
   static void GlobalCleanup();
 
-  nsClientAuthRememberService* GetClientAuthRememberService() {
+  nsClientAuthRememberService* GetClientAuthRememberService()
+  {
     return mClientAuthRemember;
   }
 
-  nsSSLIOLayerHelpers& IOLayerHelpers() {
-    return mIOLayerHelpers;
-  }
+  nsSSLIOLayerHelpers& IOLayerHelpers() { return mIOLayerHelpers; }
 
   // Main-thread only
   void ResetStoredData();
@@ -59,7 +59,7 @@ public:
     return mSignedCertTimestampsEnabled;
   }
 
-private:
+ private:
   ~SharedSSLState();
 
   void Cleanup();
@@ -78,10 +78,12 @@ private:
   bool mSignedCertTimestampsEnabled;
 };
 
-SharedSSLState* PublicSSLState();
-SharedSSLState* PrivateSSLState();
+SharedSSLState*
+PublicSSLState();
+SharedSSLState*
+PrivateSSLState();
 
-} // namespace psm
-} // namespace mozilla
+}  // namespace psm
+}  // namespace mozilla
 
 #endif

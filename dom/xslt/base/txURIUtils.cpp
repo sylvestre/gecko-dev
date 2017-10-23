@@ -22,64 +22,67 @@ using mozilla::net::LoadInfo;
  * if necessary.
  * The new resolved href will be appended to the given dest String
 **/
-void URIUtils::resolveHref(const nsAString& href, const nsAString& base,
-                           nsAString& dest) {
-    if (base.IsEmpty()) {
-        dest.Append(href);
-        return;
-    }
-    if (href.IsEmpty()) {
-        dest.Append(base);
-        return;
-    }
-    nsCOMPtr<nsIURI> pURL;
-    nsAutoString resultHref;
-    nsresult result = NS_NewURI(getter_AddRefs(pURL), base);
-    if (NS_SUCCEEDED(result)) {
-        NS_MakeAbsoluteURI(resultHref, href, pURL);
-        dest.Append(resultHref);
-    }
-} //-- resolveHref
+void
+URIUtils::resolveHref(const nsAString& href,
+                      const nsAString& base,
+                      nsAString& dest)
+{
+  if (base.IsEmpty()) {
+    dest.Append(href);
+    return;
+  }
+  if (href.IsEmpty()) {
+    dest.Append(base);
+    return;
+  }
+  nsCOMPtr<nsIURI> pURL;
+  nsAutoString resultHref;
+  nsresult result = NS_NewURI(getter_AddRefs(pURL), base);
+  if (NS_SUCCEEDED(result)) {
+    NS_MakeAbsoluteURI(resultHref, href, pURL);
+    dest.Append(resultHref);
+  }
+}  //-- resolveHref
 
 // static
 void
-URIUtils::ResetWithSource(nsIDocument *aNewDoc, nsIDOMNode *aSourceNode)
+URIUtils::ResetWithSource(nsIDocument* aNewDoc, nsIDOMNode* aSourceNode)
 {
-    nsCOMPtr<nsINode> node = do_QueryInterface(aSourceNode);
-    if (!node) {
-        // XXXbz passing nullptr as the first arg to Reset is illegal
-        aNewDoc->Reset(nullptr, nullptr);
-        return;
+  nsCOMPtr<nsINode> node = do_QueryInterface(aSourceNode);
+  if (!node) {
+    // XXXbz passing nullptr as the first arg to Reset is illegal
+    aNewDoc->Reset(nullptr, nullptr);
+    return;
+  }
+
+  nsCOMPtr<nsIDocument> sourceDoc = node->OwnerDoc();
+  nsIPrincipal* sourcePrincipal = sourceDoc->NodePrincipal();
+
+  // Copy the channel and loadgroup from the source document.
+  nsCOMPtr<nsILoadGroup> loadGroup = sourceDoc->GetDocumentLoadGroup();
+  nsCOMPtr<nsIChannel> channel = sourceDoc->GetChannel();
+  if (!channel) {
+    // Need to synthesize one
+    nsresult rv = NS_NewChannel(getter_AddRefs(channel),
+                                sourceDoc->GetDocumentURI(),
+                                sourceDoc,
+                                nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL,
+                                nsIContentPolicy::TYPE_OTHER,
+                                loadGroup,
+                                nullptr,  // aCallbacks
+                                nsIChannel::LOAD_BYPASS_SERVICE_WORKER);
+
+    if (NS_FAILED(rv)) {
+      return;
     }
+  }
 
-    nsCOMPtr<nsIDocument> sourceDoc = node->OwnerDoc();
-    nsIPrincipal* sourcePrincipal = sourceDoc->NodePrincipal();
+  aNewDoc->Reset(channel, loadGroup);
+  aNewDoc->SetPrincipal(sourcePrincipal);
+  aNewDoc->SetBaseURI(sourceDoc->GetDocBaseURI());
 
-    // Copy the channel and loadgroup from the source document.
-    nsCOMPtr<nsILoadGroup> loadGroup = sourceDoc->GetDocumentLoadGroup();
-    nsCOMPtr<nsIChannel> channel = sourceDoc->GetChannel();
-    if (!channel) {
-        // Need to synthesize one
-        nsresult rv = NS_NewChannel(getter_AddRefs(channel),
-                                    sourceDoc->GetDocumentURI(),
-                                    sourceDoc,
-                                    nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL,
-                                    nsIContentPolicy::TYPE_OTHER,
-                                    loadGroup,
-                                    nullptr, // aCallbacks
-                                    nsIChannel::LOAD_BYPASS_SERVICE_WORKER);
-
-        if (NS_FAILED(rv)) {
-            return;
-        }
-    }
-
-    aNewDoc->Reset(channel, loadGroup);
-    aNewDoc->SetPrincipal(sourcePrincipal);
-    aNewDoc->SetBaseURI(sourceDoc->GetDocBaseURI());
-
-    // Copy charset
-    aNewDoc->SetDocumentCharacterSetSource(
-          sourceDoc->GetDocumentCharacterSetSource());
-    aNewDoc->SetDocumentCharacterSet(sourceDoc->GetDocumentCharacterSet());
+  // Copy charset
+  aNewDoc->SetDocumentCharacterSetSource(
+      sourceDoc->GetDocumentCharacterSetSource());
+  aNewDoc->SetDocumentCharacterSet(sourceDoc->GetDocumentCharacterSet());
 }

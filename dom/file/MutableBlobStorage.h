@@ -28,7 +28,7 @@ class TemporaryIPCBlobChildCallback;
 
 class MutableBlobStorageCallback
 {
-public:
+ public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
   virtual void BlobStoreCompleted(MutableBlobStorage* aBlobStorage,
@@ -39,7 +39,7 @@ public:
 // This class is main-thread only.
 class MutableBlobStorage final : public nsIIPCBackgroundChildCreateCallback
 {
-public:
+ public:
   NS_DECL_NSIIPCBACKGROUNDCHILDCREATECALLBACK
   NS_DECL_THREADSAFE_ISUPPORTS
 
@@ -78,7 +78,7 @@ public:
   // Note that this intentionally ignores the data in the temp file.
   size_t SizeOfCurrentMemoryBuffer() const;
 
-private:
+ private:
   ~MutableBlobStorage();
 
   bool ExpandBufferSize(uint64_t aSize);
@@ -95,7 +95,8 @@ private:
   uint64_t mDataLen;
   uint64_t mDataBufferLen;
 
-  enum StorageState {
+  enum StorageState
+  {
     eKeepInMemory,
     eInMemory,
     eWaitingForTemporaryFile,
@@ -125,7 +126,7 @@ private:
   uint32_t mMaxMemory;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MutableBlobStorage_h
+#endif  // mozilla_dom_MutableBlobStorage_h

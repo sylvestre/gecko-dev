@@ -25,7 +25,7 @@ namespace mozilla {
 // code) or Arc (in Rust code).
 class SeenPtrs : public nsTHashtable<nsPtrHashKey<const void>>
 {
-public:
+ public:
   // Returns true if we have seen this pointer before, false otherwise. Also
   // remembers this pointer for later queries.
   bool HaveSeenPtr(const void* aPtr)
@@ -56,10 +56,11 @@ public:
 // re-measured. This class encapsulates both of those things.
 class SizeOfState
 {
-public:
+ public:
   explicit SizeOfState(MallocSizeOf aMallocSizeOf)
-    : mMallocSizeOf(aMallocSizeOf)
-  {}
+      : mMallocSizeOf(aMallocSizeOf)
+  {
+  }
 
   bool HaveSeenPtr(const void* aPtr) { return mSeenPtrs.HaveSeenPtr(aPtr); }
 
@@ -67,7 +68,6 @@ public:
   SeenPtrs mSeenPtrs;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // SizeOfState_h
-
+#endif  // SizeOfState_h

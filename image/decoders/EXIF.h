@@ -14,7 +14,8 @@
 namespace mozilla {
 namespace image {
 
-enum class ByteOrder : uint8_t {
+enum class ByteOrder : uint8_t
+{
   Unknown,
   LittleEndian,
   BigEndian
@@ -22,30 +23,30 @@ enum class ByteOrder : uint8_t {
 
 struct EXIFData
 {
-  EXIFData() { }
-  explicit EXIFData(Orientation aOrientation) : orientation(aOrientation) { }
+  EXIFData() {}
+  explicit EXIFData(Orientation aOrientation) : orientation(aOrientation) {}
 
   const Orientation orientation;
 };
 
 class EXIFParser
 {
-public:
-  static EXIFData
-  Parse(const uint8_t* aData, const uint32_t aLength)
+ public:
+  static EXIFData Parse(const uint8_t* aData, const uint32_t aLength)
   {
     EXIFParser parser;
     return parser.ParseEXIF(aData, aLength);
   }
 
-private:
+ private:
   EXIFParser()
-    : mStart(nullptr)
-    , mCurrent(nullptr)
-    , mLength(0)
-    , mRemainingLength(0)
-    , mByteOrder(ByteOrder::Unknown)
-  { }
+      : mStart(nullptr),
+        mCurrent(nullptr),
+        mLength(0),
+        mRemainingLength(0),
+        mByteOrder(ByteOrder::Unknown)
+  {
+  }
 
   EXIFData ParseEXIF(const uint8_t* aData, const uint32_t aLength);
   bool ParseEXIFHeader();
@@ -64,12 +65,12 @@ private:
 
   const uint8_t* mStart;
   const uint8_t* mCurrent;
-  uint32_t       mLength;
-  uint32_t       mRemainingLength;
-  ByteOrder      mByteOrder;
+  uint32_t mLength;
+  uint32_t mRemainingLength;
+  ByteOrder mByteOrder;
 };
 
-} // namespace image
-} // namespace mozilla
+}  // namespace image
+}  // namespace mozilla
 
-#endif // mozilla_image_decoders_EXIF_h
+#endif  // mozilla_image_decoders_EXIF_h

@@ -32,18 +32,21 @@ class PromiseInit;
 class PromiseNativeHandler;
 class PromiseDebugging;
 
-#define NS_PROMISE_IID \
-  { 0x1b8d6215, 0x3e67, 0x43ba, \
-    { 0x8a, 0xf9, 0x31, 0x5e, 0x8f, 0xce, 0x75, 0x65 } }
+#define NS_PROMISE_IID                               \
+  {                                                  \
+    0x1b8d6215, 0x3e67, 0x43ba,                      \
+    {                                                \
+      0x8a, 0xf9, 0x31, 0x5e, 0x8f, 0xce, 0x75, 0x65 \
+    }                                                \
+  }
 
-class Promise : public nsISupports,
-                public SupportsWeakPtr<Promise>
+class Promise : public nsISupports, public SupportsWeakPtr<Promise>
 {
   friend class PromiseTask;
   friend class PromiseWorkerProxy;
   friend class PromiseWorkerProxyRunnable;
 
-public:
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_PROMISE_IID)
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Promise)
@@ -53,8 +56,8 @@ public:
   // fallible.  Furthermore, we don't want to do JS-wrapping on a 0-refcount
   // object, so we addref before doing that and return the addrefed pointer
   // here.
-  static already_AddRefed<Promise>
-  Create(nsIGlobalObject* aGlobal, ErrorResult& aRv);
+  static already_AddRefed<Promise> Create(nsIGlobalObject* aGlobal,
+                                          ErrorResult& aRv);
 
   // Reports a rejected Promise by sending an error report.
   static void ReportRejectedPromise(JSContext* aCx, JS::HandleObject aPromise);
@@ -62,28 +65,29 @@ public:
   typedef void (Promise::*MaybeFunc)(JSContext* aCx,
                                      JS::Handle<JS::Value> aValue);
 
-  void MaybeResolve(JSContext* aCx,
-                    JS::Handle<JS::Value> aValue);
-  void MaybeReject(JSContext* aCx,
-                   JS::Handle<JS::Value> aValue);
+  void MaybeResolve(JSContext* aCx, JS::Handle<JS::Value> aValue);
+  void MaybeReject(JSContext* aCx, JS::Handle<JS::Value> aValue);
 
   // Helpers for using Promise from C++.
   // Most DOM objects are handled already.  To add a new type T, add a
   // ToJSValue overload in ToJSValue.h.
   // aArg is a const reference so we can pass rvalues like integer constants
-  template <typename T>
-  void MaybeResolve(const T& aArg) {
+  template<typename T>
+  void MaybeResolve(const T& aArg)
+  {
     MaybeSomething(aArg, &Promise::MaybeResolve);
   }
 
   void MaybeResolveWithUndefined();
 
-  inline void MaybeReject(nsresult aArg) {
+  inline void MaybeReject(nsresult aArg)
+  {
     MOZ_ASSERT(NS_FAILED(aArg));
     MaybeSomething(aArg, &Promise::MaybeReject);
   }
 
-  inline void MaybeReject(ErrorResult& aArg) {
+  inline void MaybeReject(ErrorResult& aArg)
+  {
     MOZ_ASSERT(aArg.Failed());
     MaybeSomething(aArg, &Promise::MaybeReject);
   }
@@ -100,9 +104,9 @@ public:
   // require use to include DOMException.h either here or in all those
   // translation units.
   template<typename T>
-  void MaybeRejectBrokenly(const T& aArg); // Not implemented by default; see
-                                           // specializations in the .cpp for
-                                           // the T values we support.
+  void MaybeRejectBrokenly(const T& aArg);  // Not implemented by default; see
+                                            // specializations in the .cpp for
+                                            // the T values we support.
 
   // Called by DOM to let us execute our callbacks.  May be called recursively.
   // Returns true if at least one microtask was processed.
@@ -115,42 +119,40 @@ public:
 
   // WebIDL
 
-  nsIGlobalObject* GetParentObject() const
-  {
-    return mGlobal;
-  }
+  nsIGlobalObject* GetParentObject() const { return mGlobal; }
 
   // Do the equivalent of Promise.resolve in the current compartment of aCx.
   // Errorrs are reported on the ErrorResult; if aRv comes back !Failed(), this
   // function MUST return a non-null value.
-  static already_AddRefed<Promise>
-  Resolve(nsIGlobalObject* aGlobal, JSContext* aCx,
-          JS::Handle<JS::Value> aValue, ErrorResult& aRv);
+  static already_AddRefed<Promise> Resolve(nsIGlobalObject* aGlobal,
+                                           JSContext* aCx,
+                                           JS::Handle<JS::Value> aValue,
+                                           ErrorResult& aRv);
 
   // Do the equivalent of Promise.reject in the current compartment of aCx.
   // Errorrs are reported on the ErrorResult; if aRv comes back !Failed(), this
   // function MUST return a non-null value.
-  static already_AddRefed<Promise>
-  Reject(nsIGlobalObject* aGlobal, JSContext* aCx,
-         JS::Handle<JS::Value> aValue, ErrorResult& aRv);
+  static already_AddRefed<Promise> Reject(nsIGlobalObject* aGlobal,
+                                          JSContext* aCx,
+                                          JS::Handle<JS::Value> aValue,
+                                          ErrorResult& aRv);
 
-  static already_AddRefed<Promise>
-  All(const GlobalObject& aGlobal,
-      const nsTArray<RefPtr<Promise>>& aPromiseList, ErrorResult& aRv);
+  static already_AddRefed<Promise> All(
+      const GlobalObject& aGlobal,
+      const nsTArray<RefPtr<Promise>>& aPromiseList,
+      ErrorResult& aRv);
 
-  void
-  Then(JSContext* aCx,
-       // aCalleeGlobal may not be in the compartment of aCx, when called over
-       // Xrays.
-       JS::Handle<JSObject*> aCalleeGlobal,
-       AnyCallback* aResolveCallback, AnyCallback* aRejectCallback,
-       JS::MutableHandle<JS::Value> aRetval,
-       ErrorResult& aRv);
+  void Then(
+      JSContext* aCx,
+      // aCalleeGlobal may not be in the compartment of aCx, when called over
+      // Xrays.
+      JS::Handle<JSObject*> aCalleeGlobal,
+      AnyCallback* aResolveCallback,
+      AnyCallback* aRejectCallback,
+      JS::MutableHandle<JS::Value> aRetval,
+      ErrorResult& aRv);
 
-  JSObject* PromiseObj() const
-  {
-    return mPromiseObj;
-  }
+  JSObject* PromiseObj() const { return mPromiseObj; }
 
   void AppendNativeHandler(PromiseNativeHandler* aRunnable);
 
@@ -160,11 +162,11 @@ public:
 
   // Create a dom::Promise from a given SpiderMonkey Promise object.
   // aPromiseObj MUST be in the compartment of aGlobal's global JS object.
-  static already_AddRefed<Promise>
-  CreateFromExisting(nsIGlobalObject* aGlobal,
-                     JS::Handle<JSObject*> aPromiseObj);
+  static already_AddRefed<Promise> CreateFromExisting(
+      nsIGlobalObject* aGlobal, JS::Handle<JSObject*> aPromiseObj);
 
-  enum class PromiseState {
+  enum class PromiseState
+  {
     Pending,
     Resolved,
     Rejected
@@ -172,7 +174,7 @@ public:
 
   PromiseState State() const;
 
-protected:
+ protected:
   struct PromiseCapability;
 
   // Do NOT call this unless you're Promise::Create or
@@ -186,10 +188,11 @@ protected:
   // use the default prototype for the sort of Promise we have.
   void CreateWrapper(JS::Handle<JSObject*> aDesiredProto, ErrorResult& aRv);
 
-private:
-  template <typename T>
-  void MaybeSomething(T& aArgument, MaybeFunc aFunc) {
-    MOZ_ASSERT(PromiseObj()); // It was preserved!
+ private:
+  template<typename T>
+  void MaybeSomething(T& aArgument, MaybeFunc aFunc)
+  {
+    MOZ_ASSERT(PromiseObj());  // It was preserved!
 
     AutoEntryScript aes(mGlobal, "Promise resolution or rejection");
     JSContext* cx = aes.cx();
@@ -212,7 +215,7 @@ private:
 
 NS_DEFINE_STATIC_IID_ACCESSOR(Promise, NS_PROMISE_IID)
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_Promise_h
+#endif  // mozilla_dom_Promise_h

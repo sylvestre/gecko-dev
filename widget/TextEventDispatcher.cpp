@@ -24,20 +24,20 @@ namespace widget {
 bool TextEventDispatcher::sDispatchKeyEventsDuringComposition = false;
 
 TextEventDispatcher::TextEventDispatcher(nsIWidget* aWidget)
-  : mWidget(aWidget)
-  , mDispatchingEvent(0)
-  , mInputTransactionType(eNoInputTransaction)
-  , mIsComposing(false)
-  , mHasFocus(false)
+    : mWidget(aWidget),
+      mDispatchingEvent(0),
+      mInputTransactionType(eNoInputTransaction),
+      mIsComposing(false),
+      mHasFocus(false)
 {
   MOZ_RELEASE_ASSERT(mWidget, "aWidget must not be nullptr");
 
   static bool sInitialized = false;
   if (!sInitialized) {
     Preferences::AddBoolVarCache(
-      &sDispatchKeyEventsDuringComposition,
-      "dom.keyboardevent.dispatch_during_composition",
-      false);
+        &sDispatchKeyEventsDuringComposition,
+        "dom.keyboardevent.dispatch_during_composition",
+        false);
     sInitialized = true;
   }
 
@@ -46,7 +46,7 @@ TextEventDispatcher::TextEventDispatcher(nsIWidget* aWidget)
 
 nsresult
 TextEventDispatcher::BeginInputTransaction(
-                       TextEventDispatcherListener* aListener)
+    TextEventDispatcherListener* aListener)
 {
   return BeginInputTransactionInternal(aListener,
                                        eSameProcessSyncInputTransaction);
@@ -54,12 +54,12 @@ TextEventDispatcher::BeginInputTransaction(
 
 nsresult
 TextEventDispatcher::BeginTestInputTransaction(
-                       TextEventDispatcherListener* aListener,
-                       bool aIsAPZAware)
+    TextEventDispatcherListener* aListener, bool aIsAPZAware)
 {
-  return BeginInputTransactionInternal(aListener,
-           aIsAPZAware ? eAsyncTestInputTransaction :
-                         eSameProcessSyncTestInputTransaction);
+  return BeginInputTransactionInternal(
+      aListener,
+      aIsAPZAware ? eAsyncTestInputTransaction
+                  : eSameProcessSyncTestInputTransaction);
 }
 
 nsresult
@@ -69,7 +69,7 @@ TextEventDispatcher::BeginNativeInputTransaction()
     return NS_ERROR_FAILURE;
   }
   RefPtr<TextEventDispatcherListener> listener =
-    mWidget->GetNativeTextEventDispatcherListener();
+      mWidget->GetNativeTextEventDispatcherListener();
   if (NS_WARN_IF(!listener)) {
     return NS_ERROR_FAILURE;
   }
@@ -78,8 +78,7 @@ TextEventDispatcher::BeginNativeInputTransaction()
 
 nsresult
 TextEventDispatcher::BeginInputTransactionInternal(
-                       TextEventDispatcherListener* aListener,
-                       InputTransactionType aType)
+    TextEventDispatcherListener* aListener, InputTransactionType aType)
 {
   if (NS_WARN_IF(!aListener)) {
     return NS_ERROR_INVALID_ARG;
@@ -140,8 +139,7 @@ TextEventDispatcher::BeginInputTransactionFor(const WidgetGUIEvent* aEvent,
     // Even if the event coming from the parent process is synthesized for
     // tests, this process should treat it as "sync" test here because
     // it won't be go back to the parent process.
-    nsresult rv =
-      BeginInputTransactionInternal(
+    nsresult rv = BeginInputTransactionInternal(
         static_cast<TextEventDispatcherListener*>(aPuppetWidget),
         eSameProcessSyncTestInputTransaction);
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -243,17 +241,17 @@ TextEventDispatcher::InitEvent(WidgetGUIEvent& aEvent) const
   }
   void* pseudoIMEContext = GetPseudoIMEContext();
   if (pseudoIMEContext) {
-    aEvent.AsCompositionEvent()->mNativeIMEContext.
-      InitWithRawNativeIMEContext(pseudoIMEContext);
+    aEvent.AsCompositionEvent()->mNativeIMEContext.InitWithRawNativeIMEContext(
+        pseudoIMEContext);
   }
 #ifdef DEBUG
   else {
     MOZ_ASSERT(!XRE_IsContentProcess(),
-      "Why did the content process start native event transaction?");
+               "Why did the content process start native event transaction?");
     MOZ_ASSERT(aEvent.AsCompositionEvent()->mNativeIMEContext.IsValid(),
-      "Native IME context shouldn't be invalid");
+               "Native IME context shouldn't be invalid");
   }
-#endif // #ifdef DEBUG
+#endif  // #ifdef DEBUG
 }
 
 nsresult
@@ -313,8 +311,8 @@ TextEventDispatcher::StartComposition(nsEventStatus& aStatus,
   // When you change some members from here, you may need same change in
   // BeginInputTransactionFor().
   mIsComposing = true;
-  WidgetCompositionEvent compositionStartEvent(true, eCompositionStart,
-                                               mWidget);
+  WidgetCompositionEvent compositionStartEvent(
+      true, eCompositionStart, mWidget);
   InitEvent(compositionStartEvent);
   if (aEventTime) {
     compositionStartEvent.AssignEventTime(*aEventTime);
@@ -329,8 +327,7 @@ TextEventDispatcher::StartComposition(nsEventStatus& aStatus,
 
 nsresult
 TextEventDispatcher::StartCompositionAutomaticallyIfNecessary(
-                       nsEventStatus& aStatus,
-                       const WidgetEventTime* aEventTime)
+    nsEventStatus& aStatus, const WidgetEventTime* aEventTime)
 {
   if (IsComposing()) {
     return NS_OK;
@@ -356,7 +353,7 @@ TextEventDispatcher::StartCompositionAutomaticallyIfNecessary(
     MOZ_ASSERT(rv != NS_ERROR_NOT_INITIALIZED,
                "aDispatcher must still be initialized in this case");
     aStatus = nsEventStatus_eConsumeNoDefault;
-    return NS_OK; // Don't throw exception in this case
+    return NS_OK;  // Don't throw exception in this case
   }
 
   aStatus = nsEventStatus_eIgnore;
@@ -398,8 +395,8 @@ TextEventDispatcher::CommitComposition(nsEventStatus& aStatus,
   // End current composition and make this free for other IMEs.
   mIsComposing = false;
 
-  EventMessage message = aCommitString ? eCompositionCommit :
-                                         eCompositionCommitAsIs;
+  EventMessage message =
+      aCommitString ? eCompositionCommit : eCompositionCommitAsIs;
   WidgetCompositionEvent compositionCommitEvent(true, message, widget);
   InitEvent(compositionCommitEvent);
   if (aEventTime) {
@@ -431,7 +428,6 @@ TextEventDispatcher::NotifyIME(const IMENotification& aIMENotification)
     ClearNotificationRequests();
   }
 
-
   // First, send the notification to current input transaction's listener.
   nsCOMPtr<TextEventDispatcherListener> listener = do_QueryReferent(mListener);
   if (listener) {
@@ -453,7 +449,7 @@ TextEventDispatcher::NotifyIME(const IMENotification& aIMENotification)
   // and WidgetCompositionEvent (dispatching events always occurs after
   // focus move).
   nsCOMPtr<TextEventDispatcherListener> nativeListener =
-    mWidget->GetNativeTextEventDispatcherListener();
+      mWidget->GetNativeTextEventDispatcherListener();
   if (listener != nativeListener && nativeListener) {
     switch (aIMENotification.mMessage) {
       case REQUEST_TO_COMMIT_COMPOSITION:
@@ -465,8 +461,7 @@ TextEventDispatcher::NotifyIME(const IMENotification& aIMENotification)
         // something, we need to notify native IME of notifications because
         // when user typing after TIP does something, the changed information
         // is necessary for them.
-        nsresult rv2 =
-          nativeListener->NotifyIME(this, aIMENotification);
+        nsresult rv2 = nativeListener->NotifyIME(this, aIMENotification);
         // But return the result from current listener except when the
         // notification isn't handled.
         if (rv == NS_ERROR_NOT_IMPLEMENTED) {
@@ -511,7 +506,7 @@ TextEventDispatcher::UpdateNotificationRequests()
   // requests.  So, add native IME requests too.
   if (!IsInNativeInputTransaction()) {
     nsCOMPtr<TextEventDispatcherListener> nativeListener =
-      mWidget->GetNativeTextEventDispatcherListener();
+        mWidget->GetNativeTextEventDispatcherListener();
     if (nativeListener) {
       mIMENotificationRequests |= nativeListener->GetIMENotificationRequests();
     }
@@ -520,23 +515,23 @@ TextEventDispatcher::UpdateNotificationRequests()
 
 bool
 TextEventDispatcher::DispatchKeyboardEvent(
-                       EventMessage aMessage,
-                       const WidgetKeyboardEvent& aKeyboardEvent,
-                       nsEventStatus& aStatus,
-                       void* aData)
+    EventMessage aMessage,
+    const WidgetKeyboardEvent& aKeyboardEvent,
+    nsEventStatus& aStatus,
+    void* aData)
 {
-  return DispatchKeyboardEventInternal(aMessage, aKeyboardEvent, aStatus,
-                                       aData);
+  return DispatchKeyboardEventInternal(
+      aMessage, aKeyboardEvent, aStatus, aData);
 }
 
 bool
 TextEventDispatcher::DispatchKeyboardEventInternal(
-                       EventMessage aMessage,
-                       const WidgetKeyboardEvent& aKeyboardEvent,
-                       nsEventStatus& aStatus,
-                       void* aData,
-                       uint32_t aIndexOfKeypress,
-                       bool aNeedsCallback)
+    EventMessage aMessage,
+    const WidgetKeyboardEvent& aKeyboardEvent,
+    nsEventStatus& aStatus,
+    void* aData,
+    uint32_t aIndexOfKeypress,
+    bool aNeedsCallback)
 {
   // Note that this method is also used for dispatching key events on a plugin
   // because key events on a plugin should be dispatched same as normal key
@@ -544,8 +539,9 @@ TextEventDispatcher::DispatchKeyboardEventInternal(
   // before the focused plugin (e.g., reserved shortcut key handlers) can
   // consume the events.
   MOZ_ASSERT(WidgetKeyboardEvent::IsKeyDownOrKeyDownOnPlugin(aMessage) ||
-             WidgetKeyboardEvent::IsKeyUpOrKeyUpOnPlugin(aMessage) ||
-             aMessage == eKeyPress, "Invalid aMessage value");
+                 WidgetKeyboardEvent::IsKeyUpOrKeyUpOnPlugin(aMessage) ||
+                 aMessage == eKeyPress,
+             "Invalid aMessage value");
   nsresult rv = GetState();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
@@ -586,22 +582,23 @@ TextEventDispatcher::DispatchKeyboardEventInternal(
   // Corrects each member for the specific key event type.
   if (keyEvent.mKeyNameIndex != KEY_NAME_INDEX_USE_STRING) {
     MOZ_ASSERT(!aIndexOfKeypress,
-      "aIndexOfKeypress must be 0 for non-printable key");
+               "aIndexOfKeypress must be 0 for non-printable key");
     // If the keyboard event isn't caused by printable key, its charCode should
     // be 0.
     keyEvent.SetCharCode(0);
   } else {
     if (WidgetKeyboardEvent::IsKeyDownOrKeyDownOnPlugin(aMessage) ||
         WidgetKeyboardEvent::IsKeyUpOrKeyUpOnPlugin(aMessage)) {
-      MOZ_RELEASE_ASSERT(!aIndexOfKeypress,
-        "aIndexOfKeypress must be 0 for either eKeyDown or eKeyUp");
+      MOZ_RELEASE_ASSERT(
+          !aIndexOfKeypress,
+          "aIndexOfKeypress must be 0 for either eKeyDown or eKeyUp");
     } else {
       MOZ_RELEASE_ASSERT(
-        !aIndexOfKeypress || aIndexOfKeypress < keyEvent.mKeyValue.Length(),
-        "aIndexOfKeypress must be 0 - mKeyValue.Length() - 1");
+          !aIndexOfKeypress || aIndexOfKeypress < keyEvent.mKeyValue.Length(),
+          "aIndexOfKeypress must be 0 - mKeyValue.Length() - 1");
     }
     wchar_t ch =
-      keyEvent.mKeyValue.IsEmpty() ? 0 : keyEvent.mKeyValue[aIndexOfKeypress];
+        keyEvent.mKeyValue.IsEmpty() ? 0 : keyEvent.mKeyValue[aIndexOfKeypress];
     keyEvent.SetCharCode(static_cast<uint32_t>(ch));
     if (aMessage == eKeyPress) {
       // keyCode of eKeyPress events of printable keys should be always 0.
@@ -643,29 +640,29 @@ TextEventDispatcher::DispatchKeyboardEventInternal(
       (aNeedsCallback || keyEvent.IsControl() || keyEvent.IsAlt() ||
        keyEvent.IsMeta() || keyEvent.IsOS())) {
     nsCOMPtr<TextEventDispatcherListener> listener =
-      do_QueryReferent(mListener);
+        do_QueryReferent(mListener);
     if (listener) {
       DebugOnly<WidgetKeyboardEvent> original(keyEvent);
-      listener->WillDispatchKeyboardEvent(this, keyEvent, aIndexOfKeypress,
-                                          aData);
+      listener->WillDispatchKeyboardEvent(
+          this, keyEvent, aIndexOfKeypress, aData);
       MOZ_ASSERT(keyEvent.mMessage ==
-                   static_cast<WidgetKeyboardEvent&>(original).mMessage);
+                 static_cast<WidgetKeyboardEvent&>(original).mMessage);
       MOZ_ASSERT(keyEvent.mKeyCode ==
-                   static_cast<WidgetKeyboardEvent&>(original).mKeyCode);
+                 static_cast<WidgetKeyboardEvent&>(original).mKeyCode);
       MOZ_ASSERT(keyEvent.mLocation ==
-                   static_cast<WidgetKeyboardEvent&>(original).mLocation);
+                 static_cast<WidgetKeyboardEvent&>(original).mLocation);
       MOZ_ASSERT(keyEvent.mIsRepeat ==
-                   static_cast<WidgetKeyboardEvent&>(original).mIsRepeat);
+                 static_cast<WidgetKeyboardEvent&>(original).mIsRepeat);
       MOZ_ASSERT(keyEvent.mIsComposing ==
-                   static_cast<WidgetKeyboardEvent&>(original).mIsComposing);
+                 static_cast<WidgetKeyboardEvent&>(original).mIsComposing);
       MOZ_ASSERT(keyEvent.mKeyNameIndex ==
-                   static_cast<WidgetKeyboardEvent&>(original).mKeyNameIndex);
+                 static_cast<WidgetKeyboardEvent&>(original).mKeyNameIndex);
       MOZ_ASSERT(keyEvent.mCodeNameIndex ==
-                   static_cast<WidgetKeyboardEvent&>(original).mCodeNameIndex);
+                 static_cast<WidgetKeyboardEvent&>(original).mCodeNameIndex);
       MOZ_ASSERT(keyEvent.mKeyValue ==
-                   static_cast<WidgetKeyboardEvent&>(original).mKeyValue);
+                 static_cast<WidgetKeyboardEvent&>(original).mKeyValue);
       MOZ_ASSERT(keyEvent.mCodeValue ==
-                   static_cast<WidgetKeyboardEvent&>(original).mCodeValue);
+                 static_cast<WidgetKeyboardEvent&>(original).mCodeValue);
     }
   }
 
@@ -675,10 +672,10 @@ TextEventDispatcher::DispatchKeyboardEventInternal(
 
 bool
 TextEventDispatcher::MaybeDispatchKeypressEvents(
-                       const WidgetKeyboardEvent& aKeyboardEvent,
-                       nsEventStatus& aStatus,
-                       void* aData,
-                       bool aNeedsCallback)
+    const WidgetKeyboardEvent& aKeyboardEvent,
+    nsEventStatus& aStatus,
+    void* aData,
+    bool aNeedsCallback)
 {
   // If the key event was consumed, keypress event shouldn't be fired.
   if (aStatus == nsEventStatus_eConsumeNoDefault) {
@@ -695,15 +692,16 @@ TextEventDispatcher::MaybeDispatchKeypressEvents(
   // if the key is a printable key and inputs multiple characters, keypress
   // event should be dispatched the count of inputting characters times.
   size_t keypressCount =
-    aKeyboardEvent.mKeyNameIndex != KEY_NAME_INDEX_USE_STRING ?
-      1 : std::max(static_cast<nsAString::size_type>(1),
-                   aKeyboardEvent.mKeyValue.Length());
+      aKeyboardEvent.mKeyNameIndex != KEY_NAME_INDEX_USE_STRING
+          ? 1
+          : std::max(static_cast<nsAString::size_type>(1),
+                     aKeyboardEvent.mKeyValue.Length());
   bool isDispatched = false;
   bool consumed = false;
   for (size_t i = 0; i < keypressCount; i++) {
     aStatus = nsEventStatus_eIgnore;
-    if (!DispatchKeyboardEventInternal(eKeyPress, aKeyboardEvent,
-                                       aStatus, aData, i, aNeedsCallback)) {
+    if (!DispatchKeyboardEventInternal(
+            eKeyPress, aKeyboardEvent, aStatus, aData, i, aNeedsCallback)) {
       // The widget must have been gone.
       break;
     }
@@ -725,10 +723,7 @@ TextEventDispatcher::MaybeDispatchKeypressEvents(
  * TextEventDispatcher::PendingComposition
  *****************************************************************************/
 
-TextEventDispatcher::PendingComposition::PendingComposition()
-{
-  Clear();
-}
+TextEventDispatcher::PendingComposition::PendingComposition() { Clear(); }
 
 void
 TextEventDispatcher::PendingComposition::Clear()
@@ -758,8 +753,7 @@ TextEventDispatcher::PendingComposition::SetString(const nsAString& aString)
 
 nsresult
 TextEventDispatcher::PendingComposition::AppendClause(
-                                           uint32_t aLength,
-                                           TextRangeType aTextRangeType)
+    uint32_t aLength, TextRangeType aTextRangeType)
 {
   MOZ_ASSERT(!mReplacedNativeLineBreakers);
 
@@ -775,7 +769,7 @@ TextEventDispatcher::PendingComposition::AppendClause(
       EnsureClauseArray();
       TextRange textRange;
       textRange.mStartOffset =
-        mClauses->IsEmpty() ? 0 : mClauses->LastElement().mEndOffset;
+          mClauses->IsEmpty() ? 0 : mClauses->LastElement().mEndOffset;
       textRange.mEndOffset = textRange.mStartOffset + aLength;
       textRange.mRangeType = aTextRangeType;
       mClauses->AppendElement(textRange);
@@ -869,8 +863,7 @@ TextEventDispatcher::PendingComposition::ReplaceNativeLineBreakers()
 // static
 void
 TextEventDispatcher::PendingComposition::AdjustRange(
-                                           TextRange& aRange,
-                                           const nsAString& aNativeString)
+    TextRange& aRange, const nsAString& aNativeString)
 {
   TextRange nativeRange = aRange;
   // XXX Following code wastes runtime cost because this causes computing
@@ -879,8 +872,7 @@ TextEventDispatcher::PendingComposition::AdjustRange(
   //     this.  However, this must not be so serious problem because
   //     composition string is usually short and separated as a few clauses.
   if (nativeRange.mStartOffset > 0) {
-    nsAutoString preText(
-      Substring(aNativeString, 0, nativeRange.mStartOffset));
+    nsAutoString preText(Substring(aNativeString, 0, nativeRange.mStartOffset));
     preText.ReplaceSubstring(NS_LITERAL_STRING("\r\n"),
                              NS_LITERAL_STRING("\n"));
     aRange.mStartOffset = preText.Length();
@@ -888,19 +880,18 @@ TextEventDispatcher::PendingComposition::AdjustRange(
   if (nativeRange.Length() == 0) {
     aRange.mEndOffset = aRange.mStartOffset;
   } else {
-    nsAutoString clause(
-      Substring(aNativeString, nativeRange.mStartOffset, nativeRange.Length()));
-    clause.ReplaceSubstring(NS_LITERAL_STRING("\r\n"),
-                            NS_LITERAL_STRING("\n"));
+    nsAutoString clause(Substring(
+        aNativeString, nativeRange.mStartOffset, nativeRange.Length()));
+    clause.ReplaceSubstring(NS_LITERAL_STRING("\r\n"), NS_LITERAL_STRING("\n"));
     aRange.mEndOffset = aRange.mStartOffset + clause.Length();
   }
 }
 
 nsresult
 TextEventDispatcher::PendingComposition::Flush(
-                                           TextEventDispatcher* aDispatcher,
-                                           nsEventStatus& aStatus,
-                                           const WidgetEventTime* aEventTime)
+    TextEventDispatcher* aDispatcher,
+    nsEventStatus& aStatus,
+    const WidgetEventTime* aEventTime)
 {
   aStatus = nsEventStatus_eIgnore;
 
@@ -911,8 +902,9 @@ TextEventDispatcher::PendingComposition::Flush(
 
   if (mClauses && !mClauses->IsEmpty() &&
       mClauses->LastElement().mEndOffset != mString.Length()) {
-    NS_WARNING("Sum of length of the all clauses must be same as the string "
-               "length");
+    NS_WARNING(
+        "Sum of length of the all clauses must be same as the string "
+        "length");
     Clear();
     return NS_ERROR_ILLEGAL_VALUE;
   }
@@ -967,5 +959,5 @@ TextEventDispatcher::PendingComposition::Flush(
   return NS_OK;
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla

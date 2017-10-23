@@ -38,7 +38,8 @@
  * @param ptr updated if the prefix is matched inside str
  * @return non-zero if the prefix matches, zero otherwise
  */
-int av_strstart(const char *str, const char *pfx, const char **ptr);
+int
+av_strstart(const char* str, const char* pfx, const char** ptr);
 
 /**
  * Return non-zero if pfx is a prefix of str independent of case. If
@@ -50,7 +51,8 @@ int av_strstart(const char *str, const char *pfx, const char **ptr);
  * @param ptr updated if the prefix is matched inside str
  * @return non-zero if the prefix matches, zero otherwise
  */
-int av_stristart(const char *str, const char *pfx, const char **ptr);
+int
+av_stristart(const char* str, const char* pfx, const char** ptr);
 
 /**
  * Locate the first case-independent occurrence in the string haystack
@@ -64,7 +66,8 @@ int av_stristart(const char *str, const char *pfx, const char **ptr);
  * @return         pointer to the located match within haystack
  *                 or a null pointer if no match
  */
-char *av_stristr(const char *haystack, const char *needle);
+char*
+av_stristr(const char* haystack, const char* needle);
 
 /**
  * Copy the string src to dst, but no more than size - 1 bytes, and
@@ -81,7 +84,8 @@ char *av_stristr(const char *haystack, const char *needle);
  * _must_ be a properly 0-terminated string, otherwise this will read beyond
  * the end of the buffer and possibly crash.
  */
-size_t av_strlcpy(char *dst, const char *src, size_t size);
+size_t
+av_strlcpy(char* dst, const char* src, size_t size);
 
 /**
  * Append the string src to the string dst, but to a total length of
@@ -99,7 +103,8 @@ size_t av_strlcpy(char *dst, const char *src, size_t size);
  * absolutely _must_ be a properly 0-terminated strings, otherwise this
  * will read beyond the end of the buffer and possibly crash.
  */
-size_t av_strlcat(char *dst, const char *src, size_t size);
+size_t
+av_strlcat(char* dst, const char* src, size_t size);
 
 /**
  * Append output to a string, according to a format. Never write out of
@@ -113,12 +118,15 @@ size_t av_strlcat(char *dst, const char *src, size_t size);
  * @return the length of the string that would have been generated
  *  if enough space had been available
  */
-size_t av_strlcatf(char *dst, size_t size, const char *fmt, ...) av_printf_format(3, 4);
+size_t
+av_strlcatf(char* dst, size_t size, const char* fmt, ...)
+    av_printf_format(3, 4);
 
 /**
  * Convert a number to a av_malloced string.
  */
-char *av_d2str(double d);
+char*
+av_d2str(double d);
 
 /**
  * Unescape the given string until a non escaped terminating char,
@@ -134,47 +142,50 @@ char *av_d2str(double d);
  * @return the malloced unescaped string, which must be av_freed by
  * the user, NULL in case of allocation failure
  */
-char *av_get_token(const char **buf, const char *term);
+char*
+av_get_token(const char** buf, const char* term);
 
 /**
  * Locale-independent conversion of ASCII characters to uppercase.
  */
-static inline int av_toupper(int c)
+static inline int
+av_toupper(int c)
 {
-    if (c >= 'a' && c <= 'z')
-        c ^= 0x20;
-    return c;
+  if (c >= 'a' && c <= 'z') c ^= 0x20;
+  return c;
 }
 
 /**
  * Locale-independent conversion of ASCII characters to lowercase.
  */
-static inline int av_tolower(int c)
+static inline int
+av_tolower(int c)
 {
-    if (c >= 'A' && c <= 'Z')
-        c ^= 0x20;
-    return c;
+  if (c >= 'A' && c <= 'Z') c ^= 0x20;
+  return c;
 }
 
 /*
  * Locale-independent case-insensitive compare.
  * @note This means only ASCII-range characters are case-insensitive
  */
-int av_strcasecmp(const char *a, const char *b);
+int
+av_strcasecmp(const char* a, const char* b);
 
 /**
  * Locale-independent case-insensitive compare.
  * @note This means only ASCII-range characters are case-insensitive
  */
-int av_strncasecmp(const char *a, const char *b, size_t n);
-
+int
+av_strncasecmp(const char* a, const char* b, size_t n);
 
 /**
  * Thread safe basename.
  * @param path the path, on DOS both \ and / are considered separators.
  * @return pointer to the basename substring.
  */
-const char *av_basename(const char *path);
+const char*
+av_basename(const char* path);
 
 /**
  * Thread safe dirname.
@@ -182,7 +193,8 @@ const char *av_basename(const char *path);
  * @return the path with the separator replaced by the string terminator or ".".
  * @note the function may change the input string.
  */
-const char *av_dirname(char *path);
+const char*
+av_dirname(char* path);
 
 /**
  * @}

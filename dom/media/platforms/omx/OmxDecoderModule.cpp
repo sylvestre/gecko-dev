@@ -14,16 +14,15 @@ namespace mozilla {
 already_AddRefed<MediaDataDecoder>
 OmxDecoderModule::CreateVideoDecoder(const CreateDecoderParams& aParams)
 {
-  RefPtr<OmxDataDecoder> decoder = new OmxDataDecoder(aParams.mConfig,
-                                                      aParams.mImageContainer);
+  RefPtr<OmxDataDecoder> decoder =
+      new OmxDataDecoder(aParams.mConfig, aParams.mImageContainer);
   return decoder.forget();
 }
 
 already_AddRefed<MediaDataDecoder>
 OmxDecoderModule::CreateAudioDecoder(const CreateDecoderParams& aParams)
 {
-  RefPtr<OmxDataDecoder> decoder = new OmxDataDecoder(aParams.mConfig,
-                                                      nullptr);
+  RefPtr<OmxDataDecoder> decoder = new OmxDataDecoder(aParams.mConfig, nullptr);
   return decoder.forget();
 }
 
@@ -34,4 +33,4 @@ OmxDecoderModule::SupportsMimeType(const nsACString& aMimeType,
   return OmxPlatformLayer::SupportsMimeType(aMimeType);
 }
 
-}
+}  // namespace mozilla

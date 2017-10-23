@@ -15,7 +15,7 @@ nsSegmentedBuffer::Init(uint32_t aSegmentSize, uint32_t aMaxSize)
   }
   mSegmentSize = aSegmentSize;
   mMaxSize = aMaxSize;
-#if 0 // testing...
+#if 0  // testing...
   mSegmentArrayCount = 2;
 #else
   mSegmentArrayCount = NS_SEGMENTARRAY_INITIAL_COUNT;
@@ -55,10 +55,12 @@ nsSegmentedBuffer::AppendNewSegment()
              mLastSegmentIndex * sizeof(char*));
       memset(mSegmentArray, 0, mLastSegmentIndex * sizeof(char*));
       mLastSegmentIndex += mSegmentArrayCount;
-      memset(&mSegmentArray[mLastSegmentIndex], 0,
+      memset(&mSegmentArray[mLastSegmentIndex],
+             0,
              (newArraySize - mLastSegmentIndex) * sizeof(char*));
     } else {
-      memset(&mSegmentArray[mLastSegmentIndex], 0,
+      memset(&mSegmentArray[mLastSegmentIndex],
+             0,
              (newArraySize - mLastSegmentIndex) * sizeof(char*));
     }
     mSegmentArrayCount = newArraySize;
@@ -76,7 +78,8 @@ nsSegmentedBuffer::AppendNewSegment()
 bool
 nsSegmentedBuffer::DeleteFirstSegment()
 {
-  NS_ASSERTION(mSegmentArray[mFirstSegmentIndex] != nullptr, "deleting bad segment");
+  NS_ASSERTION(mSegmentArray[mFirstSegmentIndex] != nullptr,
+               "deleting bad segment");
   free(mSegmentArray[mFirstSegmentIndex]);
   mSegmentArray[mFirstSegmentIndex] = nullptr;
   int32_t last = ModSegArraySize(mLastSegmentIndex - 1);

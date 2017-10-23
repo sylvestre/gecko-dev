@@ -13,7 +13,7 @@
 #include "Zip.h"
 
 already_AddRefed<Zip>
-Zip::Create(const char *filename)
+Zip::Create(const char* filename)
 {
   /* Open and map the file in memory */
   AutoCloseFD fd(open(filename, O_RDONLY));
@@ -31,7 +31,7 @@ Zip::Create(const char *filename)
     ERROR("Error reading %s: too short", filename);
     return nullptr;
   }
-  void *mapped = mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0);
+  void* mapped = mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0);
   if (mapped == MAP_FAILED) {
     ERROR("Error mmapping %s: %s", filename, strerror(errno));
     return nullptr;
@@ -42,7 +42,7 @@ Zip::Create(const char *filename)
 }
 
 already_AddRefed<Zip>
-Zip::Create(const char *filename, void *mapped, size_t size)
+Zip::Create(const char* filename, void* mapped, size_t size)
 {
   RefPtr<Zip> zip = new Zip(filename, mapped, size);
 
@@ -57,19 +57,19 @@ Zip::Create(const char *filename, void *mapped, size_t size)
   return zip.forget();
 }
 
-Zip::Zip(const char *filename, void *mapped, size_t size)
-: name(filename ? strdup(filename) : nullptr)
-, mapped(mapped)
-, size(size)
-, nextFile(LocalFile::validate(mapped)) // first Local File entry
-, nextDir(nullptr)
-, entries(nullptr)
+Zip::Zip(const char* filename, void* mapped, size_t size)
+    : name(filename ? strdup(filename) : nullptr),
+      mapped(mapped),
+      size(size),
+      nextFile(LocalFile::validate(mapped))  // first Local File entry
+      ,
+      nextDir(nullptr),
+      entries(nullptr)
 {
   pthread_mutex_init(&mutex, nullptr);
   // If the first local file entry couldn't be found (which can happen
   // with optimized jars), check the first central directory entry.
-  if (!nextFile)
-    GetFirstEntry();
+  if (!nextFile) GetFirstEntry();
 }
 
 Zip::~Zip()
@@ -83,7 +83,7 @@ Zip::~Zip()
 }
 
 bool
-Zip::GetStream(const char *path, Zip::Stream *out) const
+Zip::GetStream(const char* path, Zip::Stream* out) const
 {
   AutoLock lock(&mutex);
 
@@ -98,11 +98,11 @@ Zip::GetStream(const char *path, Zip::Stream *out) const
    * we haven't read the central directory entries yet, and when the
    * compressed size as defined in the header is not filled (which is a
    * normal condition for the bit to be set). */
-  if (nextFile && nextFile->GetName().Equals(path) &&
-      !entries && (nextFile->compressedSize != 0)) {
+  if (nextFile && nextFile->GetName().Equals(path) && !entries &&
+      (nextFile->compressedSize != 0)) {
     DEBUG_LOG("%s - %s was next file: fast path", name, path);
     /* Fill Stream info from Local File header content */
-    const char *data = reinterpret_cast<const char *>(nextFile->GetData());
+    const char* data = reinterpret_cast<const char*>(nextFile->GetData());
     out->compressedBuf = data;
     out->compressedSize = nextFile->compressedSize;
     out->uncompressedSize = nextFile->uncompressedSize;
@@ -123,7 +123,7 @@ Zip::GetStream(const char *path, Zip::Stream *out) const
   /* If the directory entry we have in store doesn't match, scan the Central
    * Directory for the entry corresponding to the given path */
   if (!nextDir || !nextDir->GetName().Equals(path)) {
-    const DirectoryEntry *entry = GetFirstEntry();
+    const DirectoryEntry* entry = GetFirstEntry();
     DEBUG_LOG("%s - Scan directory entries in search for %s", name, path);
     while (entry && !entry->GetName().Equals(path)) {
       entry = entry->GetNext();
@@ -137,15 +137,15 @@ Zip::GetStream(const char *path, Zip::Stream *out) const
 
   /* Find the Local File header corresponding to the Directory entry that
    * was found. */
-  nextFile = LocalFile::validate(static_cast<const char *>(mapped)
-                             + nextDir->offset);
+  nextFile =
+      LocalFile::validate(static_cast<const char*>(mapped) + nextDir->offset);
   if (!nextFile) {
     ERROR("%s - Couldn't find the Local File header for %s", name, path);
     return false;
   }
 
   /* Fill Stream info from Directory entry content */
-  const char *data = reinterpret_cast<const char *>(nextFile->GetData());
+  const char* data = reinterpret_cast<const char*>(nextFile->GetData());
   out->compressedBuf = data;
   out->compressedSize = nextDir->compressedSize;
   out->uncompressedSize = nextDir->uncompressedSize;
@@ -158,15 +158,14 @@ Zip::GetStream(const char *path, Zip::Stream *out) const
   return true;
 }
 
-const Zip::DirectoryEntry *
+const Zip::DirectoryEntry*
 Zip::GetFirstEntry() const
 {
-  if (entries)
-    return entries;
+  if (entries) return entries;
 
-  const CentralDirectoryEnd *end = nullptr;
-  const char *_end = static_cast<const char *>(mapped) + size
-                     - sizeof(CentralDirectoryEnd);
+  const CentralDirectoryEnd* end = nullptr;
+  const char* _end =
+      static_cast<const char*>(mapped) + size - sizeof(CentralDirectoryEnd);
 
   /* Scan for the Central Directory End */
   for (; _end > mapped && !end; _end--)
@@ -176,8 +175,8 @@ Zip::GetFirstEntry() const
     return nullptr;
   }
 
-  entries = DirectoryEntry::validate(static_cast<const char *>(mapped)
-                                 + end->offset);
+  entries =
+      DirectoryEntry::validate(static_cast<const char*>(mapped) + end->offset);
   if (!entries) {
     ERROR("%s - Couldn't find central directory record", name);
   }
@@ -189,12 +188,12 @@ ZipCollection ZipCollection::Singleton;
 static pthread_mutex_t sZipCollectionMutex = PTHREAD_MUTEX_INITIALIZER;
 
 already_AddRefed<Zip>
-ZipCollection::GetZip(const char *path)
+ZipCollection::GetZip(const char* path)
 {
   {
     AutoLock lock(&sZipCollectionMutex);
     /* Search the list of Zips we already have for a match */
-    for (const auto& zip: Singleton.zips) {
+    for (const auto& zip : Singleton.zips) {
       if (zip->GetName() && (strcmp(zip->GetName(), path) == 0)) {
         return RefPtr<Zip>(zip).forget();
       }
@@ -204,7 +203,7 @@ ZipCollection::GetZip(const char *path)
 }
 
 void
-ZipCollection::Register(Zip *zip)
+ZipCollection::Register(Zip* zip)
 {
   AutoLock lock(&sZipCollectionMutex);
   DEBUG_LOG("ZipCollection::Register(\"%s\")", zip->GetName());
@@ -212,7 +211,7 @@ ZipCollection::Register(Zip *zip)
 }
 
 void
-ZipCollection::Forget(const Zip *zip)
+ZipCollection::Forget(const Zip* zip)
 {
   AutoLock lock(&sZipCollectionMutex);
   if (zip->refCount() > 1) {
@@ -225,6 +224,7 @@ ZipCollection::Forget(const Zip *zip)
   if (*it == zip) {
     Singleton.zips.erase(it);
   } else {
-    DEBUG_LOG("ZipCollection::Forget: didn't find \"%s\" in bookkeeping", zip->GetName());
+    DEBUG_LOG("ZipCollection::Forget: didn't find \"%s\" in bookkeeping",
+              zip->GetName());
   }
 }

@@ -29,7 +29,8 @@ namespace dom {
 
 using namespace mozilla::dom::workers;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WorkerNavigator, mStorageManager,
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WorkerNavigator,
+                                      mStorageManager,
                                       mConnection);
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WorkerNavigator, AddRef)
@@ -37,14 +38,11 @@ NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WorkerNavigator, Release)
 
 WorkerNavigator::WorkerNavigator(const NavigatorProperties& aProperties,
                                  bool aOnline)
-  : mProperties(aProperties)
-  , mOnline(aOnline)
+    : mProperties(aProperties), mOnline(aOnline)
 {
 }
 
-WorkerNavigator::~WorkerNavigator()
-{
-}
+WorkerNavigator::~WorkerNavigator() {}
 
 /* static */ already_AddRefed<WorkerNavigator>
 WorkerNavigator::Create(bool aOnLine)
@@ -53,10 +51,9 @@ WorkerNavigator::Create(bool aOnLine)
   MOZ_ASSERT(rts);
 
   const RuntimeService::NavigatorProperties& properties =
-    rts->GetNavigatorProperties();
+      rts->GetNavigatorProperties();
 
-  RefPtr<WorkerNavigator> navigator =
-    new WorkerNavigator(properties, aOnLine);
+  RefPtr<WorkerNavigator> navigator = new WorkerNavigator(properties, aOnLine);
 
   return navigator.forget();
 }
@@ -85,15 +82,17 @@ WorkerNavigator::GetAppName(nsString& aAppName, CallerType aCallerType) const
       !workerPrivate->UsesSystemPrincipal()) {
     // We will spoof this value when 'privacy.resistFingerprinting' is true.
     // See nsRFPService.h for spoofed value.
-    aAppName = workerPrivate->ResistFingerprintingEnabled() ?
-      NS_LITERAL_STRING(SPOOFED_APPNAME) : mProperties.mAppNameOverridden;
+    aAppName = workerPrivate->ResistFingerprintingEnabled()
+                   ? NS_LITERAL_STRING(SPOOFED_APPNAME)
+                   : mProperties.mAppNameOverridden;
   } else {
     aAppName = mProperties.mAppName;
   }
 }
 
 void
-WorkerNavigator::GetAppVersion(nsString& aAppVersion, CallerType aCallerType,
+WorkerNavigator::GetAppVersion(nsString& aAppVersion,
+                               CallerType aCallerType,
                                ErrorResult& aRv) const
 {
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
@@ -104,15 +103,17 @@ WorkerNavigator::GetAppVersion(nsString& aAppVersion, CallerType aCallerType,
       !workerPrivate->UsesSystemPrincipal()) {
     // We will spoof this value when 'privacy.resistFingerprinting' is true.
     // See nsRFPService.h for spoofed value.
-    aAppVersion = workerPrivate->ResistFingerprintingEnabled() ?
-      NS_LITERAL_STRING(SPOOFED_APPVERSION) : mProperties.mAppVersionOverridden;
+    aAppVersion = workerPrivate->ResistFingerprintingEnabled()
+                      ? NS_LITERAL_STRING(SPOOFED_APPVERSION)
+                      : mProperties.mAppVersionOverridden;
   } else {
     aAppVersion = mProperties.mAppVersion;
   }
 }
 
 void
-WorkerNavigator::GetPlatform(nsString& aPlatform, CallerType aCallerType,
+WorkerNavigator::GetPlatform(nsString& aPlatform,
+                             CallerType aCallerType,
                              ErrorResult& aRv) const
 {
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
@@ -123,8 +124,9 @@ WorkerNavigator::GetPlatform(nsString& aPlatform, CallerType aCallerType,
       !workerPrivate->UsesSystemPrincipal()) {
     // We will spoof this value when 'privacy.resistFingerprinting' is true.
     // See nsRFPService.h for spoofed value.
-    aPlatform = workerPrivate->ResistFingerprintingEnabled() ?
-      NS_LITERAL_STRING(SPOOFED_PLATFORM) : mProperties.mPlatformOverridden;
+    aPlatform = workerPrivate->ResistFingerprintingEnabled()
+                    ? NS_LITERAL_STRING(SPOOFED_PLATFORM)
+                    : mProperties.mPlatformOverridden;
   } else {
     aPlatform = mProperties.mPlatform;
   }
@@ -136,11 +138,11 @@ class GetUserAgentRunnable final : public WorkerMainThreadRunnable
 {
   nsString& mUA;
 
-public:
+ public:
   GetUserAgentRunnable(WorkerPrivate* aWorkerPrivate, nsString& aUA)
-    : WorkerMainThreadRunnable(aWorkerPrivate,
-                               NS_LITERAL_CSTRING("UserAgent getter"))
-    , mUA(aUA)
+      : WorkerMainThreadRunnable(aWorkerPrivate,
+                                 NS_LITERAL_CSTRING("UserAgent getter")),
+        mUA(aUA)
   {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -162,17 +164,18 @@ public:
   }
 };
 
-} // namespace
+}  // namespace
 
 void
-WorkerNavigator::GetUserAgent(nsString& aUserAgent, CallerType aCallerType,
+WorkerNavigator::GetUserAgent(nsString& aUserAgent,
+                              CallerType aCallerType,
                               ErrorResult& aRv) const
 {
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
   MOZ_ASSERT(workerPrivate);
 
   RefPtr<GetUserAgentRunnable> runnable =
-    new GetUserAgentRunnable(workerPrivate, aUserAgent);
+      new GetUserAgentRunnable(workerPrivate, aUserAgent);
 
   runnable->Dispatch(Terminating, aRv);
 }
@@ -215,6 +218,5 @@ WorkerNavigator::GetConnection(ErrorResult& aRv)
   return mConnection;
 }
 
-
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

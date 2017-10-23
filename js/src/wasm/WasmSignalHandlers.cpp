@@ -37,10 +37,10 @@ using mozilla::DebugOnly;
 using mozilla::PodArrayZero;
 
 #if defined(ANDROID)
-# include <sys/system_properties.h>
-# if defined(MOZ_LINKER)
+#include <sys/system_properties.h>
+#if defined(MOZ_LINKER)
 extern "C" MFBT_API bool IsSignalHandlingBroken();
-# endif
+#endif
 #endif
 
 // Crashing inside the signal handler can cause the handler to be recursively
@@ -48,239 +48,235 @@ extern "C" MFBT_API bool IsSignalHandlingBroken();
 // report dialog via Breakpad. To guard against this we watch for such
 // recursion and fall through to the next handler immediately rather than
 // trying to handle it.
-class AutoSetHandlingSegFault
-{
+class AutoSetHandlingSegFault {
     JSContext* cx;
 
-  public:
-    explicit AutoSetHandlingSegFault(JSContext* cx)
-      : cx(cx)
-    {
+   public:
+    explicit AutoSetHandlingSegFault(JSContext* cx) : cx(cx) {
         MOZ_ASSERT(!cx->handlingSegFault);
         cx->handlingSegFault = true;
     }
 
-    ~AutoSetHandlingSegFault()
-    {
+    ~AutoSetHandlingSegFault() {
         MOZ_ASSERT(cx->handlingSegFault);
         cx->handlingSegFault = false;
     }
 };
 
 #if defined(XP_WIN)
-# define XMM_sig(p,i) ((p)->Xmm##i)
-# define EIP_sig(p) ((p)->Eip)
-# define EBP_sig(p) ((p)->Ebp)
-# define ESP_sig(p) ((p)->Esp)
-# define RIP_sig(p) ((p)->Rip)
-# define RAX_sig(p) ((p)->Rax)
-# define RCX_sig(p) ((p)->Rcx)
-# define RDX_sig(p) ((p)->Rdx)
-# define RBX_sig(p) ((p)->Rbx)
-# define RSP_sig(p) ((p)->Rsp)
-# define RBP_sig(p) ((p)->Rbp)
-# define RSI_sig(p) ((p)->Rsi)
-# define RDI_sig(p) ((p)->Rdi)
-# define R8_sig(p) ((p)->R8)
-# define R9_sig(p) ((p)->R9)
-# define R10_sig(p) ((p)->R10)
-# define R11_sig(p) ((p)->R11)
-# define R12_sig(p) ((p)->R12)
-# define R13_sig(p) ((p)->R13)
-# define R14_sig(p) ((p)->R14)
-# define R15_sig(p) ((p)->R15)
+#define XMM_sig(p, i) ((p)->Xmm##i)
+#define EIP_sig(p) ((p)->Eip)
+#define EBP_sig(p) ((p)->Ebp)
+#define ESP_sig(p) ((p)->Esp)
+#define RIP_sig(p) ((p)->Rip)
+#define RAX_sig(p) ((p)->Rax)
+#define RCX_sig(p) ((p)->Rcx)
+#define RDX_sig(p) ((p)->Rdx)
+#define RBX_sig(p) ((p)->Rbx)
+#define RSP_sig(p) ((p)->Rsp)
+#define RBP_sig(p) ((p)->Rbp)
+#define RSI_sig(p) ((p)->Rsi)
+#define RDI_sig(p) ((p)->Rdi)
+#define R8_sig(p) ((p)->R8)
+#define R9_sig(p) ((p)->R9)
+#define R10_sig(p) ((p)->R10)
+#define R11_sig(p) ((p)->R11)
+#define R12_sig(p) ((p)->R12)
+#define R13_sig(p) ((p)->R13)
+#define R14_sig(p) ((p)->R14)
+#define R15_sig(p) ((p)->R15)
 #elif defined(__OpenBSD__)
-# define XMM_sig(p,i) ((p)->sc_fpstate->fx_xmm[i])
-# define EIP_sig(p) ((p)->sc_eip)
-# define EBP_sig(p) ((p)->sc_ebp)
-# define ESP_sig(p) ((p)->sc_esp)
-# define RIP_sig(p) ((p)->sc_rip)
-# define RAX_sig(p) ((p)->sc_rax)
-# define RCX_sig(p) ((p)->sc_rcx)
-# define RDX_sig(p) ((p)->sc_rdx)
-# define RBX_sig(p) ((p)->sc_rbx)
-# define RSP_sig(p) ((p)->sc_rsp)
-# define RBP_sig(p) ((p)->sc_rbp)
-# define RSI_sig(p) ((p)->sc_rsi)
-# define RDI_sig(p) ((p)->sc_rdi)
-# define R8_sig(p) ((p)->sc_r8)
-# define R9_sig(p) ((p)->sc_r9)
-# define R10_sig(p) ((p)->sc_r10)
-# define R11_sig(p) ((p)->sc_r11)
-# define R12_sig(p) ((p)->sc_r12)
-# if defined(__arm__)
-#  define R13_sig(p) ((p)->sc_usr_sp)
-#  define R14_sig(p) ((p)->sc_usr_lr)
-#  define R15_sig(p) ((p)->sc_pc)
-# else
-#  define R13_sig(p) ((p)->sc_r13)
-#  define R14_sig(p) ((p)->sc_r14)
-#  define R15_sig(p) ((p)->sc_r15)
-# endif
-# if defined(__aarch64__)
-#  define EPC_sig(p) ((p)->sc_elr)
-#  define RFP_sig(p) ((p)->sc_x[29])
-#  define RLR_sig(p) ((p)->sc_lr)
-#  define R31_sig(p) ((p)->sc_sp)
-# endif
-# if defined(__mips__)
-#  define EPC_sig(p) ((p)->sc_pc)
-#  define RFP_sig(p) ((p)->sc_regs[30])
-# endif
-#elif defined(__linux__) || defined(__sun)
-# if defined(__linux__)
-#  define XMM_sig(p,i) ((p)->uc_mcontext.fpregs->_xmm[i])
-#  define EIP_sig(p) ((p)->uc_mcontext.gregs[REG_EIP])
-#  define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
-#  define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
-# else
-#  define XMM_sig(p,i) ((p)->uc_mcontext.fpregs.fp_reg_set.fpchip_state.xmm[i])
-#  define EIP_sig(p) ((p)->uc_mcontext.gregs[REG_PC])
-#  define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
-#  define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
-# endif
-# define RIP_sig(p) ((p)->uc_mcontext.gregs[REG_RIP])
-# define RAX_sig(p) ((p)->uc_mcontext.gregs[REG_RAX])
-# define RCX_sig(p) ((p)->uc_mcontext.gregs[REG_RCX])
-# define RDX_sig(p) ((p)->uc_mcontext.gregs[REG_RDX])
-# define RBX_sig(p) ((p)->uc_mcontext.gregs[REG_RBX])
-# define RSP_sig(p) ((p)->uc_mcontext.gregs[REG_RSP])
-# define RBP_sig(p) ((p)->uc_mcontext.gregs[REG_RBP])
-# define RSI_sig(p) ((p)->uc_mcontext.gregs[REG_RSI])
-# define RDI_sig(p) ((p)->uc_mcontext.gregs[REG_RDI])
-# define R8_sig(p) ((p)->uc_mcontext.gregs[REG_R8])
-# define R9_sig(p) ((p)->uc_mcontext.gregs[REG_R9])
-# define R10_sig(p) ((p)->uc_mcontext.gregs[REG_R10])
-# define R12_sig(p) ((p)->uc_mcontext.gregs[REG_R12])
-# if defined(__linux__) && defined(__arm__)
-#  define R11_sig(p) ((p)->uc_mcontext.arm_fp)
-#  define R13_sig(p) ((p)->uc_mcontext.arm_sp)
-#  define R14_sig(p) ((p)->uc_mcontext.arm_lr)
-#  define R15_sig(p) ((p)->uc_mcontext.arm_pc)
-# else
-#  define R11_sig(p) ((p)->uc_mcontext.gregs[REG_R11])
-#  define R13_sig(p) ((p)->uc_mcontext.gregs[REG_R13])
-#  define R14_sig(p) ((p)->uc_mcontext.gregs[REG_R14])
-#  define R15_sig(p) ((p)->uc_mcontext.gregs[REG_R15])
-# endif
-# if defined(__linux__) && defined(__aarch64__)
-#  define EPC_sig(p) ((p)->uc_mcontext.pc)
-#  define RFP_sig(p) ((p)->uc_mcontext.regs[29])
-#  define RLR_sig(p) ((p)->uc_mcontext.regs[30])
-#  define R31_sig(p) ((p)->uc_mcontext.regs[31])
-# endif
-# if defined(__linux__) && defined(__mips__)
-#  define EPC_sig(p) ((p)->uc_mcontext.pc)
-#  define RFP_sig(p) ((p)->uc_mcontext.gregs[30])
-#  define RSP_sig(p) ((p)->uc_mcontext.gregs[29])
-#  define R31_sig(p) ((p)->uc_mcontext.gregs[31])
-# endif
-#elif defined(__NetBSD__)
-# define XMM_sig(p,i) (((struct fxsave64*)(p)->uc_mcontext.__fpregs)->fx_xmm[i])
-# define EIP_sig(p) ((p)->uc_mcontext.__gregs[_REG_EIP])
-# define EBP_sig(p) ((p)->uc_mcontext.__gregs[_REG_EBP])
-# define ESP_sig(p) ((p)->uc_mcontext.__gregs[_REG_ESP])
-# define RIP_sig(p) ((p)->uc_mcontext.__gregs[_REG_RIP])
-# define RAX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RAX])
-# define RCX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RCX])
-# define RDX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RDX])
-# define RBX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RBX])
-# define RSP_sig(p) ((p)->uc_mcontext.__gregs[_REG_RSP])
-# define RBP_sig(p) ((p)->uc_mcontext.__gregs[_REG_RBP])
-# define RSI_sig(p) ((p)->uc_mcontext.__gregs[_REG_RSI])
-# define RDI_sig(p) ((p)->uc_mcontext.__gregs[_REG_RDI])
-# define R8_sig(p) ((p)->uc_mcontext.__gregs[_REG_R8])
-# define R9_sig(p) ((p)->uc_mcontext.__gregs[_REG_R9])
-# define R10_sig(p) ((p)->uc_mcontext.__gregs[_REG_R10])
-# define R11_sig(p) ((p)->uc_mcontext.__gregs[_REG_R11])
-# define R12_sig(p) ((p)->uc_mcontext.__gregs[_REG_R12])
-# define R13_sig(p) ((p)->uc_mcontext.__gregs[_REG_R13])
-# define R14_sig(p) ((p)->uc_mcontext.__gregs[_REG_R14])
-# define R15_sig(p) ((p)->uc_mcontext.__gregs[_REG_R15])
-# if defined(__aarch64__)
-#  define EPC_sig(p) ((p)->uc_mcontext.__gregs[_REG_PC])
-#  define RFP_sig(p) ((p)->uc_mcontext.__gregs[_REG_X29])
-#  define RLR_sig(p) ((p)->uc_mcontext.__gregs[_REG_X30])
-#  define R31_sig(p) ((p)->uc_mcontext.__gregs[_REG_SP])
-# endif
-# if defined(__mips__)
-#  define EPC_sig(p) ((p)->uc_mcontext.__gregs[_REG_EPC])
-#  define RFP_sig(p) ((p)->uc_mcontext.__gregs[_REG_S8])
-# endif
-#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# if defined(__DragonFly__)
-#  define XMM_sig(p,i) (((union savefpu*)(p)->uc_mcontext.mc_fpregs)->sv_xmm.sv_xmm[i])
-# else
-#  define XMM_sig(p,i) (((struct savefpu*)(p)->uc_mcontext.mc_fpstate)->sv_xmm[i])
-# endif
-# define EIP_sig(p) ((p)->uc_mcontext.mc_eip)
-# define EBP_sig(p) ((p)->uc_mcontext.mc_ebp)
-# define ESP_sig(p) ((p)->uc_mcontext.mc_esp)
-# define RIP_sig(p) ((p)->uc_mcontext.mc_rip)
-# define RAX_sig(p) ((p)->uc_mcontext.mc_rax)
-# define RCX_sig(p) ((p)->uc_mcontext.mc_rcx)
-# define RDX_sig(p) ((p)->uc_mcontext.mc_rdx)
-# define RBX_sig(p) ((p)->uc_mcontext.mc_rbx)
-# define RSP_sig(p) ((p)->uc_mcontext.mc_rsp)
-# define RBP_sig(p) ((p)->uc_mcontext.mc_rbp)
-# define RSI_sig(p) ((p)->uc_mcontext.mc_rsi)
-# define RDI_sig(p) ((p)->uc_mcontext.mc_rdi)
-# define R8_sig(p) ((p)->uc_mcontext.mc_r8)
-# define R9_sig(p) ((p)->uc_mcontext.mc_r9)
-# define R10_sig(p) ((p)->uc_mcontext.mc_r10)
-# define R12_sig(p) ((p)->uc_mcontext.mc_r12)
-# if defined(__FreeBSD__) && defined(__arm__)
-#  define R11_sig(p) ((p)->uc_mcontext.__gregs[_REG_R11])
-#  define R13_sig(p) ((p)->uc_mcontext.__gregs[_REG_R13])
-#  define R14_sig(p) ((p)->uc_mcontext.__gregs[_REG_R14])
-#  define R15_sig(p) ((p)->uc_mcontext.__gregs[_REG_R15])
-# else
-#  define R11_sig(p) ((p)->uc_mcontext.mc_r11)
-#  define R13_sig(p) ((p)->uc_mcontext.mc_r13)
-#  define R14_sig(p) ((p)->uc_mcontext.mc_r14)
-#  define R15_sig(p) ((p)->uc_mcontext.mc_r15)
-# endif
-# if defined(__FreeBSD__) && defined(__aarch64__)
-#  define EPC_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_elr)
-#  define RFP_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_x[29])
-#  define RLR_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_lr)
-#  define R31_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_sp)
-# endif
-# if defined(__FreeBSD__) && defined(__mips__)
-#  define EPC_sig(p) ((p)->uc_mcontext.mc_pc)
-#  define RFP_sig(p) ((p)->uc_mcontext.mc_regs[30])
-# endif
-#elif defined(XP_DARWIN)
-# define EIP_sig(p) ((p)->uc_mcontext->__ss.__eip)
-# define EBP_sig(p) ((p)->uc_mcontext->__ss.__ebp)
-# define ESP_sig(p) ((p)->uc_mcontext->__ss.__esp)
-# define RIP_sig(p) ((p)->uc_mcontext->__ss.__rip)
-# define RBP_sig(p) ((p)->uc_mcontext->__ss.__rbp)
-# define RSP_sig(p) ((p)->uc_mcontext->__ss.__rsp)
-# define R14_sig(p) ((p)->uc_mcontext->__ss.__lr)
-# define R15_sig(p) ((p)->uc_mcontext->__ss.__pc)
+#define XMM_sig(p, i) ((p)->sc_fpstate->fx_xmm[i])
+#define EIP_sig(p) ((p)->sc_eip)
+#define EBP_sig(p) ((p)->sc_ebp)
+#define ESP_sig(p) ((p)->sc_esp)
+#define RIP_sig(p) ((p)->sc_rip)
+#define RAX_sig(p) ((p)->sc_rax)
+#define RCX_sig(p) ((p)->sc_rcx)
+#define RDX_sig(p) ((p)->sc_rdx)
+#define RBX_sig(p) ((p)->sc_rbx)
+#define RSP_sig(p) ((p)->sc_rsp)
+#define RBP_sig(p) ((p)->sc_rbp)
+#define RSI_sig(p) ((p)->sc_rsi)
+#define RDI_sig(p) ((p)->sc_rdi)
+#define R8_sig(p) ((p)->sc_r8)
+#define R9_sig(p) ((p)->sc_r9)
+#define R10_sig(p) ((p)->sc_r10)
+#define R11_sig(p) ((p)->sc_r11)
+#define R12_sig(p) ((p)->sc_r12)
+#if defined(__arm__)
+#define R13_sig(p) ((p)->sc_usr_sp)
+#define R14_sig(p) ((p)->sc_usr_lr)
+#define R15_sig(p) ((p)->sc_pc)
 #else
-# error "Don't know how to read/write to the thread state via the mcontext_t."
+#define R13_sig(p) ((p)->sc_r13)
+#define R14_sig(p) ((p)->sc_r14)
+#define R15_sig(p) ((p)->sc_r15)
+#endif
+#if defined(__aarch64__)
+#define EPC_sig(p) ((p)->sc_elr)
+#define RFP_sig(p) ((p)->sc_x[29])
+#define RLR_sig(p) ((p)->sc_lr)
+#define R31_sig(p) ((p)->sc_sp)
+#endif
+#if defined(__mips__)
+#define EPC_sig(p) ((p)->sc_pc)
+#define RFP_sig(p) ((p)->sc_regs[30])
+#endif
+#elif defined(__linux__) || defined(__sun)
+#if defined(__linux__)
+#define XMM_sig(p, i) ((p)->uc_mcontext.fpregs->_xmm[i])
+#define EIP_sig(p) ((p)->uc_mcontext.gregs[REG_EIP])
+#define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
+#define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
+#else
+#define XMM_sig(p, i) ((p)->uc_mcontext.fpregs.fp_reg_set.fpchip_state.xmm[i])
+#define EIP_sig(p) ((p)->uc_mcontext.gregs[REG_PC])
+#define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
+#define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
+#endif
+#define RIP_sig(p) ((p)->uc_mcontext.gregs[REG_RIP])
+#define RAX_sig(p) ((p)->uc_mcontext.gregs[REG_RAX])
+#define RCX_sig(p) ((p)->uc_mcontext.gregs[REG_RCX])
+#define RDX_sig(p) ((p)->uc_mcontext.gregs[REG_RDX])
+#define RBX_sig(p) ((p)->uc_mcontext.gregs[REG_RBX])
+#define RSP_sig(p) ((p)->uc_mcontext.gregs[REG_RSP])
+#define RBP_sig(p) ((p)->uc_mcontext.gregs[REG_RBP])
+#define RSI_sig(p) ((p)->uc_mcontext.gregs[REG_RSI])
+#define RDI_sig(p) ((p)->uc_mcontext.gregs[REG_RDI])
+#define R8_sig(p) ((p)->uc_mcontext.gregs[REG_R8])
+#define R9_sig(p) ((p)->uc_mcontext.gregs[REG_R9])
+#define R10_sig(p) ((p)->uc_mcontext.gregs[REG_R10])
+#define R12_sig(p) ((p)->uc_mcontext.gregs[REG_R12])
+#if defined(__linux__) && defined(__arm__)
+#define R11_sig(p) ((p)->uc_mcontext.arm_fp)
+#define R13_sig(p) ((p)->uc_mcontext.arm_sp)
+#define R14_sig(p) ((p)->uc_mcontext.arm_lr)
+#define R15_sig(p) ((p)->uc_mcontext.arm_pc)
+#else
+#define R11_sig(p) ((p)->uc_mcontext.gregs[REG_R11])
+#define R13_sig(p) ((p)->uc_mcontext.gregs[REG_R13])
+#define R14_sig(p) ((p)->uc_mcontext.gregs[REG_R14])
+#define R15_sig(p) ((p)->uc_mcontext.gregs[REG_R15])
+#endif
+#if defined(__linux__) && defined(__aarch64__)
+#define EPC_sig(p) ((p)->uc_mcontext.pc)
+#define RFP_sig(p) ((p)->uc_mcontext.regs[29])
+#define RLR_sig(p) ((p)->uc_mcontext.regs[30])
+#define R31_sig(p) ((p)->uc_mcontext.regs[31])
+#endif
+#if defined(__linux__) && defined(__mips__)
+#define EPC_sig(p) ((p)->uc_mcontext.pc)
+#define RFP_sig(p) ((p)->uc_mcontext.gregs[30])
+#define RSP_sig(p) ((p)->uc_mcontext.gregs[29])
+#define R31_sig(p) ((p)->uc_mcontext.gregs[31])
+#endif
+#elif defined(__NetBSD__)
+#define XMM_sig(p, i) (((struct fxsave64*)(p)->uc_mcontext.__fpregs)->fx_xmm[i])
+#define EIP_sig(p) ((p)->uc_mcontext.__gregs[_REG_EIP])
+#define EBP_sig(p) ((p)->uc_mcontext.__gregs[_REG_EBP])
+#define ESP_sig(p) ((p)->uc_mcontext.__gregs[_REG_ESP])
+#define RIP_sig(p) ((p)->uc_mcontext.__gregs[_REG_RIP])
+#define RAX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RAX])
+#define RCX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RCX])
+#define RDX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RDX])
+#define RBX_sig(p) ((p)->uc_mcontext.__gregs[_REG_RBX])
+#define RSP_sig(p) ((p)->uc_mcontext.__gregs[_REG_RSP])
+#define RBP_sig(p) ((p)->uc_mcontext.__gregs[_REG_RBP])
+#define RSI_sig(p) ((p)->uc_mcontext.__gregs[_REG_RSI])
+#define RDI_sig(p) ((p)->uc_mcontext.__gregs[_REG_RDI])
+#define R8_sig(p) ((p)->uc_mcontext.__gregs[_REG_R8])
+#define R9_sig(p) ((p)->uc_mcontext.__gregs[_REG_R9])
+#define R10_sig(p) ((p)->uc_mcontext.__gregs[_REG_R10])
+#define R11_sig(p) ((p)->uc_mcontext.__gregs[_REG_R11])
+#define R12_sig(p) ((p)->uc_mcontext.__gregs[_REG_R12])
+#define R13_sig(p) ((p)->uc_mcontext.__gregs[_REG_R13])
+#define R14_sig(p) ((p)->uc_mcontext.__gregs[_REG_R14])
+#define R15_sig(p) ((p)->uc_mcontext.__gregs[_REG_R15])
+#if defined(__aarch64__)
+#define EPC_sig(p) ((p)->uc_mcontext.__gregs[_REG_PC])
+#define RFP_sig(p) ((p)->uc_mcontext.__gregs[_REG_X29])
+#define RLR_sig(p) ((p)->uc_mcontext.__gregs[_REG_X30])
+#define R31_sig(p) ((p)->uc_mcontext.__gregs[_REG_SP])
+#endif
+#if defined(__mips__)
+#define EPC_sig(p) ((p)->uc_mcontext.__gregs[_REG_EPC])
+#define RFP_sig(p) ((p)->uc_mcontext.__gregs[_REG_S8])
+#endif
+#elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__DragonFly__)
+#define XMM_sig(p, i) (((union savefpu*)(p)->uc_mcontext.mc_fpregs)->sv_xmm.sv_xmm[i])
+#else
+#define XMM_sig(p, i) (((struct savefpu*)(p)->uc_mcontext.mc_fpstate)->sv_xmm[i])
+#endif
+#define EIP_sig(p) ((p)->uc_mcontext.mc_eip)
+#define EBP_sig(p) ((p)->uc_mcontext.mc_ebp)
+#define ESP_sig(p) ((p)->uc_mcontext.mc_esp)
+#define RIP_sig(p) ((p)->uc_mcontext.mc_rip)
+#define RAX_sig(p) ((p)->uc_mcontext.mc_rax)
+#define RCX_sig(p) ((p)->uc_mcontext.mc_rcx)
+#define RDX_sig(p) ((p)->uc_mcontext.mc_rdx)
+#define RBX_sig(p) ((p)->uc_mcontext.mc_rbx)
+#define RSP_sig(p) ((p)->uc_mcontext.mc_rsp)
+#define RBP_sig(p) ((p)->uc_mcontext.mc_rbp)
+#define RSI_sig(p) ((p)->uc_mcontext.mc_rsi)
+#define RDI_sig(p) ((p)->uc_mcontext.mc_rdi)
+#define R8_sig(p) ((p)->uc_mcontext.mc_r8)
+#define R9_sig(p) ((p)->uc_mcontext.mc_r9)
+#define R10_sig(p) ((p)->uc_mcontext.mc_r10)
+#define R12_sig(p) ((p)->uc_mcontext.mc_r12)
+#if defined(__FreeBSD__) && defined(__arm__)
+#define R11_sig(p) ((p)->uc_mcontext.__gregs[_REG_R11])
+#define R13_sig(p) ((p)->uc_mcontext.__gregs[_REG_R13])
+#define R14_sig(p) ((p)->uc_mcontext.__gregs[_REG_R14])
+#define R15_sig(p) ((p)->uc_mcontext.__gregs[_REG_R15])
+#else
+#define R11_sig(p) ((p)->uc_mcontext.mc_r11)
+#define R13_sig(p) ((p)->uc_mcontext.mc_r13)
+#define R14_sig(p) ((p)->uc_mcontext.mc_r14)
+#define R15_sig(p) ((p)->uc_mcontext.mc_r15)
+#endif
+#if defined(__FreeBSD__) && defined(__aarch64__)
+#define EPC_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_elr)
+#define RFP_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_x[29])
+#define RLR_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_lr)
+#define R31_sig(p) ((p)->uc_mcontext.mc_gpregs.gp_sp)
+#endif
+#if defined(__FreeBSD__) && defined(__mips__)
+#define EPC_sig(p) ((p)->uc_mcontext.mc_pc)
+#define RFP_sig(p) ((p)->uc_mcontext.mc_regs[30])
+#endif
+#elif defined(XP_DARWIN)
+#define EIP_sig(p) ((p)->uc_mcontext->__ss.__eip)
+#define EBP_sig(p) ((p)->uc_mcontext->__ss.__ebp)
+#define ESP_sig(p) ((p)->uc_mcontext->__ss.__esp)
+#define RIP_sig(p) ((p)->uc_mcontext->__ss.__rip)
+#define RBP_sig(p) ((p)->uc_mcontext->__ss.__rbp)
+#define RSP_sig(p) ((p)->uc_mcontext->__ss.__rsp)
+#define R14_sig(p) ((p)->uc_mcontext->__ss.__lr)
+#define R15_sig(p) ((p)->uc_mcontext->__ss.__pc)
+#else
+#error "Don't know how to read/write to the thread state via the mcontext_t."
 #endif
 
 #if defined(XP_WIN)
-# include "jswin.h"
+#include "jswin.h"
 #else
-# include <signal.h>
-# include <sys/mman.h>
+#include <signal.h>
+#include <sys/mman.h>
 #endif
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# include <sys/ucontext.h> // for ucontext_t, mcontext_t
+#include <sys/ucontext.h>  // for ucontext_t, mcontext_t
 #endif
 
 #if defined(__x86_64__)
-# if defined(__DragonFly__)
-#  include <machine/npx.h> // for union savefpu
-# elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || \
-       defined(__NetBSD__) || defined(__OpenBSD__)
-#  include <machine/fpu.h> // for struct savefpu/fxsave64
-# endif
+#if defined(__DragonFly__)
+#include <machine/npx.h>  // for union savefpu
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__) || \
+    defined(__OpenBSD__)
+#include <machine/fpu.h>  // for struct savefpu/fxsave64
+#endif
 #endif
 
 #if defined(ANDROID)
@@ -291,14 +287,14 @@ class AutoSetHandlingSegFault
 //
 // See: https://chromiumcodereview.appspot.com/10829122/
 // See: http://code.google.com/p/android/issues/detail?id=34784
-# if !defined(__BIONIC_HAVE_UCONTEXT_T)
-#  if defined(__arm__)
+#if !defined(__BIONIC_HAVE_UCONTEXT_T)
+#if defined(__arm__)
 
 // GLibc on ARM defines mcontext_t has a typedef for 'struct sigcontext'.
 // Old versions of the C library <signal.h> didn't define the type.
-#   if !defined(__BIONIC_HAVE_STRUCT_SIGCONTEXT)
-#    include <asm/sigcontext.h>
-#   endif
+#if !defined(__BIONIC_HAVE_STRUCT_SIGCONTEXT)
+#include <asm/sigcontext.h>
+#endif
 
 typedef struct sigcontext mcontext_t;
 
@@ -310,7 +306,7 @@ typedef struct ucontext {
     // Other fields are not used so don't define them here.
 } ucontext_t;
 
-#  elif defined(__mips__)
+#elif defined(__mips__)
 
 typedef struct {
     uint32_t regmask;
@@ -341,7 +337,7 @@ typedef struct ucontext {
     // Other fields are not used so don't define them here.
 } ucontext_t;
 
-#  elif defined(__i386__)
+#elif defined(__i386__)
 // x86 version for Android.
 typedef struct {
     uint32_t gregs[19];
@@ -359,12 +355,12 @@ typedef struct ucontext {
     // Other fields are not used by V8, don't define them here.
 } ucontext_t;
 enum { REG_EIP = 14 };
-#  endif  // defined(__i386__)
-# endif  // !defined(__BIONIC_HAVE_UCONTEXT_T)
-#endif // defined(ANDROID)
+#endif  // defined(__i386__)
+#endif  // !defined(__BIONIC_HAVE_UCONTEXT_T)
+#endif  // defined(ANDROID)
 
 #if !defined(XP_WIN)
-# define CONTEXT ucontext_t
+#define CONTEXT ucontext_t
 #endif
 
 // Define a context type for use in the emulator code. This is usually just
@@ -372,59 +368,57 @@ enum { REG_EIP = 14 };
 // into the emulator code from a Mach exception handler rather than a
 // sigaction-style signal handler.
 #if defined(XP_DARWIN)
-# if defined(__x86_64__)
+#if defined(__x86_64__)
 struct macos_x64_context {
     x86_thread_state64_t thread;
     x86_float_state64_t float_;
 };
-#  define EMULATOR_CONTEXT macos_x64_context
-# elif defined(__i386__)
+#define EMULATOR_CONTEXT macos_x64_context
+#elif defined(__i386__)
 struct macos_x86_context {
     x86_thread_state_t thread;
     x86_float_state_t float_;
 };
-#  define EMULATOR_CONTEXT macos_x86_context
-# elif defined(__arm__)
+#define EMULATOR_CONTEXT macos_x86_context
+#elif defined(__arm__)
 struct macos_arm_context {
     arm_thread_state_t thread;
     arm_neon_state_t float_;
 };
-#  define EMULATOR_CONTEXT macos_arm_context
-# else
-#  error Unsupported architecture
-# endif
+#define EMULATOR_CONTEXT macos_arm_context
 #else
-# define EMULATOR_CONTEXT CONTEXT
+#error Unsupported architecture
+#endif
+#else
+#define EMULATOR_CONTEXT CONTEXT
 #endif
 
 #if defined(_M_X64) || defined(__x86_64__)
-# define PC_sig(p) RIP_sig(p)
-# define FP_sig(p) RBP_sig(p)
-# define SP_sig(p) RSP_sig(p)
+#define PC_sig(p) RIP_sig(p)
+#define FP_sig(p) RBP_sig(p)
+#define SP_sig(p) RSP_sig(p)
 #elif defined(_M_IX86) || defined(__i386__)
-# define PC_sig(p) EIP_sig(p)
-# define FP_sig(p) EBP_sig(p)
-# define SP_sig(p) ESP_sig(p)
+#define PC_sig(p) EIP_sig(p)
+#define FP_sig(p) EBP_sig(p)
+#define SP_sig(p) ESP_sig(p)
 #elif defined(__arm__)
-# define FP_sig(p) R11_sig(p)
-# define SP_sig(p) R13_sig(p)
-# define LR_sig(p) R14_sig(p)
-# define PC_sig(p) R15_sig(p)
+#define FP_sig(p) R11_sig(p)
+#define SP_sig(p) R13_sig(p)
+#define LR_sig(p) R14_sig(p)
+#define PC_sig(p) R15_sig(p)
 #elif defined(__aarch64__)
-# define PC_sig(p) EPC_sig(p)
-# define FP_sig(p) RFP_sig(p)
-# define SP_sig(p) R31_sig(p)
-# define LR_sig(p) RLR_sig(p)
+#define PC_sig(p) EPC_sig(p)
+#define FP_sig(p) RFP_sig(p)
+#define SP_sig(p) R31_sig(p)
+#define LR_sig(p) RLR_sig(p)
 #elif defined(__mips__)
-# define PC_sig(p) EPC_sig(p)
-# define FP_sig(p) RFP_sig(p)
-# define SP_sig(p) RSP_sig(p)
-# define LR_sig(p) R31_sig(p)
+#define PC_sig(p) EPC_sig(p)
+#define FP_sig(p) RFP_sig(p)
+#define SP_sig(p) RSP_sig(p)
+#define LR_sig(p) R31_sig(p)
 #endif
 
-static uint8_t**
-ContextToPC(CONTEXT* context)
-{
+static uint8_t** ContextToPC(CONTEXT* context) {
 #ifdef JS_CODEGEN_NONE
     MOZ_CRASH();
 #else
@@ -432,9 +426,7 @@ ContextToPC(CONTEXT* context)
 #endif
 }
 
-static uint8_t*
-ContextToFP(CONTEXT* context)
-{
+static uint8_t* ContextToFP(CONTEXT* context) {
 #ifdef JS_CODEGEN_NONE
     MOZ_CRASH();
 #else
@@ -443,96 +435,78 @@ ContextToFP(CONTEXT* context)
 }
 
 #ifndef JS_CODEGEN_NONE
-static uint8_t*
-ContextToSP(CONTEXT* context)
-{
+static uint8_t* ContextToSP(CONTEXT* context) {
     return reinterpret_cast<uint8_t*>(SP_sig(context));
 }
 
-# if defined(__arm__) || defined(__aarch64__) || defined(__mips__)
-static uint8_t*
-ContextToLR(CONTEXT* context)
-{
+#if defined(__arm__) || defined(__aarch64__) || defined(__mips__)
+static uint8_t* ContextToLR(CONTEXT* context) {
     return reinterpret_cast<uint8_t*>(LR_sig(context));
 }
-# endif
-#endif // JS_CODEGEN_NONE
+#endif
+#endif  // JS_CODEGEN_NONE
 
 #if defined(XP_DARWIN)
 
-static uint8_t**
-ContextToPC(EMULATOR_CONTEXT* context)
-{
-# if defined(__x86_64__)
+static uint8_t** ContextToPC(EMULATOR_CONTEXT* context) {
+#if defined(__x86_64__)
     static_assert(sizeof(context->thread.__rip) == sizeof(void*),
                   "stored IP should be compile-time pointer-sized");
     return reinterpret_cast<uint8_t**>(&context->thread.__rip);
-# elif defined(__i386__)
+#elif defined(__i386__)
     static_assert(sizeof(context->thread.uts.ts32.__eip) == sizeof(void*),
                   "stored IP should be compile-time pointer-sized");
     return reinterpret_cast<uint8_t**>(&context->thread.uts.ts32.__eip);
-# elif defined(__arm__)
+#elif defined(__arm__)
     static_assert(sizeof(context->thread.__pc) == sizeof(void*),
                   "stored IP should be compile-time pointer-sized");
     return reinterpret_cast<uint8_t**>(&context->thread.__pc);
-# else
-#  error Unsupported architecture
-# endif
+#else
+#error Unsupported architecture
+#endif
 }
 
-static uint8_t*
-ContextToFP(EMULATOR_CONTEXT* context)
-{
-# if defined(__x86_64__)
+static uint8_t* ContextToFP(EMULATOR_CONTEXT* context) {
+#if defined(__x86_64__)
     return (uint8_t*)context->thread.__rbp;
-# elif defined(__i386__)
+#elif defined(__i386__)
     return (uint8_t*)context->thread.uts.ts32.__ebp;
-# elif defined(__arm__)
+#elif defined(__arm__)
     return (uint8_t*)context->thread.__r[11];
-# else
-#  error Unsupported architecture
-# endif
+#else
+#error Unsupported architecture
+#endif
 }
 
-# if defined(__arm__) || defined(__aarch64__)
-static uint8_t*
-ContextToLR(EMULATOR_CONTEXT* context)
-{
-    return (uint8_t*)context->thread.__lr;
-}
-# endif
+#if defined(__arm__) || defined(__aarch64__)
+static uint8_t* ContextToLR(EMULATOR_CONTEXT* context) { return (uint8_t*)context->thread.__lr; }
+#endif
 
-static uint8_t*
-ContextToSP(EMULATOR_CONTEXT* context)
-{
-# if defined(__x86_64__)
+static uint8_t* ContextToSP(EMULATOR_CONTEXT* context) {
+#if defined(__x86_64__)
     return (uint8_t*)context->thread.__rsp;
-# elif defined(__i386__)
+#elif defined(__i386__)
     return (uint8_t*)context->thread.uts.ts32.__esp;
-# elif defined(__arm__)
+#elif defined(__arm__)
     return (uint8_t*)context->thread.__sp;
-# else
-#  error Unsupported architecture
-# endif
+#else
+#error Unsupported architecture
+#endif
 }
 
-static JS::ProfilingFrameIterator::RegisterState
-ToRegisterState(EMULATOR_CONTEXT* context)
-{
+static JS::ProfilingFrameIterator::RegisterState ToRegisterState(EMULATOR_CONTEXT* context) {
     JS::ProfilingFrameIterator::RegisterState state;
     state.fp = ContextToFP(context);
     state.pc = *ContextToPC(context);
     state.sp = ContextToSP(context);
-# if defined(__arm__) || defined(__aarch64__)
+#if defined(__arm__) || defined(__aarch64__)
     state.lr = ContextToLR(context);
-# endif
+#endif
     return state;
 }
-#endif // XP_DARWIN
+#endif  // XP_DARWIN
 
-static JS::ProfilingFrameIterator::RegisterState
-ToRegisterState(CONTEXT* context)
-{
+static JS::ProfilingFrameIterator::RegisterState ToRegisterState(CONTEXT* context) {
 #ifdef JS_CODEGEN_NONE
     MOZ_CRASH();
 #else
@@ -540,53 +514,46 @@ ToRegisterState(CONTEXT* context)
     state.fp = ContextToFP(context);
     state.pc = *ContextToPC(context);
     state.sp = ContextToSP(context);
-# if defined(__arm__) || defined(__aarch64__) || defined(__mips__)
+#if defined(__arm__) || defined(__aarch64__) || defined(__mips__)
     state.lr = ContextToLR(context);
-# endif
+#endif
     return state;
 #endif
 }
 
 #if defined(WASM_HUGE_MEMORY)
-MOZ_COLD static void
-SetFPRegToNaN(size_t size, void* fp_reg)
-{
+MOZ_COLD static void SetFPRegToNaN(size_t size, void* fp_reg) {
     MOZ_RELEASE_ASSERT(size <= Simd128DataSize);
     memset(fp_reg, 0, Simd128DataSize);
     switch (size) {
-      case 4: *static_cast<float*>(fp_reg) = GenericNaN(); break;
-      case 8: *static_cast<double*>(fp_reg) = GenericNaN(); break;
-      default:
-        // All SIMD accesses throw on OOB.
-        MOZ_CRASH("unexpected size in SetFPRegToNaN");
+        case 4:
+            *static_cast<float*>(fp_reg) = GenericNaN();
+            break;
+        case 8:
+            *static_cast<double*>(fp_reg) = GenericNaN();
+            break;
+        default:
+            // All SIMD accesses throw on OOB.
+            MOZ_CRASH("unexpected size in SetFPRegToNaN");
     }
 }
 
-MOZ_COLD static void
-SetGPRegToZero(void* gp_reg)
-{
-    memset(gp_reg, 0, sizeof(intptr_t));
-}
+MOZ_COLD static void SetGPRegToZero(void* gp_reg) { memset(gp_reg, 0, sizeof(intptr_t)); }
 
-MOZ_COLD static void
-SetFPRegToLoadedValue(SharedMem<void*> addr, size_t size, void* fp_reg)
-{
+MOZ_COLD static void SetFPRegToLoadedValue(SharedMem<void*> addr, size_t size, void* fp_reg) {
     MOZ_RELEASE_ASSERT(size <= Simd128DataSize);
     memset(fp_reg, 0, Simd128DataSize);
     AtomicOperations::memcpySafeWhenRacy(fp_reg, addr, size);
 }
 
-MOZ_COLD static void
-SetGPRegToLoadedValue(SharedMem<void*> addr, size_t size, void* gp_reg)
-{
+MOZ_COLD static void SetGPRegToLoadedValue(SharedMem<void*> addr, size_t size, void* gp_reg) {
     MOZ_RELEASE_ASSERT(size <= sizeof(void*));
     memset(gp_reg, 0, sizeof(void*));
     AtomicOperations::memcpySafeWhenRacy(gp_reg, addr, size);
 }
 
-MOZ_COLD static void
-SetGPRegToLoadedValueSext32(SharedMem<void*> addr, size_t size, void* gp_reg)
-{
+MOZ_COLD static void SetGPRegToLoadedValueSext32(SharedMem<void*> addr, size_t size,
+                                                 void* gp_reg) {
     MOZ_RELEASE_ASSERT(size <= sizeof(int32_t));
     int8_t msb = AtomicOperations::loadSafeWhenRacy(addr.cast<uint8_t*>() + (size - 1));
     memset(gp_reg, 0, sizeof(void*));
@@ -594,160 +561,210 @@ SetGPRegToLoadedValueSext32(SharedMem<void*> addr, size_t size, void* gp_reg)
     AtomicOperations::memcpySafeWhenRacy(gp_reg, addr, size);
 }
 
-MOZ_COLD static void
-StoreValueFromFPReg(SharedMem<void*> addr, size_t size, const void* fp_reg)
-{
+MOZ_COLD static void StoreValueFromFPReg(SharedMem<void*> addr, size_t size, const void* fp_reg) {
     MOZ_RELEASE_ASSERT(size <= Simd128DataSize);
     AtomicOperations::memcpySafeWhenRacy(addr, const_cast<void*>(fp_reg), size);
 }
 
-MOZ_COLD static void
-StoreValueFromGPReg(SharedMem<void*> addr, size_t size, const void* gp_reg)
-{
+MOZ_COLD static void StoreValueFromGPReg(SharedMem<void*> addr, size_t size, const void* gp_reg) {
     MOZ_RELEASE_ASSERT(size <= sizeof(void*));
     AtomicOperations::memcpySafeWhenRacy(addr, const_cast<void*>(gp_reg), size);
 }
 
-MOZ_COLD static void
-StoreValueFromGPImm(SharedMem<void*> addr, size_t size, int32_t imm)
-{
+MOZ_COLD static void StoreValueFromGPImm(SharedMem<void*> addr, size_t size, int32_t imm) {
     MOZ_RELEASE_ASSERT(size <= sizeof(imm));
     AtomicOperations::memcpySafeWhenRacy(addr, static_cast<void*>(&imm), size);
 }
 
-# if !defined(XP_DARWIN)
-MOZ_COLD static void*
-AddressOfFPRegisterSlot(CONTEXT* context, FloatRegisters::Encoding encoding)
-{
+#if !defined(XP_DARWIN)
+MOZ_COLD static void* AddressOfFPRegisterSlot(CONTEXT* context,
+                                              FloatRegisters::Encoding encoding) {
     switch (encoding) {
-      case X86Encoding::xmm0:  return &XMM_sig(context, 0);
-      case X86Encoding::xmm1:  return &XMM_sig(context, 1);
-      case X86Encoding::xmm2:  return &XMM_sig(context, 2);
-      case X86Encoding::xmm3:  return &XMM_sig(context, 3);
-      case X86Encoding::xmm4:  return &XMM_sig(context, 4);
-      case X86Encoding::xmm5:  return &XMM_sig(context, 5);
-      case X86Encoding::xmm6:  return &XMM_sig(context, 6);
-      case X86Encoding::xmm7:  return &XMM_sig(context, 7);
-      case X86Encoding::xmm8:  return &XMM_sig(context, 8);
-      case X86Encoding::xmm9:  return &XMM_sig(context, 9);
-      case X86Encoding::xmm10: return &XMM_sig(context, 10);
-      case X86Encoding::xmm11: return &XMM_sig(context, 11);
-      case X86Encoding::xmm12: return &XMM_sig(context, 12);
-      case X86Encoding::xmm13: return &XMM_sig(context, 13);
-      case X86Encoding::xmm14: return &XMM_sig(context, 14);
-      case X86Encoding::xmm15: return &XMM_sig(context, 15);
-      default: break;
+        case X86Encoding::xmm0:
+            return &XMM_sig(context, 0);
+        case X86Encoding::xmm1:
+            return &XMM_sig(context, 1);
+        case X86Encoding::xmm2:
+            return &XMM_sig(context, 2);
+        case X86Encoding::xmm3:
+            return &XMM_sig(context, 3);
+        case X86Encoding::xmm4:
+            return &XMM_sig(context, 4);
+        case X86Encoding::xmm5:
+            return &XMM_sig(context, 5);
+        case X86Encoding::xmm6:
+            return &XMM_sig(context, 6);
+        case X86Encoding::xmm7:
+            return &XMM_sig(context, 7);
+        case X86Encoding::xmm8:
+            return &XMM_sig(context, 8);
+        case X86Encoding::xmm9:
+            return &XMM_sig(context, 9);
+        case X86Encoding::xmm10:
+            return &XMM_sig(context, 10);
+        case X86Encoding::xmm11:
+            return &XMM_sig(context, 11);
+        case X86Encoding::xmm12:
+            return &XMM_sig(context, 12);
+        case X86Encoding::xmm13:
+            return &XMM_sig(context, 13);
+        case X86Encoding::xmm14:
+            return &XMM_sig(context, 14);
+        case X86Encoding::xmm15:
+            return &XMM_sig(context, 15);
+        default:
+            break;
     }
     MOZ_CRASH();
 }
 
-MOZ_COLD static void*
-AddressOfGPRegisterSlot(EMULATOR_CONTEXT* context, Registers::Code code)
-{
+MOZ_COLD static void* AddressOfGPRegisterSlot(EMULATOR_CONTEXT* context, Registers::Code code) {
     switch (code) {
-      case X86Encoding::rax: return &RAX_sig(context);
-      case X86Encoding::rcx: return &RCX_sig(context);
-      case X86Encoding::rdx: return &RDX_sig(context);
-      case X86Encoding::rbx: return &RBX_sig(context);
-      case X86Encoding::rsp: return &RSP_sig(context);
-      case X86Encoding::rbp: return &RBP_sig(context);
-      case X86Encoding::rsi: return &RSI_sig(context);
-      case X86Encoding::rdi: return &RDI_sig(context);
-      case X86Encoding::r8:  return &R8_sig(context);
-      case X86Encoding::r9:  return &R9_sig(context);
-      case X86Encoding::r10: return &R10_sig(context);
-      case X86Encoding::r11: return &R11_sig(context);
-      case X86Encoding::r12: return &R12_sig(context);
-      case X86Encoding::r13: return &R13_sig(context);
-      case X86Encoding::r14: return &R14_sig(context);
-      case X86Encoding::r15: return &R15_sig(context);
-      default: break;
+        case X86Encoding::rax:
+            return &RAX_sig(context);
+        case X86Encoding::rcx:
+            return &RCX_sig(context);
+        case X86Encoding::rdx:
+            return &RDX_sig(context);
+        case X86Encoding::rbx:
+            return &RBX_sig(context);
+        case X86Encoding::rsp:
+            return &RSP_sig(context);
+        case X86Encoding::rbp:
+            return &RBP_sig(context);
+        case X86Encoding::rsi:
+            return &RSI_sig(context);
+        case X86Encoding::rdi:
+            return &RDI_sig(context);
+        case X86Encoding::r8:
+            return &R8_sig(context);
+        case X86Encoding::r9:
+            return &R9_sig(context);
+        case X86Encoding::r10:
+            return &R10_sig(context);
+        case X86Encoding::r11:
+            return &R11_sig(context);
+        case X86Encoding::r12:
+            return &R12_sig(context);
+        case X86Encoding::r13:
+            return &R13_sig(context);
+        case X86Encoding::r14:
+            return &R14_sig(context);
+        case X86Encoding::r15:
+            return &R15_sig(context);
+        default:
+            break;
     }
     MOZ_CRASH();
 }
-# else
-MOZ_COLD static void*
-AddressOfFPRegisterSlot(EMULATOR_CONTEXT* context, FloatRegisters::Encoding encoding)
-{
+#else
+MOZ_COLD static void* AddressOfFPRegisterSlot(EMULATOR_CONTEXT* context,
+                                              FloatRegisters::Encoding encoding) {
     switch (encoding) {
-      case X86Encoding::xmm0:  return &context->float_.__fpu_xmm0;
-      case X86Encoding::xmm1:  return &context->float_.__fpu_xmm1;
-      case X86Encoding::xmm2:  return &context->float_.__fpu_xmm2;
-      case X86Encoding::xmm3:  return &context->float_.__fpu_xmm3;
-      case X86Encoding::xmm4:  return &context->float_.__fpu_xmm4;
-      case X86Encoding::xmm5:  return &context->float_.__fpu_xmm5;
-      case X86Encoding::xmm6:  return &context->float_.__fpu_xmm6;
-      case X86Encoding::xmm7:  return &context->float_.__fpu_xmm7;
-      case X86Encoding::xmm8:  return &context->float_.__fpu_xmm8;
-      case X86Encoding::xmm9:  return &context->float_.__fpu_xmm9;
-      case X86Encoding::xmm10: return &context->float_.__fpu_xmm10;
-      case X86Encoding::xmm11: return &context->float_.__fpu_xmm11;
-      case X86Encoding::xmm12: return &context->float_.__fpu_xmm12;
-      case X86Encoding::xmm13: return &context->float_.__fpu_xmm13;
-      case X86Encoding::xmm14: return &context->float_.__fpu_xmm14;
-      case X86Encoding::xmm15: return &context->float_.__fpu_xmm15;
-      default: break;
+        case X86Encoding::xmm0:
+            return &context->float_.__fpu_xmm0;
+        case X86Encoding::xmm1:
+            return &context->float_.__fpu_xmm1;
+        case X86Encoding::xmm2:
+            return &context->float_.__fpu_xmm2;
+        case X86Encoding::xmm3:
+            return &context->float_.__fpu_xmm3;
+        case X86Encoding::xmm4:
+            return &context->float_.__fpu_xmm4;
+        case X86Encoding::xmm5:
+            return &context->float_.__fpu_xmm5;
+        case X86Encoding::xmm6:
+            return &context->float_.__fpu_xmm6;
+        case X86Encoding::xmm7:
+            return &context->float_.__fpu_xmm7;
+        case X86Encoding::xmm8:
+            return &context->float_.__fpu_xmm8;
+        case X86Encoding::xmm9:
+            return &context->float_.__fpu_xmm9;
+        case X86Encoding::xmm10:
+            return &context->float_.__fpu_xmm10;
+        case X86Encoding::xmm11:
+            return &context->float_.__fpu_xmm11;
+        case X86Encoding::xmm12:
+            return &context->float_.__fpu_xmm12;
+        case X86Encoding::xmm13:
+            return &context->float_.__fpu_xmm13;
+        case X86Encoding::xmm14:
+            return &context->float_.__fpu_xmm14;
+        case X86Encoding::xmm15:
+            return &context->float_.__fpu_xmm15;
+        default:
+            break;
     }
     MOZ_CRASH();
 }
 
-MOZ_COLD static void*
-AddressOfGPRegisterSlot(EMULATOR_CONTEXT* context, Registers::Code code)
-{
+MOZ_COLD static void* AddressOfGPRegisterSlot(EMULATOR_CONTEXT* context, Registers::Code code) {
     switch (code) {
-      case X86Encoding::rax: return &context->thread.__rax;
-      case X86Encoding::rcx: return &context->thread.__rcx;
-      case X86Encoding::rdx: return &context->thread.__rdx;
-      case X86Encoding::rbx: return &context->thread.__rbx;
-      case X86Encoding::rsp: return &context->thread.__rsp;
-      case X86Encoding::rbp: return &context->thread.__rbp;
-      case X86Encoding::rsi: return &context->thread.__rsi;
-      case X86Encoding::rdi: return &context->thread.__rdi;
-      case X86Encoding::r8:  return &context->thread.__r8;
-      case X86Encoding::r9:  return &context->thread.__r9;
-      case X86Encoding::r10: return &context->thread.__r10;
-      case X86Encoding::r11: return &context->thread.__r11;
-      case X86Encoding::r12: return &context->thread.__r12;
-      case X86Encoding::r13: return &context->thread.__r13;
-      case X86Encoding::r14: return &context->thread.__r14;
-      case X86Encoding::r15: return &context->thread.__r15;
-      default: break;
+        case X86Encoding::rax:
+            return &context->thread.__rax;
+        case X86Encoding::rcx:
+            return &context->thread.__rcx;
+        case X86Encoding::rdx:
+            return &context->thread.__rdx;
+        case X86Encoding::rbx:
+            return &context->thread.__rbx;
+        case X86Encoding::rsp:
+            return &context->thread.__rsp;
+        case X86Encoding::rbp:
+            return &context->thread.__rbp;
+        case X86Encoding::rsi:
+            return &context->thread.__rsi;
+        case X86Encoding::rdi:
+            return &context->thread.__rdi;
+        case X86Encoding::r8:
+            return &context->thread.__r8;
+        case X86Encoding::r9:
+            return &context->thread.__r9;
+        case X86Encoding::r10:
+            return &context->thread.__r10;
+        case X86Encoding::r11:
+            return &context->thread.__r11;
+        case X86Encoding::r12:
+            return &context->thread.__r12;
+        case X86Encoding::r13:
+            return &context->thread.__r13;
+        case X86Encoding::r14:
+            return &context->thread.__r14;
+        case X86Encoding::r15:
+            return &context->thread.__r15;
+        default:
+            break;
     }
     MOZ_CRASH();
 }
-# endif  // !XP_DARWIN
+#endif  // !XP_DARWIN
 
-MOZ_COLD static void
-SetRegisterToCoercedUndefined(EMULATOR_CONTEXT* context, size_t size,
-                              const Disassembler::OtherOperand& value)
-{
+MOZ_COLD static void SetRegisterToCoercedUndefined(EMULATOR_CONTEXT* context, size_t size,
+                                                   const Disassembler::OtherOperand& value) {
     if (value.kind() == Disassembler::OtherOperand::FPR)
         SetFPRegToNaN(size, AddressOfFPRegisterSlot(context, value.fpr()));
     else
         SetGPRegToZero(AddressOfGPRegisterSlot(context, value.gpr()));
 }
 
-MOZ_COLD static void
-SetRegisterToLoadedValue(EMULATOR_CONTEXT* context, SharedMem<void*> addr, size_t size,
-                         const Disassembler::OtherOperand& value)
-{
+MOZ_COLD static void SetRegisterToLoadedValue(EMULATOR_CONTEXT* context, SharedMem<void*> addr,
+                                              size_t size,
+                                              const Disassembler::OtherOperand& value) {
     if (value.kind() == Disassembler::OtherOperand::FPR)
         SetFPRegToLoadedValue(addr, size, AddressOfFPRegisterSlot(context, value.fpr()));
     else
         SetGPRegToLoadedValue(addr, size, AddressOfGPRegisterSlot(context, value.gpr()));
 }
 
-MOZ_COLD static void
-SetRegisterToLoadedValueSext32(EMULATOR_CONTEXT* context, SharedMem<void*> addr, size_t size,
-                               const Disassembler::OtherOperand& value)
-{
+MOZ_COLD static void SetRegisterToLoadedValueSext32(EMULATOR_CONTEXT* context,
+                                                    SharedMem<void*> addr, size_t size,
+                                                    const Disassembler::OtherOperand& value) {
     SetGPRegToLoadedValueSext32(addr, size, AddressOfGPRegisterSlot(context, value.gpr()));
 }
 
-MOZ_COLD static void
-StoreValueFromRegister(EMULATOR_CONTEXT* context, SharedMem<void*> addr, size_t size,
-                       const Disassembler::OtherOperand& value)
-{
+MOZ_COLD static void StoreValueFromRegister(EMULATOR_CONTEXT* context, SharedMem<void*> addr,
+                                            size_t size, const Disassembler::OtherOperand& value) {
     if (value.kind() == Disassembler::OtherOperand::FPR)
         StoreValueFromFPReg(addr, size, AddressOfFPRegisterSlot(context, value.fpr()));
     else if (value.kind() == Disassembler::OtherOperand::GPR)
@@ -756,9 +773,8 @@ StoreValueFromRegister(EMULATOR_CONTEXT* context, SharedMem<void*> addr, size_t 
         StoreValueFromGPImm(addr, size, value.imm());
 }
 
-MOZ_COLD static uint8_t*
-ComputeAccessAddress(EMULATOR_CONTEXT* context, const Disassembler::ComplexAddress& address)
-{
+MOZ_COLD static uint8_t* ComputeAccessAddress(EMULATOR_CONTEXT* context,
+                                              const Disassembler::ComplexAddress& address) {
     MOZ_RELEASE_ASSERT(!address.isPCRelative(), "PC-relative addresses not supported yet");
 
     uintptr_t result = address.disp();
@@ -781,11 +797,10 @@ ComputeAccessAddress(EMULATOR_CONTEXT* context, const Disassembler::ComplexAddre
     return reinterpret_cast<uint8_t*>(result);
 }
 
-MOZ_COLD static void
-HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc, uint8_t* faultingAddress,
-                   const CodeSegment* segment, const Instance& instance, JitActivation* activation,
-                   uint8_t** ppc)
-{
+MOZ_COLD static void HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc,
+                                        uint8_t* faultingAddress, const CodeSegment* segment,
+                                        const Instance& instance, JitActivation* activation,
+                                        uint8_t** ppc) {
     MOZ_RELEASE_ASSERT(instance.code().containsCodePC(pc));
 
     const MemoryAccess* memoryAccess = instance.code().lookupMemoryAccess(pc);
@@ -849,12 +864,12 @@ HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc, uint8_t* faultingAddr
                        "faulting address range");
     MOZ_RELEASE_ASSERT(accessAddress >= instance.memoryBase(),
                        "Access begins outside the asm.js heap");
-    MOZ_RELEASE_ASSERT(accessAddress + access.size() <= instance.memoryBase() +
-                       instance.memoryMappedSize(),
-                       "Access extends beyond the asm.js heap guard region");
-    MOZ_RELEASE_ASSERT(accessAddress + access.size() > instance.memoryBase() +
-                       instance.memoryLength(),
-                       "Computed access address is not actually out of bounds");
+    MOZ_RELEASE_ASSERT(
+        accessAddress + access.size() <= instance.memoryBase() + instance.memoryMappedSize(),
+        "Access extends beyond the asm.js heap guard region");
+    MOZ_RELEASE_ASSERT(
+        accessAddress + access.size() > instance.memoryBase() + instance.memoryLength(),
+        "Computed access address is not actually out of bounds");
 
     // The basic sandbox model is that all heap accesses are a heap base
     // register plus an index, and the index is always computed with 32-bit
@@ -883,56 +898,59 @@ HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc, uint8_t* faultingAddr
         SharedMem<uint8_t*> wrappedAddress = instance.memoryBase() + wrappedOffset;
         MOZ_RELEASE_ASSERT(wrappedAddress >= instance.memoryBase());
         MOZ_RELEASE_ASSERT(wrappedAddress + size > wrappedAddress);
-        MOZ_RELEASE_ASSERT(wrappedAddress + size <= instance.memoryBase() + instance.memoryLength());
+        MOZ_RELEASE_ASSERT(wrappedAddress + size <=
+                           instance.memoryBase() + instance.memoryLength());
         switch (access.kind()) {
-          case Disassembler::HeapAccess::Load:
-            SetRegisterToLoadedValue(context, wrappedAddress.cast<void*>(), size, access.otherOperand());
-            break;
-          case Disassembler::HeapAccess::LoadSext32:
-            SetRegisterToLoadedValueSext32(context, wrappedAddress.cast<void*>(), size, access.otherOperand());
-            break;
-          case Disassembler::HeapAccess::Store:
-            StoreValueFromRegister(context, wrappedAddress.cast<void*>(), size, access.otherOperand());
-            break;
-          case Disassembler::HeapAccess::LoadSext64:
-            MOZ_CRASH("no int64 accesses in asm.js");
-          case Disassembler::HeapAccess::Unknown:
-            MOZ_CRASH("Failed to disassemble instruction");
+            case Disassembler::HeapAccess::Load:
+                SetRegisterToLoadedValue(context, wrappedAddress.cast<void*>(), size,
+                                         access.otherOperand());
+                break;
+            case Disassembler::HeapAccess::LoadSext32:
+                SetRegisterToLoadedValueSext32(context, wrappedAddress.cast<void*>(), size,
+                                               access.otherOperand());
+                break;
+            case Disassembler::HeapAccess::Store:
+                StoreValueFromRegister(context, wrappedAddress.cast<void*>(), size,
+                                       access.otherOperand());
+                break;
+            case Disassembler::HeapAccess::LoadSext64:
+                MOZ_CRASH("no int64 accesses in asm.js");
+            case Disassembler::HeapAccess::Unknown:
+                MOZ_CRASH("Failed to disassemble instruction");
         }
     } else {
         // We now know that this is an out-of-bounds access made by an asm.js
         // load/store that we should handle.
         switch (access.kind()) {
-          case Disassembler::HeapAccess::Load:
-          case Disassembler::HeapAccess::LoadSext32:
-            // Assign the JS-defined result value to the destination register
-            // (ToInt32(undefined) or ToNumber(undefined), determined by the
-            // type of the destination register). Very conveniently, we can
-            // infer the type from the register class, since all SIMD accesses
-            // throw on out of bounds (see above), so the only types using FP
-            // registers are float32 and double.
-            SetRegisterToCoercedUndefined(context, access.size(), access.otherOperand());
-            break;
-          case Disassembler::HeapAccess::Store:
-            // Do nothing.
-            break;
-          case Disassembler::HeapAccess::LoadSext64:
-            MOZ_CRASH("no int64 accesses in asm.js");
-          case Disassembler::HeapAccess::Unknown:
-            MOZ_CRASH("Failed to disassemble instruction");
+            case Disassembler::HeapAccess::Load:
+            case Disassembler::HeapAccess::LoadSext32:
+                // Assign the JS-defined result value to the destination register
+                // (ToInt32(undefined) or ToNumber(undefined), determined by the
+                // type of the destination register). Very conveniently, we can
+                // infer the type from the register class, since all SIMD accesses
+                // throw on out of bounds (see above), so the only types using FP
+                // registers are float32 and double.
+                SetRegisterToCoercedUndefined(context, access.size(), access.otherOperand());
+                break;
+            case Disassembler::HeapAccess::Store:
+                // Do nothing.
+                break;
+            case Disassembler::HeapAccess::LoadSext64:
+                MOZ_CRASH("no int64 accesses in asm.js");
+            case Disassembler::HeapAccess::Unknown:
+                MOZ_CRASH("Failed to disassemble instruction");
         }
     }
 
     *ppc = end;
 }
 
-#else // WASM_HUGE_MEMORY
+#else  // WASM_HUGE_MEMORY
 
-MOZ_COLD static void
-HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc, uint8_t* faultingAddress,
-                   const CodeSegment* segment, const Instance& instance, JitActivation* activation,
-                   uint8_t** ppc)
-{
+MOZ_COLD static void HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc,
+                                        uint8_t* faultingAddress, const CodeSegment* segment,
+                                        const Instance& instance, JitActivation* activation,
+                                        uint8_t** ppc) {
     MOZ_RELEASE_ASSERT(instance.code().containsCodePC(pc));
 
     const MemoryAccess* memoryAccess = instance.code().lookupMemoryAccess(pc);
@@ -947,54 +965,42 @@ HandleMemoryAccess(EMULATOR_CONTEXT* context, uint8_t* pc, uint8_t* faultingAddr
     *ppc = memoryAccess->trapOutOfLineCode(segment->base());
 }
 
-#endif // WASM_HUGE_MEMORY
+#endif  // WASM_HUGE_MEMORY
 
-MOZ_COLD static bool
-IsHeapAccessAddress(const Instance &instance, uint8_t* faultingAddress)
-{
+MOZ_COLD static bool IsHeapAccessAddress(const Instance& instance, uint8_t* faultingAddress) {
     size_t accessLimit = instance.memoryMappedSize();
 
-    return instance.metadata().usesMemory() &&
-           faultingAddress >= instance.memoryBase() &&
+    return instance.metadata().usesMemory() && faultingAddress >= instance.memoryBase() &&
            faultingAddress < instance.memoryBase() + accessLimit;
 }
 
-MOZ_COLD static bool
-IsActiveContext(JSContext* cx)
-{
+MOZ_COLD static bool IsActiveContext(JSContext* cx) {
     return cx == cx->runtime()->activeContext();
 }
 
 #if defined(XP_WIN)
 
-static bool
-HandleFault(PEXCEPTION_POINTERS exception)
-{
+static bool HandleFault(PEXCEPTION_POINTERS exception) {
     EXCEPTION_RECORD* record = exception->ExceptionRecord;
     CONTEXT* context = exception->ContextRecord;
 
-    if (record->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
-        return false;
+    if (record->ExceptionCode != EXCEPTION_ACCESS_VIOLATION) return false;
 
     uint8_t** ppc = ContextToPC(context);
     uint8_t* pc = *ppc;
 
-    if (record->NumberParameters < 2)
-        return false;
+    if (record->NumberParameters < 2) return false;
 
     // Don't allow recursive handling of signals, see AutoSetHandlingSegFault.
     JSContext* cx = TlsContext.get();
-    if (!cx || cx->handlingSegFault || !IsActiveContext(cx))
-        return false;
+    if (!cx || cx->handlingSegFault || !IsActiveContext(cx)) return false;
     AutoSetHandlingSegFault handling(cx);
 
-    if (!cx->activation() || !cx->activation()->isJit())
-        return false;
+    if (!cx->activation() || !cx->activation()->isJit()) return false;
     JitActivation* activation = cx->activation()->asJit();
 
     const CodeSegment* codeSegment = LookupCodeSegment(pc);
-    if (!codeSegment)
-        return false;
+    if (!codeSegment) return false;
 
     const Instance* instance = LookupFaultingInstance(*codeSegment, pc, ContextToFP(context));
     if (!instance) {
@@ -1007,8 +1013,7 @@ HandleFault(PEXCEPTION_POINTERS exception)
         // always the logically-faulting pc). Fortunately, we can detect this
         // case and silence the exception ourselves (the exception will
         // retrigger after the interrupt jumps back to resumePC).
-        return activation->isWasmInterrupted() &&
-               pc == codeSegment->interruptCode() &&
+        return activation->isWasmInterrupted() && pc == codeSegment->interruptCode() &&
                codeSegment->containsCodePC(activation->wasmResumePC());
     }
 
@@ -1016,8 +1021,7 @@ HandleFault(PEXCEPTION_POINTERS exception)
 
     // This check isn't necessary, but, since we can, check anyway to make
     // sure we aren't covering up a real bug.
-    if (!IsHeapAccessAddress(*instance, faultingAddress))
-        return false;
+    if (!IsHeapAccessAddress(*instance, faultingAddress)) return false;
 
     // Similar to the non-atomic situation above, on Windows, an OOB fault at a
     // PC can trigger *after* an async interrupt observed that PC and attempted
@@ -1035,18 +1039,15 @@ HandleFault(PEXCEPTION_POINTERS exception)
     return true;
 }
 
-static LONG WINAPI
-WasmFaultHandler(LPEXCEPTION_POINTERS exception)
-{
-    if (HandleFault(exception))
-        return EXCEPTION_CONTINUE_EXECUTION;
+static LONG WINAPI WasmFaultHandler(LPEXCEPTION_POINTERS exception) {
+    if (HandleFault(exception)) return EXCEPTION_CONTINUE_EXECUTION;
 
     // No need to worry about calling other handlers, the OS does this for us.
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
 #elif defined(XP_DARWIN)
-# include <mach/exc.h>
+#include <mach/exc.h>
 
 // This definition was generated by mig (the Mach Interface Generator) for the
 // routine 'exception_raise' (exc.defs).
@@ -1066,18 +1067,14 @@ typedef struct {
 #pragma pack()
 
 // The full Mach message also includes a trailer.
-struct ExceptionRequest
-{
+struct ExceptionRequest {
     Request__mach_exception_raise_t body;
     mach_msg_trailer_t trailer;
 };
 
-static bool
-HandleMachException(JSContext* cx, const ExceptionRequest& request)
-{
+static bool HandleMachException(JSContext* cx, const ExceptionRequest& request) {
     // Don't allow recursive handling of signals, see AutoSetHandlingSegFault.
-    if (cx->handlingSegFault || !IsActiveContext(cx))
-        return false;
+    if (cx->handlingSegFault || !IsActiveContext(cx)) return false;
     AutoSetHandlingSegFault handling(cx);
 
     // Get the port of the JSContext's thread from the message.
@@ -1085,72 +1082,65 @@ HandleMachException(JSContext* cx, const ExceptionRequest& request)
 
     // Read out the JSRuntime thread's register state.
     EMULATOR_CONTEXT context;
-# if defined(__x86_64__)
+#if defined(__x86_64__)
     unsigned int thread_state_count = x86_THREAD_STATE64_COUNT;
     unsigned int float_state_count = x86_FLOAT_STATE64_COUNT;
     int thread_state = x86_THREAD_STATE64;
     int float_state = x86_FLOAT_STATE64;
-# elif defined(__i386__)
+#elif defined(__i386__)
     unsigned int thread_state_count = x86_THREAD_STATE_COUNT;
     unsigned int float_state_count = x86_FLOAT_STATE_COUNT;
     int thread_state = x86_THREAD_STATE;
     int float_state = x86_FLOAT_STATE;
-# elif defined(__arm__)
+#elif defined(__arm__)
     unsigned int thread_state_count = ARM_THREAD_STATE_COUNT;
     unsigned int float_state_count = ARM_NEON_STATE_COUNT;
     int thread_state = ARM_THREAD_STATE;
     int float_state = ARM_NEON_STATE;
-# else
-#  error Unsupported architecture
-# endif
+#else
+#error Unsupported architecture
+#endif
     kern_return_t kret;
-    kret = thread_get_state(cxThread, thread_state,
-                            (thread_state_t)&context.thread, &thread_state_count);
-    if (kret != KERN_SUCCESS)
-        return false;
-    kret = thread_get_state(cxThread, float_state,
-                            (thread_state_t)&context.float_, &float_state_count);
-    if (kret != KERN_SUCCESS)
-        return false;
+    kret = thread_get_state(cxThread, thread_state, (thread_state_t)&context.thread,
+                            &thread_state_count);
+    if (kret != KERN_SUCCESS) return false;
+    kret = thread_get_state(cxThread, float_state, (thread_state_t)&context.float_,
+                            &float_state_count);
+    if (kret != KERN_SUCCESS) return false;
 
     uint8_t** ppc = ContextToPC(&context);
     uint8_t* pc = *ppc;
 
-    if (request.body.exception != EXC_BAD_ACCESS || request.body.codeCnt != 2)
-        return false;
+    if (request.body.exception != EXC_BAD_ACCESS || request.body.codeCnt != 2) return false;
 
     // The faulting thread is suspended so we can access cx fields that can
     // normally only be accessed by the cx's active thread.
     AutoNoteSingleThreadedRegion anstr;
 
-    if (!cx->activation() || !cx->activation()->isJit())
-        return false;
+    if (!cx->activation() || !cx->activation()->isJit()) return false;
     JitActivation* activation = cx->activation()->asJit();
 
     const CodeSegment* codeSegment = LookupCodeSegment(pc);
-    if (!codeSegment)
-        return false;
+    if (!codeSegment) return false;
 
     const Instance* instance = LookupFaultingInstance(*codeSegment, pc, ContextToFP(&context));
-    if (!instance)
-        return false;
+    if (!instance) return false;
 
     uint8_t* faultingAddress = reinterpret_cast<uint8_t*>(request.body.code[1]);
 
     // This check isn't necessary, but, since we can, check anyway to make
     // sure we aren't covering up a real bug.
-    if (!IsHeapAccessAddress(*instance, faultingAddress))
-        return false;
+    if (!IsHeapAccessAddress(*instance, faultingAddress)) return false;
 
     HandleMemoryAccess(&context, pc, faultingAddress, codeSegment, *instance, activation, ppc);
 
     // Update the thread state with the new pc and register values.
-    kret = thread_set_state(cxThread, float_state, (thread_state_t)&context.float_, float_state_count);
-    if (kret != KERN_SUCCESS)
-        return false;
-    kret = thread_set_state(cxThread, thread_state, (thread_state_t)&context.thread, thread_state_count);
-    if (kret != KERN_SUCCESS)
-        return false;
+    kret = thread_set_state(cxThread, float_state, (thread_state_t)&context.float_,
+                            float_state_count);
+    if (kret != KERN_SUCCESS) return false;
+    kret = thread_set_state(cxThread, thread_state, (thread_state_t)&context.thread,
+                            thread_state_count);
+    if (kret != KERN_SUCCESS) return false;
 
     return true;
 }
@@ -1161,16 +1151,14 @@ static const mach_msg_id_t sExceptionId = 2405;
 // The choice of id here is arbitrary, the only constraint is that sQuitId != sExceptionId.
 static const mach_msg_id_t sQuitId = 42;
 
-static void
-MachExceptionHandlerThread(JSContext* cx)
-{
+static void MachExceptionHandlerThread(JSContext* cx) {
     mach_port_t port = cx->wasmMachExceptionHandler.port();
     kern_return_t kret;
 
-    while(true) {
+    while (true) {
         ExceptionRequest request;
-        kret = mach_msg(&request.body.Head, MACH_RCV_MSG, 0, sizeof(request),
-                        port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+        kret = mach_msg(&request.body.Head, MACH_RCV_MSG, 0, sizeof(request), port,
+                        MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 
         // If we fail even receiving the message, we can't even send a reply!
         // Rather than hanging the faulting thread (hanging the browser), crash.
@@ -1182,8 +1170,7 @@ MachExceptionHandlerThread(JSContext* cx)
         // There are only two messages we should be receiving: an exception
         // message that occurs when the runtime's thread faults and the quit
         // message sent when the runtime is shutting down.
-        if (request.body.Head.msgh_id == sQuitId)
-            break;
+        if (request.body.Head.msgh_id == sQuitId) break;
         if (request.body.Head.msgh_id != sExceptionId) {
             fprintf(stderr, "Unexpected msg header id %d\n", (int)request.body.Head.msgh_bits);
             MOZ_CRASH();
@@ -1201,7 +1188,8 @@ MachExceptionHandlerThread(JSContext* cx)
         // This magic incantation to send a reply back to the kernel was derived
         // from the exc_server generated by 'mig -v /usr/include/mach/mach_exc.defs'.
         __Reply__exception_raise_t reply;
-        reply.Head.msgh_bits = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request.body.Head.msgh_bits), 0);
+        reply.Head.msgh_bits =
+            MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request.body.Head.msgh_bits), 0);
         reply.Head.msgh_size = sizeof(reply);
         reply.Head.msgh_remote_port = request.body.Head.msgh_remote_port;
         reply.Head.msgh_local_port = MACH_PORT_NULL;
@@ -1214,24 +1202,16 @@ MachExceptionHandlerThread(JSContext* cx)
 }
 
 MachExceptionHandler::MachExceptionHandler()
-  : installed_(false),
-    thread_(),
-    port_(MACH_PORT_NULL)
-{}
+    : installed_(false), thread_(), port_(MACH_PORT_NULL) {}
 
-void
-MachExceptionHandler::uninstall()
-{
+void MachExceptionHandler::uninstall() {
     if (installed_) {
         thread_port_t thread = mach_thread_self();
-        kern_return_t kret = thread_set_exception_ports(thread,
-                                                        EXC_MASK_BAD_ACCESS,
-                                                        MACH_PORT_NULL,
-                                                        EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
-                                                        THREAD_STATE_NONE);
+        kern_return_t kret = thread_set_exception_ports(
+            thread, EXC_MASK_BAD_ACCESS, MACH_PORT_NULL, EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
+            THREAD_STATE_NONE);
         mach_port_deallocate(mach_task_self(), thread);
-        if (kret != KERN_SUCCESS)
-            MOZ_CRASH();
+        if (kret != KERN_SUCCESS) MOZ_CRASH();
         installed_ = false;
     }
     if (thread_.joinable()) {
@@ -1260,28 +1240,21 @@ MachExceptionHandler::uninstall()
     }
 }
 
-bool
-MachExceptionHandler::install(JSContext* cx)
-{
+bool MachExceptionHandler::install(JSContext* cx) {
     MOZ_ASSERT(!installed());
     kern_return_t kret;
     mach_port_t thread;
 
-    auto onFailure = mozilla::MakeScopeExit([&] {
-        uninstall();
-    });
+    auto onFailure = mozilla::MakeScopeExit([&] { uninstall(); });
 
     // Get a port which can send and receive data.
     kret = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port_);
-    if (kret != KERN_SUCCESS)
-        return false;
+    if (kret != KERN_SUCCESS) return false;
     kret = mach_port_insert_right(mach_task_self(), port_, port_, MACH_MSG_TYPE_MAKE_SEND);
-    if (kret != KERN_SUCCESS)
-        return false;
+    if (kret != KERN_SUCCESS) return false;
 
     // Create a thread to block on reading port_.
-    if (!thread_.init(MachExceptionHandlerThread, cx))
-        return false;
+    if (!thread_.init(MachExceptionHandlerThread, cx)) return false;
 
     // Direct exceptions on this thread to port_ (and thus our handler thread).
     // Note: we are totally clobbering any existing *thread* exception ports and
@@ -1289,14 +1262,10 @@ MachExceptionHandler::install(JSContext* cx)
     // exception ports which are only called if the thread doesn't handle the
     // exception, so we should be fine.
     thread = mach_thread_self();
-    kret = thread_set_exception_ports(thread,
-                                      EXC_MASK_BAD_ACCESS,
-                                      port_,
-                                      EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
-                                      THREAD_STATE_NONE);
+    kret = thread_set_exception_ports(thread, EXC_MASK_BAD_ACCESS, port_,
+                                      EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES, THREAD_STATE_NONE);
     mach_port_deallocate(mach_task_self(), thread);
-    if (kret != KERN_SUCCESS)
-        return false;
+    if (kret != KERN_SUCCESS) return false;
 
     installed_ = true;
     onFailure.release();
@@ -1305,17 +1274,12 @@ MachExceptionHandler::install(JSContext* cx)
 
 #else  // If not Windows or Mac, assume Unix
 
-enum class Signal {
-    SegFault,
-    BusError
-};
+enum class Signal { SegFault, BusError };
 
 // Be very cautious and default to not handling; we don't want to accidentally
 // silence real crashes from real bugs.
-template<Signal signal>
-static bool
-HandleFault(int signum, siginfo_t* info, void* ctx)
-{
+template <Signal signal>
+static bool HandleFault(int signum, siginfo_t* info, void* ctx) {
     // The signals we're expecting come from access violations, accessing
     // mprotected memory. If the signal originates anywhere else, don't try
     // to handle it.
@@ -1330,21 +1294,17 @@ HandleFault(int signum, siginfo_t* info, void* ctx)
 
     // Don't allow recursive handling of signals, see AutoSetHandlingSegFault.
     JSContext* cx = TlsContext.get();
-    if (!cx || cx->handlingSegFault || !IsActiveContext(cx))
-        return false;
+    if (!cx || cx->handlingSegFault || !IsActiveContext(cx)) return false;
     AutoSetHandlingSegFault handling(cx);
 
-    if (!cx->activation() || !cx->activation()->isJit())
-        return false;
+    if (!cx->activation() || !cx->activation()->isJit()) return false;
     JitActivation* activation = cx->activation()->asJit();
 
     const CodeSegment* segment = LookupCodeSegment(pc);
-    if (!segment)
-        return false;
+    if (!segment) return false;
 
     const Instance* instance = LookupFaultingInstance(*segment, pc, ContextToFP(context));
-    if (!instance)
-        return false;
+    if (!instance) return false;
 
     uint8_t* faultingAddress = reinterpret_cast<uint8_t*>(info->si_addr);
 
@@ -1352,19 +1312,17 @@ HandleFault(int signum, siginfo_t* info, void* ctx)
     // any real bugs, check that the faulting address is indeed in the
     // instance's memory.
     if (!faultingAddress) {
-        // On some Linux systems, the kernel apparently sometimes "gives up" and
-        // passes a null faultingAddress with si_code set to SI_KERNEL.
-        // This is observed on some automation machines for some out-of-bounds
-        // atomic accesses on x86/64.
+    // On some Linux systems, the kernel apparently sometimes "gives up" and
+    // passes a null faultingAddress with si_code set to SI_KERNEL.
+    // This is observed on some automation machines for some out-of-bounds
+    // atomic accesses on x86/64.
 #ifdef SI_KERNEL
-        if (info->si_code != SI_KERNEL)
-            return false;
+        if (info->si_code != SI_KERNEL) return false;
 #else
         return false;
 #endif
     } else {
-        if (!IsHeapAccessAddress(*instance, faultingAddress))
-            return false;
+        if (!IsHeapAccessAddress(*instance, faultingAddress)) return false;
     }
 
 #ifdef JS_CODEGEN_ARM
@@ -1386,16 +1344,11 @@ HandleFault(int signum, siginfo_t* info, void* ctx)
 static struct sigaction sPrevSEGVHandler;
 static struct sigaction sPrevSIGBUSHandler;
 
-template<Signal signal>
-static void
-WasmFaultHandler(int signum, siginfo_t* info, void* context)
-{
-    if (HandleFault<signal>(signum, info, context))
-        return;
+template <Signal signal>
+static void WasmFaultHandler(int signum, siginfo_t* info, void* context) {
+    if (HandleFault<signal>(signum, info, context)) return;
 
-    struct sigaction* previousSignal = signum == SIGSEGV
-                                       ? &sPrevSEGVHandler
-                                       : &sPrevSIGBUSHandler;
+    struct sigaction* previousSignal = signum == SIGSEGV ? &sPrevSEGVHandler : &sPrevSIGBUSHandler;
 
     // This signal is not for any asm.js code we expect, so we need to forward
     // the signal to the next handler. If there is no next handler (SIG_IGN or
@@ -1416,13 +1369,10 @@ WasmFaultHandler(int signum, siginfo_t* info, void* context)
     else
         previousSignal->sa_handler(signum);
 }
-# endif // XP_WIN || XP_DARWIN || assume unix
+#endif  // XP_WIN || XP_DARWIN || assume unix
 
-static void
-RedirectIonBackedgesToInterruptCheck(JSContext* cx)
-{
-    if (!cx->runtime()->hasJitRuntime())
-        return;
+static void RedirectIonBackedgesToInterruptCheck(JSContext* cx) {
+    if (!cx->runtime()->hasJitRuntime()) return;
     jit::JitRuntime* jitRuntime = cx->runtime()->jitRuntime();
     Zone* zone = cx->zoneRaw();
     if (zone && !zone->isAtomsZone()) {
@@ -1437,19 +1387,15 @@ RedirectIonBackedgesToInterruptCheck(JSContext* cx)
     }
 }
 
-bool
-wasm::InInterruptibleCode(JSContext* cx, uint8_t* pc, const CodeSegment** cs)
-{
+bool wasm::InInterruptibleCode(JSContext* cx, uint8_t* pc, const CodeSegment** cs) {
     // Only interrupt in function code so that the frame iterators have the
     // invariant that resumePC always has a function CodeRange and we can't
     // get into any weird interrupt-during-interrupt-stub cases.
 
-    if (!cx->compartment())
-        return false;
+    if (!cx->compartment()) return false;
 
     *cs = LookupCodeSegment(pc);
-    if (!*cs)
-        return false;
+    if (!*cs) return false;
 
     const Code* code = (*cs)->code();
 
@@ -1459,12 +1405,9 @@ wasm::InInterruptibleCode(JSContext* cx, uint8_t* pc, const CodeSegment** cs)
 
 // The return value indicates whether the PC was changed, not whether there was
 // a failure.
-static bool
-RedirectJitCodeToInterruptCheck(JSContext* cx, CONTEXT* context)
-{
+static bool RedirectJitCodeToInterruptCheck(JSContext* cx, CONTEXT* context) {
     // Jitcode may only be modified on the runtime's active thread.
-    if (cx != cx->runtime()->activeContext())
-        return false;
+    if (cx != cx->runtime()->activeContext()) return false;
 
     // The faulting thread is suspended so we can access cx fields that can
     // normally only be accessed by the cx's active thread.
@@ -1479,8 +1422,7 @@ RedirectJitCodeToInterruptCheck(JSContext* cx, CONTEXT* context)
 #endif
 
     const CodeSegment* codeSegment = nullptr;
-    if (!InInterruptibleCode(cx, pc, &codeSegment))
-        return false;
+    if (!InInterruptibleCode(cx, pc, &codeSegment)) return false;
 
 #ifdef JS_SIMULATOR
     // The checks performed by the !JS_SIMULATOR path happen in
@@ -1493,14 +1435,12 @@ RedirectJitCodeToInterruptCheck(JSContext* cx, CONTEXT* context)
 
     // fp may be null when first entering wasm code from an entry stub.
     uint8_t* fp = ContextToFP(context);
-    if (!fp)
-        return false;
+    if (!fp) return false;
 
     // The out-of-bounds/unaligned trap paths which call startWasmInterrupt() go
     // through function code, so test if already interrupted. These paths are
     // temporary though, so this case can be removed later.
-    if (activation->isWasmInterrupted())
-        return false;
+    if (activation->isWasmInterrupted()) return false;
 
     activation->startWasmInterrupt(ToRegisterState(context));
     *ContextToPC(context) = codeSegment->interruptCode();
@@ -1517,11 +1457,8 @@ RedirectJitCodeToInterruptCheck(JSContext* cx, CONTEXT* context)
 // SIGALRM, not used anywhere else in Mozilla.
 static const int sInterruptSignal = SIGVTALRM;
 
-static void
-JitInterruptHandler(int signum, siginfo_t* info, void* context)
-{
+static void JitInterruptHandler(int signum, siginfo_t* info, void* context) {
     if (JSContext* cx = TlsContext.get()) {
-
 #if defined(JS_SIMULATOR_ARM) || defined(JS_SIMULATOR_MIPS32) || defined(JS_SIMULATOR_MIPS64)
         SimulatorProcess::ICacheCheckingDisableCount++;
 #endif
@@ -1541,16 +1478,13 @@ JitInterruptHandler(int signum, siginfo_t* info, void* context)
 static bool sTriedInstallSignalHandlers = false;
 static bool sHaveSignalHandlers = false;
 
-static bool
-ProcessHasSignalHandlers()
-{
+static bool ProcessHasSignalHandlers() {
     // We assume that there are no races creating the first JSRuntime of the process.
-    if (sTriedInstallSignalHandlers)
-        return sHaveSignalHandlers;
+    if (sTriedInstallSignalHandlers) return sHaveSignalHandlers;
     sTriedInstallSignalHandlers = true;
 
 #if defined(ANDROID)
-# if !defined(__aarch64__)
+#if !defined(__aarch64__)
     // Before Android 4.4 (SDK version 19), there is a bug
     //   https://android-review.googlesource.com/#/c/52333
     // in Bionic's pthread_join which causes pthread_join to return early when
@@ -1559,21 +1493,19 @@ ProcessHasSignalHandlers()
     char version_string[PROP_VALUE_MAX];
     PodArrayZero(version_string);
     if (__system_property_get("ro.build.version.sdk", version_string) > 0) {
-        if (atol(version_string) < 19)
-            return false;
+        if (atol(version_string) < 19) return false;
     }
-# endif
-# if defined(MOZ_LINKER)
+#endif
+#if defined(MOZ_LINKER)
     // Signal handling is broken on some android systems.
-    if (IsSignalHandlingBroken())
-        return false;
-# endif
+    if (IsSignalHandlingBroken()) return false;
+#endif
 #endif
 
-    // The interrupt handler allows the active thread to be paused from another
-    // thread (see InterruptRunningJitCode).
+        // The interrupt handler allows the active thread to be paused from another
+        // thread (see InterruptRunningJitCode).
 #if defined(XP_WIN)
-    // Windows uses SuspendThread to stop the active thread from another thread.
+        // Windows uses SuspendThread to stop the active thread from another thread.
 #else
     struct sigaction interruptHandler;
     interruptHandler.sa_flags = SA_SIGINFO;
@@ -1587,32 +1519,30 @@ ProcessHasSignalHandlers()
     // there are, we could always forward, but we need to understand what we're
     // doing to avoid problematic interference.
     if ((prev.sa_flags & SA_SIGINFO && prev.sa_sigaction) ||
-        (prev.sa_handler != SIG_DFL && prev.sa_handler != SIG_IGN))
-    {
+        (prev.sa_handler != SIG_DFL && prev.sa_handler != SIG_IGN)) {
         MOZ_CRASH("contention for interrupt signal");
     }
-#endif // defined(XP_WIN)
+#endif  // defined(XP_WIN)
 
-    // Install a SIGSEGV handler to handle safely-out-of-bounds asm.js heap
-    // access and/or unaligned accesses.
-# if defined(XP_WIN)
-#  if defined(MOZ_ASAN)
+        // Install a SIGSEGV handler to handle safely-out-of-bounds asm.js heap
+        // access and/or unaligned accesses.
+#if defined(XP_WIN)
+#if defined(MOZ_ASAN)
     // Under ASan we need to let the ASan runtime's ShadowExceptionHandler stay
     // in the first handler position. This requires some coordination with
     // MemoryProtectionExceptionHandler::isDisabled().
     const bool firstHandler = false;
-#  else
+#else
     // Otherwise, WasmFaultHandler needs to go first, so that we can recover
     // from wasm faults and continue execution without triggering handlers
     // such as MemoryProtectionExceptionHandler that assume we are crashing.
     const bool firstHandler = true;
-#  endif
-    if (!AddVectoredExceptionHandler(firstHandler, WasmFaultHandler))
-        return false;
-# elif defined(XP_DARWIN)
-    // OSX handles seg faults via the Mach exception handler above, so don't
-    // install WasmFaultHandler.
-# else
+#endif
+    if (!AddVectoredExceptionHandler(firstHandler, WasmFaultHandler)) return false;
+#elif defined(XP_DARWIN)
+        // OSX handles seg faults via the Mach exception handler above, so don't
+        // install WasmFaultHandler.
+#else
     // SA_NODEFER allows us to reenter the signal handler if we crash while
     // handling the signal, and fall through to the Breakpad handler by testing
     // handlingSegFault.
@@ -1625,7 +1555,7 @@ ProcessHasSignalHandlers()
     if (sigaction(SIGSEGV, &faultHandler, &sPrevSEGVHandler))
         MOZ_CRASH("unable to install segv handler");
 
-#  if defined(JS_CODEGEN_ARM)
+#if defined(JS_CODEGEN_ARM)
     // On Arm Handle Unaligned Accesses
     struct sigaction busHandler;
     busHandler.sa_flags = SA_SIGINFO | SA_NODEFER | SA_ONSTACK;
@@ -1633,19 +1563,16 @@ ProcessHasSignalHandlers()
     sigemptyset(&busHandler.sa_mask);
     if (sigaction(SIGBUS, &busHandler, &sPrevSIGBUSHandler))
         MOZ_CRASH("unable to install sigbus handler");
-#  endif
-# endif
+#endif
+#endif
 
     sHaveSignalHandlers = true;
     return true;
 }
 
-bool
-wasm::EnsureSignalHandlers(JSContext* cx)
-{
+bool wasm::EnsureSignalHandlers(JSContext* cx) {
     // Nothing to do if the platform doesn't support it.
-    if (!ProcessHasSignalHandlers())
-        return true;
+    if (!ProcessHasSignalHandlers()) return true;
 
 #if defined(XP_DARWIN)
     // On OSX, each JSContext which runs wasm gets its own handler thread.
@@ -1656,9 +1583,7 @@ wasm::EnsureSignalHandlers(JSContext* cx)
     return true;
 }
 
-bool
-wasm::HaveSignalHandlers()
-{
+bool wasm::HaveSignalHandlers() {
     MOZ_ASSERT(sTriedInstallSignalHandlers);
     return sHaveSignalHandlers;
 }
@@ -1672,18 +1597,14 @@ wasm::HaveSignalHandlers()
 //     the interrupt;
 //  2. if the active thread's pc is inside wasm code, the pc is updated to point
 //     to a stub that handles the interrupt.
-void
-js::InterruptRunningJitCode(JSContext* cx)
-{
+void js::InterruptRunningJitCode(JSContext* cx) {
     // If signal handlers weren't installed, then Ion and wasm emit normal
     // interrupt checks and don't need asynchronous interruption.
-    if (!HaveSignalHandlers())
-        return;
+    if (!HaveSignalHandlers()) return;
 
     // Do nothing if we're already handling an interrupt here, to avoid races
     // below and in JitRuntime::patchIonBackedges.
-    if (!cx->startHandlingJitInterrupt())
-        return;
+    if (!cx->startHandlingJitInterrupt()) return;
 
     // If we are on context's thread, then: pc is not in wasm code (so nothing
     // to do for wasm) and we can patch Ion backedges without any special
@@ -1694,8 +1615,8 @@ js::InterruptRunningJitCode(JSContext* cx)
         return;
     }
 
-    // We are not on the runtime's active thread, so to do 1 and 2 above, we need
-    // to halt the runtime's active thread first.
+        // We are not on the runtime's active thread, so to do 1 and 2 above, we need
+        // to halt the runtime's active thread first.
 #if defined(XP_WIN)
     // On Windows, we can simply suspend the active thread and work directly on
     // its context from this thread. SuspendThread can sporadically fail if the
@@ -1706,8 +1627,7 @@ js::InterruptRunningJitCode(JSContext* cx)
         CONTEXT context;
         context.ContextFlags = CONTEXT_FULL;
         if (GetThreadContext(thread, &context)) {
-            if (RedirectJitCodeToInterruptCheck(cx, &context))
-                SetThreadContext(thread, &context);
+            if (RedirectJitCodeToInterruptCheck(cx, &context)) SetThreadContext(thread, &context);
         }
         ResumeThread(thread);
     }

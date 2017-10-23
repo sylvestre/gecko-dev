@@ -21,18 +21,16 @@ class PresentationConnection;
 
 class PresentationRequest final : public DOMEventTargetHelper
 {
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   static already_AddRefed<PresentationRequest> Constructor(
-    const GlobalObject& aGlobal,
-    const nsAString& aUrl,
-    ErrorResult& aRv);
+      const GlobalObject& aGlobal, const nsAString& aUrl, ErrorResult& aRv);
 
   static already_AddRefed<PresentationRequest> Constructor(
-    const GlobalObject& aGlobal,
-    const Sequence<nsString>& aUrls,
-    ErrorResult& aRv);
+      const GlobalObject& aGlobal,
+      const Sequence<nsString>& aUrls,
+      ErrorResult& aRv);
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -50,13 +48,13 @@ public:
 
   IMPL_EVENT_HANDLER(connectionavailable);
 
-  nsresult DispatchConnectionAvailableEvent(PresentationConnection* aConnection);
+  nsresult DispatchConnectionAvailableEvent(
+      PresentationConnection* aConnection);
 
   void NotifyPromiseSettled();
 
-private:
-  PresentationRequest(nsPIDOMWindowInner* aWindow,
-                      nsTArray<nsString>&& aUrls);
+ private:
+  PresentationRequest(nsPIDOMWindowInner* aWindow, nsTArray<nsString>&& aUrls);
 
   ~PresentationRequest();
 
@@ -78,7 +76,7 @@ private:
   nsTArray<nsString> mUrls;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_PresentationRequest_h
+#endif  // mozilla_dom_PresentationRequest_h

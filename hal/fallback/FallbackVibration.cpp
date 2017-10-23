@@ -12,12 +12,14 @@ namespace mozilla {
 namespace hal_impl {
 
 void
-Vibrate(const nsTArray<uint32_t>& pattern, const hal::WindowIdentifier &)
-{}
+Vibrate(const nsTArray<uint32_t>& pattern, const hal::WindowIdentifier&)
+{
+}
 
 void
-CancelVibrate(const hal::WindowIdentifier &)
-{}
+CancelVibrate(const hal::WindowIdentifier&)
+{
+}
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

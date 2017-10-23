@@ -33,7 +33,7 @@ class InternalResponse;
 
 class HttpServerListener
 {
-public:
+ public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
   virtual void OnServerStarted(nsresult aStatus) = 0;
@@ -45,7 +45,7 @@ public:
 class HttpServer final : public nsIServerSocketListener,
                          public nsILocalCertGetCallback
 {
-public:
+ public:
   explicit HttpServer(nsISerialEventTarget* aEventTarget);
 
   NS_DECL_ISUPPORTS
@@ -55,10 +55,10 @@ public:
   void Init(int32_t aPort, bool aHttps, HttpServerListener* aListener);
 
   void SendResponse(InternalRequest* aRequest, InternalResponse* aResponse);
-  already_AddRefed<nsITransportProvider>
-    AcceptWebSocket(InternalRequest* aConnectRequest,
-                    const Optional<nsAString>& aProtocol,
-                    ErrorResult& aRv);
+  already_AddRefed<nsITransportProvider> AcceptWebSocket(
+      InternalRequest* aConnectRequest,
+      const Optional<nsAString>& aProtocol,
+      ErrorResult& aRv);
   void SendWebSocketResponse(InternalRequest* aConnectRequest,
                              InternalResponse* aResponse);
 
@@ -66,12 +66,9 @@ public:
 
   void GetCertKey(nsACString& aKey);
 
-  int32_t GetPort()
-  {
-    return mPort;
-  }
+  int32_t GetPort() { return mPort; }
 
-private:
+ private:
   ~HttpServer();
 
   nsresult StartServerSocket(nsIX509Cert* aCert);
@@ -79,7 +76,7 @@ private:
 
   class TransportProvider final : public nsITransportProvider
   {
-  public:
+   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSITRANSPORTPROVIDER
 
@@ -87,7 +84,7 @@ private:
                       nsIAsyncInputStream* aInput,
                       nsIAsyncOutputStream* aOutput);
 
-  private:
+   private:
     virtual ~TransportProvider();
     void MaybeNotify();
 
@@ -97,11 +94,11 @@ private:
     nsCOMPtr<nsIAsyncOutputStream> mOutput;
   };
 
-  class Connection final : public nsIInputStreamCallback
-                         , public nsIOutputStreamCallback
-                         , public nsITLSServerSecurityObserver
+  class Connection final : public nsIInputStreamCallback,
+                           public nsIOutputStreamCallback,
+                           public nsITLSServerSecurityObserver
   {
-  public:
+   public:
     Connection(nsISocketTransport* aTransport,
                HttpServer* aServer,
                nsresult& rv);
@@ -113,9 +110,8 @@ private:
 
     bool TryHandleResponse(InternalRequest* aRequest,
                            InternalResponse* aResponse);
-    already_AddRefed<nsITransportProvider>
-      HandleAcceptWebSocket(const Optional<nsAString>& aProtocol,
-                            ErrorResult& aRv);
+    already_AddRefed<nsITransportProvider> HandleAcceptWebSocket(
+        const Optional<nsAString>& aProtocol, ErrorResult& aRv);
     void HandleWebSocketResponse(InternalResponse* aResponse);
     bool HasPendingWebSocketRequest(InternalRequest* aRequest)
     {
@@ -124,7 +120,7 @@ private:
 
     void Close();
 
-    private:
+   private:
     ~Connection();
 
     void SetSecurityObserver(bool aListen);
@@ -135,10 +131,8 @@ private:
                                      uint32_t aToOffset,
                                      uint32_t aCount,
                                      uint32_t* aWriteCount);
-    nsresult ConsumeInput(const char*& aBuffer,
-                          const char* aEnd);
-    nsresult ConsumeLine(const char* aBuffer,
-                         size_t aLength);
+    nsresult ConsumeInput(const char*& aBuffer, const char* aEnd);
+    nsresult ConsumeLine(const char* aBuffer, size_t aLength);
     void MaybeAddPendingHeader();
 
     void QueueResponse(InternalResponse* aResponse);
@@ -148,7 +142,13 @@ private:
     nsCOMPtr<nsIAsyncInputStream> mInput;
     nsCOMPtr<nsIAsyncOutputStream> mOutput;
 
-    enum { eRequestLine, eHeaders, eBody, ePause } mState;
+    enum
+    {
+      eRequestLine,
+      eHeaders,
+      eBody,
+      ePause
+    } mState;
     RefPtr<InternalRequest> mPendingReq;
     uint32_t mPendingReqVersion;
     nsCString mInputBuffer;
@@ -158,15 +158,16 @@ private:
     nsCOMPtr<nsIAsyncOutputStream> mCurrentRequestBody;
     bool mCloseAfterRequest;
 
-    typedef Pair<RefPtr<InternalRequest>,
-                 RefPtr<InternalResponse>> PendingRequest;
+    typedef Pair<RefPtr<InternalRequest>, RefPtr<InternalResponse>>
+        PendingRequest;
     nsTArray<PendingRequest> mPendingRequests;
     RefPtr<MozPromise<nsresult, bool, false>> mOutputCopy;
 
     RefPtr<InternalRequest> mPendingWebSocketRequest;
     RefPtr<TransportProvider> mWebSocketTransportProvider;
 
-    struct OutputBuffer {
+    struct OutputBuffer
+    {
       nsCString mString;
       nsCOMPtr<nsIInputStream> mStream;
       bool mChunked;
@@ -189,7 +190,7 @@ private:
   const nsCOMPtr<nsISerialEventTarget> mEventTarget;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_HttpServer_h
+#endif  // mozilla_dom_HttpServer_h

@@ -17,16 +17,13 @@
 using namespace js;
 using namespace js::jit;
 
-static MBasicBlock*
-FollowTrivialGotos(MBasicBlock* block)
-{
+static MBasicBlock* FollowTrivialGotos(MBasicBlock* block) {
     while (block->phisEmpty() && *block->begin() == block->lastIns() && block->lastIns()->isGoto())
         block = block->lastIns()->toGoto()->getSuccessor(0);
     return block;
 }
 
-BEGIN_TEST(testJitGVN_FixupOSROnlyLoop)
-{
+BEGIN_TEST(testJitGVN_FixupOSROnlyLoop) {
     // This is a testcase which constructs the very rare circumstances that
     // require the FixupOSROnlyLoop logic.
 
@@ -76,8 +73,7 @@ BEGIN_TEST(testJitGVN_FixupOSROnlyLoop)
     outerHeader->setLoopHeader(outerBackedge);
     innerHeader->setLoopHeader(innerBackedge);
 
-    if (!func.runGVN())
-        return false;
+    if (!func.runGVN()) return false;
 
     // The loops are no longer reachable from the normal entry. They are
     // doinated by the osrEntry.
@@ -91,8 +87,7 @@ BEGIN_TEST(testJitGVN_FixupOSROnlyLoop)
 
     // One more time.
     ClearDominatorTree(func.graph);
-    if (!func.runGVN())
-        return false;
+    if (!func.runGVN()) return false;
 
     // The loops are no longer reachable from the normal entry. They are
     // doinated by the osrEntry.
@@ -108,8 +103,7 @@ BEGIN_TEST(testJitGVN_FixupOSROnlyLoop)
 }
 END_TEST(testJitGVN_FixupOSROnlyLoop)
 
-BEGIN_TEST(testJitGVN_FixupOSROnlyLoopNested)
-{
+BEGIN_TEST(testJitGVN_FixupOSROnlyLoopNested) {
     // Same as testJitGVN_FixupOSROnlyLoop but adds another level of loop
     // nesting for added excitement.
 
@@ -170,8 +164,7 @@ BEGIN_TEST(testJitGVN_FixupOSROnlyLoopNested)
     middleHeader->setLoopHeader(middleBackedge);
     innerHeader->setLoopHeader(innerBackedge);
 
-    if (!func.runGVN())
-        return false;
+    if (!func.runGVN()) return false;
 
     // The loops are no longer reachable from the normal entry. They are
     // doinated by the osrEntry.
@@ -187,8 +180,7 @@ BEGIN_TEST(testJitGVN_FixupOSROnlyLoopNested)
 
     // One more time.
     ClearDominatorTree(func.graph);
-    if (!func.runGVN())
-        return false;
+    if (!func.runGVN()) return false;
 
     // The loops are no longer reachable from the normal entry. They are
     // doinated by the osrEntry.
@@ -206,8 +198,7 @@ BEGIN_TEST(testJitGVN_FixupOSROnlyLoopNested)
 }
 END_TEST(testJitGVN_FixupOSROnlyLoopNested)
 
-BEGIN_TEST(testJitGVN_PinnedPhis)
-{
+BEGIN_TEST(testJitGVN_PinnedPhis) {
     // Set up a loop which gets optimized away, with phis which must be
     // cleaned up, permitting more phis to be cleaned up.
 
@@ -275,8 +266,7 @@ BEGIN_TEST(testJitGVN_PinnedPhis)
     outerHeader->setLoopHeader(exit);
     innerHeader->setLoopHeader(innerBackedge);
 
-    if (!func.runGVN())
-        return false;
+    if (!func.runGVN()) return false;
 
     MOZ_RELEASE_ASSERT(innerHeader->phisEmpty());
     MOZ_RELEASE_ASSERT(exit->isDead());

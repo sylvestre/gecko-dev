@@ -18,30 +18,24 @@ namespace mozilla {
 
 MOZ_MTLOG_MODULE("mtransport")
 
-NrIceStunAddr::NrIceStunAddr()
-  : localAddr_(new nr_local_addr)
+NrIceStunAddr::NrIceStunAddr() : localAddr_(new nr_local_addr)
 {
   memset(localAddr_, 0, sizeof(nr_local_addr));
 }
 
 NrIceStunAddr::NrIceStunAddr(const nr_local_addr* addr)
-  : localAddr_(new nr_local_addr)
+    : localAddr_(new nr_local_addr)
 {
-  nr_local_addr_copy(localAddr_,
-                     const_cast<nr_local_addr*>(addr));
+  nr_local_addr_copy(localAddr_, const_cast<nr_local_addr*>(addr));
 }
 
 NrIceStunAddr::NrIceStunAddr(const NrIceStunAddr& rhs)
-  : localAddr_(new nr_local_addr)
+    : localAddr_(new nr_local_addr)
 {
-  nr_local_addr_copy(localAddr_,
-                     const_cast<nr_local_addr*>(rhs.localAddr_));
+  nr_local_addr_copy(localAddr_, const_cast<nr_local_addr*>(rhs.localAddr_));
 }
 
-NrIceStunAddr::~NrIceStunAddr()
-{
-  delete localAddr_;
-}
+NrIceStunAddr::~NrIceStunAddr() { delete localAddr_; }
 
 size_t
 NrIceStunAddr::SerializationBufferSize() const
@@ -53,19 +47,22 @@ nsresult
 NrIceStunAddr::Serialize(char* buffer, size_t buffer_size) const
 {
   if (buffer_size != sizeof(nr_local_addr)) {
-    MOZ_MTLOG(ML_ERROR, "Failed trying to serialize NrIceStunAddr, "
-                        "input buffer length (" << buffer_size <<
-                        ") does not match required length ("
-                        << sizeof(nr_local_addr) << ")");
+    MOZ_MTLOG(ML_ERROR,
+              "Failed trying to serialize NrIceStunAddr, "
+              "input buffer length ("
+                  << buffer_size << ") does not match required length ("
+                  << sizeof(nr_local_addr) << ")");
     MOZ_ASSERT(false, "Failed to serialize NrIceStunAddr, bad buffer size");
     return NS_ERROR_FAILURE;
   }
 
   nr_local_addr* toAddr = (nr_local_addr*)buffer;
   if (nr_local_addr_copy(toAddr, localAddr_)) {
-    MOZ_MTLOG(ML_ERROR, "Failed trying to serialize NrIceStunAddr, "
-                        "could not copy nr_local_addr.");
-    MOZ_ASSERT(false, "Failed to serialize NrIceStunAddr, nr_local_addr_copy failed");
+    MOZ_MTLOG(ML_ERROR,
+              "Failed trying to serialize NrIceStunAddr, "
+              "could not copy nr_local_addr.");
+    MOZ_ASSERT(false,
+               "Failed to serialize NrIceStunAddr, nr_local_addr_copy failed");
     return NS_ERROR_FAILURE;
   }
 
@@ -79,10 +76,11 @@ nsresult
 NrIceStunAddr::Deserialize(const char* buffer, size_t buffer_size)
 {
   if (buffer_size != sizeof(nr_local_addr)) {
-    MOZ_MTLOG(ML_ERROR, "Failed trying to deserialize NrIceStunAddr, "
-                        "input buffer length (" << buffer_size <<
-                        ") does not match required length ("
-                        << sizeof(nr_local_addr) << ")");
+    MOZ_MTLOG(ML_ERROR,
+              "Failed trying to deserialize NrIceStunAddr, "
+              "input buffer length ("
+                  << buffer_size << ") does not match required length ("
+                  << sizeof(nr_local_addr) << ")");
     MOZ_ASSERT(false, "Failed to deserialize NrIceStunAddr, bad buffer size");
     return NS_ERROR_FAILURE;
   }
@@ -93,13 +91,16 @@ NrIceStunAddr::Deserialize(const char* buffer, size_t buffer_size)
   // At this point, from_addr->addr.addr is invalid (null), but will
   // be fixed by nr_local_addr_copy.
   if (nr_local_addr_copy(localAddr_, from_addr)) {
-    MOZ_MTLOG(ML_ERROR, "Failed trying to deserialize NrIceStunAddr, "
-                        "could not copy nr_local_addr.");
-    MOZ_ASSERT(false, "Failed to deserialize NrIceStunAddr, nr_local_addr_copy failed");
+    MOZ_MTLOG(ML_ERROR,
+              "Failed trying to deserialize NrIceStunAddr, "
+              "could not copy nr_local_addr.");
+    MOZ_ASSERT(
+        false,
+        "Failed to deserialize NrIceStunAddr, nr_local_addr_copy failed");
     return NS_ERROR_FAILURE;
   }
 
   return NS_OK;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

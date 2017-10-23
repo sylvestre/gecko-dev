@@ -32,7 +32,7 @@ using namespace mozilla;
 #define MOZ_STACKWALK_SUPPORTS_MACOSX 0
 #endif
 
-#if (defined(linux) && \
+#if (defined(linux) &&                                            \
      ((defined(__GNUC__) && (defined(__i386) || defined(PPC))) || \
       defined(HAVE__UNWIND_BACKTRACE)))
 #define MOZ_STACKWALK_SUPPORTS_LINUX 1
@@ -47,7 +47,7 @@ using namespace mozilla;
 #endif
 
 #if HAVE___LIBC_STACK_END
-extern MOZ_EXPORT void* __libc_stack_end; // from ld-linux.so
+extern MOZ_EXPORT void* __libc_stack_end;  // from ld-linux.so
 #endif
 
 #ifdef ANDROID
@@ -147,15 +147,14 @@ MFBT_API void
 UnregisterJitCodeRegion(uint8_t* aStart, size_t aSize)
 {
   // Currently we can only handle one JIT code region at a time
-  MOZ_RELEASE_ASSERT(sJitCodeRegionStart &&
-                     sJitCodeRegionStart == aStart &&
+  MOZ_RELEASE_ASSERT(sJitCodeRegionStart && sJitCodeRegionStart == aStart &&
                      sJitCodeRegionSize == aSize);
 
   sJitCodeRegionStart = nullptr;
   sJitCodeRegionSize = 0;
 }
 
-#endif // _M_AMD64
+#endif  // _M_AMD64
 
 // Routine to print an error message to standard error.
 static void
@@ -163,17 +162,16 @@ PrintError(const char* aPrefix)
 {
   LPSTR lpMsgBuf;
   DWORD lastErr = GetLastError();
-  FormatMessageA(
-    FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-    nullptr,
-    lastErr,
-    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-    (LPSTR)&lpMsgBuf,
-    0,
-    nullptr
-  );
-  fprintf(stderr, "### ERROR: %s: %s",
-          aPrefix, lpMsgBuf ? lpMsgBuf : "(null)\n");
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                     FORMAT_MESSAGE_IGNORE_INSERTS,
+                 nullptr,
+                 lastErr,
+                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),  // Default language
+                 (LPSTR)&lpMsgBuf,
+                 0,
+                 nullptr);
+  fprintf(
+      stderr, "### ERROR: %s: %s", aPrefix, lpMsgBuf ? lpMsgBuf : "(null)\n");
   fflush(stderr);
   LocalFree(lpMsgBuf);
 }
@@ -189,7 +187,8 @@ InitializeDbgHelpCriticalSection()
   initialized = true;
 }
 
-static unsigned int WINAPI WalkStackThread(void* aData);
+static unsigned int WINAPI
+WalkStackThread(void* aData);
 
 static bool
 EnsureWalkThreadReady()
@@ -203,7 +202,8 @@ EnsureWalkThreadReady()
   }
 
   if (!stackWalkThread) {
-    readyEvent = ::CreateEvent(nullptr, FALSE /* auto-reset*/,
+    readyEvent = ::CreateEvent(nullptr,
+                               FALSE /* auto-reset*/,
                                FALSE /* initially non-signaled */,
                                nullptr);
     if (!readyEvent) {
@@ -212,8 +212,8 @@ EnsureWalkThreadReady()
     }
 
     unsigned int threadID;
-    stackWalkThread = (HANDLE)_beginthreadex(nullptr, 0, WalkStackThread,
-                                             (void*)readyEvent, 0, &threadID);
+    stackWalkThread = (HANDLE)_beginthreadex(
+        nullptr, 0, WalkStackThread, (void*)readyEvent, 0, &threadID);
     if (!stackWalkThread) {
       PrintError("CreateThread");
       ::CloseHandle(readyEvent);
@@ -269,18 +269,18 @@ WalkStackMain64(struct WalkStackData* aData)
   STACKFRAME64 frame64;
   memset(&frame64, 0, sizeof(frame64));
 #ifdef _M_IX86
-  frame64.AddrPC.Offset    = context->Eip;
+  frame64.AddrPC.Offset = context->Eip;
   frame64.AddrStack.Offset = context->Esp;
   frame64.AddrFrame.Offset = context->Ebp;
 #elif defined _M_IA64
-  frame64.AddrPC.Offset    = context->StIIP;
+  frame64.AddrPC.Offset = context->StIIP;
   frame64.AddrStack.Offset = context->SP;
   frame64.AddrFrame.Offset = context->RsBSP;
 #endif
-  frame64.AddrPC.Mode      = AddrModeFlat;
-  frame64.AddrStack.Mode   = AddrModeFlat;
-  frame64.AddrFrame.Mode   = AddrModeFlat;
-  frame64.AddrReturn.Mode  = AddrModeFlat;
+  frame64.AddrPC.Mode = AddrModeFlat;
+  frame64.AddrStack.Mode = AddrModeFlat;
+  frame64.AddrFrame.Mode = AddrModeFlat;
+  frame64.AddrReturn.Mode = AddrModeFlat;
 #endif
 
 #ifdef _WIN64
@@ -317,19 +317,18 @@ WalkStackMain64(struct WalkStackData* aData)
     EnterCriticalSection(&gDbgHelpCS);
     BOOL ok = StackWalk64(
 #if defined _M_IA64
-      IMAGE_FILE_MACHINE_IA64,
+        IMAGE_FILE_MACHINE_IA64,
 #elif defined _M_IX86
-      IMAGE_FILE_MACHINE_I386,
+        IMAGE_FILE_MACHINE_I386,
 #endif
-      aData->process,
-      aData->thread,
-      &frame64,
-      context,
-      nullptr,
-      SymFunctionTableAccess64, // function table access routine
-      SymGetModuleBase64,       // module base routine
-      0
-    );
+        aData->process,
+        aData->thread,
+        &frame64,
+        context,
+        nullptr,
+        SymFunctionTableAccess64,  // function table access routine
+        SymGetModuleBase64,        // module base routine
+        0);
     LeaveCriticalSection(&gDbgHelpCS);
 
     if (ok) {
@@ -350,8 +349,7 @@ WalkStackMain64(struct WalkStackData* aData)
 #elif defined(_M_AMD64)
     // If we reach a frame in JIT code, we don't have enough information to
     // unwind, so we have to give up.
-    if (sJitCodeRegionStart &&
-        (uint8_t*)context->Rip >= sJitCodeRegionStart &&
+    if (sJitCodeRegionStart && (uint8_t*)context->Rip >= sJitCodeRegionStart &&
         (uint8_t*)context->Rip < sJitCodeRegionStart + sJitCodeRegionSize) {
       break;
     }
@@ -361,7 +359,8 @@ WalkStackMain64(struct WalkStackData* aData)
     // terminates the process.
     if (sMsMpegJitCodeRegionStart &&
         (uint8_t*)context->Rip >= sMsMpegJitCodeRegionStart &&
-        (uint8_t*)context->Rip < sMsMpegJitCodeRegionStart + sMsMpegJitCodeRegionSize) {
+        (uint8_t*)context->Rip <
+            sMsMpegJitCodeRegionStart + sMsMpegJitCodeRegionSize) {
       break;
     }
 
@@ -369,7 +368,7 @@ WalkStackMain64(struct WalkStackData* aData)
     // Try to look up unwind metadata for the current function.
     ULONG64 imageBase;
     PRUNTIME_FUNCTION runtimeFunction =
-      RtlLookupFunctionEntry(context->Rip, &imageBase, NULL);
+        RtlLookupFunctionEntry(context->Rip, &imageBase, NULL);
 
     if (runtimeFunction) {
       PVOID dummyHandlerData;
@@ -490,9 +489,12 @@ WalkStackThread(void* aData)
  */
 
 MFBT_API void
-MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-                   uint32_t aMaxFrames, void* aClosure,
-                   HANDLE aThread, CONTEXT* aContext)
+MozStackWalkThread(MozWalkStackCallback aCallback,
+                   uint32_t aSkipFrames,
+                   uint32_t aMaxFrames,
+                   void* aClosure,
+                   HANDLE aThread,
+                   CONTEXT* aContext)
 {
   static HANDLE myProcess = nullptr;
   HANDLE myThread;
@@ -517,7 +519,9 @@ MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
                            ::GetCurrentProcess(),
                            ::GetCurrentProcess(),
                            &myProcess,
-                           PROCESS_ALL_ACCESS, FALSE, 0)) {
+                           PROCESS_ALL_ACCESS,
+                           FALSE,
+                           0)) {
       if (data.walkCallingThread) {
         PrintError("DuplicateHandle (process)");
       }
@@ -528,7 +532,9 @@ MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
                          targetThread,
                          ::GetCurrentProcess(),
                          &myThread,
-                         THREAD_ALL_ACCESS, FALSE, 0)) {
+                         THREAD_ALL_ACCESS,
+                         FALSE,
+                         0)) {
     if (data.walkCallingThread) {
       PrintError("DuplicateHandle (thread)");
     }
@@ -564,15 +570,19 @@ MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
       WalkStackMain64(&data);
     }
   } else {
-    data.eventStart = ::CreateEvent(nullptr, FALSE /* auto-reset*/,
-                                    FALSE /* initially non-signaled */, nullptr);
-    data.eventEnd = ::CreateEvent(nullptr, FALSE /* auto-reset*/,
-                                  FALSE /* initially non-signaled */, nullptr);
+    data.eventStart = ::CreateEvent(nullptr,
+                                    FALSE /* auto-reset*/,
+                                    FALSE /* initially non-signaled */,
+                                    nullptr);
+    data.eventEnd = ::CreateEvent(nullptr,
+                                  FALSE /* auto-reset*/,
+                                  FALSE /* initially non-signaled */,
+                                  nullptr);
 
     ::PostThreadMessage(gStackWalkThread, WM_USER, 0, (LPARAM)&data);
 
-    walkerReturn = ::SignalObjectAndWait(data.eventStart,
-                                         data.eventEnd, INFINITE, FALSE);
+    walkerReturn =
+        ::SignalObjectAndWait(data.eventStart, data.eventEnd, INFINITE, FALSE);
     if (walkerReturn != WAIT_OBJECT_0 && data.walkCallingThread) {
       PrintError("SignalObjectAndWait (1)");
     }
@@ -584,8 +594,8 @@ MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
       data.sp_size = data.sp_count;
       data.sp_count = 0;
       ::PostThreadMessage(gStackWalkThread, WM_USER, 0, (LPARAM)&data);
-      walkerReturn = ::SignalObjectAndWait(data.eventStart,
-                                           data.eventEnd, INFINITE, FALSE);
+      walkerReturn = ::SignalObjectAndWait(
+          data.eventStart, data.eventEnd, INFINITE, FALSE);
       if (walkerReturn != WAIT_OBJECT_0 && data.walkCallingThread) {
         PrintError("SignalObjectAndWait (2)");
       }
@@ -603,19 +613,20 @@ MozStackWalkThread(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
 }
 
 MFBT_API void
-MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-             uint32_t aMaxFrames, void* aClosure)
+MozStackWalk(MozWalkStackCallback aCallback,
+             uint32_t aSkipFrames,
+             uint32_t aMaxFrames,
+             void* aClosure)
 {
-  MozStackWalkThread(aCallback, aSkipFrames, aMaxFrames, aClosure,
-                     nullptr, nullptr);
+  MozStackWalkThread(
+      aCallback, aSkipFrames, aMaxFrames, aClosure, nullptr, nullptr);
 }
 
 static BOOL CALLBACK
-callbackEspecial64(
-  PCSTR aModuleName,
-  DWORD64 aModuleBase,
-  ULONG aModuleSize,
-  PVOID aUserContext)
+callbackEspecial64(PCSTR aModuleName,
+                   DWORD64 aModuleBase,
+                   ULONG aModuleSize,
+                   PVOID aUserContext)
 {
   BOOL retval = TRUE;
   DWORD64 addr = *(DWORD64*)aUserContext;
@@ -631,12 +642,14 @@ callbackEspecial64(
    * If it falls in side the known range, load the symbols.
    */
   if (addressIncreases
-      ? (addr >= aModuleBase && addr <= (aModuleBase + aModuleSize))
-      : (addr <= aModuleBase && addr >= (aModuleBase - aModuleSize))
-     ) {
-    retval = !!SymLoadModule64(GetCurrentProcess(), nullptr,
-                               (PSTR)aModuleName, nullptr,
-                               aModuleBase, aModuleSize);
+          ? (addr >= aModuleBase && addr <= (aModuleBase + aModuleSize))
+          : (addr <= aModuleBase && addr >= (aModuleBase - aModuleSize))) {
+    retval = !!SymLoadModule64(GetCurrentProcess(),
+                               nullptr,
+                               (PSTR)aModuleName,
+                               nullptr,
+                               aModuleBase,
+                               aModuleSize);
     if (!retval) {
       PrintError("SymLoadModule64");
     }
@@ -665,14 +678,19 @@ callbackEspecial64(
 // when these changes were made, ifdef based on a constant that was
 // added between these versions.
 #ifdef SSRVOPT_SETCONTEXT
-#define NS_IMAGEHLP_MODULE64_SIZE (((offsetof(IMAGEHLP_MODULE64, LoadedPdbName) + sizeof(DWORD64) - 1) / sizeof(DWORD64)) * sizeof(DWORD64))
+#define NS_IMAGEHLP_MODULE64_SIZE                                        \
+  (((offsetof(IMAGEHLP_MODULE64, LoadedPdbName) + sizeof(DWORD64) - 1) / \
+    sizeof(DWORD64)) *                                                   \
+   sizeof(DWORD64))
 #else
 #define NS_IMAGEHLP_MODULE64_SIZE sizeof(IMAGEHLP_MODULE64)
 #endif
 
-BOOL SymGetModuleInfoEspecial64(HANDLE aProcess, DWORD64 aAddr,
-                                PIMAGEHLP_MODULE64 aModuleInfo,
-                                PIMAGEHLP_LINE64 aLineInfo)
+BOOL
+SymGetModuleInfoEspecial64(HANDLE aProcess,
+                           DWORD64 aAddr,
+                           PIMAGEHLP_MODULE64 aModuleInfo,
+                           PIMAGEHLP_LINE64 aLineInfo)
 {
   BOOL retval = FALSE;
 
@@ -700,9 +718,9 @@ BOOL SymGetModuleInfoEspecial64(HANDLE aProcess, DWORD64 aAddr,
     // non-const to const over time).  See bug 391848 and bug
     // 415426.
     BOOL enumRes = EnumerateLoadedModules64(
-      aProcess,
-      (PENUMLOADED_MODULES_CALLBACK64)callbackEspecial64,
-      (PVOID)&aAddr);
+        aProcess,
+        (PENUMLOADED_MODULES_CALLBACK64)callbackEspecial64,
+        (PVOID)&aAddr);
     if (enumRes != FALSE) {
       /*
        * One final go.
@@ -753,7 +771,6 @@ EnsureSymInitialized()
   return retStat;
 }
 
-
 MFBT_API bool
 MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
 {
@@ -786,21 +803,22 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
   modInfoRes = SymGetModuleInfoEspecial64(myProcess, addr, &modInfo, &lineInfo);
 
   if (modInfoRes) {
-    strncpy(aDetails->library, modInfo.LoadedImageName,
-                sizeof(aDetails->library));
+    strncpy(
+        aDetails->library, modInfo.LoadedImageName, sizeof(aDetails->library));
     aDetails->library[mozilla::ArrayLength(aDetails->library) - 1] = '\0';
     aDetails->loffset = (char*)aPC - (char*)modInfo.BaseOfImage;
 
     if (lineInfo.FileName) {
-      strncpy(aDetails->filename, lineInfo.FileName,
-                  sizeof(aDetails->filename));
+      strncpy(
+          aDetails->filename, lineInfo.FileName, sizeof(aDetails->filename));
       aDetails->filename[mozilla::ArrayLength(aDetails->filename) - 1] = '\0';
       aDetails->lineno = lineInfo.LineNumber;
     }
   }
 
-  ULONG64 buffer[(sizeof(SYMBOL_INFO) +
-    MAX_SYM_NAME * sizeof(TCHAR) + sizeof(ULONG64) - 1) / sizeof(ULONG64)];
+  ULONG64 buffer[(sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR) +
+                  sizeof(ULONG64) - 1) /
+                 sizeof(ULONG64)];
   PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
   pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
   pSymbol->MaxNameLen = MAX_SYM_NAME;
@@ -809,18 +827,19 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
   ok = SymFromAddr(myProcess, addr, &displacement, pSymbol);
 
   if (ok) {
-    strncpy(aDetails->function, pSymbol->Name,
-                sizeof(aDetails->function));
+    strncpy(aDetails->function, pSymbol->Name, sizeof(aDetails->function));
     aDetails->function[mozilla::ArrayLength(aDetails->function) - 1] = '\0';
     aDetails->foffset = static_cast<ptrdiff_t>(displacement);
   }
 
-  LeaveCriticalSection(&gDbgHelpCS); // release our lock
+  LeaveCriticalSection(&gDbgHelpCS);  // release our lock
   return true;
 }
 
 // i386 or PPC Linux stackwalking code
-#elif HAVE_DLADDR && (HAVE__UNWIND_BACKTRACE || MOZ_STACKWALK_SUPPORTS_LINUX || MOZ_STACKWALK_SUPPORTS_MACOSX)
+#elif HAVE_DLADDR &&                                           \
+    (HAVE__UNWIND_BACKTRACE || MOZ_STACKWALK_SUPPORTS_LINUX || \
+     MOZ_STACKWALK_SUPPORTS_MACOSX)
 
 #include <stdlib.h>
 #include <string.h>
@@ -838,11 +857,10 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
 // Yes, this is a gcc only hack
 #if defined(MOZ_DEMANGLE_SYMBOLS)
 #include <cxxabi.h>
-#endif // MOZ_DEMANGLE_SYMBOLS
+#endif  // MOZ_DEMANGLE_SYMBOLS
 
-void DemangleSymbol(const char* aSymbol,
-                    char* aBuffer,
-                    int aBufLen)
+void
+DemangleSymbol(const char* aSymbol, char* aBuffer, int aBufLen)
 {
   aBuffer[0] = '\0';
 
@@ -855,7 +873,7 @@ void DemangleSymbol(const char* aSymbol,
     aBuffer[aBufLen - 1] = '\0';
     free(demangled);
   }
-#endif // MOZ_DEMANGLE_SYMBOLS
+#endif  // MOZ_DEMANGLE_SYMBOLS
 }
 
 // {x86, ppc} x {Linux, Mac} stackwalking code.
@@ -863,8 +881,10 @@ void DemangleSymbol(const char* aSymbol,
      (MOZ_STACKWALK_SUPPORTS_MACOSX || MOZ_STACKWALK_SUPPORTS_LINUX))
 
 MFBT_API void
-MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-             uint32_t aMaxFrames, void* aClosure)
+MozStackWalk(MozWalkStackCallback aCallback,
+             uint32_t aSkipFrames,
+             uint32_t aMaxFrames,
+             void* aClosure)
 {
   // Get the frame pointer
   void** bp = (void**)__builtin_frame_address(0);
@@ -900,10 +920,10 @@ MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
     stackEnd = reinterpret_cast<void*>(stackStart + kMaxStackSize);
   }
 #else
-#  error Unsupported configuration
+#error Unsupported configuration
 #endif
-  FramePointerStackWalk(aCallback, aSkipFrames, aMaxFrames, aClosure, bp,
-                        stackEnd);
+  FramePointerStackWalk(
+      aCallback, aSkipFrames, aMaxFrames, aClosure, bp, stackEnd);
 }
 
 #elif defined(HAVE__UNWIND_BACKTRACE)
@@ -938,8 +958,10 @@ unwind_callback(struct _Unwind_Context* context, void* closure)
 }
 
 MFBT_API void
-MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-             uint32_t aMaxFrames, void* aClosure)
+MozStackWalk(MozWalkStackCallback aCallback,
+             uint32_t aSkipFrames,
+             uint32_t aMaxFrames,
+             void* aClosure)
 {
   unwind_info info;
   info.callback = aCallback;
@@ -999,11 +1021,13 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
   return true;
 }
 
-#else // unsupported platform.
+#else  // unsupported platform.
 
 MFBT_API void
-MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-             uint32_t aMaxFrames, void* aClosure)
+MozStackWalk(MozWalkStackCallback aCallback,
+             uint32_t aSkipFrames,
+             uint32_t aMaxFrames,
+             void* aClosure)
 {
 }
 
@@ -1021,11 +1045,14 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
 
 #endif
 
-#if defined(XP_WIN) || defined (XP_MACOSX) || defined (XP_LINUX)
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_LINUX)
 namespace mozilla {
 void
-FramePointerStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-                      uint32_t aMaxFrames, void* aClosure, void** aBp,
+FramePointerStackWalk(MozWalkStackCallback aCallback,
+                      uint32_t aSkipFrames,
+                      uint32_t aMaxFrames,
+                      void* aClosure,
+                      void** aBp,
                       void* aStackEnd)
 {
   // Stack walking code courtesy Kipp's "leaky".
@@ -1040,16 +1067,14 @@ FramePointerStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
     // a little if the stack has been corrupted.)
     // We don't need to check against the begining of the stack because
     // we can assume that aBp > sp
-    if (next <= aBp ||
-        next > aStackEnd ||
-        (uintptr_t(next) & 3)) {
+    if (next <= aBp || next > aStackEnd || (uintptr_t(next) & 3)) {
       break;
     }
 #if (defined(__ppc__) && defined(XP_MACOSX)) || defined(__powerpc64__)
     // ppc mac or powerpc64 linux
     void* pc = *(aBp + 2);
     aBp += 3;
-#else // i386 or powerpc32 linux
+#else  // i386 or powerpc32 linux
     void* pc = *(aBp + 1);
     aBp += 2;
 #endif
@@ -1067,56 +1092,81 @@ FramePointerStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
     aBp = next;
   }
 }
-} // namespace mozilla
+}  // namespace mozilla
 
 #else
 
 namespace mozilla {
 MFBT_API void
-FramePointerStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
-                      uint32_t aMaxFrames, void* aClosure, void** aBp,
+FramePointerStackWalk(MozWalkStackCallback aCallback,
+                      uint32_t aSkipFrames,
+                      uint32_t aMaxFrames,
+                      void* aClosure,
+                      void** aBp,
                       void* aStackEnd)
 {
 }
-}
+}  // namespace mozilla
 
 #endif
 
 MFBT_API void
-MozFormatCodeAddressDetails(char* aBuffer, uint32_t aBufferSize,
-                            uint32_t aFrameNumber, void* aPC,
+MozFormatCodeAddressDetails(char* aBuffer,
+                            uint32_t aBufferSize,
+                            uint32_t aFrameNumber,
+                            void* aPC,
                             const MozCodeAddressDetails* aDetails)
 {
-  MozFormatCodeAddress(aBuffer, aBufferSize,
-                       aFrameNumber, aPC, aDetails->function,
-                       aDetails->library, aDetails->loffset,
-                       aDetails->filename, aDetails->lineno);
+  MozFormatCodeAddress(aBuffer,
+                       aBufferSize,
+                       aFrameNumber,
+                       aPC,
+                       aDetails->function,
+                       aDetails->library,
+                       aDetails->loffset,
+                       aDetails->filename,
+                       aDetails->lineno);
 }
 
 MFBT_API void
-MozFormatCodeAddress(char* aBuffer, uint32_t aBufferSize, uint32_t aFrameNumber,
-                     const void* aPC, const char* aFunction,
-                     const char* aLibrary, ptrdiff_t aLOffset,
-                     const char* aFileName, uint32_t aLineNo)
+MozFormatCodeAddress(char* aBuffer,
+                     uint32_t aBufferSize,
+                     uint32_t aFrameNumber,
+                     const void* aPC,
+                     const char* aFunction,
+                     const char* aLibrary,
+                     ptrdiff_t aLOffset,
+                     const char* aFileName,
+                     uint32_t aLineNo)
 {
   const char* function = aFunction && aFunction[0] ? aFunction : "???";
   if (aFileName && aFileName[0]) {
     // We have a filename and (presumably) a line number. Use them.
-    snprintf(aBuffer, aBufferSize,
+    snprintf(aBuffer,
+             aBufferSize,
              "#%02u: %s (%s:%u)",
-             aFrameNumber, function, aFileName, aLineNo);
+             aFrameNumber,
+             function,
+             aFileName,
+             aLineNo);
   } else if (aLibrary && aLibrary[0]) {
     // We have no filename, but we do have a library name. Use it and the
     // library offset, and print them in a way that scripts like
     // fix_{linux,macosx}_stacks.py can easily post-process.
-    snprintf(aBuffer, aBufferSize,
+    snprintf(aBuffer,
+             aBufferSize,
              "#%02u: %s[%s +0x%" PRIxPTR "]",
-             aFrameNumber, function, aLibrary, static_cast<uintptr_t>(aLOffset));
+             aFrameNumber,
+             function,
+             aLibrary,
+             static_cast<uintptr_t>(aLOffset));
   } else {
     // We have nothing useful to go on. (The format string is split because
     // '??)' is a trigraph and causes a warning, sigh.)
-    snprintf(aBuffer, aBufferSize,
-             "#%02u: ??? (???:???" ")",
+    snprintf(aBuffer,
+             aBufferSize,
+             "#%02u: ??? (???:???"
+             ")",
              aFrameNumber);
   }
 }

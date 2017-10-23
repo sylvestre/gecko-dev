@@ -27,8 +27,7 @@ using namespace mozilla;
 // One hour... because test boxes can be slow!
 #define IDLE_THREAD_TIMEOUT 3600000
 
-namespace TestThreadPoolListener
-{
+namespace TestThreadPoolListener {
 static nsIThread** gCreatedThreadList = nullptr;
 static nsIThread** gShutDownThreadList = nullptr;
 
@@ -42,7 +41,7 @@ class Listener final : public nsIThreadPoolListener
 {
   ~Listener() {}
 
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITHREADPOOLLISTENER
 };
@@ -107,28 +106,32 @@ Listener::OnThreadShuttingDown()
 
 class AutoCreateAndDestroyReentrantMonitor
 {
-public:
-  explicit AutoCreateAndDestroyReentrantMonitor(ReentrantMonitor** aReentrantMonitorPtr)
-  : mReentrantMonitorPtr(aReentrantMonitorPtr) {
-    *aReentrantMonitorPtr = new ReentrantMonitor("TestThreadPoolListener::AutoMon");
+ public:
+  explicit AutoCreateAndDestroyReentrantMonitor(
+      ReentrantMonitor** aReentrantMonitorPtr)
+      : mReentrantMonitorPtr(aReentrantMonitorPtr)
+  {
+    *aReentrantMonitorPtr =
+        new ReentrantMonitor("TestThreadPoolListener::AutoMon");
     MOZ_RELEASE_ASSERT(*aReentrantMonitorPtr, "Out of memory!");
   }
 
-  ~AutoCreateAndDestroyReentrantMonitor() {
+  ~AutoCreateAndDestroyReentrantMonitor()
+  {
     delete *mReentrantMonitorPtr;
     *mReentrantMonitorPtr = nullptr;
   }
 
-private:
+ private:
   ReentrantMonitor** mReentrantMonitorPtr;
 };
 
 TEST(ThreadPoolListener, Test)
 {
-  nsIThread* createdThreadList[NUMBER_OF_THREADS] = { nullptr };
+  nsIThread* createdThreadList[NUMBER_OF_THREADS] = {nullptr};
   gCreatedThreadList = createdThreadList;
 
-  nsIThread* shutDownThreadList[NUMBER_OF_THREADS] = { nullptr };
+  nsIThread* shutDownThreadList[NUMBER_OF_THREADS] = {nullptr};
   gShutDownThreadList = shutDownThreadList;
 
   AutoCreateAndDestroyReentrantMonitor newMon(&gReentrantMonitor);
@@ -137,7 +140,7 @@ TEST(ThreadPoolListener, Test)
   nsresult rv;
 
   nsCOMPtr<nsIThreadPool> pool =
-    do_CreateInstance(NS_THREADPOOL_CONTRACTID, &rv);
+      do_CreateInstance(NS_THREADPOOL_CONTRACTID, &rv);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   rv = pool->SetThreadLimit(NUMBER_OF_THREADS);
@@ -206,4 +209,4 @@ TEST(ThreadPoolListener, Test)
   }
 }
 
-} // namespace TestThreadPoolListener
+}  // namespace TestThreadPoolListener

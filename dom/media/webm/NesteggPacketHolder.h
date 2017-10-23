@@ -16,17 +16,23 @@ namespace mozilla {
 // know the offset in the file we've played up to, in order to calculate
 // whether it's likely we can play through to the end without needing
 // to stop to buffer, given the current download rate.
-class NesteggPacketHolder {
-public:
+class NesteggPacketHolder
+{
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(NesteggPacketHolder)
   NesteggPacketHolder()
-    : mPacket(nullptr)
-    , mOffset(-1)
-    , mTimestamp(-1)
-    , mDuration(-1)
-    , mIsKeyframe(false) {}
+      : mPacket(nullptr),
+        mOffset(-1),
+        mTimestamp(-1),
+        mDuration(-1),
+        mIsKeyframe(false)
+  {
+  }
 
-  bool Init(nestegg_packet* aPacket, int64_t aOffset, unsigned aTrack, bool aIsKeyframe)
+  bool Init(nestegg_packet* aPacket,
+            int64_t aOffset,
+            unsigned aTrack,
+            bool aIsKeyframe)
   {
     uint64_t timestamp_ns;
     if (nestegg_packet_tstamp(aPacket, &timestamp_ns) == -1) {
@@ -48,18 +54,39 @@ public:
     return true;
   }
 
-  nestegg_packet* Packet() { MOZ_ASSERT(IsInitialized()); return mPacket; }
-  int64_t Offset() { MOZ_ASSERT(IsInitialized()); return mOffset; }
-  int64_t Timestamp() { MOZ_ASSERT(IsInitialized()); return mTimestamp; }
-  int64_t Duration() { MOZ_ASSERT(IsInitialized()); return mDuration; }
-  unsigned Track() { MOZ_ASSERT(IsInitialized()); return mTrack; }
-  bool IsKeyframe() { MOZ_ASSERT(IsInitialized()); return mIsKeyframe; }
-
-private:
-  ~NesteggPacketHolder()
+  nestegg_packet* Packet()
   {
-    nestegg_free_packet(mPacket);
+    MOZ_ASSERT(IsInitialized());
+    return mPacket;
   }
+  int64_t Offset()
+  {
+    MOZ_ASSERT(IsInitialized());
+    return mOffset;
+  }
+  int64_t Timestamp()
+  {
+    MOZ_ASSERT(IsInitialized());
+    return mTimestamp;
+  }
+  int64_t Duration()
+  {
+    MOZ_ASSERT(IsInitialized());
+    return mDuration;
+  }
+  unsigned Track()
+  {
+    MOZ_ASSERT(IsInitialized());
+    return mTrack;
+  }
+  bool IsKeyframe()
+  {
+    MOZ_ASSERT(IsInitialized());
+    return mIsKeyframe;
+  }
+
+ private:
+  ~NesteggPacketHolder() { nestegg_free_packet(mPacket); }
 
   bool IsInitialized() { return mOffset >= 0; }
 
@@ -82,43 +109,38 @@ private:
   bool mIsKeyframe;
 
   // Copy constructor and assignment operator not implemented. Don't use them!
-  NesteggPacketHolder(const NesteggPacketHolder &aOther);
-  NesteggPacketHolder& operator= (NesteggPacketHolder const& aOther);
+  NesteggPacketHolder(const NesteggPacketHolder& aOther);
+  NesteggPacketHolder& operator=(NesteggPacketHolder const& aOther);
 };
 
 // Queue for holding nestegg packets.
-class WebMPacketQueue {
+class WebMPacketQueue
+{
  public:
-  int32_t GetSize() {
-    return mQueue.size();
-  }
+  int32_t GetSize() { return mQueue.size(); }
 
-  void Push(NesteggPacketHolder* aItem) {
-    mQueue.push_back(aItem);
-  }
+  void Push(NesteggPacketHolder* aItem) { mQueue.push_back(aItem); }
 
-  void PushFront(NesteggPacketHolder* aItem) {
-    mQueue.push_front(Move(aItem));
-  }
+  void PushFront(NesteggPacketHolder* aItem) { mQueue.push_front(Move(aItem)); }
 
-  already_AddRefed<NesteggPacketHolder> PopFront() {
+  already_AddRefed<NesteggPacketHolder> PopFront()
+  {
     RefPtr<NesteggPacketHolder> result = mQueue.front().forget();
     mQueue.pop_front();
     return result.forget();
   }
 
-  void Reset() {
+  void Reset()
+  {
     while (!mQueue.empty()) {
       mQueue.pop_front();
     }
   }
 
-private:
+ private:
   std::deque<RefPtr<NesteggPacketHolder>> mQueue;
 };
 
-
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif
-

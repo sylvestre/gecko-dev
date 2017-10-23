@@ -17,29 +17,23 @@ namespace mozilla {
 // that even if the IT bits are not cleared, only the NOP instructions
 // will be skipped over.
 
-template <void (*H)(int, siginfo_t*, void*)>
+template<void (*H)(int, siginfo_t*, void*)>
 __attribute__((naked)) void
 SignalTrampoline(int aSignal, siginfo_t* aInfo, void* aContext)
 {
-  asm volatile (
-    "nop; nop; nop; nop"
-    : : : "memory");
+  asm volatile("nop; nop; nop; nop" : : : "memory");
 
-  asm volatile (
-    "b %0"
-    :
-    : "X"(H)
-    : "memory");
+  asm volatile("b %0" : : "X"(H) : "memory");
 }
 
-# define MOZ_SIGNAL_TRAMPOLINE(h) (mozilla::SignalTrampoline<h>)
+#define MOZ_SIGNAL_TRAMPOLINE(h) (mozilla::SignalTrampoline<h>)
 
-#else // __arm__
+#else  // __arm__
 
-# define MOZ_SIGNAL_TRAMPOLINE(h) (h)
+#define MOZ_SIGNAL_TRAMPOLINE(h) (h)
 
-#endif // __arm__
+#endif  // __arm__
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_LinuxSignal_h
+#endif  // mozilla_LinuxSignal_h

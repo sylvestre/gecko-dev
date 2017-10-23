@@ -11,24 +11,22 @@ class nsPlatformCharset final : public nsIPlatformCharset
 {
   NS_DECL_ISUPPORTS
 
-public:
-
+ public:
   nsPlatformCharset();
 
   NS_IMETHOD Init();
-  NS_IMETHOD GetCharset(nsPlatformCharsetSel selector, nsACString& oResult) override;
+  NS_IMETHOD GetCharset(nsPlatformCharsetSel selector,
+                        nsACString& oResult) override;
 
-private:
+ private:
   nsCString mCharset;
-  nsString mLocale; // remember the locale & charset
+  nsString mLocale;  // remember the locale & charset
 
   nsresult MapToCharset(nsAString& inANSICodePage, nsACString& outCharset);
   nsresult InitGetCharset(nsACString& oString);
-  nsresult VerifyCharset(nsCString &aCharset);
+  nsresult VerifyCharset(nsCString& aCharset);
 
   virtual ~nsPlatformCharset();
 };
 
-#endif // nsPlatformCharset_h__
-
-
+#endif  // nsPlatformCharset_h__

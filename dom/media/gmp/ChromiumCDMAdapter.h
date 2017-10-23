@@ -26,7 +26,7 @@ typedef nsCString HostFileString;
 
 class HostFile
 {
-public:
+ public:
   explicit HostFile(const nsCString& aPath);
   HostFile(HostFile&& aOther);
   ~HostFile();
@@ -34,7 +34,7 @@ public:
   const HostFileString& Path() const { return mPath; }
   cdm::PlatformFile TakePlatformFile();
 
-private:
+ private:
   const HostFileString mPath;
   cdm::PlatformFile mFile = cdm::kInvalidPlatformFile;
 };
@@ -42,14 +42,12 @@ private:
 struct HostFileData
 {
   HostFileData(HostFile&& aBinary, HostFile&& aSig)
-    : mBinary(Move(aBinary))
-    , mSig(Move(aSig))
+      : mBinary(Move(aBinary)), mSig(Move(aSig))
   {
   }
 
   HostFileData(HostFileData&& aOther)
-    : mBinary(Move(aOther.mBinary))
-    , mSig(Move(aOther.mSig))
+      : mBinary(Move(aOther.mBinary)), mSig(Move(aOther.mSig))
   {
   }
 
@@ -61,8 +59,9 @@ struct HostFileData
 
 class ChromiumCDMAdapter : public gmp::GMPAdapter
 {
-public:
-  explicit ChromiumCDMAdapter(nsTArray<Pair<nsCString, nsCString>>&& aHostPathPairs);
+ public:
+  explicit ChromiumCDMAdapter(
+      nsTArray<Pair<nsCString, nsCString>>&& aHostPathPairs);
 
   void SetAdaptee(PRLibrary* aLib) override;
 
@@ -78,13 +77,13 @@ public:
                        int32_t aInterfaceVersion,
                        int32_t aHostVersion);
 
-private:
+ private:
   void PopulateHostFiles(nsTArray<Pair<nsCString, nsCString>>&& aHostFilePaths);
 
   PRLibrary* mLib = nullptr;
   nsTArray<HostFileData> mHostFiles;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ChromiumAdapter_h_
+#endif  // ChromiumAdapter_h_

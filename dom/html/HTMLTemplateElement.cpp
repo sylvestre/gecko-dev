@@ -17,8 +17,9 @@ NS_IMPL_NS_NEW_HTML_ELEMENT(Template)
 namespace mozilla {
 namespace dom {
 
-HTMLTemplateElement::HTMLTemplateElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
-  : nsGenericHTMLElement(aNodeInfo)
+HTMLTemplateElement::HTMLTemplateElement(
+    already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo)
+    : nsGenericHTMLElement(aNodeInfo)
 {
   SetHasWeirdParserInsertionMode();
 
@@ -59,11 +60,10 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_ELEMENT_CLONE(HTMLTemplateElement)
 
 JSObject*
-HTMLTemplateElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
+HTMLTemplateElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return HTMLTemplateElementBinding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
-
+}  // namespace dom
+}  // namespace mozilla

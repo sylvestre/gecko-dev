@@ -40,13 +40,13 @@ using namespace mozilla;
 static PRThread*
 spawn(void (*run)(void*), void* arg)
 {
-    return PR_CreateThread(PR_SYSTEM_THREAD,
-                           run,
-                           arg,
-                           PR_PRIORITY_NORMAL,
-                           PR_GLOBAL_THREAD,
-                           PR_JOINABLE_THREAD,
-                           0);
+  return PR_CreateThread(PR_SYSTEM_THREAD,
+                         run,
+                         arg,
+                         PR_PRIORITY_NORMAL,
+                         PR_GLOBAL_THREAD,
+                         PR_JOINABLE_THREAD,
+                         0);
 }
 
 // This global variable is defined in toolkit/xre/nsSigHandlers.cpp.
@@ -58,28 +58,28 @@ extern unsigned int _gdb_sleep_duration;
  */
 class TESTNAME(DeadlockDetectorTest) : public ::testing::Test
 {
-protected:
-  void SetUp() final {
+ protected:
+  void SetUp() final
+  {
     mOldSleepDuration = ::_gdb_sleep_duration;
     ::_gdb_sleep_duration = 0;
   }
 
-  void TearDown() final {
-    ::_gdb_sleep_duration = mOldSleepDuration;
-  }
+  void TearDown() final { ::_gdb_sleep_duration = mOldSleepDuration; }
 
-private:
+ private:
   unsigned int mOldSleepDuration;
 };
 
-void DisableCrashReporter()
+void
+DisableCrashReporter()
 {
 #ifdef MOZ_CRASHREPORTER
-    nsCOMPtr<nsICrashReporter> crashreporter =
-        do_GetService("@mozilla.org/toolkit/crash-reporter;1");
-    if (crashreporter) {
-      crashreporter->SetEnabled(false);
-    }
+  nsCOMPtr<nsICrashReporter> crashreporter =
+      do_GetService("@mozilla.org/toolkit/crash-reporter;1");
+  if (crashreporter) {
+    crashreporter->SetEnabled(false);
+  }
 #endif
 }
 
@@ -90,51 +90,51 @@ void DisableCrashReporter()
 int
 Sanity_Child()
 {
-    DisableCrashReporter();
+  DisableCrashReporter();
 
-    MUTEX m1("dd.sanity.m1");
-    m1.Lock();
-    m1.Lock();
-    return 0;                  // not reached
+  MUTEX m1("dd.sanity.m1");
+  m1.Lock();
+  m1.Lock();
+  return 0;  // not reached
 }
 
 TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(SanityDeathTest))
 {
-    const char* const regex =
-        "###!!! ERROR: Potential deadlock detected.*"
-        "=== Cyclical dependency starts at.*--- Mutex : dd.sanity.m1.*"
-        "=== Cycle completed at.*--- Mutex : dd.sanity.m1.*"
-        "###!!! Deadlock may happen NOW!.*" // better catch these easy cases...
-        "###!!! ASSERTION: Potential deadlock detected.*";
+  const char* const regex =
+      "###!!! ERROR: Potential deadlock detected.*"
+      "=== Cyclical dependency starts at.*--- Mutex : dd.sanity.m1.*"
+      "=== Cycle completed at.*--- Mutex : dd.sanity.m1.*"
+      "###!!! Deadlock may happen NOW!.*"  // better catch these easy cases...
+      "###!!! ASSERTION: Potential deadlock detected.*";
 
-    ASSERT_DEATH_IF_SUPPORTED(Sanity_Child(), regex);
+  ASSERT_DEATH_IF_SUPPORTED(Sanity_Child(), regex);
 }
 
 // Slightly less stupid deadlock.
 int
 Sanity2_Child()
 {
-    DisableCrashReporter();
+  DisableCrashReporter();
 
-    MUTEX m1("dd.sanity2.m1");
-    MUTEX m2("dd.sanity2.m2");
-    m1.Lock();
-    m2.Lock();
-    m1.Lock();
-    return 0;                  // not reached
+  MUTEX m1("dd.sanity2.m1");
+  MUTEX m2("dd.sanity2.m2");
+  m1.Lock();
+  m2.Lock();
+  m1.Lock();
+  return 0;  // not reached
 }
 
 TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(Sanity2DeathTest))
 {
-    const char* const regex =
-        "###!!! ERROR: Potential deadlock detected.*"
-        "=== Cyclical dependency starts at.*--- Mutex : dd.sanity2.m1.*"
-        "--- Next dependency:.*--- Mutex : dd.sanity2.m2.*"
-        "=== Cycle completed at.*--- Mutex : dd.sanity2.m1.*"
-        "###!!! Deadlock may happen NOW!.*" // better catch these easy cases...
-        "###!!! ASSERTION: Potential deadlock detected.*";
+  const char* const regex =
+      "###!!! ERROR: Potential deadlock detected.*"
+      "=== Cyclical dependency starts at.*--- Mutex : dd.sanity2.m1.*"
+      "--- Next dependency:.*--- Mutex : dd.sanity2.m2.*"
+      "=== Cycle completed at.*--- Mutex : dd.sanity2.m1.*"
+      "###!!! Deadlock may happen NOW!.*"  // better catch these easy cases...
+      "###!!! ASSERTION: Potential deadlock detected.*";
 
-    ASSERT_DEATH_IF_SUPPORTED(Sanity2_Child(), regex);
+  ASSERT_DEATH_IF_SUPPORTED(Sanity2_Child(), regex);
 }
 
 #if 0
@@ -181,51 +181,52 @@ TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(Sanity3DeathTest))
 int
 Sanity4_Child()
 {
-    DisableCrashReporter();
+  DisableCrashReporter();
 
-    mozilla::ReentrantMonitor m1("dd.sanity4.m1");
-    MUTEX m2("dd.sanity4.m2");
-    m1.Enter();
-    m2.Lock();
-    m1.Enter();
-    return 0;
+  mozilla::ReentrantMonitor m1("dd.sanity4.m1");
+  MUTEX m2("dd.sanity4.m2");
+  m1.Enter();
+  m2.Lock();
+  m1.Enter();
+  return 0;
 }
 
 TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(Sanity4DeathTest))
 {
-    const char* const regex =
-        "Re-entering ReentrantMonitor after acquiring other resources.*"
-        "###!!! ERROR: Potential deadlock detected.*"
-        "=== Cyclical dependency starts at.*--- ReentrantMonitor : dd.sanity4.m1.*"
-        "--- Next dependency:.*--- Mutex : dd.sanity4.m2.*"
-        "=== Cycle completed at.*--- ReentrantMonitor : dd.sanity4.m1.*"
-        "###!!! ASSERTION: Potential deadlock detected.*";
-    ASSERT_DEATH_IF_SUPPORTED(Sanity4_Child(), regex);
+  const char* const regex =
+      "Re-entering ReentrantMonitor after acquiring other resources.*"
+      "###!!! ERROR: Potential deadlock detected.*"
+      "=== Cyclical dependency starts at.*--- ReentrantMonitor : "
+      "dd.sanity4.m1.*"
+      "--- Next dependency:.*--- Mutex : dd.sanity4.m2.*"
+      "=== Cycle completed at.*--- ReentrantMonitor : dd.sanity4.m1.*"
+      "###!!! ASSERTION: Potential deadlock detected.*";
+  ASSERT_DEATH_IF_SUPPORTED(Sanity4_Child(), regex);
 }
 
 int
 Sanity5_Child()
 {
-    DisableCrashReporter();
+  DisableCrashReporter();
 
-    mozilla::RecursiveMutex m1("dd.sanity4.m1");
-    MUTEX m2("dd.sanity4.m2");
-    m1.Lock();
-    m2.Lock();
-    m1.Lock();
-    return 0;
+  mozilla::RecursiveMutex m1("dd.sanity4.m1");
+  MUTEX m2("dd.sanity4.m2");
+  m1.Lock();
+  m2.Lock();
+  m1.Lock();
+  return 0;
 }
 
 TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(Sanity5DeathTest))
 {
-    const char* const regex =
-        "Re-entering RecursiveMutex after acquiring other resources.*"
-        "###!!! ERROR: Potential deadlock detected.*"
-        "=== Cyclical dependency starts at.*--- RecursiveMutex : dd.sanity4.m1.*"
-        "--- Next dependency:.*--- Mutex : dd.sanity4.m2.*"
-        "=== Cycle completed at.*--- RecursiveMutex : dd.sanity4.m1.*"
-        "###!!! ASSERTION: Potential deadlock detected.*";
-    ASSERT_DEATH_IF_SUPPORTED(Sanity5_Child(), regex);
+  const char* const regex =
+      "Re-entering RecursiveMutex after acquiring other resources.*"
+      "###!!! ERROR: Potential deadlock detected.*"
+      "=== Cyclical dependency starts at.*--- RecursiveMutex : dd.sanity4.m1.*"
+      "--- Next dependency:.*--- Mutex : dd.sanity4.m2.*"
+      "=== Cycle completed at.*--- RecursiveMutex : dd.sanity4.m1.*"
+      "###!!! ASSERTION: Potential deadlock detected.*";
+  ASSERT_DEATH_IF_SUPPORTED(Sanity5_Child(), regex);
 }
 
 //-----------------------------------------------------------------------------
@@ -313,49 +314,41 @@ TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(TwoThreadsDeathTest))
 static void
 ContentionNoDeadlock_thread(void* arg)
 {
-    const uint32_t K = 100000;
+  const uint32_t K = 100000;
 
-    ThreadState* state = static_cast<ThreadState*>(arg);
-    int32_t starti = static_cast<int32_t>(state->id);
-    auto& cndMs = state->locks;
+  ThreadState* state = static_cast<ThreadState*>(arg);
+  int32_t starti = static_cast<int32_t>(state->id);
+  auto& cndMs = state->locks;
 
-    for (uint32_t k = 0; k < K; ++k) {
-        for (int32_t i = starti; i < (int32_t)cndMs.Length(); ++i)
-            cndMs[i]->Lock();
-        // comment out the next two lines for deadlocking fun!
-        for (int32_t i = cndMs.Length() - 1; i >= starti; --i)
-            cndMs[i]->Unlock();
+  for (uint32_t k = 0; k < K; ++k) {
+    for (int32_t i = starti; i < (int32_t)cndMs.Length(); ++i) cndMs[i]->Lock();
+    // comment out the next two lines for deadlocking fun!
+    for (int32_t i = cndMs.Length() - 1; i >= starti; --i) cndMs[i]->Unlock();
 
-        starti = (starti + 1) % 3;
-    }
+    starti = (starti + 1) % 3;
+  }
 }
 
 int
 ContentionNoDeadlock_Child()
 {
-    const size_t kMutexCount = 4;
+  const size_t kMutexCount = 4;
 
-    PRThread* threads[3];
-    nsTArray<MUTEX*> locks;
-    ThreadState states[] = {
-      { locks, 0 },
-      { locks, 1 },
-      { locks, 2 }
-    };
+  PRThread* threads[3];
+  nsTArray<MUTEX*> locks;
+  ThreadState states[] = {{locks, 0}, {locks, 1}, {locks, 2}};
 
-    for (uint32_t i = 0; i < kMutexCount; ++i)
-        locks.AppendElement(new MUTEX("dd.cnd.ms"));
+  for (uint32_t i = 0; i < kMutexCount; ++i)
+    locks.AppendElement(new MUTEX("dd.cnd.ms"));
 
-    for (int32_t i = 0; i < (int32_t) ArrayLength(threads); ++i)
-        threads[i] = spawn(ContentionNoDeadlock_thread, states + i);
+  for (int32_t i = 0; i < (int32_t)ArrayLength(threads); ++i)
+    threads[i] = spawn(ContentionNoDeadlock_thread, states + i);
 
-    for (uint32_t i = 0; i < ArrayLength(threads); ++i)
-        PR_JoinThread(threads[i]);
+  for (uint32_t i = 0; i < ArrayLength(threads); ++i) PR_JoinThread(threads[i]);
 
-    for (uint32_t i = 0; i < locks.Length(); ++i)
-        delete locks[i];
+  for (uint32_t i = 0; i < locks.Length(); ++i) delete locks[i];
 
-    return 0;
+  return 0;
 }
 
 TEST_F(TESTNAME(DeadlockDetectorTest), TESTNAME(ContentionNoDeadlock))

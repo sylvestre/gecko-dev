@@ -19,61 +19,43 @@ using namespace js;
  * that js::Class in a global reserved slot.
  */
 
-static void
-resc_finalize(FreeOp* fop, JSObject* obj)
-{
+static void resc_finalize(FreeOp* fop, JSObject* obj) {
     MOZ_ASSERT(fop->onActiveCooperatingThread());
     RegExpStatics* res = static_cast<RegExpStatics*>(obj->as<RegExpStaticsObject>().getPrivate());
     fop->delete_(res);
 }
 
-static void
-resc_trace(JSTracer* trc, JSObject* obj)
-{
+static void resc_trace(JSTracer* trc, JSObject* obj) {
     void* pdata = obj->as<RegExpStaticsObject>().getPrivate();
-    if (pdata)
-        static_cast<RegExpStatics*>(pdata)->trace(trc);
+    if (pdata) static_cast<RegExpStatics*>(pdata)->trace(trc);
 }
 
-static const ClassOps RegExpStaticsObjectClassOps = {
-    nullptr, /* addProperty */
-    nullptr, /* delProperty */
-    nullptr, /* enumerate */
-    nullptr, /* newEnumerate */
-    nullptr, /* resolve */
-    nullptr, /* mayResolve */
-    resc_finalize,
-    nullptr, /* call */
-    nullptr, /* hasInstance */
-    nullptr, /* construct */
-    resc_trace
-};
+static const ClassOps RegExpStaticsObjectClassOps = {nullptr,                /* addProperty */
+                                                     nullptr,                /* delProperty */
+                                                     nullptr,                /* enumerate */
+                                                     nullptr,                /* newEnumerate */
+                                                     nullptr,                /* resolve */
+                                                     nullptr,                /* mayResolve */
+                                                     resc_finalize, nullptr, /* call */
+                                                     nullptr,                /* hasInstance */
+                                                     nullptr,                /* construct */
+                                                     resc_trace};
 
-const Class RegExpStaticsObject::class_ = {
-    "RegExpStatics",
-    JSCLASS_HAS_PRIVATE |
-    JSCLASS_FOREGROUND_FINALIZE,
-    &RegExpStaticsObjectClassOps
-};
+const Class RegExpStaticsObject::class_ = {"RegExpStatics",
+                                           JSCLASS_HAS_PRIVATE | JSCLASS_FOREGROUND_FINALIZE,
+                                           &RegExpStaticsObjectClassOps};
 
-RegExpStaticsObject*
-RegExpStatics::create(JSContext* cx, Handle<GlobalObject*> parent)
-{
+RegExpStaticsObject* RegExpStatics::create(JSContext* cx, Handle<GlobalObject*> parent) {
     RegExpStaticsObject* obj = NewObjectWithGivenProto<RegExpStaticsObject>(cx, nullptr);
-    if (!obj)
-        return nullptr;
+    if (!obj) return nullptr;
     RegExpStatics* res = cx->new_<RegExpStatics>();
-    if (!res)
-        return nullptr;
+    if (!res) return nullptr;
     obj->setPrivate(static_cast<void*>(res));
     return obj;
 }
 
-bool
-RegExpStatics::executeLazy(JSContext* cx)
-{
-    if (!pendingLazyEvaluation)
-        return true;
+bool RegExpStatics::executeLazy(JSContext* cx) {
+    if (!pendingLazyEvaluation) return true;
 
     MOZ_ASSERT(lazySource);
     MOZ_ASSERT(matchesInput);
@@ -82,8 +64,7 @@ RegExpStatics::executeLazy(JSContext* cx)
     /* Retrieve or create the RegExpShared in this zone. */
     RootedAtom source(cx, lazySource);
     RootedRegExpShared shared(cx, cx->zone()->regExps.get(cx, source, lazyFlags));
-    if (!shared)
-        return false;
+    if (!shared) return false;
 
     /*
      * It is not necessary to call aboutToWrite(): evaluation of
@@ -92,10 +73,9 @@ RegExpStatics::executeLazy(JSContext* cx)
 
     /* Execute the full regular expression. */
     RootedLinearString input(cx, matchesInput);
-    RegExpRunStatus status = RegExpShared::execute(cx, &shared, input, lazyIndex, &this->matches,
-                                                   nullptr);
-    if (status == RegExpRunStatus_Error)
-        return false;
+    RegExpRunStatus status =
+        RegExpShared::execute(cx, &shared, input, lazyIndex, &this->matches, nullptr);
+    if (status == RegExpRunStatus_Error) return false;
 
     /*
      * RegExpStatics are only updated on successful (matching) execution.

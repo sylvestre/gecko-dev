@@ -25,11 +25,11 @@ TEST(RollingNumber, Value)
   EXPECT_EQ(0, n.Value());
 
   // Conversion constructor.
-  RN8 n42{ 42 };
+  RN8 n42{42};
   EXPECT_EQ(42, n42.Value());
 
   // Copy Constructor.
-  RN8 n42Copied{ n42 };
+  RN8 n42Copied{n42};
   EXPECT_EQ(42, n42Copied.Value());
 
   // Assignment construction.
@@ -96,7 +96,7 @@ TEST(RollingNumber, Comparisons)
 {
   uint8_t i = 0;
   do {
-    RN8 n{ i };
+    RN8 n{i};
     EXPECT_EQ(i, n.Value());
     EXPECT_TRUE(n == n);
     EXPECT_FALSE(n != n);

@@ -20,7 +20,7 @@ namespace mozilla {
 
 namespace dom {
 class Element;
-} // namespace dom
+}  // namespace dom
 
 /**
  * A structure representing a single attribute name and value.
@@ -33,8 +33,7 @@ struct ServoAttrSnapshot
   nsAttrValue mValue;
 
   ServoAttrSnapshot(const nsAttrName& aName, const nsAttrValue& aValue)
-    : mName(aName)
-    , mValue(aValue)
+      : mName(aName), mValue(aValue)
   {
   }
 };
@@ -67,7 +66,7 @@ class ServoElementSnapshot
   typedef dom::Element Element;
   typedef EventStates::ServoType ServoStateType;
 
-public:
+ public:
   typedef ServoElementSnapshotFlags Flags;
 
   explicit ServoElementSnapshot(const Element* aElement);
@@ -174,7 +173,7 @@ public:
     return mIsMozBrowserFrame;
   }
 
-private:
+ private:
   // TODO: Profile, a 1 or 2 element AutoTArray could be worth it, given we know
   // we're dealing with attribute changes when we take snapshots of attributes,
   // though it can be wasted space if we deal with a lot of state-only
@@ -193,6 +192,6 @@ private:
   bool mOtherAttributeChanged : 1;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

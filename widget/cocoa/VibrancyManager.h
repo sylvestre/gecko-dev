@@ -21,7 +21,8 @@ class nsChildView;
 
 namespace mozilla {
 
-enum class VibrancyType {
+enum class VibrancyType
+{
   LIGHT,
   DARK,
   TOOLTIP,
@@ -44,8 +45,9 @@ enum class VibrancyType {
  * the window prior to drawing in the vibrant areas. This is possible even if
  * the window is declared as opaque.
  */
-class VibrancyManager {
-public:
+class VibrancyManager
+{
+ public:
   /**
    * Create a new VibrancyManager instance and provide it with an NSView
    * to attach NSVisualEffectViews to.
@@ -58,8 +60,8 @@ public:
    */
   VibrancyManager(const nsChildView& aCoordinateConverter,
                   NSView* aContainerView)
-    : mCoordinateConverter(aCoordinateConverter)
-    , mContainerView(aContainerView)
+      : mCoordinateConverter(aCoordinateConverter),
+        mContainerView(aContainerView)
   {
     MOZ_ASSERT(SystemSupportsVibrancy(),
                "Don't instantiate this if !SystemSupportsVibrancy()");
@@ -100,7 +102,7 @@ public:
    */
   static bool SystemSupportsVibrancy();
 
-protected:
+ protected:
   void ClearVibrantRegion(const LayoutDeviceIntRegion& aVibrantRegion) const;
   NSView* CreateEffectView(VibrancyType aType);
 
@@ -109,6 +111,6 @@ protected:
   nsClassHashtable<nsUint32HashKey, ViewRegion> mVibrantRegions;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // VibrancyManager_h
+#endif  // VibrancyManager_h

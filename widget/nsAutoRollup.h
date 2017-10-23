@@ -5,8 +5,8 @@
 #ifndef nsAutoRollup_h__
 #define nsAutoRollup_h__
 
-#include "mozilla/Attributes.h"     // for MOZ_RAII
-#include "mozilla/StaticPtr.h"      // for StaticRefPtr
+#include "mozilla/Attributes.h"  // for MOZ_RAII
+#include "mozilla/StaticPtr.h"   // for StaticRefPtr
 
 class nsIContent;
 
@@ -27,7 +27,7 @@ namespace widget {
 // nsAutoRollup::GetLastRollup.
 class MOZ_RAII nsAutoRollup
 {
-public:
+ public:
   nsAutoRollup();
   ~nsAutoRollup();
 
@@ -39,7 +39,7 @@ public:
   // Return the popup that was last rolled up, or null if there isn't one.
   static nsIContent* GetLastRollup();
 
-private:
+ private:
   // Whether sLastRollup was clear when this nsAutoRollup
   // was created.
   bool mWasClear;
@@ -50,7 +50,7 @@ private:
   static StaticRefPtr<nsIContent> sLastRollup;
 };
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
-#endif // nsAutoRollup_h__
+#endif  // nsAutoRollup_h__

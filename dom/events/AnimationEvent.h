@@ -15,10 +15,9 @@
 namespace mozilla {
 namespace dom {
 
-class AnimationEvent : public Event,
-                       public nsIDOMAnimationEvent
+class AnimationEvent : public Event, public nsIDOMAnimationEvent
 {
-public:
+ public:
   AnimationEvent(EventTarget* aOwner,
                  nsPresContext* aPresContext,
                  InternalAnimationEvent* aEvent);
@@ -27,13 +26,14 @@ public:
   NS_FORWARD_TO_EVENT
   NS_DECL_NSIDOMANIMATIONEVENT
 
-  static already_AddRefed<AnimationEvent>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aType,
-              const AnimationEventInit& aParam,
-              ErrorResult& aRv);
+  static already_AddRefed<AnimationEvent> Constructor(
+      const GlobalObject& aGlobal,
+      const nsAString& aType,
+      const AnimationEventInit& aParam,
+      ErrorResult& aRv);
 
-  virtual JSObject* WrapObjectInternal(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override
   {
     return AnimationEventBinding::Wrap(aCx, this, aGivenProto);
   }
@@ -44,16 +44,16 @@ public:
 
   float ElapsedTime();
 
-protected:
+ protected:
   ~AnimationEvent() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 already_AddRefed<mozilla::dom::AnimationEvent>
 NS_NewDOMAnimationEvent(mozilla::dom::EventTarget* aOwner,
                         nsPresContext* aPresContext,
                         mozilla::InternalAnimationEvent* aEvent);
 
-#endif // mozilla_dom_AnimationEvent_h_
+#endif  // mozilla_dom_AnimationEvent_h_

@@ -25,9 +25,11 @@
 
 class StringUnicharInputStream final : public nsIUnicharInputStream
 {
-public:
-  explicit StringUnicharInputStream(const nsAString& aString) :
-    mString(aString), mPos(0), mLen(aString.Length()) { }
+ public:
+  explicit StringUnicharInputStream(const nsAString& aString)
+      : mString(aString), mPos(0), mLen(aString.Length())
+  {
+  }
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIUNICHARINPUTSTREAM
@@ -36,8 +38,8 @@ public:
   uint32_t mPos;
   uint32_t mLen;
 
-private:
-  ~StringUnicharInputStream() { }
+ private:
+  ~StringUnicharInputStream() {}
 };
 
 NS_IMETHODIMP
@@ -65,7 +67,8 @@ StringUnicharInputStream::Read(char16_t* aBuf,
 NS_IMETHODIMP
 StringUnicharInputStream::ReadSegments(nsWriteUnicharSegmentFun aWriter,
                                        void* aClosure,
-                                       uint32_t aCount, uint32_t* aReadCount)
+                                       uint32_t aCount,
+                                       uint32_t* aReadCount)
 {
   uint32_t bytesWritten;
   uint32_t totalBytesWritten = 0;
@@ -77,8 +80,12 @@ StringUnicharInputStream::ReadSegments(nsWriteUnicharSegmentFun aWriter,
   mString.BeginReading(iter);
 
   while (aCount) {
-    rv = aWriter(this, aClosure, iter.get() + mPos,
-                 totalBytesWritten, aCount, &bytesWritten);
+    rv = aWriter(this,
+                 aClosure,
+                 iter.get() + mPos,
+                 totalBytesWritten,
+                 aCount,
+                 &bytesWritten);
 
     if (NS_FAILED(rv)) {
       // don't propagate errors to the caller
@@ -96,7 +103,8 @@ StringUnicharInputStream::ReadSegments(nsWriteUnicharSegmentFun aWriter,
 }
 
 NS_IMETHODIMP
-StringUnicharInputStream::ReadString(uint32_t aCount, nsAString& aString,
+StringUnicharInputStream::ReadString(uint32_t aCount,
+                                     nsAString& aString,
                                      uint32_t* aReadCount)
 {
   if (mPos >= mLen) {
@@ -126,20 +134,21 @@ NS_IMPL_ISUPPORTS(StringUnicharInputStream, nsIUnicharInputStream)
 
 class UTF8InputStream final : public nsIUnicharInputStream
 {
-public:
+ public:
   UTF8InputStream();
   nsresult Init(nsIInputStream* aStream);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIUNICHARINPUTSTREAM
 
-private:
+ private:
   ~UTF8InputStream();
 
-protected:
+ protected:
   int32_t Fill(nsresult* aErrorCode);
 
-  static void CountValidUTF8Bytes(const char* aBuf, uint32_t aMaxBytes,
+  static void CountValidUTF8Bytes(const char* aBuf,
+                                  uint32_t aMaxBytes,
                                   uint32_t& aValidUTF8bytes,
                                   uint32_t& aValidUTF16CodeUnits);
 
@@ -152,10 +161,8 @@ protected:
   uint32_t mUnicharDataLength;
 };
 
-UTF8InputStream::UTF8InputStream() :
-  mByteDataOffset(0),
-  mUnicharDataOffset(0),
-  mUnicharDataLength(0)
+UTF8InputStream::UTF8InputStream()
+    : mByteDataOffset(0), mUnicharDataOffset(0), mUnicharDataLength(0)
 {
 }
 
@@ -173,10 +180,7 @@ UTF8InputStream::Init(nsIInputStream* aStream)
 
 NS_IMPL_ISUPPORTS(UTF8InputStream, nsIUnicharInputStream)
 
-UTF8InputStream::~UTF8InputStream()
-{
-  Close();
-}
+UTF8InputStream::~UTF8InputStream() { Close(); }
 
 nsresult
 UTF8InputStream::Close()
@@ -205,7 +209,8 @@ UTF8InputStream::Read(char16_t* aBuf, uint32_t aCount, uint32_t* aReadCount)
   if (readCount > aCount) {
     readCount = aCount;
   }
-  memcpy(aBuf, mUnicharData.Elements() + mUnicharDataOffset,
+  memcpy(aBuf,
+         mUnicharData.Elements() + mUnicharDataOffset,
          readCount * sizeof(char16_t));
   mUnicharDataOffset += readCount;
   *aReadCount = readCount;
@@ -215,7 +220,8 @@ UTF8InputStream::Read(char16_t* aBuf, uint32_t aCount, uint32_t* aReadCount)
 NS_IMETHODIMP
 UTF8InputStream::ReadSegments(nsWriteUnicharSegmentFun aWriter,
                               void* aClosure,
-                              uint32_t aCount, uint32_t* aReadCount)
+                              uint32_t aCount,
+                              uint32_t* aReadCount)
 {
   NS_ASSERTION(mUnicharDataLength >= mUnicharDataOffset, "unsigned madness");
   uint32_t bytesToWrite = mUnicharDataLength - mUnicharDataOffset;
@@ -238,9 +244,12 @@ UTF8InputStream::ReadSegments(nsWriteUnicharSegmentFun aWriter,
   uint32_t totalBytesWritten = 0;
 
   while (bytesToWrite) {
-    rv = aWriter(this, aClosure,
+    rv = aWriter(this,
+                 aClosure,
                  mUnicharData.Elements() + mUnicharDataOffset,
-                 totalBytesWritten, bytesToWrite, &bytesWritten);
+                 totalBytesWritten,
+                 bytesToWrite,
+                 &bytesWritten);
 
     if (NS_FAILED(rv)) {
       // don't propagate errors to the caller
@@ -258,7 +267,8 @@ UTF8InputStream::ReadSegments(nsWriteUnicharSegmentFun aWriter,
 }
 
 NS_IMETHODIMP
-UTF8InputStream::ReadString(uint32_t aCount, nsAString& aString,
+UTF8InputStream::ReadString(uint32_t aCount,
+                            nsAString& aString,
                             uint32_t* aReadCount)
 {
   NS_ASSERTION(mUnicharDataLength >= mUnicharDataOffset, "unsigned madness");
@@ -340,7 +350,8 @@ UTF8InputStream::Fill(nsresult* aErrorCode)
 }
 
 void
-UTF8InputStream::CountValidUTF8Bytes(const char* aBuffer, uint32_t aMaxBytes,
+UTF8InputStream::CountValidUTF8Bytes(const char* aBuffer,
+                                     uint32_t aMaxBytes,
                                      uint32_t& aValidUTF8bytes,
                                      uint32_t& aValidUTF16CodeUnits)
 {
@@ -360,15 +371,16 @@ UTF8InputStream::CountValidUTF8Bytes(const char* aBuffer, uint32_t aMaxBytes,
       c += 3;
     } else if (UTF8traits::is4byte(*c)) {
       c += 4;
-      utf16length++; // add 1 more because this will be converted to a
+      utf16length++;  // add 1 more because this will be converted to a
       // surrogate pair.
     } else if (UTF8traits::is5byte(*c)) {
       c += 5;
     } else if (UTF8traits::is6byte(*c)) {
       c += 6;
     } else {
-      NS_WARNING("Unrecognized UTF8 string in UTF8InputStream::CountValidUTF8Bytes()");
-      break; // Otherwise we go into an infinite loop.  But what happens now?
+      NS_WARNING(
+          "Unrecognized UTF8 string in UTF8InputStream::CountValidUTF8Bytes()");
+      break;  // Otherwise we go into an infinite loop.  But what happens now?
     }
   }
   if (c > end) {

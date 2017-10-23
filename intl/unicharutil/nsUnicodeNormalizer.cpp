@@ -12,7 +12,8 @@
 NS_IMPL_ISUPPORTS(nsUnicodeNormalizer, nsIUnicodeNormalizer)
 
 static nsresult
-DoNormalization(const UNormalizer2* aNorm, const nsAString& aSrc,
+DoNormalization(const UNormalizer2* aNorm,
+                const nsAString& aSrc,
                 nsAString& aDest)
 {
   UErrorCode errorCode = U_ZERO_ERROR;
@@ -23,8 +24,8 @@ DoNormalization(const UNormalizer2* aNorm, const nsAString& aSrc,
   while (true) {
     aDest.SetLength(capacity);
     UChar* dest = reinterpret_cast<UChar*>(aDest.BeginWriting());
-    int32_t len = unorm2_normalize(aNorm, src, aSrc.Length(), dest, capacity,
-                                   &errorCode);
+    int32_t len =
+        unorm2_normalize(aNorm, src, aSrc.Length(), dest, capacity, &errorCode);
     if (U_SUCCESS(errorCode)) {
       aDest.SetLength(len);
       break;

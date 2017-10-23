@@ -24,10 +24,10 @@ mozilla::detail::MutexImpl::MutexImpl()
   DWORD flags = CRITICAL_SECTION_NO_DEBUG_INFO;
 #else
   DWORD flags = 0;
-#endif // defined(RELEASE_OR_BETA)
+#endif  // defined(RELEASE_OR_BETA)
 
-  BOOL r = InitializeCriticalSectionEx(&platformData()->criticalSection,
-                                       LockSpinCount, flags);
+  BOOL r = InitializeCriticalSectionEx(
+      &platformData()->criticalSection, LockSpinCount, flags);
   MOZ_RELEASE_ASSERT(r);
 }
 

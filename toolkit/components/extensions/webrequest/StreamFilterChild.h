@@ -24,20 +24,18 @@ using mozilla::ipc::IPCResult;
 
 class StreamFilter;
 
-class StreamFilterChild final : public PStreamFilterChild
-                              , public StreamFilterBase
+class StreamFilterChild final : public PStreamFilterChild,
+                                public StreamFilterBase
 {
   friend class StreamFilter;
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(StreamFilterChild)
 
-  StreamFilterChild()
-    : mState(State::Uninitialized)
-    , mReceivedOnStop(false)
-  {}
+  StreamFilterChild() : mState(State::Uninitialized), mReceivedOnStop(false) {}
 
-  enum class State {
+  enum class State
+  {
     // Uninitialized, waiting for constructor response from parent.
     Uninitialized,
     // Initialized, but channel has not begun transferring data.
@@ -85,17 +83,13 @@ public:
 
   void Write(Data&& aData, ErrorResult& aRv);
 
-  State GetState() const
-  {
-    return mState;
-  }
+  State GetState() const { return mState; }
 
   StreamFilterStatus Status() const;
 
-  void  RecvInitialized(bool aSuccess);
+  void RecvInitialized(bool aSuccess);
 
-protected:
-
+ protected:
   virtual IPCResult RecvStartRequest() override;
   virtual IPCResult RecvData(Data&& data) override;
   virtual IPCResult RecvStopRequest(const nsresult& aStatus) override;
@@ -107,13 +101,12 @@ protected:
 
   virtual void DeallocPStreamFilterChild() override;
 
-  void
-  SetStreamFilter(StreamFilter* aStreamFilter)
+  void SetStreamFilter(StreamFilter* aStreamFilter)
   {
     mStreamFilter = aStreamFilter;
   }
 
-private:
+ private:
   ~StreamFilterChild() {}
 
   void SetNextState();
@@ -122,17 +115,14 @@ private:
 
   void EmitData(const Data& aData);
 
-  bool
-  CanFlushData()
+  bool CanFlushData()
   {
-    return (mState == State::TransferringData ||
-            mState == State::Resuming);
+    return (mState == State::TransferringData || mState == State::Resuming);
   }
 
   void FlushBufferedData();
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
-
 
   State mState;
   State mNextState;
@@ -141,7 +131,7 @@ private:
   RefPtr<StreamFilter> mStreamFilter;
 };
 
-} // namespace extensions
-} // namespace mozilla
+}  // namespace extensions
+}  // namespace mozilla
 
-#endif // mozilla_extensions_StreamFilterChild_h
+#endif  // mozilla_extensions_StreamFilterChild_h

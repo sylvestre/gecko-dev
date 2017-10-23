@@ -38,7 +38,8 @@ CreateTransport(base::ProcessId aProcIdOne,
   HANDLE serverDup;
   DWORD access = 0;
   DWORD options = DUPLICATE_SAME_ACCESS;
-  if (!DuplicateHandle(serverPipe, base::GetCurrentProcId(), &serverDup, access, options)) {
+  if (!DuplicateHandle(
+          serverPipe, base::GetCurrentProcId(), &serverDup, access, options)) {
     return NS_ERROR_DUPLICATE_HANDLE;
   }
 
@@ -79,7 +80,8 @@ OpenDescriptor(const TransportDescriptor& aTd, Transport::Mode aMode)
   if (aTd.mServerPipeHandle != INVALID_HANDLE_VALUE) {
     MOZ_RELEASE_ASSERT(aTd.mDestinationProcessId == base::GetCurrentProcId());
   }
-  return MakeUnique<Transport>(aTd.mPipeName, aTd.mServerPipeHandle, aMode, nullptr);
+  return MakeUnique<Transport>(
+      aTd.mPipeName, aTd.mServerPipeHandle, aMode, nullptr);
 }
 
 UniquePtr<Transport>
@@ -101,8 +103,11 @@ DuplicateDescriptor(const TransportDescriptor& aTd)
   HANDLE serverDup;
   DWORD access = 0;
   DWORD options = DUPLICATE_SAME_ACCESS;
-  bool ok = DuplicateHandle(aTd.mServerPipeHandle, base::GetCurrentProcId(),
-                            &serverDup, access, options);
+  bool ok = DuplicateHandle(aTd.mServerPipeHandle,
+                            base::GetCurrentProcId(),
+                            &serverDup,
+                            access,
+                            options);
   if (!ok) {
     AnnotateSystemError();
   }
@@ -121,5 +126,5 @@ CloseDescriptor(const TransportDescriptor& aTd)
   CloseHandle(aTd.mServerPipeHandle);
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

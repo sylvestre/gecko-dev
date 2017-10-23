@@ -15,27 +15,17 @@ const int NUM_THREADS = 256;
 const int NUM_ITERATIONS = 256;
 
 const int NUM_STRINGS = 4;
-const char16_t *const STRINGS[NUM_STRINGS] = {
-    u"uno",
-    u"dos",
-    u"tres",
-    u"quattro"
-};
+const char16_t* const STRINGS[NUM_STRINGS] = {u"uno", u"dos", u"tres", u"quattro"};
 
-struct CacheAndIndex
-{
+struct CacheAndIndex {
     js::SharedImmutableStringsCache* cache;
     int index;
 
     CacheAndIndex(js::SharedImmutableStringsCache* cache, int index)
-      : cache(cache)
-      , index(index)
-    { }
+        : cache(cache), index(index) {}
 };
 
-static void
-getString(CacheAndIndex* cacheAndIndex)
-{
+static void getString(CacheAndIndex* cacheAndIndex) {
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         auto str = STRINGS[cacheAndIndex->index % NUM_STRINGS];
 
@@ -56,8 +46,7 @@ getString(CacheAndIndex* cacheAndIndex)
     js_delete(cacheAndIndex);
 }
 
-BEGIN_TEST(testSharedImmutableStringsCache)
-{
+BEGIN_TEST(testSharedImmutableStringsCache) {
     auto maybeCache = js::SharedImmutableStringsCache::Create();
     CHECK(maybeCache.isSome());
     auto& cache = *maybeCache;
@@ -72,8 +61,7 @@ BEGIN_TEST(testSharedImmutableStringsCache)
         CHECK(threads.back().init(getString, cacheAndIndex));
     }
 
-    for (auto& thread : threads)
-        thread.join();
+    for (auto& thread : threads) thread.join();
 
     return true;
 }

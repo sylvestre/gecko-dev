@@ -11,11 +11,11 @@
 #include "nsCSSPropertyID.h"
 #include "nsCSSPropertyIDSet.h"
 #include "nsDataHashtable.h"
-#include "nsHashKeys.h" // For nsUint32HashKey
+#include "nsHashKeys.h"  // For nsUint32HashKey
 #include "nsIStyleRule.h"
-#include "nsISupportsImpl.h" // For NS_DECL_ISUPPORTS
-#include "nsRuleNode.h" // For nsCachedStyleData
-#include "nsTArray.h" // For nsTArray
+#include "nsISupportsImpl.h"  // For NS_DECL_ISUPPORTS
+#include "nsRuleNode.h"       // For nsCachedStyleData
+#include "nsTArray.h"         // For nsTArray
 
 namespace mozilla {
 
@@ -24,9 +24,8 @@ namespace mozilla {
  */
 class AnimValuesStyleRule final : public nsIStyleRule
 {
-public:
-  AnimValuesStyleRule()
-    : mStyleBits(0) {}
+ public:
+  AnimValuesStyleRule() : mStyleBits(0) {}
 
   // nsISupports implementation
   NS_DECL_ISUPPORTS
@@ -42,15 +41,16 @@ public:
 
   // For the following functions, it there is already a value for |aProperty| it
   // will be replaced with |aValue|.
-  void AddValue(nsCSSPropertyID aProperty, const StyleAnimationValue &aValue);
+  void AddValue(nsCSSPropertyID aProperty, const StyleAnimationValue& aValue);
   void AddValue(nsCSSPropertyID aProperty, StyleAnimationValue&& aValue);
 
-  bool HasValue(nsCSSPropertyID aProperty) const {
+  bool HasValue(nsCSSPropertyID aProperty) const
+  {
     return mAnimationValues.Contains(aProperty);
   }
   bool GetValue(nsCSSPropertyID aProperty, StyleAnimationValue& aValue) const;
 
-private:
+ private:
   ~AnimValuesStyleRule() {}
 
   nsDataHashtable<nsUint32HashKey, StyleAnimationValue> mAnimationValues;
@@ -58,6 +58,6 @@ private:
   uint32_t mStyleBits;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_AnimValuesStyleRule_h
+#endif  // mozilla_AnimValuesStyleRule_h

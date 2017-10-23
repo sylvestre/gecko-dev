@@ -9,21 +9,20 @@
 
 #include "vprof.h"
 
-static void cProbe (void* vprofID)
-{
-    if (_VAL == _IVAR1) _I64VAR1 ++;
+static void cProbe(void* vprofID) {
+    if (_VAL == _IVAR1) _I64VAR1++;
     _IVAR1 = _IVAR0;
 
-    if (_VAL == _IVAR0) _I64VAR0 ++;
-    _IVAR0 = (int) _VAL;
+    if (_VAL == _IVAR0) _I64VAR0++;
+    _IVAR0 = (int)_VAL;
 
     _DVAR0 = ((double)_I64VAR0) / _COUNT;
     _DVAR1 = ((double)_I64VAR1) / _COUNT;
 }
 
-//__declspec (thread) boolean cv;
-//#define if(c) cv = (c); _vprof (cv); if (cv)
-//#define if(c) cv = (c); _vprof (cv, cProbe); if (cv)
+    //__declspec (thread) boolean cv;
+    //#define if(c) cv = (c); _vprof (cv); if (cv)
+    //#define if(c) cv = (c); _vprof (cv, cProbe); if (cv)
 
 #define THREADS 1
 #define COUNT 100000
@@ -32,14 +31,13 @@ static void cProbe (void* vprofID)
 static int64_t evens = 0;
 static int64_t odds = 0;
 
-void sub(int val)
-{
+void sub(int val) {
     int i;
     //_vprof (1);
     for (i = 0; i < COUNT; i++) {
         //_nvprof ("Iteration", 1);
         //_nvprof ("Iteration", 1);
-        _vprof (i);
+        _vprof(i);
         //_vprof (i);
         //_hprof(i, 3, (int64_t) 1000, (int64_t)2000, (int64_t)3000);
         //_hprof(i, 3, 10000, 10001, 3000000);
@@ -50,11 +48,11 @@ void sub(int val)
             //_vprof (i);
             ////_hprof(i, 3, 10000, 10001, 3000000);
             //_nvprof ("Iteration", i);
-            evens ++;
+            evens++;
         } else {
             //_vprof (1);
-            _vprof (i, cProbe);
-            odds ++;
+            _vprof(i, cProbe);
+            odds++;
         }
         //_nvprof ("Iterate", 1);
     }
@@ -63,8 +61,7 @@ void sub(int val)
 
 HANDLE array[THREADS];
 
-static int run (void)
-{
+static int run(void) {
     int i;
 
     time_t start_time = time(0);
@@ -80,13 +77,12 @@ static int run (void)
     return 0;
 }
 
-int main ()
-{
+int main() {
     DWORD start, end;
 
-    start = GetTickCount ();
-    run ();
-    end = GetTickCount ();
+    start = GetTickCount();
+    run();
+    end = GetTickCount();
 
-    printf ("\nRun took %d msecs\n\n", end-start);
+    printf("\nRun took %d msecs\n\n", end - start);
 }

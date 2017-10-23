@@ -14,18 +14,15 @@
 using namespace js;
 using namespace jit;
 
-bool
-LIRGeneratorShared::ShouldReorderCommutative(MDefinition* lhs, MDefinition* rhs, MInstruction* ins)
-{
+bool LIRGeneratorShared::ShouldReorderCommutative(MDefinition* lhs, MDefinition* rhs,
+                                                  MInstruction* ins) {
     // lhs and rhs are used by the commutative operator.
     MOZ_ASSERT(lhs->hasDefUses());
     MOZ_ASSERT(rhs->hasDefUses());
 
     // Ensure that if there is a constant, then it is in rhs.
-    if (rhs->isConstant())
-        return false;
-    if (lhs->isConstant())
-        return true;
+    if (rhs->isConstant()) return false;
+    if (lhs->isConstant()) return true;
 
     // Since clobbering binary operations clobber the left operand, prefer a
     // non-constant lhs operand with no further uses. To be fully precise, we
@@ -34,11 +31,9 @@ LIRGeneratorShared::ShouldReorderCommutative(MDefinition* lhs, MDefinition* rhs,
     bool rhsSingleUse = rhs->hasOneDefUse();
     bool lhsSingleUse = lhs->hasOneDefUse();
     if (rhsSingleUse) {
-        if (!lhsSingleUse)
-            return true;
+        if (!lhsSingleUse) return true;
     } else {
-        if (lhsSingleUse)
-            return false;
+        if (lhsSingleUse) return false;
     }
 
     // If this is a reduction-style computation, such as
@@ -48,20 +43,16 @@ LIRGeneratorShared::ShouldReorderCommutative(MDefinition* lhs, MDefinition* rhs,
     //      sum += ...;
     //
     // put the phi on the left to promote coalescing. This is fairly specific.
-    if (rhsSingleUse &&
-        rhs->isPhi() &&
-        rhs->block()->isLoopHeader() &&
-        ins == rhs->toPhi()->getLoopBackedgeOperand())
-    {
+    if (rhsSingleUse && rhs->isPhi() && rhs->block()->isLoopHeader() &&
+        ins == rhs->toPhi()->getLoopBackedgeOperand()) {
         return true;
     }
 
     return false;
 }
 
-void
-LIRGeneratorShared::ReorderCommutative(MDefinition** lhsp, MDefinition** rhsp, MInstruction* ins)
-{
+void LIRGeneratorShared::ReorderCommutative(MDefinition** lhsp, MDefinition** rhsp,
+                                            MInstruction* ins) {
     MDefinition* lhs = *lhsp;
     MDefinition* rhs = *rhsp;
 
@@ -71,64 +62,58 @@ LIRGeneratorShared::ReorderCommutative(MDefinition** lhsp, MDefinition** rhsp, M
     }
 }
 
-void
-LIRGeneratorShared::visitConstant(MConstant* ins)
-{
+void LIRGeneratorShared::visitConstant(MConstant* ins) {
     if (!IsFloatingPointType(ins->type()) && ins->canEmitAtUses()) {
         emitAtUses(ins);
         return;
     }
 
     switch (ins->type()) {
-      case MIRType::Double:
-        define(new(alloc()) LDouble(ins->toDouble()), ins);
-        break;
-      case MIRType::Float32:
-        define(new(alloc()) LFloat32(ins->toFloat32()), ins);
-        break;
-      case MIRType::Boolean:
-        define(new(alloc()) LInteger(ins->toBoolean()), ins);
-        break;
-      case MIRType::Int32:
-        define(new(alloc()) LInteger(ins->toInt32()), ins);
-        break;
-      case MIRType::Int64:
-        defineInt64(new(alloc()) LInteger64(ins->toInt64()), ins);
-        break;
-      case MIRType::String:
-        define(new(alloc()) LPointer(ins->toString()), ins);
-        break;
-      case MIRType::Symbol:
-        define(new(alloc()) LPointer(ins->toSymbol()), ins);
-        break;
-      case MIRType::Object:
-        define(new(alloc()) LPointer(&ins->toObject()), ins);
-        break;
-      default:
-        // Constants of special types (undefined, null) should never flow into
-        // here directly. Operations blindly consuming them require a Box.
-        MOZ_CRASH("unexpected constant type");
+        case MIRType::Double:
+            define(new (alloc()) LDouble(ins->toDouble()), ins);
+            break;
+        case MIRType::Float32:
+            define(new (alloc()) LFloat32(ins->toFloat32()), ins);
+            break;
+        case MIRType::Boolean:
+            define(new (alloc()) LInteger(ins->toBoolean()), ins);
+            break;
+        case MIRType::Int32:
+            define(new (alloc()) LInteger(ins->toInt32()), ins);
+            break;
+        case MIRType::Int64:
+            defineInt64(new (alloc()) LInteger64(ins->toInt64()), ins);
+            break;
+        case MIRType::String:
+            define(new (alloc()) LPointer(ins->toString()), ins);
+            break;
+        case MIRType::Symbol:
+            define(new (alloc()) LPointer(ins->toSymbol()), ins);
+            break;
+        case MIRType::Object:
+            define(new (alloc()) LPointer(&ins->toObject()), ins);
+            break;
+        default:
+            // Constants of special types (undefined, null) should never flow into
+            // here directly. Operations blindly consuming them require a Box.
+            MOZ_CRASH("unexpected constant type");
     }
 }
 
-void
-LIRGeneratorShared::visitWasmFloatConstant(MWasmFloatConstant* ins)
-{
+void LIRGeneratorShared::visitWasmFloatConstant(MWasmFloatConstant* ins) {
     switch (ins->type()) {
-      case MIRType::Double:
-        define(new(alloc()) LDouble(ins->toDouble()), ins);
-        break;
-      case MIRType::Float32:
-        define(new(alloc()) LFloat32(ins->toFloat32()), ins);
-        break;
-      default:
-        MOZ_CRASH("unexpected constant type");
+        case MIRType::Double:
+            define(new (alloc()) LDouble(ins->toDouble()), ins);
+            break;
+        case MIRType::Float32:
+            define(new (alloc()) LFloat32(ins->toFloat32()), ins);
+            break;
+        default:
+            MOZ_CRASH("unexpected constant type");
     }
 }
 
-void
-LIRGeneratorShared::defineTypedPhi(MPhi* phi, size_t lirIndex)
-{
+void LIRGeneratorShared::defineTypedPhi(MPhi* phi, size_t lirIndex) {
     LPhi* lir = current->getPhi(lirIndex);
 
     uint32_t vreg = getVirtualRegister();
@@ -138,40 +123,32 @@ LIRGeneratorShared::defineTypedPhi(MPhi* phi, size_t lirIndex)
     annotate(lir);
 }
 
-void
-LIRGeneratorShared::lowerTypedPhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block, size_t lirIndex)
-{
+void LIRGeneratorShared::lowerTypedPhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block,
+                                            size_t lirIndex) {
     MDefinition* operand = phi->getOperand(inputPosition);
     LPhi* lir = block->getPhi(lirIndex);
     lir->setOperand(inputPosition, LUse(operand->virtualRegister(), LUse::ANY));
 }
 
-LRecoverInfo*
-LIRGeneratorShared::getRecoverInfo(MResumePoint* rp)
-{
-    if (cachedRecoverInfo_ && cachedRecoverInfo_->mir() == rp)
-        return cachedRecoverInfo_;
+LRecoverInfo* LIRGeneratorShared::getRecoverInfo(MResumePoint* rp) {
+    if (cachedRecoverInfo_ && cachedRecoverInfo_->mir() == rp) return cachedRecoverInfo_;
 
     LRecoverInfo* recoverInfo = LRecoverInfo::New(gen, rp);
-    if (!recoverInfo)
-        return nullptr;
+    if (!recoverInfo) return nullptr;
 
     cachedRecoverInfo_ = recoverInfo;
     return recoverInfo;
 }
 
 #ifdef DEBUG
-bool
-LRecoverInfo::OperandIter::canOptimizeOutIfUnused()
-{
+bool LRecoverInfo::OperandIter::canOptimizeOutIfUnused() {
     MDefinition* ins = **this;
 
     // We check ins->type() in addition to ins->isUnused() because
     // EliminateDeadResumePointOperands may replace nodes with the constant
     // MagicValue(JS_OPTIMIZED_OUT).
     if ((ins->isUnused() || ins->type() == MIRType::MagicOptimizedOut) &&
-        (*it_)->isResumePoint())
-    {
+        (*it_)->isResumePoint()) {
         return !(*it_)->toResumePoint()->isObservableOperand(op_);
     }
 
@@ -180,16 +157,13 @@ LRecoverInfo::OperandIter::canOptimizeOutIfUnused()
 #endif
 
 #ifdef JS_NUNBOX32
-LSnapshot*
-LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp, BailoutKind kind)
-{
+LSnapshot* LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp,
+                                             BailoutKind kind) {
     LRecoverInfo* recoverInfo = getRecoverInfo(rp);
-    if (!recoverInfo)
-        return nullptr;
+    if (!recoverInfo) return nullptr;
 
     LSnapshot* snapshot = LSnapshot::New(gen, recoverInfo, kind);
-    if (!snapshot)
-        return nullptr;
+    if (!snapshot) return nullptr;
 
     size_t index = 0;
     for (LRecoverInfo::OperandIter it(recoverInfo); !it; ++it) {
@@ -198,15 +172,13 @@ LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp, BailoutKi
 
         MDefinition* ins = *it;
 
-        if (ins->isRecoveredOnBailout())
-            continue;
+        if (ins->isRecoveredOnBailout()) continue;
 
         LAllocation* type = snapshot->typeOfSlot(index);
         LAllocation* payload = snapshot->payloadOfSlot(index);
         ++index;
 
-        if (ins->isBox())
-            ins = ins->toBox()->getOperand(0);
+        if (ins->isBox()) ins = ins->toBox()->getOperand(0);
 
         // Guards should never be eliminated.
         MOZ_ASSERT_IF(ins->isUnused(), !ins->isGuard());
@@ -238,16 +210,13 @@ LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp, BailoutKi
 
 #elif JS_PUNBOX64
 
-LSnapshot*
-LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp, BailoutKind kind)
-{
+LSnapshot* LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp,
+                                             BailoutKind kind) {
     LRecoverInfo* recoverInfo = getRecoverInfo(rp);
-    if (!recoverInfo)
-        return nullptr;
+    if (!recoverInfo) return nullptr;
 
     LSnapshot* snapshot = LSnapshot::New(gen, recoverInfo, kind);
-    if (!snapshot)
-        return nullptr;
+    if (!snapshot) return nullptr;
 
     size_t index = 0;
     for (LRecoverInfo::OperandIter it(recoverInfo); !it; ++it) {
@@ -256,11 +225,9 @@ LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp, BailoutKi
 
         MDefinition* def = *it;
 
-        if (def->isRecoveredOnBailout())
-            continue;
+        if (def->isRecoveredOnBailout()) continue;
 
-        if (def->isBox())
-            def = def->toBox()->getOperand(0);
+        if (def->isBox()) def = def->toBox()->getOperand(0);
 
         // Guards should never be eliminated.
         MOZ_ASSERT_IF(def->isUnused(), !def->isGuard());
@@ -284,9 +251,7 @@ LIRGeneratorShared::buildSnapshot(LInstruction* ins, MResumePoint* rp, BailoutKi
 }
 #endif
 
-void
-LIRGeneratorShared::assignSnapshot(LInstruction* ins, BailoutKind kind)
-{
+void LIRGeneratorShared::assignSnapshot(LInstruction* ins, BailoutKind kind) {
     // assignSnapshot must be called before define/add, since
     // it may add new instructions for emitted-at-use operands.
     MOZ_ASSERT(ins->id() == 0);
@@ -298,9 +263,7 @@ LIRGeneratorShared::assignSnapshot(LInstruction* ins, BailoutKind kind)
         abort(AbortReason::Alloc, "buildSnapshot failed");
 }
 
-void
-LIRGeneratorShared::assignSafepoint(LInstruction* ins, MInstruction* mir, BailoutKind kind)
-{
+void LIRGeneratorShared::assignSafepoint(LInstruction* ins, MInstruction* mir, BailoutKind kind) {
     MOZ_ASSERT(!osiPoint_);
     MOZ_ASSERT(!ins->safepoint());
 
@@ -313,9 +276,7 @@ LIRGeneratorShared::assignSafepoint(LInstruction* ins, MInstruction* mir, Bailou
         return;
     }
 
-    osiPoint_ = new(alloc()) LOsiPoint(ins->safepoint(), postSnapshot);
+    osiPoint_ = new (alloc()) LOsiPoint(ins->safepoint(), postSnapshot);
 
-    if (!lirGraph_.noteNeedsSafepoint(ins))
-        abort(AbortReason::Alloc, "noteNeedsSafepoint failed");
+    if (!lirGraph_.noteNeedsSafepoint(ins)) abort(AbortReason::Alloc, "noteNeedsSafepoint failed");
 }
-
